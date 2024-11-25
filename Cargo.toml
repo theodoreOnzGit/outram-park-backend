@@ -1,8 +1,32 @@
 [package]
 name = "outram-park-backend"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
+license = "GPL-3.0"
+description = "Open-source Unified TRAnsient Multi-Phase Advanced Reactor simulator Kit (Outram Park) Backend"
+homepage = "https://github.com/theodoreOnzGit/outram-park-backend"
+repository ="https://github.com/theodoreOnzGit/outram-park-backend"
+readme = "README.md"
+categories = ["science"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+chem-eng-real-time-process-control-simulator = "0.0.5"
+tuas_boussinesq_solver = "0.0.3"
+
+egui = "0.23.0"
+eframe = { version = "0.23.0", default-features = false, features = [
+    "accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
+    "default_fonts", # Embed the default egui fonts.
+    "glow",          # Use the glow rendering backend. Alternative: "wgpu".
+    "persistence",   # Enable restoring app state when restarting the app.
+] }
+log = "0.4"
+
+# You only need serde if you want app persistence:
+serde = { version = "1", features = ["derive"] }
+
+# native:
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger = "0.10"
