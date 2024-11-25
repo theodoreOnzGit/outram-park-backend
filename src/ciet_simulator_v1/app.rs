@@ -1,3 +1,5 @@
+use egui_extras::install_image_loaders;
+
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -47,19 +49,11 @@ impl eframe::App for CIETApp {
         // Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
+
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
 
             egui::menu::bar(ui, |ui| {
-                #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
-                {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            _frame.close();
-                        }
-                    });
-                    ui.add_space(16.0);
-                }
 
                 egui::widgets::global_dark_light_mode_buttons(ui);
             });
@@ -82,8 +76,9 @@ impl eframe::App for CIETApp {
             ui.separator();
 
             ui.image(egui::include_image!("ciet_gui_schematics.png"));
-            ui.image(egui::include_image!("ferris.png"));
-
+            //ui.add(
+            //    egui::Image::new(egui::include_image!("ciet_gui_schematics.png"))
+            //    .rounding(5.0));
             ui.separator();
 
 

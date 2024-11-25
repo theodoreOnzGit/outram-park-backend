@@ -15,8 +15,8 @@ categories = ["science"]
 chem-eng-real-time-process-control-simulator = "0.0.5"
 tuas_boussinesq_solver = "0.0.3"
 
-egui = "0.23.0"
-eframe = { version = "0.23.0", default-features = false, features = [
+egui = "0.29.1"
+eframe = { version = "0.29.1", default-features = false, features = [
     "accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
@@ -26,7 +26,7 @@ log = "0.4"
 
 # You only need serde if you want app persistence:
 serde = { version = "1", features = ["derive"] }
-egui_extras = { version = "0.29.1", features = ["all_loaders"] }
+egui_extras = { version = "*", features = ["all_loaders"] }
 image = { version = "0.25", features = ["jpeg", "png"] } # Add the types you want support for
 
 # native:
