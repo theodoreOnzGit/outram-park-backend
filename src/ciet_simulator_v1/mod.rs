@@ -10,9 +10,9 @@ pub fn ciet_simulator_v1() -> eframe::Result<()> {
     eframe::run_native(
         "CIET Simulator V1",
         native_options,
-        Box::new(|cc| Box::new(TemplateApp::new(cc))),
+        Box::new(|cc| Box::new(CIETApp::new(cc))),
     )
 }
 
 mod app;
-pub use app::TemplateApp;
+pub use app::CIETApp;
