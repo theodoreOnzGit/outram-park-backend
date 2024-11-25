@@ -81,6 +81,11 @@ impl eframe::App for CIETApp {
 
             ui.separator();
 
+            ui.image(egui::include_image!("ciet_gui_schematics.png"));
+            ui.image(egui::include_image!("ferris.png"));
+
+            ui.separator();
+
 
             ui.add(egui::github_link_file!(
                 "https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/",

@@ -26,6 +26,8 @@ log = "0.4"
 
 # You only need serde if you want app persistence:
 serde = { version = "1", features = ["derive"] }
+egui_extras = { version = "0.29.1", features = ["all_loaders"] }
+image = { version = "0.25", features = ["jpeg", "png"] } # Add the types you want support for
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
