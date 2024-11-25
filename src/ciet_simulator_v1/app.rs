@@ -7,15 +7,15 @@ pub struct TemplateApp {
     label: String,
 
     #[serde(skip)] // This how you opt-out of serialization of a field
-    value: f32,
+    value: f64,
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
         Self {
             // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
+            label: "CIET simulator v1".to_owned(),
+            value: 3.6,
         }
     }
 }
@@ -67,7 +67,7 @@ impl eframe::App for TemplateApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("eframe template");
+            ui.heading("ciet simualtor v1");
 
             ui.horizontal(|ui| {
                 ui.label("Write something: ");
