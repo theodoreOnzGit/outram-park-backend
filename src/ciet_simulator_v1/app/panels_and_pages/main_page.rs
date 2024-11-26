@@ -48,7 +48,8 @@ impl CIETApp {
         // for user to set heater power
         let heater_set_pt_slider_kw = egui::Slider::new(
             &mut ciet_state_local.heater_power_kilowatts, 0.0..=10.0)
-            .vertical();
+            .vertical()
+            .text("Heater Power (kW)");
 
         let heater_slider_x = heater_x + 0.7 * heater_x_width;
         let heater_slider_y = heater_y + 10.0;
@@ -77,7 +78,8 @@ impl CIETApp {
         // for user to set CTAH and TCHX cooler set points
         let tchx_slider_outlet_set_pt_degc = egui::Slider::new(
             &mut ciet_state_local.bt_66_tchx_outlet_set_pt_deg_c, 25.0..=110.0)
-            .vertical();
+            .vertical()
+            .text("TCHX Outlet Set Pt (degC)");
         let tchx_slider_x = tchx_x + 0.7 * tchx_x_width;
         let tchx_slider_y = tchx_y + 10.0;
         let tchx_slider_x_width = 30.0;
@@ -103,7 +105,8 @@ impl CIETApp {
 
         let ctah_slider_outlet_set_pt_degc = egui::Slider::new(
             &mut ciet_state_local.bt_41_ctah_outlet_set_pt_deg_c, 25.0..=110.0)
-            .vertical();
+            .vertical()
+            .text("CTAH Outlet Set Pt (degC)");
 
         let ctah_slider_x = ctah_x + 0.7 * ctah_x_width;
         let ctah_slider_y = ctah_y + 10.0;
