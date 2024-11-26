@@ -36,6 +36,14 @@ impl CIETApp {
         let heater_y = dhx_y + 50.0;
         let heater_x_width = dhx_x_width;
         let heater_y_width = dhx_y_width;
+        let ctah_x = heater_x + 750.0;
+        let ctah_y = tchx_y;
+        let ctah_x_width = dhx_x_width;
+        let ctah_y_width = dhx_y_width;
+        let ctah_pump_x = ctah_x - 50.0;
+        let ctah_pump_y = heater_y + 270.0;
+        let ctah_pump_x_width = dhx_x_width;
+        let ctah_pump_y_width = dhx_y_width;
 
         // for user to set heater power
         let heater_set_pt_slider_kw = egui::Slider::new(
@@ -54,6 +62,40 @@ impl CIETApp {
             heater_slider_y, 
             heater_slider_x_width, 
             heater_slider_y_width);
+
+        // for user to set CTAH and TCHX cooler set points
+        let tchx_slider_outlet_set_pt_degc = egui::Slider::new(
+            &mut ciet_state_local.bt_66_tchx_outlet_set_pt_deg_c, 25.0..=110.0)
+            .vertical();
+        let tchx_slider_x = tchx_x + 0.7 * tchx_x_width;
+        let tchx_slider_y = tchx_y + 10.0;
+        let tchx_slider_x_width = 30.0;
+        let tchx_slider_y_width = tchx_y_width;
+
+        self.put_widget_with_size_and_centre(
+            ui, 
+            tchx_slider_outlet_set_pt_degc, 
+            tchx_slider_x, 
+            tchx_slider_y, 
+            tchx_slider_x_width, 
+            tchx_slider_y_width);
+
+        let ctah_slider_outlet_set_pt_degc = egui::Slider::new(
+            &mut ciet_state_local.bt_41_ctah_outlet_set_pt_deg_c, 25.0..=110.0)
+            .vertical();
+
+        let ctah_slider_x = ctah_x + 0.7 * ctah_x_width;
+        let ctah_slider_y = ctah_y + 10.0;
+        let ctah_slider_x_width = 30.0;
+        let ctah_slider_y_width = ctah_y_width;
+
+        self.put_widget_with_size_and_centre(
+            ui, 
+            ctah_slider_outlet_set_pt_degc, 
+            ctah_slider_x, 
+            ctah_slider_y, 
+            ctah_slider_x_width, 
+            ctah_slider_y_width);
 
         // obtain a lock for ciet state, set it 
         self.ciet_state.lock().unwrap().overwrite_state(ciet_state_local);
