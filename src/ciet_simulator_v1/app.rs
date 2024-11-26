@@ -101,8 +101,12 @@ impl eframe::App for CIETApp {
 
                 },
                 Panel::CTAHPump => {},
-                Panel::CTAH => {},
-                Panel::Heater => {},
+                Panel::CTAH => {
+                    self.ciet_sim_ctah_page(ui);
+                },
+                Panel::Heater => {
+                    self.ciet_sim_heater_page(ui);
+                },
                 Panel::DHX => {},
                 Panel::TCHX => {},
             }

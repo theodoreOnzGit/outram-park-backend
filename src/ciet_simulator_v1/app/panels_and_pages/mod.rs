@@ -11,3 +11,7 @@ pub(crate) enum Panel {
 }
 
 pub mod main_page;
+
+pub mod heater_page;
+
+pub mod ctah_page;
