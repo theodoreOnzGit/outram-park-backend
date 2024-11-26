@@ -110,10 +110,15 @@ impl CIETApp {
                         });
                 });
                 strip.cell(|ui| {
-                    ui.add(egui::github_link_file!(
-                            "https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/",
-                            "outram-park-backend Github Repo (develop)"
-                    ));
+                    ui.vertical_centered(|ui|{
+
+                        ui.add(egui::github_link_file!(
+                                "https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/",
+                                "outram-park-backend Github Repo (develop)"
+                        ));
+                    }
+
+                    );
                 });
             });
     }
