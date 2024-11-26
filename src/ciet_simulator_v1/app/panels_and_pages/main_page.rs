@@ -39,11 +39,21 @@ impl CIETApp {
 
         // for user to set heater power
         let heater_set_pt_slider_kw = egui::Slider::new(
-            &mut self.value, 0.0..=10.0)
+            &mut ciet_state_local.heater_power_kilowatts, 0.0..=10.0)
             .vertical();
 
-        let heater_slider_x = heater_x + 0.6* heater_x_width;
+        let heater_slider_x = heater_x + 0.7 * heater_x_width;
+        let heater_slider_y = heater_y + 10.0;
+        let heater_slider_x_width = 30.0;
+        let heater_slider_y_width = heater_y_width;
 
+        self.put_widget_with_size_and_centre(
+            ui, 
+            heater_set_pt_slider_kw, 
+            heater_slider_x, 
+            heater_slider_y, 
+            heater_slider_x_width, 
+            heater_slider_y_width);
 
         // obtain a lock for ciet state, set it 
         self.ciet_state.lock().unwrap().overwrite_state(ciet_state_local);
