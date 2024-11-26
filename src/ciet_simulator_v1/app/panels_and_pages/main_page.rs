@@ -38,5 +38,19 @@ impl CIETApp {
             tchx_y, 
             tchx_x_width, 
             tchx_y_width);
+
+        let dhx_x = tchx_x + 150.0;
+        let dhx_y = tchx_y + 150.0;
+        let dhx_x_width = tchx_x_width;
+        let dhx_y_width = tchx_y_width;
+
+        // for dhx
+        self.put_widget_with_size_and_centre(
+            ui, 
+            dhx_pic, 
+            dhx_x, 
+            dhx_y, 
+            dhx_x_width, 
+            dhx_y_width);
     }
 }
