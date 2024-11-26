@@ -1,4 +1,5 @@
-use egui_extras::install_image_loaders;
+use panels_and_pages::Panel;
+
 
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -10,7 +11,11 @@ pub struct CIETApp {
 
     #[serde(skip)] // This how you opt-out of serialization of a field
     value: f64,
+
+    open_panel: Panel,
 }
+
+pub mod panels_and_pages;
 
 impl Default for CIETApp {
     fn default() -> Self {
@@ -18,6 +23,7 @@ impl Default for CIETApp {
             // Example stuff:
             label: "CIET simulator v1".to_owned(),
             value: 3.6,
+            open_panel: Panel::SchematicDiagram,
         }
     }
 }
@@ -55,13 +61,23 @@ impl eframe::App for CIETApp {
 
             egui::menu::bar(ui, |ui| {
 
-                egui::widgets::global_dark_light_mode_buttons(ui);
+                egui::widgets::global_theme_preference_buttons(ui);
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.heading("ciet simualtor v1");
+
+
+            ui.separator();
+            ui.horizontal( 
+                |ui| {
+                    ui.selectable_value(&mut self.open_panel, Panel::SchematicDiagram, "CIET Schematic Diagram"); 
+                    ui.selectable_value(&mut self.open_panel, Panel::MainPage, "Main Page"); 
+            }
+            );
+            ui.separator();
 
             ui.horizontal(|ui| {
                 ui.label("Write something: ");
@@ -72,8 +88,6 @@ impl eframe::App for CIETApp {
             if ui.button("Increment").clicked() {
                 self.value += 1.0;
             }
-
-            ui.separator();
 
             ui.image(egui::include_image!("ciet_gui_schematics.png"));
             //ui.add(
