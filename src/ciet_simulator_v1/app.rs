@@ -74,13 +74,13 @@ impl eframe::App for CIETApp {
             // allow user to select which panel is open
             ui.horizontal( 
                 |ui| {
-                    ui.selectable_value(&mut self.open_panel, Panel::SchematicDiagram, "CIET Schematic Diagram"); 
                     ui.selectable_value(&mut self.open_panel, Panel::MainPage, "Main Page"); 
                     ui.selectable_value(&mut self.open_panel, Panel::Heater, "Heater"); 
                     ui.selectable_value(&mut self.open_panel, Panel::CTAH, "CTAH"); 
                     ui.selectable_value(&mut self.open_panel, Panel::CTAHPump, "CTAH Pump"); 
                     ui.selectable_value(&mut self.open_panel, Panel::TCHX, "TCHX"); 
                     ui.selectable_value(&mut self.open_panel, Panel::DHX, "DHX"); 
+                    ui.selectable_value(&mut self.open_panel, Panel::SchematicDiagram, "CIET Schematic Diagram"); 
             }
             );
             ui.separator();
