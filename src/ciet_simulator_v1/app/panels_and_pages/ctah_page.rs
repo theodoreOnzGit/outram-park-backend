@@ -17,7 +17,7 @@ impl CIETApp {
             ui.text_edit_singleline(&mut self.label);
         });
 
-        ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("Roentgen (just for the memes)"));
+        ui.add(egui::Slider::new(&mut self.value, 0.0..=100.0).text("Roentgen (just for the memes)"));
         if ui.button("Increment").clicked() {
             self.value += 1.0;
         }
