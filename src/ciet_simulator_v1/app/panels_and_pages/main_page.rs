@@ -63,6 +63,17 @@ impl CIETApp {
             heater_slider_x_width, 
             heater_slider_y_width);
 
+        let heater_label = egui::Label::new("Heater Power kW");
+
+        self.put_widget_with_size_and_centre(
+            ui, 
+            heater_label, 
+            heater_slider_x + 40.0, 
+            heater_slider_y - 90.0, 
+            heater_slider_x_width + 100.0, 
+            heater_slider_y_width);
+
+
         // for user to set CTAH and TCHX cooler set points
         let tchx_slider_outlet_set_pt_degc = egui::Slider::new(
             &mut ciet_state_local.bt_66_tchx_outlet_set_pt_deg_c, 25.0..=110.0)
