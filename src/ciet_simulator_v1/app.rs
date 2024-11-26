@@ -71,6 +71,7 @@ impl eframe::App for CIETApp {
 
 
             ui.separator();
+            // allow user to select which panel is open
             ui.horizontal( 
                 |ui| {
                     ui.selectable_value(&mut self.open_panel, Panel::SchematicDiagram, "CIET Schematic Diagram"); 
@@ -89,10 +90,21 @@ impl eframe::App for CIETApp {
                 self.value += 1.0;
             }
 
-            ui.image(egui::include_image!("ciet_gui_schematics.png"));
-            //ui.add(
-            //    egui::Image::new(egui::include_image!("ciet_gui_schematics.png"))
-            //    .rounding(5.0));
+            // show correct panel or page based on user selection
+
+            match self.open_panel {
+                Panel::SchematicDiagram => {
+                    ui.image(egui::include_image!("ciet_gui_schematics.png"));
+
+                },
+                Panel::MainPage => {},
+                Panel::CTAHPump => {},
+                Panel::CTAH => {},
+                Panel::Heater => {},
+                Panel::DHX => {},
+                Panel::TCHX => {},
+            }
+
             ui.separator();
 
 
