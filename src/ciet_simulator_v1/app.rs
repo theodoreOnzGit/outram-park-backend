@@ -17,13 +17,15 @@ pub struct CIETApp {
 
 pub mod panels_and_pages;
 
+pub mod useful_functions;
+
 impl Default for CIETApp {
     fn default() -> Self {
         Self {
             // Example stuff:
             label: "CIET simulator v1".to_owned(),
             value: 3.6,
-            open_panel: Panel::SchematicDiagram,
+            open_panel: Panel::MainPage,
         }
     }
 }
