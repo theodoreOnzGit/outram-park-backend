@@ -85,24 +85,18 @@ impl eframe::App for CIETApp {
             );
             ui.separator();
 
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(&mut self.label);
-            });
 
-            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                self.value += 1.0;
-            }
 
             // show correct panel or page based on user selection
 
             match self.open_panel {
                 Panel::SchematicDiagram => {
                     ui.image(egui::include_image!("ciet_gui_schematics.png"));
+                },
+                Panel::MainPage => {
+                    self.ciet_sim_main_page(ui);
 
                 },
-                Panel::MainPage => {},
                 Panel::CTAHPump => {},
                 Panel::CTAH => {},
                 Panel::Heater => {},

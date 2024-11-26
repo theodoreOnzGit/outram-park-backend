@@ -9,3 +9,5 @@ pub(crate) enum Panel {
     DHX,
     TCHX,
 }
+
+pub mod main_page;
