@@ -1,4 +1,6 @@
-use panels_and_pages::Panel;
+use std::sync::{Arc,Mutex};
+
+use panels_and_pages::{ciet_data::CIETState, Panel};
 
 
 
@@ -13,6 +15,8 @@ pub struct CIETApp {
     value: f64,
 
     open_panel: Panel,
+    #[serde(skip)]
+    ciet_state: Arc<Mutex<CIETState>>,
 }
 
 pub mod panels_and_pages;
@@ -21,11 +25,15 @@ pub mod useful_functions;
 
 impl Default for CIETApp {
     fn default() -> Self {
+
+        let ciet_state = Arc::new(Mutex::new(CIETState::default()));
+
         Self {
             // Example stuff:
             label: "CIET simulator v1".to_owned(),
             value: 3.6,
             open_panel: Panel::MainPage,
+            ciet_state,
         }
     }
 }
