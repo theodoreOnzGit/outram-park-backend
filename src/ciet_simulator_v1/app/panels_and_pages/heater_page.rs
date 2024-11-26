@@ -24,12 +24,14 @@ impl CIETApp {
             max: Pos2 { x: 550.5, y: 500.5 },
         };
         //let rect = egui::Rect::from_min_size(Default::default(), egui::Vec2::splat(100.0));
-        let _ferris = egui::Image::new(include_image!("../../ferris.png"))
-            .rounding(5.0)
-            .paint_at(ui, rect);
+        //let _ferris = egui::Image::new(include_image!("../../ferris.png"))
+        //    .rounding(5.0)
+        //    .paint_at(ui, rect);
         // now I'd like to paint widgets too, at specific spots, so as to show values of 
         // the temperature values in and out next to the picture of the 
         // heater
+        let _ferris2 = egui::Image::new(include_image!("../../ferris.png"))
+            .rounding(5.0);
 
         ui.add(
             egui::Slider::new(&mut self.value, 0.0..=100.0)
@@ -46,6 +48,13 @@ impl CIETApp {
             .vertical();
 
         ui.put(rect_two, slider_vert);
+        
+        // it seems images can also be widgets
+        // it may be easier/more consistent to do things like that
+        let _ferris2 = egui::Image::new(include_image!("../../ferris.png"))
+            .rounding(5.0);
+
+        ui.put(rect, _ferris2);
     }
 
     fn ui_content(&mut self,ui: &mut Ui,) -> egui::Response {
