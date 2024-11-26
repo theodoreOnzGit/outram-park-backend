@@ -67,6 +67,7 @@ impl CIETApp {
                                         faded_color(Color32::YELLOW),
                                     );
                                     ui.label("width: 50%\nheight: 1/3 of the red region");
+                                    ui.image(egui::include_image!("../../heat-exchanger.png"));
                                 });
                                 strip.empty();
                             });
