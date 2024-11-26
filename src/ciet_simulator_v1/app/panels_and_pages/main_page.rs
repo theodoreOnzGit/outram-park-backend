@@ -64,13 +64,37 @@ impl CIETApp {
             heater_slider_x_width, 
             heater_slider_y_width);
 
-        let heater_label = egui::Label::new("CIET Heater Power (kW)");
+        // heater outlet temp and inlet temp
+        let heater_out_temp_degc: f64 = 
+            ciet_state_local.get_heater_outlet_temp_degc();
+
+        let heater_display_text_outlet: String = 
+            "Outlet BT-12 (degC): ".to_string() + &heater_out_temp_degc.to_string();
+
+        let heater_outlet_label = egui::Label::new(&heater_display_text_outlet);
 
         self.put_widget_with_size_and_centre(
             ui, 
-            heater_label, 
+            heater_outlet_label, 
             heater_slider_x + 45.0, 
             heater_slider_y - 90.0, 
+            heater_slider_x_width + 120.0, 
+            heater_slider_y_width);
+
+        let heater_in_temp_degc: f64 = 
+            ciet_state_local.get_heater_inlet_temp_degc();
+
+        let heater_display_text_inlet: String = 
+            "Inlet BT-11 (degC): ".to_string() + &heater_in_temp_degc.to_string();
+
+        let heater_inlet_label = egui::Label::new(
+            &heater_display_text_inlet);
+
+        self.put_widget_with_size_and_centre(
+            ui, 
+            heater_inlet_label, 
+            heater_slider_x + 45.0, 
+            heater_slider_y + 90.0, 
             heater_slider_x_width + 120.0, 
             heater_slider_y_width);
 
