@@ -91,7 +91,10 @@ impl eframe::App for CIETApp {
 
             match self.open_panel {
                 Panel::SchematicDiagram => {
-                    ui.image(egui::include_image!("ciet_gui_schematics.png"));
+                    // enables scrolling within the image
+                    egui::ScrollArea::both().show(ui, |ui| {
+                        ui.image(egui::include_image!("ciet_gui_schematics.png"));
+                    });
                 },
                 Panel::MainPage => {
                     self.ciet_sim_main_page(ui);

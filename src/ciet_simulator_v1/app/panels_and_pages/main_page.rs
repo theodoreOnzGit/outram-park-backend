@@ -33,20 +33,24 @@ impl CIETApp {
 
         
         let body_text_size = TextStyle::Body.resolve(ui.style()).size;
+        // probably need to use painter instead of StripBuilder. 
+        // because painter is more flexible
         StripBuilder::new(ui)
-            .size(Size::exact(50.0))
+            .size(Size::exact(150.0))
             .size(Size::remainder())
             .size(Size::relative(0.5).at_least(60.0))
             .size(Size::exact(body_text_size))
-            .vertical(|mut strip| {
-                strip.cell(|ui| {
+            .vertical(|mut strip: egui_extras::Strip<'_, '_>| {
+                strip.cell(|ui: &mut Ui| {
                     ui.painter().rect_filled(
                         ui.available_rect_before_wrap(),
                         0.0,
                         faded_color(Color32::BLUE),
                     );
-                    ui.label("width: 100%\nheight: 50px");
+                    ui.label("width: 100%\nheight: 150px");
+                    ui.image(egui::include_image!("../../heat-exchanger.png"));
                 });
+
                 strip.strip(|builder| {
                     builder.sizes(Size::remainder(), 2).horizontal(|mut strip| {
                         strip.cell(|ui| {
@@ -123,4 +127,25 @@ impl CIETApp {
                 });
             });
     }
+}
+// cannot use due to two mutable borrows
+fn strip_cell_heat_exchanger(strip: &mut egui_extras::Strip<'_, '_>, 
+    ui: &mut Ui){
+
+    let dark_mode = ui.visuals().dark_mode;
+    let faded_color = ui.visuals().window_fill();
+    let faded_color = |color: Color32| -> Color32 {
+        use egui::Rgba;
+        let t = if dark_mode { 0.95 } else { 0.8 };
+        egui::lerp(Rgba::from(color)..=Rgba::from(faded_color), t).into()
+    };
+
+    strip.cell(|ui: &mut Ui| {
+        ui.painter().rect_filled(
+            ui.available_rect_before_wrap(),
+            0.0,
+            faded_color(Color32::BLUE),
+        );
+        ui.image(egui::include_image!("../../heat-exchanger.png"));
+    });
 }
