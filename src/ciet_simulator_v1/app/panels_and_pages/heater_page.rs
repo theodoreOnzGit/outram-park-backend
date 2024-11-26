@@ -44,7 +44,8 @@ impl CIETApp {
             max: Pos2 { x: 550.5, y: 500.5 },
         };
 
-        let slider_vert = egui::Slider::new(&mut self.value, 0.0..=100.0)
+        let slider_vert = egui::Slider::new(
+            &mut self.value, 0.0..=100.0)
             .vertical();
 
         ui.put(rect_two, slider_vert);

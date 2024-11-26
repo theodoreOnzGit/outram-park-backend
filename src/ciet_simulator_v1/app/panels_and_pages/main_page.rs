@@ -3,9 +3,54 @@ use egui_extras::{Size, StripBuilder};
 
 use crate::ciet_simulator_v1::CIETApp;
 
+use super::ciet_data::CIETState;
+
 impl CIETApp {
 
     pub fn ciet_sim_main_page(&mut self, ui: &mut Ui){
+
+        // obtain a lock first to display the information 
+
+        self.insert_read_and_update_widgets(ui);
+
+        self.insert_pictures(ui);
+
+    }
+
+    /// inserts sliders and other widgets for ciet 
+    fn insert_read_and_update_widgets(&mut self, ui: &mut Ui,){
+
+        // obtain a lock for ciet state first, clone it
+        // and drop the lock
+        let mut ciet_state_local: CIETState 
+            = self.ciet_state.lock().unwrap().clone();
+
+        // manually set coordinates
+        let (tchx_x, tchx_y): (f32, f32) = (150.0, 260.0);
+        let (tchx_x_width, tchx_y_width): (f32, f32) = (150.0, 150.0);
+        let dhx_x = tchx_x + 250.0;
+        let dhx_y = tchx_y + 250.0;
+        let dhx_x_width = tchx_x_width;
+        let dhx_y_width = tchx_y_width;
+        let heater_x = dhx_x + 350.0;
+        let heater_y = dhx_y + 50.0;
+        let heater_x_width = dhx_x_width;
+        let heater_y_width = dhx_y_width;
+
+        // for user to set heater power
+        let heater_set_pt_slider_kw = egui::Slider::new(
+            &mut self.value, 0.0..=10.0)
+            .vertical();
+
+        let heater_slider_x = heater_x + 0.6* heater_x_width;
+
+
+        // obtain a lock for ciet state, set it 
+        self.ciet_state.lock().unwrap().overwrite_state(ciet_state_local);
+    }
+
+    /// inserts static image widgets for ciet
+    fn insert_pictures(&mut self, ui: &mut Ui,){
 
         let tchx_pic = Image::new(
             include_image!("../../cooler.png")
