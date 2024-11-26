@@ -69,7 +69,7 @@ impl CIETApp {
 
         // for ctah
         let ctah_x = heater_x + 750.0;
-        let ctah_y = dhx_y - 50.0;
+        let ctah_y = tchx_y;
         let ctah_x_width = dhx_x_width;
         let ctah_y_width = dhx_y_width;
 
@@ -83,7 +83,7 @@ impl CIETApp {
 
         // for ctah_pump
         let ctah_pump_x = ctah_x - 50.0;
-        let ctah_pump_y = ctah_y + 350.0;
+        let ctah_pump_y = heater_y + 270.0;
         let ctah_pump_x_width = dhx_x_width;
         let ctah_pump_y_width = dhx_y_width;
 
