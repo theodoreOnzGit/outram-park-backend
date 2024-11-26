@@ -39,12 +39,12 @@ impl CIETApp {
             tchx_x_width, 
             tchx_y_width);
 
-        let dhx_x = tchx_x + 150.0;
-        let dhx_y = tchx_y + 150.0;
+        // for dhx
+        let dhx_x = tchx_x + 250.0;
+        let dhx_y = tchx_y + 250.0;
         let dhx_x_width = tchx_x_width;
         let dhx_y_width = tchx_y_width;
 
-        // for dhx
         self.put_widget_with_size_and_centre(
             ui, 
             dhx_pic, 
@@ -52,5 +52,49 @@ impl CIETApp {
             dhx_y, 
             dhx_x_width, 
             dhx_y_width);
+
+        // for heater
+        let heater_x = dhx_x + 250.0;
+        let heater_y = dhx_y + 50.0;
+        let heater_x_width = dhx_x_width;
+        let heater_y_width = dhx_y_width;
+
+        self.put_widget_with_size_and_centre(
+            ui, 
+            heater_pic, 
+            heater_x, 
+            heater_y, 
+            heater_x_width, 
+            heater_y_width);
+
+        // for ctah
+        let ctah_x = heater_x + 450.0;
+        let ctah_y = dhx_y - 50.0;
+        let ctah_x_width = dhx_x_width;
+        let ctah_y_width = dhx_y_width;
+
+        self.put_widget_with_size_and_centre(
+            ui, 
+            ctah_pic, 
+            ctah_x, 
+            ctah_y, 
+            ctah_x_width, 
+            ctah_y_width);
+
+        // for ctah_pump
+        let ctah_pump_x = ctah_x - 50.0;
+        let ctah_pump_y = ctah_y + 350.0;
+        let ctah_pump_x_width = dhx_x_width;
+        let ctah_pump_y_width = dhx_y_width;
+
+        self.put_widget_with_size_and_centre(
+            ui, 
+            ctah_pump_pic, 
+            ctah_pump_x, 
+            ctah_pump_y, 
+            ctah_pump_x_width, 
+            ctah_pump_y_width);
+
+        ui.separator();
     }
 }
