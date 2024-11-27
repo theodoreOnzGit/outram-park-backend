@@ -329,7 +329,8 @@ pub fn coupled_dracs_loop_version_7(
         // this is a safety killswitch 
 
         let heater_outlet_temp_degc = 
-            local_ciet_state.get_heater_inlet_temp_degc();
+            local_ciet_state.get_heater_outlet_temp_degc();
+
         let heat_rate_through_heater;
 
         if heater_outlet_temp_degc < 150.0 {
