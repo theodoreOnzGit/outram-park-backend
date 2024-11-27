@@ -101,7 +101,7 @@ impl CIETState {
         return self.bt_66_tchx_outlet_deg_c;
     }
 
-    pub fn set_tchx_outlet_temp_degc(&mut self, tchx_out_degc: f64){
+    pub fn set_tchx_outlet_setpt_degc(&mut self, tchx_out_degc: f64){
         self.bt_66_tchx_outlet_set_pt_deg_c = tchx_out_degc;
     }
 
@@ -114,7 +114,7 @@ impl CIETState {
         return self.bt_41_ctah_outlet_deg_c;
     }
 
-    pub fn set_ctah_outlet_temp_degc(&mut self, ctah_out_degc: f64){
+    pub fn set_ctah_outlet_setpt_degc(&mut self, ctah_out_degc: f64){
         self.bt_41_ctah_outlet_set_pt_deg_c = ctah_out_degc;
     }
 

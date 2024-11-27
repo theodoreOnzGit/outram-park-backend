@@ -44,27 +44,22 @@ pub fn coupled_dracs_loop_version_7(
 
 
     let (heater_calibrated_nusselt_factor_float,
-        expt_heater_surf_temp_avg_degc,
-        simulated_expected_heater_surf_temp_degc,
-        heater_surface_temp_tolerance_degc) = 
+        _expt_heater_surf_temp_avg_degc,
+        _simulated_expected_heater_surf_temp_degc,
+        _heater_surface_temp_tolerance_degc) = 
         (10.0,109.47,105.76,5.0);
-    // obtain local ciet state for reading and writing
-
-    let local_ciet_state: CIETState = ciet_state.lock().unwrap().clone();
-
-    let input_power_kilowatts = local_ciet_state.get_heater_power_kilowatts();
-    let input_power = Power::new::<kilowatt>(input_power_kilowatts);
-
-    let tchx_outlet_temperature_set_point_degc = 
-        local_ciet_state.bt_66_tchx_outlet_set_pt_deg_c;
-
-    let tchx_outlet_temperature_set_point = 
-        ThermodynamicTemperature::new::<degree_celsius>(
-            tchx_outlet_temperature_set_point_degc);
     use chem_eng_real_time_process_control_simulator::alpha_nightly::transfer_fn_wrapper_and_enums::TransferFnTraits;
     use chem_eng_real_time_process_control_simulator::alpha_nightly::controllers::ProportionalController;
     use chem_eng_real_time_process_control_simulator::alpha_nightly::controllers::AnalogController;
 
+    // obtain local ciet state for reading and writing
+
+    let local_ciet_state: CIETState = ciet_state.lock().unwrap().clone();
+    let tchx_outlet_temperature_set_point_degc = 
+        local_ciet_state.bt_66_tchx_outlet_set_pt_deg_c;
+    let tchx_outlet_temperature_set_point = 
+        ThermodynamicTemperature::new::<degree_celsius>(
+            tchx_outlet_temperature_set_point_degc);
     // max error is 0.5% according to SAM 
     // is okay, because typical flowmeter measurement error is 2% anyway
     // set timestep to lower values for set b9
@@ -92,7 +87,6 @@ pub fn coupled_dracs_loop_version_7(
     //
     // the conclusion is that this instability is almost independent of timestep
     let timestep = Time::new::<second>(0.5);
-    let heat_rate_through_heater = input_power;
     let mut tchx_heat_transfer_coeff: HeatTransfer;
 
     let reference_tchx_htc = 
@@ -349,7 +343,20 @@ pub fn coupled_dracs_loop_version_7(
         // second, read and update the local_ciet_state
 
         let loop_time_start = loop_time.elapsed().unwrap();
-        let local_ciet_state: CIETState = ciet_state.lock().unwrap().clone();
+        // obtain local ciet state for reading and writing
+
+        let mut local_ciet_state: CIETState = ciet_state.lock().unwrap().clone();
+
+        let input_power_kilowatts = local_ciet_state.get_heater_power_kilowatts();
+        let input_power = Power::new::<kilowatt>(input_power_kilowatts);
+        let heat_rate_through_heater = input_power;
+
+        let tchx_outlet_temperature_set_point_degc = 
+            local_ciet_state.bt_66_tchx_outlet_set_pt_deg_c;
+
+        let tchx_outlet_temperature_set_point = 
+            ThermodynamicTemperature::new::<degree_celsius>(
+                tchx_outlet_temperature_set_point_degc);
 
 
         let tchx_outlet_temperature: ThermodynamicTemperature = {
@@ -388,7 +395,7 @@ pub fn coupled_dracs_loop_version_7(
         // using the PID controller
         //
         // record tchx outlet temperature if it is last 5s of time 
-
+        //
 
         tchx_heat_transfer_coeff = {
             // first, calculate the set point error 
@@ -630,7 +637,7 @@ pub fn coupled_dracs_loop_version_7(
 
         let display_temperatures = true;
         // temperatures before and after heater
-        let ((_bt_11,_wt_10),(_bt_12,_wt_13)) = 
+        let ((bt_11,_wt_10),(bt_12,_wt_13)) = 
             pri_loop_heater_temperature_diagnostics(
                 &mut heater_bottom_head_1b, 
                 &mut static_mixer_10_label_2, 
@@ -655,10 +662,27 @@ pub fn coupled_dracs_loop_version_7(
         let simulated_heater_avg_surf_temp_degc: f64 = 
             heater_avg_surf_temp.get::<degree_celsius>();
 
+        // update the local ciet state 
+        //
+
+        local_ciet_state.bt_66_tchx_outlet_deg_c =
+            tchx_outlet_temperature.get::<degree_celsius>();
+
+        local_ciet_state.bt_11_heater_inlet_deg_c = 
+            bt_11.get::<degree_celsius>();
+
+        local_ciet_state.bt_12_heater_outlet_deg_c = 
+            bt_12.get::<degree_celsius>();
+
+
         current_simulation_time += timestep;
+
+
 
         // i want the calculation thread to sleep for awhile 
         // so that the simulation is in sync with real-time
+        //
+        // I'll give it 1 extra millisecond to do all this calculation
 
         let time_taken_for_calculation_loop_milliseconds: f64 = 
             (loop_time.elapsed().unwrap() - loop_time_start)
@@ -670,7 +694,7 @@ pub fn coupled_dracs_loop_version_7(
             .round().abs() as u64;
 
         let time_to_sleep: Duration = 
-            Duration::from_millis(time_to_sleep_milliseconds);
+            Duration::from_millis(time_to_sleep_milliseconds - 1);
 
         thread::sleep(time_to_sleep);
 
