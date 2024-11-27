@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, thread, time::{Duration, SystemTime}};
 
 use uom::si::power::kilowatt;
 
@@ -334,16 +334,23 @@ pub fn coupled_dracs_loop_version_7(
 
 
 
-    let mut final_mass_flowrate_pri_loop: MassRate 
-        = MassRate::ZERO;
-    let mut final_mass_flowrate_dracs_loop: MassRate 
-        = MassRate::ZERO;
     let mut _final_tchx_outlet_temperature: ThermodynamicTemperature 
         = ThermodynamicTemperature::ZERO;
 
     let ambient_htc = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
     // calculation loop (indefinite)
+    //
+    // to be done once every timestep
+    let loop_time = SystemTime::now();
     loop {
+        // so now, let's do the necessary things
+        // first, timestep and loop time 
+        //
+        // second, read and update the local_ciet_state
+
+        let loop_time_start = loop_time.elapsed().unwrap();
+        let local_ciet_state: CIETState = ciet_state.lock().unwrap().clone();
+
 
         let tchx_outlet_temperature: ThermodynamicTemperature = {
 
@@ -649,6 +656,25 @@ pub fn coupled_dracs_loop_version_7(
             heater_avg_surf_temp.get::<degree_celsius>();
 
         current_simulation_time += timestep;
+
+        // i want the calculation thread to sleep for awhile 
+        // so that the simulation is in sync with real-time
+
+        let time_taken_for_calculation_loop_milliseconds: f64 = 
+            (loop_time.elapsed().unwrap() - loop_time_start)
+            .as_millis() as f64;
+
+        let time_to_sleep_milliseconds: u64 = 
+            (timestep.get::<millisecond>() - 
+            time_taken_for_calculation_loop_milliseconds)
+            .round().abs() as u64;
+
+        let time_to_sleep: Duration = 
+            Duration::from_millis(time_to_sleep_milliseconds);
+
+        thread::sleep(time_to_sleep);
+
+
 
     }
 
