@@ -38,7 +38,12 @@ impl CIETApp {
         // aspect ratio is length by breadth (longer side by shorter side)
         
         let y_width_pixels = button_length;
-        let x_width_pixels = button_length/aspect_ratio;
+        let mut x_width_pixels = button_length/aspect_ratio;
+
+        // min width is 30 px 
+        if x_width_pixels < 30.0 {
+            x_width_pixels = 30.0;
+        }
 
         self.put_widget_with_size_and_centre(
             ui, 

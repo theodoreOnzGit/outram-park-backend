@@ -245,10 +245,84 @@ impl CIETApp {
             ui, 
             pipe_1a, 
             heater_x , 
-            heater_y - 100.0, 
-            100.0, 
+            heater_y - 90.0, 
+            50.0, 
             4.0);
 
+        let button_temp_degc = 155.0;
+        let pipe_2a = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "2a");
+
+        self.place_vertical_widget_with_length(
+            ui, 
+            pipe_2a, 
+            heater_x , 
+            heater_y - 140.0, 
+            50.0, 
+            4.0);
+
+        let button_temp_degc = 155.0;
+        let pipe_2 = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "2");
+
+        self.place_vertical_widget_with_length(
+            ui, 
+            pipe_2, 
+            heater_x , 
+            heater_y - 190.0, 
+            50.0, 
+            4.0);
+
+        let button_temp_degc = 55.0;
+        let pipe_3 = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "3");
+
+        self.place_vertical_widget_with_length(
+            ui, 
+            pipe_3, 
+            heater_x , 
+            heater_y - 190.0, 
+            50.0, 
+            4.0);
+
+        let button_temp_degc = 55.0;
+        let pipe_4 = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "4");
+
+        self.place_vertical_widget_with_length(
+            ui, 
+            pipe_4, 
+            heater_x , 
+            heater_y - 230.0, 
+            50.0, 
+            4.0);
+
+        let button_temp_degc = 55.0;
+        let pipe_1b = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "1b");
+
+        self.place_vertical_widget_with_length(
+            ui, 
+            pipe_1b, 
+            heater_x , 
+            heater_y + 90.0, 
+            50.0, 
+            4.0);
 
         // obtain a lock for ciet state, set it 
         self.ciet_state.lock().unwrap().overwrite_state(ciet_state_local);
