@@ -29,7 +29,8 @@ pub struct CIETState {
     pub fm_60_dracs_kg_per_s: f64,
     pub fm_20_dhx_branch_kg_per_s: f64,
     pub fm_40_ctah_branch_kg_per_s: f64,
-    pub time_elapsed_seconds: f64,
+    pub simulation_time_seconds: f64,
+    pub elapsed_time_seconds: f64,
     pub calc_time_ms: f64,
 }
 
@@ -53,7 +54,8 @@ impl Default for CIETState {
             fm_60_dracs_kg_per_s: 0.0,
             fm_20_dhx_branch_kg_per_s: 0.0,
             fm_40_ctah_branch_kg_per_s: 0.0,
-            time_elapsed_seconds: 0.0,
+            simulation_time_seconds: 0.0,
+            elapsed_time_seconds: 0.0,
             calc_time_ms: 0.0,
         }
     }

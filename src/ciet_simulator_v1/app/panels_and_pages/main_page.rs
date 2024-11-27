@@ -46,12 +46,15 @@ impl CIETApp {
         let ctah_pump_y_width = dhx_y_width;
 
         // time display 
-        let time_elapsed_seconds = ciet_state_local.time_elapsed_seconds;
+        let sim_time_seconds = ciet_state_local.simulation_time_seconds;
+        let elapsed_time_seconds = ciet_state_local.elapsed_time_seconds;
         let calc_time_ms = ciet_state_local.calc_time_ms;
 
         let time_display_text = 
-            "Time Elapsed (s): ".to_string() 
-            + &time_elapsed_seconds.to_string()
+            "Simulation Time (s): ".to_string() 
+            + &sim_time_seconds.to_string()
+            + " ; Elapsed Time (s) :"
+            + &elapsed_time_seconds.to_string()
             + " ;  Calc Time (ms): "
             + &calc_time_ms.to_string();
         let time_display_label = egui::Label::new(time_display_text);
