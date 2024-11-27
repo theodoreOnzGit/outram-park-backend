@@ -6,7 +6,7 @@ use super::ciet_data::CIETState;
 
 
 pub fn coupled_dracs_loop_version_7(
-    ciet_state: Arc<Mutex<CIETState>>){
+    global_ciet_state_ptr: Arc<Mutex<CIETState>>){
     use uom::si::length::centimeter;
     use uom::si::f64::*;
 
@@ -54,7 +54,7 @@ pub fn coupled_dracs_loop_version_7(
 
     // obtain local ciet state for reading and writing
 
-    let local_ciet_state: CIETState = ciet_state.lock().unwrap().clone();
+    let local_ciet_state: CIETState = global_ciet_state_ptr.lock().unwrap().clone();
     let tchx_outlet_temperature_set_point_degc = 
         local_ciet_state.bt_66_tchx_outlet_set_pt_deg_c;
     let tchx_outlet_temperature_set_point = 
@@ -345,7 +345,7 @@ pub fn coupled_dracs_loop_version_7(
         let loop_time_start = loop_time.elapsed().unwrap();
         // obtain local ciet state for reading and writing
 
-        let mut local_ciet_state: CIETState = ciet_state.lock().unwrap().clone();
+        let mut local_ciet_state: CIETState = global_ciet_state_ptr.lock().unwrap().clone();
 
         let input_power_kilowatts = local_ciet_state.get_heater_power_kilowatts();
         let input_power = Power::new::<kilowatt>(input_power_kilowatts);
@@ -673,6 +673,11 @@ pub fn coupled_dracs_loop_version_7(
 
         local_ciet_state.bt_12_heater_outlet_deg_c = 
             bt_12.get::<degree_celsius>();
+
+        // now update the ciet state 
+
+        global_ciet_state_ptr.lock().unwrap().overwrite_state(
+            local_ciet_state);
 
 
         current_simulation_time += timestep;

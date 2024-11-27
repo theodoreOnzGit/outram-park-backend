@@ -1,6 +1,6 @@
-use std::sync::{Arc,Mutex};
+use std::{sync::{Arc,Mutex}, thread};
 
-use panels_and_pages::{ciet_data::CIETState, Panel};
+use panels_and_pages::{ciet_data::CIETState, nat_circ_simulation::coupled_dracs_loop_version_7, Panel};
 
 
 
@@ -50,7 +50,20 @@ impl CIETApp {
         //    return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         //}
 
-        Default::default()
+        let new_ciet_app: CIETApp = Default::default();
+
+        // I'll clone the pointer and start a thread 
+
+        let ciet_state_ptr: Arc<Mutex<CIETState>> = 
+            new_ciet_app.ciet_state.clone();
+
+        // now spawn a thread moving in the pointer 
+        //
+        thread::spawn(move ||{
+            coupled_dracs_loop_version_7(ciet_state_ptr);
+        });
+
+        new_ciet_app
     }
 }
 
