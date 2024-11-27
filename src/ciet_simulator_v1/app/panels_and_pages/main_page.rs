@@ -114,7 +114,7 @@ impl CIETApp {
             heater_outlet_label, 
             heater_slider_x + 45.0, 
             heater_slider_y - 90.0, 
-            heater_slider_x_width + 120.0, 
+            heater_slider_x_width + 220.0, 
             heater_slider_y_width * 0.2);
 
         let heater_in_temp_degc: f64 = 
@@ -131,7 +131,7 @@ impl CIETApp {
             heater_inlet_label, 
             heater_slider_x + 45.0, 
             heater_slider_y + 90.0, 
-            heater_slider_x_width + 120.0, 
+            heater_slider_x_width + 220.0, 
             heater_slider_y_width*0.2);
 
 
