@@ -1,4 +1,4 @@
-use std::{sync::{Arc,Mutex}, thread};
+use std::{sync::{Arc,Mutex}, thread, time::Duration};
 
 use panels_and_pages::{ciet_data::CIETState, nat_circ_simulation::coupled_dracs_loop_version_7, Panel};
 
@@ -146,7 +146,13 @@ impl eframe::App for CIETApp {
                 powered_by_egui_and_eframe(ui);
                 egui::warn_if_debug_build(ui);
             });
+
+
         });
+
+        // request update every 0.1 s 
+
+        ctx.request_repaint_after(Duration::from_millis(100));
     }
 }
 

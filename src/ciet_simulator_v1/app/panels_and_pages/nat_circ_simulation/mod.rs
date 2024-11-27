@@ -663,16 +663,19 @@ pub fn coupled_dracs_loop_version_7(
             heater_avg_surf_temp.get::<degree_celsius>();
 
         // update the local ciet state 
-        //
+        // update to 2dp
 
         local_ciet_state.bt_66_tchx_outlet_deg_c =
-            tchx_outlet_temperature.get::<degree_celsius>();
+            (tchx_outlet_temperature.get::<degree_celsius>()*100.0)
+            .round()/100.0;
 
         local_ciet_state.bt_11_heater_inlet_deg_c = 
-            bt_11.get::<degree_celsius>();
+            (bt_11.get::<degree_celsius>()*100.0)
+            .round()/100.0;
 
         local_ciet_state.bt_12_heater_outlet_deg_c = 
-            bt_12.get::<degree_celsius>();
+            (bt_12.get::<degree_celsius>()*100.0)
+            .round()/100.0;
 
         // now update the ciet state 
 
