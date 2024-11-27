@@ -722,6 +722,14 @@ pub fn coupled_dracs_loop_version_7(
             local_ciet_state.pipe_4_temp_degc = 
                 pipe_4_temp.get::<degree_celsius>() as f32;
 
+            let pipe_18_temp = 
+                pipe_18
+                .pipe_fluid_array
+                .try_get_bulk_temperature()
+                .unwrap();
+
+            local_ciet_state.pipe_18_temp_degc = 
+                pipe_18_temp.get::<degree_celsius>() as f32;
         }
 
 
