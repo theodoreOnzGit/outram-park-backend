@@ -117,15 +117,34 @@ impl CIETApp {
             tchx_slider_x_width, 
             tchx_slider_y_width);
 
-        let tchx_label = egui::Label::new("TCHX Outlet Set Pt (degC)");
+        let tchx_top_temp = ciet_state_local.get_tchx_inlet_temp_degc();
+        let tchx_bottom_temp = ciet_state_local.get_tchx_outlet_temp_degc();
+
+        let tchx_top_label = egui::Label::new(
+            "Inlet BT-65 (degC): ".to_string() 
+            + &tchx_top_temp.to_string()
+            );
+
+        let tchx_bottom_label = egui::Label::new(
+            "Outlet BT-66 (degC): ".to_string() 
+            + &tchx_bottom_temp.to_string()
+            );
 
         self.put_widget_with_size_and_centre(
             ui, 
-            tchx_label, 
+            tchx_top_label, 
             tchx_slider_x + 55.0, 
             tchx_slider_y - 90.0, 
             tchx_slider_x_width + 120.0, 
-            tchx_slider_y_width);
+            tchx_slider_y_width * 0.2);
+
+        self.put_widget_with_size_and_centre(
+            ui, 
+            tchx_bottom_label, 
+            tchx_slider_x + 55.0, 
+            tchx_slider_y + 90.0, 
+            tchx_slider_x_width + 120.0, 
+            tchx_slider_y_width * 0.2);
 
         let ctah_slider_outlet_set_pt_degc = egui::Slider::new(
             &mut ciet_state_local.bt_41_ctah_outlet_set_pt_deg_c, 25.0..=110.0)
@@ -145,15 +164,34 @@ impl CIETApp {
             ctah_slider_x_width, 
             ctah_slider_y_width);
 
-        let ctah_label = egui::Label::new("CTAH Outlet Set Pt (degC)");
+        let ctah_top_temp = ciet_state_local.get_ctah_inlet_temp_degc();
+        let ctah_bottom_temp = ciet_state_local.get_ctah_outlet_temp_degc();
+
+        let ctah_top_label = egui::Label::new(
+            "Inlet BT-43 (degC): ".to_string() 
+            + &ctah_top_temp.to_string()
+            );
+
+        let ctah_bottom_label = egui::Label::new(
+            "Outlet BT-41 (degC): ".to_string() 
+            + &ctah_bottom_temp.to_string()
+            );
 
         self.put_widget_with_size_and_centre(
             ui, 
-            ctah_label, 
+            ctah_top_label, 
             ctah_slider_x + 55.0, 
             ctah_slider_y - 90.0, 
             ctah_slider_x_width + 120.0, 
-            ctah_slider_y_width);
+            ctah_slider_y_width * 0.2);
+
+        self.put_widget_with_size_and_centre(
+            ui, 
+            ctah_bottom_label, 
+            ctah_slider_x + 55.0, 
+            ctah_slider_y + 90.0, 
+            ctah_slider_x_width + 120.0, 
+            ctah_slider_y_width * 0.2);
 
         // obtain a lock for ciet state, set it 
         self.ciet_state.lock().unwrap().overwrite_state(ciet_state_local);
