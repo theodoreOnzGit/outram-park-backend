@@ -669,63 +669,70 @@ pub fn coupled_dracs_loop_version_7(
         // hot branch update 
         {
             let pipe_1a_temp = 
-                heater_top_head_1a
-                .pipe_fluid_array
-                .try_get_bulk_temperature()
+                *heater_top_head_1a
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
                 .unwrap();
 
             local_ciet_state.pipe_1a_temp_degc = 
                 pipe_1a_temp.get::<degree_celsius>() as f32;
 
             let pipe_1b_temp = 
-                heater_bottom_head_1b
-                .pipe_fluid_array
-                .try_get_bulk_temperature()
+                *heater_bottom_head_1b
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
                 .unwrap();
 
             local_ciet_state.pipe_1b_temp_degc = 
                 pipe_1b_temp.get::<degree_celsius>() as f32;
 
             let pipe_2a_temp = 
-                pipe_2a
-                .pipe_fluid_array
-                .try_get_bulk_temperature()
+                *pipe_2a
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
                 .unwrap();
 
             local_ciet_state.pipe_2a_temp_degc = 
                 pipe_2a_temp.get::<degree_celsius>() as f32;
 
             let pipe_2_temp = 
-                static_mixer_10_label_2
-                .pipe_fluid_array
-                .try_get_bulk_temperature()
+                *static_mixer_10_label_2
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
                 .unwrap();
 
             local_ciet_state.pipe_2_temp_degc = 
                 pipe_2_temp.get::<degree_celsius>() as f32;
 
             let pipe_3_temp = 
-                pipe_3
-                .pipe_fluid_array
-                .try_get_bulk_temperature()
+                *pipe_3
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
                 .unwrap();
 
             local_ciet_state.pipe_3_temp_degc = 
                 pipe_3_temp.get::<degree_celsius>() as f32;
 
             let pipe_4_temp = 
-                pipe_4
-                .pipe_fluid_array
-                .try_get_bulk_temperature()
+                *pipe_4
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
                 .unwrap();
 
             local_ciet_state.pipe_4_temp_degc = 
                 pipe_4_temp.get::<degree_celsius>() as f32;
 
             let pipe_18_temp = 
-                pipe_18
-                .pipe_fluid_array
-                .try_get_bulk_temperature()
+                *pipe_18
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
                 .unwrap();
 
             local_ciet_state.pipe_18_temp_degc = 
