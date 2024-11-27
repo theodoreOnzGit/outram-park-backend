@@ -28,6 +28,23 @@ impl CIETApp {
     }
 }
 
+pub fn new_temp_sensitive_button(
+    (min_temp_degc, max_temp_degc): (f32,f32),
+    button_temp_degc: f32,
+    name: &str,
+) -> egui::Button {
+
+    let hotness: f32 = 
+        (button_temp_degc - min_temp_degc)/(max_temp_degc- min_temp_degc);
+
+    let colour_temp = hot_to_cold_colour(hotness);
+    let temp_sensitive_button = egui::Button::new(name)
+        .fill(colour_temp);
+
+    temp_sensitive_button
+
+}
+
 /// From ChatGPT
 /// Steps:
 /// Cold colors (blue) start with high values in the blue channel (B = 1, G = 0).
