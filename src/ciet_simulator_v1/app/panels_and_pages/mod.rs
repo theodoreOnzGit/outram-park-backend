@@ -17,3 +17,6 @@ pub mod heater_page;
 pub mod ctah_page;
 
 pub mod ciet_data;
+
+/// contains code for natural circulation only
+pub mod nat_circ_simulation;

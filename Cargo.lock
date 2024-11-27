@@ -2899,6 +2899,7 @@ dependencies = [
  "log",
  "serde",
  "tuas_boussinesq_solver",
+ "uom",
 ]
 
 [[package]]
