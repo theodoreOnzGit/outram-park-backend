@@ -60,6 +60,15 @@ impl CIETApp {
         let time_display_label = egui::Label::new(time_display_text);
         ui.add(time_display_label);
 
+        ui.separator();
+
+        // buttons with custom colour 
+        let colour_fill = Color32::from_rgb(255, 0, 0);
+        let coloured_button = egui::Button::new("test button")
+            .fill(colour_fill);
+        ui.add_enabled(false, coloured_button);
+
+        ui.separator();
 
         // for user to set heater power
         let heater_set_pt_slider_kw = egui::Slider::new(

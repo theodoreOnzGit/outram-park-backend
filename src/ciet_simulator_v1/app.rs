@@ -152,7 +152,7 @@ impl eframe::App for CIETApp {
 
         // request update every 0.1 s 
 
-        ctx.request_repaint_after(Duration::from_millis(100));
+        ctx.request_repaint_after(Duration::from_millis(50));
     }
 }
 
