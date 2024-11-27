@@ -1,7 +1,7 @@
 use egui::{include_image, Color32, Image, TextStyle, Ui};
 use egui_extras::{Size, StripBuilder};
 
-use crate::ciet_simulator_v1::{app::useful_functions::hot_to_cold_colour, CIETApp};
+use crate::ciet_simulator_v1::{app::useful_functions::{hot_to_cold_colour, new_temp_sensitive_button}, CIETApp};
 
 use super::ciet_data::CIETState;
 
@@ -228,6 +228,27 @@ impl CIETApp {
             ctah_slider_y + 90.0, 
             ctah_slider_x_width + 120.0, 
             ctah_slider_y_width * 0.2);
+
+        // temperature sensitive buttons for all pipes
+        let min_temp_degc = 20.0;
+        let max_temp_degc = 150.0;
+
+        // hot branch
+        let button_temp_degc = 75.0;
+        let pipe_1a = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "1a");
+
+        self.place_vertical_widget_with_length(
+            ui, 
+            pipe_1a, 
+            heater_x , 
+            heater_y - 100.0, 
+            100.0, 
+            4.0);
+
 
         // obtain a lock for ciet state, set it 
         self.ciet_state.lock().unwrap().overwrite_state(ciet_state_local);

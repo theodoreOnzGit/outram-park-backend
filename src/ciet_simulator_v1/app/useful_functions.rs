@@ -9,12 +9,12 @@ impl CIETApp {
         centre_x_pixels: f32,
         centre_y_pixels: f32,
         x_width_pixels: f32,
-        y_width_pixles: f32){
+        y_width_pixels: f32){
 
         let top_left_x: f32 = centre_x_pixels - 0.5 * x_width_pixels;
-        let top_left_y: f32 = centre_y_pixels - 0.5 * y_width_pixles;
+        let top_left_y: f32 = centre_y_pixels - 0.5 * y_width_pixels;
         let bottom_right_x: f32 = centre_x_pixels + 0.5 * x_width_pixels;
-        let bottom_right_y: f32 = centre_y_pixels + 0.5 * y_width_pixles;
+        let bottom_right_y: f32 = centre_y_pixels + 0.5 * y_width_pixels;
 
         let rect: Rect = Rect {
             // top left
@@ -26,10 +26,55 @@ impl CIETApp {
         ui.put(rect, widget);
 
     }
+
+    pub fn place_vertical_widget_with_length(
+        &mut self, ui: &mut Ui, widget: impl Widget,
+        centre_x_pixels: f32,
+        centre_y_pixels: f32,
+        button_length: f32,
+        aspect_ratio: f32,
+        ){
+
+        // aspect ratio is length by breadth (longer side by shorter side)
+        
+        let y_width_pixels = button_length;
+        let x_width_pixels = button_length/aspect_ratio;
+
+        self.put_widget_with_size_and_centre(
+            ui, 
+            widget, 
+            centre_x_pixels, 
+            centre_y_pixels, 
+            x_width_pixels, 
+            y_width_pixels);
+    }
+
+    pub fn place_horizontal_widget_with_length(
+        &mut self, ui: &mut Ui, widget: impl Widget,
+        centre_x_pixels: f32,
+        centre_y_pixels: f32,
+        button_length: f32,
+        aspect_ratio: f32,
+        ){
+
+        // aspect ratio is length by breadth (longer side by shorter side)
+        
+        let x_width_pixels = button_length;
+        let y_width_pixels = button_length/aspect_ratio;
+
+        self.put_widget_with_size_and_centre(
+            ui, 
+            widget, 
+            centre_x_pixels, 
+            centre_y_pixels, 
+            x_width_pixels, 
+            y_width_pixels);
+    }
 }
 
 pub fn new_temp_sensitive_button(
-    (min_temp_degc, max_temp_degc): (f32,f32),
+    min_temp_degc: f32, 
+    max_temp_degc: f32,
     button_temp_degc: f32,
     name: &str,
 ) -> egui::Button {
