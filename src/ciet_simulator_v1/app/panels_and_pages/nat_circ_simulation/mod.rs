@@ -60,33 +60,9 @@ pub fn coupled_dracs_loop_version_7(
     let tchx_outlet_temperature_set_point = 
         ThermodynamicTemperature::new::<degree_celsius>(
             tchx_outlet_temperature_set_point_degc);
-    // max error is 0.5% according to SAM 
-    // is okay, because typical flowmeter measurement error is 2% anyway
-    // set timestep to lower values for set b9
-    // as compared to the rest
-    //
-    // setting to 0.01s didn't work, so my second candidate for change is 
-    // to change the controller, but set timestep at 0.5s
-    //
-    // This is because this dataset b9, has the highest heater power 
-    // but lowest TCHX outlet temperature of all datasets. And therefore, 
-    // the highest cooling loads are placed on the TCHX 
-    //
-    // It is understandable at this extreme then, for the controller 
-    // to be unstable if we don't change settings
-    //
-    // let timestep = Time::new::<second>(0.1);
-    // for this timestep, the simulation fails around 181s of simulated time
-    //
-    //
-    // let timestep = Time::new::<second>(0.01);
-    // for this timestep, the simulation fails around 181s of simulated time
-    //
-    // let timestep = Time::new::<second>(0.5);
-    // for this timestep, the simulation fails around 185s of simulated time
-    //
-    // the conclusion is that this instability is almost independent of timestep
-    let timestep = Time::new::<second>(0.5);
+    // I'm setting timestep at 0.2, rather than 0.5, for smoother 
+    // feel and experience
+    let timestep = Time::new::<second>(0.2);
     let mut tchx_heat_transfer_coeff: HeatTransfer;
 
     let reference_tchx_htc = 
@@ -677,10 +653,6 @@ pub fn coupled_dracs_loop_version_7(
             (bt_12.get::<degree_celsius>()*100.0)
             .round()/100.0;
 
-        // now update the ciet state 
-
-        global_ciet_state_ptr.lock().unwrap().overwrite_state(
-            local_ciet_state);
 
 
         current_simulation_time += timestep;
@@ -703,6 +675,14 @@ pub fn coupled_dracs_loop_version_7(
 
         let time_to_sleep: Duration = 
             Duration::from_millis(time_to_sleep_milliseconds - 1);
+
+        let time_elapsed_seconds = current_simulation_time.get::<second>();
+        local_ciet_state.calc_time_ms = time_taken_for_calculation_loop_milliseconds;
+        local_ciet_state.time_elapsed_seconds = (time_elapsed_seconds * 10.0).round()/10.0;
+        // now update the ciet state 
+
+        global_ciet_state_ptr.lock().unwrap().overwrite_state(
+            local_ciet_state);
 
         thread::sleep(time_to_sleep);
 

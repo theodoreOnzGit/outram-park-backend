@@ -45,6 +45,19 @@ impl CIETApp {
         let ctah_pump_x_width = dhx_x_width;
         let ctah_pump_y_width = dhx_y_width;
 
+        // time display 
+        let time_elapsed_seconds = ciet_state_local.time_elapsed_seconds;
+        let calc_time_ms = ciet_state_local.calc_time_ms;
+
+        let time_display_text = 
+            "Time Elapsed (s): ".to_string() 
+            + &time_elapsed_seconds.to_string()
+            + " ;  Calc Time (ms): "
+            + &calc_time_ms.to_string();
+        let time_display_label = egui::Label::new(time_display_text);
+        ui.add(time_display_label);
+
+
         // for user to set heater power
         let heater_set_pt_slider_kw = egui::Slider::new(
             &mut ciet_state_local.heater_power_kilowatts, 0.0..=10.0)
