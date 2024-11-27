@@ -79,7 +79,7 @@ impl CIETApp {
             heater_slider_x + 45.0, 
             heater_slider_y - 90.0, 
             heater_slider_x_width + 120.0, 
-            heater_slider_y_width);
+            heater_slider_y_width * 0.2);
 
         let heater_in_temp_degc: f64 = 
             ciet_state_local.get_heater_inlet_temp_degc();
@@ -96,7 +96,7 @@ impl CIETApp {
             heater_slider_x + 45.0, 
             heater_slider_y + 90.0, 
             heater_slider_x_width + 120.0, 
-            heater_slider_y_width);
+            heater_slider_y_width*0.2);
 
 
         // for user to set CTAH and TCHX cooler set points
