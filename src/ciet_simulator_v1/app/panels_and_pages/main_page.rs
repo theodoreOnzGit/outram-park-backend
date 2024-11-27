@@ -320,8 +320,38 @@ impl CIETApp {
             ui, 
             pipe_1b, 
             heater_x , 
-            heater_y + 90.0, 
-            50.0, 
+            heater_y + 120.0, 
+            150.0, 
+            4.0);
+
+
+        let button_temp_degc = 55.0;
+        let pipe_18_vertical = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "18");
+
+        self.place_vertical_widget_with_length(
+            ui, 
+            pipe_18_vertical, 
+            heater_x - 140.0 , 
+            heater_y + 190.0, 
+            80.0, 
+            4.0);
+
+        let pipe_18_horizontal = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "18");
+
+        self.place_horizontal_widget_with_length(
+            ui, 
+            pipe_18_horizontal, 
+            heater_x - 55.0 , 
+            heater_y + 210.0, 
+            150.0, 
             4.0);
 
         // obtain a lock for ciet state, set it 
