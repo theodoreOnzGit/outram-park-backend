@@ -333,11 +333,11 @@ pub fn coupled_dracs_loop_version_7(
 
         let heat_rate_through_heater;
 
-        if heater_outlet_temp_degc < 150.0 {
-            heat_rate_through_heater = input_power;
-        } else {
+        if heater_outlet_temp_degc > 150.0 {
             heat_rate_through_heater = Power::ZERO;
             local_ciet_state.set_heater_power_kilowatts(0.0);
+        } else {
+            heat_rate_through_heater = input_power;
         }
 
         let tchx_outlet_temperature_set_point_degc = 
