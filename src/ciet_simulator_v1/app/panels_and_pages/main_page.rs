@@ -234,7 +234,7 @@ impl CIETApp {
         let max_temp_degc = 150.0;
 
         // hot branch
-        let button_temp_degc = 75.0;
+        let button_temp_degc = ciet_state_local.pipe_1a_temp_degc;
         let pipe_1a = new_temp_sensitive_button(
             min_temp_degc, 
             max_temp_degc, 
@@ -249,7 +249,7 @@ impl CIETApp {
             50.0, 
             4.0);
 
-        let button_temp_degc = 155.0;
+        let button_temp_degc = ciet_state_local.pipe_2a_temp_degc;
         let pipe_2a = new_temp_sensitive_button(
             min_temp_degc, 
             max_temp_degc, 
@@ -264,7 +264,7 @@ impl CIETApp {
             50.0, 
             4.0);
 
-        let button_temp_degc = 155.0;
+        let button_temp_degc = ciet_state_local.pipe_2_temp_degc;
         let pipe_2 = new_temp_sensitive_button(
             min_temp_degc, 
             max_temp_degc, 
@@ -279,7 +279,7 @@ impl CIETApp {
             50.0, 
             4.0);
 
-        let button_temp_degc = 55.0;
+        let button_temp_degc = ciet_state_local.pipe_3_temp_degc;
         let pipe_3 = new_temp_sensitive_button(
             min_temp_degc, 
             max_temp_degc, 
@@ -294,7 +294,7 @@ impl CIETApp {
             50.0, 
             4.0);
 
-        let button_temp_degc = 55.0;
+        let button_temp_degc = ciet_state_local.pipe_4_temp_degc;
         let pipe_4 = new_temp_sensitive_button(
             min_temp_degc, 
             max_temp_degc, 
@@ -309,7 +309,7 @@ impl CIETApp {
             50.0, 
             4.0);
 
-        let button_temp_degc = 55.0;
+        let button_temp_degc = ciet_state_local.pipe_1b_temp_degc;
         let pipe_1b = new_temp_sensitive_button(
             min_temp_degc, 
             max_temp_degc, 
@@ -325,7 +325,7 @@ impl CIETApp {
             4.0);
 
 
-        let button_temp_degc = 55.0;
+        let button_temp_degc = ciet_state_local.pipe_18_temp_degc;
         let pipe_18_vertical = new_temp_sensitive_button(
             min_temp_degc, 
             max_temp_degc, 

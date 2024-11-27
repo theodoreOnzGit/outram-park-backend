@@ -32,6 +32,13 @@ pub struct CIETState {
     pub simulation_time_seconds: f64,
     pub elapsed_time_seconds: f64,
     pub calc_time_ms: f64,
+    pub pipe_1a_temp_degc: f32,
+    pub pipe_1b_temp_degc: f32,
+    pub pipe_18_temp_degc: f32,
+    pub pipe_2a_temp_degc: f32,
+    pub pipe_2_temp_degc: f32,
+    pub pipe_3_temp_degc: f32,
+    pub pipe_4_temp_degc: f32,
 }
 
 impl Default for CIETState {
@@ -57,6 +64,13 @@ impl Default for CIETState {
             simulation_time_seconds: 0.0,
             elapsed_time_seconds: 0.0,
             calc_time_ms: 0.0,
+            pipe_1a_temp_degc: 21.0,
+            pipe_1b_temp_degc: 21.0,
+            pipe_18_temp_degc: 21.0,
+            pipe_2a_temp_degc: 21.0,
+            pipe_2_temp_degc: 21.0,
+            pipe_3_temp_degc: 21.0,
+            pipe_4_temp_degc: 21.0,
         }
     }
 }
