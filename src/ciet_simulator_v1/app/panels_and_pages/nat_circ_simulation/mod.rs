@@ -325,7 +325,18 @@ pub fn coupled_dracs_loop_version_7(
 
         let input_power_kilowatts = local_ciet_state.get_heater_power_kilowatts();
         let input_power = Power::new::<kilowatt>(input_power_kilowatts);
-        let heat_rate_through_heater = input_power;
+
+        // this is a safety killswitch 
+
+        let heater_outlet_temp_degc = 
+            local_ciet_state.get_heater_inlet_temp_degc();
+        let heat_rate_through_heater;
+
+        if heater_outlet_temp_degc < 150.0 {
+            heat_rate_through_heater = input_power;
+        } else {
+            heat_rate_through_heater = Power::ZERO;
+        }
 
         let tchx_outlet_temperature_set_point_degc = 
             local_ciet_state.bt_66_tchx_outlet_set_pt_deg_c;
