@@ -664,9 +664,14 @@ pub fn coupled_dracs_loop_version_7(
         //
         // I'll give it 1 extra millisecond to do all this calculation
 
+
+        let time_elapsed_seconds = current_simulation_time.get::<second>();
+        local_ciet_state.time_elapsed_seconds = (time_elapsed_seconds * 10.0).round()/10.0;
+        // now update the ciet state 
         let time_taken_for_calculation_loop_milliseconds: f64 = 
             (loop_time.elapsed().unwrap() - loop_time_start)
             .as_millis() as f64;
+        local_ciet_state.calc_time_ms = time_taken_for_calculation_loop_milliseconds;
 
         let time_to_sleep_milliseconds: u64 = 
             (timestep.get::<millisecond>() - 
@@ -675,11 +680,6 @@ pub fn coupled_dracs_loop_version_7(
 
         let time_to_sleep: Duration = 
             Duration::from_millis(time_to_sleep_milliseconds - 1);
-
-        let time_elapsed_seconds = current_simulation_time.get::<second>();
-        local_ciet_state.calc_time_ms = time_taken_for_calculation_loop_milliseconds;
-        local_ciet_state.time_elapsed_seconds = (time_elapsed_seconds * 10.0).round()/10.0;
-        // now update the ciet state 
 
         global_ciet_state_ptr.lock().unwrap().overwrite_state(
             local_ciet_state);
