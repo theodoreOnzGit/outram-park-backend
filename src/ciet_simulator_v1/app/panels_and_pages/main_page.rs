@@ -63,22 +63,11 @@ impl CIETApp {
         ui.separator();
 
         // buttons with custom colour 
-        let colour_fill = Color32::from_rgb(155, 100, 100);
-        let coloured_button = egui::Button::new("test button")
-            .fill(colour_fill);
-        ui.add_enabled(false, coloured_button);
+        //let colour_fill = Color32::from_rgb(155, 100, 100);
+        //let coloured_button = egui::Button::new("test button")
+        //    .fill(colour_fill);
+        //ui.add_enabled(false, coloured_button);
 
-        let hotness = 0.1;
-        let cold_button = 
-            egui::Button::new("cold button")
-            .fill(hot_to_cold_colour(hotness));
-
-        ui.add_enabled(true, cold_button);
-        let hotness = 0.9;
-        let hot_button = 
-            egui::Button::new("hot button")
-            .fill(hot_to_cold_colour(hotness));
-        ui.add_enabled(true, hot_button);
         ui.separator();
 
         // for user to set heater power
