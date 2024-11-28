@@ -220,7 +220,7 @@ impl CIETApp {
 
         // temperature sensitive buttons for all pipes
         let min_temp_degc = 20.0;
-        let max_temp_degc = 150.0;
+        let max_temp_degc = 100.0;
 
         // hot branch
         let button_temp_degc = ciet_state_local.pipe_1a_temp_degc;
