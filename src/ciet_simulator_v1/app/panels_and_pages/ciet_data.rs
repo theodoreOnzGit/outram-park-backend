@@ -12,23 +12,20 @@
 /// ready, obtain a lock, then overwrite it completely
 #[derive(Debug,Clone,Copy)]
 pub struct CIETState {
-    pub heater_power_kilowatts: f64,
-    pub ctah_pump_massrate_set_point: f64,
-    pub bt_11_heater_inlet_deg_c: f64,
-    pub bt_12_heater_outlet_deg_c: f64,
-    pub bt_43_ctah_inlet_deg_c: f64,
-    pub bt_41_ctah_outlet_deg_c: f64,
-    pub bt_41_ctah_outlet_set_pt_deg_c: f64,
-    pub bt_60_dhx_tube_inlet_deg_c: f64,
-    pub bt_21_dhx_tube_outlet_deg_c: f64,
-    pub bt_66_tchx_outlet_set_pt_deg_c: f64,
-    pub fm_40_ctah_branch_kg_per_s: f64,
+    // time diagnostics
     pub simulation_time_seconds: f64,
     pub elapsed_time_seconds: f64,
     pub calc_time_ms: f64,
+    // user inputs
+    pub heater_power_kilowatts: f64,
+    pub ctah_pump_massrate_set_point: f64,
+    pub bt_41_ctah_outlet_set_pt_deg_c: f64,
+    pub bt_66_tchx_outlet_set_pt_deg_c: f64,
     // heater branch
     pub pipe_18_temp_degc: f32,
     pub pipe_1a_temp_degc: f32,
+    pub bt_11_heater_inlet_deg_c: f64,
+    pub bt_12_heater_outlet_deg_c: f64,
     pub pipe_1b_temp_degc: f32,
     pub pipe_2a_temp_degc: f32,
     pub pipe_2_temp_degc: f32,
@@ -51,6 +48,7 @@ pub struct CIETState {
     pub pipe_19_temp_degc: f32,
     pub pipe_17b_temp_degc: f32,
     // dracs loop (hot branch)
+    pub bt_21_dhx_tube_outlet_deg_c: f64,
     pub pipe_30b_temp_degc: f32,
     pub pipe_31a_temp_degc: f32,
     pub pipe_31_temp_degc: f32,
@@ -68,6 +66,26 @@ pub struct CIETState {
     pub pipe_38_temp_degc: f32,
     pub pipe_39_temp_degc: f32,
     pub pipe_30a_temp_degc: f32,
+    pub bt_60_dhx_tube_inlet_deg_c: f64,
+    // ctah branch
+    pub pipe_5b_temp_degc: f32,
+    pub pipe_6a_temp_degc: f32,
+    pub pipe_6_temp_degc: f32,
+    pub bt_43_ctah_inlet_deg_c: f64,
+    pub bt_41_ctah_outlet_deg_c: f64,
+    pub pipe_8a_temp_degc: f32,
+    pub pipe_8_temp_degc: f32,
+    pub pipe_9_temp_degc: f32,
+    pub pipe_10_temp_degc: f32,
+    pub pipe_11_temp_degc: f32,
+    pub pipe_12_temp_degc: f32,
+    pub pipe_13_temp_degc: f32,
+    pub pipe_14_temp_degc: f32,
+    pub fm40_label_14a_temp_degc: f32,
+    pub fm40_ctah_branch_kg_per_s: f64,
+    pub pipe_15_temp_degc: f32,
+    pub pipe_16_temp_degc: f32,
+    pub pipe_17a_temp_degc: f32,
 
 
 }
@@ -89,7 +107,7 @@ impl Default for CIETState {
             bt_66_tchx_outlet_set_pt_deg_c: 21.0,
             fm_60_dracs_kg_per_s: 0.0,
             fm20_dhx_branch_kg_per_s: 0.0,
-            fm_40_ctah_branch_kg_per_s: 0.0,
+            fm40_ctah_branch_kg_per_s: 0.0,
             simulation_time_seconds: 0.0,
             elapsed_time_seconds: 0.0,
             calc_time_ms: 0.0,
@@ -130,6 +148,22 @@ impl Default for CIETState {
             pipe_38_temp_degc: 21.0,
             pipe_39_temp_degc: 21.0,
             pipe_30a_temp_degc: 21.0,
+            // ctah branch
+            pipe_5b_temp_degc: 21.0,
+            pipe_6a_temp_degc: 21.0,
+            pipe_6_temp_degc: 21.0,
+            pipe_8a_temp_degc: 21.0,
+            pipe_8_temp_degc: 21.0,
+            pipe_9_temp_degc: 21.0,
+            pipe_10_temp_degc: 21.0,
+            pipe_11_temp_degc: 21.0,
+            pipe_12_temp_degc: 21.0,
+            pipe_13_temp_degc: 21.0,
+            pipe_14_temp_degc: 21.0,
+            fm40_label_14a_temp_degc: 21.0,
+            pipe_15_temp_degc: 21.0,
+            pipe_16_temp_degc: 21.0,
+            pipe_17a_temp_degc: 21.0,
 
         }
     }
