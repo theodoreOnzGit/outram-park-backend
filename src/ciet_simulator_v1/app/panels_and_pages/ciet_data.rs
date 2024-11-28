@@ -38,7 +38,7 @@ pub struct CIETState {
     pub pipe_25a_temp_degc: f32,
     pub bt_21_dhx_shell_inlet_deg_c: f64,
     pub pipe_23_temp_degc: f32,
-    pub bt_25_dhx_shell_outlet_deg_c: f64,
+    pub bt_27_dhx_shell_outlet_deg_c: f64,
     pub pipe_23a_temp_degc: f32,
     pub pipe_22_temp_degc: f32,
     pub fm20_label_21a_temp_degc: f32,
@@ -125,7 +125,7 @@ impl Default for CIETState {
             pipe_25_temp_degc: 21.0,
             bt_21_dhx_shell_inlet_deg_c: 21.0,
             pipe_25a_temp_degc: 21.0,
-            bt_25_dhx_shell_outlet_deg_c: 21.0,
+            bt_27_dhx_shell_outlet_deg_c: 21.0,
             pipe_23_temp_degc: 21.0,
             pipe_23a_temp_degc: 21.0,
             pipe_22_temp_degc: 21.0,
@@ -195,7 +195,7 @@ impl CIETState {
 
     /// dhx methods
     pub fn get_dhx_shell_outlet_temp_degc(&self) -> f64 {
-        return self.bt_25_dhx_shell_outlet_deg_c;
+        return self.bt_27_dhx_shell_outlet_deg_c;
     }
 
     pub fn get_dhx_shell_inlet_temp_degc(&self) -> f64 {
