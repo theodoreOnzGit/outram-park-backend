@@ -325,7 +325,7 @@ impl CIETApp {
             ui, 
             pipe_18_vertical, 
             heater_x - 140.0 , 
-            heater_y + 190.0, 
+            heater_y + 230.0, 
             80.0, 
             4.0);
 
@@ -342,6 +342,134 @@ impl CIETApp {
             heater_y + 210.0, 
             150.0, 
             4.0);
+
+        // dhx branch
+
+        let button_temp_degc = ciet_state_local.pipe_17b_temp_degc;
+        let pipe_17b_horizontal = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "17b");
+
+        self.place_horizontal_widget_with_length(
+            ui, 
+            pipe_17b_horizontal, 
+            heater_x - 180.0 , 
+            heater_y + 290.0, 
+            40.0, 
+            4.0);
+        
+        let button_temp_degc = ciet_state_local.pipe_19_temp_degc;
+        let pipe_19_horizontal = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "19");
+
+        self.place_horizontal_widget_with_length(
+            ui, 
+            pipe_19_horizontal, 
+            heater_x - 220.0 , 
+            heater_y + 290.0, 
+            40.0, 
+            4.0);
+
+
+        let button_temp_degc = ciet_state_local.pipe_20_temp_degc;
+        let pipe_20_horizontal = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "20");
+
+        self.place_horizontal_widget_with_length(
+            ui, 
+            pipe_20_horizontal, 
+            heater_x - 260.0 , 
+            heater_y + 290.0, 
+            40.0, 
+            4.0);
+
+        let button_temp_degc = ciet_state_local.pipe_21_temp_degc;
+        let pipe_21_horizontal = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "21");
+
+        self.place_vertical_widget_with_length(
+            ui, 
+            pipe_21_horizontal, 
+            heater_x - 290.0 , 
+            heater_y + 285.0, 
+            40.0, 
+            4.0);
+
+        // fm20 (21a)
+        let button_temp_degc = ciet_state_local.fm20_label_21a_temp_degc;
+        let fm21a_mass_rate_kg_per_s = ciet_state_local.fm20_dhx_branch_kg_per_s;
+        let fm21_text: String = "FM20 (21a). flowrate (kg/s) : ".to_string() 
+            + &fm21a_mass_rate_kg_per_s.to_string();
+        let pipe_21a_horizontal = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            &fm21_text);
+
+        self.place_vertical_widget_with_length(
+            ui, 
+            pipe_21a_horizontal, 
+            heater_x - 290.0 , 
+            heater_y + 225.0, 
+            80.0, 
+            1.2);
+
+        let button_temp_degc = ciet_state_local.pipe_22_temp_degc;
+        let pipe_22_horizontal = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "22");
+
+        self.place_vertical_widget_with_length(
+            ui, 
+            pipe_22_horizontal, 
+            heater_x - 290.0 , 
+            heater_y + 165.0, 
+            40.0, 
+            4.0);
+
+        let button_temp_degc = ciet_state_local.pipe_23a_temp_degc;
+        let pipe_23a_horizontal = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "23a");
+
+        self.place_vertical_widget_with_length(
+            ui, 
+            pipe_23a_horizontal, 
+            heater_x - 290.0 , 
+            heater_y + 125.0, 
+            40.0, 
+            4.0);
+
+
+        let button_temp_degc = ciet_state_local.pipe_23_temp_degc;
+        let pipe_23_horizontal = new_temp_sensitive_button(
+            min_temp_degc, 
+            max_temp_degc, 
+            button_temp_degc, 
+            "23");
+
+        self.place_vertical_widget_with_length(
+            ui, 
+            pipe_23_horizontal, 
+            heater_x - 290.0 , 
+            heater_y + 55.0, 
+            100.0, 
+            10.0);
 
         // obtain a lock for ciet state, set it 
         self.ciet_state.lock().unwrap().overwrite_state(ciet_state_local);
