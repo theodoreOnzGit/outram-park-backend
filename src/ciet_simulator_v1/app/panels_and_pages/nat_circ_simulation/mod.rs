@@ -768,9 +768,10 @@ pub fn coupled_dracs_loop_version_7(
                 pipe_21a_temp.get::<degree_celsius>() as f32;
 
 
+            // 3 dp
             local_ciet_state.fm20_dhx_branch_kg_per_s = 
                 ((absolute_mass_flowrate_pri_loop
-                .get::<kilogram_per_second>() *100.0).round()/100.0
+                .get::<kilogram_per_second>() *1000.0).round()/1000.0
                 ) as f32 ;
 
             let pipe_22_temp = 
