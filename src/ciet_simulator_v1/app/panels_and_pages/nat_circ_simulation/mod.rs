@@ -77,8 +77,12 @@ pub fn coupled_dracs_loop_version_7(
     // altered from version 4, to introduce more stability for set b9
     //
     // setting controller gain to 1.55 and 1.0 didn't work, still unstable
-    let controller_gain = Ratio::new::<ratio>(1.75);
-    let integral_time: Time = controller_gain / Frequency::new::<hertz>(1.0);
+    let _controller_gain_original = Ratio::new::<ratio>(1.75);
+    let _integral_time_original: Time = _controller_gain_original / Frequency::new::<hertz>(1.0);
+    // i'm decreasing integral time to make controller hopefully more responsive
+    // and increasing controller gain for the same reason
+    let controller_gain = Ratio::new::<ratio>(9.75);
+    let integral_time: Time = controller_gain / Frequency::new::<hertz>(5.0);
     let derivative_time: Time = Time::new::<second>(1.0);
     // derivative time ratio
     let alpha: Ratio = Ratio::new::<ratio>(1.0);
@@ -413,7 +417,7 @@ pub fn coupled_dracs_loop_version_7(
             // 
             //
             // the reference value is decided by the user 
-            // in this case 250 W/(m^2 K)
+            // in this case 40 W/(m^2 K)
 
             let mut tchx_heat_trf_output = 
                 dimensionless_heat_trf_input * reference_tchx_htc
