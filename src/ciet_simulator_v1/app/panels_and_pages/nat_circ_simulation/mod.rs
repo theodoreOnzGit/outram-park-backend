@@ -858,6 +858,15 @@ pub fn coupled_dracs_loop_version_7(
             local_ciet_state.pipe_30b_temp_degc = 
                 pipe_30b_temp.get::<degree_celsius>() as f32;
 
+            let pipe_31_temp = 
+                *static_mixer_61_label_31
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.pipe_31_temp_degc = 
+                pipe_31_temp.get::<degree_celsius>() as f32;
 
             let pipe_31a_temp = 
                 *pipe_31a
@@ -870,15 +879,6 @@ pub fn coupled_dracs_loop_version_7(
                 pipe_31a_temp.get::<degree_celsius>() as f32;
 
 
-            let pipe_31_temp = 
-                *static_mixer_61_label_31
-                .pipe_fluid_array_temperature()
-                .unwrap()
-                .first()
-                .unwrap();
-
-            local_ciet_state.pipe_31_temp_degc = 
-                pipe_31_temp.get::<degree_celsius>() as f32;
 
             let pipe_32_temp = 
                 *pipe_32
@@ -910,6 +910,9 @@ pub fn coupled_dracs_loop_version_7(
 
             local_ciet_state.pipe_34_temp_degc = 
                 pipe_34_temp.get::<degree_celsius>() as f32;
+
+            local_ciet_state.bt_65_tchx_inlet_deg_c = 
+                local_ciet_state.pipe_34_temp_degc as f64;
 
 
             let pipe_36a_temp = 
