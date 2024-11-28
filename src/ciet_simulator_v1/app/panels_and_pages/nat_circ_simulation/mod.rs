@@ -912,7 +912,7 @@ pub fn coupled_dracs_loop_version_7(
                 pipe_34_temp.get::<degree_celsius>() as f32;
 
             local_ciet_state.bt_65_tchx_inlet_deg_c = 
-                ((local_ciet_state.pipe_34_temp_degc * 100.0).round()/100.0) as f64 ;
+                ((local_ciet_state.pipe_34_temp_degc * 100.0).round() as f64)/100.0_f64;
 
 
             let pipe_36a_temp = 
