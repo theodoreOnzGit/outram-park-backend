@@ -472,7 +472,9 @@ impl CIETApp {
             10.0);
 
 
-        let button_temp_degc = ciet_state_local.pipe_25a_temp_degc;
+        // i kinda mix up 25a and 25 here. but this makes it more 
+        // correct in the diagram
+        let button_temp_degc = ciet_state_local.pipe_25_temp_degc;
         let pipe_25a_vertical = new_temp_sensitive_button(
             min_temp_degc, 
             max_temp_degc, 
@@ -487,7 +489,7 @@ impl CIETApp {
             150.0, 
             10.0);
 
-        let button_temp_degc = ciet_state_local.pipe_25_temp_degc;
+        let button_temp_degc = ciet_state_local.pipe_25a_temp_degc;
         let pipe_25_vertical = new_temp_sensitive_button(
             min_temp_degc, 
             max_temp_degc, 
