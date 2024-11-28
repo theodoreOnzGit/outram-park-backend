@@ -27,18 +27,33 @@ pub struct CIETState {
     pub bt_66_tchx_outlet_deg_c: f64,
     pub bt_66_tchx_outlet_set_pt_deg_c: f64,
     pub fm_60_dracs_kg_per_s: f64,
-    pub fm_20_dhx_branch_kg_per_s: f64,
     pub fm_40_ctah_branch_kg_per_s: f64,
     pub simulation_time_seconds: f64,
     pub elapsed_time_seconds: f64,
     pub calc_time_ms: f64,
+    // heater branch
+    pub pipe_18_temp_degc: f32,
     pub pipe_1a_temp_degc: f32,
     pub pipe_1b_temp_degc: f32,
-    pub pipe_18_temp_degc: f32,
     pub pipe_2a_temp_degc: f32,
     pub pipe_2_temp_degc: f32,
     pub pipe_3_temp_degc: f32,
     pub pipe_4_temp_degc: f32,
+    // dhx branch
+    pub pipe_5a_temp_degc: f32,
+    pub pipe_26_temp_degc: f32,
+    pub pipe_25_temp_degc: f32,
+    pub pipe_25a_temp_degc: f32,
+    pub pipe_23_temp_degc: f32,
+    pub pipe_23a_temp_degc: f32,
+    pub pipe_22_temp_degc: f32,
+    pub fm20_label_21a_temp_degc: f32,
+    pub fm20_dhx_branch_kg_per_s: f32,
+    pub pipe_21_temp_degc: f32,
+    pub pipe_20_temp_degc: f32,
+    pub pipe_19_temp_degc: f32,
+    pub pipe_17b_temp_degc: f32,
+
 }
 
 impl Default for CIETState {
@@ -59,11 +74,12 @@ impl Default for CIETState {
             bt_66_tchx_outlet_deg_c: 21.0,
             bt_66_tchx_outlet_set_pt_deg_c: 21.0,
             fm_60_dracs_kg_per_s: 0.0,
-            fm_20_dhx_branch_kg_per_s: 0.0,
+            fm20_dhx_branch_kg_per_s: 0.0,
             fm_40_ctah_branch_kg_per_s: 0.0,
             simulation_time_seconds: 0.0,
             elapsed_time_seconds: 0.0,
             calc_time_ms: 0.0,
+            //heater branch
             pipe_1a_temp_degc: 21.0,
             pipe_1b_temp_degc: 21.0,
             pipe_18_temp_degc: 21.0,
@@ -71,6 +87,19 @@ impl Default for CIETState {
             pipe_2_temp_degc: 21.0,
             pipe_3_temp_degc: 21.0,
             pipe_4_temp_degc: 21.0,
+            // dhx branch
+            pipe_5a_temp_degc: 21.0,
+            pipe_26_temp_degc: 21.0,
+            pipe_25_temp_degc: 21.0,
+            pipe_25a_temp_degc: 21.0,
+            pipe_23_temp_degc: 21.0,
+            pipe_23a_temp_degc: 21.0,
+            pipe_22_temp_degc: 21.0,
+            fm20_label_21a_temp_degc: 21.0,
+            pipe_21_temp_degc: 21.0,
+            pipe_20_temp_degc: 21.0,
+            pipe_19_temp_degc: 21.0,
+            pipe_17b_temp_degc: 21.0,
         }
     }
 }
