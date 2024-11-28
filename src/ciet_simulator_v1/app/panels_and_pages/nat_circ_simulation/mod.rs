@@ -638,7 +638,7 @@ pub fn coupled_dracs_loop_version_7(
             (bt_12.get::<degree_celsius>()*100.0)
             .round()/100.0;
 
-        // hot branch update 
+        // primary loop DHX plus heater branch update
         {
             let pipe_1a_temp = 
                 *heater_top_head_1a
@@ -756,6 +756,7 @@ pub fn coupled_dracs_loop_version_7(
                 pipe_21_temp.get::<degree_celsius>() as f32;
 
             // fm20 (21a)
+            // mass flowrate at 3 dp
 
             let pipe_21a_temp = 
                 *flowmeter_20_21a
@@ -768,7 +769,6 @@ pub fn coupled_dracs_loop_version_7(
                 pipe_21a_temp.get::<degree_celsius>() as f32;
 
 
-            // 3 dp
             local_ciet_state.fm20_dhx_branch_kg_per_s = 
                 ((absolute_mass_flowrate_pri_loop
                 .get::<kilogram_per_second>() *1000.0).round()/1000.0
@@ -834,6 +834,152 @@ pub fn coupled_dracs_loop_version_7(
 
             local_ciet_state.pipe_5a_temp_degc = 
                 pipe_5a_temp.get::<degree_celsius>() as f32;
+        }
+        // DRACS loop update
+        {
+            let pipe_30a_temp = 
+                *dhx_tube_side_30a
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.pipe_30a_temp_degc = 
+                pipe_30a_temp.get::<degree_celsius>() as f32;
+
+
+            let pipe_30b_temp = 
+                *dhx_tube_side_30b
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.pipe_30b_temp_degc = 
+                pipe_30b_temp.get::<degree_celsius>() as f32;
+
+
+            let pipe_31a_temp = 
+                *pipe_31a
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.pipe_31a_temp_degc = 
+                pipe_31a_temp.get::<degree_celsius>() as f32;
+
+
+            let pipe_31_temp = 
+                *static_mixer_61_label_31
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.pipe_31_temp_degc = 
+                pipe_31_temp.get::<degree_celsius>() as f32;
+
+            let pipe_32_temp = 
+                *pipe_32
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.pipe_32_temp_degc = 
+                pipe_32_temp.get::<degree_celsius>() as f32;
+
+
+            let pipe_33_temp = 
+                *pipe_33
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.pipe_33_temp_degc = 
+                pipe_33_temp.get::<degree_celsius>() as f32;
+
+            let pipe_34_temp = 
+                *pipe_34
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.pipe_34_temp_degc = 
+                pipe_34_temp.get::<degree_celsius>() as f32;
+
+
+            let pipe_36a_temp = 
+                *pipe_36a
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.pipe_36a_temp_degc = 
+                pipe_36a_temp.get::<degree_celsius>() as f32;
+
+            let pipe_36_temp = 
+                *static_mixer_60_label_36
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.pipe_36_temp_degc = 
+                pipe_36_temp.get::<degree_celsius>() as f32;
+
+            let pipe_37_temp = 
+                *pipe_37
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.pipe_37_temp_degc = 
+                pipe_37_temp.get::<degree_celsius>() as f32;
+
+
+            // fm60 (37a)
+            // 3dp
+
+            let pipe_21a_temp = 
+                *flowmeter_60_37a
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.fm60_label_37a_temp_degc = 
+                pipe_21a_temp.get::<degree_celsius>() as f32;
+
+            local_ciet_state.fm_60_dracs_kg_per_s = 
+                (absolute_mass_flowrate_dracs
+                .get::<kilogram_per_second>() *1000.0).round()/1000.0 ;
+
+            let pipe_38_temp = 
+                *pipe_38
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.pipe_38_temp_degc = 
+                pipe_38_temp.get::<degree_celsius>() as f32;
+
+            let pipe_39_temp = 
+                *pipe_39
+                .pipe_fluid_array_temperature()
+                .unwrap()
+                .first()
+                .unwrap();
+
+            local_ciet_state.pipe_39_temp_degc = 
+                pipe_39_temp.get::<degree_celsius>() as f32;
+
         }
 
 
