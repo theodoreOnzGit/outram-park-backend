@@ -104,6 +104,7 @@ impl eframe::App for CIETApp {
                     ui.selectable_value(&mut self.open_panel, Panel::TCHX, "TCHX"); 
                     ui.selectable_value(&mut self.open_panel, Panel::DHX, "DHX"); 
                     ui.selectable_value(&mut self.open_panel, Panel::SchematicDiagram, "CIET Schematic Diagram"); 
+                    ui.selectable_value(&mut self.open_panel, Panel::NodalisedDiagram, "CIET NodalisedDiagram Diagram"); 
             }
             );
             ui.separator();
@@ -132,6 +133,12 @@ impl eframe::App for CIETApp {
                 },
                 Panel::DHX => {},
                 Panel::TCHX => {},
+                Panel::NodalisedDiagram => {
+                    // enables scrolling within the image
+                    egui::ScrollArea::both().show(ui, |ui| {
+                        ui.image(egui::include_image!("ciet_sam_diagram_replica.jpg"));
+                    });
+                },
             }
 
             ui.separator();

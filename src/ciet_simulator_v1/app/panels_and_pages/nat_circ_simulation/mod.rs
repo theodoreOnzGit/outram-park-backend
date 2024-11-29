@@ -81,7 +81,7 @@ pub fn coupled_dracs_loop_version_7(
     let _integral_time_original: Time = _controller_gain_original / Frequency::new::<hertz>(1.0);
     // i'm decreasing integral time to make controller hopefully more responsive
     // and increasing controller gain for the same reason
-    let controller_gain = Ratio::new::<ratio>(9.75);
+    let controller_gain = Ratio::new::<ratio>(90.75);
     let integral_time: Time = controller_gain / Frequency::new::<hertz>(5.0);
     let derivative_time: Time = Time::new::<second>(1.0);
     // derivative time ratio

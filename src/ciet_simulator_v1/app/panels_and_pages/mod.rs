@@ -1,13 +1,14 @@
 
 #[derive(serde::Deserialize, serde::Serialize,PartialEq,Clone)]
 pub(crate) enum Panel {
-    SchematicDiagram,
     MainPage,
     CTAHPump,
     CTAH,
     Heater,
     DHX,
     TCHX,
+    SchematicDiagram,
+    NodalisedDiagram,
 }
 
 pub mod main_page;
