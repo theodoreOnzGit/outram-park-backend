@@ -10,10 +10,12 @@ impl CIETApp {
     pub fn ciet_sim_main_page(&mut self, ui: &mut Ui){
 
         // obtain a lock first to display the information 
+        
+        egui::ScrollArea::both().show(ui, |ui| {
+            self.insert_read_and_update_widgets(ui);
 
-        self.insert_read_and_update_widgets(ui);
-
-        self.insert_pictures(ui);
+            self.insert_pictures(ui);
+        });
 
     }
 
