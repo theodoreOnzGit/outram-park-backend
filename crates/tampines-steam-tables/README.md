@@ -1,0 +1,346 @@
+# TAMPINES Steam Tables
+In house steam tables for the Thermo-hydraulic Artificial intelligence 
+Multi-Phase INtegrated Emulator System (TAMPINES) solver.
+
+
+This relies heavily upon the [Rust-steam](https://github.com/marciorvneto/rusteam)
+library licensed using the MIT license. 
+
+However, [Rust-steam](https://github.com/marciorvneto/rusteam) is incomplete 
+for now. Moreover, it does not use the units of measure library. This 
+set of steam-tables is meant to used dimensioned units by default. It will 
+also incorporate verification tests from the following reference:
+
+Kretzschmar, H. J., & Wagner, W. (2019). 
+International steam tables. Springer Berlin Heidelberg.
+
+Significant portions of code will be copied from the rust-steam package.
+Hence, I am putting the rust-steam license here.
+
+## Note on AI usage
+
+Until last month, AI was hardly used in this project. From this month
+(June 2026) onwards, Claude Code was used in the testing and development of
+the choked flow algorithms in vapour-liquid equilibrium (VLE).
+
+# FHR Educational Simulator 
+
+## To Run on Windows
+
+For installation, you can just download the fhr_sim_v2.exe from the 
+release tags. Just download the exe file will do
+
+## Development and Testing
+tampines-steam-tables was used to construct the secondary loop of the  
+a Fluoride Salt Cooled High Temperature Reactor (FHR) educational 
+simulator. The secondary loop just runs at steady state (no transient 
+calculations for simplicity.
+```bash
+cargo run --release --example fhr_sim_v2
+```
+
+Note that for windows PCs, sometimes there will be problems where 
+windows defender blocks the fhr_sim_v2 from being run. In those cases,
+it's better to use windows subsystem for linux (WSL). One needs to note 
+to use:
+
+```bash
+sudo apt install libopenblas-dev
+```
+
+Before running:
+```bash
+cargo run --release --example fhr_sim_v2
+```
+
+I used rustup to install rust. So if versions of Rust are outdated 
+(error messages may tell you so), then use:
+
+```bash
+rustup update stable
+```
+
+
+## To resize
+
+Note: If you want to resize, use Ctrl+ and Ctrl- to change the size of the 
+simulator.
+
+
+# Changelog 
+
+v0.1.8 
+
+The key part for this is to do verification and validation for critical 
+flow using the homogeneous equation model. The steam tables themselves are 
+done, but the sonic flow thermodynamics equations are to be added, with 
+simple demonstration of the rhoPimpleFoam derived algorithms.
+
+The critical mass flux for homogeneous equilibrium steam-water will be 
+verified and validated against figure 1 in Moody's publication:
+
+```
+https://www.osti.gov/servlets/purl/7309475
+```
+Moody, F. J. (1975). Maximum discharge rate of liquid-vapor mixtures 
+from vessels (No. NEDO--21052). General Electric Co., San Jose, 
+CA (United States). BWR Projects Dept..
+
+
+Data was read via graph reader
+
+v0.1.7
+
+Added and tested some diverging nozzle functions post choked flow.
+This includes where choked flow isentropically decelerates to subsonic 
+speeds at outlet pressure, or isentropically accelerates supersonically to 
+outlet pressure. This is done using a combination of (p,s) and/or (h,s)
+algorithms.
+
+Moreover, between these two pressures, we expect normal shocks to occur 
+in the nozzle. For this, we use a combination of (p,h) algorithms with a 
+velocity scanning method with regula falsi, to solve for v, such that 
+the outlet mass flowrate equals that at the choke.
+
+Added a joule thomson algorithm for throttling where kinetic energy is 
+non negligible.
+
+For verification and validation, I'm considering using:
+```
+https://www-pub.iaea.org/MTCD/Publications/PDF/TE-1677_web.pdf
+https://www.kns.org/files/pre_paper/11/63%EA%B9%80%EC%8B%9C%EB%8B%AC.pdf
+https://www.osti.gov/servlets/purl/7309475
+```
+
+I am searching for blowdown tests. And it seems this one at NRC may 
+just be the right one:
+
+```
+https://www.nrc.gov/docs/ML1927/ML19270F127.pdf
+```
+
+RELAP5 - MODELS, CODE STRUCTURE, AND APPLICATIONS
+
+And then, based on an AI search (Gemini), Marviken tests:
+
+```
+Marviken critical flow test data
+https://www.nrc.gov/docs/ML2005/ML20052H367.pdf
+```
+
+The Marviken tests seem to best fit these.
+
+However, doing these tests do involve phase equilibria, and some metastable 
+states. Hence, these are not yet implemented. What are implemented are 
+tests that deal with superheated steam. For these, the CD nozzle equations 
+work relatively well.
+
+Moreover, TampinesSteamTableCV has been given a few more functions for 
+convenience such as obtaining saturation temperature and pressure.
+
+v0.1.6
+
+more to be added towards the fhr\_sim\_v2, including turbine animation
+
+Now, (h,s) algorithm is implemented and tested against steam table.
+These tests are under interfaces folder of source code.
+The backward equations are slightly less accurate 
+than (p,h) and (p,s) algorithm. And for low quality steam, it reverts 
+to iteratively doing a (p,h) flashing with bisection method. Not too 
+efficient, but it does the job (ish).
+
+
+
+v0.1.5 
+
+minor update: added a get\_mass() method for the TampinesSteamTableCV
+
+v0.1.4
+
+added object oriented interfaces, aka TampinesSteamTableCV
+
+v0.1.3 
+
+Added a depressurisation example
+
+v0.1.2
+
+Added the FHR educational simulator with a STEADY STATE steam turbine cycle 
+as an example of how to use the flash algorithms within this code.
+
+
+v0.1.1 
+
+Starting the h,s flash algorithms.
+
+Also, copied some openfoam algorithms which will form the basis for which 
+the steam tables in tampines are used to solve two phase flow in transient 
+scenarios. Since OpenFOAM is licensed under 
+GNU GPLv3, tampines-steam-tables will also be licensed under GNU GPL v3.
+
+Note that for points near boundaries, correction factors have not been 
+applied for (p,h) and (p,s) flashes. (h,s) flashes have only been 
+partly implemented. 
+
+Near critical point for (h,s) flashing backward eqns, 
+the temperature, volume and all may be less 
+accurate for backward equations, temperatures may be off 
+by as much as 5 degrees c, and volumes may differ by 10%
+enthalpy of vapourisation may differ by up to 5% compared 
+to steam table data compared to steam table data... so beware...
+Though in the first place, the sat temperature equations were 
+never meant for this critical region..
+
+Thermal conductivity for (h,s) flash off by about 8%. 
+Also basic temperature equations also tend
+to fail to be accurate around the saturation line for bubble point,
+but not sure about dew point. Sometimes, dew point doesn't work 
+as in for 8 bar
+
+Also, pressure equations fail to be accurate at low pressures such as 
+0.1 bar, 1 bar up to 10 bar. At 0.1 bar, 1 bar, only expect the 
+pressure to be accurate to within 20% at least within region 1. 
+Accuracy up to 8% was observed for 2 bar pressure, 5% for 4 bar and 6 bar. 
+4% for 8 bar, 2% for 10 bar and 20 bar.
+
+For triple point pressure, hs flash doesn't work.
+
+Moreover, not all of (h,s) flash works for region 4. The equations 
+only work over a certain entropy bound.
+
+Kappa should not be trusted for hs flash at low temps.
+Quality for hs test should not be trusted past supercritical pressure. 
+Though at that pressure, we don't really care about quality anymore.
+Kind of meaningless because liquid and vapour properties are indistinguishable.
+
+hs flash also fails near boundaries, eg 800C or 1073.15K isotherm.
+
+v0.1.0 
+
+Added dielectric constant and surface tension functions.
+Didn't yet test across the whole steam table, but it works for the 
+small unit tests.
+
+v0.0.9
+Implemented thermal conductivity for ps flash. However, for 160 bar 
+and 220 bar steam tables, the max error is 30 and 40% respectively.
+For the 220 bar steam tables, it is quite near critical point, 
+so thermal conductivity equations were not meant to be accurate there.
+However, for 160 bar, it is sufficiently far from critical point that this 
+shouldn't be the case. But i'm leaving it as such for now, till such time 
+there is a better reference for such properties.
+
+Near critical temperatures and pressures, eg. 180 bar about 
+357+ degrees C, the speed of sound, isentropic exponent
+the specific heat capacity are not accurate to within 1%. Some discrepancies 
+are larger than 5-10% esp near critical region for these properties.
+
+The thermal conductivity and dynamic viscosity also have similar-ish degrees 
+of uncertainty.
+
+
+v0.0.8
+Implemented thermal conductivity for ph flash. However, for 160 bar 
+and 220 bar steam tables, the max error is 30 and 40% respectively.
+For the 220 bar steam tables, it is quite near critical point, 
+so thermal conductivity equations were not meant to be accurate there.
+However, for 160 bar, it is sufficiently far from critical point that this 
+shouldn't be the case.
+
+I'm quite puzzled as to why that is the case. But this is a bug that needs 
+to be fixed.
+
+v0.0.7
+
+Starting development of an interface for the forward and backward flash.
+First using functional programming, then object oriented programming.
+OOP not implemented in this version yet.
+
+Firstly, (p,T) flash, then (p,H) flash.
+This is done for all steam table values except for 1000 bar. 
+There is a problem for (p,T) and (p,H) flashing at 1000 bar 
+as the algorithm complains it's out of range. Will take some debugging 
+to settle.
+
+Dynamic viscosity added, can reproduce steam table to within 2%.
+Thermal conductivity can reproduce steam table values to within 1% 
+except for regions near critical point (220 bar) and from 100 bar 
+up to 200 bar.
+Thermal conductivity yet to be implemented for (p,H) flash,
+requires some debugging.
+
+
+
+
+v0.0.6
+beginning the addition of backwards eqns
+
+First, pressure and enthalpy (p,h) flash. 
+This is applicable for 
+
+region 1, which forward equations are (p,t) flash:
+- T(p,h)
+
+region 2, which forward eqns are (p,t) flash:
+- T(p,h) 
+
+region 3, which forward equations are (v,t) flash, so it accounts for quality:
+- T(p,h)
+- V(p,h)
+
+once (p,h) flash is done for regions 1,2 and 3, then you can get T,
+for region 1 and 2 or (V,T) for region 3
+
+and then get all your other thermodynamic variables
+
+the ps3 equations (enthalpy to pressure equations) are also added
+
+However, the interface for an overall ph flash or tp flash is not yet 
+available.
+
+
+v0.0.5
+Add Region 5 equations (no backwards equations here)
+
+v0.0.4 
+Added region 4 vapour liq saturation temp and pressure 
+line up to critical point. This includes triple point, 
+normal boiling point (100C at 1 atm) and critical point of water.
+
+v0.0.3 
+Added region 3, and the saturation temperature and pressure boundary equation 
+p23 and b23.
+Only forward eqns added. That is (T,P) flash.
+
+v0.0.2
+
+Added region 2, including metastable, dimensioned equations, with verification tests.
+Only forward eqns added. That is (T,P) flash.
+
+v0.0.1 
+
+Added region 1 dimensioned equations, with verification tests.
+Only forward eqns added. That is (T,P) flash.
+
+## Rust-steam license:
+
+Copyright 2023
+
+Permission is hereby granted, free of charge, to any person obtaining a 
+copy of this software and associated documentation files (the “Software”), 
+to deal in the Software without restriction, including without limitation 
+the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+and/or sell copies of the Software, and to permit persons to whom the 
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included 
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, 
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF 
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY 
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+

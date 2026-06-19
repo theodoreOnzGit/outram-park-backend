@@ -1,0 +1,49 @@
+[package]
+name = "teh-o-prke"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Point Reactor Kinetics Package (PRKE) for the Transport and Eigenvalue Hybrid Open source solver (Teh-O)"
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# `pki/` contains a private key (private.pem) that must never be published, and
+# `docs/` holds a large theory PDF that isn't crate content.
+exclude = ["pki", "docs"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+approx.workspace = true
+ndarray.workspace = true
+thiserror.workspace = true
+uom.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
+
+[target.'cfg(macos)'.dependencies]
+ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
+
+[target.'cfg(unix)'.dependencies]
+ndarray-linalg = { workspace = true, features = ["openblas-system"] }
+
+[dev-dependencies]
+chem-eng-real-time-process-control-simulator.workspace = true
+egui.workspace = true
+eframe.workspace = true
+env_logger.workspace = true
+local-ip-address.workspace = true
+roots.workspace = true
+egui_plot.workspace = true
+egui_extras.workspace = true
+serde.workspace = true
+tuas_boussinesq_solver.workspace = true
+
+
+
+
+[[example]]
+name = "fhr_sim_v1"
+path = "examples/fhr_sim_v1/main.rs"

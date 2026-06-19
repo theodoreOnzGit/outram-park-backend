@@ -1,0 +1,60 @@
+[package]
+name = "tuas_boussinesq_solver"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Thermo-hydraulic Uniphase Solver for Advection and Convection in Salt Flows (TUAS)"
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# Test runs dump ~58 MB of CSV output into the crate root; keep them out of the
+# published package (well over the crates.io size limit, and not crate content).
+exclude = ["*.csv"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+approx.workspace = true
+csv.workspace = true
+ndarray.workspace = true
+peroxide.workspace = true
+roots.workspace = true
+thiserror.workspace = true
+uom.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
+
+[target.'cfg(macos)'.dependencies]
+ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
+
+[target.'cfg(unix)'.dependencies]
+ndarray-linalg = { workspace = true, features = ["openblas-system"] }
+
+[lib]
+name = "tuas_boussinesq_solver"
+path = "src/lib/lib.rs"
+
+[[example]]
+name = "ciet_educational_simulator"
+
+
+[dev-dependencies]
+# the natural circulation loop requires a PID controller
+chem-eng-real-time-process-control-simulator.workspace = true
+
+egui.workspace = true
+eframe.workspace = true
+log.workspace = true
+
+# You only need serde if you want app persistence:
+serde.workspace = true
+egui_extras.workspace = true
+egui_plot.workspace = true
+image.workspace = true
+uom.workspace = true
+
+# native:
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger.workspace = true

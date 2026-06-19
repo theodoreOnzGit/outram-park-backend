@@ -1,0 +1,62 @@
+[package]
+name = "tampines-steam-tables"
+version = "0.2.0"
+edition.workspace = true
+license.workspace = true
+description = "Steam Tables for the TAMPINES Library"
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# `docs/` holds LaTeX sources and build artifacts (.aux/.bbl/.bcf/...) that are
+# not crate content.
+exclude = ["docs"]
+
+[dependencies]
+approx.workspace = true
+ndarray.workspace = true
+thiserror.workspace = true
+uom.workspace = true
+# now resolves to the in-tree crate rather than crates.io
+tuas_boussinesq_solver.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
+
+[target.'cfg(macos)'.dependencies]
+ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
+
+[target.'cfg(unix)'.dependencies]
+ndarray-linalg = { workspace = true, features = ["openblas-system"] }
+
+[dev-dependencies]
+teh-o-prke.workspace = true
+
+chem-eng-real-time-process-control-simulator.workspace = true
+egui.workspace = true
+eframe.workspace = true
+env_logger.workspace = true
+local-ip-address.workspace = true
+roots.workspace = true
+egui_plot.workspace = true
+egui_extras.workspace = true
+serde.workspace = true
+
+
+
+
+[[example]]
+name = "fhr_sim_v1"
+path = "examples/fhr_sim_v1/main.rs"
+
+[[example]]
+name = "depressurisation"
+path = "examples/depressurisation/main.rs"
+
+[[example]]
+name = "fhr_sim_v2"
+path = "examples/fhr_sim_v2/main.rs"
+
+[[example]]
+name = "rankine_cycle"
+path = "examples/transient_rankine_cycle/main.rs"

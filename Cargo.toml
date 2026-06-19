@@ -1,0 +1,63 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/chem-eng-real-time-process-control-simulator",
+    "crates/teh-o-prke",
+    "crates/tuas_boussinesq_solver",
+    "crates/tampines-steam-tables",
+]
+
+# Shared package metadata. Member crates keep their own `version` (they are
+# published independently) but inherit everything else from here so that the
+# whole OUTRAM PARK suite is released from this repository.
+[workspace.package]
+edition = "2021"
+license = "GPL-3.0-only"
+homepage = "https://github.com/theodoreOnzGit/outram-park-backend"
+repository = "https://github.com/theodoreOnzGit/outram-park-backend"
+categories = ["science"]
+
+# Single source of truth for third-party dependency versions. Every member
+# inherits these with `<dep>.workspace = true`, so versions can never drift
+# between TUAS, TAMPINES, etc. All pinned to the latest stable release.
+[workspace.dependencies]
+# core numerical / library deps
+approx = "0.5.1"            # 0.6 is only a pre-release; staying on latest stable
+csv = "1.4.0"
+ndarray = "0.17.2"
+ndarray-linalg = "0.18.1"  # features (openblas/intel-mkl) chosen per-target by each crate
+peroxide = "0.41.2"
+roots = "0.0.8"
+thiserror = "2.0.18"
+uom = "0.38.0"
+serde = { version = "1.0.228", features = ["derive"] }
+log = "0.4"
+
+# GUI / example stack — egui ecosystem pinned to the matched 0.34 series
+# (egui 0.34 requires Rust >= 1.92)
+egui = "0.34.3"
+eframe = { version = "0.34.3", default-features = false, features = [
+    "accesskit",     # Make egui compatible with screen readers.
+    "default_fonts", # Embed the default egui fonts.
+    "glow",          # Use the glow rendering backend.
+    "persistence",   # Enable restoring app state when restarting the app.
+] }
+egui_plot = "0.35.0"  # 0.35 pairs with egui 0.34 (0.34.x pairs with egui 0.33)
+egui_extras = { version = "0.34.3", features = ["all_loaders"] }
+env_logger = "0.11.10"
+image = { version = "0.25.10", features = ["jpeg", "png"] }
+local-ip-address = "0.6.13"
+
+# internal workspace crates — depend on these by path so members use the
+# in-tree copy rather than a crates.io release.
+chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.1.0" }
+teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.0" }
+tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.0" }
+tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.0" }
+
+# Optimize all dependencies even in debug builds — the thermal-hydraulic
+# solvers are expensive, so unoptimized deps make tests painfully slow.
+# (Lifted from chem-eng's crate-level profile; profiles are only honored at the
+# workspace root.)
+[profile.dev.package."*"]
+opt-level = 2

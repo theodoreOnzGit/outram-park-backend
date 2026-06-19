@@ -1,0 +1,32 @@
+[package]
+name = "chem-eng-real-time-process-control-simulator"
+version = "0.1.0"
+edition.workspace = true
+# NOTE: this crate is Apache-2.0, unlike the GPL-3.0 workspace default, so it
+# keeps its own license rather than inheriting from [workspace.package].
+license = "Apache-2.0"
+description = "Process Control Library (Chemical Engineering) with real time transfer function simulators"
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+approx.workspace = true
+csv.workspace = true
+thiserror.workspace = true
+uom.workspace = true
+
+[[bin]]
+name = "library_demo"
+path = "src/main.rs"
+
+[lib]
+name = "chem_eng_real_time_process_control_simulator"
+path = "src/lib/lib.rs"
+
+# NOTE: the crate's original `[profile.release] opt-level = 2` and
+# `[profile.dev.package."*"]` sections were moved to the workspace root
+# Cargo.toml — Cargo only honors profiles defined on the root manifest.
