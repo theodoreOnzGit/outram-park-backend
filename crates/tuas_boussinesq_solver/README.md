@@ -25,8 +25,8 @@ To run the simulator, clone the repository first and change directory
 into the simulator folder
 
 ```bash 
-git clone https://github.com/theodoreOnzGit/tuas_boussinesq_solver
-cd tuas_boussinesq_solver
+git clone https://github.com/theodoreOnzGit/outram-park-backend
+cd outram-park-backend
 ```
 Once inside the simulator folder, run:
 ```bash 

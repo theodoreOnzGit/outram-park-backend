@@ -257,8 +257,8 @@ impl eframe::App for CIETApp {
             }
 
             ui.add(egui::github_link_file!(
-                    "https://github.com/theodoreOnzGit/tuas_boussinesq_solver/blob/develop/",
-                    "TUAS Github Repo (develop)"
+                    "https://github.com/theodoreOnzGit/outram-park-backend/blob/main/",
+                    "OUTRAM PARK backend Github Repo (TUAS)"
             ));
 
 
