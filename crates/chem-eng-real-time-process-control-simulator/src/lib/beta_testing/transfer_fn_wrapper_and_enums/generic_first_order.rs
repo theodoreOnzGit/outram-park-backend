@@ -35,12 +35,13 @@ use super::{TransferFn, TransferFnTraits};
 ///
 /// we get:
 ///
-/// G(s) = 
+/// G(s) =
 ///
+/// ```text
 ///     Kp          a1        /             1          \
 /// ----------- + ----------- |  1 -  ---------------- |
 /// tau_p s + 1   b2 * taup   \        taup s + 1      /
-///
+/// ```
 ///
 /// The first term is taken care of by a 
 /// FirstOrderStableTransferFnNoZeroes,
