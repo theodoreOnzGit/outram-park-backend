@@ -156,3 +156,22 @@ first; `cargo publish` refuses a dirty tree without `--allow-dirty`).
 
 ⚠ The private key under `teh-o-prke/pki/` is excluded from the package, but it
 still exists in the working tree — consider removing it and rotating the key.
+
+## Model selection guide (for AI assistants)
+
+When working on debugging tasks in this workspace, choose the Claude model based on task complexity:
+
+### Haiku 4.5 — fastest, cheapest ($1/$5 per 1M tokens)
+- **Good for**: Quick lookups, simple one-file questions, iterative file reading
+- **Avoid for**: Multi-file reasoning, concurrency bugs, subtle state-flow issues
+- **Verdict for fhr_sim_v2 debugging**: Too weak — the UI state-sync bug spans thread boundaries and mutex discipline across multiple files; Haiku will likely miss it or suggest plausible-sounding wrong fixes
+
+### Sonnet 4.6 — balanced ($3/$15 per 1M tokens)
+- **Good for**: Multi-file code tracing, Rust ownership/mutex reasoning, interactive debugging sessions
+- **Avoid for**: Very deep invariants that require holding the entire codebase in mind simultaneously
+- **Verdict for fhr_sim_v2 debugging**: Good default — the bug is a logic/data-binding issue, not a novel algorithm, so Sonnet's reasoning depth is sufficient for most passes
+
+### Opus 4.8 — most capable ($5/$25 per 1M tokens)
+- **Good for**: Holding a large mental model across many interacting files simultaneously (e.g., all three simulation threads + the egui render loop at once), catching subtle concurrency bugs like "mutex held during repaint starves the UI thread"
+- **Avoid for**: Routine iterative work — 5× cost and noticeably slower responses make it sluggish for back-and-forth file reading
+- **Verdict for fhr_sim_v2 debugging**: Use if Sonnet gets stuck after reading `app/mod.rs`, `app/graph_data/update.rs`, and `simulator_trait.rs` and the root cause is still unclear
