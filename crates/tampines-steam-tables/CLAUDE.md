@@ -205,3 +205,22 @@ Diagnosis so far:
   `egui_plot::Line::new(points).name(s)` → `Line::new(s, points)` in
   `app/graph_pages/mod.rs`. `depressurisation` and `transient_rankine_cycle`
   required no changes (they don't touch the changed egui/egui_plot APIs).
+
+### Known issue: fhr_sim_v2 UI not registering backend state changes
+
+⚠ **Status:** UI does not reflect real-time updates from the thermal-hydraulics
+backend. The simulator runs but the plots and widgets remain static despite
+backend calculations progressing.
+
+**Investigation:** Cross-reference with the pre-migration fhr_sim_v2
+(`../../../tampines-steam-tables/examples/fhr_sim_v2/`, egui 0.29 version)
+shows only **3 files differ** (the egui API changes above), and all 23 other
+files in the `app/` tree are byte-identical. The thermal-hydraulics backend
+(`app/thermal_hydraulics_backend/*`), reactor physics (`app/prke_backend/*`),
+and widget logic (`app/local_widgets_and_buttons/*`) are unchanged, ruling out
+migration-induced breakage.
+
+**Root cause:** Logic issue in the state-update / data-binding pipeline
+(`app/graph_data/update.rs`, `app/mod.rs` UI loop, or the `Simulator` trait
+calls in `app/local_widgets_and_buttons/simulator_trait.rs`), **not** the egui
+0.29 → 0.34 port. The pre-migration version likely has the same bug.
