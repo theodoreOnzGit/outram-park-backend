@@ -39,7 +39,7 @@ egui = "0.34.3"
 eframe = { version = "0.34.3", default-features = false, features = [
     "accesskit",     # Make egui compatible with screen readers.
     "default_fonts", # Embed the default egui fonts.
-    "glow",          # Use the glow rendering backend.
+    "wgpu",          # Use the wgpu rendering backend (Vulkan/Metal/DX12; Wayland-native).
     "persistence",   # Enable restoring app state when restarting the app.
 ] }
 egui_plot = "0.35.0"  # 0.35 pairs with egui 0.34 (0.34.x pairs with egui 0.33)
