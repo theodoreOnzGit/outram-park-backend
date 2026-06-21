@@ -157,6 +157,19 @@ first; `cargo publish` refuses a dirty tree without `--allow-dirty`).
 ⚠ The private key under `teh-o-prke/pki/` is excluded from the package, but it
 still exists in the working tree — consider removing it and rotating the key.
 
+## Wayland / display notes
+
+The GUI examples (`fhr_sim_v2`, `ciet_educational_simulator`) use the **wgpu**
+renderer (Vulkan-backed, native Wayland). The old `glow` (OpenGL/glutin) backend
+raised `glutin error: provided native window is not supported` on Wayland and was
+replaced in the workspace `Cargo.toml` (2026-06-21).
+
+If you ever need to run without Vulkan (e.g. in a VM), force XWayland instead:
+
+```bash
+WINIT_UNIX_BACKEND=x11 cargo run --release --example fhr_sim_v2 -p tampines-steam-tables
+```
+
 ## Model selection guide (for AI assistants)
 
 When working on debugging tasks in this workspace, choose the Claude model based on task complexity:
