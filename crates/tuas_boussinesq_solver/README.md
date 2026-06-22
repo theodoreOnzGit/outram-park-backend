@@ -23,8 +23,12 @@ those traits for your own projects.
   magnitudes are on the order of MJ/kg (e.g. graphite cp integrated over
   200–773 K ≈ 2.4 MJ/kg), causing an effective infinite loop on first
   construction of any component using a custom material. Fixed by switching to
-  `Integral::G20K41R` (relative tolerance `1e-6`), which converges in a single
-  pass for smooth thermophysical property functions regardless of magnitude.
+  `Integral::GaussLegendre(20)`, a non-adaptive fixed-point rule (20 evaluation
+  points, no convergence loop). For smooth cp functions this gives
+  machine-precision accuracy at the same speed as the original peroxide 0.37
+  behaviour (`tutorial_6`: 0.06 s vs 0.15 s baseline). `G20K41R` (relative
+  tolerance) was tried first but caused a >3 min regression due to adaptive
+  overhead compounding across millions of simulation-loop calls.
 
 ## CIET Educational Simulator Demo Example
 

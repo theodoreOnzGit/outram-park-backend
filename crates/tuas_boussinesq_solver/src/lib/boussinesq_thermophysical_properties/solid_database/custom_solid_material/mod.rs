@@ -168,9 +168,7 @@ Result<AvailableEnergy,TuasLibError>{
     // with tolerance of 1e-9 
     // and 100 max iterations 
 
-    let rel_tolerance = 1e-6;
-    let max_iterations = 100;
-    let integration_method = Integral::G20K41R(rel_tolerance, max_iterations);
+    let integration_method = Integral::GaussLegendre(20);
 
     // next, my cp function needs to be converted into a f64 type function
     // first let me get my solid temperature and lower bound temperature 
