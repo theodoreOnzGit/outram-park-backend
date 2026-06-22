@@ -331,7 +331,6 @@ impl FHRSimulatorApp {
         // spawn a thread to do the thermal hydraulics
         thread::spawn(move ||{
 
-            println!("started TH loop");
             FHRSimulatorApp::calculate_thermal_hydraulics_loop(
                 fhr_state_thermal_hydraulics_ptr
             );
