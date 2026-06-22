@@ -906,6 +906,7 @@ impl FHRSimulatorApp {
     pub fn calculate_thermal_hydraulics_loop(
         fhr_state: Arc<Mutex<FHRState>>){
 
+        println!("TH loop calc starting");
         let thermal_hydraulics_timestep = Time::new::<second>(0.1);
 
         let fhr_state_clone = fhr_state.clone();
@@ -913,44 +914,63 @@ impl FHRSimulatorApp {
         let loop_time = SystemTime::now();
         let mut current_simulation_time = Time::ZERO;
 
+        println!("Obtaining FHR initial temp");
         // create components first
         let initial_temperature = ThermodynamicTemperature::new::<degree_celsius>(
             fhr_state_clone.lock().unwrap().core_outlet_temp_degc
         );
+        println!("setting FHR initial temp");
         let mut reactor_pipe_1 = new_reactor_vessel_pipe_1(initial_temperature);
+        println!("reactor_pipe_1 ok");
         let mut downcomer_pipe_2 = new_downcomer_pipe_2(initial_temperature);
+        println!("downcomer_pipe_2 ok");
         let mut downcomer_pipe_3 = new_downcomer_pipe_3(initial_temperature);
+        println!("downcomer_pipe_3 ok");
 
         // pri loop branch (positive is in this order of flow)
         let mut fhr_pipe_11 = new_fhr_pipe_11(initial_temperature);
+        println!("fhr_pipe_11 ok");
         let mut fhr_pipe_10 = new_fhr_pipe_10(initial_temperature);
+        println!("fhr_pipe_10 ok");
         let mut fhr_pri_loop_pump_9 = new_fhr_pri_loop_pump_9(initial_temperature);
+        println!("fhr_pri_loop_pump_9 ok");
         let mut fhr_pipe_8 = new_fhr_pipe_8(initial_temperature);
+        println!("fhr_pipe_8 ok");
         let mut fhr_pipe_7 = new_fhr_pipe_7(initial_temperature);
-        // note that for HITEC, the temperature range is from 
-        // 440-800K 
+        println!("fhr_pipe_7 ok");
+        // note that for HITEC, the temperature range is from
+        // 440-800K
         // this is 167-527C
         // so intial temperature of 500C is ok
         let mut ihx_sthe_6 = new_ihx_sthe_6_version_1(initial_temperature);
+        println!("ihx_sthe_6 ok");
         let mut fhr_pipe_5 = new_fhr_pipe_5(initial_temperature);
+        println!("fhr_pipe_5 ok");
         let mut fhr_pipe_4 = new_fhr_pipe_4_ver_2(initial_temperature);
+        println!("fhr_pipe_4 ok");
 
 
-        let initial_temperature_intrmd_loop = 
+        let initial_temperature_intrmd_loop =
             initial_temperature;
-        // intermediate loop ihx side 
+        // intermediate loop ihx side
         // (excluding sthe)
         let mut fhr_pipe_17 = new_fhr_pipe_17(initial_temperature_intrmd_loop);
+        println!("fhr_pipe_17 ok");
         let mut fhr_pipe_12 = new_fhr_pipe_12(initial_temperature_intrmd_loop);
+        println!("fhr_pipe_12 ok");
 
-        // intermediate loop steam generator side 
+        // intermediate loop steam generator side
         let mut fhr_intrmd_loop_pump_16 = new_fhr_intermediate_loop_pump_16(
             initial_temperature_intrmd_loop);
+        println!("fhr_intrmd_loop_pump_16 ok");
         let mut fhr_pipe_15 = new_fhr_pipe_15(initial_temperature_intrmd_loop);
-        let mut fhr_steam_generator_shell_side_14 
+        println!("fhr_pipe_15 ok");
+        let mut fhr_steam_generator_shell_side_14
             = new_fhr_intermediate_loop_steam_generator_shell_side_14(
                 initial_temperature_intrmd_loop);
+        println!("fhr_steam_generator_shell_side_14 ok");
         let mut fhr_pipe_13 = new_fhr_pipe_13(initial_temperature_intrmd_loop);
+        println!("fhr_pipe_13 ok");
 
 
         // probably want to use fhr state
@@ -970,6 +990,7 @@ impl FHRSimulatorApp {
 
         // create initial mass flowrates 
 
+        println!("starting fhr initial flowrates");
         // start with some initial flow rates
         let (reactor_branch_flow, downcomer_branch_1_flow, 
             downcomer_branch_2_flow, intermediate_heat_exchanger_branch_flow,
@@ -998,6 +1019,7 @@ impl FHRSimulatorApp {
             );
 
 
+        println!("starting fhr TH state ...");
 
         let mut current_fhr_thermal_hydraulics_state = FHRThermalHydraulicsState {
             downcomer_branch_1_flow,
@@ -1042,6 +1064,7 @@ impl FHRSimulatorApp {
             steam_turbine: ThreePhaseElectricGeneratorTurbine::new_250_megawatt_generator(),
         };
         dbg!(&current_fhr_steam_gen_state);
+        println!("TH loop initialised");
         // calculation loop (indefinite)
         //
         // to be done once every timestep
@@ -1478,6 +1501,15 @@ impl FHRSimulatorApp {
             } else {
                 // don't sleep
 
+            }
+
+            println!("TH loop complete");
+
+            let debug = true;
+            if debug {
+                dbg!(&(&current_fhr_thermal_hydraulics_state
+                        .reactor_temp_profile_degc
+                ));
             }
 
             

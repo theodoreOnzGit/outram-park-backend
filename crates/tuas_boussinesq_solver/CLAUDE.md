@@ -262,6 +262,33 @@ cargo run --example ciet_educational_simulator --release
 The "Update dependencies" instructions above (`cargo upgrade` / `cargo update`)
 no longer apply per-crate: change shared versions in the **root** `Cargo.toml`.
 
+### v0.1.1 patch (2026-06)
+
+**Bug fix — `CustomSolid` / `CustomLiquid` enthalpy integration hang**
+
+`get_custom_solid_enthalpy` and `get_custom_fluid_enthalpy` (in
+`solid_database/custom_solid_material/mod.rs` and
+`liquid_database/custom_liquid_material/mod.rs`) used
+`Integral::G20K41(1e-9, 100)` — absolute tolerance 1e-9 J/kg. After the
+peroxide 0.37 → 0.41 upgrade made the Gauss-Kronrod quadrature fully adaptive,
+any construction of a component using a `CustomSolid` or `CustomLiquid`
+material would hang indefinitely: the integrator kept subdividing trying to
+achieve 1 nJ/kg absolute accuracy for integrals of magnitude ~MJ/kg, which is
+never reachable. Fixed by changing to `Integral::G20K41R(1e-6, 100)` (relative
+tolerance 1e-6), which converges in a single pass for smooth cp functions.
+
+**Affected files:**
+- `src/lib/boussinesq_thermophysical_properties/solid_database/custom_solid_material/mod.rs`
+- `src/lib/boussinesq_thermophysical_properties/liquid_database/custom_liquid_material/mod.rs`
+
+**Symptom:** Any code calling `InsulatedFluidComponent::new_insulated_pipe` (or
+any other constructor) with a `SolidMaterial::CustomSolid` or
+`LiquidMaterial::CustomLiquid` would silently freeze at startup. Built-in
+materials (`SteelSS304L`, `Copper`, `FLiBe`, etc.) were unaffected because they
+use analytical splines, not numerical integration.
+
+---
+
 ### Migration notes (2026-06)
 
 - Moved into the workspace; standalone git history dropped; dev-deps (`chem-eng…`,

@@ -52,7 +52,7 @@ local-ip-address = "0.6.13"
 # in-tree copy rather than a crates.io release.
 chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.1.0" }
 teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.0" }
-tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.0" }
+tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.1" }
 tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.0" }
 
 # Optimize all dependencies even in debug builds — the thermal-hydraulic

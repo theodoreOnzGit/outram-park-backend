@@ -60,3 +60,7 @@ path = "examples/fhr_sim_v2/main.rs"
 [[example]]
 name = "rankine_cycle"
 path = "examples/transient_rankine_cycle/main.rs"
+
+[[example]]
+name = "fhr_cli_debug"
+path = "examples/fhr_cli_debug/main.rs"

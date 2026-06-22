@@ -10,6 +10,22 @@ in development and not fully featured yet.
 The crate contains many useful traits and examples of how to use 
 those traits for your own projects.
 
+# Changelog
+
+## 0.1.1
+
+- **Bug fix:** `CustomSolid` and `CustomLiquid` enthalpy integration no longer
+  hangs. The adaptive Gauss-Kronrod quadrature in
+  `get_custom_solid_enthalpy` / `get_custom_fluid_enthalpy` was using
+  `Integral::G20K41` with an absolute tolerance of `1e-9 J/kg`. After the
+  peroxide 0.37 → 0.41 update, the integrator became fully adaptive and would
+  subdivide exponentially trying to achieve that tolerance for integrals whose
+  magnitudes are on the order of MJ/kg (e.g. graphite cp integrated over
+  200–773 K ≈ 2.4 MJ/kg), causing an effective infinite loop on first
+  construction of any component using a custom material. Fixed by switching to
+  `Integral::G20K41R` (relative tolerance `1e-6`), which converges in a single
+  pass for smooth thermophysical property functions regardless of magnitude.
+
 ## CIET Educational Simulator Demo Example
 
 Being written in Rust, TUAS is readily integrable with GUI libraries 

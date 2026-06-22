@@ -183,9 +183,9 @@ Result<AvailableEnergy,TuasLibError>{
     // with tolerance of 1e-9 
     // and 100 max iterations 
 
-    let abs_tolerance = 1e-9;
+    let rel_tolerance = 1e-6;
     let max_iterations = 100;
-    let integration_method = Integral::G20K41(abs_tolerance, max_iterations);
+    let integration_method = Integral::G20K41R(rel_tolerance, max_iterations);
 
     // next, my cp function needs to be converted into a f64 type function
     // first let me get my fluid temperature and lower bound temperature 
