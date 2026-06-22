@@ -51,24 +51,32 @@ pub mod stagnation_point_outside_vle_ph_dome_multiphase;
 pub use stagnation_point_outside_vle_ph_dome_multiphase::*;
 
 
-/// gets critical pressure and mass flux for water and steam 
-/// given stagnation properties,
-/// should work for all given regions of steam table
+/// Gets critical pressure and mass flux for water and steam given stagnation
+/// properties using an older combined solver.
 ///
-/// Note, this relies on the ph, ps algorithm, for region 5, it is 
-/// not thoroughly implemented yet
-/// gets critical pressure and mass flux for water and steam 
-/// given stagnation properties,
-/// should work for all given regions of steam table
+/// # Deprecation notice — use the split solvers instead
 ///
-/// Note, this relies on the ph, ps algorithm, for region 5, it is 
-/// not thoroughly implemented yet
-/// gets critical pressure and mass flux for water and steam 
-/// given stagnation properties,
-/// should work for all given regions of steam table
+/// This function is the original combined dispatcher and is **superseded** by
+/// the two specialised solvers that correctly route by stagnation region:
 ///
-/// Note, this relies on the ph, ps algorithm, for region 5, it is 
-/// not thoroughly implemented yet
+/// * [`get_critical_pressure_and_mass_flux_ph_vle_dome`] — stagnation inside
+///   the p-h VLE dome (two-phase, `ph_flash_region == Region4`).
+/// * [`get_critical_pressure_and_mass_flux_subcooled_liquid_ph`] — stagnation
+///   outside the dome on the liquid side (subcooled / liquid-like).
+///
+/// This function relied on `mass_flux_ps_eqm_throat` (finite-difference sound
+/// speed with a bubble-point clamp), which produces a spurious root near the
+/// saturated-liquid line and caused a +25% choke-pressure artifact at
+/// x_t ≈ 0.05 / 100 psia. The split solvers avoid this by using the smooth
+/// energy-balance `G(p) = rho * sqrt(2*(h0-h))` directly.
+///
+/// # Known limitations
+///
+/// * Region 5 (T > 800 °C) is not fully implemented.
+/// * Near-saturated stagnation states (x ≈ 0) are not reliable — see the
+///   known limitation note on [`get_critical_pressure_and_mass_flux_subcooled_liquid_ph`].
+/// * The `debug` flag is hard-coded to `true` and emits `println!` / `dbg!`
+///   output unconditionally — this is a work-in-progress artefact.
 #[inline]
 pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
     s0: SpecificHeatCapacity,

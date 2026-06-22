@@ -181,6 +181,35 @@ Diagnosis so far:
 - The README `# Changelog` is the project's running history — add an entry there
   when bumping the version in `Cargo.toml`.
 
+### v0.2.0 — multiphase HEM choked flow status (2026-06)
+
+The multiphase choked flow solvers are works in progress. Summary for future
+contributors:
+
+| Function | Status |
+|---|---|
+| `get_critical_pressure_and_mass_flux_ph_vle_dome` | ✅ Validated — all 21 Zaloudek in-dome quality curves pass |
+| `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | ⚠ Partial — 20 subcooled curves pass; x_t ≈ 0 (near-saturated) fails |
+| `get_critical_pressure_and_mass_flux_with_stagnation_props` | ❌ Superseded — old combined dispatcher with +25% artifact; retain for reference only |
+
+**Near-bubble-point HEM artifact (x_t ≈ 0):**
+The test `subcooled_outside_dome_stagnation::quality_bubble_point_subcooled`
+is `#[ignore]`d. Root cause is fundamental: HEM assumes instantaneous
+equilibrium flashing at the bubble point, which overpredicts mass flux by 3–7×
+at 5–10 psia and places the choke point 11–21% below the measured throat at
+15–200 psia. A non-equilibrium (HRM-style) relaxation model is required to
+reproduce the x ≈ 0 Zaloudek curve. See the long comment block above that test
+for the full three-failure-mode analysis.
+
+**Ignored tests:**
+- `quality_bubble_point_subcooled` — HEM fundamental limitation (see above)
+- `moody_critical_mass_flux_homogeneous_eqm::isobar_pref_*` — moody isobar
+  tests (pre-existing `#[ignore]`)
+- `generic_multiphase_stagnation::quality_*` — old combined-canary suite,
+  superseded by the split in-dome / subcooled test files
+
+---
+
 ## OUTRAM PARK workspace notes
 
 > This crate is now a member of the **OUTRAM PARK** workspace

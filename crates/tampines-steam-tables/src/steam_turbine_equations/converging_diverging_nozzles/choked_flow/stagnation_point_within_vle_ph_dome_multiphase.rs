@@ -34,6 +34,14 @@ use crate::prelude::functional_programming::ps_flash_eqm::v_ps_eqm;
 ///
 /// Consistent with the validated inverse map: max-G <=> Mach 1 <=>
 /// h0 = h_t + 0.5 * u_t^2  (get_stagnation_conditions_from_throat_ps).
+///
+/// # Validation status
+///
+/// Validated against Zaloudek (1961) HEM critical mass flux curves for
+/// two-phase stagnation states (throat quality x_t = 0.0–1.00, all 21
+/// quality curves). All in-dome points pass within tolerance (worst error
+/// ~0.86% pressure at 100 psia for x_t = 0.05, near the bubble-point edge
+/// of the dome).
 #[inline]
 pub fn get_critical_pressure_and_mass_flux_ph_vle_dome(
     p0: Pressure,

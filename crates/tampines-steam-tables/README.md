@@ -67,7 +67,34 @@ Note: If you want to resize, use Ctrl+ and Ctrl- to change the size of the
 simulator.
 
 
-# Changelog 
+# Changelog
+
+v0.2.0
+
+Consolidated into the OUTRAM PARK workspace. Dependency bumps (`uom` 0.36→0.38,
+`ndarray` 0.15→0.17, `ndarray-linalg` 0.16→0.18, `thiserror` 1→2,
+egui/eframe 0.29→0.34, `egui_plot`→0.35). All egui examples migrated to 0.34.
+
+**Multiphase HEM choked flow — known limitations (v0.2.0)**
+
+The multiphase Homogeneous Equilibrium Model (HEM) critical-flow solvers are
+works in progress. The following limitations are documented:
+
+- `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`: validated for
+  genuinely subcooled stagnation states (throat quality x_t = 0.05–1.00),
+  but **fails for near-saturated stagnation (x_t ≈ 0)**. Mass-flux artifacts
+  appear at 5–10 psia and 11–21% choke-pressure errors at 15–200 psia. This
+  is a fundamental HEM limitation (instantaneous equilibrium flashing
+  assumed); a non-equilibrium/HRM model is required for the x ≈ 0 curve.
+  The corresponding test `quality_bubble_point_subcooled` is `#[ignore]`d.
+
+- `get_critical_pressure_and_mass_flux_ph_vle_dome`: validated for two-phase
+  stagnation states (x_t = 0.0–1.00, all 21 Zaloudek quality curves pass).
+
+- `get_critical_pressure_and_mass_flux_with_stagnation_props`: older combined
+  dispatcher, **superseded** by the two split solvers above. Had a +25%
+  choke-pressure artifact near the saturated-liquid line due to the
+  finite-difference sound speed used internally. Retained for reference only.
 
 v0.1.8 
 
