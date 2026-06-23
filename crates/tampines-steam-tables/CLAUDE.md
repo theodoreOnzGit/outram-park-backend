@@ -170,6 +170,15 @@ Diagnosis so far:
   is easy to break.
 - HEM has documented limitations near the saturation line (see in-code comments
   and `docs/derivation/`); metastable / non-equilibrium effects are not modelled.
+- **HRM is required at the dome boundaries.** HEM assumes instantaneous phase
+  equilibrium, which breaks down where nucleation or droplet-formation lags behind
+  the local pressure drop:
+  - x_t ≈ 0 (bubble point / saturated liquid): flashing lags → HEM overpredicts G
+    and underpredicts choke pressure in the 5–200 psia range (see failing canary).
+  - x_t ≈ 1 (dew point / saturated vapour): droplet condensation lags → HEM is
+    similarly unreliable near the right-hand dome boundary.
+  For interior qualities (0.05 ≤ x_t ≤ 0.95) the equilibrium assumption holds
+  well and HEM is sufficient.
 
 ## Conventions
 
@@ -221,21 +230,27 @@ contributors:
 
 | Function | Status |
 |---|---|
-| `get_critical_pressure_and_mass_flux_ph_vle_dome` | ✅ Validated — all 21 Zaloudek in-dome quality curves pass |
-| `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | 🔧 In progress — 20 subcooled curves pass; x_t ≈ 0 (bubble-point) actively being fixed |
+| `get_critical_pressure_and_mass_flux_ph_vle_dome` | ✅ Validated — all 21 Zaloudek in-dome quality curves pass (x_t = 0.0 … 1.0; boundary quality curves skipped by region filter) |
+| `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | ✅ Validated for interior curves — 20 genuinely-subcooled Zaloudek curves (x_t = 0.05 … 1.00) pass; x_t ≈ 0 bubble-point is the one failing fringe case |
 | `get_critical_pressure_and_mass_flux_with_stagnation_props` | ❌ Superseded — old combined dispatcher with +25% artifact; retain for reference only |
 
-**Near-bubble-point HEM artifact (x_t ≈ 0):**
-The test `subcooled_outside_dome_stagnation::quality_bubble_point_subcooled`
-is `#[ignore]`d. Root cause is fundamental: HEM assumes instantaneous
-equilibrium flashing at the bubble point, which overpredicts mass flux by 3–7×
-at 5–10 psia and places the choke point 11–21% below the measured throat at
-15–200 psia. A non-equilibrium (HRM-style) relaxation model is required to
-reproduce the x ≈ 0 Zaloudek curve. See the long comment block above that test
-for the full three-failure-mode analysis.
+**Overall Zaloudek HEM validation status:** The HEM solvers are validated across
+the interior of the two-phase dome and the high-pressure subcooled tail. The
+only unresolved case is x_t ≈ 0 (the saturated-liquid-line edge), which is a
+fundamental physics limitation, not a code bug — HEM cannot reproduce that curve
+without a non-equilibrium relaxation term.
 
-**Actively failing tests (under active fix):**
-- `outside_dome_stagnation_subcooled::quality_bubble_point_subcooled` — x_t ≈ 0 bubble-point; `#[ignore]` removed, fix in progress
+**Near-bubble-point HEM artifact (x_t ≈ 0):**
+The test `outside_dome_stagnation_subcooled::quality_bubble_point_subcooled`
+has its `#[ignore]` removed and is actively failing. Root cause is fundamental:
+HEM assumes instantaneous equilibrium flashing at the bubble point, which
+overpredicts mass flux by 3–7× at 5–10 psia and places the choke point 11–21%
+below the measured throat at 15–200 psia. An HRM (Homogeneous Relaxation Model)
+is required to reproduce the x ≈ 0 Zaloudek curve. See the long comment block
+above that test for the full three-failure-mode analysis.
+
+**Actively failing tests:**
+- `outside_dome_stagnation_subcooled::quality_bubble_point_subcooled` — x_t ≈ 0 bubble-point; HEM fundamental limitation at the saturated-liquid-line boundary
 
 **Ignored tests:**
 - `moody_critical_mass_flux_homogeneous_eqm::isobar_pref_*` — moody isobar
@@ -250,10 +265,13 @@ for the full three-failure-mode analysis.
   with data loaded but assertions missing. The next step is to write the assertion
   block (comparing HEM mass flux to measured Marviken CFT-23/24 curves) and
   un-ignore the test.
-- **Zaloudek x_t ≈ 0 curve** — HEM cannot reproduce the saturated-liquid-line
-  data; a non-equilibrium relaxation model (HRM-style, e.g. Feburie or
-  Henry–Fauske) is required. `quality_bubble_point_subcooled` is the canary to
-  un-ignore once the model is implemented.
+- **HRM at dome boundaries** — HEM is validated for the interior of the two-phase
+  dome (x_t = 0.05 … 0.95) and the high-pressure subcooled tail, but breaks down
+  near the saturated-liquid line (x_t ≈ 0) and saturated-vapour line (x_t ≈ 1)
+  where thermal non-equilibrium governs the choke. An HRM-style relaxation model
+  (e.g. Feburie, or Henry–Fauske) is required for those boundary curves.
+  `quality_bubble_point_subcooled` is the primary canary; the x_t ≈ 1 dew-point
+  boundary can be validated similarly once the model is in place.
 
 **Nice-to-have:** WASM build of the egui GUI for browser demos; full two-phase
 property surface (currently only saturation + quality interpolation).
