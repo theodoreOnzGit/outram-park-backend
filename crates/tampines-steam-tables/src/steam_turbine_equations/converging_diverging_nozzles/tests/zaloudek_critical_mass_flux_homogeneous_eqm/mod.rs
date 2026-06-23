@@ -25,4 +25,4 @@ pub mod generic_multiphase_stagnation;
 
 /// exploratory test suite for subcooled-liquid / liquid-like stagnation
 /// points (OUTSIDE the dome, left side), validating the subcooled solver
-pub mod subcooled_outside_dome_stagnation;
+pub mod outside_dome_stagnation_subcooled;

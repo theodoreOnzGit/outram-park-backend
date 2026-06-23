@@ -95,7 +95,7 @@ The original combined canary
 with the test files partitioning each Zaloudek throat by where its backward-mapped
 stagnation `(p0, h0)` lands relative to the VLE dome (`ph_flash_region`):
 
-- `subcooled_outside_dome_stagnation.rs` — stagnation OUTSIDE the dome (left
+- `outside_dome_stagnation_subcooled.rs` — stagnation OUTSIDE the dome (left
   side, Region 1 subcooled liquid). Keeps only `ph_flash_region == Region1`,
   runs `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`. The 20
   genuinely-subcooled curves (x_t = 0.05 … 1.00) pass.
@@ -122,17 +122,18 @@ all other in-dome curves use 0.005.
 
 The x = 0.0 bubble-point curve is the curve of primary interest going forward
 (`quality_bubble_point_in_dome`, x_t = 0.0, and its subcooled counterpart at
-x_t = 1e-4).
+x_t = 1e-4). A `marviken_tests.rs` stub exists under the same tests directory
+but is `#[ignore]`d and ends with `todo!()` — data is read in but the
+assertion block is not written yet.
 
-The **active canary** is now
-`subcooled_outside_dome_stagnation::quality_bubble_point_subcooled`
-(x_t = 1e-4, throats essentially on the saturated-liquid line; intentionally not
-`#[ignore]`d while under investigation). It exercises the worst case of the
-saturated-liquid-line artifact. The detailed three-failure-mode writeup lives in
-the comment block directly above that test; in short, HEM cannot reproduce the
-x≈0 choking line in both mass flux and pressure (mass-flux artifact at 5/10 psia,
-11–21% choke-pressure error at 15–200 psia, in both solver branches) and a non-
-equilibrium / relaxation model would be needed.
+The **active failing test** is
+`outside_dome_stagnation_subcooled::quality_bubble_point_subcooled`
+(x_t = 1e-4, throats essentially on the saturated-liquid line). The `#[ignore]`
+has been removed — this is the current work item. The detailed three-failure-mode
+writeup lives in the comment block directly above that test; in short, HEM cannot
+reproduce the x≈0 choking line in both mass flux and pressure (mass-flux artifact
+at 5/10 psia, 11–21% choke-pressure error at 15–200 psia, in both solver
+branches) and a non-equilibrium / relaxation model is required.
 
 The older combined canary swept x_t = 0.05 over a pressure range; first and last
 reference points:
@@ -180,6 +181,38 @@ Diagnosis so far:
   new property or flash path; existing tests document expected accuracy bounds.
 - The README `# Changelog` is the project's running history — add an entry there
   when bumping the version in `Cargo.toml`.
+- Run `cargo fmt` and `cargo clippy -- -D warnings` clean before merge.
+
+### Guardrails — do not violate without explicit human sign-off
+
+- **Never strip `uom`** from public signatures for "simplicity". The type-level
+  unit checking is the project's main safety net.
+- **Never loosen tolerances** in verification tests to make a test pass. If a
+  test fails, the equation or the boundary detection is wrong, not the tolerance.
+- **Never paper over `NonConvergent`** with a default value. Propagate the error.
+- **Respect region boundaries.** Don't call R2 equations on R1 inputs — the
+  polynomial extrapolations diverge fast.
+- **Prefer adding a new module** over editing `region_*/` files; the forward
+  equations are line-for-line traceable to IAPWS tables and diffs against them
+  must stay reviewable.
+- **When in doubt, write the verification test first.** The IAPWS reference
+  tables are the spec.
+
+## Known accuracy pitfalls
+
+- **Critical point (T ≈ 647.096 K, p ≈ 22.064 MPa):** Region 3 backward
+  equations lose digits within ~0.5 K of Tc; expect deviations larger than IF97
+  stated tolerances near Tc. Prefer `(ρ,T)` forward calls here.
+- **`(h,s)` flash:** valid only in the IF97-defined hs envelopes. Outside those,
+  the iterative fallback can stall near the two-phase dome; check
+  `Result::Err(NonConvergent)`.
+- **Low pressure (p < 611.657 Pa, triple-point pressure):** R1/R2 equations are
+  extrapolated and not validated below the triple point.
+- **R5 boundary:** results above 2273 K are extrapolations, not IF97. The
+  library returns `OutOfRange` by default.
+- **Transport near saturation:** the IAPWS R12-08 / R15-11 critical-enhancement
+  terms for μ and λ are intentionally omitted in the fast path; enable them
+  when accuracy very close to Tc matters.
 
 ### v0.2.0 — multiphase HEM choked flow status (2026-06)
 
@@ -189,7 +222,7 @@ contributors:
 | Function | Status |
 |---|---|
 | `get_critical_pressure_and_mass_flux_ph_vle_dome` | ✅ Validated — all 21 Zaloudek in-dome quality curves pass |
-| `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | ⚠ Partial — 20 subcooled curves pass; x_t ≈ 0 (near-saturated) fails |
+| `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | 🔧 In progress — 20 subcooled curves pass; x_t ≈ 0 (bubble-point) actively being fixed |
 | `get_critical_pressure_and_mass_flux_with_stagnation_props` | ❌ Superseded — old combined dispatcher with +25% artifact; retain for reference only |
 
 **Near-bubble-point HEM artifact (x_t ≈ 0):**
@@ -201,12 +234,29 @@ at 5–10 psia and places the choke point 11–21% below the measured throat at
 reproduce the x ≈ 0 Zaloudek curve. See the long comment block above that test
 for the full three-failure-mode analysis.
 
+**Actively failing tests (under active fix):**
+- `outside_dome_stagnation_subcooled::quality_bubble_point_subcooled` — x_t ≈ 0 bubble-point; `#[ignore]` removed, fix in progress
+
 **Ignored tests:**
-- `quality_bubble_point_subcooled` — HEM fundamental limitation (see above)
 - `moody_critical_mass_flux_homogeneous_eqm::isobar_pref_*` — moody isobar
   tests (pre-existing `#[ignore]`)
 - `generic_multiphase_stagnation::quality_*` — old combined-canary suite,
   superseded by the split in-dome / subcooled test files
+
+### Roadmap
+
+**v0.3.0 (planned):**
+- **Marviken integration tests** — `marviken_tests.rs` is an `#[ignore]`d stub
+  with data loaded but assertions missing. The next step is to write the assertion
+  block (comparing HEM mass flux to measured Marviken CFT-23/24 curves) and
+  un-ignore the test.
+- **Zaloudek x_t ≈ 0 curve** — HEM cannot reproduce the saturated-liquid-line
+  data; a non-equilibrium relaxation model (HRM-style, e.g. Feburie or
+  Henry–Fauske) is required. `quality_bubble_point_subcooled` is the canary to
+  un-ignore once the model is implemented.
+
+**Nice-to-have:** WASM build of the egui GUI for browser demos; full two-phase
+property surface (currently only saturation + quality interpolation).
 
 ---
 
