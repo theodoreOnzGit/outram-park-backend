@@ -55,7 +55,7 @@ chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-ti
 teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.0" }
 tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.1" }
 tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.0" }
-openfoam-basic-lib = { path = "crates/openfoam-basic-lib", version = "0.1.0" }
+openfoam-basic-lib = { path = "crates/openfoam-basic-lib", version = "0.1.1" }
 
 # Optimize all dependencies even in debug builds — the thermal-hydraulic
 # solvers are expensive, so unoptimized deps make tests painfully slow.
