@@ -9,6 +9,34 @@ The reference C++ source lives at:
 
 ---
 
+## Implementation rules
+
+### `extern "C"` policy
+
+`extern "C"` blocks are **permitted if and only if** the called function
+compiles and links natively on **all five** target platforms:
+
+| Platform | C runtime | Notes |
+|---|---|---|
+| Linux | glibc / musl (`libm`) | always available |
+| macOS | Apple `libSystem` | always available |
+| Windows | MSVC CRT (VS 2013+) or MinGW | always available on modern toolchains |
+| Android | Bionic libc | `erf`/`erfc`/`lgamma` since API 9; `tgamma` since API 21 |
+| iOS | Apple `libSystem` | always available |
+
+If a function is missing from **any** of these five (e.g. it only exists on
+POSIX systems), it must be implemented in pure Rust instead.
+
+The current `extern "C"` calls to `erf`, `erfc`, `tgamma`, and `lgamma` in
+`inc_gamma.rs` and `inv_inc_gamma.rs` satisfy this rule (minimum Android
+API 21 for `tgamma`, which covers ~98% of active devices).
+
+Prefer Rust stdlib equivalents where they exist — `f64::gamma()` and
+`f64::ln_gamma()` (stable since Rust 1.83) can replace `tgamma`/`lgamma`
+with no FFI at all.
+
+---
+
 ## Porting workflow (MANDATORY — follow for every new port)
 
 After adding any new type, function, or module, you MUST do **both**:
