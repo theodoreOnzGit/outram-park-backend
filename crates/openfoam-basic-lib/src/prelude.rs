@@ -33,3 +33,12 @@ pub use crate::polynomial::{CubicEqn, LinearEqn, Polynomial, QuadraticEqn, RootT
 pub use crate::math::{
     erf_inv, inc_gamma_p, inc_gamma_q, inc_gamma_ratio_p, inc_gamma_ratio_q, inv_inc_gamma,
 };
+
+// --- Dense matrices (Layer 1b) ---
+pub use crate::matrix::SquareMatrix;
+
+// --- ODE solvers (Layer 1e) ---
+pub use crate::ode::{Euler, OdeError, OdeSystem, OdeSolverConfig, Rkf45, Rosenbrock23};
+
+// --- Interpolation (Layer 1f) ---
+pub use crate::interpolation::{interpolate_spline_xy, interpolate_xy};

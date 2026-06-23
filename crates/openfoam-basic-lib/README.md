@@ -58,6 +58,13 @@ let x = inv_inc_gamma(2.0, 0.5);        // x such that P(2,x) = 0.5
 | `math` | `fn inc_gamma_q(a, x)` | same | `Q(a,x) · Γ(a)` |
 | `math` | `fn inc_gamma_p(a, x)` | same | `P(a,x) · Γ(a)` |
 | `math` | `fn inv_inc_gamma(a, p)` | `functions/Math/invIncGamma.C` | DiDonato–Morris inverse; ~3–4 sig figs for a < 1 |
+| `matrix` | `struct SquareMatrix` | `matrices/scalarMatrices/scalarMatrices.C` | row-major n×n; LU with scaled partial pivoting; `lu_decompose`, `lu_back_substitute`, `solve` |
+| `ode` | `trait OdeSystem` | `ODE/ODESystem/ODESystem.H` | `n_eqns`, `derivatives`, `jacobian` |
+| `ode` | `struct Euler` | `ODE/ODESolvers/Euler/Euler.C` | explicit 1st-order adaptive; `solve_step`, `integrate` |
+| `ode` | `struct Rkf45` | `ODE/ODESolvers/RKF45/RKF45.C` | explicit RKF 4(5) adaptive; 6-stage Butcher tableau |
+| `ode` | `struct Rosenbrock23` | `ODE/ODESolvers/Rosenbrock23/Rosenbrock23.C` | W-method stiff adaptive; requires Jacobian; 3 LU back-solves per step |
+| `interpolation` | `fn interpolate_xy` | `interpolations/interpolateXY/interpolateXY.C` | linear 1-D; binary search; clamps at endpoints |
+| `interpolation` | `fn interpolate_spline_xy` | `interpolations/interpolateSplineXY/interpolateSplineXY.C` | Catmull-Rom cubic; ghost-point boundary extension |
 
 ## Prelude
 
@@ -81,12 +88,12 @@ cargo test -p openfoam-basic-lib --lib
 
 ```
 ✅ Layer 1a — Tensor algebra   (Vector3, Tensor, SymmTensor, SphericalTensor)
+✅ Layer 1b — Dense matrices   (SquareMatrix + LU decompose / back-substitute)
 ✅ Layer 1c — Polynomial eqns  (LinearEqn, QuadraticEqn, CubicEqn, Roots<N>)
 ✅ Layer 1d — Polynomial eval  (Polynomial<N>)
+✅ Layer 1e — ODE solvers      (Euler, Rkf45, Rosenbrock23)
+✅ Layer 1f — Interpolation    (interpolate_xy, interpolate_spline_xy)
 ✅ Layer 1g — Math functions   (erf_inv, inc_gamma_*, inv_inc_gamma)
-⬜ Layer 1b — Dense matrices   (SquareMatrix, LU, QR, Cholesky, SVD)
-⬜ Layer 1e — ODE solvers      (Euler, RKF45, Rosenbrock23/34, seulex, …)
-⬜ Layer 1f — Interpolation    (LookupTable, interpolateXY, spline)
 ⬜ Layer 2  — Fields + Mesh
 ⬜ Layer 3  — FV operators
 ⬜ Layer 4  — Thermophysics
