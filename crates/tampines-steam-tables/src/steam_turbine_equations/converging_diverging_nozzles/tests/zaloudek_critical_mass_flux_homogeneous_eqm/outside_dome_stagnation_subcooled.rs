@@ -149,6 +149,14 @@ fn quality_bubble_point_subcooled(){
     validate_zaloudek_curve_subcooled(1e-4, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//
+//  p_throat  |   p0 (kPa) | h0 (kJ/kg) | p_crit (kPa) | p_ref (kPa) | G_calc (kg/m²s) | G_ref (kg/m²s)
+//  ----------|------------|------------|--------------|-------------|-----------------|---------------
+//   1000 psia|   8766.855 |   1341.165 |     6826.690 |    6894.758 |       31266.87  |     32927.32
+//   1500 psia|  13136.743 |   1492.221 |    10227.697 |   10342.137 |       43046.47  |     46152.57
+//   2000 psia|  17538.145 |   1623.184 |    13980.993 |   13789.516 |       55105.07  |     55414.79
+//  (skipped: 5, 10, 15, 20, 30, 50, 75, 100, 150, 200, 300, 500, 750, 3000 psia — stagnation not Region1)
 #[test]
 fn quality_0_05_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -173,6 +181,12 @@ fn quality_0_05_subcooled(){
     validate_zaloudek_curve_subcooled(0.05, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//
+//  p_throat  |   p0 (kPa) | h0 (kJ/kg) | p_crit (kPa) | p_ref (kPa) | G_calc (kg/m²s) | G_ref (kg/m²s)
+//  ----------|------------|------------|--------------|-------------|-----------------|---------------
+//   1500 psia|  13926.823 |   1560.145 |    10356.041 |   10342.137 |       41382.87  |     42416.62
+//  (skipped: 5, 10, 15, 20, 30, 50, 75, 100, 150, 200, 300, 500, 750, 1000, 2000, 3000 psia — stagnation not Region1)
 #[test]
 fn quality_0_10_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -197,6 +211,8 @@ fn quality_0_10_subcooled(){
     validate_zaloudek_curve_subcooled(0.10, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.15).
 #[test]
 fn quality_0_15_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -221,6 +237,8 @@ fn quality_0_15_subcooled(){
     validate_zaloudek_curve_subcooled(0.15, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.20).
 #[test]
 fn quality_0_20_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -245,6 +263,8 @@ fn quality_0_20_subcooled(){
     validate_zaloudek_curve_subcooled(0.20, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.25).
 #[test]
 fn quality_0_25_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -269,6 +289,8 @@ fn quality_0_25_subcooled(){
     validate_zaloudek_curve_subcooled(0.25, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.30).
 #[test]
 fn quality_0_30_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -293,6 +315,8 @@ fn quality_0_30_subcooled(){
     validate_zaloudek_curve_subcooled(0.30, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.35).
 #[test]
 fn quality_0_35_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -317,6 +341,8 @@ fn quality_0_35_subcooled(){
     validate_zaloudek_curve_subcooled(0.35, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.40).
 #[test]
 fn quality_0_40_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -341,6 +367,8 @@ fn quality_0_40_subcooled(){
     validate_zaloudek_curve_subcooled(0.40, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.45).
 #[test]
 fn quality_0_45_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -365,6 +393,8 @@ fn quality_0_45_subcooled(){
     validate_zaloudek_curve_subcooled(0.45, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.50).
 #[test]
 fn quality_0_50_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -389,6 +419,8 @@ fn quality_0_50_subcooled(){
     validate_zaloudek_curve_subcooled(0.50, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.55).
 #[test]
 fn quality_0_55_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -413,6 +445,8 @@ fn quality_0_55_subcooled(){
     validate_zaloudek_curve_subcooled(0.55, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.60).
 #[test]
 fn quality_0_60_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -437,6 +471,8 @@ fn quality_0_60_subcooled(){
     validate_zaloudek_curve_subcooled(0.60, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.65).
 #[test]
 fn quality_0_65_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -461,6 +497,8 @@ fn quality_0_65_subcooled(){
     validate_zaloudek_curve_subcooled(0.65, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.70).
 #[test]
 fn quality_0_70_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -485,6 +523,8 @@ fn quality_0_70_subcooled(){
     validate_zaloudek_curve_subcooled(0.70, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.75).
 #[test]
 fn quality_0_75_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -509,6 +549,8 @@ fn quality_0_75_subcooled(){
     validate_zaloudek_curve_subcooled(0.75, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.80).
 #[test]
 fn quality_0_80_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -533,6 +575,8 @@ fn quality_0_80_subcooled(){
     validate_zaloudek_curve_subcooled(0.80, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.85).
 #[test]
 fn quality_0_85_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -557,6 +601,8 @@ fn quality_0_85_subcooled(){
     validate_zaloudek_curve_subcooled(0.85, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.90).
 #[test]
 fn quality_0_90_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -581,6 +627,8 @@ fn quality_0_90_subcooled(){
     validate_zaloudek_curve_subcooled(0.90, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=0.95).
 #[test]
 fn quality_0_95_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
@@ -605,6 +653,8 @@ fn quality_0_95_subcooled(){
     validate_zaloudek_curve_subcooled(0.95, &data, 0.03, 0.05);
 }
 
+// Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
+//  All 17 data points skipped (stagnation not Region1 at any pressure for x_t=1.00).
 #[test]
 fn quality_1_00_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
