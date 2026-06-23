@@ -16,6 +16,7 @@ use uom::si::area::square_foot;
 use uom::si::mass_flux::kilogram_per_square_meter_second;
 use uom::si::mass_rate::pound_per_second;
 use uom::si::pressure::{kilopascal, pound_force_per_square_inch};
+use uom::si::available_energy::kilojoule_per_kilogram;
 
 use crate::interfaces::object_oriented_programming::TampinesSteamTableCV;
 use crate::interfaces::functional_programming::ph_flash_eqm::ph_flash_region;
@@ -51,11 +52,18 @@ fn validate_zaloudek_curve_subcooled(
         let (p_crit_calc, g_calc) =
             get_critical_pressure_and_mass_flux_subcooled_liquid_ph(p0, h0);
 
-        dbg!(&(p_psia, x_t,
-               p_crit_calc.get::<kilopascal>(),
-               p_throat_ref.get::<kilopascal>(),
-               g_calc.get::<kilogram_per_square_meter_second>(),
-               g_expected.get::<kilogram_per_square_meter_second>()));
+        println!(
+            "p_throat={:8.1} psia | p0={:9.3} kPa | h0={:8.3} kJ/kg | \
+             p_crit_calc={:9.3} kPa | p_throat_ref={:9.3} kPa | \
+             G_calc={:9.2} kg/m2s | G_ref={:9.2} kg/m2s",
+            p_psia,
+            p0.get::<kilopascal>(),
+            h0.get::<kilojoule_per_kilogram>(),
+            p_crit_calc.get::<kilopascal>(),
+            p_throat_ref.get::<kilopascal>(),
+            g_calc.get::<kilogram_per_square_meter_second>(),
+            g_expected.get::<kilogram_per_square_meter_second>(),
+        );
 
         approx::assert_relative_eq!(
             p_crit_calc.get::<kilopascal>(),
@@ -72,61 +80,45 @@ fn validate_zaloudek_curve_subcooled(
 }
 
 // ACTIVE CANARY — currently failing, intentionally NOT #[ignore]d. This is the
-// item we are actively debugging. It exercises the worst case of the
+// item we are actively being fixed. It exercises the worst case of the
 // saturated-liquid-line artifact: the x_t = 1e-4 curve (throats essentially ON
-// the saturated-liquid line). The working theory is that this is a fundamental
-// HEM limitation on the saturated-liquid line, not a solver bug; the findings
-// below document why no solver change tried so far fixes it.
+// the saturated-liquid line).
 //
-// Region 1 (subcooled) stagnation points on this curve are 5..200 psia
-// (subcooling dHsub = h_f(p0) - h0 ranging 0.7 .. 8.4 kJ/kg); 300..2000 psia
-// are genuinely subcooled (dHsub 12 .. 98 kJ/kg) and DO pass; 3000 psia lands
-// in Region 3. The curve fails in THREE distinct ways:
+// 3000 psia is skipped (backward-mapped stagnation lands in Region 3, not R1).
+// All 16 remaining Region-1 stagnation points are tested.
 //
-//   1. Mass-flux artifact at p = 5 psia only. The subcooled solver evaluates
-//      G at the bubble point where rho is still liquid-like (~976 kg/m^3) with
-//      a tiny enthalpy drop, giving a spurious G ~3347 vs Zaloudek ~457 (that
-//      "choke" is liquid at ~3 m/s, far below the ~1400 m/s liquid sound
-//      speed, so it is not a real choke). The in-dome / two-phase-peak solver
-//      instead returns G ~397 (mass-flux log-error 0.023, within tol) BUT its
-//      choke pressure is 4.4% below the throat (>3% tol). So even the "right"
-//      branch only half-passes this one point.
+// Measured results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
 //
-//   2. Two-phase overprediction at p = 10 psia. Here BOTH solvers agree and
-//      both give G ~2547 vs expected ~748 (3.4x high, log-error 0.185). The
-//      golden section lands on the same place for both; switching solvers does
-//      nothing. This is HEM equilibrium flashing overpredicting at very low
-//      subcooling.
+//  p_throat  |   p0 (kPa) | h0 (kJ/kg) | p_crit (kPa) | p_ref (kPa) | G_calc (kg/m²s) | G_ref (kg/m²s)
+//  ----------|------------|------------|--------------|-------------|-----------------|---------------
+//      5 psia|     34.820 |    302.991 |       34.556 |      34.474 |        3346.72  |       457.22   ← G ×7 too high,  p ok (<1%)
+//     10 psia|     69.627 |    375.234 |       69.088 |      68.948 |        2547.37  |       748.12   ← G ×3.4 too high, p ok (<1%)
+//     15 psia|    104.256 |    421.642 |       91.825 |     103.421 |         941.83  |      1033.95   ← p 11% low, G ok
+//     20 psia|    138.872 |    456.693 |      116.708 |     137.895 |        1137.63  |      1331.93   ← p 15% low, G ok
+//     30 psia|    208.324 |    509.443 |      167.560 |     206.843 |        1527.17  |      1866.90   ← p 19% low, G ok
+//     50 psia|    348.498 |    582.253 |      271.739 |     344.738 |        2282.98  |      2887.55   ← p 21% low, G ok
+//     75 psia|    525.958 |    645.908 |      408.095 |     517.107 |        3219.18  |      4162.84   ← p 21% low, G ok
+//    100 psia|    705.429 |    694.708 |      552.540 |     689.476 |        4171.45  |      5515.55   ← p 20% low, G ok
+//    150 psia|   1068.923 |    769.406 |      869.398 |    1034.214 |        6179.85  |      7307.83   ← p 16% low, G ok
+//    200 psia|   1437.038 |    827.225 |     1232.351 |    1378.952 |        8413.47  |      9282.36   ← p 11% low, G ok
+//    300 psia|   2183.679 |    916.757 |     2069.862 |    2068.427 |       16299.94  |     12828.85   ← p ok, G 27% high
+//    500 psia|   3709.556 |   1046.095 |     3448.116 |    3447.379 |       24749.49  |     20697.94   ← p ok, G 20% high
+//    750 psia|   5670.410 |   1165.907 |     5171.955 |    5171.068 |       29811.73  |     27423.74   ← p ok, G  9% high
+//   1000 psia|   7689.466 |   1263.217 |     6897.329 |    6894.758 |       34571.17  |     36335.09   ← p ok, G  5% low  ✓ (passes)
+//   1500 psia|  11908.827 |   1424.988 |    10068.648 |   10342.137 |       44863.22  |     49516.03   ← p  3% low, G  9% low
+//   2000 psia|  16383.782 |   1566.840 |    13790.784 |   13789.516 |       57200.58  |     58622.67   ← p ok, G  2% low  ✓ (passes)
+//   3000 psia|   (skipped — stagnation Region 3)
 //
-//   3. Choke-pressure error at p = 15..200 psia. Mass flux is fine here
-//      (log-error ~0.01-0.03) but the choke pressure sits 11-21% BELOW the
-//      throat, identically for both solvers. The HEM max-G point genuinely
-//      does not coincide with the measured throat for a near-saturated inlet.
-//
-// Consequences for any "fix":
-//   * Routing near-saturation points to the in-dome solver changes ONLY the
-//     p = 5 point (and even there leaves pressure 4.4% off). It does not help
-//     p = 10 (mass flux) or p = 15..200 (pressure). Not worth a dispatcher.
-//   * There is no clean subcooling threshold to route on anyway: this curve
-//     spans dHsub 0.7 .. 98 kJ/kg, fully overlapping the genuinely-subcooled
-//     curves that already pass.
-//
-// Root cause is the homogeneous EQUILIBRIUM assumption (instantaneous flashing
-// at the bubble point). Reproducing the saturated-liquid choking line in both
-// mass flux and pressure needs a non-equilibrium / relaxation (HRM-style)
-// model, which is out of scope for the HEM solver validated here.
-//
-// OBSERVATION (tentative, not confirmed): the disagreement tracks bubble-point
-// pressure. The mass-flux artifacts are sub-atmospheric (5, 10 psia ~ 0.34,
-// 0.69 bar); the choke-pressure errors start around 1 atm (15 psia) and peak
-// at ~3-5 bar (50-75 psia, ~21%) before recovering by ~300 psia. A plausible
-// (but UNVERIFIED) explanation is the specific-volume ratio: vg/vf ~ 4000 at
-// 5 psia vs ~260 at 100 psia, so at low pressure a tiny amount of flashing
-// causes a huge volume change, the HEM two-phase sound speed collapses, and
-// G(p) becomes stiff/hypersensitive. This is a hypothesis about the trend, not
-// an established cause. It is also unclear how the Zaloudek reference data
-// itself was obtained (measured vs. correlated/extrapolated), which could
-// contribute to the discrepancy independently of the solver.
+// Failure pattern (tolerances: p 3%, G log 5%):
+//   5–10 psia : G fails (log-error 32% and 18%); p passes (<1%). The solver
+//               finds the HEM two-phase peak right at the bubble point — the
+//               resulting G is unphysically large (liquid density × tiny
+//               velocity looks like a "choke" but v << c_liquid).
+//  15–200 psia: p fails (11–21% below throat); G passes (log-error 1–3%).
+//               The HEM G(p) maximum falls inside the two-phase dome, not at
+//               the throat saturation pressure.
+// 300–750 psia: p passes; G fails (log-error 2–8%, G is too high).
+//     ≥1000 psia: both pass.
 //
 // The 20 genuinely-subcooled curves (x_t = 0.05 .. 1.00) pass within tolerance.
 #[test]
