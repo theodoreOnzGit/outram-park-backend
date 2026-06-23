@@ -334,6 +334,235 @@ are `erfInv.C`, `incGamma.C`, `invIncGamma.C` in the same directory.
 
 ---
 
+### Layer 1h — Specie-Level Thermophysics
+
+**Location:** `src/thermophysicalModels/specie/`
+
+This layer provides pure per-molecule thermophysical kernels: equation of state,
+heat capacity / enthalpy / entropy, and transport coefficients (viscosity,
+conductivity). Everything here is mesh-independent — it is a function of `(p, T)`
+only. The field-level wrappers (`fluidThermo`, `psiThermo`, `rhoThermo`) that
+own `volScalarField` instances belong in a future `openfoam-thermo` crate.
+
+#### Scope boundary
+
+| In this crate | Future crate |
+|---|---|
+| Per-species EOS, thermo, transport kernels | `fluidThermo`, `psiThermo`, `rhoThermo` |
+| Newton iteration T(H) on a single point | Cell-loop + field correction (`thermo.correct()`) |
+| Polynomial / tabulated property evaluation | Reaction chemistry (multi-species ODE) |
+
+#### C++ source reference map
+
+**Specie (`specie/specie/`):**
+
+| C++ class | C++ file | Rust target |
+|---|---|---|
+| `Foam::specie` | `specie.H`, `specieI.H` | `struct Specie` |
+
+`Specie` fields: `mol_weight: f64` (W, g/mol), `y: f64` (mass fraction in mixture).
+Key methods: `w() -> f64`, `r() -> f64` (= R_UNIVERSAL / W), mixture `operator+=`.
+
+**Equation of State (`equationOfState/`):**
+
+| C++ class | C++ dir | Rust target | Layer 1 deps |
+|---|---|---|---|
+| `perfectGas<Sp>` | `perfectGas/` | `struct PerfectGas` | — |
+| `rhoConst<Sp>` | `rhoConst/` | `struct RhoConst` | — |
+| `icoPolynomial<Sp,N>` | `icoPolynomial/` | `struct IcoPolynomial<const N: usize>` | `Polynomial<N>` |
+| `PengRobinsonGas<Sp>` | `PengRobinsonGas/` | `struct PengRobinsonGas` | `CubicEqn` |
+
+EOS interface (all four methods per EOS type):
+- `rho(p, T) -> f64` — density
+- `psi(p, T) -> f64` — compressibility ∂ρ/∂p|T (0 for incompressible)
+- `z(p, T) -> f64` — compressibility factor (1 for ideal gas)
+- `cp_m_cv(p, T) -> f64` — Cp − Cv (= R for ideal gas; Maxwell relation for real gas)
+- `h_eos(p, T) -> f64` — enthalpy departure from ideal gas (0 for perfect gas)
+- `e_eos(p, T) -> f64` — internal energy departure (0 for perfect gas)
+- `s_eos(p, T) -> f64` — entropy contribution from EOS (−R·ln(p/pref) for perfect gas)
+
+`PerfectGas`: `ρ = p/(R·T)`, `ψ = 1/(R·T)`, `Z = 1`, `Cp−Cv = R`. Departures all zero.
+`RhoConst`: `ρ = ρ₀`, `ψ = 0`. Departures all zero.
+`IcoPolynomial<N>`: `1/ρ = poly(T)` — `Polynomial<N>` evalulated at T.
+`PengRobinsonGas`: cubic EOS `p = R·T/(v−b) − a(T)/(v(v+b)+b(v−b))` with
+Soave α function. Solves the cubic Z equation via `CubicEqn::roots()`.
+
+**Thermo (`thermo/`):**
+
+| C++ class | C++ dir | Rust target | Layer 1 deps |
+|---|---|---|---|
+| `hConstThermo<EOS>` | `hConst/` | `struct HConstThermo<E>` | — |
+| `janafThermo<EOS>` | `janaf/` | `struct JanafThermo<E>` | — |
+| `hPolynomial<EOS,N>` | `hPolynomial/` | `struct HPolynomialThermo<E,N>` | `Polynomial<N>` |
+| `hTabulated<EOS>` | `hTabulated/` | `struct HTabulatedThermo<E>` | `interpolate_xy` |
+
+Thermo interface — all thermo models add these on top of the EOS they wrap:
+- `cp(p, T) -> f64` — specific heat at constant pressure
+- `ha(p, T) -> f64` — absolute enthalpy (sensible + formation + EOS departure)
+- `hs(p, T) -> f64` — sensible enthalpy = ha − hc
+- `hc() -> f64` — heat of formation (combustion reference)
+- `s(p, T) -> f64` — specific entropy
+- `cv(p, T) -> f64` — Cv = Cp − cp_m_cv
+- `t_from_ha(ha, p, t0) -> f64` — Newton iteration: find T such that ha(p,T) = ha
+- `t_from_hs(hs, p, t0) -> f64` — same but for sensible enthalpy
+- `t_from_e(e, p, t0) -> f64` — same for internal energy
+
+`HConstThermo`: `Cp = const`, `H = Cp·(T − Tref) + Href`, `S = Cp·ln(T/Tref)`.
+Fields: `cp: f64, hf: f64, tref: f64, href: f64`.
+
+`JanafThermo`: NASA 7-coefficient polynomial, dual range split at `Tcommon`.
+Coefficients stored scaled by R (i.e. `a[i]·R`). Formulas:
+```
+Cp/R  = a[0] + a[1]·T + a[2]·T² + a[3]·T³ + a[4]·T⁴
+H/RT  = a[0] + a[1]/2·T + a[2]/3·T² + a[3]/4·T³ + a[4]/5·T⁴ + a[5]/T
+S/R   = a[0]·ln(T) + a[1]·T + a[2]/2·T² + a[3]/3·T³ + a[4]/4·T⁴ + a[6]
+```
+Fields: `tlow: f64, thigh: f64, tcommon: f64, low: [f64;7], high: [f64;7]`.
+
+`HPolynomialThermo<E, N>`: `Cp = Polynomial<N>::value(T)`, enthalpy via
+`Polynomial<N>::integral(Tref, T)`, entropy via `Polynomial<N>::integral_minus1(Tref, T)`.
+
+`HTabulatedThermo<E>`: stores a `(T, Cp)` table; evaluates via `interpolate_xy`.
+
+**Newton T(H) iteration** (shared default method, maps to `Foam::species::thermo<T>::T()`):
+```
+const DTMAX = 500.0;   // max step per iteration
+const MAX_ITER = 50;
+let mut t = t0.max(T_MIN);
+for _ in 0..MAX_ITER {
+    let f = self.ha(p, t) - ha_target;
+    let cp = self.cp(p, t);
+    let dt = (-f / cp).clamp(-DTMAX, DTMAX);
+    t += dt;
+    if dt.abs() / t < 1e-6 { break; }
+}
+t
+```
+
+**Transport (`transport/`):**
+
+| C++ class | C++ dir | Rust target | Layer 1 deps |
+|---|---|---|---|
+| `constTransport<Thermo>` | `const/` | `struct ConstTransport<T>` | — |
+| `sutherlandTransport<Thermo>` | `sutherland/` | `struct SutherlandTransport<T>` | — |
+| `polynomialTransport<Thermo,N>` | `polynomial/` | `struct PolynomialTransport<T,N>` | `Polynomial<N>` |
+| `tabulatedTransport<Thermo>` | `tabulated/` | `struct TabulatedTransport<T>` | `interpolate_xy` |
+
+Transport interface — all transport models add on top of the thermo they wrap:
+- `mu(p, T) -> f64` — dynamic viscosity [Pa·s]
+- `kappa(p, T) -> f64` — thermal conductivity [W/(m·K)]
+- `alpha_h(p, T) -> f64` — thermal diffusivity = κ/Cp [kg/(m·s)]
+
+`ConstTransport`: `mu = const`, `Pr = const`, `kappa = mu·Cp/Pr`.
+`SutherlandTransport`: `mu = As·√T / (1 + Ts/T)`, `kappa = mu·Cv·(1.32 + 1.77·R/Cv)`.
+Sutherland coefficients from two reference points: `(mu1, T1)` and `(mu2, T2)`.
+`PolynomialTransport<T, N>`: two `Polynomial<N>` — one for mu, one for kappa.
+`TabulatedTransport<T>`: two `(T, value)` tables evaluated via `interpolate_xy`.
+
+#### Physical constants
+
+```rust
+// src/thermophysics/constants.rs
+pub const R_UNIVERSAL: f64 = 8314.46261815324;   // J/(kmol·K)  — matches Foam::RR
+pub const T_MIN:       f64 = 100.0;              // K floor for Newton iteration
+pub const T_MAX:       f64 = 6000.0;             // K ceiling for JANAF range
+pub const P_REF:       f64 = 101325.0;           // Pa — standard atmosphere (for entropy)
+```
+
+#### Rust trait hierarchy
+
+```rust
+pub trait EquationOfState {
+    fn mol_weight(&self) -> f64;
+    fn r(&self) -> f64;                          // R_UNIVERSAL / mol_weight
+    fn rho(&self, p: f64, t: f64) -> f64;
+    fn psi(&self, p: f64, t: f64) -> f64;
+    fn z(&self, p: f64, t: f64) -> f64;
+    fn cp_m_cv(&self, p: f64, t: f64) -> f64;
+    fn h_eos(&self, p: f64, t: f64) -> f64;
+    fn e_eos(&self, p: f64, t: f64) -> f64;
+    fn s_eos(&self, p: f64, t: f64) -> f64;
+}
+
+pub trait ThermoModel: EquationOfState {
+    fn cp(&self, p: f64, t: f64) -> f64;
+    fn ha(&self, p: f64, t: f64) -> f64;
+    fn hs(&self, p: f64, t: f64) -> f64;
+    fn hc(&self) -> f64;
+    fn s(&self, p: f64, t: f64) -> f64;
+    fn cv(&self, p: f64, t: f64) -> f64;
+    // Newton iteration has a default impl (see above)
+    fn t_from_ha(&self, ha: f64, p: f64, t0: f64) -> f64;
+    fn t_from_hs(&self, hs: f64, p: f64, t0: f64) -> f64;
+    fn t_from_e(&self, e: f64, p: f64, t0: f64) -> f64;
+}
+
+pub trait TransportModel: ThermoModel {
+    fn mu(&self, p: f64, t: f64) -> f64;
+    fn kappa(&self, p: f64, t: f64) -> f64;
+    fn alpha_h(&self, p: f64, t: f64) -> f64;   // default: kappa/cp
+}
+```
+
+All three traits use static dispatch (generics, not `dyn`) to match C++ template
+zero-overhead composition. Typical concrete type:
+```rust
+type AirLow = SutherlandTransport<JanafThermo<PerfectGas>>;
+```
+
+#### Rust module plan (within this crate)
+
+```
+src/thermophysics/
+  mod.rs
+  constants.rs          ← R_UNIVERSAL, T_MIN, T_MAX, P_REF
+  eos/
+    mod.rs
+    traits.rs           ← trait EquationOfState
+    perfect_gas.rs      ← struct PerfectGas { mol_weight }
+    rho_const.rs        ← struct RhoConst { mol_weight, rho0 }
+    ico_polynomial.rs   ← struct IcoPolynomial<const N> { mol_weight, poly }
+    peng_robinson.rs    ← struct PengRobinsonGas { mol_weight, tc, pc, omega }
+  thermo/
+    mod.rs
+    traits.rs           ← trait ThermoModel; default Newton t_from_ha/hs/e
+    h_const.rs          ← struct HConstThermo<E: EquationOfState>
+    janaf.rs            ← struct JanafThermo<E: EquationOfState>
+    h_polynomial.rs     ← struct HPolynomialThermo<E, const N>
+    h_tabulated.rs      ← struct HTabulatedThermo<E>
+  transport/
+    mod.rs
+    traits.rs           ← trait TransportModel; default alpha_h
+    const_transport.rs  ← struct ConstTransport<T: ThermoModel>
+    sutherland.rs       ← struct SutherlandTransport<T: ThermoModel>
+    polynomial.rs       ← struct PolynomialTransport<T, const N>
+    tabulated.rs        ← struct TabulatedTransport<T>
+```
+
+#### Implementation order
+
+1. `constants.rs` — R_UNIVERSAL, T_MIN, T_MAX, P_REF
+2. `eos/traits.rs` + `eos/perfect_gas.rs` — simplest, anchors all thermo tests
+3. `eos/rho_const.rs` — trivial incompressible EOS
+4. `thermo/traits.rs` + `thermo/h_const.rs` — Newton iteration + simplest thermo
+5. `thermo/janaf.rs` — the workhorse; most test coverage needed here
+6. `transport/traits.rs` + `transport/const_transport.rs` — constant mu/Pr
+7. `transport/sutherland.rs` — standard compressible air transport
+8. `eos/ico_polynomial.rs` — exercises `Polynomial<N>`
+9. `thermo/h_polynomial.rs` — exercises `Polynomial<N>` for Cp
+10. `transport/polynomial.rs` — polynomial mu + kappa
+11. `transport/tabulated.rs` + `thermo/h_tabulated.rs` — exercises `interpolate_xy`
+12. `eos/peng_robinson.rs` — real-gas EOS; most complex, uses `CubicEqn`
+
+#### Testing strategy
+
+Each EOS, thermo, and transport struct gets unit tests that verify:
+- A known point vs NIST or textbook values (e.g. air at 300 K, 1 atm)
+- Self-consistency: `t_from_ha(ha(p, T), p, T) ≈ T` (roundtrip)
+- Mixture blending: `(a += b)` conserves mole fractions
+
+---
+
 ### Layer 2 — Fields and Mesh
 
 **Location:** `src/OpenFOAM/fields/` and `src/finiteVolume/`
@@ -420,7 +649,12 @@ are `erfInv.C`, `incGamma.C`, `invIncGamma.C` in the same directory.
 
 ---
 
-### Layer 4 — Thermophysical Models
+### Layer 4 — Thermophysical Models (future `openfoam-thermo` crate)
+
+> **Note:** This layer requires `volScalarField`, `fvMesh`, and field correction
+> loops — it belongs in a future **`openfoam-thermo`** crate that depends on
+> this one plus the future `openfoam-fields` crate. The per-species kernels
+> (EOS, Cp, transport) live here in Layer 1h above.
 
 **Location:** `src/thermophysicalModels/basic/`
 
@@ -590,12 +824,36 @@ src/
     mod.rs
     erf_inv.rs             ← fn erf_inv(y: f64) -> f64
     inc_gamma.rs           ← inc_gamma_ratio_p/q, inc_gamma_p/q, inv_inc_gamma
+  thermophysics/           ← Layer 1h: specie-level thermophysics (mesh-independent)
+    mod.rs
+    constants.rs           ← R_UNIVERSAL, T_MIN, T_MAX, P_REF
+    eos/
+      mod.rs
+      traits.rs            ← trait EquationOfState
+      perfect_gas.rs       ← struct PerfectGas { mol_weight }
+      rho_const.rs         ← struct RhoConst { mol_weight, rho0 }
+      ico_polynomial.rs    ← struct IcoPolynomial<const N> { mol_weight, poly }
+      peng_robinson.rs     ← struct PengRobinsonGas { mol_weight, tc, pc, omega }
+    thermo/
+      mod.rs
+      traits.rs            ← trait ThermoModel; default Newton t_from_ha/hs/e
+      h_const.rs           ← struct HConstThermo<E: EquationOfState>
+      janaf.rs             ← struct JanafThermo<E: EquationOfState>
+      h_polynomial.rs      ← struct HPolynomialThermo<E, const N>
+      h_tabulated.rs       ← struct HTabulatedThermo<E>
+    transport/
+      mod.rs
+      traits.rs            ← trait TransportModel; default alpha_h
+      const_transport.rs   ← struct ConstTransport<T: ThermoModel>
+      sutherland.rs        ← struct SutherlandTransport<T: ThermoModel>
+      polynomial.rs        ← struct PolynomialTransport<T, const N>
+      tabulated.rs         ← struct TabulatedTransport<T>
 ```
 
 Future crates (not in this one):
 - `openfoam-fields` — Field, GeometricField, volScalarField, fvMesh
 - `openfoam-fv` — fvm:: / fvc:: operators, fvMatrix
-- `openfoam-thermo` — fluidThermo / psiThermo
+- `openfoam-thermo` — fluidThermo / psiThermo / rhoThermo (field-level; wraps Layer 1h types over vol fields)
 - `openfoam-solvers` — PIMPLE loop, rhoPimpleFoam, sonicFoam
 
 ---
