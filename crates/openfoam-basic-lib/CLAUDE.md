@@ -472,35 +472,43 @@ pub const P_REF:       f64 = 101325.0;           // Pa — standard atmosphere (
 #### Rust trait hierarchy
 
 ```rust
+use uom::si::f64::{
+    DynamicViscosity, MassDensity, MolarMass, Pressure, Ratio,
+    SpecificEnergy, SpecificHeatCapacity, ThermalConductivity,
+    ThermodynamicTemperature,
+};
+use crate::thermophysics::quantities::Compressibility;
+
 pub trait EquationOfState {
-    fn mol_weight(&self) -> f64;
-    fn r(&self) -> f64;                          // R_UNIVERSAL / mol_weight
-    fn rho(&self, p: f64, t: f64) -> f64;
-    fn psi(&self, p: f64, t: f64) -> f64;
-    fn z(&self, p: f64, t: f64) -> f64;
-    fn cp_m_cv(&self, p: f64, t: f64) -> f64;
-    fn h_eos(&self, p: f64, t: f64) -> f64;
-    fn e_eos(&self, p: f64, t: f64) -> f64;
-    fn s_eos(&self, p: f64, t: f64) -> f64;
+    fn mol_weight(&self) -> MolarMass;
+    fn r(&self) -> SpecificHeatCapacity;         // R_UNIVERSAL / mol_weight; same dim as Cp
+    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity;
+    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility;
+    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio;  // dimensionless
+    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity;
+    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificEnergy;
+    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificEnergy;
+    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity;
 }
 
 pub trait ThermoModel: EquationOfState {
-    fn cp(&self, p: f64, t: f64) -> f64;
-    fn ha(&self, p: f64, t: f64) -> f64;
-    fn hs(&self, p: f64, t: f64) -> f64;
-    fn hc(&self) -> f64;
-    fn s(&self, p: f64, t: f64) -> f64;
-    fn cv(&self, p: f64, t: f64) -> f64;
-    // Newton iteration has a default impl (see above)
-    fn t_from_ha(&self, ha: f64, p: f64, t0: f64) -> f64;
-    fn t_from_hs(&self, hs: f64, p: f64, t0: f64) -> f64;
-    fn t_from_e(&self, e: f64, p: f64, t0: f64) -> f64;
+    fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity;
+    fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificEnergy;
+    fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificEnergy;
+    fn hc(&self) -> SpecificEnergy;
+    fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity;
+    fn cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity;
+    // Newton iteration — default impl provided in traits.rs
+    fn t_from_ha(&self, ha: SpecificEnergy, p: Pressure, t0: ThermodynamicTemperature) -> ThermodynamicTemperature;
+    fn t_from_hs(&self, hs: SpecificEnergy, p: Pressure, t0: ThermodynamicTemperature) -> ThermodynamicTemperature;
+    fn t_from_e(&self, e: SpecificEnergy, p: Pressure, t0: ThermodynamicTemperature) -> ThermodynamicTemperature;
 }
 
 pub trait TransportModel: ThermoModel {
-    fn mu(&self, p: f64, t: f64) -> f64;
-    fn kappa(&self, p: f64, t: f64) -> f64;
-    fn alpha_h(&self, p: f64, t: f64) -> f64;   // default: kappa/cp
+    fn mu(&self, p: Pressure, t: ThermodynamicTemperature) -> DynamicViscosity;
+    fn kappa(&self, p: Pressure, t: ThermodynamicTemperature) -> ThermalConductivity;
+    // default impl: kappa / cp; same dimension as DynamicViscosity
+    fn alpha_h(&self, p: Pressure, t: ThermodynamicTemperature) -> DynamicViscosity;
 }
 ```
 
@@ -538,6 +546,97 @@ src/thermophysics/
     polynomial.rs       ← struct PolynomialTransport<T, const N>
     tabulated.rs        ← struct TabulatedTransport<T>
 ```
+
+#### uom integration
+
+Layer 1h uses **full uom** — all public trait method parameters and return values
+use `uom::si::f64::*` named quantity types. Internal arithmetic extracts the raw
+`f64` via `.get::<unit>()`, computes, then re-wraps with `Quantity::new::<unit>()`.
+This matches the pattern already used in `tuas_boussinesq_solver`.
+
+**Named uom types used (all from `uom::si::f64::*`):**
+
+| Physical quantity | uom type | SI unit |
+|---|---|---|
+| Pressure | `Pressure` | Pa |
+| Temperature | `ThermodynamicTemperature` | K |
+| Density | `MassDensity` | kg/m³ |
+| Specific heat capacity Cp, Cv | `SpecificHeatCapacity` | J/(kg·K) |
+| Specific enthalpy / energy | `SpecificEnergy` | J/kg |
+| Specific entropy | `SpecificHeatCapacity` | J/(kg·K) — same dimension |
+| Specific gas constant R | `SpecificHeatCapacity` | J/(kg·K) — same dimension |
+| Dynamic viscosity | `DynamicViscosity` | Pa·s = kg/(m·s) |
+| Thermal conductivity | `ThermalConductivity` | W/(m·K) |
+| Thermal diffusivity αh = κ/Cp | `DynamicViscosity` | kg/(m·s) — identical dimension |
+| Molar mass | `MolarMass` | kg/mol |
+
+**Note on molar mass convention:** OpenFOAM stores molecular weight in g/mol
+(i.e. kg/kmol internally, since its `R_universal = 8314 J/(kmol·K)`). When
+constructing a `PerfectGas` etc. the caller must convert: if they have 28.97 g/mol
+for air, pass `MolarMass::new::<gram_per_mole>(28.97)`. The R_UNIVERSAL constant
+in `constants.rs` must be stored in J/(mol·K) = 8.314462618... so that
+`r = R_UNIVERSAL / mol_weight` gives J/(kg·K) when `mol_weight` is in kg/mol.
+
+**Unnamed quantity — Compressibility ψ = ρ/p (dimensions s²/m²):**
+
+```rust
+// src/thermophysics/quantities.rs
+use uom::si::{Quantity, SI};
+use uom::typenum::{N2, Z0, P2};
+
+/// Compressibility ψ = ∂ρ/∂p|T — SI units s²/m² (L⁻²·T²)
+/// Used as the return type of EquationOfState::psi().
+pub type Compressibility = Quantity<
+    uom::si::ISQ<N2, Z0, P2, Z0, Z0, Z0, Z0>,
+    SI<f64>,
+    f64,
+>;
+```
+
+To construct a value: `Compressibility::new::<uom::si::compressibility::per_pascal_second_squared>(v)` —
+or equivalently compute it as a `MassDensity / Pressure` operation directly from
+uom arithmetic (uom tracks dimensions through arithmetic automatically).
+
+**Dimensionless quantities (Z, Prandtl number):** return `Ratio`
+(`uom::si::f64::Ratio`), not plain `f64`.
+
+**Standard imports in every thermophysics source file:**
+```rust
+use uom::si::f64::{
+    DynamicViscosity, MassDensity, MolarMass, Pressure, Ratio,
+    SpecificEnergy, SpecificHeatCapacity, ThermalConductivity,
+    ThermodynamicTemperature,
+};
+```
+
+**Arithmetic pattern — let uom compose dimensions directly:**
+
+Never extract to `f64` and re-wrap unless there is no alternative. Let uom
+operators track and check dimensions automatically:
+
+```rust
+// ρ = p / (R · T) — all three are already uom quantities; result is MassDensity
+fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity {
+    p / (self.r() * t)
+}
+
+// ψ = ρ / p — MassDensity / Pressure = s²/m² = Compressibility
+fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility {
+    self.rho(p, t) / p
+}
+
+// αh = κ / Cp — ThermalConductivity / SpecificHeatCapacity = kg/(m·s) = DynamicViscosity
+fn alpha_h(&self, p: Pressure, t: ThermodynamicTemperature) -> DynamicViscosity {
+    self.kappa(p, t) / self.cp(p, t)
+}
+```
+
+Only use `.get::<unit>()` / `::new::<unit>()` for genuinely scalar expressions
+(e.g. the JANAF polynomial `a0 + a1·T + …`) where there is no existing uom
+quantity to receive an intermediate step. Even then, re-wrap immediately so the
+return type is always a uom quantity.
+
+---
 
 #### Implementation order
 
