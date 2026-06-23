@@ -9,6 +9,28 @@ The reference C++ source lives at:
 
 ---
 
+## Porting workflow (MANDATORY — follow for every new port)
+
+After adding any new type, function, or module, you MUST do **both**:
+
+### 1. Update `src/prelude.rs`
+
+Add all new public items to the appropriate `pub use` block in `src/prelude.rs`
+so that a wildcard import `use openfoam_basic_lib::prelude::*` exposes them.
+
+### 2. Update `README.md`
+
+Add a row for each newly ported item to the **Ported items** table in
+`README.md`.  The table lives under the `## What's implemented` heading.
+Format: `| Module | Rust type / fn | C++ source | Notes |`.
+
+Verification:
+```bash
+cargo test -p openfoam-basic-lib --lib   # must be green before committing
+```
+
+---
+
 ## Goal and scope
 
 The crate climbs the OpenFOAM stack from the bottom up. Each layer depends
