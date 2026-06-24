@@ -3266,6 +3266,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "openfoam-basic-lib"
+version = "0.1.2"
+dependencies = [
+ "approx",
+ "ndarray",
+ "thiserror 2.0.18",
+ "uom",
+]
+
+[[package]]
 name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
