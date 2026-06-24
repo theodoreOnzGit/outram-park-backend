@@ -61,16 +61,17 @@ cargo test -p openfoam-basic-lib --doc   # must be green before committing
 
 ### Doc-comment code blocks
 
-Any ```` ```rust ```` block in a doc comment is compiled and run as a doctest.
-Rules:
-- If the snippet is a **usage pattern** that references `crate::` (e.g. an
-  import line), mark it ```` ```rust,ignore ```` — `crate::` has no meaning
-  outside the crate and the snippet cannot compile standalone.
-- If the snippet is **runnable but slow / side-effectful**, mark it
-  ```` ```rust,no_run ```` — compiled for type-checking but not executed.
-- All other ```` ```rust ```` blocks must compile **and** pass when run via
-  `cargo test --doc`. Do not use `ignore` just to silence a failing test;
-  fix the code instead.
+Any ```` ```rust ```` block in a doc comment is compiled **and executed** as a
+doctest (`cargo test --doc`). Rules:
+
+- **Never use `ignore` to silence a failing doctest.** Fix the code instead.
+- `crate::` does not work in doctests — rustdoc compiles each snippet as an
+  external user of the crate. Use the external crate name instead:
+  `openfoam_basic_lib::` (e.g. `use openfoam_basic_lib::thermophysics::imports::*;`).
+- Do not use `crate::` in doc-comment examples at all; always write the
+  fully-qualified external path so the snippet is self-contained.
+- ```` ```rust,no_run ```` is acceptable only for snippets that are genuinely
+  side-effectful or require external resources at runtime.
 
 ---
 
