@@ -71,3 +71,6 @@ pub use crate::ldu_matrix::{LduMatrix, FvMatrix, SolverSettings, SolverPerforman
 
 // --- FV operators (Layer 3) ---
 pub use crate::fv_operators::{fvc, fvm};
+
+// --- Field-level fluid thermodynamics (Layer 4) ---
+pub use crate::fluid_thermo::{FluidThermo, PsiThermo, RhoThermo};

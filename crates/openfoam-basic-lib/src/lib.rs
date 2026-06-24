@@ -9,4 +9,5 @@ pub mod fields;
 pub mod mesh;
 pub mod ldu_matrix;
 pub mod fv_operators;
+pub mod fluid_thermo;
 pub mod prelude;

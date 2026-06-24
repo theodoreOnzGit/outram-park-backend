@@ -113,7 +113,7 @@ cargo test -p openfoam-basic-lib --lib
 ✅ Layer 1h — Thermophysics   (EOS: PerfectGas, RhoConst, IcoPolynomial, PengRobinsonGas; Thermo: HConstThermo, JanafThermo, HPolynomialThermo, HTabulatedThermo; Transport: ConstTransport, SutherlandTransport, PolynomialTransport, TabulatedTransport)
 ✅ Layer 2  — Fields + Mesh   (Field, VolField, SurfaceField, FvMesh, FvMeshBuilder, BoundaryPatch, LduMatrix, FvMatrix, Gauss-Seidel solver)
 ✅ Layer 3  — FV operators   (fvc::interpolate, fvc::sn_grad, fvc::grad, fvc::div, fvc::div_vec, fvc::div_flux; fvm::ddt, fvm::laplacian, fvm::div; FvMatrix arithmetic: Add/Sub/Neg/AddAssign/SubAssign)
-⬜ Layer 4  — Thermophysics
+✅ Layer 4  — Thermophysics  (FluidThermo trait; PsiThermo<M> for sonicFoam ρ=ψ·p; RhoThermo<M> for rhoPimpleFoam ρ=EOS; correct(), correct_rho(), mu(), kappa(), alpha_h())
 ⬜ Layer 5  — Solver logic
 ```
 
