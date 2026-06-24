@@ -5,66 +5,44 @@ pub mod core_fluid_node;
 /// that means they are exposed to an inner region and an outer region
 pub mod shell_fluid_node;
 
-use ndarray_linalg::{Solve, error};
 use uom::si::f64::*;
 use uom::ConstZero;
 use ndarray::*;
 use uom::si::thermodynamic_temperature::kelvin;
+use openfoam_basic_lib::matrix::SquareMatrix;
 
-/// this basically solves for a temperature vector 
-/// given a conductance matrix and power vector
+use crate::tuas_lib_error::TuasLibError;
+
+/// Solves for a temperature vector given a conductance matrix and power vector.
+///
+/// Uses the pure-Rust `SquareMatrix` LU solver from `openfoam-basic-lib`,
+/// eliminating the system BLAS (OpenBLAS/Intel-MKL) dependency for this path.
 #[inline]
 pub fn solve_conductance_matrix_power_vector(
     thermal_conductance_matrix: Array2<ThermalConductance>,
     power_vector: Array1<Power>)
--> Result<Array1<ThermodynamicTemperature>, error::LinalgError>{
+-> Result<Array1<ThermodynamicTemperature>, TuasLibError>{
 
-    // I can of course convert it into f64 types 
-    //
-    //
+    let n = power_vector.len();
 
-    let get_value_conductance = |conductance: &ThermalConductance| {
-        return conductance.value;
-    };
+    // Strip uom units → plain f64 and fill a SquareMatrix
+    let mut mat = SquareMatrix::new(n);
+    for i in 0..n {
+        for j in 0..n {
+            mat.set(i, j, thermal_conductance_matrix[[i, j]].value);
+        }
+    }
+    let rhs: Vec<f64> = power_vector.iter().map(|p| p.value).collect();
 
-    let get_value_power = |power: &Power| {
-        return power.value;
-    };
+    // Compile-time unit safety check (same as before)
+    let _unit_check: Power =
+        power_vector[0] + thermal_conductance_matrix[[0, 0]] * ThermodynamicTemperature::ZERO;
 
-    // i'm allowing non snake case so that the syntax is the same as 
-    // GeN-Foam
-    #[allow(non_snake_case)]
-    let M: Array2<f64> = 
-    thermal_conductance_matrix.map(get_value_conductance);
+    // LU solve — infallible (guards against singularity internally)
+    let sol = mat.solve(&rhs);
 
-    #[allow(non_snake_case)]
-    let S: Array1<f64> = power_vector.map(get_value_power);
+    let temperature_vector: Array1<ThermodynamicTemperature> =
+        Array1::from_iter(sol.into_iter().map(|f| ThermodynamicTemperature::new::<kelvin>(f)));
 
-    // now for the raw temperature matrix 
-
-    #[allow(non_snake_case)]
-    let T: Array1<f64> = M.solve(&S)?;
-
-    // To check for unit safety, I can just perform one calc
-
-    let _unit_check: Power = 
-    power_vector[0] + 
-    thermal_conductance_matrix[[0,0]] 
-    * ThermodynamicTemperature::ZERO;
-
-    // now map T back to a ThermodynamicTemperature
-    // T is already a ThermodynamicTemperature, so don't need to manually 
-    // convert, do it in kelvin 
-    //
-
-    let convert_f64_to_kelvin_temperature = |float: &f64| {
-        return ThermodynamicTemperature::new::<kelvin>(*float);
-    };
-
-
-    // this is the last step
-    let temperature_vector: Array1<ThermodynamicTemperature> 
-    = T.map(convert_f64_to_kelvin_temperature);
-
-    return Ok(temperature_vector);
+    Ok(temperature_vector)
 }

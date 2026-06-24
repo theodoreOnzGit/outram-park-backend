@@ -4837,7 +4837,7 @@ dependencies = [
  "image",
  "log",
  "ndarray",
- "ndarray-linalg",
+ "openfoam-basic-lib",
  "peroxide",
  "roots",
  "serde",

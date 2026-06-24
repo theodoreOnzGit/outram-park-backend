@@ -5,7 +5,6 @@ use uom::si::f64::*;
 use ndarray::*;
 
 use crate::tuas_lib_error::TuasLibError;
-use ndarray_linalg::error::LinalgError;
 
 
 /// this is essentially a 1D pipe array containing two CVs 
@@ -153,10 +152,7 @@ impl SolidColumn {
                 ErrorKind::IncompatibleShape
             );
 
-            let linalg_error = LinalgError::Shape(shape_error);
-
-            return Err(TuasLibError::LinalgError
-                (linalg_error));
+            return Err(TuasLibError::ShapeMismatch(shape_error.to_string()));
 
         }
 

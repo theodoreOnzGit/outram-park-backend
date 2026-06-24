@@ -11,7 +11,6 @@ use uom::si::power::watt;
 
 
 use crate::tuas_lib_error::TuasLibError;
-use ndarray_linalg::error::LinalgError;
 
 use super::SolidColumn;
 /// This deals with the calculations of the solid column array
@@ -31,10 +30,8 @@ impl SolidColumn {
         let number_of_nodes = self.len();
 
         if number_of_nodes <= 1 {
-            return Err(LinalgError::Shape(
-                ShapeError::from_kind(
-                    ErrorKind::OutOfBounds
-                )).into());
+            return Err(TuasLibError::ShapeMismatch(
+                ShapeError::from_kind(ErrorKind::OutOfBounds).to_string()));
         }
         // First things first, we need to set up 
         // how the CV interacts with the internal array

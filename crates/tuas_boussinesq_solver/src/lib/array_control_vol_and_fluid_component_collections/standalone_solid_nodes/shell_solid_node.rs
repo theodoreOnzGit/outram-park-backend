@@ -1,5 +1,4 @@
 use ndarray::*;
-use ndarray_linalg::error::LinalgError;
 
 use uom::si::f64::*;
 
@@ -77,11 +76,8 @@ pub fn advance_timestep_solid_cylindrical_shell_node_no_axial_conduction(
 
     if number_of_nodes <= 1 {
         return Err(
-            TuasLibError::LinalgError(
-            LinalgError::Shape(
-            ShapeError::from_kind(
-                ErrorKind::OutOfBounds
-            ))));
+            TuasLibError::ShapeMismatch(
+            ShapeError::from_kind(ErrorKind::OutOfBounds).to_string()));
     } else if number_of_nodes > 1 {
 
         let mut coefficient_matrix: Array2<ThermalConductance> = 

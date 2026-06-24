@@ -12,7 +12,6 @@ use crate::tuas_lib_error::TuasLibError;
 use std::thread::JoinHandle;
 use std::thread;
 use ndarray::*;
-use ndarray_linalg::error::LinalgError;
 use uom::num_traits::Zero;
 
 impl NonInsulatedParallelFluidComponent {
@@ -88,10 +87,8 @@ impl NonInsulatedParallelFluidComponent {
 
         let number_of_nodes = fluid_array_clone.len();
         if number_of_nodes <= 1 {
-            return Err(LinalgError::Shape(
-                ShapeError::from_kind(
-                    ErrorKind::OutOfBounds
-                )).into());
+            return Err(TuasLibError::ShapeMismatch(
+                ShapeError::from_kind(ErrorKind::OutOfBounds).to_string()));
         }
 
         // First things first, we need to set up 
@@ -877,10 +874,8 @@ impl NonInsulatedParallelFluidComponent {
         let number_of_nodes = pipe_shell_clone.len();
 
         if number_of_nodes <= 1 {
-            return Err(LinalgError::Shape(
-                ShapeError::from_kind(
-                    ErrorKind::OutOfBounds
-                )).into());
+            return Err(TuasLibError::ShapeMismatch(
+                ShapeError::from_kind(ErrorKind::OutOfBounds).to_string()));
         }
         // First things first, we need to set up 
         // how the CV interacts with the internal array

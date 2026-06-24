@@ -3,9 +3,9 @@ use thiserror::Error;
 /// Master Error type of this crate
 #[derive(Debug, Error)]
 pub enum TuasLibError {
-    /// linear algebra error
-    #[error("linear algebra error")]
-    LinalgError(#[from] ndarray_linalg::error::LinalgError),
+    /// array shape / dimension mismatch (replaces the former ndarray-linalg LinalgError)
+    #[error("shape mismatch: {0}")]
+    ShapeMismatch(String),
 
     /// empty mass flowrate vector error 
     ///
@@ -62,9 +62,7 @@ impl From<String> for TuasLibError {
 impl Into<String> for TuasLibError {
     fn into(self) -> String {
         match self {
-            TuasLibError::LinalgError(_) => {
-                self.to_string()
-            },
+            TuasLibError::ShapeMismatch(s) => s,
             TuasLibError::CourantMassFlowVectorEmpty => {
                 self.to_string()
             },

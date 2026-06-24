@@ -18,19 +18,11 @@ exclude = ["*.csv"]
 approx.workspace = true
 csv.workspace = true
 ndarray.workspace = true
+openfoam-basic-lib.workspace = true
 peroxide.workspace = true
 roots.workspace = true
 thiserror.workspace = true
 uom.workspace = true
-
-[target.'cfg(windows)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
-
-[target.'cfg(macos)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
-
-[target.'cfg(unix)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["openblas-system"] }
 
 [lib]
 name = "tuas_boussinesq_solver"

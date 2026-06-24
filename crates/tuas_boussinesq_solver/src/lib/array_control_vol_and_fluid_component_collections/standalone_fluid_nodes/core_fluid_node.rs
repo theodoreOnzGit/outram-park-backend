@@ -1,5 +1,4 @@
 use ndarray::*;
-use ndarray_linalg::error::LinalgError;
 use uom::num_traits::Zero;
 use uom::si::f64::*;
 use uom::si::power::watt;
@@ -55,11 +54,8 @@ pub fn advance_timestep_fluid_node_array_pipe_high_peclet_number(
 
     if number_of_nodes <= 1 {
         return Err(
-            TuasLibError::LinalgError(
-            LinalgError::Shape(
-            ShapeError::from_kind(
-                ErrorKind::OutOfBounds
-            ))));
+            TuasLibError::ShapeMismatch(
+            ShapeError::from_kind(ErrorKind::OutOfBounds).to_string()));
     }
     // First things first, we need to set up 
     // how the CV interacts with the internal array
