@@ -18,7 +18,22 @@ built, tested, and published from this single repository.
 | `teh-o-prke` | Point Reactor Kinetics (PRKE) for the Teh-O transport/eigenvalue solver | GPL-3.0 |
 | `tuas_boussinesq_solver` | Thermal-hydraulics (Boussinesq single-phase) solver — TUAS | GPL-3.0 |
 | `tampines-steam-tables` | IAPWS-IF97 steam/water properties + steam-turbine equations — TAMPINES | GPL-3.0 |
-| `openfoam-basic-lib` | Pure-Rust translation of the OpenFOAM primitive layer (tensor algebra, polynomial solvers, ODE solvers, interpolation, thermophysics kernels) — building toward **rhoPimpleFoam** / **sonicFoam** | GPL-3.0 |
+| `openfoam-basic-lib` | Pure-Rust translation of the OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, polynomial solvers, ODE solvers, interpolation, thermophysics kernels, fields, mesh, FV operators, fluid/solid thermo | GPL-3.0 |
+
+**Planned future crates** (not yet in the workspace):
+
+| Crate | Depends on | Solvers it targets |
+|---|---|---|
+| `openfoam-icof` | `openfoam-basic-lib` | **icoFoam** (incompressible laminar PISO) |
+| `openfoam-cht` | `openfoam-basic-lib` | **chtMultiRegionFoam** (conjugate heat transfer, multi-region) |
+| `openfoam-rho` | `openfoam-basic-lib` | **rhoPimpleFoam** / **sonicFoam** (compressible) |
+
+**Layer 5 (solver loop logic) MUST live in these separate crates**, not in
+`openfoam-basic-lib`.  `openfoam-basic-lib` provides the mathematical building
+blocks (Layers 1–4) only; the PISO/PIMPLE loop, multi-region coupling logic,
+and turbulence model registries belong in solver-specific crates so that
+`openfoam-basic-lib` stays publishable independently and is reusable by other
+projects.
 
 Internal dependency edges (all by **path**, not crates.io):
 `tampines → tuas`; `teh-o-prke → {tuas, chem-eng}` (dev); `tuas`/`tampines` dev-deps → `chem-eng`, `teh-o-prke`.

@@ -8,6 +8,62 @@ compressible solvers equivalent to **rhoPimpleFoam**, **sonicFoam**, and
 The reference C++ source lives at:
 `/home/teddy0/Documents/research/openfoam/`
 
+**Layer 5 (solver logic — PISO/PIMPLE loops, multi-region coupling, turbulence
+model registries) is intentionally excluded from this crate.** It belongs in
+separate solver crates (`openfoam-icof`, `openfoam-cht`, `openfoam-rho`) that
+depend on this crate. See the workspace `CLAUDE.md` for the planned crate list.
+
+---
+
+## Remaining work before solver crates can be written
+
+### For `openfoam-icof` (icoFoam)
+
+All of the following must be added to `openfoam-basic-lib` first:
+
+1. **`fvVectorMatrix`** — a vector variant of `FvMatrix` (or make `FvMatrix<T>`
+   generic).  icoFoam's momentum equation is a vector system:
+   `fvm::ddt(U) + fvm::div(phi,U) − fvm::laplacian(ν,U)`.
+
+2. **`FvMatrix::A()` and `FvMatrix::H()`** — the diagonal (`A[c] = diag[c]/V[c]`)
+   and the off-diagonal residual contribution (`H = (source − off-diag·x) / V`)
+   needed to form `HbyA = rAU * UEqn.H()` in the PISO pressure step.
+
+3. **`fvc::flux(U)`** — dot a `VolVectorField` with face area vectors → `SurfaceScalarField` (φ = U·Sf).
+
+4. **`fvc::reconstruct(phi)`** — reconstruct a `VolVectorField` from a face flux
+   (inverse of `fvc::flux`; uses least-squares or Gauss).
+
+5. **`fvc::ddtCorr(U, phi, dt)`** — ddt correction term for the PISO flux update.
+
+6. **Reference cell constraint** — pin one cell's pressure to avoid singular
+   matrix in a closed domain.
+
+7. **`adjustPhi`** — correct face fluxes for global mass balance.
+
+No new external Rust crates are required.
+
+### For `openfoam-cht` (chtMultiRegionFoam)
+
+On top of all icoFoam requirements:
+
+1. **Turbulence models** — trait `TurbulenceModel` with `divDevRhoReff(U) →
+   FvVectorMatrix` and `correct()`; concrete implementations: `LaminarModel`
+   (no-op), `kOmegaSST`.  No new external crates needed — just algorithmic Rust.
+
+2. **Multi-region mesh coupling** — a `RegionCoupledPatch` concept that maps
+   interface faces between two `FvMesh` instances and exchanges T and heat-flux
+   values each timestep.  Requires a geometric point-search or face-centre
+   interpolation between non-matching meshes (algorithmic, no new crates).
+
+3. **Solid energy equation assembly** — using `SolidThermo` (already in this
+   crate): `fvm::ddt(rho_cp, T) − fvm::laplacian(kappa, T) == 0`.
+
+4. **Buoyancy source** — `fvc::reconstruct(fvc::interpolate(rho) * (g & mesh.Sf()))`.
+
+5. **Wall distance field** — `yWallDist` for near-wall turbulence corrections;
+   computed via a geometric sweep over wall boundary patches.
+
 ---
 
 ## Implementation rules

@@ -1,6 +1,6 @@
 [package]
 name = "openfoam-basic-lib"
-version = "0.1.3"
+version = "0.1.4"
 edition.workspace = true
 license.workspace = true
 description = "OpenFOAM primitive functions translated to Rust"

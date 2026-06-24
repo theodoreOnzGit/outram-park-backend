@@ -1,3 +1,5 @@
+mod adjust_phi;
+
 /// Explicit finite-volume operators — return a new field.
 ///
 /// Usage mirrors `Foam::fvc::` from `src/finiteVolume/finiteVolume/fvc/`.
@@ -7,3 +9,5 @@ pub mod fvc;
 ///
 /// Usage mirrors `Foam::fvm::` from `src/finiteVolume/finiteVolume/fvm/`.
 pub mod fvm;
+
+pub use adjust_phi::adjust_phi;

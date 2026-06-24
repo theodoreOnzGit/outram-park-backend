@@ -64,13 +64,16 @@ pub use crate::fields::{
 };
 
 // --- Mesh (Layer 2) ---
-pub use crate::mesh::{FvMesh, FvMeshBuilder, BoundaryPatch, PatchKind};
+pub use crate::mesh::{FvMesh, FvMeshBuilder, BoundaryPatch, PatchKind, RegionInterface};
 
 // --- Sparse linear system (Layer 2) ---
-pub use crate::ldu_matrix::{LduMatrix, FvMatrix, SolverSettings, SolverPerformance};
+pub use crate::ldu_matrix::{LduMatrix, FvMatrix, FvVectorMatrix, SolverSettings, SolverPerformance};
 
 // --- FV operators (Layer 3) ---
-pub use crate::fv_operators::{fvc, fvm};
+pub use crate::fv_operators::{fvc, fvm, adjust_phi};
 
 // --- Field-level fluid thermodynamics (Layer 4) ---
-pub use crate::fluid_thermo::{FluidThermo, PsiThermo, RhoThermo};
+pub use crate::fluid_thermo::{FluidThermo, PsiThermo, RhoThermo, SolidThermo, ConstSolidThermo};
+
+// --- LDU solvers ---
+pub use crate::ldu_matrix::{gauss_seidel, conjugate_gradient};

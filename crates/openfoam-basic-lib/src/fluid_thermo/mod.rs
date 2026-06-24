@@ -9,7 +9,9 @@
 pub mod traits;
 pub mod psi_thermo;
 pub mod rho_thermo;
+pub mod solid_thermo;
 
 pub use traits::FluidThermo;
 pub use psi_thermo::PsiThermo;
 pub use rho_thermo::RhoThermo;
+pub use solid_thermo::{SolidThermo, ConstSolidThermo};

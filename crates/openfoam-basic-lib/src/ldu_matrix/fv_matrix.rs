@@ -110,6 +110,46 @@ impl FvMatrix {
         self.ldu.diag[o]     += coeff;
         self.ldu.diag[n]     += coeff;
     }
+
+    /// Pin one cell to a reference value — fixes the singular pressure matrix
+    /// in a closed domain (no fixed-pressure BCs).
+    ///
+    /// Adds a large coefficient to `diag[cell]` and a matching term to
+    /// `source[cell]` so that the solution is forced toward `value`.
+    pub fn set_reference(&mut self, cell: usize, value: f64) {
+        self.ldu.diag[cell] += 1e30;
+        self.source[cell]   += 1e30 * value;
+    }
+
+    /// Diagonal coefficient per cell: `A[c] = diag[c]`.
+    ///
+    /// Used in PISO: `rAU = 1 / pEqn.a_field()`.
+    pub fn a_field(&self) -> VolScalarField {
+        let boundary = self.mesh.patches.iter()
+            .map(|p| PatchField::zero_gradient(p.size))
+            .collect();
+        VolScalarField::new("A", self.mesh.clone(), Field::new(self.ldu.diag.clone()), boundary)
+    }
+
+    /// Off-diagonal residual: `H[c] = source[c] − Σ off-diag · x`.
+    ///
+    /// For a zero initial guess `x = 0` this is just `source`.
+    /// Used in pressure correction: `H = pEqn.h_field(p)`.
+    pub fn h_field(&self, x: &VolScalarField) -> VolScalarField {
+        let n = self.mesh.n_cells;
+        let mut h = vec![0.0_f64; n];
+        for c in 0..n { h[c] = self.source[c]; }
+        for f in 0..self.mesh.n_internal_faces {
+            let o  = self.ldu.owner[f];
+            let nb = self.ldu.neighbour[f];
+            h[o]  -= x.internal[nb] * self.ldu.upper[f];
+            h[nb] -= x.internal[o]  * self.ldu.lower[f];
+        }
+        let boundary = self.mesh.patches.iter()
+            .map(|p| PatchField::zero_gradient(p.size))
+            .collect();
+        VolScalarField::new("H", self.mesh.clone(), Field::new(h), boundary)
+    }
 }
 
 // ── Arithmetic ────────────────────────────────────────────────────────────────
