@@ -229,6 +229,70 @@ cargo test -p boon-lay --lib --tests
 
 ---
 
+## Example porting status (2026-06-25)
+
+Porting both standalone examples into `crates/boon-lay/examples/`.
+Source: `/home/teddy0/Documents/research/boon-lay/examples/`
+
+### Additional egui migration issues found during porting
+
+Beyond what workspace `CLAUDE.md` documents, these breaks appeared:
+
+| Old (egui 0.29 / epaint) | New (egui 0.34) | Fix |
+|---|---|---|
+| `Rounding::same(8.0_f32)` | `egui::CornerRadius::same(8_u8)` | type changed from f32 to u8 |
+| `painter.rect(rect, rnd, color, stroke)` | 5th arg `egui::epaint::StrokeKind::Middle` required | `painter.rect(rect, rnd, color, stroke, StrokeKind::Middle)` |
+| `ui.fonts(\|f\| f.layout_no_wrap(...))` | `Fonts::layout_no_wrap` is now `&mut self` but `ui.fonts()` gives `&Fonts` | use `painter.layout_no_wrap(text, font_id, color)` instead |
+| `Line::new(series).name(name)` | `Line::new(name, series)` — name is now the first arg | swap argument order, drop `.name()` |
+
+### `boon_lay_decay_simulator` example
+
+- [x] `main.rs`
+- [x] `decay_simulator_v1/mod.rs` — egui migration applied (`fn ui`, `MenuBar::new().ui`, deprecated panels kept)
+- [x] `decay_simulator_v1/front_end/mod.rs`
+- [x] `decay_simulator_v1/front_end/citation_disclaimer_and_acknowledgements.rs`
+- [x] `decay_simulator_v1/front_end/main_page.rs` — uses `draw_grid_parallel` (rayon)
+- [x] `decay_simulator_v1/front_end/graph_page.rs` — `Line::new(name, series)` fix applied
+- [x] `decay_simulator_v1/front_end/side_panel.rs`
+- [x] `decay_simulator_v1/front_end/periodic_table.rs` — `CornerRadius::same(8)`, `StrokeKind::Middle`, `painter.layout_no_wrap` fixes applied
+- [x] `decay_simulator_v1/backend/mod.rs` — `oorandom::Rand64` → `openmc_libs::rng::lcg::Lcg64`
+- [x] `decay_simulator_v1/backend/run.rs`
+- [x] `decay_simulator_v1/backend/simulator_state.rs`
+- [x] `decay_simulator_v1/backend/simulator_state/graphing.rs`
+
+### `triso_simulator` example
+
+- [x] `main.rs`
+- [x] `triso_simulator_v1/mod.rs` — egui migration applied
+- [x] `triso_simulator_v1/front_end/mod.rs`
+- [x] `triso_simulator_v1/front_end/citation_disclaimer_and_acknowledgements.rs`
+- [x] `triso_simulator_v1/front_end/periodic_table.rs` — written; **TODO: apply remaining 3 fixes** (`CornerRadius::same(8)`, `StrokeKind::Middle`, `painter.layout_no_wrap` — only `use egui::Rounding` removal done so far)
+- [x] `triso_simulator_v1/backend/mod.rs` — `Rand64` → `Lcg64`, `rand::Rng` generic removed from `random_point_in_spherical_shell`, uses `prn(seed)` directly
+- [ ] `triso_simulator_v1/backend/run.rs` — **TODO**: remove `use rand::SeedableRng;`; change `OoRng64::from_seed([thread_number * 7_u8; 16])` → `OoRng64::from_u64(thread_number as u64 * 7)`
+- [ ] `triso_simulator_v1/backend/simulator_state.rs` — **TODO**: clean copy (fields: `release_fraction`, `release_fractions_over_time`, `triso_cell: TrisoCell`, `user_selected_temperature`)
+- [ ] `triso_simulator_v1/backend/simulator_state/graphing.rs` — **TODO**: clean copy (includes `TrisoRegion` release fraction counting)
+- [ ] `triso_simulator_v1/front_end/triso_particle.rs` — **TODO**: clean copy (`TrisoParticleUi` wrapping `TrisoCell`, `Widget` impl, helper geometry methods)
+- [ ] `triso_simulator_v1/front_end/main_page.rs` — **TODO**: RNG migration: `use oorandom::Rand64` → `use openmc_libs::rng::lcg::Lcg64`; `fn uniform_u64(rng: &mut Rand64, ...)` → `fn uniform_u64(rng: &mut Lcg64, ...)`; `Rand64::new(seed.into())` → `Lcg64::new(seed as u128)`; also contains `element_color`, `contrasting_text`, `symbol_from_z` methods needed by periodic_table
+- [ ] `triso_simulator_v1/front_end/graph_page.rs` — **TODO**: clean copy + `Line::new(name, series)` fix (two plots: nuclide fractions + release fraction)
+- [ ] `triso_simulator_v1/front_end/side_panel.rs` — **TODO**: clean copy (has temperature slider, nuclide selector, release fraction display, CSV data section)
+
+### Cargo.toml
+
+- [ ] **TODO**: Uncomment both `[[example]]` blocks in `crates/boon-lay/Cargo.toml`:
+  ```toml
+  [[example]]
+  name = "boon_lay_decay_simulator"
+
+  [[example]]
+  name = "triso_simulator"
+  ```
+
+### Final verification
+
+- [ ] **TODO**: `cargo check --workspace --all-targets` green
+
+---
+
 ## Planned future work
 
 - `lagrangian_transmutation_and_fission_simulator` — full transmutation matrix

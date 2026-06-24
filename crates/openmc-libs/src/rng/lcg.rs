@@ -49,6 +49,40 @@ pub fn future_seed(mut n: u64, seed: u64) -> u64 {
     a_m.wrapping_mul(seed).wrapping_add(c_m)
 }
 
+/// Stateful 64-bit LCG — drop-in replacement for `oorandom::Rand64`.
+///
+/// Provides the same interface (`new`, `rand_float`, `rand_u64`) so boon-lay
+/// code can substitute `use openmc_libs::rng::lcg::Lcg64 as Rand64` with no
+/// other changes to call sites.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Lcg64 {
+    state: u64,
+}
+
+impl Lcg64 {
+    /// Create a new generator from a 128-bit seed (matches `oorandom::Rand64::new`).
+    /// The lower 64 bits are used; the generator is advanced once to avoid a
+    /// trivial first output when seeded with 0.
+    pub fn new(seed: u128) -> Self {
+        let mut state = seed as u64;
+        state = state.wrapping_mul(MULT).wrapping_add(INC);
+        Self { state }
+    }
+
+    /// Return a uniform sample in [0, 1) and advance the state.
+    #[inline]
+    pub fn rand_float(&mut self) -> f64 {
+        prn(&mut self.state)
+    }
+
+    /// Return a raw 64-bit integer and advance the state.
+    #[inline]
+    pub fn rand_u64(&mut self) -> u64 {
+        self.state = self.state.wrapping_mul(MULT).wrapping_add(INC);
+        self.state
+    }
+}
+
 /// Derive an independent seed for particle `id` from a master seed.
 ///
 /// Maps to `uint64_t init_seed(int64_t id, int offset)`.
