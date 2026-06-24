@@ -12,6 +12,28 @@ those traits for your own projects.
 
 # Changelog
 
+## 0.1.2
+
+- **Breaking — `TuasLibError` API change:** `TuasLibError::LinalgError(ndarray_linalg::error::LinalgError)` is
+  replaced by `TuasLibError::ShapeMismatch(String)`. Any code that matches on
+  `TuasLibError::LinalgError` must be updated to match on `TuasLibError::ShapeMismatch`.
+  The variant was only ever emitted for internal dimension-guard checks (matrix/vector
+  shape mismatches), never for actual linear-algebra failures, so this change has no
+  semantic impact — the error message text is preserved.
+
+- **Dependency change — `ndarray-linalg` and system BLAS removed.** The only LU solve in
+  TUAS (`solve_conductance_matrix_power_vector` in `standalone_fluid_nodes`) is now
+  performed by `openfoam_basic_lib::matrix::SquareMatrix::solve`, a pure-Rust LU
+  factorisation with scaled partial pivoting. All three
+  `[target.*.dependencies]` blocks for `ndarray-linalg` (Linux/macOS/Windows) are gone.
+  **Users no longer need to install OpenBLAS or Intel MKL** to build or use this crate.
+
+  Performance impact: `SquareMatrix::solve` is competitive with LAPACK DGESV for the
+  matrix sizes TUAS uses (n ≤ 50, typically 10–20). At n ≤ 20 it is actually faster due
+  to the absence of FFI call overhead (~300–400 ns per LAPACK call). OpenBLAS pulls
+  ahead above n ≈ 50 via cache-blocked BLAS-3 kernels, but that size never arises in
+  a TUAS simulation.
+
 ## 0.1.1
 
 - **Bug fix:** `CustomSolid` and `CustomLiquid` enthalpy integration no longer
@@ -52,8 +74,6 @@ Once inside the simulator folder, run:
 ```bash 
 cargo run --example ciet_educational_simulator --release
 ```
-
-Note that for Linux and MacOS, you will need to install OpenBLAS.
 
 Also please go to the examples folder to find source code and more README.md 
 for the CIET Educational Simulator.
@@ -101,21 +121,9 @@ as well, but maybe that name is for another project.
 
 ## Prerequisites
 
-
-For linux machines, you will need to install libopenblas. I'm using 
-the dev version as an example:
-
-For Linux Mint, Ubuntu, PopOS etc.:
-```bash
-sudo apt install libopenblas-dev
-```
-
-For Arch Linux based distros, eg. endeavourOS and Arch Linux:
-
-```bash
-sudo pacman -S openblas
-```
-
+As of v0.1.2, TUAS uses a pure-Rust LU solver (`openfoam-basic-lib::matrix::SquareMatrix`)
+and no longer requires a system BLAS (OpenBLAS or Intel MKL). No extra packages need to
+be installed on Linux, macOS, or Windows.
 
 Tested on Arch Linux and Linux Mint distros. 
 
@@ -182,13 +190,12 @@ many free and open source libraries such as:
 2. Peroxide
 3. Roots
 4. GeN-Foam and OpenFOAM
-5. ndarray-linalg, and therefore, Intel Math Kernel Library
-and OpenBLAS
+5. openfoam-basic-lib (pure-Rust LU solver, replaces ndarray-linalg as of v0.1.2)
 6. thiserror
-7. csv 
+7. csv
 
 Most are released under Apache 2.0 and MIT 
-(uom, ndarray-linalg, OpenBLAS, thiserror and peroxide)
+(uom, thiserror and peroxide)
 and roots is released under BSD 2 clause. The licensing notices
 is provided in the licensing file. The csv crate is licensed 
 under MIT or the unlicense. I'll just leave the MIT license here. 
@@ -199,11 +206,6 @@ derivative.
 OpenFOAM and GeN-Foam are released under GNU GPL v3.0. 
 As I am reliant on these libraries under the GNU GPL v3.0
 license, this software is also released under GNU GPL v3.0.
-
-The Intel math kernel library (intel-mkl) is used for linear algebra calculations 
-on windows machines, and therefore is subject to the intel simplified 
-software license. Neither I nor the writers of the crate 
-are associated with or represent Intel.
 
 I'm also not a representative of the Rust Foundation, nor am I affiliated 
 with them.
