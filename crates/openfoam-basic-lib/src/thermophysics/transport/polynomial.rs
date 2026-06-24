@@ -1,15 +1,7 @@
-use uom::si::f64::{
-    DynamicViscosity, MassDensity, MolarMass, Pressure, Ratio, AvailableEnergy,
-    SpecificHeatCapacity, ThermalConductivity, ThermodynamicTemperature,
-};
-use uom::si::dynamic_viscosity::pascal_second;
-use uom::si::thermal_conductivity::watt_per_meter_kelvin;
-use uom::si::thermodynamic_temperature::kelvin;
-
-use crate::polynomial::Polynomial;
+use crate::thermophysics::imports::*;
 use crate::thermophysics::eos::EquationOfState;
-use crate::thermophysics::quantities::Compressibility;
 use crate::thermophysics::thermo::ThermoModel;
+use crate::polynomial::Polynomial;
 use super::traits::TransportModel;
 
 /// Polynomial transport model: μ(T) and κ(T) evaluated from `Polynomial<N>`.
