@@ -1,10 +1,15 @@
 /// Common uom re-exports for thermophysics implementation files.
 ///
-/// Every EOS / thermo / transport source file starts with:
+/// Every EOS / thermo / transport source file starts with
+/// `use crate::thermophysics::imports::*;` instead of repeating the full
+/// type/unit import block.  From outside the crate the same symbols are
+/// reachable as:
+///
 /// ```rust
-/// use crate::thermophysics::imports::*;
+/// use openfoam_basic_lib::thermophysics::imports::*;
+/// let p = Pressure::new::<pascal>(101325.0);
+/// assert!(p.get::<pascal>() > 0.0);
 /// ```
-/// instead of repeating the full type/unit import block.
 
 // ── quantity types ────────────────────────────────────────────────────────────
 pub use uom::si::f64::{

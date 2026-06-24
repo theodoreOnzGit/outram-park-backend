@@ -56,7 +56,21 @@ Format: `| Module | Rust type / fn | C++ source | Notes |`.
 Verification:
 ```bash
 cargo test -p openfoam-basic-lib --lib   # must be green before committing
+cargo test -p openfoam-basic-lib --doc   # must be green before committing
 ```
+
+### Doc-comment code blocks
+
+Any ```` ```rust ```` block in a doc comment is compiled and run as a doctest.
+Rules:
+- If the snippet is a **usage pattern** that references `crate::` (e.g. an
+  import line), mark it ```` ```rust,ignore ```` — `crate::` has no meaning
+  outside the crate and the snippet cannot compile standalone.
+- If the snippet is **runnable but slow / side-effectful**, mark it
+  ```` ```rust,no_run ```` — compiled for type-checking but not executed.
+- All other ```` ```rust ```` blocks must compile **and** pass when run via
+  `cargo test --doc`. Do not use `ignore` just to silence a failing test;
+  fix the code instead.
 
 ---
 
