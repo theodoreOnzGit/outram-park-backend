@@ -17,6 +17,12 @@
 ///
 /// **Math special functions** (Layer 1g)
 /// - `erf_inv`, `inc_gamma_ratio_p`, `inc_gamma_ratio_q`, `inc_gamma_p`, `inc_gamma_q`, `inv_inc_gamma`
+///
+/// **Specie-level thermophysics** (Layer 1h)
+/// - Custom quantity: `Compressibility` (ψ = ∂ρ/∂p|T, s²/m²)
+/// - EOS traits/types: `EquationOfState`, `PerfectGas`, `RhoConst`
+/// - Thermo traits/types: `ThermoModel`, `HConstThermo`, `JanafThermo`
+/// - Transport traits/types: `TransportModel`, `ConstTransport`, `SutherlandTransport`
 
 // --- Primitive scalars ---
 pub use crate::primitives::{
@@ -42,3 +48,9 @@ pub use crate::ode::{Euler, OdeError, OdeSystem, OdeSolverConfig, Rkf45, Rosenbr
 
 // --- Interpolation (Layer 1f) ---
 pub use crate::interpolation::{interpolate_spline_xy, interpolate_xy};
+
+// --- Specie-level thermophysics (Layer 1h) ---
+pub use crate::thermophysics::quantities::Compressibility;
+pub use crate::thermophysics::eos::{EquationOfState, PerfectGas, RhoConst};
+pub use crate::thermophysics::thermo::{ThermoModel, HConstThermo, JanafThermo};
+pub use crate::thermophysics::transport::{TransportModel, ConstTransport, SutherlandTransport};

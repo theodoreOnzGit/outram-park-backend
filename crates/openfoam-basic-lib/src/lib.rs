@@ -4,4 +4,5 @@ pub mod math;
 pub mod matrix;
 pub mod ode;
 pub mod interpolation;
+pub mod thermophysics;
 pub mod prelude;

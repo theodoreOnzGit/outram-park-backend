@@ -65,6 +65,16 @@ let x = inv_inc_gamma(2.0, 0.5);        // x such that P(2,x) = 0.5
 | `ode` | `struct Rosenbrock23` | `ODE/ODESolvers/Rosenbrock23/Rosenbrock23.C` | W-method stiff adaptive; requires Jacobian; 3 LU back-solves per step |
 | `interpolation` | `fn interpolate_xy` | `interpolations/interpolateXY/interpolateXY.C` | linear 1-D; binary search; clamps at endpoints |
 | `interpolation` | `fn interpolate_spline_xy` | `interpolations/interpolateSplineXY/interpolateSplineXY.C` | Catmull-Rom cubic; ghost-point boundary extension |
+| `thermophysics` | `type Compressibility` | — | Custom uom quantity ψ = ∂ρ/∂p|T, s²/m² |
+| `thermophysics::eos` | `trait EquationOfState` | `specie/equationOfState/` | rho, psi, Z, CpMCv, h/e/s EOS departures; full uom types |
+| `thermophysics::eos` | `struct PerfectGas` | `equationOfState/perfectGas/` | p = ρRT; Z=1; ρ=p/(RT) via uom arithmetic |
+| `thermophysics::eos` | `struct RhoConst` | `equationOfState/rhoConst/` | incompressible ρ=const; ψ=0 |
+| `thermophysics::thermo` | `trait ThermoModel` | `specie/thermo/thermo/` | Cp, Ha, Hs, Hc, S, Cv; Newton T(H/Hs/e) iteration |
+| `thermophysics::thermo` | `struct HConstThermo<E>` | `thermo/hConst/` | const Cp; Hs = Cp·(T−Tref)+Hsref |
+| `thermophysics::thermo` | `struct JanafThermo<E>` | `thermo/janaf/` | NASA 7-coeff dual-range polynomial; Hc at T_std |
+| `thermophysics::transport` | `trait TransportModel` | `specie/transport/` | mu, kappa; default alpha_h = kappa/Cp |
+| `thermophysics::transport` | `struct ConstTransport<T>` | `transport/const/` | const mu + Pr; kappa = Cp·mu/Pr |
+| `thermophysics::transport` | `struct SutherlandTransport<T>` | `transport/sutherland/` | mu = As√T/(1+Ts/T); Eucken kappa; two-point constructor |
 
 ## Prelude
 
@@ -94,6 +104,7 @@ cargo test -p openfoam-basic-lib --lib
 ✅ Layer 1e — ODE solvers      (Euler, Rkf45, Rosenbrock23)
 ✅ Layer 1f — Interpolation    (interpolate_xy, interpolate_spline_xy)
 ✅ Layer 1g — Math functions   (erf_inv, inc_gamma_*, inv_inc_gamma)
+🔶 Layer 1h — Thermophysics   (EOS: PerfectGas, RhoConst; Thermo: HConstThermo, JanafThermo; Transport: ConstTransport, SutherlandTransport — IcoPolynomial, HPolynomialThermo, PolynomialTransport, TabulatedTransport, PengRobinsonGas pending)
 ⬜ Layer 2  — Fields + Mesh
 ⬜ Layer 3  — FV operators
 ⬜ Layer 4  — Thermophysics
