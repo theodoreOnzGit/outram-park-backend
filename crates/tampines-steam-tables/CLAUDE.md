@@ -286,6 +286,22 @@ property surface (currently only saturation + quality interpolation).
 > from the root `[workspace.dependencies]` — **do not** pin versions here
 > (`uom.workspace = true`, etc.).
 
+### Planned: remove vestigial `ndarray-linalg` dep
+
+`ndarray-linalg` is listed in all three `[target.*.dependencies]` blocks in
+`Cargo.toml` but is **never imported anywhere in the source tree**. The
+`.solve()` calls under `src/openfoam_algorithms/` are all commented out. This
+is a vestigial entry — no code changes are needed to remove it.
+
+**To clean up:** delete the three `[target.*.dependencies]` `ndarray-linalg`
+lines from `Cargo.toml` (`cfg(windows)`, `cfg(macos)`, `cfg(unix)`). Run
+`cargo check -p tampines-steam-tables --lib` to confirm nothing breaks.
+
+Note: `tuas_boussinesq_solver` (a runtime dep of tampines) used to pull in
+`ndarray-linalg` transitively, which is likely why this was listed explicitly.
+Since TUAS v0.1.2 no longer uses `ndarray-linalg`, the transitive need is also
+gone.
+
 ### Migration notes (2026-06)
 
 - Moved into the workspace; standalone git history dropped.

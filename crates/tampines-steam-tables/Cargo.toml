@@ -20,6 +20,9 @@ uom.workspace = true
 # now resolves to the in-tree crate rather than crates.io
 tuas_boussinesq_solver.workspace = true
 
+
+[dev-dependencies]
+teh-o-prke.workspace = true
 [target.'cfg(windows)'.dependencies]
 ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
 
@@ -28,9 +31,6 @@ ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
 
 [target.'cfg(unix)'.dependencies]
 ndarray-linalg = { workspace = true, features = ["openblas-system"] }
-
-[dev-dependencies]
-teh-o-prke.workspace = true
 
 chem-eng-real-time-process-control-simulator.workspace = true
 egui.workspace = true
