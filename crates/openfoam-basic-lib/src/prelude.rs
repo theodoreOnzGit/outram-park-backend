@@ -51,6 +51,6 @@ pub use crate::interpolation::{interpolate_spline_xy, interpolate_xy};
 
 // --- Specie-level thermophysics (Layer 1h) ---
 pub use crate::thermophysics::quantities::Compressibility;
-pub use crate::thermophysics::eos::{EquationOfState, PerfectGas, RhoConst};
-pub use crate::thermophysics::thermo::{ThermoModel, HConstThermo, JanafThermo};
-pub use crate::thermophysics::transport::{TransportModel, ConstTransport, SutherlandTransport};
+pub use crate::thermophysics::eos::{EquationOfState, PerfectGas, RhoConst, IcoPolynomial};
+pub use crate::thermophysics::thermo::{ThermoModel, HConstThermo, JanafThermo, HPolynomialThermo};
+pub use crate::thermophysics::transport::{TransportModel, ConstTransport, SutherlandTransport, PolynomialTransport};
