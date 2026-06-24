@@ -87,13 +87,18 @@ mod tests {
 
     #[test]
     fn linear_field_constant_x_grad() {
-        // p = x: p[0]=0.25, p[1]=0.75 → ∂p/∂x = 1
+        // p = x: p[0]=0.25, p[1]=0.75; wall BCs p(x=1)=1, p(x=0)=0
+        // → Gauss gradient should give ∂p/∂x = 1 in both cells.
+        use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
         let m = unit_mesh();
-        let mut p = VolScalarField::zeros("p", m.clone());
+        let boundary = vec![
+            PatchField { bc: BoundaryCondition::FixedValue(1.0), values: Field::new(vec![0.0]) },
+            PatchField { bc: BoundaryCondition::FixedValue(0.0), values: Field::new(vec![0.0]) },
+        ];
+        let mut p = VolScalarField::new("p", m.clone(), Field::new(vec![0.0; 2]), boundary);
         p.internal[0] = 0.25;
         p.internal[1] = 0.75;
         let gp = grad(&p);
-        // Both cells should have grad ≈ (1, 0, 0)
         assert_relative_eq!(gp.internal[0].x, 1.0, epsilon = 1e-10);
         assert_relative_eq!(gp.internal[1].x, 1.0, epsilon = 1e-10);
     }

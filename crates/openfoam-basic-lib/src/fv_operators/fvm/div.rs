@@ -73,3 +73,72 @@ pub fn div(phi: &SurfaceScalarField, psi: &VolScalarField) -> FvMatrix {
 
     mat
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use crate::primitives::Vector3;
+    use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
+    use crate::fields::field::Field;
+    use crate::fields::surface_field::SurfaceScalarField;
+    use crate::fields::vol_field::VolScalarField;
+    use crate::mesh::fv_mesh::{FvMeshBuilder, BoundaryPatch, PatchKind};
+
+    fn unit_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {
+        Arc::new(FvMeshBuilder::new()
+            .n_cells(2).n_internal_faces(1)
+            .owner(vec![0, 1, 0]).neighbour(vec![1])
+            .patches(vec![
+                BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
+            ])
+            .cell_volumes(vec![0.5, 0.5])
+            .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
+            .face_area_vectors(vec![
+                Vector3::new(1.0, 0.0, 0.0),
+                Vector3::new(1.0, 0.0, 0.0),
+                Vector3::new(-1.0, 0.0, 0.0),
+            ])
+            .face_centres(vec![
+                Vector3::new(0.5, 0.0, 0.0),
+                Vector3::new(1.0, 0.0, 0.0),
+                Vector3::new(0.0, 0.0, 0.0),
+            ])
+            .build().unwrap())
+    }
+
+    fn make_phi(m: Arc<crate::mesh::fv_mesh::FvMesh>, internal: f64, bnd: f64) -> SurfaceScalarField {
+        let n_int = m.n_internal_faces;
+        let bnd_vals: Vec<_> = m.patches.iter()
+            .map(|p| PatchField { bc: BoundaryCondition::ZeroGradient, values: Field::uniform(p.size, bnd) })
+            .collect();
+        SurfaceScalarField::new("phi", m, Field::uniform(n_int, internal), bnd_vals)
+    }
+
+    #[test]
+    fn upwind_positive_flux_on_diagonal() {
+        // phi_f > 0: donor is owner → only diag[O] += phi, upper unchanged
+        let m = unit_mesh();
+        let phi = make_phi(m.clone(), 1.0, 0.0);
+        let psi = VolScalarField::uniform("psi", m.clone(), 0.0);
+        let mat = div(&phi, &psi);
+        // internal face: diag[0] += 1, lower[0] -= 1; diag[1] -= 0, upper[0] += 0
+        assert!((mat.ldu.diag[0] - 1.0).abs() < 1e-12, "diag[0]={}", mat.ldu.diag[0]);
+        assert!((mat.ldu.upper[0] - 0.0).abs() < 1e-12);
+        assert!((mat.ldu.diag[1] - 0.0).abs() < 1e-12);
+        assert!((mat.ldu.lower[0] - (-1.0)).abs() < 1e-12, "lower[0]={}", mat.ldu.lower[0]);
+    }
+
+    #[test]
+    fn upwind_negative_flux_on_upper() {
+        // phi_f < 0: donor is neighbour → only upper[f] += phi (negative)
+        let m = unit_mesh();
+        let phi = make_phi(m.clone(), -1.0, 0.0);
+        let psi = VolScalarField::uniform("psi", m.clone(), 0.0);
+        let mat = div(&phi, &psi);
+        assert!((mat.ldu.upper[0] - (-1.0)).abs() < 1e-12);
+        assert!((mat.ldu.diag[0] - 0.0).abs() < 1e-12);
+        assert!((mat.ldu.diag[1] - 1.0).abs() < 1e-12);
+    }
+}

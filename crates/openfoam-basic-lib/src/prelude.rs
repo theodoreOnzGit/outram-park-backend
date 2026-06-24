@@ -68,3 +68,6 @@ pub use crate::mesh::{FvMesh, FvMeshBuilder, BoundaryPatch, PatchKind};
 
 // --- Sparse linear system (Layer 2) ---
 pub use crate::ldu_matrix::{LduMatrix, FvMatrix, SolverSettings, SolverPerformance};
+
+// --- FV operators (Layer 3) ---
+pub use crate::fv_operators::{fvc, fvm};

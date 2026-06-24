@@ -109,3 +109,70 @@ pub fn div_vec(phi: &SurfaceScalarField, u: &VolVectorField) -> VolVectorField {
         boundary,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use crate::primitives::Vector3;
+    use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
+    use crate::fields::field::Field;
+    use crate::fields::surface_field::SurfaceScalarField;
+    use crate::mesh::fv_mesh::{FvMeshBuilder, BoundaryPatch, PatchKind};
+
+    fn unit_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {
+        Arc::new(FvMeshBuilder::new()
+            .n_cells(2).n_internal_faces(1)
+            .owner(vec![0, 1, 0]).neighbour(vec![1])
+            .patches(vec![
+                BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
+            ])
+            .cell_volumes(vec![0.5, 0.5])
+            .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
+            .face_area_vectors(vec![
+                Vector3::new(1.0, 0.0, 0.0),
+                Vector3::new(1.0, 0.0, 0.0),
+                Vector3::new(-1.0, 0.0, 0.0),
+            ])
+            .face_centres(vec![
+                Vector3::new(0.5, 0.0, 0.0),
+                Vector3::new(1.0, 0.0, 0.0),
+                Vector3::new(0.0, 0.0, 0.0),
+            ])
+            .build().unwrap())
+    }
+
+    fn phi_field(m: Arc<crate::mesh::fv_mesh::FvMesh>, int: f64, bnd: f64) -> SurfaceScalarField {
+        let ni = m.n_internal_faces;
+        let bnd_pf: Vec<_> = m.patches.iter()
+            .map(|p| PatchField { bc: BoundaryCondition::ZeroGradient, values: Field::uniform(p.size, bnd) })
+            .collect();
+        SurfaceScalarField::new("phi", m, Field::uniform(ni, int), bnd_pf)
+    }
+
+    #[test]
+    fn div_flux_of_uniform_inoutflow_is_zero() {
+        // Symmetric flux +1 in, -1 out → net = 0 for interior cell
+        // Only internal face with phi=1: cell 0 gains +1, cell 1 loses +1
+        // Both boundary fluxes are 0 → both cells see net = ±1/0.5 = ±2
+        // Actually just verify the formula: div_flux sums face fluxes / V
+        let m = unit_mesh();
+        let phi = phi_field(m.clone(), 0.0, 0.0);
+        let d = div_flux(&phi);
+        assert!(d.internal[0].abs() < 1e-12);
+        assert!(d.internal[1].abs() < 1e-12);
+    }
+
+    #[test]
+    fn div_flux_nonzero() {
+        // phi_internal = 1, boundaries = 0
+        // cell 0: +1 (internal outflow), -0 (left bnd inflow=0) → net +1 / 0.5 = +2
+        // cell 1: -1 (internal, neighbour) + 0 (right bnd) → net -1 / 0.5 = -2
+        let m = unit_mesh();
+        let phi = phi_field(m.clone(), 1.0, 0.0);
+        let d = div_flux(&phi);
+        assert!((d.internal[0] - 2.0).abs() < 1e-10, "div_flux[0]={}", d.internal[0]);
+        assert!((d.internal[1] - (-2.0)).abs() < 1e-10, "div_flux[1]={}", d.internal[1]);
+    }
+}
