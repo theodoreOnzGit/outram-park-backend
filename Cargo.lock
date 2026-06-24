@@ -1218,6 +1218,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
+name = "dwsim-libs"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "ndarray",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ecolor"
 version = "0.34.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3274,6 +3283,15 @@ dependencies = [
  "ndarray-linalg",
  "thiserror 2.0.18",
  "uom",
+]
+
+[[package]]
+name = "openmc-libs"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "ndarray",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
