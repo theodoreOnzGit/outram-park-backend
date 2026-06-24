@@ -34,6 +34,19 @@ crates. When changing a shared dependency, edit the root `Cargo.toml` only.
 backend feature is chosen per-target by each member
 (`openblas-system` on unix, `intel-mkl-static` on windows/macos).
 
+**Future: removing `ndarray-linalg` from TUAS.** `openfoam-basic-lib` does
+**not** use `ndarray-linalg` — its `SquareMatrix` module implements LU
+factorisation in pure Rust. All `ndarray-linalg` usage in TUAS bottoms out in
+one call: `M.solve(&S)` in
+`array_control_vol_and_fluid_component_collections/standalone_fluid_nodes/mod.rs`
+(`solve_conductance_matrix_power_vector`), which performs a dense LU solve on
+the per-timestep conductance matrix (typically 10–50 × 10–50, not tridiagonal
+because lateral coupling fills off-band entries). Replacing it with
+`openfoam_basic_lib::matrix::SquareMatrix::lu_solve` would eliminate the
+OpenBLAS system dependency from TUAS entirely. That requires changing
+`solve_conductance_matrix_power_vector`'s signature and its ~13 call sites —
+a moderate refactor, not urgent.
+
 ## Build & test
 
 Requires a system BLAS (OpenBLAS on Linux/macOS):
