@@ -70,14 +70,17 @@ let x = inv_inc_gamma(2.0, 0.5);        // x such that P(2,x) = 0.5
 | `thermophysics::eos` | `struct PerfectGas` | `equationOfState/perfectGas/` | p = ρRT; Z=1; ρ=p/(RT) via uom arithmetic |
 | `thermophysics::eos` | `struct RhoConst` | `equationOfState/rhoConst/` | incompressible ρ=const; ψ=0 |
 | `thermophysics::eos` | `struct IcoPolynomial<const N>` | `equationOfState/icoPolynomial/` | incompressible ρ=1/poly(T); ψ=0; h_eos=p/ρ |
+| `thermophysics::eos` | `struct PengRobinsonGas` | `equationOfState/PengRobinsonGas/` | cubic real-gas EOS; Z via CubicEqn; all departure functions |
 | `thermophysics::thermo` | `trait ThermoModel` | `specie/thermo/thermo/` | Cp, Ha, Hs, Hc, S, Cv; Newton T(H/Hs/e) iteration |
 | `thermophysics::thermo` | `struct HConstThermo<E>` | `thermo/hConst/` | const Cp; Hs = Cp·(T−Tref)+Hsref |
 | `thermophysics::thermo` | `struct JanafThermo<E>` | `thermo/janaf/` | NASA 7-coeff dual-range polynomial; Hc at T_std |
 | `thermophysics::thermo` | `struct HPolynomialThermo<E, const N>` | `thermo/hPolynomial/` | Cp = poly(T); Ha via poly.integral; S via integral_minus1 |
+| `thermophysics::thermo` | `struct HTabulatedThermo<E>` | `thermo/hTabulated/` | Cp/Ha/S from separate (T, value) lookup tables via interpolate_xy |
 | `thermophysics::transport` | `trait TransportModel` | `specie/transport/` | mu, kappa; default alpha_h = kappa/Cp |
 | `thermophysics::transport` | `struct ConstTransport<T>` | `transport/const/` | const mu + Pr; kappa = Cp·mu/Pr |
 | `thermophysics::transport` | `struct SutherlandTransport<T>` | `transport/sutherland/` | mu = As√T/(1+Ts/T); Eucken kappa; two-point constructor |
 | `thermophysics::transport` | `struct PolynomialTransport<T, const N>` | `transport/polynomial/` | mu(T) and kappa(T) as independent Polynomial<N> |
+| `thermophysics::transport` | `struct TabulatedTransport<T>` | `transport/tabulated/` | mu(T) and kappa(T) from (T, value) lookup tables via interpolate_xy |
 
 ## Prelude
 

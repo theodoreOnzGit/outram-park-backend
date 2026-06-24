@@ -18,9 +18,11 @@ built, tested, and published from this single repository.
 | `teh-o-prke` | Point Reactor Kinetics (PRKE) for the Teh-O transport/eigenvalue solver | GPL-3.0 |
 | `tuas_boussinesq_solver` | Thermal-hydraulics (Boussinesq single-phase) solver — TUAS | GPL-3.0 |
 | `tampines-steam-tables` | IAPWS-IF97 steam/water properties + steam-turbine equations — TAMPINES | GPL-3.0 |
+| `openfoam-basic-lib` | Pure-Rust translation of the OpenFOAM primitive layer (tensor algebra, polynomial solvers, ODE solvers, interpolation, thermophysics kernels) — building toward **rhoPimpleFoam** / **sonicFoam** | GPL-3.0 |
 
 Internal dependency edges (all by **path**, not crates.io):
 `tampines → tuas`; `teh-o-prke → {tuas, chem-eng}` (dev); `tuas`/`tampines` dev-deps → `chem-eng`, `teh-o-prke`.
+`openfoam-basic-lib` has no internal deps (pure third-party: `uom`, `ndarray`, `thiserror`).
 
 ## Dependency policy — single source of truth
 
@@ -125,6 +127,7 @@ etc. appear in public APIs):
 | `tuas_boussinesq_solver` | 0.1.0 | GPL-3.0-only |
 | `teh-o-prke` | 0.1.0 | GPL-3.0-only |
 | `tampines-steam-tables` | 0.2.0 | GPL-3.0-only |
+| `openfoam-basic-lib` | 0.1.2 | GPL-3.0-only |
 
 Internal deps are `{ path = …, version = … }` in `[workspace.dependencies]`, so
 the version pins above must be kept in sync with each crate's `version` (and a
@@ -135,6 +138,7 @@ including dev-dependencies, against crates.io, so each crate can only be package
 once everything it depends on (normal **or** dev) is already live:
 
 1. `chem-eng-real-time-process-control-simulator` (no internal deps)
+1. `openfoam-basic-lib` (no internal deps — can publish in parallel with chem-eng)
 2. `tuas_boussinesq_solver` (dev-dep: chem-eng)
 3. `teh-o-prke` (dev-deps: tuas, chem-eng)
 4. `tampines-steam-tables` (dep: tuas; dev-deps: teh-o-prke, chem-eng)
