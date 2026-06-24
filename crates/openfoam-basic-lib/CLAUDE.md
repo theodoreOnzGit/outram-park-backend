@@ -66,6 +66,83 @@ On top of all icoFoam requirements:
 
 ---
 
+## Test backlog — must clear before adding downstream crates
+
+The crate is now load-bearing for the planned solver crates (`openfoam-icof`,
+`openfoam-cht`). Test coverage must be raised before those crates start depending
+on it. Items are listed in priority order.
+
+### 🔴 P0 — Must clear before next downstream crate
+
+#### `SquareMatrix::solve` failure-mode tests
+
+- **Singular matrix** — verify `Err` is returned (or a well-defined fallback), not a panic or garbage result.
+- **Ill-conditioned (Hilbert n=5, n=10)** — compute the solution, check residual `‖Ax − b‖` is within tolerance given the known condition number.
+- **Scaled-partial-pivoting path** — construct a matrix where naïve pivoting fails but scaled pivoting succeeds; confirm correct result.
+- **API decision needed:** change the return type of `SquareMatrix::solve` from `Vec<f64>` to `Result<Vec<f64>, _>` *before* more call sites exist. The current infallible API masks singular matrices silently. Do this before `teh-o-prke` and downstream solver crates adopt it.
+
+#### Newton `T(H)` iteration robustness (JANAF)
+
+- Convergence from a deliberately bad `t0` (e.g. `t0 = T_MIN = 100 K` for a target T of 3000 K).
+- Behaviour at the `T_MIN = 100 K` and `T_MAX = 6000 K` clamps — verify they bind correctly and do not produce NaN/panic.
+- JANAF discontinuity at `Tcommon` — construct a JANAF spec where the low/high ranges give slightly different `ha(Tcommon)`, confirm the iteration crosses cleanly.
+- `MAX_ITER = 50` exhaustion path — must return `Err(NonConvergent)`, not silently return the last iterate.
+
+#### Mixture blending invariants
+
+- `(a += b)` conserves mole fractions (sum to 1 before and after).
+- Roundtrip: `t_from_ha(ha(p, T), p, T) ≈ T` to relative tolerance 1e-6.
+
+---
+
+### 🟠 P1 — Required before the FV operator port (Layer 3)
+
+#### Tensor algebra invariants
+
+- `cross(a, b) · a == 0` and `cross(a, b) · b == 0` (orthogonality of cross product).
+- `T == symm(T) + skew(T)` decomposition holds element-wise.
+- `det(T · T⁻¹) ≈ 1` and `(T⁻¹)⁻¹ ≈ T` (inversion roundtrip).
+- `inner(T1, T2) == inner(T2, T1)` (double-contraction symmetry).
+- `SymmTensor::dev()` has trace 0.
+- **`dev2` regression test** — OpenFOAM's `dev2 = T − (2/3)·tr·I`, *not* the standard `(1/3)·tr·I`. This asymmetric naming convention is easy to mis-port; add a specific regression test with known values.
+
+#### FV operator method-of-manufactured-solutions
+
+These are the riskiest area of the port — test each operator in isolation on a uniform mesh with a known analytic field:
+
+- `fvc::grad(linear field)` — result must equal the constant gradient to machine precision on a uniform mesh.
+- `fvm::laplacian(γ, T)` with a known analytic source — recover the analytic `T` solution.
+- `fvc::flux(U) → fvc::reconstruct → U` roundtrip on a divergence-free field.
+- Conservation: `Σ fvc::div(φψ) · V == boundary flux` (discrete divergence theorem).
+
+---
+
+### 🟡 P2 — Robustness; defer if time-boxed
+
+#### Polynomial root finding (`CubicEqn`)
+
+- Triple root `(x − 2)³` — all three roots must be `real` and equal to 2.
+- One real + complex conjugate pair (negative discriminant) — correct `RootType` tags.
+- Near-zero leading coefficient — should degrade gracefully to `QuadraticEqn` or return `posInf`/`negInf`.
+- Correct `RootType` tagging (`real` / `complex` / `posInf` / `negInf` / `nan`) for each case.
+
+#### ODE solvers
+
+- Linear decay `dy/dt = −λy` — compare to exact exponential reference across all solvers.
+- Order verification: halve `dt`, confirm the global error drops by `2^p` (order `p` of each solver).
+- Stiffness test (Van der Pol or Robertson) — `Rosenbrock23` must converge; `RKF45` is expected to be slow or fail; validates the stiff/non-stiff split.
+
+#### `PengRobinsonGas` Z-root selection
+
+- **Vapour branch:** largest real Z root must be selected.
+- **Liquid branch:** smallest real Z root must be selected.
+- **NIST reference points for validation** — test at least these two gases across a `(p, T)` grid:
+  - **CO₂:** critical point `Tc = 304.13 K`, `pc = 7.377 MPa`, `ω = 0.2239`. Test at `(10 MPa, 320 K)` (supercritical), `(5 MPa, 280 K)` (liquid), `(1 MPa, 350 K)` (vapour). Reference densities from NIST WebBook.
+  - **N₂:** `Tc = 126.19 K`, `pc = 3.396 MPa`, `ω = 0.0372`. Test at `(20 MPa, 300 K)`, `(5 MPa, 150 K)`, `(0.1 MPa, 300 K)`. Reference densities from NIST WebBook.
+  - Target tolerance: `|ρ_PR − ρ_NIST| / ρ_NIST ≤ 3%` for points away from the critical point; accept wider tolerance within `|T − Tc| / Tc < 0.05`.
+
+---
+
 ## Implementation rules
 
 ### `extern "C"` policy
@@ -458,6 +535,24 @@ EOS interface (all four methods per EOS type):
 `IcoPolynomial<N>`: `1/ρ = poly(T)` — `Polynomial<N>` evalulated at T.
 `PengRobinsonGas`: cubic EOS `p = R·T/(v−b) − a(T)/(v(v+b)+b(v−b))` with
 Soave α function. Solves the cubic Z equation via `CubicEqn::roots()`.
+
+**Z-root selection rule:** for vapour, take the *largest* real root; for liquid,
+take the *smallest* real root; at the critical point / two-phase region the
+middle root is unphysical and must be discarded.
+
+**NIST validation reference points** (see also P2 test backlog above):
+
+| Gas | Tc (K) | pc (MPa) | ω | Test point | Phase |
+|---|---|---|---|---|---|
+| CO₂ | 304.13 | 7.377 | 0.2239 | 10 MPa, 320 K | supercritical |
+| CO₂ | 304.13 | 7.377 | 0.2239 | 5 MPa, 280 K | liquid |
+| CO₂ | 304.13 | 7.377 | 0.2239 | 1 MPa, 350 K | vapour |
+| N₂ | 126.19 | 3.396 | 0.0372 | 20 MPa, 300 K | supercritical |
+| N₂ | 126.19 | 3.396 | 0.0372 | 5 MPa, 150 K | liquid |
+| N₂ | 126.19 | 3.396 | 0.0372 | 0.1 MPa, 300 K | vapour |
+
+Target: `|ρ_PR − ρ_NIST| / ρ_NIST ≤ 3%` away from the critical point;
+accept wider tolerance within `|T − Tc| / Tc < 0.05`.
 
 **Thermo (`thermo/`):**
 
