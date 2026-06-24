@@ -1,3 +1,21 @@
+/// Error type for `SquareMatrix::solve`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MatrixError {
+    /// The matrix is exactly singular: the LU decomposition found a zero pivot
+    /// at the given column (the entire remaining column was zero).
+    Singular { col: usize },
+}
+
+impl std::fmt::Display for MatrixError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MatrixError::Singular { col } => write!(f, "matrix is singular: zero pivot at column {col}"),
+        }
+    }
+}
+
+impl std::error::Error for MatrixError {}
+
 /// Row-major n×n dense matrix of `f64`. Maps to `Foam::scalarSquareMatrix`.
 ///
 /// LU decomposition uses Crout's algorithm with scaled partial pivoting,
@@ -139,12 +157,24 @@ impl SquareMatrix {
     }
 
     /// Convenience: decompose a copy and solve `A·x = b`.
-    pub fn solve(&self, rhs: &[f64]) -> Vec<f64> {
+    ///
+    /// Returns `Err(MatrixError::Singular)` if the matrix has an exactly-zero
+    /// pivot column (the LU sentinel `f64::EPSILON` was written to the diagonal).
+    /// Ill-conditioned but non-singular matrices are not detected; for those,
+    /// check the residual `‖Ax − b‖` manually.
+    pub fn solve(&self, rhs: &[f64]) -> Result<Vec<f64>, MatrixError> {
         let mut a = self.clone();
         let pivot = a.lu_decompose();
+        // lu_decompose writes exactly f64::EPSILON to the diagonal when the
+        // pivot column was entirely zero — detect that sentinel here.
+        for i in 0..self.n {
+            if a.data[i * self.n + i] == f64::EPSILON {
+                return Err(MatrixError::Singular { col: i });
+            }
+        }
         let mut b = rhs.to_vec();
         a.lu_back_substitute(&pivot, &mut b);
-        b
+        Ok(b)
     }
 }
 
@@ -158,7 +188,7 @@ mod tests {
         let mut m = SquareMatrix::new(2);
         m.set(0, 0, 2.0); m.set(0, 1, 1.0);
         m.set(1, 0, 1.0); m.set(1, 1, 3.0);
-        let x = m.solve(&[5.0, 10.0]);
+        let x = m.solve(&[5.0, 10.0]).unwrap();
         assert!((x[0] - 1.0).abs() < 1e-12, "x={}", x[0]);
         assert!((x[1] - 3.0).abs() < 1e-12, "y={}", x[1]);
     }
@@ -171,7 +201,7 @@ mod tests {
         m.set(0, 0, 2.0); m.set(0, 1, 1.0); m.set(0, 2, 1.0);
         m.set(1, 0, 1.0); m.set(1, 1, 3.0); m.set(1, 2, 1.0);
         m.set(2, 0, 1.0); m.set(2, 1, 1.0); m.set(2, 2, 4.0);
-        let x = m.solve(&[7.0, 10.0, 15.0]);
+        let x = m.solve(&[7.0, 10.0, 15.0]).unwrap();
         assert!((x[0] - 1.0).abs() < 1e-12, "x={}", x[0]);
         assert!((x[1] - 2.0).abs() < 1e-12, "y={}", x[1]);
         assert!((x[2] - 3.0).abs() < 1e-12, "z={}", x[2]);
@@ -184,7 +214,7 @@ mod tests {
         let mut m = SquareMatrix::new(2);
         m.set(0, 0, 0.0); m.set(0, 1, 1.0);
         m.set(1, 0, 2.0); m.set(1, 1, 0.0);
-        let x = m.solve(&[3.0, 4.0]);
+        let x = m.solve(&[3.0, 4.0]).unwrap();
         assert!((x[0] - 2.0).abs() < 1e-12, "x={}", x[0]);
         assert!((x[1] - 3.0).abs() < 1e-12, "y={}", x[1]);
     }
@@ -193,10 +223,79 @@ mod tests {
     fn lu_identity() {
         let mut m = SquareMatrix::new(3);
         m.set(0, 0, 1.0); m.set(1, 1, 1.0); m.set(2, 2, 1.0);
-        let x = m.solve(&[7.0, -2.0, 5.0]);
+        let x = m.solve(&[7.0, -2.0, 5.0]).unwrap();
         assert!((x[0] - 7.0).abs() < 1e-12);
         assert!((x[1] + 2.0).abs() < 1e-12);
         assert!((x[2] - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn singular_matrix_returns_err() {
+        // A = [[1, 1], [1, 1]] — rank 1, col 1 of L is all-zero after elimination
+        let mut m = SquareMatrix::new(2);
+        m.set(0, 0, 1.0); m.set(0, 1, 1.0);
+        m.set(1, 0, 1.0); m.set(1, 1, 1.0);
+        let result = m.solve(&[2.0, 2.0]);
+        assert!(matches!(result, Err(MatrixError::Singular { .. })),
+            "expected Singular, got {:?}", result);
+    }
+
+    #[test]
+    fn fully_zero_matrix_returns_err() {
+        let m = SquareMatrix::new(3); // all zeros
+        let result = m.solve(&[1.0, 0.0, 0.0]);
+        assert!(matches!(result, Err(MatrixError::Singular { col: 0 })),
+            "expected Singular at col 0, got {:?}", result);
+    }
+
+    #[test]
+    fn hilbert_5x5_residual_acceptable() {
+        // Hilbert matrix H[i,j] = 1/(i+j+1) — condition number ≈ 5e5 for n=5.
+        // f64 LU should still give ‖Ax − b‖/‖b‖ < 1e-8.
+        let n = 5;
+        let mut m = SquareMatrix::new(n);
+        for i in 0..n {
+            for j in 0..n {
+                m.set(i, j, 1.0 / (i + j + 1) as f64);
+            }
+        }
+        let b: Vec<f64> = (0..n).map(|_| 1.0).collect();
+        let x = m.solve(&b).expect("Hilbert 5×5 should not be detected as singular");
+
+        // Compute residual r = Ax - b using the original matrix (reconstruct it).
+        let mut m2 = SquareMatrix::new(n);
+        for i in 0..n {
+            for j in 0..n {
+                m2.set(i, j, 1.0 / (i + j + 1) as f64);
+            }
+        }
+        let mut r_norm_sq = 0.0_f64;
+        let mut b_norm_sq = 0.0_f64;
+        for i in 0..n {
+            let ax_i: f64 = (0..n).map(|j| m2.get(i, j) * x[j]).sum();
+            r_norm_sq += (ax_i - b[i]).powi(2);
+            b_norm_sq += b[i].powi(2);
+        }
+        let rel_residual = r_norm_sq.sqrt() / b_norm_sq.sqrt();
+        assert!(rel_residual < 1e-8, "relative residual {rel_residual:.3e} too large");
+    }
+
+    #[test]
+    fn scaled_pivoting_large_row_contrast() {
+        // Row 0 has magnitude ~1e8, row 1 has magnitude ~1.
+        // Scaled partial pivoting selects row 0 by scaled magnitude = 1/1e8 vs 1/1,
+        // which differs from naïve partial pivoting. Both should give the correct answer;
+        // this test verifies the result is accurate despite the magnitude contrast.
+        // A = [[1e8, 1], [1, 1e8]], solution x = [1, 1]:
+        //   row 0: 1e8 + 1 = 1e8+1 ✓
+        //   row 1: 1 + 1e8 = 1e8+1 ✓
+        let mut m = SquareMatrix::new(2);
+        m.set(0, 0, 1.0e8); m.set(0, 1, 1.0);
+        m.set(1, 0, 1.0);   m.set(1, 1, 1.0e8);
+        let rhs = [1.0e8 + 1.0, 1.0e8 + 1.0];
+        let x = m.solve(&rhs).unwrap();
+        assert!((x[0] - 1.0).abs() < 1e-6, "x[0]={}", x[0]);
+        assert!((x[1] - 1.0).abs() < 1e-6, "x[1]={}", x[1]);
     }
 
     #[test]

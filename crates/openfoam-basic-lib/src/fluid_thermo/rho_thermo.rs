@@ -54,7 +54,7 @@ impl<M: TransportModel> RhoThermo<M> {
             let t_old = ThermodynamicTemperature::new::<kelvin>(self.t.internal[c]);
             let he_c  = AvailableEnergy::new::<joule_per_kilogram>(self.he.internal[c]);
 
-            let t_c   = self.species.t_from_hs(he_c, p_c, t_old);
+            let t_c   = self.species.t_from_hs(he_c, p_c, t_old).unwrap_or(t_old);
             self.t.internal[c] = t_c.get::<kelvin>();
 
             // Explicit EOS density — not ψ·p

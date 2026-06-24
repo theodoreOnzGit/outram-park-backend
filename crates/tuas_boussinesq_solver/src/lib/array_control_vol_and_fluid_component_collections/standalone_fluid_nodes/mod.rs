@@ -38,8 +38,8 @@ pub fn solve_conductance_matrix_power_vector(
     let _unit_check: Power =
         power_vector[0] + thermal_conductance_matrix[[0, 0]] * ThermodynamicTemperature::ZERO;
 
-    // LU solve — infallible (guards against singularity internally)
-    let sol = mat.solve(&rhs);
+    let sol = mat.solve(&rhs)
+        .map_err(|e| TuasLibError::GenericStringError(format!("SquareMatrix LU solve: {e}")))?;
 
     let temperature_vector: Array1<ThermodynamicTemperature> =
         Array1::from_iter(sol.into_iter().map(|f| ThermodynamicTemperature::new::<kelvin>(f)));

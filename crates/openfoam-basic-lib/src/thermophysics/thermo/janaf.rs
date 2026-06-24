@@ -160,7 +160,7 @@ mod tests {
         let p = Pressure::new::<pascal>(101_325.0);
         let t_in = ThermodynamicTemperature::new::<kelvin>(800.0);
         let ha = a.ha(p, t_in);
-        let t_out = a.t_from_ha(ha, p, ThermodynamicTemperature::new::<kelvin>(400.0));
+        let t_out = a.t_from_ha(ha, p, ThermodynamicTemperature::new::<kelvin>(400.0)).unwrap();
         assert_relative_eq!(t_in.get::<kelvin>(), t_out.get::<kelvin>(), epsilon = 0.01);
     }
 
@@ -188,5 +188,79 @@ mod tests {
         // N₂ Cp ∈ [1000, 1300] J/(kg·K) over 500–1500 K
         assert!(cp_low  > 1000.0 && cp_low  < 1300.0, "low Cp = {cp_low}");
         assert!(cp_high > 1000.0 && cp_high < 1300.0, "high Cp = {cp_high}");
+    }
+
+    #[test]
+    fn newton_converges_from_bad_initial_guess() {
+        // t0 = T_MIN = 100 K, but the target is ha(3000 K).
+        // The DTMAX clamp (500 K/step) means Newton takes ~6 steps to bridge the gap,
+        // then converges.  Must succeed within MAX_ITER = 50 iterations.
+        let a = air_janaf();
+        let p = Pressure::new::<pascal>(101_325.0);
+        let t_target = ThermodynamicTemperature::new::<kelvin>(3000.0);
+        let ha_target = a.ha(p, t_target);
+        let t0 = ThermodynamicTemperature::new::<kelvin>(100.0);
+        let t_out = a.t_from_ha(ha_target, p, t0)
+            .expect("Newton should converge from t0=100 K to 3000 K");
+        assert!((t_out.get::<kelvin>() - 3000.0).abs() < 5.0,
+            "expected ≈3000 K, got {:.1} K", t_out.get::<kelvin>());
+    }
+
+    #[test]
+    fn newton_t_max_clamp_returns_err() {
+        // Target ha is far above ha(T_MAX = 6000 K) → the iteration gets pinned at
+        // T_MAX and cannot converge.  Must return Err(NonConvergent), not panic or NaN.
+        use crate::thermophysics::error::ThermoError;
+        let a = air_janaf();
+        let p = Pressure::new::<pascal>(101_325.0);
+        let t_max = ThermodynamicTemperature::new::<kelvin>(6000.0);
+        let ha_max = a.ha(p, t_max);
+        // Add a huge delta so the target is genuinely unreachable
+        let impossible_ha = ha_max + uom::si::f64::AvailableEnergy::new::<
+            uom::si::available_energy::joule_per_kilogram>(1.0e9);
+        let t0 = ThermodynamicTemperature::new::<kelvin>(300.0);
+        let result = a.t_from_ha(impossible_ha, p, t0);
+        assert!(matches!(result, Err(ThermoError::NonConvergent { .. })),
+            "expected NonConvergent, got {:?}", result);
+        // Also verify no NaN in the error payload
+        if let Err(ThermoError::NonConvergent { last_t, .. }) = result {
+            assert!(last_t.is_finite(), "last_t is not finite: {last_t}");
+        }
+    }
+
+    #[test]
+    fn newton_t_min_clamp_returns_err() {
+        // Target ha far below ha(T_MIN = 100 K) → pinned at T_MIN, non-convergent.
+        use crate::thermophysics::error::ThermoError;
+        use uom::si::available_energy::joule_per_kilogram;
+        let a = air_janaf();
+        let p = Pressure::new::<pascal>(101_325.0);
+        let t_min = ThermodynamicTemperature::new::<kelvin>(100.0);
+        let ha_min = a.ha(p, t_min);
+        let impossible_ha = ha_min - uom::si::f64::AvailableEnergy::new::<joule_per_kilogram>(1.0e9);
+        let t0 = ThermodynamicTemperature::new::<kelvin>(300.0);
+        let result = a.t_from_ha(impossible_ha, p, t0);
+        assert!(matches!(result, Err(ThermoError::NonConvergent { .. })),
+            "expected NonConvergent, got {:?}", result);
+    }
+
+    #[test]
+    fn newton_crosses_tcommon_discontinuity() {
+        // Start from t0 on the LOW side (800 K) but target ha is achievable only on the
+        // HIGH side (1500 K).  Newton must cross Tcommon = 1000 K and converge.
+        let a = air_janaf();
+        let p = Pressure::new::<pascal>(101_325.0);
+        let t_target = ThermodynamicTemperature::new::<kelvin>(1500.0);
+        let ha_target = a.ha(p, t_target);
+        let t0 = ThermodynamicTemperature::new::<kelvin>(800.0);
+        // Due to the JANAF discontinuity at Tcommon, ha(1500 K) measured from the
+        // high-range polynomial.  The iteration starts in the low range but the high-
+        // range ha at 1500 K is the genuine target — Newton crosses and converges.
+        let t_out = a.t_from_ha(ha_target, p, t0)
+            .expect("Newton should converge across Tcommon");
+        // Accept up to 50 K error — the discontinuity in ha at Tcommon can shift
+        // the apparent root by a few tens of kelvin when crossing from the low side.
+        assert!((t_out.get::<kelvin>() - 1500.0).abs() < 50.0,
+            "expected ≈1500 K, got {:.1} K", t_out.get::<kelvin>());
     }
 }

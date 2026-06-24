@@ -1,5 +1,6 @@
 use crate::thermophysics::imports::*;
-use crate::thermophysics::constants::T_MIN;
+use crate::thermophysics::constants::{T_MIN, T_MAX};
+use crate::thermophysics::error::ThermoError;
 use crate::thermophysics::eos::EquationOfState;
 
 /// Per-species thermodynamic model — sensible/absolute enthalpy, entropy, and
@@ -32,12 +33,15 @@ pub trait ThermoModel: EquationOfState {
     }
 
     /// Find T such that `ha(p, T) == ha_target`.  Newton iteration, max 50 steps.
+    ///
+    /// Returns `Err(ThermoError::NonConvergent)` if the iteration does not
+    /// meet the tolerance `|ΔT/T| < 1e-6` within `MAX_ITER = 50` steps.
     fn t_from_ha(
         &self,
         ha_target: AvailableEnergy,
         p: Pressure,
         t0: ThermodynamicTemperature,
-    ) -> ThermodynamicTemperature {
+    ) -> Result<ThermodynamicTemperature, ThermoError> {
         newton_t(
             |t| self.ha(p, ThermodynamicTemperature::new::<kelvin>(t)),
             |t| self.cp(p, ThermodynamicTemperature::new::<kelvin>(t)),
@@ -52,7 +56,7 @@ pub trait ThermoModel: EquationOfState {
         hs_target: AvailableEnergy,
         p: Pressure,
         t0: ThermodynamicTemperature,
-    ) -> ThermodynamicTemperature {
+    ) -> Result<ThermodynamicTemperature, ThermoError> {
         // hs = ha - hc  →  ha_target = hs_target + hc
         let ha_target = hs_target + self.hc();
         self.t_from_ha(ha_target, p, t0)
@@ -65,7 +69,7 @@ pub trait ThermoModel: EquationOfState {
         e_target: AvailableEnergy,
         p: Pressure,
         t0: ThermodynamicTemperature,
-    ) -> ThermodynamicTemperature {
+    ) -> Result<ThermodynamicTemperature, ThermoError> {
         newton_t(
             |t| {
                 let tt = ThermodynamicTemperature::new::<kelvin>(t);
@@ -83,25 +87,29 @@ pub trait ThermoModel: EquationOfState {
 /// Shared Newton iteration for T-inversion.
 ///
 /// Finds `T` such that `f(T) = target` using `dfdT` as the derivative.
+/// `T` is clamped to `[T_MIN, T_MAX]` at every step.
+/// Returns `Err(ThermoError::NonConvergent)` if the tolerance
+/// `|ΔT/T| < 1e-6` is not met within `MAX_ITER = 50` iterations.
 /// Matches OpenFOAM's `species::thermo<T>::T()`.
+#[allow(non_snake_case)]
 fn newton_t(
     f: impl Fn(f64) -> AvailableEnergy,
     dfdT: impl Fn(f64) -> SpecificHeatCapacity,
     target: f64,
     t0: f64,
-) -> ThermodynamicTemperature {
+) -> Result<ThermodynamicTemperature, ThermoError> {
     const DTMAX: f64 = 500.0;
     const MAX_ITER: usize = 50;
 
-    let mut t = t0.max(T_MIN);
+    let mut t = t0.clamp(T_MIN, T_MAX);
     for _ in 0..MAX_ITER {
         let f_val = f(t).get::<joule_per_kilogram>();
         let cp_val = dfdT(t).get::<joule_per_kilogram_kelvin>();
         let dt = (-(f_val - target) / cp_val).clamp(-DTMAX, DTMAX);
-        t += dt;
+        t = (t + dt).clamp(T_MIN, T_MAX);
         if dt.abs() / t < 1e-6 {
-            break;
+            return Ok(ThermodynamicTemperature::new::<kelvin>(t));
         }
     }
-    ThermodynamicTemperature::new::<kelvin>(t)
+    Err(ThermoError::NonConvergent { max_iter: MAX_ITER, last_t: t })
 }

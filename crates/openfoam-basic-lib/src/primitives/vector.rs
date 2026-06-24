@@ -175,6 +175,16 @@ mod tests {
     }
 
     #[test]
+    fn cross_orthogonal_to_both_inputs() {
+        // For arbitrary vectors a, b: cross(a,b)·a == 0 and cross(a,b)·b == 0
+        let a = Vector3::new(1.0, 2.0, 3.0);
+        let b = Vector3::new(4.0, 5.0, 6.0);
+        let c = cross(a, b);
+        assert!(dot(c, a).abs() < 1e-14, "cross(a,b)·a = {}", dot(c, a));
+        assert!(dot(c, b).abs() < 1e-14, "cross(a,b)·b = {}", dot(c, b));
+    }
+
+    #[test]
     fn mag_and_normalise() {
         let v = Vector3::new(3.0, 4.0, 0.0);
         assert_eq!(v.mag(), 5.0);

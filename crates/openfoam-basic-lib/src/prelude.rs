@@ -41,7 +41,7 @@ pub use crate::math::{
 };
 
 // --- Dense matrices (Layer 1b) ---
-pub use crate::matrix::SquareMatrix;
+pub use crate::matrix::{MatrixError, SquareMatrix};
 
 // --- ODE solvers (Layer 1e) ---
 pub use crate::ode::{Euler, OdeError, OdeSystem, OdeSolverConfig, Rkf45, Rosenbrock23};
@@ -51,6 +51,7 @@ pub use crate::interpolation::{interpolate_spline_xy, interpolate_xy};
 
 // --- Specie-level thermophysics (Layer 1h) ---
 pub use crate::thermophysics::quantities::Compressibility;
+pub use crate::thermophysics::error::ThermoError;
 pub use crate::thermophysics::eos::*;
 pub use crate::thermophysics::thermo::*;
 pub use crate::thermophysics::transport::*;

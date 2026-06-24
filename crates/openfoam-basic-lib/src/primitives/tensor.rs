@@ -708,4 +708,36 @@ mod tests {
         let t = Tensor::new(4.0, 1.0, 0.0, 1.0, 2.0, 0.0, 0.0, 0.0, 3.0);
         assert!((t.dev().tr()).abs() < 1e-14);
     }
+
+    #[test]
+    fn inv_roundtrip_is_identity() {
+        // T · T⁻¹ should equal I (up to floating-point noise).
+        let t = Tensor::new(2.0, 1.0, 0.0, 1.0, 3.0, 1.0, 0.0, 1.0, 2.0);
+        assert!(t.mat_mul(t.inv()).is_identity(1e-12),
+            "T · T⁻¹ is not identity");
+    }
+
+    #[test]
+    fn double_inner_is_symmetric() {
+        // T1:T2 == T2:T1 (double inner product / Frobenius inner product)
+        let t1 = Tensor::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
+        let t2 = Tensor::new(2.0, 0.0, 1.0, -1.0, 3.0, 0.0, 2.0, 1.0, 4.0);
+        let diff = (t1.double_inner(t2) - t2.double_inner(t1)).abs();
+        assert!(diff < 1e-12, "double_inner asymmetry = {diff:.3e}");
+    }
+
+    #[test]
+    fn dev2_is_two_thirds_trace_removed() {
+        // dev2(T) = T − (2/3)·tr(T)·I (OpenFOAM convention)
+        let t = Tensor::new(6.0, 1.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 3.0);
+        let tr = t.tr(); // 12.0
+        let d = t.dev2();
+        assert!((d.xx - (t.xx - 2.0 / 3.0 * tr)).abs() < 1e-14);
+        assert!((d.yy - (t.yy - 2.0 / 3.0 * tr)).abs() < 1e-14);
+        assert!((d.zz - (t.zz - 2.0 / 3.0 * tr)).abs() < 1e-14);
+        assert!((d.xy - t.xy).abs() < 1e-14);
+        // dev2 is NOT trace-free: tr(dev2) = tr(T) - 2*tr(T) = -tr(T)
+        assert!((d.tr() - (-tr)).abs() < 1e-14,
+            "tr(dev2) = {:.3e}, expected {:.3e}", d.tr(), -tr);
+    }
 }

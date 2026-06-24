@@ -374,4 +374,68 @@ mod tests {
         let rho = m.rho(p, t).get::<kilogram_per_cubic_meter>();
         assert!(rho > 60.0 && rho < 120.0, "CH₄ density = {rho} kg/m³");
     }
+
+    // ── NIST validation (P2) ────────────────────────────────────────────────
+
+    /// N₂: Tc = 126.19 K, Pc = 3.396 MPa, ω = 0.037, W = 28.014 g/mol.
+    fn nitrogen() -> PengRobinsonGas {
+        PengRobinsonGas::new(
+            MolarMass::new::<gram_per_mole>(28.014),
+            ThermodynamicTemperature::new::<kelvin>(126.19),
+            Pressure::new::<pascal>(3.396e6),
+            0.037,
+        )
+    }
+
+    #[test]
+    fn co2_nist_density_400k_5mpa() {
+        // CO₂ at 400 K, 5 MPa — Tr = 1.315, Pr = 0.678; well away from critical.
+        // NIST webbook: ρ ≈ 70.2 kg/m³.  PR EOS accuracy ≤ 5% at these conditions.
+        let c = co2();
+        let p = Pressure::new::<pascal>(5.0e6);
+        let t = ThermodynamicTemperature::new::<kelvin>(400.0);
+        let rho = c.rho(p, t).get::<kilogram_per_cubic_meter>();
+        let nist = 70.2_f64;
+        let rel_err = ((rho - nist) / nist).abs();
+        assert!(rel_err < 0.05, "CO₂ density = {rho:.2} kg/m³, NIST = {nist}, rel_err = {rel_err:.3}");
+    }
+
+    #[test]
+    fn co2_nist_density_400k_10mpa() {
+        // CO₂ at 400 K, 10 MPa — Tr = 1.315, Pr = 1.356.
+        // NIST webbook: ρ ≈ 197.6 kg/m³.  Looser 8% tolerance (PR less accurate at Pr > 1).
+        let c = co2();
+        let p = Pressure::new::<pascal>(10.0e6);
+        let t = ThermodynamicTemperature::new::<kelvin>(400.0);
+        let rho = c.rho(p, t).get::<kilogram_per_cubic_meter>();
+        let nist = 197.6_f64;
+        let rel_err = ((rho - nist) / nist).abs();
+        assert!(rel_err < 0.08, "CO₂ density = {rho:.2} kg/m³, NIST = {nist}, rel_err = {rel_err:.3}");
+    }
+
+    #[test]
+    fn n2_nist_density_300k_10mpa() {
+        // N₂ at 300 K, 10 MPa — Tr = 2.38, Pr = 2.94; high Tr → PR is accurate.
+        // NIST webbook: ρ ≈ 105.8 kg/m³.
+        let n = nitrogen();
+        let p = Pressure::new::<pascal>(10.0e6);
+        let t = ThermodynamicTemperature::new::<kelvin>(300.0);
+        let rho = n.rho(p, t).get::<kilogram_per_cubic_meter>();
+        let nist = 105.8_f64;
+        let rel_err = ((rho - nist) / nist).abs();
+        assert!(rel_err < 0.05, "N₂ density = {rho:.2} kg/m³, NIST = {nist}, rel_err = {rel_err:.3}");
+    }
+
+    #[test]
+    fn n2_nist_density_200k_5mpa() {
+        // N₂ at 200 K, 5 MPa — Tr = 1.59, Pr = 1.47; moderate departure from ideal.
+        // NIST webbook: ρ ≈ 75.5 kg/m³.
+        let n = nitrogen();
+        let p = Pressure::new::<pascal>(5.0e6);
+        let t = ThermodynamicTemperature::new::<kelvin>(200.0);
+        let rho = n.rho(p, t).get::<kilogram_per_cubic_meter>();
+        let nist = 75.5_f64;
+        let rel_err = ((rho - nist) / nist).abs();
+        assert!(rel_err < 0.05, "N₂ density = {rho:.2} kg/m³, NIST = {nist}, rel_err = {rel_err:.3}");
+    }
 }

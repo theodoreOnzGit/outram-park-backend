@@ -434,4 +434,29 @@ mod tests {
         let v = Vector3::new(1.0, 2.0, 3.0);
         assert_eq!(i.mat_vec(v), v);
     }
+
+    #[test]
+    fn dev2_regression() {
+        // T = diag(6, 3, 3), tr = 12 → (2/3)*tr = 8
+        // dev2 = T − 8·I = diag(6-8, 3-8, 3-8) = diag(-2, -5, -5)
+        let t = SymmTensor::from_diag(6.0, 3.0, 3.0);
+        let d = t.dev2();
+        assert!((d.xx - (-2.0)).abs() < 1e-14, "xx={}", d.xx);
+        assert!((d.yy - (-5.0)).abs() < 1e-14, "yy={}", d.yy);
+        assert!((d.zz - (-5.0)).abs() < 1e-14, "zz={}", d.zz);
+        assert!(d.xy.abs() < 1e-14);
+        assert!(d.xz.abs() < 1e-14);
+        assert!(d.yz.abs() < 1e-14);
+        // Confirm dev2 is NOT trace-free (tr(dev2) = tr(T) - 2·tr(T) = -tr)
+        assert!((d.tr() - (-12.0)).abs() < 1e-14, "tr(dev2)={}", d.tr());
+    }
+
+    #[test]
+    fn inv_roundtrip_is_identity() {
+        // T · T⁻¹ == I for a well-conditioned symmetric tensor
+        use crate::primitives::Tensor;
+        let t = SymmTensor::new(4.0, 2.0, 1.0, 3.0, 0.5, 2.0);
+        let product = Tensor::from(t).mat_mul(Tensor::from(t.inv()));
+        assert!(product.is_identity(1e-12), "T·T⁻¹ is not identity");
+    }
 }

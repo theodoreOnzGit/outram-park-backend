@@ -171,7 +171,7 @@ mod tests {
         let p = Pressure::new::<pascal>(101_325.0);
         let t_in = ThermodynamicTemperature::new::<kelvin>(700.0);
         let ha = a.ha(p, t_in);
-        let t_out = a.t_from_ha(ha, p, ThermodynamicTemperature::new::<kelvin>(400.0));
+        let t_out = a.t_from_ha(ha, p, ThermodynamicTemperature::new::<kelvin>(400.0)).unwrap();
         assert_relative_eq!(t_in.get::<kelvin>(), t_out.get::<kelvin>(), epsilon = 0.1);
     }
 }
