@@ -34,7 +34,7 @@ Covers:
 | `fission-yields-data` | `Nuclide` enum covering ~3000 nuclides; boon-lay re-exports it |
 | `openmc-endf-8-depletion-lib-b` | ENDF/B-VIII.0 depletion chain XML data (half-lives, decay modes, Q-values) |
 | `oorandom` | Simple fast RNG for decay-chain sampling |
-| `rand` / `rand_core` / `rand_distr` | Normal distribution for Gaussian diffusion steps |
+| `openmc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` |
 | `serde` / `serde-xml-rs` | Deserialise the ENDF-8 XML into `SerdeNuclideData` structs |
 | `anyhow` | Error propagation in XML parsing |
 
@@ -111,7 +111,31 @@ Also copy the examples:
 
 ## Migration required after copying
 
-### 1. uom 0.37 → 0.38 (likely zero changes)
+### 1. RNG migration: oorandom / rand / rand_core / rand_distr → openmc-libs
+
+The standalone boon-lay used four RNG crates.  All are replaced by
+`openmc_libs::rng`:
+
+| Old import | Old usage | New replacement |
+|---|---|---|
+| `oorandom::Rand64::new(seed)` | construct RNG | `let mut seed: u64 = seed as u64;` |
+| `rng.rand_float()` | uniform [0,1) | `openmc_libs::rng::lcg::prn(&mut seed)` |
+| `rng.sample(StandardNormal)` | N(0,1) | `openmc_libs::rng::distributions::sample_normal(&mut seed)` |
+| N(0, σ²) × 3 axes | 3-D diffusion step | `openmc_libs::rng::distributions::sample_normal_3d(&mut seed, sigma)` |
+| `Exp::new(rate).sample(&mut rng)` | exponential | `openmc_libs::rng::distributions::sample_exp(&mut seed, rate)` |
+
+The file `lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs` (the
+`OoRng64` adapter bridging `oorandom` → `rand_distr`) can be **deleted
+entirely** — it existed only to bridge the two ecosystems.
+
+Files that call `rand::thread_rng()` (`chatgpt_5_list_of_vectors_*` etc.) can
+seed the LCG from the current time:
+```rust
+use std::time::{SystemTime, UNIX_EPOCH};
+let mut seed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().subsec_nanos() as u64;
+```
+
+### 2. uom 0.37 → 0.38 (likely zero changes)
 
 The standalone crate uses `uom = "0.37.0"`; the workspace pins `0.38.0`.
 Boon-lay only uses `Time`, `Energy`, `Ratio` — all of which have unchanged

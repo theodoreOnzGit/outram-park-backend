@@ -1,6 +1,6 @@
 [package]
 name = "boon-lay"
-version = "0.2.1"
+version = "0.1.2"
 edition.workspace = true
 license.workspace = true
 description = "BOmbardment of neutrons On Nuclides with Lagrangian transport and transmutation Yields — Lagrangian radionuclide transport, decay, fission, and diffusion for TRISO/HTGR/FHR"
@@ -13,10 +13,7 @@ uom             = { workspace = true }
 serde           = { workspace = true }
 serde-xml-rs    = { workspace = true }
 anyhow          = { workspace = true }
-oorandom        = { workspace = true }
-rand            = { workspace = true }
-rand_core       = { workspace = true }
-rand_distr      = { workspace = true }
+openmc-libs     = { workspace = true }
 fission-yields-data               = { workspace = true }
 openmc-endf-8-depletion-lib-b     = { workspace = true }
 
