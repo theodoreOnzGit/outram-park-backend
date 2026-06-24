@@ -2,6 +2,12 @@
 
 Guidance for Claude Code (and other AI assistants) working in this repository.
 
+## Workflow rules (mandatory)
+
+- **Never auto-commit or auto-push.** Do not run `git commit` or `git push` unless the user explicitly asks.
+- **Never auto-bump versions** in `Cargo.toml` files. Only bump versions when explicitly requested.
+
+
 ## What this is
 
 **OUTRAM PARK backend** — the Cargo **workspace** that houses the OUTRAM PARK
