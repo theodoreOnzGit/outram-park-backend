@@ -275,4 +275,35 @@ mod tests {
         assert!(y[0].abs() < 1e-5, "y0={}", y[0]);
         assert!((y[1] - 1.0).abs() < 1e-5, "y1={}", y[1]);
     }
+
+    // Stiff Van der Pol (mu=1000) with Jacobian — for Rosenbrock23
+    struct VanDerPolStiff { mu: f64 }
+    impl OdeSystem for VanDerPolStiff {
+        fn n_eqns(&self) -> usize { 2 }
+        fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
+            dydx[0] = y[1];
+            dydx[1] = self.mu * (1.0 - y[0] * y[0]) * y[1] - y[0];
+        }
+        fn jacobian(&self, _x: f64, y: &[f64], dfdx: &mut Vec<f64>, dfdy: &mut SquareMatrix) {
+            dfdx[0] = 0.0;
+            dfdx[1] = 0.0;
+            dfdy.set(0, 0, 0.0);
+            dfdy.set(0, 1, 1.0);
+            dfdy.set(1, 0, -2.0 * self.mu * y[0] * y[1] - 1.0);
+            dfdy.set(1, 1, self.mu * (1.0 - y[0] * y[0]));
+        }
+    }
+
+    #[test]
+    fn rosenbrock23_stiff_vdp_mu1000() {
+        // Stiff Van der Pol (mu=1000): Rosenbrock23 handles it efficiently.
+        // RKF45 would need h < 2/mu^2 ≈ 2e-6, requiring ~50k steps over t=0.1.
+        let ode = VanDerPolStiff { mu: 1000.0 };
+        let mut solver = Rosenbrock23::new(2, 1e-6, 1e-4);
+        let mut y = vec![2.0_f64, 0.0];
+        let mut dx = 0.1;
+        solver.integrate(&ode, 0.0, 0.1, &mut y, &mut dx).unwrap();
+        // Limit cycle amplitude ∈ [-2, 2] for VdP
+        assert!(y[0].abs() < 3.0, "y0={}", y[0]);
+    }
 }

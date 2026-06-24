@@ -206,4 +206,21 @@ mod tests {
             assert!(eq.value(x).abs() < 1e-10, "residual at x={x}: {}", eq.value(x));
         }
     }
+
+    #[test]
+    fn one_real_two_complex_root_type_tags() {
+        // x³ + x + 1 = 0: slot 0 must be Real, slots 1 and 2 must be Complex.
+        let r = CubicEqn::new(1.0, 0.0, 1.0, 1.0).roots();
+        assert_eq!(r.root_type(0), RootType::Real,    "slot 0 should be Real");
+        assert_eq!(r.root_type(1), RootType::Complex, "slot 1 should be Complex");
+        assert_eq!(r.root_type(2), RootType::Complex, "slot 2 should be Complex");
+    }
+
+    #[test]
+    fn degenerate_nan_tag() {
+        // 0·x³ + 1·x² - 3x + 2: first two slots are Real, third must be Nan.
+        let r = CubicEqn::new(0.0, 1.0, -3.0, 2.0).roots();
+        let nan_count = (0..3).filter(|&i| r.root_type(i) == RootType::Nan).count();
+        assert_eq!(nan_count, 1, "exactly one Nan slot expected; got {nan_count}");
+    }
 }

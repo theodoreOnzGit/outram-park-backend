@@ -230,4 +230,49 @@ mod tests {
         assert!(y[0].abs() < 3.0, "y0={}", y[0]);
         assert!(y[1].abs() < 3.0, "y1={}", y[1]);
     }
+
+    #[test]
+    fn rkf45_convergence_order_is_fifth() {
+        // Order verification: halving h should reduce the global error by ~2^5 = 32.
+        // This RKF45 propagates with the 5th-order (B) solution (Dormand-Prince convention).
+        // Force fixed-step by setting abs_tol=1 >> expected error so every step is accepted,
+        // then manually supply dx_try = h at each iteration.
+        let exact = (-1.0_f64).exp();
+
+        let run = |n: usize| -> f64 {
+            let ode = DecayOde;
+            let mut solver = Rkf45::new(1, 1.0, 0.0);
+            let mut y = vec![1.0_f64];
+            let h = 1.0 / n as f64;
+            let mut x = 0.0_f64;
+            for _ in 0..n {
+                let mut dx_try = h;
+                solver.solve_step(&ode, &mut x, &mut y, &mut dx_try).unwrap();
+            }
+            (y[0] - exact).abs()
+        };
+
+        let err_coarse = run(5);   // h = 0.2
+        let err_fine   = run(10);  // h = 0.1
+        let ratio = err_coarse / err_fine;
+        // 5th-order propagation: ratio ≈ 2^5 = 32; accept [16, 64] to allow higher-order terms
+        assert!(ratio > 16.0 && ratio < 64.0,
+            "order ratio = {ratio:.2} (expected ~32 for RKF45 5th-order propagation)");
+    }
+
+    #[test]
+    fn rkf45_exceeds_steps_on_stiff_vdp() {
+        // Stiff Van der Pol (mu=1000): RKF45 needs h < ~2/mu² ≈ 2e-6 for stability,
+        // so it quickly exhausts max_steps even on a short interval.
+        let ode = VanDerPol { mu: 1000.0 };
+        let mut solver = Rkf45::new(2, 1e-6, 1e-4);
+        solver.config.max_steps = 200;
+        let mut y = vec![2.0_f64, 0.0];
+        let mut dx = 0.1;
+        let result = solver.integrate(&ode, 0.0, 0.5, &mut y, &mut dx);
+        assert!(
+            matches!(result, Err(OdeError::MaxStepsExceeded(_))),
+            "expected MaxStepsExceeded, got {:?}", result
+        );
+    }
 }
