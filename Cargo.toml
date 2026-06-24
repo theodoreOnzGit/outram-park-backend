@@ -8,6 +8,7 @@ members = [
     "crates/openfoam-basic-lib",
     "crates/openmc-libs",
     "crates/dwsim-libs",
+    "crates/boon-lay",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
@@ -34,7 +35,17 @@ roots = "0.0.8"
 thiserror = "2.0.18"
 uom = "0.38.0"
 serde = { version = "1.0.228", features = ["derive"] }
+serde-xml-rs = "0.8.2"
+anyhow = "1.0.100"
 log = "0.4"
+oorandom = "11.1.5"
+rand = "0.8"
+rand_core = "0.6"
+rand_distr = "0.4"
+rayon = "1.11.0"
+fission-yields-data = "0.1.4"
+openmc-endf-8-depletion-lib-a = "1.0.0"
+openmc-endf-8-depletion-lib-b = "1.0.0"
 
 # GUI / example stack — egui ecosystem pinned to the matched 0.34 series
 # (egui 0.34 requires Rust >= 1.92)
@@ -60,6 +71,7 @@ tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.
 openfoam-basic-lib = { path = "crates/openfoam-basic-lib", version = "0.1.5" }
 openmc-libs         = { path = "crates/openmc-libs",         version = "0.1.0" }
 dwsim-libs          = { path = "crates/dwsim-libs",          version = "0.1.0" }
+boon-lay            = { path = "crates/boon-lay",            version = "0.2.1" }
 
 # Optimize all dependencies even in debug builds — the thermal-hydraulic
 # solvers are expensive, so unoptimized deps make tests painfully slow.
