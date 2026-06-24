@@ -1,14 +1,15 @@
 # openfoam-basic-lib
 
-Pure-Rust translation of the OpenFOAM primitive layer — tensor algebra,
-polynomial solvers, and math special functions needed to build compressible
-CFD solvers equivalent to **rhoPimpleFoam** and **sonicFoam**.
+Pure-Rust translation of the OpenFOAM primitive and finite-volume library layer —
+tensor algebra, polynomial solvers, ODE solvers, interpolation, thermophysics,
+fields, mesh, FV operators, and fluid/solid thermodynamics needed to build
+compressible and conjugate-heat-transfer CFD solvers.
 
 ## Quick start
 
 ```toml
 [dependencies]
-openfoam-basic-lib = { path = "../openfoam-basic-lib" }
+openfoam-basic-lib = "0.1.4"
 ```
 
 ```rust
@@ -19,102 +20,158 @@ let u = Vector3::new(1.0, 0.0, 0.0);
 let v = Vector3::new(0.0, 1.0, 0.0);
 let cross = u.cross(v);              // z-axis unit vector
 
-let t = SymmTensor::IDENTITY;
-let dev = t.dev();                   // deviatoric part
-
 // Polynomial root finding
 let cubic = CubicEqn::new(1.0, -6.0, 11.0, -6.0); // (x-1)(x-2)(x-3)
 let roots = cubic.roots();
-// roots[0], roots[1], roots[2] are the three real roots
 
-// Polynomial evaluation
-let cp = Polynomial::new([1000.0, 0.5, -1e-4]); // Cp = 1000 + 0.5T - 1e-4 T²
-let cp_at_500 = cp.value(500.0);
-let cp_integral = cp.integral(300.0, 500.0);
+// Dense LU solve (no external BLAS required)
+let mut m = SquareMatrix::new(3);
+m.set(0, 0, 2.0); m.set(0, 1, 1.0); m.set(0, 2, 0.0);
+m.set(1, 0, 1.0); m.set(1, 1, 3.0); m.set(1, 2, 1.0);
+m.set(2, 0, 0.0); m.set(2, 1, 1.0); m.set(2, 2, 4.0);
+let x = m.solve(&[7.0, 10.0, 15.0]);  // returns Vec<f64>
 
-// Math special functions
-let q = inc_gamma_ratio_q(2.0, 3.0);    // Q(2, 3) ≈ 0.199
-let x = inv_inc_gamma(2.0, 0.5);        // x such that P(2,x) = 0.5
+// FV operators
+use openfoam_basic_lib::fv_operators::{fvm, fvc};
+// fvm::ddt, fvm::laplacian, fvm::div, fvm::laplacian_vec, fvm::div_vec,
+// fvm::ddt_coeff, fvm::ddt_coeff_vec
+// fvc::grad, fvc::div, fvc::flux, fvc::reconstruct, fvc::buoyancy_flux, ...
 ```
 
 ## What's implemented
 
-| Module | Rust type / fn | C++ source | Notes |
+### Layers 1a–1h — Primitives and thermophysics
+
+| Module | Rust type / fn | Notes |
+|---|---|---|
+| `primitives` | `Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor` | Full OpenFOAM tensor algebra; `SMALL`, `VSMALL`, `GREAT`, etc. |
+| `polynomial` | `LinearEqn`, `QuadraticEqn`, `CubicEqn` | FMA-accurate discriminants; all root branches |
+| `polynomial` | `Polynomial<const N>` | Horner eval, derivative, integral, integral_minus1 (log term) |
+| `polynomial` | `Roots<const N>`, `RootType` | 3-bit-per-root type encoding |
+| `math` | `erf_inv`, `inc_gamma_ratio_p/q`, `inc_gamma_p/q`, `inv_inc_gamma` | DiDonato–Morris (1986) |
+| `matrix` | `SquareMatrix` | Row-major n×n; LU with scaled partial pivoting; `lu_decompose`, `lu_back_substitute`, `solve` |
+| `ode` | `Euler`, `Rkf45`, `Rosenbrock23` | Adaptive explicit (RKF45) and stiff (W-method) solvers; `OdeSystem` trait |
+| `interpolation` | `interpolate_xy`, `interpolate_spline_xy` | Linear and Catmull-Rom cubic 1-D |
+| `thermophysics::eos` | `PerfectGas`, `RhoConst`, `IcoPolynomial<N>`, `PengRobinsonGas` | `EquationOfState` trait; ρ, ψ, Z, departure functions |
+| `thermophysics::thermo` | `HConstThermo`, `JanafThermo`, `HPolynomialThermo<N>`, `HTabulatedThermo` | `ThermoModel` trait; Cp, Ha, Hs, S; Newton T(H) iteration |
+| `thermophysics::transport` | `ConstTransport`, `SutherlandTransport`, `PolynomialTransport<N>`, `TabulatedTransport` | `TransportModel` trait; μ, κ |
+
+### Layer 2 — Fields and mesh
+
+| Module | Rust type | Notes |
+|---|---|---|
+| `fields` | `Field<T>`, `VolField<T>`, `SurfaceField<T>` | Generic field containers; `BoundaryCondition<T>`, `PatchField<T>` |
+| `fields` | `VolScalarField`, `VolVectorField`, `VolTensorField`, `VolSymmTensorField` | Typed aliases |
+| `fields` | `SurfaceScalarField`, `SurfaceVectorField` | Face-centred typed aliases |
+| `mesh` | `FvMesh`, `FvMeshBuilder`, `BoundaryPatch`, `PatchKind` | Unstructured polyhedral mesh |
+| `mesh` | `RegionInterface` | Matching and non-matching multi-region face coupling for CHT |
+| `ldu_matrix` | `LduMatrix`, `FvMatrix`, `FvVectorMatrix` | Sparse LDU system; scalar and vector implicit equation assembly |
+| `ldu_matrix` | `gauss_seidel`, `conjugate_gradient` | Iterative LDU solvers (no external BLAS) |
+| `ldu_matrix` | `SolverSettings`, `SolverPerformance` | Tolerance / iteration control and convergence reporting |
+
+### Layer 3 — Finite-volume operators
+
+| Function | Description |
+|---|---|
+| `fvm::ddt(phi, phi_old, dt)` | Implicit Euler ∂φ/∂t → `FvMatrix` |
+| `fvm::ddt_coeff(coeff, phi, phi_old, dt)` | Density/rho_cp-weighted implicit ddt: ∂(coeff·φ)/∂t → `FvMatrix` |
+| `fvm::ddt_vec(U, U_old, dt, mesh)` | Implicit Euler ∂U/∂t → `FvVectorMatrix` |
+| `fvm::ddt_coeff_vec(coeff, U, U_old, dt, mesh)` | Density-weighted implicit ddt: ∂(ρU)/∂t → `FvVectorMatrix` |
+| `fvm::laplacian(gamma, phi)` | Diffusion −∇·(γ∇φ) → `FvMatrix` |
+| `fvm::laplacian_vec(gamma, U)` | Diffusion −∇·(γ∇U) → `FvVectorMatrix` |
+| `fvm::div(phi, psi)` | Upwind convection ∇·(φψ) → `FvMatrix` |
+| `fvm::div_vec(phi, U)` | Upwind convection ∇·(φU) → `FvVectorMatrix` |
+| `fvc::grad(phi)` | Explicit cell-centred gradient → `VolVectorField` |
+| `fvc::div(phi, psi)` | Explicit scalar divergence → `VolScalarField` |
+| `fvc::div_flux(phi)` | Divergence of face flux → `VolScalarField` |
+| `fvc::interpolate(phi)` | Linear face interpolation → `SurfaceScalarField` |
+| `fvc::sn_grad(phi)` | Surface-normal gradient → `SurfaceScalarField` |
+| `fvc::flux(U)` | Face flux φ = U·Sf → `SurfaceScalarField` |
+| `fvc::reconstruct(phi)` | Least-squares VolVectorField from face flux → `VolVectorField` |
+| `fvc::ddt_corr(U_old, phi_old, dt)` | PISO flux consistency correction → `SurfaceScalarField` |
+| `fvc::buoyancy_flux(rho, g)` | ρ_f·(g·Sf) per face → `SurfaceScalarField` |
+| `adjust_phi(phi, U)` | Global mass-balance correction |
+
+### Layer 4 — Field-level fluid thermodynamics
+
+| Type | Description |
+|---|---|
+| `FluidThermo` | Trait: `rho`, `mu`, `kappa`, `alpha_h`, `T`, `he`, `update` |
+| `PsiThermo<M>` | Compressible ψ-based thermo for sonicFoam / rhoPimpleFoam: ρ = ψ·p |
+| `RhoThermo<M>` | Density-based thermo: ρ from EOS |
+| `SolidThermo` | Trait for solid region CHT: `rho_cp`, `kappa`, `T` |
+| `ConstSolidThermo` | Constant-property solid thermo |
+
+## SquareMatrix vs LAPACK benchmark
+
+`SquareMatrix::solve` (pure-Rust LU, no external BLAS) compared to
+`ndarray-linalg` / OpenBLAS `Array2::solve` (LAPACK DGESV) — release mode,
+Linux x86-64, 2026-06-24:
+
+| n | SquareMatrix (ns) | OpenBLAS (ns) | ratio |
 |---|---|---|---|
-| `primitives` | `type Scalar = f64` | `Scalar/scalar.H` | + `Label`, `SMALL`, `VSMALL`, `GREAT`, `VGREAT`, `ROOT_SMALL`, `ROOT_VSMALL`, `ROOT_GREAT` |
-| `primitives` | `struct SphericalTensor` | `SphericalTensor/SphericalTensorI.H` | `ii·I`; trace, det, inv, double_inner |
-| `primitives` | `struct Vector3` | `Vector/VectorI.H` | cross, dot, normalise, lerp, outer product |
-| `primitives` | `struct SymmTensor` | `SymmTensor/SymmTensorI.H` | dev, dev2, sph, det, inv, safe_inv, mat_vec, hodge_dual |
-| `primitives` | `struct Tensor` | `Tensor/TensorI.H` | transpose, det, inv, safe_inv, symm, skew, dev, mat_mul, mat_vec, hodge_dual |
-| `polynomial` | `enum RootType` | `polynomialEqns/Roots.H` | Real, Complex, PosInf, NegInf, Nan |
-| `polynomial` | `struct Roots<const N: usize>` | `polynomialEqns/RootsI.H` | 3-bit-per-root type encoding |
-| `polynomial` | `struct LinearEqn` | `polynomialEqns/linearEqn/` | `a·x + b = 0`; value, derivative, error, roots |
-| `polynomial` | `struct QuadraticEqn` | `polynomialEqns/quadraticEqn/` | FMA-accurate discriminant; real/complex roots |
-| `polynomial` | `struct CubicEqn` | `polynomialEqns/cubicEqn/` | Cardano + Kahan-compensated p,q; all case branches |
-| `polynomial` | `struct Polynomial<const N: usize>` | `functions/Polynomial/Polynomial.H` | Horner eval, derivative, integral, integral_minus1 (log term) |
-| `math` | `fn erf_inv(y)` | `functions/Math/erfInv.C` | Winitzki (2008) approximation |
-| `math` | `fn inc_gamma_ratio_q(a, x)` | `functions/Math/incGamma.C` | DiDonato–Morris (1986); full branch coverage |
-| `math` | `fn inc_gamma_ratio_p(a, x)` | same | `1 - Q(a, x)` |
-| `math` | `fn inc_gamma_q(a, x)` | same | `Q(a,x) · Γ(a)` |
-| `math` | `fn inc_gamma_p(a, x)` | same | `P(a,x) · Γ(a)` |
-| `math` | `fn inv_inc_gamma(a, p)` | `functions/Math/invIncGamma.C` | DiDonato–Morris inverse; ~3–4 sig figs for a < 1 |
-| `matrix` | `struct SquareMatrix` | `matrices/scalarMatrices/scalarMatrices.C` | row-major n×n; LU with scaled partial pivoting; `lu_decompose`, `lu_back_substitute`, `solve` |
-| `ode` | `trait OdeSystem` | `ODE/ODESystem/ODESystem.H` | `n_eqns`, `derivatives`, `jacobian` |
-| `ode` | `struct Euler` | `ODE/ODESolvers/Euler/Euler.C` | explicit 1st-order adaptive; `solve_step`, `integrate` |
-| `ode` | `struct Rkf45` | `ODE/ODESolvers/RKF45/RKF45.C` | explicit RKF 4(5) adaptive; 6-stage Butcher tableau |
-| `ode` | `struct Rosenbrock23` | `ODE/ODESolvers/Rosenbrock23/Rosenbrock23.C` | W-method stiff adaptive; requires Jacobian; 3 LU back-solves per step |
-| `interpolation` | `fn interpolate_xy` | `interpolations/interpolateXY/interpolateXY.C` | linear 1-D; binary search; clamps at endpoints |
-| `interpolation` | `fn interpolate_spline_xy` | `interpolations/interpolateSplineXY/interpolateSplineXY.C` | Catmull-Rom cubic; ghost-point boundary extension |
-| `thermophysics` | `type Compressibility` | — | Custom uom quantity ψ = ∂ρ/∂p|T, s²/m² |
-| `thermophysics::eos` | `trait EquationOfState` | `specie/equationOfState/` | rho, psi, Z, CpMCv, h/e/s EOS departures; full uom types |
-| `thermophysics::eos` | `struct PerfectGas` | `equationOfState/perfectGas/` | p = ρRT; Z=1; ρ=p/(RT) via uom arithmetic |
-| `thermophysics::eos` | `struct RhoConst` | `equationOfState/rhoConst/` | incompressible ρ=const; ψ=0 |
-| `thermophysics::eos` | `struct IcoPolynomial<const N>` | `equationOfState/icoPolynomial/` | incompressible ρ=1/poly(T); ψ=0; h_eos=p/ρ |
-| `thermophysics::eos` | `struct PengRobinsonGas` | `equationOfState/PengRobinsonGas/` | cubic real-gas EOS; Z via CubicEqn; all departure functions |
-| `thermophysics::thermo` | `trait ThermoModel` | `specie/thermo/thermo/` | Cp, Ha, Hs, Hc, S, Cv; Newton T(H/Hs/e) iteration |
-| `thermophysics::thermo` | `struct HConstThermo<E>` | `thermo/hConst/` | const Cp; Hs = Cp·(T−Tref)+Hsref |
-| `thermophysics::thermo` | `struct JanafThermo<E>` | `thermo/janaf/` | NASA 7-coeff dual-range polynomial; Hc at T_std |
-| `thermophysics::thermo` | `struct HPolynomialThermo<E, const N>` | `thermo/hPolynomial/` | Cp = poly(T); Ha via poly.integral; S via integral_minus1 |
-| `thermophysics::thermo` | `struct HTabulatedThermo<E>` | `thermo/hTabulated/` | Cp/Ha/S from separate (T, value) lookup tables via interpolate_xy |
-| `thermophysics::transport` | `trait TransportModel` | `specie/transport/` | mu, kappa; default alpha_h = kappa/Cp |
-| `thermophysics::transport` | `struct ConstTransport<T>` | `transport/const/` | const mu + Pr; kappa = Cp·mu/Pr |
-| `thermophysics::transport` | `struct SutherlandTransport<T>` | `transport/sutherland/` | mu = As√T/(1+Ts/T); Eucken kappa; two-point constructor |
-| `thermophysics::transport` | `struct PolynomialTransport<T, const N>` | `transport/polynomial/` | mu(T) and kappa(T) as independent Polynomial<N> |
-| `thermophysics::transport` | `struct TabulatedTransport<T>` | `transport/tabulated/` | mu(T) and kappa(T) from (T, value) lookup tables via interpolate_xy |
+| 5 | 193 | 371 | **0.52 — SquareMatrix 1.9× faster** |
+| 10 | 352 | 512 | **0.69 — SquareMatrix 1.5× faster** |
+| 20 | 1 446 | 1 614 | **0.90 — roughly equal** |
+| 50 | 17 018 | 7 891 | 2.16 — OpenBLAS faster |
+| 100 | 135 705 | 27 845 | 4.87 — OpenBLAS faster |
+| 200 | 1 112 109 | 357 281 | 3.11 — OpenBLAS faster |
+
+`SquareMatrix` is faster for n ≤ 10 because OpenBLAS DGESV has ~300–400 ns
+of per-call FFI overhead that dominates at small sizes. The crossover is around
+n ≈ 20–50. For typical finite-volume networks (10–50 unknowns per implicit
+system), `SquareMatrix` eliminates the system BLAS dependency with no
+performance penalty. Reproduce with:
+
+```bash
+cargo test -p openfoam-basic-lib --test matrix_bench --release -- --nocapture
+```
 
 ## Prelude
-
-The `prelude` module re-exports the most commonly used items:
 
 ```rust
 use openfoam_basic_lib::prelude::*;
 ```
 
-Includes: scalar constants, `Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`,
-`RootType`, `Roots`, `LinearEqn`, `QuadraticEqn`, `CubicEqn`, `Polynomial`,
-and all math special functions.
+Includes all tensor types, polynomial solvers, math functions, `SquareMatrix`,
+ODE solvers, interpolation, all thermophysics types, all field and mesh types,
+all LDU matrix types, FV operator modules (`fvc`, `fvm`), `adjust_phi`, and
+all fluid/solid thermo types.
 
 ## Running tests
 
 ```bash
-cargo test -p openfoam-basic-lib --lib
+# Library unit tests (no external BLAS required)
+cargo test -p openfoam-basic-lib --lib --tests
+
+# Matrix benchmark (release mode for meaningful numbers)
+cargo test -p openfoam-basic-lib --test matrix_bench --release -- --nocapture
 ```
 
 ## Layer roadmap
 
 ```
-✅ Layer 1a — Tensor algebra   (Vector3, Tensor, SymmTensor, SphericalTensor)
-✅ Layer 1b — Dense matrices   (SquareMatrix + LU decompose / back-substitute)
-✅ Layer 1c — Polynomial eqns  (LinearEqn, QuadraticEqn, CubicEqn, Roots<N>)
-✅ Layer 1d — Polynomial eval  (Polynomial<N>)
-✅ Layer 1e — ODE solvers      (Euler, Rkf45, Rosenbrock23)
-✅ Layer 1f — Interpolation    (interpolate_xy, interpolate_spline_xy)
-✅ Layer 1g — Math functions   (erf_inv, inc_gamma_*, inv_inc_gamma)
-✅ Layer 1h — Thermophysics   (EOS: PerfectGas, RhoConst, IcoPolynomial, PengRobinsonGas; Thermo: HConstThermo, JanafThermo, HPolynomialThermo, HTabulatedThermo; Transport: ConstTransport, SutherlandTransport, PolynomialTransport, TabulatedTransport)
-✅ Layer 2  — Fields + Mesh   (Field, VolField, SurfaceField, FvMesh, FvMeshBuilder, BoundaryPatch, LduMatrix, FvMatrix, Gauss-Seidel solver)
-✅ Layer 3  — FV operators   (fvc::interpolate, fvc::sn_grad, fvc::grad, fvc::div, fvc::div_vec, fvc::div_flux; fvm::ddt, fvm::laplacian, fvm::div; FvMatrix arithmetic: Add/Sub/Neg/AddAssign/SubAssign)
-✅ Layer 4  — Thermophysics  (FluidThermo trait; PsiThermo<M> for sonicFoam ρ=ψ·p; RhoThermo<M> for rhoPimpleFoam ρ=EOS; SolidThermo trait + ConstSolidThermo for CHT solid regions; PCG solver (conjugate_gradient))
-⬜ Layer 5  — Solver logic
+✅ Layer 1a — Tensor algebra      (Vector3, Tensor, SymmTensor, SphericalTensor)
+✅ Layer 1b — Dense matrices      (SquareMatrix: LU with scaled partial pivoting)
+✅ Layer 1c — Polynomial eqns     (LinearEqn, QuadraticEqn, CubicEqn, Roots<N>)
+✅ Layer 1d — Polynomial eval     (Polynomial<N>: Horner, derivative, integral)
+✅ Layer 1e — ODE solvers         (Euler, Rkf45, Rosenbrock23; OdeSystem trait)
+✅ Layer 1f — Interpolation       (interpolate_xy, interpolate_spline_xy)
+✅ Layer 1g — Math functions      (erf_inv, inc_gamma_*, inv_inc_gamma)
+✅ Layer 1h — Thermophysics       (EOS, Thermo, Transport traits + 4 impls each)
+✅ Layer 2  — Fields + Mesh       (VolField, SurfaceField, FvMesh, LduMatrix,
+                                   FvMatrix, FvVectorMatrix, RegionInterface,
+                                   Gauss-Seidel + CG solvers)
+✅ Layer 3  — FV operators        (fvm: ddt, ddt_coeff, ddt_vec, ddt_coeff_vec,
+                                        laplacian, laplacian_vec, div, div_vec
+                                   fvc: grad, div, interpolate, sn_grad, flux,
+                                        reconstruct, ddt_corr, buoyancy_flux
+                                   adjust_phi)
+✅ Layer 4  — Field thermodynamics (FluidThermo, PsiThermo, RhoThermo,
+                                    SolidThermo, ConstSolidThermo)
+⬜ Layer 5  — Solver logic         (icoFoam PISO loop → openfoam-icof;
+                                    chtMultiRegionFoam → openfoam-cht;
+                                    rhoPimpleFoam → openfoam-rho)
 ```
 
 ## License
