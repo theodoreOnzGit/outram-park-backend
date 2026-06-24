@@ -110,8 +110,8 @@ cargo test -p openfoam-basic-lib --lib
 ✅ Layer 1e — ODE solvers      (Euler, Rkf45, Rosenbrock23)
 ✅ Layer 1f — Interpolation    (interpolate_xy, interpolate_spline_xy)
 ✅ Layer 1g — Math functions   (erf_inv, inc_gamma_*, inv_inc_gamma)
-🔶 Layer 1h — Thermophysics   (EOS: PerfectGas, RhoConst; Thermo: HConstThermo, JanafThermo; Transport: ConstTransport, SutherlandTransport — IcoPolynomial, HPolynomialThermo, PolynomialTransport, TabulatedTransport, PengRobinsonGas pending)
-⬜ Layer 2  — Fields + Mesh
+✅ Layer 1h — Thermophysics   (EOS: PerfectGas, RhoConst, IcoPolynomial, PengRobinsonGas; Thermo: HConstThermo, JanafThermo, HPolynomialThermo, HTabulatedThermo; Transport: ConstTransport, SutherlandTransport, PolynomialTransport, TabulatedTransport)
+✅ Layer 2  — Fields + Mesh   (Field, VolField, SurfaceField, FvMesh, FvMeshBuilder, BoundaryPatch, LduMatrix, FvMatrix, Gauss-Seidel solver)
 ⬜ Layer 3  — FV operators
 ⬜ Layer 4  — Thermophysics
 ⬜ Layer 5  — Solver logic

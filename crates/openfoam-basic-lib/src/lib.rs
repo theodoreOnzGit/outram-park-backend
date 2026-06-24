@@ -5,4 +5,7 @@ pub mod matrix;
 pub mod ode;
 pub mod interpolation;
 pub mod thermophysics;
+pub mod fields;
+pub mod mesh;
+pub mod ldu_matrix;
 pub mod prelude;

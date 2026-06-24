@@ -54,3 +54,17 @@ pub use crate::thermophysics::quantities::Compressibility;
 pub use crate::thermophysics::eos::*;
 pub use crate::thermophysics::thermo::*;
 pub use crate::thermophysics::transport::*;
+
+// --- Fields (Layer 2) ---
+pub use crate::fields::{
+    Field,
+    VolField, VolScalarField, VolVectorField, VolTensorField, VolSymmTensorField,
+    SurfaceField, SurfaceScalarField, SurfaceVectorField,
+    BoundaryCondition, PatchField,
+};
+
+// --- Mesh (Layer 2) ---
+pub use crate::mesh::{FvMesh, FvMeshBuilder, BoundaryPatch, PatchKind};
+
+// --- Sparse linear system (Layer 2) ---
+pub use crate::ldu_matrix::{LduMatrix, FvMatrix, SolverSettings, SolverPerformance};
