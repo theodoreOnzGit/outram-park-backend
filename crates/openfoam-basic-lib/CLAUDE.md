@@ -2,7 +2,8 @@
 
 This crate is a pure-Rust translation of the OpenFOAM C++ primitive and
 finite-volume library layer, scoped to the primitives needed to implement
-compressible sonic solvers equivalent to **rhoPimpleFoam** and **sonicFoam**.
+compressible solvers equivalent to **rhoPimpleFoam**, **sonicFoam**, and
+**rhoCentralFoam** (Kurganov-Tadmor central-upwind, density-based explicit).
 
 The reference C++ source lives at:
 `/home/teddy0/Documents/research/openfoam/`
@@ -65,9 +66,9 @@ The crate climbs the OpenFOAM stack from the bottom up. Each layer depends
 only on the one below it:
 
 ```
-Layer 5  Solver logic       rhoPimpleFoam / sonicFoam loop
-Layer 4  Thermophysics      fluidThermo / psiThermo
-Layer 3  FV operators       fvm:: / fvc:: (ddt, div, grad, laplacian, …)
+Layer 5  Solver logic       rhoPimpleFoam / sonicFoam / rhoCentralFoam loops
+Layer 4  Thermophysics      fluidThermo / psiThermo / rhoThermo
+Layer 3  FV operators       fvm:: / fvc:: + Kurganov-Tadmor central-upwind fluxes
 Layer 2  Fields + Mesh      volScalarField, fvMesh, fvMatrix
 Layer 1  Primitives ← THIS CRATE
            • Tensor algebra   Vector3, Tensor, SymmTensor, SphericalTensor
