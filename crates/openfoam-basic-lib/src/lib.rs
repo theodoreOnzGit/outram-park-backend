@@ -8,4 +8,5 @@ pub mod thermophysics;
 pub mod fields;
 pub mod mesh;
 pub mod ldu_matrix;
+pub mod fv_operators;
 pub mod prelude;

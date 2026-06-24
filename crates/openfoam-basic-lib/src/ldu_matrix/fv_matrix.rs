@@ -1,3 +1,4 @@
+use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
 use std::sync::Arc;
 
 use crate::mesh::fv_mesh::FvMesh;
@@ -108,6 +109,59 @@ impl FvMatrix {
         self.ldu.lower[face]  -= coeff;
         self.ldu.diag[o]     += coeff;
         self.ldu.diag[n]     += coeff;
+    }
+}
+
+// ── Arithmetic ────────────────────────────────────────────────────────────────
+
+impl Add for FvMatrix {
+    type Output = Self;
+    fn add(mut self, rhs: Self) -> Self {
+        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) { *a += b; }
+        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) { *a += b; }
+        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) { *a += b; }
+        self.source += rhs.source;
+        self
+    }
+}
+
+impl Sub for FvMatrix {
+    type Output = Self;
+    fn sub(mut self, rhs: Self) -> Self {
+        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) { *a -= b; }
+        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) { *a -= b; }
+        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) { *a -= b; }
+        self.source -= rhs.source;
+        self
+    }
+}
+
+impl Neg for FvMatrix {
+    type Output = Self;
+    fn neg(mut self) -> Self {
+        for x in self.ldu.diag.iter_mut() { *x = -*x; }
+        for x in self.ldu.lower.iter_mut() { *x = -*x; }
+        for x in self.ldu.upper.iter_mut() { *x = -*x; }
+        self.source = -self.source;
+        self
+    }
+}
+
+impl AddAssign for FvMatrix {
+    fn add_assign(&mut self, rhs: Self) {
+        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) { *a += b; }
+        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) { *a += b; }
+        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) { *a += b; }
+        self.source += rhs.source;
+    }
+}
+
+impl SubAssign for FvMatrix {
+    fn sub_assign(&mut self, rhs: Self) {
+        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) { *a -= b; }
+        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) { *a -= b; }
+        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) { *a -= b; }
+        self.source -= rhs.source;
     }
 }
 
