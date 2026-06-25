@@ -108,7 +108,6 @@ fn poly_mesh_present() -> bool {
 }
 
 #[test]
-#[ignore = "requires blockMesh-generated polyMesh in tutorials/cases/pimple_foam_cavity/constant/polyMesh/"]
 fn cavity_mesh_loads() {
     assert!(poly_mesh_present(), "polyMesh files missing — run `blockMesh` in {}", CASE_DIR);
     let pm_dir = case_dir().join("constant").join("polyMesh");
