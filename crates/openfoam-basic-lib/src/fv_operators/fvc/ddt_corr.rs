@@ -25,44 +25,59 @@ use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::VolVectorField;
 use super::interpolate;
 
-/// PISO flux correction: `ddtCorr[f] = (φ_old[f] − U_old_f · S_f) / Δt`.
+/// Rhie–Chow time-derivative flux correction (Euler scheme), with OpenFOAM's
+/// `fvcDdtPhiCoeff` limiter.
 ///
-/// Accounts for the discrepancy between the stored face flux `phi` (from the
-/// previous time step) and the flux implied by the interpolated old velocity
-/// field.  Adding this to `phiHbyA` before the pressure solve ensures the
-/// PISO correction is consistent with the old-time flux.
-///
-/// OpenFOAM signature:
 /// ```text
-/// fvc::ddtCorr(U, phi)   // Euler scheme; dt comes from runTime.deltaT()
+/// phiCorr[f] = phi_old[f] − (interpolate(U_old) · S_f)
+/// coeff[f]   = 1 − min( |phiCorr[f]| / (|phi_old[f]| + SMALL),  1 )
+/// ddtCorr[f] = coeff[f] · phiCorr[f] / Δt
 /// ```
-/// Here we take `dt` explicitly so the function is self-contained.
 ///
-/// Mirrors `fvc::ddtCorr` from
-/// `src/finiteVolume/finiteVolume/fvc/fvcDdt.C`, Euler specialisation.
+/// `phiCorr` is the discrepancy between the stored face flux (which carries the
+/// pressure-driven, Rhie–Chow part of the velocity) and the flux you would get
+/// by simply interpolating the cell velocity. Re-injecting it into `phiHbyA`
+/// before the pressure solve (as `interpolate(rAU)·ddtCorr`) keeps the face
+/// flux coupled to its own history, which is what suppresses pressure–velocity
+/// (checkerboard) decoupling and lets the PISO/PIMPLE loop stay stable at
+/// Courant numbers approaching 1. **Without the limiter** the raw `phiCorr/Δt`
+/// can overshoot and is itself destabilising; the `coeff` blend (→ 0 where the
+/// correction is large relative to the flux, → 1 where it is small) is the
+/// stabilising ingredient.
+///
+/// The coefficient is zeroed on boundary faces — OpenFOAM zeros it on
+/// fixed-value (and cyclicAMI) patches, and incompressible solvers re-impose the
+/// boundary flux via `constrainHbyA`/`adjustPhi` regardless — so this returns a
+/// zero boundary field.
+///
+/// OpenFOAM signature: `fvc::ddtCorr(U, phi)` (Euler; Δt from `runTime`). Here
+/// `dt` is passed explicitly. Mirrors
+/// `EulerDdtScheme<Type>::fvcDdtPhiCorr` + `ddtScheme<Type>::fvcDdtPhiCoeff`
+/// (standard version, `ddtPhiCoeff_ < 0`) in
+/// `src/finiteVolume/finiteVolume/ddtSchemes/`.
 pub fn ddt_corr(
     u_old: &VolVectorField,
     phi_old: &SurfaceScalarField,
     dt: f64,
 ) -> SurfaceScalarField {
+    // Matches OpenFOAM's SMALL guard in the |phiCorr|/|phi| ratio.
+    const SMALL: f64 = 1e-37;
     let mesh = &u_old.mesh;
     let u_f = interpolate(u_old);
+    let r_dt = 1.0 / dt;
 
     let internal = Field::from_fn(mesh.n_internal_faces, |f| {
-        let u_dot_sf = u_f.internal[f].dot(mesh.face_area_vectors[f]);
-        (phi_old.internal[f] - u_dot_sf) / dt
+        let u_dot_sf  = u_f.internal[f].dot(mesh.face_area_vectors[f]);
+        let phi_corr  = phi_old.internal[f] - u_dot_sf;
+        let coeff = 1.0 - (phi_corr.abs() / (phi_old.internal[f].abs() + SMALL)).min(1.0);
+        coeff * phi_corr * r_dt
     });
 
+    // coeff = 0 on boundaries (see doc note).
     let boundary = mesh.patches.iter()
-        .zip(u_f.boundary.iter())
-        .zip(phi_old.boundary.iter())
-        .map(|((patch, u_bc), phi_bc)| {
-            let values = Field::from_fn(patch.size, |fi| {
-                let gf = patch.start + fi;
-                let u_dot_sf = u_bc.values[fi].dot(mesh.face_area_vectors[gf]);
-                (phi_bc.values[fi] - u_dot_sf) / dt
-            });
-            PatchField { bc: BoundaryCondition::ZeroGradient, values }
+        .map(|p| PatchField {
+            bc: BoundaryCondition::ZeroGradient,
+            values: Field::zeros(p.size),
         })
         .collect();
 
@@ -125,7 +140,23 @@ mod tests {
             .collect();
         let phi_old = SurfaceScalarField::new("phi", m.clone(), Field::uniform(1, 2.0), bnd);
         let corr = ddt_corr(&u, &phi_old, 1.0);
-        // (phi_old - U·Sf) / dt = (2 - 1) / 1 = 1
-        assert!((corr.internal[0] - 1.0).abs() < 1e-12);
+        // phiCorr = 2 − 1 = 1; coeff = 1 − min(|1|/(|2|+SMALL), 1) = 0.5;
+        // ddtCorr = coeff·phiCorr/dt = 0.5·1/1 = 0.5
+        assert!((corr.internal[0] - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn coeff_limits_large_correction_to_zero() {
+        // When |phiCorr| ≥ |phi_old|, coeff → 0, so the correction is fully
+        // damped (this is what keeps ddtCorr from destabilising the flux).
+        let m = unit_mesh();
+        let u = VolVectorField::uniform("U", m.clone(), Vector3::new(1.0, 0.0, 0.0));
+        // phi_old = 0 (U·Sf = 1 → |phiCorr| = 1 ≫ |phi_old| = 0)
+        let bnd: Vec<_> = m.patches.iter()
+            .map(|p| PatchField { bc: BoundaryCondition::ZeroGradient, values: Field::zeros(p.size) })
+            .collect();
+        let phi_old = SurfaceScalarField::new("phi", m.clone(), Field::zeros(1), bnd);
+        let corr = ddt_corr(&u, &phi_old, 1.0);
+        assert!(corr.internal[0].abs() < 1e-12, "coeff must damp the correction to ~0");
     }
 }

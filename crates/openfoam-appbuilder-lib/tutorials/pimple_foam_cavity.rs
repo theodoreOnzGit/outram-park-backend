@@ -65,11 +65,12 @@
 //!
 //! `cavity_mesh_loads` and `cavity_velocity_matches_icofoam` are active and
 //! passing: the steady velocity field matches the icoFoam reference to within
-//! 3.6 % (peak speed within 0.3 %). The residual difference is the first-order
+//! ~1.4 % (peak speed within 0.3 %). The residual difference is the first-order
 //! upwind convection of this port versus icoFoam's second-order `Gauss linear`
-//! on the coarse 20×20 mesh. The run uses dt = 5e-4 (Co ≈ 0.1) rather than
-//! icoFoam's 5e-3, because the simplified Rhie–Chow flux here (no `ddtCorr`) is
-//! stable only to Co ≈ 0.1; the comparison at steady state is dt-independent.
+//! on the coarse 20×20 mesh. The run uses **icoFoam's own dt = 5e-3 (Co ≈ 0.85)**
+//! — the solver now includes the `fvc::ddtCorr` Rhie–Chow flux correction and a
+//! correct PISO corrector loop (H(U) re-evaluated each pass), which together
+//! lift the stability limit to Co ≈ 1.
 //!
 //! `cavity_ghia_benchmark_re100` remains `#[ignore]` — the shipped mesh is
 //! 0.1 m wide (Re = 10 at ν = 0.01), so it must be re-run at ν = 1e-3 (or L = 1 m)
@@ -149,14 +150,13 @@ fn build_cavity_solver() -> PimpleFoam {
     let pm_dir = case_dir().join("constant").join("polyMesh");
     let mesh   = read_poly_mesh(&pm_dir).expect("read_poly_mesh failed");
 
-    // dt = 5e-4 (Co ≈ 0.1). icoFoam runs this case at 5e-3, but that relies on
-    // its `ddtCorr` flux reconstruction; this simpler Rhie–Chow port is stable
-    // only up to Co ≈ 0.1, so a 10× smaller step is used. The comparison is at
-    // steady state (t = 0.5 s), which is independent of the path/timestep.
+    // dt = 5e-3 — the same step icoFoam uses for this case (Co ≈ 0.85). This is
+    // now possible because the solver includes the `fvc::ddtCorr` Rhie–Chow flux
+    // correction; without it the stability limit is Co ≈ 0.1.
     let control = ControlDict {
         start: StartControl::StartTime(0.0),
         stop:  StopControl::EndTime(0.5),
-        delta_t: 5e-4,
+        delta_t: 5e-3,
         ..ControlDict::default()
     };
     let schemes = FvSchemes::default();
@@ -205,14 +205,12 @@ fn cavity_velocity_matches_icofoam() {
     }
     let rel = max_diff / U_LID;
     println!("cavity max |U_rust − U_icofoam| / U_lid = {rel:.4}");
-    // The peak velocity matches icoFoam to ~0.3 % (0.8503 vs 0.8527). The
-    // pointwise max difference is ~3.6 %, dominated by the steep-gradient region
-    // near the lid: this port uses first-order upwind convection (`fvm::div`)
-    // whereas icoFoam's cavity tutorial uses second-order `Gauss linear`, and on
-    // a coarse 20×20 mesh that scheme difference is a few percent. A 5 % bound
-    // confirms the flow field is reproduced without over-claiming agreement that
-    // the discretisation cannot deliver.
-    assert!(rel < 0.05, "velocity mismatch vs icoFoam: {rel:.4} (> 5%)");
+    // Peak velocity matches icoFoam to ~0.3 % (0.8503 vs 0.8527); the pointwise
+    // max difference is ~1.4 %, in the steep-gradient region near the lid. The
+    // residual is the scheme difference — first-order upwind convection here vs
+    // icoFoam's second-order `Gauss linear` on the coarse 20×20 mesh. A 2.5 %
+    // bound confirms the field is reproduced with margin for that difference.
+    assert!(rel < 0.025, "velocity mismatch vs icoFoam: {rel:.4} (> 2.5%)");
 }
 
 /// Ghia 1982 benchmark: U_x along the vertical centreline at Re = 100.

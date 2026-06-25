@@ -71,15 +71,15 @@
 //! }
 //!
 //! // --- PISO loop
-//! while (piso.correct())
-//! {
+//! while (piso.correct())   // (5) the WHOLE block re-runs each corrector,
+//! {                        //     re-evaluating UEqn.H() from the latest U
 //!     volScalarField rAU(1.0/UEqn.A());
 //!     volVectorField HbyA(constrainHbyA(rAU*UEqn.H(), U, p));     // (3)
 //!     surfaceScalarField phiHbyA
 //!     (
 //!         "phiHbyA",
 //!         fvc::flux(HbyA)
-//!       + fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)              // (5) ddtCorr
+//!       + fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)              // ddtCorr
 //!     );
 //!     adjustPhi(phiHbyA, U, p);                                  // (3)
 //!     constrainPressure(p, U, phiHbyA, rAU);
@@ -160,14 +160,24 @@
 //!    a *correctness* one in practice: an under-solved pEqn leaves residual
 //!    divergence that accumulates and destabilises the run.
 //!
-//! 5. **Known limitation — `fvc::ddtCorr` is omitted.**
-//!    OpenFOAM adds `fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)` to `phiHbyA` —
-//!    the Rhie–Chow time-derivative correction that couples the face flux to the
-//!    cell velocities and suppresses pressure–velocity decoupling. Without it the
-//!    Rhie–Chow stencil here is stable only to Courant number ≈ 0.1, so the
-//!    cavity runs at `dt = 5e-4` instead of icoFoam's `5e-3`. The steady-state
-//!    comparison is unaffected (it is path/`dt`-independent); adding ddtCorr is
-//!    tracked in `TODO.md`.
+//! 5. **PISO corrector loop — `H(U)` re-evaluated every pass (the stability fix).**
+//!    OpenFOAM's `while (piso.correct())` re-runs the *entire* `rAU`/`HbyA`/
+//!    `phiHbyA`/`pEqn`/`U`-update sequence each corrector, so `UEqn.H()` is
+//!    recomputed from the velocity updated by the previous corrector — that is
+//!    the iteration that converges the pressure–velocity coupling. An earlier
+//!    version of this port computed `HbyA` once and merely re-solved the *same*
+//!    pressure system `nCorrectors` times (updating neither `H(U)` nor `U`
+//!    between passes), which collapses to a single corrector and capped stability
+//!    at Co ≈ 0.1. With the loop restructured to match OpenFOAM, the cavity is
+//!    stable at icoFoam's `dt = 5e-3` (Co ≈ 0.85).
+//!
+//! 6. **`fvc::ddtCorr` Rhie–Chow flux correction — now included.**
+//!    `phiHbyA += fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)`, with OpenFOAM's
+//!    `fvcDdtPhiCoeff` limiter (`coeff = 1 − min(|phiCorr|/(|phi|+SMALL), 1)`).
+//!    It couples the face flux to its own old-time value to suppress
+//!    pressure–velocity (checkerboard) decoupling. `ddtCorr` uses the time-old
+//!    `U`/`phi` (constant across the inner correctors). See
+//!    `openfoam_basic_lib::fv_operators::fvc::ddt_corr`.
 
 use std::sync::Arc;
 use openfoam_basic_lib::prelude::*;
@@ -265,7 +275,8 @@ impl PimpleFoam {
         let n_outer = self.solution.pimple.n_outer_correctors.max(1);
         let n_inner = self.solution.pimple.n_correctors.max(1);
 
-        let u_old = self.u.clone();
+        let u_old   = self.u.clone();
+        let phi_old = self.phi.clone(); // old-time flux for the ddtCorr term
 
         // Capture the boundary-condition templates before any solve. The linear
         // solver and field arithmetic rebuild output fields with zero-gradient
@@ -315,91 +326,108 @@ impl PimpleFoam {
             }
             self.u = u_pred;
 
-            // H(U_pred) from the clean (no-pressure) source [m⁴/s²]
-            let h = u_eqn.h_field(&self.u);
+            // rAUf = interpolate(rAU) at faces [s]; ddtCorr (Rhie–Chow flux
+            // correction) uses the time-old U/phi and so is constant across the
+            // PISO correctors below. Both are computed once per outer iteration.
+            let rauf     = fvc::interpolate(&rau);
+            let ddt_corr = fvc::ddt_corr(&u_old, &phi_old, dt);
 
-            // HbyA = H/A [m/s]
-            let hbya = {
-                let h_data  = h.internal.as_slice();
-                let a_data  = a.internal.as_slice();
-                let vals: Vec<Vector3> = (0..n)
-                    .map(|c| h_data[c] * (1.0 / a_data[c].max(1e-30)))
-                    .collect();
-                VolVectorField::new(
-                    "HbyA", mesh.clone(),
-                    Field::new(vals),
-                    mesh.patches.iter().map(|p| PatchField::zero_gradient_vec(p.size)).collect(),
-                )
-            };
-
-            // rAUf = interpolate(rAU) at faces [s]
-            let rauf = fvc::interpolate(&rau);
-
-            // phi_hbya = flux(HbyA) [m³/s]
-            let phi_hbya = fvc::flux(&hbya);
-
-            // Pressure source = −(net HbyA outflow) per cell [m³/s].
+            // ── PISO pressure-correction loop ────────────────────────────────
             //
-            // `fvm::laplacian` is positive-definite (it represents −∇·(Γ∇)), so
-            // the discrete divergence of the correction flux −rAUf·snGrad(p) is
-            // −(L·p)_P. Zeroing the corrected divergence (L·p = −div(phiHbyA))
-            // therefore requires the source to be the *negated* HbyA outflow;
-            // using +outflow flips the sign of p and makes the corrector pump
-            // divergence in, blowing the solution up.
-            let source_p = {
-                let mut s = vec![0.0_f64; n];
-                let phi_int = phi_hbya.internal.as_slice();
-                for f in 0..mesh.n_internal_faces {
-                    s[mesh.owner[f]]     -= phi_int[f];
-                    s[mesh.neighbour[f]] += phi_int[f];
-                }
-                // Boundary flux must be the *prescribed* flux U_BC·Sf, NOT the
-                // zero-gradient extrapolation of HbyA. On a fixed-velocity wall
-                // U_BC·n = 0, so there is no flow through it; using HbyA's
-                // extrapolated value instead injects a spurious wall flux that
-                // breaks the closed-domain compatibility condition (Σ source ≠ 0)
-                // and makes the pinned Poisson solve ramp the pressure each step.
-                // This is the role of OpenFOAM's `constrainHbyA`.
-                for (pi, patch) in mesh.patches.iter().enumerate() {
-                    if matches!(self.u.boundary[pi].bc, BoundaryCondition::Empty) {
-                        continue; // 2-D front/back: zero-area in-plane, no flux
-                    }
-                    for fi in 0..patch.size {
-                        let gf = patch.start + fi;
-                        let u_bc = self.u.boundary[pi].values[fi];
-                        let flux = u_bc.dot(mesh.face_area_vectors[gf]);
-                        s[mesh.owner[gf]] -= flux;
-                    }
-                }
-                s
-            };
-
-            // ── PISO inner pressure correctors ───────────────────────────────
+            // This mirrors icoFoam's `while (piso.correct())` block: each
+            // corrector rebuilds HbyA = H(U)/A from the *latest* U, forms
+            // phiHbyA, solves the pressure equation, then corrects both the face
+            // flux and the cell velocity. Re-evaluating H(U) each pass is what
+            // makes the velocity–pressure coupling converge — solving the same
+            // fixed system twice (the previous structure) does not, and capped
+            // stability at Co ≈ 0.1.
             for _ in 0..n_inner {
-                // Pressure equation: ∇·(rAUf ∇p) = ∇·HbyA
+                // HbyA = H(U)/A [m/s] — H re-evaluated from the current U.
+                let h = u_eqn.h_field(&self.u);
+                let hbya = {
+                    let h_data  = h.internal.as_slice();
+                    let a_data  = a.internal.as_slice();
+                    let vals: Vec<Vector3> = (0..n)
+                        .map(|c| h_data[c] * (1.0 / a_data[c].max(1e-30)))
+                        .collect();
+                    VolVectorField::new(
+                        "HbyA", mesh.clone(),
+                        Field::new(vals),
+                        mesh.patches.iter().map(|p| PatchField::zero_gradient_vec(p.size)).collect(),
+                    )
+                };
+
+                // phiHbyA = flux(HbyA) + interpolate(rAU)·ddtCorr(U, phi) [m³/s].
+                // The ddtCorr term is OpenFOAM's Rhie–Chow time-derivative flux
+                // correction (icoFoam pEqn.H:
+                // `phiHbyA += fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)`),
+                // which couples the face flux to its own old-time value.
+                let mut phi_hbya = fvc::flux(&hbya);
+                {
+                    let rauf_int = rauf.internal.as_slice();
+                    let dc_int   = ddt_corr.internal.as_slice();
+                    for f in 0..mesh.n_internal_faces {
+                        phi_hbya.internal[f] += rauf_int[f] * dc_int[f];
+                    }
+                }
+
+                // Pressure source = −(net phiHbyA outflow) per cell [m³/s].
+                //
+                // `fvm::laplacian` is positive-definite (it represents −∇·(Γ∇)),
+                // so the discrete divergence of the correction flux
+                // −rAUf·snGrad(p) is −(L·p)_P. Zeroing the corrected divergence
+                // (L·p = −div(phiHbyA)) requires the *negated* outflow as source;
+                // +outflow flips the sign of p and makes the corrector pump
+                // divergence in, blowing the solution up.
+                let source_p = {
+                    let mut s = vec![0.0_f64; n];
+                    let phi_int = phi_hbya.internal.as_slice();
+                    for f in 0..mesh.n_internal_faces {
+                        s[mesh.owner[f]]     -= phi_int[f];
+                        s[mesh.neighbour[f]] += phi_int[f];
+                    }
+                    // Boundary flux is the prescribed U_BC·Sf (0 through a
+                    // no-penetration wall), not the zero-gradient HbyA
+                    // extrapolation — OpenFOAM's `constrainHbyA`. Using the
+                    // extrapolation leaks spurious wall flux, breaks the
+                    // closed-domain compatibility condition (Σ source ≠ 0), and
+                    // ramps the pinned-Poisson pressure each step.
+                    for (pi, patch) in mesh.patches.iter().enumerate() {
+                        if matches!(self.u.boundary[pi].bc, BoundaryCondition::Empty) {
+                            continue; // 2-D front/back: no in-plane flux
+                        }
+                        for fi in 0..patch.size {
+                            let gf = patch.start + fi;
+                            let u_bc = self.u.boundary[pi].values[fi];
+                            s[mesh.owner[gf]] -= u_bc.dot(mesh.face_area_vectors[gf]);
+                        }
+                    }
+                    s
+                };
+
+                // Pressure equation: L·p = source (symmetric SPD → PCG).
                 let mut p_eqn = fvm::laplacian(&rauf, &self.p);
-                p_eqn.source = Field::new(source_p.clone());
-                // Fix singular system (no fixed-pressure BC in closed domain)
-                p_eqn.set_reference(0, 0.0);
+                p_eqn.source = Field::new(source_p);
+                p_eqn.set_reference(0, 0.0); // pin reference (closed domain)
                 let (mut p_new, _) = p_eqn.solve_cg("p", p_settings);
                 correct_bcs(&mut p_new, &p_bcs);
                 self.p = p_new;
-            }
 
-            // ── Final flux and velocity correction ───────────────────────────
-            let sng = fvc::sn_grad(&self.p);
-            {
-                let sng_int  = sng.internal.as_slice();
-                let rauf_int = rauf.internal.as_slice();
-                let mut phi_corr = phi_hbya;
-                for f in 0..mesh.n_internal_faces {
-                    phi_corr.internal[f] -= rauf_int[f] * sng_int[f] * mesh.face_areas[f];
+                // Correct the face flux: phi = phiHbyA − rAUf·snGrad(p)·|Sf|
+                let sng = fvc::sn_grad(&self.p);
+                {
+                    let sng_int  = sng.internal.as_slice();
+                    let rauf_int = rauf.internal.as_slice();
+                    for f in 0..mesh.n_internal_faces {
+                        phi_hbya.internal[f] -= rauf_int[f] * sng_int[f] * mesh.face_areas[f];
+                    }
+                    self.phi = phi_hbya;
                 }
-                self.phi = phi_corr;
+
+                // Correct the cell velocity: U = HbyA − rAU·∇p, then re-impose BCs.
+                self.u = hbya - rau.clone() * fvc::grad(&self.p);
+                correct_bcs_vec(&mut self.u, &u_bcs);
             }
-            // U = HbyA − rAU · ∇p
-            self.u = hbya - rau * fvc::grad(&self.p);
-            correct_bcs_vec(&mut self.u, &u_bcs);
         }
 
         Ok(())
