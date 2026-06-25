@@ -49,11 +49,12 @@
 //!
 //! ## Status
 //!
-//! All three tests are active and passing. The KNP run reproduces the OpenFOAM
-//! reference at t = 0.007 s with a mean (L1) pressure error of ~3.7 % and the
-//! shock front within ~1 cell of the exact Sod position. The residual error is
-//! the first-order KNP flux of this port versus OpenFOAM's 2nd-order
-//! vanLeer-limited rhoCentralFoam (contact/shock smearing on the 100-cell mesh).
+//! All three tests are active and passing. The solver uses a KNP flux with
+//! 2nd-order **vanLeer MUSCL reconstruction** (`fvc::reconstruct_pos_neg`),
+//! matching OpenFOAM rhoCentralFoam's scheme family, and reproduces the
+//! reference at t = 0.007 s to a mean (L1) pressure error of ~0.7 % (down from
+//! ~3.7 % with the earlier first-order flux), shock front within ~2 cells of the
+//! exact Sod position.
 
 use std::path::Path;
 use openfoam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
@@ -180,15 +181,13 @@ fn shock_tube_pressure_matches_openfoam() {
     let l_inf = max_diff / ref_max;     // ∞-norm: dominated by the shock front
     let l1    = sum_diff / ref_sum;     // mean relative error (standard metric)
     println!("shock tube: L1 rel err = {l1:.4}, L∞ rel err = {l_inf:.4}");
-    // The L1 (mean) error is the standard shock-tube metric. This port uses a
-    // first-order KNP flux (no MUSCL reconstruction) whereas OpenFOAM's
-    // rhoCentralFoam uses 2nd-order vanLeer limiting, so on 100 cells the
-    // contact discontinuity and shock are smeared more here — an L1 error of a
-    // few percent is the expected scheme difference, not an error in the
-    // physics (the shock speed is within one cell; see shock_tube_shock_position).
-    // The L∞ error is larger still because a one-cell front offset is a ~10 %
-    // pointwise spike at the jump.
-    assert!(l1 < 0.05, "mean pressure error vs OpenFOAM: {l1:.4} (> 5%)");
+    // The L1 (mean) error is the standard shock-tube metric. This port now uses
+    // the same scheme family as OpenFOAM's rhoCentralFoam — a KNP flux with
+    // 2nd-order vanLeer MUSCL reconstruction (`fvc::reconstruct_pos_neg`) — so on
+    // the 100-cell mesh the agreement is ~0.7 % (it was ~3.7 % with the earlier
+    // first-order flux). The residual L∞ (~4 %) is the one-cell front-offset
+    // spike at the shock jump.
+    assert!(l1 < 0.015, "mean pressure error vs OpenFOAM: {l1:.4} (> 1.5%)");
 }
 
 /// Wave-speed check: the right-moving shock front sits at the theoretical Sod

@@ -29,6 +29,29 @@ use crate::io::fv_solution::FvSolution;
 /// Heat capacity ratio γ for ideal diatomic gas (e.g. air).
 const GAMMA: f64 = 1.4;
 
+/// Extract one component (0=x, 1=y, 2=z) of a `VolVectorField` as a
+/// `VolScalarField`, carrying the matching scalar boundary conditions so the
+/// MUSCL reconstruction's cell gradients are correct at the boundaries.
+fn velocity_component(u: &VolVectorField, comp: usize) -> VolScalarField {
+    let pick = |v: Vector3| match comp { 0 => v.x, 1 => v.y, _ => v.z };
+    let internal: Vec<f64> = u.internal.as_slice().iter().map(|v| pick(*v)).collect();
+    let boundary: Vec<PatchField<f64>> = u.boundary.iter().map(|pf| {
+        let bc = match &pf.bc {
+            BoundaryCondition::FixedValue(v)  => BoundaryCondition::FixedValue(pick(*v)),
+            BoundaryCondition::FixedField(ff) =>
+                BoundaryCondition::FixedField(Field::new(ff.as_slice().iter().map(|v| pick(*v)).collect())),
+            BoundaryCondition::Calculated(ff) =>
+                BoundaryCondition::Calculated(Field::new(ff.as_slice().iter().map(|v| pick(*v)).collect())),
+            BoundaryCondition::ZeroGradient   => BoundaryCondition::ZeroGradient,
+            BoundaryCondition::Symmetry       => BoundaryCondition::Symmetry,
+            BoundaryCondition::Empty          => BoundaryCondition::Empty,
+        };
+        let values = Field::new(pf.values.as_slice().iter().map(|v| pick(*v)).collect());
+        PatchField { bc, values }
+    }).collect();
+    VolScalarField::new(format!("{}_{comp}", u.name), u.mesh.clone(), Field::new(internal), boundary)
+}
+
 /// Density-based central-upwind compressible solver — rhoCentralFoam.
 ///
 /// Implements the **Kurganov-Noelle-Petrova (KNP)** scheme for the Euler
@@ -44,6 +67,12 @@ const GAMMA: f64 = 1.4;
 ///   F_KNP = (a_R·F_L − a_L·F_R + a_L·a_R·(W_R − W_L)) / (a_R − a_L)
 ///   a_L = min(U_n,L − c_L,  U_n,R − c_R,  0)
 ///   a_R = max(U_n,L + c_L,  U_n,R + c_R,  0)
+///
+/// The left/right face states (`L`, `R`) are **2nd-order vanLeer MUSCL
+/// reconstructions** of ρ, U and e — the owner-biased (`pos`) and
+/// neighbour-biased (`neg`) face values from `fvc::reconstruct_pos_neg`,
+/// matching OpenFOAM rhoCentralFoam's `interpolate(field, pos/neg)`. Using the
+/// raw cell values instead would make the scheme first-order.
 ///
 /// C++ solver: `applications/solvers/compressible/rhoCentralFoam/`
 pub struct RhoCentralFoam {
@@ -94,6 +123,27 @@ impl RhoCentralFoam {
         let e_sl   = self.e.internal.as_slice();
         let u_sl   = self.u.internal.as_slice();
 
+        // ── Second-order MUSCL reconstruction (van Leer) ─────────────────────
+        // Build owner-biased (`_p`) and neighbour-biased (`_n`) face states for
+        // ρ, U (per component), e — exactly OpenFOAM rhoCentralFoam's
+        // `interpolate(field, pos)` / `interpolate(field, neg)`. The KNP flux
+        // below then uses these reconstructed face values instead of the raw
+        // cell values, lifting the scheme from first order to second order.
+        let lim = fvc::Limiter::VanLeer;
+        let (rho_pos, rho_neg) = fvc::reconstruct_pos_neg(&self.rho, lim);
+        let (e_pos,   e_neg)   = fvc::reconstruct_pos_neg(&self.e,   lim);
+        let ux = velocity_component(&self.u, 0);
+        let uy = velocity_component(&self.u, 1);
+        let uz = velocity_component(&self.u, 2);
+        let (ux_pos, ux_neg) = fvc::reconstruct_pos_neg(&ux, lim);
+        let (uy_pos, uy_neg) = fvc::reconstruct_pos_neg(&uy, lim);
+        let (uz_pos, uz_neg) = fvc::reconstruct_pos_neg(&uz, lim);
+        let (rho_p, rho_n) = (rho_pos.internal.as_slice(), rho_neg.internal.as_slice());
+        let (e_p,   e_n)   = (e_pos.internal.as_slice(),   e_neg.internal.as_slice());
+        let (uxp, uxn) = (ux_pos.internal.as_slice(), ux_neg.internal.as_slice());
+        let (uyp, uyn) = (uy_pos.internal.as_slice(), uy_neg.internal.as_slice());
+        let (uzp, uzn) = (uz_pos.internal.as_slice(), uz_neg.internal.as_slice());
+
         // Accumulate conservative-variable tendencies:
         //   d_rho[c]  = Σ_f −flux_cont * |Sf|
         //   d_rhou[c] = Σ_f −flux_mom  * |Sf|   (Vector3)
@@ -112,20 +162,20 @@ impl RhoCentralFoam {
             let sf  = mesh.face_area_vectors[f];
             let n_f = Vector3::new(sf.x / area, sf.y / area, sf.z / area);
 
-            // Left (owner) state
-            let rho_l = rho_sl[o];
-            let u_l   = u_sl[o];
-            let e_l   = e_sl[o].max(0.0);
+            // Left state = owner-biased (pos) reconstruction at the face.
+            let rho_l = rho_p[f].max(1e-10);
+            let u_l   = Vector3::new(uxp[f], uyp[f], uzp[f]);
+            let e_l   = e_p[f].max(0.0);
             let p_l   = ((GAMMA - 1.0) * rho_l * e_l).max(0.0);
-            let c_l   = (GAMMA * p_l / rho_l.max(1e-10)).sqrt();
+            let c_l   = (GAMMA * p_l / rho_l).sqrt();
             let u_n_l = u_l.x * n_f.x + u_l.y * n_f.y + u_l.z * n_f.z;
 
-            // Right (neighbour) state
-            let rho_r = rho_sl[nb];
-            let u_r   = u_sl[nb];
-            let e_r   = e_sl[nb].max(0.0);
+            // Right state = neighbour-biased (neg) reconstruction at the face.
+            let rho_r = rho_n[f].max(1e-10);
+            let u_r   = Vector3::new(uxn[f], uyn[f], uzn[f]);
+            let e_r   = e_n[f].max(0.0);
             let p_r   = ((GAMMA - 1.0) * rho_r * e_r).max(0.0);
-            let c_r   = (GAMMA * p_r / rho_r.max(1e-10)).sqrt();
+            let c_r   = (GAMMA * p_r / rho_r).sqrt();
             let u_n_r = u_r.x * n_f.x + u_r.y * n_f.y + u_r.z * n_f.z;
 
             // KNP wave-speed estimates (clamp so a_R > a_L)
