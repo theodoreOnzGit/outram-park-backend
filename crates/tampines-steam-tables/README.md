@@ -89,7 +89,8 @@ works in progress. The following limitations are documented:
   The corresponding test `quality_bubble_point_subcooled` is `#[ignore]`d.
 
 - `get_critical_pressure_and_mass_flux_ph_vle_dome`: validated for two-phase
-  stagnation states (x_t = 0.0–1.00, all 21 Zaloudek quality curves pass).
+  stagnation states (x_t = 0.0–1.00, all 21 Zaloudek HEM reference curves pass;
+  note: these are HEM-computed curves digitised from Saha 1978, not measurements).
 
 - `get_critical_pressure_and_mass_flux_with_stagnation_props`: older combined
   dispatcher, **superseded** by the two split solvers above. Had a +25%

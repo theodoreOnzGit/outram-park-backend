@@ -81,9 +81,11 @@ implements critical-flow solvers using the Homogeneous Equilibrium Model (HEM):
 Verification tests are under `.../tests/`, validated against:
 
 - Moody (1975), maximum discharge rate of liquid-vapour mixtures — `moody_*`.
-- Zaloudek critical mass flux — `zaloudek_*`. NOTE: these reference values are
-  graph-read (digitised) HEM curves, not raw experimental data, so keep mass-flux
-  (G) tolerances loose.
+- Zaloudek HEM reference curves — `zaloudek_*`. **These are NOT experimental
+  measurements.** They are HEM-computed curves published by Zaloudek and
+  graph-read (digitised) from Figure 2 of Saha (1978) NUREG/CR-0417. Keep
+  mass-flux (G) tolerances loose; the bubble-point edge (x_t ≈ 0) is a known
+  HEM physics limitation, not a validation target.
 - Marviken critical flow tests — `marviken_tests.rs`.
 
 ### Current effort: near-bubble-point HEM artifact
@@ -236,7 +238,8 @@ contributors:
 | `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | ✅ Validated for interior curves — 20 genuinely-subcooled Zaloudek curves (x_t = 0.05 … 1.00) pass; x_t ≈ 0 bubble-point is the one failing fringe case |
 | `get_critical_pressure_and_mass_flux_with_stagnation_props` | ❌ Superseded — old combined dispatcher with +25% artifact; retain for reference only |
 
-**Overall Zaloudek HEM validation status:** The HEM solvers are validated across
+**Overall Zaloudek HEM reference-curve validation status** (reminder: Zaloudek
+curves are HEM-computed, not experimental — see note above): The HEM solvers are validated across
 the interior of the two-phase dome and the high-pressure subcooled tail. The
 only unresolved case is x_t ≈ 0 (the saturated-liquid-line edge), which is a
 fundamental physics limitation, not a code bug — HEM cannot reproduce that curve
