@@ -3308,12 +3308,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "openfoam-appbuilder-lib"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "ndarray",
+ "openfoam-basic-lib",
+ "openfoam-turbulence-lib",
+ "serde",
+ "thiserror 2.0.18",
+ "uom 0.38.0",
+]
+
+[[package]]
 name = "openfoam-basic-lib"
 version = "0.1.5"
 dependencies = [
  "approx",
  "ndarray",
  "ndarray-linalg",
+ "thiserror 2.0.18",
+ "uom 0.38.0",
+]
+
+[[package]]
+name = "openfoam-turbulence-lib"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "ndarray",
+ "openfoam-basic-lib",
  "thiserror 2.0.18",
  "uom 0.38.0",
 ]
