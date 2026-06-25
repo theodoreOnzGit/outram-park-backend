@@ -19,6 +19,156 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! # pimpleFoam / icoFoam — incompressible PISO/PIMPLE solver
+//!
+//! Rust port of OpenFOAM's incompressible PISO/PIMPLE algorithm. With
+//! `nOuterCorrectors = 1` (no SIMPLE outer loop) pimpleFoam reduces to **pure
+//! PISO**, i.e. it is structurally identical to **icoFoam**; the lid-driven
+//! cavity tutorial (`tutorials/pimple_foam_cavity.rs`) validates this port
+//! against icoFoam-generated reference fields.
+//!
+//! ## Kinematic pressure and the pressure reference (closed-domain note)
+//!
+//! Like icoFoam and incompressible pimpleFoam, `p` here is **kinematic
+//! pressure** `p/ρ` with units m²/s², *not* Pa. The momentum equation carries
+//! `−∇p` (kinematic) directly, and density never appears.
+//!
+//! Both OpenFOAM solvers pin a pressure **reference cell** for a closed domain.
+//! The cavity has walls on every boundary, so the pressure boundary condition is
+//! zero-gradient everywhere → the pressure Poisson equation is pure-Neumann and
+//! singular (its solution is unique only up to an additive constant, and the net
+//! boundary flux must vanish for a solution to exist at all). OpenFOAM fixes the
+//! constant with `setRefCell`:
+//!
+//! ```text
+//! // icoFoam/createFields.H
+//! label  pRefCell  = 0;
+//! scalar pRefValue = 0.0;
+//! setRefCell(p, mesh.solutionDict().subDict("PISO"), pRefCell, pRefValue);
+//! //   ... later, in the pressure corrector:
+//! pEqn.setReference(pRefCell, pRefValue);
+//!
+//! // pimpleFoam/createFields.H — IDENTICAL mechanism
+//! setRefCell(p, pimple.dict(), pRefCell, pRefValue);
+//! ```
+//!
+//! So yes — pimpleFoam does exactly what icoFoam does here. This port mirrors it
+//! with `p_eqn.set_reference(0, 0.0)` in the inner corrector loop.
+//!
+//! ## Original OpenFOAM source (icoFoam.C — the clean PISO reference)
+//!
+//! ```text
+//! // Momentum predictor
+//! fvVectorMatrix UEqn
+//! (
+//!     fvm::ddt(U)
+//!   + fvm::div(phi, U)
+//!   - fvm::laplacian(nu, U)        // NOTE the minus sign — see below
+//! );
+//! if (piso.momentumPredictor())
+//! {
+//!     solve(UEqn == -fvc::grad(p));
+//! }
+//!
+//! // --- PISO loop
+//! while (piso.correct())
+//! {
+//!     volScalarField rAU(1.0/UEqn.A());
+//!     volVectorField HbyA(constrainHbyA(rAU*UEqn.H(), U, p));     // (3)
+//!     surfaceScalarField phiHbyA
+//!     (
+//!         "phiHbyA",
+//!         fvc::flux(HbyA)
+//!       + fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)              // (5) ddtCorr
+//!     );
+//!     adjustPhi(phiHbyA, U, p);                                  // (3)
+//!     constrainPressure(p, U, phiHbyA, rAU);
+//!     while (piso.correctNonOrthogonal())
+//!     {
+//!         fvScalarMatrix pEqn
+//!         (
+//!             fvm::laplacian(rAU, p) == fvc::div(phiHbyA)         // (2)
+//!         );
+//!         pEqn.setReference(pRefCell, pRefValue);
+//!         pEqn.solve(...);                                       // (4) GAMG/PCG
+//!         if (piso.finalNonOrthogonalIter())
+//!             phi = phiHbyA - pEqn.flux();
+//!     }
+//!     U = HbyA - rAU*fvc::grad(p);
+//!     U.correctBoundaryConditions();                            // (1)
+//! }
+//! ```
+//!
+//! ## How this port differs from the original, and why
+//!
+//! **Root cause of the sign flips (changes 0a/0b): `openfoam-basic-lib`'s
+//! `fvm::laplacian` uses the *opposite* diagonal-sign convention to OpenFOAM's.**
+//! OpenFOAM assembles `fvm::laplacian(Γ, φ)` with a *negative* diagonal
+//! (`diag = −Σcoeff`), i.e. the matrix represents `+∇·(Γ∇φ)` exactly as written
+//! in the equation. This port assembles it *positive-definite*
+//! (`diag = +Σcoeff`), i.e. its matrix represents `−∇·(Γ∇φ)`. So the port's
+//! Laplacian matrix is the **negation** of OpenFOAM's. Every sign change below
+//! follows from this one fact; the discretised physics is identical.
+//!
+//! 0a. **Momentum viscous term: `+ fvm::laplacian_vec` (OpenFOAM: `−`).**
+//!     The momentum LHS viscous term is `−ν∇²U = −∇·(ν∇U)`. OpenFOAM writes it as
+//!     `− fvm::laplacian(nu, U)` because its Laplacian matrix is `+∇·(ν∇U)`.
+//!     This port's Laplacian is already `−∇·(ν∇U)`, so it is **added**.
+//!     Subtracting it (copying OpenFOAM's sign literally) negates the diffusion
+//!     diagonal: the matrix diagonal goes negative (V/dt − Σcoeff < 0), `rAU =
+//!     V/A` explodes to ~1e23, and the very first solve produces ~1e130. This
+//!     was the first bug found.
+//!
+//! 0b. **Pressure source: negated divergence (OpenFOAM: `== fvc::div(phiHbyA)`).**
+//!     OpenFOAM solves `fvm::laplacian(rAU, p) == fvc::div(phiHbyA)` with its
+//!     negative-diagonal Laplacian `L_OF`. This port's Laplacian is `L = −L_OF`,
+//!     so the *same* equation is `L·p = −div(phiHbyA)`. Equivalently: with the
+//!     positive-definite operator the discrete divergence of the corrector flux
+//!     `−rAUf·snGrad(p)` is `−(L·p)`, and zeroing the corrected divergence
+//!     requires `L·p = −div(phiHbyA)`. Using `+div` flips the sign of `p`, so the
+//!     corrector pumps divergence *in* and the run blows up over a few steps.
+//!
+//! 1. **`correct_bcs` / `correct_bcs_vec` (OpenFOAM: `U.correctBoundaryConditions()`).**
+//!    OpenFOAM fields carry their boundary-condition objects, so re-evaluating
+//!    them is a method call. In this port `solve()` and field arithmetic rebuild
+//!    output fields with *zero-gradient* boundaries — the prescribed BC *type*
+//!    (e.g. the moving-wall lid) is lost. The BC template is therefore captured
+//!    at the top of each step and re-applied after every field update, exactly
+//!    where OpenFOAM calls `correctBoundaryConditions()`.
+//!
+//! 2. **Pressure reference** — `p_eqn.set_reference(0, 0.0)` = `pEqn.setReference(
+//!    pRefCell, pRefValue)` (see the closed-domain note above). Unchanged in
+//!    intent from OpenFOAM.
+//!
+//! 3. **constrainHbyA / adjustPhi (boundary flux of phiHbyA).**
+//!    OpenFOAM wraps `HbyA` in `constrainHbyA(...)` and calls `adjustPhi(...)` so
+//!    that on fixed-velocity walls the boundary flux of `phiHbyA` is the
+//!    *prescribed* `U_BC·Sf` (= 0 through a no-penetration wall). This port
+//!    originally took `fvc::flux` of the zero-gradient `HbyA` extrapolation,
+//!    which leaks a spurious flux through the walls, breaks the closed-domain
+//!    compatibility condition `Σ source = 0`, and makes the pinned Poisson solve
+//!    ramp the pressure ~6× every step. The fix sets the boundary flux to
+//!    `U_BC·Sf` — the constrainHbyA equivalent for this BC set.
+//!
+//! 4. **Pressure linear solver: PCG (`solve_cg`), not Gauss-Seidel.**
+//!    OpenFOAM solves the pressure with GAMG/PCG (chosen in `fvSolution`); it
+//!    would never use Gauss-Seidel on a Poisson system. This port's
+//!    `FvMatrix::solve` defaults to Gauss-Seidel, which needed ~22 000 iterations
+//!    (and often did not converge within the cap) on the 400-cell cavity. The
+//!    pressure matrix is symmetric SPD, so it is solved with `solve_cg` (PCG)
+//!    instead — ~130 iterations, ~170× faster. A purely-performance change, but
+//!    a *correctness* one in practice: an under-solved pEqn leaves residual
+//!    divergence that accumulates and destabilises the run.
+//!
+//! 5. **Known limitation — `fvc::ddtCorr` is omitted.**
+//!    OpenFOAM adds `fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)` to `phiHbyA` —
+//!    the Rhie–Chow time-derivative correction that couples the face flux to the
+//!    cell velocities and suppresses pressure–velocity decoupling. Without it the
+//!    Rhie–Chow stencil here is stable only to Courant number ≈ 0.1, so the
+//!    cavity runs at `dt = 5e-4` instead of icoFoam's `5e-3`. The steady-state
+//!    comparison is unaffected (it is path/`dt`-independent); adding ddtCorr is
+//!    tracked in `TODO.md`.
+
 use std::sync::Arc;
 use openfoam_basic_lib::prelude::*;
 use crate::error::AppBuilderError;
@@ -57,7 +207,13 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
 ///
 /// Outer PIMPLE loop → momentum predictor → inner PISO pressure correctors.
 ///
-/// C++ solver: `applications/solvers/incompressible/pimpleFoam/`
+/// C++ solver: `applications/solvers/incompressible/pimpleFoam/` (and the
+/// equivalent `icoFoam` for `nOuterCorrectors = 1`).
+///
+/// See the **module-level documentation** for the kinematic-pressure /
+/// pressure-reference discussion, the original OpenFOAM source, and a
+/// point-by-point justification of where (and why) this port's signs and
+/// solver choices differ from the C++ original.
 pub struct PimpleFoam {
     pub mesh:     Arc<FvMesh>,
     pub control:  ControlDict,
