@@ -1,6 +1,6 @@
 [package]
 name = "teh-o-prke"
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 license.workspace = true
 description = "Point Reactor Kinetics Package (PRKE) for the Transport and Eigenvalue Hybrid Open source solver (Teh-O)"
