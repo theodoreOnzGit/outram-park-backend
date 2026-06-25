@@ -23,3 +23,21 @@ approx.workspace = true
 [lib]
 name = "openfoam_appbuilder_lib"
 path = "src/lib.rs"
+
+# ── Tutorial integration tests ────────────────────────────────────────────────
+# Each tutorial reads a real OpenFOAM-generated polyMesh + field files,
+# runs the Rust solver, and checks against the OpenFOAM reference output.
+# All tests are marked #[ignore] until the case files are present.
+# Run a single tutorial:  cargo test -p openfoam-appbuilder-lib --test <name> -- --include-ignored
+
+[[test]]
+name = "tutorial_rho_central_foam_shock_tube"
+path = "tutorials/rho_central_foam_shock_tube.rs"
+
+[[test]]
+name = "tutorial_pimple_foam_cavity"
+path = "tutorials/pimple_foam_cavity.rs"
+
+[[test]]
+name = "tutorial_rho_pimple_foam_aerofoil_naca0012"
+path = "tutorials/rho_pimple_foam_aerofoil_naca0012.rs"
