@@ -19,15 +19,7 @@ approx.workspace = true
 ndarray.workspace = true
 thiserror.workspace = true
 uom.workspace = true
-
-[target.'cfg(windows)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
-
-[target.'cfg(macos)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
-
-[target.'cfg(unix)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["openblas-system"] }
+openfoam-basic-lib.workspace = true
 
 [dev-dependencies]
 chem-eng-real-time-process-control-simulator.workspace = true

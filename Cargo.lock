@@ -4698,7 +4698,7 @@ dependencies = [
  "env_logger",
  "local-ip-address",
  "ndarray",
- "ndarray-linalg",
+ "openfoam-basic-lib",
  "roots",
  "serde",
  "thiserror 2.0.18",

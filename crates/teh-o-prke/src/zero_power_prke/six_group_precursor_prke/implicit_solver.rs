@@ -1,5 +1,5 @@
 use ndarray::*;
-use ndarray_linalg::Solve;
+use openfoam_basic_lib::matrix::SquareMatrix;
 use uom::si::f64::*;
 use uom::si::volumetric_number_density::per_cubic_meter;
 use uom::si::ratio::ratio;
@@ -78,8 +78,18 @@ impl SixGroupPRKE {
                     number_density_float
                 }).collect();
 
+            // Build a 7×7 SquareMatrix from the ndarray coefficient matrix
+            let mut sq_mat = SquareMatrix::new(7);
+            for i in 0..7 {
+                for j in 0..7 {
+                    sq_mat.set(i, j, coefficient_matrix_float[[i, j]]);
+                }
+            }
+            let rhs: Vec<f64> = precursor_and_neutron_pop_and_source_vector.to_vec();
+            let sol = sq_mat.solve(&rhs)
+                .map_err(|e| TehOPrkeError::ShapeMismatch(e.to_string()))?;
             let precursor_and_neutron_pop_and_source_vector_next_timestep_float: Array1<f64>
-                = coefficient_matrix_float.solve(&precursor_and_neutron_pop_and_source_vector)?;
+                = Array1::from(sol);
 
             let precursor_and_neutron_pop_and_source_vector_next_timestep: Array1<VolumetricNumberDensity> 
                 = precursor_and_neutron_pop_and_source_vector_next_timestep_float.iter()
