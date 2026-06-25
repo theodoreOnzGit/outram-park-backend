@@ -67,16 +67,22 @@
 //!   - Fill in end-time from controlDict (icoFoam cavity default: 0.5 s)
 
 use std::path::Path;
+use openfoam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
 
 const CASE_DIR: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/tutorials/cases/pimple_foam_cavity"
 );
 
-// Lid velocity [m/s] and cavity side length [m] — must match blockMeshDict
+// Lid velocity [m/s] and cavity side length [m] — must match blockMeshDict.
+// The OpenFOAM tutorial mesh (0.1 m × 0.1 m × 0.01 m depth) was generated with
+// convertToMeters 0.1; Re = U_LID * L / NU = 1.0 * 0.1 / 0.01 = 10.
+// The Ghia 1982 data in this file is for Re=100 (L=1 m, nu=0.01) — to use it
+// the case must be re-run with L=1 m or NU=0.001 m²/s.
 const U_LID: f64 = 1.0;
-const L: f64 = 1.0;
-// Kinematic viscosity → Re = U_LID * L / NU = 100
+const L: f64 = 0.1;   // cavity side length in metres
+const DEPTH: f64 = 0.01; // z-extent of the 2D slice in metres
+// Kinematic viscosity from OpenFOAM transportProperties (Re = 10 at L=0.1 m)
 const NU: f64 = 0.01;
 
 // ── Ghia 1982 reference data, Re = 100, vertical centreline U_x ──────────────
@@ -105,7 +111,19 @@ fn poly_mesh_present() -> bool {
 #[ignore = "requires blockMesh-generated polyMesh in tutorials/cases/pimple_foam_cavity/constant/polyMesh/"]
 fn cavity_mesh_loads() {
     assert!(poly_mesh_present(), "polyMesh files missing — run `blockMesh` in {}", CASE_DIR);
-    // TODO: read_poly_mesh + validate
+    let pm_dir = case_dir().join("constant").join("polyMesh");
+    let mesh   = read_poly_mesh(&pm_dir).expect("read_poly_mesh failed");
+    // 20×20 cavity → 400 cells, 1640 faces (760 internal + 880 boundary)
+    assert_eq!(mesh.n_cells,          400,  "expected 400 cells");
+    assert_eq!(mesh.n_internal_faces, 760,  "expected 760 internal faces");
+    assert_eq!(mesh.patches.len(),    3,    "expected 3 patches");
+    // Cell volumes: each cell is (L/20) × (L/20) × DEPTH = 2.5e-6 m³
+    let vol_sum: f64 = mesh.cell_volumes.iter().sum();
+    let expected_vol = L * L * DEPTH; // 0.1 × 0.1 × 0.01 = 1e-4 m³
+    assert!(
+        (vol_sum - expected_vol).abs() / expected_vol < 1e-10,
+        "total volume {vol_sum:.10e} ≠ expected {expected_vol:.10e}"
+    );
 }
 
 /// Field comparison: pimpleFoam (nOuterCorrectors=1) vs icoFoam reference.

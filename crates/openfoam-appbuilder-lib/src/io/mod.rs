@@ -20,6 +20,7 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod poly_mesh;
+pub mod field_reader;
 pub mod control_dict;
 pub mod fv_schemes;
 pub mod fv_solution;
