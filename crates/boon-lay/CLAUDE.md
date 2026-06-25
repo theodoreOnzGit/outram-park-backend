@@ -290,9 +290,45 @@ Beyond what workspace `CLAUDE.md` documents, these breaks appeared:
 
 ## Planned future work
 
-- `lagrangian_transmutation_and_fission_simulator` — full transmutation matrix
-  under neutron flux; fission fragment Lagrangian tracking.
-- Coupling to `openmc-libs` for neutron flux maps that drive the transmutation
-  rates.
+### `lagrangian_transmutation_and_fission_simulator`
+
+**No burnup matrix needed.** The whole point of the Lagrangian MC approach is
+that you track individual atoms stochastically, so the Bateman ODE system
+(`dN/dt = A·N`) and its large, stiff matrix `A` never appear.  Each simulated
+atom just samples waiting times from exponential distributions — the population
+distribution emerges from the ensemble.
+
+#### MC transmutation design sketch
+
+Each simulated atom has:
+- a current nuclide identity
+- a position (for diffusion coupling)
+
+At each timestep `dt`, for each atom compete the following rates:
+
+| Event | Rate λ | On firing |
+|---|---|---|
+| Radioactive decay | λ_decay = ln(2) / t½ | replace nuclide with decay daughter |
+| Neutron capture (n,γ) | λ_ng = φ · σ_ng | replace with capture product |
+| (n,2n) reaction | λ_n2n = φ · σ_n2n | replace + spawn one new atom of same nuclide |
+| Fission | λ_f = φ · σ_f | remove atom + spawn two fission-fragment atoms sampled from yield distribution |
+
+The total rate is `λ_total = λ_decay + λ_ng + λ_n2n + λ_f`.  Sample a waiting
+time `t ~ Exp(λ_total)`.  If `t < dt`, fire the event (chosen by the usual
+competing-rates alias method); otherwise the atom survives the step unchanged.
+
+Fission fragment yields come from the ENDF/B-VIII.0 fission yield data already
+available via `openmc-endf-8-depletion-lib-b`.
+
+The neutron flux `φ` (scalar or spatially resolved) is an external input —
+coupling to `openmc-libs` flux maps is the natural integration point.
+
+This design scales linearly with the number of simulated atoms and requires no
+matrix exponential, no CRAM solver, and no stiffness handling.
+
+### Other planned items
+
+- Coupling to `openmc-libs` for spatially resolved neutron flux maps that drive
+  per-region transmutation rates.
 - Real-time 3-D TRISO diffusion visualisation (extends `boon_lay_decay_simulator`
   example).
