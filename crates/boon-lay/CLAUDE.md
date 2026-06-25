@@ -224,8 +224,10 @@ src/
 
 Run the test suite with:
 ```bash
-cargo test -p boon-lay --lib --tests
+cargo test -p boon-lay --lib --tests --release
 ```
+
+**Rule: always use `--release` for builds and tests.** Never run in debug mode.
 
 ---
 
@@ -266,30 +268,23 @@ Beyond what workspace `CLAUDE.md` documents, these breaks appeared:
 - [x] `triso_simulator_v1/mod.rs` — egui migration applied
 - [x] `triso_simulator_v1/front_end/mod.rs`
 - [x] `triso_simulator_v1/front_end/citation_disclaimer_and_acknowledgements.rs`
-- [x] `triso_simulator_v1/front_end/periodic_table.rs` — written; **TODO: apply remaining 3 fixes** (`CornerRadius::same(8)`, `StrokeKind::Middle`, `painter.layout_no_wrap` — only `use egui::Rounding` removal done so far)
+- [x] `triso_simulator_v1/front_end/periodic_table.rs` — all egui fixes applied (`CornerRadius::same(8)`, `StrokeKind::Middle`, `painter.layout_no_wrap`)
 - [x] `triso_simulator_v1/backend/mod.rs` — `Rand64` → `Lcg64`, `rand::Rng` generic removed from `random_point_in_spherical_shell`, uses `prn(seed)` directly
-- [ ] `triso_simulator_v1/backend/run.rs` — **TODO**: remove `use rand::SeedableRng;`; change `OoRng64::from_seed([thread_number * 7_u8; 16])` → `OoRng64::from_u64(thread_number as u64 * 7)`
-- [ ] `triso_simulator_v1/backend/simulator_state.rs` — **TODO**: clean copy (fields: `release_fraction`, `release_fractions_over_time`, `triso_cell: TrisoCell`, `user_selected_temperature`)
-- [ ] `triso_simulator_v1/backend/simulator_state/graphing.rs` — **TODO**: clean copy (includes `TrisoRegion` release fraction counting)
-- [ ] `triso_simulator_v1/front_end/triso_particle.rs` — **TODO**: clean copy (`TrisoParticleUi` wrapping `TrisoCell`, `Widget` impl, helper geometry methods)
-- [ ] `triso_simulator_v1/front_end/main_page.rs` — **TODO**: RNG migration: `use oorandom::Rand64` → `use openmc_libs::rng::lcg::Lcg64`; `fn uniform_u64(rng: &mut Rand64, ...)` → `fn uniform_u64(rng: &mut Lcg64, ...)`; `Rand64::new(seed.into())` → `Lcg64::new(seed as u128)`; also contains `element_color`, `contrasting_text`, `symbol_from_z` methods needed by periodic_table
-- [ ] `triso_simulator_v1/front_end/graph_page.rs` — **TODO**: clean copy + `Line::new(name, series)` fix (two plots: nuclide fractions + release fraction)
-- [ ] `triso_simulator_v1/front_end/side_panel.rs` — **TODO**: clean copy (has temperature slider, nuclide selector, release fraction display, CSV data section)
+- [x] `triso_simulator_v1/backend/run.rs` — `use rand::SeedableRng` removed; `OoRng64::from_seed([thread_number * 7_u8; 16])` → `OoRng64::from_u64(thread_number as u64 * 7)`
+- [x] `triso_simulator_v1/backend/simulator_state.rs` — clean copy (fields: `release_fraction`, `release_fractions_over_time`, `triso_cell: TrisoCell`, `user_selected_temperature`)
+- [x] `triso_simulator_v1/backend/simulator_state/graphing.rs` — clean copy (includes `TrisoRegion` release fraction counting)
+- [x] `triso_simulator_v1/front_end/triso_particle.rs` — clean copy (`TrisoParticleUi` wrapping `TrisoCell`, `Widget` impl, helper geometry methods)
+- [x] `triso_simulator_v1/front_end/main_page.rs` — RNG migrated (`Rand64` → `Lcg64`); contains `element_color` method used by periodic_table and triso_particle
+- [x] `triso_simulator_v1/front_end/graph_page.rs` — `Line::new(name, series)` fix applied; two plots: nuclide fractions + release fraction
+- [x] `triso_simulator_v1/front_end/side_panel.rs` — clean copy (temperature slider, nuclide selector, release fraction display, CSV data section, `fractions_vec_map` helper)
 
 ### Cargo.toml
 
-- [ ] **TODO**: Uncomment both `[[example]]` blocks in `crates/boon-lay/Cargo.toml`:
-  ```toml
-  [[example]]
-  name = "boon_lay_decay_simulator"
-
-  [[example]]
-  name = "triso_simulator"
-  ```
+- [x] Both `[[example]]` blocks uncommented in `crates/boon-lay/Cargo.toml`
 
 ### Final verification
 
-- [ ] **TODO**: `cargo check --workspace --all-targets` green
+- [x] `cargo check --workspace --all-targets` — **GREEN** (zero errors; only deprecation warnings for `show(ctx,…)` which still compile fine in egui 0.34)
 
 ---
 

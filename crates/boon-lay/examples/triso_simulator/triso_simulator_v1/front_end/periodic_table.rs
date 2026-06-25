@@ -312,11 +312,11 @@ impl Widget for ElementBox {
         let color = TRISOSimApp::element_color(self.nuclide);
         let (z, _a) = self.nuclide.get_z_a();
 
-        let rounding = Rounding::same(8.0);
+        let rounding = egui::CornerRadius::same(8);
 
         let painter: Painter = ui.painter().clone();
         let bg_stroke = Stroke::new(1.5, color.gamma_multiply(0.8));
-        painter.rect(rect, rounding, color, bg_stroke);
+        painter.rect(rect, rounding, color, bg_stroke, egui::epaint::StrokeKind::Middle);
 
         let text_color = TRISOSimApp::contrasting_text(color);
 
@@ -327,25 +327,21 @@ impl Widget for ElementBox {
         let top_left = Pos2::new(rect.left() + padding, rect.top() + padding);
 
         {
-            let galley = ui.fonts(|f| {
-                f.layout_no_wrap(
-                    format!("{}", z),
-                    egui::FontId::proportional(small_text_size),
-                    text_color,
-                )
-            });
+            let galley = painter.layout_no_wrap(
+                format!("{}", z),
+                egui::FontId::proportional(small_text_size),
+                text_color,
+            );
             painter.galley(top_left, galley, text_color);
         }
 
         {
             let symbol = TRISOSimApp::symbol_from_z(z);
-            let galley = ui.fonts(|f| {
-                f.layout_no_wrap(
-                    symbol.to_string(),
-                    egui::FontId::proportional(symbol_text_size),
-                    text_color,
-                )
-            });
+            let galley = painter.layout_no_wrap(
+                symbol.to_string(),
+                egui::FontId::proportional(symbol_text_size),
+                text_color,
+            );
             let center = rect.center();
             let galley_pos = Pos2::new(
                 center.x - galley.size().x / 2.0,

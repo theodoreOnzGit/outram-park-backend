@@ -222,9 +222,11 @@ Format: `| Module | Rust type / fn | C++ source | Notes |`.
 
 Verification:
 ```bash
-cargo test -p openfoam-basic-lib --lib   # must be green before committing
-cargo test -p openfoam-basic-lib --doc   # must be green before committing
+cargo test -p openfoam-basic-lib --lib --release   # must be green before committing
+cargo test -p openfoam-basic-lib --doc --release   # must be green before committing
 ```
+
+**Rule: always use `--release` for builds and tests.** Never run in debug mode.
 
 ### Doc-comment code blocks
 

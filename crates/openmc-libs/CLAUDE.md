@@ -198,6 +198,15 @@ particle.  The jump-ahead in `future_seed(n, seed)` is O(log n), implemented in
 
 ---
 
+## Build and test
+
+**Rule: always use `--release` for builds and tests.** Never run in debug mode.
+
+```bash
+cargo check -p openmc-libs --lib
+cargo test  -p openmc-libs --lib --release
+```
+
 ## Porting workflow (mandatory)
 
 After implementing any module, update `src/prelude.rs` with new public items,

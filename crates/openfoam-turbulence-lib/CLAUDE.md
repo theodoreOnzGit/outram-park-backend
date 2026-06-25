@@ -147,9 +147,11 @@ Key routines:
 
 ## Build and test
 
+**Rule: always use `--release` for builds and tests.** Never run in debug mode.
+
 ```bash
 cargo check -p openfoam-turbulence-lib --lib
-cargo test  -p openfoam-turbulence-lib --lib
+cargo test  -p openfoam-turbulence-lib --lib --release
 ```
 
 No system BLAS required (depends only on `openfoam-basic-lib`, which uses

@@ -6,6 +6,7 @@ Guidance for Claude Code (and other AI assistants) working in this repository.
 
 - **Never auto-commit or auto-push.** Do not run `git commit` or `git push` unless the user explicitly asks.
 - **Never auto-bump versions** in `Cargo.toml` files. Only bump versions when explicitly requested.
+- **Always build and test in release mode.** Use `--release` for all `cargo build` and `cargo test` invocations. Never run tests or builds in debug mode.
 
 
 ## What this is
@@ -80,9 +81,9 @@ sudo apt install libopenblas-dev
 ```
 
 ```bash
-cargo build --workspace                 # all libraries
-cargo check --workspace --lib --tests   # GREEN — libs + test suites compile
-cargo test  --workspace --lib --tests   # run the test suites
+cargo build --workspace --release                  # all libraries
+cargo check --workspace --lib --tests              # type-check (mode-independent)
+cargo test  --workspace --lib --tests --release    # run the test suites
 ```
 
 Note: a bare `cargo test --workspace` also compiles the **examples**, some of

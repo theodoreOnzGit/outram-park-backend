@@ -20,11 +20,13 @@ License: GPL-3.0 (OpenFOAM-derived algorithms are included; see README).
 
 ## Build, test, run
 
+**Rule: always use `--release` for builds and tests.** Never run in debug mode.
+
 ```bash
-cargo build                 # build the library
-cargo test                  # run all unit/verification tests (~144 test fns)
-cargo test <name>           # run a subset by substring match
-cargo run --release --example fhr_sim_v2   # FHR educational simulator
+cargo build --release                           # build the library
+cargo test --release                            # run all unit/verification tests (~144 test fns)
+cargo test --release <name>                     # run a subset by substring match
+cargo run --release --example fhr_sim_v2       # FHR educational simulator
 ```
 
 On Linux, `ndarray-linalg` uses the system OpenBLAS, so you need:

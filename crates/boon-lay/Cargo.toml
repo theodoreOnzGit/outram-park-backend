@@ -28,10 +28,8 @@ log             = { workspace = true }
 image           = { workspace = true }
 csv             = { workspace = true }
 
-# [[example]]
-# name = "boon_lay_decay_simulator"
-# Uncomment after copying examples/boon_lay_decay_simulator/main.rs from ../boon-lay/
+[[example]]
+name = "boon_lay_decay_simulator"
 
-# [[example]]
-# name = "triso_simulator"
-# Uncomment after copying examples/triso_simulator/main.rs from ../boon-lay/
+[[example]]
+name = "triso_simulator"

@@ -14,6 +14,15 @@ and .NET Framework 4.6.2 on Windows.  No existing Rust or C bindings.
 
 ---
 
+## Build and test
+
+**Rule: always use `--release` for builds and tests.** Never run in debug mode.
+
+```bash
+cargo check -p dwsim-libs --lib
+cargo test  -p dwsim-libs --lib --release
+```
+
 ## Scope — libraries useful for thermal hydraulics
 
 Listed in priority order for porting.  All paths are relative to

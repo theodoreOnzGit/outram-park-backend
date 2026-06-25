@@ -204,7 +204,9 @@ When porting:
 
 ## Build and test
 
+**Rule: always use `--release` for builds and tests.** Never run in debug mode.
+
 ```bash
 cargo check -p openfoam-appbuilder-lib --lib
-cargo test  -p openfoam-appbuilder-lib --lib
+cargo test  -p openfoam-appbuilder-lib --lib --release
 ```

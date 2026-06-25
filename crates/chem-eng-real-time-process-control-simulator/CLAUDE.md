@@ -34,9 +34,11 @@ Targets: `[lib]` is `chem_eng_real_time_process_control_simulator`
 
 ## Build, test, run
 
+**Rule: always use `--release` for builds and tests.** Never run in debug mode.
+
 ```bash
-cargo test -p chem-eng-real-time-process-control-simulator
-cargo run  -p chem-eng-real-time-process-control-simulator --bin library_demo
+cargo test -p chem-eng-real-time-process-control-simulator --release
+cargo run  -p chem-eng-real-time-process-control-simulator --bin library_demo --release
 ```
 
 ## Migration notes (OUTRAM PARK consolidation, 2026-06)

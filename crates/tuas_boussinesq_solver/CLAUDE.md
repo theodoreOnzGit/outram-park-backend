@@ -23,6 +23,8 @@ sudo pacman -S openblas
 
 ## Build & Run
 
+**Rule: always use `--release` for builds and tests.** Never run in debug mode.
+
 ```bash
 # Run all tests (release mode — solvers are expensive, always use --release)
 cargo test --release

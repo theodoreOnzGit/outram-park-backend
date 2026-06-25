@@ -30,8 +30,10 @@ delayed-neutron precursor groups, reactivity feedback, and decay heat, using
 
 ## Build, test, run
 
+**Rule: always use `--release` for builds and tests.** Never run in debug mode.
+
 ```bash
-cargo test -p teh-o-prke                          # unit tests
+cargo test -p teh-o-prke --release                        # unit tests
 cargo run -p teh-o-prke --example fhr_sim_v1 --release   # FHR educational GUI
 ```
 
