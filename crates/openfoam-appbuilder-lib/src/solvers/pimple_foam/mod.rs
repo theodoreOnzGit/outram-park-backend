@@ -26,6 +26,29 @@ use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
 use crate::io::fv_solution::FvSolution;
 
+/// Re-apply a scalar boundary-condition template to a field after a solve has
+/// rebuilt it with zero-gradient boundaries (OpenFOAM `correctBoundaryConditions`).
+/// For `FixedValue` the boundary face values are reset to the fixed value; other
+/// BC types have their face values recomputed by the operators (via `interpolate`).
+fn correct_bcs(field: &mut VolScalarField, bcs: &[BoundaryCondition<f64>]) {
+    for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
+        pf.bc = bc.clone();
+        if let BoundaryCondition::FixedValue(v) = bc {
+            for x in pf.values.iter_mut() { *x = *v; }
+        }
+    }
+}
+
+/// Vector counterpart of [`correct_bcs`].
+fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>]) {
+    for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
+        pf.bc = bc.clone();
+        if let BoundaryCondition::FixedValue(v) = bc {
+            for x in pf.values.iter_mut() { *x = *v; }
+        }
+    }
+}
+
 /// Incompressible transient PIMPLE/PISO solver.
 ///
 /// Solves:
@@ -77,16 +100,37 @@ impl PimpleFoam {
         let n    = mesh.n_cells;
         let dt   = self.control.delta_t;
         let settings = SolverSettings::default();
+        // The pressure Poisson equation is symmetric SPD and elliptic; it is
+        // solved with preconditioned conjugate gradient (`solve_cg`), which
+        // converges in O(√κ) iterations. An under-solved pEqn leaves residual
+        // divergence that accumulates and destabilises the run, so the tolerance
+        // is kept tight.
+        let p_settings = SolverSettings { tolerance: 1e-8, max_iter: 2_000 };
         let n_outer = self.solution.pimple.n_outer_correctors.max(1);
         let n_inner = self.solution.pimple.n_correctors.max(1);
 
         let u_old = self.u.clone();
 
+        // Capture the boundary-condition templates before any solve. The linear
+        // solver and field arithmetic rebuild output fields with zero-gradient
+        // boundaries, so the prescribed BCs (e.g. the moving-wall lid) must be
+        // re-applied after each field update — the equivalent of OpenFOAM's
+        // `U.correctBoundaryConditions()`. Capturing here each step is valid
+        // because every step ends with the templates re-applied.
+        let u_bcs: Vec<BoundaryCondition<Vector3>> =
+            self.u.boundary.iter().map(|pf| pf.bc.clone()).collect();
+        let p_bcs: Vec<BoundaryCondition<f64>> =
+            self.p.boundary.iter().map(|pf| pf.bc.clone()).collect();
+
         for _ in 0..n_outer {
             // ── Assemble implicit momentum equation (no pressure source yet) ───
+            // `fvm::laplacian_vec` is assembled positive-definite (diag += coeff),
+            // i.e. it represents −∇·(ν∇U). The momentum viscous term is −∇·(ν∇U),
+            // so it is ADDED here (not subtracted) — subtracting would drive the
+            // matrix diagonal negative and blow the solve up.
             let mut u_eqn = fvm::ddt_vec(&self.u, &u_old, dt, mesh.clone())
                 + fvm::div_vec(&self.phi, &self.u, mesh.clone())
-                - fvm::laplacian_vec(&self.nu, &self.u, mesh.clone());
+                + fvm::laplacian_vec(&self.nu, &self.u, mesh.clone());
 
             // A = diagonal [m³/s];  rAU = V/A [s]
             let a = u_eqn.a_field();
@@ -107,7 +151,8 @@ impl PimpleFoam {
             for c in 0..n {
                 u_eqn.source[c] = u_eqn.source[c] - gp.internal[c] * mesh.cell_volumes[c];
             }
-            let (u_pred, _) = u_eqn.solve("U", settings);
+            let (mut u_pred, _) = u_eqn.solve("U", settings);
+            correct_bcs_vec(&mut u_pred, &u_bcs);
             // Restore source (remove pressure contribution) for H(U) computation
             for c in 0..n {
                 u_eqn.source[c] = u_eqn.source[c] + gp.internal[c] * mesh.cell_volumes[c];
@@ -137,18 +182,37 @@ impl PimpleFoam {
             // phi_hbya = flux(HbyA) [m³/s]
             let phi_hbya = fvc::flux(&hbya);
 
-            // Raw face-flux divergence: Σ_f phi_hbya_f (NOT ÷ V) [m³/s]
+            // Pressure source = −(net HbyA outflow) per cell [m³/s].
+            //
+            // `fvm::laplacian` is positive-definite (it represents −∇·(Γ∇)), so
+            // the discrete divergence of the correction flux −rAUf·snGrad(p) is
+            // −(L·p)_P. Zeroing the corrected divergence (L·p = −div(phiHbyA))
+            // therefore requires the source to be the *negated* HbyA outflow;
+            // using +outflow flips the sign of p and makes the corrector pump
+            // divergence in, blowing the solution up.
             let source_p = {
                 let mut s = vec![0.0_f64; n];
                 let phi_int = phi_hbya.internal.as_slice();
                 for f in 0..mesh.n_internal_faces {
-                    s[mesh.owner[f]]     += phi_int[f];
-                    s[mesh.neighbour[f]] -= phi_int[f];
+                    s[mesh.owner[f]]     -= phi_int[f];
+                    s[mesh.neighbour[f]] += phi_int[f];
                 }
+                // Boundary flux must be the *prescribed* flux U_BC·Sf, NOT the
+                // zero-gradient extrapolation of HbyA. On a fixed-velocity wall
+                // U_BC·n = 0, so there is no flow through it; using HbyA's
+                // extrapolated value instead injects a spurious wall flux that
+                // breaks the closed-domain compatibility condition (Σ source ≠ 0)
+                // and makes the pinned Poisson solve ramp the pressure each step.
+                // This is the role of OpenFOAM's `constrainHbyA`.
                 for (pi, patch) in mesh.patches.iter().enumerate() {
-                    let phi_bc = phi_hbya.boundary[pi].values.as_slice();
+                    if matches!(self.u.boundary[pi].bc, BoundaryCondition::Empty) {
+                        continue; // 2-D front/back: zero-area in-plane, no flux
+                    }
                     for fi in 0..patch.size {
-                        s[mesh.owner[patch.start + fi]] += phi_bc[fi];
+                        let gf = patch.start + fi;
+                        let u_bc = self.u.boundary[pi].values[fi];
+                        let flux = u_bc.dot(mesh.face_area_vectors[gf]);
+                        s[mesh.owner[gf]] -= flux;
                     }
                 }
                 s
@@ -161,7 +225,8 @@ impl PimpleFoam {
                 p_eqn.source = Field::new(source_p.clone());
                 // Fix singular system (no fixed-pressure BC in closed domain)
                 p_eqn.set_reference(0, 0.0);
-                let (p_new, _) = p_eqn.solve("p", settings);
+                let (mut p_new, _) = p_eqn.solve_cg("p", p_settings);
+                correct_bcs(&mut p_new, &p_bcs);
                 self.p = p_new;
             }
 
@@ -178,6 +243,7 @@ impl PimpleFoam {
             }
             // U = HbyA − rAU · ∇p
             self.u = hbya - rau * fvc::grad(&self.p);
+            correct_bcs_vec(&mut self.u, &u_bcs);
         }
 
         Ok(())

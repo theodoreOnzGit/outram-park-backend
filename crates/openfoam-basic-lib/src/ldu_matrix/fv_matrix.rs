@@ -28,6 +28,7 @@ use crate::fields::vol_field::VolScalarField;
 use crate::fields::boundary::bc::PatchField;
 use super::ldu_matrix::LduMatrix;
 use super::solvers::gauss_seidel::gauss_seidel;
+use super::solvers::conjugate_gradient::conjugate_gradient;
 
 /// Sparse implicit matrix equation `A·φ = b` for a scalar field φ.
 ///
@@ -104,6 +105,28 @@ impl FvMatrix {
             final_residual: res,
             converged: res < settings.tolerance,
         };
+        (field, perf)
+    }
+
+    /// Solve the system with preconditioned conjugate gradient.
+    ///
+    /// PCG requires a symmetric SPD matrix (`upper == lower`), which holds for
+    /// the pressure Poisson equation assembled by `fvm::laplacian`. It converges
+    /// in O(√κ) iterations versus O(κ) for Gauss-Seidel — dramatically faster
+    /// for the elliptic pressure solve. Do **not** use it for the asymmetric
+    /// convection-bearing momentum matrix.
+    pub fn solve_cg(
+        &self,
+        name: impl Into<String>,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        let b: Vec<f64> = self.source.iter().copied().collect();
+        let (x, perf) = conjugate_gradient(&self.ldu, &b, &settings);
+
+        let boundary = self.mesh.patches.iter()
+            .map(|p| PatchField::zero_gradient(p.size))
+            .collect();
+        let field = VolScalarField::new(name, self.mesh.clone(), Field::new(x), boundary);
         (field, perf)
     }
 

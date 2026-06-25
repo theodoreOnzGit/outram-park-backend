@@ -24,7 +24,10 @@
 //! Supports both `uniform` and `nonuniform List<...>` internal fields.
 
 use std::path::Path;
-use openfoam_basic_lib::prelude::Vector3;
+use std::sync::Arc;
+use openfoam_basic_lib::prelude::{
+    Vector3, FvMesh, VolScalarField, VolVectorField, Field, PatchField, BoundaryCondition,
+};
 use crate::error::AppBuilderError;
 use crate::io::poly_mesh::strip_foam_comments;
 
@@ -241,4 +244,236 @@ fn parse_vector_triple(s: &str, file: &str) -> Result<Vector3, AppBuilderError> 
         });
     }
     Ok(Vector3::new(nums[0], nums[1], nums[2]))
+}
+
+// ── BC-aware whole-field readers ──────────────────────────────────────────────
+//
+// These read both `internalField` and `boundaryField`, mapping each named patch
+// in the file onto the matching mesh patch (by name) and translating the
+// OpenFOAM BC type string into a `BoundaryCondition`.
+
+/// Read a complete `volScalarField` (internal + boundary) bound to `mesh`.
+pub fn read_vol_scalar_field_full(
+    path: &Path,
+    mesh: &Arc<FvMesh>,
+) -> Result<VolScalarField, AppBuilderError> {
+    let file = path.display().to_string();
+    let internal = read_vol_scalar_field(path, mesh.n_cells)?;
+    let text     = std::fs::read_to_string(path)
+        .map_err(|e| AppBuilderError::Io { path: path.to_path_buf(), source: e })?;
+    let stripped = strip_foam_comments(&text);
+    let specs    = parse_boundary_field(&stripped, &file)?;
+
+    let boundary: Vec<PatchField<f64>> = mesh.patches.iter().map(|p| {
+        let spec = specs.iter().find(|(n, _)| *n == p.name);
+        let bc = match spec {
+            Some((_, s)) => scalar_bc(s, &file)?,
+            None         => BoundaryCondition::ZeroGradient,
+        };
+        Ok(scalar_patch_field(bc, p.size))
+    }).collect::<Result<_, AppBuilderError>>()?;
+
+    Ok(VolScalarField::new(field_name(path), mesh.clone(), Field::new(internal), boundary))
+}
+
+/// Read a complete `volVectorField` (internal + boundary) bound to `mesh`.
+pub fn read_vol_vector_field_full(
+    path: &Path,
+    mesh: &Arc<FvMesh>,
+) -> Result<VolVectorField, AppBuilderError> {
+    let file = path.display().to_string();
+    let internal = read_vol_vector_field(path, mesh.n_cells)?;
+    let text     = std::fs::read_to_string(path)
+        .map_err(|e| AppBuilderError::Io { path: path.to_path_buf(), source: e })?;
+    let stripped = strip_foam_comments(&text);
+    let specs    = parse_boundary_field(&stripped, &file)?;
+
+    let boundary: Vec<PatchField<Vector3>> = mesh.patches.iter().map(|p| {
+        let spec = specs.iter().find(|(n, _)| *n == p.name);
+        let bc = match spec {
+            Some((_, s)) => vector_bc(s, &file)?,
+            None         => BoundaryCondition::ZeroGradient,
+        };
+        Ok(vector_patch_field(bc, p.size))
+    }).collect::<Result<_, AppBuilderError>>()?;
+
+    Ok(VolVectorField::new(field_name(path), mesh.clone(), Field::new(internal), boundary))
+}
+
+/// Parsed BC entry: the `type` string and the optional `value` payload text.
+struct PatchSpec {
+    bc_type: String,
+    value:   Option<String>,
+}
+
+fn field_name(path: &Path) -> String {
+    path.file_name().and_then(|s| s.to_str()).unwrap_or("field").to_string()
+}
+
+/// Build the `values` payload for a scalar patch from its BC.
+fn scalar_patch_field(bc: BoundaryCondition<f64>, size: usize) -> PatchField<f64> {
+    let values = match &bc {
+        BoundaryCondition::FixedValue(v)  => Field::uniform(size, *v),
+        BoundaryCondition::FixedField(f)  => f.clone(),
+        BoundaryCondition::Calculated(f)  => f.clone(),
+        _                                 => Field::uniform(size, 0.0),
+    };
+    PatchField { bc, values }
+}
+
+fn vector_patch_field(bc: BoundaryCondition<Vector3>, size: usize) -> PatchField<Vector3> {
+    let values = match &bc {
+        BoundaryCondition::FixedValue(v)  => Field::uniform(size, *v),
+        BoundaryCondition::FixedField(f)  => f.clone(),
+        BoundaryCondition::Calculated(f)  => f.clone(),
+        _                                 => Field::uniform(size, Vector3::ZERO),
+    };
+    PatchField { bc, values }
+}
+
+/// Translate an OpenFOAM scalar BC type into a `BoundaryCondition<f64>`.
+///
+/// Types we cannot model exactly (inletOutlet, fixedFluxPressure, calculated,
+/// waveTransmissive, …) fall back to `ZeroGradient`, the closest stable
+/// approximation for these tutorial cases.
+fn scalar_bc(spec: &PatchSpec, file: &str) -> Result<BoundaryCondition<f64>, AppBuilderError> {
+    Ok(match spec.bc_type.as_str() {
+        "fixedValue" => {
+            let v = spec.value.as_deref().unwrap_or("0");
+            BoundaryCondition::FixedValue(parse_uniform_scalar_payload(v, file)?)
+        }
+        "empty"                       => BoundaryCondition::Empty,
+        "symmetry" | "symmetryPlane"  => BoundaryCondition::Symmetry,
+        _                             => BoundaryCondition::ZeroGradient,
+    })
+}
+
+/// Translate an OpenFOAM vector BC type into a `BoundaryCondition<Vector3>`.
+fn vector_bc(spec: &PatchSpec, file: &str) -> Result<BoundaryCondition<Vector3>, AppBuilderError> {
+    Ok(match spec.bc_type.as_str() {
+        "fixedValue" => {
+            let v = spec.value.as_deref().unwrap_or("(0 0 0)");
+            BoundaryCondition::FixedValue(parse_uniform_vector_payload(v, file)?)
+        }
+        "noSlip"                      => BoundaryCondition::FixedValue(Vector3::ZERO),
+        "slip"                        => BoundaryCondition::Symmetry,
+        "empty"                       => BoundaryCondition::Empty,
+        "symmetry" | "symmetryPlane"  => BoundaryCondition::Symmetry,
+        _                             => BoundaryCondition::ZeroGradient,
+    })
+}
+
+/// Parse `uniform 0` / `uniform 1e5` payload into a scalar.
+fn parse_uniform_scalar_payload(s: &str, file: &str) -> Result<f64, AppBuilderError> {
+    let s = s.trim().strip_prefix("uniform").unwrap_or(s).trim();
+    let end = s.find(|c: char| c.is_whitespace() || c == ';').unwrap_or(s.len());
+    s[..end].parse::<f64>().map_err(|_| AppBuilderError::Parse {
+        file: file.to_string(), line: 0,
+        msg: format!("bad scalar BC value {:?}", &s[..end.min(20)]),
+    })
+}
+
+/// Parse `uniform (x y z)` payload into a vector.
+fn parse_uniform_vector_payload(s: &str, file: &str) -> Result<Vector3, AppBuilderError> {
+    let open = s.find('(').ok_or_else(|| AppBuilderError::Parse {
+        file: file.to_string(), line: 0, msg: "vector BC value missing '('".into(),
+    })?;
+    let close = s[open..].find(')').ok_or_else(|| AppBuilderError::Parse {
+        file: file.to_string(), line: 0, msg: "vector BC value missing ')'".into(),
+    })? + open;
+    parse_vector_triple(&s[open + 1..close], file)
+}
+
+/// Parse the `boundaryField { patch { type …; value …; } … }` block into a
+/// list of `(patch_name, PatchSpec)`.
+fn parse_boundary_field(stripped: &str, file: &str)
+    -> Result<Vec<(String, PatchSpec)>, AppBuilderError>
+{
+    let marker = "boundaryField";
+    let pos = match stripped.find(marker) {
+        Some(p) => p,
+        None    => return Ok(Vec::new()),
+    };
+    let after = &stripped[pos + marker.len()..];
+    let open  = after.find('{').ok_or_else(|| AppBuilderError::Parse {
+        file: file.to_string(), line: 0, msg: "boundaryField: missing '{'".into(),
+    })?;
+    let end = block_end(&after[open..]).ok_or_else(|| AppBuilderError::Parse {
+        file: file.to_string(), line: 0, msg: "boundaryField: unclosed '{'".into(),
+    })? + open;
+    let body = &after[open + 1..end];
+
+    let mut specs = Vec::new();
+    let mut s = body.trim_start();
+    while !s.is_empty() {
+        // Patch name = word before the next '{'
+        let name_end = match s.find('{') {
+            Some(i) => i,
+            None    => break,
+        };
+        let name = s[..name_end].trim().to_string();
+        s = &s[name_end..];
+        let blk_end = block_end(s).ok_or_else(|| AppBuilderError::Parse {
+            file: file.to_string(), line: 0,
+            msg: format!("patch {name:?}: unclosed '{{'"),
+        })?;
+        let block = &s[1..blk_end];
+        s = s[blk_end + 1..].trim_start();
+        if name.is_empty() { continue; }
+
+        specs.push((name, PatchSpec {
+            bc_type: dict_word(block, "type").unwrap_or_else(|| "zeroGradient".into()),
+            value:   dict_value(block, "value"),
+        }));
+    }
+    Ok(specs)
+}
+
+/// Index of the `}` matching the leading `{` in `s`.
+fn block_end(s: &str) -> Option<usize> {
+    let mut depth = 0usize;
+    for (i, c) in s.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => { depth -= 1; if depth == 0 { return Some(i); } }
+            _   => {}
+        }
+    }
+    None
+}
+
+/// Extract the single word value for `key` (e.g. `type fixedValue;`).
+fn dict_word(block: &str, key: &str) -> Option<String> {
+    let pos = find_keyword(block, key)?;
+    let after = block[pos + key.len()..].trim_start();
+    let end = after.find(|c: char| c.is_whitespace() || c == ';').unwrap_or(after.len());
+    Some(after[..end].trim().to_string())
+}
+
+/// Extract everything between `key` and the terminating `;` (e.g. the
+/// `uniform (1 0 0)` payload of a `value` entry).
+fn dict_value(block: &str, key: &str) -> Option<String> {
+    let pos = find_keyword(block, key)?;
+    let after = &block[pos + key.len()..];
+    let end = after.find(';')?;
+    Some(after[..end].trim().to_string())
+}
+
+/// Find `key` as a whole word (preceded by start/whitespace), so that `value`
+/// does not match inside `inletValue`, etc.
+fn find_keyword(block: &str, key: &str) -> Option<usize> {
+    let mut start = 0;
+    while let Some(rel) = block[start..].find(key) {
+        let abs = start + rel;
+        let prev_ok = abs == 0
+            || block.as_bytes()[abs - 1].is_ascii_whitespace();
+        let after = abs + key.len();
+        let next_ok = after >= block.len()
+            || block.as_bytes()[after].is_ascii_whitespace();
+        if prev_ok && next_ok {
+            return Some(abs);
+        }
+        start = abs + key.len();
+    }
+    None
 }

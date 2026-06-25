@@ -192,6 +192,52 @@ impl RhoCentralFoam {
             self.phi.internal[f] = flux_cont * area;
         }
 
+        // ── Boundary faces ────────────────────────────────────────────────────
+        // The pressure (and convective) flux on domain-boundary faces must be
+        // applied too — omitting it leaves the end cells with an unbalanced
+        // pressure force (their interior face pushes outward with nothing
+        // pushing back), which piles density and energy into a spurious spike.
+        // For a zero-gradient/far-field patch the boundary state is the owner
+        // cell extrapolated to the face. `Empty` patches (2-D front/back) carry
+        // no flux and are skipped.
+        for (pi, patch) in mesh.patches.iter().enumerate() {
+            if matches!(self.u.boundary[pi].bc, BoundaryCondition::Empty) {
+                continue;
+            }
+            for fi in 0..patch.size {
+                let gf   = patch.start + fi;
+                let o    = mesh.owner[gf];
+                let area = mesh.face_areas[gf];
+                if area < 1e-300 { continue; }
+                let sf   = mesh.face_area_vectors[gf];
+                let n_f  = Vector3::new(sf.x / area, sf.y / area, sf.z / area);
+
+                let rho_b = rho_sl[o];
+                let u_b   = u_sl[o];
+                let e_b   = e_sl[o].max(0.0);
+                let p_b   = ((GAMMA - 1.0) * rho_b * e_b).max(0.0);
+                let u_n   = u_b.x * n_f.x + u_b.y * n_f.y + u_b.z * n_f.z;
+                let e_tot = e_b + 0.5 * (u_b.x * u_b.x + u_b.y * u_b.y + u_b.z * u_b.z);
+                let h_b   = e_tot + p_b / rho_b.max(1e-10);
+
+                let f_cont = rho_b * u_n;
+                let f_mom  = Vector3::new(
+                    rho_b * u_n * u_b.x + p_b * n_f.x,
+                    rho_b * u_n * u_b.y + p_b * n_f.y,
+                    rho_b * u_n * u_b.z + p_b * n_f.z,
+                );
+                let f_ener = rho_b * u_n * h_b;
+
+                d_rho[o]  -= f_cont * area;
+                d_rhou[o]  = Vector3::new(
+                    d_rhou[o].x - f_mom.x * area,
+                    d_rhou[o].y - f_mom.y * area,
+                    d_rhou[o].z - f_mom.z * area,
+                );
+                d_rhoe[o] -= f_ener * area;
+            }
+        }
+
         // ── Explicit Euler update ─────────────────────────────────────────────
         let rho_data = self.rho.internal.as_mut_slice();
         let u_data   = self.u.internal.as_mut_slice();
