@@ -121,6 +121,82 @@ fn validate_zaloudek_curve_subcooled(
 //     ≥1000 psia: both pass.
 //
 // The 20 genuinely-subcooled curves (x_t = 0.05 .. 1.00) pass within tolerance.
+//
+// ── POSSIBLE CAUSES — why the two-golden-section method works everywhere EXCEPT
+//    here ─────────────────────────────────────────────────────────────────────
+//
+// The solver maximises the *smooth* energy-balance mass flux
+//     G(p) = rho(p,s0) * sqrt( 2 * (h0 - h(p,s0)) )
+// along the isentrope and calls the global max the choke. For the in-dome and
+// interior-quality subcooled curves this is exact, because there the stationary
+// point dG/dp = 0 coincides with the sonic point Mach = 1. That equivalence is
+// what we are leaning on, and it is NOT unconditional. The x_t ≈ 0 curve is the
+// one place every condition behind it fails at once. Candidate causes, roughly
+// in order of how much each explains the table above:
+//
+// (1) max-G ⟺ Mach-1 BREAKS AT THE BUBBLE-POINT KINK (primary, geometric).
+//     The equivalence "the choke is the smooth interior maximum of G" is only
+//     valid when the HEM sound speed c (equivalently dv/dP|s) is *continuous*
+//     along the isentrope. At the bubble point the isentrope crosses the
+//     saturated-liquid line: v(p,s0) stays continuous but dv/dP|s JUMPS — tiny
+//     (near-incompressible liquid) just above, huge (flashing) just below — so
+//     c = v*sqrt(-1/(dv/dP)) drops discontinuously from ~1500 m/s to tens of
+//     m/s. Mach = v/c therefore jumps UP through 1 exactly at the kink: the
+//     liquid is still sub-sonic w.r.t. c_liquid but instantly super-sonic
+//     w.r.t. the two-phase c just below. The true choke sits ON that corner,
+//     where G is only *one-sidedly* maximal (dG/dp ≠ 0). Our G(p) is smooth
+//     through the kink (h, rho both continuous) and never sees it, so the
+//     golden section keeps walking downstream to the next *smooth* stationary
+//     point, which lies well inside the dome at a LOWER pressure. That is
+//     exactly the 15–200 psia signature: p 11–21% low, G fine. For an interior
+//     quality the stagnation starts already inside the dome — no region-crossing
+//     kink on the isentrope — so the equivalence holds and the method is exact.
+//     Here the stagnation sits right on the dome edge, so the kink and the
+//     choke coincide and the smooth maximiser cannot represent it.
+//
+// (2) EQUILIBRIUM-FLASHING PHYSICS (the documented HEM limitation). HEM assumes
+//     the liquid flashes the instant it reaches saturation. Real water stays
+//     metastable below the saturation pressure (nucleation/thermal lag), keeping
+//     a liquid-like density and a liquid-like (frozen) sound speed past the
+//     bubble point, so the measured choke is at the bubble-point saturation
+//     pressure with c ≈ c_liquid. HEM collapses c too early, which both lowers
+//     the predicted choke pressure (reinforcing cause 1) and, just below the
+//     kink, multiplies a still-liquid rho by a velocity that already exceeds the
+//     equilibrium two-phase c — the unphysically large "choke" at 5–10 psia
+//     (G ×3–7). This is the part a relaxation model (HRM: Feburie / Henry–Fauske
+//     / Downar-Zapolski) is needed to fix; the rest is numerical.
+//
+// (3) CATASTROPHIC CANCELLATION IN THE QUALITY NEAR x = 0 (numerical, specific
+//     to this curve). Throat/throat-region properties go through
+//     x = (s0 - s_f(p)) / (s_g(p) - s_f(p)). At x ≈ 0, s0 ≈ s_f, so the
+//     numerator is a small difference of two large nearly-equal entropies —
+//     loses many significant digits right where the solver is most sensitive.
+//     The resulting noise in v_ps_eqm / h_ps_eqm can manufacture a spurious
+//     local bump in G just below the bubble point that the [p_min, p_bubble]
+//     golden section then latches onto. Interior qualities never evaluate this
+//     near the cancellation, which is why only x_t ≈ 0 shows it.
+//
+// (4) GOLDEN-SECTION UNIMODALITY ASSUMPTION VIOLATED. Golden section is only
+//     valid on a unimodal bracket. Causes 1+3 give the energy-balance G a
+//     near-corner plus possible property noise at the bubble point, so the
+//     [p_min, p_bubble] stretch can hold two competing maxima (a near-kink spike
+//     and the smooth interior peak). Whichever happens to be the global max wins,
+//     which is why the failure flips character with pressure (G-too-high spike at
+//     5–10 psia vs p-too-low smooth peak at 15–200 psia) instead of degrading
+//     smoothly. The bubble-point candidate g_bubble we also test is the *smooth*
+//     energy-G at the kink, NOT rho_f * c_2φ just below it, so it cannot rescue
+//     the one-sided choke of cause 1.
+//
+// IMPLICATION FOR A FIX: causes 1 and 4 say the choke candidate set is
+// incomplete — it should also include the bubble point evaluated with the
+// *two-phase* (lower) sound speed, i.e. G = rho_f * c_2φ(p_bubble⁻), the
+// one-sided Mach-1 value at the kink. That needs an explicit HEM sound-speed
+// evaluation at the bubble point (not just the smooth energy balance). Cause 2
+// then says even that equilibrium c is wrong near x = 0 and a relaxation (HRM)
+// closure is required to recover the measured curve. Causes 3/4 are pure
+// numerics and would be worth ruling out first (e.g. evaluate the quality from
+// a reformulation that avoids the s0 - s_f cancellation) before concluding the
+// residual is entirely physics.
 #[test]
 //#[ignore = "HEM fundamental limitation near the saturated-liquid line (x≈0): \
 //    mass-flux artifact at 5–10 psia and 11–21% choke-pressure error at 15–200 psia. \
