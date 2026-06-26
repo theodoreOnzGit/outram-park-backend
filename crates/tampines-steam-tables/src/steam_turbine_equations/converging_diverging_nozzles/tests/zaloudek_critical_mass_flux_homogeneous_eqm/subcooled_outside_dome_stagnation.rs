@@ -71,6 +71,116 @@ fn validate_zaloudek_curve_subcooled(
     }
 }
 
+/// Diagnostic sweep for the near-bubble-point HEM artifact. NOT an assertion
+/// test — it prints a per-point table for the x_t = 1e-4 curve so the failure
+/// modes can be inspected all at once (the assert in
+/// `quality_bubble_point_subcooled` aborts on the very first point).
+///
+/// For each Zaloudek throat it reports, at the backward-mapped stagnation
+/// state: the bubble-point pressure, the saturated specific-volume ratio
+/// vg/vf there (the quantity the OBSERVATION hypothesis claims the error
+/// tracks), the stagnation subcooling ΔH_sub = h_f(p0) − h0, which branch the
+/// subcooled solver lands on (bubble vs two-phase), and BOTH solvers' choke
+/// pressure / mass-flux errors against Zaloudek.
+///
+/// Run with:
+///   cargo test -p tampines-steam-tables --lib \
+///     diagnose_bubble_point_artifact -- --ignored --nocapture
+#[test]
+#[ignore = "diagnostic sweep, not an assertion — prints a per-point table"]
+fn diagnose_bubble_point_artifact() {
+    use uom::si::specific_volume::cubic_meter_per_kilogram;
+    use uom::si::available_energy::joule_per_kilogram;
+    use crate::steam_turbine_equations::choked_flow::bubble_point_pressure_from_entropy;
+    use crate::steam_turbine_equations::choked_flow::get_critical_pressure_and_mass_flux_ph_vle_dome;
+    use crate::interfaces::functional_programming::pt_flash_eqm::{v_tp_eqm_two_phase, h_tp_eqm_two_phase};
+    use crate::region_4_vap_liq_equilibrium::sat_temp_4;
+    use crate::constants::p_crit_water;
+
+    let x_t = 1e-4_f64;
+    let data: Vec<(f64, f64, f64)> = vec![
+        (5.0,    93.6455,   135.9606),
+        (10.0,   153.2273,  165.5172),
+        (15.0,   211.7706,  183.2512),
+        (20.0,   272.8005,  200.9852),
+        (30.0,   382.3708,  221.6749),
+        (50.0,   591.4174,  254.1872),
+        (75.0,   852.6162,  277.8325),
+        (100.0,  1129.6741, 307.3892),
+        (150.0,  1496.7620, 331.0345),
+        (200.0,  1901.1764, 354.6798),
+        (300.0,  2627.5557, 393.1034),
+        (500.0,  4239.2716, 449.2611),
+        (750.0,  5616.8242, 496.5517),
+        (1000.0, 7442.0131, 549.7537),
+        (1500.0, 10141.6818,623.6453),
+        (2000.0, 12006.8680,682.7586),
+        (3000.0, 13820.6838,803.9409),
+    ];
+
+    let ref_vol = TampinesSteamTableCV::get_ref_vol();
+    let p_crit = p_crit_water();
+
+    eprintln!();
+    eprintln!("x_t = {x_t}  (throats essentially on the saturated-liquid line)");
+    eprintln!("{:>6} {:>8} {:>9} {:>8} {:>9} {:>8} | {:>9} {:>8} {:>7} | {:>9} {:>8} | {:>8}",
+        "p_psia", "p0_kPa", "pbub_kPa", "vg/vf", "dHsub", "region",
+        "sub_dPerr", "sub_dGlg", "branch", "dome_dPe", "dome_dGl", "thr_dGlg");
+
+    for &(p_psia, g_expected_val, _h0) in &data {
+        let p_throat_ref = Pressure::new::<pound_force_per_square_inch>(p_psia);
+        let g_expected = MassRate::new::<pound_per_second>(g_expected_val)
+            / Area::new::<square_foot>(1.0);
+        let g_exp = g_expected.get::<kilogram_per_square_meter_second>();
+
+        // throat -> stagnation
+        let state_t = TampinesSteamTableCV::new_from_sat_pressure_quality(p_throat_ref, x_t, ref_vol);
+        let h_t = state_t.get_specific_enthalpy();
+        let (p0, h0, g_throat) = get_stagnation_conditions_from_throat_ph(p_throat_ref, h_t);
+        let region = ph_flash_region(p0, h0);
+        // HEM mass flux evaluated DIRECTLY at the throat (the validated inverse
+        // map) — if this matches Zaloudek but the forward solver doesn't, the
+        // discrepancy is in the forward solver, not HEM physics.
+        let thr_dg = g_throat.get::<kilogram_per_square_meter_second>().log10() - g_exp.log10();
+
+        // bubble point along the isentrope, and vg/vf there
+        let s0 = crate::interfaces::functional_programming::ph_flash_eqm::s_ph_eqm(p0, h0);
+        let p_bubble = bubble_point_pressure_from_entropy(s0);
+        let t_bub = sat_temp_4(p_bubble);
+        let vf = v_tp_eqm_two_phase(t_bub, p_bubble, 0.0).get::<cubic_meter_per_kilogram>();
+        let vg = v_tp_eqm_two_phase(t_bub, p_bubble, 1.0).get::<cubic_meter_per_kilogram>();
+        let vg_vf = vg / vf;
+
+        // stagnation subcooling dHsub = h_f(p0) - h0 (only meaningful below p_crit)
+        let dhsub_kjkg = if p0 < p_crit {
+            let hf0 = h_tp_eqm_two_phase(sat_temp_4(p0), p0, 0.0);
+            (hf0 - h0).get::<joule_per_kilogram>() / 1000.0
+        } else {
+            f64::NAN
+        };
+
+        // subcooled solver result + which branch it took
+        let (p_sub, g_sub) = get_critical_pressure_and_mass_flux_subcooled_liquid_ph(p0, h0);
+        let p_sub_kpa = p_sub.get::<kilopascal>();
+        let p_bub_kpa = p_bubble.get::<kilopascal>();
+        let branch = if (p_sub_kpa - p_bub_kpa).abs() / p_bub_kpa < 1e-3 { "bubble" } else { "2phase" };
+        let sub_dp = (p_sub_kpa - p_throat_ref.get::<kilopascal>()) / p_throat_ref.get::<kilopascal>() * 100.0;
+        let sub_dg = g_sub.get::<kilogram_per_square_meter_second>().log10() - g_exp.log10();
+
+        // in-dome solver result (the alternative branch) for comparison
+        let (p_dome, g_dome) = get_critical_pressure_and_mass_flux_ph_vle_dome(p0, h0);
+        let dome_dp = (p_dome.get::<kilopascal>() - p_throat_ref.get::<kilopascal>()) / p_throat_ref.get::<kilopascal>() * 100.0;
+        let dome_dg = g_dome.get::<kilogram_per_square_meter_second>().log10() - g_exp.log10();
+
+        eprintln!("{:>6.0} {:>8.1} {:>9.1} {:>8.0} {:>9.2} {:>8?} | {:>+8.1}% {:>+8.3} {:>7} | {:>+7.1}% {:>+8.3} | {:>+8.3}",
+            p_psia, p0.get::<kilopascal>(), p_bub_kpa, vg_vf, dhsub_kjkg, region,
+            sub_dp, sub_dg, branch, dome_dp, dome_dg, thr_dg);
+    }
+    eprintln!();
+    eprintln!("Legend: dPerr = (p_choke - p_throat)/p_throat; dGlg = log10(G_calc) - log10(G_exp).");
+    eprintln!("sub_* = subcooled solver; dome_* = in-dome solver. Pass tol: |dP|<3%, |dGlg|<0.05.");
+}
+
 // ACTIVE CANARY — currently failing, intentionally NOT #[ignore]d. This is the
 // item we are actively debugging. It exercises the worst case of the
 // saturated-liquid-line artifact: the x_t = 1e-4 curve (throats essentially ON
