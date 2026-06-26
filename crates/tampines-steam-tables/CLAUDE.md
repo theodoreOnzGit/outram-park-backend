@@ -84,10 +84,22 @@ Verification tests are under `.../tests/`, validated against:
   (G) tolerances loose.
 - Marviken critical flow tests — `marviken_tests.rs`.
 
-### Current effort: near-bubble-point HEM artifact
+### Resolved: near-bubble-point HEM artifact (x ≈ 0)
 
-We are trying to solve the **near-bubble-point HEM artifact** that breaks the
-Zaloudek VLE critical-pressure / mass-flux tests.
+The **near-bubble-point HEM artifact** that used to break the saturated-liquid-
+line Zaloudek tests is **fixed**. It was a numerical issue in the forward choke
+finder, not an HEM physics limitation — `mass_flux_ps_eqm_throat` evaluated at
+the throat reproduces the x ≈ 0 reference to ±0.04 in log10 G at every point (the
+Zaloudek reference is itself HEM). The energy-balance maximum of `G(p)` is blind
+to the sound-speed discontinuity at the bubble point, so on the saturated-liquid
+line it overshoots (5,10,300,500 psia) or walks off to a deeper non-physical
+stationary point (15–200 psia, 11–21 % low). `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`
+now detects this regime by the two-phase quality at the energy-max choke
+(< 0.03 ⇒ throat ≈ saturated liquid) and takes the bubble-point kink choke with
+ρ_f·c_2φ read from a precomputed sonic map along the saturated-liquid line
+(`saturation_line_sonic_mass_flux`). Neither stagnation subcooling nor pressure
+separates the artifact from genuine interior choking — the quality at the choke
+is the only clean discriminator. All x_t = 0.0–1.00 curves now pass.
 
 The original combined canary
 `zaloudek_*::generic_multiphase_stagnation::quality_0_05_stagnation` is now
@@ -124,15 +136,13 @@ The x = 0.0 bubble-point curve is the curve of primary interest going forward
 (`quality_bubble_point_in_dome`, x_t = 0.0, and its subcooled counterpart at
 x_t = 1e-4).
 
-The **active canary** is now
+The former canary
 `subcooled_outside_dome_stagnation::quality_bubble_point_subcooled`
-(x_t = 1e-4, throats essentially on the saturated-liquid line; intentionally not
-`#[ignore]`d while under investigation). It exercises the worst case of the
-saturated-liquid-line artifact. The detailed three-failure-mode writeup lives in
-the comment block directly above that test; in short, HEM cannot reproduce the
-x≈0 choking line in both mass flux and pressure (mass-flux artifact at 5/10 psia,
-11–21% choke-pressure error at 15–200 psia, in both solver branches) and a non-
-equilibrium / relaxation model would be needed.
+(x_t = 1e-4, throats essentially on the saturated-liquid line) now **passes** and
+is no longer `#[ignore]`d. The `diagnose_bubble_point_artifact` test in the same
+file prints the per-point breakdown that drove the fix (its `thr_dGlg` column is
+the HEM-at-throat reproduction within ±0.04). The comment block above the canary
+documents the root cause and the quality-based routing.
 
 The older combined canary swept x_t = 0.05 over a pressure range; first and last
 reference points:
@@ -189,20 +199,19 @@ contributors:
 | Function | Status |
 |---|---|
 | `get_critical_pressure_and_mass_flux_ph_vle_dome` | ✅ Validated — all 21 Zaloudek in-dome quality curves pass |
-| `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | ⚠ Partial — 20 subcooled curves pass; x_t ≈ 0 (near-saturated) fails |
+| `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | ✅ Validated — all Zaloudek subcooled curves incl. the x_t ≈ 0 saturated-liquid line pass |
 | `get_critical_pressure_and_mass_flux_with_stagnation_props` | ❌ Superseded — old combined dispatcher with +25% artifact; retain for reference only |
 
-**Near-bubble-point HEM artifact (x_t ≈ 0):**
-The test `subcooled_outside_dome_stagnation::quality_bubble_point_subcooled`
-is `#[ignore]`d. Root cause is fundamental: HEM assumes instantaneous
-equilibrium flashing at the bubble point, which overpredicts mass flux by 3–7×
-at 5–10 psia and places the choke point 11–21% below the measured throat at
-15–200 psia. A non-equilibrium (HRM-style) relaxation model is required to
-reproduce the x ≈ 0 Zaloudek curve. See the long comment block above that test
-for the full three-failure-mode analysis.
+**Near-bubble-point HEM artifact (x_t ≈ 0) — fixed:**
+`subcooled_outside_dome_stagnation::quality_bubble_point_subcooled` now passes.
+The old failure was numerical (the energy-balance choke finder is blind to the
+sound-speed discontinuity at the bubble point), not an HEM physics limitation —
+HEM at the throat reproduces the x ≈ 0 reference to ±0.04 in log10 G. The solver
+routes near-saturation throats (two-phase quality at the energy-max choke < 0.03)
+to the bubble-point kink choke, mass flux from a saturated-liquid-line sonic map.
+See the comment block above that test and `diagnose_bubble_point_artifact`.
 
 **Ignored tests:**
-- `quality_bubble_point_subcooled` — HEM fundamental limitation (see above)
 - `moody_critical_mass_flux_homogeneous_eqm::isobar_pref_*` — moody isobar
   tests (pre-existing `#[ignore]`)
 - `generic_multiphase_stagnation::quality_*` — old combined-canary suite,

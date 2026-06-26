@@ -71,17 +71,20 @@ fn validate_zaloudek_curve_subcooled(
     }
 }
 
-/// Diagnostic sweep for the near-bubble-point HEM artifact. NOT an assertion
-/// test — it prints a per-point table for the x_t = 1e-4 curve so the failure
-/// modes can be inspected all at once (the assert in
-/// `quality_bubble_point_subcooled` aborts on the very first point).
+/// Diagnostic sweep for the near-bubble-point (x ≈ 0) regime. NOT an assertion
+/// test — it prints a per-point table for the x_t = 1e-4 curve. It was the tool
+/// used to diagnose the near-saturation choked-flow artifact (now fixed in
+/// `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`); kept for future
+/// inspection of this regime.
 ///
-/// For each Zaloudek throat it reports, at the backward-mapped stagnation
-/// state: the bubble-point pressure, the saturated specific-volume ratio
-/// vg/vf there (the quantity the OBSERVATION hypothesis claims the error
-/// tracks), the stagnation subcooling ΔH_sub = h_f(p0) − h0, which branch the
-/// subcooled solver lands on (bubble vs two-phase), and BOTH solvers' choke
-/// pressure / mass-flux errors against Zaloudek.
+/// The decisive column is `thr_dGlg`: HEM mass flux evaluated directly at the
+/// Zaloudek throat (via the validated inverse map). It stays within ±0.04 log10
+/// at every point — proof that the x ≈ 0 discrepancy was a forward-solver
+/// numerical issue, not an HEM physics limitation. For each throat it also
+/// reports, at the backward-mapped stagnation state: the bubble-point pressure,
+/// the saturated specific-volume ratio vg/vf, the stagnation subcooling
+/// ΔH_sub = h_f(p0) − h0, and both forward solvers' choke pressure / mass-flux
+/// errors against Zaloudek.
 ///
 /// Run with:
 ///   cargo test -p tampines-steam-tables --lib \
@@ -181,69 +184,34 @@ fn diagnose_bubble_point_artifact() {
     eprintln!("sub_* = subcooled solver; dome_* = in-dome solver. Pass tol: |dP|<3%, |dGlg|<0.05.");
 }
 
-// ACTIVE CANARY — currently failing, intentionally NOT #[ignore]d. This is the
-// item we are actively debugging. It exercises the worst case of the
-// saturated-liquid-line artifact: the x_t = 1e-4 curve (throats essentially ON
-// the saturated-liquid line). The working theory is that this is a fundamental
-// HEM limitation on the saturated-liquid line, not a solver bug; the findings
-// below document why no solver change tried so far fixes it.
+// Saturated-liquid-line curve: x_t = 1e-4 (throats essentially ON the saturated-
+// liquid line). This was the hardest Zaloudek curve and was #[ignore]d for a
+// long time under the theory that x ≈ 0 was a fundamental HEM limitation needing
+// a non-equilibrium / relaxation (HRM) model. It is NOT: the discrepancy is
+// numerical, in the forward choke finder, not in HEM physics.
 //
-// Region 1 (subcooled) stagnation points on this curve are 5..200 psia
-// (subcooling dHsub = h_f(p0) - h0 ranging 0.7 .. 8.4 kJ/kg); 300..2000 psia
-// are genuinely subcooled (dHsub 12 .. 98 kJ/kg) and DO pass; 3000 psia lands
-// in Region 3. The curve fails in THREE distinct ways:
+// Evidence (see `diagnose_bubble_point_artifact`): HEM mass flux evaluated
+// directly at the Zaloudek throat — the validated inverse map — reproduces this
+// curve to ±0.04 in log10 G at every point. The Zaloudek reference is itself an
+// HEM curve, so HEM *must* be able to reproduce it, and it does.
 //
-//   1. Mass-flux artifact at p = 5 psia only. The subcooled solver evaluates
-//      G at the bubble point where rho is still liquid-like (~976 kg/m^3) with
-//      a tiny enthalpy drop, giving a spurious G ~3347 vs Zaloudek ~457 (that
-//      "choke" is liquid at ~3 m/s, far below the ~1400 m/s liquid sound
-//      speed, so it is not a real choke). The in-dome / two-phase-peak solver
-//      instead returns G ~397 (mass-flux log-error 0.023, within tol) BUT its
-//      choke pressure is 4.4% below the throat (>3% tol). So even the "right"
-//      branch only half-passes this one point.
+// Root cause of the old failure: the energy-balance objective
+// G_energy(p) = ρ·√(2(h0−h)) is blind to the discontinuity in the HEM sound
+// speed at the bubble point. Its maximum equals the choke only at a smooth
+// interior sonic point (dG/dp = 0 ⇔ v = c). On the saturated-liquid line the
+// max instead overshoots ρ_f·v ≫ ρ_f·c at the bubble point (5,10,300,500 psia)
+// or walks off to a deeper stationary point the flow never reaches at M = 1
+// (15–200 psia, choke pressure 11–21 % low). Neither stagnation subcooling nor
+// pressure separates the near-saturation artifact from genuine interior choking
+// (they overlap, e.g. x=1e-4 @ 200 psia vs x=0.10 @ 1500 psia).
 //
-//   2. Two-phase overprediction at p = 10 psia. Here BOTH solvers agree and
-//      both give G ~2547 vs expected ~748 (3.4x high, log-error 0.185). The
-//      golden section lands on the same place for both; switching solvers does
-//      nothing. This is HEM equilibrium flashing overpredicting at very low
-//      subcooling.
-//
-//   3. Choke-pressure error at p = 15..200 psia. Mass flux is fine here
-//      (log-error ~0.01-0.03) but the choke pressure sits 11-21% BELOW the
-//      throat, identically for both solvers. The HEM max-G point genuinely
-//      does not coincide with the measured throat for a near-saturated inlet.
-//
-// Consequences for any "fix":
-//   * Routing near-saturation points to the in-dome solver changes ONLY the
-//     p = 5 point (and even there leaves pressure 4.4% off). It does not help
-//     p = 10 (mass flux) or p = 15..200 (pressure). Not worth a dispatcher.
-//   * There is no clean subcooling threshold to route on anyway: this curve
-//     spans dHsub 0.7 .. 98 kJ/kg, fully overlapping the genuinely-subcooled
-//     curves that already pass.
-//
-// Root cause is the homogeneous EQUILIBRIUM assumption (instantaneous flashing
-// at the bubble point). Reproducing the saturated-liquid choking line in both
-// mass flux and pressure needs a non-equilibrium / relaxation (HRM-style)
-// model, which is out of scope for the HEM solver validated here.
-//
-// OBSERVATION (tentative, not confirmed): the disagreement tracks bubble-point
-// pressure. The mass-flux artifacts are sub-atmospheric (5, 10 psia ~ 0.34,
-// 0.69 bar); the choke-pressure errors start around 1 atm (15 psia) and peak
-// at ~3-5 bar (50-75 psia, ~21%) before recovering by ~300 psia. A plausible
-// (but UNVERIFIED) explanation is the specific-volume ratio: vg/vf ~ 4000 at
-// 5 psia vs ~260 at 100 psia, so at low pressure a tiny amount of flashing
-// causes a huge volume change, the HEM two-phase sound speed collapses, and
-// G(p) becomes stiff/hypersensitive. This is a hypothesis about the trend, not
-// an established cause. It is also unclear how the Zaloudek reference data
-// itself was obtained (measured vs. correlated/extrapolated), which could
-// contribute to the discrepancy independently of the solver.
-//
-// The 20 genuinely-subcooled curves (x_t = 0.05 .. 1.00) pass within tolerance.
+// Fix (in `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`): route on
+// the two-phase QUALITY at the energy-max choke. Below ~0.03 the throat is
+// effectively saturated liquid → take the bubble-point kink choke with the mass
+// flux read from a precomputed sonic map along the saturated-liquid line;
+// otherwise keep the validated golden-section energy max. All x_t = 0.0 … 1.00
+// Zaloudek curves now pass within tolerance.
 #[test]
-#[ignore = "HEM fundamental limitation near the saturated-liquid line (x≈0): \
-    mass-flux artifact at 5–10 psia and 11–21% choke-pressure error at 15–200 psia. \
-    Requires a non-equilibrium / HRM-style model to reproduce the x=0 Zaloudek curve. \
-    See the long comment block above this test for the full root-cause analysis."]
 fn quality_bubble_point_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    93.6455,   135.9606),

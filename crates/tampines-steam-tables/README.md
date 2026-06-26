@@ -75,18 +75,22 @@ Consolidated into the OUTRAM PARK workspace. Dependency bumps (`uom` 0.36→0.38
 `ndarray` 0.15→0.17, `ndarray-linalg` 0.16→0.18, `thiserror` 1→2,
 egui/eframe 0.29→0.34, `egui_plot`→0.35). All egui examples migrated to 0.34.
 
-**Multiphase HEM choked flow — known limitations (v0.2.0)**
+**Multiphase HEM choked flow — near-saturation (x ≈ 0) fix (v0.2.0)**
 
-The multiphase Homogeneous Equilibrium Model (HEM) critical-flow solvers are
-works in progress. The following limitations are documented:
+The multiphase Homogeneous Equilibrium Model (HEM) critical-flow solvers now
+reproduce all Zaloudek quality curves, including the saturated-liquid line:
 
-- `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`: validated for
-  genuinely subcooled stagnation states (throat quality x_t = 0.05–1.00),
-  but **fails for near-saturated stagnation (x_t ≈ 0)**. Mass-flux artifacts
-  appear at 5–10 psia and 11–21% choke-pressure errors at 15–200 psia. This
-  is a fundamental HEM limitation (instantaneous equilibrium flashing
-  assumed); a non-equilibrium/HRM model is required for the x ≈ 0 curve.
-  The corresponding test `quality_bubble_point_subcooled` is `#[ignore]`d.
+- `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`: now validated for
+  **all** throat qualities x_t = 0.0–1.00. The previous near-saturated (x_t ≈ 0)
+  failure — mass-flux artifacts at 5–10 psia and 11–21% choke-pressure errors at
+  15–200 psia — was a numerical issue in the forward choke finder, **not** an HEM
+  physics limitation (HEM evaluated at the throat reproduces the reference to
+  ±0.04 in log10 G). The energy-balance maximum of G is blind to the sound-speed
+  discontinuity at the bubble point; the solver now detects the near-saturation
+  regime by the two-phase quality at the energy-max choke (< 0.03) and takes the
+  bubble-point kink choke, reading ρ_f·c_2φ from a precomputed sonic map along the
+  saturated-liquid line. The test `quality_bubble_point_subcooled` is no longer
+  `#[ignore]`d.
 
 - `get_critical_pressure_and_mass_flux_ph_vle_dome`: validated for two-phase
   stagnation states (x_t = 0.0–1.00, all 21 Zaloudek quality curves pass).
