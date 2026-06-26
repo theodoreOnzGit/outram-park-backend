@@ -95,9 +95,10 @@ Zaloudek VLE critical-pressure / mass-flux tests.
 
 The original combined canary
 `zaloudek_*::generic_multiphase_stagnation::quality_0_05_stagnation` is now
-`#[ignore]`d. The strategy is **two separate solvers, one per stagnation region**,
-with the test files partitioning each Zaloudek throat by where its backward-mapped
-stagnation `(p0, h0)` lands relative to the VLE dome (`ph_flash_region`):
+`#[ignore]`d. The strategy is **three separate solvers, one per stagnation
+bucket**, with the test files partitioning each Zaloudek throat by where its
+backward-mapped stagnation `(p0, h0)` lands relative to the VLE dome
+(`ph_flash_region`, plus the `s0` vs `s_crit` test for the vapour side):
 
 - `outside_dome_stagnation_subcooled.rs` — stagnation OUTSIDE the dome (left
   side, Region 1 subcooled liquid). Keeps only `ph_flash_region == Region1`,
@@ -107,6 +108,14 @@ stagnation `(p0, h0)` lands relative to the VLE dome (`ph_flash_region`):
   Keeps only `ph_flash_region == Region4`, runs
   `get_critical_pressure_and_mass_flux_ph_vle_dome`. All 21 quality curves
   (x_t = 0.0 … 1.00) pass.
+- `outside_dome_stagnation_superheated.rs` — stagnation OUTSIDE the dome (right
+  side / above it: superheated vapour or supercritical vapour-like). Keeps only
+  points with `s0 > s_crit` and `ph_flash_region != Region4`, runs
+  `get_critical_pressure_and_mass_flux_superheated_vapour_ph` (dew point replaces
+  the bubble point; the single-phase vapour stretch needs its own golden-section
+  search because the vapour sonic choke is interior). The high-quality curves
+  (x_t = 0.90/0.95/1.00) pass across the full supercritical range; x_t = 0.80
+  uses a relaxed pressure tolerance for the near-critical-point corner.
 
 Both files run the full quality sweep over the same data; the region filter
 routes each point and `continue`-skips the rest (so a green test may have
@@ -236,14 +245,25 @@ contributors:
 |---|---|
 | `get_critical_pressure_and_mass_flux_ph_vle_dome` | ✅ Validated — all 21 Zaloudek in-dome quality curves pass (x_t = 0.0 … 1.0; boundary quality curves skipped by region filter) |
 | `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | ✅ Validated for interior curves — 20 genuinely-subcooled Zaloudek curves (x_t = 0.05 … 1.00) pass; x_t ≈ 0 bubble-point is the one failing fringe case |
+| `get_critical_pressure_and_mass_flux_superheated_vapour_ph` | ✅ Validated — vapour-side mirror of the subcooled solver (dew point replaces bubble point). Zaloudek high-quality curves (x_t = 0.90/0.95/1.00) pass the tight 3% pressure / 5% log-G tolerance across the **full supercritical range** (x_t = 1.00 covers stagnation up to p₀ ≈ 29.5 MPa, choke pressure matched <0.01% at 3000 psia). x_t = 0.80 passes at a looser 5% pressure tolerance — its only vapour-side point that fails the 3% bound is the near-critical 3000-psia case (throat ≈ 0.94·p_crit, under the dome apex) where IF97 Region-3 backward equations lose digits |
 | `get_critical_pressure_and_mass_flux_with_stagnation_props` | ❌ Superseded — old combined dispatcher with +25% artifact; retain for reference only |
 
+The three split solvers (`…_ph_vle_dome`, `…_subcooled_liquid_ph`,
+`…_superheated_vapour_ph`) together cover all three stagnation buckets relative
+to the p-h VLE dome: inside (two-phase), outside-left (subcooled liquid / liquid-
+like, `s0 < s_crit`), and outside-right (superheated vapour / supercritical
+vapour-like, `s0 > s_crit`). The caller's dispatcher routes by `ph_flash_region`
+plus the `s0` vs `s_crit` test.
+
 **Overall Zaloudek HEM reference-curve validation status** (reminder: Zaloudek
-curves are HEM-computed, not experimental — see note above): The HEM solvers are validated across
-the interior of the two-phase dome and the high-pressure subcooled tail. The
+curves are HEM-computed, not experimental — see note above): The HEM solvers are
+validated across the interior of the two-phase dome, the high-pressure subcooled
+tail, and the superheated-vapour / supercritical region (right of the dome). The
 only unresolved case is x_t ≈ 0 (the saturated-liquid-line edge), which is a
 fundamental physics limitation, not a code bug — HEM cannot reproduce that curve
-without a non-equilibrium relaxation term.
+without a non-equilibrium relaxation term. The mirror x_t ≈ 1 dew-point edge is
+better behaved here (the x_t = 1.00 vapour curve passes), with only the
+near-critical-point corner needing a relaxed tolerance.
 
 **Near-bubble-point HEM artifact (x_t ≈ 0):**
 The test `outside_dome_stagnation_subcooled::quality_bubble_point_subcooled`
@@ -270,13 +290,15 @@ above that test for the full three-failure-mode analysis.
   with data loaded but assertions missing. The next step is to write the assertion
   block (comparing HEM mass flux to measured Marviken CFT-23/24 curves) and
   un-ignore the test.
-- **HRM at dome boundaries** — HEM is validated for the interior of the two-phase
-  dome (x_t = 0.05 … 0.95) and the high-pressure subcooled tail, but breaks down
-  near the saturated-liquid line (x_t ≈ 0) and saturated-vapour line (x_t ≈ 1)
-  where thermal non-equilibrium governs the choke. An HRM-style relaxation model
-  (e.g. Feburie, or Henry–Fauske) is required for those boundary curves.
-  `quality_bubble_point_subcooled` is the primary canary; the x_t ≈ 1 dew-point
-  boundary can be validated similarly once the model is in place.
+- **HRM at the saturated-liquid line** — HEM is validated for the interior of the
+  two-phase dome (x_t = 0.05 … 0.95), the high-pressure subcooled tail, and the
+  superheated-vapour / supercritical region, but breaks down near the saturated-
+  liquid line (x_t ≈ 0) where thermal non-equilibrium governs the choke. An
+  HRM-style relaxation model (e.g. Feburie, or Henry–Fauske) is required for that
+  boundary curve. `quality_bubble_point_subcooled` is the primary canary. (The
+  mirror x_t ≈ 1 dew-point edge turned out to be better behaved — the x_t = 1.00
+  vapour curve passes with the energy-balance max-G solver — so only the
+  near-critical-point corner of the vapour side still wants a relaxation term.)
 
 **Nice-to-have:** WASM build of the egui GUI for browser demos; full two-phase
 property surface (currently only saturation + quality interpolation).

@@ -33,3 +33,8 @@ pub mod generic_multiphase_stagnation;
 /// exploratory test suite for subcooled-liquid / liquid-like stagnation
 /// points (OUTSIDE the dome, left side), validating the subcooled solver
 pub mod outside_dome_stagnation_subcooled;
+
+/// exploratory test suite for superheated-vapour / supercritical (vapour-like)
+/// stagnation points (OUTSIDE the dome, right side / above the dome),
+/// validating the superheated-vapour solver
+pub mod outside_dome_stagnation_superheated;
