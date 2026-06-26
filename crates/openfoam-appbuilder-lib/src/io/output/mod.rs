@@ -19,9 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::path::Path;
-use openfoam_basic_lib::prelude::{VolScalarField, VolVectorField};
 use crate::error::AppBuilderError;
+use openfoam_basic_lib::prelude::{VolScalarField, VolVectorField};
+use std::path::Path;
 
 /// Write a scalar field to `<time_dir>/<field_name>` in OpenFOAM ASCII format.
 ///

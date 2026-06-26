@@ -19,9 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use crate::error::AppBuilderError;
 use std::collections::HashMap;
 use std::path::Path;
-use crate::error::AppBuilderError;
 
 /// Parsed `system/fvSolution`.
 #[derive(Debug, Clone)]
@@ -31,20 +31,20 @@ pub struct FvSolution {
     /// PIMPLE / PISO outer-loop control parameters.
     pub pimple: PimpleControl,
     /// Under-relaxation factors, keyed by field name.
-    pub relaxation_fields:    HashMap<String, f64>,
+    pub relaxation_fields: HashMap<String, f64>,
     pub relaxation_equations: HashMap<String, f64>,
 }
 
 /// Linear solver configuration for a single field (fvSolution::solvers.<field>).
 #[derive(Debug, Clone)]
 pub struct LinearSolverConfig {
-    pub solver:         LinearSolverType,
+    pub solver: LinearSolverType,
     pub preconditioner: Option<String>,
-    pub tolerance:      f64,
-    pub rel_tol:        f64,
-    pub max_iter:       usize,
-    pub smoother:       Option<String>,
-    pub n_sweep:        usize,
+    pub tolerance: f64,
+    pub rel_tol: f64,
+    pub max_iter: usize,
+    pub smoother: Option<String>,
+    pub n_sweep: usize,
 }
 
 /// Linear solver algorithm.
@@ -115,13 +115,16 @@ impl Default for PimpleControl {
 impl Default for FvSolution {
     fn default() -> Self {
         let mut solvers = HashMap::new();
-        solvers.insert("p".into(), LinearSolverConfig {
-            solver: LinearSolverType::Gamg,
-            preconditioner: Some("GaussSeidel".into()),
-            tolerance: 1e-6,
-            rel_tol: 0.01,
-            ..Default::default()
-        });
+        solvers.insert(
+            "p".into(),
+            LinearSolverConfig {
+                solver: LinearSolverType::Gamg,
+                preconditioner: Some("GaussSeidel".into()),
+                tolerance: 1e-6,
+                rel_tol: 0.01,
+                ..Default::default()
+            },
+        );
         solvers.insert("U".into(), LinearSolverConfig::default());
         Self {
             solvers,

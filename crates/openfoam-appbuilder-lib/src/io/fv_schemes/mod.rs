@@ -19,17 +19,17 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::path::Path;
 use crate::error::AppBuilderError;
+use std::path::Path;
 
 /// Parsed `system/fvSchemes` — numerical scheme selection for each operator.
 #[derive(Debug, Clone)]
 pub struct FvSchemes {
-    pub ddt:         DdtScheme,
+    pub ddt: DdtScheme,
     pub default_grad: GradScheme,
-    pub default_div:  DivScheme,
+    pub default_div: DivScheme,
     pub default_laplacian: LaplacianScheme,
-    pub default_sn_grad:   SnGradScheme,
+    pub default_sn_grad: SnGradScheme,
     pub default_interpolation: InterpolationScheme,
 }
 
@@ -38,7 +38,7 @@ pub struct FvSchemes {
 pub enum DdtScheme {
     Euler,
     Backward,
-    CrankNicolson(f64),  // off-centring coefficient ψ ∈ [0,1]
+    CrankNicolson(f64), // off-centring coefficient ψ ∈ [0,1]
     LocalEuler,
     SteadyState,
 }
@@ -56,7 +56,7 @@ pub enum GradScheme {
 pub enum DivScheme {
     GaussLinear,
     GaussUpwind,
-    GaussLinearUpwind(String),  // e.g. "Gauss linearUpwind grad(U)"
+    GaussLinearUpwind(String), // e.g. "Gauss linearUpwind grad(U)"
     GaussVanLeer,
     GaussMUSCL,
     GaussLimitedLinear(f64),
@@ -67,7 +67,7 @@ pub enum DivScheme {
 pub enum LaplacianScheme {
     GaussLinearCorrected,
     GaussLinearUncorrected,
-    GaussLinearLimited(f64),  // limiter coefficient ∈ [0,1]
+    GaussLinearLimited(f64), // limiter coefficient ∈ [0,1]
 }
 
 /// Surface-normal gradient scheme (snGradSchemes).
@@ -82,7 +82,7 @@ pub enum SnGradScheme {
 #[derive(Debug, Clone, PartialEq)]
 pub enum InterpolationScheme {
     Linear,
-    Upwind(String),  // e.g. "upwind phi"
+    Upwind(String), // e.g. "upwind phi"
     Harmonic,
 }
 
@@ -98,9 +98,9 @@ impl Default for FvSchemes {
         Self {
             ddt: DdtScheme::Euler,
             default_grad: GradScheme::GaussLinear,
-            default_div:  DivScheme::GaussLinear,
+            default_div: DivScheme::GaussLinear,
             default_laplacian: LaplacianScheme::GaussLinearCorrected,
-            default_sn_grad:   SnGradScheme::Corrected,
+            default_sn_grad: SnGradScheme::Corrected,
             default_interpolation: InterpolationScheme::Linear,
         }
     }

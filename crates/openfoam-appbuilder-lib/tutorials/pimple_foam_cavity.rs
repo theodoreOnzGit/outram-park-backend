@@ -76,16 +76,16 @@
 //! 0.1 m wide (Re = 10 at ν = 0.01), so it must be re-run at ν = 1e-3 (or L = 1 m)
 //! to compare against the Re = 100 Ghia data.
 
-use std::path::Path;
-use openfoam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
-use openfoam_appbuilder_lib::io::field_reader::{
-    read_vol_vector_field, read_vol_vector_field_full, read_vol_scalar_field_full,
-};
 use openfoam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
+use openfoam_appbuilder_lib::io::field_reader::{
+    read_vol_scalar_field_full, read_vol_vector_field, read_vol_vector_field_full,
+};
 use openfoam_appbuilder_lib::io::fv_schemes::FvSchemes;
 use openfoam_appbuilder_lib::io::fv_solution::FvSolution;
+use openfoam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
 use openfoam_appbuilder_lib::solvers::pimple_foam::PimpleFoam;
 use openfoam_basic_lib::prelude::VolScalarField;
+use std::path::Path;
 
 const CASE_DIR: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -98,25 +98,25 @@ const CASE_DIR: &str = concat!(
 // The Ghia 1982 data in this file is for Re=100 (L=1 m, nu=0.01) — to use it
 // the case must be re-run with L=1 m or NU=0.001 m²/s.
 const U_LID: f64 = 1.0;
-const L: f64 = 0.1;   // cavity side length in metres
+const L: f64 = 0.1; // cavity side length in metres
 const DEPTH: f64 = 0.01; // z-extent of the 2D slice in metres
-// Kinematic viscosity from OpenFOAM transportProperties (Re = 10 at L=0.1 m)
+                         // Kinematic viscosity from OpenFOAM transportProperties (Re = 10 at L=0.1 m)
 const NU: f64 = 0.01;
 
 // ── Ghia 1982 reference data, Re = 100, vertical centreline U_x ──────────────
 // y/L positions (17 points) and corresponding U_x / U_lid
 const GHIA_Y: [f64; 17] = [
-    0.0000, 0.0547, 0.0625, 0.0703, 0.1016, 0.1719, 0.2813,
-    0.4531, 0.5000, 0.6172, 0.7344, 0.8516, 0.9531, 0.9609,
-    0.9688, 0.9766, 1.0000,
+    0.0000, 0.0547, 0.0625, 0.0703, 0.1016, 0.1719, 0.2813, 0.4531, 0.5000, 0.6172, 0.7344, 0.8516,
+    0.9531, 0.9609, 0.9688, 0.9766, 1.0000,
 ];
 const GHIA_UX: [f64; 17] = [
-     0.00000,  -0.03717, -0.04192, -0.04775, -0.06434, -0.10150, -0.15662,
-    -0.21090,  -0.20581, -0.13641,  0.00332,  0.23151,  0.68717,  0.73722,
-     0.78871,   0.84123,  1.00000,
+    0.00000, -0.03717, -0.04192, -0.04775, -0.06434, -0.10150, -0.15662, -0.21090, -0.20581,
+    -0.13641, 0.00332, 0.23151, 0.68717, 0.73722, 0.78871, 0.84123, 1.00000,
 ];
 
-fn case_dir() -> &'static Path { Path::new(CASE_DIR) }
+fn case_dir() -> &'static Path {
+    Path::new(CASE_DIR)
+}
 
 fn poly_mesh_present() -> bool {
     let pm = case_dir().join("constant").join("polyMesh");
@@ -127,13 +127,17 @@ fn poly_mesh_present() -> bool {
 
 #[test]
 fn cavity_mesh_loads() {
-    assert!(poly_mesh_present(), "polyMesh files missing — run `blockMesh` in {}", CASE_DIR);
+    assert!(
+        poly_mesh_present(),
+        "polyMesh files missing — run `blockMesh` in {}",
+        CASE_DIR
+    );
     let pm_dir = case_dir().join("constant").join("polyMesh");
-    let mesh   = read_poly_mesh(&pm_dir).expect("read_poly_mesh failed");
+    let mesh = read_poly_mesh(&pm_dir).expect("read_poly_mesh failed");
     // 20×20 cavity → 400 cells, 1640 faces (760 internal + 880 boundary)
-    assert_eq!(mesh.n_cells,          400,  "expected 400 cells");
-    assert_eq!(mesh.n_internal_faces, 760,  "expected 760 internal faces");
-    assert_eq!(mesh.patches.len(),    3,    "expected 3 patches");
+    assert_eq!(mesh.n_cells, 400, "expected 400 cells");
+    assert_eq!(mesh.n_internal_faces, 760, "expected 760 internal faces");
+    assert_eq!(mesh.patches.len(), 3, "expected 3 patches");
     // Cell volumes: each cell is (L/20) × (L/20) × DEPTH = 2.5e-6 m³
     let vol_sum: f64 = mesh.cell_volumes.iter().sum();
     let expected_vol = L * L * DEPTH; // 0.1 × 0.1 × 0.01 = 1e-4 m³
@@ -148,26 +152,26 @@ fn cavity_mesh_loads() {
 /// (nOuterCorrectors = 1, nCorrectors = 2, endTime 0.5 s, dt 0.005 s).
 fn build_cavity_solver() -> PimpleFoam {
     let pm_dir = case_dir().join("constant").join("polyMesh");
-    let mesh   = read_poly_mesh(&pm_dir).expect("read_poly_mesh failed");
+    let mesh = read_poly_mesh(&pm_dir).expect("read_poly_mesh failed");
 
     // dt = 5e-3 — the same step icoFoam uses for this case (Co ≈ 0.85). This is
     // now possible because the solver includes the `fvc::ddtCorr` Rhie–Chow flux
     // correction; without it the stability limit is Co ≈ 0.1.
     let control = ControlDict {
         start: StartControl::StartTime(0.0),
-        stop:  StopControl::EndTime(0.5),
+        stop: StopControl::EndTime(0.5),
         delta_t: 5e-3,
         ..ControlDict::default()
     };
     let schemes = FvSchemes::default();
     let mut solution = FvSolution::default();
     solution.pimple.n_outer_correctors = 1; // pure PISO ≡ icoFoam
-    solution.pimple.n_correctors       = 2;
+    solution.pimple.n_correctors = 2;
 
     let mut solver = PimpleFoam::new(mesh.clone(), control, schemes, solution);
-    solver.u  = read_vol_vector_field_full(&case_dir().join("0").join("U"), &mesh)
+    solver.u = read_vol_vector_field_full(&case_dir().join("0").join("U"), &mesh)
         .expect("read 0/U failed");
-    solver.p  = read_vol_scalar_field_full(&case_dir().join("0").join("p"), &mesh)
+    solver.p = read_vol_scalar_field_full(&case_dir().join("0").join("p"), &mesh)
         .expect("read 0/p failed");
     solver.nu = VolScalarField::uniform("nu", mesh, NU);
     solver
@@ -189,19 +193,34 @@ fn cavity_velocity_matches_icofoam() {
     // Guard against silent NaN poisoning: a diverged solver produces NaN, and
     // `NaN > max_diff` is always false, which would otherwise mask divergence
     // as a perfect (max_diff = 0) match.
-    let rust_max = solver.u.internal.as_slice().iter().map(|v| v.mag()).fold(0.0, f64::max);
-    let ref_max  = u_ref.iter().map(|v| v.mag()).fold(0.0, f64::max);
-    let n_nonfinite = solver.u.internal.as_slice().iter()
+    let rust_max = solver
+        .u
+        .internal
+        .as_slice()
+        .iter()
+        .map(|v| v.mag())
+        .fold(0.0, f64::max);
+    let ref_max = u_ref.iter().map(|v| v.mag()).fold(0.0, f64::max);
+    let n_nonfinite = solver
+        .u
+        .internal
+        .as_slice()
+        .iter()
         .filter(|v| !(v.x.is_finite() && v.y.is_finite() && v.z.is_finite()))
         .count();
     println!("cavity: |U_rust|_max = {rust_max:.4}, |U_ref|_max = {ref_max:.4}, non-finite cells = {n_nonfinite}");
-    assert_eq!(n_nonfinite, 0, "solver produced {n_nonfinite} non-finite velocity cells (diverged)");
+    assert_eq!(
+        n_nonfinite, 0,
+        "solver produced {n_nonfinite} non-finite velocity cells (diverged)"
+    );
 
     // ∞-norm of the velocity difference, normalised by the lid speed.
     let mut max_diff = 0.0_f64;
     for (a, b) in solver.u.internal.as_slice().iter().zip(u_ref.iter()) {
         let d = (*a - *b).mag();
-        if d > max_diff { max_diff = d; }
+        if d > max_diff {
+            max_diff = d;
+        }
     }
     let rel = max_diff / U_LID;
     println!("cavity max |U_rust − U_icofoam| / U_lid = {rel:.4}");
@@ -210,7 +229,10 @@ fn cavity_velocity_matches_icofoam() {
     // residual is the scheme difference — first-order upwind convection here vs
     // icoFoam's second-order `Gauss linear` on the coarse 20×20 mesh. A 2.5 %
     // bound confirms the field is reproduced with margin for that difference.
-    assert!(rel < 0.025, "velocity mismatch vs icoFoam: {rel:.4} (> 2.5%)");
+    assert!(
+        rel < 0.025,
+        "velocity mismatch vs icoFoam: {rel:.4} (> 2.5%)"
+    );
 }
 
 /// Ghia 1982 benchmark: U_x along the vertical centreline at Re = 100.
@@ -221,6 +243,6 @@ fn cavity_ghia_benchmark_re100() {
     // Assert relative error < 2 % at all 17 points.
     for (y, ux_ref) in GHIA_Y.iter().zip(GHIA_UX.iter()) {
         let _ = (y, ux_ref, U_LID, L, NU); // suppress unused warnings
-        // TODO: interpolate and compare
+                                           // TODO: interpolate and compare
     }
 }

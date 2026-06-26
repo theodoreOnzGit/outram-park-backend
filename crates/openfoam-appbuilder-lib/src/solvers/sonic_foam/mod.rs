@@ -19,12 +19,12 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
-use openfoam_basic_lib::prelude::*;
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
 use crate::io::fv_solution::FvSolution;
+use openfoam_basic_lib::prelude::*;
+use std::sync::Arc;
 
 /// Transonic/supersonic compressible solver — sonicFoam.
 ///
@@ -39,22 +39,22 @@ use crate::io::fv_solution::FvSolution;
 ///
 /// C++ solver: `applications/solvers/compressible/sonicFoam/`
 pub struct SonicFoam {
-    pub mesh:     Arc<FvMesh>,
-    pub control:  ControlDict,
-    pub schemes:  FvSchemes,
+    pub mesh: Arc<FvMesh>,
+    pub control: ControlDict,
+    pub schemes: FvSchemes,
     pub solution: FvSolution,
     /// Velocity field [m/s]
-    pub u:   VolVectorField,
+    pub u: VolVectorField,
     /// Pressure [Pa]
-    pub p:   VolScalarField,
+    pub p: VolScalarField,
     /// Density [kg/m³]
     pub rho: VolScalarField,
     /// Specific internal energy e [J/kg]
-    pub e:   VolScalarField,
+    pub e: VolScalarField,
     /// Compressibility ψ = ρ/p [s²/m²]
     pub psi: VolScalarField,
     /// Dynamic viscosity μ [Pa·s]
-    pub mu:  VolScalarField,
+    pub mu: VolScalarField,
     /// Mass flux φ = ρ U·Sf [kg/s]
     pub phi: SurfaceScalarField,
 }
@@ -66,14 +66,26 @@ impl SonicFoam {
         schemes: FvSchemes,
         solution: FvSolution,
     ) -> Self {
-        let u   = VolVectorField::zero("U",  mesh.clone());
-        let p   = VolScalarField::uniform("p",  mesh.clone(), 1.0e5);
+        let u = VolVectorField::zero("U", mesh.clone());
+        let p = VolScalarField::uniform("p", mesh.clone(), 1.0e5);
         let rho = VolScalarField::uniform("rho", mesh.clone(), 1.0);
-        let e   = VolScalarField::zeros("e", mesh.clone());
+        let e = VolScalarField::zeros("e", mesh.clone());
         let psi = VolScalarField::uniform("psi", mesh.clone(), 1.0e-5);
-        let mu  = VolScalarField::uniform("mu",  mesh.clone(), 1.8e-5);
+        let mu = VolScalarField::uniform("mu", mesh.clone(), 1.8e-5);
         let phi = SurfaceScalarField::zeros("phi", mesh.clone());
-        Self { mesh, control, schemes, solution, u, p, rho, e, psi, mu, phi }
+        Self {
+            mesh,
+            control,
+            schemes,
+            solution,
+            u,
+            p,
+            rho,
+            e,
+            psi,
+            mu,
+            phi,
+        }
     }
 
     /// Advance one time step.
@@ -85,19 +97,23 @@ impl SonicFoam {
     ///   4. Update ρ = ψ·p
     pub fn step(&mut self) -> Result<(), AppBuilderError> {
         let mesh = self.mesh.clone();
-        let n    = mesh.n_cells;
-        let dt   = self.control.delta_t;
+        let n = mesh.n_cells;
+        let dt = self.control.delta_t;
         let settings = SolverSettings::default();
         let n_inner = self.solution.pimple.n_correctors.max(1);
 
-        let u_old   = self.u.clone();
+        let u_old = self.u.clone();
         let rho_old = self.rho.clone();
-        let p_old   = self.p.clone();
+        let p_old = self.p.clone();
 
         // ── rhoEqn: explicit continuity ρ_new = ρ_old − dt · ∇·φ ────────────
         let div_phi = fvc::div_flux(&self.phi);
         self.rho = rho_old.clone() + (-dt) * div_phi;
-        for c in 0..n { if self.rho.internal[c] < 1e-4 { self.rho.internal[c] = 1e-4; } }
+        for c in 0..n {
+            if self.rho.internal[c] < 1e-4 {
+                self.rho.internal[c] = 1e-4;
+            }
+        }
 
         // ── UEqn: ∂(ρU)/∂t + ∇·(ρUU) − ∇·(μ∇U) ────────────────────────────
         let mut u_eqn = fvm::ddt_coeff_vec(&self.rho, &self.u, &u_old, dt, mesh.clone())
@@ -111,8 +127,13 @@ impl SonicFoam {
                 .map(|c| mesh.cell_volumes[c] / a_sl[c].max(1e-30))
                 .collect();
             VolScalarField::new(
-                "rAU", mesh.clone(), Field::new(vals),
-                mesh.patches.iter().map(|p| PatchField::zero_gradient(p.size)).collect(),
+                "rAU",
+                mesh.clone(),
+                Field::new(vals),
+                mesh.patches
+                    .iter()
+                    .map(|p| PatchField::zero_gradient(p.size))
+                    .collect(),
             )
         };
 
@@ -135,14 +156,19 @@ impl SonicFoam {
                 .map(|c| h_sl[c] * (1.0 / a_sl[c].max(1e-30)))
                 .collect();
             VolVectorField::new(
-                "HbyA", mesh.clone(), Field::new(vals),
-                mesh.patches.iter().map(|p| PatchField::zero_gradient_vec(p.size)).collect(),
+                "HbyA",
+                mesh.clone(),
+                Field::new(vals),
+                mesh.patches
+                    .iter()
+                    .map(|p| PatchField::zero_gradient_vec(p.size))
+                    .collect(),
             )
         };
 
         // rhor AUf = ρ_f · rAU_f  [s] — face coefficient for pressure Laplacian
-        let rho_f  = fvc::interpolate(&self.rho);
-        let rauf   = fvc::interpolate(&rau);
+        let rho_f = fvc::interpolate(&self.rho);
+        let rauf = fvc::interpolate(&rau);
         let rho_rauf = rho_f.clone() * rauf.clone();
 
         // phiHbyA = ρ_f · flux(HbyA) [kg/s]
@@ -154,7 +180,7 @@ impl SonicFoam {
             let mut s = vec![0.0_f64; n];
             let phi_int = phi_hbya.internal.as_slice();
             for f in 0..mesh.n_internal_faces {
-                s[mesh.owner[f]]     += phi_int[f];
+                s[mesh.owner[f]] += phi_int[f];
                 s[mesh.neighbour[f]] -= phi_int[f];
             }
             for (pi, patch) in mesh.patches.iter().enumerate() {
@@ -169,19 +195,19 @@ impl SonicFoam {
         // ψ face flux: phid = psi_f · vol_phi = ψ·U·Sf [s²/m² · m³/s = s/m]
         // Used for explicit convection term ∇·(ψ·U·p): phid·p is a density flux
         let psi_f = fvc::interpolate(&self.psi);
-        let vol_phi = fvc::flux(&self.u);             // U·Sf [m³/s]
-        let phid   = psi_f * vol_phi;                 // ψ_f · U·Sf [s/m · m³/s = m²/s... units: s²/m² * m³/s = s/m]
+        let vol_phi = fvc::flux(&self.u); // U·Sf [m³/s]
+        let phid = psi_f * vol_phi; // ψ_f · U·Sf [s/m · m³/s = m²/s... units: s²/m² * m³/s = s/m]
 
         // Explicit ∇·(ψ_d p): contributes to RHS as convective term for p
-        let div_phid_p = fvc::div(&phid, &self.p);   // ∇·(phid·p)/V, per-unit-volume
+        let div_phid_p = fvc::div(&phid, &self.p); // ∇·(phid·p)/V, per-unit-volume
 
         // ── PISO inner pressure correctors ────────────────────────────────────
         // pEqn: ψ·V/dt · p − ∇·(ρ·rAU·∇p) = ψ·V/dt · p_old − Σ_f phi_hbya_f − V·∇·(ψ_d p)
         for _ in 0..n_inner {
             let mut p_eqn = fvm::laplacian(&rho_rauf, &self.p);
-            let psi_sl   = self.psi.internal.as_slice();
+            let psi_sl = self.psi.internal.as_slice();
             let p_old_sl = p_old.internal.as_slice();
-            let ddp_sl   = div_phid_p.internal.as_slice();
+            let ddp_sl = div_phid_p.internal.as_slice();
             let mut src = source_p_base.clone();
             for c in 0..n {
                 let pvdt = psi_sl[c] * mesh.cell_volumes[c] / dt;
@@ -200,7 +226,7 @@ impl SonicFoam {
         // ── Corrections ───────────────────────────────────────────────────────
         let sng = fvc::sn_grad(&self.p);
         {
-            let sng_sl      = sng.internal.as_slice();
+            let sng_sl = sng.internal.as_slice();
             let rho_rauf_sl = rho_rauf.internal.as_slice();
             let mut phi_corr = phi_hbya;
             for f in 0..mesh.n_internal_faces {
@@ -213,7 +239,7 @@ impl SonicFoam {
         // Update ρ = ψ · p
         {
             let psi_sl = self.psi.internal.as_slice();
-            let p_sl   = self.p.internal.as_slice();
+            let p_sl = self.p.internal.as_slice();
             for c in 0..n {
                 self.rho.internal[c] = (psi_sl[c] * p_sl[c]).max(1e-4);
             }

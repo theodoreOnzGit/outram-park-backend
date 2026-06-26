@@ -179,12 +179,12 @@
 //!    `U`/`phi` (constant across the inner correctors). See
 //!    `openfoam_basic_lib::fv_operators::fvc::ddt_corr`.
 
-use std::sync::Arc;
-use openfoam_basic_lib::prelude::*;
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
 use crate::io::fv_solution::FvSolution;
+use openfoam_basic_lib::prelude::*;
+use std::sync::Arc;
 
 /// Re-apply a scalar boundary-condition template to a field after a solve has
 /// rebuilt it with zero-gradient boundaries (OpenFOAM `correctBoundaryConditions`).
@@ -194,7 +194,9 @@ fn correct_bcs(field: &mut VolScalarField, bcs: &[BoundaryCondition<f64>]) {
     for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
         pf.bc = bc.clone();
         if let BoundaryCondition::FixedValue(v) = bc {
-            for x in pf.values.iter_mut() { *x = *v; }
+            for x in pf.values.iter_mut() {
+                *x = *v;
+            }
         }
     }
 }
@@ -204,7 +206,9 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
     for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
         pf.bc = bc.clone();
         if let BoundaryCondition::FixedValue(v) = bc {
-            for x in pf.values.iter_mut() { *x = *v; }
+            for x in pf.values.iter_mut() {
+                *x = *v;
+            }
         }
     }
 }
@@ -225,18 +229,18 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
 /// point-by-point justification of where (and why) this port's signs and
 /// solver choices differ from the C++ original.
 pub struct PimpleFoam {
-    pub mesh:     Arc<FvMesh>,
-    pub control:  ControlDict,
-    pub schemes:  FvSchemes,
+    pub mesh: Arc<FvMesh>,
+    pub control: ControlDict,
+    pub schemes: FvSchemes,
     pub solution: FvSolution,
     /// Velocity field [m/s]
-    pub u:   VolVectorField,
+    pub u: VolVectorField,
     /// Kinematic pressure field p/ρ [m²/s²]
-    pub p:   VolScalarField,
+    pub p: VolScalarField,
     /// Face volumetric flux φ = U·Sf [m³/s]
     pub phi: SurfaceScalarField,
     /// Kinematic viscosity ν [m²/s]
-    pub nu:  VolScalarField,
+    pub nu: VolScalarField,
 }
 
 impl PimpleFoam {
@@ -246,11 +250,20 @@ impl PimpleFoam {
         schemes: FvSchemes,
         solution: FvSolution,
     ) -> Self {
-        let u   = VolVectorField::zero("U",   mesh.clone());
-        let p   = VolScalarField::zeros("p",  mesh.clone());
+        let u = VolVectorField::zero("U", mesh.clone());
+        let p = VolScalarField::zeros("p", mesh.clone());
         let phi = SurfaceScalarField::zeros("phi", mesh.clone());
-        let nu  = VolScalarField::uniform("nu", mesh.clone(), 1e-5);
-        Self { mesh, control, schemes, solution, u, p, phi, nu }
+        let nu = VolScalarField::uniform("nu", mesh.clone(), 1e-5);
+        Self {
+            mesh,
+            control,
+            schemes,
+            solution,
+            u,
+            p,
+            phi,
+            nu,
+        }
     }
 
     /// Advance the solution by one time step using the PIMPLE algorithm.
@@ -263,19 +276,22 @@ impl PimpleFoam {
     ///   Laplacian coeff = rAUf · area/delta ∈ s·m  →  coeff·p (m²/s²) = m³/s ✓
     pub fn step(&mut self) -> Result<(), AppBuilderError> {
         let mesh = self.mesh.clone();
-        let n    = mesh.n_cells;
-        let dt   = self.control.delta_t;
+        let n = mesh.n_cells;
+        let dt = self.control.delta_t;
         let settings = SolverSettings::default();
         // The pressure Poisson equation is symmetric SPD and elliptic; it is
         // solved with preconditioned conjugate gradient (`solve_cg`), which
         // converges in O(√κ) iterations. An under-solved pEqn leaves residual
         // divergence that accumulates and destabilises the run, so the tolerance
         // is kept tight.
-        let p_settings = SolverSettings { tolerance: 1e-8, max_iter: 2_000 };
+        let p_settings = SolverSettings {
+            tolerance: 1e-8,
+            max_iter: 2_000,
+        };
         let n_outer = self.solution.pimple.n_outer_correctors.max(1);
         let n_inner = self.solution.pimple.n_correctors.max(1);
 
-        let u_old   = self.u.clone();
+        let u_old = self.u.clone();
         let phi_old = self.phi.clone(); // old-time flux for the ddtCorr term
 
         // Capture the boundary-condition templates before any solve. The linear
@@ -307,9 +323,13 @@ impl PimpleFoam {
                     .map(|c| mesh.cell_volumes[c] / a_data[c].max(1e-30))
                     .collect();
                 VolScalarField::new(
-                    "rAU", mesh.clone(),
+                    "rAU",
+                    mesh.clone(),
                     Field::new(rau_vals),
-                    mesh.patches.iter().map(|p| PatchField::zero_gradient(p.size)).collect(),
+                    mesh.patches
+                        .iter()
+                        .map(|p| PatchField::zero_gradient(p.size))
+                        .collect(),
                 )
             };
 
@@ -329,7 +349,7 @@ impl PimpleFoam {
             // rAUf = interpolate(rAU) at faces [s]; ddtCorr (Rhie–Chow flux
             // correction) uses the time-old U/phi and so is constant across the
             // PISO correctors below. Both are computed once per outer iteration.
-            let rauf     = fvc::interpolate(&rau);
+            let rauf = fvc::interpolate(&rau);
             let ddt_corr = fvc::ddt_corr(&u_old, &phi_old, dt);
 
             // ── PISO pressure-correction loop ────────────────────────────────
@@ -345,15 +365,19 @@ impl PimpleFoam {
                 // HbyA = H(U)/A [m/s] — H re-evaluated from the current U.
                 let h = u_eqn.h_field(&self.u);
                 let hbya = {
-                    let h_data  = h.internal.as_slice();
-                    let a_data  = a.internal.as_slice();
+                    let h_data = h.internal.as_slice();
+                    let a_data = a.internal.as_slice();
                     let vals: Vec<Vector3> = (0..n)
                         .map(|c| h_data[c] * (1.0 / a_data[c].max(1e-30)))
                         .collect();
                     VolVectorField::new(
-                        "HbyA", mesh.clone(),
+                        "HbyA",
+                        mesh.clone(),
                         Field::new(vals),
-                        mesh.patches.iter().map(|p| PatchField::zero_gradient_vec(p.size)).collect(),
+                        mesh.patches
+                            .iter()
+                            .map(|p| PatchField::zero_gradient_vec(p.size))
+                            .collect(),
                     )
                 };
 
@@ -365,7 +389,7 @@ impl PimpleFoam {
                 let mut phi_hbya = fvc::flux(&hbya);
                 {
                     let rauf_int = rauf.internal.as_slice();
-                    let dc_int   = ddt_corr.internal.as_slice();
+                    let dc_int = ddt_corr.internal.as_slice();
                     for f in 0..mesh.n_internal_faces {
                         phi_hbya.internal[f] += rauf_int[f] * dc_int[f];
                     }
@@ -383,7 +407,7 @@ impl PimpleFoam {
                     let mut s = vec![0.0_f64; n];
                     let phi_int = phi_hbya.internal.as_slice();
                     for f in 0..mesh.n_internal_faces {
-                        s[mesh.owner[f]]     -= phi_int[f];
+                        s[mesh.owner[f]] -= phi_int[f];
                         s[mesh.neighbour[f]] += phi_int[f];
                     }
                     // Boundary flux is the prescribed U_BC·Sf (0 through a
@@ -416,7 +440,7 @@ impl PimpleFoam {
                 // Correct the face flux: phi = phiHbyA − rAUf·snGrad(p)·|Sf|
                 let sng = fvc::sn_grad(&self.p);
                 {
-                    let sng_int  = sng.internal.as_slice();
+                    let sng_int = sng.internal.as_slice();
                     let rauf_int = rauf.internal.as_slice();
                     for f in 0..mesh.n_internal_faces {
                         phi_hbya.internal[f] -= rauf_int[f] * sng_int[f] * mesh.face_areas[f];

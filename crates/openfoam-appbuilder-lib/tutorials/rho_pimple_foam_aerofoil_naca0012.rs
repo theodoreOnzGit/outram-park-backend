@@ -81,9 +81,9 @@
 //! task in `openfoam-turbulence-lib`). The verification bodies below are wired
 //! and ready; only the turbulence model is missing.
 
-use std::path::Path;
 use openfoam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
 use openfoam_basic_lib::prelude::PatchKind;
+use std::path::Path;
 
 const CASE_DIR: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -91,17 +91,25 @@ const CASE_DIR: &str = concat!(
 );
 
 // ── Flow conditions (must match 0.orig/ files) ────────────────────────────────
-const U_INF: f64 = 200.0;   // m/s  (x-direction)
-const P_INF: f64 = 1.0e5;   // Pa
-const T_INF: f64 = 298.0;   // K
+const U_INF: f64 = 200.0; // m/s  (x-direction)
+const P_INF: f64 = 1.0e5; // Pa
+const T_INF: f64 = 298.0; // K
 const GAMMA: f64 = 1.4;
 const R_AIR: f64 = 287.058; // J/(kg·K)
 
 // Derived
-fn rho_inf() -> f64 { P_INF / (R_AIR * T_INF) }
-fn c_inf()   -> f64 { (GAMMA * R_AIR * T_INF).sqrt() }
-fn mach_inf() -> f64 { U_INF / c_inf() }
-fn q_inf()   -> f64 { 0.5 * rho_inf() * U_INF * U_INF }
+fn rho_inf() -> f64 {
+    P_INF / (R_AIR * T_INF)
+}
+fn c_inf() -> f64 {
+    (GAMMA * R_AIR * T_INF).sqrt()
+}
+fn mach_inf() -> f64 {
+    U_INF / c_inf()
+}
+fn q_inf() -> f64 {
+    0.5 * rho_inf() * U_INF * U_INF
+}
 
 // Chord length [m] — must match blockMeshDict / extrudeMeshDict
 const CHORD: f64 = 1.0;
@@ -113,7 +121,9 @@ const REFERENCE_CL: f64 = 0.0; // placeholder
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-fn case_dir() -> &'static Path { Path::new(CASE_DIR) }
+fn case_dir() -> &'static Path {
+    Path::new(CASE_DIR)
+}
 
 fn poly_mesh_present() -> bool {
     let pm = case_dir().join("constant").join("polyMesh");
@@ -138,14 +148,27 @@ fn aerofoil_mesh_loads() {
     let mesh = read_poly_mesh(&case_dir().join("constant").join("polyMesh"))
         .expect("polyMesh should load");
     mesh.validate().expect("mesh consistency check");
-    assert_eq!(mesh.n_cells, 16_000, "extruded NACA0012 C-grid has 16 000 cells");
+    assert_eq!(
+        mesh.n_cells, 16_000,
+        "extruded NACA0012 C-grid has 16 000 cells"
+    );
     assert_eq!(mesh.n_internal_faces, 31_760);
-    assert_eq!(mesh.patches.len(), 5, "patches: aerofoil, inlet, outlet, back, front");
+    assert_eq!(
+        mesh.patches.len(),
+        5,
+        "patches: aerofoil, inlet, outlet, back, front"
+    );
 
-    let aerofoil = mesh.patches.iter().find(|p| p.name == "aerofoil")
+    let aerofoil = mesh
+        .patches
+        .iter()
+        .find(|p| p.name == "aerofoil")
         .expect("mesh must have an 'aerofoil' patch");
     assert_eq!(aerofoil.kind, PatchKind::Wall, "aerofoil patch is a wall");
-    assert!(aerofoil.size > 0, "aerofoil wall must have faces to integrate Cp/CL over");
+    assert!(
+        aerofoil.size > 0,
+        "aerofoil wall must have faces to integrate Cp/CL over"
+    );
 }
 
 /// Pressure coefficient Cp on the aerofoil wall vs OpenFOAM reference.

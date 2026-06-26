@@ -19,25 +19,25 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::path::Path;
 use crate::error::AppBuilderError;
+use std::path::Path;
 
 /// Parsed contents of an OpenFOAM `system/controlDict` file.
 #[derive(Debug, Clone)]
 pub struct ControlDict {
-    pub application:    String,
-    pub start:          StartControl,
-    pub stop:           StopControl,
-    pub delta_t:        f64,
-    pub write_control:  WriteControl,
+    pub application: String,
+    pub start: StartControl,
+    pub stop: StopControl,
+    pub delta_t: f64,
+    pub write_control: WriteControl,
     pub write_interval: f64,
-    pub purge_write:    usize,
-    pub write_format:   WriteFormat,
+    pub purge_write: usize,
+    pub write_format: WriteFormat,
     pub write_precision: usize,
     pub run_time_modifiable: bool,
     pub adjust_time_step: bool,
-    pub max_co:         f64,
-    pub max_delta_t:    f64,
+    pub max_co: f64,
+    pub max_delta_t: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]

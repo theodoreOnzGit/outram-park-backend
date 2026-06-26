@@ -56,15 +56,15 @@
 //! ~3.7 % with the earlier first-order flux), shock front within ~2 cells of the
 //! exact Sod position.
 
-use std::path::Path;
-use openfoam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
+use openfoam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
 use openfoam_appbuilder_lib::io::field_reader::{
     read_vol_scalar_field, read_vol_scalar_field_full, read_vol_vector_field_full,
 };
-use openfoam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
 use openfoam_appbuilder_lib::io::fv_schemes::FvSchemes;
 use openfoam_appbuilder_lib::io::fv_solution::FvSolution;
+use openfoam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
 use openfoam_appbuilder_lib::solvers::rho_central_foam::RhoCentralFoam;
+use std::path::Path;
 
 const CASE_DIR: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -72,22 +72,22 @@ const CASE_DIR: &str = concat!(
 );
 
 // ── Gas properties (constant/thermophysicalProperties: perfectGas, hConst) ───
-const MOL_WEIGHT: f64 = 28.96;                 // g/mol
-const R_UNIVERSAL: f64 = 8314.46261815324;     // J/(kmol·K)
-const R_GAS: f64 = R_UNIVERSAL / MOL_WEIGHT;   // J/(kg·K) ≈ 287.1
-const GAMMA: f64 = 1.4;                        // matches the solver's hard-coded γ
+const MOL_WEIGHT: f64 = 28.96; // g/mol
+const R_UNIVERSAL: f64 = 8314.46261815324; // J/(kmol·K)
+const R_GAS: f64 = R_UNIVERSAL / MOL_WEIGHT; // J/(kg·K) ≈ 287.1
+const GAMMA: f64 = 1.4; // matches the solver's hard-coded γ
 
 // ── Sod shock tube initial conditions (SI) ───────────────────────────────────
 // Left state: high pressure driver
-const P_LEFT:   f64 = 1.0e5;   // Pa
-const RHO_LEFT: f64 = 1.0;     // kg/m³
-// Right state: low pressure driven
-const P_RIGHT:   f64 = 1.0e4;  // Pa
-const RHO_RIGHT: f64 = 0.125;  // kg/m³
-// Diaphragm position (domain x ∈ [−5, 5], diaphragm at the centre)
-const X_DIAPHRAGM: f64 = 0.0;  // m
-// End time (must match controlDict)
-const T_END: f64 = 0.007;      // s
+const P_LEFT: f64 = 1.0e5; // Pa
+const RHO_LEFT: f64 = 1.0; // kg/m³
+                           // Right state: low pressure driven
+const P_RIGHT: f64 = 1.0e4; // Pa
+const RHO_RIGHT: f64 = 0.125; // kg/m³
+                              // Diaphragm position (domain x ∈ [−5, 5], diaphragm at the centre)
+const X_DIAPHRAGM: f64 = 0.0; // m
+                              // End time (must match controlDict)
+const T_END: f64 = 0.007; // s
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -120,26 +120,32 @@ fn build_shock_tube_solver() -> RhoCentralFoam {
         .expect("read 0/p failed");
     let u0 = read_vol_vector_field_full(&case_dir().join("0").join("U"), &mesh)
         .expect("read 0/U failed");
-    let t0 = read_vol_scalar_field(&case_dir().join("0").join("T"), n)
-        .expect("read 0/T failed");
+    let t0 = read_vol_scalar_field(&case_dir().join("0").join("T"), n).expect("read 0/T failed");
 
     let control = ControlDict {
         start: StartControl::StartTime(0.0),
-        stop:  StopControl::EndTime(T_END),
+        stop: StopControl::EndTime(T_END),
         delta_t: 1e-6,
         ..ControlDict::default()
     };
     let mut solver = RhoCentralFoam::new(
-        mesh.clone(), control, FvSchemes::default(), FvSolution::default(),
+        mesh.clone(),
+        control,
+        FvSchemes::default(),
+        FvSolution::default(),
     );
 
     // Initial primitive → conservative state.
     let p_sl = p0.internal.as_slice();
     let rho = solver.rho.internal.as_mut_slice();
-    for c in 0..n { rho[c] = p_sl[c] / (R_GAS * t0[c]); }
+    for c in 0..n {
+        rho[c] = p_sl[c] / (R_GAS * t0[c]);
+    }
     let rho_vals: Vec<f64> = solver.rho.internal.as_slice().to_vec();
     let e = solver.e.internal.as_mut_slice();
-    for c in 0..n { e[c] = p_sl[c] / ((GAMMA - 1.0) * rho_vals[c]); }
+    for c in 0..n {
+        e[c] = p_sl[c] / ((GAMMA - 1.0) * rho_vals[c]);
+    }
 
     solver.p = p0;
     solver.u = u0;
@@ -149,9 +155,13 @@ fn build_shock_tube_solver() -> RhoCentralFoam {
 /// Smoke test: read the polyMesh and verify basic mesh consistency.
 #[test]
 fn shock_tube_mesh_loads() {
-    assert!(poly_mesh_present(), "polyMesh files missing — run `blockMesh` in {CASE_DIR}");
+    assert!(
+        poly_mesh_present(),
+        "polyMesh files missing — run `blockMesh` in {CASE_DIR}"
+    );
     let mesh = read_poly_mesh(&poly_mesh_dir()).expect("polyMesh should load");
-    mesh.validate().expect("mesh should pass consistency checks");
+    mesh.validate()
+        .expect("mesh should pass consistency checks");
     assert_eq!(mesh.n_cells, 100, "Sod tube mesh has 100 cells");
 }
 
@@ -167,7 +177,10 @@ fn shock_tube_pressure_matches_openfoam() {
 
     let p_rust = solver.p.internal.as_slice();
     let nfin = p_rust.iter().filter(|v| !v.is_finite()).count();
-    assert_eq!(nfin, 0, "solver produced {nfin} non-finite pressure cells (diverged)");
+    assert_eq!(
+        nfin, 0,
+        "solver produced {nfin} non-finite pressure cells (diverged)"
+    );
 
     let ref_max = p_ref.iter().cloned().fold(0.0_f64, f64::max);
     let ref_sum: f64 = p_ref.iter().map(|v| v.abs()).sum();
@@ -176,10 +189,12 @@ fn shock_tube_pressure_matches_openfoam() {
     for (a, b) in p_rust.iter().zip(p_ref.iter()) {
         let d = (a - b).abs();
         sum_diff += d;
-        if d > max_diff { max_diff = d; }
+        if d > max_diff {
+            max_diff = d;
+        }
     }
-    let l_inf = max_diff / ref_max;     // ∞-norm: dominated by the shock front
-    let l1    = sum_diff / ref_sum;     // mean relative error (standard metric)
+    let l_inf = max_diff / ref_max; // ∞-norm: dominated by the shock front
+    let l1 = sum_diff / ref_sum; // mean relative error (standard metric)
     println!("shock tube: L1 rel err = {l1:.4}, L∞ rel err = {l_inf:.4}");
     // The L1 (mean) error is the standard shock-tube metric. This port now uses
     // the same scheme family as OpenFOAM's rhoCentralFoam — a KNP flux with
@@ -187,7 +202,10 @@ fn shock_tube_pressure_matches_openfoam() {
     // the 100-cell mesh the agreement is ~0.7 % (it was ~3.7 % with the earlier
     // first-order flux). The residual L∞ (~4 %) is the one-cell front-offset
     // spike at the shock jump.
-    assert!(l1 < 0.015, "mean pressure error vs OpenFOAM: {l1:.4} (> 1.5%)");
+    assert!(
+        l1 < 0.015,
+        "mean pressure error vs OpenFOAM: {l1:.4} (> 1.5%)"
+    );
 }
 
 /// Wave-speed check: the right-moving shock front sits at the theoretical Sod
@@ -204,9 +222,9 @@ fn shock_tube_shock_position() {
     // Exact Sod (γ=1.4, p4/p1 = 10, ρ ratio 8) right-moving shock Mach number
     // is ≈ 1.752, so the shock speed is M·c1 with c1 the sound speed in the
     // undisturbed low-pressure gas.
-    let c_low   = (GAMMA * P_RIGHT / RHO_RIGHT).sqrt();   // ≈ 374 m/s
+    let c_low = (GAMMA * P_RIGHT / RHO_RIGHT).sqrt(); // ≈ 374 m/s
     let s_shock = 1.752 * c_low;
-    let x_theory = X_DIAPHRAGM + s_shock * T_END;          // x0 = 0 here
+    let x_theory = X_DIAPHRAGM + s_shock * T_END; // x0 = 0 here
 
     // Locate the shock as the steepest pressure jump on the low-pressure side.
     let mesh = solver.mesh.clone();
@@ -216,15 +234,25 @@ fn shock_tube_shock_position() {
     for f in 0..mesh.n_internal_faces {
         let (o, nb) = (mesh.owner[f], mesh.neighbour[f]);
         let xf = 0.5 * (mesh.cell_centres[o].x + mesh.cell_centres[nb].x);
-        if xf <= 0.0 { continue; } // shock is on the right (low-p) side
+        if xf <= 0.0 {
+            continue;
+        } // shock is on the right (low-p) side
         let g = (p[o] - p[nb]).abs();
-        if g > max_grad { max_grad = g; x_front = xf; }
+        if g > max_grad {
+            max_grad = g;
+            x_front = xf;
+        }
     }
     let dx = 10.0 / 100.0; // cell width
     println!("shock tube: shock at x = {x_front:.3}, theory = {x_theory:.3} (dx = {dx})");
-    assert!(x_front > 0.0, "shock should propagate into the low-p (right) region");
+    assert!(
+        x_front > 0.0,
+        "shock should propagate into the low-p (right) region"
+    );
     // First-order KNP smears the front; accept a few cell widths of slack.
-    assert!((x_front - x_theory).abs() < 4.0 * dx,
-        "shock position {x_front:.3} off theory {x_theory:.3} by > 4 cells");
+    assert!(
+        (x_front - x_theory).abs() < 4.0 * dx,
+        "shock position {x_front:.3} off theory {x_theory:.3} by > 4 cells"
+    );
     let _ = (P_LEFT, RHO_LEFT);
 }

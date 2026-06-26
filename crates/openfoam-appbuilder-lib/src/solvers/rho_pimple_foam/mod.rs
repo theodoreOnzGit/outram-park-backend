@@ -19,12 +19,12 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
-use openfoam_basic_lib::prelude::*;
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
 use crate::io::fv_solution::FvSolution;
+use openfoam_basic_lib::prelude::*;
+use std::sync::Arc;
 
 /// Compressible transient PIMPLE solver — rhoPimpleFoam.
 ///
@@ -39,28 +39,28 @@ use crate::io::fv_solution::FvSolution;
 ///
 /// C++ solver: `applications/solvers/compressible/rhoPimpleFoam/`
 pub struct RhoPimpleFoam {
-    pub mesh:     Arc<FvMesh>,
-    pub control:  ControlDict,
-    pub schemes:  FvSchemes,
+    pub mesh: Arc<FvMesh>,
+    pub control: ControlDict,
+    pub schemes: FvSchemes,
     pub solution: FvSolution,
     /// Velocity field [m/s]
-    pub u:       VolVectorField,
+    pub u: VolVectorField,
     /// Pressure field [Pa]
-    pub p:       VolScalarField,
+    pub p: VolScalarField,
     /// Density field [kg/m³]
-    pub rho:     VolScalarField,
+    pub rho: VolScalarField,
     /// Temperature field [K]
-    pub t:       VolScalarField,
+    pub t: VolScalarField,
     /// Specific enthalpy [J/kg]
-    pub he:      VolScalarField,
+    pub he: VolScalarField,
     /// Dynamic viscosity μ [Pa·s]
-    pub mu:      VolScalarField,
+    pub mu: VolScalarField,
     /// Effective thermal diffusivity αh = κ/Cp [kg/(m·s)]
     pub alpha_h: VolScalarField,
     /// Compressibility ψ = ∂ρ/∂p|_T = ρ/p [s²/m²]
-    pub psi:     VolScalarField,
+    pub psi: VolScalarField,
     /// Mass flux φ = ρ U·Sf [kg/s]
-    pub phi:     SurfaceScalarField,
+    pub phi: SurfaceScalarField,
 }
 
 impl RhoPimpleFoam {
@@ -70,16 +70,30 @@ impl RhoPimpleFoam {
         schemes: FvSchemes,
         solution: FvSolution,
     ) -> Self {
-        let u       = VolVectorField::zero("U",       mesh.clone());
-        let p       = VolScalarField::uniform("p",    mesh.clone(), 1.0e5);
-        let rho     = VolScalarField::uniform("rho",  mesh.clone(), 1.0);
-        let t       = VolScalarField::uniform("T",    mesh.clone(), 300.0);
-        let he      = VolScalarField::zeros("he",     mesh.clone());
-        let mu      = VolScalarField::uniform("mu",   mesh.clone(), 1.8e-5);
+        let u = VolVectorField::zero("U", mesh.clone());
+        let p = VolScalarField::uniform("p", mesh.clone(), 1.0e5);
+        let rho = VolScalarField::uniform("rho", mesh.clone(), 1.0);
+        let t = VolScalarField::uniform("T", mesh.clone(), 300.0);
+        let he = VolScalarField::zeros("he", mesh.clone());
+        let mu = VolScalarField::uniform("mu", mesh.clone(), 1.8e-5);
         let alpha_h = VolScalarField::uniform("alphaEff", mesh.clone(), 2.5e-5);
-        let psi     = VolScalarField::uniform("psi",  mesh.clone(), 1.0e-5);
-        let phi     = SurfaceScalarField::zeros("phi", mesh.clone());
-        Self { mesh, control, schemes, solution, u, p, rho, t, he, mu, alpha_h, psi, phi }
+        let psi = VolScalarField::uniform("psi", mesh.clone(), 1.0e-5);
+        let phi = SurfaceScalarField::zeros("phi", mesh.clone());
+        Self {
+            mesh,
+            control,
+            schemes,
+            solution,
+            u,
+            p,
+            rho,
+            t,
+            he,
+            mu,
+            alpha_h,
+            psi,
+            phi,
+        }
     }
 
     /// Advance one time step with compressible PIMPLE.
@@ -88,23 +102,25 @@ impl RhoPimpleFoam {
     /// ψ·V/dt so the system is consistent with ρ = ψ·p.
     pub fn step(&mut self) -> Result<(), AppBuilderError> {
         let mesh = self.mesh.clone();
-        let n    = mesh.n_cells;
-        let dt   = self.control.delta_t;
+        let n = mesh.n_cells;
+        let dt = self.control.delta_t;
         let settings = SolverSettings::default();
         let n_outer = self.solution.pimple.n_outer_correctors.max(1);
         let n_inner = self.solution.pimple.n_correctors.max(1);
 
-        let u_old   = self.u.clone();
-        let p_old   = self.p.clone();
-        let he_old  = self.he.clone();
+        let u_old = self.u.clone();
+        let p_old = self.p.clone();
+        let he_old = self.he.clone();
 
         for _ in 0..n_outer {
             // ── rhoEqn: explicit continuity ρ_new = ρ_old − dt · ∇·(ρU) ─────
-            let div_phi = fvc::div_flux(&self.phi);   // ∇·φ per unit volume [1/s]
+            let div_phi = fvc::div_flux(&self.phi); // ∇·φ per unit volume [1/s]
             self.rho = self.rho.clone() + (-dt) * div_phi;
             // Clamp density to a physical minimum
             for c in 0..n {
-                if self.rho.internal[c] < 1e-4 { self.rho.internal[c] = 1e-4; }
+                if self.rho.internal[c] < 1e-4 {
+                    self.rho.internal[c] = 1e-4;
+                }
             }
 
             // ── UEqn: ∂(ρU)/∂t + ∇·(ρUU) − ∇·(μ∇U) ────────────────────────
@@ -120,8 +136,13 @@ impl RhoPimpleFoam {
                     .map(|c| mesh.cell_volumes[c] / a_sl[c].max(1e-30))
                     .collect();
                 VolScalarField::new(
-                    "rAU", mesh.clone(), Field::new(vals),
-                    mesh.patches.iter().map(|p| PatchField::zero_gradient(p.size)).collect(),
+                    "rAU",
+                    mesh.clone(),
+                    Field::new(vals),
+                    mesh.patches
+                        .iter()
+                        .map(|p| PatchField::zero_gradient(p.size))
+                        .collect(),
                 )
             };
 
@@ -147,27 +168,32 @@ impl RhoPimpleFoam {
                     .map(|c| h_sl[c] * (1.0 / a_sl[c].max(1e-30)))
                     .collect();
                 VolVectorField::new(
-                    "HbyA", mesh.clone(), Field::new(vals),
-                    mesh.patches.iter().map(|p| PatchField::zero_gradient_vec(p.size)).collect(),
+                    "HbyA",
+                    mesh.clone(),
+                    Field::new(vals),
+                    mesh.patches
+                        .iter()
+                        .map(|p| PatchField::zero_gradient_vec(p.size))
+                        .collect(),
                 )
             };
 
             // Interpolated fields at faces
-            let rho_f  = fvc::interpolate(&self.rho);   // ρ_f [kg/m³]
-            let rauf   = fvc::interpolate(&rau);         // rAU_f [m³·s/kg]
-            // ρ_f · rAU_f → face coefficient for pressure Laplacian [m³·s/m³ = s... no, m³·s/kg · kg/m³ = s]
+            let rho_f = fvc::interpolate(&self.rho); // ρ_f [kg/m³]
+            let rauf = fvc::interpolate(&rau); // rAU_f [m³·s/kg]
+                                               // ρ_f · rAU_f → face coefficient for pressure Laplacian [m³·s/m³ = s... no, m³·s/kg · kg/m³ = s]
             let rho_rauf = rho_f.clone() * rauf.clone(); // [s]
 
             // phi_hbya = ρ_f · flux(HbyA): mass flux from HbyA [kg/s]
-            let vol_hbya = fvc::flux(&hbya);     // [m³/s]
-            let phi_hbya = rho_f * vol_hbya;     // [kg/s]
+            let vol_hbya = fvc::flux(&hbya); // [m³/s]
+            let phi_hbya = rho_f * vol_hbya; // [kg/s]
 
             // Raw mass-flux divergence for pressure source [kg/s]
             let source_p = {
                 let mut s = vec![0.0_f64; n];
                 let phi_int = phi_hbya.internal.as_slice();
                 for f in 0..mesh.n_internal_faces {
-                    s[mesh.owner[f]]     += phi_int[f];
+                    s[mesh.owner[f]] += phi_int[f];
                     s[mesh.neighbour[f]] -= phi_int[f];
                 }
                 for (pi, patch) in mesh.patches.iter().enumerate() {
@@ -182,7 +208,7 @@ impl RhoPimpleFoam {
             // Compressibility source terms: ψ·V/dt · p_old (for diagonal ψ·V/dt added to p_eqn)
             let mut psi_vdt = vec![0.0_f64; n];
             {
-                let psi_sl   = self.psi.internal.as_slice();
+                let psi_sl = self.psi.internal.as_slice();
                 let p_old_sl = p_old.internal.as_slice();
                 for c in 0..n {
                     psi_vdt[c] = psi_sl[c] * mesh.cell_volumes[c] / dt;
@@ -195,7 +221,7 @@ impl RhoPimpleFoam {
             for _ in 0..n_inner {
                 // p_eqn: ∇·(ρ_f·rAU_f·∇p) + ψ·V/dt·p = Σ_f phi_hbya_f + ψ·V/dt·p_old
                 let mut p_eqn = fvm::laplacian(&rho_rauf, &self.p);
-                let psi_sl   = self.psi.internal.as_slice();
+                let psi_sl = self.psi.internal.as_slice();
                 let p_old_sl = p_old.internal.as_slice();
                 let mut full_source = source_p.clone();
                 for c in 0..n {
@@ -212,7 +238,7 @@ impl RhoPimpleFoam {
             // Correct mass flux: phi = phi_hbya − ρ_f·rAU_f·snGrad(p)·|Sf|
             let sng = fvc::sn_grad(&self.p);
             {
-                let sng_sl      = sng.internal.as_slice();
+                let sng_sl = sng.internal.as_slice();
                 let rho_rauf_sl = rho_rauf.internal.as_slice();
                 let mut phi_corr = phi_hbya;
                 for f in 0..mesh.n_internal_faces {
@@ -227,7 +253,7 @@ impl RhoPimpleFoam {
             // Update density from EOS: ρ = ψ · p
             {
                 let psi_sl = self.psi.internal.as_slice();
-                let p_sl   = self.p.internal.as_slice();
+                let p_sl = self.p.internal.as_slice();
                 for c in 0..n {
                     self.rho.internal[c] = (psi_sl[c] * p_sl[c]).max(1e-4);
                 }
@@ -235,9 +261,9 @@ impl RhoPimpleFoam {
 
             // ── Energy equation (semi-implicit, explicit convection) ──────────
             // ∂(ρh)/∂t + ∇·(φh) − ∇·(αh∇h) = dp/dt
-            let conv_he     = fvc::div(&self.phi, &self.he);  // explicit ∇·(φh)/V
-            let alpha_h_f   = fvc::interpolate(&self.alpha_h);
-            let dp_dt       = (self.p.clone() - p_old.clone()) * (1.0 / dt);
+            let conv_he = fvc::div(&self.phi, &self.he); // explicit ∇·(φh)/V
+            let alpha_h_f = fvc::interpolate(&self.alpha_h);
+            let dp_dt = (self.p.clone() - p_old.clone()) * (1.0 / dt);
 
             let mut e_eqn = fvm::ddt_coeff(&self.rho, &self.he, &he_old, dt)
                 - fvm::laplacian(&alpha_h_f, &self.he);
@@ -246,8 +272,8 @@ impl RhoPimpleFoam {
                 let dpdt_sl = dp_dt.internal.as_slice();
                 for c in 0..n {
                     let v = mesh.cell_volumes[c];
-                    e_eqn.source[c] -= v * conv_sl[c];  // explicit convection
-                    e_eqn.source[c] += v * dpdt_sl[c];  // dp/dt source
+                    e_eqn.source[c] -= v * conv_sl[c]; // explicit convection
+                    e_eqn.source[c] += v * dpdt_sl[c]; // dp/dt source
                 }
             }
             let (he_new, _) = e_eqn.solve("he", settings);
