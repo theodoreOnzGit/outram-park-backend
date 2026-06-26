@@ -81,27 +81,6 @@ fn validate_zaloudek_curve_using_stagnation_conditions(
 // visible until the forward solver is fixed — do NOT add #[ignore].
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Note to AI agent, it is not HRM issue or physics, this is numerical 
-// problem in nature. I have already conversed with Opus:
-//
-// You've actually put your finger on it with that last line — let me separate the two things, because your splitting logic is correct and that's exactly why it's confusing that it still fails.
-
-// First, you're right to throw out HRM here. The reference is HEM, so the discrepancy has to be explainable entirely inside HEM. My cause (2) leaned on real-fluid metastability — scratch that. The problem is definitional/numerical, not physics.
-// 
-// Your split is fine. The brackets really are unimodal. Liquid side [p_bubble, p0]: monotone up to the bubble point. Two-phase side [p_min, p_bubble]: either monotone-decreasing from the bubble point (low p) or a single interior hump (higher p). Golden section handles both. So unimodality is not what's broken — and that's the trap.
-// 
-// What's broken is the objective, not the search. "Take the global max of G(p) = ρ·√(2(h0−h))" equals the HEM choke only at a smooth stationary point, where dG/dp = 0 is equivalent to v = c_HEM. At the bubble point c_HEM is discontinuous (your kink): it drops from ~1500 m/s to ~0.5 m/s. So:
-// 
-// - v rises smoothly through the bubble point and never equals c continuously — it's sub-sonic vs c_liquid just above, super-sonic vs c_2φ just below. The flow chokes at the kink, at G = ρ_f · c_2φ(p_bubble⁻).
-// - But at that kink dG/dp ≠ 0 — your energy-G is still climbing into the dome (ρ falls slowly while v keeps growing). So the choke is not a stationary point of G. It sits on the bracket boundary, which is precisely the point your "max within each bracket" can never select as a max.
-// 
-// That's your "even within the bracket" realization, sharpened: the maximiser inside [p_min, p_bubble] walks away from the bubble point to the next smooth sonic point deeper in the dome (→ p 11–21% low, 15–200 psia), or, when the two-phase side is monotone, it lands on the bubble endpoint but reports ρ_f·v_energy instead of ρ_f·c_2φ (→ G ×3–7 high, 5–10 psia, since v_energy ≫ c_2φ).
-// 
-// Check it numerically at 5 psia: G_ref/ρ_f = 457/977 ≈ 0.47 m/s = c_2φ, whereas √(2Δh) ≈ 3.4 m/s = v_energy. Zaloudek's x=0 curve is ρ·c_HEM at the throat saturation state; your solver computes the global max of ρ·v. Equal at a smooth throat, divergent at the kink — both in value (c_2φ vs v_energy) and in location (saturation line vs interior stationary point).
-// 
-// The in-HEM fix (no relaxation, no HRM): the energy max alone is blind to the kink because it never evaluates c. Add the bubble point as an explicit choke candidate computed with the downstream sound speed — G_kink = ρ_f · c_2φ(p_bubble⁻) at p = p_bubble — and select the first sonic point scanning down from p0 (treat the c discontinuity as a v = c crossing if v jumps from < c to > c), rather than the global ρ·v maximum. That's one HEM sound-speed call you've so far avoided by going pure energy-balance.
-// 
-// Want me to rewrite the canary comment along these lines — drop the HRM/metastability material, and frame it as (a) brackets are unimodal so the split is sound, (b) the objective max ρv ≠ HEM choke at the c-discontinuity, (c) fix = add the ρ_f·c_2φ bubble-point candidate / first-sonic-point scan?
 #[test]
 #[ignore="canary test, until the in dome and out of dome stagnation sub-tests are complete"]
 fn quality_0_05_stagnation(){
