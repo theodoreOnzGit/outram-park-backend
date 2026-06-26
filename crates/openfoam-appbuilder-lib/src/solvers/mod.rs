@@ -20,6 +20,7 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod hrm_foam;
+pub(crate) mod bc_util;
 pub mod pimple_foam;
 pub mod rho_central_foam;
 pub mod rho_pimple_foam;
