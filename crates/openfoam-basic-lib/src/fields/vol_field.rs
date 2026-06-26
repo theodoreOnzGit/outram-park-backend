@@ -105,7 +105,12 @@ where
 {
     type Output = VolField<T>;
     fn add(mut self, rhs: Self) -> Self::Output {
-        self.name = format!("({} + {})", self.name, rhs.name);
+        // NB: deliberately keep `self.name` unchanged. Rebuilding a compound
+        // name here (e.g. "(rho + div(phi))") makes the `name` String grow —
+        // and in a solver loop where a field is repeatedly reassigned from an
+        // expression containing itself, it grows *exponentially* (doubling per
+        // step), exhausting memory within ~25 steps. The name is only a
+        // diagnostic label; the left operand's name is the useful one.
         self.internal = self.internal + rhs.internal;
         for (l, r) in self.boundary.iter_mut().zip(rhs.boundary) {
             l.values = l.values.clone() + r.values;
@@ -120,7 +125,7 @@ where
 {
     type Output = VolField<T>;
     fn sub(mut self, rhs: Self) -> Self::Output {
-        self.name = format!("({} - {})", self.name, rhs.name);
+        // See `Add` above: do not rebuild the name (avoids unbounded growth).
         self.internal = self.internal - rhs.internal;
         for (l, r) in self.boundary.iter_mut().zip(rhs.boundary) {
             l.values = l.values.clone() - r.values;
@@ -135,7 +140,7 @@ where
 {
     type Output = VolField<T>;
     fn neg(mut self) -> Self::Output {
-        self.name = format!("(-{})", self.name);
+        // See `Add` above: do not rebuild the name (avoids unbounded growth).
         self.internal = -self.internal;
         for p in self.boundary.iter_mut() {
             p.values = -p.values.clone();

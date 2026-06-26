@@ -24,14 +24,10 @@ use crate::ldu_matrix::ldu_matrix::LduMatrix;
 /// Gauss-Seidel iterative solver for `A·x = b`.
 ///
 /// Performs at most `max_iter` sweeps; stops early when the normalised
-/// residual drops below `tol`.  Returns `(x, iters, final_residual)`.
+/// residual drops below `tol`.  Returns `(iters, final_residual)`.
 ///
 /// Mirrors `Foam::GaussSeidelSmoother` in
 /// `src/OpenFOAM/matrices/lduMatrix/smoothers/GaussSeidel/`.
-///
-/// Note: Gauss-Seidel is not the solver of choice for stiff CFD problems
-/// (conjugate-gradient / GAMG are preferred).  It is implemented here as
-/// the simplest baseline.
 pub fn gauss_seidel(
     mat: &LduMatrix,
     b: &[f64],
@@ -45,30 +41,26 @@ pub fn gauss_seidel(
     // Pre-compute inverse diagonal for efficiency
     let inv_diag: Vec<f64> = mat.diag.iter().map(|d| 1.0 / d).collect();
 
-    for iter in 0..max_iter {
-        // Compute upper contribution: y[o] += upper[f]*x[n]
-        // and lower: y[n] += lower[f]*x[o]   simultaneously.
-        // Standard Gauss-Seidel uses the most recently updated x values.
-        for f in 0..mat.n_internal_faces {
-            let o = mat.owner[f];
-            let n = mat.neighbour[f];
-            // Update owner cell first (uses current x[n])
-            // Then update neighbour (uses freshly computed x[o])
-            // This is the forward Gauss-Seidel sweep.
-            let _ = (o, n, f); // placeholder — actual update below in cell loop
-        }
+    let n = mat.n_cells;
 
-        // Cell-by-cell forward sweep
-        for c in 0..mat.n_cells {
+    // Build per-cell adjacency once per call: O(n_faces) total.
+    // adj[c] = list of (peer, coeff) where the off-diagonal coefficient is coeff.
+    // LDU convention: owner[f] < neighbour[f], so processing cells in order
+    // gives correct forward Gauss-Seidel (lower-indexed peers already updated).
+    let mut adj: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
+    for f in 0..mat.n_internal_faces {
+        let o  = mat.owner[f];
+        let nb = mat.neighbour[f];
+        adj[o].push((nb, mat.upper[f]));
+        adj[nb].push((o,  mat.lower[f]));
+    }
+
+    for iter in 0..max_iter {
+        // Forward sweep: O(n_faces) total because Σ adj[c].len() = 2·n_faces.
+        for c in 0..n {
             let mut sigma = b[c];
-            // Subtract off-diagonal contributions from all neighbouring cells.
-            // We need a pass over the face connectivity for cell c.
-            // This is O(n_cells * avg_faces_per_cell) per sweep.
-            for f in 0..mat.n_internal_faces {
-                let o = mat.owner[f];
-                let n = mat.neighbour[f];
-                if o == c { sigma -= mat.upper[f] * x[n]; }
-                if n == c { sigma -= mat.lower[f] * x[o]; }
+            for &(peer, coeff) in &adj[c] {
+                sigma -= coeff * x[peer];
             }
             x[c] = sigma * inv_diag[c];
         }

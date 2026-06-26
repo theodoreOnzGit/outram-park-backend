@@ -174,6 +174,33 @@ cargo test -p openfoam-basic-lib --test matrix_bench --release -- --nocapture
                                     rhoPimpleFoam → openfoam-rho)
 ```
 
+## Changelog
+
+### Unreleased
+
+- **Fixed an exponential-memory bug in field arithmetic (the "24 GB cavity").**
+  `VolField`/`SurfaceField`'s `Add`/`Sub`/`Neg` rebuilt the field's `name`
+  string on every call (`self.name = format!("({} + {})", self.name, rhs.name)`).
+  In a solver loop where a persistent field is reassigned from an expression
+  containing itself — e.g. `rho = rho + div(phi)`, with `phi`'s name embedding
+  `interpolate(rho)` — each operation glued two copies of the previous name
+  together, so the `name` String **doubled every timestep** (`2^step`). The
+  rhoPimpleFoam `compressible_lid_cavity` test grew to ~1.3 GB by step 24 and
+  was killed by OOM at step 25, with each step running ~2× slower than the last.
+
+  The trap: the field *data* was completely healthy — `internal`/`boundary`
+  Vecs stayed the correct size and the physics (`|U|`, `|p|`, `|phi|`) stayed
+  bounded — so it presented as a "leak"/hang rather than a numerical blow-up.
+  It was localised by printing `field.name.len()` per step: `rho`/`phi` names
+  doubled while freshly-`solve()`d fields (`U`, `p`, `he`) stayed constant.
+
+  Fix: arithmetic operators now leave `self.name` as the left operand's name.
+  This also matches OpenFOAM, where a `GeometricField` keeps its fixed
+  registered `IOobject` name and solvers *print* residual labels rather than
+  accumulating an expression string onto the field. After the fix the cavity
+  runs at a flat ~0.45 ms/step and ~3.7 MB RSS. See the Translation-notes
+  callout in `CLAUDE.md` for the full write-up.
+
 ## License
 
 GPL-3.0-only (matching the upstream OpenFOAM sources).

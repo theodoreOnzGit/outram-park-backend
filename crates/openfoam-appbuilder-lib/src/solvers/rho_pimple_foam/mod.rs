@@ -325,7 +325,6 @@ mod tests {
     /// (lid 1 m/s, c ≈ 316 m/s) exercises the full ρ/p/U coupling without
     /// needing turbulence or accurate thermophysics.
     #[test]
-    #[ignore = "debug this, this is taking more than 60s"]
     fn compressible_lid_cavity_stays_stable() {
         let case = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tutorials/cases/pimple_foam_cavity");

@@ -123,7 +123,10 @@ where
 {
     type Output = Self;
     fn add(mut self, rhs: Self) -> Self {
-        self.name = format!("({} + {})", self.name, rhs.name);
+        // NB: deliberately keep `self.name` unchanged. Rebuilding a compound
+        // name here makes the `name` String grow exponentially when a field is
+        // reassigned from an expression containing itself in a solver loop
+        // (see the matching note in `vol_field.rs`). The name is only a label.
         self.internal = self.internal + rhs.internal;
         for (l, r) in self.boundary.iter_mut().zip(rhs.boundary) {
             l.values = l.values.clone() + r.values;
@@ -138,7 +141,7 @@ where
 {
     type Output = Self;
     fn sub(mut self, rhs: Self) -> Self {
-        self.name = format!("({} - {})", self.name, rhs.name);
+        // See `Add` above: do not rebuild the name (avoids unbounded growth).
         self.internal = self.internal - rhs.internal;
         for (l, r) in self.boundary.iter_mut().zip(rhs.boundary) {
             l.values = l.values.clone() - r.values;
@@ -153,7 +156,7 @@ where
 {
     type Output = Self;
     fn neg(mut self) -> Self {
-        self.name = format!("(-{})", self.name);
+        // See `Add` above: do not rebuild the name (avoids unbounded growth).
         self.internal = -self.internal;
         for p in self.boundary.iter_mut() {
             p.values = -p.values.clone();

@@ -1167,6 +1167,27 @@ Future crates (not in this one):
   can be added later if needed.
 - OpenFOAM uses expression-template `tmp<T>` to avoid heap copies.
   In Rust this maps to returning values by move (zero-cost in most cases).
+- **⚠ Never build a field's `name` String compositionally inside an arithmetic
+  operator.** `Field`/`VolField`/`SurfaceField`'s `Add`/`Sub`/`Neg`/`Mul` must
+  leave `self.name` as the left operand's name — they must **not** do
+  `self.name = format!("({} + {})", self.name, rhs.name)`. Rationale:
+  - A solver repeatedly reassigns a persistent field from an expression that
+    contains that same field, e.g. `rho = rho + div(phi)` where `phi`'s name in
+    turn embeds `interpolate(rho)`. With compositional naming the `name` string
+    then **doubles in length every timestep** — pure `2^step` growth that is
+    invisible in the field *data* (internal/boundary Vecs stay the right size)
+    but blows the process up to tens of GB within ~25 steps and makes each step
+    ~2× slower than the last. This exact bug hung the rhoPimpleFoam
+    `compressible_lid_cavity` test (24 GB, SIGTERM) — see
+    `openfoam-appbuilder-lib`. Diagnosed by printing `field.name.len()` per
+    step; the fix is in `fields/vol_field.rs` and `fields/surface_field.rs`.
+  - This also matches OpenFOAM semantics: a `GeometricField` carries a fixed
+    registered name (its `IOobject` name, e.g. `"rho"`). Arithmetic produces
+    `tmp` results whose names are decorative and transient; the solver
+    **prints/logs** them (e.g. residual lines keyed by `"rho"`, `"Ux"`) rather
+    than accumulating a giant expression string onto the persistent field. The
+    name is a label for I/O and diagnostics, not an audit trail — keep it short
+    and stable.
 - C++ `operator&` = dot product on vectors; `operator^` = cross product.
   Rust uses named methods `inner()` / `cross()` and free functions `dot()` / `cross()`.
 - C++ `operator&&` on tensors = double contraction (Frobenius). Rust: `inner()`.
