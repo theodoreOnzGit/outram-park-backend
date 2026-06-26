@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+pub(crate) mod bc_util;
 pub mod pimple_foam;
 pub mod rho_pimple_foam;
 pub mod sonic_foam;
