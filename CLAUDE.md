@@ -9,6 +9,42 @@ Guidance for Claude Code (and other AI assistants) working in this repository.
 - **Always build and test in release mode.** Use `--release` for all `cargo build` and `cargo test` invocations. Never run tests or builds in debug mode.
 
 
+## Human interface layer (mandatory design principle)
+
+**Every public API in this workspace must be navigable by a Rust developer using
+rust-analyzer alone — no AI assistant, no prior knowledge of the codebase.**
+
+This is a hard rule, not a goal. The human mind cannot hold large amounts of context
+simultaneously. If understanding a function requires recalling three other modules at
+once, the interface is wrong regardless of how correct the physics is.
+
+### What this requires in practice
+
+**Every public function, type, trait, and module must have a `///` or `//!` doc comment that answers:**
+- What physical quantity does this compute or represent?
+- What are the valid input ranges and assumptions?
+- What units do parameters represent — even when `uom` enforces them, spell it out for human readers.
+
+**Complex `uom` types must have named type aliases.** A user hovering in their editor
+should see `SpecificEnthalpy`, not a raw `Quantity<ISQ<...>, SI<f64>, f64>`.
+
+**Each module's `lib.rs` / `mod.rs` must have a `//!` module-level comment** that
+explains what belongs in the module and what does not. This is the map a new user
+reads first.
+
+**Examples are the primary entry point, not the API docs.** A user must be able to
+find an example, read it top-to-bottom without jumping to other files, and understand
+what crate they need and how to call it.
+
+### What AI assistants must not do
+
+- Do not add complexity (extra type parameters, trait indirection, macro magic) in
+  the name of correctness or generality if it raises the mental context load for a
+  human reader.
+- Do not leave public items undocumented. If you add or modify a public item, add or
+  update its `///` doc comment in the same change.
+- Do not write examples that require reading internal modules to understand.
+
 ## What this is
 
 **OUTRAM PARK backend** — the Cargo **workspace** that houses the OUTRAM PARK
