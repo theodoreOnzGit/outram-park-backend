@@ -8,6 +8,35 @@ compressible solvers equivalent to **rhoPimpleFoam**, **sonicFoam**, and
 The reference C++ source lives at:
 `/home/teddy0/Documents/research/openfoam/`
 
+---
+
+## Why this crate exists
+
+OpenFOAM's C++ codebase is the negative example this port is designed to undo:
+
+- **Runtime type registration** via macros (`addToRunTimeSelectionTable`) hides the
+  class hierarchy from any static tool — you cannot hover over a type and find its
+  implementors.
+- **Dictionary-driven input** (`fvSolution`, `fvSchemes`) — valid keys exist only in
+  source comments and forum posts, not in any machine-readable interface.
+- **wmake** — a bespoke build system nothing else can consume; OpenFOAM cannot be
+  used as a library by another project.
+- **No units discipline** — `scalar` is `double`; passing pressure where velocity is
+  expected compiles silently and produces a wrong answer.
+
+This crate replaces each of those with the Rust equivalent:
+- Traits make the type hierarchy explicit and statically navigable via rust-analyzer.
+- Struct fields with `///` doc comments replace runtime dictionaries — valid "inputs"
+  are visible on hover.
+- Cargo makes this crate a normal library dependency.
+- `uom` makes unit errors compile errors.
+
+**The mandatory consequence:** every public item must be navigable with rust-analyzer
+alone, by a developer with no prior OpenFOAM knowledge. See the root `CLAUDE.md`
+"Human interface layer" section for the full rule.
+
+---
+
 **Layer 5 (solver logic — PISO/PIMPLE loops, multi-region coupling, turbulence
 model registries) is intentionally excluded from this crate.** It belongs in
 separate solver crates (`openfoam-icof`, `openfoam-cht`, `openfoam-rho`) that

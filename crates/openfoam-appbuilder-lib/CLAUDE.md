@@ -12,6 +12,32 @@ This crate provides:
 
 ---
 
+## Why this crate exists
+
+OpenFOAM's case setup is the worst pain point for new users:
+
+- **Input files** (`fvSolution`, `fvSchemes`, `controlDict`) are free-form
+  text dictionaries — valid keys and their meaning live only in source comments
+  and forum posts. A typo silently falls back to a default or crashes at runtime.
+- **Meshing** requires learning `blockMesh` or `snappyHexMesh` dictionary syntax
+  with no static validation.
+- **wmake** means OpenFOAM cannot be embedded in another project as a library —
+  you can only run it as a standalone executable with its own case directory structure.
+
+This crate replaces those with Rust structs:
+- `controlDict` fields become a `ControlDict` struct — invalid values are
+  compile errors or `Result` variants, not silent runtime misbehaviours.
+- `fvSchemes` / `fvSolution` become typed enums — rust-analyzer shows every
+  valid scheme option on hover.
+- The solver loops are normal Rust functions a downstream crate can call,
+  not executables that own their own I/O convention.
+
+**The mandatory consequence:** every public item must be navigable with rust-analyzer
+alone, by a developer with no prior OpenFOAM knowledge. See the root `CLAUDE.md`
+"Human interface layer" section for the full rule.
+
+---
+
 ## C++ source references
 
 | Component | OpenFOAM source path |

@@ -10,6 +10,31 @@ operators) and `openfoam-appbuilder-lib` (solver loops + I/O).
 
 ---
 
+## Why this crate exists
+
+OpenFOAM's turbulence model infrastructure is the textbook example of C++
+runtime-registration opacity:
+
+- Models are registered via `addToRunTimeSelectionTable` macros — the list of
+  available models exists only at runtime, not statically. There is no way to
+  hover over `turbulenceModel` in an editor and see what models are available.
+- Selecting a model requires knowing the exact string key (`"kOmegaSST"`,
+  `"kEpsilon"`) to put in `fvSolution` — this is undocumented except in source
+  comments and forum posts.
+- Model coefficients are read from a runtime dictionary (`turbulenceProperties`)
+  with no static schema.
+
+This crate replaces that with a `TurbulenceModel` trait — every implementor is
+visible to rust-analyzer, every coefficient is a named struct field with a `///`
+doc comment, and selecting a model is a normal Rust type choice checked at
+compile time.
+
+**The mandatory consequence:** every public item must be navigable with rust-analyzer
+alone, by a developer with no prior OpenFOAM knowledge. See the root `CLAUDE.md`
+"Human interface layer" section for the full rule.
+
+---
+
 ## C++ source reference
 
 ```
