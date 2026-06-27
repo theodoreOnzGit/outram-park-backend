@@ -11,12 +11,9 @@
 //!
 //! **Status:** scaffold only. See `docs/porting-plan.md` (Phase 1).
 
-/// Physical constants used across modules (Boltzmann constant, neutron mass,
-/// Avogadro's number, …). Ported from `phys.f90`. Will carry `uom` types so the
-/// units are visible on hover rather than implied by the variable name.
-pub mod phys {
-    //! Physical constants (from NJOY2016 `phys.f90`). Not yet ported.
-}
+/// Physical constants from CODATA 2014 / ENDF-102 Appendix H.
+/// Ported from NJOY2016 `phys.f90`.
+pub mod phys;
 
 /// Special-function and small-matrix helpers (from `mathm.f90`).
 pub mod mathm {
