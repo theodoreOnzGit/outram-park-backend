@@ -100,6 +100,46 @@ pub trait TurbulenceModel {
 
 ---
 
+## Design rules (see also root CLAUDE.md)
+
+### Enum dispatch for turbulence models
+
+The `TurbulenceModel` type in this crate is an **enum**, not a trait object.
+The set of supported models is closed and known at compile time.
+
+```rust
+// Trait is a compiler contract on each concrete struct — not used for dyn dispatch
+pub trait TurbulenceKernel {
+    fn div_dev_rho_reff(&self, u: &VolVectorField) -> FvVectorMatrix;
+    fn correct(&mut self);
+    fn mu_eff(&self, p: Pressure, t: ThermodynamicTemperature) -> DynamicViscosity;
+    fn alpha_eff(&self, alpha: &VolScalarField) -> VolScalarField;
+}
+
+// Enum dispatches without Box or dyn — adding a model is a compile-time forcing function
+pub enum TurbulenceModel {
+    Laminar(LaminarModel),
+    KOmegaSST(KOmegaSSTModel),
+    KEpsilon(KEpsilonModel),
+    SpalartAllmaras(SpalartAllmarasModel),
+}
+
+impl TurbulenceModel {
+    pub fn correct(&mut self) {
+        match self {
+            Self::Laminar(m)          => m.correct(),
+            Self::KOmegaSST(m)        => m.correct(),
+            Self::KEpsilon(m)         => m.correct(),
+            Self::SpalartAllmaras(m)  => m.correct(),
+        }
+    }
+}
+```
+
+No `Box<dyn TurbulenceModel>`, no lifetime parameters, no `Box<T>`.
+Model coefficients are owned fields on each concrete struct, not read from a
+runtime dictionary.
+
 ## Planned modules
 
 | Module | C++ source | Notes |

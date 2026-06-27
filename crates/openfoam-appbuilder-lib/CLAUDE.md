@@ -70,6 +70,45 @@ NOT in the lower crates.
 
 ---
 
+## Design rules (see also root CLAUDE.md)
+
+### Shared simulation state: `Arc<RwLock<T>>`
+
+The solver loop runs across multiple threads. Shared state follows this pattern:
+
+```rust
+// Read-only after construction — no lock needed
+Arc<FvMesh>
+
+// Fields written once per timestep, read many times during compute phase
+Arc<RwLock<VolScalarField>>   // pressure, temperature, density, …
+Arc<RwLock<VolVectorField>>   // velocity
+
+// Solver configuration — read-only after startup
+Arc<ControlDict>
+Arc<FvSchemes>
+Arc<FvSolution>
+```
+
+Use `RwLock<T>` over `Mutex<T>` — multiple threads can hold a read lock
+simultaneously during the cell-loop compute phase; `Mutex` would serialise them
+unnecessarily.
+
+Do not use channels for simulation state. The timestep loop is a shared-state
+pattern (compute → sync → advance), not a pipeline.
+
+### Enum dispatch for I/O schemes and solver variants
+
+Numerical scheme selection (ddt, grad, div, laplacian) and solver variants
+(subsonic/transonic branch, h-form/e-form energy) use enums, not trait objects.
+
+```rust
+pub enum DdtScheme { Euler, Backward, CrankNicolson(f64), LocalEuler }
+pub enum EnergyForm { Enthalpy, InternalEnergy }
+```
+
+No `Box<dyn Scheme>`. No lifetime parameters anywhere in this crate.
+
 ## Planned modules
 
 ### `io/` — Case file I/O

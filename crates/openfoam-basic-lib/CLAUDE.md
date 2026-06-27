@@ -206,6 +206,39 @@ These are the riskiest area of the port — test each operator in isolation on a
 
 ---
 
+## Design rules (see also root CLAUDE.md)
+
+### Enum dispatch for physics models
+
+Every group of interchangeable physics models in this crate uses an enum, not a
+trait object. The concrete models for EOS, thermo, and transport are a closed set —
+enums give exhaustiveness checking and zero heap allocation.
+
+```rust
+// EOS enum — rust-analyzer shows all options; adding one forces all match sites to update
+pub enum Eos {
+    PerfectGas(PerfectGas),
+    RhoConst(RhoConst),
+    IcoPolynomial(IcoPolynomial<8>),
+    PengRobinson(PengRobinsonGas),
+}
+
+// Thermo enum wraps an EOS variant
+pub enum Thermo {
+    HConst(HConstThermo<Eos>),
+    Janaf(JanafThermo<Eos>),
+    HPolynomial(HPolynomialThermo<Eos, 8>),
+}
+```
+
+Trait definitions (`EquationOfState`, `ThermoModel`, `TransportModel`) remain as
+compiler contracts on each concrete struct — they are not used for `dyn` dispatch.
+
+### No `Box<T>`, no lifetime parameters, no trait objects
+
+Follows the workspace rule. All uom quantity types are `Copy` — own them by value.
+Shared mesh or field data: `Arc<FvMesh>`, `Arc<RwLock<VolScalarField>>`.
+
 ## Implementation rules
 
 ### `extern "C"` policy
