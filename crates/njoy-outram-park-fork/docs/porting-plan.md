@@ -1,0 +1,184 @@
+# njoy-outram-park-fork — porting plan
+
+Reference material for the Rust port of NJOY2016. Read on demand — the mandatory
+license and design rules live in `CLAUDE.md`.
+
+Upstream Fortran source (the golden oracle): **`../../../NJOY2016`** (relative to
+this crate), i.e. `/home/teddy0/Documents/research/NJOY2016`, version **2016.79**
+(commit `ac5adf5`). ~120,000 lines of Fortran 90 across 39 source files.
+
+---
+
+## 1. Why this port exists
+
+OpenMC does not read ENDF evaluations directly — it reads **ACE** libraries.
+NJOY is the canonical tool that processes raw ENDF data (resonance parameters,
+covariances, thermal scattering laws) into ACE. `openmc-libs` therefore depends
+on NJOY *indirectly*: the data it ingests must first pass through an NJOY
+pipeline. Porting NJOY to Rust removes the Fortran/CMake build dependency from
+the OUTRAM PARK data-prep chain and brings the same benefits as the rest of the
+suite (static navigability, `uom` units, Cargo).
+
+We do **not** need all 39 modules to satisfy OpenMC. The continuous-energy ACE
+path is a small subset; everything else is later or never.
+
+---
+
+## 2. The OpenMC ACE pipeline (MVP)
+
+The minimal module chain that yields an OpenMC-ready ACE file:
+
+```
+MODER  → RECONR → BROADR → ACER
+         (+ optional: HEATR, GASPR, PURR, THERMR before ACER)
+```
+
+| Step   | Does | Required for OpenMC? |
+|--------|------|----------------------|
+| MODER  | ASCII ⇄ NJOY binary tape conversion | plumbing — yes |
+| RECONR | reconstruct pointwise σ(E) from resonance params | **yes** |
+| BROADR | Doppler-broaden σ(E) to temperature | **yes** |
+| HEATR  | heating (KERMA) + damage cross sections | optional (heating) |
+| GASPR  | gas-production cross sections | optional |
+| PURR   | unresolved-resonance probability tables | optional (self-shielding) |
+| THERMR | thermal scattering S(α,β) → cross sections | optional (thermal scatterers) |
+| ACER   | write ACE library | **yes** |
+
+---
+
+## 3. Module → Fortran source map
+
+Line counts are approximate (from `wc -l src/*.f90`). Phase column drives order.
+
+### Core infrastructure (Phase 1)
+
+| Rust module | Fortran file | LOC | Notes |
+|---|---|---|---|
+| `common::phys` | `phys.f90` | ~150 | physical constants → `uom` |
+| `common::mathm` | `mathm.f90` | ~1.4k | special functions, small linear algebra |
+| `common` (util) | `util.f90` | ~2k | record I/O helpers, interpolation, `error`/`mess` → `Result` |
+| `common` (io) | `mainio.f90`, `locale.f90` | ~0.3k | unit numbers / formatting → owned config |
+| `endf` | `endf.f90` | ~1k | in-memory ENDF tape model + record parsing |
+| `modules::moder` | `moder.f90` | ~0.6k | ASCII ⇄ binary tape conversion |
+
+### ACE pipeline (Phases 2–4)
+
+| Rust module | Fortran file | LOC | Phase |
+|---|---|---|---|
+| `modules::reconr` | `reconr.f90` | 5.7k | 2 |
+| `modules::broadr` | `broadr.f90` | 2.0k | 2 |
+| `modules::heatr` | `heatr.f90` | 6.3k | 3 |
+| `modules::gaspr` | `gaspr.f90` | ~0.6k | 3 |
+| `modules::purr` | `purr.f90` | 2.9k | 3 |
+| `modules::thermr` | `thermr.f90` | 3.4k | 3 |
+| `modules::unresr` | `unresr.f90` | ~1.8k | 3 (PURR precursor) |
+| `modules::acer` | `acer.f90` + `acefc.f90` (19.7k!), `acepn.f90` (3.8k), `acepa.f90`, `aceth.f90`, `acedo.f90`, `acecm.f90` | ~30k total | 4 |
+
+### Multigroup & covariance (Phase 5 — not needed by OpenMC CE)
+
+| Rust module | Fortran file | LOC |
+|---|---|---|
+| `modules::groupr` | `groupr.f90` | 12.7k |
+| `modules::gaminr` | `gaminr.f90` | ~2k |
+| `modules::errorr` | `errorr.f90` | 11.2k |
+| `modules::covr` | `covr.f90` | ~3k |
+| `modules::leapr` | `leapr.f90` | 3.6k |
+| `modules::samm` | `samm.f90` | 7.2k (R-matrix; shared by reconr/unresr) |
+
+### Formatters, plotting, misc (Phase 6 — lowest priority)
+
+`dtfr.f90`, `ccccr.f90`, `matxsr.f90`, `resxsr.f90`, `powr.f90`, `wimsr.f90`,
+`mixr.f90`, `plotr.f90`, `viewr.f90`, `graph.f90`. Output formats for codes
+OUTRAM PARK does not target. Port only on demand.
+
+The driver `main.f90` (NJOY card-input reader sequencing the modules) becomes a
+thin Rust `driver` that parses the input deck and `match`es over `NjoyModule`.
+
+> Note: `samm.f90` (Reich–Moore / R-matrix-limited resonance formalism) is shared
+> by RECONR and UNRESR. It may need to move earlier than Phase 5 if a target
+> evaluation uses the RML format — check the evaluation before Phase 2.
+
+---
+
+## 4. Phased order
+
+- **Phase 0 — scaffold + license compliance.** ✅ this commit: crate skeleton,
+  `LICENSE.njoy`, `NOTICE`, module stubs returning `NjoyError::NotPorted`.
+- **Phase 1 — infrastructure.** `endf` tape model + `common` (phys, mathm, util,
+  io) + `MODER`. Nothing computes physics yet, but tapes round-trip. Gate:
+  read a reference ENDF tape and write it back byte-identical.
+- **Phase 2 — RECONR + BROADR.** First real cross-section output. Gate: pointwise
+  σ(E) at 0 K then broadened, matching upstream within tolerance.
+- **Phase 3 — HEATR / GASPR / PURR / THERMR (+ UNRESR).** ACE prerequisites for
+  heating, gas, self-shielding, thermal scattering.
+- **Phase 4 — ACER.** Emit an ACE file OpenMC loads and runs. **This is the
+  milestone that satisfies the OpenMC dependency.** Largest single phase
+  (acefc.f90 alone is ~20k lines) — split by ACE block (nu, angular, energy
+  distributions, photon production, …).
+- **Phase 5 — multigroup/covariance** (GROUPR, ERRORR, …): only if OUTRAM PARK
+  needs deterministic or sensitivity workflows.
+- **Phase 6 — formatters/plotting:** on demand only.
+
+---
+
+## 5. Fortran → Rust translation conventions
+
+NJOY is old-style Fortran. Recurring patterns and how they map:
+
+- **`common` blocks / module variables → owned structs.** No global mutable
+  state. A module's working set becomes a struct passed by `&mut`. Read-only
+  tables shared across threads use `Arc<T>` (per workspace rules).
+- **Scratch "tapes" on logical units → typed in-memory data or explicit files.**
+  Replace the `nin/nout/nscr` integer-unit indirection with owned `endf::Tape`
+  values; only hit disk at the driver boundary.
+- **`go to` control flow → structured loops / early `return` / `match`.** Keep
+  the numerics line-traceable to the Fortran, but never reproduce a `goto` with a
+  labelled loop hack where a `while`/`for` reads clearly.
+- **Implicit typing & 1-based, column-major arrays → explicit types + `ndarray`.**
+  Watch the index base off-by-one; `ndarray` is row-major, so transpose intent
+  carefully for 2-D data, or keep 1-D flat with explicit strides.
+- **`real(kr)` (kr = 8) → `f64`.** Single-precision `real` is not used for the
+  physics; confirm per-variable when in doubt.
+- **`error(...)` (abort) → `Err(NjoyError::...)`.** `mess(...)` (warning) →
+  `log`/return-with-warning, never a silent print to a global unit.
+- **Units:** put `uom` on public-API energies (eV/MeV), temperatures (K), and
+  cross sections (barns) — spell the unit out in the doc comment even though
+  `uom` enforces it. Internal hot loops may use raw `f64` for speed, converting
+  at the boundary.
+
+Do not "improve" the algorithms during translation. Port faithfully first,
+verify against the oracle, *then* refactor — otherwise discrepancies are
+impossible to localise.
+
+---
+
+## 6. Verification strategy (golden oracle)
+
+Upstream Fortran NJOY2016 at `../../../NJOY2016` is the reference. For each
+ported module:
+
+1. Build upstream once (`cmake -DCMAKE_BUILD_TYPE=Release ..; make`) to get the
+   `njoy` executable.
+2. Pick a small reference ENDF evaluation (e.g. a light nuclide) and run the
+   module(s) under upstream NJOY to capture the golden output tape / ACE file.
+3. Run the Rust port over the same input and assert equivalence:
+   - ENDF tapes: structural equality (MAT/MF/MT sections, record values within
+     a tight float tolerance — not byte equality, since formatting differs).
+   - ACE files: parse both and compare arrays numerically; OpenMC must load the
+     Rust-generated ACE and reproduce a reference k-eff / reaction rate.
+4. Store reference inputs/outputs as test fixtures (mind size — ENDF files are
+   large; keep fixtures minimal and consider `exclude` from the package).
+
+Tests are `#[ignore]`-gated where they require the upstream `njoy` binary or
+bulky ENDF data not checked in, with a comment explaining how to regenerate.
+
+---
+
+## 7. Open questions to resolve before Phase 2
+
+- Which ENDF evaluation(s) become the canonical test fixtures? (smallest nuclide
+  that exercises resonance reconstruction.)
+- Does any target evaluation use the RML (`samm.f90`) formalism? If so, pull
+  `samm` forward into Phase 2.
+- Where do generated ACE files live, and does `openmc-libs` get a loader to
+  consume them in an integration test?

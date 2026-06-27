@@ -1,0 +1,24 @@
+[package]
+name = "njoy-outram-park-fork"
+version = "0.0.1"
+edition.workspace = true
+# GPL-3.0-only for the work as a whole (matches the rest of OUTRAM PARK).
+# This crate is a derivative work of NJOY2016, which is itself under a modified
+# BSD 3-Clause license (GPL-compatible). The upstream notice is preserved in
+# LICENSE.njoy and NOTICE — keep both in the published package.
+license = "GPL-3.0-only"
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+description = "Pure-Rust port (in progress) of NJOY2016 nuclear-data processing — derivative work, not the LANL version. See NOTICE."
+
+# Not publishable yet: the port is a scaffold. Flip to remove this once a module
+# pipeline actually works end-to-end, and add `include = [...]` so LICENSE.njoy
+# and NOTICE ship in the crate tarball.
+publish = false
+
+[dependencies]
+thiserror.workspace = true
+# Added per phase as modules are ported (see docs/porting-plan.md):
+#   ndarray  — ENDF tape arrays and cross-section grids (column-major data)
+#   uom      — dimensioned quantities at physics boundaries (energy, temperature)
