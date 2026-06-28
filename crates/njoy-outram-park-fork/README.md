@@ -6,8 +6,13 @@ codes. In OUTRAM PARK its job is to produce the **ACE** continuous-energy
 libraries that [`openmc-libs`] consumes: NJOY is the data-prep step *upstream* of
 an OpenMC calculation.
 
-> **Status:** scaffold. No module produces real output yet. The module entry
-> points return `NjoyError::NotPorted`. See [`docs/porting-plan.md`](docs/porting-plan.md).
+> **Status — RECONR Phase 2b:** RECONR is functional for ENDF materials with no
+> resonances (LRU=0, e.g. H-2) and resolved SLBW/MLBW resonances (LRU=1,
+> LRF=1/2, e.g. Ar-37). The `NuclearDataLibrary` OOP API supports the
+> `from_file → reconstruct → broaden (stub)` pipeline with uom-typed cross-section
+> queries and a `ContinuousEnergyData` export. Reich-Moore (LRF=3, needed for
+> actinides) and full BROADR Doppler broadening are the next phases. See
+> [`docs/porting-plan.md`](docs/porting-plan.md).
 
 ## License and provenance — please read
 

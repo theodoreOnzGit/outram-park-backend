@@ -46,19 +46,19 @@ pub enum ResonanceFormalism {
 /// Fields correspond to the 6 values per resonance in the ENDF-6 LIST record.
 #[derive(Debug, Clone)]
 pub struct SlbwResonance {
-    /// Resonance energy [eV]. May be negative (sub-threshold, still contributes to tails).
+    /// Resonance energy \[eV\]. May be negative (sub-threshold, still contributes to tails).
     pub er: f64,
     /// Spin assignment J (the total angular momentum of the compound state).
     pub aj: f64,
-    /// Total width Γ_tot at E_r [eV]. Not used in the cross-section formula directly
+    /// Total width Γ_tot at E_r \[eV\]. Not used in the cross-section formula directly
     /// (NJOY recomputes a width from the energy-dependent components) but needed for
     /// building the energy grid.
     pub gt: f64,
-    /// Neutron width Γ_n [eV] at E_r.
+    /// Neutron width Γ_n \[eV\] at E_r.
     pub gn: f64,
-    /// Radiative capture width Γ_γ [eV].
+    /// Radiative capture width Γ_γ \[eV\].
     pub gg: f64,
-    /// Fission width Γ_f [eV]. Zero for non-fissile nuclides.
+    /// Fission width Γ_f \[eV\]. Zero for non-fissile nuclides.
     pub gf: f64,
 }
 
@@ -91,9 +91,9 @@ pub struct LState {
 /// (LRU=1, LRF=2) up to 4268 eV, then an unresolved region (LRU=2) beyond that.
 #[derive(Debug, Clone)]
 pub struct EnergyRange {
-    /// Lower energy boundary [eV].
+    /// Lower energy boundary \[eV\].
     pub el: f64,
-    /// Upper energy boundary [eV].
+    /// Upper energy boundary \[eV\].
     pub eh: f64,
     /// LRU flag: 0 = no resonances, 1 = resolved, 2 = unresolved.
     pub lru: i32,
@@ -101,7 +101,7 @@ pub struct EnergyRange {
     pub formalism: Option<ResonanceFormalism>,
     /// Nuclear spin I of the target ground state.
     pub spi: f64,
-    /// Potential scattering radius [10⁻¹² cm].
+    /// Potential scattering radius \[10⁻¹² cm\].
     pub ap: f64,
     /// NAPS flag: 0 = use formula for channel radius; 1 = use `ap` as channel radius.
     pub naps: i32,

@@ -14,7 +14,7 @@
 //! 2. Otherwise, evaluate `σ_true` at the midpoint `E_mid` using the original law,
 //!    and compare it against the linear interpolation `σ_lin` at `E_mid`.
 //!    - If the relative error exceeds `eps`, split the segment at `E_mid` and
-//!      recurse on each half (up to [`MAX_BISECTION_DEPTH`] times).
+//!      recurse on each half (up to `MAX_BISECTION_DEPTH` times).
 //!    - If the error is within `eps`, the segment is accepted as lin-lin.
 //!
 //! The midpoint is chosen in the "natural" space of the law:

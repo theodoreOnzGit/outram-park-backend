@@ -53,7 +53,7 @@ pub struct ReconrConfig {
     /// Cross sections are linearised until the linear interpolation error is
     /// below this fraction of the local value. NJOY default: `0.001` (0.1%).
     pub tolerance: f64,
-    /// Reconstruction temperature [K]. `0.0` = 0 K (no Doppler shift).
+    /// Reconstruction temperature \[K\]. `0.0` = 0 K (no Doppler shift).
     pub temperature: f64,
 }
 
@@ -63,7 +63,7 @@ pub struct ReconrSection {
     /// Reaction type. Use `MtReaction::try_from(n)` or `MtReaction::from_any(n)`
     /// to convert from a raw integer if needed.
     pub mt: MtReaction,
-    /// Fully lin-lin (energy [eV], σ [b]) grid, sorted by energy.
+    /// Fully lin-lin (energy \[eV\], σ \[b\]) grid, sorted by energy.
     pub pairs: Vec<(f64, f64)>,
 }
 
@@ -77,7 +77,7 @@ pub struct ReconrResult {
 }
 
 impl ReconrResult {
-    /// Evaluate cross section [b] for a reaction at energy `e` [eV].
+    /// Evaluate cross section \[b\] for a reaction at energy `e` \[eV\].
     ///
     /// Uses linear interpolation on the lin-lin grid. Returns `0.0` if
     /// `mt` is not present or `e` is outside the tabulated range.

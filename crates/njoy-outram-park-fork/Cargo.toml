@@ -11,11 +11,18 @@ homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
 description = "Pure-Rust port (in progress) of NJOY2016 nuclear-data processing — derivative work, not the LANL version. See NOTICE."
+keywords = ["nuclear", "endf", "cross-sections", "reconr", "neutronics"]
 
-# Not publishable yet: the port is a scaffold. Flip to remove this once a module
-# pipeline actually works end-to-end, and add `include = [...]` so LICENSE.njoy
-# and NOTICE ship in the crate tarball.
-publish = false
+# LICENSE.njoy and NOTICE must travel with every redistribution (BSD-3 cond. 1).
+include = [
+    "src/**",
+    "tests/**",
+    "docs/**",
+    "LICENSE*",
+    "NOTICE",
+    "README.md",
+    "Cargo.toml",
+]
 
 [dependencies]
 thiserror.workspace = true

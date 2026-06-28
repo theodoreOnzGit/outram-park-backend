@@ -124,31 +124,31 @@ impl NuclearDataLibrary {
 
     // ── Cross-section queries ──────────────────────────────────────────────────
 
-    /// Total cross section [barns] at incident neutron energy `e` (MT=1).
+    /// Total cross section \[barns\] at incident neutron energy `e` (MT=1).
     ///
     /// Returns zero if RECONR has not been run or the energy is out of range.
     pub fn total_xs(&self, e: NeutronEnergy) -> CrossSection {
         CrossSection::new::<barn>(self.eval(MtReaction::Mt1Total, e.get::<electronvolt>()))
     }
 
-    /// Elastic scattering cross section [barns] at energy `e` (MT=2).
+    /// Elastic scattering cross section \[barns\] at energy `e` (MT=2).
     pub fn elastic_xs(&self, e: NeutronEnergy) -> CrossSection {
         CrossSection::new::<barn>(self.eval(MtReaction::Mt2Elastic, e.get::<electronvolt>()))
     }
 
-    /// Fission cross section [barns] at energy `e` (MT=18).
+    /// Fission cross section \[barns\] at energy `e` (MT=18).
     ///
     /// Returns zero for non-fissile materials.
     pub fn fission_xs(&self, e: NeutronEnergy) -> CrossSection {
         CrossSection::new::<barn>(self.eval(MtReaction::Mt18Fission, e.get::<electronvolt>()))
     }
 
-    /// Radiative capture cross section [barns] at energy `e` (MT=102).
+    /// Radiative capture cross section \[barns\] at energy `e` (MT=102).
     pub fn capture_xs(&self, e: NeutronEnergy) -> CrossSection {
         CrossSection::new::<barn>(self.eval(MtReaction::Mt102Capture, e.get::<electronvolt>()))
     }
 
-    /// Cross section [barns] for a named ENDF reaction at energy `e`.
+    /// Cross section \[barns\] for a named ENDF reaction at energy `e`.
     ///
     /// ```
     /// # use njoy_outram_park_fork::{library::NuclearDataLibrary, MtReaction};
@@ -163,7 +163,7 @@ impl NuclearDataLibrary {
         CrossSection::new::<barn>(self.eval(mt, e.get::<electronvolt>()))
     }
 
-    /// Processing temperature [K] set by [`broaden`][Self::broaden].
+    /// Processing temperature \[K\] set by [`broaden`][Self::broaden].
     pub fn temperature(&self) -> Temperature {
         self.temperature
     }
@@ -261,7 +261,7 @@ pub struct ContinuousEnergyData {
     pub za: f64,
     /// Atomic weight ratio: target mass / neutron mass.
     pub awr: f64,
-    /// Temperature at which broadening was applied [K].
+    /// Temperature at which broadening was applied \[K\].
     pub temperature: Temperature,
     /// Cross sections for each available reaction, ordered by MT number.
     pub reactions: Vec<ReactionCrossSection>,
@@ -282,7 +282,7 @@ pub struct ReactionCrossSection {
     /// Reaction type. Use [`MtReaction::try_from`] or [`MtReaction::from_any`]
     /// to convert from a raw integer if you are working with the [`i32`] level.
     pub mt: MtReaction,
-    /// Pointwise (energy [J], σ [m²]) data, sorted by energy.
+    /// Pointwise (energy \[J\], σ \[m²\]) data, sorted by energy.
     ///
     /// Use `energy.get::<electronvolt>()` and `sigma.get::<barn>()` to recover
     /// the eV / barn values used in nuclear data processing.
@@ -290,7 +290,7 @@ pub struct ReactionCrossSection {
 }
 
 impl ReactionCrossSection {
-    /// Evaluate σ at energy `e` by linear interpolation [barns].
+    /// Evaluate σ at energy `e` by linear interpolation \[barns\].
     ///
     /// Returns the cross section at the boundary if `e` is outside the
     /// tabulated range.

@@ -29,11 +29,11 @@ pub struct MaterialInfo {
     pub lfi: i32,
     /// Library type code (0 = ENDF/B).
     pub nlib: i32,
-    /// Target excitation energy [eV] (0 for ground state).
+    /// Target excitation energy \[eV\] (0 for ground state).
     pub elis: f64,
     /// ENDF-6 format version code.
     pub nfor: i32,
-    /// Upper energy limit of the evaluation [eV].
+    /// Upper energy limit of the evaluation \[eV\].
     pub emax: f64,
 }
 

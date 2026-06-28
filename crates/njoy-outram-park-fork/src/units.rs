@@ -33,13 +33,13 @@
 /// - 1 MeV = 10⁶ eV
 pub type NeutronEnergy = uom::si::f64::Energy;
 
-/// Microscopic nuclear cross section [m²].
+/// Microscopic nuclear cross section \[m²\].
 ///
 /// ENDF evaluations tabulate cross sections in barns; use `uom::si::area::barn`
 /// to create and extract values. 1 barn = 10⁻²⁸ m².
 pub type CrossSection = uom::si::f64::Area;
 
-/// Thermodynamic temperature [K].
+/// Thermodynamic temperature \[K\].
 ///
 /// Used for Doppler broadening (`broaden_xs`). Use
 /// `uom::si::thermodynamic_temperature::kelvin` to create and extract values.

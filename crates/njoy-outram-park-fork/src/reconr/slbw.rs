@@ -32,7 +32,7 @@
 
 use crate::common::phys::{AMU_G, AMASSN_AMU, EV_ERG, PI};
 
-/// k = WAVE_K × (A/(A+1)) × √E [eV], giving k in (10⁻¹² cm)⁻¹.
+/// k = WAVE_K × (A/(A+1)) × √E \[eV\], giving k in (10⁻¹² cm)⁻¹.
 ///
 /// Derived as `sqrt(2·m_n·amu·eV) × 1e-12 / ℏ`, matching NJOY's
 /// `cwaven = sqrt(2*amassn*amu*ev)*1e-12/hbar` in `reconr.f90`.
@@ -52,7 +52,7 @@ const RC1: f64 = 0.123;
 /// See [`RC1`].
 const RC2: f64 = 0.08;
 
-/// Compute the channel radius r_a [10⁻¹² cm].
+/// Compute the channel radius r_a \[10⁻¹² cm\].
 ///
 /// - `naps == 0`: empirical formula `0.123·(AMASSN·AWR)^{1/3} + 0.08`.
 /// - `naps == 1`: use `ap` (the ENDF potential scattering radius) directly.
@@ -129,7 +129,7 @@ pub fn phase_shift(l: u32, rho_c: f64) -> f64 {
     }
 }
 
-/// Potential scattering cross section [b] at energy `e` [eV] (s-wave, l=0).
+/// Potential scattering cross section \[b\] at energy `e` \[eV\] (s-wave, l=0).
 ///
 /// `σ_pot = 4π·AP²` (isotropic, energy-independent to first order).
 ///
@@ -150,22 +150,22 @@ pub fn potential_scattering(e: f64, awri: f64, ap: f64) -> f64 {
 /// Summed cross-section contributions from all resonances in one l-state.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SlbwSigmas {
-    /// Elastic scattering (resonance + interference + potential) [b].
+    /// Elastic scattering (resonance + interference + potential) \[b\].
     pub elastic: f64,
-    /// Radiative capture (MT=102) [b].
+    /// Radiative capture (MT=102) \[b\].
     pub capture: f64,
-    /// Fission (MT=18) [b].
+    /// Fission (MT=18) \[b\].
     pub fission: f64,
 }
 
 impl SlbwSigmas {
-    /// Total cross section = elastic + capture + fission [b].
+    /// Total cross section = elastic + capture + fission \[b\].
     pub fn total(self) -> f64 {
         self.elastic + self.capture + self.fission
     }
 }
 
-/// Evaluate SLBW cross sections at energy `e` [eV] for one l-state.
+/// Evaluate SLBW cross sections at energy `e` \[eV\] for one l-state.
 ///
 /// Implements the inner loop of `csslbw` (zero-temperature) in NJOY2016.
 /// Both SLBW (LRF=1) and MLBW (LRF=2) use this evaluation; true MLBW adds
@@ -173,13 +173,13 @@ impl SlbwSigmas {
 /// widely-spaced resonances.
 ///
 /// # Parameters
-/// - `e`          — neutron kinetic energy [eV], must be > 0.
+/// - `e`          — neutron kinetic energy \[eV\], must be > 0.
 /// - `resonances` — `(ER, AJ, GT, GN, GG, GF)` in eV (GT is total width at E_r).
 /// - `l`          — orbital angular momentum of this l-state.
 /// - `spi`        — target spin I; statistical weight g_J = (2J+1)/(4I+2).
-/// - `ap`         — potential scattering radius [10⁻¹² cm].
+/// - `ap`         — potential scattering radius \[10⁻¹² cm\].
 /// - `awri`       — atomic weight ratio (target / neutron).
-/// - `ra`         — channel radius [10⁻¹² cm] from `channel_radius()`.
+/// - `ra`         — channel radius \[10⁻¹² cm\] from `channel_radius()`.
 pub fn eval_slbw_lstate(
     e: f64,
     resonances: &[(f64, f64, f64, f64, f64, f64)],
