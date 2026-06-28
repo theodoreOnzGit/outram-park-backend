@@ -32,6 +32,7 @@ use uom::si::{
 };
 
 use crate::{
+    broadr::doppler_broaden,
     endf::{tape::Tape, MtReaction},
     reconr::{eval_lin_lin, reconr, ReconrConfig, ReconrResult},
     units::{CrossSection, NeutronEnergy, Temperature},
@@ -112,13 +113,27 @@ impl NuclearDataLibrary {
         Ok(self)
     }
 
-    /// Apply Doppler broadening at temperature `t` (BROADR, Phase 3 — stub).
+    /// Apply Doppler broadening at temperature `t` using the SIGMA1 free-gas method.
     ///
-    /// Records the temperature for metadata purposes. Full Doppler broadening
-    /// (convolution with the free-gas kernel) is implemented in Phase 3.
+    /// Requires [`reconstruct`][Self::reconstruct] to have been called first.
+    /// Broadens all reconstructed cross sections using the effective target
+    /// temperature `t` \[K\].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`NjoyError::NotPorted`] if RECONR has not been run first.
     pub fn broaden(mut self, t: Temperature) -> Result<Self, NjoyError> {
+        let awr = self.awr().ok_or(NjoyError::NotPorted(
+            "call .reconstruct() before .broaden()",
+        ))?;
+        let temp_k = t.get::<kelvin>();
         self.temperature = t;
-        // Phase 3: full BROADR convolution goes here.
+
+        if temp_k > 0.0 {
+            if let Some(r) = &mut self.reconr {
+                r.sections = doppler_broaden(&r.sections, awr, temp_k);
+            }
+        }
         Ok(self)
     }
 

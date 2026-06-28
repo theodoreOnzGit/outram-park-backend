@@ -6,13 +6,39 @@ codes. In OUTRAM PARK its job is to produce the **ACE** continuous-energy
 libraries that [`openmc-libs`] consumes: NJOY is the data-prep step *upstream* of
 an OpenMC calculation.
 
-> **Status — RECONR Phase 2b:** RECONR is functional for ENDF materials with no
-> resonances (LRU=0, e.g. H-2) and resolved SLBW/MLBW resonances (LRU=1,
-> LRF=1/2, e.g. Ar-37). The `NuclearDataLibrary` OOP API supports the
-> `from_file → reconstruct → broaden (stub)` pipeline with uom-typed cross-section
-> queries and a `ContinuousEnergyData` export. Reich-Moore (LRF=3, needed for
-> actinides) and full BROADR Doppler broadening are the next phases. See
+> **Status — RECONR Phase 2c + BROADR (SIGMA1):** RECONR reconstructs ENDF
+> materials with no resonances (LRU=0, e.g. H-2), resolved SLBW/MLBW resonances
+> (LRU=1, LRF=1/2, e.g. Ar-37), and **resolved Reich-Moore resonances (LRU=1,
+> LRF=3, e.g. U-235)** — including the fissile two-channel / 3×3 complex
+> R-matrix path. BROADR now performs **full SIGMA1 free-gas Doppler broadening**
+> (both kernel terms). The `NuclearDataLibrary` OOP API supports the
+> `from_file → reconstruct → broaden` pipeline with uom-typed cross-section
+> queries and a `ContinuousEnergyData` export. Unresolved resonances (LRU=2,
+> PURR) are the next phase. See
 > [`docs/porting-plan.md`](docs/porting-plan.md).
+
+## Patch notes
+
+### 2026-06-29 — Reich-Moore (LRF=3) + SIGMA1 Doppler broadening
+
+- **RECONR Phase 2c — Reich-Moore (LRF=3).** Ported `csrmat`/`frobns`/`thrinv`
+  from `reconr.f90`: per-l 3×3 complex R-matrix inversion for fissile nuclides
+  (two fission channels GFA/GFB) plus a scalar fast path for non-fissile cases.
+  U-235 reconstructs to its accepted 2200 m/s thermal cross sections from raw
+  resonance parameters: σ_fission ≈ 586 b, σ_capture ≈ 99 b, σ_elastic ≈ 14 b,
+  σ_total ≈ 700 b. Validated by `tests/reconr_u235.rs` (11 tests).
+- **BROADR — SIGMA1 free-gas Doppler broadening.** Pure-Rust SIGMA1 with both
+  kernel terms (the dominant `exp(-(x-y)²)` pass and the `exp(-(x+y)²)`
+  near-thermal correction), analytic panel integrals via the f/h functions, and
+  a pure-Rust `erfc` (no C ABI). Verified against a brute-force numerical
+  integration of the kernel and confirmed to preserve a 1/v cross section
+  exactly — the true physical invariant.
+- **Bug fix — resonance/background merge.** The previous point-merge
+  interpolated a half-built, unsorted grid while appending to it, causing
+  runaway accumulation (U-235 fission read ~1.79 M b instead of ~586 b). The
+  merge now snapshots the background once and rebuilds each reaction as
+  `background(E) + resonance(E)`. Also fixed a `doppler_broaden` panic when
+  reactions carried different-length grids.
 
 ## License and provenance — please read
 

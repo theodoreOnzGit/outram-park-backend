@@ -12,8 +12,9 @@
 //! | Phase | Content | Status |
 //! |-------|---------|--------|
 //! | 2a | MF=1/MF=2 headers, linearisation, LRU=0 (H-2) | done |
-//! | 2b | SLBW/MLBW resonance evaluation (Ar-37 LRU=1, LRF=2) | **this version** |
-//! | 2c | Reich-Moore (LRF=3) and unresolved (LRU=2) | future |
+//! | 2b | SLBW/MLBW resonance evaluation (Ar-37 LRU=1, LRF=2) | done |
+//! | 2c | Reich-Moore (LRF=3, e.g. U-235) | **this version** |
+//! | 2d | Unresolved resonances (LRU=2, PURR) | future |
 //!
 //! ## Entry point
 //!
@@ -30,16 +31,18 @@
 pub mod linearize;
 pub mod mf1;
 pub mod mf2;
+pub mod rm;
 pub mod slbw;
 
 pub use mf1::MaterialInfo;
-pub use mf2::{EnergyRange, LState, ResonanceFormalism, ResonanceInfo, SlbwResonance};
+pub use mf2::{EnergyRange, LState, ResonanceFormalism, ResonanceInfo, RmLState, RmResonance, SlbwResonance};
 
 use crate::{
     endf::{records::SectionCursor, tape::Tape, MtReaction},
     NjoyError,
 };
-use slbw::{channel_radius, eval_slbw_lstate, SlbwSigmas};
+use rm::RmSigmas;
+use slbw::{channel_radius, eval_slbw_lstate};
 
 // ── Public configuration and result types ─────────────────────────────────────
 
@@ -113,12 +116,12 @@ pub fn eval_lin_lin(pairs: &[(f64, f64)], x: f64) -> f64 {
 ///
 /// Reads the material identified by `config.mat` from `tape`, linearises every
 /// MF=3 section to lin-lin within `config.tolerance`, and adds resonance
-/// contributions from MF=2 (SLBW/MLBW, Phase 2b).
+/// contributions from MF=2 (SLBW/MLBW/Reich-Moore, Phases 2b/2c).
 ///
 /// # Errors
 ///
 /// - [`NjoyError::SectionNotFound`] — MF=1/MT=451 or MF=3 sections absent.
-/// - [`NjoyError::NotPorted`] — MF=2 contains LRF ≥ 3 (Reich-Moore and above).
+/// - [`NjoyError::NotPorted`] — MF=2 contains LRF=4 (Adler-Adler) or LRF=7 (R-Matrix Limited).
 pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyError> {
     let mat = config.mat;
     let eps = config.tolerance;
@@ -159,62 +162,137 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 
 // ── Phase 2b: resonance contribution ─────────────────────────────────────────
 
-/// Add SLBW/MLBW resonance contributions to the MF=3 background cross sections.
+/// Add SLBW/MLBW and Reich-Moore resonance contributions to the MF=3 background.
 ///
-/// For each resolved resonance range (LRU=1, LRF=1 or 2), builds a dense energy
-/// grid around each resonance and evaluates the SLBW cross sections. The resonance
-/// contributions are merged with the existing lin-lin background grid.
+/// For each resolved resonance range (LRU=1), builds a dense energy grid around
+/// each resonance and evaluates the cross sections. The contributions are merged
+/// with the existing lin-lin background grid.
 ///
+/// Dispatches to SLBW evaluation (LRF=1/2) or Reich-Moore evaluation (LRF=3).
 /// MT mapping: elastic (MT=2), capture (MT=102), fission (MT=18), total (MT=1).
 fn add_resonance_contributions(sections: &mut Vec<ReconrSection>, res_info: &ResonanceInfo) {
     for range in res_info.resolved_slbw_ranges() {
-        if range.l_states.is_empty() { continue; }
+        add_slbw_range(sections, range);
+    }
+    for range in res_info.resolved_rm_ranges() {
+        add_rm_range(sections, range);
+    }
+}
 
-        let el = range.el;
-        let eh = range.eh;
+/// Resonance cross-section contributions at one energy, by reaction \[b\].
+#[derive(Debug, Default, Clone, Copy)]
+struct RangeDelta {
+    total:   f64,
+    elastic: f64,
+    fission: f64,
+    capture: f64,
+}
 
-        // Build dense energy grid: background energies in [EL, EH] + resonance halos
-        let mut egrid = collect_background_energies(sections, el, eh);
-        add_resonance_halo_energies(&mut egrid, &range.l_states, el, eh);
-        egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        egrid.dedup_by(|a, b| (*a - *b).abs() < 1e-10 * b.abs().max(1.0));
+fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange) {
+    if range.l_states.is_empty() { return; }
 
-        if egrid.is_empty() { continue; }
+    // Hoist the per-l-state channel radius and resonance tuples out of the
+    // energy loop — they do not depend on energy.
+    let prepared: Vec<(u32, f64, f64, Vec<_>)> = range.l_states.iter().map(|ls| {
+        let ra = channel_radius(ls.awri, range.naps, range.ap);
+        let tuples: Vec<_> = ls.resonances.iter().map(|r| r.as_tuple()).collect();
+        (ls.l, ls.awri, ra, tuples)
+    }).collect();
 
-        // Evaluate resonance sigma at each energy
-        for &e in &egrid {
-            let mut delta = SlbwSigmas::default();
-            for ls in &range.l_states {
-                let ra = channel_radius(ls.awri, range.naps, range.ap);
-                let tuples: Vec<_> = ls.resonances.iter().map(|r| r.as_tuple()).collect();
-                let s = eval_slbw_lstate(e, &tuples, ls.l, range.spi, range.ap, ls.awri, ra);
-                delta.elastic += s.elastic;
-                delta.capture += s.capture;
-                delta.fission += s.fission;
-            }
+    let mut halo = Vec::new();
+    add_resonance_halo_energies(&mut halo, &range.l_states, range.el, range.eh);
 
-            // Subtract potential scattering (already in background via MF=3)
-            // The SLBW elastic includes potential scattering; the background MF=3
-            // already carries σ_pot in the smooth cross section. To avoid double-
-            // counting, we add only the resonance interference term.
-            // The NJOY convention: MF=3 background has σ_pot already accounted for
-            // via the "background file"; in phase 2b we add the full SLBW including
-            // σ_pot and rely on the background being zero inside the resonance window.
-            // For simplicity, add the full resonance contribution — tests will validate.
-            merge_point(sections, MtReaction::Mt2Elastic,   e, delta.elastic);
-            merge_point(sections, MtReaction::Mt102Capture, e, delta.capture);
-            merge_point(sections, MtReaction::Mt18Fission,  e, delta.fission);
-            merge_point(sections, MtReaction::Mt1Total,     e, delta.total());
+    rebuild_range(sections, range.el, range.eh, halo, |e| {
+        let mut d = RangeDelta::default();
+        for (l, awri, ra, tuples) in &prepared {
+            let s = eval_slbw_lstate(e, tuples, *l, range.spi, range.ap, *awri, *ra);
+            d.elastic += s.elastic;
+            d.capture += s.capture;
+            d.fission += s.fission;
+        }
+        d.total = d.elastic + d.capture + d.fission;
+        d
+    });
+}
+
+fn add_rm_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange) {
+    if range.rm_l_states.is_empty() { return; }
+
+    let mut halo = Vec::new();
+    add_rm_halo_energies(&mut halo, &range.rm_l_states, range.el, range.eh);
+
+    rebuild_range(sections, range.el, range.eh, halo, |e| {
+        let mut d = RangeDelta::default();
+        for ls in &range.rm_l_states {
+            let s: RmSigmas = rm::eval_rm_lstate(e, ls, range.ap, range.spi, range.naps);
+            d.total   += s.total;
+            d.elastic += s.elastic;
+            d.fission += s.fission;
+            d.capture += s.capture;
+        }
+        d
+    });
+}
+
+/// Rebuild the elastic/capture/fission/total sections over a resonance range.
+///
+/// For each of the four reactions, the new grid is the union of (a) the existing
+/// background energies inside `[el, eh]` and (b) the resonance `halo` points.
+/// At every grid energy the new cross section is `background(e) + resonance(e)`,
+/// where `background(e)` is interpolated from the **original** (pre-merge)
+/// section and `resonance(e)` comes from `delta_at`. Points outside `[el, eh]`
+/// are copied through untouched.
+///
+/// Interpolating the background from an immutable snapshot — rather than from
+/// the section as it is being modified — is essential: appending points and then
+/// interpolating the half-built (unsorted) vector causes runaway accumulation.
+fn rebuild_range(
+    sections: &mut Vec<ReconrSection>,
+    el: f64,
+    eh: f64,
+    halo: Vec<f64>,
+    delta_at: impl Fn(f64) -> RangeDelta,
+) {
+    // Union energy grid inside [el, eh]: background energies + resonance halo.
+    let mut egrid = collect_background_energies(sections, el, eh);
+    egrid.extend(halo.into_iter().filter(|&e| e > el && e < eh && e > 0.0));
+    egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    egrid.dedup_by(|a, b| (*a - *b).abs() < 1e-10 * b.abs().max(1.0));
+    if egrid.is_empty() { return; }
+
+    // Evaluate the resonance contribution once per grid energy.
+    let deltas: Vec<RangeDelta> = egrid.iter().map(|&e| delta_at(e)).collect();
+
+    for mt in [MtReaction::Mt1Total, MtReaction::Mt2Elastic,
+               MtReaction::Mt18Fission, MtReaction::Mt102Capture] {
+        let sec = match sections.iter_mut().find(|s| s.mt == mt) {
+            Some(s) => s,
+            None    => continue,
+        };
+
+        // Immutable snapshot of the background for interpolation.
+        let bg = sec.pairs.clone();
+
+        // Keep points strictly outside the resonance range as-is.
+        let mut new_pairs: Vec<(f64, f64)> =
+            bg.iter().copied().filter(|&(e, _)| e < el || e > eh).collect();
+
+        // Add background + resonance for every in-range grid energy.
+        for (i, &e) in egrid.iter().enumerate() {
+            let base = eval_lin_lin(&bg, e);
+            let add = match mt {
+                MtReaction::Mt1Total     => deltas[i].total,
+                MtReaction::Mt2Elastic   => deltas[i].elastic,
+                MtReaction::Mt18Fission  => deltas[i].fission,
+                MtReaction::Mt102Capture => deltas[i].capture,
+                _ => 0.0,
+            };
+            new_pairs.push((e, base + add));
         }
 
-        // Re-sort each affected section by energy after all insertions
-        for mt in [MtReaction::Mt1Total, MtReaction::Mt2Elastic,
-                   MtReaction::Mt18Fission, MtReaction::Mt102Capture] {
-            if let Some(sec) = sections.iter_mut().find(|s| s.mt == mt) {
-                sec.pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-                sec.pairs.dedup_by(|a, b| (a.0 - b.0).abs() < 1e-10 * b.0.abs().max(1.0));
-            }
-        }
+        new_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        new_pairs.dedup_by(|a, b| (a.0 - b.0).abs() < 1e-10 * b.0.abs().max(1.0));
+        sec.pairs = new_pairs;
     }
 }
 
@@ -233,9 +311,9 @@ fn collect_background_energies(sections: &[ReconrSection], el: f64, eh: f64) -> 
     energies
 }
 
-/// Add a halo of energy points around each resonance peak.
+/// Add a halo of energy points around each SLBW/MLBW resonance peak.
 ///
-/// Points are added at E_r × {offset}, where offsets bracket the half-widths.
+/// Points are placed at `E_r ± k × (Γ_tot/2)` for several values of k.
 /// Negative-energy resonances are skipped (below threshold).
 fn add_resonance_halo_energies(grid: &mut Vec<f64>, l_states: &[LState], el: f64, eh: f64) {
     const OFFSETS: &[f64] = &[-10.0, -5.0, -2.0, -1.0, -0.5, -0.25,
@@ -244,7 +322,7 @@ fn add_resonance_halo_energies(grid: &mut Vec<f64>, l_states: &[LState], el: f64
         for res in &ls.resonances {
             if res.er <= 0.0 { continue; }
             let half_g = res.gt / 2.0;
-            grid.push(res.er); // always include the resonance energy itself
+            grid.push(res.er);
             for &off in OFFSETS {
                 let e = res.er + off * half_g;
                 if e > el && e < eh && e > 0.0 { grid.push(e); }
@@ -253,25 +331,23 @@ fn add_resonance_halo_energies(grid: &mut Vec<f64>, l_states: &[LState], el: f64
     }
 }
 
-/// Insert or add `delta_sigma` to a section's grid at energy `e`.
+/// Add a halo of energy points around each Reich-Moore resonance peak.
 ///
-/// If a point at `e` already exists (within tolerance), adds to it.
-/// Otherwise inserts a new point (interpolating the existing background to get
-/// the base value before adding the resonance contribution).
-fn merge_point(sections: &mut Vec<ReconrSection>, mt: MtReaction, e: f64, delta_sigma: f64) {
-    let sec = match sections.iter_mut().find(|s| s.mt == mt) {
-        Some(s) => s,
-        None    => return,
-    };
-
-    const TOL: f64 = 1e-10;
-    let existing_idx = sec.pairs.iter().position(|&(ex, _)| (ex - e).abs() < TOL * e.max(1.0));
-
-    if let Some(idx) = existing_idx {
-        sec.pairs[idx].1 += delta_sigma;
-    } else {
-        // Evaluate background at e by linear interpolation
-        let bg = eval_lin_lin(&sec.pairs, e);
-        sec.pairs.push((e, bg + delta_sigma));
+/// Total width is `Γ_n + Γ_γ + |Γ_fA| + |Γ_fB|`.
+fn add_rm_halo_energies(grid: &mut Vec<f64>, rm_l_states: &[RmLState], el: f64, eh: f64) {
+    const OFFSETS: &[f64] = &[-10.0, -5.0, -2.0, -1.0, -0.5, -0.25,
+                               0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0];
+    for ls in rm_l_states {
+        for res in &ls.resonances {
+            if res.er <= 0.0 { continue; }
+            let gt    = res.gn + res.gg + res.gfa.abs() + res.gfb.abs();
+            let half_g = gt / 2.0;
+            grid.push(res.er);
+            for &off in OFFSETS {
+                let e = res.er + off * half_g;
+                if e > el && e < eh && e > 0.0 { grid.push(e); }
+            }
+        }
     }
 }
+

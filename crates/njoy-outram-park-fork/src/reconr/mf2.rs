@@ -5,17 +5,18 @@
 //! ```text
 //! CONT  ZA  AWR  0   0  NIS  0          ← NIS isotopes
 //! per isotope:
-//!   CONT  ZAI  ABN  0  LFW  NER  0      ← NER energy ranges; NER is in N1H (field 5)
+//!   CONT  ZAI  ABN  0  LFW  NER  0      ← NER energy ranges
 //!   per range:
 //!     CONT  EL  EH  LRU  LRF  NRO  NAPS
 //!     LRU=0: CONT SPI AP 0 0 NLS 0; NLS CONT l-state records
-//!     LRU=1 (SLBW/MLBW): CONT SPI AP 0 0 NLS 0;
-//!                         NLS LIST records (AWRI QX L LRX 6*NRS NRS; then NRS×6 floats)
-//!     LRU=2: partial parse (SPI/AP only) — unresolved region, used by PURR not RECONR
+//!     LRU=1, LRF=1/2 (SLBW/MLBW):
+//!       CONT SPI AP 0 0 NLS 0;
+//!       NLS LIST records (AWRI QX L LRX 6*NRS NRS; then NRS×6: ER AJ GT GN GG GF)
+//!     LRU=1, LRF=3 (Reich-Moore):
+//!       CONT SPI AP 0 LAD NLS 0;
+//!       NLS LIST records (AWRI APL L 0 6*NRS NRS; then NRS×6: ER AJ GN GG GFA GFB)
+//!     LRU=2: partial parse (SPI/AP header only)
 //! ```
-//!
-//! **Phase 2b** implements LRU=1 (SLBW/MLBW) for Ar-37.
-//! LRU=2 is partially parsed (header only) so the cursor advances correctly.
 
 use crate::{
     endf::{records::SectionCursor, tape::Section},
@@ -31,28 +32,27 @@ pub enum ResonanceFormalism {
     Slbw,
     /// LRF=2: Multi-Level Breit-Wigner.
     Mlbw,
-    /// LRF=3: Reich-Moore (future work).
+    /// LRF=3: Reich-Moore.
     ReichMoore,
-    /// LRF=4: Adler-Adler (future work).
+    /// LRF=4: Adler-Adler (not yet ported).
     AdlerAdler,
-    /// LRF=7: R-Matrix Limited (future work).
+    /// LRF=7: R-Matrix Limited (not yet ported).
     RMatrixLimited,
 }
 
-// ── Resonance parameter types ─────────────────────────────────────────────────
+// ── SLBW/MLBW resonance types ─────────────────────────────────────────────────
 
 /// One resonance in a SLBW or MLBW evaluation.
 ///
-/// Fields correspond to the 6 values per resonance in the ENDF-6 LIST record.
+/// Fields correspond to the 6 values per resonance in the ENDF-6 LIST record
+/// for LRF=1/2: `ER AJ GT GN GG GF`.
 #[derive(Debug, Clone)]
 pub struct SlbwResonance {
-    /// Resonance energy \[eV\]. May be negative (sub-threshold, still contributes to tails).
+    /// Resonance energy \[eV\]. May be negative (sub-threshold).
     pub er: f64,
-    /// Spin assignment J (the total angular momentum of the compound state).
+    /// Spin assignment J.
     pub aj: f64,
-    /// Total width Γ_tot at E_r \[eV\]. Not used in the cross-section formula directly
-    /// (NJOY recomputes a width from the energy-dependent components) but needed for
-    /// building the energy grid.
+    /// Total width Γ_tot \[eV\] at E_r. Used for building the energy grid.
     pub gt: f64,
     /// Neutron width Γ_n \[eV\] at E_r.
     pub gn: f64,
@@ -71,10 +71,10 @@ impl SlbwResonance {
     }
 }
 
-/// One orbital angular momentum l-state in a resolved resonance region.
+/// One orbital angular momentum l-state in a SLBW/MLBW resolved resonance region.
 #[derive(Debug, Clone)]
 pub struct LState {
-    /// Atomic weight ratio of the target (from the LIST record head).
+    /// Atomic weight ratio of the target.
     pub awri: f64,
     /// Orbital angular momentum quantum number l.
     pub l: u32,
@@ -82,13 +82,49 @@ pub struct LState {
     pub resonances: Vec<SlbwResonance>,
 }
 
+// ── Reich-Moore (LRF=3) resonance types ───────────────────────────────────────
+
+/// One resonance in a Reich-Moore (LRF=3) evaluation.
+///
+/// Fields correspond to the 6 values per resonance in the ENDF-6 LIST record
+/// for LRF=3: `ER AJ GN GG GFA GFB`. Note the field order differs from SLBW
+/// (no GT; two fission widths instead of one; GN before GG).
+#[derive(Debug, Clone)]
+pub struct RmResonance {
+    /// Resonance energy \[eV\]. May be negative.
+    pub er: f64,
+    /// Spin J (signed): positive → channel-spin group A, negative → group B.
+    pub aj: f64,
+    /// Neutron partial width Γ_n \[eV\] at E_r.
+    pub gn: f64,
+    /// Radiative capture width Γ_γ \[eV\].
+    pub gg: f64,
+    /// First fission partial width Γ_fA \[eV\], signed.
+    pub gfa: f64,
+    /// Second fission partial width Γ_fB \[eV\], signed. Zero for most nuclides.
+    pub gfb: f64,
+}
+
+/// One orbital angular momentum l-state in a Reich-Moore resolved resonance region.
+#[derive(Debug, Clone)]
+pub struct RmLState {
+    /// Atomic weight ratio of the target.
+    pub awri: f64,
+    /// Per-l scattering radius \[10⁻¹² cm\]. `0.0` → use the range-level `AP`.
+    pub apl: f64,
+    /// Orbital angular momentum quantum number l.
+    pub l: u32,
+    /// All resonances in this l-state, in file order.
+    pub resonances: Vec<RmResonance>,
+}
+
 // ── Energy range ───────────────────────────────────────────────────────────────
 
 /// One energy range entry from MF=2/MT=151.
 ///
 /// A single isotope can have multiple non-overlapping energy ranges, each with a
-/// different resonance formalism. For example, Ar-37 has a resolved region
-/// (LRU=1, LRF=2) up to 4268 eV, then an unresolved region (LRU=2) beyond that.
+/// different resonance formalism. For example, Ar-37 has LRU=1/LRF=2 up to 4268 eV,
+/// then LRU=2 (unresolved). U-235 has LRU=1/LRF=3 (Reich-Moore).
 #[derive(Debug, Clone)]
 pub struct EnergyRange {
     /// Lower energy boundary \[eV\].
@@ -105,8 +141,10 @@ pub struct EnergyRange {
     pub ap: f64,
     /// NAPS flag: 0 = use formula for channel radius; 1 = use `ap` as channel radius.
     pub naps: i32,
-    /// l-states with resonance parameters (only populated for LRU=1, LRF=1 or 2).
+    /// l-states with SLBW/MLBW parameters (LRU=1, LRF=1 or 2). Empty for LRF=3.
     pub l_states: Vec<LState>,
+    /// l-states with Reich-Moore parameters (LRU=1, LRF=3). Empty for LRF≠3.
+    pub rm_l_states: Vec<RmLState>,
 }
 
 // ── Top-level result ───────────────────────────────────────────────────────────
@@ -127,7 +165,7 @@ impl ResonanceInfo {
         self.ranges.iter().all(|r| r.lru == 0)
     }
 
-    /// Returns all resolved resonance ranges (LRU=1, LRF=1 or 2) with parameters.
+    /// Returns all SLBW/MLBW resolved resonance ranges (LRU=1, LRF=1 or 2).
     pub fn resolved_slbw_ranges(&self) -> impl Iterator<Item = &EnergyRange> {
         self.ranges.iter().filter(|r| {
             r.lru == 1
@@ -137,6 +175,13 @@ impl ResonanceInfo {
                 )
         })
     }
+
+    /// Returns all Reich-Moore resolved resonance ranges (LRU=1, LRF=3).
+    pub fn resolved_rm_ranges(&self) -> impl Iterator<Item = &EnergyRange> {
+        self.ranges.iter().filter(|r| {
+            r.lru == 1 && matches!(r.formalism, Some(ResonanceFormalism::ReichMoore))
+        })
+    }
 }
 
 // ── Parser ─────────────────────────────────────────────────────────────────────
@@ -144,11 +189,12 @@ impl ResonanceInfo {
 /// Parse MF=2/MT=151 and return resonance metadata with parameters.
 ///
 /// Supports:
-/// - **LRU=0** — potential scattering only (H-2 style); full parse.
+/// - **LRU=0** — potential scattering only (H-2); full parse.
 /// - **LRU=1, LRF=1 (SLBW) or LRF=2 (MLBW)** — resolved resonances; full parse.
+/// - **LRU=1, LRF=3 (Reich-Moore)** — resolved resonances; full parse.
 /// - **LRU=2** — unresolved region; header only (parameters skipped).
 ///
-/// Returns [`NjoyError::NotPorted`] for LRU=1 with LRF ≥ 3 (Reich-Moore and above).
+/// Returns [`NjoyError::NotPorted`] for LRF=4 (Adler-Adler) and LRF=7 (R-Matrix Limited).
 pub fn parse_resonance_info(sec: &Section) -> Result<ResonanceInfo, NjoyError> {
     let mut cur = SectionCursor::new(&sec.rows);
 
@@ -160,7 +206,6 @@ pub fn parse_resonance_info(sec: &Section) -> Result<ResonanceInfo, NjoyError> {
 
     for _ in 0..nis {
         // CONT: ZAI, ABN, 0, LFW, NER, 0
-        // NER is the N1H field (field 5 = n1) — per reconr.f90:730 `ner=n1h`
         let iso = cur.read_cont()?;
         let ner = iso.n1 as usize;
 
@@ -191,10 +236,6 @@ pub fn parse_resonance_info(sec: &Section) -> Result<ResonanceInfo, NjoyError> {
 
 // ── Per-LRU parsers ────────────────────────────────────────────────────────────
 
-/// LRU=0: potential scattering only.
-///
-/// Structure: CONT(SPI, AP, 0, 0, NLS, 0), then NLS CONT records (one per l-state,
-/// each containing AWRI, QX, L, LRX, 0, 0 with no parameter data).
 fn parse_lru0(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32)
     -> Result<EnergyRange, NjoyError>
 {
@@ -205,26 +246,33 @@ fn parse_lru0(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32)
     for _ in 0..nls {
         cur.read_cont()?;
     }
-    Ok(EnergyRange { el, eh, lru: 0, formalism: None, spi, ap, naps, l_states: Vec::new() })
+    Ok(EnergyRange {
+        el, eh, lru: 0, formalism: None, spi, ap, naps,
+        l_states: Vec::new(), rm_l_states: Vec::new(),
+    })
 }
 
-/// LRU=1: resolved resonances, SLBW (LRF=1) or MLBW (LRF=2).
-///
-/// Structure: CONT(SPI, AP, 0, 0, NLS, 0), then NLS LIST records.
-/// Each LIST head is (AWRI, QX, L, LRX, 6*NRS, NRS); data is NRS×6 floats:
-/// `ER AJ GT GN GG GF` per resonance.
 fn parse_lru1(cur: &mut SectionCursor<'_>, el: f64, eh: f64, lrf: i32, naps: i32)
     -> Result<EnergyRange, NjoyError>
 {
-    let formalism = match lrf {
-        1 => ResonanceFormalism::Slbw,
-        2 => ResonanceFormalism::Mlbw,
-        _ => {
-            return Err(NjoyError::NotPorted(
-                "LRF ≥ 3 resonance formalism (Reich-Moore/Adler-Adler/R-Matrix) — Phase 2c",
-            ));
-        }
-    };
+    match lrf {
+        1 | 2 => parse_slbw_mlbw(cur, el, eh, lrf, naps),
+        3     => parse_reich_moore(cur, el, eh, naps),
+        _     => Err(NjoyError::NotPorted(
+            "LRF ≥ 4 resonance formalism (Adler-Adler/R-Matrix) — not yet ported",
+        )),
+    }
+}
+
+/// LRU=1, LRF=1/2: SLBW or MLBW resolved resonances.
+///
+/// Header: `CONT(SPI, AP, 0, 0, NLS, 0)`.
+/// Each l-state LIST: `(AWRI, QX, L, LRX, 6*NRS, NRS)` + `NRS×6` floats:
+/// `ER AJ GT GN GG GF` per resonance.
+fn parse_slbw_mlbw(cur: &mut SectionCursor<'_>, el: f64, eh: f64, lrf: i32, naps: i32)
+    -> Result<EnergyRange, NjoyError>
+{
+    let formalism = if lrf == 1 { ResonanceFormalism::Slbw } else { ResonanceFormalism::Mlbw };
 
     let c = cur.read_cont()?;
     let spi = c.c1;
@@ -235,7 +283,6 @@ fn parse_lru1(cur: &mut SectionCursor<'_>, el: f64, eh: f64, lrf: i32, naps: i32
 
     for _ in 0..nls {
         let lst = cur.read_list()?;
-        // LIST head: AWRI, QX, L, LRX, 6*NRS, NRS
         let awri = lst.head.c1;
         let l    = lst.head.l1 as u32;
         let nrs  = lst.head.n2 as usize;
@@ -258,7 +305,54 @@ fn parse_lru1(cur: &mut SectionCursor<'_>, el: f64, eh: f64, lrf: i32, naps: i32
 
     Ok(EnergyRange {
         el, eh, lru: 1, formalism: Some(formalism), spi, ap, naps,
-        l_states,
+        l_states, rm_l_states: Vec::new(),
+    })
+}
+
+/// LRU=1, LRF=3: Reich-Moore resolved resonances.
+///
+/// Header: `CONT(SPI, AP, 0, LAD, NLS, 0)`.
+/// Each l-state LIST: `(AWRI, APL, L, 0, 6*NRS, NRS)` + `NRS×6` floats:
+/// `ER AJ GN GG GFA GFB` per resonance (note: no GT; GN before GG).
+fn parse_reich_moore(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32)
+    -> Result<EnergyRange, NjoyError>
+{
+    // CONT: SPI, AP, 0, LAD, NLS, 0
+    let c = cur.read_cont()?;
+    let spi = c.c1;
+    let ap  = c.c2;
+    let nls = c.n1 as usize;
+
+    let mut rm_l_states = Vec::with_capacity(nls);
+
+    for _ in 0..nls {
+        let lst = cur.read_list()?;
+        // LIST head: AWRI, APL, L, 0, 6*NRS, NRS
+        let awri = lst.head.c1;
+        let apl  = lst.head.c2;   // per-l scattering radius; 0.0 = use range AP
+        let l    = lst.head.l1 as u32;
+        let nrs  = lst.head.n2 as usize;
+
+        let mut resonances = Vec::with_capacity(nrs);
+        for i in 0..nrs {
+            let base = i * 6;
+            resonances.push(RmResonance {
+                er:  lst.data[base],
+                aj:  lst.data[base + 1],
+                gn:  lst.data[base + 2],
+                gg:  lst.data[base + 3],
+                gfa: lst.data[base + 4],
+                gfb: lst.data[base + 5],
+            });
+        }
+
+        rm_l_states.push(RmLState { awri, apl, l, resonances });
+    }
+
+    Ok(EnergyRange {
+        el, eh, lru: 1, formalism: Some(ResonanceFormalism::ReichMoore),
+        spi, ap, naps,
+        l_states: Vec::new(), rm_l_states,
     })
 }
 
@@ -266,10 +360,7 @@ fn parse_lru1(cur: &mut SectionCursor<'_>, el: f64, eh: f64, lrf: i32, naps: i32
 ///
 /// RECONR does not use unresolved parameters (that is PURR's job). We read the
 /// SPI/AP header CONT so the cursor advances past the range header, then return
-/// a placeholder. The l-state parameter records are **not** read — this is correct
-/// when LRU=2 is the last energy range in the section (the cursor is dropped on
-/// return). For materials where LRU=2 is followed by more ranges, extend this to
-/// skip the remaining l-state records.
+/// a placeholder.
 fn parse_lru2_header(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32)
     -> Result<EnergyRange, NjoyError>
 {
@@ -277,6 +368,6 @@ fn parse_lru2_header(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32)
     Ok(EnergyRange {
         el, eh, lru: 2, formalism: None,
         spi: c.c1, ap: c.c2, naps,
-        l_states: Vec::new(),
+        l_states: Vec::new(), rm_l_states: Vec::new(),
     })
 }
