@@ -14,9 +14,10 @@ description = "Pure-Rust port (in progress) of NJOY2016 nuclear-data processing 
 keywords = ["nuclear", "endf", "cross-sections", "reconr", "neutronics"]
 
 # LICENSE.njoy and NOTICE must travel with every redistribution (BSD-3 cond. 1).
+# Integration tests and ENDF fixture files (some > 30 MB) are excluded from the
+# tarball — they are development-only and crates.io does not run them.
 include = [
     "src/**",
-    "tests/**",
     "docs/**",
     "LICENSE*",
     "NOTICE",
