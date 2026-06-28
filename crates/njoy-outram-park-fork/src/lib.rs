@@ -39,6 +39,7 @@ pub mod common;
 pub mod endf;
 pub mod modules;
 pub mod prelude;
+pub mod reconr;
 
 mod error;
 pub use error::NjoyError;
