@@ -44,4 +44,5 @@ pub mod reconr;
 pub mod units;
 
 mod error;
+pub use endf::MtReaction;
 pub use error::NjoyError;

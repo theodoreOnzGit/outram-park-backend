@@ -28,10 +28,12 @@
 //! Ported from NJOY2016 `src/endf.f90`.
 
 pub mod interp;
+pub mod mt;
 pub mod parse;
 pub mod records;
 pub mod tape;
 
+pub use mt::MtReaction;
 pub use parse::parse_endf_float;
 pub use records::{Cont, List, Tab1, Tab2};
 pub use tape::{Section, Tape};

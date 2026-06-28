@@ -18,6 +18,7 @@ use std::fs::File;
 use njoy_outram_park_fork::{
     endf::tape::Tape,
     reconr::{reconr, ReconrConfig, mf1, mf2},
+    MtReaction,
 };
 
 const MAT: i32 = 128; // H-2 (deuterium)
@@ -101,9 +102,10 @@ fn reconr_produces_all_mf3_sections() {
     let tape = load_tape();
     let result = reconr(&tape, &default_config()).unwrap();
     // H-2 has MF=3: MT=1 (total), 2 (elastic), 3 (nonelastic), 16 (n,2n), 102 (capture)
-    let mts: Vec<i32> = result.sections.iter().map(|s| s.mt).collect();
-    for mt in [1, 2, 3, 16, 102] {
-        assert!(mts.contains(&mt), "missing MF=3 MT={mt}");
+    let mts: Vec<MtReaction> = result.sections.iter().map(|s| s.mt).collect();
+    for mt in [MtReaction::Mt1Total, MtReaction::Mt2Elastic, MtReaction::Mt3Nonelastic,
+               MtReaction::Mt16N2n, MtReaction::Mt102Capture] {
+        assert!(mts.contains(&mt), "missing MF=3 {mt}");
     }
 }
 
@@ -126,11 +128,11 @@ fn reconr_lin_lin_preserves_point_count() {
     let result = reconr(&tape, &default_config()).unwrap();
 
     // MT=1 (total): 178 tabulated points from the fixture
-    let total = result.sections.iter().find(|s| s.mt == 1).unwrap();
+    let total = result.sections.iter().find(|s| s.mt == MtReaction::Mt1Total).unwrap();
     assert_eq!(total.pairs.len(), 178, "MT=1 should have 178 points (already lin-lin)");
 
     // MT=2 (elastic): also 178 points (confirmed from MF=3 MT=2 TAB1 header NP=178)
-    let elastic = result.sections.iter().find(|s| s.mt == 2).unwrap();
+    let elastic = result.sections.iter().find(|s| s.mt == MtReaction::Mt2Elastic).unwrap();
     assert_eq!(elastic.pairs.len(), 178, "MT=2 should have 178 points (already lin-lin)");
 }
 
@@ -139,7 +141,7 @@ fn reconr_elastic_thermal_value() {
     // At E = 1e-5 eV, H-2 elastic XS ≈ 3.4 b (from the tabulated file value)
     let tape = load_tape();
     let result = reconr(&tape, &default_config()).unwrap();
-    let elastic = result.sections.iter().find(|s| s.mt == 2).unwrap();
+    let elastic = result.sections.iter().find(|s| s.mt == MtReaction::Mt2Elastic).unwrap();
     let (e0, s0) = elastic.pairs[0];
     assert!((e0 - 1e-5).abs() < 1e-8, "first energy = {e0}");
     // From file: 1.000000-5  3.395000+0 → 3.395 b
@@ -150,7 +152,7 @@ fn reconr_elastic_thermal_value() {
 fn reconr_total_xs_energy_bounds() {
     let tape = load_tape();
     let result = reconr(&tape, &default_config()).unwrap();
-    let total = result.sections.iter().find(|s| s.mt == 1).unwrap();
+    let total = result.sections.iter().find(|s| s.mt == MtReaction::Mt1Total).unwrap();
     let (e_first, _) = total.pairs[0];
     let &(e_last, _) = total.pairs.last().unwrap();
     assert!((e_first - 1e-5).abs() < 1e-8, "E_first={e_first}");

@@ -32,7 +32,7 @@ use uom::si::{
 };
 
 use crate::{
-    endf::tape::Tape,
+    endf::{tape::Tape, MtReaction},
     reconr::{eval_lin_lin, reconr, ReconrConfig, ReconrResult},
     units::{CrossSection, NeutronEnergy, Temperature},
     NjoyError,
@@ -124,34 +124,42 @@ impl NuclearDataLibrary {
 
     // ── Cross-section queries ──────────────────────────────────────────────────
 
-    /// Total cross section [barns] at incident neutron energy `e`.
+    /// Total cross section [barns] at incident neutron energy `e` (MT=1).
     ///
-    /// MT=1. Returns zero if RECONR has not been run or the energy is out of range.
+    /// Returns zero if RECONR has not been run or the energy is out of range.
     pub fn total_xs(&self, e: NeutronEnergy) -> CrossSection {
-        CrossSection::new::<barn>(self.eval(1, e.get::<electronvolt>()))
+        CrossSection::new::<barn>(self.eval(MtReaction::Mt1Total, e.get::<electronvolt>()))
     }
 
-    /// Elastic scattering cross section [barns] at energy `e`. MT=2.
+    /// Elastic scattering cross section [barns] at energy `e` (MT=2).
     pub fn elastic_xs(&self, e: NeutronEnergy) -> CrossSection {
-        CrossSection::new::<barn>(self.eval(2, e.get::<electronvolt>()))
+        CrossSection::new::<barn>(self.eval(MtReaction::Mt2Elastic, e.get::<electronvolt>()))
     }
 
-    /// Fission cross section [barns] at energy `e`. MT=18.
+    /// Fission cross section [barns] at energy `e` (MT=18).
     ///
     /// Returns zero for non-fissile materials.
     pub fn fission_xs(&self, e: NeutronEnergy) -> CrossSection {
-        CrossSection::new::<barn>(self.eval(18, e.get::<electronvolt>()))
+        CrossSection::new::<barn>(self.eval(MtReaction::Mt18Fission, e.get::<electronvolt>()))
     }
 
-    /// Radiative capture cross section [barns] at energy `e`. MT=102.
+    /// Radiative capture cross section [barns] at energy `e` (MT=102).
     pub fn capture_xs(&self, e: NeutronEnergy) -> CrossSection {
-        CrossSection::new::<barn>(self.eval(102, e.get::<electronvolt>()))
+        CrossSection::new::<barn>(self.eval(MtReaction::Mt102Capture, e.get::<electronvolt>()))
     }
 
-    /// Cross section [barns] for any ENDF reaction `mt` at energy `e`.
+    /// Cross section [barns] for a named ENDF reaction at energy `e`.
     ///
-    /// Common MT values: 1=total, 2=elastic, 16=n+2n, 18=fission, 102=capture.
-    pub fn xs_for_reaction(&self, mt: i32, e: NeutronEnergy) -> CrossSection {
+    /// ```
+    /// # use njoy_outram_park_fork::{library::NuclearDataLibrary, MtReaction};
+    /// # use uom::si::energy::electronvolt;
+    /// # let lib = NuclearDataLibrary::from_file(
+    /// #     "tests/resources/n-018_Ar_37-tendl2023.endf", 1828
+    /// # ).unwrap().reconstruct(0.001).unwrap();
+    /// let e = uom::si::f64::Energy::new::<electronvolt>(1540.0);
+    /// let xs = lib.xs_for_reaction(MtReaction::Mt2Elastic, e);
+    /// ```
+    pub fn xs_for_reaction(&self, mt: MtReaction, e: NeutronEnergy) -> CrossSection {
         CrossSection::new::<barn>(self.eval(mt, e.get::<electronvolt>()))
     }
 
@@ -224,7 +232,7 @@ impl NuclearDataLibrary {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    fn eval(&self, mt: i32, e_ev: f64) -> f64 {
+    fn eval(&self, mt: MtReaction, e_ev: f64) -> f64 {
         match &self.reconr {
             None => 0.0,
             Some(r) => {
@@ -263,7 +271,7 @@ impl ContinuousEnergyData {
     /// Find the cross section table for ENDF reaction `mt`.
     ///
     /// Returns `None` if the reaction is absent (e.g. MT=18 for a non-fissile nuclide).
-    pub fn reaction(&self, mt: i32) -> Option<&ReactionCrossSection> {
+    pub fn reaction(&self, mt: MtReaction) -> Option<&ReactionCrossSection> {
         self.reactions.iter().find(|r| r.mt == mt)
     }
 }
@@ -271,8 +279,9 @@ impl ContinuousEnergyData {
 /// Cross sections for one ENDF reaction, as a fully lin-lin (energy, σ) table.
 #[derive(Debug, Clone)]
 pub struct ReactionCrossSection {
-    /// ENDF MT number.
-    pub mt: i32,
+    /// Reaction type. Use [`MtReaction::try_from`] or [`MtReaction::from_any`]
+    /// to convert from a raw integer if you are working with the [`i32`] level.
+    pub mt: MtReaction,
     /// Pointwise (energy [J], σ [m²]) data, sorted by energy.
     ///
     /// Use `energy.get::<electronvolt>()` and `sigma.get::<barn>()` to recover

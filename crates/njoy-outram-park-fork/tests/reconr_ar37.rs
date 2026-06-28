@@ -24,6 +24,7 @@ use njoy_outram_park_fork::{
     endf::tape::Tape,
     library::NuclearDataLibrary,
     reconr::{reconr, mf1, mf2, ReconrConfig},
+    MtReaction,
 };
 use uom::si::energy::electronvolt;
 use uom::si::area::barn;
@@ -205,8 +206,8 @@ fn reconr_runs_without_error() {
 fn reconr_produces_elastic_section() {
     let tape = load_tape();
     let result = reconr(&tape, &default_config()).unwrap();
-    let elastic = result.sections.iter().find(|s| s.mt == 2)
-        .expect("no MT=2 (elastic) section");
+    let elastic = result.sections.iter().find(|s| s.mt == MtReaction::Mt2Elastic)
+        .expect("no elastic scattering section");
     assert!(!elastic.pairs.is_empty(), "MT=2 is empty");
 }
 
@@ -229,8 +230,8 @@ fn reconr_resonance_peak_visible() {
     let tape = load_tape();
     let result = reconr(&tape, &default_config()).unwrap();
 
-    let at_peak = result.eval_mt(2, 1540.0);
-    let off_peak = result.eval_mt(2, 500.0);
+    let at_peak = result.eval_mt(MtReaction::Mt2Elastic, 1540.0);
+    let off_peak = result.eval_mt(MtReaction::Mt2Elastic, 500.0);
 
     assert!(at_peak > off_peak,
         "σ_el(1540 eV) = {:.2} b should exceed σ_el(500 eV) = {:.2} b",
@@ -243,8 +244,8 @@ fn reconr_capture_peak_at_resonance() {
     let tape = load_tape();
     let result = reconr(&tape, &default_config()).unwrap();
 
-    let at_peak  = result.eval_mt(102, 1540.0);
-    let off_peak = result.eval_mt(102, 500.0);
+    let at_peak  = result.eval_mt(MtReaction::Mt102Capture, 1540.0);
+    let off_peak = result.eval_mt(MtReaction::Mt102Capture, 500.0);
 
     assert!(at_peak > off_peak,
         "σ_cap(1540 eV) = {:.3} b should exceed σ_cap(500 eV) = {:.3} b",
@@ -319,6 +320,6 @@ fn library_to_continuous_energy_data() {
     assert!((ced.za - 18037.0).abs() < 0.1);
     assert!(!ced.reactions.is_empty(), "no reactions in ContinuousEnergyData");
 
-    let elastic = ced.reaction(2).expect("no elastic reaction in CED");
+    let elastic = ced.reaction(MtReaction::Mt2Elastic).expect("no elastic reaction in CED");
     assert!(!elastic.data.is_empty(), "empty elastic data");
 }

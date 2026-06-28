@@ -36,7 +36,7 @@ pub use mf1::MaterialInfo;
 pub use mf2::{EnergyRange, LState, ResonanceFormalism, ResonanceInfo, SlbwResonance};
 
 use crate::{
-    endf::{records::SectionCursor, tape::Tape},
+    endf::{records::SectionCursor, tape::Tape, MtReaction},
     NjoyError,
 };
 use slbw::{channel_radius, eval_slbw_lstate, SlbwSigmas};
@@ -60,8 +60,9 @@ pub struct ReconrConfig {
 /// One reconstructed MF=3 section, ready for Doppler broadening.
 #[derive(Debug, Clone)]
 pub struct ReconrSection {
-    /// ENDF section number (MT). E.g. 1=total, 2=elastic, 18=fission, 102=capture.
-    pub mt: i32,
+    /// Reaction type. Use `MtReaction::try_from(n)` or `MtReaction::from_any(n)`
+    /// to convert from a raw integer if needed.
+    pub mt: MtReaction,
     /// Fully lin-lin (energy [eV], σ [b]) grid, sorted by energy.
     pub pairs: Vec<(f64, f64)>,
 }
@@ -76,11 +77,11 @@ pub struct ReconrResult {
 }
 
 impl ReconrResult {
-    /// Evaluate cross section [b] for MT reaction at energy `e` [eV].
+    /// Evaluate cross section [b] for a reaction at energy `e` [eV].
     ///
     /// Uses linear interpolation on the lin-lin grid. Returns `0.0` if
     /// `mt` is not present or `e` is outside the tabulated range.
-    pub fn eval_mt(&self, mt: i32, e: f64) -> f64 {
+    pub fn eval_mt(&self, mt: MtReaction, e: f64) -> f64 {
         let sec = match self.sections.iter().find(|s| s.mt == mt) {
             Some(s) => s,
             None    => return 0.0,
@@ -144,11 +145,11 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
             let _cont = cur.read_cont()?; // ZA, AWR, QM, QI, 0, LR
             let tab1 = cur.read_tab1()?;
             let pairs = linearize::linearize_tab1(&tab1.interp, &tab1.pairs, eps);
-            Ok(ReconrSection { mt: sec.key.mt, pairs })
+            Ok(ReconrSection { mt: MtReaction::from_any(sec.key.mt), pairs })
         })
         .collect::<Result<Vec<_>, NjoyError>>()?;
 
-    sections.sort_by_key(|s| s.mt);
+    sections.sort_by_key(|s| i32::from(s.mt));
 
     // Phase 2b: add SLBW/MLBW resonance contributions
     add_resonance_contributions(&mut sections, &res_info);
@@ -200,14 +201,15 @@ fn add_resonance_contributions(sections: &mut Vec<ReconrSection>, res_info: &Res
             // via the "background file"; in phase 2b we add the full SLBW including
             // σ_pot and rely on the background being zero inside the resonance window.
             // For simplicity, add the full resonance contribution — tests will validate.
-            merge_point(sections, 2,   e, delta.elastic);
-            merge_point(sections, 102, e, delta.capture);
-            merge_point(sections, 18,  e, delta.fission);
-            merge_point(sections, 1,   e, delta.total());
+            merge_point(sections, MtReaction::Mt2Elastic,   e, delta.elastic);
+            merge_point(sections, MtReaction::Mt102Capture, e, delta.capture);
+            merge_point(sections, MtReaction::Mt18Fission,  e, delta.fission);
+            merge_point(sections, MtReaction::Mt1Total,     e, delta.total());
         }
 
         // Re-sort each affected section by energy after all insertions
-        for mt in [1, 2, 18, 102] {
+        for mt in [MtReaction::Mt1Total, MtReaction::Mt2Elastic,
+                   MtReaction::Mt18Fission, MtReaction::Mt102Capture] {
             if let Some(sec) = sections.iter_mut().find(|s| s.mt == mt) {
                 sec.pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
                 sec.pairs.dedup_by(|a, b| (a.0 - b.0).abs() < 1e-10 * b.0.abs().max(1.0));
@@ -256,7 +258,7 @@ fn add_resonance_halo_energies(grid: &mut Vec<f64>, l_states: &[LState], el: f64
 /// If a point at `e` already exists (within tolerance), adds to it.
 /// Otherwise inserts a new point (interpolating the existing background to get
 /// the base value before adding the resonance contribution).
-fn merge_point(sections: &mut Vec<ReconrSection>, mt: i32, e: f64, delta_sigma: f64) {
+fn merge_point(sections: &mut Vec<ReconrSection>, mt: MtReaction, e: f64, delta_sigma: f64) {
     let sec = match sections.iter_mut().find(|s| s.mt == mt) {
         Some(s) => s,
         None    => return,
