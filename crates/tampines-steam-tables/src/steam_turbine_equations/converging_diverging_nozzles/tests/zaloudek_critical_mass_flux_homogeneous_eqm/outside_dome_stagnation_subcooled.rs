@@ -79,193 +79,147 @@ fn validate_zaloudek_curve_subcooled(
     }
 }
 
-// ACTIVE CANARY — currently failing, intentionally NOT #[ignore]d. This is the
-// item we are actively being fixed. It exercises the worst case of the
-// saturated-liquid-line artifact: the x_t = 1e-4 curve (throats essentially ON
-// the saturated-liquid line).
-//
-// 3000 psia is skipped (backward-mapped stagnation lands in Region 3, not R1).
-// All 16 remaining Region-1 stagnation points are tested.
-//
-// Measured results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):
-//
-//  p_throat  |   p0 (kPa) | h0 (kJ/kg) | p_crit (kPa) | p_ref (kPa) | G_calc (kg/m²s) | G_ref (kg/m²s)
-//  ----------|------------|------------|--------------|-------------|-----------------|---------------
-//      5 psia|     34.820 |    302.991 |       34.556 |      34.474 |        3346.72  |       457.22   ← G ×7 too high,  p ok (<1%)
-//     10 psia|     69.627 |    375.234 |       69.088 |      68.948 |        2547.37  |       748.12   ← G ×3.4 too high, p ok (<1%)
-//     15 psia|    104.256 |    421.642 |       91.825 |     103.421 |         941.83  |      1033.95   ← p 11% low, G ok
-//     20 psia|    138.872 |    456.693 |      116.708 |     137.895 |        1137.63  |      1331.93   ← p 15% low, G ok
-//     30 psia|    208.324 |    509.443 |      167.560 |     206.843 |        1527.17  |      1866.90   ← p 19% low, G ok
-//     50 psia|    348.498 |    582.253 |      271.739 |     344.738 |        2282.98  |      2887.55   ← p 21% low, G ok
-//     75 psia|    525.958 |    645.908 |      408.095 |     517.107 |        3219.18  |      4162.84   ← p 21% low, G ok
-//    100 psia|    705.429 |    694.708 |      552.540 |     689.476 |        4171.45  |      5515.55   ← p 20% low, G ok
-//    150 psia|   1068.923 |    769.406 |      869.398 |    1034.214 |        6179.85  |      7307.83   ← p 16% low, G ok
-//    200 psia|   1437.038 |    827.225 |     1232.351 |    1378.952 |        8413.47  |      9282.36   ← p 11% low, G ok
-//    300 psia|   2183.679 |    916.757 |     2069.862 |    2068.427 |       16299.94  |     12828.85   ← p ok, G 27% high
-//    500 psia|   3709.556 |   1046.095 |     3448.116 |    3447.379 |       24749.49  |     20697.94   ← p ok, G 20% high
-//    750 psia|   5670.410 |   1165.907 |     5171.955 |    5171.068 |       29811.73  |     27423.74   ← p ok, G  9% high
-//   1000 psia|   7689.466 |   1263.217 |     6897.329 |    6894.758 |       34571.17  |     36335.09   ← p ok, G  5% low  ✓ (passes)
-//   1500 psia|  11908.827 |   1424.988 |    10068.648 |   10342.137 |       44863.22  |     49516.03   ← p  3% low, G  9% low
-//   2000 psia|  16383.782 |   1566.840 |    13790.784 |   13789.516 |       57200.58  |     58622.67   ← p ok, G  2% low  ✓ (passes)
-//   3000 psia|   (skipped — stagnation Region 3)
-//
-// Failure pattern (tolerances: p 3%, G log 5%):
-//   5–10 psia : G fails (log-error 32% and 18%); p passes (<1%). The solver
-//               finds the HEM two-phase peak right at the bubble point — the
-//               resulting G is unphysically large (liquid density × tiny
-//               velocity looks like a "choke" but v << c_liquid).
-//  15–200 psia: p fails (11–21% below throat); G passes (log-error 1–3%).
-//               The HEM G(p) maximum falls inside the two-phase dome, not at
-//               the throat saturation pressure.
-// 300–750 psia: p passes; G fails (log-error 2–8%, G is too high).
-//     ≥1000 psia: both pass.
-//
-// The 20 genuinely-subcooled curves (x_t = 0.05 .. 1.00) pass within tolerance.
-//
-// ── POSSIBLE CAUSES — why the two-golden-section method works everywhere EXCEPT
-//    here ─────────────────────────────────────────────────────────────────────
-//
-// The solver maximises the *smooth* energy-balance mass flux
-//     G(p) = rho(p,s0) * sqrt( 2 * (h0 - h(p,s0)) )
-// along the isentrope and calls the global max the choke. For the in-dome and
-// interior-quality subcooled curves this is exact, because there the stationary
-// point dG/dp = 0 coincides with the sonic point Mach = 1. That equivalence is
-// what we are leaning on, and it is NOT unconditional. The x_t ≈ 0 curve is the
-// one place every condition behind it fails at once. Candidate causes, roughly
-// in order of how much each explains the table above:
-//
-// (1) max-G ⟺ Mach-1 BREAKS AT THE BUBBLE-POINT KINK (primary, geometric).
-//     The equivalence "the choke is the smooth interior maximum of G" is only
-//     valid when the HEM sound speed c (equivalently dv/dP|s) is *continuous*
-//     along the isentrope. At the bubble point the isentrope crosses the
-//     saturated-liquid line: v(p,s0) stays continuous but dv/dP|s JUMPS — tiny
-//     (near-incompressible liquid) just above, huge (flashing) just below — so
-//     c = v*sqrt(-1/(dv/dP)) drops discontinuously from ~1500 m/s to tens of
-//     m/s. Mach = v/c therefore jumps UP through 1 exactly at the kink: the
-//     liquid is still sub-sonic w.r.t. c_liquid but instantly super-sonic
-//     w.r.t. the two-phase c just below. The true choke sits ON that corner,
-//     where G is only *one-sidedly* maximal (dG/dp ≠ 0). Our G(p) is smooth
-//     through the kink (h, rho both continuous) and never sees it, so the
-//     golden section keeps walking downstream to the next *smooth* stationary
-//     point, which lies well inside the dome at a LOWER pressure. That is
-//     exactly the 15–200 psia signature: p 11–21% low, G fine. For an interior
-//     quality the stagnation starts already inside the dome — no region-crossing
-//     kink on the isentrope — so the equivalence holds and the method is exact.
-//     Here the stagnation sits right on the dome edge, so the kink and the
-//     choke coincide and the smooth maximiser cannot represent it.
-//
-// (2) EQUILIBRIUM-FLASHING PHYSICS (the documented HEM limitation). HEM assumes
-//     the liquid flashes the instant it reaches saturation. Real water stays
-//     metastable below the saturation pressure (nucleation/thermal lag), keeping
-//     a liquid-like density and a liquid-like (frozen) sound speed past the
-//     bubble point, so the measured choke is at the bubble-point saturation
-//     pressure with c ≈ c_liquid. HEM collapses c too early, which both lowers
-//     the predicted choke pressure (reinforcing cause 1) and, just below the
-//     kink, multiplies a still-liquid rho by a velocity that already exceeds the
-//     equilibrium two-phase c — the unphysically large "choke" at 5–10 psia
-//     (G ×3–7). This is the part a relaxation model (HRM: Feburie / Henry–Fauske
-//     / Downar-Zapolski) is needed to fix; the rest is numerical.
-//
-// (3) CATASTROPHIC CANCELLATION IN THE QUALITY NEAR x = 0 (numerical, specific
-//     to this curve). Throat/throat-region properties go through
-//     x = (s0 - s_f(p)) / (s_g(p) - s_f(p)). At x ≈ 0, s0 ≈ s_f, so the
-//     numerator is a small difference of two large nearly-equal entropies —
-//     loses many significant digits right where the solver is most sensitive.
-//     The resulting noise in v_ps_eqm / h_ps_eqm can manufacture a spurious
-//     local bump in G just below the bubble point that the [p_min, p_bubble]
-//     golden section then latches onto. Interior qualities never evaluate this
-//     near the cancellation, which is why only x_t ≈ 0 shows it.
-//
-// (4) GOLDEN-SECTION UNIMODALITY ASSUMPTION VIOLATED. Golden section is only
-//     valid on a unimodal bracket. Causes 1+3 give the energy-balance G a
-//     near-corner plus possible property noise at the bubble point, so the
-//     [p_min, p_bubble] stretch can hold two competing maxima (a near-kink spike
-//     and the smooth interior peak). Whichever happens to be the global max wins,
-//     which is why the failure flips character with pressure (G-too-high spike at
-//     5–10 psia vs p-too-low smooth peak at 15–200 psia) instead of degrading
-//     smoothly. The bubble-point candidate g_bubble we also test is the *smooth*
-//     energy-G at the kink, NOT rho_f * c_2φ just below it, so it cannot rescue
-//     the one-sided choke of cause 1.
-//
-// IMPLICATION FOR A FIX: causes 1 and 4 say the choke candidate set is
-// incomplete — it should also include the bubble point evaluated with the
-// *two-phase* (lower) sound speed, i.e. G = rho_f * c_2φ(p_bubble⁻), the
-// one-sided Mach-1 value at the kink. That needs an explicit HEM sound-speed
-// evaluation at the bubble point (not just the smooth energy balance). Cause 2
-// then says even that equilibrium c is wrong near x = 0 and a relaxation (HRM)
-// closure is required to recover the measured curve. Causes 3/4 are pure
-// numerics and would be worth ruling out first (e.g. evaluate the quality from
-// a reformulation that avoids the s0 - s_f cancellation) before concluding the
-// residual is entirely physics.
-//
-//
-// Note to AI agent, it is not HRM issue or physics, this is numerical 
-// problem in nature. I have already conversed with Opus:
-//
-// You've actually put your finger on it with that last line — let me separate the two things, because your splitting logic is correct and that's exactly why it's confusing that it still fails.
-
-// First, you're right to throw out HRM here. The reference is HEM, so the discrepancy has to be explainable entirely inside HEM. My cause (2) leaned on real-fluid metastability — scratch that. The problem is definitional/numerical, not physics.
-// 
-// Your split is fine. The brackets really are unimodal. Liquid side [p_bubble, p0]: monotone up to the bubble point. Two-phase side [p_min, p_bubble]: either monotone-decreasing from the bubble point (low p) or a single interior hump (higher p). Golden section handles both. So unimodality is not what's broken — and that's the trap.
-// 
-// What's broken is the objective, not the search. "Take the global max of G(p) = ρ·√(2(h0−h))" equals the HEM choke only at a smooth stationary point, where dG/dp = 0 is equivalent to v = c_HEM. At the bubble point c_HEM is discontinuous (your kink): it drops from ~1500 m/s to ~0.5 m/s. So:
-// 
-// - v rises smoothly through the bubble point and never equals c continuously — it's sub-sonic vs c_liquid just above, super-sonic vs c_2φ just below. The flow chokes at the kink, at G = ρ_f · c_2φ(p_bubble⁻).
-// - But at that kink dG/dp ≠ 0 — your energy-G is still climbing into the dome (ρ falls slowly while v keeps growing). So the choke is not a stationary point of G. It sits on the bracket boundary, which is precisely the point your "max within each bracket" can never select as a max.
-// 
-// That's your "even within the bracket" realization, sharpened: the maximiser inside [p_min, p_bubble] walks away from the bubble point to the next smooth sonic point deeper in the dome (→ p 11–21% low, 15–200 psia), or, when the two-phase side is monotone, it lands on the bubble endpoint but reports ρ_f·v_energy instead of ρ_f·c_2φ (→ G ×3–7 high, 5–10 psia, since v_energy ≫ c_2φ).
-// 
-// Check it numerically at 5 psia: G_ref/ρ_f = 457/977 ≈ 0.47 m/s = c_2φ, whereas √(2Δh) ≈ 3.4 m/s = v_energy. Zaloudek's x=0 curve is ρ·c_HEM at the throat saturation state; your solver computes the global max of ρ·v. Equal at a smooth throat, divergent at the kink — both in value (c_2φ vs v_energy) and in location (saturation line vs interior stationary point).
-// 
-// The in-HEM fix (no relaxation, no HRM): the energy max alone is blind to the kink because it never evaluates c. Add the bubble point as an explicit choke candidate computed with the downstream sound speed — G_kink = ρ_f · c_2φ(p_bubble⁻) at p = p_bubble — and select the first sonic point scanning down from p0 (treat the c discontinuity as a v = c crossing if v jumps from < c to > c), rather than the global ρ·v maximum. That's one HEM sound-speed call you've so far avoided by going pure energy-balance.
-// 
-// 
-// ------------------------ End of AI Agent convo (Opus) ------------
-// Now, here is my suggested solution.
-//
-// We know that critical flashing up to 200 psia is very problematic at bubble point
-// in fact, up to 1500 psia, each point is problematic in terms of critical 
-// pressure and mass flux.
-//
-// However, we also know that at 2000 psia onwards, things seem to become okay.
-// The algorithm can somehow work here. Moreover, at quality of 0.05,
-// all the points seem to pass okay too! These form sort of an envelope 
-// or boundary where things are not too okay.
-//
-// How about we do some interpolation here within this envelope?
-//
-// The okay points can be hard coded. That is the bubble point G and 
-// critical pressure. As well as the x=0.05 line and 2000 psia at x=0 line.
-//
-// We know we are doing (p,s) flashing within here. So s is constant, and 
-// we can interpolate along this isentrope.
-//
-// We can first form a map of critical pressure and mass flux along this
-// isentrope, map it backwards to the subcooled region to find the 
-// relevant stagnation properties. Maybe about 5-7 points. 
-// Using such a map, we can then use the existing stagnation point and 
-// see where it fits within the subcooled region (if it does). 
-//
-// Then, with this map, one can simply do some linear interpolation to find 
-// a suitable mass flux and critical pressure. It is an approximate solution.
-// But I don't think I should worry too much about getting HEM 100% accurate 
-// via these golden section algorithms, especially when these are not 100% 
-// accurate anyhow. I can settle for empirical correlations. Besides, 
-// the steam tables themselves are empirical polynomials and they serve 
-// their purpose.
-// 
-//
-// 
-//
-//
-//
-//
-//
+/// Diagnostic sweep for the near-bubble-point (x ≈ 0) regime. NOT an assertion
+/// test — it prints a per-point table for the x_t = 1e-4 curve. It was the tool
+/// used to diagnose the near-saturation choked-flow artifact (now fixed in
+/// `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`); kept for future
+/// inspection of this regime.
+///
+/// The decisive column is `thr_dGlg`: HEM mass flux evaluated directly at the
+/// Zaloudek throat (via the validated inverse map). It stays within ±0.04 log10
+/// at every point — proof that the x ≈ 0 discrepancy was a forward-solver
+/// numerical issue, not an HEM physics limitation. For each throat it also
+/// reports, at the backward-mapped stagnation state: the bubble-point pressure,
+/// the saturated specific-volume ratio vg/vf, the stagnation subcooling
+/// ΔH_sub = h_f(p0) − h0, and both forward solvers' choke pressure / mass-flux
+/// errors against Zaloudek.
+///
+/// Run with:
+///   cargo test -p tampines-steam-tables --lib \
+///     diagnose_bubble_point_artifact -- --ignored --nocapture
 #[test]
-//#[ignore = "HEM fundamental limitation near the saturated-liquid line (x≈0): \
-//    mass-flux artifact at 5–10 psia and 11–21% choke-pressure error at 15–200 psia. \
-//    Requires a non-equilibrium / HRM-style model to reproduce the x=0 Zaloudek curve. \
-//    See the long comment block above this test for the full root-cause analysis."]
+#[ignore = "diagnostic sweep, not an assertion — prints a per-point table"]
+fn diagnose_bubble_point_artifact() {
+    use uom::si::specific_volume::cubic_meter_per_kilogram;
+    use uom::si::available_energy::joule_per_kilogram;
+    use crate::steam_turbine_equations::choked_flow::bubble_point_pressure_from_entropy;
+    use crate::steam_turbine_equations::choked_flow::get_critical_pressure_and_mass_flux_ph_vle_dome;
+    use crate::interfaces::functional_programming::pt_flash_eqm::{v_tp_eqm_two_phase, h_tp_eqm_two_phase};
+    use crate::region_4_vap_liq_equilibrium::sat_temp_4;
+    use crate::constants::p_crit_water;
+
+    let x_t = 1e-4_f64;
+    let data: Vec<(f64, f64, f64)> = vec![
+        (5.0,    93.6455,   135.9606),
+        (10.0,   153.2273,  165.5172),
+        (15.0,   211.7706,  183.2512),
+        (20.0,   272.8005,  200.9852),
+        (30.0,   382.3708,  221.6749),
+        (50.0,   591.4174,  254.1872),
+        (75.0,   852.6162,  277.8325),
+        (100.0,  1129.6741, 307.3892),
+        (150.0,  1496.7620, 331.0345),
+        (200.0,  1901.1764, 354.6798),
+        (300.0,  2627.5557, 393.1034),
+        (500.0,  4239.2716, 449.2611),
+        (750.0,  5616.8242, 496.5517),
+        (1000.0, 7442.0131, 549.7537),
+        (1500.0, 10141.6818,623.6453),
+        (2000.0, 12006.8680,682.7586),
+        (3000.0, 13820.6838,803.9409),
+    ];
+
+    let ref_vol = TampinesSteamTableCV::get_ref_vol();
+    let p_crit = p_crit_water();
+
+    eprintln!();
+    eprintln!("x_t = {x_t}  (throats essentially on the saturated-liquid line)");
+    eprintln!("{:>6} {:>8} {:>9} {:>8} {:>9} {:>8} | {:>9} {:>8} {:>7} | {:>9} {:>8} | {:>8}",
+        "p_psia", "p0_kPa", "pbub_kPa", "vg/vf", "dHsub", "region",
+        "sub_dPerr", "sub_dGlg", "branch", "dome_dPe", "dome_dGl", "thr_dGlg");
+
+    for &(p_psia, g_expected_val, _h0) in &data {
+        let p_throat_ref = Pressure::new::<pound_force_per_square_inch>(p_psia);
+        let g_expected = MassRate::new::<pound_per_second>(g_expected_val)
+            / Area::new::<square_foot>(1.0);
+        let g_exp = g_expected.get::<kilogram_per_square_meter_second>();
+
+        // throat -> stagnation
+        let state_t = TampinesSteamTableCV::new_from_sat_pressure_quality(p_throat_ref, x_t, ref_vol);
+        let h_t = state_t.get_specific_enthalpy();
+        let (p0, h0, g_throat) = get_stagnation_conditions_from_throat_ph(p_throat_ref, h_t);
+        let region = ph_flash_region(p0, h0);
+        // HEM mass flux evaluated DIRECTLY at the throat (the validated inverse
+        // map) — if this matches Zaloudek but the forward solver doesn't, the
+        // discrepancy is in the forward solver, not HEM physics.
+        let thr_dg = g_throat.get::<kilogram_per_square_meter_second>().log10() - g_exp.log10();
+
+        // bubble point along the isentrope, and vg/vf there
+        let s0 = crate::interfaces::functional_programming::ph_flash_eqm::s_ph_eqm(p0, h0);
+        let p_bubble = bubble_point_pressure_from_entropy(s0);
+        let t_bub = sat_temp_4(p_bubble);
+        let vf = v_tp_eqm_two_phase(t_bub, p_bubble, 0.0).get::<cubic_meter_per_kilogram>();
+        let vg = v_tp_eqm_two_phase(t_bub, p_bubble, 1.0).get::<cubic_meter_per_kilogram>();
+        let vg_vf = vg / vf;
+
+        // stagnation subcooling dHsub = h_f(p0) - h0 (only meaningful below p_crit)
+        let dhsub_kjkg = if p0 < p_crit {
+            let hf0 = h_tp_eqm_two_phase(sat_temp_4(p0), p0, 0.0);
+            (hf0 - h0).get::<joule_per_kilogram>() / 1000.0
+        } else {
+            f64::NAN
+        };
+
+        // subcooled solver result + which branch it took
+        let (p_sub, g_sub) = get_critical_pressure_and_mass_flux_subcooled_liquid_ph(p0, h0);
+        let p_sub_kpa = p_sub.get::<kilopascal>();
+        let p_bub_kpa = p_bubble.get::<kilopascal>();
+        let branch = if (p_sub_kpa - p_bub_kpa).abs() / p_bub_kpa < 1e-3 { "bubble" } else { "2phase" };
+        let sub_dp = (p_sub_kpa - p_throat_ref.get::<kilopascal>()) / p_throat_ref.get::<kilopascal>() * 100.0;
+        let sub_dg = g_sub.get::<kilogram_per_square_meter_second>().log10() - g_exp.log10();
+
+        // in-dome solver result (the alternative branch) for comparison
+        let (p_dome, g_dome) = get_critical_pressure_and_mass_flux_ph_vle_dome(p0, h0);
+        let dome_dp = (p_dome.get::<kilopascal>() - p_throat_ref.get::<kilopascal>()) / p_throat_ref.get::<kilopascal>() * 100.0;
+        let dome_dg = g_dome.get::<kilogram_per_square_meter_second>().log10() - g_exp.log10();
+
+        eprintln!("{:>6.0} {:>8.1} {:>9.1} {:>8.0} {:>9.2} {:>8?} | {:>+8.1}% {:>+8.3} {:>7} | {:>+7.1}% {:>+8.3} | {:>+8.3}",
+            p_psia, p0.get::<kilopascal>(), p_bub_kpa, vg_vf, dhsub_kjkg, region,
+            sub_dp, sub_dg, branch, dome_dp, dome_dg, thr_dg);
+    }
+    eprintln!();
+    eprintln!("Legend: dPerr = (p_choke - p_throat)/p_throat; dGlg = log10(G_calc) - log10(G_exp).");
+    eprintln!("sub_* = subcooled solver; dome_* = in-dome solver. Pass tol: |dP|<3%, |dGlg|<0.05.");
+}
+
+// Saturated-liquid-line curve: x_t = 1e-4 (throats essentially ON the saturated-
+// liquid line). This was the hardest Zaloudek curve and was #[ignore]d for a
+// long time under the theory that x ≈ 0 was a fundamental HEM limitation needing
+// a non-equilibrium / relaxation (HRM) model. It is NOT: the discrepancy is
+// numerical, in the forward choke finder, not in HEM physics.
+//
+// Evidence (see `diagnose_bubble_point_artifact`): HEM mass flux evaluated
+// directly at the Zaloudek throat — the validated inverse map — reproduces this
+// curve to ±0.04 in log10 G at every point. The Zaloudek reference is itself an
+// HEM curve, so HEM *must* be able to reproduce it, and it does.
+//
+// Root cause of the old failure: the energy-balance objective
+// G_energy(p) = ρ·√(2(h0−h)) is blind to the discontinuity in the HEM sound
+// speed at the bubble point. Its maximum equals the choke only at a smooth
+// interior sonic point (dG/dp = 0 ⇔ v = c). On the saturated-liquid line the
+// max instead overshoots ρ_f·v ≫ ρ_f·c at the bubble point (5,10,300,500 psia)
+// or walks off to a deeper stationary point the flow never reaches at M = 1
+// (15–200 psia, choke pressure 11–21 % low). Neither stagnation subcooling nor
+// pressure separates the near-saturation artifact from genuine interior choking
+// (they overlap, e.g. x=1e-4 @ 200 psia vs x=0.10 @ 1500 psia).
+//
+// Fix (in `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`): route on
+// the two-phase QUALITY at the energy-max choke. Below ~0.03 the throat is
+// effectively saturated liquid → take the bubble-point kink choke with the mass
+// flux read from a precomputed sonic map along the saturated-liquid line;
+// otherwise keep the validated golden-section energy max. All x_t = 0.0 … 1.00
+// Zaloudek curves now pass within tolerance.
+#[test]
 fn quality_bubble_point_subcooled(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    93.6455,   135.9606),
