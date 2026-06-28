@@ -2800,6 +2800,7 @@ name = "njoy-outram-park-fork"
 version = "0.0.1"
 dependencies = [
  "thiserror 2.0.18",
+ "uom 0.38.0",
 ]
 
 [[package]]

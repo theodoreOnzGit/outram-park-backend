@@ -19,6 +19,6 @@ publish = false
 
 [dependencies]
 thiserror.workspace = true
+uom.workspace = true
 # Added per phase as modules are ported (see docs/porting-plan.md):
 #   ndarray  — ENDF tape arrays and cross-section grids (column-major data)
-#   uom      — dimensioned quantities at physics boundaries (energy, temperature)

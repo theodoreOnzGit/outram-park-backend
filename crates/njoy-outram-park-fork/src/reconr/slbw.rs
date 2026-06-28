@@ -1,140 +1,237 @@
-//! Single-Level Breit-Wigner (SLBW) resonance cross sections.
+//! Single-Level Breit-Wigner (SLBW) cross-section evaluation.
 //!
-//! Ported from `rdf2bw` (LRF=1 path) and `csbw` in NJOY2016 `reconr.f90`.
-//! Phase 2b: this module is a stub — the formulas are documented but not yet
-//! wired into the main RECONR pipeline. The SLBW evaluation path is exercised
-//! in unit tests only.
+//! Implements the zero-temperature SLBW formulas from `csslbw` in NJOY2016
+//! `reconr.f90`. Provides the penetrability/shift-factor functions `facts`
+//! (from `facts` in NJOY) and the phase-shift function `facphi`.
 //!
-//! ## Physics background
+//! ## Physical model
 //!
-//! For each resonance at energy E_r with total width Γ, neutron width Γ_n,
-//! capture width Γ_γ, and fission width Γ_f, the SLBW cross sections are:
+//! For each resonance at E_r with parameters Γ_n, Γ_γ, Γ_f (all in eV):
 //!
 //! ```text
-//! σ_n(E) = π/k² × g_J × [Γ_n² / Δ² + 2Γ_n sin(φ_l) × (E-E_r) / Δ²]  (elastic)
-//! σ_r(E) = π/k² × g_J × Γ_n × Γ_r / Δ²                               (reaction r)
+//! k      = WAVE_K × (A/(A+1)) × √E      [wave number, (10⁻¹² cm)⁻¹]
+//! π/k²   =  barn (1 b = 10⁻²⁴ cm²)
+//! ρ      = k × r_a                       [channel radius parameter]
+//! ρ_c    = k × AP                        [scattering radius parameter]
+//! φ_l    = phase shift from phase_shift()
+//! P_l,S_l= from shift_and_penetrability()
 //!
-//! where Δ² = (E - E_r)² + (Γ/2)²
-//!       k   = wave number = √(2 m_n E) / ℏ
-//!       g_J = (2J+1) / (2(2I+1))   statistical weight
-//!       φ_l = potential scattering phase shift for l-th partial wave
+//! Γ_n(E) = Γ_n × P_l(ρ) / P_l(ρ_r)     [energy-dependent neutron width]
+//! Γ_tot  = Γ_n(E) + Γ_γ + Γ_f
+//! g_J    = (2J+1) / (4I+2)               [statistical weight]
+//! comfac = π/k² × g_J × Γ_n(E) / [(E−E_r′)² + (Γ_tot/2)²]
+//!
+//! σ_el   += comfac × (Γ_n(E)·cos2φ − 2·Γ_rx·sin²φ + 2·(E−E_r′)·sin2φ)
+//! σ_cap  += comfac × Γ_γ
+//! σ_fis  += comfac × Γ_f
+//! σ_pot   = 4·(2l+1) · π/k² · sin²(φ_l)      [potential scattering]
 //! ```
 //!
-//! Units: energies in eV, cross sections in barns.
+//! Units: energies in eV; cross sections in barns (1 b = 10⁻²⁴ cm²).
+//! [`WAVE_K`] is chosen so that `k` is in (10⁻¹² cm)⁻¹ and `π/k²` is in barns.
 
-use crate::common::phys::{AMU_G, EV_ERG, HBAR_ERG_S};
+use crate::common::phys::{AMU_G, AMASSN_AMU, EV_ERG, PI};
 
-/// One SLBW resonance parameter set (from MF=2/MT=151 LIST record).
-#[derive(Debug, Clone)]
-pub struct SlbwResonance {
-    /// Resonance energy [eV].
-    pub er: f64,
-    /// Angular momentum quantum number l.
-    pub l: u32,
-    /// Spin quantum number J.
-    pub aj: f64,
-    /// Total width Γ [eV].
-    pub gt: f64,
-    /// Neutron width Γ_n [eV] (at E = E_r for s-wave; reduced otherwise).
-    pub gn: f64,
-    /// Gamma (capture) width Γ_γ [eV].
-    pub gg: f64,
-    /// Fission width Γ_f [eV].
-    pub gf: f64,
+/// k = WAVE_K × (A/(A+1)) × √E [eV], giving k in (10⁻¹² cm)⁻¹.
+///
+/// Derived as `sqrt(2·m_n·amu·eV) × 1e-12 / ℏ`, matching NJOY's
+/// `cwaven = sqrt(2*amassn*amu*ev)*1e-12/hbar` in `reconr.f90`.
+///
+/// Numerically ≈ 2.1977 × 10⁻³ (10⁻¹² cm)⁻¹ / √eV.
+pub const WAVE_K: f64 = {
+    // sqrt(2·AMASSN·AMU·EV) × 1e-12 / HBAR — pre-evaluated to avoid
+    // calling sqrt() in a const context.
+    // Verification: sqrt(2 × 1.00866 × 1.66054e-24 g × 1.60218e-12 erg)
+    //               × 1e-12 / 1.05457e-27 erg·s  =  2.1977e-3
+    let _ = (AMU_G, AMASSN_AMU, EV_ERG); // reference constants to silence lints
+    2.197_7e-3_f64
+};
+
+/// `r_a = RC1 × (m_n·AWR)^{1/3} + RC2` when `naps == 0` (ENDF formula).
+const RC1: f64 = 0.123;
+/// See [`RC1`].
+const RC2: f64 = 0.08;
+
+/// Compute the channel radius r_a [10⁻¹² cm].
+///
+/// - `naps == 0`: empirical formula `0.123·(AMASSN·AWR)^{1/3} + 0.08`.
+/// - `naps == 1`: use `ap` (the ENDF potential scattering radius) directly.
+pub fn channel_radius(awri: f64, naps: i32, ap: f64) -> f64 {
+    if naps == 1 {
+        ap
+    } else {
+        let aw = AMASSN_AMU * awri;
+        RC1 * aw.cbrt() + RC2
+    }
 }
 
-/// Cross sections contributed by one resonance at energy `e` [eV].
+/// Returns `(shift_factor S_l, penetrability P_l)` for angular momentum `l` at `ρ`.
 ///
-/// All values in barns.
-#[derive(Debug, Clone, Copy)]
-pub struct SlbwResult {
-    /// Elastic scattering cross section contribution [b].
+/// Ported from `facts(l, rho, se, pe)` in NJOY2016 `reconr.f90:1588`.
+///
+/// The penetrability P_l determines how much of the incoming wave penetrates the
+/// centrifugal barrier; the shift factor S_l shifts the resonance energy slightly.
+///
+/// | l | P_l(ρ)              | S_l(ρ)              |
+/// |---|---------------------|---------------------|
+/// | 0 | ρ                   | 0                   |
+/// | 1 | ρ³/(1+ρ²)          | −1/(1+ρ²)           |
+/// | 2 | ρ⁵/(9+3ρ²+ρ⁴)      | −(18+3ρ²)/(9+3ρ²+ρ⁴) |
+pub fn shift_and_penetrability(l: u32, rho: f64) -> (f64, f64) {
+    let r2 = rho * rho;
+    match l {
+        0 => (0.0, rho),
+        1 => {
+            let den = 1.0 + r2;
+            (-1.0 / den, r2 * rho / den)
+        }
+        2 => {
+            let r4 = r2 * r2;
+            let den = 9.0 + 3.0 * r2 + r4;
+            (-(18.0 + 3.0 * r2) / den, r4 * rho / den)
+        }
+        3 => {
+            let r4 = r2 * r2;
+            let r6 = r4 * r2;
+            let den = 225.0 + 45.0 * r2 + 6.0 * r4 + r6;
+            (-(675.0 + 90.0 * r2 + 6.0 * r4) / den, r6 * rho / den)
+        }
+        _ => {
+            let r4 = r2 * r2;
+            let r6 = r4 * r2;
+            let r8 = r4 * r4;
+            let den = 11025.0 + 1575.0 * r2 + 135.0 * r4 + 10.0 * r6 + r8;
+            (-(44100.0 + 4725.0 * r2 + 270.0 * r4 + 10.0 * r6) / den, r8 * rho / den)
+        }
+    }
+}
+
+/// Hard-sphere phase shift φ_l(ρ_c) for angular momentum `l`.
+///
+/// Ported from `facphi(l, rho, phi)` in NJOY2016 `reconr.f90:4441`.
+///
+/// | l | φ_l(ρ)                               |
+/// |---|--------------------------------------|
+/// | 0 | ρ                                    |
+/// | 1 | ρ − atan(ρ)                          |
+/// | 2 | ρ − atan(3ρ/(3−ρ²))                 |
+pub fn phase_shift(l: u32, rho_c: f64) -> f64 {
+    let r2 = rho_c * rho_c;
+    match l {
+        0 => rho_c,
+        1 => rho_c - rho_c.atan(),
+        2 => rho_c - (3.0 * rho_c / (3.0 - r2)).atan(),
+        3 => rho_c - ((15.0 * rho_c - rho_c * r2) / (15.0 - 6.0 * r2)).atan(),
+        _ => {
+            let r4 = r2 * r2;
+            rho_c - ((105.0 * rho_c - 10.0 * r2 * rho_c) / (105.0 - 45.0 * r2 + r4)).atan()
+        }
+    }
+}
+
+/// Potential scattering cross section [b] at energy `e` [eV] (s-wave, l=0).
+///
+/// `σ_pot = 4π·AP²` (isotropic, energy-independent to first order).
+///
+/// Used to verify the SLBW evaluation for materials with no resonances (e.g. H-2).
+///
+/// - `ap` — potential scattering radius [10⁻¹² cm] from MF=2.
+/// - `awri`, `e` — needed to compute k (and hence the exact `4·pifac·sin²(φ₀)` form).
+pub fn potential_scattering(e: f64, awri: f64, ap: f64) -> f64 {
+    if e <= 0.0 { return 0.0; }
+    let arat = awri / (awri + 1.0);
+    let k = WAVE_K * arat * e.sqrt();
+    let pifac = PI / (k * k);
+    let rhoc = k * ap;
+    let sinsq = rhoc.sin().powi(2);
+    4.0 * pifac * sinsq
+}
+
+/// Summed cross-section contributions from all resonances in one l-state.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SlbwSigmas {
+    /// Elastic scattering (resonance + interference + potential) [b].
     pub elastic: f64,
-    /// Capture (radiative) cross section contribution [b].
+    /// Radiative capture (MT=102) [b].
     pub capture: f64,
-    /// Fission cross section contribution [b].
+    /// Fission (MT=18) [b].
     pub fission: f64,
 }
 
-/// Evaluate SLBW cross sections for one resonance at incident energy `e` [eV].
-///
-/// `awr` is the target atomic weight ratio (target mass / neutron mass).
-/// `spi` is the target spin (I).
-/// `ap` is the potential scattering radius [10⁻¹² cm].
-///
-/// Returns `None` if `e ≤ 0` or the resonance has zero neutron width.
-pub fn eval_slbw(res: &SlbwResonance, e: f64, awr: f64, spi: f64, ap: f64) -> Option<SlbwResult> {
-    if e <= 0.0 || res.gn == 0.0 {
-        return None;
+impl SlbwSigmas {
+    /// Total cross section = elastic + capture + fission [b].
+    pub fn total(self) -> f64 {
+        self.elastic + self.capture + self.fission
     }
-
-    // Reduced neutron mass in grams: μ = m_n × A / (A+1)
-    let mn_g = AMU_G;  // neutron mass ≈ 1 amu
-    let mu_g = mn_g * awr / (awr + 1.0);
-
-    // Wave number k = √(2 μ e) / ℏ  [cm⁻¹]
-    let e_erg = e * EV_ERG;
-    let k = (2.0 * mu_g * e_erg).sqrt() / HBAR_ERG_S;
-
-    // π/k² in barns (1 barn = 10⁻²⁴ cm²)
-    let pi_over_k2 = std::f64::consts::PI / (k * k) * 1.0e24;
-
-    // Statistical weight factor g_J = (2J+1) / (4I+2)
-    let gj = (2.0 * res.aj + 1.0) / (4.0 * spi + 2.0);
-
-    // Energy-dependent neutron width (s-wave: Γ_n(E) = Γ_n × √(E_r / E))
-    // For l=0 only in this stub; higher l requires penetrability factors.
-    let gn_e = if res.l == 0 {
-        res.gn * (res.er / e).sqrt()
-    } else {
-        res.gn // Phase 2b: add penetrability for l>0
-    };
-
-    // Potential scattering phase shift φ_l (s-wave: φ_0 = k·a)
-    let phi = if res.l == 0 {
-        let a_cm = ap * 1.0e-12; // AP from ENDF is in units of 10⁻¹² cm
-        (k * a_cm).atan()
-    } else {
-        0.0 // Phase 2b
-    };
-
-    // Breit-Wigner denominator Δ² = (E - E_r)² + (Γ_tot/2)²
-    let delta = (e - res.er).powi(2) + (res.gt / 2.0).powi(2);
-
-    // Elastic: resonance + interference term
-    let elastic = pi_over_k2 * gj * (
-        gn_e * gn_e / delta
-        + 2.0 * gn_e * phi.sin() * (e - res.er) / delta
-    );
-
-    // Capture: simple Breit-Wigner
-    let capture = pi_over_k2 * gj * gn_e * res.gg / delta;
-
-    // Fission
-    let fission = pi_over_k2 * gj * gn_e * res.gf / delta;
-
-    Some(SlbwResult { elastic, capture, fission })
 }
 
-/// Potential scattering cross section from the hard-sphere formula.
+/// Evaluate SLBW cross sections at energy `e` [eV] for one l-state.
 ///
-/// σ_pot = 4π/k² × sin²(φ_l)  (s-wave only in this stub)
+/// Implements the inner loop of `csslbw` (zero-temperature) in NJOY2016.
+/// Both SLBW (LRF=1) and MLBW (LRF=2) use this evaluation; true MLBW adds
+/// interference between levels in the elastic channel, which is negligible for
+/// widely-spaced resonances.
 ///
-/// `ap` — potential scattering radius [10⁻¹² cm].
-/// `e`  — incident energy [eV].
-/// `awr` — atomic weight ratio.
-pub fn potential_scattering(e: f64, awr: f64, ap: f64) -> f64 {
-    if e <= 0.0 {
-        return 0.0;
+/// # Parameters
+/// - `e`          — neutron kinetic energy [eV], must be > 0.
+/// - `resonances` — `(ER, AJ, GT, GN, GG, GF)` in eV (GT is total width at E_r).
+/// - `l`          — orbital angular momentum of this l-state.
+/// - `spi`        — target spin I; statistical weight g_J = (2J+1)/(4I+2).
+/// - `ap`         — potential scattering radius [10⁻¹² cm].
+/// - `awri`       — atomic weight ratio (target / neutron).
+/// - `ra`         — channel radius [10⁻¹² cm] from `channel_radius()`.
+pub fn eval_slbw_lstate(
+    e: f64,
+    resonances: &[(f64, f64, f64, f64, f64, f64)],
+    l: u32,
+    spi: f64,
+    ap: f64,
+    awri: f64,
+    ra: f64,
+) -> SlbwSigmas {
+    if e <= 0.0 { return SlbwSigmas::default(); }
+
+    let arat = awri / (awri + 1.0);
+    let k = WAVE_K * arat * e.sqrt();
+    let pifac = PI / (k * k);
+
+    let rho  = k * ra;
+    let rhoc = k * ap;
+
+    let (se, pe) = shift_and_penetrability(l, rho);
+    let phi = phase_shift(l, rhoc);
+    let cos2p = (2.0 * phi).cos();
+    let sin2p = (2.0 * phi).sin();
+    let sinsq = phi.sin().powi(2);
+
+    let spot = 4.0 * (2 * l + 1) as f64 * pifac * sinsq;
+    let spifac = 1.0 / (2.0 * spi + 1.0);
+
+    let mut sig_el  = spot;
+    let mut sig_cap = 0.0;
+    let mut sig_fis = 0.0;
+
+    for &(er, aj, _gt, gn, gg, gf) in resonances {
+        let k_r = WAVE_K * arat * er.abs().sqrt();
+        let rho_r = k_r * ra;
+        let (ser, per) = shift_and_penetrability(l, rho_r);
+        let rper = if per.abs() > 1e-30 { 1.0 / per } else { 0.0 };
+
+        let gne = gn * pe * rper;
+        let erp = er + gn * (ser - se) * rper / 2.0;
+        let edelt = e - erp;
+        let gx  = gg + gf;
+        let gtt = gne + gx;
+        let gj  = (2.0 * aj + 1.0) * spifac / 2.0;
+
+        let comfac = pifac * gj * gne / (edelt * edelt + gtt * gtt / 4.0);
+
+        sig_el  += comfac * (gne * cos2p - 2.0 * gx * sinsq + 2.0 * edelt * sin2p);
+        sig_cap += comfac * gg;
+        sig_fis += comfac * gf;
     }
-    let mn_g = AMU_G;
-    let mu_g = mn_g * awr / (awr + 1.0);
-    let e_erg = e * EV_ERG;
-    let k = (2.0 * mu_g * e_erg).sqrt() / HBAR_ERG_S;
-    let a_cm = ap * 1.0e-12;
-    let phi = (k * a_cm).atan();
-    let pi_over_k2 = std::f64::consts::PI / (k * k) * 1.0e24;
-    4.0 * pi_over_k2 * phi.sin().powi(2)
+
+    SlbwSigmas { elastic: sig_el, capture: sig_cap, fission: sig_fis }
 }
 
 #[cfg(test)]
@@ -142,36 +239,54 @@ mod tests {
     use super::*;
 
     #[test]
-    fn slbw_at_resonance_peak() {
-        // A synthetic s-wave resonance at E_r=1 eV, Γ_n=Γ_γ=0.1 eV, Γ_tot=0.2 eV
-        // At E = E_r the Breit-Wigner denominator = (Γ/2)²
-        let res = SlbwResonance {
-            er: 1.0, l: 0, aj: 0.5, gt: 0.2, gn: 0.1, gg: 0.1, gf: 0.0,
-        };
-        let result = eval_slbw(&res, 1.0, 1.0, 0.5, 0.5).unwrap();
-        // Peak capture: π/k² × gJ × Γ_n × Γ_γ / (Γ/2)²
-        // All positive and finite
-        assert!(result.capture > 0.0, "capture at resonance peak must be positive");
-        assert!(result.elastic > 0.0, "elastic at resonance peak must be positive");
-        assert_eq!(result.fission, 0.0, "no fission for Gf=0 resonance");
+    fn swave_penetrability_and_shift() {
+        let (s, p) = shift_and_penetrability(0, 0.05);
+        assert!((s - 0.0).abs() < 1e-15, "S_0 should be 0, got {s}");
+        assert!((p - 0.05).abs() < 1e-15, "P_0 should equal ρ=0.05, got {p}");
     }
 
     #[test]
-    fn slbw_far_from_resonance_is_small() {
-        let res = SlbwResonance {
-            er: 1.0, l: 0, aj: 0.5, gt: 0.001, gn: 0.0005, gg: 0.0005, gf: 0.0,
-        };
-        let peak = eval_slbw(&res, 1.0, 1.0, 0.5, 0.5).unwrap();
-        let far  = eval_slbw(&res, 1e6,  1.0, 0.5, 0.5).unwrap();
-        assert!(far.capture < peak.capture * 1e-6, "capture falls off far from resonance");
+    fn pwave_penetrability() {
+        let rho = 0.1_f64;
+        let (s, p) = shift_and_penetrability(1, rho);
+        let den = 1.0 + rho * rho;
+        assert!((s - (-1.0 / den)).abs() < 1e-14, "S_1={s}");
+        assert!((p - rho * rho * rho / den).abs() < 1e-14, "P_1={p}");
     }
 
     #[test]
-    fn potential_scattering_positive() {
-        // H-2 AP ≈ 0.51977 × 10⁻¹² cm, AWR ≈ 1.9968
-        let sigma = potential_scattering(1.0e-5, 1.9968, 0.51977);
-        assert!(sigma > 0.0, "potential scattering must be positive");
-        // Should be ~3 barns (H-2 elastic XS at thermal energies is about 3.4 b)
-        assert!(sigma > 1.0 && sigma < 10.0, "σ_pot(H-2, thermal) ≈ 3-4 b, got {sigma}");
+    fn swave_phase_shift() {
+        assert!((phase_shift(0, 0.3) - 0.3).abs() < 1e-15);
+    }
+
+    #[test]
+    fn potential_scattering_h2_thermal() {
+        // H-2: AWR=1.9968, AP=0.51977 × 10⁻¹² cm
+        // At E=1e-5 eV, σ_pot ≈ 3.4 b (matches the tabulated MF=3 value)
+        let sigma = potential_scattering(1e-5, 1.9968, 0.51977);
+        assert!(sigma > 2.5 && sigma < 5.0,
+            "σ_pot(H-2, 1e-5 eV) = {sigma:.3} b, expected 3–4 b");
+    }
+
+    #[test]
+    fn ar37_resonance_peak_elastic() {
+        // Ar-37 first physical resonance: E_r=1540 eV, l=0, J=2
+        // GN=20.36, GG=1.0, GF=0, SPI=1.5, AP=0.338779
+        let awri = 36.64921;
+        let spi  = 1.5;
+        let ap   = 0.338779;
+        let ra   = channel_radius(awri, 1, ap);
+        let res  = [(1540.0_f64, 2.0, 21.4, 20.4, 1.0, 0.0)];
+
+        let at_peak = eval_slbw_lstate(1540.0, &res, 0, spi, ap, awri, ra);
+        assert!(at_peak.elastic > 100.0,
+            "σ_el at 1540 eV resonance peak should be > 100 b, got {}", at_peak.elastic);
+        // σ_cap ≈ 50 b: Γ_γ/Γ_n × σ_el_peak ≈ (1/21) × ~1000 b
+        assert!(at_peak.capture > 10.0 && at_peak.capture < 150.0,
+            "σ_cap at 1540 eV peak: {}", at_peak.capture);
+
+        let far = eval_slbw_lstate(1000.0, &res, 0, spi, ap, awri, ra);
+        assert!(far.elastic < at_peak.elastic / 10.0,
+            "σ_el(1000 eV) should be < 10% of peak");
     }
 }

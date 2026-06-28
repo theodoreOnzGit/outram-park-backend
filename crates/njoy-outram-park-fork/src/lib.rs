@@ -37,9 +37,11 @@
 
 pub mod common;
 pub mod endf;
+pub mod library;
 pub mod modules;
 pub mod prelude;
 pub mod reconr;
+pub mod units;
 
 mod error;
 pub use error::NjoyError;
