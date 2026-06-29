@@ -23,15 +23,6 @@ tuas_boussinesq_solver.workspace = true
 
 [dev-dependencies]
 teh-o-prke.workspace = true
-[target.'cfg(windows)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
-
-[target.'cfg(macos)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
-
-[target.'cfg(unix)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["openblas-system"] }
-
 chem-eng-real-time-process-control-simulator.workspace = true
 egui.workspace = true
 eframe.workspace = true

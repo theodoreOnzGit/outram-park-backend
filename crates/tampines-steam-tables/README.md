@@ -179,6 +179,51 @@ is flat to < 0.6 % across a ~1.5 MPa band, and IF97 loses precision near Tc), so
 the Region 3 tolerance is the same 0.05 the superheated test already uses for its
 near-critical x_t = 0.80 / 3000 psia point — not a physics limit, an IF97 one.
 
+**Subcooled choked flow has two regimes — Moody vs Zaloudek do *not* contradict.**
+While re-enabling the Moody (1975) maximum-discharge isobar tests
+(`moody_critical_mass_flux_homogeneous_eqm.rs`), every two-phase (Region 4) point
+passed at ±0.01 log10 G, but the **subcooled (Region 1)** points failed, and worse
+the deeper the subcooling — the deepest points all collapsed to a constant
+≈ 260 kg/m²s (the clamped low end of the saturated-liquid sonic map). This is *not*
+a conflict between the two datasets; they sample two different subcooling regimes of
+the same HEM surface and agree where they overlap (the in-dome points, and the
+continuous trend across the dome edge). The conflict is with our solver's
+*discriminator*.
+
+The physics — the choke pressure for subcooled liquid is always pinned at the
+**bubble point** (the HEM sound speed jumps discontinuously from ~1500 m/s liquid to
+a few m/s two-phase there), but the choke *mass flux* has two limits set by the
+degree of subcooling, i.e. by how much velocity the liquid builds before it flashes
+(`p_bubble/p0`):
+
+| Regime | `p_bubble/p0` | Choke mass flux | Example |
+|---|---|---|---|
+| **Barely subcooled** (Zaloudek subcooled curves, backward-mapped from x_t ≈ 0) | ≈ 0.9–1.0 | two-phase sonic flux **ρ_f·c_2φ** (the sonic map); the energy balance *overshoots* | Zaloudek 5 psia: G_ref 457, sonic_map 422 ✓, energy 3347 ✗ |
+| **Deeply subcooled** (Moody isobars, low stagnation enthalpy) | → 0 | Bernoulli / flashing flux **ρ_f·√(2·Δh_subcool)** ≈ the energy balance; the sonic map *underestimates* by up to ~70× | Moody p0=0.172 MPa, h₀/h_ref=0.49: G_ref 18836, energy 12739 ✓, sonic_map 261 ✗ |
+
+The clincher that the deep-subcooling limit is genuine Bernoulli flow: for the
+deepest Moody point, pure incompressible √(2·ρ_f·(p0 − p_back)) = 18568 vs Moody's
+digitised 18836 — essentially exact.
+
+Both behaviours are real HEM. The bug is that
+`get_critical_pressure_and_mass_flux_subcooled_liquid_ph` discriminates on the
+**two-phase quality at the energy-max choke** (`x_at_energy < 0.03` → take the sonic
+map), and quality ≈ 0 in *both* regimes, so it cannot tell them apart. That
+discriminator was tuned only on Zaloudek, which never goes deeply subcooled, so it
+wrongly routes Moody's deep-subcooling points into the near-saturation branch and
+returns the sonic-map floor. The CLAUDE.md claim that "neither stagnation subcooling
+nor pressure separates the artifact from genuine interior choking — the quality at
+the choke is the only clean discriminator" was therefore an artifact of the
+Zaloudek-only data range. The fix is to discriminate on the **degree of subcooling**
+instead — compare the Bernoulli/energy flux *at the bubble point* against the
+two-phase sonic flux and take the physically correct branch (roughly
+`G_crit = max(ρ_f·v_bubble, ρ_f·c_2φ)`), computing `v_bubble` robustly at the
+bubble point rather than letting the golden-section walk into the dome.
+
+
+Lastly, I removed any ndarray-linalg dependencies from tampines-steam-tables,
+thus compilation should be much simpler.
+
 v0.2.0
 
 Consolidated into the OUTRAM PARK workspace. Dependency bumps (`uom` 0.36→0.38,

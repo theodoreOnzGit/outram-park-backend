@@ -4673,7 +4673,6 @@ dependencies = [
  "env_logger",
  "local-ip-address",
  "ndarray",
- "ndarray-linalg",
  "roots",
  "serde",
  "teh-o-prke",
