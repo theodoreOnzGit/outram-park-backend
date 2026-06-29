@@ -20,6 +20,9 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod error;
+/// input and output
 pub mod io;
+/// for users to import
 pub mod prelude;
+/// your solvers are here!
 pub mod solvers;
