@@ -24,7 +24,7 @@
 use std::fs::File;
 use njoy_outram_park_fork::{
     endf::tape::Tape,
-    library::NuclearDataLibrary,
+    interface::NuclearDataLibrary,
     reconr::{reconr, mf1, mf2, ReconrConfig, ResonanceFormalism},
     MtReaction,
 };

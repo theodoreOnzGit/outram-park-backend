@@ -38,7 +38,7 @@
 pub mod broadr;
 pub mod common;
 pub mod endf;
-pub mod library;
+pub mod interface;
 pub mod modules;
 pub mod prelude;
 pub mod reconr;
