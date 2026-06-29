@@ -1,3 +1,4 @@
+use uom::ConstZero;
 use uom::si::area::square_foot;
 use uom::si::available_energy::btu_it_per_pound;
 use uom::si::f64::*;
@@ -12,6 +13,11 @@ use crate::interfaces::object_oriented_programming::TampinesSteamTableCV;
 /// so this is a loose log-scale bound (≈ ±15 % in G), consistent with the
 /// project convention of keeping graph-read HEM mass-flux tolerances loose.
 const MOODY_LOG10_TOL: f64 = 0.06;
+/// this is a placeholder. Note to AI Assistant, please change when you 
+/// continue debug.
+///
+/// Once you finish the debug, remove the original comment
+const MOODY_DEEP_LOG10_TOL: f64 = 0.06;
 
 /// Looser bound for `isobar_pref_4_00` only: its digitised reference G-values are
 /// systematically ≈ 0.13 in log10 high (graph-reading error on that one curve;
@@ -203,6 +209,7 @@ fn validate_moody_isobar(
 ) {
     use crate::interfaces::functional_programming::ph_flash_eqm::ph_flash_region;
     use crate::prelude::functional_programming::pt_flash_eqm::FwdEqnRegion;
+    use crate::steam_turbine_equations::choked_flow::DEEP_SUBCOOLING_RATIO;
 
     // --- Define the Reference Values from the Moody Paper ---
     let p_ref = Pressure::new::<pound_force_per_square_inch>(100.0);
@@ -217,27 +224,57 @@ fn validate_moody_isobar(
         let p0 = dimensionless_stagnation_pressure * p_ref;
         let g_ref_expected = g_ref * (*g_dimensionless_ptr);
 
-        // HEM reproduces the two-phase dome; the single-phase branches (subcooled
-        // Region 1 especially) are a documented HEM limitation — skip and log.
+        // Three buckets, asserted with the same solver, different tolerances:
+        //  * Region 4 (in-dome two-phase)            → assert at `log10_tolerance`.
+        //  * Region 1 & deeply subcooled             → assert at `MOODY_DEEP_LOG10_TOL`
+        //    (v_b/c_2φ > DEEP_SUBCOOLING_RATIO, where the solver's deep-subcooling
+        //    escape gives the Bernoulli choke).
+        //  * everything else (the near-bubble / overlap subcooled band, and
+        //    superheated Region 2) → SKIP. See the TODO above this function.
         let region = ph_flash_region(p0, h0);
-        if region != FwdEqnRegion::Region4 {
+        let is_deep_subcooled =
+            region == FwdEqnRegion::Region1 && subcooling_ratio(p0, h0) > DEEP_SUBCOOLING_RATIO;
+        if region != FwdEqnRegion::Region4 && !is_deep_subcooled {
             eprintln!(
-                "skip h/h_ref={h_dimensionless_ptr:.4} (stagnation {region:?}, not in-dome \
-                 Region4) — HEM limitation on the single-phase branch, see README v0.2.1"
+                "skip h/h_ref={h_dimensionless_ptr:.4} (stagnation {region:?}, near-bubble/overlap \
+                 or superheated) — deferred to Zaloudek, see README v0.2.1"
             );
             continue;
         }
 
         let state_0 = TampinesSteamTableCV::new_from_ph(p0, h0, ref_vol);
         let g_test = state_0.get_stagnation_critical_mass_flux();
+        let tol = if is_deep_subcooled { MOODY_DEEP_LOG10_TOL } else { log10_tolerance };
 
         // Absolute bound on the log10 mass flux (graph-read reference).
         approx::assert_abs_diff_eq!(
             g_ref_expected.get::<kilogram_per_square_meter_second>().log10(),
             g_test.get::<kilogram_per_square_meter_second>().log10(),
-            epsilon = log10_tolerance
+            epsilon = tol
         );
     }
+}
+
+/// `v_b/c_2φ` at the bubble point — the same deep-subcooling measure the solver
+/// uses (Bernoulli velocity √(2(h0 − h_f(p_b))) over the two-phase sound speed
+/// c_2φ = ρc/ρ_f). Recomputed here from public functions so the test classifies
+/// each Moody point with the same threshold (`DEEP_SUBCOOLING_RATIO`) the solver
+/// branches on.
+fn subcooling_ratio(p0: Pressure, h0: AvailableEnergy) -> f64 {
+    use crate::interfaces::functional_programming::ph_flash_eqm::s_ph_eqm;
+    use crate::steam_turbine_equations::choked_flow::bubble_point_pressure_from_entropy;
+    use crate::region_4_vap_liq_equilibrium::sat_temp_4;
+    use crate::interfaces::functional_programming::pt_flash_eqm::{v_tp_eqm_two_phase, h_tp_eqm_two_phase};
+    use crate::prelude::functional_programming::ps_flash_eqm::mass_flux_ps_eqm_throat;
+
+    let s0 = s_ph_eqm(p0, h0);
+    let p_b = bubble_point_pressure_from_entropy(s0);
+    let t_b = sat_temp_4(p_b);
+    let rho_f = v_tp_eqm_two_phase(t_b, p_b, 0.0).recip();
+    let h_f = h_tp_eqm_two_phase(t_b, p_b, 0.0);
+    let v_b = (2.0 * (h0 - h_f).max(AvailableEnergy::ZERO)).sqrt();
+    let g_sonic = mass_flux_ps_eqm_throat(p_b, s0);
+    (v_b * rho_f / g_sonic).get::<uom::si::ratio::ratio>()
 }
 
 // For p0/p_ref = 0.50

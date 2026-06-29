@@ -38,7 +38,10 @@ use crate::interfaces::functional_programming::pt_flash_eqm::v_tp_eqm_two_phase;
 /// Bernoulli maximum. Set above the maximum reached by any Zaloudek subcooled
 /// reference point (3.30) so this only adds deep-subcooling behaviour and never
 /// perturbs the validated near-bubble (sonic) regime. See README v0.2.1.
-const DEEP_SUBCOOLING_RATIO: f64 = 5.0;
+///
+/// Public so the Moody deep-subcooling verification test can classify points with
+/// the exact same threshold the solver uses.
+pub const DEEP_SUBCOOLING_RATIO: f64 = 5.0;
 use crate::prelude::functional_programming::ps_flash_eqm::h_ps_eqm;
 use crate::prelude::functional_programming::ps_flash_eqm::v_ps_eqm;
 use crate::prelude::functional_programming::ps_flash_eqm::mass_flux_ps_eqm_throat;
@@ -195,22 +198,22 @@ pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(
     // effectively saturated liquid → take the bubble-point sonic kink, mass flux
     // ρ_f·c_2φ from the saturated-liquid-line sonic map.
     //
-    // ⚠ KNOWN LIMITATION — deep subcooling (Moody isobars).
-    // This quality discriminator handles every Zaloudek subcooled curve but
-    // wrongly fires for *deeply* subcooled stagnation (Moody's low-enthalpy isobar
-    // points), where the two-phase quality at the choke is also ≈ 0 yet the true
-    // choke is the energy-balance / Bernoulli maximum, not the sonic kink — so
-    // those points collapse to the sonic floor and read far too low. The clean
-    // candidates (quality, stagnation subcooling, v_b/c_2φ, pressure) do NOT
-    // separate the two regimes: e.g. Zaloudek 10 psia (v_b/c_2φ ≈ 3.3, wants the
-    // sonic value 748 kg/m²s) and Moody p/p_ref=8 / h≈4.47 (v_b/c_2φ ≈ 3.1, wants
-    // the Bernoulli value ≈ 57 700 kg/m²s) sit on top of each other in every local
-    // parameter but want opposite branches. Resolving this needs either the
-    // genuine interior sonic point (numerically fragile in the two-phase band just
-    // below the bubble point) or a non-equilibrium / relaxation (HRM) treatment —
-    // HEM equilibrium is known to under-predict subcooled critical flow. The Moody
-    // subcooled isobar points are documented as failing for this reason; see
-    // README v0.2.1 ("Subcooled choked flow has two regimes").
+    // ⚠ KNOWN LIMITATION — the overlap zone.
+    // The quality discriminator alone handles every Zaloudek subcooled curve but
+    // cannot, by itself, recognise *deeply* subcooled stagnation (Moody's low-
+    // enthalpy isobar points), where the two-phase quality at the choke is also
+    // ≈ 0 yet the true choke is the energy-balance / Bernoulli maximum, not the
+    // sonic kink. No clean local candidate (quality, stagnation subcooling,
+    // v_b/c_2φ, pressure) fully separates the two regimes inside their overlap:
+    // e.g. Zaloudek 10 psia (v_b/c_2φ ≈ 3.3, wants the sonic value 748 kg/m²s) and
+    // Moody p/p_ref=8 / h≈4.47 (v_b/c_2φ ≈ 3.1, wants the Bernoulli value
+    // ≈ 57 700 kg/m²s) sit on top of each other in every local parameter but want
+    // opposite branches — HEM equilibrium is known to under-predict subcooled
+    // critical flow, and Moody's deep branch is effectively non-equilibrium.
+    // The deep-subcooling escape below resolves the *unambiguous* deep region
+    // (v_b/c_2φ above the whole Zaloudek range); states inside the overlap defer to
+    // the precise Zaloudek (sonic) treatment. See README v0.2.1 ("Subcooled choked
+    // flow has two regimes").
     // ── Deep-subcooling escape ───────────────────────────────────────────────
     //
     // Make the solver usable far into the subcooled region (e.g. for transient

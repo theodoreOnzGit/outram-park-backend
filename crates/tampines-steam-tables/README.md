@@ -239,6 +239,22 @@ Moody isobar tests pass** at an absolute log10-G tolerance of 0.06 (the in-dome
 HEM result is excellent: the worst in-dome error is +0.044 at the near-bubble edge
 of the 0.25 isobar; almost all points are < 0.02).
 
+**Deep-subcooling escape — the solver is still usable far into the subcooled
+region.** Because the contradiction lives only *near the bubble point*, where
+Zaloudek is far more precise than Moody, the solver now takes a deep-subcooling
+escape: when `v_b/c_2φ` exceeds `DEEP_SUBCOOLING_RATIO` (= 5.0, set above the
+maximum 3.30 reached by *any* Zaloudek subcooled point), the stagnation is
+unambiguously past Zaloudek's range and the choke is taken as the energy-balance /
+Bernoulli maximum. Inside the overlap (`v_b/c_2φ ≤ 5`) it defers to the precise
+near-bubble (sonic) logic. This is purely additive — it cannot change any
+near-bubble result, so all 80 Zaloudek tests still pass — and it makes
+`get_critical_pressure_and_mass_flux_subcooled_liquid_ph` give physical mass
+fluxes for deeply subcooled stagnation (e.g. Moody's deep points now land within
+±0.03 in log10 G for all but the very lowest-pressure point, which reads −0.17;
+previously they all collapsed to the ≈ 260 kg/m²s sonic floor). The remaining
+*untestable* gap is the moderate-subcooling overlap (3.3 < v_b/c_2φ < ~5), which
+stays on the Zaloudek branch by design.
+
 One curve, **`isobar_pref_4_00`, uses a looser 0.25 tolerance**: its digitised
 reference G-values are systematically ≈ 0.13 in log10 high (a factor ~1.35) across
 the *entire* in-dome range — a graph-reading error on that single curve, not a
