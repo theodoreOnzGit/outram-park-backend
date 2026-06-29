@@ -456,13 +456,13 @@ fn dome_crossing_interior_choke(
 /// | Region 4 — two-phase, inside VLE dome | [`get_critical_pressure_and_mass_flux_ph_vle_dome`] |
 /// | Region 1 — subcooled liquid | [`get_critical_pressure_and_mass_flux_subcooled_liquid_ph`] |
 /// | Region 2 / 5 — superheated / ultra-high-T vapour | [`get_critical_pressure_and_mass_flux_superheated_vapour_ph`] |
-/// | Region 3 — supercritical, isentrope crosses into the dome near the apex | [`dome_crossing_interior_choke`] |
+/// | Region 3 — supercritical, isentrope crosses into the dome near the apex | `dome_crossing_interior_choke` |
 /// | Region 3 — supercritical, no dome crossing (`s0 > s_crit`) | [`get_critical_pressure_and_mass_flux_superheated_vapour_ph`] |
 /// | Region 3 — supercritical, no dome crossing (`s0 ≤ s_crit`) | [`get_critical_pressure_and_mass_flux_subcooled_liquid_ph`] |
 ///
 /// The near-critical Region 3 case is special: the energy-balance `G(p)` has a
 /// spurious kink-peak at the phase boundary that masks the true interior
-/// two-phase choke (see [`dome_crossing_interior_choke`]). When the isentrope
+/// two-phase choke (see `dome_crossing_interior_choke`). When the isentrope
 /// re-enters the dome, that interior choke is used; otherwise the state stays
 /// single-phase and the entropy decides which mirror-image single-phase solver
 /// applies.
