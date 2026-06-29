@@ -38,6 +38,10 @@
 pub mod broadr;
 pub mod common;
 pub mod endf;
+/// User friendly interface to access njoy library (used to be called library,
+/// but I renamed as interface to avoid mixing with lib.rs) 
+///
+///
 pub mod interface;
 pub mod modules;
 pub mod prelude;
