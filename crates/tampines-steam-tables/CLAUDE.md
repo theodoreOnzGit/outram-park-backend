@@ -184,9 +184,12 @@ documents the root cause and the quality-based routing.
 
 | Function | Status |
 |---|---|
+| `get_critical_pressure_and_mass_flux_multiphase_ph` | ✅ Unified dispatcher — routes `(p0,h0)` by `ph_flash_region` to the solvers below; powers `TampinesSteamTableCV::get_crit_pressure_and_massflux`. All 13 `generic_multiphase_stagnation` tests pass |
 | `get_critical_pressure_and_mass_flux_ph_vle_dome` | ✅ Validated — all 21 Zaloudek in-dome quality curves pass |
 | `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | ✅ Validated — all Zaloudek subcooled curves incl. the x_t ≈ 0 saturated-liquid line pass |
-| `get_critical_pressure_and_mass_flux_with_stagnation_props` | ❌ Superseded — old combined dispatcher with +25% artifact; retain for reference only |
+| `get_critical_pressure_and_mass_flux_superheated_vapour_ph` | ✅ Validated — Zaloudek superheated-vapour / supercritical curves (x_t = 0.80–1.00) pass |
+| `dome_crossing_interior_choke` (private) | ✅ Near-critical Region 3 helper — finds the interior two-phase choke when a supercritical isentrope crosses the dome apex, skipping the spurious phase-boundary kink (see README v0.2.1) |
+| `get_critical_pressure_and_mass_flux_with_stagnation_props` | ❌ Superseded — old combined dispatcher with +25% artifact; retain for reference only, no longer wired into the OOP API |
 
 **Near-bubble-point HEM artifact (x_t ≈ 0) — fixed:**
 `subcooled_outside_dome_stagnation::quality_bubble_point_subcooled` now passes.
@@ -197,11 +200,16 @@ routes near-saturation throats (two-phase quality at the energy-max choke < 0.03
 to the bubble-point kink choke, mass flux from a saturated-liquid-line sonic map.
 See the comment block above that test and `diagnose_bubble_point_artifact`.
 
+**`generic_multiphase_stagnation::quality_*`** — now active (no longer
+`#[ignore]`d). These drive the unified dispatcher
+`get_critical_pressure_and_mass_flux_multiphase_ph` end-to-end and assert
+per-point tolerances matching the dedicated region tests (Region 4 → 0.005/0.01,
+Region 1 → 0.03, Region 2/3 → 0.05). See README v0.2.1 for the debugging trail on
+the near-critical Region 3 (3000 psia) points.
+
 **Ignored tests:**
 - `moody_critical_mass_flux_homogeneous_eqm::isobar_pref_*` — moody isobar
   tests (pre-existing `#[ignore]`)
-- `generic_multiphase_stagnation::quality_*` — old combined-canary suite,
-  superseded by the split in-dome / subcooled test files
 
 ## Known accuracy pitfalls
 

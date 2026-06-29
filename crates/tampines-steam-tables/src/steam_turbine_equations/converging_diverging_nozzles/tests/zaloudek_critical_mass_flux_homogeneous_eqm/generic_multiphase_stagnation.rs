@@ -1,10 +1,10 @@
 //! Zaloudek validation: generic multiphase stagnation suite.
 //! Forward dispatcher `get_crit_pressure_and_massflux` from stagnation
-//! conditions. Most tests are #[ignore]d pending the generalised solver.
+//! conditions — routes to the correct HEM solver (in-dome / subcooled /
+//! superheated) based on the stagnation region.
 
 use uom::si::f64::*;
 use uom::si::area::square_foot;
-use uom::si::available_energy::btu_it_per_pound;
 use uom::si::mass_flux::kilogram_per_square_meter_second;
 use uom::si::mass_rate::pound_per_second;
 use uom::si::pressure::{kilopascal, pound_force_per_square_inch};
@@ -12,41 +12,58 @@ use uom::si::pressure::{kilopascal, pound_force_per_square_inch};
 use crate::interfaces::object_oriented_programming::TampinesSteamTableCV;
 use crate::steam_turbine_equations::choked_flow::get_stagnation_conditions_from_throat_ph;
 
-
-
-/// now, rather than calculate using throat conditions,
-/// we are going to do stagnation conditions
+/// Forward round-trip validation against the Zaloudek HEM curves, driving the
+/// unified dispatcher `get_crit_pressure_and_massflux` from stagnation
+/// conditions.
+///
+/// For each Zaloudek throat point we backward-map to a stagnation state
+/// `(p0, h0_calc)` (the same self-consistent methodology the split tests use,
+/// hence `h0_calc`, not Zaloudek's digitised `h0`), then run the dispatcher and
+/// assert it recovers the throat pressure and mass flux.
+///
+/// **Tolerances match the separate region tests** (the dispatcher routes each
+/// point to the same solver those tests exercise), applied **per point by the
+/// stagnation region**:
+/// - Region 4 (in-dome) → `in_dome_pressure_tol` — 0.005, or 0.01 for the
+///   near-bubble x_t = 0.05 curve, exactly as `in_dome_stagnation.rs`.
+/// - Region 1 (subcooled liquid) → 0.03, as `outside_dome_stagnation_subcooled.rs`.
+/// - Region 2/3/5 (vapour / supercritical) → 0.05, as the near-critical
+///   x_t = 0.80 curve in `outside_dome_stagnation_superheated.rs`.
+/// - mass flux (log10) → 0.05 everywhere, as every split test.
 fn validate_zaloudek_curve_using_stagnation_conditions(
     x_t: f64,
     data: &[(f64, f64, f64)],
-    critical_pressure_tolerance: f64,
+    in_dome_pressure_tol: f64,
     mass_flux_log_tolerance: f64,
 ) {
+    use crate::interfaces::functional_programming::ph_flash_eqm::ph_flash_region;
+    use crate::prelude::functional_programming::pt_flash_eqm::FwdEqnRegion;
+
     let ref_vol = TampinesSteamTableCV::get_ref_vol();
 
-    for &(p_psia, g_expected_val, h0_expected_val) in data {
+    for &(p_psia, g_expected_val, _h0_expected_val) in data {
         let p_throat_critical_ref = Pressure::new::<pound_force_per_square_inch>(p_psia);
         let g_expected = MassRate::new::<pound_per_second>(g_expected_val)
             / Area::new::<square_foot>(1.0);
-        let h0_expected = AvailableEnergy::new::<btu_it_per_pound>(h0_expected_val);
 
         let state_t = TampinesSteamTableCV::new_from_sat_pressure_quality(p_throat_critical_ref, x_t, ref_vol);
         let h_t = state_t.get_specific_enthalpy();
 
-        let (p0, h0_calc, g_calc_throat) = get_stagnation_conditions_from_throat_ph(p_throat_critical_ref, h_t);
+        // backward map throat -> stagnation (p0, h0_calc)
+        let (p0, h0_calc, _g_calc_throat) = get_stagnation_conditions_from_throat_ph(p_throat_critical_ref, h_t);
 
-        // with this p,h point, I want to obtain entropy 
-
-        let ref_vol = TampinesSteamTableCV::get_ref_vol();
-        let state_0 = TampinesSteamTableCV::new_from_ph(p0, h0_expected, ref_vol);
-        // I should get the throat critical pressure back
+        // forward: drive the unified dispatcher from the stagnation state
+        let state_0 = TampinesSteamTableCV::new_from_ph(p0, h0_calc, ref_vol);
         let (p_throat_calc, g_calc_stagnation) = state_0.get_crit_pressure_and_massflux();
 
-        dbg!(&(p_psia, x_t,
-               h0_calc.get::<btu_it_per_pound>(),
-               h0_expected_val,
-               g_calc_throat.get::<kilogram_per_square_meter_second>(),
-               g_expected.get::<kilogram_per_square_meter_second>()));
+        // per-point pressure tolerance keyed by the stagnation region, matching
+        // the dedicated region test the dispatcher routes this point to
+        let region = ph_flash_region(p0, h0_calc);
+        let critical_pressure_tolerance = match region {
+            FwdEqnRegion::Region4 => in_dome_pressure_tol, // in-dome test
+            FwdEqnRegion::Region1 => 0.03,                 // subcooled test
+            _ => 0.05,                                     // superheated / supercritical test
+        };
 
         approx::assert_relative_eq!(
             p_throat_calc.get::<kilopascal>(),
@@ -71,18 +88,7 @@ fn validate_zaloudek_curve_using_stagnation_conditions(
 // Assert that the recovered critical pressure and mass flux match the Zaloudek throat data.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────────────────
-// WORK IN PROGRESS — canary test (intentionally left un-#[ignore]d).
-//
-// This is the active marker for fixing the generalised forward dispatcher
-// `get_crit_pressure_and_massflux`. It currently FAILS: the converged
-// critical pressure does not match Zaloudek (subcooled-liquid stagnation
-// flashing into the dome is not yet handled correctly). Keep it red and
-// visible until the forward solver is fixed — do NOT add #[ignore].
-// ─────────────────────────────────────────────────────────────────────────────
-//
 #[test]
-#[ignore="canary test, until the in dome and out of dome stagnation sub-tests are complete"]
 fn quality_0_05_stagnation(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    64.0497,   177.3399),
@@ -103,12 +109,11 @@ fn quality_0_05_stagnation(){
         (2000.0, 11349.8420,697.5369),
         (3000.0, 14016.4977,795.0739),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(0.05, &data, 0.05, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.05, &data, 0.01, 0.05);
 }
 
 
 #[test]
-#[ignore]
 fn quality_0_10_stagnation(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    52.5990,   230.5419),
@@ -129,12 +134,11 @@ fn quality_0_10_stagnation(){
         (2000.0, 10578.8855,730.0493),
         (3000.0, 13820.6838,803.9409),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(0.10, &data, 0.05, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.10, &data, 0.005, 0.05);
 }
 
 
 #[test]
-#[ignore]
 fn quality_0_15_stagnation(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    44.9199,   283.7438),
@@ -155,12 +159,11 @@ fn quality_0_15_stagnation(){
         (2000.0, 10141.3918,750.7389),
         (3000.0, 13241.9279,815.7635),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(0.15, &data, 0.05, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.15, &data, 0.005, 0.05);
 }
 
 
 #[test]
-#[ignore]
 fn quality_0_20_stagnation(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    40.8317,   333.9901),
@@ -181,12 +184,11 @@ fn quality_0_20_stagnation(){
         (2000.0, 9860.2975, 771.4286),
         (3000.0, 13064.4043,839.4089),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(0.20, &data, 0.05, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.20, &data, 0.005, 0.05);
 }
 
 
 #[test]
-#[ignore]
 fn quality_0_25_stagnation(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    36.4853,   387.1921),
@@ -207,12 +209,11 @@ fn quality_0_25_stagnation(){
         (2000.0, 9586.7204, 798.0296),
         (3000.0, 12701.9282,857.1429),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(0.25, &data, 0.05, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.25, &data, 0.005, 0.05);
 }
 
 
 #[test]
-#[ignore]
 fn quality_0_30_stagnation(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    34.0070,   434.4828),
@@ -233,12 +234,11 @@ fn quality_0_30_stagnation(){
         (2000.0, 9190.5208, 815.7635),
         (3000.0, 12349.5091,866.0099),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(0.30, &data, 0.05, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.30, &data, 0.005, 0.05);
 }
 
 
 #[test]
-#[ignore]
 fn quality_0_35_stagnation(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    31.6970,   487.6847),
@@ -259,12 +259,11 @@ fn quality_0_35_stagnation(){
         (2000.0, 9062.1270, 842.3645),
         (3000.0, 12006.8680,880.7882),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(0.35, &data, 0.05, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.35, &data, 0.005, 0.05);
 }
 
 
 #[test]
-#[ignore]
 fn quality_0_40_stagnation(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    29.9625,   540.8867),
@@ -285,12 +284,11 @@ fn quality_0_40_stagnation(){
         (2000.0, 8810.6953, 866.0099),
         (3000.0, 12006.8680,892.6108),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(0.40, &data, 0.05, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.40, &data, 0.005, 0.05);
 }
 
 
 #[test]
-#[ignore]
 fn quality_0_45_stagnation(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    27.5371,   597.0443),
@@ -311,12 +309,11 @@ fn quality_0_45_stagnation(){
         (2000.0, 8566.2397, 883.7438),
         (3000.0, 12006.8680,898.5222),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(0.45, &data, 0.05, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.45, &data, 0.005, 0.05);
 }
 
 
 #[test]
-#[ignore]
 fn quality_0_50_stagnation(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    26.3991,   650.2463),
@@ -337,12 +334,11 @@ fn quality_0_50_stagnation(){
         (2000.0, 8446.5673, 913.3005),
         (3000.0, 12006.8680,913.3005),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(0.50, &data, 0.05, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.50, &data, 0.005, 0.05);
 }
 
 
 #[test]
-#[ignore]
 fn quality_0_55_stagnation(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    25.3080,   700.4926),
@@ -363,12 +359,11 @@ fn quality_0_55_stagnation(){
         (2000.0, 8328.5666, 931.0345),
         (3000.0, 11673.7335,931.0345),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(0.55, &data, 0.05, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.55, &data, 0.005, 0.05);
 }
 
 
 #[test]
-#[ignore]
 fn quality_0_60_stagnation(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    24.6059,   747.7833),
@@ -389,12 +384,11 @@ fn quality_0_60_stagnation(){
         (2000.0, 8097.4879, 957.6355),
         (3000.0, 11510.6486,954.6798),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(0.60, &data, 0.05, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.60, &data, 0.005, 0.05);
 }
 
 
 #[test]
-#[ignore]
 fn quality_0_65_stagnation(){
     let data: Vec<(f64, f64, f64)> = vec![
         (5.0,    23.9232,   800.9852),
@@ -415,5 +409,5 @@ fn quality_0_65_stagnation(){
         (2000.0, 8097.4879, 981.2808),
         (3000.0, 11673.7335,972.4138),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(0.65, &data, 0.05, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.65, &data, 0.005, 0.05);
 }

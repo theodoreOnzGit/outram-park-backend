@@ -149,21 +149,20 @@ impl super::TampinesSteamTableCV {
         p_star / p0
     }
 
-    /// This algorithm uses a more generic approach to 
-    /// critical pressure and mass flux,
+    /// Critical pressure and mass flux for choked flow, assuming `self` holds
+    /// stagnation properties.
     ///
-    /// basically, one doesn't even find the speed of sound 
-    /// but uses a scanning algorithm in order to obtain the 
-    /// critical mass flux
-    /// this assumes the properties supplied are all stagnation properties
+    /// Routes to the correct HEM solver based on the stagnation region:
+    /// - Region 4 (two-phase) → in-dome solver
+    /// - Region 1 (subcooled liquid) or liquid-like supercritical → subcooled solver
+    /// - Region 2/5 (superheated vapour) or vapour-like supercritical → superheated solver
+    ///
+    /// Validated against Zaloudek (1961) HEM reference curves for x_t = 0.0–1.00.
     #[inline]
     pub fn get_crit_pressure_and_massflux(&self) -> (Pressure, MassFlux) {
-
-        let s0 = self.specific_entropy;
-        let h0 = self.specific_enthalpy;
         let p0 = self.pressure;
-
-        get_critical_pressure_and_mass_flux_with_stagnation_props(s0, h0, p0)
+        let h0 = self.specific_enthalpy;
+        get_critical_pressure_and_mass_flux_multiphase_ph(p0, h0)
     }
 
     /// finds pressure where mach number = 1 during isentropic expansion 
@@ -468,24 +467,13 @@ impl super::TampinesSteamTableCV {
         Volume::new::<cubic_meter>(1.0)
     }
 
-    /// critical mass flux 
-    /// for choked flow
-    /// assumes state supplied is stagnation state
+    /// Critical mass flux for choked flow, assuming `self` holds stagnation properties.
+    ///
+    /// Convenience wrapper around [`get_crit_pressure_and_massflux`] that returns
+    /// only the mass flux.
     pub fn get_stagnation_critical_mass_flux(&self) -> MassFlux {
-
-
-        let s0 = self.get_specific_entropy();
-        let h0 = self.get_specific_enthalpy();
-        let p0 = self.get_pressure();
-
-
-        let (_critical_pressure,mass_flux) = 
-            get_critical_pressure_and_mass_flux_with_stagnation_props(
-                s0, h0, p0
-            );
-
-
-        return mass_flux;
+        let (_critical_pressure, mass_flux) = self.get_crit_pressure_and_massflux();
+        mass_flux
     }
 }
 
