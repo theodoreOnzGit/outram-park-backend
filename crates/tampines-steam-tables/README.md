@@ -69,7 +69,49 @@ simulator.
 
 # Changelog
 
-v0.2.1 — unified multiphase critical-flow dispatcher
+v0.2.1 — transient mass & energy balance and
+unified multiphase critical-flow dispatcher
+
+> **Design / thought process: human-authored** (written by the maintainer; the
+> Rust implementation and tests were carried out by an AI assistant following
+> this specification).
+
+Control volumes can now gain or lose mass over a timestep, with the new
+thermodynamic state recovered by an iterative `(p, h)` flash.
+
+The mental model and algorithm (as specified):
+
+1. Build a **vector of `(mass, specific-enthalpy)`** source/sink terms *outside*
+   the control volume — kept external so `TampinesSteamTableCV` stays a small
+   `Copy` value rather than carrying a `Vec`. This is the new
+   `CvMassEnthalpyChanges` ledger; `add_mass()` and `remove_mass()` push a
+   `(mass, enthalpy)` tuple (with `uom` types) onto it (removal stored as a
+   negative mass).
+2. Call `TampinesSteamTableCV::advance_timestep(&ledger)`. It sums the **total
+   mass change** and the **total enthalpy change** added to the system.
+3. The control-volume geometric volume is fixed, so the new state has a new
+   `(ρ, h)` point: the mass is `ρ · V`, the specific enthalpy is the
+   mass-weighted total enthalpy over the new mass, and the specific volume is
+   `V / m_new`.
+4. To get the thermodynamic state from that `(ρ, h)` point we iterate on
+   pressure with **regula falsi (false position)**, evaluating the `(p, h)`
+   flash `v(p, h)` until it matches the target specific volume `V / m_new`, then
+   rebuild the control volume from `(p, h_new)`.
+
+Implementation notes from the build-out:
+
+- At fixed enthalpy, specific volume decreases monotonically with pressure, so
+  the residual `v(p, h) − v_target` has a single sign change — well suited to
+  regula falsi.
+- The bracket is grown **outward from the control volume's current pressure**
+  (a known-valid point) toward the root, not from a blind 100 MPa endpoint. The
+  `(p, h)` flashes are **not implemented for region 5 (T > 800 °C)**, and
+  marching down from 100 MPa could land there and panic; seeding from the
+  current pressure keeps every evaluation inside the validated range.
+- `advance_timestep` panics on non-physical input (removing more mass than is
+  present, or a `(v, h)` target outside the validated steam-table range) rather
+  than silently returning a wrong state.
+
 
 `get_crit_pressure_and_massflux` (and `get_stagnation_critical_mass_flux`) on
 `TampinesSteamTableCV` are now a single **generic multiphase dispatcher**,

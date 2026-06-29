@@ -202,7 +202,13 @@ impl TampinesSteamTableCV {
 /// vibe coded getter methods
 pub mod getter_methods;
 
-/// setter methods 
+/// setter methods
 /// this will deal with setting new thermodynamic equilibrium
 /// based on user input parameters
 pub mod setter_methods;
+
+/// transient mass-and-energy balance: accumulate `(mass, enthalpy)` source/sink
+/// terms in a [`CvMassEnthalpyChanges`] ledger and apply them with
+/// `TampinesSteamTableCV::advance_timestep`
+pub mod mass_and_energy_balance;
+pub use mass_and_energy_balance::CvMassEnthalpyChanges;
