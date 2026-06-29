@@ -67,7 +67,9 @@ use openfoam_basic_lib::fv_operators::{fvm, fvc};
 | `mesh` | `RegionInterface` | Matching and non-matching multi-region face coupling for CHT |
 | `ldu_matrix` | `LduMatrix`, `FvMatrix`, `FvVectorMatrix` | Sparse LDU system; scalar and vector implicit equation assembly |
 | `ldu_matrix` | `gauss_seidel`, `conjugate_gradient` | Iterative LDU solvers (no external BLAS). CG is **DIC-preconditioned** (`Foam::DICPreconditioner`) and accepts an optional initial guess (`x0`) for warm starts |
+| `ldu_matrix` | `gamg` | Algebraic multigrid (`Foam::GAMGSolver` + `algebraicPairGAMGAgglomeration`) for symmetric systems; near mesh-independent V-cycle count |
 | `ldu_matrix` | `FvMatrix::solve_cg`, `FvMatrix::solve_cg_with_guess` | Cold- and warm-started PCG for the symmetric pressure system |
+| `ldu_matrix` | `FvMatrix::solve_gamg`, `FvMatrix::solve_gamg_with_guess` | Cold- and warm-started GAMG for the symmetric pressure system |
 | `ldu_matrix` | `SolverSettings`, `SolverPerformance` | Tolerance / iteration control and convergence reporting |
 
 ### Layer 3 — Finite-volume operators
@@ -169,15 +171,24 @@ alone) and ~40 near steady state (DIC + warm start) — **6.6× fewer total CG
 iterations** (3.26M → 0.50M) and the cavity test roughly halved in wall time,
 with the solution field bit-for-bit unchanged (Ghia RMS 0.0113).
 
-**Still on the table — GAMG.** OpenFOAM's *default* pressure solver is GAMG
-(geometric-algebraic multigrid), which is near mesh-independent (~4–8 cycles per
-solve) and is the remaining structural gap. A serial **algebraic** multigrid is
-portable here because `algebraicPairGAMGAgglomeration` agglomerates purely from
-matrix coefficients (no mesh geometry needed) and our `LduMatrix` already has
-the right addressing. Source to port:
-`src/OpenFOAM/matrices/lduMatrix/solvers/GAMG/` (core V-cycle, ~2.6k LOC) plus
-`GAMGAgglomerations/{pairGAMGAgglomeration,algebraicPairGAMGAgglomeration}`,
-with the existing DIC used as the smoother (`DICGaussSeidel`).
+**GAMG (algebraic multigrid) — implemented; mesh-independent but not a win at
+small sizes.** [`gamg`](src/ldu_matrix/solvers/gamg.rs) is a serial port of
+OpenFOAM's `GAMGSolver` with `algebraicPairGAMGAgglomeration`: pairwise
+agglomeration on the matrix coefficients (`|upper|`), Galerkin coarse operators
+(`Pᵀ A P`), a recursive correction-scheme V-cycle with Gauss-Seidel pre/post
+smoothing and an optimal line-search correction scale, and a dense-LU coarsest
+solve. Its V-cycle count stays flat as the mesh is refined (verified in
+`gamg::tests::gamg_cycle_count_is_mesh_independent`) — the property PCG lacks.
+
+On the 1681-cell cavity, however, GAMG reproduces the PCG solution **bit-for-bit
+(field diff 2.6e-9)** but runs *slower* (42.8 s vs 12.4 s): at this scale
+DIC-PCG already converges in ~40 cheap iterations per corrector, below the
+crossover (~10⁴–10⁵ cells) where multigrid's mesh-independence pays off, and the
+free `gamg` function rebuilds the hierarchy on every solve. So PCG stays the
+default; GAMG is the right tool once larger meshes are in play. Two follow-ups
+would make GAMG competitive at scale: **cache the agglomeration** across time
+steps (re-restrict coefficients only), and use **GAMG as a CG preconditioner**
+for Krylov robustness.
 
 ## Prelude
 
@@ -229,6 +240,14 @@ cargo test -p openfoam-basic-lib --test matrix_bench --release -- --nocapture
 ## Changelog
 
 ### Unreleased
+
+- **Added GAMG (algebraic multigrid) solver** (`ldu_matrix::gamg`,
+  `FvMatrix::solve_gamg{,_with_guess}`). Serial port of `Foam::GAMGSolver` +
+  `algebraicPairGAMGAgglomeration`: pairwise agglomeration, Galerkin coarse
+  operators, recursive V-cycle (GS pre/post-smoothing, line-search correction
+  scale, dense-LU coarsest). V-cycle count is mesh-independent. On the
+  1681-cell cavity it reproduces the PCG field exactly but is slower at that
+  scale (see "Pressure linear-solver performance"); PCG remains the default.
 
 - **Pressure PCG: DIC preconditioner + warm start (≈6.6× fewer iterations).**
   `conjugate_gradient` now uses a DIC preconditioner (`Foam::DICPreconditioner`

@@ -34,7 +34,7 @@ pub use crate::io::poly_mesh::read_poly_mesh;
 
 // Solvers
 pub use crate::solvers::hrm_foam::{HrmFoam, HrmModelConfig};
-pub use crate::solvers::pimple_foam::PimpleFoam;
+pub use crate::solvers::pimple_foam::{PimpleFoam, PressureSolver};
 pub use crate::solvers::rho_central_foam::RhoCentralFoam;
 pub use crate::solvers::rho_pimple_foam::RhoPimpleFoam;
 pub use crate::solvers::sonic_foam::SonicFoam;

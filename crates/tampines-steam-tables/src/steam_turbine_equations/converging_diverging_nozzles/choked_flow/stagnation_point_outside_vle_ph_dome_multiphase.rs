@@ -29,8 +29,6 @@ use uom::si::pressure::pascal;
 
 use crate::interfaces::functional_programming::ph_flash_eqm::s_ph_eqm;
 use crate::interfaces::functional_programming::pt_flash_eqm::s_tp_eqm_two_phase;
-use crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_two_phase;
-use crate::interfaces::functional_programming::pt_flash_eqm::v_tp_eqm_two_phase;
 use crate::prelude::functional_programming::ps_flash_eqm::h_ps_eqm;
 use crate::prelude::functional_programming::ps_flash_eqm::v_ps_eqm;
 use crate::prelude::functional_programming::ps_flash_eqm::mass_flux_ps_eqm_throat;
@@ -174,60 +172,38 @@ pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(
         (p_bubble, g_bubble)                   // bubble-point choke
     };
 
-    // ── Near-saturation vs. genuine-subcooling discriminator ─────────────────
+    // ── Near-saturation (x ≈ 0) correction ──────────────────────────────────
     //
     // The energy-balance objective G(p) = ρ·√(2(h0−h)) is blind to the
     // discontinuity in the HEM sound speed at the bubble point (c drops from
     // ~1500 m/s liquid to ~0.5 m/s two-phase). Maximising it equals the choke
-    // only at a smooth interior stationary point (dG/dp = 0 ⇔ v = c). There are
-    // two physically distinct subcooled choke regimes, set by how much velocity
-    // the liquid builds before it flashes — i.e. the ratio of the Bernoulli
-    // velocity at the bubble point v_b = √(2(h0 − h_f(p_b))) to the two-phase
-    // sound speed there c_2φ:
+    // only at a smooth interior stationary point (dG/dp = 0 ⇔ v = c). When the
+    // throat is essentially on the saturated-liquid line, the energy max either
+    // overshoots ρ_f·v ≫ ρ_f·c at the bubble point, or walks off to a deeper
+    // stationary point the flow never reaches at M = 1. We detect this by the
+    // two-phase quality at the energy-max choke: below 0.03 the throat is
+    // effectively saturated liquid → take the bubble-point sonic kink, mass flux
+    // ρ_f·c_2φ from the saturated-liquid-line sonic map.
     //
-    // * **Near-saturation** (v_b ≲ c_2φ, the Zaloudek x_t ≈ 0 regime): the liquid
-    //   arrives at the bubble point essentially at rest, the choke is the
-    //   bubble-point sonic kink, and G_crit = ρ_f·c_2φ read from the saturated-
-    //   liquid-line sonic map. The energy max here *overshoots* (it keeps climbing
-    //   into the two-phase region) so it must not be used.
-    // * **Genuinely subcooled** (v_b ≳ c_2φ, the Moody deep-subcooling regime):
-    //   the liquid accelerates as a near-incompressible Bernoulli flow to flashing
-    //   inception; the choke is the energy-balance max, which equals ρ_f·√(2·Δh)
-    //   for deep subcooling and a genuine interior two-phase point for moderate
-    //   subcooling. For the deepest Moody points this recovers the incompressible
-    //   √(2·ρ_f·(p0 − p_b)) discharge to within ~1 %.
-    //
-    // The earlier discriminator (two-phase quality at the energy-max choke < 0.03)
-    // was tuned only on Zaloudek, which never goes deeply subcooled — quality ≈ 0
-    // in *both* regimes, so it wrongly collapsed Moody's deep-subcooling points to
-    // the sonic floor. The degree of subcooling (v_b/c_2φ) separates them cleanly.
-    // See README v0.2.1 ("Subcooled choked flow has two regimes").
-    //
-    // The crossover (threshold 1.5) sits above the whole Zaloudek subcooled range
-    // (v_b/c_2φ ≤ 1.2, kept on the sonic map exactly as before) and below the
-    // genuinely-subcooled Moody points. A handful of points on the steep "knee"
-    // of the low-pressure isobars (v_b/c_2φ ≈ 3–5, where Moody's log-chart
-    // digitisation is least reliable and HEM equilibrium is most strained) are not
-    // captured tightly by either limit; those are the looser-tolerance points.
-    let g_sonic = saturation_line_sonic_mass_flux(p_bubble);
-    let t_bubble = sat_temp_4(p_bubble);
-    let rho_f = v_tp_eqm_two_phase(t_bubble, p_bubble, 0.0).recip();
-    let h_f_bubble = h_tp_eqm_two_phase(t_bubble, p_bubble, 0.0);
-    let dh_bubble = (h0 - h_f_bubble).max(AvailableEnergy::ZERO);
-    let v_bubble = (2.0 * dh_bubble).sqrt();
-    let c_2phase = g_sonic / rho_f;                    // ρ_f·c_2φ / ρ_f
-    let subcooling_ratio = (v_bubble / c_2phase).get::<uom::si::ratio::ratio>();
-    if std::env::var("MOODY_DEBUG").is_ok() {
-        eprintln!(
-            "  [subcooled] p0={:.4}MPa p_bubble={:.5}MPa v_b/c_2φ={:.2} \
-             g_energy={:.1} g_sonic={:.1}",
-            p0.get::<megapascal>(), p_bubble.get::<megapascal>(),
-            subcooling_ratio, g_energy,
-            g_sonic.get::<kilogram_per_square_meter_second>()
-        );
-    }
-    if subcooling_ratio < 1.5 {
-        (p_bubble, g_sonic)                            // near-saturation sonic kink
+    // ⚠ KNOWN LIMITATION — deep subcooling (Moody isobars).
+    // This quality discriminator handles every Zaloudek subcooled curve but
+    // wrongly fires for *deeply* subcooled stagnation (Moody's low-enthalpy isobar
+    // points), where the two-phase quality at the choke is also ≈ 0 yet the true
+    // choke is the energy-balance / Bernoulli maximum, not the sonic kink — so
+    // those points collapse to the sonic floor and read far too low. The clean
+    // candidates (quality, stagnation subcooling, v_b/c_2φ, pressure) do NOT
+    // separate the two regimes: e.g. Zaloudek 10 psia (v_b/c_2φ ≈ 3.3, wants the
+    // sonic value 748 kg/m²s) and Moody p/p_ref=8 / h≈4.47 (v_b/c_2φ ≈ 3.1, wants
+    // the Bernoulli value ≈ 57 700 kg/m²s) sit on top of each other in every local
+    // parameter but want opposite branches. Resolving this needs either the
+    // genuine interior sonic point (numerically fragile in the two-phase band just
+    // below the bubble point) or a non-equilibrium / relaxation (HRM) treatment —
+    // HEM equilibrium is known to under-predict subcooled critical flow. The Moody
+    // subcooled isobar points are documented as failing for this reason; see
+    // README v0.2.1 ("Subcooled choked flow has two regimes").
+    let x_at_energy = two_phase_quality(p_energy, s0);
+    if x_at_energy < 0.03 {
+        (p_bubble, saturation_line_sonic_mass_flux(p_bubble))
     } else {
         (p_energy, MassFlux::new::<kilogram_per_square_meter_second>(g_energy))
     }

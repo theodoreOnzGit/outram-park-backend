@@ -29,6 +29,7 @@ use crate::fields::boundary::bc::PatchField;
 use super::ldu_matrix::LduMatrix;
 use super::solvers::gauss_seidel::gauss_seidel;
 use super::solvers::conjugate_gradient::conjugate_gradient;
+use super::solvers::gamg::gamg;
 
 /// Sparse implicit matrix equation `A·φ = b` for a scalar field φ.
 ///
@@ -154,6 +155,52 @@ impl FvMatrix {
     ) -> (VolScalarField, SolverPerformance) {
         let b: Vec<f64> = self.source.iter().copied().collect();
         let (x, perf) = conjugate_gradient(&self.ldu, &b, x0, &settings);
+
+        let boundary = self.mesh.patches.iter()
+            .map(|p| PatchField::zero_gradient(p.size))
+            .collect();
+        let field = VolScalarField::new(name, self.mesh.clone(), Field::new(x), boundary);
+        (field, perf)
+    }
+
+    /// Solve the system with GAMG (algebraic multigrid), cold-started from
+    /// `x = 0`.
+    ///
+    /// GAMG requires a symmetric SPD matrix (`upper == lower`) — the pressure
+    /// Poisson case. It is near mesh-independent (a handful of V-cycles), unlike
+    /// PCG whose iteration count grows with the mesh, so it is the better choice
+    /// for the pressure solve on fine grids. As with PCG, prefer
+    /// [`solve_gamg_with_guess`](Self::solve_gamg_with_guess) in a transient
+    /// loop to warm-start from the previous time step's field.
+    pub fn solve_gamg(
+        &self,
+        name: impl Into<String>,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        self.solve_gamg_inner(name, None, settings)
+    }
+
+    /// Solve with GAMG, **warm-started** from `initial` (typically the previous
+    /// time step's field). See [`gamg`](crate::ldu_matrix::gamg) for the
+    /// multigrid algorithm and [`solve_gamg`](Self::solve_gamg) for the cold
+    /// variant.
+    pub fn solve_gamg_with_guess(
+        &self,
+        name: impl Into<String>,
+        initial: &VolScalarField,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        self.solve_gamg_inner(name, Some(initial.internal.as_slice()), settings)
+    }
+
+    fn solve_gamg_inner(
+        &self,
+        name: impl Into<String>,
+        x0: Option<&[f64]>,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        let b: Vec<f64> = self.source.iter().copied().collect();
+        let (x, perf) = gamg(&self.ldu, &b, x0, &settings);
 
         let boundary = self.mesh.patches.iter()
             .map(|p| PatchField::zero_gradient(p.size))

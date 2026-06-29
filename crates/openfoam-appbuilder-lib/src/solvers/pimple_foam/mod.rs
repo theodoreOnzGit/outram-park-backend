@@ -213,6 +213,24 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
     }
 }
 
+/// Linear solver used for the pressure Poisson equation.
+///
+/// The pressure equation is symmetric SPD and elliptic. Both options warm-start
+/// from the previous time step's pressure field:
+///
+/// - [`Pcg`](PressureSolver::Pcg) — DIC-preconditioned conjugate gradient.
+///   Iteration count grows with the mesh (∝ √κ), but each iteration is cheap.
+/// - [`Gamg`](PressureSolver::Gamg) — algebraic multigrid. Near
+///   mesh-independent (a few V-cycles); the better choice on fine meshes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PressureSolver {
+    /// DIC-preconditioned conjugate gradient (`FvMatrix::solve_cg_with_guess`).
+    #[default]
+    Pcg,
+    /// Algebraic multigrid (`FvMatrix::solve_gamg_with_guess`).
+    Gamg,
+}
+
 /// Incompressible transient PIMPLE/PISO solver.
 ///
 /// Solves:
@@ -241,6 +259,8 @@ pub struct PimpleFoam {
     pub phi: SurfaceScalarField,
     /// Kinematic viscosity ν [m²/s]
     pub nu: VolScalarField,
+    /// Linear solver for the pressure Poisson equation (default: PCG).
+    pub pressure_solver: PressureSolver,
 }
 
 impl PimpleFoam {
@@ -263,6 +283,7 @@ impl PimpleFoam {
             p,
             phi,
             nu,
+            pressure_solver: PressureSolver::default(),
         }
     }
 
@@ -435,9 +456,12 @@ impl PimpleFoam {
                 p_eqn.set_reference(0, 0.0); // pin reference (closed domain)
                 // Warm-start from the current pressure (previous corrector /
                 // time step). Near steady state `p` barely changes, so the
-                // DIC-PCG solve converges in a few iterations instead of from
-                // x = 0 every time. See the perf TODO in this crate.
-                let (mut p_new, _) = p_eqn.solve_cg_with_guess("p", &self.p, p_settings);
+                // solve converges in a few iterations instead of from x = 0
+                // every time. PCG or GAMG per `self.pressure_solver`.
+                let (mut p_new, _) = match self.pressure_solver {
+                    PressureSolver::Pcg => p_eqn.solve_cg_with_guess("p", &self.p, p_settings),
+                    PressureSolver::Gamg => p_eqn.solve_gamg_with_guess("p", &self.p, p_settings),
+                };
                 correct_bcs(&mut p_new, &p_bcs);
                 self.p = p_new;
 

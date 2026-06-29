@@ -98,4 +98,4 @@ pub use crate::fv_operators::{fvc, fvm, adjust_phi};
 pub use crate::fluid_thermo::{FluidThermo, PsiThermo, RhoThermo, SolidThermo, ConstSolidThermo};
 
 // --- LDU solvers ---
-pub use crate::ldu_matrix::{gauss_seidel, conjugate_gradient};
+pub use crate::ldu_matrix::{gauss_seidel, conjugate_gradient, gamg};

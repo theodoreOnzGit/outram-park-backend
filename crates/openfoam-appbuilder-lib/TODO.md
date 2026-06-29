@@ -100,14 +100,21 @@ Fixes, in order of bang-for-buck:
   with the warm start: per-solve PCG iters 272 → ~40, total CG iters 3.26M →
   0.50M (**6.6×**), cavity test ~24 s → ~12 s, solution unchanged
   (Ghia RMS 0.0113).
-- [ ] **GAMG (algebraic multigrid) — the remaining structural gap.** OpenFOAM's
-  *default* pressure solver; near mesh-independent (~4–8 cycles/solve) where
-  DIC-PCG still grows with the mesh. Port the **algebraic** variant — it needs
-  no mesh geometry, only matrix coefficients, so it fits our `LduMatrix`
-  addressing. Source: `src/OpenFOAM/matrices/lduMatrix/solvers/GAMG/` (core
-  V-cycle, ~2.6k LOC) + `GAMGAgglomerations/{pairGAMGAgglomeration,
-  algebraicPairGAMGAgglomeration}`, reusing the new DIC as the smoother
-  (`DICGaussSeidel`). Substantial but high-value for fine meshes.
+- [x] **GAMG (algebraic multigrid) — implemented.** `openfoam-basic-lib`
+  `ldu_matrix::gamg` + `FvMatrix::solve_gamg{,_with_guess}`; selectable in
+  pimpleFoam via `PressureSolver::Gamg`. Serial port of `GAMGSolver` +
+  `algebraicPairGAMGAgglomeration` (pairwise agglomeration on `|upper|`,
+  Galerkin `Pᵀ A P` coarse operators, recursive V-cycle with GS pre/post
+  smoothing + line-search correction scale, dense-LU coarsest). V-cycle count
+  is mesh-independent (unit-tested). **Finding:** on the 1681-cell cavity GAMG
+  reproduces the PCG field bit-for-bit (2.6e-9) but runs slower (42.8 s vs
+  12.4 s) — too small to reach multigrid's crossover, and the hierarchy is
+  rebuilt every solve. **PCG stays the cavity default**
+  (`cavity_pressure_solver_comparison_fine_mesh` documents this). To make GAMG
+  win at scale: (a) **cache the agglomeration** across time steps (re-restrict
+  coefficients only — the sparsity pattern is fixed), (b) **GAMG-preconditioned
+  CG** for Krylov robustness, (c) demonstrate on a much finer mesh once the
+  structured-mesh generator exists.
 - [ ] **Loosen intermediate-corrector tolerance + add a relative tolerance.**
   `step` solves every corrector to absolute `tolerance: 1e-8`. OpenFOAM runs
   non-final correctors at ~1e-6 with a `relTol` and only tightens the final
