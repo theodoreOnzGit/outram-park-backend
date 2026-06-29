@@ -73,6 +73,50 @@ explicit, density-based path used by rhoCentralFoam. Remaining:
   generator only for *programmatic* sweeps — see below; one-off meshes can keep
   being added by hand like `constant_fine_mesh`.
 
+## Performance — pressure solve dominates (MEASURED, high priority)
+
+The `cavity_ghia_benchmark_re100_fine_mesh` run (41×41, 6000 steps to t=12 s)
+takes ~24 s; an equivalent OpenFOAM run finishes in a fraction of that. Root
+cause was measured by instrumenting every pressure solve:
+
+- 6000 steps × 2 PISO correctors = **12 000 pressure solves**
+- **every solve runs a flat 272 PCG iterations** — same count on the first step
+  and the last, i.e. no cheaper near steady state
+- **≈ 3.26 million sparse mat-vec products** total — this is essentially the
+  whole wall-clock time
+
+Fixes, in order of bang-for-buck:
+
+- [ ] **Warm-start `solve_cg` with the current field (biggest lever).**
+  `conjugate_gradient` (`openfoam-basic-lib/src/ldu_matrix/solvers/conjugate_gradient.rs`)
+  hard-codes `x = vec![0.0; n]`. Starting from the previous pressure makes the
+  initial residual tiny near steady state, collapsing the 272 iters to a
+  handful. Needs an `solve_cg` overload that accepts an initial guess, and
+  `pimple_foam::step` to pass `self.p` in. Cheap, localized, large win.
+- [ ] **Better pressure preconditioner than Jacobi.** The current
+  preconditioner is `M⁻¹ = 1/diag` (diagonal). Jacobi-PCG iteration count
+  scales with the mesh (∝ √κ ≈ O(Nₓ)), which is why 41×41 needs ~272. Add a
+  **DIC/ILU(0)** preconditioner, or ideally a **geometric/algebraic multigrid
+  (GAMG equivalent)** — OpenFOAM's default for pressure, near mesh-independent
+  at ~4–8 cycles per solve. This is the structural 20–50× gap on elliptic
+  pressure and the main reason OpenFOAM is so much faster.
+- [ ] **Loosen intermediate-corrector tolerance + add a relative tolerance.**
+  `step` solves every corrector to absolute `tolerance: 1e-8`. OpenFOAM runs
+  non-final correctors at ~1e-6 with a `relTol` and only tightens the final
+  corrector. Add `rel_tol` to `SolverSettings` and use a looser tol on all but
+  the last PISO corrector.
+- [ ] **Steady-state early exit + `adjustTimeStep`.** `run()`
+  (`pimple_foam/mod.rs`) marches a fixed 6000 steps to `endTime` with no
+  convergence check and no adaptive `dt`. Add a residual-based steady-state
+  stop and honour `adjustTimeStep` (CLAUDE.md already requires
+  `adjust_delta_t(co_max, dt_max)` per step) so the cavity stops when converged
+  instead of running all 120 transit times.
+- [ ] **Reduce per-step allocation churn / parallelize (lower priority).**
+  Operator-overloaded field arithmetic (e.g. `hbya - rau.clone() * fvc::grad(p)`)
+  allocates fresh fields each corrector, and the cell/face loops are serial.
+  Minor next to the CG iteration count, but worth revisiting once the solver
+  itself is fixed (see the `Arc<RwLock<T>>` threading model in CLAUDE.md).
+
 ## Library (`openfoam-basic-lib`)
 - [ ] Consider having `FvMatrix::solve` auto-select `solve_cg` for symmetric
   (`upper == lower`) systems instead of requiring callers to pick. PCG was ~170×
