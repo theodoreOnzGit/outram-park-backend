@@ -282,6 +282,164 @@ fn validate_moody_isobar(
     }
 }
 
+/// Unified diagnostic (non-asserting): for every SUBCOOLED stagnation point
+/// (Moody Region-1 points + Zaloudek backward-mapped subcooled throats) prints
+/// the competing candidate critical-mass fluxes so the correct discriminator can
+/// be found empirically:
+///   G_bern  = ρ_f·√(2(h0 − h_f(p_bubble)))   (Bernoulli / flashing-inception)
+///   G_sonic = mass_flux_ps_eqm_throat at the saturated-liquid line (ρ_f·c_2φ)
+///   G_eng   = golden-section energy max over [p_min, p_bubble] (current method)
+/// against G_ref. Rows are sorted by stagnation subcooling ΔH_sub = h_f(p0) − h0.
+#[test]
+fn diagnose_subcooled_candidates() {
+    use crate::interfaces::functional_programming::ph_flash_eqm::{ph_flash_region, s_ph_eqm};
+    use crate::prelude::functional_programming::ps_flash_eqm::{h_ps_eqm, v_ps_eqm, mass_flux_ps_eqm_throat};
+    use crate::interfaces::functional_programming::pt_flash_eqm::{h_tp_eqm_two_phase, v_tp_eqm_two_phase, FwdEqnRegion};
+    use crate::steam_turbine_equations::choked_flow::bubble_point_pressure_from_entropy;
+    use crate::steam_turbine_equations::choked_flow::get_stagnation_conditions_from_throat_ph;
+    use crate::region_4_vap_liq_equilibrium::sat_temp_4;
+    use crate::constants::p_crit_water;
+    use uom::si::pressure::pascal;
+    use uom::si::available_energy::joule_per_kilogram;
+    use uom::si::specific_volume::cubic_meter_per_kilogram;
+
+    let p_ref = Pressure::new::<pound_force_per_square_inch>(100.0);
+    let h_ref = AvailableEnergy::new::<btu_it_per_pound>(100.0);
+    let g_ref_unit: MassFlux = MassRate::new::<pound_per_second>(1000.0) / Area::new::<square_foot>(1.0);
+    let ref_vol = TampinesSteamTableCV::get_ref_vol();
+    let p_crit = p_crit_water();
+
+    // (source_label, p0, h0, G_ref) tuples
+    let mut rows: Vec<(String, Pressure, AvailableEnergy, f64)> = Vec::new();
+
+    // --- Moody isobars (use the low-h Region-1 points of each isobar) ---
+    let moody: &[(f64, &[(f64, f64)])] = &[
+        (0.25, &[(0.4902,3.8593),(1.1961,3.4469),(1.7647,2.2948),(1.9412,0.4991)]),
+        (1.00, &[(0.451,7.6029),(1.9412,6.5641),(2.6471,3.9475),(2.9216,1.205)]),
+        (4.00, &[(0.7255,13.2273),(2.5294,11.9481),(3.5882,6.5641),(3.902,2.269)]),
+        (8.00, &[(0.6471,21.9954),(3.0,19.2059),(4.4706,11.8139),(4.902,5.8627)]),
+        (16.00,&[(0.7059,30.1825),(3.6471,26.3547),(5.1373,19.2059),(5.8039,11.0394)]),
+    ];
+    for (pp, data) in moody {
+        for (h_nd, g_nd) in data.iter() {
+            let p0 = *pp * p_ref;
+            let h0 = h_ref * (*h_nd);
+            if ph_flash_region(p0, h0) != FwdEqnRegion::Region1 { continue; }
+            rows.push((format!("M p/pr={pp:<5} h={h_nd:.3}"), p0, h0,
+                (g_ref_unit * (*g_nd)).get::<kilogram_per_square_meter_second>()));
+        }
+    }
+
+    // --- Zaloudek subcooled throats (x_t = 1e-4), backward-mapped ---
+    let zal: &[(f64, f64)] = &[
+        (5.0,93.6455),(20.0,272.8005),(50.0,591.4174),(100.0,1129.6741),
+        (200.0,1901.1764),(500.0,4239.2716),(1000.0,7442.0131),(2000.0,12006.8680),
+    ];
+    for (p_psia, g_val) in zal {
+        let p_throat = Pressure::new::<pound_force_per_square_inch>(*p_psia);
+        let state_t = TampinesSteamTableCV::new_from_sat_pressure_quality(p_throat, 1e-4, ref_vol);
+        let h_t = state_t.get_specific_enthalpy();
+        let (p0, h0, _g) = get_stagnation_conditions_from_throat_ph(p_throat, h_t);
+        if ph_flash_region(p0, h0) != FwdEqnRegion::Region1 { continue; }
+        rows.push((format!("Z {p_psia:>6.0}psia"), p0, h0,
+            (MassRate::new::<pound_per_second>(*g_val) / Area::new::<square_foot>(1.0))
+                .get::<kilogram_per_square_meter_second>()));
+    }
+
+    // compute candidates and sort by subcooling
+    let p_min = Pressure::new::<pascal>(617.0);
+    let mut out: Vec<(f64, String)> = Vec::new();
+    for (label, p0, h0, g_ref) in rows {
+        let s0 = s_ph_eqm(p0, h0);
+        let p_bubble = bubble_point_pressure_from_entropy(s0);
+        let t_b = sat_temp_4(p_bubble);
+        let v_f = v_tp_eqm_two_phase(t_b, p_bubble, 0.0).get::<cubic_meter_per_kilogram>();
+        let rho_f = 1.0 / v_f;
+        let h_f_bub = h_tp_eqm_two_phase(t_b, p_bubble, 0.0);
+        let dh_bub = (h0 - h_f_bub).get::<joule_per_kilogram>().max(0.0);
+        let g_bern = rho_f * (2.0 * dh_bub).sqrt();
+        let g_sonic = mass_flux_ps_eqm_throat(p_bubble, s0)
+            .get::<kilogram_per_square_meter_second>();
+        let c_2ph = g_sonic / rho_f;
+        let v_bub = (2.0 * dh_bub).sqrt();
+
+        // golden-section energy max over [p_min, p_bubble]
+        let g_eng_of = |p_pa: f64| -> f64 {
+            let p = Pressure::new::<pascal>(p_pa);
+            let h = h_ps_eqm(p, s0);
+            let ke = (h0 - h).get::<joule_per_kilogram>();
+            if ke < 0.0 { return 0.0; }
+            (1.0 / v_ps_eqm(p, s0).get::<cubic_meter_per_kilogram>()) * (2.0 * ke).sqrt()
+        };
+        let gr = (5.0_f64.sqrt() - 1.0) / 2.0;
+        let (mut a, mut b) = (p_min.get::<pascal>(), p_bubble.get::<pascal>());
+        let (mut c, mut d) = (b - gr*(b-a), a + gr*(b-a));
+        for _ in 0..100 {
+            if (b-a).abs() < 1.0 { break; }
+            if g_eng_of(c) > g_eng_of(d) { b = d; } else { a = c; }
+            c = b - gr*(b-a); d = a + gr*(b-a);
+        }
+        let g_eng = g_eng_of(0.5*(a+b));
+
+        let dhsub = if p0 < p_crit {
+            (h_tp_eqm_two_phase(sat_temp_4(p0), p0, 0.0) - h0)
+                .get::<joule_per_kilogram>() / 1000.0
+        } else { f64::NAN };
+
+        // M=1 crossing: highest-pressure p where G_energy(p) >= ρc(p).
+        // scan log-spaced from p_bubble down; G* = ρc at the crossing.
+        let g_sonic_local = |p_pa: f64| -> f64 {
+            mass_flux_ps_eqm_throat(Pressure::new::<pascal>(p_pa), s0)
+                .get::<kilogram_per_square_meter_second>()
+        };
+        let n = 400;
+        let (lo, hi) = (p_min.get::<pascal>().ln(), p_bubble.get::<pascal>().ln());
+        // true M=1 crossing: scan from p_min UP toward p_bubble, find the
+        // highest-pressure p where G_energy(p) first exceeds ρc(p) (v crosses c
+        // from below). Skip the immediate bubble-point band where ρc is noisy.
+        let mut g_cross = f64::NAN;
+        let mut pcross_frac = f64::NAN;
+        let mut prev_sub = true; // assume subsonic at deep two-phase
+        for i in 0..n {
+            let f = i as f64 / (n - 1) as f64;       // from p_min up to p_bubble
+            let p_pa = (lo + (hi - lo) * f).exp();
+            let ge = g_eng_of(p_pa);
+            let gs = g_sonic_local(p_pa);
+            let sub = ge < gs;                        // subsonic where v<c
+            if !sub && prev_sub {                     // crossing v=c
+                g_cross = gs;
+                pcross_frac = p_pa / p0.get::<pascal>();
+            }
+            prev_sub = sub;
+        }
+        // max of ρc along the isentrope (alternative critical criterion)
+        let mut g_rhoc_max = 0.0_f64;
+        for i in 0..n {
+            let f = i as f64 / (n - 1) as f64;
+            let p_pa = (lo + (hi - lo) * f).exp();
+            g_rhoc_max = g_rhoc_max.max(g_sonic_local(p_pa));
+        }
+
+        // which candidate is closest to G_ref in log10
+        let lg = g_ref.log10();
+        let cands = [("sonic", g_sonic), ("eng", g_eng), ("cross", g_cross), ("rhoc", g_rhoc_max)];
+        let best = cands.iter()
+            .min_by(|x, y| (x.1.log10()-lg).abs().partial_cmp(&(y.1.log10()-lg).abs()).unwrap())
+            .unwrap().0;
+
+        let line = format!(
+            "{label:18} dHsub={dhsub:7.1} v/c={:6.1} | Gref={:7.0} \
+             sonic={:+.2} eng={:+.2} cross={:7.0}({:+.2})[{:.3}] rhoc={:7.0}({:+.2}) -> {best}",
+            v_bub/c_2ph, g_ref, g_sonic.log10()-lg,
+            g_eng.log10()-lg, g_cross, g_cross.log10()-lg, pcross_frac,
+            g_rhoc_max, g_rhoc_max.log10()-lg);
+        out.push((dhsub, line));
+    }
+    out.sort_by(|x, y| x.0.partial_cmp(&y.0).unwrap());
+    eprintln!("\n=== subcooled candidate comparison (sorted by ΔH_sub kJ/kg) ===");
+    for (_, l) in out { eprintln!("{l}"); }
+}
+
 /// Diagnostic (non-asserting): for a given isobar prints, per data point,
 /// the stagnation region, expected log10 G, actual log10 G, and the error.
 #[test]

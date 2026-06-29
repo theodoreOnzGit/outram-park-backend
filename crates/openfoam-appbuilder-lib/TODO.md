@@ -87,19 +87,27 @@ cause was measured by instrumenting every pressure solve:
 
 Fixes, in order of bang-for-buck:
 
-- [ ] **Warm-start `solve_cg` with the current field (biggest lever).**
-  `conjugate_gradient` (`openfoam-basic-lib/src/ldu_matrix/solvers/conjugate_gradient.rs`)
-  hard-codes `x = vec![0.0; n]`. Starting from the previous pressure makes the
-  initial residual tiny near steady state, collapsing the 272 iters to a
-  handful. Needs an `solve_cg` overload that accepts an initial guess, and
-  `pimple_foam::step` to pass `self.p` in. Cheap, localized, large win.
-- [ ] **Better pressure preconditioner than Jacobi.** The current
-  preconditioner is `M⁻¹ = 1/diag` (diagonal). Jacobi-PCG iteration count
-  scales with the mesh (∝ √κ ≈ O(Nₓ)), which is why 41×41 needs ~272. Add a
-  **DIC/ILU(0)** preconditioner, or ideally a **geometric/algebraic multigrid
-  (GAMG equivalent)** — OpenFOAM's default for pressure, near mesh-independent
-  at ~4–8 cycles per solve. This is the structural 20–50× gap on elliptic
-  pressure and the main reason OpenFOAM is so much faster.
+- [x] **Warm-start `solve_cg` with the current field (biggest lever).** Done.
+  `conjugate_gradient` now takes an optional initial guess `x0`, and
+  `FvMatrix::solve_cg_with_guess` seeds the solve from the previous field;
+  `pimple_foam::step` passes `self.p`. Mirrors `Foam::PCG::scalarSolve`, which
+  uses the incoming `psi` as the initial guess. Returns in 0 iterations when the
+  guess already meets tolerance.
+- [x] **Better pressure preconditioner than Jacobi.** Done — replaced the
+  diagonal (Jacobi) preconditioner with **DIC** (a faithful port of
+  `Foam::DICPreconditioner`: `calcReciprocalD` + forward/backward sweep) in
+  `openfoam-basic-lib/src/ldu_matrix/solvers/conjugate_gradient.rs`. Combined
+  with the warm start: per-solve PCG iters 272 → ~40, total CG iters 3.26M →
+  0.50M (**6.6×**), cavity test ~24 s → ~12 s, solution unchanged
+  (Ghia RMS 0.0113).
+- [ ] **GAMG (algebraic multigrid) — the remaining structural gap.** OpenFOAM's
+  *default* pressure solver; near mesh-independent (~4–8 cycles/solve) where
+  DIC-PCG still grows with the mesh. Port the **algebraic** variant — it needs
+  no mesh geometry, only matrix coefficients, so it fits our `LduMatrix`
+  addressing. Source: `src/OpenFOAM/matrices/lduMatrix/solvers/GAMG/` (core
+  V-cycle, ~2.6k LOC) + `GAMGAgglomerations/{pairGAMGAgglomeration,
+  algebraicPairGAMGAgglomeration}`, reusing the new DIC as the smoother
+  (`DICGaussSeidel`). Substantial but high-value for fine meshes.
 - [ ] **Loosen intermediate-corrector tolerance + add a relative tolerance.**
   `step` solves every corrector to absolute `tolerance: 1e-8`. OpenFOAM runs
   non-final correctors at ~1e-6 with a `relTol` and only tightens the final

@@ -108,20 +108,52 @@ impl FvMatrix {
         (field, perf)
     }
 
-    /// Solve the system with preconditioned conjugate gradient.
+    /// Solve the system with preconditioned conjugate gradient (cold start).
     ///
     /// PCG requires a symmetric SPD matrix (`upper == lower`), which holds for
     /// the pressure Poisson equation assembled by `fvm::laplacian`. It converges
     /// in O(√κ) iterations versus O(κ) for Gauss-Seidel — dramatically faster
     /// for the elliptic pressure solve. Do **not** use it for the asymmetric
     /// convection-bearing momentum matrix.
+    ///
+    /// This starts the iteration from `x = 0`. In a transient solver, prefer
+    /// [`solve_cg_with_guess`](Self::solve_cg_with_guess) to warm-start from the
+    /// previous time step's field — near steady state that converges in a
+    /// handful of iterations instead of from scratch every step.
     pub fn solve_cg(
         &self,
         name: impl Into<String>,
         settings: SolverSettings,
     ) -> (VolScalarField, SolverPerformance) {
+        self.solve_cg_inner(name, None, settings)
+    }
+
+    /// Solve with PCG, **warm-started** from `initial` (typically the previous
+    /// time step's field).
+    ///
+    /// The DIC-preconditioned CG begins from `initial.internal` instead of zero.
+    /// For a transient run approaching steady state the solution barely changes
+    /// between steps, so the starting residual is tiny and the solve completes
+    /// in very few iterations — often zero. See
+    /// [`conjugate_gradient`](crate::ldu_matrix::conjugate_gradient) for the
+    /// preconditioner and warm-start details.
+    pub fn solve_cg_with_guess(
+        &self,
+        name: impl Into<String>,
+        initial: &VolScalarField,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        self.solve_cg_inner(name, Some(initial.internal.as_slice()), settings)
+    }
+
+    fn solve_cg_inner(
+        &self,
+        name: impl Into<String>,
+        x0: Option<&[f64]>,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
         let b: Vec<f64> = self.source.iter().copied().collect();
-        let (x, perf) = conjugate_gradient(&self.ldu, &b, &settings);
+        let (x, perf) = conjugate_gradient(&self.ldu, &b, x0, &settings);
 
         let boundary = self.mesh.patches.iter()
             .map(|p| PatchField::zero_gradient(p.size))

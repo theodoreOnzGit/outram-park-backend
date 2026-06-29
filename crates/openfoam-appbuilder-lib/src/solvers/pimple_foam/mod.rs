@@ -433,7 +433,11 @@ impl PimpleFoam {
                 let mut p_eqn = fvm::laplacian(&rauf, &self.p);
                 p_eqn.source = Field::new(source_p);
                 p_eqn.set_reference(0, 0.0); // pin reference (closed domain)
-                let (mut p_new, _) = p_eqn.solve_cg("p", p_settings);
+                // Warm-start from the current pressure (previous corrector /
+                // time step). Near steady state `p` barely changes, so the
+                // DIC-PCG solve converges in a few iterations instead of from
+                // x = 0 every time. See the perf TODO in this crate.
+                let (mut p_new, _) = p_eqn.solve_cg_with_guess("p", &self.p, p_settings);
                 correct_bcs(&mut p_new, &p_bcs);
                 self.p = p_new;
 
