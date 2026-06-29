@@ -141,7 +141,6 @@ use crate::steam_turbine_equations::choked_flow::{g_max_hem_analytical_ph, isent
 /// 
 ///
 #[test]
-#[ignore]
 fn isobar_pref_0_25() {
 
 
@@ -283,6 +282,40 @@ fn validate_moody_isobar(
     }
 }
 
+/// Diagnostic (non-asserting): for a given isobar prints, per data point,
+/// the stagnation region, expected log10 G, actual log10 G, and the error.
+#[test]
+fn diagnose_moody_isobars() {
+    use crate::interfaces::functional_programming::ph_flash_eqm::ph_flash_region;
+    let p_ref = Pressure::new::<pound_force_per_square_inch>(100.0);
+    let h_ref = AvailableEnergy::new::<btu_it_per_pound>(100.0);
+    let g_ref: MassFlux = MassRate::new::<pound_per_second>(1000.0) / Area::new::<square_foot>(1.0);
+    let ref_vol = TampinesSteamTableCV::get_ref_vol();
+
+    let isobars: &[(f64, &[(f64, f64)])] = &[
+        (0.25, &[(0.4902,3.8593),(1.1961,3.4469),(1.7647,2.2948),(1.9412,0.4991),(2.2157,0.2212),(4.4902,0.1014),(8.3725,0.0653),(11.5098,0.0533)]),
+        (1.00, &[(0.451,7.6029),(1.9412,6.5641),(2.6471,3.9475),(2.9216,1.205),(3.5686,0.598),(6.0392,0.3248),(11.8235,0.2067)]),
+        (8.00, &[(0.6471,21.9954),(3.0,19.2059),(4.4706,11.8139),(4.902,5.8627),(5.7451,3.486),(8.2745,2.1202),(11.9608,1.5804)]),
+    ];
+
+    for (pp, data) in isobars {
+        eprintln!("\n=== isobar p/p_ref = {pp} ===");
+        for (h_nd, g_nd) in data.iter() {
+            let h0 = h_ref * (*h_nd);
+            let p0 = *pp * p_ref;
+            let region = ph_flash_region(p0, h0);
+            let g_exp = (g_ref * (*g_nd)).get::<kilogram_per_square_meter_second>();
+            let state_0 = TampinesSteamTableCV::new_from_ph(p0, h0, ref_vol);
+            let g_test = state_0.get_stagnation_critical_mass_flux()
+                .get::<kilogram_per_square_meter_second>();
+            eprintln!(
+                "h_nd={h_nd:7.4} {region:?}  log10 exp={:.3} act={:.3} err={:+.3}",
+                g_exp.log10(), g_test.log10(), g_test.log10() - g_exp.log10()
+            );
+        }
+    }
+}
+
 ///
 fn validate_moody_isobar_hem(
     dimensionless_stagnation_pressure: f64,
@@ -347,7 +380,6 @@ fn validate_moody_isobar_hem(
 /// Validates the critical mass flux model against the `p/p_ref = 0.50` isobar
 /// from Figure 1 of Moody (1975).
 #[test]
-#[ignore]
 fn isobar_pref_0_50() {
     let data = vec![
         (0.4902, 5.4168), (0.7647, 5.2362), (1.2353, 5.0617), (1.6471, 4.6241),
@@ -360,7 +392,6 @@ fn isobar_pref_0_50() {
     validate_moody_isobar(0.50, &data, 1e-2);
 }
 #[test]
-#[ignore]
 fn isobar_pref_0_50_hem() {
     let data = vec![
         (0.4902, 5.4168), (0.7647, 5.2362), (1.2353, 5.0617), (1.6471, 4.6241),
@@ -373,7 +404,6 @@ fn isobar_pref_0_50_hem() {
     validate_moody_isobar_hem(0.50, &data, 1e-2);
 }
 #[test]
-#[ignore]
 fn isobar_pref_0_50_pressure_scan() {
     let data = vec![
         (0.4902, 5.4168), 
@@ -440,7 +470,6 @@ fn isobar_pref_0_50_pressure_scan() {
 /// Validates the critical mass flux model against the `p/p_ref = 1.00` isobar
 /// from Figure 1 of Moody (1975).
 #[test]
-#[ignore]
 fn isobar_pref_1_00() {
     let data = vec![
         (0.451, 7.6029), (0.6667, 7.6029), (1.3137, 7.1852), (1.9412, 6.5641),
@@ -479,7 +508,6 @@ fn isobar_pref_1_00() {
 /// Validates the critical mass flux model against the `p/p_ref = 2.00` isobar
 /// from Figure 1 of Moody (1975).
 #[test]
-#[ignore]
 fn isobar_pref_2_00() {
     let data = vec![
         (0.4706, 11.0394), (0.9216, 10.7927), (1.3529, 10.4329), (1.9412, 10.1997),
@@ -522,7 +550,6 @@ fn isobar_pref_2_00() {
 /// Validates the critical mass flux model against the `p/p_ref = 4.00` isobar
 /// from Figure 1 of Moody (1975).
 #[test]
-#[ignore]
 fn isobar_pref_4_00() {
     let data = vec![
         (0.7255, 13.2273), (1.1961, 12.7864), (1.6078, 12.7864), (2.0588, 12.3602),
@@ -570,7 +597,6 @@ fn isobar_pref_4_00() {
 /// Validates the critical mass flux model against the `p/p_ref = 6.00` isobar
 /// from Figure 1 of Moody (1975).
 #[test]
-#[ignore]
 fn isobar_pref_6_00() {
     let data = vec![
         (0.5882, 18.5657), (0.8235, 18.5657), (1.1765, 18.5657), (1.5098, 18.3571),
@@ -623,7 +649,6 @@ fn isobar_pref_6_00() {
 /// Validates the critical mass flux model against the `p/p_ref = 8.00` isobar
 /// from Figure 1 of Moody (1975).
 #[test]
-#[ignore]
 fn isobar_pref_8_00() {
     let data = vec![
         (0.6471, 21.9954), (0.8824, 21.7482), (1.451, 21.2622), (2.0196, 20.787),
@@ -669,7 +694,6 @@ fn isobar_pref_8_00() {
 /// Validates the critical mass flux model against the `p/p_ref = 10.00` isobar
 /// from Figure 1 of Moody (1975).
 #[test]
-#[ignore]
 fn isobar_pref_10_00() {
     let data = vec![
         (0.6275, 24.627), (0.902, 24.0766), (1.2941, 24.3502), (1.8627, 23.5385),
@@ -715,7 +739,6 @@ fn isobar_pref_10_00() {
 /// Validates the critical mass flux model against the `p/p_ref = 12.00` isobar
 /// from Figure 1 of Moody (1975).
 #[test]
-#[ignore]
 fn isobar_pref_12_00() {
     let data = vec![
         (0.6471, 26.6543), (1.0588, 26.0586), (1.5098, 26.0586), (2.0784, 25.4762),
@@ -762,7 +785,6 @@ fn isobar_pref_12_00() {
 /// Validates the critical mass flux model against the `p/p_ref = 14.00` isobar
 /// from Figure 1 of Moody (1975).
 #[test]
-#[ignore]
 fn isobar_pref_14_00() {
     let data = vec![
         (0.6667, 28.8485), (1.0588, 28.2037), (1.5294, 28.2037), (1.9412, 28.2037),
@@ -811,7 +833,6 @@ fn isobar_pref_14_00() {
 /// Validates the critical mass flux model against the `p/p_ref = 16.00` isobar
 /// from Figure 1 of Moody (1975).
 #[test]
-#[ignore]
 fn isobar_pref_16_00() {
     let data = vec![
         (0.7059, 30.1825), (1.0196, 30.1825), (1.3333, 30.1825), (1.7255, 30.1825),
@@ -859,7 +880,6 @@ fn isobar_pref_16_00() {
 /// Validates the critical mass flux model against the `p/p_ref = 20.00` isobar
 /// from Figure 1 of Moody (1975).
 #[test]
-#[ignore]
 fn isobar_pref_20_00() {
     let data = vec![
         (0.6863, 34.1777), (0.9608, 34.1777), (1.4118, 34.1777), (1.8235, 33.7936),
@@ -908,7 +928,6 @@ fn isobar_pref_20_00() {
 // 10.1961,7.2669
 // 
 #[test]
-#[ignore]
 fn isobar_pref_30_00() {
     let data = vec![
         (0.6667,42.3637),

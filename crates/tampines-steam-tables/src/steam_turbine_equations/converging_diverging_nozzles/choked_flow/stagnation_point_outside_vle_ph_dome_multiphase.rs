@@ -194,6 +194,16 @@ pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(
     // interpolated from the saturated-liquid-line sonic map (ρ_f·c_2φ), which is
     // robust where the energy max is not.
     let x_at_energy = two_phase_quality(p_energy, s0);
+    if std::env::var("MOODY_DEBUG").is_ok() {
+        eprintln!(
+            "  [subcooled] p0={:.4}MPa s0={:.4} p_bubble={:.5}MPa g_bubble={:.1} \
+             p_energy={:.5}MPa g_energy={:.1} x_at_energy={:.5} sonic_map={:.1}",
+            p0.get::<megapascal>(), s0.get::<uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin>(),
+            p_bubble.get::<megapascal>(), g_bubble,
+            p_energy.get::<megapascal>(), g_energy, x_at_energy,
+            saturation_line_sonic_mass_flux(p_bubble).get::<kilogram_per_square_meter_second>()
+        );
+    }
     if x_at_energy < 0.03 {
         (p_bubble, saturation_line_sonic_mass_flux(p_bubble))
     } else {
