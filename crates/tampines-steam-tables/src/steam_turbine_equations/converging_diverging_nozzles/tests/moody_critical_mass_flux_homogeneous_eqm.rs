@@ -11,7 +11,13 @@ use crate::interfaces::object_oriented_programming::TampinesSteamTableCV;
 /// (Region 4) Moody points. Moody's reference is digitised from a log–log chart,
 /// so this is a loose log-scale bound (≈ ±15 % in G), consistent with the
 /// project convention of keeping graph-read HEM mass-flux tolerances loose.
-const MOODY_LOG10_TOL: f64 = 5.0;
+const MOODY_LOG10_TOL: f64 = 0.06;
+
+/// Looser bound for `isobar_pref_4_00` only: its digitised reference G-values are
+/// systematically ≈ 0.13 in log10 high (graph-reading error on that one curve;
+/// the neighbouring isobars 2.0 and 6.0 match the solver to < 0.025). See the
+/// note on `isobar_pref_4_00`.
+const MOODY_ISOBAR_4_LOG10_TOL: f64 = 0.25;
 
 // please note for the test:
 // For p0/p_ref = 0.25
@@ -224,12 +230,6 @@ fn validate_moody_isobar(
 
         let state_0 = TampinesSteamTableCV::new_from_ph(p0, h0, ref_vol);
         let g_test = state_0.get_stagnation_critical_mass_flux();
-        let x_dome = state_0.get_quality();
-        let err = g_test.get::<kilogram_per_square_meter_second>().log10()
-            - g_ref_expected.get::<kilogram_per_square_meter_second>().log10();
-        if std::env::var("MOODY_DEBUG").is_ok() {
-            eprintln!("  p/pr={dimensionless_stagnation_pressure} h={h_dimensionless_ptr:.4} x={x_dome:.3} err={err:+.3}");
-        }
 
         // Absolute bound on the log10 mass flux (graph-read reference).
         approx::assert_abs_diff_eq!(
@@ -392,6 +392,15 @@ fn isobar_pref_2_00() {
 /// # Test: `isobar_pref_4_00`
 /// Validates the critical mass flux model against the `p/p_ref = 4.00` isobar
 /// from Figure 1 of Moody (1975).
+///
+/// ⚠ This one isobar's *digitised reference data* appears systematically high by
+/// ≈ 0.13 in log10 G (a factor ~1.35) across its entire in-dome range — a graph-
+/// reading error on this curve, not a solver error. Its neighbours bracket it and
+/// match the solver tightly (isobar 2.0 ≤ +0.017, isobar 6.0 ≤ +0.024 in log10 G),
+/// and the solver's 4.0 values sit smoothly between them. So this test uses a
+/// deliberately loose `MOODY_ISOBAR_4_LOG10_TOL` to admit the offset reference;
+/// the in-dome physics is validated by the neighbouring isobars at the tight
+/// `MOODY_LOG10_TOL`.
 #[test]
 fn isobar_pref_4_00() {
     let data = vec![
@@ -402,10 +411,10 @@ fn isobar_pref_4_00() {
         (6.451, 0.9832), (7.451, 0.8393), (8.4118, 0.7581), (9.1569, 0.7005),
         (10.098, 0.6771), (10.9804, 0.6327), (11.8235, 0.6256),
     ];
-    validate_moody_isobar(4.00, &data, MOODY_LOG10_TOL);
+    validate_moody_isobar(4.00, &data, MOODY_ISOBAR_4_LOG10_TOL);
 }
 
-// For p0/p_ref = 6.0 
+// For p0/p_ref = 6.0
 //
 // "x","y"
 // 0.5882,18.5657
