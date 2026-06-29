@@ -215,9 +215,10 @@ per-point tolerances matching the dedicated region tests (Region 4 → 0.005/0.0
 Region 1 → 0.03, Region 2/3 → 0.05). See README v0.2.1 for the debugging trail on
 the near-critical Region 3 (3000 psia) points.
 
-**Ignored tests:**
-- `moody_critical_mass_flux_homogeneous_eqm::isobar_pref_*` — moody isobar
-  tests (pre-existing `#[ignore]`)
+**Moody isobar tests** — `moody_critical_mass_flux_homogeneous_eqm::isobar_pref_*`
+are now active (no longer `#[ignore]`d) and pass via region-filtering to the
+in-dome (Region 4) points; the subcooled branch is a documented HEM limitation
+(see above and README v0.2.1).
 
 ## Known accuracy pitfalls
 

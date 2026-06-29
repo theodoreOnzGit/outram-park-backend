@@ -29,6 +29,16 @@ use uom::si::pressure::pascal;
 
 use crate::interfaces::functional_programming::ph_flash_eqm::s_ph_eqm;
 use crate::interfaces::functional_programming::pt_flash_eqm::s_tp_eqm_two_phase;
+use crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_two_phase;
+use crate::interfaces::functional_programming::pt_flash_eqm::v_tp_eqm_two_phase;
+
+/// Threshold on `v_b/c_2φ` (Bernoulli velocity at the bubble point over the
+/// two-phase sound speed) above which a subcooled stagnation state is treated as
+/// unambiguously deeply subcooled and the choke is taken as the energy-balance /
+/// Bernoulli maximum. Set above the maximum reached by any Zaloudek subcooled
+/// reference point (3.30) so this only adds deep-subcooling behaviour and never
+/// perturbs the validated near-bubble (sonic) regime. See README v0.2.1.
+const DEEP_SUBCOOLING_RATIO: f64 = 5.0;
 use crate::prelude::functional_programming::ps_flash_eqm::h_ps_eqm;
 use crate::prelude::functional_programming::ps_flash_eqm::v_ps_eqm;
 use crate::prelude::functional_programming::ps_flash_eqm::mass_flux_ps_eqm_throat;
@@ -201,9 +211,38 @@ pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(
     // HEM equilibrium is known to under-predict subcooled critical flow. The Moody
     // subcooled isobar points are documented as failing for this reason; see
     // README v0.2.1 ("Subcooled choked flow has two regimes").
+    // ── Deep-subcooling escape ───────────────────────────────────────────────
+    //
+    // Make the solver usable far into the subcooled region (e.g. for transient
+    // FHR coupling) without disturbing the validated near-bubble behaviour. The
+    // ratio of the Bernoulli velocity at the bubble point
+    // v_b = √(2(h0 − h_f(p_b))) to the two-phase sound speed there c_2φ measures
+    // how deeply subcooled the stagnation is. Every Zaloudek subcooled reference
+    // point has v_b/c_2φ ≤ 3.30; the Moody deep-subcooling points have
+    // v_b/c_2φ ≫ 6 (up to ~1600). Above DEEP_SUBCOOLING_RATIO the state is
+    // unambiguously past Zaloudek's range, so the choke is the energy-balance /
+    // Bernoulli maximum (which recovers the incompressible √(2·ρ_f·Δp) discharge
+    // for the deepest points). At or below the threshold we defer to the validated
+    // near-bubble logic — Zaloudek's near-saturation data is far more precise there
+    // than Moody's, and no local discriminator separates the two regimes inside
+    // the overlap (see README v0.2.1 and the comment below). This branch therefore
+    // only *adds* correct deep-subcooling behaviour; it cannot change any
+    // near-bubble (Zaloudek) result.
+    let g_sonic_bubble = saturation_line_sonic_mass_flux(p_bubble);
+    let t_bubble = sat_temp_4(p_bubble);
+    let rho_f = v_tp_eqm_two_phase(t_bubble, p_bubble, 0.0).recip();
+    let h_f_bubble = h_tp_eqm_two_phase(t_bubble, p_bubble, 0.0);
+    let dh_bubble = (h0 - h_f_bubble).max(AvailableEnergy::ZERO);
+    let v_bubble = (2.0 * dh_bubble).sqrt();
+    let subcooling_ratio = (v_bubble * rho_f / g_sonic_bubble)
+        .get::<uom::si::ratio::ratio>();
+    if subcooling_ratio > DEEP_SUBCOOLING_RATIO {
+        return (p_energy, MassFlux::new::<kilogram_per_square_meter_second>(g_energy));
+    }
+
     let x_at_energy = two_phase_quality(p_energy, s0);
     if x_at_energy < 0.03 {
-        (p_bubble, saturation_line_sonic_mass_flux(p_bubble))
+        (p_bubble, g_sonic_bubble)
     } else {
         (p_energy, MassFlux::new::<kilogram_per_square_meter_second>(g_energy))
     }
