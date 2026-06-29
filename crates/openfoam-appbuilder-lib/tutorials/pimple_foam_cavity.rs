@@ -190,22 +190,54 @@ fn build_cavity_solver_custom(nu: f64, end_time: f64, dt: f64) -> PimpleFoam {
     solver
 }
 
-/// Extract the U_x profile along the vertical centreline (x = L/2) of the
-/// 20×20 cavity, returned as `(y/L, U_x/U_lid)` pairs sorted by `y/L`.
+/// Build a cavity PimpleFoam solver on the **41×41 refined mesh**
+/// (`constant_fine_mesh/polyMesh`, 1681 cells) instead of the shipped 20×20
+/// mesh. The `0/U` and `0/p` fields are uniform with patch-based BCs, so the
+/// same field files apply to either mesh — the reader sizes the boundary fields
+/// from the loaded mesh's patches.
+fn build_cavity_solver_fine(nu: f64, end_time: f64, dt: f64) -> PimpleFoam {
+    let pm_dir = case_dir().join("constant_fine_mesh").join("polyMesh");
+    let mesh = read_poly_mesh(&pm_dir).expect("read_poly_mesh (fine) failed");
+
+    let control = ControlDict {
+        start: StartControl::StartTime(0.0),
+        stop: StopControl::EndTime(end_time),
+        delta_t: dt,
+        ..ControlDict::default()
+    };
+    let schemes = FvSchemes::default();
+    let mut solution = FvSolution::default();
+    solution.pimple.n_outer_correctors = 1; // pure PISO ≡ icoFoam
+    solution.pimple.n_correctors = 2;
+
+    let mut solver = PimpleFoam::new(mesh.clone(), control, schemes, solution);
+    solver.u = read_vol_vector_field_full(&case_dir().join("0").join("U"), &mesh)
+        .expect("read 0/U failed");
+    solver.p = read_vol_scalar_field_full(&case_dir().join("0").join("p"), &mesh)
+        .expect("read 0/p failed");
+    solver.nu = VolScalarField::uniform("nu", mesh, nu);
+    solver
+}
+
+/// Extract the U_x profile along the vertical centreline (x = L/2) of an
+/// `nx`×`nx` cavity, returned as `(y/L, U_x/U_lid)` pairs sorted by `y/L`.
 ///
-/// The centreline falls exactly between the two central columns of cell
-/// centres (x = 0.0475 and 0.0525), so the two straddling cells in each row
-/// are averaged (linear interpolation to x = 0.05). Operates on raw slices so
-/// it can sample both the solver field and a reference field (`u_ref`).
-fn centreline_ux_profile(centres: &[Vector3], u: &[Vector3]) -> Vec<(f64, f64)> {
-    let dx = L / 20.0; // cell width
+/// For an even `nx` the centreline falls between the two central columns of
+/// cell centres (e.g. x = 0.0475 and 0.0525 on the 20×20 mesh), so the two
+/// straddling cells in each row are averaged (linear interpolation to x = 0.05).
+/// For an odd `nx` (e.g. the 41×41 fine mesh) a single column of cell centres
+/// lies exactly on x = 0.05 and is taken directly. The `dx * 0.9` selection
+/// band captures the straddling pair when even and only the exact column when
+/// odd. Operates on raw slices so it can sample both the solver field and a
+/// reference field (`u_ref`).
+fn centreline_ux_profile_n(centres: &[Vector3], u: &[Vector3], nx: usize) -> Vec<(f64, f64)> {
+    let dx = L / nx as f64; // cell width
     let x_mid = L / 2.0;
 
-    // Group the two straddling columns by y, averaging U_x per row.
+    // Group the central column(s) by y, averaging U_x per row.
     let mut rows: Vec<(f64, f64, usize)> = Vec::new(); // (y, sum Ux, count)
     for (c, centre) in centres.iter().enumerate() {
-        if (centre.x - x_mid).abs() < dx {
-            // matches the two columns 0.0025 m either side of the centreline
+        if (centre.x - x_mid).abs() < dx * 0.9 {
             let y = centre.y;
             if let Some(r) = rows.iter_mut().find(|(ry, _, _)| (ry - &y).abs() < dx * 0.25) {
                 r.1 += u[c].x;
@@ -219,6 +251,11 @@ fn centreline_ux_profile(centres: &[Vector3], u: &[Vector3]) -> Vec<(f64, f64)> 
     rows.into_iter()
         .map(|(y, sum, n)| (y / L, sum / n as f64 / U_LID))
         .collect()
+}
+
+/// Centreline U_x profile for the shipped 20×20 cavity mesh.
+fn centreline_ux_profile(centres: &[Vector3], u: &[Vector3]) -> Vec<(f64, f64)> {
+    centreline_ux_profile_n(centres, u, 20)
 }
 
 /// Linear interpolation of `U_x/U_lid` at a target `y/L` from a sorted profile,
@@ -432,5 +469,88 @@ fn cavity_ghia_benchmark_re100() {
         rms_err < 0.10,
         "Ghia Re=100 centreline RMS error {rms_err:.4} exceeds 0.10 — \
          the cavity solution has regressed"
+    );
+}
+
+/// Ghia 1982 benchmark on the **41×41 refined mesh**, Re = 100.
+///
+/// Identical physics to `cavity_ghia_benchmark_re100` (ν = 1e-3, L = 0.1 m →
+/// Re = 100) but on `constant_fine_mesh/polyMesh` (1681 cells) instead of the
+/// shipped 20×20 mesh. The finer grid more than halves the cell width
+/// (dx = 0.1/41 ≈ 2.44e-3 vs 5e-3), so `dt` is dropped to 2e-3 to keep the
+/// Courant number Co = U·dt/dx ≈ 0.8.
+///
+/// Mesh refinement reduces the first-order-upwind numerical diffusion that
+/// caps the 20×20 accuracy, so the centreline U_x profile sits markedly closer
+/// to Ghia: `max|err|` falls from 0.0634 → **0.0194** and RMS from 0.0363 →
+/// **0.0113** (U_x/U_lid) versus the coarse `cavity_ghia_benchmark_re100`. The
+/// recirculation peaks (the worst points on the coarse mesh, near y/L ≈ 0.45
+/// and the lid) are now within ~0.02 of Ghia. Captured result, U_x/U_lid at the
+/// 17 Ghia `y/L` stations (regenerated by the `println!` in this test):
+///
+/// ```csv
+/// y_over_L,ghia_ux,rust_ux,abs_err
+/// 0.0000,+0.00000,+0.00000,0.00000
+/// 0.0547,-0.03717,-0.03681,0.00036
+/// 0.0625,-0.04192,-0.04150,0.00042
+/// 0.0703,-0.04775,-0.04588,0.00187
+/// 0.1016,-0.06434,-0.06284,0.00150
+/// 0.1719,-0.10150,-0.09686,0.00464
+/// 0.2813,-0.15662,-0.14417,0.01245
+/// 0.4531,-0.21090,-0.19147,0.01943
+/// 0.5000,-0.20581,-0.18980,0.01601
+/// 0.6172,-0.13641,-0.13787,0.00146
+/// 0.7344,+0.00332,-0.01264,0.01596
+/// 0.8516,+0.23151,+0.21512,0.01639
+/// 0.9531,+0.68717,+0.67089,0.01628
+/// 0.9609,+0.73722,+0.72065,0.01657
+/// 0.9688,+0.78871,+0.77503,0.01368
+/// 0.9766,+0.84123,+0.83055,0.01068
+/// 1.0000,+1.00000,+1.00000,0.00000
+/// ```
+///
+/// `max|err| = 0.0194`, `RMS = 0.0113`.
+#[test]
+fn cavity_ghia_benchmark_re100_fine_mesh() {
+    // Re = 100 via ν = 1e-3. dx = 0.1/41 ≈ 2.44e-3 → dt = 2e-3 keeps Co ≈ 0.8.
+    // endTime 12 s ≈ 120 lid-transit times — well into steady state for Re=100.
+    let mut solver = build_cavity_solver_fine(1e-3, 12.0, 2e-3);
+    solver.run().expect("solver run failed");
+
+    // Divergence guard (a diverged NaN field would otherwise pass silently).
+    let n_nonfinite = solver
+        .u
+        .internal
+        .as_slice()
+        .iter()
+        .filter(|v| !(v.x.is_finite() && v.y.is_finite() && v.z.is_finite()))
+        .count();
+    assert_eq!(n_nonfinite, 0, "solver produced {n_nonfinite} non-finite cells (diverged)");
+
+    let profile = centreline_ux_profile_n(&solver.mesh.cell_centres, solver.u.internal.as_slice(), 41);
+    println!("fine-mesh (41×41) centreline U_x profile (y/L, U_x/U_lid):");
+    for (y, ux) in &profile {
+        println!("  {y:.4}  {ux:+.4}");
+    }
+
+    let mut max_abs_err = 0.0_f64;
+    let mut sum_sq = 0.0_f64;
+    println!("\ny_over_L,ghia_ux,rust_ux,abs_err");
+    for (y, ux_ref) in GHIA_Y.iter().zip(GHIA_UX.iter()) {
+        let ux = interp_ux(&profile, *y);
+        let err = (ux - ux_ref).abs();
+        max_abs_err = max_abs_err.max(err);
+        sum_sq += err * err;
+        println!("{y:.4},{ux_ref:+.5},{ux:+.5},{err:.5}");
+    }
+    let rms_err = (sum_sq / GHIA_UX.len() as f64).sqrt();
+    println!("\nGhia Re=100 (41×41) centreline: max|err| = {max_abs_err:.4}, RMS = {rms_err:.4} (U_x/U_lid)");
+
+    // Refined-mesh regression guard. The 20×20 first-order solution reaches
+    // RMS ≈ 0.036; the finer grid must do at least as well.
+    assert!(
+        rms_err < 0.05,
+        "Ghia Re=100 (41×41) centreline RMS error {rms_err:.4} exceeds 0.05 — \
+         the refined cavity solution has regressed"
     );
 }

@@ -59,21 +59,19 @@ explicit, density-based path used by rhoCentralFoam. Remaining:
   them the near-wall k/ω are unphysical on a y⁺ > 11 mesh.
 
 ### Mesh refinement for the lid-driven cavity (`pimple_foam_cavity`)
-- [ ] **Re-run the Ghia Re=100 benchmark on a refined mesh (40×40, 80×80, …)**
-  and capture the new centreline `U_x/U_lid` profiles in the test doc comments.
-  The current result is a coarse 20×20 first-order-upwind solution
-  (max|err| ≈ 0.063, RMS ≈ 0.036 vs Ghia 1982); most of the gap is numerical
-  diffusion that mesh refinement (and/or second-order convection) should close.
-  - **Blocker:** there is no structured-grid (blockMesh-equivalent) mesh
-    generator in the stack. The cavity mesh is read from pre-generated OpenFOAM
-    `polyMesh` files, and `openfoam-basic-lib` only has the manual
-    `FvMeshBuilder`. Refining means either (a) running OpenFOAM `blockMesh`
-    externally to emit new `polyMesh` + regenerate the icoFoam reference
-    fields, or (b) **writing a Rust blockMesh-style Cartesian generator** that
-    emits an N×N cavity `polyMesh` plus the `0/U`, `0/p` fields with the correct
-    movingWall/fixedWalls/frontAndBack BCs. Option (b) is the cleaner long-term
-    path — it keeps the case self-contained with no OpenFOAM dependency and
-    unblocks parametric mesh-convergence studies for all tutorials.
+- [x] **Re-run the Ghia Re=100 benchmark on a refined mesh.** Done on a 41×41
+  blockMesh-generated mesh (`constant_fine_mesh/polyMesh`, 1681 cells) added by
+  hand. New test `cavity_ghia_benchmark_re100_fine_mesh` advances ν = 1e-3
+  (Re = 100) to steady state at dt = 2e-3 (Co ≈ 0.8) and compares the vertical
+  centreline U_x to the 17 Ghia 1982 points. Refinement roughly tripled the
+  accuracy over the 20×20 first-order-upwind solution:
+  `max|err|` 0.0634 → **0.0194**, RMS 0.0363 → **0.0113** (U_x/U_lid). Captured
+  CSV is in the test's doc comment.
+- [ ] **Optional: go finer / second-order.** An 80×80+ mesh and/or the
+  second-order `Gauss linear` convection option (see the pimpleFoam item above)
+  would push toward the 2 % a fine second-order reference reaches. Blocked on a
+  generator only for *programmatic* sweeps — see below; one-off meshes can keep
+  being added by hand like `constant_fine_mesh`.
 
 ## Library (`openfoam-basic-lib`)
 - [ ] Consider having `FvMatrix::solve` auto-select `solve_cg` for symmetric
