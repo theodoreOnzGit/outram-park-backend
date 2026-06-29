@@ -58,10 +58,33 @@ explicit, density-based path used by rhoCentralFoam. Remaining:
   boundary conditions (`nutkWallFunction`, `omegaWallFunction`, …) — without
   them the near-wall k/ω are unphysical on a y⁺ > 11 mesh.
 
+### Mesh refinement for the lid-driven cavity (`pimple_foam_cavity`)
+- [ ] **Re-run the Ghia Re=100 benchmark on a refined mesh (40×40, 80×80, …)**
+  and capture the new centreline `U_x/U_lid` profiles in the test doc comments.
+  The current result is a coarse 20×20 first-order-upwind solution
+  (max|err| ≈ 0.063, RMS ≈ 0.036 vs Ghia 1982); most of the gap is numerical
+  diffusion that mesh refinement (and/or second-order convection) should close.
+  - **Blocker:** there is no structured-grid (blockMesh-equivalent) mesh
+    generator in the stack. The cavity mesh is read from pre-generated OpenFOAM
+    `polyMesh` files, and `openfoam-basic-lib` only has the manual
+    `FvMeshBuilder`. Refining means either (a) running OpenFOAM `blockMesh`
+    externally to emit new `polyMesh` + regenerate the icoFoam reference
+    fields, or (b) **writing a Rust blockMesh-style Cartesian generator** that
+    emits an N×N cavity `polyMesh` plus the `0/U`, `0/p` fields with the correct
+    movingWall/fixedWalls/frontAndBack BCs. Option (b) is the cleaner long-term
+    path — it keeps the case self-contained with no OpenFOAM dependency and
+    unblocks parametric mesh-convergence studies for all tutorials.
+
 ## Library (`openfoam-basic-lib`)
 - [ ] Consider having `FvMatrix::solve` auto-select `solve_cg` for symmetric
   (`upper == lower`) systems instead of requiring callers to pick. PCG was ~170×
   faster than Gauss-Seidel on the 400-cell pressure Poisson here.
+- [ ] **Structured Cartesian mesh generator (blockMesh equivalent)** — a Rust
+  function that builds an `FvMesh` / writes a `polyMesh` for a box of `nx×ny×nz`
+  cells with named boundary patches. Unblocks cavity mesh refinement (above) and
+  parametric mesh-convergence studies generally. See root CLAUDE.md: Layer-5
+  solver loops stay in solver crates, but a primitive mesh generator belongs in
+  `openfoam-basic-lib` alongside the polyMesh reader.
 
 ## I/O (`io::field_reader`, `io::poly_mesh`)
 - [ ] BC reader maps unmodelled OpenFOAM BC types (inletOutlet, fixedFluxPressure,
