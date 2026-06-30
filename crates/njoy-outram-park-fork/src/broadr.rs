@@ -296,7 +296,7 @@ pub fn doppler_broaden(
                 })
                 .collect();
 
-            ReconrSection { mt: sec.mt, pairs }
+            ReconrSection { mt: sec.mt, qi: sec.qi, pairs }
         })
         .collect()
 }
@@ -440,7 +440,7 @@ mod tests {
         // At T→0, alpha→∞, so all contributions collapse — in practice we bail
         // early on temp_k ≤ 0.
         let pairs = vec![(0.01, 10.0), (1.0, 5.0), (10.0, 2.0)];
-        let sec = ReconrSection { mt: MtReaction::Mt2Elastic, pairs };
+        let sec = ReconrSection { mt: MtReaction::Mt2Elastic, qi: 0.0, pairs };
         let out = doppler_broaden(&[sec.clone()], 35.0, 0.0);
         assert_eq!(out[0].pairs, sec.pairs);
     }

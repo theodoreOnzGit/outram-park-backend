@@ -7,7 +7,7 @@
 //! ## Quick start
 //!
 //! ```no_run
-//! use njoy_outram_park_fork::library::NuclearDataLibrary;
+//! use njoy_outram_park_fork::interface::NuclearDataLibrary;
 //! use uom::si::energy::electronvolt;
 //! use uom::si::area::barn;
 //!
@@ -166,7 +166,7 @@ impl NuclearDataLibrary {
     /// Cross section \[barns\] for a named ENDF reaction at energy `e`.
     ///
     /// ```
-    /// # use njoy_outram_park_fork::{library::NuclearDataLibrary, MtReaction};
+    /// # use njoy_outram_park_fork::{interface::NuclearDataLibrary, MtReaction};
     /// # use uom::si::energy::electronvolt;
     /// # let lib = NuclearDataLibrary::from_file(
     /// #     "tests/resources/n-018_Ar_37-tendl2023.endf", 1828
@@ -238,11 +238,31 @@ impl NuclearDataLibrary {
         Err(NjoyError::NotPorted("PENDF writer (future work)"))
     }
 
-    /// Write an ACE file (stub — Phase 3 milestone output).
+    /// Write a continuous-energy **ACE** file (Type-1 ASCII) for this material.
     ///
-    /// Returns [`NjoyError::NotPorted`] until the ACE writer is implemented.
-    pub fn write_ace<P: AsRef<Path>>(&self, _path: P) -> Result<(), NjoyError> {
-        Err(NjoyError::NotPorted("ACE writer (future work)"))
+    /// Builds the cross-section core of the ACE table — the ESZ block (energy
+    /// grid, total, disappearance, elastic, heating) and the MTR/LQR/TYR/LSIG/SIG
+    /// reaction blocks — from the reconstructed (and optionally broadened) cross
+    /// sections, then serialises it. The ZAID suffix and class letter follow the
+    /// MCNP convention (e.g. `92235.00c`).
+    ///
+    /// The secondary-particle blocks (fission ν̄, angular and energy
+    /// distributions) and the heating (KERMA) column are not yet written — see
+    /// [`crate::ace`] for the scope of this first ACER increment. The file is a
+    /// valid cross-section ACE table but not yet a complete transport library.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`NjoyError::NotPorted`] if RECONR has not been run first, or
+    /// [`NjoyError::Io`] if the file cannot be written.
+    pub fn write_ace<P: AsRef<Path>>(&self, path: P) -> Result<(), NjoyError> {
+        let r = self.reconr.as_ref().ok_or(NjoyError::NotPorted(
+            "call .reconstruct() before .write_ace()",
+        ))?;
+        // tz = k_B·T expressed in MeV (NJOY's `tz`).
+        let kt_mev = crate::common::phys::BK_EV_PER_K * self.temperature.get::<kelvin>() / 1.0e6;
+        let ace = crate::ace::AceTable::from_reconr(r, kt_mev, 0);
+        ace.write_type1(path).map_err(NjoyError::Io)
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

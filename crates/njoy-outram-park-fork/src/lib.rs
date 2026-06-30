@@ -35,6 +35,7 @@
 //! [NJOY2016]: https://github.com/njoy/NJOY2016
 //! [`openmc-libs`]: https://github.com/theodoreOnzGit/outram-park-backend
 
+pub mod ace;
 pub mod broadr;
 pub mod common;
 pub mod endf;

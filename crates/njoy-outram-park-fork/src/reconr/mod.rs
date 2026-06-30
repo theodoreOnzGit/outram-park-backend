@@ -66,6 +66,10 @@ pub struct ReconrSection {
     /// Reaction type. Use `MtReaction::try_from(n)` or `MtReaction::from_any(n)`
     /// to convert from a raw integer if needed.
     pub mt: MtReaction,
+    /// Reaction Q-value QI \[eV\] from the MF=3 TAB1 header (the energy released,
+    /// or `< 0` threshold for endothermic reactions). Carried through so ACER can
+    /// fill the ACE LQR block (which stores QI in MeV). `0.0` for elastic.
+    pub qi: f64,
     /// Fully lin-lin (energy \[eV\], σ \[b\]) grid, sorted by energy.
     pub pairs: Vec<(f64, f64)>,
 }
@@ -145,10 +149,14 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
         .filter(|s| s.key.mat == mat && s.key.mf == 3)
         .map(|sec| {
             let mut cur = SectionCursor::new(&sec.rows);
-            let _cont = cur.read_cont()?; // ZA, AWR, QM, QI, 0, LR
-            let tab1 = cur.read_tab1()?;
+            let _head = cur.read_cont()?; // MF=3 HEAD: ZA, AWR, 0, 0, 0, 0
+            let tab1 = cur.read_tab1()?;  // TAB1 header carries QM (c1), QI (c2)
             let pairs = linearize::linearize_tab1(&tab1.interp, &tab1.pairs, eps);
-            Ok(ReconrSection { mt: MtReaction::from_any(sec.key.mt), pairs })
+            Ok(ReconrSection {
+                mt: MtReaction::from_any(sec.key.mt),
+                qi: tab1.head.c2,
+                pairs,
+            })
         })
         .collect::<Result<Vec<_>, NjoyError>>()?;
 

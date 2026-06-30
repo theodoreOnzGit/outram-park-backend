@@ -114,7 +114,21 @@ thin Rust `driver` that parses the input deck and `match`es over `NjoyModule`.
 - **Phase 4 — ACER.** Emit an ACE file OpenMC loads and runs. **This is the
   milestone that satisfies the OpenMC dependency.** Largest single phase
   (acefc.f90 alone is ~20k lines) — split by ACE block (nu, angular, energy
-  distributions, photon production, …).
+  distributions, photon production, …). Progress:
+  - **4a — cross-section core.** ✅ `src/ace/` ports `aceout`/`change` (Type-1
+    ASCII format) + the cross-section part of `acelod`: the **ESZ** block (union
+    energy grid, total = elastic + Σ partials, disappearance, elastic, heating)
+    and the **MTR/LQR/TYR/LSIG/SIG** reaction blocks, from a `ReconrResult`.
+    Exposed as `AceTable::from_reconr` / `write_type1` and via
+    `NuclearDataLibrary::write_ace`. RECONR now threads each reaction's QI
+    through `ReconrSection.qi` for the LQR block. Gate: NXS/JXS/XSS
+    self-consistency + Type-1 round-trip (`tests/acer.rs`).
+  - **4b — fission ν̄ (NU block).** Needs MF=1/MT=452 (and 455/456). Not started.
+  - **4c — angular distributions (LAND/AND).** Needs MF=4. Not started.
+  - **4d — energy distributions (LDLW/DLW).** Needs MF=5/MF=6. Not started.
+  - **4e — heating (ESZ column 5).** Zero until HEATR (Phase 3) lands.
+  Until 4b–4e exist the written file is a valid *cross-section* ACE table but not
+  yet a complete transport library (OpenMC needs at least elastic AND).
 - **Phase 5 — multigroup/covariance** (GROUPR, ERRORR, …): only if OUTRAM PARK
   needs deterministic or sensitivity workflows.
 - **Phase 6 — formatters/plotting:** on demand only.
