@@ -95,10 +95,10 @@ pub fn read_poly_mesh(poly_mesh_dir: &Path) -> Result<Arc<FvMesh>, AppBuilderErr
         .face_areas(face_areas)
         .face_centres(face_centres)
         .build()
-        .map_err(|msg| AppBuilderError::Parse {
+        .map_err(|e| AppBuilderError::Parse {
             file: poly_mesh_dir.display().to_string(),
             line: 0,
-            msg,
+            msg: e.to_string(),
         })?;
 
     Ok(Arc::new(mesh))
