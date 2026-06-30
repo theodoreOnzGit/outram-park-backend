@@ -27,15 +27,17 @@
 //! |-----------|----------|--------|
 //! | ESZ (energy grid, total, disappearance, elastic, heating) | 1 (`esz`) | **built** |
 //! | MTR / LQR / TYR / LSIG / SIG (reaction cross sections) | 3–7 | **built** |
+//! | LAND / AND (**elastic** angular distribution, MT=2) | 8–9 | **built** (see [`angular`]) |
 //! | NU (fission ν̄) | 2 (`nu`) | deferred (needs MF=1/MT=452) |
-//! | LAND / AND (angular distributions) | 8–9 | deferred (needs MF=4) |
+//! | LAND / AND (non-elastic angular distributions) | 8–9 | deferred (couples with MF=5/6) |
 //! | LDLW / DLW (energy distributions) | 10–11 | deferred (needs MF=5/MF=6) |
 //! | heating (KERMA) — ESZ column 5 | — | zero (needs HEATR) |
 //!
-//! The file this writes is therefore a **valid cross-section ACE table** whose
-//! secondary-particle blocks are empty. A transport code needs the AND/DLW
-//! blocks to track scattering, so this is not yet a complete transport library —
-//! it is the foundation the remaining ACER increments build on.
+//! The file this writes carries cross sections plus the **elastic** angular
+//! distribution. Secondary energy distributions (DLW) and non-elastic angular
+//! data are still absent, so a transport code cannot yet follow an inelastic or
+//! fission collision — this remains a foundation the later ACER increments build
+//! on, now with elastic scattering populated.
 //!
 //! ## Entry point
 //!
@@ -54,6 +56,7 @@
 //! ace.write_type1("92235.00c.ace").unwrap();
 //! ```
 
+pub mod angular;
 pub mod build;
 pub mod write;
 

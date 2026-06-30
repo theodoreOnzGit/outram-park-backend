@@ -18,7 +18,7 @@
 use std::fs::File;
 
 use njoy_outram_park_fork::{
-    ace::{jxs, nxs, AceTable},
+    ace::{angular::parse_elastic_angular, jxs, nxs, AceTable},
     endf::tape::Tape,
     reconr::{reconr, ReconrConfig},
 };
@@ -35,6 +35,16 @@ fn build(name: &str, mat: i32) -> AceTable {
     let cfg = ReconrConfig { mat, tolerance: 0.001, temperature: 0.0 };
     let res = reconr(&tape, &cfg).unwrap();
     AceTable::from_reconr(&res, 0.0, 0)
+}
+
+/// Build with the elastic angular distribution included (parses MF=4/MT=2).
+fn build_with_angular(name: &str, mat: i32) -> AceTable {
+    let tape = Tape::read(File::open(fixture(name)).unwrap()).unwrap();
+    let cfg = ReconrConfig { mat, tolerance: 0.001, temperature: 0.0 };
+    let res = reconr(&tape, &cfg).unwrap();
+    let sec = tape.section(mat, 4, 2).expect("MF=4/MT=2 present");
+    let ang = parse_elastic_angular(sec).unwrap();
+    AceTable::from_reconr_with_angular(&res, 0.0, 0, &ang)
 }
 
 /// A minimal parsed Type-1 ACE table: just the arrays we need to validate.
@@ -165,4 +175,91 @@ fn h2_minimal_table_is_valid() {
     // H-2 has elastic + capture at least → at least one MTR partial (capture).
     assert!(ace.nxs[nxs::NTR] >= 1, "at least one non-elastic reaction");
     assert_eq!(ace.jxs[jxs::MTR] != 0, ace.nxs[nxs::NTR] > 0);
+}
+
+/// Walk the AND block for the elastic reaction and assert every stored
+/// distribution is a valid tabulated cosine pdf/cdf. Returns the number of
+/// anisotropic incident energies found.
+fn check_elastic_and_block(ace: &AceTable) -> usize {
+    let land = ace.jxs[jxs::LAND];
+    let and = ace.jxs[jxs::AND];
+    assert!(land > 0 && and > 0, "LAND/AND locators set");
+
+    // LAND(1): elastic locator, relative to the AND block (1-based).
+    let land1 = ace.xss[(land - 1) as usize] as i64;
+    assert_eq!(land1, 1, "elastic data at the start of the AND block");
+
+    let and0 = (and - 1) as usize; // 0-based start of AND block
+    let ne = ace.xss[and0] as usize;
+    assert!(ne >= 1);
+    let e = &ace.xss[and0 + 1..and0 + 1 + ne]; // incident energies [MeV]
+    let locs = &ace.xss[and0 + 1 + ne..and0 + 1 + 2 * ne]; // per-energy locators
+
+    assert!(e.windows(2).all(|w| w[1] >= w[0]), "incident energies ascending");
+
+    let mut anisotropic = 0;
+    for (j, &lf) in locs.iter().enumerate() {
+        let l = lf as i64;
+        if l == 0 {
+            continue; // isotropic at this energy
+        }
+        assert!(l < 0, "tabulated distributions use negative locators (newfor=1)");
+        anisotropic += 1;
+
+        // Data lives at AND + |l| - 1: [JJ, NP, μ(NP), pdf(NP), cdf(NP)].
+        let base = and0 + (l.unsigned_abs() as usize) - 1;
+        let jj = ace.xss[base] as i64;
+        assert_eq!(jj, 2, "JJ = lin-lin");
+        let np = ace.xss[base + 1] as usize;
+        assert!(np >= 2, "energy {j}: need at least two cosine points");
+
+        let cos = &ace.xss[base + 2..base + 2 + np];
+        let pdf = &ace.xss[base + 2 + np..base + 2 + 2 * np];
+        let cdf = &ace.xss[base + 2 + 2 * np..base + 2 + 3 * np];
+
+        // Cosines span and stay within [−1, 1], ascending.
+        assert!(cos.windows(2).all(|w| w[1] > w[0]), "cosines strictly ascending");
+        assert!(cos[0] >= -1.0 - 1e-9 && *cos.last().unwrap() <= 1.0 + 1e-9);
+        // pdf non-negative; cdf monotone from 0 to 1.
+        assert!(pdf.iter().all(|&p| p >= -1e-12), "pdf non-negative");
+        assert!((cdf[0]).abs() < 1e-9, "cdf starts at 0");
+        assert!((cdf[np - 1] - 1.0).abs() < 1e-6, "cdf ends at 1");
+        assert!(cdf.windows(2).all(|w| w[1] >= w[0] - 1e-9), "cdf monotone");
+    }
+    anisotropic
+}
+
+#[test]
+fn u235_elastic_angular_block_is_valid() {
+    let ace = build_with_angular("n-092_U_235-ENDF8.0.endf", 9228);
+    // Elastic-only angular: no non-elastic angular reactions counted in NR.
+    assert_eq!(ace.nxs[nxs::NR], 0);
+    assert_eq!(ace.jxs[jxs::END] as usize, ace.xss.len());
+    assert_eq!(ace.nxs[nxs::LEN_XSS] as usize, ace.xss.len());
+    let n = check_elastic_and_block(&ace);
+    assert!(n > 10, "U-235 elastic is anisotropic at many energies, got {n}");
+}
+
+#[test]
+fn h2_elastic_angular_block_is_valid() {
+    let ace = build_with_angular("n-001_H_002-ENDF8.0.endf", 128);
+    let n = check_elastic_and_block(&ace);
+    assert!(n >= 1, "H-2 elastic is anisotropic above ~100 eV");
+}
+
+#[test]
+fn angular_table_roundtrips_through_file() {
+    // The whole table (now including LAND/AND) must survive a Type-1 write/parse.
+    let ace = build_with_angular("n-001_H_002-ENDF8.0.endf", 128);
+    let mut buf: Vec<u8> = Vec::new();
+    ace.write_to(&mut buf).unwrap();
+    let parsed = parse_type1(&String::from_utf8(buf).unwrap());
+
+    assert_eq!(parsed.nxs, ace.nxs.to_vec());
+    assert_eq!(parsed.jxs, ace.jxs.to_vec());
+    assert_eq!(parsed.xss.len(), ace.xss.len());
+    for (i, (&got, &want)) in parsed.xss.iter().zip(ace.xss.iter()).enumerate() {
+        let tol = if ace.xss_is_int[i] { 0.0 } else { 1e-9 * want.abs().max(1.0) };
+        assert!((got - want).abs() <= tol, "xss[{i}]: got {got}, want {want}");
+    }
 }

@@ -27,6 +27,7 @@
 
 use crate::reconr::{eval_lin_lin, ReconrResult, ReconrSection};
 
+use super::angular::ElasticAngular;
 use super::{jxs, nxs, AceTable};
 
 /// Convert eV → MeV (NJOY `emev`).
@@ -109,7 +110,38 @@ impl AceTable {
     /// `elastic + Σ partials` on the union grid (not copied from the ENDF MT=1),
     /// so it is exactly consistent with the stored partials. Heating (ESZ column
     /// 5) is left zero pending a HEATR port.
+    ///
+    /// This form writes **no** angular distributions (the AND block is absent).
+    /// To include the elastic angular distribution, use
+    /// [`from_reconr_with_angular`][Self::from_reconr_with_angular].
     pub fn from_reconr(result: &ReconrResult, kt_mev: f64, suffix: u32) -> Self {
+        Self::build(result, kt_mev, suffix, None)
+    }
+
+    /// Assemble an ACE table including the **elastic** angular distribution.
+    ///
+    /// Same as [`from_reconr`][Self::from_reconr] but also writes the LAND/AND
+    /// blocks from `angular` (parse MF=4/MT=2 with
+    /// [`parse_elastic_angular`][super::angular::parse_elastic_angular]). If the
+    /// distribution is isotropic at every incident energy, the AND block is
+    /// omitted (elastic stays isotropic, the reader's default).
+    pub fn from_reconr_with_angular(
+        result: &ReconrResult,
+        kt_mev: f64,
+        suffix: u32,
+        angular: &ElasticAngular,
+    ) -> Self {
+        Self::build(result, kt_mev, suffix, Some(angular))
+    }
+
+    /// Shared assembly for [`from_reconr`][Self::from_reconr] and
+    /// [`from_reconr_with_angular`][Self::from_reconr_with_angular].
+    fn build(
+        result: &ReconrResult,
+        kt_mev: f64,
+        suffix: u32,
+        angular: Option<&ElasticAngular>,
+    ) -> Self {
         let za = result.material.za.round() as i32;
         let awr = result.material.awr;
 
@@ -233,6 +265,18 @@ impl AceTable {
             }
         }
 
+        // ── LAND / AND blocks: elastic angular distribution ─────────────────
+        // Only written when an anisotropic distribution is supplied; otherwise
+        // elastic stays isotropic (the reader's default) and the blocks are
+        // omitted. NXS(5)=NR stays 0 — no *non-elastic* angular reactions yet.
+        if let Some(ang) = angular {
+            if !ang.is_all_isotropic() {
+                let (land, and) = append_elastic_angular(&mut b, ang);
+                jxs[jxs::LAND] = land;
+                jxs[jxs::AND] = and;
+            }
+        }
+
         let (xss, is_int) = b.finish();
         jxs[jxs::END] = xss.len() as i32;
 
@@ -307,6 +351,64 @@ impl XssBuilder {
     fn finish(self) -> (Vec<f64>, Vec<bool>) {
         (self.xss, self.is_int)
     }
+}
+
+/// Append the elastic LAND and AND blocks to `b`, returning the 1-based
+/// `(LAND, AND)` locators for JXS(8)/JXS(9).
+///
+/// Layout (per `change` in `acefc.f90`):
+/// - **LAND** — `NR+1` locators; here just `[1]` (elastic only), pointing at the
+///   start of the AND block.
+/// - **AND** — `NE` (energy count), `E(1..NE)` \[MeV\], `L(1..NE)` (per-energy
+///   locators, *relative to the AND start*, 1-based; negative ⇒ tabulated,
+///   `0` ⇒ isotropic), then for each anisotropic energy a block
+///   `[JJ, NP, μ(1..NP), pdf(1..NP), cdf(1..NP)]`.
+fn append_elastic_angular(b: &mut XssBuilder, ang: &ElasticAngular) -> (i32, i32) {
+    let energies = &ang.energies;
+    let ne = energies.len();
+
+    // LAND block: one entry (elastic), pointing at AND-relative word 1.
+    let land = b.next_locator();
+    b.int(1);
+
+    // AND block begins here; per-energy locators are relative to this word.
+    let and = b.next_locator();
+
+    // Precompute each energy's relative locator. Data for the anisotropic
+    // energies follows the [NE, E(1..NE), L(1..NE)] preamble (2·NE + 1 words),
+    // so the first data block starts at AND-relative word 2·NE + 2.
+    let mut offset = (2 * ne + 2) as i32;
+    let mut locs = Vec::with_capacity(ne);
+    for ea in energies {
+        if ea.is_isotropic() {
+            locs.push(0); // isotropic at this energy
+        } else {
+            locs.push(-offset); // negative ⇒ tabulated cosine distribution
+            offset += 2 + 3 * ea.cosines.len() as i32; // JJ, NP, μ/pdf/cdf
+        }
+    }
+
+    b.int(ne as i32); // NE
+    for ea in energies {
+        b.real(ea.e_mev); // E [MeV]
+    }
+    for &l in &locs {
+        b.int(l); // L locator
+    }
+
+    // Per-energy tabulated distributions.
+    for ea in energies {
+        if ea.is_isotropic() {
+            continue;
+        }
+        b.int(2); // JJ = 2 (lin-lin interpolation between cosine points)
+        b.int(ea.cosines.len() as i32); // NP
+        ea.cosines.iter().for_each(|&m| b.real(m));
+        ea.pdf.iter().for_each(|&p| b.real(p));
+        ea.cdf.iter().for_each(|&c| b.real(c));
+    }
+
+    (land, and)
 }
 
 #[cfg(test)]

@@ -123,12 +123,20 @@ thin Rust `driver` that parses the input deck and `match`es over `NjoyModule`.
     `NuclearDataLibrary::write_ace`. RECONR now threads each reaction's QI
     through `ReconrSection.qi` for the LQR block. Gate: NXS/JXS/XSS
     self-consistency + Type-1 round-trip (`tests/acer.rs`).
+  - **4c — elastic angular distribution (LAND/AND).** ✅ `src/ace/angular.rs`
+    ports the MF=4/MT=2 path (`topfil`/`ptleg`/`pttab`, `newfor=1`): parses LTT=1
+    (Legendre), 2 (tabulated), 3 (both), converts each incident energy to the ACE
+    tabulated-cosine form (`JJ=2`, μ/pdf/cdf), and appends LAND + AND via
+    `from_reconr_with_angular`. `write_ace` wires it through the tape. Gate:
+    AND-block round-trip + cdf∈[0,1] monotone + ⟨μ⟩ = a₁ physics check
+    (`tests/acer.rs`, `angular.rs` unit tests). Only **elastic** for now.
   - **4b — fission ν̄ (NU block).** Needs MF=1/MT=452 (and 455/456). Not started.
-  - **4c — angular distributions (LAND/AND).** Needs MF=4. Not started.
-  - **4d — energy distributions (LDLW/DLW).** Needs MF=5/MF=6. Not started.
+  - **4d — energy distributions (LDLW/DLW) + non-elastic angular.** Needs
+    MF=5/MF=6 (and MF=4 for inelastic levels). Not started.
   - **4e — heating (ESZ column 5).** Zero until HEATR (Phase 3) lands.
-  Until 4b–4e exist the written file is a valid *cross-section* ACE table but not
-  yet a complete transport library (OpenMC needs at least elastic AND).
+  The written file now carries cross sections + the elastic angular distribution.
+  Until 4b/4d/4e exist it is still not a complete transport library (no secondary
+  energy distributions, so inelastic/fission collisions can't be followed).
 - **Phase 5 — multigroup/covariance** (GROUPR, ERRORR, …): only if OUTRAM PARK
   needs deterministic or sensitivity workflows.
 - **Phase 6 — formatters/plotting:** on demand only.

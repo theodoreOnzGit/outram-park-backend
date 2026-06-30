@@ -246,14 +246,17 @@ impl NuclearDataLibrary {
     /// sections, then serialises it. The ZAID suffix and class letter follow the
     /// MCNP convention (e.g. `92235.00c`).
     ///
-    /// The secondary-particle blocks (fission ν̄, angular and energy
-    /// distributions) and the heating (KERMA) column are not yet written — see
-    /// [`crate::ace`] for the scope of this first ACER increment. The file is a
-    /// valid cross-section ACE table but not yet a complete transport library.
+    /// When MF=4/MT=2 is present, the **elastic** angular distribution is written
+    /// to the LAND/AND blocks. The remaining secondary-particle blocks (fission
+    /// ν̄, non-elastic angular and all energy distributions) and the heating
+    /// (KERMA) column are not yet written — see [`crate::ace`] for the scope. The
+    /// file is a valid cross-section + elastic-scattering ACE table but not yet a
+    /// complete transport library.
     ///
     /// # Errors
     ///
-    /// Returns [`NjoyError::NotPorted`] if RECONR has not been run first, or
+    /// Returns [`NjoyError::NotPorted`] if RECONR has not been run first,
+    /// [`NjoyError::EndfParse`] if the MF=4 section is malformed, or
     /// [`NjoyError::Io`] if the file cannot be written.
     pub fn write_ace<P: AsRef<Path>>(&self, path: P) -> Result<(), NjoyError> {
         let r = self.reconr.as_ref().ok_or(NjoyError::NotPorted(
@@ -261,7 +264,13 @@ impl NuclearDataLibrary {
         ))?;
         // tz = k_B·T expressed in MeV (NJOY's `tz`).
         let kt_mev = crate::common::phys::BK_EV_PER_K * self.temperature.get::<kelvin>() / 1.0e6;
-        let ace = crate::ace::AceTable::from_reconr(r, kt_mev, 0);
+        let ace = match self.tape.section(self.mat, 4, 2) {
+            Some(sec) => {
+                let ang = crate::ace::angular::parse_elastic_angular(sec)?;
+                crate::ace::AceTable::from_reconr_with_angular(r, kt_mev, 0, &ang)
+            }
+            None => crate::ace::AceTable::from_reconr(r, kt_mev, 0),
+        };
         ace.write_type1(path).map_err(NjoyError::Io)
     }
 

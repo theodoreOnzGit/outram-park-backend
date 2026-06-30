@@ -17,7 +17,7 @@
 use std::fs::File;
 
 use njoy_outram_park_fork::{
-    ace::{jxs, nxs, AceTable},
+    ace::{angular::parse_elastic_angular, jxs, nxs, AceTable},
     endf::tape::Tape,
     reconr::{reconr, ReconrConfig},
 };
@@ -31,17 +31,27 @@ fn main() {
     let cfg = ReconrConfig { mat: 128, tolerance: 0.001, temperature: 0.0 };
     let result = reconr(&tape, &cfg).expect("RECONR");
 
-    // kT = 0 → 0 K table; suffix 0 → ZAID "1002.00c".
-    let ace = AceTable::from_reconr(&result, 0.0, 0);
+    // Include the elastic angular distribution from MF=4/MT=2.
+    let mf4 = tape.section(128, 4, 2).expect("MF=4/MT=2");
+    let angular = parse_elastic_angular(mf4).expect("parse MF=4");
+    let aniso = angular.energies.iter().filter(|e| !e.is_isotropic()).count();
 
-    println!("ZAID         : {}", ace.zaid.trim());
-    println!("AWR          : {:.6}", ace.awr);
-    println!("NES (grid)   : {}", ace.nxs[nxs::NES]);
-    println!("NTR (rxns)   : {}", ace.nxs[nxs::NTR]);
-    println!("XSS length   : {}", ace.nxs[nxs::LEN_XSS]);
-    println!("JXS ESZ/SIG  : {} / {}", ace.jxs[jxs::ESZ], ace.jxs[jxs::SIG]);
+    // kT = 0 → 0 K table; suffix 0 → ZAID "1002.00c".
+    let ace = AceTable::from_reconr_with_angular(&result, 0.0, 0, &angular);
+
+    println!("ZAID            : {}", ace.zaid.trim());
+    println!("AWR             : {:.6}", ace.awr);
+    println!("NES (grid)      : {}", ace.nxs[nxs::NES]);
+    println!("NTR (rxns)      : {}", ace.nxs[nxs::NTR]);
+    println!("XSS length      : {}", ace.nxs[nxs::LEN_XSS]);
+    println!("JXS ESZ/SIG     : {} / {}", ace.jxs[jxs::ESZ], ace.jxs[jxs::SIG]);
+    println!("JXS LAND/AND    : {} / {}", ace.jxs[jxs::LAND], ace.jxs[jxs::AND]);
+    println!(
+        "elastic angular : {} incident energies ({aniso} anisotropic)",
+        angular.energies.len()
+    );
 
     let out = std::env::temp_dir().join("1002.00c.ace");
     ace.write_type1(&out).expect("write ACE");
-    println!("wrote        : {}", out.display());
+    println!("wrote           : {}", out.display());
 }
