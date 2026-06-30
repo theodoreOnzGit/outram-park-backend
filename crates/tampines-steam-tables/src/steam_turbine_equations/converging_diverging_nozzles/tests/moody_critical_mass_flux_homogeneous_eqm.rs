@@ -23,8 +23,9 @@ const MOODY_LOG10_TOL: f64 = 0.06;
 ///   choke imperfectly approximates the Bernoulli limit
 ///   (worst observed: 0.069 for the isobar 0.50 DEEP point)
 ///
-/// `isobar_pref_0_25` is `#[ignore]`d because its sole DEEP point far exceeds
-/// this bound (err = 0.170); see that test for the physical explanation.
+/// `isobar_pref_0_25` runs in-dome-only (`validate_moody_isobar_in_dome_only`)
+/// and skips its sole DEEP point, which far exceeds this bound (err = 0.170); see
+/// that test's OPEN QUESTION block for the physical explanation.
 const MOODY_DEEP_LOG10_TOL: f64 = 0.08;
 
 // please note for the test:
@@ -32,7 +33,7 @@ const MOODY_DEEP_LOG10_TOL: f64 = 0.08;
 // p0 = 1.724 bar (0.78% of p_crit = 220.64 bar)
 // T_sat ≈ 115.2°C
 // Inlet region: Region 4 (wet steam) or Region 2 (superheated steam)
-// #[ignore] - failing
+// passing (in-dome-only; subcooled branch flagged OPEN — see test)
 
 // For p0/p_ref = 0.50
 // p0 = 3.447 bar (1.56% of p_crit)
@@ -160,26 +161,36 @@ const MOODY_DEEP_LOG10_TOL: f64 = 0.08;
 ///
 // Note: the dimensionless data below were graph-read from a log(G) vs h chart,
 // so errors are largest for the steep low-enthalpy portion; the assertion is on
-// the log scale. Only the in-dome (Region 4) points are checked — see
-// `validate_moody_isobar`.
+// the log scale. This test runs `validate_moody_isobar_in_dome_only`, so it
+// asserts ONLY the in-dome (Region 4) points and skips the subcooled branch.
 //
-// ⚠ IGNORED: the first data point (h/h_ref = 0.4902) is DEEP subcooled and
-// fails with |Δ log10 G| = 0.170, which no graph-read tolerance can cover.
+// ════════════════════════════════════════════════════════════════════════════
+// ⚠⚠  OPEN QUESTION — MARKED FOR INVESTIGATION (teddy0, 2026-06-30)  ⚠⚠
+// ════════════════════════════════════════════════════════════════════════════
+// The deeply-subcooled / bubble-point part of THIS isobar is the one place HEM
+// flatly disagrees with Moody, and I don't fully understand it yet. The numbers:
 //
-// At (p₀ = 1.72 bar, h₀ = 114 kJ/kg, p_bubble ≈ 3.6 kPa), the HEM energy-
-// balance solver returns G = 12 739 kg/(m²s) while Moody's chart and the
-// incompressible-Bernoulli formula give ~18 840 / 18 340 kg/(m²s) respectively.
-// Root cause: the IAPWS-IF97 isentrope delivers only 82 J/kg of kinetic energy
-// at the bubble point while the pressure integral v_f·(p₀−p_b) gives 169 J/kg
-// — a factor-of-2 divergence at this extreme pressure ratio (p_b/p₀ ≈ 0.021).
-// The deeply-subcooled escape was validated against higher-pressure isobars
-// (0.50 – 30.0 × p_ref) where the two formulations agree to within 0.08 in
-// log10 G; it is not expected to reproduce the very-low-pressure Moody branch.
+//   The first data point (h/h_ref = 0.4902) is DEEP subcooled. At
+//   (p₀ = 1.72 bar, h₀ = 114 kJ/kg, p_bubble ≈ 3.6 kPa) the HEM energy-balance
+//   solver returns G = 12 739 kg/(m²s), while Moody's chart and the
+//   incompressible-Bernoulli formula give ~18 840 / 18 340 kg/(m²s). That is a
+//   |Δ log10 G| = 0.170 miss — far beyond any graph-read tolerance.
 //
-// The in-dome (Region 4) points on this isobar are covered by its neighbours
-// (0.50, 1.00, …); no physics is lost by skipping this curve.
+//   Apparent root cause: the IAPWS-IF97 isentrope delivers only 82 J/kg of
+//   kinetic energy at the bubble point, while the pressure integral v_f·(p₀−p_b)
+//   gives 169 J/kg — a factor-of-2 divergence at this extreme pressure ratio
+//   (p_b/p₀ ≈ 0.021). The deeply-subcooled escape was validated against higher-
+//   pressure isobars (0.50 – 30.0 × p_ref), where the two formulations agree to
+//   within 0.08 in log10 G; it does NOT reproduce this very-low-pressure branch.
+//
+// WHY IT'S OK TO SKIP THE SUBCOOLED PART FOR NOW: the in-dome (Region 4) points
+// on this isobar are independently covered by its neighbours (0.50, 1.00, …), so
+// the validated physics here is the in-dome part only. The subcooled mismatch is
+// flagged, not silently passed — revisit when probing the low-pressure /
+// non-equilibrium (HRM-type) branch. See `diagnose_deep_subcooled_failures`
+// (currently commented out) for the per-point intermediate-value dump.
+// ════════════════════════════════════════════════════════════════════════════
 #[test]
-#[ignore = "DEEP subcooled point (h/h_ref=0.49) fails with err=0.170: isentrope/Bernoulli diverge 2× at p_b/p0≈0.021; R4 points covered by neighbouring isobars"]
 fn isobar_pref_0_25() {
     let data = vec![
         (0.4902,3.8593), (0.8039,3.7306), (1.1961,3.4469), (1.4314,3.1135),
@@ -191,33 +202,35 @@ fn isobar_pref_0_25() {
         (8.3725,0.0653), (8.7255,0.0631), (9.3333,0.061), (9.902,0.057),
         (10.1765,0.057), (10.549,0.0564), (11.0784,0.0551), (11.5098,0.0533),
     ];
-    validate_moody_isobar(0.25, &data, MOODY_LOG10_TOL, MOODY_DEEP_LOG10_TOL);
+    // In-dome-only: asserts Region 4 points, skips the (unresolved) subcooled
+    // branch flagged in the OPEN QUESTION block above.
+    validate_moody_isobar_in_dome_only(0.25, &data, MOODY_LOG10_TOL);
 }
 
 /// # Helper Function: `validate_moody_isobar`
 ///
 /// ## Purpose
 /// Validates `get_stagnation_critical_mass_flux` against an isobar curve from
-/// F.J. Moody's 1975 maximum-discharge chart.
+/// F.J. Moody's 1975 maximum-discharge chart, asserting two buckets of points:
 ///
-/// ## In-dome only — known HEM limitation on the subcooled branch
-/// Only the **two-phase, in-dome (Region 4)** points of each isobar are asserted.
-/// Each point's stagnation state `(p₀, h₀)` is classified by `ph_flash_region`;
-/// non-Region-4 points (subcooled liquid Region 1, or superheated vapour
-/// Region 2) are **skipped with a logged note**, mirroring the region-filtering
-/// the Zaloudek split tests use.
+/// - **In-dome (Region 4)** two-phase points → asserted at `log10_tolerance`.
+/// - **Deeply-subcooled (Region 1)** points where `v_b/c_2φ >
+///   DEEP_SUBCOOLING_RATIO` (the solver takes its Bernoulli energy-balance escape)
+///   → asserted at `deep_log10_tolerance`.
 ///
-/// The subcooled (Region 1) points are skipped because they are a genuine HEM
-/// limitation, not a solver bug: HEM equilibrium under-predicts subcooled
-/// critical flow, and Moody's deeply-subcooled branch is effectively
-/// non-equilibrium (Bernoulli / frozen-liquid) flow that the homogeneous
-/// *equilibrium* model cannot reproduce while also matching Zaloudek's near-
-/// saturation curves — the two reference sets demand opposite choke branches
-/// (two-phase sonic vs. Bernoulli) at thermodynamically indistinguishable
-/// states. See README v0.2.1 ("Subcooled choked flow has two regimes").
+/// Everything else — the near-bubble / overlap subcooled band and superheated
+/// Region 2 — is **skipped with a logged note**, mirroring the region-filtering
+/// the Zaloudek split tests use. The skipped subcooled points are a genuine HEM
+/// limitation, not a solver bug: HEM equilibrium under-predicts subcooled critical
+/// flow, and Moody's deeply-subcooled branch is effectively non-equilibrium
+/// (Bernoulli / frozen-liquid) flow that the homogeneous *equilibrium* model cannot
+/// reproduce while also matching Zaloudek's near-saturation curves — the two
+/// reference sets demand opposite choke branches (two-phase sonic vs. Bernoulli) at
+/// thermodynamically indistinguishable states. See README v0.2.1 ("Subcooled choked
+/// flow has two regimes").
 ///
 /// ## Tolerance
-/// `log10_tolerance` is an **absolute** bound on `|log10(G_test) − log10(G_ref)|`.
+/// Both tolerances are **absolute** bounds on `|log10(G_test) − log10(G_ref)|`.
 /// Moody's reference is graph-read (digitised from a log–log chart), so a loose
 /// log-scale bound is appropriate (cf. the Zaloudek convention of keeping G
 /// tolerances loose for graph-read HEM curves).
@@ -226,6 +239,47 @@ fn validate_moody_isobar(
     data_points: &[(f64, f64)],
     log10_tolerance: f64,
     deep_log10_tolerance: f64,
+) {
+    validate_moody_isobar_inner(
+        dimensionless_stagnation_pressure,
+        data_points,
+        log10_tolerance,
+        Some(deep_log10_tolerance),
+    );
+}
+
+/// In-dome-only variant of [`validate_moody_isobar`]: asserts **only** the
+/// two-phase (Region 4) points and **skips** the deeply-subcooled (Region 1)
+/// points instead of asserting them.
+///
+/// Used by `isobar_pref_0_25`, whose single deeply-subcooled point cannot be
+/// reproduced by HEM at any graph-read tolerance (err = 0.170 — the IAPWS-IF97
+/// isentrope diverges 2× from the incompressible-Bernoulli limit at p_b/p₀ ≈ 0.02);
+/// see that test. The in-dome points of that isobar are still genuinely validated.
+fn validate_moody_isobar_in_dome_only(
+    dimensionless_stagnation_pressure: f64,
+    data_points: &[(f64, f64)],
+    log10_tolerance: f64,
+) {
+    validate_moody_isobar_inner(
+        dimensionless_stagnation_pressure,
+        data_points,
+        log10_tolerance,
+        None,
+    );
+}
+
+/// Shared implementation behind [`validate_moody_isobar`] and
+/// [`validate_moody_isobar_in_dome_only`].
+///
+/// `deep_log10_tolerance`:
+/// - `Some(tol)` → assert deeply-subcooled (Region 1 escape) points at `tol`.
+/// - `None`      → skip deeply-subcooled points entirely (in-dome-only).
+fn validate_moody_isobar_inner(
+    dimensionless_stagnation_pressure: f64,
+    data_points: &[(f64, f64)],
+    log10_tolerance: f64,
+    deep_log10_tolerance: Option<f64>,
 ) {
     use crate::interfaces::functional_programming::ph_flash_eqm::ph_flash_region;
     use crate::prelude::functional_programming::pt_flash_eqm::FwdEqnRegion;
@@ -244,13 +298,14 @@ fn validate_moody_isobar(
         let p0 = dimensionless_stagnation_pressure * p_ref;
         let g_ref_expected = g_ref * (*g_dimensionless_ptr);
 
-        // Three buckets, asserted with the same solver, different tolerances:
+        // Buckets, asserted with the same solver, different tolerances:
         //  * Region 4 (in-dome two-phase)            → assert at `log10_tolerance`.
-        //  * Region 1 & deeply subcooled             → assert at `MOODY_DEEP_LOG10_TOL`
+        //  * Region 1 & deeply subcooled             → assert at `deep_log10_tolerance`
         //    (v_b/c_2φ > DEEP_SUBCOOLING_RATIO, where the solver's deep-subcooling
-        //    escape gives the Bernoulli choke).
+        //    escape gives the Bernoulli choke) — UNLESS `deep_log10_tolerance` is
+        //    `None`, i.e. in-dome-only mode, in which case these are skipped too.
         //  * everything else (the near-bubble / overlap subcooled band, and
-        //    superheated Region 2) → SKIP. See the TODO above this function.
+        //    superheated Region 2) → SKIP.
         let region = ph_flash_region(p0, h0);
         let sub_ratio = if region == FwdEqnRegion::Region1 {
             subcooling_ratio(p0, h0)
@@ -258,17 +313,30 @@ fn validate_moody_isobar(
             0.0
         };
         let is_deep_subcooled = region == FwdEqnRegion::Region1 && sub_ratio > DEEP_SUBCOOLING_RATIO;
-        if region != FwdEqnRegion::Region4 && !is_deep_subcooled {
+        // In-dome-only mode (`deep_log10_tolerance == None`) skips DEEP points too.
+        let assert_this_deep = is_deep_subcooled && deep_log10_tolerance.is_some();
+        if region != FwdEqnRegion::Region4 && !assert_this_deep {
+            let reason = if is_deep_subcooled {
+                "deeply subcooled — skipped (in-dome-only validation)"
+            } else {
+                "not deeply subcooled or is superheated"
+            };
             eprintln!(
                 "skip h/h_ref={h_dimensionless_ptr:.4} (stagnation {region:?}, \
-                 sub_ratio={sub_ratio:.3}) — not deeply subcooled or is superheated"
+                 sub_ratio={sub_ratio:.3}) — {reason}"
             );
             continue;
         }
 
         let state_0 = TampinesSteamTableCV::new_from_ph(p0, h0, ref_vol);
         let g_test = state_0.get_stagnation_critical_mass_flux();
-        let tol = if is_deep_subcooled { deep_log10_tolerance } else { log10_tolerance };
+        // `deep_log10_tolerance` is `Some` here whenever `is_deep_subcooled` (the
+        // skip above removed the `None` + deep case), so the unwrap cannot panic.
+        let tol = if is_deep_subcooled {
+            deep_log10_tolerance.expect("deep points are skipped when tolerance is None")
+        } else {
+            log10_tolerance
+        };
         let g_ref_log = g_ref_expected.get::<kilogram_per_square_meter_second>().log10();
         let g_test_log = g_test.get::<kilogram_per_square_meter_second>().log10();
         let err = (g_ref_log - g_test_log).abs();
@@ -884,6 +952,13 @@ fn isobar_pref_30_00() {
     validate_moody_isobar(30.00, &data, MOODY_LOG10_TOL, MOODY_DEEP_LOG10_TOL);
 }
 
+// Commented out (2026-06-30): scratch diagnostic that traced intermediate solver
+// values for the DEEP points during the v0.2.1 debugging. Two of its three hardcoded
+// cases (the 0.50 and old 4.00 points) are no longer the failing points of interest,
+// and isobar 4.00 was re-digitised. Kept as a block comment for reference; uncomment
+// and refresh the `cases` array if you need the per-point intermediate-value dump
+// again (see the OPEN QUESTION block on `isobar_pref_0_25`).
+/*
 /// Diagnostic: trace intermediate solver values for the three failing DEEP points.
 /// Not a correctness assertion — just prints intermediate values for debugging.
 #[test]
@@ -953,3 +1028,4 @@ fn diagnose_deep_subcooled_failures() {
         eprintln!("  G_solver     = {:.1} kg/(m²s) (lg={:.3})", g_test.get::<kilogram_per_square_meter_second>(), g_test.get::<kilogram_per_square_meter_second>().log10());
     }
 }
+*/
