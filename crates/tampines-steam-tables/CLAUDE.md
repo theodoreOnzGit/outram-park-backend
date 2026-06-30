@@ -87,8 +87,9 @@ Verification tests are under `.../tests/`, validated against:
   critical flow, and no local discriminator separates Moody's deep-subcooling
   (Bernoulli) reference from Zaloudek's near-saturation (sonic) reference (see
   README v0.2.1). Like Zaloudek, Moody's data is graph-read, so G tolerances are
-  loose (0.06 in log10; the `isobar_pref_4_00` curve needs 0.25 — its digitised
-  data is ~0.13 log10 high vs its neighbours, a graph-reading error on that curve).
+  loose (0.06 in log10). `isobar_pref_4_00` formerly needed a 0.25 tolerance from a
+  bad digitisation (~0.13 log10 high); it was re-digitised (README v0.2.1, 2026-06-30
+  update) and now passes at the standard 0.06 like every other isobar.
 - Zaloudek critical mass flux — `zaloudek_*`. NOTE: these reference values are
   graph-read (digitised) HEM curves, not raw experimental data, so keep mass-flux
   (G) tolerances loose.

@@ -21,28 +21,11 @@ const MOODY_LOG10_TOL: f64 = 0.06;
 /// - graph-read uncertainty from Moody's digitised log–log chart (≈ ±15% in G)
 /// - known HEM variability for deeply-subcooled states where the energy-balance
 ///   choke imperfectly approximates the Bernoulli limit
-///   (worst observed: 0.069 for isobar 0.50 and the isobar 4.00 DEEP point)
+///   (worst observed: 0.069 for the isobar 0.50 DEEP point)
 ///
 /// `isobar_pref_0_25` is `#[ignore]`d because its sole DEEP point far exceeds
 /// this bound (err = 0.170); see that test for the physical explanation.
 const MOODY_DEEP_LOG10_TOL: f64 = 0.08;
-
-/// Looser bound for `isobar_pref_4_00` only: its digitised reference G-values are
-/// systematically ≈ 0.13 in log10 high (graph-reading error on that one curve;
-/// the neighbouring isobars 2.0 and 6.0 match the solver to < 0.025). See the
-/// note on `isobar_pref_4_00`.
-const MOODY_ISOBAR_4_LOG10_TOL: f64 = 0.25;
-
-/// DEEP subcooled tolerance for `isobar_pref_4_00` only.
-///
-/// The isobar_4_00 reference data is already known to contain a systematic
-/// graph-reading error of ≈ 0.13 in log10 for the R4 in-dome points. Its DEEP
-/// subcooled points (sub_ratio 7–700, h/h_ref 0.73–3.35) show similarly
-/// elevated errors (0.05–0.113 in log10 G), all in the solver-over-predicts
-/// direction. The maximum observed is 0.113 at h/h_ref = 3.3529 (sub_ratio 6.75,
-/// closest point to the `DEEP_SUBCOOLING_RATIO` boundary before the skip zone).
-/// Other isobars' DEEP points stay within `MOODY_DEEP_LOG10_TOL` (0.08).
-const MOODY_DEEP_ISOBAR_4_LOG10_TOL: f64 = 0.13;
 
 // please note for the test:
 // For p0/p_ref = 0.25
@@ -73,7 +56,7 @@ const MOODY_DEEP_ISOBAR_4_LOG10_TOL: f64 = 0.13;
 // p0 = 27.579 bar (12.50% of p_crit)
 // T_sat ≈ 230.1°C
 // Inlet region: Region 4 (wet steam) or Region 2 (superheated steam)
-// #[ignore] - failing
+// passing (re-digitised 2026-06-30; now at standard tolerances)
 
 // For p0/p_ref = 6.00
 // p0 = 41.369 bar (18.75% of p_crit)
@@ -450,56 +433,59 @@ fn isobar_pref_2_00() {
     validate_moody_isobar(2.00, &data, MOODY_LOG10_TOL, MOODY_DEEP_LOG10_TOL);
 }
 
-// For p0/p_ref = 4.0 
+// For p0/p_ref = 4.0  (re-digitised — see the doc comment on `isobar_pref_4_00`)
 // "x","y"
-// 0.7255,13.2273
-// 1.1961,12.7864
-// 1.6078,12.7864
-// 2.0588,12.3602
-// 2.5294,11.9481
-// 2.8039,11.1648
-// 3.1176,9.6394
-// 3.3529,8.4169
-// 3.5882,6.5641
-// 3.7255,4.7298
-// 3.7843,3.332
-// 3.902,2.269
-// 4.2745,1.7105
-// 4.6471,1.4602
-// 5.1373,1.2325
-// 5.7255,1.1008
-// 6.451,0.9832
-// 7.451,0.8393
-// 8.4118,0.7581
-// 9.1569,0.7005
-// 10.098,0.6771
-// 10.9804,0.6327
-// 11.8235,0.6256
+// 0.6264,15.2148
+// 0.9984,15.2148
+// 1.3507,15.0432
+// 1.7618,14.8735
+// 2.2904,14.0535
+// 2.9168,12.6896
+// 3.4845,10.3461
+// 3.8564,7.5309
+// 4.3263,2.5062
+// 4.6786,2.0434
+// 5.5008,1.6103
+// 6.4796,1.2834
+// 7.4192,1.1329
+// 8.9462,0.9449
+// 9.6705,0.8928
+// 10.4144,0.8435
+// 11.1778,0.797
+// 11.9021,0.7704
+//
+// Superseded digitisation (kept for the debug trail): the original read of this
+// curve sat systematically ≈ 0.13 in log10 G high across the whole in-dome range
+// and forced a loose 0.25 tolerance. That was a graph-reading error, not a solver
+// error — its neighbours (isobars 2.0 and 6.0) always matched the solver tightly.
+//   0.7255,13.2273  1.1961,12.7864  1.6078,12.7864  2.0588,12.3602  2.5294,11.9481
+//   2.8039,11.1648  3.1176,9.6394   3.3529,8.4169   3.5882,6.5641   3.7255,4.7298
+//   3.7843,3.332    3.902,2.269     4.2745,1.7105   4.6471,1.4602   5.1373,1.2325
+//   5.7255,1.1008   6.451,0.9832    7.451,0.8393    8.4118,0.7581   9.1569,0.7005
+//   10.098,0.6771   10.9804,0.6327  11.8235,0.6256
 
 
 /// # Test: `isobar_pref_4_00`
 /// Validates the critical mass flux model against the `p/p_ref = 4.00` isobar
 /// from Figure 1 of Moody (1975).
 ///
-/// ⚠ This one isobar's *digitised reference data* appears systematically high by
-/// ≈ 0.13 in log10 G (a factor ~1.35) across its entire in-dome range — a graph-
-/// reading error on this curve, not a solver error. Its neighbours bracket it and
-/// match the solver tightly (isobar 2.0 ≤ +0.017, isobar 6.0 ≤ +0.024 in log10 G),
-/// and the solver's 4.0 values sit smoothly between them. So this test uses a
-/// deliberately loose `MOODY_ISOBAR_4_LOG10_TOL` to admit the offset reference;
-/// the in-dome physics is validated by the neighbouring isobars at the tight
-/// `MOODY_LOG10_TOL`.
+/// This curve was **re-digitised** (2026-06-30) after the original read of it sat
+/// systematically ≈ 0.13 in log10 G (a factor ~1.35) high across its whole in-dome
+/// range — a graph-reading error on that one curve, not a solver error, since its
+/// neighbours (isobars 2.0 and 6.0) always matched the solver tightly. With the
+/// re-digitised data the test now passes at the **standard** `MOODY_LOG10_TOL`
+/// (in-dome err ≤ 0.025) and `MOODY_DEEP_LOG10_TOL` (deep-subcooled err ≤ 0.007),
+/// like every other isobar; the bespoke loose tolerances it used to need are gone.
 #[test]
 fn isobar_pref_4_00() {
     let data = vec![
-        (0.7255, 13.2273), (1.1961, 12.7864), (1.6078, 12.7864), (2.0588, 12.3602),
-        (2.5294, 11.9481), (2.8039, 11.1648), (3.1176, 9.6394), (3.3529, 8.4169),
-        (3.5882, 6.5641), (3.7255, 4.7298), (3.7843, 3.332), (3.902, 2.269),
-        (4.2745, 1.7105), (4.6471, 1.4602), (5.1373, 1.2325), (5.7255, 1.1008),
-        (6.451, 0.9832), (7.451, 0.8393), (8.4118, 0.7581), (9.1569, 0.7005),
-        (10.098, 0.6771), (10.9804, 0.6327), (11.8235, 0.6256),
+        (0.6264, 15.2148), (0.9984, 15.2148), (1.3507, 15.0432), (1.7618, 14.8735),
+        (2.2904, 14.0535), (2.9168, 12.6896), (3.4845, 10.3461), (3.8564, 7.5309),
+        (4.3263, 2.5062), (4.6786, 2.0434), (5.5008, 1.6103), (6.4796, 1.2834),
+        (7.4192, 1.1329), (8.9462, 0.9449), (9.6705, 0.8928), (10.4144, 0.8435),
+        (11.1778, 0.797), (11.9021, 0.7704),
     ];
-    validate_moody_isobar(4.00, &data, MOODY_ISOBAR_4_LOG10_TOL, MOODY_DEEP_ISOBAR_4_LOG10_TOL);
+    validate_moody_isobar(4.00, &data, MOODY_LOG10_TOL, MOODY_DEEP_LOG10_TOL);
 }
 
 // For p0/p_ref = 6.0

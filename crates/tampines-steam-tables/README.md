@@ -262,6 +262,22 @@ solver error. Its neighbours bracket it and match the solver tightly (isobar 2.0
 ≤ +0.017, isobar 6.0 ≤ +0.024), and the solver's 4.0 values sit smoothly between
 them, so the loose bound admits the offset reference without masking anything.
 
+**Update (2026-06-30) — `isobar_pref_4_00` re-digitised, special tolerances
+removed.** Rather than carry a bad reference behind a loose bound, the `p/p_ref =
+4.00` chart was **re-read with GraphReader** and the curve re-digitised (18
+points). With the corrected data the solver reproduces it at the **standard**
+tolerances like every other isobar:
+
+- in-dome (Region 4): worst error **0.025** in log10 G (was forced to 0.25)
+- deeply-subcooled (Region 1 escape): worst error **0.007** in log10 G (was 0.113)
+
+So the two bespoke constants `MOODY_ISOBAR_4_LOG10_TOL = 0.25` and
+`MOODY_DEEP_ISOBAR_4_LOG10_TOL = 0.13` were **deleted**; `isobar_pref_4_00` now
+calls `validate_moody_isobar` with `MOODY_LOG10_TOL` (0.06) and
+`MOODY_DEEP_LOG10_TOL` (0.08). The old digitisation is preserved as a comment
+above the test for the debug trail. This supersedes the "looser 0.25 tolerance"
+paragraph above and the "isobar_4_00 DEEP points" root-cause block below.
+
 **Moody deeply-subcooled branch — asserting the Region 1 escape route**
 
 > **Design / thought process: human-authored** (debugging and fixes carried out by
@@ -308,6 +324,9 @@ log–log chart. Setting `MOODY_DEEP_LOG10_TOL = 0.08` covers this point; the te
 now passes.
 
 **Root cause — isobar_4_00 DEEP points (p₀ = 27.6 bar; err up to 0.113):**
+*(Superseded by the 2026-06-30 re-digitisation update above: the curve was
+re-digitised; its DEEP error is now ≤ 0.007 and the `MOODY_DEEP_ISOBAR_4_LOG10_TOL`
+constant was removed. The original analysis below is kept for the debug trail.)*
 When the wide-tolerance probe was run to expose all DEEP errors on this isobar, the
 full picture emerged:
 
@@ -336,6 +355,11 @@ signature extended to accept per-isobar deep tolerances.
 - `MOODY_DEEP_LOG10_TOL = 0.08` for deeply-subcooled (DEEP) points on all isobars except 4.00
 - `MOODY_DEEP_ISOBAR_4_LOG10_TOL = 0.13` for DEEP points on isobar 4.00
 - `isobar_pref_0_25` — `#[ignore]`d: isentrope/Bernoulli diverge 2× at p_b/p₀ ≈ 0.02
+
+> **Updated (2026-06-30):** after re-digitising `isobar_pref_4_00`, the two
+> isobar-4.00-specific constants no longer exist — that curve now uses
+> `MOODY_LOG10_TOL` (0.06) and `MOODY_DEEP_LOG10_TOL` (0.08) like every other
+> isobar. The remaining bullets (and the `isobar_pref_0_25` ignore) still hold.
 
 
 Lastly, I removed any ndarray-linalg dependencies from tampines-steam-tables,
