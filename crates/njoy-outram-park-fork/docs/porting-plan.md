@@ -114,29 +114,7 @@ thin Rust `driver` that parses the input deck and `match`es over `NjoyModule`.
 - **Phase 4 — ACER.** Emit an ACE file OpenMC loads and runs. **This is the
   milestone that satisfies the OpenMC dependency.** Largest single phase
   (acefc.f90 alone is ~20k lines) — split by ACE block (nu, angular, energy
-  distributions, photon production, …). Progress:
-  - **4a — cross-section core.** ✅ `src/ace/` ports `aceout`/`change` (Type-1
-    ASCII format) + the cross-section part of `acelod`: the **ESZ** block (union
-    energy grid, total = elastic + Σ partials, disappearance, elastic, heating)
-    and the **MTR/LQR/TYR/LSIG/SIG** reaction blocks, from a `ReconrResult`.
-    Exposed as `AceTable::from_reconr` / `write_type1` and via
-    `NuclearDataLibrary::write_ace`. RECONR now threads each reaction's QI
-    through `ReconrSection.qi` for the LQR block. Gate: NXS/JXS/XSS
-    self-consistency + Type-1 round-trip (`tests/acer.rs`).
-  - **4c — elastic angular distribution (LAND/AND).** ✅ `src/ace/angular.rs`
-    ports the MF=4/MT=2 path (`topfil`/`ptleg`/`pttab`, `newfor=1`): parses LTT=1
-    (Legendre), 2 (tabulated), 3 (both), converts each incident energy to the ACE
-    tabulated-cosine form (`JJ=2`, μ/pdf/cdf), and appends LAND + AND via
-    `from_reconr_with_angular`. `write_ace` wires it through the tape. Gate:
-    AND-block round-trip + cdf∈[0,1] monotone + ⟨μ⟩ = a₁ physics check
-    (`tests/acer.rs`, `angular.rs` unit tests). Only **elastic** for now.
-  - **4b — fission ν̄ (NU block).** Needs MF=1/MT=452 (and 455/456). Not started.
-  - **4d — energy distributions (LDLW/DLW) + non-elastic angular.** Needs
-    MF=5/MF=6 (and MF=4 for inelastic levels). Not started.
-  - **4e — heating (ESZ column 5).** Zero until HEATR (Phase 3) lands.
-  The written file now carries cross sections + the elastic angular distribution.
-  Until 4b/4d/4e exist it is still not a complete transport library (no secondary
-  energy distributions, so inelastic/fission collisions can't be followed).
+  distributions, photon production, …).
 - **Phase 5 — multigroup/covariance** (GROUPR, ERRORR, …): only if OUTRAM PARK
   needs deterministic or sensitivity workflows.
 - **Phase 6 — formatters/plotting:** on demand only.

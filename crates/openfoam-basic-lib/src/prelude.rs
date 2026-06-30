@@ -99,3 +99,9 @@ pub use crate::fluid_thermo::{FluidThermo, PsiThermo, RhoThermo, SolidThermo, Co
 
 // --- LDU solvers ---
 pub use crate::ldu_matrix::{gauss_seidel, conjugate_gradient, gamg};
+
+// -- Interface --- 
+//
+// Basically, OpenFOAM primitives aren't easy to use.
+// But I want some functions that can help construct and use them
+pub use crate::interface;

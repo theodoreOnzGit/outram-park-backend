@@ -32,3 +32,15 @@ pub mod ldu_matrix;
 pub mod fv_operators;
 pub mod fluid_thermo;
 pub mod prelude;
+
+
+/// this part is extension in Rust 
+/// Now under here, I want to expose the openfoam primitives to something 
+/// that can be human readable
+///
+/// Also useful add-ons for the underlying libraries are put here, 
+/// eg. generating one dimensional meshes for system code type simulations 
+/// in TAMPINES
+pub mod interface;
+
+
