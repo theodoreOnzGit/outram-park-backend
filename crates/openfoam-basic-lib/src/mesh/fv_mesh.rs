@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use crate::mesh::error::MeshError;
 use crate::primitives::Vector3;
 
 /// Boundary patch descriptor: topology + kind.
@@ -143,43 +144,37 @@ impl FvMesh {
         None
     }
 
-    /// Validate basic mesh consistency.  Returns `Err` with a description on
-    /// the first problem found.
-    pub fn validate(&self) -> Result<(), String> {
-        if self.owner.len() != self.n_faces {
-            return Err(format!(
-                "owner len {} != n_faces {}", self.owner.len(), self.n_faces));
-        }
-        if self.neighbour.len() != self.n_internal_faces {
-            return Err(format!(
-                "neighbour len {} != n_internal_faces {}", self.neighbour.len(), self.n_internal_faces));
-        }
-        if self.cell_volumes.len() != self.n_cells {
-            return Err(format!(
-                "cell_volumes len {} != n_cells {}", self.cell_volumes.len(), self.n_cells));
-        }
-        if self.cell_centres.len() != self.n_cells {
-            return Err("cell_centres length mismatch".into());
-        }
-        if self.face_area_vectors.len() != self.n_faces {
-            return Err("face_area_vectors length mismatch".into());
-        }
-        if self.face_areas.len() != self.n_faces {
-            return Err("face_areas length mismatch".into());
-        }
-        if self.face_centres.len() != self.n_faces {
-            return Err("face_centres length mismatch".into());
-        }
-        // Check patch coverage: patches should cover [n_internal_faces, n_faces)
+    /// Validate basic mesh consistency.  Returns `Err` on the first problem found.
+    pub fn validate(&self) -> Result<(), MeshError> {
+        let check_len = |array, got, expected| {
+            if got != expected {
+                Err(MeshError::ArrayLengthMismatch { array, expected, got })
+            } else {
+                Ok(())
+            }
+        };
+        check_len("owner",            self.owner.len(),            self.n_faces)?;
+        check_len("neighbour",        self.neighbour.len(),        self.n_internal_faces)?;
+        check_len("cell_volumes",     self.cell_volumes.len(),     self.n_cells)?;
+        check_len("cell_centres",     self.cell_centres.len(),     self.n_cells)?;
+        check_len("face_area_vectors",self.face_area_vectors.len(),self.n_faces)?;
+        check_len("face_areas",       self.face_areas.len(),       self.n_faces)?;
+        check_len("face_centres",     self.face_centres.len(),     self.n_faces)?;
+
+        // Patches must cover [n_internal_faces, n_faces) without gaps.
         let mut covered = self.n_internal_faces;
         for p in &self.patches {
             if p.start != covered {
-                return Err(format!("patch '{}' starts at {} but expected {}", p.name, p.start, covered));
+                return Err(MeshError::PatchStartMismatch {
+                    name: p.name.clone(),
+                    expected: covered,
+                    got: p.start,
+                });
             }
             covered += p.size;
         }
         if covered != self.n_faces {
-            return Err(format!("patches cover {} faces but n_faces = {}", covered, self.n_faces));
+            return Err(MeshError::PatchCoverageMismatch { covered, n_faces: self.n_faces });
         }
         Ok(())
     }
@@ -221,7 +216,7 @@ impl FvMeshBuilder {
         }
     }
 
-    pub fn build(mut self) -> Result<FvMesh, String> {
+    pub fn build(mut self) -> Result<FvMesh, MeshError> {
         self.ensure_face_areas();
         let n_faces = self.owner.len();
         let mesh = FvMesh {

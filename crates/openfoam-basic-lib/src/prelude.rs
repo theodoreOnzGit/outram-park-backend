@@ -86,7 +86,7 @@ pub use crate::fields::{
 };
 
 // --- Mesh (Layer 2) ---
-pub use crate::mesh::{FvMesh, FvMeshBuilder, BoundaryPatch, PatchKind, RegionInterface};
+pub use crate::mesh::{FvMesh, FvMeshBuilder, BoundaryPatch, MeshError, PatchKind, RegionInterface};
 
 // --- Sparse linear system (Layer 2) ---
 pub use crate::ldu_matrix::{LduMatrix, FvMatrix, FvVectorMatrix, SolverSettings, SolverPerformance};

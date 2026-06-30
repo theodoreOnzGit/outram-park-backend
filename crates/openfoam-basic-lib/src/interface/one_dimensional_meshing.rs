@@ -1,4 +1,4 @@
-use crate::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
+use crate::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, MeshError, PatchKind};
 use crate::primitives::Vector3;
 use uom::si::area::square_meter;
 use uom::si::f64::*;
@@ -55,9 +55,9 @@ pub fn create_one_d_mesh(
     l: Length,
     xs_area: Area,
     number_of_cells: i64,
-) -> Result<FvMesh, String> {
+) -> Result<FvMesh, MeshError> {
     if number_of_cells < 1 {
-        return Err(format!("number_of_cells must be ≥ 1, got {}", number_of_cells));
+        return Err(MeshError::NonPositiveCellCount { got: number_of_cells });
     }
     let n = number_of_cells as usize;
     let l_m = l.get::<meter>();
