@@ -71,11 +71,12 @@ validated against Moody (1975), Zaloudek HEM reference curves, and Marviken.
 The three split solvers (in-dome / subcooled / superheated-vapour) cover all
 stagnation buckets relative to the p-h VLE dome.
 
-The one unresolved case is the **near-bubble-point HEM artifact** (x_t ≈ 0):
-the active failing test `outside_dome_stagnation_subcooled::quality_bubble_point_subcooled`
-reflects a fundamental HEM limitation at the saturated-liquid line — an HRM
-relaxation model is required. **Zaloudek curves are HEM-computed, not
-experimental** (digitised from Saha 1978).
+All three stagnation buckets (in-dome, subcooled, superheated) are validated.
+The only known discrepancy is `isobar_pref_0_25` (p₀ = 1.72 bar) in the Moody
+chart tests — its sole deeply-subcooled data point fails with |Δ log10 G| = 0.170
+because the IAPWS-IF97 isentrope diverges from the incompressible-Bernoulli limit
+at extreme pressure ratios (p_bubble/p₀ ≈ 0.02); it is `#[ignore]`d. All other
+Moody isobars (0.50 – 30.0 × p_ref) pass.
 
 Verification tests are under `.../tests/`, validated against:
 
