@@ -173,10 +173,45 @@ inside one crate before the solver is promoted to a proper Layer-5 home. If/when
 the validation is settled, Solution **C** is the clean path to graduate the
 algorithms out.
 
-**Current choice:** Solution **A** (with **D** available if the property-only
-compile surface needs trimming). `tampines-steam-tables` depends only on
-`openfoam-basic-lib`; steam-table consumers will be added at Layer 5; the
-forbidden `openfoam-basic-lib → tampines` edge is never drawn.
+### Preferred solution: consume TAMPINES at the `openfoam-appbuilder-lib` level
+
+Solution **A**, made concrete: **`openfoam-appbuilder-lib` (Layer 5) depends on
+`tampines-steam-tables`.** appbuilder is where the solver loops live
+(`RhoPimpleFoam`, etc.), so a steam-table consumer is a native Layer-5 concern —
+this isn't even the scoped exception that `TampinesSteamArray`-in-TAMPINES is.
+
+```
+openfoam-basic-lib ◄── tampines-steam-tables ◄── openfoam-appbuilder-lib (Layer 5)
+        ▲                       ▲                        │  │
+        │                       └── tuas ────────────────┘  │
+        └───────────────────────────────────────────────────┘
+```
+
+Adding `openfoam-appbuilder-lib → tampines-steam-tables` gives appbuilder the
+transitive set `{ openfoam-basic-lib, openfoam-turbulence-lib,
+tampines-steam-tables, tuas_boussinesq_solver }`. None of those depend back on
+`openfoam-appbuilder-lib`, so the graph stays a DAG and Cargo is satisfied. The
+only edge that would ever cycle is `openfoam-basic-lib → tampines`, and this is
+not that.
+
+Because `openfoam-basic-lib` uses **enum dispatch** for thermophysics
+(`Eos`/`Thermo`, no trait objects), the steam-backed model cannot be a variant
+*inside* those enums — that would force `openfoam-basic-lib` to depend on this
+crate. So the steam thermo is introduced **at the appbuilder level** (Solution
+**B**), e.g. a new `enum FluidThermoModel { Basic(Thermo), Steam(TampinesSteamTableCV) }`
+declared in appbuilder, or the solver holding the steam table directly where it
+currently evaluates `ρ = ψ·p`.
+
+There is a deliberate symmetry: `TampinesSteamArray` (in TAMPINES) is a simpler
+1-D sibling of appbuilder's `RhoPimpleFoam`. The array is validated against
+Marviken in-crate; the full solver in appbuilder then consumes the *same* tables
+one layer up.
+
+**Current choice:** Solution **A** realised at the `openfoam-appbuilder-lib`
+level, with **B** for the thermo model and **D** available if the property-only
+compile surface ever needs trimming. `tampines-steam-tables` depends only on
+`openfoam-basic-lib`; the forbidden `openfoam-basic-lib → tampines` edge is
+never drawn.
 
 
 # Changelog
