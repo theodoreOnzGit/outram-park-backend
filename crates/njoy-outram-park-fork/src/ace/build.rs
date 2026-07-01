@@ -295,21 +295,19 @@ impl AceTable {
         let nr = producers.len();
 
         // ── LAND / AND (angular) and LDLW / DLW (energy) secondary blocks ────
-        let elastic_aniso = angular.is_some_and(|a| !a.is_all_isotropic());
-        if elastic_aniso || nr > 0 {
-            // LAND: NR+1 entries — elastic then each producer. Elastic points at
-            // the start of the AND block (locator 1) if anisotropic; producers
-            // are isotropic (0) pending a non-elastic angular upgrade.
-            jxs[jxs::LAND] = b.next_locator();
-            b.int(if elastic_aniso { 1 } else { 0 });
-            for _ in 0..nr {
-                b.int(0);
-            }
-            // AND: the elastic angular data (empty if elastic is isotropic).
-            jxs[jxs::AND] = b.next_locator();
-            if elastic_aniso {
-                append_and_data(&mut b, angular.unwrap());
-            }
+        // Reactions in LAND order: elastic first, then each producer. Discrete
+        // levels carry an MF=4 angular distribution; continuum producers are
+        // isotropic (correlated angle → future Law 61/44).
+        let mut angulars: Vec<Option<&ElasticAngular>> = Vec::with_capacity(nr + 1);
+        angulars.push(angular);
+        for e in &producers {
+            angulars.push(e.angular.as_ref());
+        }
+        let any_aniso = angulars.iter().any(|a| a.is_some_and(|x| !x.is_all_isotropic()));
+        if any_aniso || nr > 0 {
+            let (land, and) = append_angular_blocks(&mut b, &angulars);
+            jxs[jxs::LAND] = land;
+            jxs[jxs::AND] = and;
         }
         if nr > 0 {
             let (ldlw, dlw) = append_dlw(&mut b, &producers, egrid[0] / EMEV, egrid[nes - 1] / EMEV);
@@ -399,48 +397,94 @@ impl XssBuilder {
     }
 }
 
-/// Append the **elastic AND-block data** to `b` (the LAND array is written by the
-/// caller, which knows the full producer count). This is the block the elastic
-/// LAND(1) locator points at:
+/// Append the **LAND** and **AND** blocks for a set of reactions in LAND order
+/// (elastic first, then the neutron producers), returning the 1-based
+/// `(LAND, AND)` locators for JXS(8)/JXS(9).
 ///
-/// `NE`, `E(1..NE)` \[MeV\], `L(1..NE)` (per-energy locators relative to the AND
-/// start, 1-based; negative ⇒ tabulated, `0` ⇒ isotropic), then for each
-/// anisotropic energy `[JJ, NP, μ(1..NP), pdf(1..NP), cdf(1..NP)]`. Layout per
-/// `change` in `acefc.f90`.
-fn append_and_data(b: &mut XssBuilder, ang: &ElasticAngular) {
-    let energies = &ang.energies;
-    let ne = energies.len();
+/// Each reaction's angular distribution, if anisotropic, is written to the AND
+/// block and referenced by its LAND locator (AND-relative, 1-based); isotropic or
+/// absent reactions get LAND locator `0`. Layout per `change` in `acefc.f90`.
+fn append_angular_blocks(b: &mut XssBuilder, reactions: &[Option<&ElasticAngular>]) -> (i32, i32) {
+    // Segment length (AND words) of each reaction's data; 0 if isotropic/absent.
+    let seg_len: Vec<i32> = reactions
+        .iter()
+        .map(|r| match r {
+            Some(a) if !a.is_all_isotropic() => {
+                let ne = a.energies.len() as i32;
+                let dists: i32 = a
+                    .energies
+                    .iter()
+                    .filter(|e| !e.is_isotropic())
+                    .map(|e| 2 + 3 * e.cosines.len() as i32)
+                    .sum();
+                1 + ne + ne + dists // NE + E(NE) + L(NE) + dists
+            }
+            _ => 0,
+        })
+        .collect();
 
-    // The AND block begins at the NE word; per-energy locators are relative to it.
-    // Anisotropic data follows the [NE, E(1..NE), L(1..NE)] preamble (2·NE + 1
-    // words), so the first data block is at AND-relative word 2·NE + 2.
-    let mut offset = (2 * ne + 2) as i32;
-    let mut locs = Vec::with_capacity(ne);
-    for ea in energies {
-        if ea.is_isotropic() {
-            locs.push(0);
-        } else {
-            locs.push(-offset);
-            offset += 2 + 3 * ea.cosines.len() as i32;
+    // AND-relative start offset (1-based) of each present segment.
+    let mut starts = vec![0i32; reactions.len()];
+    let mut off = 1i32;
+    for (i, &len) in seg_len.iter().enumerate() {
+        if len > 0 {
+            starts[i] = off;
+            off += len;
         }
     }
 
-    b.int(ne as i32); // NE
-    for ea in energies {
-        b.real(ea.e_mev); // E [MeV]
+    // LAND: one locator per reaction.
+    let land = b.next_locator();
+    for &s in &starts {
+        b.int(s);
+    }
+
+    // AND: each anisotropic reaction's angular data.
+    let and = b.next_locator();
+    for (i, r) in reactions.iter().enumerate() {
+        if seg_len[i] > 0 {
+            write_angular_segment(b, r.unwrap(), starts[i]);
+        }
+    }
+    (land, and)
+}
+
+/// Write one reaction's angular segment starting at AND-relative word `s`
+/// (1-based): `NE`, `E(1..NE)` \[MeV\], `L(1..NE)` (AND-relative locators;
+/// negative ⇒ tabulated, `0` ⇒ isotropic), then `[JJ, NP, μ, pdf, cdf]` for each
+/// anisotropic energy.
+fn write_angular_segment(b: &mut XssBuilder, a: &ElasticAngular, s: i32) {
+    let energies = &a.energies;
+    let ne = energies.len() as i32;
+
+    // First distribution block sits after the [NE, E(NE), L(NE)] preamble.
+    let mut dist_base = s + 2 * ne + 1;
+    let mut locs = Vec::with_capacity(energies.len());
+    for e in energies {
+        if e.is_isotropic() {
+            locs.push(0);
+        } else {
+            locs.push(-dist_base);
+            dist_base += 2 + 3 * e.cosines.len() as i32;
+        }
+    }
+
+    b.int(ne); // NE
+    for e in energies {
+        b.real(e.e_mev); // E [MeV]
     }
     for &l in &locs {
         b.int(l); // L locator
     }
-    for ea in energies {
-        if ea.is_isotropic() {
+    for e in energies {
+        if e.is_isotropic() {
             continue;
         }
         b.int(2); // JJ = 2 (lin-lin)
-        b.int(ea.cosines.len() as i32); // NP
-        ea.cosines.iter().for_each(|&m| b.real(m));
-        ea.pdf.iter().for_each(|&p| b.real(p));
-        ea.cdf.iter().for_each(|&c| b.real(c));
+        b.int(e.cosines.len() as i32); // NP
+        e.cosines.iter().for_each(|&m| b.real(m));
+        e.pdf.iter().for_each(|&p| b.real(p));
+        e.cdf.iter().for_each(|&c| b.real(c));
     }
 }
 

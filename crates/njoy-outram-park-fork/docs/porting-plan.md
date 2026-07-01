@@ -144,8 +144,11 @@ thin Rust `driver` that parses the input deck and `match`es over `NjoyModule`.
     from the tape. Gate: DLW-walk validation (IDAT=header+9, cdf 0→1 monotone,
     TYR↔producer) + full-table Type-1 round-trip on U-235 (`tests/acer.rs`). The
     U-235 table now emits with NR=43 (39 Law 3 + 4 Law 4).
+    **Discrete-level angular** is also wired: MT51–90 (Law 3) carry their MF=4
+    angular distribution into the AND block (LAND locator > 0), via the generalised
+    `append_angular_blocks`; U-235 shows many anisotropic producers.
     **Remaining 4d gaps**: fission secondaries (MT18 — needs the ν̄/NU block, 4b);
-    non-elastic **angular** (producers are currently isotropic — MF=6 LANG=1
+    **continuum** correlated angle (MF=6 producers still isotropic — LANG=1
     Legendre → Law 61, LANG=2 Kalbach → Law 44); and MF=6 **LAW=2** (two-body) /
     **LAW=6** (phase space), currently skipped gracefully (e.g. H-2 (n,2n)).
   - **4e — heating (ESZ column 5).** Zero until HEATR (Phase 3) lands.

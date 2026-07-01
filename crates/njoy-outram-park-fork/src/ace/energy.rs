@@ -58,6 +58,7 @@
 
 use crate::endf::{records::SectionCursor, tape::Section};
 use crate::endf::tape::Tape;
+use crate::ace::angular::{parse_elastic_angular, ElasticAngular};
 use crate::NjoyError;
 
 /// eV → MeV.
@@ -181,6 +182,11 @@ pub struct Emission {
     pub tyr: i32,
     /// The secondary-neutron energy-distribution law.
     pub law: EnergyLaw,
+    /// The secondary-neutron **angular** distribution for the ACE AND block, when
+    /// it is given *separately* from the energy (MF=4, two-body discrete levels).
+    /// `None` ⇒ isotropic in the emission frame (continuum MF=6 reactions, whose
+    /// correlated angle is a future Law 61/44 upgrade, use this).
+    pub angular: Option<ElasticAngular>,
 }
 
 /// Build an ACE Law 3 for a discrete two-body level reaction from its Q-value.
@@ -227,13 +233,29 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
     for &(mt, qi) in partials {
         let Some(y) = neutron_yield(mt) else { continue };
         if (51..=90).contains(&mt) {
-            // Two-body discrete level → Law 3 (CM frame ⇒ negative TYR).
-            out.push(Emission { mt, tyr: -(y as i32), law: law3_discrete_level(qi, awr) });
+            // Two-body discrete level → Law 3 (CM frame ⇒ negative TYR). Its
+            // angular distribution is given separately in MF=4 (→ AND block).
+            let angular = tape
+                .section(mat, 4, mt)
+                .and_then(|s| parse_elastic_angular(s).ok())
+                .filter(|a| !a.is_all_isotropic());
+            out.push(Emission {
+                mt,
+                tyr: -(y as i32),
+                law: law3_discrete_level(qi, awr),
+                angular,
+            });
         } else if let Some(sec) = tape.section(mat, 6, mt) {
-            // Continuum / (n,xn) → Law 4 from the MF=6 neutron spectrum.
+            // Continuum / (n,xn) → Law 4 from the MF=6 neutron spectrum. The angle
+            // is correlated (in MF=6); left isotropic pending a Law 61/44 upgrade.
             if let Ok(n) = parse_mf6_law1_neutron(sec) {
                 let sign = if n.lct == 2 { -1 } else { 1 };
-                out.push(Emission { mt, tyr: sign * y as i32, law: EnergyLaw::Law4(n.law4) });
+                out.push(Emission {
+                    mt,
+                    tyr: sign * y as i32,
+                    law: EnergyLaw::Law4(n.law4),
+                    angular: None,
+                });
             }
         }
     }

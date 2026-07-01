@@ -354,6 +354,24 @@ fn u235_full_table_mixes_law3_and_law4() {
 }
 
 #[test]
+fn u235_discrete_levels_carry_mf4_angular() {
+    // LAND has NR+1 entries (elastic + producers). Discrete inelastic levels
+    // (Law 3) now carry their MF=4 angular distribution, so several producer LAND
+    // locators must be > 0 (into the AND block), not all isotropic (0).
+    let ace = build_full("n-092_U_235-ENDF8.0.endf", 9228);
+    let nr = ace.nxs[nxs::NR] as usize;
+    let land0 = (ace.jxs[jxs::LAND] - 1) as usize;
+    let producer_land = &ace.xss[land0 + 1..land0 + 1 + nr]; // skip elastic entry
+    let anisotropic = producer_land.iter().filter(|&&l| l > 0.0).count();
+    assert!(
+        anisotropic > 5,
+        "discrete levels should carry MF=4 angular, got {anisotropic} anisotropic producers"
+    );
+    // Every LAND locator is a valid AND-relative index or 0/isotropic.
+    assert!(producer_land.iter().all(|&l| l >= 0.0), "no negative producer LAND");
+}
+
+#[test]
 fn full_table_roundtrips_through_file() {
     // The complete table (ESZ+SIG+AND+DLW) must survive a Type-1 write/parse.
     let ace = build_full("n-092_U_235-ENDF8.0.endf", 9228);
