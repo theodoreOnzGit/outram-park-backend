@@ -136,6 +136,98 @@ pub fn parse_mf5_law4(section: &Section) -> Result<Law4, NjoyError> {
     Ok(Law4 { e_in_interp, incident })
 }
 
+/// The neutron emission of an MF=6 LAW=1 reaction, reduced to an ACE Law 4
+/// energy distribution.
+///
+/// Built by [`parse_mf6_law1_neutron`]. Carries the multiplicity (yield) and
+/// reference frame so the caller can fill the ACE TYR entry, plus the energy
+/// distribution [`law4`](Self::law4). The **angular** dependence present in the
+/// ENDF data (Legendre coefficients when LANG=1, Kalbach `r`/`a` when LANG=2) is
+/// **not** carried here — extracting it into ACE Law 61/44 is the follow-up; this
+/// captures the energy spectrum (`f₀`) as Law 4 (isotropic emission).
+#[derive(Debug, Clone)]
+pub struct Mf6Neutron {
+    /// Reference frame of the distribution: `1` = laboratory, `2` = centre-of-mass
+    /// (LCT from the MF=6 HEAD). Determines the sign of the ACE TYR entry.
+    pub lct: i32,
+    /// Neutron multiplicity (yield) vs incident energy `(E [eV], y)` — the
+    /// subsection's TAB1. A constant `y` (e.g. 2 for (n,2n)) gives `TYR = ±y`.
+    pub yield_pairs: Vec<(f64, f64)>,
+    /// The outgoing-energy distribution as an ACE Law 4.
+    pub law4: Law4,
+}
+
+/// Parse the **neutron** product of an MF=6 LAW=1 section into an ACE Law 4
+/// energy distribution.
+///
+/// MF=6 LAW=1 stores, per incident energy, a LIST of `[E'_out, f₀, f₁ … f_NA]`
+/// rows (`NA` angular coefficients after the energy pdf `f₀`). This extracts the
+/// energy pdf `f₀` — faithful to `acelf6` for the isotropic (`NA=0`) case, and
+/// the energy-only reduction of the anisotropic case. The neutron product is the
+/// `ZAP=1` subsection (the first subsection for (n,xn)/(n,n') reactions).
+///
+/// # Limitations
+/// Requires the **first** subsection to be the neutron (`ZAP=1`) with `LAW=1` and
+/// no discrete lines (`ND=0`). Photon/recoil subsections, `LAW≠1`, and the
+/// angular (Law 61/44) conversion are follow-ups.
+///
+/// # Errors
+/// [`NjoyError::NotPorted`] for the unhandled cases above; [`NjoyError::EndfParse`]
+/// on malformed records.
+pub fn parse_mf6_law1_neutron(section: &Section) -> Result<Mf6Neutron, NjoyError> {
+    let mut cur = SectionCursor::new(&section.rows);
+    let head = cur.read_cont()?; // ZA, AWR, JP, LCT, NK, 0
+    let lct = head.l2;
+
+    // First subsection: TAB1 yield; its head carries ZAP (C1) and LAW (L2).
+    let ymult = cur.read_tab1()?;
+    let zap = ymult.head.c1.round() as i32;
+    let law = ymult.head.l2;
+    if zap != 1 {
+        return Err(NjoyError::NotPorted(
+            "MF=6 first subsection is not the neutron (ZAP≠1) — Phase 4d follow-up",
+        ));
+    }
+    if law != 1 {
+        return Err(NjoyError::NotPorted(
+            "MF=6 LAW≠1 (two-body/phase-space/etc.) — Phase 4d follow-up",
+        ));
+    }
+
+    // LAW=1 body: TAB2 (LANG, LEP, NE) then one LIST per incident energy.
+    let tab2 = cur.read_tab2()?;
+    let lep = tab2.head.l2; // secondary-energy interpolation
+    let ne = tab2.head.n2;
+    let intt = if lep >= 2 { 2 } else { 1 };
+    let e_in_interp = collapse_interp(&tab2.interp);
+
+    let mut incident = Vec::with_capacity(ne as usize);
+    for _ in 0..ne {
+        let list = cur.read_list()?;
+        let e_in_ev = list.head.c2;
+        let nd = list.head.l1; // number of discrete lines
+        let na = list.head.l2; // number of angular coefficients per E_out
+        let nep = list.head.n2; // number of secondary-energy points
+        if nd != 0 {
+            return Err(NjoyError::NotPorted(
+                "MF=6 LAW=1 with discrete lines (ND>0) — Phase 4d follow-up",
+            ));
+        }
+        // Each row is [E'_out, f0, f1 … f_NA]; stride = NA + 2. Extract (E', f0).
+        let stride = (na + 2) as usize;
+        let mut pairs: Vec<(f64, f64)> = Vec::with_capacity(nep as usize);
+        for r in 0..nep as usize {
+            let base = r * stride;
+            let e_out = list.data[base];
+            let f0 = list.data[base + 1];
+            pairs.push((e_out, f0));
+        }
+        incident.push(build_outgoing(e_in_ev, intt, &pairs));
+    }
+
+    Ok(Mf6Neutron { lct, yield_pairs: ymult.pairs, law4: Law4 { e_in_interp, incident } })
+}
+
 /// Build one outgoing-energy distribution: convert eV→MeV, scale the pdf to /MeV,
 /// accumulate the CDF (per `intt`), and renormalise to unit total. Mirrors the
 /// per-incident-energy loop in `acelf5`.
@@ -221,6 +313,40 @@ mod tests {
             assert!((d.cdf[0]).abs() < 1e-9, "cdf starts at 0");
             assert!((d.cdf.last().unwrap() - 1.0).abs() < 1e-6, "cdf ends at 1");
             assert!(d.cdf.windows(2).all(|w| w[1] >= w[0] - 1e-9), "cdf monotone");
+        }
+    }
+
+    fn u235_mf6(mt: i32) -> Mf6Neutron {
+        let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+        let tape = Tape::read(File::open(p).unwrap()).unwrap();
+        let sec = tape.section(9228, 6, mt).expect("U-235 MF=6");
+        parse_mf6_law1_neutron(sec).unwrap()
+    }
+
+    #[test]
+    fn mf6_n2n_yield_and_frame() {
+        // MT=16 (n,2n): neutron multiplicity 2, centre-of-mass frame (LCT=2).
+        let n2n = u235_mf6(16);
+        assert_eq!(n2n.lct, 2, "LCT=2 (CM)");
+        assert!(n2n.yield_pairs.iter().all(|&(_, y)| (y - 2.0).abs() < 1e-6),
+            "(n,2n) yield is 2");
+        assert!(n2n.law4.incident.len() > 5, "MT16 has an E_in grid");
+    }
+
+    #[test]
+    fn mf6_energy_distributions_are_valid() {
+        // Both MT16 (n,2n) and MT91 (continuum inelastic) energy spectra.
+        for mt in [16, 91] {
+            let d = u235_mf6(mt);
+            assert!(d.yield_pairs.iter().all(|&(_, y)| y >= 1.0), "yield ≥ 1");
+            for dist in &d.law4.incident {
+                assert!(dist.e_out_mev.windows(2).all(|w| w[1] >= w[0]), "E_out ascending");
+                assert!(dist.pdf.iter().all(|&p| p >= 0.0), "pdf ≥ 0");
+                assert!((dist.cdf[0]).abs() < 1e-9, "cdf starts at 0");
+                assert!((dist.cdf.last().unwrap() - 1.0).abs() < 1e-6, "cdf ends at 1");
+                assert!(dist.cdf.windows(2).all(|w| w[1] >= w[0] - 1e-9), "cdf monotone");
+            }
         }
     }
 
