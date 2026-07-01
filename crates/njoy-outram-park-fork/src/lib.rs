@@ -48,6 +48,10 @@ pub mod modules;
 pub mod prelude;
 pub mod reconr;
 pub mod units;
+/// Windowed Multipole (WMP) cross-section import — **scaffold only**. This is
+/// independent **MIT CRPG** work (not NJOY/LANL); see [`wmp`] for provenance and
+/// the MIT attribution requirements. Planned Phase-4 item, after thermal S(α,β).
+pub mod wmp;
 
 mod error;
 pub use endf::MtReaction;

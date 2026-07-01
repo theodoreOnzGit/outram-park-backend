@@ -58,6 +58,11 @@
 
 pub mod angular;
 pub mod build;
+pub mod energy;
+/// Thermal scattering **S(α,β)** ACE table writer — **scaffold only** (Phase 4,
+/// scheduled after the continuous-energy ACE library). See [`thermal`] for the
+/// planned layout and the THERMR/LEAPR prerequisites.
+pub mod thermal;
 pub mod write;
 
 /// A continuous-energy ACE table held in memory.

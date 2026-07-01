@@ -189,11 +189,8 @@ impl AceTable {
             .map(|sec| egrid.iter().map(|&e| sigfig(eval_partial(sec, e), 7)).collect())
             .collect();
 
-        let mut total = vec![0.0f64; nes];
+        let mut total = elastic_xs.clone();
         let mut disappear = vec![0.0f64; nes];
-        for j in 0..nes {
-            total[j] = elastic_xs[j];
-        }
         for (k, sec) in partials.iter().enumerate() {
             let mt = i32::from(sec.mt);
             let disap = is_disappearance(mt);

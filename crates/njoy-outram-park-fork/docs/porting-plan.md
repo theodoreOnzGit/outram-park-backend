@@ -114,7 +114,58 @@ thin Rust `driver` that parses the input deck and `match`es over `NjoyModule`.
 - **Phase 4 — ACER.** Emit an ACE file OpenMC loads and runs. **This is the
   milestone that satisfies the OpenMC dependency.** Largest single phase
   (acefc.f90 alone is ~20k lines) — split by ACE block (nu, angular, energy
-  distributions, photon production, …).
+  distributions, photon production, …). Progress:
+  - **4a — cross-section core.** ✅ `src/ace/` ports `aceout`/`change` (Type-1
+    ASCII format) + the cross-section part of `acelod`: the **ESZ** block (union
+    energy grid, total = elastic + Σ partials, disappearance, elastic, heating)
+    and the **MTR/LQR/TYR/LSIG/SIG** reaction blocks, from a `ReconrResult`.
+    Exposed as `AceTable::from_reconr` / `write_type1` and via
+    `NuclearDataLibrary::write_ace`. RECONR now threads each reaction's QI
+    through `ReconrSection.qi` for the LQR block. Gate: NXS/JXS/XSS
+    self-consistency + Type-1 round-trip (`tests/acer.rs`).
+  - **4c — elastic angular distribution (LAND/AND).** ✅ `src/ace/angular.rs`
+    ports the MF=4/MT=2 path (`topfil`/`ptleg`/`pttab`, `newfor=1`): parses LTT=1
+    (Legendre), 2 (tabulated), 3 (both), converts each incident energy to the ACE
+    tabulated-cosine form (`JJ=2`, μ/pdf/cdf), and appends LAND + AND via
+    `from_reconr_with_angular`. `write_ace` wires it through the tape. Gate:
+    AND-block round-trip + cdf∈[0,1] monotone + ⟨μ⟩ = a₁ physics check
+    (`tests/acer.rs`, `angular.rs` unit tests). Only **elastic** for now.
+  - **4b — fission ν̄ (NU block).** Needs MF=1/MT=452 (and 455/456). Not started.
+  - **4d — energy distributions (LDLW/DLW) + non-elastic angular.** ⏳ in
+    progress. `src/ace/energy.rs` ports the **MF=5 LF=1 → ACE Law 4** conversion
+    (continuous tabular E', the fission χ(E→E') path; faithful to `acelf5`):
+    `parse_mf5_law4` → per-incident-energy (E_out, pdf, cdf), validated on U-235
+    χ (pdf≥0, cdf 0→1 monotone, spectrum peaks ~1 MeV). **Not yet wired into the
+    DLW block**: NXS(5)=NR counts *neutron-producing* reactions and every producer
+    needs a valid law, so a loadable DLW waits on the **MF=6** laws (most producers
+    here are MF=6) — **next**: MF=6 LAW=1 LANG=2 Kalbach-Mann → Law 44 (`acelf6`),
+    LANG=1 Legendre → Law 61, two-body/discrete-level → Law 3 (from Q+AWR). The
+    `energy.rs` module doc records the exact DLW/LDLW/TYR/NR layout for wiring.
+  - **4e — heating (ESZ column 5).** Zero until HEATR (Phase 3) lands.
+  - **4f — thermal S(α,β) ACE table.** ⏳ **scaffolded** (`src/ace/thermal.rs`,
+    stub returning `NotPorted`). Writes the `…t` thermal-scattering tables
+    (graphite, H₂O, D₂O, ZrH, …) with the thermal NXS/JXS layout
+    (ITIE/ITIX/ITXE inelastic; ITCE/ITCX/ITCA coherent-elastic Bragg;
+    ITCEI/ITCXI/ITCAI incoherent-elastic) — ports `aceth.f90` + the thermal
+    driver in `acefc.f90`. **Scheduled after 4a–4e** (the CE library) finish.
+    Prerequisite: **THERMR** (`thermr.f90`, Phase 3) to turn MF=7 S(α,β) into the
+    thermal cross sections / energy-angle distributions this consumes; optionally
+    **LEAPR** (`leapr.f90`, Phase 5) to *generate* MF=7 when an evaluation lacks
+    it. See the `src/ace/thermal.rs` module docs for the full TODO list.
+  The written file now carries cross sections + the elastic angular distribution.
+  Until 4b/4d/4e exist it is still not a complete transport library (no secondary
+  energy distributions, so inelastic/fission collisions can't be followed); 4f
+  (thermal S(α,β)) is a separate table type layered on top once 4a–4e are done.
+  - **4g — Windowed Multipole (WMP) import.** ⏳ **scaffolded** (`src/wmp.rs`,
+    stub returning `NotPorted`). **Independent MIT CRPG work — NOT NJOY/LANL.**
+    Imports the **MIT** `WMP_Library` (<https://github.com/mit-crpg/WMP_Library>,
+    MIT-licensed) HDF5 multipole data: complex poles/residues + windows enabling
+    *analytic* on-the-fly Doppler broadening (Faddeeva `w(z)`), a parallel
+    alternative to the pointwise ACE/PENDF representation. **Scheduled after 4f**
+    (thermal S(α,β)). Credit MIT CRPG and Josey/Romano/Forget/Smith; add a
+    separate `LICENSE-WMP` (MIT) + NOTICE entry before importing any code/data —
+    keep it cleanly separable from the NJOY BSD/LANL provenance. See the
+    `src/wmp.rs` module docs.
 - **Phase 5 — multigroup/covariance** (GROUPR, ERRORR, …): only if OUTRAM PARK
   needs deterministic or sensitivity workflows.
 - **Phase 6 — formatters/plotting:** on demand only.

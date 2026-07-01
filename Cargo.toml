@@ -45,6 +45,10 @@ rayon = "1.11.0"
 fission-yields-data = "0.1.4"
 openmc-endf-8-depletion-lib-a = "1.0.0"
 openmc-endf-8-depletion-lib-b = "1.0.0"
+# pure-Rust HDF5 (no system libhdf5) — staged for the Windowed Multipole (WMP)
+# import in njoy-outram-park-fork (Phase 4g, MIT WMP_Library). No member inherits
+# it yet, so it has no build impact until WMP adds `hdf5-pure.workspace = true`.
+hdf5-pure = { version = "0.20.0", features = ["ndarray"] }
 
 # GUI / example stack — egui ecosystem pinned to the matched 0.34 series
 # (egui 0.34 requires Rust >= 1.92)
