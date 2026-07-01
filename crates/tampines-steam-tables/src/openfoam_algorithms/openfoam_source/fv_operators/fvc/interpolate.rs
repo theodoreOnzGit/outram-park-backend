@@ -50,8 +50,8 @@ fn linear_weight(mesh: &FvMesh, f: usize) -> f64 {
 /// fixed-value → the fixed value, etc.).
 ///
 /// ```rust
-/// use openfoam_basic_lib::prelude::*;
-/// use openfoam_basic_lib::fv_operators::fvc;
+/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::*;
+/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::fv_operators::fvc;
 /// use std::sync::Arc;
 ///
 /// let mesh = Arc::new(

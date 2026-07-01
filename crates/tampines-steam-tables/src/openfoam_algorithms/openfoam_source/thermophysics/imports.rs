@@ -27,7 +27,7 @@
 /// reachable as:
 ///
 /// ```rust
-/// use openfoam_basic_lib::thermophysics::imports::*;
+/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::*;
 /// let p = Pressure::new::<pascal>(101325.0);
 /// assert!(p.get::<pascal>() > 0.0);
 /// ```

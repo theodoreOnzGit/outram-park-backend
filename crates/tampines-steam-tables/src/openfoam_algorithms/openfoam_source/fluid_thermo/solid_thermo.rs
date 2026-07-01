@@ -69,8 +69,8 @@ pub trait SolidThermo {
 /// small.
 ///
 /// ```rust
-/// use openfoam_basic_lib::prelude::*;
-/// use openfoam_basic_lib::fluid_thermo::{ConstSolidThermo, SolidThermo};
+/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::*;
+/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::fluid_thermo::{ConstSolidThermo, SolidThermo};
 /// use std::sync::Arc;
 ///
 /// let mesh = Arc::new(
