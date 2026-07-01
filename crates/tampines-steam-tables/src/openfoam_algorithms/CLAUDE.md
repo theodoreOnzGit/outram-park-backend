@@ -100,6 +100,7 @@ paper's V&V section.
 - Provenance comment headers
 - Test bootstrap boilerplate
 - Copy-paste of digitised reference arrays
+- Downgrading `pub use` → `pub(crate) use` on primitives you touch
 
 ## Physics assumptions
 
@@ -113,3 +114,28 @@ paper's V&V section.
 
 - NaN or non-finite value appears in any snapshot field
 - Test panics from unwrap or assertion in solver internals
+
+## Known port debt — `pub use` → `pub(crate) use`
+
+The initial verbatim copy of openfoam-basic-lib into this crate uses
+`pub use` re-exports in several places. This was expedient during the
+port but is incorrect for the intended module contract: none of the
+copied OpenFOAM primitives should be part of `tampines-steam-tables`'s
+public surface.
+
+As part of your work in this module:
+
+- Downgrade `pub use` → `pub(crate) use` on any copied openfoam-basic-lib
+  re-export you touch or depend on
+- Do not add any new `pub use` re-exports from the copied primitives
+- If `cargo build` breaks because an external consumer was relying on a
+  `pub use` re-export, stop and ask — that's a signal the primitive was
+  leaking into the public API and needs a proper wrapper, not a
+  visibility downgrade
+- The only symbols that should be `pub` from this module are
+  `TampinesSteamArray` and its associated snapshot types
+
+This is incremental cleanup — fix what you touch, don't do a
+crate-wide sweep. The intent is to prevent the debt from compounding,
+not to block Edwards work on housekeeping.
+
