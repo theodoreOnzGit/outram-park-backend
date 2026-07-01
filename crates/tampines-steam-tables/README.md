@@ -67,6 +67,118 @@ Note: If you want to resize, use Ctrl+ and Ctrl- to change the size of the
 simulator.
 
 
+# OpenFOAM algorithms inside TAMPINES (`TampinesSteamArray`)
+
+This crate has two intentions that pull in opposite directions:
+
+1. **OpenFOAM solvers should eventually use TAMPINES for steam properties.**
+   A compressible/multiphase OpenFOAM-in-Rust solver needs an equation of
+   state and enthalpy/transport closures; the IAPWS-IF97 tables here are the
+   natural source. That means *some OpenFOAM crate depends on
+   `tampines-steam-tables`*.
+
+2. **TAMPINES should host an OpenFOAM-style array solver of its own.**
+   `openfoam_algorithms::rhoPimpleFoam::TampinesSteamArray` is a 1-D
+   compressible PIMPLE pipe solver built on `openfoam-basic-lib`'s `FvMesh`,
+   fields, and FV operators (via `create_one_d_mesh`). That means
+   *`tampines-steam-tables` depends on an OpenFOAM crate*.
+
+Both can be true **without a dependency cycle**, but only if the edges are
+drawn carefully. Cargo forbids cyclic `[dependencies]` between crates, so this
+is a hard constraint, not a style preference.
+
+### The current graph (a clean DAG)
+
+```
+openfoam-basic-lib        (Layers 1–4: primitives, fields, mesh, FV operators)
+   ▲        ▲        ▲
+   │        │        └── tuas_boussinesq_solver
+   │        └─────────── openfoam-turbulence-lib
+   │                          ▲
+   │                          └── openfoam-appbuilder-lib   (Layer 5: solver loops)
+   └────────────────────────────  tampines-steam-tables     (+ tuas)
+```
+
+Every arrow points **down** to `openfoam-basic-lib`. `tampines-steam-tables`
+already depends on `openfoam-basic-lib` (for `TampinesSteamArray`); nothing
+depends on `tampines-steam-tables` yet.
+
+### The invariant
+
+> A steam-table **consumer** must sit **above** `tampines-steam-tables` in the
+> layer stack. `tampines-steam-tables` may depend **downward** into
+> `openfoam-basic-lib` (Layers 1–4 primitives) but must never depend on a
+> Layer-5 solver crate, and **`openfoam-basic-lib` must never depend on
+> `tampines-steam-tables`.**
+
+The single forbidden edge is `openfoam-basic-lib → tampines-steam-tables`. It
+would arise if we tried to make Layer-4 `FluidThermo` *inside* `openfoam-basic-lib`
+call the steam tables directly. Because `openfoam-basic-lib` uses **enum
+dispatch** for its thermophysics models (`Eos`, `Thermo`; no trait objects —
+see the workspace `CLAUDE.md`), a `SteamTable` variant cannot be added to those
+enums without `openfoam-basic-lib` depending on this crate — i.e. the cycle.
+So the steam-backed thermophysics model must be assembled **one layer up**.
+
+### Possible solutions
+
+**A. Layered consumer (recommended baseline).**
+Keep `tampines-steam-tables → openfoam-basic-lib` as is. Wire the steam tables
+into solvers at **Layer 5** — either in `openfoam-appbuilder-lib` or in a new
+dedicated `openfoam-steam` crate — where a crate is free to depend on *both*
+`openfoam-basic-lib` and `tampines-steam-tables`. The graph stays a DAG and
+`TampinesSteamArray` stays in this crate.
+
+```
+openfoam-basic-lib ◄── tampines-steam-tables ◄── openfoam-steam (Layer-5 solver)
+        ▲                                              │
+        └──────────────────────────────────────────────┘
+```
+
+**B. Thermophysics contract in the lower crate, steam variant in the upper.**
+`openfoam-basic-lib` keeps defining the thermophysics *interface*
+(`EquationOfState` / `ThermoModel` traits + the `Eos`/`Thermo` enums). The
+concrete **steam-backed** thermo model is a *new* enum/struct declared in the
+Layer-5 crate that wraps *either* the `openfoam-basic-lib` `Thermo` enum *or*
+the TAMPINES `TampinesSteamTableCV`. This respects the enum-dispatch rule while
+keeping the steam dependency above the primitives. Complements A.
+
+**C. Split TAMPINES into two crates.**
+`tampines-steam-tables` becomes a *pure* IAPWS-IF97 property crate with **no**
+OpenFOAM dependency (so any solver can consume it cheaply), and a separate
+`tampines-steam-array` crate depends on **both** `tampines-steam-tables` and
+`openfoam-basic-lib` to host `TampinesSteamArray` + the Marviken verification.
+Architecturally the cleanest DAG, but it **moves the OpenFOAM algorithms out of
+this crate**, which is explicitly *not* what we want right now — listed for
+completeness and as the escape hatch if the in-crate coupling becomes painful.
+
+**D. Feature-gate the OpenFOAM dependency (compatible with A/B).**
+Put `openfoam-basic-lib` behind an optional `openfoam-algorithms` Cargo feature.
+Property-only consumers depend on a lean `tampines-steam-tables` (no `FvMesh`
+pulled in); `TampinesSteamArray` and its Marviken tests live behind
+`--features openfoam-algorithms`. This does not change the cycle analysis (the
+edge direction is unchanged) — it just keeps the property-only dependency
+surface minimal for downstream OpenFOAM solvers that only want an EOS.
+
+### Why keep the algorithms here at all (mission creep, acknowledged)
+
+The workspace `CLAUDE.md` says Layer-5 solver-loop logic belongs in solver
+crates, not lower layers — and `TampinesSteamArray` is Layer-5 logic living in a
+property crate. This is a **deliberate, scoped exception**: the goal is to
+**verify the transient array solver against the Marviken blowdown data** that
+already lives here
+(`src/steam_turbine_equations/converging_diverging_nozzles/tests/marviken_tests.rs`,
+NUREG/CR-2671). Co-locating the steam tables, the Marviken reference data, and
+the transient `TampinesSteamArray` lets that validation loop be written and run
+inside one crate before the solver is promoted to a proper Layer-5 home. If/when
+the validation is settled, Solution **C** is the clean path to graduate the
+algorithms out.
+
+**Current choice:** Solution **A** (with **D** available if the property-only
+compile surface needs trimming). `tampines-steam-tables` depends only on
+`openfoam-basic-lib`; steam-table consumers will be added at Layer 5; the
+forbidden `openfoam-basic-lib → tampines` edge is never drawn.
+
+
 # Changelog
 
 v0.2.1 — transient mass & energy balance and
