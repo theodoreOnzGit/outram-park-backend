@@ -14,8 +14,12 @@
 //!
 //! - [`mf7`] — **done**: parse MF=7 MT=2 (coherent/incoherent elastic) and MT=4
 //!   (incoherent inelastic S(α,β)) into typed data.
-//! - THERMR cross-section/distribution computation — not yet ported (`thermr.f90`).
+//! - [`coherent`] — **done**: coherent-elastic (Bragg) cross section σ(E)=S(E)/E
+//!   and the discrete reflection cosines/weights.
+//! - Incoherent-inelastic cross section + double-differential distributions from
+//!   S(α,β) — not yet ported (the core of `thermr.f90`).
 //!
 //! See `docs/porting-plan.md` (Phase 3 THERMR, Phase 4f thermal ACE).
 
+pub mod coherent;
 pub mod mf7;

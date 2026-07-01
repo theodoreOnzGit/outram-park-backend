@@ -162,11 +162,15 @@ thin Rust `driver` that parses the input deck and `match`es over `NjoyModule`.
     thermal cross sections / energy-angle distributions this consumes; optionally
     **LEAPR** (`leapr.f90`, Phase 5) to *generate* MF=7 when an evaluation lacks
     it. See the `src/ace/thermal.rs` module docs for the full TODO list.
-    **Progress:** the **MF=7 reader** is done — `src/thermal/mf7.rs` parses MT=2
-    coherent-elastic Bragg `S(E)` and MT=4 incoherent-inelastic `S(α,β)` (B-const
-    + β/α grids) into typed data, tested against the Al-27 ENDF/B-VIII `tsl`
-    fixture. Still needed: the THERMR computation (S(α,β) → σ + dists) and the
-    `aceth.f90` writer.
+    **Progress (THERMR now open):**
+    - **MF=7 reader** — `src/thermal/mf7.rs` parses MT=2 coherent-elastic Bragg
+      `S(E)` and MT=4 incoherent-inelastic `S(α,β)` (B-const + β/α grids), tested
+      on the Al-27 ENDF/B-VIII `tsl` fixture.
+    - **Coherent-elastic** — `src/thermal/coherent.rs`: σ_coh(E)=S(E)/E (Bragg
+      sawtooth) + discrete reflection cosines `μ_i=1−2E_i/E` and weights, tested.
+    Still needed: the **incoherent-inelastic** cross section + double-differential
+    distributions from S(α,β) (the core of `thermr.f90` — 2-D `(α,β)` quadrature
+    over the scattering kinematics), then the `aceth.f90` thermal-ACE writer.
   The written file now carries cross sections + the elastic angular distribution.
   Until 4b/4d/4e exist it is still not a complete transport library (no secondary
   energy distributions, so inelastic/fission collisions can't be followed); 4f
