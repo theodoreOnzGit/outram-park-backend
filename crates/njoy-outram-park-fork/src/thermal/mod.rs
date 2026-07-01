@@ -16,10 +16,13 @@
 //!   (incoherent inelastic S(α,β)) into typed data.
 //! - [`coherent`] — **done**: coherent-elastic (Bragg) cross section σ(E)=S(E)/E
 //!   and the discrete reflection cosines/weights.
-//! - Incoherent-inelastic cross section + double-differential distributions from
-//!   S(α,β) — not yet ported (the core of `thermr.f90`).
+//! - [`inelastic`] — **done**: incoherent-inelastic double-differential
+//!   `d²σ/dE'dμ` from S(α,β), and the integrated `σ(E→E')` / `σ_inel(E)`.
+//! - Secondary energy-angle *distributions* for the thermal ACE ITXE block, and
+//!   the `aceth.f90` writer — still to come.
 //!
 //! See `docs/porting-plan.md` (Phase 3 THERMR, Phase 4f thermal ACE).
 
 pub mod coherent;
+pub mod inelastic;
 pub mod mf7;

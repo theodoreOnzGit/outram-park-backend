@@ -168,9 +168,16 @@ thin Rust `driver` that parses the input deck and `match`es over `NjoyModule`.
       on the Al-27 ENDF/B-VIII `tsl` fixture.
     - **Coherent-elastic** — `src/thermal/coherent.rs`: σ_coh(E)=S(E)/E (Bragg
       sawtooth) + discrete reflection cosines `μ_i=1−2E_i/E` and weights, tested.
-    Still needed: the **incoherent-inelastic** cross section + double-differential
-    distributions from S(α,β) (the core of `thermr.f90` — 2-D `(α,β)` quadrature
-    over the scattering kinematics), then the `aceth.f90` thermal-ACE writer.
+    - **Incoherent-inelastic** — `src/thermal/inelastic.rs`: the double-differential
+      `d²σ/dE'dμ = (σ_b/2kT)·√(E'/E)·S̃(α,β)·exp(−β/2)` from S(α,β), and the
+      integrated `σ(E→E')` (∫dμ) and `σ_inel(E)` (∫dE' on the table's β grid, the
+      physically-dense quadrature). Validated on Al-27: σ_b≈1.45 b, and σ_inel
+      rises from the cold-crystal thermal value toward the free-atom limit
+      σ_free=B(1)≈1.35 b near 1–2 eV. Deep-downscatter overflow (S̃ below the
+      numerical floor while exp(−β/2) grows) is guarded.
+    Still needed: the secondary energy-angle **distributions** (equiprobable
+    cosines / Legendre for the ACE ITXE block) and the `aceth.f90` thermal-ACE
+    writer (ITIE/ITIX/ITXE + ITCE/ITCX/ITCA blocks).
   The written file now carries cross sections + the elastic angular distribution.
   Until 4b/4d/4e exist it is still not a complete transport library (no secondary
   energy distributions, so inelastic/fission collisions can't be followed); 4f
