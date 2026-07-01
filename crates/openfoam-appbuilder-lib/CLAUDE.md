@@ -90,6 +90,28 @@ pub enum EnergyForm { Enthalpy, InternalEnergy }
 
 No `Box<dyn Scheme>`. No lifetime parameters anywhere in this crate.
 
+### Case I/O: write purpose-built Rust parsers, never C++ interop
+
+For OpenFOAM file readers (`polyMesh`, `controlDict`, `fvSchemes`, `fvSolution`,
+field files), **write a Rust parser from scratch. Do not attempt to wrap or FFI
+into OpenFOAM's own C++ reader.**
+
+**Why:** OpenFOAM's reader (`ISstream`, `IOobject`, `IOdictionary`) is
+deeply-templated C++ backed by a runtime type registry. There is no stable C API
+to bind with `bindgen`, and the template depth makes generating FFI shims
+impractical; no mature Rust crate wraps the format. The OpenFOAM ASCII format
+(FoamFile header + comment stripping + N-element list) is simple enough that a
+purpose-built ~400-line tokenizer is far less work than any interop path.
+
+**How to apply:** if asked "can't we just pull in OpenFOAM's own parser?",
+explain the interop impossibility and proceed with a Rust tokenizer. Document the
+decision in a comment at the top of the parser module (see
+`src/io/poly_mesh/mod.rs`).
+
+> The same principle holds across the suite for external data formats — e.g. the
+> `njoy-outram-park-fork` ENDF/ACE reader is a purpose-built Rust parser, not a
+> wrap of NJOY's Fortran I/O.
+
 ## Planned modules & C++ refs (read on demand)
 
 The OpenFOAM C++ source paths, the planned `io::` / `solvers::` module layout
