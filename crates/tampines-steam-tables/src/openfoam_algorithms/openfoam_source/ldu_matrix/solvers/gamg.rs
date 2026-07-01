@@ -191,8 +191,7 @@ impl GamgCycle {
 /// # Example
 ///
 /// ```
-/// use openfoam_basic_lib::ldu_matrix::{LduMatrix, SolverSettings};
-/// use openfoam_basic_lib::ldu_matrix::solvers::gamg::gamg;
+/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::*;
 ///
 /// // 1-D Poisson −∇²φ = 1 on [0,1], φ(0)=φ(1)=0, 63 interior points.
 /// let n = 63;

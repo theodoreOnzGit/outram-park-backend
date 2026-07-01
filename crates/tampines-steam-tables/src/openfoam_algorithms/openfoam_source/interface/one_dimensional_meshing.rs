@@ -39,7 +39,8 @@ use uom::si::length::meter;
 /// use uom::si::f64::*;
 /// use uom::si::length::meter;
 /// use uom::si::area::square_meter;
-/// use openfoam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
+/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::*;
+/// use interface::one_dimensional_meshing::create_one_d_mesh;
 ///
 /// let mesh = create_one_d_mesh(
 ///     Length::new::<meter>(1.0),
