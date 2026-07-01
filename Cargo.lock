@@ -4673,7 +4673,6 @@ dependencies = [
  "env_logger",
  "local-ip-address",
  "ndarray",
- "openfoam-basic-lib",
  "roots",
  "serde",
  "teh-o-prke",

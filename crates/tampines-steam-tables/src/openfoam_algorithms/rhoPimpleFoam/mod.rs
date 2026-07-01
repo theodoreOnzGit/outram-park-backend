@@ -212,8 +212,8 @@ pub mod rhoEqn;
 use std::sync::Arc;
 use uom::si::f64::{Area, Length, Time};
 use uom::si::time::second;
-use openfoam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
-use openfoam_basic_lib::prelude::*;
+use crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh;
+use crate::openfoam_algorithms::openfoam_source::*;
 
 // ── Boundary-condition helpers ──────────────────────────────────────────────────
 //

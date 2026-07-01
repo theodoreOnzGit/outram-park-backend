@@ -19,9 +19,6 @@ thiserror.workspace = true
 uom.workspace = true
 # now resolves to the in-tree crate rather than crates.io
 tuas_boussinesq_solver.workspace = true
-# Layers 1–4 OpenFOAM primitives: FvMesh, fields, FV operators.
-# Used by the openfoam_algorithms ports (e.g. TampinesSteamArray).
-openfoam-basic-lib.workspace = true
 
 
 [dev-dependencies]
