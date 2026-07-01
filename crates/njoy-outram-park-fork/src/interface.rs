@@ -264,13 +264,24 @@ impl NuclearDataLibrary {
         ))?;
         // tz = k_B·T expressed in MeV (NJOY's `tz`).
         let kt_mev = crate::common::phys::BK_EV_PER_K * self.temperature.get::<kelvin>() / 1.0e6;
-        let ace = match self.tape.section(self.mat, 4, 2) {
-            Some(sec) => {
-                let ang = crate::ace::angular::parse_elastic_angular(sec)?;
-                crate::ace::AceTable::from_reconr_with_angular(r, kt_mev, 0, &ang)
-            }
-            None => crate::ace::AceTable::from_reconr(r, kt_mev, 0),
-        };
+
+        // Secondary-neutron energy distributions (TYR / LDLW / DLW) for the
+        // producing reactions: Law 3 for discrete levels, Law 4 from MF=6.
+        let partials: Vec<(i32, f64)> =
+            r.sections.iter().map(|s| (i32::from(s.mt), s.qi)).collect();
+        let emissions = crate::ace::energy::build_emissions(
+            &self.tape,
+            self.mat,
+            r.material.awr,
+            &partials,
+        );
+
+        let ang = self
+            .tape
+            .section(self.mat, 4, 2)
+            .map(crate::ace::angular::parse_elastic_angular)
+            .transpose()?;
+        let ace = crate::ace::AceTable::from_reconr_full(r, kt_mev, 0, ang.as_ref(), &emissions);
         ace.write_type1(path).map_err(NjoyError::Io)
     }
 

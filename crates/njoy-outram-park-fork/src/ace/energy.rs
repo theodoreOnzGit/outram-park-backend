@@ -5,17 +5,22 @@
 //! the per-reaction laws stored in the ACE **DLW** block (located by **LDLW**),
 //! which a transport code samples to pick a secondary neutron's outgoing energy.
 //!
-//! ## Status: MF=5 LF=1 → ACE Law 4 (continuous tabular) done; MF=6 next
+//! ## Status: energy laws wired into the DLW block
 //!
-//! Implemented here: [`parse_mf5_law4`] — the uncorrelated tabulated secondary
-//! energy distribution (ENDF MF=5, LF=1), the canonical **fission χ(E→E')**
-//! representation, converted to **ACE Law 4**. This is faithful to `acelf5` in
-//! `acefc.f90`: per incident energy, store an outgoing-energy pdf and its CDF.
+//! Implemented and wired (via [`build_emissions`] + `AceTable::from_reconr_full`):
+//! - [`parse_mf5_law4`] — MF=5 LF=1 tabulated secondary energy (fission
+//!   χ(E→E')) → **ACE Law 4** (faithful to `acelf5`).
+//! - [`parse_mf6_law1_neutron`] — MF=6 LAW=1 neutron energy pdf `f₀` → **Law 4**.
+//! - [`law3_discrete_level`] — discrete two-body levels (MT51–90) → **ACE Law 3**
+//!   from Q + AWR (the inline `acelod` branch).
+//! - [`EnergyLaw::serialize`] lays these into the LDLW/DLW blocks with the correct
+//!   law-validity header and internal locators.
 //!
-//! Not yet implemented (the bulk of real evaluations, which use MF=6):
-//! - **MF=6 LAW=1 LANG=2** (Kalbach-Mann) → **ACE Law 44** — `acelf6`.
-//! - **MF=6 LAW=1 LANG=1/11-15** (Legendre / tabulated angle) → **ACE Law 61**.
-//! - **MF=6 LAW=2** (two-body) and discrete-level **ACE Law 3** (from Q + AWR).
+//! Not yet implemented:
+//! - **Non-elastic angular**: producers are written isotropic. MF=6 LANG=1
+//!   Legendre → **Law 61**, LANG=2 Kalbach-Mann → **Law 44** (`acelf6`).
+//! - **MF=6 LAW=2** (two-body) and **LAW=6** (n-body phase space) — skipped.
+//! - **Fission** (MT=18) secondaries — coupled to the ν̄ (NU) block.
 //!
 //! ## How the DLW block is assembled (the wiring this feeds — `acelod`)
 //!
@@ -52,10 +57,188 @@
 //! MeV and the cdf runs 0 → 1.
 
 use crate::endf::{records::SectionCursor, tape::Section};
+use crate::endf::tape::Tape;
 use crate::NjoyError;
 
 /// eV → MeV.
 const EMEV: f64 = 1.0e6;
+
+/// A secondary-neutron energy distribution in ACE law form, ready for the DLW
+/// block.
+#[derive(Debug, Clone)]
+pub enum EnergyLaw {
+    /// **ACE Law 3** — discrete two-body level scattering. The outgoing energy is
+    /// determined kinematically: `E'_cm = ldat2·(E − ldat1)`, with
+    /// `ldat1 = (A+1)/A·|Q|` \[MeV\] and `ldat2 = (A/(A+1))²`.
+    Law3 {
+        /// `(A+1)/A · |Q|` \[MeV\] — the effective threshold term.
+        ldat1_mev: f64,
+        /// `(A/(A+1))²` — the CM outgoing-energy slope.
+        ldat2: f64,
+    },
+    /// **ACE Law 4** — continuous tabular outgoing-energy distribution.
+    Law4(Law4),
+}
+
+impl EnergyLaw {
+    /// The ACE law number (`3` or `4`).
+    pub fn law_number(&self) -> i32 {
+        match self {
+            EnergyLaw::Law3 { .. } => 3,
+            EnergyLaw::Law4(_) => 4,
+        }
+    }
+
+    /// Number of XSS words the law *data* occupies (excludes the 9-word
+    /// law-validity header the DLW block prepends).
+    pub fn data_len(&self) -> i32 {
+        match self {
+            EnergyLaw::Law3 { .. } => 2,
+            EnergyLaw::Law4(l) => l.data_len(),
+        }
+    }
+
+    /// Serialise the law data as `(value, is_integer)` words. `data_start_rel` is
+    /// the DLW-relative 1-based position of the first word — needed so Law 4's
+    /// internal per-incident-energy locators (`L`) point correctly.
+    pub fn serialize(&self, data_start_rel: i32) -> Vec<(f64, bool)> {
+        match self {
+            EnergyLaw::Law3 { ldat1_mev, ldat2 } => vec![(*ldat1_mev, false), (*ldat2, false)],
+            EnergyLaw::Law4(l) => l.serialize(data_start_rel),
+        }
+    }
+}
+
+impl Law4 {
+    /// Number of `(NR, NBT/INT…)` header words for the incident-energy interp.
+    fn nr_words(&self) -> i32 {
+        if self.e_in_interp.is_empty() {
+            1
+        } else {
+            1 + 2 * self.e_in_interp.len() as i32
+        }
+    }
+
+    /// Number of XSS words this Law-4 data occupies.
+    pub fn data_len(&self) -> i32 {
+        let ne = self.incident.len() as i32;
+        let dists: i32 = self.incident.iter().map(|d| 2 + 3 * d.e_out_mev.len() as i32).sum();
+        self.nr_words() + 1 + ne + ne + dists
+    }
+
+    /// Serialise to `(value, is_integer)` words, with per-incident-energy `L`
+    /// locators computed relative to `data_start_rel` (DLW-relative, 1-based).
+    pub fn serialize(&self, data_start_rel: i32) -> Vec<(f64, bool)> {
+        let mut w: Vec<(f64, bool)> = Vec::new();
+        // NR + (NBT, INT) incident-energy interpolation.
+        if self.e_in_interp.is_empty() {
+            w.push((0.0, true));
+        } else {
+            w.push((self.e_in_interp.len() as f64, true));
+            for &(nbt, intl) in &self.e_in_interp {
+                w.push((nbt as f64, true));
+                w.push((intl as f64, true));
+            }
+        }
+        let ne = self.incident.len() as i32;
+        w.push((ne as f64, true)); // NE
+        for d in &self.incident {
+            w.push((d.e_in_mev, false)); // E_in grid
+        }
+        // L(j): locator of each incident energy's distribution block.
+        let dists_start = data_start_rel + self.nr_words() + 1 + ne + ne;
+        let mut off = 0i32;
+        for d in &self.incident {
+            w.push(((dists_start + off) as f64, true));
+            off += 2 + 3 * d.e_out_mev.len() as i32;
+        }
+        // The distribution blocks: [INTT, NP, E_out(NP), pdf(NP), cdf(NP)].
+        for d in &self.incident {
+            w.push((d.intt as f64, true));
+            w.push((d.e_out_mev.len() as f64, true));
+            for &e in &d.e_out_mev {
+                w.push((e, false));
+            }
+            for &p in &d.pdf {
+                w.push((p, false));
+            }
+            for &c in &d.cdf {
+                w.push((c, false));
+            }
+        }
+        w
+    }
+}
+
+/// One neutron-producing reaction's secondary emission: the ACE TYR (yield with
+/// frame sign) and its energy-distribution law. Assembled by [`build_emissions`]
+/// and consumed by the ACE builder to fill the TYR / LDLW / DLW blocks.
+#[derive(Debug, Clone)]
+pub struct Emission {
+    /// ENDF MT of the reaction.
+    pub mt: i32,
+    /// ACE TYR: neutron yield, negative in the centre-of-mass frame.
+    pub tyr: i32,
+    /// The secondary-neutron energy-distribution law.
+    pub law: EnergyLaw,
+}
+
+/// Build an ACE Law 3 for a discrete two-body level reaction from its Q-value.
+///
+/// `qi_ev` is the reaction Q \[eV\] (negative for endothermic levels); `awr` the
+/// atomic weight ratio. Ports the inline Law-3 branch of `acelod`.
+pub fn law3_discrete_level(qi_ev: f64, awr: f64) -> EnergyLaw {
+    let x = (awr + 1.0) / awr;
+    let q_mev = qi_ev / EMEV;
+    EnergyLaw::Law3 { ldat1_mev: x * (-q_mev), ldat2: 1.0 / (x * x) }
+}
+
+/// The base neutron multiplicity of a producing reaction, or `None` if the
+/// reaction emits no neutron (capture, charged-particle absorption, …).
+///
+/// Fission (MT=18) is deliberately excluded: its secondaries are governed by the
+/// ν̄ (NU) block, which is a separate increment.
+fn neutron_yield(mt: i32) -> Option<u32> {
+    match mt {
+        16 => Some(2),                      // (n,2n)
+        17 => Some(3),                      // (n,3n)
+        37 => Some(4),                      // (n,4n)
+        51..=91 => Some(1),                 // (n,n') discrete levels + continuum
+        22 | 23 | 24 | 25 | 28 | 29 | 30 | 32 | 33 | 34 | 35 | 36 | 41 | 42 | 44 | 45 => Some(1),
+        5 => Some(1),                       // (n,anything) — approx one neutron
+        _ => None,
+    }
+}
+
+/// Identify the neutron-producing reactions among `partials` and build their ACE
+/// emissions (TYR + energy law).
+///
+/// - Discrete inelastic levels (MT=51–90) become **Law 3** from their Q-value
+///   (two-body kinematics), centre-of-mass frame.
+/// - Continuum / multi-neutron reactions (MT=91, 16, 17, 37, (n,n'+particle), 5)
+///   become **Law 4** from their MF=6 neutron spectrum, with the TYR sign set by
+///   the MF=6 frame (LCT). Reactions whose MF=6 is absent or not yet parseable
+///   are skipped (they simply carry no secondary in this table).
+/// - Fission (MT=18) is excluded (handled by the ν̄ block later).
+///
+/// `partials` are `(MT, Q [eV])` pairs, in MTR order.
+pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)]) -> Vec<Emission> {
+    let mut out = Vec::new();
+    for &(mt, qi) in partials {
+        let Some(y) = neutron_yield(mt) else { continue };
+        if (51..=90).contains(&mt) {
+            // Two-body discrete level → Law 3 (CM frame ⇒ negative TYR).
+            out.push(Emission { mt, tyr: -(y as i32), law: law3_discrete_level(qi, awr) });
+        } else if let Some(sec) = tape.section(mat, 6, mt) {
+            // Continuum / (n,xn) → Law 4 from the MF=6 neutron spectrum.
+            if let Ok(n) = parse_mf6_law1_neutron(sec) {
+                let sign = if n.lct == 2 { -1 } else { 1 };
+                out.push(Emission { mt, tyr: sign * y as i32, law: EnergyLaw::Law4(n.law4) });
+            }
+        }
+    }
+    out
+}
 
 /// One incident-energy outgoing-energy distribution (one row of an ACE Law 4).
 #[derive(Debug, Clone)]

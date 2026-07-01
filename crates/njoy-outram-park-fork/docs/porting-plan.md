@@ -134,15 +134,20 @@ thin Rust `driver` that parses the input deck and `match`es over `NjoyModule`.
   - **4d — energy distributions (LDLW/DLW) + non-elastic angular.** ⏳ in
     progress. `src/ace/energy.rs` ports the **MF=5 LF=1 → ACE Law 4** conversion
     (continuous tabular E', the fission χ(E→E') path; faithful to `acelf5`):
-    `parse_mf5_law4` → per-incident-energy (E_out, pdf, cdf), validated on U-235
-    χ (pdf≥0, cdf 0→1 monotone, peaks ~1 MeV). Plus **MF=6 LAW=1**
-    (`parse_mf6_law1_neutron`): extracts the neutron (ZAP=1) energy pdf `f₀` +
-    yield/frame for TYR, validated on U-235 MT16 (n,2n yield 2, CM) and MT91.
-    **Not yet wired into the DLW block**: NXS(5)=NR counts *neutron-producing*
-    reactions and every producer needs a valid law — **next**: the angular upgrade
-    (MF=6 LANG=1 Legendre → Law 61, LANG=2 Kalbach → Law 44), two-body discrete
-    levels → Law 3 (from Q+AWR), then wire LDLW/DLW/TYR. The `energy.rs` module
-    doc records the exact DLW/LDLW/TYR/NR layout for wiring.
+    `parse_mf5_law4` (fission χ). Plus **MF=6 LAW=1** (`parse_mf6_law1_neutron`):
+    the neutron (ZAP=1) energy pdf `f₀` + yield/frame.
+    **DLW block wired** (`build_emissions` + `AceTable::from_reconr_full`): the
+    neutron-producing reactions get a **TYR** yield and a **DLW** law — **Law 3**
+    for discrete inelastic levels (MT51–90, two-body from Q+AWR) and **Law 4** for
+    the continuum / (n,xn) (MT16/17/91/5 from MF=6). **NXS(5)=NR**, **LDLW**,
+    **DLW**, and the **LAND** array (NR+1) are all filled; `write_ace` builds them
+    from the tape. Gate: DLW-walk validation (IDAT=header+9, cdf 0→1 monotone,
+    TYR↔producer) + full-table Type-1 round-trip on U-235 (`tests/acer.rs`). The
+    U-235 table now emits with NR=43 (39 Law 3 + 4 Law 4).
+    **Remaining 4d gaps**: fission secondaries (MT18 — needs the ν̄/NU block, 4b);
+    non-elastic **angular** (producers are currently isotropic — MF=6 LANG=1
+    Legendre → Law 61, LANG=2 Kalbach → Law 44); and MF=6 **LAW=2** (two-body) /
+    **LAW=6** (phase space), currently skipped gracefully (e.g. H-2 (n,2n)).
   - **4e — heating (ESZ column 5).** Zero until HEATR (Phase 3) lands.
   - **4f — thermal S(α,β) ACE table.** ⏳ **scaffolded** (`src/ace/thermal.rs`,
     stub returning `NotPorted`). Writes the `…t` thermal-scattering tables

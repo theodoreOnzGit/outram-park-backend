@@ -28,6 +28,7 @@
 use crate::reconr::{eval_lin_lin, ReconrResult, ReconrSection};
 
 use super::angular::ElasticAngular;
+use super::energy::Emission;
 use super::{jxs, nxs, AceTable};
 
 /// Convert eV → MeV (NJOY `emev`).
@@ -115,7 +116,7 @@ impl AceTable {
     /// To include the elastic angular distribution, use
     /// [`from_reconr_with_angular`][Self::from_reconr_with_angular].
     pub fn from_reconr(result: &ReconrResult, kt_mev: f64, suffix: u32) -> Self {
-        Self::build(result, kt_mev, suffix, None)
+        Self::build(result, kt_mev, suffix, None, &[])
     }
 
     /// Assemble an ACE table including the **elastic** angular distribution.
@@ -131,16 +132,35 @@ impl AceTable {
         suffix: u32,
         angular: &ElasticAngular,
     ) -> Self {
-        Self::build(result, kt_mev, suffix, Some(angular))
+        Self::build(result, kt_mev, suffix, Some(angular), &[])
     }
 
-    /// Shared assembly for [`from_reconr`][Self::from_reconr] and
-    /// [`from_reconr_with_angular`][Self::from_reconr_with_angular].
+    /// Assemble a full ACE table: cross sections, the elastic angular
+    /// distribution, **and** the secondary-neutron energy distributions (TYR /
+    /// LDLW / DLW) for the producing reactions in `emissions` (build them with
+    /// [`build_emissions`][super::energy::build_emissions]).
+    ///
+    /// This is the loadable-transport path: reactions listed in `emissions` get a
+    /// TYR yield and a DLW law (Law 3 for discrete levels, Law 4 for continuum /
+    /// (n,xn)); their secondary angular distribution is left isotropic (an
+    /// AND-block upgrade is future work). NXS(5)=NR is set to the producer count.
+    pub fn from_reconr_full(
+        result: &ReconrResult,
+        kt_mev: f64,
+        suffix: u32,
+        angular: Option<&ElasticAngular>,
+        emissions: &[Emission],
+    ) -> Self {
+        Self::build(result, kt_mev, suffix, angular, emissions)
+    }
+
+    /// Shared assembly for the `from_reconr*` constructors.
     fn build(
         result: &ReconrResult,
         kt_mev: f64,
         suffix: u32,
         angular: Option<&ElasticAngular>,
+        emissions: &[Emission],
     ) -> Self {
         let za = result.material.za.round() as i32;
         let awr = result.material.awr;
@@ -238,11 +258,13 @@ impl AceTable {
                 b.real(sigfig(sec.qi / EMEV, 7));
             }
 
-            // TYR: neutron yield / frame flag (integers). Zero until DLW is
-            // ported — matches acelod's initial `xss(tyr+ir)=0`.
+            // TYR: neutron yield with frame sign. Zero for reactions with no
+            // secondary neutron; the producer value comes from `emissions`.
             jxs[jxs::TYR] = b.next_locator();
-            for _ in 0..ntr {
-                b.int(0);
+            for sec in &partials {
+                let mt = i32::from(sec.mt);
+                let tyr = emissions.iter().find(|e| e.mt == mt).map_or(0, |e| e.tyr);
+                b.int(tyr);
             }
 
             // LSIG: per-reaction locator into the SIG block (1-based, integers).
@@ -262,16 +284,37 @@ impl AceTable {
             }
         }
 
-        // ── LAND / AND blocks: elastic angular distribution ─────────────────
-        // Only written when an anisotropic distribution is supplied; otherwise
-        // elastic stays isotropic (the reader's default) and the blocks are
-        // omitted. NXS(5)=NR stays 0 — no *non-elastic* angular reactions yet.
-        if let Some(ang) = angular {
-            if !ang.is_all_isotropic() {
-                let (land, and) = append_elastic_angular(&mut b, ang);
-                jxs[jxs::LAND] = land;
-                jxs[jxs::AND] = and;
+        // Producers: the neutron-emitting reactions, in MTR order. NXS(5)=NR.
+        let producers: Vec<&Emission> = partials
+            .iter()
+            .filter_map(|sec| {
+                let mt = i32::from(sec.mt);
+                emissions.iter().find(|e| e.mt == mt)
+            })
+            .collect();
+        let nr = producers.len();
+
+        // ── LAND / AND (angular) and LDLW / DLW (energy) secondary blocks ────
+        let elastic_aniso = angular.is_some_and(|a| !a.is_all_isotropic());
+        if elastic_aniso || nr > 0 {
+            // LAND: NR+1 entries — elastic then each producer. Elastic points at
+            // the start of the AND block (locator 1) if anisotropic; producers
+            // are isotropic (0) pending a non-elastic angular upgrade.
+            jxs[jxs::LAND] = b.next_locator();
+            b.int(if elastic_aniso { 1 } else { 0 });
+            for _ in 0..nr {
+                b.int(0);
             }
+            // AND: the elastic angular data (empty if elastic is isotropic).
+            jxs[jxs::AND] = b.next_locator();
+            if elastic_aniso {
+                append_and_data(&mut b, angular.unwrap());
+            }
+        }
+        if nr > 0 {
+            let (ldlw, dlw) = append_dlw(&mut b, &producers, egrid[0] / EMEV, egrid[nes - 1] / EMEV);
+            jxs[jxs::LDLW] = ldlw;
+            jxs[jxs::DLW] = dlw;
         }
 
         let (xss, is_int) = b.finish();
@@ -283,7 +326,7 @@ impl AceTable {
         nxs_arr[nxs::ZA] = za;
         nxs_arr[nxs::NES] = nes as i32;
         nxs_arr[nxs::NTR] = ntr as i32;
-        nxs_arr[nxs::NR] = 0;
+        nxs_arr[nxs::NR] = nr as i32;
         nxs_arr[nxs::NTRP] = 0;
         nxs_arr[nxs::S] = 0;
         nxs_arr[nxs::Z] = za / 1000;
@@ -338,6 +381,12 @@ impl XssBuilder {
         self.is_int.push(true);
     }
 
+    /// Append a pre-serialised `(value, is_integer)` word.
+    fn word(&mut self, v: f64, is_int: bool) {
+        self.xss.push(v);
+        self.is_int.push(is_int);
+    }
+
     /// The 1-based XSS index the *next* appended word will occupy — i.e. the JXS
     /// locator for a block about to be written.
     fn next_locator(&self) -> i32 {
@@ -350,38 +399,29 @@ impl XssBuilder {
     }
 }
 
-/// Append the elastic LAND and AND blocks to `b`, returning the 1-based
-/// `(LAND, AND)` locators for JXS(8)/JXS(9).
+/// Append the **elastic AND-block data** to `b` (the LAND array is written by the
+/// caller, which knows the full producer count). This is the block the elastic
+/// LAND(1) locator points at:
 ///
-/// Layout (per `change` in `acefc.f90`):
-/// - **LAND** — `NR+1` locators; here just `[1]` (elastic only), pointing at the
-///   start of the AND block.
-/// - **AND** — `NE` (energy count), `E(1..NE)` \[MeV\], `L(1..NE)` (per-energy
-///   locators, *relative to the AND start*, 1-based; negative ⇒ tabulated,
-///   `0` ⇒ isotropic), then for each anisotropic energy a block
-///   `[JJ, NP, μ(1..NP), pdf(1..NP), cdf(1..NP)]`.
-fn append_elastic_angular(b: &mut XssBuilder, ang: &ElasticAngular) -> (i32, i32) {
+/// `NE`, `E(1..NE)` \[MeV\], `L(1..NE)` (per-energy locators relative to the AND
+/// start, 1-based; negative ⇒ tabulated, `0` ⇒ isotropic), then for each
+/// anisotropic energy `[JJ, NP, μ(1..NP), pdf(1..NP), cdf(1..NP)]`. Layout per
+/// `change` in `acefc.f90`.
+fn append_and_data(b: &mut XssBuilder, ang: &ElasticAngular) {
     let energies = &ang.energies;
     let ne = energies.len();
 
-    // LAND block: one entry (elastic), pointing at AND-relative word 1.
-    let land = b.next_locator();
-    b.int(1);
-
-    // AND block begins here; per-energy locators are relative to this word.
-    let and = b.next_locator();
-
-    // Precompute each energy's relative locator. Data for the anisotropic
-    // energies follows the [NE, E(1..NE), L(1..NE)] preamble (2·NE + 1 words),
-    // so the first data block starts at AND-relative word 2·NE + 2.
+    // The AND block begins at the NE word; per-energy locators are relative to it.
+    // Anisotropic data follows the [NE, E(1..NE), L(1..NE)] preamble (2·NE + 1
+    // words), so the first data block is at AND-relative word 2·NE + 2.
     let mut offset = (2 * ne + 2) as i32;
     let mut locs = Vec::with_capacity(ne);
     for ea in energies {
         if ea.is_isotropic() {
-            locs.push(0); // isotropic at this energy
+            locs.push(0);
         } else {
-            locs.push(-offset); // negative ⇒ tabulated cosine distribution
-            offset += 2 + 3 * ea.cosines.len() as i32; // JJ, NP, μ/pdf/cdf
+            locs.push(-offset);
+            offset += 2 + 3 * ea.cosines.len() as i32;
         }
     }
 
@@ -392,20 +432,63 @@ fn append_elastic_angular(b: &mut XssBuilder, ang: &ElasticAngular) -> (i32, i32
     for &l in &locs {
         b.int(l); // L locator
     }
-
-    // Per-energy tabulated distributions.
     for ea in energies {
         if ea.is_isotropic() {
             continue;
         }
-        b.int(2); // JJ = 2 (lin-lin interpolation between cosine points)
+        b.int(2); // JJ = 2 (lin-lin)
         b.int(ea.cosines.len() as i32); // NP
         ea.cosines.iter().for_each(|&m| b.real(m));
         ea.pdf.iter().for_each(|&p| b.real(p));
         ea.cdf.iter().for_each(|&c| b.real(c));
     }
+}
 
-    (land, and)
+/// Append the **LDLW** and **DLW** blocks for the `producers`, returning their
+/// 1-based `(LDLW, DLW)` locators for JXS(10)/JXS(11).
+///
+/// LDLW holds one locator per producer (DLW-relative, 1-based). Each DLW entry is
+/// the 9-word law-validity header `[LNW=0, LAW, IDAT, NR=0, NE=2, E_lo, E_hi,
+/// P=1, P=1]` (applies with probability 1 over `[e_lo, e_hi]` \[MeV\]) followed
+/// at `IDAT` by the law data. Ports the DLW layout of `acelod`/`acelf5`.
+fn append_dlw(b: &mut XssBuilder, producers: &[&Emission], e_lo: f64, e_hi: f64) -> (i32, i32) {
+    let nr = producers.len();
+
+    // Header is a fixed 9 words; law data follows. Compute each producer's
+    // DLW-relative header offset (1-based) so LDLW and the IDAT locators agree.
+    const HEADER: i32 = 9;
+    let mut header_off = Vec::with_capacity(nr);
+    let mut off = 1i32; // DLW-relative 1-based (DLW starts right after LDLW)
+    for e in producers {
+        header_off.push(off);
+        off += HEADER + e.law.data_len();
+    }
+
+    // LDLW block: one DLW-relative locator per producer.
+    let ldlw = b.next_locator();
+    for &o in &header_off {
+        b.int(o);
+    }
+
+    // DLW block.
+    let dlw = b.next_locator();
+    for (i, e) in producers.iter().enumerate() {
+        let idat_rel = header_off[i] + HEADER; // DLW-relative 1-based data start
+        b.int(0); // LNW — single law
+        b.int(e.law.law_number()); // LAW
+        b.int(idat_rel); // IDAT
+        b.int(0); // NR (law applicability interp)
+        b.int(2); // NE
+        b.real(e_lo); // E_lo [MeV]
+        b.real(e_hi); // E_hi [MeV]
+        b.real(1.0); // P_lo
+        b.real(1.0); // P_hi
+        for (v, is_int) in e.law.serialize(idat_rel) {
+            b.word(v, is_int);
+        }
+    }
+
+    (ldlw, dlw)
 }
 
 #[cfg(test)]

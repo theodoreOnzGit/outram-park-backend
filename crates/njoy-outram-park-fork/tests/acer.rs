@@ -47,6 +47,20 @@ fn build_with_angular(name: &str, mat: i32) -> AceTable {
     AceTable::from_reconr_with_angular(&res, 0.0, 0, &ang)
 }
 
+/// Build the full table: cross sections + elastic angular + secondary energy
+/// distributions (TYR / LDLW / DLW).
+fn build_full(name: &str, mat: i32) -> AceTable {
+    use njoy_outram_park_fork::ace::energy::build_emissions;
+    let tape = Tape::read(File::open(fixture(name)).unwrap()).unwrap();
+    let cfg = ReconrConfig { mat, tolerance: 0.001, temperature: 0.0 };
+    let res = reconr(&tape, &cfg).unwrap();
+    let partials: Vec<(i32, f64)> =
+        res.sections.iter().map(|s| (i32::from(s.mt), s.qi)).collect();
+    let emissions = build_emissions(&tape, mat, res.material.awr, &partials);
+    let ang = tape.section(mat, 4, 2).map(|s| parse_elastic_angular(s).unwrap());
+    AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions)
+}
+
 /// A minimal parsed Type-1 ACE table: just the arrays we need to validate.
 struct ParsedAce {
     nxs: Vec<i32>,
@@ -245,6 +259,114 @@ fn h2_elastic_angular_block_is_valid() {
     let ace = build_with_angular("n-001_H_002-ENDF8.0.endf", 128);
     let n = check_elastic_and_block(&ace);
     assert!(n >= 1, "H-2 elastic is anisotropic above ~100 eV");
+}
+
+/// Walk the LDLW/DLW blocks and assert every producer's law is well-formed.
+/// Returns (number of Law 3 entries, number of Law 4 entries).
+fn check_dlw_block(ace: &AceTable) -> (usize, usize) {
+    let nr = ace.nxs[nxs::NR] as usize;
+    let ldlw = ace.jxs[jxs::LDLW];
+    let dlw = ace.jxs[jxs::DLW];
+    assert!(nr > 0 && ldlw > 0 && dlw > 0, "DLW present when NR>0");
+
+    let dlw0 = (dlw - 1) as usize; // 0-based DLW start
+    let (mut n_law3, mut n_law4) = (0, 0);
+
+    for i in 0..nr {
+        // LDLW[i] is a DLW-relative 1-based locator to the law-validity header.
+        let loc = ace.xss[(ldlw - 1) as usize + i] as i64;
+        assert!(loc >= 1, "LDLW locator ≥ 1");
+        let h = dlw0 + (loc as usize) - 1; // 0-based header position
+
+        let lnw = ace.xss[h] as i64;
+        let law = ace.xss[h + 1] as i64;
+        let idat = ace.xss[h + 2] as i64;
+        let nr_app = ace.xss[h + 3] as i64;
+        let ne_app = ace.xss[h + 4] as i64;
+        assert_eq!(lnw, 0, "single law (LNW=0)");
+        assert!(law == 3 || law == 4, "LAW ∈ {{3,4}}, got {law}");
+        assert_eq!(nr_app, 0);
+        assert_eq!(ne_app, 2, "applicability over an energy range");
+        // Probabilities P=1 at both ends.
+        assert!((ace.xss[h + 7] - 1.0).abs() < 1e-9 && (ace.xss[h + 8] - 1.0).abs() < 1e-9);
+
+        let d = dlw0 + (idat as usize) - 1; // 0-based law-data position
+        assert_eq!(idat, loc + 9, "IDAT = header + 9 words");
+
+        if law == 3 {
+            n_law3 += 1;
+            // Law 3: [ldat1, ldat2]; slope (A/(A+1))² ∈ (0,1).
+            let ldat2 = ace.xss[d + 1];
+            assert!(ldat2 > 0.0 && ldat2 < 1.0, "Law 3 slope in (0,1), got {ldat2}");
+        } else {
+            n_law4 += 1;
+            // Law 4: [NR, NE, E_in(NE), L(NE), dists…]. NR=0 here (lin-lin).
+            let nr4 = ace.xss[d] as i64;
+            let ne_pos = d + 1 + if nr4 == 0 { 0 } else { 2 * nr4 as usize };
+            let ne = ace.xss[ne_pos] as usize;
+            assert!(ne >= 1, "Law 4 has incident energies");
+            let e_in = &ace.xss[ne_pos + 1..ne_pos + 1 + ne];
+            let l = &ace.xss[ne_pos + 1 + ne..ne_pos + 1 + 2 * ne];
+            assert!(e_in.windows(2).all(|w| w[1] >= w[0]), "E_in ascending");
+            // Follow each distribution locator and validate its pdf/cdf.
+            for &lf in l {
+                let dp = dlw0 + (lf as usize) - 1;
+                let intt = ace.xss[dp] as i64;
+                assert!(intt == 1 || intt == 2, "INTT ∈ {{1,2}}");
+                let np = ace.xss[dp + 1] as usize;
+                assert!(np >= 1);
+                let cdf = &ace.xss[dp + 2 + 2 * np..dp + 2 + 3 * np];
+                assert!((cdf[np - 1] - 1.0).abs() < 1e-5, "cdf ends at 1");
+                assert!(cdf.windows(2).all(|w| w[1] >= w[0] - 1e-9), "cdf monotone");
+            }
+        }
+    }
+    (n_law3, n_law4)
+}
+
+#[test]
+fn h2_unsupported_law6_producer_is_skipped_gracefully() {
+    // H-2's only neutron producer, MT16 (n,2n), uses ENDF MF=6 LAW=6 (n-body
+    // phase space), which is not yet ported. It must be skipped cleanly: NR=0,
+    // no DLW block, and the rest of the table still valid and self-consistent.
+    let ace = build_full("n-001_H_002-ENDF8.0.endf", 128);
+    assert_eq!(ace.nxs[nxs::NR], 0, "LAW=6 producer skipped ⇒ no NR");
+    assert_eq!(ace.jxs[jxs::LDLW], 0, "no DLW block");
+    assert_eq!(ace.jxs[jxs::END] as usize, ace.xss.len());
+    assert_eq!(ace.nxs[nxs::LEN_XSS] as usize, ace.xss.len());
+}
+
+#[test]
+fn u235_full_table_mixes_law3_and_law4() {
+    // U-235: discrete inelastic levels (MT51-90) → Law 3; continuum / (n,xn)
+    // (MT16/17/91/5) → Law 4 from MF=6. Fission (MT18) is excluded (needs ν̄).
+    let ace = build_full("n-092_U_235-ENDF8.0.endf", 9228);
+    assert!(ace.nxs[nxs::NR] > 10, "many producers, got {}", ace.nxs[nxs::NR]);
+    let (n3, n4) = check_dlw_block(&ace);
+    assert!(n3 > 5, "several discrete-level Law 3 producers, got {n3}");
+    assert!(n4 >= 1, "at least one Law 4 producer, got {n4}");
+
+    // TYR must be non-zero for exactly the NR producers.
+    let tyr0 = (ace.jxs[jxs::TYR] - 1) as usize;
+    let ntr = ace.nxs[nxs::NTR] as usize;
+    let nonzero = ace.xss[tyr0..tyr0 + ntr].iter().filter(|&&t| t != 0.0).count();
+    assert_eq!(nonzero, ace.nxs[nxs::NR] as usize, "TYR non-zero ⇔ producer");
+}
+
+#[test]
+fn full_table_roundtrips_through_file() {
+    // The complete table (ESZ+SIG+AND+DLW) must survive a Type-1 write/parse.
+    let ace = build_full("n-092_U_235-ENDF8.0.endf", 9228);
+    let mut buf: Vec<u8> = Vec::new();
+    ace.write_to(&mut buf).unwrap();
+    let parsed = parse_type1(&String::from_utf8(buf).unwrap());
+    assert_eq!(parsed.nxs, ace.nxs.to_vec());
+    assert_eq!(parsed.jxs, ace.jxs.to_vec());
+    assert_eq!(parsed.xss.len(), ace.xss.len());
+    for (i, (&got, &want)) in parsed.xss.iter().zip(ace.xss.iter()).enumerate() {
+        let tol = if ace.xss_is_int[i] { 0.0 } else { 1e-9 * want.abs().max(1.0) };
+        assert!((got - want).abs() <= tol, "xss[{i}]: got {got}, want {want}");
+    }
 }
 
 #[test]
