@@ -47,6 +47,10 @@ pub mod interface;
 pub mod modules;
 pub mod prelude;
 pub mod reconr;
+/// Thermal neutron scattering (the THERMR domain): read MF=7 S(α,β) evaluations
+/// and, in future, compute bound-atom thermal cross sections. Distinct from
+/// [`ace::thermal`], which *writes* the thermal ACE table.
+pub mod thermal;
 pub mod units;
 /// Windowed Multipole (WMP) cross-section import — **scaffold only**. This is
 /// independent **MIT CRPG** work (not NJOY/LANL); see [`wmp`] for provenance and

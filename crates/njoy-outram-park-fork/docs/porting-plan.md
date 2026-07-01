@@ -135,12 +135,14 @@ thin Rust `driver` that parses the input deck and `match`es over `NjoyModule`.
     progress. `src/ace/energy.rs` ports the **MF=5 LF=1 → ACE Law 4** conversion
     (continuous tabular E', the fission χ(E→E') path; faithful to `acelf5`):
     `parse_mf5_law4` → per-incident-energy (E_out, pdf, cdf), validated on U-235
-    χ (pdf≥0, cdf 0→1 monotone, spectrum peaks ~1 MeV). **Not yet wired into the
-    DLW block**: NXS(5)=NR counts *neutron-producing* reactions and every producer
-    needs a valid law, so a loadable DLW waits on the **MF=6** laws (most producers
-    here are MF=6) — **next**: MF=6 LAW=1 LANG=2 Kalbach-Mann → Law 44 (`acelf6`),
-    LANG=1 Legendre → Law 61, two-body/discrete-level → Law 3 (from Q+AWR). The
-    `energy.rs` module doc records the exact DLW/LDLW/TYR/NR layout for wiring.
+    χ (pdf≥0, cdf 0→1 monotone, peaks ~1 MeV). Plus **MF=6 LAW=1**
+    (`parse_mf6_law1_neutron`): extracts the neutron (ZAP=1) energy pdf `f₀` +
+    yield/frame for TYR, validated on U-235 MT16 (n,2n yield 2, CM) and MT91.
+    **Not yet wired into the DLW block**: NXS(5)=NR counts *neutron-producing*
+    reactions and every producer needs a valid law — **next**: the angular upgrade
+    (MF=6 LANG=1 Legendre → Law 61, LANG=2 Kalbach → Law 44), two-body discrete
+    levels → Law 3 (from Q+AWR), then wire LDLW/DLW/TYR. The `energy.rs` module
+    doc records the exact DLW/LDLW/TYR/NR layout for wiring.
   - **4e — heating (ESZ column 5).** Zero until HEATR (Phase 3) lands.
   - **4f — thermal S(α,β) ACE table.** ⏳ **scaffolded** (`src/ace/thermal.rs`,
     stub returning `NotPorted`). Writes the `…t` thermal-scattering tables
@@ -152,6 +154,11 @@ thin Rust `driver` that parses the input deck and `match`es over `NjoyModule`.
     thermal cross sections / energy-angle distributions this consumes; optionally
     **LEAPR** (`leapr.f90`, Phase 5) to *generate* MF=7 when an evaluation lacks
     it. See the `src/ace/thermal.rs` module docs for the full TODO list.
+    **Progress:** the **MF=7 reader** is done — `src/thermal/mf7.rs` parses MT=2
+    coherent-elastic Bragg `S(E)` and MT=4 incoherent-inelastic `S(α,β)` (B-const
+    + β/α grids) into typed data, tested against the Al-27 ENDF/B-VIII `tsl`
+    fixture. Still needed: the THERMR computation (S(α,β) → σ + dists) and the
+    `aceth.f90` writer.
   The written file now carries cross sections + the elastic angular distribution.
   Until 4b/4d/4e exist it is still not a complete transport library (no secondary
   energy distributions, so inelastic/fission collisions can't be followed); 4f

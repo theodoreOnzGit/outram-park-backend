@@ -46,6 +46,10 @@
 //! ## TODO (Phase 4 — thermal), in dependency order
 //!
 //! 1. Port **THERMR** (MF=7 reader + S(α,β) → thermal cross sections / dists).
+//!    The MF=7 reader is **done** — see [`crate::thermal::mf7`] (coherent-elastic
+//!    Bragg `S(E)` and incoherent-inelastic `S(α,β)`). Still needed: the THERMR
+//!    computation that turns `S(α,β)` into the incoherent-inelastic cross section
+//!    and secondary energy-angle distributions.
 //! 2. Define `ThermalScatteringData` (THERMR's output: inelastic xs + E-angle
 //!    dists, coherent Bragg edges, incoherent-elastic xs/angles).
 //! 3. Build the ITIE/ITIX/ITXE inelastic blocks.
