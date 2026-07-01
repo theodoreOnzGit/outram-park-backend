@@ -191,7 +191,7 @@ impl GamgCycle {
 /// # Example
 ///
 /// ```
-/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::*;
+/// use openfoam_basic_lib::prelude::*;
 ///
 /// // 1-D Poisson −∇²φ = 1 on [0,1], φ(0)=φ(1)=0, 63 interior points.
 /// let n = 63;
