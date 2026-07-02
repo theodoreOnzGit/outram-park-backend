@@ -685,6 +685,181 @@ fn unshuffle_doubles(planes: &[u8]) -> Vec<f64> {
     out
 }
 
+/// Magic prefix for a WMPL (Windowed-Multipole Library) container.
+const WMPL_MAGIC: [u8; 4] = *b"WMPL";
+/// WMPL container version handled by [`WmpLibrary`].
+const WMPL_VERSION: u8 = 1;
+/// Fixed WMPL header before the index: magic(4) + version(1) + reserved(3) +
+/// `n_nuclides`(u32, 4) = 12 bytes.
+const WMPL_HEADER_LEN: usize = 12;
+
+/// One directory entry: a nuclide's name and the byte range of its WMPB blob
+/// inside the owned container image.
+#[derive(Debug, Clone)]
+struct WmpEntry {
+    name: String,
+    offset: usize,
+    len: usize,
+}
+
+/// An embeddable bundle of many nuclides' [`WindowedMultipole`] blobs behind a
+/// single byte image — the shipping container for the in-crate CORE data set.
+///
+/// One [`WindowedMultipole::to_blob`] per nuclide is concatenated behind a small
+/// name→range index, so the entire CORE set is a single `include_bytes!` and any
+/// nuclide is decoded on demand by [`Self::get`]. The container adds **no second
+/// compression pass** — each entry is an already-deflated WMPB blob, so packing
+/// is just indexing + concatenation.
+///
+/// # Format — WMPL v1 (little-endian)
+/// | Bytes | Field |
+/// |---|---|
+/// | `0..4` | magic `b"WMPL"` |
+/// | `4` | version (`1`) |
+/// | `5..8` | reserved (`0`) |
+/// | `8..12` | `n_nuclides` (`u32`) |
+/// | per nuclide (index) | `name_len` (u32), name (UTF-8), `blob_len` (u32) |
+/// | after the index | the `n_nuclides` WMPB blobs, concatenated in index order |
+///
+/// Blob offsets are **implicit** — the running sum of preceding `blob_len`s — so
+/// the index can never disagree with the payload.
+#[derive(Debug, Clone)]
+pub struct WmpLibrary {
+    /// The whole WMPL container image, owned (typically copied once at startup
+    /// from an `include_bytes!` static).
+    bytes: Vec<u8>,
+    /// name → byte range into `bytes`, in the container's stored order.
+    index: Vec<WmpEntry>,
+}
+
+impl WmpLibrary {
+    /// Pack a set of nuclides into a WMPL v1 container image — the offline *bake*
+    /// step for the embedded CORE set. Each nuclide is serialized with
+    /// [`WindowedMultipole::to_blob`]; the returned bytes are what a maintainer
+    /// commits and the crate `include_bytes!`s. Input order is preserved.
+    pub fn pack(nuclides: &[WindowedMultipole]) -> Vec<u8> {
+        let blobs: Vec<Vec<u8>> = nuclides.iter().map(|n| n.to_blob()).collect();
+
+        let index_len: usize = nuclides.iter().map(|n| 4 + n.name.len() + 4).sum();
+        let payload_len: usize = blobs.iter().map(|b| b.len()).sum();
+        let mut out = Vec::with_capacity(WMPL_HEADER_LEN + index_len + payload_len);
+
+        out.extend_from_slice(&WMPL_MAGIC);
+        out.push(WMPL_VERSION);
+        out.extend_from_slice(&[0u8, 0u8, 0u8]); // reserved
+        out.extend_from_slice(&(nuclides.len() as u32).to_le_bytes());
+        for (n, b) in nuclides.iter().zip(&blobs) {
+            let name = n.name.as_bytes();
+            out.extend_from_slice(&(name.len() as u32).to_le_bytes());
+            out.extend_from_slice(name);
+            out.extend_from_slice(&(b.len() as u32).to_le_bytes());
+        }
+        for b in &blobs {
+            out.extend_from_slice(b);
+        }
+        out
+    }
+
+    /// Parse a WMPL v1 container image and take ownership of its bytes. The index
+    /// is validated eagerly (magic, version, every name and byte range); the
+    /// per-nuclide WMPB blobs are **not** decoded until [`Self::get`].
+    ///
+    /// Input is treated as untrusted: all lengths are bounds-checked so a
+    /// malformed image fails cleanly rather than over-allocating.
+    ///
+    /// # Errors
+    /// [`NjoyError::WmpData`] on bad magic/version, a truncated header/index, an
+    /// out-of-range blob, or invalid UTF-8 in a name.
+    pub fn from_blob(bytes: &[u8]) -> Result<Self, NjoyError> {
+        let err = |m: String| NjoyError::WmpData(m);
+        if bytes.len() < WMPL_HEADER_LEN {
+            return Err(err("blob shorter than WMPL header".into()));
+        }
+        if bytes[0..4] != WMPL_MAGIC {
+            return Err(err("bad WMPL magic".into()));
+        }
+        if bytes[4] != WMPL_VERSION {
+            return Err(err(format!("unsupported WMPL version {}", bytes[4])));
+        }
+        let n = u32::from_le_bytes(bytes[8..12].try_into().unwrap()) as usize;
+
+        let read_u32 = |o: usize| -> Result<usize, NjoyError> {
+            bytes
+                .get(o..o + 4)
+                .map(|s| u32::from_le_bytes(s.try_into().unwrap()) as usize)
+                .ok_or_else(|| err("truncated index".into()))
+        };
+
+        // Pass 1: read (name, blob_len) pairs; `cur` ends at the payload start.
+        let mut cur = WMPL_HEADER_LEN;
+        let mut parsed: Vec<(String, usize)> = Vec::with_capacity(n);
+        for _ in 0..n {
+            let name_len = read_u32(cur)?;
+            cur += 4;
+            let name_end = cur
+                .checked_add(name_len)
+                .filter(|&e| e <= bytes.len())
+                .ok_or_else(|| err("truncated name in index".into()))?;
+            let name = std::str::from_utf8(&bytes[cur..name_end])
+                .map_err(|e| err(format!("index name utf8: {e}")))?
+                .to_string();
+            cur = name_end;
+            let blob_len = read_u32(cur)?;
+            cur += 4;
+            parsed.push((name, blob_len));
+        }
+
+        // Pass 2: assign implicit offsets into the payload region.
+        let mut offset = cur;
+        let mut index = Vec::with_capacity(n);
+        for (name, len) in parsed {
+            let end = offset
+                .checked_add(len)
+                .filter(|&e| e <= bytes.len())
+                .ok_or_else(|| err(format!("blob for {name} out of range")))?;
+            index.push(WmpEntry { name, offset, len });
+            offset = end;
+        }
+
+        Ok(Self { bytes: bytes.to_vec(), index })
+    }
+
+    /// Number of nuclides in the container.
+    pub fn len(&self) -> usize {
+        self.index.len()
+    }
+
+    /// Whether the container holds no nuclides.
+    pub fn is_empty(&self) -> bool {
+        self.index.is_empty()
+    }
+
+    /// The nuclide names present, in stored order (e.g. `["U235", "U238", …]`).
+    pub fn names(&self) -> Vec<&str> {
+        self.index.iter().map(|e| e.name.as_str()).collect()
+    }
+
+    /// Whether a nuclide with this name is present.
+    pub fn contains(&self, name: &str) -> bool {
+        self.index.iter().any(|e| e.name == name)
+    }
+
+    /// Decode one nuclide by name. The WMPB blob is inflated on demand and a
+    /// fresh [`WindowedMultipole`] returned each call, so a caller that reuses a
+    /// nuclide across many evaluations should keep the decoded value.
+    ///
+    /// # Errors
+    /// [`NjoyError::WmpData`] if `name` is absent or its blob fails to decode.
+    pub fn get(&self, name: &str) -> Result<WindowedMultipole, NjoyError> {
+        let entry = self
+            .index
+            .iter()
+            .find(|e| e.name == name)
+            .ok_or_else(|| NjoyError::WmpData(format!("nuclide {name} not in WMPL container")))?;
+        WindowedMultipole::from_blob(&self.bytes[entry.offset..entry.offset + entry.len])
+    }
+}
+
 /// Doppler-broaden the windowed-multipole curve-fit polynomial.
 ///
 /// Returns the `n` leading factors `f_k` so the broadened background is
@@ -984,6 +1159,37 @@ mod tests {
         assert!(WindowedMultipole::from_blob(&v).is_err());
         // Truncated below the header.
         assert!(WindowedMultipole::from_blob(&good[..10]).is_err());
+    }
+
+    #[test]
+    fn wmpl_container_round_trips() {
+        let a = single_pole_table(); // name "TEST1"
+        let mut b = single_pole_table();
+        b.name = "TEST2".into();
+        b.poles = vec![Cf64::new(7.0, -0.2)];
+        b.residues = vec![[Cf64::new(0.5, 0.0), Cf64::new(0.9, 0.1), Cf64::new(0.0, 0.0)]];
+
+        let image = WmpLibrary::pack(&[a.clone(), b.clone()]);
+        let lib = WmpLibrary::from_blob(&image).unwrap();
+
+        assert_eq!(lib.len(), 2);
+        assert!(!lib.is_empty());
+        assert_eq!(lib.names(), vec!["TEST1", "TEST2"]);
+        assert!(lib.contains("TEST2") && !lib.contains("U999"));
+
+        assert_wmp_eq(&a, &lib.get("TEST1").unwrap());
+        assert_wmp_eq(&b, &lib.get("TEST2").unwrap());
+        assert!(lib.get("MISSING").is_err());
+    }
+
+    #[test]
+    fn wmpl_from_blob_rejects_corruption() {
+        let image = WmpLibrary::pack(&[single_pole_table()]);
+        let mut bad = image.clone();
+        bad[0] = b'Z'; // clobber magic
+        assert!(WmpLibrary::from_blob(&bad).is_err());
+        // Truncated below the header.
+        assert!(WmpLibrary::from_blob(&image[..8]).is_err());
     }
 
     #[test]
