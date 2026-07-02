@@ -138,14 +138,24 @@ built, tested, and published from this single repository.
 | `tuas_boussinesq_solver` | Thermal-hydraulics (Boussinesq single-phase) solver — TUAS | GPL-3.0 |
 | `tampines-steam-tables` | IAPWS-IF97 steam/water properties + steam-turbine equations — TAMPINES | GPL-3.0 |
 | `openfoam-basic-lib` | Pure-Rust translation of the OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, polynomial solvers, ODE solvers, interpolation, thermophysics kernels, fields, mesh, FV operators, fluid/solid thermo | GPL-3.0 |
+| `njoy-outram-park-fork` | **All nuclear data** — NJOY2016 ENDF port (RECONR/BROADR/THERMR/ACER), the Faddeeva kernel, windowed-multipole evaluation, lean-ACE + WMP data blobs, ν̄/χ. Exposes the `XsProvider` surface other crates pull cross sections from. | GPL-3.0 |
+| `openmc-libs` | **Monte Carlo transport** — CSG geometry, particle tracking, k-eigenvalue, delta (Woodcock) tracking for doubly heterogeneous media. **Data-free**: pulls cross sections from `njoy-outram-park-fork`. | GPL-3.0 |
+
+> **Neutronics architecture:** the responsibility split (nuclear data ⟂ Monte
+> Carlo ⟂ deterministic/TH ⟂ coupling), the dependency graph, and phasing live in
+> **`docs/architecture.md`**. Rule of thumb: *all* cross-section /
+> nuclear-data code belongs in `njoy-outram-park-fork`; transport crates are
+> data-free and pull from it.
 
 **Planned future crates** (not yet in the workspace):
 
-| Crate | Depends on | Solvers it targets |
+| Crate | Depends on | Targets |
 |---|---|---|
 | `openfoam-icof` | `openfoam-basic-lib` | **icoFoam** (incompressible laminar PISO) |
 | `openfoam-cht` | `openfoam-basic-lib` | **chtMultiRegionFoam** (conjugate heat transfer, multi-region) |
 | `openfoam-rho` | `openfoam-basic-lib` | **rhoPimpleFoam** / **sonicFoam** (compressible) |
+| `nee-soon` *(working name)* | `teh-o-prke`, `openmc-libs`, `njoy-outram-park-fork`, `openfoam-appbuilder-lib` | Human-readable **integration/coupling** layer: composes MC + deterministic/TH + nuclear data, exposes CFD-coupling interfaces, PRKE + surrogates. See `docs/architecture.md`. |
+| **GenFOAM** (deterministic + TH) | *ported inside* `openfoam-appbuilder-lib` | Deterministic neutronics + thermal hydraulics. On hold until the MC + nuclear-data path matures. |
 
 **Layer 5 (solver loop logic) MUST live in these separate crates**, not in
 `openfoam-basic-lib`.  `openfoam-basic-lib` provides the mathematical building
@@ -157,6 +167,9 @@ projects.
 Internal dependency edges (all by **path**, not crates.io):
 `tampines → tuas`; `teh-o-prke → {tuas, chem-eng}` (dev); `tuas`/`tampines` dev-deps → `chem-eng`, `teh-o-prke`.
 `openfoam-basic-lib` has no internal deps (pure third-party: `uom`, `ndarray`, `thiserror`).
+`njoy-outram-park-fork` is lean (`thiserror`, `uom`; no BLAS) so data consumers stay light.
+Neutronics edges (target): `openmc-libs → njoy-outram-park-fork` (cross sections; declared in
+root workspace deps, wiring deferred); `nee-soon → {openmc-libs, njoy-outram-park-fork, teh-o-prke, openfoam-appbuilder-lib}`.
 
 ## Dependency policy — single source of truth
 

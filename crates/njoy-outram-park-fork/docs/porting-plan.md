@@ -52,47 +52,62 @@ Line counts are approximate (from `wc -l src/*.f90`). Phase column drives order.
 
 ### Core infrastructure (Phase 1)
 
-| Rust module | Fortran file | LOC | Notes |
-|---|---|---|---|
-| `common::phys` | `phys.f90` | ~150 | physical constants → `uom` |
-| `common::mathm` | `mathm.f90` | ~1.4k | special functions, small linear algebra |
-| `common` (util) | `util.f90` | ~2k | record I/O helpers, interpolation, `error`/`mess` → `Result` |
-| `common` (io) | `mainio.f90`, `locale.f90` | ~0.3k | unit numbers / formatting → owned config |
-| `endf` | `endf.f90` | ~1k | in-memory ENDF tape model + record parsing |
-| `modules::moder` | `moder.f90` | ~0.6k | ASCII ⇄ binary tape conversion |
+All **39** NJOY2016 source files are accounted for in the four tables below.
+Status legend: ✅ done · 🟡 partial · ⏳ scaffolded/stub · ⬜ not started · ➖ subsumed (no standalone module) · ❌ out of scope for OUTRAM PARK.
+
+| Rust module | Fortran file | LOC | Status | Notes |
+|---|---|---|---|---|
+| `common::phys` | `phys.f90` | ~150 | 🟡 | physical constants → `uom`; ported on demand |
+| `common::mathm` | `mathm.f90` | ~1.4k | 🟡 | special functions, small linear algebra; pieces ported as needed |
+| `common` (util) | `util.f90` | ~2k | 🟡 | record I/O helpers, interpolation, `error`/`mess` → `Result` |
+| `common` (io) | `mainio.f90`, `locale.f90` | ~0.3k | ➖ | unit numbers / formatting → owned config, not literal ports |
+| `endf` | `endf.f90` | ~1k | 🟡 | in-memory ENDF tape model + record parsing (tape/records live) |
+| `modules::moder` | `moder.f90` | ~0.6k | ⬜ | ASCII ⇄ binary tape conversion |
+| `driver` | `main.f90` | ~0.5k | ⬜ | card-input reader → thin Rust `match` over `NjoyModule` |
+| — | `vers.f90` | trivial | ➖ | version string; not ported |
 
 ### ACE pipeline (Phases 2–4)
 
-| Rust module | Fortran file | LOC | Phase |
+| Rust module | Fortran file | LOC | Phase | Status |
+|---|---|---|---|---|
+| `modules::reconr` | `reconr.f90` | 5.7k | 2 | ✅ resonance reconstruction |
+| `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) |
+| `modules::heatr` | `heatr.f90` | 6.3k | 3 | ⬜ heating/KERMA + damage (ACE 4e depends on it) |
+| `modules::gaspr` | `gaspr.f90` | ~0.6k | 3 | ⬜ gas production |
+| `modules::purr` | `purr.f90` | 2.9k | 3 | ⬜ URR probability tables |
+| `modules::thermr` | `thermr.f90` | 3.4k | 3 | 🟡 MF=7 reader + coherent/incoherent elastic + inelastic physics; no module driver |
+| `modules::unresr` | `unresr.f90` | ~1.8k | 3 | ⬜ URR effective XS (PURR precursor) |
+
+ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to:
+
+| Rust module | Fortran file | LOC | Status |
 |---|---|---|---|
-| `modules::reconr` | `reconr.f90` | 5.7k | 2 |
-| `modules::broadr` | `broadr.f90` | 2.0k | 2 |
-| `modules::heatr` | `heatr.f90` | 6.3k | 3 |
-| `modules::gaspr` | `gaspr.f90` | ~0.6k | 3 |
-| `modules::purr` | `purr.f90` | 2.9k | 3 |
-| `modules::thermr` | `thermr.f90` | 3.4k | 3 |
-| `modules::unresr` | `unresr.f90` | ~1.8k | 3 (PURR precursor) |
-| `modules::acer` | `acer.f90` + `acefc.f90` (19.7k!), `acepn.f90` (3.8k), `acepa.f90`, `aceth.f90`, `acedo.f90`, `acecm.f90` | ~30k total | 4 |
+| `modules::acer` (driver) | `acer.f90` | ~1k | 🟡 CE cross-section + elastic/discrete angular + partial energy dists |
+| `ace` (fast CE) | `acefc.f90` | **19.7k** | 🟡 ESZ/MTR/SIG + LAND/AND + partial LDLW/DLW; the bulk still open |
+| `ace::thermal` | `aceth.f90` | ~2k | 🟡 thermal `…t` tables: elastic blocks done; ITXE secondary dists open |
+| — | `acecm.f90` | ~1k | 🟡 ACE shared utilities; ported on demand |
+| — | `acepn.f90` | 3.8k | ⬜ photonuclear ACE |
+| — | `acepa.f90` | ~2k | ⬜ photoatomic ACE |
+| — | `acedo.f90` | ~1k | ⬜ dosimetry ACE |
+| `wmp` | *(MIT WMP_Library — not NJOY)* | — | ⏳ 4g windowed-multipole import stub (`src/wmp.rs`) |
 
 ### Multigroup & covariance (Phase 5 — not needed by OpenMC CE)
 
-| Rust module | Fortran file | LOC |
-|---|---|---|
-| `modules::groupr` | `groupr.f90` | 12.7k |
-| `modules::gaminr` | `gaminr.f90` | ~2k |
-| `modules::errorr` | `errorr.f90` | 11.2k |
-| `modules::covr` | `covr.f90` | ~3k |
-| `modules::leapr` | `leapr.f90` | 3.6k |
-| `modules::samm` | `samm.f90` | 7.2k (R-matrix; shared by reconr/unresr) |
+| Rust module | Fortran file | LOC | Status |
+|---|---|---|---|
+| `modules::groupr` | `groupr.f90` | 12.7k | ⬜ multigroup neutron/photon XS |
+| `modules::gaminr` | `gaminr.f90` | ~2k | ⬜ multigroup photon interaction |
+| `modules::errorr` | `errorr.f90` | 11.2k | ⬜ multigroup covariance matrices |
+| `modules::covr` | `covr.f90` | ~3k | ⬜ covariance output/plotting |
+| `modules::leapr` | `leapr.f90` | 3.6k | ⬜ *generate* MF=7 S(α,β) (upstream of THERMR) |
+| `modules::samm` | `samm.f90` | 7.2k | ⬜ R-matrix (RML); shared by reconr/unresr |
 
 ### Formatters, plotting, misc (Phase 6 — lowest priority)
 
+Output formats for codes OUTRAM PARK does not target — port only on demand (all ⬜):
 `dtfr.f90`, `ccccr.f90`, `matxsr.f90`, `resxsr.f90`, `powr.f90`, `wimsr.f90`,
-`mixr.f90`, `plotr.f90`, `viewr.f90`, `graph.f90`. Output formats for codes
-OUTRAM PARK does not target. Port only on demand.
-
-The driver `main.f90` (NJOY card-input reader sequencing the modules) becomes a
-thin Rust `driver` that parses the input deck and `match`es over `NjoyModule`.
+`mixr.f90`, `plotr.f90`, `viewr.f90`, `graph.f90` (low-level plotting shared by
+`plotr`/`viewr`/`covr`).
 
 > Note: `samm.f90` (Reich–Moore / R-matrix-limited resonance formalism) is shared
 > by RECONR and UNRESR. It may need to move earlier than Phase 5 if a target
@@ -259,3 +274,27 @@ bulky ENDF data not checked in, with a comment explaining how to regenerate.
   `samm` forward into Phase 2.
 - Where do generated ACE files live, and does `openmc-libs` get a loader to
   consume them in an integration test?
+
+---
+
+## 8. Priority tracks — Keff + Doppler (opened 2026-07)
+
+Two near-term OUTRAM PARK goals pull specific njoy modules forward. The full
+cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
+**`../../../docs/keff-doppler-roadmap.md`**; njoy's slice of it:
+
+- **Priority 2 — U-238 Doppler broadening of capture.** The shipped in-crate data
+  is **WMP** (analytic broadening via the Faddeeva function, done in `openmc-libs`).
+  njoy's role here is the **independent oracle**: `RECONR` (✅) reconstructs the
+  0 K pointwise U-238 σ(n,γ); `BROADR` (✅) SIGMA1-broadens it to T. Comparing
+  WMP-analytic vs BROADR-kernel vs the OpenMC pregenerated `.h5` cross-checks all
+  three. Uses only already-ported modules — no new porting required.
+- **Priority 1 — bare critical sphere Keff (U-235 Godiva, U-233 Jezebel-23).** The
+  transport lives in `openmc-libs`; njoy supplies the **secondary data** WMP does
+  not carry: **ν̄(E)** (ACER **4b**, MF=1/452 → NU block) and the **fission
+  spectrum χ(E)** (ACER **4d**, MF=5). These are tiny tables; porting 4b/4d for
+  U-233/235 is the njoy-side critical path. Until then they may be hardcoded from
+  ENDF as a stopgap (flagged as such).
+- **WMP import (`src/wmp.rs`, 4g).** Optional: a reader/validator for the MIT
+  `WMP_Library` HDF5 so njoy can sanity-check the blobs `openmc-libs` embeds.
+  Not on the critical path — the user downloads WMP directly.
