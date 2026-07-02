@@ -110,8 +110,36 @@ impl Surface for Sphere {
     fn normal(&self, r: Position) -> Direction {
         Direction::from_unnormalised(r.x - self.x0, r.y - self.y0, r.z - self.z0)
     }
-    fn distance(&self, _r: Position, _u: Direction, _coincident: bool) -> f64 {
-        todo!("Sphere::distance: port from src/surface.cpp")
+    /// Smallest positive distance from `r` along `u` to the sphere.
+    ///
+    /// Solves |o + d·u|² = R² with o = r − center. Since |u| = 1 the quadratic
+    /// is d² + 2(o·u)d + (o·o − R²) = 0, so d = −k ± √(k² − c) where k = o·u and
+    /// c = o·o − R². Returns the nearest root with `d > ε`, or `INFINITY` if the
+    /// ray misses (discriminant < 0) or both roots are behind the particle.
+    ///
+    /// `coincident` (the particle is sitting on this surface, e.g. just after a
+    /// boundary crossing) forces c = 0 so round-off can't reflect the tangent
+    /// root back inside — the standard OpenMC treatment.
+    fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
+        const EPS: f64 = 1.0e-10;
+        let ox = r.x - self.x0;
+        let oy = r.y - self.y0;
+        let oz = r.z - self.z0;
+        let k = ox * u.u + oy * u.v + oz * u.w; // o·u
+        let c = if coincident { 0.0 } else { ox * ox + oy * oy + oz * oz - self.r * self.r };
+        let disc = k * k - c;
+        if disc < 0.0 {
+            return f64::INFINITY;
+        }
+        let sq = disc.sqrt();
+        // Roots in increasing order: (−k − sq) ≤ (−k + sq).
+        let d_near = -k - sq;
+        if d_near > EPS {
+            d_near
+        } else {
+            let d_far = -k + sq;
+            if d_far > EPS { d_far } else { f64::INFINITY }
+        }
     }
 }
 

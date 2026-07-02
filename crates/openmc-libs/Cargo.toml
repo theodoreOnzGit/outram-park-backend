@@ -11,6 +11,10 @@ categories.workspace = true
 [dependencies]
 thiserror = { workspace = true }
 ndarray = { workspace = true }
+# Nuclear data (cross sections, ν̄, χ). openmc-libs is data-free — it pulls all
+# microscopic cross sections from this crate's provider surface. See
+# docs/architecture.md.
+njoy-outram-park-fork = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }

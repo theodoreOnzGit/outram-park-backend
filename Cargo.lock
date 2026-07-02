@@ -3390,6 +3390,7 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "ndarray",
+ "njoy-outram-park-fork",
  "thiserror 2.0.18",
 ]
 

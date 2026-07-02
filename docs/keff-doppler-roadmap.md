@@ -16,6 +16,16 @@ Opened 2026-07.
   6.673 eV capture resonance peaks at **22 262 b (0 K) → 7 110 b (294 K) →
   4 283 b (1000 K)** — see `tests/wmp_u238.rs`. This satisfies goal 2's kernel;
   remaining is a quantitative gate vs the OpenMC pointwise `.h5`.
+- ✅ **First bare-sphere Keff (Godiva) runs end-to-end** — the `openmc-libs`
+  transport stack is wired to njoy's data: `Nuclide::from_core` pulls WMP +
+  fast MGXS + ν̄ through the CE↔MG seam at `e_max`; `Sphere::distance`, isotropic /
+  Watt samplers, isotropic-CM elastic scatter, analog fission banking, and a
+  homogeneous-sphere power iteration (`physics::keff::run_keff`) close the loop.
+  `cargo run --release -p openmc-libs --example godiva_keff` reports **k ≈ 1.13 ±
+  0.002** (stable, converged). That is ~13 000 pcm high — expected for this first
+  cut: the fast MGXS is infinite-dilution (no self-shielding) and inelastic /
+  (n,xn) are lumped into elastic scatter, so the spectrum is too hard. Closing the
+  gap = fast self-shielding (Bondarenko/URR) + a real inelastic energy-loss law.
 - ⏭ **Next:** read the OpenMC pointwise `.h5` (`endfb-viii.0-hdf5/neutron/`) to
   extract the reference σ(n,γ)(E,T) curve and gate WMP against it; then U-235/233
   + the transport side (geometry → Keff). NB: WMP U is VII.1 while the pointwise

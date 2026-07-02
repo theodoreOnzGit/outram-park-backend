@@ -52,34 +52,45 @@ pub fn sample_exp(seed: &mut u64, rate: f64) -> f64 {
     -prn(seed).ln() / rate
 }
 
-/// Sample a Maxwellian energy distribution: f(E) ∝ √E · exp(−E / kT).
-/// `theta` is the temperature parameter in eV.
+/// Sample a Maxwellian energy distribution: f(E) ∝ √E · exp(−E / θ).
+/// `theta` is the temperature parameter in eV; the returned energy is in eV.
 ///
-/// Maps to `double maxwell_spectrum(double theta, uint64_t* seed)`.
-/// TODO: port Box-Muller / Ahrens-Dieter algorithm from OpenMC.
+/// Maps to `double maxwell_spectrum(double T, uint64_t* seed)` in
+/// `src/random_dist.cpp`. Uses the standard three-uniform algorithm: with
+/// r₁,r₂,r₃ ∈ [0,1), `E = −θ·(ln r₁ + ln r₂ · cos²(½π r₃))`, which is exact for
+/// the √E·exp(−E/θ) density (Everett & Cashwell).
 pub fn maxwell(seed: &mut u64, theta: f64) -> f64 {
-    let _ = (seed, theta);
-    todo!("maxwell_spectrum: port from src/random_dist.cpp")
+    // Clamp the logs' arguments away from 0 to avoid −∞ on the astronomically
+    // rare prn() == 0.
+    let r1 = prn(seed).max(f64::MIN_POSITIVE);
+    let r2 = prn(seed).max(f64::MIN_POSITIVE);
+    let r3 = prn(seed);
+    let c = (0.5 * PI * r3).cos();
+    -theta * (r1.ln() + r2.ln() * c * c)
 }
 
-/// Sample a Watt fission spectrum: f(E) ∝ sinh(√(a·E)) · exp(−E/b).
-/// Parameters `a` and `b` in eV.
+/// Sample a Watt fission spectrum: f(E) ∝ exp(−E/a) · sinh(√(b·E)).
+/// `a` in eV, `b` in eV⁻¹; the returned energy is in eV.
 ///
-/// Maps to `double watt_spectrum(double a, double b, uint64_t* seed)`.
-/// TODO: port from OpenMC.
+/// Maps to `double watt_spectrum(double a, double b, uint64_t* seed)`. Draws a
+/// Maxwellian `w` with temperature `a`, then shifts it:
+/// `E = w + ¼a²b + (2ξ−1)·√(a²b·w)` (Everett & Cashwell). This is the sampler
+/// OpenMC uses for the prompt-fission source.
 pub fn watt(seed: &mut u64, a: f64, b: f64) -> f64 {
-    let _ = (seed, a, b);
-    todo!("watt_spectrum: port from src/random_dist.cpp")
+    let w = maxwell(seed, a);
+    w + 0.25 * a * a * b + (2.0 * prn(seed) - 1.0) * (a * a * b * w).sqrt()
 }
 
 /// Sample an isotropic direction on the unit sphere.
 ///
-/// Returns (u, v, w) direction cosines. Polar angle sampled uniformly in
-/// cos θ ∈ [−1, 1]; azimuthal angle φ ∈ [0, 2π).
-/// TODO: port from `distribution_angle.cpp`.
+/// Returns direction cosines `(u, v, w)`. The polar cosine μ is uniform on
+/// [−1, 1] and the azimuth φ uniform on [0, 2π): `(μ, √(1−μ²)·cos φ,
+/// √(1−μ²)·sin φ)`. Maps to `Direction::sample_isotropic` / `isotropic()`.
 pub fn isotropic_direction(seed: &mut u64) -> (f64, f64, f64) {
-    let _ = seed;
-    todo!("isotropic direction: port from src/distribution_angle.cpp")
+    let mu = 2.0 * prn(seed) - 1.0;
+    let phi = 2.0 * PI * prn(seed);
+    let a = (1.0 - mu * mu).max(0.0).sqrt();
+    (mu, a * phi.cos(), a * phi.sin())
 }
 
 #[cfg(test)]
