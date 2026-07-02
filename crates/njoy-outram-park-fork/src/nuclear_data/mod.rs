@@ -64,8 +64,8 @@ impl XsProvider {
             XsProvider::Multipole { wmp, nu, .. } => {
                 let x = wmp.evaluate(e, temp_k);
                 MicroXs {
-                    total: x.total,
-                    elastic: x.scatter(),
+                    total: x.total(),
+                    elastic: x.scatter,
                     fission: x.fission,
                     capture: x.capture(),
                     nu_fission: x.fission * nu.at(e),
