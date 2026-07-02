@@ -6,13 +6,21 @@ raw HDF5 double payload (≈ what an embedded blob carries).
 - **CORE** → embed in `njoy-outram-park-fork` (`from_blob`), deflate+shuffle.
 - **EXTENDED** → ship in a separate sibling crate; loadable via `load_h5` or its own blob.
 
-## CORE — embedded default set (reactor-grade)
+LFTR coverage (package D): Li-6/Li-7 + K-39/40/41 (FLiBe **and** FLiNaK salts),
+F-19/Be-9/Na-23/Zr (salt + MSRE ZrF4), Th-232/Pa-233/U-233 breeding + Th-230/
+Pa-231 chain, C-nat graphite, Ni/Mo/Cr/Fe/Mn/Si Hastelloy-N. CORE = 5.11 MB
+deflate — over the 5 MB soft target but under the crates.io 10 MiB cap. Still
+out (EXTENDED): W (Hastelloy trace).
+
+## CORE — embedded default set (reactor-grade + LFTR)
 
 | Nuclide | ZZAAA | KB |
 |---|---|---|
 | H-1 | 001001 | 13 |
 | H-2 | 001002 | 6 |
 | He-4 | 002004 | 6 |
+| Li-6 | 003006 | 14 |
+| Li-7 | 003007 | 91 |
 | Be-9 | 004009 | 86 |
 | B-10 | 005010 | 113 |
 | B-11 | 005011 | 23 |
@@ -27,6 +35,9 @@ raw HDF5 double payload (≈ what an embedded blob carries).
 | Si-28 | 014028 | 15 |
 | Si-29 | 014029 | 10 |
 | Si-30 | 014030 | 17 |
+| K-39 | 019039 | 144 |
+| K-40 | 019040 | 130 |
+| K-41 | 019041 | 21 |
 | Cr-50 | 024050 | 81 |
 | Cr-52 | 024052 | 53 |
 | Cr-53 | 024053 | 55 |
@@ -107,7 +118,9 @@ raw HDF5 double payload (≈ what an embedded blob carries).
 | Hf-178 | 072178 | 12 |
 | Hf-179 | 072179 | 20 |
 | Hf-180 | 072180 | 19 |
+| Th-230 | 090230 | 22 |
 | Th-232 | 090232 | 220 |
+| Pa-231 | 091231 | 33 |
 | Pa-233 | 091233 | 24 |
 | U-233 | 092233 | 109 |
 | U-234 | 092234 | 34 |
@@ -129,7 +142,7 @@ raw HDF5 double payload (≈ what an embedded blob carries).
 | Cm-244 | 096244 | 38 |
 | Cm-245 | 096245 | 25 |
 
-**CORE total: 118 nuclides, 5.45 MB raw → ~4.72 MB deflate.**
+**CORE total: 125 nuclides, 5.90 MB raw → ~5.11 MB deflate.**
 
 ## EXTENDED — sibling crate (everything else)
 
@@ -137,8 +150,6 @@ raw HDF5 double payload (≈ what an embedded blob carries).
 |---|---|---|
 | H-3 | 001003 | 6 |
 | He-3 | 002003 | 9 |
-| Li-6 | 003006 | 14 |
-| Li-7 | 003007 | 91 |
 | Be-7 | 004007 | 14 |
 | Na-22 | 011022 | 41 |
 | Mg-24 | 012024 | 24 |
@@ -154,9 +165,6 @@ raw HDF5 double payload (≈ what an embedded blob carries).
 | Z18-36 | 018036 | 14 |
 | Z18-38 | 018038 | 9 |
 | Z18-40 | 018040 | 152 |
-| K-39 | 019039 | 144 |
-| K-40 | 019040 | 130 |
-| K-41 | 019041 | 21 |
 | Ca-40 | 020040 | 17 |
 | Ca-42 | 020042 | 18 |
 | Ca-43 | 020043 | 9 |
@@ -384,13 +392,11 @@ raw HDF5 double payload (≈ what an embedded blob carries).
 | Th-227 | 090227 | 81 |
 | Th-228 | 090228 | 9 |
 | Th-229 | 090229 | 8 |
-| Th-230 | 090230 | 22 |
 | Th-231 | 090231 | 121 |
 | Th-233 | 090233 | 15 |
 | Th-234 | 090234 | 58 |
 | Pa-229 | 091229 | 35 |
 | Pa-230 | 091230 | 140 |
-| Pa-231 | 091231 | 33 |
 | Pa-232 | 091232 | 17 |
 | U-230 | 092230 | 61 |
 | U-231 | 092231 | 116 |
@@ -441,4 +447,4 @@ raw HDF5 double payload (≈ what an embedded blob carries).
 | Es-255 | 099255 | 230 |
 | Fm-255 | 100255 | 140 |
 
-**EXTENDED total: 305 nuclides, 10.09 MB raw.**
+**EXTENDED total: 298 nuclides, 9.64 MB raw.**
