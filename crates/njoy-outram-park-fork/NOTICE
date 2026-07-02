@@ -47,3 +47,26 @@ Note on the name "NJOY": the BSD license governs copyright, not trademark. The
 `-outram-park-fork` suffix and this NOTICE are intended to clearly distinguish
 this work from upstream. If the NJOY developers object to the use of "njoy" in
 the crate name, it will be renamed.
+
+
+Embedded Windowed Multipole data (MIT CRPG — NOT NJOY / NOT LANL)
+----------------------------------------------------------------
+
+This crate ALSO embeds a windowed-multipole cross-section data set
+(`src/data/wmp_core.wmpl`, the CORE 125-nuclide blob decoded by
+`wmp::WmpLibrary` / `wmp::WindowedMultipole`). That data is a SEPARATE work
+from NJOY2016:
+
+- Source:  MIT Computational Reactor Physics Group (CRPG) `WMP_Library`,
+  https://github.com/mit-crpg/WMP_Library (ENDF/B-VII.1 evaluations).
+- Copyright:  © 2018-2021 Massachusetts Institute of Technology.
+- License:  MIT (full text in `LICENSE-WMP`). MIT is GPL-compatible, so it
+  coexists with this crate's overall `GPL-3.0-only` licensing.
+- The windowing/curve-fit method is that of C. Josey, P. Romano, B. Forget,
+  and K. Smith (MIT CRPG). This attribution is DISTINCT from the NJOY/LANL
+  attribution above; do not conflate the two, and do not imply LANL endorsement
+  of the WMP data.
+
+The `wmp` module's evaluation algorithm is an independent Rust re-implementation
+(reference: OpenMC's MIT-licensed `src/wmp.cpp`); only the numeric data blob is
+derived from `WMP_Library`.

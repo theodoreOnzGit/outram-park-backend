@@ -62,3 +62,43 @@ impl Default for FissionSpectrum {
         FissionSpectrum::Watt { a: 0.988e6, b: 2.249e-6 }
     }
 }
+
+impl FissionSpectrum {
+    /// Unnormalized spectral weight χ(E) at outgoing energy `e` \[eV\].
+    ///
+    /// This is the **group-collapse weighting function** for the fast-range MGXS
+    /// path ([`super::Mgxs::collapse_watt`]): a fission-spectrum-weighted average
+    /// σ_g = ∫σ(E)χ(E)dE / ∫χ(E)dE. Absolute normalization is irrelevant — only
+    /// the *shape* matters for a weighted average — so the Watt form is returned
+    /// without its leading constant. `Tabulated` interpolates lin-lin, clamped to
+    /// zero outside the tabulated support.
+    pub fn weight(&self, e: f64) -> f64 {
+        match self {
+            FissionSpectrum::Watt { a, b } => {
+                if e <= 0.0 {
+                    return 0.0;
+                }
+                (-e / a).exp() * (b * e).sqrt().sinh()
+            }
+            FissionSpectrum::Tabulated { e_out, pdf } => {
+                match e_out.first() {
+                    None => 0.0,
+                    Some(&e0) if e < e0 => 0.0,
+                    Some(_) => {
+                        let &en = e_out.last().unwrap();
+                        if e > en {
+                            return 0.0;
+                        }
+                        let hi = e_out.iter().position(|&x| x >= e).unwrap();
+                        if hi == 0 {
+                            return pdf[0];
+                        }
+                        let (x0, x1) = (e_out[hi - 1], e_out[hi]);
+                        let (y0, y1) = (pdf[hi - 1], pdf[hi]);
+                        y0 + (y1 - y0) * (e - x0) / (x1 - x0)
+                    }
+                }
+            }
+        }
+    }
+}

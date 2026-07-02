@@ -98,42 +98,39 @@ runs, HPC array jobs) hitting the same cache concurrently.
     must fail cleanly, not runaway-allocate. Bounded allocations + cursor-advance
     checks (this is the same failure mode the crate's 12 GB unit-test cap guards).
 
-## Multigroup augmentation above `e_max` (part of the LOW tier) — two-spectrum interpolation
+## Multigroup augmentation above `e_max` (part of the LOW tier) — single Watt-weighted MGXS
 
 This is **not a separate tier** — it is the upper half of the LOW-tier package,
 extending the embedded WMP blob past its ceiling so the offline build spans the
 full energy range. The high-energy region (above each nuclide's WMP `e_max`;
-U-233 600 eV, U-235 2.25 keV, U-238 20 keV) is smooth → **10 groups** per reaction
-is enough. Rather
-than one spectrum-locked set, embed **two** pre-weighted endpoints per nuclide and
-interpolate between them by spectral hardness:
+U-233 600 eV, U-235 2.25 keV, U-238 20 keV) is smooth, so a **coarse multigroup**
+set per reaction is enough.
 
-- **HARD endpoint — Watt (fission) weighted.** Unmoderated / fast-reactor extreme.
-- **SOFT endpoint — 1/E slowing-down weighted.** Moderated / thermal-reactor
-  extreme. (Note: in this band the *soft* shape is 1/E, **not** a Maxwellian — a
-  Maxwellian peaks at thermal ~0.025 eV, far below `e_max`. A Maxwellian+1/E+fission
-  composite is an option, but the fast-band shape it contributes is essentially
-  1/E.) This is the user's "Boltzmann-weighted" endpoint, corrected to the shape
-  that is physical in the fast region.
+**Design decision (2026-07-02): keep it deliberately simple — one Watt-spectrum
+weight, no Boltzmann.** This is the *low-fidelity, high-speed* fallback; it is not
+trying to be accurate, it is trying to be cheap. So:
 
-Interpolate group σ for an in-between reactor by a hardness parameter λ ∈ [0,1]:
+- **Single weighting: the Watt fission spectrum.** Group constants are collapsed
+  once, offline, as σ_g = ∫σ(E)χ(E)dE / ∫χ(E)dE with χ the Watt form. No second
+  (1/E / Maxwellian) endpoint, no hardness-parameter interpolation between spectra.
+- **No self-shielding.** There is *no* Boltzmann solve, *no* Bondarenko dilution,
+  *no* URR probability-table treatment. A caller who needs any of that uses the
+  HIGH tier (on-spectrum ENDF reprocessing) instead.
+- **Runtime lookup is a piecewise-constant group index** — temperature-independent.
+  The fast range where a bare sphere lives is smooth, so a hard-spectrum-weighted
+  constant is adequate and fast.
 
-    σ_g(λ) = (1−λ)·σ_g^soft + λ·σ_g^hard      (linear first cut; log-interp optional)
+Implemented as [`nuclear_data::Mgxs`] (`src/nuclear_data/mod.rs`):
+`Mgxs::collapse_watt(...)` does the offline collapse from a fine pointwise set
+weighted by a [`FissionSpectrum::Watt`]; `Mgxs::micro(e)` is the O(log n) group
+lookup. Wired into `XsProvider::Mgxs` alongside the WMP `Multipole` variant.
 
-- **λ from a physical spectral index** — median fission energy, fast/thermal flux
-  ratio, or moderator-to-fuel ratio; *or* measured self-consistently from the sim's
-  own tally spectrum and the set re-collapsed (iterate to convergence).
-- **Caveats.** Group σ is a flux-weighted average, so it is not strictly linear in
-  hardness; the two endpoints *bound* the true value but the interior is
-  approximate. For 10 smooth fast groups this is a defensible one-parameter model
-  for the offline LOW tier — not a replacement for the HIGH tier's on-spectrum
-  ENDF reprocessing. URR self-shielding (Bondarenko) still applies just above
-  `e_max` regardless.
+If a moderated-spectrum use case ever needs it, a softer weight is a *new* baked
+set, not added complexity in the runtime path — the collapse function stays
+single-spectrum.
 
 ## Open questions
 
-- λ mapping: expose a single user "spectral hardness" knob, infer from
-  moderator-to-fuel ratio, or always iterate from the tallied spectrum?
-- Soft endpoint: pure 1/E, or the Maxwellian+1/E+fission composite (matters only
-  near the bottom of the fast band)?
+- Group structure for the fast MGXS set (how many groups, and the boundaries) —
+  and whether to bake it from the ACER/RECONR pointwise output or a downloaded ACE.
 - git-lfs mirror hosting cost vs relying on official URLs + local cache only.

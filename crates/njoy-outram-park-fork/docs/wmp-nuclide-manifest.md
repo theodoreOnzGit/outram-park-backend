@@ -8,9 +8,9 @@ raw HDF5 double payload (≈ what an embedded blob carries).
 
 LFTR coverage (package D): Li-6/Li-7 + K-39/40/41 (FLiBe **and** FLiNaK salts),
 F-19/Be-9/Na-23/Zr (salt + MSRE ZrF4), Th-232/Pa-233/U-233 breeding + Th-230/
-Pa-231 chain, C-nat graphite, Ni/Mo/Cr/Fe/Mn/Si Hastelloy-N. CORE = 5.11 MB
-deflate — over the 5 MB soft target but under the crates.io 10 MiB cap. Still
-out (EXTENDED): W (Hastelloy trace).
+Pa-231 chain, C-nat graphite, Ni/Mo/Cr/Fe/Mn/Si Hastelloy-N. **Baked**: the
+WMPL blob (`src/data/wmp_core.wmpl`) is **4.70 MB** — under the 5 MB soft target
+and the crates.io 10 MiB cap. Still out (EXTENDED): W (Hastelloy trace).
 
 ## CORE — embedded default set (reactor-grade + LFTR)
 
@@ -142,7 +142,7 @@ out (EXTENDED): W (Hastelloy trace).
 | Cm-244 | 096244 | 38 |
 | Cm-245 | 096245 | 25 |
 
-**CORE total: 125 nuclides, 5.90 MB raw → ~5.11 MB deflate.**
+**CORE total: 125 nuclides. Baked: ~6.15 MB raw doubles → 4.70 MB WMPL blob (1.31x).**
 
 ## EXTENDED — sibling crate (everything else)
 

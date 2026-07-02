@@ -16,10 +16,11 @@
 //!   *Ann. Nucl. Energy* 2015/2016). Credit MIT CRPG and these authors in any
 //!   derived work; do **not** imply LANL endorsement.
 //!
-//! **Before importing any WMP *data* into this crate, add a separate
-//! `LICENSE-WMP` (the upstream MIT text) and a NOTICE entry crediting MIT CRPG.**
-//! (The *algorithm* below is an independent re-implementation; the reference is
-//! OpenMC's MIT-licensed `src/wmp.cpp`, at `/home/teddy0/Documents/research/openmc/`.)
+//! The CORE data blob (`src/data/wmp_core.wmpl`) is now embedded; its MIT CRPG
+//! provenance is credited in `LICENSE-WMP` (upstream MIT text) and `NOTICE`, kept
+//! separate from the NJOY attribution. (The *algorithm* below is an independent
+//! re-implementation; the reference is OpenMC's MIT-licensed `src/wmp.cpp`, at
+//! `/home/teddy0/Documents/research/openmc/`.)
 //!
 //! # Role in OUTRAM PARK
 //!
@@ -44,9 +45,11 @@
 //! `wmp-hdf5` feature) — see `tests/wmp_u238.rs`. The embedded, zero-dependency
 //! shipping path — [`WindowedMultipole::to_blob`] (offline bake) and
 //! [`WindowedMultipole::from_blob`] (runtime decode) of the pure-Rust **WMPB v1**
-//! format — is **implemented and round-trip tested**. No curated CORE blob is
-//! baked into the crate yet; that is the remaining data step (see
-//! `docs/wmp-nuclide-manifest.md`).
+//! format — is **implemented and round-trip tested**. The curated **CORE**
+//! 125-nuclide set is baked into `src/data/wmp_core.wmpl` and always embedded,
+//! exposed offline via [`WmpLibrary::core`] (no feature gate — it ships in every
+//! build); re-bake it with the `bake_wmp` example. See
+//! `docs/wmp-nuclide-manifest.md`.
 
 use crate::NjoyError;
 use std::sync::OnceLock;
@@ -370,20 +373,24 @@ impl WindowedMultipole {
         let cf_ds = file
             .dataset(&format!("/{name}/curvefit"))
             .map_err(|e| err(format!("curvefit: {e}")))?;
+        // Last dim = number of channels: 2 (scatter, absorption) for a
+        // non-fissionable nuclide, 3 (+ fission) for a fissionable one.
         let cf_shape = cf_ds.shape().map_err(|e| err(format!("curvefit shape: {e}")))?;
-        if cf_shape.len() != 3 || cf_shape[2] != 3 {
+        if cf_shape.len() != 3 || (cf_shape[2] != 2 && cf_shape[2] != 3) {
             return Err(err(format!("curvefit shape {cf_shape:?} unexpected")));
         }
         let n_windows = cf_shape[0] as usize;
         let n_coeff = cf_shape[1] as usize;
+        let n_ch = cf_shape[2] as usize;
         let fit_order = n_coeff - 1;
         let cf_flat = cf_ds.read_f64().map_err(|e| err(format!("curvefit read: {e}")))?;
         let mut curvefit = Vec::with_capacity(n_windows);
         for w in 0..n_windows {
             let mut coeffs = Vec::with_capacity(n_coeff);
             for c in 0..n_coeff {
-                let o = (w * n_coeff + c) * 3;
-                coeffs.push([cf_flat[o], cf_flat[o + 1], cf_flat[o + 2]]);
+                let o = (w * n_coeff + c) * n_ch;
+                let fission = if n_ch >= 3 { cf_flat[o + 2] } else { 0.0 };
+                coeffs.push([cf_flat[o], cf_flat[o + 1], fission]);
             }
             curvefit.push(coeffs);
         }
@@ -824,6 +831,25 @@ impl WmpLibrary {
         Ok(Self { bytes: bytes.to_vec(), index })
     }
 
+    /// The embedded **CORE** nuclide set — 125 reactor-grade + LFTR nuclides
+    /// (ENDF/B-VII.1 windowed multipole, MIT CRPG; see `docs/wmp-nuclide-manifest.md`),
+    /// baked into the crate so every build resolves cross sections offline
+    /// with no HDF5 and no downloads.
+    ///
+    /// The ~4.7 MB blob is parsed once and shared; repeated calls return the same
+    /// cached library. Look up a nuclide with [`Self::get`] (e.g. `.get("U238")`).
+    ///
+    /// The blob is **always embedded** — there is no feature to disable it, so this
+    /// method is available in every build. **License:** the returned data is
+    /// MIT CRPG (`LICENSE-WMP` + `NOTICE`), distinct from the NJOY attribution.
+    pub fn core() -> &'static WmpLibrary {
+        static CORE: OnceLock<WmpLibrary> = OnceLock::new();
+        CORE.get_or_init(|| {
+            WmpLibrary::from_blob(include_bytes!("data/wmp_core.wmpl"))
+                .expect("embedded CORE WMPL blob is valid")
+        })
+    }
+
     /// Number of nuclides in the container.
     pub fn len(&self) -> usize {
         self.index.len()
@@ -1190,6 +1216,25 @@ mod tests {
         assert!(WmpLibrary::from_blob(&bad).is_err());
         // Truncated below the header.
         assert!(WmpLibrary::from_blob(&image[..8]).is_err());
+    }
+
+    #[test]
+    fn embedded_core_library_loads_and_evaluates() {
+        let lib = WmpLibrary::core();
+        assert_eq!(lib.len(), 125, "CORE nuclide count");
+        assert!(lib.contains("U238") && lib.contains("H1"));
+
+        // Fissionable actinide: the 6.673 eV capture resonance is large at 300 K
+        // (the U-238 Doppler target — see tests/wmp_u238.rs for the full gate).
+        let u238 = lib.get("U238").unwrap();
+        assert!(u238.fissionable);
+        let on_res = u238.evaluate(6.673, 300.0).absorption;
+        assert!(on_res > 100.0, "U-238 6.673 eV absorption = {on_res} b");
+
+        // Non-fissionable nuclide decodes with an all-zero fission channel.
+        let h1 = lib.get("H1").unwrap();
+        assert!(!h1.fissionable);
+        assert_eq!(h1.evaluate(1.0, 300.0).fission, 0.0);
     }
 
     #[test]

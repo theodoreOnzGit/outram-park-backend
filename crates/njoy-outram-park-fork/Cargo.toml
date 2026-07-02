@@ -40,6 +40,12 @@ hdf5-pure = { workspace = true, optional = true }
 #   ndarray  — ENDF tape arrays and cross-section grids (column-major data)
 
 [features]
+# The CORE 125-nuclide windowed-multipole blob (`src/data/wmp_core.wmpl`,
+# ~4.7 MB, ENDF/B-VII.1, MIT CRPG) is ALWAYS embedded via `include_bytes!` and
+# exposed through `WmpLibrary::core` — there is no opt-out feature. Every build
+# resolves cross sections offline with no HDF5 and no downloads.
+#
 # Enables reading MIT CRPG `WMP_Library` HDF5 files directly via
 # `WindowedMultipole::load_h5` (development / blob-baking path).
+# Re-bake with `cargo run --example bake_wmp --features wmp-hdf5`.
 wmp-hdf5 = ["dep:hdf5-pure"]
