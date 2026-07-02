@@ -55,11 +55,38 @@ not NJOY/LANL. Add `LICENSE-WMP` (MIT) + a NOTICE credit before embedding data.
 | Provider surface consumed by transport | `nuclear_data::XsProvider → MicroXs` | n/a (API) |
 | Reference σ(E,T), reference Keff | OpenMC pregenerated `.h5` + ICSBEP | ❌ download / cite only |
 
-**WMP coverage — decided.** WMP must reach up into the fast fission spectrum so
-the bare-sphere Keff is covered, **provided the blob stays small**. Where a
-nuclide's `e_max` falls short, fill the high-energy gap with a thin lean-ACE
-pointwise tail (`nuclear_data::LeanAce`) rather than bloating the multipole set.
-Watch the per-nuclide footprint as the deciding constraint.
+**Fast-range coverage — REVISED (2026-07, supersedes the lean-ACE-tail plan).**
+The WMP ceilings sit *far* below the fission spectrum (measured `e_max`: U-233
+**600 eV**, U-235 **2.25 keV**, U-238 **20 keV**), while a bare-sphere fission
+spectrum lives at **0.1–10 MeV**. So WMP covers thermal + resonance (Doppler,
+self-shielding — its strength) but *none* of the fast range where the Keff
+actually lives. The fast tail is therefore handled by **multigroup**, not a
+pointwise lean-ACE tail:
+
+- **Below `e_max`:** WMP continuous-energy (keeps analytic Doppler).
+- **Above `e_max`:** a coarse fast group set (≈30 groups, fission/hard-spectrum
+  weighted). The fast range is smooth, so group-averaging is accurate — this is
+  multigroup's home turf; Godiva/Jezebel Keff was historically nailed to a few
+  hundred pcm with 16–26 group sets. Data is ~KB/nuclide (group σ + a
+  downscatter-dominated transfer matrix) → **<1 MB for the whole CORE set**, vs
+  several MB of pointwise. This is why full ACE never ships.
+
+**Transport seam.** Keep CE particles throughout; above `e_max` look up
+piecewise-constant group σ for the particle's energy, and on scatter pick an exit
+group from the transfer matrix, then sample a continuous within-group energy from
+the weighting spectrum ("CE particle, MG data above the ceiling"). The CE loop
+stays intact; approximations (stair-stepped σ, within-group exit sampling) are
+fine for a first Keff.
+
+**Two must-dos for correctness.** (1) The URR just above `e_max` (U-238 ~20–150
+keV) self-shields — use **Bondarenko f-factors** (MG) or probability tables, not
+infinite-dilution group averages, or U-238 capture/breeding comes out wrong.
+(2) Bake the fast group constants with a **fission/hard spectrum**; they are only
+valid for the spectrum they were collapsed with.
+
+The old `nuclear_data::LeanAce` pointwise-tail path is demoted to a fallback for
+any nuclide lacking both a WMP entry and a group set; ACE stays an *offline
+source* the ACER port emits, from which the group constants are collapsed.
 
 **Reference extraction is HDF5-free in-crate.** `openmc-libs` has no HDF5 dep.
 Extract the reference U-238 (n,γ) curve (and Keff) from the `.h5` *offline*
@@ -172,4 +199,9 @@ same `.h5`) within statistics (target a few hundred pcm at first).
 - **Where WMP data lives** — in `njoy-outram-park-fork` (all nuclear data lives
   there; `openmc-libs` stays data-free and pulls via `XsProvider`). The
   `openmc-data-wmp` sibling-crate idea is dropped. (2026-07)
+- **Fast range = multigroup, not pointwise lean-ACE** — WMP ceilings (600 eV –
+  20 keV) sit far below the fission spectrum, so the fast tail is a coarse fast
+  group set (<1 MB CORE) with a CE-particle/MG-data seam at `e_max`; URR needs
+  Bondarenko self-shielding, constants baked with a hard spectrum. Full ACE never
+  ships. See the "Fast-range coverage" block above. (2026-07)
 ```
