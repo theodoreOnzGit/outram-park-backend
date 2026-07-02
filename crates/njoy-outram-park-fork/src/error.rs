@@ -26,6 +26,12 @@ pub enum NjoyError {
     #[error("not yet ported from NJOY2016: {0}")]
     NotPorted(&'static str),
 
+    /// A Windowed-Multipole data file (MIT CRPG `WMP_Library` HDF5, or an
+    /// embedded blob) was missing a dataset, had an unexpected shape, or could
+    /// not be decoded.
+    #[error("WMP data error: {0}")]
+    WmpData(String),
+
     /// Underlying I/O failure reading or writing a tape file.
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),

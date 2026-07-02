@@ -4,6 +4,24 @@ Cross-crate plan for two near-term OUTRAM PARK goals, spanning the
 `openmc-libs` Monte Carlo kernel and the `njoy-outram-park-fork` data toolkit.
 Opened 2026-07.
 
+## Progress (2026-07)
+
+- ✅ **Faddeeva kernel** `w(z)` — pure-Rust Weideman rational approximation
+  (`wmp::faddeeva`), validated against scipy `wofz` to 1e-6. No FFI.
+- ✅ **WMP evaluator** `wmp::WindowedMultipole::evaluate` — window walk +
+  curve-fit background + analytic Doppler pole sum; faithful to OpenMC `wmp.cpp`.
+- ✅ **WMP HDF5 reader** `wmp::WindowedMultipole::load_h5` — behind the
+  `wmp-hdf5` feature (pure-Rust `hdf5-pure`, no system libhdf5).
+- ✅ **Real U-238 Doppler demonstrated** (MIT `WMP_Library`, ENDF/B-VII.1): the
+  6.673 eV capture resonance peaks at **22 262 b (0 K) → 7 110 b (294 K) →
+  4 283 b (1000 K)** — see `tests/wmp_u238.rs`. This satisfies goal 2's kernel;
+  remaining is a quantitative gate vs the OpenMC pointwise `.h5`.
+- ⏭ **Next:** read the OpenMC pointwise `.h5` (`endfb-viii.0-hdf5/neutron/`) to
+  extract the reference σ(n,γ)(E,T) curve and gate WMP against it; then U-235/233
+  + the transport side (geometry → Keff). NB: WMP U is VII.1 while the pointwise
+  reference is VIII.0 — for a clean gate, cross-check with njoy BROADR on the
+  matching ENDF tape (`ENDF-B-VIII.0/neutrons/n-092_U_238.endf`).
+
 ## Goals
 
 1. **Keff of a bare critical sphere** for **U-235 (Godiva)** and **U-233
@@ -56,11 +74,12 @@ A cross-section-level comparison, no transport required. Good first proof that
 the WMP path works.
 
 **njoy-outram-park-fork — WMP evaluator** (all nuclear data lives here)
-1. Port `wmp::faddeeva` — pure-Rust `w(z)` (TOMS 916 or OpenMC's rational
-   approximation). *This is the one physics kernel gating everything WMP.*
-2. Port `wmp::WindowedMultipole::evaluate` (window walk + curve-fit + Doppler
-   pole sum) and `wmp::WindowedMultipole::from_blob` (blob decode).
-3. Bake a U-238 WMP blob (offline: MIT `WMP_Library` h5 → zstd) and load it.
+1. ✅ `wmp::faddeeva` — pure-Rust `w(z)` (Weideman); validated vs scipy `wofz`.
+2. ✅ `wmp::WindowedMultipole::evaluate` (window walk + curve-fit + Doppler pole
+   sum). `from_blob` (embedded-blob decode) still TODO — the shipping path.
+3. ✅ Load U-238 via `load_h5` (`wmp-hdf5` feature). Real Doppler broadening of
+   the 6.67 eV capture resonance confirmed (`tests/wmp_u238.rs`). Blob-baking for
+   the zero-dependency shipped build is the remaining step.
 
 **njoy-outram-park-fork — independent oracle** (uses already-ported modules)
 4. `RECONR` (✅) → 0 K pointwise U-238 σ(n,γ); `BROADR` (✅) → broaden to T.

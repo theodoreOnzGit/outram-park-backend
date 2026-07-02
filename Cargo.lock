@@ -1985,6 +1985,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 
 [[package]]
+name = "hdf5-pure"
+version = "0.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2951d64f3c0da24772ad21395071c160517e4a7e09bde8f0848b9bad945b9ab2"
+dependencies = [
+ "byteorder",
+ "flate2",
+ "ndarray",
+]
+
+[[package]]
 name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2799,6 +2810,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 name = "njoy-outram-park-fork"
 version = "0.0.1"
 dependencies = [
+ "hdf5-pure",
  "thiserror 2.0.18",
  "uom 0.38.0",
 ]

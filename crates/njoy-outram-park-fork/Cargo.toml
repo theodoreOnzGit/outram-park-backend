@@ -28,5 +28,14 @@ include = [
 [dependencies]
 thiserror.workspace = true
 uom.workspace = true
+# Pure-Rust HDF5 reader — no system libhdf5. Optional and behind the `wmp-hdf5`
+# feature so the default build (and the embedded-blob path) pulls no HDF5. Only
+# `WindowedMultipole::load_h5` needs it. See docs/architecture.md.
+hdf5-pure = { workspace = true, optional = true }
 # Added per phase as modules are ported (see docs/porting-plan.md):
 #   ndarray  — ENDF tape arrays and cross-section grids (column-major data)
+
+[features]
+# Enables reading MIT CRPG `WMP_Library` HDF5 files directly via
+# `WindowedMultipole::load_h5` (development / blob-baking path).
+wmp-hdf5 = ["dep:hdf5-pure"]

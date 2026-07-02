@@ -89,7 +89,7 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 | — | `acepn.f90` | 3.8k | ⬜ photonuclear ACE |
 | — | `acepa.f90` | ~2k | ⬜ photoatomic ACE |
 | — | `acedo.f90` | ~1k | ⬜ dosimetry ACE |
-| `wmp` | *(MIT WMP_Library — not NJOY)* | — | ⏳ 4g windowed-multipole import stub (`src/wmp.rs`) |
+| `wmp` | *(MIT WMP_Library — not NJOY)* | — | 🟡 4g evaluator + Faddeeva + `load_h5` done; `from_blob` TODO (`src/wmp.rs`) |
 
 ### Multigroup & covariance (Phase 5 — not needed by OpenMC CE)
 
@@ -197,16 +197,19 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
   Until 4b/4d/4e exist it is still not a complete transport library (no secondary
   energy distributions, so inelastic/fission collisions can't be followed); 4f
   (thermal S(α,β)) is a separate table type layered on top once 4a–4e are done.
-  - **4g — Windowed Multipole (WMP) import.** ⏳ **scaffolded** (`src/wmp.rs`,
-    stub returning `NotPorted`). **Independent MIT CRPG work — NOT NJOY/LANL.**
-    Imports the **MIT** `WMP_Library` (<https://github.com/mit-crpg/WMP_Library>,
-    MIT-licensed) HDF5 multipole data: complex poles/residues + windows enabling
-    *analytic* on-the-fly Doppler broadening (Faddeeva `w(z)`), a parallel
-    alternative to the pointwise ACE/PENDF representation. **Scheduled after 4f**
-    (thermal S(α,β)). Credit MIT CRPG and Josey/Romano/Forget/Smith; add a
-    separate `LICENSE-WMP` (MIT) + NOTICE entry before importing any code/data —
-    keep it cleanly separable from the NJOY BSD/LANL provenance. See the
-    `src/wmp.rs` module docs.
+  - **4g — Windowed Multipole (WMP) import.** 🟡 **evaluator done** (`src/wmp.rs`).
+    **Independent MIT CRPG work — NOT NJOY/LANL.** Reads the **MIT** `WMP_Library`
+    (<https://github.com/mit-crpg/WMP_Library>, MIT-licensed) HDF5 multipole data:
+    complex poles/residues + windows enabling *analytic* on-the-fly Doppler
+    broadening (Faddeeva `w(z)`), a parallel alternative to the pointwise
+    ACE/PENDF representation. **Done:** `faddeeva` (pure-Rust Weideman, no FFI,
+    validated vs scipy `wofz`); `WindowedMultipole::evaluate` (faithful to OpenMC
+    `wmp.cpp`); `load_h5` (behind the `wmp-hdf5` feature, pure-Rust `hdf5-pure`);
+    real U-238 Doppler confirmed (`tests/wmp_u238.rs`). **Remaining:** `from_blob`
+    (embedded-blob decode) for the zero-dependency shipped build. Credit MIT CRPG
+    and Josey/Romano/Forget/Smith; add a separate `LICENSE-WMP` (MIT) + NOTICE
+    entry before **embedding** any data (external file reads don't redistribute).
+    See the `src/wmp.rs` module docs.
 - **Phase 5 — multigroup/covariance** (GROUPR, ERRORR, …): only if OUTRAM PARK
   needs deterministic or sensitivity workflows.
 - **Phase 6 — formatters/plotting:** on demand only.
@@ -283,18 +286,22 @@ Two near-term OUTRAM PARK goals pull specific njoy modules forward. The full
 cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 **`../../../docs/keff-doppler-roadmap.md`**; njoy's slice of it:
 
-- **Priority 2 — U-238 Doppler broadening of capture.** The shipped in-crate data
-  is **WMP** (analytic broadening via the Faddeeva function, done in `openmc-libs`).
-  njoy's role here is the **independent oracle**: `RECONR` (✅) reconstructs the
-  0 K pointwise U-238 σ(n,γ); `BROADR` (✅) SIGMA1-broadens it to T. Comparing
-  WMP-analytic vs BROADR-kernel vs the OpenMC pregenerated `.h5` cross-checks all
-  three. Uses only already-ported modules — no new porting required.
+- **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
+  **WMP** with analytic broadening via the Faddeeva function — implemented **here
+  in njoy** (`src/wmp.rs`), not `openmc-libs`. Real U-238 broadening of the
+  6.67 eV capture resonance is confirmed (`tests/wmp_u238.rs`). njoy also holds
+  the **independent oracle**: `RECONR` (✅) reconstructs the 0 K pointwise U-238
+  σ(n,γ); `BROADR` (✅) SIGMA1-broadens it to T. The remaining quantitative gate
+  compares WMP-analytic vs BROADR-kernel vs the OpenMC pregenerated `.h5`. Uses
+  only already-ported modules — no new porting required.
 - **Priority 1 — bare critical sphere Keff (U-235 Godiva, U-233 Jezebel-23).** The
   transport lives in `openmc-libs`; njoy supplies the **secondary data** WMP does
   not carry: **ν̄(E)** (ACER **4b**, MF=1/452 → NU block) and the **fission
   spectrum χ(E)** (ACER **4d**, MF=5). These are tiny tables; porting 4b/4d for
   U-233/235 is the njoy-side critical path. Until then they may be hardcoded from
   ENDF as a stopgap (flagged as such).
-- **WMP import (`src/wmp.rs`, 4g).** Optional: a reader/validator for the MIT
-  `WMP_Library` HDF5 so njoy can sanity-check the blobs `openmc-libs` embeds.
-  Not on the critical path — the user downloads WMP directly.
+- **WMP import (`src/wmp.rs`, 4g).** 🟡 Done: `load_h5` reads the MIT
+  `WMP_Library` HDF5 (behind the `wmp-hdf5` feature). This is now the data
+  ingestion path for njoy's own WMP evaluator (all nuclear data lives in njoy;
+  `openmc-libs` pulls via `XsProvider`). Remaining: `from_blob` so a curated set
+  ships embedded with no HDF5 dependency in the built crate.
