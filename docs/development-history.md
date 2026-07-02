@@ -123,3 +123,62 @@ order:
    group is modelled instead of lumped into elastic.
 3. **Weighting-spectrum sensitivity study** using lever (a) above, to quantify and
    report the k_eff dependence on the collapse spectrum.
+
+---
+
+## 2026-07 — LOW vs HIGH fidelity: isolating the bias
+
+The next iteration answered the question the first one raised: *is the ~12 850 pcm
+Godiva overprediction caused by the coarse LOW-tier data, or by the transport
+physics?* The HIGH tier makes this a controlled experiment — swap the
+cross-section source and change nothing else.
+
+### Methodology
+
+Identical Godiva model (bare HEU sphere, r = 8.7407 cm, ICSBEP HEU-MET-FAST-001
+atom densities) and identical power iteration (5000 histories × [40 inactive +
+110 active]) were run under two data tiers, judged against the benchmark
+k_eff = 1.0000 ± 0.0010:
+
+- **LOW** (`godiva_keff`, offline) — embedded WMP below `e_max` + infinite-dilution
+  Watt-collapsed 10-group fast MGXS above.
+- **HIGH** (`godiva_keff_endf`, `net-fetch`) — the same three isotopes downloaded
+  as raw **ENDF/B-VII.1** tapes and reconstructed on device:
+  RECONR (0.1% tol) → BROADR (Doppler to 293.6 K) → energy-dependent ν̄ from
+  MF=1/452. Continuous-energy pointwise σ(E) throughout, so resonance
+  self-shielding is captured implicitly (σ sampled at each neutron's actual
+  energy) — the single biggest fidelity lever available short of new physics.
+
+ENDF/B-VII.1 (not VIII.0) is used because its U resonances are Reich-Moore
+(LRF=3), which the RECONR port reconstructs; VIII.0 U is LRF=7 (not yet ported).
+On-device reconstruction of all three isotopes takes ~14 s.
+
+### Results (2026-07, ENDF/B-VII.1)
+
+| Data tier | k_eff | Δk vs benchmark |
+|---|---|---|
+| LOW (embedded WMP + fast MGXS) | 1.12852 ± 0.00174 | +12 852 pcm |
+| HIGH (ENDF CE, reconstructed) | 1.12451 ± 0.00202 | +12 451 pcm |
+| **Effect of the data upgrade** | **−0.00401** | **≈ −400 pcm** |
+
+### Finding
+
+Replacing coarse, infinite-dilution group data with full continuous-energy
+resonance-reconstructed data — the largest data-fidelity improvement in the
+pipeline — moves k_eff by only **~400 pcm**, barely 3% of the ~12 500 pcm bias.
+The overprediction is therefore **transport-physics-limited, not data-limited.**
+
+The bias lives in the approximations *shared* by both runs: inelastic and (n,xn)
+scattering lumped into an elastic-like event (no real energy-loss law), and
+isotropic-CM elastic scatter. Both keep the neutron spectrum too hard — too many
+neutrons stay at high energy, where ν̄ and the fission/absorption ratio are most
+favourable — regardless of how accurate the cross sections are. This reorders the
+Open-items priority from the previous entry: **the inelastic energy-loss law and
+anisotropic scatter, not fast self-shielding, are the levers that will close the
+Godiva gap.** Fast self-shielding remains correct to add, but the comparison bounds
+its k_eff worth at a few hundred pcm.
+
+This result is encoded as a regression assertion — the LOW and HIGH runs must agree
+to within ~2000 pcm and both stay above unity — in
+`openmc-libs::physics::keff::tests::godiva_endf_high_fidelity_is_not_data_limited`
+(behind the `net-fetch` feature).

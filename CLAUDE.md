@@ -8,6 +8,27 @@ Guidance for Claude Code (and other AI assistants) working in this repository.
 - **Never auto-bump versions** in `Cargo.toml` files. Only bump versions when explicitly requested.
 - **Always build and test in release mode.** Use `--release` for all `cargo build` and `cargo test` invocations. Never run tests or builds in debug mode.
 
+## Verification & validation documentation (mandatory)
+
+**Whenever verification and validation (V&V) are concerned, the documentation
+must contain both the methodology and the results of the test.** This is a hard
+rule for anything that checks physics against a reference — benchmark comparisons,
+cross-section reconstruction gates, convergence studies, fidelity comparisons.
+
+Concretely, the doc comment (or `docs/` entry) for a V&V test must state:
+
+- **Methodology** — what is being computed, the reference/benchmark it is judged
+  against, the inputs (geometry, material, data source, tolerances), and the pass
+  criterion.
+- **Results** — the actual measured numbers *with uncertainty* (e.g. `k_eff =
+  1.12451 ± 0.00202`, `+12451 pcm` from benchmark), the date/data-version they
+  were taken on, and the interpretation (what the result implies about the model).
+
+A V&V test whose documentation states only what it does, but not what it produced,
+is incomplete. Record results where a reader meets the test: in the `///` doc
+comment of the test/example itself, and — for iterative studies worth citing in a
+paper — in the relevant `docs/` development-history entry.
+
 
 ## Human interface layer (mandatory design principle)
 

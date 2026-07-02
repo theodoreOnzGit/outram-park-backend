@@ -288,13 +288,20 @@ mod tests {
     use super::*;
     use crate::material::material::NuclideComponent;
 
-    /// End-to-end pipeline smoke test on Godiva (HEU-MET-FAST-001): the driver
-    /// must converge to a stationary, physically plausible eigenvalue and bank a
-    /// non-trivial fission source. This guards the full transport chain
-    /// (data → geometry → collision → scatter → fission → power iteration); it is
-    /// deliberately a *broad* band, not a benchmark gate — the current fast data
-    /// is infinite-dilution and inelastic scatter is approximated, so the true
-    /// result sits well above 1.0 (see the module fidelity note).
+    /// **LOW-fidelity Godiva V&V** (HEU-MET-FAST-001).
+    ///
+    /// **Methodology.** Bare HEU sphere, r = 8.7407 cm, ICSBEP atom densities
+    /// (U-234/235/238), 1500 histories × [20 inactive + 40 active], cross sections
+    /// from the embedded LOW tier (WMP below `e_max` + infinite-dilution
+    /// Watt-collapsed fast MGXS above). Reference: ICSBEP k_eff = 1.0000 ± 0.0010.
+    /// Pass criterion is deliberately a *broad* plausibility band (0.9–1.4), not a
+    /// benchmark gate — this guards the full transport chain (data → geometry →
+    /// collision → scatter → fission → power iteration), not accuracy.
+    ///
+    /// **Results (2026-07).** k_eff ≈ 1.129 ± 0.002, i.e. ~+12 900 pcm high. The
+    /// result is stationary and low-noise; the large positive bias is expected for
+    /// this fidelity (see [`godiva_endf_high_fidelity_is_not_data_limited`] for the
+    /// comparison showing the bias is transport-physics-, not data-, limited).
     #[test]
     fn godiva_converges_to_sane_keff() {
         let nuclides = vec![
@@ -348,6 +355,86 @@ mod tests {
         assert!(
             k_small < k_big,
             "3 cm sphere (k={k_small}) should leak more than 9 cm (k={k_big})"
+        );
+    }
+
+    /// **HIGH-fidelity Godiva V&V, and the LOW-vs-HIGH comparison** — behind the
+    /// `net-fetch` feature (downloads ENDF; not part of the default offline suite).
+    ///
+    /// **Methodology.** The same Godiva model and power-iteration settings are run
+    /// twice, changing *only* the cross-section source:
+    /// - **LOW** — embedded WMP + infinite-dilution fast MGXS ([`Nuclide::from_core`]).
+    /// - **HIGH** — ENDF/B-VII.1 downloaded and reconstructed on device
+    ///   ([`Nuclide::from_endf`]: RECONR 0.1% tol + BROADR to 293.6 K + MF=1/452
+    ///   ν̄), continuous-energy pointwise σ(E) with implicit self-shielding.
+    ///
+    /// Reference: ICSBEP HEU-MET-FAST-001, k_eff = 1.0000 ± 0.0010. The test
+    /// asserts (a) HIGH converges to a stationary, plausible eigenvalue, and (b)
+    /// the pass *claim*: replacing coarse data with full continuous-energy data
+    /// moves k_eff by little — the two agree to within ~2000 pcm and both remain
+    /// well above unity.
+    ///
+    /// **Results (2026-07, ENDF/B-VII.1).** LOW k_eff = 1.12852 ± 0.00174
+    /// (+12 852 pcm); HIGH k_eff = 1.12451 ± 0.00202 (+12 451 pcm). The data
+    /// upgrade accounts for only **~400 pcm** of the ~12 500 pcm bias, so the
+    /// overprediction is **transport-physics-limited, not data-limited** — the
+    /// shared approximations (inelastic/(n,xn) lumped into elastic, isotropic-CM
+    /// scatter) keep the spectrum too hard in both runs. This is the finding
+    /// recorded in `docs/development-history.md`.
+    #[cfg(feature = "net-fetch")]
+    #[test]
+    fn godiva_endf_high_fidelity_is_not_data_limited() {
+        use njoy_outram_park_fork::acquire::EndfLibrary;
+
+        let material = Material {
+            id: 1,
+            name: "Godiva".into(),
+            temperature: 293.6,
+            components: vec![
+                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
+                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
+                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+            ],
+        };
+        let settings = KeffSettings {
+            n_particles: 1500,
+            n_inactive: 20,
+            n_active: 40,
+            ..KeffSettings::default()
+        };
+
+        // LOW tier (embedded, offline).
+        let low = vec![
+            Nuclide::from_core("U234").unwrap(),
+            Nuclide::from_core("U235").unwrap(),
+            Nuclide::from_core("U238").unwrap(),
+        ];
+        let k_low = run_keff(8.7407, &material, &low, &settings).k_mean;
+
+        // HIGH tier (download + reconstruct ENDF/B-VII.1). U is Reich-Moore (LRF=3)
+        // in VII.1, which the RECONR port reconstructs (VIII.0 U is LRF=7).
+        let high: Vec<Nuclide> = ["U234", "U235", "U238"]
+            .iter()
+            .map(|n| Nuclide::from_endf(EndfLibrary::EndfBVII1, n, 293.6, 1.0e-3).unwrap())
+            .collect();
+        let result = run_keff(8.7407, &material, &high, &settings);
+        let k_high = result.k_mean;
+
+        // (a) HIGH converges to a stationary, plausible eigenvalue.
+        assert!(
+            k_high > 0.9 && k_high < 1.4,
+            "HIGH Godiva k_eff {k_high} outside the plausible band [0.9, 1.4]"
+        );
+        assert!(result.k_std < 0.02, "HIGH k noisy/unconverged: σ = {}", result.k_std);
+
+        // (b) Both stay well above unity, and the LOW→HIGH data upgrade moves k_eff
+        //     little — the bias is transport-physics-, not data-, limited.
+        assert!(k_low > 1.05 && k_high > 1.05, "both tiers should overpredict (LOW={k_low}, HIGH={k_high})");
+        assert!(
+            (k_high - k_low).abs() < 0.02,
+            "data fidelity should move k_eff <~2000 pcm, but |HIGH-LOW| = {:.0} pcm \
+             (LOW={k_low}, HIGH={k_high})",
+            (k_high - k_low).abs() * 1.0e5
         );
     }
 }

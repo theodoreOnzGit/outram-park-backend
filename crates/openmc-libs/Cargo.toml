@@ -16,5 +16,13 @@ ndarray = { workspace = true }
 # docs/architecture.md.
 njoy-outram-park-fork = { workspace = true }
 
+[features]
+# HIGH-fidelity nuclear data. Forwards to njoy's `net-fetch` tier so
+# `Nuclide::from_endf` can download raw ENDF tapes and reconstruct pointwise
+# σ(E) on device (RECONR + BROADR). Off by default — the LOW tier
+# (`Nuclide::from_core`, embedded WMP + fast MGXS) needs no network. Enable with
+# `--features net-fetch`. See docs/data-acquisition.md.
+net-fetch = ["njoy-outram-park-fork/net-fetch"]
+
 [dev-dependencies]
 approx = { workspace = true }

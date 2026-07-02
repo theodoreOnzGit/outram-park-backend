@@ -18,6 +18,11 @@
 //! Fidelity caveat: infinite-dilution fast group data (no self-shielding) plus
 //! analog isotropic-CM scatter — expect a first-cut result near, but not exactly
 //! at, 1.0. See `docs/keff-doppler-roadmap.md`.
+//!
+//! For the HIGH-fidelity counterpart — the *same* run on continuous-energy ENDF
+//! cross sections reconstructed on device — see the `godiva_keff_endf` example
+//! (`--features net-fetch`) and the LOW-vs-HIGH comparison in
+//! `docs/development-history.md`.
 
 use openmc_libs::material::material::{Material, NuclideComponent};
 use openmc_libs::material::nuclide::Nuclide;
