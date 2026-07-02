@@ -28,6 +28,10 @@ include = [
 [dependencies]
 thiserror.workspace = true
 uom.workspace = true
+# Pure-Rust DEFLATE codec for the embedded WMPB blob (`WindowedMultipole::from_blob`
+# / `to_blob`). Default (non-optional): the zero-dependency shipping path decodes
+# the blob without HDF5, so the codec must be in the default build.
+miniz_oxide.workspace = true
 # Pure-Rust HDF5 reader — no system libhdf5. Optional and behind the `wmp-hdf5`
 # feature so the default build (and the embedded-blob path) pulls no HDF5. Only
 # `WindowedMultipole::load_h5` needs it. See docs/architecture.md.

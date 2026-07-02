@@ -49,6 +49,10 @@ openmc-endf-8-depletion-lib-b = "1.0.0"
 # import in njoy-outram-park-fork (Phase 4g, MIT WMP_Library). No member inherits
 # it yet, so it has no build impact until WMP adds `hdf5-pure.workspace = true`.
 hdf5-pure = { version = "0.20.0", features = ["ndarray"] }
+# Pure-Rust DEFLATE (both encode AND decode in one crate, no C toolchain) — the
+# codec for the embedded WMPB windowed-multipole blob in njoy-outram-park-fork.
+# Chosen over zstd/ruzstd because those lack a mature pure-Rust *encoder*.
+miniz_oxide = "0.8"
 
 # GUI / example stack — egui ecosystem pinned to the matched 0.34 series
 # (egui 0.34 requires Rust >= 1.92)

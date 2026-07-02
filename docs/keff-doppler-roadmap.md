@@ -49,7 +49,7 @@ not NJOY/LANL. Add `LICENSE-WMP` (MIT) + a NOTICE credit before embedding data.
 
 | Need | Source (all in `njoy-outram-park-fork`) | Ships in-crate? |
 |---|---|---|
-| σ_t/σ_a/σ_f in the resonance range, any T | **WMP** (`wmp::WindowedMultipole`) + `wmp::faddeeva` | ✅ embedded zstd blob |
+| σ_t/σ_a/σ_f in the resonance range, any T | **WMP** (`wmp::WindowedMultipole`) + `wmp::faddeeva` | ✅ WMPB v1 blob (deflate; `to_blob`/`from_blob` done, CORE set not baked yet) |
 | ν̄(E) | ENDF MF=1/452 (ACER 4b) or hardcoded | ✅ tiny table (`nuclear_data::secondary::NuBar`) |
 | χ(E) fission spectrum | Watt (2 params) or MF=5 (ACER 4d) | ✅ tiny (`nuclear_data::secondary::FissionSpectrum`) |
 | Provider surface consumed by transport | `nuclear_data::XsProvider → MicroXs` | n/a (API) |
@@ -157,7 +157,7 @@ same `.h5`) within statistics (target a few hundred pcm at first).
                  MIT WMP_Library (.h5)          ENDF/B-VIII (raw)
                         │ offline bake                 │
                         ▼                               ▼  njoy: RECONR→BROADR (oracle)
-   njoy: wmp::WindowedMultipole ◄── zstd blob    reference σ(n,γ)(T)
+   njoy: wmp::WindowedMultipole ◄── WMPB blob    reference σ(n,γ)(T)
         │  evaluate(E,T)  [wmp::faddeeva]               │
         │                                               ▼
         ├───────────────► Priority 2 test ◄──── OpenMC .h5 reference curve
