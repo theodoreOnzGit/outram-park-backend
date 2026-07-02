@@ -39,9 +39,11 @@
 //!
 //! The evaluator ([`WindowedMultipole::evaluate`]) and the analytic Doppler
 //! kernel ([`faddeeva`]) are **implemented** and unit-tested; they are faithful
-//! re-implementations of OpenMC `WindowedMultipole::evaluate` / `faddeeva`. Still
-//! scaffold: the data *ingestion* paths ([`WindowedMultipole::load_h5`],
-//! [`WindowedMultipole::from_blob`]) — no WMP blob ships yet.
+//! re-implementations of OpenMC `WindowedMultipole::evaluate` / `faddeeva`.
+//! [`WindowedMultipole::load_h5`] reads real `WMP_Library` HDF5 files (behind the
+//! `wmp-hdf5` feature) — see `tests/wmp_u238.rs`. Still scaffold: the embedded
+//! zero-dependency shipping path [`WindowedMultipole::from_blob`] — no WMP blob
+//! ships in-crate yet.
 
 use crate::NjoyError;
 use std::sync::OnceLock;
