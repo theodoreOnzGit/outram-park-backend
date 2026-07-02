@@ -56,4 +56,4 @@ mod driftFluxFoam;
 pub mod rhoPimpleFoam;
 
 
-pub mod openfoam_source;
+pub(crate) mod openfoam_source;

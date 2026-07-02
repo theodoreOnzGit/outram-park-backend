@@ -19,21 +19,21 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod adjust_phi;
+pub(crate) mod adjust_phi;
 
 /// Explicit finite-volume operators — return a new field.
 ///
 /// Usage mirrors `Foam::fvc::` from `src/finiteVolume/finiteVolume/fvc/`.
-pub mod fvc;
+pub(crate) mod fvc;
 
 /// Implicit finite-volume operators — assemble into a sparse `FvMatrix`.
 ///
 /// Usage mirrors `Foam::fvm::` from `src/finiteVolume/finiteVolume/fvm/`.
-pub mod fvm;
+pub(crate) mod fvm;
 
-pub use adjust_phi::*;
-
-
-pub use fvc::*;
-
-pub use fvm::*;
+// Flat re-exports of fvc::* and fvm::* are intentionally omitted: both
+// modules export functions named `div` and `div_vec`, and a glob re-export
+// of both in the same namespace is ambiguous. Callers use the qualified
+// `fvc::` / `fvm::` prefixes, which are available via the module re-exports
+// above.
+pub(crate) use adjust_phi::*;

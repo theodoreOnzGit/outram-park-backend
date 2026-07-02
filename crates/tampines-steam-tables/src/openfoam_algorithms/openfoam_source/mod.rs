@@ -19,31 +19,31 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod primitives;
-pub mod polynomial;
-pub mod math;
-pub mod matrix;
-pub mod ode;
-pub mod interpolation;
-pub mod thermophysics;
-pub mod fields;
-pub mod mesh;
-pub mod ldu_matrix;
-pub mod fv_operators;
-pub mod fluid_thermo;
+pub(crate) mod primitives;
+pub(crate) mod polynomial;
+pub(crate) mod math;
+pub(crate) mod matrix;
+pub(crate) mod ode;
+pub(crate) mod interpolation;
+pub(crate) mod thermophysics;
+pub(crate) mod fields;
+pub(crate) mod mesh;
+pub(crate) mod ldu_matrix;
+pub(crate) mod fv_operators;
+pub(crate) mod fluid_thermo;
 
-pub use primitives::*;
-pub use polynomial::*;
-pub use math::*;
-pub use matrix::*;
-pub use ode::*;
-pub use interpolation::*;
-pub use thermophysics::*;
-pub use fields::*;
-pub use mesh::*;
-pub use ldu_matrix::*;
-pub use fv_operators::*;
-pub use fluid_thermo::*;
+pub(crate) use primitives::*;
+pub(crate) use polynomial::*;
+pub(crate) use math::*;
+pub(crate) use matrix::*;
+pub(crate) use ode::*;
+pub(crate) use interpolation::*;
+pub(crate) use thermophysics::*;
+pub(crate) use fields::*;
+pub(crate) use mesh::*;
+pub(crate) use ldu_matrix::*;
+pub(crate) use fv_operators::*;
+pub(crate) use fluid_thermo::*;
 
 /// this part is extension in Rust 
 /// Now under here, I want to expose the openfoam primitives to something 
@@ -52,8 +52,8 @@ pub use fluid_thermo::*;
 /// Also useful add-ons for the underlying libraries are put here, 
 /// eg. generating one dimensional meshes for system code type simulations 
 /// in TAMPINES
-pub mod interface;
-pub use interface::*;
+pub(crate) mod interface;
+pub(crate) use interface::*;
 
 
 

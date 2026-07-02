@@ -19,7 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod error;
+pub(crate) mod error;
 pub mod fv_mesh;
 pub mod region_interface;
 
