@@ -29,8 +29,10 @@
 //! ITCX : cumulative S(1..NEE)               [MeV·b]
 //! ```
 //!
-//! Not yet handled: incoherent-elastic (ITCEI/…), the skewed/continuous
-//! `IFENG=1/2` inelastic forms, and multi-atom mixing (`nmix`, taken as 1).
+//! Incoherent-elastic is handled: ITCE/ITCX/ITCA when it is the only elastic
+//! mode (`IDPNC=3`), or ITCEI/ITCXI/ITCAI alongside coherent (`IDPNC=5`).
+//! Not yet handled: the skewed/continuous `IFENG=1/2` inelastic forms, and
+//! multi-atom mixing (`nmix`, taken as 1).
 //!
 //! ## Prerequisite provenance
 //!
@@ -52,7 +54,8 @@ pub struct ThermalAceOptions {
     /// Number of equally-probable outgoing energies per incident energy (`NIEB`).
     pub n_outgoing: usize,
     /// Number of equally-probable scattering cosines per outgoing energy (`nang`;
-    /// `NIL = nang − 1`).
+    /// `NIL = nang − 1`). Also sizes the incoherent-elastic angular bins (`NEA`,
+    /// `NCL = nang − 1`) when the evaluation has incoherent-elastic data.
     pub n_cosines: usize,
     /// Number of principal scattering atoms in the material (`B(6)` records it;
     /// `1` for a monatomic scatterer). Used for `σ_b` and the elastic mixing.
@@ -78,10 +81,14 @@ pub mod nxs {
     pub const NIEB: usize = 3;
     /// NXS(5): IDPNC — elastic mode (`4` = coherent, `0` = none).
     pub const IDPNC: usize = 4;
-    /// NXS(6): NCL — elastic dimensioning (`−1` for coherent).
+    /// NXS(6): NCL — elastic angular dimensioning for the primary elastic block
+    /// (`−1` for coherent, `nbin − 1` for incoherent-elastic).
     pub const NCL: usize = 5;
     /// NXS(7): IFENG — inelastic energy-distribution form (`0` = equiprobable).
     pub const IFENG: usize = 6;
+    /// NXS(8): NCLI — angular dimensioning for the *secondary* (incoherent)
+    /// elastic block in the mixed coherent+incoherent case (`nbin − 1`).
+    pub const NCLI: usize = 7;
 }
 
 /// Named thermal **JXS** indices (0-based).
@@ -92,10 +99,20 @@ pub mod jxs {
     pub const ITIX: usize = 1;
     /// JXS(3): ITXE — inelastic energy-angle distributions.
     pub const ITXE: usize = 2;
-    /// JXS(4): ITCE — coherent-elastic Bragg energies.
+    /// JXS(4): ITCE — primary elastic energies (coherent Bragg, or incoherent).
     pub const ITCE: usize = 3;
-    /// JXS(5): ITCX — coherent-elastic cumulative cross section.
+    /// JXS(5): ITCX — primary elastic cross section (coherent cumulative `S·E`,
+    /// or incoherent σ).
     pub const ITCX: usize = 4;
+    /// JXS(6): ITCA — primary elastic equally-probable cosines (incoherent only;
+    /// `0` for coherent, whose angles are the discrete Bragg cosines).
+    pub const ITCA: usize = 5;
+    /// JXS(7): ITCEI — secondary (incoherent) elastic energies, mixed case.
+    pub const ITCEI: usize = 6;
+    /// JXS(8): ITCXI — secondary (incoherent) elastic cross section, mixed case.
+    pub const ITCXI: usize = 7;
+    /// JXS(9): ITCAI — secondary (incoherent) elastic cosines, mixed case.
+    pub const ITCAI: usize = 8;
 }
 
 impl AceTable {
@@ -172,8 +189,15 @@ impl AceTable {
             }
         }
 
-        // ── Coherent-elastic ITCE/ITCX (Bragg), when present ───────────────
-        let (mut itce, mut itcx, mut idpnc, mut ncl) = (0i32, 0i32, 0i32, 0i32);
+        // ── Elastic blocks (coherent Bragg and/or incoherent) ──────────────
+        // Mirrors `aceth.f90::thrlod`: coherent goes to ITCE/ITCX (IDPNC=4);
+        // incoherent-only reuses ITCE/ITCX/ITCA (IDPNC=3); when both are present
+        // the incoherent set moves to ITCEI/ITCXI/ITCAI (IDPNC=5).
+        let (mut itce, mut itcx, mut itca) = (0i32, 0i32, 0i32);
+        let (mut itcei, mut itcxi, mut itcai) = (0i32, 0i32, 0i32);
+        let (mut idpnc, mut ncl, mut ncli) = (0i32, 0i32, 0i32);
+
+        // Coherent-elastic ITCE/ITCX (Bragg): cumulative S·E, discrete cosines.
         if let Some(ce) = &mf7.coherent_elastic {
             let nee = ce.s_of_e.len();
             itce = xss.len() as i32 + 1;
@@ -190,6 +214,43 @@ impl AceTable {
             ncl = -1;
         }
 
+        // Incoherent-elastic: NEE energies, σ, and NEA equally-probable cosines.
+        if let Some(ie) = &mf7.incoherent_elastic {
+            let nea = nang; // reuse the inelastic cosine count for the elastic bins
+            let nee = energy_grid.len();
+            let e_start = xss.len() as i32 + 1;
+            xss.push(nee as f64);
+            is_int.push(true);
+            for &e in energy_grid {
+                real(e / EMEV, &mut xss, &mut is_int);
+            }
+            let x_start = xss.len() as i32 + 1;
+            for &e in energy_grid {
+                real(ie.cross_section(e, temp_k, natom), &mut xss, &mut is_int);
+            }
+            let a_start = xss.len() as i32 + 1;
+            for &e in energy_grid {
+                for mu in ie.equiprobable_cosines(e, temp_k, nea) {
+                    real(mu, &mut xss, &mut is_int);
+                }
+            }
+            if idpnc == 0 {
+                // Incoherent only → primary elastic slots.
+                itce = e_start;
+                itcx = x_start;
+                itca = a_start;
+                idpnc = 3;
+                ncl = (nea - 1) as i32;
+            } else {
+                // Mixed (coherent already written) → secondary slots.
+                itcei = e_start;
+                itcxi = x_start;
+                itcai = a_start;
+                idpnc = 5;
+                ncli = (nea - 1) as i32;
+            }
+        }
+
         // ── NXS / JXS ───────────────────────────────────────────────────────
         let mut nxs_arr = [0i32; 16];
         nxs_arr[nxs::LEN_XSS] = xss.len() as i32;
@@ -199,6 +260,7 @@ impl AceTable {
         nxs_arr[nxs::IDPNC] = idpnc;
         nxs_arr[nxs::NCL] = ncl;
         nxs_arr[nxs::IFENG] = 0;
+        nxs_arr[nxs::NCLI] = ncli;
 
         let mut jxs_arr = [0i32; 32];
         jxs_arr[jxs::ITIE] = itie;
@@ -206,6 +268,10 @@ impl AceTable {
         jxs_arr[jxs::ITXE] = itxe;
         jxs_arr[jxs::ITCE] = itce;
         jxs_arr[jxs::ITCX] = itcx;
+        jxs_arr[jxs::ITCA] = itca;
+        jxs_arr[jxs::ITCEI] = itcei;
+        jxs_arr[jxs::ITCXI] = itcxi;
+        jxs_arr[jxs::ITCAI] = itcai;
 
         let kt_mev = crate::common::phys::BK_EV_PER_K * temp_k / EMEV;
         let zaid = format!("{name}.{suffix:02}t");

@@ -16,6 +16,8 @@
 //!   (incoherent inelastic S(α,β)) into typed data.
 //! - [`coherent`] — **done**: coherent-elastic (Bragg) cross section σ(E)=S(E)/E
 //!   and the discrete reflection cosines/weights.
+//! - [`incoherent_elastic`] — **done**: incoherent-elastic cross section
+//!   σ(E,T) = (σ_b/2N)·(1−e^{−4EW'})/(2EW') and its equally-probable cosines.
 //! - [`inelastic`] — **done**: incoherent-inelastic double-differential
 //!   `d²σ/dE'dμ` from S(α,β), and the integrated `σ(E→E')` / `σ_inel(E)`.
 //! - Secondary energy-angle *distributions* for the thermal ACE ITXE block, and
@@ -24,5 +26,6 @@
 //! See `docs/porting-plan.md` (Phase 3 THERMR, Phase 4f thermal ACE).
 
 pub mod coherent;
+pub mod incoherent_elastic;
 pub mod inelastic;
 pub mod mf7;
