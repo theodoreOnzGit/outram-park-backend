@@ -315,4 +315,67 @@ mod tests {
             assert!(t.s.iter().all(|&s| s >= 0.0), "S(α,β) ≥ 0");
         }
     }
+
+    // ── Incoherent-elastic parse paths ─────────────────────────────────────
+    //
+    // No checked-in TSL fixture exercises LTHR=2/3 (Al-27 is LTHR=1), so these
+    // drive `parse_elastic` with hand-built MF=7/MT=2 sections. A row is the six
+    // ENDF fields `[C1, C2, L1, L2, N1, N2]`; see `Cont::from_fields`.
+
+    use crate::endf::tape::Section;
+    use crate::endf::EndfKey;
+
+    fn section(rows: Vec<[f64; 6]>) -> Section {
+        Section { key: EndfKey { mat: 99, mf: 7, mt: 2 }, rows }
+    }
+
+    /// LTHR=2: incoherent elastic only — one `W'(T)` TAB1, `SB = C1`, no coherent.
+    #[test]
+    fn lthr2_incoherent_elastic_only() {
+        // HEAD (LTHR=2), then TAB1[ SB, 0, 0, 0, NR=1, NT=3 ] with one interp
+        // region (NBT=3, INT=2) and three (T, W') points.
+        let sec = section(vec![
+            [1.001, 0.9992, 2.0, 0.0, 0.0, 0.0],   // HEAD: ZA, AWR, LTHR=2
+            [3.4, 0.0, 0.0, 0.0, 1.0, 3.0],        // TAB1 head: SB=3.4, NR=1, NT=3
+            [3.0, 2.0, 0.0, 0.0, 0.0, 0.0],        // interp: NBT=3, INT=2
+            [296.0, 8.0e-3, 400.0, 1.0e-2, 600.0, 1.4e-2], // (T, W') pairs
+        ]);
+        let (coherent, incoherent) = parse_elastic(&sec).unwrap();
+        assert!(coherent.is_none(), "LTHR=2 has no coherent part");
+        let ie = incoherent.expect("LTHR=2 yields incoherent elastic");
+        assert_eq!(ie.sb, 3.4, "SB = C1 of the W'(T) TAB1");
+        assert_eq!(ie.temperature_k, 296.0, "T₀ = lowest tabulated temperature");
+        assert_eq!(ie.interp, vec![(3, 2)]);
+        assert_eq!(ie.wp_of_t, vec![(296.0, 8.0e-3), (400.0, 1.0e-2), (600.0, 1.4e-2)]);
+        // W'(T) ascends with T (Debye-Waller integral grows with temperature).
+        assert!(ie.wp_of_t.windows(2).all(|w| w[1].1 >= w[0].1), "W'(T) non-decreasing");
+    }
+
+    /// LTHR=3: mixed — coherent `S(E)` TAB1 (with its `LT` extra-temperature
+    /// LISTs) followed by the incoherent `W'(T)` TAB1.
+    #[test]
+    fn lthr3_mixed_coherent_and_incoherent() {
+        let sec = section(vec![
+            [1.001, 0.9992, 3.0, 0.0, 0.0, 0.0],   // HEAD: LTHR=3
+            // Coherent S(E) TAB1: T0=296, LT=1 (one extra temperature), NR=1, NP=2.
+            [296.0, 0.0, 1.0, 0.0, 1.0, 2.0],      // TAB1 head
+            [2.0, 1.0, 0.0, 0.0, 0.0, 0.0],        // interp: NBT=2, INT=1
+            [1.0e-3, 5.0, 2.0e-3, 9.0, 0.0, 0.0],  // (E, S) pairs
+            // One extra-temperature LIST (C1 = 400 K, N1=2 S values).
+            [400.0, 0.0, 0.0, 0.0, 2.0, 0.0],      // LIST head
+            [5.5, 9.5, 0.0, 0.0, 0.0, 0.0],        // LIST data
+            // Incoherent W'(T) TAB1: SB=2.1, NR=1, NT=2.
+            [2.1, 0.0, 0.0, 0.0, 1.0, 2.0],        // TAB1 head
+            [2.0, 2.0, 0.0, 0.0, 0.0, 0.0],        // interp
+            [296.0, 7.0e-3, 400.0, 9.0e-3, 0.0, 0.0], // (T, W') pairs
+        ]);
+        let (coherent, incoherent) = parse_elastic(&sec).unwrap();
+        let ce = coherent.expect("LTHR=3 yields coherent elastic");
+        assert_eq!(ce.temperature_k, 296.0);
+        assert_eq!(ce.s_of_e, vec![(1.0e-3, 5.0), (2.0e-3, 9.0)]);
+        assert_eq!(ce.extra_temperatures_k, vec![400.0], "the LT extra-temperature LIST");
+        let ie = incoherent.expect("LTHR=3 yields incoherent elastic");
+        assert_eq!(ie.sb, 2.1);
+        assert_eq!(ie.wp_of_t, vec![(296.0, 7.0e-3), (400.0, 9.0e-3)]);
+    }
 }
