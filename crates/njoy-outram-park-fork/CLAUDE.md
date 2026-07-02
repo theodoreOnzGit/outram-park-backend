@@ -45,6 +45,26 @@ cargo check -p njoy-outram-park-fork --lib
 cargo test  -p njoy-outram-park-fork --lib --release
 ```
 
+### HARD RULE — cap unit-test memory at ~12 GB
+
+Unit tests for this crate **must** run under a hard ~12 GB address-space cap.
+The ACER / thermal S(α,β) import paths build large per-incident-energy emission
+tables; a malformed ENDF record (a cursor that fails to advance, an unbounded
+energy grid) becomes runaway allocation that can freeze the whole machine
+instead of failing a test.
+
+Run tests through the wrapper, which sets `ulimit -v` before invoking cargo:
+
+```bash
+crates/njoy-outram-park-fork/scripts/test.sh              # full suite, capped
+crates/njoy-outram-park-fork/scripts/test.sh thermal      # subset by substring
+```
+
+Do **not** invoke a bare `cargo test -p njoy-outram-park-fork` for interactive
+runs — that has no cap. If a test legitimately needs more than 12 GB, that is a
+design smell (stream/chunk the data); raise it with a human before lifting the
+cap in `scripts/test.sh`.
+
 ## Porting plan & C-source map (read on demand)
 
 The full module list, the Fortran-source → Rust-module map with line counts, the

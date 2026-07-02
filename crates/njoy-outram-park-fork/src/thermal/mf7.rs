@@ -40,6 +40,32 @@ pub struct CoherentElastic {
     pub extra_temperatures_k: Vec<f64>,
 }
 
+/// Incoherent-elastic scattering (`LTHR=2`): a bound cross section plus the
+/// temperature-dependent Debye-Waller integral `W'(T)`.
+///
+/// Used for a hydrogenous solid where the bound protons scatter elastically but
+/// *incoherently* (H in ZrH, polyethylene, …): the neutron keeps its energy but
+/// the angular distribution is smooth (no Bragg edges). The cross section is
+///
+/// ```text
+///   σ(E,T) = (σ_b / 2N) · (1 − exp(−4·E·W'(T))) / (2·E·W'(T)),
+/// ```
+///
+/// with `σ_b` the characteristic bound cross section and `W'(T)` interpolated
+/// from [`wp_of_t`](Self::wp_of_t).
+#[derive(Debug, Clone)]
+pub struct IncoherentElastic {
+    /// Base temperature `T₀` \[K\].
+    pub temperature_k: f64,
+    /// Characteristic bound cross section `σ_b` = SB \[barn\] (the `C1` of the
+    /// `LTHR=2` TAB1).
+    pub sb: f64,
+    /// TAB1 interpolation law over the `(T, W')` table.
+    pub interp: Vec<(u32, u32)>,
+    /// `(T \[K\], W'(T) \[eV⁻¹\])` Debye-Waller integral table, ascending in `T`.
+    pub wp_of_t: Vec<(f64, f64)>,
+}
+
 /// Incoherent-inelastic scattering law `S(α, β)` at the base temperature.
 #[derive(Debug, Clone)]
 pub struct IncoherentInelastic {
@@ -81,8 +107,10 @@ pub struct Mf7 {
     pub za: f64,
     /// Atomic weight ratio of the principal scattering atom.
     pub awr: f64,
-    /// Thermal elastic (MT=2), if present.
+    /// Coherent (Bragg) elastic (MT=2, `LTHR=1` or `3`), if present.
     pub coherent_elastic: Option<CoherentElastic>,
+    /// Incoherent elastic (MT=2, `LTHR=2` or `3`), if present.
+    pub incoherent_elastic: Option<IncoherentElastic>,
     /// Incoherent inelastic S(α,β) (MT=4), if present.
     pub incoherent_inelastic: Option<IncoherentInelastic>,
 }
@@ -94,8 +122,8 @@ pub struct Mf7 {
 ///
 /// # Errors
 /// - [`NjoyError::SectionNotFound`] if neither MT=2 nor MT=4 exists for `mat`.
-/// - [`NjoyError::NotPorted`] for `LTHR=2` incoherent-elastic and for the
-///   short-collision-time (`B(1)=0`) principal scatterer (no tabulated S).
+/// - [`NjoyError::NotPorted`] for the short-collision-time (`B(1)=0`) principal
+///   scatterer (no tabulated S).
 /// - [`NjoyError::EndfParse`] on malformed records.
 pub fn parse_mf7(tape: &Tape, mat: i32) -> Result<Mf7, NjoyError> {
     let elastic = tape.section(mat, 7, 2);
@@ -111,26 +139,41 @@ pub fn parse_mf7(tape: &Tape, mat: i32) -> Result<Mf7, NjoyError> {
         (head.c1, head.c2)
     };
 
-    let coherent_elastic = elastic.map(parse_elastic).transpose()?.flatten();
+    let (coherent_elastic, incoherent_elastic) = match elastic {
+        Some(sec) => parse_elastic(sec)?,
+        None => (None, None),
+    };
     let incoherent_inelastic = inelastic.map(parse_inelastic).transpose()?;
 
-    Ok(Mf7 { za, awr, coherent_elastic, incoherent_inelastic })
+    Ok(Mf7 { za, awr, coherent_elastic, incoherent_elastic, incoherent_inelastic })
 }
 
-/// Parse MF=7/MT=2 thermal elastic. Returns `None` for `LTHR=2` (incoherent
-/// elastic — not yet ported) rather than erroring, so a material that has both an
-/// inelastic table and an incoherent-elastic table still parses.
-fn parse_elastic(section: &crate::endf::tape::Section) -> Result<Option<CoherentElastic>, NjoyError> {
+/// Parse MF=7/MT=2 thermal elastic. Returns `(coherent, incoherent)` — either,
+/// both, or neither may be present depending on `LTHR`:
+///
+/// - `LTHR=1` — coherent (Bragg) elastic only: one `S(E)` TAB1 plus `LT` extra-
+///   temperature LISTs.
+/// - `LTHR=2` — incoherent elastic only: one `W'(T)` TAB1 (`SB = C1`).
+/// - `LTHR=3` — both: the coherent `S(E)` TAB1 and its LISTs, then the
+///   incoherent `W'(T)` TAB1.
+///
+/// Record layout follows NJOY2016 `thermr.f90::rdelas`.
+fn parse_elastic(
+    section: &crate::endf::tape::Section,
+) -> Result<(Option<CoherentElastic>, Option<IncoherentElastic>), NjoyError> {
     let mut cur = SectionCursor::new(&section.rows);
     let head = cur.read_cont()?; // ZA, AWR, LTHR, 0, 0, 0
     let lthr = head.l1;
-    if lthr != 1 {
-        // LTHR=2 (incoherent elastic) or 3 (both) — deferred.
-        return Ok(None);
+
+    // First TAB1: for LTHR=2 it is the incoherent W'(T) table; otherwise it is
+    // the coherent S(E) table.
+    let tab1 = cur.read_tab1()?;
+
+    if lthr == 2 {
+        return Ok((None, Some(read_incoherent_elastic(&tab1))));
     }
 
-    // Base-temperature TAB1: T0 = C1, LT = L1 (extra temperatures), (E, S) pairs.
-    let tab1 = cur.read_tab1()?;
+    // Coherent S(E): T0 = C1, LT = L1 (extra temperatures), (E, S) pairs.
     let temperature_k = tab1.head.c1;
     let lt = tab1.head.l1;
     let s_of_e = tab1.pairs.clone();
@@ -141,8 +184,27 @@ fn parse_elastic(section: &crate::endf::tape::Section) -> Result<Option<Coherent
         let list = cur.read_list()?;
         extra_temperatures_k.push(list.head.c1);
     }
+    let coherent = CoherentElastic { temperature_k, s_of_e, extra_temperatures_k };
 
-    Ok(Some(CoherentElastic { temperature_k, s_of_e, extra_temperatures_k }))
+    // LTHR=3 (mixed): the incoherent W'(T) TAB1 follows the coherent LISTs.
+    let incoherent = if lthr == 3 {
+        let inc_tab1 = cur.read_tab1()?;
+        Some(read_incoherent_elastic(&inc_tab1))
+    } else {
+        None
+    };
+
+    Ok((Some(coherent), incoherent))
+}
+
+/// Build an [`IncoherentElastic`] from the `W'(T)` TAB1: `SB = C1`, the
+/// interpolation law over the `(T, W')` table, and the table itself. `T₀` is
+/// taken as the lowest tabulated temperature.
+fn read_incoherent_elastic(tab1: &crate::endf::records::Tab1) -> IncoherentElastic {
+    let sb = tab1.head.c1;
+    let wp_of_t = tab1.pairs.clone();
+    let temperature_k = wp_of_t.first().map(|&(t, _)| t).unwrap_or(0.0);
+    IncoherentElastic { temperature_k, sb, interp: tab1.interp.clone(), wp_of_t }
 }
 
 /// Parse MF=7/MT=4 incoherent inelastic S(α,β) at the base temperature.
