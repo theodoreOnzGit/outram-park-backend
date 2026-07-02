@@ -20,6 +20,7 @@
 pub mod secondary;
 
 use crate::wmp::WindowedMultipole;
+use crate::NjoyError;
 use secondary::{FissionSpectrum, NuBar};
 
 /// Microscopic neutron cross sections at one energy/temperature \[barn\].
@@ -80,6 +81,21 @@ impl XsProvider {
     }
 }
 
+/// Upper energy bound of the general-purpose ENDF/B neutron sublibrary \[eV\].
+///
+/// 20 MeV — the ceiling for the standard ENDF/B-VII/VIII neutron evaluations, and
+/// therefore the top of the fast MGXS range. A handful of special high-energy
+/// evaluations extend to 150/200 MeV; pass an explicit `e_hi` to
+/// [`Mgxs::fast_group_bounds`] for those.
+pub const ENDF_MAX_ENERGY_EV: f64 = 2.0e7;
+
+/// Number of energy groups in the standard fast MGXS structure.
+///
+/// Ten log-spaced groups span each nuclide's WMP `e_max` up to
+/// [`ENDF_MAX_ENERGY_EV`]. The fast range is smooth, so ten groups is plenty for
+/// the low-fidelity fallback.
+pub const FAST_GROUP_COUNT: usize = 10;
+
 /// A coarse **multigroup** cross-section set for the fast range above WMP's
 /// `e_max` — the "ACE-lite" high-energy fallback.
 ///
@@ -120,6 +136,29 @@ pub struct Mgxs {
 }
 
 impl Mgxs {
+    /// The standard fast-range group boundaries: [`FAST_GROUP_COUNT`] log-spaced
+    /// groups from a nuclide's WMP `e_max` up to `e_hi` \[eV\].
+    ///
+    /// Returns `FAST_GROUP_COUNT + 1` boundaries, ascending, log-uniform:
+    /// `bound[i] = e_lo · (e_hi / e_lo)^(i / n)`. Pass a WMP evaluation's
+    /// [`crate::wmp::WindowedMultipole::e_max`] as `e_lo` so the MGXS set begins
+    /// exactly where the multipole form ends, and [`ENDF_MAX_ENERGY_EV`] (20 MeV)
+    /// as `e_hi` for the standard neutron sublibrary ceiling.
+    ///
+    /// # Panics
+    /// Debug-asserts `0 < e_lo < e_hi` — a log grid needs a positive, ordered span.
+    pub fn fast_group_bounds(e_lo: f64, e_hi: f64) -> Vec<f64> {
+        debug_assert!(
+            e_lo > 0.0 && e_hi > e_lo,
+            "fast_group_bounds needs 0 < e_lo ({e_lo}) < e_hi ({e_hi})"
+        );
+        let n = FAST_GROUP_COUNT;
+        let ratio = e_hi / e_lo;
+        (0..=n)
+            .map(|i| e_lo * ratio.powf(i as f64 / n as f64))
+            .collect()
+    }
+
     /// Number of energy groups.
     pub fn n_groups(&self) -> usize {
         self.group_bounds.len().saturating_sub(1)
@@ -237,6 +276,240 @@ impl Mgxs {
             nu_fission: finish(&num[4]),
         }
     }
+
+    /// Build the standard fast MGXS set directly from **RECONR pointwise output** —
+    /// the in-crate bake path for the high-energy fallback.
+    ///
+    /// Uses the reconstructed lin-lin σ(E) grid ([`ReconrResult`]) as the fine
+    /// input, [`FAST_GROUP_COUNT`] log-spaced groups from `e_lo` (the nuclide's WMP
+    /// `e_max`) to [`ENDF_MAX_ENERGY_EV`] (20 MeV), and a Watt weight
+    /// ([`Self::collapse_watt`]). Channels are taken from the standard MTs:
+    /// total = MT 1 (or elastic+fission+capture if MT 1 is absent), elastic = MT 2,
+    /// fission = MT 18, capture = MT 102; ν·σ_f folds in `nu` at each energy.
+    ///
+    /// The fine grid is the union of every section's native energies within
+    /// `[e_lo, 20 MeV]` (so σ kinks are represented exactly) plus the group
+    /// boundaries (so no group is empty). Faithful to RECONR's pointwise data — no
+    /// re-reconstruction, just group collapse.
+    pub fn collapse_from_reconr(
+        result: &crate::reconr::ReconrResult,
+        name: impl Into<String>,
+        e_lo: f64,
+        nu: &NuBar,
+        spectrum: &FissionSpectrum,
+    ) -> Self {
+        use crate::endf::MtReaction;
+
+        // A non-resonant nuclide's WMP can already span the full sublibrary
+        // (`e_max` = 20 MeV, e.g. H-1). There is then no fast gap to fill — return
+        // an empty set rather than a degenerate zero-width group grid.
+        if e_lo >= ENDF_MAX_ENERGY_EV {
+            return Mgxs {
+                name: name.into(),
+                ..Default::default()
+            };
+        }
+
+        let bounds = Self::fast_group_bounds(e_lo, ENDF_MAX_ENERGY_EV);
+        let e_hi = *bounds.last().unwrap();
+
+        // Fine grid: every RECONR energy in range + the group boundaries.
+        let mut grid: Vec<f64> = result
+            .sections
+            .iter()
+            .flat_map(|s| s.pairs.iter().map(|&(e, _)| e))
+            .filter(|&e| e >= e_lo && e <= e_hi)
+            .collect();
+        grid.extend_from_slice(&bounds);
+        grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        grid.dedup();
+
+        let has_total = result
+            .sections
+            .iter()
+            .any(|s| s.mt == MtReaction::Mt1Total);
+
+        let sample = |mt: MtReaction| -> Vec<f64> {
+            grid.iter().map(|&e| result.eval_mt(mt, e)).collect()
+        };
+        let elastic = sample(MtReaction::Mt2Elastic);
+        let fission = sample(MtReaction::Mt18Fission);
+        let capture = sample(MtReaction::Mt102Capture);
+        let total: Vec<f64> = if has_total {
+            sample(MtReaction::Mt1Total)
+        } else {
+            // Synthesize a total when the evaluation omits MT 1.
+            (0..grid.len())
+                .map(|i| elastic[i] + fission[i] + capture[i])
+                .collect()
+        };
+        let nu_fission: Vec<f64> = grid
+            .iter()
+            .zip(&fission)
+            .map(|(&e, &sf)| sf * nu.at(e))
+            .collect();
+
+        Self::collapse_watt(
+            name, &grid, &total, &elastic, &fission, &capture, &nu_fission, &bounds,
+            spectrum,
+        )
+    }
+}
+
+// ── MGXS container (MGXL v1) ──────────────────────────────────────────────────
+
+const MGXL_MAGIC: [u8; 4] = *b"MGXL";
+const MGXL_VERSION: u8 = 1;
+
+/// A bundle of fast-range [`Mgxs`] sets for many nuclides — the embedded
+/// high-energy companion to [`crate::wmp::WmpLibrary`].
+///
+/// Baked offline by the `bake_mgxs` example from the local ENDF/B-VIII.0 tapes
+/// (RECONR background → Watt collapse) and shipped in-crate via [`MgxsLibrary::core`].
+/// The blob is small (10 groups × 5 channels × a few hundred nuclides ≈ tens of
+/// KB), so the **MGXL v1** format is a flat, uncompressed little-endian dump:
+///
+/// ```text
+/// magic "MGXL" | version u8 | reserved [u8;3] | n_nuclides u32
+/// per nuclide: name_len u32 | name UTF-8 | n_groups u32
+///              (n_groups+1) f64 group_bounds
+///              n_groups f64 ×5 columns (total, elastic, fission, capture, nu_fission)
+/// ```
+#[derive(Debug, Clone, Default)]
+pub struct MgxsLibrary {
+    nuclides: Vec<Mgxs>,
+}
+
+impl MgxsLibrary {
+    /// Serialize a set of fast-MGXS nuclides to the MGXL v1 blob (the bake step).
+    pub fn pack(nuclides: &[Mgxs]) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(&MGXL_MAGIC);
+        out.push(MGXL_VERSION);
+        out.extend_from_slice(&[0u8; 3]); // reserved
+        out.extend_from_slice(&(nuclides.len() as u32).to_le_bytes());
+        for mg in nuclides {
+            let name = mg.name.as_bytes();
+            out.extend_from_slice(&(name.len() as u32).to_le_bytes());
+            out.extend_from_slice(name);
+            let ng = mg.n_groups() as u32;
+            out.extend_from_slice(&ng.to_le_bytes());
+            let put = |out: &mut Vec<u8>, col: &[f64]| {
+                for &v in col {
+                    out.extend_from_slice(&v.to_le_bytes());
+                }
+            };
+            put(&mut out, &mg.group_bounds);
+            put(&mut out, &mg.total);
+            put(&mut out, &mg.elastic);
+            put(&mut out, &mg.fission);
+            put(&mut out, &mg.capture);
+            put(&mut out, &mg.nu_fission);
+        }
+        out
+    }
+
+    /// Parse an MGXL v1 blob (owns the decoded nuclides). Hardened: every length is
+    /// bounds-checked against the remaining bytes, so a malformed blob fails
+    /// cleanly rather than over-reading or runaway-allocating.
+    pub fn from_blob(bytes: &[u8]) -> Result<Self, NjoyError> {
+        let bad = || NjoyError::WmpData("malformed MGXL blob".into());
+        if bytes.len() < 12 || bytes[0..4] != MGXL_MAGIC || bytes[4] != MGXL_VERSION {
+            return Err(bad());
+        }
+        let mut p = 8usize;
+        let rd_u32 = |bytes: &[u8], p: &mut usize| -> Result<u32, NjoyError> {
+            let end = p.checked_add(4).ok_or_else(bad)?;
+            if end > bytes.len() {
+                return Err(bad());
+            }
+            let v = u32::from_le_bytes(bytes[*p..end].try_into().unwrap());
+            *p = end;
+            Ok(v)
+        };
+        let rd_f64s = |bytes: &[u8], p: &mut usize, n: usize| -> Result<Vec<f64>, NjoyError> {
+            let span = n.checked_mul(8).ok_or_else(bad)?;
+            let end = p.checked_add(span).ok_or_else(bad)?;
+            if end > bytes.len() {
+                return Err(bad());
+            }
+            let v = bytes[*p..end]
+                .chunks_exact(8)
+                .map(|c| f64::from_le_bytes(c.try_into().unwrap()))
+                .collect();
+            *p = end;
+            Ok(v)
+        };
+
+        let n_nuc = rd_u32(bytes, &mut p)? as usize;
+        let mut nuclides = Vec::with_capacity(n_nuc.min(4096));
+        for _ in 0..n_nuc {
+            let name_len = rd_u32(bytes, &mut p)? as usize;
+            let end = p.checked_add(name_len).ok_or_else(bad)?;
+            if end > bytes.len() {
+                return Err(bad());
+            }
+            let name = String::from_utf8(bytes[p..end].to_vec()).map_err(|_| bad())?;
+            p = end;
+            let ng = rd_u32(bytes, &mut p)? as usize;
+            let group_bounds = rd_f64s(bytes, &mut p, ng + 1)?;
+            let total = rd_f64s(bytes, &mut p, ng)?;
+            let elastic = rd_f64s(bytes, &mut p, ng)?;
+            let fission = rd_f64s(bytes, &mut p, ng)?;
+            let capture = rd_f64s(bytes, &mut p, ng)?;
+            let nu_fission = rd_f64s(bytes, &mut p, ng)?;
+            nuclides.push(Mgxs {
+                name,
+                group_bounds,
+                total,
+                elastic,
+                fission,
+                capture,
+                nu_fission,
+            });
+        }
+        Ok(MgxsLibrary { nuclides })
+    }
+
+    /// Number of nuclides.
+    pub fn len(&self) -> usize {
+        self.nuclides.len()
+    }
+
+    /// Whether the library holds no nuclides.
+    pub fn is_empty(&self) -> bool {
+        self.nuclides.is_empty()
+    }
+
+    /// Names of all nuclides, in packed order (e.g. `"U238"`).
+    pub fn names(&self) -> Vec<&str> {
+        self.nuclides.iter().map(|m| m.name.as_str()).collect()
+    }
+
+    /// Whether a nuclide with this name is present.
+    pub fn contains(&self, name: &str) -> bool {
+        self.nuclides.iter().any(|m| m.name == name)
+    }
+
+    /// The fast-MGXS set for `name`, if present.
+    pub fn get(&self, name: &str) -> Option<&Mgxs> {
+        self.nuclides.iter().find(|m| m.name == name)
+    }
+
+    /// The embedded CORE fast-range MGXS library (ENDF/B-VIII.0 MF=3 background,
+    /// Watt-collapsed to 10 groups per nuclide from each WMP `e_max` up to 20 MeV).
+    ///
+    /// Baked by the `bake_mgxs` example and **always embedded** (no feature gate) —
+    /// the high-energy companion to [`crate::wmp::WmpLibrary::core`]. The blob is
+    /// tens of KB and parsed once, then shared. Look up a nuclide with
+    /// [`Self::get`] (e.g. `.get("U238")`).
+    pub fn core() -> &'static MgxsLibrary {
+        static CORE: std::sync::OnceLock<MgxsLibrary> = std::sync::OnceLock::new();
+        CORE.get_or_init(|| {
+            MgxsLibrary::from_blob(include_bytes!("../data/mgxs_core.mgxl"))
+                .expect("embedded CORE MGXL blob is valid")
+        })
+    }
 }
 
 #[cfg(test)]
@@ -323,5 +596,75 @@ mod tests {
         assert_eq!(x.nu_fission, 1.3);
         // Temperature-independent.
         assert_eq!(p.micro(3.0e6, 300.0).total, x.total);
+    }
+
+    /// 10 log-spaced groups from `e_max` to 20 MeV: 11 ascending bounds, endpoints
+    /// exact, and log-uniform (constant ratio between successive bounds).
+    #[test]
+    fn fast_group_bounds_are_log_spaced() {
+        let b = Mgxs::fast_group_bounds(2.0e4, ENDF_MAX_ENERGY_EV);
+        assert_eq!(b.len(), FAST_GROUP_COUNT + 1);
+        assert!((b[0] - 2.0e4).abs() < 1e-6);
+        assert!((b[FAST_GROUP_COUNT] - 2.0e7).abs() < 1.0);
+        let r0 = b[1] / b[0];
+        for i in 1..FAST_GROUP_COUNT {
+            assert!((b[i + 1] / b[i] - r0).abs() < 1e-9, "ratio drift at {i}");
+        }
+    }
+
+    /// The MGXL container is a lossless round trip and rejects a clobbered magic.
+    #[test]
+    fn mgxl_container_round_trips() {
+        let a = Mgxs {
+            name: "U238".into(),
+            group_bounds: vec![2.0e4, 6.0e5, 2.0e7],
+            total: vec![10.0, 7.0],
+            elastic: vec![9.0, 5.0],
+            fission: vec![0.5, 1.0],
+            capture: vec![0.5, 1.0],
+            nu_fission: vec![1.2, 2.6],
+        };
+        let b = Mgxs {
+            name: "H1".into(),
+            group_bounds: vec![1.0e3, 2.0e7],
+            total: vec![1.0],
+            elastic: vec![1.0],
+            fission: vec![0.0],
+            capture: vec![0.0],
+            nu_fission: vec![0.0],
+        };
+        let image = MgxsLibrary::pack(&[a.clone(), b.clone()]);
+        let lib = MgxsLibrary::from_blob(&image).unwrap();
+        assert_eq!(lib.len(), 2);
+        assert!(lib.contains("U238") && lib.contains("H1"));
+        let u = lib.get("U238").unwrap();
+        assert_eq!(u.group_bounds, a.group_bounds);
+        assert_eq!(u.nu_fission, a.nu_fission);
+        let mut bad = image.clone();
+        bad[0] = b'Z';
+        assert!(MgxsLibrary::from_blob(&bad).is_err());
+    }
+
+    /// The embedded CORE fast-MGXS library loads and is physically sane: it holds
+    /// the nuclides with a real fast gap above their WMP `e_max`, a fissile nuclide
+    /// carries ν·σ_f + elastic, and a nuclide whose WMP already spans 20 MeV
+    /// (H-1, non-resonant) is *absent* because it has no fast range to fill.
+    #[test]
+    fn embedded_core_mgxs_loads_and_is_sane() {
+        let lib = MgxsLibrary::core();
+        assert!(!lib.is_empty(), "CORE fast-MGXS set is non-empty");
+        assert!(lib.len() <= 125, "at most the CORE set");
+
+        // U-238: WMP e_max ≈ 20 keV, so a real fast range up to 20 MeV.
+        let u = lib.get("U238").expect("U238 has a fast range");
+        assert_eq!(u.n_groups(), FAST_GROUP_COUNT);
+        assert!((*u.group_bounds.last().unwrap() - 2.0e7).abs() < 1.0);
+        assert!(u.elastic.iter().any(|&x| x > 0.0), "U238 fast elastic present");
+        // Fast fission opens above ~1 MeV → some group carries ν·σ_f.
+        assert!(u.nu_fission.iter().any(|&x| x > 0.0), "U238 fast ν·σ_f present");
+
+        // H-1 is non-resonant; its WMP covers the whole sublibrary, so it is not in
+        // the fast-MGXS container.
+        assert!(!lib.contains("H1"), "H1 has no fast range (WMP covers it)");
     }
 }

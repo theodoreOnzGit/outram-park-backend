@@ -168,6 +168,48 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     Ok(ReconrResult { material, sections })
 }
 
+/// Reconstruct **only the MF=3 background** — no MF=2 resonance contributions.
+///
+/// This is the fast-range path used by the MGXS bake
+/// ([`crate::nuclear_data::Mgxs::collapse_from_reconr`]). Above a nuclide's WMP
+/// `e_max` the incident energy is beyond the resolved-resonance region, so the
+/// smooth linearised MF=3 grid *is* the cross section there. Skipping MF=2 avoids
+/// reconstructing resonance formats this port does not yet handle (notably
+/// ENDF/B-VIII.0's LRF=7 R-Matrix Limited), which do not affect the fast range.
+///
+/// Returns the same [`ReconrResult`] shape as [`reconr`] — linearised MF=3
+/// sections sorted by MT — but with **no** resonance additions. Do **not** use it
+/// below the resonance ceiling; there it omits the resonance cross section.
+pub fn reconr_background(
+    tape: &Tape,
+    mat: i32,
+    tolerance: f64,
+) -> Result<ReconrResult, NjoyError> {
+    let mf1_sec = tape
+        .section(mat, 1, 451)
+        .ok_or(NjoyError::SectionNotFound { mat, mf: 1, mt: 451 })?;
+    let material = mf1::parse_material_info(mf1_sec)?;
+
+    let mut sections: Vec<ReconrSection> = tape
+        .sections()
+        .iter()
+        .filter(|s| s.key.mat == mat && s.key.mf == 3)
+        .map(|sec| {
+            let mut cur = SectionCursor::new(&sec.rows);
+            let _head = cur.read_cont()?; // MF=3 HEAD
+            let tab1 = cur.read_tab1()?; // TAB1 header carries QM (c1), QI (c2)
+            let pairs = linearize::linearize_tab1(&tab1.interp, &tab1.pairs, tolerance);
+            Ok(ReconrSection {
+                mt: MtReaction::from_any(sec.key.mt),
+                qi: tab1.head.c2,
+                pairs,
+            })
+        })
+        .collect::<Result<Vec<_>, NjoyError>>()?;
+    sections.sort_by_key(|s| i32::from(s.mt));
+    Ok(ReconrResult { material, sections })
+}
+
 // ── Phase 2b: resonance contribution ─────────────────────────────────────────
 
 /// Add SLBW/MLBW and Reich-Moore resonance contributions to the MF=3 background.

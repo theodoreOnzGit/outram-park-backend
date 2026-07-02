@@ -120,17 +120,30 @@ trying to be accurate, it is trying to be cheap. So:
   The fast range where a bare sphere lives is smooth, so a hard-spectrum-weighted
   constant is adequate and fast.
 
-Implemented as [`nuclear_data::Mgxs`] (`src/nuclear_data/mod.rs`):
-`Mgxs::collapse_watt(...)` does the offline collapse from a fine pointwise set
-weighted by a [`FissionSpectrum::Watt`]; `Mgxs::micro(e)` is the O(log n) group
-lookup. Wired into `XsProvider::Mgxs` alongside the WMP `Multipole` variant.
+Implemented and baked (`src/nuclear_data/mod.rs`, `examples/bake_mgxs.rs`):
+
+- **Group structure:** `FAST_GROUP_COUNT` = **10 log-spaced groups** from each
+  nuclide's WMP `e_max` up to `ENDF_MAX_ENERGY_EV` = **20 MeV** (standard ENDF/B
+  neutron sublibrary ceiling). `Mgxs::fast_group_bounds(e_lo, e_hi)` builds them.
+- **Source = RECONR pointwise output from the local ENDF/B-VIII.0 library.** The
+  `bake_mgxs` example reads the tapes under `ENDF-B-VIII.0/neutrons/`, reconstructs
+  the **MF=3 background only** (`reconr::reconr_background` — no MF=2 resonance
+  reconstruction, which is irrelevant above `e_max` and lets us skip formats the
+  port does not yet handle, e.g. VIII.0's LRF=7 R-Matrix Limited), reads each
+  `e_max` from the embedded WMP CORE library, parses ν̄(E) from MF=1/MT=452
+  (`NuBar::from_endf`), and Watt-collapses via `Mgxs::collapse_from_reconr`.
+- **Container + embed:** packed into **MGXL v1** (`MgxsLibrary`, flat uncompressed
+  LE) as `src/data/mgxs_core.mgxl` (~60 KB, 123 nuclides), shipped via the
+  always-embedded `MgxsLibrary::core()`. Non-resonant nuclides whose WMP already
+  spans 20 MeV (H-1, He-4) have no fast gap and are excluded.
+- **Runtime:** `Mgxs::micro(e)` is the O(log n) piecewise-constant group lookup,
+  temperature-independent; wired into `XsProvider::Mgxs`.
 
 If a moderated-spectrum use case ever needs it, a softer weight is a *new* baked
-set, not added complexity in the runtime path — the collapse function stays
-single-spectrum.
+set, not added complexity in the runtime path — the collapse stays single-spectrum.
 
 ## Open questions
 
-- Group structure for the fast MGXS set (how many groups, and the boundaries) —
-  and whether to bake it from the ACER/RECONR pointwise output or a downloaded ACE.
 - git-lfs mirror hosting cost vs relying on official URLs + local cache only.
+- Whether the transport seam (CE below `e_max` on WMP, MG above) lives in
+  `openmc-libs` or is a combined `XsProvider` variant here.

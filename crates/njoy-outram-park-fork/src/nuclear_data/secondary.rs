@@ -24,6 +24,54 @@ pub struct NuBar {
 }
 
 impl NuBar {
+    /// Parse total ν̄(E) from ENDF **MF=1/MT=452** for material `mat`.
+    ///
+    /// Handles both ENDF representations:
+    /// - **LNU=2** — ν̄(E) tabulated (TAB1); stored directly as the lin-lin table.
+    /// - **LNU=1** — ν̄(E) = Σ Cₖ Eᵏ polynomial (LIST of coefficients); sampled
+    ///   onto a 60-point log grid over `[1e-3, 2e7]` eV so it fits the same table.
+    ///
+    /// Returns `Ok(None)` when the material has no MF=1/MT=452 section (i.e. a
+    /// non-fissile nuclide) or an unrecognised `LNU`. Used by the fast-MGXS bake to
+    /// fold ν̄ into `nu_fission` (see [`super::Mgxs::collapse_from_reconr`]).
+    pub fn from_endf(
+        tape: &crate::endf::tape::Tape,
+        mat: i32,
+    ) -> Result<Option<NuBar>, crate::NjoyError> {
+        use crate::endf::records::SectionCursor;
+
+        let sec = match tape.section(mat, 1, 452) {
+            Some(s) => s,
+            None => return Ok(None),
+        };
+        let mut cur = SectionCursor::new(&sec.rows);
+        let head = cur.read_cont()?; // HEAD: L2 = LNU
+        match head.l2 {
+            2 => {
+                let tab1 = cur.read_tab1()?;
+                let (energy, nu_total): (Vec<f64>, Vec<f64>) =
+                    tab1.pairs.iter().copied().unzip();
+                Ok(Some(NuBar { energy, nu_total }))
+            }
+            1 => {
+                let list = cur.read_list()?;
+                let coeffs = list.data; // [C1 (const), C2, …] ascending powers
+                let (e_lo, e_hi, n) = (1.0e-3_f64, 2.0e7_f64, 60usize);
+                let mut energy = Vec::with_capacity(n + 1);
+                let mut nu_total = Vec::with_capacity(n + 1);
+                for i in 0..=n {
+                    let e = e_lo * (e_hi / e_lo).powf(i as f64 / n as f64);
+                    // Horner over reversed coefficients: C1 + C2·E + C3·E² + …
+                    let nu = coeffs.iter().rev().fold(0.0, |acc, &c| acc * e + c);
+                    energy.push(e);
+                    nu_total.push(nu);
+                }
+                Ok(Some(NuBar { energy, nu_total }))
+            }
+            _ => Ok(None),
+        }
+    }
+
     /// Interpolate ν̄ at incident energy `e` \[eV\] (lin-lin, clamped at the ends).
     pub fn at(&self, e: f64) -> f64 {
         match self.energy.first() {
