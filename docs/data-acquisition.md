@@ -11,14 +11,23 @@ untrusted until checksum-verified.
 
 ## Fidelity tiers
 
+Two tiers: a low-fidelity **offline** tier that ships in-crate, and a
+high-fidelity **download** tier.
+
 | Tier | Source | Ships / fetched | Use |
 |---|---|---|---|
-| **0 — default, offline** | embedded WMP blob (125-nuclide CORE) | in-crate `include_bytes!` | thermal+resonance σ(E,T), analytic Doppler; the always-works fallback |
-| **1 — low-fi fast fallback** | 10-group high-energy sets (embedded, tiny) | in-crate | σ above WMP `e_max` when Tier 2 data is absent (see "Multigroup fallback") |
-| **2 — high fidelity, opt-in** | **raw ENDF**, downloaded | fetched + cached | run RECONR/BROADR/ACER on device → cache the result; authoritative, tiny download, CPU paid once |
+| **LOW — offline, default** | embedded WMP blob **+ 10-group high-energy augmentation** (125-nuclide CORE) | in-crate `include_bytes!` | complete offline σ(E,T) over the *full* range: WMP CE + analytic Doppler below `e_max`, 10-group multigroup above it |
+| **HIGH — opt-in, download** | **pure raw ENDF** | fetched + cached | run RECONR/BROADR/ACER on device → cache the result; authoritative, full continuous-energy fidelity |
 
-Tier 2 rationale: ENDF is the authoritative evaluation, the download is KB–MB (vs
-~120 MB/nuclide for pointwise h5), and the njoy pipeline to process it already
+**The LOW tier is a single package, not two options.** The WMP blob and the
+10-group set are *complementary*, not alternatives: WMP covers 1e-5 eV → `e_max`
+(the resonance/thermal range, with analytic Doppler — its strength); the 10-group
+set **augments** it above `e_max` (the smooth fast range WMP does not reach; see
+"Multigroup augmentation"). Together they give the offline build the full
+1e-5 eV → 20 MeV span with zero network.
+
+HIGH tier rationale: ENDF is the authoritative evaluation, the download is KB–MB
+(vs ~120 MB/nuclide for pointwise h5), and the njoy pipeline to process it already
 lives in this crate. Pay the reconstruction CPU once, cache the output.
 
 ## Distribution of the downloadable data — decided
@@ -89,10 +98,13 @@ runs, HPC array jobs) hitting the same cache concurrently.
     must fail cleanly, not runaway-allocate. Bounded allocations + cursor-advance
     checks (this is the same failure mode the crate's 12 GB unit-test cap guards).
 
-## Multigroup fallback above `e_max` (Tier 1) — two-spectrum interpolation
+## Multigroup augmentation above `e_max` (part of the LOW tier) — two-spectrum interpolation
 
-The high-energy region (above each nuclide's WMP `e_max`; U-233 600 eV, U-235
-2.25 keV, U-238 20 keV) is smooth → **10 groups** per reaction is enough. Rather
+This is **not a separate tier** — it is the upper half of the LOW-tier package,
+extending the embedded WMP blob past its ceiling so the offline build spans the
+full energy range. The high-energy region (above each nuclide's WMP `e_max`;
+U-233 600 eV, U-235 2.25 keV, U-238 20 keV) is smooth → **10 groups** per reaction
+is enough. Rather
 than one spectrum-locked set, embed **two** pre-weighted endpoints per nuclide and
 interpolate between them by spectral hardness:
 
@@ -114,8 +126,9 @@ Interpolate group σ for an in-between reactor by a hardness parameter λ ∈ [0
 - **Caveats.** Group σ is a flux-weighted average, so it is not strictly linear in
   hardness; the two endpoints *bound* the true value but the interior is
   approximate. For 10 smooth fast groups this is a defensible one-parameter model
-  for a low-fi fallback — not a replacement for on-spectrum collapse (Tier 2). URR
-  self-shielding (Bondarenko) still applies just above `e_max` regardless.
+  for the offline LOW tier — not a replacement for the HIGH tier's on-spectrum
+  ENDF reprocessing. URR self-shielding (Bondarenko) still applies just above
+  `e_max` regardless.
 
 ## Open questions
 
