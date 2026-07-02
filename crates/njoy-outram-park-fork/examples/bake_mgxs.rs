@@ -26,7 +26,7 @@
 
 use njoy_outram_park_fork::{
     nuclear_data::{
-        secondary::FissionSpectrum, secondary::NuBar, Mgxs, MgxsLibrary, ENDF_MAX_ENERGY_EV,
+        secondary::NuBar, Mgxs, MgxsLibrary, WeightingSpectrum, ENDF_MAX_ENERGY_EV,
     },
     reconr::reconr_background,
     wmp::WmpLibrary,
@@ -44,9 +44,27 @@ fn main() {
         args.next()
             .unwrap_or_else(|| "crates/njoy-outram-park-fork/src/data/mgxs_core.mgxl".into()),
     );
+    // Optional third arg selects the group-collapse weight (default: fast Watt).
+    // `watt` | `1/e` | `maxwell[:<kT_eV>]` — see `WeightingSpectrum`.
+    let spectrum = match args.next().as_deref() {
+        None | Some("watt") => WeightingSpectrum::default(),
+        Some("1/e") | Some("one-over-e") => WeightingSpectrum::OneOverE,
+        Some(other) if other.starts_with("maxwell") => {
+            let temp_ev = other
+                .split(':')
+                .nth(1)
+                .and_then(|s| s.parse::<f64>().ok())
+                .unwrap_or(0.0253); // ~293.6 K thermal
+            WeightingSpectrum::Maxwellian { temp_ev }
+        }
+        Some(other) => {
+            eprintln!("unknown weight '{other}'; use watt | 1/e | maxwell[:kT_eV]");
+            std::process::exit(2);
+        }
+    };
+    println!("collapse weight: {spectrum:?}");
 
     let wmp = WmpLibrary::core();
-    let spectrum = FissionSpectrum::default();
 
     // Index the neutron directory once: map (Z, A) -> path by parsing filenames
     // of the form `n-<ZZZ>_<Sym>_<AAA>.endf`.

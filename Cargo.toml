@@ -54,6 +54,18 @@ hdf5-pure = { version = "0.20.0", features = ["ndarray"] }
 # Chosen over zstd/ruzstd because those lack a mature pure-Rust *encoder*.
 miniz_oxide = "0.8"
 
+# HIGH-fidelity data-acquisition stack for njoy-outram-park-fork's `net-fetch`
+# feature (opt-in ENDF download tier; see docs/data-acquisition.md). Every crate
+# here is pure-Rust and cross-platform — no OpenSSL, no C build deps — so the
+# default lean build (which does NOT enable `net-fetch`) pulls none of them.
+ureq = { version = "2.10", default-features = false, features = ["tls"] } # rustls TLS, no OpenSSL
+sha2 = "0.10"          # SHA-256 for download integrity re-checks
+directories = "5.0"    # XDG / AppData / ~/Library cache dir discovery
+fs2 = "0.4"            # advisory file locks (anti-thundering-herd for parallel runs)
+# IAEA NDS serves each nuclide as a MAT-numbered .zip; extract in memory. Pure-Rust
+# deflate via flate2's miniz_oxide backend — no system zlib.
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+
 # GUI / example stack — egui ecosystem pinned to the matched 0.34 series
 # (egui 0.34 requires Rust >= 1.92)
 egui = "0.34.3"

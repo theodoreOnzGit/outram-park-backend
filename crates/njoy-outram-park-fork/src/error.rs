@@ -35,4 +35,10 @@ pub enum NjoyError {
     /// Underlying I/O failure reading or writing a tape file.
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
+
+    /// A HIGH-tier data download or its integrity check failed: HTTP error,
+    /// network failure, checksum mismatch, or a corrupt cached artifact. Only
+    /// produced by the `net-fetch` feature ([`crate::acquire`]).
+    #[error("data download error: {0}")]
+    Download(String),
 }

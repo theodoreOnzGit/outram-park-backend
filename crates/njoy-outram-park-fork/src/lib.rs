@@ -36,6 +36,12 @@
 //! [`openmc-libs`]: https://github.com/theodoreOnzGit/outram-park-backend
 
 pub mod ace;
+/// HIGH-fidelity data acquisition — download raw ENDF tapes from a pinned
+/// upstream and reconstruct pointwise cross sections on device. Behind the
+/// **`net-fetch`** feature (opt-in; the default build ships the offline LOW tier
+/// only). See [`acquire`] and `docs/data-acquisition.md`.
+#[cfg(feature = "net-fetch")]
+pub mod acquire;
 pub mod broadr;
 pub mod common;
 pub mod endf;

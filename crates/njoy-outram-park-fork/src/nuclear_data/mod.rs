@@ -18,10 +18,12 @@
 //! adding a new representation is a new variant that every `match` must handle.
 
 pub mod secondary;
+pub mod weighting;
 
 use crate::wmp::WindowedMultipole;
 use crate::NjoyError;
 use secondary::{FissionSpectrum, NuBar};
+pub use weighting::WeightingSpectrum;
 
 /// Microscopic neutron cross sections at one energy/temperature \[barn\].
 ///
@@ -197,25 +199,31 @@ impl Mgxs {
         }
     }
 
-    /// Collapse a fine pointwise cross-section set to group constants using a
-    /// **Watt fission-spectrum weight** — the offline bake step.
+    /// Collapse a fine pointwise cross-section set to group constants under a
+    /// caller-chosen **weighting spectrum** — the offline bake step.
     ///
-    /// For each group `[E_lo, E_hi)` and each channel, computes the
-    /// spectrum-weighted average σ_g = ∫σ(E)χ(E)dE / ∫χ(E)dE by the midpoint rule
-    /// over the fine grid (each fine interval contributes to the group its
-    /// midpoint falls in). This is intentionally crude — the fast range is smooth
-    /// and this is the low-fidelity path.
+    /// For each group `[E_lo, E_hi)` and each channel, computes the flux-weighted
+    /// average σ_g = ∫σ(E)φ(E)dE / ∫φ(E)dE by the midpoint rule over the fine grid
+    /// (each fine interval contributes to the group its midpoint falls in). This is
+    /// intentionally crude — the fast range is smooth and this is the low-fidelity
+    /// path.
+    ///
+    /// The weight φ(E) is [`WeightingSpectrum`]: pick [`WeightingSpectrum::Watt`]
+    /// (default, fast/unmoderated), [`WeightingSpectrum::OneOverE`] (epithermal
+    /// slowing-down), or [`WeightingSpectrum::Maxwellian`] (thermal). Choosing a
+    /// softer weight produces a *different baked set* matched to a moderated
+    /// spectrum; it does **not** add self-shielding (see the type-level note).
     ///
     /// # Parameters
     /// - `energy` — fine incident-energy grid \[eV\], **ascending**.
     /// - `total`/`elastic`/`fission`/`capture`/`nu_fission` — σ columns \[barn\]
     ///   aligned with `energy` (each the same length as `energy`).
     /// - `group_bounds` — target group boundaries \[eV\], ascending, `≥ 2` entries.
-    /// - `spectrum` — the weighting χ(E); pass a [`FissionSpectrum::Watt`].
+    /// - `spectrum` — the weighting φ(E); e.g. [`WeightingSpectrum::default`].
     ///
     /// A group with no fine points (zero weight) keeps a `0.0` constant.
     #[allow(clippy::too_many_arguments)]
-    pub fn collapse_watt(
+    pub fn collapse(
         name: impl Into<String>,
         energy: &[f64],
         total: &[f64],
@@ -224,7 +232,7 @@ impl Mgxs {
         capture: &[f64],
         nu_fission: &[f64],
         group_bounds: &[f64],
-        spectrum: &FissionSpectrum,
+        spectrum: &WeightingSpectrum,
     ) -> Self {
         let n_g = group_bounds.len().saturating_sub(1);
         let mut num = [
@@ -282,8 +290,8 @@ impl Mgxs {
     ///
     /// Uses the reconstructed lin-lin σ(E) grid ([`ReconrResult`]) as the fine
     /// input, [`FAST_GROUP_COUNT`] log-spaced groups from `e_lo` (the nuclide's WMP
-    /// `e_max`) to [`ENDF_MAX_ENERGY_EV`] (20 MeV), and a Watt weight
-    /// ([`Self::collapse_watt`]). Channels are taken from the standard MTs:
+    /// `e_max`) to [`ENDF_MAX_ENERGY_EV`] (20 MeV), and the caller-chosen weight
+    /// ([`Self::collapse`]). Channels are taken from the standard MTs:
     /// total = MT 1 (or elastic+fission+capture if MT 1 is absent), elastic = MT 2,
     /// fission = MT 18, capture = MT 102; ν·σ_f folds in `nu` at each energy.
     ///
@@ -296,7 +304,7 @@ impl Mgxs {
         name: impl Into<String>,
         e_lo: f64,
         nu: &NuBar,
-        spectrum: &FissionSpectrum,
+        spectrum: &WeightingSpectrum,
     ) -> Self {
         use crate::endf::MtReaction;
 
@@ -349,7 +357,7 @@ impl Mgxs {
             .map(|(&e, &sf)| sf * nu.at(e))
             .collect();
 
-        Self::collapse_watt(
+        Self::collapse(
             name, &grid, &total, &elastic, &fission, &capture, &nu_fission, &bounds,
             spectrum,
         )
@@ -524,9 +532,9 @@ mod tests {
         let flat = vec![7.0; energy.len()];
         let zero = vec![0.0; energy.len()];
         let bounds = vec![1.0e5, 1.0e6, 5.0e6, 1.1e7];
-        let mg = Mgxs::collapse_watt(
+        let mg = Mgxs::collapse(
             "Test", &energy, &flat, &flat, &zero, &zero, &zero, &bounds,
-            &FissionSpectrum::default(),
+            &WeightingSpectrum::default(),
         );
         assert_eq!(mg.n_groups(), 3);
         for g in 0..mg.n_groups() {
@@ -565,9 +573,9 @@ mod tests {
         let sigma: Vec<f64> = energy.iter().map(|&e| e / 1.0e6).collect();
         let zero = vec![0.0; energy.len()];
         let bounds = vec![1.0e5, 1.01e7];
-        let mg = Mgxs::collapse_watt(
+        let mg = Mgxs::collapse(
             "R", &energy, &sigma, &sigma, &zero, &zero, &zero, &bounds,
-            &FissionSpectrum::default(),
+            &WeightingSpectrum::default(),
         );
         let unweighted_mid = 0.5 * (1.0e5 + 1.01e7) / 1.0e6;
         assert!(

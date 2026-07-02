@@ -98,7 +98,7 @@ runs, HPC array jobs) hitting the same cache concurrently.
     must fail cleanly, not runaway-allocate. Bounded allocations + cursor-advance
     checks (this is the same failure mode the crate's 12 GB unit-test cap guards).
 
-## Multigroup augmentation above `e_max` (part of the LOW tier) — single Watt-weighted MGXS
+## Multigroup augmentation above `e_max` (part of the LOW tier) — Watt-weighted MGXS (weight now selectable)
 
 This is **not a separate tier** — it is the upper half of the LOW-tier package,
 extending the embedded WMP blob past its ceiling so the offline build spans the
@@ -110,9 +110,18 @@ set per reaction is enough.
 weight, no Boltzmann.** This is the *low-fidelity, high-speed* fallback; it is not
 trying to be accurate, it is trying to be cheap. So:
 
-- **Single weighting: the Watt fission spectrum.** Group constants are collapsed
-  once, offline, as σ_g = ∫σ(E)χ(E)dE / ∫χ(E)dE with χ the Watt form. No second
-  (1/E / Maxwellian) endpoint, no hardness-parameter interpolation between spectra.
+- **Default weighting: the Watt fission spectrum.** Group constants are collapsed
+  offline, as σ_g = ∫σ(E)w(E)dE / ∫w(E)dE with w the weighting spectrum. The
+  *shipped* CORE set uses the Watt form (the correct weight for a fast assembly),
+  and runtime does no hardness-parameter interpolation between spectra.
+- **The weight is selectable at bake time** (added 2026-07-03). The collapse
+  spectrum is the `nuclear_data::WeightingSpectrum` enum — `Watt { a, b }` (default),
+  `OneOverE` (1/E slowing-down, for moderated/epithermal use), or
+  `Maxwellian { temp_ev }` (thermal peak). Re-bake with a different weight via
+  `cargo run --example bake_mgxs -- <nuclide> <e_max> <watt|1/e|maxwell[:kT_eV]>`.
+  This makes the spectrum assumption an explicit, auditable input rather than a
+  buried constant; it does *not* add runtime complexity — a re-weighted set is a
+  new baked blob, and the runtime lookup stays a single piecewise-constant index.
 - **No self-shielding.** There is *no* Boltzmann solve, *no* Bondarenko dilution,
   *no* URR probability-table treatment. A caller who needs any of that uses the
   HIGH tier (on-spectrum ENDF reprocessing) instead.
@@ -131,7 +140,8 @@ Implemented and baked (`src/nuclear_data/mod.rs`, `examples/bake_mgxs.rs`):
   reconstruction, which is irrelevant above `e_max` and lets us skip formats the
   port does not yet handle, e.g. VIII.0's LRF=7 R-Matrix Limited), reads each
   `e_max` from the embedded WMP CORE library, parses ν̄(E) from MF=1/MT=452
-  (`NuBar::from_endf`), and Watt-collapses via `Mgxs::collapse_from_reconr`.
+  (`NuBar::from_endf`), and collapses via `Mgxs::collapse_from_reconr` under the
+  chosen `WeightingSpectrum` (Watt by default).
 - **Container + embed:** packed into **MGXL v1** (`MgxsLibrary`, flat uncompressed
   LE) as `src/data/mgxs_core.mgxl` (~60 KB, 123 nuclides), shipped via the
   always-embedded `MgxsLibrary::core()`. Non-resonant nuclides whose WMP already
@@ -139,8 +149,10 @@ Implemented and baked (`src/nuclear_data/mod.rs`, `examples/bake_mgxs.rs`):
 - **Runtime:** `Mgxs::micro(e)` is the O(log n) piecewise-constant group lookup,
   temperature-independent; wired into `XsProvider::Mgxs`.
 
-If a moderated-spectrum use case ever needs it, a softer weight is a *new* baked
-set, not added complexity in the runtime path — the collapse stays single-spectrum.
+A moderated-spectrum use case picks a softer `WeightingSpectrum` (1/E or
+Maxwellian) and re-bakes a *new* set — no added complexity in the runtime path,
+which stays a single-spectrum piecewise-constant lookup regardless of which weight
+produced the blob.
 
 ## Open questions
 
