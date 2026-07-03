@@ -11,9 +11,11 @@
 //! Ported in phases (`docs/porting-plan.md` §HEATR sub-phases) — see the
 //! module's own progress:
 //!
-//! - **H1** (this file, done): elastic (MT=2).
-//! - **H2, H3, H4**: local-deposition, single-neutron, and fission reactions —
-//!   added incrementally; see the doc comments on [`Kerma::from_reconr`] and
+//! - **H1** (done): elastic (MT=2).
+//! - **H2** (done): local-deposition reactions — capture (MT=102) and
+//!   charged-particle-only exits (MT=103–117), `H(E) = σ(E)·(E+Q)`.
+//! - **H3, H4**: single-escaping-neutron reactions and fission — added
+//!   incrementally; see the doc comments on [`Kerma::from_reconr`] and
 //!   [`heating_model`] for what is (and is not yet) covered.
 //! - **H5–H7** (deferred): multi-neutron-exit/continuum inelastic, the full
 //!   photon energy-balance method, and damage energy (MT=444).
@@ -46,16 +48,27 @@ use crate::reconr::{eval_lin_lin, ReconrResult};
 /// closed dispatch [`heating_model`] returns.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum HeatingModel {
-    /// Elastic (MT=2): `H(E) = σ(E)·E·2A/(A+1)²` — see the module docs.
+    /// Elastic (MT=2): `H(E) = σ(E)·E·2A/(A+1)²` — see the module docs (H1).
     Elastic,
-    /// Not yet modeled (every other MT, until H2–H4 land): contributes 0.
+    /// **H2.** No escaping neutron — pure capture (MT=102) or capture plus
+    /// charged particle(s) that stay local in matter (MT=103–117):
+    /// `H(E) = σ(E)·(E+Q)`. All of the incident energy plus the reaction
+    /// Q-value is deposited, since nothing escapes to carry energy away —
+    /// this is NJOY's own documented behaviour for materials/reactions
+    /// without photon-production data taken to its logical conclusion.
+    Local,
+    /// Not yet modeled (H3–H5 reactions, until they land): contributes 0.
     NotModeled,
 }
 
 /// Dispatch an [`MtReaction`] to its [`HeatingModel`].
 fn heating_model(mt: MtReaction) -> HeatingModel {
+    use MtReaction::*;
     match mt {
-        MtReaction::Mt2Elastic => HeatingModel::Elastic,
+        Mt2Elastic => HeatingModel::Elastic,
+        Mt102Capture | Mt103Np | Mt104Nd | Mt105Nt | Mt106NHe3 | Mt107NAlpha | Mt108N2Alpha
+        | Mt109N3Alpha | Mt111N2Proton | Mt112NProtonAlpha | Mt113NT2Alpha | Mt114ND2Alpha
+        | Mt115NProtonD | Mt116NProtonT | Mt117NDAlpha => HeatingModel::Local,
         _ => HeatingModel::NotModeled,
     }
 }
@@ -78,9 +91,10 @@ pub struct Kerma {
 impl Kerma {
     /// Compute the kinematic-limit KERMA from a reconstructed evaluation.
     ///
-    /// **H1 only** (elastic, MT=2) is covered so far; every other reaction
-    /// contributes 0 until H2–H4 land (see the module docs). `awr` is the
-    /// target's mass ratio (`ReconrResult::material::awr`).
+    /// **H1–H2** are covered so far (elastic; capture + charged-particle-only
+    /// exits); every other reaction contributes 0 until H3–H5 land (see the
+    /// module docs). `awr` is the target's mass ratio
+    /// (`ReconrResult::material::awr`).
     pub fn from_reconr(recon: &ReconrResult) -> Self {
         let awr = recon.material.awr;
         let mut energy: Vec<f64> = recon
@@ -92,15 +106,24 @@ impl Kerma {
         energy.sort_by(|a, b| a.partial_cmp(b).unwrap());
         energy.dedup_by(|a, b| (*a - *b).abs() < 1.0e-12 * b.abs().max(1.0));
 
+        let elastic_factor = 2.0 * awr / (awr + 1.0).powi(2);
         let mut h = vec![0.0; energy.len()];
         for sec in &recon.sections {
-            if heating_model(sec.mt) != HeatingModel::Elastic {
+            let model = heating_model(sec.mt);
+            if model == HeatingModel::NotModeled {
                 continue;
             }
-            let factor = 2.0 * awr / (awr + 1.0).powi(2);
             for (i, &e) in energy.iter().enumerate() {
                 let sigma = eval_lin_lin(&sec.pairs, e);
-                h[i] += sigma * e * factor;
+                if sigma == 0.0 {
+                    continue;
+                }
+                let per_event = match model {
+                    HeatingModel::Elastic => e * elastic_factor,
+                    HeatingModel::Local => e + sec.qi,
+                    HeatingModel::NotModeled => unreachable!(),
+                };
+                h[i] += sigma * per_event;
             }
         }
         Kerma { energy, h }
@@ -166,11 +189,60 @@ mod tests {
     /// confirms the dispatch excludes them rather than silently double-using
     /// the elastic formula.
     #[test]
-    fn non_elastic_reactions_contribute_nothing_yet() {
-        let sec = ReconrSection { mt: MtReaction::Mt102Capture, qi: 6.0e6, pairs: vec![(1.0e5, 1.0), (1.0e6, 1.0)] };
+    fn not_yet_modeled_reactions_contribute_nothing() {
+        // MT=16 (n,2n): multi-neutron exit, H5, not yet ported.
+        let sec = ReconrSection { mt: MtReaction::Mt16N2n, qi: -8.0e6, pairs: vec![(1.0e5, 1.0), (1.0e6, 1.0)] };
         let kerma = Kerma::from_reconr(&recon(56.0, vec![sec]));
-        assert!(kerma.energy.is_empty(), "capture not modeled yet ⇒ empty grid");
+        assert!(kerma.energy.is_empty(), "(n,2n) not modeled yet ⇒ empty grid");
         assert_eq!(kerma.eval(5.0e5), 0.0);
+    }
+
+    /// **H2.** Radiative capture (MT=102) deposits all of `E+Q` locally — no
+    /// escaping neutron, so nothing is subtracted from the energy balance.
+    #[test]
+    fn capture_deposits_e_plus_q() {
+        let q = 6.0e6; // representative (n,γ) Q-value
+        let sec = ReconrSection { mt: MtReaction::Mt102Capture, qi: q, pairs: vec![(1.0e5, 2.0), (1.0e6, 2.0)] };
+        let kerma = Kerma::from_reconr(&recon(56.0, vec![sec]));
+        for &e in &[1.0e5, 1.0e6] {
+            let h = kerma.eval(e);
+            let expected = 2.0 * (e + q);
+            assert!((h - expected).abs() / expected < 1.0e-9, "H({e})={h}, want {expected}");
+        }
+    }
+
+    /// **H2.** A charged-particle-only exit, e.g. MT=107 `(n,α)`, uses the same
+    /// `E+Q` local-deposition formula as capture — no escaping neutron.
+    #[test]
+    fn charged_particle_only_exit_deposits_e_plus_q() {
+        let q = 2.0e6;
+        let sec = ReconrSection { mt: MtReaction::Mt107NAlpha, qi: q, pairs: vec![(1.0e6, 0.5)] };
+        let kerma = Kerma::from_reconr(&recon(27.0, vec![sec]));
+        let h = kerma.eval(1.0e6);
+        let expected = 0.5 * (1.0e6 + q);
+        assert!((h - expected).abs() / expected < 1.0e-9, "H={h}, want {expected}");
+    }
+
+    /// H1 and H2 sum additively on the same union grid — a material with both
+    /// elastic and capture data gets both contributions at each energy.
+    #[test]
+    fn elastic_and_capture_sum_additively() {
+        let elastic = ReconrSection {
+            mt: MtReaction::Mt2Elastic,
+            qi: 0.0,
+            pairs: vec![(1.0e6, 10.0)],
+        };
+        let capture = ReconrSection {
+            mt: MtReaction::Mt102Capture,
+            qi: 6.0e6,
+            pairs: vec![(1.0e6, 1.0)],
+        };
+        let awr = 56.0;
+        let kerma = Kerma::from_reconr(&recon(awr, vec![elastic, capture]));
+        let h = kerma.eval(1.0e6);
+        let h_elastic = 10.0 * 1.0e6 * 2.0 * awr / (awr + 1.0).powi(2);
+        let h_capture = 1.0 * (1.0e6 + 6.0e6);
+        assert!((h - (h_elastic + h_capture)).abs() < 1.0, "got {h}, want {}", h_elastic + h_capture);
     }
 
     /// Union grid + summation across two elastic-tagged sections at different
