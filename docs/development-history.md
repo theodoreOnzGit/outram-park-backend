@@ -402,3 +402,63 @@ Encoded in the `godiva_keff` example's V&V doc block and exercised offline by
 the exponential sampler / Langevin inverse covered by unit tests in
 `material::nuclide::tests`. Data format: MGXL **v2** (`from_blob` still reads v1,
 zero-filling μ̄).
+
+## 2026-07 — (n,2n) multiplicity: restoring the yield-2 neutron (HIGH tier)
+
+### Methodology
+
+Before this change the reaction partition in `physics::keff::transport_history`
+was `fission | capture | inelastic | elastic`, and the comment was explicit that
+the elastic bucket "sweeps up any residual (n,xn) as an elastic-like event" — i.e.
+an (n,2n) collision was transported as a *single* down-scatter, silently dropping
+the second neutron. On a bare fast metal sphere that is a real (if small) neutron
+multiplier being discarded, biasing k low.
+
+The fix is a faithful port of OpenMC's `inelastic_scatter` (`src/physics.cpp:1167`):
+evaluate the reaction's neutron yield and, for an integral yield *Y > 0*, create
+*Y − 1* secondary neutrons at the primary's post-scatter energy and direction (the
+incident one continues). For (n,2n), *Y = 2* → one extra neutron.
+
+Concretely:
+- **Data.** `MicroXS` gains an `n2n` field. The HIGH (`Pointwise`) tier reads it
+  from the reconstructed **MF=3/MT=16** background (`recon.eval_mt(Mt16N2n, e)`) —
+  a threshold reaction with no resonance contribution, so it needs no
+  reconstruction, only to be carried through. The LOW tier reports `n2n = 0`
+  (no group column yet — a pending bake).
+- **Transport.** `transport_history` now drives a **same-generation work stack**
+  (mirroring OpenMC's `create_secondary` bank): the source neutron plus any (n,2n)
+  secondaries are tracked to completion *within the current generation*; only
+  *fission* neutrons bank to the next generation. The partition gains an `(n,2n)`
+  band between inelastic and elastic; when hit, the incident neutron down-scatters
+  (Weisskopf-evaporation stand-in — we have no parsed MF=6 (n,2n) emission law) and
+  one secondary is pushed at the same outgoing state.
+
+Reference: OpenMC C++ at `../openmc/`, per the new openmc-libs porting rule
+(mirror the canonical source; scaffold only what is genuinely absent).
+
+### Results (2026-07-03, ENDF/B-VII.1, 5000 particles / 40 inactive + 120 active)
+
+Same-settings, same-seed A/B on the Godiva HIGH tier:
+
+| (n,2n) | HIGH k_eff | vs benchmark |
+|---|---|---|
+| forced off | 0.99701 ± 0.00168 | −299 pcm |
+| **on (yield 2)** | **0.99872 ± 0.00173** | **−128 pcm** |
+
+Worth = **+171 ± 241 pcm** — correct sign (an extra neutron raises k) but only
+~0.7σ, **not statistically resolved from zero** at this statistics. LOW is
+1.01024 in both runs (unaffected, `n2n = 0`), confirming reproducibility.
+
+### Finding
+
+The measured (n,2n) worth for Godiva is tens of pcm — below the MC noise floor of
+a practical run — exactly as the physics predicts: U (n,2n) has a ~5–6 MeV
+threshold and samples only the thin high-energy tail of the fission spectrum. So
+this is a **fidelity/correctness** change, not a lever that measurably moves
+Godiva's k. Its value shows up for (n,xn)-sensitive spectra (harder sources,
+Be/D-reflected systems). The HIGH-tier residual (−128 pcm) is now dominated by the
+remaining emission-side approximation — a **fixed thermal-Watt χ instead of the
+energy-dependent ENDF MF=5 fission spectrum** — tracked as a separate TODO.
+
+Exercised by `physics::keff::tests::godiva_high_fidelity_reaches_benchmark`
+(net-fetch). LOW-tier (n,2n) awaits an MT=16 group column in the MGXS bake.

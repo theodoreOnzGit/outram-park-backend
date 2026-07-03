@@ -14,6 +14,7 @@
 //! | Doppler | analytic (WMP) below `e_max` only | BROADR over the whole range |
 //! | Inelastic | group remainder, evaporation (no levels) | explicit MT=51…91 energy-loss law |
 //! | Elastic angle | forward-peaked from group μ̄ (max-entropy) | anisotropic (full ENDF MF=4) |
+//! | (n,2n) | lumped in group total (no multiplication) | MT=16, yield-2 multiplicity |
 //! | Needs network | no | yes (cached after first run) |
 //!
 //! For each of the three uranium isotopes in HEU metal this:
@@ -37,20 +38,21 @@
 //!
 //! **Methodology.** Same Godiva model as the LOW run (bare HEU sphere,
 //! r = 8.7407 cm, atom densities below), same power iteration (5000 histories ×
-//! [40 inactive + 110 active]), judged against ICSBEP HEU-MET-FAST-001
+//! [40 inactive + 120 active]), judged against ICSBEP HEU-MET-FAST-001
 //! (k_eff = 1.0000 ± 0.0010). The only variable changed is the cross-section
 //! source: continuous-energy ENDF/B-VII.1 reconstructed on device (RECONR 0.1%
 //! tol + BROADR to 293.6 K + MF=1/452 ν̄), vs the LOW tier's embedded
 //! WMP + infinite-dilution fast MGXS.
 //!
-//! **Results (2026-07, ENDF/B-VII.1) — the HIGH tier reaching the benchmark.**
+//! **Results (2026-07-03, ENDF/B-VII.1) — the HIGH tier reaching the benchmark.**
 //!
 //! | Run | k_eff | Δk vs benchmark |
 //! |---|---|---|
 //! | LOW (`godiva_keff`) | 1.12852 ± 0.00174 | +12 852 pcm |
 //! | HIGH: CE data only, elastic-lumped | 1.12451 ± 0.00202 | +12 451 pcm |
 //! | HIGH: + inelastic energy-loss law | 1.09942 ± 0.00169 | +9 942 pcm |
-//! | HIGH: + **anisotropic MF=4 elastic** | **0.99627 ± 0.00175** | **−373 pcm** |
+//! | HIGH: + anisotropic MF=4 elastic | 0.99701 ± 0.00168 | −299 pcm |
+//! | HIGH: + **(n,2n) yield-2 multiplicity** | **0.99872 ± 0.00173** | **−128 pcm** |
 //!
 //! **Interpretation — the key findings** (full derivation in
 //! `docs/development-history.md`). Three effects were isolated in sequence, and
@@ -63,18 +65,22 @@
 //! 3. **Anisotropic elastic scatter** (ENDF MF=4) is by far the largest lever,
 //!    **~10 300 pcm**: forward-peaked elastic off heavy U cuts the transport cross
 //!    section and lets the bare sphere leak the reactivity the isotropic
-//!    approximation had retained. This brings Godiva to **k_eff = 0.99627 ±
-//!    0.00175 (−373 pcm)** — agreement with the benchmark.
+//!    approximation had retained. This brings Godiva to **k_eff = 0.99701 ±
+//!    0.00168 (−299 pcm)** — agreement with the benchmark.
+//! 4. **(n,2n) yield-2 multiplicity** (MT=16) adds **+171 ± 241 pcm** (to 0.99872,
+//!    −128 pcm) — the correct sign but only ~0.7σ, *not* resolved from zero. A
+//!    fidelity fix, not a lever: U (n,2n) is a ~5–6 MeV threshold reaction sampling
+//!    only the fission-spectrum tail, so its Godiva worth is genuinely tens of pcm.
 //!
 //! For fast bare-metal criticality the transport angular/energy-transfer physics
 //! dominates cross-section-data fidelity by more than an order of magnitude. The
 //! near-perfect landing likely involves some cancellation of the residual
 //! approximations (no fast self-shielding; Weisskopf stand-in for the MF=5
-//! continuum law), so it should not be read as each sub-model being individually
-//! exact. The LOW (embedded) tier now carries the same two levers from *group*
-//! data — inelastic as the group remainder (evaporation) and forward-peaked
-//! elastic from a per-group mean cosine μ̄ — and lands at 1.01022 ± 0.00177
-//! (+1 022 pcm); see the `godiva_keff` (LOW) example for that V&V.
+//! continuum law; fixed thermal-Watt χ instead of energy-dependent MF=5), so it
+//! should not be read as each sub-model being individually exact. The LOW
+//! (embedded) tier carries the same elastic + inelastic levers from *group* data
+//! (no (n,2n) column yet) and lands at 1.01024 (+1 024 pcm); see the `godiva_keff`
+//! (LOW) example for that V&V.
 
 #[cfg(not(feature = "net-fetch"))]
 fn main() {

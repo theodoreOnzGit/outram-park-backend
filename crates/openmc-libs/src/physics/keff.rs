@@ -36,13 +36,17 @@
 //!   structure (MT=51…91), so inelastic is a distinct channel with a real
 //!   energy-loss law — discrete-level two-body kinematics (each level's Q-value)
 //!   and a Weisskopf-evaporation continuum. Elastic uses the full ENDF MF=4
-//!   anisotropic angular distribution (per-energy tabulated cosine CDF).
+//!   anisotropic angular distribution (per-energy tabulated cosine CDF). `(n,2n)`
+//!   (MT=16, from the reconstructed MF=3 background) is a distinct channel that
+//!   emits its true **yield-2 multiplicity** — one extra same-generation neutron,
+//!   the small positive reactivity a bare fast sphere would otherwise drop.
 //! - **LOW tier** ([`Nuclide::from_core`]) has no resolved levels: inelastic is the
 //!   group remainder (total − elastic − fission − capture), down-scattered by the
 //!   Weisskopf continuum law. Elastic is forward-peaked from a single per-group
 //!   mean cosine μ̄ (baked from MF=4) via a maximum-entropy exponential angular law.
 //!   Above each nuclide's WMP `e_max` the group data is infinite-dilution
-//!   Watt-collapsed with no self-shielding.
+//!   Watt-collapsed with no self-shielding. `(n,2n)` has no group column yet, so
+//!   the LOW tier still lumps it into elastic (no multiplication) — a pending bake.
 //!
 //! For a bare fast sphere, forward-peaked elastic and inelastic down-scatter are
 //! the dominant reactivity levers — together they bring **both** tiers' Godiva Keff
@@ -204,9 +208,15 @@ pub fn run_keff(
     KeffResult { k_mean, k_std, k_by_generation }
 }
 
-/// Transport one neutron history to death (absorption or leakage), banking any
-/// fission neutrons. Returns the fission production ν̄ summed over this history's
-/// fission events (the generation-k numerator contribution).
+/// Transport one source neutron — plus any same-generation `(n,2n)` secondaries
+/// it spawns — to death (absorption or leakage), banking any fission neutrons.
+/// Returns the fission production ν̄ summed over every fission event in the
+/// history (the generation-k numerator contribution).
+///
+/// `(n,2n)` neutrons are tracked to completion **within this generation** via a
+/// local work stack, mirroring OpenMC's `create_secondary` bank (`src/physics.cpp`
+/// `inelastic_scatter`): only *fission* neutrons are banked to the next
+/// generation (`next_bank`); `(n,xn)` multiplicity is realized in-generation.
 #[allow(clippy::too_many_arguments)]
 fn transport_history(
     site: Site,
@@ -219,72 +229,92 @@ fn transport_history(
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
 ) -> f64 {
-    let mut r = site.r;
-    let mut u = site.u;
-    let mut e = site.e;
     let mut production = 0.0;
+    // Same-generation work stack: the source neutron plus any (n,2n) secondaries.
+    let mut stack: Vec<Site> = vec![site];
 
-    loop {
-        let sigma_t = material.macro_xs_total(e, nuclides);
-        if !(sigma_t > 0.0) {
-            break; // no interaction possible; treat as escape
-        }
-        let d_col = -prn(seed).ln() / sigma_t;
-        let d_bound = sphere.distance(r, u, false);
+    while let Some(start) = stack.pop() {
+        let mut r = start.r;
+        let mut u = start.u;
+        let mut e = start.e;
 
-        if d_col >= d_bound {
-            break; // reaches the vacuum boundary first → leaks
-        }
-
-        // Collide: advance to the collision site and pick the target nuclide.
-        r = stream(r, u, d_col);
-        let ci = material.sample_nuclide(e, seed, nuclides);
-        let nuc = &nuclides[material.components[ci].nuclide_idx];
-        let x = nuc.xs_at_energy(e, temp);
-
-        // Reaction partition on the *total*:
-        //   fission | capture | inelastic | elastic.
-        // `x.inelastic` (MT=51…91) is a sub-band of scattering carved out with its
-        // own energy-loss law; it is non-zero only for the HIGH tier, so the LOW
-        // tier collapses to the original fission | capture | elastic split. The
-        // final elastic bucket (total − absorption − inelastic) still sweeps up any
-        // residual (n,xn) as an elastic-like event.
-        let xi = prn(seed) * x.total;
-        if xi < x.fission {
-            let nu_bar = if x.fission > 0.0 { x.nu_fission / x.fission } else { 0.0 };
-            production += nu_bar;
-            let n = sample_num_neutrons(nu_bar, k_running, seed);
-            for _ in 0..n {
-                let (dx, dy, dz) = isotropic_direction(seed);
-                next_bank.push(Site {
-                    r,
-                    u: Direction::new(dx, dy, dz),
-                    e: watt(seed, settings.watt_a, settings.watt_b),
-                });
+        loop {
+            let sigma_t = material.macro_xs_total(e, nuclides);
+            if !(sigma_t > 0.0) {
+                break; // no interaction possible; treat as escape
             }
-            break; // fission is a terminal absorption for the incident neutron
-        } else if xi < x.absorption {
-            break; // radiative capture → dead
-        } else if xi < x.absorption + x.inelastic {
-            // Inelastic scatter with a real energy-loss law: a discrete level's
-            // two-body kinematics (Q-value) or continuum evaporation. This is the
-            // dominant fast-spectrum down-scatter off heavy nuclei.
-            let (e2, u2) = match nuc.sample_inelastic(e, seed) {
-                Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
-                Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed),
-            };
-            e = e2;
-            u = u2;
-        } else {
-            // Elastic. Use the ENDF MF=4 angular distribution when the nuclide
-            // carries one (HIGH tier) — fast neutrons scatter forward off heavy
-            // nuclei, which raises bare-sphere leakage — else isotropic-CM.
-            let (e2, u2) = match nuc.sample_elastic_mu_cm(e, seed) {
-                Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
-                None => elastic_scatter(e, u, nuc.awr, seed),
-            };
-            e = e2;
-            u = u2;
+            let d_col = -prn(seed).ln() / sigma_t;
+            let d_bound = sphere.distance(r, u, false);
+
+            if d_col >= d_bound {
+                break; // reaches the vacuum boundary first → leaks
+            }
+
+            // Collide: advance to the collision site and pick the target nuclide.
+            r = stream(r, u, d_col);
+            let ci = material.sample_nuclide(e, seed, nuclides);
+            let nuc = &nuclides[material.components[ci].nuclide_idx];
+            let x = nuc.xs_at_energy(e, temp);
+
+            // Reaction partition on the *total*:
+            //   fission | capture | inelastic | (n,2n) | elastic.
+            // `x.inelastic` (MT=51…91) and `x.n2n` (MT=16) are sub-bands of
+            // scattering carved out with their own laws; both are non-zero only for
+            // the HIGH tier, so the LOW tier collapses to the fission | capture |
+            // elastic split. The final elastic bucket (total − absorption −
+            // inelastic − n2n) sweeps up any remaining scattering as elastic-like.
+            let xi = prn(seed) * x.total;
+            if xi < x.fission {
+                let nu_bar = if x.fission > 0.0 { x.nu_fission / x.fission } else { 0.0 };
+                production += nu_bar;
+                let n = sample_num_neutrons(nu_bar, k_running, seed);
+                for _ in 0..n {
+                    let (dx, dy, dz) = isotropic_direction(seed);
+                    next_bank.push(Site {
+                        r,
+                        u: Direction::new(dx, dy, dz),
+                        e: watt(seed, settings.watt_a, settings.watt_b),
+                    });
+                }
+                break; // fission is a terminal absorption for the incident neutron
+            } else if xi < x.absorption {
+                break; // radiative capture → dead
+            } else if xi < x.absorption + x.inelastic {
+                // Inelastic scatter with a real energy-loss law: a discrete level's
+                // two-body kinematics (Q-value) or continuum evaporation. This is
+                // the dominant fast-spectrum down-scatter off heavy nuclei.
+                let (e2, u2) = match nuc.sample_inelastic(e, seed) {
+                    Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
+                    Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed),
+                };
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n {
+                // (n,2n): the incident neutron down-scatters and one extra neutron
+                // is emitted — the yield-2 multiplicity that restores the neutron
+                // a bare fast sphere would otherwise lose. Ported from OpenMC
+                // `inelastic_scatter` (src/physics.cpp:1167-1177): for an integral
+                // yield Y it calls `create_secondary` Y−1 times with the *primary's*
+                // post-scatter energy and direction, so the second neutron shares
+                // the sampled outgoing state. We lack a parsed MF=6 (n,2n) emission
+                // law, so the outgoing energy uses the same Weisskopf-evaporation
+                // continuum as MT=91 inelastic — faithful to the multiplicity, a
+                // stand-in for the emission spectrum.
+                let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, seed);
+                stack.push(Site { r, u: u2, e: e2 }); // yield − 1 = 1 secondary
+                e = e2;
+                u = u2;
+            } else {
+                // Elastic. Use the ENDF MF=4 angular distribution when the nuclide
+                // carries one (HIGH tier) — fast neutrons scatter forward off heavy
+                // nuclei, which raises bare-sphere leakage — else isotropic-CM.
+                let (e2, u2) = match nuc.sample_elastic_mu_cm(e, seed) {
+                    Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
+                    None => elastic_scatter(e, u, nuc.awr, seed),
+                };
+                e = e2;
+                u = u2;
+            }
         }
     }
     production
@@ -408,8 +438,11 @@ mod tests {
     /// - **HIGH** ([`Nuclide::from_endf`]) — ENDF/B-VII.1 downloaded and
     ///   reconstructed on device (RECONR 0.1% tol + BROADR to 293.6 K + MF=1/452
     ///   ν̄), continuous-energy σ(E), an explicit inelastic energy-loss law
-    ///   (MT=51…91 two-body + evaporation) and **anisotropic (full ENDF MF=4)
-    ///   elastic scatter** (ported from OpenMC `AngleDistribution`/`Tabular`).
+    ///   (MT=51…91 two-body + evaporation), **anisotropic (full ENDF MF=4)
+    ///   elastic scatter** (ported from OpenMC `AngleDistribution`/`Tabular`), and
+    ///   **(n,2n) with its true yield-2 multiplicity** (MT=16 from the MF=3
+    ///   background; one extra same-generation neutron per event, ported from
+    ///   OpenMC `inelastic_scatter`, `src/physics.cpp:1167`).
     ///
     /// The test asserts that **both** tiers converge to a stationary eigenvalue
     /// near unity — HIGH from continuous-energy data and the full MF=4 shape, LOW
@@ -417,15 +450,27 @@ mod tests {
     /// (energy transfer + forward peaking) are what close the Godiva gap and that
     /// they survive the reduction to group data.
     ///
-    /// **Results (2026-07, ENDF/B-VII.1, example settings).** LOW
-    /// k_eff = 1.01022 ± 0.00177 (+1 022 pcm, ENDF/B-VIII.0 group data); HIGH
-    /// k_eff = **0.99627 ± 0.00175 (−373 pcm)** — both in agreement with the
-    /// benchmark. The full HIGH-tier journey and the ranked lever contributions
-    /// (anisotropic elastic ~10 300 pcm ≫ inelastic ~2 510 pcm ≫ continuous-energy
-    /// data ~400 pcm) are in `docs/development-history.md`. Near-perfect landings
-    /// likely involve some cancellation of residual approximations (no fast
-    /// self-shielding; Weisskopf stand-in for the MF=5 continuum law), so the bands
-    /// below are deliberately generous rather than a tight accuracy gate.
+    /// **Results (2026-07-03; HIGH = ENDF/B-VII.1, LOW = embedded VIII.0 group;
+    /// 5000 particles, 40 inactive + 120 active generations, default seed).**
+    /// LOW k_eff = **1.01024 (+1 024 pcm)**; HIGH k_eff = **0.99872 ± 0.00173
+    /// (−128 pcm)** — both in agreement with the benchmark. The ranked HIGH-tier
+    /// lever contributions (anisotropic elastic ~10 300 pcm ≫ inelastic ~2 510 pcm
+    /// ≫ continuous-energy data ~400 pcm) are in `docs/development-history.md`.
+    ///
+    /// **(n,2n) multiplicity — measured worth.** A same-settings A/B (n2n on vs
+    /// forced off) gives HIGH = 0.99872 ± 0.00173 (on) vs 0.99701 ± 0.00168 (off),
+    /// a shift of **+171 ± 241 pcm** — the physically-correct sign (an extra
+    /// neutron raises k) but only ~0.7σ, i.e. **not statistically resolved from
+    /// zero** at this statistics. That is expected: U (n,2n) has a ~5–6 MeV
+    /// threshold and sees only the thin high-energy tail of the fission spectrum,
+    /// so its Godiva worth is genuinely tens of pcm. The change is a *fidelity /
+    /// correctness* fix (mirrors OpenMC; matters for (n,xn)-sensitive spectra and
+    /// Be/D-reflected systems), not a measurable mover of Godiva's k.
+    ///
+    /// Near-perfect landings likely involve some cancellation of residual
+    /// approximations (no fast self-shielding; Weisskopf stand-in for the MF=5
+    /// continuum law; fixed thermal-Watt χ instead of energy-dependent MF=5), so
+    /// the bands below are deliberately generous rather than a tight accuracy gate.
     #[cfg(feature = "net-fetch")]
     #[test]
     fn godiva_high_fidelity_reaches_benchmark() {
@@ -442,9 +487,9 @@ mod tests {
             ],
         };
         let settings = KeffSettings {
-            n_particles: 1500,
-            n_inactive: 20,
-            n_active: 40,
+            n_particles: 5000,
+            n_inactive: 40,
+            n_active: 120,
             ..KeffSettings::default()
         };
 

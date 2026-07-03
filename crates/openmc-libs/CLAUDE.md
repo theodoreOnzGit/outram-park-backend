@@ -10,6 +10,25 @@ per the workspace default; the port constitutes new copyrightable expression.
 
 ---
 
+## Porting rule (mandatory) — mirror the canonical source, do not reinvent
+
+**Every transport / physics / geometry behaviour in this crate must be ported
+from the canonical OpenMC C++ source at `/home/teddy0/Documents/research/openmc/`
+(`src/*.cpp`, `include/openmc/*.h`).** Before implementing anything, grep the
+OpenMC source for the corresponding function and mirror its logic — do not
+re-derive or reinvent physics that already exists upstream. Cite the reference
+`file:line` in the Rust doc comment so a reader can diff against the original.
+
+**Only when a behaviour is genuinely absent upstream** (e.g. the pebble-bed
+`delta_tracking` / `stochastic_media` specialization) do you scaffold new parts
+and build them out — and mark them clearly as new work, not a port.
+
+Rationale: the crate's entire value is *fidelity* to OpenMC. Reinvented logic
+silently drifts from the reference. The C++ is the source of truth; this crate is
+a translation of it.
+
+---
+
 ## Scope
 
 ### In scope

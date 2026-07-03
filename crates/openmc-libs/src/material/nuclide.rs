@@ -35,6 +35,12 @@ use njoy_outram_park_fork::NjoyError;
 /// already included in `total`. It is non-zero only for the HIGH (`Pointwise`)
 /// tier, which carries the resolved inelastic level structure; the LOW tier
 /// reports 0 and lumps inelastic into elastic.
+///
+/// `n2n` is the (n,2n) cross section (ENDF MT=16), likewise a *sub-partition* of
+/// scattering already included in `total`. It is carved out so the transport
+/// kernel can give it its true neutron **multiplicity** (yield 2) instead of
+/// sweeping it into single-neutron elastic — see [`crate::physics::keff`]. HIGH
+/// tier only (from the reconstructed MF=3 background); the LOW tier reports 0.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct MicroXS {
     /// Total σ_t \[barn\].
@@ -47,6 +53,9 @@ pub struct MicroXS {
     pub absorption: f64,
     /// Total inelastic scattering σ (MT=51…91) \[barn\]; HIGH tier only, else 0.
     pub inelastic: f64,
+    /// (n,2n) scattering σ (MT=16) \[barn\]; HIGH tier only, else 0. Emits 2
+    /// neutrons — the multiplicity the transport kernel restores.
+    pub n2n: f64,
     /// Fission production ν̄·σ_f \[barn\].
     pub nu_fission: f64,
 }
@@ -276,6 +285,7 @@ impl Nuclide {
                         fission: x.fission,
                         absorption: x.absorption,
                         inelastic: 0.0, // LOW tier lumps inelastic into elastic
+                        n2n: 0.0,       // LOW tier lumps (n,2n) into elastic (no group column yet)
                         nu_fission: x.fission * self.nu.at(e),
                     }
                 } else if let Some(mg) = fast {
@@ -292,6 +302,7 @@ impl Nuclide {
                         fission: m.fission,
                         absorption: m.capture + m.fission,
                         inelastic,
+                        n2n: 0.0, // LOW tier: (n,2n) still lumped in the group total
                         nu_fission: m.nu_fission,
                     }
                 } else {
@@ -303,6 +314,7 @@ impl Nuclide {
                         fission: x.fission,
                         absorption: x.absorption,
                         inelastic: 0.0,
+                        n2n: 0.0,
                         nu_fission: x.fission * self.nu.at(e),
                     }
                 }
@@ -313,12 +325,18 @@ impl Nuclide {
                 let fission = recon.eval_mt(MtReaction::Mt18Fission, e);
                 let capture = recon.eval_mt(MtReaction::Mt102Capture, e);
                 let inelastic: f64 = inel.iter().map(|l| recon.eval_mt(l.mt, e)).sum();
+                // (n,2n) from the reconstructed MF=3 background (threshold reaction,
+                // no resonance contribution). Carried separately so the transport
+                // kernel can give it its yield-2 multiplicity. 0.0 below threshold
+                // or if the evaluation has no MT=16 section.
+                let n2n = recon.eval_mt(MtReaction::Mt16N2n, e);
                 MicroXS {
                     total,
                     elastic,
                     fission,
                     absorption: fission + capture,
                     inelastic,
+                    n2n,
                     nu_fission: fission * self.nu.at(e),
                 }
             }
