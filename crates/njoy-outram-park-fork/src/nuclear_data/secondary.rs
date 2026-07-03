@@ -269,6 +269,74 @@ impl FissionSpectrum {
         }
     }
 
+    /// Mean outgoing fission-neutron energy `⟨E'⟩` \[eV\] at incident energy
+    /// `e_in` \[eV\] — the first moment of χ(E_in→E'), used by [`crate::heatr`]'s
+    /// fission heating term (`H = E + Q − ν̄·⟨E'⟩`) rather than a full sample.
+    ///
+    /// Closed-form for the analytic laws (`Watt`: `1.5a+0.25a²b`; `Maxwell`:
+    /// `1.5θ`; `Evaporation`: `2θ`), evaluating any energy-dependent parameter at
+    /// `e_in`. The restriction energy `u` (LF=7/9/11) is ignored here — it only
+    /// truncates the sampled distribution's tail, a second-order correction for a
+    /// *mean*-energy estimate. `ContinuousTabular` and `Tabulated` integrate the
+    /// tabulated density directly (trapezoidal); `ContinuousTabular` uses the
+    /// nearer bracketing incident-energy table rather than the full envelope
+    /// interpolation [`crate::heatr`] needs.
+    pub fn mean_energy(&self, e_in: f64) -> f64 {
+        match self {
+            FissionSpectrum::Watt { a, b } => 1.5 * a + 0.25 * a * a * b,
+            FissionSpectrum::Tabulated { e_out, pdf } => mean_of_pdf(e_out, pdf),
+            FissionSpectrum::ContinuousTabular(chi) => {
+                if chi.tables.is_empty() {
+                    return 0.0;
+                }
+                let n = chi.incident.len();
+                let i = match chi.incident.iter().position(|&e| e >= e_in) {
+                    Some(0) => 0,
+                    Some(k) => {
+                        // Nearer of the bracketing pair.
+                        let (e0, e1) = (chi.incident[k - 1], chi.incident[k]);
+                        if (e_in - e0).abs() <= (e1 - e_in).abs() {
+                            k - 1
+                        } else {
+                            k
+                        }
+                    }
+                    None => n - 1,
+                };
+                mean_of_pdf(&chi.tables[i].e_out, &chi.tables[i].pdf)
+            }
+            FissionSpectrum::Maxwell { theta, .. } => {
+                1.5 * crate::endf::interp::eval_tab1(e_in, &theta.interp, &theta.pairs).unwrap_or(0.0)
+            }
+            FissionSpectrum::Evaporation { theta, .. } => {
+                2.0 * crate::endf::interp::eval_tab1(e_in, &theta.interp, &theta.pairs).unwrap_or(0.0)
+            }
+            FissionSpectrum::WattEnergyDependent { a, b, .. } => {
+                let av = crate::endf::interp::eval_tab1(e_in, &a.interp, &a.pairs).unwrap_or(0.0);
+                let bv = crate::endf::interp::eval_tab1(e_in, &b.interp, &b.pairs).unwrap_or(0.0);
+                1.5 * av + 0.25 * av * av * bv
+            }
+            FissionSpectrum::Mixture(parts) => {
+                let weights: Vec<f64> = parts
+                    .iter()
+                    .map(|(p_k, _)| {
+                        crate::endf::interp::eval_tab1(e_in, &p_k.interp, &p_k.pairs).unwrap_or(0.0)
+                    })
+                    .collect();
+                let total: f64 = weights.iter().sum();
+                if !(total > 0.0) {
+                    return 0.0;
+                }
+                weights
+                    .iter()
+                    .zip(parts.iter())
+                    .map(|(&w, (_, law))| w * law.mean_energy(e_in))
+                    .sum::<f64>()
+                    / total
+            }
+        }
+    }
+
     /// Parse the prompt fission-neutron energy spectrum χ(E→E') from ENDF
     /// **MF=5 / MT=18** for material `mat`.
     ///
@@ -376,6 +444,28 @@ fn parse_lf1_tabular(
     Ok(ChiTabular { incident, tables })
 }
 
+/// Mean of a tabulated (possibly unnormalized) density: `∫x·y(x)dx / ∫y(x)dx`,
+/// by trapezoidal quadrature over the given grid. Returns `0.0` for an empty or
+/// zero-integral table. Shared by [`FissionSpectrum::mean_energy`]'s tabulated
+/// arms.
+fn mean_of_pdf(x: &[f64], y: &[f64]) -> f64 {
+    if x.len() < 2 {
+        return x.first().copied().unwrap_or(0.0);
+    }
+    let mut norm = 0.0;
+    let mut first_moment = 0.0;
+    for k in 1..x.len() {
+        let dx = x[k] - x[k - 1];
+        norm += 0.5 * (y[k] + y[k - 1]) * dx;
+        first_moment += 0.5 * (x[k] * y[k] + x[k - 1] * y[k - 1]) * dx;
+    }
+    if norm > 0.0 {
+        first_moment / norm
+    } else {
+        0.0
+    }
+}
+
 /// Lin-lin interpolate a tabulated density `y` on an ascending `x` grid \[eV\] at
 /// `e`, clamped to zero outside `[x[0], x[last]]`. Shared by the [`FissionSpectrum`]
 /// `Tabulated` / `ContinuousTabular` group-collapse weights.
@@ -435,6 +525,29 @@ fn build_cdf(e_out: &[f64], pdf: &mut [f64], linlin: bool) -> Vec<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The Watt mean matches the closed form `1.5a + 0.25a²b`, independent of
+    /// `e_in` (fixed-parameter Watt has no incident-energy dependence).
+    #[test]
+    fn watt_mean_energy_matches_closed_form() {
+        let chi = FissionSpectrum::Watt { a: 0.988e6, b: 2.249e-6 };
+        let expected = 1.5 * 0.988e6 + 0.25 * 0.988e6 * 0.988e6 * 2.249e-6;
+        assert!((chi.mean_energy(1.0e6) - expected).abs() < 1.0, "got {}", chi.mean_energy(1.0e6));
+        // Energy-independent: same at a very different e_in.
+        assert!((chi.mean_energy(1.0e5) - expected).abs() < 1.0);
+    }
+
+    /// A uniform tabulated χ on `[0, 2 MeV]` has an exact mean of 1 MeV — the
+    /// same synthetic table style used for the openmc-libs `ContinuousTabular`
+    /// sampler tests, so both layers agree on what "uniform" integrates to.
+    #[test]
+    fn tabulated_mean_of_uniform_density() {
+        let chi = FissionSpectrum::Tabulated {
+            e_out: vec![0.0, 1.0e6, 2.0e6],
+            pdf: vec![5.0e-7, 5.0e-7, 5.0e-7],
+        };
+        assert!((chi.mean_energy(0.0) - 1.0e6).abs() < 1.0, "got {}", chi.mean_energy(0.0));
+    }
 
     /// One NR=1/NP=2 lin-lin TAB1 row group: header + 1 interp row + 1 xy row.
     /// `(nbt, int)` is the sole interpolation region; `(x0,y0)`/`(x1,y1)` the two

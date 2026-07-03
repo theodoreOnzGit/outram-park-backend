@@ -49,6 +49,10 @@ pub mod endf;
 /// from a reconstructed evaluation. Informational (depletion/swelling), not a
 /// transport-path quantity — see [`gaspr`] module docs.
 pub mod gaspr;
+/// `HEATR` — heating (KERMA) cross section, ENDF MT=301. Kinematic-limit
+/// subset (H1–H4, `docs/porting-plan.md`); the full photon energy-balance
+/// method and damage energy (MT=444) are deferred — see [`heatr`] module docs.
+pub mod heatr;
 /// User friendly interface to access njoy library (used to be called library,
 /// but I renamed as interface to avoid mixing with lib.rs) 
 ///
