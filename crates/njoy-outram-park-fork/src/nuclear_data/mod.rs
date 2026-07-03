@@ -144,6 +144,10 @@ pub struct Mgxs {
     pub capture: Vec<f64>,
     /// Fission production ν·σ_f per group \[barn\].
     pub nu_fission: Vec<f64>,
+    // TODO: add an `n2n: Vec<f64>` group column (collapse MF=3/MT=16 over each fast
+    // group) so the LOW tier can give (n,2n) its yield-2 multiplicity like HIGH,
+    // instead of lumping it into elastic (no multiplication). See openmc-libs
+    // physics::keff and docs/development-history.md 2026-07 (n,2n).
     /// Mean elastic scattering cosine μ̄ per group, CM frame (dimensionless).
     ///
     /// The scattering-rate–weighted group average of the ENDF MF=4 P1 moment

@@ -462,3 +462,69 @@ energy-dependent ENDF MF=5 fission spectrum** — tracked as a separate TODO.
 
 Exercised by `physics::keff::tests::godiva_high_fidelity_reaches_benchmark`
 (net-fetch). LOW-tier (n,2n) awaits an MT=16 group column in the MGXS bake.
+
+## 2026-07 — Energy-dependent fission spectrum χ (ENDF MF=5, HIGH tier)
+
+### Methodology
+
+The final emission-side approximation flagged by the (n,2n) work was the fission
+*birth* spectrum: every fission neutron was born from a single fixed thermal-Watt
+χ (`a = 0.988 MeV`, `b = 2.249 MeV⁻¹`), energy-independent and not even per-nuclide.
+This change replaces it with the real **ENDF MF=5 / MT=18** prompt fission neutron
+spectrum χ(E→E'), where the outgoing-energy distribution depends on the incident
+energy of the neutron that induced the fission.
+
+- **Parser (njoy).** `FissionSpectrum::from_endf_mf5` reads MF=5/MT=18 for the
+  **LF=1** ("arbitrary tabulated secondary energy distribution") law — a TAB2 over
+  NE incident energies, each an inner TAB1 g(E→E'). ENDF/B-VII.1 U-234/235/238 are
+  all LF=1, NK=1, p(E)≡1. It builds a per-incident CDF by integrating each density
+  (lin-lin trapezoids / histogram bins) and renormalising so `cdf[last] = 1`,
+  matching what ACER precomputes for OpenMC. `NK ≠ 1` or `LF ≠ 1` (the LF=5/7/9/11
+  evaporation/Maxwell/Watt-with-E-dependent-parameters laws) returns `None` → the
+  caller keeps the Watt stand-in.
+- **Storage.** `Nuclide` gains a `chi: FissionSpectrum`. The HIGH (`from_endf`) tier
+  parses MF=5; the LOW (`from_core`) tier keeps the Watt default (no embedded MF=5).
+- **Sampling (openmc).** `Nuclide::sample_fission_energy(e_in, seed)` samples the
+  tabulated χ via `sample_continuous_tabular`, a direct port of OpenMC
+  `ContinuousTabular::sample` (`src/distribution_energy.cpp`): locate the
+  incident-energy bin + factor `r`, statistically pick the lower/upper table
+  (`r > ξ`), invert its outgoing-energy CDF (lin-lin quadratic / histogram linear),
+  then scale between the neighbouring tables' [E₁, E_K] envelopes. Specialized to
+  `n_discrete = 0` (a fission spectrum has no discrete lines) and a lin-lin incident
+  grid (ENDF INT=2). The k-eigenvalue driver now births fission neutrons from the
+  *fissioning nuclide's* χ at the collision energy `e`, replacing the global Watt.
+
+Reference: OpenMC C++ at `../openmc/`, per the openmc-libs porting rule.
+
+### Results (2026-07-03, ENDF/B-VII.1, 5000 particles / 40 inactive + 120 active)
+
+Paired A/B on the Godiva HIGH tier — same reconstruction, same seed, χ toggled:
+
+| Fission χ | HIGH k_eff | vs benchmark |
+|---|---|---|
+| fixed thermal Watt | 0.99872 ± 0.00173 | −128 pcm |
+| **energy-dependent MF=5** | **1.00367 ± 0.00182** | **+367 pcm** |
+
+Worth = **+495 ± 251 pcm** — positive and ~2.0σ, **marginally resolved** (more so
+than (n,2n)). LOW is 1.01024 in both, bit-identical (Watt default unchanged),
+confirming the change is isolated to the HIGH birth spectrum. Parser sanity check
+against the cached U-235 tape: NE = 20 incident energies (1e-5 → 2e7 eV), each
+outgoing table normalized (cdf[last] = 1.000000), mean outgoing energy ~2.03 MeV.
+
+### Finding
+
+The U-235 MF=5 mean outgoing energy (~2.03 MeV) is close to the thermal-Watt mean,
+so the worth comes from the **shape, not the mean**: the tabulated χ keeps a larger
+fraction of births in the productive 1–3 MeV band (above the U-238 fast-fission
+threshold, where ν̄ is higher) and fewer in the leaky high-energy tail that the Watt
+form over-populates — hence the positive shift on a leakage-dominated bare sphere.
+This is the last of the three emission/transport fidelity fixes; the HIGH tier now
+carries continuous-energy data, anisotropic elastic, an inelastic energy-loss law,
+(n,2n) multiplicity, and a real fission birth spectrum, landing at +367 pcm.
+
+Exercised by `physics::keff::tests::godiva_high_fidelity_reaches_benchmark` and the
+`godiva_keff_endf` example (both net-fetch), and by
+`material::nuclide::tests::{ct_table_uniform_reproduces_mean,
+continuous_tabular_hardens_with_incident_energy}` (offline sampler unit tests).
+Remaining TODOs: the LF=5/7/9/11 MF=5 laws (Watt fallback today), a parsed MF=6
+(n,2n) emission law (Weisskopf stand-in today), and MF=5 χ for the LOW tier.

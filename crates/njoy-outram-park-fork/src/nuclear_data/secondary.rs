@@ -217,13 +217,21 @@ impl FissionSpectrum {
         let mut cur = SectionCursor::new(&sec.rows);
         let head = cur.read_cont()?; // HEAD: ZA, AWR, 0, 0, NK, 0
         if head.n1 != 1 {
-            return Ok(None); // NK≠1 (multi-partition χ) not yet supported → Watt
+            // TODO: support NK > 1 (multiple partial distributions mixed by their
+            // p_k(E) fractions). Not needed for U-234/235/238 (all NK=1); the
+            // caller falls back to the Watt stand-in for now.
+            return Ok(None);
         }
 
         // Subsection: p_k(E) fraction (TAB1; L2 = LF), then the LF=1 body.
         let p_tab = cur.read_tab1()?;
         if p_tab.head.l2 != 1 {
-            return Ok(None); // LF=5/7/9/11 not yet ported → Watt fallback
+            // TODO: port the remaining MF=5 laws — LF=5 (general evaporation),
+            // LF=7 (Maxwell θ(E)), LF=9 (evaporation θ(E)), LF=11 (Watt a(E)/b(E)),
+            // all with energy-dependent parameters via Tabulated1D. Mirror OpenMC's
+            // Evaporation/MaxwellEnergy/WattEnergy (include/openmc/distribution_energy.h).
+            // Until then these fall back to the fixed thermal-Watt stand-in.
+            return Ok(None);
         }
 
         // TAB2 over NE incident energies (head.n2 = NE), each an inner TAB1.

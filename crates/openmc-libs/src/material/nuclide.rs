@@ -182,6 +182,9 @@ impl Nuclide {
         let fast = MgxsLibrary::core().get(name).cloned();
         let nu = nubar_for(name, wmp.fissionable);
         // LOW tier carries no embedded MF=5; birth from the thermal-Watt stand-in.
+        // TODO: bake a per-nuclide MF=5 χ (or a compact energy-dependent form) into
+        // the CORE data so the LOW tier gets the same fission-birth fidelity as HIGH
+        // (worth ~+500 pcm on Godiva; see docs/development-history.md 2026-07 MF=5).
         let chi = FissionSpectrum::default();
         Ok(Self { name: name.to_string(), awr, nu, chi, xs: XsSource::Core { e_max, wmp, fast } })
     }

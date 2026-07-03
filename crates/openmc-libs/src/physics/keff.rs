@@ -303,6 +303,10 @@ fn transport_history(
                 // law, so the outgoing energy uses the same Weisskopf-evaporation
                 // continuum as MT=91 inelastic — faithful to the multiplicity, a
                 // stand-in for the emission spectrum.
+                // TODO: parse the ENDF MF=6/MT=16 (n,2n) neutron emission
+                // distribution and sample both outgoing neutrons from it, instead of
+                // the Weisskopf stand-in (mirror OpenMC's UncorrelatedAngleEnergy /
+                // CorrelatedAngleEnergy in src/distribution_energy.cpp).
                 let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, seed);
                 stack.push(Site { r, u: u2, e: e2 }); // yield − 1 = 1 secondary
                 e = e2;

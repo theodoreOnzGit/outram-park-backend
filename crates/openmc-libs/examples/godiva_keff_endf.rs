@@ -73,16 +73,20 @@
 //!    −128 pcm) — the correct sign but only ~0.7σ, *not* resolved from zero. A
 //!    fidelity fix, not a lever: U (n,2n) is a ~5–6 MeV threshold reaction sampling
 //!    only the fission-spectrum tail, so its Godiva worth is genuinely tens of pcm.
+//! 5. **Energy-dependent MF=5 χ** (real ENDF fission birth spectrum in place of the
+//!    fixed thermal Watt) adds **+495 ± 251 pcm** (to 1.00367, +367 pcm) — positive
+//!    and ~2.0σ, *marginally* resolved. The U-235 χ mean (~2.03 MeV) ≈ the Watt
+//!    mean, so the worth is in the *shape*: the tabulated spectrum keeps more births
+//!    in the productive 1–3 MeV band and fewer in the leaky tail.
 //!
 //! For fast bare-metal criticality the transport angular/energy-transfer physics
 //! dominates cross-section-data fidelity by more than an order of magnitude. The
 //! near-perfect landing likely involves some cancellation of the residual
-//! approximations (no fast self-shielding; Weisskopf stand-in for the MF=5
-//! continuum law; fixed thermal-Watt χ instead of energy-dependent MF=5), so it
-//! should not be read as each sub-model being individually exact. The LOW
-//! (embedded) tier carries the same elastic + inelastic levers from *group* data
-//! (no (n,2n) column yet) and lands at 1.01024 (+1 024 pcm); see the `godiva_keff`
-//! (LOW) example for that V&V.
+//! approximations (no fast self-shielding; Weisskopf stand-in for the MF=6 (n,2n)
+//! emission law), so it should not be read as each sub-model being individually
+//! exact. The LOW (embedded) tier carries the same elastic + inelastic levers from
+//! *group* data (no (n,2n) column, no MF=5 χ yet) and lands at 1.01024
+//! (+1 024 pcm); see the `godiva_keff` (LOW) example for that V&V.
 
 #[cfg(not(feature = "net-fetch"))]
 fn main() {
@@ -135,7 +139,7 @@ fn main() {
     let settings = KeffSettings {
         n_particles: 5000,
         n_inactive: 40,
-        n_active: 110,
+        n_active: 120,
         temperature_k: temp_k,
         ..KeffSettings::default()
     };
