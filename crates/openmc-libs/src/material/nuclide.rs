@@ -18,6 +18,7 @@
 /// [`Nuclide::xs_at_energy`]; it never touches WMP, ENDF, or HDF5.
 
 use crate::rng::lcg::prn;
+use njoy_outram_park_fork::ace::angular::ElasticAngular;
 use njoy_outram_park_fork::nuclear_data::secondary::NuBar;
 use njoy_outram_park_fork::nuclear_data::{Mgxs, MgxsLibrary};
 use njoy_outram_park_fork::reconr::ReconrResult;
@@ -122,6 +123,10 @@ enum XsSource {
         /// precomputed once so [`Nuclide::sample_inelastic`] and the inelastic σ
         /// sum stay cheap. Empty ⇒ no resolved inelastic (falls back to elastic).
         inel: Vec<InelasticLevel>,
+        /// Elastic angular distribution (ENDF MF=4/MT=2), CM-frame tabulated
+        /// cosine/pdf/cdf per incident energy. Empty / all-isotropic ⇒ the elastic
+        /// scatter falls back to isotropic-CM. Drives [`Nuclide::sample_elastic_mu_cm`].
+        elastic_angular: ElasticAngular,
     },
 }
 
@@ -230,7 +235,20 @@ impl Nuclide {
         //    energy-loss scattering in transport.
         let inel = build_inelastic_levels(&recon);
 
-        Ok(Self { name: name.to_string(), awr, nu, xs: XsSource::Pointwise { recon, inel } })
+        // 6. Elastic angular distribution from MF=4/MT=2 (CM frame). Absent /
+        //    unparseable ⇒ isotropic-CM elastic (default empty distribution).
+        let elastic_angular = tape
+            .section(mat, 4, 2)
+            .map(njoy_outram_park_fork::ace::angular::parse_elastic_angular)
+            .transpose()?
+            .unwrap_or_default();
+
+        Ok(Self {
+            name: name.to_string(),
+            awr,
+            nu,
+            xs: XsSource::Pointwise { recon, inel, elastic_angular },
+        })
     }
 
     /// Microscopic cross sections at incident energy `e` \[eV\] and temperature
@@ -283,7 +301,7 @@ impl Nuclide {
                     }
                 }
             }
-            XsSource::Pointwise { recon, inel } => {
+            XsSource::Pointwise { recon, inel, .. } => {
                 let total = recon.eval_mt(MtReaction::Mt1Total, e);
                 let elastic = recon.eval_mt(MtReaction::Mt2Elastic, e);
                 let fission = recon.eval_mt(MtReaction::Mt18Fission, e);
@@ -311,7 +329,7 @@ impl Nuclide {
     /// Q-value for a discrete level (MT=51…90), or [`Inelastic::Continuum`] for the
     /// MT=91 continuum. A LOW-tier or empty-level call defaults to `Continuum`.
     pub fn sample_inelastic(&self, e: f64, seed: &mut u64) -> Inelastic {
-        let XsSource::Pointwise { recon, inel } = &self.xs else {
+        let XsSource::Pointwise { recon, inel, .. } = &self.xs else {
             return Inelastic::Continuum;
         };
         let total: f64 = inel.iter().map(|l| recon.eval_mt(l.mt, e)).sum();
@@ -332,6 +350,99 @@ impl Nuclide {
         }
         Inelastic::Continuum
     }
+
+    /// Sample an elastic scattering cosine in the **centre-of-mass frame** from the
+    /// nuclide's ENDF MF=4 angular distribution at incident energy `e` \[eV\].
+    ///
+    /// Returns `Some(mu_cm)` when an anisotropic distribution is available (HIGH
+    /// tier), or `None` when it is not (LOW tier, or a nuclide/energy that ENDF
+    /// marks isotropic) — the caller then falls back to isotropic-CM elastic.
+    ///
+    /// Ported from OpenMC `AngleDistribution::sample` (`src/distribution_angle.cpp`):
+    /// locate the incident-energy bin with interpolation factor `r`, pick the lower
+    /// or upper tabulated distribution by `r > ξ` (statistical interpolation), then
+    /// invert its cosine CDF — [`sample_tabular_mu`], itself a port of
+    /// `Tabular::sample_unbiased`. The cosines are stored in the CM frame (ENDF
+    /// LCT=2), matching [`crate::physics::scatter::two_body_scatter_with_mu`].
+    pub fn sample_elastic_mu_cm(&self, e: f64, seed: &mut u64) -> Option<f64> {
+        let XsSource::Pointwise { elastic_angular, .. } = &self.xs else {
+            return None;
+        };
+        let dists = &elastic_angular.energies;
+        if dists.is_empty() {
+            return None;
+        }
+
+        // Locate the bracketing incident-energy distributions (energies ascending
+        // in MeV) and the interpolation factor, then pick one statistically.
+        let e_mev = e * 1.0e-6;
+        let n = dists.len();
+        let chosen = if e_mev <= dists[0].e_mev {
+            &dists[0]
+        } else if e_mev >= dists[n - 1].e_mev {
+            &dists[n - 1]
+        } else {
+            let mut i = 0;
+            while i + 1 < n && dists[i + 1].e_mev <= e_mev {
+                i += 1;
+            }
+            let (e0, e1) = (dists[i].e_mev, dists[i + 1].e_mev);
+            let r = if e1 > e0 { (e_mev - e0) / (e1 - e0) } else { 0.0 };
+            if r > prn(seed) {
+                &dists[i + 1]
+            } else {
+                &dists[i]
+            }
+        };
+
+        // Isotropic at this energy (ENDF locator 0 ⇒ no stored cosines).
+        if chosen.cosines.is_empty() {
+            return Some(2.0 * prn(seed) - 1.0);
+        }
+        Some(sample_tabular_mu(&chosen.cosines, &chosen.pdf, &chosen.cdf, prn(seed)))
+    }
+}
+
+/// Invert a tabulated cosine CDF to sample a value, assuming lin-lin interpolation
+/// between grid points — a port of OpenMC `Tabular::sample_unbiased`
+/// (`src/distribution.cpp`, lin-lin branch).
+///
+/// `cosines`/`pdf`/`cdf` are the ascending cosine grid, its (non-negative,
+/// unit-integral) density, and cumulative distribution (`cdf[0]=0`, `cdf[last]=1`);
+/// `xi ∈ [0, 1)` is the uniform draw. Within the selected bin the density is linear,
+/// so the CDF is quadratic and the inverse is the standard
+/// `x_i + (√(p_i² + 2m(ξ − c_i)) − p_i) / m` (falling back to `x_i + (ξ−c_i)/p_i`
+/// when the slope `m` vanishes).
+fn sample_tabular_mu(cosines: &[f64], pdf: &[f64], cdf: &[f64], xi: f64) -> f64 {
+    let n = cosines.len();
+    if n == 1 {
+        return cosines[0].clamp(-1.0, 1.0);
+    }
+    // First CDF bin whose upper edge is above the draw (clamped so `k+1` is valid).
+    let mut k = 0;
+    while k + 1 < n && cdf[k + 1] <= xi {
+        k += 1;
+    }
+    let k = k.min(n - 2);
+
+    let (x_i, x_i1) = (cosines[k], cosines[k + 1]);
+    let (p_i, p_i1) = (pdf[k], pdf[k + 1]);
+    let c_i = cdf[k];
+    let dx = x_i1 - x_i;
+    if dx <= 0.0 {
+        return x_i.clamp(-1.0, 1.0);
+    }
+    let m = (p_i1 - p_i) / dx;
+    let mu = if m == 0.0 {
+        if p_i > 0.0 {
+            x_i + (xi - c_i) / p_i
+        } else {
+            x_i
+        }
+    } else {
+        x_i + ((p_i * p_i + 2.0 * m * (xi - c_i)).max(0.0).sqrt() - p_i) / m
+    };
+    mu.clamp(-1.0, 1.0)
 }
 
 /// Extract the inelastic scattering channels (MT=51…91) from a reconstructed

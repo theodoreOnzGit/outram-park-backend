@@ -13,6 +13,7 @@
 //! | ν̄ | constant stopgap table | energy-dependent, ENDF MF=1/452 |
 //! | Doppler | analytic (WMP) below `e_max` only | BROADR over the whole range |
 //! | Inelastic | lumped into elastic (no levels) | explicit MT=51…91 energy-loss law |
+//! | Elastic angle | isotropic-CM | anisotropic (ENDF MF=4) |
 //! | Needs network | no | yes (cached after first run) |
 //!
 //! For each of the three uranium isotopes in HEU metal this:
@@ -42,30 +43,36 @@
 //! tol + BROADR to 293.6 K + MF=1/452 ν̄), vs the LOW tier's embedded
 //! WMP + infinite-dilution fast MGXS.
 //!
-//! **Results (2026-07, ENDF/B-VII.1).**
+//! **Results (2026-07, ENDF/B-VII.1) — the HIGH tier reaching the benchmark.**
 //!
 //! | Run | k_eff | Δk vs benchmark |
 //! |---|---|---|
 //! | LOW (`godiva_keff`) | 1.12852 ± 0.00174 | +12 852 pcm |
-//! | HIGH, elastic-only inelastic | 1.12451 ± 0.00202 | +12 451 pcm |
-//! | HIGH, **inelastic modelled** | **1.09942 ± 0.00169** | **+9 942 pcm** |
+//! | HIGH: CE data only, elastic-lumped | 1.12451 ± 0.00202 | +12 451 pcm |
+//! | HIGH: + inelastic energy-loss law | 1.09942 ± 0.00169 | +9 942 pcm |
+//! | HIGH: + **anisotropic MF=4 elastic** | **0.99627 ± 0.00175** | **−373 pcm** |
 //!
-//! **Interpretation — the key findings.** Two effects were isolated in sequence
-//! (see `docs/development-history.md`):
+//! **Interpretation — the key findings** (full derivation in
+//! `docs/development-history.md`). Three effects were isolated in sequence, and
+//! their ranking is the durable lesson:
 //!
-//! 1. **Data fidelity is not the bottleneck.** Going from coarse infinite-dilution
-//!    group data to full continuous-energy reconstructed data moved k_eff by only
-//!    **~400 pcm**, far short of the ~12 500 pcm bias — so the overprediction is
-//!    transport-physics-limited, not data-limited.
-//! 2. **Inelastic scattering is the largest single lever.** Adding an explicit
-//!    inelastic energy-loss law (discrete-level two-body kinematics + evaporation
-//!    continuum, MT=51…91) softened the spectrum and removed **~2 510 pcm** — six
-//!    times the data upgrade — directly confirming (1).
+//! 1. **Data fidelity is not the bottleneck** — full continuous-energy
+//!    reconstructed data over coarse group data moved k_eff only **~400 pcm**.
+//! 2. **Inelastic scattering** (discrete-level two-body + evaporation continuum,
+//!    MT=51…91) softened the spectrum and removed **~2 510 pcm**.
+//! 3. **Anisotropic elastic scatter** (ENDF MF=4) is by far the largest lever,
+//!    **~10 300 pcm**: forward-peaked elastic off heavy U cuts the transport cross
+//!    section and lets the bare sphere leak the reactivity the isotropic
+//!    approximation had retained. This brings Godiva to **k_eff = 0.99627 ±
+//!    0.00175 (−373 pcm)** — agreement with the benchmark.
 //!
-//! ~9 900 pcm of overprediction remains. The next levers, in expected order:
-//! anisotropic elastic scatter (ENDF MF=4 — forward-peaked elastic changes bare-
-//! sphere leakage), the same inelastic law for the LOW tier, and fast
-//! self-shielding. See `docs/development-history.md`.
+//! For fast bare-metal criticality the transport angular/energy-transfer physics
+//! dominates cross-section-data fidelity by more than an order of magnitude. The
+//! near-perfect landing likely involves some cancellation of the residual
+//! approximations (no fast self-shielding; Weisskopf stand-in for the MF=5
+//! continuum law), so it should not be read as each sub-model being individually
+//! exact. The LOW (embedded) tier does not yet carry inelastic or anisotropic
+//! elastic and remains at ~+12 800 pcm.
 
 #[cfg(not(feature = "net-fetch"))]
 fn main() {

@@ -2,10 +2,12 @@
 //!
 //! C++ source: `src/physics_common.cpp`, `src/physics.cpp`.
 //!
-//! All channels here use an **isotropic centre-of-mass** angular law (the right
-//! first cut for a fast bare sphere: fast neutrons scatter nearly isotropically in
-//! CM off heavy actinides). What differs between channels is the outgoing
-//! *energy*:
+//! The channels differ in both their outgoing *energy* law and their angular law.
+//! Elastic scatter can use an anisotropic centre-of-mass distribution (ENDF MF=4,
+//! sampled by the caller and passed as `mu_cm`) — the dominant reactivity lever for
+//! a bare fast-metal sphere, where forward-peaked elastic off heavy nuclei sets the
+//! transport cross section and hence the leakage. The inelastic channels remain
+//! isotropic-CM in angle for now. By outgoing-energy law:
 //!
 //! - **Elastic** (MT=2) — [`elastic_scatter`]: two-body kinematics with `Q = 0`;
 //!   off a heavy actinide the neutron loses almost no energy per collision
@@ -22,7 +24,10 @@
 //!   evaporation** model with a nuclear temperature θ = √(E/a), level-density
 //!   parameter a ≈ A/11 MeV⁻¹ (actinide) — an approximation, documented as such.
 //!
-//! Anisotropic elastic (a₁ from ENDF MF=4) remains future work.
+//! Anisotropic elastic uses the full ENDF MF=4 tabulated cosine distribution
+//! (sampled in `material::nuclide`, ported from OpenMC), passed here as a CM cosine
+//! via [`two_body_scatter_with_mu`]. Anisotropic *inelastic* angular laws (coupled
+//! to the MF=5/MF=6 energy distributions) remain future work.
 
 use crate::geometry::position::Direction;
 use crate::rng::lcg::prn;
@@ -98,12 +103,35 @@ fn cm_to_lab(e: f64, e_cm_out: f64, mu_cm: f64, awr: f64) -> (f64, f64) {
 /// with threshold `E = |Q|·(A+1)/A`). Below threshold `E_cm` would be negative;
 /// it is clamped to zero, but the caller should not select a channel below its
 /// (zero) cross section there.
+///
+/// For an anisotropic CM angular law use [`two_body_scatter_with_mu`].
 pub fn two_body_scatter(e: f64, u: Direction, awr: f64, q: f64, seed: &mut u64) -> (f64, Direction) {
+    let mu_cm = 2.0 * prn(seed) - 1.0; // isotropic in CM
+    two_body_scatter_with_mu(e, u, awr, q, mu_cm, seed)
+}
+
+/// Two-body scatter with a **caller-supplied** centre-of-mass scattering cosine
+/// `mu_cm` — the anisotropic form of [`two_body_scatter`].
+///
+/// Identical to [`two_body_scatter`] except the CM cosine is provided rather than
+/// sampled isotropically: the outgoing CM energy is fixed by the Q-value and
+/// [`cm_to_lab`] maps it to the lab. Use this when an angular distribution (ENDF
+/// MF=4, sampled elsewhere) supplies `mu_cm`; only the azimuth is sampled here.
+///
+/// `mu_cm` is the cosine in the **CM frame** — the frame ENDF elastic angular
+/// distributions are given in (LCT=2) — and is clamped to `[−1, 1]`.
+pub fn two_body_scatter_with_mu(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    q: f64,
+    mu_cm: f64,
+    seed: &mut u64,
+) -> (f64, Direction) {
     let a = awr;
     let ap1 = a + 1.0;
     let e_cm_out = (e * (a / ap1).powi(2) + q * a / ap1).max(0.0);
-    let mu_cm = 2.0 * prn(seed) - 1.0; // isotropic in CM
-    let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm, a);
+    let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm.clamp(-1.0, 1.0), a);
     (e_out, rotate_direction(u, mu_lab, seed))
 }
 

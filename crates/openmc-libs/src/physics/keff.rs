@@ -41,9 +41,10 @@
 //!   fission and capture columns), and — above each nuclide's WMP `e_max` — the
 //!   fast group data is infinite-dilution Watt-collapsed with no self-shielding.
 //!
-//! Elastic scatter is isotropic-CM in both tiers (anisotropic elastic from ENDF
-//! MF=4 remains future work). Good for a fast bare-sphere Keff, not yet a
-//! converged benchmark result.
+//! Elastic scatter uses the ENDF MF=4 anisotropic angular distribution in the HIGH
+//! tier (isotropic-CM in the LOW tier, which carries no MF=4). For a bare fast
+//! sphere this is the dominant reactivity lever — it brings the HIGH-tier Godiva
+//! Keff into agreement with the ICSBEP benchmark (see `docs/development-history.md`).
 //!
 //! # Example
 //!
@@ -77,7 +78,9 @@ use crate::geometry::surface::{BoundaryType, Sphere, Surface};
 use crate::material::material::Material;
 use crate::material::nuclide::{Inelastic, Nuclide};
 use crate::physics::fission::sample_num_neutrons;
-use crate::physics::scatter::{continuum_inelastic_scatter, elastic_scatter, two_body_scatter};
+use crate::physics::scatter::{
+    continuum_inelastic_scatter, elastic_scatter, two_body_scatter, two_body_scatter_with_mu,
+};
 use crate::rng::distributions::{isotropic_direction, watt};
 use crate::rng::lcg::prn;
 
@@ -271,7 +274,13 @@ fn transport_history(
             e = e2;
             u = u2;
         } else {
-            let (e2, u2) = elastic_scatter(e, u, nuc.awr, seed);
+            // Elastic. Use the ENDF MF=4 angular distribution when the nuclide
+            // carries one (HIGH tier) — fast neutrons scatter forward off heavy
+            // nuclei, which raises bare-sphere leakage — else isotropic-CM.
+            let (e2, u2) = match nuc.sample_elastic_mu_cm(e, seed) {
+                Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
+                None => elastic_scatter(e, u, nuc.awr, seed),
+            };
             e = e2;
             u = u2;
         }
@@ -381,37 +390,38 @@ mod tests {
         );
     }
 
-    /// **HIGH-fidelity Godiva V&V, and the LOW-vs-HIGH comparison** — behind the
+    /// **HIGH-fidelity Godiva V&V — the benchmark result** — behind the
     /// `net-fetch` feature (downloads ENDF; not part of the default offline suite).
     ///
     /// **Methodology.** The same Godiva model and power-iteration settings are run
-    /// under both data tiers:
-    /// - **LOW** — embedded WMP + infinite-dilution fast MGXS ([`Nuclide::from_core`]);
-    ///   inelastic lumped into elastic (no resolved levels in the group data).
-    /// - **HIGH** — ENDF/B-VII.1 downloaded and reconstructed on device
-    ///   ([`Nuclide::from_endf`]: RECONR 0.1% tol + BROADR to 293.6 K + MF=1/452
-    ///   ν̄), continuous-energy pointwise σ(E) with implicit self-shielding *and*
-    ///   an explicit inelastic energy-loss law (MT=51…91 two-body + evaporation).
+    /// under both data tiers, judged against ICSBEP HEU-MET-FAST-001
+    /// (k_eff = 1.0000 ± 0.0010):
+    /// - **LOW** ([`Nuclide::from_core`]) — embedded WMP + infinite-dilution fast
+    ///   MGXS; isotropic-CM elastic; inelastic lumped into elastic. The first-cut
+    ///   tier, still ~+12 800 pcm.
+    /// - **HIGH** ([`Nuclide::from_endf`]) — ENDF/B-VII.1 downloaded and
+    ///   reconstructed on device (RECONR 0.1% tol + BROADR to 293.6 K + MF=1/452
+    ///   ν̄), continuous-energy σ(E), **plus** the two transport-physics fixes the
+    ///   development history isolated: an explicit inelastic energy-loss law
+    ///   (MT=51…91 two-body + evaporation) and **anisotropic (ENDF MF=4) elastic
+    ///   scatter** (ported from OpenMC `AngleDistribution`/`Tabular` sampling).
     ///
-    /// Reference: ICSBEP HEU-MET-FAST-001, k_eff = 1.0000 ± 0.0010. The test
-    /// asserts (a) HIGH converges to a stationary, plausible eigenvalue, and (b)
-    /// both tiers still overpredict and agree to within ~5000 pcm — the two
-    /// improvements HIGH carries over LOW (continuous-energy data **and** the
-    /// inelastic channel) move k_eff, but the residual bias shared by both keeps
-    /// them the same side of unity.
+    /// The test asserts (a) HIGH converges to a stationary eigenvalue near unity,
+    /// and (b) HIGH lands far closer to the benchmark than LOW — i.e. the transport
+    /// physics HIGH carries is what closes the Godiva gap.
     ///
-    /// **Results (2026-07, ENDF/B-VII.1).** At the example settings: LOW
-    /// k_eff = 1.12852 ± 0.00174 (+12 852 pcm); HIGH (inelastic modelled)
-    /// k_eff = 1.09942 ± 0.00169 (+9 942 pcm). Two effects are separable and both
-    /// documented in `docs/development-history.md`: the continuous-energy **data**
-    /// upgrade alone was worth only ~400 pcm, whereas adding the inelastic
-    /// **transport** channel was worth ~2 510 pcm — the fast-spectrum bias was
-    /// transport-limited, and inelastic down-scatter was the largest missing lever.
-    /// The LOW tier does not yet model inelastic, so the gap between the tiers here
-    /// now reflects transport physics as well as data.
+    /// **Results (2026-07, ENDF/B-VII.1, example settings).** LOW
+    /// k_eff = 1.12852 ± 0.00174 (+12 852 pcm); HIGH k_eff = **0.99627 ± 0.00175
+    /// (−373 pcm)** — agreement with the benchmark. The full HIGH-tier journey and
+    /// the ranked lever contributions (anisotropic elastic ~10 300 pcm ≫ inelastic
+    /// ~2 510 pcm ≫ continuous-energy data ~400 pcm) are in
+    /// `docs/development-history.md`. The near-perfect landing likely involves some
+    /// cancellation of residual approximations (no fast self-shielding; Weisskopf
+    /// stand-in for the MF=5 continuum law), so the bands below are deliberately
+    /// generous rather than a tight accuracy gate.
     #[cfg(feature = "net-fetch")]
     #[test]
-    fn godiva_endf_high_fidelity_is_not_data_limited() {
+    fn godiva_high_fidelity_reaches_benchmark() {
         use njoy_outram_park_fork::acquire::EndfLibrary;
 
         let material = Material {
@@ -431,7 +441,7 @@ mod tests {
             ..KeffSettings::default()
         };
 
-        // LOW tier (embedded, offline).
+        // LOW tier (embedded, offline) — the first-cut reference.
         let low = vec![
             Nuclide::from_core("U234").unwrap(),
             Nuclide::from_core("U235").unwrap(),
@@ -448,23 +458,20 @@ mod tests {
         let result = run_keff(8.7407, &material, &high, &settings);
         let k_high = result.k_mean;
 
-        // (a) HIGH converges to a stationary, plausible eigenvalue.
+        // (a) HIGH converges near unity (generous band — small run, residual
+        //     approximations), and is stationary.
         assert!(
-            k_high > 0.9 && k_high < 1.4,
-            "HIGH Godiva k_eff {k_high} outside the plausible band [0.9, 1.4]"
+            k_high > 0.95 && k_high < 1.05,
+            "HIGH Godiva k_eff {k_high} not within ~5000 pcm of the benchmark"
         );
         assert!(result.k_std < 0.02, "HIGH k noisy/unconverged: σ = {}", result.k_std);
 
-        // (b) Both stay well above unity. HIGH carries two improvements over LOW —
-        //     continuous-energy data (~400 pcm) and the inelastic energy-loss law
-        //     (~2500 pcm) — so it sits below LOW but both remain the same side of
-        //     unity, within ~5000 pcm of each other.
-        assert!(k_low > 1.05 && k_high > 1.05, "both tiers should overpredict (LOW={k_low}, HIGH={k_high})");
+        // (b) The HIGH transport physics closes the gap: HIGH is far closer to the
+        //     benchmark than LOW, which still overpredicts by >10 000 pcm.
+        assert!(k_low > 1.05, "LOW tier should still overpredict (LOW={k_low})");
         assert!(
-            (k_high - k_low).abs() < 0.05,
-            "LOW/HIGH should stay within ~5000 pcm, but |HIGH-LOW| = {:.0} pcm \
-             (LOW={k_low}, HIGH={k_high})",
-            (k_high - k_low).abs() * 1.0e5
+            (k_high - 1.0).abs() < (k_low - 1.0).abs() - 0.05,
+            "HIGH should beat LOW by >5000 pcm vs benchmark (LOW={k_low}, HIGH={k_high})"
         );
     }
 }

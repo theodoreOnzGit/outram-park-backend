@@ -178,10 +178,11 @@ anisotropic scatter, not fast self-shielding, are the levers that will close the
 Godiva gap.** Fast self-shielding remains correct to add, but the comparison bounds
 its k_eff worth at a few hundred pcm.
 
-This result is encoded as a regression assertion — the LOW and HIGH runs must agree
-to within ~2000 pcm and both stay above unity — in
-`openmc-libs::physics::keff::tests::godiva_endf_high_fidelity_is_not_data_limited`
-(behind the `net-fetch` feature).
+This result (data alone barely moves k_eff) is one half of the HIGH-tier Godiva
+test `openmc-libs::physics::keff::tests::godiva_high_fidelity_reaches_benchmark`
+(behind the `net-fetch` feature); the other half — that the *transport* physics
+added in the following entries closes the gap — is what makes the HIGH tier reach
+the benchmark.
 
 ---
 
@@ -250,5 +251,79 @@ energy-loss law since group data carries no per-level Q); (3) fast self-shieldin
 
 Until the LOW tier also models inelastic, the LOW-vs-HIGH comparison no longer
 isolates *data* fidelity alone — HIGH now additionally carries the resolved level
-structure LOW lacks — so the regression assertion in
-`godiva_endf_high_fidelity_is_not_data_limited` was widened accordingly.
+structure LOW lacks — so the regression assertion in the HIGH-tier Godiva test was
+widened accordingly.
+
+---
+
+## 2026-07 — Anisotropic elastic scatter: closing the Godiva gap
+
+The previous two entries left ~9 900 pcm on the table and named **anisotropic
+elastic scatter** the next lever: fast neutrons scatter forward off heavy nuclei,
+and modelling that as isotropic-in-CM understates the transport cross section
+`σ_tr = σ_s(1 − μ̄)`, shortening the diffusion length and suppressing leakage from a
+bare sphere. This entry adds it and measures the result.
+
+### Methodology
+
+Rather than reinvent the sampling, the angular path was **ported from OpenMC**
+(the crate's cited C++ reference at `../openmc`): `AngleDistribution::sample`
+(`src/distribution_angle.cpp`) and `Tabular::sample_unbiased` (`src/distribution.cpp`,
+lin-lin branch). The elastic angular distribution itself comes from the njoy fork's
+existing MF=4 parser (`ace::angular::parse_elastic_angular`), which converts ENDF
+MF=4/MT=2 (Legendre or tabulated, LTT=1/2/3) into ACE-form CM-frame tabulated
+cosine/pdf/cdf per incident energy. The transport chain:
+
+- `Nuclide::from_endf` now also parses MF=4/MT=2 from the same downloaded tape and
+  stores the `ElasticAngular` alongside the reconstructed σ(E) (HIGH tier only).
+- `Nuclide::sample_elastic_mu_cm(E)` locates the incident-energy bin, picks the
+  lower/upper tabulated distribution by the OpenMC statistical-interpolation rule
+  (`r > ξ`), and inverts the cosine CDF (lin-lin quadratic inverse).
+- The elastic branch in `transport_history` samples `μ_cm` from that distribution
+  when present and feeds it to `two_body_scatter_with_mu` (the elastic kinematics
+  generalised to a supplied CM cosine); it falls back to isotropic-CM when absent
+  (LOW tier, or an ENDF-isotropic nuclide/energy).
+
+Cosines are in the CM frame (ENDF LCT=2), matching the two-body kinematics. Same
+Godiva model and settings (5000 histories × [40 inactive + 110 active]),
+ENDF/B-VII.1, judged against HEU-MET-FAST-001 (k_eff = 1.0000 ± 0.0010).
+
+### Results (2026-07, ENDF/B-VII.1)
+
+| HIGH-tier transport | k_eff | Δk vs benchmark |
+|---|---|---|
+| Isotropic-CM elastic (with inelastic) | 1.09942 ± 0.00169 | +9 942 pcm |
+| **+ anisotropic (MF=4) elastic** | **0.99627 ± 0.00175** | **−373 pcm** |
+| **Effect of elastic anisotropy** | **−0.10315** | **≈ −10 300 pcm** |
+
+Full journey, HIGH tier: 1.12451 (CE data, elastic-only) → 1.09942 (+inelastic) →
+**0.99627 (+anisotropic elastic)**.
+
+### Finding
+
+Elastic anisotropy is by far the largest single lever — **~10 300 pcm** — and it
+brings Godiva into agreement with the benchmark: **k_eff = 0.99627 ± 0.00175, i.e.
+−373 pcm**, within ~2σ of the MC uncertainty of unity. This is the expected
+behaviour for a bare fast-metal assembly: with scattering the dominant fast
+interaction and leakage the dominant loss, the isotropic approximation had been
+retaining reactivity that a correct forward-peaked transport cross section lets
+escape.
+
+Two honest caveats. (1) Landing within a few hundred pcm almost certainly involves
+some **cancellation** of the residual approximations still present — no fast
+self-shielding, and the Weisskopf-evaporation stand-in for the true MF=5 continuum
+secondary-energy law — so the excellent agreement should not be read as each
+sub-model being individually exact. (2) The result is HIGH-tier only; the LOW
+(embedded) tier still carries neither inelastic nor anisotropic elastic and remains
+at ~+12 800 pcm.
+
+Ranked contribution to closing the ~12 500 pcm original bias, HIGH tier:
+anisotropic elastic (~10 300 pcm) ≫ inelastic scatter (~2 500 pcm) ≫
+continuous-energy data (~400 pcm). The ordering is the durable lesson: for fast
+bare-metal criticality, **the transport angular/energy-transfer physics dominates
+the cross-section-data fidelity** by more than an order of magnitude.
+
+This is encoded as a benchmark assertion — the HIGH tier must land near unity and
+far closer than LOW — in
+`openmc-libs::physics::keff::tests::godiva_high_fidelity_reaches_benchmark`
+(behind the `net-fetch` feature).
