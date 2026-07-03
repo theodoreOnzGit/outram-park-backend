@@ -327,3 +327,78 @@ This is encoded as a benchmark assertion — the HIGH tier must land near unity 
 far closer than LOW — in
 `openmc-libs::physics::keff::tests::godiva_high_fidelity_reaches_benchmark`
 (behind the `net-fetch` feature).
+
+## 2026-07 — Porting the two levers down to the LOW (embedded, offline) tier
+
+The HIGH-tier study above closed the Godiva gap with two mechanisms — inelastic
+down-scatter and forward-peaked elastic — but both rode on continuous-energy data
+(resolved MT=51…91 levels; the full MF=4 angular shape). The question this entry
+answers: **can the same two levers be carried by the embedded LOW tier, whose fast
+range is only 10-group Watt-collapsed data with no network and no on-device
+reconstruction?** The motivation is that the offline tier is what most users run;
+leaving it ~12 800 pcm hot while HIGH reaches the benchmark is a large,
+avoidable fidelity cliff.
+
+### Methodology
+
+Both levers were reduced to what a group model can carry, then baked into the
+embedded MGXS (the MGXL blob bumped **v1 → v2** to add one column):
+
+- **Inelastic (no new data).** The group `total` already includes inelastic, so
+  the LOW tier carves it out as the remainder `σ_t − σ_el − σ_f − σ_γ` (clamped ≥ 0)
+  in `Nuclide::xs_at_energy`. There are no per-level Q-values in group data, so
+  `sample_inelastic` returns `Continuum` for the LOW tier and the existing
+  Weisskopf-evaporation law (`continuum_inelastic_scatter`) supplies the energy
+  loss — the same law HIGH uses for MT=91.
+- **Forward elastic (one number per group).** The bake step
+  (`bake_mgxs` → `Mgxs::collapse_from_reconr`) now parses MF=4/MT=2 with the njoy
+  fork's existing `parse_elastic_angular`, computes the pointwise mean cosine
+  μ̄(E) (`ElasticAngular::mean_cosine`, the P1 moment ∫μ f dμ), and collapses it to
+  a **per-group μ̄** on a *scattering-rate* weight σ_el(E)·φ(E) — the average that
+  conserves the transport cross section. The result is one μ̄ per group (U-238:
+  0.033 → 0.88 across 20 keV → 20 MeV), stored in the MGXS.
+- **Sampling μ̄ back into an angle.** The naive linearly-anisotropic (P1) law
+  `½(1 + 3μ̄μ)` is invalid once `μ̄ > 1/3` — and for Godiva a large share of the
+  flux sits in the 0.3–5 MeV groups where μ̄ is 0.3–0.8. So the LOW tier samples
+  the **maximum-entropy exponential law** `p(μ) ∝ exp(λμ)` instead, whose mean is
+  the Langevin function `L(λ) = coth λ − 1/λ`; `sample_exponential_mu` solves
+  `L(λ) = μ̄` (Newton, `langevin_inverse`) and inverts the CDF. It reproduces any
+  `μ̄ ∈ (−1, 1)` and stays a valid density everywhere — verified by unit tests that
+  recover the target mean to < 5×10⁻³ at μ̄ = 0.6 and 0.85.
+
+Same Godiva model and settings as every prior entry (5000 histories × [40 inactive
++ 110 active]); LOW tier uses embedded ENDF/B-VIII.0 group data; judged against
+HEU-MET-FAST-001 (k_eff = 1.0000 ± 0.0010).
+
+### Results (2026-07, ENDF/B-VIII.0 group data, LOW tier)
+
+| LOW-tier model | k_eff | Δk vs benchmark |
+|---|---|---|
+| elastic-only, isotropic-CM (before) | 1.12852 ± 0.00174 | +12 852 pcm |
+| **+ inelastic (evaporation) + forward elastic (μ̄)** | **1.01022 ± 0.00177** | **+1 022 pcm** |
+| **Combined effect** | **−0.11830** | **≈ −11 800 pcm** |
+
+### Finding
+
+The embedded, offline tier reaches essentially the same place as the
+network-reconstructed HIGH tier — **1.01022 ± 0.00177 (+1 022 pcm)** vs HIGH's
+0.99627 (−373 pcm) — from coarse 10-group data plus a **single per-group mean
+cosine**. This confirms the durable lesson from the HIGH study in a stronger form:
+the two dominant levers are *transport-physics* mechanisms (energy transfer and
+forward peaking), not data-fidelity ones, so they transfer down to group data with
+almost their full effect. It also validates the maximum-entropy exponential angular
+law as an adequate one-parameter stand-in for the full MF=4 shape in the fast range.
+
+Honest caveats, symmetric with HIGH: the residual +1 022 pcm rides on remaining
+LOW-tier approximations (no self-shielding; one μ̄ instead of the full angular
+shape; evaporation instead of resolved inelastic levels; infinite-dilution group
+constants), and near-agreement likely involves some cancellation among them — not
+each sub-model being individually exact. The LOW result is ~1 400 pcm *above* HIGH,
+consistent with the group model retaining a little more reactivity than
+continuous-energy transport.
+
+Encoded in the `godiva_keff` example's V&V doc block and exercised offline by
+`openmc-libs::physics::keff::tests::godiva_converges_to_sane_keff` (LOW tier), with
+the exponential sampler / Langevin inverse covered by unit tests in
+`material::nuclide::tests`. Data format: MGXL **v2** (`from_blob` still reads v1,
+zero-filling μ̄).

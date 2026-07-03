@@ -56,6 +56,28 @@ impl EnergyAngular {
     pub fn is_isotropic(&self) -> bool {
         self.cosines.is_empty()
     }
+
+    /// Mean scattering cosine μ̄ = ∫₋₁¹ μ f(μ) dμ at this incident energy, in the
+    /// frame the distribution is tabulated in (CM for elastic, ENDF LCT=2).
+    ///
+    /// Trapezoidal integration of `μ·pdf` over the `cosines` grid. Returns `0.0`
+    /// for an isotropic energy (no stored cosines) — the correct μ̄ of a flat
+    /// distribution. This is the P1 (first Legendre) moment of the angular
+    /// distribution, the single number a transport-corrected or linearly-
+    /// anisotropic group model needs.
+    pub fn mean_cosine(&self) -> f64 {
+        if self.cosines.len() < 2 {
+            return 0.0;
+        }
+        let mut acc = 0.0;
+        for i in 0..self.cosines.len() - 1 {
+            let (x0, x1) = (self.cosines[i], self.cosines[i + 1]);
+            let (f0, f1) = (self.pdf[i], self.pdf[i + 1]);
+            // ∫ μ f(μ) dμ over [x0, x1] with f linear ⇒ trapezoid of g(μ)=μ f(μ).
+            acc += 0.5 * (x0 * f0 + x1 * f1) * (x1 - x0);
+        }
+        acc
+    }
 }
 
 /// The elastic (MT=2) angular distribution across all tabulated incident
@@ -74,6 +96,40 @@ impl ElasticAngular {
     /// True if there is no anisotropic energy to store (whole reaction isotropic).
     pub fn is_all_isotropic(&self) -> bool {
         self.energies.iter().all(EnergyAngular::is_isotropic)
+    }
+
+    /// Mean scattering cosine μ̄(E) in the CM frame at incident energy `e_ev`
+    /// \[eV\], linearly interpolated between the tabulated incident energies.
+    ///
+    /// Each tabulated energy's μ̄ is [`EnergyAngular::mean_cosine`]; this brackets
+    /// `e_ev` (converting to the MeV the distributions are keyed on), interpolates
+    /// linearly in energy, and clamps to the endpoints outside the tabulated span.
+    /// Returns `0.0` (isotropic) when no distributions are present. Used by the
+    /// offline group-collapse to bake a per-group μ̄ column into the fast MGXS.
+    pub fn mean_cosine(&self, e_ev: f64) -> f64 {
+        let d = &self.energies;
+        if d.is_empty() {
+            return 0.0;
+        }
+        let e_mev = e_ev * 1.0e-6;
+        if e_mev <= d[0].e_mev {
+            return d[0].mean_cosine();
+        }
+        let n = d.len();
+        if e_mev >= d[n - 1].e_mev {
+            return d[n - 1].mean_cosine();
+        }
+        let mut i = 0;
+        while i + 1 < n && d[i + 1].e_mev <= e_mev {
+            i += 1;
+        }
+        let (e0, e1) = (d[i].e_mev, d[i + 1].e_mev);
+        let (m0, m1) = (d[i].mean_cosine(), d[i + 1].mean_cosine());
+        if e1 > e0 {
+            m0 + (m1 - m0) * (e_mev - e0) / (e1 - e0)
+        } else {
+            m0
+        }
     }
 }
 

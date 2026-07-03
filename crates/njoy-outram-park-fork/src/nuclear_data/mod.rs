@@ -42,6 +42,14 @@ pub struct MicroXs {
     pub capture: f64,
     /// Fission production ν·σ_f \[barn\] (ν̄ folded in for the fission source).
     pub nu_fission: f64,
+    /// Mean elastic scattering cosine μ̄ in the CM frame (dimensionless, −1…1).
+    ///
+    /// The P1 (first Legendre) moment of the elastic angular distribution,
+    /// scattering-rate–averaged over the group. `0.0` means isotropic-CM (the
+    /// value when no MF=4 data was available at bake time). Consumers use it for
+    /// linearly-anisotropic ("forward-peaked") elastic scatter or a transport
+    /// correction; it does not affect the σ magnitudes above.
+    pub mubar: f64,
 }
 
 /// The cross-section *representation* backing one nuclide.
@@ -73,6 +81,7 @@ impl XsProvider {
                     elastic: x.scatter,
                     fission: x.fission,
                     capture: x.capture(),
+                    mubar: 0.0,
                     nu_fission: x.fission * nu.at(e),
                 }
             }
@@ -135,6 +144,12 @@ pub struct Mgxs {
     pub capture: Vec<f64>,
     /// Fission production ν·σ_f per group \[barn\].
     pub nu_fission: Vec<f64>,
+    /// Mean elastic scattering cosine μ̄ per group, CM frame (dimensionless).
+    ///
+    /// The scattering-rate–weighted group average of the ENDF MF=4 P1 moment
+    /// (see [`Self::collapse`]). All-zero when the bake had no angular data; the
+    /// group model then behaves as isotropic-CM elastic.
+    pub mubar: Vec<f64>,
 }
 
 impl Mgxs {
@@ -196,6 +211,7 @@ impl Mgxs {
             fission: self.fission[g],
             capture: self.capture[g],
             nu_fission: self.nu_fission[g],
+            mubar: self.mubar.get(g).copied().unwrap_or(0.0),
         }
     }
 
@@ -218,6 +234,11 @@ impl Mgxs {
     /// - `energy` — fine incident-energy grid \[eV\], **ascending**.
     /// - `total`/`elastic`/`fission`/`capture`/`nu_fission` — σ columns \[barn\]
     ///   aligned with `energy` (each the same length as `energy`).
+    /// - `mubar` — pointwise mean elastic cosine μ̄(E) (CM frame, −1…1) aligned
+    ///   with `energy`; pass all-zeros for isotropic-CM. Unlike the σ columns it is
+    ///   collapsed with a **scattering-rate weight** σ_el(E)·φ(E) (not flux φ
+    ///   alone), because the group μ̄ that conserves the transport cross section is
+    ///   the average weighted by how often elastic collisions actually occur.
     /// - `group_bounds` — target group boundaries \[eV\], ascending, `≥ 2` entries.
     /// - `spectrum` — the weighting φ(E); e.g. [`WeightingSpectrum::default`].
     ///
@@ -231,6 +252,7 @@ impl Mgxs {
         fission: &[f64],
         capture: &[f64],
         nu_fission: &[f64],
+        mubar: &[f64],
         group_bounds: &[f64],
         spectrum: &WeightingSpectrum,
     ) -> Self {
@@ -243,6 +265,10 @@ impl Mgxs {
             vec![0.0; n_g],
         ];
         let mut den = vec![0.0f64; n_g];
+        // μ̄ collapses on its own scattering-rate weight σ_el·φ (numerator carries
+        // the extra μ̄ factor), so it needs a separate accumulator pair.
+        let mut num_mubar = vec![0.0f64; n_g];
+        let mut den_scat = vec![0.0f64; n_g];
 
         // Midpoint rule over each fine interval; bin into the group of its midpoint.
         for i in 0..energy.len().saturating_sub(1) {
@@ -265,6 +291,11 @@ impl Mgxs {
             num[3][g] += avg(capture) * w;
             num[4][g] += avg(nu_fission) * w;
             den[g] += w;
+            // Scattering-rate-weighted μ̄ (guard against a short/empty mubar column).
+            let el = avg(elastic);
+            let mu = if mubar.len() == energy.len() { avg(mubar) } else { 0.0 };
+            num_mubar[g] += el * mu * w;
+            den_scat[g] += el * w;
         }
 
         let finish = |col: &[f64]| -> Vec<f64> {
@@ -273,6 +304,11 @@ impl Mgxs {
                 .map(|(&s, &d)| if d > 0.0 { s / d } else { 0.0 })
                 .collect()
         };
+        let mubar_g: Vec<f64> = num_mubar
+            .iter()
+            .zip(&den_scat)
+            .map(|(&s, &d)| if d > 0.0 { s / d } else { 0.0 })
+            .collect();
 
         Mgxs {
             name: name.into(),
@@ -282,6 +318,7 @@ impl Mgxs {
             fission: finish(&num[2]),
             capture: finish(&num[3]),
             nu_fission: finish(&num[4]),
+            mubar: mubar_g,
         }
     }
 
@@ -299,11 +336,16 @@ impl Mgxs {
     /// `[e_lo, 20 MeV]` (so σ kinks are represented exactly) plus the group
     /// boundaries (so no group is empty). Faithful to RECONR's pointwise data — no
     /// re-reconstruction, just group collapse.
+    ///
+    /// `elastic_angular` is the parsed ENDF MF=4/MT=2 distribution (CM frame); pass
+    /// `Some` to bake a per-group mean-cosine μ̄ column for forward-peaked elastic,
+    /// or `None` to leave μ̄ = 0 (isotropic-CM).
     pub fn collapse_from_reconr(
         result: &crate::reconr::ReconrResult,
         name: impl Into<String>,
         e_lo: f64,
         nu: &NuBar,
+        elastic_angular: Option<&crate::ace::angular::ElasticAngular>,
         spectrum: &WeightingSpectrum,
     ) -> Self {
         use crate::endf::MtReaction;
@@ -356,10 +398,15 @@ impl Mgxs {
             .zip(&fission)
             .map(|(&e, &sf)| sf * nu.at(e))
             .collect();
+        // Pointwise μ̄(E) from MF=4 (0 ⇒ isotropic-CM when no angular data given).
+        let mubar: Vec<f64> = match elastic_angular {
+            Some(a) => grid.iter().map(|&e| a.mean_cosine(e)).collect(),
+            None => vec![0.0; grid.len()],
+        };
 
         Self::collapse(
-            name, &grid, &total, &elastic, &fission, &capture, &nu_fission, &bounds,
-            spectrum,
+            name, &grid, &total, &elastic, &fission, &capture, &nu_fission, &mubar,
+            &bounds, spectrum,
         )
     }
 }
@@ -367,22 +414,28 @@ impl Mgxs {
 // ── MGXS container (MGXL v1) ──────────────────────────────────────────────────
 
 const MGXL_MAGIC: [u8; 4] = *b"MGXL";
-const MGXL_VERSION: u8 = 1;
+/// Current MGXL version written by [`MgxsLibrary::pack`]. v2 adds the per-group
+/// mean-cosine μ̄ column after ν·σ_f; [`MgxsLibrary::from_blob`] still reads v1
+/// (which had no μ̄ — it zero-fills, i.e. isotropic-CM).
+const MGXL_VERSION: u8 = 2;
 
 /// A bundle of fast-range [`Mgxs`] sets for many nuclides — the embedded
 /// high-energy companion to [`crate::wmp::WmpLibrary`].
 ///
 /// Baked offline by the `bake_mgxs` example from the local ENDF/B-VIII.0 tapes
 /// (RECONR background → Watt collapse) and shipped in-crate via [`MgxsLibrary::core`].
-/// The blob is small (10 groups × 5 channels × a few hundred nuclides ≈ tens of
-/// KB), so the **MGXL v1** format is a flat, uncompressed little-endian dump:
+/// The blob is small (10 groups × 6 columns × a few hundred nuclides ≈ tens of
+/// KB), so the **MGXL v2** format is a flat, uncompressed little-endian dump:
 ///
 /// ```text
 /// magic "MGXL" | version u8 | reserved [u8;3] | n_nuclides u32
 /// per nuclide: name_len u32 | name UTF-8 | n_groups u32
 ///              (n_groups+1) f64 group_bounds
-///              n_groups f64 ×5 columns (total, elastic, fission, capture, nu_fission)
+///              n_groups f64 ×6 columns (total, elastic, fission, capture,
+///                                       nu_fission, mubar)
 /// ```
+/// v1 (the previous format) omitted the final `mubar` column; [`Self::from_blob`]
+/// still reads it and zero-fills μ̄ (isotropic-CM).
 #[derive(Debug, Clone, Default)]
 pub struct MgxsLibrary {
     nuclides: Vec<Mgxs>,
@@ -413,6 +466,7 @@ impl MgxsLibrary {
             put(&mut out, &mg.fission);
             put(&mut out, &mg.capture);
             put(&mut out, &mg.nu_fission);
+            put(&mut out, &mg.mubar);
         }
         out
     }
@@ -422,9 +476,14 @@ impl MgxsLibrary {
     /// cleanly rather than over-reading or runaway-allocating.
     pub fn from_blob(bytes: &[u8]) -> Result<Self, NjoyError> {
         let bad = || NjoyError::WmpData("malformed MGXL blob".into());
-        if bytes.len() < 12 || bytes[0..4] != MGXL_MAGIC || bytes[4] != MGXL_VERSION {
+        if bytes.len() < 12 || bytes[0..4] != MGXL_MAGIC {
             return Err(bad());
         }
+        let version = bytes[4];
+        if version != 1 && version != 2 {
+            return Err(bad());
+        }
+        let has_mubar = version >= 2;
         let mut p = 8usize;
         let rd_u32 = |bytes: &[u8], p: &mut usize| -> Result<u32, NjoyError> {
             let end = p.checked_add(4).ok_or_else(bad)?;
@@ -466,6 +525,11 @@ impl MgxsLibrary {
             let fission = rd_f64s(bytes, &mut p, ng)?;
             let capture = rd_f64s(bytes, &mut p, ng)?;
             let nu_fission = rd_f64s(bytes, &mut p, ng)?;
+            let mubar = if has_mubar {
+                rd_f64s(bytes, &mut p, ng)?
+            } else {
+                vec![0.0; ng]
+            };
             nuclides.push(Mgxs {
                 name,
                 group_bounds,
@@ -474,6 +538,7 @@ impl MgxsLibrary {
                 fission,
                 capture,
                 nu_fission,
+                mubar,
             });
         }
         Ok(MgxsLibrary { nuclides })
@@ -533,7 +598,7 @@ mod tests {
         let zero = vec![0.0; energy.len()];
         let bounds = vec![1.0e5, 1.0e6, 5.0e6, 1.1e7];
         let mg = Mgxs::collapse(
-            "Test", &energy, &flat, &flat, &zero, &zero, &zero, &bounds,
+            "Test", &energy, &flat, &flat, &zero, &zero, &zero, &zero, &bounds,
             &WeightingSpectrum::default(),
         );
         assert_eq!(mg.n_groups(), 3);
@@ -554,6 +619,7 @@ mod tests {
             fission: vec![0.0, 0.0],
             capture: vec![0.0, 0.0],
             nu_fission: vec![0.0, 0.0],
+            mubar: vec![0.0, 0.0],
         };
         // Below range clamps to group 0; at/above top clamps to top group.
         assert_eq!(mg.micro(1.0e5).total, 3.0);
@@ -574,7 +640,7 @@ mod tests {
         let zero = vec![0.0; energy.len()];
         let bounds = vec![1.0e5, 1.01e7];
         let mg = Mgxs::collapse(
-            "R", &energy, &sigma, &sigma, &zero, &zero, &zero, &bounds,
+            "R", &energy, &sigma, &sigma, &zero, &zero, &zero, &zero, &bounds,
             &WeightingSpectrum::default(),
         );
         let unweighted_mid = 0.5 * (1.0e5 + 1.01e7) / 1.0e6;
@@ -597,6 +663,7 @@ mod tests {
             fission: vec![0.5],
             capture: vec![2.0],
             nu_fission: vec![1.3],
+            mubar: vec![0.2],
         };
         let p = XsProvider::Mgxs(mg);
         let x = p.micro(3.0e6, 900.0);
@@ -631,6 +698,7 @@ mod tests {
             fission: vec![0.5, 1.0],
             capture: vec![0.5, 1.0],
             nu_fission: vec![1.2, 2.6],
+            mubar: vec![0.15, 0.31],
         };
         let b = Mgxs {
             name: "H1".into(),
@@ -640,6 +708,7 @@ mod tests {
             fission: vec![0.0],
             capture: vec![0.0],
             nu_fission: vec![0.0],
+            mubar: vec![0.0],
         };
         let image = MgxsLibrary::pack(&[a.clone(), b.clone()]);
         let lib = MgxsLibrary::from_blob(&image).unwrap();
@@ -648,6 +717,7 @@ mod tests {
         let u = lib.get("U238").unwrap();
         assert_eq!(u.group_bounds, a.group_bounds);
         assert_eq!(u.nu_fission, a.nu_fission);
+        assert_eq!(u.mubar, a.mubar, "μ̄ column survives the round trip");
         let mut bad = image.clone();
         bad[0] = b'Z';
         assert!(MgxsLibrary::from_blob(&bad).is_err());

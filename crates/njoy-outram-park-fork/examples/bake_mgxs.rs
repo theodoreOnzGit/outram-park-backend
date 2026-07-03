@@ -8,9 +8,11 @@
 //!   3. reads the nuclide's WMP `e_max` from the embedded CORE WMP library, so the
 //!      fast MGXS set begins exactly where the multipole form ends,
 //!   4. parses ν̄(E) from MF=1/MT=452, and
-//!   5. collapses to 10 log-spaced groups (`e_max` → 20 MeV) with a Watt weight
+//!   5. parses the MF=4/MT=2 elastic angular distribution and collapses a per-group
+//!      mean-cosine μ̄ column (forward-scatter lever for the LOW tier), and
+//!   6. collapses to 10 log-spaced groups (`e_max` → 20 MeV) with a Watt weight
 //!      ([`Mgxs::collapse_from_reconr`]).
-//! The sets are packed into one MGXL v1 container and written out; the shipped
+//! The sets are packed into one MGXL v2 container and written out; the shipped
 //! crate `include_bytes!`s it (see `MgxsLibrary::core`).
 //!
 //! ```text
@@ -25,6 +27,7 @@
 //! derived, heavily reduced group-collapse — not the ENDF files themselves.
 
 use njoy_outram_park_fork::{
+    ace::angular::parse_elastic_angular,
     nuclear_data::{
         secondary::NuBar, Mgxs, MgxsLibrary, WeightingSpectrum, ENDF_MAX_ENERGY_EV,
     },
@@ -152,7 +155,15 @@ fn main() {
         };
         let nu = NuBar::from_endf(&tape, mat).ok().flatten().unwrap_or_default();
 
-        let mg = Mgxs::collapse_from_reconr(&res, name.clone(), e_max, &nu, &spectrum);
+        // MF=4/MT=2 elastic angular distribution → per-group μ̄ (forward scatter).
+        // Absent or unparseable ⇒ None ⇒ isotropic-CM (μ̄ = 0) for that nuclide.
+        let angular = tape
+            .section(mat, 4, 2)
+            .and_then(|s| parse_elastic_angular(s).ok());
+
+        let mg = Mgxs::collapse_from_reconr(
+            &res, name.clone(), e_max, &nu, angular.as_ref(), &spectrum,
+        );
         baked.push(mg);
     }
 

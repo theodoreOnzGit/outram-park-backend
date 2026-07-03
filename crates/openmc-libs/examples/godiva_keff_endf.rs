@@ -12,8 +12,8 @@
 //! | Self-shielding | none (group averages) | implicit (σ sampled at actual E) |
 //! | ν̄ | constant stopgap table | energy-dependent, ENDF MF=1/452 |
 //! | Doppler | analytic (WMP) below `e_max` only | BROADR over the whole range |
-//! | Inelastic | lumped into elastic (no levels) | explicit MT=51…91 energy-loss law |
-//! | Elastic angle | isotropic-CM | anisotropic (ENDF MF=4) |
+//! | Inelastic | group remainder, evaporation (no levels) | explicit MT=51…91 energy-loss law |
+//! | Elastic angle | forward-peaked from group μ̄ (max-entropy) | anisotropic (full ENDF MF=4) |
 //! | Needs network | no | yes (cached after first run) |
 //!
 //! For each of the three uranium isotopes in HEU metal this:
@@ -71,8 +71,10 @@
 //! near-perfect landing likely involves some cancellation of the residual
 //! approximations (no fast self-shielding; Weisskopf stand-in for the MF=5
 //! continuum law), so it should not be read as each sub-model being individually
-//! exact. The LOW (embedded) tier does not yet carry inelastic or anisotropic
-//! elastic and remains at ~+12 800 pcm.
+//! exact. The LOW (embedded) tier now carries the same two levers from *group*
+//! data — inelastic as the group remainder (evaporation) and forward-peaked
+//! elastic from a per-group mean cosine μ̄ — and lands at 1.01022 ± 0.00177
+//! (+1 022 pcm); see the `godiva_keff` (LOW) example for that V&V.
 
 #[cfg(not(feature = "net-fetch"))]
 fn main() {

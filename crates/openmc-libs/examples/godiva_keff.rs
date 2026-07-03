@@ -15,14 +15,45 @@
 //! cargo run --release -p openmc-libs --example godiva_keff
 //! ```
 //!
-//! Fidelity caveat: infinite-dilution fast group data (no self-shielding) plus
-//! analog isotropic-CM scatter — expect a first-cut result near, but not exactly
-//! at, 1.0. See `docs/keff-doppler-roadmap.md`.
+//! Fidelity caveat: infinite-dilution fast group data (no self-shielding). The
+//! LOW tier now models both inelastic down-scatter and forward-peaked elastic
+//! from *group-averaged* data (see the V&V note below), so it lands close to 1.0,
+//! but it still lacks self-shielding and resolves neither inelastic levels nor the
+//! full elastic angular shape. See `docs/keff-doppler-roadmap.md`.
 //!
 //! For the HIGH-fidelity counterpart — the *same* run on continuous-energy ENDF
 //! cross sections reconstructed on device — see the `godiva_keff_endf` example
 //! (`--features net-fetch`) and the LOW-vs-HIGH comparison in
 //! `docs/development-history.md`.
+//!
+//! # V&V — methodology and results
+//!
+//! **Methodology.** Godiva bare HEU sphere (r = 8.7407 cm, HEU-MET-FAST-001 atom
+//! densities below), 5000 histories × [40 inactive + 110 active], judged against
+//! ICSBEP HEU-MET-FAST-001 (k_eff = 1.0000 ± 0.0010). Cross sections are the
+//! embedded LOW tier: WMP below each nuclide's `e_max`, Watt-collapsed 10-group
+//! fast MGXS above it. The fast MGXS carries, per group: σ_t/σ_el/σ_f/σ_γ/νσ_f
+//! **and** a mean elastic cosine μ̄ baked from ENDF/B-VIII.0 MF=4. Inelastic is
+//! the group remainder σ_t − σ_el − σ_f − σ_γ, down-scattered by the Weisskopf
+//! evaporation law; elastic is forward-scattered by a maximum-entropy exponential
+//! angular law that reproduces μ̄ (valid even where μ̄ ≫ 1/3, unlike a P1 law).
+//!
+//! **Results (2026-07, ENDF/B-VIII.0 group data) — adding scatter physics to the
+//! embedded tier.**
+//!
+//! | LOW-tier model | k_eff | Δk vs benchmark |
+//! |---|---|---|
+//! | elastic-only, isotropic-CM (before) | 1.12852 ± 0.00174 | +12 852 pcm |
+//! | + inelastic (evaporation) + **forward elastic (μ̄)** | **1.01022 ± 0.00177** | **+1 022 pcm** |
+//!
+//! **Interpretation.** The two scatter mechanisms remove ~11 800 pcm and bring the
+//! offline/embedded tier essentially to the benchmark — the same two levers that
+//! dominated the HIGH-tier study (`docs/development-history.md`), reproduced from
+//! coarse group data plus a single per-group μ̄. The residual +1 022 pcm is
+//! consistent with the LOW tier's remaining approximations (no self-shielding,
+//! one mean cosine instead of the full MF=4 shape, evaporation as a stand-in for
+//! resolved inelastic levels); it should not be read as each sub-model being
+//! individually exact.
 
 use openmc_libs::material::material::{Material, NuclideComponent};
 use openmc_libs::material::nuclide::Nuclide;

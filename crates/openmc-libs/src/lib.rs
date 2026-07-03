@@ -5,4 +5,5 @@ pub mod material;
 pub mod source;
 pub mod tally;
 pub mod physics;
+pub mod pebble_beds;
 pub mod prelude;

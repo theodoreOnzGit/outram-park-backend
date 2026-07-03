@@ -28,23 +28,25 @@
 //!
 //! # Fidelity
 //!
-//! Analog transport (no implicit capture / weight windows), isotropic-CM scatter
-//! with target at rest. Inelastic scattering depends on the data tier:
+//! Analog transport (no implicit capture / weight windows), target at rest. Both
+//! data tiers now model inelastic down-scatter and forward-peaked elastic; they
+//! differ in how finely that physics is resolved:
 //!
 //! - **HIGH tier** ([`Nuclide::from_endf`]) carries the resolved inelastic level
 //!   structure (MT=51…91), so inelastic is a distinct channel with a real
 //!   energy-loss law — discrete-level two-body kinematics (each level's Q-value)
-//!   and a Weisskopf-evaporation continuum. This is the dominant fast-spectrum
-//!   down-scatter off heavy nuclei and softens the modelled spectrum.
-//! - **LOW tier** ([`Nuclide::from_core`]) has no resolved levels, so inelastic and
-//!   (n,xn) stay lumped into elastic scatter (the group total minus the explicit
-//!   fission and capture columns), and — above each nuclide's WMP `e_max` — the
-//!   fast group data is infinite-dilution Watt-collapsed with no self-shielding.
+//!   and a Weisskopf-evaporation continuum. Elastic uses the full ENDF MF=4
+//!   anisotropic angular distribution (per-energy tabulated cosine CDF).
+//! - **LOW tier** ([`Nuclide::from_core`]) has no resolved levels: inelastic is the
+//!   group remainder (total − elastic − fission − capture), down-scattered by the
+//!   Weisskopf continuum law. Elastic is forward-peaked from a single per-group
+//!   mean cosine μ̄ (baked from MF=4) via a maximum-entropy exponential angular law.
+//!   Above each nuclide's WMP `e_max` the group data is infinite-dilution
+//!   Watt-collapsed with no self-shielding.
 //!
-//! Elastic scatter uses the ENDF MF=4 anisotropic angular distribution in the HIGH
-//! tier (isotropic-CM in the LOW tier, which carries no MF=4). For a bare fast
-//! sphere this is the dominant reactivity lever — it brings the HIGH-tier Godiva
-//! Keff into agreement with the ICSBEP benchmark (see `docs/development-history.md`).
+//! For a bare fast sphere, forward-peaked elastic and inelastic down-scatter are
+//! the dominant reactivity levers — together they bring **both** tiers' Godiva Keff
+//! into agreement with the ICSBEP benchmark (see `docs/development-history.md`).
 //!
 //! # Example
 //!
@@ -325,15 +327,17 @@ mod tests {
     /// **Methodology.** Bare HEU sphere, r = 8.7407 cm, ICSBEP atom densities
     /// (U-234/235/238), 1500 histories × [20 inactive + 40 active], cross sections
     /// from the embedded LOW tier (WMP below `e_max` + infinite-dilution
-    /// Watt-collapsed fast MGXS above). Reference: ICSBEP k_eff = 1.0000 ± 0.0010.
-    /// Pass criterion is deliberately a *broad* plausibility band (0.9–1.4), not a
-    /// benchmark gate — this guards the full transport chain (data → geometry →
-    /// collision → scatter → fission → power iteration), not accuracy.
+    /// Watt-collapsed fast MGXS above — now with per-group μ̄ for forward elastic and
+    /// inelastic carved from the group total). Reference: ICSBEP k_eff =
+    /// 1.0000 ± 0.0010. Pass criterion is deliberately a *broad* plausibility band
+    /// (0.9–1.4), not a benchmark gate — this guards the full transport chain (data
+    /// → geometry → collision → scatter → fission → power iteration), not accuracy.
     ///
-    /// **Results (2026-07).** k_eff ≈ 1.129 ± 0.002, i.e. ~+12 900 pcm high. The
-    /// result is stationary and low-noise; the large positive bias is expected for
-    /// this fidelity (see [`godiva_endf_high_fidelity_is_not_data_limited`] for the
-    /// comparison showing the bias is transport-physics-, not data-, limited).
+    /// **Results (2026-07).** k_eff ≈ 1.010 ± 0.002, i.e. ~+1 000 pcm high (down
+    /// from ~1.129 / +12 900 pcm before the LOW tier gained inelastic + forward
+    /// elastic scatter — see `docs/development-history.md`). The result is
+    /// stationary and low-noise; the small residual bias is expected for this
+    /// fidelity (no self-shielding; one mean cosine; evaporation for inelastic).
     #[test]
     fn godiva_converges_to_sane_keff() {
         let nuclides = vec![
@@ -397,28 +401,31 @@ mod tests {
     /// under both data tiers, judged against ICSBEP HEU-MET-FAST-001
     /// (k_eff = 1.0000 ± 0.0010):
     /// - **LOW** ([`Nuclide::from_core`]) — embedded WMP + infinite-dilution fast
-    ///   MGXS; isotropic-CM elastic; inelastic lumped into elastic. The first-cut
-    ///   tier, still ~+12 800 pcm.
+    ///   MGXS. Now carries the same two transport-physics levers as HIGH, reduced to
+    ///   group data: inelastic as the group remainder (Weisskopf evaporation) and
+    ///   forward-peaked elastic from a per-group mean cosine μ̄ (max-entropy
+    ///   exponential law). No self-shielding, one μ̄ instead of the full shape.
     /// - **HIGH** ([`Nuclide::from_endf`]) — ENDF/B-VII.1 downloaded and
     ///   reconstructed on device (RECONR 0.1% tol + BROADR to 293.6 K + MF=1/452
-    ///   ν̄), continuous-energy σ(E), **plus** the two transport-physics fixes the
-    ///   development history isolated: an explicit inelastic energy-loss law
-    ///   (MT=51…91 two-body + evaporation) and **anisotropic (ENDF MF=4) elastic
-    ///   scatter** (ported from OpenMC `AngleDistribution`/`Tabular` sampling).
+    ///   ν̄), continuous-energy σ(E), an explicit inelastic energy-loss law
+    ///   (MT=51…91 two-body + evaporation) and **anisotropic (full ENDF MF=4)
+    ///   elastic scatter** (ported from OpenMC `AngleDistribution`/`Tabular`).
     ///
-    /// The test asserts (a) HIGH converges to a stationary eigenvalue near unity,
-    /// and (b) HIGH lands far closer to the benchmark than LOW — i.e. the transport
-    /// physics HIGH carries is what closes the Godiva gap.
+    /// The test asserts that **both** tiers converge to a stationary eigenvalue
+    /// near unity — HIGH from continuous-energy data and the full MF=4 shape, LOW
+    /// from coarse group data plus a single per-group μ̄ — confirming the two levers
+    /// (energy transfer + forward peaking) are what close the Godiva gap and that
+    /// they survive the reduction to group data.
     ///
     /// **Results (2026-07, ENDF/B-VII.1, example settings).** LOW
-    /// k_eff = 1.12852 ± 0.00174 (+12 852 pcm); HIGH k_eff = **0.99627 ± 0.00175
-    /// (−373 pcm)** — agreement with the benchmark. The full HIGH-tier journey and
-    /// the ranked lever contributions (anisotropic elastic ~10 300 pcm ≫ inelastic
-    /// ~2 510 pcm ≫ continuous-energy data ~400 pcm) are in
-    /// `docs/development-history.md`. The near-perfect landing likely involves some
-    /// cancellation of residual approximations (no fast self-shielding; Weisskopf
-    /// stand-in for the MF=5 continuum law), so the bands below are deliberately
-    /// generous rather than a tight accuracy gate.
+    /// k_eff = 1.01022 ± 0.00177 (+1 022 pcm, ENDF/B-VIII.0 group data); HIGH
+    /// k_eff = **0.99627 ± 0.00175 (−373 pcm)** — both in agreement with the
+    /// benchmark. The full HIGH-tier journey and the ranked lever contributions
+    /// (anisotropic elastic ~10 300 pcm ≫ inelastic ~2 510 pcm ≫ continuous-energy
+    /// data ~400 pcm) are in `docs/development-history.md`. Near-perfect landings
+    /// likely involve some cancellation of residual approximations (no fast
+    /// self-shielding; Weisskopf stand-in for the MF=5 continuum law), so the bands
+    /// below are deliberately generous rather than a tight accuracy gate.
     #[cfg(feature = "net-fetch")]
     #[test]
     fn godiva_high_fidelity_reaches_benchmark() {
@@ -466,12 +473,12 @@ mod tests {
         );
         assert!(result.k_std < 0.02, "HIGH k noisy/unconverged: σ = {}", result.k_std);
 
-        // (b) The HIGH transport physics closes the gap: HIGH is far closer to the
-        //     benchmark than LOW, which still overpredicts by >10 000 pcm.
-        assert!(k_low > 1.05, "LOW tier should still overpredict (LOW={k_low})");
+        // (b) Both levers now live in the LOW tier too, so the embedded/offline run
+        //     also lands near unity — from group data plus a single per-group μ̄.
+        //     (Before the LOW port it sat at ~1.13 / +12 800 pcm.)
         assert!(
-            (k_high - 1.0).abs() < (k_low - 1.0).abs() - 0.05,
-            "HIGH should beat LOW by >5000 pcm vs benchmark (LOW={k_low}, HIGH={k_high})"
+            k_low > 0.95 && k_low < 1.06,
+            "LOW tier should also reach the benchmark band now (LOW={k_low})"
         );
     }
 }

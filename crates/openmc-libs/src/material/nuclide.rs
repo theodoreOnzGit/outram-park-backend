@@ -280,12 +280,18 @@ impl Nuclide {
                     }
                 } else if let Some(mg) = fast {
                     let m = mg.micro(e);
+                    // The group `total` already contains inelastic, so carve it out
+                    // as the non-elastic, non-absorption remainder. This lets the
+                    // LOW tier down-scatter inelastically (evaporation law) instead
+                    // of lumping that energy loss into elastic. Clamp at 0 to absorb
+                    // group-collapse rounding where the channels slightly over-sum.
+                    let inelastic = (m.total - m.elastic - m.fission - m.capture).max(0.0);
                     MicroXS {
                         total: m.total,
                         elastic: m.elastic,
                         fission: m.fission,
                         absorption: m.capture + m.fission,
-                        inelastic: 0.0, // LOW tier lumps inelastic into elastic
+                        inelastic,
                         nu_fission: m.nu_fission,
                     }
                 } else {
@@ -322,12 +328,15 @@ impl Nuclide {
     /// Sample which inelastic scattering channel a collision at energy `e` \[eV\]
     /// takes, proportional to each channel's cross section at `e`.
     ///
-    /// Only meaningful for the HIGH (`Pointwise`) tier, whose [`MicroXS::inelastic`]
-    /// is non-zero; the transport kernel only calls this after sampling the
-    /// inelastic bucket, so it is never reached for the LOW tier (which reports
-    /// `inelastic = 0`). Returns an [`Inelastic::Level`] carrying the level's
-    /// Q-value for a discrete level (MT=51…90), or [`Inelastic::Continuum`] for the
-    /// MT=91 continuum. A LOW-tier or empty-level call defaults to `Continuum`.
+    /// Returns an [`Inelastic::Level`] carrying the level's Q-value for a discrete
+    /// level (MT=51…90), or [`Inelastic::Continuum`] for the MT=91 continuum.
+    ///
+    /// The HIGH (`Pointwise`) tier resolves individual levels from the
+    /// reconstructed MT sections. The LOW (`Core`/group) tier carries no per-level
+    /// data — its [`MicroXS::inelastic`] is the group remainder `total − elastic −
+    /// fission − capture` — so this returns `Continuum` for it, and the transport
+    /// kernel applies the Weisskopf evaporation energy-loss law. An empty-level
+    /// call likewise defaults to `Continuum`.
     pub fn sample_inelastic(&self, e: f64, seed: &mut u64) -> Inelastic {
         let XsSource::Pointwise { recon, inel, .. } = &self.xs else {
             return Inelastic::Continuum;
@@ -351,22 +360,40 @@ impl Nuclide {
         Inelastic::Continuum
     }
 
-    /// Sample an elastic scattering cosine in the **centre-of-mass frame** from the
-    /// nuclide's ENDF MF=4 angular distribution at incident energy `e` \[eV\].
+    /// Sample an elastic scattering cosine in the **centre-of-mass frame** at
+    /// incident energy `e` \[eV\], returning `Some(mu_cm)` for anisotropic elastic
+    /// or `None` when the distribution is isotropic (the caller then falls back to
+    /// isotropic-CM elastic). Both fidelity tiers scatter forward:
     ///
-    /// Returns `Some(mu_cm)` when an anisotropic distribution is available (HIGH
-    /// tier), or `None` when it is not (LOW tier, or a nuclide/energy that ENDF
-    /// marks isotropic) — the caller then falls back to isotropic-CM elastic.
+    /// - **HIGH (`Pointwise`):** the full ENDF MF=4 tabulated distribution. Ported
+    ///   from OpenMC `AngleDistribution::sample` (`src/distribution_angle.cpp`):
+    ///   locate the incident-energy bin with interpolation factor `r`, pick the
+    ///   lower or upper tabulated distribution by `r > ξ` (statistical
+    ///   interpolation), then invert its cosine CDF — [`sample_tabular_mu`], itself
+    ///   a port of `Tabular::sample_unbiased`.
+    /// - **LOW (`Core`/group):** only the per-group **mean cosine** μ̄ is stored
+    ///   (baked from MF=4 into the fast MGXS). Above `e_max` the group μ̄ drives a
+    ///   maximum-entropy exponential angular law [`sample_exponential_mu`], which
+    ///   reproduces μ̄ exactly and stays valid for the strongly forward-peaked
+    ///   high-energy groups (where μ̄ ≫ 1/3 breaks the usual P1 law). Below `e_max`
+    ///   (WMP resonance range) elastic is treated as isotropic (`None`).
     ///
-    /// Ported from OpenMC `AngleDistribution::sample` (`src/distribution_angle.cpp`):
-    /// locate the incident-energy bin with interpolation factor `r`, pick the lower
-    /// or upper tabulated distribution by `r > ξ` (statistical interpolation), then
-    /// invert its cosine CDF — [`sample_tabular_mu`], itself a port of
-    /// `Tabular::sample_unbiased`. The cosines are stored in the CM frame (ENDF
-    /// LCT=2), matching [`crate::physics::scatter::two_body_scatter_with_mu`].
+    /// The cosines are in the CM frame (ENDF LCT=2), matching
+    /// [`crate::physics::scatter::two_body_scatter_with_mu`].
     pub fn sample_elastic_mu_cm(&self, e: f64, seed: &mut u64) -> Option<f64> {
-        let XsSource::Pointwise { elastic_angular, .. } = &self.xs else {
-            return None;
+        let elastic_angular = match &self.xs {
+            XsSource::Pointwise { elastic_angular, .. } => elastic_angular,
+            // LOW tier: forward-scatter off the group mean cosine above `e_max`.
+            XsSource::Core { e_max, fast, .. } => {
+                if e <= *e_max {
+                    return None; // resonance range: treat as isotropic-CM
+                }
+                let mubar = fast.as_ref()?.micro(e).mubar;
+                if mubar.abs() < 1.0e-4 {
+                    return None; // effectively isotropic
+                }
+                return Some(sample_exponential_mu(mubar, prn(seed)));
+            }
         };
         let dists = &elastic_angular.energies;
         if dists.is_empty() {
@@ -445,6 +472,76 @@ fn sample_tabular_mu(cosines: &[f64], pdf: &[f64], cdf: &[f64], xi: f64) -> f64 
     mu.clamp(-1.0, 1.0)
 }
 
+/// Sample an elastic scattering cosine (CM frame) from the **maximum-entropy
+/// exponential angular law** with a prescribed mean cosine `mubar` — the LOW-tier
+/// forward-scatter model.
+///
+/// When only the mean cosine μ̄ of a group is known, the least-committal angular
+/// density on `[−1, 1]` with that mean is `p(μ) ∝ exp(λμ)` (maximum entropy). Its
+/// mean is the Langevin function `L(λ) = coth λ − 1/λ`, so `λ = L⁻¹(μ̄)`
+/// ([`langevin_inverse`]). Unlike the linearly-anisotropic (P1) law `½(1 + 3μ̄μ)`,
+/// which goes negative once `|μ̄| > 1/3`, this stays a valid density for every
+/// `μ̄ ∈ (−1, 1)` — essential here because the fast groups off heavy nuclei are
+/// strongly forward-peaked (μ̄ up to ~0.9).
+///
+/// Sampling is by CDF inversion. With `F(μ) = (e^{λ(μ+1)} − 1)/(e^{2λ} − 1)`,
+/// solving `F(μ) = ξ` gives the numerically stable form
+/// `μ = 1 + ln(ξ + (1 − ξ) e^{−2λ}) / λ`. `ξ ∈ [0, 1)` is the uniform draw. A
+/// near-zero `μ̄` degenerates to isotropic (`μ = 2ξ − 1`).
+fn sample_exponential_mu(mubar: f64, xi: f64) -> f64 {
+    let mu_bar = mubar.clamp(-0.99, 0.99);
+    if mu_bar.abs() < 1.0e-4 {
+        return (2.0 * xi - 1.0).clamp(-1.0, 1.0);
+    }
+    let lambda = langevin_inverse(mu_bar);
+    if lambda.abs() < 1.0e-6 {
+        return (2.0 * xi - 1.0).clamp(-1.0, 1.0);
+    }
+    let mu = 1.0 + (xi + (1.0 - xi) * (-2.0 * lambda).exp()).ln() / lambda;
+    mu.clamp(-1.0, 1.0)
+}
+
+/// Invert the Langevin function `L(λ) = coth λ − 1/λ = μ̄` for `λ`, by Newton's
+/// method on `f(λ) = coth λ − 1/λ − μ̄`.
+///
+/// `L` is odd, monotonic, and maps `λ ∈ (−∞, ∞)` onto `μ̄ ∈ (−1, 1)`. The initial
+/// guess uses the small-μ̄ slope `L(λ) ≈ λ/3` (so `λ₀ ≈ 3μ̄`) blended with the
+/// `μ̄ → ±1` pole `λ ≈ 1/(1 − |μ̄|)`; a few Newton steps then converge. Used only
+/// at bake-consuming time (once per elastic collision in the LOW tier), so a
+/// handful of iterations is negligible.
+fn langevin_inverse(mu_bar: f64) -> f64 {
+    let x = mu_bar.abs();
+    // Seed between the small-angle slope and the near-unity pole.
+    let mut lambda = if x < 0.3 {
+        3.0 * x
+    } else {
+        (1.0 / (1.0 - x)).min(50.0)
+    };
+    for _ in 0..30 {
+        // coth λ − 1/λ − x, with a stable coth via 1/tanh.
+        let coth = 1.0 / lambda.tanh();
+        let f = coth - 1.0 / lambda - x;
+        // L'(λ) = 1/λ² − csch²λ = 1/λ² − (coth²λ − 1).
+        let d = 1.0 / (lambda * lambda) - (coth * coth - 1.0);
+        if d.abs() < 1.0e-12 {
+            break;
+        }
+        let step = f / d;
+        lambda -= step;
+        if lambda <= 0.0 {
+            lambda = 1.0e-3; // keep the root finder on the positive branch
+        }
+        if step.abs() < 1.0e-10 {
+            break;
+        }
+    }
+    if mu_bar < 0.0 {
+        -lambda
+    } else {
+        lambda
+    }
+}
+
 /// Extract the inelastic scattering channels (MT=51…91) from a reconstructed
 /// evaluation, for energy-loss scattering in transport.
 ///
@@ -502,4 +599,59 @@ fn nubar_for(name: &str, fissionable: bool) -> NuBar {
         _ => 2.50,
     };
     NuBar { energy: vec![1.0e-3, 2.0e7], nu_total: vec![nu, nu] }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The exponential angular sampler must reproduce its target mean cosine μ̄ —
+    /// the whole point of a maximum-entropy model with a prescribed first moment.
+    /// Averaging many CDF-inverted draws over uniform ξ recovers μ̄ for values that
+    /// span the P1-valid range and well beyond it (μ̄ = 0.6, 0.85), where a linear
+    /// law would be invalid.
+    #[test]
+    fn exponential_sampler_reproduces_mean_cosine() {
+        let n = 200_000usize;
+        for &target in &[0.05_f64, 0.2, 0.333, 0.6, 0.85] {
+            let mut sum = 0.0;
+            for i in 0..n {
+                // Deterministic low-discrepancy sweep of ξ ∈ (0,1) for a stable mean.
+                let xi = (i as f64 + 0.5) / n as f64;
+                let mu = sample_exponential_mu(target, xi);
+                assert!((-1.0..=1.0).contains(&mu), "μ in range");
+                sum += mu;
+            }
+            let mean = sum / n as f64;
+            assert!(
+                (mean - target).abs() < 5.0e-3,
+                "μ̄ target {target}, sampled {mean}"
+            );
+        }
+    }
+
+    /// A negative mean cosine (backscatter) is handled symmetrically, and a
+    /// near-zero μ̄ degenerates to isotropic (mean ≈ 0).
+    #[test]
+    fn exponential_sampler_handles_backward_and_isotropic() {
+        let n = 100_000usize;
+        let mean = |target: f64| -> f64 {
+            (0..n)
+                .map(|i| sample_exponential_mu(target, (i as f64 + 0.5) / n as f64))
+                .sum::<f64>()
+                / n as f64
+        };
+        assert!((mean(-0.4) + 0.4).abs() < 5.0e-3, "backward μ̄ reproduced");
+        assert!(mean(0.0).abs() < 5.0e-3, "isotropic mean ≈ 0");
+    }
+
+    /// The Langevin inverse round-trips: L(L⁻¹(μ̄)) = μ̄, where L(λ)=coth λ − 1/λ.
+    #[test]
+    fn langevin_inverse_round_trips() {
+        for &mu in &[-0.85_f64, -0.3, 0.05, 0.333, 0.6, 0.9] {
+            let lambda = langevin_inverse(mu);
+            let l = 1.0 / lambda.tanh() - 1.0 / lambda;
+            assert!((l - mu).abs() < 1.0e-6, "L(L⁻¹({mu})) = {l}");
+        }
+    }
 }
