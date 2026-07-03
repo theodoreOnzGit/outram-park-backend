@@ -606,3 +606,61 @@ evaporation_lf9_matches_theoretical_mean_and_respects_restriction,
 evaporation_lf9_restriction_actually_bites,
 watt_lf11_matches_theoretical_mean_and_respects_restriction,
 mixture_dispatches_by_partition_weight}`).
+
+## 2026-07 — GASPR: gas-production cross sections (njoy)
+
+### Methodology
+
+Ported the NJOY2016 `gaspr.f90` module (~1150 lines) that computes total
+production of the five light "gas" nuclides — H1 (proton), H2 (deuteron), H3
+(triton), He3, He4 (alpha), ENDF MT=203–207 — from a reconstructed evaluation.
+This is a post-processing/informational cross section (depletion, material
+swelling), not a transport quantity: no secondary angle/energy law is needed
+because it is only ever read (e.g. by a depletion post-processor), never
+sampled in a collision.
+
+Rather than reproducing NJOY's residual-nucleus mass-difference bookkeeping
+(`izr`/`izg` in `gaspr.f90`), the port exploits that this crate's own
+`MtReaction` enum already names each reaction's emitted particles (e.g.
+`Mt45NnProtonAlpha`, `Mt23Nn3Alpha`). Since ENDF MT numbers 11, 16, 17, 22–45,
+and 102–117 are *mutually exclusive* reaction final states in the modern
+ENDF/B-VI+ "lumped-channel" representation, gas production reduces to a flat
+yield-weighted sum `σ_gas(E) = Σ_mt n_particle(mt)·σ_mt(E)` over the
+reconstructed MF=3 sections — no double counting, no per-reaction
+mass-difference derivation. A `gas_yield(mt)` lookup table encodes the
+standard ENDF-102 particle content for every gas-producing MT.
+
+**Scope cut, documented in the module doc, not silently dropped**: the legacy
+MT=600–849 detailed-breakup fallback `gaspr.f90` uses when an evaluation omits
+the lumped channels (pre-ENDF/B-VI representation) is *not* ported — rare in
+the ENDF/B-VII/VIII libraries this workspace targets. A nuclide using only
+that legacy shape would under-count (each unlisted MT contributes 0), not
+silently produce a wrong nonzero answer.
+
+### Results (2026-07-03, unit tests — no live nuclide in the Godiva model
+produces significant gas, so this is validated structurally, not against a
+k_eff benchmark)
+
+6 tests in `gaspr::tests`, all passing, exercising the physical claims:
+
+| Test | Claim checked |
+|---|---|
+| `np_alpha_reaction_yields_he4_only` | single-channel MT=107 `(n,α)` → He4 only, other species exactly 0 |
+| `disjoint_channels_sum_additively` | MT=107 + MT=22 (both alpha-producing) sum correctly at each energy (0.4+0.1=0.5, 0.4+0.3=0.7 barn) |
+| `multi_particle_yield_is_weighted` | MT=23 `(n,n'3α)`: yield 3 not 1 (0.2 b × 3 = 0.6 b) |
+| `two_species_channel_credits_both` | MT=45 `(n,n'pα)` credits both H1 and He4 at their full 0.8 b, independently |
+| `non_gas_reactions_are_ignored` | elastic/capture/(n,2n) sections excluded from both the union grid and every species' sum |
+| `species_mt_numbers_are_203_to_207` | `GasSpecies::mt()` matches the ACE/PENDF convention |
+
+Full njoy suite after the change: **105 lib tests** (up from 99), all green
+(`crates/njoy-outram-park-fork/scripts/test.sh`, capped run).
+
+### Finding
+
+Gas production for the modern lumped-channel ENDF representation is now a
+~250-line pure-Rust module instead of requiring a faithful translation of
+NJOY's 1150-line residual-mass bookkeeping, because the particle-content
+information NJOY *derives* per-MT was already sitting in this crate's
+`MtReaction` naming from earlier porting work. Not wired into any transport
+path (openmc-libs) — this is nuclear-data-processing output only, consumed by
+future depletion/materials tooling, not the k-eigenvalue driver.

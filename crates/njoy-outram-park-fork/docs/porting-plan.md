@@ -125,7 +125,14 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
 - **Phase 2 — RECONR + BROADR.** First real cross-section output. Gate: pointwise
   σ(E) at 0 K then broadened, matching upstream within tolerance.
 - **Phase 3 — HEATR / GASPR / PURR / THERMR (+ UNRESR).** ACE prerequisites for
-  heating, gas, self-shielding, thermal scattering.
+  heating, gas, self-shielding, thermal scattering. **GASPR done** (2026-07-03,
+  `src/gaspr.rs`): MT=203–207 gas production as a yield-weighted sum over the
+  reconstructed MF=3 sections (MT=11/16/17/22–45/102–117 — the modern
+  lumped-channel ENDF representation), using the crate's own `MtReaction`
+  particle-content naming instead of NJOY's residual-mass bookkeeping. Not
+  ported: the legacy MT=600–849 detailed-breakup fallback (pre-ENDF/B-VI style,
+  rare in VII/VIII). 6 unit tests (additivity, multi-particle yields,
+  two-species channels, non-gas-reaction exclusion).
 - **Phase 4 — ACER.** Emit an ACE file OpenMC loads and runs. **This is the
   milestone that satisfies the OpenMC dependency.** Largest single phase
   (acefc.f90 alone is ~20k lines) — split by ACE block (nu, angular, energy
