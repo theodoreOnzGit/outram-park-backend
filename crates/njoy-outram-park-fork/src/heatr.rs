@@ -21,8 +21,17 @@
 //! - **H4** (done): fission (MT=18, 19–21, 38),
 //!   `H(E) = σ_f(E)·[E + Q_fission − ν̄(E)·⟨E'⟩]`, reusing [`NuBar`] and
 //!   [`FissionSpectrum::mean_energy`].
-//! - **H5–H7** (deferred): multi-neutron-exit/continuum inelastic, the full
-//!   photon energy-balance method, and damage energy (MT=444).
+//! - **H5** (done): multi-neutron-exit + continuum inelastic (MT=11, 16, 17,
+//!   24, 25, 30, 37, 41, 42, 91), `H(E) = σ(E)·[E + Q − ȳ·⟨E'⟩]`, where `ȳ` is
+//!   the emitted-neutron multiplicity (fixed by the MT) and `⟨E'⟩` the mean
+//!   emitted-neutron energy from the reaction's own MF=5 secondary spectrum
+//!   (reusing [`FissionSpectrum::mean_energy`] — the same first-moment machinery
+//!   H4 uses for χ). This is the direct generalization of H3/H4's balance:
+//!   `ȳ` neutrons each escape carrying the emission spectrum's mean energy, and
+//!   `E + Q` minus that total deposits locally. A reaction whose emission
+//!   spectrum is not supplied contributes 0 (excluded, not guessed).
+//! - **H6–H7** (deferred): the full photon energy-balance method, and damage
+//!   energy (MT=444).
 //!
 //! ## Elastic kinematics (H1)
 //!
@@ -78,8 +87,19 @@ enum HeatingModel {
     /// neutrons each carry away the birth spectrum's mean energy, and
     /// everything else (fragment KE, prompt/delayed γ and β) deposits locally.
     Fission,
-    /// Not yet modeled (H5: multi-neutron-exit + continuum inelastic):
-    /// contributes 0.
+    /// **H5.** Multi-neutron-exit (MT=11, 16, 17, 24, 25, 30, 37, 41, 42) and
+    /// continuum inelastic (MT=91): `ȳ` neutrons escape, each carrying the mean
+    /// energy `⟨E'⟩` of the reaction's MF=5 secondary-neutron spectrum, so
+    /// `H(E) = σ(E)·[E + Q − ȳ·⟨E'⟩]`. Unlike H1–H4 the mean has no closed
+    /// kinematic form, so the emission spectrum must be supplied (via the
+    /// `emission` argument of [`Kerma::from_reconr`]); the multiplicity `ȳ`
+    /// comes from the MT ([`neutron_multiplicity`]). If no spectrum is supplied
+    /// for the reaction, it contributes 0 (falls through to [`Self::NotModeled`]
+    /// behaviour rather than guessing an energy loss).
+    MultiNeutron,
+    /// Not modeled by the kinematic-limit KERMA — everything left to H6/H7 (the
+    /// full photon energy-balance method and MT=444 damage energy), plus any
+    /// H5 reaction whose emission spectrum was not supplied: contributes 0.
     NotModeled,
 }
 
@@ -103,8 +123,37 @@ fn heating_model(mt: MtReaction) -> HeatingModel {
         | Mt20SecondChanceFission
         | Mt21ThirdChanceFission
         | Mt38FourthChanceFission => HeatingModel::Fission,
+        Mt11N2nD | Mt16N2n | Mt17N3n | Mt24N2nAlpha | Mt25N3nAlpha | Mt30N2n2Alpha | Mt37N4n
+        | Mt41N2nProton | Mt42N3nProton | Mt91NnContinuum => HeatingModel::MultiNeutron,
         _ => HeatingModel::NotModeled,
     }
+}
+
+/// Number of neutrons `ȳ` emitted by an [`HeatingModel::MultiNeutron`] reaction —
+/// the multiplicity in NJOY's `H = σ·(E + Q − ȳ·⟨E'⟩)` (`heatr.f90::nheat`,
+/// where it is `yld`). Fixed by the MT's exit channel: (n,2n)-type → 2,
+/// (n,3n)-type → 3, (n,4n) → 4, continuum inelastic (n,n') → 1. Returns 0 for
+/// any MT that is not an H5 reaction (never reached — [`heating_model`] gates it).
+fn neutron_multiplicity(mt: MtReaction) -> f64 {
+    use MtReaction::*;
+    match mt {
+        Mt91NnContinuum => 1.0,
+        Mt11N2nD | Mt16N2n | Mt24N2nAlpha | Mt30N2n2Alpha | Mt41N2nProton => 2.0,
+        Mt17N3n | Mt25N3nAlpha | Mt42N3nProton => 3.0,
+        Mt37N4n => 4.0,
+        _ => 0.0,
+    }
+}
+
+/// The MF=5 emitted-neutron energy spectrum supplied for reaction `mt`, if any.
+/// H5 has no closed-form kinematic mean, so [`Kerma::from_reconr`] needs the
+/// actual secondary spectrum to take its first moment `⟨E'⟩`; a reaction absent
+/// from `emission` contributes 0 (see [`HeatingModel::MultiNeutron`]).
+fn emission_spectrum(
+    emission: &[(MtReaction, FissionSpectrum)],
+    mt: MtReaction,
+) -> Option<&FissionSpectrum> {
+    emission.iter().find(|(m, _)| *m == mt).map(|(_, s)| s)
 }
 
 /// The `2A/(A+1)²` factor from the two-body elastic recoil formula (H1),
@@ -153,20 +202,38 @@ pub struct Kerma {
 impl Kerma {
     /// Compute the kinematic-limit KERMA from a reconstructed evaluation.
     ///
-    /// **H1–H4** are covered (elastic; capture + charged-particle-only exits;
-    /// single-escaping-neutron reactions; fission); every other reaction
-    /// contributes 0 until H5 lands (see the module docs). `awr` is the
-    /// target's mass ratio (`ReconrResult::material::awr`); `nu` and `chi` are
-    /// the fission neutron yield and birth spectrum (from
-    /// [`crate::nuclear_data::secondary`]) used only by the `Fission` model —
-    /// pass [`NuBar::default`]/[`FissionSpectrum::default`] for a
-    /// non-fissionable material (no MT=18 section ⇒ they are never evaluated).
-    pub fn from_reconr(recon: &ReconrResult, nu: &NuBar, chi: &FissionSpectrum) -> Self {
+    /// **H1–H5** are covered (elastic; capture + charged-particle-only exits;
+    /// single-escaping-neutron reactions; fission; multi-neutron-exit + continuum
+    /// inelastic); every other reaction contributes 0 (see the module docs).
+    ///
+    /// - `awr` is the target's mass ratio (`ReconrResult::material::awr`).
+    /// - `nu`/`chi` are the fission neutron yield and birth spectrum (from
+    ///   [`crate::nuclear_data::secondary`]) used only by the `Fission` model —
+    ///   pass [`NuBar::default`]/[`FissionSpectrum::default`] for a
+    ///   non-fissionable material (no MT=18 section ⇒ they are never evaluated).
+    /// - `emission` maps each H5 multi-neutron / continuum-inelastic reaction
+    ///   (MT=11, 16, 17, 24, 25, 30, 37, 41, 42, 91) to its MF=5 emitted-neutron
+    ///   spectrum; the mean of that spectrum is subtracted `ȳ` times (once per
+    ///   escaping neutron). A reaction present in `recon` but absent from
+    ///   `emission` contributes 0 — pass `&[]` to skip all of H5.
+    pub fn from_reconr(
+        recon: &ReconrResult,
+        nu: &NuBar,
+        chi: &FissionSpectrum,
+        emission: &[(MtReaction, FissionSpectrum)],
+    ) -> Self {
         let awr = recon.material.awr;
+        // A section contributes to the grid only if its heating is actually
+        // modeled — for H5 that additionally requires a supplied emission spectrum.
+        let contributes = |mt: MtReaction| match heating_model(mt) {
+            HeatingModel::NotModeled => false,
+            HeatingModel::MultiNeutron => emission_spectrum(emission, mt).is_some(),
+            _ => true,
+        };
         let mut energy: Vec<f64> = recon
             .sections
             .iter()
-            .filter(|s| heating_model(s.mt) != HeatingModel::NotModeled)
+            .filter(|s| contributes(s.mt))
             .flat_map(|s| s.pairs.iter().map(|&(e, _)| e))
             .collect();
         energy.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -179,6 +246,16 @@ impl Kerma {
             if model == HeatingModel::NotModeled {
                 continue;
             }
+            // Resolve the H5 emission spectrum once per section; skip the whole
+            // section (contributes 0) if it is a MultiNeutron reaction with none.
+            let multi_spec = if model == HeatingModel::MultiNeutron {
+                match emission_spectrum(emission, sec.mt) {
+                    Some(spec) => Some((spec, neutron_multiplicity(sec.mt))),
+                    None => continue,
+                }
+            } else {
+                None
+            };
             for (i, &e) in energy.iter().enumerate() {
                 let sigma = eval_lin_lin(&sec.pairs, e);
                 if sigma == 0.0 {
@@ -189,6 +266,10 @@ impl Kerma {
                     HeatingModel::Local => e + sec.qi,
                     HeatingModel::SingleNeutron => e * two_body_factor + sec.qi / (awr + 1.0),
                     HeatingModel::Fission => e + sec.qi - nu.at(e) * chi.mean_energy(e),
+                    HeatingModel::MultiNeutron => {
+                        let (spec, yld) = multi_spec.unwrap();
+                        e + sec.qi - yld * spec.mean_energy(e)
+                    }
                     HeatingModel::NotModeled => unreachable!(),
                 };
                 h[i] += sigma * per_event;
@@ -251,6 +332,7 @@ mod tests {
             &recon(1.0, vec![sec]),
             &NuBar::default(),
             &FissionSpectrum::default(),
+            &[],
         );
         for &e in &[1.0e5, 1.0e6, 1.0e7] {
             let h = kerma.eval(e);
@@ -276,6 +358,7 @@ mod tests {
             &recon(awr, vec![sec]),
             &NuBar::default(),
             &FissionSpectrum::default(),
+            &[],
         );
         let h = kerma.eval(1.0e6);
         let sigma_e = 5.0 * 1.0e6;
@@ -291,12 +374,13 @@ mod tests {
         );
     }
 
-    /// Non-elastic reactions (H2–H4 not yet ported) contribute nothing yet —
-    /// confirms the dispatch excludes them rather than silently double-using
-    /// the elastic formula.
+    /// **H5, no-spectrum guard.** A multi-neutron reaction (MT=16 (n,2n)) with no
+    /// emission spectrum supplied contributes nothing — H5 has no closed-form
+    /// mean, so without the secondary spectrum the dispatch excludes the section
+    /// entirely (empty grid) rather than guessing an energy loss. Passing the
+    /// spectrum (see [`n2n_heating_subtracts_two_neutron_means`]) turns it on.
     #[test]
-    fn not_yet_modeled_reactions_contribute_nothing() {
-        // MT=16 (n,2n): multi-neutron exit, H5, not yet ported.
+    fn multineutron_without_spectrum_contributes_nothing() {
         let sec = ReconrSection {
             mt: MtReaction::Mt16N2n,
             qi: -8.0e6,
@@ -306,10 +390,11 @@ mod tests {
             &recon(56.0, vec![sec]),
             &NuBar::default(),
             &FissionSpectrum::default(),
+            &[], // no emission spectrum for MT=16
         );
         assert!(
             kerma.energy.is_empty(),
-            "(n,2n) not modeled yet ⇒ empty grid"
+            "(n,2n) with no supplied spectrum ⇒ empty grid"
         );
         assert_eq!(kerma.eval(5.0e5), 0.0);
     }
@@ -328,6 +413,7 @@ mod tests {
             &recon(56.0, vec![sec]),
             &NuBar::default(),
             &FissionSpectrum::default(),
+            &[],
         );
         for &e in &[1.0e5, 1.0e6] {
             let h = kerma.eval(e);
@@ -353,6 +439,7 @@ mod tests {
             &recon(27.0, vec![sec]),
             &NuBar::default(),
             &FissionSpectrum::default(),
+            &[],
         );
         let h = kerma.eval(1.0e6);
         let expected = 0.5 * (1.0e6 + q);
@@ -377,6 +464,7 @@ mod tests {
             &recon(awr, vec![level]),
             &NuBar::default(),
             &FissionSpectrum::default(),
+            &[],
         );
         let h = kerma.eval(1.0e6);
         let expected = 3.0 * 1.0e6 * 2.0 * awr / (awr + 1.0).powi(2);
@@ -404,6 +492,7 @@ mod tests {
             &recon(awr, vec![level]),
             &NuBar::default(),
             &FissionSpectrum::default(),
+            &[],
         );
         let h = kerma.eval(1.0e7);
         let expected = 1.0 * (1.0e7 * 2.0 * awr / (awr + 1.0).powi(2) + q / (awr + 1.0));
@@ -434,6 +523,7 @@ mod tests {
             &recon(awr, vec![sec]),
             &NuBar::default(),
             &FissionSpectrum::default(),
+            &[],
         );
         let h = kerma.eval(8.0e6);
         let expected = 0.2 * (8.0e6 * 2.0 * awr / (awr + 1.0).powi(2) + q / (awr + 1.0));
@@ -466,6 +556,7 @@ mod tests {
             &recon(awr, vec![elastic, capture, level]),
             &NuBar::default(),
             &FissionSpectrum::default(),
+            &[],
         );
         let h = kerma.eval(1.0e6);
         let f = 2.0 * awr / (awr + 1.0).powi(2);
@@ -498,6 +589,7 @@ mod tests {
             &recon(awr, vec![elastic, capture]),
             &NuBar::default(),
             &FissionSpectrum::default(),
+            &[],
         );
         let h = kerma.eval(1.0e6);
         let h_elastic = 10.0 * 1.0e6 * 2.0 * awr / (awr + 1.0).powi(2);
@@ -523,6 +615,7 @@ mod tests {
             &recon(1.0, vec![sec]),
             &NuBar::default(),
             &FissionSpectrum::default(),
+            &[],
         );
         let h_mid = kerma.eval(1.5e6);
         // σ is flat at 10 b, so H(E) = 10*E/2 exactly (linear in E), and lin-lin
@@ -543,7 +636,7 @@ mod tests {
         };
         let nu = NuBar { energy: vec![1.0e5, 1.0e6], nu_total: vec![2.4, 2.6] };
         let chi = FissionSpectrum::Watt { a: 0.988e6, b: 2.249e-6 };
-        let kerma = Kerma::from_reconr(&recon(235.0, vec![sec]), &nu, &chi);
+        let kerma = Kerma::from_reconr(&recon(235.0, vec![sec]), &nu, &chi, &[]);
 
         let mean_e_prime = 1.5 * 0.988e6 + 0.25 * 0.988e6 * 0.988e6 * 2.249e-6;
         for &e in &[1.0e5, 1.0e6] {
@@ -573,7 +666,7 @@ mod tests {
         };
         let nu = NuBar { energy: vec![1.0e5, 1.0e6], nu_total: vec![2.44, 2.44] };
         let chi = FissionSpectrum::default(); // thermal-Watt stand-in
-        let kerma = Kerma::from_reconr(&recon(235.0, vec![sec]), &nu, &chi);
+        let kerma = Kerma::from_reconr(&recon(235.0, vec![sec]), &nu, &chi, &[]);
         let h = kerma.eval(1.0e5);
         let heating_number_ev = h / sigma_f; // H(E)/σ(E), eV per fission
         assert!(heating_number_ev > 0.0, "fission heating must be positive, got {heating_number_ev}");
@@ -605,8 +698,12 @@ mod tests {
         };
         let nu = NuBar { energy: vec![1.0e6], nu_total: vec![2.5] };
         let chi = FissionSpectrum::Watt { a: 0.988e6, b: 2.249e-6 };
-        let kerma =
-            Kerma::from_reconr(&recon(awr, vec![elastic, capture, level, fission]), &nu, &chi);
+        let kerma = Kerma::from_reconr(
+            &recon(awr, vec![elastic, capture, level, fission]),
+            &nu,
+            &chi,
+            &[],
+        );
         let h = kerma.eval(1.0e6);
 
         let f = 2.0 * awr / (awr + 1.0).powi(2);
@@ -617,5 +714,173 @@ mod tests {
         let h_fission = 1.2 * (1.0e6 + 200.0e6 - 2.5 * mean_e_prime);
         let expected = h_elastic + h_capture + h_level + h_fission;
         assert!((h - expected).abs() / expected < 1.0e-9, "got {h}, want {expected}");
+    }
+
+    /// **H5.** An (n,2n) reaction (MT=16) subtracts the mean energy of *two*
+    /// escaping neutrons from the `E + Q` energy balance: with a fixed-parameter
+    /// Watt emission spectrum (closed-form mean `1.5a + ¼a²b`) the heating is
+    /// `σ·(E + Q − 2·⟨E'⟩)` exactly.
+    #[test]
+    fn n2n_heating_subtracts_two_neutron_means() {
+        let q = -6.0e6; // representative (n,2n) threshold Q
+        let sigma = 0.7; // barn, flat
+        let sec = ReconrSection {
+            mt: MtReaction::Mt16N2n,
+            qi: q,
+            pairs: vec![(1.0e7, sigma), (1.4e7, sigma)],
+        };
+        // Reuse the general MF=5 machinery: a Watt-shaped emitted-neutron spectrum.
+        let (a, b) = (0.5e6, 4.0e-6);
+        let spectrum = FissionSpectrum::Watt { a, b };
+        let mean_e_prime = 1.5 * a + 0.25 * a * a * b;
+        let kerma = Kerma::from_reconr(
+            &recon(56.0, vec![sec]),
+            &NuBar::default(),
+            &FissionSpectrum::default(),
+            &[(MtReaction::Mt16N2n, spectrum)],
+        );
+        for &e in &[1.0e7, 1.4e7] {
+            let h = kerma.eval(e);
+            let expected = sigma * (e + q - 2.0 * mean_e_prime);
+            assert!(
+                (h - expected).abs() / expected.abs() < 1.0e-9,
+                "H({e})={h}, want {expected}"
+            );
+        }
+    }
+
+    /// **H5, multiplicity.** (n,3n) (MT=17) removes *three* neutron means, (n,4n)
+    /// (MT=37) *four* — the multiplicity comes from the MT, so with the same
+    /// emission spectrum the (n,3n) heating is lower than (n,2n)'s by exactly one
+    /// extra `σ·⟨E'⟩`.
+    #[test]
+    fn n3n_and_n4n_use_higher_multiplicity() {
+        let q = -12.0e6;
+        let sigma = 0.4;
+        let (a, b) = (0.6e6, 3.0e-6);
+        let mean_e_prime = 1.5 * a + 0.25 * a * a * b;
+        let e = 2.0e7;
+        for (mt, yld) in [(MtReaction::Mt17N3n, 3.0), (MtReaction::Mt37N4n, 4.0)] {
+            let sec = ReconrSection { mt, qi: q, pairs: vec![(e, sigma)] };
+            let kerma = Kerma::from_reconr(
+                &recon(90.0, vec![sec]),
+                &NuBar::default(),
+                &FissionSpectrum::default(),
+                &[(mt, FissionSpectrum::Watt { a, b })],
+            );
+            let expected = sigma * (e + q - yld * mean_e_prime);
+            let h = kerma.eval(e);
+            assert!(
+                (h - expected).abs() / expected.abs() < 1.0e-9,
+                "MT={:?}: H={h}, want {expected}",
+                mt
+            );
+        }
+    }
+
+    /// **H5.** Continuum inelastic (MT=91) is the yield-1 member of the family:
+    /// a single escaping neutron carrying the emission spectrum's mean, using the
+    /// section's own Q — the continuum analogue of a discrete level (H3), but with
+    /// the *spectrum* mean instead of the two-body kinematic mean.
+    #[test]
+    fn continuum_inelastic_is_single_neutron_with_spectrum_mean() {
+        let q = -2.0e6;
+        let sigma = 1.1;
+        let (a, b) = (0.8e6, 2.0e-6);
+        let mean_e_prime = 1.5 * a + 0.25 * a * a * b;
+        let e = 5.0e6;
+        let sec = ReconrSection {
+            mt: MtReaction::Mt91NnContinuum,
+            qi: q,
+            pairs: vec![(e, sigma)],
+        };
+        let kerma = Kerma::from_reconr(
+            &recon(28.0, vec![sec]),
+            &NuBar::default(),
+            &FissionSpectrum::default(),
+            &[(MtReaction::Mt91NnContinuum, FissionSpectrum::Watt { a, b })],
+        );
+        let h = kerma.eval(e);
+        let expected = sigma * (e + q - 1.0 * mean_e_prime);
+        assert!(
+            (h - expected).abs() / expected.abs() < 1.0e-9,
+            "H={h}, want {expected}"
+        );
+    }
+
+    /// **H5, physical sanity.** A 14-MeV (n,2n) on a mid-mass nucleus deposits a
+    /// small *positive* heating: after the ~8 MeV threshold Q and two ~1–2 MeV
+    /// neutrons escape, only a few MeV of recoil + charged-particle energy is
+    /// left local — distinct from the exact-formula check (catches a sign or
+    /// multiplicity blunder the algebra-mirroring check structurally cannot).
+    #[test]
+    fn n2n_heating_is_small_and_positive_at_14_mev() {
+        let q = -8.0e6;
+        let sigma = 0.5;
+        let e = 1.4e7;
+        let sec = ReconrSection {
+            mt: MtReaction::Mt16N2n,
+            qi: q,
+            pairs: vec![(e, sigma)],
+        };
+        // Evaporation-like emitted neutrons, ~1.5 MeV mean (θ ≈ 0.75 MeV, ⟨E'⟩=2θ).
+        let spectrum = FissionSpectrum::Watt { a: 0.5e6, b: 3.0e-6 };
+        let kerma = Kerma::from_reconr(
+            &recon(56.0, vec![sec]),
+            &NuBar::default(),
+            &FissionSpectrum::default(),
+            &[(MtReaction::Mt16N2n, spectrum)],
+        );
+        let heating_number_ev = kerma.eval(e) / sigma; // H/σ, eV per event
+        assert!(
+            heating_number_ev > 0.0,
+            "(n,2n) heating must be positive, got {heating_number_ev}"
+        );
+        assert!(
+            heating_number_ev < e + q,
+            "escaping neutrons must reduce heating below E+Q={}",
+            e + q
+        );
+        assert!(
+            (0.0..5.0e6).contains(&heating_number_ev),
+            "14-MeV (n,2n) heating {heating_number_ev} eV should be a few MeV"
+        );
+    }
+
+    /// **H5, additive with H1–H4.** A section list mixing elastic, capture, a
+    /// discrete level, fission, and an (n,2n) sums all five models on the shared
+    /// union grid.
+    #[test]
+    fn h5_sums_additively_with_all_prior_phases() {
+        let awr = 235.0;
+        let e = 1.4e7;
+        let elastic = ReconrSection { mt: MtReaction::Mt2Elastic, qi: 0.0, pairs: vec![(e, 5.0)] };
+        let capture =
+            ReconrSection { mt: MtReaction::Mt102Capture, qi: 6.0e6, pairs: vec![(e, 0.1)] };
+        let level =
+            ReconrSection { mt: MtReaction::from_any(51), qi: -1.0e6, pairs: vec![(e, 0.2)] };
+        let fission =
+            ReconrSection { mt: MtReaction::Mt18Fission, qi: 200.0e6, pairs: vec![(e, 1.0)] };
+        let n2n = ReconrSection { mt: MtReaction::Mt16N2n, qi: -8.0e6, pairs: vec![(e, 0.6)] };
+        let nu = NuBar { energy: vec![e], nu_total: vec![2.6] };
+        let chi = FissionSpectrum::Watt { a: 0.988e6, b: 2.249e-6 };
+        let (a, b) = (0.5e6, 4.0e-6);
+        let kerma = Kerma::from_reconr(
+            &recon(awr, vec![elastic, capture, level, fission, n2n]),
+            &nu,
+            &chi,
+            &[(MtReaction::Mt16N2n, FissionSpectrum::Watt { a, b })],
+        );
+        let h = kerma.eval(e);
+
+        let f = 2.0 * awr / (awr + 1.0).powi(2);
+        let mean_chi = 1.5 * 0.988e6 + 0.25 * 0.988e6 * 0.988e6 * 2.249e-6;
+        let mean_n2n = 1.5 * a + 0.25 * a * a * b;
+        let expected = 5.0 * e * f
+            + 0.1 * (e + 6.0e6)
+            + 0.2 * (e * f + (-1.0e6) / (awr + 1.0))
+            + 1.0 * (e + 200.0e6 - 2.6 * mean_chi)
+            + 0.6 * (e - 8.0e6 - 2.0 * mean_n2n);
+        assert!((h - expected).abs() / expected.abs() < 1.0e-9, "got {h}, want {expected}");
     }
 }

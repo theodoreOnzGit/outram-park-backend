@@ -72,7 +72,7 @@ Status legend: ✅ done · 🟡 partial · ⏳ scaffolded/stub · ⬜ not starte
 |---|---|---|---|---|
 | `modules::reconr` | `reconr.f90` | 5.7k | 2 | ✅ resonance reconstruction |
 | `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) |
-| `modules::heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H4) done, `src/heatr.rs`; photon energy-balance + damage (H5–H7) deferred — see sub-phase table below (ACE 4e depends on the full method) |
+| `modules::heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5) done, `src/heatr.rs`; full photon energy-balance + damage (H6–H7) deferred — see sub-phase table below (ACE 4e depends on the full method) |
 | `modules::gaspr` | `gaspr.f90` | 1.15k | 3 | ✅ gas production (MT=203–207), lumped-channel case only — see `src/gaspr.rs` |
 | `modules::purr` | `purr.f90` | 2.9k | 3 | ⬜ URR probability tables |
 | `modules::thermr` | `thermr.f90` | 3.4k | 3 | 🟡 MF=7 reader + coherent/incoherent elastic + inelastic physics; no module driver |
@@ -165,9 +165,33 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
     moment of χ — closed-form for the analytic laws, trapezoidal quadrature
     for the tabulated ones).
   - **H5 — Multi-neutron-exit + continuum inelastic (MT=11, 16, 17, 24, 25, 30,
-    37, 41, 42, 91).** ⬜ **deferred.** No simple closed form: needs either an
-    evaporation-spectrum mean or the actual first moment of the MF=6 emission
-    law. Currently contributes 0 to KERMA (excluded, not silently wrong).
+    37, 41, 42, 91).** ✅ `src/heatr.rs`. Ports `nheat`'s neutron energy balance
+    `H(E) = σ(E)·[E + Q − ȳ·⟨E'⟩]` (`heatr.f90:1441`, the `mtd<18 .or. mtd>21`
+    branch): `ȳ` escaping neutrons each carry the mean energy `⟨E'⟩` of the
+    reaction's MF=5 emitted-neutron spectrum. The multiplicity `ȳ` is fixed by
+    the MT ([`neutron_multiplicity`]: (n,2n)-type→2, (n,3n)-type→3, (n,4n)→4,
+    continuum inelastic→1), and `⟨E'⟩` reuses the existing
+    [`FissionSpectrum::mean_energy`] first-moment machinery — the same code H4
+    takes χ's mean with, applied here to each reaction's own MF=5 secondary law
+    (LF=7 Maxwell / LF=9 evaporation / LF=1 tabulated / LF=11 Watt). Because the
+    mean has no closed kinematic form, the spectrum must be *supplied*
+    (`Kerma::from_reconr`'s new `emission: &[(MtReaction, FissionSpectrum)]`
+    argument); a reaction whose spectrum is absent still contributes 0 (excluded,
+    not guessed). Continuum inelastic MT=91 uses its section's own QI as the
+    ground-state Q — a documented simplification of NJOY's QM/0 choice, immaterial
+    away from the continuum threshold in the kinematic limit.
+
+    **V&V (methodology + results).** Five unit tests in `src/heatr.rs`
+    (`cargo test -p njoy-outram-park-fork --lib heatr`, 19/19 green 2026-07-04):
+    with a fixed-parameter Watt emission spectrum (closed-form mean
+    `⟨E'⟩ = 1.5a + ¼a²b`), (i) MT=16 (n,2n) reproduces `σ·(E+Q−2⟨E'⟩)` to a
+    relative `<1e-9` at 10 and 14 MeV; (ii) MT=17/37 subtract 3×/4× the mean
+    (multiplicity keyed off the MT); (iii) MT=91 is the yield-1 member,
+    `σ·(E+Q−⟨E'⟩)`; (iv) a physical-sanity check on a 14-MeV (n,2n) on A=56
+    (Q=−8 MeV, ⟨E'⟩≈1.5 MeV) gives heating `0 < H/σ < 5 MeV` and `< E+Q` — the
+    few-MeV recoil left after ~8 MeV threshold + two escaping neutrons; (v) H5
+    sums additively with H1–H4 on the shared union grid. A sixth test confirms an
+    (n,2n) with **no** supplied spectrum yields an empty grid (contributes 0).
   - **H6 — Full photon energy-balance method.** ⬜ **deferred.** The actual
     `heatr.f90` algorithm proper: MF=12–15 / MF=6 photon-production data,
     momentum-conservation capture recoil, and using H1–H5 as the *kinematic
