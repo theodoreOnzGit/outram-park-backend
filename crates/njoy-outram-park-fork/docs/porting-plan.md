@@ -72,7 +72,7 @@ Status legend: ✅ done · 🟡 partial · ⏳ scaffolded/stub · ⬜ not starte
 |---|---|---|---|---|
 | `modules::reconr` | `reconr.f90` | 5.7k | 2 | ✅ resonance reconstruction |
 | `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) |
-| `modules::heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5) done, `src/heatr.rs`; full photon energy-balance + damage (H6–H7) deferred — see sub-phase table below (ACE 4e depends on the full method) |
+| `modules::heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5) + elastic damage energy (H7 partial) done, `src/heatr.rs`; full photon energy-balance (H6) deferred, H7 anisotropy/other channels remaining — see sub-phase table below (ACE 4e depends on the full method) |
 | `modules::gaspr` | `gaspr.f90` | 1.15k | 3 | ✅ gas production (MT=203–207), lumped-channel case only — see `src/gaspr.rs` |
 | `modules::purr` | `purr.f90` | 2.9k | 3 | ⬜ URR probability tables |
 | `modules::thermr` | `thermr.f90` | 3.4k | 3 | 🟡 MF=7 reader + coherent/incoherent elastic + inelastic physics; no module driver |
@@ -196,9 +196,30 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
     `heatr.f90` algorithm proper: MF=12–15 / MF=6 photon-production data,
     momentum-conservation capture recoil, and using H1–H5 as the *kinematic
     check* NJOY itself runs the full method against (`kchk` branch).
-  - **H7 — Damage energy (MT=444).** ⬜ **deferred.** Lindhard
-    electronic-screening partition function + per-element displacement
-    threshold table.
+  - **H7 — Damage energy (MT=444).** 🟡 elastic ported, `src/heatr.rs`
+    ([`DamageEnergy`]). Ports the Lindhard-Robinson partition `df` (`heatr.f90`)
+    — the fraction of a recoil's kinetic energy that goes into atomic
+    displacements rather than electronic excitation — plus NJOY's per-element
+    default displacement-threshold table [`default_displacement_energy`] (C=31,
+    Al=27, Fe/Ti–Cu/Zr/Nb=40, Mo/Ag=60, Ta/W=90, Pb=25, 25 eV fallback). The
+    elastic (MT=2) damage cross section is `σ_el(E)·⟨df⟩` with `⟨df⟩` the recoil
+    average over the **isotropic-CM** uniform recoil distribution `[0, E_max]`,
+    `E_max = 4A/(A+1)²·E` (composite-Simpson integral of `df` over `[E_d, E_max]`,
+    where it is smooth). **Remaining H7**: MF=4 angular anisotropy reweighting the
+    recoil (NJOY's 64-point Gauss-Legendre `disbar`), and the discrete-level /
+    (n,xn) / capture-recoil (`capdam`) channels — all reuse the same `df`.
+
+    **V&V (methodology + results).** Five unit tests in `src/heatr.rs`
+    (`cargo test -p njoy-outram-park-fork --lib heatr`, 24/24 green 2026-07-04):
+    (i) the default-`E_d` table reproduces NJOY's values; (ii) `df = 0` below
+    `E_d` and `0 < df ≤ E_R` above (partition only *removes* energy); (iii) the
+    damage fraction `df/E_R` is ≈1 just above threshold and `< 0.1` at 10 MeV
+    (electronic stopping dominates) and falls monotonically — the Lindhard
+    signature; (iv) for Fe (A=56, E_d=40 eV) the elastic MT=444 is 0 at 100 eV
+    (E_max ≈ 6.9 eV < E_d), positive and monotically rising above, and per
+    collision **< the H1 heating** `σ·E·2A/(A+1)²` at every energy (damage is a
+    partition of the recoil energy heating counts in full); (v) empty table when
+    no elastic section.
 
 - **Phase 4 — ACER.** Emit an ACE file OpenMC loads and runs. **This is the
   milestone that satisfies the OpenMC dependency.** Largest single phase

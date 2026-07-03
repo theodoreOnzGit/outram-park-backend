@@ -30,8 +30,13 @@
 //!   `ȳ` neutrons each escape carrying the emission spectrum's mean energy, and
 //!   `E + Q` minus that total deposits locally. A reaction whose emission
 //!   spectrum is not supplied contributes 0 (excluded, not guessed).
-//! - **H6–H7** (deferred): the full photon energy-balance method, and damage
-//!   energy (MT=444).
+//! - **H7** (started): damage-energy production, ENDF **MT=444** — the
+//!   Lindhard-Robinson partition of recoil kinetic energy between atomic
+//!   displacements and electronic excitation, [`DamageEnergy`]. Elastic
+//!   (MT=2) is ported (the dominant DPA channel); discrete-level and
+//!   capture-recoil damage share the same [`lindhard_damage`] partition and
+//!   follow. Distinct output quantity from the MT=301 heating KERMA above.
+//! - **H6** (deferred): the full photon energy-balance method.
 //!
 //! ## Elastic kinematics (H1)
 //!
@@ -292,6 +297,171 @@ impl Kerma {
             .collect();
         eval_lin_lin(&pairs, e)
     }
+}
+
+// ── H7: damage-energy production (MT=444) ───────────────────────────────────
+
+/// Default atomic displacement threshold energy `E_d` \[eV\] for element `z`
+/// (proton number), NJOY `heatr.f90`'s built-in table (used when the user does
+/// not override it). Recoils below `E_d` produce no lattice damage. Values are
+/// the standard ASTM/NJOY defaults: 25 eV for most elements, higher for the
+/// refractory / heavy metals. `z=0` (unknown) falls back to 25 eV.
+///
+/// | Z | element(s) | `E_d` \[eV\] |
+/// |---|---|---|
+/// | 4, 6 | Be, C | 31 |
+/// | 12, 14 | Mg, Si | 25 |
+/// | 13 | Al | 27 |
+/// | 20, 22–29, 40, 41 | Ca, Ti–Cu, Zr, Nb | 40 |
+/// | 42, 47 | Mo, Ag | 60 |
+/// | 73, 74 | Ta, W | 90 |
+/// | 79 | Au | 30 |
+/// | 82 | Pb | 25 |
+/// | (all others) | — | 25 |
+pub fn default_displacement_energy(z: u32) -> f64 {
+    match z {
+        4 | 6 => 31.0,
+        12 | 14 => 25.0,
+        13 => 27.0,
+        20 | 22..=29 | 40 | 41 => 40.0,
+        42 | 47 => 60.0,
+        73 | 74 => 90.0,
+        79 => 30.0,
+        82 => 25.0,
+        _ => 25.0,
+    }
+}
+
+/// Lindhard-Robinson damage-partition function `df(E_R)` \[eV\]: of a recoiling
+/// atom's kinetic energy `e_recoil` \[eV\], the portion that goes into further
+/// atomic displacements (damage energy) rather than electronic excitation
+/// (which does not displace atoms). Faithful port of `heatr.f90`'s `df`.
+///
+/// The recoiling atom has proton/mass numbers `(z_r, a_r)` and travels through a
+/// lattice of atoms `(z_l, a_l)` (`a_*` are mass ratios, `= AWR`; for a
+/// self-recoil — e.g. elastic scattering — recoil and lattice are the same
+/// atom). `e_d` is the displacement threshold \[eV\]: recoils below it produce
+/// no damage, so `df = 0`. The Robinson analytic fit to Lindhard's partition is
+///
+/// ```text
+///   ε   = E_R / E_L                          (reduced recoil energy)
+///   df  = E_R / [ 1 + f_L·(3.4008·ε^{1/6} + 0.40244·ε^{3/4} + ε) ]
+/// ```
+///
+/// with `E_L` and `f_L` the Lindhard screening constants built from the Z's and
+/// A's. As `E_R → E_d⁺` the bracket → 1 so `df → E_R` (nearly all recoil energy
+/// displaces atoms); as `E_R ≫ E_L` electronic stopping dominates and `df ≪ E_R`.
+fn lindhard_damage(e_recoil: f64, z_r: f64, a_r: f64, z_l: f64, a_l: f64, e_d: f64) -> f64 {
+    const C1: f64 = 30.724;
+    const C2: f64 = 0.0793;
+    const C3: f64 = 3.4008;
+    const C4: f64 = 0.40244;
+    if z_r == 0.0 || e_recoil < e_d {
+        return 0.0;
+    }
+    let zr23 = z_r.powf(2.0 / 3.0);
+    let zl23 = z_l.powf(2.0 / 3.0);
+    let e_l = C1 * z_r * z_l * (zr23 + zl23).sqrt() * (a_r + a_l) / a_l;
+    let denom = (zr23 + zl23).powf(0.75) * a_r.powf(1.5) * a_l.sqrt();
+    let f_l = C2 * zr23 * z_l.sqrt() * (a_r + a_l).powf(1.5) / denom;
+    let ep = e_recoil / e_l;
+    e_recoil / (1.0 + f_l * (C3 * ep.powf(1.0 / 6.0) + C4 * ep.powf(0.75) + ep))
+}
+
+/// Damage-energy production cross section, ENDF **MT=444**, vs incident energy
+/// \[eV\], in \[eV·barn\] (damage energy × cross section — same convention as the
+/// MT=301 [`Kerma`]).
+///
+/// Built from a [`ReconrResult`] via [`DamageEnergy::from_reconr`]; evaluated
+/// with [`DamageEnergy::eval`]. **Elastic (MT=2) only** for now — the dominant
+/// displacement channel. Per incident energy `E`, the damage cross section is
+///
+/// ```text
+///   σ_444(E) = σ_el(E) · ⟨df(E_R)⟩,
+/// ```
+///
+/// the elastic cross section times the recoil-averaged Lindhard damage energy.
+/// For **isotropic** centre-of-mass elastic scattering the recoil energy is
+/// uniform on `[0, E_max]` with `E_max = 4A/(A+1)²·E` (backscatter maximum), so
+/// `⟨df⟩ = (1/E_max)·∫₀^{E_max} df(E_R) dE_R` (with `df = 0` below `E_d`). MF=4
+/// angular anisotropy (which reweights the recoil distribution — `heatr.f90`'s
+/// 64-point Gauss-Legendre `disbar` integration) is the next H7 sub-step.
+#[derive(Debug, Clone, Default)]
+pub struct DamageEnergy {
+    /// Elastic incident-energy grid \[eV\], ascending.
+    pub energy: Vec<f64>,
+    /// `σ_el(E)·⟨df⟩` \[eV·barn\], aligned with `energy`.
+    pub d: Vec<f64>,
+}
+
+impl DamageEnergy {
+    /// Compute the elastic damage-energy cross section (MT=444) from a
+    /// reconstructed evaluation.
+    ///
+    /// The target's proton number `z` and displacement threshold `e_d` \[eV\]
+    /// (pass [`default_displacement_energy`]`(z)` for the built-in default) set
+    /// the Lindhard partition; mass ratio `A` comes from
+    /// `recon.material.awr`. Returns an empty table if the material has no
+    /// elastic (MT=2) section.
+    pub fn from_reconr(recon: &ReconrResult, z: u32, e_d: f64) -> Self {
+        let awr = recon.material.awr;
+        let zf = z as f64;
+        let elastic = match recon.sections.iter().find(|s| s.mt == MtReaction::Mt2Elastic) {
+            Some(s) => s,
+            None => return DamageEnergy::default(),
+        };
+        let e_max_factor = 4.0 * awr / (awr + 1.0).powi(2);
+        let energy: Vec<f64> = elastic.pairs.iter().map(|&(e, _)| e).collect();
+        let d = energy
+            .iter()
+            .map(|&e| {
+                let sigma = eval_lin_lin(&elastic.pairs, e);
+                if sigma == 0.0 {
+                    return 0.0;
+                }
+                let e_max = e_max_factor * e;
+                let dbar = mean_elastic_damage(e_max, zf, awr, e_d);
+                sigma * dbar
+            })
+            .collect();
+        DamageEnergy { energy, d }
+    }
+
+    /// Evaluate the damage-energy cross section \[eV·barn\] at incident energy
+    /// `e` \[eV\] (lin-lin interpolated, clamped at the tabulated ends).
+    pub fn eval(&self, e: f64) -> f64 {
+        if self.energy.is_empty() {
+            return 0.0;
+        }
+        let pairs: Vec<(f64, f64)> =
+            self.energy.iter().copied().zip(self.d.iter().copied()).collect();
+        eval_lin_lin(&pairs, e)
+    }
+}
+
+/// Recoil-averaged Lindhard damage energy `⟨df⟩` \[eV\] for **isotropic-CM**
+/// elastic scattering: the mean of [`lindhard_damage`] over a recoil energy
+/// uniform on `[0, e_max]`. Since `df = 0` below `e_d`, the average is
+/// `(1/e_max)·∫_{e_d}^{e_max} df dE_R`, computed by composite Simpson's rule
+/// over the smooth region `[e_d, e_max]` (the integrand is discontinuous at
+/// `e_d`, so integrating from there avoids the kink). Zero if `e_max ≤ e_d`.
+fn mean_elastic_damage(e_max: f64, z: f64, awr: f64, e_d: f64) -> f64 {
+    if e_max <= e_d {
+        return 0.0;
+    }
+    // Composite Simpson over [e_d, e_max]; df is smooth there, so a fixed even
+    // panel count is accurate and cheap.
+    const N: usize = 400; // even
+    let h = (e_max - e_d) / N as f64;
+    let mut acc = lindhard_damage(e_d, z, awr, z, awr, e_d)
+        + lindhard_damage(e_max, z, awr, z, awr, e_d);
+    for i in 1..N {
+        let er = e_d + i as f64 * h;
+        let w = if i % 2 == 1 { 4.0 } else { 2.0 };
+        acc += w * lindhard_damage(er, z, awr, z, awr, e_d);
+    }
+    let integral = acc * h / 3.0;
+    integral / e_max
 }
 
 #[cfg(test)]
@@ -882,5 +1052,93 @@ mod tests {
             + 1.0 * (e + 200.0e6 - 2.6 * mean_chi)
             + 0.6 * (e - 8.0e6 - 2.0 * mean_n2n);
         assert!((h - expected).abs() / expected.abs() < 1.0e-9, "got {h}, want {expected}");
+    }
+
+    // ── H7: damage energy (MT=444) ─────────────────────────────────────────
+
+    /// **H7.** The default displacement-threshold table matches NJOY's built-in
+    /// values (C=31, Al=27, Fe=40, W=90, Pb=25, and the 25 eV fallback).
+    #[test]
+    fn default_displacement_energies_match_njoy_table() {
+        assert_eq!(default_displacement_energy(6), 31.0); // carbon
+        assert_eq!(default_displacement_energy(13), 27.0); // aluminium
+        assert_eq!(default_displacement_energy(26), 40.0); // iron
+        assert_eq!(default_displacement_energy(74), 90.0); // tungsten
+        assert_eq!(default_displacement_energy(82), 25.0); // lead
+        assert_eq!(default_displacement_energy(1), 25.0); // fallback
+    }
+
+    /// **H7.** The Lindhard partition is 0 below the displacement threshold, and
+    /// above it never exceeds the recoil energy (electronic losses only ever
+    /// *remove* energy from the displacement channel).
+    #[test]
+    fn lindhard_partition_bounds() {
+        let (z, a, e_d) = (26.0, 56.0, 40.0); // iron
+        assert_eq!(lindhard_damage(30.0, z, a, z, a, e_d), 0.0, "below E_d ⇒ 0");
+        for &er in &[50.0, 1.0e3, 1.0e5, 1.0e7] {
+            let df = lindhard_damage(er, z, a, z, a, e_d);
+            assert!(df > 0.0 && df <= er, "0 < df({er})={df} ≤ E_R");
+        }
+    }
+
+    /// **H7.** At low recoil energy (just above threshold) almost all energy
+    /// stays in the displacement channel (`df ≈ E_R`); at very high recoil energy
+    /// electronic stopping dominates and the damage fraction collapses
+    /// (`df/E_R ≪ 1`) — the qualitative signature of the Lindhard partition.
+    #[test]
+    fn lindhard_damage_fraction_falls_with_energy() {
+        let (z, a, e_d) = (26.0, 56.0, 40.0);
+        let low = lindhard_damage(100.0, z, a, z, a, e_d) / 100.0;
+        let high = lindhard_damage(1.0e7, z, a, z, a, e_d) / 1.0e7;
+        assert!(low > 0.7, "near threshold df/E_R={low} should be ≈1");
+        assert!(high < 0.1, "at 10 MeV df/E_R={high} should be ≪1");
+        assert!(low > high, "damage fraction must fall with recoil energy");
+    }
+
+    /// **H7.** Elastic damage cross section: zero at incident energies so low the
+    /// maximum recoil `E_max = 4A/(A+1)²·E` cannot reach `E_d`, positive above,
+    /// and monotonically increasing — and the per-collision damage energy never
+    /// exceeds the per-collision *heating* (H1), since displacement energy is a
+    /// partition of the recoil energy that heating already counts in full.
+    #[test]
+    fn elastic_damage_is_bounded_by_heating() {
+        let awr = 56.0; // iron
+        let z = 26;
+        let e_d = default_displacement_energy(z);
+        let sigma = 3.0; // barn, flat
+        let sec = ReconrSection {
+            mt: MtReaction::Mt2Elastic,
+            qi: 0.0,
+            pairs: vec![(1.0e2, sigma), (1.0e5, sigma), (1.0e6, sigma), (1.4e7, sigma)],
+        };
+        let dmg = DamageEnergy::from_reconr(&recon(awr, vec![sec]), z, e_d);
+
+        // E_max at 100 eV: 4·56/57²·100 ≈ 6.9 eV < E_d=40 ⇒ no damage.
+        assert_eq!(dmg.eval(1.0e2), 0.0, "below-threshold recoil ⇒ zero damage");
+
+        let f = 2.0 * awr / (awr + 1.0).powi(2); // H1 heating factor
+        let mut prev = 0.0;
+        for &e in &[1.0e5, 1.0e6, 1.4e7] {
+            let d = dmg.eval(e);
+            let heating = sigma * e * f; // H1 elastic heating (eV·barn)
+            assert!(d > 0.0, "damage must be positive at {e} eV, got {d}");
+            assert!(d < heating, "damage {d} must be < heating {heating} at {e} eV");
+            assert!(d > prev, "damage must increase with energy ({e} eV)");
+            prev = d;
+        }
+    }
+
+    /// **H7.** A material with no elastic section yields an empty MT=444 table
+    /// (elastic is the only channel ported so far).
+    #[test]
+    fn damage_empty_without_elastic() {
+        let sec = ReconrSection {
+            mt: MtReaction::Mt102Capture,
+            qi: 6.0e6,
+            pairs: vec![(1.0e5, 2.0), (1.0e6, 2.0)],
+        };
+        let dmg = DamageEnergy::from_reconr(&recon(56.0, vec![sec]), 26, 40.0);
+        assert!(dmg.energy.is_empty());
+        assert_eq!(dmg.eval(5.0e5), 0.0);
     }
 }
