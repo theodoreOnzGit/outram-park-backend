@@ -664,3 +664,82 @@ information NJOY *derives* per-MT was already sitting in this crate's
 `MtReaction` naming from earlier porting work. Not wired into any transport
 path (openmc-libs) — this is nuclear-data-processing output only, consumed by
 future depletion/materials tooling, not the k-eigenvalue driver.
+
+## 2026-07 — HEATR: kinematic-limit KERMA, phases H1–H4 (njoy)
+
+### Methodology
+
+`heatr.f90` (~6.3k lines) computes MT=301 heating (KERMA) via a **photon
+energy-balance method**: it needs MF=12–15/MF=6 photon-production data,
+momentum conservation for capture recoil, and (separately) a Lindhard-partition
+damage-energy calculation — too large for a single-pass port like GASPR
+(1.15k lines). It was broken into 7 phases (`docs/porting-plan.md` §HEATR
+sub-phases), each its own commit; **H1–H4 are done tonight**, H5–H7 deferred.
+
+All four phases share one physical idea — the **kinematic-limit KERMA**:
+every escaping *neutron* carries its kinetic energy away from the local
+region; everything else (nuclear recoil, charged particles, and — per NJOY's
+own documented fallback, "deposits all photon energy locally when \[photon\]
+files are not available" — photon energy) deposits locally. `heatr.f90` itself
+computes this exact quantity as a **check** (`kchk`) against its full
+photon-transport method; here (`src/heatr.rs`) it is the primary result.
+
+- **H1 — elastic (MT=2).** Two-body kinematics averaged over isotropic CM
+  scattering: `H(E) = σ(E)·E·2A/(A+1)²`. Independently reproduces the textbook
+  fact that hydrogen (A=1) loses on average exactly half its energy per
+  elastic collision.
+- **H2 — local-deposition reactions (MT=102, 103–117).** No escaping neutron
+  (pure capture, or capture + charged particle(s) that stay local):
+  `H(E) = σ(E)·(E+Q)` — all of `E+Q` deposits, since nothing carries energy
+  away.
+- **H3 — single-escaping-neutron reactions (MT=4, 22, 23, 28, 29, 32–36, 44,
+  45, discrete levels 51–90).** Derived the two-body-with-Q generalization of
+  H1: `H(E) = σ(E)·[E·2A/(A+1)² + Q/(A+1)]` (reduces exactly to H1 at `Q=0` —
+  verified as a test). Caught a real bug mid-implementation: MT=51–90 have
+  individually *named* enum variants (`Mt51NnLevel1`, …), not a generic
+  `Unknown(n)` catch-all as assumed — the initial `Unknown(n) if
+  (51..=90).contains(&n)` guard was dead code. Fixed by matching on
+  `mt.number()` instead of variant shape.
+- **H4 — fission (MT=18, 19–21, 38).** `H(E) = σ_f(E)·[E + Q_fission −
+  ν̄(E)·⟨E'⟩]` — the multi-neutron generalization of H2/H3's energy balance:
+  `ν̄` escaping neutrons each carry the birth spectrum's mean energy `⟨E'⟩`,
+  everything else deposits locally. Reused this session's `NuBar` (ν̄) and
+  added `FissionSpectrum::mean_energy` (⟨E'⟩ — closed-form for the analytic
+  MF=5 laws, trapezoidal quadrature for the tabulated ones), a direct
+  beneficiary of the earlier MF=5 porting work in the same session.
+
+### Results (2026-07-04, unit tests — no live nuclide's real evaluation was
+run through this path yet; validated against closed-form kinematics and
+physical sanity bounds)
+
+14 tests in `heatr::tests`, all passing:
+
+| Test | Claim checked |
+|---|---|
+| `hydrogen_elastic_loses_half_its_energy` | H1 exact: A=1 ⇒ H=σE/2 |
+| `heavy_target_transfers_small_fraction` | H1 asymptotic: H/(σE)→2/A as A→∞ |
+| `capture_deposits_e_plus_q`, `charged_particle_only_exit_deposits_e_plus_q` | H2 exact: H=σ(E+Q) |
+| `single_neutron_at_q_zero_matches_elastic_formula` | H3→H1 at Q=0 |
+| `discrete_level_heating_is_reduced_by_negative_q` | H3: negative Q reduces H below the Q=0 term |
+| `nn_alpha_family_uses_single_neutron_formula` | H3 applies to (n,n'α)-family MTs, not just discrete levels |
+| `fission_heating_matches_energy_balance_formula` | H4 exact vs the closed-form Watt mean |
+| `fission_heating_is_positive_and_order_200_mev` | H4 sanity: ~190 MeV/fission, not a sign error |
+| `all_three_phases_sum_additively`, `all_four_phases_sum_additively`, `elastic_and_capture_sum_additively` | union-grid summation across reaction types |
+| `not_yet_modeled_reactions_contribute_nothing` | H5 (multi-neutron exit) correctly excluded, not silently wrong |
+| `eval_interpolates_between_grid_points` | lin-lin interpolation on the union grid |
+
+Full njoy suite after H4: **121 lib tests** (up from 105 pre-HEATR), all green
+(`crates/njoy-outram-park-fork/scripts/test.sh`, capped run).
+
+### Finding
+
+The kinematic-limit KERMA is a real, if approximate, NJOY code path (not an
+invented shortcut) — it's what `heatr.f90` itself falls back to for
+materials/reactions without photon-production data. Four phases now give
+MT=301 heating for the reactions that dominate a typical fast-spectrum
+material's energy deposition (elastic, capture, discrete inelastic, fission);
+the remaining gap (H5: multi-neutron-exit + continuum inelastic, contributing
+0 for now) is a minority of the total cross section for most nuclides. H6
+(the full photon energy-balance method) and H7 (damage energy) remain
+deferred — genuinely larger undertakings needing MF=12–15/MF=6 photon data
+and a separate Lindhard-partition model, not reachable in this session.
