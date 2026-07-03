@@ -15,6 +15,7 @@
 //! | Inelastic | group remainder, evaporation (no levels) | explicit MT=51…91 energy-loss law |
 //! | Elastic angle | forward-peaked from group μ̄ (max-entropy) | anisotropic (full ENDF MF=4) |
 //! | (n,2n) | lumped in group total (no multiplication) | MT=16, yield-2 multiplicity |
+//! | Fission χ | fixed thermal-Watt spectrum | energy-dependent ENDF MF=5/MT=18 (LF=1) |
 //! | Needs network | no | yes (cached after first run) |
 //!
 //! For each of the three uranium isotopes in HEU metal this:
@@ -52,7 +53,8 @@
 //! | HIGH: CE data only, elastic-lumped | 1.12451 ± 0.00202 | +12 451 pcm |
 //! | HIGH: + inelastic energy-loss law | 1.09942 ± 0.00169 | +9 942 pcm |
 //! | HIGH: + anisotropic MF=4 elastic | 0.99701 ± 0.00168 | −299 pcm |
-//! | HIGH: + **(n,2n) yield-2 multiplicity** | **0.99872 ± 0.00173** | **−128 pcm** |
+//! | HIGH: + (n,2n) yield-2 multiplicity | 0.99872 ± 0.00173 | −128 pcm |
+//! | HIGH: + **energy-dependent MF=5 χ** | **1.00367 ± 0.00182** | **+367 pcm** |
 //!
 //! **Interpretation — the key findings** (full derivation in
 //! `docs/development-history.md`). Three effects were isolated in sequence, and

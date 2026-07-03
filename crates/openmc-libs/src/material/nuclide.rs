@@ -17,9 +17,10 @@
 /// `docs/keff-doppler-roadmap.md`. The transport kernel only ever calls
 /// [`Nuclide::xs_at_energy`]; it never touches WMP, ENDF, or HDF5.
 
+use crate::rng::distributions::watt;
 use crate::rng::lcg::prn;
 use njoy_outram_park_fork::ace::angular::ElasticAngular;
-use njoy_outram_park_fork::nuclear_data::secondary::NuBar;
+use njoy_outram_park_fork::nuclear_data::secondary::{ChiEout, ChiTabular, FissionSpectrum, NuBar};
 use njoy_outram_park_fork::nuclear_data::{Mgxs, MgxsLibrary};
 use njoy_outram_park_fork::reconr::ReconrResult;
 use njoy_outram_park_fork::wmp::{WindowedMultipole, WmpLibrary};
@@ -155,6 +156,10 @@ pub struct Nuclide {
     pub awr: f64,
     /// Average neutron yield ν̄(E).
     nu: NuBar,
+    /// Fission-neutron birth spectrum χ. HIGH tier: the energy-dependent ENDF
+    /// MF=5/MT=18 χ(E→E') when the tape carries an LF=1 law; otherwise (and for the
+    /// LOW tier) the fixed thermal-Watt stand-in. Drives [`Nuclide::sample_fission_energy`].
+    chi: FissionSpectrum,
     /// The cross-section representation (LOW `Core` vs HIGH `Pointwise`).
     xs: XsSource,
 }
@@ -176,7 +181,9 @@ impl Nuclide {
         let e_max = wmp.e_max;
         let fast = MgxsLibrary::core().get(name).cloned();
         let nu = nubar_for(name, wmp.fissionable);
-        Ok(Self { name: name.to_string(), awr, nu, xs: XsSource::Core { e_max, wmp, fast } })
+        // LOW tier carries no embedded MF=5; birth from the thermal-Watt stand-in.
+        let chi = FissionSpectrum::default();
+        Ok(Self { name: name.to_string(), awr, nu, chi, xs: XsSource::Core { e_max, wmp, fast } })
     }
 
     /// **HIGH fidelity.** Build a nuclide from a raw ENDF tape downloaded from a
@@ -240,6 +247,11 @@ impl Nuclide {
         //    non-fissionable nuclide, which has no MF=1/452 section).
         let nu = NuBar::from_endf(&tape, mat)?.unwrap_or_else(|| nubar_for(name, false));
 
+        // 4b. Energy-dependent fission spectrum χ(E→E') from MF=5/MT=18 (LF=1). A
+        //     non-fissionable nuclide (no MF=5) or an unsupported LF falls back to
+        //     the thermal-Watt stand-in — harmless, since such nuclides never fission.
+        let chi = FissionSpectrum::from_endf_mf5(&tape, mat)?.unwrap_or_default();
+
         // 5. Extract the inelastic level structure (MT=51…91) once, for
         //    energy-loss scattering in transport.
         let inel = build_inelastic_levels(&recon);
@@ -256,6 +268,7 @@ impl Nuclide {
             name: name.to_string(),
             awr,
             nu,
+            chi,
             xs: XsSource::Pointwise { recon, inel, elastic_angular },
         })
     }
@@ -445,6 +458,190 @@ impl Nuclide {
             return Some(2.0 * prn(seed) - 1.0);
         }
         Some(sample_tabular_mu(&chosen.cosines, &chosen.pdf, &chosen.cdf, prn(seed)))
+    }
+
+    /// Sample a fission-neutron birth energy \[eV\] given the incident energy
+    /// `e_in` \[eV\] of the neutron that induced the fission.
+    ///
+    /// - **HIGH tier** with an ENDF MF=5 χ ([`FissionSpectrum::ContinuousTabular`]):
+    ///   the real energy-dependent prompt fission spectrum, sampled by
+    ///   [`sample_continuous_tabular`] (a port of OpenMC
+    ///   `ContinuousTabular::sample`, `src/distribution_energy.cpp`). The outgoing
+    ///   spectrum hardens with `e_in`, which the fixed Watt form cannot capture.
+    /// - **Otherwise** (LOW tier, or a nuclide whose tape lacked an LF=1 MF=5): the
+    ///   thermal-Watt stand-in `χ(E') ∝ e^{−E'/a} sinh √(bE')`, independent of `e_in`.
+    ///
+    /// This is the fission-source birth spectrum the k-eigenvalue driver banks with.
+    pub fn sample_fission_energy(&self, e_in: f64, seed: &mut u64) -> f64 {
+        match &self.chi {
+            FissionSpectrum::ContinuousTabular(chi) => {
+                sample_continuous_tabular(chi, e_in, seed)
+            }
+            FissionSpectrum::Watt { a, b } => watt(seed, *a, *b),
+            FissionSpectrum::Tabulated { e_out, pdf } => {
+                sample_tabulated_energy(e_out, pdf, prn(seed))
+            }
+        }
+    }
+}
+
+/// Sample an outgoing fission-neutron energy \[eV\] from an energy-dependent ENDF
+/// MF=5 χ(E→E') at incident energy `e_in` \[eV\] — a direct port of OpenMC
+/// `ContinuousTabular::sample` (`src/distribution_energy.cpp`), specialized to the
+/// no-discrete-lines case (`n_discrete = 0`) that a fission spectrum always is, and
+/// to a lin-lin incident-energy grid (ENDF INT=2, as the ENDF/B-VII.1 U fission
+/// TAB2 uses):
+///
+/// 1. locate the incident-energy bin `i` and interpolation factor `r`;
+/// 2. statistically pick the lower/upper table `l` (`r > ξ ? i+1 : i`);
+/// 3. invert the chosen table's outgoing-energy CDF ([`sample_ct_table`]); then
+/// 4. scale the sampled E' between the `i` and `i+1` tables' \[E₁, E_K\] envelopes so
+///    the outgoing energy tracks the incident-energy interpolation.
+fn sample_continuous_tabular(chi: &ChiTabular, e_in: f64, seed: &mut u64) -> f64 {
+    let energy = &chi.incident;
+    let n = energy.len();
+    if n == 0 {
+        return 0.0;
+    }
+    if n == 1 {
+        return sample_ct_table(&chi.tables[0], prn(seed));
+    }
+
+    // (1) incident-energy bin + interpolation factor (clamp outside the grid).
+    let (i, r) = if e_in < energy[0] {
+        (0usize, 0.0)
+    } else if e_in > energy[n - 1] {
+        (n - 2, 1.0)
+    } else {
+        let mut i = 0;
+        while i + 1 < n && energy[i + 1] <= e_in {
+            i += 1;
+        }
+        let i = i.min(n - 2);
+        (i, (e_in - energy[i]) / (energy[i + 1] - energy[i]))
+    };
+
+    // (2) statistically pick the lower or upper table.
+    let l = if r > prn(seed) { i + 1 } else { i };
+
+    // (3) invert table l's outgoing-energy CDF.
+    let e_out = sample_ct_table(&chi.tables[l], prn(seed));
+
+    // (4) interpolate the outgoing energy between the i and i+1 table envelopes.
+    let ti = &chi.tables[i];
+    let ti1 = &chi.tables[i + 1];
+    let (e_i_1, e_i_k) = (ti.e_out[0], ti.e_out[ti.e_out.len() - 1]);
+    let (e_i1_1, e_i1_k) = (ti1.e_out[0], ti1.e_out[ti1.e_out.len() - 1]);
+    let e_1 = e_i_1 + r * (e_i1_1 - e_i_1);
+    let e_k = e_i_k + r * (e_i1_k - e_i_k);
+    if l == i {
+        if e_i_k > e_i_1 {
+            e_1 + (e_out - e_i_1) * (e_k - e_1) / (e_i_k - e_i_1)
+        } else {
+            e_out
+        }
+    } else if e_i1_k > e_i1_1 {
+        e_1 + (e_out - e_i1_1) * (e_k - e_1) / (e_i1_k - e_i1_1)
+    } else {
+        e_out
+    }
+}
+
+/// Invert one outgoing-energy table's CDF at a uniform draw `r1 ∈ [0, 1)`,
+/// returning the sampled E' \[eV\]. The inner CDF search + interpolation of OpenMC
+/// `ContinuousTabular::sample`: walk the CDF to the bin `k` with `c[k] ≤ r1 <
+/// c[k+1]`, then invert the density over that bin — the quadratic lin-lin inverse
+/// `E' = E_k + (√(p_k² + 2 f (r1 − c_k)) − p_k)/f` (with `f` the density slope), or
+/// the linear histogram inverse `E' = E_k + (r1 − c_k)/p_k`.
+fn sample_ct_table(t: &ChiEout, r1: f64) -> f64 {
+    let n = t.e_out.len();
+    if n == 1 {
+        return t.e_out[0];
+    }
+    // Continuous-portion CDF search (n_discrete = 0), mirroring the C++ loop:
+    // leaves k as the lower edge with c[k] ≤ r1 < c[k+1] (k clamped to n−2).
+    let mut c_k = t.cdf[0];
+    let mut k = 0usize;
+    let end = n.saturating_sub(2); // n_energy_out − 2
+    for j in 0..end {
+        k = j;
+        let c_k1 = t.cdf[k + 1];
+        if r1 < c_k1 {
+            break;
+        }
+        k = j + 1;
+        c_k = c_k1;
+    }
+
+    let e_l_k = t.e_out[k];
+    let p_l_k = t.pdf[k];
+    if t.linlin {
+        let e_l_k1 = t.e_out[k + 1];
+        let p_l_k1 = t.pdf[k + 1];
+        if e_l_k == e_l_k1 {
+            return e_l_k;
+        }
+        let frac = (p_l_k1 - p_l_k) / (e_l_k1 - e_l_k);
+        if frac == 0.0 {
+            if p_l_k > 0.0 {
+                e_l_k + (r1 - c_k) / p_l_k
+            } else {
+                e_l_k
+            }
+        } else {
+            e_l_k + ((p_l_k * p_l_k + 2.0 * frac * (r1 - c_k)).max(0.0).sqrt() - p_l_k) / frac
+        }
+    } else {
+        // Histogram interpolation.
+        if p_l_k > 0.0 {
+            e_l_k + (r1 - c_k) / p_l_k
+        } else {
+            e_l_k
+        }
+    }
+}
+
+/// Sample an energy \[eV\] from a static (energy-independent) tabulated χ pdf by
+/// CDF inversion — the [`FissionSpectrum::Tabulated`] arm. Builds the lin-lin CDF
+/// on the fly (this variant carries no precomputed CDF) and inverts it with the
+/// same quadratic form as [`sample_ct_table`].
+fn sample_tabulated_energy(e_out: &[f64], pdf: &[f64], r1: f64) -> f64 {
+    let n = e_out.len();
+    if n == 0 {
+        return 0.0;
+    }
+    if n == 1 {
+        return e_out[0];
+    }
+    // Cumulative trapezoidal integral of the pdf, normalized to 1.
+    let mut cdf = vec![0.0; n];
+    for k in 1..n {
+        cdf[k] = cdf[k - 1] + 0.5 * (pdf[k] + pdf[k - 1]) * (e_out[k] - e_out[k - 1]);
+    }
+    let total = cdf[n - 1];
+    if !(total > 0.0) {
+        return e_out[0];
+    }
+    let mut k = 0usize;
+    while k + 1 < n - 1 && cdf[k + 1] / total <= r1 {
+        k += 1;
+    }
+    let c_k = cdf[k] / total;
+    let p_k = pdf[k] / total;
+    let p_k1 = pdf[k + 1] / total;
+    let (x_k, x_k1) = (e_out[k], e_out[k + 1]);
+    if x_k == x_k1 {
+        return x_k;
+    }
+    let frac = (p_k1 - p_k) / (x_k1 - x_k);
+    if frac == 0.0 {
+        if p_k > 0.0 {
+            x_k + (r1 - c_k) / p_k
+        } else {
+            x_k
+        }
+    } else {
+        x_k + ((p_k * p_k + 2.0 * frac * (r1 - c_k)).max(0.0).sqrt() - p_k) / frac
     }
 }
 
@@ -661,6 +858,64 @@ mod tests {
         };
         assert!((mean(-0.4) + 0.4).abs() < 5.0e-3, "backward μ̄ reproduced");
         assert!(mean(0.0).abs() < 5.0e-3, "isotropic mean ≈ 0");
+    }
+
+    /// The MF=5 outgoing-energy CDF inversion ([`sample_ct_table`]) reproduces the
+    /// distribution it was built from. A uniform outgoing spectrum on [0, 2 MeV]
+    /// (histogram pdf, CDF = [0, ½, 1]) must sample uniformly, so a deterministic
+    /// low-discrepancy sweep of ξ recovers the analytic mean of 1 MeV and every
+    /// draw lands inside the tabulated support.
+    #[test]
+    fn ct_table_uniform_reproduces_mean() {
+        let t = ChiEout {
+            e_out: vec![0.0, 1.0e6, 2.0e6],
+            pdf: vec![5.0e-7, 5.0e-7, 5.0e-7], // ∫ = 1 over [0, 2 MeV]
+            cdf: vec![0.0, 0.5, 1.0],
+            linlin: false,
+        };
+        let n = 100_000usize;
+        let mut sum = 0.0;
+        for i in 0..n {
+            let r1 = (i as f64 + 0.5) / n as f64;
+            let e = sample_ct_table(&t, r1);
+            assert!((0.0..=2.0e6).contains(&e), "E' {e} outside tabulated support");
+            sum += e;
+        }
+        let mean = sum / n as f64;
+        assert!((mean - 1.0e6).abs() < 1.0e4, "uniform mean {mean} ≈ 1 MeV");
+    }
+
+    /// The energy-dependent χ hardens with incident energy — the whole point of the
+    /// MF=5 law over a fixed Watt spectrum. With a low-energy table on [0, 2 MeV]
+    /// and a high-energy table on [0, 4 MeV], the incident-energy envelope
+    /// interpolation ([`sample_continuous_tabular`]) must lift the mean outgoing
+    /// energy as the incident energy sweeps from the bottom to the top of the grid.
+    #[test]
+    fn continuous_tabular_hardens_with_incident_energy() {
+        let low = ChiEout {
+            e_out: vec![0.0, 1.0e6, 2.0e6],
+            pdf: vec![5.0e-7, 5.0e-7, 5.0e-7],
+            cdf: vec![0.0, 0.5, 1.0],
+            linlin: false,
+        };
+        let high = ChiEout {
+            e_out: vec![0.0, 2.0e6, 4.0e6],
+            pdf: vec![2.5e-7, 2.5e-7, 2.5e-7],
+            cdf: vec![0.0, 0.5, 1.0],
+            linlin: false,
+        };
+        let chi = ChiTabular { incident: vec![1.0e5, 2.0e7], tables: vec![low, high] };
+        let mean_at = |e_in: f64| -> f64 {
+            let mut seed = 12345u64;
+            let n = 200_000usize;
+            (0..n).map(|_| sample_continuous_tabular(&chi, e_in, &mut seed)).sum::<f64>()
+                / n as f64
+        };
+        let m_lo = mean_at(1.0e5);
+        let m_hi = mean_at(2.0e7);
+        assert!((m_lo - 1.0e6).abs() < 2.0e4, "low-incident mean {m_lo} ≈ 1 MeV");
+        assert!((m_hi - 2.0e6).abs() < 2.0e4, "high-incident mean {m_hi} ≈ 2 MeV");
+        assert!(m_hi > 1.5 * m_lo, "χ must harden: {m_lo} → {m_hi}");
     }
 
     /// The Langevin inverse round-trips: L(L⁻¹(μ̄)) = μ̄, where L(λ)=coth λ − 1/λ.

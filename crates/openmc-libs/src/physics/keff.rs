@@ -39,7 +39,9 @@
 //!   anisotropic angular distribution (per-energy tabulated cosine CDF). `(n,2n)`
 //!   (MT=16, from the reconstructed MF=3 background) is a distinct channel that
 //!   emits its true **yield-2 multiplicity** — one extra same-generation neutron,
-//!   the small positive reactivity a bare fast sphere would otherwise drop.
+//!   the small positive reactivity a bare fast sphere would otherwise drop. Fission
+//!   neutrons are born from the nuclide's **energy-dependent ENDF MF=5 χ(E→E')**
+//!   (LF=1) rather than a fixed thermal-Watt spectrum.
 //! - **LOW tier** ([`Nuclide::from_core`]) has no resolved levels: inelastic is the
 //!   group remainder (total − elastic − fission − capture), down-scattered by the
 //!   Weisskopf continuum law. Elastic is forward-peaked from a single per-group
@@ -184,8 +186,7 @@ pub fn run_keff(
 
         for site in &source {
             production += transport_history(
-                *site, &sphere, material, nuclides, temp, k_running, settings, &mut next_bank,
-                &mut seed,
+                *site, &sphere, material, nuclides, temp, k_running, &mut next_bank, &mut seed,
             );
         }
 
@@ -225,7 +226,6 @@ fn transport_history(
     nuclides: &[Nuclide],
     temp: f64,
     k_running: f64,
-    settings: &KeffSettings,
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
 ) -> f64 {
@@ -273,7 +273,10 @@ fn transport_history(
                     next_bank.push(Site {
                         r,
                         u: Direction::new(dx, dy, dz),
-                        e: watt(seed, settings.watt_a, settings.watt_b),
+                        // Birth from the fissioning nuclide's χ at the incident
+                        // energy `e` — the HIGH tier's energy-dependent ENDF MF=5
+                        // spectrum, or the thermal-Watt stand-in for the LOW tier.
+                        e: nuc.sample_fission_energy(e, seed),
                     });
                 }
                 break; // fission is a terminal absorption for the incident neutron
@@ -442,7 +445,9 @@ mod tests {
     ///   elastic scatter** (ported from OpenMC `AngleDistribution`/`Tabular`), and
     ///   **(n,2n) with its true yield-2 multiplicity** (MT=16 from the MF=3
     ///   background; one extra same-generation neutron per event, ported from
-    ///   OpenMC `inelastic_scatter`, `src/physics.cpp:1167`).
+    ///   OpenMC `inelastic_scatter`, `src/physics.cpp:1167`), and an
+    ///   **energy-dependent ENDF MF=5/MT=18 fission birth spectrum** χ(E→E')
+    ///   (LF=1, per-nuclide; ported from OpenMC `ContinuousTabular::sample`).
     ///
     /// The test asserts that **both** tiers converge to a stationary eigenvalue
     /// near unity — HIGH from continuous-energy data and the full MF=4 shape, LOW
@@ -452,25 +457,35 @@ mod tests {
     ///
     /// **Results (2026-07-03; HIGH = ENDF/B-VII.1, LOW = embedded VIII.0 group;
     /// 5000 particles, 40 inactive + 120 active generations, default seed).**
-    /// LOW k_eff = **1.01024 (+1 024 pcm)**; HIGH k_eff = **0.99872 ± 0.00173
-    /// (−128 pcm)** — both in agreement with the benchmark. The ranked HIGH-tier
+    /// LOW k_eff = **1.01024 (+1 024 pcm)**; HIGH k_eff = **1.00367 ± 0.00182
+    /// (+367 pcm)** — both in agreement with the benchmark. The ranked HIGH-tier
     /// lever contributions (anisotropic elastic ~10 300 pcm ≫ inelastic ~2 510 pcm
     /// ≫ continuous-energy data ~400 pcm) are in `docs/development-history.md`.
     ///
     /// **(n,2n) multiplicity — measured worth.** A same-settings A/B (n2n on vs
-    /// forced off) gives HIGH = 0.99872 ± 0.00173 (on) vs 0.99701 ± 0.00168 (off),
-    /// a shift of **+171 ± 241 pcm** — the physically-correct sign (an extra
-    /// neutron raises k) but only ~0.7σ, i.e. **not statistically resolved from
-    /// zero** at this statistics. That is expected: U (n,2n) has a ~5–6 MeV
-    /// threshold and sees only the thin high-energy tail of the fission spectrum,
-    /// so its Godiva worth is genuinely tens of pcm. The change is a *fidelity /
-    /// correctness* fix (mirrors OpenMC; matters for (n,xn)-sensitive spectra and
-    /// Be/D-reflected systems), not a measurable mover of Godiva's k.
+    /// forced off) gives 0.99872 ± 0.00173 (on) vs 0.99701 ± 0.00168 (off), a shift
+    /// of **+171 ± 241 pcm** — the correct sign but only ~0.7σ, **not resolved from
+    /// zero**. Expected: U (n,2n) has a ~5–6 MeV threshold and sees only the thin
+    /// high-energy tail, so its Godiva worth is tens of pcm — a *fidelity* fix.
+    ///
+    /// **Energy-dependent χ (ENDF MF=5) — measured worth.** Replacing the fixed
+    /// thermal-Watt fission birth spectrum with the real energy-dependent MF=5/MT=18
+    /// χ(E→E') (LF=1, per-nuclide, ported from OpenMC `ContinuousTabular::sample`).
+    /// A paired A/B (MF=5 vs Watt, same reconstruction and seed) gives HIGH =
+    /// **1.00367 ± 0.00182 (MF=5)** vs **0.99872 ± 0.00173 (Watt)**, a shift of
+    /// **+495 ± 251 pcm** — positive and ~2.0σ, i.e. **marginally resolved**. The
+    /// U-235 MF=5 mean outgoing energy (~2.03 MeV) is close to the thermal-Watt mean,
+    /// so the worth comes from the *shape*, not the mean: the tabulated χ keeps a
+    /// larger fraction of births in the productive 1–3 MeV band (above the U-238
+    /// fast-fission threshold, high ν̄) rather than the leaky high-energy tail the
+    /// Watt form over-populates. LOW tier keeps the Watt stand-in (no embedded MF=5),
+    /// so its k is unchanged and bit-identical — confirming the change is isolated to
+    /// the HIGH birth spectrum.
     ///
     /// Near-perfect landings likely involve some cancellation of residual
-    /// approximations (no fast self-shielding; Weisskopf stand-in for the MF=5
-    /// continuum law; fixed thermal-Watt χ instead of energy-dependent MF=5), so
-    /// the bands below are deliberately generous rather than a tight accuracy gate.
+    /// approximations (no fast self-shielding; Weisskopf stand-in for the MF=6
+    /// (n,2n) emission law), so the bands below are deliberately generous rather
+    /// than a tight accuracy gate.
     #[cfg(feature = "net-fetch")]
     #[test]
     fn godiva_high_fidelity_reaches_benchmark() {
