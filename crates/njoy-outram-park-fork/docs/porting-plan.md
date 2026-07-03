@@ -73,7 +73,7 @@ Status legend: ✅ done · 🟡 partial · ⏳ scaffolded/stub · ⬜ not starte
 | `modules::reconr` | `reconr.f90` | 5.7k | 2 | ✅ resonance reconstruction |
 | `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) |
 | `modules::heatr` | `heatr.f90` | 6.3k | 3 | ⬜ heating/KERMA + damage (ACE 4e depends on it) |
-| `modules::gaspr` | `gaspr.f90` | ~0.6k | 3 | ⬜ gas production |
+| `modules::gaspr` | `gaspr.f90` | 1.15k | 3 | ✅ gas production (MT=203–207), lumped-channel case only — see `src/gaspr.rs` |
 | `modules::purr` | `purr.f90` | 2.9k | 3 | ⬜ URR probability tables |
 | `modules::thermr` | `thermr.f90` | 3.4k | 3 | 🟡 MF=7 reader + coherent/incoherent elastic + inelastic physics; no module driver |
 | `modules::unresr` | `unresr.f90` | ~1.8k | 3 | ⬜ URR effective XS (PURR precursor) |

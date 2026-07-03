@@ -45,6 +45,10 @@ pub mod acquire;
 pub mod broadr;
 pub mod common;
 pub mod endf;
+/// `GASPR` — gas-production cross sections (ENDF MT=203–207: H1/H2/H3/He3/He4)
+/// from a reconstructed evaluation. Informational (depletion/swelling), not a
+/// transport-path quantity — see [`gaspr`] module docs.
+pub mod gaspr;
 /// User friendly interface to access njoy library (used to be called library,
 /// but I renamed as interface to avoid mixing with lib.rs) 
 ///
