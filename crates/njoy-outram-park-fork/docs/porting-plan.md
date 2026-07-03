@@ -72,7 +72,7 @@ Status legend: ✅ done · 🟡 partial · ⏳ scaffolded/stub · ⬜ not starte
 |---|---|---|---|---|
 | `modules::reconr` | `reconr.f90` | 5.7k | 2 | ✅ resonance reconstruction |
 | `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) |
-| `modules::heatr` | `heatr.f90` | 6.3k | 3 | ⬜ heating/KERMA + damage (ACE 4e depends on it) |
+| `modules::heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H4) done, `src/heatr.rs`; photon energy-balance + damage (H5–H7) deferred — see sub-phase table below (ACE 4e depends on the full method) |
 | `modules::gaspr` | `gaspr.f90` | 1.15k | 3 | ✅ gas production (MT=203–207), lumped-channel case only — see `src/gaspr.rs` |
 | `modules::purr` | `purr.f90` | 2.9k | 3 | ⬜ URR probability tables |
 | `modules::thermr` | `thermr.f90` | 3.4k | 3 | 🟡 MF=7 reader + coherent/incoherent elastic + inelastic physics; no module driver |
@@ -133,6 +133,49 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
   ported: the legacy MT=600–849 detailed-breakup fallback (pre-ENDF/B-VI style,
   rare in VII/VIII). 6 unit tests (additivity, multi-particle yields,
   two-species channels, non-gas-reaction exclusion).
+
+  **HEATR (`heatr.f90`, ~6.3k lines) sub-phases.** The full module computes
+  MT=301 heating (KERMA) by a **photon energy-balance** method (needs MF=12–15
+  / MF=6 photon-production data, momentum conservation for capture recoil) plus
+  a separate Lindhard-partition **damage-energy** calculation (MT=444) — too
+  large for one pass, unlike GASPR. Broken into small, independently-testable
+  phases, each its own commit:
+
+  - **H1 — Elastic kinematic heating (MT=2).** ✅ `src/heatr.rs`. Closed-form
+    average recoil energy for isotropic-CM elastic scattering off a mass-`A`
+    target: `H(E) = σ_el(E)·E·2A/(A+1)²` (derived from 2-body kinematics
+    averaged over isotropic `μ_cm`; independently reproduces the textbook
+    result that hydrogen, A=1, loses on average half its energy per elastic
+    collision — the test case). No photon data needed.
+  - **H2 — Local-deposition reactions (MT=102, 103–117).** ✅ `src/heatr.rs`.
+    Reactions with **no escaping neutron** (pure capture, or capture +
+    charged-particle(s) that stay local in matter): `H(E) = σ(E)·(E+Q)`. This
+    is NJOY's own documented behavior taken to its conclusion — `heatr.f90`'s
+    module doc states it "deposits all photon energy locally when \[photon\]
+    files are not available"; for a reaction with zero escaping neutrons that
+    means *all* of `E+Q` is local.
+  - **H3 — Single-escaping-neutron reactions (MT=4, 22, 23, 28, 29, 32–36, 44,
+    45, and discrete levels 51–90).** ✅ `src/heatr.rs`. Generalizes H1 to a
+    nonzero Q-value via the derived two-body-with-Q kinematics:
+    `H(E) = σ(E)·[E·2A/(A+1)² + Q/(A+1)]` (reduces to H1's formula at `Q=0`).
+    Reuses each reconstructed section's own `qi`.
+  - **H4 — Fission heating (MT=18, 19–21, 38).** ✅ `src/heatr.rs`.
+    `H(E) = σ_f(E)·[E + Q_fission − ν̄(E)·⟨E'⟩]`, reusing this session's
+    `NuBar` (ν̄) and a new `FissionSpectrum::mean_energy` (⟨E'⟩, the first
+    moment of χ — closed-form for the analytic laws, trapezoidal quadrature
+    for the tabulated ones).
+  - **H5 — Multi-neutron-exit + continuum inelastic (MT=11, 16, 17, 24, 25, 30,
+    37, 41, 42, 91).** ⬜ **deferred.** No simple closed form: needs either an
+    evaporation-spectrum mean or the actual first moment of the MF=6 emission
+    law. Currently contributes 0 to KERMA (excluded, not silently wrong).
+  - **H6 — Full photon energy-balance method.** ⬜ **deferred.** The actual
+    `heatr.f90` algorithm proper: MF=12–15 / MF=6 photon-production data,
+    momentum-conservation capture recoil, and using H1–H5 as the *kinematic
+    check* NJOY itself runs the full method against (`kchk` branch).
+  - **H7 — Damage energy (MT=444).** ⬜ **deferred.** Lindhard
+    electronic-screening partition function + per-element displacement
+    threshold table.
+
 - **Phase 4 — ACER.** Emit an ACE file OpenMC loads and runs. **This is the
   milestone that satisfies the OpenMC dependency.** Largest single phase
   (acefc.f90 alone is ~20k lines) — split by ACE block (nu, angular, energy
