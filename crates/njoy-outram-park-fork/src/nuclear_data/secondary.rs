@@ -4,11 +4,16 @@
 //! information about the neutrons a fission *emits*. A criticality (Keff)
 //! calculation needs two more pieces, both tiny enough to embed in-crate:
 //!
-//! - **ν̄(E)** — average neutrons per fission vs incident energy (ENDF MF=1/452).
-//! - **χ(E')** — the fission-neutron energy spectrum (Watt form, or MF=5 later).
+//! - **ν̄(E)** — average neutrons per fission vs incident energy (ENDF MF=1/452,
+//!   [`NuBar::from_endf`]).
+//! - **χ(E→E')** — the fission-neutron energy spectrum (ENDF MF=5/MT=18,
+//!   [`FissionSpectrum::from_endf_mf5`]): every LF code with a real sampling
+//!   algorithm is ported (LF=1/7/9/11, plus NK>1 mixtures); the fixed thermal-Watt
+//!   form remains the default for nuclides/tiers with no parsed MF=5.
 //!
-//! Sourced properly from the ACER port (4b for the NU block, 4d for χ; see
-//! `docs/porting-plan.md` §8) or hardcoded from ENDF as a stopgap.
+//! Parsed directly off the ENDF tape and consumed by `openmc-libs::Nuclide` — not
+//! routed through the ACER ACE-file writer (`src/ace/energy.rs` has its own,
+//! narrower MF=5 LF=1 parser for that separate path; see `docs/porting-plan.md` §8).
 
 /// Average neutron yield per fission, ν̄(E).
 ///
@@ -93,20 +98,63 @@ impl NuBar {
 
 /// Fission-neutron energy spectrum χ(E').
 ///
-/// A `Watt` form covers the bare-sphere first cut; `Tabulated` allows a faithful
-/// MF=5 spectrum later. Sampling is done by the transport layer; this type only
-/// *describes* the distribution.
+/// A `Watt` form covers the bare-sphere first cut. The remaining variants are the
+/// ENDF **MF=5** secondary-energy laws (LF code), each named after its ENDF LF /
+/// ACE law number; sampling is done by the transport layer (which owns the RNG),
+/// this type only *describes* the distribution. See [`FissionSpectrum::from_endf_mf5`]
+/// for which LF codes are ported.
 #[derive(Debug, Clone)]
 pub enum FissionSpectrum {
     /// Watt spectrum `χ(E') ∝ e^{−E'/a} · sinh(√(b·E'))`, `a` \[eV\], `b` \[eV⁻¹\].
+    /// Fixed (energy-independent) parameters — the pre-MF=5 stopgap, still the
+    /// LOW-tier default (no embedded MF=5).
     Watt { a: f64, b: f64 },
-    /// Tabulated χ: outgoing energy grid \[eV\] and aligned pdf.
+    /// Tabulated χ: outgoing energy grid \[eV\] and aligned pdf. Static (no
+    /// incident-energy dependence) — distinct from [`Self::ContinuousTabular`],
+    /// which is the real energy-dependent MF=5 LF=1 law.
     Tabulated { e_out: Vec<f64>, pdf: Vec<f64> },
-    /// **Energy-dependent** tabulated χ(E→E') — the ENDF MF=5 / MT=18 LF=1
-    /// "arbitrary tabulated secondary energy distribution". The faithful fission
-    /// birth spectrum: the outgoing-neutron energy distribution depends on the
-    /// incident energy of the neutron that caused the fission. See [`ChiTabular`].
+    /// **LF=1** — "arbitrary tabulated secondary energy distribution": the real
+    /// energy-dependent χ(E→E'). The faithful fission birth spectrum: the
+    /// outgoing-neutron energy distribution depends on the incident energy of the
+    /// neutron that caused the fission. See [`ChiTabular`].
     ContinuousTabular(ChiTabular),
+    /// **LF=7** — simple Maxwellian fission spectrum
+    /// `f(E→E') = √E' · e^{−E'/θ(E)} / I`, restricted to `E' ≤ E − U`. `theta` is
+    /// the incident-energy-dependent nuclear temperature θ(E) \[eV\] (ENDF TAB1);
+    /// `u` \[eV\] is the restriction energy. Mirrors OpenMC `MaxwellEnergy`
+    /// (`include/openmc/distribution_energy.h`).
+    Maxwell {
+        /// θ(E) \[eV\] vs incident energy \[eV\] (ENDF TAB1, general interpolation).
+        theta: crate::endf::Tab1,
+        /// Restriction energy U \[eV\]: `0 ≤ E' ≤ E − U`.
+        u: f64,
+    },
+    /// **LF=9** — evaporation spectrum `f(E→E') = E' · e^{−E'/θ(E)} / I`,
+    /// restricted to `E' ≤ E − U`. Mirrors OpenMC `Evaporation`.
+    Evaporation {
+        /// θ(E) \[eV\] vs incident energy \[eV\] (ENDF TAB1, general interpolation).
+        theta: crate::endf::Tab1,
+        /// Restriction energy U \[eV\].
+        u: f64,
+    },
+    /// **LF=11** — energy-dependent Watt spectrum
+    /// `f(E→E') = e^{−E'/a(E)} · sinh(√(b(E)·E')) / I`, restricted to `E' ≤ E − U`.
+    /// Unlike [`Self::Watt`], `a`/`b` are themselves tabulated functions of the
+    /// *incident* energy. Mirrors OpenMC `WattEnergy`.
+    WattEnergyDependent {
+        /// a(E) \[eV\] vs incident energy \[eV\] (ENDF TAB1).
+        a: crate::endf::Tab1,
+        /// b(E) \[eV⁻¹\] vs incident energy \[eV\] (ENDF TAB1).
+        b: crate::endf::Tab1,
+        /// Restriction energy U \[eV\].
+        u: f64,
+    },
+    /// **NK > 1** — a mixture of `NK` partial distributions, each active with
+    /// probability `p_k(E)` (an ENDF TAB1 fraction vs *incident* energy,
+    /// Σₖ p_k(E) = 1). Sampling picks a partition by `p_k(E_in)`, then samples
+    /// that partition's own law recursively. Rare for incident-neutron fission
+    /// (U-234/235/238 are all NK=1); ported for completeness.
+    Mixture(Vec<(crate::endf::Tab1, FissionSpectrum)>),
 }
 
 /// One incident energy's outgoing-neutron energy distribution g(E→E') — the inner
@@ -185,74 +233,147 @@ impl FissionSpectrum {
                     Some(t) => interp_zero(&t.e_out, &t.pdf, e),
                 }
             }
+            FissionSpectrum::Maxwell { theta, .. } => {
+                // Representative shape at the lowest tabulated incident energy.
+                let t = theta.pairs.first().map(|&(_, y)| y).unwrap_or(1.0);
+                if e <= 0.0 || t <= 0.0 {
+                    0.0
+                } else {
+                    e.sqrt() * (-e / t).exp()
+                }
+            }
+            FissionSpectrum::Evaporation { theta, .. } => {
+                let t = theta.pairs.first().map(|&(_, y)| y).unwrap_or(1.0);
+                if e <= 0.0 || t <= 0.0 {
+                    0.0
+                } else {
+                    e * (-e / t).exp()
+                }
+            }
+            FissionSpectrum::WattEnergyDependent { a, b, .. } => {
+                let a0 = a.pairs.first().map(|&(_, y)| y).unwrap_or(1.0);
+                let b0 = b.pairs.first().map(|&(_, y)| y).unwrap_or(1.0);
+                if e <= 0.0 {
+                    0.0
+                } else {
+                    (-e / a0).exp() * (b0 * e).sqrt().sinh()
+                }
+            }
+            FissionSpectrum::Mixture(parts) => parts
+                .iter()
+                .map(|(p_k, law)| {
+                    let frac = p_k.pairs.first().map(|&(_, y)| y).unwrap_or(0.0);
+                    frac * law.weight(e)
+                })
+                .sum(),
         }
     }
 
-    /// Parse the energy-dependent prompt fission-neutron spectrum χ(E→E') from
-    /// ENDF **MF=5 / MT=18** for material `mat`.
+    /// Parse the prompt fission-neutron energy spectrum χ(E→E') from ENDF
+    /// **MF=5 / MT=18** for material `mat`.
     ///
-    /// Handles the **LF=1** ("arbitrary tabulated secondary energy distribution")
-    /// representation with a single subsection (NK=1, p(E)≡1) — how the
-    /// ENDF/B-VII.1 uranium fission spectra are stored: a TAB2 over NE incident
-    /// energies, each carrying a TAB1 g(E→E') outgoing-energy density. Returns the
-    /// [`FissionSpectrum::ContinuousTabular`] form. A per-incident CDF is built by
-    /// integrating each density (lin-lin trapezoids or histogram bins) and
-    /// renormalising so `cdf[last] = 1`, matching what ACER precomputes for OpenMC.
+    /// Loops over all `NK` partial distributions (per-partition weighted by their
+    /// own `p_k(E)` fraction vs *incident* energy). For `NK = 1` (the common case
+    /// — ENDF/B-VII.1 U-234/235/238 are all NK=1) the single partition's law is
+    /// returned directly; for `NK > 1` the partitions are wrapped in
+    /// [`FissionSpectrum::Mixture`].
     ///
-    /// Returns `Ok(None)` (caller falls back to the Watt stand-in) when the
-    /// material has no MF=5/MT=18 section, `NK ≠ 1`, or `LF ≠ 1` — i.e. any
-    /// representation this port does not yet reconstruct (the LF=5/7/9/11
-    /// general-evaporation / energy-dependent Maxwell / Watt laws). ENDF/B-VII.1
-    /// U-234/235/238 are all LF=1, NK=1.
+    /// Each partition's law is selected by its ENDF **LF** code:
+    /// - **LF=1** — arbitrary tabulated: a TAB2 over NE incident energies, each an
+    ///   inner TAB1 g(E→E') outgoing-energy density → [`FissionSpectrum::ContinuousTabular`].
+    ///   A per-incident CDF is built by integrating each density (lin-lin
+    ///   trapezoids or histogram bins) and renormalising so `cdf[last] = 1`,
+    ///   matching what ACER precomputes for OpenMC.
+    /// - **LF=7** — Maxwellian: one TAB1 θ(E) → [`FissionSpectrum::Maxwell`].
+    /// - **LF=9** — evaporation: one TAB1 θ(E) → [`FissionSpectrum::Evaporation`].
+    /// - **LF=11** — energy-dependent Watt: two TAB1s a(E), b(E) →
+    ///   [`FissionSpectrum::WattEnergyDependent`].
+    /// - **LF=5** (general evaporation) and **LF=12** (Madland-Nix) are *not*
+    ///   ported: LF=5 has no sampling algorithm even in canonical OpenMC (its
+    ///   Python `GeneralEvaporation.to_hdf5` raises `NotImplementedError` —
+    ///   genuinely unsupported upstream, not a gap in this port) and LF=12 is
+    ///   vanishingly rare for incident-neutron fission. Either aborts the whole
+    ///   parse (`Ok(None)`, caller falls back to the Watt stand-in) — matching the
+    ///   ENDF requirement that Σₖ p_k(E) = 1: a partially-parsed mixture would be
+    ///   physically wrong, not just incomplete.
+    ///
+    /// Returns `Ok(None)` when the material has no MF=5/MT=18 section, or any
+    /// partition uses an unported LF.
     pub fn from_endf_mf5(
         tape: &crate::endf::tape::Tape,
         mat: i32,
     ) -> Result<Option<FissionSpectrum>, crate::NjoyError> {
-        use crate::endf::records::SectionCursor;
-
-        let sec = match tape.section(mat, 5, 18) {
-            Some(s) => s,
-            None => return Ok(None),
-        };
-        let mut cur = SectionCursor::new(&sec.rows);
-        let head = cur.read_cont()?; // HEAD: ZA, AWR, 0, 0, NK, 0
-        if head.n1 != 1 {
-            // TODO: support NK > 1 (multiple partial distributions mixed by their
-            // p_k(E) fractions). Not needed for U-234/235/238 (all NK=1); the
-            // caller falls back to the Watt stand-in for now.
-            return Ok(None);
+        match tape.section(mat, 5, 18) {
+            Some(sec) => parse_mf5_section(&sec.rows),
+            None => Ok(None),
         }
-
-        // Subsection: p_k(E) fraction (TAB1; L2 = LF), then the LF=1 body.
-        let p_tab = cur.read_tab1()?;
-        if p_tab.head.l2 != 1 {
-            // TODO: port the remaining MF=5 laws — LF=5 (general evaporation),
-            // LF=7 (Maxwell θ(E)), LF=9 (evaporation θ(E)), LF=11 (Watt a(E)/b(E)),
-            // all with energy-dependent parameters via Tabulated1D. Mirror OpenMC's
-            // Evaporation/MaxwellEnergy/WattEnergy (include/openmc/distribution_energy.h).
-            // Until then these fall back to the fixed thermal-Watt stand-in.
-            return Ok(None);
-        }
-
-        // TAB2 over NE incident energies (head.n2 = NE), each an inner TAB1.
-        let tab2 = cur.read_tab2()?;
-        let ne = tab2.head.n2.max(0) as usize;
-        let mut incident = Vec::with_capacity(ne);
-        let mut tables = Vec::with_capacity(ne);
-        for _ in 0..ne {
-            let g = cur.read_tab1()?; // header C2 = incident energy E_i; pairs (E', g)
-            let e_in = g.head.c2;
-            // INT law from the first (only) region: 1 = histogram, else lin-lin.
-            let linlin = g.interp.first().map(|&(_, law)| law != 1).unwrap_or(true);
-            let e_out: Vec<f64> = g.pairs.iter().map(|&(x, _)| x).collect();
-            let mut pdf: Vec<f64> = g.pairs.iter().map(|&(_, y)| y).collect();
-            let cdf = build_cdf(&e_out, &mut pdf, linlin);
-            incident.push(e_in);
-            tables.push(ChiEout { e_out, pdf, cdf, linlin });
-        }
-
-        Ok(Some(FissionSpectrum::ContinuousTabular(ChiTabular { incident, tables })))
     }
+}
+
+/// Row-level MF=5/MT=18 parser — the body of [`FissionSpectrum::from_endf_mf5`],
+/// factored out so it can be exercised directly against hand-built `[f64; 6]` rows
+/// in unit tests without constructing a full [`crate::endf::tape::Tape`].
+fn parse_mf5_section(rows: &[[f64; 6]]) -> Result<Option<FissionSpectrum>, crate::NjoyError> {
+    use crate::endf::records::SectionCursor;
+
+    let mut cur = SectionCursor::new(rows);
+    let head = cur.read_cont()?; // HEAD: ZA, AWR, 0, 0, NK, 0
+    let nk = head.n1.max(0) as usize;
+    if nk == 0 {
+        return Ok(None);
+    }
+
+    let mut partitions = Vec::with_capacity(nk);
+    for _ in 0..nk {
+        // Subsection header: p_k(E) fraction (TAB1; C1 = U, L2 = LF).
+        let p_tab = cur.read_tab1()?;
+        let u = p_tab.head.c1;
+        let law = match p_tab.head.l2 {
+            1 => Some(FissionSpectrum::ContinuousTabular(parse_lf1_tabular(&mut cur)?)),
+            7 => Some(FissionSpectrum::Maxwell { theta: cur.read_tab1()?, u }),
+            9 => Some(FissionSpectrum::Evaporation { theta: cur.read_tab1()?, u }),
+            11 => {
+                let a = cur.read_tab1()?;
+                let b = cur.read_tab1()?;
+                Some(FissionSpectrum::WattEnergyDependent { a, b, u })
+            }
+            _ => None, // LF=5 (unsupported upstream), LF=12 (Madland-Nix), other
+        };
+        match law {
+            Some(l) => partitions.push((p_tab, l)),
+            None => return Ok(None), // Σp_k=1 requires every partition ported
+        }
+    }
+
+    if nk == 1 {
+        Ok(Some(partitions.into_iter().next().unwrap().1))
+    } else {
+        Ok(Some(FissionSpectrum::Mixture(partitions)))
+    }
+}
+
+/// Parse the **LF=1** body (arbitrary tabulated secondary energy distribution):
+/// a TAB2 over NE incident energies, each an inner TAB1 g(E→E'). Shared by every
+/// partition of [`FissionSpectrum::from_endf_mf5`] that uses LF=1.
+fn parse_lf1_tabular(
+    cur: &mut crate::endf::records::SectionCursor<'_>,
+) -> Result<ChiTabular, crate::NjoyError> {
+    let tab2 = cur.read_tab2()?;
+    let ne = tab2.head.n2.max(0) as usize;
+    let mut incident = Vec::with_capacity(ne);
+    let mut tables = Vec::with_capacity(ne);
+    for _ in 0..ne {
+        let g = cur.read_tab1()?; // header C2 = incident energy E_i; pairs (E', g)
+        let e_in = g.head.c2;
+        // INT law from the first (only) region: 1 = histogram, else lin-lin.
+        let linlin = g.interp.first().map(|&(_, law)| law != 1).unwrap_or(true);
+        let e_out: Vec<f64> = g.pairs.iter().map(|&(x, _)| x).collect();
+        let mut pdf: Vec<f64> = g.pairs.iter().map(|&(_, y)| y).collect();
+        let cdf = build_cdf(&e_out, &mut pdf, linlin);
+        incident.push(e_in);
+        tables.push(ChiEout { e_out, pdf, cdf, linlin });
+    }
+    Ok(ChiTabular { incident, tables })
 }
 
 /// Lin-lin interpolate a tabulated density `y` on an ascending `x` grid \[eV\] at
@@ -309,4 +430,122 @@ fn build_cdf(e_out: &[f64], pdf: &mut [f64], linlin: bool) -> Vec<f64> {
         }
     }
     cdf
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// One NR=1/NP=2 lin-lin TAB1 row group: header + 1 interp row + 1 xy row.
+    /// `(nbt, int)` is the sole interpolation region; `(x0,y0)`/`(x1,y1)` the two
+    /// tabulated points. `c1`/`l2` are the header's C1 (often `U`) and L2 (often
+    /// `LF`) fields — the two the MF=5 parser reads out of each TAB1 subsection.
+    #[allow(clippy::too_many_arguments)]
+    fn tab1_rows(
+        c1: f64,
+        l2: i32,
+        nbt: u32,
+        int: u32,
+        x0: f64,
+        y0: f64,
+        x1: f64,
+        y1: f64,
+    ) -> Vec<[f64; 6]> {
+        vec![
+            [c1, 0.0, 0.0, l2 as f64, 1.0, 2.0], // header: NR=1, NP=2
+            [nbt as f64, int as f64, 0.0, 0.0, 0.0, 0.0],
+            [x0, y0, x1, y1, 0.0, 0.0],
+        ]
+    }
+
+    /// LF=7 (Maxwell): NK=1, one p_k(E)≡1 TAB1 (LF=7) + one θ(E) TAB1.
+    #[test]
+    fn parses_lf7_maxwell() {
+        let mut rows = vec![[92235.0, 233.0, 0.0, 0.0, 1.0, 0.0]]; // HEAD: NK=1
+        rows.extend(tab1_rows(0.0, 7, 2, 2, 1.0e-5, 1.0, 2.0e7, 1.0)); // p_k(E)=1
+        rows.extend(tab1_rows(0.0, 0, 2, 2, 1.0e-5, 1.0e6, 2.0e7, 1.5e6)); // θ(E)
+
+        let chi = parse_mf5_section(&rows).unwrap().unwrap();
+        match chi {
+            FissionSpectrum::Maxwell { theta, u } => {
+                assert_eq!(u, 0.0);
+                assert_eq!(theta.pairs, vec![(1.0e-5, 1.0e6), (2.0e7, 1.5e6)]);
+            }
+            other => panic!("expected Maxwell, got {other:?}"),
+        }
+    }
+
+    /// LF=9 (evaporation): same shape as LF=7, distinguished by the p_k TAB1's L2.
+    #[test]
+    fn parses_lf9_evaporation() {
+        let mut rows = vec![[92235.0, 233.0, 0.0, 0.0, 1.0, 0.0]];
+        rows.extend(tab1_rows(1.0e3, 9, 2, 2, 1.0e-5, 1.0, 2.0e7, 1.0)); // U = 1 keV
+        rows.extend(tab1_rows(0.0, 0, 2, 2, 1.0e-5, 8.0e5, 2.0e7, 1.2e6));
+
+        let chi = parse_mf5_section(&rows).unwrap().unwrap();
+        match chi {
+            FissionSpectrum::Evaporation { theta, u } => {
+                assert_eq!(u, 1.0e3);
+                assert_eq!(theta.pairs, vec![(1.0e-5, 8.0e5), (2.0e7, 1.2e6)]);
+            }
+            other => panic!("expected Evaporation, got {other:?}"),
+        }
+    }
+
+    /// LF=11 (energy-dependent Watt): p_k TAB1 (LF=11) + a(E) TAB1 + b(E) TAB1, in
+    /// that order — verifies the cursor consumes exactly the right row counts so
+    /// the second TAB1 (`b`) isn't misaligned by the first (`a`).
+    #[test]
+    fn parses_lf11_watt_energy_dependent() {
+        let mut rows = vec![[92238.0, 236.0, 0.0, 0.0, 1.0, 0.0]];
+        rows.extend(tab1_rows(0.0, 11, 2, 2, 1.0e-5, 1.0, 2.0e7, 1.0)); // p_k
+        rows.extend(tab1_rows(0.0, 0, 2, 2, 1.0e-5, 0.965e6, 2.0e7, 1.0e6)); // a(E)
+        rows.extend(tab1_rows(0.0, 0, 2, 2, 1.0e-5, 2.29e-6, 2.0e7, 2.5e-6)); // b(E)
+
+        let chi = parse_mf5_section(&rows).unwrap().unwrap();
+        match chi {
+            FissionSpectrum::WattEnergyDependent { a, b, u } => {
+                assert_eq!(u, 0.0);
+                assert_eq!(a.pairs, vec![(1.0e-5, 0.965e6), (2.0e7, 1.0e6)]);
+                assert_eq!(b.pairs, vec![(1.0e-5, 2.29e-6), (2.0e7, 2.5e-6)]);
+            }
+            other => panic!("expected WattEnergyDependent, got {other:?}"),
+        }
+    }
+
+    /// NK=2 (mixture): two Maxwell partitions with different θ(E) — verifies the
+    /// per-partition cursor advance repeats cleanly across partition boundaries
+    /// and the result is wrapped in [`FissionSpectrum::Mixture`] (not collapsed,
+    /// since NK≠1).
+    #[test]
+    fn parses_nk2_mixture() {
+        let mut rows = vec![[94239.0, 237.0, 0.0, 0.0, 2.0, 0.0]]; // HEAD: NK=2
+        rows.extend(tab1_rows(0.0, 7, 2, 2, 1.0e-5, 0.5, 2.0e7, 0.5)); // p_1=0.5
+        rows.extend(tab1_rows(0.0, 0, 2, 2, 1.0e-5, 1.0e6, 2.0e7, 1.0e6)); // θ_1
+        rows.extend(tab1_rows(0.0, 9, 2, 2, 1.0e-5, 0.5, 2.0e7, 0.5)); // p_2=0.5
+        rows.extend(tab1_rows(0.0, 0, 2, 2, 1.0e-5, 2.0e6, 2.0e7, 2.0e6)); // θ_2
+
+        let chi = parse_mf5_section(&rows).unwrap().unwrap();
+        match chi {
+            FissionSpectrum::Mixture(parts) => {
+                assert_eq!(parts.len(), 2);
+                assert!(matches!(parts[0].1, FissionSpectrum::Maxwell { .. }));
+                assert!(matches!(parts[1].1, FissionSpectrum::Evaporation { .. }));
+            }
+            other => panic!("expected Mixture, got {other:?}"),
+        }
+    }
+
+    /// LF=5 (general evaporation) has no sampling algorithm even in canonical
+    /// OpenMC — the whole parse aborts to `None` (caller falls back to Watt),
+    /// exactly like an absent section.
+    #[test]
+    fn lf5_general_evaporation_falls_back_to_none() {
+        let mut rows = vec![[92235.0, 233.0, 0.0, 0.0, 1.0, 0.0]];
+        rows.extend(tab1_rows(0.0, 5, 2, 2, 1.0e-5, 1.0, 2.0e7, 1.0));
+        rows.extend(tab1_rows(0.0, 0, 2, 2, 1.0e-5, 1.0e6, 2.0e7, 1.5e6)); // θ(E)
+        rows.extend(tab1_rows(0.0, 0, 2, 2, 0.0, 0.0, 1.0, 1.0)); // g(x)
+
+        assert!(parse_mf5_section(&rows).unwrap().is_none());
+    }
 }

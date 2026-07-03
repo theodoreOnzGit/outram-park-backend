@@ -526,5 +526,83 @@ Exercised by `physics::keff::tests::godiva_high_fidelity_reaches_benchmark` and 
 `godiva_keff_endf` example (both net-fetch), and by
 `material::nuclide::tests::{ct_table_uniform_reproduces_mean,
 continuous_tabular_hardens_with_incident_energy}` (offline sampler unit tests).
-Remaining TODOs: the LF=5/7/9/11 MF=5 laws (Watt fallback today), a parsed MF=6
-(n,2n) emission law (Weisskopf stand-in today), and MF=5 χ for the LOW tier.
+Remaining TODOs: a parsed MF=6 (n,2n) emission law (Weisskopf stand-in today),
+and MF=5 χ for the LOW tier. (LF=7/9/11 + NK>1 mixtures ported below, 2026-07-03.)
+
+## 2026-07 — Remaining MF=5 laws: LF=7/9/11 and NK>1 mixtures (njoy)
+
+### Methodology
+
+The MF=5 work above only ported **LF=1** (arbitrary tabulated), the law
+ENDF/B-VII.1 U-234/235/238 happen to use. Closing the gap for other nuclides
+needs the remaining ENDF secondary-energy laws with a real sampling algorithm,
+plus the `NK > 1` case (multiple partial distributions mixed by their own
+`p_k(E)` fraction) that any of them can appear inside.
+
+- **njoy (`nuclear_data::secondary.rs`).** `FissionSpectrum` gains four variants:
+  `Maxwell` (LF=7, θ(E)), `Evaporation` (LF=9, θ(E)), `WattEnergyDependent`
+  (LF=11, a(E)/b(E)), and `Mixture` (NK>1, `Vec<(p_k TAB1, FissionSpectrum)>`,
+  recursive via `Vec` — no `Box` needed). `from_endf_mf5` now loops over `NK`
+  partitions, dispatching each on its ENDF **LF** code (the `L2` field of the
+  partition's `p_k(E)` TAB1 header) via a `parse_mf5_section` helper factored out
+  for unit testing. **LF=5** (general evaporation) and **LF=12** (Madland-Nix)
+  abort the whole parse to `None` (Watt fallback) rather than partially
+  succeeding: `Σₖ p_k(E) = 1` is a physical constraint, so a partition this port
+  can't reconstruct makes the whole distribution wrong, not just incomplete.
+  LF=5 specifically has **no sampling algorithm even in canonical OpenMC**
+  (`GeneralEvaporation.to_hdf5` raises `NotImplementedError` in
+  `openmc/data/energy_distribution.py`) — a genuine upstream gap, not ours.
+- **openmc-libs (`material::nuclide.rs`).** `sample_fission_energy` now
+  delegates to a free `sample_chi` dispatching all six `FissionSpectrum`
+  variants. Three new samplers are direct ports of OpenMC
+  `src/distribution_energy.cpp`: `sample_maxwell_lf7` (`MaxwellEnergy::sample`,
+  itself calling `maxwell_spectrum` from `src/random_dist.cpp`, already ported as
+  `rng::distributions::maxwell`), `sample_evaporation_lf9`
+  (`Evaporation::sample`, the rejection inversion `x = −ln[(1−vξ₁)(1−vξ₂)]`), and
+  `sample_watt_lf11` (`WattEnergy::sample`, reusing the already-ported `watt`
+  sampler with energy-dependent a(E)/b(E)). `Mixture` samples which partition is
+  active by its `p_k(e_in)` weight, then recurses.
+
+### Results (2026-07-03, offline unit tests — no live Godiva nuclide uses these
+laws, so validation is against closed-form distribution moments, not k_eff)
+
+njoy parser (5 tests, hand-built ENDF rows, `nuclear_data::secondary::tests`):
+correct variant + field extraction for LF=7, LF=9, LF=11, and an NK=2
+(Maxwell+Evaporation) mixture; LF=5 confirmed falls back to `None`.
+
+openmc-libs sampler (5 tests, `material::nuclide::tests`, N=200 000–2 000 000
+draws per case): empirical mean matches the closed-form distribution mean within
+the stated Monte Carlo tolerance, and every draw respects the restriction energy
+`E' ≤ E − U`:
+
+| Law | Setup | Theoretical mean | Sampled mean |
+|---|---|---|---|
+| LF=7 Maxwell | θ=1 MeV, u=0, e_in≫θ | 1.5θ = 1.5 MeV | matched, ±3.0e4 eV tol |
+| LF=9 Evaporation | θ=1 MeV, u=0, e_in≫θ | 2θ = 2.0 MeV | matched, ±4.0e4 eV tol |
+| LF=9, restriction tight | e_in−u = 0.5 MeV ≪ 2θ | — | every draw ≤ 0.5 MeV (rejection verified to bite) |
+| LF=11 Watt(E) | a=1 MeV, b=2.249e-6 eV⁻¹, u=0 | 1.5a+0.25a²b ≈ 2.06 MeV | matched, ±5.0e4 eV tol |
+| NK=2 Mixture | two Maxwells, θ=0.1/10 MeV, p=0.8/0.2 | p-weighted: 3.12 MeV | matched, ±8.0e4 eV tol |
+
+One measurement pitfall worth recording: the first mixture-test attempt used
+`e_in = 5×θ₂` for the θ=10 MeV partition, assuming "restriction far above the
+spectrum scale" — but a Gamma(1.5,θ) tail is not negligible at only 5θ, so the
+LF=7 restriction genuinely truncated it and biased the sampled mean low. That
+was the sampler working correctly, not a bug; the fix was more headroom
+(`e_in = 20×θ₂`), not a code change.
+
+### Finding
+
+MF=5 coverage is now LF=1/7/9/11 + NK>1 (every law with a real ENDF/OpenMC
+sampling algorithm); only LF=5 (unsupported upstream) and LF=12 (Madland-Nix,
+rare) remain. This doesn't move Godiva's k_eff — U-234/235/238 are all LF=1,
+NK=1, unaffected by this change — but removes the silent Watt-fallback for any
+future nuclide whose MF=5 uses LF=7/9/11 or a mixture (e.g. many non-U
+actinides use LF=9 or LF=11). Exercised by 5 njoy unit tests
+(`nuclear_data::secondary::tests::{parses_lf7_maxwell, parses_lf9_evaporation,
+parses_lf11_watt_energy_dependent, parses_nk2_mixture,
+lf5_general_evaporation_falls_back_to_none}`) and 5 openmc-libs unit tests
+(`material::nuclide::tests::{maxwell_lf7_matches_theoretical_mean_and_respects_restriction,
+evaporation_lf9_matches_theoretical_mean_and_respects_restriction,
+evaporation_lf9_restriction_actually_bites,
+watt_lf11_matches_theoretical_mean_and_respects_restriction,
+mixture_dispatches_by_partition_weight}`).

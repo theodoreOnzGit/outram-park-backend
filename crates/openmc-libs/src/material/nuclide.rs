@@ -17,9 +17,11 @@
 /// `docs/keff-doppler-roadmap.md`. The transport kernel only ever calls
 /// [`Nuclide::xs_at_energy`]; it never touches WMP, ENDF, or HDF5.
 
-use crate::rng::distributions::watt;
+use crate::rng::distributions::{maxwell, watt};
 use crate::rng::lcg::prn;
 use njoy_outram_park_fork::ace::angular::ElasticAngular;
+use njoy_outram_park_fork::endf::interp::eval_tab1;
+use njoy_outram_park_fork::endf::Tab1;
 use njoy_outram_park_fork::nuclear_data::secondary::{ChiEout, ChiTabular, FissionSpectrum, NuBar};
 use njoy_outram_park_fork::nuclear_data::{Mgxs, MgxsLibrary};
 use njoy_outram_park_fork::reconr::ReconrResult;
@@ -466,24 +468,120 @@ impl Nuclide {
     /// Sample a fission-neutron birth energy \[eV\] given the incident energy
     /// `e_in` \[eV\] of the neutron that induced the fission.
     ///
-    /// - **HIGH tier** with an ENDF MF=5 χ ([`FissionSpectrum::ContinuousTabular`]):
-    ///   the real energy-dependent prompt fission spectrum, sampled by
-    ///   [`sample_continuous_tabular`] (a port of OpenMC
-    ///   `ContinuousTabular::sample`, `src/distribution_energy.cpp`). The outgoing
-    ///   spectrum hardens with `e_in`, which the fixed Watt form cannot capture.
-    /// - **Otherwise** (LOW tier, or a nuclide whose tape lacked an LF=1 MF=5): the
-    ///   thermal-Watt stand-in `χ(E') ∝ e^{−E'/a} sinh √(bE')`, independent of `e_in`.
+    /// Dispatches on the nuclide's χ representation ([`FissionSpectrum`]) — see
+    /// [`sample_chi`] for the per-law algorithms. HIGH-tier nuclides carry
+    /// whichever ENDF MF=5 law their tape uses (LF=1/7/9/11, or a mixture);
+    /// everything else (LOW tier, or a tape this port doesn't yet reconstruct)
+    /// falls back to the fixed thermal-Watt stand-in.
     ///
     /// This is the fission-source birth spectrum the k-eigenvalue driver banks with.
     pub fn sample_fission_energy(&self, e_in: f64, seed: &mut u64) -> f64 {
-        match &self.chi {
-            FissionSpectrum::ContinuousTabular(chi) => {
-                sample_continuous_tabular(chi, e_in, seed)
+        sample_chi(&self.chi, e_in, seed)
+    }
+}
+
+/// Sample a fission-neutron birth energy \[eV\] from χ at incident energy `e_in`
+/// \[eV\] — dispatches over every [`FissionSpectrum`] law this port reconstructs:
+///
+/// - [`FissionSpectrum::ContinuousTabular`] (LF=1) — [`sample_continuous_tabular`],
+///   a port of OpenMC `ContinuousTabular::sample`.
+/// - [`FissionSpectrum::Maxwell`] (LF=7) — [`sample_maxwell_lf7`], a port of
+///   OpenMC `MaxwellEnergy::sample`.
+/// - [`FissionSpectrum::Evaporation`] (LF=9) — [`sample_evaporation_lf9`], a port
+///   of OpenMC `Evaporation::sample`.
+/// - [`FissionSpectrum::WattEnergyDependent`] (LF=11) — [`sample_watt_lf11`], a
+///   port of OpenMC `WattEnergy::sample`.
+/// - [`FissionSpectrum::Mixture`] (NK>1) — sample which partition is active by
+///   its `p_k(e_in)` fraction, then recurse into that partition's law.
+/// - [`FissionSpectrum::Watt`] / [`FissionSpectrum::Tabulated`] — the
+///   energy-independent stand-ins, unchanged by `e_in`.
+///
+/// All four energy-dependent laws (LF=7/9/11 plus the ContinuousTabular envelope
+/// scaling) are ported from `src/distribution_energy.cpp`.
+fn sample_chi(chi: &FissionSpectrum, e_in: f64, seed: &mut u64) -> f64 {
+    match chi {
+        FissionSpectrum::ContinuousTabular(t) => sample_continuous_tabular(t, e_in, seed),
+        FissionSpectrum::Watt { a, b } => watt(seed, *a, *b),
+        FissionSpectrum::Tabulated { e_out, pdf } => {
+            sample_tabulated_energy(e_out, pdf, prn(seed))
+        }
+        FissionSpectrum::Maxwell { theta, u } => sample_maxwell_lf7(theta, *u, e_in, seed),
+        FissionSpectrum::Evaporation { theta, u } => sample_evaporation_lf9(theta, *u, e_in, seed),
+        FissionSpectrum::WattEnergyDependent { a, b, u } => {
+            sample_watt_lf11(a, b, *u, e_in, seed)
+        }
+        FissionSpectrum::Mixture(parts) => {
+            let weights: Vec<f64> = parts
+                .iter()
+                .map(|(p_k, _)| eval_tab1(e_in, &p_k.interp, &p_k.pairs).unwrap_or(0.0))
+                .collect();
+            let total: f64 = weights.iter().sum();
+            if !(total > 0.0) {
+                return sample_chi(&parts[0].1, e_in, seed);
             }
-            FissionSpectrum::Watt { a, b } => watt(seed, *a, *b),
-            FissionSpectrum::Tabulated { e_out, pdf } => {
-                sample_tabulated_energy(e_out, pdf, prn(seed))
+            let xi = prn(seed) * total;
+            let mut cum = 0.0;
+            for (w, (_, law)) in weights.iter().zip(parts.iter()) {
+                cum += w;
+                if xi < cum {
+                    return sample_chi(law, e_in, seed);
+                }
             }
+            sample_chi(&parts.last().unwrap().1, e_in, seed)
+        }
+    }
+}
+
+/// **LF=7** — sample the simple Maxwellian fission spectrum at incident energy
+/// `e_in` \[eV\], restricted to `E' ≤ e_in − u`. Evaluates θ(E) at `e_in`
+/// ([`eval_tab1`], the full ENDF multi-region interpolation), then rejects
+/// against the restriction energy — a direct port of OpenMC
+/// `MaxwellEnergy::sample` (`src/distribution_energy.cpp`), which itself calls
+/// [`maxwell`] (`src/random_dist.cpp` `maxwell_spectrum`).
+fn sample_maxwell_lf7(theta: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f64 {
+    let t = eval_tab1(e_in, &theta.interp, &theta.pairs).unwrap_or(0.0);
+    loop {
+        let e_out = maxwell(seed, t);
+        if e_out <= e_in - u {
+            return e_out;
+        }
+    }
+}
+
+/// **LF=9** — sample the evaporation spectrum at incident energy `e_in` \[eV\],
+/// restricted to `E' ≤ e_in − u`. A direct port of OpenMC `Evaporation::sample`
+/// (`src/distribution_energy.cpp`): evaluate θ(E) at `e_in`, then invert the
+/// truncated-exponential-squared density by rejection
+/// (`x = −ln[(1−vξ₁)(1−vξ₂)]`, accept `x ≤ y`), returning `x·θ`.
+fn sample_evaporation_lf9(theta: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f64 {
+    let t = eval_tab1(e_in, &theta.interp, &theta.pairs).unwrap_or(0.0);
+    if !(t > 0.0) {
+        return 0.0;
+    }
+    let y = (e_in - u) / t;
+    let v = 1.0 - (-y).exp();
+    let mut x;
+    loop {
+        x = -((1.0 - v * prn(seed)) * (1.0 - v * prn(seed))).ln();
+        if x <= y {
+            break;
+        }
+    }
+    x * t
+}
+
+/// **LF=11** — sample the energy-dependent Watt fission spectrum at incident
+/// energy `e_in` \[eV\], restricted to `E' ≤ e_in − u`. Evaluates a(E) and b(E)
+/// at `e_in` ([`eval_tab1`]), then rejects against the restriction energy — a
+/// direct port of OpenMC `WattEnergy::sample` (`src/distribution_energy.cpp`),
+/// which itself calls [`watt`] (`src/random_dist.cpp` `watt_spectrum`).
+fn sample_watt_lf11(a: &Tab1, b: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f64 {
+    let av = eval_tab1(e_in, &a.interp, &a.pairs).unwrap_or(0.0);
+    let bv = eval_tab1(e_in, &b.interp, &b.pairs).unwrap_or(0.0);
+    loop {
+        let e_out = watt(seed, av, bv);
+        if e_out <= e_in - u {
+            return e_out;
         }
     }
 }
@@ -919,6 +1017,121 @@ mod tests {
         assert!((m_lo - 1.0e6).abs() < 2.0e4, "low-incident mean {m_lo} ≈ 1 MeV");
         assert!((m_hi - 2.0e6).abs() < 2.0e4, "high-incident mean {m_hi} ≈ 2 MeV");
         assert!(m_hi > 1.5 * m_lo, "χ must harden: {m_lo} → {m_hi}");
+    }
+
+    /// A flat (energy-independent) `Tab1`: two points at the same `y`, spanning
+    /// well past the `e_in` used in the tests below (including the "restriction
+    /// far above the spectrum scale" cases) — [`eval_tab1`] returns `0.0` outside
+    /// a table's range, so the span must cover every incident energy queried.
+    fn flat_tab1(y: f64) -> Tab1 {
+        Tab1 {
+            head: njoy_outram_park_fork::endf::Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: 1, n2: 2 },
+            interp: vec![(2, 2)],
+            pairs: vec![(1.0e-5, y), (1.0e9, y)],
+        }
+    }
+
+    /// **LF=7 (Maxwell).** With a restriction energy far below the fission-spectrum
+    /// scale (rejection essentially never fires), the sampled mean must match the
+    /// closed-form Maxwellian mean `⟨E'⟩ = 1.5θ`, and every draw must respect
+    /// `E' ≤ e_in − u`.
+    #[test]
+    fn maxwell_lf7_matches_theoretical_mean_and_respects_restriction() {
+        let theta = flat_tab1(1.0e6);
+        let (u, e_in) = (0.0, 5.0e7); // restriction far above the spectrum scale
+        let mut seed = 42u64;
+        let n = 200_000usize;
+        let mut sum = 0.0;
+        for _ in 0..n {
+            let e = sample_maxwell_lf7(&theta, u, e_in, &mut seed);
+            assert!(e <= e_in - u, "E'={e} exceeds restriction e_in-u={}", e_in - u);
+            sum += e;
+        }
+        let mean = sum / n as f64;
+        assert!((mean - 1.5e6).abs() < 3.0e4, "Maxwell mean {mean} ≈ 1.5θ = 1.5 MeV");
+    }
+
+    /// **LF=9 (evaporation).** Unrestricted, the evaporation pdf `E'e^{-E'/θ}` is a
+    /// Gamma(2,θ) distribution with mean `2θ`; every draw must respect `E' ≤ e_in −
+    /// u`.
+    #[test]
+    fn evaporation_lf9_matches_theoretical_mean_and_respects_restriction() {
+        let theta = flat_tab1(1.0e6);
+        let (u, e_in) = (0.0, 5.0e7);
+        let mut seed = 7u64;
+        let n = 200_000usize;
+        let mut sum = 0.0;
+        for _ in 0..n {
+            let e = sample_evaporation_lf9(&theta, u, e_in, &mut seed);
+            assert!(e <= e_in - u, "E'={e} exceeds restriction e_in-u={}", e_in - u);
+            sum += e;
+        }
+        let mean = sum / n as f64;
+        assert!((mean - 2.0e6).abs() < 4.0e4, "evaporation mean {mean} ≈ 2θ = 2 MeV");
+    }
+
+    /// **LF=9, restricted.** With `u` chosen so `e_in − u` sits well inside the
+    /// unrestricted spectrum's support, every draw must still respect the cutoff —
+    /// the rejection loop actually has to reject, not just pass through.
+    #[test]
+    fn evaporation_lf9_restriction_actually_bites() {
+        let theta = flat_tab1(1.0e6);
+        let (u, e_in) = (0.0, 5.0e5); // e_in - u = 0.5 MeV, well below 2θ mean
+        let mut seed = 99u64;
+        for _ in 0..10_000 {
+            let e = sample_evaporation_lf9(&theta, u, e_in, &mut seed);
+            assert!(e <= e_in - u + 1.0, "E'={e} exceeds tight restriction {}", e_in - u);
+        }
+    }
+
+    /// **LF=11 (energy-dependent Watt).** Every draw respects the restriction
+    /// energy, and the sampled mean is in the right ballpark for a Watt spectrum
+    /// with `a = 1 MeV`, `b = 2.249e-6 eV⁻¹` (unrestricted mean
+    /// `1.5a + 0.25a²b ≈ 1.5 + 0.56 = 2.06` MeV, same closed form as the
+    /// energy-independent [`FissionSpectrum::Watt`]).
+    #[test]
+    fn watt_lf11_matches_theoretical_mean_and_respects_restriction() {
+        let a = flat_tab1(1.0e6);
+        let b = flat_tab1(2.249e-6);
+        let (u, e_in) = (0.0, 5.0e7);
+        let mut seed = 123u64;
+        let n = 200_000usize;
+        let mut sum = 0.0;
+        for _ in 0..n {
+            let e = sample_watt_lf11(&a, &b, u, e_in, &mut seed);
+            assert!(e <= e_in - u, "E'={e} exceeds restriction e_in-u={}", e_in - u);
+            sum += e;
+        }
+        let mean = sum / n as f64;
+        let expected = 1.5e6 + 0.25 * 1.0e6 * 1.0e6 * 2.249e-6;
+        assert!((mean - expected).abs() < 5.0e4, "Watt mean {mean} ≈ {expected}");
+    }
+
+    /// **Mixture (NK>1).** Two Maxwell partitions with very different θ, mixed by
+    /// a constant `p_k` — the overall sampled mean must land at the p_k-weighted
+    /// average of the two partitions' means, confirming [`sample_chi`] both
+    /// dispatches by `p_k(e_in)` and recurses into the chosen law correctly.
+    ///
+    /// `e_in` is set to 20θ for the larger partition (`θ₂ = 1e7`): with only ~5×
+    /// headroom the LF=7 restriction-energy rejection genuinely truncates the
+    /// Gamma(1.5,θ) tail and pulls the mean down — that was tried first and is
+    /// correct *sampler* behaviour, not a bug, but it isn't what this test is
+    /// checking, so enough headroom is used that truncation is negligible.
+    #[test]
+    fn mixture_dispatches_by_partition_weight() {
+        let p1 = flat_tab1(0.8);
+        let p2 = flat_tab1(0.2);
+        let law1 = FissionSpectrum::Maxwell { theta: flat_tab1(1.0e5), u: 0.0 };
+        let law2 = FissionSpectrum::Maxwell { theta: flat_tab1(1.0e7), u: 0.0 };
+        let chi = FissionSpectrum::Mixture(vec![(p1, law1), (p2, law2)]);
+
+        let mut seed = 55u64;
+        let n = 2_000_000usize;
+        let e_in = 2.0e8; // 20× θ₂ — negligible restriction truncation
+        let sum: f64 = (0..n).map(|_| sample_chi(&chi, e_in, &mut seed)).sum();
+        let mean = sum / n as f64;
+        let expected = 0.8 * 1.5e5 + 0.2 * 1.5e7;
+        assert!((mean - expected).abs() < 8.0e4, "mixture mean {mean} ≈ {expected}");
     }
 
     /// The Langevin inverse round-trips: L(L⁻¹(μ̄)) = μ̄, where L(λ)=coth λ − 1/λ.

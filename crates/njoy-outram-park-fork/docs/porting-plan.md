@@ -149,7 +149,12 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
   - **4d — energy distributions (LDLW/DLW) + non-elastic angular.** ⏳ in
     progress. `src/ace/energy.rs` ports the **MF=5 LF=1 → ACE Law 4** conversion
     (continuous tabular E', the fission χ(E→E') path; faithful to `acelf5`):
-    `parse_mf5_law4` (fission χ). Plus **MF=6 LAW=1** (`parse_mf6_law1_neutron`):
+    `parse_mf5_law4` (fission χ). This is a **separate, ACE-file-writer-specific**
+    MF=5 parser from `nuclear_data::secondary::FissionSpectrum::from_endf_mf5`
+    (Priority 1 above), which is consumed directly by `openmc-libs` and covers
+    LF=1/7/9/11 + NK>1 mixtures — `ace/energy.rs` here still only handles LF=1
+    (the ACE Law-4 conversion has no equivalent for Law 7/9/11/44 yet). Plus
+    **MF=6 LAW=1** (`parse_mf6_law1_neutron`):
     the neutron (ZAP=1) energy pdf `f₀` + yield/frame.
     **DLW block wired** (`build_emissions` + `AceTable::from_reconr_full`): the
     neutron-producing reactions get a **TYR** yield and a **DLW** law — **Law 3**
@@ -197,7 +202,7 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
   Until 4b/4d/4e exist it is still not a complete transport library (no secondary
   energy distributions, so inelastic/fission collisions can't be followed); 4f
   (thermal S(α,β)) is a separate table type layered on top once 4a–4e are done.
-  - **4g — Windowed Multipole (WMP) import.** 🟡 **evaluator done** (`src/wmp.rs`).
+  - **4g — Windowed Multipole (WMP) import.** ✅ **done** (`src/wmp.rs`).
     **Independent MIT CRPG work — NOT NJOY/LANL.** Reads the **MIT** `WMP_Library`
     (<https://github.com/mit-crpg/WMP_Library>, MIT-licensed) HDF5 multipole data:
     complex poles/residues + windows enabling *analytic* on-the-fly Doppler
@@ -205,11 +210,21 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
     ACE/PENDF representation. **Done:** `faddeeva` (pure-Rust Weideman, no FFI,
     validated vs scipy `wofz`); `WindowedMultipole::evaluate` (faithful to OpenMC
     `wmp.cpp`); `load_h5` (behind the `wmp-hdf5` feature, pure-Rust `hdf5-pure`);
-    real U-238 Doppler confirmed (`tests/wmp_u238.rs`). **Remaining:** `from_blob`
-    (embedded-blob decode) for the zero-dependency shipped build. Credit MIT CRPG
-    and Josey/Romano/Forget/Smith; add a separate `LICENSE-WMP` (MIT) + NOTICE
-    entry before **embedding** any data (external file reads don't redistribute).
-    See the `src/wmp.rs` module docs.
+    real U-238 Doppler confirmed (`tests/wmp_u238.rs`); the **WMPB v1** per-nuclide
+    blob codec (`to_blob`/`from_blob`) and the **WMPL v1** multi-nuclide container
+    (`WmpLibrary::pack`/`from_blob`) — both round-trip tested, corruption-hardened.
+    **CORE set embedded and shipped**: 125 reactor-grade nuclides baked into
+    `src/data/wmp_core.wmpl` (4.70 MB deflated) via `examples/bake_wmp.rs`, loaded
+    zero-dependency (no HDF5 at runtime) through `WmpLibrary::core()`
+    (`OnceLock` + `include_bytes!`, always embedded, no feature gate). 11/11 wmp
+    unit tests pass, including `embedded_core_library_loads_and_evaluates`.
+    Credit MIT CRPG and Josey/Romano/Forget/Smith: `LICENSE-WMP` (MIT) + a WMP
+    entry in `NOTICE`, distinct from the NJOY/BSD notice. **Remaining:** the
+    **EXTENDED** set (298 more nuclides, 9.64 MB raw) is not yet packaged — planned
+    as a **separate sibling crate** (not embedded here) so the njoy crate stays
+    small; no sibling crate exists yet. See the `src/wmp.rs` module docs and
+    [`project_wmp_embedding_plan`] in the assistant's memory for the full sizing
+    rationale.
 - **Phase 5 — multigroup/covariance** (GROUPR, ERRORR, …): only if OUTRAM PARK
   needs deterministic or sensitivity workflows.
 - **Phase 6 — formatters/plotting:** on demand only.
@@ -294,12 +309,25 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
   σ(n,γ); `BROADR` (✅) SIGMA1-broadens it to T. The remaining quantitative gate
   compares WMP-analytic vs BROADR-kernel vs the OpenMC pregenerated `.h5`. Uses
   only already-ported modules — no new porting required.
-- **Priority 1 — bare critical sphere Keff (U-235 Godiva, U-233 Jezebel-23).** The
-  transport lives in `openmc-libs`; njoy supplies the **secondary data** WMP does
-  not carry: **ν̄(E)** (ACER **4b**, MF=1/452 → NU block) and the **fission
-  spectrum χ(E)** (ACER **4d**, MF=5). These are tiny tables; porting 4b/4d for
-  U-233/235 is the njoy-side critical path. Until then they may be hardcoded from
-  ENDF as a stopgap (flagged as such).
+- **Priority 1 — bare critical sphere Keff (U-235 Godiva, U-233 Jezebel-23).** ✅
+  **done** — not via the ACER 4b/4d ACE-writer path, but directly:
+  `nuclear_data::secondary` reads **ν̄(E)** (MF=1/452, `NuBar::from_endf`, LNU=1
+  polynomial and LNU=2 tabulated) and the **fission spectrum χ(E→E')** (MF=5/MT=18,
+  `FissionSpectrum::from_endf_mf5`) straight off the ENDF tape and hands them to
+  `openmc-libs::Nuclide` — no ACE round-trip needed for this path. χ covers every
+  MF=5 law with a real sampling algorithm: **LF=1** (arbitrary tabulated,
+  `ContinuousTabular`), **LF=7** (Maxwellian, `Maxwell`), **LF=9** (evaporation,
+  `Evaporation`), **LF=11** (energy-dependent Watt, `WattEnergyDependent`), and
+  **NK>1** multi-partition mixtures (`Mixture`) recursively wrapping any of the
+  above. **LF=5** (general evaporation) is not ported — it has no sampling
+  algorithm even in canonical OpenMC (`GeneralEvaporation.to_hdf5` raises
+  `NotImplementedError` in `openmc/data/energy_distribution.py`) — and **LF=12**
+  (Madland-Nix) is left for later. Godiva V&V: replacing the fixed thermal-Watt
+  χ with the real ENDF/B-VII.1 MF=5/LF=1 χ moved HIGH-tier k_eff by **+495 ± 251
+  pcm** (0.99872 → 1.00367), see `docs/development-history.md` 2026-07. The
+  ACER 4b/4d NU/DLW blocks (below) remain open for the *ACE-file* path, which a
+  full transport library still needs for tools other than this workspace's own
+  `openmc-libs`.
 - **WMP import (`src/wmp.rs`, 4g).** 🟡 Done: `load_h5` reads the MIT
   `WMP_Library` HDF5 (behind the `wmp-hdf5` feature). This is now the data
   ingestion path for njoy's own WMP evaluator (all nuclear data lives in njoy;
