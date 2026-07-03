@@ -28,13 +28,22 @@
 //!
 //! # Fidelity
 //!
-//! Analog transport (no implicit capture / weight windows), isotropic-CM elastic
-//! scatter with target at rest, and — above each nuclide's WMP `e_max` —
-//! infinite-dilution Watt-collapsed group cross sections with no fast
-//! self-shielding. Good for a few-hundred-pcm first Keff on a fast bare sphere,
-//! not for a converged benchmark result. Inelastic and (n,xn) channels are
-//! lumped into elastic scatter (the group total minus the explicit fission and
-//! capture columns), which conserves neutrons except for the small (n,2n) yield.
+//! Analog transport (no implicit capture / weight windows), isotropic-CM scatter
+//! with target at rest. Inelastic scattering depends on the data tier:
+//!
+//! - **HIGH tier** ([`Nuclide::from_endf`]) carries the resolved inelastic level
+//!   structure (MT=51…91), so inelastic is a distinct channel with a real
+//!   energy-loss law — discrete-level two-body kinematics (each level's Q-value)
+//!   and a Weisskopf-evaporation continuum. This is the dominant fast-spectrum
+//!   down-scatter off heavy nuclei and softens the modelled spectrum.
+//! - **LOW tier** ([`Nuclide::from_core`]) has no resolved levels, so inelastic and
+//!   (n,xn) stay lumped into elastic scatter (the group total minus the explicit
+//!   fission and capture columns), and — above each nuclide's WMP `e_max` — the
+//!   fast group data is infinite-dilution Watt-collapsed with no self-shielding.
+//!
+//! Elastic scatter is isotropic-CM in both tiers (anisotropic elastic from ENDF
+//! MF=4 remains future work). Good for a fast bare-sphere Keff, not yet a
+//! converged benchmark result.
 //!
 //! # Example
 //!
@@ -66,9 +75,9 @@
 use crate::geometry::position::{stream, Direction, Position};
 use crate::geometry::surface::{BoundaryType, Sphere, Surface};
 use crate::material::material::Material;
-use crate::material::nuclide::Nuclide;
+use crate::material::nuclide::{Inelastic, Nuclide};
 use crate::physics::fission::sample_num_neutrons;
-use crate::physics::scatter::elastic_scatter;
+use crate::physics::scatter::{continuum_inelastic_scatter, elastic_scatter, two_body_scatter};
 use crate::rng::distributions::{isotropic_direction, watt};
 use crate::rng::lcg::prn;
 
@@ -228,9 +237,13 @@ fn transport_history(
         let nuc = &nuclides[material.components[ci].nuclide_idx];
         let x = nuc.xs_at_energy(e, temp);
 
-        // Reaction partition on the *total*: fission | capture | scatter.
-        // "scatter" = total − fission − capture absorbs inelastic and (n,xn) into
-        // an elastic-like event (see module fidelity note).
+        // Reaction partition on the *total*:
+        //   fission | capture | inelastic | elastic.
+        // `x.inelastic` (MT=51…91) is a sub-band of scattering carved out with its
+        // own energy-loss law; it is non-zero only for the HIGH tier, so the LOW
+        // tier collapses to the original fission | capture | elastic split. The
+        // final elastic bucket (total − absorption − inelastic) still sweeps up any
+        // residual (n,xn) as an elastic-like event.
         let xi = prn(seed) * x.total;
         if xi < x.fission {
             let nu_bar = if x.fission > 0.0 { x.nu_fission / x.fission } else { 0.0 };
@@ -247,6 +260,16 @@ fn transport_history(
             break; // fission is a terminal absorption for the incident neutron
         } else if xi < x.absorption {
             break; // radiative capture → dead
+        } else if xi < x.absorption + x.inelastic {
+            // Inelastic scatter with a real energy-loss law: a discrete level's
+            // two-body kinematics (Q-value) or continuum evaporation. This is the
+            // dominant fast-spectrum down-scatter off heavy nuclei.
+            let (e2, u2) = match nuc.sample_inelastic(e, seed) {
+                Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
+                Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed),
+            };
+            e = e2;
+            u = u2;
         } else {
             let (e2, u2) = elastic_scatter(e, u, nuc.awr, seed);
             e = e2;
@@ -362,25 +385,30 @@ mod tests {
     /// `net-fetch` feature (downloads ENDF; not part of the default offline suite).
     ///
     /// **Methodology.** The same Godiva model and power-iteration settings are run
-    /// twice, changing *only* the cross-section source:
-    /// - **LOW** — embedded WMP + infinite-dilution fast MGXS ([`Nuclide::from_core`]).
+    /// under both data tiers:
+    /// - **LOW** — embedded WMP + infinite-dilution fast MGXS ([`Nuclide::from_core`]);
+    ///   inelastic lumped into elastic (no resolved levels in the group data).
     /// - **HIGH** — ENDF/B-VII.1 downloaded and reconstructed on device
     ///   ([`Nuclide::from_endf`]: RECONR 0.1% tol + BROADR to 293.6 K + MF=1/452
-    ///   ν̄), continuous-energy pointwise σ(E) with implicit self-shielding.
+    ///   ν̄), continuous-energy pointwise σ(E) with implicit self-shielding *and*
+    ///   an explicit inelastic energy-loss law (MT=51…91 two-body + evaporation).
     ///
     /// Reference: ICSBEP HEU-MET-FAST-001, k_eff = 1.0000 ± 0.0010. The test
     /// asserts (a) HIGH converges to a stationary, plausible eigenvalue, and (b)
-    /// the pass *claim*: replacing coarse data with full continuous-energy data
-    /// moves k_eff by little — the two agree to within ~2000 pcm and both remain
-    /// well above unity.
+    /// both tiers still overpredict and agree to within ~5000 pcm — the two
+    /// improvements HIGH carries over LOW (continuous-energy data **and** the
+    /// inelastic channel) move k_eff, but the residual bias shared by both keeps
+    /// them the same side of unity.
     ///
-    /// **Results (2026-07, ENDF/B-VII.1).** LOW k_eff = 1.12852 ± 0.00174
-    /// (+12 852 pcm); HIGH k_eff = 1.12451 ± 0.00202 (+12 451 pcm). The data
-    /// upgrade accounts for only **~400 pcm** of the ~12 500 pcm bias, so the
-    /// overprediction is **transport-physics-limited, not data-limited** — the
-    /// shared approximations (inelastic/(n,xn) lumped into elastic, isotropic-CM
-    /// scatter) keep the spectrum too hard in both runs. This is the finding
-    /// recorded in `docs/development-history.md`.
+    /// **Results (2026-07, ENDF/B-VII.1).** At the example settings: LOW
+    /// k_eff = 1.12852 ± 0.00174 (+12 852 pcm); HIGH (inelastic modelled)
+    /// k_eff = 1.09942 ± 0.00169 (+9 942 pcm). Two effects are separable and both
+    /// documented in `docs/development-history.md`: the continuous-energy **data**
+    /// upgrade alone was worth only ~400 pcm, whereas adding the inelastic
+    /// **transport** channel was worth ~2 510 pcm — the fast-spectrum bias was
+    /// transport-limited, and inelastic down-scatter was the largest missing lever.
+    /// The LOW tier does not yet model inelastic, so the gap between the tiers here
+    /// now reflects transport physics as well as data.
     #[cfg(feature = "net-fetch")]
     #[test]
     fn godiva_endf_high_fidelity_is_not_data_limited() {
@@ -427,12 +455,14 @@ mod tests {
         );
         assert!(result.k_std < 0.02, "HIGH k noisy/unconverged: σ = {}", result.k_std);
 
-        // (b) Both stay well above unity, and the LOW→HIGH data upgrade moves k_eff
-        //     little — the bias is transport-physics-, not data-, limited.
+        // (b) Both stay well above unity. HIGH carries two improvements over LOW —
+        //     continuous-energy data (~400 pcm) and the inelastic energy-loss law
+        //     (~2500 pcm) — so it sits below LOW but both remain the same side of
+        //     unity, within ~5000 pcm of each other.
         assert!(k_low > 1.05 && k_high > 1.05, "both tiers should overpredict (LOW={k_low}, HIGH={k_high})");
         assert!(
-            (k_high - k_low).abs() < 0.02,
-            "data fidelity should move k_eff <~2000 pcm, but |HIGH-LOW| = {:.0} pcm \
+            (k_high - k_low).abs() < 0.05,
+            "LOW/HIGH should stay within ~5000 pcm, but |HIGH-LOW| = {:.0} pcm \
              (LOW={k_low}, HIGH={k_high})",
             (k_high - k_low).abs() * 1.0e5
         );

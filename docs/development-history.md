@@ -182,3 +182,73 @@ This result is encoded as a regression assertion — the LOW and HIGH runs must 
 to within ~2000 pcm and both stay above unity — in
 `openmc-libs::physics::keff::tests::godiva_endf_high_fidelity_is_not_data_limited`
 (behind the `net-fetch` feature).
+
+---
+
+## 2026-07 — Inelastic scattering: acting on the transport-limited diagnosis
+
+The LOW-vs-HIGH comparison above bounded the data-fidelity worth at ~400 pcm and
+pointed at the transport physics — specifically the absence of an inelastic
+energy-loss law — as the dominant remaining bias. This entry acts on that
+diagnosis and measures the result.
+
+### Methodology
+
+An explicit inelastic scattering channel was added to the transport kernel, drawing
+on the level structure the HIGH tier already carries (RECONR reconstructs every
+MT=51…91 section, each with its MF=3 QI Q-value). The physics:
+
+- **Discrete levels (MT=51…90)** — two-body CM kinematics generalised from the
+  existing elastic formula to a non-zero Q-value:
+  `E_cm = E·(A/(A+1))² + Q·A/(A+1)`, isotropic in CM, transformed to the lab
+  (`openmc_libs::physics::scatter::two_body_scatter`; elastic is the `Q = 0` case).
+  Each collision removes the level excitation energy |Q| — tens of keV to over an
+  MeV — the large per-collision loss that elastic scatter off A≈238 cannot provide
+  (elastic α = ((A−1)/(A+1))² ≈ 0.98).
+- **Continuum (MT=91)** — a Weisskopf evaporation secondary-energy spectrum
+  `f(E') ∝ E'·exp(−E'/θ)`, nuclear temperature `θ = √(E/a)`, level-density
+  parameter `a ≈ A/11 MeV⁻¹` (`continuum_inelastic_scatter`). RECONR gives the
+  cross section (MF=3) but not the MF=5 secondary law, so this is an explicit,
+  documented approximation.
+
+The collision partition in `transport_history` gained an inelastic bucket between
+absorption and elastic (`fission | capture | inelastic | elastic`), sampled per
+collision proportional to the summed MT=51…91 σ at the neutron's energy and
+dispatched to the matching kinematics. Everything else — geometry, data, power
+iteration — is unchanged. The channel is active only for the HIGH (`Pointwise`)
+tier, which carries the resolved levels; the LOW tier reports zero inelastic and is
+unaffected (see the open item below).
+
+Same Godiva model and settings as the example run (5000 histories ×
+[40 inactive + 110 active]), ENDF/B-VII.1, judged against HEU-MET-FAST-001.
+
+### Results (2026-07, ENDF/B-VII.1)
+
+| HIGH-tier transport | k_eff | Δk vs benchmark |
+|---|---|---|
+| Elastic-only (inelastic lumped into elastic) | 1.12451 ± 0.00202 | +12 451 pcm |
+| **+ explicit inelastic energy-loss law** | **1.09942 ± 0.00169** | **+9 942 pcm** |
+| **Effect of modelling inelastic** | **−0.02509** | **≈ −2 510 pcm** |
+
+### Finding
+
+Adding one transport-physics channel moved k_eff **~2 510 pcm** — **six times** the
+~400 pcm the entire continuous-energy data upgrade delivered — confirming the
+previous entry's diagnosis directly: the fast-spectrum bias was transport-limited,
+and inelastic down-scatter was the single largest missing lever. The spectrum is
+now materially softer: neutrons that previously stayed near 2 MeV (where ν̄ and the
+fission/absorption ratio are most favourable) are down-scattered by hundreds of keV
+per inelastic collision, removing reactivity.
+
+~9 900 pcm of overprediction remains. The next levers, in expected order: (1)
+**anisotropic elastic scatter** (ENDF MF=4 a₁ — forward-peaked elastic changes the
+leakage of a bare sphere); (2) **the same inelastic law for the LOW tier**, so the
+embedded-data path is not left with the too-hard spectrum this entry just fixed for
+HIGH (the group total already contains inelastic — it can be carved out as
+`total − elastic − fission − capture` with no data re-bake, using the evaporation
+energy-loss law since group data carries no per-level Q); (3) fast self-shielding.
+
+Until the LOW tier also models inelastic, the LOW-vs-HIGH comparison no longer
+isolates *data* fidelity alone — HIGH now additionally carries the resolved level
+structure LOW lacks — so the regression assertion in
+`godiva_endf_high_fidelity_is_not_data_limited` was widened accordingly.

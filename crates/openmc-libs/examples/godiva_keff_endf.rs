@@ -12,6 +12,7 @@
 //! | Self-shielding | none (group averages) | implicit (σ sampled at actual E) |
 //! | ν̄ | constant stopgap table | energy-dependent, ENDF MF=1/452 |
 //! | Doppler | analytic (WMP) below `e_max` only | BROADR over the whole range |
+//! | Inelastic | lumped into elastic (no levels) | explicit MT=51…91 energy-loss law |
 //! | Needs network | no | yes (cached after first run) |
 //!
 //! For each of the three uranium isotopes in HEU metal this:
@@ -46,18 +47,25 @@
 //! | Run | k_eff | Δk vs benchmark |
 //! |---|---|---|
 //! | LOW (`godiva_keff`) | 1.12852 ± 0.00174 | +12 852 pcm |
-//! | HIGH (`godiva_keff_endf`) | 1.12451 ± 0.00202 | +12 451 pcm |
+//! | HIGH, elastic-only inelastic | 1.12451 ± 0.00202 | +12 451 pcm |
+//! | HIGH, **inelastic modelled** | **1.09942 ± 0.00169** | **+9 942 pcm** |
 //!
-//! **Interpretation — the key finding.** Going from coarse infinite-dilution
-//! group data to full continuous-energy reconstructed data moves k_eff by only
-//! **~400 pcm**, far short of the ~12 500 pcm bias. The overprediction is
-//! therefore **not** data-fidelity-limited; it is dominated by the transport
-//! physics *shared* by both runs — inelastic and (n,xn) scattering lumped into an
-//! elastic-like event (no real energy-loss law) plus isotropic-CM elastic
-//! scatter, which together keep the neutron spectrum too hard regardless of how
-//! accurate the cross sections are. Closing the gap needs a proper inelastic
-//! energy-loss law and anisotropic elastic scatter, not better data. See
-//! `docs/development-history.md`.
+//! **Interpretation — the key findings.** Two effects were isolated in sequence
+//! (see `docs/development-history.md`):
+//!
+//! 1. **Data fidelity is not the bottleneck.** Going from coarse infinite-dilution
+//!    group data to full continuous-energy reconstructed data moved k_eff by only
+//!    **~400 pcm**, far short of the ~12 500 pcm bias — so the overprediction is
+//!    transport-physics-limited, not data-limited.
+//! 2. **Inelastic scattering is the largest single lever.** Adding an explicit
+//!    inelastic energy-loss law (discrete-level two-body kinematics + evaporation
+//!    continuum, MT=51…91) softened the spectrum and removed **~2 510 pcm** — six
+//!    times the data upgrade — directly confirming (1).
+//!
+//! ~9 900 pcm of overprediction remains. The next levers, in expected order:
+//! anisotropic elastic scatter (ENDF MF=4 — forward-peaked elastic changes bare-
+//! sphere leakage), the same inelastic law for the LOW tier, and fast
+//! self-shielding. See `docs/development-history.md`.
 
 #[cfg(not(feature = "net-fetch"))]
 fn main() {

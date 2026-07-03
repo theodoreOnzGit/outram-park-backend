@@ -1,13 +1,28 @@
-//! Elastic neutron scattering kinematics.
+//! Neutron scattering kinematics — elastic and inelastic.
 //!
 //! C++ source: `src/physics_common.cpp`, `src/physics.cpp`.
 //!
-//! Only **elastic** scattering (MT=2) is ported so far, in the target-at-rest
-//! approximation with an **isotropic centre-of-mass** angular law. That is the
-//! right first cut for a fast bare-sphere Keff: fast neutrons scatter nearly
-//! isotropically in CM off heavy actinides, and thermal free-gas motion is
-//! irrelevant far above the target's thermal energy. Anisotropic elastic (a₁
-//! from ENDF MF=4) and inelastic channels (MT=51–90) are future work.
+//! All channels here use an **isotropic centre-of-mass** angular law (the right
+//! first cut for a fast bare sphere: fast neutrons scatter nearly isotropically in
+//! CM off heavy actinides). What differs between channels is the outgoing
+//! *energy*:
+//!
+//! - **Elastic** (MT=2) — [`elastic_scatter`]: two-body kinematics with `Q = 0`;
+//!   off a heavy actinide the neutron loses almost no energy per collision
+//!   (α = ((A−1)/(A+1))² ≈ 0.98 for A ≈ 238).
+//! - **Discrete-level inelastic** (MT=51…90) — [`two_body_scatter`] with the
+//!   level's `Q < 0`: the neutron gives up the level excitation energy, a *large*
+//!   per-collision energy loss (tens of keV to MeV) that softens the fast
+//!   spectrum. This is the dominant fast-spectrum energy-loss mechanism for heavy
+//!   nuclei, and its absence (inelastic lumped into elastic) was the leading bias
+//!   in the first Godiva Keff — see `docs/development-history.md`.
+//! - **Continuum inelastic** (MT=91) — [`continuum_inelastic_scatter`]: the
+//!   outgoing energy is a distribution, not fixed by a single `Q`. RECONR does not
+//!   reconstruct the ENDF MF=5 continuum law, so this uses a **Weisskopf
+//!   evaporation** model with a nuclear temperature θ = √(E/a), level-density
+//!   parameter a ≈ A/11 MeV⁻¹ (actinide) — an approximation, documented as such.
+//!
+//! Anisotropic elastic (a₁ from ENDF MF=4) remains future work.
 
 use crate::geometry::position::Direction;
 use crate::rng::lcg::prn;
@@ -42,23 +57,102 @@ pub fn rotate_direction(u: Direction, mu: f64, seed: &mut u64) -> Direction {
     }
 }
 
+/// Convert a neutron's centre-of-mass outgoing energy and CM scattering cosine to
+/// the laboratory frame, for a target of atomic weight ratio `awr` initially at
+/// rest.
+///
+/// `e` is the incident lab energy \[eV\], `e_cm_out` the outgoing neutron energy
+/// in the CM frame \[eV\], `mu_cm` the CM scattering cosine. Returns
+/// `(e_out_lab, mu_lab)`. The CM frame moves with the incident neutron, carrying a
+/// unit-mass "translational" energy `E/(A+1)²`; the lab energy is the vector sum:
+///
+/// `E' = E_cm + E/(A+1)² + 2·μ_cm·√(E_cm · E/(A+1)²)`,
+/// `μ_lab = μ_cm·√(E_cm/E') + √(E/(A+1)²/E')`.
+///
+/// With `e_cm_out = E·(A/(A+1))²` (elastic) this reduces to the familiar
+/// `E' = E·(A² + 2Aμ + 1)/(A+1)²`.
+fn cm_to_lab(e: f64, e_cm_out: f64, mu_cm: f64, awr: f64) -> (f64, f64) {
+    let ap1 = awr + 1.0;
+    let e_trans = e / (ap1 * ap1); // unit-mass energy at the CM velocity
+    let cross = 2.0 * mu_cm * (e_cm_out * e_trans).sqrt();
+    let e_out = (e_cm_out + e_trans + cross).max(0.0);
+    let mu_lab = if e_out > 0.0 {
+        (mu_cm * (e_cm_out / e_out).sqrt() + (e_trans / e_out).sqrt()).clamp(-1.0, 1.0)
+    } else {
+        1.0
+    };
+    (e_out, mu_lab)
+}
+
+/// Two-body scatter a neutron of energy `e` \[eV\] and direction `u` off a target
+/// of atomic weight ratio `awr` with reaction Q-value `q` \[eV\], isotropic in the
+/// centre-of-mass frame.
+///
+/// Returns `(e_out, u_out)`. Two-body kinematics fix the outgoing neutron CM
+/// energy from the Q-value (target at rest):
+///
+/// `E_cm = E·(A/(A+1))² + Q·A/(A+1)`,
+///
+/// which is then transformed to the lab via [`cm_to_lab`]. `Q = 0` is elastic;
+/// `Q < 0` is endothermic (a discrete inelastic level of excitation energy |Q|,
+/// with threshold `E = |Q|·(A+1)/A`). Below threshold `E_cm` would be negative;
+/// it is clamped to zero, but the caller should not select a channel below its
+/// (zero) cross section there.
+pub fn two_body_scatter(e: f64, u: Direction, awr: f64, q: f64, seed: &mut u64) -> (f64, Direction) {
+    let a = awr;
+    let ap1 = a + 1.0;
+    let e_cm_out = (e * (a / ap1).powi(2) + q * a / ap1).max(0.0);
+    let mu_cm = 2.0 * prn(seed) - 1.0; // isotropic in CM
+    let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm, a);
+    (e_out, rotate_direction(u, mu_lab, seed))
+}
+
 /// Elastic scatter a neutron of energy `e` \[eV\] and direction `u` off a target
 /// of atomic weight ratio `awr`, isotropic in the centre-of-mass frame.
 ///
-/// Returns `(e_out, u_out)`. With μ_cm uniform on [−1, 1]:
-/// - outgoing energy `E' = E·(A² + 2A·μ_cm + 1)/(A+1)²` (target at rest),
-/// - lab scattering cosine `μ_lab = (A·μ_cm + 1)/√(A² + 2A·μ_cm + 1)`,
-///
-/// and the new direction is `u` rotated by `(μ_lab, φ)` via [`rotate_direction`].
+/// The `Q = 0` special case of [`two_body_scatter`]. Outgoing energy stays in
+/// `[α·E, E]` with `α = ((A−1)/(A+1))²`; off heavy actinides that is a per-collision
+/// loss of at most a couple of percent.
 pub fn elastic_scatter(e: f64, u: Direction, awr: f64, seed: &mut u64) -> (f64, Direction) {
-    let mu_cm = 2.0 * prn(seed) - 1.0;
+    two_body_scatter(e, u, awr, 0.0, seed)
+}
+
+/// Continuum inelastic scatter (MT=91) — the outgoing neutron energy is sampled
+/// from a **Weisskopf evaporation spectrum** rather than fixed by a single level.
+///
+/// `f(E'_cm) ∝ E'_cm · exp(−E'_cm/θ)` with nuclear temperature `θ = √(E/a)` and
+/// level-density parameter `a ≈ A/11 MeV⁻¹` (a standard actinide value). The
+/// sampled CM energy is capped below the elastic CM energy `E·(A/(A+1))²` so the
+/// collision always loses energy, then transformed to the lab isotropically in CM.
+///
+/// This is an **approximation**: RECONR reconstructs cross sections (MF=3) but not
+/// the ENDF MF=5 secondary-energy law, so the true continuum distribution is not
+/// available here. The evaporation model captures the essential physics — a large,
+/// broadly distributed down-scatter — which is what softens the fast spectrum.
+pub fn continuum_inelastic_scatter(e: f64, u: Direction, awr: f64, seed: &mut u64) -> (f64, Direction) {
     let a = awr;
-    let denom = (a + 1.0) * (a + 1.0);
-    let g = a * a + 2.0 * a * mu_cm + 1.0; // ∝ E'/E · (A+1)²
-    let e_out = e * g / denom;
-    let mu_lab = (a * mu_cm + 1.0) / g.sqrt();
-    let u_out = rotate_direction(u, mu_lab, seed);
-    (e_out, u_out)
+    let ap1 = a + 1.0;
+    let e_cm_elastic = e * (a / ap1).powi(2); // max neutron CM energy (no loss)
+
+    // Weisskopf temperature θ = √(E/a_ld), a_ld ≈ A/11 MeV⁻¹.
+    let a_ld = (a / 11.0).max(1.0); // MeV⁻¹
+    let theta = ((e * 1.0e-6 / a_ld).sqrt() * 1.0e6).max(1.0); // eV
+
+    // Sample E'_cm ~ Gamma(shape 2, scale θ) = −θ·ln(r1·r2), rejecting any draw
+    // that would not lose energy. Fall back to a uniform down-scatter if the
+    // (rare) rejection loop is exhausted.
+    let mut e_cm_out = e_cm_elastic * prn(seed);
+    for _ in 0..64 {
+        let cand = -theta * (prn(seed) * prn(seed)).ln();
+        if cand <= e_cm_elastic {
+            e_cm_out = cand;
+            break;
+        }
+    }
+
+    let mu_cm = 2.0 * prn(seed) - 1.0; // isotropic in CM
+    let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm, a);
+    (e_out, rotate_direction(u, mu_lab, seed))
 }
 
 #[cfg(test)]
@@ -97,5 +191,47 @@ mod tests {
             assert!(e_out <= e * (1.0 + 1e-9), "gained energy: {e_out} > {e}");
             assert!(e_out >= e * alpha * (1.0 - 1e-9), "below α·E: {e_out}");
         }
+    }
+
+    /// Discrete-level inelastic (Q < 0) removes at least the excitation energy from
+    /// the available energy: the outgoing energy is well below the incident, and
+    /// never exceeds it. Uses a U-238-like first level (Q ≈ −45 keV).
+    #[test]
+    fn inelastic_level_loses_at_least_the_excitation() {
+        let mut seed = 12345u64;
+        let awr = 236.0_f64;
+        let q = -45.0e3; // 45 keV level
+        let e = 2.0e6;
+        // In CM the neutron loses exactly |Q|·A/(A+1); in lab the mean loss is
+        // larger still. Check no energy gain and a strict loss on average.
+        let mut sum_loss = 0.0;
+        for _ in 0..10_000 {
+            let (e_out, u) = two_body_scatter(e, Direction::new(0.0, 0.0, 1.0), awr, q, &mut seed);
+            assert!(e_out <= e * (1.0 + 1e-9), "inelastic gained energy: {e_out}");
+            let n = (u.u * u.u + u.v * u.v + u.w * u.w).sqrt();
+            assert!((n - 1.0).abs() < 1e-12, "direction not unit: {n}");
+            sum_loss += e - e_out;
+        }
+        let mean_loss = sum_loss / 10_000.0;
+        assert!(mean_loss > 40.0e3, "mean inelastic loss {mean_loss} < excitation");
+    }
+
+    /// The continuum evaporation channel always loses energy and stays physical
+    /// (0 < E' < E), with a mean loss far larger than an elastic collision — the
+    /// spectrum-softening effect we are after.
+    #[test]
+    fn continuum_inelastic_softens_and_is_bounded() {
+        let mut seed = 2024u64;
+        let awr = 236.0_f64;
+        let e = 2.0e6;
+        let mut sum_out = 0.0;
+        for _ in 0..10_000 {
+            let (e_out, _) = continuum_inelastic_scatter(e, Direction::new(0.0, 0.0, 1.0), awr, &mut seed);
+            assert!(e_out > 0.0 && e_out < e * (1.0 + 1e-9), "continuum E' out of (0,E]: {e_out}");
+            sum_out += e_out;
+        }
+        let mean_out = sum_out / 10_000.0;
+        // Elastic would keep ~99% of E; evaporation must remove much more.
+        assert!(mean_out < 0.9 * e, "continuum too hard: mean E' = {mean_out}");
     }
 }
