@@ -129,6 +129,17 @@ impl AceTable {
     /// # Errors
     /// [`NjoyError::NotPorted`] if the evaluation has no incoherent-inelastic
     /// (MT=4) data (the required inelastic table).
+    ///
+    /// # Known gaps (not silently missing — tracked, not yet ported)
+    /// - **IFENG is always 0** (equiprobable): the skewed (IFENG=1) and
+    ///   continuous-tabular (IFENG=2) inelastic secondary-energy forms are not
+    ///   implemented. IFENG=0 is what production ACE thermal libraries (e.g.
+    ///   the LANL `tsl` distributions) typically ship, so this covers the
+    ///   common case.
+    /// - **`opts.natom` is a single scalar** — multi-scatterer mixing (`nmix` >
+    ///   1 in `aceth.f90`, e.g. a material with two distinct bound-atom
+    ///   populations contributing to the same thermal table) is not supported;
+    ///   every evaluation this writer handles is treated as `nmix = 1`.
     pub fn thermal_from_mf7(
         mf7: &Mf7,
         temp_k: f64,
@@ -144,9 +155,15 @@ impl AceTable {
         let nei = energy_grid.len();
         let nieb = opts.n_outgoing;
         let nang = opts.n_cosines;
+        // TODO(nmix>1): `natom` is a single scalar — no support for mixing
+        // multiple distinct bound-atom populations into one thermal table
+        // (`nmix` in `aceth.f90`). Every material here is treated as nmix=1.
         let natom = opts.natom;
 
         // Per incident energy: cross section + equiprobable emission bins.
+        // TODO(IFENG=1/2): only the equiprobable (IFENG=0) form is produced —
+        // `equiprobable_emission` below. The skewed (IFENG=1) and
+        // continuous-tabular (IFENG=2) secondary-energy forms are not ported.
         let xs: Vec<f64> = energy_grid.iter().map(|&e| ii.cross_section(e, temp_k, natom)).collect();
         let emission: Vec<_> = energy_grid
             .iter()
@@ -259,7 +276,7 @@ impl AceTable {
         nxs_arr[nxs::NIEB] = nieb as i32;
         nxs_arr[nxs::IDPNC] = idpnc;
         nxs_arr[nxs::NCL] = ncl;
-        nxs_arr[nxs::IFENG] = 0;
+        nxs_arr[nxs::IFENG] = 0; // TODO(IFENG=1/2): only the equiprobable form is written
         nxs_arr[nxs::NCLI] = ncli;
 
         let mut jxs_arr = [0i32; 32];
