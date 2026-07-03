@@ -179,36 +179,40 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
     Legendre → Law 61, LANG=2 Kalbach → Law 44); and MF=6 **LAW=2** (two-body) /
     **LAW=6** (phase space), currently skipped gracefully (e.g. H-2 (n,2n)).
   - **4e — heating (ESZ column 5).** Zero until HEATR (Phase 3) lands.
-  - **4f — thermal S(α,β) ACE table.** ⏳ **scaffolded** (`src/ace/thermal.rs`,
-    stub returning `NotPorted`). Writes the `…t` thermal-scattering tables
-    (graphite, H₂O, D₂O, ZrH, …) with the thermal NXS/JXS layout
-    (ITIE/ITIX/ITXE inelastic; ITCE/ITCX/ITCA coherent-elastic Bragg;
-    ITCEI/ITCXI/ITCAI incoherent-elastic) — ports `aceth.f90` + the thermal
-    driver in `acefc.f90`. **Scheduled after 4a–4e** (the CE library) finish.
-    Prerequisite: **THERMR** (`thermr.f90`, Phase 3) to turn MF=7 S(α,β) into the
-    thermal cross sections / energy-angle distributions this consumes; optionally
-    **LEAPR** (`leapr.f90`, Phase 5) to *generate* MF=7 when an evaluation lacks
-    it. See the `src/ace/thermal.rs` module docs for the full TODO list.
-    **Progress (THERMR now open):**
-    - **MF=7 reader** — `src/thermal/mf7.rs` parses MT=2 coherent-elastic Bragg
-      `S(E)` and MT=4 incoherent-inelastic `S(α,β)` (B-const + β/α grids), tested
-      on the Al-27 ENDF/B-VIII `tsl` fixture.
-    - **Coherent-elastic** — `src/thermal/coherent.rs`: σ_coh(E)=S(E)/E (Bragg
-      sawtooth) + discrete reflection cosines `μ_i=1−2E_i/E` and weights, tested.
-    - **Incoherent-inelastic** — `src/thermal/inelastic.rs`: the double-differential
-      `d²σ/dE'dμ = (σ_b/2kT)·√(E'/E)·S̃(α,β)·exp(−β/2)` from S(α,β), and the
-      integrated `σ(E→E')` (∫dμ) and `σ_inel(E)` (∫dE' on the table's β grid, the
-      physically-dense quadrature). Validated on Al-27: σ_b≈1.45 b, and σ_inel
-      rises from the cold-crystal thermal value toward the free-atom limit
-      σ_free=B(1)≈1.35 b near 1–2 eV. Deep-downscatter overflow (S̃ below the
-      numerical floor while exp(−β/2) grows) is guarded.
-    Still needed: the secondary energy-angle **distributions** (equiprobable
-    cosines / Legendre for the ACE ITXE block) and the `aceth.f90` thermal-ACE
-    writer (ITIE/ITIX/ITXE + ITCE/ITCX/ITCA blocks).
-  The written file now carries cross sections + the elastic angular distribution.
-  Until 4b/4d/4e exist it is still not a complete transport library (no secondary
-  energy distributions, so inelastic/fission collisions can't be followed); 4f
-  (thermal S(α,β)) is a separate table type layered on top once 4a–4e are done.
+  - **4f — thermal S(α,β) ACE table.** ✅ **done** for the standard case
+    (`src/ace/thermal.rs`, `AceTable::thermal_from_mf7`) — writes the `…t`
+    thermal-scattering tables (graphite, H₂O, D₂O, ZrH, Al, …) with the full
+    thermal NXS/JXS layout: ITIE/ITIX/ITXE inelastic (IFENG=0 equiprobable
+    form), ITCE/ITCX coherent-elastic Bragg, and ITCE/ITCX/ITCA **or**
+    ITCEI/ITCXI/ITCAI incoherent-elastic (primary-slot vs secondary-slot
+    depending on whether coherent-elastic is also present — mirrors
+    `aceth.f90::thrlod`'s IDPNC=3/4/5 branching). Both `tests/thermal_ace.rs`
+    (Al-27, coherent+inelastic) and `tests/thermal_ace_zrh.rs`
+    (H-in-ZrH, incoherent-elastic+inelastic, no coherent) pass, including a
+    full write→read round-trip.
+    - **THERMR physics** (`src/thermal/`) — done: [`mf7`] parses MT=2
+      coherent/incoherent elastic and MT=4 incoherent-inelastic S(α,β);
+      [`coherent`] gives σ_coh(E)=S(E)/E + discrete Bragg reflection
+      cosines/weights; [`incoherent_elastic`] gives the closed-form
+      σ(E,T)=(σ_b/2N)(1−e^{−4EW'})/(2EW') and its equiprobable cosines
+      (analytic CDF inversion of the exponential angular law); [`inelastic`]
+      gives the double-differential `d²σ/dE'dμ` from S(α,β), the integrated
+      `σ(E→E')`/`σ_inel(E)`, and — the piece that closed this out —
+      `equiprobable_emission`/`equiprobable_cosines`: numerically inverts the
+      (E'-profile, then per-E' angular) CDFs to build the `nieb`×`nang`
+      equiprobable emission table the ACE ITXE block needs. Validated on
+      Al-27: σ_b≈1.45 b, σ_inel rises from the cold-crystal thermal value
+      toward the free-atom limit σ_free≈1.35 b near 1–2 eV.
+    **Not ported** (documented in `src/ace/thermal.rs`'s own module doc, not a
+    silent gap): the skewed/continuous **IFENG=1/2** inelastic forms (IFENG=0
+    equiprobable is what production ACE thermal libraries typically ship), and
+    multi-scatterer mixing (`nmix` taken as 1). **LEAPR** (`leapr.f90`, Phase
+    5, *generates* MF=7 when an evaluation lacks it) remains unported — not
+    needed since the ENDF/B thermal sublibrary ships MF=7 directly.
+  The written CE file now carries cross sections + the elastic angular
+  distribution. Until 4b/4d finish it is still not a complete CE transport
+  library (fission has no NU block; continuum producers are isotropic); 4f
+  (thermal S(α,β)) is a separate, now-complete table type layered on top.
   - **4g — Windowed Multipole (WMP) import.** ✅ **done** (`src/wmp.rs`).
     **Independent MIT CRPG work — NOT NJOY/LANL.** Reads the **MIT** `WMP_Library`
     (<https://github.com/mit-crpg/WMP_Library>, MIT-licensed) HDF5 multipole data:
