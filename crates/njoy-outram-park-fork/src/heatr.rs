@@ -14,9 +14,13 @@
 //! - **H1** (done): elastic (MT=2).
 //! - **H2** (done): local-deposition reactions — capture (MT=102) and
 //!   charged-particle-only exits (MT=103–117), `H(E) = σ(E)·(E+Q)`.
-//! - **H3, H4**: single-escaping-neutron reactions and fission — added
-//!   incrementally; see the doc comments on [`Kerma::from_reconr`] and
-//!   [`heating_model`] for what is (and is not yet) covered.
+//! - **H3** (done): single-escaping-neutron reactions — discrete inelastic
+//!   levels (MT=51–90, MT=4) and the `(n,n'X)` family (MT=22, 23, 28, 29,
+//!   32–36, 44, 45), `H(E) = σ(E)·[E·2A/(A+1)² + Q/(A+1)]` (see
+//!   [`single_neutron_factor`] for the derivation).
+//! - **H4**: fission — added next; see the doc comments on
+//!   [`Kerma::from_reconr`] and [`heating_model`] for what is (and is not yet)
+//!   covered.
 //! - **H5–H7** (deferred): multi-neutron-exit/continuum inelastic, the full
 //!   photon energy-balance method, and damage energy (MT=444).
 //!
@@ -57,7 +61,16 @@ enum HeatingModel {
     /// this is NJOY's own documented behaviour for materials/reactions
     /// without photon-production data taken to its logical conclusion.
     Local,
-    /// Not yet modeled (H3–H5 reactions, until they land): contributes 0.
+    /// **H3.** Exactly one escaping neutron, with the reaction's own Q-value
+    /// (discrete inelastic levels MT=51–90 and the lumped MT=4; the
+    /// `(n,n'X)`-family reactions MT=22, 23, 28, 29, 32–36, 44, 45, whose
+    /// charged-particle byproduct(s) stay local like H2's):
+    /// `H(E) = σ(E)·[E·2A/(A+1)² + Q/(A+1)]` — the two-body-with-Q
+    /// generalization of H1's elastic formula (reduces to it at `Q=0`; see
+    /// the derivation in [`single_neutron_factor`]).
+    SingleNeutron,
+    /// Not yet modeled (H5: multi-neutron-exit + continuum inelastic;
+    /// H4 fission is handled separately, not through this enum): contributes 0.
     NotModeled,
 }
 
@@ -69,8 +82,43 @@ fn heating_model(mt: MtReaction) -> HeatingModel {
         Mt102Capture | Mt103Np | Mt104Nd | Mt105Nt | Mt106NHe3 | Mt107NAlpha | Mt108N2Alpha
         | Mt109N3Alpha | Mt111N2Proton | Mt112NProtonAlpha | Mt113NT2Alpha | Mt114ND2Alpha
         | Mt115NProtonD | Mt116NProtonT | Mt117NDAlpha => HeatingModel::Local,
+        Mt4Inelastic | Mt22NnAlpha | Mt23Nn3Alpha | Mt28NnProton | Mt29Nn2Alpha | Mt32NnD
+        | Mt33NnT | Mt34NnHe3 | Mt35NnD2Alpha | Mt36NnT2Alpha | Mt44Nn2Proton
+        | Mt45NnProtonAlpha => HeatingModel::SingleNeutron,
+        // MT=51–90: discrete inelastic levels. Matched by number, not name —
+        // each level has its own named variant (`Mt51NnLevel1`, …, up to
+        // `Mt90…`), too many to enumerate individually here.
+        _ if (51..=90).contains(&mt.number()) => HeatingModel::SingleNeutron,
         _ => HeatingModel::NotModeled,
     }
+}
+
+/// The `2A/(A+1)²` factor from the two-body elastic recoil formula (H1),
+/// shared by [`HeatingModel::Elastic`] (`Q=0`) and [`HeatingModel::SingleNeutron`]
+/// (`Q≠0`, see the derivation below).
+///
+/// **Derivation (2-body reaction with Q-value, isotropic CM scattering).**
+/// For neutron mass 1, target mass `A` at rest, incident lab energy `E`: the
+/// CM-frame kinetic energy available before the reaction is `A/(A+1)·E`; after
+/// the reaction it is `A/(A+1)·E + Q`. Splitting that between the outgoing
+/// neutron (mass 1) and residual (mass `A`) inversely by mass, then
+/// transforming back to the lab frame and averaging the neutron's lab energy
+/// over an isotropic CM cosine (the cross term vanishes on average) gives
+///
+/// ```text
+///   ⟨E'⟩ = E·(1+A²)/(A+1)² + A·Q/(A+1)
+/// ```
+///
+/// so the energy deposited locally, `H = E + Q − ⟨E'⟩`, simplifies to
+///
+/// ```text
+///   H(E) = E·2A/(A+1)² + Q/(A+1).
+/// ```
+///
+/// At `Q=0` this is exactly H1's elastic formula — confirming the two are the
+/// same physics with (H1) and without (H3) an excitation/reaction Q-value.
+fn single_neutron_factor(awr: f64) -> f64 {
+    2.0 * awr / (awr + 1.0).powi(2)
 }
 
 /// Heating (KERMA) cross section, ENDF **MT=301**, vs incident energy \[eV\].
@@ -91,10 +139,10 @@ pub struct Kerma {
 impl Kerma {
     /// Compute the kinematic-limit KERMA from a reconstructed evaluation.
     ///
-    /// **H1–H2** are covered so far (elastic; capture + charged-particle-only
-    /// exits); every other reaction contributes 0 until H3–H5 land (see the
-    /// module docs). `awr` is the target's mass ratio
-    /// (`ReconrResult::material::awr`).
+    /// **H1–H3** are covered so far (elastic; capture + charged-particle-only
+    /// exits; single-escaping-neutron reactions); every other reaction
+    /// contributes 0 until H4–H5 land (see the module docs). `awr` is the
+    /// target's mass ratio (`ReconrResult::material::awr`).
     pub fn from_reconr(recon: &ReconrResult) -> Self {
         let awr = recon.material.awr;
         let mut energy: Vec<f64> = recon
@@ -106,7 +154,7 @@ impl Kerma {
         energy.sort_by(|a, b| a.partial_cmp(b).unwrap());
         energy.dedup_by(|a, b| (*a - *b).abs() < 1.0e-12 * b.abs().max(1.0));
 
-        let elastic_factor = 2.0 * awr / (awr + 1.0).powi(2);
+        let two_body_factor = single_neutron_factor(awr);
         let mut h = vec![0.0; energy.len()];
         for sec in &recon.sections {
             let model = heating_model(sec.mt);
@@ -119,8 +167,9 @@ impl Kerma {
                     continue;
                 }
                 let per_event = match model {
-                    HeatingModel::Elastic => e * elastic_factor,
+                    HeatingModel::Elastic => e * two_body_factor,
                     HeatingModel::Local => e + sec.qi,
+                    HeatingModel::SingleNeutron => e * two_body_factor + sec.qi / (awr + 1.0),
                     HeatingModel::NotModeled => unreachable!(),
                 };
                 h[i] += sigma * per_event;
@@ -221,6 +270,71 @@ mod tests {
         let h = kerma.eval(1.0e6);
         let expected = 0.5 * (1.0e6 + q);
         assert!((h - expected).abs() / expected < 1.0e-9, "H={h}, want {expected}");
+    }
+
+    /// **H3, `Q=0` reduction.** A discrete "level" with `qi=0.0` (unphysical for
+    /// a real level, but a clean check) must reproduce H1's pure elastic
+    /// formula exactly — confirming the two-body-with-Q formula's `Q→0` limit.
+    #[test]
+    fn single_neutron_at_q_zero_matches_elastic_formula() {
+        let awr = 12.0;
+        let level =
+            ReconrSection { mt: MtReaction::from_any(52), qi: 0.0, pairs: vec![(1.0e6, 3.0)] };
+        let kerma = Kerma::from_reconr(&recon(awr, vec![level]));
+        let h = kerma.eval(1.0e6);
+        let expected = 3.0 * 1.0e6 * 2.0 * awr / (awr + 1.0).powi(2);
+        assert!((h - expected).abs() / expected < 1.0e-9, "H={h}, want {expected}");
+    }
+
+    /// **H3.** A discrete inelastic level with a real (negative) Q-value: the
+    /// per-event heating `H(E)/σ(E) = E·2A/(A+1)² + Q/(A+1)` is *less* than the
+    /// pure-elastic term because the excitation energy `|Q|` is carried away by
+    /// the residual nucleus's internal state — consistent with `E+Q < E`
+    /// available for redistribution.
+    #[test]
+    fn discrete_level_heating_is_reduced_by_negative_q() {
+        let awr = 12.0;
+        let q = -4.4e6; // e.g. carbon-12's first excited state
+        let level =
+            ReconrSection { mt: MtReaction::from_any(51), qi: q, pairs: vec![(1.0e7, 1.0)] };
+        let kerma = Kerma::from_reconr(&recon(awr, vec![level]));
+        let h = kerma.eval(1.0e7);
+        let expected = 1.0 * (1.0e7 * 2.0 * awr / (awr + 1.0).powi(2) + q / (awr + 1.0));
+        assert!((h - expected).abs() / expected.abs() < 1.0e-9, "H={h}, want {expected}");
+        let h_elastic_only = 1.0 * 1.0e7 * 2.0 * awr / (awr + 1.0).powi(2);
+        assert!(h < h_elastic_only, "negative Q must reduce heating below the Q=0 term");
+    }
+
+    /// **H3.** An `(n,n'α)`-family reaction (MT=22): single escaping neutron,
+    /// the alpha stays local — same formula as a discrete level, using MT=22's
+    /// own Q-value.
+    #[test]
+    fn nn_alpha_family_uses_single_neutron_formula() {
+        let awr = 27.0;
+        let q = -3.0e6;
+        let sec = ReconrSection { mt: MtReaction::Mt22NnAlpha, qi: q, pairs: vec![(8.0e6, 0.2)] };
+        let kerma = Kerma::from_reconr(&recon(awr, vec![sec]));
+        let h = kerma.eval(8.0e6);
+        let expected = 0.2 * (8.0e6 * 2.0 * awr / (awr + 1.0).powi(2) + q / (awr + 1.0));
+        assert!((h - expected).abs() / expected.abs() < 1.0e-9, "H={h}, want {expected}");
+    }
+
+    /// H1+H2+H3 all sum additively on the shared union grid.
+    #[test]
+    fn all_three_phases_sum_additively() {
+        let awr = 56.0;
+        let elastic = ReconrSection { mt: MtReaction::Mt2Elastic, qi: 0.0, pairs: vec![(1.0e6, 10.0)] };
+        let capture = ReconrSection { mt: MtReaction::Mt102Capture, qi: 6.0e6, pairs: vec![(1.0e6, 1.0)] };
+        let level =
+            ReconrSection { mt: MtReaction::from_any(51), qi: -1.0e6, pairs: vec![(1.0e6, 0.3)] };
+        let kerma = Kerma::from_reconr(&recon(awr, vec![elastic, capture, level]));
+        let h = kerma.eval(1.0e6);
+        let f = 2.0 * awr / (awr + 1.0).powi(2);
+        let h_elastic = 10.0 * 1.0e6 * f;
+        let h_capture = 1.0 * (1.0e6 + 6.0e6);
+        let h_level = 0.3 * (1.0e6 * f + (-1.0e6) / (awr + 1.0));
+        let expected = h_elastic + h_capture + h_level;
+        assert!((h - expected).abs() / expected < 1.0e-9, "got {h}, want {expected}");
     }
 
     /// H1 and H2 sum additively on the same union grid — a material with both
