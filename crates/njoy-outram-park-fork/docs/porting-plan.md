@@ -72,7 +72,7 @@ Status legend: ✅ done · 🟡 partial · ⏳ scaffolded/stub · ⬜ not starte
 |---|---|---|---|---|
 | `modules::reconr` | `reconr.f90` | 5.7k | 2 | ✅ resonance reconstruction |
 | `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) |
-| `modules::heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5) + elastic damage energy (H7 partial) done, `src/heatr.rs`; full photon energy-balance (H6) deferred, H7 anisotropy/other channels remaining — see sub-phase table below (ACE 4e depends on the full method) |
+| `modules::heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5, wired into ACE ESZ) + damage energy for the two-body recoil channels (H7: elastic + discrete levels) done, `src/heatr.rs`; full photon energy-balance (H6) deferred, H7 anisotropy/continuum/capture channels remaining — see sub-phase table below |
 | `modules::gaspr` | `gaspr.f90` | 1.15k | 3 | ✅ gas production (MT=203–207), lumped-channel case only — see `src/gaspr.rs` |
 | `modules::purr` | `purr.f90` | 2.9k | 3 | ⬜ URR probability tables |
 | `modules::thermr` | `thermr.f90` | 3.4k | 3 | 🟡 MF=7 reader + coherent/incoherent elastic + inelastic physics; no module driver |
@@ -200,18 +200,31 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
     `heatr.f90` algorithm proper: MF=12–15 / MF=6 photon-production data,
     momentum-conservation capture recoil, and using H1–H5 as the *kinematic
     check* NJOY itself runs the full method against (`kchk` branch).
-  - **H7 — Damage energy (MT=444).** 🟡 elastic ported, `src/heatr.rs`
+  - **H7 — Damage energy (MT=444).** 🟡 two-body neutron-scattering channels
+    ported (elastic + discrete inelastic levels), `src/heatr.rs`
     ([`DamageEnergy`]). Ports the Lindhard-Robinson partition `df` (`heatr.f90`)
     — the fraction of a recoil's kinetic energy that goes into atomic
     displacements rather than electronic excitation — plus NJOY's per-element
     default displacement-threshold table [`default_displacement_energy`] (C=31,
-    Al=27, Fe/Ti–Cu/Zr/Nb=40, Mo/Ag=60, Ta/W=90, Pb=25, 25 eV fallback). The
-    elastic (MT=2) damage cross section is `σ_el(E)·⟨df⟩` with `⟨df⟩` the recoil
-    average over the **isotropic-CM** uniform recoil distribution `[0, E_max]`,
-    `E_max = 4A/(A+1)²·E` (composite-Simpson integral of `df` over `[E_d, E_max]`,
-    where it is smooth). **Remaining H7**: MF=4 angular anisotropy reweighting the
-    recoil (NJOY's 64-point Gauss-Legendre `disbar`), and the discrete-level /
-    (n,xn) / capture-recoil (`capdam`) channels — all reuse the same `df`.
+    Al=27, Fe/Ti–Cu/Zr/Nb=40, Mo/Ag=60, Ta/W=90, Pb=25, 25 eV fallback). For
+    **elastic** (MT=2) and each **discrete inelastic level** (MT=51–90) the
+    damage cross section is `σ_r(E)·⟨df⟩`; under **isotropic-CM** scattering the
+    recoil energy is uniform on `[E_min, E_max]` (linear in the CM cosine —
+    [`two_body_recoil_bounds`]: `C=A/(A+1)²·E`, `g=√(1−E_thr/E)`,
+    `E_thr=(A+1)/A·|Q|`; elastic is `Q=0`, `[0, 4C]`), so `⟨df⟩` is the
+    composite-Simpson mean of `df` over `[max(E_min,E_d), E_max]`. **Remaining
+    H7**: MF=4 angular anisotropy reweighting the recoil (NJOY's 64-point
+    Gauss-Legendre `disbar`), and the continuum/(n,xn)/capture-recoil (`capdam`)
+    channels — all reuse the same `df`.
+
+    **V&V (methodology + results).** Seven unit tests in `src/heatr.rs`
+    (`--lib heatr`, 26/26 green 2026-07-04): the default-`E_d` table matches
+    NJOY; `df=0` below `E_d`, `0<df≤E_R` above, and the damage fraction `df/E_R`
+    is ≈1 near threshold, `<0.1` at 10 MeV, falling monotonically (the Lindhard
+    signature); for Fe (A=56, E_d=40 eV) the elastic MT=444 is 0 at 100 eV
+    (E_max≈6.9 eV<E_d), positive/rising above, and per-collision `< the H1
+    heating` at every energy; a discrete level (`Q<0`) narrows the recoil window
+    (`E_max < 4C`) and adds strictly-positive damage on top of elastic.
 
     **V&V (methodology + results).** Five unit tests in `src/heatr.rs`
     (`cargo test -p njoy-outram-park-fork --lib heatr`, 24/24 green 2026-07-04):
