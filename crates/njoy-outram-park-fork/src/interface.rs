@@ -247,11 +247,12 @@ impl NuclearDataLibrary {
     /// MCNP convention (e.g. `92235.00c`).
     ///
     /// When MF=4/MT=2 is present, the **elastic** angular distribution is written
-    /// to the LAND/AND blocks. The remaining secondary-particle blocks (fission
-    /// ν̄, non-elastic angular and all energy distributions) and the heating
-    /// (KERMA) column are not yet written — see [`crate::ace`] for the scope. The
-    /// file is a valid cross-section + elastic-scattering ACE table but not yet a
-    /// complete transport library.
+    /// to the LAND/AND blocks, and the neutron-producing reactions get their
+    /// TYR/LDLW/DLW energy distributions. The **ESZ heating column** is filled
+    /// from the HEATR H1–H5 KERMA (ν̄ from MF=1/452, χ from MF=5/18, and the
+    /// (n,2n)/(n,3n)/continuum emission spectra from MF=6/MF=5). Still not
+    /// written: the fission ν̄ (NU) block and non-elastic angular distributions —
+    /// see [`crate::ace`] for the scope.
     ///
     /// # Errors
     ///
@@ -281,7 +282,26 @@ impl NuclearDataLibrary {
             .section(self.mat, 4, 2)
             .map(crate::ace::angular::parse_elastic_angular)
             .transpose()?;
-        let ace = crate::ace::AceTable::from_reconr_full(r, kt_mev, 0, ang.as_ref(), &emissions);
+
+        // HEATR MT=301 heating (KERMA) for the ESZ heating column: H1–H5.
+        // ν̄/χ drive the fission term (H4); the emission spectra drive H5. All
+        // default to a benign no-op for materials that lack the corresponding
+        // data (non-fissionable ⇒ MT=18 absent ⇒ ν̄/χ never evaluated).
+        let nu = crate::nuclear_data::secondary::NuBar::from_endf(&self.tape, self.mat)?
+            .unwrap_or_default();
+        let chi = crate::nuclear_data::secondary::FissionSpectrum::from_endf_mf5(&self.tape, self.mat)?
+            .unwrap_or_default();
+        let emission = crate::heatr::build_emission_spectra(&self.tape, self.mat);
+        let kerma = crate::heatr::Kerma::from_reconr(r, &nu, &chi, &emission);
+
+        let ace = crate::ace::AceTable::from_reconr_full(
+            r,
+            kt_mev,
+            0,
+            ang.as_ref(),
+            &emissions,
+            Some(&kerma),
+        );
         ace.write_type1(path).map_err(NjoyError::Io)
     }
 

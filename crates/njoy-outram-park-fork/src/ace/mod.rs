@@ -31,7 +31,7 @@
 //! | NU (fission ν̄) | 2 (`nu`) | deferred (needs MF=1/MT=452) |
 //! | LAND / AND (non-elastic angular distributions) | 8–9 | deferred (couples with MF=5/6) |
 //! | LDLW / DLW (energy distributions) | 10–11 | deferred (needs MF=5/MF=6) |
-//! | heating (KERMA) — ESZ column 5 | — | zero (needs HEATR) |
+//! | heating (KERMA) — ESZ column 5 | — | **built** (HEATR H1–H5, via `from_reconr_full`'s `heating` arg) |
 //!
 //! The file this writes carries cross sections plus the **elastic** angular
 //! distribution. Secondary energy distributions (DLW) and non-elastic angular

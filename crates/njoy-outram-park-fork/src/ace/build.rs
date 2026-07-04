@@ -109,14 +109,15 @@ impl AceTable {
     ///
     /// The build is faithful to `acelod`: the ESZ total is recomputed as
     /// `elastic + Σ partials` on the union grid (not copied from the ENDF MT=1),
-    /// so it is exactly consistent with the stored partials. Heating (ESZ column
-    /// 5) is left zero pending a HEATR port.
+    /// so it is exactly consistent with the stored partials. This constructor
+    /// leaves heating (ESZ column 5) zero; supply a HEATR KERMA via
+    /// [`from_reconr_full`][Self::from_reconr_full] to fill it.
     ///
     /// This form writes **no** angular distributions (the AND block is absent).
     /// To include the elastic angular distribution, use
     /// [`from_reconr_with_angular`][Self::from_reconr_with_angular].
     pub fn from_reconr(result: &ReconrResult, kt_mev: f64, suffix: u32) -> Self {
-        Self::build(result, kt_mev, suffix, None, &[])
+        Self::build(result, kt_mev, suffix, None, &[], None)
     }
 
     /// Assemble an ACE table including the **elastic** angular distribution.
@@ -132,7 +133,7 @@ impl AceTable {
         suffix: u32,
         angular: &ElasticAngular,
     ) -> Self {
-        Self::build(result, kt_mev, suffix, Some(angular), &[])
+        Self::build(result, kt_mev, suffix, Some(angular), &[], None)
     }
 
     /// Assemble a full ACE table: cross sections, the elastic angular
@@ -144,14 +145,20 @@ impl AceTable {
     /// TYR yield and a DLW law (Law 3 for discrete levels, Law 4 for continuum /
     /// (n,xn)); their secondary angular distribution is left isotropic (an
     /// AND-block upgrade is future work). NXS(5)=NR is set to the producer count.
+    /// `heating` is the MT=301 KERMA cross section (build it with
+    /// [`Kerma::from_reconr`][crate::heatr::Kerma::from_reconr]); when supplied,
+    /// the ESZ heating column is filled with the ACE heating number
+    /// `KERMA(E) / σ_total(E)` \[MeV\] (`acefc`'s `xss(ih+j)`). `None` leaves it
+    /// zero.
     pub fn from_reconr_full(
         result: &ReconrResult,
         kt_mev: f64,
         suffix: u32,
         angular: Option<&ElasticAngular>,
         emissions: &[Emission],
+        heating: Option<&crate::heatr::Kerma>,
     ) -> Self {
-        Self::build(result, kt_mev, suffix, angular, emissions)
+        Self::build(result, kt_mev, suffix, angular, emissions, heating)
     }
 
     /// Shared assembly for the `from_reconr*` constructors.
@@ -161,6 +168,7 @@ impl AceTable {
         suffix: u32,
         angular: Option<&ElasticAngular>,
         emissions: &[Emission],
+        heating: Option<&crate::heatr::Kerma>,
     ) -> Self {
         let za = result.material.za.round() as i32;
         let awr = result.material.awr;
@@ -237,8 +245,16 @@ impl AceTable {
         total.iter().for_each(|&v| b.real(v));
         disappear.iter().for_each(|&v| b.real(v));
         elastic_xs.iter().for_each(|&v| b.real(v));
-        for _ in 0..nes {
-            b.real(0.0); // heating (KERMA) — deferred (needs HEATR)
+        // Heating: the ACE "heating number" H(E) = KERMA(E)/σ_total(E) in MeV
+        // (acefc's `xss(ih+j) = s/emev/xss(it+j)`), where KERMA(E) is the MT=301
+        // heating cross section [eV·barn]. Zero where no HEATR result is supplied
+        // or the total vanishes.
+        for (j, &e) in egrid.iter().enumerate() {
+            let h = match heating {
+                Some(k) if total[j] != 0.0 => sigfig(k.eval(e) / EMEV / total[j], 7),
+                _ => 0.0,
+            };
+            b.real(h);
         }
 
         let ntr = partials.len();

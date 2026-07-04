@@ -5,11 +5,12 @@
 //! distributions (MF=5/MF=6) → [`AceTable::from_reconr_full`] → write a Type-1
 //! ASCII ACE file.
 //!
-//! The table carries the ESZ cross-section block, the MTR/LQR/TYR/LSIG/SIG
-//! reaction blocks, the elastic LAND/AND angular block, and the LDLW/DLW
-//! secondary-energy blocks (Law 3 for discrete inelastic levels, Law 4 for the
-//! continuum / (n,xn) reactions). Still outstanding: fission ν̄ (NU), non-elastic
-//! angular, and heating — see the `njoy_outram_park_fork::ace` module docs.
+//! The table carries the ESZ cross-section block (including the **heating**
+//! column from HEATR H1–H5), the MTR/LQR/TYR/LSIG/SIG reaction blocks, the
+//! elastic LAND/AND angular block, and the LDLW/DLW secondary-energy blocks
+//! (Law 3 for discrete inelastic levels, Law 4 for the continuum / (n,xn)
+//! reactions). Still outstanding: fission ν̄ (NU) and non-elastic angular — see
+//! the `njoy_outram_park_fork::ace` module docs.
 //!
 //! Run with:
 //! ```bash
@@ -21,6 +22,8 @@ use std::fs::File;
 use njoy_outram_park_fork::{
     ace::{angular::parse_elastic_angular, energy::build_emissions, jxs, nxs, AceTable},
     endf::tape::Tape,
+    heatr::{build_emission_spectra, Kerma},
+    nuclear_data::secondary::{FissionSpectrum, NuBar},
     reconr::{reconr, ReconrConfig},
 };
 
@@ -43,8 +46,16 @@ fn main() {
         result.sections.iter().map(|s| (i32::from(s.mt), s.qi)).collect();
     let emissions = build_emissions(&tape, MAT, result.material.awr, &partials);
 
+    // HEATR MT=301 heating (KERMA) for the ESZ heating column: ν̄/χ drive the
+    // fission term, the H5 emission spectra drive (n,2n)/(n,3n)/continuum.
+    let nu = NuBar::from_endf(&tape, MAT).expect("MF=1").unwrap_or_default();
+    let chi = FissionSpectrum::from_endf_mf5(&tape, MAT).expect("MF=5").unwrap_or_default();
+    let emission = build_emission_spectra(&tape, MAT);
+    let kerma = Kerma::from_reconr(&result, &nu, &chi, &emission);
+
     // kT = 0 → 0 K table; suffix 0 → ZAID "92235.00c".
-    let ace = AceTable::from_reconr_full(&result, 0.0, 0, angular.as_ref(), &emissions);
+    let ace =
+        AceTable::from_reconr_full(&result, 0.0, 0, angular.as_ref(), &emissions, Some(&kerma));
 
     println!("ZAID          : {}", ace.zaid.trim());
     println!("AWR           : {:.6}", ace.awr);
@@ -57,6 +68,13 @@ fn main() {
     println!("JXS LDLW/DLW  : {} / {}", ace.jxs[jxs::LDLW], ace.jxs[jxs::DLW]);
     let (law3, law4) = dlw_law_counts(&ace);
     println!("DLW laws      : {law3} × Law 3 (discrete), {law4} × Law 4 (continuum)");
+
+    // ESZ heating column (5th NES-length array): peak heating number [MeV].
+    let nes = ace.nxs[nxs::NES] as usize;
+    let esz = ace.jxs[jxs::ESZ] as usize - 1; // ESZ locator is 1-based
+    let heat = &ace.xss[esz + 4 * nes..esz + 5 * nes];
+    let hmax = heat.iter().copied().fold(0.0_f64, f64::max);
+    println!("max heating   : {hmax:.4e} MeV/collision");
 
     let out = std::env::temp_dir().join("92235.00c.ace");
     ace.write_type1(&out).expect("write ACE");

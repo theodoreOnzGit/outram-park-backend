@@ -96,6 +96,40 @@ impl EmissionSpectrum {
     }
 }
 
+/// The H5 reaction MTs (multi-neutron-exit + continuum inelastic) that need an
+/// emitted-neutron [`EmissionSpectrum`] for their KERMA contribution.
+const H5_MTS: [i32; 10] = [11, 16, 17, 24, 25, 30, 37, 41, 42, 91];
+
+/// Collect the H5 emission spectra a full KERMA needs from an ENDF `tape` (for
+/// material `mat`): for each H5 reaction with secondary data, prefer its ENDF
+/// **MF=6** LAW=1 neutron emission (the modern representation), falling back to
+/// its **MF=5** law. Reactions with no readable emission spectrum (absent, or in
+/// an unported MF=6 LAW / MF=5 LF) are simply omitted — HEATR then leaves their
+/// heating at 0 rather than guessing.
+///
+/// The result is ready to pass as the `emission` argument of
+/// [`Kerma::from_reconr`].
+pub fn build_emission_spectra(
+    tape: &crate::endf::tape::Tape,
+    mat: i32,
+) -> Vec<(MtReaction, EmissionSpectrum)> {
+    let mut out = Vec::new();
+    for &mt in &H5_MTS {
+        // Prefer MF=6 LAW=1 (modern (n,2n)/(n,3n)/continuum).
+        if let Some(sec) = tape.section(mat, 6, mt) {
+            if let Ok(m) = crate::ace::energy::parse_mf6_law1_neutron(sec) {
+                out.push((MtReaction::from_any(mt), EmissionSpectrum::Mf6(m)));
+                continue;
+            }
+        }
+        // Fall back to an MF=5 secondary law.
+        if let Ok(Some(chi)) = FissionSpectrum::from_endf_mf5_mt(tape, mat, mt) {
+            out.push((MtReaction::from_any(mt), EmissionSpectrum::Mf5(chi)));
+        }
+    }
+    out
+}
+
 /// Which heating model a reaction MT uses in the kinematic-limit KERMA — the
 /// closed dispatch [`heating_model`] returns.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

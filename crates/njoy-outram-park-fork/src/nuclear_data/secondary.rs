@@ -371,7 +371,22 @@ impl FissionSpectrum {
         tape: &crate::endf::tape::Tape,
         mat: i32,
     ) -> Result<Option<FissionSpectrum>, crate::NjoyError> {
-        match tape.section(mat, 5, 18) {
+        Self::from_endf_mf5_mt(tape, mat, 18)
+    }
+
+    /// Parse the secondary-neutron energy spectrum from ENDF **MF=5** for an
+    /// arbitrary reaction `mt` (not just fission MT=18) — the same LF=1/7/9/11 +
+    /// NK-mixture machinery as [`from_endf_mf5`](Self::from_endf_mf5), used by
+    /// HEATR H5 to read the MF=5 emission spectra of (n,2n)/(n,3n)/continuum
+    /// reactions in older evaluations that store them there rather than in MF=6.
+    /// Returns `Ok(None)` if the material has no MF=5/`mt` section or it uses an
+    /// unported LF.
+    pub fn from_endf_mf5_mt(
+        tape: &crate::endf::tape::Tape,
+        mat: i32,
+        mt: i32,
+    ) -> Result<Option<FissionSpectrum>, crate::NjoyError> {
+        match tape.section(mat, 5, mt) {
             Some(sec) => parse_mf5_section(&sec.rows),
             None => Ok(None),
         }

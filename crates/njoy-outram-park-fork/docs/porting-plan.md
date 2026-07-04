@@ -270,7 +270,18 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
     **continuum** correlated angle (MF=6 producers still isotropic — LANG=1
     Legendre → Law 61, LANG=2 Kalbach → Law 44); and MF=6 **LAW=2** (two-body) /
     **LAW=6** (phase space), currently skipped gracefully (e.g. H-2 (n,2n)).
-  - **4e — heating (ESZ column 5).** Zero until HEATR (Phase 3) lands.
+  - **4e — heating (ESZ column 5).** ✅ `src/ace/build.rs` +
+    `src/interface.rs`. `from_reconr_full` takes an optional `&Kerma`; when
+    supplied, the ESZ heating column is filled with the ACE heating number
+    `H(E) = KERMA(E)/σ_total(E)` \[MeV\] (`acefc`'s `xss(ih+j) = s/emev/σ_t`).
+    `write_ace` builds the HEATR H1–H5 KERMA (ν̄ from MF=1/452, χ from MF=5/18,
+    and the H5 emission spectra via `heatr::build_emission_spectra`, which reads
+    each (n,2n)/(n,3n)/continuum reaction's MF=6 LAW=1 or MF=5 law) and threads
+    it in. V&V (`tests/acer.rs::esz_heating_column_is_physical`, 2026-07-04): the
+    U-235 heating column is populated, everything in `[0, 200] MeV`, peak ≈ 160
+    MeV/collision (thermal-fission dominated — ~185 MeV × fission/total). The
+    `write_ace` example prints the same peak. Damage (MT=444) as a separate MTR
+    reaction is not yet wired (needs H7 anisotropy + the MTR/SIG slot).
   - **4f — thermal S(α,β) ACE table.** ✅ **done** for the standard case
     (`src/ace/thermal.rs`, `AceTable::thermal_from_mf7`) — writes the `…t`
     thermal-scattering tables (graphite, H₂O, D₂O, ZrH, Al, …) with the full
