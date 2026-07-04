@@ -63,6 +63,7 @@ pub mod modules;
 /// (`openmc-libs`, …). All cross-section representation lives in this crate; see
 /// [`nuclear_data`] and `docs/architecture.md`.
 pub mod nuclear_data;
+pub mod photon;
 pub mod prelude;
 pub mod reconr;
 /// Thermal neutron scattering (the THERMR domain): read MF=7 S(α,β) evaluations
