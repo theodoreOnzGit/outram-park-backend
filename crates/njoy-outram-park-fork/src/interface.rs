@@ -249,10 +249,11 @@ impl NuclearDataLibrary {
     /// When MF=4/MT=2 is present, the **elastic** angular distribution is written
     /// to the LAND/AND blocks, and the neutron-producing reactions get their
     /// TYR/LDLW/DLW energy distributions. The **ESZ heating column** is filled
-    /// from the HEATR H1–H5 KERMA (ν̄ from MF=1/452, χ from MF=5/18, and the
-    /// (n,2n)/(n,3n)/continuum emission spectra from MF=6/MF=5). Still not
-    /// written: the fission ν̄ (NU) block and non-elastic angular distributions —
-    /// see [`crate::ace`] for the scope.
+    /// from the HEATR KERMA — H1–H5 kinematic terms (ν̄ from MF=1/452, χ from
+    /// MF=5/18, and the (n,2n)/(n,3n)/continuum emission spectra from MF=6/MF=5)
+    /// **plus the H6 energy-balance correction** (escaping photon energy from
+    /// MF=12/13/15 subtracted). Still not written: the fission ν̄ (NU) block and
+    /// non-elastic angular distributions — see [`crate::ace`] for the scope.
     ///
     /// # Errors
     ///
@@ -292,7 +293,9 @@ impl NuclearDataLibrary {
         let chi = crate::nuclear_data::secondary::FissionSpectrum::from_endf_mf5(&self.tape, self.mat)?
             .unwrap_or_default();
         let emission = crate::heatr::build_emission_spectra(&self.tape, self.mat);
-        let kerma = crate::heatr::Kerma::from_reconr(r, &nu, &chi, &emission);
+        let photons = crate::photon::PhotonProduction::from_endf(&self.tape, self.mat, r);
+        let kerma = crate::heatr::Kerma::from_reconr(r, &nu, &chi, &emission)
+            .with_energy_balance(&photons, r);
 
         let ace = crate::ace::AceTable::from_reconr_full(
             r,

@@ -24,6 +24,7 @@ use njoy_outram_park_fork::{
     endf::tape::Tape,
     heatr::{build_emission_spectra, Kerma},
     nuclear_data::secondary::{FissionSpectrum, NuBar},
+    photon::PhotonProduction,
     reconr::{reconr, ReconrConfig},
 };
 
@@ -51,7 +52,9 @@ fn main() {
     let nu = NuBar::from_endf(&tape, MAT).expect("MF=1").unwrap_or_default();
     let chi = FissionSpectrum::from_endf_mf5(&tape, MAT).expect("MF=5").unwrap_or_default();
     let emission = build_emission_spectra(&tape, MAT);
-    let kerma = Kerma::from_reconr(&result, &nu, &chi, &emission);
+    let photons = PhotonProduction::from_endf(&tape, MAT, &result);
+    let kerma =
+        Kerma::from_reconr(&result, &nu, &chi, &emission).with_energy_balance(&photons, &result);
 
     // kT = 0 → 0 K table; suffix 0 → ZAID "92235.00c".
     let ace =

@@ -353,6 +353,38 @@ impl Kerma {
         Kerma { energy, h }
     }
 
+    /// Apply HEATR's **energy-balance correction**: subtract the escaping-photon
+    /// energy production ([`PhotonProduction`], ENDF MT=442) from this
+    /// kinematic-limit KERMA, giving the energy-balance MT=301 heating.
+    ///
+    /// The kinematic limit deposits *all* photon energy locally; wherever the
+    /// evaluation carries photon-production data those photons actually escape,
+    /// so their energy `Σ E_γ,prod(E)` must be removed (`heatr.f90`'s `gheat`).
+    /// The subtraction happens on this KERMA's own energy grid (dense — the union
+    /// of the modeled reactions' grids, which already includes the
+    /// photon-producing reactions). The result is clamped at 0: heating is a
+    /// physical (non-negative) energy deposition, and until the **capture
+    /// momentum-recoil** refinement (`disgam`) lands, a capture reaction with
+    /// MF=12/13 photon data could otherwise over-subtract (its photons carry
+    /// nearly all of `E+Q`, leaving only the small recoil the clamp preserves as
+    /// 0 rather than a spurious negative).
+    ///
+    /// A no-op when `photon` is empty (no photon files ⇒ the kinematic limit is
+    /// already the energy-balance answer, per NJOY's documented fallback).
+    pub fn with_energy_balance(
+        mut self,
+        photon: &crate::photon::PhotonProduction,
+        recon: &ReconrResult,
+    ) -> Self {
+        if photon.is_empty() {
+            return self;
+        }
+        for (i, &e) in self.energy.iter().enumerate() {
+            self.h[i] = (self.h[i] - photon.eval(e, recon)).max(0.0);
+        }
+        self
+    }
+
     /// Evaluate the heating cross section \[eV·barn\] at incident energy `e`
     /// \[eV\] (lin-lin interpolated, clamped at the tabulated ends).
     pub fn eval(&self, e: f64) -> f64 {

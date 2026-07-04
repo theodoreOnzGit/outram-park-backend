@@ -22,6 +22,7 @@ use njoy_outram_park_fork::{
     endf::tape::Tape,
     heatr::{build_emission_spectra, Kerma},
     nuclear_data::secondary::{FissionSpectrum, NuBar},
+    photon::PhotonProduction,
     reconr::{reconr, ReconrConfig},
 };
 
@@ -74,7 +75,9 @@ fn build_heated(name: &str, mat: i32) -> AceTable {
     let nu = NuBar::from_endf(&tape, mat).unwrap().unwrap_or_default();
     let chi = FissionSpectrum::from_endf_mf5(&tape, mat).unwrap().unwrap_or_default();
     let emission = build_emission_spectra(&tape, mat);
-    let kerma = Kerma::from_reconr(&res, &nu, &chi, &emission);
+    let photons = PhotonProduction::from_endf(&tape, mat, &res);
+    let kerma =
+        Kerma::from_reconr(&res, &nu, &chi, &emission).with_energy_balance(&photons, &res);
     AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, Some(&kerma))
 }
 
@@ -424,19 +427,21 @@ fn angular_table_roundtrips_through_file() {
 /// **HEATR → ACE 4e (heating column) V&V.**
 ///
 /// **Methodology.** Build the U-235 (MAT=9228, ENDF/B-VIII.0) ACE table with the
-/// HEATR MT=301 KERMA wired into the ESZ heating column (H1–H5: elastic,
-/// capture, discrete inelastic, fission, (n,2n)/(n,3n)/continuum). The heating
-/// column stores the ACE "heating number" `H(E) = KERMA(E)/σ_total(E)` in MeV
-/// (`acefc`'s `xss(ih+j)`). Assert it is (a) present and non-trivial (not the
-/// all-zero placeholder), (b) physically bounded — every value ≥ 0 and below the
-/// ~200 MeV/fission ceiling, and (c) fission-dominated at low energy: the peak
-/// heating number is ~150–200 MeV/collision (U-235's ~185 MeV fission energy
-/// deposition times the thermal fission/total fraction).
+/// HEATR MT=301 KERMA wired into the ESZ heating column (H1–H5 kinematic terms
+/// **plus H6 energy balance**: the ~7 MeV/fission of prompt photon energy is
+/// subtracted as escaping). The heating column stores the ACE "heating number"
+/// `H(E) = KERMA(E)/σ_total(E)` in MeV (`acefc`'s `xss(ih+j)`). Assert it is
+/// (a) present and non-trivial (not the all-zero placeholder), (b) physically
+/// bounded — every value ≥ 0 and below the ~200 MeV/fission ceiling, and
+/// (c) fission-dominated at low energy: the peak heating number is
+/// ~150–200 MeV/collision (U-235's ~185 MeV fission deposition, minus escaping
+/// photons, times the thermal fission/total fraction).
 ///
-/// **Results (2026-07-04, ENDF/B-VIII.0).** Peak heating number ≈ 160
-/// MeV/collision (fission-dominated thermal region); all values in
+/// **Results (2026-07-04, ENDF/B-VIII.0).** Peak heating number ≈ 154
+/// MeV/collision (fission-dominated thermal region; ~6 MeV lower than the
+/// kinematic limit's ~160, the escaping prompt-γ energy); all values in
 /// `[0, 200] MeV`; the column is non-zero (many hundreds of positive entries).
-/// The `write_ace` example prints the same ~1.60e2 MeV peak.
+/// The `write_ace` example prints the same ~1.54e2 MeV peak.
 #[test]
 fn esz_heating_column_is_physical() {
     let ace = build_heated("n-092_U_235-ENDF8.0.endf", 9228);
