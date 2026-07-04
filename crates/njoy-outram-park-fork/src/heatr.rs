@@ -24,10 +24,10 @@
 //! - **H5** (done): multi-neutron-exit + continuum inelastic (MT=11, 16, 17,
 //!   24, 25, 30, 37, 41, 42, 91), `H(E) = σ(E)·[E + Q − ȳ·⟨E'⟩]`, where `ȳ` is
 //!   the emitted-neutron multiplicity (fixed by the MT) and `⟨E'⟩` the mean
-//!   emitted-neutron energy from the reaction's own MF=5 secondary spectrum
-//!   (reusing [`FissionSpectrum::mean_energy`] — the same first-moment machinery
-//!   H4 uses for χ). This is the direct generalization of H3/H4's balance:
-//!   `ȳ` neutrons each escape carrying the emission spectrum's mean energy, and
+//!   emitted-neutron energy from the reaction's own secondary spectrum — from
+//!   ENDF **MF=5 or MF=6** ([`EmissionSpectrum`]; the modern (n,2n)/(n,3n) data
+//!   is MF=6). This is the direct generalization of H3/H4's balance: `ȳ`
+//!   neutrons each escape carrying the emission spectrum's mean energy, and
 //!   `E + Q` minus that total deposits locally. A reaction whose emission
 //!   spectrum is not supplied contributes 0 (excluded, not guessed).
 //! - **H7** (started): damage-energy production, ENDF **MT=444** — the
@@ -59,9 +59,42 @@
 //! free proton loses on average exactly half its energy — a textbook result,
 //! and the module's primary correctness check.
 
+use crate::ace::energy::Mf6Neutron;
 use crate::endf::MtReaction;
 use crate::nuclear_data::secondary::{FissionSpectrum, NuBar};
 use crate::reconr::{eval_lin_lin, ReconrResult};
+
+/// The secondary-neutron energy spectrum of an H5 multi-neutron / continuum
+/// reaction, in whichever ENDF file the evaluation stores it. HEATR only needs
+/// its mean outgoing energy `⟨E'⟩(E)` (the energy each escaping neutron carries
+/// away), so this enum exposes exactly that via [`Self::mean_energy`].
+///
+/// Enum dispatch (not a trait object) per the workspace design rules — the set
+/// of ENDF secondary-energy representations is closed.
+#[derive(Debug, Clone)]
+pub enum EmissionSpectrum {
+    /// ENDF **MF=5** secondary-energy law (Maxwell / evaporation / Watt /
+    /// tabulated χ) — the [`FissionSpectrum`] type, reused as a general emission
+    /// spectrum (it is one). Its `mean_energy` is closed-form for the analytic
+    /// laws, quadrature for the tabulated ones.
+    Mf5(FissionSpectrum),
+    /// ENDF **MF=6** LAW=1 tabulated neutron emission ([`Mf6Neutron`]) — the
+    /// modern representation for (n,2n)/(n,3n)/continuum. Mean is the first
+    /// moment of the emission pdf (exact in the lab frame; a documented
+    /// approximation in the CM frame — see [`Mf6Neutron::mean_energy`]).
+    Mf6(Mf6Neutron),
+}
+
+impl EmissionSpectrum {
+    /// Mean outgoing-neutron energy `⟨E'⟩` \[eV\] at incident energy `e_in`
+    /// \[eV\].
+    pub fn mean_energy(&self, e_in: f64) -> f64 {
+        match self {
+            EmissionSpectrum::Mf5(chi) => chi.mean_energy(e_in),
+            EmissionSpectrum::Mf6(m) => m.mean_energy(e_in),
+        }
+    }
+}
 
 /// Which heating model a reaction MT uses in the kinematic-limit KERMA — the
 /// closed dispatch [`heating_model`] returns.
@@ -94,7 +127,7 @@ enum HeatingModel {
     Fission,
     /// **H5.** Multi-neutron-exit (MT=11, 16, 17, 24, 25, 30, 37, 41, 42) and
     /// continuum inelastic (MT=91): `ȳ` neutrons escape, each carrying the mean
-    /// energy `⟨E'⟩` of the reaction's MF=5 secondary-neutron spectrum, so
+    /// energy `⟨E'⟩` of the reaction's MF=5/MF=6 secondary-neutron spectrum, so
     /// `H(E) = σ(E)·[E + Q − ȳ·⟨E'⟩]`. Unlike H1–H4 the mean has no closed
     /// kinematic form, so the emission spectrum must be supplied (via the
     /// `emission` argument of [`Kerma::from_reconr`]); the multiplicity `ȳ`
@@ -150,14 +183,14 @@ fn neutron_multiplicity(mt: MtReaction) -> f64 {
     }
 }
 
-/// The MF=5 emitted-neutron energy spectrum supplied for reaction `mt`, if any.
+/// The emitted-neutron energy spectrum supplied for reaction `mt`, if any.
 /// H5 has no closed-form kinematic mean, so [`Kerma::from_reconr`] needs the
 /// actual secondary spectrum to take its first moment `⟨E'⟩`; a reaction absent
 /// from `emission` contributes 0 (see [`HeatingModel::MultiNeutron`]).
 fn emission_spectrum(
-    emission: &[(MtReaction, FissionSpectrum)],
+    emission: &[(MtReaction, EmissionSpectrum)],
     mt: MtReaction,
-) -> Option<&FissionSpectrum> {
+) -> Option<&EmissionSpectrum> {
     emission.iter().find(|(m, _)| *m == mt).map(|(_, s)| s)
 }
 
@@ -217,15 +250,16 @@ impl Kerma {
     ///   pass [`NuBar::default`]/[`FissionSpectrum::default`] for a
     ///   non-fissionable material (no MT=18 section ⇒ they are never evaluated).
     /// - `emission` maps each H5 multi-neutron / continuum-inelastic reaction
-    ///   (MT=11, 16, 17, 24, 25, 30, 37, 41, 42, 91) to its MF=5 emitted-neutron
-    ///   spectrum; the mean of that spectrum is subtracted `ȳ` times (once per
-    ///   escaping neutron). A reaction present in `recon` but absent from
-    ///   `emission` contributes 0 — pass `&[]` to skip all of H5.
+    ///   (MT=11, 16, 17, 24, 25, 30, 37, 41, 42, 91) to its emitted-neutron
+    ///   spectrum ([`EmissionSpectrum`], from ENDF MF=5 *or* MF=6); the mean of
+    ///   that spectrum is subtracted `ȳ` times (once per escaping neutron). A
+    ///   reaction present in `recon` but absent from `emission` contributes 0 —
+    ///   pass `&[]` to skip all of H5.
     pub fn from_reconr(
         recon: &ReconrResult,
         nu: &NuBar,
         chi: &FissionSpectrum,
-        emission: &[(MtReaction, FissionSpectrum)],
+        emission: &[(MtReaction, EmissionSpectrum)],
     ) -> Self {
         let awr = recon.material.awr;
         // A section contributes to the grid only if its heating is actually
@@ -907,7 +941,7 @@ mod tests {
             &recon(56.0, vec![sec]),
             &NuBar::default(),
             &FissionSpectrum::default(),
-            &[(MtReaction::Mt16N2n, spectrum)],
+            &[(MtReaction::Mt16N2n, EmissionSpectrum::Mf5(spectrum))],
         );
         for &e in &[1.0e7, 1.4e7] {
             let h = kerma.eval(e);
@@ -936,7 +970,7 @@ mod tests {
                 &recon(90.0, vec![sec]),
                 &NuBar::default(),
                 &FissionSpectrum::default(),
-                &[(mt, FissionSpectrum::Watt { a, b })],
+                &[(mt, EmissionSpectrum::Mf5(FissionSpectrum::Watt { a, b }))],
             );
             let expected = sigma * (e + q - yld * mean_e_prime);
             let h = kerma.eval(e);
@@ -968,7 +1002,7 @@ mod tests {
             &recon(28.0, vec![sec]),
             &NuBar::default(),
             &FissionSpectrum::default(),
-            &[(MtReaction::Mt91NnContinuum, FissionSpectrum::Watt { a, b })],
+            &[(MtReaction::Mt91NnContinuum, EmissionSpectrum::Mf5(FissionSpectrum::Watt { a, b }))],
         );
         let h = kerma.eval(e);
         let expected = sigma * (e + q - 1.0 * mean_e_prime);
@@ -999,7 +1033,7 @@ mod tests {
             &recon(56.0, vec![sec]),
             &NuBar::default(),
             &FissionSpectrum::default(),
-            &[(MtReaction::Mt16N2n, spectrum)],
+            &[(MtReaction::Mt16N2n, EmissionSpectrum::Mf5(spectrum))],
         );
         let heating_number_ev = kerma.eval(e) / sigma; // H/σ, eV per event
         assert!(
@@ -1039,7 +1073,7 @@ mod tests {
             &recon(awr, vec![elastic, capture, level, fission, n2n]),
             &nu,
             &chi,
-            &[(MtReaction::Mt16N2n, FissionSpectrum::Watt { a, b })],
+            &[(MtReaction::Mt16N2n, EmissionSpectrum::Mf5(FissionSpectrum::Watt { a, b }))],
         );
         let h = kerma.eval(e);
 

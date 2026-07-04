@@ -362,6 +362,56 @@ pub struct Mf6Neutron {
     pub law4: Law4,
 }
 
+impl Mf6Neutron {
+    /// Mean outgoing-neutron energy `⟨E'⟩` \[eV\] at incident energy `e_in` \[eV\]
+    /// — the first moment `∫ E'·f₀(E') dE'` of the emission pdf, linearly
+    /// interpolated between the two bracketing incident-energy tables.
+    ///
+    /// This ports `heatr.f90::getsix`'s lab-frame LAW=1 `ebar` (its label 400:
+    /// `ebar = ∫ E'·f₀ dE'`, trapezoid for LEP≥2, histogram for LEP=1). It is
+    /// exact when the MF=6 data is in the **laboratory** frame (`lct == 1`); when
+    /// the data is in the **centre-of-mass** frame (`lct == 2`) this returns the
+    /// CM-frame mean, a (small, bounded) approximation to the lab-frame mean —
+    /// the full CM→lab angle transform (`getsix`'s `h6cm` path) is deferred. Used
+    /// by HEATR H5 ([`crate::heatr`]) for the `ȳ·⟨E'⟩` escaping-neutron term.
+    pub fn mean_energy(&self, e_in: f64) -> f64 {
+        let tables = &self.law4.incident;
+        if tables.is_empty() {
+            return 0.0;
+        }
+        // First moment of one incident-energy table, in MeV (e_out/pdf are MeV).
+        let table_mean = |t: &OutgoingEnergy| -> f64 {
+            let (eo, pdf) = (&t.e_out_mev, &t.pdf);
+            let mut m = 0.0;
+            for i in 1..eo.len() {
+                let (x0, x1) = (eo[i - 1], eo[i]);
+                if t.intt == 1 {
+                    // histogram: pdf constant at pdf[i-1] over [x0, x1)
+                    m += pdf[i - 1] * (x1 * x1 - x0 * x0) / 2.0;
+                } else {
+                    // lin-lin: trapezoid of E'·pdf
+                    m += (x1 - x0) * (x1 * pdf[i] + x0 * pdf[i - 1]) / 2.0;
+                }
+            }
+            m
+        };
+        let e_in_mev = e_in / EMEV;
+        // Below/above the tabulated incident range: clamp to the end table.
+        if e_in_mev <= tables[0].e_in_mev {
+            return table_mean(&tables[0]) * EMEV;
+        }
+        for i in 1..tables.len() {
+            let (e0, e1) = (tables[i - 1].e_in_mev, tables[i].e_in_mev);
+            if e_in_mev <= e1 {
+                let (m0, m1) = (table_mean(&tables[i - 1]), table_mean(&tables[i]));
+                let frac = if e1 > e0 { (e_in_mev - e0) / (e1 - e0) } else { 0.0 };
+                return (m0 + frac * (m1 - m0)) * EMEV;
+            }
+        }
+        table_mean(tables.last().unwrap()) * EMEV
+    }
+}
+
 /// Parse the **neutron** product of an MF=6 LAW=1 section into an ACE Law 4
 /// energy distribution.
 ///
@@ -553,6 +603,64 @@ mod tests {
                 assert!(dist.cdf.windows(2).all(|w| w[1] >= w[0] - 1e-9), "cdf monotone");
             }
         }
+    }
+
+    /// One incident-energy table with a flat outgoing pdf `0.5 /MeV` on
+    /// `[0, 2] MeV` has mean `∫E'·pdf dE' = 1.0 MeV`. `mean_energy` (in eV) must
+    /// reproduce it — the exact first-moment check for the MF=6 lab-frame `ebar`.
+    #[test]
+    fn mf6_mean_energy_exact_flat_pdf() {
+        let table = OutgoingEnergy {
+            e_in_mev: 1.0,
+            intt: 2, // lin-lin
+            e_out_mev: vec![0.0, 2.0],
+            pdf: vec![0.5, 0.5],
+            cdf: vec![0.0, 1.0],
+        };
+        let m = Mf6Neutron {
+            lct: 1,
+            yield_pairs: vec![(0.0, 2.0)],
+            law4: Law4 { e_in_interp: vec![], incident: vec![table] },
+        };
+        // Single table ⇒ same mean at any incident energy.
+        assert!((m.mean_energy(5.0e6) - 1.0e6).abs() < 1.0, "got {}", m.mean_energy(5.0e6));
+    }
+
+    /// Between two incident-energy tables the mean is linearly interpolated:
+    /// table at 1 MeV has mean 1.0 MeV, table at 3 MeV has mean 2.0 MeV, so at
+    /// 2 MeV the mean must be 1.5 MeV.
+    #[test]
+    fn mf6_mean_energy_interpolates_in_incident() {
+        let t = |e_in: f64, e_max: f64| OutgoingEnergy {
+            e_in_mev: e_in,
+            intt: 2,
+            e_out_mev: vec![0.0, e_max],
+            pdf: vec![1.0 / e_max, 1.0 / e_max], // flat, ∫=1, mean = e_max/2
+            cdf: vec![0.0, 1.0],
+        };
+        let m = Mf6Neutron {
+            lct: 1,
+            yield_pairs: vec![(0.0, 2.0)],
+            law4: Law4 { e_in_interp: vec![], incident: vec![t(1.0, 2.0), t(3.0, 4.0)] },
+        };
+        // mean(1 MeV)=1.0, mean(3 MeV)=2.0 ⇒ mean(2 MeV)=1.5 MeV.
+        assert!((m.mean_energy(2.0e6) - 1.5e6).abs() < 1.0, "got {}", m.mean_energy(2.0e6));
+    }
+
+    /// Real-data sanity: the U-235 (n,2n) MF=6 mean emitted-neutron energy at a
+    /// high incident energy is a physically reasonable few MeV — positive, and
+    /// well below the incident energy (the two neutrons share `E + Q`, `Q < 0`).
+    #[test]
+    fn mf6_n2n_mean_energy_is_physical() {
+        let n2n = u235_mf6(16);
+        // MT=16 threshold is ~5–6 MeV; sample at 14 MeV.
+        let ebar = n2n.mean_energy(1.4e7);
+        assert!(ebar > 0.0, "mean emitted energy must be positive, got {ebar}");
+        assert!(ebar < 1.4e7, "mean emitted energy {ebar} must be < incident 14 MeV");
+        assert!(
+            (0.2e6..8.0e6).contains(&ebar),
+            "U-235 (n,2n) ⟨E'⟩ {ebar} eV should be ~1–5 MeV"
+        );
     }
 
     #[test]

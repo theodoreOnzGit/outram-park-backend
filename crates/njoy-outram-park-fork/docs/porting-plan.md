@@ -168,14 +168,18 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
     37, 41, 42, 91).** ✅ `src/heatr.rs`. Ports `nheat`'s neutron energy balance
     `H(E) = σ(E)·[E + Q − ȳ·⟨E'⟩]` (`heatr.f90:1441`, the `mtd<18 .or. mtd>21`
     branch): `ȳ` escaping neutrons each carry the mean energy `⟨E'⟩` of the
-    reaction's MF=5 emitted-neutron spectrum. The multiplicity `ȳ` is fixed by
+    reaction's emitted-neutron spectrum. The multiplicity `ȳ` is fixed by
     the MT ([`neutron_multiplicity`]: (n,2n)-type→2, (n,3n)-type→3, (n,4n)→4,
-    continuum inelastic→1), and `⟨E'⟩` reuses the existing
-    [`FissionSpectrum::mean_energy`] first-moment machinery — the same code H4
-    takes χ's mean with, applied here to each reaction's own MF=5 secondary law
-    (LF=7 Maxwell / LF=9 evaporation / LF=1 tabulated / LF=11 Watt). Because the
-    mean has no closed kinematic form, the spectrum must be *supplied*
-    (`Kerma::from_reconr`'s new `emission: &[(MtReaction, FissionSpectrum)]`
+    continuum inelastic→1), and `⟨E'⟩` comes from the reaction's secondary
+    spectrum via the [`EmissionSpectrum`] enum, which carries **either** an ENDF
+    **MF=5** law ([`FissionSpectrum::mean_energy`] — LF=7 Maxwell / LF=9
+    evaporation / LF=1 tabulated / LF=11 Watt, the same first-moment machinery H4
+    uses for χ) **or** an ENDF **MF=6** LAW=1 tabulated emission
+    ([`Mf6Neutron::mean_energy`] — the modern (n,2n)/(n,3n) representation; first
+    moment `∫E'·f₀ dE'`, exact in the lab frame, a documented approximation in
+    the CM frame with the `h6cm` angle transform deferred). Because the mean has
+    no closed kinematic form, the spectrum must be *supplied*
+    (`Kerma::from_reconr`'s `emission: &[(MtReaction, EmissionSpectrum)]`
     argument); a reaction whose spectrum is absent still contributes 0 (excluded,
     not guessed). Continuum inelastic MT=91 uses its section's own QI as the
     ground-state Q — a documented simplification of NJOY's QM/0 choice, immaterial
