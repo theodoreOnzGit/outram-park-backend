@@ -7,10 +7,27 @@
 //! inversion) rather than the SLBW/MLBW pole approximations, giving the correct
 //! treatment for light nuclides and strongly overlapping resonances.
 //!
-//! **Upstream:** `samm.f90` (~7.2k lines). **Manual:** no standalone chapter —
-//! theory is in §RECONR and the ENDF-102 LRF=7 spec.
-//! **Status:** not yet ported — [`crate::NjoyError::NotPorted`] placeholder.
-//! See `README.md` in this directory for theory, plan, and caveats.
+//! **Upstream:** `samm.f90` (7169 lines — the SAMMY method, ported from
+//! coding provided by Nancy Larson, ORNL). **Manual:** no standalone
+//! chapter — theory is in §RECONR and the ENDF-102 LRF=7 spec.
+//!
+//! **Scope, matching what `samm.f90` itself supports:** upstream's own
+//! `rdsammy` hard-errors on `IFG≠0` and `KRM≠3` — NJOY *itself* never
+//! exercises the fully general R-matrix (KRM=1/2/4) or reduced-width
+//! (IFG=1) cases, only Reich-Moore-limited (KRM=3, IFG=0). This port matches
+//! that restriction.
+//!
+//! Ported so far:
+//! - [`mf2`] — the ENDF LRF=7 (KRM=3) parameter reader (`rdsammy`'s
+//!   `mode==7` branch). See its module doc for a flagged, unresolved
+//!   verification question on the eliminated-channel reorder step.
+//!
+//! **Status:** the R-matrix inversion, Coulomb wave-function library,
+//! cross-section formula, derivatives, and angular distributions are not yet
+//! ported — see `README.md` for the phased plan. `run()` remains
+//! [`crate::NjoyError::NotPorted`].
+
+pub mod mf2;
 
 use crate::NjoyError;
 

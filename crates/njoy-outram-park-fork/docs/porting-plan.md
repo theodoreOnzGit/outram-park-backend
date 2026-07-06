@@ -100,7 +100,7 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 | `modules::errorr` | `errorr.f90` | 11.2k | ⬜ multigroup covariance matrices |
 | `modules::covr` | `covr.f90` | ~3k | ⬜ covariance output/plotting |
 | `modules::leapr` | `leapr.f90` | 3.6k | ⬜ *generate* MF=7 S(α,β) (upstream of THERMR) |
-| `modules::samm` | `samm.f90` | 7.2k | ⬜ R-matrix (RML); shared by reconr/unresr |
+| `modules::samm` | `samm.f90` | 7.2k | 🟨 Phase 1/6 done (ENDF LRF=7 reader, `mf2.rs`); R-matrix inversion/Coulomb/XS/derivatives/angular not started; shared by reconr/unresr |
 
 ### Formatters, plotting, misc (Phase 6 — lowest priority)
 
@@ -486,6 +486,26 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 > trusted; full workspace build + existing test suite pass as a regression
 > check (compiles clean, zero warnings, but that only proves the *types*
 > check out, not the physics).
+>
+> **Update (2026-07-07):** at the user's explicit direction ("full port
+> including Coulomb + derivatives + angular"), started `samm.f90`
+> (R-matrix-limited, LRF=7 — see the note above §5 and `src/samm/README.md`
+> for the 6-phase plan). **Phase 1 done**: the ENDF LRF=7/KRM=3 parameter
+> reader (`samm::mf2` — `ParticlePair`, `RmlChannel`, `RmlResonance`,
+> `SpinGroup`, `RmlSection`, `parse_rml_section`, ported from `rdsammy`'s
+> `mode==7` branch). Found and fixed one real bug (an inverted
+> `lbk`/`lch` error-guard condition). **One discrepancy is flagged, not
+> resolved**: the eliminated-capture-channel reorder step reads
+> `gamma(igamma+1)` in the Fortran (`samm.f90:1186`); two independent
+> hand-derivations both predicted `igamma-1` instead. Ported literally
+> (bounds-checked, returns `NjoyError::EndfParse` rather than panicking)
+> with a prominent doc-comment flag — this is the top verification priority
+> for Opus once a real LRF=7 evaluation (¹⁶O or ¹⁹F) is available to check
+> against. Phases 2–6 (spin/parity/penetrability setup, Coulomb wave
+> functions, R-matrix inversion, cross-section + derivatives + angular
+> distributions, top-level orchestration) are not started. Full workspace
+> build + test suite pass as a regression check only (139/12/7/12/1/20/11/
+> 11/4/5/2/3 test groups green, zero regressions from adding `samm::mf2`).
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here
