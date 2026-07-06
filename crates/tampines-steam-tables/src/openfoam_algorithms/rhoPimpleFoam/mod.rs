@@ -203,12 +203,6 @@
 //
 //// ************************************************************************* //
 
-pub mod UEqn;
-pub mod EEqn;
-pub mod pcEqn;
-pub mod pEqn;
-pub mod rhoEqn;
-
 use std::sync::Arc;
 use uom::si::f64::{Area, Length, Time};
 use uom::si::time::second;

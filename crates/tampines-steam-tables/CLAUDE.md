@@ -243,7 +243,11 @@ in-dome (Region 4) points; the subcooled branch is a documented HEM limitation
 Member of the **OUTRAM PARK** workspace (`crates/tampines-steam-tables`).
 Dependencies are inherited from the root `[workspace.dependencies]` — **do not
 pin versions here** (`uom.workspace = true`, etc.). `tuas_boussinesq_solver`
-resolves to the in-tree path crate.
+resolves to the in-tree path crate, but it is now a **dev-dependency only** —
+solely the FHR simulator examples use it. The library is TUAS-free (the former
+`UEqn.rs` pipe-friction call into `tuas` was removed along with the dead
+`rhoPimpleFoam` equation scaffolds, whose logic already lives inline in
+`rhoPimpleFoam/mod.rs`).
 
 See **`docs/notes.md`** for the 2026-06 migration log, the planned removal of
 the vestigial `ndarray-linalg` dep, and the known `fhr_sim_v2` UI

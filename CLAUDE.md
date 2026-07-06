@@ -202,7 +202,9 @@ and turbulence model registries belong in solver-specific crates so that
 projects.
 
 Internal dependency edges (all by **path**, not crates.io):
-`tampines → tuas`; `teh-o-prke → {tuas, chem-eng}` (dev); `tuas`/`tampines` dev-deps → `chem-eng`, `teh-o-prke`.
+`teh-o-prke → {tuas, chem-eng}` (dev); `tuas` dev-deps → `chem-eng`, `teh-o-prke`;
+`tampines` dev-deps → `{tuas, teh-o-prke, chem-eng}` (the FHR simulator examples use TUAS —
+the `tampines` **library** itself is TUAS-free).
 `openfoam-basic-lib` has no internal deps (pure third-party: `uom`, `ndarray`, `thiserror`).
 `njoy-outram-park-fork` is lean (`thiserror`, `uom`; no BLAS) so data consumers stay light.
 Neutronics edges (target): `openmc-libs → njoy-outram-park-fork` (cross sections; declared in
