@@ -455,10 +455,21 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
   **WMP** with analytic broadening via the Faddeeva function — implemented **here
   in njoy** (`src/wmp.rs`), not `openmc-libs`. Real U-238 broadening of the
   6.67 eV capture resonance is confirmed (`tests/wmp_u238.rs`). njoy also holds
-  the **independent oracle**: `RECONR` (✅) reconstructs the 0 K pointwise U-238
-  σ(n,γ); `BROADR` (✅) SIGMA1-broadens it to T. The remaining quantitative gate
-  compares WMP-analytic vs BROADR-kernel vs the OpenMC pregenerated `.h5`. Uses
-  only already-ported modules — no new porting required.
+  the **independent oracle**: `RECONR` reconstructs the 0 K pointwise U-238
+  σ(n,γ); `BROADR` SIGMA1-broadens it to T. The code-to-code gate vs the OpenMC
+  ENDF/B-VIII.0 `.h5` is wired up in `tests/u238_doppler_verification/`
+  (RECONR+BROADR from the ENDF tape vs OpenMC pointwise, extracted to committed
+  reference CSVs so the 115 MB `.h5` need not be tracked).
+  - ✅ 0 K reconstruction (thermal 2.68 b, 6.67 eV peak 22.2 kb), peak Doppler
+    broadening (~10%), and the smooth above-RRR / MF=3 band (L1 ≈ 1.5%) all agree.
+  - 🐛 **OPEN BUG (BROADR/SIGMA1 resonance wings).** The Rust broadened capture
+    leaves a spurious ~200 b pedestal several eV past each resolved resonance
+    where OpenMC decays to ~1 b (e.g. 103.5 eV @ 900 K: 105 eV → OpenMC 1.8 b vs
+    Rust 211 b). RRR L1 ≈ 0.23–0.25. Off-resonance baseline agrees, so it is a
+    wing/pedestal fidelity bug in the SIGMA1 kernel (or its interaction with the
+    RECONR wing grid), not a global offset. This is the concrete BROADR debugging
+    task; the verification test reports it (gate not loosened). See
+    `tests/u238_doppler_verification/README.md`.
 - **Priority 1 — bare critical sphere Keff (U-235 Godiva, U-233 Jezebel-23).** ✅
   **done** — not via the ACER 4b/4d ACE-writer path, but directly:
   `nuclear_data::secondary` reads **ν̄(E)** (MF=1/452, `NuBar::from_endf`, LNU=1
