@@ -72,11 +72,11 @@ Status legend: ✅ done · 🟡 partial · ⏳ scaffolded/stub · ⬜ not starte
 |---|---|---|---|---|
 | `modules::reconr` | `reconr.f90` | 5.7k | 2 | ✅ resonance reconstruction |
 | `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) |
-| `modules::heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5, wired into ACE ESZ) + damage energy for the two-body recoil channels (H7: elastic + discrete levels) done, `src/heatr.rs`; full photon energy-balance (H6) deferred, H7 anisotropy/continuum/capture channels remaining — see sub-phase table below |
-| `modules::gaspr` | `gaspr.f90` | 1.15k | 3 | ✅ gas production (MT=203–207), lumped-channel case only — see `src/gaspr.rs` |
-| `modules::purr` | `purr.f90` | 2.9k | 3 | ⬜ URR probability tables |
-| `modules::thermr` | `thermr.f90` | 3.4k | 3 | 🟡 MF=7 reader + coherent/incoherent elastic + inelastic physics; no module driver |
-| `modules::unresr` | `unresr.f90` | ~1.8k | 3 | ⬜ URR effective XS (PURR precursor) |
+| `heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5, wired into ACE ESZ) + damage energy for the two-body recoil channels (H7: elastic + discrete levels) done, `src/heatr/mod.rs`; full photon energy-balance (H6) deferred, H7 anisotropy/continuum/capture channels remaining — see sub-phase table below |
+| `gaspr` | `gaspr.f90` | 1.15k | 3 | ✅ gas production (MT=203–207), lumped-channel case only — see `src/gaspr/mod.rs` |
+| `purr` | `purr.f90` | 2.9k | 3 | ⬜ URR probability tables |
+| `thermr` | `thermr.f90` | 3.4k | 3 | 🟡 MF=7 reader + coherent/incoherent elastic + inelastic physics; no module driver |
+| `unresr` | `unresr.f90` | 1665 | 3 | 🟡 physics kernel ported (ENDF LRU=2 parser, Faddeeva/W-function library, `unresolved_cross_sections`) — see `src/unresr/README.md`; PENDF MT=152 output bookkeeping not ported |
 
 ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to:
 
@@ -450,6 +450,13 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 >
 > This is the first gap a caller hits going past the resolved region, so it is
 > the next porting target after the current Doppler verification lands.
+>
+> **Update (2026-07-06):** `UNRESR`'s physics kernel is ported — ENDF LRU=2
+> parameter reader (`unresr::mf2`, Case A/B/C), the Faddeeva/`w(z)`
+> width-fluctuation library (`unresr::wfun`), and the per-energy self-shielded
+> cross-section calculator (`unresr::unresolved_cross_sections`, ported from
+> `unresl`). Translation only — no tests written yet (Opus verification
+> pending; see `src/unresr/README.md`). `PURR` is next.
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here
