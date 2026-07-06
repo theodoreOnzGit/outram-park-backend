@@ -37,6 +37,22 @@ Open-access mirror (HAL): <https://hal.science/hal-01635155>.
 Initial conditions (γ = 1.4), dimensionless: ρ_L = 1.0, P_L = 1.0, u_L = 0;
 ρ_R = 0.125, P_R = 0.1, u_R = 0; diaphragm at x/L = 0.5; reference time τ = 0.2.
 
+The **exact Riemann solver** used here as the arbiter (and derived step-by-step
+in the appendix below) follows:
+
+Toro, E. F. (2013). *Riemann Solvers and Numerical Methods for Fluid Dynamics: A
+Practical Introduction* (3rd ed.). Springer Science & Business Media. Chapter 4
+(“The Riemann Problem for the Euler Equations”).
+
+```bibtex
+@book{toro2013riemann,
+  title={Riemann solvers and numerical methods for fluid dynamics: a practical introduction},
+  author={Toro, Eleuterio F},
+  year={2013},
+  publisher={Springer Science \& Business Media}
+}
+```
+
 ## Results — Rust port vs Table II (dimensionless, τ = 0.2)
 
 Port values are the SI solution normalised by the scale factors (ρ₀ = 1 kg/m³,
@@ -111,3 +127,321 @@ The Rust `rhoCentralFoam` port reproduces Sod's benchmark to **well under 1 %**
 at every station Table II resolves cleanly, on a coarse 100-cell mesh — the
 expected accuracy of a 2nd-order shock-capturing central scheme, with monotone
 (non-oscillatory) captures of the rarefaction, contact, and shock.
+
+---
+
+# Appendix — Deriving the exact Riemann solution, step by step
+
+This appendix derives the analytic “exact” solution that `main.rs` uses as the
+arbiter (functions `star_pressure`, `star_velocity`, `sample`, …). It follows
+Toro (2013), ch. 4, but is written for a reader who knows the Navier–Stokes
+equations and can derive the speed of sound, and nothing else about shocks. Every
+result is tagged with the code function it becomes.
+
+Notation: subscript `K` stands for either side, `L` (left) or `R` (right).
+A starred quantity (e.g. `p*`) lives in the **star region** between the two
+outward-running waves. `γ = 1.4` is the heat-capacity ratio. Specific volume is
+`v = 1/ρ`.
+
+## Step 0 — From Navier–Stokes to the 1-D Euler equations
+
+Start from the compressible Navier–Stokes equations you already know: mass,
+momentum, and energy conservation for a fluid with viscosity `μ` and heat
+conductivity `k`. The shock tube is a fast (millisecond), inviscid,
+non-heat-conducting problem, so set `μ = 0` and `k = 0`. In 1-D this collapses
+Navier–Stokes to the **Euler equations** in conservation form:
+
+$$
+\partial_t
+\begin{bmatrix}\rho \\ \rho u \\ E\end{bmatrix}
++ \partial_x
+\begin{bmatrix}\rho u \\ \rho u^2 + p \\ u(E+p)\end{bmatrix}
+= 0,
+\qquad
+E = \frac{p}{\gamma-1} + \tfrac12 \rho u^2 .
+$$
+
+The last term of `E` is the kinetic energy; the first is the internal energy of
+a calorically perfect gas. The speed of sound (which you know how to derive) is
+
+$$
+c = \sqrt{\gamma p / \rho}.
+$$
+
+These three PDEs are all we use.
+
+## Step 1 — The Riemann problem and self-similarity
+
+The “Riemann problem” is the Euler system with a single jump in the initial data:
+
+$$
+(\rho,u,p)(x,0) =
+\begin{cases}
+(\rho_L,u_L,p_L), & x < x_0 \\
+(\rho_R,u_R,p_R), & x > x_0 .
+\end{cases}
+$$
+
+The Euler equations have no built-in length or time scale, and neither does this
+initial data (just a jump at `x₀`). So the solution can only depend on the single
+**self-similar** combination
+
+$$
+\xi = \frac{x - x_0}{t}.
+$$
+
+`ξ` has units of velocity — it is the speed of the ray through the origin `(x₀,0)`.
+Every wave in the solution is therefore a straight line `x - x₀ = (\text{const})\,t`
+in the `x–t` plane. This is why the whole solution can be written as “given `ξ`,
+return `(ρ, u, p)`” — exactly the code's `sample(...)` function.
+
+## Step 2 — The three-wave structure
+
+Linearising the Euler flux gives three characteristic speeds (the eigenvalues of
+the flux Jacobian):
+
+$$
+\lambda_1 = u - c, \qquad \lambda_2 = u, \qquad \lambda_3 = u + c .
+$$
+
+So the initial jump resolves into **three waves** fanning out from `(x₀,0)`:
+
+- a **left wave** (family `λ₁ = u − c`): either a shock or a rarefaction;
+- a **contact discontinuity** in the middle (family `λ₂ = u`);
+- a **right wave** (family `λ₃ = u + c`): either a shock or a rarefaction.
+
+Between the left and right waves sit **two** constant states, `*L` and `*R`,
+separated by the contact. For Sod the left wave is a rarefaction and the right
+wave is a shock, but the derivation below keeps both possibilities.
+
+```
+        left wave        contact        right wave
+   L    \  (rarefaction   |             /  (shock)
+         \   or shock)   *L | *R       /
+          \              |   |        /
+   ________\_____________|___|_______/________  x
+                       (x₀,0)                     t = const slice
+```
+
+## Step 3 — What is continuous across the contact (the key simplification)
+
+Across the **contact** (`λ₂ = u`) there is no flow through the wave, so — by the
+momentum balance in Step 0 — the **pressure and velocity do not jump**, only the
+density does. Therefore
+
+$$
+p^*_L = p^*_R \equiv p^*, \qquad u^*_L = u^*_R \equiv u^* .
+$$
+
+That is the whole trick: the two-unknown pair `(p*, u*)` describes the entire star
+region. The densities `ρ*_L`, `ρ*_R` differ across the contact and are recovered
+afterwards. So the plan is:
+
+1. find `p*` and `u*` (Steps 4–7),
+2. get the star densities (Step 8),
+3. get the wave speeds (Step 9),
+4. read off `(ρ,u,p)` at any `ξ` (Step 10).
+
+Each nonlinear wave gives one relation linking `u*` to `p*`. Match them at the
+contact and you close the system.
+
+## Step 4 — The rarefaction relation (uses only isentropy + a Riemann invariant)
+
+A rarefaction is smooth and isentropic, so `p/ρ^γ = const` through it. Combined
+with `c = √(γp/ρ)` this gives the handy chain
+
+$$
+\frac{c^*}{c_K} = \left(\frac{p^*}{p_K}\right)^{\frac{\gamma-1}{2\gamma}},
+\qquad
+\frac{\rho^*}{\rho_K} = \left(\frac{p^*}{p_K}\right)^{1/\gamma}.
+$$
+
+For smooth isentropic 1-D flow the quantities
+
+$$
+J^{\pm} = u \pm \frac{2c}{\gamma-1}
+$$
+
+(the **Riemann invariants**) are constant along the `dx/dt = u \pm c`
+characteristics. A **left** rarefaction is crossed by the `C^{+}` characteristics,
+along which `J^{+} = u + 2c/(\gamma-1)` is constant. Equating its value in state
+`L` and in the star region:
+
+$$
+u_L + \frac{2c_L}{\gamma-1} = u^* + \frac{2c^*_L}{\gamma-1}
+\;\Longrightarrow\;
+u^* = u_L - \underbrace{\frac{2c_L}{\gamma-1}\!\left[\left(\tfrac{p^*}{p_L}\right)^{\frac{\gamma-1}{2\gamma}} - 1\right]}_{\displaystyle f_L(p^*)} .
+$$
+
+By the mirror argument (a **right** rarefaction is crossed by `C^{-}`,
+`J^{-} = u - 2c/(\gamma-1)` constant):
+
+$$
+u^* = u_R + f_R(p^*),
+\qquad
+f_K(p^*) = \frac{2c_K}{\gamma-1}\!\left[\left(\tfrac{p^*}{p_K}\right)^{\frac{\gamma-1}{2\gamma}} - 1\right]
+\quad (\text{rarefaction, } p^* \le p_K).
+$$
+
+Note `f_K < 0` when `p* < p_K` — a rarefaction *lowers* the pressure. This is the
+rarefaction branch of `pressure_fn` in the code.
+
+## Step 5 — The shock relation (Rankine–Hugoniot)
+
+A shock is a discontinuity, so isentropy fails; instead the three conservation
+laws must hold **across** it. Move into the frame travelling with the shock at
+speed `S`. With relative velocities `\hat u = u - S`, mass / momentum / energy
+conservation (Step 0, no viscosity) read
+
+$$
+\rho_K \hat u_K = \rho^* \hat u^* \equiv Q, \qquad
+\rho_K \hat u_K^2 + p_K = \rho^* \hat u^{*2} + p^*, \qquad
+h_K + \tfrac12\hat u_K^2 = h^* + \tfrac12\hat u^{*2},
+$$
+
+with specific enthalpy `h = \frac{\gamma}{\gamma-1}\frac{p}{\rho}`. These are the
+**Rankine–Hugoniot** conditions. Because `S` cancels in the velocity *difference*,
+the mass + momentum pair collapse to
+
+$$
+p^* - p_K = Q\,(u^* - u_K)\quad(\text{sign per side}),
+\qquad
+Q^2 = \frac{p^* - p_K}{v_K - v^*}\; .
+$$
+
+Eliminating the density with the energy equation gives the **Hugoniot** density
+ratio (pure algebra, Toro §4.3.1):
+
+$$
+\frac{\rho^*}{\rho_K}
+= \frac{\dfrac{p^*}{p_K} + \dfrac{\gamma-1}{\gamma+1}}
+       {\dfrac{\gamma-1}{\gamma+1}\dfrac{p^*}{p_K} + 1}.
+$$
+
+Substituting `v* = 1/ρ*` back into `Q²` turns the mass flux into a clean function
+of `p*` alone:
+
+$$
+Q_K = \sqrt{\frac{p^* + B_K}{A_K}},
+\qquad
+A_K = \frac{2}{(\gamma+1)\rho_K},
+\qquad
+B_K = \frac{\gamma-1}{\gamma+1}\,p_K .
+$$
+
+Then `p^* - p_K = Q_K\,(u^* - u_K)` becomes `u^* = u_K \mp f_K(p^*)` with
+
+$$
+f_K(p^*) = (p^* - p_K)\sqrt{\frac{A_K}{p^* + B_K}}
+\quad (\text{shock, } p^* > p_K),
+$$
+
+and post-shock density from the Hugoniot ratio above. This is the shock branch of
+`pressure_fn`, and the Hugoniot ratio is the `rho = ... (p*/p + g1)/(g1 p*/p + 1)`
+line in `sample`.
+
+## Step 6 — One equation for `p*`
+
+Both nonlinear waves now give `u*` as a function of `p*`. Matching them at the
+contact (Step 3), `u_L - f_L(p^*) = u_R + f_R(p^*)`, i.e.
+
+$$
+\boxed{\,F(p^*) \equiv f_L(p^*) + f_R(p^*) + (u_R - u_L) = 0\,}
+$$
+
+where each `f_K` uses its **shock** form if `p* > p_K` and its **rarefaction**
+form if `p* ≤ p_K`. `F` is smooth and monotonically increasing in `p*`, so it has a unique
+positive root. This is exactly what `star_pressure` builds.
+
+## Step 7 — Solve for `p*` (Newton–Raphson)
+
+`F(p*) = 0` is transcendental, so solve numerically. Newton's method needs `F'`,
+which is a sum of the two `f_K'`:
+
+$$
+f_K'(p^*) =
+\begin{cases}
+\sqrt{\dfrac{A_K}{B_K + p^*}}\left(1 - \dfrac{p^*-p_K}{2(B_K+p^*)}\right), & \text{shock},\\[2ex]
+\dfrac{1}{\rho_K c_K}\left(\dfrac{p^*}{p_K}\right)^{-\frac{\gamma+1}{2\gamma}}, & \text{rarefaction}.
+\end{cases}
+$$
+
+Iterate `p_{n+1} = p_n - F(p_n)/F'(p_n)` from a cheap positive guess (the code
+uses the two-rarefaction / PVRS estimate) until `|Δp|/p < 10^{-13}`. These are
+`pressure_fn`'s two return values and the loop in `star_pressure`. For Sod the
+root is `p* = 0.30313` (dimensionless).
+
+## Step 8 — Recover `u*` and the star densities
+
+With `p*` in hand:
+
+$$
+u^* = \tfrac12(u_L + u_R) + \tfrac12\big(f_R(p^*) - f_L(p^*)\big)
+$$
+
+(`star_velocity`; for Sod `u* = 0.92745`). The star densities come from Step 4
+(rarefaction side) and Step 5 (shock side):
+
+$$
+\rho^*_K =
+\begin{cases}
+\rho_K\left(\dfrac{p^*}{p_K}\right)^{1/\gamma}, & \text{rarefaction side},\\[2ex]
+\rho_K\,\dfrac{p^*/p_K + \frac{\gamma-1}{\gamma+1}}{\frac{\gamma-1}{\gamma+1}\,p^*/p_K + 1}, & \text{shock side}.
+\end{cases}
+$$
+
+For Sod: `ρ*_L = 0.42632` (post-rarefaction), `ρ*_R = 0.26557` (post-shock).
+
+## Step 9 — Wave speeds
+
+- **Contact:** `S_contact = u*` (the contact rides with the flow).
+- **Shock** (right side here): `S_R = u_R + Q_R/\rho_R`, which simplifies to
+
+$$
+S_R = u_R + c_R\sqrt{\frac{\gamma+1}{2\gamma}\frac{p^*}{p_R} + \frac{\gamma-1}{2\gamma}}
+$$
+
+  (`right_shock_speed`; for Sod `S_R = 1.75216`, the value checked in Test 1).
+
+- **Rarefaction fan** (left side here) is not a single line but a spread of
+  characteristics between its **head** and **tail**:
+
+$$
+S_{\text{head}} = u_L - c_L, \qquad
+S_{\text{tail}} = u^* - c^*_L, \quad c^*_L = c_L\!\left(\tfrac{p^*}{p_L}\right)^{\frac{\gamma-1}{2\gamma}}.
+$$
+
+## Step 10 — Sample the solution at a given `ξ`
+
+Now assemble `(ρ,u,p)(ξ)`. Compare `ξ` to the wave speeds from Step 9. Taking the
+Sod configuration (left rarefaction, right shock):
+
+1. `ξ ≤ S_head` → undisturbed **left** state `(ρ_L,u_L,p_L)`.
+2. `S_head < ξ < S_tail` → **inside the fan**. Here the local characteristic
+   speed equals `ξ`: `u − c = ξ`. Combine with the constant invariant
+   `u + 2c/(γ−1) = u_L + 2c_L/(γ−1)` and solve the two linear equations:
+
+$$
+u = \frac{2}{\gamma+1}\!\left[c_L + \frac{\gamma-1}{2}u_L + \xi\right],\qquad
+c = \frac{2}{\gamma+1}\!\left[c_L + \frac{\gamma-1}{2}(u_L - \xi)\right],
+$$
+
+   then `ρ = ρ_L (c/c_L)^{2/(γ−1)}`, `p = p_L (c/c_L)^{2γ/(γ−1)}`.
+3. `S_tail ≤ ξ ≤ u*` → **left star** state `(ρ*_L, u*, p*)`.
+4. `u* < ξ < S_R` → **right star** state `(ρ*_R, u*, p*)`.
+5. `ξ ≥ S_R` → undisturbed **right** state `(ρ_R,u_R,p_R)`.
+
+This branch-on-`ξ` ladder is precisely `sample(...)` in `main.rs`; wrapping it
+with `ξ = (x − x₀)/t` gives `exact_state(...)`, evaluated at every cell centre to
+score the port.
+
+## Summary — derivation ↔ code map
+
+| Derivation step | Result | Code |
+|---|---|---|
+| 4, 5 | `f_K(p*)` and `f_K'(p*)` | `pressure_fn` |
+| 6, 7 | root of `F(p*) = 0` | `star_pressure` |
+| 8 | `u*` | `star_velocity` |
+| 9 | shock speed `S_R` | `right_shock_speed` |
+| 8–10 | densities, fan, wave branching | `sample` |
+| 1, 10 | `ξ = (x−x₀)/t`, evaluate | `exact_state` |
