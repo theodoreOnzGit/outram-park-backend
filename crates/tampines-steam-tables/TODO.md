@@ -1,5 +1,6 @@
 # tampines-steam-tables — TODO
 
+
 ## Android build for `fhr_sim_v2` (feasibility confirmed 2026-07-04)
 
 Goal: compile the `fhr_sim_v2` eframe/egui simulator (`examples/fhr_sim_v2/`)

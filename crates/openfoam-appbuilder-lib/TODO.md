@@ -32,6 +32,33 @@ force, producing a 5× spike), and **2nd-order vanLeer MUSCL reconstruction**
 KNP flux now matches OpenFOAM rhoCentralFoam's scheme family. Nothing
 outstanding for the Sod tube.
 
+#### Sod Shock Tube  (HIGH PRIORITY)
+
+HIGH PRIORITY ITEM.
+
+Sod shock tube is validated, but not in printable csv format. I want this 
+V&V item in csv format within the comments.
+
+The following reference must be inside the comments:
+
+```
+@article{Sod1978,
+  author  = {Sod, Gary A.},
+  title   = {A Survey of Several Finite Difference Methods for Systems of Nonlinear Hyperbolic Conservation Laws},
+  journal = {Journal of Computational Physics},
+  volume  = {27},
+  number  = {1},
+  pages   = {1--31},
+  year    = {1978},
+  doi     = {10.1016/0021-9991(78)90023-2},
+  url     = {https://hal.science/hal-01635155/document},
+  note    = {Open-access mirror: \url{https://hal.science/hal-01635155/document}}
+}
+```
+
+
+
+
 ### Convection schemes (`openfoam-basic-lib::fvc::muscl`)
 `reconstruct_pos_neg` (Upwind / Linear / VanLeer / Minmod limiters) is the
 explicit, density-based path used by rhoCentralFoam. Remaining:
