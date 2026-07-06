@@ -1,18 +1,22 @@
-//! PURR's own complex probability integral evaluator (`uw2`).
+//! PURR's complex probability integral evaluator (`uw2`) and the two-table
+//! fast-lookup scheme (`uwtab2`) `unrest` uses to evaluate the Doppler line
+//! shape at every Monte Carlo sample point without calling the exact
+//! evaluator each time.
 //!
-//! Ported from `uw2` (`purr.f90:2606-2781`) — algorithmically identical to
+//! [`uw2`] is ported from `purr.f90:2606-2781` — algorithmically identical to
 //! [`crate::unresr::wfun::uw`] (same break-point regions, same asymptotic
 //! continued-fraction / Taylor series, same `WRecurrence` step), reusing that
 //! module's [`crate::unresr::wfun::WRecurrence`] rather than re-deriving the
 //! delicate continued-fraction recurrence a second time. The one genuine
 //! difference is documented on [`uw2`] itself.
 //!
-//! `unrest`'s own two-table (coarse/fine, `uwtab2` + inline biquadratic
-//! lookup) fast-evaluation scheme for `w(z)` is **not ported** — it exists
-//! purely to avoid calling the exact evaluator at every Monte Carlo sample
-//! point, and `unrest` itself is deferred (see the crate/module docs). Any
-//! future `unrest` port needing that lookup table can build it directly on
-//! [`uw2`], the same way [`crate::unresr::wfun::WTable::new`] builds on `uw`.
+//! [`DopplerTable`] is ported from `uwtab2` (`purr.f90:2545-2604`) — two 41×27
+//! grids (coarse, `y ∈ [0.4, 3.0]`; fine, `y ∈ [-0.02, 0.5]`), built from
+//! [`uw2`] exactly the way [`crate::unresr::wfun::WTable::new`] builds its
+//! single grid from `uw`. [`DopplerTable::lookup_coarse`] /
+//! [`DopplerTable::lookup_fine`] reuse the identical 6-point biquadratic
+//! interpolation formula as [`crate::unresr::wfun::WTable::lookup`] (same
+//! `a1..a5`/`pq` weights), only the grid-index mapping differs per table.
 
 use crate::unresr::wfun::WRecurrence;
 
@@ -150,5 +154,176 @@ fn w_taylor2(rez: f64, aimz: f64, r2: f64, ai2: f64) -> (f64, f64) {
             }
         }
         sig2p = 2.0 * ajsig;
+    }
+}
+
+/// The two precomputed 41×27 `w(z)` grids `unrest` looks up for its
+/// small-`|x|`, small-`y` regime (`|x| ≤ 3.9`, `y ≤ 3.0`) — ported from
+/// `uwtab2` (`purr.f90:2545-2604`).
+///
+/// Two grids, not one, because the *y*-resolution needed differs by an order
+/// of magnitude depending on the Doppler width regime: **coarse**
+/// (`y ∈ [0.4, 3.0]`, step `0.1`) for `y ≥ 0.5`, and **fine**
+/// (`y ∈ [-0.02, 0.5]`, step `0.02`) for `y < 0.5`, where `w(z)` varies much
+/// faster with `y`. Both share the same *x*-grid (`x ∈ [-0.1, 3.9]`, step
+/// `0.1`, 41 points — sized exactly to the `|x| ≤ 3.9` classification range
+/// this table is used for, see [`crate::purr::line_shape`]).
+pub struct DopplerTable {
+    /// `tr_coarse[i][j]` / `ti_coarse[i][j]` — Re/Im `w(x,y)` on the coarse
+    /// grid, 0-indexed. `x[i] = -0.1 + i·0.1` (`i = 0..41`);
+    /// `y[j] = 0.4 + j·0.1` (`j = 0..27`), except `y[0]` mirrors `y[2]` with
+    /// negated imaginary part (`purr.f90:2578-2582`; the coarse grid's first
+    /// row is a reflection, not a real sample — see [`Self::new`]).
+    tr_coarse: Vec<Vec<f64>>,
+    ti_coarse: Vec<Vec<f64>>,
+    /// Same layout as the coarse grid, but `y[j] = -0.02 + j·0.02`
+    /// (`j = 0..27`).
+    tr_fine: Vec<Vec<f64>>,
+    ti_fine: Vec<Vec<f64>>,
+}
+
+impl DopplerTable {
+    const NX: usize = 41;
+    const NY: usize = 27;
+
+    /// Build both grids (`uwtab2`, `purr.f90:2545-2604`).
+    pub fn new() -> Self {
+        // x[i] = -0.1 + i*0.1, i = 0..41 (both grids share this axis).
+        let x_at = |i: usize| -0.1 + i as f64 * 0.1;
+
+        // Coarse grid: y[j] = 0.4 + j*0.1, j = 0..27.
+        let mut tr_coarse = vec![vec![0.0; Self::NY]; Self::NX];
+        let mut ti_coarse = vec![vec![0.0; Self::NY]; Self::NX];
+        for i in 1..Self::NX {
+            let x = x_at(i);
+            for j in 0..Self::NY {
+                let y = 0.4 + j as f64 * 0.1;
+                let (rew, aimw) = uw2(x, y);
+                tr_coarse[i][j] = rew;
+                ti_coarse[i][j] = aimw;
+            }
+        }
+        // purr.f90:2578-2582 — row 0 (x=-0.1) mirrors row 2 (x=0.1) with
+        // negated imaginary part (w(-x+iy) symmetry), row 1's imaginary part
+        // (x=0 exactly) is forced to zero.
+        for j in 0..Self::NY {
+            tr_coarse[0][j] = tr_coarse[2][j];
+            ti_coarse[0][j] = -ti_coarse[2][j];
+            ti_coarse[1][j] = 0.0;
+        }
+
+        // Fine grid: y[j] = -0.02 + j*0.02, j = 0..27.
+        let mut tr_fine = vec![vec![0.0; Self::NY]; Self::NX];
+        let mut ti_fine = vec![vec![0.0; Self::NY]; Self::NX];
+        for i in 1..Self::NX {
+            let x = x_at(i);
+            for j in 0..Self::NY {
+                let y = -0.02 + j as f64 * 0.02;
+                let (rew, aimw) = uw2(x, y);
+                tr_fine[i][j] = rew;
+                ti_fine[i][j] = aimw;
+            }
+        }
+        for j in 0..Self::NY {
+            tr_fine[0][j] = tr_fine[2][j];
+            ti_fine[0][j] = -ti_fine[2][j];
+            ti_fine[1][j] = 0.0;
+        }
+
+        DopplerTable { tr_coarse, ti_coarse, tr_fine, ti_fine }
+    }
+
+    /// 6-point biquadratic interpolation shared by both grids — the same
+    /// formula as [`crate::unresr::wfun::WTable::lookup`]'s inner stencil
+    /// (`unresr.f90`'s `quikw`), parameterised over which grid and which
+    /// (already-computed) integer/fractional grid coordinates to use.
+    ///
+    /// `p, q` are the fractional parts of the (scaled) `x`/`y` coordinates
+    /// within their grid cell; `i, j, n` are the 1-indexed-equivalent grid
+    /// indices (`i` for `x`, `j`/`n=j-1` for `y`) already adjusted for each
+    /// grid's own offset convention (see [`Self::lookup_coarse`] /
+    /// [`Self::lookup_fine`]).
+    #[allow(clippy::too_many_arguments)]
+    fn biquad(tr: &[Vec<f64>], ti: &[Vec<f64>], i: usize, j: usize, n: usize, p: f64, q: f64, aki: f64) -> (f64, f64) {
+        let p2 = p * p;
+        let q2 = q * q;
+        let hp = 0.5 * p;
+        let hq = 0.5 * q;
+        let hp2 = 0.5 * p2;
+        let hq2 = 0.5 * q2;
+        let pq = p * q;
+        let a1 = hq2 - hq;
+        let a2 = hp2 - hp;
+        let a3 = 1.0 + pq - p2 - q2;
+        let a4 = hp2 - pq + hp;
+        let a5 = hq2 - pq + hq;
+
+        let rew = a1 * tr[i][n]
+            + a2 * tr[i - 1][j]
+            + a3 * tr[i][j]
+            + a4 * tr[i + 1][j]
+            + a5 * tr[i][j + 1]
+            + pq * tr[i + 1][j + 1];
+        let mut aimw = a1 * ti[i][n]
+            + a2 * ti[i - 1][j]
+            + a3 * ti[i][j]
+            + a4 * ti[i + 1][j]
+            + a5 * ti[i][j + 1]
+            + pq * ti[i + 1][j + 1];
+        aimw *= aki;
+        (rew, aimw)
+    }
+
+    /// Look up `w(x, y)` on the coarse grid (`y ≥ 0.5`) — ported from
+    /// `purr.f90:2051-2088`. `x` may be negative; the sign is applied to the
+    /// imaginary part after interpolating on `|x|` (`w(-x+iy)` symmetry).
+    pub fn lookup_coarse(&self, x: f64, y: f64) -> (f64, f64) {
+        let ax = x.abs();
+        let aki = if x < 0.0 { -1.0 } else { 1.0 };
+
+        // purr.f90:2052-2060 — y-side grid coordinate (j = jj-3 for the
+        // coarse grid's y0=0.4 offset).
+        let tempor_y = 10.0 * y;
+        let jj = tempor_y as i64;
+        let j = (jj - 3) as usize;
+        let n = j - 1;
+        let q = tempor_y - jj as f64;
+
+        // purr.f90:2066-2069 — x-side grid coordinate (i = ii+2, shared by
+        // both grids).
+        let tempor_x = 10.0 * ax;
+        let ii = tempor_x as i64;
+        let i = (ii + 2) as usize;
+        let p = tempor_x - ii as f64;
+
+        Self::biquad(&self.tr_coarse, &self.ti_coarse, i, j, n, p, q, aki)
+    }
+
+    /// Look up `w(x, y)` on the fine grid (`y < 0.5`) — ported from
+    /// `purr.f90:2092-2128`.
+    pub fn lookup_fine(&self, x: f64, y: f64) -> (f64, f64) {
+        let ax = x.abs();
+        let aki = if x < 0.0 { -1.0 } else { 1.0 };
+
+        // purr.f90:2093-2096 — y-side grid coordinate (j = jj+2, scale 50,
+        // for the fine grid's y0=-0.02, step 0.02).
+        let tempor_y = 50.0 * y;
+        let jj = tempor_y as i64;
+        let j = (jj + 2) as usize;
+        let n = j - 1;
+        let q = tempor_y - jj as f64;
+
+        let tempor_x = 10.0 * ax;
+        let ii = tempor_x as i64;
+        let i = (ii + 2) as usize;
+        let p = tempor_x - ii as f64;
+
+        Self::biquad(&self.tr_fine, &self.ti_fine, i, j, n, p, q, aki)
+    }
+}
+
+impl Default for DopplerTable {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -74,7 +74,7 @@ Status legend: ✅ done · 🟡 partial · ⏳ scaffolded/stub · ⬜ not starte
 | `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) |
 | `heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5, wired into ACE ESZ) + damage energy for the two-body recoil channels (H7: elastic + discrete levels) done, `src/heatr/mod.rs`; full photon energy-balance (H6) deferred, H7 anisotropy/continuum/capture channels remaining — see sub-phase table below |
 | `gaspr` | `gaspr.f90` | 1.15k | 3 | ✅ gas production (MT=203–207), lumped-channel case only — see `src/gaspr/mod.rs` |
-| `purr` | `purr.f90` | 2919 | 3 | 🟡 ENDF parsing (reuses `unresr::mf2`), `uw2`, `Rng`, `generate_ladder`, `infinite_dilution_reference`, `read_heating_cross_sections` ported — see `src/purr/README.md`; the Monte Carlo probability-table core (`unrest`, ~750 lines) not ported, deliberately deferred as the highest-risk routine encountered so far |
+| `purr` | `purr.f90` | 2919 | 3 | ✅ fully ported — ENDF parsing (reuses `unresr::mf2`), `uw2`, `DopplerTable` (`uwtab2`), `Rng`, `generate_ladder`, `infinite_dilution_reference`, `read_heating_cross_sections`, and `probability_table`/`line_shape` (`unrest`, the Monte Carlo core) — see `src/purr/README.md`. Translation-only, **not run even once** — Opus verification pending; PENDF MT=152/153 tape writer not ported (pure plumbing, no physics) |
 | `thermr` | `thermr.f90` | 3.4k | 3 | 🟡 MF=7 reader + coherent/incoherent elastic + inelastic physics; no module driver |
 | `unresr` | `unresr.f90` | 1665 | 3 | 🟡 physics kernel ported (ENDF LRU=2 parser, Faddeeva/W-function library, `unresolved_cross_sections`) — see `src/unresr/README.md`; PENDF MT=152 output bookkeeping not ported |
 
@@ -461,15 +461,31 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 > **Update (2026-07-06, cont'd):** `PURR`'s scaffolding is ported —
 > ENDF parsing (reuses `unresr::mf2`), `purr::wfun::uw2`, `purr::Rng` (`rann`),
 > `purr::generate_ladder` (`ladr2`), `purr::infinite_dilution_reference`
-> (`unresx`+`gnrx`), `purr::read_heating_cross_sections` (`rdheat`). The
-> **Monte Carlo probability-table core (`unrest`, ~750 lines) is deliberately
-> not ported** — after reading the full routine, it is the single most
-> numerically delicate piece encountered in this crate's NJOY work (six-tier
-> Doppler line-shape regime branching, its own two-table `w(z)` lookup scheme,
-> dynamic histogram binning), comparable in *kind* to BROADR's still-open wing
-> bug but larger in scope; deferred as an explicit TODO (see
-> `src/purr/README.md`) rather than rushed. Translation only, no tests written;
-> full workspace build + existing test suite pass as a regression check.
+> (`unresx`+`gnrx`), `purr::read_heating_cross_sections` (`rdheat`). After
+> reading the full `unrest` routine (the Monte Carlo probability-table core,
+> ~750 lines) it was clear this is the single most numerically delicate piece
+> in this crate's NJOY work — six-tier Doppler line-shape regime branching,
+> its own two-table `w(z)` lookup scheme, dynamic histogram binning —
+> comparable in *kind* to BROADR's still-open wing bug but larger in scope.
+> Checked in with the user before proceeding rather than rushing it.
+>
+> **Update (2026-07-06, cont'd again):** at the user's direction, `unrest` is
+> now ported too — `purr::wfun::DopplerTable` (`uwtab2`, the two-table `w(z)`
+> lookup), `purr::line_shape` (the four-tier Doppler line-shape evaluator —
+> ported as a **direct per-point classification**, verified equivalent to
+> upstream's binary-search index-range chains rather than replicating that
+> bookkeeping literally; see `src/purr/README.md` for the equivalence
+> argument), and `purr::probability_table` (the full Monte Carlo binning +
+> Bondarenko-moment pipeline). `PURR` is now **fully ported** module-for-module
+> (only the PENDF MT=152/153 tape writer remains unported, matching every
+> other module's driver-vs-typed-API split). Translation only — **the code
+> has not been run even once**, only reviewed line-by-line against the Fortran
+> source and cross-checked arithmetic (e.g. the dynamic bin-edge index
+> mapping, Fortran 1-indexed → Rust 0-indexed, re-verified branch-by-branch by
+> hand). Opus verification is the necessary next step before this can be
+> trusted; full workspace build + existing test suite pass as a regression
+> check (compiles clean, zero warnings, but that only proves the *types*
+> check out, not the physics).
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here
