@@ -152,13 +152,17 @@ non-heat-conducting problem, so set `μ = 0` and `k = 0`. In 1-D this collapses
 Navier–Stokes to the **Euler equations** in conservation form:
 
 $$
-\partial_t
-\begin{bmatrix}\rho \\ \rho u \\ E\end{bmatrix}
-+ \partial_x
-\begin{bmatrix}\rho u \\ \rho u^2 + p \\ u(E+p)\end{bmatrix}
-= 0,
+\partial_t \rho + \partial_x(\rho u) = 0
+$$
+
+$$
+\partial_t (\rho u) + \partial_x(\rho u^2 + p) = 0
+$$
+
+$$
+\partial_t E + \partial_x\big(u(E+p)\big) = 0,
 \qquad
-E = \frac{p}{\gamma-1} + \tfrac12 \rho u^2 .
+E = \frac{p}{\gamma-1} + \frac{1}{2}\rho u^2 .
 $$
 
 The last term of `E` is the kinetic energy; the first is the internal energy of
@@ -175,11 +179,9 @@ These three PDEs are all we use.
 The “Riemann problem” is the Euler system with a single jump in the initial data:
 
 $$
-(\rho,u,p)(x,0) =
-\begin{cases}
-(\rho_L,u_L,p_L), & x < x_0 \\
-(\rho_R,u_R,p_R), & x > x_0 .
-\end{cases}
+(\rho,u,p)(x,0) = (\rho_L,u_L,p_L)\ \text{ for } x < x_0,
+\qquad
+(\rho,u,p)(x,0) = (\rho_R,u_R,p_R)\ \text{ for } x > x_0 .
 $$
 
 The Euler equations have no built-in length or time scale, and neither does this
@@ -262,24 +264,30 @@ $$
 J^{\pm} = u \pm \frac{2c}{\gamma-1}
 $$
 
-(the **Riemann invariants**) are constant along the `dx/dt = u \pm c`
-characteristics. A **left** rarefaction is crossed by the `C^{+}` characteristics,
-along which `J^{+} = u + 2c/(\gamma-1)` is constant. Equating its value in state
+(the **Riemann invariants**) are constant along the `dx/dt = u ± c`
+characteristics. A **left** rarefaction is crossed by the `C+` characteristics,
+along which `J+ = u + 2c/(γ-1)` is constant. Equating its value in state
 `L` and in the star region:
 
 $$
 u_L + \frac{2c_L}{\gamma-1} = u^* + \frac{2c^*_L}{\gamma-1}
-\;\Longrightarrow\;
-u^* = u_L - \underbrace{\frac{2c_L}{\gamma-1}\!\left[\left(\tfrac{p^*}{p_L}\right)^{\frac{\gamma-1}{2\gamma}} - 1\right]}_{\displaystyle f_L(p^*)} .
+\quad\Longrightarrow\quad
+u^* = u_L - f_L(p^*),
 $$
 
-By the mirror argument (a **right** rarefaction is crossed by `C^{-}`,
-`J^{-} = u - 2c/(\gamma-1)` constant):
+where the left rarefaction pressure function is
+
+$$
+f_L(p^*) = \frac{2c_L}{\gamma-1}\left[\left(\frac{p^*}{p_L}\right)^{\frac{\gamma-1}{2\gamma}} - 1\right].
+$$
+
+By the mirror argument (a **right** rarefaction is crossed by the `C-`
+characteristics, along which `J- = u - 2c/(γ-1)` is constant):
 
 $$
 u^* = u_R + f_R(p^*),
 \qquad
-f_K(p^*) = \frac{2c_K}{\gamma-1}\!\left[\left(\tfrac{p^*}{p_K}\right)^{\frac{\gamma-1}{2\gamma}} - 1\right]
+f_K(p^*) = \frac{2c_K}{\gamma-1}\left[\left(\frac{p^*}{p_K}\right)^{\frac{\gamma-1}{2\gamma}} - 1\right]
 \quad (\text{rarefaction, } p^* \le p_K).
 $$
 
@@ -294,19 +302,25 @@ speed `S`. With relative velocities `\hat u = u - S`, mass / momentum / energy
 conservation (Step 0, no viscosity) read
 
 $$
-\rho_K \hat u_K = \rho^* \hat u^* \equiv Q, \qquad
-\rho_K \hat u_K^2 + p_K = \rho^* \hat u^{*2} + p^*, \qquad
-h_K + \tfrac12\hat u_K^2 = h^* + \tfrac12\hat u^{*2},
+\rho_K \hat{u}_K = \rho^* \hat{u}^* \equiv Q
 $$
 
-with specific enthalpy `h = \frac{\gamma}{\gamma-1}\frac{p}{\rho}`. These are the
+$$
+\rho_K \hat{u}_K^2 + p_K = \rho^* (\hat{u}^*)^2 + p^*
+$$
+
+$$
+h_K + \frac{1}{2}\hat{u}_K^2 = h^* + \frac{1}{2}(\hat{u}^*)^2
+$$
+
+with specific enthalpy `h = γ/(γ-1) · p/ρ`. These are the
 **Rankine–Hugoniot** conditions. Because `S` cancels in the velocity *difference*,
 the mass + momentum pair collapse to
 
 $$
 p^* - p_K = Q\,(u^* - u_K)\quad(\text{sign per side}),
 \qquad
-Q^2 = \frac{p^* - p_K}{v_K - v^*}\; .
+Q^2 = \frac{p^* - p_K}{v_K - v^*} .
 $$
 
 Eliminating the density with the energy equation gives the **Hugoniot** density
@@ -346,7 +360,7 @@ Both nonlinear waves now give `u*` as a function of `p*`. Matching them at the
 contact (Step 3), `u_L - f_L(p^*) = u_R + f_R(p^*)`, i.e.
 
 $$
-\boxed{\,F(p^*) \equiv f_L(p^*) + f_R(p^*) + (u_R - u_L) = 0\,}
+F(p^*) \equiv f_L(p^*) + f_R(p^*) + (u_R - u_L) = 0
 $$
 
 where each `f_K` uses its **shock** form if `p* > p_K` and its **rarefaction**
@@ -359,11 +373,13 @@ positive root. This is exactly what `star_pressure` builds.
 which is a sum of the two `f_K'`:
 
 $$
-f_K'(p^*) =
-\begin{cases}
-\sqrt{\dfrac{A_K}{B_K + p^*}}\left(1 - \dfrac{p^*-p_K}{2(B_K+p^*)}\right), & \text{shock},\\[2ex]
-\dfrac{1}{\rho_K c_K}\left(\dfrac{p^*}{p_K}\right)^{-\frac{\gamma+1}{2\gamma}}, & \text{rarefaction}.
-\end{cases}
+f_K'(p^*) = \sqrt{\frac{A_K}{B_K + p^*}}\left(1 - \frac{p^*-p_K}{2(B_K+p^*)}\right)
+\quad (\text{shock}),
+$$
+
+$$
+f_K'(p^*) = \frac{1}{\rho_K c_K}\left(\frac{p^*}{p_K}\right)^{-\frac{\gamma+1}{2\gamma}}
+\quad (\text{rarefaction}).
 $$
 
 Iterate `p_{n+1} = p_n - F(p_n)/F'(p_n)` from a cheap positive guess (the code
@@ -376,18 +392,20 @@ root is `p* = 0.30313` (dimensionless).
 With `p*` in hand:
 
 $$
-u^* = \tfrac12(u_L + u_R) + \tfrac12\big(f_R(p^*) - f_L(p^*)\big)
+u^* = \frac{1}{2}(u_L + u_R) + \frac{1}{2}\big(f_R(p^*) - f_L(p^*)\big)
 $$
 
 (`star_velocity`; for Sod `u* = 0.92745`). The star densities come from Step 4
 (rarefaction side) and Step 5 (shock side):
 
 $$
-\rho^*_K =
-\begin{cases}
-\rho_K\left(\dfrac{p^*}{p_K}\right)^{1/\gamma}, & \text{rarefaction side},\\[2ex]
-\rho_K\,\dfrac{p^*/p_K + \frac{\gamma-1}{\gamma+1}}{\frac{\gamma-1}{\gamma+1}\,p^*/p_K + 1}, & \text{shock side}.
-\end{cases}
+\rho^*_K = \rho_K\left(\frac{p^*}{p_K}\right)^{1/\gamma}
+\quad (\text{rarefaction side}),
+$$
+
+$$
+\rho^*_K = \rho_K\,\frac{\dfrac{p^*}{p_K} + \dfrac{\gamma-1}{\gamma+1}}{\dfrac{\gamma-1}{\gamma+1}\dfrac{p^*}{p_K} + 1}
+\quad (\text{shock side}).
 $$
 
 For Sod: `ρ*_L = 0.42632` (post-rarefaction), `ρ*_R = 0.26557` (post-shock).
@@ -408,7 +426,7 @@ $$
 
 $$
 S_{\text{head}} = u_L - c_L, \qquad
-S_{\text{tail}} = u^* - c^*_L, \quad c^*_L = c_L\!\left(\tfrac{p^*}{p_L}\right)^{\frac{\gamma-1}{2\gamma}}.
+S_{\text{tail}} = u^* - c^*_L, \quad c^*_L = c_L\left(\frac{p^*}{p_L}\right)^{\frac{\gamma-1}{2\gamma}}.
 $$
 
 ## Step 10 — Sample the solution at a given `ξ`
@@ -422,8 +440,8 @@ Sod configuration (left rarefaction, right shock):
    `u + 2c/(γ−1) = u_L + 2c_L/(γ−1)` and solve the two linear equations:
 
 $$
-u = \frac{2}{\gamma+1}\!\left[c_L + \frac{\gamma-1}{2}u_L + \xi\right],\qquad
-c = \frac{2}{\gamma+1}\!\left[c_L + \frac{\gamma-1}{2}(u_L - \xi)\right],
+u = \frac{2}{\gamma+1}\left[c_L + \frac{\gamma-1}{2}u_L + \xi\right],\qquad
+c = \frac{2}{\gamma+1}\left[c_L + \frac{\gamma-1}{2}(u_L - \xi)\right],
 $$
 
    then `ρ = ρ_L (c/c_L)^{2/(γ−1)}`, `p = p_L (c/c_L)^{2γ/(γ−1)}`.
