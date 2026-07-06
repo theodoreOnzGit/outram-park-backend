@@ -7,6 +7,22 @@ Guidance for Claude Code (and other AI assistants) working in this repository.
 - **Never auto-commit or auto-push.** Do not run `git commit` or `git push` unless the user explicitly asks.
 - **Never auto-bump versions** in `Cargo.toml` files. Only bump versions when explicitly requested.
 - **Always build and test in release mode.** Use `--release` for all `cargo build` and `cargo test` invocations. Never run tests or builds in debug mode.
+- **Use rust-analyzer (the LSP tool) for all code-intelligence workflows.**
+  Maximise its use whenever possible. For any symbol query — a definition,
+  every reference/caller, type/hover info, or listing symbols in a file or
+  across the workspace — reach for the rust-analyzer LSP tool first, **not** text
+  search (`grep`). It resolves symbols semantically, so it does not confuse a
+  module path with a like-named identifier the way a text match can.
+  - **The LSP tool here is read-only** — `goToDefinition`, `findReferences`,
+    `hover`, `documentSymbol`, `workspaceSymbol`, and call hierarchy. It does
+    **not** expose rename / code-action / `applyEdit`. (Full rust-analyzer in an
+    editor like Neovim/VS Code does; this harness surfaces only the query half.)
+  - For a refactor an editor would drive with *rename* (e.g. renaming a module
+    and rewriting every `crate::…` path to it), first use `findReferences` to
+    enumerate the sites, then apply the edits yourself, and rely on the compiler
+    (`cargo build`/`cargo check`) as the reference checker — every missed
+    reference is a hard error pointing at the exact line. Prefer this over a
+    blind `sed` rename, which can silently mangle a colliding name.
 
 ## Verification & validation documentation (mandatory)
 

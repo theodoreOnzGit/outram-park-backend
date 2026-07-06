@@ -18,7 +18,7 @@
 use std::fs::File;
 
 use njoy_outram_park_fork::{
-    ace::{angular::parse_elastic_angular, energy::build_emissions, jxs, nxs, AceTable},
+    acer::{angular::parse_elastic_angular, energy::build_emissions, jxs, nxs, AceTable},
     endf::tape::Tape,
     heatr::{build_emission_spectra, Kerma},
     nuclear_data::secondary::{FissionSpectrum, NuBar},

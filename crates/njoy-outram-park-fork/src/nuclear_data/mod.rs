@@ -8,7 +8,7 @@
 //!
 //! This module is the *thin, human-readable* boundary over the heavier machinery:
 //! - [`crate::wmp`] — windowed-multipole cross sections + analytic Doppler.
-//! - [`crate::ace`] — the ACE writer / (future) lean-ACE pointwise tables.
+//! - [`crate::acer`] — the ACE writer / (future) lean-ACE pointwise tables.
 //! - [`secondary`] — ν̄(E) and χ(E), which WMP does not carry.
 //!
 //! # Dispatch is an enum, not a trait object
@@ -349,7 +349,7 @@ impl Mgxs {
         name: impl Into<String>,
         e_lo: f64,
         nu: &NuBar,
-        elastic_angular: Option<&crate::ace::angular::ElasticAngular>,
+        elastic_angular: Option<&crate::acer::angular::ElasticAngular>,
         spectrum: &WeightingSpectrum,
     ) -> Self {
         use crate::endf::MtReaction;

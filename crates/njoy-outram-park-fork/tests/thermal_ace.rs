@@ -12,12 +12,12 @@
 use std::fs::File;
 
 use njoy_outram_park_fork::{
-    ace::{
+    acer::{
         thermal::{jxs, nxs, ThermalAceOptions},
         AceTable,
     },
     endf::tape::Tape,
-    thermal::mf7::parse_mf7,
+    thermr::mf7::parse_mf7,
 };
 
 const AL_MAT: i32 = 53;

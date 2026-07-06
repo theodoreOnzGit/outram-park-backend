@@ -253,7 +253,7 @@ impl NuclearDataLibrary {
     /// MF=5/18, and the (n,2n)/(n,3n)/continuum emission spectra from MF=6/MF=5)
     /// **plus the H6 energy-balance correction** (escaping photon energy from
     /// MF=12/13/15 subtracted). Still not written: the fission ν̄ (NU) block and
-    /// non-elastic angular distributions — see [`crate::ace`] for the scope.
+    /// non-elastic angular distributions — see [`crate::acer`] for the scope.
     ///
     /// # Errors
     ///
@@ -271,7 +271,7 @@ impl NuclearDataLibrary {
         // producing reactions: Law 3 for discrete levels, Law 4 from MF=6.
         let partials: Vec<(i32, f64)> =
             r.sections.iter().map(|s| (i32::from(s.mt), s.qi)).collect();
-        let emissions = crate::ace::energy::build_emissions(
+        let emissions = crate::acer::energy::build_emissions(
             &self.tape,
             self.mat,
             r.material.awr,
@@ -281,7 +281,7 @@ impl NuclearDataLibrary {
         let ang = self
             .tape
             .section(self.mat, 4, 2)
-            .map(crate::ace::angular::parse_elastic_angular)
+            .map(crate::acer::angular::parse_elastic_angular)
             .transpose()?;
 
         // HEATR MT=301 heating (KERMA) for the ESZ heating column: H1–H5.
@@ -297,7 +297,7 @@ impl NuclearDataLibrary {
         let kerma = crate::heatr::Kerma::from_reconr(r, &nu, &chi, &emission)
             .with_energy_balance(&photons, r);
 
-        let ace = crate::ace::AceTable::from_reconr_full(
+        let ace = crate::acer::AceTable::from_reconr_full(
             r,
             kt_mev,
             0,

@@ -35,7 +35,7 @@
 //! [NJOY2016]: https://github.com/njoy/NJOY2016
 //! [`openmc-libs`]: https://github.com/theodoreOnzGit/outram-park-backend
 
-pub mod ace;
+pub mod acer;
 /// HIGH-fidelity data acquisition — download raw ENDF tapes from a pinned
 /// upstream and reconstruct pointwise cross sections on device. Behind the
 /// **`net-fetch`** feature (opt-in; the default build ships the offline LOW tier
@@ -68,13 +68,37 @@ pub mod prelude;
 pub mod reconr;
 /// Thermal neutron scattering (the THERMR domain): read MF=7 S(α,β) evaluations
 /// and, in future, compute bound-atom thermal cross sections. Distinct from
-/// [`ace::thermal`], which *writes* the thermal ACE table.
-pub mod thermal;
+/// [`acer::thermal`], which *writes* the thermal ACE table.
+pub mod thermr;
 pub mod units;
 /// Windowed Multipole (WMP) cross-section import — **scaffold only**. This is
 /// independent **MIT CRPG** work (not NJOY/LANL); see [`wmp`] for provenance and
 /// the MIT attribution requirements. Planned Phase-4 item, after thermal S(α,β).
 pub mod wmp;
+
+// --- NJOY processing modules — one home per module under `src/<name>/`, each
+// with its Rust source (physics or `NotPorted` stub) and co-located `README.md`.
+// The ported ones (reconr, broadr, heatr, gaspr, thermr, acer) are declared
+// above next to their long-form docs; the remainder are scaffolds. Dispatch is
+// via the `NjoyModule` enum in `modules.rs`.
+pub mod moder;
+pub mod unresr;
+pub mod purr;
+pub mod groupr;
+pub mod gaminr;
+pub mod errorr;
+pub mod covr;
+pub mod leapr;
+pub mod samm;
+pub mod dtfr;
+pub mod ccccr;
+pub mod matxsr;
+pub mod resxsr;
+pub mod powr;
+pub mod plotr;
+pub mod viewr;
+pub mod mixr;
+pub mod wimsr;
 
 mod error;
 pub use endf::MtReaction;

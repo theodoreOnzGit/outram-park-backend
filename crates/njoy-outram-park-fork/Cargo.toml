@@ -28,6 +28,10 @@ include = [
 [dependencies]
 thiserror.workspace = true
 uom.workspace = true
+# Fortran `mess(...)` (non-fatal warning, upstream continues) maps to `log`,
+# never a silent print — see docs/porting-plan.md §5. `error(...)` (fatal
+# abort) still maps to `Err(NjoyError::...)`.
+log.workspace = true
 # Pure-Rust DEFLATE codec for the embedded WMPB blob (`WindowedMultipole::from_blob`
 # / `to_blob`). Default (non-optional): the zero-dependency shipping path decodes
 # the blob without HDF5, so the codec must be in the default build.

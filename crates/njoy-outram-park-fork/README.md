@@ -53,6 +53,15 @@ This crate is a **derivative work** (a translation) of NJOY2016 v2016.79.
 - **Not the LANL version.** This is **not** endorsed by or affiliated with Los
   Alamos National Laboratory, LANL, Los Alamos National Security LLC, or the U.S.
   Government. Do **not** report issues with this port to the NJOY developers.
+- **Documentation source (theory).** The per-module `README.md` files under
+  `src/modules/*/` summarise their theory from the **NJOY2016 users manual**,
+  taken from the published repository
+  [`njoy/NJOY2016-manual`](https://github.com/njoy/NJOY2016-manual) (commit
+  `9a2951f`, 2022-03-02), which corresponds to LANL document **LA-UR-17-20093**.
+  The manual is © 2016 Los Alamos National Security, LLC, under the same modified
+  BSD 3-Clause (LANL/DOE) terms as the code. Full credit to the NJOY authors
+  (R. E. MacFarlane, A. C. Kahler, D. W. Muir, et al.); this port paraphrases the
+  manual for documentation and claims no authorship of the underlying methods.
 
 The full provenance, modification statement, and no-endorsement notice are in
 [`NOTICE`](NOTICE). Redistributions must keep both `LICENSE.njoy` and `NOTICE`.

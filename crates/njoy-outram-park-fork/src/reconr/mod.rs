@@ -401,3 +401,13 @@ fn add_rm_halo_energies(grid: &mut Vec<f64>, rm_l_states: &[RmLState], el: f64, 
     }
 }
 
+
+/// Run the RECONR card-input driver (NJOY module entry point).
+///
+/// **Status:** this module's processing physics is ported (see its `README.md`
+/// and the typed API above); the NJOY *card-input driver* itself is not yet
+/// ported, so this returns [`crate::NjoyError::NotPorted`]. Use the module's
+/// typed API directly rather than this driver.
+pub fn run() -> Result<(), crate::NjoyError> {
+    Err(crate::NjoyError::NotPorted("reconr driver (physics ported — use the module API)"))
+}

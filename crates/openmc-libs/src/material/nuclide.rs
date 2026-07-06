@@ -19,7 +19,7 @@
 
 use crate::rng::distributions::{maxwell, watt};
 use crate::rng::lcg::prn;
-use njoy_outram_park_fork::ace::angular::ElasticAngular;
+use njoy_outram_park_fork::acer::angular::ElasticAngular;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::Tab1;
 use njoy_outram_park_fork::nuclear_data::secondary::{ChiEout, ChiTabular, FissionSpectrum, NuBar};
@@ -265,7 +265,7 @@ impl Nuclide {
         //    unparseable ⇒ isotropic-CM elastic (default empty distribution).
         let elastic_angular = tape
             .section(mat, 4, 2)
-            .map(njoy_outram_park_fork::ace::angular::parse_elastic_angular)
+            .map(njoy_outram_park_fork::acer::angular::parse_elastic_angular)
             .transpose()?
             .unwrap_or_default();
 

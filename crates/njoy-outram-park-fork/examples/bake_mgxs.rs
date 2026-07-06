@@ -27,7 +27,7 @@
 //! derived, heavily reduced group-collapse — not the ENDF files themselves.
 
 use njoy_outram_park_fork::{
-    ace::angular::parse_elastic_angular,
+    acer::angular::parse_elastic_angular,
     nuclear_data::{
         secondary::NuBar, Mgxs, MgxsLibrary, WeightingSpectrum, ENDF_MAX_ENERGY_EV,
     },

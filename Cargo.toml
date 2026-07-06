@@ -12,6 +12,7 @@ members = [
     "crates/dwsim-libs",
     "crates/boon-lay",
     "crates/njoy-outram-park-fork",
+    "crates/nee_soon",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
@@ -94,8 +95,11 @@ openmc-libs         = { path = "crates/openmc-libs",         version = "0.1.0" }
 dwsim-libs          = { path = "crates/dwsim-libs",          version = "0.1.0" }
 boon-lay            = { path = "crates/boon-lay",            version = "0.1.2" }
 # All nuclear-data representation (ENDF processing, WMP + Faddeeva, lean ACE)
-# lives here; openmc-libs and nee-soon pull cross sections from it.
+# lives here; openmc-libs and nee_soon pull cross sections from it.
 njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.1" }
+# Coupling / integration layer — composes njoy-outram-park-fork, openmc-libs and
+# teh-o-prke behind one object-oriented facade (scaffold).
+nee_soon            = { path = "crates/nee_soon",            version = "0.1.0" }
 
 # Optimize all dependencies even in debug builds — the thermal-hydraulic
 # solvers are expensive, so unoptimized deps make tests painfully slow.

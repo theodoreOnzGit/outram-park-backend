@@ -62,7 +62,7 @@ Status legend: ✅ done · 🟡 partial · ⏳ scaffolded/stub · ⬜ not starte
 | `common` (util) | `util.f90` | ~2k | 🟡 | record I/O helpers, interpolation, `error`/`mess` → `Result` |
 | `common` (io) | `mainio.f90`, `locale.f90` | ~0.3k | ➖ | unit numbers / formatting → owned config, not literal ports |
 | `endf` | `endf.f90` | ~1k | 🟡 | in-memory ENDF tape model + record parsing (tape/records live) |
-| `modules::moder` | `moder.f90` | ~0.6k | ⬜ | ASCII ⇄ binary tape conversion |
+| `moder` | `moder.f90` | 1714 | 🟡 | material selection (`select_materials`) + ASCII write (`endf::tape::Tape::write`, `endf::parse::format_endf_float`) ported; blocked-binary conversion not planned (see `src/moder/README.md`) |
 | `driver` | `main.f90` | ~0.5k | ⬜ | card-input reader → thin Rust `match` over `NjoyModule` |
 | — | `vers.f90` | trivial | ➖ | version string; not ported |
 

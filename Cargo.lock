@@ -2796,6 +2796,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "nee_soon"
+version = "0.1.0"
+dependencies = [
+ "njoy-outram-park-fork",
+ "openmc-libs",
+ "teh-o-prke",
+ "thiserror 2.0.18",
+ "uom 0.38.0",
+]
+
+[[package]]
 name = "neli"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2837,6 +2848,7 @@ dependencies = [
  "directories",
  "fs2",
  "hdf5-pure",
+ "log",
  "miniz_oxide",
  "sha2",
  "thiserror 2.0.18",

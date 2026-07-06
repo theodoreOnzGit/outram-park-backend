@@ -9,9 +9,9 @@
 //! parsed on construction; individual sections are accessed by key.
 
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader, Read, Write};
 
-use crate::endf::parse::parse_line;
+use crate::endf::parse::{format_line, parse_line};
 use crate::endf::EndfKey;
 use crate::NjoyError;
 
@@ -133,5 +133,83 @@ impl Tape {
     /// True if the tape contains no data sections.
     pub fn is_empty(&self) -> bool {
         self.sections.is_empty()
+    }
+
+    /// Construct a tape from an explicit tape-ID line and section list, in
+    /// file order. Used by material-selection logic (e.g. `crate::moder`) to
+    /// assemble a new tape from sections drawn out of one or more inputs.
+    pub fn from_sections(tpid: String, sections: Vec<Section>) -> Self {
+        let mut index = HashMap::new();
+        for (i, sec) in sections.iter().enumerate() {
+            index.entry(sec.key).or_insert(i);
+        }
+        Tape { tpid, sections, index }
+    }
+
+    /// Write this tape back out in ENDF ASCII (formatted) mode — the write
+    /// side of [`Tape::read`], and the core of what NJOY's **MODER** module
+    /// does when converting mode (`endf.f90`'s `contio`/`lineio` write paths,
+    /// sequenced the way `moder.f90` walks a tape: emit each section's data
+    /// rows, then the sentinel records marking section/file/material/tape
+    /// boundaries).
+    ///
+    /// Sentinel emission mirrors the table in this module's docs: a **SEND**
+    /// (`MT=0`) always follows a section's data rows; a **FEND** (`MF=0`)
+    /// follows when the next section changes `MF` or `MAT` (or there is no
+    /// next section); a **MEND** (`MAT=0`) follows when the next section
+    /// changes `MAT` (or there is no next section); a final **TEND**
+    /// (`MAT=-1`) always closes the tape.
+    ///
+    /// **Known simplifications** (see [`crate::endf::parse::format_line`] for
+    /// the CONT-vs-LIST field-encoding caveat):
+    /// - Only ASCII (formatted) output is produced; there is no NJOY
+    ///   blocked-binary writer (see `src/moder/README.md` — a fully in-memory
+    ///   Rust pipeline does not need one).
+    /// - `format_line` writes every row's six fields in exponential `a11`
+    ///   form rather than NJOY's plain right-justified `i11` integers for
+    ///   CONT records' L1/L2/N1/N2 fields — the written *value* round-trips
+    ///   exactly through this crate's own reader, but the column layout does
+    ///   not byte-match genuine NJOY output for those four fields.
+    /// - Sequence numbers (columns 76-80) are a simple monotonically
+    ///   increasing counter across the whole tape, not NJOY's per-file
+    ///   `nsh`/`nsp`/`nsc` reset convention — `parse_line` (and every ENDF
+    ///   reader) documents this column as cosmetic/ignored on read.
+    pub fn write<W: Write>(&self, mut w: W) -> Result<(), NjoyError> {
+        writeln!(w, "{}", self.tpid).map_err(NjoyError::Io)?;
+
+        let mut seq: i32 = 1;
+        let mut iter = self.sections.iter().peekable();
+        while let Some(sec) = iter.next() {
+            for row in &sec.rows {
+                writeln!(w, "{}", format_line(row, sec.key.mat, sec.key.mf, sec.key.mt, seq))
+                    .map_err(NjoyError::Io)?;
+                seq += 1;
+            }
+
+            // SEND — end of section (always follows a section's data rows).
+            writeln!(w, "{}", format_line(&[0.0; 6], sec.key.mat, sec.key.mf, 0, seq))
+                .map_err(NjoyError::Io)?;
+            seq += 1;
+
+            let next_key = iter.peek().map(|s| s.key);
+            let file_ends = next_key.is_none_or(|k| k.mf != sec.key.mf || k.mat != sec.key.mat);
+            let material_ends = next_key.is_none_or(|k| k.mat != sec.key.mat);
+
+            if file_ends {
+                // FEND — end of file (MF=0).
+                writeln!(w, "{}", format_line(&[0.0; 6], sec.key.mat, 0, 0, seq))
+                    .map_err(NjoyError::Io)?;
+                seq += 1;
+            }
+            if material_ends {
+                // MEND — end of material (MAT=0).
+                writeln!(w, "{}", format_line(&[0.0; 6], 0, 0, 0, seq)).map_err(NjoyError::Io)?;
+                seq += 1;
+            }
+        }
+
+        // TEND — end of tape (MAT=-1).
+        writeln!(w, "{}", format_line(&[0.0; 6], -1, 0, 0, seq)).map_err(NjoyError::Io)?;
+        Ok(())
     }
 }

@@ -10,7 +10,7 @@
 //! elastic LAND/AND angular block, and the LDLW/DLW secondary-energy blocks
 //! (Law 3 for discrete inelastic levels, Law 4 for the continuum / (n,xn)
 //! reactions). Still outstanding: fission ν̄ (NU) and non-elastic angular — see
-//! the `njoy_outram_park_fork::ace` module docs.
+//! the `njoy_outram_park_fork::acer` module docs.
 //!
 //! Run with:
 //! ```bash
@@ -20,7 +20,7 @@
 use std::fs::File;
 
 use njoy_outram_park_fork::{
-    ace::{angular::parse_elastic_angular, energy::build_emissions, jxs, nxs, AceTable},
+    acer::{angular::parse_elastic_angular, energy::build_emissions, jxs, nxs, AceTable},
     endf::tape::Tape,
     heatr::{build_emission_spectra, Kerma},
     nuclear_data::secondary::{FissionSpectrum, NuBar},

@@ -15,12 +15,12 @@
 use std::fs::File;
 
 use njoy_outram_park_fork::{
-    ace::{
+    acer::{
         thermal::{jxs, nxs, ThermalAceOptions},
         AceTable,
     },
     endf::tape::Tape,
-    thermal::mf7::{parse_mf7, Mf7},
+    thermr::mf7::{parse_mf7, Mf7},
 };
 
 /// ENDF/B-VIII.0 thermal MAT number for H(ZrH).

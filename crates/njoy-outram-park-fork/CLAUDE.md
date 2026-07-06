@@ -72,3 +72,23 @@ phased porting order (OpenMC ACE path first), the Fortran→Rust translation
 conventions, and the golden-file verification strategy against upstream NJOY all
 live in **`docs/porting-plan.md`**. The reference Fortran source is at
 `../../../NJOY2016`.
+
+## Model division of labour (MANDATORY for this port)
+
+The NJOY Fortran→Rust port runs a two-model workflow to control cost:
+
+- **Sonnet ports, module by module, WITHOUT tests.** Sonnet does the faithful,
+  line-for-line translation of a module's Fortran into Rust only. It does **not**
+  write or run verification tests, and it does **not** "improve" the algorithm
+  during translation (see `docs/porting-plan.md` §5). Where a piece is not yet
+  done, leave an explicit `NjoyError::NotPorted` / `TODO` marker — **never** paper
+  over a gap with a plausible-looking value.
+- **Opus debugs, verifies, and tests.** A separate Opus pass validates each
+  translated module against the NJOY golden oracle (`../../../NJOY2016`), writes
+  the V&V tests (methodology **and** results, per the root `CLAUDE.md` V&V rule),
+  and localises/fixes discrepancies. Opus does not redo the translation.
+
+Keep every port **line-traceable to the Fortran** so the Opus verification pass
+can localise a discrepancy to a specific subroutine. Per-module theory,
+implementation notes, testing status, and caveats live in each module's
+`README.md` (co-located with its Rust source under `src/`).
