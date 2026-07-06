@@ -36,7 +36,7 @@ const DN: f64 = 1.0e-15;
 /// without a nested procedure. Rust has no `GOTO`, so that sharing becomes an
 /// explicit method ([`Self::step`]); the arithmetic is unchanged.
 #[derive(Debug, Clone, Copy)]
-struct WRecurrence {
+pub(crate) struct WRecurrence {
     // "previous" terms
     a: f64,
     b: f64,
@@ -50,12 +50,31 @@ struct WRecurrence {
 }
 
 impl WRecurrence {
+    /// Build the recurrence state for the asymptotic-series branch's initial
+    /// values (`unresr.f90:1552-1561`, label 370). Exposed so `purr::wfun`'s
+    /// `uw2` (near-identical to `uw` but for a `rez==0` exactness shortcut in
+    /// its own convergence loop) can reuse this delicate recurrence rather
+    /// than re-derive it.
+    pub(crate) fn init_asymptotic(rez: f64, aimz: f64, r2: f64, ai2: f64) -> (Self, f64, f64) {
+        const C1: f64 = 1.1283792;
+        let rv = 2.0 * (r2 - ai2);
+        let ak = 4.0 * rez * aimz;
+        (Self { a: 0.0, b: 0.0, g: 1.0, h: 0.0, c: -C1 * aimz, d: C1 * rez, am: rv - 1.0, el: ak }, ak, rv)
+    }
+
+    /// Build the recurrence state for the Taylor-series branch's initial
+    /// values (`unresr.f90:1586-1595`, label 420). See
+    /// [`Self::init_asymptotic`] for why this is exposed `pub(crate)`.
+    pub(crate) fn init_taylor() -> Self {
+        Self { a: 1.0, b: 0.0, g: 0.0, h: 0.0, c: 0.0, d: 0.0, am: 1.0, el: 0.0 }
+    }
+
     /// One continued-fraction step (`unresr.f90:1625-1658`): given the
     /// series-specific `(ajp, temp4, ak)` for this iteration, advance the
     /// recurrence, rescaling by [`UP`]/[`DN`] to avoid over/underflow (only
     /// the *ratios* of these tracked quantities feed the final `w(z)`, so a
     /// uniform rescale changes nothing but the exponent range).
-    fn step(&mut self, ajp: f64, temp4: f64, ak: f64) {
+    pub(crate) fn step(&mut self, ajp: f64, temp4: f64, ak: f64) {
         let tempc = ajp * self.c + temp4 * self.a - ak * self.d;
         let tempd = ajp * self.d + temp4 * self.b + ak * self.c;
         let temel = ajp * self.el + temp4 * self.h + ak * self.am;
@@ -86,31 +105,32 @@ impl WRecurrence {
 
     /// `rew, aimw` from the current recurrence state (`unresr.f90:1574-1576`
     /// / `1615-1618`'s common `tempc*tempm+... / amagn` shape).
-    fn ratio(&self) -> (f64, f64) {
+    pub(crate) fn ratio(&self) -> (f64, f64) {
         let amagn = self.am * self.am + self.el * self.el;
         let rew = (self.c * self.am + self.d * self.el) / amagn;
         let aimw = (self.am * self.d - self.el * self.c) / amagn;
         (rew, aimw)
+    }
+
+    /// Raw `(c, d, am, el)` recurrence state — needed by the Taylor branch's
+    /// `ref`/`aimf` correction terms (`unresr.f90:1612-1614` /
+    /// `purr.f90:2729-2730`), which use these four values directly rather
+    /// than through [`Self::ratio`]'s combined form.
+    pub(crate) fn raw_cd_am_el(&self) -> (f64, f64, f64, f64) {
+        (self.c, self.d, self.am, self.el)
+    }
+
+    /// `am² + el²`, the denominator term the Taylor branch's `ref`/`aimf`
+    /// correction needs (`unresr.f90:1612`'s `am*am+el*el`).
+    pub(crate) fn am_el_mag_squared(&self) -> f64 {
+        self.am * self.am + self.el * self.el
     }
 }
 
 /// Asymptotic-series branch (`kw=1`, `unresr.f90:1549-1579`, labels 370-390).
 /// Valid away from the origin; `aimz` here is `|Im(z)|` (unsigned).
 fn w_asymptotic(rez: f64, aimz: f64, r2: f64, ai2: f64) -> (f64, f64) {
-    const C1: f64 = 1.1283792;
-
-    let rv = 2.0 * (r2 - ai2);
-    let ak = 4.0 * rez * aimz;
-    let mut state = WRecurrence {
-        a: 0.0,
-        b: 0.0,
-        g: 1.0,
-        h: 0.0,
-        c: -C1 * aimz,
-        d: C1 * rez,
-        am: rv - 1.0,
-        el: ak,
-    };
+    let (mut state, ak, rv) = WRecurrence::init_asymptotic(rez, aimz, r2, ai2);
 
     let mut aak: f64 = 1.0;
     let (mut rew, mut aimw) = (0.0, 0.0);

@@ -71,7 +71,7 @@ pub fn penetrability_factor(l: i32, rho: f64, rho_c: f64) -> (f64, f64) {
 /// `unresl` always forces linear-linear interpolation here (`intl=2`,
 /// `unresl:1051`) regardless of what ENDF's own `INT` field for this range
 /// says; ported as the same hard-coded override, not a "fix".
-fn interp_case_b_fission_width(e: f64, energies: &[f64], widths: &[f64]) -> Result<f64, NjoyError> {
+pub(crate) fn interp_case_b_fission_width(e: f64, energies: &[f64], widths: &[f64]) -> Result<f64, NjoyError> {
     for i in 1..energies.len() {
         if e >= energies[i - 1] && e <= energies[i] {
             return terp1(energies[i - 1], widths[i - 1], energies[i], widths[i], e, IntLaw::LinLin);
@@ -88,7 +88,10 @@ fn interp_case_b_fission_width(e: f64, energies: &[f64], widths: &[f64]) -> Resu
 /// Returns `(d, gx, gno, gg, gf)`, with `gx`/`gf` floored to `0.0` below
 /// `1e-8` (`unresr.f90:1286-1287`: negligible competitive/fission width is
 /// treated as exactly absent, not left as quadrature-polluting noise).
-fn interp_case_c(e: f64, points: &[mf2::UnresolvedPointC]) -> Result<(f64, f64, f64, f64, f64), NjoyError> {
+pub(crate) fn interp_case_c(
+    e: f64,
+    points: &[mf2::UnresolvedPointC],
+) -> Result<(f64, f64, f64, f64, f64), NjoyError> {
     const SMALL: f64 = 1e-8;
     let mut d = 0.0;
     let mut gx = 0.0;
@@ -119,7 +122,7 @@ fn interp_case_c(e: f64, points: &[mf2::UnresolvedPointC]) -> Result<(f64, f64, 
 /// `NAPS=0`/`NAPS=1` cases (the identical formula); `NAPS=2` (energy-dependent
 /// scattering radius via `NRO=1`) is rejected earlier, in
 /// [`mf2::parse_lru2_ranges`], so it never reaches here.
-fn channel_radius_urr(awri: f64, naps: i32, ap: f64) -> Result<f64, NjoyError> {
+pub(crate) fn channel_radius_urr(awri: f64, naps: i32, ap: f64) -> Result<f64, NjoyError> {
     if naps == 0 || naps == 1 {
         Ok(channel_radius(awri, naps, ap))
     } else {
@@ -131,22 +134,22 @@ fn channel_radius_urr(awri: f64, naps: i32, ap: f64) -> Result<f64, NjoyError> {
 /// flattened out of whichever [`UnresolvedCase`] variant it came from — the
 /// common shape `unresl`'s per-(l,j) inner loop body needs, regardless of
 /// which ENDF representation (A/B/C) supplied it.
-struct SequenceParams {
-    l: i32,
-    abn: f64,
-    d: f64,
-    aj: f64,
-    amun: f64,
-    gno: f64,
-    gg: f64,
-    gf: f64,
-    amuf: f64,
-    gx: f64,
-    amux: f64,
-    awri: f64,
-    ap: f64,
-    naps: i32,
-    spi: f64,
+pub(crate) struct SequenceParams {
+    pub(crate) l: i32,
+    pub(crate) abn: f64,
+    pub(crate) d: f64,
+    pub(crate) aj: f64,
+    pub(crate) amun: f64,
+    pub(crate) gno: f64,
+    pub(crate) gg: f64,
+    pub(crate) gf: f64,
+    pub(crate) amuf: f64,
+    pub(crate) gx: f64,
+    pub(crate) amux: f64,
+    pub(crate) awri: f64,
+    pub(crate) ap: f64,
+    pub(crate) naps: i32,
+    pub(crate) spi: f64,
 }
 
 /// Flatten one range's L/J-state tree into a plain list of
@@ -156,7 +159,7 @@ struct SequenceParams {
 /// (`unresl:954-1149`); walking the tree once here (rather than twice, as
 /// two separate closures previously attempted) keeps the accumulation code
 /// below a plain, borrow-checker-friendly loop over an owned `Vec`.
-fn range_sequences(range: &mf2::UnresolvedRange, e: f64) -> Vec<SequenceParams> {
+pub(crate) fn range_sequences(range: &mf2::UnresolvedRange, e: f64) -> Vec<SequenceParams> {
     let mut out = Vec::new();
     match &range.case_ {
         UnresolvedCase::CaseA { awri, ap, spi, l_states } => {

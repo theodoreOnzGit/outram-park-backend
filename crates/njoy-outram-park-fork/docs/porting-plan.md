@@ -74,7 +74,7 @@ Status legend: ✅ done · 🟡 partial · ⏳ scaffolded/stub · ⬜ not starte
 | `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) |
 | `heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5, wired into ACE ESZ) + damage energy for the two-body recoil channels (H7: elastic + discrete levels) done, `src/heatr/mod.rs`; full photon energy-balance (H6) deferred, H7 anisotropy/continuum/capture channels remaining — see sub-phase table below |
 | `gaspr` | `gaspr.f90` | 1.15k | 3 | ✅ gas production (MT=203–207), lumped-channel case only — see `src/gaspr/mod.rs` |
-| `purr` | `purr.f90` | 2.9k | 3 | ⬜ URR probability tables |
+| `purr` | `purr.f90` | 2919 | 3 | 🟡 ENDF parsing (reuses `unresr::mf2`), `uw2`, `Rng`, `generate_ladder`, `infinite_dilution_reference`, `read_heating_cross_sections` ported — see `src/purr/README.md`; the Monte Carlo probability-table core (`unrest`, ~750 lines) not ported, deliberately deferred as the highest-risk routine encountered so far |
 | `thermr` | `thermr.f90` | 3.4k | 3 | 🟡 MF=7 reader + coherent/incoherent elastic + inelastic physics; no module driver |
 | `unresr` | `unresr.f90` | 1665 | 3 | 🟡 physics kernel ported (ENDF LRU=2 parser, Faddeeva/W-function library, `unresolved_cross_sections`) — see `src/unresr/README.md`; PENDF MT=152 output bookkeeping not ported |
 
@@ -456,7 +456,20 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 > width-fluctuation library (`unresr::wfun`), and the per-energy self-shielded
 > cross-section calculator (`unresr::unresolved_cross_sections`, ported from
 > `unresl`). Translation only — no tests written yet (Opus verification
-> pending; see `src/unresr/README.md`). `PURR` is next.
+> pending; see `src/unresr/README.md`).
+>
+> **Update (2026-07-06, cont'd):** `PURR`'s scaffolding is ported —
+> ENDF parsing (reuses `unresr::mf2`), `purr::wfun::uw2`, `purr::Rng` (`rann`),
+> `purr::generate_ladder` (`ladr2`), `purr::infinite_dilution_reference`
+> (`unresx`+`gnrx`), `purr::read_heating_cross_sections` (`rdheat`). The
+> **Monte Carlo probability-table core (`unrest`, ~750 lines) is deliberately
+> not ported** — after reading the full routine, it is the single most
+> numerically delicate piece encountered in this crate's NJOY work (six-tier
+> Doppler line-shape regime branching, its own two-table `w(z)` lookup scheme,
+> dynamic histogram binning), comparable in *kind* to BROADR's still-open wing
+> bug but larger in scope; deferred as an explicit TODO (see
+> `src/purr/README.md`) rather than rushed. Translation only, no tests written;
+> full workspace build + existing test suite pass as a regression check.
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here
