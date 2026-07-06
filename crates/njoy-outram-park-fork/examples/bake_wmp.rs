@@ -21,14 +21,6 @@
 //! The `WMP_Library` HDF5 inputs and the baked blob are MIT CRPG data (© MIT).
 //! See `LICENSE-WMP` and `NOTICE` — both must ship with the embedded blob.
 
-#[cfg(not(feature = "wmp-hdf5"))]
-fn main() {
-    eprintln!("bake_wmp requires the `wmp-hdf5` feature:");
-    eprintln!("  cargo run --release --example bake_wmp --features wmp-hdf5");
-    std::process::exit(2);
-}
-
-#[cfg(feature = "wmp-hdf5")]
 fn main() {
     use njoy_outram_park_fork::wmp::{WindowedMultipole, WmpLibrary};
     use std::path::PathBuf;
@@ -89,7 +81,6 @@ fn main() {
 /// `docs/wmp-nuclide-manifest.md`. 125 nuclides: reactor-grade actinides,
 /// structurals, moderators/coolants, control + burnable poisons, top fission
 /// products, and the LFTR (FLiBe/FLiNaK + Th cycle) additions.
-#[cfg(feature = "wmp-hdf5")]
 const CORE_ZAIDS: &[&str] = &[
     "001001", "001002", "002004", "003006", "003007", "004009", "005010", "005011",
     "006000", "007014", "007015", "008016", "008017", "009019", "011023", "013027",

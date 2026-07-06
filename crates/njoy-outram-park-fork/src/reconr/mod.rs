@@ -14,7 +14,7 @@
 //! | 2a | MF=1/MF=2 headers, linearisation, LRU=0 (H-2) | done |
 //! | 2b | SLBW/MLBW resonance evaluation (Ar-37 LRU=1, LRF=2) | done |
 //! | 2c | Reich-Moore (LRF=3, e.g. U-235) | **this version** |
-//! | 2d | Unresolved resonances (LRU=2, PURR) | future |
+//! | 2d | Unresolved resonances (LRU=2): UNRESR then PURR | **next to port** (blocks σ above the resolved region — 20 keV for U-238; see `docs/porting-plan.md` §8) |
 //!
 //! ## Entry point
 //!

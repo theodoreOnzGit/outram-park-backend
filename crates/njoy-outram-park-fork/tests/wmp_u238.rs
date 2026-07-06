@@ -2,13 +2,11 @@
 //! `WMP_Library`, ENDF/B-VII.1). Exercises [`WindowedMultipole::load_h5`] and the
 //! analytic Doppler broadening in [`WindowedMultipole::evaluate`].
 //!
-//! Requires the `wmp-hdf5` feature and the WMP file on disk (a git-lfs object,
-//! outside this repo). The test **skips** cleanly if the file is absent, so it
-//! never breaks a checkout that lacks the nuclear data.
+//! Requires the WMP file on disk (a git-lfs object, outside this repo). The test
+//! **skips** cleanly if the file is absent, so it never breaks a checkout that
+//! lacks the nuclear data.
 //!
-//! Run: `cargo test -p njoy-outram-park-fork --features wmp-hdf5 --release`.
-
-#![cfg(feature = "wmp-hdf5")]
+//! Run: `cargo test -p njoy-outram-park-fork --release`.
 
 use njoy_outram_park_fork::wmp::WindowedMultipole;
 use std::path::PathBuf;

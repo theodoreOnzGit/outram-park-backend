@@ -428,6 +428,29 @@ Two near-term OUTRAM PARK goals pull specific njoy modules forward. The full
 cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 **`../../../docs/keff-doppler-roadmap.md`**; njoy's slice of it:
 
+> ### ⏭️ NEXT TO PORT — Unresolved Resonance Region (URR, LRU=2): `UNRESR` then `PURR`
+>
+> **Why now (2026-07-06):** RECONR reconstructs only the **resolved** resonance
+> region (LRU=1: SLBW/MLBW/Reich-Moore). For U-238 the resolved region ends at
+> **20 keV**; from 20 keV to **149 keV** the evaluation is an **unresolved**
+> region (MF=2 LRU=2, which the port currently parses *header-only* — see
+> `reconr/mf2.rs::parse_lru2_header`). Consequences:
+> - Pointwise σ(n,γ) / σ_el can be reconstructed **only up to 20 keV**. The
+>   U-238 capture Doppler code-to-code verification vs the OpenMC `.h5`
+>   (`tests/u238_doppler_verification/`) is therefore run in the RRR window
+>   (≤ 20 keV), which is where all the strong, Doppler-sensitive resonances sit.
+> - The 20–149 keV band and self-shielding (probability tables) need the
+>   unresolved modules, in this order:
+>   1. **`UNRESR`** (`unresr.f90`, ~1.8k LOC) — infinite-dilution average σ in
+>      the URR from the LRU=2 parameters. Unblocks the 20–149 keV pointwise band.
+>   2. **`PURR`** (`purr.f90`, ~2.9k LOC) — URR probability tables for
+>      self-shielding (feeds the ACE `urr` block / OpenMC's `urr` group).
+> - Above 149 keV the fast region is pure tabulated MF=3 and needs no resonance
+>   reconstruction.
+>
+> This is the first gap a caller hits going past the resolved region, so it is
+> the next porting target after the current Doppler verification lands.
+
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here
   in njoy** (`src/wmp.rs`), not `openmc-libs`. Real U-238 broadening of the

@@ -36,10 +36,10 @@ log.workspace = true
 # / `to_blob`). Default (non-optional): the zero-dependency shipping path decodes
 # the blob without HDF5, so the codec must be in the default build.
 miniz_oxide.workspace = true
-# Pure-Rust HDF5 reader — no system libhdf5. Optional and behind the `wmp-hdf5`
-# feature so the default build (and the embedded-blob path) pulls no HDF5. Only
-# `WindowedMultipole::load_h5` needs it. See docs/architecture.md.
-hdf5-pure = { workspace = true, optional = true }
+# Pure-Rust HDF5 reader — no system libhdf5, so it is always compiled (no build
+# burden). Used by `WindowedMultipole::load_h5` (WMP blob-baking) and the OpenMC
+# ENDF/B-8.0 code-to-code Doppler verification test. See docs/architecture.md.
+hdf5-pure.workspace = true
 # HIGH-fidelity ENDF download tier — all optional, behind the `net-fetch` feature
 # (docs/data-acquisition.md). The default lean build pulls none of these, so a
 # data consumer that only wants the embedded LOW tier stays free of a TLS/HTTP
@@ -58,14 +58,16 @@ zip = { workspace = true, optional = true }
 # exposed through `WmpLibrary::core` — there is no opt-out feature. Every build
 # resolves cross sections offline with no HDF5 and no downloads.
 #
-# Enables reading MIT CRPG `WMP_Library` HDF5 files directly via
-# `WindowedMultipole::load_h5` (development / blob-baking path).
-# Re-bake with `cargo run --example bake_wmp --features wmp-hdf5`.
-wmp-hdf5 = ["dep:hdf5-pure"]
-
 # HIGH-fidelity data-acquisition tier: download raw ENDF tapes from a pinned
 # upstream (see `crate::acquire` and docs/data-acquisition.md), cache them, and
 # reconstruct pointwise cross sections on device. Off by default — the embedded
 # LOW tier (WMP + fast MGXS) needs no network. Enable with
 # `--features net-fetch`.
 net-fetch = ["dep:ureq", "dep:sha2", "dep:directories", "dep:fs2", "dep:zip"]
+
+# ── Code-to-code Doppler verification: RECONR+BROADR vs OpenMC ENDF/B-8.0 .h5 ──
+# Own folder + README under tests/u238_doppler_verification/. Uses the always-on
+# hdf5-pure reader to parse the committed OpenMC U238.h5.
+[[test]]
+name = "u238_doppler_verification"
+path = "tests/u238_doppler_verification/main.rs"

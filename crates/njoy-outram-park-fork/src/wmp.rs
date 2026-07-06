@@ -41,8 +41,8 @@
 //! The evaluator ([`WindowedMultipole::evaluate`]) and the analytic Doppler
 //! kernel ([`faddeeva`]) are **implemented** and unit-tested; they are faithful
 //! re-implementations of OpenMC `WindowedMultipole::evaluate` / `faddeeva`.
-//! [`WindowedMultipole::load_h5`] reads real `WMP_Library` HDF5 files (behind the
-//! `wmp-hdf5` feature) — see `tests/wmp_u238.rs`. The embedded, zero-dependency
+//! [`WindowedMultipole::load_h5`] reads real `WMP_Library` HDF5 files
+//! (pure-Rust `hdf5-pure`, always available) — see `tests/wmp_u238.rs`. The embedded, zero-dependency
 //! shipping path — [`WindowedMultipole::to_blob`] (offline bake) and
 //! [`WindowedMultipole::from_blob`] (runtime decode) of the pure-Rust **WMPB v1**
 //! format — is **implemented and round-trip tested**. The curated **CORE**
@@ -297,13 +297,12 @@ impl WindowedMultipole {
     /// (pure-Rust, no system `libhdf5`). For the *embedded* offline path (no HDF5
     /// dependency in the shipped build), prefer [`Self::from_blob`].
     ///
-    /// Requires the `wmp-hdf5` feature. **License:** this reads MIT CRPG data —
+    /// **License:** this reads MIT CRPG data —
     /// ship `LICENSE-WMP` + a NOTICE credit before embedding any of it.
     ///
     /// # Errors
     /// [`NjoyError::Io`] if the file cannot be read; [`NjoyError::WmpData`] if a
     /// dataset is missing or has an unexpected shape.
-    #[cfg(feature = "wmp-hdf5")]
     pub fn load_h5<P: AsRef<std::path::Path>>(path: P) -> Result<Self, NjoyError> {
         use hdf5_pure::File;
         let err = |m: String| NjoyError::WmpData(m);
@@ -433,19 +432,6 @@ impl WindowedMultipole {
             inv_spacing: 1.0 / spacing,
             fit_order,
         })
-    }
-
-    /// Load a nuclide from a `WMP_Library` HDF5 file — requires the `wmp-hdf5`
-    /// feature (adds the pure-Rust `hdf5-pure` reader). Without it, use the
-    /// embedded-blob path [`Self::from_blob`].
-    ///
-    /// # Errors
-    /// Returns [`NjoyError::NotPorted`] when built without `wmp-hdf5`.
-    #[cfg(not(feature = "wmp-hdf5"))]
-    pub fn load_h5<P: AsRef<std::path::Path>>(_path: P) -> Result<Self, NjoyError> {
-        Err(NjoyError::NotPorted(
-            "WMP HDF5 import needs the `wmp-hdf5` feature (hdf5-pure)",
-        ))
     }
 
     /// Serialize this nuclide into the compact **WMPB v1** embedded blob — the
