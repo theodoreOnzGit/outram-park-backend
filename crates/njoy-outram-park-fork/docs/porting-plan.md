@@ -100,7 +100,7 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 | `modules::errorr` | `errorr.f90` | 11.2k | ⬜ multigroup covariance matrices; next up after `samm` finishes (2026-07-07) — it is `samm`'s `Want_Partial_Derivs`/`Want_Angular_Dist` caller |
 | `modules::covr` | `covr.f90` | ~3k | ⬜ covariance output/plotting |
 | `modules::leapr` | `leapr.f90` | 3.6k | ⬜ *generate* MF=7 S(α,β) (upstream of THERMR) |
-| `modules::samm` | `samm.f90` | 7.2k | 🟨 Phase 1-3/6 done (ENDF reader, spin/parity/penetrability incl. betset core, Coulomb wave functions); R-matrix-inversion/XS/derivatives/angular not started; shared by reconr/unresr |
+| `modules::samm` | `samm.f90` | 7.2k | 🟨 Phase 1-4/6 done (ENDF reader, spin/parity/penetrability incl. betset core, Coulomb wave functions, R-matrix inversion); XS formula/derivatives/angular/top-level not started; shared by reconr/unresr |
 
 ### Formatters, plotting, misc (Phase 6 — lowest priority)
 
@@ -569,6 +569,37 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 >
 > Full workspace build + test suite green (same 139/12/7/12/1/20/11/11/4/5/
 > 2/3 counts), zero regressions, zero warnings in this crate.
+>
+> **Update (2026-07-07, cont'd yet again):** **Phase 4 (R-matrix inversion)
+> is done** — `samm::linpack` (the general complex-symmetric packed solver:
+> `xspfa` Bunch-Kaufman factorization, `xspsl` solve, `xaxpy`/`xdot`/
+> `xswap`/`ixamax` BLAS-1 helpers; only the stride-1 path is ported since
+> every `samm.f90` call site passes `incx=incy=1`, and the 1970s manual
+> loop-unrolling is dropped as meaningless under a modern optimizer) and
+> `samm::rmatrix_invert` (`yinvrs`'s dispatcher, closed-form `onech`/
+> `twoch`/`threech` for 1/2/3 channels, `yfour` for 4+ via `linpack`,
+> `zeror`). Kept indices numerically identical to the Fortran's 1-indexed
+> flat packed offsets rather than translating to 0-indexed, for the same
+> line-by-line-checkability reason as `coulomb.rs` — this is the densest,
+> most bug-prone numerical code in the port so far (a pivoting-logic
+> off-by-one corrupts silently, doesn't panic). `setxqx`/`sectio`/
+> `gcphase`/`setqri`/`settri` (the R-matrix *assembly* step, as opposed to
+> its inversion) are deferred to Phase 5, since they're `crosss`'s
+> responsibility, not `yinvrs`'s.
+>
+> A few borrow-checker-driven refactors during translation (not physics
+> changes): several `s(v, k, g(v, k) * factor)`-style in-place scale/
+> unscale calls needed splitting into read-then-write across two
+> statements (Rust won't allow a mutable and immutable borrow of the same
+> buffer within one function call's argument list) — factored into small
+> `scale_at`/`unscale_at`/`swap1` helpers rather than repeating the
+> workaround inline.
+>
+> Full workspace build + test suite green (same 139/12/7/12/1/20/11/11/4/5/
+> 2/3 counts), zero regressions, zero warnings in this crate. This is
+> genuinely not run against any real R-matrix problem yet — Phase 5 needs
+> to wire `crosss`/`setr` in before there's an end-to-end path to test
+> against.
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here

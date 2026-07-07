@@ -96,13 +96,28 @@ each phase independently portable/verifiable:
    See `coulomb.rs`'s module doc for the 0-indexed-by-`L` array convention
    used throughout, checked position-by-position against the Fortran rather
    than re-derived.
-4. **R-matrix inversion** — not started (LINPACK-style symmetric-indefinite
-   solver `xspfa`/`xspsl`/`xswap`/`xaxpy`/`ixamax`/`xdot`, plus
-   `zeror`/`yinvrs`/`onech`/`twoch`/`threech`/`yfour`/`setxqx`/`sectio`/
-   `setqri`/`settri`, ~1800 lines).
+4. **R-matrix inversion** — ✅ done:
+   - `linpack.rs` — the general complex-symmetric packed solver (`xspfa`
+     Bunch-Kaufman factorization, `xspsl` solve, `xaxpy`/`xdot`/`xswap`/
+     `ixamax` BLAS-1 helpers, stride-1 only — every call site in `samm.f90`
+     passes `incx=incy=1`, verified by grep, so the general-stride branches
+     and 1970s manual loop-unrolling are not ported). Indices are kept
+     numerically identical to the Fortran's 1-indexed flat packed offsets
+     rather than translated to 0-indexed, checked line-by-line against the
+     source — see the module doc for why.
+   - `rmatrix_invert.rs` — `yinvrs`'s dispatcher plus the closed-form
+     `onech`/`twoch`/`threech` inverters (1/2/3-channel cases; `threech`
+     includes its `scale3`/`unscale3` numerical-conditioning helpers) and
+     `yfour` (4+ channels, via `linpack.rs`). `zeror` (trivial all-zero
+     init) is also here, ready for Phase 5's `crosss` to call.
+   - **Not yet ported (belongs with Phase 5's cross-section assembly, not
+     here):** `setxqx`, `sectio`, `gcphase`, `setqri`, `settri` — these
+     build/rearrange the R-matrix input to `yinvrs` from `beta`/`echan`,
+     which is `crosss`'s job.
 5. **Cross-section evaluation** — not started (`babb`, `abpart`, `crosss`,
-   `setr`, `derres`/`derext`, ~1300 lines) — the actual physics tying
-   everything together.
+   `setr`, `setxqx`, `sectio`, `gcphase`, `setqri`, `settri`, `derres`/
+   `derext`, ~1600 lines) — the actual physics tying everything together,
+   using [`rmatrix_invert::invert`] as its core linear-algebra step.
 6. **Top-level orchestration** — surveyed, not yet ported (`cssammy`,
    `ppsammy`, `allo`, `desammy`, `orders`, `angle`, `lmaxxx`, `kclbsch`,
    `clbsch`, `setleg`, ~850 lines).
@@ -157,12 +172,17 @@ file by eye.
 - **`coulomb.rs`'s `pspcou` dead local (`paccq`) is intentionally not
   ported** — write-only in the Fortran (computed, never read again within
   the subroutine); see [`coulomb::coulfg`]'s doc comment.
-- **Phases 4–6 (R-matrix inversion, cross-section formula, top-level
-  orchestration) are not ported yet** — `mf2.rs`/`context.rs`/
-  `penetrability.rs`/`coulomb.rs`/`betset.rs` alone do not make RECONR able
-  to reconstruct LRF=7 cross sections; they provide the ENDF data,
-  kinematic/quantum-number setup, and per-resonance channel amplitudes the
-  not-yet-built R-matrix inversion needs.
+- **`linpack.rs`/`rmatrix_invert.rs` are untested against a real R-matrix
+  problem** — the LINPACK Bunch-Kaufman factorization/solve is a
+  well-established published algorithm, but this is dense pivoting logic
+  (index arithmetic corrupts silently, not with a panic) that has not been
+  exercised end-to-end yet; that needs Phase 5 wired up first.
+- **Phases 5–6 (cross-section formula, top-level orchestration) are not
+  ported yet** — `mf2.rs`/`context.rs`/`penetrability.rs`/`coulomb.rs`/
+  `betset.rs`/`linpack.rs`/`rmatrix_invert.rs` alone do not make RECONR
+  able to reconstruct LRF=7 cross sections; they provide the ENDF data,
+  kinematic/quantum-number setup, per-resonance channel amplitudes, and a
+  working `Y^-1` inverter the not-yet-built cross-section formula needs.
 - **RECONR currently lacks RML entirely** — evaluations using LRF=7 fail
   until this port reaches Phase 5. Per `docs/porting-plan.md`, check the
   evaluation's LRF before relying on RECONR.

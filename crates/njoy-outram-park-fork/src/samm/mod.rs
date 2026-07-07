@@ -42,8 +42,10 @@
 pub mod betset;
 pub mod context;
 pub mod coulomb;
+pub mod linpack;
 pub mod mf2;
 pub mod penetrability;
+pub mod rmatrix_invert;
 
 use crate::NjoyError;
 
