@@ -35,6 +35,14 @@ crate as a whole is `GPL-3.0-only`. To stay compliant, you MUST:
   public signatures carry dimensioned types; spell out units in doc comments.
 - **Errors via `Result<_, NjoyError>`**, never a process-aborting `error()` call
   the way upstream Fortran does.
+- **File size cap: 1000 lines, 1500 only if truly necessary (mandatory,
+  2026-07-07 onward).** Split a ported module by function/responsibility into
+  a `module_name/` directory (`mod.rs` = module doc + `pub use` re-exports;
+  siblings named for their functional group) rather than growing one flat
+  file. See `src/samm/coulomb/` for the pattern. Applies to every module
+  ported from this date forward. Existing over-length files are tracked in
+  `docs/porting-plan.md` §5 — split opportunistically, don't grow them
+  further without splitting first.
 
 ## Build and test
 

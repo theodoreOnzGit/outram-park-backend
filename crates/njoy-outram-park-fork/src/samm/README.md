@@ -88,14 +88,17 @@ each phase independently portable/verifiable:
      `clbsch` (Legendre/Clebsch-Gordan angular-distribution coefficients) and
      `betset`'s `Want_Partial_Derivs`/`Want_Partial_U`-gated u-parameter
      conversion — see the scope-history note above.
-3. **Coulomb wave-function library** — ✅ done (`coulomb.rs`): `jwkb`,
-   `coulfg` (Steed's method, the CPC "COULFG" algorithm), `xsigll`,
-   `asymp1`/`asymp2`, `taylor`, `end1`, `getfg`, `bigeta`, `getps`, `coulx`,
-   `pspcou`, `pghcou`. Self-contained special functions, exercised only for
-   charged-particle exit channels (`zeta != 0` in [`context::ChannelKinematics`]).
-   See `coulomb.rs`'s module doc for the 0-indexed-by-`L` array convention
-   used throughout, checked position-by-position against the Fortran rather
-   than re-derived.
+3. **Coulomb wave-function library** — ✅ done (`coulomb/`, split by
+   function per the crate's file-size convention — no file over ~400
+   lines): `coulomb/steed.rs` (`jwkb`, `coulfg` — Steed's method, the CPC
+   "COULFG" algorithm), `coulomb/asymptotic.rs` (`xsigll`, `asymp1`/
+   `asymp2`, `taylor`, `end1`, `getfg`), `coulomb/dispatch.rs` (`bigeta`,
+   `getps`, `coulx`), `coulomb/api.rs` (`pspcou`, `pghcou` — the two entry
+   points other modules call). Self-contained special functions, exercised
+   only for charged-particle exit channels (`zeta != 0` in
+   [`context::ChannelKinematics`]). See `coulomb/mod.rs`'s module doc for
+   the 0-indexed-by-`L` array convention used throughout, checked
+   position-by-position against the Fortran rather than re-derived.
 4. **R-matrix inversion** — ✅ done:
    - `linpack.rs` — the general complex-symmetric packed solver (`xspfa`
      Bunch-Kaufman factorization, `xspsl` solve, `xaxpy`/`xdot`/`xswap`/
@@ -169,16 +172,16 @@ file by eye.
   from upstream** for resonances sitting exactly on a channel threshold —
   see that function's doc comment. Only matters for the not-yet-ported
   derivative term; the amplitude computed here is unaffected.
-- **`coulomb.rs`'s `pspcou` dead local (`paccq`) is intentionally not
-  ported** — write-only in the Fortran (computed, never read again within
-  the subroutine); see [`coulomb::coulfg`]'s doc comment.
+- **`coulomb/steed.rs`'s `coulfg` has one dead local (`paccq`) intentionally
+  not ported** — write-only in the Fortran (computed, never read again
+  within the subroutine); see [`coulomb::coulfg`]'s doc comment.
 - **`linpack.rs`/`rmatrix_invert.rs` are untested against a real R-matrix
   problem** — the LINPACK Bunch-Kaufman factorization/solve is a
   well-established published algorithm, but this is dense pivoting logic
   (index arithmetic corrupts silently, not with a panic) that has not been
   exercised end-to-end yet; that needs Phase 5 wired up first.
 - **Phases 5–6 (cross-section formula, top-level orchestration) are not
-  ported yet** — `mf2.rs`/`context.rs`/`penetrability.rs`/`coulomb.rs`/
+  ported yet** — `mf2.rs`/`context.rs`/`penetrability.rs`/`coulomb/`/
   `betset.rs`/`linpack.rs`/`rmatrix_invert.rs` alone do not make RECONR
   able to reconstruct LRF=7 cross sections; they provide the ENDF data,
   kinematic/quantum-number setup, per-resonance channel amplitudes, and a

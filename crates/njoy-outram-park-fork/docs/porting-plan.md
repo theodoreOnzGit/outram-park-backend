@@ -387,6 +387,25 @@ Do not "improve" the algorithms during translation. Port faithfully first,
 verify against the oracle, *then* refactor — otherwise discrepancies are
 impossible to localise.
 
+**File size (mandatory, 2026-07-07 onward):** no ported Rust source file may
+exceed **1000 lines**; **1500** only if genuinely necessary for readability
+(e.g. a single tightly-coupled numerical routine that resists splitting
+further). Split by function/responsibility into a `module_name/` directory
+(`mod.rs` holding the module doc + `pub use` re-exports, siblings named for
+their functional group) rather than one flat file — see `src/samm/coulomb/`
+for the pattern (`mod.rs`, `steed.rs`, `asymptotic.rs`, `dispatch.rs`,
+`api.rs`, split from an original single 1085-line `coulomb.rs`). Applies to
+every module ported from this date forward; existing over-length files are
+tracked below and should be split opportunistically (not urgently — they
+work and are tested/building — but don't grow them further without splitting
+first):
+
+| File | Lines | Status |
+|---|---|---|
+| `src/heatr/mod.rs` | 1363 | ⬜ TODO: split by function (H1-H7 KERMA phases are a natural boundary) |
+| `src/wmp.rs` | 1276 | ⬜ TODO: split by function (parsing vs. Doppler-broadening evaluation is a natural boundary) |
+| `src/purr/mod.rs` | 1079 | ⬜ TODO: split by function (ladder generation vs. `unrest`'s Monte Carlo core is a natural boundary) |
+
 ---
 
 ## 6. Verification strategy (golden oracle)
