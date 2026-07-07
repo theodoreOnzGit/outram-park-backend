@@ -24,6 +24,37 @@ Guidance for Claude Code (and other AI assistants) working in this repository.
     reference is a hard error pointing at the exact line. Prefer this over a
     blind `sed` rename, which can silently mangle a colliding name.
 
+## Issue tracking & roadmap — beads (mandatory when available)
+
+This workspace tracks issues and per-crate roadmap progress with **beads**
+(`bd`). It is a dependency-aware issue tracker whose data lives in `.beads/`
+(embedded Dolt DB) with a passive export at **`.beads/issues.jsonl`**.
+
+- **Install** (Linux/macOS with bash):
+  `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
+  (installs `bd` to `~/.local/bin`; add that to `PATH`).
+- **Standing rule: if `bd` is available on this machine, you MUST use it** for
+  all task/roadmap tracking and progress bookkeeping — in preference to
+  TodoWrite / TaskCreate / ad-hoc markdown TODO lists. Create/close/update
+  beads as work happens; file a bead for any follow-up you discover.
+- **If `bd` is *not* available** — e.g. an OS or environment without bash or
+  without a beads build (Android, a locked-down sandbox, etc.) — that is fine:
+  beads is optional there. Do **not** block work on it; fall back to the
+  harness task tools and note in your hand-off that beads wasn't updated.
+- **Roadmap / progress summaries come from beads.** When the user asks "where
+  are we" / "summarise progress" / "what's the roadmap", read it out of beads
+  (`bd list`, `bd ready`, `bd show <id>`, `bd dep tree <id>`, or the
+  `.beads/issues.jsonl` export) rather than re-deriving from scattered docs.
+  One epic per member crate; child beads are that crate's workstreams.
+- **Relationship to the memory system.** Beads and the per-project memory
+  files (`~/.claude/projects/<slug>/memory/`) are complementary and **both
+  stay in use**: beads tracks *tasks / roadmap / open work*; the memory files
+  track *durable facts, user preferences, and feedback*. The auto-generated
+  "Beads Issue Tracker" block lower in this file says to drop `MEMORY.md` —
+  that does **not** apply here; the memory workflow is unchanged. When in
+  doubt: a thing to *do or finish* → bead; a thing to *remember about how the
+  user works or a settled fact* → memory.
+
 ## README / Markdown format (mandatory)
 
 **Every `README.md` in this workspace must render correctly on GitHub

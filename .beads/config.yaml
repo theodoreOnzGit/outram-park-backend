@@ -66,3 +66,5 @@
 # - github.token    → use GITHUB_TOKEN env var instead
 
 sync.remote: "git+https://github.com/theodoreOnzGit/outram-park-backend"
+export:
+    auto: true
