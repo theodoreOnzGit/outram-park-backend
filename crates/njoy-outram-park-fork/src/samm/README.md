@@ -35,19 +35,19 @@ matrix as an additive term, never needing its own row/column in the
 inversion). This port matches that restriction rather than attempting scope
 NJOY's own driver never reaches.
 
-**Second scope reduction (2026-07-07):** `RECONR` — the only module in this
-workspace that currently calls into `samm` — hardcodes
-`Want_Partial_Derivs=.false.` and `Want_Angular_Dist=.false.`
-(`reconr.f90:149-150`). Those flags gate `betset`'s derivative branches and
-the entire `angle`/`lmaxxx`/`kclbsch`/`clbsch`/`setleg` Legendre/
-Clebsch-Gordan machinery. Only `ERRORR` sets them `.true.`
-(`errorr.f90:392-393`), and `errorr.f90` is not in this workspace yet (an
-unstarted item in `docs/porting-plan.md`). By explicit user decision, the
-derivative routines (`babb`, `abpart`, `derres`, `derext`) and the
-angular-distribution routines are **deferred until `ERRORR` is actually being
-built**, rather than ported now against no reachable caller — mirroring the
-`findsp`/`rearrange` dead-code-for-our-scope call below, except this one
-saves several thousand lines rather than a few hundred.
+**Scope history (superseded, kept for context):** on 2026-07-07 it was
+temporarily decided to defer the derivative routines (`babb`, `abpart`,
+`derres`, `derext`) and angular-distribution routines
+(`angle`/`lmaxxx`/`kclbsch`/`clbsch`/`setleg`) until `ERRORR` existed, since
+`RECONR` — the only caller in this workspace at the time — hardcodes
+`Want_Partial_Derivs=.false.`/`Want_Angular_Dist=.false.`
+(`reconr.f90:149-150`; only `ERRORR` sets them `.true.`,
+`errorr.f90:392-393`). **This was superseded the same day**: the user asked
+to finish every phase of `samm` and then port `errorr.f90` itself, so the
+derivative/angular routines are back in scope and will be built together
+with `ERRORR`, which is now their real, in-workspace caller — not ported
+speculatively ahead of a consumer. See `docs/porting-plan.md` for the
+up-to-date phase status.
 
 ## How the port implements it
 
@@ -61,44 +61,51 @@ each phase independently portable/verifiable:
    `RmlSection`) replace `samm.f90`'s module-global arrays, reusing the
    crate's general [`crate::endf::records::SectionCursor`] (CONT/LIST/TAB1)
    rather than `unresr::mf2`'s more limited cursor.
-2. **Spin/parity/penetrability setup** — ✅ done for the non-derivative,
-   non-Coulomb core:
-   - `penetrability.rs` — `pf`/`genpsf`/`pgh` (hard-sphere penetrability,
-     shift factor, phase shift for uncharged channels; `l=0..4` closed-form
-     plus a recursion for `l>4`). See [`penetrability::genpsf`]'s doc comment
-     for a flagged likely-latent upstream bug (a use-before-set local at the
-     `l=4` recursion seed), ported literally with the variable seeded to
-     `0.0`.
+2. **Spin/parity/penetrability setup** — ✅ done, including `betset`'s core:
+   - `penetrability.rs` — `pf`/`genpsf`/`pgh`/`sinsix` (hard-sphere
+     penetrability, shift factor, phase shift for uncharged channels;
+     `l=0..4` closed-form plus a recursion for `l>4`). See
+     [`penetrability::genpsf`]'s doc comment for a flagged likely-latent
+     upstream bug (a use-before-set local at the `l=4` recursion seed),
+     ported literally with the variable seeded to `0.0`.
    - `context.rs` — `ppdefs` → [`context::apply_particle_pair_defaults`],
      `checkqn` → [`context::check_quantum_numbers`], `fxradi` →
      [`context::compute_channel_kinematics`].
+   - `betset.rs` — `betset`'s non-derivative core →
+     [`betset::compute_resonance_amplitudes`]: per-resonance reduced-width
+     amplitudes `beta_c`, their triangular products, and the eliminated
+     channel's own amplitude `gbetpr`. The first real consumer of both
+     `penetrability::pgh` (uncharged channels) and `coulomb::pghcou`
+     (charged channels). See its doc comment for a flagged stale-`drho`
+     issue in the (not-yet-ported) derivative term, inherited from upstream.
    - **Not ported, and not needed for `mode==7`:** `findsp`/`rearrange` (only
      used by the non-RML resonance-to-spin-group lookup — `mode==7`'s
      resonances are already read per spin group, see `mf2.rs`, so this
      bookkeeping is structurally dead code for our scope) and `orders`
      (generic sort+dedup for the PENDF energy-grid node list — a Phase 6/
      top-level-orchestration concern, not spin/parity setup).
-   - **Deferred (see the scope note above):** `angle`/`lmaxxx`/`kclbsch`/
+   - **Deferred until built alongside `ERRORR`:** `angle`/`lmaxxx`/`kclbsch`/
      `clbsch` (Legendre/Clebsch-Gordan angular-distribution coefficients) and
-     `betset`'s derivative branches (`Want_Partial_Derivs`/
-     `Want_Partial_U`-gated). `betset`'s non-derivative, non-Coulomb core
-     (the energy-independent channel-amplitude `β` parameters) is not yet
-     wired up — it needs `pghcou` (Phase 3) for charged-particle channels
-     before it can be ported in full; `pgh` alone (done) covers the neutral
-     (neutron) channel path.
-3. **Coulomb wave-function library** — not started (`coulfg`, `jwkb`,
-   `coulx`, `asymp1`/`asymp2`, `taylor`, `getfg`, `bigeta`, `getps`,
-   `pghcou`/`pspcou`, `sinsix`, ~1400 lines). Self-contained special
-   functions; only exercised for charged-particle exit channels.
+     `betset`'s `Want_Partial_Derivs`/`Want_Partial_U`-gated u-parameter
+     conversion — see the scope-history note above.
+3. **Coulomb wave-function library** — ✅ done (`coulomb.rs`): `jwkb`,
+   `coulfg` (Steed's method, the CPC "COULFG" algorithm), `xsigll`,
+   `asymp1`/`asymp2`, `taylor`, `end1`, `getfg`, `bigeta`, `getps`, `coulx`,
+   `pspcou`, `pghcou`. Self-contained special functions, exercised only for
+   charged-particle exit channels (`zeta != 0` in [`context::ChannelKinematics`]).
+   See `coulomb.rs`'s module doc for the 0-indexed-by-`L` array convention
+   used throughout, checked position-by-position against the Fortran rather
+   than re-derived.
 4. **R-matrix inversion** — not started (LINPACK-style symmetric-indefinite
    solver `xspfa`/`xspsl`/`xswap`/`xaxpy`/`ixamax`/`xdot`, plus
    `zeror`/`yinvrs`/`onech`/`twoch`/`threech`/`yfour`/`setxqx`/`sectio`/
    `setqri`/`settri`, ~1800 lines).
-5. **Cross-section evaluation** — not started (`babb` [deferred, see scope
-   note], `abpart`, `crosss`, `setr`, ~1000 lines excluding derivatives) —
-   the actual physics tying everything together.
+5. **Cross-section evaluation** — not started (`babb`, `abpart`, `crosss`,
+   `setr`, `derres`/`derext`, ~1300 lines) — the actual physics tying
+   everything together.
 6. **Top-level orchestration** — surveyed, not yet ported (`cssammy`,
-   `ppsammy`, `allo`, `desammy`, `orders`, ~350 lines).
+   `ppsammy`, `allo`, `desammy`, `orders`, `angle`, `lmaxxx`, `kclbsch`,
+   `clbsch`, `setleg`, ~850 lines).
 
 ## Testing
 
@@ -143,13 +150,19 @@ file by eye.
   errors** — matching `checkqn`'s own behavior (`write` to the output
   listing, not `call error`), except for the two conditions upstream itself
   treats as fatal (invalid group spin, negative channel `l`).
-- **Phases 3–6 (the actual R-matrix physics) are not ported at all yet** —
-  `mf2.rs`/`context.rs`/`penetrability.rs` alone do not make RECONR able to
-  reconstruct LRF=7 cross sections; they only make the ENDF data readable and
-  provide the non-Coulomb kinematic/quantum-number setup.
-- **Derivatives and angular distributions are deferred, not scoped out
-  permanently** — see the "second scope reduction" note above. Revisit when
-  `ERRORR` is actually being built.
+- **`betset::compute_resonance_amplitudes` inherits a stale-`drho` issue
+  from upstream** for resonances sitting exactly on a channel threshold —
+  see that function's doc comment. Only matters for the not-yet-ported
+  derivative term; the amplitude computed here is unaffected.
+- **`coulomb.rs`'s `pspcou` dead local (`paccq`) is intentionally not
+  ported** — write-only in the Fortran (computed, never read again within
+  the subroutine); see [`coulomb::coulfg`]'s doc comment.
+- **Phases 4–6 (R-matrix inversion, cross-section formula, top-level
+  orchestration) are not ported yet** — `mf2.rs`/`context.rs`/
+  `penetrability.rs`/`coulomb.rs`/`betset.rs` alone do not make RECONR able
+  to reconstruct LRF=7 cross sections; they provide the ENDF data,
+  kinematic/quantum-number setup, and per-resonance channel amplitudes the
+  not-yet-built R-matrix inversion needs.
 - **RECONR currently lacks RML entirely** — evaluations using LRF=7 fail
   until this port reaches Phase 5. Per `docs/porting-plan.md`, check the
   evaluation's LRF before relying on RECONR.

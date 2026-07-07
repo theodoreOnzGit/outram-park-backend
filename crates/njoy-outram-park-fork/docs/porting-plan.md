@@ -97,10 +97,10 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 |---|---|---|---|
 | `modules::groupr` | `groupr.f90` | 12.7k | ⬜ multigroup neutron/photon XS |
 | `modules::gaminr` | `gaminr.f90` | ~2k | ⬜ multigroup photon interaction |
-| `modules::errorr` | `errorr.f90` | 11.2k | ⬜ multigroup covariance matrices |
+| `modules::errorr` | `errorr.f90` | 11.2k | ⬜ multigroup covariance matrices; next up after `samm` finishes (2026-07-07) — it is `samm`'s `Want_Partial_Derivs`/`Want_Angular_Dist` caller |
 | `modules::covr` | `covr.f90` | ~3k | ⬜ covariance output/plotting |
 | `modules::leapr` | `leapr.f90` | 3.6k | ⬜ *generate* MF=7 S(α,β) (upstream of THERMR) |
-| `modules::samm` | `samm.f90` | 7.2k | 🟨 Phase 1-2/6 done (ENDF reader + non-Coulomb spin/parity/penetrability setup); Coulomb/R-matrix-inversion/XS not started; derivatives+angular deferred to ERRORR; shared by reconr/unresr |
+| `modules::samm` | `samm.f90` | 7.2k | 🟨 Phase 1-3/6 done (ENDF reader, spin/parity/penetrability incl. betset core, Coulomb wave functions); R-matrix-inversion/XS/derivatives/angular not started; shared by reconr/unresr |
 
 ### Formatters, plotting, misc (Phase 6 — lowest priority)
 
@@ -533,6 +533,42 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 > can be done in full; `pgh` alone (done) covers neutral/neutron channels.
 > Full workspace build + test suite green (same 139/12/7/12/1/20/11/11/4/5/
 > 2/3 counts), zero regressions.
+>
+> **Update (2026-07-07, cont'd again — scope reversal):** user said "finish
+> all phases of samm" — the derivatives/angular deferral above is
+> **superseded**: `babb`/`abpart`/`derres`/`derext`/`angle`/`lmaxxx`/
+> `kclbsch`/`clbsch`/`setleg` are back in scope, to be ported alongside
+> `errorr.f90` (their real caller) right after samm finishes, per further
+> instruction to port `errorr` next. Standing rule going forward: when
+> porting code with no reachable caller yet, also build (or schedule) the
+> consumer, rather than leaving it orphaned.
+>
+> **Phase 3 (Coulomb wave-function library) is now done**: `samm::coulomb`
+> — `jwkb`, `coulfg` (Steed's method / Barnett's CPC "COULFG"), `xsigll`,
+> `asymp1`/`asymp2`, `taylor`, `end1`, `getfg`, `bigeta`, `getps`, `coulx`,
+> `pspcou`, `pghcou`. Uses a direct 0-indexed-by-`L` `Vec<f64>` convention
+> throughout instead of Fortran's 1-indexed `array(L+1)`, checked position-
+> by-position against the source rather than re-derived (an indexing slip
+> here would be easy to make and hard to notice). One dead local (`paccq`
+> in `coulfg`'s CF2 section, write-only in the Fortran) intentionally not
+> ported.
+>
+> **`betset`'s non-derivative core is also done** (`samm::betset::
+> compute_resonance_amplitudes`) — the first real consumer of both
+> `penetrability::pgh` and `coulomb::pghcou`, converting ENDF reduced
+> widths into R-matrix reduced-width amplitudes, their triangular products,
+> and the eliminated channel's own amplitude. This closes out Phase 2
+> completely (previously blocked on Phase 3 for charged channels). Flagged:
+> a stale-`drho` term inherited from upstream for on-threshold resonances,
+> only relevant to the not-yet-ported derivative term.
+>
+> Cleanup during this pass: an initial draft of `pspcou`/`pghcou` used a
+> `thread_local!` scratch cell to smuggle an extra derivative value between
+> functions — caught on review as needless hidden state and replaced with a
+> plain `dshift` field on the shared result struct.
+>
+> Full workspace build + test suite green (same 139/12/7/12/1/20/11/11/4/5/
+> 2/3 counts), zero regressions, zero warnings in this crate.
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here

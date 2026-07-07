@@ -55,6 +55,12 @@ pub struct Genpsf {
     pub dp: f64,
     pub s: f64,
     pub ds: f64,
+    /// `Q_l = [partial(atan(Q/Y)) wrt rho] * Y^2` — used by [`sinsix`] to
+    /// build the hard-sphere phase shift `phi_l = rho - atan(Q_l/Y_l)`.
+    pub q: f64,
+    pub dq: f64,
+    /// `Y_l`, the denominator of the `Q/Y` phase-angle ratio above.
+    pub y: f64,
 }
 
 /// # Known unverified step — `dss` used before being set at the `l=4` seed
@@ -140,7 +146,7 @@ pub fn genpsf(rho: f64, l_want: i32) -> Genpsf {
             continue;
         }
 
-        return Genpsf { p: ppx, dp: dpx, s: ssx, ds: dsx };
+        return Genpsf { p: ppx, dp: dpx, s: ssx, ds: dsx, q: qqx, dq: dqx, y: yyx };
     }
 }
 
@@ -252,5 +258,80 @@ pub fn pgh(rho: f64, l: i32, bound: f64, ishift: i32) -> Pgh {
         }
     } else {
         Pgh { g: (gg / hh) / hh, h: -1.0 / hh, p: hh, dp, ds, iffy: false }
+    }
+}
+
+/// The hard-sphere phase shift `phi_l(rho)` (as `sin^2(phi)`, `sin(2*phi)`,
+/// `cos(phi)`, `sin(phi)`) and `d(phi)/d(rho)` — ported from `sinsix`
+/// (`samm.f90:3478-3564`).
+pub struct Sinsix {
+    pub sinsqr: f64,
+    pub sin2ph: f64,
+    pub dphi: f64,
+    pub sinphi: f64,
+    pub cosphi: f64,
+}
+
+pub fn sinsix(rho: f64, l: i32) -> Sinsix {
+    let a = rho;
+    let c = a.cos();
+    let s = a.sin();
+
+    match l {
+        0 => Sinsix { sinsqr: s * s, sin2ph: 2.0 * c * s, dphi: 1.0, sinphi: s, cosphi: c },
+        1 => {
+            let x = a;
+            let g = 1.0 + x * x;
+            let d = (s - c * x) / g;
+            let dd = g.sqrt();
+            Sinsix {
+                sinsqr: (s - c * x) * d,
+                sin2ph: 2.0 * (c + s * x) * d,
+                dphi: x * x / g,
+                cosphi: (c + s * x) / dd,
+                sinphi: (s - c * x) / dd,
+            }
+        }
+        _ => {
+            let (x, f, y) = match l {
+                2 => {
+                    let a2 = a * a;
+                    let x0 = 3.0_f64;
+                    let y = 3.0 - a2;
+                    let f = x0 * y + 2.0 * a2 * x0;
+                    (x0 * a, f, y)
+                }
+                3 => {
+                    let a2 = a * a;
+                    let x0 = 15.0 - a2;
+                    let y = 15.0 - a2 * 6.0;
+                    let f = x0 * y - 2.0 * a2 * y + 12.0 * a2 * x0;
+                    (x0 * a, f, y)
+                }
+                4 => {
+                    let a2 = a * a;
+                    let a4 = a2 * a2;
+                    let x0 = 105.0 - 10.0 * a2;
+                    let y = 105.0 - 45.0 * a2 + a4;
+                    let f = x0 * y - 20.0 * a2 * y + a2 * x0 * (90.0 - 4.0 * a2);
+                    (x0 * a, f, y)
+                }
+                _ => {
+                    let out = genpsf(a, l);
+                    (out.q, out.dq, out.y)
+                }
+            };
+
+            let g = y * y + x * x;
+            let d = (s * y - c * x) / g;
+            let dd = g.sqrt();
+            Sinsix {
+                sinsqr: (s * y - c * x) * d,
+                sin2ph: 2.0 * (c * y + s * x) * d,
+                dphi: 1.0 - f / g,
+                cosphi: (c * y + s * x) / dd,
+                sinphi: (s * y - c * x) / dd,
+            }
+        }
     }
 }

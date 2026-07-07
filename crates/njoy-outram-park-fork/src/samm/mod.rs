@@ -39,7 +39,9 @@
 //! `README.md` for the phased plan. `run()` remains
 //! [`crate::NjoyError::NotPorted`].
 
+pub mod betset;
 pub mod context;
+pub mod coulomb;
 pub mod mf2;
 pub mod penetrability;
 
