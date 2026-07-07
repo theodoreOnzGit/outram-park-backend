@@ -4,3 +4,9 @@
 # OpenMC HDF5 nuclear-data libraries are large (>100 MB); keep them out of git.
 # The Doppler verification uses the extracted reference CSVs instead.
 crates/njoy-outram-park-fork/tests/resources/*.h5
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
