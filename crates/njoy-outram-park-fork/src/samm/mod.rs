@@ -21,13 +21,27 @@
 //! - [`mf2`] — the ENDF LRF=7 (KRM=3) parameter reader (`rdsammy`'s
 //!   `mode==7` branch). See its module doc for a flagged, unresolved
 //!   verification question on the eliminated-channel reorder step.
+//! - [`penetrability`] — hard-sphere penetrability/shift/phase-shift
+//!   (`pf`, `genpsf`, `pgh`), for uncharged (non-Coulomb) channels.
+//! - [`context`] — particle-pair defaults, quantum-number validation, and
+//!   per-channel kinematic scale factors (`ppdefs`, `checkqn`, `fxradi`).
 //!
-//! **Status:** the R-matrix inversion, Coulomb wave-function library,
-//! cross-section formula, derivatives, and angular distributions are not yet
-//! ported — see `README.md` for the phased plan. `run()` remains
+//! **Scope (2026-07-07):** since RECONR — the only current caller — always
+//! disables `Want_Partial_Derivs`/`Want_Angular_Dist` (`reconr.f90:149-150`),
+//! the derivative routines (`babb`, `abpart`, `derres`, `derext`) and the
+//! angular-distribution routines (`angle`, `lmaxxx`, `kclbsch`, `clbsch`,
+//! `setleg`) are deferred until `ERRORR` (the only caller that enables them)
+//! is actually being built, rather than ported now against no reachable
+//! caller. See `README.md`.
+//!
+//! **Status:** the R-matrix inversion, Coulomb wave-function library, and
+//! cross-section formula (`crosss`/`setr`) are not yet ported — see
+//! `README.md` for the phased plan. `run()` remains
 //! [`crate::NjoyError::NotPorted`].
 
+pub mod context;
 pub mod mf2;
+pub mod penetrability;
 
 use crate::NjoyError;
 

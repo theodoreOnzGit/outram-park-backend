@@ -100,7 +100,7 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 | `modules::errorr` | `errorr.f90` | 11.2k | ⬜ multigroup covariance matrices |
 | `modules::covr` | `covr.f90` | ~3k | ⬜ covariance output/plotting |
 | `modules::leapr` | `leapr.f90` | 3.6k | ⬜ *generate* MF=7 S(α,β) (upstream of THERMR) |
-| `modules::samm` | `samm.f90` | 7.2k | 🟨 Phase 1/6 done (ENDF LRF=7 reader, `mf2.rs`); R-matrix inversion/Coulomb/XS/derivatives/angular not started; shared by reconr/unresr |
+| `modules::samm` | `samm.f90` | 7.2k | 🟨 Phase 1-2/6 done (ENDF reader + non-Coulomb spin/parity/penetrability setup); Coulomb/R-matrix-inversion/XS not started; derivatives+angular deferred to ERRORR; shared by reconr/unresr |
 
 ### Formatters, plotting, misc (Phase 6 — lowest priority)
 
@@ -506,6 +506,33 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 > distributions, top-level orchestration) are not started. Full workspace
 > build + test suite pass as a regression check only (139/12/7/12/1/20/11/
 > 11/4/5/2/3 test groups green, zero regressions from adding `samm::mf2`).
+>
+> **Update (2026-07-07, cont'd):** found and surfaced a concrete scope
+> reduction — RECONR (the only current caller) hardcodes
+> `Want_Partial_Derivs=.false.`/`Want_Angular_Dist=.false.` (`reconr.f90:
+> 149-150`), so `betset`'s derivative branches and all of `angle`/`lmaxxx`/
+> `kclbsch`/`clbsch`/`setleg` are unreachable dead code for this crate's
+> actual call graph — only `ERRORR` (not yet in this workspace) enables
+> them. User chose to defer those (**not** drop them) until `ERRORR` is
+> actually being built. **Phase 2 (spin/parity/penetrability, non-Coulomb
+> core) is now done**: `samm::penetrability` (`pf`/`genpsf`/`pgh` — hard-
+> sphere penetrability/shift/phase-shift, `l=0..4` closed form + recursion
+> for `l>4`) and `samm::context` (`ppdefs`→`apply_particle_pair_defaults`,
+> `checkqn`→`check_quantum_numbers`, `fxradi`→`compute_channel_kinematics`).
+> Confirmed `findsp`/`rearrange` are dead code for `mode==7` too (resonances
+> are already read per spin group, matching Phase 1's data model) — not
+> ported. Two more items flagged for Opus: (1) strengthened the eliminated-
+> channel-reorder flag in `mf2.rs` with a concrete worked numerical example
+> showing `igamma+1` reads past this group's valid channel range — stronger
+> circumstantial evidence of a latent upstream bug, but still not
+> independently confirmed, so still ported literally; (2) `genpsf`'s `l=4`
+> recursion seed reads a local (`dss`) before it's set in the Fortran itself
+> — ported with it seeded to `0.0`, flagged, affects only `l>4` (rare in
+> practice). `betset` itself is not yet ported — its non-derivative core
+> needs `pghcou` (Phase 3, Coulomb) for charged-particle channels before it
+> can be done in full; `pgh` alone (done) covers neutral/neutron channels.
+> Full workspace build + test suite green (same 139/12/7/12/1/20/11/11/4/5/
+> 2/3 counts), zero regressions.
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here

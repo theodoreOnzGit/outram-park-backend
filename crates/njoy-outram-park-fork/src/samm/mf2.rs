@@ -140,22 +140,47 @@ pub struct RmlSection {
 /// This is ported **literally** below (mechanically re-indexed from
 /// Fortran's 1-indexed `gamma(1..ichan)` to Rust's 0-indexed array), *not*
 /// independently re-derived: hand-tracing the raw-channel-to-width-array
-/// correspondence twice, by two different routes, both predicted the read
-/// index should be `igamma-1` (the slot the provisional loop would have
-/// placed the true `Γγ` value in), not `igamma+1` as the source states —
-/// and neither attempt could resolve the discrepancy from the source alone
-/// (no ENDF-102 LRF=7 spec or reference output was available to check
-/// against). Faithful translation of a line whose exact intent could not be
-/// independently confirmed is the correct choice here — guessing a "fixed"
-/// version would risk being wrong in a way that's harder to detect than an
-/// honestly-flagged literal port. **This is the single highest-priority
-/// thing to verify against a real LRF=7 evaluation** (e.g. ¹⁶O or ¹⁹F) before
-/// trusting any cross section this module produces for a spin group where
-/// the eliminated channel is not first in the raw channel list
-/// (`igamma != 1`). Read access to the reordering source index is bounds
-/// checked and returns [`NjoyError::EndfParse`] rather than panicking or
-/// silently wrapping, in case the discrepancy above indicates a genuine
-/// out-of-range access for some inputs.
+/// correspondence three separate times, by different routes, all three
+/// predicted the read index should be `igamma-1` (the slot the provisional
+/// loop would have placed the true `Γγ` value in), not `igamma+1` as the
+/// source states.
+///
+/// A concrete worked example (third pass, the sharpest evidence so far):
+/// take `ichp1=3` raw channels (2 explicit + 1 eliminated), with the
+/// eliminated channel at raw position `igamma=2` (so `ichan=2`, raw order is
+/// `[A(explicit), Γγ(eliminated), B(explicit)]`). The provisional read
+/// (`samm.f90:1180-1184`, mirrored above) assigns word 1 → `gamgam` (=A),
+/// word 2 → `channel_widths[0]` (=Γγ), word 3 → `channel_widths[1]` (=B) —
+/// i.e. after the provisional pass, `Γγ`'s true value sits at
+/// `channel_widths[igamma-1] = channel_widths[1]` (1-indexed:
+/// `gamma(igamma-1)`), never at `channel_widths[igamma] = channel_widths[2]`
+/// (1-indexed `gamma(igamma+1)`) — which, with only `ichan=2` explicit
+/// channels in this group, is not even a valid index (`gamma(3)` for a
+/// 2-channel group reads past this resonance's written data, into whatever
+/// the `(mchan,nres,nerm)`-dimensioned array — sized to the *global* max
+/// channel count across all groups — happens to hold there: stale data from
+/// another group/resonance, or zero). This is consistent with `igamma+1`
+/// being a genuine latent indexing defect in `samm.f90` itself, not a
+/// translation slip on this port's part.
+///
+/// None of this is independently confirmable without an ENDF-102 LRF=7 spec
+/// document or a working reference implementation to check against — neither
+/// was available locally. Per this crate's model-division-of-labor
+/// convention (Sonnet translates faithfully; Opus verifies and fixes),
+/// deciding upstream is wrong and silently "correcting" it during translation
+/// is out of scope here even with this much circumstantial evidence — that
+/// judgment call, and any fix, belongs to the verification pass. Faithful
+/// translation of a line whose exact intent could not be independently
+/// confirmed is the correct choice here — guessing a "fixed" version would
+/// risk being wrong in a way that's harder to detect than an honestly-flagged
+/// literal port. **This is the single highest-priority thing to verify
+/// against a real LRF=7 evaluation** (e.g. ¹⁶O or ¹⁹F) before trusting any
+/// cross section this module produces for a spin group where the eliminated
+/// channel is not first in the raw channel list (`igamma != 1`). Read access
+/// to the reordering source index is bounds checked and returns
+/// [`NjoyError::EndfParse`] rather than panicking or silently wrapping, in
+/// case the discrepancy above indicates a genuine out-of-range access for
+/// some inputs.
 pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, NjoyError> {
     // samm.f90:658-664 (shared preamble) — C1=SPIN(unused here), C2=AP(unused
     // here, NRO=0 required), L1=IFG, L2=KRM, N1=NLS(=NGROUP for LRF=7).
