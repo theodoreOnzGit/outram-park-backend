@@ -114,13 +114,30 @@ each phase independently portable/verifiable:
      `yfour` (4+ channels, via `linpack.rs`). `zeror` (trivial all-zero
      init) is also here, ready for Phase 5's `crosss` to call.
    - **Not yet ported (belongs with Phase 5's cross-section assembly, not
-     here):** `setxqx`, `sectio`, `gcphase`, `setqri`, `settri` — these
-     build/rearrange the R-matrix input to `yinvrs` from `beta`/`echan`,
-     which is `crosss`'s job.
-5. **Cross-section evaluation** — not started (`babb`, `abpart`, `crosss`,
-   `setr`, `setxqx`, `sectio`, `gcphase`, `setqri`, `settri`, `derres`/
-   `derext`, ~1600 lines) — the actual physics tying everything together,
-   using [`rmatrix_invert::invert`] as its core linear-algebra step.
+     here):** `gcphase`, `setqri`, `settri` — angular-distribution and
+     derivative assembly, deferred to build alongside `ERRORR`.
+5. **Cross-section evaluation** — ✅ done for the non-derivative,
+   non-angular core (`xsformula/`, split by function): `abpart.rs`
+   (Breit-Wigner denominator terms `alphar`/`alphai`), `setr.rs` (R-matrix
+   and level-matrix assembly at one incident energy — the largest file in
+   this phase, at ~300 lines, since it's one tightly-coupled per-channel
+   loop that resists further useful splitting), `assembly.rs` (`setxqx`'s
+   `XQ`/`XXXX` matrices), `sectio.rs` (cross-section pieces from `XXXX` —
+   see its doc comment for a genuine upstream indexing quirk, ported
+   as-is, where `crss[0]`/`crss[1]` are hardcoded to elastic/capture
+   rather than following particle-pair numbering), and `crosss.rs` (the
+   top-level per-energy dispatcher, [`xsformula::cross_sections`], summing
+   every spin group and applying the `4*pi/E` normalization — **the first
+   point in this port where an actual cross section, in barns, comes
+   out**). Wires together every phase so far: [`mf2`] (parsed section),
+   [`context`]/[`betset`] (Phase 2 kinematics/amplitudes),
+   [`rmatrix_invert`] (Phase 4 inversion).
+   - **Not yet ported (deferred to build alongside `ERRORR`):** `babb`
+     (energy-independent derivative setup), `abpart`'s and `setr`'s
+     `Want_Partial_Derivs` branches, `gcphase`/`setqri`/`settri`
+     (angular-distribution and derivative assembly), `derres`/`derext`
+     (derivative propagation) — none of these are reachable from RECONR
+     (the only current caller), which disables both flags.
 6. **Top-level orchestration** — surveyed, not yet ported (`cssammy`,
    `ppsammy`, `allo`, `desammy`, `orders`, `angle`, `lmaxxx`, `kclbsch`,
    `clbsch`, `setleg`, ~850 lines).
@@ -131,10 +148,14 @@ each phase independently portable/verifiable:
 translation, per the crate's model-division-of-labour rule in `CLAUDE.md`).
 Gate: reconstruct an LRF=7 (KRM=3) evaluation (e.g. ¹⁶O or ¹⁹F, whose ENDF/B
 files use RML) and reproduce upstream RECONR's pointwise σ(E) within
-tolerance — but that gate needs Phases 2–6 first. For Phase 1 alone: parse a
-real LRF=7 section and manually cross-check the particle-pair/spin-group/
-resonance counts and a few resonance energies/widths against the raw ENDF
-file by eye.
+tolerance. **This gate is now reachable** — `xsformula::cross_sections`
+(Phase 5) is the first function in this port able to produce an actual
+cross section end-to-end (parse → kinematics/amplitudes → R-matrix →
+invert → assemble → cross section), pending Phase 6's top-level
+orchestration (`cssammy`/`ppsammy`) to wire it into RECONR's own driver
+loop and an energy grid. For Phase 1 alone: parse a real LRF=7 section and
+manually cross-check the particle-pair/spin-group/resonance counts and a
+few resonance energies/widths against the raw ENDF file by eye.
 
 ## Caveats
 
@@ -175,17 +196,19 @@ file by eye.
 - **`coulomb/steed.rs`'s `coulfg` has one dead local (`paccq`) intentionally
   not ported** — write-only in the Fortran (computed, never read again
   within the subroutine); see [`coulomb::coulfg`]'s doc comment.
-- **`linpack.rs`/`rmatrix_invert.rs` are untested against a real R-matrix
-  problem** — the LINPACK Bunch-Kaufman factorization/solve is a
-  well-established published algorithm, but this is dense pivoting logic
-  (index arithmetic corrupts silently, not with a panic) that has not been
-  exercised end-to-end yet; that needs Phase 5 wired up first.
-- **Phases 5–6 (cross-section formula, top-level orchestration) are not
-  ported yet** — `mf2.rs`/`context.rs`/`penetrability.rs`/`coulomb/`/
-  `betset.rs`/`linpack.rs`/`rmatrix_invert.rs` alone do not make RECONR
-  able to reconstruct LRF=7 cross sections; they provide the ENDF data,
-  kinematic/quantum-number setup, per-resonance channel amplitudes, and a
-  working `Y^-1` inverter the not-yet-built cross-section formula needs.
+- **`linpack.rs`/`rmatrix_invert.rs`/`xsformula/` are untested against a
+  real R-matrix problem** — the physics is all wired up end-to-end now
+  (Phase 5 done), but genuinely has not been run against a real LRF=7
+  evaluation even once. This is the necessary next Opus verification step.
+- **`xsformula::sectio`'s `crss` indexing quirk** — positions 0/1 are
+  hardcoded to elastic/capture regardless of particle-pair numbering;
+  ported literally from upstream's own convention. See `sectio.rs`'s doc
+  comment.
+- **Phase 6 (top-level orchestration, angular distributions) is not
+  ported yet** — `xsformula::cross_sections` computes cross sections at a
+  single caller-supplied energy; nothing yet drives it over an energy grid
+  or wires it into `RECONR`'s own resonance-reconstruction loop
+  (`cssammy`/`ppsammy`'s job).
 - **RECONR currently lacks RML entirely** — evaluations using LRF=7 fail
   until this port reaches Phase 5. Per `docs/porting-plan.md`, check the
   evaluation's LRF before relying on RECONR.

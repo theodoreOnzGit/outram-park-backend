@@ -68,7 +68,11 @@ pub fn pspcou(rho: f64, lll: i32, eta: f64, ishift: i32, jdopha: bool, jdoder: b
 ///
 /// If `S-B+iP == 0` (the `iffy` condition upstream), `g=h=p=dp=ds=0` is
 /// returned along with `iffy=true` rather than dividing by zero, matching
-/// [`super::super::penetrability::Pgh`].
+/// [`super::super::penetrability::Pgh`]. `sinphi`/`cosphi`/`dphi` are
+/// passed straight through from the single internal [`pspcou`] evaluation
+/// (upstream's own signature also returns them — `samm.f90:3823-3824` —
+/// so callers needing the phase shift at this same `rho` don't need a
+/// second, redundant Coulomb evaluation; see [`super::super::xsformula::setr`]).
 pub struct Pghcou {
     pub g: f64,
     pub h: f64,
@@ -76,6 +80,9 @@ pub struct Pghcou {
     pub dp: f64,
     pub ds: f64,
     pub iffy: bool,
+    pub sinphi: f64,
+    pub cosphi: f64,
+    pub dphi: f64,
 }
 
 pub fn pghcou(rho: f64, l: i32, bound: f64, ishift: i32, eta: f64, jdopha: bool) -> Option<Pghcou> {
@@ -86,25 +93,26 @@ pub fn pghcou(rho: f64, l: i32, bound: f64, ishift: i32, eta: f64, jdopha: bool)
     let dp = psp.dp;
     let ds = if ishift > 0 { psp.dshift } else { 0.0 };
     let gg = if ishift > 0 { psp.s - bound } else { 0.0 };
+    let (sinphi, cosphi, dphi) = (psp.sinphi, psp.cosphi, psp.dphi);
 
     let hh = if hh_raw <= 1.0e-35 { 0.0 } else { hh_raw };
 
     if gg == 0.0 && hh == 0.0 {
-        return Some(Pghcou { g: 0.0, h: 0.0, p: 0.0, dp: 0.0, ds: 0.0, iffy: true });
+        return Some(Pghcou { g: 0.0, h: 0.0, p: 0.0, dp: 0.0, ds: 0.0, iffy: true, sinphi, cosphi, dphi });
     }
     if hh == 0.0 {
-        return Some(Pghcou { g: 1.0 / gg, h: 0.0, p: 0.0, dp, ds, iffy: false });
+        return Some(Pghcou { g: 1.0 / gg, h: 0.0, p: 0.0, dp, ds, iffy: false, sinphi, cosphi, dphi });
     }
     let p = hh;
     if gg == 0.0 {
-        return Some(Pghcou { g: 0.0, h: -1.0 / hh, p, dp, ds, iffy: false });
+        return Some(Pghcou { g: 0.0, h: -1.0 / hh, p, dp, ds, iffy: false, sinphi, cosphi, dphi });
     }
     if hh + gg == hh {
-        return Some(Pghcou { g: (gg / hh) / hh, h: -1.0 / hh, p, dp, ds, iffy: false });
+        return Some(Pghcou { g: (gg / hh) / hh, h: -1.0 / hh, p, dp, ds, iffy: false, sinphi, cosphi, dphi });
     }
     if hh + gg == gg {
-        return Some(Pghcou { g: 1.0 / gg, h: -(hh / gg) / gg, p, dp, ds, iffy: false });
+        return Some(Pghcou { g: 1.0 / gg, h: -(hh / gg) / gg, p, dp, ds, iffy: false, sinphi, cosphi, dphi });
     }
     let d = hh * hh + gg * gg;
-    Some(Pghcou { g: gg / d, h: -hh / d, p, dp, ds, iffy: false })
+    Some(Pghcou { g: gg / d, h: -hh / d, p, dp, ds, iffy: false, sinphi, cosphi, dphi })
 }

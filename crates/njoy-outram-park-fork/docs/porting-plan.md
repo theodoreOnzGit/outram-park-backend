@@ -100,7 +100,7 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 | `modules::errorr` | `errorr.f90` | 11.2k | ⬜ multigroup covariance matrices; next up after `samm` finishes (2026-07-07) — it is `samm`'s `Want_Partial_Derivs`/`Want_Angular_Dist` caller |
 | `modules::covr` | `covr.f90` | ~3k | ⬜ covariance output/plotting |
 | `modules::leapr` | `leapr.f90` | 3.6k | ⬜ *generate* MF=7 S(α,β) (upstream of THERMR) |
-| `modules::samm` | `samm.f90` | 7.2k | 🟨 Phase 1-4/6 done (ENDF reader, spin/parity/penetrability incl. betset core, Coulomb wave functions, R-matrix inversion); XS formula/derivatives/angular/top-level not started; shared by reconr/unresr |
+| `modules::samm` | `samm.f90` | 7.2k | 🟨 Phase 1-5/6 done (ENDF reader, spin/parity/penetrability incl. betset core, Coulomb wave functions, R-matrix inversion, cross-section formula) — first end-to-end cross section producible; top-level orchestration/derivatives/angular not started; shared by reconr/unresr |
 
 ### Formatters, plotting, misc (Phase 6 — lowest priority)
 
@@ -619,6 +619,48 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 > genuinely not run against any real R-matrix problem yet — Phase 5 needs
 > to wire `crosss`/`setr` in before there's an end-to-end path to test
 > against.
+>
+> **File-size split (same day):** split `src/samm/coulomb.rs` (1085 lines)
+> into `src/samm/coulomb/` (`mod.rs`, `steed.rs`, `asymptotic.rs`,
+> `dispatch.rs`, `api.rs`), per a new mandatory crate convention — see §5
+> above and this crate's `CLAUDE.md`. Pure reorganization, no logic
+> changes. Applies to all NJOY ports from this date forward; three
+> existing over-length files (`heatr/mod.rs`, `wmp.rs`, `purr/mod.rs`)
+> tracked as TODOs to split opportunistically.
+>
+> **Update (2026-07-07, Phase 5 — cross-section formula):** **Phase 5 is
+> done for the non-derivative, non-angular core** — this is the first
+> point in the entire samm port where an actual cross section (barns)
+> comes out end-to-end. New directory module `src/samm/xsformula/`
+> (`abpart.rs`, `setr.rs`, `assembly.rs`, `sectio.rs`, `crosss.rs`,
+> designed as a directory from the start per the new file-size rule):
+> `abpart` (Breit-Wigner terms), `setr` (R-matrix/level-matrix assembly at
+> one energy — the first real, non-Phase-4-internal consumer of
+> `rmatrix_invert`), `setxqx` (`assembly.rs`), `sectio` (cross-section
+> pieces, flagging a genuine upstream indexing quirk where `crss[0]`/
+> `crss[1]` are hardcoded to elastic/capture rather than following
+> particle-pair numbering — ported as-is), and `crosss`
+> (`xsformula::cross_sections`, the top-level per-energy dispatcher summing
+> every group and applying the `4*pi/E` normalization).
+>
+> Found and fixed a real design gap while porting `setr`: the initial
+> `coulomb::pghcou` port didn't expose `sinphi`/`cosphi` (upstream's own
+> `pghcou` signature does — needed by `setr` to reconstruct `sinsqr`/
+> `sin2ph` from the *same* Coulomb evaluation rather than a second,
+> redundant one) — extended `Pghcou`'s fields rather than duplicating the
+> evaluation.
+>
+> Deferred (to build alongside `ERRORR`, their real caller — same
+> reasoning as the earlier derivatives/angular deferral): `babb`, `abpart`/
+> `setr`'s `Want_Partial_Derivs` branches, `gcphase`/`setqri`/`settri`,
+> `derres`/`derext`.
+>
+> Full workspace build + test suite green (same 139/12/7/12/1/20/11/11/4/5/
+> 2/3 counts), zero regressions, zero warnings in this crate. Still
+> genuinely not run against any real evaluation — Phase 6 (top-level
+> orchestration) is needed to drive this over an energy grid inside
+> RECONR's actual reconstruction loop before there's a full end-to-end
+> path to verify.
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here

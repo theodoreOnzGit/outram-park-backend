@@ -46,6 +46,7 @@ pub mod linpack;
 pub mod mf2;
 pub mod penetrability;
 pub mod rmatrix_invert;
+pub mod xsformula;
 
 use crate::NjoyError;
 
