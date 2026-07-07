@@ -27,8 +27,15 @@ are exactly additive on the final grid.
 
 The reconstruction **engine is ported** and lives in [`crate::reconr`]:
 
-- `mf2` — File-2 resonance-parameter parsing,
+- `mf2` — File-2 resonance-parameter parsing (SLBW/MLBW/Reich-Moore fully;
+  LRF=7/R-Matrix-Limited via `crate::samm::mf2::parse_rml_section`, wrapped
+  as `EnergyRange::rml`),
 - `slbw` / `rm` — SLBW/MLBW and Reich–Moore kernels,
+- `add_rml_range` (in `mod.rs`) — R-Matrix-Limited kernel, dispatching to
+  `crate::samm::setup::setup` (once per range) +
+  `crate::samm::xsformula::cssammy` (once per energy grid point) rather
+  than a pole approximation — needed for light nuclides / strongly
+  overlapping resonances SLBW/MLBW/Reich-Moore can't represent correctly,
 - `linearize` — adaptive linearisation to tolerance.
 
 It is reached through [`crate::interface`] (`ReconrResult`), not through this
@@ -38,17 +45,24 @@ ported.
 
 ## Testing
 
-**Ported and verified** — see `crate::reconr` unit tests and the workspace
-Godiva/Jezebel k-eff V&V (`docs/development-history.md`). Reconstructed 0 K
-pointwise σ(E) feeds BROADR and ACER. R-matrix-limited (RML) evaluations depend
-on `samm`, which is **not yet ported** (see `../samm/README.md`).
+**Ported and verified for SLBW/MLBW/Reich-Moore** — see `crate::reconr` unit
+tests and the workspace Godiva/Jezebel k-eff V&V (`docs/development-history.md`).
+Reconstructed 0 K pointwise σ(E) feeds BROADR and ACER.
+
+**LRF=7 (R-Matrix-Limited) wiring is untested** — `add_rml_range` compiles and
+type-checks (workspace build + full test suite pass as a regression check,
+zero regressions) but has never been run against a real LRF=7 evaluation.
+`samm` itself (the R-matrix engine this wiring calls into) is also untested
+end-to-end — see `../samm/README.md` for its own caveats, most importantly
+the still-unresolved eliminated-channel-reorder question in `samm::mf2`.
 
 ## Caveats
 
 - Near the critical point of the resolved/unresolved boundary, grid density is
   driven by tolerance; extremely narrow resonances need a tight tolerance.
-- RML (`samm`) formalism is unported — evaluations using LRF=7 R-matrix limited
-  will fail until `samm` lands.
+- **LRF=7 (RML) wiring is new and unverified** (2026-07-07) — see the Testing
+  section above. Derivatives and angular distributions are out of scope for
+  `samm` (and hence for this reconstruction path) until `ERRORR` is built.
 - The `run()` driver returns `NotPorted`; use `crate::interface` instead.
 
 ## References

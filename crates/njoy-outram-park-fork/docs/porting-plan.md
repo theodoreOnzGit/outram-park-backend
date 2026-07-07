@@ -686,6 +686,29 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 >
 > Full workspace build + test suite green (same 139/12/7/12/1/20/11/11/4/5/
 > 2/3 counts), zero regressions, zero warnings in this crate.
+>
+> **Update (2026-07-07, RECONR wiring):** at user request, wired `samm` into
+> `RECONR`'s own resonance-reconstruction loop (`reconr.f90`'s side, not a
+> `samm` phase — see `src/reconr/mod.rs`/`mf2.rs`). `reconr::mf2::EnergyRange`
+> gained an `rml: Option<RmlRange>` field (`RmlRange{ section, awr }`);
+> `parse_lru1` dispatches `LRF=7` to `samm::mf2::parse_rml_section` (matching
+> the exact cursor position `parse_slbw_mlbw`/`parse_reich_moore` read their
+> own SPI/AP-style header from — `parse_rml_section`'s own first read *is*
+> that header, just with `IFG`/`KRM`/`NGROUP` instead of `0`/`LAD`/`NLS`, so
+> no extra read was needed). New `add_rml_range` (mirroring `add_rm_range`'s
+> shape exactly): runs `samm::setup::setup` once per range, builds a
+> resonance-halo energy grid (`add_rml_halo_energies`, using
+> `|Gamma_gamma|+sum(|Gamma_c|)` as the width proxy since LRF=7 resonances
+> have no fixed six-column layout the way SLBW/Reich-Moore do), then
+> evaluates `samm::xsformula::cssammy` at each grid point and folds the
+> result into the same total/elastic/fission/capture `RangeDelta` merge
+> `add_rm_range` already uses. `RECONR` can now reconstruct LRF=7 cross
+> sections end-to-end for the first time — **but this wiring itself has not
+> been run against a real LRF=7 evaluation**, only compiled/type-checked
+> (full workspace build + test suite pass as a regression check, zero
+> regressions, zero warnings). `samm`'s own known caveats (most importantly
+> the unresolved eliminated-channel-reorder question in `samm::mf2`) still
+> apply to whatever this reconstructs.
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here

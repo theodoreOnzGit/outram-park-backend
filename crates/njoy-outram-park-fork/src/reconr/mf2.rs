@@ -20,6 +20,7 @@
 
 use crate::{
     endf::{records::SectionCursor, tape::Section},
+    samm::mf2::RmlSection,
     NjoyError,
 };
 
@@ -36,7 +37,9 @@ pub enum ResonanceFormalism {
     ReichMoore,
     /// LRF=4: Adler-Adler (not yet ported).
     AdlerAdler,
-    /// LRF=7: R-Matrix Limited (not yet ported).
+    /// LRF=7: R-Matrix Limited. Parsed and reconstructed via
+    /// `crate::samm` (Reich-Moore-limited, `KRM=3`/`IFG=0` only, matching
+    /// what `samm.f90` itself supports — see `crate::samm`'s module doc).
     RMatrixLimited,
 }
 
@@ -145,6 +148,20 @@ pub struct EnergyRange {
     pub l_states: Vec<LState>,
     /// l-states with Reich-Moore parameters (LRU=1, LRF=3). Empty for LRF≠3.
     pub rm_l_states: Vec<RmLState>,
+    /// R-Matrix Limited (LRF=7) section and its material AWR. `None` for
+    /// every other formalism.
+    pub rml: Option<RmlRange>,
+}
+
+/// An LRF=7 (R-Matrix Limited) resonance range, paired with the material
+/// AWR its channel kinematics need (`crate::samm::context::compute_channel_kinematics`'s
+/// doc comment explains why AWR is threaded in separately rather than
+/// stored on [`RmlSection`] itself — it's read one level up, from MF=2's
+/// own material-level `CONT`, not from the LRF=7 range header).
+#[derive(Debug, Clone)]
+pub struct RmlRange {
+    pub section: RmlSection,
+    pub awr: f64,
 }
 
 // ── Top-level result ───────────────────────────────────────────────────────────
@@ -182,6 +199,13 @@ impl ResonanceInfo {
             r.lru == 1 && matches!(r.formalism, Some(ResonanceFormalism::ReichMoore))
         })
     }
+
+    /// Returns all R-Matrix Limited resolved resonance ranges (LRU=1, LRF=7).
+    pub fn resolved_rml_ranges(&self) -> impl Iterator<Item = &EnergyRange> {
+        self.ranges.iter().filter(|r| {
+            r.lru == 1 && matches!(r.formalism, Some(ResonanceFormalism::RMatrixLimited))
+        })
+    }
 }
 
 // ── Parser ─────────────────────────────────────────────────────────────────────
@@ -192,15 +216,19 @@ impl ResonanceInfo {
 /// - **LRU=0** — potential scattering only (H-2); full parse.
 /// - **LRU=1, LRF=1 (SLBW) or LRF=2 (MLBW)** — resolved resonances; full parse.
 /// - **LRU=1, LRF=3 (Reich-Moore)** — resolved resonances; full parse.
+/// - **LRU=1, LRF=7 (R-Matrix Limited)** — resolved resonances; full parse
+///   via `crate::samm::mf2::parse_rml_section` (Reich-Moore-limited only,
+///   matching what `samm.f90` itself supports).
 /// - **LRU=2** — unresolved region; header only (parameters skipped).
 ///
-/// Returns [`NjoyError::NotPorted`] for LRF=4 (Adler-Adler) and LRF=7 (R-Matrix Limited).
+/// Returns [`NjoyError::NotPorted`] for LRF=4 (Adler-Adler).
 pub fn parse_resonance_info(sec: &Section) -> Result<ResonanceInfo, NjoyError> {
     let mut cur = SectionCursor::new(&sec.rows);
 
     // CONT: ZA, AWR, 0, 0, NIS, 0
     let head = cur.read_cont()?;
     let nis = head.n1 as usize;
+    let awr = head.c2;
 
     let mut ranges = Vec::new();
 
@@ -220,7 +248,7 @@ pub fn parse_resonance_info(sec: &Section) -> Result<ResonanceInfo, NjoyError> {
 
             let range = match lru {
                 0 => parse_lru0(&mut cur, el, eh, naps)?,
-                1 => parse_lru1(&mut cur, el, eh, lrf, naps)?,
+                1 => parse_lru1(&mut cur, el, eh, lrf, naps, awr)?,
                 2 => parse_lru2_header(&mut cur, el, eh, naps)?,
                 other => {
                     return Err(NjoyError::EndfParse(format!("unknown LRU={other}")));
@@ -248,20 +276,41 @@ fn parse_lru0(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32)
     }
     Ok(EnergyRange {
         el, eh, lru: 0, formalism: None, spi, ap, naps,
-        l_states: Vec::new(), rm_l_states: Vec::new(),
+        l_states: Vec::new(), rm_l_states: Vec::new(), rml: None,
     })
 }
 
-fn parse_lru1(cur: &mut SectionCursor<'_>, el: f64, eh: f64, lrf: i32, naps: i32)
+fn parse_lru1(cur: &mut SectionCursor<'_>, el: f64, eh: f64, lrf: i32, naps: i32, awr: f64)
     -> Result<EnergyRange, NjoyError>
 {
     match lrf {
         1 | 2 => parse_slbw_mlbw(cur, el, eh, lrf, naps),
         3     => parse_reich_moore(cur, el, eh, naps),
+        7     => parse_rml(cur, el, eh, naps, awr),
         _     => Err(NjoyError::NotPorted(
-            "LRF ≥ 4 resonance formalism (Adler-Adler/R-Matrix) — not yet ported",
+            "LRF=4 (Adler-Adler) resonance formalism — not yet ported",
         )),
     }
+}
+
+/// LRU=1, LRF=7: R-Matrix Limited resolved resonances.
+///
+/// The range header's usual `CONT(SPI, AP, 0, LAD/0, NLS, 0)` +
+/// per-l-state records are replaced entirely by
+/// `crate::samm::mf2::parse_rml_section`'s own reading (its first read is
+/// the structurally-analogous `CONT` carrying `IFG`/`KRM`/`NGROUP` instead
+/// of `0`/`LAD`/`NLS` — see that function's doc comment) — so this is a
+/// thin wrapper, not a from-scratch parse.
+fn parse_rml(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32, awr: f64)
+    -> Result<EnergyRange, NjoyError>
+{
+    let section = crate::samm::mf2::parse_rml_section(cur)?;
+    Ok(EnergyRange {
+        el, eh, lru: 1, formalism: Some(ResonanceFormalism::RMatrixLimited),
+        spi: 0.0, ap: 0.0, naps,
+        l_states: Vec::new(), rm_l_states: Vec::new(),
+        rml: Some(RmlRange { section, awr }),
+    })
 }
 
 /// LRU=1, LRF=1/2: SLBW or MLBW resolved resonances.
@@ -305,7 +354,7 @@ fn parse_slbw_mlbw(cur: &mut SectionCursor<'_>, el: f64, eh: f64, lrf: i32, naps
 
     Ok(EnergyRange {
         el, eh, lru: 1, formalism: Some(formalism), spi, ap, naps,
-        l_states, rm_l_states: Vec::new(),
+        l_states, rm_l_states: Vec::new(), rml: None,
     })
 }
 
@@ -352,7 +401,7 @@ fn parse_reich_moore(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32)
     Ok(EnergyRange {
         el, eh, lru: 1, formalism: Some(ResonanceFormalism::ReichMoore),
         spi, ap, naps,
-        l_states: Vec::new(), rm_l_states,
+        l_states: Vec::new(), rm_l_states, rml: None,
     })
 }
 
@@ -368,6 +417,6 @@ fn parse_lru2_header(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32)
     Ok(EnergyRange {
         el, eh, lru: 2, formalism: None,
         spi: c.c1, ap: c.c2, naps,
-        l_states: Vec::new(), rm_l_states: Vec::new(),
+        l_states: Vec::new(), rm_l_states: Vec::new(), rml: None,
     })
 }
