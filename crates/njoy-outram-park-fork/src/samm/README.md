@@ -138,9 +138,35 @@ each phase independently portable/verifiable:
      (angular-distribution and derivative assembly), `derres`/`derext`
      (derivative propagation) — none of these are reachable from RECONR
      (the only current caller), which disables both flags.
-6. **Top-level orchestration** — surveyed, not yet ported (`cssammy`,
-   `ppsammy`, `allo`, `desammy`, `orders`, `angle`, `lmaxxx`, `kclbsch`,
-   `clbsch`, `setleg`, ~850 lines).
+6. **Top-level orchestration** — ✅ done for the reachable, non-derivative,
+   non-angular core:
+   - `setup.rs` — [`setup::setup`], `ppsammy`'s non-derivative/non-angular
+     core: runs `checkqn`/`fxradi`/`betset` once per section, tying
+     Phase 1's parsed [`mf2::RmlSection`] into the per-group
+     [`context::ChannelKinematics`]/[`betset::ResonanceAmplitudes`]/
+     [`context::GroupQuantumInfo`] Phase 5 needs.
+   - `xsformula/cssammy.rs` — [`xsformula::cssammy`], the actual
+     RECONR-facing entry point (`samm.f90`'s own `cssammy`): maps
+     [`xsformula::cross_sections`]'s per-particle-pair output into the
+     MT-like reaction slots (total/elastic/fission/capture/other) a
+     resonance-reconstruction driver loop expects.
+   - `allo`/`desammy` have no Rust equivalent — pure Fortran array
+     (de)allocation bookkeeping; `Vec`s grow/shrink and free themselves.
+     `orders` (generic sort+dedup for PENDF energy-grid nodes) belongs to
+     whichever driver eventually builds that grid — not ported, no
+     current caller.
+   - **Not yet ported (deferred, see the scope note above):** `angle`,
+     `lmaxxx`, `kclbsch`, `clbsch`, `setleg` (angular-distribution
+     coefficients), and `cssammy`'s own `Want_Partial_Derivs`/
+     `Want_Angular_Dist` branches.
+   - **What's genuinely still missing:** nothing *inside* `samm` drives
+     [`xsformula::cssammy`] over an energy grid or writes its output into
+     a PENDF-like tape — that is `RECONR`'s own resonance-reconstruction
+     loop, which doesn't call into `samm` yet (it currently handles only
+     SLBW/MLBW/Reich-Moore). Wiring `RECONR` to call `samm` for LRF=7
+     sections is the last step before this port is actually reachable
+     from a real NJOY run — tracked as a `reconr` follow-up, not a `samm`
+     phase.
 
 ## Testing
 

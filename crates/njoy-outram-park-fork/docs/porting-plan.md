@@ -100,7 +100,7 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 | `modules::errorr` | `errorr.f90` | 11.2k | ⬜ multigroup covariance matrices; next up after `samm` finishes (2026-07-07) — it is `samm`'s `Want_Partial_Derivs`/`Want_Angular_Dist` caller |
 | `modules::covr` | `covr.f90` | ~3k | ⬜ covariance output/plotting |
 | `modules::leapr` | `leapr.f90` | 3.6k | ⬜ *generate* MF=7 S(α,β) (upstream of THERMR) |
-| `modules::samm` | `samm.f90` | 7.2k | 🟨 Phase 1-5/6 done (ENDF reader, spin/parity/penetrability incl. betset core, Coulomb wave functions, R-matrix inversion, cross-section formula) — first end-to-end cross section producible; top-level orchestration/derivatives/angular not started; shared by reconr/unresr |
+| `modules::samm` | `samm.f90` | 7.2k | 🟨 Phase 1-6/6 done for the reachable (non-derivative, non-angular) core — `xsformula::cssammy` is a working RECONR-facing entry point; RECONR itself doesn't call it yet (still SLBW/MLBW/Reich-Moore only); derivatives/angular deferred to ERRORR; shared by reconr/unresr |
 
 ### Formatters, plotting, misc (Phase 6 — lowest priority)
 
@@ -657,10 +657,35 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 >
 > Full workspace build + test suite green (same 139/12/7/12/1/20/11/11/4/5/
 > 2/3 counts), zero regressions, zero warnings in this crate. Still
-> genuinely not run against any real evaluation — Phase 6 (top-level
-> orchestration) is needed to drive this over an energy grid inside
-> RECONR's actual reconstruction loop before there's a full end-to-end
-> path to verify.
+> genuinely not run against any real evaluation.
+>
+> **Update (2026-07-07, Phase 6 — top-level orchestration):** **Phase 6 is
+> done for its reachable core.** New `src/samm/setup.rs`
+> (`setup::setup` — `ppsammy`'s non-derivative/non-angular core, running
+> `checkqn`/`fxradi`/`betset` once per section) and
+> `src/samm/xsformula/cssammy.rs` (`xsformula::cssammy` — `samm.f90`'s own
+> `cssammy`, the actual function RECONR/ERRORR call per pointwise energy;
+> maps `cross_sections`'s per-particle-pair output into MT-like slots:
+> total/elastic/fission/capture/other). `allo`/`desammy` have no Rust
+> equivalent (pure Fortran (de)allocation bookkeeping); `orders` has no
+> current caller (belongs to whichever driver builds the PENDF energy
+> grid). Deferred to `ERRORR`: `angle`/`lmaxxx`/`kclbsch`/`clbsch`/
+> `setleg`, `cssammy`'s own derivative/angular branches.
+>
+> **All 6 phases of `samm` are now done for the scope RECONR can actually
+> reach** (Reich-Moore-limited, no derivatives, no angular distributions).
+> What's left before this is usable from a real NJOY run is entirely
+> outside `samm` itself: `RECONR`'s own resonance-reconstruction loop
+> doesn't call into `samm` yet (it currently only knows SLBW/MLBW/
+> Reich-Moore, i.e. `crate::reconr::slbw`) — wiring an LRF=7 section to
+> `samm::setup::setup` + a per-energy-point loop over
+> `samm::xsformula::cssammy` is a `reconr` follow-up task, not a `samm`
+> phase. Then `errorr.f90` is next, alongside which the deferred
+> derivative/angular routines get built (per the "no orphaned dead code"
+> rule).
+>
+> Full workspace build + test suite green (same 139/12/7/12/1/20/11/11/4/5/
+> 2/3 counts), zero regressions, zero warnings in this crate.
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here
