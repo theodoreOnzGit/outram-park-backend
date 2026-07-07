@@ -35,7 +35,9 @@ pub enum ResonanceFormalism {
     Mlbw,
     /// LRF=3: Reich-Moore.
     ReichMoore,
-    /// LRF=4: Adler-Adler (not yet ported).
+    /// LRF=4: Adler-Adler. Parsed and reconstructed via `crate::reconr::aa`
+    /// (zero-temperature only, matching this crate's SLBW/Reich-Moore
+    /// reconstruction — Doppler broadening is BROADR's job).
     AdlerAdler,
     /// LRF=7: R-Matrix Limited. Parsed and reconstructed via
     /// `crate::samm` (Reich-Moore-limited, `KRM=3`/`IFG=0` only, matching
@@ -121,6 +123,71 @@ pub struct RmLState {
     pub resonances: Vec<RmResonance>,
 }
 
+// ── Adler-Adler (LRF=4) resonance types ───────────────────────────────────────
+
+/// One resonance in an Adler-Adler (LRF=4) evaluation: three independent
+/// `(DE, DW, GR, GI)` Adler-Adler amplitude parameter sets — total,
+/// fission, capture, in file order. There is no elastic set; elastic is
+/// derived from unitarity (`total - fission - capture`) at evaluation
+/// time — see [`super::aa::eval_aa_range`].
+#[derive(Debug, Clone, Copy, Default)]
+pub struct AaResonance {
+    pub de_total: f64,
+    pub dw_total: f64,
+    pub gr_total: f64,
+    pub gi_total: f64,
+    pub de_fission: f64,
+    pub dw_fission: f64,
+    pub gr_fission: f64,
+    pub gi_fission: f64,
+    pub de_capture: f64,
+    pub dw_capture: f64,
+    pub gr_capture: f64,
+    pub gi_capture: f64,
+}
+
+/// One orbital angular momentum l-state in an Adler-Adler resolved
+/// resonance region. Upstream (`rdf2aa`/`csaa` in `reconr.f90`) nests
+/// resonances one level deeper by spin (J) group, but the Adler-Adler
+/// cross-section formula never actually uses J — only L (for the shared
+/// hard-sphere phase term) and each resonance's own `DE`/`DW`/`GR`/`GI` —
+/// so every J-group's resonances are flattened into one `Vec` here rather
+/// than modeling the (unused) J nesting.
+#[derive(Debug, Clone)]
+pub struct AaLState {
+    pub l: u32,
+    pub resonances: Vec<AaResonance>,
+}
+
+/// Adler-Adler background polynomial coefficients for one reaction type:
+/// `background(E) = (c[0] + c[1]/E + c[2]/E^2 + c[3]/E^3 + c[4]*E + c[5]*E^2)`
+/// (further scaled by a shared energy/mass factor at evaluation time — see
+/// [`super::aa::eval_aa_range`]).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct AaBackground {
+    pub total: [f64; 6],
+    pub fission: [f64; 6],
+    pub capture: [f64; 6],
+}
+
+/// One LRF=4 (Adler-Adler) resonance range.
+#[derive(Debug, Clone)]
+pub struct AaRange {
+    /// Atomic weight ratio of the target (range-level, unlike SLBW/Reich-
+    /// Moore's per-l-state `awri` — Adler-Adler's ENDF layout puts it on
+    /// the shared background record instead).
+    pub awri: f64,
+    /// `LI` flag from the background record: `LI != 6` includes the total
+    /// background polynomial; `LI != 5` includes the fission one; capture
+    /// is always included. Upstream requires `LI >= 5`
+    /// ([`crate::reconr::mf2::parse_adler_adler`] returns
+    /// [`NjoyError::EndfParse`] otherwise, matching `csaa`'s own
+    /// `call error('csaa','bad li value',' ')`).
+    pub li: i32,
+    pub background: AaBackground,
+    pub l_states: Vec<AaLState>,
+}
+
 // ── Energy range ───────────────────────────────────────────────────────────────
 
 /// One energy range entry from MF=2/MT=151.
@@ -151,6 +218,8 @@ pub struct EnergyRange {
     /// R-Matrix Limited (LRF=7) section and its material AWR. `None` for
     /// every other formalism.
     pub rml: Option<RmlRange>,
+    /// Adler-Adler (LRF=4) data. `None` for every other formalism.
+    pub aa: Option<AaRange>,
 }
 
 /// An LRF=7 (R-Matrix Limited) resonance range, paired with the material
@@ -206,6 +275,13 @@ impl ResonanceInfo {
             r.lru == 1 && matches!(r.formalism, Some(ResonanceFormalism::RMatrixLimited))
         })
     }
+
+    /// Returns all Adler-Adler resolved resonance ranges (LRU=1, LRF=4).
+    pub fn resolved_aa_ranges(&self) -> impl Iterator<Item = &EnergyRange> {
+        self.ranges.iter().filter(|r| {
+            r.lru == 1 && matches!(r.formalism, Some(ResonanceFormalism::AdlerAdler))
+        })
+    }
 }
 
 // ── Parser ─────────────────────────────────────────────────────────────────────
@@ -219,9 +295,9 @@ impl ResonanceInfo {
 /// - **LRU=1, LRF=7 (R-Matrix Limited)** — resolved resonances; full parse
 ///   via `crate::samm::mf2::parse_rml_section` (Reich-Moore-limited only,
 ///   matching what `samm.f90` itself supports).
+/// - **LRU=1, LRF=4 (Adler-Adler)** — resolved resonances; full parse, zero-
+///   temperature only (see `crate::reconr::aa`).
 /// - **LRU=2** — unresolved region; header only (parameters skipped).
-///
-/// Returns [`NjoyError::NotPorted`] for LRF=4 (Adler-Adler).
 pub fn parse_resonance_info(sec: &Section) -> Result<ResonanceInfo, NjoyError> {
     let mut cur = SectionCursor::new(&sec.rows);
 
@@ -276,7 +352,7 @@ fn parse_lru0(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32)
     }
     Ok(EnergyRange {
         el, eh, lru: 0, formalism: None, spi, ap, naps,
-        l_states: Vec::new(), rm_l_states: Vec::new(), rml: None,
+        l_states: Vec::new(), rm_l_states: Vec::new(), rml: None, aa: None,
     })
 }
 
@@ -286,11 +362,93 @@ fn parse_lru1(cur: &mut SectionCursor<'_>, el: f64, eh: f64, lrf: i32, naps: i32
     match lrf {
         1 | 2 => parse_slbw_mlbw(cur, el, eh, lrf, naps),
         3     => parse_reich_moore(cur, el, eh, naps),
+        4     => parse_adler_adler(cur, el, eh, naps),
         7     => parse_rml(cur, el, eh, naps, awr),
-        _     => Err(NjoyError::NotPorted(
-            "LRF=4 (Adler-Adler) resonance formalism — not yet ported",
-        )),
+        other => Err(NjoyError::EndfParse(format!(
+            "unknown resolved-resonance LRF={other}"
+        ))),
     }
+}
+
+/// LRU=1, LRF=4: Adler-Adler resolved resonances.
+///
+/// Record layout, reconstructed by tracing `rdf2aa` (reader) and `csaa`
+/// (evaluator) in `reconr.f90` — no ENDF-102 manual excerpt was available
+/// locally, so this was derived purely from the Fortran's own flat-array
+/// offset arithmetic, cross-checked internally (e.g. `jen=12` in `rdf2aa`
+/// matching the 3 reaction groups × 4 values `csaa` reads per resonance;
+/// `NPL=18` matching 3 × 6 background coefficients):
+///
+/// ```text
+/// CONT: SPI, AP, 0, 0, NLS, 0                      (shared LRU=1 header)
+/// LIST: AWRI, ?, LI, ?, 18, ?                        (background record)
+///       + 18 data words: [6 total][6 fission][6 capture] polynomial coeffs
+/// For l = 1..NLS:
+///   CONT: 0.0, 0.0, L, 0, NJS, 0                     (l-state header)
+///   For j = 1..NJS:
+///     LIST: 0.0, 0.0, ?, ?, ?, NLJ                   (resonances for this l,j)
+///       + NLJ × 12 data words, 3 groups of 4 per resonance:
+///         [DE,DW,GR,GI]_total, [DE,DW,GR,GI]_fission, [DE,DW,GR,GI]_capture
+/// ```
+fn parse_adler_adler(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32)
+    -> Result<EnergyRange, NjoyError>
+{
+    let c = cur.read_cont()?;
+    let spi = c.c1;
+    let ap  = c.c2;
+    let nls = c.n1 as usize;
+
+    let bg_list = cur.read_list()?;
+    let awri = bg_list.head.c1;
+    let li = bg_list.head.l1;
+    if li < 5 {
+        return Err(NjoyError::EndfParse(format!(
+            "Adler-Adler: bad LI={li} (must be >=5, matching csaa's own validation)"
+        )));
+    }
+    if bg_list.data.len() < 18 {
+        return Err(NjoyError::EndfParse(format!(
+            "Adler-Adler: background LIST has {} words, need >=18", bg_list.data.len()
+        )));
+    }
+    let mut total = [0.0; 6];
+    let mut fission = [0.0; 6];
+    let mut capture = [0.0; 6];
+    total.copy_from_slice(&bg_list.data[0..6]);
+    fission.copy_from_slice(&bg_list.data[6..12]);
+    capture.copy_from_slice(&bg_list.data[12..18]);
+
+    let mut l_states = Vec::with_capacity(nls);
+    for _ in 0..nls {
+        let lc = cur.read_cont()?;
+        let l = lc.l1 as u32;
+        let njs = lc.n1 as usize;
+
+        let mut resonances = Vec::new();
+        for _ in 0..njs {
+            let lst = cur.read_list()?;
+            let nlj = lst.head.n2 as usize;
+            for i in 0..nlj {
+                let base = i * 12;
+                resonances.push(AaResonance {
+                    de_total: lst.data[base], dw_total: lst.data[base + 1],
+                    gr_total: lst.data[base + 2], gi_total: lst.data[base + 3],
+                    de_fission: lst.data[base + 4], dw_fission: lst.data[base + 5],
+                    gr_fission: lst.data[base + 6], gi_fission: lst.data[base + 7],
+                    de_capture: lst.data[base + 8], dw_capture: lst.data[base + 9],
+                    gr_capture: lst.data[base + 10], gi_capture: lst.data[base + 11],
+                });
+            }
+        }
+        l_states.push(AaLState { l, resonances });
+    }
+
+    Ok(EnergyRange {
+        el, eh, lru: 1, formalism: Some(ResonanceFormalism::AdlerAdler),
+        spi, ap, naps,
+        l_states: Vec::new(), rm_l_states: Vec::new(), rml: None,
+        aa: Some(AaRange { awri, li, background: AaBackground { total, fission, capture }, l_states }),
+    })
 }
 
 /// LRU=1, LRF=7: R-Matrix Limited resolved resonances.
@@ -309,7 +467,7 @@ fn parse_rml(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32, awr: f64)
         el, eh, lru: 1, formalism: Some(ResonanceFormalism::RMatrixLimited),
         spi: 0.0, ap: 0.0, naps,
         l_states: Vec::new(), rm_l_states: Vec::new(),
-        rml: Some(RmlRange { section, awr }),
+        rml: Some(RmlRange { section, awr }), aa: None,
     })
 }
 
@@ -354,7 +512,7 @@ fn parse_slbw_mlbw(cur: &mut SectionCursor<'_>, el: f64, eh: f64, lrf: i32, naps
 
     Ok(EnergyRange {
         el, eh, lru: 1, formalism: Some(formalism), spi, ap, naps,
-        l_states, rm_l_states: Vec::new(), rml: None,
+        l_states, rm_l_states: Vec::new(), rml: None, aa: None,
     })
 }
 
@@ -401,7 +559,7 @@ fn parse_reich_moore(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32)
     Ok(EnergyRange {
         el, eh, lru: 1, formalism: Some(ResonanceFormalism::ReichMoore),
         spi, ap, naps,
-        l_states: Vec::new(), rm_l_states, rml: None,
+        l_states: Vec::new(), rm_l_states, rml: None, aa: None,
     })
 }
 
@@ -417,6 +575,6 @@ fn parse_lru2_header(cur: &mut SectionCursor<'_>, el: f64, eh: f64, naps: i32)
     Ok(EnergyRange {
         el, eh, lru: 2, formalism: None,
         spi: c.c1, ap: c.c2, naps,
-        l_states: Vec::new(), rm_l_states: Vec::new(), rml: None,
+        l_states: Vec::new(), rm_l_states: Vec::new(), rml: None, aa: None,
     })
 }

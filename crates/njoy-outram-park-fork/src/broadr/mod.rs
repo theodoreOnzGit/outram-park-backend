@@ -37,6 +37,7 @@
 //!   it pulls the broadened value back down toward the physical result.
 
 use crate::{common::phys::BK_EV_PER_K, reconr::ReconrSection};
+use rayon::prelude::*;
 
 // ── erfc ──────────────────────────────────────────────────────────────────────
 
@@ -283,10 +284,14 @@ pub fn doppler_broaden(
                 .collect();
             let sigma: Vec<f64> = sec.pairs.iter().map(|&(_, s)| s.max(0.0)).collect();
 
-            // Broaden at each energy point
+            // Broaden at each energy point. Each `bsigma_scalar` call is an
+            // independent, pure function of the (shared, immutable) `eu`/`sigma`
+            // grid, so the points are broadened in parallel — a large win on a
+            // dense grid, where each call walks many panels within the Gaussian
+            // cutoff. Results are identical to the serial order.
             let pairs: Vec<(f64, f64)> = sec
                 .pairs
-                .iter()
+                .par_iter()
                 .enumerate()
                 .map(|(j, &(e, _))| {
                     if e <= 0.0 {

@@ -709,6 +709,37 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 > regressions, zero warnings). `samm`'s own known caveats (most importantly
 > the unresolved eliminated-channel-reorder question in `samm::mf2`) still
 > apply to whatever this reconstructs.
+>
+> **Update (2026-07-07, Adler-Adler for completeness):** at user request,
+> ported the last remaining resolved-resonance formalism, LRF=4
+> (Adler-Adler) — `reconr::mf2::parse_adler_adler` (new `AaResonance`/
+> `AaLState`/`AaBackground`/`AaRange` types, `EnergyRange::aa`) and
+> `reconr::aa::eval_aa_range` (zero-temperature only, matching this crate's
+> SLBW/Reich-Moore precedent), wired via new `add_aa_range`/
+> `add_aa_halo_energies` in `reconr/mod.rs`. **All five ENDF-6
+> resolved-resonance formalisms (LRF=1/2/3/4/7) are now parsed and
+> reconstructed by RECONR.**
+>
+> The ENDF-6 record layout for LRF=4 was reconstructed entirely by tracing
+> `reconr.f90`'s `rdf2aa` (reader) and `csaa` (evaluator) flat-array offset
+> arithmetic — no ENDF-102 manual excerpt was available locally — and
+> cross-checked internally (e.g. `rdf2aa`'s `jen=12` matches the 3
+> reaction groups × 4 values `csaa` reads per resonance; the background
+> record's `NPL=18` matches 3 × 6 polynomial coefficients). Two upstream
+> oddities found while tracing `csaa` were ported literally rather than
+> "fixed" (flagged in `aa.rs`'s doc comment for Opus verification): (1) the
+> hard-sphere phase factor is computed once, without L-dependence, and
+> reused across every l-state — plausible for an empirical multi-reaction
+> fit like Adler-Adler, but worth double-checking; (2) the background
+> polynomial terms are scaled by the same `C/sqrt(E)` energy factor twice
+> (once in their own evaluation, again at final combination) while the
+> resonance sum only gets it once — this looks asymmetric enough to be a
+> genuine latent upstream quirk, similar in spirit to the flagged issues
+> already found in `samm`.
+>
+> Full workspace build + test suite green (same 139/12/7/12/1/20/11/11/4/5/
+> 2/3 counts), zero regressions, zero warnings. Not yet run against any
+> real Adler-Adler evaluation.
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here
@@ -721,14 +752,30 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
   reference CSVs so the 115 MB `.h5` need not be tracked).
   - ✅ 0 K reconstruction (thermal 2.68 b, 6.67 eV peak 22.2 kb), peak Doppler
     broadening (~10%), and the smooth above-RRR / MF=3 band (L1 ≈ 1.5%) all agree.
-  - 🐛 **OPEN BUG (BROADR/SIGMA1 resonance wings).** The Rust broadened capture
-    leaves a spurious ~200 b pedestal several eV past each resolved resonance
-    where OpenMC decays to ~1 b (e.g. 103.5 eV @ 900 K: 105 eV → OpenMC 1.8 b vs
-    Rust 211 b). RRR L1 ≈ 0.23–0.25. Off-resonance baseline agrees, so it is a
-    wing/pedestal fidelity bug in the SIGMA1 kernel (or its interaction with the
-    RECONR wing grid), not a global offset. This is the concrete BROADR debugging
-    task; the verification test reports it (gate not loosened). See
-    `tests/u238_doppler_verification/README.md`.
+  - ✅ **FIXED 2026-07-07 (was mis-attributed to BROADR/SIGMA1; it was the
+    RECONR grid).** The ~200 b resonance-wing pedestal was **not** a SIGMA1 bug.
+    RECONR's resonance contribution was evaluated only on a fixed grid
+    (background energies + a ±10-half-width halo), leaving multi-eV gaps between
+    resonances (U-238 capture 0 K jumped 103.03 eV → 111.10 eV with nothing
+    between), so the Lorentzian wing was a single straight line ~35× too high;
+    SIGMA1 was fed that over-stated wing and sampled on the same coarse output
+    grid. Fix: `reconr::refine_resonance_grid` adaptively bisects each interval
+    until lin-interp of the resonance Δσ is within `eps` (the criterion NJOY's
+    own RECONR reconstructs to). **RRR L1 dropped ≈0.30 → ≈0.0007** at 900 K and
+    1200 K (~400×), with zero SIGMA1 changes. This is correctness parity with
+    NJOY (NJOY already reconstructs to tolerance; the fixed-halo grid was a port
+    deficiency); the genuine improvement *over* NJOY is that reconstruction
+    (`refine_resonance_grid`) and broadening (`broadr::doppler_broaden`) are now
+    **`rayon`-parallel** across independent energy windows / query points.
+    - ⏭ **Follow-up — resonance windowing for the fissile path.** On the ~20×
+      denser grid, the fissile 3×3-fission-matrix Reich-Moore path (U-235) is
+      slow enough per energy point to strain the test timeout even parallelised
+      (U-238's scalar path is ~10 s reconstruct / ~13 s broaden; U-235 is much
+      heavier). NJOY windows resonances (skips those whose tail is negligible at
+      the evaluation energy); porting that windowing into `reconr::rm`/`slbw`/
+      `aa` (and validating it doesn't erode the between-resonance background) is
+      the next optimisation. Until then, heavy-fissile reconstruction is
+      correct but slow. See `tests/u238_doppler_verification/README.md`.
 - **Priority 1 — bare critical sphere Keff (U-235 Godiva, U-233 Jezebel-23).** ✅
   **done** — not via the ACER 4b/4d ACE-writer path, but directly:
   `nuclear_data::secondary` reads **ν̄(E)** (MF=1/452, `NuBar::from_endf`, LNU=1

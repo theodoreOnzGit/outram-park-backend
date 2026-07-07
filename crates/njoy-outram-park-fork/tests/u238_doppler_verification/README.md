@@ -89,7 +89,25 @@ Resonance-peak spot checks (peaks broaden correctly):
 (Values at the true resonance energy from a fine scan; a log grid does not land
 exactly on a peak.)
 
-## ⚠ Finding — the port over-predicts resonance wings (BROADR/SIGMA1)
+## ✅ RESOLVED (2026-07-07) — it was the RECONR grid, not SIGMA1
+
+The wing pedestal documented below is **fixed**. It was **not** a BROADR/SIGMA1
+bug: the 0 K reconstruction grid left multi-eV gaps between resonances (for the
+102.56 eV line, nothing between 103.03 eV and 111.10 eV), so the Lorentzian wing
+was represented by a single straight line ~35× above the true curve — and SIGMA1
+was both *fed* that over-stated wing and *sampled* on the same coarse output
+grid. Adding adaptive refinement of the resonance-reconstruction grid to
+tolerance (`reconr::refine_resonance_grid`) dropped the **RRR L1 from ≈0.30 →
+≈0.0007** at both 900 K and 1200 K (a ~400× accuracy gain), with **no change to
+the SIGMA1 kernel**. Point checks: 105 eV, 900 K now 1.845 b (OpenMC 1.8 b) vs
+the old 211 b; 106 eV now 0.927 b (OpenMC 0.93 b) vs old 177 b. See
+`src/reconr/README.md` and `src/broadr/README.md`.
+
+The gate below has not yet been tightened into a hard RRR-L1 assertion — that
+is a small follow-up (mind the CI timeout, since the test reconstructs U-238
+twice). The original finding is preserved verbatim below for the record.
+
+## ⚠ Finding (now resolved — see above) — the port over-predicts resonance wings (BROADR/SIGMA1)
 
 The above-RRR (smooth MF=3) band matches OpenMC to ~1.5%, and the resonance
 **peaks** broaden correctly to ~10%. But in the RRR the port leaves a **spurious

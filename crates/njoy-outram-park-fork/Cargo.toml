@@ -32,6 +32,11 @@ uom.workspace = true
 # never a silent print — see docs/porting-plan.md §5. `error(...)` (fatal
 # abort) still maps to `Err(NjoyError::...)`.
 log.workspace = true
+# Data-parallel reconstruction: RECONR's adaptive resonance-grid refinement
+# (`reconr::refine_resonance_grid`) evaluates independent energy windows in
+# parallel. Pure speedup — the per-window results are identical to the serial
+# order (`delta_at` is a pure function of energy).
+rayon.workspace = true
 # Pure-Rust DEFLATE codec for the embedded WMPB blob (`WindowedMultipole::from_blob`
 # / `to_blob`). Default (non-optional): the zero-dependency shipping path decodes
 # the blob without HDF5, so the codec must be in the default build.
