@@ -46,5 +46,6 @@ pub static OXYGEN_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static OXYGEN_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: Some(ViscosityModel { dilute: ViscosityDilute::CollisionIntegral { c: 2.66958e-08, a: &[0.431, -0.4623, 0.08406, 0.005341, -0.00331], t: &[0.0, 1.0, 2.0, 3.0, 4.0], molar_mass: 0.0319988, epsilon_over_k: 118.5, sigma_eta: 3.428e-10 }, initial: None, higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand { t_reduce: 154.581, rhomolar_reduce: 13630.0, a: &[1.767e-05, 4.042e-07, 1.077e-10, 3.51e-07, -1.367e-05], d1: &[1.0, 5.0, 12.0, 8.0, 1.0], t1: &[0.05, 0.0, 2.1, 0.0, 0.5], gamma: &[0.0, 0.0, 0.0, -1.0, -1.0], l: &[0.0, 0.0, 0.0, 1.0, 2.0], f: &[0.0], d2: &[1.0], t2: &[0.0], g: &[1.0], h: &[0.0], p: &[1.0], q: &[0.0] } }),
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::Eta0AndPoly { a: &[0.001036, 0.006283, -0.004262], t: &[0.0, -0.9, -0.6] }, residual: ConductivityResidual::PolynomialAndExponential { a: &[0.01531, 0.008898, -0.0007336, 0.006728, -0.004374, -0.0004747], t: &[0.0, 0.0, 0.3, 4.3, 0.5, 1.8], d: &[1.0, 3.0, 4.0, 5.0, 7.0, 10.0], gamma: &[0.0, 0.0, 0.0, 1.0, 1.0, 1.0], l: &[0.0, 0.0, 0.0, 2.0, 2.0, 2.0] } }),
+    hardcoded: None,
 };
 

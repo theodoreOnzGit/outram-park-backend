@@ -46,5 +46,6 @@ pub static HYDROGEN_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static HYDROGEN_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 33.145, a: &[-0.340976, 4.5882, -1.4508, 0.326394, 0.00316939, 0.000190592, -1.139e-06], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0], b: &[138.497, -22.1878, 4.57151, 1.0], m: &[0.0, 1.0, 2.0, 3.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 33.145, rhomass_reducing: 31.262, b: &[0.0363081, 0.0018337, -0.0207629, -0.00886716, 0.031481, 0.015826, -0.0143097, -0.0106283, 0.0017498, 0.00280673], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
+    hardcoded: None,
 };
 

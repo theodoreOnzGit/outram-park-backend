@@ -46,5 +46,6 @@ pub static CYCLOPENTANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static CYCLOPENTANE_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 511.72, a: &[-0.0082523346, 0.07633654, -0.2176154, 0.31229877], n: &[0.0, 1.0, 2.0, 3.0], b: &[1.0, 0.28341479, 2.7890541, 0.32645005], m: &[0.0, 1.0, 2.0, 3.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 511.72, rhomass_reducing: 274.921, b: &[0.0920536, -0.0435129, -0.172699, 0.112636, 0.126557, -0.0908663, -0.0362296, 0.028095, 0.00388718, -0.00280368], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
+    hardcoded: None,
 };
 

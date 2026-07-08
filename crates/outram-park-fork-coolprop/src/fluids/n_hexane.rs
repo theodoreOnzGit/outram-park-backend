@@ -46,5 +46,6 @@ pub static N_HEXANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static N_HEXANE_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 507.82, a: &[0.0066742, -0.0237619, 0.0720155, -0.0183714], n: &[0.0, 1.0, 2.0, 3.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 507.82, rhomass_reducing: 233.1819066, b: &[-0.0301408, 0.0218208, 0.167975, -0.100833, -0.129739, 0.077418, 0.0382833, -0.0215945, -0.00370294, 0.00212487], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
+    hardcoded: None,
 };
 

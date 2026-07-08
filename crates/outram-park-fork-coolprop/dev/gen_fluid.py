@@ -136,21 +136,40 @@ def build_conductivity(cond, has_viscosity):
         return None
     return "ConductivityModel {{ dilute: {}, residual: {} }}".format(dilute, residual)
 
+# Fluids whose viscosity AND conductivity are hardcoded and implemented here.
+HARDCODED_TRANSPORT = {"Helium": "HardcodedTransport::Helium"}
+
+def hardcoded_transport(tr):
+    """The `HardcodedTransport::…` variant for a fluid, or None."""
+    v, c = tr.get("viscosity"), tr.get("conductivity")
+    vh = v.get("hardcoded") if isinstance(v, dict) else None
+    ch = c.get("hardcoded") if isinstance(c, dict) else None
+    if vh and vh == ch and vh in HARDCODED_TRANSPORT:
+        return HARDCODED_TRANSPORT[vh]
+    return None
+
 def build_transport(d, const_name):
-    """A `<NAME>_TRANSPORT` const, or None if neither property is supported."""
+    """A `<NAME>_TRANSPORT` const, or None if nothing is supported."""
     tr = d.get("TRANSPORT", {}) or {}
-    visc = build_viscosity(tr.get("viscosity"))
-    cond = build_conductivity(tr.get("conductivity"), visc is not None)
-    if visc is None and cond is None:
+    hc = hardcoded_transport(tr)
+    if hc:
+        # A hardcoded formula supplies both μ and λ; skip the correlation fields.
+        visc = cond = None
+    else:
+        visc = build_viscosity(tr.get("viscosity"))
+        cond = build_conductivity(tr.get("conductivity"), visc is not None)
+    if visc is None and cond is None and hc is None:
         return None
     v = "Some({})".format(visc) if visc else "None"
     c = "Some({})".format(cond) if cond else "None"
+    h = "Some({})".format(hc) if hc else "None"
     return "\n".join([
         "/// Transport models (CoolProp): dynamic viscosity and/or thermal",
         "/// conductivity (critical enhancement omitted; see `crate::transport`).",
         "pub static {}_TRANSPORT: FluidTransport = FluidTransport {{".format(const_name),
         "    viscosity: {},".format(v),
         "    conductivity: {},".format(c),
+        "    hardcoded: {},".format(h),
         "};",
     ])
 
@@ -279,6 +298,8 @@ def main():
             ttypes += ["ViscosityInitial"]
         if "ConductivityModel" in trans_block:
             ttypes += ["ConductivityModel", "ConductivityDilute", "ConductivityResidual"]
+        if "HardcodedTransport" in trans_block:
+            ttypes += ["HardcodedTransport"]
         out.append("use crate::transport::{{{}}};".format(", ".join(ttypes)))
     out.append("")
     out.append("/// {} Helmholtz equation of state (from CoolProp).".format(fluid))

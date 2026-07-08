@@ -51,6 +51,19 @@ fn transport_dilute_gases_vs_nist() {
 }
 
 #[test]
+fn transport_helium_hardcoded_vs_literature() {
+    // Helium uses CoolProp's hardcoded (Arp/Hands) formula, not the generic
+    // correlations. At 300 K, ~1 atm: μ≈19.9 µPa·s, λ≈0.152 W/m/K.
+    let mu = viscosity(Fluid::Helium, 300.0, 0.16035).unwrap();
+    let la = conductivity(Fluid::Helium, 300.0, 0.16035).unwrap();
+    assert!(rel(mu, 19.9e-6) < 0.02, "He μ = {mu:.4e} (lit 1.99e-5)");
+    assert!(rel(la, 0.152) < 0.05, "He λ = {la:.4e} (lit 0.152)");
+    // 400 K
+    let mu = viscosity(Fluid::Helium, 400.0, 0.1203).unwrap();
+    assert!(rel(mu, 24.3e-6) < 0.02, "He μ(400) = {mu:.4e} (lit 2.43e-5)");
+}
+
+#[test]
 fn transport_is_positive_where_available() {
     // Every fluid with a model must give a finite, positive value at a benign
     // supercritical-ish state (no NaN from a bad transcription).
@@ -127,10 +140,11 @@ fn two_phase_cv_from_ph_midpoint() {
 
 #[test]
 fn coverage_counts() {
-    let n_visc = Fluid::ALL.iter().filter(|f| f.transport().is_some_and(|t| t.viscosity.is_some())).count();
-    let n_cond = Fluid::ALL.iter().filter(|f| f.transport().is_some_and(|t| t.conductivity.is_some())).count();
+    // Count fluids that yield a usable μ / λ (correlation or hardcoded).
+    let n_visc = Fluid::ALL.iter().filter(|f| viscosity(**f, 1.3 * f.eos().t_critical, 1.0).is_some()).count();
+    let n_cond = Fluid::ALL.iter().filter(|f| conductivity(**f, 1.3 * f.eos().t_critical, 1.0).is_some()).count();
     let n_anc = Fluid::ALL.iter().filter(|f| f.ancillaries().is_some()).count();
-    assert!(n_visc >= 20, "viscosity coverage regressed: {n_visc}");
-    assert!(n_cond >= 38, "conductivity coverage regressed: {n_cond}");
+    assert!(n_visc >= 21, "viscosity coverage regressed: {n_visc}"); // 20 correlation + Helium
+    assert!(n_cond >= 39, "conductivity coverage regressed: {n_cond}"); // 38 + Helium
     assert!(n_anc >= 131, "ancillary coverage regressed: {n_anc}");
 }

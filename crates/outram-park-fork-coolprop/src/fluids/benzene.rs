@@ -47,5 +47,6 @@ pub static BENZENE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static BENZENE_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 562.02, a: &[0.101404, -0.52144, 0.868266], n: &[0.0, 1.0, 2.0], b: &[1.0, 9.714, 1.467], m: &[0.0, 1.0, 2.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 562.02, rhomass_reducing: 304.7922436, b: &[0.0282489, -0.0119268, -0.0773415, 0.0833389, 0.0714001, -0.0898176, -0.0236798, 0.0363025, 0.00300875, -0.00490052], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
+    hardcoded: None,
 };
 

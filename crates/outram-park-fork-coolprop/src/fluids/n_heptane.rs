@@ -48,5 +48,6 @@ pub static N_HEPTANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static N_HEPTANE_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 540.13, a: &[-0.00183367, 0.0162572, -0.0390996, 0.0478594, 0.0151925, -0.00339115], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], b: &[0.250611, -0.320871, 1.0], m: &[0.0, 1.0, 2.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 540.13, rhomass_reducing: 232.0, b: &[0.0517785, -0.00772433, -0.0924052, 0.0218899, 0.0511484, 0.00171725, -0.00776896, -0.00791642, 0.000121637, 0.00183379], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
+    hardcoded: None,
 };
 

@@ -46,5 +46,6 @@ pub static R125_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static R125_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 339.173, a: &[-0.0046082, 0.0168688, 0.00488345], n: &[0.0, 1.0, 2.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 339.173, rhomass_reducing: 573.5822706, b: &[-0.0072941, 0.01105, 0.041634, -0.028924, -0.031149, 0.0278399, 0.0112682, -0.01211, -0.00138322, 0.00211196], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
+    hardcoded: None,
 };
 

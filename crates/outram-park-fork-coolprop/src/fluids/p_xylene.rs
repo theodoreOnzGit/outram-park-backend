@@ -46,5 +46,6 @@ pub static P_XYLENE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static P_XYLENE_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 616.168, a: &[-0.00388568, 0.0294648, -0.0815299, 0.07715340000000001, 0.00755487, -0.0038897, 0.00040689199999999995], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0], b: &[0.00404188, -0.424893, 1.0], m: &[0.0, 1.0, 2.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 616.168, rhomass_reducing: 286.0, b: &[-0.101022, 0.107531, 0.224828, -0.205499, -0.1591, 0.150348, 0.049949, -0.0502584, -0.00562422, 0.00644051], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
+    hardcoded: None,
 };
 

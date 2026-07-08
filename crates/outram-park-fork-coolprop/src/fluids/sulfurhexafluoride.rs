@@ -47,5 +47,6 @@ pub static SULFURHEXAFLUORIDE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static SULFURHEXAFLUORIDE_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 1.0, a: &[1461.86, -18.5394, 0.0777891, 2.41059e-05], n: &[0.0, 1.0, 2.0, 3.0], b: &[29661.7, 505.67, 1.0], m: &[0.0, 1.0, 2.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 318.7232, rhomass_reducing: 742.297, b: &[-0.0283746, 0.0352768, 0.0207472, -0.0433053, -0.0055718, 0.0512084, 0.0053289, -0.0290262, -0.00161688, 0.00598438], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
+    hardcoded: None,
 };
 

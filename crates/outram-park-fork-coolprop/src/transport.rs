@@ -154,12 +154,85 @@ pub struct ConductivityModel {
     pub residual: ConductivityResidual,
 }
 
-/// The transport models a fluid carries. Either may be `None` (hardcoded or
-/// unimplemented model type, or the fluid ships no transport data).
+/// A fluid-specific **hardcoded** transport formulation (CoolProp implements
+/// these as one-off functions rather than the generic dilute+residual models).
+/// When present it supplies **both** `μ` and `λ`, overriding the correlation
+/// fields.
+#[derive(Debug, Clone, Copy)]
+pub enum HardcodedTransport {
+    /// Helium-4 (Arp–McCarty–Friend viscosity, NIST TN-1334; Hands & Arp
+    /// conductivity). The near-critical conductivity enhancement `λ_c`
+    /// (3.5–12 K) is omitted, consistent with the rest of this crate.
+    Helium,
+}
+
+impl HardcodedTransport {
+    /// Dynamic viscosity \[Pa·s\] at temperature `t` \[K\] and mass density
+    /// `rho` \[kg/m³\].
+    fn viscosity(&self, t: f64, rho: f64) -> f64 {
+        match self {
+            HardcodedTransport::Helium => helium_viscosity(t, rho),
+        }
+    }
+    /// Thermal conductivity \[W/(m·K)\] at `(T, ρ)` (dilute + excess; the
+    /// near-critical term is omitted).
+    fn conductivity(&self, t: f64, rho: f64) -> f64 {
+        match self {
+            HardcodedTransport::Helium => helium_conductivity(t, rho),
+        }
+    }
+}
+
+/// Helium-4 viscosity \[Pa·s\] (Arp, McCarty & Friend, NIST TN-1334, 1998 —
+/// CoolProp `viscosity_helium_hardcoded`).
+fn helium_viscosity(t: f64, rho_mass: f64) -> f64 {
+    let rho = rho_mass / 1000.0; // g/cm³
+    let x = if t <= 300.0 { t.ln() } else { 300.0_f64.ln() };
+    let b = -47.5295259 / x + 87.6799309 - 42.0741589 * x + 8.33128289 * x * x - 0.589252385 * x * x * x;
+    let c = 547.309267 / x - 904.870586 + 431.404928 * x - 81.4504854 * x * x + 5.37008433 * x * x * x;
+    let d = -1684.39324 / x + 3331.08630 - 1632.19172 * x + 308.804413 * x * x - 20.2936367 * x * x * x;
+    let eta_0_slash =
+        -0.135311743 / x + 1.00347841 + 1.20654649 * x - 0.149564551 * x * x + 0.012520841 * x * x * x;
+    let eta_e_slash = rho * b + rho * rho * c + rho * rho * rho * d;
+    let ln_eta = eta_0_slash + eta_e_slash;
+    // Correlation is in µg/(cm·s): /10 → µPa·s, /1e6 → Pa·s.
+    if t <= 100.0 {
+        ln_eta.exp() / 10.0 / 1e6
+    } else {
+        let eta_0 = 196.0 * t.powf(0.71938) * (12.451 / t - 295.67 / t / t - 4.1249).exp();
+        (ln_eta.exp() + eta_0 - eta_0_slash.exp()) / 10.0 / 1e6
+    }
+}
+
+/// Helium-4 thermal conductivity \[W/(m·K)\] (Hands & Arp — CoolProp
+/// `conductivity_hardcoded_helium`), dilute `λ₀` + excess `λ_e`; the
+/// near-critical `λ_c` (3.5–12 K) is omitted.
+fn helium_conductivity(t: f64, rho: f64) -> f64 {
+    let rhoc = 68.0;
+    let summer = 3.739232544 / t - 2.620316969e1 / t / t + 5.982252246e1 / t / t / t
+        - 4.926397634e1 / t / t / t / t;
+    let lambda_0 = 2.787_003_4e-3 * t.powf(7.034007057e-1) * summer.exp();
+    let c = [
+        1.862970530e-4, -7.275964435e-7, -1.427549651e-4, 3.290833592e-5, -5.213335363e-8,
+        4.492659933e-8, -5.924416513e-9, 7.087321137e-6, -6.013335678e-6, 8.067145814e-7,
+        3.995125013e-7,
+    ];
+    let t13 = t.powf(1.0 / 3.0);
+    let t23 = t.powf(2.0 / 3.0);
+    let lambda_e = (c[0] + c[1] * t + c[2] * t13 + c[3] * t23) * rho
+        + (c[4] + c[5] * t13 + c[6] * t23) * rho * rho * rho
+        + (c[7] + c[8] * t13 + c[9] * t23 + c[10] / t) * rho * rho * (rho / rhoc).ln();
+    lambda_0 + lambda_e
+}
+
+/// The transport models a fluid carries. The correlation fields may each be
+/// `None` (unimplemented model or no data); a `Some(hardcoded)` supersedes them
+/// with a fluid-specific formula for **both** `μ` and `λ`.
 #[derive(Debug, Clone, Copy)]
 pub struct FluidTransport {
     pub viscosity: Option<ViscosityModel>,
     pub conductivity: Option<ConductivityModel>,
+    pub hardcoded: Option<HardcodedTransport>,
 }
 
 impl ViscosityDilute {
@@ -297,8 +370,11 @@ impl ConductivityModel {
 /// density `rho` \[kg/m³\], or [`None`] if the fluid has no supported viscosity
 /// model. Critical enhancement is omitted (see module docs).
 pub fn viscosity(fluid: Fluid, t: f64, rho: f64) -> Option<f64> {
-    let model = fluid.transport()?.viscosity?;
-    let mu = model.eval(t, rho, fluid.eos().molar_mass);
+    let transport = fluid.transport()?;
+    let mu = match transport.hardcoded {
+        Some(hc) => hc.viscosity(t, rho),
+        None => transport.viscosity?.eval(t, rho, fluid.eos().molar_mass),
+    };
     (mu.is_finite() && mu > 0.0).then_some(mu)
 }
 
@@ -307,9 +383,14 @@ pub fn viscosity(fluid: Fluid, t: f64, rho: f64) -> Option<f64> {
 /// omitted (see module docs).
 pub fn conductivity(fluid: Fluid, t: f64, rho: f64) -> Option<f64> {
     let transport = fluid.transport()?;
-    let model = transport.conductivity?;
-    // The eta0_and_poly dilute model needs the dilute viscosity.
-    let dilute_visc = transport.viscosity.map(|v| v.dilute.eval(t));
-    let lambda = model.eval(fluid, t, rho, dilute_visc)?;
+    let lambda = match transport.hardcoded {
+        Some(hc) => hc.conductivity(t, rho),
+        None => {
+            let model = transport.conductivity?;
+            // The eta0_and_poly dilute model needs the dilute viscosity.
+            let dilute_visc = transport.viscosity.map(|v| v.dilute.eval(t));
+            model.eval(fluid, t, rho, dilute_visc)?
+        }
+    };
     (lambda.is_finite() && lambda > 0.0).then_some(lambda)
 }

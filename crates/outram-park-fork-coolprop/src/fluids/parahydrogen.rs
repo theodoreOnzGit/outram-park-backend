@@ -46,5 +46,6 @@ pub static PARAHYDROGEN_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static PARAHYDROGEN_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 32.938, a: &[-1.245, 310.212, -331.004, 246.016, -65.781, 10.826, -0.519659, 0.0143979], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0], b: &[14230.4, -19392.2, 15837.9, -4818.12, 728.639, -35.7365, 1.0], m: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 32.938, rhomass_reducing: 31.32274344, b: &[0.0265975, -0.00133826, 0.0130219, -0.00567678, -9.2338e-05, -0.00121727, 0.00366663, 0.00388715, -0.00921055, 0.00400723], t: &[0.0, 0.0, 0.0, 0.0, 0.0, -1.0, -1.0, -1.0, -1.0, -1.0], d: &[1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0] } }),
+    hardcoded: None,
 };
 

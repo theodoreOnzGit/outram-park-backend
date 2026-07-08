@@ -45,5 +45,6 @@ pub static ISOPENTANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static ISOPENTANE_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 460.35, a: &[0.000773049, -0.0159754, 0.218987, -0.329556, 0.281075, 0.053326], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], b: &[5.10467, -8.12044, 8.11607, -0.294969, 1.0], m: &[0.0, 1.0, 2.0, 3.0, 4.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 460.35, rhomass_reducing: 236.0, b: &[-0.0117507, 0.00514003, -0.0161346, 0.0558445, 0.0527254, -0.0951474, -0.027494, 0.0475268, 0.00454817, -0.00729296], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
+    hardcoded: None,
 };
 

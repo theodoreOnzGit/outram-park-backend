@@ -45,5 +45,6 @@ pub static TOLUENE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static TOLUENE_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 1.0, a: &[0.0058808, -6.1693e-05, 3.4151e-07, -3.042e-10, 1.2868e-13, -2.1303e-17], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 591.75, rhomass_reducing: 291.992, b: &[-0.051853, 0.0517449, 0.133846, -0.121902, -0.120446, 0.137748, 0.0530211, -0.0732792, -0.0100604, 0.0172914, 0.000633457, -0.00138585], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0, 6.0, 6.0] } }),
+    hardcoded: None,
 };
 

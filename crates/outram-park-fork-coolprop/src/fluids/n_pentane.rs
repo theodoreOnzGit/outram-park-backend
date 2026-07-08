@@ -46,5 +46,6 @@ pub static N_PENTANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static N_PENTANE_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 469.7, a: &[-0.00396685, 0.0353805, 0.00511554, -0.108585, 0.179573, 0.0392128], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], b: &[2.71636, -5.76265, 6.77885, -0.59135, 1.0], m: &[0.0, 1.0, 2.0, 3.0, 4.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 469.7, rhomass_reducing: 232.0, b: &[0.000776054, 0.00797696, 0.117655, -0.0785888, -0.133101, 0.0916089, 0.0534026, -0.0370431, -0.0068793, 0.0050962], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
+    hardcoded: None,
 };
 

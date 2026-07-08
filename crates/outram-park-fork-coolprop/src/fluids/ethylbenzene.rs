@@ -46,5 +46,6 @@ pub static ETHYLBENZENE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static ETHYLBENZENE_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
     conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 617.12, a: &[-0.00110708, 0.0108026, -0.0289015, 0.0419227, 0.0209133, -0.00401492], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], b: &[0.259475, -0.343879, 1.0], m: &[0.0, 1.0, 2.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 617.12, rhomass_reducing: 291.0, b: &[-0.0497837, 0.0663073, 0.106739, -0.146279, -0.0685137, 0.12143899999999999, 0.0226133, -0.0462245, -0.0027945500000000002, 0.00658554], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
+    hardcoded: None,
 };
 

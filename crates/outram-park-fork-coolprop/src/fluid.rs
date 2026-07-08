@@ -723,7 +723,7 @@ impl Fluid {
     }
 
     /// Transport models (viscosity/conductivity), if this fluid has a
-    /// supported model (39 of 137 do; the rest are hardcoded or
+    /// supported model (40 of 137 do; the rest are hardcoded or
     /// unimplemented — see `crate::transport`).
     pub fn transport(self) -> Option<&'static FluidTransport> {
         match self {
@@ -735,6 +735,7 @@ impl Fluid {
             Fluid::DimethylEther => Some(&fluids::dimethylether::DIMETHYLETHER_TRANSPORT),
             Fluid::Ethanol => Some(&fluids::ethanol::ETHANOL_TRANSPORT),
             Fluid::EthylBenzene => Some(&fluids::ethylbenzene::ETHYLBENZENE_TRANSPORT),
+            Fluid::Helium => Some(&fluids::helium::HELIUM_TRANSPORT),
             Fluid::Hydrogen => Some(&fluids::hydrogen::HYDROGEN_TRANSPORT),
             Fluid::IsoButane => Some(&fluids::isobutane::ISOBUTANE_TRANSPORT),
             Fluid::Isopentane => Some(&fluids::isopentane::ISOPENTANE_TRANSPORT),
