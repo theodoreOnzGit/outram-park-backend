@@ -9,10 +9,14 @@ homepage.workspace = true
 categories.workspace = true
 publish = false
 
-# No runtime dependencies: fluid data is hardcoded Rust (see src/fluids/), the
-# Helmholtz EOS engine is pure `std`, and there is no JSON/file reading at
-# runtime. This also keeps the crate buildable on Android (no BLAS / C deps).
+# The Helmholtz EOS engine and fluid data are pure `std` (hardcoded Rust, no
+# runtime JSON). `uom` is the only runtime dependency — it types the
+# `OPCPFluidSingleCV` control-volume API and the vendored `openfoam_algorithms`
+# finite-volume layer. Both `uom` and those primitives are pure Rust (no BLAS /
+# C / ndarray, and no `openfoam-basic-lib` dependency — the primitives are
+# copied in as source), so the crate still builds on Android.
 [dependencies]
+uom.workspace = true
 
 [dev-dependencies]
 approx.workspace = true

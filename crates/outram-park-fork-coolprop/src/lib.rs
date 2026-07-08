@@ -13,22 +13,28 @@
 //!   `reference/` for development only). A few KB per fluid.
 //! - **Pure `std`, no BLAS / C deps** — so it builds on Android too.
 //!
-//! ## Status (initial port)
+//! ## Status
 //!
-//! First vertical slice: the Helmholtz EOS engine (residual **Power** +
-//! **Gaussian** terms and the **Lead / LogTau / Planck–Einstein** ideal-gas
-//! terms) and `(T, ρ)` property evaluation ([`props::state_trho`]), verified
-//! for **Water** away from the critical point. Known gaps, each a tracked
-//! follow-up (bead op-kbc):
+//! - **Engine** ([`eos`]): every Helmholtz term form CoolProp's fluids use
+//!   (residual Power / Gaussian / Exponential / DoubleExponential / GaoB, ideal
+//!   Lead / LogTau / Planck–Einstein(+Generalized) / Power / CP0*), with all
+//!   first/second `δ`,`τ` derivatives.
+//! - **Fluids** ([`fluid::Fluid`]): all 137 CoolProp pure fluids, hardcoded and
+//!   wired into the enum (`Fluid::ALL`).
+//! - **Properties**: `(T, ρ)` native ([`props::state_trho`]) plus single-phase
+//!   `(p, T)` / `(p, h)` / `(p, s)` flashes ([`flash`]).
+//! - **Control volume** ([`single_cv::OPCPFluidSingleCV`]): a `uom`-typed 0-D
+//!   equilibrium lump of one fluid — the CoolProp analogue of
+//!   `tampines-steam-tables`' `TampinesSteamTableCV`.
+//! - **Transient flow** ([`openfoam_algorithms`]): a vendored pure-Rust
+//!   OpenFOAM finite-volume layer + 1-D compressible solvers (no
+//!   `openfoam-basic-lib` dependency), to be driven by this crate's EOS.
 //!
-//! - The **non-analytic** critical-region terms are carried in the fluid data
-//!   but not yet evaluated, so accuracy within ~1 % of the critical point is
-//!   degraded (a no-op, not a wrong number, everywhere else).
-//! - Only `(T, ρ)` inputs; the `(T, p)` / `(p, h)` … flashes need a density
-//!   solve (not yet ported).
-//! - Only `Water` so far; more fluids via `dev/gen_fluid.py`.
-//! - Verification against `rfluids` (CoolProp oracle) as a dev-dependency, and
-//!   a `uom`-typed public API, are planned.
+//! Known gaps (tracked, bead op-kbc): the **non-analytic** critical-region terms
+//! are carried but not yet evaluated (accuracy degraded within ~1 % of Tc, a
+//! no-op elsewhere); there is **no saturation/VLE** solver yet, so the flashes
+//! and the CV are **single-phase only** (no two-phase quality); `rfluids`
+//! oracle verification is planned.
 //!
 //! ## Example
 //!
@@ -46,10 +52,20 @@
 //! phase-stable flash.)
 
 pub mod eos;
+pub mod flash;
 pub mod fluid;
 pub mod fluids;
 pub mod props;
+pub mod single_cv;
+
+/// Vendored pure-Rust OpenFOAM finite-volume layer + 1-D compressible solvers,
+/// copied from `tampines-steam-tables` (no `openfoam-basic-lib` dependency).
+/// The transient-flow backbone whose thermo plug-in point is backed by this
+/// crate's CoolProp EOS. See its module `CLAUDE.md` for provenance.
+pub mod openfoam_algorithms;
 
 pub use eos::{FluidEos, HelmholtzDerivs, IdealTerm, ResidualTerm};
+pub use flash::{state_ph, state_ps, state_pt, density_pt, FlashError};
 pub use fluid::Fluid;
 pub use props::{state_trho, pressure_trho, FluidState};
+pub use single_cv::OPCPFluidSingleCV;

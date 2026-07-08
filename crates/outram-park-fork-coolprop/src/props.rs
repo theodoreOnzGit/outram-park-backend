@@ -18,7 +18,7 @@ use crate::eos::FluidEos;
 use crate::fluid::Fluid;
 
 /// A fully-evaluated single-phase thermodynamic state. Mass-based SI units.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FluidState {
     /// Temperature \[K\].
     pub temperature: f64,
