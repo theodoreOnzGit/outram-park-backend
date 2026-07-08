@@ -1,0 +1,3 @@
+# Upstream CoolProp reference clone — present for development, never committed.
+# Cloned with: git clone --depth 1 https://github.com/CoolProp/CoolProp.git reference/CoolProp
+/reference/

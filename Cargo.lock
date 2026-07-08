@@ -3478,6 +3478,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "outram-park-fork-coolprop"
+version = "0.0.1"
+dependencies = [
+ "approx",
+]
+
+[[package]]
 name = "parking"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

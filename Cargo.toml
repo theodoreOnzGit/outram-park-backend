@@ -13,6 +13,7 @@ members = [
     "crates/boon-lay",
     "crates/njoy-outram-park-fork",
     "crates/nee_soon",
+    "crates/outram-park-fork-coolprop",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
