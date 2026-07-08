@@ -135,6 +135,17 @@ pub fn state_pt(fluid: Fluid, t: f64, p: f64) -> Result<FluidState, FlashError> 
     Ok(state_trho(fluid, t, rho))
 }
 
+/// Isothermal compressibility `ψ = (∂ρ/∂p)_T` \[s²/m²\] at temperature `t`
+/// \[K\] and mass density `rho` \[kg/m³\] — the reciprocal of `(∂p/∂ρ)_T`.
+///
+/// This is the field OpenFOAM's compressible solvers call `psi` (from
+/// `ρ = ψ·p`): the compressibility that closes the pressure equation. It is the
+/// EOS-consistent replacement for the placeholder `ρ/p`.
+pub fn drho_dp_t(fluid: Fluid, t: f64, rho: f64) -> f64 {
+    let (_, dpdrho) = pressure_and_dpdrho(fluid, t, rho);
+    1.0 / dpdrho
+}
+
 /// Full single-phase state from pressure `p` \[Pa\] and specific enthalpy `h`
 /// \[J/kg\]. Outer Newton on `T` (`ΔT = -(h - h_tgt)/c_p`).
 pub fn state_ph(fluid: Fluid, p: f64, h: f64) -> Result<FluidState, FlashError> {

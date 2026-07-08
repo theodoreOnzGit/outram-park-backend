@@ -67,5 +67,6 @@ pub mod openfoam_algorithms;
 pub use eos::{FluidEos, HelmholtzDerivs, IdealTerm, ResidualTerm};
 pub use flash::{state_ph, state_ps, state_pt, density_pt, FlashError};
 pub use fluid::Fluid;
+pub use openfoam_algorithms::rhoPimpleFoam::OPCPFluidArray;
 pub use props::{state_trho, pressure_trho, FluidState};
 pub use single_cv::OPCPFluidSingleCV;

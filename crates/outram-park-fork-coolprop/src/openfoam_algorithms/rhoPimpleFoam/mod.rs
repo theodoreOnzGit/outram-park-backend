@@ -208,6 +208,8 @@ use uom::si::f64::{Area, Length, Time};
 use uom::si::time::second;
 use crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh;
 use crate::openfoam_algorithms::openfoam_source::*;
+use crate::fluid::Fluid;
+use crate::flash;
 
 // ── Boundary-condition helpers ──────────────────────────────────────────────────
 //
@@ -245,22 +247,23 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
     }
 }
 
-/// One-dimensional compressible PIMPLE pipe array driven by the TAMPINES steam
-/// tables.
+/// One-dimensional compressible PIMPLE pipe array driven by the **CoolProp
+/// Helmholtz EOS** (this crate's [`crate::Fluid`] / [`crate::flash`]).
 ///
-/// This is the tampines-steam-tables analogue of `openfoam-appbuilder-lib`'s
+/// This is the CoolProp-fork analogue of `openfoam-appbuilder-lib`'s
 /// `RhoPimpleFoam`, specialised to a **1-D pipe**: the mesh is built
 /// automatically from a length, a cross-sectional area, and a cell count via
 /// [`create_one_d_mesh`], instead of being read from an OpenFOAM `polyMesh`
-/// directory. It is intended as the transient-flow backbone for coupling the
-/// IAPWS-IF97 steam properties into a system-code-style pipe network.
+/// directory. It is the field-based (1-D array) counterpart of the 0-D
+/// [`crate::OPCPFluidSingleCV`], and the transient-flow backbone for coupling
+/// CoolProp fluid properties into a system-code-style pipe network.
 ///
 /// It solves the same compressible PIMPLE system as `RhoPimpleFoam`:
 /// ```text
 ///   ∂ρ/∂t   + ∇·(ρU)    = 0            (continuity, explicit rhoEqn)
 ///   ∂(ρU)/∂t + ∇·(ρUU)  = −∇p + ∇·τ    (momentum, UEqn)
 ///   ∂(ρh)/∂t + ∇·(ρUh)  = dp/dt        (energy, h-form, EEqn)
-///   ρ = ψ·p                             (EOS — see `correct_thermo`)
+///   ρ = ρ(p, h),  ψ = (∂ρ/∂p)_T        (EOS — see `correct_thermo`)
 /// ```
 ///
 /// ## What differs from `RhoPimpleFoam`
@@ -269,13 +272,18 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
 /// - **Control**: a few plain fields (`delta_t`, corrector counts) replace the
 ///   `ControlDict` / `FvSchemes` / `FvSolution` dictionaries — this crate does
 ///   not consume OpenFOAM case files.
-/// - **Thermophysics**: the placeholder `ρ = ψ·p` EOS in [`Self::correct_thermo`]
-///   is the intended plug-in point for the TAMPINES steam tables (see the
-///   `EEqn.rs` / `rhoEqn.rs` / `pEqn.rs` reference files in this module).
+/// - **Thermophysics**: [`Self::correct_thermo`] does a per-cell single-phase
+///   `(p, h)` flash on the stored [`fluid`](Self::fluid) via [`crate::flash`],
+///   updating `ρ`, `T` and the compressibility `ψ = (∂ρ/∂p)_T` from the CoolProp
+///   Helmholtz EOS (replacing the old placeholder `ρ = ψ·p`). Transport (`μ`,
+///   `αh`) is *not* yet from the EOS — CoolProp transport properties are a
+///   follow-up (bead op-kbc) — so those fields keep their initial values.
 ///
 /// C++ reference: `applications/solvers/compressible/rhoPimpleFoam/`.
 #[derive(Clone)]
-pub struct TampinesSteamArray {
+pub struct OPCPFluidArray {
+    /// The working fluid whose CoolProp Helmholtz EOS closes the thermo update.
+    pub fluid: Fluid,
     /// 1-D finite-volume mesh (built by [`create_one_d_mesh`]).
     pub mesh: Arc<FvMesh>,
 
@@ -302,26 +310,32 @@ pub struct TampinesSteamArray {
     pub mu: VolScalarField,
     /// Effective thermal diffusivity αh = κ/Cp [kg/(m·s)].
     pub alpha_h: VolScalarField,
-    /// Compressibility ψ = ∂ρ/∂p|_T = ρ/p [s²/m²].
+    /// Compressibility ψ = (∂ρ/∂p)_T [s²/m²], from the EOS in `correct_thermo`.
     pub psi: VolScalarField,
     /// Mass flux φ = ρ U·Sf [kg/s].
     pub phi: SurfaceScalarField,
 }
 
-impl TampinesSteamArray {
-    /// Build a 1-D pipe array with uniform initial conditions.
+impl OPCPFluidArray {
+    /// Build a 1-D pipe array of `fluid` with uniform initial conditions.
     ///
     /// The mesh spans x ∈ \[0, `length`\] with `number_of_cells` equal cells and
     /// constant cross-sectional area `xs_area`. Both end patches (`"left"`,
     /// `"right"`) are generic; set field boundary conditions afterwards to impose
     /// inlets/outlets.
     ///
-    /// Fields are initialised to standard sea-level-air-like placeholders
-    /// (p = 1 bar, T = 300 K, ρ = 1 kg/m³, ψ = 1e-5 s²/m²); overwrite them after
-    /// construction for a specific case (e.g. saturated water/steam from the
-    /// IAPWS-IF97 tables).
+    /// Fields are initialised to a **single-phase reference state at p = 1 bar,
+    /// T = 300 K**, with `ρ`, the specific enthalpy `h` and the compressibility
+    /// `ψ = (∂ρ/∂p)_T` taken from `fluid`'s CoolProp Helmholtz EOS (so the first
+    /// `correct_thermo` `(p, h)` flash is well-posed). If that reference `(p, T)`
+    /// is not single-phase for `fluid` (e.g. a liquid, which the single-phase
+    /// solver cannot reach), it falls back to inert placeholders
+    /// (ρ = 1 kg/m³, h = 0, ψ = 1e-5 s²/m²); overwrite the fields after
+    /// construction for a specific case. Transport (`μ`, `αh`) is always a
+    /// placeholder (CoolProp transport properties are a follow-up).
     ///
     /// ## Parameters
+    /// - `fluid`           — working fluid (its EOS closes the thermo update)
     /// - `length`          — total pipe length \[m\]
     /// - `xs_area`         — constant cross-sectional area \[m²\]
     /// - `number_of_cells` — number of cells; must be ≥ 1
@@ -331,6 +345,7 @@ impl TampinesSteamArray {
     /// Returns [`MeshError::NonPositiveCellCount`] if `number_of_cells < 1`
     /// (propagated from [`create_one_d_mesh`]).
     pub fn new(
+        fluid: Fluid,
         length: Length,
         xs_area: Area,
         number_of_cells: i64,
@@ -338,17 +353,26 @@ impl TampinesSteamArray {
     ) -> Result<Self, MeshError> {
         let mesh = Arc::new(create_one_d_mesh(length, xs_area, number_of_cells)?);
 
+        // EOS-consistent reference state at (1 bar, 300 K), with a placeholder
+        // fallback if that point is not single-phase for this fluid.
+        let (p0, t0) = (1.0e5_f64, 300.0_f64);
+        let (rho0, he0, psi0) = match flash::state_pt(fluid, t0, p0) {
+            Ok(s) => (s.density, s.enthalpy, flash::drho_dp_t(fluid, t0, s.density)),
+            Err(_) => (1.0, 0.0, 1.0e-5),
+        };
+
         let u       = VolVectorField::zero("U", mesh.clone());
-        let p       = VolScalarField::uniform("p", mesh.clone(), 1.0e5);
-        let rho     = VolScalarField::uniform("rho", mesh.clone(), 1.0);
-        let t       = VolScalarField::uniform("T", mesh.clone(), 300.0);
-        let he      = VolScalarField::zeros("he", mesh.clone());
+        let p       = VolScalarField::uniform("p", mesh.clone(), p0);
+        let rho     = VolScalarField::uniform("rho", mesh.clone(), rho0);
+        let t       = VolScalarField::uniform("T", mesh.clone(), t0);
+        let he      = VolScalarField::uniform("he", mesh.clone(), he0);
         let mu      = VolScalarField::uniform("mu", mesh.clone(), 1.8e-5);
         let alpha_h = VolScalarField::uniform("alphaEff", mesh.clone(), 2.5e-5);
-        let psi     = VolScalarField::uniform("psi", mesh.clone(), 1.0e-5);
+        let psi     = VolScalarField::uniform("psi", mesh.clone(), psi0);
         let phi     = SurfaceScalarField::zeros("phi", mesh.clone());
 
         Ok(Self {
+            fluid,
             mesh,
             delta_t,
             n_outer_correctors: 1,
@@ -365,20 +389,30 @@ impl TampinesSteamArray {
         })
     }
 
-    /// Update the thermodynamic state from the current pressure.
+    /// Update the thermodynamic state from the current pressure and enthalpy,
+    /// using the fluid's **CoolProp Helmholtz EOS**.
     ///
-    /// **Extension point for the TAMPINES steam tables.** The current
-    /// implementation is the same placeholder EOS as `RhoPimpleFoam` — the ideal
-    /// linearisation ρ = ψ·p (clamped to a small floor). Replace the body with an
-    /// IAPWS-IF97 flash: given (p, h) per cell, look up ρ, T, μ, αh and the local
-    /// compressibility ψ = ∂ρ/∂p|_T, writing them back into the respective
-    /// fields. See `rhoEqn.rs` (continuity) and `EEqn.rs` (energy) for the
-    /// OpenFOAM reference each field maps to.
+    /// For each cell this does a single-phase `(p, h)` flash ([`crate::flash`]):
+    /// given the cell pressure `p` and specific enthalpy `he`, it looks up the
+    /// density `ρ`, temperature `T` and compressibility `ψ = (∂ρ/∂p)_T`, writing
+    /// them back into the `rho`, `t` and `psi` fields (`ψ` closes the pressure
+    /// equation — see `pEqn`). This replaces the old placeholder `ρ = ψ·p`.
+    ///
+    /// If a cell's `(p, h)` does not converge to a single-phase state (e.g. it
+    /// falls in the two-phase dome, which CoolProp does not yet model), that
+    /// cell's `ρ`/`T`/`ψ` are **left at their previous values** rather than set
+    /// to a wrong number — so the solve stays finite. Transport (`μ`, `αh`) is
+    /// not updated here (CoolProp transport properties are a follow-up).
     pub fn correct_thermo(&mut self) {
-        let psi_sl = self.psi.internal.as_slice();
-        let p_sl   = self.p.internal.as_slice();
         for c in 0..self.mesh.n_cells {
-            self.rho.internal[c] = (psi_sl[c] * p_sl[c]).max(1e-4);
+            let p_c = self.p.internal[c];
+            let h_c = self.he.internal[c];
+            if let Ok(state) = flash::state_ph(self.fluid, p_c, h_c) {
+                self.rho.internal[c] = state.density.max(1e-4);
+                self.t.internal[c] = state.temperature;
+                self.psi.internal[c] = flash::drho_dp_t(self.fluid, state.temperature, state.density).max(1e-12);
+            }
+            // else: keep the previous ρ/T/ψ for this cell (finite, safe).
         }
     }
 
@@ -574,13 +608,16 @@ mod tests {
     use uom::si::length::meter;
     use uom::si::time::second;
 
-    /// The 1-D pipe array constructs from geometry alone and stays finite over a
-    /// handful of steps with the placeholder EOS. This is the scaffold smoke test:
-    /// it exercises mesh construction + the full ρ/p/U/h coupling, not physical
-    /// accuracy (which arrives with the steam-table `correct_thermo`).
+    /// The 1-D pipe array constructs and stays finite over a handful of steps
+    /// with the CoolProp-EOS `correct_thermo`. Nitrogen at the (1 bar, 300 K)
+    /// reference state is a clean single-phase gas, so the per-cell `(p, h)`
+    /// flash converges and the real EOS thermo path is exercised (not just the
+    /// fallback). This is a smoke test — full ρ/p/U/h coupling + mesh, not
+    /// physical accuracy.
     #[test]
     fn one_d_array_constructs_and_steps() {
-        let mut array = TampinesSteamArray::new(
+        let mut array = OPCPFluidArray::new(
+            Fluid::Nitrogen,
             Length::new::<meter>(1.0),
             Area::new::<square_meter>(0.01),
             20,
@@ -591,17 +628,29 @@ mod tests {
         assert_eq!(array.mesh.n_cells, 20);
         assert_eq!(array.mesh.n_internal_faces, 19);
 
+        // The EOS path is live (not the placeholder fallback): initial ρ and h
+        // match Nitrogen's CoolProp state at (1 bar, 300 K), not ρ=1 / h=0.
+        let eos = flash::state_pt(Fluid::Nitrogen, 300.0, 1.0e5).unwrap();
+        assert!((array.rho.internal[0] - eos.density).abs() / eos.density < 1e-9);
+        assert!((array.he.internal[0] - eos.enthalpy).abs() / eos.enthalpy.abs() < 1e-9);
+        assert!((array.rho.internal[0] - 1.0).abs() > 0.05, "ρ must be EOS-derived, not the fallback 1.0");
+
         array.run(10);
 
         let all_finite = array.p.internal.as_slice().iter().all(|x| x.is_finite())
             && array.rho.internal.as_slice().iter().all(|x| x.is_finite())
+            && array.t.internal.as_slice().iter().all(|x| x.is_finite())
             && array.u.internal.as_slice().iter().all(|v| v.mag().is_finite());
         assert!(all_finite, "fields must stay finite over 10 steps");
+        // Density and temperature stay physically bounded (correct_thermo ran).
+        assert!(array.rho.internal.as_slice().iter().all(|&r| r > 0.0 && r < 1e3));
+        assert!(array.t.internal.as_slice().iter().all(|&tt| tt > 0.0 && tt < 5e3));
     }
 
     #[test]
     fn zero_cells_is_rejected() {
-        let err = TampinesSteamArray::new(
+        let err = OPCPFluidArray::new(
+            Fluid::Nitrogen,
             Length::new::<meter>(1.0),
             Area::new::<square_meter>(0.01),
             0,

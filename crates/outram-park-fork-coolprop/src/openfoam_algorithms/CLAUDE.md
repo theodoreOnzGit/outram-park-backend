@@ -20,9 +20,10 @@ crate carries them itself and stays Android-buildable.
   Edwards–O'Brien blowdown V&V contract, RELAP5 references) is **tampines-
   specific and does not apply here** — it was intentionally dropped. Follow the
   workspace-root and crate-root `CLAUDE.md` for this crate instead.
-- The intended thermo plug-in point (`TampinesSteamArray::correct_thermo`) is,
-  in this crate, to be backed by `crate::props` / `OPCPFluidSingleCV` (the
-  CoolProp EOS), not the steam tables.
+- The array is renamed `TampinesSteamArray` → **`OPCPFluidArray`** and carries a
+  `fluid: Fluid`; its `correct_thermo` now does a per-cell single-phase `(p, h)`
+  flash on the CoolProp Helmholtz EOS (`crate::flash`), updating `ρ`, `T` and
+  `ψ = (∂ρ/∂p)_T` — not the steam tables, and not the old placeholder `ρ = ψ·p`.
 
 ## Rules that still apply (workspace directives)
 
@@ -32,9 +33,12 @@ crate carries them itself and stays Android-buildable.
 - Every public item documented (physical quantity, valid range, units); named
   `uom` type aliases for complex quantities.
 
-## Renaming to-do
+## Remaining follow-ups (bead op-kbc)
 
-The vendored types still carry TAMPINES names (`TampinesSteamArray`, …).
-Renaming the array to an OPCP-prefixed name and wiring it to
-`OPCPFluidSingleCV` / `correct_thermo` is a follow-up (bead op-kbc); the initial
-copy is kept faithful so it compiles unchanged.
+- The `rhoPimpleFoam` array is renamed and EOS-wired (see above). Other vendored
+  solvers (`driftFluxFoam`, `chtMultiRegionTwoPhaseEulerFoam`, `simplefoam`)
+  still carry their as-copied form and are not yet wired to the CoolProp EOS.
+- `correct_thermo` is **single-phase** (no saturation/VLE) and does not update
+  transport (`μ`, `αh`) — CoolProp has no transport properties yet.
+- Once the solvers are fully wired, drop the module-level
+  `#![allow(dead_code)]` / `unused_imports` on the vendored tree.
