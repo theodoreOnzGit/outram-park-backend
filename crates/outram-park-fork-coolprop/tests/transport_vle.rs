@@ -64,6 +64,30 @@ fn transport_helium_hardcoded_vs_literature() {
 }
 
 #[test]
+fn transport_water_hardcoded_vs_iapws() {
+    // Water uses the IAPWS R12-08 / R15-11 hardcoded formulas.
+    // Liquid at 298.15 K, ρ=997.05 kg/m³: μ≈890 µPa·s, λ≈0.607 W/m/K.
+    let mu = viscosity(Fluid::Water, 298.15, 997.05).unwrap();
+    let la = conductivity(Fluid::Water, 298.15, 997.05).unwrap();
+    assert!(rel(mu, 890e-6) < 0.02, "H2O μ = {mu:.4e} (lit 8.90e-4)");
+    assert!(rel(la, 0.607) < 0.02, "H2O λ = {la:.4e} (lit 0.607)");
+    // Superheated steam at 373.15 K: μ≈12.3 µPa·s.
+    let mu = viscosity(Fluid::Water, 373.15, 0.5977).unwrap();
+    assert!(rel(mu, 12.3e-6) < 0.02, "H2O steam μ = {mu:.4e} (lit 1.23e-5)");
+}
+
+#[test]
+fn transport_co2_hardcoded_vs_literature() {
+    // CO2 uses the Laesecke (viscosity) + Huber (conductivity) hardcoded dilute
+    // forms with the standard Rainwater-Friend + polynomial residual.
+    // Gas at 300 K, ρ=1.7966 kg/m³ (~1 atm): μ≈15.0 µPa·s, λ≈16.6 mW/m/K.
+    let mu = viscosity(Fluid::CarbonDioxide, 300.0, 1.7966).unwrap();
+    let la = conductivity(Fluid::CarbonDioxide, 300.0, 1.7966).unwrap();
+    assert!(rel(mu, 15.0e-6) < 0.02, "CO2 μ = {mu:.4e} (lit 1.50e-5)");
+    assert!(rel(la, 16.6e-3) < 0.02, "CO2 λ = {la:.4e} (lit 0.0166)");
+}
+
+#[test]
 fn transport_is_positive_where_available() {
     // Every fluid with a model must give a finite, positive value at a benign
     // supercritical-ish state (no NaN from a bad transcription).
@@ -144,7 +168,7 @@ fn coverage_counts() {
     let n_visc = Fluid::ALL.iter().filter(|f| viscosity(**f, 1.3 * f.eos().t_critical, 1.0).is_some()).count();
     let n_cond = Fluid::ALL.iter().filter(|f| conductivity(**f, 1.3 * f.eos().t_critical, 1.0).is_some()).count();
     let n_anc = Fluid::ALL.iter().filter(|f| f.ancillaries().is_some()).count();
-    assert!(n_visc >= 21, "viscosity coverage regressed: {n_visc}"); // 20 correlation + Helium
-    assert!(n_cond >= 39, "conductivity coverage regressed: {n_cond}"); // 38 + Helium
+    assert!(n_visc >= 23, "viscosity coverage regressed: {n_visc}"); // 20 corr + He + Water + CO2
+    assert!(n_cond >= 41, "conductivity coverage regressed: {n_cond}"); // 38 corr + He + Water + CO2
     assert!(n_anc >= 131, "ancillary coverage regressed: {n_anc}");
 }

@@ -6,6 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ViscosityInitial, ConductivityModel, ConductivityDilute, ConductivityResidual};
 
 /// CarbonDioxide Helmholtz equation of state (from CoolProp).
 pub static CARBONDIOXIDE: FluidEos = FluidEos {
@@ -40,5 +41,13 @@ pub static CARBONDIOXIDE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
     p_sat: SatAncillary { reducing_value: 7377300.0, t_r: 304.1282, using_tau_r: true, exponential: true, n: &[-5.867399337600407, -7.10969550015274, 11.022781986239263, 4.8260764050219995, -6.240803382557819, -6.7009642572439], t: &[0.983, 1.322, 1.488, 2.807, 3.571, 1.941] },
     rho_l: SatAncillary { reducing_value: 10624.906299999999, t_r: 304.1282, using_tau_r: false, exponential: false, n: &[0.861951794789174, 5.535795098719573, -21.766373764605415, 20.01416999278327, -2.2218647220786862, 888.2387848519858], t: &[0.264, 0.672, 0.986, 1.092, 1.714, 9.902] },
     rho_v: SatAncillary { reducing_value: 10624.906299999999, t_r: 304.1282, using_tau_r: true, exponential: true, n: &[-1.1635587811569494, -3.64216164754343, 2.7773118075713237, -3.2573848494624533, -1.9739104682508852, -16.057319994659142], t: &[0.306, 0.569, 0.677, 0.891, 3.206, 6.093] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (critical enhancement omitted; see `crate::transport`).
+pub static CARBONDIOXIDE_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: Some(ViscosityModel { dilute: ViscosityDilute::CO2LaeseckeJPCRD2017, initial: Some(ViscosityInitial::RainwaterFriend { b: &[-19.572881, 219.73999, -1015.3226, 2471.0125, -3375.1717, 2491.6597, -787.26086, 14.085455, -0.34664158], t: &[0.0, -0.25, -0.5, -0.75, -1.0, -1.25, -1.5, -2.5, -5.5], epsilon_over_k: 200.76, sigma_eta: 3.78421e-10 }), higher_order: ViscosityHigherOrder::CO2LaeseckeJPCRD2017 { ttriple: 216.592, gas_constant: 8.31451, molar_mass: 0.0440098 } }),
+    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::CO2HuberJPCRD2016, residual: ConductivityResidual::Polynomial { t_reducing: 304.1282, rhomass_reducing: 467.6, b: &[0.0100128, 0.0560488, -0.081162, 0.0624337, -0.0206336, 0.00253248, 0.00430829, -0.0358563, 0.067148, -0.0522855, 0.0174571, -0.00196414], t: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0], d: &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0] } }),
+    hardcoded: None,
 };
 

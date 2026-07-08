@@ -61,13 +61,15 @@ def build_ancillaries(d, const_name):
 
 # ── Transport (viscosity + conductivity), common model subset ─────────────────
 
-def build_viscosity(visc):
-    """A `ViscosityModel` literal, or None if unsupported/hardcoded."""
+def build_viscosity(visc, ttriple, gas_constant, molar_mass):
+    """A `ViscosityModel` literal, or None if unsupported/fully-hardcoded."""
     if not isinstance(visc, dict) or visc.get("hardcoded"):
         return None
     dil, ho = visc.get("dilute"), visc.get("higher_order")
-    # Dilute: collision_integral or powers_of_T.
-    if isinstance(dil, dict) and dil.get("type") == "collision_integral":
+    # Dilute: collision_integral, powers_of_T, or the CO2 Laesecke hardcoded form.
+    if isinstance(dil, dict) and dil.get("hardcoded") == "CarbonDioxideLaeseckeJPCRD2017":
+        dilute = "ViscosityDilute::CO2LaeseckeJPCRD2017"
+    elif isinstance(dil, dict) and dil.get("type") == "collision_integral":
         dilute = ("ViscosityDilute::CollisionIntegral {{ c: {!r}, a: {}, t: {}, "
                   "molar_mass: {!r}, epsilon_over_k: {!r}, sigma_eta: {!r} }}").format(
             float(dil["C"]), slice_f64(dil["a"]), slice_f64(dil["t"]),
@@ -77,7 +79,11 @@ def build_viscosity(visc):
             slice_f64(dil["a"]), slice_f64(dil["t"]))
     else:
         return None
-    # Higher order: modified_Batschinski_Hildebrand only.
+    # Higher order: modified_Batschinski_Hildebrand or the CO2 Laesecke form.
+    if isinstance(ho, dict) and ho.get("hardcoded") == "CarbonDioxideLaeseckeJPCRD2017":
+        higher = ("ViscosityHigherOrder::CO2LaeseckeJPCRD2017 {{ ttriple: {!r}, "
+                  "gas_constant: {!r}, molar_mass: {!r} }}").format(ttriple, gas_constant, molar_mass)
+        return _finish_viscosity(dilute, higher, visc)
     if not (isinstance(ho, dict) and ho.get("type") == "modified_Batschinski_Hildebrand"):
         return None
     higher = ("ViscosityHigherOrder::ModifiedBatschinskiHildebrand {{ t_reduce: {!r}, "
@@ -87,8 +93,11 @@ def build_viscosity(visc):
         slice_f64(ho["a"]), slice_f64(ho["d1"]), slice_f64(ho["t1"]), slice_f64(ho["gamma"]),
         slice_f64(ho["l"]), slice_f64(ho["f"]), slice_f64(ho["d2"]), slice_f64(ho["t2"]),
         slice_f64(ho["g"]), slice_f64(ho["h"]), slice_f64(ho["p"]), slice_f64(ho["q"]))
-    # Initial density: Rainwater-Friend only. If an unsupported initial term is
-    # present, skip the whole model rather than emit a wrong number.
+    return _finish_viscosity(dilute, higher, visc)
+
+def _finish_viscosity(dilute, higher, visc):
+    """Add the (optional) Rainwater-Friend initial-density term and assemble.
+    Returns None if an unsupported initial term is present (no wrong numbers)."""
     initial = "None"
     for k in visc:
         if "initial" in k.lower() and isinstance(visc[k], dict):
@@ -110,7 +119,9 @@ def build_conductivity(cond, has_viscosity):
     if not isinstance(dil, dict) or not isinstance(res, dict):
         return None
     dt, rt = dil.get("type"), res.get("type")
-    if dt == "ratio_of_polynomials":
+    if dil.get("hardcoded") == "CarbonDioxideHuberJPCRD2016":
+        dilute = "ConductivityDilute::CO2HuberJPCRD2016"
+    elif dt == "ratio_of_polynomials":
         dilute = ("ConductivityDilute::RatioPolynomials {{ t_reducing: {!r}, a: {}, "
                   "n: {}, b: {}, m: {} }}").format(
             float(dil["T_reducing"]), slice_f64(dil["A"]), slice_f64(dil["n"]),
@@ -137,7 +148,10 @@ def build_conductivity(cond, has_viscosity):
     return "ConductivityModel {{ dilute: {}, residual: {} }}".format(dilute, residual)
 
 # Fluids whose viscosity AND conductivity are hardcoded and implemented here.
-HARDCODED_TRANSPORT = {"Helium": "HardcodedTransport::Helium"}
+HARDCODED_TRANSPORT = {
+    "Helium": "HardcodedTransport::Helium",
+    "Water": "HardcodedTransport::Water",
+}
 
 def hardcoded_transport(tr):
     """The `HardcodedTransport::…` variant for a fluid, or None."""
@@ -151,12 +165,14 @@ def hardcoded_transport(tr):
 def build_transport(d, const_name):
     """A `<NAME>_TRANSPORT` const, or None if nothing is supported."""
     tr = d.get("TRANSPORT", {}) or {}
+    eos = d["EOS"][0]
     hc = hardcoded_transport(tr)
     if hc:
         # A hardcoded formula supplies both μ and λ; skip the correlation fields.
         visc = cond = None
     else:
-        visc = build_viscosity(tr.get("viscosity"))
+        visc = build_viscosity(tr.get("viscosity"), float(eos["Ttriple"]),
+                               float(eos["gas_constant"]), float(eos["molar_mass"]))
         cond = build_conductivity(tr.get("conductivity"), visc is not None)
     if visc is None and cond is None and hc is None:
         return None

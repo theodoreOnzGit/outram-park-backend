@@ -42,6 +42,9 @@ pub enum ViscosityDilute {
     },
     /// `η₀ = Σ aᵢ·T^{tᵢ}` \[Pa·s\]. CoolProp `powers_of_T`.
     PowersOfT { a: &'static [f64], t: &'static [f64] },
+    /// CO₂ dilute viscosity (Laesecke & Muzny, JPCRD 2017, Eq. 4) — a fixed
+    /// hardcoded correlation. CoolProp `viscosity_dilute_CO2_LaeseckeJPCRD2017`.
+    CO2LaeseckeJPCRD2017,
 }
 
 /// Initial-density (linear-in-ρ) viscosity correction.
@@ -95,6 +98,11 @@ pub enum ViscosityHigherOrder {
         p: &'static [f64],
         q: &'static [f64],
     },
+    /// CO₂ higher-order (residual) viscosity (Laesecke & Muzny, JPCRD 2017,
+    /// Eqs. 8–9) — a fixed hardcoded correlation needing the fluid's triple
+    /// temperature, gas constant and molar mass. CoolProp
+    /// `viscosity_CO2_higher_order_hardcoded_LaeseckeJPCRD2017`.
+    CO2LaeseckeJPCRD2017 { ttriple: f64, gas_constant: f64, molar_mass: f64 },
 }
 
 /// A complete viscosity model: dilute + (optional) initial-density + higher-order
@@ -121,6 +129,10 @@ pub enum ConductivityDilute {
     /// `λ₀ = A₀·η₀[µPa·s] + Σ_{i≥1} Aᵢ·τ^{tᵢ}`, `τ = T_r/T`, `η₀` the dilute
     /// viscosity. CoolProp `eta0_and_poly` (needs the viscosity model).
     Eta0AndPoly { a: &'static [f64], t: &'static [f64] },
+    /// CO₂ dilute conductivity (Huber et al., JPCRD 2016, Eq. 3) — a fixed
+    /// hardcoded correlation in the EOS reduced temperature. CoolProp
+    /// `conductivity_dilute_hardcoded_CO2_HuberJPCRD2016`.
+    CO2HuberJPCRD2016,
 }
 
 /// Residual (density-dependent) thermal-conductivity model.
@@ -164,6 +176,11 @@ pub enum HardcodedTransport {
     /// conductivity). The near-critical conductivity enhancement `λ_c`
     /// (3.5–12 K) is omitted, consistent with the rest of this crate.
     Helium,
+    /// Water (IAPWS R12-08 viscosity, R15-11 conductivity). The critical
+    /// enhancement (`μ̄₂` / `λ̄₂`) is omitted — it needs EOS derivatives at a
+    /// reference temperature — so accuracy degrades within a few percent of the
+    /// critical point.
+    Water,
 }
 
 impl HardcodedTransport {
@@ -172,6 +189,7 @@ impl HardcodedTransport {
     fn viscosity(&self, t: f64, rho: f64) -> f64 {
         match self {
             HardcodedTransport::Helium => helium_viscosity(t, rho),
+            HardcodedTransport::Water => water_viscosity(t, rho),
         }
     }
     /// Thermal conductivity \[W/(m·K)\] at `(T, ρ)` (dilute + excess; the
@@ -179,8 +197,64 @@ impl HardcodedTransport {
     fn conductivity(&self, t: f64, rho: f64) -> f64 {
         match self {
             HardcodedTransport::Helium => helium_conductivity(t, rho),
+            HardcodedTransport::Water => water_conductivity(t, rho),
         }
     }
+}
+
+/// Water viscosity \[Pa·s\] (IAPWS R12-08 — CoolProp `viscosity_water_hardcoded`),
+/// dilute `μ̄₀` × finite-density `μ̄₁`; the critical enhancement `μ̄₂` is omitted.
+fn water_viscosity(t: f64, rho: f64) -> f64 {
+    let tbar = t / 647.096;
+    let rhobar = rho / 322.0;
+    let mubar_0 = 100.0 * tbar.sqrt()
+        / (1.67752 + 2.20462 / tbar + 0.6366564 / (tbar * tbar) - 0.241605 / (tbar * tbar * tbar));
+    // Sparse H[6][7] coefficient matrix (IAPWS R12-08 Table 2).
+    #[rustfmt::skip]
+    const H: [[f64; 7]; 6] = [
+        [5.20094e-1,  2.22531e-1, -2.81378e-1,  1.61913e-1, -3.25372e-2, 0.0,        0.0        ],
+        [8.50895e-2,  9.99115e-1, -9.06851e-1,  2.57399e-1,  0.0,        0.0,        0.0        ],
+        [-1.08374,    1.88797,    -7.72479e-1,  0.0,         0.0,        0.0,        0.0        ],
+        [-2.89555e-1, 1.26613,    -4.89837e-1,  0.0,         6.98452e-2, 0.0,       -4.35673e-3 ],
+        [0.0,         0.0,        -2.57040e-1,  0.0,         0.0,        8.72102e-3, 0.0        ],
+        [0.0,         1.20573e-1,  0.0,         0.0,         0.0,        0.0,       -5.93264e-4 ],
+    ];
+    let mut sum = 0.0;
+    for (i, row) in H.iter().enumerate() {
+        for (j, &h) in row.iter().enumerate() {
+            sum += (1.0 / tbar - 1.0).powi(i as i32) * h * (rhobar - 1.0).powi(j as i32);
+        }
+    }
+    let mubar_1 = (rhobar * sum).exp();
+    mubar_0 * mubar_1 / 1e6
+}
+
+/// Water thermal conductivity \[W/(m·K)\] (IAPWS R15-11 — CoolProp
+/// `conductivity_hardcoded_water`), dilute `λ̄₀` × finite-density `λ̄₁`; the
+/// near-critical `λ̄₂` is omitted.
+fn water_conductivity(t: f64, rho: f64) -> f64 {
+    let tbar = t / 647.096;
+    let rhobar = rho / 322.0;
+    let lambdabar_0 = tbar.sqrt()
+        / (2.443221e-3 + 1.323095e-2 / tbar + 6.770357e-3 / tbar.powi(2)
+            - 3.454586e-3 / tbar.powi(3)
+            + 4.096266e-4 / tbar.powi(4));
+    #[rustfmt::skip]
+    const L: [[f64; 6]; 5] = [
+        [ 1.60397357, -0.646013523,  0.111443906,  0.102997357, -0.0504123634,  0.00609859258],
+        [ 2.33771842, -2.78843778,   1.53616167,  -0.463045512,  0.0832827019, -0.00719201245],
+        [ 2.19650529, -4.54580785,   3.55777244,  -1.40944978,   0.275418278,  -0.0205938816 ],
+        [-1.21051378,  1.60812989,  -0.621178141,  0.0716373224, 0.0,           0.0          ],
+        [-2.7203370,   4.57586331,  -3.18369245,   1.1168348,   -0.19268305,    0.012913842  ],
+    ];
+    let mut sum = 0.0;
+    for (i, row) in L.iter().enumerate() {
+        for (j, &l) in row.iter().enumerate() {
+            sum += l * (1.0 / tbar - 1.0).powi(i as i32) * (rhobar - 1.0).powi(j as i32);
+        }
+    }
+    let lambdabar_1 = (rhobar * sum).exp();
+    lambdabar_0 * lambdabar_1 * 1e-3
 }
 
 /// Helium-4 viscosity \[Pa·s\] (Arp, McCarty & Friend, NIST TN-1334, 1998 —
@@ -237,6 +311,8 @@ pub struct FluidTransport {
 
 impl ViscosityDilute {
     /// Dilute-gas viscosity \[Pa·s\] at temperature `t` \[K\].
+    // The CO2 Laesecke coefficients are transcribed verbatim from CoolProp.
+    #[allow(clippy::excessive_precision)]
     fn eval(&self, t: f64) -> f64 {
         match self {
             ViscosityDilute::CollisionIntegral { c, a, t: tt, molar_mass, epsilon_over_k, sigma_eta } => {
@@ -257,6 +333,17 @@ impl ViscosityDilute {
                     summer += a[i] * t.powf(tt[i]);
                 }
                 summer
+            }
+            ViscosityDilute::CO2LaeseckeJPCRD2017 => {
+                let a = [
+                    1749.354893188350, -369.069300007128, 5423856.34887691, -2.21283852168356,
+                    -269503.247933569, 73145.021531826, 5.34368649509278,
+                ];
+                let t3 = t.powf(1.0 / 3.0);
+                let den = a[0] + a[1] * t.powf(1.0 / 6.0) + a[2] * (a[3] * t3).exp()
+                    + (a[4] + a[5] * t3) / t3.exp()
+                    + a[6] * t.sqrt();
+                0.0010055 * t.sqrt() / den
             }
         }
     }
@@ -290,6 +377,16 @@ impl ViscosityHigherOrder {
                 }
                 let delta0 = num / den;
                 s + ff * (1.0 / (delta0 - delta) - 1.0 / delta0)
+            }
+            ViscosityHigherOrder::CO2LaeseckeJPCRD2017 { ttriple, gas_constant, molar_mass } => {
+                let (c1, c2, gamma) = (0.360603235428487, 0.121550806591497, 8.06282737481277);
+                let rho_tl = 1178.53;
+                let rho_mass = rho_molar * molar_mass;
+                let tr = t / ttriple;
+                let rhor = rho_mass / rho_tl;
+                let eta_tl = rho_tl.powf(2.0 / 3.0) * (gas_constant * ttriple).sqrt()
+                    / (molar_mass.powf(1.0 / 6.0) * 84446887.43579945);
+                eta_tl * (c1 * tr * rhor.powi(3) + (rhor.powi(2) + rhor.powf(gamma)) / (tr - c2))
             }
         }
     }
@@ -339,6 +436,12 @@ impl ConductivityModel {
                     summer += a[i] * tau_eos.powf(tt[i]);
                 }
                 summer
+            }
+            ConductivityDilute::CO2HuberJPCRD2016 => {
+                let l = [0.0151874307, 0.0280674040, 0.0228564190, -0.00741624210];
+                let lambda_0 = tau_eos.powf(-0.5)
+                    / (l[0] + l[1] * tau_eos + l[2] * tau_eos.powi(2) + l[3] * tau_eos.powi(3));
+                lambda_0 / 1000.0 // mW/m/K -> W/m/K
             }
         };
 

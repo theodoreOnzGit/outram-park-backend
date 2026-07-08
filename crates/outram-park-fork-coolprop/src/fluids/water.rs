@@ -6,6 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, HardcodedTransport};
 
 /// Water Helmholtz equation of state (from CoolProp).
 pub static WATER: FluidEos = FluidEos {
@@ -39,5 +40,13 @@ pub static WATER_ANCILLARIES: FluidAncillaries = FluidAncillaries {
     p_sat: SatAncillary { reducing_value: 22064000.0, t_r: 647.096, using_tau_r: true, exponential: true, n: &[-9.75639641045262, 3.3357600887120102, -1.10029278432831, 0.02037617155190105, -2.6668589845604367, 6.676721087238668], t: &[1.018, 1.206, 2.327, 5.753, 4.215, 14.951] },
     rho_l: SatAncillary { reducing_value: 17873.72799560906, t_r: 647.096, using_tau_r: false, exponential: false, n: &[0.8157021355019343, 2.0434712177006693, -78.58278372496308, 1026.4273940070307, -2290.5642779377695, 8420.141408210317], t: &[0.276, 0.455, 7.127, 9.846, 11.707, 17.805] },
     rho_v: SatAncillary { reducing_value: 17873.72799560906, t_r: 647.096, using_tau_r: true, exponential: true, n: &[0.9791749335365787, -2.6190679042770215, -3.9166443712365235, -20.313306821636637, 16.497589490043744, -125.36580458432083], t: &[0.21, 0.262, 0.701, 3.909, 4.076, 17.459] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (critical enhancement omitted; see `crate::transport`).
+pub static WATER_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: None,
+    conductivity: None,
+    hardcoded: Some(HardcodedTransport::Water),
 };
 

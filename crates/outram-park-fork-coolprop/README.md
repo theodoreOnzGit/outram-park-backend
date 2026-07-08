@@ -53,11 +53,13 @@ End-to-end and verified:
   **Maxwell two-phase solve** on the EOS (`T_sat(p)`, `(p,h)` quality). N₂ at
   its normal boiling point → `p_sat` = 101 325 Pa, `ρ'` = 806, `ρ''` = 4.61
   kg/m³; Water at 100 °C → `ρ'` = 958.4 (both matching literature).
-- **Transport** (`transport`): dynamic viscosity `μ` (21 fluids) and thermal
-  conductivity `λ` (39 fluids) — the CoolProp correlations plus **Helium's
-  hardcoded** (Arp/Hands) formula. N₂/Ar/He `μ`,`λ` reproduce NIST/literature to
-  ~1–2 %. Other hardcoded fluids (Water, CO₂, …) and the near-critical
-  enhancement are out of scope (`None`, never a wrong number).
+- **Transport** (`transport`): dynamic viscosity `μ` (23 fluids) and thermal
+  conductivity `λ` (41 fluids) — the CoolProp correlations plus the **hardcoded
+  Helium** (Arp/Hands), **Water** (IAPWS R12-08/R15-11) and **CO₂**
+  (Laesecke/Huber) formulas. N₂/Ar/He/H₂O/CO₂ `μ`,`λ` reproduce NIST/IAPWS to
+  ~1 % (e.g. water at 25 °C → μ=8.90×10⁻⁴ Pa·s, λ=0.607 W/m·K). The remaining
+  hardcoded fluids and the near-critical enhancement are out of scope (`None`,
+  never a wrong number).
 - **All 137** CoolProp pure fluids are generated as hardcoded Rust
   (`dev/gen_fluid.py` / `dev/regen_all.py`) **and wired into the `Fluid` enum** —
   enumerate them with `Fluid::ALL`; `Fluid::eos/ancillaries/transport`. Data is
@@ -74,8 +76,8 @@ Tracked follow-ups (beads `op-kbc`):
 - **Non-analytic critical-region terms** — carried in the fluid data but not yet
   evaluated (a no-op, so accuracy within ~1 % of the critical point is
   degraded; unaffected elsewhere).
-- **Transport for the remaining hardcoded fluids** (Water/CO₂/… — Helium is
-  done) and the near-critical enhancement (`simplified_Olchowy_Sengers`).
+- **Transport for the remaining hardcoded fluids** (Helium/Water/CO₂ are done)
+  and the near-critical enhancement (`simplified_Olchowy_Sengers`).
 - **Per-fluid reference tests** beyond the nine already pinned (the rest are
   covered only by the critical-point smoke test).
 - **`rfluids` verification** (CoolProp oracle) as a dev-dependency.

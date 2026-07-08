@@ -38,10 +38,9 @@
 //!
 //! Known gaps (tracked, bead op-kbc): the **non-analytic** critical-region terms
 //! are carried but not yet evaluated (accuracy degraded within ~1 % of Tc, a
-//! no-op elsewhere); transport covers a common model subset (viscosity 21,
-//! conductivity 39 of 137 fluids — incl. Helium's hardcoded formula; other
-//! hardcoded fluids like Water/CO₂ excluded) and omits the near-critical
-//! enhancement; `rfluids` oracle verification is planned.
+//! no-op elsewhere); transport covers a common model subset plus the hardcoded
+//! Helium/Water/CO₂ formulas (viscosity 23, conductivity 41 of 137 fluids) and
+//! omits the near-critical enhancement; `rfluids` oracle verification is planned.
 //!
 //! ## Example
 //!
