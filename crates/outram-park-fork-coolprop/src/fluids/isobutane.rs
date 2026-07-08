@@ -5,6 +5,8 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ViscosityInitial, ConductivityModel, ConductivityDilute, ConductivityResidual};
 
 /// IsoButane Helmholtz equation of state (from CoolProp).
 pub static ISOBUTANE: FluidEos = FluidEos {
@@ -30,5 +32,20 @@ pub static ISOBUTANE: FluidEos = FluidEos {
     IdealTerm::PlanckEinstein { n: &[4.94641014, 4.09475197, 15.6632824, 9.73918122], t: &[0.951277902, 2.387895885, 4.346904269, 10.36885864] },
     IdealTerm::EnthalpyEntropyOffset { a1: -17.6081648486994, a2: 10.3134499204439 },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static ISOBUTANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 3629000.0, t_r: 407.817, using_tau_r: true, exponential: true, n: &[-48.02915589537987, 43.34653680580028, -1.4421317283854331, -3.1322275225078413, 5.203481182010376, -6.173022897817098], t: &[1.082, 1.108, 1.463, 4.045, 13.157, 14.042] },
+    rho_l: SatAncillary { reducing_value: 3879.756788283995, t_r: 407.817, using_tau_r: false, exponential: false, n: &[2.0418147224188545, 0.4363922893974425, 1.915261424521202, -2.1807762762122045, 1.068664850362356, -6.816247938174933], t: &[0.356, 0.824, 3.142, 3.696, 6.863, 18.441] },
+    rho_v: SatAncillary { reducing_value: 3879.756788283995, t_r: 407.817, using_tau_r: true, exponential: true, n: &[-2.8656855559386294, 0.7330458189287201, -4.254613288675131, 2.9956235180226516, -5.671641417558254, 0.14361022568133902], t: &[0.37, 0.502, 1.021, 2.003, 3.403, 10.717] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (critical enhancement omitted; see `crate::transport`).
+pub static ISOBUTANE_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: Some(ViscosityModel { dilute: ViscosityDilute::CollisionIntegral { c: 2.1357e-08, a: &[0.53583008, -0.4562963, 0.049911282], t: &[0.0, 1.0, 2.0], molar_mass: 0.0581222, epsilon_over_k: 307.55, sigma_eta: 4.6445e-10 }, initial: Some(ViscosityInitial::RainwaterFriend { b: &[-19.572881, 219.73999, -1015.3226, 2471.01251, -3375.1717, 2491.6597, -787.26086, 14.085455, -0.34664158], t: &[0.0, -0.25, -0.5, -0.75, -1.0, -1.25, -1.5, -2.5, -5.5], epsilon_over_k: 307.55, sigma_eta: 4.6445e-10 }), higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand { t_reduce: 407.817, rhomolar_reduce: 3860.0, a: &[0.000103511763411, -0.000312670896234, 0.000145253750239, -0.000210649894193, 0.000386269696509, -0.000214963015527, 0.00011258036092, -0.000223242033154, 0.000119114788598, -1.819097459e-05, 3.60438957232e-05, -2.1396018405e-05], d1: &[2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0, 5.0, 5.0, 5.0], t1: &[0.0, 1.0, 2.0, 0.0, 1.0, 2.0, 0.0, 1.0, 2.0, 0.0, 1.0, 2.0], gamma: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], l: &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], f: &[0.0019403760699], d2: &[1.0], t2: &[0.0], g: &[2.33859774637, 2.352551508384381], h: &[0.0, -0.5], p: &[1.0], q: &[0.0] } }),
+    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 407.85, a: &[-0.00237901, 0.0106601, 0.0215811], n: &[0.0, 1.0, 2.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 407.85, rhomass_reducing: 224.4, b: &[-0.0411789, 0.146805, -0.11919, 0.0410226, -0.00488704, 0.0476346, -0.128445, 0.107565, -0.0385968, 0.00520901], t: &[0.0, 0.0, 0.0, 0.0, 0.0, -1.0, -1.0, -1.0, -1.0, -1.0], d: &[1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0] } }),
 };
 

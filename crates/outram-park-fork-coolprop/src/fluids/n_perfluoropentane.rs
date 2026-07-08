@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// n-Perfluoropentane Helmholtz equation of state (from CoolProp).
 pub static N_PERFLUOROPENTANE: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static N_PERFLUOROPENTANE: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 14.0 },
     IdealTerm::PlanckEinstein { n: &[5.761, 19.37, 7.096], t: &[1.152019002375297, 2.4370546318289787, 4.771971496437055] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static N_PERFLUOROPENTANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 2063000.0, t_r: 421.0, using_tau_r: true, exponential: true, n: &[-8.4733, 3.5899, -3.3162, -4.1966, -1.6897], t: &[1.0, 1.5, 1.97, 3.63, 11.74] },
+    rho_l: SatAncillary { reducing_value: 2170.0, t_r: 421.0, using_tau_r: false, exponential: false, n: &[3.9956, -4.6464, 8.1411, -7.7694, 3.4916], t: &[0.464, 0.9, 1.4, 1.9, 2.6] },
+    rho_v: SatAncillary { reducing_value: 2170.0, t_r: 421.0, using_tau_r: false, exponential: true, n: &[-4.456, -7.6886, -24.64, -62.48, -163.57], t: &[0.479, 1.51, 3.35, 6.71, 14.76] },
 };
 

@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// MethylPalmitate Helmholtz equation of state (from CoolProp).
 pub static METHYLPALMITATE: FluidEos = FluidEos {
@@ -31,5 +32,13 @@ pub static METHYLPALMITATE: FluidEos = FluidEos {
     IdealTerm::PlanckEinstein { n: &[41.56848444495333, 34.76324173080383, 36.27879196658549], t: &[3.910423841059603, 0.9730503311258278, 2.110662251655629] },
     IdealTerm::EnthalpyEntropyOffset { a1: 50.7611531834779, a2: -21.442651306684 },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static METHYLPALMITATE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 1350000.0, t_r: 755.0, using_tau_r: true, exponential: true, n: &[-49.42161889019046, 86.39453424481549, -53.20027068141909, 29.0638839763908, -32.30173734463781, -268.73594683826116], t: &[1.148, 1.368, 1.624, 2.975, 3.32, 19.755] },
+    rho_l: SatAncillary { reducing_value: 897.0, t_r: 755.0, using_tau_r: false, exponential: false, n: &[8.115113277917509, -10.668602921854127, 14.100804969050921, -14.920857658639772, 14.097757694754387, -11.701003403802398], t: &[0.572, 0.956, 1.766, 2.722, 4.689, 7.482] },
+    rho_v: SatAncillary { reducing_value: 897.0, t_r: 755.0, using_tau_r: true, exponential: true, n: &[4.227092755463742, -12.213864670363002, 2.57530354383432, -18.011755302716594, 8.945678039029339, -44.300913375832856], t: &[0.489, 0.54, 1.177, 3.065, 4.389, 11.027] },
 };
 

@@ -5,6 +5,8 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
 
 /// n-Pentane Helmholtz equation of state (from CoolProp).
 pub static N_PENTANE: FluidEos = FluidEos {
@@ -29,5 +31,20 @@ pub static N_PENTANE: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 3.0 },
     IdealTerm::PlanckEinstein { n: &[6.618, 15.97, 15.29], t: &[0.3278688524590164, 2.8188205237385566, 5.607834788162657] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static N_PENTANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 3367500.0, t_r: 469.7, using_tau_r: true, exponential: true, n: &[-7.3342, 2.043, -2.196, -6.3246, 5.429, -2.821], t: &[1.0, 1.5, 2.26, 5.5, 7.1, 11.0] },
+    rho_l: SatAncillary { reducing_value: 3210.0, t_r: 469.7, using_tau_r: false, exponential: false, n: &[3.5771, -4.653, 8.517, -7.831, 3.3029, 0.5782], t: &[0.43, 0.83, 1.25, 1.72, 2.24, 17.5] },
+    rho_v: SatAncillary { reducing_value: 3210.0, t_r: 469.7, using_tau_r: false, exponential: true, n: &[-3.5333, -8.4246, -25.474, -57.24, -34.6, -111.9], t: &[0.428, 1.484, 3.87, 7.86, 15.98, 17.33] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (critical enhancement omitted; see `crate::transport`).
+pub static N_PENTANE_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: None,
+    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 469.7, a: &[-0.00396685, 0.0353805, 0.00511554, -0.108585, 0.179573, 0.0392128], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], b: &[2.71636, -5.76265, 6.77885, -0.59135, 1.0], m: &[0.0, 1.0, 2.0, 3.0, 4.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 469.7, rhomass_reducing: 232.0, b: &[0.000776054, 0.00797696, 0.117655, -0.0785888, -0.133101, 0.0916089, 0.0534026, -0.0370431, -0.0068793, 0.0050962], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
 };
 

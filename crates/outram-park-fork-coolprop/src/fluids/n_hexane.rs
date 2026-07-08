@@ -5,6 +5,8 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
 
 /// n-Hexane Helmholtz equation of state (from CoolProp).
 pub static N_HEXANE: FluidEos = FluidEos {
@@ -29,5 +31,20 @@ pub static N_HEXANE: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 3.0 },
     IdealTerm::PlanckEinstein { n: &[9.21, 6.04, 25.3, 10.96], t: &[0.3741483202709622, 5.9076050569099285, 2.9538025284549643, 8.861407585364892] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static N_HEXANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 3044100.0, t_r: 507.82, using_tau_r: true, exponential: true, n: &[-7.654, 2.7644, -2.285, -3.719, -1.646], t: &[1.0, 1.5, 1.9, 4.08, 15.45] },
+    rho_l: SatAncillary { reducing_value: 2706.0, t_r: 507.82, using_tau_r: false, exponential: false, n: &[2.302, 0.3493, 0.9563, -1.543, 1.0452], t: &[0.373, 1.068, 3.993, 5.36, 6.87] },
+    rho_v: SatAncillary { reducing_value: 2706.0, t_r: 507.82, using_tau_r: false, exponential: true, n: &[-3.4056, -7.5474, -22.828, -57.063, -125.0, -265.5], t: &[0.419, 1.355, 3.473, 7.1, 15.0, 30.0] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (critical enhancement omitted; see `crate::transport`).
+pub static N_HEXANE_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: None,
+    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 507.82, a: &[0.0066742, -0.0237619, 0.0720155, -0.0183714], n: &[0.0, 1.0, 2.0, 3.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 507.82, rhomass_reducing: 233.1819066, b: &[-0.0301408, 0.0218208, 0.167975, -0.100833, -0.129739, 0.077418, 0.0382833, -0.0215945, -0.00370294, 0.00212487], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
 };
 

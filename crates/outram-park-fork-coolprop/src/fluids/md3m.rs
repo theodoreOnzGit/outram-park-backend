@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// MD3M Helmholtz equation of state (from CoolProp).
 pub static MD3M: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static MD3M: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 3.0 },
     IdealTerm::PlanckEinstein { n: &[81.2386, 61.191, 51.1798], t: &[0.9713375796178344, 3.9808917197452227, 11.94267515923567] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static MD3M_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 953950.0, t_r: 628.0, using_tau_r: true, exponential: true, n: &[-9.6774, 3.973, -3.701, -9.1232, -5.467], t: &[1.0, 1.5, 1.8, 3.54, 11.9] },
+    rho_l: SatAncillary { reducing_value: 700.0, t_r: 628.0, using_tau_r: false, exponential: false, n: &[3.326, 3.889, -2.363, -2.709, 1.325], t: &[0.42, 1.46, 0.9, 2.15, 3.15] },
+    rho_v: SatAncillary { reducing_value: 700.0, t_r: 628.0, using_tau_r: false, exponential: true, n: &[-4.0084, -7.913, -79.392, -28.572, -211.86, -1800.0], t: &[0.441, 1.244, 5.88, 3.03, 12.7, 32.0] },
 };
 

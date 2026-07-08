@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// DimethylCarbonate Helmholtz equation of state (from CoolProp).
 pub static DIMETHYLCARBONATE: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static DIMETHYLCARBONATE: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 8.28421 },
     IdealTerm::PlanckEinstein { n: &[1.48525, 0.822585, 16.2453, 1.15925], t: &[0.03770197486535009, 2.405745062836625, 3.001795332136445, 13.27648114901257] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static DIMETHYLCARBONATE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 4908800.0, t_r: 557.0, using_tau_r: true, exponential: true, n: &[-2.597007649585314, -15.509376515573363, 12.767875905311987, -1.7459847599351825, -1.196780284722721, -3.425253357555481], t: &[0.945, 1.114, 1.224, 2.157, 2.469, 4.522] },
+    rho_l: SatAncillary { reducing_value: 4000.0, t_r: 557.0, using_tau_r: false, exponential: false, n: &[0.8639422657944309, -1.688248771620619, 3.3308155638028083, 152.44139464976624, -173.70557844277656, 36624.29817631924], t: &[0.221, 0.307, 0.394, 5.545, 5.765, 19.705] },
+    rho_v: SatAncillary { reducing_value: 4000.0, t_r: 557.0, using_tau_r: true, exponential: true, n: &[-1.8639798693880143, -12.434353793968175, 9.656910477455611, -8.552325635675663, 11.090574157797857, -495.7580019137995], t: &[0.318, 0.882, 0.995, 3.273, 5.755, 13.354] },
 };
 

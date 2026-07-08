@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// OrthoHydrogen Helmholtz equation of state (from CoolProp).
 pub static ORTHOHYDROGEN: FluidEos = FluidEos {
@@ -30,5 +31,13 @@ pub static ORTHOHYDROGEN: FluidEos = FluidEos {
     IdealTerm::PlanckEinsteinGeneralized { n: &[2.54151, -2.3661, 1.00365, 1.22447], theta: &[-25.76760987357014, -43.467790487658036, -66.04455147501506, -209.75316074653824], c: &[1.0, 1.0, 1.0, 1.0], d: &[-1.0, -1.0, -1.0, -1.0] },
     IdealTerm::EnthalpyEntropyOffset { a1: -4.134063606938863, a2: 3.2473248589350554 },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static ORTHOHYDROGEN_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 1310650.0, t_r: 33.22, using_tau_r: true, exponential: true, n: &[-0.4051801286153231, 0.5191529685153068, -5.56347522818482, 1.367651950727407, 1.056012360297995, -65.2720474474213], t: &[0.379, 0.414, 0.981, 1.167, 2.476, 19.461] },
+    rho_l: SatAncillary { reducing_value: 15444.540313699812, t_r: 33.22, using_tau_r: false, exponential: false, n: &[2.136450368934771, -9.434919244344163, 26.99798420654703, -73.87428692906634, 2629.366529054487, -5124.043586289661], t: &[0.434, 2.592, 3.597, 6.068, 12.269, 14.145] },
+    rho_v: SatAncillary { reducing_value: 15444.540313699812, t_r: 33.22, using_tau_r: true, exponential: true, n: &[-2.8577182299300046, -0.2847217806996385, 9.9579128118112, -1243.1260029157054, 26776.321922476538, -40285.08539752482], t: &[0.48, 0.716, 6.39, 12.856, 16.87, 18.364] },
 };
 

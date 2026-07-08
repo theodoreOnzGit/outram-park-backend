@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// CycloHexane Helmholtz equation of state (from CoolProp).
 pub static CYCLOHEXANE: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static CYCLOHEXANE: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 3.0 },
     IdealTerm::PlanckEinstein { n: &[0.83775, 16.036, 24.636, 7.1715], t: &[1.396315028901734, 1.69978323699422, 3.946893063583815, 8.11958092485549] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static CYCLOHEXANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 4082400.0, t_r: 553.6, using_tau_r: true, exponential: true, n: &[-0.001507316116386758, 0.0019454414399892835, -6.247176974611268, 0.47954202162953397, -3.680367872644098, -5.145901784236558], t: &[0.031, 0.087, 0.976, 2.262, 3.53, 9.757] },
+    rho_l: SatAncillary { reducing_value: 3224.0, t_r: 553.6, using_tau_r: false, exponential: false, n: &[0.2729676351917065, -1.106482113619369, 27.748806842659924, -34.01756141062687, 9.815362300266182, 65.7039717441813], t: &[0.165, 0.243, 0.498, 0.564, 0.717, 12.621] },
+    rho_v: SatAncillary { reducing_value: 3224.0, t_r: 553.6, using_tau_r: true, exponential: true, n: &[7.91278554789447, -14.912016731516744, 5.351652597227101, -3.875832207589477, -6.953692859831638, 3685.8600260352014], t: &[0.395, 0.432, 0.604, 0.994, 4.823, 18.36] },
 };
 

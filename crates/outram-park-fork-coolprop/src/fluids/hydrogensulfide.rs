@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// HydrogenSulfide Helmholtz equation of state (from CoolProp).
 pub static HYDROGENSULFIDE: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static HYDROGENSULFIDE: FluidEos = FluidEos {
     IdealTerm::Power { n: &[-0.002753352822675789], t: &[-1.5] },
     IdealTerm::PlanckEinstein { n: &[1.1364, 1.9721], t: &[4.886089520235862, 10.62717770034843] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static HYDROGENSULFIDE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 9000000.0, t_r: 373.1, using_tau_r: true, exponential: true, n: &[-6.761826097619247, -0.005988209650772923, -6.882637639835571, -2.8254550876910356, 7.704835506786447, 1.7417891509345698], t: &[1.003, 1.146, 1.668, 4.886, 1.558, 9.098] },
+    rho_l: SatAncillary { reducing_value: 10190.0, t_r: 373.1, using_tau_r: false, exponential: false, n: &[51.601033693983716, -49.93595719794271, 6.987088261412919, -24.784697586038508, 84.07792676768513, -68.55133880200839], t: &[0.572, 0.586, 2.075, 3.069, 4.223, 4.619] },
+    rho_v: SatAncillary { reducing_value: 10190.0, t_r: 373.1, using_tau_r: true, exponential: true, n: &[-5.046830785558678, -38.485729404620876, 41.23869786806366, -2.8100720902410004, -10.142249397446074, 21.5382763129489], t: &[0.532, 0.681, 0.691, 1.195, 6.002, 9.033] },
 };
 

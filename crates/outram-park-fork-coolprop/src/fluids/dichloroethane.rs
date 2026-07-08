@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// Dichloroethane Helmholtz equation of state (from CoolProp).
 pub static DICHLOROETHANE: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static DICHLOROETHANE: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 3.0 },
     IdealTerm::PlanckEinstein { n: &[5.35, 10.05], t: &[0.04006410256410256, 3.587962962962963] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static DICHLOROETHANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 5227585.103082351, t_r: 561.6, using_tau_r: true, exponential: true, n: &[165.36698422586568, 0.0052916174810783275, -9.017819060173176, 2.980836234817244, -2.6554946105425685, -1.6100143507300122], t: &[21.333333333333332, 0.38549999999999995, 1.0, 1.1666666666666667, 3.0, 5.333333333333333] },
+    rho_l: SatAncillary { reducing_value: 4330.0, t_r: 561.6, using_tau_r: false, exponential: false, n: &[-3486.7010459117164, 7662.134765207801, -20066.396425294417, 15893.782467519954, -0.1522403185655092, 7.705626172172473], t: &[0.362, 0.3725, 0.39449999999999996, 0.39799999999999996, 2.8333333333333335, 12.333333333333334] },
+    rho_v: SatAncillary { reducing_value: 4330.0, t_r: 561.6, using_tau_r: true, exponential: true, n: &[7.077091293578975, -11.678392041088753, 216.4369746131653, -216.32772112714244, -1.1167782517350253, -4.408739606531312], t: &[0.131, 0.16666666666666666, 0.39049999999999996, 0.39649999999999996, 1.5, 3.8333333333333335] },
 };
 

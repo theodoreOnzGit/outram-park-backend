@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// Krypton Helmholtz equation of state (from CoolProp).
 pub static KRYPTON: FluidEos = FluidEos {
@@ -27,5 +28,13 @@ pub static KRYPTON: FluidEos = FluidEos {
     IdealTerm::Lead { a1: -3.7506412806, a2: 3.7798018435 },
     IdealTerm::LogTau { a: 1.5 },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static KRYPTON_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 5525000.0, t_r: 209.48, using_tau_r: true, exponential: true, n: &[0.6286380394785566, -6.084114621397644, 0.9243637669284523, -1.2177291623316775, -484.84085075238977, 2458.926650746003], t: &[0.822, 0.961, 1.811, 2.937, 13.131, 15.629] },
+    rho_l: SatAncillary { reducing_value: 10850.0, t_r: 209.48, using_tau_r: false, exponential: false, n: &[2.546150113785161, -5.378194265123711, 8.373146326331726, -116.81279901170906, 18068.951065200818, -1719409.740660462], t: &[0.423, 1.611, 2.063, 6.632, 12.833, 19.438] },
+    rho_v: SatAncillary { reducing_value: 10850.0, t_r: 209.48, using_tau_r: true, exponential: true, n: &[-5.11839525888464, 1.8524855046540656, -2.3327083913774804, 5.670498376648386, -13.437817551364956, 2923.704628658189], t: &[0.487, 0.544, 1.593, 3.18, 4.851, 14.775] },
 };
 

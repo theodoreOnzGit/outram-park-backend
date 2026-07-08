@@ -5,6 +5,8 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
 
 /// Methanol Helmholtz equation of state (from CoolProp).
 pub static METHANOL: FluidEos = FluidEos {
@@ -31,5 +33,20 @@ pub static METHANOL: FluidEos = FluidEos {
     IdealTerm::PlanckEinsteinGeneralized { n: &[10.992677, 18.33683, -16.366004, -6.2332348, 2.8035363, 1.0778099, 0.96965697], theta: &[-4.119785383146987, -3.2649999805212513, -3.769463496824964, -2.931493552534185, -8.225557890841092, -10.316278916202423, -0.5324892672094745], c: &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], d: &[-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0] },
     IdealTerm::EnthalpyEntropyOffset { a1: -6.204166753747667, a2: 7.746973464311607 },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static METHANOL_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 8215850.0, t_r: 512.5, using_tau_r: true, exponential: true, n: &[-0.05952506679549117, 3.179977554888436, -9.939771147737998, -0.4161041862021708, -2.6160889920993333, -0.9537879619557192], t: &[0.111, 0.6666666666666666, 0.8333333333333334, 1.5, 2.1666666666666665, 5.5] },
+    rho_l: SatAncillary { reducing_value: 8520.024867237415, t_r: 512.5, using_tau_r: false, exponential: false, n: &[-5161.133254659156, 5793.274196569594, -850.8567738433294, 221.20959935245452, 0.8350964167808183, -322.4150322686462], t: &[0.099, 0.1, 0.115, 0.137, 4.0, 25.0] },
+    rho_v: SatAncillary { reducing_value: 8520.024867237415, t_r: 512.5, using_tau_r: true, exponential: true, n: &[-3.567397307329701, 6.410399799034237, -7.619523084192452, -4.47952181298982, -2.9395458001342796, 5.838421064753882], t: &[0.07600000000000001, 0.14, 0.362, 1.8333333333333333, 7.0, 14.166666666666666] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (critical enhancement omitted; see `crate::transport`).
+pub static METHANOL_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: None,
+    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 512.6, a: &[-0.00357796, 0.0629638, -0.0373047, -0.0521182, 0.231607, 0.0441575], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], b: &[3.33313, -6.08398, 8.18739, -0.261074, 1.0], m: &[0.0, 1.0, 2.0, 3.0, 4.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 512.6, rhomass_reducing: 275.563, b: &[0.0556918, 0.0104771, 0.112174, -0.0745272, -0.0843893, 0.0637569, 0.0197525, -0.0246826, -0.0015253, 0.00434656], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
 };
 

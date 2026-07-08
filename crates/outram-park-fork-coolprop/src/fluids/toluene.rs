@@ -5,6 +5,8 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
 
 /// Toluene Helmholtz equation of state (from CoolProp).
 pub static TOLUENE: FluidEos = FluidEos {
@@ -28,5 +30,20 @@ pub static TOLUENE: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 3.0 },
     IdealTerm::PlanckEinstein { n: &[1.6994, 8.0577, 17.059, 8.4567, 8.6423], t: &[0.3210815378115758, 1.346852555978031, 2.735952682720744, 5.191381495564005, 13.37558090409801] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static TOLUENE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 4126000.0, t_r: 591.75, using_tau_r: true, exponential: true, n: &[-41.682551388800405, 35.681619568443324, -2.4647898129932573, -2.2965822444409394, 1.6090346729113876, -6.971566618092907], t: &[1.081, 1.11, 2.974, 5.067, 13.97, 17.253] },
+    rho_l: SatAncillary { reducing_value: 3169.0, t_r: 591.75, using_tau_r: false, exponential: false, n: &[2.731439741297877, -1.4311921172736468, 1.7220225715861872, -1.3959592517619432, 25.019574322670564, -106.28098773992355], t: &[0.413, 1.151, 1.592, 6.141, 12.914, 18.579] },
+    rho_v: SatAncillary { reducing_value: 3169.0, t_r: 591.75, using_tau_r: true, exponential: true, n: &[-2.079525851134041, -3.0632853262137703, -5.643041080974643, 3.9792497484198788, -2638.7103858281944, 2945.506923819063], t: &[0.4, 0.697, 3.764, 8.691, 19.351, 19.782] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (critical enhancement omitted; see `crate::transport`).
+pub static TOLUENE_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: None,
+    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 1.0, a: &[0.0058808, -6.1693e-05, 3.4151e-07, -3.042e-10, 1.2868e-13, -2.1303e-17], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 591.75, rhomass_reducing: 291.992, b: &[-0.051853, 0.0517449, 0.133846, -0.121902, -0.120446, 0.137748, 0.0530211, -0.0732792, -0.0100604, 0.0172914, 0.000633457, -0.00138585], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0, 6.0, 6.0] } }),
 };
 

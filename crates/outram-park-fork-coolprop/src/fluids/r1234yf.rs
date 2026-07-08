@@ -5,6 +5,8 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
 
 /// R1234yf Helmholtz equation of state (from CoolProp).
 pub static R1234YF: FluidEos = FluidEos {
@@ -29,5 +31,20 @@ pub static R1234YF: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 3.0 },
     IdealTerm::PlanckEinstein { n: &[8.65, 9.75, 2.11], t: &[1.3918716868288703, 4.268044039690091, 12.233247247519369] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static R1234YF_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 3384400.0, t_r: 367.85, using_tau_r: true, exponential: true, n: &[-7.4507, 2.164, -1.674, -3.318, -1.617], t: &[1.0, 1.5, 3.0, 4.0, 9.0] },
+    rho_l: SatAncillary { reducing_value: 4180.0, t_r: 367.85, using_tau_r: false, exponential: false, n: &[3.392, -4.119, 8.932, -8.525, 3.384], t: &[0.4, 0.7, 1.1, 1.5, 2.1] },
+    rho_v: SatAncillary { reducing_value: 4180.0, t_r: 367.85, using_tau_r: false, exponential: true, n: &[-3.616, -74.91, 197.7, -152.76, -61.062, -115.53], t: &[0.426, 2.0, 2.4, 2.7, 7.5, 15.0] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (critical enhancement omitted; see `crate::transport`).
+pub static R1234YF_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: None,
+    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 367.85, a: &[-0.0102778, 0.0291098, 0.000860643], n: &[0.0, 1.0, 2.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 367.85, rhomass_reducing: 475.55, b: &[-0.0368219, 0.0883226, -0.0705909, 0.0259026, -0.0032295, 0.0397166, -0.077239, 0.0664707, -0.0249071, 0.00336228], t: &[0.0, 0.0, 0.0, 0.0, 0.0, -1.0, -1.0, -1.0, -1.0, -1.0], d: &[1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0] } }),
 };
 

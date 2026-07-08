@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// Neopentane Helmholtz equation of state (from CoolProp).
 pub static NEOPENTANE: FluidEos = FluidEos {
@@ -28,5 +29,13 @@ pub static NEOPENTANE: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 3.0 },
     IdealTerm::PlanckEinstein { n: &[14.422, 12.868, 17.247, 12.663], t: &[1.636925346982063, 3.977036934569097, 7.562133997325587, 17.9531516576751] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static NEOPENTANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 3196000.0, t_r: 433.74, using_tau_r: true, exponential: true, n: &[-7.502312156089728, 11.000117855992295, -400.6256764267208, 433.78538017962705, -45.58182775735909, -0.7322302008433458], t: &[1.011, 1.701, 2.3, 2.345, 2.698, 6.49] },
+    rho_l: SatAncillary { reducing_value: 3270.0, t_r: 433.74, using_tau_r: false, exponential: false, n: &[2.811511709838611, -0.6819933999019258, 143.31340246450836, -250.44132450192117, 324.6743119533206, -196312.80251857708], t: &[0.385, 0.435, 3.763, 4.175, 6.202, 16.14] },
+    rho_v: SatAncillary { reducing_value: 3270.0, t_r: 433.74, using_tau_r: true, exponential: true, n: &[-3.7861930152056065, 8.462476541870759, -339.50200633681567, 403.5197007430728, -111.52402460892499, 41.26753585967676], t: &[0.423, 1.041, 1.753, 1.863, 2.594, 3.606] },
 };
 

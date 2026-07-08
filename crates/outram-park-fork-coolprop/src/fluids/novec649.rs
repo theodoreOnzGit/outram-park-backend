@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// Novec649 Helmholtz equation of state (from CoolProp).
 pub static NOVEC649: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static NOVEC649: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 29.8 },
     IdealTerm::PlanckEinstein { n: &[29.8], t: &[4.391027817387565] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static NOVEC649_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 1869000.0, t_r: 441.81, using_tau_r: true, exponential: true, n: &[-8.4411, 2.711, -3.6354, -5.3872, -8.1641], t: &[1.0, 1.5, 2.2, 4.4, 15.0] },
+    rho_l: SatAncillary { reducing_value: 1920.0, t_r: 441.81, using_tau_r: false, exponential: false, n: &[1.5545, 1.149, 0.51565], t: &[0.297, 0.7, 4.4] },
+    rho_v: SatAncillary { reducing_value: 1920.0, t_r: 441.81, using_tau_r: false, exponential: true, n: &[-1.6073, -5.8095, -17.824, -61.012, -151.3], t: &[0.291, 0.82, 2.45, 5.5, 12.0] },
 };
 

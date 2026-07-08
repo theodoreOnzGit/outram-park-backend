@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// Chlorine Helmholtz equation of state (from CoolProp).
 pub static CHLORINE: FluidEos = FluidEos {
@@ -30,5 +31,13 @@ pub static CHLORINE: FluidEos = FluidEos {
     IdealTerm::PlanckEinstein { n: &[1.0256, 0.067756, 0.14068], t: &[1.9190846733741873, 7.196567525153203, 19.67061790208542] },
     IdealTerm::EnthalpyEntropyOffset { a1: -3.9539013640553815, a2: 3.8399048397930695 },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static CHLORINE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 7642387.504, t_r: 416.8654, using_tau_r: true, exponential: true, n: &[-6.1289, 1.5112, -1.4523, -5.6038, 3.9923, -1.2651], t: &[1.0, 1.5, 2.0, 5.94, 7.0, 14.8] },
+    rho_l: SatAncillary { reducing_value: 8060.0, t_r: 416.8654, using_tau_r: false, exponential: false, n: &[0.9662, 1.7744, -0.23081, 0.47213], t: &[0.234, 0.68, 1.3, 3.35] },
+    rho_v: SatAncillary { reducing_value: 8060.0, t_r: 416.8654, using_tau_r: false, exponential: true, n: &[-1.7673, -5.173, -12.539, -37.552, -64.404, -151.49], t: &[0.3, 0.994, 2.7, 6.155, 12.4, 24.0] },
 };
 

@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// R365MFC Helmholtz equation of state (from CoolProp).
 pub static R365MFC: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static R365MFC: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 3.0 },
     IdealTerm::PlanckEinstein { n: &[17.47, 16.29], t: &[1.236956521739131, 4.852173913043479] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static R365MFC_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 3266000.0, t_r: 460.0, using_tau_r: true, exponential: true, n: &[-7.611425283264201, 3.9042179746841317, -14.051415772751833, 9.298084346936626, -12.226784626997082, 58.35959676825318], t: &[0.991, 1.975, 2.924, 3.462, 7.169, 12.273] },
+    rho_l: SatAncillary { reducing_value: 3200.0, t_r: 460.0, using_tau_r: false, exponential: false, n: &[0.26150334292302974, 1.2960567437114034, 1.1054962724493822, -1.9624874038489026, 6.877950747305875, -9775.478987767088], t: &[0.197, 0.347, 0.68, 4.264, 5.751, 18.372] },
+    rho_v: SatAncillary { reducing_value: 3200.0, t_r: 460.0, using_tau_r: true, exponential: true, n: &[-2.321900801891659, -12.318486255432273, 29.90077432524069, -52.89208803147019, 57.15577614474706, -6130.399386014779], t: &[0.326, 1.306, 2.168, 3.262, 5.147, 15.037] },
 };
 

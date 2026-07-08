@@ -5,6 +5,8 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ConductivityModel, ConductivityDilute, ConductivityResidual};
 
 /// R123 Helmholtz equation of state (from CoolProp).
 pub static R123: FluidEos = FluidEos {
@@ -30,5 +32,20 @@ pub static R123: FluidEos = FluidEos {
     IdealTerm::CP0PolyT { c: &[0.04866685127621383, -5.586658475955018e-05, 2.823486262027407e-08], t: &[1.0, 2.0, 3.0], tc: 456.82, t0: 298.0 },
     IdealTerm::EnthalpyEntropyOffset { a1: -26.675860613148, a2: 16.0562030850291 },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static R123_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 3672000.0, t_r: 456.831, using_tau_r: true, exponential: true, n: &[0.021700046705144468, -0.017071666294105076, -0.8684522136311831, -5.704783724754201, -4.177439664066626, -5.641903122742188], t: &[0.10400000000000001, 0.052000000000000005, 0.8333333333333334, 1.0, 3.8333333333333335, 14.666666666666666] },
+    rho_l: SatAncillary { reducing_value: 3596.417, t_r: 456.831, using_tau_r: false, exponential: false, n: &[-3.864185789470652, 30.79156421082324, -28.015589610678077, 3.510675390610505, 0.4281514083007005, 132.7066707828105], t: &[0.051000000000000004, 0.10400000000000001, 0.11800000000000001, 0.3575, 1.8333333333333333, 22.666666666666668] },
+    rho_v: SatAncillary { reducing_value: 3596.417, t_r: 456.831, using_tau_r: true, exponential: true, n: &[2.566406797171124, -3.243399714781957, -1.2478820835957445, -3.602050966699702, -5.2566289430739, -1.0145271742624868], t: &[0.14500000000000002, 0.16666666666666666, 0.3505, 0.8333333333333334, 3.8333333333333335, 10.833333333333334] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (critical enhancement omitted; see `crate::transport`).
+pub static R123_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: Some(ViscosityModel { dilute: ViscosityDilute::PowersOfT { a: &[-2.273638e-06, 5.099859e-08, -2.402786e-11], t: &[0.0, 1.0, 2.0] }, initial: None, higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand { t_reduce: 456.831, rhomolar_reduce: 3596.417, a: &[-1.2245673e-05, 1.39463316064215e-05, -5.553966e-05, 1.863975355e-05, -1.4708365237499999e-05], d1: &[1.0, 1.0, 1.0, 2.0, 3.0], t1: &[0.0, -1.0, 0.0, 0.0, 0.0], gamma: &[0.0, 0.0, 0.0, 0.0, 0.0], l: &[1.0, 1.0, 1.0, 1.0, 1.0], f: &[0.000585991090909], d2: &[0.0], t2: &[0.0], g: &[3.32411454545], h: &[0.0], p: &[1.0], q: &[0.0] } }),
+    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 1.0, a: &[-0.00778, 5.695e-05], n: &[0.0, 1.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 456.831, rhomass_reducing: 550.0, b: &[0.0642894, -0.0530474, 4.53522e-05, -0.139928, 0.16654, -0.0162656, 0.136819, -0.183291, 0.0357146, -0.023121, 0.0341945, -0.00757341], t: &[1.5, 2.0, 6.0, 0.0, 0.5, 1.5, 0.0, 0.5, 1.5, 0.0, 0.5, 1.5], d: &[1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0] } }),
 };
 

@@ -46,25 +46,35 @@ End-to-end and verified:
   CP0AlyLee / EnthalpyEntropyOffset** — with all first/second `δ`,`τ`
   derivatives.
 - `(T, ρ)` property evaluation (`props::state_trho`): p, u, h, s, c_v, c_p,
-  speed of sound.
+  speed of sound. Plus single-phase `(p,T)`/`(p,h)`/`(p,s)` **flashes**
+  (`flash`, density/temperature solves).
+- **Saturation & VLE** (`vle`, `ancillaries`): fast saturation-ancillary fits
+  (`p_sat`, `ρ'`, `ρ''`; 131 fluids) and a thermodynamically-consistent
+  **Maxwell two-phase solve** on the EOS (`T_sat(p)`, `(p,h)` quality). N₂ at
+  its normal boiling point → `p_sat` = 101 325 Pa, `ρ'` = 806, `ρ''` = 4.61
+  kg/m³; Water at 100 °C → `ρ'` = 958.4 (both matching literature).
+- **Transport** (`transport`): dynamic viscosity `μ` (20 fluids) and thermal
+  conductivity `λ` (38 fluids) from the CoolProp correlations — N₂/Ar `μ`,`λ`
+  reproduce NIST to <1 %. Hardcoded fluids (Water, CO₂, …) and the near-critical
+  enhancement are out of scope (`None`, never a wrong number).
 - **All 137** CoolProp pure fluids are generated as hardcoded Rust
-  (`dev/gen_fluid.py`) **and wired into the `Fluid` enum** — enumerate them with
-  `Fluid::ALL`, get the CoolProp name with `Fluid::name`. Total fluid data is
-  ~0.5 MB (well under the crate's 10 MB budget).
-- **Verification** against CoolProp's tabulated states: Water (IAPWS-95) to
-  ~1×10⁻⁴ at the triple line (`tests/water_reference.rs`); Helium to machine
-  precision at the critical point (`tests/helium_reference.rs`); the newer term
-  forms pinned by seven fluids — Nitrogen, Fluorine, Methanol, R125, Ammonia,
-  R22, n-Heptane — reproducing triple-liquid `h`/`s` to ≲2×10⁻⁵
-  (`tests/term_types_reference.rs`); and a smoke test evaluating **every** fluid
-  at its critical point (`tests/all_fluids_smoke.rs`).
+  (`dev/gen_fluid.py` / `dev/regen_all.py`) **and wired into the `Fluid` enum** —
+  enumerate them with `Fluid::ALL`; `Fluid::eos/ancillaries/transport`. Data is
+  ~0.6 MB (well under the crate's 10 MB budget).
+- **`OPCPFluidSingleCV`** — a `uom`-typed 0-D control volume, **two-phase-aware**
+  (`(p,h)`/`(p,s)` report vapour quality) with `μ`/`λ` getters.
+- **Verification**: CoolProp tabulated states — Water (IAPWS-95) ~1×10⁻⁴ at the
+  triple line, Helium machine-precision at Tc, seven fluids' triple-liquid
+  `h`/`s` to ≲2×10⁻⁵; a smoke test over **every** fluid at its critical point;
+  transport vs NIST and VLE vs literature (`tests/transport_vle.rs`).
 
 Tracked follow-ups (beads `op-kbc`):
 
 - **Non-analytic critical-region terms** — carried in the fluid data but not yet
   evaluated (a no-op, so accuracy within ~1 % of the critical point is
   degraded; unaffected elsewhere).
-- `(T, p)` / `(p, h)` … **flashes** (need a density solve).
+- **Transport for hardcoded fluids** (Water/CO₂/…) and the near-critical
+  enhancement (`simplified_Olchowy_Sengers`).
 - **Per-fluid reference tests** beyond the nine already pinned (the rest are
   covered only by the critical-point smoke test).
 - **`rfluids` verification** (CoolProp oracle) as a dev-dependency.

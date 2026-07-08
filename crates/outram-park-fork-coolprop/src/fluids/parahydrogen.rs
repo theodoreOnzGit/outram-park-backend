@@ -5,6 +5,8 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
 
 /// ParaHydrogen Helmholtz equation of state (from CoolProp).
 pub static PARAHYDROGEN: FluidEos = FluidEos {
@@ -29,5 +31,20 @@ pub static PARAHYDROGEN: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 1.5 },
     IdealTerm::PlanckEinsteinGeneralized { n: &[4.30256, 13.0289, -47.7365, 50.0013, -18.6261, 0.993973, 0.536078], theta: &[-15.14967514724634, -25.092598214827856, -29.473556378650795, -35.40591414172081, -40.72499848199648, -163.79257999878558, -309.2173173841763], c: &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], d: &[-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static PARAHYDROGEN_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 1285800.0, t_r: 32.938, using_tau_r: true, exponential: true, n: &[0.1490037759465196, -4.78237888041144, 1.5087203071678434, -0.880650150281499, 1.2942713948220537, -0.3877150898692146], t: &[0.852, 0.986, 1.827, 2.355, 3.05, 4.286] },
+    rho_l: SatAncillary { reducing_value: 15538.0, t_r: 32.938, using_tau_r: false, exponential: false, n: &[2.42209314197553, -0.8105757647156946, 5.292441752641816, -801.4099838859875, 965.4158391322754, -2288.927990716296], t: &[0.44, 0.833, 4.399, 8.501, 8.893, 17.08] },
+    rho_v: SatAncillary { reducing_value: 15538.0, t_r: 32.938, using_tau_r: true, exponential: true, n: &[-5.1023908882756785, 15.472633152203006, -25.539938117401427, 65.8971290411631, -53.56192274807538, -9.178291109165437], t: &[0.533, 1.001, 1.276, 1.876, 1.958, 19.379] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (critical enhancement omitted; see `crate::transport`).
+pub static PARAHYDROGEN_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: None,
+    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 32.938, a: &[-1.245, 310.212, -331.004, 246.016, -65.781, 10.826, -0.519659, 0.0143979], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0], b: &[14230.4, -19392.2, 15837.9, -4818.12, 728.639, -35.7365, 1.0], m: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 32.938, rhomass_reducing: 31.32274344, b: &[0.0265975, -0.00133826, 0.0130219, -0.00567678, -9.2338e-05, -0.00121727, 0.00366663, 0.00388715, -0.00921055, 0.00400723], t: &[0.0, 0.0, 0.0, 0.0, 0.0, -1.0, -1.0, -1.0, -1.0, -1.0], d: &[1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0] } }),
 };
 

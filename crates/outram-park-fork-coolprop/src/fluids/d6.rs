@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// D6 Helmholtz equation of state (from CoolProp).
 pub static D6: FluidEos = FluidEos {
@@ -30,5 +31,13 @@ pub static D6: FluidEos = FluidEos {
     IdealTerm::PlanckEinsteinGeneralized { n: &[118.0111016069331, -82.5909330141469], theta: &[-5.550187370311871, -2.436743163306389], c: &[1.0, 1.0], d: &[-1.0, 1.0] },
     IdealTerm::EnthalpyEntropyOffset { a1: 16.2776881308826, a2: -9.86112982952628 },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static D6_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 961000.0, t_r: 645.78, using_tau_r: true, exponential: true, n: &[0.0009840543696606977, -41.57124463279652, 33.17839559625214, -221.16595834771732, 368.2016194959781, -159.62000149415917], t: &[0.023, 1.048, 1.073, 4.527, 4.823, 5.211] },
+    rho_l: SatAncillary { reducing_value: 627.2885477999996, t_r: 645.78, using_tau_r: false, exponential: false, n: &[41.50050216018366, -198.81152403352948, 161.74986511225353, -2.8794147964708507, 15327.689037983815, -19023.670087608214], t: &[0.59, 0.719, 0.755, 3.132, 14.519, 14.971] },
+    rho_v: SatAncillary { reducing_value: 627.2885477999996, t_r: 645.78, using_tau_r: true, exponential: true, n: &[-15.776270974992267, 13.699167960267655, -7.138110844583917, -2782.2625154428233, 5504.275783042545, -5468.11384054501], t: &[0.522, 0.588, 1.175, 9.309, 10.264, 13.23] },
 };
 

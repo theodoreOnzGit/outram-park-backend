@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// OrthoDeuterium Helmholtz equation of state (from CoolProp).
 pub static ORTHODEUTERIUM: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static ORTHODEUTERIUM: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 1.5 },
     IdealTerm::PlanckEinstein { n: &[4.04482, -4.65391, -4.65342, 3.46313, -4.58637, -4.6503, -4.65124, 2.67024, 15.20455, 0.87164, -4.7608, 4.32447], t: &[41.49713093375065, 12.56129368805425, 12.32133541992697, 9.447052686489306, 53.15597287428273, 12.08137715179969, 12.81429316640584, 70.77203964527908, 16.13458528951487, 225.4042775169536, 25.08346374543558, 6.604068857589984] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static ORTHODEUTERIUM_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 1679600.0, t_r: 38.34, using_tau_r: true, exponential: true, n: &[-5.962797925166512, 6.758820005764522, -5.349436200589799, 0.6830724644326415, -321.7646727432708, 338.2279808105484], t: &[1.011, 1.564, 1.694, 2.339, 12.299, 12.417] },
+    rho_l: SatAncillary { reducing_value: 17230.0, t_r: 38.34, using_tau_r: false, exponential: false, n: &[0.7561385728476524, 7.456420463900972, -7.667110838528095, 31.91516196841129, -55.84889038663615, 25.60708660267712], t: &[0.433, 0.632, 0.773, 2.187, 2.427, 2.681] },
+    rho_v: SatAncillary { reducing_value: 17230.0, t_r: 38.34, using_tau_r: true, exponential: true, n: &[0.2331216679164502, -3.698059063742354, 0.4327794907483545, -0.5108769415735642, 2131.2963725894447, -3924.052231017246], t: &[0.324, 0.491, 1.733, 2.191, 15.506, 16.417] },
 };
 

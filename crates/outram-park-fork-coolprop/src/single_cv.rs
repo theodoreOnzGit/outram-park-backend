@@ -39,7 +39,9 @@
 
 use uom::si::f64::*;
 use uom::si::available_energy::joule_per_kilogram;
+use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::mass_density::kilogram_per_cubic_meter;
+use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::pressure::pascal;
 use uom::si::ratio::ratio;
 use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
@@ -50,17 +52,81 @@ use uom::si::velocity::meter_per_second;
 use crate::flash::{state_ph, state_ps, state_pt, FlashError};
 use crate::fluid::Fluid;
 use crate::props::{state_trho, FluidState};
+use crate::vle::{phase_at_ph, saturation_at_temperature, saturation_temperature, PhaseAtPh};
+use crate::{conductivity, viscosity};
+
+/// Build the mixture [`FluidState`] + quality for a `(p, h)` input, or the
+/// single-phase state via the flash. `p` \[Pa\], `h` \[J/kg\].
+fn state_quality_ph(fluid: Fluid, p: f64, h: f64) -> Result<(FluidState, Option<f64>), FlashError> {
+    if let PhaseAtPh::TwoPhase { temperature, quality, density } = phase_at_ph(fluid, p, h) {
+        let sat = saturation_at_temperature(fluid, temperature).ok_or(FlashError::NonConvergent)?;
+        let sl = state_trho(fluid, temperature, sat.rho_liquid);
+        let sv = state_trho(fluid, temperature, sat.rho_vapour);
+        let x = quality;
+        let mix = FluidState {
+            temperature,
+            density,
+            pressure: p,
+            internal_energy: (1.0 - x) * sl.internal_energy + x * sv.internal_energy,
+            enthalpy: h,
+            entropy: (1.0 - x) * sl.entropy + x * sv.entropy,
+            cv: f64::NAN,
+            cp: f64::NAN,
+            speed_of_sound: f64::NAN,
+        };
+        Ok((mix, Some(x)))
+    } else {
+        Ok((state_ph(fluid, p, h)?, None))
+    }
+}
+
+/// Build the mixture [`FluidState`] + quality for a `(p, s)` input, or the
+/// single-phase state via the flash. `p` \[Pa\], `s` \[J/(kg·K)\].
+fn state_quality_ps(fluid: Fluid, p: f64, s: f64) -> Result<(FluidState, Option<f64>), FlashError> {
+    if let Some(t_sat) = saturation_temperature(fluid, p) {
+        if let Some(sat) = saturation_at_temperature(fluid, t_sat) {
+            let sl = state_trho(fluid, t_sat, sat.rho_liquid);
+            let sv = state_trho(fluid, t_sat, sat.rho_vapour);
+            if s >= sl.entropy && s <= sv.entropy && sv.entropy > sl.entropy {
+                let x = (s - sl.entropy) / (sv.entropy - sl.entropy);
+                let v = (1.0 - x) / sat.rho_liquid + x / sat.rho_vapour;
+                let mix = FluidState {
+                    temperature: t_sat,
+                    density: 1.0 / v,
+                    pressure: p,
+                    internal_energy: (1.0 - x) * sl.internal_energy + x * sv.internal_energy,
+                    enthalpy: (1.0 - x) * sl.enthalpy + x * sv.enthalpy,
+                    entropy: s,
+                    cv: f64::NAN,
+                    cp: f64::NAN,
+                    speed_of_sound: f64::NAN,
+                };
+                return Ok((mix, Some(x)));
+            }
+        }
+    }
+    Ok((state_ps(fluid, p, s)?, None))
+}
 
 /// A single, uniform control volume of one [`Fluid`] at equilibrium.
 ///
-/// Holds the fluid identity, its full single-phase [`FluidState`] (raw SI), and
-/// the fixed control-volume [`Volume`]. Build it with a constructor, then read
-/// properties with the `get_*` accessors (all `uom`-typed).
+/// Holds the fluid identity, its [`FluidState`] (raw SI), the fixed
+/// control-volume [`Volume`], and the vapour `quality` (`None` when
+/// single-phase). Build it with a constructor, then read properties with the
+/// `get_*` accessors (all `uom`-typed).
+///
+/// **Two-phase:** the `(p, h)` / `(p, s)` constructors detect a two-phase state
+/// (inside the saturation dome) via [`crate::vle`] and store the mixture: `T` is
+/// the saturation temperature, `ρ`/`h`/`s`/`u` are the quality-weighted mixture
+/// values, and [`get_quality`](Self::get_quality) is `Some(x)`. In two-phase the
+/// single-phase-only quantities `c_v`, `c_p`, `γ` and the speed of sound are
+/// `NaN` (they are not defined for a two-phase mixture).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct OPCPFluidSingleCV {
     fluid: Fluid,
     state: FluidState,
     volume: Volume,
+    quality: Option<f64>,
 }
 
 impl OPCPFluidSingleCV {
@@ -79,7 +145,7 @@ impl OPCPFluidSingleCV {
             temperature.get::<kelvin>(),
             density.get::<kilogram_per_cubic_meter>(),
         );
-        Self { fluid, state, volume }
+        Self { fluid, state, volume, quality: None }
     }
 
     /// Construct from pressure and temperature (single-phase `(p, T)` flash —
@@ -92,50 +158,55 @@ impl OPCPFluidSingleCV {
         volume: Volume,
     ) -> Result<Self, FlashError> {
         let state = state_pt(fluid, temperature.get::<kelvin>(), pressure.get::<pascal>())?;
-        Ok(Self { fluid, state, volume })
+        Ok(Self { fluid, state, volume, quality: None })
     }
 
-    /// Construct from pressure and specific enthalpy (single-phase `(p, h)`
-    /// flash). Returns [`FlashError`] on non-convergence.
+    /// Construct from pressure and specific enthalpy. Detects a **two-phase**
+    /// state (inside the dome) via [`crate::vle`] and stores the mixture with
+    /// its vapour quality; otherwise a single-phase `(p, h)` flash. Returns
+    /// [`FlashError`] on non-convergence.
     pub fn try_new_from_ph(
         fluid: Fluid,
         pressure: Pressure,
         specific_enthalpy: AvailableEnergy,
         volume: Volume,
     ) -> Result<Self, FlashError> {
-        let state = state_ph(
+        let (state, quality) = state_quality_ph(
             fluid,
             pressure.get::<pascal>(),
             specific_enthalpy.get::<joule_per_kilogram>(),
         )?;
-        Ok(Self { fluid, state, volume })
+        Ok(Self { fluid, state, volume, quality })
     }
 
-    /// Construct from pressure and specific entropy (single-phase `(p, s)`
-    /// flash). Returns [`FlashError`] on non-convergence.
+    /// Construct from pressure and specific entropy. Two-phase-aware (as
+    /// [`try_new_from_ph`](Self::try_new_from_ph)); otherwise a single-phase
+    /// `(p, s)` flash. Returns [`FlashError`] on non-convergence.
     pub fn try_new_from_ps(
         fluid: Fluid,
         pressure: Pressure,
         specific_entropy: SpecificHeatCapacity,
         volume: Volume,
     ) -> Result<Self, FlashError> {
-        let state = state_ps(
+        let (state, quality) = state_quality_ps(
             fluid,
             pressure.get::<pascal>(),
             specific_entropy.get::<joule_per_kilogram_kelvin>(),
         )?;
-        Ok(Self { fluid, state, volume })
+        Ok(Self { fluid, state, volume, quality })
     }
 
     // ── Re-equilibration setters (keep the same volume) ─────────────────────
 
-    /// Re-equilibrate to a new `(T, ρ)` state (EOS-native, infallible).
+    /// Re-equilibrate to a new `(T, ρ)` state (EOS-native, infallible,
+    /// single-phase).
     pub fn set_trho(&mut self, temperature: ThermodynamicTemperature, density: MassDensity) {
         self.state = state_trho(
             self.fluid,
             temperature.get::<kelvin>(),
             density.get::<kilogram_per_cubic_meter>(),
         );
+        self.quality = None;
     }
 
     /// Re-equilibrate to a new `(p, T)` state (single-phase flash).
@@ -145,26 +216,31 @@ impl OPCPFluidSingleCV {
         temperature: ThermodynamicTemperature,
     ) -> Result<(), FlashError> {
         self.state = state_pt(self.fluid, temperature.get::<kelvin>(), pressure.get::<pascal>())?;
+        self.quality = None;
         Ok(())
     }
 
-    /// Re-equilibrate to a new `(p, h)` state (single-phase flash).
+    /// Re-equilibrate to a new `(p, h)` state (two-phase-aware).
     pub fn set_ph(&mut self, pressure: Pressure, specific_enthalpy: AvailableEnergy) -> Result<(), FlashError> {
-        self.state = state_ph(
+        let (state, quality) = state_quality_ph(
             self.fluid,
             pressure.get::<pascal>(),
             specific_enthalpy.get::<joule_per_kilogram>(),
         )?;
+        self.state = state;
+        self.quality = quality;
         Ok(())
     }
 
-    /// Re-equilibrate to a new `(p, s)` state (single-phase flash).
+    /// Re-equilibrate to a new `(p, s)` state (two-phase-aware).
     pub fn set_ps(&mut self, pressure: Pressure, specific_entropy: SpecificHeatCapacity) -> Result<(), FlashError> {
-        self.state = state_ps(
+        let (state, quality) = state_quality_ps(
             self.fluid,
             pressure.get::<pascal>(),
             specific_entropy.get::<joule_per_kilogram_kelvin>(),
         )?;
+        self.state = state;
+        self.quality = quality;
         Ok(())
     }
 
@@ -238,5 +314,38 @@ impl OPCPFluidSingleCV {
     /// The mass contained, `m = ρ·V` \[kg\].
     pub fn get_mass(&self) -> Mass {
         self.volume * self.get_density()
+    }
+
+    /// Vapour quality `x` \[-\] if this CV is a two-phase mixture, else `None`
+    /// (single phase). `x = 0` is saturated liquid, `x = 1` saturated vapour.
+    pub fn get_quality(&self) -> Option<f64> {
+        self.quality
+    }
+
+    /// `true` if this control volume is a two-phase (liquid+vapour) mixture.
+    pub fn is_two_phase(&self) -> bool {
+        self.quality.is_some()
+    }
+
+    /// Dynamic viscosity `μ` \[Pa·s\], or `None` if the fluid has no supported
+    /// viscosity model or the CV is two-phase (mixture transport not modelled).
+    /// Critical enhancement is omitted (see [`crate::transport`]).
+    pub fn get_viscosity(&self) -> Option<DynamicViscosity> {
+        if self.quality.is_some() {
+            return None;
+        }
+        viscosity(self.fluid, self.state.temperature, self.state.density)
+            .map(DynamicViscosity::new::<pascal_second>)
+    }
+
+    /// Thermal conductivity `λ` \[W/(m·K)\], or `None` if the fluid has no
+    /// supported conductivity model or the CV is two-phase. Critical
+    /// enhancement is omitted (see [`crate::transport`]).
+    pub fn get_thermal_conductivity(&self) -> Option<ThermalConductivity> {
+        if self.quality.is_some() {
+            return None;
+        }
+        conductivity(self.fluid, self.state.temperature, self.state.density)
+            .map(ThermalConductivity::new::<watt_per_meter_kelvin>)
     }
 }

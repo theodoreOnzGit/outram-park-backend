@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// DiethylEther Helmholtz equation of state (from CoolProp).
 pub static DIETHYLETHER: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static DIETHYLETHER: FluidEos = FluidEos {
     IdealTerm::Power { n: &[-8.943822, 0.54621, -0.016604], t: &[-1.0, -2.0, -3.0] },
     IdealTerm::EnthalpyEntropyOffset { a1: -10.069069173143562, a2: 6.670358952207117 },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static DIETHYLETHER_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 3649016.896528536, t_r: 466.7, using_tau_r: true, exponential: true, n: &[4033.9605193670827, -46575.73734989262, 43764.48293843155, -1223.2935292911732, -5.8850985714687, -3.6831359630287133], t: &[0.362, 0.3685, 0.3695, 0.383, 1.0, 3.5] },
+    rho_l: SatAncillary { reducing_value: 3561.7148, t_r: 466.7, using_tau_r: false, exponential: false, n: &[5.682880383241632, -5263.469994240878, 23798.393607859573, -35374.58571701918, 16836.712657250806, -0.09757711746576947], t: &[0.14300000000000002, 0.353, 0.374, 0.38849999999999996, 0.39799999999999996, 3.3333333333333335] },
+    rho_v: SatAncillary { reducing_value: 3561.7148, t_r: 466.7, using_tau_r: true, exponential: true, n: &[-1.3943406980372655, 1151.6019785628107, -1281.554541791759, 126.75688153139006, -3.605448381981594, -9.927752538828088], t: &[0.1, 0.3535, 0.3565, 0.376, 2.5, 7.333333333333333] },
 };
 

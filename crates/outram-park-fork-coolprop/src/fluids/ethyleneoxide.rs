@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// EthyleneOxide Helmholtz equation of state (from CoolProp).
 pub static ETHYLENEOXIDE: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static ETHYLENEOXIDE: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 3.0 },
     IdealTerm::PlanckEinstein { n: &[6.79, 4.53, 3.68], t: &[2.8363047001620743, 4.627655037106543, 9.532542864454491] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static ETHYLENEOXIDE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 7305000.0, t_r: 468.92, using_tau_r: true, exponential: true, n: &[-7.002, 1.1835, -2.196, -1.394, -1.582, -382.3], t: &[1.0, 1.5, 3.3, 5.05, 17.0, 36.8] },
+    rho_l: SatAncillary { reducing_value: 7170.0, t_r: 468.92, using_tau_r: false, exponential: false, n: &[2.3014, -0.08549, 2.055, -2.883, 1.686], t: &[0.382, 0.93, 1.48, 2.1, 2.95] },
+    rho_v: SatAncillary { reducing_value: 7170.0, t_r: 468.92, using_tau_r: false, exponential: true, n: &[-3.0498, -7.1199, -23.067, -56.11, -127.8], t: &[0.414, 1.276, 3.63, 7.84, 16.9] },
 };
 

@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ConductivityModel, ConductivityDilute, ConductivityResidual};
 
 /// R410A Helmholtz equation of state (from CoolProp).
 pub static R410A: FluidEos = FluidEos {
@@ -29,5 +30,12 @@ pub static R410A: FluidEos = FluidEos {
     IdealTerm::Power { n: &[-46.87575], t: &[-0.1] },
     IdealTerm::PlanckEinstein { n: &[2.0623, 5.9751, 1.5612], t: &[2.02326, 5.00154, 11.2484] },
     ],
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (critical enhancement omitted; see `crate::transport`).
+pub static R410A_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: Some(ViscosityModel { dilute: ViscosityDilute::PowersOfT { a: &[-2.695e-06, 5.85e-08, -2.129e-11], t: &[0.0, 1.0, 2.0] }, initial: None, higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand { t_reduce: 344.4943434, rhomolar_reduce: 6323.999999999999, a: &[4.1528450396712e-06, 1.2187385701457372e-05, 1.2660855545258757e-05, -1.0753223728015742e-05, 1.9206178288211474e-06, 3.6793471063956824e-07], d1: &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0], t1: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], gamma: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], l: &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0], f: &[0.0], d2: &[0.0], t2: &[0.0], g: &[1.0], h: &[0.0], p: &[1.0], q: &[0.0] } }),
+    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 1.0, a: &[-0.008872, 7.41e-05], n: &[0.0, 1.0, 2.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 344.494, rhomass_reducing: 459.0300696, b: &[0.016414915288896, -0.0019058593303886919, 0.00420061845936278, -0.0001644950202819914], t: &[0.0, 0.0, 0.0, 0.0], d: &[1.0, 2.0, 3.0, 4.0] } }),
 };
 

@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// HydrogenChloride Helmholtz equation of state (from CoolProp).
 pub static HYDROGENCHLORIDE: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static HYDROGENCHLORIDE: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 2.5 },
     IdealTerm::PlanckEinstein { n: &[0.0033327, 0.935243, 0.209996], t: &[0.9239866945915979, 12.319822594554639, 19.403720586423557] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static HYDROGENCHLORIDE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 8318500.0, t_r: 324.68, using_tau_r: true, exponential: true, n: &[-6.73, 1.464, -1.994, 1.283, -2.062], t: &[1.0, 1.5, 3.12, 3.95, 4.8] },
+    rho_l: SatAncillary { reducing_value: 11870.0, t_r: 324.68, using_tau_r: false, exponential: false, n: &[2.547, -0.631, 1.75, -1.922, 1.03], t: &[0.418, 1.12, 1.86, 2.66, 3.57] },
+    rho_v: SatAncillary { reducing_value: 11870.0, t_r: 324.68, using_tau_r: false, exponential: true, n: &[-2.5676, -4.1055, -12.068, -29.03, -54.93, -222.7], t: &[0.417, 0.923, 2.57, 5.54, 10.5, 23.3] },
 };
 

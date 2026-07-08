@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// Neon Helmholtz equation of state (from CoolProp).
 pub static NEON: FluidEos = FluidEos {
@@ -28,5 +29,13 @@ pub static NEON: FluidEos = FluidEos {
     IdealTerm::Lead { a1: -3.0384719151147275, a2: 3.253690479855404 },
     IdealTerm::LogTau { a: 1.5 },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static NEON_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 2680000.0, t_r: 44.4918, using_tau_r: true, exponential: true, n: &[-0.00074500795037099, -3.682372301668146, -9.78153179091002, 4.096945170441814, -2.9886393690120436, 7.178339654951069], t: &[0.019, 0.9, 1.026, 1.808, 2.247, 0.954] },
+    rho_l: SatAncillary { reducing_value: 23882.0, t_r: 44.4918, using_tau_r: false, exponential: false, n: &[0.22207659869985238, 2.4573200546328224, -1969.4302835894664, 6749.387057643627, -4813.477464106806, 591.6954480241219], t: &[0.361, 0.489, 3.226, 3.371, 3.443, 9.965] },
+    rho_v: SatAncillary { reducing_value: 23882.0, t_r: 44.4918, using_tau_r: true, exponential: true, n: &[-1.3474639960955583, -2.7571994490012472, 0.009650364682861507, 2.0354003457571044, -3.227001419324544, 122.46077167651404], t: &[0.408, 0.648, 1.315, 2.286, 2.901, 11.792] },
 };
 

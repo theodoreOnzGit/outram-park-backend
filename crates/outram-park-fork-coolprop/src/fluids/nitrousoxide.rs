@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// NitrousOxide Helmholtz equation of state (from CoolProp).
 pub static NITROUSOXIDE: FluidEos = FluidEos {
@@ -28,5 +29,13 @@ pub static NITROUSOXIDE: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 2.5 },
     IdealTerm::PlanckEinstein { n: &[2.1769, 1.6145, 0.48393], t: &[2.839881106229, 7.663478935125356, 17.598216593435] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static NITROUSOXIDE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 7245000.0, t_r: 309.52, using_tau_r: true, exponential: true, n: &[-24.198485663914695, 18.980157921169518, -0.9915637584760082, -3.6052256452535647, 52.20126113055801, -340.2395463889685], t: &[1.06, 1.105, 1.754, 4.415, 9.887, 12.55] },
+    rho_l: SatAncillary { reducing_value: 10270.000000000002, t_r: 309.52, using_tau_r: false, exponential: false, n: &[2.248014962727216, 1354.8814407985476, -227009237.43183637, 312935961.0720787, -139155040.7743576, 295107831.0429585], t: &[0.374, 6.796, 13.027, 13.205, 14.362, 18.638] },
+    rho_v: SatAncillary { reducing_value: 10270.000000000002, t_r: 309.52, using_tau_r: true, exponential: true, n: &[-3.439484106428665, -35.87348642351084, 98.43310989645504, -173.87569213455475, 30857.724063434925, -31916.967231256218], t: &[0.428, 2.405, 3.115, 4.433, 8.312, 8.395] },
 };
 

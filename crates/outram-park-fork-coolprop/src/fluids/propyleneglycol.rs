@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// PropyleneGlycol Helmholtz equation of state (from CoolProp).
 pub static PROPYLENEGLYCOL: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static PROPYLENEGLYCOL: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 3.0 },
     IdealTerm::PlanckEinstein { n: &[5.0, 28.0], t: &[1.4836795252225519, 1.9732937685459941] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static PROPYLENEGLYCOL_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 7291800.0, t_r: 674.0, using_tau_r: true, exponential: true, n: &[-10.12, 3.15, -5.6, -0.337, -2.39], t: &[1.0, 1.5, 2.6, 4.0, 5.0] },
+    rho_l: SatAncillary { reducing_value: 4460.0, t_r: 674.0, using_tau_r: false, exponential: false, n: &[0.46, 2.06, 0.743, -1.905, 1.536], t: &[0.21, 0.43, 2.7, 3.7, 4.7] },
+    rho_v: SatAncillary { reducing_value: 4460.0, t_r: 674.0, using_tau_r: true, exponential: true, n: &[-2.0507, -6.8362, -19.835, -10.097, -55.772, -144.55], t: &[0.32, 0.9, 2.5, 4.2, 5.7, 12.0] },
 };
 

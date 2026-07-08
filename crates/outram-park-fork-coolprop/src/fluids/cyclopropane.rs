@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// CycloPropane Helmholtz equation of state (from CoolProp).
 pub static CYCLOPROPANE: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static CYCLOPROPANE: FluidEos = FluidEos {
     IdealTerm::CP0PolyT { c: &[6.378038040672545, -0.04582023302189515, 0.0002558503477107775, -3.908517142596848e-07, 2.051746651955177e-10], t: &[0.0, 1.0, 2.0, 3.0, 4.0], tc: 398.3, t0: 298.15 },
     IdealTerm::EnthalpyEntropyOffset { a1: -10.9358280454636, a2: 8.75156673092286 },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static CYCLOPROPANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 5579700.0, t_r: 398.3, using_tau_r: true, exponential: true, n: &[-0.11955219361137283, 0.18406121015183027, -0.13653132075738866, -5.797505519116896, -20.62240936494475, -324540.4065607637], t: &[0.135, 0.181, 0.421, 0.983, 6.3, 16.644] },
+    rho_l: SatAncillary { reducing_value: 6142.9149, t_r: 398.3, using_tau_r: false, exponential: false, n: &[0.36728670919821876, 17.39312205196081, -65.70893634663562, 917.3256648476147, -909.8353253919709, 1550.3280904976405], t: &[0.109, 0.951, 1.509, 2.43, 2.535, 7.779] },
+    rho_v: SatAncillary { reducing_value: 6142.9149, t_r: 398.3, using_tau_r: true, exponential: true, n: &[-0.33841331698570076, -4.9703350919635545, 5.62081036731097, -352.4354033337558, 14193580833.179937, -19206776520.109684], t: &[0.098, 0.654, 2.255, 5.732, 18.195, 18.473] },
 };
 

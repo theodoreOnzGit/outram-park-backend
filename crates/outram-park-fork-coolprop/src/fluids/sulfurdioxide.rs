@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// SulfurDioxide Helmholtz equation of state (from CoolProp).
 pub static SULFURDIOXIDE: FluidEos = FluidEos {
@@ -30,5 +31,13 @@ pub static SULFURDIOXIDE: FluidEos = FluidEos {
     IdealTerm::Power { n: &[-0.0159272204], t: &[-1.0] },
     IdealTerm::PlanckEinstein { n: &[1.0875, 1.916], t: &[1.8182240386401636, 4.328441389559726] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static SULFURDIOXIDE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 7886600.0, t_r: 430.64, using_tau_r: true, exponential: true, n: &[-7.303, 1.9794, -2.078, -3.5446, 0.51776], t: &[1.0, 1.5, 2.2, 4.7, 6.0] },
+    rho_l: SatAncillary { reducing_value: 8078.0, t_r: 430.64, using_tau_r: false, exponential: false, n: &[7.2296, -16.928, 29.832, -27.901, 11.085], t: &[0.54, 0.88, 1.23, 1.6, 2.0] },
+    rho_v: SatAncillary { reducing_value: 8078.0, t_r: 430.64, using_tau_r: false, exponential: true, n: &[-7.487, 10.118, -13.608, -25.408, -42.04, -38.668], t: &[0.545, 0.85, 1.2, 3.7, 7.5, 10.0] },
 };
 

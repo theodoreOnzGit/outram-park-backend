@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// CarbonylSulfide Helmholtz equation of state (from CoolProp).
 pub static CARBONYLSULFIDE: FluidEos = FluidEos {
@@ -28,5 +29,13 @@ pub static CARBONYLSULFIDE: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 2.5 },
     IdealTerm::PlanckEinstein { n: &[2.1651, 0.93456, 1.0623, 0.34269], t: &[2.027615703461204, 3.59848984872086, 8.382395649074637, 33.87015867148929] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static CARBONYLSULFIDE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 6370000.0, t_r: 378.77, using_tau_r: true, exponential: true, n: &[-5.898980404479669, 1.4411942572733878, -46.792325277477346, 56.09470221996165, -13.259873589238543, -0.851491340049802], t: &[0.98, 1.966, 3.287, 3.429, 4.051, 18.959] },
+    rho_l: SatAncillary { reducing_value: 7410.0, t_r: 378.77, using_tau_r: false, exponential: false, n: &[-0.006565517887508687, 9.861398057771247, -49.28678353119856, 50.765489904412995, -18.836456981431365, 10.180262280869785], t: &[0.187, 0.539, 0.811, 0.921, 1.495, 1.774] },
+    rho_v: SatAncillary { reducing_value: 7410.0, t_r: 378.77, using_tau_r: true, exponential: true, n: &[1.776086114558269, -28.20299757513764, 43.7268964289033, -22.918757269308017, 2.3656558943753296, -4.806350485891986], t: &[0.376, 0.531, 0.641, 0.783, 2.208, 3.625] },
 };
 

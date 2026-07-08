@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// VinylChloride Helmholtz equation of state (from CoolProp).
 pub static VINYLCHLORIDE: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static VINYLCHLORIDE: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 3.0 },
     IdealTerm::PlanckEinstein { n: &[4.51, 4.45, 3.04], t: &[2.171764705882353, 4.487058823529412, 10.352941176470589] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static VINYLCHLORIDE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 5600300.0, t_r: 425.0, using_tau_r: true, exponential: true, n: &[-6.945, 1.7737, -2.0553, -2.813, -2.756], t: &[1.0, 1.5, 2.78, 5.2, 15.0] },
+    rho_l: SatAncillary { reducing_value: 5650.0, t_r: 425.0, using_tau_r: false, exponential: false, n: &[1.8041, 5.629, -18.45, 33.235, -66.136, 47.53], t: &[0.33, 1.19, 1.75, 2.39, 3.22, 3.46] },
+    rho_v: SatAncillary { reducing_value: 5650.0, t_r: 425.0, using_tau_r: false, exponential: true, n: &[-0.5868, -5.3182, -14.6323, -46.665, -98.3277, -228.973], t: &[0.193, 0.687, 2.54, 6.12, 13.0, 25.5] },
 };
 

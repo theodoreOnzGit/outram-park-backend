@@ -5,6 +5,8 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ConductivityModel, ConductivityDilute, ConductivityResidual};
 
 /// Nitrogen Helmholtz equation of state (from CoolProp).
 pub static NITROGEN: FluidEos = FluidEos {
@@ -30,5 +32,20 @@ pub static NITROGEN: FluidEos = FluidEos {
     IdealTerm::Power { n: &[-0.0001934819, -1.247742e-05, 6.678326e-08], t: &[-1.0, -2.0, -3.0] },
     IdealTerm::PlanckEinsteinGeneralized { n: &[1.012941], theta: &[-26.657878470901483], c: &[1.0], d: &[-1.0] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static NITROGEN_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 3395800.0, t_r: 126.192, using_tau_r: true, exponential: true, n: &[7.557523110967278, -15.31423072093374, 2.530452363947435, -3.5464937257192077, 2.4443140451500853, -1.089727092432518], t: &[0.945, 0.976, 1.134, 4.43, 4.942, 6.222] },
+    rho_l: SatAncillary { reducing_value: 11183.901464580624, t_r: 126.192, using_tau_r: false, exponential: false, n: &[3.423788275604014, -2.9664673074957677, 12.095926119341373, -13.681823050784574, 4.19110684294756, -0.6241396008655289], t: &[0.396, 0.549, 1.037, 1.209, 1.682, 2.819] },
+    rho_v: SatAncillary { reducing_value: 11183.901464580624, t_r: 126.192, using_tau_r: true, exponential: true, n: &[-2.412387653165135, 1.2535963572601478, -6.375300212535008, 3.257106728291224, -3.263645679265735, 1.2673447905058262], t: &[0.369, 0.556, 0.878, 1.049, 4.174, 6.303] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (critical enhancement omitted; see `crate::transport`).
+pub static NITROGEN_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: Some(ViscosityModel { dilute: ViscosityDilute::CollisionIntegral { c: 2.66958e-08, a: &[0.431, -0.4623, 0.08406, 0.005341, -0.00331], t: &[0.0, 1.0, 2.0, 3.0, 4.0], molar_mass: 0.02801348, epsilon_over_k: 98.94, sigma_eta: 3.656e-10 }, initial: None, higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand { t_reduce: 126.192, rhomolar_reduce: 11183.9, a: &[1.072e-05, 3.989e-08, 1.208e-09, -7.402e-06, 4.62e-06], d1: &[2.0, 10.0, 12.0, 2.0, 1.0], t1: &[0.1, 0.25, 3.2, 0.9, 0.3], gamma: &[0.0, -1.0, -1.0, -1.0, -1.0], l: &[0.0, 1.0, 1.0, 2.0, 3.0], f: &[0.0], d2: &[1.0], t2: &[0.0], g: &[1.0], h: &[0.0], p: &[1.0], q: &[0.0] } }),
+    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::Eta0AndPoly { a: &[0.001511, 0.002117, -0.003332], t: &[0.0, -1.0, -0.7] }, residual: ConductivityResidual::PolynomialAndExponential { a: &[0.008862, 0.03111, -0.07313, 0.02003, -0.0007096, 0.0002672], t: &[0.0, 0.03, 0.2, 0.8, 0.6, 1.9], d: &[1.0, 2.0, 3.0, 4.0, 8.0, 10.0], gamma: &[0.0, 0.0, 1.0, 1.0, 1.0, 1.0], l: &[0.0, 0.0, 1.0, 2.0, 2.0, 2.0] } }),
 };
 

@@ -5,6 +5,8 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
 
 /// Hydrogen Helmholtz equation of state (from CoolProp).
 pub static HYDROGEN: FluidEos = FluidEos {
@@ -29,5 +31,20 @@ pub static HYDROGEN: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 1.5 },
     IdealTerm::PlanckEinsteinGeneralized { n: &[1.616, -0.4117, -0.792, 0.758, 1.217], theta: &[-16.020515914919294, -22.658017800573237, -60.00905113893498, -74.94343038165636, -206.93920651682], c: &[1.0, 1.0, 1.0, 1.0, 1.0], d: &[-1.0, -1.0, -1.0, -1.0, -1.0] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static HYDROGEN_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 1296400.0, t_r: 33.145, using_tau_r: true, exponential: true, n: &[-0.5553870929135406, -7.0852972599030295, 0.006868538454095541, 0.8295514415153659, -0.08773773693832483, 3.754274235303921], t: &[0.882, 1.072, 1.355, 2.61, 8.191, 1.239] },
+    rho_l: SatAncillary { reducing_value: 15508.0, t_r: 33.145, using_tau_r: false, exponential: false, n: &[1.9546584452513824, -5.715534926385584, 714.2366728890577, -1666.5447521212081, 2698.8598951804593, -12755.576112629806], t: &[0.407, 3.401, 7.095, 8.095, 10.911, 17.353] },
+    rho_v: SatAncillary { reducing_value: 15508.0, t_r: 33.145, using_tau_r: true, exponential: true, n: &[-3.036644018774332, -773.9211864728516, 1530.809493601263, -3087.995404817007, 3472.491545729249, -15649.585518005188], t: &[0.473, 6.618, 7.083, 9.094, 10.577, 19.579] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (critical enhancement omitted; see `crate::transport`).
+pub static HYDROGEN_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: None,
+    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 33.145, a: &[-0.340976, 4.5882, -1.4508, 0.326394, 0.00316939, 0.000190592, -1.139e-06], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0], b: &[138.497, -22.1878, 4.57151, 1.0], m: &[0.0, 1.0, 2.0, 3.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 33.145, rhomass_reducing: 31.262, b: &[0.0363081, 0.0018337, -0.0207629, -0.00886716, 0.031481, 0.015826, -0.0143097, -0.0106283, 0.0017498, 0.00280673], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
 };
 

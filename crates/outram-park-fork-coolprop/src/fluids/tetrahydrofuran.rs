@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// Tetrahydrofuran Helmholtz equation of state (from CoolProp).
 pub static TETRAHYDROFURAN: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static TETRAHYDROFURAN: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 3.0 },
     IdealTerm::PlanckEinstein { n: &[18.2, 11.394, 1.05, 2.37], t: &[2.7027027027027026, 6.406886338393187, 20.362828582006664, 0.9570529433543131] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static TETRAHYDROFURAN_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 5304500.0, t_r: 540.2, using_tau_r: true, exponential: true, n: &[-7.82, 4.1666, -3.43, -0.805, -2.417], t: &[1.0, 1.5, 2.0, 3.45, 5.0] },
+    rho_l: SatAncillary { reducing_value: 4400.0, t_r: 540.2, using_tau_r: false, exponential: false, n: &[6.9, -8.7784, 7.87, -5.75, 2.59], t: &[0.5254, 0.782, 1.286, 1.94, 2.5] },
+    rho_v: SatAncillary { reducing_value: 4400.0, t_r: 540.2, using_tau_r: false, exponential: true, n: &[-4.557, -8.9253, -4.585, -27.86, -60.2, -140.0], t: &[0.4897, 1.82, 3.1, 4.7, 8.9, 18.0] },
 };
 

@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// Deuterium Helmholtz equation of state (from CoolProp).
 pub static DEUTERIUM: FluidEos = FluidEos {
@@ -29,5 +30,13 @@ pub static DEUTERIUM: FluidEos = FluidEos {
     IdealTerm::LogTau { a: 1.5 },
     IdealTerm::PlanckEinstein { n: &[-3.54145, 3.0326, -3.52422, -1.73421, -3.57135, 2.14858, 6.23107, -3.30425, 6.23098, -3.57137, 3.32901, 0.97782], t: &[187.1178925404277, 225.2217005738132, 23.54460093896714, 4.723526343244653, 11.43714136671883, 131.3041210224309, 7.039645279081897, 5.996348461137194, 17.38132498695879, 11.81011997913406, 5.007824726134585, 30.97548252477829] },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static DEUTERIUM_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 1679600.0, t_r: 38.34, using_tau_r: true, exponential: true, n: &[4.632619255906051, -8.969455942164178, 0.5664073789158284, -0.09981074464874193, -0.3596187124547404, -0.23569604663548424], t: &[0.765, 0.849, 2.072, 0.484, 6.894, 14.564] },
+    rho_l: SatAncillary { reducing_value: 17230.0, t_r: 38.34, using_tau_r: false, exponential: false, n: &[-3.7327374059367657, 5.717877520193506, -7.7160148356330875, 8.271326329456837, -3.540310397292104, 6126.25395082707], t: &[0.281, 0.319, 1.913, 1.992, 6.17, 19.493] },
+    rho_v: SatAncillary { reducing_value: 17230.0, t_r: 38.34, using_tau_r: true, exponential: true, n: &[-0.10109803867705139, -4.563691481638655, 3.3301365272696226, -4.503537024711251, 3.823445254078357, -2.0240887330256525], t: &[0.266, 0.576, 1.105, 1.725, 2.526, 3.959] },
 };
 

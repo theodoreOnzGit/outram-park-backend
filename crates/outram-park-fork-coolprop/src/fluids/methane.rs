@@ -5,6 +5,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
+use crate::ancillaries::{FluidAncillaries, SatAncillary};
 
 /// Methane Helmholtz equation of state (from CoolProp).
 pub static METHANE: FluidEos = FluidEos {
@@ -30,5 +31,13 @@ pub static METHANE: FluidEos = FluidEos {
     IdealTerm::PlanckEinsteinGeneralized { n: &[0.008449, 4.6942, 3.4865, 1.6572, 1.4115], theta: &[-3.4004324006632944, -10.269515753237759, -20.439327470036314, -29.937448836086567, -79.1335194475347], c: &[1.0, 1.0, 1.0, 1.0, 1.0], d: &[-1.0, -1.0, -1.0, -1.0, -1.0] },
     IdealTerm::EnthalpyEntropyOffset { a1: -12.8829893867948, a2: 9.22344625310864 },
     ],
+};
+
+/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
+/// as the VLE initial guess and for standalone saturation lookups.
+pub static METHANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
+    p_sat: SatAncillary { reducing_value: 4599200.0, t_r: 190.564, using_tau_r: true, exponential: true, n: &[-0.36511751226395045, -7.477611035699516, 2.8218785804602344, -0.3138277099613026, -14.181166200304828, 13.10811727353235], t: &[0.935, 1.03, 1.204, 3.176, 5.616, 5.744] },
+    rho_l: SatAncillary { reducing_value: 10139.127999999999, t_r: 190.564, using_tau_r: false, exponential: false, n: &[1.0459450372370667, 1.137482950365497, 0.25267850508364803, -0.15127345979918666, 11.30484305385285, -1807.5949062134612], t: &[0.309, 0.502, 1.402, 3.858, 10.533, 19.547] },
+    rho_v: SatAncillary { reducing_value: 10139.127999999999, t_r: 190.564, using_tau_r: true, exponential: true, n: &[-3.258091004501641, 24.278993697870174, -25.256402428812585, -0.17494067187770526, 0.3375209723239743, -2.3099699792209805], t: &[0.392, 0.606, 0.631, 1.024, 2.03, 4.077] },
 };
 

@@ -27,6 +27,133 @@ def rust_const_ident(name):
         s = "F_" + s
     return s
 
+
+# ── Ancillaries (saturation correlations) ─────────────────────────────────────
+
+def _sat(a, exponential):
+    return ("SatAncillary {{ reducing_value: {!r}, t_r: {!r}, using_tau_r: {}, "
+            "exponential: {}, n: {}, t: {} }}").format(
+        float(a["reducing_value"]), float(a["T_r"]),
+        "true" if a.get("using_tau_r") else "false",
+        "true" if exponential else "false",
+        slice_f64(a["n"]), slice_f64(a["t"]))
+
+def build_ancillaries(d, const_name):
+    """A `<NAME>_ANCILLARIES` const, or None if the fluid lacks pS/rhoL/rhoV."""
+    anc = d.get("ANCILLARIES", {}) or {}
+    pS, rhoL, rhoV = anc.get("pS"), anc.get("rhoL"), anc.get("rhoV")
+    if not (isinstance(pS, dict) and isinstance(rhoL, dict) and isinstance(rhoV, dict)):
+        return None
+    if pS.get("type") not in ("pL", "pV"):
+        return None
+    if rhoL.get("type") != "rhoLnoexp" or rhoV.get("type") != "rhoV":
+        return None
+    return "\n".join([
+        "/// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used",
+        "/// as the VLE initial guess and for standalone saturation lookups.",
+        "pub static {}_ANCILLARIES: FluidAncillaries = FluidAncillaries {{".format(const_name),
+        "    p_sat: {},".format(_sat(pS, True)),
+        "    rho_l: {},".format(_sat(rhoL, False)),
+        "    rho_v: {},".format(_sat(rhoV, True)),
+        "};",
+    ])
+
+
+# ── Transport (viscosity + conductivity), common model subset ─────────────────
+
+def build_viscosity(visc):
+    """A `ViscosityModel` literal, or None if unsupported/hardcoded."""
+    if not isinstance(visc, dict) or visc.get("hardcoded"):
+        return None
+    dil, ho = visc.get("dilute"), visc.get("higher_order")
+    # Dilute: collision_integral or powers_of_T.
+    if isinstance(dil, dict) and dil.get("type") == "collision_integral":
+        dilute = ("ViscosityDilute::CollisionIntegral {{ c: {!r}, a: {}, t: {}, "
+                  "molar_mass: {!r}, epsilon_over_k: {!r}, sigma_eta: {!r} }}").format(
+            float(dil["C"]), slice_f64(dil["a"]), slice_f64(dil["t"]),
+            float(dil["molar_mass"]), float(visc["epsilon_over_k"]), float(visc["sigma_eta"]))
+    elif isinstance(dil, dict) and dil.get("type") == "powers_of_T":
+        dilute = "ViscosityDilute::PowersOfT {{ a: {}, t: {} }}".format(
+            slice_f64(dil["a"]), slice_f64(dil["t"]))
+    else:
+        return None
+    # Higher order: modified_Batschinski_Hildebrand only.
+    if not (isinstance(ho, dict) and ho.get("type") == "modified_Batschinski_Hildebrand"):
+        return None
+    higher = ("ViscosityHigherOrder::ModifiedBatschinskiHildebrand {{ t_reduce: {!r}, "
+              "rhomolar_reduce: {!r}, a: {}, d1: {}, t1: {}, gamma: {}, l: {}, f: {}, "
+              "d2: {}, t2: {}, g: {}, h: {}, p: {}, q: {} }}").format(
+        float(ho["T_reduce"]), float(ho["rhomolar_reduce"]),
+        slice_f64(ho["a"]), slice_f64(ho["d1"]), slice_f64(ho["t1"]), slice_f64(ho["gamma"]),
+        slice_f64(ho["l"]), slice_f64(ho["f"]), slice_f64(ho["d2"]), slice_f64(ho["t2"]),
+        slice_f64(ho["g"]), slice_f64(ho["h"]), slice_f64(ho["p"]), slice_f64(ho["q"]))
+    # Initial density: Rainwater-Friend only. If an unsupported initial term is
+    # present, skip the whole model rather than emit a wrong number.
+    initial = "None"
+    for k in visc:
+        if "initial" in k.lower() and isinstance(visc[k], dict):
+            blk = visc[k]
+            if blk.get("type") == "Rainwater-Friend":
+                initial = ("Some(ViscosityInitial::RainwaterFriend {{ b: {}, t: {}, "
+                           "epsilon_over_k: {!r}, sigma_eta: {!r} }})").format(
+                    slice_f64(blk["b"]), slice_f64(blk["t"]),
+                    float(visc["epsilon_over_k"]), float(visc["sigma_eta"]))
+            else:
+                return None
+    return "ViscosityModel {{ dilute: {}, initial: {}, higher_order: {} }}".format(dilute, initial, higher)
+
+def build_conductivity(cond, has_viscosity):
+    """A `ConductivityModel` literal, or None if unsupported/hardcoded."""
+    if not isinstance(cond, dict) or cond.get("hardcoded"):
+        return None
+    dil, res = cond.get("dilute"), cond.get("residual")
+    if not isinstance(dil, dict) or not isinstance(res, dict):
+        return None
+    dt, rt = dil.get("type"), res.get("type")
+    if dt == "ratio_of_polynomials":
+        dilute = ("ConductivityDilute::RatioPolynomials {{ t_reducing: {!r}, a: {}, "
+                  "n: {}, b: {}, m: {} }}").format(
+            float(dil["T_reducing"]), slice_f64(dil["A"]), slice_f64(dil["n"]),
+            slice_f64(dil["B"]), slice_f64(dil["m"]))
+    elif dt == "eta0_and_poly":
+        if not has_viscosity:   # needs the dilute viscosity to evaluate
+            return None
+        dilute = "ConductivityDilute::Eta0AndPoly {{ a: {}, t: {} }}".format(
+            slice_f64(dil["A"]), slice_f64(dil["t"]))
+    else:
+        return None
+    if rt == "polynomial":
+        residual = ("ConductivityResidual::Polynomial {{ t_reducing: {!r}, "
+                    "rhomass_reducing: {!r}, b: {}, t: {}, d: {} }}").format(
+            float(res["T_reducing"]), float(res["rhomass_reducing"]),
+            slice_f64(res["B"]), slice_f64(res["t"]), slice_f64(res["d"]))
+    elif rt == "polynomial_and_exponential":
+        residual = ("ConductivityResidual::PolynomialAndExponential {{ a: {}, t: {}, "
+                    "d: {}, gamma: {}, l: {} }}").format(
+            slice_f64(res["A"]), slice_f64(res["t"]), slice_f64(res["d"]),
+            slice_f64(res["gamma"]), slice_f64(res["l"]))
+    else:
+        return None
+    return "ConductivityModel {{ dilute: {}, residual: {} }}".format(dilute, residual)
+
+def build_transport(d, const_name):
+    """A `<NAME>_TRANSPORT` const, or None if neither property is supported."""
+    tr = d.get("TRANSPORT", {}) or {}
+    visc = build_viscosity(tr.get("viscosity"))
+    cond = build_conductivity(tr.get("conductivity"), visc is not None)
+    if visc is None and cond is None:
+        return None
+    v = "Some({})".format(visc) if visc else "None"
+    c = "Some({})".format(cond) if cond else "None"
+    return "\n".join([
+        "/// Transport models (CoolProp): dynamic viscosity and/or thermal",
+        "/// conductivity (critical enhancement omitted; see `crate::transport`).",
+        "pub static {}_TRANSPORT: FluidTransport = FluidTransport {{".format(const_name),
+        "    viscosity: {},".format(v),
+        "    conductivity: {},".format(c),
+        "};",
+    ])
+
 def main():
     if len(sys.argv) != 2:
         sys.exit("usage: gen_fluid.py <FluidName>")
@@ -137,7 +264,22 @@ def main():
     # not approximations of those constants.
     out.append("#![allow(clippy::approx_constant)]")
     out.append("")
+
+    anc_block = build_ancillaries(d, const_name)
+    trans_block = build_transport(d, const_name)
+
     out.append("use crate::eos::{FluidEos, IdealTerm, ResidualTerm};")
+    if anc_block:
+        out.append("use crate::ancillaries::{FluidAncillaries, SatAncillary};")
+    if trans_block:
+        ttypes = ["FluidTransport"]
+        if "ViscosityModel" in trans_block:
+            ttypes += ["ViscosityModel", "ViscosityDilute", "ViscosityHigherOrder"]
+        if "ViscosityInitial" in trans_block:
+            ttypes += ["ViscosityInitial"]
+        if "ConductivityModel" in trans_block:
+            ttypes += ["ConductivityModel", "ConductivityDilute", "ConductivityResidual"]
+        out.append("use crate::transport::{{{}}};".format(", ".join(ttypes)))
     out.append("")
     out.append("/// {} Helmholtz equation of state (from CoolProp).".format(fluid))
     out.append("pub static {}: FluidEos = FluidEos {{".format(const_name))
@@ -161,6 +303,12 @@ def main():
     out.append("    ],")
     out.append("};")
     out.append("")
+    if anc_block:
+        out.append(anc_block)
+        out.append("")
+    if trans_block:
+        out.append(trans_block)
+        out.append("")
     print("\n".join(out))
 
 if __name__ == "__main__":

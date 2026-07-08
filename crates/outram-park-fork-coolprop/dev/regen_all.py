@@ -63,7 +63,10 @@ def main():
             continue
         with open(os.path.join(fluids_out, module_name(n) + ".rs"), "w") as fh:
             fh.write(r.stdout)
-        rows.append((variant_name(n), module_name(n), const_name(n), n))
+        cn = const_name(n)
+        has_anc = f"{cn}_ANCILLARIES" in r.stdout
+        has_trans = f"{cn}_TRANSPORT" in r.stdout
+        rows.append((variant_name(n), module_name(n), cn, n, has_anc, has_trans))
 
     if failed:
         for n, e in failed:
@@ -78,8 +81,8 @@ def main():
             "//! carries — a few KB each, no runtime JSON.\n"
             "//!\n"
             "//! Regenerate the whole set with `dev/regen_all.py` (see the crate README).\n\n")
-        for _, mod, _, _ in sorted(rows, key=lambda r: r[1]):
-            fh.write(f"pub mod {mod};\n")
+        for row in sorted(rows, key=lambda r: r[1]):
+            fh.write(f"pub mod {row[1]};\n")
 
     with open(os.path.join(CRATE, "src", "fluid.rs"), "w") as fh:
         fh.write(
@@ -92,34 +95,65 @@ def main():
             "//! CoolProp fluid name with non-alphanumerics removed (e.g. `n-Heptane` →\n"
             "//! `NHeptane`, `R1234ze(E)` → `R1234zeE`); [`Fluid::name`] returns the\n"
             "//! original CoolProp name.\n\n"
+            "use crate::ancillaries::FluidAncillaries;\n"
             "use crate::eos::FluidEos;\n"
-            "use crate::fluids;\n\n"
+            "use crate::fluids;\n"
+            "use crate::transport::FluidTransport;\n\n"
             "/// A supported pure fluid (one per CoolProp pure-fluid EOS). Each variant maps\n"
             "/// to a hardcoded `const` [`FluidEos`] via [`Fluid::eos`].\n"
             "#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]\n"
             "#[non_exhaustive]\n"
             "#[allow(non_camel_case_types)]\n"
             "pub enum Fluid {\n")
-        for var, _, _, n in sorted(rows):
+        for var, _, _, n, _, _ in sorted(rows):
             fh.write(f"    /// {DOC.get(n, f'CoolProp `{n}`.')}\n    {var},\n")
         fh.write("}\n\nimpl Fluid {\n")
         fh.write(f"    /// Every supported fluid, for enumeration ({len(rows)} in total).\n")
         fh.write("    pub const ALL: &'static [Fluid] = &[\n")
-        for var, _, _, _ in sorted(rows):
+        for var, _, _, _, _, _ in sorted(rows):
             fh.write(f"        Fluid::{var},\n")
         fh.write("    ];\n\n")
         fh.write("    /// The hardcoded Helmholtz EOS for this fluid.\n"
                  "    pub fn eos(self) -> &'static FluidEos {\n"
                  "        match self {\n")
-        for var, mod, const, _ in sorted(rows):
+        for var, mod, const, _, _, _ in sorted(rows):
             fh.write(f"            Fluid::{var} => &fluids::{mod}::{const},\n")
-        fh.write("        }\n    }\n\n"
-                 "    /// The fluid's name (as in CoolProp).\n"
+        fh.write("        }\n    }\n\n")
+
+        # ancillaries(): Some(&..._ANCILLARIES) for fluids that ship saturation fits.
+        n_anc = sum(1 for r in rows if r[4])
+        fh.write("    /// Saturation ancillaries (for VLE / saturation lookups), if this fluid\n"
+                 f"    /// ships them ({n_anc} of {len(rows)} do).\n"
+                 "    pub fn ancillaries(self) -> Option<&'static FluidAncillaries> {\n"
+                 "        match self {\n")
+        for var, mod, const, _, has_anc, _ in sorted(rows):
+            if has_anc:
+                fh.write(f"            Fluid::{var} => Some(&fluids::{mod}::{const}_ANCILLARIES),\n")
+        fh.write("            #[allow(unreachable_patterns)]\n"
+                 "            _ => None,\n"
+                 "        }\n    }\n\n")
+
+        # transport(): Some(&..._TRANSPORT) for fluids with a supported μ/λ model.
+        n_tr = sum(1 for r in rows if r[5])
+        fh.write("    /// Transport models (viscosity/conductivity), if this fluid has a\n"
+                 f"    /// supported model ({n_tr} of {len(rows)} do; the rest are hardcoded or\n"
+                 "    /// unimplemented — see `crate::transport`).\n"
+                 "    pub fn transport(self) -> Option<&'static FluidTransport> {\n"
+                 "        match self {\n")
+        for var, mod, const, _, _, has_tr in sorted(rows):
+            if has_tr:
+                fh.write(f"            Fluid::{var} => Some(&fluids::{mod}::{const}_TRANSPORT),\n")
+        fh.write("            #[allow(unreachable_patterns)]\n"
+                 "            _ => None,\n"
+                 "        }\n    }\n\n")
+
+        fh.write("    /// The fluid's name (as in CoolProp).\n"
                  "    pub fn name(self) -> &'static str {\n"
                  "        self.eos().name\n"
                  "    }\n}\n")
 
-    print(f"regenerated {len(rows)} fluids + mod.rs + fluid.rs")
+    print(f"regenerated {len(rows)} fluids + mod.rs + fluid.rs "
+          f"({sum(1 for r in rows if r[4])} anc, {sum(1 for r in rows if r[5])} transport)")
 
 
 if __name__ == "__main__":

@@ -23,18 +23,24 @@
 //!   wired into the enum (`Fluid::ALL`).
 //! - **Properties**: `(T, ρ)` native ([`props::state_trho`]) plus single-phase
 //!   `(p, T)` / `(p, h)` / `(p, s)` flashes ([`flash`]).
+//! - **Saturation / VLE** ([`vle`], [`ancillaries`]): fast saturation-ancillary
+//!   lookups and a thermodynamically-consistent Maxwell two-phase solve
+//!   (`p_sat`, `ρ'`, `ρ''`, `T_sat(p)`, and `(p,h)` quality).
+//! - **Transport** ([`transport`]): dynamic viscosity `μ` and thermal
+//!   conductivity `λ` (CoolProp correlations; critical enhancement omitted).
 //! - **Control volume** ([`single_cv::OPCPFluidSingleCV`]): a `uom`-typed 0-D
-//!   equilibrium lump of one fluid — the CoolProp analogue of
-//!   `tampines-steam-tables`' `TampinesSteamTableCV`.
+//!   equilibrium lump of one fluid (the CoolProp analogue of
+//!   `tampines-steam-tables`' `TampinesSteamTableCV`) — two-phase-aware, with
+//!   `μ`/`λ` getters.
 //! - **Transient flow** ([`openfoam_algorithms`]): a vendored pure-Rust
-//!   OpenFOAM finite-volume layer + 1-D compressible solvers (no
-//!   `openfoam-basic-lib` dependency), to be driven by this crate's EOS.
+//!   OpenFOAM finite-volume layer + the 1-D compressible `OPCPFluidArray`
+//!   solver (no `openfoam-basic-lib` dependency), driven by this crate's EOS.
 //!
 //! Known gaps (tracked, bead op-kbc): the **non-analytic** critical-region terms
 //! are carried but not yet evaluated (accuracy degraded within ~1 % of Tc, a
-//! no-op elsewhere); there is **no saturation/VLE** solver yet, so the flashes
-//! and the CV are **single-phase only** (no two-phase quality); `rfluids`
-//! oracle verification is planned.
+//! no-op elsewhere); transport covers a common model subset (viscosity 20,
+//! conductivity 38 of 137 fluids; hardcoded fluids like Water/CO₂ excluded) and
+//! omits the near-critical enhancement; `rfluids` oracle verification is planned.
 //!
 //! ## Example
 //!
@@ -51,12 +57,15 @@
 //! tension region. `(T, ρ)` inputs are literal EOS evaluations, not a
 //! phase-stable flash.)
 
+pub mod ancillaries;
 pub mod eos;
 pub mod flash;
 pub mod fluid;
 pub mod fluids;
 pub mod props;
 pub mod single_cv;
+pub mod transport;
+pub mod vle;
 
 /// Vendored pure-Rust OpenFOAM finite-volume layer + 1-D compressible solvers,
 /// copied from `tampines-steam-tables` (no `openfoam-basic-lib` dependency).
@@ -64,9 +73,12 @@ pub mod single_cv;
 /// crate's CoolProp EOS. See its module `CLAUDE.md` for provenance.
 pub mod openfoam_algorithms;
 
+pub use ancillaries::{FluidAncillaries, SatAncillary};
 pub use eos::{FluidEos, HelmholtzDerivs, IdealTerm, ResidualTerm};
 pub use flash::{state_ph, state_ps, state_pt, density_pt, FlashError};
 pub use fluid::Fluid;
 pub use openfoam_algorithms::rhoPimpleFoam::OPCPFluidArray;
 pub use props::{state_trho, pressure_trho, FluidState};
 pub use single_cv::OPCPFluidSingleCV;
+pub use transport::{conductivity, viscosity, FluidTransport};
+pub use vle::{phase_at_ph, saturation_at_temperature, saturation_temperature, PhaseAtPh, SaturationState};
