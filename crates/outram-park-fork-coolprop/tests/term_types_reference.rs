@@ -143,7 +143,7 @@ fn r22_ideal_cp0_constant() {
 
 #[test]
 fn heptane_ideal_cp0_aly_lee() {
-    check(Fluid::Heptane, 0.100_202,
+    check(Fluid::NHeptane, 0.100_202,
         182.55, 7745.685_209, -41621.0135, -153.9828,
         182.55, 0.000_116, 0.175_490);
 }

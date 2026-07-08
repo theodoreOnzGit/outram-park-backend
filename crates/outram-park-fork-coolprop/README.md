@@ -47,14 +47,17 @@ End-to-end and verified:
   derivatives.
 - `(T, ρ)` property evaluation (`props::state_trho`): p, u, h, s, c_v, c_p,
   speed of sound.
-- The codegen (`dev/gen_fluid.py`) turns **all 137** CoolProp fluid JSONs into
-  hardcoded Rust; nine are wired into the `Fluid` enum today.
+- **All 137** CoolProp pure fluids are generated as hardcoded Rust
+  (`dev/gen_fluid.py`) **and wired into the `Fluid` enum** — enumerate them with
+  `Fluid::ALL`, get the CoolProp name with `Fluid::name`. Total fluid data is
+  ~0.5 MB (well under the crate's 10 MB budget).
 - **Verification** against CoolProp's tabulated states: Water (IAPWS-95) to
   ~1×10⁻⁴ at the triple line (`tests/water_reference.rs`); Helium to machine
-  precision at the critical point (`tests/helium_reference.rs`); and the newer
-  term forms pinned by seven fluids — Nitrogen, Fluorine, Methanol, R125,
-  Ammonia, R22, n-Heptane — reproducing triple-liquid `h`/`s` to ≲2×10⁻⁵
-  (`tests/term_types_reference.rs`).
+  precision at the critical point (`tests/helium_reference.rs`); the newer term
+  forms pinned by seven fluids — Nitrogen, Fluorine, Methanol, R125, Ammonia,
+  R22, n-Heptane — reproducing triple-liquid `h`/`s` to ≲2×10⁻⁵
+  (`tests/term_types_reference.rs`); and a smoke test evaluating **every** fluid
+  at its critical point (`tests/all_fluids_smoke.rs`).
 
 Tracked follow-ups (beads `op-kbc`):
 
@@ -62,7 +65,8 @@ Tracked follow-ups (beads `op-kbc`):
   evaluated (a no-op, so accuracy within ~1 % of the critical point is
   degraded; unaffected elsewhere).
 - `(T, p)` / `(p, h)` … **flashes** (need a density solve).
-- **Wiring the remaining generated fluids** into the `Fluid` enum.
+- **Per-fluid reference tests** beyond the nine already pinned (the rest are
+  covered only by the critical-point smoke test).
 - **`rfluids` verification** (CoolProp oracle) as a dev-dependency.
 - **`uom`-typed public API** (internally raw `f64` SI).
 
@@ -92,23 +96,24 @@ python3 dev/gen_fluid.py Helium > src/fluids/helium.rs
 
 ### 2. All fluids (batch)
 
-Loop over every fluid JSON, deriving a valid Rust module name from each fluid
-name and reporting which succeed vs. skip:
+`dev/regen_all.py` regenerates **every** fluid and rewrites both
+`src/fluids/mod.rs` (the `pub mod` declarations) and `src/fluid.rs` (the `Fluid`
+enum, its `eos()` dispatch, and `Fluid::ALL`) — so a fresh CoolProp checkout is
+wired end-to-end in one command:
 
 ```bash
-for f in reference/CoolProp/dev/fluids/*.json; do
-  name=$(basename "$f" .json)
-  # module/file name: lowercase, non-alphanumerics -> '_', digit-leading -> 'f_'
-  mod=$(printf '%s' "$name" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9]/_/g')
-  case "$mod" in [0-9]*) mod="f_$mod";; esac
-  if python3 dev/gen_fluid.py "$name" > "src/fluids/$mod.rs" 2>/tmp/gen_err; then
-    echo "OK    $name -> src/fluids/$mod.rs"
-  else
-    echo "SKIP  $name : $(cat /tmp/gen_err)"
-    rm -f "src/fluids/$mod.rs"
-  fi
-done
+python3 dev/regen_all.py     # -> "regenerated 137 fluids + mod.rs + fluid.rs"
 ```
+
+Variant names follow the CoolProp fluid name with non-alphanumerics removed and
+each token capitalised (`n-Heptane` → `NHeptane`, `R1234ze(E)` → `R1234zeE`,
+digit-leading names prefixed with `F`, e.g. `1-Butene` → `F1Butene`);
+`Fluid::name` always returns the original CoolProp name.
+
+If CoolProp ever adds an EOS term form this port does not implement,
+`regen_all.py` aborts and prints the offending fluid + type name (rather than
+emit a wrong number) — that type then needs adding to `src/eos.rs` and
+`dev/gen_fluid.py` (see below).
 
 ### Current coverage and caveats
 
@@ -130,16 +135,14 @@ Supported term forms:
 
 Two caveats remain:
 
-- **Generating a file is not the same as wiring it in.** Each new fluid also
-  needs a `pub mod <module>;` line in `src/fluids/mod.rs`, a `Fluid::<Name>`
-  enum variant + `match` arm in `src/fluid.rs`, and (ideally) a reference test
-  under `tests/`. The batch loop only writes the `src/fluids/*.rs` files. Nine
-  fluids are wired in today (Water, Helium, plus Nitrogen, Fluorine, Methanol,
-  R125, Ammonia, R22, n-Heptane — the seven that pin the newer term types in
-  `tests/term_types_reference.rs`).
-- **Digit-leading fluid names** (e.g. `1-Butene`) are handled: the generator's
-  `const` name is sanitized to a legal identifier (`F_1_BUTENE`), and the batch
-  loop names the module file `f_1_butene.rs`.
+- **Single-fluid `gen_fluid.py` only writes the `src/fluids/*.rs` file** — it
+  does not touch `mod.rs` or the `Fluid` enum. Use `regen_all.py` (above) to
+  wire fluids in; all 137 are wired today. A verification test under `tests/`
+  is still added by hand (nine fluids are pinned to reference states; the rest
+  are covered by the critical-point smoke test).
+- **Digit-leading fluid names** (e.g. `1-Butene`) are handled: the `const` name
+  is sanitized to a legal identifier (`F_1_BUTENE`), the module file to
+  `f_1_butene.rs`, and the enum variant to `F1Butene`.
 
 Adding a *new* term type (should CoolProp introduce one) means implementing its
 `α` + first/second `δ`,`τ` derivative contributions in `src/eos.rs` (translating
