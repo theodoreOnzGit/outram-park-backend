@@ -9,14 +9,15 @@ use uom::si::f64::*;
 use uom::ConstZero;
 use ndarray::*;
 use uom::si::thermodynamic_temperature::kelvin;
-use openfoam_basic_lib::matrix::SquareMatrix;
+use crate::matrix::SquareMatrix;
 
 use crate::tuas_lib_error::TuasLibError;
 
 /// Solves for a temperature vector given a conductance matrix and power vector.
 ///
-/// Uses the pure-Rust `SquareMatrix` LU solver from `openfoam-basic-lib`,
-/// eliminating the system BLAS (OpenBLAS/Intel-MKL) dependency for this path.
+/// Uses the pure-Rust `SquareMatrix` LU solver inlined into this crate
+/// (`crate::matrix`), so this path has no `openfoam-basic-lib` / system BLAS
+/// (OpenBLAS/Intel-MKL) dependency.
 #[inline]
 pub fn solve_conductance_matrix_power_vector(
     thermal_conductance_matrix: Array2<ThermalConductance>,

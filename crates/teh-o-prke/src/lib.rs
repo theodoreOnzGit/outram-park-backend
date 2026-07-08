@@ -17,8 +17,12 @@
 /// 
 pub mod zero_power_prke;
 
+/// Pure-Rust dense LU solver (`SquareMatrix`), inlined from `openfoam-basic-lib`
+/// so this crate has no `openfoam-basic-lib` dependency — see the module doc.
+pub mod matrix;
 
-/// contains functions and structs for fuel temperature feedback 
+
+/// contains functions and structs for fuel temperature feedback
 ///
 /// this is the simplest feedback mechanism
 /// where rudimentary thermal hydraulics model is added.

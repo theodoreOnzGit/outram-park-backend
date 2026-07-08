@@ -18,7 +18,6 @@ exclude = ["*.csv"]
 approx.workspace = true
 csv.workspace = true
 ndarray.workspace = true
-openfoam-basic-lib.workspace = true
 peroxide.workspace = true
 roots.workspace = true
 thiserror.workspace = true

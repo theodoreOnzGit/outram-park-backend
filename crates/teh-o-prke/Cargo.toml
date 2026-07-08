@@ -19,7 +19,6 @@ approx.workspace = true
 ndarray.workspace = true
 thiserror.workspace = true
 uom.workspace = true
-openfoam-basic-lib.workspace = true
 
 [dev-dependencies]
 chem-eng-real-time-process-control-simulator.workspace = true

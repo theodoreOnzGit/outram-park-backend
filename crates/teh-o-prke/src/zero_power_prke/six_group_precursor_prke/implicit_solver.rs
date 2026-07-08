@@ -1,5 +1,5 @@
 use ndarray::*;
-use openfoam_basic_lib::matrix::SquareMatrix;
+use crate::matrix::SquareMatrix;
 use uom::si::f64::*;
 use uom::si::volumetric_number_density::per_cubic_meter;
 use uom::si::ratio::ratio;
