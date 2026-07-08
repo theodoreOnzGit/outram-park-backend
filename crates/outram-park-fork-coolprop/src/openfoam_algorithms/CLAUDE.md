@@ -2,13 +2,15 @@
 
 ## Provenance
 
-This directory is a **verbatim copy** of
+This directory is copied from
 `tampines-steam-tables/src/openfoam_algorithms/` — the pure-Rust OpenFOAM
 finite-volume primitives (`openfoam_source/`: matrix, PCG, DIC, GAMG, MUSCL, FV
-operators, fields, mesh, thermophysics) plus the 1-D compressible solvers
-(`rhoPimpleFoam/`, `driftFluxFoam/`, …). It was brought in so the CoolProp fork
-can host the same transient-flow backbone, driven by the CoolProp Helmholtz EOS
-instead of the IAPWS-IF97 steam tables.
+operators, fields, mesh, thermophysics) plus the 1-D compressible
+`rhoPimpleFoam/` solver. It was brought in so the CoolProp fork can host the same
+transient-flow backbone, driven by the CoolProp Helmholtz EOS instead of the
+IAPWS-IF97 steam tables. The other vendored solvers that shipped in the tampines
+copy (`driftFluxFoam/`, `simplefoam/`, `chtMultiRegionTwoPhaseEulerFoam/`) were
+**deleted** — only the EOS-wired `rhoPimpleFoam` path is kept here.
 
 **It depends only on `uom`** (no `ndarray` / BLAS / C, and — deliberately — no
 `openfoam-basic-lib`): the numerical primitives are copied in as source, so this
@@ -35,10 +37,10 @@ crate carries them itself and stays Android-buildable.
 
 ## Remaining follow-ups (bead op-kbc)
 
-- The `rhoPimpleFoam` array is renamed and EOS-wired (see above). Other vendored
-  solvers (`driftFluxFoam`, `chtMultiRegionTwoPhaseEulerFoam`, `simplefoam`)
-  still carry their as-copied form and are not yet wired to the CoolProp EOS.
+- The `rhoPimpleFoam` array is renamed and EOS-wired (see above); the other
+  vendored solvers were deleted, so `rhoPimpleFoam` is the only solver here.
 - `correct_thermo` is **single-phase** (no saturation/VLE) and does not update
   transport (`μ`, `αh`) — CoolProp has no transport properties yet.
-- Once the solvers are fully wired, drop the module-level
+- Parts of `openfoam_source` are still unused by the single kept solver; once
+  `rhoPimpleFoam` fully exercises them, drop the module-level
   `#![allow(dead_code)]` / `unused_imports` on the vendored tree.

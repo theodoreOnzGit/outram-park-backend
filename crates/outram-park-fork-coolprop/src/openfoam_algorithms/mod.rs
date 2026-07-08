@@ -1,74 +1,22 @@
-//! Vendored pure-Rust OpenFOAM finite-volume layer + 1-D compressible solvers,
-//! copied verbatim from `tampines-steam-tables` (see this directory's
-//! `CLAUDE.md` for provenance). It uses only `uom` — no `openfoam-basic-lib`,
-//! `ndarray`, or BLAS — so the crate stays Android-buildable.
+//! Vendored pure-Rust OpenFOAM finite-volume layer + the 1-D compressible
+//! `rhoPimpleFoam` solver, copied from `tampines-steam-tables` (see this
+//! directory's `CLAUDE.md` for provenance). It uses only `uom` — no
+//! `openfoam-basic-lib`, `ndarray`, or BLAS — so the crate stays
+//! Android-buildable.
 //!
-//! This crate currently exercises only part of the copied machinery (the 1-D
-//! `rhoPimpleFoam` path), so many primitives are as-yet-unused here. The
+//! Only the `rhoPimpleFoam` path (driving [`crate::OPCPFluidArray`]) is kept;
+//! the other vendored solvers (`driftFluxFoam`, `simplefoam`,
+//! `chtMultiRegionTwoPhaseEulerFoam`) were removed. Parts of the shared
+//! `openfoam_source` primitive layer are still as-yet-unused here, so the
 //! `dead_code` / `unused_imports` allows below silence that expected noise for
 //! the vendored tree only; do not add new dead code under this cover, and prefer
 //! wiring a primitive up over leaving it unused (workspace "no orphaned dead
-//! code" rule). Remove the allows once the solvers are fully wired to
-//! `OPCPFluidSingleCV::correct_thermo`.
+//! code" rule).
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-#[allow(non_snake_case)]
-mod simplefoam;
-
-// apparently for two phase flow, 
-// this is a useful algorithm to learn from.
-//
-// https://www.tfd.chalmers.se/~hani/kurser/OS_CFD_2008/PraveenPrabhuBaila/Report_twoPhaseEuler.pdf
-//
-// though for a first model, it may be too complex for a first model
-#[allow(non_snake_case)]
-mod chtMultiRegionTwoPhaseEulerFoam;
-
-
-// a less complicated model is drift flux 
-// drift flux model
-#[allow(non_snake_case)]
-mod driftFluxFoam;
-
-// also notable is the VOF methods
-// https://www.cfd-online.com/Forums/openfoam-solving/58063-vof-method.html
-// which interfoam uses
-//
-// this helps it to find an interface between the fluid and gas
-//
-//
-// This is interphasechangefoam
-// https://www.tfd.chalmers.se/~hani/kurser/OS_CFD_2011/MartinAndersen/Tutorial_interPhaseChangeFoam.pdf
-//
-// apparently accounts for boiling
-//
-//
-// Some other useful tutorials here:
-// https://www.wolfdynamics.com/training/mphase/OF2021/mphase_2021_OF8_guided_tutorials.pdf
-//
-// it seems the most suitable model is two phase euler foam,
-//
-// where averaged equations are used to describe both phases.
-//
-// https://www.tfd.chalmers.se/~hani/kurser/OS_CFD_2008/PraveenPrabhuBaila/Report_twoPhaseEuler.pdf
-//
-//
-// for the two phase Euler Foam, the PhD thesis most helpful is:
-//
-// https://spiral.imperial.ac.uk/entities/publication/3f1ca3a6-f78e-48d5-a928-cf94b2292bd0
-//
-// Rusche, H. (2002). Computational fluid dynamics of dispersed two-phase 
-// flow at high phase fractions. Ph. D. thesis, University of London.
-//
-
-// 
-// rhoPimpleFoam
-// pimple algorithm for compressible flow
-// rust code for rhoPimpleFoam 
-// is also here
+// rhoPimpleFoam: PIMPLE algorithm for compressible flow, driving OPCPFluidArray.
 #[allow(non_snake_case)]
 pub mod rhoPimpleFoam;
-
 
 pub(crate) mod openfoam_source;
