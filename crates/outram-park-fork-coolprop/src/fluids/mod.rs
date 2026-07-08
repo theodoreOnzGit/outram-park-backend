@@ -5,5 +5,12 @@
 //! runtime JSON. Add a fluid by running the generator and declaring it here
 //! (and adding a [`super::fluid::Fluid`] variant).
 
+pub mod ammonia;
+pub mod fluorine;
 pub mod helium;
+pub mod methanol;
+pub mod n_heptane;
+pub mod nitrogen;
+pub mod r125;
+pub mod r22;
 pub mod water;

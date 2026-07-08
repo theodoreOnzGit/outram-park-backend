@@ -40,6 +40,44 @@ pub enum ResidualTerm {
         beta: &'static [f64],
         gamma: &'static [f64],
     },
+    /// `n·δ^d·τ^t·exp(-g·δ^l)` — a Power term with an explicit coefficient `g`
+    /// (and possibly non-integer `l`) on the exponential. CoolProp
+    /// `ResidualHelmholtzExponential` (a special case of its
+    /// `ResidualHelmholtzGeneralizedExponential`). Power is the `g == 1` case.
+    Exponential {
+        n: &'static [f64],
+        t: &'static [f64],
+        d: &'static [f64],
+        g: &'static [f64],
+        l: &'static [f64],
+    },
+    /// `n·δ^d·τ^t·exp(-g_d·δ^{l_d} - g_t·τ^{l_t})` — an exponential in **both**
+    /// `δ` and `τ`. CoolProp `ResidualHelmholtzDoubleExponential`; the
+    /// Lemmon–Jacobsen (2005) R125 term (`ResidualHelmholtzLemmon2005`) is the
+    /// special case `g_d = g_t = 1`, which the codegen lowers to this form.
+    DoubleExponential {
+        n: &'static [f64],
+        t: &'static [f64],
+        d: &'static [f64],
+        gd: &'static [f64],
+        ld: &'static [f64],
+        gt: &'static [f64],
+        lt: &'static [f64],
+    },
+    /// `n·τ^t·exp(1/(b + β(τ-γ)²))·δ^d·exp(η(δ-ε)²)` — the Gao et al. bell-shaped
+    /// term (a τ-side pole inside the exponent). CoolProp `ResidualHelmholtzGaoB`
+    /// (used by Ammonia). The `τ` and `δ` factors separate, so the first/second
+    /// derivatives follow from the per-factor expressions in CoolProp's `all()`.
+    GaoB {
+        n: &'static [f64],
+        t: &'static [f64],
+        d: &'static [f64],
+        eta: &'static [f64],
+        beta: &'static [f64],
+        gamma: &'static [f64],
+        epsilon: &'static [f64],
+        b: &'static [f64],
+    },
     /// The non-analytic critical-region terms (IAPWS-95 / Span–Wagner).
     /// CoolProp `ResidualHelmholtzNonAnalytic`.
     ///
@@ -74,6 +112,35 @@ pub enum IdealTerm {
     /// sound are unchanged. CoolProp `IdealGasHelmholtzEnthalpyEntropyOffset`
     /// (`src/Helmholtz.cpp`: `alphar += a1 + a2*tau; dalphar_dtau += a2`).
     EnthalpyEntropyOffset { a1: f64, a2: f64 },
+    /// `Σ n_k·τ^{t_k}` — an ideal-gas power series in `τ`. CoolProp
+    /// `IdealGasHelmholtzPower`.
+    Power { n: &'static [f64], t: &'static [f64] },
+    /// `Σ n_k·ln(c_k + d_k·exp(θ_k·τ))` — the generalized Planck–Einstein form.
+    /// CoolProp `IdealGasHelmholtzPlanckEinsteinGeneralized`; the codegen also
+    /// lowers `IdealGasHelmholtzPlanckEinsteinFunctionT` and the sinh/cosh part
+    /// of `IdealGasHelmholtzCP0AlyLee` into this form.
+    PlanckEinsteinGeneralized {
+        n: &'static [f64],
+        theta: &'static [f64],
+        c: &'static [f64],
+        d: &'static [f64],
+    },
+    /// Ideal-gas Helmholtz contribution of a **constant** isobaric heat
+    /// capacity `c_p⁰/R`, integrated to the Helmholtz form. `tau0 = T_r/T0` is
+    /// the reference-state ratio precomputed by the codegen. CoolProp
+    /// `IdealGasHelmholtzCP0Constant`.
+    CP0Constant { cp_over_r: f64, tau0: f64 },
+    /// Ideal-gas Helmholtz contribution of a **polynomial-in-T** isobaric heat
+    /// capacity `c_p⁰/R = Σ c_k·T^{t_k}`, integrated to the Helmholtz form.
+    /// `tc` is the reducing temperature `T_r`, `t0` the reference temperature.
+    /// CoolProp `IdealGasHelmholtzCP0PolyT` (the `IdealGasHelmholtzCP0AlyLee`
+    /// constant term also lowers to this).
+    CP0PolyT {
+        c: &'static [f64],
+        t: &'static [f64],
+        tc: f64,
+        t0: f64,
+    },
 }
 
 /// A pure-fluid Helmholtz EOS: reducing/critical parameters plus the residual
@@ -183,6 +250,108 @@ impl ResidualTerm {
                     });
                 }
             }
+            ResidualTerm::Exponential { n, t, d, g, l } => {
+                // Same B-factor structure as Power, but the exponential is
+                // exp(-g·δ^l): define dl := l·g·δ^l = -δ·∂u/∂δ, then every
+                // δ-derivative factor is identical to Power's.
+                for i in 0..n.len() {
+                    let (di, li, ti, ni, gi) = (d[i], l[i], t[i], n[i], g[i]);
+                    let (e, dl) = if li == 0.0 || gi == 0.0 {
+                        (1.0, 0.0)
+                    } else {
+                        let dpow_l = delta.powf(li);
+                        ((-gi * dpow_l).exp(), li * gi * dpow_l)
+                    };
+                    let a = ni * delta.powf(di) * tau.powf(ti) * e;
+                    let fd = (di - dl) / delta;
+                    let ft = ti / tau;
+                    let fdd = ((di - dl) * (di - 1.0 - dl) - li * dl) / (delta * delta);
+                    acc.add_scaled(&HelmholtzDerivs {
+                        a,
+                        ad: a * fd,
+                        at: a * ft,
+                        add: a * fdd,
+                        att: a * ti * (ti - 1.0) / (tau * tau),
+                        adt: a * ft * fd,
+                    });
+                }
+            }
+            ResidualTerm::DoubleExponential { n, t, d, gd, ld, gt, lt } => {
+                // u = -gd·δ^ld - gt·τ^lt; the δ and τ parts of u are
+                // independent, so the B-factors separate (adt = ad·at/a).
+                for i in 0..n.len() {
+                    let (di, ti, ni) = (d[i], t[i], n[i]);
+                    let (gdi, ldi, gti, lti) = (gd[i], ld[i], gt[i], lt[i]);
+                    // DL := ld·gd·δ^ld = -δ·∂u/∂δ ; MT := lt·gt·τ^lt = -τ·∂u/∂τ
+                    let (edelta, dl) = if ldi == 0.0 || gdi == 0.0 {
+                        (1.0, 0.0)
+                    } else {
+                        let p = delta.powf(ldi);
+                        ((-gdi * p).exp(), ldi * gdi * p)
+                    };
+                    let (etau, mt) = if lti == 0.0 || gti == 0.0 {
+                        (1.0, 0.0)
+                    } else {
+                        let p = tau.powf(lti);
+                        ((-gti * p).exp(), lti * gti * p)
+                    };
+                    let a = ni * delta.powf(di) * tau.powf(ti) * edelta * etau;
+                    let bd = di - dl; //          δ·(∂ln a/∂δ)
+                    let bt = ti - mt; //          τ·(∂ln a/∂τ)
+                    let bd2 = (di - dl) * (di - 1.0 - dl) - ldi * dl;
+                    let bt2 = (ti - mt) * (ti - 1.0 - mt) - lti * mt;
+                    acc.add_scaled(&HelmholtzDerivs {
+                        a,
+                        ad: a * bd / delta,
+                        at: a * bt / tau,
+                        add: a * bd2 / (delta * delta),
+                        att: a * bt2 / (tau * tau),
+                        adt: a * bd * bt / (delta * tau),
+                    });
+                }
+            }
+            ResidualTerm::GaoB { n, t, d, eta, beta, gamma, epsilon, b } => {
+                // a = n·Ftau·Fdelta with Ftau = τ^t·exp(1/P), P = b + β(τ-γ)²,
+                // and Fdelta = δ^d·exp(η(δ-ε)²). The factors separate, so we
+                // transcribe CoolProp's per-factor first/second derivatives.
+                for i in 0..n.len() {
+                    let (ni, ti, di) = (n[i], t[i], d[i]);
+                    let (etai, betai, gami, epsi, bi) = (eta[i], beta[i], gamma[i], epsilon[i], b[i]);
+                    let gmt = gami - tau;
+                    let p = bi + betai * gmt * gmt;
+                    let ftau = tau.powf(ti) * (1.0 / p).exp();
+                    let de = delta - epsi;
+                    let fdelta = delta.powf(di) * (etai * de * de).exp();
+                    let a = ni * ftau * fdelta;
+
+                    // τ·dFtau/dτ and τ²·d²Ftau/dτ² (CoolProp `taudFtaudtau`, `tau2d2Ftaudtau2`)
+                    let taud_ftau = (2.0 * betai * tau.powf(ti + 1.0) * gmt + ti * tau.powf(ti) * p * p)
+                        * (1.0 / p).exp() / (p * p);
+                    let tau2d2_ftau = tau.powf(ti)
+                        * (4.0 * betai * ti * tau * p * p * gmt
+                            + 2.0 * betai * tau * tau
+                                * (4.0 * betai * p * gmt * gmt + 2.0 * betai * gmt * gmt - p * p)
+                            + ti * p.powi(4) * (ti - 1.0))
+                        * (1.0 / p).exp() / p.powi(4);
+
+                    // δ·dFdelta/dδ and δ²·d²Fdelta/dδ² (CoolProp `deltadFdeltaddelta`, `delta2d2Fdeltaddelta2`)
+                    let deltad_fdelta = (di * delta.powf(di) + 2.0 * delta.powf(di + 1.0) * etai * de)
+                        * (etai * de * de).exp();
+                    let delta2d2_fdelta = delta.powf(di)
+                        * (4.0 * di * delta * etai * de + di * (di - 1.0)
+                            + 2.0 * delta * delta * etai * (2.0 * etai * de * de + 1.0))
+                        * (etai * de * de).exp();
+
+                    acc.add_scaled(&HelmholtzDerivs {
+                        a,
+                        ad: ni * ftau * deltad_fdelta / delta,
+                        at: ni * fdelta * taud_ftau / tau,
+                        add: ni * ftau * delta2d2_fdelta / (delta * delta),
+                        att: ni * fdelta * tau2d2_ftau / (tau * tau),
+                        adt: ni * taud_ftau * deltad_fdelta / (tau * delta),
+                    });
+                }
+            }
             ResidualTerm::NonAnalytic { .. } => {
                 // TODO(op-kbc): non-analytic critical-region terms + the δ=1
                 // limit handling. Currently a no-op; only affects accuracy
@@ -232,6 +401,57 @@ impl IdealTerm {
                 acc.a += a1 + a2 * tau;
                 acc.at += a2;
                 // no δ dependence, no second τ-derivative
+            }
+            IdealTerm::Power { n, t } => {
+                for i in 0..n.len() {
+                    let (ni, ti) = (n[i], t[i]);
+                    acc.a += ni * tau.powf(ti);
+                    acc.at += ni * ti * tau.powf(ti - 1.0);
+                    acc.att += ni * ti * (ti - 1.0) * tau.powf(ti - 2.0);
+                    // no δ dependence
+                }
+            }
+            IdealTerm::PlanckEinsteinGeneralized { n, theta, c, d } => {
+                for i in 0..n.len() {
+                    let (ni, thi, ci, di) = (n[i], theta[i], c[i], d[i]);
+                    let e = (thi * tau).exp();
+                    let para = ci + di * e;
+                    acc.a += ni * para.ln();
+                    acc.at += ni * thi * di * e / para;
+                    acc.att += ni * thi * thi * ci * di * e / (para * para);
+                    // no δ dependence
+                }
+            }
+            IdealTerm::CP0Constant { cp_over_r, tau0 } => {
+                let cr = *cp_over_r;
+                acc.a += cr - cr * tau / tau0 + cr * (tau / tau0).ln();
+                acc.at += cr / tau - cr / tau0;
+                acc.att += -cr / (tau * tau);
+                // no δ dependence
+            }
+            IdealTerm::CP0PolyT { c, t, tc, t0 } => {
+                let (tc, t0) = (*tc, *t0);
+                let tau0 = tc / t0;
+                for i in 0..c.len() {
+                    let (ci, ti) = (c[i], t[i]);
+                    if ti.abs() < 10.0 * f64::EPSILON {
+                        acc.a += ci - ci * tau / tau0 + ci * (tau / tau0).ln();
+                        acc.at += ci / tau - ci / tau0;
+                        acc.att += -ci / (tau * tau);
+                    } else if (ti + 1.0).abs() < 10.0 * f64::EPSILON {
+                        acc.a += ci * tau / tc * (tau0 / tau).ln() + ci / tc * (tau - tau0);
+                        acc.at += ci / tc * (tau0 / tau).ln();
+                        acc.att += -ci / (tau * tc);
+                    } else {
+                        acc.a += -ci * tc.powf(ti) * tau.powf(-ti) / (ti * (ti + 1.0))
+                            - ci * t0.powf(ti + 1.0) * tau / (tc * (ti + 1.0))
+                            + ci * t0.powf(ti) / ti;
+                        acc.at += ci * tc.powf(ti) * tau.powf(-ti - 1.0) / (ti + 1.0)
+                            - ci * tc.powf(ti) / (tau0.powf(ti + 1.0) * (ti + 1.0));
+                        acc.att += -ci * (tc / tau).powf(ti) / (tau * tau);
+                    }
+                    // no δ dependence
+                }
             }
         }
     }

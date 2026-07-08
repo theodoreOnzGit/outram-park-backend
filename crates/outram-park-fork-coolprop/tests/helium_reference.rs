@@ -16,6 +16,9 @@
 //! Triple-liquid, triple-vapour and the **critical point** all reproduce
 //! CoolProp's tabulated pressures; see the asserted tolerances.
 
+// Reference values are transcribed verbatim from CoolProp's JSON.
+#![allow(clippy::inconsistent_digit_grouping)]
+
 use outram_park_fork_coolprop::{state_trho, Fluid};
 
 fn check(label: &str, t: f64, rho: f64, p_ref: f64, tol: f64) {
