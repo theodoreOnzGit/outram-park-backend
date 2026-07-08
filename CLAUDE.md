@@ -288,6 +288,36 @@ each member (`openblas-system` on unix, `intel-mkl-static` on windows/macos).
 See `docs/workspace-maintenance.md` for the rationale and the planned
 `ndarray-linalg` removal from TUAS.
 
+## Android portability (mandatory for non-GUI code)
+
+**Every crate's non-GUI library code must compile for Android**
+(`aarch64-linux-android` and the armv7/x86_64 emulator targets). Android has no
+system BLAS/LAPACK and no easy C/Fortran toolchain, so **Android-hostile
+dependencies must not compile on Android** — gate them off by target rather
+than letting them break the build.
+
+- **`ndarray-linalg`** (and anything needing system BLAS/LAPACK, or a C/Fortran
+  toolchain, or `std`-GUI/windowing) is Android-hostile. Declare it only under
+  target-conditional tables — e.g.
+  `[target.'cfg(not(target_os = "android"))'.dev-dependencies]` — never as an
+  unconditional dependency. (Android's `target_os` is **`"android"`, not
+  `"linux"`**, so an existing `cfg(target_os = "linux")` gate already excludes
+  it — but do not *rely* on a linux-only gate to mean "not Android" without
+  saying so.)
+- **Any test, bench, or example that uses an Android-hostile dep must be gated**
+  so it does not compile on Android: put `#![cfg(not(target_os = "android"))]`
+  at the top of an integration-test/bench file, or `#[cfg(not(target_os =
+  "android"))]` on the item. Precedent: `openfoam-basic-lib`'s
+  `tests/matrix_bench.rs` (the pure-Rust `SquareMatrix` vs LAPACK benchmark).
+- **GUI items** (`egui`/`eframe`/windowing examples and bins) are out of scope
+  for Android — keep GUI behind examples/optional bins/features, never in the
+  library's unconditional build, so the lib still builds headless for Android.
+- **New code follows this by default.** If you add a dep or a test that can't
+  build on Android, target-gate it in the same change and note it. Verify with
+  `cargo check -p <crate> --target aarch64-linux-android` (needs the Android
+  target + NDK / `cargo-ndk`) when a host has the toolchain. Workspace-wide
+  Android build tracking lives in beads (the "Android support" epic).
+
 ## Build & test
 
 Requires a system BLAS (OpenBLAS on Linux/macOS):

@@ -1,3 +1,11 @@
+// This benchmark uses `ndarray-linalg` (LAPACK via OpenBLAS/Intel-MKL), which
+// is not available on Android — the crate's `ndarray-linalg` dev-dep is
+// target-gated to linux/macos/windows only, and Android's `target_os` is
+// "android", so the dependency is absent there. Gate the whole test off so
+// the crate's non-GUI code still builds for Android. See the workspace
+// CLAUDE.md "Android portability" rule and beads epic op-* (Android support).
+#![cfg(not(target_os = "android"))]
+
 /// Timed comparison: `SquareMatrix::solve` (pure-Rust LU with scaled partial
 /// pivoting) vs `ndarray-linalg` LAPACK (`Array2::solve`, OpenBLAS/Intel-MKL)
 /// across matrix sizes representative of the TUAS conductance matrices (5–200×200).
