@@ -56,6 +56,9 @@ def main():
         elif ty == "IdealGasHelmholtzPlanckEinstein":
             ideal.append("    IdealTerm::PlanckEinstein {{ n: {}, t: {} }},".format(
                 slice_f64(t["n"]), slice_f64(t["t"])))
+        elif ty == "IdealGasHelmholtzEnthalpyEntropyOffset":
+            ideal.append("    IdealTerm::EnthalpyEntropyOffset {{ a1: {!r}, a2: {!r} }},".format(
+                float(t["a1"]), float(t["a2"])))
         else:
             sys.exit(f"unsupported ideal term type: {ty} (extend the engine + codegen)")
 

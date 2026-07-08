@@ -69,6 +69,11 @@ pub enum IdealTerm {
     /// `Σ n_k·ln(1 - exp(-t_k·τ))` — Planck–Einstein (vibrational) terms.
     /// CoolProp `IdealGasHelmholtzPlanckEinstein`.
     PlanckEinstein { n: &'static [f64], t: &'static [f64] },
+    /// `a1 + a2·τ` — a reference-state offset for enthalpy/entropy. Affects
+    /// only absolute `h`/`s`/`u`; pressure, `c_v`, `c_p` and the speed of
+    /// sound are unchanged. CoolProp `IdealGasHelmholtzEnthalpyEntropyOffset`
+    /// (`src/Helmholtz.cpp`: `alphar += a1 + a2*tau; dalphar_dtau += a2`).
+    EnthalpyEntropyOffset { a1: f64, a2: f64 },
 }
 
 /// A pure-fluid Helmholtz EOS: reducing/critical parameters plus the residual
@@ -222,6 +227,11 @@ impl IdealTerm {
                     acc.att += -ni * tti * tti * e / ((e - 1.0) * (e - 1.0));
                     // no δ dependence
                 }
+            }
+            IdealTerm::EnthalpyEntropyOffset { a1, a2 } => {
+                acc.a += a1 + a2 * tau;
+                acc.at += a2;
+                // no δ dependence, no second τ-derivative
             }
         }
     }

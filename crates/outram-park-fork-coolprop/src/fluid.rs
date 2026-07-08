@@ -15,6 +15,10 @@ use crate::fluids;
 pub enum Fluid {
     /// Water (IAPWS-95). CoolProp `Water`.
     Water,
+    /// Helium (Ortiz-Vega et al.). CoolProp `Helium`. Its EOS has only
+    /// Power + Gaussian residual terms (no non-analytic), so it is fully
+    /// accurate — including near the critical point — with the current engine.
+    Helium,
 }
 
 impl Fluid {
@@ -22,6 +26,7 @@ impl Fluid {
     pub fn eos(self) -> &'static FluidEos {
         match self {
             Fluid::Water => &fluids::water::WATER,
+            Fluid::Helium => &fluids::helium::HELIUM,
         }
     }
 
