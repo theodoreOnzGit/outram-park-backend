@@ -9,8 +9,9 @@ repository.workspace = true
 readme = "README.md"
 categories.workspace = true
 # V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
-# and never shipped in the packaged crate.
-exclude = ["verification_and_validation/*.csv"]
+# and never shipped in the packaged crate. `docs/` (incl. the generated
+# docs/api.md rustdoc mirror) isn't crate content either.
+exclude = ["verification_and_validation/*.csv", "docs"]
 
 [dependencies]
 thiserror.workspace = true
