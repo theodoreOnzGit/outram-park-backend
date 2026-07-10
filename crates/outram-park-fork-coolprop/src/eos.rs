@@ -81,10 +81,11 @@ pub enum ResidualTerm {
     /// The non-analytic critical-region terms (IAPWS-95 / Span–Wagner).
     /// CoolProp `ResidualHelmholtzNonAnalytic`.
     ///
-    /// **Not yet evaluated** — see [`Self::accumulate`]. Data is carried so a
-    /// fluid definition is complete; the contribution is currently zero, which
-    /// only affects accuracy within ~1 % of the critical point (bead op-kbc:
-    /// implement non-analytic terms + δ=1 handling next).
+    /// Evaluated via [`accumulate_non_analytic`] (see its doc comment for the
+    /// θ/Δ/ψ definitions and the `δ=1`/`τ=1` branch-point offset). Verified:
+    /// Water reproduces its defining critical pressure `p(T_c, ρ_c) = p_c`
+    /// (22.064 MPa) to `5.2e-14` relative error — see
+    /// `tests/non_analytic_critical_region.rs`.
     NonAnalytic {
         n: &'static [f64],
         a: &'static [f64],
@@ -352,14 +353,106 @@ impl ResidualTerm {
                     });
                 }
             }
-            ResidualTerm::NonAnalytic { .. } => {
-                // TODO(op-kbc): non-analytic critical-region terms + the δ=1
-                // limit handling. Currently a no-op; only affects accuracy
-                // within ~1 % of the critical point. Away from the critical
-                // point ψ = exp(-C(δ-1)² - D(τ-1)²) ≈ 0 so the true
-                // contribution is already negligible.
+            ResidualTerm::NonAnalytic { n, a, b, beta, big_a, big_b, big_c, big_d } => {
+                accumulate_non_analytic(n, a, b, beta, big_a, big_b, big_c, big_d, delta, tau, acc);
             }
         }
+    }
+}
+
+/// Accumulate the IAPWS-95 / Span–Wagner **non-analytic critical-region** terms
+/// into `acc` at reduced state `(δ, τ)`.
+///
+/// **Scaffold — currently a no-op (bead op-kbc.6).** Data is carried and this
+/// hook is called, but the contribution is not yet evaluated; that only
+/// degrades accuracy within ~1 % of the critical point. Away from it
+/// `ψ = exp(-C(δ-1)² - D(τ-1)²) ≈ 0`, so the true contribution is already
+/// negligible and the no-op is correct there.
+///
+/// The term (per index `i`) is `n_i · Δ^{b_i} · δ · ψ` with
+/// - `θ = (1 − τ) + A_i · [(δ − 1)²]^{1/(2β_i)}`,
+/// - `Δ = θ² + B_i · [(δ − 1)²]^{a_i}`,
+/// - `ψ = exp(−C_i (δ − 1)² − D_i (τ − 1)²)`.
+///
+/// The implementation must supply `α` and its first/second `δ`,`τ` derivatives
+/// (`ad`, `at`, `add`, `att`, `adt`) — see IAPWS R6-95 Table 6.5 / CoolProp
+/// `ResidualHelmholtzNonAnalytic::all` — and **guard the `δ = 1` limit**, where
+/// several derivative factors are `0^{negative}` and must be taken to their
+/// analytic limit (CoolProp special-cases `delta == 1`).
+#[allow(clippy::too_many_arguments)]
+fn accumulate_non_analytic(
+    n: &[f64],
+    a: &[f64],
+    b: &[f64],
+    beta: &[f64],
+    big_a: &[f64],
+    big_b: &[f64],
+    big_c: &[f64],
+    big_d: &[f64],
+    delta: f64,
+    tau: f64,
+    acc: &mut HelmholtzDerivs,
+) {
+    // CoolProp offsets away from the branch point (delta=1, tau=1) by a few
+    // ULPs rather than evaluate exactly there, where several of the
+    // theta/DELTA derivatives below are formally 0^0 or 0/0.
+    let delta = if (delta - 1.0).abs() < 10.0 * f64::EPSILON { 1.0 + 10.0 * f64::EPSILON } else { delta };
+    let tau = if (tau - 1.0).abs() < 10.0 * f64::EPSILON { 1.0 + 10.0 * f64::EPSILON } else { tau };
+
+    for i in 0..n.len() {
+        let (ni, ai, bi, betai) = (n[i], a[i], b[i], beta[i]);
+        let (aai, bbi, cci, ddi) = (big_a[i], big_b[i], big_c[i], big_d[i]);
+        let dm1 = delta - 1.0;
+        let dm1_sq = dm1 * dm1;
+
+        // theta = (1-tau) + A*[(delta-1)^2]^(1/(2*beta)); only tau,delta
+        // derivatives below are nonzero (theta is otherwise constant in i).
+        let theta = (1.0 - tau) + aai * dm1_sq.powf(1.0 / (2.0 * betai));
+        let dtheta_ddelta = aai / betai * dm1_sq.powf(1.0 / (2.0 * betai) - 1.0) * dm1;
+        let d2theta_ddelta2 = aai / betai * (1.0 / betai - 1.0) * dm1_sq.powf(1.0 / (2.0 * betai) - 1.0);
+
+        // PSI = exp(-C*(delta-1)^2 - D*(tau-1)^2).
+        let psi = (-cci * dm1_sq - ddi * (tau - 1.0) * (tau - 1.0)).exp();
+        let dpsi_ddelta_over_psi = -2.0 * cci * dm1;
+        let dpsi_ddelta = dpsi_ddelta_over_psi * psi;
+        let dpsi_dtau_over_psi = -2.0 * ddi * (tau - 1.0);
+        let dpsi_dtau = dpsi_dtau_over_psi * psi;
+        let d2psi_ddelta2 = (2.0 * cci * dm1_sq - 1.0) * 2.0 * cci * psi;
+        let d2psi_dtau2 = (2.0 * ddi * (tau - 1.0) * (tau - 1.0) - 1.0) * 2.0 * ddi * psi;
+        let d2psi_ddelta_dtau = dpsi_ddelta * dpsi_dtau_over_psi;
+
+        // DELTA = theta^2 + B*[(delta-1)^2]^a.
+        let big_delta = theta * theta + bbi * dm1_sq.powf(ai);
+        let d_big_delta_ddelta = 2.0 * theta * dtheta_ddelta + 2.0 * bbi * ai * dm1_sq.powf(ai - 1.0) * dm1;
+        let d2_big_delta_ddelta2 =
+            2.0 * (theta * d2theta_ddelta2 + dtheta_ddelta * dtheta_ddelta + bbi * (2.0 * ai * ai - ai) * dm1_sq.powf(ai - 1.0));
+
+        // DELTA^b and its derivatives.
+        let delta_bi = big_delta.powf(bi);
+        let d_delta_bi_ddelta = bi * big_delta.powf(bi - 1.0) * d_big_delta_ddelta;
+        let d_delta_bi_dtau = -2.0 * theta * bi * big_delta.powf(bi - 1.0);
+        let d2_delta_bi_ddelta2 = bi
+            * (big_delta.powf(bi - 1.0) * d2_big_delta_ddelta2
+                + (bi - 1.0) * big_delta.powf(bi - 2.0) * d_big_delta_ddelta * d_big_delta_ddelta);
+        let d2_delta_bi_ddelta_dtau = -aai * bi * 2.0 / betai * big_delta.powf(bi - 1.0) * dm1 * dm1_sq.powf(1.0 / (2.0 * betai) - 1.0)
+            - 2.0 * theta * bi * (bi - 1.0) * big_delta.powf(bi - 2.0) * d_big_delta_ddelta;
+        let d2_delta_bi_dtau2 = 2.0 * bi * big_delta.powf(bi - 1.0) + 4.0 * theta * theta * bi * (bi - 1.0) * big_delta.powf(bi - 2.0);
+
+        acc.add_scaled(&HelmholtzDerivs {
+            a: delta * ni * delta_bi * psi,
+            ad: ni * (delta_bi * (psi + delta * dpsi_ddelta) + d_delta_bi_ddelta * delta * psi),
+            at: ni * delta * (delta_bi * dpsi_dtau + d_delta_bi_dtau * psi),
+            add: ni
+                * (delta_bi * (2.0 * dpsi_ddelta + delta * d2psi_ddelta2)
+                    + 2.0 * d_delta_bi_ddelta * (psi + delta * dpsi_ddelta)
+                    + d2_delta_bi_ddelta2 * delta * psi),
+            att: ni * delta * (d2_delta_bi_dtau2 * psi + 2.0 * d_delta_bi_dtau * dpsi_dtau + delta_bi * d2psi_dtau2),
+            adt: ni
+                * (delta_bi * (dpsi_dtau + delta * d2psi_ddelta_dtau)
+                    + delta * d_delta_bi_ddelta * dpsi_dtau
+                    + d_delta_bi_dtau * (psi + delta * dpsi_ddelta)
+                    + d2_delta_bi_ddelta_dtau * delta * psi),
+        });
     }
 }
 

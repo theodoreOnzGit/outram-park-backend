@@ -3,9 +3,10 @@
 Reference material for the Rust port of NJOY2016. Read on demand — the mandatory
 license and design rules live in `CLAUDE.md`.
 
-Upstream Fortran source (the golden oracle): **`../../../NJOY2016`** (relative to
-this crate), i.e. `/home/teddy0/Documents/research/NJOY2016`, version **2016.79**
-(commit `ac5adf5`). ~120,000 lines of Fortran 90 across 39 source files.
+Upstream Fortran source (the golden oracle): **`upstream_source/NJOY2016`**
+(relative to this crate, gitignored — see `upstream_source/README.md` for
+provenance), version **2016.79** (commit `ac5adf5`). ~120,000 lines of
+Fortran 90 across 39 source files.
 
 ---
 
@@ -410,7 +411,7 @@ first):
 
 ## 6. Verification strategy (golden oracle)
 
-Upstream Fortran NJOY2016 at `../../../NJOY2016` is the reference. For each
+Upstream Fortran NJOY2016 at `upstream_source/NJOY2016` is the reference. For each
 ported module:
 
 1. Build upstream once (`cmake -DCMAKE_BUILD_TYPE=Release ..; make`) to get the

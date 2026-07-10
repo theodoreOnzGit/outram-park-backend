@@ -78,7 +78,7 @@ thermal scattering).
 
 ## Verifying against upstream
 
-The reference Fortran NJOY2016 lives at `../../../NJOY2016` and is used as a
+The reference Fortran NJOY2016 lives at `upstream_source/NJOY2016` and is used as a
 golden oracle: run a module in upstream NJOY on a reference ENDF evaluation,
 then assert the Rust port reproduces the same tape/ACE output within tolerance.
 See the porting plan for the test strategy.

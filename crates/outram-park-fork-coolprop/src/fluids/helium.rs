@@ -6,7 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
-use crate::transport::{FluidTransport, HardcodedTransport};
+use crate::transport::{FluidTransport, ViscosityModel, HardcodedViscosity, ConductivityModel, HardcodedConductivity};
 
 /// Helium Helmholtz equation of state (from CoolProp).
 pub static HELIUM: FluidEos = FluidEos {
@@ -42,10 +42,9 @@ pub static HELIUM_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
-/// conductivity (critical enhancement omitted; see `crate::transport`).
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static HELIUM_TRANSPORT: FluidTransport = FluidTransport {
-    viscosity: None,
-    conductivity: None,
-    hardcoded: Some(HardcodedTransport::Helium),
+    viscosity: Some(ViscosityModel::Hardcoded(HardcodedViscosity::Helium)),
+    conductivity: Some(ConductivityModel::Hardcoded(HardcodedConductivity::Helium)),
 };
 

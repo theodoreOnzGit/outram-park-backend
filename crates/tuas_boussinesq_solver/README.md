@@ -12,6 +12,10 @@ those traits for your own projects.
 
 # Changelog
 
+## 0.1.3 
+
+Removed openfoam_basic_lib dependencies to avoid dependency loops. 
+
 ## 0.1.2
 
 - **Breaking — `TuasLibError` API change:** `TuasLibError::LinalgError(ndarray_linalg::error::LinalgError)` is

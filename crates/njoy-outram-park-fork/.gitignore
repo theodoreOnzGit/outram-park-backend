@@ -1,0 +1,7 @@
+# Upstream NJOY2016 clone -- present for development, never committed.
+# See upstream_source/README.md for provenance (commit, license).
+/upstream_source/NJOY2016/
+
+# V&V raw data -- the .md write-ups in verification_and_validation/ are
+# committed; standalone .csv data files they reference are not.
+/verification_and_validation/*.csv

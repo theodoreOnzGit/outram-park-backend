@@ -6,6 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ConductivityModel, HardcodedConductivity};
 
 /// Methane Helmholtz equation of state (from CoolProp).
 pub static METHANE: FluidEos = FluidEos {
@@ -39,5 +40,12 @@ pub static METHANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
     p_sat: SatAncillary { reducing_value: 4599200.0, t_r: 190.564, using_tau_r: true, exponential: true, n: &[-0.36511751226395045, -7.477611035699516, 2.8218785804602344, -0.3138277099613026, -14.181166200304828, 13.10811727353235], t: &[0.935, 1.03, 1.204, 3.176, 5.616, 5.744] },
     rho_l: SatAncillary { reducing_value: 10139.127999999999, t_r: 190.564, using_tau_r: false, exponential: false, n: &[1.0459450372370667, 1.137482950365497, 0.25267850508364803, -0.15127345979918666, 11.30484305385285, -1807.5949062134612], t: &[0.309, 0.502, 1.402, 3.858, 10.533, 19.547] },
     rho_v: SatAncillary { reducing_value: 10139.127999999999, t_r: 190.564, using_tau_r: true, exponential: true, n: &[-3.258091004501641, 24.278993697870174, -25.256402428812585, -0.17494067187770526, 0.3375209723239743, -2.3099699792209805], t: &[0.392, 0.606, 0.631, 1.024, 2.03, 4.077] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
+pub static METHANE_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: Some(ViscosityModel::Correlation { dilute: ViscosityDilute::PowersOfTr { a: &[2.60536e-06, -1.85247e-05, 2.34216e-05, 0.0], t: &[0.0, 0.25, 0.5, 0.75], t_reducing: 190.564 }, initial: None, higher_order: ViscosityHigherOrder::FrictionTheory { t_reduce: 190.564, c1: 1.0, c2: 1.0, ai: &[3.49668e-08, -1.73176e-08, 0.0], aa: &[-3.12118e-08, 1.99422e-10, 0.0], ar: &[5.98858e-08, -4.91143e-08, 0.0], aaa: &[-8.52992e-13, -3.58009e-13, 0.0], arr: &[], adrdr: &[1.60099e-11, 8.50221e-13, 0.0], aii: &[-3.55631e-10, 2.80326e-10, 0.0], arrr: &[], aaaa: &[], na: 1.0, nr: 1.0, naa: 3.0, nrr: 3.0, nii: 3.0, nrrr: 0.0, naaa: 0.0 } }),
+    conductivity: Some(ConductivityModel::Hardcoded(HardcodedConductivity::Methane)),
 };
 

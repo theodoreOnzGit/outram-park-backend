@@ -6,7 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
-use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ViscosityInitial, ConductivityModel, ConductivityDilute, ConductivityResidual};
+use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ViscosityInitial, ConductivityModel, ConductivityDilute, ConductivityResidual, CriticalConductivity};
 
 /// Ethanol Helmholtz equation of state (from CoolProp).
 pub static ETHANOL: FluidEos = FluidEos {
@@ -43,10 +43,9 @@ pub static ETHANOL_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
-/// conductivity (critical enhancement omitted; see `crate::transport`).
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static ETHANOL_TRANSPORT: FluidTransport = FluidTransport {
-    viscosity: Some(ViscosityModel { dilute: ViscosityDilute::PowersOfT { a: &[-1.03116e-06, 3.48379e-08, -6.50264e-12], t: &[0.0, 1.0, 2.0] }, initial: Some(ViscosityInitial::RainwaterFriend { b: &[-19.572881, 219.73999, -1015.3226, 2471.01251, -3375.1717, 2491.6597, -787.26086, 14.085455, -0.34664158], t: &[0.0, -0.25, -0.5, -0.75, -1.0, -1.25, -1.5, -2.5, -5.5], epsilon_over_k: 362.6, sigma_eta: 4.53e-10 }), higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand { t_reduce: 513.9, rhomolar_reduce: 5991.0, a: &[0.000131194057, -0.000382240694, -8.05700894e-05, 0.000153811778, -0.000110578307], d1: &[2.0, 2.0, 3.0, 3.0, 3.0], t1: &[0.0, 1.0, 0.0, 1.0, 2.0], gamma: &[0.0, 0.0, 0.0, 0.0, 0.0], l: &[1.0, 1.0, 1.0, 1.0, 1.0], f: &[0.0237222995], d2: &[1.0], t2: &[0.0], g: &[-3.38264465, 12.7568864], h: &[0.0, -0.5], p: &[1.0], q: &[0.0] } }),
-    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 514.71, a: &[-0.00209575, 0.0199045, -0.053964, 0.0821223, -0.00198864, -0.000495513], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], b: &[0.17223, -0.078273, 1.0], m: &[0.0, 1.0, 2.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 514.71, rhomass_reducing: 273.186, b: &[0.0267222, 0.0177166, 0.148279, -0.0893088, -0.130429, 0.0684664, 0.0346232, -0.0145702, -0.00244293, 0.000809189], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
-    hardcoded: None,
+    viscosity: Some(ViscosityModel::Correlation { dilute: ViscosityDilute::PowersOfT { a: &[-1.03116e-06, 3.48379e-08, -6.50264e-12], t: &[0.0, 1.0, 2.0] }, initial: Some(ViscosityInitial::RainwaterFriend { b: &[-19.572881, 219.73999, -1015.3226, 2471.01251, -3375.1717, 2491.6597, -787.26086, 14.085455, -0.34664158], t: &[0.0, -0.25, -0.5, -0.75, -1.0, -1.25, -1.5, -2.5, -5.5], epsilon_over_k: 362.6, sigma_eta: 4.53e-10 }), higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand { t_reduce: 513.9, rhomolar_reduce: 5991.0, a: &[0.000131194057, -0.000382240694, -8.05700894e-05, 0.000153811778, -0.000110578307], d1: &[2.0, 2.0, 3.0, 3.0, 3.0], t1: &[0.0, 1.0, 0.0, 1.0, 2.0], gamma: &[0.0, 0.0, 0.0, 0.0, 0.0], l: &[1.0, 1.0, 1.0, 1.0, 1.0], f: &[0.0237222995], d2: &[1.0], t2: &[0.0], g: &[-3.38264465, 12.7568864], h: &[0.0, -0.5], p: &[1.0], q: &[0.0] } }),
+    conductivity: Some(ConductivityModel::Correlation { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 514.71, a: &[-0.00209575, 0.0199045, -0.053964, 0.0821223, -0.00198864, -0.000495513], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], b: &[0.17223, -0.078273, 1.0], m: &[0.0, 1.0, 2.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 514.71, rhomass_reducing: 273.186, b: &[0.0267222, 0.0177166, 0.148279, -0.0893088, -0.130429, 0.0684664, 0.0346232, -0.0145702, -0.00244293, 0.000809189], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] }, critical: Some(CriticalConductivity::SimplifiedOlchowySengers { r0: 1.03, gamma: 1.239, big_gamma: 0.05885, zeta0: 1.64296e-10, qd: 1880000000.0, t_ref: -1.0 }) }),
 };
 

@@ -7,6 +7,9 @@ description = "Neutron Energy-dependent Simulation using Open-source Object-Orie
 homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
+# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
+# and never shipped in the packaged crate.
+exclude = ["verification_and_validation/*.csv"]
 
 [dependencies]
 # Integration targets — the crates NEE_SOON composes and re-exposes. Declared

@@ -275,9 +275,11 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
 /// - **Thermophysics**: [`Self::correct_thermo`] does a per-cell single-phase
 ///   `(p, h)` flash on the stored [`fluid`](Self::fluid) via [`crate::flash`],
 ///   updating `ρ`, `T` and the compressibility `ψ = (∂ρ/∂p)_T` from the CoolProp
-///   Helmholtz EOS (replacing the old placeholder `ρ = ψ·p`). Transport (`μ`,
-///   `αh`) is *not* yet from the EOS — CoolProp transport properties are a
-///   follow-up (bead op-kbc) — so those fields keep their initial values.
+///   Helmholtz EOS (replacing the old placeholder `ρ = ψ·p`).
+///   [`Self::correct_transport`] then updates `μ`/`αh` from
+///   [`crate::transport::viscosity`]/[`crate::transport::conductivity`] at the
+///   refreshed `(T, ρ)` — for a fluid/state with no transport model (`None`)
+///   a cell's `μ`/`αh` are left at their previous value, never a wrong number.
 ///
 /// C++ reference: `applications/solvers/compressible/rhoPimpleFoam/`.
 #[derive(Clone,Debug)]
@@ -331,8 +333,10 @@ impl OPCPFluidArray {
     /// is not single-phase for `fluid` (e.g. a liquid, which the single-phase
     /// solver cannot reach), it falls back to inert placeholders
     /// (ρ = 1 kg/m³, h = 0, ψ = 1e-5 s²/m²); overwrite the fields after
-    /// construction for a specific case. Transport (`μ`, `αh`) is always a
-    /// placeholder (CoolProp transport properties are a follow-up).
+    /// construction for a specific case. `μ`/`αh` start at fixed placeholders
+    /// (air-like values) and are overwritten by [`Self::correct_transport`] on
+    /// the first call — call it once after construction if the initial step
+    /// should already use the fluid's real transport properties.
     ///
     /// ## Parameters
     /// - `fluid`           — working fluid (its EOS closes the thermo update)
@@ -413,6 +417,37 @@ impl OPCPFluidArray {
                 self.psi.internal[c] = flash::drho_dp_t(self.fluid, state.temperature, state.density).max(1e-12);
             }
             // else: keep the previous ρ/T/ψ for this cell (finite, safe).
+        }
+    }
+
+    /// Update the per-cell transport fields (dynamic viscosity `μ` and thermal
+    /// diffusivity `αh = λ/c_p`) from the CoolProp transport correlations at the
+    /// current `(T, ρ)` — the transport half of `correct_thermo`.
+    ///
+    /// For each cell this looks up `μ(fluid, T, ρ)` and `λ(fluid, T, ρ)`
+    /// ([`crate::transport::viscosity`] / [`crate::transport::conductivity`])
+    /// and divides the latter by `c_p` (from [`crate::props::state_trho`]) to
+    /// get `αh` in OpenFOAM's mass-diffusivity convention
+    /// (`kg/(m·s)` = `W/(m·K)` / `J/(kg·K)`) — matching `alpha_h`'s existing use
+    /// in [`Self::step`]'s momentum (`μ`) and energy (`αh`) diffusion terms.
+    ///
+    /// If `fluid` has no transport model at a cell's `(T, ρ)` (`None` — never a
+    /// wrong number, see [`crate::transport`]), that cell's `μ`/`αh` are left at
+    /// their previous value, mirroring `correct_thermo`'s non-convergence
+    /// handling.
+    pub fn correct_transport(&mut self) {
+        for c in 0..self.mesh.n_cells {
+            let t_c = self.t.internal[c];
+            let rho_c = self.rho.internal[c];
+            if let Some(mu) = crate::transport::viscosity(self.fluid, t_c, rho_c) {
+                self.mu.internal[c] = mu;
+            }
+            if let Some(lambda) = crate::transport::conductivity(self.fluid, t_c, rho_c) {
+                let cp = crate::props::state_trho(self.fluid, t_c, rho_c).cp;
+                if cp.is_finite() && cp > 0.0 {
+                    self.alpha_h.internal[c] = lambda / cp;
+                }
+            }
         }
     }
 
@@ -567,8 +602,10 @@ impl OPCPFluidArray {
                 self.u = hbya - rau.clone() * fvc::grad(&self.p);
                 correct_bcs_vec(&mut self.u, &u_bcs);
 
-                // EOS update: ρ (and, once wired, T/μ/αh/ψ) from the new pressure.
+                // EOS update: ρ, T, ψ from the new pressure, then μ, αh from
+                // the refreshed (T, ρ).
                 self.correct_thermo();
+                self.correct_transport();
             }
 
             // ── Energy equation ─────────────────────────────────────────────
@@ -645,6 +682,36 @@ mod tests {
         // Density and temperature stay physically bounded (correct_thermo ran).
         assert!(array.rho.internal.as_slice().iter().all(|&r| r > 0.0 && r < 1e3));
         assert!(array.t.internal.as_slice().iter().all(|&tt| tt > 0.0 && tt < 5e3));
+    }
+
+    #[test]
+    fn correct_transport_updates_mu_and_alpha_h_from_eos() {
+        let mut array = OPCPFluidArray::new(
+            Fluid::Nitrogen,
+            Length::new::<meter>(1.0),
+            Area::new::<square_meter>(0.01),
+            5,
+            Time::new::<second>(1e-4),
+        )
+        .expect("valid 1-D geometry");
+
+        array.correct_transport();
+
+        let mu1 = array.mu.internal[0];
+        let alpha_h1 = array.alpha_h.internal[0];
+        let expected_mu = crate::transport::viscosity(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0]).unwrap();
+        let expected_lambda = crate::transport::conductivity(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0]).unwrap();
+        let expected_cp = crate::props::state_trho(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0]).cp;
+
+        // Nitrogen's real viscosity at (300K, ~1atm) happens to sit close to
+        // the constructor's air-like placeholder (both ~1.8e-5 Pa.s), so this
+        // checks the exact EOS-derived value rather than "changed from
+        // placeholder" (which would be a coincidental, fragile check here).
+        assert!((mu1 - expected_mu).abs() / expected_mu < 1e-9, "mu should now be the EOS transport value");
+        assert!(
+            (alpha_h1 - expected_lambda / expected_cp).abs() / (expected_lambda / expected_cp) < 1e-9,
+            "alpha_h should now be lambda/cp from the EOS"
+        );
     }
 
     #[test]

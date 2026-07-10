@@ -6,7 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
-use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
+use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ViscosityInitial, ConductivityModel, ConductivityDilute, ConductivityResidual, CriticalConductivity};
 
 /// R125 Helmholtz equation of state (from CoolProp).
 pub static R125: FluidEos = FluidEos {
@@ -42,10 +42,9 @@ pub static R125_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
-/// conductivity (critical enhancement omitted; see `crate::transport`).
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static R125_TRANSPORT: FluidTransport = FluidTransport {
-    viscosity: None,
-    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 339.173, a: &[-0.0046082, 0.0168688, 0.00488345], n: &[0.0, 1.0, 2.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 339.173, rhomass_reducing: 573.5822706, b: &[-0.0072941, 0.01105, 0.041634, -0.028924, -0.031149, 0.0278399, 0.0112682, -0.01211, -0.00138322, 0.00211196], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
-    hardcoded: None,
+    viscosity: Some(ViscosityModel::Correlation { dilute: ViscosityDilute::KineticTheory { molar_mass: 0.1200214, epsilon_over_k: 237.077, sigma_eta: 5.235e-10 }, initial: Some(ViscosityInitial::RainwaterFriend { b: &[-19.572881, 219.73999, -1015.3226, 2471.01251, -3375.1717, 2491.6597, -787.26086, 14.085455, -0.34664158], t: &[0.0, -0.25, -0.5, -0.75, -1.0, -1.25, -1.5, -2.5, -5.5], epsilon_over_k: 237.077, sigma_eta: 5.235e-10 }), higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand { t_reduce: 339.173, rhomolar_reduce: 4779.0, a: &[5.677448e-06, -5.096662e-06], d1: &[2.0, 3.0], t1: &[2.0, 1.0], gamma: &[0.0, 0.0], l: &[1.0, 1.0], f: &[0.0001412564], d2: &[1.0], t2: &[0.0], g: &[3.033797, 0.2992464], h: &[0.0, -0.5], p: &[1.0], q: &[0.0] } }),
+    conductivity: Some(ConductivityModel::Correlation { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 339.173, a: &[-0.0046082, 0.0168688, 0.00488345], n: &[0.0, 1.0, 2.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 339.173, rhomass_reducing: 573.5822706, b: &[-0.0072941, 0.01105, 0.041634, -0.028924, -0.031149, 0.0278399, 0.0112682, -0.01211, -0.00138322, 0.00211196], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] }, critical: Some(CriticalConductivity::SimplifiedOlchowySengers { r0: 1.03, gamma: 1.239, big_gamma: 0.0496, zeta0: 1.94e-10, qd: 1713900000.0, t_ref: -1.0 }) }),
 };
 

@@ -12,6 +12,9 @@ readme = "README.md"
 categories.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
+# and never shipped in the packaged crate.
+exclude = ["verification_and_validation/*.csv"]
 
 [dependencies]
 approx.workspace = true

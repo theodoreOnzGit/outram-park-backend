@@ -10,7 +10,7 @@ readme = "README.md"
 categories.workspace = true
 # `docs/` holds LaTeX sources and build artifacts (.aux/.bbl/.bcf/...) that are
 # not crate content.
-exclude = ["docs"]
+exclude = ["docs", "verification_and_validation/*.csv"]
 
 [dependencies]
 approx.workspace = true

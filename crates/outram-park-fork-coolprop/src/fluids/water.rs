@@ -6,7 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
-use crate::transport::{FluidTransport, HardcodedTransport};
+use crate::transport::{FluidTransport, ViscosityModel, HardcodedViscosity, ConductivityModel, HardcodedConductivity};
 
 /// Water Helmholtz equation of state (from CoolProp).
 pub static WATER: FluidEos = FluidEos {
@@ -43,10 +43,9 @@ pub static WATER_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
-/// conductivity (critical enhancement omitted; see `crate::transport`).
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static WATER_TRANSPORT: FluidTransport = FluidTransport {
-    viscosity: None,
-    conductivity: None,
-    hardcoded: Some(HardcodedTransport::Water),
+    viscosity: Some(ViscosityModel::Hardcoded(HardcodedViscosity::Water)),
+    conductivity: Some(ConductivityModel::Hardcoded(HardcodedConductivity::Water)),
 };
 

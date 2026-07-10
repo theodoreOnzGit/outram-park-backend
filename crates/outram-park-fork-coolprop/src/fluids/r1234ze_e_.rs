@@ -6,7 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
-use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
+use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual, CriticalConductivity};
 
 /// R1234ze(E) Helmholtz equation of state (from CoolProp).
 pub static R1234ZE_E_: FluidEos = FluidEos {
@@ -43,10 +43,9 @@ pub static R1234ZE_E__ANCILLARIES: FluidAncillaries = FluidAncillaries {
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
-/// conductivity (critical enhancement omitted; see `crate::transport`).
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static R1234ZE_E__TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
-    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 382.52, a: &[-0.0103589, 0.0308929, 0.000230348], n: &[0.0, 1.0, 2.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 382.52, rhomass_reducing: 489.24, b: &[-0.0428296, 0.0927099, -0.0702107, 0.0249708, -0.00301838, 0.0434288, -0.0605844, 0.0440187, -0.0155082, 0.0021019], t: &[0.0, 0.0, 0.0, 0.0, 0.0, -1.0, -1.0, -1.0, -1.0, -1.0], d: &[1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0] } }),
-    hardcoded: None,
+    conductivity: Some(ConductivityModel::Correlation { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 382.52, a: &[-0.0103589, 0.0308929, 0.000230348], n: &[0.0, 1.0, 2.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 382.52, rhomass_reducing: 489.24, b: &[-0.0428296, 0.0927099, -0.0702107, 0.0249708, -0.00301838, 0.0434288, -0.0605844, 0.0440187, -0.0155082, 0.0021019], t: &[0.0, 0.0, 0.0, 0.0, 0.0, -1.0, -1.0, -1.0, -1.0, -1.0], d: &[1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0] }, critical: Some(CriticalConductivity::SimplifiedOlchowySengers { r0: 1.03, gamma: 1.239, big_gamma: 0.0496, zeta0: 1.94e-10, qd: 1713796058.2, t_ref: -1.0 }) }),
 };
 

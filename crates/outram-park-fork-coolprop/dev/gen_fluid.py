@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Authoring-time codegen: read one CoolProp fluid JSON (from the gitignored
-# `reference/CoolProp/dev/fluids/`) and emit a hardcoded Rust `FluidEos` `const`
+# `upstream_source/CoolProp/dev/fluids/`) and emit a hardcoded Rust `FluidEos` `const`
 # for `src/fluids/`. This is a *data-reduction* step: it copies out only the
 # Helmholtz-EOS coefficients (residual + ideal terms + reducing/critical
 # params) — NOT the JSON's ANCILLARIES / TRANSPORT / metadata — so the shipped
 # crate carries only kilobytes per fluid and never reads JSON at runtime.
 #
-# Usage (run from the crate root, with the reference clone present):
+# Usage (run from the crate root, with the upstream_source clone present):
 #   python3 dev/gen_fluid.py Water > src/fluids/water.rs
 #
-# The reference clone is regenerated with:
-#   git clone --depth 1 https://github.com/CoolProp/CoolProp.git reference/CoolProp
+# The upstream_source clone is regenerated with:
+#   git clone --depth 1 https://github.com/CoolProp/CoolProp.git upstream_source/CoolProp
 import json, sys, os
 
 def slice_f64(xs):
@@ -65,10 +65,20 @@ def build_viscosity(visc, ttriple, gas_constant, molar_mass):
     """A `ViscosityModel` literal, or None if unsupported/fully-hardcoded."""
     if not isinstance(visc, dict) or visc.get("hardcoded"):
         return None
+    if visc.get("type") == "Chung":
+        # Generalized corresponding-states (Chung et al. 1988): needs only the
+        # dipole moment beyond what FluidEos already carries (Tc, rho_c,
+        # acentric, molar_mass) -- see transport::chung_viscosity.
+        return "ViscosityModel::Chung {{ dipole_moment_d: {!r} }}".format(float(visc["dipole_moment_D"]))
     dil, ho = visc.get("dilute"), visc.get("higher_order")
     # Dilute: collision_integral, powers_of_T, or the CO2 Laesecke hardcoded form.
-    if isinstance(dil, dict) and dil.get("hardcoded") == "CarbonDioxideLaeseckeJPCRD2017":
+    dh = dil.get("hardcoded") if isinstance(dil, dict) else None
+    if dh == "CarbonDioxideLaeseckeJPCRD2017":
         dilute = "ViscosityDilute::CO2LaeseckeJPCRD2017"
+    elif dh == "Ethane":
+        dilute = "ViscosityDilute::Ethane"
+    elif dh == "Cyclohexane":
+        dilute = "ViscosityDilute::Cyclohexane"
     elif isinstance(dil, dict) and dil.get("type") == "collision_integral":
         dilute = ("ViscosityDilute::CollisionIntegral {{ c: {!r}, a: {}, t: {}, "
                   "molar_mass: {!r}, epsilon_over_k: {!r}, sigma_eta: {!r} }}").format(
@@ -77,13 +87,33 @@ def build_viscosity(visc, ttriple, gas_constant, molar_mass):
     elif isinstance(dil, dict) and dil.get("type") == "powers_of_T":
         dilute = "ViscosityDilute::PowersOfT {{ a: {}, t: {} }}".format(
             slice_f64(dil["a"]), slice_f64(dil["t"]))
+    elif isinstance(dil, dict) and dil.get("type") == "powers_of_Tr":
+        dilute = "ViscosityDilute::PowersOfTr {{ a: {}, t: {}, t_reducing: {!r} }}".format(
+            slice_f64(dil["a"]), slice_f64(dil["t"]), float(dil["T_reducing"]))
+    elif isinstance(dil, dict) and dil.get("type") == "collision_integral_powers_of_Tstar":
+        dilute = ("ViscosityDilute::CollisionIntegralPowersOfTstar {{ c: {!r}, a: {}, t: {}, "
+                  "t_reducing: {!r} }}").format(
+            float(dil["C"]), slice_f64(dil["a"]), slice_f64(dil["t"]), float(dil["T_reducing"]))
+    elif isinstance(dil, dict) and dil.get("type") == "kinetic_theory":
+        dilute = ("ViscosityDilute::KineticTheory {{ molar_mass: {!r}, epsilon_over_k: {!r}, "
+                  "sigma_eta: {!r} }}").format(molar_mass, float(visc["epsilon_over_k"]), float(visc["sigma_eta"]))
     else:
         return None
     # Higher order: modified_Batschinski_Hildebrand or the CO2 Laesecke form.
-    if isinstance(ho, dict) and ho.get("hardcoded") == "CarbonDioxideLaeseckeJPCRD2017":
+    hoh = ho.get("hardcoded") if isinstance(ho, dict) else None
+    if hoh == "CarbonDioxideLaeseckeJPCRD2017":
         higher = ("ViscosityHigherOrder::CO2LaeseckeJPCRD2017 {{ ttriple: {!r}, "
                   "gas_constant: {!r}, molar_mass: {!r} }}").format(ttriple, gas_constant, molar_mass)
         return _finish_viscosity(dilute, higher, visc)
+    if hoh == "Ethane":
+        return _finish_viscosity(dilute, "ViscosityHigherOrder::Ethane", visc)
+    HC_HO = {"Hydrogen": "Hydrogen", "Toluene": "Toluene", "Benzene": "Benzene",
+             "n-Hexane": "Hexane", "n-Heptane": "Heptane"}
+    if hoh in HC_HO:
+        higher = "ViscosityHigherOrder::{} {{ molar_mass: {!r} }}".format(HC_HO[hoh], molar_mass)
+        return _finish_viscosity(dilute, higher, visc)
+    if isinstance(ho, dict) and ho.get("type") == "friction_theory":
+        return _finish_viscosity(dilute, build_friction_theory(ho), visc)
     if not (isinstance(ho, dict) and ho.get("type") == "modified_Batschinski_Hildebrand"):
         return None
     higher = ("ViscosityHigherOrder::ModifiedBatschinskiHildebrand {{ t_reduce: {!r}, "
@@ -94,6 +124,21 @@ def build_viscosity(visc, ttriple, gas_constant, molar_mass):
         slice_f64(ho["l"]), slice_f64(ho["f"]), slice_f64(ho["d2"]), slice_f64(ho["t2"]),
         slice_f64(ho["g"]), slice_f64(ho["h"]), slice_f64(ho["p"]), slice_f64(ho["q"]))
     return _finish_viscosity(dilute, higher, visc)
+
+def build_friction_theory(ho):
+    """A `ViscosityHigherOrder::FrictionTheory {…}` literal. Absent optional
+    arrays become empty slices; absent exponents default to 0."""
+    def arr(key):
+        return slice_f64(ho[key]) if key in ho else "&[]"
+    def num(key):
+        return float(ho.get(key, 0.0))
+    return ("ViscosityHigherOrder::FrictionTheory {{ t_reduce: {!r}, c1: {!r}, c2: {!r}, "
+            "ai: {}, aa: {}, ar: {}, aaa: {}, arr: {}, adrdr: {}, aii: {}, arrr: {}, aaaa: {}, "
+            "na: {!r}, nr: {!r}, naa: {!r}, nrr: {!r}, nii: {!r}, nrrr: {!r}, naaa: {!r} }}").format(
+        float(ho["T_reduce"]), num("c1"), num("c2"),
+        arr("Ai"), arr("Aa"), arr("Ar"), arr("Aaa"), arr("Arr"), arr("Adrdr"), arr("Aii"),
+        arr("Arrr"), arr("Aaaa"),
+        num("Na"), num("Nr"), num("Naa"), num("Nrr"), num("Nii"), num("Nrrr"), num("Naaa"))
 
 def _finish_viscosity(dilute, higher, visc):
     """Add the (optional) Rainwater-Friend initial-density term and assemble.
@@ -107,9 +152,15 @@ def _finish_viscosity(dilute, higher, visc):
                            "epsilon_over_k: {!r}, sigma_eta: {!r} }})").format(
                     slice_f64(blk["b"]), slice_f64(blk["t"]),
                     float(visc["epsilon_over_k"]), float(visc["sigma_eta"]))
+            elif blk.get("type") == "empirical":
+                initial = ("Some(ViscosityInitial::Empirical {{ n: {}, d: {}, t: {}, "
+                           "t_reducing: {!r}, rhomolar_reducing: {!r} }})").format(
+                    slice_f64(blk["n"]), slice_f64(blk["d"]), slice_f64(blk["t"]),
+                    float(blk["T_reducing"]), float(blk["rhomolar_reducing"]))
             else:
                 return None
-    return "ViscosityModel {{ dilute: {}, initial: {}, higher_order: {} }}".format(dilute, initial, higher)
+    return "ViscosityModel::Correlation {{ dilute: {}, initial: {}, higher_order: {} }}".format(
+        dilute, initial, higher)
 
 def build_conductivity(cond, has_viscosity):
     """A `ConductivityModel` literal, or None if unsupported/hardcoded."""
@@ -121,6 +172,8 @@ def build_conductivity(cond, has_viscosity):
     dt, rt = dil.get("type"), res.get("type")
     if dil.get("hardcoded") == "CarbonDioxideHuberJPCRD2016":
         dilute = "ConductivityDilute::CO2HuberJPCRD2016"
+    elif dil.get("hardcoded") == "Ethane":
+        dilute = "ConductivityDilute::EthaneHardcoded"
     elif dt == "ratio_of_polynomials":
         dilute = ("ConductivityDilute::RatioPolynomials {{ t_reducing: {!r}, a: {}, "
                   "n: {}, b: {}, m: {} }}").format(
@@ -145,47 +198,78 @@ def build_conductivity(cond, has_viscosity):
             slice_f64(res["gamma"]), slice_f64(res["l"]))
     else:
         return None
-    return "ConductivityModel {{ dilute: {}, residual: {} }}".format(dilute, residual)
+    critical = build_critical(cond.get("critical"))
+    return "ConductivityModel::Correlation {{ dilute: {}, residual: {}, critical: {} }}".format(
+        dilute, residual, critical)
 
-# Fluids whose viscosity AND conductivity are hardcoded and implemented here.
-HARDCODED_TRANSPORT = {
-    "Helium": "HardcodedTransport::Helium",
-    "Water": "HardcodedTransport::Water",
+def build_critical(crit):
+    """A `Some(CriticalConductivity::…)` literal, or `None` (the string)."""
+    if not isinstance(crit, dict):
+        return "None"
+    if crit.get("hardcoded") == "Ammonia":
+        return "Some(CriticalConductivity::Ammonia)"
+    if crit.get("hardcoded") == "R123":
+        return "Some(CriticalConductivity::R123)"
+    if crit.get("type") != "simplified_Olchowy_Sengers":
+        return "None"
+    # JSON overrides; the rest fall back to CoolProp's defaults.
+    return ("Some(CriticalConductivity::SimplifiedOlchowySengers {{ r0: {!r}, gamma: {!r}, "
+            "big_gamma: {!r}, zeta0: {!r}, qd: {!r}, t_ref: {!r} }})").format(
+        float(crit.get("R0", 1.03)), float(crit.get("gamma", 1.239)),
+        float(crit.get("GAMMA", 0.0496)), float(crit.get("zeta0", 1.94e-10)),
+        float(crit.get("qD", 2e9)), float(crit.get("T_ref", -1.0)))
+
+# Per-property hardcoded formulas implemented in src/transport.rs. Values are
+# templates formatted with `mm` (the fluid's molar mass, kg/mol).
+HARDCODED_VISC = {
+    "Helium": "HardcodedViscosity::Helium",
+    "Water": "HardcodedViscosity::Water",
+    "HeavyWater": "HardcodedViscosity::HeavyWater",
+    "o-Xylene": "HardcodedViscosity::OXylene {{ molar_mass: {mm!r} }}",
+    "m-Xylene": "HardcodedViscosity::MXylene {{ molar_mass: {mm!r} }}",
+    "p-Xylene": "HardcodedViscosity::PXylene {{ molar_mass: {mm!r} }}",
+    "R23": "HardcodedViscosity::R23 {{ molar_mass: {mm!r} }}",
+    "Methanol": "HardcodedViscosity::Methanol {{ molar_mass: {mm!r} }}",
 }
-
-def hardcoded_transport(tr):
-    """The `HardcodedTransport::…` variant for a fluid, or None."""
-    v, c = tr.get("viscosity"), tr.get("conductivity")
-    vh = v.get("hardcoded") if isinstance(v, dict) else None
-    ch = c.get("hardcoded") if isinstance(c, dict) else None
-    if vh and vh == ch and vh in HARDCODED_TRANSPORT:
-        return HARDCODED_TRANSPORT[vh]
-    return None
+HARDCODED_COND = {
+    "Helium": "HardcodedConductivity::Helium",
+    "Water": "HardcodedConductivity::Water",
+    "HeavyWater": "HardcodedConductivity::HeavyWater",
+    "R23": "HardcodedConductivity::R23 {{ molar_mass: {mm!r} }}",
+    "Methane": "HardcodedConductivity::Methane",
+}
 
 def build_transport(d, const_name):
     """A `<NAME>_TRANSPORT` const, or None if nothing is supported."""
     tr = d.get("TRANSPORT", {}) or {}
     eos = d["EOS"][0]
-    hc = hardcoded_transport(tr)
-    if hc:
-        # A hardcoded formula supplies both μ and λ; skip the correlation fields.
-        visc = cond = None
+    vblk, cblk = tr.get("viscosity"), tr.get("conductivity")
+    mm = float(eos["molar_mass"])
+
+    # Viscosity: hardcoded formula, else the correlation composition.
+    vh = vblk.get("hardcoded") if isinstance(vblk, dict) else None
+    if vh in HARDCODED_VISC:
+        visc = "ViscosityModel::Hardcoded({})".format(HARDCODED_VISC[vh].format(mm=mm))
     else:
-        visc = build_viscosity(tr.get("viscosity"), float(eos["Ttriple"]),
-                               float(eos["gas_constant"]), float(eos["molar_mass"]))
-        cond = build_conductivity(tr.get("conductivity"), visc is not None)
-    if visc is None and cond is None and hc is None:
+        visc = build_viscosity(vblk, float(eos["Ttriple"]), float(eos["gas_constant"]), mm)
+
+    # Conductivity: hardcoded formula, else the correlation composition.
+    ch = cblk.get("hardcoded") if isinstance(cblk, dict) else None
+    if ch in HARDCODED_COND:
+        cond = "ConductivityModel::Hardcoded({})".format(HARDCODED_COND[ch].format(mm=mm))
+    else:
+        cond = build_conductivity(cblk, visc is not None)
+
+    if visc is None and cond is None:
         return None
     v = "Some({})".format(visc) if visc else "None"
     c = "Some({})".format(cond) if cond else "None"
-    h = "Some({})".format(hc) if hc else "None"
     return "\n".join([
         "/// Transport models (CoolProp): dynamic viscosity and/or thermal",
-        "/// conductivity (critical enhancement omitted; see `crate::transport`).",
+        "/// conductivity (dilute + residual + near-critical; see `crate::transport`).",
         "pub static {}_TRANSPORT: FluidTransport = FluidTransport {{".format(const_name),
         "    viscosity: {},".format(v),
         "    conductivity: {},".format(c),
-        "    hardcoded: {},".format(h),
         "};",
     ])
 
@@ -194,7 +278,7 @@ def main():
         sys.exit("usage: gen_fluid.py <FluidName>")
     fluid = sys.argv[1]
     here = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(here, "..", "reference", "CoolProp", "dev", "fluids", f"{fluid}.json")
+    path = os.path.join(here, "..", "upstream_source", "CoolProp", "dev", "fluids", f"{fluid}.json")
     d = json.load(open(path))
     eos = d["EOS"][0]
     red = eos["STATES"]["reducing"]
@@ -309,13 +393,25 @@ def main():
     if trans_block:
         ttypes = ["FluidTransport"]
         if "ViscosityModel" in trans_block:
-            ttypes += ["ViscosityModel", "ViscosityDilute", "ViscosityHigherOrder"]
+            ttypes += ["ViscosityModel"]
+        if "ViscosityDilute" in trans_block:
+            ttypes += ["ViscosityDilute"]
+        if "ViscosityHigherOrder" in trans_block:
+            ttypes += ["ViscosityHigherOrder"]
         if "ViscosityInitial" in trans_block:
             ttypes += ["ViscosityInitial"]
+        if "HardcodedViscosity" in trans_block:
+            ttypes += ["HardcodedViscosity"]
         if "ConductivityModel" in trans_block:
-            ttypes += ["ConductivityModel", "ConductivityDilute", "ConductivityResidual"]
-        if "HardcodedTransport" in trans_block:
-            ttypes += ["HardcodedTransport"]
+            ttypes += ["ConductivityModel"]
+        if "ConductivityDilute" in trans_block:
+            ttypes += ["ConductivityDilute"]
+        if "ConductivityResidual" in trans_block:
+            ttypes += ["ConductivityResidual"]
+        if "CriticalConductivity" in trans_block:
+            ttypes += ["CriticalConductivity"]
+        if "HardcodedConductivity" in trans_block:
+            ttypes += ["HardcodedConductivity"]
         out.append("use crate::transport::{{{}}};".format(", ".join(ttypes)))
     out.append("")
     out.append("/// {} Helmholtz equation of state (from CoolProp).".format(fluid))

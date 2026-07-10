@@ -8,16 +8,18 @@
 //! reference `(T, ρ, p)` triples are CoolProp's tabulated states for Water
 //! (`dev/fluids/Water.json`, extracted at authoring time — the JSON is not a
 //! runtime input). Both points sit at the triple-point temperature, far from
-//! the critical point, so the not-yet-implemented non-analytic terms are
-//! negligible there (ψ = exp(−C(δ−1)²−D(τ−1)²) ≈ 0).
+//! the critical point, where the non-analytic critical-region term's own
+//! contribution is negligible by construction
+//! (ψ = exp(−C(δ−1)²−D(τ−1)²) ≈ 0) regardless of whether it is evaluated.
 //!
 //! ## Results (2026-07-08, this port)
 //!
 //! Printed by `cargo test -p outram-park-fork-coolprop --test water_reference
 //! -- --nocapture`. Both points reproduce CoolProp's tabulated saturation
-//! pressure 611.6548 Pa; see the asserted tolerances below. The critical /
-//! near-critical points are intentionally NOT tested yet (they need the
-//! non-analytic terms — tracked, bead op-kbc).
+//! pressure 611.6548 Pa; see the asserted tolerances below. The critical
+//! point itself is covered separately, in
+//! `tests/non_analytic_critical_region.rs` (now implemented, bead op-kbc.6 —
+//! `p(T_c, ρ_c) = p_c` to `5.2e-14` relative error).
 
 use outram_park_fork_coolprop::{state_trho, Fluid};
 

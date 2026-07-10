@@ -17,6 +17,37 @@ International steam tables. Springer Berlin Heidelberg.
 Significant portions of code will be copied from the rust-steam package.
 Hence, I am putting the rust-steam license here.
 
+## Why TAMPINES over the CoolProp fork (`outram-park-fork-coolprop`)
+
+The workspace also has a pure-Rust CoolProp translation
+(`crates/outram-park-fork-coolprop`), which covers water too (IAPWS-95). For
+plain single-phase property lookups the two are largely interchangeable. Two
+things TAMPINES has that the CoolProp fork does not (as of 2026-07-10):
+
+- **`(h, s)` flash.** TAMPINES has IF97's own closed-form backward `(h,s)`
+  equations (`backward_eqn_hs_*`) — a direct, non-iterative property lookup
+  from specific enthalpy and entropy. The CoolProp fork only has `(p,T)`,
+  `(p,h)`, `(p,s)` flashes (Newton solves on `(T,ρ)`); it has no `(h,s)` input
+  pair at all, and adding one there would need a genuine iterative 2-D solve —
+  IF97 doesn't hand you a backward equation for free the way it does for
+  `(p,h)`/`(p,s)`.
+- **Multiphase critical (choked) flow for steam-water mixtures.** TAMPINES'
+  `steam_turbine_equations::converging_diverging_nozzles::choked_flow` module
+  is a validated Homogeneous Equilibrium Model (HEM) suite — a unified
+  dispatcher routing a stagnation `(p₀, h₀)` to a dedicated in-dome,
+  subcooled-liquid, or superheated-vapour solver by its position relative to
+  the p-h VLE dome, verified against Moody (1975), Zaloudek, and Marviken
+  reference data (see the Changelog below for the debugging history, e.g. the
+  near-bubble-point HEM artifact and the Moody-vs-Zaloudek subcooled-regime
+  reconciliation). The CoolProp fork has no choked-flow / critical-mass-flux
+  model at all — it is a property-lookup library, not a nozzle/turbine
+  equation set.
+
+Everything else — steam-turbine equations, the OpenFOAM finite-volume
+algorithms, the FHR educational simulator — is TAMPINES-specific scope the
+CoolProp fork doesn't attempt to cover either; the two crates solve different
+problems more than they compete on the same one.
+
 ## Note on AI usage
 
 Until last month, AI was hardly used in this project. From this month

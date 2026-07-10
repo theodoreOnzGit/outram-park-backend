@@ -723,7 +723,7 @@ impl Fluid {
     }
 
     /// Transport models (viscosity/conductivity), if this fluid has a
-    /// supported model (42 of 137 do; the rest are hardcoded or
+    /// supported model (48 of 137 do; the rest are hardcoded or
     /// unimplemented — see `crate::transport`).
     pub fn transport(self) -> Option<&'static FluidTransport> {
         match self {
@@ -732,15 +732,20 @@ impl Fluid {
             Fluid::Argon => Some(&fluids::argon::ARGON_TRANSPORT),
             Fluid::Benzene => Some(&fluids::benzene::BENZENE_TRANSPORT),
             Fluid::CarbonDioxide => Some(&fluids::carbondioxide::CARBONDIOXIDE_TRANSPORT),
+            Fluid::CycloHexane => Some(&fluids::cyclohexane::CYCLOHEXANE_TRANSPORT),
             Fluid::Cyclopentane => Some(&fluids::cyclopentane::CYCLOPENTANE_TRANSPORT),
             Fluid::DimethylEther => Some(&fluids::dimethylether::DIMETHYLETHER_TRANSPORT),
+            Fluid::Ethane => Some(&fluids::ethane::ETHANE_TRANSPORT),
             Fluid::Ethanol => Some(&fluids::ethanol::ETHANOL_TRANSPORT),
             Fluid::EthylBenzene => Some(&fluids::ethylbenzene::ETHYLBENZENE_TRANSPORT),
+            Fluid::HeavyWater => Some(&fluids::heavywater::HEAVYWATER_TRANSPORT),
             Fluid::Helium => Some(&fluids::helium::HELIUM_TRANSPORT),
             Fluid::Hydrogen => Some(&fluids::hydrogen::HYDROGEN_TRANSPORT),
+            Fluid::HydrogenSulfide => Some(&fluids::hydrogensulfide::HYDROGENSULFIDE_TRANSPORT),
             Fluid::IsoButane => Some(&fluids::isobutane::ISOBUTANE_TRANSPORT),
             Fluid::Isopentane => Some(&fluids::isopentane::ISOPENTANE_TRANSPORT),
             Fluid::MXylene => Some(&fluids::m_xylene::M_XYLENE_TRANSPORT),
+            Fluid::Methane => Some(&fluids::methane::METHANE_TRANSPORT),
             Fluid::Methanol => Some(&fluids::methanol::METHANOL_TRANSPORT),
             Fluid::NButane => Some(&fluids::n_butane::N_BUTANE_TRANSPORT),
             Fluid::NDecane => Some(&fluids::n_decane::N_DECANE_TRANSPORT),
@@ -762,6 +767,7 @@ impl Fluid {
             Fluid::R125 => Some(&fluids::r125::R125_TRANSPORT),
             Fluid::R134a => Some(&fluids::r134a::R134A_TRANSPORT),
             Fluid::R152A => Some(&fluids::r152a::R152A_TRANSPORT),
+            Fluid::R23 => Some(&fluids::r23::R23_TRANSPORT),
             Fluid::R404A => Some(&fluids::r404a::R404A_TRANSPORT),
             Fluid::R407C => Some(&fluids::r407c::R407C_TRANSPORT),
             Fluid::R410A => Some(&fluids::r410a::R410A_TRANSPORT),
