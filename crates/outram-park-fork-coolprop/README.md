@@ -75,14 +75,49 @@ End-to-end and verified:
   `h`/`s` to ≲2×10⁻⁵; a smoke test over **every** fluid at its critical point;
   transport vs NIST and VLE vs literature (`tests/transport_vle.rs`).
 
+**Non-analytic critical-region terms are evaluated** (bead op-kbc.6, done
+2026-07-10): Water reproduces its defining critical pressure
+`p(T_c, ρ_c) = p_c` (22.064 MPa) to `5.2e-14` relative error — see
+`tests/non_analytic_critical_region.rs`.
+
+**Humid air** (`humid_air`, ASHRAE RP-1485 / `HAPropsSI`-equivalent, bead
+op-kbc.14): `(T,p,W)`/`(T,p,R)` inputs; `W`, `R`, `ψ_w`, specific enthalpy and
+volume outputs. Verified against the ASHRAE ideal-gas psychrometric
+approximation (`c_p`, `v` agree to <0.1% at 25 °C — see
+`tests/humid_air_reference.rs`). Entropy, wet-bulb and dew-point temperature
+are not implemented (need CoolProp's ideal-gas reference-state offset
+calibration / Brent solves, respectively — see the module doc).
+
+**Chung (1988) corresponding-states viscosity** (`transport::ViscosityModel::Chung`,
+bead op-kbc.17, done 2026-07-10): wired for the two fluids CoolProp itself
+assigns it to (cyclopentane, isopentane — `dev/gen_fluid.py` detects
+`TRANSPORT.viscosity.type == "Chung"`). Verified against the gas-phase
+viscosity ballpark for light C5 hydrocarbons (`tests/chung_viscosity.rs`).
+**ECS** (ethylbenzene) and **rhosr-CS** (R1234yf, R1234ze(E), R152A) remain
+unimplemented — both need a reference-fluid's own transport surface (e.g.
+ethylbenzene's ECS maps onto Propane), a materially larger undertaking than
+Chung's self-contained correlation; `transport_corresponding_states.rs` is
+scaffolded for them.
+
+**Incompressibles** (`incompressibles`, the `INCOMP` backend, bead op-kbc.15):
+the 2-D polynomial/exponential evaluation engine (`T_base`/`x_base` centring,
+matching CoolProp `Polynomial2DFrac::evaluate`) is real, verified against T66
+(Therminol 66) — the one fluid ported so far
+(`tests/incompressible_t66.rs`, <1e-6 relative error vs a hand evaluation of
+its own CoolProp JSON fit). The other 125 CoolProp incompressible fluids are a
+follow-up.
+
+**Mixtures** (`mixtures`, multi-fluid Helmholtz + departure functions, bead
+op-kbc.16): the GERG-2008 reducing-function + residual/ideal-gas evaluation
+engine is real, verified against the Nitrogen–Oxygen binary pair (`F = 0`, no
+departure function needed) — an air-like 79/21 mixture reproduces the known
+speed of sound in air at 300 K to <0.1% (`tests/mixture_nitrogen_oxygen.rs`).
+No flash/VLE; only 1 of CoolProp's 888 binary pairs is ported, and the
+departure-function evaluator (`departure.rs`) is still `todo!()` (unexercised
+by the one ported pair, which needs none).
+
 Tracked follow-ups (beads `op-kbc`):
 
-- **Non-analytic critical-region terms** — carried in the fluid data but not yet
-  evaluated (a no-op, so accuracy within ~1 % of the critical point is
-  degraded; unaffected elsewhere).
-- **General corresponding-states transport models** (Chung, ECS, rhosr-CS) for
-  the ~6 fluids that use them (cyclopentane, isopentane, ethylbenzene, R1234yf,
-  R1234ze(E), R152A) — the only remaining viscosity gap.
 - **Per-fluid reference tests** beyond the nine already pinned (the rest are
   covered only by the critical-point smoke test).
 - **`rfluids` verification** (CoolProp oracle) as a dev-dependency.
@@ -143,9 +178,9 @@ flag it as a `SKIP` with the offending type name.
 
 Supported term forms:
 
-- **Residual (`αr`):** `Power`, `Gaussian`, `NonAnalytic` (data carried; the
-  contribution is a documented no-op away from the critical point), `Exponential`,
-  `DoubleExponential` (also the `Lemmon2005` R125 form), `GaoB`.
+- **Residual (`αr`):** `Power`, `Gaussian`, `NonAnalytic` (evaluated — verified
+  to `5.2e-14` relative error at Water's exact critical point, bead op-kbc.6),
+  `Exponential`, `DoubleExponential` (also the `Lemmon2005` R125 form), `GaoB`.
 - **Ideal (`α⁰`):** `Lead`, `LogTau`, `PlanckEinstein`, `PlanckEinsteinGeneralized`
   (also `PlanckEinsteinFunctionT`), `Power`, `CP0Constant`, `CP0PolyT`,
   `CP0AlyLee` (lowered to `CP0PolyT` + `PlanckEinsteinGeneralized`),

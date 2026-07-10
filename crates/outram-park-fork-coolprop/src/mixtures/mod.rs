@@ -1,33 +1,41 @@
 //! Multi-fluid mixture properties — the CoolProp `HelmholtzEOSMixtureBackend`
 //! (GERG-2008-style multi-fluid model).
 //!
-//! **Scaffold only (bead op-kbc.16).** Types and signatures are laid out; the
-//! bodies are `todo!()`. Nothing here is wired into the crate's public API yet.
+//! **One real binary pair is ported and verified: Nitrogen–Oxygen** (`F = 0`,
+//! see [`binary_pairs`]). The evaluation engine ([`Mixture::residual_derivs`],
+//! [`Mixture::state_trho_molar`]) is real, not a stub. **No flash/VLE** is
+//! implemented — only direct `(T, ρ_molar, x)` evaluation, matching what the
+//! original scaffold's function signatures promised. Full binary-pair/
+//! departure-function data coverage (887 more pairs) is a follow-up (bead
+//! op-kbc.16).
 //!
 //! # What this models
 //!
 //! A mixture of `N` pure components (each a [`crate::fluid::Fluid`]) at mole
 //! fractions `x` is evaluated from a **single reduced Helmholtz surface**:
 //!
-//! `α(δ, τ, x) = α⁰(δ, τ, x) + Σ_i x_i · α_i^r(δ, τ) + Δα^r(δ, τ, x)`
+//! `α_r(δ, τ, x) = Σ_i x_i · α_{r,i}(δ, τ) + Δα_r(δ, τ, x)`
+//!
+//! `α_0(ρ, T, x) = Σ_i x_i · [α_{0,i}(δ_i, τ_i) + ln(x_i)]`
 //!
 //! where
-//! - the reduced state uses **composition-dependent reducing functions**
-//!   `T_r(x)`, `ρ_r(x)` (Lorentz–Berthelot with binary `β`, `γ` parameters) —
-//!   see [`reducing`],
-//! - `Σ_i x_i α_i^r` reuses each pure component's own residual Helmholtz
-//!   ([`crate::eos::FluidEos::residual_derivs`]),
-//! - `Δα^r` is the **departure function**, a binary-pair excess term — see
-//!   [`departure`] and the interaction table in [`binary_pairs`].
-//!
-//! All the same `(δ, τ)` derivatives as the pure EOS are needed (for `p`, `c_v`,
-//! `c_p`, sound speed), plus composition derivatives for phase equilibrium.
+//! - the **residual** part shares the mixture's own composition-dependent
+//!   reduced state `δ = ρ/ρ_r(x)`, `τ = T_r(x)/T` (Kunz–Wagner reducing
+//!   functions with binary `β`, `γ` parameters — see [`reducing`]) across all
+//!   components ([`Mixture::residual_derivs`]),
+//! - the **ideal-gas** part instead evaluates *each* component `i` at its
+//!   *own* pure-fluid reduced state `δ_i = ρ/ρ_{r,i}`, `τ_i = T_{r,i}/T`
+//!   (α₀ depends only on the true density/temperature, parameterised through
+//!   each component's own reducing values — not the mixture's shared `δ,τ`),
+//!   plus the ideal entropy-of-mixing term `Σ x_i ln(x_i)`,
+//! - `Δα_r` is the **departure function**, a binary-pair excess residual term
+//!   — see [`departure`] and the interaction table in [`binary_pairs`].
 //!
 //! # Units
 //!
-//! Molar internally (the EOS's natural basis); the mass-based `(T, ρ)` state and
-//! `uom` wrapper are follow-ups once the surface evaluates.
-#![allow(dead_code, unused_variables, unused_imports)] // TODO(op-kbc.16): drop once implemented
+//! Molar SI throughout (the EOS's natural basis): `T` \[K\], `ρ_molar`
+//! \[mol/m³\], `p` \[Pa\], molar energies \[J/mol\], molar entropies/heat
+//! capacities \[J/(mol·K)\].
 
 pub mod binary_pairs;
 pub mod departure;
@@ -104,20 +112,112 @@ impl Mixture {
         reducing::reducing_density(self)
     }
 
-    /// The mixture reduced-Helmholtz residual derivatives at reduced state
-    /// `(δ, τ)` — `Σ_i x_i α_i^r + Δα^r`.
+    /// The mixture reduced-Helmholtz residual derivatives at the **mixture's
+    /// own** reduced state `(δ, τ)` — `Σ_i x_i α_{r,i}(δ, τ) + Δα_r(δ, τ, x)`.
+    ///
+    /// A binary pair absent from [`binary_pairs`] contributes no departure term
+    /// (`F = 0`, ideal mixing) rather than erroring — see the module doc.
     pub fn residual_derivs(&self, delta: f64, tau: f64) -> HelmholtzDerivs {
-        // TODO(op-kbc.16): sum pure-component residuals (weighted by x_i) and add
-        // the departure contribution `departure::accumulate` for each binary pair.
-        todo!("op-kbc.16: mixture residual Helmholtz derivatives")
+        let mut acc = HelmholtzDerivs::default();
+        for (i, &fluid) in self.components.iter().enumerate() {
+            let xi = self.mole_fractions[i];
+            let di = fluid.eos().residual_derivs(delta, tau);
+            add_weighted(&mut acc, &di, xi);
+        }
+        for i in 0..self.components.len() {
+            for j in (i + 1)..self.components.len() {
+                let Some(pair) = binary_pairs::lookup(self.components[i], self.components[j]) else {
+                    continue;
+                };
+                if pair.f_departure == 0.0 || pair.departure_terms.is_empty() {
+                    continue;
+                }
+                let xi = self.mole_fractions[i];
+                let xj = self.mole_fractions[j];
+                let mut dep = HelmholtzDerivs::default();
+                for term in pair.departure_terms {
+                    term.accumulate(delta, tau, &mut dep);
+                }
+                add_weighted(&mut acc, &dep, xi * xj * pair.f_departure);
+            }
+        }
+        acc
     }
 
     /// Evaluate all properties at temperature `t` \[K\] and molar density
     /// `rho_molar` \[mol/m³\] — the mixture analogue of
     /// [`crate::props::state_trho`].
+    ///
+    /// Uses a single universal gas constant `R = 8.314472 J/(mol·K)` for the
+    /// mixture (GERG-2008 convention), rather than a mole-fraction average of
+    /// each component's own EOS-specific `R` (which for several fluids is a
+    /// historical fitting artefact, not a physical constant that should be
+    /// mixed).
     pub fn state_trho_molar(&self, t: f64, rho_molar: f64) -> Result<MixtureState, MixtureError> {
-        // TODO(op-kbc.16): δ = ρ/ρ_r(x), τ = T_r(x)/T; combine ideal + residual
-        // derivs into p, u, h, s, c_v, c_p, w via the Span–Wagner relations.
-        todo!("op-kbc.16: mixture (T, ρ) state")
+        if self.components.is_empty() || self.mole_fractions.iter().any(|x| !x.is_finite() || *x < 0.0) {
+            return Err(MixtureError::MalformedComposition);
+        }
+        const R: f64 = 8.314472;
+        let t_r = self.reducing_temperature();
+        let rho_r = self.reducing_density();
+        let delta = rho_molar / rho_r;
+        let tau = t_r / t;
+
+        let res = self.residual_derivs(delta, tau);
+
+        // Ideal-gas part: each component at its OWN reduced state (delta_i,
+        // tau_i), not the mixture's shared (delta, tau) -- see the module doc.
+        let mut ide = HelmholtzDerivs::default();
+        let mut mixing_entropy_term = 0.0; // sum x_i ln(x_i), delta/tau-independent
+        for (i, &fluid) in self.components.iter().enumerate() {
+            let xi = self.mole_fractions[i];
+            if xi <= 0.0 {
+                continue;
+            }
+            let eos_i = fluid.eos();
+            let delta_i = rho_molar / eos_i.rho_reducing;
+            let tau_i = eos_i.t_reducing / t;
+            let di = eos_i.ideal_derivs(delta_i, tau_i);
+            add_weighted(&mut ide, &di, xi);
+            mixing_entropy_term += xi * xi.ln();
+        }
+
+        let one_plus_dad = 1.0 + delta * res.ad;
+        let p = rho_molar * R * t * one_plus_dad;
+
+        let u = R * t * tau * (ide.at + res.at);
+        let h = R * t * (1.0 + tau * (ide.at + res.at) + delta * res.ad);
+        let s = R * (tau * (ide.at + res.at) - (ide.a + res.a) - mixing_entropy_term);
+
+        let cv = -R * tau * tau * (ide.att + res.att);
+        let num = (1.0 + delta * res.ad - delta * tau * res.adt).powi(2);
+        let den = 1.0 + 2.0 * delta * res.ad + delta * delta * res.add;
+        let cp = cv + R * num / den;
+
+        let m_bar: f64 = self.components.iter().zip(&self.mole_fractions).map(|(f, x)| x * f.eos().molar_mass).sum();
+        let w2 = (R * t / m_bar) * (den - num / (tau * tau * (ide.att + res.att)));
+        let speed_of_sound = if w2 > 0.0 { w2.sqrt() } else { f64::NAN };
+
+        Ok(MixtureState {
+            temperature: t,
+            rho_molar,
+            pressure: p,
+            internal_energy: u,
+            enthalpy: h,
+            entropy: s,
+            cv,
+            cp,
+            speed_of_sound,
+        })
     }
+}
+
+/// Add `w * derivs` into `acc`, field by field.
+fn add_weighted(acc: &mut HelmholtzDerivs, derivs: &HelmholtzDerivs, w: f64) {
+    acc.a += w * derivs.a;
+    acc.ad += w * derivs.ad;
+    acc.at += w * derivs.at;
+    acc.add += w * derivs.add;
+    acc.att += w * derivs.att;
+    acc.adt += w * derivs.adt;
 }

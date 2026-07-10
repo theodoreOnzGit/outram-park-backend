@@ -187,6 +187,64 @@ pub enum ViscosityModel {
     },
     /// A whole-fluid hardcoded formula (Water, HeavyWater, the xylenes, …).
     Hardcoded(HardcodedViscosity),
+    /// Chung et al. (1988) generalized corresponding-states viscosity — the
+    /// fallback for fluids with no dedicated correlation. Needs only the
+    /// dipole moment beyond what [`crate::eos::FluidEos`] already carries
+    /// (`T_critical`, `rho_critical`, `acentric`, `molar_mass`). See
+    /// [`chung_viscosity`].
+    Chung {
+        /// Dipole moment \[Debye\].
+        dipole_moment_d: f64,
+    },
+}
+
+/// Chung, Lee & Starling (1988) generalized viscosity correlation — CoolProp
+/// `TransportRoutines::viscosity_Chung`, pure/pseudo-pure only. Uses the
+/// fluid's own critical parameters and acentric factor (already carried by
+/// [`crate::eos::FluidEos`]) plus its dipole moment; the association
+/// parameter `κ` (hydrogen-bonding correction) is `0` for every fluid this
+/// crate uses Chung for (matching CoolProp, which does not populate it).
+fn chung_viscosity(fluid: Fluid, t: f64, rho: f64, dipole_moment_d: f64) -> f64 {
+    let eos = fluid.eos();
+    let vc_cm3mol = 1.0 / (eos.rho_critical / 1e6); // mol/m^3 -> cm^3/mol
+    let acentric = eos.acentric;
+    let m_gmol = eos.molar_mass * 1000.0; // kg/mol -> g/mol
+    let tc = eos.t_critical;
+    let kappa = 0.0;
+
+    let mu_r = 131.3 * dipole_moment_d / (vc_cm3mol * tc).sqrt();
+
+    let a0 = [6.32402, 0.12102e-2, 5.28346, 6.62263, 19.74540, -1.89992, 24.27450, 0.79716, -0.23816, 0.68629e-1];
+    let a1 = [50.41190, -0.11536e-2, 254.20900, 38.09570, 7.63034, -12.53670, 3.44945, 1.11764, 0.67695e-1, 0.34793];
+    let a2 = [-51.68010, -0.62571e-2, -168.48100, -8.46414, -14.35440, 4.98529, -11.29130, 0.12348e-1, -0.81630, 0.59256];
+    let a3 = [1189.02000, 0.37283e-1, 3898.27000, 31.41780, 31.52670, -18.15070, 69.34660, -4.11661, 4.02528, -0.72663];
+    let mut big_a = [0.0; 10];
+    for i in 0..10 {
+        big_a[i] = a0[i] + a1[i] * acentric + a2[i] * mu_r.powi(4) + a3[i] * kappa;
+    }
+
+    let f_c = 1.0 - 0.2756 * acentric + 0.059035 * mu_r.powi(4) + kappa;
+    let epsilon_over_k = tc / 1.2593;
+
+    let rho_molcm3 = (rho / eos.molar_mass) / 1e6; // kg/m^3 -> mol/cm^3
+    let tstar = t / epsilon_over_k;
+    let omega_2_2 = 1.16145 * tstar.powf(-0.14874) + 0.52487 * (-0.77320 * tstar).exp() + 2.16178 * (-2.43787 * tstar).exp()
+        - 6.435e-4 * tstar.powf(0.14874) * (18.0323 * tstar.powf(-0.76830) - 7.27371).sin();
+    let eta0_p = 4.0785e-5 * (m_gmol * t).sqrt() / (vc_cm3mol.powf(2.0 / 3.0) * omega_2_2) * f_c;
+
+    let y = rho_molcm3 * vc_cm3mol / 6.0;
+    let g1 = (1.0 - 0.5 * y) / (1.0 - y).powi(3);
+    let g2 = (big_a[0] * (1.0 - (-big_a[3] * y).exp()) / y + big_a[1] * g1 * (big_a[4] * y).exp() + big_a[2] * g1)
+        / (big_a[0] * big_a[3] + big_a[1] + big_a[2]);
+    let eta_k_p = eta0_p * (1.0 / g2 + big_a[5] * y);
+
+    let eta_p_p = (36.344e-6 * (m_gmol * tc).sqrt() / vc_cm3mol.powf(2.0 / 3.0))
+        * big_a[6]
+        * y.powi(2)
+        * g2
+        * (big_a[7] + big_a[8] / tstar + big_a[9] / (tstar * tstar)).exp();
+
+    (eta_k_p + eta_p_p) / 10.0 // P -> Pa.s
 }
 
 /// Dilute-gas thermal-conductivity model.
@@ -910,15 +968,17 @@ impl ViscosityModel {
                 let eta_initial = initial.map(|i| i.contribution(t, rho_molar, eta_dilute)).unwrap_or(0.0);
                 eta_dilute + eta_initial + higher_order.eval(fluid, rho_molar, t)
             }
+            ViscosityModel::Chung { dipole_moment_d } => chung_viscosity(fluid, t, rho, *dipole_moment_d),
         }
     }
 
     /// The dilute-gas viscosity \[Pa·s\] alone (needed by the `eta0_and_poly`
-    /// conductivity model). `None` for a hardcoded viscosity (not decomposable).
+    /// conductivity model). `None` for a hardcoded or Chung viscosity (not
+    /// decomposable into a separate dilute-gas limit).
     fn dilute_only(&self, t: f64) -> Option<f64> {
         match self {
             ViscosityModel::Correlation { dilute, .. } => Some(dilute.eval(t)),
-            ViscosityModel::Hardcoded(_) => None,
+            ViscosityModel::Hardcoded(_) | ViscosityModel::Chung { .. } => None,
         }
     }
 }

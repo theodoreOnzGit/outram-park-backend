@@ -65,6 +65,11 @@ def build_viscosity(visc, ttriple, gas_constant, molar_mass):
     """A `ViscosityModel` literal, or None if unsupported/fully-hardcoded."""
     if not isinstance(visc, dict) or visc.get("hardcoded"):
         return None
+    if visc.get("type") == "Chung":
+        # Generalized corresponding-states (Chung et al. 1988): needs only the
+        # dipole moment beyond what FluidEos already carries (Tc, rho_c,
+        # acentric, molar_mass) -- see transport::chung_viscosity.
+        return "ViscosityModel::Chung {{ dipole_moment_d: {!r} }}".format(float(visc["dipole_moment_D"]))
     dil, ho = visc.get("dilute"), visc.get("higher_order")
     # Dilute: collision_integral, powers_of_T, or the CO2 Laesecke hardcoded form.
     dh = dil.get("hardcoded") if isinstance(dil, dict) else None

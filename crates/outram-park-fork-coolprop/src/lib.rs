@@ -36,14 +36,33 @@
 //!   OpenFOAM finite-volume layer + the 1-D compressible `OPCPFluidArray`
 //!   solver (no `openfoam-basic-lib` dependency), driven by this crate's EOS.
 //!
-//! Known gaps (tracked, bead op-kbc): the **non-analytic** critical-region terms
-//! are carried but not yet evaluated (accuracy degraded within ~1 % of Tc, a
-//! no-op elsewhere); transport covers the generic models, the near-critical
-//! enhancement (Olchowy–Sengers + the ammonia/R123 terms), friction/kinetic
-//! theory, and **all** the per-fluid hardcoded formulas (viscosity 42,
-//! conductivity 45 of 137). The only fluids still without a viscosity model use
-//! the general corresponding-states models (Chung, ECS, rhosr-CS), a separate
-//! follow-up. `rfluids` oracle verification is planned.
+//! The **non-analytic** critical-region residual term is evaluated (verified
+//! to `5.2e-14` at Water's exact critical point — see
+//! `tests/non_analytic_critical_region.rs`). Transport covers the generic
+//! models, near-critical enhancement, friction/kinetic theory, the per-fluid
+//! hardcoded formulas, and Chung (1988) corresponding-states viscosity
+//! (cyclopentane, isopentane); ECS/rhosr-CS (ethylbenzene, R1234yf,
+//! R1234ze(E), R152A) remain a scaffolded follow-up
+//! ([`transport_corresponding_states`], bead op-kbc.17).
+//!
+//! **Humid air** ([`humid_air`], ASHRAE RP-1485 / `HAPropsSI`-equivalent):
+//! `(T, p, W)`/`(T, p, R)` inputs, `W`/`R`/`ψ_w`/enthalpy/volume outputs,
+//! verified (`c_p` and `V` vs the ideal-gas limit, <0.1%). Entropy, wet-bulb
+//! and dew-point are not implemented (bead op-kbc.14 — see the module doc).
+//!
+//! **Incompressibles** ([`incompressibles`], the `INCOMP` backend): the
+//! evaluation engine is real (2-D polynomial/exponential fits, `T_base`/
+//! `x_base` centring), verified against T66 (Therminol 66) — the one fluid
+//! ported so far (bead op-kbc.15: the other 125 CoolProp incompressible
+//! fluids are a follow-up).
+//!
+//! **Mixtures** ([`mixtures`], multi-fluid Helmholtz + departure functions):
+//! the evaluation engine (GERG-2008 reducing functions, residual/ideal-gas
+//! combination) is real, verified against the Nitrogen–Oxygen pair
+//! reproducing known air properties (speed of sound at 300 K to <0.1%). No
+//! flash/VLE; only one of 888 CoolProp binary pairs is ported (bead op-kbc.16).
+//!
+//! `rfluids` oracle verification is planned (bead op-kbc.3).
 //!
 //! ## Example
 //!
@@ -70,13 +89,15 @@ pub mod single_cv;
 pub mod transport;
 pub mod vle;
 
-// --- Scaffolded backends / refinements (bead op-kbc; `todo!()` bodies) ---
+// --- Newer backends / refinements (bead op-kbc) ---
 //
-// Not yet wired into the public prelude below — these are skeletons whose APIs
-// may still shift as they are implemented. See each module's `//!` doc.
+// Not yet wired into the public prelude below — see each module's `//!` doc
+// for implementation status (`humid_air` has real physics; `incompressibles`
+// and `mixtures` are still `todo!()` skeletons).
 
-/// Humid (moist) air properties — the CoolProp `HAPropsSI` backend.
-/// **Scaffold only** (bead op-kbc.14).
+/// Humid (moist) air properties — the CoolProp `HAPropsSI` backend (ASHRAE
+/// RP-1485). `(T,p,W)`/`(T,p,R)` inputs implemented and verified; see the
+/// module doc for coverage (bead op-kbc.14).
 pub mod humid_air;
 
 /// Incompressible-fluid properties — the CoolProp `INCOMP` backend.
