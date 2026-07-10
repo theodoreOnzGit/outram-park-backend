@@ -116,6 +116,43 @@ No flash/VLE; only 1 of CoolProp's 888 binary pairs is ported, and the
 departure-function evaluator (`departure.rs`) is still `todo!()` (unexercised
 by the one ported pair, which needs none).
 
+### Why these follow-ups are scoped out rather than finished
+
+The gaps above split into two different kinds of "incomplete":
+
+- **Bounded by data-porting scale, not implementation difficulty**
+  (incompressibles' 125 remaining fluids, mixtures' 887 remaining binary
+  pairs). The *engine* for both is done and verified — T66 and Nitrogen–Oxygen
+  are proof it works. What's missing is coefficient data: CoolProp's
+  incompressible-liquid JSON covers 126 fluids, `mixture_binary_pairs.json` is
+  ~10,600 lines. Each was ported by **hand-transcribing exactly one real
+  example** to prove the engine — and hand-transcription is precisely how the
+  two real bugs below were introduced. The risk compounds with every
+  additional fluid/pair; the right fix is a codegen script
+  (`dev/gen_incompressible.py`, `dev/gen_mixture.py`) mirroring
+  `dev/gen_fluid.py`, which is itself unwritten engineering (handling five fit
+  forms, per-fluid `Tbase`/`xbase`, departure-function cross-references).
+- **A materially different algorithm, not more of the same** (ECS/rhosr-CS
+  transport, `humid_air` entropy, wet-bulb/dew-point). Chung is self-contained
+  (needs only the fluid's own `T_c`/`V_c`/acentric/dipole); ECS instead maps a
+  fluid onto a *reference fluid's own transport surface* via shape-factor
+  correlations — a second transport subsystem, not an extension of Chung.
+  Entropy needs CoolProp's ideal-gas reference-state offset calibration
+  (`ensure_ref_offsets` in `HumidAirProp.cpp`) — evaluating the real
+  Water/Air EOS at fixed reference points to pin absolute IAPWS/Lemmon-
+  convention constants; the simpler polynomial path used for enthalpy has no
+  entropy equivalent (CoolProp's own source has `"Not implemented"` on that
+  branch). Wet-bulb/dew-point need a bracketed root-finder (Brent) wrapping
+  the whole property evaluation, not just more data.
+
+Two real bugs were found this way, both from mistranscribing an exact scaling
+factor rather than a physics error: `humid_air`'s `c_aaw` was missing a
+`1/rhobarstar²` factor (four orders of magnitude too large — see
+`virials.rs`), and the incompressible `Exponential` viscosity form was
+centred on the wrong base temperature (also four orders of magnitude off —
+see `incompressibles/mod.rs`). Both were caught by checking computed values
+against known references before trusting the port, not by inspection.
+
 Tracked follow-ups (beads `op-kbc`):
 
 - **Per-fluid reference tests** beyond the nine already pinned (the rest are
