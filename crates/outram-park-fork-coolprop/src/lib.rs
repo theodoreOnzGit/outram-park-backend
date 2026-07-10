@@ -70,6 +70,28 @@ pub mod single_cv;
 pub mod transport;
 pub mod vle;
 
+// --- Scaffolded backends / refinements (bead op-kbc; `todo!()` bodies) ---
+//
+// Not yet wired into the public prelude below — these are skeletons whose APIs
+// may still shift as they are implemented. See each module's `//!` doc.
+
+/// Humid (moist) air properties — the CoolProp `HAPropsSI` backend.
+/// **Scaffold only** (bead op-kbc.14).
+pub mod humid_air;
+
+/// Incompressible-fluid properties — the CoolProp `INCOMP` backend.
+/// **Scaffold only** (bead op-kbc.15).
+pub mod incompressibles;
+
+/// Multi-fluid mixture properties — the CoolProp Helmholtz mixture backend.
+/// **Scaffold only** (bead op-kbc.16).
+pub mod mixtures;
+
+/// General corresponding-states transport (Chung / ECS / rhosr-CS) — the
+/// viscosity fallback for fluids with no dedicated fit. **Scaffold only**
+/// (bead op-kbc.17).
+pub mod transport_corresponding_states;
+
 /// Vendored pure-Rust OpenFOAM finite-volume layer + 1-D compressible solvers,
 /// copied from `tampines-steam-tables` (no `openfoam-basic-lib` dependency).
 /// The transient-flow backbone whose thermo plug-in point is backed by this

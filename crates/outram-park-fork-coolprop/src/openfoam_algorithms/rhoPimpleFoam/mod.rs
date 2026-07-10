@@ -416,6 +416,24 @@ impl OPCPFluidArray {
         }
     }
 
+    /// Update the per-cell transport fields (dynamic viscosity `μ` and thermal
+    /// diffusivity `αh = λ/c_p`) from the CoolProp transport correlations at the
+    /// current `(T, ρ)` — the transport half of `correct_thermo`.
+    ///
+    /// **Scaffold — not yet wired (bead op-kbc.11).** `OPCPFluidArray` has no
+    /// `mu`/`alpha_eff` fields yet; implementing this means (1) adding those
+    /// `VolScalarField`s + their constructor init, (2) filling them here from
+    /// [`crate::transport::viscosity`] / [`crate::transport::conductivity`]
+    /// (falling back to the previous value when a fluid returns `None`, mirroring
+    /// `correct_thermo`'s non-convergence handling), and (3) calling this from
+    /// [`Self::step`] after `correct_thermo` and feeding `μ`/`αh` into the
+    /// momentum and energy diffusion terms. Currently a documented no-op.
+    #[allow(dead_code)]
+    pub fn correct_transport(&mut self) {
+        // TODO(op-kbc.11): for c in 0..n_cells, look up μ(fluid, T_c, ρ_c) and
+        // λ(fluid, T_c, ρ_c); αh = λ / c_p. Requires the μ/αEff fields first.
+    }
+
     /// Advance one time step with the compressible PIMPLE algorithm.
     ///
     /// Ported line-for-line from `RhoPimpleFoam::step` (see that solver's module

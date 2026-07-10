@@ -352,15 +352,49 @@ impl ResidualTerm {
                     });
                 }
             }
-            ResidualTerm::NonAnalytic { .. } => {
-                // TODO(op-kbc): non-analytic critical-region terms + the δ=1
-                // limit handling. Currently a no-op; only affects accuracy
-                // within ~1 % of the critical point. Away from the critical
-                // point ψ = exp(-C(δ-1)² - D(τ-1)²) ≈ 0 so the true
-                // contribution is already negligible.
+            ResidualTerm::NonAnalytic { n, a, b, beta, big_a, big_b, big_c, big_d } => {
+                accumulate_non_analytic(n, a, b, beta, big_a, big_b, big_c, big_d, delta, tau, acc);
             }
         }
     }
+}
+
+/// Accumulate the IAPWS-95 / Span–Wagner **non-analytic critical-region** terms
+/// into `acc` at reduced state `(δ, τ)`.
+///
+/// **Scaffold — currently a no-op (bead op-kbc.6).** Data is carried and this
+/// hook is called, but the contribution is not yet evaluated; that only
+/// degrades accuracy within ~1 % of the critical point. Away from it
+/// `ψ = exp(-C(δ-1)² - D(τ-1)²) ≈ 0`, so the true contribution is already
+/// negligible and the no-op is correct there.
+///
+/// The term (per index `i`) is `n_i · Δ^{b_i} · δ · ψ` with
+/// - `θ = (1 − τ) + A_i · [(δ − 1)²]^{1/(2β_i)}`,
+/// - `Δ = θ² + B_i · [(δ − 1)²]^{a_i}`,
+/// - `ψ = exp(−C_i (δ − 1)² − D_i (τ − 1)²)`.
+///
+/// The implementation must supply `α` and its first/second `δ`,`τ` derivatives
+/// (`ad`, `at`, `add`, `att`, `adt`) — see IAPWS R6-95 Table 6.5 / CoolProp
+/// `ResidualHelmholtzNonAnalytic::all` — and **guard the `δ = 1` limit**, where
+/// several derivative factors are `0^{negative}` and must be taken to their
+/// analytic limit (CoolProp special-cases `delta == 1`).
+#[allow(clippy::too_many_arguments)]
+fn accumulate_non_analytic(
+    n: &[f64],
+    a: &[f64],
+    b: &[f64],
+    beta: &[f64],
+    big_a: &[f64],
+    big_b: &[f64],
+    big_c: &[f64],
+    big_d: &[f64],
+    delta: f64,
+    tau: f64,
+    acc: &mut HelmholtzDerivs,
+) {
+    // TODO(op-kbc.6): evaluate θ, Δ, ψ and Δ^b per term; accumulate α and the
+    // five derivatives, with the δ = 1 limit guard. Kept a no-op until then.
+    let _ = (n, a, b, beta, big_a, big_b, big_c, big_d, delta, tau, acc);
 }
 
 impl IdealTerm {
