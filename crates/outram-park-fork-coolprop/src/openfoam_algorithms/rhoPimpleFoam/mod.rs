@@ -280,7 +280,7 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
 ///   follow-up (bead op-kbc) — so those fields keep their initial values.
 ///
 /// C++ reference: `applications/solvers/compressible/rhoPimpleFoam/`.
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct OPCPFluidArray {
     /// The working fluid whose CoolProp Helmholtz EOS closes the thermo update.
     pub fluid: Fluid,
