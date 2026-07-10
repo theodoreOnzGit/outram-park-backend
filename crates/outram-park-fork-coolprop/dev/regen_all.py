@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Regenerate ALL fluids: run dev/gen_fluid.py over every CoolProp fluid JSON in
-# the gitignored reference clone, then rewrite src/fluids/mod.rs and
+# the gitignored upstream_source clone, then rewrite src/fluids/mod.rs and
 # src/fluid.rs so every fluid is declared and wired into the `Fluid` enum.
 #
-# Usage (from the crate root, with reference/CoolProp present):
+# Usage (from the crate root, with upstream_source/CoolProp present):
 #   python3 dev/regen_all.py
 #
 # Naming (kept consistent with dev/gen_fluid.py's `rust_const_ident`):
@@ -44,10 +44,10 @@ DOC = {
 
 
 def main():
-    fluid_dir = os.path.join(CRATE, "reference", "CoolProp", "dev", "fluids")
+    fluid_dir = os.path.join(CRATE, "upstream_source", "CoolProp", "dev", "fluids")
     names = sorted(os.path.basename(f)[:-5] for f in glob.glob(os.path.join(fluid_dir, "*.json")))
     if not names:
-        sys.exit(f"no fluid JSON found under {fluid_dir} (clone the reference first)")
+        sys.exit(f"no fluid JSON found under {fluid_dir} (clone upstream_source first)")
 
     fluids_out = os.path.join(CRATE, "src", "fluids")
     for old in glob.glob(os.path.join(fluids_out, "*.rs")):

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Regenerate the binary-pair table: run dev/gen_mixture.py over every
-# CoolProp binary pair in the gitignored reference clone whose two
+# CoolProp binary pair in the gitignored upstream_source clone whose two
 # components both resolve to a fluid already ported into this crate's
 # `Fluid` enum, then rewrite `src/mixtures/binary_pairs/`. Mirrors
 # dev/regen_all.py for the pure-fluid side.
 #
-# Usage (from the crate root, with reference/CoolProp present):
+# Usage (from the crate root, with upstream_source/CoolProp present):
 #   python3 dev/regen_mixture_all.py
 #
 # Component-name resolution is by CAS number (see dev/gen_mixture.py's
@@ -26,8 +26,8 @@ import json, os, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CRATE = os.path.dirname(HERE)
-FLUID_DIR = os.path.join(CRATE, "reference", "CoolProp", "dev", "fluids")
-MIXTURE_DIR = os.path.join(CRATE, "reference", "CoolProp", "dev", "mixtures")
+FLUID_DIR = os.path.join(CRATE, "upstream_source", "CoolProp", "dev", "fluids")
+MIXTURE_DIR = os.path.join(CRATE, "upstream_source", "CoolProp", "dev", "mixtures")
 OUT_DIR = os.path.join(CRATE, "src", "mixtures", "binary_pairs")
 CHUNK_SIZE = 200
 

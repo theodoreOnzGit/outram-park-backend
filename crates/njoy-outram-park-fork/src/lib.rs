@@ -30,7 +30,7 @@
 //!
 //! See `docs/porting-plan.md` for the full module list, the C-source map, the
 //! phased porting order, and the verification strategy (golden-file comparison
-//! against upstream Fortran NJOY in `../../../NJOY2016`).
+//! against upstream Fortran NJOY in `upstream_source/NJOY2016`).
 //!
 //! [NJOY2016]: https://github.com/njoy/NJOY2016
 //! [`openmc-libs`]: https://github.com/theodoreOnzGit/outram-park-backend

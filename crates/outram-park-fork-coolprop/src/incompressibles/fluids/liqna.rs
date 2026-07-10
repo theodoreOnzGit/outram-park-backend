@@ -6,7 +6,7 @@
 use crate::incompressibles::{IncompressibleFluid, IncompressibleKind, PropertyFit, PropertyForm};
 
 /// CoolProp `LiqNa` (pure), `T ∈ [400.0, 2500.0] K`.
-/// `reference/CoolProp/dev/incompressible_liquids/json/LiqNa.json`.
+/// `upstream_source/CoolProp/dev/incompressible_liquids/json/LiqNa.json`.
 pub const LIQNA_INCOMP: IncompressibleFluid = IncompressibleFluid {
     name: "LiqNa",
     kind: IncompressibleKind::Pure,

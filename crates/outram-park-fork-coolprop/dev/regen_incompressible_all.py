@@ -6,7 +6,7 @@
 # src/incompressibles/fluid_enum.rs so every fluid is declared and wired into
 # the `Incompressible` enum. Mirrors dev/regen_all.py for the pure-fluid side.
 #
-# Usage (from the crate root, with reference/CoolProp present):
+# Usage (from the crate root, with upstream_source/CoolProp present):
 #   python3 dev/regen_incompressible_all.py
 #
 # Naming (kept consistent with dev/gen_incompressible.py's `rust_const_ident`):
@@ -37,10 +37,10 @@ def variant_name(fluid):
 
 
 def main():
-    json_dir = os.path.join(CRATE, "reference", "CoolProp", "dev", "incompressible_liquids", "json")
+    json_dir = os.path.join(CRATE, "upstream_source", "CoolProp", "dev", "incompressible_liquids", "json")
     names = sorted(os.path.basename(f)[:-5] for f in glob.glob(os.path.join(json_dir, "*.json")))
     if not names:
-        sys.exit(f"no incompressible-liquid JSON found under {json_dir} (clone the reference first)")
+        sys.exit(f"no incompressible-liquid JSON found under {json_dir} (clone upstream_source first)")
 
     fluids_out = os.path.join(CRATE, "src", "incompressibles", "fluids")
     os.makedirs(fluids_out, exist_ok=True)

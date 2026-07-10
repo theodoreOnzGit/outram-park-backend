@@ -6,7 +6,7 @@
 use crate::incompressibles::{IncompressibleFluid, IncompressibleKind, PropertyFit, PropertyForm};
 
 /// CoolProp `IcePG` (mass), `T ∈ [230.0, 265.0] K`.
-/// `reference/CoolProp/dev/incompressible_liquids/json/IcePG.json`.
+/// `upstream_source/CoolProp/dev/incompressible_liquids/json/IcePG.json`.
 pub const ICEPG_INCOMP: IncompressibleFluid = IncompressibleFluid {
     name: "IcePG",
     kind: IncompressibleKind::MassBased,

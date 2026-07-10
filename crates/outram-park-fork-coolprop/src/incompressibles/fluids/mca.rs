@@ -6,7 +6,7 @@
 use crate::incompressibles::{IncompressibleFluid, IncompressibleKind, PropertyFit, PropertyForm};
 
 /// CoolProp `MCA` (mass), `T ∈ [173.15, 313.15] K`.
-/// `reference/CoolProp/dev/incompressible_liquids/json/MCA.json`.
+/// `upstream_source/CoolProp/dev/incompressible_liquids/json/MCA.json`.
 pub const MCA_INCOMP: IncompressibleFluid = IncompressibleFluid {
     name: "MCA",
     kind: IncompressibleKind::MassBased,

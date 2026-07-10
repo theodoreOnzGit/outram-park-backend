@@ -205,13 +205,13 @@ Tracked follow-ups (beads `op-kbc`):
 Fluid EOS data is **hardcoded Rust** in `src/fluids/`, generated once from
 CoolProp's fluid JSON by `dev/gen_fluid.py` — the crate never reads JSON at
 runtime. The generator is an authoring-time tool; the CoolProp clone it reads
-lives in the **gitignored** `reference/` (dev only). All commands below run
+lives in the **gitignored** `upstream_source/` (dev only). All commands below run
 **from the crate root** (`crates/outram-park-fork-coolprop/`).
 
-### 0. Get the reference clone
+### 0. Get the upstream_source clone
 
 ```bash
-git clone --depth 1 https://github.com/CoolProp/CoolProp.git reference/CoolProp
+git clone --depth 1 https://github.com/CoolProp/CoolProp.git upstream_source/CoolProp
 ```
 
 ### 1. One fluid
@@ -277,14 +277,14 @@ Two caveats remain:
 Adding a *new* term type (should CoolProp introduce one) means implementing its
 `α` + first/second `δ`,`τ` derivative contributions in `src/eos.rs` (translating
 the matching `IdealHelmholtz*` / `ResidualHelmholtz*` class from CoolProp's
-`reference/CoolProp/src/Helmholtz.cpp`) and adding the emit branch in
+`upstream_source/CoolProp/src/Helmholtz.cpp`) and adding the emit branch in
 `dev/gen_fluid.py`.
 
 ## Regenerating incompressible-fluid data (separate codegen family)
 
 The `incompressibles` backend (bead op-kbc.15) has its own codegen pair,
 mirroring the one above but reading
-`reference/CoolProp/dev/incompressible_liquids/json/` instead:
+`upstream_source/CoolProp/dev/incompressible_liquids/json/` instead:
 
 ```bash
 python3 dev/gen_incompressible.py T66 > src/incompressibles/fluids/t66.rs   # one fluid
@@ -305,7 +305,7 @@ detected and generated as `None`, not a knowingly-wrong `0.0`.
 ## Regenerating mixture binary-pair data (separate codegen family)
 
 The `mixtures` backend (bead op-kbc.16) has its own codegen pair, reading
-`reference/CoolProp/dev/mixtures/mixture_binary_pairs.json` +
+`upstream_source/CoolProp/dev/mixtures/mixture_binary_pairs.json` +
 `mixture_departure_functions.json`:
 
 ```bash

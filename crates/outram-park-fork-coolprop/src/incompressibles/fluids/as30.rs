@@ -6,7 +6,7 @@
 use crate::incompressibles::{IncompressibleFluid, IncompressibleKind, PropertyFit, PropertyForm};
 
 /// CoolProp `AS30` (pure), `T ∈ [243.15, 303.15] K`.
-/// `reference/CoolProp/dev/incompressible_liquids/json/AS30.json`.
+/// `upstream_source/CoolProp/dev/incompressible_liquids/json/AS30.json`.
 pub const AS30_INCOMP: IncompressibleFluid = IncompressibleFluid {
     name: "AS30",
     kind: IncompressibleKind::Pure,

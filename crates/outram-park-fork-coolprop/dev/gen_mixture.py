@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Authoring-time codegen: read one CoolProp binary-pair entry (from the
-# gitignored `reference/CoolProp/dev/mixtures/mixture_binary_pairs.json`, plus
+# gitignored `upstream_source/CoolProp/dev/mixtures/mixture_binary_pairs.json`, plus
 # `mixture_departure_functions.json` when a departure function is fitted) and
 # print a Rust `BinaryPair {...}` literal for `src/mixtures/binary_pairs.rs`.
 # Mirrors `dev/gen_fluid.py` for the pure-fluid side: a data-reduction step,
 # not a runtime JSON reader.
 #
-# Usage (run from the crate root, with the reference clone present):
+# Usage (run from the crate root, with the upstream_source clone present):
 #   python3 dev/gen_mixture.py Nitrogen Oxygen
 #
 # Fluid names are the crate's own canonical CoolProp pure-fluid names (the
-# `reference/CoolProp/dev/fluids/<Name>.json` filename) -- NOT necessarily the
+# `upstream_source/CoolProp/dev/fluids/<Name>.json` filename) -- NOT necessarily the
 # short/REFPROP-style names `mixture_binary_pairs.json` itself uses (e.g.
 # "CYCLOHEX" for Cyclohexane). Matching is by CAS number (every pure-fluid
 # JSON's `INFO.CAS`), which is unambiguous across naming conventions.
@@ -19,8 +19,8 @@ import json, sys, os, re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CRATE = os.path.dirname(HERE)
-FLUID_DIR = os.path.join(CRATE, "reference", "CoolProp", "dev", "fluids")
-MIXTURE_DIR = os.path.join(CRATE, "reference", "CoolProp", "dev", "mixtures")
+FLUID_DIR = os.path.join(CRATE, "upstream_source", "CoolProp", "dev", "fluids")
+MIXTURE_DIR = os.path.join(CRATE, "upstream_source", "CoolProp", "dev", "mixtures")
 
 
 def variant_name(fluid):
@@ -106,9 +106,9 @@ def build_departure_terms(dep):
 def build(fluid_a, fluid_b):
     cas_map = load_cas_map()
     if fluid_a not in cas_map:
-        sys.exit("{}: not a known pure fluid (no CAS in reference/CoolProp/dev/fluids/)".format(fluid_a))
+        sys.exit("{}: not a known pure fluid (no CAS in upstream_source/CoolProp/dev/fluids/)".format(fluid_a))
     if fluid_b not in cas_map:
-        sys.exit("{}: not a known pure fluid (no CAS in reference/CoolProp/dev/fluids/)".format(fluid_b))
+        sys.exit("{}: not a known pure fluid (no CAS in upstream_source/CoolProp/dev/fluids/)".format(fluid_b))
     cas_a, cas_b = cas_map[fluid_a], cas_map[fluid_b]
 
     with open(os.path.join(MIXTURE_DIR, "mixture_binary_pairs.json")) as fh:

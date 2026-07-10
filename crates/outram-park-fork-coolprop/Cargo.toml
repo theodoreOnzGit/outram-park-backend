@@ -8,6 +8,10 @@ repository.workspace = true
 homepage.workspace = true
 categories.workspace = true
 publish = false
+# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
+# and never shipped in the packaged crate. `docs/` holds LaTeX sources and
+# build artifacts (.aux/.bbl/.bcf/...) that aren't crate content either.
+exclude = ["verification_and_validation/*.csv", "docs"]
 
 # The Helmholtz EOS engine and fluid data are pure `std` (hardcoded Rust, no
 # runtime JSON). `uom` is the only runtime dependency — it types the

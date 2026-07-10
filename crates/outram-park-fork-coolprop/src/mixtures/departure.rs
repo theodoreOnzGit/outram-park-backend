@@ -6,7 +6,7 @@
 //! [`super::binary_pairs`]). Ported from CoolProp's
 //! `ResidualHelmholtzGeneralizedExponential::add_{Power,Gaussian,GERG2008Gaussian}`
 //! (`include/CoolProp/fluids/Helmholtz.h`) — the three term forms its own 28
-//! departure functions (`reference/CoolProp/dev/mixtures/mixture_departure_functions.json`)
+//! departure functions (`upstream_source/CoolProp/dev/mixtures/mixture_departure_functions.json`)
 //! use (`type` field `Exponential`/`GERG-2008`/`Gaussian+Exponential`, split
 //! per-term below rather than per-function, since the "power-only" leading
 //! terms of the latter two types are exactly the `eta=beta=0` special case of

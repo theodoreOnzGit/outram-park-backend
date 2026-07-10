@@ -1,3 +1,8 @@
-# Upstream CoolProp reference clone — present for development, never committed.
-# Cloned with: git clone --depth 1 https://github.com/CoolProp/CoolProp.git reference/CoolProp
-/reference/
+# Upstream CoolProp clone — present for development, never committed.
+# Cloned with: git clone --depth 1 https://github.com/CoolProp/CoolProp.git upstream_source/CoolProp
+/upstream_source/CoolProp/
+
+# V&V raw data — the .md write-ups in verification_and_validation/ are
+# committed; standalone .csv data files they reference are not (see
+# verification_and_validation/README.md).
+/verification_and_validation/*.csv

@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Authoring-time codegen: read one CoolProp fluid JSON (from the gitignored
-# `reference/CoolProp/dev/fluids/`) and emit a hardcoded Rust `FluidEos` `const`
+# `upstream_source/CoolProp/dev/fluids/`) and emit a hardcoded Rust `FluidEos` `const`
 # for `src/fluids/`. This is a *data-reduction* step: it copies out only the
 # Helmholtz-EOS coefficients (residual + ideal terms + reducing/critical
 # params) — NOT the JSON's ANCILLARIES / TRANSPORT / metadata — so the shipped
 # crate carries only kilobytes per fluid and never reads JSON at runtime.
 #
-# Usage (run from the crate root, with the reference clone present):
+# Usage (run from the crate root, with the upstream_source clone present):
 #   python3 dev/gen_fluid.py Water > src/fluids/water.rs
 #
-# The reference clone is regenerated with:
-#   git clone --depth 1 https://github.com/CoolProp/CoolProp.git reference/CoolProp
+# The upstream_source clone is regenerated with:
+#   git clone --depth 1 https://github.com/CoolProp/CoolProp.git upstream_source/CoolProp
 import json, sys, os
 
 def slice_f64(xs):
@@ -278,7 +278,7 @@ def main():
         sys.exit("usage: gen_fluid.py <FluidName>")
     fluid = sys.argv[1]
     here = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(here, "..", "reference", "CoolProp", "dev", "fluids", f"{fluid}.json")
+    path = os.path.join(here, "..", "upstream_source", "CoolProp", "dev", "fluids", f"{fluid}.json")
     d = json.load(open(path))
     eos = d["EOS"][0]
     red = eos["STATES"]["reducing"]

@@ -24,6 +24,9 @@ include = [
     "README.md",
     "Cargo.toml",
 ]
+# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
+# and never shipped in the packaged crate.
+exclude = ["verification_and_validation/*.csv"]
 
 [dependencies]
 thiserror.workspace = true

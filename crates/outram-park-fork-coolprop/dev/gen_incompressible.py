@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Authoring-time codegen: read one CoolProp incompressible-liquid JSON (from
-# the gitignored `reference/CoolProp/dev/incompressible_liquids/json/`) and
+# the gitignored `upstream_source/CoolProp/dev/incompressible_liquids/json/`) and
 # emit a hardcoded Rust `IncompressibleFluid` `const` for
 # `src/incompressibles/fluids/`. Mirrors `dev/gen_fluid.py` for the pure-fluid
 # Helmholtz EOS side: a data-reduction step, not a runtime JSON reader.
 #
-# Usage (run from the crate root, with the reference clone present):
+# Usage (run from the crate root, with the upstream_source clone present):
 #   python3 dev/gen_incompressible.py T66 > src/incompressibles/fluids/t66.rs
 #
-# The reference clone is regenerated with:
-#   git clone --depth 1 https://github.com/CoolProp/CoolProp.git reference/CoolProp
+# The upstream_source clone is regenerated with:
+#   git clone --depth 1 https://github.com/CoolProp/CoolProp.git upstream_source/CoolProp
 #
 # Coverage: this crate implements 4 of CoolProp's 5 IncompressibleData fit
 # forms (polynomial, exppolynomial, exponential, logexponential) -- covering
-# all 126 fluids surveyed in reference/CoolProp/dev/incompressible_liquids/json
+# all 126 fluids surveyed in upstream_source/CoolProp/dev/incompressible_liquids/json
 # (density/specific_heat/conductivity are always `polynomial`; viscosity is
 # one of the four, or absent). `polyoffset` is not used by any of them, so it
 # is not implemented; a fluid whose viscosity uses it (there are none today)
@@ -100,7 +100,7 @@ def build(name, d):
     ident = rust_const_ident(name) + "_INCOMP"
     return ident, (
         "/// CoolProp `{name}` ({xid}), `T ∈ [{tmin!r}, {tmax!r}] K`.\n"
-        "/// `reference/CoolProp/dev/incompressible_liquids/json/{name}.json`.\n"
+        "/// `upstream_source/CoolProp/dev/incompressible_liquids/json/{name}.json`.\n"
         "pub const {ident}: IncompressibleFluid = IncompressibleFluid {{\n"
         "    name: \"{name}\",\n"
         "    kind: {kind},\n"
@@ -122,7 +122,7 @@ def main():
     name = sys.argv[1]
     here = os.path.dirname(os.path.abspath(__file__))
     crate = os.path.dirname(here)
-    path = os.path.join(crate, "reference", "CoolProp", "dev", "incompressible_liquids", "json", name + ".json")
+    path = os.path.join(crate, "upstream_source", "CoolProp", "dev", "incompressible_liquids", "json", name + ".json")
     with open(path) as fh:
         d = json.load(fh)
     _, body = build(name, d)

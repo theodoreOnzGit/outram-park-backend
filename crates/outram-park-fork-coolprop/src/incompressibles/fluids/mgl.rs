@@ -6,7 +6,7 @@
 use crate::incompressibles::{IncompressibleFluid, IncompressibleKind, PropertyFit, PropertyForm};
 
 /// CoolProp `MGL` (mass), `T ∈ [173.15, 313.15] K`.
-/// `reference/CoolProp/dev/incompressible_liquids/json/MGL.json`.
+/// `upstream_source/CoolProp/dev/incompressible_liquids/json/MGL.json`.
 pub const MGL_INCOMP: IncompressibleFluid = IncompressibleFluid {
     name: "MGL",
     kind: IncompressibleKind::MassBased,

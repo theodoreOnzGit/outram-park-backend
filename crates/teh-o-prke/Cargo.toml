@@ -10,7 +10,7 @@ readme = "README.md"
 categories.workspace = true
 # `pki/` contains a private key (private.pem) that must never be published, and
 # `docs/` holds a large theory PDF that isn't crate content.
-exclude = ["pki", "docs"]
+exclude = ["pki", "docs", "verification_and_validation/*.csv"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -79,7 +79,7 @@ The full module list, the Fortran-source → Rust-module map with line counts, t
 phased porting order (OpenMC ACE path first), the Fortran→Rust translation
 conventions, and the golden-file verification strategy against upstream NJOY all
 live in **`docs/porting-plan.md`**. The reference Fortran source is at
-`../../../NJOY2016`.
+`upstream_source/NJOY2016`.
 
 ## Model division of labour (MANDATORY for this port)
 
@@ -92,7 +92,7 @@ The NJOY Fortran→Rust port runs a two-model workflow to control cost:
   done, leave an explicit `NjoyError::NotPorted` / `TODO` marker — **never** paper
   over a gap with a plausible-looking value.
 - **Opus debugs, verifies, and tests.** A separate Opus pass validates each
-  translated module against the NJOY golden oracle (`../../../NJOY2016`), writes
+  translated module against the NJOY golden oracle (`upstream_source/NJOY2016`), writes
   the V&V tests (methodology **and** results, per the root `CLAUDE.md` V&V rule),
   and localises/fixes discrepancies. Opus does not redo the translation.
 
