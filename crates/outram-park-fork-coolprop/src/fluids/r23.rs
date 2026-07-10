@@ -6,6 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ViscosityModel, HardcodedViscosity, ConductivityModel, HardcodedConductivity};
 
 /// R23 Helmholtz equation of state (from CoolProp).
 pub static R23: FluidEos = FluidEos {
@@ -37,5 +38,12 @@ pub static R23_ANCILLARIES: FluidAncillaries = FluidAncillaries {
     p_sat: SatAncillary { reducing_value: 4832000.0, t_r: 299.293, using_tau_r: true, exponential: true, n: &[-9.122332373664854, 3.016924110443656, -0.5967906858271617, 9.579184584147457, -12.877039154975156, 0.4375260704699433], t: &[1.014, 1.178, 2.077, 3.82, 3.866, 12.722] },
     rho_l: SatAncillary { reducing_value: 7519.999999999999, t_r: 299.293, using_tau_r: false, exponential: false, n: &[-3.3533086837494186, 5.426490146945459, -0.27772667131392875, 1.022401312663457, 8.263580367250993, -245.19616208727248], t: &[0.212, 0.25, 0.358, 0.841, 9.921, 17.541] },
     rho_v: SatAncillary { reducing_value: 7519.999999999999, t_r: 299.293, using_tau_r: true, exponential: true, n: &[-5.0704437393717505, 4.7882747149545795, -23.58027456800221, 23.333602102883393, -9.217295829606783, 4.050830873748802], t: &[0.475, 0.852, 1.451, 1.751, 2.978, 14.67] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
+pub static R23_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: Some(ViscosityModel::Hardcoded(HardcodedViscosity::R23 { molar_mass: 0.07001385 })),
+    conductivity: Some(ConductivityModel::Hardcoded(HardcodedConductivity::R23 { molar_mass: 0.07001385 })),
 };
 

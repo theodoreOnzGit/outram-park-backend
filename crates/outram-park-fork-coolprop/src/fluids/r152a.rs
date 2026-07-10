@@ -6,7 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
-use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
+use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual, CriticalConductivity};
 
 /// R152A Helmholtz equation of state (from CoolProp).
 pub static R152A: FluidEos = FluidEos {
@@ -42,10 +42,9 @@ pub static R152A_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
-/// conductivity (critical enhancement omitted; see `crate::transport`).
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static R152A_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
-    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 1.0, a: &[-0.014942, 9.73283e-05], n: &[0.0, 1.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 386.411, rhomass_reducing: 368.0, b: &[0.0106039395, 0.0136956435, -0.0062916315, 0.0019794274499999997], t: &[0.0, 0.0, 0.0, 0.0], d: &[1.0, 2.0, 3.0, 4.0] } }),
-    hardcoded: None,
+    conductivity: Some(ConductivityModel::Correlation { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 1.0, a: &[-0.014942, 9.73283e-05], n: &[0.0, 1.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 386.411, rhomass_reducing: 368.0, b: &[0.0106039395, 0.0136956435, -0.0062916315, 0.0019794274499999997], t: &[0.0, 0.0, 0.0, 0.0], d: &[1.0, 2.0, 3.0, 4.0] }, critical: Some(CriticalConductivity::SimplifiedOlchowySengers { r0: 1.03, gamma: 1.239, big_gamma: 0.0487, zeta0: 1.894e-10, qd: 2288329519.45, t_ref: -1.0 }) }),
 };
 

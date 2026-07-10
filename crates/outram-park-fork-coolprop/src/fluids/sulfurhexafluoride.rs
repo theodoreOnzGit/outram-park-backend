@@ -6,7 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
-use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
+use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual, CriticalConductivity};
 
 /// SulfurHexafluoride Helmholtz equation of state (from CoolProp).
 pub static SULFURHEXAFLUORIDE: FluidEos = FluidEos {
@@ -43,10 +43,9 @@ pub static SULFURHEXAFLUORIDE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
-/// conductivity (critical enhancement omitted; see `crate::transport`).
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static SULFURHEXAFLUORIDE_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: None,
-    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 1.0, a: &[1461.86, -18.5394, 0.0777891, 2.41059e-05], n: &[0.0, 1.0, 2.0, 3.0], b: &[29661.7, 505.67, 1.0], m: &[0.0, 1.0, 2.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 318.7232, rhomass_reducing: 742.297, b: &[-0.0283746, 0.0352768, 0.0207472, -0.0433053, -0.0055718, 0.0512084, 0.0053289, -0.0290262, -0.00161688, 0.00598438], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
-    hardcoded: None,
+    conductivity: Some(ConductivityModel::Correlation { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 1.0, a: &[1461.86, -18.5394, 0.0777891, 2.41059e-05], n: &[0.0, 1.0, 2.0, 3.0], b: &[29661.7, 505.67, 1.0], m: &[0.0, 1.0, 2.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 318.7232, rhomass_reducing: 742.297, b: &[-0.0283746, 0.0352768, 0.0207472, -0.0433053, -0.0055718, 0.0512084, 0.0053289, -0.0290262, -0.00161688, 0.00598438], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] }, critical: Some(CriticalConductivity::SimplifiedOlchowySengers { r0: 1.01, gamma: 1.2415, big_gamma: 0.052, zeta0: 1.9e-10, qd: 2857000000.0, t_ref: -1.0 }) }),
 };
 

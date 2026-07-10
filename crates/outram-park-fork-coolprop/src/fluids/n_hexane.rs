@@ -6,7 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
-use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
+use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ViscosityInitial, ConductivityModel, ConductivityDilute, ConductivityResidual, CriticalConductivity};
 
 /// n-Hexane Helmholtz equation of state (from CoolProp).
 pub static N_HEXANE: FluidEos = FluidEos {
@@ -42,10 +42,9 @@ pub static N_HEXANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
-/// conductivity (critical enhancement omitted; see `crate::transport`).
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static N_HEXANE_TRANSPORT: FluidTransport = FluidTransport {
-    viscosity: None,
-    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 507.82, a: &[0.0066742, -0.0237619, 0.0720155, -0.0183714], n: &[0.0, 1.0, 2.0, 3.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 507.82, rhomass_reducing: 233.1819066, b: &[-0.0301408, 0.0218208, 0.167975, -0.100833, -0.129739, 0.077418, 0.0382833, -0.0215945, -0.00370294, 0.00212487], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
-    hardcoded: None,
+    viscosity: Some(ViscosityModel::Correlation { dilute: ViscosityDilute::CollisionIntegral { c: 2.1357e-08, a: &[0.1876, -0.4843, 0.04477], t: &[0.0, 1.0, 2.0], molar_mass: 0.08617536, epsilon_over_k: 378.4, sigma_eta: 6.334e-10 }, initial: Some(ViscosityInitial::RainwaterFriend { b: &[-19.572881, 219.73999, -1015.3226, 2471.01251, -3375.1717, 2491.6597, -787.26086, 14.085455, -0.34664158], t: &[0.0, -0.25, -0.5, -0.75, -1.0, -1.25, -1.5, -2.5, -5.5], epsilon_over_k: 378.4, sigma_eta: 6.334e-10 }), higher_order: ViscosityHigherOrder::Hexane { molar_mass: 0.08617535999999999 } }),
+    conductivity: Some(ConductivityModel::Correlation { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 507.82, a: &[0.0066742, -0.0237619, 0.0720155, -0.0183714], n: &[0.0, 1.0, 2.0, 3.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 507.82, rhomass_reducing: 233.1819066, b: &[-0.0301408, 0.0218208, 0.167975, -0.100833, -0.129739, 0.077418, 0.0382833, -0.0215945, -0.00370294, 0.00212487], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] }, critical: Some(CriticalConductivity::SimplifiedOlchowySengers { r0: 1.02, gamma: 1.239, big_gamma: 0.05803, zeta0: 2.364e-10, qd: 1350000000.0, t_ref: -1.0 }) }),
 };
 

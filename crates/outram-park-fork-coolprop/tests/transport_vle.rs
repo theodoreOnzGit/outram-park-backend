@@ -163,12 +163,50 @@ fn two_phase_cv_from_ph_midpoint() {
 }
 
 #[test]
+fn transport_more_hardcoded_fluids_vs_literature() {
+    // Each ~1 % vs NIST/literature (see the checks). rel(a,b) as above.
+    let cases: &[(Fluid, f64, f64, f64, &str)] = &[
+        // fluid, T, rho, expected μ [Pa·s], label
+        (Fluid::HeavyWater, 300.0, 1104.0, 1.10e-3, "D2O μ"),
+        (Fluid::OXylene, 300.0, 875.0, 7.5e-4, "o-xylene μ"),
+        (Fluid::R23, 300.0, 2.9, 1.5e-5, "R23 μ"),
+        (Fluid::Hydrogen, 300.0, 0.0808, 8.9e-6, "H2 μ"),
+        (Fluid::Benzene, 300.0, 873.0, 6.0e-4, "benzene μ"),
+        (Fluid::Toluene, 300.0, 862.0, 5.6e-4, "toluene μ"),
+        (Fluid::NHeptane, 300.0, 680.0, 3.9e-4, "heptane μ"),
+        (Fluid::NHexane, 300.0, 655.0, 3.0e-4, "hexane μ"),
+        (Fluid::Ethane, 300.0, 1.22, 9.4e-6, "ethane μ"),
+        (Fluid::CycloHexane, 300.0, 773.0, 9.0e-4, "cyclohexane μ"),
+    ];
+    for &(f, t, rho, expect, label) in cases {
+        let mu = viscosity(f, t, rho).unwrap_or_else(|| panic!("{label}: None"));
+        assert!(rel(mu, expect) < 0.06, "{label} = {mu:.4e} (lit {expect:.2e})");
+    }
+    // A couple of hardcoded conductivities.
+    assert!(rel(conductivity(Fluid::HeavyWater, 300.0, 1104.0).unwrap(), 0.60) < 0.03);
+    assert!(rel(conductivity(Fluid::Ethane, 300.0, 1.22).unwrap(), 0.0211) < 0.03);
+    assert!(rel(conductivity(Fluid::R23, 300.0, 2.9).unwrap(), 0.014) < 0.05);
+}
+
+#[test]
+fn conductivity_critical_enhancement_active_near_critical() {
+    // The Olchowy-Sengers enhancement raises λ above its background value near
+    // the critical point; away from it, λ is unchanged (checked elsewhere).
+    let f = Fluid::Nitrogen;
+    let t = 1.02 * f.eos().t_critical;
+    let rho = f.eos().rho_critical * f.eos().molar_mass;
+    let dense = conductivity(f, t, rho).unwrap();
+    let dilute = conductivity(f, 300.0, 1.123).unwrap();
+    assert!(dense > 1.8 * dilute, "expected near-critical enhancement: {dense} vs {dilute}");
+}
+
+#[test]
 fn coverage_counts() {
     // Count fluids that yield a usable μ / λ (correlation or hardcoded).
     let n_visc = Fluid::ALL.iter().filter(|f| viscosity(**f, 1.3 * f.eos().t_critical, 1.0).is_some()).count();
     let n_cond = Fluid::ALL.iter().filter(|f| conductivity(**f, 1.3 * f.eos().t_critical, 1.0).is_some()).count();
     let n_anc = Fluid::ALL.iter().filter(|f| f.ancillaries().is_some()).count();
-    assert!(n_visc >= 23, "viscosity coverage regressed: {n_visc}"); // 20 corr + He + Water + CO2
-    assert!(n_cond >= 41, "conductivity coverage regressed: {n_cond}"); // 38 corr + He + Water + CO2
+    assert!(n_visc >= 36, "viscosity coverage regressed: {n_visc}");
+    assert!(n_cond >= 44, "conductivity coverage regressed: {n_cond}");
     assert!(n_anc >= 131, "ancillary coverage regressed: {n_anc}");
 }

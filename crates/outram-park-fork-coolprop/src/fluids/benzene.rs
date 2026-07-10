@@ -6,7 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
-use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
+use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ViscosityInitial, ConductivityModel, ConductivityDilute, ConductivityResidual, CriticalConductivity};
 
 /// Benzene Helmholtz equation of state (from CoolProp).
 pub static BENZENE: FluidEos = FluidEos {
@@ -43,10 +43,9 @@ pub static BENZENE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
-/// conductivity (critical enhancement omitted; see `crate::transport`).
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static BENZENE_TRANSPORT: FluidTransport = FluidTransport {
-    viscosity: None,
-    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 562.02, a: &[0.101404, -0.52144, 0.868266], n: &[0.0, 1.0, 2.0], b: &[1.0, 9.714, 1.467], m: &[0.0, 1.0, 2.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 562.02, rhomass_reducing: 304.7922436, b: &[0.0282489, -0.0119268, -0.0773415, 0.0833389, 0.0714001, -0.0898176, -0.0236798, 0.0363025, 0.00300875, -0.00490052], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] } }),
-    hardcoded: None,
+    viscosity: Some(ViscosityModel::Correlation { dilute: ViscosityDilute::CollisionIntegral { c: 2.1357e-08, a: &[0.234018, -0.476136, -0.015269], t: &[0.0, 1.0, 3.0], molar_mass: 0.07811184, epsilon_over_k: 412.0, sigma_eta: 5.4e-10 }, initial: Some(ViscosityInitial::RainwaterFriend { b: &[-19.572881, 219.73999, -1015.3226, 2471.01251, -3375.1717, 2491.6597, -787.26086, 14.085455, -0.34664158], t: &[0.0, -0.25, -0.5, -0.75, -1.0, -1.25, -1.5, -2.5, -5.5], epsilon_over_k: 412.0, sigma_eta: 5.4e-10 }), higher_order: ViscosityHigherOrder::Benzene { molar_mass: 0.07811180000000001 } }),
+    conductivity: Some(ConductivityModel::Correlation { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 562.02, a: &[0.101404, -0.52144, 0.868266], n: &[0.0, 1.0, 2.0], b: &[1.0, 9.714, 1.467], m: &[0.0, 1.0, 2.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 562.02, rhomass_reducing: 304.7922436, b: &[0.0282489, -0.0119268, -0.0773415, 0.0833389, 0.0714001, -0.0898176, -0.0236798, 0.0363025, 0.00300875, -0.00490052], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] }, critical: Some(CriticalConductivity::SimplifiedOlchowySengers { r0: 1.02, gamma: 1.239, big_gamma: 0.0569, zeta0: 2.16e-10, qd: 1612903225.0, t_ref: -1.0 }) }),
 };
 

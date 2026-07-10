@@ -42,10 +42,9 @@ pub static DIMETHYLETHER_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
-/// conductivity (critical enhancement omitted; see `crate::transport`).
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static DIMETHYLETHER_TRANSPORT: FluidTransport = FluidTransport {
-    viscosity: Some(ViscosityModel { dilute: ViscosityDilute::CollisionIntegral { c: 2.1357e-08, a: &[0.294261, -0.377826, -0.491673], t: &[0.0, 1.0, 2.0], molar_mass: 0.04606844, epsilon_over_k: 317.937, sigma_eta: 4.46704e-10 }, initial: None, higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand { t_reduce: 400.378, rhomolar_reduce: 5940.0, a: &[-2.70002e-06, 4.44583e-06, 2.1302e-07, 6.50681e-06, -0.000104998, 7.827474e-05, 4.13751e-05, -0.000175055, 6.281975e-05, 0.0001123219], d1: &[3.0, 3.0, 5.0, 1.0, 3.0, 4.0, 5.0, 2.0, 2.0, 2.0], t1: &[5.92, 4.36, 5.87, 0.45, 2.93, 1.64, 7.86, 4.25, 4.79, 3.11], gamma: &[0.0, 0.0, 0.0, 0.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0], l: &[0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 2.0, 1.0, 1.0, 2.0], f: &[0.0], d2: &[1.0], t2: &[0.0], g: &[1.0], h: &[0.0], p: &[1.0], q: &[0.0] } }),
+    viscosity: Some(ViscosityModel::Correlation { dilute: ViscosityDilute::CollisionIntegral { c: 2.1357e-08, a: &[0.294261, -0.377826, -0.491673], t: &[0.0, 1.0, 2.0], molar_mass: 0.04606844, epsilon_over_k: 317.937, sigma_eta: 4.46704e-10 }, initial: None, higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand { t_reduce: 400.378, rhomolar_reduce: 5940.0, a: &[-2.70002e-06, 4.44583e-06, 2.1302e-07, 6.50681e-06, -0.000104998, 7.827474e-05, 4.13751e-05, -0.000175055, 6.281975e-05, 0.0001123219], d1: &[3.0, 3.0, 5.0, 1.0, 3.0, 4.0, 5.0, 2.0, 2.0, 2.0], t1: &[5.92, 4.36, 5.87, 0.45, 2.93, 1.64, 7.86, 4.25, 4.79, 3.11], gamma: &[0.0, 0.0, 0.0, 0.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0], l: &[0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 2.0, 1.0, 1.0, 2.0], f: &[0.0], d2: &[1.0], t2: &[0.0], g: &[1.0], h: &[0.0], p: &[1.0], q: &[0.0] } }),
     conductivity: None,
-    hardcoded: None,
 };
 

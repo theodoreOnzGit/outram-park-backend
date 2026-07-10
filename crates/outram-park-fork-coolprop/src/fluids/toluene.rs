@@ -6,7 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
-use crate::transport::{FluidTransport, ConductivityModel, ConductivityDilute, ConductivityResidual};
+use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ViscosityInitial, ConductivityModel, ConductivityDilute, ConductivityResidual, CriticalConductivity};
 
 /// Toluene Helmholtz equation of state (from CoolProp).
 pub static TOLUENE: FluidEos = FluidEos {
@@ -41,10 +41,9 @@ pub static TOLUENE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
-/// conductivity (critical enhancement omitted; see `crate::transport`).
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static TOLUENE_TRANSPORT: FluidTransport = FluidTransport {
-    viscosity: None,
-    conductivity: Some(ConductivityModel { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 1.0, a: &[0.0058808, -6.1693e-05, 3.4151e-07, -3.042e-10, 1.2868e-13, -2.1303e-17], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 591.75, rhomass_reducing: 291.992, b: &[-0.051853, 0.0517449, 0.133846, -0.121902, -0.120446, 0.137748, 0.0530211, -0.0732792, -0.0100604, 0.0172914, 0.000633457, -0.00138585], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0, 6.0, 6.0] } }),
-    hardcoded: None,
+    viscosity: Some(ViscosityModel::Correlation { dilute: ViscosityDilute::CollisionIntegral { c: 2.1357e-08, a: &[0.40108, -0.476409, 0.069442], t: &[0.0, 1.0, 3.0], molar_mass: 0.09213842, epsilon_over_k: 472.0, sigma_eta: 5.24e-10 }, initial: Some(ViscosityInitial::RainwaterFriend { b: &[-19.572881, 219.73999, -1015.3226, 2471.01251, -3375.1717, 2491.6597, -787.26086, 14.085455, -0.34664158], t: &[0.0, -0.25, -0.5, -0.75, -1.0, -1.25, -1.5, -2.5, -5.5], epsilon_over_k: 472.0, sigma_eta: 5.24e-10 }), higher_order: ViscosityHigherOrder::Toluene { molar_mass: 0.09213842 } }),
+    conductivity: Some(ConductivityModel::Correlation { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 1.0, a: &[0.0058808, -6.1693e-05, 3.4151e-07, -3.042e-10, 1.2868e-13, -2.1303e-17], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 591.75, rhomass_reducing: 291.992, b: &[-0.051853, 0.0517449, 0.133846, -0.121902, -0.120446, 0.137748, 0.0530211, -0.0732792, -0.0100604, 0.0172914, 0.000633457, -0.00138585], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0, 6.0, 6.0] }, critical: Some(CriticalConductivity::SimplifiedOlchowySengers { r0: 1.03, gamma: 1.239, big_gamma: 0.05, zeta0: 2.2e-10, qd: 1613000000.0, t_ref: -1.0 }) }),
 };
 

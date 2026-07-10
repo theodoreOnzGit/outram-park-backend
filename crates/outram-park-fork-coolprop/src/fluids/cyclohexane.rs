@@ -6,6 +6,7 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
+use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ViscosityInitial};
 
 /// CycloHexane Helmholtz equation of state (from CoolProp).
 pub static CYCLOHEXANE: FluidEos = FluidEos {
@@ -38,5 +39,12 @@ pub static CYCLOHEXANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
     p_sat: SatAncillary { reducing_value: 4082400.0, t_r: 553.6, using_tau_r: true, exponential: true, n: &[-0.001507316116386758, 0.0019454414399892835, -6.247176974611268, 0.47954202162953397, -3.680367872644098, -5.145901784236558], t: &[0.031, 0.087, 0.976, 2.262, 3.53, 9.757] },
     rho_l: SatAncillary { reducing_value: 3224.0, t_r: 553.6, using_tau_r: false, exponential: false, n: &[0.2729676351917065, -1.106482113619369, 27.748806842659924, -34.01756141062687, 9.815362300266182, 65.7039717441813], t: &[0.165, 0.243, 0.498, 0.564, 0.717, 12.621] },
     rho_v: SatAncillary { reducing_value: 3224.0, t_r: 553.6, using_tau_r: true, exponential: true, n: &[7.91278554789447, -14.912016731516744, 5.351652597227101, -3.875832207589477, -6.953692859831638, 3685.8600260352014], t: &[0.395, 0.432, 0.604, 0.994, 4.823, 18.36] },
+};
+
+/// Transport models (CoolProp): dynamic viscosity and/or thermal
+/// conductivity (dilute + residual + near-critical; see `crate::transport`).
+pub static CYCLOHEXANE_TRANSPORT: FluidTransport = FluidTransport {
+    viscosity: Some(ViscosityModel::Correlation { dilute: ViscosityDilute::Cyclohexane, initial: Some(ViscosityInitial::Empirical { n: &[5.09643e-09, -3.38721e-06, 0.000337477], d: &[1.0, 1.0, 1.0], t: &[0.0, 1.0, 2.0], t_reducing: 1.0, rhomolar_reducing: 1.0 }), higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand { t_reduce: 553.6, rhomolar_reduce: 3224.0, a: &[0.0, 0.000335234, 7.8494803e-06, -0.0006873976, 0.0, 0.0003620868, -1.04793856e-05, 2.5521774e-06, 1.72734993e-05, -5.9372242e-06, -1.06186149e-05, 4.3982781e-06, 2.8894928e-06, -1.3468174e-06, -2.938491e-07, 1.487134e-07], d1: &[2.2, 2.2, 2.5, 2.5, 2.8, 2.8, 10.0, 10.0, 11.0, 11.0, 12.0, 12.0, 13.0, 13.0, 14.0, 14.0], t1: &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0], gamma: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], l: &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], f: &[0.0], d2: &[0.0], t2: &[0.0], g: &[1.0], h: &[0.0], p: &[1.0], q: &[0.0] } }),
+    conductivity: None,
 };
 
