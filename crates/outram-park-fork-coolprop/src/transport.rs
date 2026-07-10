@@ -49,6 +49,14 @@ pub enum ViscosityDilute {
     Ethane,
     /// Cyclohexane dilute viscosity (Tariq, JPCRD 2014, hardcoded).
     Cyclohexane,
+    /// `η₀ = Σ aᵢ·(T/T_reducing)^{tᵢ}` \[Pa·s\]. CoolProp `powers_of_Tr`.
+    PowersOfTr { a: &'static [f64], t: &'static [f64], t_reducing: f64 },
+    /// `η₀ = C·√T / Σ aᵢ·(T/T_reducing)^{tᵢ}`. CoolProp
+    /// `collision_integral_powers_of_Tstar`.
+    CollisionIntegralPowersOfTstar { c: f64, a: &'static [f64], t: &'static [f64], t_reducing: f64 },
+    /// Neufeld/kinetic-theory Lennard-Jones collision integral \[Pa·s\].
+    /// CoolProp `kinetic_theory`.
+    KineticTheory { molar_mass: f64, epsilon_over_k: f64, sigma_eta: f64 },
 }
 
 /// Initial-density viscosity correction.
@@ -137,6 +145,31 @@ pub enum ViscosityHigherOrder {
     Hexane { molar_mass: f64 },
     Heptane { molar_mass: f64 },
     Ethane,
+    /// Quiñones-Cisneros & Deiters **friction theory** (CoolProp
+    /// `friction_theory`). Density enters through the pressure and `∂p/∂T`, so
+    /// this needs the EOS. Optional terms are empty slices. `Arr` xor `Adrdr`;
+    /// `Aii`, `Arrr`/`Aaaa` present only for some fluids.
+    FrictionTheory {
+        t_reduce: f64,
+        c1: f64,
+        c2: f64,
+        ai: &'static [f64],
+        aa: &'static [f64],
+        ar: &'static [f64],
+        aaa: &'static [f64],
+        arr: &'static [f64],
+        adrdr: &'static [f64],
+        aii: &'static [f64],
+        arrr: &'static [f64],
+        aaaa: &'static [f64],
+        na: f64,
+        nr: f64,
+        naa: f64,
+        nrr: f64,
+        nii: f64,
+        nrrr: f64,
+        naaa: f64,
+    },
 }
 
 /// A complete viscosity model (Pa·s): either the generic dilute + (optional)
@@ -219,6 +252,11 @@ pub enum CriticalConductivity {
         /// (The critical exponent `ν = 0.63` and `k_B` are constants.)
         t_ref: f64,
     },
+    /// R123 critical term (CoolProp `conductivity_critical_hardcoded_R123`).
+    R123,
+    /// Ammonia critical term (Tufeu et al. — CoolProp
+    /// `conductivity_critical_hardcoded_ammonia`).
+    Ammonia,
 }
 
 /// A complete conductivity model (W/(m·K)): the generic dilute + residual (+
@@ -253,6 +291,8 @@ pub enum HardcodedViscosity {
     PXylene { molar_mass: f64 },
     /// R23 / trifluoromethane (a friction-theory-like hardcoded form).
     R23 { molar_mass: f64 },
+    /// Methanol (Chung-style hardcoded form, needs the molar mass).
+    Methanol { molar_mass: f64 },
 }
 
 impl HardcodedViscosity {
@@ -276,8 +316,47 @@ impl HardcodedViscosity {
             }
             HardcodedViscosity::PXylene { molar_mass } => pxylene_viscosity(t, rho / molar_mass),
             HardcodedViscosity::R23 { molar_mass } => r23_viscosity(t, rho / molar_mass),
+            HardcodedViscosity::Methanol { molar_mass } => methanol_viscosity(t, rho, rho / molar_mass),
         }
     }
+}
+
+/// Methanol viscosity \[Pa·s\] (Xiang et al. — CoolProp `viscosity_methanol_hardcoded`),
+/// a Chung/hard-sphere blend. `rho` mass \[kg/m³\], `rhomolar` \[mol/m³\].
+#[allow(clippy::excessive_precision)]
+fn methanol_viscosity(t: f64, rho: f64, rhomolar: f64) -> f64 {
+    let (epsilon_over_k, sigma0, delta, n_a, m): (f64, f64, f64, f64, f64) =
+        (577.87, 0.3408e-9, 0.4575, 6.02214129e23, 32.04216);
+    let tstar = t / epsilon_over_k;
+    let rhor = rho / 273.0;
+    let tr = t / 512.6;
+    // Rainwater–Friend initial density (B_eta) and second (C_eta) coefficients.
+    let b = [-19.572881, 219.73999, -1015.3226, 2471.01251, -3375.1717, 2491.6597, -787.26086, 14.085455, -0.34664158];
+    let bt = [0.0, -0.25, -0.5, -0.75, -1.0, -1.25, -1.5, -2.5, -5.5];
+    let b_eta_star: f64 = (0..9).map(|i| b[i] * tstar.powf(bt[i])).sum();
+    let b_eta = n_a * sigma0.powi(3) * b_eta_star; // m³/mol
+    let cc = [1.86222085e-3, 9.990338];
+    let c_eta_star = cc[0] * tstar.powi(3) * (cc[1] * tstar.powf(-0.5)).exp();
+    let c_eta = (n_a * sigma0.powi(3)).powi(2) * c_eta_star; // m⁶/mol²
+    let eta_g = 1.0 + b_eta * rhomolar + c_eta * rhomolar * rhomolar;
+    let a = [1.16145, -0.14874, 0.52487, -0.77320, 2.16178, -2.43787, 0.95976e-3,
+        0.10225, -0.97346, 0.10657, -0.34528, -0.44557, -2.58055];
+    let d = [-1.181909, 0.5031030, -0.6268461, 0.5169312, -0.2351349, 5.3980235e-2, -4.9069617e-3];
+    let e = [0.0, 4.018368, -4.239180, 2.245110, -0.5750698, 2.3021026e-2, 2.5696775e-2, -6.8372749e-3, 7.2707189e-4, -2.9255711e-5];
+    let omega_lj = a[0] * tstar.powf(a[1]) + a[2] * (a[3] * tstar).exp() + a[4] * (a[5] * tstar).exp();
+    let omega_delta = a[7] * tstar.powf(a[8]) + a[9] * (a[10] * tstar).exp() + a[11] * (a[12] * tstar).exp();
+    let omega_sm = omega_lj * (1.0 + delta.powi(2) / (1.0 + a[6] * delta.powi(6)) * omega_delta);
+    let eta_0 = 2.66957e-26 * (m * t).sqrt() / (sigma0.powi(2) * omega_sm);
+    let mut summerd: f64 = (0..7).map(|i| d[i] / tr.powi(i as i32)).sum();
+    summerd += (1..10).map(|j| e[j] * rhor.powi(j as i32)).sum::<f64>();
+    let sigmac = 0.7193422e-9;
+    let sigma_hs = summerd * sigmac;
+    let b_hs = 2.0 * std::f64::consts::PI * n_a * sigma_hs.powi(3) / 3.0; // m³/mol
+    let zeta = b_hs * rhomolar / 4.0;
+    let g_sigma_hs = (1.0 - 0.5 * zeta) / (1.0 - zeta).powi(3);
+    let eta_e = 1.0 / g_sigma_hs + 0.8 * b_hs * rhomolar + 0.761 * g_sigma_hs * (b_hs * rhomolar).powi(2);
+    let f = 1.0 / (1.0 + (5.0 * (rhor - 1.0)).exp());
+    eta_0 * (f * eta_g + (1.0 - f) * eta_e)
 }
 
 /// Heavy-water viscosity \[Pa·s\] (IAPWS 1994 — CoolProp `viscosity_heavywater_hardcoded`).
@@ -369,18 +448,96 @@ pub enum HardcodedConductivity {
     HeavyWater,
     /// R23 / trifluoromethane. `rho_molar` from the fluid's molar mass.
     R23 { molar_mass: f64 },
+    /// Methane (Friend et al., JPCRD 1989) — dilute + residual + full critical
+    /// region. Needs the EOS (ideal `∂²α⁰/∂τ²`, residual `δ`-derivatives, and
+    /// the saturated-liquid density).
+    Methane,
 }
 
 impl HardcodedConductivity {
-    /// Thermal conductivity \[W/(m·K)\] at `(T, ρ)`.
-    fn eval(&self, t: f64, rho: f64) -> f64 {
+    /// Thermal conductivity \[W/(m·K)\] of `fluid` at `(T, ρ)`.
+    fn eval(&self, fluid: Fluid, t: f64, rho: f64) -> f64 {
         match self {
             HardcodedConductivity::Helium => helium_conductivity(t, rho),
             HardcodedConductivity::Water => water_conductivity(t, rho),
             HardcodedConductivity::HeavyWater => heavywater_conductivity(t, rho),
             HardcodedConductivity::R23 { molar_mass } => r23_conductivity(t, rho / molar_mass),
+            HardcodedConductivity::Methane => methane_conductivity(fluid, t, rho),
         }
     }
+}
+
+/// Methane thermal conductivity \[W/(m·K)\] (Friend, Ely & Ingham, JPCRD 1989 —
+/// CoolProp `conductivity_hardcoded_methane`), dilute + residual + critical.
+fn methane_conductivity(fluid: Fluid, t: f64, rho: f64) -> f64 {
+    let eos = fluid.eos();
+    let rhomolar = rho / eos.molar_mass;
+    let delta = rhomolar / 10139.0;
+    let tau = 190.55 / t;
+    let tau_eos = eos.t_reducing / t;
+    let res = eos.residual_derivs(rhomolar / eos.rho_reducing, tau_eos);
+    let att = eos.ideal_derivs(rhomolar / eos.rho_reducing, tau_eos).att;
+
+    // Dilute viscosity (Friend), needed by lambda_dilute and lambda_critical.
+    let cc = [0.0, -3.0328138281, 16.918880086, -37.189364917, 41.288861858,
+        -24.615921140, 8.9488430959, -1.8739245042, 0.20966101390, -9.6570437074e-3];
+    let tv = t / 174.0;
+    let omega22: f64 = (1..=9).map(|i| cc[i] * tv.powf((i as f64 - 1.0) / 3.0 - 1.0)).sum();
+    let eta_dilute = 10.50 * tv.sqrt() * omega22;
+    let re = [0usize, 1, 1, 2, 2, 2, 3, 3, 4, 4, 1, 1];
+    let se = [0.0, 0.0, 1.0, 0.0, 1.0, 1.5, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0];
+    let ge = [0.0, 0.41250137, -0.14390912, 0.10366993, 0.40287464, -0.24903524,
+        -0.12953131, 0.06575776, 0.02566628, -0.03716526, -0.38798341, 0.03533815];
+    let et = |i: usize| ge[i] * delta.powi(re[i] as i32) * tau.powf(se[i]);
+    let eta_residual = 12.149 * (1..=9).map(et).sum::<f64>() / (1.0 + (10..=11).map(et).sum::<f64>());
+    let eta = eta_residual + eta_dilute;
+
+    // Dilute conductivity.
+    let f_int = 1.458850 - 0.4377162 / tv;
+    let lambda_dilute = 0.51828 * eta_dilute * (3.75 - f_int * (tau_eos * tau_eos * att + 1.5));
+
+    // Residual conductivity (uses the saturated-liquid density near the dome).
+    let rl = [0usize, 1, 3, 4, 4, 5, 5, 2];
+    let sl = [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0];
+    let jl = [0.0, 2.4149207, 0.55166331, -0.52837734, 0.073809553, 0.24465507, -0.047613626, 1.5554612];
+    let summer: f64 = (1..=6).map(|i| jl[i] * delta.powi(rl[i] as i32) * tau.powf(sl[i])).sum();
+    let mut delta_sigma_star = 1.0;
+    if t < eos.t_critical && rhomolar < eos.rho_critical {
+        if let Some(rho_l) = crate::ancillaries::saturated_liquid_density_ancillary(fluid, t) {
+            delta_sigma_star = (rho_l / eos.molar_mass) / eos.rho_critical;
+        }
+    }
+    let lambda_residual = 6.29638 * (summer + jl[7] * delta.powi(2) / delta_sigma_star);
+
+    // Critical region.
+    let tstar = 1.0 - 1.0 / tau;
+    let rhostar = 1.0 - delta;
+    let (f_t, f_rho, f_a) = (2.646, 2.678, -0.637);
+    let f = (-f_t * tstar.abs().sqrt() - f_rho * rhostar.powi(2) - f_a * rhostar).exp();
+    let chi_t_star = if tstar.abs() < 0.03 {
+        if rhostar.abs() < 1e-16 {
+            let (lambda_c, gamma_c) = (0.0801, 1.190);
+            lambda_c * tstar.abs().powf(-gamma_c)
+        } else if rhostar.abs() < 0.03 {
+            let (beta, w, s, e, a, b, r, q) = (0.355, -1.401, -6.098, 0.287, 3.352, 0.732, 0.535, 0.1133);
+            let omega = w * tstar * rhostar.abs().powf(-1.0 / beta);
+            let mut theta = 1.0;
+            if tstar < -rhostar.abs().powf(-1.0 / beta) / s {
+                theta = 1.0 + e * (1.0 + s * tstar * rhostar.abs().powf(-1.0 / beta)).powf(2.0 * beta);
+            }
+            q * rhostar.abs().powf(-a) * theta.powf(b) / (theta + omega * (theta + r))
+        } else {
+            0.28631 * delta * tau / (1.0 + 2.0 * delta * res.ad + delta.powi(2) * res.add)
+        }
+    } else {
+        0.28631 * delta * tau / (1.0 + 2.0 * delta * res.ad + delta.powi(2) * res.add)
+    };
+    let lambda_critical = 91.855 / (eta * tau.powi(2))
+        * (1.0 + delta * res.ad - delta * tau * res.adt).powi(2)
+        * chi_t_star.powf(0.4681)
+        * f;
+
+    (lambda_dilute + lambda_residual + lambda_critical) * 0.001
 }
 
 /// Heavy-water conductivity \[W/(m·K)\] (IAPWS 1994 — CoolProp
@@ -577,14 +734,32 @@ impl ViscosityDilute {
                 let s_eta = (-1.5093 + 364.87 / t - 39537.0 / (t * t)).exp();
                 0.19592 * t.sqrt() / s_eta / 1e6
             }
+            ViscosityDilute::PowersOfTr { a, t: tt, t_reducing } => {
+                let tr = t / t_reducing;
+                (0..a.len()).map(|i| a[i] * tr.powf(tt[i])).sum()
+            }
+            ViscosityDilute::CollisionIntegralPowersOfTstar { c, a, t: tt, t_reducing } => {
+                let tstar = t / t_reducing;
+                let summer: f64 = (0..a.len()).map(|i| a[i] * tstar.powf(tt[i])).sum();
+                c * t.sqrt() / summer
+            }
+            ViscosityDilute::KineticTheory { molar_mass, epsilon_over_k, sigma_eta } => {
+                let tstar = t / epsilon_over_k;
+                let sigma_nm = sigma_eta * 1e9;
+                let mm_kgkmol = molar_mass * 1000.0;
+                let omega22 = 1.16145 * tstar.powf(-0.14874) + 0.52487 * (-0.77320 * tstar).exp()
+                    + 2.16178 * (-2.43787 * tstar).exp();
+                26.692e-9 * (mm_kgkmol * t).sqrt() / (sigma_nm * sigma_nm * omega22)
+            }
         }
     }
 }
 
 impl ViscosityHigherOrder {
     /// Higher-order viscosity \[Pa·s\] at molar density `rho_molar` \[mol/m³\]
-    /// and temperature `t` \[K\].
-    fn eval(&self, rho_molar: f64, t: f64) -> f64 {
+    /// and temperature `t` \[K\]. `fluid` supplies the EOS (needed by friction
+    /// theory for the pressure and `∂p/∂T`).
+    fn eval(&self, fluid: Fluid, rho_molar: f64, t: f64) -> f64 {
         match self {
             ViscosityHigherOrder::ModifiedBatschinskiHildebrand {
                 t_reduce, rhomolar_reduce, a, d1, t1, gamma, l, f, d2, t2, g, h, p, q,
@@ -674,21 +849,66 @@ impl ViscosityHigherOrder {
                 let sum2: f64 = (10..=11).map(term).sum();
                 15.977 * sum1 / (1.0 + sum2) / 1e6
             }
+            ViscosityHigherOrder::FrictionTheory {
+                t_reduce, c1, c2, ai, aa, ar, aaa, arr, adrdr, aii, arrr, aaaa,
+                na, nr, naa, nrr, nii, nrrr, naaa,
+            } => {
+                let tau = t_reduce / t;
+                let psi1 = tau.exp() - c1;
+                let psi2 = (tau * tau).exp() - c2;
+                let kk = |arr: &[f64], n: f64| {
+                    if arr.len() >= 3 {
+                        (arr[0] + arr[1] * psi1 + arr[2] * psi2) * tau.powf(n)
+                    } else {
+                        0.0
+                    }
+                };
+                let ki = kk(ai, 1.0);
+                let ka = kk(aa, *na);
+                let kr = kk(ar, *nr);
+                let kaa = kk(aaa, *naa);
+                let (krr, kdrdr) = if arr.len() >= 3 {
+                    (kk(arr, *nrr), 0.0)
+                } else {
+                    (0.0, kk(adrdr, *nrr))
+                };
+                let kii = kk(aii, *nii);
+                let (krrr, kaaa) = if arrr.len() >= 3 && aaaa.len() >= 3 {
+                    (kk(arrr, *nrrr), kk(aaaa, *naaa))
+                } else {
+                    (0.0, 0.0)
+                };
+                // Pressure and its T-derivative from the EOS [bar].
+                let eos = fluid.eos();
+                let r = eos.gas_constant;
+                let d = rho_molar / eos.rho_reducing;
+                let tau_eos = eos.t_reducing / t;
+                let res = eos.residual_derivs(d, tau_eos);
+                // p = ρR T(1+δα_δ);  ∂p/∂T|_ρ = ρR(1 + δα_δ − δτα_δτ).
+                let p = rho_molar * r * t * (1.0 + d * res.ad) / 1e5;
+                let dpdt = rho_molar * r * (1.0 + d * res.ad - d * tau_eos * res.adt);
+                let pr = t * dpdt / 1e5;
+                let pa = p - pr;
+                let pid = rho_molar * r * t / 1e5;
+                let deltapr = pr - pid;
+                ka * pa + kr * deltapr + ki * pid + kaa * pa * pa + kdrdr * deltapr * deltapr
+                    + krr * pr * pr + kii * pid * pid + krrr * pr * pr * pr + kaaa * pa * pa * pa
+            }
         }
     }
 }
 
 impl ViscosityModel {
-    /// Total dynamic viscosity \[Pa·s\] at temperature `t` \[K\] and mass
-    /// density `rho` \[kg/m³\] (using the fluid's molar mass for `ρ_molar`).
-    pub fn eval(&self, t: f64, rho: f64, molar_mass: f64) -> f64 {
+    /// Total dynamic viscosity \[Pa·s\] of `fluid` at temperature `t` \[K\] and
+    /// mass density `rho` \[kg/m³\].
+    pub fn eval(&self, fluid: Fluid, t: f64, rho: f64) -> f64 {
         match self {
             ViscosityModel::Hardcoded(hc) => hc.eval(t, rho),
             ViscosityModel::Correlation { dilute, initial, higher_order } => {
-                let rho_molar = rho / molar_mass;
+                let rho_molar = rho / fluid.eos().molar_mass;
                 let eta_dilute = dilute.eval(t);
                 let eta_initial = initial.map(|i| i.contribution(t, rho_molar, eta_dilute)).unwrap_or(0.0);
-                eta_dilute + eta_initial + higher_order.eval(rho_molar, t)
+                eta_dilute + eta_initial + higher_order.eval(fluid, rho_molar, t)
             }
         }
     }
@@ -742,6 +962,34 @@ impl CriticalConductivity {
                     * (1.0 - (-1.0 / (1.0 / (qd * zeta) + (zeta * qd) * (zeta * qd) / 3.0 / delta / delta)).exp());
                 rho_molar * cp * r0 * K_B * t / (6.0 * pi * mu * zeta) * (omega - omega0)
             }
+            CriticalConductivity::R123 => {
+                let eos = fluid.eos();
+                let tau = eos.t_reducing / t;
+                let delta = (rho / eos.molar_mass) / eos.rho_reducing;
+                0.486742e-2 * (-100.0 * (tau - 1.0).powi(4) - 7.08535 * (delta - 1.0).powi(2)).exp()
+            }
+            CriticalConductivity::Ammonia => {
+                let pi = std::f64::consts::PI;
+                let (tc, rhoc) = (405.4, 235.0);
+                let (lambda_p, nu, gamma, delta_e, zeta0p, a_zeta, gamma0p) =
+                    (1.2, 0.63, 1.24, 0.50, 1.34e-10, 1.0, 0.423e-8);
+                let k_b = 1.3806504e-23;
+                let tt = ((t - tc) / tc).abs();
+                let a_chi = a_zeta / 0.7;
+                let eta_b = (2.60 + 1.6 * tt) * 1e-5;
+                let dpdt = (2.18 - 0.12 / (17.8 * tt).exp()) * 1e5;
+                let x_t = 0.61 * rhoc + 16.5 * tt.ln();
+                let dl_i = lambda_p * (k_b * t * t)
+                    / (6.0 * pi * eta_b * (zeta0p * tt.powf(-nu) * (1.0 + a_zeta * tt.powf(delta_e))))
+                    * dpdt * dpdt * gamma0p * tt.powf(-gamma) * (1.0 + a_chi * tt.powf(delta_e));
+                let dl_id = dl_i * (-36.0 * tt * tt).exp();
+                if rho < 0.6 * rhoc {
+                    dl_id * (x_t * x_t) / (x_t * x_t + (0.6 * rhoc - 0.96 * rhoc).powi(2)) * rho.powi(2)
+                        / (0.6 * rhoc).powi(2)
+                } else {
+                    dl_id * (x_t * x_t) / (x_t * x_t + (rho - 0.96 * rhoc).powi(2))
+                }
+            }
         }
     }
 }
@@ -752,7 +1000,7 @@ impl ConductivityModel {
     /// model); pass `None` if the fluid has no viscosity model.
     fn eval(&self, fluid: Fluid, t: f64, rho: f64, dilute_visc: Option<f64>) -> Option<f64> {
         let (dilute_m, residual_m, critical_m) = match self {
-            ConductivityModel::Hardcoded(hc) => return Some(hc.eval(t, rho)),
+            ConductivityModel::Hardcoded(hc) => return Some(hc.eval(fluid, t, rho)),
             ConductivityModel::Correlation { dilute, residual, critical } => (dilute, residual, critical),
         };
         let eos = fluid.eos();
@@ -825,7 +1073,7 @@ impl ConductivityModel {
 /// density `rho` \[kg/m³\], or [`None`] if the fluid has no supported viscosity
 /// model.
 pub fn viscosity(fluid: Fluid, t: f64, rho: f64) -> Option<f64> {
-    let mu = fluid.transport()?.viscosity?.eval(t, rho, fluid.eos().molar_mass);
+    let mu = fluid.transport()?.viscosity?.eval(fluid, t, rho);
     (mu.is_finite() && mu > 0.0).then_some(mu)
 }
 

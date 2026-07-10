@@ -82,6 +82,16 @@ def build_viscosity(visc, ttriple, gas_constant, molar_mass):
     elif isinstance(dil, dict) and dil.get("type") == "powers_of_T":
         dilute = "ViscosityDilute::PowersOfT {{ a: {}, t: {} }}".format(
             slice_f64(dil["a"]), slice_f64(dil["t"]))
+    elif isinstance(dil, dict) and dil.get("type") == "powers_of_Tr":
+        dilute = "ViscosityDilute::PowersOfTr {{ a: {}, t: {}, t_reducing: {!r} }}".format(
+            slice_f64(dil["a"]), slice_f64(dil["t"]), float(dil["T_reducing"]))
+    elif isinstance(dil, dict) and dil.get("type") == "collision_integral_powers_of_Tstar":
+        dilute = ("ViscosityDilute::CollisionIntegralPowersOfTstar {{ c: {!r}, a: {}, t: {}, "
+                  "t_reducing: {!r} }}").format(
+            float(dil["C"]), slice_f64(dil["a"]), slice_f64(dil["t"]), float(dil["T_reducing"]))
+    elif isinstance(dil, dict) and dil.get("type") == "kinetic_theory":
+        dilute = ("ViscosityDilute::KineticTheory {{ molar_mass: {!r}, epsilon_over_k: {!r}, "
+                  "sigma_eta: {!r} }}").format(molar_mass, float(visc["epsilon_over_k"]), float(visc["sigma_eta"]))
     else:
         return None
     # Higher order: modified_Batschinski_Hildebrand or the CO2 Laesecke form.
@@ -97,6 +107,8 @@ def build_viscosity(visc, ttriple, gas_constant, molar_mass):
     if hoh in HC_HO:
         higher = "ViscosityHigherOrder::{} {{ molar_mass: {!r} }}".format(HC_HO[hoh], molar_mass)
         return _finish_viscosity(dilute, higher, visc)
+    if isinstance(ho, dict) and ho.get("type") == "friction_theory":
+        return _finish_viscosity(dilute, build_friction_theory(ho), visc)
     if not (isinstance(ho, dict) and ho.get("type") == "modified_Batschinski_Hildebrand"):
         return None
     higher = ("ViscosityHigherOrder::ModifiedBatschinskiHildebrand {{ t_reduce: {!r}, "
@@ -107,6 +119,21 @@ def build_viscosity(visc, ttriple, gas_constant, molar_mass):
         slice_f64(ho["l"]), slice_f64(ho["f"]), slice_f64(ho["d2"]), slice_f64(ho["t2"]),
         slice_f64(ho["g"]), slice_f64(ho["h"]), slice_f64(ho["p"]), slice_f64(ho["q"]))
     return _finish_viscosity(dilute, higher, visc)
+
+def build_friction_theory(ho):
+    """A `ViscosityHigherOrder::FrictionTheory {…}` literal. Absent optional
+    arrays become empty slices; absent exponents default to 0."""
+    def arr(key):
+        return slice_f64(ho[key]) if key in ho else "&[]"
+    def num(key):
+        return float(ho.get(key, 0.0))
+    return ("ViscosityHigherOrder::FrictionTheory {{ t_reduce: {!r}, c1: {!r}, c2: {!r}, "
+            "ai: {}, aa: {}, ar: {}, aaa: {}, arr: {}, adrdr: {}, aii: {}, arrr: {}, aaaa: {}, "
+            "na: {!r}, nr: {!r}, naa: {!r}, nrr: {!r}, nii: {!r}, nrrr: {!r}, naaa: {!r} }}").format(
+        float(ho["T_reduce"]), num("c1"), num("c2"),
+        arr("Ai"), arr("Aa"), arr("Ar"), arr("Aaa"), arr("Arr"), arr("Adrdr"), arr("Aii"),
+        arr("Arrr"), arr("Aaaa"),
+        num("Na"), num("Nr"), num("Naa"), num("Nrr"), num("Nii"), num("Nrrr"), num("Naaa"))
 
 def _finish_viscosity(dilute, higher, visc):
     """Add the (optional) Rainwater-Friend initial-density term and assemble.
@@ -172,7 +199,13 @@ def build_conductivity(cond, has_viscosity):
 
 def build_critical(crit):
     """A `Some(CriticalConductivity::…)` literal, or `None` (the string)."""
-    if not isinstance(crit, dict) or crit.get("type") != "simplified_Olchowy_Sengers":
+    if not isinstance(crit, dict):
+        return "None"
+    if crit.get("hardcoded") == "Ammonia":
+        return "Some(CriticalConductivity::Ammonia)"
+    if crit.get("hardcoded") == "R123":
+        return "Some(CriticalConductivity::R123)"
+    if crit.get("type") != "simplified_Olchowy_Sengers":
         return "None"
     # JSON overrides; the rest fall back to CoolProp's defaults.
     return ("Some(CriticalConductivity::SimplifiedOlchowySengers {{ r0: {!r}, gamma: {!r}, "
@@ -191,12 +224,14 @@ HARDCODED_VISC = {
     "m-Xylene": "HardcodedViscosity::MXylene {{ molar_mass: {mm!r} }}",
     "p-Xylene": "HardcodedViscosity::PXylene {{ molar_mass: {mm!r} }}",
     "R23": "HardcodedViscosity::R23 {{ molar_mass: {mm!r} }}",
+    "Methanol": "HardcodedViscosity::Methanol {{ molar_mass: {mm!r} }}",
 }
 HARDCODED_COND = {
     "Helium": "HardcodedConductivity::Helium",
     "Water": "HardcodedConductivity::Water",
     "HeavyWater": "HardcodedConductivity::HeavyWater",
     "R23": "HardcodedConductivity::R23 {{ molar_mass: {mm!r} }}",
+    "Methane": "HardcodedConductivity::Methane",
 }
 
 def build_transport(d, const_name):

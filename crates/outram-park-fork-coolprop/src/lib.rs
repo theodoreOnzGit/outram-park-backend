@@ -39,10 +39,11 @@
 //! Known gaps (tracked, bead op-kbc): the **non-analytic** critical-region terms
 //! are carried but not yet evaluated (accuracy degraded within ~1 % of Tc, a
 //! no-op elsewhere); transport covers the generic models, the near-critical
-//! Olchowy–Sengers enhancement, and most hardcoded fluids (viscosity 36,
-//! conductivity 44 of 137). A few remain (friction-theory viscosity for
-//! methane/H₂S/SF₆/n-pentane, kinetic-theory R125, methanol viscosity, methane
-//! conductivity). `rfluids` oracle verification is planned.
+//! enhancement (Olchowy–Sengers + the ammonia/R123 terms), friction/kinetic
+//! theory, and **all** the per-fluid hardcoded formulas (viscosity 42,
+//! conductivity 45 of 137). The only fluids still without a viscosity model use
+//! the general corresponding-states models (Chung, ECS, rhosr-CS), a separate
+//! follow-up. `rfluids` oracle verification is planned.
 //!
 //! ## Example
 //!

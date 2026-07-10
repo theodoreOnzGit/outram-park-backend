@@ -186,6 +186,23 @@ fn transport_more_hardcoded_fluids_vs_literature() {
     assert!(rel(conductivity(Fluid::HeavyWater, 300.0, 1104.0).unwrap(), 0.60) < 0.03);
     assert!(rel(conductivity(Fluid::Ethane, 300.0, 1.22).unwrap(), 0.0211) < 0.03);
     assert!(rel(conductivity(Fluid::R23, 300.0, 2.9).unwrap(), 0.014) < 0.05);
+    assert!(rel(conductivity(Fluid::Methane, 300.0, 0.651).unwrap(), 0.0343) < 0.03);
+}
+
+#[test]
+fn transport_friction_theory_and_methanol_vs_literature() {
+    // Friction-theory + kinetic-theory viscosities (gas ~1 atm, 300 K).
+    let cases: &[(Fluid, f64, f64, f64, &str)] = &[
+        (Fluid::Methane, 300.0, 0.651, 1.12e-5, "methane μ"),
+        (Fluid::SulfurHexafluoride, 300.0, 6.04, 1.53e-5, "SF6 μ"),
+        (Fluid::NPentane, 300.0, 2.9, 6.7e-6, "n-pentane μ"),
+        (Fluid::HydrogenSulfide, 300.0, 1.36, 1.25e-5, "H2S μ"),
+        (Fluid::Methanol, 300.0, 786.0, 5.4e-4, "methanol μ"),
+    ];
+    for &(f, t, rho, expect, label) in cases {
+        let mu = viscosity(f, t, rho).unwrap_or_else(|| panic!("{label}: None"));
+        assert!(rel(mu, expect) < 0.08, "{label} = {mu:.4e} (lit {expect:.2e})");
+    }
 }
 
 #[test]
@@ -206,7 +223,7 @@ fn coverage_counts() {
     let n_visc = Fluid::ALL.iter().filter(|f| viscosity(**f, 1.3 * f.eos().t_critical, 1.0).is_some()).count();
     let n_cond = Fluid::ALL.iter().filter(|f| conductivity(**f, 1.3 * f.eos().t_critical, 1.0).is_some()).count();
     let n_anc = Fluid::ALL.iter().filter(|f| f.ancillaries().is_some()).count();
-    assert!(n_visc >= 36, "viscosity coverage regressed: {n_visc}");
-    assert!(n_cond >= 44, "conductivity coverage regressed: {n_cond}");
+    assert!(n_visc >= 42, "viscosity coverage regressed: {n_visc}");
+    assert!(n_cond >= 45, "conductivity coverage regressed: {n_cond}");
     assert!(n_anc >= 131, "ancillary coverage regressed: {n_anc}");
 }
