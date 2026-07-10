@@ -1,6 +1,29 @@
 # Documentation
 
-This folder has two kinds of content, kept deliberately separate:
+This folder has three kinds of content, kept deliberately separate:
+
+## `api.md` — auto-generated API reference
+
+A single-file Markdown mirror of every public item's doc comment (structs,
+enums, fields, functions, module docs), generated from rustdoc's own JSON
+output — not scraped HTML — via
+[`rustdoc-md`](https://github.com/tqwewe/rustdoc-md). Regenerate it any time
+with:
+
+```bash
+python3 scripts/gen_api_docs.py outram-park-fork-coolprop
+```
+
+(needs a nightly toolchain — `rustup toolchain install nightly` — since
+rustdoc's JSON output is nightly-only; the script installs `rustdoc-md`
+itself if it isn't already on `PATH`.) It fully overwrites `api.md`, so hand
+edits there don't survive a regeneration — this file is a mirror of the doc
+comments, not a place to write prose. See `scripts/gen_api_docs.py`'s own
+docstring for why this uses the JSON pipeline instead of an HTML scrape (an
+earlier version of the script did scrape `cargo doc`'s HTML output with
+pandoc; it silently truncated large enums because rustdoc's HTML defers
+long variant lists to a JS-driven "Show N variants" widget, and it was
+replaced before ever being committed).
 
 ## `code_structure.md` — how the code is laid out
 
