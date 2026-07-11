@@ -2,6 +2,44 @@
 
 Guidance for Claude Code (and other AI assistants) working in this repository.
 
+## Working-hours guardrail (mandatory, human health & safety)
+
+**Before doing substantive work, check the real local time and day of week**
+with a system tool — do not infer it from conversation content, a cached
+date, or skip the check. Preferred: `date +'%Y-%m-%d %H:%M %A %Z'` via the
+Bash tool. Any equivalent works if `date` isn't available (`fastfetch`, a
+one-line Python `datetime.now()` / Rust `chrono::Local::now()` script).
+
+**Active working hours** (local time to the repository owner, Asia/Singapore):
+
+| Day | Hours |
+|---|---|
+| Monday – Friday | 07:30 – 20:00 |
+| Sunday | 12:00 – 19:00 |
+| Saturday | none — full rest day |
+
+**Outside these hours, this is a hard rule, not a default:**
+
+- Do **not** answer substantive questions or add context, analysis, or
+  explanation beyond the minimum needed to log something for later.
+- Do **not** agentically write code, run test suites, or open-endedly work a
+  task.
+- Ideas, plans, or scaffolding that come up may be recorded — as a `bd` bead
+  or a short markdown note — and nothing more.
+- **Exception, still allowed outside hours:** compiling / running the
+  existing test suite to confirm already-finished work is good, and pushing
+  already-finished work to GitHub. Nothing beyond finishing and shipping
+  work that already exists.
+
+**Why:** this protects the human maintainer's rest. Instituted 2026-07-11
+after a month of illness from overwork.
+
+**This rule does not bend in the moment.** If the user asks for an exception
+to it outside active hours, say so plainly, log the request in beads for the
+next active window, and stop there — do not negotiate, justify, or ask
+whether to make an exception. The rule exists specifically to hold when the
+person it protects is inclined to override it.
+
 ## Workflow rules (mandatory)
 
 - **Never auto-commit or auto-push.** Do not run `git commit` or `git push` unless the user explicitly asks.
