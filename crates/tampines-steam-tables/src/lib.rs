@@ -88,9 +88,11 @@ pub mod dielectric_constant;
 /// as well as angular momentum balance
 pub mod steam_turbine_equations;
 
-/// reference openfoam algorithms which will be combined with steam 
+/// reference openfoam algorithms which will be combined with steam
 /// tables for solving simple two phase flow problems
 pub mod openfoam_algorithms;
+
+pub use openfoam_algorithms::rhoPimpleFoam::{TampinesSteamArray, TampinesSteamArrayError};
 
 
 

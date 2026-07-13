@@ -204,10 +204,13 @@
 //// ************************************************************************* //
 
 use std::sync::Arc;
-use uom::si::f64::{Area, Length, Time};
+use uom::si::f64::{Angle, Area, Length, MassRate, Power, Pressure, ThermalConductance, ThermodynamicTemperature, Time};
 use uom::si::time::second;
 use crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh;
 use crate::openfoam_algorithms::openfoam_source::*;
+
+mod lateral_coupling;
+pub use lateral_coupling::TampinesSteamArrayError;
 
 // ── Boundary-condition helpers ──────────────────────────────────────────────────
 //
@@ -280,7 +283,7 @@ pub struct TampinesSteamArray {
     pub mesh: Arc<FvMesh>,
 
     // ── Time control ────────────────────────────────────────────────────────
-    /// Fixed time step Δt [s].
+    /// Fixed time step Δt \[s\].
     pub delta_t: Time,
     /// Number of PIMPLE outer correctors (≥ 1).
     pub n_outer_correctors: usize,
@@ -288,24 +291,59 @@ pub struct TampinesSteamArray {
     pub n_inner_correctors: usize,
 
     // ── Fields ──────────────────────────────────────────────────────────────
-    /// Velocity field [m/s].
+    /// Velocity field \[m/s\].
     pub u: VolVectorField,
-    /// Pressure field [Pa].
+    /// Pressure field \[Pa\].
     pub p: VolScalarField,
-    /// Density field [kg/m³].
+    /// Density field \[kg/m³\].
     pub rho: VolScalarField,
-    /// Temperature field [K].
+    /// Temperature field \[K\].
     pub t: VolScalarField,
-    /// Specific enthalpy [J/kg].
+    /// Specific enthalpy \[J/kg\].
     pub he: VolScalarField,
-    /// Dynamic viscosity μ [Pa·s].
+    /// Dynamic viscosity μ \[Pa·s\].
     pub mu: VolScalarField,
-    /// Effective thermal diffusivity αh = κ/Cp [kg/(m·s)].
+    /// Effective thermal diffusivity αh = κ/Cp \[kg/(m·s)\].
     pub alpha_h: VolScalarField,
-    /// Compressibility ψ = ∂ρ/∂p|_T = ρ/p [s²/m²].
+    /// Compressibility ψ = ∂ρ/∂p|_T = ρ/p \[s²/m²\].
     pub psi: VolScalarField,
-    /// Mass flux φ = ρ U·Sf [kg/s].
+    /// Mass flux φ = ρ U·Sf \[kg/s\].
     pub phi: SurfaceScalarField,
+
+    // ── Geometry / flow bookkeeping ─────────────────────────────────────────
+    // Mirrors a subset of `outram_park_fork_coolprop::OPCPFluidArray`'s
+    // interface (see `lateral_coupling.rs`), which in turn mirrors
+    // `tuas_boussinesq_solver::FluidArray` -- so all three backends are
+    // driveable through a comparable API.
+    /// Constant cross-sectional area \[m²\] (same value passed to [`Self::new`]).
+    pub xs_area: Area,
+    /// Wetted perimeter \[m\] (bookkeeping -- see [`Self::get_hydraulic_diameter`]).
+    pub wetted_perimeter: Length,
+    /// Incline angle from horizontal \[rad\] (bookkeeping only).
+    pub incline_angle: Angle,
+    /// Bulk mass flowrate \[kg/s\] (plain storage -- `step()` does not read
+    /// this; it is bookkeeping for a caller, same as `OPCPFluidArray`'s field).
+    pub mass_flowrate: MassRate,
+    /// Pressure loss \[Pa\] (plain storage, independent of `mass_flowrate`).
+    pub pressure_loss: Pressure,
+    /// Internal pressure source \[Pa\] (e.g. a simulated pump; plain storage).
+    pub internal_pressure_source: Pressure,
+
+    // ── Lateral coupling / heat source (see `lateral_coupling.rs`) ──────────
+    /// Per-registered-link neighbour temperature, one inner `Vec` per cell.
+    /// Registered via
+    /// [`Self::lateral_link_new_temperature_vector_avg_conductance`] and
+    /// cleared once per [`Self::step`] (see [`Self::clear_vectors`]).
+    pub lateral_adjacent_array_temperature_vector: Vec<Vec<ThermodynamicTemperature>>,
+    /// Parallel to `lateral_adjacent_array_temperature_vector`: per-cell
+    /// thermal conductance for the same link.
+    pub lateral_adjacent_array_conductance_vector: Vec<Vec<ThermalConductance>>,
+    /// Per-registered-source total power; distributed across cells by the
+    /// matching entry in `q_fraction_vector`.
+    pub q_vector: Vec<Power>,
+    /// Parallel to `q_vector`: per-cell distribution fraction for the same
+    /// source (need not sum to 1).
+    pub q_fraction_vector: Vec<Vec<f64>>,
 }
 
 impl TampinesSteamArray {
@@ -362,6 +400,16 @@ impl TampinesSteamArray {
             alpha_h,
             psi,
             phi,
+            xs_area,
+            wetted_perimeter: Length::new::<uom::si::length::meter>(0.0),
+            incline_angle: Angle::new::<uom::si::angle::radian>(0.0),
+            mass_flowrate: MassRate::new::<uom::si::mass_rate::kilogram_per_second>(0.0),
+            pressure_loss: Pressure::new::<uom::si::pressure::pascal>(0.0),
+            internal_pressure_source: Pressure::new::<uom::si::pressure::pascal>(0.0),
+            lateral_adjacent_array_temperature_vector: Vec::new(),
+            lateral_adjacent_array_conductance_vector: Vec::new(),
+            q_vector: Vec::new(),
+            q_fraction_vector: Vec::new(),
         })
     }
 
@@ -552,11 +600,27 @@ impl TampinesSteamArray {
                     let v = mesh.cell_volumes[c];
                     e_eqn.source[c] -= v * conv_sl[c]; // explicit convection
                     e_eqn.source[c] += v * dpdt_sl[c]; // dp/dt source
+
+                    // Lateral (radial) thermal coupling: Q = h·(T_neighbour − T_cell)
+                    // per registered link, plus any registered volumetric heat source.
+                    let t_c = self.t.internal[c];
+                    for (link, temps) in self.lateral_adjacent_array_conductance_vector
+                        .iter()
+                        .zip(self.lateral_adjacent_array_temperature_vector.iter())
+                    {
+                        let h = link[c].get::<uom::si::thermal_conductance::watt_per_kelvin>();
+                        let t_n = temps[c].get::<uom::si::thermodynamic_temperature::kelvin>();
+                        e_eqn.source[c] += h * (t_n - t_c);
+                    }
+                    e_eqn.source[c] += self
+                        .cell_heat_source_power(c)
+                        .get::<uom::si::power::watt>();
                 }
             }
             let (he_new, _) = e_eqn.solve("he", settings);
             self.he = he_new;
         }
+        self.clear_vectors();
     }
 
     /// Advance `n_steps` time steps of size `delta_t`.
