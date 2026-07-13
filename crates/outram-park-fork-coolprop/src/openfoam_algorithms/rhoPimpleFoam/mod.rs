@@ -208,6 +208,10 @@ use uom::si::f64::{
     Angle, Area, Length, MassRate, Power, Pressure, Time, ThermalConductance, ThermodynamicTemperature,
 };
 use uom::si::time::second;
+use uom::si::length::meter;
+use uom::si::angle::radian;
+use uom::si::mass_rate::kilogram_per_second;
+use uom::si::pressure::pascal;
 use crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh;
 use crate::openfoam_algorithms::openfoam_source::*;
 use crate::fluid::Fluid;
@@ -684,11 +688,27 @@ impl OPCPFluidArray {
                     let v = mesh.cell_volumes[c];
                     e_eqn.source[c] -= v * conv_sl[c]; // explicit convection
                     e_eqn.source[c] += v * dpdt_sl[c]; // dp/dt source
+
+                    // Lateral (radial) thermal coupling: Q = h·(T_neighbour − T_cell)
+                    // per registered link, plus any registered volumetric heat source.
+                    let t_c = self.t.internal[c];
+                    for (link, temps) in self.lateral_adjacent_array_conductance_vector
+                        .iter()
+                        .zip(self.lateral_adjacent_array_temperature_vector.iter())
+                    {
+                        let h = link[c].get::<uom::si::thermal_conductance::watt_per_kelvin>();
+                        let t_n = temps[c].get::<uom::si::thermodynamic_temperature::kelvin>();
+                        e_eqn.source[c] += h * (t_n - t_c);
+                    }
+                    e_eqn.source[c] += self
+                        .cell_heat_source_power(c)
+                        .get::<uom::si::power::watt>();
                 }
             }
             let (he_new, _) = e_eqn.solve("he", settings);
             self.he = he_new;
         }
+        self.clear_vectors();
     }
 
     /// Advance `n_steps` time steps of size `delta_t`.
