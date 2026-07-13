@@ -15,6 +15,7 @@ members = [
     "crates/nee_soon",
     "crates/outram-park-fork-coolprop",
     "crates/tampines",
+    "crates/outram-park-digital-twin-gui",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
@@ -107,6 +108,9 @@ outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version
 # outram-park-fork-coolprop, tampines-steam-tables, outram-foam-basic-lib and
 # chem-eng-real-time-process-control-simulator (scaffold).
 tampines            = { path = "crates/tampines",            version = "0.1.0" }
+# Reusable visualization framework — visual process objects whose rendering
+# derives directly from tampines/nee_soon physics state (scaffold).
+outram-park-digital-twin-gui = { path = "crates/outram-park-digital-twin-gui", version = "0.1.0" }
 
 # Optimize all dependencies even in debug builds — the thermal-hydraulic
 # solvers are expensive, so unoptimized deps make tests painfully slow.

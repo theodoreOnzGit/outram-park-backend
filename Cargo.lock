@@ -3469,6 +3469,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "outram-park-digital-twin-gui"
+version = "0.1.0"
+dependencies = [
+ "chem-eng-real-time-process-control-simulator",
+ "eframe",
+ "egui",
+ "egui_extras",
+ "egui_plot",
+ "nee_soon",
+ "tampines",
+ "uom 0.38.0",
+]
+
+[[package]]
 name = "outram-park-fork-coolprop"
 version = "0.0.1"
 dependencies = [
