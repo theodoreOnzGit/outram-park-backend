@@ -39,3 +39,11 @@ are available under GPLv3. The source files in Rust directly translte
 these source files. To respect OpenFOAM copyright, the PRKE files here 
 are also released under GPLv3.
 
+**The dense LU matrix solver (`src/matrix.rs`) is also from OpenFOAM** —
+specifically, it is an inlined copy of `outram-foam-basic-lib`'s
+`matrix::SquareMatrix` (itself an OpenFOAM translation), copied in directly
+rather than kept as a path dependency so that the inter-crate dependency
+graph stays acyclic (a future `tampines`/`nee_soon` composition can pull in
+`teh-o-prke` and `tuas_boussinesq_solver` together without a dependency
+loop). See the header of `src/matrix.rs` for the full attribution.
+

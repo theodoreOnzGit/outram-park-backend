@@ -4,7 +4,11 @@
 > algorithms.** It is not the official OpenMC software and is not
 > affiliated with, endorsed by, or sanctioned by MIT or Argonne National
 > Laboratory. See [`TRADEMARKS.md`](./TRADEMARKS.md) for the full
-> attribution and non-affiliation notice.
+> attribution and non-affiliation notice. Translated from
+> [`openmc-dev/openmc`](https://github.com/openmc-dev/openmc), `develop`
+> branch — no commit is pinned (translation was done by reading the
+> C++/Python source directly, not from an ongoing codegen-from-clone
+> pipeline); see `upstream_source/README.md` for the full provenance record.
 
 Pure-Rust port of selected [OpenMC](https://openmc.org) Monte Carlo
 neutron-transport kernels — RNG, geometry/CSG, particle tracking,

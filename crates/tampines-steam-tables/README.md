@@ -3,8 +3,18 @@ In house steam tables for the Thermo-hydraulic Artificial intelligence
 Multi-Phase INtegrated Emulator System (TAMPINES) solver.
 
 
-This relies heavily upon the [Rust-steam](https://github.com/marciorvneto/rusteam)
-library licensed using the MIT license. 
+**This is an independent OUTRAM PARK implementation, not the original
+rust-steam project** — it draws from (not a 1:1 port of) the
+[Rust-steam](https://github.com/marciorvneto/rusteam) library, `main` branch
+(MIT-licensed; no commit is pinned — the relevant code was incorporated
+directly early in this crate's history rather than via an ongoing
+codegen-from-clone pipeline; see `upstream_source/README.md` for the full
+provenance record).
+
+**The matrix/LDU solvers (`src/openfoam_algorithms/openfoam_source/matrix/`,
+`.../ldu_matrix/`) are separately from OpenFOAM**, not rust-steam — see the
+"OpenFOAM algorithms inside TAMPINES" section below for the full picture of
+what's vendored from where and why.
 
 However, [Rust-steam](https://github.com/marciorvneto/rusteam) is incomplete 
 for now. Moreover, it does not use the units of measure library. This 

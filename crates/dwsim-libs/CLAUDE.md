@@ -5,8 +5,9 @@ Pure-Rust port of DWSIM thermal-hydraulics and thermodynamics kernels.
 The reference C# source lives at:
 `/home/teddy0/Documents/research/dwsim/`
 
-**Upstream:** DWSIM is LGPL-3.0.  This Rust port is GPL-3.0-only per the
-workspace default.
+**Upstream:** DWSIM is GPL-3.0 (confirmed against the upstream repository,
+2026-07-13 — an earlier version of this note incorrectly said LGPL-3.0).
+This Rust port is GPL-3.0-only per the workspace default.
 
 **Language note:** DWSIM is written in C# (primary) and VB.NET (legacy modules).
 Files live in a Visual Studio solution (`DWSIM.sln`), targeting .NET 8 on Linux

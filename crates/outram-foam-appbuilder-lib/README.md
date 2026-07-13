@@ -5,7 +5,11 @@
 > affiliated with, endorsed by, or sanctioned by OpenCFD Ltd. or the ESI
 > Group. OpenFOAM® is a registered trademark of OpenCFD Limited — see
 > [`TRADEMARKS.md`](./TRADEMARKS.md) for the full attribution and
-> non-affiliation notice.
+> non-affiliation notice. Translated from
+> [`OpenFOAM/OpenFOAM-dev`](https://github.com/OpenFOAM/OpenFOAM-dev),
+> `master` branch — no commit is pinned (translation was done by reading the
+> C++ source directly, not from an ongoing codegen-from-clone pipeline); see
+> `upstream_source/README.md` for the full provenance record.
 
 Solver application layer for the **OUTRAM PARK** OpenFOAM-in-Rust stack.
 Provides solver time loops, polyMesh I/O, case file parsing, and field output.
