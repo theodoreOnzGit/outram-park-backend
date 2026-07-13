@@ -48,5 +48,6 @@
 
 #![forbid(unsafe_code)]
 
+pub mod animation;
 pub mod color_maps;
 pub mod components;
