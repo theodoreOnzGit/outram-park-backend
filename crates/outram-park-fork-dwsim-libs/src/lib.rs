@@ -1,2 +1,21 @@
-// outram-park-fork-dwsim-libs: pure-Rust port of DWSIM thermal-hydraulics and thermodynamics kernels.
-// See CLAUDE.md for scope, porting order, and C# source reference map.
+//! # outram-park-fork-dwsim-libs
+//!
+//! Pure-Rust translation of selected [DWSIM](https://dwsim.org) chemical-
+//! process equipment models and correlations -- an independent OUTRAM PARK
+//! fork, not the official DWSIM software (see `TRADEMARKS.md`). See
+//! `CLAUDE.md` for build/test instructions and `docs/port-scope.md` for the
+//! prioritised porting scope, C# source map, and porting order.
+//!
+//! ## What belongs here / what does not
+//!
+//! - **Belongs here:** equipment-model correlations translated from DWSIM's
+//!   `UnitOperations` (pipe pressure drop, valve sizing, heat-exchanger
+//!   rating, pump/expander thermodynamics) with `uom`-typed public APIs.
+//! - **Does NOT belong here:** DWSIM's GUI, XML/JSON serialization,
+//!   property-grid reflection, or flowsheet-solver plumbing -- none of that
+//!   is physics, and none of it is ported (see each module's doc comment for
+//!   what was deliberately excluded from its source file).
+
+#![forbid(unsafe_code)]
+
+pub mod pipe;
