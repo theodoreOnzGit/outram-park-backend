@@ -42,7 +42,10 @@ an OpenMC calculation.
 
 ## License and provenance — please read
 
-This crate is a **derivative work** (a translation) of NJOY2016 v2016.79.
+This crate is a **derivative work** (a translation) of NJOY2016 v2016.79
+([`njoy/NJOY2016`](https://github.com/njoy/NJOY2016), commit
+`ac5adf5f33d893e42f2eed7fb286b0d51c7580da` — see `upstream_source/README.md`
+for the full provenance record).
 
 - **Upstream license:** NJOY2016 is under a *modified BSD 3-Clause* license (the
   LANL/DOE variant), preserved verbatim in [`LICENSE.njoy`](LICENSE.njoy). Its

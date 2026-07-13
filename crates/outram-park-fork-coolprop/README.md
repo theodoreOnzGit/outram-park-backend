@@ -12,7 +12,10 @@ A pure-Rust fork/translation of **[CoolProp](https://github.com/CoolProp/CoolPro
 state — built to OUTRAM PARK's design rules.
 
 This is an **independent fork**, not the CoolProp project and not endorsed by
-it (see `TRADEMARKS.md`).
+it (see `TRADEMARKS.md`). Ported from
+[`CoolProp/CoolProp`](https://github.com/CoolProp/CoolProp), `master` branch,
+commit `0e67fe74b30a2fe9526af9bc64ea026a96f56ebf` (2026-07-05) — see
+`upstream_source/README.md` for the full provenance record.
 
 ## What's different from CoolProp
 
