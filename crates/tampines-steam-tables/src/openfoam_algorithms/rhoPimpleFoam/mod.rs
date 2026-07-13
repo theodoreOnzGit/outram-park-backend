@@ -354,10 +354,11 @@ impl TampinesSteamArray {
     /// `"right"`) are generic; set field boundary conditions afterwards to impose
     /// inlets/outlets.
     ///
-    /// Fields are initialised to standard sea-level-air-like placeholders
-    /// (p = 1 bar, T = 300 K, ρ = 1 kg/m³, ψ = 1e-5 s²/m²); overwrite them after
-    /// construction for a specific case (e.g. saturated water/steam from the
-    /// IAPWS-IF97 tables).
+    /// Fields are initialised to an IAPWS-IF97-consistent liquid-water
+    /// reference state (p = 1 bar, T = 300 K; ρ, `he`, ψ read from a real
+    /// `(T, p)` flash, see [`Self::correct_thermo`]) -- overwrite them after
+    /// construction (e.g. via [`Self::set_temperature_vector`]) for a
+    /// specific case.
     ///
     /// ## Parameters
     /// - `length`          — total pipe length \[m\]
@@ -376,14 +377,26 @@ impl TampinesSteamArray {
     ) -> Result<Self, MeshError> {
         let mesh = Arc::new(create_one_d_mesh(length, xs_area, number_of_cells)?);
 
+        // EOS-consistent reference state at (1 bar, 300 K) -- liquid water,
+        // safely within IAPWS-IF97 Region 1's valid range (matches the
+        // pattern `outram_park_fork_coolprop::OPCPFluidArray::new` uses for
+        // its own initial condition).
+        let p0 = uom::si::f64::Pressure::new::<uom::si::pressure::pascal>(1.0e5);
+        let t0 = uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(300.0);
+        let he0 = crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase(t0, p0);
+        let v0 = crate::interfaces::functional_programming::pt_flash_eqm::v_tp_eqm_single_phase(t0, p0);
+        let rho0 = 1.0 / v0.get::<uom::si::specific_volume::cubic_meter_per_kilogram>();
+        let kappa_t0 = crate::interfaces::functional_programming::pt_flash_eqm::kappa_t_tp_eqm(t0, p0).value;
+        let psi0 = rho0 * kappa_t0;
+
         let u       = VolVectorField::zero("U", mesh.clone());
-        let p       = VolScalarField::uniform("p", mesh.clone(), 1.0e5);
-        let rho     = VolScalarField::uniform("rho", mesh.clone(), 1.0);
-        let t       = VolScalarField::uniform("T", mesh.clone(), 300.0);
-        let he      = VolScalarField::zeros("he", mesh.clone());
+        let p       = VolScalarField::uniform("p", mesh.clone(), p0.get::<uom::si::pressure::pascal>());
+        let rho     = VolScalarField::uniform("rho", mesh.clone(), rho0);
+        let t       = VolScalarField::uniform("T", mesh.clone(), t0.get::<uom::si::thermodynamic_temperature::kelvin>());
+        let he      = VolScalarField::uniform("he", mesh.clone(), he0.get::<uom::si::available_energy::joule_per_kilogram>());
         let mu      = VolScalarField::uniform("mu", mesh.clone(), 1.8e-5);
         let alpha_h = VolScalarField::uniform("alphaEff", mesh.clone(), 2.5e-5);
-        let psi     = VolScalarField::uniform("psi", mesh.clone(), 1.0e-5);
+        let psi     = VolScalarField::uniform("psi", mesh.clone(), psi0);
         let phi     = SurfaceScalarField::zeros("phi", mesh.clone());
 
         Ok(Self {
@@ -413,20 +426,50 @@ impl TampinesSteamArray {
         })
     }
 
-    /// Update the thermodynamic state from the current pressure.
+    /// Update the thermodynamic and transport state from the current
+    /// `(p, he)` per cell, via a real IAPWS-IF97 `(p, h)` flash.
     ///
-    /// **Extension point for the TAMPINES steam tables.** The current
-    /// implementation is the same placeholder EOS as `RhoPimpleFoam` — the ideal
-    /// linearisation ρ = ψ·p (clamped to a small floor). Replace the body with an
-    /// IAPWS-IF97 flash: given (p, h) per cell, look up ρ, T, μ, αh and the local
-    /// compressibility ψ = ∂ρ/∂p|_T, writing them back into the respective
-    /// fields. See `rhoEqn.rs` (continuity) and `EEqn.rs` (energy) for the
-    /// OpenFOAM reference each field maps to.
+    /// Per cell: `T = t_ph_eqm(p,h)`, `ρ = 1/v_ph_eqm(p,h)`, the local
+    /// compressibility `ψ = ∂ρ/∂p|_T = ρ·κ_T` (`κ_T` from `kappa_t_ph_eqm`),
+    /// dynamic viscosity `μ = mu_ph_eqm(p,h)`, and the OpenFOAM-convention
+    /// effective thermal diffusivity `αh = κ/Cp` (`lambda_ph_eqm` over
+    /// `cp_ph_eqm`, **not** divided by ρ -- matches `alphaEff` as used
+    /// directly in `step()`'s `∇·(αh∇h)` term, see `EEqn.rs`).
+    ///
+    /// This replaces the crate's former placeholder EOS (`ρ = ψ·p`, the same
+    /// ideal linearisation `RhoPimpleFoam`'s own reference solver uses before
+    /// a real property package is wired in). Called once per PISO inner
+    /// iteration in [`Self::step`], so -- like `he` itself -- the fields this
+    /// writes lag the just-solved `he` by one outer-corrector iteration
+    /// (mirrors the same lag documented on
+    /// `outram_park_fork_coolprop::OPCPFluidArray::correct_thermo`).
     pub fn correct_thermo(&mut self) {
-        let psi_sl = self.psi.internal.as_slice();
-        let p_sl   = self.p.internal.as_slice();
+        use crate::interfaces::functional_programming::ph_flash_eqm::{
+            cp_ph_eqm, kappa_t_ph_eqm, lambda_ph_eqm, t_ph_eqm, v_ph_eqm,
+        };
+        use crate::dynamic_viscosity::mu_ph_eqm;
+        use uom::si::available_energy::joule_per_kilogram;
+        use uom::si::pressure::pascal;
+        use uom::si::specific_volume::cubic_meter_per_kilogram;
+        use uom::si::thermodynamic_temperature::kelvin;
+
         for c in 0..self.mesh.n_cells {
-            self.rho.internal[c] = (psi_sl[c] * p_sl[c]).max(1e-4);
+            let p_c = Pressure::new::<pascal>(self.p.internal[c]);
+            let h_c = uom::si::f64::AvailableEnergy::new::<joule_per_kilogram>(self.he.internal[c]);
+
+            let t = t_ph_eqm(p_c, h_c);
+            let v = v_ph_eqm(p_c, h_c);
+            let rho = 1.0 / v.get::<cubic_meter_per_kilogram>();
+            let kappa_t = kappa_t_ph_eqm(p_c, h_c).value; // raw Pa^-1 (InversePressure has no named unit)
+            let mu = mu_ph_eqm(p_c, h_c);
+            let lambda = lambda_ph_eqm(p_c, h_c);
+            let cp = cp_ph_eqm(p_c, h_c);
+
+            self.rho.internal[c] = rho.max(1e-4);
+            self.t.internal[c] = t.get::<kelvin>();
+            self.psi.internal[c] = (rho * kappa_t).max(1e-12);
+            self.mu.internal[c] = mu.value;
+            self.alpha_h.internal[c] = lambda.value / cp.value;
         }
     }
 
@@ -639,9 +682,10 @@ mod tests {
     use uom::si::time::second;
 
     /// The 1-D pipe array constructs from geometry alone and stays finite over a
-    /// handful of steps with the placeholder EOS. This is the scaffold smoke test:
-    /// it exercises mesh construction + the full ρ/p/U/h coupling, not physical
-    /// accuracy (which arrives with the steam-table `correct_thermo`).
+    /// handful of steps, using the real IAPWS-IF97 `(p, h)` flash in
+    /// `correct_thermo`. This is the scaffold smoke test: it exercises mesh
+    /// construction + the full ρ/p/U/h coupling, not a specific accuracy claim
+    /// (see `correct_thermo`'s own tests for that).
     #[test]
     fn one_d_array_constructs_and_steps() {
         let mut array = TampinesSteamArray::new(
@@ -672,5 +716,58 @@ mod tests {
             Time::new::<second>(1e-4),
         );
         assert!(matches!(err, Err(MeshError::NonPositiveCellCount { got: 0 })));
+    }
+
+    #[test]
+    fn new_initializes_liquid_water_reference_state_consistently() {
+        // (1 bar, 300 K) should be ordinary liquid water: dense, incompressible.
+        let array = TampinesSteamArray::new(
+            Length::new::<meter>(1.0),
+            Area::new::<square_meter>(0.01),
+            3,
+            Time::new::<second>(1e-4),
+        )
+        .unwrap();
+        for c in 0..3 {
+            assert!((array.t.internal[c] - 300.0).abs() < 1e-6);
+            assert!(
+                array.rho.internal[c] > 900.0 && array.rho.internal[c] < 1100.0,
+                "rho={} should be liquid-water-like",
+                array.rho.internal[c]
+            );
+            assert!(array.psi.internal[c] > 0.0);
+        }
+    }
+
+    #[test]
+    fn correct_thermo_matches_independent_reference_flash() {
+        use crate::interfaces::functional_programming::ph_flash_eqm::{lambda_ph_eqm, t_ph_eqm};
+
+        let mut array = TampinesSteamArray::new(
+            Length::new::<meter>(1.0),
+            Area::new::<square_meter>(0.01),
+            1,
+            Time::new::<second>(1e-4),
+        )
+        .unwrap();
+        // Push to a different (p, h) point, then re-derive T/rho/etc. via
+        // correct_thermo and cross-check against a freshly (independently)
+        // called reference flash at the same (p, h) -- not the port's own
+        // internal state.
+        array.p.internal[0] = 2.0e5;
+        array.he.internal[0] = 5.0e5;
+        array.correct_thermo();
+
+        let p = Pressure::new::<uom::si::pressure::pascal>(2.0e5);
+        let h = uom::si::f64::AvailableEnergy::new::<uom::si::available_energy::joule_per_kilogram>(5.0e5);
+        let expected_t = t_ph_eqm(p, h).get::<uom::si::thermodynamic_temperature::kelvin>();
+        let expected_lambda = lambda_ph_eqm(p, h).value;
+        let expected_alpha_h = expected_lambda
+            / crate::interfaces::functional_programming::ph_flash_eqm::cp_ph_eqm(p, h).value;
+
+        assert!((array.t.internal[0] - expected_t).abs() < 1e-6);
+        assert!((array.alpha_h.internal[0] - expected_alpha_h).abs() < 1e-9);
+        assert!(array.rho.internal[0] > 0.0);
+        assert!(array.mu.internal[0] > 0.0);
     }
 }
