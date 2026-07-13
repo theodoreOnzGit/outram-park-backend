@@ -40,6 +40,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod components;
 pub mod compressible;
 pub mod critical_flow;
 pub mod error;
