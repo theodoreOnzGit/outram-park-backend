@@ -92,6 +92,16 @@ This workspace tracks issues and per-crate roadmap progress with **beads**
   that does **not** apply here; the memory workflow is unchanged. When in
   doubt: a thing to *do or finish* → bead; a thing to *remember about how the
   user works or a settled fact* → memory.
+- **After a plan is approved (exiting plan mode), convert it into beads
+  before writing any code.** One epic per new crate the plan introduces (or
+  a child under the relevant crate's existing epic, for plans scoped to one
+  crate); one child bead per part/module/deliverable the plan names, with
+  `bd dep add` wiring the real ordering constraints between them (e.g. "this
+  module wraps a type from that other bead's work" → a dependency edge, not
+  just prose). Do this even if the plan is also saved as a markdown file —
+  the markdown is for human reading, beads is what `bd ready`/`bd show`
+  make queryable across a session boundary. This is a standing rule, not a
+  one-off — apply it to every future plan-mode session in this workspace.
 
 ## README / Markdown format (mandatory)
 

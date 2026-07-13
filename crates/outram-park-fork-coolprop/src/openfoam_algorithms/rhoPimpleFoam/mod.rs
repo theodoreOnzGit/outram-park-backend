@@ -204,12 +204,17 @@
 //// ************************************************************************* //
 
 use std::sync::Arc;
-use uom::si::f64::{Area, Length, Time};
+use uom::si::f64::{
+    Angle, Area, Length, MassRate, Power, Pressure, Time, ThermalConductance, ThermodynamicTemperature,
+};
 use uom::si::time::second;
 use crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh;
 use crate::openfoam_algorithms::openfoam_source::*;
 use crate::fluid::Fluid;
 use crate::flash;
+
+mod lateral_coupling;
+pub use lateral_coupling::OPCPFluidArrayError;
 
 // ── Boundary-condition helpers ──────────────────────────────────────────────────
 //
@@ -316,6 +321,52 @@ pub struct OPCPFluidArray {
     pub psi: VolScalarField,
     /// Mass flux φ = ρ U·Sf [kg/s].
     pub phi: SurfaceScalarField,
+
+    // ── Pipe geometry (bookkeeping only — not read by `step()`) ──────────────
+    /// Constant cross-sectional area \[m²\], duplicating the value baked into
+    /// the mesh at construction — kept explicit so [`Self::get_hydraulic_diameter`]
+    /// doesn't need to reach into mesh internals.
+    pub xs_area: Area,
+    /// Wetted perimeter \[m\], used with `xs_area` for the hydraulic diameter
+    /// `D_h = 4·xs_area/wetted_perimeter` (see [`Self::get_hydraulic_diameter`]).
+    /// Defaults to zero at construction — set it before relying on that method.
+    pub wetted_perimeter: Length,
+    /// Incline angle from horizontal \[rad\] — bookkeeping for a future
+    /// hydrostatic-pressure term in a pipe-network layer built on top of this
+    /// array. Not read by `step()`.
+    pub incline_angle: Angle,
+
+    // ── Flow bookkeeping (independent of the PIMPLE `u`/`phi` solve) ─────────
+    /// Bulk mass flowrate \[kg/s\] — plain storage for a caller-driven pipe-
+    /// network layer. **Not** read by `step()`: this solver computes its own
+    /// per-cell mass flux `phi` from the momentum/pressure equations, so this
+    /// field never feeds back into the PIMPLE loop.
+    pub mass_flowrate: MassRate,
+    /// Pressure loss \[Pa\] — plain storage, independent of `mass_flowrate`
+    /// (no Reynolds/Bejan recomputation between the two; see
+    /// [`Self::set_mass_flowrate`]).
+    pub pressure_loss: Pressure,
+    /// Internal pressure source \[Pa\] (e.g. a simulated pump) — plain storage.
+    pub internal_pressure_source: Pressure,
+
+    // ── Lateral (radial) thermal coupling ─────────────────────────────────────
+    /// One entry per laterally-connected array/solid; each inner `Vec` has one
+    /// temperature per mesh cell (length `mesh.n_cells`). Populated by
+    /// [`Self::lateral_link_new_temperature_vector_avg_conductance`], consumed
+    /// and cleared once per [`Self::step`] (see [`Self::clear_vectors`]).
+    pub lateral_adjacent_array_temperature_vector: Vec<Vec<ThermodynamicTemperature>>,
+    /// Parallel to `lateral_adjacent_array_temperature_vector`: per-cell
+    /// thermal conductance \[W/K\] to each laterally-connected array.
+    pub lateral_adjacent_array_conductance_vector: Vec<Vec<ThermalConductance>>,
+
+    // ── Volumetric heat source ─────────────────────────────────────────────────
+    /// One entry per registered heat source; total power `q_vector[i]` is
+    /// distributed across cells by `q_fraction_vector[i]` (see
+    /// [`Self::lateral_link_new_power_vector`]).
+    pub q_vector: Vec<Power>,
+    /// Parallel to `q_vector`: per-cell distribution fraction (length
+    /// `mesh.n_cells`, need not sum to 1 — mirrors TUAS's `q_fraction_vector`).
+    pub q_fraction_vector: Vec<Vec<f64>>,
 }
 
 impl OPCPFluidArray {
@@ -390,6 +441,16 @@ impl OPCPFluidArray {
             alpha_h,
             psi,
             phi,
+            xs_area,
+            wetted_perimeter: Length::new::<meter>(0.0),
+            incline_angle: Angle::new::<radian>(0.0),
+            mass_flowrate: MassRate::new::<kilogram_per_second>(0.0),
+            pressure_loss: Pressure::new::<pascal>(0.0),
+            internal_pressure_source: Pressure::new::<pascal>(0.0),
+            lateral_adjacent_array_temperature_vector: Vec::new(),
+            lateral_adjacent_array_conductance_vector: Vec::new(),
+            q_vector: Vec::new(),
+            q_fraction_vector: Vec::new(),
         })
     }
 
