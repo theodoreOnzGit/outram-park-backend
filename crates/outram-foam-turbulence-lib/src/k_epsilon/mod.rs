@@ -39,11 +39,17 @@ pub struct KEpsilon {
     pub epsilon: VolScalarField,
     /// Turbulent kinematic viscosity ν_t = Cμ k²/ε [m²/s]
     pub nu_t: VolScalarField,
-    // Model coefficients
+    // Model coefficients -- not yet read (correct() is a todo! stub); silence
+    // dead_code until the k/epsilon transport equations are implemented.
+    #[allow(dead_code)]
     c_mu:    f64,  // 0.09
+    #[allow(dead_code)]
     c1_eps:  f64,  // 1.44
+    #[allow(dead_code)]
     c2_eps:  f64,  // 1.92
+    #[allow(dead_code)]
     sigma_k: f64,  // 1.0
+    #[allow(dead_code)]
     sigma_e: f64,  // 1.3
 }
 
@@ -70,11 +76,11 @@ impl TurbulenceModel for KEpsilon {
 
     fn nu_t(&self) -> &VolScalarField { &self.nu_t }
 
-    fn alpha_eff(&self, alpha: &VolScalarField) -> VolScalarField {
+    fn alpha_eff(&self, _alpha: &VolScalarField) -> VolScalarField {
         todo!("KEpsilon::alpha_eff — alpha + nu_t/Prt")
     }
 
-    fn mu_eff_field(&self, mu: &VolScalarField) -> VolScalarField {
+    fn mu_eff_field(&self, _mu: &VolScalarField) -> VolScalarField {
         todo!("KEpsilon::mu_eff_field — mu + rho*nu_t")
     }
 }

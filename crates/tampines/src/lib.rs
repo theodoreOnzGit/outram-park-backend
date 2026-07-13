@@ -39,6 +39,10 @@
 
 #![forbid(unsafe_code)]
 
+pub mod compressible;
 pub mod error;
+pub mod fluids;
+pub mod single_phase;
 
 pub use error::TampinesError;
+pub use fluids::TampinesFluid;

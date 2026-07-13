@@ -3,7 +3,7 @@ use uom::si::f64::*;
 use uom::si::ratio::ratio;
 use uom::ConstZero;
 
-use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::{TrisoCell, TrisoRegion};
+use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell;
 use crate::prelude::SingleNuclideSimulatorMC;
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::SingleParticleDiffusionSimulatorMC;
 

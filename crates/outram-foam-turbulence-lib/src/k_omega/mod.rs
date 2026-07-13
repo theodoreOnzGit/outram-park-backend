@@ -39,11 +39,18 @@ pub struct KOmega {
     pub omega: VolScalarField,
     /// Turbulent kinematic viscosity ν_t = k/ω [m²/s]
     pub nu_t: VolScalarField,
-    // Model coefficients (Wilcox 1988)
+    // Model coefficients (Wilcox 1988) -- not yet read (correct() is a todo!
+    // stub); silence dead_code until the k/omega transport equations are
+    // implemented.
+    #[allow(dead_code)]
     alpha:   f64,  // 5/9  ≈ 0.5556
+    #[allow(dead_code)]
     beta:    f64,  // 3/40 = 0.075
+    #[allow(dead_code)]
     beta_st: f64,  // 9/100 = 0.09  (= Cμ in k-ε)
+    #[allow(dead_code)]
     sigma_k: f64,  // 0.5
+    #[allow(dead_code)]
     sigma_w: f64,  // 0.5
 }
 
