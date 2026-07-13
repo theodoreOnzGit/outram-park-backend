@@ -249,6 +249,6 @@ solely the FHR simulator examples use it. The library is TUAS-free (the former
 `rhoPimpleFoam` equation scaffolds, whose logic already lives inline in
 `rhoPimpleFoam/mod.rs`).
 
-See **`docs/notes.md`** for the 2026-06 migration log, the planned removal of
-the vestigial `ndarray-linalg` dep, and the known `fhr_sim_v2` UI
-state-update bug.
+See **`docs/notes.md`** for the 2026-06 migration log and the planned removal
+of the vestigial `ndarray-linalg` dep. The former `fhr_sim_v2` UI state-update
+bug is resolved (see `docs/notes.md`).

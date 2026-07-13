@@ -1,0 +1,28 @@
+[package]
+name = "tampines"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "TAMPINES -- Thermal-hydraulic Artificial-intelligence Multi-Phase INtegrated Emulator System: the central OUTRAM PARK thermal-hydraulic framework (fluid flow, thermophysical properties, heat transfer, balance of plant, humid-air psychrometrics, multiphase TH)"
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Backend thermal-hydraulic / thermophysical-property crates this framework
+# composes. Wired now even though not every one has a consumer yet -- the
+# module surface is built out incrementally (see docs/notes.md or the epic
+# op-dt3 in beads for the live plan).
+tuas_boussinesq_solver.workspace = true
+outram-park-fork-coolprop.workspace = true
+tampines-steam-tables.workspace = true
+outram-foam-basic-lib.workspace = true
+chem-eng-real-time-process-control-simulator.workspace = true
+
+# Public API primitives -- dimensioned quantities and error types.
+uom.workspace = true
+thiserror.workspace = true
+
+# No GUI dependencies here (egui/eframe/egui_plot/egui_extras etc.) -- this is
+# a headless library per the workspace's Android-portability rule. GUI deps
+# belong only under [dev-dependencies] once examples/ lands (op-dt3.7/.8).

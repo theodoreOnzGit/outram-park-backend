@@ -14,6 +14,7 @@ members = [
     "crates/njoy-outram-park-fork",
     "crates/nee_soon",
     "crates/outram-park-fork-coolprop",
+    "crates/tampines",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
@@ -101,6 +102,11 @@ njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.
 # Coupling / integration layer — composes njoy-outram-park-fork, outram-mc-libs and
 # teh-o-prke behind one object-oriented facade (scaffold).
 nee_soon            = { path = "crates/nee_soon",            version = "0.1.0" }
+outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.0.1" }
+# Central thermal-hydraulic framework — composes tuas_boussinesq_solver,
+# outram-park-fork-coolprop, tampines-steam-tables, outram-foam-basic-lib and
+# chem-eng-real-time-process-control-simulator (scaffold).
+tampines            = { path = "crates/tampines",            version = "0.1.0" }
 
 # Optimize all dependencies even in debug builds — the thermal-hydraulic
 # solvers are expensive, so unoptimized deps make tests painfully slow.

@@ -4725,6 +4725,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tampines"
+version = "0.1.0"
+dependencies = [
+ "chem-eng-real-time-process-control-simulator",
+ "outram-foam-basic-lib",
+ "outram-park-fork-coolprop",
+ "tampines-steam-tables",
+ "thiserror 2.0.18",
+ "tuas_boussinesq_solver",
+ "uom 0.38.0",
+]
+
+[[package]]
 name = "tampines-steam-tables"
 version = "0.2.1"
 dependencies = [
