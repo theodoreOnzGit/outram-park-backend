@@ -120,8 +120,10 @@ pub type HaInput = (HumidAirParam, f64);
 /// `HAPropsSI(output, k1, v1, k2, v2, k3, v3)`.
 ///
 /// Humid air has three degrees of freedom, so exactly three inputs are
-/// required. Only `(T, p, {W|R|ψ_w})` triples are supported (see the module
-/// doc); `Entropy`, `TWetBulb`, `TDewPoint` are not implemented as outputs.
+/// required. Only `(T, p, {W|R|ψ_w})` triples are supported as *inputs* (see
+/// the module doc); `Entropy` is not implemented as an *output* at all,
+/// while `TWetBulb`/`TDewPoint` are supported as outputs but not yet as
+/// inputs.
 ///
 /// # Errors
 /// [`HumidAirError`] if the input triple or requested output is unsupported,
