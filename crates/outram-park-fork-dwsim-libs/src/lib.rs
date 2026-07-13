@@ -20,6 +20,7 @@
 
 pub mod expander;
 pub mod heat_exchanger;
+pub mod interpolation;
 pub mod pipe;
 pub mod pump;
 pub mod valve;

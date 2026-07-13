@@ -3482,6 +3482,7 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "ndarray",
+ "roots",
  "thiserror 2.0.18",
  "uom 0.38.0",
 ]

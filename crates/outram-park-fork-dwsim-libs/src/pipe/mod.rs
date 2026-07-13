@@ -4,11 +4,14 @@
 //! `FluidFlowCorrelations/{FlowPackageBaseClass,BeggsBrill,LockhartMartinelli}.vb`
 //! (see this crate's `docs/port-scope.md`). DWSIM's third correlation,
 //! Petalas-Aziz, only wraps an unshipped native DLL upstream and has no
-//! portable source -- not ported (see the workspace's `op-qo2.6` bead).
+//! portable source -- see [`petalas_aziz`]'s module doc for the literature
+//! review and why it is a documented stub, not a port.
 
 pub mod beggs_brill;
 pub mod friction_factor;
 pub mod lockhart_martinelli;
+pub mod petalas_aziz;
+pub mod transient;
 
 use beggs_brill::{beggs_brill_pressure_drop, BeggsBrillResult};
 use lockhart_martinelli::{lockhart_martinelli_pressure_drop, LockhartMartinelliResult};

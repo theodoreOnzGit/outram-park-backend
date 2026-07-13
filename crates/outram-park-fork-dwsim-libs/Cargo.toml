@@ -16,6 +16,7 @@ exclude = ["verification_and_validation/*.csv"]
 thiserror = { workspace = true }
 ndarray = { workspace = true }
 uom = { workspace = true }
+roots = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }
