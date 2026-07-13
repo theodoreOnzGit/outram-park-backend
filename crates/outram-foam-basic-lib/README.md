@@ -16,7 +16,7 @@ compressible and conjugate-heat-transfer CFD solvers.
 
 ```toml
 [dependencies]
-outram-foam-basic-lib = "0.1.4"
+outram-foam-basic-lib = "0.1.0"
 ```
 
 ```rust
