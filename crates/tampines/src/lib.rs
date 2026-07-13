@@ -19,6 +19,7 @@
 //! | IAPWS-IF97 steam/water properties | [`tampines_steam_tables`] | Steam-turbine and choked-flow equations |
 //! | Finite-volume building blocks | [`outram_foam_basic_lib`] | Tensor algebra, ODE/polynomial solvers, FV operators |
 //! | Process control | [`chem_eng_real_time_process_control_simulator`] | PID / transfer-function control loops |
+//! | Equipment-model correlations | [`outram_park_fork_dwsim_libs`] | Pipe/valve/heat-exchanger/expander/pump sizing & rating equations |
 //!
 //! ## What belongs here / what does not
 //!

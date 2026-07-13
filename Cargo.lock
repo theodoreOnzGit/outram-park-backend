@@ -4732,6 +4732,7 @@ dependencies = [
  "chem-eng-real-time-process-control-simulator",
  "outram-foam-basic-lib",
  "outram-park-fork-coolprop",
+ "outram-park-fork-dwsim-libs",
  "tampines-steam-tables",
  "thiserror 2.0.18",
  "tuas_boussinesq_solver",

@@ -50,21 +50,28 @@ Documented base units:
 | Thermal conductivity | W/(m·K) |
 | Molar flow | mol/s |
 
-### Trait hierarchy mirrors DWSIM interfaces
+### Dispatch: enums, not trait objects (corrected 2026-07-13)
+An earlier draft of this note sketched `PropertyPackage`/`FlashAlgorithm` as
+`dyn Trait` interfaces (mirroring DWSIM's own OO interface hierarchy). That
+violates the workspace's mandatory "no trait objects" rule (root `CLAUDE.md`,
+"Rust design rules") -- if/when flash algorithms or property packages are
+ported here (currently deferred, see `docs/port-scope.md`), dispatch must use
+an enum instead, e.g.:
 ```rust
 pub trait PropertyPackage {
     fn flash_pt(&self, z: &[f64], p: f64, t: f64) -> FlashResult;
-    fn enthalpy(&self, z: &[f64], p: f64, t: f64, phase: Phase) -> f64;
-    fn entropy(&self, z: &[f64], p: f64, t: f64, phase: Phase) -> f64;
-    fn density(&self, z: &[f64], p: f64, t: f64, phase: Phase) -> f64;
-    // ...
+    // ... (trait still useful as a compiler-enforced contract per model)
 }
 
-pub trait FlashAlgorithm {
-    fn flash_pt(
-        &self,
-        pkg: &dyn PropertyPackage,
-        z: &[f64], p: f64, t: f64,
-    ) -> FlashResult;
+pub enum PropertyPackageModel {
+    Ideal(IdealPropertyPackage),
+    PengRobinson(PengRobinsonPropertyPackage),
+    Srk(SrkPropertyPackage),
+    // ...
 }
+// impl PropertyPackage for PropertyPackageModel by match-dispatching to
+// the wrapped struct's own impl, not `&dyn PropertyPackage`.
 ```
+The equipment-model correlations already ported (`pipe`, `valve`,
+`heat_exchanger`, `expander`, `pump`) follow this: e.g. `pipe::PipeFlowCorrelation`
+and `pump::modes::PumpSpecification` are enums, not trait objects.

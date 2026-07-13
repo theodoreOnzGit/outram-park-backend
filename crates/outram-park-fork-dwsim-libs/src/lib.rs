@@ -18,4 +18,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod expander;
+pub mod heat_exchanger;
 pub mod pipe;
+pub mod pump;
+pub mod valve;

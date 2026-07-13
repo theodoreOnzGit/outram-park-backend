@@ -18,6 +18,9 @@ outram-park-fork-coolprop.workspace = true
 tampines-steam-tables.workspace = true
 outram-foam-basic-lib.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
+# DWSIM-derived equipment-model correlations (pipe/valve/heat-exchanger/
+# expander/pump) for tampines::components (op-dt3.4) to build on.
+outram-park-fork-dwsim-libs.workspace = true
 
 # Public API primitives -- dimensioned quantities and error types.
 uom.workspace = true
