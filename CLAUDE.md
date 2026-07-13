@@ -102,6 +102,16 @@ specifically, not just human contributors:
   or dataset name, licence/access terms, URL/DOI, date accessed, and any
   processing/digitization steps and assumptions — typically in a
   `References.md` alongside the example, or the relevant validation report.
+- **Preserve GPLv3 compatibility and provenance headers.** Any new dependency
+  or ported code must stay GPLv3-compatible; don't introduce proprietary code
+  or code whose licence you haven't checked. Keep the attribution header
+  block (upstream project, source file, version/commit, copyright, licence)
+  on any file that ports from an upstream project — don't strip it during
+  refactors, and don't remove or water down `RESPONSIBLE_USE.md`/
+  `DATA_POLICY.md`/the other compliance docs' content while editing them.
+- **Don't fabricate or overclaim.** Never report a validation result that
+  wasn't actually produced by running the check, and never describe
+  not-yet-verified functionality as done/working.
 
 ## Workflow rules (mandatory)
 
