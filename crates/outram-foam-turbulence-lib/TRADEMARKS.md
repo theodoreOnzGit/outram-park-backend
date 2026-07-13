@@ -42,6 +42,20 @@ affiliated with, endorsed by, or connected to any of them.
   license. It is not an official NJOY product and is not sanctioned by
   LANL or the NJOY development team.
 
+### CoolProp
+- **Copyright:** Ian H. Bell and other CoolProp developers (2012-2018)
+- **Upstream URL:** https://github.com/CoolProp/CoolProp
+- **Upstream license:** MIT
+- Outram Park's `outram-park-fork-coolprop` crate is a Rust translation of
+  selected CoolProp thermophysical-property methods (Helmholtz-energy-explicit
+  equations of state, incompressibles, mixtures, humid air), GPL-3.0
+  relicensed as permitted by the terms of the upstream MIT license. It is not
+  an official CoolProp product and is not sanctioned by Ian H. Bell or the
+  CoolProp development team. Individual equations of state retain their own
+  original-author attribution where CoolProp itself documents one (e.g. the
+  IAPWS-95 formulation for Water: Wagner & Pruss, 2002) — see that crate's
+  `NOTICE` file.
+
 ### DWSIM
 - **Trademark holder:** DWSIM Inc.
 - **Copyright:** Daniel Medeiros and DWSIM contributors
