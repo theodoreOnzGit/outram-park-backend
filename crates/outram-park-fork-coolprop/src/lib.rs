@@ -34,7 +34,7 @@
 //!   `μ`/`λ` getters.
 //! - **Transient flow** ([`openfoam_algorithms`]): a vendored pure-Rust
 //!   OpenFOAM finite-volume layer + the 1-D compressible `OPCPFluidArray`
-//!   solver (no `openfoam-basic-lib` dependency), driven by this crate's EOS.
+//!   solver (no `outram-foam-basic-lib` dependency), driven by this crate's EOS.
 //!
 //! The **non-analytic** critical-region residual term is evaluated (verified
 //! to `5.2e-14` at Water's exact critical point — see
@@ -119,7 +119,7 @@ pub mod mixtures;
 pub mod transport_corresponding_states;
 
 /// Vendored pure-Rust OpenFOAM finite-volume layer + 1-D compressible solvers,
-/// copied from `tampines-steam-tables` (no `openfoam-basic-lib` dependency).
+/// copied from `tampines-steam-tables` (no `outram-foam-basic-lib` dependency).
 /// The transient-flow backbone whose thermo plug-in point is backed by this
 /// crate's CoolProp EOS. See its module `CLAUDE.md` for provenance.
 pub mod openfoam_algorithms;

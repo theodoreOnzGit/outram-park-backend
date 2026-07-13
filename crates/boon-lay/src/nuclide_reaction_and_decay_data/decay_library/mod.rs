@@ -1,6 +1,6 @@
 use crate::prelude::NuclideReactionAndDecayData;
 use fission_yields_data::prelude::Nuclide::*;
-use openmc_libs::rng::lcg::Lcg64 as Rand64;
+use outram_mc_libs::rng::lcg::Lcg64 as Rand64;
 
 /// this is a full decay library constructed at start 
 /// incorporating all decays from all radionuclides 

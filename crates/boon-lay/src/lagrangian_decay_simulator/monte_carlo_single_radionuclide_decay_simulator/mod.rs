@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use fission_yields_data::prelude::Nuclide;
-use openmc_libs::rng::lcg::Lcg64 as Rand64;
+use outram_mc_libs::rng::lcg::Lcg64 as Rand64;
 use uom::{ConstZero, si::f64::*};
 use uom::si::time::second;
 use uom::si::time::millisecond;

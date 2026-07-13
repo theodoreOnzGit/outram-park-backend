@@ -14,7 +14,7 @@
 //! | Piece | Provided by | Role |
 //! |---|---|---|
 //! | Nuclear data / cross sections | [`njoy_outram_park_fork`] | energy-dependent σ(E), ν̄, χ, WMP |
-//! | Monte Carlo transport | [`openmc_libs`] | CSG geometry, k-eigenvalue, Woodcock tracking |
+//! | Monte Carlo transport | [`outram_mc_libs`] | CSG geometry, k-eigenvalue, Woodcock tracking |
 //! | Point reactor kinetics | [`teh_o_prke`] | PRKE precursor/reactivity time response |
 //!
 //! ## Entry point
@@ -32,7 +32,7 @@
 //!   glue types, ergonomic constructors, coupling schedules, and any *new*
 //!   user-facing functionality that only makes sense once the pieces are joined.
 //! - **Does NOT belong here:** raw physics kernels. New cross-section code goes
-//!   to `njoy-outram-park-fork`; new transport code to `openmc-libs`; new
+//!   to `njoy-outram-park-fork`; new transport code to `outram-mc-libs`; new
 //!   kinetics to `teh-o-prke`. NEE_SOON only *exposes and integrates* them.
 //!
 //! ## Status
@@ -47,7 +47,7 @@
 /// `NeeSoon` is the single entry point of the crate (the "one big struct"): a
 /// user constructs one of these and then creates the relevant simulation pieces
 /// through it — a nuclear-data provider ([`njoy_outram_park_fork`]), a Monte
-/// Carlo transport model ([`openmc_libs`]), a point-kinetics model
+/// Carlo transport model ([`outram_mc_libs`]), a point-kinetics model
 /// ([`teh_o_prke`]), and, ultimately, coupled runs that thread data between
 /// them.
 ///

@@ -279,9 +279,9 @@ built, tested, and published from this single repository.
 | `teh-o-prke` | Point Reactor Kinetics (PRKE) for the Teh-O transport/eigenvalue solver | GPL-3.0 |
 | `tuas_boussinesq_solver` | Thermal-hydraulics (Boussinesq single-phase) solver — TUAS | GPL-3.0 |
 | `tampines-steam-tables` | IAPWS-IF97 steam/water properties + steam-turbine equations — TAMPINES | GPL-3.0 |
-| `openfoam-basic-lib` | Pure-Rust translation of the OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, polynomial solvers, ODE solvers, interpolation, thermophysics kernels, fields, mesh, FV operators, fluid/solid thermo | GPL-3.0 |
+| `outram-foam-basic-lib` | Pure-Rust translation of the OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, polynomial solvers, ODE solvers, interpolation, thermophysics kernels, fields, mesh, FV operators, fluid/solid thermo | GPL-3.0 |
 | `njoy-outram-park-fork` | **All nuclear data** — NJOY2016 ENDF port (RECONR/BROADR/THERMR/ACER), the Faddeeva kernel, windowed-multipole evaluation, lean-ACE + WMP data blobs, ν̄/χ. Exposes the `XsProvider` surface other crates pull cross sections from. | GPL-3.0 |
-| `openmc-libs` | **Monte Carlo transport** — CSG geometry, particle tracking, k-eigenvalue, delta (Woodcock) tracking for doubly heterogeneous media. **Data-free**: pulls cross sections from `njoy-outram-park-fork`. | GPL-3.0 |
+| `outram-mc-libs` | **Monte Carlo transport** — CSG geometry, particle tracking, k-eigenvalue, delta (Woodcock) tracking for doubly heterogeneous media. **Data-free**: pulls cross sections from `njoy-outram-park-fork`. | GPL-3.0 |
 
 > **Neutronics architecture:** the responsibility split (nuclear data ⟂ Monte
 > Carlo ⟂ deterministic/TH ⟂ coupling), the dependency graph, and phasing live in
@@ -293,27 +293,27 @@ built, tested, and published from this single repository.
 
 | Crate | Depends on | Targets |
 |---|---|---|
-| `openfoam-icof` | `openfoam-basic-lib` | **icoFoam** (incompressible laminar PISO) |
-| `openfoam-cht` | `openfoam-basic-lib` | **chtMultiRegionFoam** (conjugate heat transfer, multi-region) |
-| `openfoam-rho` | `openfoam-basic-lib` | **rhoPimpleFoam** / **sonicFoam** (compressible) |
-| `nee-soon` *(working name)* | `teh-o-prke`, `openmc-libs`, `njoy-outram-park-fork`, `openfoam-appbuilder-lib` | Human-readable **integration/coupling** layer: composes MC + deterministic/TH + nuclear data, exposes CFD-coupling interfaces, PRKE + surrogates. See `docs/architecture.md`. |
-| **GenFOAM** (deterministic + TH) | *ported inside* `openfoam-appbuilder-lib` | Deterministic neutronics + thermal hydraulics. On hold until the MC + nuclear-data path matures. |
+| `openfoam-icof` | `outram-foam-basic-lib` | **icoFoam** (incompressible laminar PISO) |
+| `openfoam-cht` | `outram-foam-basic-lib` | **chtMultiRegionFoam** (conjugate heat transfer, multi-region) |
+| `openfoam-rho` | `outram-foam-basic-lib` | **rhoPimpleFoam** / **sonicFoam** (compressible) |
+| `nee-soon` *(working name)* | `teh-o-prke`, `outram-mc-libs`, `njoy-outram-park-fork`, `outram-foam-appbuilder-lib` | Human-readable **integration/coupling** layer: composes MC + deterministic/TH + nuclear data, exposes CFD-coupling interfaces, PRKE + surrogates. See `docs/architecture.md`. |
+| **GenFOAM** (deterministic + TH) | *ported inside* `outram-foam-appbuilder-lib` | Deterministic neutronics + thermal hydraulics. On hold until the MC + nuclear-data path matures. |
 
 **Layer 5 (solver loop logic) MUST live in these separate crates**, not in
-`openfoam-basic-lib`.  `openfoam-basic-lib` provides the mathematical building
+`outram-foam-basic-lib`.  `outram-foam-basic-lib` provides the mathematical building
 blocks (Layers 1–4) only; the PISO/PIMPLE loop, multi-region coupling logic,
 and turbulence model registries belong in solver-specific crates so that
-`openfoam-basic-lib` stays publishable independently and is reusable by other
+`outram-foam-basic-lib` stays publishable independently and is reusable by other
 projects.
 
 Internal dependency edges (all by **path**, not crates.io):
 `teh-o-prke → {tuas, chem-eng}` (dev); `tuas` dev-deps → `chem-eng`, `teh-o-prke`;
 `tampines` dev-deps → `{tuas, teh-o-prke, chem-eng}` (the FHR simulator examples use TUAS —
 the `tampines` **library** itself is TUAS-free).
-`openfoam-basic-lib` has no internal deps (pure third-party: `uom`, `ndarray`, `thiserror`).
+`outram-foam-basic-lib` has no internal deps (pure third-party: `uom`, `ndarray`, `thiserror`).
 `njoy-outram-park-fork` is lean (`thiserror`, `uom`; no BLAS) so data consumers stay light.
-Neutronics edges (target): `openmc-libs → njoy-outram-park-fork` (cross sections; declared in
-root workspace deps, wiring deferred); `nee-soon → {openmc-libs, njoy-outram-park-fork, teh-o-prke, openfoam-appbuilder-lib}`.
+Neutronics edges (target): `outram-mc-libs → njoy-outram-park-fork` (cross sections; declared in
+root workspace deps, wiring deferred); `nee-soon → {outram-mc-libs, njoy-outram-park-fork, teh-o-prke, outram-foam-appbuilder-lib}`.
 
 ## Dependency policy — single source of truth
 
@@ -345,7 +345,7 @@ than letting them break the build.
 - **Any test, bench, or example that uses an Android-hostile dep must be gated**
   so it does not compile on Android: put `#![cfg(not(target_os = "android"))]`
   at the top of an integration-test/bench file, or `#[cfg(not(target_os =
-  "android"))]` on the item. Precedent: `openfoam-basic-lib`'s
+  "android"))]` on the item. Precedent: `outram-foam-basic-lib`'s
   `tests/matrix_bench.rs` (the pure-Rust `SquareMatrix` vs LAPACK benchmark).
 - **GUI items** (`egui`/`eframe`/windowing examples and bins) are out of scope
   for Android — keep GUI behind examples/optional bins/features, never in the

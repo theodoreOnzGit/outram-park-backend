@@ -20,11 +20,11 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Pure-Rust dense LU solver — an **inlined copy** of
-//! `openfoam-basic-lib`'s `matrix::SquareMatrix`.
+//! `outram-foam-basic-lib`'s `matrix::SquareMatrix`.
 //!
 //! This is a *deliberate duplication*: `tuas_boussinesq_solver` needs only this small
-//! self-contained LU solver from `openfoam-basic-lib`, so the code is copied
-//! here to remove the `openfoam-basic-lib` path dependency entirely. That keeps
+//! self-contained LU solver from `outram-foam-basic-lib`, so the code is copied
+//! here to remove the `outram-foam-basic-lib` path dependency entirely. That keeps
 //! the inter-crate dependency graph acyclic when a future full `tampines`
 //! (multiphase-flow) crate and `nee_soon` compose `teh-o-prke` and
 //! `tuas_boussinesq_solver` together — decoupling is preferred over DRY here.

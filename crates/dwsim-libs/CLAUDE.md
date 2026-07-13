@@ -35,7 +35,7 @@ porting order all live in **`docs/port-scope.md`**.
 ### Units: raw `f64`, documented
 DWSIM uses SI internally (Pa, K, J/mol, kg/m³) for all thermodynamic
 calculations but exposes a unit-conversion layer to users.  This port will use
-`uom` for **public-facing APIs** (matching the openfoam-basic-lib pattern) and
+`uom` for **public-facing APIs** (matching the outram-foam-basic-lib pattern) and
 raw `f64` in the inner EOS arithmetic loops where uom overhead matters.
 
 Documented base units:

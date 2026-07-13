@@ -16,7 +16,7 @@ work, create one before making any commits.
 
 ## Numerical primitives already in-tree
 
-The openfoam-basic-lib primitives (matrix, PCG, DIC, GAMG, MUSCL, FV
+The outram-foam-basic-lib primitives (matrix, PCG, DIC, GAMG, MUSCL, FV
 operators, etc.) are already committed to `tampines-steam-tables` as
 Rust source under `openfoam_algorithms/openfoam_source/`. Import from
 the existing internal modules — do not attempt to fetch, copy, or
@@ -25,7 +25,7 @@ adding.
 
 ## Known port debt — `pub use` → `pub(crate) use`
 
-The initial verbatim copy of openfoam-basic-lib into this crate uses
+The initial verbatim copy of outram-foam-basic-lib into this crate uses
 `pub use` re-exports in several places. This was expedient during the
 port but is incorrect for the intended module contract: none of the
 copied OpenFOAM primitives should be part of `tampines-steam-tables`'s
@@ -33,7 +33,7 @@ public surface.
 
 As part of your work in this module:
 
-- Downgrade `pub use` → `pub(crate) use` on any copied openfoam-basic-lib
+- Downgrade `pub use` → `pub(crate) use` on any copied outram-foam-basic-lib
   re-export you touch or depend on
 - Do not add any new `pub use` re-exports from the copied primitives
 - If `cargo build` breaks because an external consumer was relying on a

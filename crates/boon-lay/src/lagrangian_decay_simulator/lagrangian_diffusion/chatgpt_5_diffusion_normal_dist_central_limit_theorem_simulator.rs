@@ -1,4 +1,4 @@
-use openmc_libs::rng::{lcg::prn, distributions::sample_normal};
+use outram_mc_libs::rng::{lcg::prn, distributions::sample_normal};
 
 fn per_component_variance_from_m2(n: usize, e_s2: f64) -> f64 {
     (n as f64) * e_s2 / 3.0

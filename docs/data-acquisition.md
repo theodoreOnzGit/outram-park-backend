@@ -158,4 +158,4 @@ produced the blob.
 
 - git-lfs mirror hosting cost vs relying on official URLs + local cache only.
 - Whether the transport seam (CE below `e_max` on WMP, MG above) lives in
-  `openmc-libs` or is a combined `XsProvider` variant here.
+  `outram-mc-libs` or is a combined `XsProvider` variant here.

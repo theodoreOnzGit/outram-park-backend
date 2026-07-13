@@ -1,4 +1,4 @@
-use openmc_libs::rng::{lcg::prn, distributions::sample_normal};
+use outram_mc_libs::rng::{lcg::prn, distributions::sample_normal};
 
 fn diffusion_coefficient(v: f64, lambda: f64) -> f64 {
     v * lambda / 3.0

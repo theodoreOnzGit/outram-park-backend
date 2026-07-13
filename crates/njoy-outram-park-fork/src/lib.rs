@@ -4,7 +4,7 @@
 //! processing system that reads evaluated nuclear data in ENDF format and
 //! transforms it into libraries used by transport codes. Within OUTRAM PARK its
 //! purpose is to produce the **ACE** continuous-energy libraries that
-//! [`openmc-libs`] consumes — NJOY is the data-preparation step that sits
+//! [`outram-mc-libs`] consumes — NJOY is the data-preparation step that sits
 //! *upstream* of an OpenMC run.
 //!
 //! ## License & provenance — read this first
@@ -33,7 +33,7 @@
 //! against upstream Fortran NJOY in `upstream_source/NJOY2016`).
 //!
 //! [NJOY2016]: https://github.com/njoy/NJOY2016
-//! [`openmc-libs`]: https://github.com/theodoreOnzGit/outram-park-backend
+//! [`outram-mc-libs`]: https://github.com/theodoreOnzGit/outram-park-backend
 
 pub mod acer;
 /// HIGH-fidelity data acquisition — download raw ENDF tapes from a pinned
@@ -60,7 +60,7 @@ pub mod heatr;
 pub mod interface;
 pub mod modules;
 /// Nuclear-data **provider** surface consumed by downstream transport crates
-/// (`openmc-libs`, …). All cross-section representation lives in this crate; see
+/// (`outram-mc-libs`, …). All cross-section representation lives in this crate; see
 /// [`nuclear_data`] and `docs/architecture.md`.
 pub mod nuclear_data;
 pub mod photon;

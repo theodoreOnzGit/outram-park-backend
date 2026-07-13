@@ -1,4 +1,4 @@
-use openmc_libs::rng::distributions::sample_normal;
+use outram_mc_libs::rng::distributions::sample_normal;
 use uom::si::f64::*;
 
 

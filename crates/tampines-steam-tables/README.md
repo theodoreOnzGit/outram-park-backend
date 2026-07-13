@@ -110,7 +110,7 @@ This crate has two intentions that pull in opposite directions:
 
 2. **TAMPINES should host an OpenFOAM-style array solver of its own.**
    `openfoam_algorithms::rhoPimpleFoam::TampinesSteamArray` is a 1-D
-   compressible PIMPLE pipe solver built on `openfoam-basic-lib`'s `FvMesh`,
+   compressible PIMPLE pipe solver built on `outram-foam-basic-lib`'s `FvMesh`,
    fields, and FV operators (via `create_one_d_mesh`). That means
    *`tampines-steam-tables` depends on an OpenFOAM crate*.
 
@@ -121,55 +121,55 @@ is a hard constraint, not a style preference.
 ### The current graph (a clean DAG)
 
 ```
-openfoam-basic-lib        (Layers 1–4: primitives, fields, mesh, FV operators)
+outram-foam-basic-lib        (Layers 1–4: primitives, fields, mesh, FV operators)
    ▲        ▲        ▲
    │        │        └── tuas_boussinesq_solver
-   │        └─────────── openfoam-turbulence-lib
+   │        └─────────── outram-foam-turbulence-lib
    │                          ▲
-   │                          └── openfoam-appbuilder-lib   (Layer 5: solver loops)
+   │                          └── outram-foam-appbuilder-lib   (Layer 5: solver loops)
    └────────────────────────────  tampines-steam-tables     (+ tuas)
 ```
 
-Every arrow points **down** to `openfoam-basic-lib`. `tampines-steam-tables`
-already depends on `openfoam-basic-lib` (for `TampinesSteamArray`); nothing
+Every arrow points **down** to `outram-foam-basic-lib`. `tampines-steam-tables`
+already depends on `outram-foam-basic-lib` (for `TampinesSteamArray`); nothing
 depends on `tampines-steam-tables` yet.
 
 ### The invariant
 
 > A steam-table **consumer** must sit **above** `tampines-steam-tables` in the
 > layer stack. `tampines-steam-tables` may depend **downward** into
-> `openfoam-basic-lib` (Layers 1–4 primitives) but must never depend on a
-> Layer-5 solver crate, and **`openfoam-basic-lib` must never depend on
+> `outram-foam-basic-lib` (Layers 1–4 primitives) but must never depend on a
+> Layer-5 solver crate, and **`outram-foam-basic-lib` must never depend on
 > `tampines-steam-tables`.**
 
-The single forbidden edge is `openfoam-basic-lib → tampines-steam-tables`. It
-would arise if we tried to make Layer-4 `FluidThermo` *inside* `openfoam-basic-lib`
-call the steam tables directly. Because `openfoam-basic-lib` uses **enum
+The single forbidden edge is `outram-foam-basic-lib → tampines-steam-tables`. It
+would arise if we tried to make Layer-4 `FluidThermo` *inside* `outram-foam-basic-lib`
+call the steam tables directly. Because `outram-foam-basic-lib` uses **enum
 dispatch** for its thermophysics models (`Eos`, `Thermo`; no trait objects —
 see the workspace `CLAUDE.md`), a `SteamTable` variant cannot be added to those
-enums without `openfoam-basic-lib` depending on this crate — i.e. the cycle.
+enums without `outram-foam-basic-lib` depending on this crate — i.e. the cycle.
 So the steam-backed thermophysics model must be assembled **one layer up**.
 
 ### Possible solutions
 
 **A. Layered consumer (recommended baseline).**
-Keep `tampines-steam-tables → openfoam-basic-lib` as is. Wire the steam tables
-into solvers at **Layer 5** — either in `openfoam-appbuilder-lib` or in a new
+Keep `tampines-steam-tables → outram-foam-basic-lib` as is. Wire the steam tables
+into solvers at **Layer 5** — either in `outram-foam-appbuilder-lib` or in a new
 dedicated `openfoam-steam` crate — where a crate is free to depend on *both*
-`openfoam-basic-lib` and `tampines-steam-tables`. The graph stays a DAG and
+`outram-foam-basic-lib` and `tampines-steam-tables`. The graph stays a DAG and
 `TampinesSteamArray` stays in this crate.
 
 ```
-openfoam-basic-lib ◄── tampines-steam-tables ◄── openfoam-steam (Layer-5 solver)
+outram-foam-basic-lib ◄── tampines-steam-tables ◄── openfoam-steam (Layer-5 solver)
         ▲                                              │
         └──────────────────────────────────────────────┘
 ```
 
 **B. Thermophysics contract in the lower crate, steam variant in the upper.**
-`openfoam-basic-lib` keeps defining the thermophysics *interface*
+`outram-foam-basic-lib` keeps defining the thermophysics *interface*
 (`EquationOfState` / `ThermoModel` traits + the `Eos`/`Thermo` enums). The
 concrete **steam-backed** thermo model is a *new* enum/struct declared in the
-Layer-5 crate that wraps *either* the `openfoam-basic-lib` `Thermo` enum *or*
+Layer-5 crate that wraps *either* the `outram-foam-basic-lib` `Thermo` enum *or*
 the TAMPINES `TampinesSteamTableCV`. This respects the enum-dispatch rule while
 keeping the steam dependency above the primitives. Complements A.
 
@@ -177,13 +177,13 @@ keeping the steam dependency above the primitives. Complements A.
 `tampines-steam-tables` becomes a *pure* IAPWS-IF97 property crate with **no**
 OpenFOAM dependency (so any solver can consume it cheaply), and a separate
 `tampines-steam-array` crate depends on **both** `tampines-steam-tables` and
-`openfoam-basic-lib` to host `TampinesSteamArray` + the Marviken verification.
+`outram-foam-basic-lib` to host `TampinesSteamArray` + the Marviken verification.
 Architecturally the cleanest DAG, but it **moves the OpenFOAM algorithms out of
 this crate**, which is explicitly *not* what we want right now — listed for
 completeness and as the escape hatch if the in-crate coupling becomes painful.
 
 **D. Feature-gate the OpenFOAM dependency (compatible with A/B).**
-Put `openfoam-basic-lib` behind an optional `openfoam-algorithms` Cargo feature.
+Put `outram-foam-basic-lib` behind an optional `openfoam-algorithms` Cargo feature.
 Property-only consumers depend on a lean `tampines-steam-tables` (no `FvMesh`
 pulled in); `TampinesSteamArray` and its Marviken tests live behind
 `--features openfoam-algorithms`. This does not change the cycle analysis (the
@@ -204,30 +204,30 @@ inside one crate before the solver is promoted to a proper Layer-5 home. If/when
 the validation is settled, Solution **C** is the clean path to graduate the
 algorithms out.
 
-### Preferred solution: consume TAMPINES at the `openfoam-appbuilder-lib` level
+### Preferred solution: consume TAMPINES at the `outram-foam-appbuilder-lib` level
 
-Solution **A**, made concrete: **`openfoam-appbuilder-lib` (Layer 5) depends on
+Solution **A**, made concrete: **`outram-foam-appbuilder-lib` (Layer 5) depends on
 `tampines-steam-tables`.** appbuilder is where the solver loops live
 (`RhoPimpleFoam`, etc.), so a steam-table consumer is a native Layer-5 concern —
 this isn't even the scoped exception that `TampinesSteamArray`-in-TAMPINES is.
 
 ```
-openfoam-basic-lib ◄── tampines-steam-tables ◄── openfoam-appbuilder-lib (Layer 5)
+outram-foam-basic-lib ◄── tampines-steam-tables ◄── outram-foam-appbuilder-lib (Layer 5)
         ▲                       ▲                        │  │
         │                       └── tuas ────────────────┘  │
         └───────────────────────────────────────────────────┘
 ```
 
-Adding `openfoam-appbuilder-lib → tampines-steam-tables` gives appbuilder the
-transitive set `{ openfoam-basic-lib, openfoam-turbulence-lib,
+Adding `outram-foam-appbuilder-lib → tampines-steam-tables` gives appbuilder the
+transitive set `{ outram-foam-basic-lib, outram-foam-turbulence-lib,
 tampines-steam-tables, tuas_boussinesq_solver }`. None of those depend back on
-`openfoam-appbuilder-lib`, so the graph stays a DAG and Cargo is satisfied. The
-only edge that would ever cycle is `openfoam-basic-lib → tampines`, and this is
+`outram-foam-appbuilder-lib`, so the graph stays a DAG and Cargo is satisfied. The
+only edge that would ever cycle is `outram-foam-basic-lib → tampines`, and this is
 not that.
 
-Because `openfoam-basic-lib` uses **enum dispatch** for thermophysics
+Because `outram-foam-basic-lib` uses **enum dispatch** for thermophysics
 (`Eos`/`Thermo`, no trait objects), the steam-backed model cannot be a variant
-*inside* those enums — that would force `openfoam-basic-lib` to depend on this
+*inside* those enums — that would force `outram-foam-basic-lib` to depend on this
 crate. So the steam thermo is introduced **at the appbuilder level** (Solution
 **B**), e.g. a new `enum FluidThermoModel { Basic(Thermo), Steam(TampinesSteamTableCV) }`
 declared in appbuilder, or the solver holding the steam table directly where it
@@ -238,10 +238,10 @@ There is a deliberate symmetry: `TampinesSteamArray` (in TAMPINES) is a simpler
 Marviken in-crate; the full solver in appbuilder then consumes the *same* tables
 one layer up.
 
-**Current choice:** Solution **A** realised at the `openfoam-appbuilder-lib`
+**Current choice:** Solution **A** realised at the `outram-foam-appbuilder-lib`
 level, with **B** for the thermo model and **D** available if the property-only
 compile surface ever needs trimming. `tampines-steam-tables` depends only on
-`openfoam-basic-lib`; the forbidden `openfoam-basic-lib → tampines` edge is
+`outram-foam-basic-lib`; the forbidden `outram-foam-basic-lib → tampines` edge is
 never drawn.
 
 

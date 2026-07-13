@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
-use openmc_libs::rng::distributions::sample_normal;
+use outram_mc_libs::rng::distributions::sample_normal;
 use uom::si::time::second;
 
 /// Fast cached pool of standard normal random numbers for diffusion simulation

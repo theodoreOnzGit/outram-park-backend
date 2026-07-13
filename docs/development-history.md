@@ -7,7 +7,7 @@ made. The intent is that this file can be lifted, largely as-is, into the
 methodology / development section of a publication — the value of a benchmark
 result is inseparable from the path taken to it.
 
-> Scope: the `openmc-libs` Monte Carlo transport kernel and the
+> Scope: the `outram-mc-libs` Monte Carlo transport kernel and the
 > `njoy-outram-park-fork` nuclear-data toolkit it pulls cross sections from. For
 > the forward-looking plan see [`keff-doppler-roadmap.md`](keff-doppler-roadmap.md);
 > for the data-tier design see [`data-acquisition.md`](data-acquisition.md).
@@ -44,7 +44,7 @@ iteration.
 
 ### 2. Result: Godiva runs, but k_eff is high
 
-`cargo run --release -p openmc-libs --example godiva_keff` on the ICSBEP
+`cargo run --release -p outram-mc-libs --example godiva_keff` on the ICSBEP
 **HEU-MET-FAST-001 (Godiva)** bare U(93.7) sphere (r ≈ 8.741 cm, benchmark
 k_eff = 1.0000 ± 0.0010) converged, stable, to:
 
@@ -179,7 +179,7 @@ Godiva gap.** Fast self-shielding remains correct to add, but the comparison bou
 its k_eff worth at a few hundred pcm.
 
 This result (data alone barely moves k_eff) is one half of the HIGH-tier Godiva
-test `openmc-libs::physics::keff::tests::godiva_high_fidelity_reaches_benchmark`
+test `outram-mc-libs::physics::keff::tests::godiva_high_fidelity_reaches_benchmark`
 (behind the `net-fetch` feature); the other half — that the *transport* physics
 added in the following entries closes the gap — is what makes the HIGH tier reach
 the benchmark.
@@ -202,7 +202,7 @@ MT=51…91 section, each with its MF=3 QI Q-value). The physics:
 - **Discrete levels (MT=51…90)** — two-body CM kinematics generalised from the
   existing elastic formula to a non-zero Q-value:
   `E_cm = E·(A/(A+1))² + Q·A/(A+1)`, isotropic in CM, transformed to the lab
-  (`openmc_libs::physics::scatter::two_body_scatter`; elastic is the `Q = 0` case).
+  (`outram_mc_libs::physics::scatter::two_body_scatter`; elastic is the `Q = 0` case).
   Each collision removes the level excitation energy |Q| — tens of keV to over an
   MeV — the large per-collision loss that elastic scatter off A≈238 cannot provide
   (elastic α = ((A−1)/(A+1))² ≈ 0.98).
@@ -325,7 +325,7 @@ the cross-section-data fidelity** by more than an order of magnitude.
 
 This is encoded as a benchmark assertion — the HIGH tier must land near unity and
 far closer than LOW — in
-`openmc-libs::physics::keff::tests::godiva_high_fidelity_reaches_benchmark`
+`outram-mc-libs::physics::keff::tests::godiva_high_fidelity_reaches_benchmark`
 (behind the `net-fetch` feature).
 
 ## 2026-07 — Porting the two levers down to the LOW (embedded, offline) tier
@@ -398,7 +398,7 @@ consistent with the group model retaining a little more reactivity than
 continuous-energy transport.
 
 Encoded in the `godiva_keff` example's V&V doc block and exercised offline by
-`openmc-libs::physics::keff::tests::godiva_converges_to_sane_keff` (LOW tier), with
+`outram-mc-libs::physics::keff::tests::godiva_converges_to_sane_keff` (LOW tier), with
 the exponential sampler / Langevin inverse covered by unit tests in
 `material::nuclide::tests`. Data format: MGXL **v2** (`from_blob` still reads v1,
 zero-filling μ̄).
@@ -433,7 +433,7 @@ Concretely:
   (Weisskopf-evaporation stand-in — we have no parsed MF=6 (n,2n) emission law) and
   one secondary is pushed at the same outgoing state.
 
-Reference: OpenMC C++ at `../openmc/`, per the new openmc-libs porting rule
+Reference: OpenMC C++ at `../openmc/`, per the new outram-mc-libs porting rule
 (mirror the canonical source; scaffold only what is genuinely absent).
 
 ### Results (2026-07-03, ENDF/B-VII.1, 5000 particles / 40 inactive + 120 active)
@@ -494,7 +494,7 @@ energy of the neutron that induced the fission.
   grid (ENDF INT=2). The k-eigenvalue driver now births fission neutrons from the
   *fissioning nuclide's* χ at the collision energy `e`, replacing the global Watt.
 
-Reference: OpenMC C++ at `../openmc/`, per the openmc-libs porting rule.
+Reference: OpenMC C++ at `../openmc/`, per the outram-mc-libs porting rule.
 
 ### Results (2026-07-03, ENDF/B-VII.1, 5000 particles / 40 inactive + 120 active)
 
@@ -552,7 +552,7 @@ plus the `NK > 1` case (multiple partial distributions mixed by their own
   LF=5 specifically has **no sampling algorithm even in canonical OpenMC**
   (`GeneralEvaporation.to_hdf5` raises `NotImplementedError` in
   `openmc/data/energy_distribution.py`) — a genuine upstream gap, not ours.
-- **openmc-libs (`material::nuclide.rs`).** `sample_fission_energy` now
+- **outram-mc-libs (`material::nuclide.rs`).** `sample_fission_energy` now
   delegates to a free `sample_chi` dispatching all six `FissionSpectrum`
   variants. Three new samplers are direct ports of OpenMC
   `src/distribution_energy.cpp`: `sample_maxwell_lf7` (`MaxwellEnergy::sample`,
@@ -570,7 +570,7 @@ njoy parser (5 tests, hand-built ENDF rows, `nuclear_data::secondary::tests`):
 correct variant + field extraction for LF=7, LF=9, LF=11, and an NK=2
 (Maxwell+Evaporation) mixture; LF=5 confirmed falls back to `None`.
 
-openmc-libs sampler (5 tests, `material::nuclide::tests`, N=200 000–2 000 000
+outram-mc-libs sampler (5 tests, `material::nuclide::tests`, N=200 000–2 000 000
 draws per case): empirical mean matches the closed-form distribution mean within
 the stated Monte Carlo tolerance, and every draw respects the restriction energy
 `E' ≤ E − U`:
@@ -600,7 +600,7 @@ future nuclide whose MF=5 uses LF=7/9/11 or a mixture (e.g. many non-U
 actinides use LF=9 or LF=11). Exercised by 5 njoy unit tests
 (`nuclear_data::secondary::tests::{parses_lf7_maxwell, parses_lf9_evaporation,
 parses_lf11_watt_energy_dependent, parses_nk2_mixture,
-lf5_general_evaporation_falls_back_to_none}`) and 5 openmc-libs unit tests
+lf5_general_evaporation_falls_back_to_none}`) and 5 outram-mc-libs unit tests
 (`material::nuclide::tests::{maxwell_lf7_matches_theoretical_mean_and_respects_restriction,
 evaporation_lf9_matches_theoretical_mean_and_respects_restriction,
 evaporation_lf9_restriction_actually_bites,
@@ -662,7 +662,7 @@ Gas production for the modern lumped-channel ENDF representation is now a
 NJOY's 1150-line residual-mass bookkeeping, because the particle-content
 information NJOY *derives* per-MT was already sitting in this crate's
 `MtReaction` naming from earlier porting work. Not wired into any transport
-path (openmc-libs) — this is nuclear-data-processing output only, consumed by
+path (outram-mc-libs) — this is nuclear-data-processing output only, consumed by
 future depletion/materials tooling, not the k-eigenvalue driver.
 
 ## 2026-07 — HEATR: kinematic-limit KERMA, phases H1–H4 (njoy)

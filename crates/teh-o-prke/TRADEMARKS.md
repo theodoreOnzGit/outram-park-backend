@@ -16,19 +16,20 @@ affiliated with, endorsed by, or connected to any of them.
 - **Upstream license:** GPL-3.0-or-later
 - **Used descriptively in accordance with the OpenFOAM® Trademark Policy**
   (https://www.openfoam.com/trademark-policy).
-- Outram Park's `outram-park-openfoam-fork-*` crates are Rust translations
-  of selected OpenFOAM® numerical methods. They are not an official
-  OpenFOAM® product and are not sanctioned by OpenCFD Ltd. or ESI Group.
+- Outram Park's `outram-foam-basic-lib`, `outram-foam-turbulence-lib`, and
+  `outram-foam-appbuilder-lib` crates are Rust translations of selected
+  OpenFOAM® numerical methods. They are not an official OpenFOAM® product
+  and are not sanctioned by OpenCFD Ltd. or ESI Group.
 
 ### OpenMC
 - **Copyright / stewardship:** MIT (Massachusetts Institute of Technology)
   and Argonne National Laboratory
 - **Upstream URL:** https://openmc.org
 - **Upstream license:** MIT
-- Outram Park's `outram-park-openmc-fork` crate is a Rust translation of
-  selected OpenMC transport methods, GPL-3.0 relicensed as permitted by
-  the terms of the upstream MIT license. It is not an official OpenMC
-  product and is not sanctioned by MIT or Argonne National Laboratory.
+- Outram Park's `outram-mc-libs` crate is a Rust translation of selected
+  OpenMC transport methods, GPL-3.0 relicensed as permitted by the terms of
+  the upstream MIT license. It is not an official OpenMC product and is not
+  sanctioned by MIT or Argonne National Laboratory.
 
 ### NJOY
 - **Stewardship:** Los Alamos National Laboratory (LANL) and the

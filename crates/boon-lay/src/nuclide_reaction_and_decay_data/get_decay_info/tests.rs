@@ -11,7 +11,7 @@ use uom::si::time::{day, second, year};
 fn test_rng(){
 
     let some_seed = 4u128;
-    let mut rng = openmc_libs::rng::lcg::Lcg64::new(some_seed);
+    let mut rng = outram_mc_libs::rng::lcg::Lcg64::new(some_seed);
     println!("Your random number is: {}", rng.rand_float());
     println!("Your random number is: {}", rng.rand_float());
     println!("Your random number is: {}", rng.rand_float());

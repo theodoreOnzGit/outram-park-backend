@@ -14,7 +14,7 @@ Fortran 90 across 39 source files.
 
 OpenMC does not read ENDF evaluations directly — it reads **ACE** libraries.
 NJOY is the canonical tool that processes raw ENDF data (resonance parameters,
-covariances, thermal scattering laws) into ACE. `openmc-libs` therefore depends
+covariances, thermal scattering laws) into ACE. `outram-mc-libs` therefore depends
 on NJOY *indirectly*: the data it ingests must first pass through an NJOY
 pipeline. Porting NJOY to Rust removes the Fortran/CMake build dependency from
 the OUTRAM PARK data-prep chain and brings the same benefits as the rest of the
@@ -264,7 +264,7 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
     (continuous tabular E', the fission χ(E→E') path; faithful to `acelf5`):
     `parse_mf5_law4` (fission χ). This is a **separate, ACE-file-writer-specific**
     MF=5 parser from `nuclear_data::secondary::FissionSpectrum::from_endf_mf5`
-    (Priority 1 above), which is consumed directly by `openmc-libs` and covers
+    (Priority 1 above), which is consumed directly by `outram-mc-libs` and covers
     LF=1/7/9/11 + NK>1 mixtures — `ace/energy.rs` here still only handles LF=1
     (the ACE Law-4 conversion has no equivalent for Law 7/9/11/44 yet). Plus
     **MF=6 LAW=1** (`parse_mf6_law1_neutron`):
@@ -437,7 +437,7 @@ bulky ENDF data not checked in, with a comment explaining how to regenerate.
   that exercises resonance reconstruction.)
 - Does any target evaluation use the RML (`samm.f90`) formalism? If so, pull
   `samm` forward into Phase 2.
-- Where do generated ACE files live, and does `openmc-libs` get a loader to
+- Where do generated ACE files live, and does `outram-mc-libs` get a loader to
   consume them in an integration test?
 
 ---
@@ -445,7 +445,7 @@ bulky ENDF data not checked in, with a comment explaining how to regenerate.
 ## 8. Priority tracks — Keff + Doppler (opened 2026-07)
 
 Two near-term OUTRAM PARK goals pull specific njoy modules forward. The full
-cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
+cross-crate plan (njoy ↔ `outram-mc-libs`) lives in the workspace-level
 **`../../../docs/keff-doppler-roadmap.md`**; njoy's slice of it:
 
 > ### ⏭️ NEXT TO PORT — Unresolved Resonance Region (URR, LRU=2): `UNRESR` then `PURR`
@@ -744,7 +744,7 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here
-  in njoy** (`src/wmp.rs`), not `openmc-libs`. Real U-238 broadening of the
+  in njoy** (`src/wmp.rs`), not `outram-mc-libs`. Real U-238 broadening of the
   6.67 eV capture resonance is confirmed (`tests/wmp_u238.rs`). njoy also holds
   the **independent oracle**: `RECONR` reconstructs the 0 K pointwise U-238
   σ(n,γ); `BROADR` SIGMA1-broadens it to T. The code-to-code gate vs the OpenMC
@@ -782,7 +782,7 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
   `nuclear_data::secondary` reads **ν̄(E)** (MF=1/452, `NuBar::from_endf`, LNU=1
   polynomial and LNU=2 tabulated) and the **fission spectrum χ(E→E')** (MF=5/MT=18,
   `FissionSpectrum::from_endf_mf5`) straight off the ENDF tape and hands them to
-  `openmc-libs::Nuclide` — no ACE round-trip needed for this path. χ covers every
+  `outram-mc-libs::Nuclide` — no ACE round-trip needed for this path. χ covers every
   MF=5 law with a real sampling algorithm: **LF=1** (arbitrary tabulated,
   `ContinuousTabular`), **LF=7** (Maxwellian, `Maxwell`), **LF=9** (evaporation,
   `Evaporation`), **LF=11** (energy-dependent Watt, `WattEnergyDependent`), and
@@ -795,9 +795,9 @@ cross-crate plan (njoy ↔ `openmc-libs`) lives in the workspace-level
   pcm** (0.99872 → 1.00367), see `docs/development-history.md` 2026-07. The
   ACER 4b/4d NU/DLW blocks (below) remain open for the *ACE-file* path, which a
   full transport library still needs for tools other than this workspace's own
-  `openmc-libs`.
+  `outram-mc-libs`.
 - **WMP import (`src/wmp.rs`, 4g).** 🟡 Done: `load_h5` reads the MIT
   `WMP_Library` HDF5 (behind the `wmp-hdf5` feature). This is now the data
   ingestion path for njoy's own WMP evaluator (all nuclear data lives in njoy;
-  `openmc-libs` pulls via `XsProvider`). Remaining: `from_blob` so a curated set
+  `outram-mc-libs` pulls via `XsProvider`). Remaining: `from_blob` so a curated set
   ships embedded with no HDF5 dependency in the built crate.

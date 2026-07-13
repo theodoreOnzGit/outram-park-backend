@@ -1,0 +1,33 @@
+[package]
+name = "outram-mc-libs"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Pure-Rust port of OpenMC Monte Carlo neutron transport kernels"
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
+# and never shipped in the packaged crate. `docs/` (incl. the generated
+# docs/api.md rustdoc mirror) isn't crate content either.
+exclude = ["verification_and_validation/*.csv", "docs"]
+
+[dependencies]
+thiserror = { workspace = true }
+ndarray = { workspace = true }
+# Nuclear data (cross sections, ν̄, χ). outram-mc-libs is data-free — it pulls all
+# microscopic cross sections from this crate's provider surface. See
+# docs/architecture.md.
+njoy-outram-park-fork = { workspace = true }
+
+[features]
+# HIGH-fidelity nuclear data. Forwards to njoy's `net-fetch` tier so
+# `Nuclide::from_endf` can download raw ENDF tapes and reconstruct pointwise
+# σ(E) on device (RECONR + BROADR). Off by default — the LOW tier
+# (`Nuclide::from_core`, embedded WMP + fast MGXS) needs no network. Enable with
+# `--features net-fetch`. See docs/data-acquisition.md.
+net-fetch = ["njoy-outram-park-fork/net-fetch"]
+
+[dev-dependencies]
+approx = { workspace = true }

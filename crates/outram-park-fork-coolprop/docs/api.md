@@ -42,7 +42,7 @@ of state — built to OUTRAM PARK's design rules:
   `μ`/`λ` getters.
 - **Transient flow** ([`openfoam_algorithms`]): a vendored pure-Rust
   OpenFOAM finite-volume layer + the 1-D compressible `OPCPFluidArray`
-  solver (no `openfoam-basic-lib` dependency), driven by this crate's EOS.
+  solver (no `outram-foam-basic-lib` dependency), driven by this crate's EOS.
 
 The **non-analytic** critical-region residual term is evaluated (verified
 to `5.2e-14` at Water's exact critical point — see
@@ -13772,13 +13772,13 @@ pub fn corresponding_states_viscosity(fluid: crate::fluid::Fluid, t: f64, rho: f
 - `Other("#[allow(unused_imports)]")`
 
 Vendored pure-Rust OpenFOAM finite-volume layer + 1-D compressible solvers,
-copied from `tampines-steam-tables` (no `openfoam-basic-lib` dependency).
+copied from `tampines-steam-tables` (no `outram-foam-basic-lib` dependency).
 The transient-flow backbone whose thermo plug-in point is backed by this
 crate's CoolProp EOS. See its module `CLAUDE.md` for provenance.
 Vendored pure-Rust OpenFOAM finite-volume layer + the 1-D compressible
 `rhoPimpleFoam` solver, copied from `tampines-steam-tables` (see this
 directory's `CLAUDE.md` for provenance). It uses only `uom` — no
-`openfoam-basic-lib`, `ndarray`, or BLAS — so the crate stays
+`outram-foam-basic-lib`, `ndarray`, or BLAS — so the crate stays
 Android-buildable.
 
 Only the `rhoPimpleFoam` path (driving [`crate::OPCPFluidArray`]) is kept;
@@ -13813,7 +13813,7 @@ pub mod rhoPimpleFoam { /* ... */ }
 One-dimensional compressible PIMPLE pipe array driven by the **CoolProp
 Helmholtz EOS** (this crate's [`crate::Fluid`] / [`crate::flash`]).
 
-This is the CoolProp-fork analogue of `openfoam-appbuilder-lib`'s
+This is the CoolProp-fork analogue of `outram-foam-appbuilder-lib`'s
 `RhoPimpleFoam`, specialised to a **1-D pipe**: the mesh is built
 automatically from a length, a cross-sectional area, and a cell count via
 [`create_one_d_mesh`], instead of being read from an OpenFOAM `polyMesh`

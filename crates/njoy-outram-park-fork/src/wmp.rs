@@ -25,7 +25,7 @@
 //! # Role in OUTRAM PARK
 //!
 //! Per the workspace architecture (`docs/architecture.md`), **all nuclear-data
-//! representation lives in this crate**; `openmc-libs` pulls cross sections from
+//! representation lives in this crate**; `outram-mc-libs` pulls cross sections from
 //! here rather than owning any. WMP is the *low-fidelity, in-crate* data format:
 //! compact enough to embed (KB–MB/nuclide) and — crucially — Doppler-broadenable
 //! analytically, so it serves both OUTRAM PARK priorities:

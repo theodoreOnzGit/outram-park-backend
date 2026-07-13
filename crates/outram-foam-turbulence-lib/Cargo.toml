@@ -1,0 +1,27 @@
+[package]
+name = "outram-foam-turbulence-lib"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "OpenFOAM turbulence models translated to Rust (RAS and LES)"
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
+# and never shipped in the packaged crate. `docs/` (incl. the generated
+# docs/api.md rustdoc mirror) isn't crate content either.
+exclude = ["verification_and_validation/*.csv", "docs"]
+
+[dependencies]
+thiserror.workspace = true
+uom.workspace = true
+ndarray.workspace = true
+outram-foam-basic-lib.workspace = true
+
+[dev-dependencies]
+approx.workspace = true
+
+[lib]
+name = "outram_foam_turbulence_lib"
+path = "src/lib.rs"

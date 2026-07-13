@@ -26,9 +26,9 @@ which must be replaced as part of the migration.
 
 **Migration steps (mirroring what was done for TUAS in 2026-06):**
 
-1. Add `openfoam-basic-lib.workspace = true` to `[dependencies]` in `Cargo.toml`.
+1. Add `outram-foam-basic-lib.workspace = true` to `[dependencies]` in `Cargo.toml`.
 2. In `implicit_solver.rs`: drop `use ndarray_linalg::Solve;`, add
-   `use openfoam_basic_lib::matrix::SquareMatrix;`. Replace the solve:
+   `use outram_foam_basic_lib::matrix::SquareMatrix;`. Replace the solve:
    ```rust
    // before
    let sol = coefficient_matrix_float.solve(&rhs_vec)?;

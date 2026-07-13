@@ -1,7 +1,7 @@
 use std::{f64::consts::PI, sync::{Arc, Mutex}};
 
 use boon_lay::{lagrangian_decay_simulator::lagrangian_diffusion::central_limit_theorem::oorandom_rng::OoRng64, prelude::{decay_library::DecayLibrary, SingleNuclideSimulatorMC}, Nuclide};
-use openmc_libs::rng::lcg::{Lcg64, prn};
+use outram_mc_libs::rng::lcg::{Lcg64, prn};
 use uom::{si::f64::Length, ConstZero};
 
 use crate::triso_simulator_v1::{front_end::triso_particle::TrisoParticleUi, TRISOSimApp};

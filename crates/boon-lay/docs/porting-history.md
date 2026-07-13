@@ -76,18 +76,18 @@ Also copy the examples:
 
 ## Migration required after copying
 
-### 1. RNG migration: oorandom / rand / rand_core / rand_distr → openmc-libs
+### 1. RNG migration: oorandom / rand / rand_core / rand_distr → outram-mc-libs
 
 The standalone boon-lay used four RNG crates.  All are replaced by
-`openmc_libs::rng`:
+`outram_mc_libs::rng`:
 
 | Old import | Old usage | New replacement |
 |---|---|---|
 | `oorandom::Rand64::new(seed)` | construct RNG | `let mut seed: u64 = seed as u64;` |
-| `rng.rand_float()` | uniform [0,1) | `openmc_libs::rng::lcg::prn(&mut seed)` |
-| `rng.sample(StandardNormal)` | N(0,1) | `openmc_libs::rng::distributions::sample_normal(&mut seed)` |
-| N(0, σ²) × 3 axes | 3-D diffusion step | `openmc_libs::rng::distributions::sample_normal_3d(&mut seed, sigma)` |
-| `Exp::new(rate).sample(&mut rng)` | exponential | `openmc_libs::rng::distributions::sample_exp(&mut seed, rate)` |
+| `rng.rand_float()` | uniform [0,1) | `outram_mc_libs::rng::lcg::prn(&mut seed)` |
+| `rng.sample(StandardNormal)` | N(0,1) | `outram_mc_libs::rng::distributions::sample_normal(&mut seed)` |
+| N(0, σ²) × 3 axes | 3-D diffusion step | `outram_mc_libs::rng::distributions::sample_normal_3d(&mut seed, sigma)` |
+| `Exp::new(rate).sample(&mut rng)` | exponential | `outram_mc_libs::rng::distributions::sample_exp(&mut seed, rate)` |
 
 The file `lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs` (the
 `OoRng64` adapter bridging `oorandom` → `rand_distr`) can be **deleted
@@ -170,7 +170,7 @@ Beyond what workspace `CLAUDE.md` documents, these breaks appeared:
 - [x] `decay_simulator_v1/front_end/graph_page.rs` — `Line::new(name, series)` fix applied
 - [x] `decay_simulator_v1/front_end/side_panel.rs`
 - [x] `decay_simulator_v1/front_end/periodic_table.rs` — `CornerRadius::same(8)`, `StrokeKind::Middle`, `painter.layout_no_wrap` fixes applied
-- [x] `decay_simulator_v1/backend/mod.rs` — `oorandom::Rand64` → `openmc_libs::rng::lcg::Lcg64`
+- [x] `decay_simulator_v1/backend/mod.rs` — `oorandom::Rand64` → `outram_mc_libs::rng::lcg::Lcg64`
 - [x] `decay_simulator_v1/backend/run.rs`
 - [x] `decay_simulator_v1/backend/simulator_state.rs`
 - [x] `decay_simulator_v1/backend/simulator_state/graphing.rs`

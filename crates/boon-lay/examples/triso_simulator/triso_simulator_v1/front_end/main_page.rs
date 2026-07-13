@@ -2,7 +2,7 @@ use boon_lay::Nuclide;
 use boon_lay::prelude::SingleNuclideSimulatorMC;
 use boon_lay::prelude::decay_library::DecayLibrary;
 use egui::{Color32, Rect, Ui};
-use openmc_libs::rng::lcg::Lcg64;
+use outram_mc_libs::rng::lcg::Lcg64;
 
 use crate::triso_simulator_v1::{front_end::triso_particle::TrisoParticleUi, TRISOSimApp};
 

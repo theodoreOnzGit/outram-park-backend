@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use boon_lay::{prelude::{decay_library::DecayLibrary, SingleNuclideSimulatorMC}, Nuclide};
-use openmc_libs::rng::lcg::Lcg64;
+use outram_mc_libs::rng::lcg::Lcg64;
 
 use crate::decay_simulator_v1::DecaySimApp;
 

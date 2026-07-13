@@ -1,7 +1,7 @@
 # CLAUDE.md — njoy-outram-park-fork
 
 Pure-Rust port (in progress) of **NJOY2016** nuclear-data processing. Produces
-the ACE continuous-energy libraries that `openmc-libs` consumes — the data-prep
+the ACE continuous-energy libraries that `outram-mc-libs` consumes — the data-prep
 step upstream of an OpenMC run.
 
 > Workspace member of the **OUTRAM PARK** backend. See the root `CLAUDE.md` for

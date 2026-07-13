@@ -2,7 +2,7 @@
 //!
 //! Per the OUTRAM PARK architecture (`docs/architecture.md`), *all* nuclear-data
 //! representation lives in `njoy-outram-park-fork`. Downstream transport crates
-//! (`openmc-libs` for Monte Carlo, later a deterministic solver) do **not** own
+//! (`outram-mc-libs` for Monte Carlo, later a deterministic solver) do **not** own
 //! cross sections — they call into this module for the microscopic cross sections
 //! and secondary distributions a history needs.
 //!
@@ -146,7 +146,7 @@ pub struct Mgxs {
     pub nu_fission: Vec<f64>,
     // TODO: add an `n2n: Vec<f64>` group column (collapse MF=3/MT=16 over each fast
     // group) so the LOW tier can give (n,2n) its yield-2 multiplicity like HIGH,
-    // instead of lumping it into elastic (no multiplication). See openmc-libs
+    // instead of lumping it into elastic (no multiplication). See outram-mc-libs
     // physics::keff and docs/development-history.md 2026-07 (n,2n).
     /// Mean elastic scattering cosine μ̄ per group, CM frame (dimensionless).
     ///

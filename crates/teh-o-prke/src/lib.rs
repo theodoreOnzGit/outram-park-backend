@@ -17,8 +17,8 @@
 /// 
 pub mod zero_power_prke;
 
-/// Pure-Rust dense LU solver (`SquareMatrix`), inlined from `openfoam-basic-lib`
-/// so this crate has no `openfoam-basic-lib` dependency — see the module doc.
+/// Pure-Rust dense LU solver (`SquareMatrix`), inlined from `outram-foam-basic-lib`
+/// so this crate has no `outram-foam-basic-lib` dependency — see the module doc.
 pub mod matrix;
 
 

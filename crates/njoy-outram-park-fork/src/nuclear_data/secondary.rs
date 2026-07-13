@@ -11,7 +11,7 @@
 //!   algorithm is ported (LF=1/7/9/11, plus NK>1 mixtures); the fixed thermal-Watt
 //!   form remains the default for nuclides/tiers with no parsed MF=5.
 //!
-//! Parsed directly off the ENDF tape and consumed by `openmc-libs::Nuclide` — not
+//! Parsed directly off the ENDF tape and consumed by `outram-mc-libs::Nuclide` — not
 //! routed through the ACER ACE-file writer (`src/ace/energy.rs` has its own,
 //! narrower MF=5 LF=1 parser for that separate path; see `docs/porting-plan.md` §8).
 
@@ -553,7 +553,7 @@ mod tests {
     }
 
     /// A uniform tabulated χ on `[0, 2 MeV]` has an exact mean of 1 MeV — the
-    /// same synthetic table style used for the openmc-libs `ContinuousTabular`
+    /// same synthetic table style used for the outram-mc-libs `ContinuousTabular`
     /// sampler tests, so both layers agree on what "uniform" integrates to.
     #[test]
     fn tabulated_mean_of_uniform_density() {

@@ -13,7 +13,7 @@ copy (`driftFluxFoam/`, `simplefoam/`, `chtMultiRegionTwoPhaseEulerFoam/`) were
 **deleted** — only the EOS-wired `rhoPimpleFoam` path is kept here.
 
 **It depends only on `uom`** (no `ndarray` / BLAS / C, and — deliberately — no
-`openfoam-basic-lib`): the numerical primitives are copied in as source, so this
+`outram-foam-basic-lib`): the numerical primitives are copied in as source, so this
 crate carries them itself and stays Android-buildable.
 
 ## Differences from the tampines copy

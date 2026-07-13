@@ -15,7 +15,7 @@ crates. When changing a shared dependency, edit the root `Cargo.toml` only.
 backend feature is chosen per-target by each member
 (`openblas-system` on unix, `intel-mkl-static` on windows/macos).
 
-**Future: removing `ndarray-linalg` from TUAS.** `openfoam-basic-lib` does
+**Future: removing `ndarray-linalg` from TUAS.** `outram-foam-basic-lib` does
 **not** use `ndarray-linalg` — its `SquareMatrix` module implements LU
 factorisation in pure Rust. All `ndarray-linalg` usage in TUAS bottoms out in
 one call: `M.solve(&S)` in
@@ -23,7 +23,7 @@ one call: `M.solve(&S)` in
 (`solve_conductance_matrix_power_vector`), which performs a dense LU solve on
 the per-timestep conductance matrix (typically 10–50 × 10–50, not tridiagonal
 because lateral coupling fills off-band entries). Replacing it with
-`openfoam_basic_lib::matrix::SquareMatrix::lu_solve` would eliminate the
+`outram_foam_basic_lib::matrix::SquareMatrix::lu_solve` would eliminate the
 OpenBLAS system dependency from TUAS entirely. That requires changing
 `solve_conductance_matrix_power_vector`'s signature and its ~13 call sites —
 a moderate refactor, not urgent.
@@ -100,7 +100,7 @@ etc. appear in public APIs):
 | `tuas_boussinesq_solver` | 0.1.0 | GPL-3.0-only |
 | `teh-o-prke` | 0.1.0 | GPL-3.0-only |
 | `tampines-steam-tables` | 0.2.0 | GPL-3.0-only |
-| `openfoam-basic-lib` | 0.1.2 | GPL-3.0-only |
+| `outram-foam-basic-lib` | 0.1.2 | GPL-3.0-only |
 
 Internal deps are `{ path = …, version = … }` in `[workspace.dependencies]`, so
 the version pins above must be kept in sync with each crate's `version` (and a
@@ -111,7 +111,7 @@ including dev-dependencies, against crates.io, so each crate can only be package
 once everything it depends on (normal **or** dev) is already live:
 
 1. `chem-eng-real-time-process-control-simulator` (no internal deps)
-1. `openfoam-basic-lib` (no internal deps — can publish in parallel with chem-eng)
+1. `outram-foam-basic-lib` (no internal deps — can publish in parallel with chem-eng)
 2. `tuas_boussinesq_solver` (dev-dep: chem-eng)
 3. `teh-o-prke` (dev-deps: tuas, chem-eng)
 4. `tampines-steam-tables` (dep: tuas; dev-deps: teh-o-prke, chem-eng)

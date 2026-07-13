@@ -3,7 +3,7 @@
 Pure-Rust port (**work in progress**) of [NJOY2016] — the modular nuclear-data
 processing system that turns evaluated ENDF data into libraries for transport
 codes. In OUTRAM PARK its job is to produce the **ACE** continuous-energy
-libraries that [`openmc-libs`] consumes: NJOY is the data-prep step *upstream* of
+libraries that [`outram-mc-libs`] consumes: NJOY is the data-prep step *upstream* of
 an OpenMC calculation.
 
 > **Status — RECONR Phase 2c + BROADR (SIGMA1):** RECONR reconstructs ENDF
@@ -84,4 +84,4 @@ then assert the Rust port reproduces the same tape/ACE output within tolerance.
 See the porting plan for the test strategy.
 
 [NJOY2016]: https://github.com/njoy/NJOY2016
-[`openmc-libs`]: https://github.com/theodoreOnzGit/outram-park-backend
+[`outram-mc-libs`]: https://github.com/theodoreOnzGit/outram-park-backend

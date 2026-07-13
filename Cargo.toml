@@ -5,10 +5,10 @@ members = [
     "crates/teh-o-prke",
     "crates/tuas_boussinesq_solver",
     "crates/tampines-steam-tables",
-    "crates/openfoam-basic-lib",
-    "crates/openfoam-turbulence-lib",
-    "crates/openfoam-appbuilder-lib",
-    "crates/openmc-libs",
+    "crates/outram-foam-basic-lib",
+    "crates/outram-foam-turbulence-lib",
+    "crates/outram-foam-appbuilder-lib",
+    "crates/outram-mc-libs",
     "crates/dwsim-libs",
     "crates/boon-lay",
     "crates/njoy-outram-park-fork",
@@ -89,16 +89,16 @@ chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-ti
 teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.2" }
 tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.3" }
 tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.1" }
-openfoam-basic-lib        = { path = "crates/openfoam-basic-lib",        version = "0.1.5" }
-openfoam-turbulence-lib   = { path = "crates/openfoam-turbulence-lib",   version = "0.1.0" }
-openfoam-appbuilder-lib   = { path = "crates/openfoam-appbuilder-lib",   version = "0.1.0" }
-openmc-libs         = { path = "crates/openmc-libs",         version = "0.1.0" }
+outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.5" }
+outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.0" }
+outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.0" }
+outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.1.0" }
 dwsim-libs          = { path = "crates/dwsim-libs",          version = "0.1.0" }
 boon-lay            = { path = "crates/boon-lay",            version = "0.1.2" }
 # All nuclear-data representation (ENDF processing, WMP + Faddeeva, lean ACE)
-# lives here; openmc-libs and nee_soon pull cross sections from it.
+# lives here; outram-mc-libs and nee_soon pull cross sections from it.
 njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.1" }
-# Coupling / integration layer — composes njoy-outram-park-fork, openmc-libs and
+# Coupling / integration layer — composes njoy-outram-park-fork, outram-mc-libs and
 # teh-o-prke behind one object-oriented facade (scaffold).
 nee_soon            = { path = "crates/nee_soon",            version = "0.1.0" }
 

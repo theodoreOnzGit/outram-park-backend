@@ -14,7 +14,7 @@ assemble simulations without wiring the crates together by hand.
 | Composes | Crate | Role |
 |---|---|---|
 | Nuclear data / cross sections | `njoy-outram-park-fork` | energy-dependent σ(E), ν̄, χ, WMP |
-| Monte Carlo transport | `openmc-libs` | CSG geometry, k-eigenvalue, Woodcock tracking |
+| Monte Carlo transport | `outram-mc-libs` | CSG geometry, k-eigenvalue, Woodcock tracking |
 | Point reactor kinetics | `teh-o-prke` | PRKE precursor / reactivity time response |
 
 See the workspace `docs/architecture.md` for the responsibility split
@@ -32,7 +32,7 @@ struct `NeeSoon` with no coupling logic yet. Do not add physics kernels here.
   crate navigable by `rust-analyzer` alone; every public item needs a `///`
   doc comment (what physical quantity, valid ranges, units).
 - **Expose and integrate — do not reimplement.** New cross-section code goes to
-  `njoy-outram-park-fork`; new transport to `openmc-libs`; new kinetics to
+  `njoy-outram-park-fork`; new transport to `outram-mc-libs`; new kinetics to
   `teh-o-prke`. Only *new coupled* functionality belongs here.
 - **Dimensioned units.** All public physical quantities use `uom`, never bare
   `f64`.
@@ -43,7 +43,7 @@ struct `NeeSoon` with no coupling logic yet. Do not add physics kernels here.
 ## Build & test
 
 Always `--release` (workspace rule). System OpenBLAS required (pulled in via
-`openmc-libs`).
+`outram-mc-libs`).
 
 ```bash
 cargo build --release -p nee_soon

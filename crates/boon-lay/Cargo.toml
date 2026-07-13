@@ -16,7 +16,7 @@ uom             = { workspace = true }
 serde           = { workspace = true }
 serde-xml-rs    = { workspace = true }
 anyhow          = { workspace = true }
-openmc-libs     = { workspace = true }
+outram-mc-libs     = { workspace = true }
 fission-yields-data               = { workspace = true }
 openmc-endf-8-depletion-lib-b     = { workspace = true }
 

@@ -198,8 +198,8 @@ Port these alongside or before the modules that need them:
 | Bilinear interpolation | Heat-transfer coefficient tables |
 | Nelder-Mead simplex | Activity-coefficient regression |
 
-Note: `openfoam-basic-lib` already has a `CubicEqn` solver that can be reused
-here (`openfoam_basic_lib::polynomial::CubicEqn`).
+Note: `outram-foam-basic-lib` already has a `CubicEqn` solver that can be reused
+here (`outram_foam_basic_lib::polynomial::CubicEqn`).
 
 ---
 

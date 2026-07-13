@@ -14,7 +14,7 @@ those traits for your own projects.
 
 ## 0.1.3 
 
-Removed openfoam_basic_lib dependencies to avoid dependency loops. 
+Removed outram_foam_basic_lib dependencies to avoid dependency loops. 
 
 ## 0.1.2
 
@@ -27,7 +27,7 @@ Removed openfoam_basic_lib dependencies to avoid dependency loops.
 
 - **Dependency change — `ndarray-linalg` and system BLAS removed.** The only LU solve in
   TUAS (`solve_conductance_matrix_power_vector` in `standalone_fluid_nodes`) is now
-  performed by `openfoam_basic_lib::matrix::SquareMatrix::solve`, a pure-Rust LU
+  performed by `outram_foam_basic_lib::matrix::SquareMatrix::solve`, a pure-Rust LU
   factorisation with scaled partial pivoting. All three
   `[target.*.dependencies]` blocks for `ndarray-linalg` (Linux/macOS/Windows) are gone.
   **Users no longer need to install OpenBLAS or Intel MKL** to build or use this crate.
@@ -125,7 +125,7 @@ as well, but maybe that name is for another project.
 
 ## Prerequisites
 
-As of v0.1.2, TUAS uses a pure-Rust LU solver (`openfoam-basic-lib::matrix::SquareMatrix`)
+As of v0.1.2, TUAS uses a pure-Rust LU solver (`outram-foam-basic-lib::matrix::SquareMatrix`)
 and no longer requires a system BLAS (OpenBLAS or Intel MKL). No extra packages need to
 be installed on Linux, macOS, or Windows.
 
@@ -194,7 +194,7 @@ many free and open source libraries such as:
 2. Peroxide
 3. Roots
 4. GeN-Foam and OpenFOAM
-5. openfoam-basic-lib (pure-Rust LU solver, replaces ndarray-linalg as of v0.1.2)
+5. outram-foam-basic-lib (pure-Rust LU solver, replaces ndarray-linalg as of v0.1.2)
 6. thiserror
 7. csv
 

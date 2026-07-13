@@ -34,7 +34,7 @@ Covers:
 | `fission-yields-data` | `Nuclide` enum covering ~3000 nuclides; boon-lay re-exports it |
 | `openmc-endf-8-depletion-lib-b` | ENDF/B-VIII.0 depletion chain XML data (half-lives, decay modes, Q-values) |
 | `oorandom` | Simple fast RNG for decay-chain sampling |
-| `openmc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` |
+| `outram-mc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` |
 | `serde` / `serde-xml-rs` | Deserialise the ENDF-8 XML into `SerdeNuclideData` structs |
 | `anyhow` | Error propagation in XML parsing |
 
@@ -130,14 +130,14 @@ Fission fragment yields come from the ENDF/B-VIII.0 fission yield data already
 available via `openmc-endf-8-depletion-lib-b`.
 
 The neutron flux `φ` (scalar or spatially resolved) is an external input —
-coupling to `openmc-libs` flux maps is the natural integration point.
+coupling to `outram-mc-libs` flux maps is the natural integration point.
 
 This design scales linearly with the number of simulated atoms and requires no
 matrix exponential, no CRAM solver, and no stiffness handling.
 
 ### Other planned items
 
-- Coupling to `openmc-libs` for spatially resolved neutron flux maps that drive
+- Coupling to `outram-mc-libs` for spatially resolved neutron flux maps that drive
   per-region transmutation rates.
 - Real-time 3-D TRISO diffusion visualisation (extends `boon_lay_decay_simulator`
   example).

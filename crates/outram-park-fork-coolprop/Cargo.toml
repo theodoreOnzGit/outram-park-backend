@@ -17,7 +17,7 @@ exclude = ["verification_and_validation/*.csv", "docs"]
 # runtime JSON). `uom` is the only runtime dependency — it types the
 # `OPCPFluidSingleCV` control-volume API and the vendored `openfoam_algorithms`
 # finite-volume layer. Both `uom` and those primitives are pure Rust (no BLAS /
-# C / ndarray, and no `openfoam-basic-lib` dependency — the primitives are
+# C / ndarray, and no `outram-foam-basic-lib` dependency — the primitives are
 # copied in as source), so the crate still builds on Android.
 [dependencies]
 uom.workspace = true

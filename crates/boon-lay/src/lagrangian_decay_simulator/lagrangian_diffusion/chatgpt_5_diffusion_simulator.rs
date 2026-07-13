@@ -1,4 +1,4 @@
-use openmc_libs::rng::{lcg::prn, distributions::sample_exp};
+use outram_mc_libs::rng::{lcg::prn, distributions::sample_exp};
 use std::f64::consts::PI;
 use std::time::{SystemTime, UNIX_EPOCH};
 

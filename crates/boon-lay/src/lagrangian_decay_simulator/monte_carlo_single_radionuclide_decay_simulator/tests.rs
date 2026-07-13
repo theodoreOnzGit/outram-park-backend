@@ -1,5 +1,5 @@
 use fission_yields_data::prelude::Nuclide;
-use openmc_libs::rng::lcg::Lcg64 as Rand64;
+use outram_mc_libs::rng::lcg::Lcg64 as Rand64;
 use uom::si::time::{second, year};
 use uom::si::f64::*;
 

@@ -1,0 +1,36 @@
+[package]
+name = "outram-foam-basic-lib"
+version = "0.1.5"
+edition.workspace = true
+license.workspace = true
+description = "OpenFOAM primitive functions translated to Rust"
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
+# and never shipped in the packaged crate. `docs/` (incl. the generated
+# docs/api.md rustdoc mirror) isn't crate content either.
+exclude = ["verification_and_validation/*.csv", "docs"]
+
+[dependencies]
+thiserror.workspace = true
+uom.workspace = true
+ndarray.workspace = true
+
+[dev-dependencies]
+approx.workspace = true
+ndarray.workspace = true
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+ndarray-linalg = { workspace = true, features = ["openblas-system"] }
+
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
+
+[target.'cfg(windows)'.dev-dependencies]
+ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
+
+[lib]
+name = "outram_foam_basic_lib"
+path = "src/lib.rs"

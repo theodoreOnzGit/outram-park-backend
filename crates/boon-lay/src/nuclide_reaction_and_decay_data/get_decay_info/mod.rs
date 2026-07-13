@@ -1,6 +1,6 @@
 use crate::prelude::{DecayType, NuclideReactionAndDecayData};
 use fission_yields_data::prelude::Nuclide;
-use openmc_libs::rng::lcg::Lcg64 as Rand64;
+use outram_mc_libs::rng::lcg::Lcg64 as Rand64;
 use uom::si::{f64::*, ratio::ratio};
 
 impl NuclideReactionAndDecayData {

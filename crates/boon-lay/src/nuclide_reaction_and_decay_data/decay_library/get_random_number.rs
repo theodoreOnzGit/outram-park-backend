@@ -1,4 +1,4 @@
-use openmc_libs::rng::lcg::Lcg64 as Rand64;
+use outram_mc_libs::rng::lcg::Lcg64 as Rand64;
 
 use crate::prelude::decay_library::DecayLibrary;
 

@@ -218,7 +218,7 @@ use crate::flash;
 // pressure) are lost after every `solve()` / arithmetic op. These helpers snapshot
 // a BC template and re-apply it — the equivalent of OpenFOAM's
 // `field.correctBoundaryConditions()`. Local copies of the appbuilder `bc_util`
-// helpers so this crate needs only `openfoam-basic-lib`, not the solver crate.
+// helpers so this crate needs only `outram-foam-basic-lib`, not the solver crate.
 
 /// Snapshot the per-patch boundary-condition template of a field, to be
 /// re-applied after solves with [`correct_bcs`] / [`correct_bcs_vec`].
@@ -250,7 +250,7 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
 /// One-dimensional compressible PIMPLE pipe array driven by the **CoolProp
 /// Helmholtz EOS** (this crate's [`crate::Fluid`] / [`crate::flash`]).
 ///
-/// This is the CoolProp-fork analogue of `openfoam-appbuilder-lib`'s
+/// This is the CoolProp-fork analogue of `outram-foam-appbuilder-lib`'s
 /// `RhoPimpleFoam`, specialised to a **1-D pipe**: the mesh is built
 /// automatically from a length, a cross-sectional area, and a cell count via
 /// [`create_one_d_mesh`], instead of being read from an OpenFOAM `polyMesh`

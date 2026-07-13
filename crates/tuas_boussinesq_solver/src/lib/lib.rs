@@ -92,8 +92,8 @@ extern crate peroxide;
 /// provides error types for tuas_boussinesq_solver
 pub mod tuas_lib_error;
 
-/// Pure-Rust dense LU solver (`SquareMatrix`), inlined from `openfoam-basic-lib`
-/// so this crate has no `openfoam-basic-lib` dependency — see the module doc.
+/// Pure-Rust dense LU solver (`SquareMatrix`), inlined from `outram-foam-basic-lib`
+/// so this crate has no `outram-foam-basic-lib` dependency — see the module doc.
 pub mod matrix;
 
 #[warn(missing_docs)]

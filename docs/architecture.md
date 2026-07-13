@@ -16,7 +16,7 @@ built (marked *planned*).
              ┌───────────────────────────┼───────────────────────────┐
              ▼                           ▼                           ▼
    ┌──────────────────┐        ┌──────────────────┐        ┌──────────────────┐
-   │   openmc-libs    │        │  deterministic + │        │   teh-o-prke     │
+   │   outram-mc-libs    │        │  deterministic + │        │   teh-o-prke     │
    │  Monte Carlo:    │        │  TH (GenFOAM)    │        │  point kinetics  │
    │  CSG geometry,   │        │  *planned*, first│        │  + surrogates    │
    │  tracking,       │        │  inside          │        └──────────────────┘
@@ -56,7 +56,7 @@ Licensing: GPL-3.0-only derivative of NJOY (BSD/LANL) — keep `LICENSE.njoy` +
 `NOTICE`. WMP is **separate MIT CRPG** provenance — add `LICENSE-WMP` before
 embedding WMP data; never mix the two attributions.
 
-### `openmc-libs` — the Monte Carlo transport crate
+### `outram-mc-libs` — the Monte Carlo transport crate
 
 Pure transport, **data-free**. Pulls cross sections from `njoy-outram-park-fork`
 via `XsProvider`. Responsibilities:
@@ -76,8 +76,8 @@ The **human-readable, AI-free-usable** front door to the whole stack. A user
 builds and runs simulations through `nee-soon` without needing to understand the
 internals of the transport or data crates. Responsibilities:
 
-- Compose the **Monte Carlo** (`openmc-libs`), **deterministic + TH** (GenFOAM,
-  via `openfoam-appbuilder-lib`), and **nuclear-data** (`njoy-outram-park-fork`)
+- Compose the **Monte Carlo** (`outram-mc-libs`), **deterministic + TH** (GenFOAM,
+  via `outram-foam-appbuilder-lib`), and **nuclear-data** (`njoy-outram-park-fork`)
   aspects of a simulation.
 - Expose interfaces that make **coupling to CFD** straightforward.
 - Include **point reactor kinetics** and other **surrogate models** — depends on
@@ -96,10 +96,10 @@ PARK / BOON LAY / TAMPINES / TEH-O theme). Backronym so far:
 | **O** | *O-?* (candidates: **O**perator-coupled / **O**bject-oriented) |
 | **N** | *N-?* (candidates: **N**eutronics / **N**umerics) |
 
-### `openfoam-appbuilder-lib` — deterministic + TH host (GenFOAM) *(planned)*
+### `outram-foam-appbuilder-lib` — deterministic + TH host (GenFOAM) *(planned)*
 
 GenFOAM (deterministic neutronics + thermal hydraulics, OpenFOAM-based) is to be
-ported **inside `openfoam-appbuilder-lib`** first, rather than as a standalone
+ported **inside `outram-foam-appbuilder-lib`** first, rather than as a standalone
 crate. It also pulls cross sections / group constants from
 `njoy-outram-park-fork`. On hold until the MC + nuclear-data path is further
 along.
@@ -107,11 +107,11 @@ along.
 ## Dependency edges (target)
 
 ```
-nee-soon → { openmc-libs, njoy-outram-park-fork, teh-o-prke, openfoam-appbuilder-lib }
-openmc-libs → njoy-outram-park-fork          (cross sections)   [declared in root
+nee-soon → { outram-mc-libs, njoy-outram-park-fork, teh-o-prke, outram-foam-appbuilder-lib }
+outram-mc-libs → njoy-outram-park-fork          (cross sections)   [declared in root
                                                                   workspace deps;
                                                                   wiring deferred]
-openfoam-appbuilder-lib (GenFOAM) → njoy-outram-park-fork        [planned]
+outram-foam-appbuilder-lib (GenFOAM) → njoy-outram-park-fork        [planned]
 njoy-outram-park-fork → { thiserror, uom }                       (lean; no BLAS)
 ```
 
@@ -126,6 +126,6 @@ for data do not inherit heavy build requirements. The WMP HDF5 reader
    - Priority 2: U-238 (n,γ) Doppler (WMP vs njoy BROADR vs OpenMC `.h5`).
    - Priority 1: bare-sphere Keff (Godiva U-235, Jezebel/Flattop-23 U-233).
    - See `docs/keff-doppler-roadmap.md`.
-2. **Then** — deterministic + TH: port GenFOAM inside `openfoam-appbuilder-lib`.
+2. **Then** — deterministic + TH: port GenFOAM inside `outram-foam-appbuilder-lib`.
 3. **Then** — `nee-soon`: the coupling/interface layer over all of the above.
 ```

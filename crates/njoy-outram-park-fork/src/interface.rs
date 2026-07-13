@@ -331,7 +331,7 @@ impl NuclearDataLibrary {
 /// accessible without parsing text formats.
 ///
 /// Designed for direct consumption by a future OpenMC Rust binding in this
-/// workspace (`openmc-libs`), where the material data is loaded once and queried
+/// workspace (`outram-mc-libs`), where the material data is loaded once and queried
 /// many times during transport.
 #[derive(Debug, Clone)]
 pub struct ContinuousEnergyData {

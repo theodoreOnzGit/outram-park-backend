@@ -1,7 +1,7 @@
 //! Vendored pure-Rust OpenFOAM finite-volume layer + the 1-D compressible
 //! `rhoPimpleFoam` solver, copied from `tampines-steam-tables` (see this
 //! directory's `CLAUDE.md` for provenance). It uses only `uom` — no
-//! `openfoam-basic-lib`, `ndarray`, or BLAS — so the crate stays
+//! `outram-foam-basic-lib`, `ndarray`, or BLAS — so the crate stays
 //! Android-buildable.
 //!
 //! Only the `rhoPimpleFoam` path (driving [`crate::OPCPFluidArray`]) is kept;

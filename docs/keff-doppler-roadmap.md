@@ -1,7 +1,7 @@
 # Roadmap — Keff (U-235/U-233) + U-238 Doppler broadening
 
 Cross-crate plan for two near-term OUTRAM PARK goals, spanning the
-`openmc-libs` Monte Carlo kernel and the `njoy-outram-park-fork` data toolkit.
+`outram-mc-libs` Monte Carlo kernel and the `njoy-outram-park-fork` data toolkit.
 Opened 2026-07.
 
 ## Progress (2026-07)
@@ -16,12 +16,12 @@ Opened 2026-07.
   6.673 eV capture resonance peaks at **22 262 b (0 K) → 7 110 b (294 K) →
   4 283 b (1000 K)** — see `tests/wmp_u238.rs`. This satisfies goal 2's kernel;
   remaining is a quantitative gate vs the OpenMC pointwise `.h5`.
-- ✅ **First bare-sphere Keff (Godiva) runs end-to-end** — the `openmc-libs`
+- ✅ **First bare-sphere Keff (Godiva) runs end-to-end** — the `outram-mc-libs`
   transport stack is wired to njoy's data: `Nuclide::from_core` pulls WMP +
   fast MGXS + ν̄ through the CE↔MG seam at `e_max`; `Sphere::distance`, isotropic /
   Watt samplers, isotropic-CM elastic scatter, analog fission banking, and a
   homogeneous-sphere power iteration (`physics::keff::run_keff`) close the loop.
-  `cargo run --release -p openmc-libs --example godiva_keff` reports **k ≈ 1.13 ±
+  `cargo run --release -p outram-mc-libs --example godiva_keff` reports **k ≈ 1.13 ±
   0.002** (stable, converged). That is ~13 000 pcm high — expected for this first
   cut: the fast MGXS is infinite-dilution (no self-shielding) and inelastic /
   (n,xn) are lumped into elastic scatter, so the spectrum is too hard. Closing the
@@ -35,7 +35,7 @@ Opened 2026-07.
 ## Goals
 
 1. **Keff of a bare critical sphere** for **U-235 (Godiva)** and **U-233
-   (Jezebel-23 / Flattop-23)**, computed by the Rust `openmc-libs` MC kernel.
+   (Jezebel-23 / Flattop-23)**, computed by the Rust `outram-mc-libs` MC kernel.
 2. **Doppler broadening of the U-238 (n,γ) absorption spectrum**, computed in
    Rust and compared against a result OpenMC already produced.
 
@@ -55,7 +55,7 @@ not NJOY/LANL. Add `LICENSE-WMP` (MIT) + a NOTICE credit before embedding data.
 ## Data strategy
 
 **All nuclear data lives in `njoy-outram-park-fork`** (see `docs/architecture.md`);
-`openmc-libs` is data-free and pulls cross sections through njoy's `XsProvider`.
+`outram-mc-libs` is data-free and pulls cross sections through njoy's `XsProvider`.
 
 | Need | Source (all in `njoy-outram-park-fork`) | Ships in-crate? |
 |---|---|---|
@@ -98,7 +98,7 @@ The old `nuclear_data::LeanAce` pointwise-tail path is demoted to a fallback for
 any nuclide lacking both a WMP entry and a group set; ACE stays an *offline
 source* the ACER port emits, from which the group constants are collapsed.
 
-**Reference extraction is HDF5-free in-crate.** `openmc-libs` has no HDF5 dep.
+**Reference extraction is HDF5-free in-crate.** `outram-mc-libs` has no HDF5 dep.
 Extract the reference U-238 (n,γ) curve (and Keff) from the `.h5` *offline*
 (python + openmc) into a small committed CSV/JSON fixture used as the test
 oracle.
@@ -132,15 +132,15 @@ cross-check that isolates whether any disagreement is in WMP or in the data.
 ## Priority 1 — bare critical-sphere Keff
 
 Needs real transport. Depends on Priority 2's WMP evaluator plus geometry and
-physics still stubbed in `openmc-libs`.
+physics still stubbed in `outram-mc-libs`.
 
-**openmc-libs — transport gaps (from `docs/port-reference.md`)**
+**outram-mc-libs — transport gaps (from `docs/port-reference.md`)**
 1. Geometry: `Sphere::distance`, `Cell::contains`, `Universe::find_cell`,
    `geometry::distance_to_boundary` — a bare sphere is one surface / one cell /
    vacuum outside, the minimal CSG case.
 2. `Nuclide::xs_at_energy` — delegate to njoy's provider surface
    (`njoy_outram_park_fork::nuclear_data::XsProvider::Multipole { wmp, nu, chi }`
-   → `MicroXs`). openmc-libs stays data-free; it only calls `micro(e, temp_k)`.
+   → `MicroXs`). outram-mc-libs stays data-free; it only calls `micro(e, temp_k)`.
 3. `physics::scatter` (elastic CM kinematics; isotropic-CM first cut),
    `physics::fission` (ν sampling → fission bank), `physics::transport`
    (collision + history loop).
@@ -176,7 +176,7 @@ same `.h5`) within statistics (target a few hundred pcm at first).
    njoy: nuclear_data::XsProvider ── + ν̄,χ (nuclear_data::secondary; ACER 4b/4d)
         │  micro(E,T) → MicroXs
         ▼
-   openmc-libs: Nuclide::xs_at_energy (delegates to njoy XsProvider)
+   outram-mc-libs: Nuclide::xs_at_energy (delegates to njoy XsProvider)
         │
         ▼
    physics (scatter/fission/transport) + geometry (bare sphere)
@@ -207,7 +207,7 @@ same `.h5`) within statistics (target a few hundred pcm at first).
   spectrum as long as the embedded blob stays small; fill any high-energy gaps
   with the `nuclear_data::LeanAce` pointwise tail. (2026-07)
 - **Where WMP data lives** — in `njoy-outram-park-fork` (all nuclear data lives
-  there; `openmc-libs` stays data-free and pulls via `XsProvider`). The
+  there; `outram-mc-libs` stays data-free and pulls via `XsProvider`). The
   `openmc-data-wmp` sibling-crate idea is dropped. (2026-07)
 - **Fast range = multigroup, not pointwise lean-ACE** — WMP ceilings (600 eV –
   20 keV) sit far below the fission spectrum, so the fast tail is a coarse fast
