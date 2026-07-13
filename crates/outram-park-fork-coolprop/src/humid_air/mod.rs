@@ -7,24 +7,62 @@
 //!
 //! # Coverage
 //!
-//! - **Inputs**: `(T, p, W)` or `(T, p, R)` — dry-bulb temperature, pressure,
-//!   plus one humidity measure (humidity ratio or relative humidity). This is
-//!   the input triple most psychrometric/HVAC and FHR-secondary-loop-air
-//!   calculations use.
+//! - **Inputs**: `(T, p, X)` where `X` is any *one* of humidity ratio `W`,
+//!   relative humidity `R`, water mole fraction `ψ_w`, dew-point temperature
+//!   `T_dp`, or wet-bulb temperature `T_wb` — dry-bulb temperature, pressure,
+//!   plus one humidity measure. `(T, p, {W|R})` is the triple most
+//!   psychrometric/HVAC and FHR-secondary-loop-air calculations use;
+//!   `(T, p, T_wb)` and `(T, p, T_dp)` invert the two solved-for temperatures
+//!   below back to a state (see [`psi_w_from_dew_point`],
+//!   [`psi_w_from_wet_bulb`]).
 //! - **Outputs**: `T`, `p`, `ψ_w`, `W`, `R`, specific enthalpy `H`, specific
-//!   volume `V` (both per kg dry air), the water partial pressure `p_w`, and
-//!   the wet-bulb temperature `T_wb` and dew-point temperature `T_dp`.
+//!   entropy `S`, specific volume `V` (all per kg dry air), the water
+//!   partial pressure `p_w`, and the wet-bulb temperature `T_wb` and
+//!   dew-point temperature `T_dp`.
 //! - **Range**: liquid-water branch only, `T > 273.16 K` (the IAPWS triple
 //!   point) — the ice-sublimation branch is not ported (see [`saturation`]).
 //!
-//! **Not implemented** (bead op-kbc.14 follow-up): specific entropy `S`
-//! (needs the ideal-gas reference-state offset calibration CoolProp computes
-//! once against IAPWS/Lemmon reference points — a separate porting effort),
-//! `T_wb`/`T_dp` as *input* keys (only as outputs of an already-solved
-//! `(T, p, {W|R|ψ_w})` state — see [`dew_point_temperature`] and
-//! [`wet_bulb_temperature`]), and any input triple that is not
-//! `(T, p, {W|R|ψ_w})`. [`ha_props`] returns
+//! **Not implemented**: any input triple that is not
+//! `(T, p, {W|R|ψ_w|T_dp|T_wb})`. [`ha_props`] returns
 //! [`HumidAirError::UnsupportedInputs`] for these — never a wrong number.
+//!
+//! # Caveats (read before relying on `S`, or on `T_wb`/`T_dp` near their
+//! domain edges)
+//!
+//! - **`S`'s absolute value is on a different reference-state footing than
+//!   CoolProp's own.** This port derives `S` from Gibbs' theorem plus the
+//!   already-verified `Cp(T)` polynomials, anchored to an explicit ASHRAE
+//!   zero-point convention (`s_a = 0` at 0 °C/1 atm; `s_w` anchored via
+//!   Clausius-Clapeyron to the same convention `H` uses) — it does **not**
+//!   replicate CoolProp's own `ensure_ref_offsets`/`calc_ideal_gas_alpha0`
+//!   calibration (which uses the real ideal-gas Helmholtz term and a
+//!   different set of historical reference points). `dS/dT = Cp/T` is
+//!   verified to hold (a rigorous, model-independent thermodynamic identity —
+//!   see `tests/humid_air_reference.rs`), so `S`'s *temperature dependence*
+//!   is trustworthy; its *absolute value* likely carries a small offset
+//!   (comparable in size to `H`'s own known ~6.6 kJ/kg mixture offset against
+//!   ASHRAE tables — see that test file) that has not been independently
+//!   confirmed against an external reference. Revisit if a CoolProp/`rfluids`
+//!   oracle (`op-kbc.3`) becomes available.
+//! - **Liquid-branch restriction is transitive.** Any solve whose dew point
+//!   would fall below 273.16 K errors (`OutOfRange`) rather than extrapolate
+//!   into the unported ice-sublimation branch — this includes `T_wb`/`T_dp`
+//!   both as outputs *and* as inputs, and it is a real, easy-to-hit
+//!   restriction: e.g. `T = 10 °C, R = 0.4` already has a sub-freezing dew
+//!   point and errors.
+//! - **`T_wb` inversion at the exact saturation boundary needed a targeted
+//!   fix.** [`psi_w_from_wet_bulb`]'s general bisection is parameterised by a
+//!   trial dew point rather than `ψ_w` directly (see its own doc comment for
+//!   why bisecting `ψ_w` from `0` breaks the inner dew-point solve at bone-dry
+//!   air) — but that bracket itself degenerates when `T_wb = T` exactly (100%
+//!   RH), which a caller can easily hit by chaining this crate's own forward
+//!   solve (`T_wb` computed to within the forward secant's convergence noise,
+//!   ~1e-7 K, can land on *either* side of `T`). Handled with a direct
+//!   `ψ_w = ψ_{w,s}(T, p)` short-circuit rather than trusting the bisection
+//!   there; the general bounds check also had to be loosened from a `1e-9` K
+//!   to a `1e-4` K tolerance for the same reason. Caught by round-tripping
+//!   `(T,p,R) → T_wb → (T,p,T_wb) → R` at `R = 1` during verification — see
+//!   `tests/humid_air_reference.rs`.
 //!
 //! # Units
 //!
@@ -54,16 +92,18 @@ pub enum HumidAirParam {
     RelativeHumidity,
     /// Water-vapour mole fraction `ψ_w` \[-\] (CoolProp `psi_w`/`Y`).
     WaterMoleFraction,
-    /// Wet-bulb temperature `T_wb` \[K\] (CoolProp `B`/`Twb`). Output only —
-    /// not yet supported as an input key (see the module doc).
+    /// Wet-bulb temperature `T_wb` \[K\] (CoolProp `B`/`Twb`). Usable as
+    /// either an input or an output (see the module doc's caveats section
+    /// for a sharp edge at the exact saturation boundary).
     TWetBulb,
-    /// Dew-point temperature `T_dp` \[K\] (CoolProp `D`/`Tdp`). Output only —
-    /// not yet supported as an input key (see the module doc).
+    /// Dew-point temperature `T_dp` \[K\] (CoolProp `D`/`Tdp`). Usable as
+    /// either an input or an output.
     TDewPoint,
     /// Mixture specific enthalpy per kg dry air \[J/kg\] (CoolProp `H`/`Hda`).
     Enthalpy,
     /// Mixture specific entropy per kg dry air \[J/(kg·K)\] (CoolProp
-    /// `S`/`Sda`). **Not implemented** — see the module doc.
+    /// `S`/`Sda`). See the module doc's caveats section — this port's
+    /// absolute reference-state convention differs from CoolProp's own.
     Entropy,
     /// Mixture specific volume per kg dry air \[m³/kg\] (CoolProp `V`/`Vda`).
     Volume,
@@ -75,8 +115,8 @@ pub enum HumidAirParam {
 ///
 /// Produced once the three input constraints are solved for the base
 /// `(T, p, ψ_w)` triple; every [`HumidAirParam`] is then a direct read.
-/// `entropy` is `NaN` (not implemented — see the module doc);
-/// [`ha_props`] rejects an `Entropy` output before this value is read.
+/// See the module doc's caveats section for `entropy`'s absolute-reference
+/// caveat.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HumidAirState {
     /// Dry-bulb temperature \[K\].
@@ -91,8 +131,9 @@ pub struct HumidAirState {
     pub relative_humidity: f64,
     /// Specific enthalpy \[J/kg dry air\].
     pub enthalpy: f64,
-    /// Specific entropy \[J/(kg dry air·K)\]. **Always `NaN`** — see the
-    /// module doc; not implemented.
+    /// Specific entropy \[J/(kg dry air·K)\]. See the module doc's caveats
+    /// section — temperature dependence is verified, absolute value not yet
+    /// cross-checked against an external reference.
     pub entropy: f64,
     /// Specific volume \[m³/kg dry air\].
     pub volume: f64,
@@ -101,9 +142,7 @@ pub struct HumidAirState {
 /// Failure modes of a humid-air solve.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HumidAirError {
-    /// The requested input set is not a solvable/supported triple (including
-    /// `TWetBulb`/`TDewPoint` used as *inputs* — output only, see the module
-    /// doc), or the requested output is not implemented (`Entropy`).
+    /// The requested input set is not a solvable/supported triple.
     UnsupportedInputs,
     /// An inner iteration (the enhancement factor, molar-volume, dew-point,
     /// or wet-bulb solve) did not converge.
@@ -120,18 +159,13 @@ pub type HaInput = (HumidAirParam, f64);
 /// `HAPropsSI(output, k1, v1, k2, v2, k3, v3)`.
 ///
 /// Humid air has three degrees of freedom, so exactly three inputs are
-/// required. Only `(T, p, {W|R|ψ_w})` triples are supported as *inputs* (see
-/// the module doc); `Entropy` is not implemented as an *output* at all,
-/// while `TWetBulb`/`TDewPoint` are supported as outputs but not yet as
-/// inputs.
+/// required. Only `(T, p, {W|R|ψ_w|T_dp|T_wb})` triples are supported as
+/// *inputs* (see the module doc).
 ///
 /// # Errors
 /// [`HumidAirError`] if the input triple or requested output is unsupported,
 /// an input is out of range, or an inner solve fails to converge.
 pub fn ha_props(output: HumidAirParam, in1: HaInput, in2: HaInput, in3: HaInput) -> Result<f64, HumidAirError> {
-    if matches!(output, HumidAirParam::Entropy) {
-        return Err(HumidAirError::UnsupportedInputs);
-    }
     let state = solve_state(in1, in2, in3)?;
     // T_wb/T_dp are iterative solves in their own right, not plain fields of
     // the base state -- computed on demand so every other output (the
@@ -149,17 +183,18 @@ pub fn ha_props(output: HumidAirParam, in1: HaInput, in2: HaInput, in3: HaInput)
         HumidAirParam::RelativeHumidity => state.relative_humidity,
         HumidAirParam::WaterMoleFraction => state.water_mole_fraction,
         HumidAirParam::Enthalpy => state.enthalpy,
+        HumidAirParam::Entropy => state.entropy,
         HumidAirParam::Volume => state.volume,
         HumidAirParam::WaterPartialPressure => state.water_mole_fraction * state.pressure,
-        HumidAirParam::Entropy | HumidAirParam::TWetBulb | HumidAirParam::TDewPoint => unreachable!(),
+        HumidAirParam::TWetBulb | HumidAirParam::TDewPoint => unreachable!(),
     })
 }
 
 /// Solve the base humid-air state from three input constraints.
 ///
-/// Recognises `(T, p, {W|R|ψ_w})` (in any order), inverts the humidity
-/// measure to the water mole fraction `ψ_w`, then fills every field of
-/// [`HumidAirState`] except `entropy` (`NaN`, not implemented).
+/// Recognises `(T, p, {W|R|ψ_w|T_dp|T_wb})` (in any order), inverts whichever
+/// humidity measure was given to the water mole fraction `ψ_w`, then fills
+/// every field of [`HumidAirState`].
 fn solve_state(in1: HaInput, in2: HaInput, in3: HaInput) -> Result<HumidAirState, HumidAirError> {
     let inputs = [in1, in2, in3];
     let t = find(&inputs, HumidAirParam::TDryBulb).ok_or(HumidAirError::UnsupportedInputs)?;
@@ -178,6 +213,10 @@ fn solve_state(in1: HaInput, in2: HaInput, in3: HaInput) -> Result<HumidAirState
         r * saturation_mole_fraction(t, p)?
     } else if let Some(psi) = find(&inputs, HumidAirParam::WaterMoleFraction) {
         psi
+    } else if let Some(tdp) = find(&inputs, HumidAirParam::TDewPoint) {
+        psi_w_from_dew_point(p, tdp)?
+    } else if let Some(twb) = find(&inputs, HumidAirParam::TWetBulb) {
+        psi_w_from_wet_bulb(t, p, twb)?
     } else {
         return Err(HumidAirError::UnsupportedInputs);
     };
@@ -191,6 +230,7 @@ fn solve_state(in1: HaInput, in2: HaInput, in3: HaInput) -> Result<HumidAirState
 
     let vbar = molar_volume(t, p, psi_w)?;
     let hbar = molar_enthalpy(t, psi_w, vbar);
+    let sbar = molar_entropy(t, p, psi_w, vbar);
     let m_ha = MM_WATER * psi_w + (1.0 - psi_w) * MM_AIR; // kg_ha / mol_ha
 
     Ok(HumidAirState {
@@ -200,7 +240,7 @@ fn solve_state(in1: HaInput, in2: HaInput, in3: HaInput) -> Result<HumidAirState
         humidity_ratio: w,
         relative_humidity: r,
         enthalpy: hbar * (1.0 + w) / m_ha,
-        entropy: f64::NAN,
+        entropy: sbar * (1.0 + w) / m_ha,
         volume: vbar * (1.0 + w) / m_ha,
     })
 }
@@ -283,6 +323,89 @@ fn molar_enthalpy(t: f64, psi_w: f64, vbar: f64) -> f64 {
     (1.0 - psi_w) * hbar_a
         + psi_w * hbar_w
         + R_BAR * t * ((bm - t * d_bm_dt) / vbar + (cm - t / 2.0 * d_cm_dt) / (vbar * vbar))
+}
+
+/// Reference state for this port's ideal-gas entropy convention: 0 °C
+/// (273.15 K, the ASHRAE/ITS-90 Celsius-scale zero — not the 273.16 K IAPWS
+/// triple point, though the two differ by only 0.01 K), 101 325 Pa. See the
+/// module doc's entropy caveats section for why this specific convention was
+/// chosen and what it does *not* guarantee.
+const T0_ENTROPY_REF: f64 = 273.15;
+const P0_ENTROPY_REF: f64 = 101_325.0;
+
+/// Ideal-gas molar entropy of dry air `s_a(T, p)` \[J/(mol·K)\], referenced
+/// to `s_a = 0` at `(T_0, p_0)` — an arbitrary but explicit and
+/// self-consistent choice (entropy is only ever defined up to an additive
+/// constant; see the module doc). `Cp_a(T) = 2·9.2486716590×10⁻⁴·T +
+/// 2.8557221776×10¹` is the exact derivative of
+/// [`ideal_gas_molar_enthalpy_air`]'s polynomial, so `dS/dT = Cp_a/T` holds
+/// by construction, not by coincidence — **only** if the pressure dependence
+/// is `-R·ln(p/p_0)` (Gibbs' theorem: ideal-gas-mixture components are each
+/// evaluated at the *total* pressure `p`, with the mixing correction added
+/// separately in [`molar_entropy`], not the component's own partial
+/// pressure). An earlier version of this function used `+R·ln(v̄_a/v̄_{a,0})`
+/// (dry air's own virial-corrected molar volume) instead — CoolProp's actual
+/// `IdealGasMolarEntropy_Air` does use a volume argument, but that is because
+/// it evaluates the *real* ideal-gas Helmholtz term (density-native by
+/// construction), not a `Cp`-integral. Reusing a volume argument here, where
+/// `Cp` is explicitly the *constant-pressure* heat capacity, silently
+/// introduced a second, spurious `T`-dependence (`v̄_a ∝ T` at fixed `p`)
+/// alongside the already-correct `b·ln(T/T_0)` term from the `Cp`-integral,
+/// breaking `dS/dT = Cp/T` by ~28% at 25 °C. Caught by the thermodynamic
+/// consistency check in `tests/humid_air_reference.rs` before this was ever
+/// committed as correct.
+fn ideal_gas_molar_entropy_air(t: f64, p: f64) -> f64 {
+    let a = 9.2486716590e-04;
+    let b = 2.8557221776e+01;
+    2.0 * a * (t - T0_ENTROPY_REF) + b * (t / T0_ENTROPY_REF).ln() - R_BAR * (p / P0_ENTROPY_REF).ln()
+}
+
+/// Ideal-gas molar entropy of water vapour `s_w(T, p)` \[J/(mol·K)\].
+///
+/// Unlike dry air, water's reference constant is not arbitrary here: it is
+/// anchored via the Clausius-Clapeyron relation (`Δs = Δh/T` for a
+/// constant-`T,p` phase change) to the *same* ASHRAE zero-point convention
+/// already implicit in [`ideal_gas_molar_enthalpy_water`] — saturated liquid
+/// water's enthalpy (and, by the same convention, entropy) is zero at the
+/// triple point, so saturated water *vapour*'s entropy there equals its
+/// enthalpy there divided by `T_0` (confirmed consistent: this port's
+/// `ideal_gas_molar_enthalpy_water(273.15 K) ≈ 45 064 J/mol ≈ 2501 kJ/kg`,
+/// matching the standard tabulated latent heat of vaporization of water at
+/// 0 °C to 3 figures). `Cp_w(T) = 2·2.7030251618×10⁻³·T + 3.1994361015×10¹`
+/// is the exact derivative of that same enthalpy polynomial, so `dS/dT =
+/// Cp_w/T` holds by construction here too, using the *total* pressure `p`
+/// for the same Gibbs'-theorem reason [`ideal_gas_molar_entropy_air`]'s doc
+/// comment explains.
+fn ideal_gas_molar_entropy_water(t: f64, p: f64) -> f64 {
+    let a = 2.7030251618e-03;
+    let b = 3.1994361015e+01;
+    let s_w0 = ideal_gas_molar_enthalpy_water(T0_ENTROPY_REF) / T0_ENTROPY_REF;
+    2.0 * a * (t - T0_ENTROPY_REF) + b * (t / T0_ENTROPY_REF).ln() - R_BAR * (p / P0_ENTROPY_REF).ln() + s_w0
+}
+
+/// Mixture molar entropy `s̄(T, p, ψ_w, v̄)` \[J/(mol_ha·K)\]: mole-fraction-
+/// weighted pure-component ideal-gas entropies (Gibbs' theorem — each
+/// evaluated at the mixture's total `T, p`), the same virial correction
+/// [`molar_enthalpy`] uses (`(B+T·dB/dT)/v̄ + …`, this time without the extra
+/// factor of `T` since it is already an entropy not an enthalpy term), and
+/// the ideal entropy of mixing `−R·[(1−ψ_w)ln(1−ψ_w) + ψ_w·ln(ψ_w)]`.
+fn molar_entropy(t: f64, p: f64, psi_w: f64, vbar: f64) -> f64 {
+    let bm = virials::b_mix(t, psi_w);
+    let d_bm_dt = virials::d_b_mix_dt(t, psi_w);
+    let cm = virials::c_mix(t, psi_w);
+    let d_cm_dt = virials::d_c_mix_dt(t, psi_w);
+    let virial_term = R_BAR * ((bm + t * d_bm_dt) / vbar + (cm + t * d_cm_dt) / (2.0 * vbar * vbar));
+
+    let mixing_term = if psi_w > 0.0 && psi_w < 1.0 {
+        -R_BAR * ((1.0 - psi_w) * (1.0 - psi_w).ln() + psi_w * psi_w.ln())
+    } else {
+        0.0
+    };
+
+    let sbar_a = ideal_gas_molar_entropy_air(t, p);
+    let sbar_w = ideal_gas_molar_entropy_water(t, p);
+
+    (1.0 - psi_w) * sbar_a + psi_w * sbar_w - virial_term + mixing_term
 }
 
 /// Dew-point temperature `T_dp` \[K\] (CoolProp `HumidAirProp.cpp`'s
@@ -416,4 +539,105 @@ fn wet_bulb_temperature(t: f64, p: f64, psi_w: f64) -> Result<f64, HumidAirError
         }
     }
     Ok(0.5 * (lo + hi))
+}
+
+/// Invert the dew point to the water mole fraction `ψ_w`: exact and
+/// non-iterative, since by definition `ψ_w = ψ_{w,s}(T_dp, p)` — the dew
+/// point *is* the temperature at which the current water content would just
+/// saturate. Independent of the current dry-bulb `t`, matching
+/// [`dew_point_temperature`]'s own signature note.
+fn psi_w_from_dew_point(p: f64, tdp: f64) -> Result<f64, HumidAirError> {
+    saturation_mole_fraction(tdp, p)
+}
+
+/// Invert the wet-bulb temperature to the water mole fraction `ψ_w`, given
+/// the dry-bulb `t`.
+///
+/// Parameterised by a *trial dew point* rather than `ψ_w` directly, bisected
+/// over `T_dp ∈ (273.16 K, T_wb]` (recall `T_dp ≤ T_wb` always, with equality
+/// only at saturation — so `T_wb` itself is a safe, if loose, upper bracket).
+/// Each trial `T_dp` converts to `ψ_w` exactly via [`psi_w_from_dew_point`]
+/// (no iteration), then drives [`wet_bulb_temperature`] to the target `twb`.
+///
+/// This indirection matters: bisecting over `ψ_w` directly and starting from
+/// `ψ_w = 0` (bone-dry air) was tried first and found to break
+/// [`wet_bulb_temperature`]'s own internal dew-point computation, which has
+/// no finite answer at `ψ_w = 0` (dry air has no dew point) — a
+/// [`HumidAirError::OutOfRange`] from deep inside the bisection instead of a
+/// clean bracket-failure signal. Parameterising by `T_dp` and keeping it
+/// bounded away from the triple point by construction avoids that failure
+/// mode entirely, since every trial `ψ_w` this way already has a known-valid
+/// dew point (the one that produced it).
+fn psi_w_from_wet_bulb(t: f64, p: f64, twb: f64) -> Result<f64, HumidAirError> {
+    // 1e-4 K, not 1e-9: a T_wb computed by the forward solve above can land
+    // a little (secant-convergence-noise) on either side of T at the exact
+    // saturation boundary -- see the (t - twb).abs() branch just below.
+    if !(twb.is_finite() && twb > saturation::T_TRIPLE && twb <= t + 1e-4) {
+        return Err(HumidAirError::OutOfRange);
+    }
+    if (t - twb).abs() < 1e-6 {
+        // T_wb = T only at saturation (R = 1): psi_w is exactly the
+        // saturation mole fraction at the dry-bulb T. Handled directly
+        // rather than falling into the bisection below, whose bracket
+        // (T_dp up to T_wb) degenerates at this exact boundary and can
+        // trip the inner dew-point secant's domain guard (see the module
+        // doc's caveats section) instead of converging cleanly.
+        return saturation_mole_fraction(t, p);
+    }
+    let residual = |tdp: f64| -> Result<f64, HumidAirError> {
+        let psi = psi_w_from_dew_point(p, tdp)?;
+        Ok(wet_bulb_temperature(t, p, psi)? - twb)
+    };
+
+    let mut lo = saturation::T_TRIPLE + 1e-6;
+    let mut hi = twb;
+    let r_lo = residual(lo)?;
+    let r_hi = residual(hi)?;
+    if r_hi.abs() < 1e-9 {
+        return psi_w_from_dew_point(p, hi);
+    }
+    if r_lo.signum() == r_hi.signum() {
+        return Err(HumidAirError::NonConvergent);
+    }
+    let mut tdp = 0.5 * (lo + hi);
+    for _ in 0..60 {
+        let mid = 0.5 * (lo + hi);
+        let r_mid = residual(mid)?;
+        tdp = mid;
+        if r_mid.abs() < 1e-6 || (hi - lo) < 1e-9 {
+            break;
+        }
+        if r_mid.signum() == r_lo.signum() {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    psi_w_from_dew_point(p, tdp)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn water_vapor_h_at_0c_matches_latent_heat_of_vaporization() {
+        // Pins down the assumption ideal_gas_molar_entropy_water's
+        // Clausius-Clapeyron reference constant depends on: this port's
+        // ASHRAE-consistent water-vapor enthalpy polynomial, evaluated at
+        // 0 C, should closely match water's known latent heat of
+        // vaporization at 0 C (~2501 kJ/kg, e.g. IAPWS/steam-table
+        // references). If this ever drifted (e.g. a future edit to the
+        // enthalpy polynomial), entropy's absolute value would silently
+        // drift with it -- this test exists so that drift is caught here,
+        // not discovered downstream in a psychrometric-chart comparison.
+        let h_w_0c_j_per_mol = ideal_gas_molar_enthalpy_water(T0_ENTROPY_REF);
+        let h_w_0c_j_per_kg = h_w_0c_j_per_mol / MM_WATER;
+        eprintln!("h_w(0C) = {:.1} J/mol = {:.2} kJ/kg (expect ~2501 kJ/kg)", h_w_0c_j_per_mol, h_w_0c_j_per_kg / 1000.0);
+        assert!(
+            (h_w_0c_j_per_kg / 1000.0 - 2501.0).abs() < 5.0,
+            "h_w(0C) = {} kJ/kg, expected ~2501 kJ/kg (latent heat of vaporization)",
+            h_w_0c_j_per_kg / 1000.0
+        );
+    }
 }

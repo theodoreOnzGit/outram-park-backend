@@ -38,6 +38,59 @@
 //! `rhobarstar = 1` makes the factor a no-op — an easy transcription trap).
 //! Fixed in `virials.rs`; both checks now agree to <0.1%.
 //!
+//! ## Specific entropy `S` (added 2026-07-13, bead op-kbc.14)
+//!
+//! Implemented via Gibbs' theorem for ideal-gas mixtures: each pure
+//! component's ideal-gas entropy evaluated at the mixture's *total* `T, p`
+//! (`s_i(T,p) = ∫Cp_i/T dT − R·ln(p/p_0) + s_{i,0}`, using the same `Cp_i(T)`
+//! implied by the already-verified enthalpy polynomials), plus the standard
+//! ideal entropy of mixing and the same virial correction `H` uses. Water's
+//! reference constant is anchored via Clausius-Clapeyron
+//! (`Δs = Δh/T` for a phase change) to the same ASHRAE zero-point convention
+//! `H` already uses; dry air's is an arbitrary (entropy has no absolute
+//! zero) but explicit, self-consistent zero at 0 °C / 1 atm. See
+//! `src/humid_air/mod.rs::ideal_gas_molar_entropy_{air,water}` for the full
+//! derivation and citations.
+//!
+//! **A real bug caught before this was ever committed as correct**: the
+//! first implementation used dry air's own virial-corrected molar volume
+//! (`+R·ln(v̄_a/v̄_{a,0})`) for the pressure/volume term, mirroring how
+//! CoolProp's *own* `IdealGasMolarEntropy_Air` takes a volume argument. But
+//! CoolProp evaluates the *real* ideal-gas Helmholtz term there (density-
+//! native by construction); this port instead integrates a `Cp` — the
+//! *constant-pressure* heat capacity — so the volume-based term was wrong by
+//! construction: at fixed `p`, `v̄_a ∝ T`, silently smuggling in a second,
+//! spurious `T`-dependence alongside the `Cp`-integral's already-correct one.
+//! This is exactly the kind of error the thermodynamic-consistency check
+//! below is designed to catch: it broke `dS/dT = Cp/T` by ~28% at 25 °C.
+//! Fixed by using `−R·ln(p/p_0)` (the mixture's total pressure) for *both*
+//! components instead, per Gibbs' theorem.
+//!
+//! **Verification**: `dS/dT = Cp/T` (both by finite difference) at fixed
+//! `p, W` is a rigorous thermodynamic identity (`T dS = dH` at constant
+//! pressure) that must hold for internally-consistent `H` and `S` regardless
+//! of the underlying real-gas model. Checked at `T ∈ {1, 10, 25, 40} °C`,
+//! `W ∈ {0, 0.005, 0.010, 0.020} kg/kg`: relative error is `7×10⁻⁴` to
+//! `1.2×10⁻³` throughout, small, smoothly varying with `T` and `W` (not
+//! erratic), and of the same order as the virial correction's own size at
+//! atmospheric pressure — consistent with a residual artifact of the
+//! `B(T),C(T)` virial cross-terms' implicit path-dependence (evaluated at
+//! fixed volume; the true isobaric density path is only approximately
+//! captured), not a remaining implementation bug. Not tightened further
+//! given the effort-to-confidence tradeoff; revisit if a CoolProp/`rfluids`
+//! oracle (`op-kbc.3`) becomes available.
+//!
+//! **Caveat on the absolute value** (not just the derivative): this port's
+//! mixture *enthalpy* `H_da` is already known to carry a small (~6.6 kJ/kg)
+//! offset against ASHRAE's own tabulated `H_da` (see above) — the pure
+//! `h_w(0°C) ≈ 2501 kJ/kg` water-vapor anchor checks out well against the
+//! known latent heat of vaporization, but the *mixture* combination (both
+//! components plus the virial cross-term) is the piece with the small
+//! measured offset. Since `S`'s absolute value is anchored through that same
+//! enthalpy correlation, it likely carries a comparably small absolute
+//! offset too. Not yet cross-checked against an external table value for
+//! `S` specifically — flagged rather than asserted.
+//!
 //! ## Results (2026-07-10, this port)
 //!
 //! At `T = 298.15 K` (25 °C), `p = 101 325 Pa`, `W = 0.010 kg/kg`: round-trip
@@ -91,6 +144,18 @@
 //! error at the saturation boundary, not a violation of the exact identity —
 //! this port's own `T_dp = T_wb = T` there is exact by construction, per
 //! check 1 above.)
+//!
+//! ## `T_wb`/`T_dp` as input keys (added 2026-07-13)
+//!
+//! `(T, p, T_dp)` and `(T, p, T_wb)` now also solve for the state (inverting
+//! `ψ_w`), not just compute `T_dp`/`T_wb` as outputs. Verified by round-trip:
+//! solve `(T, p, R) → T_dp` and `→ T_wb` (already verified above), then feed
+//! each back in as the third input and recover the original `R` to `<1e-4`
+//! (looser than the `<1e-6` `W↔R` round-trip above because this one chains
+//! two iterative solves — forward dew-point/wet-bulb, then the inversion —
+//! instead of one). Includes the `R = 1` (saturation) edge case, which
+//! needed a real fix — see the module doc's caveats section and
+//! `psi_w_from_wet_bulb`'s own doc comment in `src/humid_air/mod.rs`.
 
 use outram_park_fork_coolprop::humid_air::{ha_props, HumidAirParam};
 
@@ -183,12 +248,15 @@ fn out_of_range_below_triple_point_is_rejected() {
 }
 
 #[test]
-fn unsupported_output_is_rejected_not_wrong() {
+fn unsupported_input_triple_is_rejected_not_wrong() {
+    // Entropy is now a supported *output* (bead op-kbc.14, 2026-07-13) --
+    // this test now covers what's still genuinely unsupported: an input
+    // triple that isn't (T, p, {W|R|psi_w|T_dp|T_wb}), e.g. (T, p, H).
     let res = ha_props(
-        HumidAirParam::Entropy,
+        HumidAirParam::RelativeHumidity,
         (HumidAirParam::TDryBulb, T),
         (HumidAirParam::Pressure, P),
-        (HumidAirParam::RelativeHumidity, 0.5),
+        (HumidAirParam::Enthalpy, 50_000.0),
     );
     assert_eq!(res, Err(outram_park_fork_coolprop::humid_air::HumidAirError::UnsupportedInputs));
 }
@@ -247,4 +315,107 @@ fn wet_bulb_vs_stull_2011_and_ordering() {
             "T_wb = {twb_c} C vs Stull(2011) = {stull} C, difference too large"
         );
     }
+}
+
+fn relative_humidity_from(t: f64, p: f64, input: (HumidAirParam, f64)) -> Result<f64, outram_park_fork_coolprop::humid_air::HumidAirError> {
+    ha_props(HumidAirParam::RelativeHumidity, (HumidAirParam::TDryBulb, t), (HumidAirParam::Pressure, p), input)
+}
+
+#[test]
+fn tdp_and_twb_as_input_keys_round_trip_r() {
+    // Unsaturated case.
+    let t = 273.15 + 30.0;
+    let r_in = 0.5;
+    let (tdp, twb) = dew_and_wet_bulb(t, P, r_in);
+
+    let r_from_tdp = relative_humidity_from(t, P, (HumidAirParam::TDewPoint, tdp)).expect("R from (T,p,T_dp)");
+    let r_from_twb = relative_humidity_from(t, P, (HumidAirParam::TWetBulb, twb)).expect("R from (T,p,T_wb)");
+    eprintln!("R={r_in}: T_dp={tdp:.4} -> R={r_from_tdp:.6}; T_wb={twb:.4} -> R={r_from_twb:.6}");
+    assert!((r_from_tdp - r_in).abs() < 1e-4, "R from T_dp input: {r_from_tdp} vs {r_in}");
+    assert!((r_from_twb - r_in).abs() < 1e-4, "R from T_wb input: {r_from_twb} vs {r_in}");
+
+    // Saturation edge case (R = 1): T_wb = T_dp = T exactly, and this is the
+    // case that needed psi_w_from_wet_bulb's dedicated short-circuit (see
+    // the module doc's caveats section).
+    let t_sat = 273.15 + 20.0;
+    let (tdp_sat, twb_sat) = dew_and_wet_bulb(t_sat, P, 1.0);
+    let r_from_tdp_sat = relative_humidity_from(t_sat, P, (HumidAirParam::TDewPoint, tdp_sat)).expect("R from (T,p,T_dp) at saturation");
+    let r_from_twb_sat = relative_humidity_from(t_sat, P, (HumidAirParam::TWetBulb, twb_sat)).expect("R from (T,p,T_wb) at saturation");
+    eprintln!("R=1 (saturated): T_dp={tdp_sat:.6} -> R={r_from_tdp_sat:.8}; T_wb={twb_sat:.6} -> R={r_from_twb_sat:.8}");
+    assert!((r_from_tdp_sat - 1.0).abs() < 1e-4, "R from T_dp input at saturation: {r_from_tdp_sat}");
+    assert!((r_from_twb_sat - 1.0).abs() < 1e-4, "R from T_wb input at saturation: {r_from_twb_sat}");
+}
+
+#[test]
+fn dew_point_below_triple_point_is_rejected_as_input_too() {
+    // T = 10 C, R = 0.4 has a sub-freezing dew point -- errors as an output
+    // (already covered implicitly elsewhere) and must also error when an
+    // already-known T_dp below the triple point is fed back in as an input.
+    let res = ha_props(
+        HumidAirParam::HumidityRatio,
+        (HumidAirParam::TDryBulb, 273.15 + 10.0),
+        (HumidAirParam::Pressure, P),
+        (HumidAirParam::TDewPoint, 270.0),
+    );
+    assert!(res.is_err(), "T_dp below the triple point must error as an input, not silently extrapolate");
+}
+
+fn s_at(t: f64, p: f64, w: f64) -> f64 {
+    ha_props(HumidAirParam::Entropy, (HumidAirParam::TDryBulb, t), (HumidAirParam::Pressure, p), (HumidAirParam::HumidityRatio, w))
+        .expect("S from (T,p,W)")
+}
+
+#[test]
+fn entropy_thermodynamic_consistency_ds_dt_eq_cp_over_t() {
+    // T dS = dH at constant p (any composition), so dS/dT|p,W must equal
+    // Cp/T -- a rigorous identity independent of the underlying real-gas
+    // model, checked across the practical HVAC/psychrometric range. See the
+    // module doc for why the residual is small-but-nonzero rather than
+    // machine-precision, and the real bug (28% error) this check caught
+    // before the fix.
+    let dt = 0.01;
+    for w in [0.0, 0.005, 0.010, 0.020] {
+        for t_c in [1.0, 10.0, 25.0, 40.0] {
+            let t = 273.15 + t_c;
+            let ds_dt = (s_at(t + dt, P, w) - s_at(t - dt, P, w)) / (2.0 * dt);
+            let cp = (enthalpy_at(t + dt, w) - enthalpy_at(t - dt, w)) / (2.0 * dt);
+            let rel_err = (ds_dt - cp / t).abs() / (cp / t).abs();
+            eprintln!("T={t_c}C W={w}: dS/dT={ds_dt:.5} J/(kg.K^2), Cp/T={:.5} J/(kg.K^2), rel_err={rel_err:.2e}", cp / t);
+            assert!(rel_err < 2e-3, "T={t_c}C W={w}: dS/dT={ds_dt} vs Cp/T={}, rel_err={rel_err} too large", cp / t);
+        }
+    }
+}
+
+#[test]
+fn entropy_dry_air_h_near_zero_at_0c_ashrae_convention() {
+    // Sanity print/check on the ASHRAE dry-air H=0-at-0C convention this
+    // port's enthalpy polynomial already relies on (see mod.rs) -- entropy's
+    // water-vapor reference constant is anchored to the *same* convention
+    // via Clausius-Clapeyron (see the module doc), so confirming this
+    // holds (to within the real-gas virial correction's own size) is a
+    // proxy for confirming that anchor is sound. The pure h_w(273.15 K)
+    // polynomial value itself (~45064 J/mol =~ 2501 kJ/kg, matching water's
+    // known latent heat of vaporization at 0C) is checked directly in
+    // src/humid_air/mod.rs's own unit tests, where the private
+    // ideal_gas_molar_enthalpy_water function is directly reachable.
+    //
+    // Measured ~92 J/kg_da at R -> 0 (confirmed independent of exactly how
+    // dry by sweeping R from 1e-9 to 1e-20 and observing convergence to the
+    // same value) -- this is the virial correction to real (non-ideal) dry
+    // air's enthalpy at atmospheric pressure, not a residual-moisture
+    // artifact or a bug: the ASHRAE H=0 convention applies to the *ideal-gas*
+    // part only ([`ideal_gas_molar_enthalpy_air`]'s polynomial evaluates to
+    // ~0.27 J/kg at 0C), and real air is not exactly ideal.
+    let h_near_dry = ha_props(
+        HumidAirParam::Enthalpy,
+        (HumidAirParam::TDryBulb, 273.15 + 0.1),
+        (HumidAirParam::Pressure, P),
+        (HumidAirParam::RelativeHumidity, 1e-9),
+    )
+    .expect("H at ~0C, ~dry air");
+    eprintln!("H(~0C, ~dry) = {h_near_dry:.3} J/kg_da (expect small, ASHRAE dry-air convention + virial correction)");
+    assert!(
+        h_near_dry.abs() < 200.0,
+        "dry-air H at 0C should be small (ASHRAE convention + virial correction, not large): {h_near_dry}"
+    );
 }
