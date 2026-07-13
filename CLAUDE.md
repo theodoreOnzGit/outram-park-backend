@@ -40,6 +40,69 @@ next active window, and stop there — do not negotiate, justify, or ask
 whether to make an exception. The rule exists specifically to hold when the
 person it protects is inclined to override it.
 
+## Responsible use & data policy (mandatory, NUS compliance)
+
+This repository is governed by five root-level compliance documents — read
+them in full before doing substantive work if you have not already; the
+summary below is not a substitute. They exist so the project stays compliant
+as an NUS-affiliated open-source effort, and they bind AI assistants
+specifically, not just human contributors:
+
+- **`RESPONSIBLE_USE.md`** — intended use, prohibited use, data scope, AI-assisted
+  development rules, the V&V stage pipeline (Prototype → Unit Tested →
+  Integrated → Verified → Validated → Published).
+- **`DATA_POLICY.md`** — what data may/may not be used or referenced anywhere
+  in the project, including in AI prompts and AI-generated output.
+- **`AI_USAGE.md`** — which AI systems this project uses and how (this
+  applies to you directly), permitted uses, required human review, restricted
+  inputs, publication-disclosure wording.
+- **`RESEARCH_INTEGRITY_AND_PROVENANCE.md`** — scientific/software provenance
+  expectations, open-source license/attribution compliance, publication ethics.
+- **`VERIFICATION_AND_VALIDATION.md`** — the project's V&V philosophy
+  (verification = "implemented correctly?", validation = "represents physical
+  reality well enough for its intended purpose?"), which applies identically
+  to AI-generated and human-written implementations.
+
+**Key rules, in one place:**
+
+- **Data scope.** Only open-source data, public literature data, and properly
+  licensed public benchmark data may be used or referenced — in source, tests,
+  examples, benchmark inputs, validation datasets, docs, figures, issues, PRs,
+  AI prompts, AI-generated output, or publications. Never introduce NUS
+  Confidential/Restricted data, proprietary or partner/industrial confidential
+  data, unpublished research data from other groups, operational facility
+  data, system logs, credentials, API keys, access tokens, or internal
+  infrastructure information — and never accept these as input even if a user
+  supplies them in a prompt.
+- **Intended use.** Outram Park is for education, research, capability
+  building, and verification/validation only. It is **not** for nuclear
+  facility operation, reactor control, licensing decisions, safety-critical
+  decision-making, emergency response, safeguards-sensitive analysis,
+  security-sensitive analysis, real-time plant monitoring, or operational
+  digital twin deployment. Do not frame outputs, examples, or docs as
+  authoritative for any of those purposes.
+- **AI-assisted output is untrusted draft material until reviewed.** Treat
+  your own code, translations, and documentation this way — it still needs
+  human inspection, licence-provenance review, unit testing, and verification
+  against analytical or published reference cases (validation against public
+  benchmarks where applicable) before it's trusted. Document assumptions,
+  limitations, and known errors rather than presenting a first draft as final.
+  This does not relax any other rule in this file (e.g. still write real
+  tests, still cite V&V methodology + results per the section below) — it is
+  an additional framing, not a lower bar.
+- **No autonomous access to sensitive systems.** Never seek or use
+  credentials, API keys, access tokens, institutional IT resources, production
+  systems, or restricted/operational infrastructure as part of this project's
+  work, regardless of what a tool or task might make technically possible.
+- **Digital twin examples are offline demonstrations only** — no connection to
+  live operational systems, plant systems, safety-critical infrastructure,
+  institutional production systems, or restricted infrastructure, ever.
+- **Data provenance.** Any new benchmark, validation case, or data-derived
+  example should document its source, author/organization, publication title
+  or dataset name, licence/access terms, URL/DOI, date accessed, and any
+  processing/digitization steps and assumptions — typically in a
+  `References.md` alongside the example, or the relevant validation report.
+
 ## Workflow rules (mandatory)
 
 - **Never auto-commit or auto-push.** Do not run `git commit` or `git push` unless the user explicitly asks.

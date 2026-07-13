@@ -1,20 +1,33 @@
-# Outram Park Responsible Use Statement
+# Responsible Use Statement
 
-Outram Park is an open-source, Rust-first nuclear engineering simulation ecosystem developed for education, research, capability building, and verification & validation training.
+Outram Park, the Open Source Unified TRAnsient Multi-Phase Advanced Reactor Simulation Kit, is an open-source nuclear engineering simulation ecosystem developed for education, research, capability building, and verification and validation.
 
-It is intended to support:
+Outram Park is intended to support:
 
 - Reproducible scientific software development
 - Public-domain benchmark studies
-- Educational demonstrations
+- Education and outreach
 - Verification and validation methodology
-- Research on transparent multiphysics simulation tools
+- Transparent multiphysics simulation research
+- Training of scientific software developers and nuclear engineering practitioners
 
-## Scope of Use
+## Intended Use
 
-Outram Park is intended for **education and research use only**.
+Outram Park is intended for education and research use only.
 
-It is **not** intended for:
+It may be used for:
+
+- Teaching and learning
+- Literature-based benchmark reproduction
+- Verification studies
+- Validation studies using public data
+- Numerical-method development
+- Scientific software engineering training
+- Outreach demonstrations using public and non-sensitive information
+
+## Prohibited or Unsupported Use
+
+Outram Park is not intended for:
 
 - Nuclear facility operation
 - Reactor control
@@ -23,26 +36,41 @@ It is **not** intended for:
 - Emergency response
 - Safeguards-sensitive analysis
 - Security-sensitive analysis
-- Any use involving confidential, proprietary, operational, restricted, or unpublished facility data without appropriate approval
+- Real-time plant monitoring
+- Operational digital twin deployment
+- Use with confidential, restricted, proprietary, operational, or unpublished data
 
-## Data Use
+Outram Park outputs must not be treated as authoritative for safety, licensing, operational, regulatory, or emergency-response purposes.
+
+## Data Scope
 
 Outram Park uses only:
 
-- Public-domain data
-- Open-access literature data
+- Open-source data
+- Public literature data
 - Properly licensed public benchmark data
-- Reproducible examples derived from published sources
+- Publicly reproducible reference cases
 
-No confidential, restricted, proprietary, unpublished, or sensitive institutional data should be included in the repository, examples, documentation, or AI-assisted development workflow unless separately reviewed and approved through the appropriate institutional process.
+Outram Park does not use:
+
+- NUS Confidential data
+- NUS Restricted data
+- Proprietary data
+- Partner or industrial confidential data
+- Unpublished research data from other groups
+- Operational facility data
+- System logs
+- Credentials, secrets, tokens, or internal infrastructure information
+
+All benchmark and validation data must be traceable to public sources and documented in the relevant `References.md`, example folder, validation report, or publication.
 
 ## AI-Assisted Development
 
-Outram Park may use AI-assisted coding, refactoring, translation, documentation, and test generation.
+Outram Park may use AI-assisted coding, translation, refactoring, documentation, and test generation.
 
-AI-generated or AI-assisted outputs are treated as **untrusted draft material** until reviewed.
+AI-generated or AI-assisted outputs are treated as untrusted draft material until reviewed.
 
-All AI-assisted contributions must undergo:
+AI-assisted contributions must undergo:
 
 - Human inspection
 - Licence provenance review
@@ -53,41 +81,44 @@ All AI-assisted contributions must undergo:
 
 AI assistance does not replace engineering judgement, scientific review, or verification and validation.
 
-## Licence and Provenance
+AI tools and agents must not be provided with:
 
-Outram Park is released under the **GNU General Public License v3.0**, where required by derivative or translated use of GPLv3-compatible source material such as OpenFOAM.
+- Credentials
+- API keys
+- Access tokens
+- Internal system details
+- Confidential or restricted data
+- Private repository secrets
+- System logs
+- Production data
+- Sensitive infrastructure information
 
-Contributors must preserve:
+AI agents must not be granted autonomous access to:
 
-- Applicable copyright notices
-- Licence notices
-- Source provenance
-- Attribution to upstream works
-- Documentation of translated or derived components
+- Institutional IT resources
+- Credentials
+- Production systems
+- Sensitive datasets
+- Operational infrastructure
+- Restricted systems
 
-## Limitations
+## Verification and Validation
 
-Simulation results from Outram Park should be interpreted with care.
+Outram Park follows a verification-before-optimization philosophy.
 
-Users are responsible for checking:
+The priority order is:
 
-- Model assumptions
-- Numerical limitations
-- Benchmark relevance
-- Validation status
-- Error estimates
-- Applicability to their intended use
+1. Correctness
+2. Stability
+3. Maintainability
+4. Performance
 
-No result should be treated as authoritative without independent review and appropriate verification and validation.
+Features should progress through the following stages:
 
-## Responsible Contribution
-
-Contributors should:
-
-- Use public or properly licensed sources
-- Cite literature and benchmark references
-- Avoid undocumented approximations
-- Preserve validation cases
-- Report known limitations
-- Avoid claims beyond demonstrated V&V evidence
-- Keep educational and research use clearly separated from operational or safety-critical use
+```text
+Prototype
+→ Unit Tested
+→ Integrated
+→ Verified
+→ Validated
+→ Published
