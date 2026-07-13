@@ -49,5 +49,6 @@
 #![forbid(unsafe_code)]
 
 pub mod animation;
+pub mod app_scaffold;
 pub mod color_maps;
 pub mod components;
