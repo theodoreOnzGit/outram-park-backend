@@ -61,7 +61,7 @@ affiliated with, endorsed by, or connected to any of them.
 - **Copyright:** Daniel Medeiros and DWSIM contributors
 - **Upstream URL:** https://dwsim.org
 - **Upstream license:** GPL-3.0
-- Outram Park's `outram-park-dwsim-fork` crate is a Rust translation of
+- Outram Park's `outram-park-fork-dwsim-libs` crate is a Rust translation of
   selected DWSIM chemical process simulation methods. It is not an
   official DWSIM product and is not sanctioned by DWSIM Inc. or its
   contributors.

@@ -40,8 +40,12 @@
 #![forbid(unsafe_code)]
 
 pub mod compressible;
+pub mod critical_flow;
 pub mod error;
 pub mod fluids;
+pub mod heat_transfer;
+pub mod hem;
+pub mod humid_air;
 pub mod single_phase;
 
 pub use error::TampinesError;

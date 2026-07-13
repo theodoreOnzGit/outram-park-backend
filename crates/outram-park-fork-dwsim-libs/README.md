@@ -1,4 +1,4 @@
-# dwsim-libs
+# outram-park-fork-dwsim-libs
 
 > **This is OUTRAM PARK's independent Rust translation of selected DWSIM
 > algorithms.** It is not the official DWSIM software and is not affiliated

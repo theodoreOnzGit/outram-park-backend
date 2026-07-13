@@ -11,7 +11,7 @@
 
 ## Provenance
 
-`dwsim-libs` is a pure-Rust port of DWSIM's chemical-process modelling
+`outram-park-fork-dwsim-libs` is a pure-Rust port of DWSIM's chemical-process modelling
 kernels (thermal-hydraulics and thermodynamics). This crate is early-stage —
 its own README/CLAUDE.md do not yet describe the ported scope in detail; see
 beads (`bd show op-qo2`) for the current backlog status.

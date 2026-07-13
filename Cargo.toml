@@ -9,7 +9,7 @@ members = [
     "crates/outram-foam-turbulence-lib",
     "crates/outram-foam-appbuilder-lib",
     "crates/outram-mc-libs",
-    "crates/dwsim-libs",
+    "crates/outram-park-fork-dwsim-libs",
     "crates/boon-lay",
     "crates/njoy-outram-park-fork",
     "crates/nee_soon",
@@ -94,7 +94,7 @@ outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        v
 outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.0" }
 outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.0" }
 outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.1.0" }
-dwsim-libs          = { path = "crates/dwsim-libs",          version = "0.1.0" }
+outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.1.0" }
 boon-lay            = { path = "crates/boon-lay",            version = "0.1.2" }
 # All nuclear-data representation (ENDF processing, WMP + Faddeeva, lean ACE)
 # lives here; outram-mc-libs and nee_soon pull cross sections from it.

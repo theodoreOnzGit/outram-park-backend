@@ -1,4 +1,4 @@
-# CLAUDE.md — dwsim-libs
+# CLAUDE.md — outram-park-fork-dwsim-libs
 
 Pure-Rust port of DWSIM thermal-hydraulics and thermodynamics kernels.
 
@@ -20,8 +20,8 @@ and .NET Framework 4.6.2 on Windows.  No existing Rust or C bindings.
 **Rule: always use `--release` for builds and tests.** Never run in debug mode.
 
 ```bash
-cargo check -p dwsim-libs --lib
-cargo test  -p dwsim-libs --lib --release
+cargo check -p outram-park-fork-dwsim-libs --lib
+cargo test  -p outram-park-fork-dwsim-libs --lib --release
 ```
 
 ## Port scope & order (read on demand)
