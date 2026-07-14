@@ -488,4 +488,55 @@ mod tests {
         let expected = 4.0 * arr.xs_area.get::<square_meter>() / 0.1;
         assert!((d_h.get::<meter>() - expected).abs() < 1e-9);
     }
+
+    /// Verifies the OpenFOAM-style pressure bounding added to
+    /// [`OPCPFluidArray::step`] (mirroring `pressureControl::limit`'s
+    /// `pMin`/`pMax` clamp — see that method's doc comment and the V&V log
+    /// `pressure_bounding_vs_openfoam_pressurecontrol.md`). Sets tight
+    /// bounds via [`OPCPFluidArray::set_pressure_bounds`] and drives a brisk
+    /// impulsive inlet velocity; asserts every cell pressure stays inside
+    /// the bounds and finite across the run — i.e. the clamp is applied each
+    /// step. Result (2026-07-14): passes.
+    #[test]
+    fn pressure_bounding_clamps_transient_within_set_bounds() {
+        use uom::si::pressure::pascal;
+        use uom::si::velocity::meter_per_second;
+
+        let mut arr = OPCPFluidArray::new(
+            Fluid::Nitrogen,
+            Length::new::<meter>(1.0),
+            uom::si::f64::Area::new::<square_meter>(1.0e-4),
+            10,
+            uom::si::f64::Time::new::<second>(2.0e-4),
+        )
+        .unwrap();
+        arr.set_piso_algorithm(2);
+
+        let p_lo = Pressure::new::<pascal>(0.9e5);
+        let p_hi = Pressure::new::<pascal>(1.1e5);
+        arr.set_pressure_bounds(p_lo, p_hi);
+        assert_eq!(arr.get_pressure_bounds(), (p_lo, p_hi));
+
+        let outlet_pressure = Pressure::new::<pascal>(1.0e5);
+        for c in 0..10 {
+            arr.p.internal[c] = outlet_pressure.get::<pascal>();
+        }
+        let preset_temp = ThermodynamicTemperature::new::<kelvin>(300.0);
+        arr.set_temperature_vector(vec![preset_temp; 10]).unwrap();
+        let inlet_state = flash::state_pt(Fluid::Nitrogen, 300.0, 1.0e5).unwrap();
+        arr.set_inlet_velocity(Velocity::new::<meter_per_second>(2.0));
+        arr.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(inlet_state.enthalpy));
+        arr.set_outlet_pressure(outlet_pressure);
+
+        for _ in 0..100 {
+            arr.step();
+            for (c, &pv) in arr.p.internal.as_slice().iter().enumerate() {
+                assert!(pv.is_finite(), "cell {c} pressure went non-finite");
+                assert!(
+                    (0.9e5 - 1.0..=1.1e5 + 1.0).contains(&pv),
+                    "cell {c} pressure {pv} Pa escaped the [0.9, 1.1] bar bounds"
+                );
+            }
+        }
+    }
 }

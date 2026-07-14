@@ -317,6 +317,16 @@ pub struct OPCPFluidArray {
     /// Explicit velocity under-relaxation factor α_u ∈ (0, 1] -- see
     /// [`Self::p_under_relaxation`].
     pub u_under_relaxation: Ratio,
+    /// Lower pressure bound \[Pa\] applied after every pressure solve (see
+    /// [`Self::step`]). Defaults to a wide, near-vacuum floor (1 Pa) that
+    /// just prevents a violent transient from driving a cell to negative
+    /// absolute pressure; raise it with [`Self::set_pressure_bounds`] for a
+    /// tighter (e.g. fluid-EOS or cavitation) floor. Mirrors OpenFOAM's
+    /// `pressureControl::limit` `pMin`/`pMax` bounding — see [`Self::step`].
+    pub p_min: Pressure,
+    /// Upper pressure bound \[Pa\] applied after every pressure solve.
+    /// Defaults to a wide 1 GPa ceiling. See [`Self::p_min`].
+    pub p_max: Pressure,
 
     // ── Fields ──────────────────────────────────────────────────────────────
     /// Velocity field [m/s].
@@ -450,6 +460,11 @@ impl OPCPFluidArray {
             n_inner_correctors: 2,
             p_under_relaxation: Ratio::new::<ratio>(1.0),
             u_under_relaxation: Ratio::new::<ratio>(1.0),
+            // Wide default pressure bounds (1 Pa .. 1 GPa): just enough to
+            // keep a violent transient off negative absolute pressure. See
+            // `step` for the OpenFOAM `pressureControl` reference.
+            p_min: Pressure::new::<pascal>(1.0),
+            p_max: Pressure::new::<pascal>(1.0e9),
             u,
             p,
             rho,
@@ -714,6 +729,56 @@ impl OPCPFluidArray {
                     p_new.internal[c] = p_prev_iter.internal[c]
                         + alpha_p * (p_new.internal[c] - p_prev_iter.internal[c]);
                 }
+
+                // ── Pressure bounding (OpenFOAM `pressureControl::limit`) ──
+                // Clamp the solved pressure into [p_min, p_max] so a violent
+                // transient cannot drive a cell to negative absolute pressure
+                // (or an absurd overshoot). OpenFOAM's compressible pressure
+                // control likewise limits *pressure* (not density) for robust
+                // start-up with complex equations of state. From
+                // `pressureControl::limit`
+                // (src/finiteVolume/cfdTools/general/pressureControl/pressureControl.C,
+                // OpenFOAM Foundation, GPL-3.0):
+                //
+                // ```cpp
+                // bool Foam::pressureControl::limit(volScalarField& p) const
+                // {
+                //     if (limitMaxP_ || limitMinP_)
+                //     {
+                //         if (limitMaxP_)
+                //         {
+                //             const scalar pMax = max(p).value();
+                //             if (pMax > pMax_.value())
+                //             {
+                //                 Info<< "pressureControl: p max " << pMax << endl;
+                //                 p = min(p, pMax_);
+                //             }
+                //         }
+                //         if (limitMinP_)
+                //         {
+                //             const scalar pMin = min(p).value();
+                //             if (pMin < pMin_.value())
+                //             {
+                //                 Info<< "pressureControl: p min " << pMin << endl;
+                //                 p = max(p, pMin_);
+                //             }
+                //         }
+                //         return true;
+                //     }
+                //     else
+                //     {
+                //         return false;
+                //     }
+                // }
+                // ```
+                //
+                // Note: `f64::clamp` leaves a NaN unchanged, so a genuinely
+                // diverged (NaN) field is not masked here.
+                let p_min_pa = self.p_min.get::<pascal>();
+                let p_max_pa = self.p_max.get::<pascal>();
+                for pv in p_new.internal.iter_mut() {
+                    *pv = pv.clamp(p_min_pa, p_max_pa);
+                }
                 self.p = p_new;
 
                 // Correct the mass flux: φ = φ_HbyA − ρ_f·rAU_f·snGrad(p)·|Sf|.
@@ -880,6 +945,29 @@ impl OPCPFluidArray {
         self.n_inner_correctors = n_inner_correctors.max(1);
         self.set_pressure_under_relaxation(pressure_under_relaxation);
         self.set_velocity_under_relaxation(velocity_under_relaxation);
+    }
+
+    /// Current pressure bounds `(p_min, p_max)` applied after every pressure
+    /// solve in [`Self::step`] (see [`Self::p_min`]).
+    pub fn get_pressure_bounds(&self) -> (Pressure, Pressure) {
+        (self.p_min, self.p_max)
+    }
+
+    /// Sets the pressure bounds `[p_min, p_max]` clamped after every pressure
+    /// solve (OpenFOAM `pressureControl::limit` `pMin`/`pMax` semantics —
+    /// see [`Self::step`]). Raise `p_min` above the wide default floor to
+    /// impose e.g. a cavitation floor and keep a violent transient off
+    /// negative absolute pressure; lower `p_max` similarly. Panics if
+    /// `p_min >= p_max`.
+    pub fn set_pressure_bounds(&mut self, p_min: Pressure, p_max: Pressure) {
+        assert!(
+            p_min.get::<pascal>() < p_max.get::<pascal>(),
+            "pressure bounds require p_min < p_max, got p_min = {} Pa, p_max = {} Pa",
+            p_min.get::<pascal>(),
+            p_max.get::<pascal>()
+        );
+        self.p_min = p_min;
+        self.p_max = p_max;
     }
 }
 

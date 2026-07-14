@@ -7,6 +7,16 @@ The sole public export from this module is `TampinesSteamArray`;
 everything else is `pub(crate)` and never touches the public API of
 `tampines-steam-tables`.
 
+**Stability primer (read this if `step()` blows up):** the pressure–velocity
+coupling failure modes for this solver — the pressure-source clobbering bug,
+the boundary flux write-back, stiff-liquid water-hammer, pressure bounding,
+and BC well-posedness — are explained step-by-step in
+`crates/outram-foam-appbuilder-lib/src/solvers/rho_pimple_foam/docs/stability_a_students_guide.md`.
+`TampinesSteamArray` shares this solver's design, so that guide applies here
+directly. See also the V&V log
+`verification_and_validation/pressure_bounding_vs_openfoam_pressurecontrol.md`
+and bead `op-21g.12`.
+
 ## Numerical primitives already in-tree
 
 The outram-foam-basic-lib primitives (matrix, PCG, DIC, GAMG, MUSCL, FV

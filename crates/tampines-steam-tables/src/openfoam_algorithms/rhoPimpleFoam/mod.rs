@@ -301,6 +301,19 @@ pub struct TampinesSteamArray {
     /// Explicit velocity under-relaxation factor α_u ∈ (0, 1] -- see
     /// [`Self::p_under_relaxation`].
     pub u_under_relaxation: Ratio,
+    /// Lower pressure bound \[Pa\] applied after every pressure solve (see
+    /// [`Self::step`]). Defaults to the IAPWS-IF97 lower validity limit
+    /// (triple-point pressure ≈ 611.657 Pa); raise it with
+    /// [`Self::set_pressure_bounds`] to clamp a violent transient (e.g. a
+    /// water-hammer rarefaction that would otherwise undershoot to negative
+    /// absolute pressure) instead of letting the `(p, h)` flash panic
+    /// out-of-range. This mirrors OpenFOAM's `pressureControl::limit`
+    /// `pMin`/`pMax` bounding — see [`Self::step`] for the reference.
+    pub p_min: Pressure,
+    /// Upper pressure bound \[Pa\] applied after every pressure solve.
+    /// Defaults to the IAPWS-IF97 upper validity limit (100 MPa). See
+    /// [`Self::p_min`].
+    pub p_max: Pressure,
 
     // ── Fields ──────────────────────────────────────────────────────────────
     /// Velocity field \[m/s\].
@@ -418,6 +431,13 @@ impl TampinesSteamArray {
             n_inner_correctors: 2,
             p_under_relaxation: Ratio::new::<ratio>(1.0),
             u_under_relaxation: Ratio::new::<ratio>(1.0),
+            // Default pressure bounds = the IAPWS-IF97 validity range
+            // (triple-point pressure ≈ 611.657 Pa up to 100 MPa). See
+            // `step` for the OpenFOAM `pressureControl` reference.
+            p_min: crate::region_4_vap_liq_equilibrium::sat_pressure_4(
+                ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(273.15),
+            ),
+            p_max: Pressure::new::<uom::si::pressure::megapascal>(100.0),
             u,
             p,
             rho,
@@ -672,6 +692,64 @@ impl TampinesSteamArray {
                     p_new.internal[c] = p_prev_iter.internal[c]
                         + alpha_p * (p_new.internal[c] - p_prev_iter.internal[c]);
                 }
+
+                // ── Pressure bounding (OpenFOAM `pressureControl::limit`) ──
+                // Clamp the solved pressure into [p_min, p_max] so a violent
+                // transient (e.g. a water-hammer rarefaction that undershoots
+                // to negative absolute pressure) cannot drive the next
+                // `correct_thermo` (p, h) flash outside the IAPWS-IF97 valid
+                // range. With the default bounds (= the EOS validity range)
+                // this only reshapes states the flash could not evaluate
+                // anyway; raise `p_min` via `set_pressure_bounds` for a
+                // tighter (e.g. cavitation-floor) clamp.
+                //
+                // Directly mirrors OpenFOAM's compressible pressure control,
+                // which likewise limits *pressure* (not density) for robust
+                // start-up with complex equations of state. From
+                // `pressureControl::limit`
+                // (src/finiteVolume/cfdTools/general/pressureControl/pressureControl.C,
+                // OpenFOAM Foundation, GPL-3.0):
+                //
+                // ```cpp
+                // bool Foam::pressureControl::limit(volScalarField& p) const
+                // {
+                //     if (limitMaxP_ || limitMinP_)
+                //     {
+                //         if (limitMaxP_)
+                //         {
+                //             const scalar pMax = max(p).value();
+                //             if (pMax > pMax_.value())
+                //             {
+                //                 Info<< "pressureControl: p max " << pMax << endl;
+                //                 p = min(p, pMax_);
+                //             }
+                //         }
+                //         if (limitMinP_)
+                //         {
+                //             const scalar pMin = min(p).value();
+                //             if (pMin < pMin_.value())
+                //             {
+                //                 Info<< "pressureControl: p min " << pMin << endl;
+                //                 p = max(p, pMin_);
+                //             }
+                //         }
+                //         return true;
+                //     }
+                //     else
+                //     {
+                //         return false;
+                //     }
+                // }
+                // ```
+                //
+                // Note: `f64::clamp` leaves a NaN unchanged, so a genuinely
+                // diverged (NaN) field is *not* masked here — it flows on to
+                // the flash rather than being silently pinned to a bound.
+                let p_min_pa = self.p_min.get::<uom::si::pressure::pascal>();
+                let p_max_pa = self.p_max.get::<uom::si::pressure::pascal>();
+                for pv in p_new.internal.iter_mut() {
+                    *pv = pv.clamp(p_min_pa, p_max_pa);
+                }
                 self.p = p_new;
 
                 // Correct the mass flux: φ = φ_HbyA − ρ_f·rAU_f·snGrad(p)·|Sf|.
@@ -836,6 +914,29 @@ impl TampinesSteamArray {
         self.n_inner_correctors = n_inner_correctors.max(1);
         self.set_pressure_under_relaxation(pressure_under_relaxation);
         self.set_velocity_under_relaxation(velocity_under_relaxation);
+    }
+
+    /// Current pressure bounds `(p_min, p_max)` applied after every pressure
+    /// solve in [`Self::step`] (see [`Self::p_min`]).
+    pub fn get_pressure_bounds(&self) -> (Pressure, Pressure) {
+        (self.p_min, self.p_max)
+    }
+
+    /// Sets the pressure bounds `[p_min, p_max]` clamped after every pressure
+    /// solve (OpenFOAM `pressureControl::limit` `pMin`/`pMax` semantics —
+    /// see [`Self::step`]). Raise `p_min` above the default triple-point
+    /// pressure to impose e.g. a cavitation floor and keep a violent
+    /// transient inside the EOS range; lower `p_max` similarly. Panics if
+    /// `p_min >= p_max`.
+    pub fn set_pressure_bounds(&mut self, p_min: Pressure, p_max: Pressure) {
+        assert!(
+            p_min.get::<uom::si::pressure::pascal>() < p_max.get::<uom::si::pressure::pascal>(),
+            "pressure bounds require p_min < p_max, got p_min = {} Pa, p_max = {} Pa",
+            p_min.get::<uom::si::pressure::pascal>(),
+            p_max.get::<uom::si::pressure::pascal>()
+        );
+        self.p_min = p_min;
+        self.p_max = p_max;
     }
 }
 

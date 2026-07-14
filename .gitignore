@@ -10,3 +10,6 @@ crates/njoy-outram-park-fork/tests/resources/*.h5
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# Session progress summaries (regenerated on demand; never committed)
+/progress.md
