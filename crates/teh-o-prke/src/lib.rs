@@ -46,7 +46,13 @@ pub mod feedback_mechanisms;
 ///
 pub mod decay_heat;
 
-/// contains code for time stepping for prke 
+/// contains code for time stepping for prke
 /// some algorithms copied from OpenFOAM
 ///
 pub mod time_stepping;
+
+/// analytical (closed-form) Nordheim-Fuchs exact timestepper for prompt
+/// reactivity excursions with adiabatic fuel-temperature feedback -- a
+/// real-time-friendly "Prompt Excursion Layer", distinct from (and much
+/// cheaper than) the six-group precursor PRKE in [`zero_power_prke`].
+pub mod nordheim_fuchs;

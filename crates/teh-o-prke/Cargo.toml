@@ -19,9 +19,11 @@ approx.workspace = true
 ndarray.workspace = true
 thiserror.workspace = true
 uom.workspace = true
+# real (non-dev) dep: nordheim_fuchs's optional reactivity-input driver
+# reuses this crate's TransferFnFirstOrder -- see src/nordheim_fuchs.rs
+chem-eng-real-time-process-control-simulator.workspace = true
 
 [dev-dependencies]
-chem-eng-real-time-process-control-simulator.workspace = true
 egui.workspace = true
 eframe.workspace = true
 env_logger.workspace = true

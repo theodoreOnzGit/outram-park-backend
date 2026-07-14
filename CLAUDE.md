@@ -390,7 +390,13 @@ and turbulence model registries belong in solver-specific crates so that
 projects.
 
 Internal dependency edges (all by **path**, not crates.io):
-`teh-o-prke → {tuas, chem-eng}` (dev); `tuas` dev-deps → `chem-eng`, `teh-o-prke`;
+`teh-o-prke → tuas` (dev); `teh-o-prke → chem-eng` (real, non-dev -- `nordheim_fuchs`'s
+optional reactivity-input driver reuses `chem-eng`'s `TransferFnFirstOrder`);
+`tuas` dev-deps → `chem-eng`, `teh-o-prke`;
+`nee_soon → teh-o-prke` (real -- `NeeSoon::new_prompt_excursion_model` exposes
+`teh-o-prke::nordheim_fuchs::NordheimFuchsExactTimestepper`);
+`outram-park-digital-twin-gui → nee_soon` (real -- `components::ReactorVesselVisual`
+wraps `NordheimFuchsExactTimestepper`);
 `tampines` dev-deps → `{tuas, teh-o-prke, chem-eng}` (the FHR simulator examples use TUAS —
 the `tampines` **library** itself is TUAS-free).
 `outram-foam-basic-lib` has no internal deps (pure third-party: `uom`, `ndarray`, `thiserror`).

@@ -1,11 +1,13 @@
 //! Visual process object wrappers.
 //!
 //! One file per visual process object, each composing its
-//! [`tampines::components`] (or, for [`reactor_vessel`]/[`instrumentation`],
-//! future `nee_soon`) physics counterpart with visual-only fields
-//! (screen position/size, min/max temperature for colour mapping) and a
-//! minimal `egui::Widget` implementation. Deliberately composes rather than
-//! duplicates state -- avoid separating physics and rendering unnecessarily.
+//! [`tampines::components`] (or, for [`reactor_vessel`], `nee_soon`) physics
+//! counterpart with visual-only fields (screen position/size, min/max
+//! temperature for colour mapping) and a minimal `egui::Widget`
+//! implementation. Deliberately composes rather than duplicates state --
+//! avoid separating physics and rendering unnecessarily.
+//! [`instrumentation`] stays a generic label/value placeholder -- `nee_soon`
+//! does not yet expose a dedicated instrumentation-readout type to wrap.
 
 pub mod condenser;
 pub mod cooling_tower;

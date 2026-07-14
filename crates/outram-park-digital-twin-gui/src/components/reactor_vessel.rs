@@ -1,17 +1,17 @@
 //! Visual reactor vessel.
 //!
-//! **No backing physics type yet.** `nee_soon` (the intended source for a
-//! reactor-vessel physics type) is currently a scaffold with a single empty
-//! `NeeSoon {}` struct -- no `ReactorVessel` type exists there to wrap. This
-//! is a visual-only placeholder; once `nee_soon` exposes a real type, this
-//! struct should gain a `physics` field the same way every other visual
-//! component here does.
+//! Wraps [`nee_soon::NordheimFuchsExactTimestepper`] (the prompt-excursion
+//! "Prompt Excursion Layer" model) with screen geometry, the same pattern
+//! [`crate::components::pipe::PipeVisual`] uses for [`tampines::components::Pipe`].
 
 use egui::{Color32, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+use nee_soon::NordheimFuchsExactTimestepper;
 
-/// Visual placeholder for a reactor vessel (no `nee_soon` physics type to
-/// wrap yet -- see this module's doc).
+/// Visual representation of a reactor vessel driven by a
+/// [`NordheimFuchsExactTimestepper`].
 pub struct ReactorVesselVisual {
+    /// The underlying physics component (prompt power + fuel temperature).
+    pub physics: NordheimFuchsExactTimestepper,
     /// On-screen centre position.
     pub screen_position: Pos2,
     /// On-screen size.
@@ -19,16 +19,22 @@ pub struct ReactorVesselVisual {
 }
 
 impl ReactorVesselVisual {
-    /// Construct a placeholder reactor-vessel visual with the given screen
+    /// Wrap a [`NordheimFuchsExactTimestepper`] with the given screen
     /// geometry.
-    pub fn new(screen_position: Pos2, screen_vector: Vec2) -> Self {
-        Self { screen_position, screen_vector }
+    pub fn new(
+        physics: NordheimFuchsExactTimestepper,
+        screen_position: Pos2,
+        screen_vector: Vec2,
+    ) -> Self {
+        Self { physics, screen_position, screen_vector }
     }
 }
 
 impl Widget for ReactorVesselVisual {
     /// Minimal-static rendering: an outlined rectangle in a fixed neutral
-    /// colour -- there is no physics state to colour by yet.
+    /// colour -- deriving colour/fill from `physics.power` is left to a
+    /// future pass, same as [`crate::components::pipe::PipeVisual`]'s
+    /// placeholder hotness.
     fn ui(self, ui: &mut Ui) -> Response {
         let rect = Rect::from_center_size(self.screen_position, self.screen_vector);
         let response = ui.allocate_rect(rect, Sense::hover());

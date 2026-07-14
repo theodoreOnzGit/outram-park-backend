@@ -11,6 +11,24 @@ pub enum TehOPrkeError {
     /// so many string errors
     #[error("Placeholder Error Type for Strings{0} ")]
     GenericStringError(String),
+
+    /// [`crate::nordheim_fuchs`]'s exact timestepper requires a strictly
+    /// negative fuel feedback coefficient (alpha_f < 0, self-limiting
+    /// negative feedback) for its closed-form solution to stay
+    /// real-valued; a non-negative value describes a non-self-limiting
+    /// excursion this model does not support.
+    #[error("Nordheim-Fuchs requires fuel feedback coefficient alpha_f < 0 K^-1 (self-limiting negative feedback); got {0} K^-1")]
+    NonNegativeFuelFeedbackCoefficient(f64),
+
+    /// [`crate::nordheim_fuchs`]'s prompt neutron generation time Lambda
+    /// must be strictly positive.
+    #[error("prompt neutron generation time Lambda must be > 0 s; got {0} s")]
+    NonPositivePromptNeutronGenerationTime(f64),
+
+    /// [`crate::nordheim_fuchs`]'s lumped fuel heat capacity C_f must be
+    /// strictly positive.
+    #[error("fuel heat capacity C_f must be > 0 J/K; got {0} J/K")]
+    NonPositiveFuelHeatCapacity(f64),
 }
 
 ///  converts ThermalHydraulicsLibError from string error
@@ -25,6 +43,9 @@ impl Into<String> for TehOPrkeError {
         match self {
             TehOPrkeError::ShapeMismatch(s) => s,
             TehOPrkeError::GenericStringError(s) => s,
+            TehOPrkeError::NonNegativeFuelFeedbackCoefficient(_)
+            | TehOPrkeError::NonPositivePromptNeutronGenerationTime(_)
+            | TehOPrkeError::NonPositiveFuelHeatCapacity(_) => self.to_string(),
         }
     }
 }
