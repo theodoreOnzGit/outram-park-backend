@@ -239,7 +239,19 @@ impl RhoPimpleFoam {
                 for c in 0..n {
                     p_eqn.ldu.diag[c] += psi_sl[c] * mesh.cell_volumes[c] / dt;
                 }
-                p_eqn.source = Field::new(source_p);
+                // ADD the mass-flux + ψ·V/dt source to the laplacian's own
+                // source rather than OVERWRITING it: `fvm::laplacian` already
+                // put each FixedValue pressure boundary's Dirichlet source
+                // contribution (`coeff·p_bc`) into `p_eqn.source`, and its
+                // matching `coeff` into the diagonal. Overwriting the source
+                // dropped the `coeff·p_bc` term while keeping the diagonal
+                // one, which silently imposed `p_boundary = 0` instead of the
+                // prescribed value -- so any fixed-pressure outlet drove its
+                // owner cell toward zero and blew up (a spurious disturbance
+                // even from a uniform equilibrium field).
+                for (s, &sp) in p_eqn.source.iter_mut().zip(source_p.iter()) {
+                    *s += sp;
+                }
                 let (mut p_new, _) = p_eqn.solve_cg("p", p_settings);
                 correct_bcs(&mut p_new, &p_bcs);
                 self.p = p_new;

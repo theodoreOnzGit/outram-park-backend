@@ -218,7 +218,15 @@ impl SonicFoam {
                 // Source: −V · ∇·(ψ_d p) (explicit convective correction, subtract)
                 src[c] -= mesh.cell_volumes[c] * ddp_sl[c];
             }
-            p_eqn.source = Field::new(src);
+            // ADD, don't OVERWRITE: `fvm::laplacian` already put any
+            // FixedValue pressure boundary's Dirichlet source term
+            // (`coeff·p_bc`) into `p_eqn.source` with its matching diagonal
+            // `coeff`. Overwriting would drop the source but keep the
+            // diagonal, silently imposing `p_boundary = 0` and blowing up any
+            // fixed-pressure outlet.
+            for (s, &sp) in p_eqn.source.iter_mut().zip(src.iter()) {
+                *s += sp;
+            }
             let (p_new, _) = p_eqn.solve("p", settings);
             self.p = p_new;
         }

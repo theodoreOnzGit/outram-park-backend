@@ -205,8 +205,9 @@
 
 use std::sync::Arc;
 use uom::si::f64::{
-    Angle, Area, Length, MassRate, Power, Pressure, Time, ThermalConductance, ThermodynamicTemperature,
+    Angle, Area, Length, MassRate, Power, Pressure, Ratio, Time, ThermalConductance, ThermodynamicTemperature,
 };
+use uom::si::ratio::ratio;
 use uom::si::time::second;
 use uom::si::length::meter;
 use uom::si::angle::radian;
@@ -301,10 +302,21 @@ pub struct OPCPFluidArray {
     // ── Time control ────────────────────────────────────────────────────────
     /// Fixed time step Δt [s].
     pub delta_t: Time,
-    /// Number of PIMPLE outer correctors (≥ 1).
+    /// Number of PIMPLE outer correctors (≥ 1). See
+    /// [`Self::set_piso_algorithm`] / [`Self::set_simple_algorithm`] /
+    /// [`Self::set_pimple_algorithm`] for the PISO/SIMPLE/PIMPLE presets.
     pub n_outer_correctors: usize,
     /// Number of PISO pressure correctors per outer loop (≥ 1).
     pub n_inner_correctors: usize,
+    /// Explicit pressure under-relaxation factor α_p ∈ (0, 1] applied once
+    /// per inner correction: `p ← p_prev + α_p·(p_solved − p_prev)`.
+    /// `1.0` (the [`Self::new`] default, matching classic transient PISO)
+    /// takes each correction in full; smaller values trade convergence
+    /// speed for stability in iterative (SIMPLE-style) solves.
+    pub p_under_relaxation: Ratio,
+    /// Explicit velocity under-relaxation factor α_u ∈ (0, 1] -- see
+    /// [`Self::p_under_relaxation`].
+    pub u_under_relaxation: Ratio,
 
     // ── Fields ──────────────────────────────────────────────────────────────
     /// Velocity field [m/s].
@@ -436,6 +448,8 @@ impl OPCPFluidArray {
             delta_t,
             n_outer_correctors: 1,
             n_inner_correctors: 2,
+            p_under_relaxation: Ratio::new::<ratio>(1.0),
+            u_under_relaxation: Ratio::new::<ratio>(1.0),
             u,
             p,
             rho,
@@ -587,8 +601,18 @@ impl OPCPFluidArray {
 
             let rauf = fvc::interpolate(&rau);
 
-            // ── PISO pressure-correction loop (H(U) re-evaluated each pass) ──
+            // ── PISO/SIMPLE pressure-correction loop (H(U) re-evaluated each pass) ──
+            let alpha_p = self.p_under_relaxation.get::<ratio>();
+            let alpha_u = self.u_under_relaxation.get::<ratio>();
             for _ in 0..n_inner {
+                // Values at the start of this inner correction -- under-
+                // relaxation (see `Self::p_under_relaxation`/`u_under_relaxation`)
+                // blends each correction's *change* into these rather than
+                // taking it in full. alpha = 1.0 (the default, classic
+                // transient PISO) makes this a no-op.
+                let p_prev_iter = self.p.clone();
+                let u_prev_iter = self.u.clone();
+
                 // HbyA = H(U)/A [m/s] from the latest U.
                 let h = u_eqn.h_field(&self.u);
                 let hbya = {
@@ -613,10 +637,12 @@ impl OPCPFluidArray {
                 let p_old_sl = p_old.internal.as_slice();
                 let source_p = {
                     let mut s = vec![0.0_f64; n];
-                    let phi_int = phi_hbya.internal.as_slice();
-                    for f in 0..mesh.n_internal_faces {
-                        s[mesh.owner[f]]     -= phi_int[f];
-                        s[mesh.neighbour[f]] += phi_int[f];
+                    {
+                        let phi_int = phi_hbya.internal.as_slice();
+                        for f in 0..mesh.n_internal_faces {
+                            s[mesh.owner[f]]     -= phi_int[f];
+                            s[mesh.neighbour[f]] += phi_int[f];
+                        }
                     }
                     for (pi, patch) in mesh.patches.iter().enumerate() {
                         if matches!(self.u.boundary[pi].bc, BoundaryCondition::Empty) {
@@ -625,9 +651,26 @@ impl OPCPFluidArray {
                         for fi in 0..patch.size {
                             let gf = patch.start + fi;
                             let flux = match self.u.boundary[pi].bc {
-                                BoundaryCondition::FixedValue(ubc) =>
-                                    rho_f.boundary[pi].values[fi]
-                                        * ubc.dot(mesh.face_area_vectors[gf]),
+                                BoundaryCondition::FixedValue(ubc) => {
+                                    let corrected_flux = rho_f.boundary[pi].values[fi]
+                                        * ubc.dot(mesh.face_area_vectors[gf]);
+                                    // `hbya`'s own boundary field is always
+                                    // zero_gradient_vec (see its construction
+                                    // above), so `phi_hbya`'s boundary value
+                                    // at this patch does NOT reflect the
+                                    // actual prescribed velocity BC. Without
+                                    // this write-back, `self.phi = phi_hbya`
+                                    // below would silently keep the wrong
+                                    // boundary flux, corrupting the *next*
+                                    // step's rhoEqn continuity at this patch
+                                    // -- the same bug found and fixed in
+                                    // `tampines-steam-tables`'s
+                                    // `TampinesSteamArray::step` (see that
+                                    // crate's `lateral_coupling.rs` regression
+                                    // test and the workspace beads tracker).
+                                    phi_hbya.boundary[pi].values[fi] = corrected_flux;
+                                    corrected_flux
+                                },
                                 // outlet / zero-gradient: keep the extrapolated flux
                                 _ => phi_hbya.boundary[pi].values[fi],
                             };
@@ -647,9 +690,30 @@ impl OPCPFluidArray {
                 for c in 0..n {
                     p_eqn.ldu.diag[c] += psi_sl[c] * mesh.cell_volumes[c] / dt;
                 }
-                p_eqn.source = Field::new(source_p);
+                // ADD the mass-flux + ψ·V/dt source to the laplacian's own
+                // source rather than OVERWRITING it: `fvm::laplacian` already
+                // put each FixedValue pressure boundary's Dirichlet source
+                // contribution (`coeff·p_bc`) into `p_eqn.source`, and its
+                // matching `coeff` into the diagonal. Overwriting the source
+                // dropped the `coeff·p_bc` term while keeping the diagonal
+                // one, which silently imposed `p_boundary = 0` instead of the
+                // prescribed value -- so any fixed-pressure outlet drove its
+                // owner cell toward zero and blew up (a spurious disturbance
+                // even from a uniform equilibrium field). Shared with
+                // `tampines-steam-tables`'s `TampinesSteamArray::step`.
+                for (s, &sp) in p_eqn.source.iter_mut().zip(source_p.iter()) {
+                    *s += sp;
+                }
                 let (mut p_new, _) = p_eqn.solve_cg("p", p_settings);
                 correct_bcs(&mut p_new, &p_bcs);
+                // Explicit pressure under-relaxation (no-op at alpha_p = 1.0):
+                // internal cells only -- the Dirichlet boundary values just
+                // applied by correct_bcs are the prescribed BC, not a solved
+                // quantity, so they are not relaxed.
+                for c in 0..n {
+                    p_new.internal[c] = p_prev_iter.internal[c]
+                        + alpha_p * (p_new.internal[c] - p_prev_iter.internal[c]);
+                }
                 self.p = p_new;
 
                 // Correct the mass flux: φ = φ_HbyA − ρ_f·rAU_f·snGrad(p)·|Sf|.
@@ -664,8 +728,15 @@ impl OPCPFluidArray {
                 }
 
                 // U = HbyA − rAU·∇p, re-impose BCs.
-                self.u = hbya - rau.clone() * fvc::grad(&self.p);
-                correct_bcs_vec(&mut self.u, &u_bcs);
+                let mut u_new = hbya - rau.clone() * fvc::grad(&self.p);
+                correct_bcs_vec(&mut u_new, &u_bcs);
+                // Explicit velocity under-relaxation (no-op at alpha_u = 1.0);
+                // internal cells only, same rationale as pressure above.
+                for c in 0..n {
+                    u_new.internal[c] = u_prev_iter.internal[c]
+                        + (u_new.internal[c] - u_prev_iter.internal[c]) * alpha_u;
+                }
+                self.u = u_new;
 
                 // EOS update: ρ, T, ψ from the new pressure, then μ, αh from
                 // the refreshed (T, ρ).
@@ -716,6 +787,99 @@ impl OPCPFluidArray {
         for _ in 0..n_steps {
             self.step();
         }
+    }
+
+    /// Number of PIMPLE outer correctors per [`Self::step`] call.
+    pub fn get_n_outer_correctors(&self) -> usize {
+        self.n_outer_correctors
+    }
+
+    /// Sets the number of PIMPLE outer correctors (clamped to ≥ 1).
+    pub fn set_n_outer_correctors(&mut self, n: usize) {
+        self.n_outer_correctors = n.max(1);
+    }
+
+    /// Number of PISO pressure correctors per outer loop.
+    pub fn get_n_inner_correctors(&self) -> usize {
+        self.n_inner_correctors
+    }
+
+    /// Sets the number of PISO inner pressure correctors (clamped to ≥ 1).
+    pub fn set_n_inner_correctors(&mut self, n: usize) {
+        self.n_inner_correctors = n.max(1);
+    }
+
+    /// Pressure under-relaxation factor α_p -- see
+    /// [`Self::p_under_relaxation`].
+    pub fn get_pressure_under_relaxation(&self) -> Ratio {
+        self.p_under_relaxation
+    }
+
+    /// Sets the pressure under-relaxation factor, clamped to (0, 1].
+    pub fn set_pressure_under_relaxation(&mut self, alpha: Ratio) {
+        self.p_under_relaxation = Ratio::new::<ratio>(alpha.get::<ratio>().clamp(1.0e-3, 1.0));
+    }
+
+    /// Velocity under-relaxation factor α_u -- see
+    /// [`Self::u_under_relaxation`].
+    pub fn get_velocity_under_relaxation(&self) -> Ratio {
+        self.u_under_relaxation
+    }
+
+    /// Sets the velocity under-relaxation factor, clamped to (0, 1].
+    pub fn set_velocity_under_relaxation(&mut self, alpha: Ratio) {
+        self.u_under_relaxation = Ratio::new::<ratio>(alpha.get::<ratio>().clamp(1.0e-3, 1.0));
+    }
+
+    /// Configures this array for a transient PISO solve: one outer
+    /// corrector, `n_correctors` inner pressure correctors, and no
+    /// under-relaxation (α_p = α_u = 1.0). Appropriate when `delta_t` is a
+    /// genuinely small (CFL-limited) physical timestep and the flow is
+    /// actually evolving in time step-to-step -- this is [`Self::new`]'s
+    /// default configuration (`n_correctors = 2`).
+    pub fn set_piso_algorithm(&mut self, n_correctors: usize) {
+        self.n_outer_correctors = 1;
+        self.n_inner_correctors = n_correctors.max(1);
+        self.p_under_relaxation = Ratio::new::<ratio>(1.0);
+        self.u_under_relaxation = Ratio::new::<ratio>(1.0);
+    }
+
+    /// Configures this array for a SIMPLE steady-state solve:
+    /// `n_outer_iterations` outer loops, a single pressure correction per
+    /// outer loop, and classic textbook SIMPLE under-relaxation
+    /// (α_p = 0.3, α_u = 0.7). Appropriate for driving this array toward a
+    /// steady operating point under prescribed inlet/outlet boundary
+    /// conditions (e.g. [`Self::set_inlet_velocity`] +
+    /// [`Self::set_outlet_pressure`] on a "quasi-steady" component) --
+    /// here `delta_t` is a pseudo-timestep controlling iteration size, not
+    /// a physically meaningful timescale, so a single [`Self::step`] call
+    /// with a large `n_outer_iterations` iterates to (approximate)
+    /// convergence rather than advancing real time.
+    pub fn set_simple_algorithm(&mut self, n_outer_iterations: usize) {
+        self.n_outer_correctors = n_outer_iterations.max(1);
+        self.n_inner_correctors = 1;
+        self.p_under_relaxation = Ratio::new::<ratio>(0.3);
+        self.u_under_relaxation = Ratio::new::<ratio>(0.7);
+    }
+
+    /// Configures this array for a PIMPLE solve -- multiple outer
+    /// correctors, each with `n_inner_correctors` inner pressure
+    /// correctors, at caller-chosen under-relaxation factors. The general
+    /// "anything in between PISO and SIMPLE" case: e.g. more outer
+    /// correctors than pure PISO (`n_outer_correctors > 1`) lets `delta_t`
+    /// be larger than the PISO/CFL limit while still resolving some
+    /// transient behaviour, unlike pure SIMPLE (`n_inner_correctors = 1`).
+    pub fn set_pimple_algorithm(
+        &mut self,
+        n_outer_correctors: usize,
+        n_inner_correctors: usize,
+        pressure_under_relaxation: Ratio,
+        velocity_under_relaxation: Ratio,
+    ) {
+        self.n_outer_correctors = n_outer_correctors.max(1);
+        self.n_inner_correctors = n_inner_correctors.max(1);
+        self.set_pressure_under_relaxation(pressure_under_relaxation);
+        self.set_velocity_under_relaxation(velocity_under_relaxation);
     }
 }
 

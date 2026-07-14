@@ -124,6 +124,25 @@ fn case_dir() -> &'static Path {
     Path::new(CASE_DIR)
 }
 
+/// Writes `contents` to `verification_and_validation/<filename>` under the
+/// crate root, creating the folder if needed. These `.csv` files are the
+/// full generated datasets that the committed `.md` V&V records reference;
+/// they are gitignored and excluded from `cargo publish` (see this crate's
+/// `Cargo.toml` `exclude` and the V&V folder README), so regenerating them
+/// is just a matter of re-running this test.
+fn write_vandv_csv(filename: &str, contents: &str) {
+    use std::io::Write;
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation");
+    std::fs::create_dir_all(&dir)
+        .unwrap_or_else(|e| panic!("failed to create {}: {e}", dir.display()));
+    let path = dir.join(filename);
+    let mut f = std::fs::File::create(&path)
+        .unwrap_or_else(|e| panic!("failed to create {}: {e}", path.display()));
+    f.write_all(contents.as_bytes())
+        .unwrap_or_else(|e| panic!("failed to write {}: {e}", path.display()));
+    println!("wrote V&V CSV: {}", path.display());
+}
+
 fn poly_mesh_present() -> bool {
     let pm = case_dir().join("constant").join("polyMesh");
     ["points", "faces", "owner", "neighbour", "boundary"]
@@ -371,10 +390,12 @@ fn cavity_velocity_matches_icofoam() {
     // CSV for easy plotting (see the doc comment for a captured copy).
     let rust_prof = centreline_ux_profile(&solver.mesh.cell_centres, solver.u.internal.as_slice());
     let ref_prof = centreline_ux_profile(&solver.mesh.cell_centres, &u_ref);
-    println!("y_over_L,rust_ux,icofoam_ux");
+    let mut csv = String::from("y_over_L,rust_ux,icofoam_ux\n");
     for ((y, rust_ux), (_, ref_ux)) in rust_prof.iter().zip(ref_prof.iter()) {
-        println!("{y:.4},{rust_ux:+.5},{ref_ux:+.5}");
+        csv.push_str(&format!("{y:.4},{rust_ux:+.5},{ref_ux:+.5}\n"));
     }
+    print!("{csv}");
+    write_vandv_csv("cavity_pimplefoam_vs_icofoam_re10.csv", &csv);
     // Peak velocity matches icoFoam to ~0.3 % (0.8503 vs 0.8527); the pointwise
     // max difference is ~1.4 %, in the steep-gradient region near the lid. The
     // residual is the scheme difference — first-order upwind convection here vs
@@ -451,6 +472,7 @@ fn cavity_ghia_benchmark_re100() {
 
     let mut max_abs_err = 0.0_f64;
     let mut sum_sq = 0.0_f64;
+    let mut csv = String::from("y_over_L,ghia_ux,rust_ux,abs_err\n");
     println!("\n   y/L     Ghia      Rust      |err|");
     for (y, ux_ref) in GHIA_Y.iter().zip(GHIA_UX.iter()) {
         let ux = interp_ux(&profile, *y);
@@ -458,9 +480,11 @@ fn cavity_ghia_benchmark_re100() {
         max_abs_err = max_abs_err.max(err);
         sum_sq += err * err;
         println!("  {y:.4}  {ux_ref:+.5}  {ux:+.5}  {err:.5}");
+        csv.push_str(&format!("{y:.4},{ux_ref:+.5},{ux:+.5},{err:.5}\n"));
     }
     let rms_err = (sum_sq / GHIA_UX.len() as f64).sqrt();
     println!("\nGhia Re=100 centreline: max|err| = {max_abs_err:.4}, RMS = {rms_err:.4} (U_x/U_lid)");
+    write_vandv_csv("cavity_pimplefoam_vs_ghia_re100_coarse.csv", &csv);
 
     // Regression guard at the accuracy this coarse first-order mesh reaches.
     // The recirculation is captured with the correct shape and sign; the gap to
@@ -535,6 +559,7 @@ fn cavity_ghia_benchmark_re100_fine_mesh() {
 
     let mut max_abs_err = 0.0_f64;
     let mut sum_sq = 0.0_f64;
+    let mut csv = String::from("y_over_L,ghia_ux,rust_ux,abs_err\n");
     println!("\ny_over_L,ghia_ux,rust_ux,abs_err");
     for (y, ux_ref) in GHIA_Y.iter().zip(GHIA_UX.iter()) {
         let ux = interp_ux(&profile, *y);
@@ -542,9 +567,11 @@ fn cavity_ghia_benchmark_re100_fine_mesh() {
         max_abs_err = max_abs_err.max(err);
         sum_sq += err * err;
         println!("{y:.4},{ux_ref:+.5},{ux:+.5},{err:.5}");
+        csv.push_str(&format!("{y:.4},{ux_ref:+.5},{ux:+.5},{err:.5}\n"));
     }
     let rms_err = (sum_sq / GHIA_UX.len() as f64).sqrt();
     println!("\nGhia Re=100 (41×41) centreline: max|err| = {max_abs_err:.4}, RMS = {rms_err:.4} (U_x/U_lid)");
+    write_vandv_csv("cavity_pimplefoam_vs_ghia_re100_fine.csv", &csv);
 
     // Refined-mesh regression guard. The 20×20 first-order solution reaches
     // RMS ≈ 0.036; the finer grid must do at least as well.

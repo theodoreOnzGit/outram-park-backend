@@ -16,24 +16,35 @@
 //! crate's own real IAPWS-IF97 `(p, T)` flash
 //! ([`crate::interfaces::functional_programming::pt_flash_eqm`]) rather than
 //! a placeholder EOS -- this crate owns that flash, so there is no reason to
-//! fake it the way a cross-crate port might. This does **not** change
-//! [`super::TampinesSteamArray::correct_thermo`]'s existing placeholder
-//! `ρ = ψ·p` EOS used by [`super::TampinesSteamArray::step`] -- wiring the
-//! real steam tables into the PIMPLE loop's own thermodynamic closure is a
-//! separate, larger task (see that method's own doc comment).
+//! fake it the way a cross-crate port might. [`super::TampinesSteamArray::correct_thermo`]
+//! itself now also uses the real `(p, h)` flash (see that method's own doc
+//! comment).
+//!
+//! Also provides prescribed inlet/outlet boundary-condition setters/getters
+//! ([`Self::set_inlet_velocity`], [`Self::set_inlet_enthalpy`],
+//! [`Self::set_outlet_pressure`], [`Self::get_outlet_pressure`],
+//! [`Self::get_outlet_enthalpy`], [`Self::get_outlet_temperature`]) so a
+//! caller can drive this array as a simple pipe/tube (known inlet flow +
+//! thermodynamic state, known downstream pressure) without needing to
+//! reach into the internal `PatchField`/`Vector3`/mesh-patch-index
+//! representation directly -- keeping those internals out of this crate's
+//! public surface (see this module's own `CLAUDE.md`).
 
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
-    Angle, Length, MassRate, Power, Pressure, ThermalConductance, ThermodynamicTemperature,
+    Angle, AvailableEnergy, Length, MassRate, Power, Pressure, ThermalConductance,
+    ThermodynamicTemperature, Velocity,
 };
 use uom::si::power::watt;
 use uom::si::pressure::pascal;
 use uom::si::specific_volume::cubic_meter_per_kilogram;
 use uom::si::thermodynamic_temperature::kelvin;
+use uom::si::velocity::meter_per_second;
 
 use crate::interfaces::functional_programming::pt_flash_eqm::{
     h_tp_eqm_single_phase, kappa_t_tp_eqm, v_tp_eqm_single_phase,
 };
+use crate::openfoam_algorithms::openfoam_source::{PatchField, Vector3};
 
 use super::TampinesSteamArray;
 
@@ -250,6 +261,54 @@ impl TampinesSteamArray {
         }
         q
     }
+
+    /// Prescribes a fixed inlet velocity boundary condition on the
+    /// `"left"` patch (x = 0, see [`crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh`]).
+    ///
+    /// For driving this array as a simple pipe/tube with a known inlet
+    /// flow (e.g. from an upstream pump). `velocity` is the x-direction
+    /// flow speed; positive means fluid entering the domain (flowing
+    /// left-to-right, +x) -- take effect on the next [`super::TampinesSteamArray::step`].
+    pub fn set_inlet_velocity(&mut self, velocity: Velocity) {
+        let size = self.mesh.patches[1].size;
+        let v = Vector3::new(velocity.get::<meter_per_second>(), 0.0, 0.0);
+        self.u.boundary[1] = PatchField::fixed_value_vec(size, v);
+    }
+
+    /// Prescribes a fixed inlet specific-enthalpy boundary condition on
+    /// the `"left"` patch (x = 0) -- pairs with [`Self::set_inlet_velocity`]
+    /// to fully specify the inlet thermodynamic state.
+    pub fn set_inlet_enthalpy(&mut self, h: AvailableEnergy) {
+        let size = self.mesh.patches[1].size;
+        self.he.boundary[1] = PatchField::fixed_value(size, h.get::<joule_per_kilogram>());
+    }
+
+    /// Prescribes a fixed outlet pressure boundary condition on the
+    /// `"right"` patch (x = length) -- e.g. the downstream pressure a
+    /// turbine or condenser imposes.
+    pub fn set_outlet_pressure(&mut self, p: Pressure) {
+        let size = self.mesh.patches[0].size;
+        self.p.boundary[0] = PatchField::fixed_value(size, p.get::<pascal>());
+    }
+
+    /// Outlet-cell (the last cell, owner of the `"right"` patch) pressure
+    /// -- for a caller reading the downstream state after [`super::TampinesSteamArray::step`].
+    pub fn get_outlet_pressure(&self) -> Pressure {
+        let n = self.mesh.n_cells;
+        Pressure::new::<pascal>(self.p.internal[n - 1])
+    }
+
+    /// Outlet-cell specific enthalpy.
+    pub fn get_outlet_enthalpy(&self) -> AvailableEnergy {
+        let n = self.mesh.n_cells;
+        AvailableEnergy::new::<joule_per_kilogram>(self.he.internal[n - 1])
+    }
+
+    /// Outlet-cell temperature.
+    pub fn get_outlet_temperature(&self) -> ThermodynamicTemperature {
+        let n = self.mesh.n_cells;
+        ThermodynamicTemperature::new::<kelvin>(self.t.internal[n - 1])
+    }
 }
 
 #[cfg(test)]
@@ -269,6 +328,101 @@ mod tests {
             Time::new::<second>(0.01),
         )
         .unwrap()
+    }
+
+    /// ## Methodology
+    /// Drives the array as a simple subcooled-liquid-water pipe with a
+    /// prescribed inlet velocity + enthalpy and a prescribed outlet
+    /// pressure -- the first exercise anywhere in this crate of
+    /// [`TampinesSteamArray::step`]'s pressure-velocity coupling under a
+    /// real Dirichlet velocity BC (every prior test either uses the
+    /// default zero-gradient/passive BCs or drives `he` alone via
+    /// [`TampinesSteamArray::set_temperature_vector`]). The array is
+    /// pre-initialized near a well-subcooled operating point (320 K, 1 bar,
+    /// safely away from the ~373 K saturation line at that pressure) and
+    /// the inlet enthalpy is derived from the same (T, p) point, so the run
+    /// stays single-phase throughout. Transient PISO at a liquid-water
+    /// acoustic-CFL timestep (dt = 5e-5 s < dx/c_sound ≈ 0.1/1450 ≈ 6.9e-5 s).
+    ///
+    /// ## Result (2026-07-14)
+    /// Passes: fields stay finite over 200 steps, the outlet cell pressure
+    /// settles near the imposed 1 bar BC, and the flow moves in +x. This
+    /// only works because of the pressure-boundary-source fix in `step()`
+    /// (see the `p_eqn.source[c] += source_p[c]` note there): before that
+    /// fix, overwriting the pressure equation's source dropped the
+    /// FixedValue-outlet Dirichlet term while keeping its diagonal, which
+    /// silently imposed `p_outlet = 0` and blew the field up within ~10
+    /// steps -- even for a compressible gas (see
+    /// `outram_park_fork_coolprop::OPCPFluidArray`'s parallel test) and
+    /// even from a uniform equilibrium field. See the workspace beads
+    /// tracker (`op-21g.12`) for the full debugging trail.
+    ///
+    /// A remaining sharp edge (not exercised here): near the saturation
+    /// boundary, `correct_thermo`'s `(p,h)` region classification and
+    /// `thermal_conductivity`'s internal `(T,p)` re-classification can
+    /// disagree, hitting `pt_flash_eqm::cp_tp_eqm_single_phase`'s
+    /// `FwdEqnRegion::Region4 => todo!(...)`. A real boiling steam-generator
+    /// tube passes through that boundary, so it must be addressed before
+    /// this array can model one -- still tracked on `op-21g.12`.
+    #[test]
+    fn inlet_outlet_bcs_drive_flow_and_outlet_pressure_settles_near_imposed_value() {
+        let mut arr = TampinesSteamArray::new(
+            Length::new::<meter>(1.0),
+            Area::new::<square_meter>(1.0e-4),
+            10,
+            Time::new::<second>(5.0e-5), // liquid-water acoustic CFL: dx/c ≈ 0.1/1450 ≈ 6.9e-5 s
+        )
+        .unwrap();
+        arr.set_piso_algorithm(2);
+
+        // Pre-initialize the whole array near a well-subcooled operating
+        // point (rather than leaving it at new()'s default 1 bar/300 K
+        // reference state), staying well clear of the saturation boundary.
+        let outlet_pressure = Pressure::new::<pascal>(1.0e5);
+        for c in 0..10 {
+            arr.p.internal[c] = outlet_pressure.get::<pascal>();
+        }
+        let preset_temp = ThermodynamicTemperature::new::<kelvin>(320.0);
+        arr.set_temperature_vector(vec![preset_temp; 10]).unwrap();
+
+        // Gentle inlet velocity: near-incompressible liquid water started
+        // impulsively surges by the Joukowsky pressure Δp = ρ·c·Δu ≈
+        // 1000·1450·u; at u = 0.02 m/s that is ~29 kPa, a mild transient
+        // that stays comfortably within the IAPWS-IF97 valid range (0.5 m/s
+        // would be a ~7 bar water-hammer surge whose reflection undershoots
+        // below the triple-point pressure).
+        let inlet_velocity = Velocity::new::<meter_per_second>(0.02);
+        let inlet_enthalpy = crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase(
+            preset_temp, outlet_pressure,
+        );
+        arr.set_inlet_velocity(inlet_velocity);
+        arr.set_inlet_enthalpy(inlet_enthalpy);
+        arr.set_outlet_pressure(outlet_pressure);
+
+        arr.run(200);
+
+        let all_finite = arr.u.internal.as_slice().iter().all(|v| v.mag().is_finite())
+            && arr.p.internal.as_slice().iter().all(|x| x.is_finite())
+            && arr.he.internal.as_slice().iter().all(|x| x.is_finite());
+        assert!(all_finite, "fields must stay finite when driven by prescribed inlet/outlet BCs");
+
+        // outlet pressure should settle near the imposed BC (small friction-driven
+        // offset upstream, not a large drift)
+        let outlet_p = arr.get_outlet_pressure();
+        assert!(
+            (outlet_p.get::<pascal>() - outlet_pressure.get::<pascal>()).abs() < 5.0e3,
+            "outlet pressure {} Pa should be close to the imposed BC {} Pa",
+            outlet_p.get::<pascal>(),
+            outlet_pressure.get::<pascal>()
+        );
+
+        // flow should actually be moving in +x, driven by the inlet velocity BC
+        let mean_u_x: f64 = arr.u.internal.as_slice().iter().map(|v| v.x).sum::<f64>()
+            / arr.mesh.n_cells as f64;
+        assert!(
+            mean_u_x > 0.0,
+            "flow should move in +x, driven by the inlet velocity BC; got mean u_x = {mean_u_x}"
+        );
     }
 
     #[test]

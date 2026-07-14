@@ -452,7 +452,18 @@ impl PimpleFoam {
 
                 // Pressure equation: L·p = source (symmetric SPD → PCG).
                 let mut p_eqn = fvm::laplacian(&rauf, &self.p);
-                p_eqn.source = Field::new(source_p);
+                // ADD, don't OVERWRITE: `fvm::laplacian` already put any
+                // FixedValue pressure boundary's Dirichlet source term
+                // (`coeff·p_bc`) into `p_eqn.source` with its matching
+                // diagonal `coeff`. Overwriting would drop the source term
+                // but keep the diagonal, silently imposing `p_boundary = 0`
+                // and blowing up any fixed-pressure outlet. Harmless for a
+                // purely closed (all-zeroGradient-p) domain -- the laplacian
+                // source is zero there -- but correct if a FixedValue p BC
+                // is ever set.
+                for (s, &sp) in p_eqn.source.iter_mut().zip(source_p.iter()) {
+                    *s += sp;
+                }
                 p_eqn.set_reference(0, 0.0); // pin reference (closed domain)
                 // Warm-start from the current pressure (previous corrector /
                 // time step). Near steady state `p` barely changes, so the

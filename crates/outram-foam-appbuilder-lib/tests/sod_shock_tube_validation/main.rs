@@ -345,6 +345,25 @@ fn poly_mesh_dir() -> PathBuf {
     Path::new(CASE_DIR).join("constant").join("polyMesh")
 }
 
+/// Writes `contents` to `verification_and_validation/<filename>` under the
+/// crate root, creating the folder if needed. These `.csv` files are the
+/// full generated datasets the committed `.md` V&V records reference; they
+/// are gitignored and excluded from `cargo publish` (see this crate's
+/// `Cargo.toml` `exclude` and the V&V folder README), so regenerating them
+/// is just a matter of re-running this test.
+fn write_vandv_csv(filename: &str, contents: &str) {
+    use std::io::Write;
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation");
+    std::fs::create_dir_all(&dir)
+        .unwrap_or_else(|e| panic!("failed to create {}: {e}", dir.display()));
+    let path = dir.join(filename);
+    let mut f = std::fs::File::create(&path)
+        .unwrap_or_else(|e| panic!("failed to create {}: {e}", path.display()));
+    f.write_all(contents.as_bytes())
+        .unwrap_or_else(|e| panic!("failed to write {}: {e}", path.display()));
+    println!("wrote V&V CSV: {}", path.display());
+}
+
 /// Build a `RhoCentralFoam` solver from the committed mesh + Sod initial fields,
 /// configured to run to `t_end` seconds with dt = 1×10⁻⁶ s.
 fn build_solver(t_end: f64) -> RhoCentralFoam {
@@ -439,9 +458,12 @@ fn rho_central_foam_matches_sod_table_ii() {
     let p_scale = P_LEFT;
 
     println!("── RhoCentralFoam port vs Sod Table II (τ = 0.2, t = {T_TAU_02:.6} s) ──");
-    println!(
-        "x_over_L,x_m,rho_port,rho_tab,rho_exact,u_port,u_tab,u_exact,p_port,p_tab,p_exact,faithful"
-    );
+    let header =
+        "x_over_L,x_m,rho_port,rho_tab,rho_exact,u_port,u_tab,u_exact,p_port,p_tab,p_exact,faithful";
+    println!("{header}");
+    let mut csv = String::new();
+    csv.push_str(header);
+    csv.push('\n');
 
     let mut worst_p = 0.0_f64;
     let mut worst_u = 0.0_f64;
@@ -466,10 +488,13 @@ fn rho_central_foam_matches_sod_table_ii() {
         let p_ok = (p_tab - ex.p).abs() / p_scale < 0.02;
         let faithful = rho_ok && u_ok && p_ok;
 
-        println!(
+        let row = format!(
             "{xl:.1},{x_si:.1},{rho_port:.4},{rho_tab:.4},{:.4},{u_port:.2},{u_tab:.2},{:.2},{p_port:.1},{p_tab:.1},{:.1},{faithful}",
             ex.rho, ex.u, ex.p
         );
+        println!("{row}");
+        csv.push_str(&row);
+        csv.push('\n');
 
         // Hard-assert the port against Table II only where Table II is faithful.
         if rho_ok {
@@ -492,4 +517,5 @@ fn rho_central_foam_matches_sod_table_ii() {
     println!(
         "── worst faithful-point rel error: p={worst_p:.4}, u={worst_u:.4}, rho={worst_rho:.4} ──"
     );
+    write_vandv_csv("sod_shock_tube_rhocentralfoam_vs_table_ii.csv", &csv);
 }

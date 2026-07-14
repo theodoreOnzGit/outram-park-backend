@@ -58,8 +58,8 @@ impl FHRSimulatorApp {
         // Nordheim-Fuchs exact timestepper (see teh_o_prke::nordheim_fuchs)
         // replaces the former SixGroupPRKE numerical solver -- its
         // closed-form solution has no dt << Lambda stability restriction,
-        // so this loop now runs at a 10 ms timestep instead of the old
-        // 25 microsecond one (400x coarser), while still resolving the
+        // so this loop now runs at a 1 ms timestep instead of the old
+        // 25 microsecond one (25x coarser), while still resolving the
         // same prompt-power + adiabatic-fuel-feedback excursion physics
         // exactly.
         let initial_fuel_temp = ThermodynamicTemperature::new::<degree_celsius>(500.0);
@@ -75,7 +75,7 @@ impl FHRSimulatorApp {
             )
             .expect("illustrative Nordheim-Fuchs parameters must satisfy NordheimFuchsExactTimestepper::new's preconditions");
 
-        let prke_timestep = Time::new::<millisecond>(10.0);
+        let prke_timestep = Time::new::<millisecond>(1.0);
         let reactor_volume = Volume::new::<cubic_meter>(0.5);
         let macroscopic_fission_xs = LinearNumberDensity::new::<per_meter>(1.0);
         let mut pebble_bed_th_struct =

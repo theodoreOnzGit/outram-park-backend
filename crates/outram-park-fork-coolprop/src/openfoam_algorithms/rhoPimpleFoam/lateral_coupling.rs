@@ -10,12 +10,27 @@
 //! through a comparable API. Simplified relative to TUAS: the caller supplies
 //! a thermal conductance / pressure loss directly — there is no
 //! `NusseltCorrelation` or `DimensionlessDarcyLossCorrelations` port here.
+//!
+//! Also provides prescribed inlet/outlet boundary-condition setters/getters
+//! ([`Self::set_inlet_velocity`], [`Self::set_inlet_enthalpy`],
+//! [`Self::set_outlet_pressure`], [`Self::get_outlet_pressure`],
+//! [`Self::get_outlet_enthalpy`], [`Self::get_outlet_temperature`]) so a
+//! caller can drive this array as a simple pipe/tube (known inlet flow +
+//! thermodynamic state, known downstream pressure) without reaching into the
+//! internal `PatchField`/`Vector3`/mesh-patch-index representation directly.
+//! Kept byte-for-byte parallel with `tampines-steam-tables`'s
+//! `TampinesSteamArray` equivalents, since both drive the same rhoPimpleFoam
+//! port.
 
-use uom::si::f64::{Angle, Length, MassRate, Power, Pressure, ThermalConductance, ThermodynamicTemperature};
+use uom::si::f64::{Angle, AvailableEnergy, Length, MassRate, Power, Pressure, ThermalConductance, ThermodynamicTemperature, Velocity};
+use uom::si::available_energy::joule_per_kilogram;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::power::watt;
+use uom::si::pressure::pascal;
+use uom::si::velocity::meter_per_second;
 
 use crate::flash;
+use crate::openfoam_algorithms::openfoam_source::{PatchField, Vector3};
 
 use super::OPCPFluidArray;
 
@@ -226,6 +241,54 @@ impl OPCPFluidArray {
         }
         q
     }
+
+    /// Prescribes a fixed inlet velocity boundary condition on the
+    /// `"left"` patch (x = 0, see [`crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh`]).
+    ///
+    /// For driving this array as a simple pipe/tube with a known inlet
+    /// flow (e.g. from an upstream pump). `velocity` is the x-direction
+    /// flow speed; positive means fluid entering the domain (flowing
+    /// left-to-right, +x) -- takes effect on the next [`super::OPCPFluidArray::step`].
+    pub fn set_inlet_velocity(&mut self, velocity: Velocity) {
+        let size = self.mesh.patches[1].size;
+        let v = Vector3::new(velocity.get::<meter_per_second>(), 0.0, 0.0);
+        self.u.boundary[1] = PatchField::fixed_value_vec(size, v);
+    }
+
+    /// Prescribes a fixed inlet specific-enthalpy boundary condition on
+    /// the `"left"` patch (x = 0) -- pairs with [`Self::set_inlet_velocity`]
+    /// to fully specify the inlet thermodynamic state.
+    pub fn set_inlet_enthalpy(&mut self, h: AvailableEnergy) {
+        let size = self.mesh.patches[1].size;
+        self.he.boundary[1] = PatchField::fixed_value(size, h.get::<joule_per_kilogram>());
+    }
+
+    /// Prescribes a fixed outlet pressure boundary condition on the
+    /// `"right"` patch (x = length) -- e.g. the downstream pressure a
+    /// turbine or condenser imposes.
+    pub fn set_outlet_pressure(&mut self, p: Pressure) {
+        let size = self.mesh.patches[0].size;
+        self.p.boundary[0] = PatchField::fixed_value(size, p.get::<pascal>());
+    }
+
+    /// Outlet-cell (the last cell, owner of the `"right"` patch) pressure
+    /// -- for a caller reading the downstream state after [`super::OPCPFluidArray::step`].
+    pub fn get_outlet_pressure(&self) -> Pressure {
+        let n = self.mesh.n_cells;
+        Pressure::new::<pascal>(self.p.internal[n - 1])
+    }
+
+    /// Outlet-cell specific enthalpy.
+    pub fn get_outlet_enthalpy(&self) -> AvailableEnergy {
+        let n = self.mesh.n_cells;
+        AvailableEnergy::new::<joule_per_kilogram>(self.he.internal[n - 1])
+    }
+
+    /// Outlet-cell temperature.
+    pub fn get_outlet_temperature(&self) -> ThermodynamicTemperature {
+        let n = self.mesh.n_cells;
+        ThermodynamicTemperature::new::<kelvin>(self.t.internal[n - 1])
+    }
 }
 
 #[cfg(test)]
@@ -248,6 +311,80 @@ mod tests {
             uom::si::f64::Time::new::<second>(0.01),
         )
         .unwrap()
+    }
+
+    /// ## Methodology
+    /// Drives the array as a simple gas pipe with a prescribed inlet
+    /// velocity + enthalpy and a prescribed outlet pressure -- the
+    /// `OPCPFluidArray` counterpart of `tampines-steam-tables`'s
+    /// `TampinesSteamArray` BC-driven regression test, exercising the same
+    /// (shared-design) rhoPimpleFoam pressure-velocity coupling under a
+    /// real Dirichlet velocity BC. Working fluid is **Nitrogen at
+    /// 300 K / 1 bar (a gas)**, deliberately -- a compressible gas has a
+    /// far larger compressibility ψ = (∂ρ/∂p)_T than liquid water, so it
+    /// tolerates a brisk 0.5 m/s impulsive inlet start (a near-
+    /// incompressible liquid would water-hammer; that is why the
+    /// `TampinesSteamArray` sibling test uses a gentle 0.02 m/s inlet).
+    /// Transient PISO at the gas acoustic-CFL timestep.
+    ///
+    /// ## Result (2026-07-14)
+    /// Passes: fields stay finite over 500 steps, the outlet cell pressure
+    /// settles near the imposed 1 bar BC, and the flow moves in +x. This
+    /// depends on the pressure-boundary-source fix in `step()` (the
+    /// `p_eqn.source[c] += source_p[c]` note there): before it, overwriting
+    /// the pressure equation's source dropped the FixedValue-outlet
+    /// Dirichlet term while keeping its diagonal, silently imposing
+    /// `p_outlet = 0` and blowing the field up within ~10 steps even for
+    /// this well-conditioned gas case and even from a uniform equilibrium
+    /// field. See the workspace beads tracker (`op-21g.12`).
+    #[test]
+    fn inlet_outlet_bcs_drive_gas_flow_and_outlet_pressure_settles() {
+        use uom::si::velocity::meter_per_second;
+
+        let mut arr = OPCPFluidArray::new(
+            Fluid::Nitrogen,
+            Length::new::<meter>(1.0),
+            uom::si::f64::Area::new::<square_meter>(1.0e-4),
+            10,
+            uom::si::f64::Time::new::<second>(2.0e-4), // acoustic CFL: dx/c ~ 0.1/350 ~ 2.9e-4 s for N2 gas
+        )
+        .unwrap();
+        arr.set_piso_algorithm(2);
+
+        // Pre-initialize near the operating point (300 K, 1 bar gas).
+        let outlet_pressure = Pressure::new::<pascal>(1.0e5);
+        for c in 0..10 {
+            arr.p.internal[c] = outlet_pressure.get::<pascal>();
+        }
+        let preset_temp = ThermodynamicTemperature::new::<kelvin>(300.0);
+        arr.set_temperature_vector(vec![preset_temp; 10]).unwrap();
+
+        let inlet_state = flash::state_pt(Fluid::Nitrogen, 300.0, 1.0e5).unwrap();
+        arr.set_inlet_velocity(Velocity::new::<meter_per_second>(0.5));
+        arr.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(inlet_state.enthalpy));
+        arr.set_outlet_pressure(outlet_pressure);
+
+        arr.run(500);
+
+        let all_finite = arr.u.internal.as_slice().iter().all(|v| v.mag().is_finite())
+            && arr.p.internal.as_slice().iter().all(|x| x.is_finite())
+            && arr.he.internal.as_slice().iter().all(|x| x.is_finite());
+        assert!(all_finite, "fields must stay finite when driven by prescribed inlet/outlet BCs");
+
+        let outlet_p = arr.get_outlet_pressure();
+        assert!(
+            (outlet_p.get::<pascal>() - outlet_pressure.get::<pascal>()).abs() < 5.0e3,
+            "outlet pressure {} Pa should be close to the imposed BC {} Pa",
+            outlet_p.get::<pascal>(),
+            outlet_pressure.get::<pascal>()
+        );
+
+        let mean_u_x: f64 = arr.u.internal.as_slice().iter().map(|v| v.x).sum::<f64>()
+            / arr.mesh.n_cells as f64;
+        assert!(
+            mean_u_x > 0.0,
+            "flow should move in +x, driven by the inlet velocity BC; got mean u_x = {mean_u_x}"
+        );
     }
 
     #[test]

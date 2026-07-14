@@ -7,13 +7,6 @@ The sole public export from this module is `TampinesSteamArray`;
 everything else is `pub(crate)` and never touches the public API of
 `tampines-steam-tables`.
 
-## Branching
-
-Do not commit to `develop` or `main`. All work for this task lands on a
-feature branch under the `feature/validation` convention used by the
-outram-park-backend repo. If a branch does not already exist for this
-work, create one before making any commits.
-
 ## Numerical primitives already in-tree
 
 The outram-foam-basic-lib primitives (matrix, PCG, DIC, GAMG, MUSCL, FV
