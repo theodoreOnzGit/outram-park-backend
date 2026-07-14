@@ -7,6 +7,10 @@ Derivative work of NJOY2016 — see the crate NOTICE / LICENSE.njoy.
 
 # U-238 (n,γ) Doppler broadening — code-to-code verification vs OpenMC
 
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+
 Full-pipeline verification of the Rust NJOY port: reconstruct the U-238
 radiative-capture cross section (MT=102) **directly from the ENDF/B-VIII.0 tape**
 with RECONR (Reich-Moore, LRF=3), Doppler-broaden it to 900 K and 1200 K with

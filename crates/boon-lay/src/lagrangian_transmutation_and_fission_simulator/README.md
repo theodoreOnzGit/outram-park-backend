@@ -1,5 +1,9 @@
 # Lagrangian Transmutation and Fission Simulator
 
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+
 Now, for decay and transmutation with transport, we could take a control 
 volume approach. However, a full blown burnup matrix for even one 
 mesh cell is problematic. Could be 3000 by 3000 for typical reactor burnup.

@@ -1,5 +1,9 @@
 # outram-foam-appbuilder-lib
 
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+
 > **This is OUTRAM PARK's independent Rust translation of selected OpenFOAM®
 > algorithms.** It is not the official OpenFOAM® software and is not
 > affiliated with, endorsed by, or sanctioned by OpenCFD Ltd. or the ESI

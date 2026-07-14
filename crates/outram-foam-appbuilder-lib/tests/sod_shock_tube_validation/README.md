@@ -6,6 +6,10 @@ Part of Outram Park (outram-park-backend), outram-foam-appbuilder-lib.
 
 # Sod Shock Tube Validation — Rust `rhoCentralFoam` port vs Sod (1978) Table II
 
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+
 This directory holds the **validation** case for the Rust port of OpenFOAM
 `rhoCentralFoam` (KNP central-upwind flux, 2nd-order vanLeer MUSCL). The port is
 judged against the published benchmark profile in **Sod (1978) Table II**.
