@@ -64,6 +64,33 @@ Until last month, AI was hardly used in this project. From this month
 (June 2026) onwards, Claude Code was used in the testing and development of
 the choked flow algorithms in vapour-liquid equilibrium (VLE).
 
+### Why human-in-the-loop is not optional here (a worked example)
+
+On 2026-07-14, an AI assistant (Claude Opus) wired `TampinesSteamArray` into
+the FHR simulator's steam-generator tube. It repeatedly reached for the
+`(T, p)` **single-phase** flashes (`h_tp_eqm_single_phase` and friends), which
+`panic!`/`todo!()` the moment a state is two-phase — and a boiling
+steam-generator tube is two-phase along most of its length. The assistant
+chased the resulting crashes for a long time (misattributing them, adding
+increasingly elaborate guards) and did **not** converge on the root cause on
+its own.
+
+The unlock was a one-line correction from the human maintainer: *"for
+`TampinesSteamArray` and `OPCPFluidArray`, use `(p, h)` flashing by default —
+it already includes the phase data inside."* With that reframing the fixes
+fell out quickly (see `docs/notes.md`, "Correction log", and
+`../tampines/docs/steam_generator_tube_integration.md`).
+
+The lesson, recorded here deliberately as evidence: an AI assistant is a
+capable but fallible collaborator. It produced a great deal of correct,
+well-tested code, yet it also confidently pursued a wrong approach that a
+human with domain knowledge corrected in a single sentence. Physics- and
+numerics-heavy work like this **requires a human in the loop** — not as a
+formality, but because the assistant's blind spots are real and it will not
+reliably find them alone. This matches the project's `RESPONSIBLE_USE.md` /
+`AI_USAGE.md` stance that AI-assisted output is untrusted draft material until
+reviewed by a human.
+
 # FHR Educational Simulator 
 
 **`fhr_sim_v2` moved to the `tampines` crate**
