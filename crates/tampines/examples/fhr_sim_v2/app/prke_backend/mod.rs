@@ -2,53 +2,94 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime};
 
+use nee_soon::{NeeSoon, NordheimFuchsExactTimestepper};
 use teh_o_prke::decay_heat::DecayHeat;
 use teh_o_prke::feedback_mechanisms::fission_product_poisons::Xenon135Poisoning;
 use teh_o_prke::zero_power_prke::six_group_precursor_prke::six_group_constants::FissioningNuclideType;
-use teh_o_prke::{feedback_mechanisms::SixFactorFormulaFeedback, zero_power_prke::six_group_precursor_prke::SixGroupPRKE};
+use teh_o_prke::feedback_mechanisms::SixFactorFormulaFeedback;
 use uom::si::area::square_meter;
 use uom::si::energy::{kilojoule, megaelectronvolt};
+use uom::si::heat_capacity::joule_per_kelvin;
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
 use uom::si::linear_number_density::per_meter;
 use uom::si::mass::kilogram;
-use uom::si::power::megawatt;
-use uom::si::time::{microsecond, second};
+use uom::si::power::{megawatt, watt};
+use uom::si::temperature_coefficient::per_kelvin;
+use uom::si::time::{millisecond, second};
 use uom::si::velocity::meter_per_second;
 use uom::si::volume::cubic_meter;
-use uom::si::volumetric_number_rate::per_cubic_meter_second;
 use uom::si::{f64::*, ratio::ratio};
 use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::ConstZero;
 
 use crate::{FHRSimulatorApp, FHRState};
 
+/// Delayed neutron fraction beta -- U-235 thermal-spectrum illustrative
+/// value, used for the reactivity-in-dollars display and as
+/// [`NordheimFuchsExactTimestepper::delayed_neutron_fraction`]. Previously
+/// read from `SixGroupPRKE::get_total_delayed_fraction()`; that struct is
+/// gone now that kinetics runs through Nordheim-Fuchs (which neglects
+/// delayed-precursor dynamics entirely, see its module doc), so this is a
+/// fixed constant instead.
+const DELAYED_NEUTRON_FRACTION_BETA: f64 = 0.0065;
+
+/// Fuel-temperature feedback coefficient alpha_f \[K^-1\], reused directly
+/// from the old `fuel_temp_resonance_esc_feedback_linear` heuristic's slope
+/// (`-2.3077e-4` fractional six-factor change per degC) -- for a factor
+/// near 1.0 a fractional change IS approximately the implied reactivity
+/// change, so the old curve's slope doubles as a linear alpha_f without
+/// inventing a new number.
+const FUEL_FEEDBACK_COEFFICIENT_PER_KELVIN: f64 = -2.3077e-4;
+
+/// Fuel reference temperature T_f,ref -- back-derived as the old linear
+/// heuristic's zero-crossing (`factor == 1.0`, i.e. no feedback), so
+/// `alpha_f*(T_f - T_f,ref)` reproduces the same equilibrium point the old
+/// six-factor curve implied: `-2.3077e-4*T_degc + 1.2462 = 1.0` =>
+/// `T_degc ~= 1067.13`.
+const FUEL_REFERENCE_TEMPERATURE_DEGC: f64 = 1067.13;
+
 impl FHRSimulatorApp {
 
-    /// associated function for PRKE calculation 
+    /// associated function for kinetics calculation
     /// for continuous loop
     pub fn calculate_prke_loop(
         fhr_state: Arc<Mutex<FHRState>>){
 
-        // construct a prke six group object
-        // probably want to use a u235 group or u233 group
-        // default
-        let mut prke_six_group :SixGroupPRKE = SixGroupPRKE::default();
+        // Nordheim-Fuchs exact timestepper (see teh_o_prke::nordheim_fuchs)
+        // replaces the former SixGroupPRKE numerical solver -- its
+        // closed-form solution has no dt << Lambda stability restriction,
+        // so this loop now runs at a 10 ms timestep instead of the old
+        // 25 microsecond one (400x coarser), while still resolving the
+        // same prompt-power + adiabatic-fuel-feedback excursion physics
+        // exactly.
+        let initial_fuel_temp = ThermodynamicTemperature::new::<degree_celsius>(500.0);
+        let mut nordheim_fuchs: NordheimFuchsExactTimestepper = NeeSoon::default()
+            .new_prompt_excursion_model(
+                Time::new::<second>(2.31e-4), // Lambda, same value the old numerical PRKE used
+                Ratio::new::<ratio>(DELAYED_NEUTRON_FRACTION_BETA),
+                HeatCapacity::new::<joule_per_kelvin>(8000.0 * 300.0), // ~UO2 pebble-bed mass * illustrative c_p
+                TemperatureCoefficient::new::<per_kelvin>(FUEL_FEEDBACK_COEFFICIENT_PER_KELVIN),
+                ThermodynamicTemperature::new::<degree_celsius>(FUEL_REFERENCE_TEMPERATURE_DEGC),
+                initial_fuel_temp,
+                Power::new::<watt>(1.0), // small nonzero seed -- avoids the P->0 startup singularity
+            )
+            .expect("illustrative Nordheim-Fuchs parameters must satisfy NordheimFuchsExactTimestepper::new's preconditions");
 
-        let prke_timestep = Time::new::<microsecond>(25.0);
+        let prke_timestep = Time::new::<millisecond>(10.0);
         let reactor_volume = Volume::new::<cubic_meter>(0.5);
         let macroscopic_fission_xs = LinearNumberDensity::new::<per_meter>(1.0);
-        let mut pebble_bed_th_struct = 
+        let mut pebble_bed_th_struct =
             PebbleBedThermalHydraulics::new();
         let fhr_state_clone = fhr_state.clone();
 
-        // then decay heat struct 
+        // then decay heat struct
         let mut fhr_decay_heat_struct = DecayHeat::default();
 
-        // then xenon poisoning struct 
+        // then xenon poisoning struct
         let mut fhr_xe135_poisoning = Xenon135Poisoning::default();
 
 
-        // now, time controls 
+        // now, time controls
         let loop_time = SystemTime::now();
         let mut current_simulation_time = Time::ZERO;
 
@@ -59,7 +100,7 @@ impl FHRSimulatorApp {
         loop {
 
             // so now, let's do the necessary things
-            // first, timestep and loop time 
+            // first, timestep and loop time
             //
             // second, read and update the local_ciet_state
 
@@ -73,24 +114,24 @@ impl FHRSimulatorApp {
             keff_six_factor.p_fnl = Ratio::new::<ratio>(0.7);
             // then fuel reproduction
             keff_six_factor.eta = Ratio::new::<ratio>(2.2);
-            // resonance esc probability 
+            // resonance esc probability
             keff_six_factor.p = Ratio::new::<ratio>(0.8);
-            // thermal utilisation 
+            // thermal utilisation
             keff_six_factor.f = Ratio::new::<ratio>(0.9);
 
-            
-            // fast fission 
+
+            // fast fission
             keff_six_factor.epsilon = Ratio::new::<ratio>(1.03);
             // keff total is about 1.0278
             // excess reactivity is about 0.0278
             //
-            // basically control rod should be about this much 
+            // basically control rod should be about this much
             // and fuel temp feedback about this much also
             // some of these are arbitrary
             Self::calculate_prke_for_one_timestep(
                 &mut fhr_state_clone.lock().unwrap(),
                 &mut keff_six_factor,
-                &mut prke_six_group,
+                &mut nordheim_fuchs,
                 prke_timestep,
                 reactor_volume,
                 macroscopic_fission_xs,
@@ -105,61 +146,61 @@ impl FHRSimulatorApp {
 
             let prke_simulation_time_seconds = current_simulation_time.get::<second>();
 
-            let prke_elapsed_time_seconds = 
+            let prke_elapsed_time_seconds =
                 (loop_time.elapsed().unwrap().as_secs_f64() * 100.0).round()/100.0;
 
-            let overall_simulation_in_realtime_or_faster: bool = 
+            let overall_simulation_in_realtime_or_faster: bool =
                 prke_simulation_time_seconds >= prke_elapsed_time_seconds;
 
-            // now update the fhr state 
-            let prke_timestep_microseconds = prke_timestep.get::<microsecond>();
+            // now update the fhr state
+            let prke_timestep_microseconds = prke_timestep.get::<uom::si::time::microsecond>();
 
-            fhr_state_clone.lock().unwrap().prke_timestep_microseconds 
+            fhr_state_clone.lock().unwrap().prke_timestep_microseconds
                 = prke_timestep_microseconds;
 
 
 
 
 
-            fhr_state_clone.lock().unwrap().prke_simulation_time_seconds 
+            fhr_state_clone.lock().unwrap().prke_simulation_time_seconds
                 = prke_simulation_time_seconds;
 
-            fhr_state_clone.lock().unwrap().prke_elapsed_time_seconds 
+            fhr_state_clone.lock().unwrap().prke_elapsed_time_seconds
                 = prke_elapsed_time_seconds;
 
 
             // calculation time and time to sleep
             let loop_time_end = loop_time.elapsed().unwrap();
-            let time_taken_for_calculation_loop_microseconds: f64 = 
+            let time_taken_for_calculation_loop_microseconds: f64 =
                 (loop_time_end - loop_time_start)
                 .as_micros() as f64;
-            fhr_state_clone.lock().unwrap().prke_calc_time_microseconds 
+            fhr_state_clone.lock().unwrap().prke_calc_time_microseconds
                 = time_taken_for_calculation_loop_microseconds;
 
-            let time_to_sleep_microseconds: u64 = 
-                (prke_timestep.get::<microsecond>() - 
+            let time_to_sleep_microseconds: u64 =
+                (prke_timestep.get::<uom::si::time::microsecond>() -
                  time_taken_for_calculation_loop_microseconds)
                 .round().abs() as u64;
 
-            let time_to_sleep: Duration = 
+            let time_to_sleep: Duration =
                 Duration::from_micros(time_to_sleep_microseconds - 1);
 
 
             // last condition for sleeping
-            let real_time_in_current_timestep: bool = 
+            let real_time_in_current_timestep: bool =
                 time_to_sleep_microseconds > 1;
 
             //
             let fast_forward_botton_on = false;
 
-            if overall_simulation_in_realtime_or_faster && 
-                real_time_in_current_timestep && 
-                    !fast_forward_botton_on 
+            if overall_simulation_in_realtime_or_faster &&
+                real_time_in_current_timestep &&
+                    !fast_forward_botton_on
             {
                 thread::sleep(time_to_sleep);
-            } else if overall_simulation_in_realtime_or_faster 
-                && real_time_in_current_timestep 
-                    && fast_forward_botton_on 
+            } else if overall_simulation_in_realtime_or_faster
+                && real_time_in_current_timestep
+                    && fast_forward_botton_on
             {
                 // sleep 5 microseconds if fast fwd
                 let short_time_to_sleep: Duration = Duration::from_micros(5);
@@ -179,15 +220,28 @@ impl FHRSimulatorApp {
         }
 
     }
-    /// associated function for PRKE calculation 
-    /// for single timestep
-    /// for prke anyway
-    /// note that the prke timestep will be different from 
-    /// the main thermal hydraulics timestep
+    /// associated function for kinetics calculation for a single timestep.
+    /// Note the kinetics timestep will be different from the main thermal
+    /// hydraulics timestep.
+    ///
+    /// Kinetics now run through [`NordheimFuchsExactTimestepper`] rather
+    /// than the former `SixGroupPRKE`. Control-rod and xenon feedback still
+    /// go through [`SixFactorFormulaFeedback`] exactly as before, but
+    /// fuel-temperature feedback moved to Nordheim-Fuchs's own
+    /// `alpha_f*(T_f - T_f,ref)` term (see the crate-level constants
+    /// above) -- `keff_six_factor.fuel_temp_feedback(...)` is deliberately
+    /// no longer called here, to avoid double-counting it. The pebble-bed
+    /// thermal-hydraulics model (`pebble_bed_th_struct`) remains the
+    /// authoritative fuel temperature (it accounts for heat removal to the
+    /// coolant); its output from the previous step is written into
+    /// `nordheim_fuchs.fuel_temperature` before each step so Nordheim-
+    /// Fuchs's feedback term uses the real, non-adiabatic temperature --
+    /// only the momentary within-step coupling is adiabatic, matching the
+    /// model's documented scope.
     pub fn calculate_prke_for_one_timestep(
         fhr_state_ref: &mut FHRState,
         keff_six_factor: &mut SixFactorFormulaFeedback,
-        prke_six_group: &mut SixGroupPRKE,
+        nordheim_fuchs: &mut NordheimFuchsExactTimestepper,
         prke_timestep: Time,
         reactor_volume: Volume,
         macroscopic_fission_xs: LinearNumberDensity,
@@ -197,36 +251,28 @@ impl FHRSimulatorApp {
         ){
 
         // within each timestep, I need to obtain feedback
-        // so basically for now, fuel temperature and control rod insertion 
-        // based on that, calculate PRKE
+        // so basically for now, control rod insertion based feedback goes
+        // through the six-factor formula; fuel-temperature feedback is
+        // Nordheim-Fuchs's job now (see this fn's doc comment)
 
-
-        let fuel_temp: ThermodynamicTemperature = 
-            ThermodynamicTemperature::new::<degree_celsius>(
-                fhr_state_ref.pebble_core_temp_degc
-            );
-        let left_cr_insertion_frac = 
+        let left_cr_insertion_frac =
             fhr_state_ref.left_cr_insertion_frac;
-        let right_cr_insertion_frac = 
+        let right_cr_insertion_frac =
             fhr_state_ref.right_cr_insertion_frac;
 
         // now based on this, calculate feedback
         //
-        let left_cr_insertion_ratio = 
+        let left_cr_insertion_ratio =
             Ratio::new::<ratio>(left_cr_insertion_frac as f64);
-        let right_cr_insertion_ratio = 
+        let right_cr_insertion_ratio =
             Ratio::new::<ratio>(right_cr_insertion_frac as f64);
 
-        keff_six_factor.fuel_temp_feedback(
-            fuel_temp, 
-            FHRSimulatorApp::fuel_temp_resonance_esc_feedback_linear
-        );
         keff_six_factor.control_rod_feedback(
-            left_cr_insertion_ratio, 
+            left_cr_insertion_ratio,
             FHRSimulatorApp::fuel_utilisation_factor_chg_for_control_rod_polynomial
         );
         keff_six_factor.control_rod_feedback(
-            right_cr_insertion_ratio, 
+            right_cr_insertion_ratio,
             FHRSimulatorApp::fuel_utilisation_factor_chg_for_control_rod_polynomial
         );
 
@@ -235,88 +281,72 @@ impl FHRSimulatorApp {
         //
         // adjust for xenon poisoning
         let xe135_mass_conc = fhr_xe135_poisoning.get_current_xe135_conc();
-        let thermal_utilisation_feedback_fractional_chg_from_xenon: f64 = 
+        let thermal_utilisation_feedback_fractional_chg_from_xenon: f64 =
             Xenon135Poisoning::simplified_poison_concentration_feedback(
                 xe135_mass_conc
             ).get::<ratio>();
 
-        keff_six_factor.f *= 
+        keff_six_factor.f *=
             thermal_utilisation_feedback_fractional_chg_from_xenon;
 
 
-        // after feedback we should get the reactivity 
-        let reactivity: Ratio = keff_six_factor.calc_rho();
-        let neutron_generation_time = Time::new::<second>(2.31e-4);
-        let mean_neutron_time = neutron_generation_time/keff_six_factor.calc_keff();
-        let background_source_rate = 
-            VolumetricNumberRate::new::<per_cubic_meter_second>(5.0);
+        // reactivity from control rods + xenon (fuel-temp feedback is
+        // added back in below via Nordheim-Fuchs's own term)
+        let reactivity_ex_fuel_temp: Ratio = keff_six_factor.calc_rho();
 
-        // use this to toggle between implicit and explicit solver
-        let implicit_solver = false;
+        // the pebble-bed thermal-hydraulics model is the authoritative
+        // fuel temperature (it accounts for heat removal); feed its most
+        // recent value into Nordheim-Fuchs before stepping so this step's
+        // fuel-temperature feedback uses the real temperature, not an
+        // isolated adiabatic proxy
+        let current_pebble_core_temp: ThermodynamicTemperature =
+            ThermodynamicTemperature::new::<degree_celsius>(
+                fhr_state_ref.pebble_core_temp_degc
+            );
+        nordheim_fuchs.fuel_temperature = current_pebble_core_temp;
+        nordheim_fuchs.set_external_reactivity(reactivity_ex_fuel_temp);
 
+        // total reactivity for display purposes (control rods + xenon +
+        // fuel-temp feedback), read before step() advances the state --
+        // reactivity_margin() = rho_ext - beta + alpha_f*(T-T_ref), so add
+        // beta back to undo that internal offset and recover the
+        // six-factor-equivalent total reactivity.
+        let total_reactivity: Ratio =
+            nordheim_fuchs.reactivity_margin() + nordheim_fuchs.delayed_neutron_fraction;
 
-        if implicit_solver == true {
-            let _neutron_pop_and_six_group_precursor_vec = 
-                prke_six_group.solve_next_timestep_precursor_concentration_and_neutron_pop_vector_implicit(
-                    prke_timestep, 
-                    reactivity, 
-                    mean_neutron_time, 
-                    background_source_rate
-                );
-        } else {
+        nordheim_fuchs.step(prke_timestep);
 
-            let _neutron_pop_and_six_group_precursor_vec = 
-                prke_six_group.solve_next_timestep_precursor_concentration_and_neutron_pop_vector_explicit(
-                    prke_timestep, 
-                    reactivity, 
-                    mean_neutron_time, 
-                    background_source_rate
-                );
-        }
+        // Nordheim-Fuchs directly outputs reactor power -- no need for the
+        // old neutron-population/flux/fission-rate chain to get there.
+        let fission_power_instantaneous: Power = nordheim_fuchs.power;
 
-        // then get the current neutron population 
-        let current_neutron_pop_density: VolumetricNumberDensity = 
-            prke_six_group.get_current_neutron_population_density();
-        // then total reactor volume to get neutron number 
-        //let current_neutron_pop: Ratio =  
-        //    reactor_volume * current_neutron_pop_density;
-        
-
-        // we can get a power production 
-        // and some of it should go to decay heat
-        // so we need Sigma_f * phi 
+        // Xenon135Poisoning still wants a fission-rate density and neutron
+        // population density; back-derive them from the Nordheim-Fuchs
+        // power output by inverting the old flux chain (power_per_fission
+        // * fission_rate = fission_power), rather than modelling neutron
+        // population directly (which Nordheim-Fuchs, a power/temperature
+        // model, does not track).
+        let power_per_fission =
+            Energy::new::<megaelectronvolt>(200.0);
+        let fission_rate: Frequency = fission_power_instantaneous / power_per_fission;
+        let fission_rate_density: VolumetricNumberRate = (fission_rate / reactor_volume).into();
         let neutron_speed: Velocity = Velocity::new::<meter_per_second>(2200.0);
-        let current_neutron_flux: ArealNumberRate = 
-            (current_neutron_pop_density * neutron_speed).into();
+        let current_neutron_flux: ArealNumberRate =
+            (fission_rate_density / macroscopic_fission_xs).into();
+        let current_neutron_pop_density: VolumetricNumberDensity =
+            (current_neutron_flux / neutron_speed).into();
 
-        // then fission rate
-        // should be a number Rate
-        // per unit vol
-        let fission_rate_density: VolumetricNumberRate = 
-            (current_neutron_flux * macroscopic_fission_xs).into();
-
-        // should be a frequency
-        let fission_rate: Frequency  = 
-            fission_rate_density * reactor_volume;
-
-        // note: it's convenient here to calc xe135 feedback 
+        // note: it's convenient here to calc xe135 feedback
 
         let fissioning_nuclide = FissioningNuclideType::U235;
-        let _xe135_conc_next_timestep = 
+        let _xe135_conc_next_timestep =
             fhr_xe135_poisoning.calc_xe_135_and_return_num_density(
-                prke_timestep, 
-                fission_rate_density, 
-                fissioning_nuclide, 
+                prke_timestep,
+                fission_rate_density,
+                fissioning_nuclide,
                 current_neutron_pop_density);
 
-        let power_per_fission = 
-            Energy::new::<megaelectronvolt>(200.0);
-
-        // immediate power from fission
-        let fission_power_instantaneous: Power = 
-            power_per_fission * fission_rate;
-
-        // add to decay heat precursors 
+        // add to decay heat precursors
         fhr_decay_heat.add_decay_heat_precursor1(
             fission_power_instantaneous * 0.04, prke_timestep
         );
@@ -328,7 +358,7 @@ impl FHRSimulatorApp {
         );
 
 
-        // adjust fission power for decay heat 
+        // adjust fission power for decay heat
         // fission power less decay heat = 1.0 - 0.04 - 0.04 - 0.02 = 0.9
         let mut fission_power_corrected_for_decay_heat = fission_power_instantaneous * 0.9;
         let mut reactor_current_decay_heat: Power = fhr_decay_heat.calc_decay_heat_power_1(prke_timestep).abs();
@@ -336,7 +366,7 @@ impl FHRSimulatorApp {
         reactor_current_decay_heat += fhr_decay_heat.calc_decay_heat_power_3(prke_timestep).abs();
         fission_power_corrected_for_decay_heat += reactor_current_decay_heat;
 
-        // with the correct fission power now, we can 
+        // with the correct fission power now, we can
         // calc temperature
         //
         //
@@ -349,24 +379,24 @@ impl FHRSimulatorApp {
             fhr_state_ref.pebble_bed_coolant_temp_degc
         );
 
-        let heat_removal_from_pebble_bed = 
+        let heat_removal_from_pebble_bed =
             pebble_bed_th_struct.calc_th_and_return_heat_removal_from_pebble_bed(
-                prke_timestep, 
-                fission_power_corrected_for_decay_heat, 
-                pebble_bed_mass, 
-                pebble_bed_heat_transfer_area, 
-                pebble_bed_overall_htc, 
+                prke_timestep,
+                fission_power_corrected_for_decay_heat,
+                pebble_bed_mass,
+                pebble_bed_heat_transfer_area,
+                pebble_bed_overall_htc,
                 pebble_bed_coolant_temp);
 
         let pebble_bed_fuel_temp = pebble_bed_th_struct.get_temperature_from_enthalpy_uo2_heuristic();
 
-        // update the fhr state 
-        fhr_state_ref.pebble_core_temp_degc = 
+        // update the fhr state
+        fhr_state_ref.pebble_core_temp_degc =
             pebble_bed_fuel_temp.get::<degree_celsius>();
 
-        // the heat removal from pebble bed should be stored in fhr 
+        // the heat removal from pebble bed should be stored in fhr
         // state, so as to sync correctly with the coolant
-        // the prke timestep will also be added so as to obtain an 
+        // the prke timestep will also be added so as to obtain an
         // average heat removal rate to be transferred to the coolant
 
         fhr_state_ref.prke_loop_accumulated_heat_removal_kilojoules
@@ -374,29 +404,32 @@ impl FHRSimulatorApp {
         fhr_state_ref.prke_loop_accumulated_timestep_seconds
             += prke_timestep.get::<second>();
 
-        // reactor power 
+        // reactor power
         //
 
-        let keff = keff_six_factor.calc_keff();
+        // keff display, back-converted from total reactivity
+        // (rho = (k-1)/k  =>  k = 1/(1-rho))
+        let keff: Ratio = Ratio::new::<ratio>(1.0)
+            / (Ratio::new::<ratio>(1.0) - total_reactivity);
         fhr_state_ref.keff = keff.get::<ratio>();
-        fhr_state_ref.reactor_power_megawatts = 
+        fhr_state_ref.reactor_power_megawatts =
             fission_power_corrected_for_decay_heat.get::<megawatt>();
-        fhr_state_ref.reactor_decay_heat_megawatts = 
+        fhr_state_ref.reactor_decay_heat_megawatts =
             reactor_current_decay_heat.get::<megawatt>();
 
-        // reactivity in dollars 
-        let beta_delayed_frac_total = prke_six_group.get_total_delayed_fraction();
-        let reactivity_dollars: f64 
-            = (reactivity/beta_delayed_frac_total).get::<ratio>();
+        // reactivity in dollars
+        let beta_delayed_frac_total = Ratio::new::<ratio>(DELAYED_NEUTRON_FRACTION_BETA);
+        let reactivity_dollars: f64
+            = (total_reactivity/beta_delayed_frac_total).get::<ratio>();
 
         fhr_state_ref.reactivity_dollars = reactivity_dollars;
 
-        let xenon135_feedback_dollars_approx = 
+        let xenon135_feedback_dollars_approx =
             (thermal_utilisation_feedback_fractional_chg_from_xenon-1.0)/
             thermal_utilisation_feedback_fractional_chg_from_xenon/
             beta_delayed_frac_total;
 
-        fhr_state_ref.xenon135_feedback_dollars = 
+        fhr_state_ref.xenon135_feedback_dollars =
             xenon135_feedback_dollars_approx.get::<ratio>();
 
 
@@ -406,7 +439,7 @@ impl FHRSimulatorApp {
             dbg!(&(
                     pebble_bed_fuel_temp,
                     keff,
-                    reactivity,
+                    total_reactivity,
                     fission_power_instantaneous,
                     fission_power_corrected_for_decay_heat,
                     heat_removal_from_pebble_bed
@@ -416,17 +449,24 @@ impl FHRSimulatorApp {
 
     }
 
-    /// fuel temperature feedback and how it deals with resonance escape 
-    /// probability 
+    /// fuel temperature feedback and how it deals with resonance escape
+    /// probability
     ///
-    /// basically, with increased fuel temp, lower resonance 
+    /// basically, with increased fuel temp, lower resonance
     /// esc probability
     ///
-    /// this is a heuristic, can be replaced by more complex 
+    /// this is a heuristic, can be replaced by more complex
     /// functions later
     ///
-    /// the ratio u return is factor of increase or decrease in resonance 
+    /// the ratio u return is factor of increase or decrease in resonance
     /// escape probability
+    ///
+    /// No longer called from [`Self::calculate_prke_for_one_timestep`] --
+    /// fuel-temperature feedback moved to Nordheim-Fuchs's own linear
+    /// `alpha_f*(T_f - T_f,ref)` term (see `FUEL_FEEDBACK_COEFFICIENT_PER_KELVIN`
+    /// / `FUEL_REFERENCE_TEMPERATURE_DEGC` above, derived directly from
+    /// this function's slope/zero-crossing). Left in place for reference
+    /// and because other callers may still exist.
     pub fn fuel_temp_resonance_esc_feedback_linear(fuel_temp: ThermodynamicTemperature) -> Ratio {
 
         let fuel_temp_degc = fuel_temp.get::<degree_celsius>();
@@ -457,7 +497,7 @@ impl FHRSimulatorApp {
     pub fn fuel_utilisation_factor_chg_for_control_rod_polynomial(
         cr_insertion_factor: Ratio) -> Ratio {
 
-        //this is an arbitrary map, but just useful for 
+        //this is an arbitrary map, but just useful for
         //simulation
         //control rod insertion frac,fuel utilisation factor change
         // 0,1.03
@@ -472,7 +512,7 @@ impl FHRSimulatorApp {
         // 0.9,0.76
         // 1,0.75
 
-        let cr_insertion_factor_f64: f64 = 
+        let cr_insertion_factor_f64: f64 =
             cr_insertion_factor.get::<ratio>();
         let term1 = -8.413e0 * cr_insertion_factor_f64.powi(5);
         let term2 = 2.064e1 * cr_insertion_factor_f64.powi(4);
@@ -484,13 +524,13 @@ impl FHRSimulatorApp {
 
         return Ratio::new::<ratio>(term1 + term2 + term3 + term4 + term5 + term6);
     }
-    
-    // this is a dummy function so that no 
+
+    // this is a dummy function so that no
     // matter what you input, no change is given
     pub fn constant_ratio_no_change_function(_: Ratio) -> Ratio {
         return Ratio::new::<ratio>(1.0);
     }
-    
+
 }
 
 
@@ -499,5 +539,3 @@ impl FHRSimulatorApp {
 /// that is between the PRKE
 pub mod pebble_bed_thermal_hydraulics;
 pub use pebble_bed_thermal_hydraulics::*;
-
-

@@ -29,3 +29,25 @@ thiserror.workspace = true
 # No GUI dependencies here (egui/eframe/egui_plot/egui_extras etc.) -- this is
 # a headless library per the workspace's Android-portability rule. GUI deps
 # belong only under [dev-dependencies] once examples/ lands (op-dt3.7/.8).
+
+[dev-dependencies]
+# fhr_sim_v2 (op-dt3.7, moved from tampines-steam-tables). teh-o-prke +
+# nee_soon for the Nordheim-Fuchs kinetics reconstruction; the rest mirrors
+# tampines-steam-tables's former fhr_sim_v2 dev-deps (tuas_boussinesq_solver
+# and chem-eng-real-time-process-control-simulator are already real deps
+# above, usable in examples too).
+teh-o-prke.workspace = true
+nee_soon.workspace = true
+ndarray.workspace = true
+egui.workspace = true
+eframe.workspace = true
+env_logger.workspace = true
+local-ip-address.workspace = true
+roots.workspace = true
+egui_plot.workspace = true
+egui_extras.workspace = true
+serde.workspace = true
+
+[[example]]
+name = "fhr_sim_v2"
+path = "examples/fhr_sim_v2/main.rs"

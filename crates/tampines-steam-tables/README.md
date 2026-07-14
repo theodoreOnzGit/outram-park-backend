@@ -66,6 +66,13 @@ the choked flow algorithms in vapour-liquid equilibrium (VLE).
 
 # FHR Educational Simulator 
 
+**`fhr_sim_v2` moved to the `tampines` crate**
+(`crates/tampines/examples/fhr_sim_v2/`) -- run it from there with
+`cargo run --release -p tampines --example fhr_sim_v2`. It now runs its
+reactor kinetics through `teh-o-prke`'s Nordheim-Fuchs exact timestepper
+(10 ms timestep) instead of the numerical six-group PRKE solver this crate
+used to host. `fhr_sim_v1` remains in this crate (`examples/fhr_sim_v1/`).
+
 ## To Run on Windows
 
 For installation, you can just download the fhr_sim_v2.exe from the 
@@ -77,7 +84,7 @@ a Fluoride Salt Cooled High Temperature Reactor (FHR) educational
 simulator. The secondary loop just runs at steady state (no transient 
 calculations for simplicity.
 ```bash
-cargo run --release --example fhr_sim_v2
+cargo run --release -p tampines --example fhr_sim_v2
 ```
 
 Note that for windows PCs, sometimes there will be problems where 
@@ -91,7 +98,7 @@ sudo apt install libopenblas-dev
 
 Before running:
 ```bash
-cargo run --release --example fhr_sim_v2
+cargo run --release -p tampines --example fhr_sim_v2
 ```
 
 I used rustup to install rust. So if versions of Rust are outdated 
