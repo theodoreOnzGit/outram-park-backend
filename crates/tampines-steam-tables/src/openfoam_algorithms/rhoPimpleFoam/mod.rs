@@ -935,4 +935,55 @@ mod tests {
         assert!(array.rho.internal[0] > 0.0);
         assert!(array.mu.internal[0] > 0.0);
     }
+
+    /// `correct_thermo` survives a **two-phase (boiling)** cell without
+    /// panicking, and produces finite, physical properties there. This is
+    /// the scenario a real steam-generator tube spends most of its length
+    /// in, and it used to `todo!()` out: `lambda_ph_eqm`'s critical-
+    /// enhancement term delegated cp/cv/kappa_t to single-phase `(T, p)`
+    /// routines that have no region-4 answer (fixed 2026-07-14 by quality-
+    /// weighting the saturated region-1/region-2 values — see
+    /// `thermal_conductivity::lambda_2_crit_enhancement_term_tp_two_phase_estimate`).
+    #[test]
+    fn correct_thermo_survives_two_phase_boiling_cell() {
+        use crate::interfaces::functional_programming::ph_flash_eqm::{ph_flash_region, x_ph_flash};
+        use crate::interfaces::functional_programming::pt_flash_eqm::FwdEqnRegion;
+
+        let mut array = TampinesSteamArray::new(
+            Length::new::<meter>(1.0),
+            Area::new::<square_meter>(0.01),
+            3,
+            Time::new::<second>(1e-4),
+        )
+        .unwrap();
+
+        // 1 bar, h ≈ 1.5 MJ/kg is squarely inside the two-phase dome
+        // (h_f ≈ 0.42 MJ/kg, h_g ≈ 2.68 MJ/kg ⇒ x ≈ 0.48).
+        let p = Pressure::new::<uom::si::pressure::pascal>(1.0e5);
+        let h = uom::si::f64::AvailableEnergy::new::<uom::si::available_energy::joule_per_kilogram>(1.5e6);
+        assert_eq!(ph_flash_region(p, h), FwdEqnRegion::Region4, "sample must be two-phase");
+        let x = x_ph_flash(p, h);
+        assert!(x > 0.0 && x < 1.0, "quality {x} should be strictly two-phase");
+
+        for c in 0..3 {
+            array.p.internal[c] = p.get::<uom::si::pressure::pascal>();
+            array.he.internal[c] = h.get::<uom::si::available_energy::joule_per_kilogram>();
+        }
+        // Must not panic in the two-phase region.
+        array.correct_thermo();
+
+        for c in 0..3 {
+            assert!(array.rho.internal[c].is_finite() && array.rho.internal[c] > 0.0);
+            assert!(array.t.internal[c].is_finite());
+            assert!(array.mu.internal[c].is_finite() && array.mu.internal[c] > 0.0);
+            assert!(array.alpha_h.internal[c].is_finite() && array.alpha_h.internal[c] > 0.0);
+            assert!(array.psi.internal[c].is_finite() && array.psi.internal[c] > 0.0);
+            // T should be the saturation temperature at 1 bar (~372.76 K).
+            assert!(
+                (array.t.internal[c] - 372.76).abs() < 1.0,
+                "two-phase T should be T_sat(1 bar) ≈ 372.76 K, got {}",
+                array.t.internal[c]
+            );
+        }
+    }
 }

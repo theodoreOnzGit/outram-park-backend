@@ -15,6 +15,12 @@ use crate::interfaces::functional_programming::pt_flash_eqm::cv_tp_eqm_single_ph
 use crate::interfaces::functional_programming::pt_flash_eqm::kappa_t_tp_eqm;
 use crate::interfaces::functional_programming::pt_flash_eqm::v_tp_eqm_single_phase;
 use crate::region_5_steam_at_800_plus_degc::InversePressure;
+// Region-specific saturated-phase intensive properties, quality-weighted for
+// the two-phase critical-enhancement term (see
+// `lambda_2_crit_enhancement_term_tp_two_phase_estimate`).
+use crate::region_1_subcooled_liquid::{cp_tp_1, cv_tp_1, kappa_t_tp_1};
+use crate::region_2_vapour::{cp_tp_2, cv_tp_2, kappa_t_tp_2};
+use crate::region_4_vap_liq_equilibrium::sat_temp_4;
 
 const LAMBDA_0_COEFFS: [[f64; 2]; 5] = [
     [1.0,  0.244_322_1e-2],
@@ -195,36 +201,48 @@ pub(crate) fn lambda_2_crit_enhancement_term_tp_two_phase_estimate(
     let n4 = 0.508_474_576_271;
     let n5 = 1.5;
 
-    // now, looks like we need to calculate certain properties 
-    // such as cp, cv and kappa_t
+    // cp, cv and kappa_t for the critical-enhancement term.
     //
-    // those require p,h or tp flashing in order to work outside region 3 
+    // NOTE: `lambda_ph_eqm` calls this function for *every* region, passing
+    // x = 0 (region 1), x = 1 (region 2/3) or an interior quality (region 4).
+    // So the single-phase path must be preserved exactly -- only the genuine
+    // two-phase interior (0 < x < 1) gets special handling.
     //
-    // we only have rho and t now
-    // which doesn't exactly work outside region 3
-    // so without iterations, this will be a problem.
-    //
-    // However, perhaps one can assume pressure is given since 
-    // we often use tp or ph flashing, that makes things a lot easier
-    //
-    //
-    // so a pt flash would be good.
-    //
-    // However, it won't work in region 4 as there are two phases 
-    // to deal with
-    //
-    // it may be more reasonable to work with p,h flash from the get go
-    //
-
-    let mut cp = cp_tp_eqm_single_phase(t, p);
+    // - **Single phase (x == 0 or x == 1):** use the property at the actual
+    //   `(t, p)` via the single-phase `(T, p)` routines, exactly as before
+    //   (this branch must leave every single-phase result bit-for-bit
+    //   unchanged).
+    // - **Two phase (0 < x < 1):** a `(T, p)` flash has no answer -- on the
+    //   saturation line T and p are not independent, and the single-phase
+    //   routines `panic!`/`todo!` in region 4. Instead quality-weight the
+    //   *saturated* liquid (region 1) and vapour (region 2) values at the
+    //   saturation temperature `t_sat(p)`, exactly as
+    //   [`crate::interfaces::functional_programming::ph_flash_eqm::cp_ph_eqm`]
+    //   does for cp. This keeps every property finite and continuous across
+    //   the dome (an approximation for the *critical enhancement* term
+    //   specifically -- a near-critical effect, negligible through most of
+    //   the dome; see this crate's `CLAUDE.md` note on the R15-11 λ₂ term).
+    let two_phase = x > 0.0 && x < 1.0;
+    let (mut cp, cv, kappa_t): (SpecificHeatCapacity, SpecificHeatCapacity, InversePressure) =
+        if two_phase {
+            let t_sat = sat_temp_4(p);
+            let cp = (1.0 - x) * cp_tp_1(t_sat, p) + x * cp_tp_2(t_sat, p);
+            let cv = (1.0 - x) * cv_tp_1(t_sat, p) + x * cv_tp_2(t_sat, p);
+            let kappa_t = (1.0 - x) * kappa_t_tp_1(t_sat, p) + x * kappa_t_tp_2(t_sat, p);
+            (cp, cv, kappa_t)
+        } else {
+            (
+                cp_tp_eqm_single_phase(t, p),
+                cv_tp_eqm_single_phase(t, p),
+                kappa_t_tp_eqm(t, p),
+            )
+        };
 
     if cp.get::<kilojoule_per_kilogram_kelvin>() < 0.0 {
         cp = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(1.0e13);
     } else if cp.get::<kilojoule_per_kilogram_kelvin>() > 1.0e13 {
         cp = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(1.0e13);
     };
-    let cv = cv_tp_eqm_single_phase(t, p);
-    let kappa_t = kappa_t_tp_eqm(t, p);
 
     let b: f64 = (cp/cv).get::<ratio>();
     let captial_a: f64 = captial_a(n2, n3, delta_f64, theta_f64, 
