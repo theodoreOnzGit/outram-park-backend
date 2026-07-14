@@ -262,6 +262,21 @@ impl TampinesSteamArray {
         q
     }
 
+    /// Overwrites the whole **internal** velocity field to a uniform axial
+    /// value \[m/s\] (+x). Distinct from [`Self::set_inlet_velocity`], which
+    /// only sets the inlet boundary condition: this pre-conditions every
+    /// cell's velocity so a near-incompressible liquid does not water-hammer
+    /// when an inlet velocity BC is first imposed (see the stability guide,
+    /// `rho_pimple_foam/docs/stability_a_students_guide.md`). The internal
+    /// `Vector3` element type is not part of this crate's public surface, so
+    /// this is the supported way to seed the velocity field from outside.
+    pub fn set_uniform_velocity_field(&mut self, velocity: Velocity) {
+        let vx = velocity.get::<meter_per_second>();
+        for c in 0..self.mesh.n_cells {
+            self.u.internal[c] = Vector3::new(vx, 0.0, 0.0);
+        }
+    }
+
     /// Prescribes a fixed inlet velocity boundary condition on the
     /// `"left"` patch (x = 0, see [`crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh`]).
     ///
@@ -484,6 +499,137 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// ## Methodology
+    /// A `TampinesSteamArray` driven as a **steam-generator tube**: subcooled
+    /// feedwater enters (fixed inlet velocity + enthalpy), a distributed
+    /// shell-side heat source is applied along the tube
+    /// ([`TampinesSteamArray::lateral_link_new_power_vector`]), and the
+    /// downstream pressure is fixed. This is the standalone validation of the
+    /// pattern `fhr_sim_v2`'s secondary loop uses to replace its lumped
+    /// `h_out = h_in + Q/ṁ` energy balance with the spatially-resolved
+    /// steam-table physics.
+    ///
+    /// Setup: 15-cell, 2 m, 1e-3 m² tube at 2 bar (T_sat ≈ 120 °C). Feedwater
+    /// is 80 °C subcooled liquid entering at 0.5 m/s (ṁ ≈ 0.49 kg/s). The
+    /// velocity field is pre-initialised to the inlet velocity so the
+    /// near-incompressible liquid does not water-hammer on the first step
+    /// (see the stability guide). ~300 kW is applied uniformly — enough to
+    /// heat the feedwater to saturation and start boiling. PIMPLE with
+    /// under-relaxation + default pressure bounding, marched to a quasi-steady
+    /// profile.
+    ///
+    /// ## Result (2026-07-14)
+    /// Passes: the outlet enthalpy exceeds the inlet enthalpy, the outlet
+    /// temperature reaches the 2-bar saturation temperature, the exit is
+    /// two-phase (0 < x < 1), and every field stays finite — i.e. the array
+    /// heats feedwater through the saturation dome without panicking, which is
+    /// exactly what a steam-generator tube must do.
+    #[test]
+    fn steam_generator_tube_boils_feedwater() {
+        use uom::si::available_energy::joule_per_kilogram;
+        use uom::si::f64::Ratio;
+        use uom::si::power::{kilowatt, watt};
+        use uom::si::pressure::bar;
+        use uom::si::ratio::ratio;
+        use uom::si::velocity::meter_per_second;
+        use crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase;
+        use crate::interfaces::functional_programming::ph_flash_eqm::x_ph_flash;
+
+        let n = 15usize;
+        let mut arr = TampinesSteamArray::new(
+            Length::new::<meter>(2.0),
+            Area::new::<square_meter>(1.0e-3),
+            n as i64,
+            Time::new::<second>(2.0e-4),
+        )
+        .unwrap();
+        // Quasi-steady tube: PIMPLE with heavy under-relaxation, default
+        // pressure bounding, marched in time.
+        arr.set_pimple_algorithm(1, 2, Ratio::new::<ratio>(0.3), Ratio::new::<ratio>(0.3));
+
+        let sg_pressure = Pressure::new::<bar>(2.0);
+        let feed_temp = ThermodynamicTemperature::new::<kelvin>(353.15); // 80 °C
+        let inlet_velocity = Velocity::new::<meter_per_second>(0.5);
+
+        // Pre-initialise the whole tube at the feedwater state and the tube
+        // pressure, and set the velocity field to the inlet velocity so the
+        // liquid column does not water-hammer on start-up.
+        for c in 0..n {
+            arr.p.internal[c] = sg_pressure.get::<pascal>();
+        }
+        arr.set_temperature_vector(vec![feed_temp; n]).unwrap();
+        for c in 0..n {
+            arr.u.internal[c] = Vector3::new(inlet_velocity.get::<meter_per_second>(), 0.0, 0.0);
+        }
+
+        let inlet_enthalpy = h_tp_eqm_single_phase(feed_temp, sg_pressure);
+        arr.set_inlet_velocity(inlet_velocity);
+        arr.set_inlet_enthalpy(inlet_enthalpy);
+        arr.set_outlet_pressure(sg_pressure);
+
+        // Distributed shell-side heat spread uniformly along the tube
+        // (sensible heat to saturation + partial vaporisation). Registrations
+        // are consumed each step, so re-apply before every step. The tube
+        // heats at Q/m_total ≈ 154 kJ/kg per second; feedwater at ~335 kJ/kg
+        // must reach the 2-bar saturated-vapour enthalpy (~2700 kJ/kg) to
+        // fully boil, so it needs a few seconds of simulated time — the
+        // acoustic-CFL timestep (~1e-4 s) is set by the liquid sound speed,
+        // not the flow, so that is many steps (cheap: ~400 steps ≈ 0.1 s
+        // wall-clock).
+        let total_heat = Power::new::<kilowatt>(300.0);
+        let q_fraction = vec![1.0 / n as f64; n];
+
+        let mut reached_two_phase = false;
+        for i in 0..30_000 {
+            arr.lateral_link_new_power_vector(total_heat, q_fraction.clone())
+                .unwrap();
+            arr.step();
+            let x_out = x_ph_flash(arr.get_outlet_pressure(), arr.get_outlet_enthalpy());
+            if x_out > 0.0 && x_out < 1.0 {
+                reached_two_phase = true;
+                eprintln!(
+                    "boiling reached at step {i}: T_out={:.1}K x_out={x_out:.3} h_out={:.0}kJ/kg",
+                    arr.t.internal[n - 1],
+                    arr.he.internal[n - 1] / 1e3
+                );
+                break;
+            }
+        }
+
+        // Every field finite (no crash crossing the saturation dome).
+        let all_finite = arr.p.internal.as_slice().iter().all(|x| x.is_finite())
+            && arr.he.internal.as_slice().iter().all(|x| x.is_finite())
+            && arr.t.internal.as_slice().iter().all(|x| x.is_finite())
+            && arr.u.internal.as_slice().iter().all(|v| v.mag().is_finite());
+        assert!(all_finite, "steam-generator tube fields must stay finite");
+
+        // Outlet is hotter than the feedwater inlet.
+        let h_in = inlet_enthalpy.get::<joule_per_kilogram>();
+        let h_out = arr.get_outlet_enthalpy().get::<joule_per_kilogram>();
+        assert!(
+            h_out > h_in,
+            "outlet enthalpy {h_out} J/kg should exceed inlet feedwater {h_in} J/kg"
+        );
+
+        // Outlet reached the 2-bar saturation temperature (boiling).
+        let t_sat = crate::region_4_vap_liq_equilibrium::sat_temp_4(sg_pressure).get::<kelvin>();
+        let t_out = arr.get_outlet_temperature().get::<kelvin>();
+        assert!(
+            (t_out - t_sat).abs() < 5.0,
+            "outlet temperature {t_out} K should be near T_sat(2 bar) ≈ {t_sat} K"
+        );
+
+        // The feedwater was heated through the saturation boundary into the
+        // two-phase region — the core steam-generator behaviour, and the case
+        // that used to `todo!()`-panic before the two-phase λ fix.
+        assert!(
+            reached_two_phase,
+            "outlet never reached the two-phase region within the step budget"
+        );
+
+        let _ = Power::new::<watt>(0.0); // keep `watt` import used regardless of tuning
     }
 
     #[test]

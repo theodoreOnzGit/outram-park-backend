@@ -6,11 +6,81 @@ use tampines_steam_tables::interfaces::functional_programming::{ph_flash_eqm, ps
 use tampines_steam_tables::prelude::functional_programming::ph_flash_eqm::v_ph_eqm;
 use tampines_steam_tables::region_4_vap_liq_equilibrium::sat_temp_4;
 use tampines_steam_tables::steam_turbine_equations::ThreePhaseElectricGeneratorTurbine;
+use tampines_steam_tables::TampinesSteamArray;
+use uom::si::area::square_meter;
 use uom::si::f64::*;
 use uom::si::length::{inch, meter};
 use uom::si::mass_rate::kilogram_per_second;
-use uom::si::pressure::bar;
+use uom::si::power::watt;
+use uom::si::pressure::{bar, pascal};
+use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::degree_celsius;
+use uom::si::time::second;
+use uom::si::velocity::meter_per_second;
+
+/// Number of cells in the spatially-resolved steam-generator tube
+/// ([`TampinesSteamArray`]).
+const SG_TUBE_CELLS: i64 = 15;
+/// Steam-generator tube length \[m\].
+const SG_TUBE_LENGTH_M: f64 = 2.0;
+/// **Aggregate** flow area of the steam-generator tube bundle \[m²\], chosen
+/// so the full secondary mass flow (tens of kg/s) gives a *gentle* feedwater
+/// velocity of a few tenths of a m/s -- the 1-D array models the whole
+/// bundle as one representative tube, and a near-incompressible liquid must
+/// be driven gently to stay inside the IAPWS-IF97 envelope (see the
+/// stability guide).
+const SG_TUBE_AREA_M2: f64 = 0.2;
+/// Nominal feedwater velocity the tube is pre-initialised at \[m/s\], matched
+/// to the design flow (~50 kg/s over the aggregate area) so the liquid
+/// column does not accelerate abruptly on the first driven step.
+const SG_TUBE_NOMINAL_VELOCITY_M_PER_S: f64 = 0.25;
+/// [`TampinesSteamArray`] internal timestep \[s\], set by the *liquid*
+/// acoustic CFL (`dx/c ≈ (2/15)/1450 ≈ 9e-5 s`), not the flow.
+const SG_TUBE_DT_S: f64 = 5.0e-5;
+/// How many array sub-steps to advance per outer TH timestep. The array is a
+/// **persistent, quasi-steady** sub-model: it is not re-converged each call
+/// (that would need thousands of acoustic-CFL steps); instead it is nudged a
+/// bounded amount each TH step and relaxes toward the current boundary
+/// conditions over real time — a steam generator physically takes seconds to
+/// heat up.
+const SG_TUBE_SUBSTEPS_PER_TH_STEP: usize = 25;
+
+/// Builds the persistent steam-generator-tube [`TampinesSteamArray`],
+/// pre-initialised as subcooled liquid feedwater already flowing at ~1 m/s
+/// (so the near-incompressible liquid does not water-hammer on start-up) with
+/// default pressure bounding and PIMPLE under-relaxation. Created once by
+/// [`FHRSimulatorApp::calculate_thermal_hydraulics_loop`] and driven each TH
+/// step by [`FHRSimulatorApp::secondary_loop_single_timestep`].
+pub(crate) fn build_steam_generator_tube() -> TampinesSteamArray {
+    let mut tube = TampinesSteamArray::new(
+        Length::new::<meter>(SG_TUBE_LENGTH_M),
+        Area::new::<square_meter>(SG_TUBE_AREA_M2),
+        SG_TUBE_CELLS,
+        Time::new::<second>(SG_TUBE_DT_S),
+    )
+    .expect("valid steam-generator tube geometry");
+
+    // PIMPLE with heavy under-relaxation + default pressure bounding: robust
+    // for a near-incompressible liquid heated through the saturation dome.
+    tube.set_pimple_algorithm(1, 2, Ratio::new::<ratio>(0.2), Ratio::new::<ratio>(0.2));
+
+    // Pre-initialise as ~90 degC subcooled feedwater at the default pump
+    // outlet pressure (1.2 bar), already moving at the nominal velocity.
+    // Matching the operating pressure avoids a depressurisation rarefaction
+    // (which would cool a cell below the 273.15 K validity floor) on the
+    // first driven step.
+    let p0 = Pressure::new::<bar>(1.2);
+    let t0 = ThermodynamicTemperature::new::<degree_celsius>(90.0);
+    let n = SG_TUBE_CELLS as usize;
+    for c in 0..n {
+        tube.p.internal[c] = p0.get::<pascal>();
+    }
+    tube.set_temperature_vector(vec![t0; n]).unwrap();
+    tube.set_uniform_velocity_field(
+        Velocity::new::<meter_per_second>(SG_TUBE_NOMINAL_VELOCITY_M_PER_S),
+    );
+    tube
+}
 
 impl FHRSimulatorApp {
     /// contains info for calculating secondary loop for one 
@@ -24,13 +94,18 @@ impl FHRSimulatorApp {
         fhr_th_state: &mut FHRThermalHydraulicsState,
         timestep: Time,
         user_specified_secondary_loop_mass_flowrate: &mut MassRate,
-        // pump settings 
+        // pump settings
         user_specified_pump_outlet_pressure: Pressure,
         current_simulation_time: Time,
         turbine_omega: AngularVelocity,
         load_resistance: ElectricalResistance,
+        // persistent spatially-resolved steam-generator tube (see
+        // `build_steam_generator_tube`); driven each TH step and read back
+        // for the tube outlet enthalpy, replacing the old lumped
+        // `h_out = h_in + Q/mdot` energy balance.
+        steam_generator_tube: &mut TampinesSteamArray,
     ) -> SecondaryLoopState {
-        let heat_rate_to_steam_generator_tube = 
+        let heat_rate_to_steam_generator_tube =
             -fhr_th_state.heat_added_to_steam_generator_shell_side
             /timestep;
         // first start at the boundary condition
@@ -84,7 +159,7 @@ impl FHRSimulatorApp {
         // now the pump outlet temperature will form the 
         // inlet of the steam generator 
 
-        let steam_generator_tube_inlet_enthalpy: AvailableEnergy 
+        let steam_generator_tube_inlet_enthalpy: AvailableEnergy
             = pt_flash_eqm::h_tp_eqm_single_phase(
                 pump_outlet_temperature, sg_inlet_pressure
             );
@@ -97,22 +172,8 @@ impl FHRSimulatorApp {
             x_ph_flash(pressure_after_pump, enthalpy_after_pump);
 
 
-        // for energy balance:
-        //
-        // mass flowrate * (h_out - h_in) = heat_added_to_steam_gen_tube
-        //
-        // now, if mass flowrate is less than some value, crash the 
-        // system because the steam generator is too hot 
-        if *user_specified_secondary_loop_mass_flowrate <
-            MassRate::new::<kilogram_per_second>(0.1) {
-                println!("steam generator feedwater flowrate too low!");
-                panic!("mass flowrate <0.1 kg/s, unsafe operation");
-        }
-        //
-        let steam_generator_tube_outlet_enthalpy = 
-            heat_rate_to_steam_generator_tube/
-            *user_specified_secondary_loop_mass_flowrate 
-            + steam_generator_tube_inlet_enthalpy;
+        // now, if mass flowrate is less than some value, crash the
+        // system because the steam generator is too hot
         if *user_specified_secondary_loop_mass_flowrate <
             MassRate::new::<kilogram_per_second>(0.1) {
                 println!("steam generator feedwater flowrate too low!");
@@ -120,6 +181,49 @@ impl FHRSimulatorApp {
         }
 
         let sg_outlet_pressure = sg_inlet_pressure;
+
+        // ── Spatially-resolved steam-generator tube (TampinesSteamArray) ──
+        // Replaces the old lumped energy balance
+        //   h_out = h_in + Q_dot / mdot
+        // with the real IAPWS-IF97 compressible-flow steam-table physics.
+        // The feedwater enters as subcooled liquid, a distributed shell-side
+        // heat source (the primary-side heat rate) is applied along the tube,
+        // and the downstream pressure is fixed; the array is stepped a bounded
+        // number of times (it is a persistent, quasi-steady sub-model — see
+        // `build_steam_generator_tube`) and its outlet enthalpy is read back.
+        {
+            // Feedwater inlet velocity from the mass flow and the aggregate
+            // bundle area: v = mdot / (rho_feed · A). rho_feed from the pump-
+            // outlet (T, p).
+            let feed_rho = pt_flash_eqm::v_tp_eqm_single_phase(
+                pump_outlet_temperature, sg_inlet_pressure,
+            ).recip();
+            let inlet_velocity: Velocity =
+                *user_specified_secondary_loop_mass_flowrate
+                    / feed_rho
+                    / Area::new::<square_meter>(SG_TUBE_AREA_M2);
+
+            steam_generator_tube.set_inlet_velocity(inlet_velocity);
+            steam_generator_tube.set_inlet_enthalpy(steam_generator_tube_inlet_enthalpy);
+            steam_generator_tube.set_outlet_pressure(sg_outlet_pressure);
+
+            // Distributed shell-side heat (clamp to >= 0: a steam generator
+            // receives heat; a spuriously negative rate would just be no heat).
+            let heat_w = heat_rate_to_steam_generator_tube.get::<watt>().max(0.0);
+            let total_heat = Power::new::<watt>(heat_w);
+            let n_cells = SG_TUBE_CELLS as usize;
+            let q_fraction = vec![1.0 / n_cells as f64; n_cells];
+
+            for _ in 0..SG_TUBE_SUBSTEPS_PER_TH_STEP {
+                steam_generator_tube
+                    .lateral_link_new_power_vector(total_heat, q_fraction.clone())
+                    .unwrap();
+                steam_generator_tube.step();
+            }
+        }
+
+        let steam_generator_tube_outlet_enthalpy =
+            steam_generator_tube.get_outlet_enthalpy();
         // this is to get saturation temperature in steam generator tubes
         let sat_temperature_in_sg_tube_degc 
             = sat_temp_4(sg_outlet_pressure).get::<degree_celsius>();
@@ -169,9 +273,9 @@ impl FHRSimulatorApp {
 
 
 
-        // now it goes into the condenser 
+        // now it goes into the condenser
         let condenser_inlet_enthalpy = turbine_outlet_enthalpy;
-        let condenser_outlet_enthalpy = 
+        let condenser_outlet_enthalpy =
             pt_flash_eqm::h_tp_eqm_single_phase(
                 condenser_outlet_temperature, condenser_outlet_pressure
             );

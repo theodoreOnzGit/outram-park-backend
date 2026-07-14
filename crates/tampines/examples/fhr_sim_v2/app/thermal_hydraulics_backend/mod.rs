@@ -1039,6 +1039,14 @@ impl FHRSimulatorApp {
             sat_temperature_in_sg_tube_degc: 120.0,
             steam_turbine: ThreePhaseElectricGeneratorTurbine::new_250_megawatt_generator(),
         };
+
+        // Persistent spatially-resolved steam-generator tube
+        // (TampinesSteamArray). Created once; driven and advanced a bounded
+        // amount each TH step by secondary_loop_single_timestep, so it relaxes
+        // toward the current boundary conditions over real time.
+        let mut steam_generator_tube =
+            crate::app::thermal_hydraulics_backend::secondary_loop::build_steam_generator_tube();
+
         // calculation loop (indefinite)
         //
         // to be done once every timestep
@@ -1213,15 +1221,16 @@ impl FHRSimulatorApp {
             // note: estimate was AI generated,
             // need to check
             let load_resistance = ElectricalResistance::new::<ohm>(1.3);
-            current_fhr_steam_gen_state = 
+            current_fhr_steam_gen_state =
                 Self::secondary_loop_single_timestep(
-                    &mut current_fhr_thermal_hydraulics_state, 
-                    thermal_hydraulics_timestep, 
-                    &mut user_specified_secondary_loop_mass_flowrate, 
+                    &mut current_fhr_thermal_hydraulics_state,
+                    thermal_hydraulics_timestep,
+                    &mut user_specified_secondary_loop_mass_flowrate,
                     user_specified_pump_outlet_pressure,
                     current_simulation_time,
                     turbine_omega,
                     load_resistance,
+                    &mut steam_generator_tube,
                 );
 
             // now let's get the turbine current rpm 

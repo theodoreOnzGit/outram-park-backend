@@ -263,3 +263,46 @@ hydraulics backend (`app/thermal_hydraulics_backend/*`), reactor physics
 were unchanged, ruling out migration-induced breakage — the root cause was a
 logic issue in the state-update / data-binding pipeline, not the egui
 0.29 → 0.34 port.
+
+## Correction log — flashing choice for `TampinesSteamArray` (2026-07-14)
+
+A record, per the maintainer's request, of an assistant (Opus) correction
+made while wiring `TampinesSteamArray` into `fhr_sim_v2`'s steam-generator
+tube. The mistake is easy to repeat, so it is written down here.
+
+**The mistake.** When driving / reading the array and its neighbours, it is
+tempting to reach for the `(T, p)` **single-phase** flashes
+(`pt_flash_eqm::{h_tp_eqm_single_phase, v_tp_eqm_single_phase, ...}`). These
+`panic!`/`todo!()` the moment a state is two-phase, because at saturation `T`
+and `p` are not independent. A steam-generator tube boils feedwater, so it
+spends most of its length two-phase — and even a **single-phase** subcooled
+liquid transient can momentarily produce a state a `(T, p)` flash cannot
+classify.
+
+**The rule.** For `TampinesSteamArray` (and `OPCPFluidArray`) use **`(p, h)`
+flashing by default** — the array's native state is `(p, he)`, and the
+`(p, h)` flashes carry the phase/quality information internally, so they stay
+defined across the saturation dome. Drive the array with
+`set_inlet_enthalpy` / read it with `get_outlet_enthalpy` (both `(p, h)`), not
+by round-tripping through temperature. `set_temperature_vector` is a
+`(T, p)` convenience for a **known subcooled** initial condition only.
+
+**Two concrete traps this surfaced (both fixed):**
+
+1. *Pressure floor on the saturation line.* The default pressure-bounding
+   floor was `sat_pressure_4(273.15 K)` **exactly**. A cell clamped to that
+   value lands on the saturation line, and the `(p, h)` validity guard
+   (`is_below_isotherm_t_273_15`) classifies its 273.15 K isotherm with a
+   `(T, p)` single-phase flash whose Region-4 test is exact float equality
+   (`pres == p_sat`), so it `todo!()`-panicked. Fix: default the floor to
+   `sat_pressure_4(273.15 K) * 1.001`, just inside Region 1.
+
+2. *Initial-vs-operating pressure mismatch.* Pre-initialising the tube at
+   2 bar while the runtime outlet BC was 1.2 bar caused a depressurisation
+   rarefaction on the first driven step that cooled a cell below the
+   273.15 K floor. Fix: pre-initialise at the operating pressure.
+
+**Takeaway for future array work:** prefer `(p, h)`; treat any `(T, p)`
+single-phase call near saturation as a latent panic; and when pre-conditioning
+a stiff-liquid array, match the initial pressure/velocity to the operating
+boundary conditions so the first step is not a violent transient.

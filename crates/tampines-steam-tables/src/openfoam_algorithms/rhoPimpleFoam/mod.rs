@@ -433,10 +433,16 @@ impl TampinesSteamArray {
             u_under_relaxation: Ratio::new::<ratio>(1.0),
             // Default pressure bounds = the IAPWS-IF97 validity range
             // (triple-point pressure ≈ 611.657 Pa up to 100 MPa). See
-            // `step` for the OpenFOAM `pressureControl` reference.
+            // `step` for the OpenFOAM `pressureControl` reference. The lower
+            // bound is nudged 0.1% *above* the exact 273.15 K saturation
+            // pressure: the `(p, h)` validity guard classifies its 273.15 K
+            // isotherm via a `(T, p)` single-phase flash, and a cell clamped
+            // to *exactly* `p_sat(273.15 K)` would land on the saturation
+            // line and hit that flash's two-phase `todo!()`. Staying just
+            // inside Region 1 avoids it.
             p_min: crate::region_4_vap_liq_equilibrium::sat_pressure_4(
                 ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(273.15),
-            ),
+            ) * 1.001,
             p_max: Pressure::new::<uom::si::pressure::megapascal>(100.0),
             u,
             p,
