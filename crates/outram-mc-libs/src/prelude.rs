@@ -18,3 +18,6 @@ pub use crate::material::thermal::ThermalScattering;
 pub use crate::tally::tally::Tally;
 pub use crate::physics::keff::{run_keff, KeffResult, KeffSettings};
 pub use crate::physics::transport_csg::{run_keff_csg, SourceBox};
+pub use crate::pebble_beds::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
+pub use crate::pebble_beds::keff_delta::run_keff_delta;
+pub use crate::pebble_beds::stochastic_media::{pack_spheres, PackedSpheres, PackingConfig, PackingMethod};
