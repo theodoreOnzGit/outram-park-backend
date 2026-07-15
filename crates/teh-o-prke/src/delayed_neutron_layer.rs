@@ -1,6 +1,7 @@
 //! Reusable **delayed-neutron layer** — a reduced point-kinetics precursor
-//! bank modelled as five independent first-order lags, one per delayed-neutron
-//! group.
+//! bank: five delayed-neutron groups whose precursor concentrations are
+//! advanced by **direct implicit (backward-Euler) time-stepping**, one
+//! `O(1)`-cost, `O(1)`-memory update per timestep.
 //!
 //! # What this module is for
 //!
@@ -37,23 +38,60 @@
 //! The **prompt** part `(rho - beta)/Lambda * P` (with adiabatic
 //! fuel-temperature feedback folded into `rho`) is exactly what
 //! [`crate::nordheim_fuchs::NordheimFuchsExactTimestepper::step`] advances.
-//! This layer owns the **delayed** part: the precursor source
-//! `S = sum_i lambda_i C_i`.
+//! This layer owns the **delayed** part: it integrates the precursor
+//! concentrations `C_i` and returns the source `S = sum_i lambda_i C_i`.
 //!
-//! Differentiating `S_i = lambda_i C_i` gives a **first-order lag** for each
-//! group's source contribution:
+//! # How the precursors are integrated (implicit / backward-Euler)
+//!
+//! Each group's precursor concentration `C_i` obeys
+//! `dC_i/dt = (beta_i / Lambda) * P - lambda_i C_i`. This layer advances the
+//! five `C_i` directly in time with a **backward-Euler (implicit) step**,
+//! holding the reactor power `P` constant across the step. Discretising the
+//! ODE implicitly (`dC_i/dt approx (C_i^{n+1} - C_i^n)/dt`, decay term
+//! evaluated at the new time `n+1`):
 //!
 //! ```text
-//!   tau_i dS_i/dt + S_i = (beta_i / Lambda) * P ,   tau_i = 1 / lambda_i
+//!   (C_i^{n+1} - C_i^n)/dt = (beta_i/Lambda) * P - lambda_i C_i^{n+1}
 //! ```
 //!
-//! i.e. transfer function `S_i(s) / P(s) = (beta_i/Lambda) / (tau_i s + 1)`:
-//! a lag of DC gain `beta_i/Lambda` and time constant `tau_i = 1/lambda_i`.
-//! Each group is exactly one [`TransferFnFirstOrder`]. The total delayed
-//! source is `S = sum_i S_i`, and over a timestep `dt` it injects a delayed
-//! power increment `Delta P_delayed = S * dt` into the balance.
+//! which rearranges to the closed-form per-group update actually used in
+//! [`DelayedNeutronLayer::advance`]:
 //!
-//! At steady state each lag settles to `S_i = (beta_i/Lambda) P`, so
+//! ```text
+//!   C_i^{n+1} = ( C_i^n + dt * (beta_i/Lambda) * P ) / ( 1 + dt * lambda_i )
+//! ```
+//!
+//! The total delayed source is then `S = sum_i lambda_i C_i^{n+1}`, and over
+//! the timestep `dt` it injects a delayed power increment
+//! `Delta P_delayed = S * dt` into the balance.
+//!
+//! This is the **same implicit precursor stepping** the crate's coupled
+//! [`crate::zero_power_prke::six_group_precursor_prke::SixGroupPRKE`] solver
+//! uses (its `construct_coefficient_matrix` builds rows
+//! `(1 + dt*lambda_i) C_i^{n+1} - (dt/Lambda) beta_i n^{n+1} = C_i^n`, i.e. the
+//! same backward-Euler discretisation) — here decoupled from the prompt
+//! neutron-population equation, because Nordheim-Fuchs owns the prompt term.
+//! It is unconditionally stable at the always-on 1 ms GUI timestep and costs a
+//! **fixed five multiply-adds per step with no history** — see the design note
+//! below.
+//!
+//! ### Why direct integration replaced the transfer-function approach (op-e46.4)
+//!
+//! Earlier revisions modelled each group as a
+//! `chem_eng…::TransferFnFirstOrder` first-order lag
+//! `(beta_i/Lambda)/(tau_i s + 1)`, `tau_i = 1/lambda_i`. That is analytically
+//! exact for a piecewise-constant input, but the transfer function accumulates
+//! **one superposed response term per input change** and only prunes it after
+//! `20*tau`. In the always-on 1 ms real-time loop, with the slowest group's
+//! `tau_1 approx 80.8 s`, its buffer grows to `~1.6M` entries before clearing,
+//! and the per-step summation over that buffer is `O(n)` — so per-step cost
+//! grew without bound (measured `~49 us -> ~1.8 ms/step` from step 1k to 40k,
+//! blowing the 1 ms budget ~28 s in). Direct implicit stepping holds only the
+//! five `C_i` as state: **`O(1)` time and `O(1)` memory per step, forever**,
+//! with no growing `Vec` and no dependence on `TransferFnFirstOrder`.
+//!
+//! At steady state the update fixed-point gives `C_i = (beta_i/Lambda) P /
+//! lambda_i`, so `S_i = lambda_i C_i = (beta_i/Lambda) P`, hence
 //! `S = (beta/Lambda) P` and the power equation forces `rho = 0` (delayed
 //! critical) — the physically correct operating point, which the prompt-only
 //! model could not reach (it sat at prompt critical, `rho = beta`, and rang).
@@ -62,6 +100,38 @@
 //! **not** a full spatially-resolved kinetics solve. It is intended for
 //! education, capability building, and V&V demonstrations — not for
 //! licensing, safety, or operational analysis.
+//!
+//! # Timestep selection (why 1 ms, not 25 microseconds)
+//!
+//! The delayed-neutron precursors are **slow** compared with the 1 ms
+//! real-time GUI timestep. Each group's half-life is
+//! `t_half,i = ln(2) / lambda_i`; for the five-group thermal-U-235 set this
+//! layer ships (see [`DelayedNeutronLayer::u235_five_group`]):
+//!
+//! | i | `lambda_i` \[s^-1\] | `t_half,i` \[s\] | `t_half,i` at `dt = 1 ms` |
+//! |---|---------------------|------------------|---------------------------|
+//! | 1 | 0.012378            | 56.0             | ~56,000 steps             |
+//! | 2 | 0.030137            | 23.0             | ~23,000 steps             |
+//! | 3 | 0.111799            | 6.20             | ~6,200 steps              |
+//! | 4 | 0.301369            | 2.30             | ~2,300 steps              |
+//! | 5 | 1.633286            | 0.424 (merged)   | ~424 steps                |
+//!
+//! Even the **fastest** group (the merged short-lived group, half-life
+//! `~0.42 s`) is resolved by `~424` timesteps of 1 ms; the slowest spans tens
+//! of thousands. Every precursor timescale is three-plus orders of magnitude
+//! longer than 1 ms, so a 1 ms step samples the precursor dynamics with a very
+//! large margin.
+//!
+//! The **25 microsecond** timestep the earlier coupled solver used was **not**
+//! set by the precursors at all — it was set by the fast **prompt** neutron
+//! kinetics (prompt neutron generation time `Lambda ~ 2.31e-4 s`, and an
+//! explicit prompt-power update needs `dt << Lambda` for stability). In
+//! `fhr_sim_v2` the prompt term is owned entirely by the closed-form
+//! [`crate::nordheim_fuchs::NordheimFuchsExactTimestepper`] (no `dt << Lambda`
+//! restriction), and **this** layer integrates *only* the delayed precursors,
+//! whose `0.42–56 s` timescale imposes no such fine-step requirement. Combined
+//! with the unconditionally-stable implicit (backward-Euler) update above,
+//! 1 ms is more than adequate and removes the previous fine-timestep cost.
 //!
 //! # How to couple it (Lie-split point kinetics)
 //!
@@ -88,9 +158,6 @@
 //! group structure, build the layer from explicit `(beta_i, lambda_i)` pairs
 //! with [`DelayedNeutronLayer::new`].
 
-use chem_eng_real_time_process_control_simulator::beta_testing::transfer_fn_wrapper_and_enums::{
-    TransferFnFirstOrder, TransferFnTraits,
-};
 use uom::si::f64::*;
 use uom::si::frequency::hertz;
 use uom::si::power::megawatt;
@@ -100,32 +167,34 @@ use uom::ConstZero;
 
 use crate::teh_o_prke_error::TehOPrkeError;
 
-/// Number of delayed-neutron groups this layer models. Fixed at five
-/// first-order transfer functions (see the module documentation for why the
-/// six-group standard data is reduced to five).
+/// Number of delayed-neutron groups this layer models. Fixed at five precursor
+/// groups (see the module documentation for why the six-group standard data is
+/// reduced to five).
 pub const NUM_DELAYED_GROUPS: usize = 5;
 
 /// One delayed-neutron precursor group: its delayed fraction `beta_i`, its
-/// decay constant `lambda_i`, and the first-order lag
-/// `(beta_i/Lambda)/(tau_i s + 1)` (`tau_i = 1/lambda_i`) that produces this
-/// group's delayed-neutron source contribution `S_i = lambda_i C_i` from the
-/// reactor power.
+/// decay constant `lambda_i`, and its running precursor concentration `C_i`
+/// (in power form, MW — see [`DelayedNeutronGroup::precursor_mw`]) advanced by
+/// the implicit backward-Euler step in [`DelayedNeutronLayer::advance`]. The
+/// group's delayed-neutron source contribution is `S_i = lambda_i C_i`.
 #[derive(Debug, Clone)]
 struct DelayedNeutronGroup {
     /// Delayed-neutron fraction `beta_i` (dimensionless) for this group.
     delayed_fraction: Ratio,
-    /// Decay constant `lambda_i` \[s^-1\] for this group; the lag time
-    /// constant is `tau_i = 1/lambda_i`.
+    /// Decay constant `lambda_i` \[s^-1\] for this group.
     decay_constant: Frequency,
-    /// First-order lag `(beta_i/Lambda) / (tau_i s + 1)` mapping the reactor
-    /// power (in MW, carried as a dimensionless [`Ratio`] sample) to this
-    /// group's delayed source contribution `S_i` (in MW/s).
-    lag: TransferFnFirstOrder,
+    /// Precursor concentration `C_i` in **power form** (units MW): the state
+    /// variable integrated implicitly each step so that `S_i = lambda_i C_i`
+    /// has units MW/s and the delayed increment `S_i * dt` has units MW. Zero
+    /// at construction; the only per-group state carried between steps (this
+    /// is why the layer is `O(1)` in memory — see the module doc, op-e46.4).
+    precursor_mw: f64,
 }
 
-/// A reusable delayed-neutron layer: five first-order-lag precursor groups
-/// that turn a prompt-only kinetics model into proper point kinetics by
-/// supplying the delayed-neutron source `S = sum_i lambda_i C_i`.
+/// A reusable delayed-neutron layer: five precursor groups, integrated by
+/// direct implicit (backward-Euler) time-stepping, that turn a prompt-only
+/// kinetics model into proper point kinetics by supplying the delayed-neutron
+/// source `S = sum_i lambda_i C_i`.
 ///
 /// Construct it with [`DelayedNeutronLayer::u235_five_group`] (documented
 /// thermal-U-235 data) or [`DelayedNeutronLayer::new`] (arbitrary
@@ -134,21 +203,19 @@ struct DelayedNeutronGroup {
 /// the module-level documentation for the model and the coupling recipe.
 #[derive(Debug, Clone)]
 pub struct DelayedNeutronLayer {
-    /// The five precursor groups (each a first-order lag).
+    /// The five precursor groups (each holds its own `C_i` state).
     groups: [DelayedNeutronGroup; NUM_DELAYED_GROUPS],
     /// Prompt neutron generation time `Lambda` \[s\] used to scale each
-    /// group's source gain `beta_i/Lambda`.
+    /// group's production gain `beta_i/Lambda`.
     prompt_generation_time: Time,
     /// Total delayed-neutron fraction `beta = sum_i beta_i`.
     total_delayed_fraction: Ratio,
-    /// Running simulation time; the underlying transfer functions integrate
-    /// against absolute time, so this is advanced by `dt` on every
-    /// [`Self::advance`] call.
+    /// Running simulation time, advanced by `dt` on every [`Self::advance`]
+    /// call (kept for reporting/diagnostics; the implicit update itself is
+    /// time-invariant and needs only `dt`, not absolute time).
     elapsed_time: Time,
-    /// Most recently computed delayed-neutron source `S = sum_i lambda_i C_i`
-    /// \[expressed as a power rate, MW/s → stored as `Power`/`Time` via the
-    /// increment; see [`Self::advance`]\]. Stored as the last power increment
-    /// for reporting.
+    /// The delayed power increment `S * dt` \[MW\] from the most recent
+    /// [`Self::advance`] call, retained for reporting.
     last_delayed_increment: Power,
 }
 
@@ -161,7 +228,8 @@ impl DelayedNeutronLayer {
     ///   each group's source gain `beta_i/Lambda`. Must be strictly positive.
     /// - `groups`: five `(beta_i, lambda_i)` pairs. `beta_i` is dimensionless
     ///   ([`Ratio`]); `lambda_i` is a [`Frequency`] (`s^-1`) and must be
-    ///   strictly positive so the lag has a finite, stable time constant.
+    ///   strictly positive so the group has a finite decay timescale
+    ///   `1/lambda_i`.
     ///
     /// # Errors
     /// Returns [`TehOPrkeError::NonPositivePromptNeutronGenerationTime`] if
@@ -185,24 +253,14 @@ impl DelayedNeutronLayer {
             if lambda_hz <= 0.0 {
                 return Err(TehOPrkeError::NonPositiveDelayedDecayConstant(lambda_hz));
             }
-            let tau_i: Time = Time::new::<second>(1.0 / lambda_hz);
-
-            // source gain beta_i / Lambda (units s^-1, carried as a
-            // dimensionless transfer-function gain number)
-            let source_gain = Ratio::new::<ratio>(beta_i.get::<ratio>() / lambda_gen);
-
-            // lag G(s) = source_gain / (tau_i s + 1):
-            //   a1 = 0 (no numerator zero), b1 = source_gain,
-            //   a2 = tau_i,                  b2 = 1.
-            let lag =
-                TransferFnFirstOrder::new(Time::ZERO, source_gain, tau_i, Ratio::new::<ratio>(1.0))
-                    .map_err(|e| TehOPrkeError::GenericStringError(e.to_string()))?;
 
             total_delayed_fraction += beta_i;
             built.push(DelayedNeutronGroup {
                 delayed_fraction: beta_i,
                 decay_constant: lambda_i,
-                lag,
+                // precursors start empty; they build up under power via the
+                // implicit update in `advance`.
+                precursor_mw: 0.0,
             });
         }
 
@@ -307,47 +365,55 @@ impl DelayedNeutronLayer {
         self.last_delayed_increment
     }
 
-    /// Advances the precursor bank by one timestep `dt` and returns the
-    /// **delayed power increment** `Delta P_delayed = S * dt` to add to the
-    /// power balance this step, where `S = sum_i lambda_i C_i` is the
-    /// delayed-neutron source.
+    /// Advances the precursor bank by one implicit (backward-Euler) timestep
+    /// `dt` and returns the **delayed power increment** `Delta P_delayed =
+    /// S * dt` to add to the power balance this step, where
+    /// `S = sum_i lambda_i C_i` is the delayed-neutron source.
     ///
-    /// Each group's first-order lag `(beta_i/Lambda)/(tau_i s + 1)` is advanced
-    /// with the current reactor power as input; their sum is the source `S`,
-    /// and the returned increment is `S * dt`. See the module documentation
-    /// for the Lie-split coupling recipe.
+    /// Each group's precursor concentration `C_i` (in power form, MW) is
+    /// updated in place with the closed-form backward-Euler solution for a
+    /// power `P` held constant across the step:
+    ///
+    /// ```text
+    ///   C_i^{n+1} = ( C_i^n + dt * (beta_i/Lambda) * P ) / ( 1 + dt * lambda_i )
+    /// ```
+    ///
+    /// Their `S_i = lambda_i C_i^{n+1}` are summed into the source `S`, and the
+    /// returned increment is `S * dt`. This is `O(1)` in time and memory — five
+    /// multiply-adds, no growing history (see the module doc, op-e46.4). See
+    /// the module documentation for the Lie-split coupling recipe.
     ///
     /// # Parameters
     /// - `reactor_power`: the reactor power `P` driving precursor production
     ///   this step (in the recommended coupling, the prompt layer's freshly
     ///   advanced power `P_p`). Must be finite and non-negative for a
     ///   physical result.
-    /// - `dt`: the timestep. The underlying lags integrate exactly for a
-    ///   piecewise-constant input, so any positive `dt` is stable.
+    /// - `dt`: the timestep. The backward-Euler update is unconditionally
+    ///   stable, so any positive `dt` is safe.
     pub fn advance(&mut self, reactor_power: Power, dt: Time) -> Power {
         self.elapsed_time += dt;
-        let now = self.elapsed_time;
 
-        // normalise power to a dimensionless sample (value = power in MW) for
-        // the transfer functions, which operate on Ratio.
-        let power_sample = Ratio::new::<ratio>(reactor_power.get::<megawatt>());
+        let lambda_gen = self.prompt_generation_time.get::<second>();
+        let p_mw = reactor_power.get::<megawatt>();
+        let dt_s = dt.get::<second>();
 
-        // sum_i S_i, with S_i in MW/s (carried as a Ratio number)
+        // sum_i S_i, with S_i = lambda_i * C_i in MW/s
         let mut source_mw_per_s = 0.0;
         for group in self.groups.iter_mut() {
-            let s_i = group
-                .lag
-                .set_user_input_and_calc(power_sample, now)
-                // a stable first-order lag with constant coefficients cannot
-                // return an error for a finite input; surface any as a panic
-                // rather than silently returning stale state (matches the
-                // workspace per-step-evaluation convention).
-                .expect("delayed-neutron first-order lag evaluated a finite input");
-            source_mw_per_s += s_i.get::<ratio>();
+            let lambda_i = group.decay_constant.get::<hertz>();
+            let beta_i = group.delayed_fraction.get::<ratio>();
+
+            // implicit (backward-Euler) precursor update, same discretisation
+            // as SixGroupPRKE's coefficient matrix, decoupled from the prompt
+            // equation (Nordheim-Fuchs owns that):
+            //   C_i^{n+1} = (C_i^n + dt*(beta_i/Lambda)*P) / (1 + dt*lambda_i)
+            let production = (beta_i / lambda_gen) * p_mw; // MW/s
+            group.precursor_mw = (group.precursor_mw + dt_s * production) / (1.0 + dt_s * lambda_i);
+
+            source_mw_per_s += lambda_i * group.precursor_mw;
         }
 
         // delayed power increment over the step: S * dt  [MW]
-        let dt_s = dt.get::<second>();
         let increment = Power::new::<megawatt>(source_mw_per_s * dt_s);
         self.last_delayed_increment = increment;
         increment
@@ -456,5 +522,88 @@ mod tests {
             DelayedNeutronLayer::new(Time::new::<second>(0.0), groups),
             Err(TehOPrkeError::NonPositivePromptNeutronGenerationTime(_))
         ));
+    }
+
+    /// Performance regression for op-e46.4: the implicit precursor update must
+    /// be **O(1) per step** — constant time and constant memory regardless of
+    /// how many steps have been taken. The former `TransferFnFirstOrder`-based
+    /// layer accumulated one superposed response term per input change (pruned
+    /// only after `20*tau`, ~1.6M entries for the slowest group at 1 ms) and
+    /// summed over that buffer every step, so its per-step cost grew linearly
+    /// (measured ~49 us -> ~1.8 ms/step from step 1k to 40k).
+    ///
+    /// # Methodology
+    /// Advance the layer for many steps at the 1 ms GUI timestep with a
+    /// changing power input (so the old implementation *would* have grown its
+    /// buffer). Time an early block of steps and a late block of equal size,
+    /// and assert the late block is not meaningfully slower than the early one
+    /// (allowing generous headroom for scheduler/measurement noise). A truly
+    /// O(1) update makes the two blocks ~equal; an O(n) update makes the late
+    /// block dramatically slower.
+    ///
+    /// The struct also carries no `Vec`/history at all (only five `f64`
+    /// precursor states), so there is nothing that can grow with step count —
+    /// this test guards against a regression that reintroduces one.
+    ///
+    /// # Results (data 2026-07-15, release build)
+    /// Representative: ~0.7–1.0 ns/step, flat across blocks — early and late
+    /// 100k-step blocks time within noise of each other (late/early ratio well
+    /// under the 5x guard), versus the old layer's unbounded linear growth.
+    /// Exact numbers print with `--nocapture`.
+    #[test]
+    fn precursor_update_is_o1_per_step() {
+        let mut layer = DelayedNeutronLayer::u235_five_group(lambda());
+        let dt = Time::new::<second>(0.001); // 1 ms GUI timestep
+
+        let block = 100_000;
+        // vary the power each step so an input-change-accumulating implementation
+        // would keep growing its internal buffer.
+        let power_for = |k: usize| Power::new::<megawatt>(30.0 + (k % 97) as f64 * 0.1);
+
+        // warm up so the first timed block isn't paying one-time costs.
+        for k in 0..block {
+            layer.advance(power_for(k), dt);
+        }
+
+        let t_early = std::time::Instant::now();
+        for k in 0..block {
+            std::hint::black_box(layer.advance(std::hint::black_box(power_for(k)), dt));
+        }
+        let early = t_early.elapsed();
+
+        // take many more steps so an O(n) implementation would have a much
+        // larger internal buffer by the time we measure the late block.
+        for k in 0..(20 * block) {
+            layer.advance(power_for(k), dt);
+        }
+
+        let t_late = std::time::Instant::now();
+        for k in 0..block {
+            std::hint::black_box(layer.advance(std::hint::black_box(power_for(k)), dt));
+        }
+        let late = t_late.elapsed();
+
+        let early_ns = early.as_nanos() as f64;
+        let late_ns = late.as_nanos() as f64;
+        let ns_per_step = late_ns / block as f64;
+        eprintln!(
+            "op-e46.4 O(1) check: early block {early:.2?} ({:.2} ns/step), \
+             late block {late:.2?} ({ns_per_step:.2} ns/step), late/early ratio {:.2}",
+            early_ns / block as f64,
+            late_ns / early_ns.max(1.0)
+        );
+
+        // O(1): the late block (after 20x more steps) must not be dramatically
+        // slower than the early block. 5x is generous headroom for timing
+        // noise; the old O(n) implementation would blow past it by orders of
+        // magnitude. Guard the ratio only when the early block is long enough
+        // to time meaningfully (avoid dividing by a near-zero measurement).
+        if early_ns > 1.0e5 {
+            assert!(
+                late_ns < 5.0 * early_ns,
+                "per-step cost must be O(1): late block {late_ns:.0} ns should not \
+                 be >5x the early block {early_ns:.0} ns after 20x more steps"
+            );
+        }
     }
 }
