@@ -43,7 +43,7 @@
 //! | `mg_mode_part_i` | ignored | op-6tz.15 |
 //! | `mg_mode_part_ii` | ignored | op-6tz.15 |
 //! | `mg_mode_part_iii` | ignored | op-6tz.15 |
-//! | `depletion` | ignored | op-6tz.18 |
+//! | `depletion` | LIVE (one-group burnup: CRAM + chain_simple, inventory & k_inf trends) | op-6tz.18 |
 //! | `capi` | ignored | op-6tz.20 |
 //! | `shielded_room_weight_window` | ignored (notebook absent upstream) | op-6tz.21 |
 //!

@@ -28,4 +28,5 @@ pub mod source;
 pub mod tally;
 pub mod physics;
 pub mod pebble_beds;
+pub mod depletion;
 pub mod prelude;

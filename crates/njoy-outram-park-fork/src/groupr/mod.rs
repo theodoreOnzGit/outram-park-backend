@@ -67,11 +67,14 @@
 //! [`crate::NjoyError::NotPorted`] rather than fabricating a GENDF result. See
 //! `README.md` in this directory for the full theory summary and gap list.
 
+pub mod gaminr_matrix;
 pub mod gendf;
 pub mod input;
 pub mod kinematics;
+pub mod matrix;
 pub mod panel;
 pub mod photon_groups;
+pub mod unresolved;
 pub mod weights;
 
 // --- Public surface -------------------------------------------------------
