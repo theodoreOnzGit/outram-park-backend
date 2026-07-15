@@ -13,3 +13,7 @@ crates/njoy-outram-park-fork/tests/resources/*.h5
 
 # Session progress summaries (regenerated on demand; never committed)
 /progress.md
+
+# KOVAN proprietary literature is user-owned content that must never be
+# committed (see crates/kovan-literature). The whole tree stays local.
+crates/kovan-literature/proprietary/

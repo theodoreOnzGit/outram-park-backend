@@ -365,6 +365,20 @@ built, tested, and published from this single repository.
 | `outram-foam-basic-lib` | Pure-Rust translation of the OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, polynomial solvers, ODE solvers, interpolation, thermophysics kernels, fields, mesh, FV operators, fluid/solid thermo | GPL-3.0 |
 | `njoy-outram-park-fork` | **All nuclear data** — NJOY2016 ENDF port (RECONR/BROADR/THERMR/ACER), the Faddeeva kernel, windowed-multipole evaluation, lean-ACE + WMP data blobs, ν̄/χ. Exposes the `XsProvider` surface other crates pull cross sections from. | GPL-3.0 |
 | `outram-mc-libs` | **Monte Carlo transport** — CSG geometry, particle tracking, k-eigenvalue, delta (Woodcock) tracking for doubly heterogeneous media. **Data-free**: pulls cross sections from `njoy-outram-park-fork`. | GPL-3.0 |
+| `kovan-common` | **KOVAN** knowledge layer — shared canonical types (`KovanDocument`, `KovanSymbol`, …). The Rust struct is the source of truth. | GPL-3.0 |
+| `kovan-discovery` | KOVAN file discovery + text search — the `fd` (`ignore`) walker and ripgrep (`grep-*`) engine. Offline, deterministic. | GPL-3.0 |
+| `kovan-literature` | KOVAN literature archive — PDF → Markdown (`pulldown-cmark`) → `KovanDocument` → BibTeX. `open/` committable, `proprietary/` gitignored. | GPL-3.0 |
+| `kovan-semantics` | KOVAN repo-understanding — ripgrep-first, escalating to language servers (rust-analyzer / clangd / Pyright / fortls). Does not reimplement compilers. | GPL-3.0 |
+| `kovan-codegen` | KOVAN deterministic code generation — templates for known numerical methods (root finders, linear/nonlinear/ODE solvers). Not an AI assistant. | GPL-3.0 |
+| `kovan-cli` (bin `kovan`) | KOVAN **agent-facing** CLI (`clap`) — line-oriented output for Claude Code and other coding agents. | GPL-3.0 |
+| `kovan-tui` (bin) | KOVAN **human-facing** TUI (`ratatui`). Desktop scope: on Android it compiles to a CLI-redirect stub. | GPL-3.0 |
+
+> **KOVAN** is the deterministic *knowledge* layer (literature + semantics +
+> codegen), interfaced two ways: the `kovan` **CLI** for agents and the
+> `kovan-tui` **TUI** for humans. Offline / Android-first, no cloud, no
+> Tree-sitter/SQLite/vector-store. Full design spec: **`docs/kovan.md`**
+> (+ `docs/kovan-architecture.md`). Non-GUI kovan crates build for Android;
+> `ratatui` is pulled only under `cfg(not(target_os = "android"))`.
 
 > **Neutronics architecture:** the responsibility split (nuclear data ⟂ Monte
 > Carlo ⟂ deterministic/TH ⟂ coupling), the dependency graph, and phasing live in

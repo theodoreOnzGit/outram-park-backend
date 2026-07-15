@@ -16,6 +16,14 @@ members = [
     "crates/outram-park-fork-coolprop",
     "crates/tampines",
     "crates/outram-park-digital-twin-gui",
+    # KOVAN — knowledge layer (deterministic literature/semantics/codegen tooling)
+    "crates/kovan-common",
+    "crates/kovan-discovery",
+    "crates/kovan-literature",
+    "crates/kovan-semantics",
+    "crates/kovan-codegen",
+    "crates/kovan-cli",
+    "crates/kovan-tui",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
@@ -44,6 +52,23 @@ uom = "0.38.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde-xml-rs = "0.8.2"
 anyhow = "1.0.100"
+
+# KOVAN knowledge-layer stack — all pure-Rust and Android-friendly (no system
+# libs), matching KOVAN's offline/Android-first mandate. See docs/kovan.md.
+serde_json = "1.0"           # KovanDocument (de)serialisation, generated artifacts
+toml = "0.8"                 # metadata / config
+pulldown-cmark = { version = "0.12", default-features = false }  # the only Markdown parser KOVAN starts with
+ignore = "0.4"               # fd/ripgrep's walker: .gitignore-aware file discovery
+grep-searcher = "0.1"        # ripgrep engine — deterministic text search ...
+grep-regex = "0.1"           # ... its regex matcher
+grep-matcher = "0.1"         # ... shared matcher trait
+petgraph = "0.6"             # optional graph layer (module/dependency/literature graphs)
+clap = { version = "4.5", features = ["derive"] }  # kovan-cli (agent-facing)
+# TUI stack for kovan-tui (human-facing). Pulled ONLY by kovan-tui under a
+# `cfg(not(target_os = "android"))` table — TUI is desktop scope per the Android
+# rule; the libraries stay headless/Android-buildable. ratatui re-exports its
+# own matched crossterm as `ratatui::crossterm`, so no separate crossterm pin.
+ratatui = "0.29"
 log = "0.4"
 rayon = "1.11.0"
 fission-yields-data = "0.1.4"
@@ -111,6 +136,13 @@ tampines            = { path = "crates/tampines",            version = "0.1.0" }
 # Reusable visualization framework — visual process objects whose rendering
 # derives directly from tampines/nee_soon physics state (scaffold).
 outram-park-digital-twin-gui = { path = "crates/outram-park-digital-twin-gui", version = "0.1.0" }
+
+# KOVAN knowledge-layer crates — depend on these by path (in-tree).
+kovan-common     = { path = "crates/kovan-common",     version = "0.0.0" }
+kovan-discovery  = { path = "crates/kovan-discovery",  version = "0.0.0" }
+kovan-literature = { path = "crates/kovan-literature", version = "0.0.0" }
+kovan-semantics  = { path = "crates/kovan-semantics",  version = "0.0.0" }
+kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.0" }
 
 # Optimize all dependencies even in debug builds — the thermal-hydraulic
 # solvers are expensive, so unoptimized deps make tests painfully slow.

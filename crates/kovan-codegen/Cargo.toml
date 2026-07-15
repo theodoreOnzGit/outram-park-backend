@@ -1,0 +1,12 @@
+[package]
+name = "kovan-codegen"
+description = "KOVAN deterministic engineering-code generation for known numerical methods."
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kovan-common.workspace = true
+# Placeholder stage: no macro/codegen crates yet. When implementing, `syn`,
+# `quote`, and `proc-macro2` are the expected additions for procedural macros;
+# declarative macros and `build.rs` generation need no extra deps.

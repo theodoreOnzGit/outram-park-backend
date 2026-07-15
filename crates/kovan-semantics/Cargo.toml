@@ -1,0 +1,20 @@
+[package]
+name = "kovan-semantics"
+description = "KOVAN repository-understanding engine — ripgrep-first, escalating to language-native tooling."
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kovan-common.workspace = true
+kovan-discovery.workspace = true
+# Language-native semantics are the source of truth once wired:
+#   Rust    -> rust-analyzer crates (ra_ap_syntax / ra_ap_hir / ra_ap_ide)
+#   C++     -> clangd / libclang
+#   Python  -> Pyright / Jedi
+#   Fortran -> fortls
+# These are heavyweight and, for the Rust crates / libclang, Android-hostile, so
+# they are NOT hard dependencies here yet — they belong behind a per-language,
+# target-gated feature so the crate stays headless and Android-buildable. Until
+# then, semantics starts from kovan-discovery (fd + ripgrep). Tree-sitter is a
+# last resort only.
