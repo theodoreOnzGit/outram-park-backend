@@ -55,7 +55,7 @@
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
-use outram_mc_libs::geometry::lattice::RectLattice;
+use outram_mc_libs::geometry::lattice::{Lattice, RectLattice};
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, XPlane, YPlane, ZPlane};
 use outram_mc_libs::geometry::universe::Universe;
@@ -154,7 +154,7 @@ fn triso_geometry() -> Geometry {
             Universe { id: 0, cell_indices: vec![0] },       // root
             Universe { id: 1, cell_indices: vec![1, 2] },    // TRISO unit
         ],
-        lattices: vec![lattice],
+        lattices: vec![Lattice::Rect(lattice)],
         root_universe: 0,
     }
 }

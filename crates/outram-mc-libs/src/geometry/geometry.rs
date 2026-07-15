@@ -15,7 +15,7 @@
 //! after construction, so transport threads share it as `Arc<Geometry>`.
 
 use super::cell::CellFill;
-use super::lattice::RectLattice;
+use super::lattice::Lattice;
 use super::position::{stream, Direction, Position};
 use super::surface::{BoundaryType, SurfaceKind};
 use super::universe::Universe;
@@ -97,8 +97,9 @@ pub struct Geometry {
     pub cells: Vec<Cell>,
     /// Global universe array; the root and every fill index into it.
     pub universes: Vec<Universe>,
-    /// Global lattice array; lattice-fill cells index into it.
-    pub lattices: Vec<RectLattice>,
+    /// Global lattice array; lattice-fill cells index into it. Each entry is a
+    /// [`Lattice`] enum ([`Lattice::Rect`] or [`Lattice::Hex`]).
+    pub lattices: Vec<Lattice>,
     /// Index of the root universe tracking starts in.
     pub root_universe: usize,
 }
@@ -198,7 +199,7 @@ impl Geometry {
             }
 
             if let Some(l_idx) = coord.lattice {
-                let (d_lat, _trans) = self.lattices[l_idx].distance(coord.r, coord.u);
+                let (d_lat, _trans) = self.lattices[l_idx].distance(coord.r, coord.u, coord.lattice_index);
                 if d_lat < best.distance * (1.0 - FP_REL) {
                     best.distance = d_lat;
                     best.crossing = Crossing::Lattice;
