@@ -90,7 +90,9 @@ impl FailureFractions {
 ///
 /// The birth rate is `A` for a short-lived nuclide (secular equilibrium, the
 /// inventory activity *is* the production rate) and `A / (1 − e^{−λ t})` for a
-/// long-lived one, where `A` is the inventory [`Activity`]. This is the explicit
+/// long-lived one, where `A` is the inventory [`Activity`]. **Derivation:** step
+/// 6(ii) (crate-root `TRISO_ATOPS_DERIVATION.md` §6): `R = ⟨R/B⟩ × birth rate`,
+/// with `⟨R/B⟩ = failure fraction × ⟨R/B⟩_fail`. This is the explicit
 /// form of the upstream `didt = inventories × 3.7e10 [ / (1 − e^{−λt})]`, with
 /// the `× 3.7e10` now living only in the Ci→Bq conversion of the inventory (see
 /// [`crate::triso_atops_fork::activities::becquerels_from_curies`]).
@@ -153,7 +155,10 @@ pub struct SourceAndGraphite {
 
 /// Split a release rate into coolant **source rate** `S` and **graphite** `G`.
 ///
-/// Ports `base_activities(z, lam, t, a_graph, D_graph, R)`:
+/// Ports `base_activities(z, lam, t, a_graph, D_graph, R)`. **Derivation:** step
+/// 6(iii) (crate-root `TRISO_ATOPS_DERIVATION.md` §6): splits `R` into the
+/// coolant source rate `S = R/Af` and the graphite hold-up
+/// `G = R·(1 − 1/Af)·(1 − e^{−λt})/λ`, using the step-5d attenuation factor `Af`.
 ///
 /// - **Noble gas / halogen** → `S = R`, `G = 0` (volatiles are not retained in
 ///   graphite; they pass straight to the coolant).

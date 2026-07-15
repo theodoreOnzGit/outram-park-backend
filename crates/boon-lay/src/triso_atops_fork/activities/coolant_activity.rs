@@ -28,6 +28,10 @@
 //! is the nuclide decay constant. `uom` enforces that `β` is a sum of
 //! frequencies and that every `β·t` / `λ·t` exponent is dimensionless.
 //!
+//! **Derivation:** step 6(iv) (crate-root `TRISO_ATOPS_DERIVATION.md` §6) — the
+//! three linear activity balances driven by the coolant source rate `S`. Each
+//! `*_steadystate` form is the `t → ∞` limit of its time-dependent counterpart.
+//!
 //! ## Units
 //!
 //! - `source_rate`, and the `*_parent` pool inputs / returned pool values are

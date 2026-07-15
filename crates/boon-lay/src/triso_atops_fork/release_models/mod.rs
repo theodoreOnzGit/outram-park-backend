@@ -48,7 +48,9 @@ pub const OTHER_METAL_RB_FAIL: f64 = 1e-5;
 ///
 /// Ports `R_B_fail(z, sl, lam, temps, t, a_grain, a_SiC, r, D)`. Selects the
 /// correct steady-state release model for a nuclide from its transport
-/// [`ElementGroup`]:
+/// [`ElementGroup`]. **Derivation:** step 6(i) and step 2 (crate-root
+/// `TRISO_ATOPS_DERIVATION.md`) — the group dispatch, and the Booth
+/// equivalent-sphere radius `a_booth = √(2·a_grain·r)`.
 ///
 /// - **Noble gas / halogen** → empirical [`steady_state::rb_fail_noble_gases`].
 /// - **Special metal** → Booth model: [`steady_state::booth_shortlived_fast_diffuse`]

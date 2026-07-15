@@ -22,6 +22,14 @@ The physics equations originate from the NP-MHTGR New Production Reactor Program
 (Anderson et al., *Generic Reactor Plant Description and Source Terms Volume 1*,
 EG&G Idaho, 1989); half-lives are from the IAEA Live Chart of Nuclides.
 
+> **Where the physics is derived.** This file is the **module map / provenance /
+> V&V** reference. For the *step-by-step derivation* of the release model — from
+> `∂C/∂t = D∇²C` and `dN/dt = −λN` up to the assembled source term — see:
+> - [`../TRISO_ATOPS_DERIVATION.md`](../TRISO_ATOPS_DERIVATION.md) — the
+>   **Python-model view** (each step tied to the upstream Python function), and
+> - [`triso-atops-derivation.md`](triso-atops-derivation.md) — the **Rust-port
+>   view** (each step mapped to the `triso_atops_fork` module/type/function).
+
 ## Provenance & license
 
 | Field | Value |

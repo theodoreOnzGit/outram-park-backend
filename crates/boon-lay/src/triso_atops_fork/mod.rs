@@ -40,6 +40,58 @@
 //! | [`activities`](crate::triso_atops_fork::activities) | Circulating / plate-out / clean-up activity bookkeeping and the release-rate / graphite source terms, plus the Ci↔Bq and `A = λN` conversions (bead op-b4a.2.2, done). |
 //! | [`normal_operation`](crate::triso_atops_fork::normal_operation) | Per-node normal-operation orchestration ([`normal_operation_node`](crate::triso_atops_fork::normal_operation::normal_operation_node)) composing the whole chain to curies (bead op-b4a.2.2, done). The JSON run-file driver + accident case remain scaffolded (bead op-b4a.2.3). |
 //!
+//! ## Derivation, step by step
+//!
+//! The whole model is built up from two first-principles laws. This is a
+//! condensed narrative; the full derivation (with limits, term-by-term code
+//! correspondence, and references) is in the crate-root
+//! `TRISO_ATOPS_DERIVATION.md` (Python-model view) and `docs/triso-atops-derivation.md`
+//! (Rust-port view). Each step names the function that implements it.
+//!
+//! 1. **First principles.** Fickian diffusion `∂C/∂t = D∇²C` and radioactive
+//!    decay `dN/dt = −λN`, with `λ = ln2 / t½`
+//!    ([`TrisoAtopsNuclide::decay_constant`](crate::triso_atops_fork::nuclide_model::TrisoAtopsNuclide::decay_constant)).
+//!    A fission product in the fuel obeys both at once:
+//!    `∂C/∂t = D∇²C − λC + B` (birth rate `B`).
+//! 2. **Equivalent sphere.** The Booth idealisation (Booth 1957) replaces the
+//!    real multi-shell TRISO particle with one uniform sphere of radius `a` per
+//!    chemical group. The group partition is
+//!    [`ElementGroup`](crate::triso_atops_fork::nuclide_model::ElementGroup); the
+//!    special-metal sphere radius `a_booth = √(2·a_grain·r)` is formed in
+//!    [`rb_fail`](crate::triso_atops_fork::release_models::rb_fail).
+//! 3. **Effective coefficient.** Everything depends on `D` and `a` only through
+//!    `D' = D/a²` (units s⁻¹). `D` follows an Arrhenius law
+//!    `D(T) = D0·exp(−Q/RT)`, implemented in
+//!    [`diffusion_coefficient`](crate::triso_atops_fork::diffusion::diffusion_coefficient)
+//!    and [`diffusion_coefficient_sic_ag`](crate::triso_atops_fork::diffusion::diffusion_coefficient_sic_ag).
+//! 4. **Stable-species release.** Diffusion out of the sphere gives the
+//!    fractional release `f = 1 − (6/π²)·Σ n⁻²·exp(−n²π²·D't)` (short-time limit
+//!    `6√(D't/π) − 3D't`), in
+//!    [`booth_longlived`](crate::triso_atops_fork::release_models::steady_state::booth_longlived).
+//! 5. **Add decay.** Short-lived species reach a steady release-to-birth ratio
+//!    `⟨R/B⟩ = (3/μ)(coth μ − 1/μ)`, `μ = √(λa²/D)`
+//!    ([`booth_shortlived_fast_diffuse`](crate::triso_atops_fork::release_models::steady_state::booth_shortlived_fast_diffuse)).
+//!    Silver permeates the SiC barrier by the Daynes–Barrer membrane time-lag
+//!    solution ([`breakthrough_model`](crate::triso_atops_fork::release_models::steady_state::breakthrough_model));
+//!    volatiles use an empirical fit
+//!    ([`rb_fail_noble_gases`](crate::triso_atops_fork::release_models::steady_state::rb_fail_noble_gases));
+//!    graphite hold-up is the attenuation factor
+//!    ([`attenuation_factor`](crate::triso_atops_fork::release_models::steady_state::attenuation_factor)).
+//! 6. **Assemble.** Per nuclide per node: `D` → `⟨R/B⟩_fail`
+//!    ([`rb_fail`](crate::triso_atops_fork::release_models::rb_fail)) → release
+//!    rate `R` ([`release_rate`](crate::triso_atops_fork::activities::release_rate))
+//!    → source `S` + graphite `G`
+//!    ([`base_activities`](crate::triso_atops_fork::activities::base_activities))
+//!    → loop pools `C`/`P`/`HPS`
+//!    ([`activities::coolant_activity`](crate::triso_atops_fork::activities::coolant_activity))
+//!    → curies. The whole chain is
+//!    [`normal_operation_node`](crate::triso_atops_fork::normal_operation::normal_operation_node).
+//! 7. **Transient.** For an accident the products `Dt`, `D't` become time
+//!    integrals `∫D dt`, `∫D' dt`
+//!    ([`integrate_diffusion_over_time`](crate::triso_atops_fork::diffusion::integrate_diffusion_over_time)),
+//!    and the Step 4/5 series are reused in
+//!    [`release_models::transient`](crate::triso_atops_fork::release_models::transient).
+//!
 //! ## Units
 //!
 //! Every public function takes and returns `uom` dimensioned quantities. The

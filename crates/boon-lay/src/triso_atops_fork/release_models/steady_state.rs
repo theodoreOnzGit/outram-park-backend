@@ -66,6 +66,11 @@ fn clamp_release_fraction(rf: f64) -> ReleaseFraction {
 /// **failed/exposed** particle for the volatile species that do not follow the
 /// Booth metal model.
 ///
+/// **Derivation:** step 5c (crate-root `TRISO_ATOPS_DERIVATION.md` §5c) — an
+/// *empirical* NP-MHTGR (Anderson et al. 1989) fit, **not** a closed-form
+/// diffusion solution; it captures the observed `λ`- and `T`-dependence of
+/// volatile release from exposed fuel. Ports Python `RB_fail_Noble_Gases`.
+///
 /// # Arguments
 /// - `z` — atomic number. `z == 36` (Kr) selects the krypton fit; any other
 ///   value routed here (Xe `z == 54`, or a halogen) selects the xenon/halogen
@@ -107,6 +112,13 @@ pub fn rb_fail_noble_gases(
 ///
 /// with `D' = D/a²`. Used for silver diffusing through the SiC layer (the
 /// limiting barrier). The result is clamped to `[0, 1]`.
+///
+/// **Derivation:** step 5b (crate-root `TRISO_ATOPS_DERIVATION.md` §5b) — the
+/// Daynes–Barrer membrane time-lag solution for cumulative permeation through a
+/// plane barrier of thickness `a` (Crank 1975 §4), multiplied by the spherical
+/// kernel surface-to-volume ratio `3/r` to express it as a kernel release
+/// fraction. The `3·D·t/(r·a)` term is steady permeation, `−a/(2r)` is the time
+/// lag, and the series is the decaying transient. Ports Python `breakthrough_model`.
 ///
 /// # Arguments
 /// - `diffusion_coefficient` — `D` in the barrier layer, m^2/s.
@@ -152,6 +164,10 @@ pub fn breakthrough_model(
 /// `RF ≈ 6·√(D'·t/π) − 3·D'·t`. Used for long-lived special-metal fission
 /// products (Sr, Cs, Ba, Eu).
 ///
+/// **Derivation:** step 4 (crate-root `TRISO_ATOPS_DERIVATION.md` §4) — the
+/// separation-of-variables solution of Fickian diffusion out of a sphere with a
+/// perfect-sink surface (Crank 1975 §6). Ports Python `booth_longlived`.
+///
 /// # Arguments
 /// - `diffusion_coefficient` — `D`, m^2/s.
 /// - `time` — elapsed time `t`, seconds.
@@ -192,6 +208,12 @@ pub fn booth_longlived(
 /// Limits: as `x → 0` (fast diffusion / long-lived), `<R/B> → 1`; as `x → ∞`
 /// (slow diffusion / short-lived), `<R/B> → 3/x`.
 ///
+/// **Derivation:** step 5a (crate-root `TRISO_ATOPS_DERIVATION.md` §5a) — the
+/// *steady-state* solution of the sphere diffusion equation with a decay sink
+/// `−λC` (secular equilibrium), integrating the surface flux against the birth
+/// rate (Booth 1957; NP-MHTGR, Anderson et al. 1989). Here `x = μ = √(λa²/D)`.
+/// Ports Python `booth_shortlived_fastdiffuse`.
+///
 /// # Arguments
 /// - `diffusion_coefficient` — `D`, m^2/s.
 /// - `decay_constant` — `λ`, s^-1.
@@ -225,6 +247,12 @@ pub fn booth_shortlived_fast_diffuse(
 ///
 /// The upstream code caps `Af` at [`ATTENUATION_FACTOR_CAP`] (1e8) and returns
 /// the cap if `S == 1`, `Af > 1e8`, or `Af < 0`; reproduced here.
+///
+/// **Derivation:** step 5d (crate-root `TRISO_ATOPS_DERIVATION.md` §5d) —
+/// transient slab diffusion through the matrix graphite. At `t = 0` the series is
+/// the Leibniz sum `S = 1` so `Af → ∞` (total hold-up, hence the 1e8 cap); as
+/// `t → ∞`, `S → 0` and `Af → 1` (graphite saturated). The coolant source rate is
+/// `S_coolant = R/Af`. Ports Python `attenuation_factor`.
 ///
 /// # Arguments
 /// - `graphite_diffusion_coefficient` — `D_graph`, m^2/s.

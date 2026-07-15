@@ -60,6 +60,11 @@ pub const BOOTH_TRANSIENT_ZERO_FLOOR: f64 = 1e-6;
 /// Clamped to `[0, 1]`; returns exactly 0 if either integral is 0 (upstream
 /// guard). Used for the silver/SiC accident release.
 ///
+/// **Derivation:** step 7 (crate-root `TRISO_ATOPS_DERIVATION.md` §7) — the
+/// transient generalisation of the step-5b breakthrough model: for a
+/// time-varying temperature the products `D·t` and `D'·t` are replaced by their
+/// time integrals `∫D dt` and `∫D' dt`. Ports Python `breakthrough_model_transient`.
+///
 /// # Arguments
 /// - `integrated_d_prime` — `∫D' dt` (dimensionless [`Ratio`]), where `D' = D/a²`.
 /// - `integrated_d` — `∫D dt` (an [`Area`], m^2).
@@ -106,6 +111,10 @@ pub fn breakthrough_model_transient(
 /// [`BOOTH_TRANSIENT_ZERO_FLOOR`] (1e-6) to 0 (upstream behaviour). Used for
 /// special-metal / other fission-product accident release from the kernel.
 ///
+/// **Derivation:** step 7 (crate-root `TRISO_ATOPS_DERIVATION.md` §7) — the
+/// transient generalisation of the step-4 Booth sphere release, with `D'·t`
+/// replaced by the time integral `∫D' dt`. Ports Python `booth_transient`.
+///
 /// # Arguments
 /// - `integrated_d_prime` — `∫D' dt` (dimensionless [`Ratio`]), where `D' = D/a²`
 ///   and `a` is the kernel radius.
@@ -141,6 +150,11 @@ pub fn booth_transient(integrated_d_prime: Ratio) -> ReleaseFraction {
 /// ```
 ///
 /// As `∫D dt → ∞` this saturates to 1 (since `Σ_{i odd} 8/(iπ)² = 1`).
+///
+/// **Derivation:** step 7 (crate-root `TRISO_ATOPS_DERIVATION.md` §7) — the
+/// graphite *release* fraction from transient slab diffusion (the complement of
+/// the step-5d hold-up), written in terms of the time integral `∫D dt`. Ports
+/// Python `RF_Graph`.
 ///
 /// # Arguments
 /// - `integrated_d` — `∫D dt` (an [`Area`], m^2) for the graphite.

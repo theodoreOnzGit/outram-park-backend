@@ -96,6 +96,11 @@ fn celsius_to_kelvin(celsius: f64) -> f64 {
 /// atomic number `z`; the correlation family and any valid-range clamp are the
 /// NP-MHTGR values (see module docs). Returns [`KernelGraphiteDiffusion`].
 ///
+/// **Derivation:** step 3 (crate-root `TRISO_ATOPS_DERIVATION.md` §3) — the
+/// Arrhenius temperature law `D(T) = D0·exp(−Q/RT)` (some species summing a low-
+/// and a high-temperature branch). This `D` becomes the reduced coefficient
+/// `D' = D/a²` inside every release model.
+///
 /// # Element families (by `z`)
 /// - Kr, Te, I, Xe, Se (`z ∈ {36, 52, 53, 54, 34}`): a low-T branch below
 ///   1500 °C and a two-term high-T branch above; graphite `D` equals kernel `D`.
