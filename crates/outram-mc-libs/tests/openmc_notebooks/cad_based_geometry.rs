@@ -14,7 +14,7 @@
 
 /// GAP placeholder for the `cad-based-geometry` notebook. See the module docs.
 #[test]
-#[ignore = "requires DAGMC/CAD geometry backend (op-6tz.17)"]
+#[ignore = "WON'T PORT: DAGMC/CAD geometry backend is out of scope (project decision 2026-07-15, op-6tz.17)"]
 fn cad_dagmc_geometry() {
     unimplemented!("cad-based-geometry: requires DAGMC/CAD geometry backend (op-6tz.17)");
 }
