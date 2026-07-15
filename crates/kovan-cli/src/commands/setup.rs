@@ -56,6 +56,14 @@ pub const TOOLS: &[ToolSpec] = &[
         binary_name: "tokei",
         description: "fast source-code line counter / per-language breakdown",
     },
+    ToolSpec {
+        // The `gitoxide` *binary* crate (installs `gix` + `ein`, default-run
+        // `gix`) — NOT the `gix` *library* crate. Chosen over GritQL/`grit`,
+        // which has no crates.io / `cargo install` path.
+        crate_name: "gitoxide",
+        binary_name: "gix",
+        description: "pure-Rust git implementation CLI (cross-platform, no system libgit2)",
+    },
 ];
 
 /// What `kovan setup` should do with one tool, given whether its binary is

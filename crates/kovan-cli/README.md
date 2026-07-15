@@ -151,6 +151,7 @@ whose binary is already on `PATH`:
 | `fd-find` | `fd` | fast, user-friendly `find` replacement |
 | `bat` | `bat` | `cat` with syntax highlighting and git-diff markers |
 | `tokei` | `tokei` | fast source-code line counter / per-language breakdown |
+| `gitoxide` | `gix` | pure-Rust git implementation CLI (cross-platform, no system libgit2) |
 
 - `--dry-run` — report which tools are already present vs. would be
   installed; installs nothing.
