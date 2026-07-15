@@ -29,6 +29,13 @@ pub enum TehOPrkeError {
     /// strictly positive.
     #[error("fuel heat capacity C_f must be > 0 J/K; got {0} J/K")]
     NonPositiveFuelHeatCapacity(f64),
+
+    /// [`crate::delayed_neutron_layer`]'s per-group decay constant
+    /// `lambda_i` must be strictly positive (each precursor group is a
+    /// stable first-order lag of time constant `tau_i = 1/lambda_i`); a
+    /// non-positive `lambda_i` has no finite time constant.
+    #[error("delayed-neutron decay constant lambda_i must be > 0 s^-1; got {0} s^-1")]
+    NonPositiveDelayedDecayConstant(f64),
 }
 
 ///  converts ThermalHydraulicsLibError from string error
@@ -45,7 +52,8 @@ impl Into<String> for TehOPrkeError {
             TehOPrkeError::GenericStringError(s) => s,
             TehOPrkeError::NonNegativeFuelFeedbackCoefficient(_)
             | TehOPrkeError::NonPositivePromptNeutronGenerationTime(_)
-            | TehOPrkeError::NonPositiveFuelHeatCapacity(_) => self.to_string(),
+            | TehOPrkeError::NonPositiveFuelHeatCapacity(_)
+            | TehOPrkeError::NonPositiveDelayedDecayConstant(_) => self.to_string(),
         }
     }
 }

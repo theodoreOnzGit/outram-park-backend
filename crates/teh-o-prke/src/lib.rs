@@ -56,3 +56,10 @@ pub mod time_stepping;
 /// real-time-friendly "Prompt Excursion Layer", distinct from (and much
 /// cheaper than) the six-group precursor PRKE in [`zero_power_prke`].
 pub mod nordheim_fuchs;
+
+/// reusable "Delayed Neutron Layer" -- a reduced point-kinetics precursor
+/// bank modelled as five first-order lags, one per delayed-neutron group.
+/// Sits between the prompt-only [`nordheim_fuchs`] layer and a thermal-
+/// hydraulics layer, restoring the delayed-neutron source that damps a
+/// reactivity-power-temperature feedback loop.
+pub mod delayed_neutron_layer;
