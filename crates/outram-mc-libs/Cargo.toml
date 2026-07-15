@@ -24,6 +24,15 @@ njoy-outram-park-fork = { workspace = true }
 # `material::thermal`), which speaks dimensioned `uom` types. The transport hot
 # loop stays raw `f64` — see this crate's CLAUDE.md "Units" note.
 uom = { workspace = true }
+# Depletion / transmutation data — CONSUMED, not rebuilt. All pure-Rust
+# (serde + serde-xml-rs + uom + strum; no BLAS/C), so they stay Android-safe.
+#   * decay data (half-lives, decay modes, branching, targets) parsed from the
+#     ENDF/B-8 OpenMC depletion chain XML, split a (Z<=47) / b (Z>=48).
+#   * parent-independent fission yields (ENDF/B-VIII.0) per fissioning nuclide.
+# See src/depletion/ and docs/ai-fleet-review/op-6tz-depletion/.
+openmc-endf-8-depletion-lib-a = { workspace = true }
+openmc-endf-8-depletion-lib-b = { workspace = true }
+fission-yields-data = { workspace = true }
 
 [features]
 # HIGH-fidelity nuclear data. Forwards to njoy's `net-fetch` tier so

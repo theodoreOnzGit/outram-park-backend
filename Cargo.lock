@@ -3992,8 +3992,11 @@ name = "outram-mc-libs"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "fission-yields-data",
  "ndarray",
  "njoy-outram-park-fork",
+ "openmc-endf-8-depletion-lib-a",
+ "openmc-endf-8-depletion-lib-b",
  "thiserror 2.0.18",
  "uom 0.38.0",
 ]
