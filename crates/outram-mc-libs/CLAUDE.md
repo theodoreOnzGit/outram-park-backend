@@ -8,6 +8,45 @@ The reference C++ source lives at:
 **Upstream license:** OpenMC is MIT-licensed. This Rust port is GPL-3.0-only
 per the workspace default; the port constitutes new copyrightable expression.
 
+## Standing goal: OpenMC-like API + notebooks-as-verification-tests (MANDATORY)
+
+`outram-mc-libs` should **eventually function API-wise like OpenMC** (mirror its
+Python / `capi` surface in idiomatic Rust), and **every notebook in
+https://github.com/openmc-dev/openmc-notebooks becomes a verification test** for
+the OUTRAM PARK Monte Carlo path. This is a durable direction, not a one-off.
+
+- **This crate owns** the transport / geometry / tally / depletion /
+  variance-reduction notebooks: `pincell`, `hexagonal-lattice`, `triso`,
+  `candu`, `cad-based-geometry`, `unstructured-mesh-part-i/ii`,
+  `tally-arithmetic`, `tally-power-normalization`, `expansion-filters`,
+  `flux-spectrum`, `gamma-detector`, `post-processing`, `pandas-dataframes`,
+  `mg-mode-part-i/ii/iii`, `depletion`, `shielded_room_weight_window`, `capi`.
+- **njoy-outram-park-fork owns** the data notebooks (`nuclear-data`,
+  `nuclear-data-resonance-covariance`, `search`, mgxs/mdgxs generation).
+- Approach: a notebook→test→required-API **mapping doc**, then a
+  `tests/openmc_notebooks/` harness — tractable notebooks as live tests, the
+  rest `#[ignore]` with a documented "requires API X" reason + a per-notebook
+  bead. `pincell`/Godiva k_eff (op-u6s.1) is the natural first live case.
+- Notebooks are OpenMC-project open-source (MIT) — cite provenance
+  (source notebook + commit) per RESPONSIBLE_USE.md; V&V docs state methodology
+  **and** measured results. Tracked under beads epic **op-6tz**.
+
+### Reference values + comparison outputs (MANDATORY)
+
+- **For ALL outram-mc comparisons, reference values come from the openmc
+  `.ipynb` files themselves** — the k-effective / tally results stored in the
+  notebook cell outputs (fetch the raw notebook; cite the notebook + commit).
+  Do not invent or approximate a reference; use the number the notebook printed,
+  and match the notebook's geometry / material / data as closely as the
+  available data allows so the comparison is apples-to-apples.
+- **Write each comparison as a CSV** to
+  `verification_and_validation/openmc_notebook_comparisons/` (one CSV per
+  notebook; columns: date, notebook, case, our k ± σ, reference k ± σ, Δk (pcm),
+  combined σ, σ-distance, data used on each side, stats note). That folder is
+  **gitignored** — the CSVs are reproducible generated outputs, kept local, not
+  committed. The interpretation/write-up still goes in the committed V&V docs +
+  the relevant bead.
+
 ---
 
 ## Porting rule (mandatory) — mirror the canonical source, do not reinvent

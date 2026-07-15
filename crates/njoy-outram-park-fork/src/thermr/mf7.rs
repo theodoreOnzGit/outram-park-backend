@@ -83,10 +83,19 @@ pub struct IncoherentInelastic {
     ///
     /// [`s_tables`]: Self::s_tables
     pub beta: Vec<f64>,
-    /// For each `β`, the `S(α)` table at `T₀`.
+    /// For each `β`, the `S(α)` table at the *selected* temperature
+    /// [`temperature_k`](Self::temperature_k).
     pub s_tables: Vec<AlphaTable>,
-    /// Additional temperatures \[K\] present (their tables not yet retained).
+    /// The other temperatures \[K\] present in the evaluation (their `S` tables
+    /// are not retained — only the selected temperature's are).
     pub extra_temperatures_k: Vec<f64>,
+    /// Principal-scatterer effective-temperature table `(T \[K\], T_eff \[K\])`
+    /// used by the short-collision-time (SCT) branch — the trailing TAB1 of
+    /// MF=7/MT=4. `T_eff(T)` (Egelstaff–Schofield) is larger than the physical
+    /// `T` because it folds in the mean squared vibrational velocity of the bound
+    /// atom (zero-point motion), so the SCT limit reproduces the free-gas kernel
+    /// with the correct second energy moment. Empty if the evaluation omits it.
+    pub teff_table: Vec<(f64, f64)>,
 }
 
 /// One `S(α)` slice at a fixed `β` (and base temperature).
@@ -126,6 +135,30 @@ pub struct Mf7 {
 ///   scatterer (no tabulated S).
 /// - [`NjoyError::EndfParse`] on malformed records.
 pub fn parse_mf7(tape: &Tape, mat: i32) -> Result<Mf7, NjoyError> {
+    parse_mf7_at_temperature(tape, mat, None)
+}
+
+/// Parse the MF=7 thermal scattering data for `mat`, selecting the incoherent-
+/// inelastic `S(α,β)` tables at the temperature nearest `target_k` \[K\].
+///
+/// `tsl-*` evaluations tabulate `S(α,β)` at several temperatures (base `T₀`
+/// plus extras). [`parse_mf7`] keeps only the base `T₀`; this variant keeps the
+/// tables of whichever tabulated temperature is closest to `target_k`, so a
+/// downstream generator at (say) 293.6 K uses the 293.6 K scattering law rather
+/// than the base one. `target_k = None` reproduces [`parse_mf7`] (base `T₀`).
+///
+/// The selected temperature is reported in
+/// [`IncoherentInelastic::temperature_k`]; the caller should read it back and
+/// verify it is acceptably close to the request (the nearest tabulated point may
+/// differ by a few K).
+///
+/// # Errors
+/// Same as [`parse_mf7`].
+pub fn parse_mf7_at_temperature(
+    tape: &Tape,
+    mat: i32,
+    target_k: Option<f64>,
+) -> Result<Mf7, NjoyError> {
     let elastic = tape.section(mat, 7, 2);
     let inelastic = tape.section(mat, 7, 4);
     if elastic.is_none() && inelastic.is_none() {
@@ -143,7 +176,8 @@ pub fn parse_mf7(tape: &Tape, mat: i32) -> Result<Mf7, NjoyError> {
         Some(sec) => parse_elastic(sec)?,
         None => (None, None),
     };
-    let incoherent_inelastic = inelastic.map(parse_inelastic).transpose()?;
+    let incoherent_inelastic =
+        inelastic.map(|sec| parse_inelastic(sec, target_k)).transpose()?;
 
     Ok(Mf7 { za, awr, coherent_elastic, incoherent_elastic, incoherent_inelastic })
 }
@@ -207,8 +241,18 @@ fn read_incoherent_elastic(tab1: &crate::endf::records::Tab1) -> IncoherentElast
     IncoherentElastic { temperature_k, sb, interp: tab1.interp.clone(), wp_of_t }
 }
 
-/// Parse MF=7/MT=4 incoherent inelastic S(α,β) at the base temperature.
-fn parse_inelastic(section: &crate::endf::tape::Section) -> Result<IncoherentInelastic, NjoyError> {
+/// Parse MF=7/MT=4 incoherent inelastic S(α,β), selecting the tabulated
+/// temperature nearest `target_k` \[K\] (`None` ⇒ base temperature `T₀`).
+///
+/// Record layout follows NJOY2016 `thermr.f90::calcem` (the reader at labels
+/// 120–195): the `B(1..NI)` LIST, a TAB2 over `β`, then one `S(α)` TAB1 per `β`
+/// (base `T₀`, interleaved `(α, S)`) each trailed by `LT` extra-temperature
+/// LIST records (S-only, on the shared `α` grid), then the principal-scatterer
+/// effective-temperature TAB1.
+fn parse_inelastic(
+    section: &crate::endf::tape::Section,
+    target_k: Option<f64>,
+) -> Result<IncoherentInelastic, NjoyError> {
     let mut cur = SectionCursor::new(&section.rows);
     let head = cur.read_cont()?; // ZA, AWR, 0, LAT, LASYM, 0
     let lat = head.l2;
@@ -218,10 +262,13 @@ fn parse_inelastic(section: &crate::endf::tape::Section) -> Result<IncoherentIne
     let bl = cur.read_list()?;
     let b = bl.data.clone();
     if b.first().copied().unwrap_or(0.0) == 0.0 {
-        // B(1)=0 ⇒ principal scatterer has no tabulated S (short-collision-time
-        // / free-gas analytic model) — a different THERMR path, deferred.
+        // B(1)=0 ⇒ principal scatterer has no tabulated S (pure analytic /
+        // short-collision-time principal, e.g. a free-gas-only evaluation). The
+        // tabulated-S path below cannot serve it; that pure-analytic principal
+        // path is a separate LEAPR-style model, not ported. Water (and every
+        // standard tsl-* file) has B(1) > 0, so this branch is not hit for them.
         return Err(NjoyError::NotPorted(
-            "MF=7 MT=4 with B(1)=0 (analytic/SCT principal scatterer) — future",
+            "MF=7 MT=4 with B(1)=0 (pure-analytic principal scatterer, no tabulated S)",
         ));
     }
 
@@ -229,8 +276,10 @@ fn parse_inelastic(section: &crate::endf::tape::Section) -> Result<IncoherentIne
     let tab2 = cur.read_tab2()?;
     let nb = tab2.head.n2;
 
-    let mut temperature_k = 0.0;
-    let mut extra_temperatures_k: Vec<f64> = Vec::new();
+    // The temperature set is shared across all β; decide the selected index once
+    // (from the first β), then pull that temperature's S(α) for every β.
+    let mut selected_index: usize = 0;
+    let mut all_temps: Vec<f64> = Vec::new();
     let mut beta = Vec::with_capacity(nb as usize);
     let mut s_tables = Vec::with_capacity(nb as usize);
 
@@ -238,21 +287,51 @@ fn parse_inelastic(section: &crate::endf::tape::Section) -> Result<IncoherentIne
         let tab1 = cur.read_tab1()?; // C1 = T0, C2 = β, L1 = LT
         let bval = tab1.head.c2;
         let lt = tab1.head.l1;
-        if j == 0 {
-            temperature_k = tab1.head.c1;
-        }
-        let (alpha, s): (Vec<f64>, Vec<f64>) = tab1.pairs.iter().copied().unzip();
-        beta.push(bval);
-        s_tables.push(AlphaTable { beta: bval, alpha, s });
+        let (alpha, base_s): (Vec<f64>, Vec<f64>) = tab1.pairs.iter().copied().unzip();
 
-        // Extra-temperature LISTs for this β (S(α) at other temperatures).
+        // Candidate S(α) vectors for this β: base T₀ first, then the LT extras.
+        let mut cand_temps = vec![tab1.head.c1];
+        let mut cand_s = vec![base_s];
         for _ in 0..lt {
             let list = cur.read_list()?;
-            if j == 0 {
-                extra_temperatures_k.push(list.head.c1);
-            }
+            cand_temps.push(list.head.c1);
+            cand_s.push(list.data.clone());
         }
+
+        if j == 0 {
+            all_temps = cand_temps.clone();
+            selected_index = match target_k {
+                None => 0,
+                Some(t) => cand_temps
+                    .iter()
+                    .enumerate()
+                    .min_by(|(_, a), (_, c)| {
+                        (*a - t).abs().partial_cmp(&(*c - t).abs()).unwrap()
+                    })
+                    .map(|(i, _)| i)
+                    .unwrap_or(0),
+            };
+        }
+        let s = cand_s
+            .get(selected_index)
+            .cloned()
+            .unwrap_or_else(|| cand_s[0].clone());
+        beta.push(bval);
+        s_tables.push(AlphaTable { beta: bval, alpha, s });
     }
+
+    let temperature_k = all_temps.get(selected_index).copied().unwrap_or(0.0);
+    let extra_temperatures_k: Vec<f64> = all_temps
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != selected_index)
+        .map(|(_, &t)| t)
+        .collect();
+
+    // Trailing principal-scatterer effective-temperature TAB1 (ENDF-6). Optional:
+    // absent in some evaluations, so a read failure degrades to an empty table
+    // (SCT then falls back to the physical temperature — see `inelastic`).
+    let teff_table = cur.read_tab1().map(|t| t.pairs).unwrap_or_default();
 
     Ok(IncoherentInelastic {
         lat,
@@ -262,6 +341,7 @@ fn parse_inelastic(section: &crate::endf::tape::Section) -> Result<IncoherentIne
         beta,
         s_tables,
         extra_temperatures_k,
+        teff_table,
     })
 }
 

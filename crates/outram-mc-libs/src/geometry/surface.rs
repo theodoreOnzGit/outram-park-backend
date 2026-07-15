@@ -159,10 +159,132 @@ impl Surface for ZCylinder {
     fn normal(&self, r: Position) -> Direction {
         Direction::from_unnormalised(r.x - self.x0, r.y - self.y0, 0.0)
     }
-    fn distance(&self, _r: Position, _u: Direction, _coincident: bool) -> f64 {
-        todo!("ZCylinder::distance: port from src/surface.cpp")
+    /// Smallest positive distance from `r` along `u` to the infinite Z cylinder.
+    ///
+    /// Ported from OpenMC `axis_aligned_cylinder_distance<2,0,1>`
+    /// (`src/surface.cpp:401`). With `a = u.u² + u.v²`, `k = Δx·u + Δy·v` and
+    /// `c = Δx² + Δy² − R²` the intersections are `d = (−k ± √(k²−a·c))/a`.
+    /// `coincident` (or `|c|` tiny) means the particle sits on the surface: the
+    /// sign of `k` says whether it faces out (no hit) or in.
+    fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
+        const FP_COINCIDENT: f64 = 1.0e-12;
+        let a = u.u * u.u + u.v * u.v;
+        if a == 0.0 {
+            return f64::INFINITY; // travelling parallel to the axis
+        }
+        let dx = r.x - self.x0;
+        let dy = r.y - self.y0;
+        let k = dx * u.u + dy * u.v;
+        let c = dx * dx + dy * dy - self.r * self.r;
+        let quad = k * k - a * c;
+        if quad < 0.0 {
+            return f64::INFINITY; // ray misses the cylinder
+        }
+        let sq = quad.sqrt();
+        if coincident || c.abs() < FP_COINCIDENT {
+            // On the surface: one root is ~0. Facing out (k≥0) ⇒ no forward hit.
+            if k >= 0.0 { f64::INFINITY } else { (-k + sq) / a }
+        } else if c < 0.0 {
+            // Inside: exactly one positive root, the +√ branch.
+            (-k + sq) / a
+        } else {
+            // Outside: nearest forward root is the −√ branch, if positive.
+            let d = (-k - sq) / a;
+            if d < 0.0 { f64::INFINITY } else { d }
+        }
     }
 }
 
 // Additional surfaces to port: XCylinder, YCylinder, XCone, YCone, ZCone,
 // general Plane, Quadric, TorusX, TorusY, TorusZ.
+
+// ── Enum dispatch over the concrete surfaces ─────────────────────────────────
+//
+// Per the workspace design rules (enums over trait objects), CSG navigation
+// dispatches over this closed set by `match` rather than `Box<dyn Surface>`.
+// The `Surface` trait above stays as the compiler-enforced contract each
+// concrete surface satisfies.
+
+/// A CSG quadric surface — the closed set the geometry navigator dispatches over.
+///
+/// Wraps each concrete surface struct. Maps to the OpenMC `Surface` polymorphic
+/// hierarchy (`src/surface.cpp`), realised here as an enum so `match` gives
+/// exhaustiveness and rust-analyzer go-to-definition on every variant.
+pub enum SurfaceKind {
+    XPlane(XPlane),
+    YPlane(YPlane),
+    ZPlane(ZPlane),
+    Sphere(Sphere),
+    ZCylinder(ZCylinder),
+}
+
+impl SurfaceKind {
+    /// Signed surface sense at `r`: negative inside, positive outside.
+    /// Delegates to the wrapped surface's [`Surface::evaluate`].
+    #[inline]
+    pub fn evaluate(&self, r: Position) -> f64 {
+        match self {
+            Self::XPlane(s) => s.evaluate(r),
+            Self::YPlane(s) => s.evaluate(r),
+            Self::ZPlane(s) => s.evaluate(r),
+            Self::Sphere(s) => s.evaluate(r),
+            Self::ZCylinder(s) => s.evaluate(r),
+        }
+    }
+
+    /// Boolean sense used by cell membership: `true` = positive (outside) half-space.
+    /// Mirrors OpenMC `Surface::sense` (`src/surface.cpp`), position-only form.
+    #[inline]
+    pub fn sense(&self, r: Position) -> bool {
+        self.evaluate(r) > 0.0
+    }
+
+    /// Smallest positive distance along ray `(r, u)` to this surface, or
+    /// `INFINITY` if it is not crossed. `coincident` hints `r` sits on the surface.
+    #[inline]
+    pub fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
+        match self {
+            Self::XPlane(s) => s.distance(r, u, coincident),
+            Self::YPlane(s) => s.distance(r, u, coincident),
+            Self::ZPlane(s) => s.distance(r, u, coincident),
+            Self::Sphere(s) => s.distance(r, u, coincident),
+            Self::ZCylinder(s) => s.distance(r, u, coincident),
+        }
+    }
+
+    /// Outward unit normal at `r` (assumes `r` lies on the surface).
+    #[inline]
+    pub fn normal(&self, r: Position) -> Direction {
+        match self {
+            Self::XPlane(s) => s.normal(r),
+            Self::YPlane(s) => s.normal(r),
+            Self::ZPlane(s) => s.normal(r),
+            Self::Sphere(s) => s.normal(r),
+            Self::ZCylinder(s) => s.normal(r),
+        }
+    }
+
+    /// Specular reflection of direction `u` off this surface at `r`.
+    #[inline]
+    pub fn reflect(&self, r: Position, u: Direction) -> Direction {
+        match self {
+            Self::XPlane(s) => s.reflect(r, u),
+            Self::YPlane(s) => s.reflect(r, u),
+            Self::ZPlane(s) => s.reflect(r, u),
+            Self::Sphere(s) => s.reflect(r, u),
+            Self::ZCylinder(s) => s.reflect(r, u),
+        }
+    }
+
+    /// This surface's boundary condition.
+    #[inline]
+    pub fn bc(&self) -> BoundaryType {
+        match self {
+            Self::XPlane(s) => s.bc,
+            Self::YPlane(s) => s.bc,
+            Self::ZPlane(s) => s.bc,
+            Self::Sphere(s) => s.bc,
+            Self::ZCylinder(s) => s.bc,
+        }
+    }
+}

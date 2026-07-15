@@ -3995,6 +3995,7 @@ dependencies = [
  "ndarray",
  "njoy-outram-park-fork",
  "thiserror 2.0.18",
+ "uom 0.38.0",
 ]
 
 [[package]]

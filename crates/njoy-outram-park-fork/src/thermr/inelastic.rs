@@ -81,9 +81,32 @@ impl IncoherentInelastic {
         (self.b[0] / natom) * ((a + 1.0) / a).powi(2)
     }
 
+    /// Principal-scatterer effective temperature `T_eff` \[eV\] at physical
+    /// temperature `temp_k` \[K\], linearly interpolated from the MF=7/MT=4
+    /// effective-temperature table ([`teff_table`]). Falls back to the physical
+    /// temperature (pure free-gas SCT) when the evaluation omits the table.
+    ///
+    /// `T_eff ≥ T` (Egelstaff–Schofield): it carries the mean squared
+    /// vibrational speed of the bound atom, so the short-collision-time kernel
+    /// reproduces the free-gas second energy moment at high incident energy.
+    ///
+    /// [`teff_table`]: super::mf7::IncoherentInelastic::teff_table
+    pub fn teff_ev(&self, temp_k: f64) -> f64 {
+        let teff_k =
+            if self.teff_table.is_empty() { temp_k } else { interp_linear(&self.teff_table, temp_k) };
+        BK_EV_PER_K * teff_k
+    }
+
     /// The double-differential cross section `d²σ/dE'dμ` \[barn\] for scattering
     /// from incident energy `e` \[eV\] to outgoing `ep` \[eV\] through cosine `mu`,
-    /// at temperature `temp_k` \[K\]. Zero outside the tabulated `(α,β)` range.
+    /// at temperature `temp_k` \[K\].
+    ///
+    /// Inside the tabulated `(α,β)` grid the kernel comes from the interpolated
+    /// scattering law `S̃(α,β)`; **beyond** the grid (large momentum/energy
+    /// transfer, reached at higher incident energy) it comes from the
+    /// short-collision-time (SCT) analytic kernel — this is what carries `σ(E)`
+    /// back to the free-gas limit at high `E` instead of falling to zero at the
+    /// edge of the table (thermr.f90 `sig`, tabulated branch + label 170).
     pub fn double_differential(&self, e: f64, ep: f64, mu: f64, temp_k: f64, natom: f64) -> f64 {
         if e <= 0.0 || ep <= 0.0 {
             return 0.0;
@@ -91,8 +114,8 @@ impl IncoherentInelastic {
         let tev = BK_EV_PER_K * temp_k;
         let a_mass = self.mass_ratio();
 
-        let beta = (ep - e) / tev; // signed β
-        let alpha = (e + ep - 2.0 * mu * (e * ep).sqrt()) / (a_mass * tev);
+        let beta = (ep - e) / tev; // signed β (physical)
+        let alpha = (e + ep - 2.0 * mu * (e * ep).sqrt()) / (a_mass * tev); // physical α
 
         // LAT=1: the table is stored at kT₀, so scale the lookup variables.
         let (a_tab, b_tab) = if self.lat == 1 {
@@ -101,10 +124,19 @@ impl IncoherentInelastic {
             (alpha, beta.abs())
         };
 
+        // Outside the tabulated grid → SCT (the free-gas-limit tail).
+        let alpha_max =
+            self.s_tables.first().and_then(|t| t.alpha.last()).copied().unwrap_or(0.0);
+        let beta_max = self.beta.last().copied().unwrap_or(0.0);
+        if a_tab > alpha_max || b_tab > beta_max {
+            return self.sct_double_differential(e, ep, mu, temp_k, natom);
+        }
+
         let ln_s = self.interp_ln_s(a_tab, b_tab);
-        // The scattering law S̃ was floored (S ≈ 0) ⇒ no data here.
+        // Tabulated S̃ floored (S ≈ 0) in this corner: use the SCT kernel rather
+        // than returning zero — matches thermr.f90's fall-through to label 170.
         if ln_s <= SABFLG + 1.0 {
-            return 0.0;
+            return self.sct_double_differential(e, ep, mu, temp_k, natom);
         }
         // ln of the detailed-balance factor S̃·exp(−β/2). A large positive value
         // means deep downscatter into the many-phonon tail where S̃ has fallen
@@ -116,6 +148,52 @@ impl IncoherentInelastic {
         }
         let sigc = (ep / e).sqrt() / (2.0 * tev);
         let sig = sigc * self.sigma_bound(natom) * arg.exp();
+        if sig.is_finite() && sig > 0.0 {
+            sig
+        } else {
+            0.0
+        }
+    }
+
+    /// Short-collision-time (SCT) double-differential kernel `d²σ/dE'dμ` \[barn\]
+    /// for `(α,β)` beyond the tabulated grid — a faithful port of thermr.f90
+    /// `sig` label 170. The principal scatterer's bound cross section `σ_b` and
+    /// effective temperature `T_eff` set a Gaussian in `(α−|β|)` that reproduces
+    /// the free-gas kernel as `T_eff → T`:
+    ///
+    /// ```text
+    ///   S_sct(α,β) = exp[ −(α−|β|)²·T/(4·α·T_eff) − (|β|+β)/2 ] / √(4π·α·T_eff/T)
+    ///   d²σ/dE'dμ  = √(E'/E)/(2kT) · σ_b · S_sct(α,β)
+    /// ```
+    ///
+    /// A tabulated *secondary* SCT scatterer (`B(7)=0`, e.g. some polyethylene
+    /// evaluations) would add a second such term with its own `σ_b2`, mass ratio
+    /// and `T_eff2`; H-in-H₂O sets `B(7)=1` (free-gas oxygen, handled outside
+    /// THERMR) so `σ_b2 = 0` and only the principal term contributes. Because the
+    /// secondary `T_eff2` table is not retained, a nonzero secondary term is
+    /// skipped with its share dropped — see the module caveats.
+    fn sct_double_differential(&self, e: f64, ep: f64, mu: f64, temp_k: f64, natom: f64) -> f64 {
+        const AMIN: f64 = 1.0e-6;
+        let tev = BK_EV_PER_K * temp_k;
+        let a_mass = self.mass_ratio();
+        let rtev = 1.0 / tev;
+        let bb = (ep - e) * rtev; // signed β
+        let mut a = (e + ep - 2.0 * mu * (e * ep).sqrt()) / (a_mass * tev); // physical α
+        if a < AMIN {
+            a = AMIN;
+        }
+        let b = bb.abs(); // |β|
+        let sigc = (ep / e).sqrt() * rtev / 2.0;
+        let c = (4.0 * std::f64::consts::PI).sqrt();
+
+        // Principal scatterer (thermr.f90 lines 2584–2587).
+        let teff = self.teff_ev(temp_k); // T_eff in eV
+        let arg = (a - b).powi(2) * tev / (4.0 * a * teff) + (b + bb) / 2.0;
+        let mut sig = 0.0;
+        if -arg > SABFLG {
+            let s = (-arg).exp() / (c * (a * teff * rtev).sqrt());
+            sig += sigc * self.sigma_bound(natom) * s;
+        }
         if sig.is_finite() && sig > 0.0 {
             sig
         } else {
@@ -278,6 +356,31 @@ impl IncoherentInelastic {
         }
         let t = (b - b0) / (b1 - b0);
         s_lo + t * (s_hi - s_lo)
+    }
+}
+
+/// Linear interpolation of a `(x, y)` table at `x = arg`, clamped to the end
+/// values outside the tabulated range. Used for the `T_eff(T)` table.
+fn interp_linear(table: &[(f64, f64)], arg: f64) -> f64 {
+    match table {
+        [] => arg,
+        [only] => only.1,
+        _ => {
+            if arg <= table[0].0 {
+                return table[0].1;
+            }
+            if arg >= table[table.len() - 1].0 {
+                return table[table.len() - 1].1;
+            }
+            let i = table.partition_point(|&(x, _)| x <= arg) - 1;
+            let (x0, y0) = table[i];
+            let (x1, y1) = table[i + 1];
+            if (x1 - x0).abs() < 1e-30 {
+                y0
+            } else {
+                y0 + (arg - x0) / (x1 - x0) * (y1 - y0)
+            }
+        }
     }
 }
 

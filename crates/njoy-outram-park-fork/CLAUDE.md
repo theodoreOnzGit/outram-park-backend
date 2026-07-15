@@ -8,6 +8,20 @@ step upstream of an OpenMC run.
 > the shared dependency policy and design rules. Dep versions come from
 > `[workspace.dependencies]` — do not pin locally.
 
+## Standing goal: openmc-notebooks data notebooks as verification tests (MANDATORY)
+
+Part of the workspace-wide direction that **every notebook in
+https://github.com/openmc-dev/openmc-notebooks becomes a verification test** as
+`outram-mc-libs` grows an OpenMC-like API. **This crate owns the data notebooks:**
+`nuclear-data`, `nuclear-data-resonance-covariance`, `search`, and the
+cross-section-generation side of `mgxs-part-i/ii/iii` + `mdgxs-part-i/ii`
+(the transport/geometry/tally notebooks belong to `outram-mc-libs`). Build a
+notebook→test→required-API mapping for this subset, scaffold the tests
+(tractable ones live, the rest `#[ignore]` with a documented "requires API X"
+reason + a per-notebook bead), cite notebook provenance (source + commit), and
+document V&V methodology **and** measured results. Tracked under beads epic
+**op-6tz** (this crate's slice: **op-6tz.6**).
+
 ## License compliance (MANDATORY — do not break)
 
 This crate is a **derivative work** of NJOY2016, which is under a *modified BSD

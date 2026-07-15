@@ -79,3 +79,11 @@ net-fetch = ["dep:ureq", "dep:sha2", "dep:directories", "dep:fs2", "dep:zip"]
 [[test]]
 name = "u238_doppler_verification"
 path = "tests/u238_doppler_verification/main.rs"
+
+# ── OpenMC data-notebooks as verification tests (op-6tz.6) ────────────────────
+# One module per notebook in tests/openmc_notebooks_data/ (mapping doc:
+# docs/openmc-notebooks-data-verification.md). Explicit target because the
+# directory name collides with an auto-discovered file target otherwise.
+[[test]]
+name = "openmc_notebooks_data"
+path = "tests/openmc_notebooks_data/main.rs"

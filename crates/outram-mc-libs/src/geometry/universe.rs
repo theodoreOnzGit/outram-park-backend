@@ -2,31 +2,40 @@
 ///
 /// C++ source: `src/universe.cpp` (217 LOC), `include/openmc/universe.h`.
 ///
-/// A `Universe` is a collection of `Cell`s.  OpenMC starts particle tracking
-/// in the root universe (index 0) and recursively descends into fill universes
-/// to locate which cell a particle inhabits.
+/// A `Universe` is a collection of `Cell`s. Particle tracking starts in the root
+/// universe and recursively descends into fill universes/lattices to locate the
+/// leaf cell a particle inhabits (see [`crate::geometry::geometry::Geometry`]).
 ///
-/// Key operation: `find_cell(r, u)` — given a position and direction, returns
-/// the leaf cell containing `r` and the coordinate transform to that cell's
-/// local frame.
+/// Key operation: [`Universe::find_cell`] — given a local position, return the
+/// first cell in this universe that contains it.
 
-use super::position::{Direction, Position};
+use super::cell::Cell;
+use super::position::Position;
+use super::surface::SurfaceKind;
 
 /// A universe — an ordered list of cells searched top-to-bottom.
 /// Maps to `openmc::Universe`.
 pub struct Universe {
+    /// User-facing universe id.
     pub id: i32,
     /// Indices into the global cell array, in search order.
     pub cell_indices: Vec<usize>,
 }
 
 impl Universe {
-    /// Find the cell in this universe that contains `r`.
+    /// Find the first cell in this universe that contains `r` (in this universe's
+    /// local frame).
     ///
-    /// Returns the cell index, or `None` if `r` is not in any cell.
-    /// TODO: port from `universe.cpp::find_cell()`.
-    pub fn find_cell(&self, r: Position, u: Direction, _surfaces: &[Box<dyn super::surface::Surface>], _cells: &[super::cell::Cell]) -> Option<usize> {
-        let _ = (r, u);
-        todo!("Universe::find_cell: port from src/universe.cpp")
+    /// Ported from `Universe::find_cell` (`src/universe.cpp:40`): iterate the
+    /// universe's cells in order and return the first whose region contains the
+    /// point. Returns the **global cell index**, or `None` if the point is in no
+    /// cell of this universe (a geometry "lost particle").
+    pub fn find_cell(&self, r: Position, surfaces: &[SurfaceKind], cells: &[Cell]) -> Option<usize> {
+        for &i_cell in &self.cell_indices {
+            if cells[i_cell].contains(r, surfaces) {
+                return Some(i_cell);
+            }
+        }
+        None
     }
 }

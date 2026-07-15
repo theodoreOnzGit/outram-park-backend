@@ -17,6 +17,7 @@
 /// `docs/keff-doppler-roadmap.md`. The transport kernel only ever calls
 /// [`Nuclide::xs_at_energy`]; it never touches WMP, ENDF, or HDF5.
 
+use crate::material::thermal::ThermalScattering;
 use crate::rng::distributions::{maxwell, watt};
 use crate::rng::lcg::prn;
 use njoy_outram_park_fork::acer::angular::ElasticAngular;
@@ -164,6 +165,12 @@ pub struct Nuclide {
     chi: FissionSpectrum,
     /// The cross-section representation (LOW `Core` vs HIGH `Pointwise`).
     xs: XsSource,
+    /// Optional bound-atom S(α,β) thermal scattering, attached with
+    /// [`Nuclide::with_thermal_scattering`]. `Some` only for a moderator nuclide
+    /// (e.g. H in H₂O); when present it **replaces** the free-gas elastic channel
+    /// below its thermal cutoff — see [`Nuclide::xs_at_energy`] and
+    /// [`Nuclide::sample_thermal`]. `None` ⇒ pure free-gas / CE, as before.
+    thermal: Option<ThermalScattering>,
 }
 
 impl Nuclide {
@@ -188,7 +195,32 @@ impl Nuclide {
         // the CORE data so the LOW tier gets the same fission-birth fidelity as HIGH
         // (worth ~+500 pcm on Godiva; see docs/development-history.md 2026-07 MF=5).
         let chi = FissionSpectrum::default();
-        Ok(Self { name: name.to_string(), awr, nu, chi, xs: XsSource::Core { e_max, wmp, fast } })
+        Ok(Self {
+            name: name.to_string(),
+            awr,
+            nu,
+            chi,
+            xs: XsSource::Core { e_max, wmp, fast },
+            thermal: None,
+        })
+    }
+
+    /// Attach a bound-atom S(α,β) [`ThermalScattering`] treatment to this nuclide
+    /// (builder style, consumes and returns `self`).
+    ///
+    /// Use it on the moderator nuclide of a *thermal* problem — e.g. the H-1 in
+    /// light water gets the H-in-H₂O `tsl` table. Below the table's thermal cutoff
+    /// (~4 eV) the neutron then scatters off the bound-atom S(α,β) law instead of
+    /// the free-gas elastic kernel: the bound cross section is used in
+    /// [`Nuclide::xs_at_energy`] and the secondary energy/angle are drawn by
+    /// [`Nuclide::sample_thermal`], giving the up-scatter that thermalizes the
+    /// spectrum. Above the cutoff nothing changes.
+    ///
+    /// It is the caller's responsibility that `thermal` matches this nuclide
+    /// (an H-in-H₂O table on H-1, at the material temperature).
+    pub fn with_thermal_scattering(mut self, thermal: ThermalScattering) -> Self {
+        self.thermal = Some(thermal);
+        self
     }
 
     /// **HIGH fidelity.** Build a nuclide from a raw ENDF tape downloaded from a
@@ -275,6 +307,7 @@ impl Nuclide {
             nu,
             chi,
             xs: XsSource::Pointwise { recon, inel, elastic_angular },
+            thermal: None,
         })
     }
 
@@ -293,6 +326,28 @@ impl Nuclide {
     /// `total − absorption` as the scattering channel (lumping inelastic and
     /// (n,xn) into elastic-like events — see the keff module fidelity note).
     pub fn xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS {
+        let base = self.base_xs_at_energy(e, temp_k);
+        // Below the S(α,β) cutoff, the bound-atom thermal law replaces the
+        // free-gas elastic channel entirely (light water has no thermal elastic).
+        // Keep absorption/fission/inelastic/(n,2n) from the base evaluation and
+        // swap the scattering cross section for σ_inel(E), then rebuild the total.
+        if let Some(th) = &self.thermal {
+            let sab = th.inelastic_xs(e);
+            if sab > 0.0 {
+                let mut x = base;
+                x.elastic = sab;
+                x.total = x.absorption + x.inelastic + x.n2n + sab;
+                return x;
+            }
+        }
+        base
+    }
+
+    /// Microscopic cross sections **before** any S(α,β) thermal override — the
+    /// raw free-gas / CE evaluation from the underlying [`XsSource`]. Split out so
+    /// [`xs_at_energy`](Self::xs_at_energy) can layer the bound-atom thermal
+    /// treatment on top without duplicating the two data-tier arms.
+    fn base_xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS {
         match &self.xs {
             XsSource::Core { e_max, wmp, fast } => {
                 if e <= *e_max {
@@ -463,6 +518,22 @@ impl Nuclide {
             return Some(2.0 * prn(seed) - 1.0);
         }
         Some(sample_tabular_mu(&chosen.cosines, &chosen.pdf, &chosen.cdf, prn(seed)))
+    }
+
+    /// Sample a bound-atom S(α,β) thermal scatter at incident energy `e` \[eV\],
+    /// returning `Some((e_out, mu_lab))` — a **laboratory-frame** outgoing energy
+    /// \[eV\] and scattering cosine — when this nuclide carries a
+    /// [`ThermalScattering`] table and `e` is below its cutoff, or `None`
+    /// otherwise (the caller then falls back to free-gas / anisotropic elastic).
+    ///
+    /// Because the S(α,β) secondary distribution is tabulated in the lab frame,
+    /// the returned cosine is applied directly (`rotate_direction`) with **no**
+    /// CM→lab transform — unlike [`sample_elastic_mu_cm`](Self::sample_elastic_mu_cm),
+    /// whose cosine is in the CM frame. The outgoing energy may exceed the
+    /// incident energy (thermal up-scatter), which is exactly what drives the
+    /// spectrum to a Maxwellian.
+    pub fn sample_thermal(&self, e: f64, seed: &mut u64) -> Option<(f64, f64)> {
+        self.thermal.as_ref().and_then(|th| th.sample(e, seed))
     }
 
     /// Sample a fission-neutron birth energy \[eV\] given the incident energy
