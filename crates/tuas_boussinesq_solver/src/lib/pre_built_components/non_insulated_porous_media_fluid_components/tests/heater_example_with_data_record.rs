@@ -188,7 +188,7 @@ pub fn example_heater_with_struct_supports_and_mx10(){
 
 
     // csv writer
-    let mut wtr = Writer::from_path("lib_heater_example_steady_state.csv")
+    let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("lib_heater_example_steady_state.csv"))
         .unwrap();
     wtr.write_record(&["time_seconds",
         "heater_power_kilowatts",
@@ -198,8 +198,7 @@ pub fn example_heater_with_struct_supports_and_mx10(){
         "timestep_seconds",])
         .unwrap();
 
-    let mut temp_profile_wtr = Writer::from_path(
-        "lib_heater_example_temp_profile.csv")
+    let mut temp_profile_wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("lib_heater_example_temp_profile.csv"))
         .unwrap();
 
     let number_of_nodes_heated_section = number_of_inner_temperature_nodes + 2;

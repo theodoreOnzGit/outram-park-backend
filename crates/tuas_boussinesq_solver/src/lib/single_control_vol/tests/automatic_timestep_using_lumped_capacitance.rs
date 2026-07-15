@@ -404,7 +404,7 @@ fn lumped_capacitance_timestep_adjustment()
         // let's make a csv writer too 
 
         use csv::Writer;
-        let mut wtr = Writer::from_path("air_cooled_steel_sphere_auto_timestep_test.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("air_cooled_steel_sphere_auto_timestep_test.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds","temperature_kelvin","time_interval"])
@@ -681,7 +681,7 @@ fn lumped_capacitance_timestep_adjustment_improved_api()
         // let's make a csv writer too 
 
         use csv::Writer;
-        let mut wtr = Writer::from_path("air_cooled_steel_sphere_auto_timestep_test.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("air_cooled_steel_sphere_auto_timestep_test.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds","temperature_kelvin","time_interval"])
@@ -973,8 +973,7 @@ fn short_version_lumped_capacitance_timestep_adjustment_improved_api()
         // let's make a csv writer too 
 
         use csv::Writer;
-        let mut wtr = Writer::from_path(
-            "short_version_air_cooled_steel_sphere_auto_timestep_test.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("short_version_air_cooled_steel_sphere_auto_timestep_test.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds","temperature_kelvin","time_interval"])

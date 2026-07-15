@@ -306,3 +306,54 @@ by round-tripping through temperature. `set_temperature_vector` is a
 single-phase call near saturation as a latent panic; and when pre-conditioning
 a stiff-liquid array, match the initial pressure/velocity to the operating
 boundary conditions so the first step is not a violent transient.
+
+## 2026-07-15 — `(p,h)` flash: `p_sat(273.15 K)` trap fixed at the root, and Region 5 made explicitly unsupported
+
+Follow-up to the array note above. Two `(p,h)`-flash defects were addressed
+directly in the flash code (not just worked around in the array driver).
+
+**1. The `p == p_sat(273.15 K)` trap — root-cause fix.**
+`ph_flash_region` opens with `check_if_within_ph_validity_region`, whose
+lower-isotherm guard `is_below_isotherm_t_273_15` used to compute the 273.15 K
+isotherm enthalpy via the single-phase `(T,p)` flash
+`h_tp_eqm_single_phase(273.15 K, p)`. The `(T,p)` router classifies a point as
+**Region 4** whenever `pres == p_sat(T)` (exact float equality), and the
+Region 4 `(T,p)` arm was `todo!()`. At `p == p_sat(273.15 K) = 611.213 Pa` —
+the lower pressure limit of the whole `(p,h)` domain — *every* `(p,h)` flash
+panicked before it could classify the point, regardless of enthalpy.
+**Fix:** the lower isotherm is now evaluated with the Region 1 forward equation
+`h_tp_1(273.15 K, p)` directly (the entire 273.15 K isotherm over
+`[p_sat(273.15 K), 100 MPa]` is Region 1), side-stepping the router's
+saturation-line degeneracy. The two-phase point then routes normally through
+the Region 4 `(p,h)` path, which carries steam quality via `x_ph_flash`. The
+array driver's `*1.001` pressure floor is now a belt-and-braces margin rather
+than the sole guard. Verified by
+`ph_flash_region4_edge_and_region5::ph_flash_at_exact_psat_273_15_does_not_panic`
+(round-trip at exactly `sat_pressure_4(273.15)`; recovers T = 273.15 K, x = 0.30,
+and mixture v/s vs the 0 °C International Steam Tables row to < 1e-4).
+
+**2. Region 4 `(T,p)` mixture properties now report an explicit error.**
+The `..._tp_eqm_single_phase` functions' Region 4 arms changed from `todo!()`
+to an explicit `panic!` (`REGION_4_TP_UNDERDETERMINED`): a two-phase `(T,p)`
+state is genuinely under-determined without quality — a thermodynamic fact, not
+an unfinished path. Callers needing a two-phase state must use a `(p,h)`/`(p,s)`
+flash (which carry quality) or `w_tpx_eqm`.
+
+**3. Region 5 `(p,h)` is deliberately unsupported.**
+IAPWS-IF97 provides **no backward `(p,h)` correlation for Region 5** (steam
+1073.15–2273.15 K); the released backward equations cover Regions 1–3 only
+(Wagner & Kretzschmar, *International Steam Tables*, 2019). This crate does not
+fabricate a numerical inversion. A Region 5 `(p,h)` input is rejected with an
+explicit, documented "unsupported" message (`REGION_5_PH_UNSUPPORTED`), not a
+`todo!()`. If the temperature is known, use the Region 5 forward `(T,p)`
+equations (`h_tp_5`, `v_tp_5`, `s_tp_5`, ...). Verified by
+`region_5_ph_flash_is_explicitly_unsupported`.
+
+**Sharp edge left in place (pre-existing, out of scope):** the `(T,p)` router's
+Region 4 detection is an exact float equality `pres == p_sat(T)`, which under
+release-mode FMA contraction can miss by a ULP depending on the call site (a
+compile-time-folded `p` may disagree with the runtime recompute inside the
+flash). The `(p,h)` path no longer depends on it. The companion test
+`region_4_tp_forward_flash_is_explicitly_under_determined` uses a
+`black_box`-ed temperature and a round-tripped pascal pressure to land the
+Region 4 arm deterministically.

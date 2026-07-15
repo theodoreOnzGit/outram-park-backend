@@ -125,7 +125,7 @@ pub fn _coupled_dracs_loop_version_7(
     let mut pipe_36a = new_pipe_36a(initial_temperature);
     let mut pipe_37 = new_pipe_37(initial_temperature);
     let mut flowmeter_60_37a = new_flowmeter_60_37a(initial_temperature);
-    let mut pipe_38 = new_pipe_38(initial_temperature);
+    let mut pipe_38 = new_pipe_38_sam_model(initial_temperature);
     let mut pipe_39 = new_pipe_39(initial_temperature);
 
     // pri loop dhx branch top to bottom 5a to 17b 

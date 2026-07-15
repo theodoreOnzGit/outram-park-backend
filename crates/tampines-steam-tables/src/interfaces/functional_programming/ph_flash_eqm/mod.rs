@@ -13,6 +13,28 @@ use crate::thermal_conductivity::lambda_2_crit_enhancement_term_tp_two_phase_est
 
 use super::pt_flash_eqm::FwdEqnRegion;
 
+/// Panic message for a `(p,h)` flash that lands in IAPWS-IF97 Region 5
+/// (ultra-high-temperature steam, T = 1073.15 K to 2273.15 K).
+///
+/// IAPWS-IF97 (see Wagner & Kretzschmar, *International Steam Tables*, 2019)
+/// provides **no backward `(p,h)` (or `(p,s)`) correlation for Region 5** — the
+/// released backward equations cover Regions 1, 2 and 3 only. This crate does
+/// **not** substitute a home-grown numerical inversion of the Region 5 forward
+/// enthalpy, so a `(p,h)` flash into Region 5 is *deliberately* unsupported for
+/// this physics/standards reason, not merely unfinished. Callers that already
+/// know the temperature should use the Region 5 forward `(T,p)` equations
+/// (`h_tp_5`, `v_tp_5`, `s_tp_5`, ...) directly.
+///
+/// In practice a `(p,h)` point in Region 5 is rejected earlier, by
+/// `check_if_within_ph_validity_region` (it lies above the 1073.15 K isotherm);
+/// this message documents the same limitation at the region-dispatch arms so
+/// the intent is explicit wherever a reader lands.
+pub(crate) const REGION_5_PH_UNSUPPORTED: &str =
+    "(p,h) flash into IAPWS-IF97 Region 5 (T > 1073.15 K) is unsupported: \
+     IAPWS-IF97 provides no backward (p,h) correlation for Region 5 (Wagner & \
+     Kretzschmar, International Steam Tables). Use the Region 5 forward (T,p) \
+     equations (h_tp_5, v_tp_5, s_tp_5, ...) instead.";
+
 /// obtains temperature given pressure and enthalpy
 pub fn t_ph_eqm(p: Pressure, h: AvailableEnergy,) -> ThermodynamicTemperature {
     let region = ph_flash_region(p, h);
@@ -26,7 +48,7 @@ pub fn t_ph_eqm(p: Pressure, h: AvailableEnergy,) -> ThermodynamicTemperature {
             // determine sat liq/vap temperature 
             sat_temp_4(p)
         },
-        FwdEqnRegion::Region5 => todo!("region 5 ph flash not implemented"),
+        FwdEqnRegion::Region5 => panic!("temperature: {}", REGION_5_PH_UNSUPPORTED),
     }
 }
 
@@ -119,7 +141,7 @@ pub fn v_ph_eqm(p: Pressure, h: AvailableEnergy) -> SpecificVolume {
 
             }
         },
-        FwdEqnRegion::Region5 => todo!("ph flash not implemented for region 5"),
+        FwdEqnRegion::Region5 => panic!("specific volume: {}", REGION_5_PH_UNSUPPORTED),
     }
 }
 /// returns the internal energy given temperature and pressure
@@ -849,7 +871,16 @@ fn check_if_within_ph_validity_region(p: Pressure, h: AvailableEnergy,){
         panic!("p,h point below 273.15K");
     };
     if is_above_isotherm_t_1073_15(p, h) {
-        panic!("p,h point above 1073.15K");
+        // A (p,h) point above the 1073.15 K isotherm is either IAPWS-IF97
+        // Region 5 (T = 1073.15 - 2273.15 K, p <= 50 MPa) or beyond the
+        // formulation's temperature range. Either way the (p,h) flash is
+        // unsupported here: IAPWS-IF97 has no backward (p,h) correlation for
+        // Region 5 (see REGION_5_PH_UNSUPPORTED). This is a deliberate,
+        // documented physics/standards limitation, not an unfinished path.
+        panic!(
+            "(p,h) point lies above the 1073.15 K isotherm. {}",
+            REGION_5_PH_UNSUPPORTED
+        );
     };
 }
 

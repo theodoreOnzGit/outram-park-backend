@@ -29,7 +29,7 @@ insulated_pipes_and_fluid_components::InsulatedFluidComponent;
 use crate::pre_built_components::
 non_insulated_fluid_components::NonInsulatedFluidComponent;
 
-use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
+use crate::boussinesq_thermophysical_properties::LiquidMaterial;
 use crate::heat_transfer_correlations::heat_transfer_interactions::
 heat_transfer_interaction_enums::HeatTransferInteractionType;
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
@@ -348,61 +348,10 @@ Result<(),TuasLibError>{
     let mut pipe_37 = new_pipe_37(initial_temperature);
     let mut flowmeter_60_37a = new_flowmeter_60_37a(initial_temperature);
 
-    use uom::si::angle::degree;
-    use uom::si::area::square_meter;
-    use uom::si::length::{meter, millimeter};
-    use uom::si::pressure::atmosphere;
-
-    fn new_calibrated_pipe_38(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
-        let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
-        let fluid_pressure = Pressure::new::<atmosphere>(1.0);
-        let solid_pressure = Pressure::new::<atmosphere>(1.0);
-        let hydraulic_diameter = Length::new::<meter>(2.79e-2);
-        let pipe_length = Length::new::<meter>(0.33655);
-        let flow_area = Area::new::<square_meter>(6.11e-4);
-        let incline_angle = Angle::new::<degree>(-52.41533);
-        let form_loss = Ratio::new::<ratio>(17.8);
-        //estimated component wall roughness (doesn't matter here,
-        //but i need to fill in)
-        let surface_roughness = Length::new::<millimeter>(0.015);
-        let shell_id = hydraulic_diameter;
-        let pipe_thickness = Length::new::<meter>(0.0027686);
-        let shell_od = shell_id + 2.0 * pipe_thickness;
-        let insulation_thickness = Length::new::<meter>(0.0508);
-        let pipe_shell_material = SolidMaterial::SteelSS304L;
-        let insulation_material = SolidMaterial::Fiberglass;
-        let pipe_fluid = LiquidMaterial::TherminolVP1;
-        let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-        // from SAM nodalisation, we have 3 nodes only, 
-        // now because there are two outer nodes, the 
-        // number of inner nodes is 3-2
-        let user_specified_inner_nodes = 3-2; 
-
-        let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-            initial_temperature, 
-            ambient_temperature, 
-            fluid_pressure, 
-            solid_pressure, 
-            flow_area, 
-            incline_angle, 
-            form_loss, 
-            shell_id, 
-            shell_od, 
-            insulation_thickness, 
-            pipe_length, 
-            hydraulic_diameter, 
-            pipe_shell_material, 
-            insulation_material, 
-            pipe_fluid, 
-            htc_to_ambient, 
-            user_specified_inner_nodes, 
-            surface_roughness);
-
-        insulated_component
-    }
-
-
-    let mut pipe_38 = new_calibrated_pipe_38(initial_temperature);
+    // pipe 38 uses the SAM-calibrated form loss K = 17.8 (shared constructor
+    // `new_pipe_38_sam_model`); this is the recalibration this whole module
+    // validates against the SAM isolated-DRACS reference.
+    let mut pipe_38 = new_pipe_38_sam_model(initial_temperature);
     let mut pipe_39 = new_pipe_39(initial_temperature);
 
     // fluid mechanics bit 

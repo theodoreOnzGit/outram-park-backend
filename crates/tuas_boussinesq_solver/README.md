@@ -14,6 +14,44 @@ in development and not fully featured yet.
 The crate contains many useful traits and examples of how to use 
 those traits for your own projects.
 
+# Human-in-the-loop calibration (important)
+
+**Model calibration and validation-tolerance decisions in this crate are
+human-in-the-loop by design — they must not be automated away.** Choosing a
+loss coefficient, deciding whether a benchmark is met, and — especially —
+deciding whether to widen a tolerance or accept a documented per-point
+exception are engineering judgments that require a human reviewer. An automated
+agent can *measure* and *report*, but the accept/reject decision is a human's.
+
+The concrete worked example is the **coupled DRACS natural-circulation loop**
+(`src/lib/pre_built_components/ciet_steady_state_natural_circulation_test_components/coupled_dracs_loop_tests/`,
+V&V record `verification_and_validation/coupled_dracs_pipe38_K17p8_vs_ciet_experiment.md`):
+
+- The DRACS cold-leg pipe-38 form loss was recalibrated from the RELAP value
+  K = 0.8 to the SAM value K = 17.8. This *improves* the mean DRACS mass-flow
+  agreement with the CIET experiment (mean absolute error 3.83% to 2.76%) and
+  fixes the documented mid/high-flow over-prediction — but it *worsens* the two
+  lowest-flow cases (B1, C1), which a single uniform form loss physically cannot
+  fix (form loss scales with velocity squared, so it is negligible at low flow).
+- Whether to adopt K = 17.8 anyway, and how to handle B1/C1 (a velocity-
+  dependent loss model vs. a documented per-point tolerance widening), was a
+  **human decision**, not an automated one. The two low-flow DRACS bands and
+  two high-power heater-surface-temperature bands were widened *per-point with
+  written justification in the test source*; the benchmark (SAM mass-flow)
+  tolerances were **not** loosened.
+
+The general rules this illustrates, which hold throughout the crate:
+
+- **Never loosen a benchmark verification tolerance to make a test pass.** A
+  per-point exception is only acceptable when it is documented in the test with
+  a physical justification and reviewed by a human — never as a blanket change.
+- **A recalibration that helps on average can still degrade specific cases.**
+  Report the full per-case picture (see the V&V record's table), not just the
+  mean, and let a human weigh the trade-off.
+- **AI-assisted output is a draft until a human reviews it** (see the workspace
+  `RESPONSIBLE_USE.md` / `AI_USAGE.md`). Calibration constants and tolerance
+  decisions are exactly the kind of change that needs that review.
+
 # Changelog
 
 ## 0.1.3 

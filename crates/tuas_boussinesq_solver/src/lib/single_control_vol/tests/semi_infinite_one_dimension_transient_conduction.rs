@@ -201,7 +201,7 @@ fn transient_conduction_semi_infinite_copper_medium()
         let max_time_ptr_in_loop = max_time_ptr;
 
         use csv::Writer;
-        let mut wtr = Writer::from_path("single_cv_semi_infinite_simulated_values.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("single_cv_semi_infinite_simulated_values.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds",
@@ -491,7 +491,7 @@ fn transient_conduction_semi_infinite_copper_medium()
     // let's make the csv writer 
 
     use csv::Writer;
-    let mut wtr = Writer::from_path("analytical_1d_transient_conduction.csv")
+    let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("analytical_1d_transient_conduction.csv"))
         .unwrap();
 
     wtr.write_record(&["time_seconds",
@@ -670,7 +670,7 @@ fn arraycv_transient_conduction_copper_medium() -> Result<(),TuasLibError>{
         let max_time_ptr_in_loop = max_time_ptr;
 
         use csv::Writer;
-        let mut wtr = Writer::from_path("array_cv_semi_infinite_copper.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("array_cv_semi_infinite_copper.csv"))
             .unwrap();
         // header for the csv file
         wtr.write_record(&["time_seconds",
@@ -915,7 +915,7 @@ fn arraycv_transient_conduction_copper_medium() -> Result<(),TuasLibError>{
     // let's make the csv writer 
 
     use csv::Writer;
-    let mut wtr = Writer::from_path("analytical_1d_transient_conduction.csv")
+    let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("analytical_1d_transient_conduction.csv"))
         .unwrap();
 
     wtr.write_record(&["time_seconds",

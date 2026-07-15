@@ -197,7 +197,7 @@ pub fn one_dimension_ciet_heater_v_1_0_test_for_better_sampling_frequency(){
         // csv writer, for post processing 
 
 
-        let mut wtr = Writer::from_path("one_dimension_ciet_cht.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("one_dimension_ciet_cht.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds",
@@ -549,7 +549,7 @@ pub fn one_dimension_ciet_heater_v_1_0_auto_timestep_test(){
         // csv writer, for post processing 
 
 
-        let mut wtr = Writer::from_path("one_dimension_ciet_cht_autotimestep_test.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("one_dimension_ciet_cht_autotimestep_test.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds",
@@ -888,7 +888,7 @@ pub fn one_dimension_ciet_heater_v_1_0_functional_test(){
         // csv writer, for post processing 
 
 
-        let mut wtr = Writer::from_path("one_dimension_ciet_cht_functional_test.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("one_dimension_ciet_cht_functional_test.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds",

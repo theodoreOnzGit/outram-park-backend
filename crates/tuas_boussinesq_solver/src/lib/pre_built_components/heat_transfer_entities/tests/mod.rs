@@ -182,7 +182,7 @@ pub fn ciet_heater_v2_speedup_using_fluid_array_solid_column_hte(){
 
         //csv writer
         //
-        let mut wtr = Writer::from_path("array_cv_test_ciet_heater_v_2_0_steady_state.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("array_cv_test_ciet_heater_v_2_0_steady_state.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds",
@@ -192,7 +192,7 @@ pub fn ciet_heater_v2_speedup_using_fluid_array_solid_column_hte(){
             "timestep_seconds",])
             .unwrap();
 
-        let mut time_wtr = Writer::from_path("array_cv_test_ciet_heater_v_2_0_calc_time_profile.csv")
+        let mut time_wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("array_cv_test_ciet_heater_v_2_0_calc_time_profile.csv"))
             .unwrap();
 
         time_wtr.write_record(&["loop_calculation_time_nanoseconds",
@@ -202,8 +202,7 @@ pub fn ciet_heater_v2_speedup_using_fluid_array_solid_column_hte(){
             "timestep_advance_time_ns",])
             .unwrap();
 
-        let mut temp_profile_wtr = Writer::from_path(
-            "array_cv_test_ciet_heater_v_2_0_temp_profile.csv")
+        let mut temp_profile_wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("array_cv_test_ciet_heater_v_2_0_temp_profile.csv"))
             .unwrap();
 
         // this is code for writing the array of required temperatures
