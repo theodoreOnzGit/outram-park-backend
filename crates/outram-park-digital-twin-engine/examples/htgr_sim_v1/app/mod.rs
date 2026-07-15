@@ -28,7 +28,8 @@ use uom::si::mass_rate::kilogram_per_second;
 use uom::si::time::second;
 
 use outram_park_digital_twin_engine::app_scaffold::{
-    panel_selector_ui, spawn_physics_thread, SharedState,
+    panel_selector_ui, show_crash_modal_if_crashed, spawn_physics_thread_monitored, SharedState,
+    ThreadHealth,
 };
 
 use crate::physics::HtgrPlant;
@@ -53,6 +54,9 @@ pub struct HtgrSimApp {
     physics: SharedState<HtgrSnapshot>,
     /// Shared plot ring buffers (plot-sampler thread writes, GUI reads).
     plots: SharedState<HtgrPlotData>,
+    /// Crash flag shared with the physics + plot threads: if either panics, the
+    /// GUI raises the restart modal (see [`show_crash_modal_if_crashed`]).
+    thread_health: ThreadHealth,
     /// Currently open panel.
     open_panel: Panel,
 }
@@ -63,38 +67,53 @@ impl HtgrSimApp {
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let physics = SharedState::new(HtgrSnapshot::default());
         let plots = SharedState::new(HtgrPlotData::default());
+        let thread_health = ThreadHealth::new();
 
         // Physics thread: owns the (non-Clone) HtgrPlant, reads control inputs
-        // from the shared state, steps the plant, writes outputs back.
+        // from the shared state, steps the plant, writes outputs back. Spawned
+        // *monitored* so a panic (e.g. a steam-property call out of range) trips
+        // the shared crash flag instead of silently freezing the sim.
         let mut plant = HtgrPlant::new();
         let dt = Time::new::<second>(PHYSICS_DT_S);
-        spawn_physics_thread(physics.clone(), move |state| {
-            let (rho, flow) = state.read_with(|s| {
-                (
-                    s.external_reactivity_dollars,
-                    s.helium_flow_setpoint_kg_per_s,
-                )
-            });
-            let flow_rate = MassRate::new::<kilogram_per_second>(flow);
-            for _ in 0..SUBSTEPS_PER_TICK {
-                plant.step(dt, rho, flow_rate);
-            }
-            state.update(|s| plant.write_snapshot(s));
-            thread::sleep(PHYSICS_TICK);
-        });
+        spawn_physics_thread_monitored(
+            "htgr-physics",
+            physics.clone(),
+            thread_health.clone(),
+            move |state| {
+                let (rho, flow) = state.read_with(|s| {
+                    (
+                        s.external_reactivity_dollars,
+                        s.helium_flow_setpoint_kg_per_s,
+                    )
+                });
+                let flow_rate = MassRate::new::<kilogram_per_second>(flow);
+                for _ in 0..SUBSTEPS_PER_TICK {
+                    plant.step(dt, rho, flow_rate);
+                }
+                state.update(|s| plant.write_snapshot(s));
+                thread::sleep(PHYSICS_TICK);
+            },
+        );
 
         // Plot-sampler thread: reads the physics snapshot, appends to the plot
-        // buffers. Handed the physics SharedState; captures the plot one.
+        // buffers. Handed the physics SharedState; captures the plot one. Also
+        // monitored, sharing the same crash flag.
         let plots_for_sampler = plots.clone();
-        spawn_physics_thread(physics.clone(), move |state| {
-            let snapshot = state.snapshot();
-            plots_for_sampler.update(|p| p.push_sample(&snapshot));
-            thread::sleep(PLOT_TICK);
-        });
+        spawn_physics_thread_monitored(
+            "htgr-plot-sampler",
+            physics.clone(),
+            thread_health.clone(),
+            move |state| {
+                let snapshot = state.snapshot();
+                plots_for_sampler.update(|p| p.push_sample(&snapshot));
+                thread::sleep(PLOT_TICK);
+            },
+        );
 
         Self {
             physics,
             plots,
+            thread_health,
             open_panel: Panel::Schematic,
         }
     }
@@ -102,6 +121,13 @@ impl HtgrSimApp {
 
 impl eframe::App for HtgrSimApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        // If a physics/plot thread panicked, show the restart modal and stop --
+        // do not render the (now frozen) plant behind it.
+        if show_crash_modal_if_crashed(ui.ctx(), &self.thread_health) {
+            ui.ctx().request_repaint();
+            return;
+        }
+
         let snapshot = self.physics.snapshot();
 
         egui::Panel::top("htgr_top").show_inside(ui, |ui| {

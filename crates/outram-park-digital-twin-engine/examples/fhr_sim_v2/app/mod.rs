@@ -7,6 +7,8 @@ use uom::si::f64::*;
 use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::time::second;
 
+use outram_park_digital_twin_engine::app_scaffold::show_crash_modal_if_crashed;
+
 use crate::app::local_widgets_and_buttons::pipes::{SinglePipeColourBlackRedTempSensitive, SinglePipeColourBlueWhiteQualitySensitive};
 use crate::app::local_widgets_and_buttons::turbine_widget::TurbineWidget;
 use crate::{FHRSimulatorApp, FHRState};
@@ -26,6 +28,14 @@ impl eframe::App for FHRSimulatorApp {
         // eframe 0.34 hands us a root `Ui`; panels are nested into it with
         // `show_inside`, and the `CentralPanel` must come last.
         // For inspiration and more examples, go to https://emilk.github.io/egui
+
+        // If a physics thread has panicked, the `FHRState` mutex is poisoned and
+        // the normal panels below would `.lock().unwrap()` -> cascade-panic the
+        // GUI. Show the restart modal and bail out before touching that lock.
+        if show_crash_modal_if_crashed(ui.ctx(), &self.thread_health) {
+            ui.ctx().request_repaint_after(Duration::from_millis(100));
+            return;
+        }
 
         egui::Panel::top("top_panel").show_inside(ui, |ui| {
             ui.heading("FHR Educational Simulator v1");

@@ -12,9 +12,11 @@ fn main(){
 
 
 }
-use std::{sync::{Arc, Mutex}, thread};
+use std::sync::{Arc, Mutex};
 
 use uom::si::{f64::*, power::kilowatt};
+
+use outram_park_digital_twin_engine::app_scaffold::{spawn_monitored, ThreadHealth};
 
 use crate::app::{graph_data::PagePlotData, panel_enum::Panel};
 
@@ -99,8 +101,17 @@ pub struct FHRSimulatorApp {
     pub open_panel: Panel,
 
     #[serde(skip)]
-    /// pointer for plotting 
-    pub fhr_simulator_ptr_for_plotting: Arc<Mutex<PagePlotData>>
+    /// pointer for plotting
+    pub fhr_simulator_ptr_for_plotting: Arc<Mutex<PagePlotData>>,
+
+    #[serde(skip)]
+    /// Crash flag shared with the three physics threads (PRKE, thermal
+    /// hydraulics, plot updater). If any of them panics -- e.g. the salt
+    /// freezes/overheats and a property call goes out of range -- this trips
+    /// and the GUI shows the "please restart" modal instead of freezing on
+    /// stale numbers (and, because a panicking thread poisons the `FHRState`
+    /// mutex, the GUI early-returns before touching that poisoned lock).
+    pub thread_health: ThreadHealth,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -321,28 +332,34 @@ impl FHRSimulatorApp {
         let fhr_page_plot_ptr: Arc<Mutex<PagePlotData>> = 
             new_fhr_app.fhr_simulator_ptr_for_plotting.clone();
 
+        // Shared crash flag for the three physics threads below. Spawned via
+        // the engine scaffold's `spawn_monitored`, which wraps each thread body
+        // in `catch_unwind` so a panic trips this flag (surfacing the restart
+        // modal) instead of silently killing the subsystem.
+        let thread_health: ThreadHealth = new_fhr_app.thread_health.clone();
+
         // now spawn a thread to do the kinetics
         //
-        thread::spawn(move ||{
+        spawn_monitored("fhr-prke", thread_health.clone(), move ||{
             // now I also have a PRKE data which lives inside this loop
             FHRSimulatorApp::calculate_prke_loop(fhr_state_prke_ptr);
         });
 
         // spawn a thread to do the thermal hydraulics
-        thread::spawn(move ||{
+        spawn_monitored("fhr-thermal-hydraulics", thread_health.clone(), move ||{
 
             FHRSimulatorApp::calculate_thermal_hydraulics_loop(
                 fhr_state_thermal_hydraulics_ptr
             );
-            
+
         });
         // spawn a thread to do the updating of graph plots
-        thread::spawn(move ||{
+        spawn_monitored("fhr-plot-updater", thread_health.clone(), move ||{
             FHRSimulatorApp::update_plot_from_fhr_state(
                 fhr_state_plot_ptr,
                 fhr_page_plot_ptr
             );
-            
+
         });
 
         new_fhr_app
@@ -364,6 +381,7 @@ impl Default for FHRSimulatorApp {
             fhr_state: fhr_state_ptr,
             open_panel: default_open_panel,
             fhr_simulator_ptr_for_plotting: fhr_plot_ptr,
+            thread_health: ThreadHealth::new(),
 
         }
     }

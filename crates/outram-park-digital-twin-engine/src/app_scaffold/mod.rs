@@ -19,6 +19,13 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::thread::{self, JoinHandle};
 
+pub mod crash;
+
+pub use crash::{
+    show_crash_modal_if_crashed, spawn_monitored, spawn_physics_thread_monitored, CrashReport,
+    ThreadHealth,
+};
+
 /// A physics/simulation state shared between a rendering thread (the GUI)
 /// and one or more computation threads, matching `fhr_sim_v2`'s
 /// `Arc<Mutex<FHRState>>` pattern but backed by [`RwLock`] instead of
@@ -39,26 +46,48 @@ impl<T> SharedState<T> {
     /// `RwLock` read guard is dropped before this returns, so the GUI thread
     /// never holds the lock while painting (matching `fhr_sim_v2`'s
     /// lock-clone-drop-then-render pattern in its `main_page`).
+    ///
+    /// **Poison-safe.** If a physics thread panicked while holding the write
+    /// lock, the lock is poisoned; rather than propagating that into a GUI
+    /// panic (which would take the whole app down instead of showing the
+    /// crash modal), this recovers the last value written. Pair it with a
+    /// [`ThreadHealth`] check so the user is still told the physics has died.
     pub fn snapshot(&self) -> T
     where
         T: Clone,
     {
-        self.0.read().expect("SharedState lock poisoned").clone()
+        let guard: RwLockReadGuard<T> = match self.0.read() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        guard.clone()
     }
 
     /// Mutate the state in place via `f`, holding the write lock only for
     /// the duration of the call -- used both by a physics thread updating
     /// its computed results and by GUI widgets (e.g. a slider) writing a
     /// user input back into the shared state.
+    ///
+    /// **Poison-safe** (see [`snapshot`](Self::snapshot)): recovers a poisoned
+    /// guard instead of panicking.
     pub fn update(&self, f: impl FnOnce(&mut T)) {
-        let mut guard: RwLockWriteGuard<T> = self.0.write().expect("SharedState lock poisoned");
+        let mut guard: RwLockWriteGuard<T> = match self.0.write() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         f(&mut guard);
     }
 
     /// Read the state via a closure without cloning it -- for callers who
     /// only need a derived value, not a full snapshot.
+    ///
+    /// **Poison-safe** (see [`snapshot`](Self::snapshot)): recovers a poisoned
+    /// guard instead of panicking.
     pub fn read_with<R>(&self, f: impl FnOnce(&T) -> R) -> R {
-        let guard: RwLockReadGuard<T> = self.0.read().expect("SharedState lock poisoned");
+        let guard: RwLockReadGuard<T> = match self.0.read() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         f(&guard)
     }
 }
@@ -139,6 +168,28 @@ mod tests {
         let state = SharedState::new(vec![1, 2, 3]);
         let len = state.read_with(|v| v.len());
         assert_eq!(len, 3);
+    }
+
+    #[test]
+    fn snapshot_recovers_from_a_poisoned_lock_instead_of_panicking() {
+        // A physics thread that panics *while holding the write lock* poisons
+        // it. The GUI-side reader must recover the last-written value rather
+        // than cascade-panicking. Here `update`'s closure writes 99 and then
+        // panics; the panic unwinds through the write guard, poisoning it.
+        let state = SharedState::new(7_i32);
+        let state_for_thread = state.clone();
+        let handle = std::thread::spawn(move || {
+            state_for_thread.update(|v| {
+                *v = 99;
+                panic!("physics thread died mid-write");
+            });
+        });
+        // This thread genuinely panics (no catch_unwind), poisoning the lock.
+        assert!(handle.join().is_err());
+
+        // Poison-safe read: returns the value written before the panic.
+        assert_eq!(state.snapshot(), 99);
+        assert_eq!(state.read_with(|v| *v), 99);
     }
 
     #[test]
