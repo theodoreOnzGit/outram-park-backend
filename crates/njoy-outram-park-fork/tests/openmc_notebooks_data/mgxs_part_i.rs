@@ -43,20 +43,32 @@ use std::sync::Arc;
 
 use njoy_outram_park_fork::{
     endf::tape::Tape,
+    groupr::fission_matrix::{fission_group_chi, separable_fission_matrix},
     groupr::gendf::GendfSection,
     groupr::matrix::{scatter_matrix, FeedFunction},
     groupr::panel::{group_average_vector, GroupFlux, PointwiseXs},
-    nuclear_data::{secondary::NuBar, Mgxs, WeightingSpectrum},
+    groupr::self_shielded::self_shielded_group_xs,
+    groupr::unresolved::UrrReaction,
+    nuclear_data::{secondary::FissionSpectrum, secondary::NuBar, Mgxs, WeightingSpectrum},
     reconr::{reconr, ReconrConfig},
     MtReaction,
 };
 
 const U235_MAT: i32 = 9228;
+/// U-238 material number (ENDF/B-VIII.0) — the classic strong-URR self-shielding
+/// nuclide, used for the self-shielded-MGXS dilution-limit skeleton.
+const U238_MAT: i32 = 9237;
 
 fn u235_tape() -> Tape {
     let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
     Tape::read(File::open(p).expect("open U-235")).expect("parse U-235 tape")
+}
+
+fn u238_tape() -> Tape {
+    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    p.push("tests/resources/n-092_U_238.endf");
+    Tape::read(File::open(p).expect("open U-238")).expect("parse U-238 tape")
 }
 
 /// Live partial: the group-collapse primitive on the notebook's 2-group
@@ -233,19 +245,137 @@ fn groupr_engine_vector_group_average() {
     );
 }
 
-/// Notebook op: `mgxs.TotalXS(...)` + tallies + `run()` → self-shielded group
-/// constants from the flux solution, plus the group-to-group scatter matrix and
-/// group Chi.
+/// Notebook op (**op-6tz.6.3, now LIVE via op-bsz**): `mgxs.TotalXS(...)` +
+/// tallies → self-shielded group constants, the group-to-group scatter matrix,
+/// group **Chi**, and the fission matrix.
 ///
-/// The GROUPR **vector** group-average engine is now ported (op-cjw.15, exercised
-/// by [`groupr_engine_vector_group_average`]), but the notebook's *self-shielded*
-/// MGXS and the **scatter matrix / Chi** need the GROUPR **matrix** path
-/// (`cm2lab` kinematics + File-6 feeders, `NotPorted`) and/or transport-tally
-/// MGXS from `outram-mc-libs`. op-6tz.6 "flux-solved MGXS" bead.
+/// # Methodology
+///
+/// This exercises the three self-shielded-MGXS pieces the op-bsz fleet completed,
+/// on real U-235 ENDF/B-VIII.0 (MAT 9228), RECONR 0.001 / 0 K, over the notebook
+/// 2-group structure `[1e-3, 0.625, 2e7]` eV under a 1/E weight:
+///
+/// 1. **Self-shielded (Bondarenko-dilution) total MGXS** —
+///    [`self_shielded_group_xs`] over dilutions `{inf, 1e4, 1e2, 1e0}` barn
+///    (URR table `None`: Bondarenko-flux weighting, the tape-free path). Asserts
+///    finiteness, monotone non-increasing σ_t as σ0 decreases (self-shielding),
+///    and the σ0→∞ column ≈ the plain flux-weighted vector average.
+/// 2. **Group Chi** — [`fission_group_chi`] collapses the fission emission
+///    spectrum χ(E') to the 2-group structure; asserts it sums to 1 and the fast
+///    group dominates (χ born fast).
+/// 3. **Separable fission matrix** — [`separable_fission_matrix`] builds
+///    `σ_f[g→g'] = (group νσ_f)_g · χ_g'`; asserts each row sum equals the group
+///    νσ_f and every row is proportional to the shared Chi.
+///
+/// # Honesty / V&V scope
+///
+/// - The fission spectrum uses the documented LOW-tier Watt χ
+///   ([`FissionSpectrum::default`], U-235 thermal-fission parameters) as the
+///   emission shape — the incident-energy-dependent MF=5 χ(E'|E) and its full
+///   (non-separable) fission matrix remain a flagged gap.
+/// - No URR MF=2/MT=152 tape is available (needs UNRESR/PURR), so the
+///   self-shielding is flux-only (Bondarenko), not tape-fed.
+/// - **NOT validated against a real NJOY GROUPR GENDF golden tape.** These are
+///   self-consistency (property) checks on real reconstructed data. A golden-file
+///   comparison against NJOY (and the openmc-notebooks `mgxs` `.ipynb` outputs,
+///   openmc-notebooks @ `cf1e5db`) is the outstanding validation step (op-ini).
+///
+/// # Results (2026-07-15, U-235 ENDF/B-VIII.0, 1/E weight)
+///
+/// Measured self-shielded σ_t(σ0), the group Chi vector, and the fission-matrix
+/// row sums are printed by the test run; all asserted properties hold.
 #[test]
-#[ignore = "scatter matrix now ported (op-3ut, exercised live by groupr_elastic_scatter_matrix_u235); the *self-shielded* MGXS (dilution flux) and group Chi still need the URR feeder + fission matrix or transport tallies (op-6tz.6)"]
 fn flux_weighted_self_shielded_mgxs() {
-    panic!("self-shielded (Bondarenko-dilution) MGXS + group Chi still need the URR PENDF feeder / fission matrix or transport tallies — not yet available");
+    let tape = u235_tape();
+    let result = reconr(&tape, &ReconrConfig { mat: U235_MAT, tolerance: 0.001, temperature: 0.0 })
+        .expect("RECONR U-235");
+    let nu = NuBar::from_endf(&tape, U235_MAT)
+        .expect("MF=1/452")
+        .expect("U-235 ν̄");
+
+    let n = 3000usize;
+    let (e_lo, e_hi) = (1.0e-3_f64, 2.0e7_f64);
+    let grid: Vec<f64> = (0..=n)
+        .map(|i| e_lo * (e_hi / e_lo).powf(i as f64 / n as f64))
+        .collect();
+    let sample = |mt: MtReaction| -> Vec<f64> { grid.iter().map(|&e| result.eval_mt(mt, e)).collect() };
+    let total = sample(MtReaction::Mt1Total);
+    let fission = sample(MtReaction::Mt18Fission);
+    let nu_fission: Vec<f64> = grid.iter().zip(&fission).map(|(&e, &sf)| sf * nu.at(e)).collect();
+
+    let sigma_t = PointwiseXs::LinLin(Arc::new(
+        grid.iter().copied().zip(total.iter().copied()).collect::<Vec<_>>(),
+    ));
+    let nu_sf = PointwiseXs::LinLin(Arc::new(
+        grid.iter().copied().zip(nu_fission.iter().copied()).collect::<Vec<_>>(),
+    ));
+    let weight = GroupFlux::spectrum(WeightingSpectrum::OneOverE);
+    let bounds = [1.0e-3_f64, 0.625, 2.0e7];
+
+    // --- (1) Self-shielded (Bondarenko-dilution) total MGXS ---
+    let sigma_pot = 11.2_f64; // barn (approximate U elastic asymptote)
+    let dilutions = [f64::INFINITY, 1.0e4, 1.0e2, 1.0e0];
+    let ss = self_shielded_group_xs(
+        &sigma_t, &sigma_t, None, UrrReaction::Total, &weight, sigma_pot, &dilutions, &bounds, &grid,
+    )
+    .expect("self-shielded MGXS");
+    assert_eq!(ss.n_groups(), 2);
+    for is in 0..dilutions.len() {
+        println!(
+            "U-235 σ_t(σ0={:>9.2e}) = [{:.3}, {:.4}] b",
+            dilutions[is], ss.get(is, 0), ss.get(is, 1)
+        );
+    }
+    let vec_t = group_average_vector(&sigma_t, &weight, &bounds);
+    for g in 0..2 {
+        for is in 0..dilutions.len() {
+            assert!(ss.get(is, g).is_finite() && ss.get(is, g) >= 0.0);
+        }
+        // σ0→∞ ≈ plain flux-weighted vector average (tabulation tol).
+        let rel = (ss.get(0, g) - vec_t[g]).abs() / vec_t[g].max(1e-30);
+        assert!(rel < 2.0e-2, "inf σ_t g{g} {:.4} vs vector {:.4} rel {rel:.3}", ss.get(0, g), vec_t[g]);
+        // Monotone non-increasing as σ0 decreases.
+        for is in 1..dilutions.len() {
+            assert!(
+                ss.get(is, g) <= ss.get(is - 1, g) + 1e-6 * ss.get(is - 1, g).abs().max(1.0),
+                "self-shielding increased σ_t at g{g}, σ0={:.1e}", dilutions[is]
+            );
+        }
+    }
+
+    // --- (2) Group Chi (fission emission spectrum collapsed to the structure) ---
+    let spectrum = FissionSpectrum::default(); // LOW-tier Watt χ (documented)
+    let chi = fission_group_chi(&spectrum, &bounds).expect("group chi");
+    let chi_sum: f64 = chi.chi.iter().sum();
+    println!("U-235 group Chi = {:?}, sum = {chi_sum}", chi.chi);
+    assert!((chi_sum - 1.0).abs() < 1e-9, "group Chi must sum to 1, got {chi_sum}");
+    for &c in &chi.chi {
+        assert!(c >= 0.0, "χ_g must be non-negative");
+    }
+    // Fission neutrons are born fast: the fast group (g=1) carries ~all of χ.
+    assert!(chi.get(1) > 0.9, "fast group χ {:.4} should dominate", chi.get(1));
+
+    // --- (3) Separable fission matrix σ_f[g→g'] = (group νσ_f)_g · χ_g' ---
+    let fm = separable_fission_matrix(&nu_sf, &spectrum, &weight, &bounds, &bounds)
+        .expect("separable fission matrix");
+    let nu_sf_g = group_average_vector(&nu_sf, &weight, &bounds);
+    for g in 0..2 {
+        // Row sum equals the incident-group νσ_f (χ sums to 1).
+        let rel = (fm.row_sum(g) - nu_sf_g[g]).abs() / nu_sf_g[g].max(1e-30);
+        assert!(rel < 1e-6, "row sum g{g} {:.5} vs νσ_f {:.5} rel {rel:.2e}", fm.row_sum(g), nu_sf_g[g]);
+        // Each row is proportional to the shared Chi.
+        for gp in 0..2 {
+            let expected = nu_sf_g[g] * chi.get(gp);
+            assert!(
+                (fm.element(g, gp) - expected).abs() < 1e-9 * expected.abs().max(1.0),
+                "fission matrix [{g}->{gp}] {:.6} != νσ_f·χ {:.6}", fm.element(g, gp), expected
+            );
+        }
+    }
+    println!(
+        "U-235 fission matrix row sums = [{:.4}, {:.4}] b (νσ_f = [{:.4}, {:.4}])",
+        fm.row_sum(0), fm.row_sum(1), nu_sf_g[0], nu_sf_g[1]
+    );
 }
 
 /// Notebook op (partial, **GROUPR matrix path**, op-3ut): the group-to-group
@@ -402,4 +532,153 @@ fn groupr_elastic_scatter_matrix_u235() {
     let rows = section.to_rows();
     let back = GendfSection::from_rows(6, 2, &rows).expect("parse matrix GENDF section");
     assert_eq!(back, section, "matrix GENDF section survives the record round trip");
+}
+
+/// Notebook op (self-shielded MGXS, **skeleton** for op-bsz): the self-shielded
+/// (Bondarenko-dilution) multigroup total cross section of U-238 vs background
+/// dilution `sigma_0`, built by the URR self-shielding + per-dilution group
+/// average ([`self_shielded_group_xs`]).
+///
+/// # Methodology (target, once the op-bsz pieces land)
+///
+/// U-238 is the canonical strong-URR self-shielding nuclide. This test
+/// reconstructs the U-238 total cross section (RECONR, resolved range), builds
+/// the Bondarenko-dilution weighting flux for a set of background dilutions
+/// `sigma_0 in {inf, 1e4, 1e3, 1e2, 1e1, 1e0}` barn, and group-averages over a
+/// coarse fast structure. The three properties that must hold (no golden tape
+/// needed):
+/// 1. **Infinite-dilution limit** — the `sigma_0 = inf` column equals the plain
+///    flux-weighted vector average ([`group_average_vector`] under the smooth
+///    weight) to numerical precision.
+/// 2. **Self-shielding monotonicity** — for a resonance-shaped `sigma_t`, each
+///    group's `sigma_g(sigma_0)` is non-decreasing in `sigma_0` (more dilution =
+///    less shielding = larger effective cross section).
+/// 3. **Fully-shielded floor** — the `sigma_0 -> 0` column is the most depressed
+///    (narrow-resonance `1/sigma_t` weighting).
+///
+/// # Status — LIVE (op-bsz)
+///
+/// The assembly ([`self_shielded_group_xs`]) landed and is verified. This test
+/// runs it on real reconstructed U-238 total cross section and asserts the three
+/// dilution-limit properties (no golden tape needed).
+///
+/// NOTE: a real URR self-shielded cross-section table (MF=2/MT=152) requires
+/// UNRESR/PURR output, which this crate does not yet produce. This test
+/// exercises the **Bondarenko-flux-weighted** self-shielded average (URR table =
+/// `None`), which is the honest, tape-free half of the notebook's self-shielded
+/// MGXS. Validation against a real NJOY GENDF golden tape remains the top V&V
+/// gap (op-ini).
+///
+/// # Results (2026-07-15, U-238 ENDF/B-VIII.0, 1/E weight)
+///
+/// The self-shielded group total σ_t(σ0) over the coarse fast structure is
+/// finite and non-negative; monotonically **non-increasing** as σ0 decreases
+/// (self-shielding depresses the flux inside U-238's strong resonances,
+/// down-weighting the resonance peaks); the σ0→∞ column matches the plain
+/// flux-weighted vector average within tabulation tolerance; and the
+/// fully-shielded (smallest σ0) column is the minimum. Measured group values are
+/// printed by the test run.
+#[test]
+fn self_shielded_mgxs_dilution_limits_u238() {
+    let tape = u238_tape();
+    let result = reconr(
+        &tape,
+        &ReconrConfig { mat: U238_MAT, tolerance: 0.001, temperature: 0.0 },
+    )
+    .expect("RECONR U-238");
+
+    // Fine log grid + reconstructed total cross section.
+    let n = 4000usize;
+    let (e_lo, e_hi) = (1.0e-3_f64, 2.0e7_f64);
+    let grid: Vec<f64> = (0..=n)
+        .map(|i| e_lo * (e_hi / e_lo).powf(i as f64 / n as f64))
+        .collect();
+    let total: Vec<f64> = grid
+        .iter()
+        .map(|&e| result.eval_mt(MtReaction::Mt1Total, e))
+        .collect();
+
+    let sigma_t = PointwiseXs::LinLin(Arc::new(
+        grid.iter().copied().zip(total.iter().copied()).collect::<Vec<_>>(),
+    ));
+    let weight = GroupFlux::spectrum(WeightingSpectrum::OneOverE);
+
+    // U-238 potential scattering ~ 4pi R^2 with R ~ 9.44 fm (public ENDF value);
+    // an approximate high-energy elastic asymptote for the Bondarenko flux.
+    let sigma_pot = 11.3_f64; // barn (approximate; refine when assertions land)
+    // Background dilutions, infinite down to fully-shielded.
+    let dilutions = [f64::INFINITY, 1.0e4, 1.0e3, 1.0e2, 1.0e1, 1.0e0];
+    // Coarse fast structure spanning the URR region of U-238 (~ keV region).
+    let bounds = [1.0e-3_f64, 1.0e0, 1.0e2, 1.0e4, 2.0e7];
+
+    let mgxs = self_shielded_group_xs(
+        &sigma_t,
+        &sigma_t,
+        None, // no URR MF=2/MT=152 table available (needs UNRESR/PURR)
+        UrrReaction::Total,
+        &weight,
+        sigma_pot,
+        &dilutions,
+        &bounds,
+        &grid,
+    )
+    .expect("self-shielded group XS");
+
+    let n_groups = bounds.len() - 1;
+    assert_eq!(mgxs.n_groups(), n_groups);
+    let n_dil = dilutions.len();
+
+    // Print the full self-shielded table (measured numbers).
+    for is in 0..n_dil {
+        let row: Vec<f64> = (0..n_groups).map(|g| mgxs.get(is, g)).collect();
+        println!("U-238 σ_t(σ0={:>9.2e}) = {:?} b", dilutions[is], row);
+    }
+
+    // (finite / non-negative) everywhere.
+    for is in 0..n_dil {
+        for g in 0..n_groups {
+            let v = mgxs.get(is, g);
+            assert!(v.is_finite() && v >= 0.0, "σ_t[dil {is}][g {g}] = {v}");
+        }
+    }
+
+    // (1) Infinite-dilution column ≈ plain flux-weighted vector average. The
+    // Bondarenko flux at σ0=inf collapses to the smooth weight; the residual is
+    // the flux-tabulation vs analytic-refinement difference, so a modest 2%
+    // tolerance (not machine precision) is the honest bound on real data.
+    let vec_ref = group_average_vector(&sigma_t, &weight, &bounds);
+    for g in 0..n_groups {
+        let inf = mgxs.get(0, g); // dilutions[0] = f64::INFINITY
+        let rel = (inf - vec_ref[g]).abs() / vec_ref[g].max(1e-30);
+        assert!(
+            rel < 2.0e-2,
+            "inf-dilution group {g} σ_t {inf:.4} vs vector {:.4}, rel {rel:.3}",
+            vec_ref[g]
+        );
+    }
+
+    // (2) Monotone non-increasing as σ0 decreases (self-shielding). dilutions
+    // are listed largest→smallest, so σ_g must be weakly decreasing in index.
+    for g in 0..n_groups {
+        for is in 1..n_dil {
+            let hi = mgxs.get(is - 1, g);
+            let lo = mgxs.get(is, g);
+            assert!(
+                lo <= hi + 1e-6 * hi.abs().max(1.0),
+                "group {g}: σ_t at σ0={:.1e} ({lo:.5}) exceeds σ0={:.1e} ({hi:.5}) — self-shielding must not increase σ_t",
+                dilutions[is], dilutions[is - 1]
+            );
+        }
+    }
+
+    // (3) Fully-shielded (smallest σ0) column is the minimum per group.
+    for g in 0..n_groups {
+        let floor = mgxs.get(n_dil - 1, g);
+        for is in 0..n_dil {
+            assert!(
+                floor <= mgxs.get(is, g) + 1e-6 * floor.abs().max(1.0),
+                "group {g}: fully-shielded floor {floor:.5} not the minimum",
+            );
+        }
+    }
 }

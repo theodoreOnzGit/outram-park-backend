@@ -308,6 +308,27 @@ pub struct UnrShielded {
     pub next_energy: Option<f64>,
 }
 
+/// The resolved/unresolved overlap context at one energy — the `iovl` flag plus
+/// the absolute infinite-dilution URR cross section `sinf` `getunr` needs to form
+/// the `xtot` background addition (`groupr.f90:6961-6979`).
+///
+/// Exposed so the overlap-aware lookup
+/// ([`crate::groupr::overlap::shield_with_overlap`]) can compute
+/// `xtot = sig(1) - sinf` — the flux-weighted combine inside
+/// [`UnresolvedTable::shield`] cancels `sinf`, so it is not otherwise observable
+/// from the public API.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct OverlapContext {
+    /// Whether energy `e` falls on (or between two) resolved/unresolved overlap
+    /// point(s) (`iovl == 1`, `groupr.f90:6961,6976`).
+    pub in_overlap: bool,
+    /// The absolute infinite-dilution URR cross section `sinf` \[barn\] for the
+    /// requested reaction at `e` — the first (dilution) column, energy-
+    /// interpolated exactly as `shield`/`getunr` compute it
+    /// (`groupr.f90:6959,6979`).
+    pub sinf: f64,
+}
+
 /// Relative tolerances: `eps` for the last-point energy nudge and `del` for the
 /// energy-range guards in `getunr` (`groupr.f90:6914-6915`).
 const EPS: f64 = 1.0e-4;
@@ -527,6 +548,81 @@ impl UnresolvedTable {
                 Ok(UnrShielded {
                     sig,
                     next_energy: Some(en),
+                })
+            }
+        }
+    }
+
+    /// The resolved/unresolved **overlap context** at energy `e` for a reaction —
+    /// the `iovl` flag and the absolute infinite-dilution cross section `sinf`
+    /// (`groupr.f90:6959-6979`).
+    ///
+    /// Returns `None` in exactly the cases where [`Self::shield`] leaves the
+    /// background unchanged (energy outside the URR range, reaction column
+    /// absent, or `nsig0 <= 1`). Otherwise it reports whether `e` is an overlap
+    /// point (`iovl == 1`) and the `sinf` value `getunr` uses to form
+    /// `xtot = sig(1) - sinf` — which the flux-weighted combine in
+    /// [`Self::shield`] otherwise cancels, so it is not observable from `shield`'s
+    /// output alone. Used by
+    /// [`crate::groupr::overlap::shield_with_overlap`].
+    ///
+    /// The `sinf` and interval logic mirror [`Self::shield`] exactly: the last
+    /// point uses its own infinite-dilution column, an interior energy uses the
+    /// energy-interpolation ([`terp1`]) of the two bracketing infinite-dilution
+    /// columns, and `in_overlap` is the AND of the bracketing points' overlap
+    /// flags (a single point at the last node uses that point's flag).
+    pub fn overlap_context(&self, reaction: UrrReaction, e: f64) -> Option<OverlapContext> {
+        if self.sigma0_grid.len() <= 1 {
+            return None;
+        }
+        let ix = reaction.column();
+        if ix >= self.n_reactions {
+            return None;
+        }
+        let e1 = self.points[0].energy_ev;
+        let enunr = self.points[self.points.len() - 1].energy_ev;
+        if e < e1 - DEL * e1 || e > enunr + DEL * enunr {
+            return None;
+        }
+
+        // Same interval search as `shield` (groupr.f90:6944-6956).
+        let mut interval = None;
+        for i in 0..self.points.len() - 1 {
+            let elo = self.points[i].energy_ev;
+            let elo = elo - DEL * elo;
+            let ehi = self.points[i + 1].energy_ev;
+            if e > elo && e < ehi {
+                interval = Some(i);
+                break;
+            }
+        }
+
+        match interval {
+            None => {
+                // Last point (groupr.f90:6958-6962).
+                let last = &self.points[self.points.len() - 1];
+                Some(OverlapContext {
+                    in_overlap: last.overlap,
+                    sinf: last.xs[ix][0],
+                })
+            }
+            Some(i) => {
+                // Interior (groupr.f90:6973-6979): both bracketing points must be
+                // overlap for iovl == 1; sinf = energy-interp of the first column.
+                let plo = &self.points[i];
+                let phi = &self.points[i + 1];
+                let sinf = terp1(
+                    plo.energy_ev,
+                    plo.xs[ix][0],
+                    phi.energy_ev,
+                    phi.xs[ix][0],
+                    e,
+                    self.interp,
+                )
+                .ok()?;
+                Some(OverlapContext {
+                    in_overlap: plo.overlap && phi.overlap,
+                    sinf,
                 })
             }
         }
