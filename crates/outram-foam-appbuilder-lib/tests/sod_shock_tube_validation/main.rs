@@ -76,7 +76,9 @@
 //! monotone (non-oscillatory) captures of the shock, contact, and rarefaction.
 
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
-use outram_foam_appbuilder_lib::io::field_reader::{read_vol_scalar_field, read_vol_vector_field_full};
+use outram_foam_appbuilder_lib::io::field_reader::{
+    read_vol_scalar_field, read_vol_vector_field_full,
+};
 use outram_foam_appbuilder_lib::io::fv_schemes::FvSchemes;
 use outram_foam_appbuilder_lib::io::fv_solution::FvSolution;
 use outram_foam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
@@ -191,12 +193,16 @@ fn sample(l: GasState, r: GasState, p_star: f64, u_star: f64, xi: f64) -> GasSta
                 - c_l
                     * ((GAMMA + 1.0) / (2.0 * GAMMA) * (p_star / l.p)
                         + (GAMMA - 1.0) / (2.0 * GAMMA))
-                    .sqrt();
+                        .sqrt();
             if xi <= s_l {
                 l
             } else {
                 let rho = l.rho * (p_star / l.p + g1) / (g1 * (p_star / l.p) + 1.0);
-                GasState { rho, u: u_star, p: p_star }
+                GasState {
+                    rho,
+                    u: u_star,
+                    p: p_star,
+                }
             }
         } else {
             let c_star_l = c_l * (p_star / l.p).powf((GAMMA - 1.0) / (2.0 * GAMMA));
@@ -206,7 +212,11 @@ fn sample(l: GasState, r: GasState, p_star: f64, u_star: f64, xi: f64) -> GasSta
                 l
             } else if xi >= s_tail {
                 let rho = l.rho * (p_star / l.p).powf(1.0 / GAMMA);
-                GasState { rho, u: u_star, p: p_star }
+                GasState {
+                    rho,
+                    u: u_star,
+                    p: p_star,
+                }
             } else {
                 let u = 2.0 / (GAMMA + 1.0) * (c_l + (GAMMA - 1.0) / 2.0 * l.u + xi);
                 let c = 2.0 / (GAMMA + 1.0) * (c_l + (GAMMA - 1.0) / 2.0 * (l.u - xi));
@@ -221,7 +231,11 @@ fn sample(l: GasState, r: GasState, p_star: f64, u_star: f64, xi: f64) -> GasSta
             r
         } else {
             let rho = r.rho * (p_star / r.p + g1) / (g1 * (p_star / r.p) + 1.0);
-            GasState { rho, u: u_star, p: p_star }
+            GasState {
+                rho,
+                u: u_star,
+                p: p_star,
+            }
         }
     } else {
         let c_star_r = c_r * (p_star / r.p).powf((GAMMA - 1.0) / (2.0 * GAMMA));
@@ -231,7 +245,11 @@ fn sample(l: GasState, r: GasState, p_star: f64, u_star: f64, xi: f64) -> GasSta
             r
         } else if xi <= s_tail {
             let rho = r.rho * (p_star / r.p).powf(1.0 / GAMMA);
-            GasState { rho, u: u_star, p: p_star }
+            GasState {
+                rho,
+                u: u_star,
+                p: p_star,
+            }
         } else {
             let u = 2.0 / (GAMMA + 1.0) * (-c_r + (GAMMA - 1.0) / 2.0 * r.u + xi);
             let c = 2.0 / (GAMMA + 1.0) * (c_r - (GAMMA - 1.0) / 2.0 * (r.u - xi));
@@ -257,8 +275,16 @@ fn exact_state(l: GasState, r: GasState, x: f64, x0: f64, t: f64) -> GasState {
 /// closed-form star-state values for the Sod problem (CLAUDE.md §5.2).
 #[test]
 fn exact_riemann_reproduces_sod_star_state() {
-    let l = GasState { rho: 1.0, u: 0.0, p: 1.0 };
-    let r = GasState { rho: 0.125, u: 0.0, p: 0.1 };
+    let l = GasState {
+        rho: 1.0,
+        u: 0.0,
+        p: 1.0,
+    };
+    let r = GasState {
+        rho: 0.125,
+        u: 0.0,
+        p: 0.1,
+    };
 
     let p_star = star_pressure(l, r);
     let u_star = star_velocity(l, r, p_star);
@@ -279,7 +305,10 @@ fn exact_riemann_reproduces_sod_star_state() {
     assert!((u_star - 0.92745).abs() < 1e-3, "u* = {u_star}");
     assert!((rho_star_l - 0.42632).abs() < 1e-3, "rho*_L = {rho_star_l}");
     assert!((rho_star_r - 0.26557).abs() < 1e-3, "rho*_R = {rho_star_r}");
-    assert!((shock_speed - 1.75216).abs() < 1e-3, "S_shock = {shock_speed}");
+    assert!(
+        (shock_speed - 1.75216).abs() < 1e-3,
+        "S_shock = {shock_speed}"
+    );
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -310,8 +339,16 @@ const SOD_TABLE_II: [(f64, f64, f64, f64); 9] = [
 /// routes around via the arbiter.
 #[test]
 fn exact_riemann_matches_sod_table_ii() {
-    let l = GasState { rho: 1.0, u: 0.0, p: 1.0 };
-    let r = GasState { rho: 0.125, u: 0.0, p: 0.1 };
+    let l = GasState {
+        rho: 1.0,
+        u: 0.0,
+        p: 1.0,
+    };
+    let r = GasState {
+        rho: 0.125,
+        u: 0.0,
+        p: 0.1,
+    };
     let tau = 0.2;
     let x0 = 0.5;
 
@@ -319,9 +356,8 @@ fn exact_riemann_matches_sod_table_ii() {
     println!("x_over_L,rho_exact,rho_tab,u_exact,u_tab,P_exact,P_tab,faithful");
     for &(x, rho_t, u_t, p_t) in SOD_TABLE_II.iter() {
         let s = exact_state(l, r, x, x0, tau);
-        let faithful = (s.rho - rho_t).abs() < 0.02
-            && (s.u - u_t).abs() < 0.02
-            && (s.p - p_t).abs() < 0.02;
+        let faithful =
+            (s.rho - rho_t).abs() < 0.02 && (s.u - u_t).abs() < 0.02 && (s.p - p_t).abs() < 0.02;
         println!(
             "{x:.1},{:.3},{rho_t:.3},{:.3},{u_t:.3},{:.3},{p_t:.3},{faithful}",
             s.rho, s.u, s.p
@@ -330,7 +366,11 @@ fn exact_riemann_matches_sod_table_ii() {
         // Constant states agree to < 0.001; the sole faithful-but-in-fan point
         // (x/L = 0.3) carries ~1.1% Glimm's-method scatter, hence the 0.015 bound.
         if faithful {
-            assert!((s.rho - rho_t).abs() < 0.015, "rho @ x={x}: {} vs {rho_t}", s.rho);
+            assert!(
+                (s.rho - rho_t).abs() < 0.015,
+                "rho @ x={x}: {} vs {rho_t}",
+                s.rho
+            );
             assert!((s.u - u_t).abs() < 0.015, "u @ x={x}: {} vs {u_t}", s.u);
             assert!((s.p - p_t).abs() < 0.015, "P @ x={x}: {} vs {p_t}", s.p);
         }
@@ -381,8 +421,12 @@ fn build_solver(t_end: f64) -> RhoCentralFoam {
         delta_t: 1e-6,
         ..ControlDict::default()
     };
-    let mut solver =
-        RhoCentralFoam::new(mesh.clone(), control, FvSchemes::default(), FvSolution::default());
+    let mut solver = RhoCentralFoam::new(
+        mesh.clone(),
+        control,
+        FvSchemes::default(),
+        FvSolution::default(),
+    );
 
     let rho = solver.rho.internal.as_mut_slice();
     for c in 0..n {
@@ -437,11 +481,25 @@ fn rho_central_foam_matches_sod_table_ii() {
 
     // Cell-centred profiles, sorted by x for interpolation.
     let mut idx: Vec<usize> = (0..n).collect();
-    idx.sort_by(|&a, &b| mesh.cell_centres[a].x.partial_cmp(&mesh.cell_centres[b].x).unwrap());
+    idx.sort_by(|&a, &b| {
+        mesh.cell_centres[a]
+            .x
+            .partial_cmp(&mesh.cell_centres[b].x)
+            .unwrap()
+    });
     let xs: Vec<f64> = idx.iter().map(|&c| mesh.cell_centres[c].x).collect();
-    let rho_p: Vec<f64> = idx.iter().map(|&c| solver.rho.internal.as_slice()[c]).collect();
-    let u_p: Vec<f64> = idx.iter().map(|&c| solver.u.internal.as_slice()[c].x).collect();
-    let p_p: Vec<f64> = idx.iter().map(|&c| solver.p.internal.as_slice()[c]).collect();
+    let rho_p: Vec<f64> = idx
+        .iter()
+        .map(|&c| solver.rho.internal.as_slice()[c])
+        .collect();
+    let u_p: Vec<f64> = idx
+        .iter()
+        .map(|&c| solver.u.internal.as_slice()[c].x)
+        .collect();
+    let p_p: Vec<f64> = idx
+        .iter()
+        .map(|&c| solver.p.internal.as_slice()[c])
+        .collect();
 
     // Sanity: finite everywhere.
     for (name, f) in [("rho", &rho_p), ("u", &u_p), ("p", &p_p)] {
@@ -449,8 +507,16 @@ fn rho_central_foam_matches_sod_table_ii() {
         assert_eq!(bad, 0, "{bad} non-finite {name} cells (solver diverged)");
     }
 
-    let l = GasState { rho: RHO_LEFT, u: 0.0, p: P_LEFT };
-    let r = GasState { rho: RHO_RIGHT, u: 0.0, p: P_RIGHT };
+    let l = GasState {
+        rho: RHO_LEFT,
+        u: 0.0,
+        p: P_LEFT,
+    };
+    let r = GasState {
+        rho: RHO_RIGHT,
+        u: 0.0,
+        p: P_RIGHT,
+    };
 
     // Peak magnitudes for relative-error normalisation.
     let rho_scale = RHO_LEFT;
@@ -471,7 +537,7 @@ fn rho_central_foam_matches_sod_table_ii() {
 
     for &(xl, rho_t_nd, u_t_nd, p_t_nd) in SOD_TABLE_II.iter() {
         let x_si = (xl - 0.5) * L0; // x/L = x_OF/L0 + 0.5  ⇒  x_OF = (x/L − 0.5)·L0
-        // Redimensionalise Table II to SI.
+                                    // Redimensionalise Table II to SI.
         let rho_tab = rho_t_nd * RHO0;
         let u_tab = u_t_nd * U0;
         let p_tab = p_t_nd * P0;
@@ -500,17 +566,26 @@ fn rho_central_foam_matches_sod_table_ii() {
         if rho_ok {
             let e = (rho_port - rho_tab).abs() / rho_scale;
             worst_rho = worst_rho.max(e);
-            assert!(e < 0.05, "density @ x/L={xl}: port {rho_port:.4} vs Table II {rho_tab:.4} (rel {e:.3})");
+            assert!(
+                e < 0.05,
+                "density @ x/L={xl}: port {rho_port:.4} vs Table II {rho_tab:.4} (rel {e:.3})"
+            );
         }
         if u_ok {
             let e = (u_port - u_tab).abs() / u_scale;
             worst_u = worst_u.max(e);
-            assert!(e < 0.05, "velocity @ x/L={xl}: port {u_port:.2} vs Table II {u_tab:.2} (rel {e:.3})");
+            assert!(
+                e < 0.05,
+                "velocity @ x/L={xl}: port {u_port:.2} vs Table II {u_tab:.2} (rel {e:.3})"
+            );
         }
         if p_ok {
             let e = (p_port - p_tab).abs() / p_scale;
             worst_p = worst_p.max(e);
-            assert!(e < 0.05, "pressure @ x/L={xl}: port {p_port:.1} vs Table II {p_tab:.1} (rel {e:.3})");
+            assert!(
+                e < 0.05,
+                "pressure @ x/L={xl}: port {p_port:.1} vs Table II {p_tab:.1} (rel {e:.3})"
+            );
         }
     }
 

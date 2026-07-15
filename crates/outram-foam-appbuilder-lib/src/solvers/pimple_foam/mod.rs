@@ -465,10 +465,10 @@ impl PimpleFoam {
                     *s += sp;
                 }
                 p_eqn.set_reference(0, 0.0); // pin reference (closed domain)
-                // Warm-start from the current pressure (previous corrector /
-                // time step). Near steady state `p` barely changes, so the
-                // solve converges in a few iterations instead of from x = 0
-                // every time. PCG or GAMG per `self.pressure_solver`.
+                                             // Warm-start from the current pressure (previous corrector /
+                                             // time step). Near steady state `p` barely changes, so the
+                                             // solve converges in a few iterations instead of from x = 0
+                                             // every time. PCG or GAMG per `self.pressure_solver`.
                 let (mut p_new, _) = match self.pressure_solver {
                     PressureSolver::Pcg => p_eqn.solve_cg_with_guess("p", &self.p, p_settings),
                     PressureSolver::Gamg => p_eqn.solve_gamg_with_guess("p", &self.p, p_settings),

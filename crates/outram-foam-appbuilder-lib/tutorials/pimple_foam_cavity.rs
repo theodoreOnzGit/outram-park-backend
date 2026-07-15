@@ -258,7 +258,10 @@ fn centreline_ux_profile_n(centres: &[Vector3], u: &[Vector3], nx: usize) -> Vec
     for (c, centre) in centres.iter().enumerate() {
         if (centre.x - x_mid).abs() < dx * 0.9 {
             let y = centre.y;
-            if let Some(r) = rows.iter_mut().find(|(ry, _, _)| (ry - &y).abs() < dx * 0.25) {
+            if let Some(r) = rows
+                .iter_mut()
+                .find(|(ry, _, _)| (ry - &y).abs() < dx * 0.25)
+            {
                 r.1 += u[c].x;
                 r.2 += 1;
             } else {
@@ -462,7 +465,10 @@ fn cavity_ghia_benchmark_re100() {
         .iter()
         .filter(|v| !(v.x.is_finite() && v.y.is_finite() && v.z.is_finite()))
         .count();
-    assert_eq!(n_nonfinite, 0, "solver produced {n_nonfinite} non-finite cells (diverged)");
+    assert_eq!(
+        n_nonfinite, 0,
+        "solver produced {n_nonfinite} non-finite cells (diverged)"
+    );
 
     let profile = centreline_ux_profile(&solver.mesh.cell_centres, solver.u.internal.as_slice());
     println!("centreline U_x profile (y/L, U_x/U_lid):");
@@ -483,7 +489,9 @@ fn cavity_ghia_benchmark_re100() {
         csv.push_str(&format!("{y:.4},{ux_ref:+.5},{ux:+.5},{err:.5}\n"));
     }
     let rms_err = (sum_sq / GHIA_UX.len() as f64).sqrt();
-    println!("\nGhia Re=100 centreline: max|err| = {max_abs_err:.4}, RMS = {rms_err:.4} (U_x/U_lid)");
+    println!(
+        "\nGhia Re=100 centreline: max|err| = {max_abs_err:.4}, RMS = {rms_err:.4} (U_x/U_lid)"
+    );
     write_vandv_csv("cavity_pimplefoam_vs_ghia_re100_coarse.csv", &csv);
 
     // Regression guard at the accuracy this coarse first-order mesh reaches.
@@ -549,9 +557,13 @@ fn cavity_ghia_benchmark_re100_fine_mesh() {
         .iter()
         .filter(|v| !(v.x.is_finite() && v.y.is_finite() && v.z.is_finite()))
         .count();
-    assert_eq!(n_nonfinite, 0, "solver produced {n_nonfinite} non-finite cells (diverged)");
+    assert_eq!(
+        n_nonfinite, 0,
+        "solver produced {n_nonfinite} non-finite cells (diverged)"
+    );
 
-    let profile = centreline_ux_profile_n(&solver.mesh.cell_centres, solver.u.internal.as_slice(), 41);
+    let profile =
+        centreline_ux_profile_n(&solver.mesh.cell_centres, solver.u.internal.as_slice(), 41);
     println!("fine-mesh (41×41) centreline U_x profile (y/L, U_x/U_lid):");
     for (y, ux) in &profile {
         println!("  {y:.4}  {ux:+.4}");
@@ -646,12 +658,8 @@ fn cavity_pressure_solver_comparison_fine_mesh() {
     let gamg_secs = t0.elapsed().as_secs_f64();
     let (gamg_max, gamg_rms) = ghia_centreline_error_fine(&gamg);
 
-    println!(
-        "PCG  : wall = {pcg_secs:5.1} s, Ghia max|err| = {pcg_max:.4}, RMS = {pcg_rms:.4}"
-    );
-    println!(
-        "GAMG : wall = {gamg_secs:5.1} s, Ghia max|err| = {gamg_max:.4}, RMS = {gamg_rms:.4}"
-    );
+    println!("PCG  : wall = {pcg_secs:5.1} s, Ghia max|err| = {pcg_max:.4}, RMS = {pcg_rms:.4}");
+    println!("GAMG : wall = {gamg_secs:5.1} s, Ghia max|err| = {gamg_max:.4}, RMS = {gamg_rms:.4}");
     println!("speedup (PCG/GAMG wall) = {:.2}×", pcg_secs / gamg_secs);
 
     // Both solvers must converge to the same field (same accuracy vs Ghia).

@@ -403,7 +403,11 @@ fn shock_tube_openfoam_vs_rust_csv() {
     // Mean (L1) relative error of the Rust port vs the OpenFOAM reference.
     let l1 = |got: &[f64], want: &[f64]| -> f64 {
         let s: f64 = want.iter().map(|v| v.abs()).sum::<f64>().max(1e-30);
-        got.iter().zip(want).map(|(a, b)| (a - b).abs()).sum::<f64>() / s
+        got.iter()
+            .zip(want)
+            .map(|(a, b)| (a - b).abs())
+            .sum::<f64>()
+            / s
     };
     let rho_l1 = l1(rho_rust, &rho_of);
     let u_l1 = l1(&u_rust_x, &u_of_x);

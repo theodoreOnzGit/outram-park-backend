@@ -27,7 +27,7 @@
 //! These helpers re-apply a captured BC template — the equivalent of OpenFOAM's
 //! `field.correctBoundaryConditions()`.
 
-use outram_foam_basic_lib::prelude::{BoundaryCondition, VolScalarField, VolVectorField, Vector3};
+use outram_foam_basic_lib::prelude::{BoundaryCondition, Vector3, VolScalarField, VolVectorField};
 
 /// Re-apply a scalar boundary-condition template to a field. For `FixedValue`
 /// the boundary face values are reset to the fixed value; other BC types have
@@ -36,7 +36,9 @@ pub(crate) fn correct_bcs(field: &mut VolScalarField, bcs: &[BoundaryCondition<f
     for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
         pf.bc = bc.clone();
         if let BoundaryCondition::FixedValue(v) = bc {
-            for x in pf.values.iter_mut() { *x = *v; }
+            for x in pf.values.iter_mut() {
+                *x = *v;
+            }
         }
     }
 }
@@ -46,15 +48,17 @@ pub(crate) fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryConditi
     for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
         pf.bc = bc.clone();
         if let BoundaryCondition::FixedValue(v) = bc {
-            for x in pf.values.iter_mut() { *x = *v; }
+            for x in pf.values.iter_mut() {
+                *x = *v;
+            }
         }
     }
 }
 
 /// Capture the boundary-condition template (the BC type per patch) of a field,
 /// to be re-applied after solves with [`correct_bcs`] / [`correct_bcs_vec`].
-pub(crate) fn capture_bcs<T: Clone>(boundary: &[outram_foam_basic_lib::prelude::PatchField<T>])
-    -> Vec<BoundaryCondition<T>>
-{
+pub(crate) fn capture_bcs<T: Clone>(
+    boundary: &[outram_foam_basic_lib::prelude::PatchField<T>],
+) -> Vec<BoundaryCondition<T>> {
     boundary.iter().map(|pf| pf.bc.clone()).collect()
 }

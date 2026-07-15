@@ -110,3 +110,113 @@ neutron source with power-monitoring modulation, FMU inputs, and a liquid-fuel
 precursor-advection variant — all of which need the mesh/TH/multiRegion layers
 above and are **deferred**. The verified slice is the reactivity-driven 0-D ODE,
 which is the physics core those layers feed.
+
+---
+
+# thermalHydraulics breakdown
+
+Added 2026-07-15. This expands step 8 above. The upstream subtree
+`src/classes/thermalHydraulics/` is **~65k LOC in 351 C++ files**, split into a
+class library (`src/`, ~57k LOC) and top-level solver drivers (`solvers/`, ~7.3k
+LOC). It is the single largest GeN-Foam module. Tracked under bead **`op-p6p.7`**;
+one child bead per sub-module below.
+
+## Upstream LOC map (measured)
+
+| Upstream area | LOC | Files | What it is |
+|---|---|---|---|
+| `src/physicsModels/` | 34,727 | 231 | **The bulk** — closure correlations (drag/friction, heat transfer, phase change, interfacial area, turbulence, …), all runtime-selectable |
+| `src/phaseModels/` | 15,070 | 44 | `phaseBase`, the `fluid` phase, and `structureModels` (fuel pins, power models, heat exchangers, pumps) |
+| `solvers/` | 7,320 | 40 | Top-level solver drivers: `onePhase`, `onePhaseLegacy`, `twoPhase` (porous momentum/energy/pressure, MULES alpha transport) |
+| `src/functionObjects/` | 3,062 | 15 | Diagnostics (massFlow, pressureDrop, TBulk, fieldDiffExtents, …) |
+| `src/boundaryConditions/` | 2,415 | 8 | NusseltThermalBaffle1D, blackBodyRadiation, velocityRundown, timeFieldTable |
+| `src/thermophysicalProperties/` | 1,415 | 3 | Bespoke fluid property packages (H2) |
+| `src/include/` + `customPimpleControl/` | 1,541 | 10 | IOFieldField helpers; the custom PIMPLE loop control |
+
+## Architecture (how the pieces fit)
+
+GeN-Foam's TH is a **porous-medium two-fluid + structure** formulation. Cells
+carry, simultaneously, a `fluid` phase (volume-fraction `alpha`, velocity,
+enthalpy) and an unresolved `structure` (fuel pins / cladding / grid, occupying
+the complementary volume). The solver drives:
+
+- a **porous momentum** equation `UEqn` with an anisotropic drag tensor `Kd`
+  (assembled from the fluid-structure friction closures) and optional
+  tortuosity-modified turbulent diffusion,
+- a **porous energy** equation `EEqn` coupled to the structure through the
+  fluid-structure heat-transfer coefficient,
+- a **pressure** equation `pEqn` (PIMPLE), and, in two-phase, a MULES-limited
+  **`alpha` transport** with interfacial drag, phase change, and interfacial-area
+  closures.
+
+The `physicsModels/` correlations are the leaves: each is a small,
+self-contained algebraic function of local field values (Reynolds number, void
+fraction, quality, …). They are the natural first slices — pure functions with
+published reference values, no mesh/solver coupling.
+
+## Sub-module map → Rust modules → beads
+
+All under `src/genfoam/thermal_hydraulics/`. Closure model **sets are closed
+enums** (workspace no-`dyn` rule); each upstream `runTimeSelectionTable` family
+becomes one enum with one variant per correlation.
+
+| # | Rust module | Upstream | Bead | Notes |
+|---|---|---|---|---|
+| 1 | `units` | (dimensions used across TH) | op-p6p.7.1 | Named `uom` aliases: `ReynoldsNumber`, `DarcyFrictionFactor`, `HeatTransferCoefficient`, `HeatFlux`, `DragCoefficient`. Foundation — blocks all. |
+| 2 | `phase` | `phaseModels/{phaseBase,fluid,phasePairs}` | op-p6p.7.2 | Fluid phase state (alpha, U, h, rho fields) + phase-pair Reynolds/relative-velocity. Blocks closures & solvers. |
+| 3 | `structure` | `phaseModels/structureModels/**` | op-p6p.7.3 | Solid structure + `powerModels` (heatedPin, nuclearFuelPin, lumped, pebble), heatExchanger, pump, powerOff criteria. Couples to neutronics power. |
+| 4 | `closures::fs_drag` | `physicsModels/dragModels/FSDragCoefficientModels/**` | op-p6p.7.4 | **Fluid-structure wall-friction factors** (Churchill, Colebrook, Rehme, ReynoldsPower, Engel, modifiedEngel, BaxiDalleDonne, NoKazimi). **← ported this run.** |
+| 5 | `closures::ff_drag` | `physicsModels/dragModels/{FFDrag,twoPhaseDragMultiplier}` | op-p6p.7.5 | Fluid-fluid interfacial drag + two-phase multipliers (Wallis, SchillerNaumann, LockhartMartinelli, …). |
+| 6 | `closures::heat_transfer` | `physicsModels/heatTransferModels/**` | op-p6p.7.6 | FS Nusselt / multi-regime boiling / CHF / post-CHF / TONB / suppression + FF HTC. Largest closure family. |
+| 7 | `closures::phase_change` | `physicsModels/phaseChangeModels/**` | op-p6p.7.7 | Saturation models, latent-heat models, heat-driven & forced phase change. |
+| 8 | `closures::interfacial` | `physicsModels/{interfacialAreaModels,fluidDiameterModels,virtualMassModels,dispersionModels,contactPartitionModels,regimeMapModels,templatedModels}` | op-p6p.7.8 | Two-phase geometry/regime closures. |
+| 9 | `closures::turbulence` | `physicsModels/turbulenceModels/**` | op-p6p.7.9 | Porous / Lahey / mixture k-epsilon (two-phase turbulence on top of turbulence-lib). |
+| 10 | `thermophysical` | `thermophysicalProperties/**` | op-p6p.7.10 | Bespoke property packages (H2); most fluids come from tampines-steam-tables / basic-lib thermo. |
+| 11 | `solver::one_phase` | `solvers/onePhase/**` | op-p6p.7.11 | Porous UEqn/EEqn/pEqn PIMPLE driver. Needs phase + structure + fs_drag + heat_transfer. |
+| 12 | `solver::two_phase` | `solvers/twoPhase/**` | op-p6p.7.12 | MULES alpha transport + two-phase pEqn. Needs one_phase + ff_drag + phase_change + interfacial + turbulence. |
+| 13 | `boundary_conditions` | `boundaryConditions/**` | op-p6p.7.13 | NusseltThermalBaffle1D, blackBodyRadiation, velocityRundown, timeFieldTable. |
+| 14 | `function_objects` | `functionObjects/**` | op-p6p.7.14 | Post-processing diagnostics; port last (non-physics). |
+
+## Recommended translation order
+
+1. **`units`** (op-p6p.7.1) — trivial, unblocks everything.
+2. **`closures::fs_drag`** (op-p6p.7.4) — **done this run.** Pure algebra, exact
+   analytical laminar limit (`f·Re → 64`), published turbulent values → the
+   cleanest first V&V slice; no phase/mesh state needed.
+3. **`phase`** (op-p6p.7.2) then **`structure`** (op-p6p.7.3) — the field-state
+   backbone the solvers and remaining closures need.
+4. The remaining **closures** (7.5–7.9) — each independently testable against
+   published correlation values, in any order once `phase` exists.
+5. **`solver::one_phase`** (7.11) — first end-to-end porous single-phase run.
+6. **`solver::two_phase`** (7.12), then **BCs** (7.13) and **function objects**
+   (7.14).
+
+## What maps onto existing crates vs. genuinely new
+
+**Reused (do not re-port):**
+- Porous momentum/energy FV assembly → basic-lib `fvm`/`fvc` (`div`, `laplacian`,
+  `ddt`, `Sp`/`SuSp`), `FvVectorMatrix`, `FvMesh`, fields.
+- Single-phase turbulence (`nuEff`, `divDevRhoReff`) → turbulence-lib.
+- PIMPLE loop scaffolding, `p_rgh`/flux reconstruction → this crate's
+  `src/solvers/pimple_foam.rs`.
+- Fluid thermo (rho, cp, saturation for water) → basic-lib thermo /
+  tampines-steam-tables.
+- Time-profile / table interpolation → `crate::genfoam::common`.
+
+**Genuinely new (no upstream-Rust equivalent):**
+- The porous **two-fluid + structure** cell model (`alpha` fluid ⟂ structure),
+  the anisotropic drag tensor `Kd` assembly, tortuosity-modified diffusion.
+- The full `physicsModels/` correlation zoo (friction, boiling/CHF, interfacial
+  area, phase change, two-phase turbulence).
+- `structureModels` fuel-pin conduction + power coupling to neutronics.
+- MULES-limited `alpha` transport for the two-phase solver.
+
+## Scope note (honesty)
+
+This run delivers: this plan, the bead breakdown (op-p6p.7.1–.14), a compiling
+scaffold of the module tree, and **one fully ported + V&V'd slice**:
+`closures::fs_drag` (the fluid-structure wall-friction factor family). Everything
+else in the table is scaffold-only (`// TODO(genfoam)`), i.e. **~63k of the ~65k
+LOC remains**. The fs_drag slice was chosen because it is pure algebra with a
+closed-form analytical check and published reference values, requiring none of
+the phase/structure/mesh machinery above it.

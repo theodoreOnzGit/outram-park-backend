@@ -64,4 +64,8 @@
 //! Everything else (XS data structures, diffusion/SP3/SN, multi-region coupling,
 //! thermal-hydraulics, thermo-mechanics) is planned but not yet translated.
 
+pub mod common;
+pub mod multi_region;
 pub mod neutronics;
+pub mod thermal_hydraulics;
+pub mod thermo_mechanics;

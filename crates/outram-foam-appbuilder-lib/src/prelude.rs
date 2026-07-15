@@ -37,6 +37,19 @@ pub use crate::genfoam::neutronics::point_kinetics::{
     DecayConstant, PointKineticsError, PointKineticsParameters, PointKineticsState,
     PromptGenerationTime, Reactivity,
 };
+// GeN-Foam neutronics — model dispatch, state, and cross-section data
+pub use crate::genfoam::neutronics::xs::CrossSectionData;
+pub use crate::genfoam::neutronics::{DiffusionNeutronics, NeutronicsModel, NeutronicsState};
+
+// GeN-Foam thermo-mechanics — displacement/thermal-stress solver
+pub use crate::genfoam::thermo_mechanics::{LegacyThermoMechanics, MechanicsMeshSolver};
+
+// GeN-Foam multi-region coupling
+pub use crate::genfoam::multi_region::{MeshHandler, MultiPhysicsSolver};
+
+// GeN-Foam thermal-hydraulics — fluid phase and solid-structure state
+pub use crate::genfoam::thermal_hydraulics::phase::{Fluid, StateOfMatter};
+pub use crate::genfoam::thermal_hydraulics::structure::{HeatExchanger, PowerModel};
 
 // Solvers
 pub use crate::solvers::hrm_foam::{HrmFoam, HrmModelConfig};
