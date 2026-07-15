@@ -42,8 +42,17 @@ ndarray.workspace = true
 outram-foam-basic-lib.workspace = true
 serde.workspace = true
 env_logger.workspace = true
+# htgr_sim_v1 schematic constructs tampines equipment wrappers (HeatExchanger,
+# SteamGenerator, Pump, Valve) whose constructor argument enums
+# (FlowArrangement / PumpSpecification / OpeningCharacteristic /
+# ValveFlowCoefficient) live in this crate; tampines does not re-export them.
+outram-park-fork-dwsim-libs.workspace = true
 
 [[example]]
 name = "fhr_sim_v2"
 path = "examples/fhr_sim_v2/main.rs"
+
+[[example]]
+name = "htgr_sim_v1"
+path = "examples/htgr_sim_v1/main.rs"
 
