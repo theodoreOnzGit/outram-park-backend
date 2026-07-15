@@ -189,21 +189,23 @@ few resonance energies/widths against the raw ENDF file by eye.
 
 ## Caveats
 
-- **The eliminated-channel reorder step in `mf2.rs` is unverified and
-  flagged prominently in its own doc comment.** Hand-tracing the raw-channel
-  numbering three separate times, by different routes, all three predicted a
-  different index (`igamma-1`) than what `rdsammy` actually reads
-  (`igamma+1`, `samm.f90:1186`). A concrete worked example (in the doc
-  comment) shows `igamma+1` would read past this spin group's valid channel
-  range when the eliminated channel isn't last — evidence this may be a
-  genuine latent bug in `samm.f90` itself, not a translation error, but
-  deciding that and fixing it is a verification-pass call, not a translation
-  one. Ported literally rather than "corrected" based on an unconfirmed
-  derivation — this is the single highest-priority thing to check against a
-  real evaluation where the eliminated channel is not first in the raw
-  channel list. The read is bounds-checked (returns
-  [`crate::NjoyError::EndfParse`] rather than panicking) in case the
-  discrepancy indicates a genuine out-of-range access for some inputs.
+- **The eliminated-channel reorder step in `mf2.rs` corrects two off-by-one
+  defects in upstream `rdsammy` (bug op-cjw.3, fixed 2026-07-15).** With the
+  provisional width layout the preceding read establishes, the eliminated
+  radiative-capture width `Γγ` sits at `channel_widths[igamma-1]`, but
+  upstream reads `gamma(igamma+1)` (`samm.f90:1186`) — two slots too high, and
+  past the group's valid channel range when the eliminated channel is last.
+  Upstream also shifts with loop bound `igamma` (`samm.f90:1188`) where the
+  correct bound is `igamma-1`, clobbering an already-correct explicit channel.
+  Both are corrected in `reorder_eliminated_channel` (see its doc comment for
+  the full derivation) and pinned by unit tests covering the eliminated
+  channel first / middle / last (`samm::mf2::tests::reorder_eliminated_*`,
+  4 passing as of 2026-07-15). NOTE: this fix is verified against the
+  provisional-layout derivation and unit tests, **not** yet against a real
+  LRF=7 evaluation end-to-end — that end-to-end check (¹⁶O or ¹⁹F, a group
+  with the eliminated channel not first) remains open under bead op-cjw.2.
+  The extract read is still bounds-checked (returns
+  [`crate::NjoyError::EndfParse`] rather than panicking) defensively.
 - **`penetrability::genpsf`'s `l=4` recursion seed reads a local (`dss`)
   before it is set** — see that function's doc comment. Ported literally
   with the value seeded to `0.0` (both to make it translatable into safe

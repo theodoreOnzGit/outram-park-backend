@@ -17,8 +17,9 @@
 //! (flagged by `MT=102`/particle-pair index 1), and the resonance-parameter
 //! records list its width `Γγ` alongside the explicit channels' widths in
 //! raw ENDF channel order — `rdsammy` reorders these into `(Γγ, Γ_1, …,
-//! Γ_ichan)` after reading. See [`parse_rml_section`]'s doc comment for a
-//! caveat on that specific reorder step.
+//! Γ_ichan)` after reading. That reorder had two off-by-one defects in
+//! upstream Fortran, corrected here in [`reorder_eliminated_channel`] (bug
+//! op-cjw.3); see its doc comment for the derivation and verification.
 
 use crate::endf::records::SectionCursor;
 use crate::NjoyError;
@@ -76,8 +77,8 @@ pub struct RmlChannel {
 }
 
 /// One resonance within a spin group — ported from the resonance-parameter
-/// LIST record, `samm.f90:1134-1196`, after `rdsammy`'s eliminated-channel
-/// reorder (see [`parse_rml_section`]'s caveat).
+/// LIST record, `samm.f90:1134-1196`, after the eliminated-channel reorder
+/// (see [`reorder_eliminated_channel`]).
 #[derive(Debug, Clone)]
 pub struct RmlResonance {
     /// Resonance energy `E_λ` \[eV\].
@@ -117,70 +118,19 @@ pub struct RmlSection {
 /// preamble reads before branching on `mode` (`samm.f90:658-664`, providing
 /// `IFG`/`KRM`/`NLS`; `NLS` is `NGROUP` for LRF=7 — `samm.f90:1048-1049`).
 ///
-/// # Known unverified step — the eliminated-channel reorder
+/// # Eliminated-channel reorder — two upstream defects corrected (bug op-cjw.3)
 ///
 /// Each resonance record lists `Γγ` and the explicit channels' widths in
 /// **raw ENDF channel order** (the eliminated capture channel can appear at
 /// *any* position among the raw channels, not necessarily first). `rdsammy`
-/// reorders these into `(Γγ, Γ_1, …, Γ_ichan)` via `samm.f90:1185-1194`:
-///
-/// ```text
-/// if (igamma.ne.1) then
-///    x=gamma(igamma+1,kres,ier)
-///    if (igamma.gt.1) then
-///       do i=igamma,2,-1
-///          gamma(i,kres,ier)=gamma(i-1,kres,ier)
-///       enddo
-///    endif
-///    gamma(1,kres,ier)=gamgam(kres,ier)
-///    gamgam(kres,ier)=x
-/// endif
-/// ```
-///
-/// This is ported **literally** below (mechanically re-indexed from
-/// Fortran's 1-indexed `gamma(1..ichan)` to Rust's 0-indexed array), *not*
-/// independently re-derived: hand-tracing the raw-channel-to-width-array
-/// correspondence three separate times, by different routes, all three
-/// predicted the read index should be `igamma-1` (the slot the provisional
-/// loop would have placed the true `Γγ` value in), not `igamma+1` as the
-/// source states.
-///
-/// A concrete worked example (third pass, the sharpest evidence so far):
-/// take `ichp1=3` raw channels (2 explicit + 1 eliminated), with the
-/// eliminated channel at raw position `igamma=2` (so `ichan=2`, raw order is
-/// `[A(explicit), Γγ(eliminated), B(explicit)]`). The provisional read
-/// (`samm.f90:1180-1184`, mirrored above) assigns word 1 → `gamgam` (=A),
-/// word 2 → `channel_widths[0]` (=Γγ), word 3 → `channel_widths[1]` (=B) —
-/// i.e. after the provisional pass, `Γγ`'s true value sits at
-/// `channel_widths[igamma-1] = channel_widths[1]` (1-indexed:
-/// `gamma(igamma-1)`), never at `channel_widths[igamma] = channel_widths[2]`
-/// (1-indexed `gamma(igamma+1)`) — which, with only `ichan=2` explicit
-/// channels in this group, is not even a valid index (`gamma(3)` for a
-/// 2-channel group reads past this resonance's written data, into whatever
-/// the `(mchan,nres,nerm)`-dimensioned array — sized to the *global* max
-/// channel count across all groups — happens to hold there: stale data from
-/// another group/resonance, or zero). This is consistent with `igamma+1`
-/// being a genuine latent indexing defect in `samm.f90` itself, not a
-/// translation slip on this port's part.
-///
-/// None of this is independently confirmable without an ENDF-102 LRF=7 spec
-/// document or a working reference implementation to check against — neither
-/// was available locally. Per this crate's model-division-of-labor
-/// convention (Sonnet translates faithfully; Opus verifies and fixes),
-/// deciding upstream is wrong and silently "correcting" it during translation
-/// is out of scope here even with this much circumstantial evidence — that
-/// judgment call, and any fix, belongs to the verification pass. Faithful
-/// translation of a line whose exact intent could not be independently
-/// confirmed is the correct choice here — guessing a "fixed" version would
-/// risk being wrong in a way that's harder to detect than an honestly-flagged
-/// literal port. **This is the single highest-priority thing to verify
-/// against a real LRF=7 evaluation** (e.g. ¹⁶O or ¹⁹F) before trusting any
-/// cross section this module produces for a spin group where the eliminated
-/// channel is not first in the raw channel list (`igamma != 1`). Read access
-/// to the reordering source index is bounds checked and returns
-/// [`NjoyError::EndfParse`] rather than panicking or silently wrapping, in
-/// case the discrepancy above indicates a genuine out-of-range access for
-/// some inputs.
+/// reorders these into `(Γγ, Γ_1, …, Γ_ichan)` via `samm.f90:1185-1194`.
+/// That reorder is delegated to [`reorder_eliminated_channel`], whose doc
+/// comment carries the full derivation. The upstream Fortran has two latent
+/// off-by-one defects in this block (a wrong extract index and a wrong shift
+/// bound); both are corrected in the port and pinned by unit tests. This
+/// module's port is therefore **not** a literal translation of those two
+/// lines — it is the corrected version, cross-checked against the provisional
+/// layout the immediately-preceding read establishes.
 pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, NjoyError> {
     // samm.f90:658-664 (shared preamble) — C1=SPIN(unused here), C2=AP(unused
     // here, NRO=0 required), L1=IFG, L2=KRM, N1=NLS(=NGROUP for LRF=7).
@@ -275,22 +225,11 @@ pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, Njoy
             let mut channel_widths: Vec<f64> =
                 (0..ichan).map(|k| res_list.data.get(base + 2 + k).copied().unwrap_or(0.0)).collect();
 
-            // samm.f90:1185-1194 — eliminated-channel reorder (see this
-            // function's doc comment: ported literally, unverified).
-            if igamma != 0 {
-                let x = *channel_widths.get(igamma + 1).ok_or_else(|| {
-                    NjoyError::EndfParse(format!(
-                        "samm: eliminated-channel reorder index out of range (igamma={igamma}, ichan={ichan}) — see parse_rml_section's doc comment"
-                    ))
-                })?;
-                // Fortran `do i=igamma,2,-1: gamma(i)=gamma(i-1)` (1-indexed)
-                // -> 0-indexed `for i in (1..=igamma).rev(): channel_widths[i] = channel_widths[i-1]`.
-                for i in (1..=igamma).rev() {
-                    channel_widths[i] = channel_widths[i - 1];
-                }
-                channel_widths[0] = gamma_gamma;
-                gamma_gamma = x;
-            }
+            // samm.f90:1185-1194 — eliminated-channel reorder. Two off-by-one
+            // defects in the upstream Fortran are corrected here (see
+            // [`reorder_eliminated_channel`]'s doc comment for the full
+            // derivation and verification); bug op-cjw.3.
+            reorder_eliminated_channel(&mut gamma_gamma, &mut channel_widths, igamma)?;
 
             resonances.push(RmlResonance { energy, gamma_gamma, channel_widths });
         }
@@ -322,4 +261,179 @@ pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, Njoy
     }
 
     Ok(RmlSection { particle_pairs, spin_groups })
+}
+
+/// Separate the eliminated radiative-capture width `Γγ` out of a resonance's
+/// raw-channel width array and leave the explicit-channel widths in
+/// explicit-channel order — the corrected form of `rdsammy`'s reorder
+/// (`samm.f90:1185-1194`).
+///
+/// # Inputs and provisional layout
+///
+/// On entry the widths are in the **provisional** layout the immediately
+/// preceding read (`samm.f90:1181-1183`) produces from the `ichp1 = ichan + 1`
+/// raw-channel width words `w_1 … w_{ichp1}` of one resonance record:
+///
+/// - `gamma_gamma` = `w_1` (raw channel 1's width)
+/// - `channel_widths[k]` = `w_{k+2}` (raw channel `k+2`'s width), `k = 0..ichan`
+///
+/// i.e. provisionally `gamma_gamma` = raw₁ and `channel_widths[k]` = raw₍ₖ₊₂₎.
+///
+/// `igamma` is the **0-indexed** raw-channel position of the eliminated
+/// (particle-pair 1, `MT=102`) channel; the corresponding 1-indexed Fortran
+/// index is `igamma + 1`.
+///
+/// # Target layout
+///
+/// On return:
+/// - `gamma_gamma` = the eliminated channel's width `Γγ` (raw channel `igamma`)
+/// - `channel_widths[k]` = the `k`-th explicit channel's width, where the
+///   explicit channels are the raw channels with the eliminated one removed,
+///   preserving order.
+///
+/// Units: all widths are resonance partial widths in electron-volts (eV).
+///
+/// # Why the upstream Fortran is wrong (two off-by-one defects)
+///
+/// With the provisional layout above, the eliminated channel's true width
+/// sits at `channel_widths[igamma - 1]`. Let `p = igamma + 1` be the 1-indexed
+/// raw position of the eliminated channel. Provisionally `channel_widths[k]`
+/// holds the width of raw channel `k + 2` (0-indexed `k`), so
+/// `channel_widths[igamma - 1] = channel_widths[p - 2]` holds raw channel
+/// `(p - 2) + 2 = p`'s width — exactly the eliminated channel. The explicit
+/// channels at raw positions `1..p-1` are provisionally shifted one slot too
+/// high, and the eliminated width lands exactly one slot below where upstream
+/// reads it:
+///
+/// - Upstream reads `x = gamma(igamma+1)` (`samm.f90:1186`). Correct is
+///   `gamma(igamma-1)` → 0-indexed `channel_widths[igamma - 1]`. Upstream's
+///   `igamma+1` (0-indexed `channel_widths[igamma + 1]`) points **two** slots
+///   past the eliminated width and, when the eliminated channel is last, reads
+///   past this resonance's written data into the globally-sized backing array.
+/// - Upstream shifts `do i = igamma, 2, -1` (`samm.f90:1188`). Correct upper
+///   bound is `igamma-1` → 0-indexed loop over `(1..igamma).rev()`. Upstream's
+///   bound of `igamma` overwrites `channel_widths[igamma]`, an explicit channel
+///   that is already in its correct slot, clobbering it with a duplicate.
+///
+/// Fixing only the extract index (as the bug ticket's one-line summary
+/// suggested) is insufficient: for a group whose eliminated channel is neither
+/// first nor last, the wrong shift bound still corrupts the last explicit
+/// channel. Both indices are corrected here; the unit tests
+/// [`tests::reorder_eliminated_first`], [`tests::reorder_eliminated_middle`],
+/// and [`tests::reorder_eliminated_last`] pin all three regimes.
+///
+/// # Errors
+///
+/// Returns [`NjoyError::EndfParse`] if the derived source index is out of range
+/// (defensive — with the corrected `igamma - 1` and `igamma >= 1` this cannot
+/// happen for a well-formed section, but a malformed `ichp1`/channel count is
+/// reported rather than panicking).
+fn reorder_eliminated_channel(
+    gamma_gamma: &mut f64,
+    channel_widths: &mut [f64],
+    igamma: usize,
+) -> Result<(), NjoyError> {
+    // samm.f90:1185 `if (igamma.ne.1)` — when the eliminated channel is the
+    // first raw channel (0-indexed igamma == 0), the provisional layout already
+    // matches the target (gamma_gamma = raw1 = Γγ, and channel_widths is already
+    // in explicit order): nothing to do.
+    if igamma == 0 {
+        return Ok(());
+    }
+
+    // CORRECTED extract index: eliminated width sits at channel_widths[igamma-1]
+    // (upstream `gamma(igamma+1)` is wrong — see doc comment).
+    let x = *channel_widths.get(igamma - 1).ok_or_else(|| {
+        NjoyError::EndfParse(format!(
+            "samm: eliminated-channel reorder index out of range (igamma={igamma}, nchan={})",
+            channel_widths.len()
+        ))
+    })?;
+
+    // CORRECTED shift bound: shift the block channel_widths[0..igamma-1] up by
+    // one into [1..igamma], stopping at igamma-1 (upstream loops to igamma,
+    // clobbering the already-correct explicit channel there — see doc comment).
+    // Fortran `do i=igamma-1,2,-1: gamma(i)=gamma(i-1)` (1-indexed) ->
+    // 0-indexed `for i in (1..igamma).rev(): channel_widths[i] = channel_widths[i-1]`.
+    for i in (1..igamma).rev() {
+        channel_widths[i] = channel_widths[i - 1];
+    }
+    channel_widths[0] = *gamma_gamma;
+    *gamma_gamma = x;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The three tests below share a common construction. For an LRF=7 spin
+    // group with `ichan` explicit channels plus one eliminated capture channel
+    // at raw position `p` (1-indexed), the resonance record lists one width per
+    // raw channel in raw order. We label the eliminated width `Γγ` and the
+    // explicit widths by their raw position. `parse_rml_section`'s provisional
+    // read (samm.f90:1181-1183) then loads:
+    //   gamma_gamma = raw₁'s width
+    //   channel_widths[k] = raw₍ₖ₊₂₎'s width   (k = 0..ichan)
+    // and `reorder_eliminated_channel` must recover:
+    //   gamma_gamma = Γγ (the eliminated width)
+    //   channel_widths = the explicit widths in explicit-channel order.
+    //
+    // METHODOLOGY: build the provisional arrays by hand for a chosen raw layout,
+    // run the reorder, and assert against the target layout derived directly
+    // from the raw channel order (eliminated removed). PASS CRITERION: exact
+    // f64 equality (the reorder only moves values, never computes on them).
+    //
+    // RESULTS (2026-07-15, verified against samm.f90 @ ac5adf5): all three
+    // regimes pass; the pre-fix code (`igamma+1` extract, `igamma` shift bound)
+    // fails `reorder_eliminated_middle` and `reorder_eliminated_last`.
+
+    /// Eliminated channel first (raw position 1, 0-indexed igamma = 0): the
+    /// no-op branch. Raw order [Γγ, A, B]; provisional already correct.
+    #[test]
+    fn reorder_eliminated_first() {
+        // raw: [Γγ, A, B]; provisional: gamma_gamma = Γγ, widths = [A, B].
+        let mut gg = 100.0; // Γγ
+        let mut w = vec![10.0, 20.0]; // [A, B]
+        reorder_eliminated_channel(&mut gg, &mut w, 0).unwrap();
+        assert_eq!(gg, 100.0, "Γγ unchanged when eliminated channel is first");
+        assert_eq!(w, vec![10.0, 20.0], "explicit widths unchanged");
+    }
+
+    /// Eliminated channel in the middle (raw position 2, igamma = 1).
+    /// Raw order [A, Γγ, B]; provisional gamma_gamma = A, widths = [Γγ, B].
+    /// Target: gamma_gamma = Γγ, widths = [A, B].
+    #[test]
+    fn reorder_eliminated_middle() {
+        let mut gg = 10.0; // provisional Γγ-slot holds A (raw₁)
+        let mut w = vec![100.0, 20.0]; // [Γγ, B]
+        reorder_eliminated_channel(&mut gg, &mut w, 1).unwrap();
+        assert_eq!(gg, 100.0, "Γγ recovered from channel_widths[igamma-1]");
+        assert_eq!(w, vec![10.0, 20.0], "explicit widths [A, B] in order");
+    }
+
+    /// Eliminated channel last (raw position 4, igamma = 3) in a 3-explicit
+    /// group. Raw order [A, B, C, Γγ]; provisional gamma_gamma = A,
+    /// widths = [B, C, Γγ]. Target: gamma_gamma = Γγ, widths = [A, B, C].
+    #[test]
+    fn reorder_eliminated_last() {
+        let mut gg = 10.0; // A (raw₁)
+        let mut w = vec![20.0, 30.0, 100.0]; // [B, C, Γγ]
+        reorder_eliminated_channel(&mut gg, &mut w, 3).unwrap();
+        assert_eq!(gg, 100.0, "Γγ recovered from the last provisional slot");
+        assert_eq!(w, vec![10.0, 20.0, 30.0], "explicit widths [A, B, C] in order");
+    }
+
+    /// A larger middle case (5 explicit channels, eliminated at raw position 3,
+    /// igamma = 2) to exercise a non-trivial shift block.
+    /// Raw order [A, B, Γγ, C, D, E]; provisional gamma_gamma = A,
+    /// widths = [B, Γγ, C, D, E]. Target: gamma_gamma = Γγ, widths = [A,B,C,D,E].
+    #[test]
+    fn reorder_eliminated_middle_large() {
+        let mut gg = 1.0; // A
+        let mut w = vec![2.0, 100.0, 3.0, 4.0, 5.0]; // [B, Γγ, C, D, E]
+        reorder_eliminated_channel(&mut gg, &mut w, 2).unwrap();
+        assert_eq!(gg, 100.0);
+        assert_eq!(w, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+    }
 }
