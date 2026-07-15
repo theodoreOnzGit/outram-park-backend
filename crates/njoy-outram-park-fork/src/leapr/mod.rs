@@ -24,24 +24,35 @@
 //!   translational (free-gas / diffusion) term.
 //! - [`discrete`] — `discre`/`bfact`/`bfill`/`exts`/`sint` and the modified
 //!   Bessel `I0`/`I1`: discrete-oscillator convolution.
-//! - [`coldh`] — the tractable Young-Koppel cold-hydrogen/deuterium helpers
-//!   (`bt`, `sumh`, `cn`, `sjbes`, `terpk`). The full `coldh` orchestrator is
-//!   **not** ported.
+//! - [`coldh`] — the Young-Koppel cold-hydrogen/deuterium orchestrator
+//!   ([`coldh::add_cold_hydrogen`]) plus its helpers (`bt`, `sumh`, `cn`,
+//!   `sjbes`, `terpk`). Self-consistency tested, not reference-validated.
+//! - [`coher`] — the coherent-elastic (Bragg) reciprocal-lattice sum
+//!   ([`coher::coher`], `formf`/`tausq`/`taufcc`/`taubcc`).
+//! - [`endout`] — the ENDF-6 MF=7 tape writer ([`endout::endout`]) that a THERMR
+//!   MF=7 read-back round-trips.
 //! - [`sct`] — the free-gas / short-collision-time Gaussian used by several
 //!   kernels.
 //!
 //! ## Ported vs. not ported
 //!
-//! The physics kernels above are ported and unit-tested. **Not ported** (return
-//! [`crate::NjoyError::NotPorted`] or are simply absent):
-//! - `endout` + `copys` (leapr.f90:2972-3623, 2468-2487): the MF=7 tape writer
-//!   and scratch plumbing. [`run`] therefore returns `NotPorted`.
+//! The physics kernels above are ported and unit-tested. Now also ported:
+//! - `endout` (leapr.f90:2972-3623): the MF=7 tape writer — see [`endout`]. Its
+//!   output round-trips back through [`crate::thermr::mf7::parse_mf7`]. MF=1/451
+//!   descriptive records and the mixed-moderator merge are intentionally omitted
+//!   (see [`endout`]).
 //! - `coher`/`formf`/`tausq`/`taufcc`/`taubcc` (2489-2814, 2924-2970): the
-//!   coherent-elastic (Bragg) calculation — the consuming side already lives in
-//!   [`crate::thermr::coherent`].
+//!   coherent-elastic (Bragg) calculation — see [`coher`].
+//! - the `coldh` convolution orchestrator (1936-2183) — see
+//!   [`coldh::add_cold_hydrogen`].
+//!
+//! **Still not ported** (return [`crate::NjoyError::NotPorted`] or are absent):
+//! - `copys` (2468-2487): the scratch-tape plumbing for the mixed-moderator
+//!   merge (not needed for the single-scatterer in-memory path).
 //! - `skold` (2816-2922): the Sköld pair-correlation correction.
-//! - the full `coldh` convolution orchestrator (2005-2183); its helpers are
-//!   ported (see [`coldh`]).
+//! - the NJOY `run`/card-reading driver — [`run`] returns `NotPorted`; build a
+//!   job with [`LeaprInput`] and call the module functions directly, then
+//!   [`endout::endout`] for the tape.
 //!
 //! **Untrusted AI draft.** These kernels are unit-tested against closed-form and
 //! self-consistency checks but have **not** been validated end-to-end against a
@@ -51,14 +62,19 @@
 
 use crate::NjoyError;
 
+pub mod coher;
 pub mod coldh;
 pub mod continuous;
 pub mod discrete;
+pub mod endout;
 pub mod frequency;
 pub mod input;
 pub mod sct;
 pub mod translation;
 
+pub use coher::{coher, BraggEdges, CoherentLattice};
+pub use coldh::add_cold_hydrogen;
+pub use endout::{endout, ElasticOutput, LeaprOutput};
 pub use frequency::FrequencyModel;
 pub use input::{
     ColdOption, ContinuousDist, DiscreteOscillator, ElasticOption, LeaprInput, TranslationKind,

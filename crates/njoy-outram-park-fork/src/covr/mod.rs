@@ -37,19 +37,30 @@
 //!   covariance -> correlation transform ([`CovarianceMatrix::to_correlation`],
 //!   [`correlation_cross`]), plus the plot-stage clamp
 //!   ([`CorrelationMatrix::clamped`]) and shade-level indexing ([`shade_level`]).
+//! - [`covard`] — the **ERRORR-covariance reader transform** (`subroutine
+//!   covard`, `covr.f90:815-935`) operating on an in-memory
+//!   [`ErrorrCovarianceSection`]: scatter sparse row-blocks into a dense matrix,
+//!   zero spurious covariances in zero-cross-section regions, and convert
+//!   absolute to relative covariances. Also the `expndo` **MT-pair enumeration**
+//!   ([`expand_mt_pairs`], `covr.f90:557-569`) and the auto/cross rsd sourcing
+//!   ([`correlation_from_auto_and_cross`], `covr.f90:597-711`). The ENDF *tape
+//!   I/O* half (decoding `contio`/`listio` records off a physical tape) is the
+//!   remaining gap — see below.
+//! - [`boxer`] — the **BOXER-format library writer** (`subroutine press`/
+//!   `setfor`, `covr.f90:1991-2247`): the run-length [`compress`]/[`decompress`]
+//!   codec, the [`setfor`] format selection, and the [`press_text`] record
+//!   layout.
 //!
 //! ## NOT ported (honest gap list)
 //!
-//! - **ERRORR tape reader** (`subroutine covard`, `covr.f90:720-937`;
-//!   `subroutine expndo` tape scan, `covr.f90:508-576`). Reading the ENDF-like
-//!   covariance records off the ERRORR output tape (via `contio`/`listio`/
-//!   `moreio`/`finds`) is not ported: the in-memory covariance record layout
-//!   the reader produces is not independently verifiable here, so per the port
-//!   brief the transform is validated against a documented [`CovarianceMatrix`]
-//!   instead and the reader is left as a gap. [`run`] returns
+//! - **ERRORR *tape I/O*** (the `repoz`/`finds`/`contio`/`listio`/`moreio` half
+//!   of `covard`, `covr.f90:740-886`, and the `expndo` tape scan collecting the
+//!   present MTs, `covr.f90:526-556`). This crate's ERRORR module produces no
+//!   covariance *tape* yet (its `covout`/`colaps` kernels are unported), so
+//!   there is no byte stream to decode: [`covard`] ports the numeric transform
+//!   against the in-memory [`ErrorrCovarianceSection`] instead, and the
+//!   record-decoding layer stays a documented gap. [`run`] returns
 //!   [`NjoyError::NotPorted`].
-//! - **BOXER-format library writer** (`subroutine press`/`setfor`,
-//!   `covr.f90:1991-2247`) — the compressed covariance-library output.
 //! - **All PostScript plotting** (`plotit`, `matshd`, `patlev`, `smilab`,
 //!   `matmes`, `elem`, `mtno`, `truncg`, `covr.f90:939-1599,1649-1890`) — VIEWR
 //!   figure generation, which OUTRAM PARK does not target. Only the
@@ -59,12 +70,22 @@
 //! See `README.md` in this directory for theory, the full ported-vs-NotPorted
 //! table, and the recorded test results.
 
+pub mod boxer;
 pub mod correlation;
+pub mod covard;
 pub mod input;
 
+pub use boxer::{
+    compress, decompress, press_text, setfor, BoxerData, BoxerDataType, BoxerFormat, BoxerHeader,
+    BoxerPage, BoxerShape,
+};
 pub use correlation::{
     correlation_cross, shade_level, Correlation, CorrelationMatrix, CovarianceMatrix,
     CovarianceValue, RelativeStdDev,
+};
+pub use covard::{
+    correlation_from_auto_and_cross, expand_mt_pairs, CovarianceElement, CovarianceRowBlock,
+    CovardResult, CrossSectionBarn, ErrorrCovarianceSection, GroupBoundaryEv,
 };
 pub use input::{
     default_tlev, is_mt_stripped, ColorStyle, CovarianceForm, CovrInput, CovrMode, LegendOption,

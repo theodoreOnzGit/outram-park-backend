@@ -38,35 +38,52 @@
 //! duplicated. Map a GROUPR `ign` to the enum with
 //! [`input::neutron_group_from_ign`].
 //!
-//! # Not ported — the numeric group-averaging engine
+//! # The numeric group-averaging engine — PARTIAL (vector path ported)
 //!
-//! The flux-weighted averaging kernels are **not** ported and cannot be tested
-//! standalone here (they need a PENDF tape, a self-shielding flux, and secondary
-//! MF4/5/6 distributions):
+//! The **1-D vector** flux-weighted averaging path is now ported and testable:
 //!
-//! - `getmf6`/`getff`/`getfwt`/`getflx`/`getyld`/`getsig`/`getdis` — reaction
-//!   retrieval, feed functions, flux, yields, and distributions;
-//! - `panel`/`epanel`/`gengr`/`glmol` — the initial-energy quadrature panels
-//!   and group accumulation;
+//! - [`panel`] — the panel group-integration quadrature ([`group_integral`],
+//!   [`group_average_vector`]) — the vector reduction of `panel`/`gpanel`
+//!   (`groupr.f90:5858-6091`), with the [`PointwiseXs`] (`getsig`) and
+//!   [`GroupFlux`] (`getflx`) feeders.
+//! - [`gendf`] — the GENDF group-record writer/reader for a 1-D cross-section
+//!   vector ([`GendfSection`], [`GendfTape`]), mirroring the GROUPR output LIST
+//!   layout (`groupr.f90:882-946`).
+//!
+//! The **matrix** and self-shielding kernels remain **not** ported (they need a
+//! PENDF tape, a self-shielding flux, and secondary MF4/5/6 distributions):
+//!
+//! - `getmf6`/`getff`/`getyld`/`getdis` — reaction feed functions and yields
+//!   (the `ff(il,ig)` the vector path fixes to 1);
 //! - `genflx`/`getunr`/`stounr` — the infinite-medium flux calculator and
 //!   unresolved-resonance self-shielding;
-//! - `cm2lab`/`f6cm`/`f6lab`/`ll2lab`/`getaed`/`gam102` — kinematics and
-//!   thermal/photon-production matrix machinery;
-//! - the GENDF record writer.
+//! - `cm2lab`/`f6cm`/`f6lab`/`ll2lab`/`getaed`/`gam102` — CM→lab kinematics and
+//!   thermal/photon-production matrix machinery ([`kinematics::cm2lab`] is a
+//!   documented `NotPorted` stub naming each missing routine + line range);
+//! - the full ENDF/PENDF tape control flow that feeds real `sigma(E)` grids into
+//!   [`PointwiseXs::LinLin`].
 //!
 //! [`run`] therefore documents the full pipeline and returns
 //! [`crate::NjoyError::NotPorted`] rather than fabricating a GENDF result. See
 //! `README.md` in this directory for the full theory summary and gap list.
 
+pub mod gendf;
 pub mod input;
+pub mod kinematics;
+pub mod panel;
 pub mod photon_groups;
 pub mod weights;
 
 // --- Public surface -------------------------------------------------------
 
+pub use gendf::{GendfGroupRecord, GendfSection, GendfTape};
 pub use input::{
     neutron_group_from_ign, FluxCalcParams, GrouprInput, PrintOption, ReactionRequest,
     SmoothingOption, UnitAssignments, WeightOption, WeightSelection,
+};
+pub use panel::{
+    group_average_vector, group_integral, GroupFlux, GroupIntegral, PointwiseXs,
+    DEFAULT_FLUX_STEP, NO_NEXT_BREAK_EV,
 };
 pub use photon_groups::{photon_group_structure, PhotonGroupStructure};
 pub use weights::{AnalyticWeight, ThermalFissionParams, BOLTZMANN_EV_PER_K};

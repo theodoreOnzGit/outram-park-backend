@@ -296,6 +296,68 @@ fn build_mf1_section(
     Section { key: EndfKey { mat, mf: 1, mt: 451 }, rows }
 }
 
+/// Map an incident-particle atomic-weight ratio `awi` to its ENDF sublibrary
+/// number `NSUB` (`mixr.f90:174-180`).
+///
+/// The default is incident-neutron (`NSUB = 10`, `mixr.f90:149`). MIXR overrides
+/// it only when the first input's `AWI` falls in one of the recognised
+/// charged-particle mass-ratio windows (`awi < 0.1` → gammas; ≈0.999 protons;
+/// ≈1.996 deuterons; ≈2.9896 tritons; ≈2.9890 He-3; ≈3.967 alphas). An `awi`
+/// outside every window (e.g. the incident-neutron `awi ≈ 1`) leaves `NSUB` at
+/// its default 10.
+pub fn nsub_from_awi(awi: f64) -> i32 {
+    if awi < 0.1 {
+        0
+    } else if awi > 0.9980 && awi < 0.9990 {
+        10010
+    } else if awi > 1.9950 && awi < 1.9970 {
+        10020
+    } else if awi > 2.9895 && awi < 2.9897 {
+        10030
+    } else if awi > 2.9890 && awi < 2.9891 {
+        20030
+    } else if awi > 3.9670 && awi < 3.9680 {
+        20040
+    } else {
+        10
+    }
+}
+
+/// Read the MF=1/451 header seeds `(AWI, EMAX, NSUB)` from the input tapes,
+/// mirroring the header scan `mixr.f90:147-181`.
+///
+/// `AWI` and `NSUB` come from the **first** contributing input's MF=1/451
+/// (via [`nsub_from_awi`]); `EMAX` is raised to the largest `EMAX` word found on
+/// any contributing input. Inputs without an MF=1/451 (bare PENDF MF=3 tapes)
+/// leave the MIXR defaults untouched (`AWI = 1`, `EMAX = 20 MeV`, `NSUB = 10`),
+/// exactly as Fortran MIXR does when `iverf <= 5`.
+///
+/// The ENDF-6 MF=1/451 third CONT row is `[AWI, EMAX, LREL, 0, NSUB, NVER]`
+/// (`mixr.f90:222-227`); this reads word 1 (`AWI`) and word 2 (`EMAX`) from
+/// `rows[2]`.
+fn header_seeds(input: &MixrInput, inputs: &[Tape]) -> (f64, f64, i32) {
+    let mut awi = 1.0_f64;
+    let mut emax = 20.0e6_f64;
+    let mut nsub = 10_i32;
+    for (i, comp) in input.components.iter().enumerate() {
+        let Some(tape) = inputs.get(comp.tape_index) else { continue };
+        let Some(sec) = tape.section(comp.mat, 1, 451) else { continue };
+        if sec.rows.len() < 3 {
+            continue; // not an ENDF-6 header with an AWI/EMAX CONT row.
+        }
+        let row2 = sec.rows[2];
+        if row2[1] > emax {
+            emax = row2[1]; // mixr.f90:171 — raise emax for any material.
+        }
+        if i == 0 {
+            // mixr.f90:172-180 — awi/nsub only from the first input.
+            awi = row2[0];
+            nsub = nsub_from_awi(awi);
+        }
+    }
+    (awi, emax, nsub)
+}
+
 impl MixrInput {
     /// Run the MIXR mixing engine, returning a new in-memory PENDF
     /// [`Tape`] whose reactions are the weighted sums described by this input.
@@ -339,10 +401,14 @@ impl MixrInput {
 /// # Errors
 /// Propagates [`NjoyError`] from record parsing or interpolation.
 pub fn mix(input: &MixrInput, inputs: &[Tape]) -> Result<Tape, NjoyError> {
-    // Mix every reaction first so EMAX (for the MF=1 header) can be taken from
-    // the produced grids (mixr.f90 seeds emax=20 MeV then raises it, line 148).
+    // Header seeds (AWI, EMAX, NSUB) read back from the input MF=1/451 headers
+    // where present (mixr.f90:147-181); bare PENDF MF=3 inputs keep the MIXR
+    // defaults AWI=1, EMAX=20 MeV, NSUB=10.
+    let (awi, mut emax, nsub) = header_seeds(input, inputs);
+
+    // Mix every reaction; EMAX (for the MF=1 header) is further raised to the
+    // largest produced grid energy (mixr.f90 seeds emax then raises it, line 148).
     let mut mixed: Vec<(i32, Vec<(f64, f64)>)> = Vec::with_capacity(input.mt_list.len());
-    let mut emax = 20.0e6_f64;
     for &mt in &input.mt_list {
         let pairs = mix_reaction(input, inputs, mt)?;
         if let Some(&(e, _)) = pairs.last() {
@@ -353,10 +419,8 @@ pub fn mix(input: &MixrInput, inputs: &[Tape]) -> Result<Tape, NjoyError> {
         mixed.push((mt, pairs));
     }
 
-    // MIXR default header seeds (mixr.f90:147-149): incident neutron (AWI=1),
-    // incident-neutron sublibrary (NSUB=10).
     let mut sections: Vec<Section> = Vec::with_capacity(1 + mixed.len());
-    sections.push(build_mf1_section(input, 1.0, emax, 10));
+    sections.push(build_mf1_section(input, awi, emax, nsub));
     for (mt, pairs) in &mixed {
         sections.push(build_mf3_section(
             input.output_mat,
@@ -548,6 +612,92 @@ mod tests {
         out.write(&mut buf).unwrap();
         let text = String::from_utf8(buf).unwrap();
         assert!(text.contains("9999"), "output mat number appears in tape");
+    }
+
+    /// Build a one-material tape carrying an ENDF-6 MF=1/451 header (with a
+    /// chosen AWI/EMAX) followed by a single MF=3 TAB1, so the header-seed scan
+    /// has something to read. Header rows mirror `build_mf1_section`.
+    fn tape_with_header_and_mf3(
+        mat: i32,
+        za: f64,
+        awr: f64,
+        awi: f64,
+        emax: f64,
+        nsub: i32,
+        mt: i32,
+        pairs: &[(f64, f64)],
+    ) -> Tape {
+        let mf1 = Section {
+            key: EndfKey { mat, mf: 1, mt: 451 },
+            rows: vec![
+                [za, awr, -1.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 6.0],
+                [awi, emax, 0.0, 0.0, nsub as f64, 0.0],
+                [0.0, 0.0, 1.0, 0.0, 1.0, 1.0],
+                [0.0; 6],
+                [0.0, 0.0, 3.0, mt as f64, 0.0, 0.0],
+            ],
+        };
+        let base = tape_with_mf3(mat, za, awr, mt, pairs);
+        let mut secs = vec![mf1];
+        secs.extend(base.sections().iter().cloned());
+        Tape::from_sections(" test".to_string(), secs)
+    }
+
+    #[test]
+    fn nsub_from_awi_windows_match_fortran() {
+        // Methodology: nsub_from_awi mirrors mixr.f90:174-180. Probe each window
+        // plus the default. Result (2026-07-15): awi=1 -> 10 (neutron default),
+        // 0.9985 -> 10010 (protons), 0.05 -> 0 (gammas), 3.9675 -> 20040 (alphas).
+        assert_eq!(nsub_from_awi(1.0), 10);
+        assert_eq!(nsub_from_awi(0.9985), 10010);
+        assert_eq!(nsub_from_awi(0.05), 0);
+        assert_eq!(nsub_from_awi(1.9960), 10020);
+        assert_eq!(nsub_from_awi(2.9896), 10030);
+        assert_eq!(nsub_from_awi(3.9675), 20040);
+    }
+
+    #[test]
+    fn header_seeds_read_awi_emax_nsub_from_first_input() {
+        // Methodology (task V&V gate — AWI/EMAX/NSUB fidelity): the output
+        // MF=1/451 must carry AWI/NSUB from the FIRST input's header and EMAX
+        // raised to the largest input EMAX (mixr.f90:147-181). First input carries
+        // AWI=0.9986 (proton window -> NSUB=10010) and EMAX=3e7; second carries a
+        // larger EMAX=1e8. Result (2026-07-15): output row2 = [0.9986, 1e8, 0, 0,
+        // 10010, 0].
+        let a = tape_with_header_and_mf3(
+            125, 1001.0, 0.999, 0.9986, 3.0e7, 0, 2, &[(1.0, 10.0), (2.0, 20.0)],
+        );
+        let b = tape_with_header_and_mf3(
+            128, 1001.0, 0.999, 2.0, 1.0e8, 10, 2, &[(1.0, 30.0), (2.0, 40.0)],
+        );
+        let input = MixrInput::from_cards(
+            20, &[0, 1], vec![2], &[(125, 0.5), (128, 0.5)], 0.0, 9999, 1001.0, 0.999, "mix",
+        );
+        let out = input.mix(&[a, b]).unwrap();
+        let sec = out.section(9999, 1, 451).expect("MF=1/451 present");
+        let row2 = sec.rows[2];
+        assert!((row2[0] - 0.9986).abs() < 1e-9, "AWI from first input: {}", row2[0]);
+        assert!((row2[1] - 1.0e8).abs() < 1.0, "EMAX raised to largest: {}", row2[1]);
+        assert_eq!(row2[4].round() as i32, 10010, "NSUB from first input AWI");
+    }
+
+    #[test]
+    fn header_seeds_default_for_bare_pendf() {
+        // Methodology: inputs without MF=1/451 (bare MF=3 PENDF) leave the MIXR
+        // defaults AWI=1, EMAX=20 MeV (unless a mixed grid energy exceeds it),
+        // NSUB=10 (mixr.f90:147-149). Result (2026-07-15): output row2 = [1, 2e7,
+        // 0, 0, 10, 0] since the grid maxes at 2 eV << 20 MeV.
+        let a = tape_with_mf3(125, 1001.0, 0.999, 2, &[(1.0, 10.0), (2.0, 20.0)]);
+        let input = MixrInput::from_cards(
+            20, &[0], vec![2], &[(125, 1.0)], 0.0, 9999, 1001.0, 0.999, "id",
+        );
+        let out = input.mix(&[a]).unwrap();
+        let sec = out.section(9999, 1, 451).unwrap();
+        let row2 = sec.rows[2];
+        assert_eq!(row2[0], 1.0);
+        assert_eq!(row2[1], 20.0e6);
+        assert_eq!(row2[4].round() as i32, 10);
     }
 
     #[test]

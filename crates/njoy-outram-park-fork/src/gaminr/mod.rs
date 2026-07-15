@@ -28,36 +28,49 @@
 //!   `igg` selector, [`PhotonGroupStructure`]): boundary tables in eV.
 //! - [`weights`] — the built-in photon **weighting functions** (`gnwtf`/`gtflx`,
 //!   [`WeightOption`] / [`PhotonWeight`]): constant and 1/E-with-roll-offs.
+//! - [`gpanel`] — the **vector (`mfh = 23`) photon-interaction group-averaging
+//!   engine**: the `gpanel` panel integrator and the `gtsig`/`gtflx` feeders,
+//!   physically shared with GROUPR and re-exported here ([`group_average_vector`],
+//!   [`PointwiseXs`], [`GroupFlux`]), plus the GENDF vector writer
+//!   ([`GendfSection`], [`GendfTape`]).
 //! - [`run`] / [`run_with_input`] — the top-level driver skeleton documenting
-//!   the full pipeline; the **numeric group-averaging engine returns
+//!   the full pipeline; the **end-to-end tape driver returns
 //!   [`crate::NjoyError::NotPorted`]** rather than fabricating results.
 //!
 //! # NOT yet ported (honest gap list)
 //!
-//! The numeric photon-interaction group-averaging engine and I/O:
+//! The photon-interaction **matrix** engine and the tape I/O control flow:
 //!
-//! - **`gtsig`** (`gaminr.f90:1133-1160`) — retrieve the MF=23 reaction cross
-//!   section from the PENDF tape (needs the ENDF `gety1`/`findf` reader).
-//! - **`gtff`** (`gaminr.f90:1162-1514`) — the feed-function engine: the
+//! - **`gtsig` PENDF reader** (`gaminr.f90:1133-1160`) — the `findf`/`gety1`
+//!   tape retrieval of the MF=23 cross section that feeds a real `sigma(E)` grid
+//!   into [`PointwiseXs::LinLin`]. The panel average of a supplied grid is
+//!   ported; wiring it to a PENDF tape is not.
+//! - **`gtff`** (`gaminr.f90:1162-1514`) — the matrix feed-function engine: the
 //!   coherent (Rayleigh) form-factor Legendre integral (`mtd=502`), the
 //!   incoherent (Compton/Klein–Nishina × S(q,Z)) energy-angle integral
-//!   (`mtd=504`), and the pair-production matrix (`mtd=516`).
-//! - **`gpanel`** (`gaminr.f90:874-1011`) — the per-panel Lobatto-quadrature
-//!   generalized group-constant integrator.
-//! - **`dspla`** (`gaminr.f90:1013-1131`) — group-constant display / the
-//!   division by the group flux that turns integrals into averages.
-//! - The **GENDF/GAM-out writer** and the ENDF tape control flow of the main
-//!   `gaminr` subroutine (`gaminr.f90:133-536`).
+//!   (`mtd=504`), and the pair-production matrix (`mtd=516`). See
+//!   [`gpanel::gtff_matrix`] (a documented `NotPorted` stub).
+//! - **`dspla` matrix branch** (`gaminr.f90:1083-1128`, `mfd=26`) — the
+//!   group-to-group display/division; the vector branch (`mfd=23`) is ported as
+//!   [`GroupIntegral::average`].
+//! - The **GAM-out tape control flow** of the main `gaminr` subroutine
+//!   (`gaminr.f90:133-536`) — the vector GENDF *records* round-trip, but the
+//!   full ENDF tape sequencing does not.
 //! - The read-in weight TAB1 (`iwt=1`) and read-in group grid (`igg=1`)
 //!   *evaluation* paths beyond deck capture.
 //!
 //! See `README.md` in this directory for theory, the ported-vs-NotPorted table,
 //! and test status.
 
+pub mod gpanel;
 pub mod input;
 pub mod photon_groups;
 pub mod weights;
 
+pub use gpanel::{
+    group_average_vector, group_integral, gtff_matrix, GendfGroupRecord, GendfSection, GendfTape,
+    GroupFlux, GroupIntegral, PointwiseXs,
+};
 pub use input::{
     standard_reactions, EndfFormat, GaminrInput, GaminrReaction, GroupGrid, PrintOption,
     ReactionSelection, UnitAssignments,

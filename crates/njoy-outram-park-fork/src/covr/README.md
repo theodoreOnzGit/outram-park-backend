@@ -79,14 +79,20 @@ clamps to $[-1, 1]$ (`covr.f90:1371-1372`), reproduced by
 | Plottability test (`ismall`) | `covr.f90:683` | `CorrelationMatrix::has_plottable_correlation` |
 | Shade-level index (`level`) | `covr.f90:1601-1619` | `shade_level` |
 | Driver skeleton (documents pipeline) | `covr.f90:49-506` | `run_with_deck` (returns `NotPorted`) |
+| **`covard` covariance transform** (scatter + zero-xsec zeroing + abs→rel) | `covr.f90:815-935` | `covard::ErrorrCovarianceSection::to_dense` |
+| **`expndo` MT-pair enumeration** | `covr.f90:546-569` | `covard::expand_mt_pairs` |
+| Auto/cross rsd sourcing (`subroutine corr` data flow) | `covr.f90:597-711` | `covard::correlation_from_auto_and_cross` |
+| **BOXER `press` RLE** (encode + decode) | `covr.f90:2085-2196` | `boxer::compress` / `boxer::decompress` |
+| **BOXER `setfor`** format selection | `covr.f90:2220-2247` | `boxer::setfor` |
+| **BOXER `press` text layout** | `covr.f90:2199-2207` | `boxer::press_text` |
 
 ### NOT ported (honest gap list)
 
 | Piece | Upstream | Reason |
 |---|---|---|
-| **ERRORR tape reader** (`covard`) | `covr.f90:720-937` | Reads the ENDF-like covariance records off the ERRORR output tape (`contio`/`listio`/`moreio`/`finds`). The in-memory record layout is not independently verifiable here, so per the port brief the transform is validated against a documented `CovarianceMatrix` and the reader is a gap. |
-| **MT-list tape scan** (`expndo`) | `covr.f90:508-576` | Depends on ENDF tape I/O. Only the pure strip *logic* (`is_mt_stripped`) is ported. |
-| **BOXER-format library writer** (`press`, `setfor`) | `covr.f90:1991-2247` | Compressed covariance-library output formatting. |
+| **ERRORR *tape I/O*** (the `contio`/`listio`/`moreio`/`finds` half of `covard`) | `covr.f90:740-886` | No ERRORR covariance *tape* exists in this crate yet (`covout`/`colaps` unported), so there is no byte-stream to decode. `covard`'s numeric transform is ported instead, over an in-memory `ErrorrCovarianceSection`. |
+| **`expndo` tape scan** (collect present MTs off unit `nin`) | `covr.f90:526-556` | Depends on ENDF tape I/O; callers supply the scanned MT list. Only the pure filter+expand logic is ported. |
+| **`press_text` byte-exact numeric formatting** | `covr.f90:2206-2207` | The value text uses Rust's formatter in the correct field structure, not a byte-exact Fortran `1P Ew.d` emulation; no golden-file comparison run. |
 | **All PostScript plotting** (`plotit`, `matshd`, `patlev`, `smilab`, `matmes`, `elem`, `mtno`, `truncg`, `copyst`) | `covr.f90:939-1599,1649-1910` | VIEWR figure generation — graphics for a target OUTRAM PARK does not support. Only the self-contained numeric pieces used *by* the plot path (`level`, the shade array) are ported. |
 
 The registry entry point `covr::run()` (no-arg) returns `NotPorted("covr")`;
@@ -98,10 +104,25 @@ returns `NotPorted("covr::run")`.
 Inline `#[cfg(test)]` unit tests (no `tests/` dir), run via
 `crates/njoy-outram-park-fork/scripts/test.sh covr` (12 GB cap).
 
-**Result (2026-07-15): 17 passed, 0 failed.** `cargo check -p
-njoy-outram-park-fork --lib` is clean.
+**Result (2026-07-15): 35 passed, 0 failed** (17 original + 18 for
+`covard`/`expndo`/BOXER). `cargo build -p njoy-outram-park-fork --release` is
+clean (0 warnings).
 
 Key V&V checks (methodology + numbers):
+
+- **`covard` scatter/convert** — sparse row-blocks land at `(row-1,
+  first_col-1+k)`; absolute→relative `cf/(xx*xy)`; zero-xsec rows/cols zeroed
+  with the `ipflag` count; `izero` null flag.
+- **auto/cross rsd sourcing** — `correlation_from_auto_and_cross` takes `rsd_x`
+  from the row auto-covariance diagonal and `rsd_y` from the column
+  auto-covariance diagonal (a zero-cross-diagonal case traps any code that
+  wrongly normalises by the cross matrix's own diagonal).
+- **BOXER round-trip** — `decompress(compress(m)) == sigfig(m)` for rectangular,
+  symmetric (upper-triangle store + mirror), constant (single run), and a 40×40
+  matrix that forces >1 page; cov→BOXER→decode→corr equals the direct
+  correlation transform (diagonal 1, `|corr| ≤ 1`).
+- **`setfor`** — `nvf=12 → "(1p6e12.5)"` (6/line), `ncf=4 → "(20i4)"` (20/line);
+  out-of-range `nvf`/`ncf` rejected.
 
 - **cov → corr, 2×2 SPD** — `cov = [[4, 2], [2, 9]]` (det 32 > 0), `rsd = [2, 3]`.
   Hand result `corr = [[1, 1/3], [1/3, 1]]`; test confirms unit diagonal,

@@ -156,7 +156,7 @@ pub fn bfact(x: f64, dwc: f64, betai: f64) -> (f64, [f64; 50], [f64; 50]) {
 ///
 /// Returns `(bex, rdbex, nbx)`: `bex[0..nbx]` is the beta grid extended to
 /// negative beta (reversed), `rdbex` holds `1/(bex[i+1]-bex[i])`.
-fn bfill(betan: &[f64]) -> (Vec<f64>, Vec<f64>, usize) {
+pub(crate) fn bfill(betan: &[f64]) -> (Vec<f64>, Vec<f64>, usize) {
     const SMALLB: f64 = 1e-9;
     let nbeta = betan.len();
     let mut bex = vec![0.0_f64; 2 * nbeta + 1];
@@ -188,7 +188,7 @@ fn bfill(betan: &[f64]) -> (Vec<f64>, Vec<f64>, usize) {
 
 /// Extend the asymmetric column `sexpb` (negative-beta side) to the full symmetric
 /// beta grid `sex` for `sint` (`exts`, leapr.f90:1834-1865).
-fn exts(sexpb: &[f64], exb: &[f64], betan: &[f64], nbx_len: usize) -> Vec<f64> {
+pub(crate) fn exts(sexpb: &[f64], exb: &[f64], betan: &[f64], nbx_len: usize) -> Vec<f64> {
     const SMALLB: f64 = 1e-9;
     let nbeta = betan.len();
     let mut sex = vec![0.0_f64; nbx_len.max(2 * nbeta + 1)];
@@ -223,7 +223,7 @@ fn exts(sexpb: &[f64], exb: &[f64], betan: &[f64], nbx_len: usize) -> Vec<f64> {
 /// * `tbart` — effective-temperature ratio (dimensionless).
 /// * `betan` — the scaled beta grid.
 #[allow(clippy::too_many_arguments)]
-fn sint(
+pub(crate) fn sint(
     x: f64,
     bex: &[f64],
     rdbex: &[f64],

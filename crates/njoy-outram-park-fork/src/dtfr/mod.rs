@@ -30,22 +30,34 @@
 //! line formatting for both the in-table (format 0) and td6/CLAW (format 1)
 //! styles ([`format`]).
 //!
-//! **Not ported:** the GENDF-tape reader (`contio`/`listio`/`moreio` walk of a
-//! GROUPR tape, `dtfr.f90:181-553`) — the numeric values are supplied to the
-//! ported kernels via the in-memory [`table::DtfTable`]. The plotting paths
-//! (`ploted`/`plotnn`/`plotnp`, `dtfr.f90:948-1507`) are **permanently out of
-//! scope** (viewr/PostScript output). [`driver::run`] documents the pipeline and
+//! **Ported (minimal reader):** a self-contained GENDF record reader
+//! ([`gendf`], `dtfr.f90:199-427`) sufficient to feed the ported kernels — it
+//! reads the MF=1/451 group-structure header and the MF=3/MF=6 reaction LIST
+//! records over an in-memory [`crate::endf::tape::Tape`], and
+//! [`gendf::build_neutron_table`] assembles the P0 total + elastic-scatter DTF
+//! table from them. It depends only on the generic ENDF cursor, **not** on the
+//! GROUPR writer module.
+//!
+//! **Not ported:** the full DTFR accumulation loop (fission ν·σ_f/χ, edits,
+//! thermal corrections, photons, higher Legendre orders, `dtfr.f90:430-553`), the
+//! `contio`/`moreio` scratch-tape staging, and the plotting paths
+//! (`ploted`/`plotnn`/`plotnp`, `dtfr.f90:948-1507`, **permanently out of
+//! scope** — viewr/PostScript). [`driver::run`] documents the pipeline and
 //! returns [`NjoyError::NotPorted`].
 
 use crate::NjoyError;
 
 pub mod driver;
 pub mod format;
+pub mod gendf;
 pub mod input;
 pub mod table;
 
 pub use driver::run as run_with_input;
 pub use format::{column, format0_body, format0_header, fortran_e, pack_dtf_block};
+pub use gendf::{
+    build_neutron_table, read_header, read_section_records, GendfGroupRecord, GendfHeader,
+};
 pub use input::{
     DtfrInput, EditOption, EditSpec, FilmOption, MaterialDesc, NeutronTables, PrintOption,
     ThermalSpec, UnitAssignments,

@@ -1,591 +1,25 @@
 // Ported from NJOY2016 (git commit ac5adf5f33d893e42f2eed7fb286b0d51c7580da):
-//   - `src/errorr.f90` `egngpn` (the ERRORR ign->grid entry point, l.9716-9807), and
-//   - `src/groupr.f90` `gengpn` (the actual boundary-table source, l.1599-4649), plus
-//   - `src/util.f90` `sigfig` (l.361-393, the lethargy-grid rounding helper).
+//   - `src/groupr.f90` `gengpn` (the boundary-table source, l.1599-4649).
 // NJOY2016 is under a modified BSD 3-Clause (LANL/DOE) licence, GPL-compatible;
 // this derivative file is distributed under GPL-3.0-only. This is a modified,
 // non-LANL version, not endorsed by LANL/DOE. See crate root LICENSE.njoy + NOTICE.
 
-//! Built-in neutron group structures for the ERRORR module.
+//! Literal ENDF/NJOY neutron group-boundary constant tables.
 //!
-//! # What this module computes
+//! This file holds **only** the hand-transcribed `EG*`/`GL*` (and the small
+//! `DELTL`/`NDELTA`/`U80`/`IG14`) constant arrays that back the built-in neutron
+//! group structures. There is no logic here — the dispatch that reads these
+//! tables lives in the parent module ([`super::neutron_group_structure`]). The
+//! tables were split out of `groups.rs` purely to honour the crate's
+//! 1000/1500-line file-size cap; values, names, and order are unchanged.
 //!
-//! ERRORR's `egngpn(ign,ngn,egn)` (`errorr.f90:9716-9807`) selects one of NJOY's
-//! built-in multigroup neutron energy-boundary structures by the integer index
-//! `ign`, filling the group-boundary array `egn` (length `ngn+1`) and returning
-//! the group count `ngn`. In upstream Fortran, `egngpn` is a thin wrapper that
-//! **delegates the boundary tables to `gengpn`** in the GROUPR module
-//! (`groupr.f90:1599-4649`); the union-with-covariance-grid step that `egngpn`
-//! adds on top is ERRORR-internal plumbing and is *not* part of the group
-//! structure itself. This module ports the boundary-table half faithfully — the
-//! part a caller means when they say "give me the SCALE-238 / VITAMIN-J / XMAS
-//! grid" — from `gengpn`, which is the single source of truth for the tables.
-//!
-//! # Energy unit and ordering
-//!
-//! All boundaries are in **electron-volts (eV)**. The returned `Vec<f64>` has
-//! length `ngn + 1` and is given in the **same element order NJOY produces**.
-//! For every built-in structure ported here that order is **ascending in
-//! energy** (lowest boundary first, highest last) — either because the source
-//! table is ascending, because NJOY reverses a descending table into `egn`
-//! (e.g. XMAS, `ign=18`), or because a lethargy grid `u` is mapped to energy by
-//! `E = E0 * exp(-u)` which inverts the ordering. Callers that need descending
-//! order should reverse the result.
-//!
-//! # `ign` index map (from `groupr.f90:1604-1642`)
-//!
-//! | `ign` | structure | groups |
-//! |------:|-----------|-------:|
-//! | ±1 | arbitrary structure, **read from input** (not a table) | — |
-//! | 2  | CSEWG (header says 239; code sets ngn=240) | 240 |
-//! | 3  | LANL | 30 |
-//! | 4  | ANL | 27 |
-//! | 5  | RRD | 50 |
-//! | 6  | GAM-I | 68 |
-//! | 7  | GAM-II | 100 |
-//! | 8  | LASER-THERMOS | 35 |
-//! | 9  | EPRI-CPM/WIMS | 69 |
-//! | 10 | LANL | 187 |
-//! | 11 | LANL | 70 |
-//! | 12 | SAND-II | 620 |
-//! | 13 | LANL | 80 |
-//! | 14 | EURLIB | 100 |
-//! | 15 | SAND-IIA | 640 |
-//! | 16 | VITAMIN-E | 174 |
-//! | 17 | VITAMIN-J | 175 |
-//! | 18 | XMAS | 172 |
-//! | 19 | ECCO | 33 |
-//! | 20 | ECCO | 1968 |
-//! | 21 | TRIPOLI | 315 |
-//! | 22 | XMAS LWPC | 172 |
-//! | 23 | VIT-J LWPC | 175 |
-//! | 24 | SHEM CEA | 281 |
-//! | 25 | SHEM EPM | 295 |
-//! | 26 | SHEM CEA/EPM | 361 |
-//! | 27 | SHEM EPM | 315 |
-//! | 28 | RAHAB AECL | 89 |
-//! | 29 | CCFE | 660 |
-//! | 30 | UKAEA | 1025 |
-//! | 31 | UKAEA | 1067 |
-//! | 32 | UKAEA | 1102 |
-//! | 33 | UKAEA | 142 |
-//! | 34 | LANL | 618 |
-//! | 35 | APOLLO | 99 |
-//! | 36 | ECCO | 1962 |
-//!
-//! # Not ported: read-from-input structures
-//!
-//! `abs(ign) == 1` (i.e. `ign = 1` or `ign = -1`) is the *arbitrary* structure:
-//! NJOY reads `ngn` and then the `ngn+1` boundaries from the system input file
-//! as a free-format list (`groupr.f90:4156-4165`). There is no hardcoded table
-//! to reproduce, so [`neutron_group_structure`] returns
-//! [`NjoyError::NotPorted`] for those values rather than fabricating boundaries.
-//! Any other unrecognised `ign` (NJOY's "illegal group structure" abort at
-//! `groupr.f90:4557-4558`) is reported as an error instead of panicking.
-//!
-//! # File-size note (for the crate maintainer)
-//!
-//! The literal boundary tables total ~9800 `f64` values across 39 arrays, so
-//! this single file exceeds the crate's 1000/1500-line guidance purely because
-//! of data. The task that produced it required a single self-contained file. If
-//! the maintainer prefers to honour the cap, the natural split is to move the
-//! `EG*`/`GL*` `const` tables into a sibling `groups/tables.rs` and keep the
-//! dispatch logic here — no logic changes needed.
+//! Each `const` keeps the Fortran name (upper-cased) and length so it stays
+//! line-traceable to the `parameter` arrays in `groupr.f90` (`gengpn`, lines
+//! 1652-4131). `GL*` arrays are lethargy grids; `EG*` arrays are energies in eV
+//! (except `EG20*`, which the dispatch splices). Extraction was verified by
+//! matching every array length to its Fortran `dimension(N)`.
 
-use crate::NjoyError;
-
-/// Return the neutron group-boundary structure selected by `ign`, in eV.
-///
-/// This is the faithful port of NJOY2016's `gengpn` boundary tables reached
-/// through ERRORR's `egngpn` (`errorr.f90:9716`). The returned vector has
-/// length `ngn + 1` (one more than the group count) and is **ascending in
-/// energy**. See the module-level documentation for the `ign` map, the energy
-/// unit, and ordering.
-///
-/// # Errors
-///
-/// - `abs(ign) == 1` selects the read-from-input arbitrary structure, which has
-///   no built-in table; returns [`NjoyError::NotPorted`].
-/// - Any `ign` outside the built-in set returns an error (NJOY aborts here).
-///
-/// # Source
-///
-/// `groupr.f90:1599-4649` (`gengpn`); dispatch mirror of `groupr.f90:4156-4567`.
-pub fn neutron_group_structure(ign: i32) -> Result<Vec<f64>, NjoyError> {
-    // Scalar parameters, groupr.f90:4133-4150.
-    const EZERO: f64 = 1.0e7;
-    const EIGHTH: f64 = 0.125;
-    const BGAM2: f64 = 27.631021;
-    const TGAM2: f64 = -0.53062825;
-    const U187A: f64 = -15.5;
-    const U187B: f64 = -14.125;
-    const U187C: f64 = -5.875;
-    const E187D: f64 = 2.6058e4;
-    const E187E: f64 = 6.868;
-    const SANDA: f64 = 1.0e-4;
-    const SANDB: f64 = 1.0e-6;
-    const SANDC: f64 = 2.8e-4;
-    const SANDD: f64 = 1.0e6;
-    const SANDE: f64 = 1.0e5;
-    const UU80: f64 = 0.6931472;
-    const E175: f64 = 1.284e7;
-
-    // Build `egn` and a `lflag` marking lethargy grids that need the final
-    // `E = E0*exp(-u)` conversion (groupr.f90:4562-4567). `egn` is filled with
-    // 1-based Fortran indices translated to 0-based `[i - 1]` throughout, so the
-    // index arithmetic stays line-traceable to the Fortran.
-    let (mut egn, lflag): (Vec<f64>, bool) = match ign {
-        // abs(ign)==1: arbitrary structure read from input (groupr.f90:4156-4165).
-        1 | -1 => {
-            return Err(NjoyError::NotPorted(
-                "errorr::egngpn::ign1 (arbitrary group structure read from input file)",
-            ));
-        }
-
-        // CSEWG 239 group structure (groupr.f90:4168-4175). Lethargy grid.
-        2 => (GL2.to_vec(), true),
-
-        // LANL 30 group structure (groupr.f90:4178-4184). Direct energies.
-        3 => (EG3.to_vec(), false),
-
-        // ANL 27 group structure (groupr.f90:4187-4194). Lethargy grid.
-        4 => (GL4.to_vec(), true),
-
-        // RRD 50 group structure (groupr.f90:4197-4204). Lethargy grid.
-        5 => (GL5.to_vec(), true),
-
-        // GAM-I 68 group structure (groupr.f90:4207-4217). Lethargy grid.
-        6 => {
-            let ngp = 69usize;
-            let mut egn = vec![0.0f64; ngp];
-            let mut u = -0.25f64;
-            let du = 0.25f64;
-            for ig in 1..=ngp {
-                u += du;
-                egn[(70 - ig) - 1] = u;
-            }
-            (egn, true)
-        }
-
-        // GAM-II 100 group structure (groupr.f90:4220-4234). Lethargy grid.
-        7 => {
-            let ngp = 101usize;
-            let mut egn = vec![0.0f64; ngp];
-            let mut u = -0.4f64;
-            let mut du = 0.1f64;
-            for ig in 1..=99usize {
-                u += du;
-                egn[(101 - ig) - 1] = u;
-                if ig == 49 {
-                    du = 0.25f64;
-                }
-            }
-            egn[0] = BGAM2; // upper edge, groupr.f90:4231
-            egn[100] = TGAM2; // upper limit changed to 17 MeV, groupr.f90:4233
-            (egn, true)
-        }
-
-        // LASER-THERMOS 35 group structure (groupr.f90:4237-4243). Direct energies.
-        8 => (EG6.to_vec(), false),
-
-        // EPRI-CPM/WIMS 69 group structure (groupr.f90:4246-4252). Direct energies.
-        9 => (EG9.to_vec(), false),
-
-        // LANL 187 group structure (groupr.f90:4255-4281). Direct energies.
-        10 => {
-            let ngp = 188usize;
-            let mut egn = vec![0.0f64; ngp];
-            for ig in 1..=48usize {
-                egn[ig - 1] = EG10A[ig - 1];
-            }
-            let mut u = U187A;
-            for ig in 49..=59usize {
-                egn[ig - 1] = EZERO * u.exp();
-                u += EIGHTH;
-            }
-            egn[60 - 1] = E187E;
-            u = U187B;
-            for ig in 61..=126usize {
-                egn[ig - 1] = EZERO * u.exp();
-                u += EIGHTH;
-            }
-            egn[127 - 1] = E187D;
-            u = U187C;
-            for ig in 128..=175usize {
-                egn[ig - 1] = EZERO * u.exp();
-                u += EIGHTH;
-            }
-            for ig in 176..=188usize {
-                egn[ig - 1] = EG10B[(ig - 175) - 1];
-            }
-            (egn, false)
-        }
-
-        // LANL 70 group structure (groupr.f90:4284-4290). Direct energies.
-        11 => (EG11.to_vec(), false),
-
-        // SAND-II 620 / SAND-IIA 640 group structures (groupr.f90:4293-4318).
-        12 | 15 => {
-            let ngn: usize = if ign == 15 { 640 } else { 620 };
-            let ngp = ngn + 1;
-            let mut egn = vec![0.0f64; ngp];
-            egn[0] = SANDA;
-            // first 45 boundaries in 8 constant-spacing bands
-            for ig in 1..=8usize {
-                let delta = DELTL[ig - 1] * SANDB;
-                let n1 = NDELTA[ig - 1];
-                let n2 = NDELTA[ig] - 1; // ndelta(ig+1)-1
-                for n in n1..=n2 {
-                    egn[n - 1] = egn[(n - 1) - 1] + delta;
-                }
-            }
-            egn[21 - 1] = SANDC; // correct group 21
-            // groups 46..450 are 10x the group 45 lower
-            for ig in 46..=450usize {
-                egn[ig - 1] = egn[(ig - 45) - 1] * 10.0;
-            }
-            // groups 451..ngp have constant spacing of 1e5
-            egn[451 - 1] = SANDD;
-            for ig in 452..=ngp {
-                egn[ig - 1] = egn[(ig - 1) - 1] + SANDE;
-            }
-            (egn, false)
-        }
-
-        // LANL 80 group structure (groupr.f90:4321-4330). Direct energies.
-        13 => {
-            let ngn = 80usize;
-            let ngp = ngn + 1;
-            let mut egn = vec![0.0f64; ngp];
-            let mut u = UU80;
-            for ig in 1..=ngp {
-                egn[(82 - ig) - 1] = EZERO * u.exp();
-                if ig <= ngn {
-                    u -= U80[ig - 1];
-                }
-            }
-            egn[81 - 1] = 2.0 * EZERO;
-            (egn, false)
-        }
-
-        // EURLIB 100 group structure (groupr.f90:4333-4343). Lethargy grid.
-        14 => {
-            let ngp = 101usize;
-            let mut egn = vec![0.0f64; ngp];
-            egn[101 - 1] = -0.4f64; // -4*tenth
-            let mut ic = 0usize;
-            for ig in 2..=101usize {
-                if ic < IG14.len() && ig == IG14[ic] {
-                    ic += 1;
-                }
-                egn[(102 - ig) - 1] = egn[(103 - ig) - 1] + GL14[ic - 1];
-            }
-            (egn, true)
-        }
-
-        // VITAMIN-E 174 / VITAMIN-J 175 group structures (groupr.f90:4346-4362).
-        16 | 17 => {
-            let ngn: usize = if ign == 16 { 174 } else { 175 };
-            let ngp = ngn + 1;
-            let mut egn = vec![0.0f64; ngp];
-            for ig in 1..=84usize {
-                egn[ig - 1] = EG15A[ig - 1];
-            }
-            for ig in 85..=175usize {
-                egn[ig - 1] = EG15B[(ig - 84) - 1];
-            }
-            if ign != 16 {
-                egn[166 - 1] = E175;
-                for ig in 167..=176usize {
-                    egn[ig - 1] = EG15B[(ig - 85) - 1];
-                }
-            }
-            (egn, false)
-        }
-
-        // XMAS 172 group structure (groupr.f90:4365-4371). Reversed table.
-        18 => {
-            let ngp = 173usize;
-            let mut egn = vec![0.0f64; ngp];
-            for ig in 1..=ngp {
-                egn[ig - 1] = EG18[(174 - ig) - 1];
-            }
-            (egn, false)
-        }
-
-        // ECCO 33 group structure (groupr.f90:4374-4380). Direct energies.
-        19 => (EG19.to_vec(), false),
-
-        // ECCO 1968 group structure (groupr.f90:4383-4404). Direct energies.
-        20 => {
-            let mut egn = vec![0.0f64; 1969];
-            for ig in 0..392 {
-                egn[ig] = EG20A[ig];
-                egn[ig + 392] = EG20B[ig];
-                egn[ig + 784] = EG20C[ig];
-                egn[ig + 1176] = EG20D[ig];
-                egn[ig + 1568] = EG20E[ig];
-            }
-            for ig in 0..9 {
-                egn[ig + 1960] = EG20F[ig];
-            }
-            (egn, false)
-        }
-
-        // TRIPOLI 315 group structure (groupr.f90:4407-4413). Direct energies.
-        21 => (EG21.to_vec(), false),
-
-        // XMAS LWPC 172 group structure (groupr.f90:4416-4422). Direct energies.
-        22 => (EG22.to_vec(), false),
-
-        // VIT-J LWPC 175 group structure (groupr.f90:4425-4431). Direct energies.
-        23 => (EG23.to_vec(), false),
-
-        // SHEM CEA 281 group structure (groupr.f90:4434-4440). Direct energies.
-        24 => (EG24.to_vec(), false),
-
-        // SHEM EPM 295 group structure (groupr.f90:4443-4449). Direct energies.
-        25 => (EG25.to_vec(), false),
-
-        // SHEM CEA/EPM 361 group structure (groupr.f90:4452-4458). Direct energies.
-        26 => (EG26.to_vec(), false),
-
-        // SHEM EPM 315 group structure (groupr.f90:4461-4467). Direct energies.
-        27 => (EG27.to_vec(), false),
-
-        // RAHAB AECL 89 group structure (groupr.f90:4470-4476). Direct energies.
-        28 => (EG28.to_vec(), false),
-
-        // CCFE 660 group structure (groupr.f90:4479-4485). Direct energies.
-        29 => (EG29.to_vec(), false),
-
-        // UKAEA 1025 group structure (groupr.f90:4488-4494). Direct energies.
-        30 => (EG30.to_vec(), false),
-
-        // UKAEA 1067 group structure (groupr.f90:4497-4503). Direct energies.
-        31 => (EG31.to_vec(), false),
-
-        // UKAEA 1102 group structure (groupr.f90:4506-4512). Direct energies.
-        32 => (EG32.to_vec(), false),
-
-        // UKAEA 142 group structure (groupr.f90:4515-4521). Direct energies.
-        33 => (EG33.to_vec(), false),
-
-        // LANL 618 group structure (groupr.f90:4524-4530). Direct energies.
-        34 => (EG618.to_vec(), false),
-
-        // APOLLO 99 group structure (groupr.f90:4533-4539). Direct energies.
-        35 => (EG35.to_vec(), false),
-
-        // ECCO 1962 group structure (groupr.f90:4542-4554). Direct energies.
-        36 => {
-            let ngp = 1963usize;
-            let mut egn = vec![0.0f64; ngp];
-            for ig in 0..392 {
-                egn[ig] = EG20A[ig];
-                egn[ig + 392] = EG20B[ig];
-            }
-            let f = (1.0f64 / 120.0f64).exp();
-            for ig in 785..=ngp {
-                egn[ig - 1] = egn[(ig - 1) - 1] * f;
-            }
-            (egn, false)
-        }
-
-        // Illegal ign: NJOY calls error() and aborts (groupr.f90:4557-4558).
-        other => {
-            return Err(NjoyError::EndfParse(format!(
-                "gengpn: illegal neutron group structure ign={other}"
-            )));
-        }
-    };
-
-    // Convert lethargy grid to energies (groupr.f90:4562-4567).
-    if lflag {
-        for e in egn.iter_mut() {
-            *e = sigfig(EZERO * (-*e).exp(), 7, 0);
-        }
-    }
-
-    Ok(egn)
-}
-
-/// Adjust `x` to have `ndig` significant figures, optionally shading it up or
-/// down by `idig` in the last digit.
-///
-/// Faithful port of NJOY2016's `sigfig` (`util.f90:361-393`). Used here to round
-/// the energies produced from lethargy grids exactly the way NJOY does, so the
-/// boundaries match the Fortran output bit-for-bit at 7 significant figures.
-fn sigfig(x: f64, ndig: i32, idig: i32) -> f64 {
-    const BIAS: f64 = 1.000_000_000_000_1_f64;
-    const TEN: f64 = 10.0;
-    let mut xx = 0.0f64;
-    if x != 0.0 {
-        let aa = x.abs().log10();
-        let mut ipwr = aa as i32; // Fortran int(): truncate toward zero
-        if aa < 0.0 {
-            ipwr -= 1;
-        }
-        ipwr = ndig - 1 - ipwr;
-        // nint(): round half away from zero, matching Fortran and f64::round.
-        let mut ii = (x * TEN.powi(ipwr) + TEN.powi(ndig - 11)).round() as i64;
-        let mut ipwr2 = ipwr;
-        if ii >= 10i64.pow(ndig as u32) {
-            ii /= 10;
-            ipwr2 -= 1;
-        }
-        ii += idig as i64;
-        xx = (ii as f64) * TEN.powi(-ipwr2);
-    }
-    xx *= BIAS;
-    xx
-}
-
-/// Named handle for a built-in neutron group structure.
-///
-/// This is a convenience wrapper over the integer `ign` index used by NJOY. Each
-/// variant maps to one `ign`; [`NeutronGroupStructure::boundaries`] returns the
-/// eV boundaries (ascending in energy, length = groups + 1) by delegating to
-/// [`neutron_group_structure`]. The `Arbitrary` variant corresponds to
-/// `abs(ign)==1`, which is read from input and has no built-in table.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NeutronGroupStructure {
-    /// Arbitrary structure, read from input file (`ign = 1`). No built-in table.
-    Arbitrary,
-    /// CSEWG 239-group structure (`ign = 2`).
-    Csewg239,
-    /// LANL 30-group structure (`ign = 3`).
-    Lanl30,
-    /// ANL 27-group structure (`ign = 4`).
-    Anl27,
-    /// RRD 50-group structure (`ign = 5`).
-    Rrd50,
-    /// GAM-I 68-group structure (`ign = 6`).
-    GamI68,
-    /// GAM-II 100-group structure (`ign = 7`).
-    GamII100,
-    /// LASER-THERMOS 35-group structure (`ign = 8`).
-    LaserThermos35,
-    /// EPRI-CPM/WIMS 69-group structure (`ign = 9`).
-    EpriCpm69,
-    /// LANL 187-group structure (`ign = 10`).
-    Lanl187,
-    /// LANL 70-group structure (`ign = 11`).
-    Lanl70,
-    /// SAND-II 620-group structure (`ign = 12`).
-    SandII620,
-    /// LANL 80-group structure (`ign = 13`).
-    Lanl80,
-    /// EURLIB 100-group structure (`ign = 14`).
-    Eurlib100,
-    /// SAND-IIA 640-group structure (`ign = 15`).
-    SandIIA640,
-    /// VITAMIN-E 174-group structure (`ign = 16`).
-    VitaminE174,
-    /// VITAMIN-J 175-group structure (`ign = 17`).
-    VitaminJ175,
-    /// XMAS 172-group structure (`ign = 18`).
-    Xmas172,
-    /// ECCO 33-group structure (`ign = 19`).
-    Ecco33,
-    /// ECCO 1968-group structure (`ign = 20`).
-    Ecco1968,
-    /// TRIPOLI 315-group structure (`ign = 21`).
-    Tripoli315,
-    /// XMAS LWPC 172-group structure (`ign = 22`).
-    XmasLwpc172,
-    /// VIT-J LWPC 175-group structure (`ign = 23`).
-    VitJLwpc175,
-    /// SHEM CEA 281-group structure (`ign = 24`).
-    ShemCea281,
-    /// SHEM EPM 295-group structure (`ign = 25`).
-    ShemEpm295,
-    /// SHEM CEA/EPM 361-group structure (`ign = 26`).
-    ShemCeaEpm361,
-    /// SHEM EPM 315-group structure (`ign = 27`).
-    ShemEpm315,
-    /// RAHAB AECL 89-group structure (`ign = 28`).
-    RahabAecl89,
-    /// CCFE 660-group structure (`ign = 29`).
-    Ccfe660,
-    /// UKAEA 1025-group structure (`ign = 30`).
-    Ukaea1025,
-    /// UKAEA 1067-group structure (`ign = 31`).
-    Ukaea1067,
-    /// UKAEA 1102-group structure (`ign = 32`).
-    Ukaea1102,
-    /// UKAEA 142-group structure (`ign = 33`).
-    Ukaea142,
-    /// LANL 618-group structure (`ign = 34`).
-    Lanl618,
-    /// APOLLO 99-group structure (`ign = 35`).
-    Apollo99,
-    /// ECCO 1962-group structure (`ign = 36`).
-    Ecco1962,
-}
-
-impl NeutronGroupStructure {
-    /// The integer `ign` index NJOY uses for this structure.
-    pub fn ign(self) -> i32 {
-        match self {
-            Self::Arbitrary => 1,
-            Self::Csewg239 => 2,
-            Self::Lanl30 => 3,
-            Self::Anl27 => 4,
-            Self::Rrd50 => 5,
-            Self::GamI68 => 6,
-            Self::GamII100 => 7,
-            Self::LaserThermos35 => 8,
-            Self::EpriCpm69 => 9,
-            Self::Lanl187 => 10,
-            Self::Lanl70 => 11,
-            Self::SandII620 => 12,
-            Self::Lanl80 => 13,
-            Self::Eurlib100 => 14,
-            Self::SandIIA640 => 15,
-            Self::VitaminE174 => 16,
-            Self::VitaminJ175 => 17,
-            Self::Xmas172 => 18,
-            Self::Ecco33 => 19,
-            Self::Ecco1968 => 20,
-            Self::Tripoli315 => 21,
-            Self::XmasLwpc172 => 22,
-            Self::VitJLwpc175 => 23,
-            Self::ShemCea281 => 24,
-            Self::ShemEpm295 => 25,
-            Self::ShemCeaEpm361 => 26,
-            Self::ShemEpm315 => 27,
-            Self::RahabAecl89 => 28,
-            Self::Ccfe660 => 29,
-            Self::Ukaea1025 => 30,
-            Self::Ukaea1067 => 31,
-            Self::Ukaea1102 => 32,
-            Self::Ukaea142 => 33,
-            Self::Lanl618 => 34,
-            Self::Apollo99 => 35,
-            Self::Ecco1962 => 36,
-        }
-    }
-
-    /// Group-boundary energies in eV, ascending, length = groups + 1.
-    ///
-    /// Delegates to [`neutron_group_structure`]. Returns [`NjoyError::NotPorted`]
-    /// for [`NeutronGroupStructure::Arbitrary`], which is read from input.
-    pub fn boundaries(self) -> Result<Vec<f64>, NjoyError> {
-        neutron_group_structure(self.ign())
-    }
-}
-
-// -------------------------------------------------------------------------
-// Built-in boundary / lethargy tables, transcribed mechanically from the
-// Fortran `parameter` arrays in groupr.f90 (gengpn, lines 1652-4131). Each
-// Rust `const` keeps the Fortran name (upper-cased) and length so it stays
-// line-traceable. `GL*` arrays are lethargy grids; `EG*` arrays are energies
-// in eV (except EG20* which the dispatch splices). Extraction was verified by
-// matching every array length to its Fortran `dimension(N)`.
-// -------------------------------------------------------------------------
-
-const GL2: [f64; 241] = [
+pub(super) const GL2: [f64; 241] = [
     27.631e0, 17.0e0, 16.75e0, 16.588e0, 16.5e0, 16.3e0, 16.25e0, 16.0e0, 15.75e0, 15.5e0,
     15.25e0, 15.0e0, 14.75e0, 14.5e0, 14.25e0, 14.0e0, 13.75e0, 13.5e0, 13.25e0, 13.0e0,
     12.75e0, 12.5e0, 12.25e0, 12.0e0, 11.75e0, 11.5e0, 11.25e0, 11.0e0, 10.75e0, 10.5e0,
@@ -613,20 +47,20 @@ const GL2: [f64; 241] = [
     -0.69167e0,
 ];
 
-const EG3: [f64; 31] = [
+pub(super) const EG3: [f64; 31] = [
     1.39e-4, 1.52e-1, 4.14e-1, 1.13e0, 3.06e0, 8.32e0, 2.26e1, 6.14e1, 1.67e2, 4.54e2,
     1.235e3, 3.35e3, 9.12e3, 2.48e4, 6.76e4, 1.84e5, 3.03e5, 5.00e5, 8.23e5, 1.353e6,
     1.738e6, 2.232e6, 2.865e6, 3.68e6, 6.07e6, 7.79e6, 1.00e7, 1.20e7, 1.35e7, 1.50e7,
     1.70e7,
 ];
 
-const GL4: [f64; 28] = [
+pub(super) const GL4: [f64; 28] = [
     14.5e0, 13.0e0, 12.5e0, 12.0e0, 11.5e0, 11.0e0, 10.5e0, 10.0e0, 9.5e0, 9.0e0,
     8.5e0, 8.0e0, 7.5e0, 7.0e0, 6.5e0, 6.0e0, 5.5e0, 5.0e0, 4.5e0, 4.0e0,
     3.5e0, 3.0e0, 2.5e0, 2.0e0, 1.5e0, 1.0e0, 0.5e0, 0.0e0,
 ];
 
-const GL5: [f64; 51] = [
+pub(super) const GL5: [f64; 51] = [
     27.631e0, 16.5e0, 16.0e0, 15.5e0, 15.0e0, 14.5e0, 14.0e0, 13.5e0, 13.0e0, 12.5e0,
     12.0e0, 11.5e0, 11.0e0, 10.5e0, 10.25e0, 10.0e0, 9.75e0, 9.5e0, 9.25e0, 9.0e0,
     8.75e0, 8.5e0, 8.25e0, 8.0e0, 7.75e0, 7.5e0, 7.25e0, 7.0e0, 6.75e0, 6.5e0,
@@ -635,14 +69,14 @@ const GL5: [f64; 51] = [
     -0.6917e0,
 ];
 
-const EG6: [f64; 36] = [
+pub(super) const EG6: [f64; 36] = [
     0.253e-3, 0.2277e-2, 0.6325e-2, 0.12397e-1, 0.20493e-1, 0.30613e-1, 0.42757e-1, 0.56925e-1, 0.81972e-1, 0.11159e0,
     0.14573e0, 0.18444e0, 0.2277e0, 0.25104e0, 0.27053e0, 0.29075e0, 0.30113e0, 0.32064e0, 0.35768e0, 0.41704e0,
     0.50326e0, 0.62493e0, 0.78211e0, 0.95070e0, 0.10137e+1, 0.10428e+1, 0.10525e+1, 0.10624e+1, 0.10722e+1, 0.10987e+1,
     0.11664e+1, 0.13079e+1, 0.14575e+1, 0.1595e+1, 0.17262e+1, 0.1855e+1,
 ];
 
-const EG9: [f64; 70] = [
+pub(super) const EG9: [f64; 70] = [
     1.0e-5, 0.005e0, 0.01e0, 0.015e0, 0.02e0, 0.025e0, 0.03e0, 0.035e0, 0.042e0, 0.05e0,
     0.058e0, 0.067e0, 0.08e0, 0.1e0, 0.14e0, 0.18e0, 0.22e0, 0.25e0, 0.28e0, 0.3e0,
     0.32e0, 0.35e0, 0.4e0, 0.5e0, 0.625e0, 0.78e0, 0.85e0, 0.91e0, 0.95e0, 0.972e0,
@@ -652,7 +86,7 @@ const EG9: [f64; 70] = [
     1.11e5, 1.83e5, 3.025e5, 5.0e5, 8.21e5, 1.353e6, 2.231e6, 3.679e6, 6.0655e6, 1.0e7,
 ];
 
-const EG10A: [f64; 48] = [
+pub(super) const EG10A: [f64; 48] = [
     1.0e-5, 2.5399e-4, 7.6022e-4, 2.2769e-3, 6.3247e-3, 0.012396e0, 0.020492e0, 0.0255e0, 0.030612e0, 0.0355e0,
     0.042755e0, 0.05e0, 0.056922e0, 0.067e0, 0.081968e0, 0.11157e0, 0.14572e0, 0.1523e0, 0.18443e0, 0.22769e0,
     0.25103e0, 0.27052e0, 0.29074e0, 0.30112e0, 0.32063e0, 0.35767e0, 0.41499e0, 0.50323e0, 0.62506e0, 0.78208e0,
@@ -660,12 +94,12 @@ const EG10A: [f64; 48] = [
     1.0722e0, 1.0987e0, 1.1254e0, 1.1664e0, 1.3079e0, 1.4574e0, 1.5949e0, 1.7261e0,
 ];
 
-const EG10B: [f64; 13] = [
+pub(super) const EG10B: [f64; 13] = [
     1.1e7, 1.2e7, 1.3e7, 1.35e7, 1.375e7, 1.394e7, 1.42e7, 1.442e7, 1.464e7, 1.5e7,
     1.6e7, 1.7e7, 2.0e7,
 ];
 
-const EG11: [f64; 71] = [
+pub(super) const EG11: [f64; 71] = [
     10.677e0, 61.4421e0, 101.301e0, 130.073e0, 167.017e0, 214.454e0, 275.365e0, 353.575e0, 453.999e0, 582.947e0,
     748.518e0, 961.117e0, 1089.09e0, 1234.1e0, 1398.42e0, 1584.61e0, 1795.6e0, 2034.68e0, 2305.6e0, 2612.59e0,
     2960.45e0, 3354.63e0, 3801.29e0, 4307.43e0, 4880.95e0, 5530.84e0, 6267.27e0, 7101.74e0, 8047.33e0, 9118.82e0,
@@ -676,15 +110,15 @@ const EG11: [f64; 71] = [
     2.0e7,
 ];
 
-const DELTL: [f64; 8] = [
+pub(super) const DELTL: [f64; 8] = [
     5.0e0, 7.5e0, 10.0e0, 15.0e0, 20.0e0, 25.0e0, 30.0e0, 40.0e0,
 ];
 
-const NDELTA: [usize; 9] = [
+pub(super) const NDELTA: [usize; 9] = [
     2, 6, 10, 19, 23, 28, 36, 40, 46,
 ];
 
-const U80: [f64; 80] = [
+pub(super) const U80: [f64; 80] = [
     0.1681472e0, 0.125e0, 0.1e0, 0.125e0, 0.175e0, 0.25e0, 0.25e0, 0.25e0, 0.25e0, 0.25e0,
     0.25e0, 0.25e0, 0.25e0, 0.125e0, 0.125e0, 0.125e0, 0.125e0, 0.125e0, 0.125e0, 0.125e0,
     0.125e0, 0.125e0, 0.125e0, 0.25e0, 0.25e0, 0.25e0, 0.25e0, 0.25e0, 0.25e0, 0.25e0,
@@ -695,17 +129,17 @@ const U80: [f64; 80] = [
     0.5e0, 0.5e0, 0.5e0, 0.5e0, 0.5e0, 0.5e0, 1.0e0, 1.0e0, 1.0e0, 7.0e0,
 ];
 
-const IG14: [usize; 19] = [
+pub(super) const IG14: [usize; 19] = [
     2, 9, 13, 15, 17, 23, 25, 55, 60, 61,
     63, 64, 65, 93, 94, 95, 99, 100, 101,
 ];
 
-const GL14: [f64; 19] = [
+pub(super) const GL14: [f64; 19] = [
     0.1e0, 0.05e0, 0.1e0, 0.05e0, 0.1e0, 0.05e0, 0.1e0, 0.25e0, 0.2e0, 0.05e0,
     0.075e0, 0.125e0, 0.25e0, 0.5e0, 0.25e0, 0.5e0, 0.588e0, 0.412e0, 10.631e0,
 ];
 
-const EG15A: [f64; 84] = [
+pub(super) const EG15A: [f64; 84] = [
     1.0e-5, 1.0e-1, 4.1399e-1, 5.3158e-1, 6.8256e-1, 8.7642e-1, 1.1254e0, 1.4450e0, 1.8554e0, 2.3824e0,
     3.0590e0, 3.9279e0, 5.0435e0, 6.4760e0, 8.3153e0, 1.0677e1, 1.3710e1, 1.7603e1, 2.2603e1, 2.9023e1,
     3.7267e1, 4.7851e1, 6.1442e1, 7.8893e1, 1.0130e2, 1.3007e2, 1.6702e2, 2.1445e2, 2.7536e2, 3.5358e2,
@@ -717,7 +151,7 @@ const EG15A: [f64; 84] = [
     1.7422e5, 1.8316e5, 1.9255e5, 2.0242e5,
 ];
 
-const EG15B: [f64; 91] = [
+pub(super) const EG15B: [f64; 91] = [
     2.1280e5, 2.2371e5, 2.3518e5, 2.4724e5, 2.7324e5, 2.8725e5, 2.9452e5, 2.9720e5, 2.9850e5, 3.0197e5,
     3.3373e5, 3.6883e5, 3.8774e5, 4.0762e5, 4.5049e5, 4.9787e5, 5.2340e5, 5.5023e5, 5.7844e5, 6.0810e5,
     6.3928e5, 6.7206e5, 7.0651e5, 7.4274e5, 7.8082e5, 8.2085e5, 8.6294e5, 9.0718e5, 9.6164e5, 1.0026e6,
@@ -730,7 +164,7 @@ const EG15B: [f64; 91] = [
     1.9640e7,
 ];
 
-const EG18: [f64; 173] = [
+pub(super) const EG18: [f64; 173] = [
     1.96403e7, 1.73325e7, 1.49182e7, 1.38403e7, 1.16183e7, 1.00000e7, 8.18731e6, 6.70320e6, 6.06531e6, 5.48812e6,
     4.49329e6, 3.67879e6, 3.01194e6, 2.46597e6, 2.23130e6, 2.01897e6, 1.65299e6, 1.35335e6, 1.22456e6, 1.10803e6,
     1.00259e6, 9.07180e5, 8.20850e5, 6.08101e5, 5.50232e5, 4.97871e5, 4.50492e5, 4.07622e5, 3.01974e5, 2.73237e5,
@@ -751,14 +185,14 @@ const EG18: [f64; 173] = [
     5.00000e-3, 3.00000e-3, 1.00001e-5,
 ];
 
-const EG19: [f64; 34] = [
+pub(super) const EG19: [f64; 34] = [
     1.000010e-05, 1.000000e-01, 5.400000e-01, 4.000000e+00, 8.315287e+00, 1.370959e+01, 2.260329e+01, 4.016900e+01, 6.790405e+01, 9.166088e+01,
     1.486254e+02, 3.043248e+02, 4.539993e+02, 7.485183e+02, 1.234098e+03, 2.034684e+03, 3.354626e+03, 5.530844e+03, 9.118820e+03, 1.503439e+04,
     2.478752e+04, 4.086771e+04, 6.737947e+04, 1.110900e+05, 1.831564e+05, 3.019738e+05, 4.978707e+05, 8.208500e+05, 1.353353e+06, 2.231302e+06,
     3.678794e+06, 6.065307e+06, 1.000000e+07, 1.964033e+07,
 ];
 
-const EG20A: [f64; 392] = [
+pub(super) const EG20A: [f64; 392] = [
     1.000010e-05, 3.000000e-03, 5.000000e-03, 6.900000e-03, 1.000000e-02, 1.500000e-02, 2.000000e-02, 2.500000e-02, 3.000000e-02, 3.500000e-02,
     4.200000e-02, 5.000000e-02, 5.800000e-02, 6.700000e-02, 7.700000e-02, 8.000000e-02, 9.500000e-02, 1.000000e-01, 1.150000e-01, 1.340000e-01,
     1.400000e-01, 1.463700e-01, 1.530300e-01, 1.600000e-01, 1.697100e-01, 1.800000e-01, 1.890000e-01, 1.988100e-01, 2.091400e-01, 2.200000e-01,
@@ -801,7 +235,7 @@ const EG20A: [f64; 392] = [
     4.016900e+01, 4.050514e+01,
 ];
 
-const EG20B: [f64; 392] = [
+pub(super) const EG20B: [f64; 392] = [
     4.084410e+01, 4.118589e+01, 4.153054e+01, 4.187807e+01, 4.222851e+01, 4.258189e+01, 4.293822e+01, 4.329753e+01, 4.365985e+01, 4.402521e+01,
     4.439361e+01, 4.476511e+01, 4.513971e+01, 4.551744e+01, 4.589834e+01, 4.628243e+01, 4.666972e+01, 4.706026e+01, 4.745407e+01, 4.785117e+01,
     4.825160e+01, 4.865538e+01, 4.906253e+01, 4.947309e+01, 4.988709e+01, 5.030456e+01, 5.072551e+01, 5.114999e+01, 5.157802e+01, 5.200963e+01,
@@ -844,7 +278,7 @@ const EG20B: [f64; 392] = [
     1.053383e+03, 1.062198e+03,
 ];
 
-const EG20C: [f64; 392] = [
+pub(super) const EG20C: [f64; 392] = [
     1.071087e+03, 1.080050e+03, 1.089088e+03, 1.098201e+03, 1.107391e+03, 1.116658e+03, 1.126002e+03, 1.135425e+03, 1.144926e+03, 1.154507e+03,
     1.164168e+03, 1.173910e+03, 1.183734e+03, 1.193639e+03, 1.203628e+03, 1.213700e+03, 1.223857e+03, 1.234098e+03, 1.244425e+03, 1.254839e+03,
     1.265339e+03, 1.275928e+03, 1.286605e+03, 1.297372e+03, 1.308228e+03, 1.319176e+03, 1.330215e+03, 1.341346e+03, 1.352571e+03, 1.363889e+03,
@@ -887,7 +321,7 @@ const EG20C: [f64; 392] = [
     2.739445e+04, 2.762369e+04,
 ];
 
-const EG20D: [f64; 392] = [
+pub(super) const EG20D: [f64; 392] = [
     2.785485e+04, 2.808794e+04, 2.832299e+04, 2.850000e+04, 2.856000e+04, 2.879899e+04, 2.903999e+04, 2.928300e+04, 2.952804e+04, 2.977514e+04,
     3.002430e+04, 3.027555e+04, 3.052890e+04, 3.078437e+04, 3.104198e+04, 3.130174e+04, 3.156368e+04, 3.182781e+04, 3.209415e+04, 3.236272e+04,
     3.263353e+04, 3.290662e+04, 3.318198e+04, 3.345965e+04, 3.373965e+04, 3.402199e+04, 3.430669e+04, 3.459377e+04, 3.488326e+04, 3.517517e+04,
@@ -930,7 +364,7 @@ const EG20D: [f64; 392] = [
     6.890683e+05, 6.948345e+05,
 ];
 
-const EG20E: [f64; 392] = [
+pub(super) const EG20E: [f64; 392] = [
     7.006490e+05, 7.065121e+05, 7.124243e+05, 7.183860e+05, 7.243976e+05, 7.304594e+05, 7.365720e+05, 7.427358e+05, 7.489511e+05, 7.552184e+05,
     7.615382e+05, 7.679109e+05, 7.743369e+05, 7.808167e+05, 7.873507e+05, 7.939393e+05, 8.005831e+05, 8.072825e+05, 8.140380e+05, 8.208500e+05,
     8.277190e+05, 8.346455e+05, 8.416299e+05, 8.486728e+05, 8.557746e+05, 8.629359e+05, 8.701570e+05, 8.774387e+05, 8.847812e+05, 8.921852e+05,
@@ -973,11 +407,11 @@ const EG20E: [f64; 392] = [
     1.806998e+07, 1.822119e+07,
 ];
 
-const EG20F: [f64; 9] = [
+pub(super) const EG20F: [f64; 9] = [
     1.837367e+07, 1.852742e+07, 1.868246e+07, 1.883880e+07, 1.899644e+07, 1.915541e+07, 1.931570e+07, 1.947734e+07, 1.964033e+07,
 ];
 
-const EG21: [f64; 316] = [
+pub(super) const EG21: [f64; 316] = [
     1.000010e-05, 1.100000e-04, 3.000000e-03, 5.500100e-03, 1.000000e-02, 1.500000e-02, 2.000000e-02, 3.000000e-02, 3.200000e-02, 3.238000e-02,
     4.300000e-02, 5.900100e-02, 7.700100e-02, 9.500000e-02, 1.000000e-01, 1.150000e-01, 1.340000e-01, 1.600000e-01, 1.890000e-01, 2.200000e-01,
     2.480000e-01, 2.825000e-01, 3.145000e-01, 3.520000e-01, 3.910100e-01, 4.139900e-01, 4.330000e-01, 4.850100e-01, 5.315800e-01, 5.400100e-01,
@@ -1012,7 +446,7 @@ const EG21: [f64; 316] = [
     1.491800e+07, 1.568300e+07, 1.648700e+07, 1.690500e+07, 1.733300e+07, 1.964000e+07,
 ];
 
-const EG22: [f64; 173] = [
+pub(super) const EG22: [f64; 173] = [
     1.000010e-05, 3.000000e-03, 5.000000e-03, 6.900000e-03, 1.000000e-02, 1.500000e-02, 2.000000e-02, 2.500000e-02, 3.000000e-02, 3.500000e-02,
     4.200000e-02, 5.000000e-02, 5.800000e-02, 6.700000e-02, 7.700000e-02, 8.000000e-02, 9.500000e-02, 1.000000e-01, 1.150000e-01, 1.340000e-01,
     1.400000e-01, 1.600000e-01, 1.800000e-01, 1.890000e-01, 2.200000e-01, 2.480000e-01, 2.800000e-01, 3.000000e-01, 3.145000e-01, 3.200000e-01,
@@ -1033,7 +467,7 @@ const EG22: [f64; 173] = [
     1.4918247e+07, 1.733253e+07, 1.964033e+07,
 ];
 
-const EG23: [f64; 176] = [
+pub(super) const EG23: [f64; 176] = [
     1.000010e-05, 1.000010e-01, 4.139940e-01, 5.315790e-01, 6.825600e-01, 8.764250e-01, 1.123000e+00, 1.440000e+00, 1.855390e+00, 2.382370e+00,
     3.059020e+00, 3.927860e+00, 5.043480e+00, 6.475950e+00, 8.315290e+00, 1.067700e+01, 1.370960e+01, 1.760350e+01, 2.260330e+01, 2.902320e+01,
     3.726650e+01, 4.785120e+01, 6.144210e+01, 7.889320e+01, 1.013010e+02, 1.300730e+02, 1.670170e+02, 2.144540e+02, 2.753640e+02, 3.535750e+02,
@@ -1054,7 +488,7 @@ const EG23: [f64; 176] = [
     1.491820e+07, 1.568310e+07, 1.648720e+07, 1.690460e+07, 1.733250e+07, 1.964030e+07,
 ];
 
-const EG24: [f64; 282] = [
+pub(super) const EG24: [f64; 282] = [
     1.100027E-04, 2.499897E-03, 4.556021E-03, 7.145263E-03, 1.045050E-02, 1.482996E-02, 2.001035E-02, 2.493942E-02, 2.929889E-02, 3.439976E-02,
     4.029993E-02, 4.730186E-02, 5.549815E-02, 6.519936E-02, 7.649686E-02, 8.979683E-02, 1.042977E-01, 1.199949E-01, 1.379994E-01, 1.618953E-01,
     1.900049E-01, 2.096102E-01, 2.311923E-01, 2.549965E-01, 2.799888E-01, 3.050115E-01, 3.250079E-01, 3.529935E-01, 3.900011E-01, 4.315786E-01,
@@ -1086,7 +520,7 @@ const EG24: [f64; 282] = [
     1.491823E+07, 1.964030E+07,
 ];
 
-const EG25: [f64; 296] = [
+pub(super) const EG25: [f64; 296] = [
     1.100027E-04, 2.499897E-03, 4.556021E-03, 7.145263E-03, 1.045050E-02, 1.482996E-02, 2.001035E-02, 2.493942E-02, 2.929889E-02, 3.439976E-02,
     4.029993E-02, 4.730186E-02, 5.549815E-02, 6.519936E-02, 7.649686E-02, 8.979683E-02, 1.042977E-01, 1.199949E-01, 1.379994E-01, 1.618953E-01,
     1.900049E-01, 2.096102E-01, 2.311923E-01, 2.549965E-01, 2.799888E-01, 3.050115E-01, 3.250079E-01, 3.529935E-01, 3.900011E-01, 4.315786E-01,
@@ -1119,7 +553,7 @@ const EG25: [f64; 296] = [
     9.048363E+06, 9.999987E+06, 1.161833E+07, 1.384029E+07, 1.491823E+07, 1.964030E+07,
 ];
 
-const EG26: [f64; 362] = [
+pub(super) const EG26: [f64; 362] = [
     1.100027E-04, 2.499897E-03, 4.556021E-03, 7.145263E-03, 1.045050E-02, 1.482996E-02, 2.001035E-02, 2.493942E-02, 2.929889E-02, 3.439976E-02,
     4.029993E-02, 4.730186E-02, 5.549815E-02, 6.519936E-02, 7.649686E-02, 8.979683E-02, 1.042977E-01, 1.199949E-01, 1.379994E-01, 1.618953E-01,
     1.900049E-01, 2.096102E-01, 2.311923E-01, 2.549965E-01, 2.799888E-01, 3.050115E-01, 3.250079E-01, 3.529935E-01, 3.900011E-01, 4.315786E-01,
@@ -1159,7 +593,7 @@ const EG26: [f64; 362] = [
     1.491823E+07, 1.964030E+07,
 ];
 
-const EG27: [f64; 316] = [
+pub(super) const EG27: [f64; 316] = [
     1.100028E-04, 2.499900E-03, 4.556027E-03, 7.145272E-03, 1.045051E-02, 1.482998E-02, 2.001038E-02, 2.493945E-02, 2.929893E-02, 3.439981E-02,
     4.029998E-02, 4.730192E-02, 5.549822E-02, 6.519944E-02, 7.649695E-02, 8.979694E-02, 1.000001E-01, 1.199951E-01, 1.379996E-01, 1.618955E-01,
     1.900051E-01, 2.096105E-01, 2.311926E-01, 2.549968E-01, 2.799892E-01, 3.050119E-01, 3.250084E-01, 3.529940E-01, 3.900016E-01, 4.315792E-01,
@@ -1194,7 +628,7 @@ const EG27: [f64; 316] = [
     9.048374E+06, 1.000000E+07, 1.161834E+07, 1.384031E+07, 1.491825E+07, 1.964033E+07,
 ];
 
-const EG28: [f64; 90] = [
+pub(super) const EG28: [f64; 90] = [
     2.000000E-04, 5.000000E-03, 1.000000E-02, 1.500000E-02, 2.000000E-02, 2.500000E-02, 3.000000E-02, 3.500000E-02, 4.200000E-02, 5.000000E-02,
     5.800000E-02, 6.700000E-02, 8.000000E-02, 1.000000E-01, 1.400000E-01, 1.800000E-01, 2.200000E-01, 2.500000E-01, 2.800000E-01, 3.000000E-01,
     3.200000E-01, 3.500000E-01, 4.000000E-01, 5.000000E-01, 6.250000E-01, 7.800000E-01, 8.500000E-01, 9.100000E-01, 9.500000E-01, 9.720000E-01,
@@ -1206,7 +640,7 @@ const EG28: [f64; 90] = [
     1.054000E+06, 1.353400E+06, 1.737700E+06, 2.231300E+06, 2.865000E+06, 3.678800E+06, 4.723700E+06, 6.065300E+06, 7.788000E+06, 1.000000E+07,
 ];
 
-const EG29: [f64; 661] = [
+pub(super) const EG29: [f64; 661] = [
     1.000000E-05, 1.047129E-05, 1.096478E-05, 1.148154E-05, 1.202264E-05, 1.258925E-05, 1.318257E-05, 1.380384E-05, 1.445440E-05, 1.513561E-05,
     1.584893E-05, 1.659587E-05, 1.737801E-05, 1.819701E-05, 1.905461E-05, 1.995262E-05, 2.089296E-05, 2.187762E-05, 2.290868E-05, 2.398833E-05,
     2.511886E-05, 2.630268E-05, 2.754229E-05, 2.884032E-05, 3.019952E-05, 3.162278E-05, 3.311311E-05, 3.467369E-05, 3.630781E-05, 3.801894E-05,
@@ -1276,7 +710,7 @@ const EG29: [f64; 661] = [
     3.000000E+07,
 ];
 
-const EG30: [f64; 1026] = [
+pub(super) const EG30: [f64; 1026] = [
     1.000000e-05, 1.047129e-05, 1.096478e-05, 1.148154e-05, 1.202264e-05, 1.258925e-05, 1.318257e-05, 1.380384e-05, 1.445440e-05, 1.513561e-05,
     1.584893e-05, 1.659587e-05, 1.737801e-05, 1.819701e-05, 1.905461e-05, 1.995262e-05, 2.089296e-05, 2.187762e-05, 2.290868e-05, 2.398833e-05,
     2.511886e-05, 2.630268e-05, 2.754229e-05, 2.884032e-05, 3.019952e-05, 3.162278e-05, 3.311311e-05, 3.467369e-05, 3.630781e-05, 3.801894e-05,
@@ -1382,7 +816,7 @@ const EG30: [f64; 1026] = [
     2.900000e+07, 2.920000e+07, 2.940000e+07, 2.960000e+07, 2.980000e+07, 3.000000e+07,
 ];
 
-const EG31: [f64; 1068] = [
+pub(super) const EG31: [f64; 1068] = [
     1.000000e-05, 1.047129e-05, 1.096478e-05, 1.148154e-05, 1.202264e-05, 1.258925e-05, 1.318257e-05, 1.380384e-05, 1.445440e-05, 1.513561e-05,
     1.584893e-05, 1.659587e-05, 1.737801e-05, 1.819701e-05, 1.905461e-05, 1.995262e-05, 2.089296e-05, 2.187762e-05, 2.290868e-05, 2.398833e-05,
     2.511886e-05, 2.630268e-05, 2.754229e-05, 2.884032e-05, 3.019952e-05, 3.162278e-05, 3.311311e-05, 3.467369e-05, 3.630781e-05, 3.801894e-05,
@@ -1492,7 +926,7 @@ const EG31: [f64; 1068] = [
     1.445440e+08, 1.513561e+08, 1.584893e+08, 1.659587e+08, 1.737801e+08, 1.819701e+08, 1.905461e+08, 1.995262e+08,
 ];
 
-const EG32: [f64; 1103] = [
+pub(super) const EG32: [f64; 1103] = [
     1.000000e-05, 1.047129e-05, 1.096478e-05, 1.148154e-05, 1.202264e-05, 1.258925e-05, 1.318257e-05, 1.380384e-05, 1.445440e-05, 1.513561e-05,
     1.584893e-05, 1.659587e-05, 1.737801e-05, 1.819701e-05, 1.905461e-05, 1.995262e-05, 2.089296e-05, 2.187762e-05, 2.290868e-05, 2.398833e-05,
     2.511886e-05, 2.630268e-05, 2.754229e-05, 2.884032e-05, 3.019952e-05, 3.162278e-05, 3.311311e-05, 3.467369e-05, 3.630781e-05, 3.801894e-05,
@@ -1606,7 +1040,7 @@ const EG32: [f64; 1103] = [
     9.120108e+08, 9.549926e+08, 1.000000e+09,
 ];
 
-const EG33: [f64; 143] = [
+pub(super) const EG33: [f64; 143] = [
     5.000000e+03, 1.000000e+04, 1.500000e+04, 2.000000e+04, 2.500000e+04, 3.000000e+04, 3.500000e+04, 4.000000e+04, 4.500000e+04, 5.000000e+04,
     5.500000e+04, 6.000000e+04, 6.500000e+04, 7.000000e+04, 7.500000e+04, 8.000000e+04, 8.500000e+04, 9.000000e+04, 9.500000e+04, 1.000000e+05,
     1.200000e+05, 1.400000e+05, 1.600000e+05, 1.800000e+05, 2.000000e+05, 2.200000e+05, 2.400000e+05, 2.600000e+05, 2.800000e+05, 3.000000e+05,
@@ -1624,7 +1058,7 @@ const EG33: [f64; 143] = [
     1.600000e+08, 1.800000e+08, 2.000000e+08,
 ];
 
-const EG618: [f64; 619] = [
+pub(super) const EG618: [f64; 619] = [
     1.00000000000000e-05, 2.56901129797510e-05, 4.23558357164050e-05, 6.98329672839171e-05, 1.15135098557100e-04, 1.39000000000000e-04, 1.89825685995247e-04, 2.43741005558083e-04, 3.12969646225607e-04, 4.01860980405450e-04,
     5.15999712815652e-04, 6.62556746258873e-04, 8.50739702194323e-04, 1.09237140060287e-03, 1.23781896276759e-03, 1.40263264283687e-03, 1.58939100945164e-03, 1.80101596367844e-03, 2.04081845319089e-03, 2.31255027322349e-03,
     2.62046276474246e-03, 2.96937332818714e-03, 3.36474079341315e-03, 3.81275082502696e-03, 4.32041269930856e-03, 4.89566896683177e-03, 5.54751971649269e-03, 6.28616338510141e-03, 7.12315631555298e-03, 8.07159355992206e-03,
@@ -1689,7 +1123,7 @@ const EG618: [f64; 619] = [
     1.90000000000000e+07, 1.91250000000000e+07, 1.92500000000000e+07, 1.93750000000000e+07, 1.95000000000000e+07, 1.96250000000000e+07, 1.97500000000000e+07, 1.98750000000000e+07, 2.00000000000000e+07,
 ];
 
-const EG35: [f64; 100] = [
+pub(super) const EG35: [f64; 100] = [
     1.100000E-04, 3.000000E-03, 5.500000E-03, 1.000000E-02, 1.500000E-02, 2.000000E-02, 3.000000E-02, 4.300000E-02, 5.900000E-02, 7.700000E-02,
     9.500000E-02, 1.150000E-01, 1.340000E-01, 1.600000E-01, 1.890000E-01, 2.200000E-01, 2.480000E-01, 2.825000E-01, 3.145000E-01, 3.520000E-01,
     3.910000E-01, 4.330000E-01, 4.850000E-01, 5.400000E-01, 6.250000E-01, 7.050000E-01, 7.900000E-01, 8.600000E-01, 9.300000E-01, 9.860001E-01,
@@ -1702,197 +1136,3 @@ const EG35: [f64; 100] = [
     1.652990E+06, 2.018966E+06, 2.465971E+06, 3.011943E+06, 3.678794E+06, 4.493290E+06, 5.488117E+06, 6.703201E+06, 8.187308E+06, 1.000000E+07,
 ];
 
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Relative-difference check for energy boundaries.
-    fn close(a: f64, b: f64, rtol: f64) -> bool {
-        (a - b).abs() <= rtol * b.abs().max(1.0e-30)
-    }
-
-    /// LANL 30-group (`ign = 3`) count + endpoints.
-    ///
-    /// Methodology: `gengpn` case `ign=3` (groupr.f90:4178-4184) copies the
-    /// `eg3` table verbatim as energies, so the returned vector must be the 31
-    /// boundaries of `eg3`. Expected values read directly from the Fortran
-    /// `eg3` array (groupr.f90:1693-1699): first = 1.39e-4 eV, last = 1.70e7 eV,
-    /// 30 groups => 31 boundaries, ascending.
-    #[test]
-    fn lanl30_ign3() {
-        let egn = neutron_group_structure(3).unwrap();
-        assert_eq!(egn.len(), 31, "LANL-30 must have 31 boundaries");
-        assert!(close(egn[0], 1.39e-4, 1e-9), "first = {}", egn[0]);
-        assert!(close(egn[30], 1.70e7, 1e-9), "last = {}", egn[30]);
-        assert!(egn.windows(2).all(|w| w[0] < w[1]), "must be ascending");
-    }
-
-    /// LANL 70-group (`ign = 11`) count + endpoints.
-    ///
-    /// Methodology: case `ign=11` (groupr.f90:4284-4290) copies `eg11`
-    /// verbatim. Expected from the Fortran `eg11` array (groupr.f90:1753-1768):
-    /// first = 10.677 eV, last = 2.0e7 eV, 70 groups => 71 boundaries.
-    #[test]
-    fn lanl70_ign11() {
-        let egn = neutron_group_structure(11).unwrap();
-        assert_eq!(egn.len(), 71);
-        assert!(close(egn[0], 10.677, 1e-9), "first = {}", egn[0]);
-        assert!(close(egn[70], 2.0e7, 1e-9), "last = {}", egn[70]);
-        assert!(egn.windows(2).all(|w| w[0] < w[1]));
-    }
-
-    /// XMAS 172-group (`ign = 18`) count + endpoints (reversed table).
-    ///
-    /// Methodology: case `ign=18` (groupr.f90:4365-4371) sets
-    /// `egn(ig) = eg18(174-ig)`, i.e. it reverses the descending `eg18` table
-    /// into ascending order. Expected from the Fortran `eg18` array
-    /// (groupr.f90:1831-1869): reversed, egn[0] = eg18(173) = 1.00001e-5 eV and
-    /// egn[172] = eg18(1) = 1.96403e7 eV; 172 groups => 173 boundaries.
-    #[test]
-    fn xmas172_ign18() {
-        let egn = neutron_group_structure(18).unwrap();
-        assert_eq!(egn.len(), 173);
-        assert!(close(egn[0], 1.00001e-5, 1e-6), "first = {}", egn[0]);
-        assert!(close(egn[172], 1.96403e7, 1e-6), "last = {}", egn[172]);
-        assert!(egn.windows(2).all(|w| w[0] < w[1]));
-    }
-
-    /// ECCO 1968-group (`ign = 20`) count + endpoints (spliced table).
-    ///
-    /// Methodology: case `ign=20` (groupr.f90:4383-4404) concatenates
-    /// eg20a..eg20f (5*392 + 9 = 1969) as energies. Expected from the Fortran
-    /// arrays: egn[0] = eg20a(1) = 1.000010e-5 eV, egn[1968] = eg20f(9) =
-    /// 1.964033e7 eV; 1968 groups => 1969 boundaries.
-    #[test]
-    fn ecco1968_ign20() {
-        let egn = neutron_group_structure(20).unwrap();
-        assert_eq!(egn.len(), 1969);
-        assert!(close(egn[0], 1.000010e-5, 1e-6), "first = {}", egn[0]);
-        assert!(close(egn[1968], 1.964033e7, 1e-6), "last = {}", egn[1968]);
-        assert!(egn.windows(2).all(|w| w[0] < w[1]));
-    }
-
-    /// CSEWG 239-group (`ign = 2`) count + lethargy->energy endpoints.
-    ///
-    /// Methodology: case `ign=2` (groupr.f90:4168-4175, lflag=1) copies the
-    /// `gl2` lethargy grid (241 values) then converts each via
-    /// `E = sigfig(1e7*exp(-u), 7, 0)` (groupr.f90:4562-4567). Expected values
-    /// were computed by evaluating that exact expression on the `gl2` endpoints
-    /// (first lethargy 27.631, last -0.69167 from groupr.f90:1652-1692):
-    /// egn[0] = 1.0000210e-5 eV, egn[240] = 1.9970480e7 eV; 240 groups =>
-    /// 241 boundaries, ascending.
-    #[test]
-    fn csewg239_ign2_lethargy() {
-        let egn = neutron_group_structure(2).unwrap();
-        assert_eq!(egn.len(), 241);
-        assert!(close(egn[0], 1.0000210e-5, 1e-5), "first = {}", egn[0]);
-        assert!(close(egn[240], 1.9970480e7, 1e-5), "last = {}", egn[240]);
-        assert!(egn.windows(2).all(|w| w[0] < w[1]), "must be ascending");
-    }
-
-    /// Every built-in `ign` returns a vector whose length is groups + 1.
-    ///
-    /// Methodology: cross-checks the group counts from the `gengpn` header table
-    /// (groupr.f90:1604-1642) against the returned vector length for all ported
-    /// `ign` values. This guards the splice/index arithmetic in the computed
-    /// cases (10, 12/15, 13, 14, 36) against off-by-one errors.
-    #[test]
-    fn all_ign_group_counts() {
-        // NOTE ign=2: the gengpn header calls this "CSEWG 239", but the code
-        // sets ngn=240 (groupr.f90:4169) and the display says "csewg 240 group"
-        // (groupr.f90:4572-4573). The actual grid is 240 groups / 241 boundaries.
-        let expected: &[(i32, usize)] = &[
-            (2, 240),
-            (3, 30),
-            (4, 27),
-            (5, 50),
-            (6, 68),
-            (7, 100),
-            (8, 35),
-            (9, 69),
-            (10, 187),
-            (11, 70),
-            (12, 620),
-            (13, 80),
-            (14, 100),
-            (15, 640),
-            (16, 174),
-            (17, 175),
-            (18, 172),
-            (19, 33),
-            (20, 1968),
-            (21, 315),
-            (22, 172),
-            (23, 175),
-            (24, 281),
-            (25, 295),
-            (26, 361),
-            (27, 315),
-            (28, 89),
-            (29, 660),
-            (30, 1025),
-            (31, 1067),
-            (32, 1102),
-            (33, 142),
-            (34, 618),
-            (35, 99),
-            (36, 1962),
-        ];
-        for &(ign, ngroups) in expected {
-            let egn = neutron_group_structure(ign).unwrap();
-            assert_eq!(egn.len(), ngroups + 1, "ign={ign} group count");
-            assert!(egn.iter().all(|&e| e >= 0.0), "ign={ign} negative energy");
-        }
-    }
-
-    /// Every built-in `ign` produces a strictly ascending grid.
-    ///
-    /// Methodology: NJOY group boundaries are strictly monotone; this verifies
-    /// none of the ported tables or computed splices introduced a duplicate or
-    /// out-of-order boundary.
-    #[test]
-    fn all_ign_ascending() {
-        for ign in 2..=36 {
-            let egn = neutron_group_structure(ign).unwrap();
-            assert!(
-                egn.windows(2).all(|w| w[0] < w[1]),
-                "ign={ign} not strictly ascending"
-            );
-        }
-    }
-
-    /// `abs(ign)==1` is read-from-input and reports `NotPorted`, not a table.
-    ///
-    /// Methodology: groupr.f90:4156-4165 reads the arbitrary structure from the
-    /// system input; there is no built-in table, so the port must surface
-    /// `NjoyError::NotPorted` rather than fabricate boundaries.
-    #[test]
-    fn arbitrary_ign1_not_ported() {
-        assert!(matches!(
-            neutron_group_structure(1),
-            Err(NjoyError::NotPorted(_))
-        ));
-        assert!(matches!(
-            neutron_group_structure(-1),
-            Err(NjoyError::NotPorted(_))
-        ));
-    }
-
-    /// An unrecognised `ign` is an error, never a panic (NJOY aborts here).
-    #[test]
-    fn illegal_ign_errors() {
-        assert!(neutron_group_structure(0).is_err());
-        assert!(neutron_group_structure(99).is_err());
-    }
-
-    /// The named-enum wrapper agrees with the integer entry point.
-    #[test]
-    fn enum_matches_ign() {
-        let a = NeutronGroupStructure::Xmas172.boundaries().unwrap();
-        let b = neutron_group_structure(18).unwrap();
-        assert_eq!(a, b);
-        assert_eq!(NeutronGroupStructure::Ecco1968.ign(), 20);
-        assert!(NeutronGroupStructure::Arbitrary.boundaries().is_err());
-    }
-}

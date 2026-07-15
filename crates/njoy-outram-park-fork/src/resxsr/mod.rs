@@ -30,11 +30,18 @@
 //! assembly and thinning kernels ([`assemble`]) operating on already-parsed
 //! reactions.
 //!
-//! **Not ported (file-level I/O):** reading a real PENDF tape end-to-end
-//! (`tpidio`/`contio`/`findf`/`gety1`, `resxsr.f90:250-352`), the
-//! `loada`/`finda` scratch-file buffering, and writing the binary RESXS output
-//! records (`resxsr.f90:435-501`). [`run`] documents this pipeline and returns
-//! [`NjoyError::NotPorted`] rather than fabricating an output file.
+//! **Ported (file-level I/O):** the PENDF reader feeder
+//! ([`resxs::read_pendf_reactions`], the in-memory `findf`/`gety1` analogue,
+//! `resxsr.f90:296-347`) and the binary RESXS record writer/reader
+//! ([`resxs::ResxsFile`], `resxsr.f90:435-501`) in a documented, round-trippable
+//! word encoding. [`driver::run_resxs`] wires the whole single-temperature
+//! pipeline end to end.
+//!
+//! **Not ported:** the `loada`/`finda` scratch-file buffering (replaced by
+//! in-memory `Vec`s), the **multi-temperature** column growth
+//! (`resxsr.f90:267-352`), and byte-for-byte agreement with NJOY's Fortran
+//! unformatted records (see [`resxs`] for the port's word encoding). [`run`] is
+//! the no-argument registry shim and returns [`NjoyError::NotPorted`].
 
 use crate::NjoyError;
 
@@ -42,13 +49,17 @@ pub mod assemble;
 pub mod driver;
 pub mod format;
 pub mod input;
+pub mod resxs;
 
 pub use assemble::{assemble_union_grid, thin_linear, PointwiseReaction, UnionRow};
-pub use driver::run as run_with_input;
+pub use driver::{run as run_with_input, run_resxs};
 pub use format::{
     FileControl, FileData, FileIdentification, MaterialControl, FILE_NAME, MULT, NBLOK, NBUF, NX,
 };
 pub use input::{MaterialSpec, ResxsrInput};
+pub use resxs::{
+    is_fissionable, read_pendf_reactions, ResxsFile, ResxsMaterial, ResxsPoint, RESONANCE_MTS,
+};
 
 /// Module-dispatch entry point used by the [`crate::NjoyModule`] registry.
 ///

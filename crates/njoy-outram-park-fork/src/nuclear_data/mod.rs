@@ -10,6 +10,9 @@
 //! - [`crate::wmp`] — windowed-multipole cross sections + analytic Doppler.
 //! - [`crate::acer`] — the ACE writer / (future) lean-ACE pointwise tables.
 //! - [`secondary`] — ν̄(E) and χ(E), which WMP does not carry.
+//! - [`delayed`] — delayed-neutron data (precursor decay constants λ, delayed
+//!   ν̄_d(E), and the delayed fission spectrum χ_delayed) from ENDF MF=1/455 and
+//!   MF=5/455, for delayed-critical and point-kinetics work.
 //!
 //! # Dispatch is an enum, not a trait object
 //!
@@ -17,12 +20,14 @@
 //! the [`XsProvider`] enum. A consumer holds one and calls [`XsProvider::micro`];
 //! adding a new representation is a new variant that every `match` must handle.
 
+pub mod delayed;
 pub mod secondary;
 pub mod weighting;
 
 use crate::wmp::WindowedMultipole;
 use crate::NjoyError;
 use secondary::{FissionSpectrum, NuBar};
+pub use delayed::{DecayConstant, DelayedChi, DelayedChiGroup, DelayedNuBar};
 pub use weighting::WeightingSpectrum;
 
 /// Microscopic neutron cross sections at one energy/temperature \[barn\].

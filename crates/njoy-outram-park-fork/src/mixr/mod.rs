@@ -26,34 +26,44 @@
 //!   [`mix::gety_value`] (`gety`'s value retrieval), [`MixrInput::mix`] /
 //!   [`mix::mix`] (full tape assembly with MF=1/451 + MF=3), and the
 //!   [`MixrInput`] card model.
-//! - **Deferred:** [`run`] — the file-level card-deck driver that reads the six
-//!   cards from a physical `nsysi` unit and writes to a physical `nout` unit.
-//!   Returns [`crate::NjoyError::NotPorted`], matching every other module in
-//!   this crate (`crate::moder`, `crate::reconr`, …): the physics lives in a
-//!   typed API, `run()` is the deferred shim. Callers drive MIXR through
-//!   [`crate::endf::tape::Tape::read`] -> [`MixrInput::mix`] ->
-//!   [`crate::endf::tape::Tape::write`].
+//! - **Ported (driver):** [`driver::run_mix`] — the file-level driver that reads
+//!   each input tape from a byte source, mixes, and writes the output tape
+//!   (`Tape::read -> mix -> Tape::write`, `mixr.f90:144-389`). It takes the deck
+//!   as a typed [`MixrInput`] rather than re-parsing free-format cards from
+//!   `nsysi` — the one deliberate divergence.
+//! - **Deferred:** [`run`] — the no-argument module-registry shim. It cannot run
+//!   without input tapes, so it returns [`crate::NjoyError::NotPorted`] and points
+//!   at [`driver::run_mix`]; the free-format `nsysi` card *text* reader and the
+//!   physical-unit `nout` handle remain unported (`mixr.f90:84-121`).
+//! - **Documented divergence — MF=1/451 comment text.** The crate's `[f64; 6]`
+//!   section-row model cannot store Hollerith characters, so the card-6
+//!   description becomes a blank comment record. AWI/EMAX/NSUB **are** numeric and
+//!   are now read back from the inputs' headers ([`mix::nsub_from_awi`]); only the
+//!   comment *text* is still not representable.
 //!
 //! **Upstream:** `mixr.f90` (git `ac5adf5f`). **Manual:** LA-UR-17-20093 §MIXR.
 //! See `README.md` in this directory for theory, fidelity notes, and V&V status.
 
+pub mod driver;
 pub mod input;
 pub mod mix;
 
+pub use driver::run_mix;
 pub use input::{MixComponent, MixrInput};
-pub use mix::{gety_value, mix, mix_reaction, sigfig};
+pub use mix::{gety_value, mix, mix_reaction, nsub_from_awi, sigfig};
 
 use crate::NjoyError;
 
-/// Run MIXR from a physical card deck (the file-level driver).
+/// Module-registry shim for MIXR (the no-argument entry point).
 ///
-/// **Not ported** — deferred exactly as `crate::moder::run` is. The mixing
-/// engine is reached directly through [`MixrInput::mix`] / [`mix::mix`]; tape
-/// (de)serialisation through [`crate::endf::tape::Tape::read`] /
-/// [`crate::endf::tape::Tape::write`]. What remains unported is only the
-/// `nsysi`/`nout` card-reader shell of `mixr.f90:84-121,380-389`.
+/// **Not ported** in this form — MIXR needs input tapes plus a deck, so this
+/// zero-argument entry only names the module for the [`crate::NjoyModule`]
+/// registry. Use [`driver::run_mix`] for the real, functional file-level driver
+/// (`Tape::read -> mix -> Tape::write`), or [`MixrInput::mix`] for the in-memory
+/// engine. What remains unported is only the free-format `nsysi` card-text reader
+/// and the physical `nout` unit handle (`mixr.f90:84-121,380-389`).
 pub fn run() -> Result<(), NjoyError> {
     Err(NjoyError::NotPorted(
-        "mixr card-deck driver (mixing engine: crate::mixr::MixrInput::mix)",
+        "mixr card-deck driver (functional driver: crate::mixr::driver::run_mix)",
     ))
 }
