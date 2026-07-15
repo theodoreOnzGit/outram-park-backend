@@ -32,6 +32,19 @@
 //! `kovan-semantics` starts from these primitives ("ripgrep first") before
 //! escalating to language servers.
 //!
+//! ## Git-awareness ([`git`])
+//!
+//! The [`git`] module is the history/provenance complement to the filesystem
+//! walk above. Where [`discover`] answers "what files are on disk (honouring
+//! `.gitignore`)", [`git`] answers "what does git *track*, and where did each
+//! file/line come from" — repository discovery, current branch/`HEAD`,
+//! tracked-file listing, per-path commit history + last-commit, per-line blame,
+//! and working-tree cleanliness. It is built on the pure-Rust `gix`
+//! (gitoxide) *library* (library-first), with a `gix`-CLI fallback backend
+//! ([`git::GitProvider`]); both stay deterministic and offline (local `.git`
+//! only). See that module's docs for the library-first / binary-fallback
+//! design and the Android story.
+//!
 //! ## What it does *not* do
 //!
 //! No index is persisted anywhere — every call re-walks the filesystem and
@@ -41,6 +54,8 @@
 //! caching, that is its own responsibility, layered on top of this crate.
 
 #![forbid(unsafe_code)]
+
+pub mod git;
 
 use std::path::{Path, PathBuf};
 

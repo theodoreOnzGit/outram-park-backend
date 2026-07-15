@@ -11,6 +11,11 @@ ignore.workspace = true
 grep-searcher.workspace = true
 grep-regex.workspace = true
 grep-matcher.workspace = true
+# gitoxide (gix) *library* — powers the `git` module (repo discovery, HEAD/
+# branch, tracked files, history, blame, status). Pure-Rust, so the default
+# library backend builds clean on Android; the CLI-fallback backend is gated
+# off Android in `git.rs`. See the root [workspace.dependencies] note.
+gix.workspace = true
 
 [dev-dependencies]
 # Throwaway fixture trees (with a real .gitignore) for discovery/search

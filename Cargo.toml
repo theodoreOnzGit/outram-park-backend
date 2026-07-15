@@ -63,6 +63,16 @@ grep-searcher = "0.1"        # ripgrep engine — deterministic text search ...
 grep-regex = "0.1"           # ... its regex matcher
 grep-matcher = "0.1"         # ... shared matcher trait
 regex = "1"                  # pure-Rust, Android-friendly regex — capture extraction in kovan-semantics' ripgrep-first symbol scanner
+# gitoxide (gix) *library* — pure-Rust git implementation (no libgit2/C), so it
+# builds clean on Android and stays offline (reads the local repo only). Powers
+# kovan-discovery's git-awareness module (repo discover/open, HEAD/branch,
+# tracked files, commit history/last-commit, blame, status). default-features
+# off + a curated feature set for build speed and to avoid the C zlib-ng backend
+# (`max-performance`): `revision` (rev-walk/log), `status` (working-tree status),
+# `blame` (per-line provenance; pulls blob-diff), `dirwalk`+`index` (tracked-file
+# listing). NOT the `gitoxide` binary crate — that is what `kovan setup` installs
+# for the CLI fallback backend.
+gix = { version = "0.85", default-features = false, features = ["sha1", "revision", "status", "blame", "dirwalk", "index"] }
 petgraph = "0.6"             # optional graph layer (module/dependency/literature graphs)
 # KOVAN-literature PDF ingestion. Both pure-Rust, offline, Android-buildable
 # (checked on aarch64-linux-android), no C/native build deps, MIT-licensed
