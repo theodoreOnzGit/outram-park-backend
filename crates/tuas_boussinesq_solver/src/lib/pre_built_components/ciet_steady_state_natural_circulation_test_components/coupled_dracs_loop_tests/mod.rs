@@ -239,7 +239,9 @@ pub mod dataset_c;
 /// `verification_and_validation/` folder (`coupled_dracs_natcirc_set{A,B,C}_<power>W.csv`)
 /// with the heater power, computed and experimental DRACS/primary mass flows,
 /// and percentage errors, for plotting computed vs experimental across a
-/// dataset (SAM per-point columns are present but blank pending op-4wl.5).
+/// dataset. The `sam_dracs_kg_per_s` / `sam_pri_kg_per_s` columns are populated
+/// from NED-2021 Table 4 (Zou et al. 2021) via
+/// `sam_table4_flowrates_kg_per_s`.
 ///
 /// Note: there is no separate "SAM educational-simulator" DRACS K table to
 /// substitute — SAM uses DRACS nodalization "similar to the RELAP5-3D model of
@@ -254,6 +256,100 @@ pub mod isolated_dracs_loop_resistance_calibration;
 /// based on Zou's specifications
 pub mod dhx_constructor;
 
-/// debugging tests for functions to make natural circulation 
-/// testing easier 
+/// debugging tests for functions to make natural circulation
+/// testing easier
 pub mod debugging;
+
+
+/// Rust-generated SAM vs TUAS (K=17.8) vs CIET-experiment comparison summary.
+///
+/// Contains a `#[test]` that programmatically builds a Markdown report of the
+/// 25 coupled natural-circulation cases and writes it to
+/// `verification_and_validation/coupled_natural_circulation_SAM_vs_TUAS_vs_experiment.md`
+/// (a committed file), so the summary regenerates on `cargo test`.
+#[cfg(test)]
+pub mod sam_vs_tuas_vs_experiment_summary;
+
+
+/// SAM-predicted coupled natural-circulation mass flow rates for the CIET
+/// A/B/C datasets, transcribed verbatim from **NED-2021 Table 4**:
+///
+/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of SAM using
+/// natural-circulation experimental data from the compact integral effects
+/// test (CIET) facility. Nuclear Engineering and Design, 377, 111144.
+///
+/// The accepted-manuscript copy is openly available (public literature, fine to
+/// use with citation): <https://www.osti.gov/servlets/purl/1774637> (OSTI ID
+/// 1774637; also ANL/NSE-19/11, Zou, Hu & Charpentier 2019).
+///
+/// # Physical quantity
+///
+/// Returns `(sam_dracs_kg_per_s, sam_pri_kg_per_s)` — the SAM-code steady-state
+/// natural-circulation mass flow rate in the DRACS loop and in the heater-DHX
+/// (primary) subloop, in kg/s, for one coupled CIET test case.
+///
+/// # How the case is identified
+///
+/// Table 4 lists each case by its back-calculated heater power (W); the coupled
+/// A/B/C regression tests here are driven with the same Table-4 heater powers
+/// (e.g. A-1 = 1479.86 W), so the case is looked up by set letter
+/// (`"A"`/`"B"`/`"C"`) and heater power matched to within 1 W. Returns `None`
+/// if no Table-4 case matches (the CSV writer then leaves the SAM columns
+/// blank).
+///
+/// # Column mapping (verified)
+///
+/// Table 4's four flow columns are, in order: SAM DRACS, SAM primary,
+/// experimental DRACS, experimental primary. The mapping was confirmed by
+/// checking Table 4's experimental columns against the experimental values the
+/// tests assert (e.g. A-1 exp DRACS 3.3410E-2, exp primary 2.7380E-2) and by
+/// reproducing Table 4's own error columns (A-1 DRACS +2.37% =
+/// (3.4203-3.3410)/3.3410).
+///
+/// # Known source quirk (reproduced verbatim)
+///
+/// Table 4 prints the SAM **primary** flow for case B-4 as `2.6739E-2` kg/s —
+/// identical to B-3's `2.6739E-2` and consistent with the -6.05% primary error
+/// the paper tabulates for B-4 — so it is reproduced here verbatim. It is very
+/// likely a transcription error in the source (the neighbouring cases interpolate
+/// smoothly and would suggest ~2.83E-2), but this crate reports the published
+/// number, not a guess. Flagged here for the reader.
+#[cfg(test)]
+pub(crate) fn sam_table4_flowrates_kg_per_s(
+    set_letter: &str,
+    heater_power_watts: f64,
+) -> Option<(f64, f64)> {
+    // (set, heater_power_W, sam_dracs_kg_per_s, sam_pri_kg_per_s)
+    // NED-2021 Table 4, transcribed verbatim (see doc comment for provenance).
+    const TABLE_4: [(&str, f64, f64, f64); 25] = [
+        ("A", 1479.86, 3.4203e-2, 2.7758e-2),
+        ("A", 1653.90, 3.6236e-2, 2.9167e-2),
+        ("A", 2014.51, 3.9987e-2, 3.1797e-2),
+        ("A", 2178.49, 4.1523e-2, 3.2872e-2),
+        ("A", 2395.90, 4.3448e-2, 3.4217e-2),
+        ("A", 2491.87, 4.4245e-2, 3.4775e-2),
+        ("A", 2696.24, 4.5891e-2, 3.5922e-2),
+        ("B", 655.16, 2.1770e-2, 1.8461e-2),
+        ("B", 1054.32, 2.8474e-2, 2.3395e-2),
+        ("B", 1394.70, 3.2914e-2, 2.6739e-2),
+        ("B", 1685.62, 3.6113e-2, 2.6739e-2), // B-4 primary: verbatim source value (see doc)
+        ("B", 1987.75, 3.9110e-2, 3.1409e-2),
+        ("B", 2282.01, 4.1738e-2, 3.3363e-2),
+        ("B", 2546.60, 4.3905e-2, 3.4962e-2),
+        ("B", 2874.03, 4.6370e-2, 3.6774e-2),
+        ("B", 3031.16, 4.7489e-2, 3.7587e-2),
+        ("C", 841.02, 2.5045e-2, 2.1120e-2),
+        ("C", 1158.69, 3.0051e-2, 2.4652e-2),
+        ("C", 1409.22, 3.3306e-2, 2.6998e-2),
+        ("C", 1736.11, 3.7007e-2, 2.9689e-2),
+        ("C", 2026.29, 3.9893e-2, 3.1782e-2),
+        ("C", 2288.83, 4.2234e-2, 3.3485e-2),
+        ("C", 2508.71, 4.4093e-2, 3.4812e-2),
+        ("C", 2685.83, 4.5484e-2, 3.5814e-2),
+        ("C", 2764.53, 4.6062e-2, 3.6240e-2),
+    ];
+    TABLE_4
+        .iter()
+        .find(|(s, p, _, _)| *s == set_letter && (p - heater_power_watts).abs() < 1.0)
+        .map(|(_, _, sam_dracs, sam_pri)| (*sam_dracs, *sam_pri))
+}

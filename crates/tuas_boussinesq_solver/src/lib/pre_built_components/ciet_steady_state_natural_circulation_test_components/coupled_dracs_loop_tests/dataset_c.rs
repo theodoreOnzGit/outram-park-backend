@@ -1702,9 +1702,9 @@ Result<(),crate::tuas_lib_error::TuasLibError>{
 
     // Per-case plotting CSV into the crate's gitignored
     // verification_and_validation/ folder (op-4wl.4). One row per case; group a
-    // whole dataset by the set letter embedded in the filename. SAM per-point
-    // predicted flows are not yet sourced (NED-2021 Table 4 not digitised), so
-    // those two columns are left blank pending bead op-4wl.5.
+    // whole dataset by the set letter embedded in the filename. The SAM
+    // per-point predicted DRACS/primary flows come from NED-2021 Table 4
+    // (Zou et al. 2021; see `super::sam_table4_flowrates_kg_per_s`).
     {
         let tchx_setpoint_degc =
             tchx_outlet_temperature_set_point.get::<degree_celsius>();
@@ -1720,6 +1720,15 @@ Result<(),crate::tuas_lib_error::TuasLibError>{
         let exp_pri = experimental_primary_mass_flowrate.get::<kilogram_per_second>();
         let sim_dracs = final_mass_flowrate_dracs_loop.get::<kilogram_per_second>();
         let sim_pri = final_mass_flowrate_pri_loop.get::<kilogram_per_second>();
+        // SAM-predicted flows for this case from NED-2021 Table 4 (blank if the
+        // case is not in the table).
+        let (sam_dracs_str, sam_pri_str) =
+            match super::sam_table4_flowrates_kg_per_s(set_letter, input_power_watts) {
+                Some((sam_dracs, sam_pri)) => {
+                    (format!("{:.6e}", sam_dracs), format!("{:.6e}", sam_pri))
+                }
+                None => (String::new(), String::new()),
+            };
         let fname = format!(
             "coupled_dracs_natcirc_set{}_{:04.0}W.csv",
             set_letter, input_power_watts
@@ -1750,8 +1759,8 @@ Result<(),crate::tuas_lib_error::TuasLibError>{
             format!("{:.6e}", exp_pri),
             format!("{:.6e}", sim_pri),
             format!("{:.4}", (sim_pri - exp_pri) / exp_pri * 100.0),
-            String::new(),
-            String::new(),
+            sam_dracs_str,
+            sam_pri_str,
         ])
         .unwrap();
         wtr.flush().unwrap();
