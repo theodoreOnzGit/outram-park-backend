@@ -3,74 +3,150 @@
 /// C++ source: `src/cell.cpp` (1861 LOC), `include/openmc/cell.h` (493 LOC).
 ///
 /// A `Cell` is defined by a Boolean combination of surface half-spaces encoded
-/// as a Reverse Polish Notation (RPN) token stream.  Tokens are:
-///   - Positive integer n  → inside surface n (half-space −)
-///   - Negative integer n  → outside surface n (half-space +)
-///   - INTERSECTION (−1)  → logical AND
-///   - UNION        (−2)  → logical OR
-///   - COMPLEMENT   (−3)  → logical NOT
+/// as a **Reverse Polish Notation (RPN)** token stream ([`RegionToken`]):
+/// half-space operands are pushed, and the `Intersection` / `Union` /
+/// `Complement` operators pop and combine them. A pure intersection cell — the
+/// common case (fuel pin, moderator box) — is written as
+/// `[HalfSpace, HalfSpace, Intersection, HalfSpace, Intersection, …]`.
 ///
-/// A cell may be a **material cell** (filled with a `Material`) or a
-/// **fill cell** (filled with a nested `Universe` or `Lattice`).
+/// A cell may be a **material cell** (filled with a `Material`) or a **fill
+/// cell** (filled with a nested `Universe` or `Lattice`).
 
-use super::position::Position;
-use super::surface::Surface;
+use super::position::{Direction, Position};
+use super::surface::SurfaceKind;
 
-/// Token in the RPN region definition.  Maps to OpenMC's region token encoding.
+/// Which side of a surface a half-space token selects.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HalfSpaceSense {
+    /// Negative side, `evaluate(r) < 0` — the interior of a sphere/cylinder.
+    Inside,
+    /// Positive side, `evaluate(r) > 0` — the exterior.
+    Outside,
+}
+
+/// One token in the RPN region definition. Maps to OpenMC's region token stream
+/// (`src/cell.cpp`), but with the operators named rather than encoded as the
+/// sentinel negative integers OpenMC uses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegionToken {
-    /// Half-space: surface index, positive = outside, negative = inside.
+    /// Half-space of surface `surface_idx` (index into the global surface array).
     HalfSpace { surface_idx: usize, sense: HalfSpaceSense },
+    /// Logical AND of the two operands below it on the stack.
     Intersection,
+    /// Logical OR of the two operands below it on the stack.
     Union,
+    /// Logical NOT of the single operand below it on the stack.
     Complement,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HalfSpaceSense { Inside, Outside }
-
-/// What fills a cell.  Maps to OpenMC's `Cell::type_`.
+/// What fills a cell. Maps to OpenMC's `Cell::type_` / `Fill`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CellFill {
     /// Filled with a material (index into the materials list).
     Material(usize),
-    /// Filled with a nested universe (index).
+    /// Filled with a nested universe (index into the universe array).
     Universe(usize),
-    /// Filled with a lattice (index).
+    /// Filled with a lattice (index into the lattice array).
     Lattice(usize),
+    /// Void — no material, streams freely.
     Void,
 }
 
-/// A CSG cell.  Maps to `openmc::Cell`.
+/// A CSG cell. Maps to `openmc::Cell`.
 pub struct Cell {
+    /// User-facing cell id (for reporting/tallies).
     pub id: i32,
+    /// Region definition as an RPN token stream (see [`RegionToken`]).
     pub region: Vec<RegionToken>,
+    /// What the cell is filled with.
     pub fill: CellFill,
-    /// Temperature of this cell in eV (1 eV ≈ 11604 K).
+    /// Temperature of this cell in Kelvin (passed to the Doppler XS lookup).
     pub temperature: f64,
+    /// Rigid translation \[cm\] applied to a fill universe's local frame
+    /// (`coord.r -= translation`). Zero for material cells and untranslated fills.
+    /// Mirrors `Cell::translation_` in `src/cell.cpp`.
+    pub translation: Position,
 }
 
 impl Cell {
-    /// Evaluate the region definition at position `r` using the provided surfaces.
-    ///
-    /// Returns `true` if `r` is inside this cell.
-    /// TODO: port the RPN stack evaluator from `cell.cpp::contains()`.
-    pub fn contains(&self, r: Position, surfaces: &[Box<dyn Surface>]) -> bool {
-        let _ = (r, surfaces);
-        todo!("Cell::contains: port RPN evaluator from src/cell.cpp")
+    /// Build a material cell with no translation — the common leaf case.
+    pub fn material(id: i32, region: Vec<RegionToken>, material_idx: usize, temperature: f64) -> Self {
+        Self { id, region, fill: CellFill::Material(material_idx), temperature, translation: Position::ZERO }
     }
 
-    /// Distance to the nearest surface bounding this cell along ray `(r, u)`.
+    /// Build a fill cell (nested universe or lattice) with an optional translation.
+    pub fn fill(id: i32, region: Vec<RegionToken>, fill: CellFill, translation: Position) -> Self {
+        Self { id, region, fill, temperature: 293.6, translation }
+    }
+
+    /// Whether position `r` lies inside this cell's region.
     ///
-    /// Returns `(distance, surface_idx)`.
-    /// TODO: port from `cell.cpp::distance()`.
+    /// Evaluates the RPN token stream over a boolean stack (mirrors the semantics
+    /// of `Region::contains` in `src/cell.cpp`, generalised to explicit RPN so
+    /// intersection, union and complement are all handled by one evaluator). A
+    /// half-space pushes `sense_matches`; `Intersection`/`Union` pop two and push
+    /// their AND/OR; `Complement` negates the top.
+    ///
+    /// `surfaces` is the global surface array the tokens index into. A malformed
+    /// (stack-underflowing) region conservatively returns `false`.
+    pub fn contains(&self, r: Position, surfaces: &[SurfaceKind]) -> bool {
+        let mut stack: Vec<bool> = Vec::with_capacity(self.region.len());
+        for tok in &self.region {
+            match tok {
+                RegionToken::HalfSpace { surface_idx, sense } => {
+                    // `sense()` is true on the positive (outside) half-space.
+                    let positive = surfaces[*surface_idx].sense(r);
+                    let inside_token = match sense {
+                        HalfSpaceSense::Outside => positive,
+                        HalfSpaceSense::Inside => !positive,
+                    };
+                    stack.push(inside_token);
+                }
+                RegionToken::Intersection => {
+                    let (Some(b), Some(a)) = (stack.pop(), stack.pop()) else { return false };
+                    stack.push(a && b);
+                }
+                RegionToken::Union => {
+                    let (Some(b), Some(a)) = (stack.pop(), stack.pop()) else { return false };
+                    stack.push(a || b);
+                }
+                RegionToken::Complement => {
+                    let Some(a) = stack.pop() else { return false };
+                    stack.push(!a);
+                }
+            }
+        }
+        stack.pop().unwrap_or(false)
+    }
+
+    /// Distance along ray `(r, u)` to the nearest surface bounding this cell.
+    ///
+    /// Ported from `Region::distance` (`src/cell.cpp:947`): take the minimum
+    /// `distance` over every half-space surface in the region (operators are
+    /// skipped). `on_surface` is the global surface index the particle currently
+    /// sits on (`usize::MAX` if none) — that surface is queried with the
+    /// `coincident` flag so round-off cannot re-report a zero crossing.
+    ///
+    /// Returns `(distance, surface_idx)`; `surface_idx == usize::MAX` when no
+    /// bounding surface is crossed (distance `INFINITY`).
     pub fn distance_to_boundary(
         &self,
-        r: super::position::Position,
-        u: super::position::Direction,
-        surfaces: &[Box<dyn Surface>],
+        r: Position,
+        u: Direction,
+        surfaces: &[SurfaceKind],
+        on_surface: usize,
     ) -> (f64, usize) {
-        let _ = (r, u, surfaces);
-        todo!("Cell::distance_to_boundary: port from src/cell.cpp")
+        let mut min_dist = f64::INFINITY;
+        let mut i_surf = usize::MAX;
+        for tok in &self.region {
+            let RegionToken::HalfSpace { surface_idx, .. } = tok else { continue };
+            let coincident = *surface_idx == on_surface;
+            let d = surfaces[*surface_idx].distance(r, u, coincident);
+            if d < min_dist {
+                min_dist = d;
+                i_surf = *surface_idx;
+            }
+        }
+        (min_dist, i_surf)
     }
 }
