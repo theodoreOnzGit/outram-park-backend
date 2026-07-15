@@ -34,8 +34,15 @@
 //! Analog transport (weight 1, no implicit capture or variance reduction), same
 //! collision physics and data tiers as [`crate::physics::keff`]. The collision
 //! estimator scores flux as `1/Σ_t` per real collision (see [`crate::tally`]).
-//! No S(α,β) thermal scattering yet (bead op-6tz.12), so thermal-spectrum cases
-//! remain approximate — see the `pincell` verification test for the honest scope.
+//!
+//! **S(α,β) thermal scattering (bead op-6tz.12).** A moderator nuclide carrying a
+//! [`crate::material::thermal::ThermalScattering`] table (attached via
+//! [`Nuclide::with_thermal_scattering`]) now thermalizes correctly: below the
+//! table's cutoff (~4 eV) the scatter branch samples the bound-atom S(α,β) law
+//! ([`Nuclide::sample_thermal`]) — lab-frame outgoing energy and cosine, with the
+//! up-scatter that builds a Maxwellian — instead of the free-gas elastic kernel.
+//! Nuclides without a table (fuel, O, clad) stay free-gas/CE. This makes a
+//! *thermal* LWR pin-cell tractable; see the `pincell` verification test.
 
 use crate::geometry::geometry::{Crossing, Geometry};
 use crate::geometry::position::{stream, Direction, Position};
@@ -44,7 +51,8 @@ use crate::material::nuclide::{Inelastic, Nuclide};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
-    continuum_inelastic_scatter, elastic_scatter, two_body_scatter, two_body_scatter_with_mu,
+    continuum_inelastic_scatter, elastic_scatter, rotate_direction, two_body_scatter,
+    two_body_scatter_with_mu,
 };
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::prn;
@@ -254,9 +262,17 @@ fn transport_history(
                     e = e2;
                     u = u2;
                 } else {
-                    let (e2, u2) = match nuc.sample_elastic_mu_cm(e, seed) {
-                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
-                        None => elastic_scatter(e, u, nuc.awr, seed),
+                    // Scattering. Below its cutoff a moderator nuclide carrying an
+                    // S(α,β) table thermalizes via the bound-atom law (lab-frame
+                    // outgoing energy + cosine, up-scatter allowed); otherwise the
+                    // free-gas / anisotropic-elastic kernel applies as before.
+                    let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
+                        (e_out, rotate_direction(u, mu_lab, seed))
+                    } else {
+                        match nuc.sample_elastic_mu_cm(e, seed) {
+                            Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
+                            None => elastic_scatter(e, u, nuc.awr, seed),
+                        }
                     };
                     e = e2;
                     u = u2;

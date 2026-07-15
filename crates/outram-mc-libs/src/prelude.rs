@@ -14,6 +14,7 @@ pub use crate::geometry::geometry::{BoundaryHit, Coord, Crossing, Geometry, Geom
 pub use crate::particle::particle::{Particle, ParticleType};
 pub use crate::material::material::{MacroXs, Material};
 pub use crate::material::nuclide::{MicroXS, Nuclide};
+pub use crate::material::thermal::ThermalScattering;
 pub use crate::tally::tally::Tally;
 pub use crate::physics::keff::{run_keff, KeffResult, KeffSettings};
 pub use crate::physics::transport_csg::{run_keff_csg, SourceBox};

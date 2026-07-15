@@ -20,6 +20,10 @@ ndarray = { workspace = true }
 # microscopic cross sections from this crate's provider surface. See
 # docs/architecture.md.
 njoy-outram-park-fork = { workspace = true }
+# Used ONLY at the njoy nuclear-data boundary (S(α,β) thermal scattering import in
+# `material::thermal`), which speaks dimensioned `uom` types. The transport hot
+# loop stays raw `f64` — see this crate's CLAUDE.md "Units" note.
+uom = { workspace = true }
 
 [features]
 # HIGH-fidelity nuclear data. Forwards to njoy's `net-fetch` tier so
