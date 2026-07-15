@@ -20,9 +20,15 @@
 //!   σ(E,T) = (σ_b/2N)·(1−e^{−4EW'})/(2EW') and its equally-probable cosines
 //!   (closed-form CDF inversion of the exponential angular law).
 //! - [`inelastic`] — **done**: incoherent-inelastic double-differential
-//!   `d²σ/dE'dμ` from S(α,β); the integrated `σ(E→E')` / `σ_inel(E)`; and the
-//!   `nieb`×`nang` equiprobable emission table (`equiprobable_emission`) the
-//!   ACE ITXE block needs, via numerical CDF inversion.
+//!   `d²σ/dE'dμ` from S(α,β), including the **short-collision-time (SCT) tail**
+//!   beyond the tabulated `(α,β)` grid so `σ(E)` reaches the free-atom limit at
+//!   high `E`; the integrated `σ(E→E')` / `σ_inel(E)`; and the `nieb`×`nang`
+//!   equiprobable emission table (`equiprobable_emission`) the ACE ITXE block
+//!   needs, via numerical CDF inversion.
+//! - [`scattering`] — **done**: the [`scattering::IncoherentInelasticScattering`]
+//!   consumer surface `outram-mc-libs` calls for a thermal pincell —
+//!   `uom`-typed `σ_inel(E)` per principal atom and the emission table, built at
+//!   a chosen temperature (selecting the nearest tabulated S(α,β) tables).
 //! - The `aceth.f90` writer ([`crate::acer::thermal`]) is **done** for the
 //!   standard IFENG=0 (equiprobable) case, both coherent- and
 //!   incoherent-elastic. Not ported: IFENG=1/2 (skewed/continuous inelastic
@@ -34,6 +40,9 @@ pub mod coherent;
 pub mod incoherent_elastic;
 pub mod inelastic;
 pub mod mf7;
+pub mod scattering;
+
+pub use scattering::{IncoherentInelasticScattering, ThermalEmissionBin};
 
 /// Run the THERMR card-input driver (NJOY module entry point).
 ///

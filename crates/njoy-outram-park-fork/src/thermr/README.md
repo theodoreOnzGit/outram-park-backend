@@ -25,17 +25,29 @@ into pointwise cross sections and secondary distributions:
 ## How the port implements it
 
 **Ported** in [`crate::thermr`]: `mf7` (MT=2 coherent/incoherent elastic, MT=4
-incoherent inelastic S(α,β) parsing), `coherent` (σ_coh + Bragg reflection
+incoherent inelastic S(α,β) parsing, with per-temperature table selection and
+the effective-temperature table), `coherent` (σ_coh + Bragg reflection
 cosines/weights), `incoherent_elastic` (closed-form σ + equiprobable cosines via
-analytic CDF inversion), `inelastic` (double-differential kernel, σ(E→E'), and
-the `nieb×nang` equiprobable emission table for the ACE ITXE block). The ACE
-`…t` table writer is [`crate::acer::thermal`] (`AceTable::thermal_from_mf7`).
+analytic CDF inversion), `inelastic` (double-differential kernel **incl. the
+short-collision-time (SCT) tail beyond the tabulated (α,β) grid**, σ(E→E'), and
+the `nieb×nang` equiprobable emission table for the ACE ITXE block). The
+consumer surface for Monte Carlo is `scattering`
+(`IncoherentInelasticScattering`); the ACE `…t` table writer is
+[`crate::acer::thermal`] (`AceTable::thermal_from_mf7`).
 
 ## Testing
 
 **Ported and verified** — Al-27 (σ_b≈1.45 b; σ_inel rises to σ_free≈1.35 b near
 1–2 eV) and H-in-ZrH; ACE round-trip in `tests/thermal_ace.rs` and
 `tests/thermal_ace_zrh.rs`. See `docs/porting-plan.md` §4f.
+
+**H-in-H₂O (ENDF/B-VIII.0, 293.6 K)** — `tests/thermal_h2o_sab.rs` validates the
+incoherent-inelastic path with four analytic/limiting checks (2026-07-15):
+free-atom high-E limit σ_inel(8 eV)=20.707 b/H vs σ_free=20.436 b (+1.33 %);
+thermal σ 104.2 b/molecule vs literature ~103 b; detailed balance of d²σ
+machine-exact (rel 1.7e-16); T_eff(293.6 K)=1194 K. The 17.4 MB `tsl-HinH2O`
+file is not checked in, so the test reads `$HINH2O_TSL` (or a default path) and
+skips when absent. See `docs/ai-fleet-review/op-cjw-thermr-h2o/REVIEW_MANIFEST.md`.
 
 ## Caveats
 
