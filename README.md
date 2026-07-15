@@ -81,3 +81,69 @@ Digital twin examples are offline education and research demonstrations only. Th
 Simulation results should be interpreted with care. Users are responsible for checking assumptions, numerical limitations, data provenance, validation status, error estimates, and applicability to their intended use.
 
 For details, see [`RESPONSIBLE_USE.md`](RESPONSIBLE_USE.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## Changelog
+
+Human-in-the-loop decision log — the maintainer's directions and sign-offs,
+recorded for provenance. AI agents executed these; a human decided them. Code
+remains **unverified until a V&V case demonstrates otherwise** (see the banner
+above).
+
+### 2026-07-15
+
+**Vendoring & forks** (upstreams cloned into each crate's gitignored
+`upstream_source/`, per the workspace vendoring rule):
+
+- **GeN-Foam** (GPL-3.0, `652b3da`) vendored into `outram-foam-appbuilder-lib`;
+  Rust port begun (point-kinetics slice verified against the inhour equation).
+- **OpenFOAM core** (v2606, `481094fd`) vendored into `outram-foam-basic-lib` as
+  the primitive-layer reference.
+- **TRISO-ATOPS** (MIT, Idaho National Laboratory, `de374c8`) forked into
+  `boon-lay` as `triso_atops_fork` — a Eulerian TRISO fission-product-release
+  model complementing boon-lay's Lagrangian one. All non-GUI functionality
+  ported; GUI excluded; MIT attribution preserved. **Decision:** incorporate
+  `uom` into its activity-bookkeeping layer (explicit sign-off overriding the
+  unit-convention guardrail).
+
+**Digital-twin engine:**
+
+- Renamed `outram-park-digital-twin-gui` → **`outram-park-digital-twin-engine`**.
+- Roadmap set: rework/build `fhr_sim_v2`, `htgr_sim_v1`, `ipwr_sim_v1` on the
+  engine's reusable widgets (fhr + htgr are the current priority; ABWR and others
+  are future work). `fhr_sim_v2` migrated into the engine crate as the first
+  consumer.
+
+**Dependency policy:**
+
+- **`ndarray-linalg` removed** from all non-benchmark code — the OpenFOAM-port
+  pure-Rust dense-LU `SquareMatrix` replaces the sole remaining linear solve
+  (`fhr_sim_v2` secondary-loop mass balance). It now survives only in the
+  `outram-foam-basic-lib` matrix benchmark.
+- Approved new pure-Rust, Android-friendly workspace dependencies for KOVAN:
+  `regex`, `pdf-extract`, `lopdf`, `tempfile`.
+
+**KOVAN knowledge layer:**
+
+- Directed a best-effort implementation pass across all seven `kovan-*` crates
+  (per-agent decisions in
+  [`docs/kovan-agent-decisions-for-review.md`](docs/kovan-agent-decisions-for-review.md)).
+- Approved: the `Method::Pde` codegen-catalogue addition; the `kovan-common`
+  shared-type additions requested by downstream crates (`KovanSymbol` location
+  fields, `KovanDocument` asset/page/journal-locator fields + builder,
+  `GeneratedArtifact`); and keeping `kovan-discovery`'s `require_git(false)` fix
+  (honour `.gitignore` outside a `.git` repository).
+
+**TUAS validation:**
+
+- Investigated the CIET coupled-DRACS mass-flow over-prediction. The SAM-matched
+  **pipe-38 form loss K = 17.8** (validated on the isolated loop; added as the
+  shared constructor `new_pipe_38_sam_model`) lowers mean |DRACS error| vs
+  experiment from **3.83 % to 2.76 %** and tightens every mid/high-flow point,
+  **but a single uniform K cannot correct a bias that is over-prediction at high
+  flow and under-prediction at low flow** — the two lowest-flow cases (b1 655 W,
+  c1 841 W) then breach the SAM experimental band. Per the V&V rule (never loosen
+  a benchmark tolerance), the correctness gate was treated as failed: the coupled
+  tests were **left at K = 0.8** (all 25 still within band) and no regression
+  references were altered, pending a modelling decision (velocity-dependent loss
+  vs. a per-point documented low-flow exception). CSV outputs from 41 test writers
+  were redirected to the gitignored `verification_and_validation/` folder.

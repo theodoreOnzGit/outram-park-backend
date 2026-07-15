@@ -1,5 +1,5 @@
-use crate::nuclide_reaction_and_decay_data::NuclideReactionAndDecayData;
 use crate::decay_xml_info_serde::*;
+use crate::nuclide_reaction_and_decay_data::NuclideReactionAndDecayData;
 #[test]
 fn test_actinides_parsing() {
     // Assumes each actinide has a module with a function named get_<element>_xml_serde_data()

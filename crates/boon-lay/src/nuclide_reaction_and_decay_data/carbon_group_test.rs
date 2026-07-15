@@ -1,5 +1,5 @@
-use crate::nuclide_reaction_and_decay_data::NuclideReactionAndDecayData;
 use crate::decay_xml_info_serde::*;
+use crate::nuclide_reaction_and_decay_data::NuclideReactionAndDecayData;
 // vibe coded
 #[test]
 fn test_carbon_group_parsing() {
@@ -35,5 +35,3 @@ fn test_carbon_group_parsing() {
     // Optionally: assertions about nuclide_vec_processed
     // assert!(!nuclide_vec_processed.is_empty());
 }
-
-

@@ -73,7 +73,33 @@ src/
     tests/
   lagrangian_transmutation_and_fission_simulator/
     mod.rs                                ← empty stub (future work)
+  triso_atops_fork/                       ← Eulerian/continuum TRISO release (fork of INL TRISO-ATOPS, MIT, commit de374c8)
+    mod.rs                                ← module map + type aliases (DecayConstant, ReleaseFraction)
+    nuclide_model/
+      mod.rs                              ← TrisoAtopsNuclide, ElementGroup (5 transport groups)
+      nuclide_database.rs                 ← 84-nuclide supported table (IAEA half-lives)
+    diffusion/
+      mod.rs                              ← Arrhenius D(T): kernel/graphite/SiC-Ag + ∫D dt (integrate)
+    release_models/
+      mod.rs                              ← rb_fail + release_fraction_transient dispatchers (by ElementGroup)
+      steady_state.rs                     ← Booth (long/short), breakthrough, attenuation, noble-gas <R/B>
+      transient.rs                        ← accident variants: booth_transient, breakthrough_transient, rf_graph
+    activities/mod.rs                     ← SCAFFOLD (activity bookkeeping; bead op-b4a.2.2)
+    normal_operation/mod.rs               ← SCAFFOLD (nodal orchestration + JSON driver; beads op-b4a.2.2/.2.3)
 ```
+
+## triso_atops_fork — Eulerian TRISO release (fork of INL TRISO-ATOPS)
+
+A Rust fork of INL's MIT-licensed TRISO-ATOPS providing the **Eulerian /
+continuum-diffusion** release model (closed-form Booth/breakthrough/attenuation
+release fractions) as the complement to boon-lay's Lagrangian model. Provenance:
+`LICENSE.triso-atops`, `NOTICE.triso-atops`, per-file headers; upstream clone at
+`upstream_source/TRISO-ATOPS/` is gitignored/reference-only. The GUI was
+intentionally not ported (headless-library + Android rule). The cleanly-
+dimensioned physics core (diffusion + release models + nuclide model) is ported,
+uom-typed, and verified; the activity/nodal/run-file layer is scaffolded pending
+a dimensional-analysis pass (its upstream units mix atoms/Ci/Bq). Full details,
+Python→Rust module map, and V&V results: **`docs/triso-atops-fork.md`**.
 
 ---
 

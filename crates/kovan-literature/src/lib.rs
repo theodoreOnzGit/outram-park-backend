@@ -10,36 +10,67 @@
 //! PDF → Markdown → KovanDocument → BibTeX → generated knowledge artifacts
 //! ```
 //!
+//! Implements the pipeline described in `docs/kovan.md` sections
+//! "Literature Workflow", "Canonical Representation" and "PDF Processing".
 //! The [`KovanDocument`] struct is authoritative; BibTeX and generated Markdown
 //! are always derived from it, never the other way round.
 //!
+//! ## Determinism & offline guarantees
+//!
+//! Every function here is **deterministic** (same input bytes → same output
+//! bytes) and runs **fully offline** — no network, no cloud, no OCR service.
+//! PDF text extraction uses the pure-Rust [`pdf_extract`] crate; the low-level
+//! object model (metadata, assets) uses pure-Rust [`lopdf`]. Both build for
+//! Android (`aarch64-linux-android`), matching KOVAN's Android-first mandate
+//! (`docs/kovan.md`, "Android First").
+//!
 //! ## Storage layout
 //!
-//! Content lives on disk next to this crate:
+//! Content lives on disk next to this crate (`docs/kovan.md`, "Storage Layout"):
 //!
 //! - `open/{papers,reports,standards,benchmarks}/` — redistributable content,
 //!   may be committed.
 //! - `proprietary/{…}/` — user-owned content; **gitignored**, never committed.
 //! - `generated/{markdown,bibtex,assets}/` — reproducible outputs.
 //!
-//! Placeholder stage: the pipeline functions below are stubs marked
-//! `// TODO(kovan)` and return [`LiteratureError::Unimplemented`] (or a minimal
-//! placeholder) so the crate compiles and its tests pass without doing real work.
+//! ## What is real vs. best-effort
+//!
+//! - [`pdf_to_markdown`], [`markdown_outline`], [`to_bibtex`] — fully
+//!   implemented and tested.
+//! - [`extract_metadata`] — best-effort heuristics (PDF Info dictionary first,
+//!   then conservative text scanning). Unknown fields are left `None`/empty
+//!   rather than guessed.
+//! - [`extract_assets`] — extracts embedded raster images whose codec is already
+//!   a standalone file format (JPEG via `DCTDecode`, JPEG-2000 via `JPXDecode`).
+//!   Images stored under other filters are reported-skipped, not re-encoded.
 
 #![forbid(unsafe_code)]
 
 use std::path::{Path, PathBuf};
 
-pub use kovan_common::{
-    Author, DocumentType, KovanBenchmark, KovanDocument, Visibility,
+pub use kovan_common::{Author, DocumentType, KovanBenchmark, KovanDocument, Visibility};
+
+mod bibtex;
+mod markdown;
+mod metadata;
+mod pdf_import;
+
+#[cfg(test)]
+mod test_pdf;
+
+pub use bibtex::to_bibtex;
+pub use markdown::{
+    markdown_outline, split_markdown_by_page_limit, text_to_markdown, Heading, PAGE_SEPARATOR,
 };
+pub use metadata::extract_metadata;
+pub use pdf_import::{extract_assets, extract_pdf_text, pdf_to_markdown};
 
 /// Errors produced by the literature pipeline.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LiteratureError {
     /// The requested operation is not implemented yet (placeholder stage).
     Unimplemented(&'static str),
-    /// A source file could not be read or was malformed.
+    /// A source file could not be read, parsed, or was malformed.
     Io(String),
 }
 
@@ -57,10 +88,13 @@ impl std::fmt::Display for LiteratureError {
 impl std::error::Error for LiteratureError {}
 
 /// Target maximum number of pages per generated Markdown document. Larger
-/// documents should be split. See the project instructions.
+/// documents should be split with [`split_markdown_by_page_limit`]. See
+/// `docs/kovan.md`, "PDF Processing" (`≤ 30 pages` per Markdown document).
 pub const MAX_MARKDOWN_PAGES: u32 = 30;
 
 /// Roots of the on-disk storage tree, relative to the crate directory.
+///
+/// Implements `docs/kovan.md`, "Storage Layout".
 pub mod storage {
     use super::{Path, PathBuf, Visibility};
 
@@ -79,132 +113,53 @@ pub mod storage {
             Visibility::Proprietary => base.join(PROPRIETARY_ROOT),
         }
     }
-}
 
-/// Import a PDF and produce Markdown body text.
-///
-/// TODO(kovan): implement PDF import + Markdown generation, splitting output so
-/// each document stays within [`MAX_MARKDOWN_PAGES`].
-pub fn pdf_to_markdown(_pdf: &Path) -> Result<String, LiteratureError> {
-    Err(LiteratureError::Unimplemented("pdf_to_markdown"))
-}
-
-/// Extract document metadata (title, authors, DOI, …) from a source PDF into a
-/// [`KovanDocument`] skeleton.
-///
-/// TODO(kovan): implement metadata extraction.
-pub fn extract_metadata(_pdf: &Path) -> Result<KovanDocument, LiteratureError> {
-    Err(LiteratureError::Unimplemented("extract_metadata"))
-}
-
-/// Extract embedded assets (figures, tables) from a source PDF into
-/// `generated/assets/`, returning their written paths.
-///
-/// TODO(kovan): implement asset extraction.
-pub fn extract_assets(_pdf: &Path) -> Result<Vec<PathBuf>, LiteratureError> {
-    Err(LiteratureError::Unimplemented("extract_assets"))
-}
-
-/// One heading in a Markdown document: its level (1–6) and text.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Heading {
-    /// Heading level, 1 (`#`) through 6 (`######`).
-    pub level: u8,
-    /// Plain-text heading content.
-    pub text: String,
-}
-
-/// Parse a Markdown body and return its heading outline, using `pulldown-cmark`
-/// (the one Markdown parser KOVAN starts with). This is a real, deterministic
-/// helper — useful for splitting long documents and building a table of
-/// contents.
-pub fn markdown_outline(markdown: &str) -> Vec<Heading> {
-    use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
-
-    let mut outline = Vec::new();
-    let mut current: Option<u8> = None;
-    let mut buf = String::new();
-    for event in Parser::new(markdown) {
-        match event {
-            Event::Start(Tag::Heading { level, .. }) => {
-                current = Some(heading_level_to_u8(level));
-                buf.clear();
-            }
-            Event::Text(t) | Event::Code(t) if current.is_some() => buf.push_str(&t),
-            Event::End(TagEnd::Heading(_)) => {
-                if let Some(level) = current.take() {
-                    outline.push(Heading {
-                        level,
-                        text: buf.trim().to_string(),
-                    });
-                }
-            }
-            _ => {}
+    /// Infer a document's [`Visibility`] from where its source file lives.
+    ///
+    /// Any path that contains a `proprietary/` component is treated as
+    /// [`Visibility::Proprietary`]; everything else defaults to
+    /// [`Visibility::Open`]. This is the deterministic rule the ingestion
+    /// pipeline uses so proprietary material never gets an "open" label by
+    /// accident (`docs/kovan.md`, "Open vs Proprietary").
+    pub fn visibility_from_path(path: &Path) -> Visibility {
+        let proprietary = path
+            .components()
+            .any(|c| c.as_os_str().eq_ignore_ascii_case(PROPRIETARY_ROOT));
+        if proprietary {
+            Visibility::Proprietary
+        } else {
+            Visibility::Open
         }
     }
-    // silence unused import warnings if the enum shape changes upstream
-    let _ = HeadingLevel::H1;
-    outline
-}
 
-fn heading_level_to_u8(level: pulldown_cmark::HeadingLevel) -> u8 {
-    use pulldown_cmark::HeadingLevel::*;
-    match level {
-        H1 => 1,
-        H2 => 2,
-        H3 => 3,
-        H4 => 4,
-        H5 => 5,
-        H6 => 6,
+    /// Infer a [`super::DocumentType`] from a storage sub-directory name in the
+    /// source path (`papers/`, `reports/`, `standards/`, `benchmarks/`), falling
+    /// back to [`super::DocumentType::Other`] when none is present.
+    pub fn document_type_from_path(path: &Path) -> super::DocumentType {
+        use super::DocumentType::*;
+        for c in path.components() {
+            match c
+                .as_os_str()
+                .to_string_lossy()
+                .to_ascii_lowercase()
+                .as_str()
+            {
+                "papers" => return Paper,
+                "reports" => return Report,
+                "standards" => return Standard,
+                "benchmarks" => return Benchmark,
+                "manuals" => return Manual,
+                _ => {}
+            }
+        }
+        Other
     }
-}
-
-/// Render a [`KovanDocument`] to a BibTeX entry.
-///
-/// This is a minimal placeholder that emits a syntactically-valid entry from
-/// the fields that are always present. TODO(kovan): full field coverage,
-/// proper entry-type selection, and key generation.
-pub fn to_bibtex(doc: &KovanDocument) -> String {
-    let entry_type = match doc.document_type {
-        DocumentType::Paper => "article",
-        DocumentType::Report | DocumentType::Manual => "techreport",
-        DocumentType::Standard => "misc",
-        DocumentType::Benchmark => "misc",
-        DocumentType::Other => "misc",
-    };
-    let authors = doc
-        .authors
-        .iter()
-        .map(|a| format!("{}, {}", a.family, a.given))
-        .collect::<Vec<_>>()
-        .join(" and ");
-    let mut out = format!("@{entry_type}{{{key},\n", key = doc.slug);
-    out.push_str(&format!("  title = {{{}}},\n", doc.title));
-    if !authors.is_empty() {
-        out.push_str(&format!("  author = {{{authors}}},\n"));
-    }
-    if let Some(year) = doc.year {
-        out.push_str(&format!("  year = {{{year}}},\n"));
-    }
-    if let Some(doi) = &doc.doi {
-        out.push_str(&format!("  doi = {{{doi}}},\n"));
-    }
-    out.push_str("}\n");
-    out
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::path::Path;
-
-    #[test]
-    fn pipeline_stubs_report_unimplemented() {
-        assert!(matches!(
-            pdf_to_markdown(Path::new("x.pdf")),
-            Err(LiteratureError::Unimplemented(_))
-        ));
-    }
 
     #[test]
     fn proprietary_and_open_roots_differ() {
@@ -216,26 +171,26 @@ mod tests {
     }
 
     #[test]
-    fn bibtex_placeholder_emits_key_and_title() {
-        let doc = KovanDocument::new(
-            "doc-1",
-            "smith2020",
-            Visibility::Open,
-            DocumentType::Paper,
-            "A Title",
+    fn visibility_inferred_from_path() {
+        assert_eq!(
+            storage::visibility_from_path(Path::new("open/papers/x.pdf")),
+            Visibility::Open
         );
-        let bib = to_bibtex(&doc);
-        assert!(bib.starts_with("@article{smith2020,"));
-        assert!(bib.contains("title = {A Title}"));
+        assert_eq!(
+            storage::visibility_from_path(Path::new("proprietary/reports/x.pdf")),
+            Visibility::Proprietary
+        );
     }
 
     #[test]
-    fn markdown_outline_extracts_headings() {
-        let md = "# Title\n\nsome text\n\n## Section A\n\n### Sub\n";
-        let outline = markdown_outline(md);
-        assert_eq!(outline.len(), 3);
-        assert_eq!(outline[0], Heading { level: 1, text: "Title".into() });
-        assert_eq!(outline[1].level, 2);
-        assert_eq!(outline[2], Heading { level: 3, text: "Sub".into() });
+    fn document_type_inferred_from_path() {
+        assert_eq!(
+            storage::document_type_from_path(Path::new("open/reports/x.pdf")),
+            DocumentType::Report
+        );
+        assert_eq!(
+            storage::document_type_from_path(Path::new("x.pdf")),
+            DocumentType::Other
+        );
     }
 }

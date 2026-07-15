@@ -1,4 +1,4 @@
-use outram_mc_libs::rng::lcg::{prn, MULT, INC};
+use outram_mc_libs::rng::lcg::{prn, INC, MULT};
 
 /// Stateful RNG adapter for the diffusion simulators.
 ///

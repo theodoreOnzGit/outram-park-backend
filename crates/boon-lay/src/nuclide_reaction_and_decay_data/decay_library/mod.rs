@@ -2,10 +2,10 @@ use crate::prelude::NuclideReactionAndDecayData;
 use fission_yields_data::prelude::Nuclide::*;
 use outram_mc_libs::rng::lcg::Lcg64 as Rand64;
 
-/// this is a full decay library constructed at start 
-/// incorporating all decays from all radionuclides 
+/// this is a full decay library constructed at start
+/// incorporating all decays from all radionuclides
 
-#[derive(Debug, PartialEq,Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct DecayLibrary {
     hydrogen_data: Vec<NuclideReactionAndDecayData>,
     helium_data: Vec<NuclideReactionAndDecayData>,
@@ -128,11 +128,8 @@ pub struct DecayLibrary {
     pub random_number_generator: Rand64,
 }
 
-
 impl DecayLibrary {
-    
     pub fn new() -> Self {
-
         let hydrogen_data: Vec<NuclideReactionAndDecayData>;
         let helium_data: Vec<NuclideReactionAndDecayData>;
         let lithium_data: Vec<NuclideReactionAndDecayData>;
@@ -254,122 +251,225 @@ impl DecayLibrary {
         let rng_seed = 77;
         let random_number_generator = Rand64::new(rng_seed);
 
-        hydrogen_data = NuclideReactionAndDecayData::
-            parse_nuclides_to_decay_data_vec_by_element(
-                &H1
-            );
+        hydrogen_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&H1);
         // vibe coded for speed
-        helium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&He4);
-        lithium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Li7);
-        beryllium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Be9);
+        helium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&He4);
+        lithium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Li7);
+        beryllium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Be9);
         boron_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&B11);
-        carbon_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&C12);
-        nitrogen_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&N14);
-        oxygen_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&O16);
-        fluorine_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&F19);
+        carbon_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&C12);
+        nitrogen_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&N14);
+        oxygen_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&O16);
+        fluorine_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&F19);
         neon_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ne20);
-        sodium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Na23);
-        magnesium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Mg24);
-        aluminium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Al27);
-        silicon_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Si28);
-        phosphorus_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&P31);
-        sulfur_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&S32);
-        chlorine_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cl35);
-        argon_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ar40);
-        potassium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&K39);
-        calcium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ca40);
-        scandium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Sc45);
-        titanium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ti48);
-        vanadium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&V51);
-        chromium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cr52);
-        manganese_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Mn55);
+        sodium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Na23);
+        magnesium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Mg24);
+        aluminium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Al27);
+        silicon_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Si28);
+        phosphorus_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&P31);
+        sulfur_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&S32);
+        chlorine_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cl35);
+        argon_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ar40);
+        potassium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&K39);
+        calcium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ca40);
+        scandium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Sc45);
+        titanium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ti48);
+        vanadium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&V51);
+        chromium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cr52);
+        manganese_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Mn55);
         iron_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Fe56);
-        cobalt_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Co59);
-        nickel_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ni58);
-        copper_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cu63);
+        cobalt_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Co59);
+        nickel_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ni58);
+        copper_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cu63);
         zinc_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Zn64);
-        gallium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ga69);
-        germanium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ge74);
-        arsenic_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&As75);
-        selenium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Se80);
-        bromine_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Br79);
-        krypton_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Kr84);
-        rubidium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Rb85);
-        strontium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Sr88);
-        yttrium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Y89);
-        zirconium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Zr90);
-        niobium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Nb93);
-        molybdenum_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Mo98);
-        technetium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Tc99);
-        ruthenium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ru102);
-        rhodium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Rh103);
-        palladium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pd106);
-        silver_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ag107);
-        cadmium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cd114);
-        indium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&In115);
+        gallium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ga69);
+        germanium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ge74);
+        arsenic_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&As75);
+        selenium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Se80);
+        bromine_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Br79);
+        krypton_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Kr84);
+        rubidium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Rb85);
+        strontium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Sr88);
+        yttrium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Y89);
+        zirconium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Zr90);
+        niobium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Nb93);
+        molybdenum_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Mo98);
+        technetium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Tc99);
+        ruthenium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ru102);
+        rhodium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Rh103);
+        palladium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pd106);
+        silver_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ag107);
+        cadmium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cd114);
+        indium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&In115);
         tin_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Sn120);
-        antimony_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Sb121);
-        tellurium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Te130);
-        iodine_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&I127);
-        xenon_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Xe132);
-        cesium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cs133);
-        barium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ba138);
-        lanthanum_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&La139);
-        cerium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ce140);
-        praseodymium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pr141);
-        neodymium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Nd142);
-        promethium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pm147);
-        samarium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Sm152);
-        europium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Eu153);
-        gadolinium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Gd158);
-        terbium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Tb159);
-        dysprosium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Dy164);
-        holmium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ho165);
-        erbium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Er166);
-        thulium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Tm169);
-        ytterbium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Yb174);
-        lutetium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Lu175);
-        hafnium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Hf180);
-        tantalum_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ta181);
-        tungsten_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&W184);
-        rhenium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Re187);
-        osmium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Os192);
-        iridium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ir193);
-        platinum_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pt195);
-        gold_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Au197);
-        mercury_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Hg202);
-        thallium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Tl205);
-        lead_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pb208);
-        bismuth_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Bi209);
-        polonium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Po209);
-        astatine_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&At210);
-        radon_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Rn222);
-        francium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Fr223);
-        // vibe coded for speed 
-        radium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ra226);
-        actinium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ac227);
-        thorium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Th232);
-        protactinium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pa231);
-        uranium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&U238);
-        neptunium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Np237);
-        plutonium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pu239);
-        americium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Am241);
-        curium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cm244);
-        berkelium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Bk249);
-        californium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cf252);
-        einsteinium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Es253);
-        fermium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Fm257);
-        mendelevium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Md256);
-        nobelium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&No259);
-        lawrencium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Lr262);
-        rutherfordium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Rf267);
-        dubnium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Db268);
-        seaborgium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Sg271);
-        bohrium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Bh270);
-        hassium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Hs277);
-        meitnerium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Mt278);
-        darmstadtium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ds281);
-        roentgenium_data = NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Rg281);
+        antimony_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Sb121);
+        tellurium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Te130);
+        iodine_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&I127);
+        xenon_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Xe132);
+        cesium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cs133);
+        barium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ba138);
+        lanthanum_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&La139);
+        cerium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ce140);
+        praseodymium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pr141);
+        neodymium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Nd142);
+        promethium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pm147);
+        samarium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Sm152);
+        europium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Eu153);
+        gadolinium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Gd158);
+        terbium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Tb159);
+        dysprosium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Dy164);
+        holmium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ho165);
+        erbium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Er166);
+        thulium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Tm169);
+        ytterbium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Yb174);
+        lutetium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Lu175);
+        hafnium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Hf180);
+        tantalum_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ta181);
+        tungsten_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&W184);
+        rhenium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Re187);
+        osmium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Os192);
+        iridium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ir193);
+        platinum_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pt195);
+        gold_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Au197);
+        mercury_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Hg202);
+        thallium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Tl205);
+        lead_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pb208);
+        bismuth_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Bi209);
+        polonium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Po209);
+        astatine_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&At210);
+        radon_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Rn222);
+        francium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Fr223);
+        // vibe coded for speed
+        radium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ra226);
+        actinium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ac227);
+        thorium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Th232);
+        protactinium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pa231);
+        uranium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&U238);
+        neptunium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Np237);
+        plutonium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Pu239);
+        americium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Am241);
+        curium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cm244);
+        berkelium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Bk249);
+        californium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Cf252);
+        einsteinium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Es253);
+        fermium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Fm257);
+        mendelevium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Md256);
+        nobelium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&No259);
+        lawrencium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Lr262);
+        rutherfordium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Rf267);
+        dubnium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Db268);
+        seaborgium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Sg271);
+        bohrium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Bh270);
+        hassium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Hs277);
+        meitnerium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Mt278);
+        darmstadtium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Ds281);
+        roentgenium_data =
+            NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element(&Rg281);
 
         return Self {
             hydrogen_data,
@@ -492,17 +592,15 @@ impl DecayLibrary {
             _oganesson_data: oganesson_data,
             random_number_generator,
         };
-
     }
 }
 
 /// this allows users to use nuclides to get appropriate decay data
 pub mod indexing_using_nuclide;
 
-/// this allows users to get a rng 
+/// this allows users to get a rng
 pub mod get_random_number;
 
 /// some tests for the indexing using nuclides
 #[cfg(test)]
 pub mod tests;
-

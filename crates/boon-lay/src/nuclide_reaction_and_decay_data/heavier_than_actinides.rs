@@ -1,5 +1,5 @@
-use crate::nuclide_reaction_and_decay_data::NuclideReactionAndDecayData;
 use crate::decay_xml_info_serde::*;
+use crate::nuclide_reaction_and_decay_data::NuclideReactionAndDecayData;
 #[test]
 fn test_rutherfordium_to_roentgenium_parsing() {
     // Assumes each superheavy element exposes get_<element>_xml_serde_data(),

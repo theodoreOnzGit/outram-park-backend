@@ -3,9 +3,7 @@ use egui::Ui;
 use crate::triso_simulator_v1::TRISOSimApp;
 
 impl TRISOSimApp {
-
-        pub fn citation_disclaimer_and_acknowledgements(&mut self, ui: &mut Ui){
-
+    pub fn citation_disclaimer_and_acknowledgements(&mut self, ui: &mut Ui) {
         ui.heading("DISCLAIMER");
 
         ui.label(" ");
@@ -38,7 +36,5 @@ impl TRISOSimApp {
         ui.label("TBC");
 
         ui.label(" ");
-
     }
-
 }

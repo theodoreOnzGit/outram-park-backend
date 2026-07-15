@@ -42,11 +42,33 @@ Depends on:
 | `io::fv_solution` | fvSolution parser (linear solver + PIMPLE control) |
 | `io::output` | OpenFOAM ASCII field writer and VTK export |
 
+## GeN-Foam port (`genfoam`)
+
+This crate is also the in-workspace home for the Rust port of
+[GeN-Foam](https://gitlab.com/foam-for-nuclear/GeN-Foam) (Generalized Nuclear
+Foam), an OpenFOAM-based reactor-multiphysics solver (neutronics +
+thermal-hydraulics + thermo-mechanics), GPL-3.0, upstream commit `652b3da`. The
+port lives under `src/genfoam/`, cleanly separated from the OpenFOAM solver
+ports above. GeN-Foam's neutronics is deterministic and self-contained here — it
+does **not** depend on the NJOY / Monte Carlo data crates.
+
+The full module map and dependency-ordered translation plan are in
+[`docs/genfoam-port-plan.md`](./docs/genfoam-port-plan.md). This is an
+incremental, multi-session effort (~88k LOC of upstream physics).
+
+| `genfoam` module | Status |
+|---|---|
+| `neutronics::point_kinetics` | **Implemented** — 0-D point-kinetics ODE core (backward-Euler implicit solve), reactivity- and external-source-driven. Verified against the analytical inhour equation (asymptotic period matches to ~0.007 %; see `tests/genfoam_point_kinetics_inhour.rs`). Mesh/feedback/GEM/FMU/liquid-fuel coupling deferred. |
+| `neutronics::{xs, diffusion, sp3, sn}`, base state | Planned |
+| `common` (timeProfile, InterpolateTable) | Planned |
+| `multi_region`, `thermal_hydraulics`, `thermo_mechanics` | Planned |
+
 ## Status
 
-Scaffold only — no solvers or I/O implemented yet. See `CLAUDE.md` for the
-implementation plan and module structure.
+OpenFOAM solver loops and I/O: scaffold (see `CLAUDE.md`). GeN-Foam port: first
+verified slice (`genfoam::neutronics::point_kinetics`) landed; everything else
+planned (see `docs/genfoam-port-plan.md`).
 
 ## License
 
-GPL-3.0-only (follows OpenFOAM licensing).
+GPL-3.0-only (follows OpenFOAM and GeN-Foam licensing).

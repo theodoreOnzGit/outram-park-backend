@@ -4,7 +4,6 @@
 // 443 (2013) 531–543, doi:10.1016/j.jnucmat.2013.07.070 .
 // Multidimensional multiphysics simulation of TRISO particle fuel,
 
-
 #[cfg(test)]
 mod verification {
 
@@ -35,12 +34,9 @@ mod verification {
         let triso_layer = TrisoPebbleLayerMaterial::KernelUO2;
         let gamma_neutron_fluence = Some(ArealNumberDensity::ZERO); // No neutron fluence specified
 
-        let diffusion_coefficient = try_get_diffusion_coeff_jiang(
-            triso_layer,
-            nuclide,
-            temperature,
-            gamma_neutron_fluence,
-        ).expect("Failed to get diffusion coefficient for Cs at 1200C");
+        let diffusion_coefficient =
+            try_get_diffusion_coeff_jiang(triso_layer, nuclide, temperature, gamma_neutron_fluence)
+                .expect("Failed to get diffusion coefficient for Cs at 1200C");
 
         let fractional_release = calculate_analytical_fraction_released(
             diffusion_coefficient,
@@ -55,8 +51,7 @@ mod verification {
 
         // for this the expected values of the release fraction
         // Expected range: 0.453 to 0.498
-        let _ = catch_unwind(||{
-
+        let _ = catch_unwind(|| {
             assert!(
                 fractional_release >= 0.453 && fractional_release <= 0.498,
                 "Fractional release for 1200C, 200h out of range: {} (expected 0.453-0.498)",
@@ -64,13 +59,7 @@ mod verification {
             );
         });
 
-
-        approx::assert_relative_eq!(
-            fractional_release,
-            0.53,
-            max_relative=0.01
-        );
-
+        approx::assert_relative_eq!(fractional_release, 0.53, max_relative = 0.01);
     }
 
     #[test]
@@ -87,12 +76,9 @@ mod verification {
         let triso_layer = TrisoPebbleLayerMaterial::KernelUO2;
         let gamma_neutron_fluence = Some(ArealNumberDensity::ZERO); // No neutron fluence specified
 
-        let diffusion_coefficient = try_get_diffusion_coeff_jiang(
-            triso_layer,
-            nuclide,
-            temperature,
-            gamma_neutron_fluence,
-        ).expect("Failed to get diffusion coefficient for Cs at 1600C");
+        let diffusion_coefficient =
+            try_get_diffusion_coeff_jiang(triso_layer, nuclide, temperature, gamma_neutron_fluence)
+                .expect("Failed to get diffusion coefficient for Cs at 1600C");
 
         let fractional_release = calculate_analytical_fraction_released(
             diffusion_coefficient,
@@ -113,7 +99,6 @@ mod verification {
         );
     }
 }
-
 
 #[cfg(test)]
 pub mod monte_carlo_test;

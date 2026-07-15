@@ -6,42 +6,36 @@ use uom::si::{f64::Ratio, ratio::ratio};
 use crate::triso_simulator_v1::backend::simulator_state::SimulatorState;
 
 impl SimulatorState {
-
     pub fn update_fractions_using_decay_sim_thread_ptrs(
         &mut self,
         decay_sim_plotting_thread_1_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
         decay_sim_plotting_thread_2_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
         decay_sim_plotting_thread_3_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
         decay_sim_plotting_thread_4_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
-    ){
+    ) {
+        let (nuclide_sim_vec_1, _decay_lib_1) =
+            decay_sim_plotting_thread_1_ptr.lock().unwrap().clone();
+        let (nuclide_sim_vec_2, _decay_lib_2) =
+            decay_sim_plotting_thread_2_ptr.lock().unwrap().clone();
+        let (nuclide_sim_vec_3, _decay_lib_3) =
+            decay_sim_plotting_thread_3_ptr.lock().unwrap().clone();
+        let (nuclide_sim_vec_4, _decay_lib_4) =
+            decay_sim_plotting_thread_4_ptr.lock().unwrap().clone();
 
-        let (nuclide_sim_vec_1, _decay_lib_1)
-            = decay_sim_plotting_thread_1_ptr.lock().unwrap().clone();
-        let (nuclide_sim_vec_2, _decay_lib_2)
-            = decay_sim_plotting_thread_2_ptr.lock().unwrap().clone();
-        let (nuclide_sim_vec_3, _decay_lib_3)
-            = decay_sim_plotting_thread_3_ptr.lock().unwrap().clone();
-        let (nuclide_sim_vec_4, _decay_lib_4)
-            = decay_sim_plotting_thread_4_ptr.lock().unwrap().clone();
-
-        let full_nuclide_sim_vec: Vec<SingleNuclideSimulatorMC> =
-            nuclide_sim_vec_1.into_iter()
+        let full_nuclide_sim_vec: Vec<SingleNuclideSimulatorMC> = nuclide_sim_vec_1
+            .into_iter()
             .chain(nuclide_sim_vec_2)
             .chain(nuclide_sim_vec_3)
             .chain(nuclide_sim_vec_4)
             .collect();
 
         if self.should_change_nuclide_to_graph_plot {
-
             let nuclides_to_plot: Vec<Nuclide> =
-                SingleNuclideSimulatorMC::all_chain_nuclides_unique_sorted(
-                    &full_nuclide_sim_vec
-                );
+                SingleNuclideSimulatorMC::all_chain_nuclides_unique_sorted(&full_nuclide_sim_vec);
 
             self.nuclides_to_plot = nuclides_to_plot;
             self.nuclide_fractions_over_time = vec![];
             self.turn_off_change_nuclide_to_plot_button();
-
         }
 
         let nuclides_to_plot: Vec<Nuclide> = self.nuclides_to_plot.clone();
@@ -49,7 +43,7 @@ impl SimulatorState {
         let nuclide_count_vector: Vec<(Nuclide, u64)> =
             SingleNuclideSimulatorMC::count_nuclides_in_sims_linear(
                 &full_nuclide_sim_vec,
-                &nuclides_to_plot
+                &nuclides_to_plot,
             );
 
         fn to_fractions_consume(nucs: Vec<(Nuclide, u64)>) -> Vec<(Nuclide, f64)> {
@@ -85,19 +79,16 @@ impl SimulatorState {
                         .map(|(_, f)| *f)
                         .unwrap_or(0.0)
                 })
-            .collect()
+                .collect()
         }
 
-        let nuclide_fraction_vector_float: Vec<f64> = reorder_exact_linear(
-            &nuclide_fraction_vector,
-            &nuclides_to_plot
-        );
+        let nuclide_fraction_vector_float: Vec<f64> =
+            reorder_exact_linear(&nuclide_fraction_vector, &nuclides_to_plot);
 
         let simulated_time_now = self.simulated_time;
 
-        self.nuclide_fractions_over_time.push(
-            (simulated_time_now, nuclide_fraction_vector_float)
-        );
+        self.nuclide_fractions_over_time
+            .push((simulated_time_now, nuclide_fraction_vector_float));
 
         fn keep_last_5000<T>(v: &mut Vec<T>) {
             let keep_from = v.len().saturating_sub(5000);
@@ -119,14 +110,11 @@ impl SimulatorState {
         let initial_nuclide = self.get_user_selected_nuclide();
         let number_of_particles = full_nuclide_sim_vec.len();
         for simulation in &full_nuclide_sim_vec {
-
-            let nuclide_not_decayed: bool =
-                simulation.get_current_nuclide() == initial_nuclide;
+            let nuclide_not_decayed: bool = simulation.get_current_nuclide() == initial_nuclide;
 
             let position = simulation.position;
 
-            let particle_region: TrisoRegion
-                = self.triso_cell.get_triso_region(position.into());
+            let particle_region: TrisoRegion = self.triso_cell.get_triso_region(position.into());
 
             if particle_region == TrisoRegion::Outside && nuclide_not_decayed {
                 release_counter += 1.0;
@@ -140,25 +128,21 @@ impl SimulatorState {
                 TrisoRegion::OPyC => opyc_region_counter += 1.0,
                 TrisoRegion::Outside => outside_region_counter += 1.0,
             };
-
         }
         let release_fraction_value = release_counter / (number_of_particles as f64);
-        let release_fraction: Ratio =
-            Ratio::new::<ratio>(release_fraction_value);
+        let release_fraction: Ratio = Ratio::new::<ratio>(release_fraction_value);
 
-        let total_region_counter = fuel_region_counter +
-                buffer_region_counter +
-                ipyc_region_counter +
-                sic_region_counter +
-                opyc_region_counter +
-                outside_region_counter;
+        let total_region_counter = fuel_region_counter
+            + buffer_region_counter
+            + ipyc_region_counter
+            + sic_region_counter
+            + opyc_region_counter
+            + outside_region_counter;
         assert_eq!(number_of_particles, total_region_counter as usize);
         self.set_release_fraction(release_fraction);
 
-        self.release_fractions_over_time.push(
-            (simulated_time_now, release_fraction_value)
-        );
+        self.release_fractions_over_time
+            .push((simulated_time_now, release_fraction_value));
         keep_last_5000(&mut self.release_fractions_over_time);
     }
-
 }

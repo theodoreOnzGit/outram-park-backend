@@ -3,9 +3,7 @@ use egui::Ui;
 use crate::decay_simulator_v1::DecaySimApp;
 
 impl DecaySimApp {
-
-        pub fn citation_disclaimer_and_acknowledgements(&mut self, ui: &mut Ui){
-
+    pub fn citation_disclaimer_and_acknowledgements(&mut self, ui: &mut Ui) {
         ui.heading("DISCLAIMER");
 
         ui.label(" ");
@@ -38,7 +36,5 @@ impl DecaySimApp {
         ui.label("TBC");
 
         ui.label(" ");
-
     }
-
 }

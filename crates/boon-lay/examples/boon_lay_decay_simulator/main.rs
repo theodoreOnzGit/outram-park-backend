@@ -5,7 +5,6 @@
 ///
 ///
 fn main() {
-
     println!("Starting Boon Lay Decay Simulator...");
     decay_simulator_v1::decay_simulator_v1().unwrap();
 }

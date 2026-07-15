@@ -1,6 +1,8 @@
 use fission_yields_data::prelude::Nuclide;
 
-use crate::{lagrangian_decay_simulator::StochasticDecayChain, prelude::HalfLifeAndDecayEnergyInfo};
+use crate::{
+    lagrangian_decay_simulator::StochasticDecayChain, prelude::HalfLifeAndDecayEnergyInfo,
+};
 
 // this part is vibe coded for Convenience
 // Assuming `Nuclide` and `HalfLifeAndDecayEnergyInfo` are defined elsewhere.

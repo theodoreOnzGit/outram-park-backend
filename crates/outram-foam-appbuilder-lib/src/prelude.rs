@@ -32,6 +32,12 @@ pub use crate::io::fv_solution::{FvSolution, LinearSolverConfig, LinearSolverTyp
 pub use crate::io::output::write_scalar_field;
 pub use crate::io::poly_mesh::read_poly_mesh;
 
+// GeN-Foam neutronics — point kinetics (0-D)
+pub use crate::genfoam::neutronics::point_kinetics::{
+    DecayConstant, PointKineticsError, PointKineticsParameters, PointKineticsState,
+    PromptGenerationTime, Reactivity,
+};
+
 // Solvers
 pub use crate::solvers::hrm_foam::{HrmFoam, HrmModelConfig};
 pub use crate::solvers::pimple_foam::{PimpleFoam, PressureSolver};

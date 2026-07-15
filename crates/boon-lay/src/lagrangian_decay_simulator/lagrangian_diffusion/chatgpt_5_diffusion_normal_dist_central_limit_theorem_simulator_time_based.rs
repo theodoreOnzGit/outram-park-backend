@@ -1,4 +1,4 @@
-use outram_mc_libs::rng::{lcg::prn, distributions::sample_normal};
+use outram_mc_libs::rng::{distributions::sample_normal, lcg::prn};
 
 fn diffusion_coefficient(v: f64, lambda: f64) -> f64 {
     v * lambda / 3.0
@@ -19,7 +19,11 @@ fn sample_unit_vector(seed: &mut u64) -> [f64; 3] {
 /// Sample a 3D Gaussian displacement vector X ~ N(0, sigma2 * I3).
 fn sample_gaussian_vector(seed: &mut u64, sigma2: f64) -> [f64; 3] {
     let s = sigma2.sqrt();
-    [s * sample_normal(seed), s * sample_normal(seed), s * sample_normal(seed)]
+    [
+        s * sample_normal(seed),
+        s * sample_normal(seed),
+        s * sample_normal(seed),
+    ]
 }
 
 /// Sample net distance R for a 3D Gaussian displacement (Maxwell distribution).
@@ -95,10 +99,19 @@ fn isotropic_scattering_time_summation() -> Result<(), String> {
 
     let (x_vec, (r, u)) = sample_displacement_over_time(&mut seed, v, lambda, t);
     println!("Single-horizon sample over t = {:.3}:", t);
-    println!("  Vector displacement: [{:.4}, {:.4}, {:.4}]", x_vec[0], x_vec[1], x_vec[2]);
-    println!("  Distance-direction: R = {:.4}, u = [{:.4}, {:.4}, {:.4}]", r, u[0], u[1], u[2]);
+    println!(
+        "  Vector displacement: [{:.4}, {:.4}, {:.4}]",
+        x_vec[0], x_vec[1], x_vec[2]
+    );
+    println!(
+        "  Distance-direction: R = {:.4}, u = [{:.4}, {:.4}, {:.4}]",
+        r, u[0], u[1], u[2]
+    );
     let x_recon = [r * u[0], r * u[1], r * u[2]];
-    println!("  Recon vector from (R,u): [{:.4}, {:.4}, {:.4}]", x_recon[0], x_recon[1], x_recon[2]);
+    println!(
+        "  Recon vector from (R,u): [{:.4}, {:.4}, {:.4}]",
+        x_recon[0], x_recon[1], x_recon[2]
+    );
 
     let start = [0.0, 0.0, 0.0];
     let times = vec![0.0, 2.0, 4.0, 6.0, 8.0, 10.0];
@@ -106,7 +119,10 @@ fn isotropic_scattering_time_summation() -> Result<(), String> {
 
     println!("\nTrajectory positions at specified times:");
     for (k, p) in positions.iter().enumerate() {
-        println!("  t = {:>4.1}: [{:.4}, {:.4}, {:.4}]", times[k], p[0], p[1], p[2]);
+        println!(
+            "  t = {:>4.1}: [{:.4}, {:.4}, {:.4}]",
+            times[k], p[0], p[1], p[2]
+        );
     }
 
     let num_samples = 10000;
@@ -119,8 +135,13 @@ fn isotropic_scattering_time_summation() -> Result<(), String> {
         sum[1] += x[1];
         sum[2] += x[2];
     }
-    println!("\nSample mean of endpoints over {} runs (should be ~0): [{:.4}, {:.4}, {:.4}]",
-             num_samples, sum[0] / num_samples as f64, sum[1] / num_samples as f64, sum[2] / num_samples as f64);
+    println!(
+        "\nSample mean of endpoints over {} runs (should be ~0): [{:.4}, {:.4}, {:.4}]",
+        num_samples,
+        sum[0] / num_samples as f64,
+        sum[1] / num_samples as f64,
+        sum[2] / num_samples as f64
+    );
 
     Ok(())
 }

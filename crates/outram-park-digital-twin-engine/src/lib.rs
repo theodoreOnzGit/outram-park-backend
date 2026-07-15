@@ -1,4 +1,4 @@
-//! # outram-park-digital-twin-gui
+//! # outram-park-digital-twin-engine
 //!
 //! Reusable visualization framework for OUTRAM PARK digital twins.
 //!

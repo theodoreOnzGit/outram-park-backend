@@ -1,5 +1,5 @@
-use crate::nuclide_reaction_and_decay_data::NuclideReactionAndDecayData;
 use crate::decay_xml_info_serde::*;
+use crate::nuclide_reaction_and_decay_data::NuclideReactionAndDecayData;
 // vibe coded
 #[test]
 fn test_boron_group_parsing() {

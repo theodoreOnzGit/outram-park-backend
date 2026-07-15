@@ -1,13 +1,14 @@
-use boon_lay::{prelude::{decay_library::DecayLibrary, SingleNuclideSimulatorMC}, Nuclide};
+use boon_lay::{
+    prelude::{decay_library::DecayLibrary, SingleNuclideSimulatorMC},
+    Nuclide,
+};
 use egui::{Color32, Pos2, Rect, Ui};
 
 use crate::decay_simulator_v1::DecaySimApp;
 use rayon::prelude::*;
 
 impl DecaySimApp {
-
     pub fn main_page(&mut self, ui: &mut Ui) {
-
         let ui_rectangle: Rect = ui.min_rect();
         let viewport = ui.clip_rect();
 
@@ -21,7 +22,8 @@ impl DecaySimApp {
         const ROWS: usize = 500;
 
         // Reserve exactly 2500x2500 px in the UI (won't resize with the panel)
-        let (rect, _response) = ui.allocate_exact_size(egui::vec2(SIZE, SIZE), egui::Sense::hover());
+        let (rect, _response) =
+            ui.allocate_exact_size(egui::vec2(SIZE, SIZE), egui::Sense::hover());
 
         // Grid cell size (fixed, independent of the UI rectangle size)
         let dx = SIZE / COLS as f32; // 3.2 px
@@ -56,26 +58,29 @@ impl DecaySimApp {
         }
 
         // collect all nuclides and then display them
-        let (nuclide_sim_vec_1,_): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
+        let (nuclide_sim_vec_1, _): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
             self.decay_sim_thread_1_ptr.lock().unwrap().clone();
-        let (nuclide_sim_vec_2,_): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
+        let (nuclide_sim_vec_2, _): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
             self.decay_sim_thread_2_ptr.lock().unwrap().clone();
-        let (nuclide_sim_vec_3,_): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
+        let (nuclide_sim_vec_3, _): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
             self.decay_sim_thread_3_ptr.lock().unwrap().clone();
-        let (nuclide_sim_vec_4,_): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
+        let (nuclide_sim_vec_4, _): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
             self.decay_sim_thread_4_ptr.lock().unwrap().clone();
 
-        let (nuclide_vec_1, nuclide_vec_2, nuclide_vec_3, nuclide_vec_4):
-            (Vec<Nuclide>, Vec<Nuclide>, Vec<Nuclide>, Vec<Nuclide>)
-             = convert_all(
-                 &nuclide_sim_vec_1,
-                 &nuclide_sim_vec_2,
-                 &nuclide_sim_vec_3,
-                 &nuclide_sim_vec_4,
-             );
+        let (nuclide_vec_1, nuclide_vec_2, nuclide_vec_3, nuclide_vec_4): (
+            Vec<Nuclide>,
+            Vec<Nuclide>,
+            Vec<Nuclide>,
+            Vec<Nuclide>,
+        ) = convert_all(
+            &nuclide_sim_vec_1,
+            &nuclide_sim_vec_2,
+            &nuclide_sim_vec_3,
+            &nuclide_sim_vec_4,
+        );
 
-        let full_nuclide_vector: Vec<Nuclide> =
-            nuclide_vec_1.into_iter()
+        let full_nuclide_vector: Vec<Nuclide> = nuclide_vec_1
+            .into_iter()
             .chain(nuclide_vec_2)
             .chain(nuclide_vec_3)
             .chain(nuclide_vec_4)
@@ -114,9 +119,13 @@ impl DecaySimApp {
                     let nuclide = full_nuclide_vector[idx];
                     let color = DecaySimApp::element_color(nuclide);
 
-                    CircleInst { center, radius, color }
+                    CircleInst {
+                        center,
+                        radius,
+                        color,
+                    }
                 })
-            .collect();
+                .collect();
 
             // Single-threaded draw (UI thread)
             let painter = ui.painter();
@@ -129,37 +138,35 @@ impl DecaySimApp {
             let right_limit = left_limit + viewport.right();
             let bottom_limit = top_limit + viewport.bottom();
 
-
             // so basically, i need to get the position relative to the content origin
 
-
             for c in &circles {
-
-
                 let circle_abs_pos_x: f32 = content_origin.x + c.center.x;
                 let circle_abs_pos_y: f32 = content_origin.y + c.center.y;
 
-                if circle_abs_pos_x < left_limit || circle_abs_pos_x > right_limit   {
+                if circle_abs_pos_x < left_limit || circle_abs_pos_x > right_limit {
                     continue;
                 };
-                if circle_abs_pos_y < top_limit || circle_abs_pos_y > bottom_limit   {
+                if circle_abs_pos_y < top_limit || circle_abs_pos_y > bottom_limit {
                     continue;
                 };
-
-
 
                 painter.circle_filled(c.center, c.radius, c.color);
             }
-
-
         }
 
-        draw_grid_parallel(ui, origin, dx, dy, radius,
-            &full_nuclide_vector, ROWS, COLS,
-            viewport);
-
+        draw_grid_parallel(
+            ui,
+            origin,
+            dx,
+            dy,
+            radius,
+            &full_nuclide_vector,
+            ROWS,
+            COLS,
+            viewport,
+        );
     }
-
 
     /// this is a vibe coded colour scheme for elements in the periodic table
     /// Vibe-coded colour scheme for elements, with heavier elements shaded darker.
@@ -168,24 +175,24 @@ impl DecaySimApp {
         use egui::Color32;
 
         // Base palette by category
-        const HYDROGEN: Color32 = Color32::from_rgb(255, 255, 255);      // White
-        const ALKALI: Color32 = Color32::from_rgb(255, 128, 0);          // Orange
-        const ALKALINE_EARTH: Color32 = Color32::from_rgb(255, 215, 0);  // Gold
-        const TRANSITION: Color32 = Color32::from_rgb(70, 130, 180);     // Steel blue
-        const LANTHANOID: Color32 = Color32::from_rgb(123, 104, 238);    // Medium slate blue
-        const ACTINOID: Color32 = Color32::from_rgb(199, 21, 133);       // Medium violet red
+        const HYDROGEN: Color32 = Color32::from_rgb(255, 255, 255); // White
+        const ALKALI: Color32 = Color32::from_rgb(255, 128, 0); // Orange
+        const ALKALINE_EARTH: Color32 = Color32::from_rgb(255, 215, 0); // Gold
+        const TRANSITION: Color32 = Color32::from_rgb(70, 130, 180); // Steel blue
+        const LANTHANOID: Color32 = Color32::from_rgb(123, 104, 238); // Medium slate blue
+        const ACTINOID: Color32 = Color32::from_rgb(199, 21, 133); // Medium violet red
         const POST_TRANSITION: Color32 = Color32::from_rgb(176, 196, 222); // Light steel blue
-        const METALLOID: Color32 = Color32::from_rgb(0, 128, 0);         // Green
-        const OTHER_NONMETAL: Color32 = Color32::from_rgb(34, 139, 34);  // Forest green
-        const HALOGEN: Color32 = Color32::from_rgb(0, 255, 255);         // Cyan
-        const NOBLE_GAS: Color32 = Color32::from_rgb(135, 206, 235);     // Sky blue
-        const UNKNOWN: Color32 = Color32::from_rgb(128, 128, 128);       // Gray
+        const METALLOID: Color32 = Color32::from_rgb(0, 128, 0); // Green
+        const OTHER_NONMETAL: Color32 = Color32::from_rgb(34, 139, 34); // Forest green
+        const HALOGEN: Color32 = Color32::from_rgb(0, 255, 255); // Cyan
+        const NOBLE_GAS: Color32 = Color32::from_rgb(135, 206, 235); // Sky blue
+        const UNKNOWN: Color32 = Color32::from_rgb(128, 128, 128); // Gray
 
         let (z, _a) = nuclide.get_z_a();
 
         // Pick base color by category
         let base = match z {
-            1 => HYDROGEN,                                 // Special case
+            1 => HYDROGEN, // Special case
 
             // Noble gases
             2 | 10 | 18 | 36 | 54 | 86 | 118 => NOBLE_GAS,

@@ -1,6 +1,6 @@
+use outram_mc_libs::rng::distributions::sample_normal;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
-use outram_mc_libs::rng::distributions::sample_normal;
 use uom::si::time::second;
 
 /// Fast cached pool of standard normal random numbers for diffusion simulation
@@ -21,9 +21,7 @@ impl DiffusionRandomCache {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default();
         let mut seed: u64 = t.subsec_nanos() as u64 ^ t.as_secs().wrapping_mul(0x9e3779b97f4a7c15);
-        let normals: Vec<f64> = (0..cache_size)
-            .map(|_| sample_normal(&mut seed))
-            .collect();
+        let normals: Vec<f64> = (0..cache_size).map(|_| sample_normal(&mut seed)).collect();
 
         Self {
             normals,
@@ -43,11 +41,7 @@ impl DiffusionRandomCache {
     /// Get three independent normal samples (for x, y, z)
     #[inline]
     pub fn get_normal_3d(&self) -> (f64, f64, f64) {
-        (
-            self.get_normal(),
-            self.get_normal(),
-            self.get_normal(),
-        )
+        (self.get_normal(), self.get_normal(), self.get_normal())
     }
 
     /// Get scaled displacement for 3D diffusion
@@ -88,21 +82,20 @@ impl PartialEq for DiffusionRandomCache {
     }
 }
 
-
-
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::central_limit_theorem::per_component_variance_exponential_for_3d_vector;
-use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::{constructive_solid_geometry::TrisoCell, SingleParticleDiffusionSimulatorMC};
+use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::{
+    constructive_solid_geometry::TrisoCell, SingleParticleDiffusionSimulatorMC,
+};
 use crate::prelude::SingleNuclideSimulatorMC;
 use fission_yields_data::prelude::Nuclide;
-use uom::si::f64::*;
 use uom::si::diffusion_coefficient::square_meter_per_second;
+use uom::si::f64::*;
 use uom::si::length::{angstrom, meter};
 use uom::si::ratio::ratio;
 use uom::si::velocity::meter_per_second;
 use uom::ConstZero;
 
 impl SingleParticleDiffusionSimulatorMC {
-
     /// Cached version: get_gaussian_velocity_vector using pre-generated random samples
     #[inline]
     fn get_gaussian_velocity_vector_cached(
@@ -116,18 +109,18 @@ impl SingleParticleDiffusionSimulatorMC {
 
         // Calculate velocity scale
         let unit_timestep = Time::new::<second>(1.0);
-        let no_of_collisions_per_second: f64 =
-            (collision_rate * unit_timestep).get::<ratio>();
+        let no_of_collisions_per_second: f64 = (collision_rate * unit_timestep).get::<ratio>();
 
-        let per_component_variance: Area =
-            per_component_variance_exponential_for_3d_vector(
-                no_of_collisions_per_second, mean_free_path);
+        let per_component_variance: Area = per_component_variance_exponential_for_3d_vector(
+            no_of_collisions_per_second,
+            mean_free_path,
+        );
         let std_deviation: Length = per_component_variance.sqrt();
 
         [
-            n1 * std_deviation/unit_timestep,
-            n2 * std_deviation/unit_timestep,
-            n3 * std_deviation/unit_timestep,
+            n1 * std_deviation / unit_timestep,
+            n2 * std_deviation / unit_timestep,
+            n3 * std_deviation / unit_timestep,
         ]
     }
 
@@ -192,11 +185,8 @@ impl SingleParticleDiffusionSimulatorMC {
             let collision_frequency: Frequency =
                 diffusion_coeff * 6.0 / (jump_distance * jump_distance);
 
-            let velocity = self.get_gaussian_velocity_vector_cached(
-                jump_distance,
-                collision_frequency,
-                cache
-            );
+            let velocity =
+                self.get_gaussian_velocity_vector_cached(jump_distance, collision_frequency, cache);
 
             let time_opt_to_sphere_boundary: Option<Time> =
                 triso_cell.get_time_to_sphere_boundary(pos, velocity);
@@ -262,8 +252,7 @@ impl SingleParticleDiffusionSimulatorMC {
         let (x, y, z) = self.position;
         let pos_array: [Length; 3] = [x, y, z];
 
-        let diffusion_coeff_option =
-            triso_cell.try_get_diffusion_coefficient(pos_array, nuclide);
+        let diffusion_coeff_option = triso_cell.try_get_diffusion_coefficient(pos_array, nuclide);
 
         let diffusion_coeff: DiffusionCoefficient = match diffusion_coeff_option {
             Some(coeff) => coeff,
@@ -272,17 +261,12 @@ impl SingleParticleDiffusionSimulatorMC {
 
         let jump_distance = Length::new::<angstrom>(2.0);
 
-        let collision_frequency: Frequency
-            = diffusion_coeff * 6.0 / (jump_distance * jump_distance);
+        let collision_frequency: Frequency =
+            diffusion_coeff * 6.0 / (jump_distance * jump_distance);
 
-        let no_of_collisions_f64: f64
-            = (collision_frequency * timestep).get::<ratio>();
+        let no_of_collisions_f64: f64 = (collision_frequency * timestep).get::<ratio>();
 
-        self.move_particle_gaussian_sampling_cached(
-            jump_distance,
-            no_of_collisions_f64,
-            cache
-        );
+        self.move_particle_gaussian_sampling_cached(jump_distance, no_of_collisions_f64, cache);
     }
 
     /// CACHED VERSION: Move single decaying particle with Gaussian sampling in TRISO particle
@@ -296,12 +280,7 @@ impl SingleParticleDiffusionSimulatorMC {
         self.position = single_particle_sim.position;
         let nuclide = single_particle_sim.get_current_nuclide();
 
-        self.scatter_within_triso_particle_gaussian_cached(
-            triso_cell,
-            nuclide,
-            timestep,
-            cache
-        );
+        self.scatter_within_triso_particle_gaussian_cached(triso_cell, nuclide, timestep, cache);
 
         single_particle_sim.position = self.position;
     }
@@ -313,8 +292,7 @@ impl SingleParticleDiffusionSimulatorMC {
         triso_cell: TrisoCell,
         timestep: Time,
         cache: &DiffusionRandomCache,
-    ){
-
+    ) {
         self.position = single_particle_sim.position;
         let nuclide = single_particle_sim.get_current_nuclide();
 
@@ -326,38 +304,38 @@ impl SingleParticleDiffusionSimulatorMC {
 
         let threshold_fourier_number: Ratio = Ratio::new::<ratio>(1e-2);
 
-        let fourier_number_lengthscale: Length =
-            triso_cell.get_lengthscale_for_fourier_number(pos);
+        let fourier_number_lengthscale: Length = triso_cell.get_lengthscale_for_fourier_number(pos);
 
         // Fo = Dt/x^2 → t = Fo * x^2/D
-        let auto_timestep: Time = threshold_fourier_number
-            * fourier_number_lengthscale * fourier_number_lengthscale
-            / diffusion_coeff;
+        let auto_timestep: Time =
+            threshold_fourier_number * fourier_number_lengthscale * fourier_number_lengthscale
+                / diffusion_coeff;
 
         let mut timestep_remaining = timestep;
 
         if timestep > auto_timestep {
-
             while timestep_remaining > Time::ZERO {
                 self.scatter_within_triso_particle_gaussian_cached(
-                    triso_cell, nuclide, auto_timestep,
-                    cache,);
+                    triso_cell,
+                    nuclide,
+                    auto_timestep,
+                    cache,
+                );
                 timestep_remaining -= auto_timestep;
             }
 
             self.scatter_within_triso_particle_gaussian_cached(
-                triso_cell, nuclide, timestep_remaining,
+                triso_cell,
+                nuclide,
+                timestep_remaining,
                 cache,
-                );
-
+            );
         } else {
-
             self.scatter_within_triso_particle_gaussian_cached(
-                triso_cell, nuclide, timestep,
-                cache);
+                triso_cell, nuclide, timestep, cache,
+            );
         }
 
         single_particle_sim.position = self.position;
     }
-
 }

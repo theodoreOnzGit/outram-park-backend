@@ -71,7 +71,11 @@ pub fn sphere_first_crossing_uom(
     let sqrt_disc = disc.sqrt(); // (m^2 / s)
 
     // Numerically stable quadratic solve
-    let q = if b > 0.0 { -b - sqrt_disc } else { -b + sqrt_disc }; // (m^2 / s)
+    let q = if b > 0.0 {
+        -b - sqrt_disc
+    } else {
+        -b + sqrt_disc
+    }; // (m^2 / s)
     let mut t0 = q / a; // (s)
     let mut t1 = if q != 0.0 { c / q } else { t0 }; // (s)
     if t0 > t1 {
@@ -89,9 +93,17 @@ pub fn sphere_first_crossing_uom(
     // Earliest nonnegative root (tolerance in seconds)
     let eps_t = 1e-12;
     let t_hit_s = if t0 >= -eps_t {
-        if t0 < 0.0 { 0.0 } else { t0 }
+        if t0 < 0.0 {
+            0.0
+        } else {
+            t0
+        }
     } else if t1 >= -eps_t {
-        if t1 < 0.0 { 0.0 } else { t1 }
+        if t1 < 0.0 {
+            0.0
+        } else {
+            t1
+        }
     } else {
         return None;
     };

@@ -8,13 +8,29 @@ license.workspace = true
 [dependencies]
 kovan-common.workspace = true
 kovan-discovery.workspace = true
+# Pure-Rust regex, used only to pull symbol names/kinds out of the candidate
+# lines that kovan-discovery's ripgrep engine already located. Android-friendly
+# (no system libs), keeping the DEFAULT build deterministic + offline.
+regex.workspace = true
+
 # Language-native semantics are the source of truth once wired:
 #   Rust    -> rust-analyzer crates (ra_ap_syntax / ra_ap_hir / ra_ap_ide)
 #   C++     -> clangd / libclang
 #   Python  -> Pyright / Jedi
 #   Fortran -> fortls
 # These are heavyweight and, for the Rust crates / libclang, Android-hostile, so
-# they are NOT hard dependencies here yet — they belong behind a per-language,
-# target-gated feature so the crate stays headless and Android-buildable. Until
-# then, semantics starts from kovan-discovery (fd + ripgrep). Tree-sitter is a
-# last resort only.
+# they are NOT hard dependencies here yet — they belong behind the per-language,
+# target-gated `language-servers` feature below so the crate stays headless and
+# Android-buildable. Until then, semantics starts from kovan-discovery (fd +
+# ripgrep) + `regex`. Tree-sitter is a last resort only (see docs/kovan.md,
+# "Tree-Sitter Policy").
+
+[features]
+default = []
+# Escalation path (see docs/kovan.md "Important Philosophy"): drive the real
+# language servers (rust-analyzer / clangd / Pyright / fortls) instead of the
+# ripgrep-first extractor. Those integrations are heavyweight and Android-hostile
+# (in-process `ra_ap_*` / `libclang`), so this feature is OFF by default AND the
+# code behind it is additionally source-gated to `cfg(not(target_os =
+# "android"))`. The default build stays ripgrep-only and Android-clean.
+language-servers = []

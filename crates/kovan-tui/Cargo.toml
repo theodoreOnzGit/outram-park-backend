@@ -22,3 +22,10 @@ kovan-codegen.workspace = true
 # its matched crossterm as `ratatui::crossterm`.
 [target.'cfg(not(target_os = "android"))'.dependencies]
 ratatui.workspace = true
+
+# Pure-Rust, Android-friendly (see kovan-discovery's identical use): only
+# referenced from `#[cfg(test)]` fixtures under `src/tui/`, which is itself
+# behind the crate's Android gate on `main.rs`'s `mod tui;` — never reaches
+# the Android build even in principle.
+[dev-dependencies]
+tempfile.workspace = true

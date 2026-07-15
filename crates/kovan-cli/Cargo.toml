@@ -16,3 +16,12 @@ kovan-literature.workspace = true
 kovan-semantics.workspace = true
 kovan-codegen.workspace = true
 clap.workspace = true
+# `lit import`/`lit bibtex` round-trip a `KovanDocument` through JSON on disk
+# (kovan-common's canonical serde format).
+serde_json.workspace = true
+
+[dev-dependencies]
+# `lopdf` builds a small synthetic PDF fixture for the `lit` end-to-end tests
+# (mirrors kovan-literature's private `test_pdf` helper, which isn't exported).
+lopdf.workspace = true
+tempfile.workspace = true

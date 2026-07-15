@@ -1,5 +1,6 @@
-use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::{TrisoPebbleLayerMaterial, try_get_diffusion_coeff_jiang};
-
+use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::{
+    try_get_diffusion_coeff_jiang, TrisoPebbleLayerMaterial,
+};
 
 // If you already use the `approx` crate elsewhere, this is the nicest way:
 // approx = "0.5"
@@ -9,7 +10,6 @@ use fission_yields_data::prelude::Nuclide;
 // If you use `uom`, these are common imports. Adjust to match your project.
 use uom::si::f64::*;
 use uom::si::thermodynamic_temperature::kelvin;
-
 
 #[test]
 fn test_diffusion_coeff_jiang_matches_tabulated_sr_in_sic() {
@@ -47,39 +47,25 @@ fn test_diffusion_coeff_jiang_matches_tabulated_sr_in_sic() {
     // THEN
     let rtol = 0.02;
 
-
     for &(t_k, log10_d) in data {
         let temperature = ThermodynamicTemperature::new::<kelvin>(t_k);
 
-        let got = try_get_diffusion_coeff_jiang(
-            triso_layer,
-            nuclide,
-            temperature,
-            gamma_neutron_fluence,
-        )
-        .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
+        let got =
+            try_get_diffusion_coeff_jiang(triso_layer, nuclide, temperature, gamma_neutron_fluence)
+                .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
 
         let expected_d_m2_s = 10f64.powf(log10_d);
         let got_d_m2_s = got.get::<uom::si::diffusion_coefficient::square_meter_per_second>();
 
         dbg!(&temperature);
         if t_k > 1881.0 {
-
             // larger tolerance for higher temperatures
             let rtol = 0.55;
-            assert_relative_eq!(
-                got_d_m2_s,
-                expected_d_m2_s,
-                max_relative=rtol,
-            );
+            assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
 
             continue;
         }
-        assert_relative_eq!(
-            got_d_m2_s,
-            expected_d_m2_s,
-            max_relative = rtol,
-        );
+        assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
     }
 }
 
@@ -125,36 +111,23 @@ fn test_diffusion_coeff_jiang_matches_tabulated_sr_in_pyc() {
     for &(t_k, log10_d) in data {
         let temperature = ThermodynamicTemperature::new::<kelvin>(t_k);
 
-        let got = try_get_diffusion_coeff_jiang(
-            triso_layer,
-            nuclide,
-            temperature,
-            gamma_neutron_fluence,
-        )
-        .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
+        let got =
+            try_get_diffusion_coeff_jiang(triso_layer, nuclide, temperature, gamma_neutron_fluence)
+                .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
 
         let expected_d_m2_s = 10f64.powf(log10_d);
         let got_d_m2_s = got.get::<uom::si::diffusion_coefficient::square_meter_per_second>();
         dbg!(&(t_k, log10_d));
 
         if t_k > 1000.0 {
-
             // larger tolerance for higher temperatures
             let rtol = 0.50;
-            assert_relative_eq!(
-                got_d_m2_s,
-                expected_d_m2_s,
-                max_relative=rtol,
-            );
+            assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
 
             continue;
         }
 
-        assert_relative_eq!(
-            got_d_m2_s,
-            expected_d_m2_s,
-            max_relative = rtol,
-        );
+        assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
     }
 }
 
@@ -199,35 +172,22 @@ fn test_diffusion_coeff_jiang_matches_tabulated_sr_in_kernel() {
     for &(t_k, log10_d) in data {
         let temperature = ThermodynamicTemperature::new::<kelvin>(t_k);
 
-        let got = try_get_diffusion_coeff_jiang(
-            triso_layer,
-            nuclide,
-            temperature,
-            gamma_neutron_fluence,
-        )
-            .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
+        let got =
+            try_get_diffusion_coeff_jiang(triso_layer, nuclide, temperature, gamma_neutron_fluence)
+                .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
 
         let expected_d_m2_s = 10f64.powf(log10_d);
         let got_d_m2_s = got.get::<uom::si::diffusion_coefficient::square_meter_per_second>();
 
         dbg!(&temperature);
         if t_k > 2090.0 {
-
             // larger tolerance for higher temperatures
             let rtol = 0.30;
-            assert_relative_eq!(
-                got_d_m2_s,
-                expected_d_m2_s,
-                max_relative=rtol,
-            );
+            assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
 
             continue;
         }
-        assert_relative_eq!(
-            got_d_m2_s,
-            expected_d_m2_s,
-            max_relative = rtol,
-        );
+        assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
     }
 }
 
@@ -272,22 +232,14 @@ fn test_diffusion_coeff_jiang_matches_tabulated_sr_in_buffer() {
     for &(t_k, log10_d) in data {
         let temperature = ThermodynamicTemperature::new::<kelvin>(t_k);
 
-        let got = try_get_diffusion_coeff_jiang(
-            triso_layer,
-            nuclide,
-            temperature,
-            gamma_neutron_fluence,
-        )
-        .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
+        let got =
+            try_get_diffusion_coeff_jiang(triso_layer, nuclide, temperature, gamma_neutron_fluence)
+                .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
 
         let expected_d_m2_s = 10f64.powf(log10_d);
         let got_d_m2_s = got.get::<uom::si::diffusion_coefficient::square_meter_per_second>();
 
         dbg!(&temperature);
-        assert_relative_eq!(
-            got_d_m2_s,
-            expected_d_m2_s,
-            max_relative = rtol,
-        );
+        assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
     }
 }

@@ -28,6 +28,9 @@
 //! and non-affiliation notice.
 
 pub mod error;
+/// GeN-Foam reactor-multiphysics port (neutronics + TH + thermo-mechanics).
+/// See `docs/genfoam-port-plan.md` for the module map and translation order.
+pub mod genfoam;
 /// input and output
 pub mod io;
 /// for users to import

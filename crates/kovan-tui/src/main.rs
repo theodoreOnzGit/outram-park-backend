@@ -2,13 +2,35 @@
 //!
 //! The **human-facing** entry point to KOVAN: a terminal UI for browsing
 //! literature, repositories, and generated knowledge. Agents should use the
-//! `kovan` CLI instead.
+//! `kovan` CLI instead (see `kovan-cli`).
 //!
 //! Built on [`ratatui`]. TUI is desktop scope — on Android the binary compiles
-//! to a stub that redirects to the CLI, keeping the workspace Android-buildable.
+//! to a stub that redirects to the CLI, keeping the workspace Android-buildable
+//! (see the root `CLAUDE.md` "Android portability" rule). The entire [`tui`]
+//! module tree lives behind `cfg(not(target_os = "android"))` on the single
+//! `mod tui;` declaration below, so none of its submodules need to repeat the
+//! gate.
 //!
-//! Placeholder stage: renders a static overview screen listing the KOVAN
-//! modules and quits on `q`/`Esc`. The real browser panes are TODO(kovan).
+//! ## Screens
+//!
+//! Five tabs, switched with `1`-`5` or `Tab`/`Shift+Tab`:
+//!
+//! 1. **Overview** — static module map (the original placeholder screen).
+//! 2. **Browser** (`kovan_discovery`) — walk a repository root, filter by
+//!    [`kovan_discovery::FileKind`], and navigate the discovered files.
+//! 3. **Symbols** (`kovan_semantics`) — catalogue a repository's symbols with
+//!    the ripgrep-first extractor and preview either the raw list or the
+//!    generated `symbols.md` Markdown artifact.
+//! 4. **Methods** (`kovan_codegen`) — browse the numerical-method catalogue by
+//!    family and preview a method's generated source.
+//! 5. **Literature** (`kovan_literature`) — list PDFs / Markdown / BibTeX under
+//!    a literature root and preview each one (metadata extraction, heading
+//!    outline, or raw text).
+//!
+//! Every screen is a **viewer only** — it reads the filesystem and renders
+//! deterministic output from the sibling `kovan-*` crates; it never writes to
+//! the repositories it browses (KOVAN's "not a repository modification agent"
+//! non-goal, `docs/kovan.md` § "Non-Goals").
 
 #[cfg(not(target_os = "android"))]
 fn main() -> std::io::Result<()> {
@@ -22,64 +44,4 @@ fn main() {
 }
 
 #[cfg(not(target_os = "android"))]
-mod tui {
-    use ratatui::crossterm::event::{self, Event, KeyCode};
-    use ratatui::layout::{Constraint, Layout};
-    use ratatui::style::{Modifier, Style};
-    use ratatui::widgets::{Block, List, ListItem, Paragraph};
-    use ratatui::{DefaultTerminal, Frame};
-
-    /// Set up the terminal, run the draw loop, and restore on exit.
-    pub fn run() -> std::io::Result<()> {
-        let mut terminal = ratatui::init();
-        let result = draw_loop(&mut terminal);
-        ratatui::restore();
-        result
-    }
-
-    fn draw_loop(terminal: &mut DefaultTerminal) -> std::io::Result<()> {
-        loop {
-            terminal.draw(ui)?;
-            if let Event::Key(key) = event::read()? {
-                if matches!(key.code, KeyCode::Char('q') | KeyCode::Esc) {
-                    return Ok(());
-                }
-            }
-        }
-    }
-
-    fn ui(frame: &mut Frame) {
-        let chunks = Layout::vertical([
-            Constraint::Length(3),
-            Constraint::Min(0),
-            Constraint::Length(1),
-        ])
-        .split(frame.area());
-
-        frame.render_widget(
-            Paragraph::new("Knowledge without hallucination")
-                .block(Block::bordered().title("KOVAN")),
-            chunks[0],
-        );
-
-        let modules = [
-            "kovan-common      — canonical types (source of truth)",
-            "kovan-discovery   — fd + ripgrep file discovery / search",
-            "kovan-literature  — PDF → Markdown → KovanDocument → BibTeX",
-            "kovan-semantics   — ripgrep-first, then language servers",
-            "kovan-codegen     — deterministic numerical-method templates",
-        ];
-        let items: Vec<ListItem> = modules.iter().map(|m| ListItem::new(*m)).collect();
-        frame.render_widget(
-            List::new(items)
-                .block(Block::bordered().title("Modules"))
-                .highlight_style(Style::default().add_modifier(Modifier::REVERSED)),
-            chunks[1],
-        );
-
-        frame.render_widget(
-            Paragraph::new("placeholder UI — press q / Esc to quit"),
-            chunks[2],
-        );
-    }
-}
+mod tui;

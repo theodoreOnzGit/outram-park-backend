@@ -1,6 +1,6 @@
 use std::f64::consts::PI;
 
-use outram_mc_libs::rng::{lcg::prn, distributions::sample_exp};
+use outram_mc_libs::rng::{distributions::sample_exp, lcg::prn};
 use uom::si::{f64::Ratio, ratio::ratio};
 
 #[derive(Debug, Clone, Copy)]
@@ -12,11 +12,19 @@ pub struct Vec3 {
 
 impl Vec3 {
     pub fn add(&self, other: Vec3) -> Vec3 {
-        Vec3 { x: self.x + other.x, y: self.y + other.y, z: self.z + other.z }
+        Vec3 {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
     }
 
     pub fn scale(&self, s: f64) -> Vec3 {
-        Vec3 { x: self.x * s, y: self.y * s, z: self.z * s }
+        Vec3 {
+            x: self.x * s,
+            y: self.y * s,
+            z: self.z * s,
+        }
     }
 
     pub fn norm(&self) -> f64 {
@@ -26,7 +34,11 @@ impl Vec3 {
     pub fn normalize(&self) -> Vec3 {
         let n = self.norm();
         if n == 0.0 {
-            Vec3 { x: 1.0, y: 0.0, z: 0.0 }
+            Vec3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            }
         } else {
             self.scale(1.0 / n)
         }

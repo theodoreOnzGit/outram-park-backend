@@ -1,28 +1,46 @@
 //! # kovan (CLI)
 //!
 //! The **agent-facing** entry point to KOVAN. It exposes the knowledge-layer
-//! operations as plain subcommands with line-oriented output, so a coding agent
-//! (Claude Code and friends) can drive KOVAN deterministically and parse the
-//! results. Humans get the richer [`kovan-tui`] instead.
+//! operations as plain subcommands with line-oriented output, so a coding
+//! agent (Claude Code and friends) can drive KOVAN deterministically and
+//! parse the results. Humans get the richer `kovan-tui` instead.
 //!
 //! ```text
 //! kovan discover --root . --kind source
 //! kovan search   --path src/lib.rs --pattern "fn \w+"
+//! kovan search   --root . --kind source --pattern "fn \w+"
 //! kovan scan     --root . --lang rust
 //! kovan methods
+//! kovan symbols  . --lang rust
+//! kovan symbols  . --lang rust --markdown
+//! kovan summary  . --lang rust
+//! kovan gen root newton-raphson
+//! kovan lit import paper.pdf --json-out doc.json
+//! kovan lit bibtex doc.json
+//! kovan lit outline paper.pdf
 //! ```
 //!
-//! Placeholder stage: `discover`, `search`, and `scan` are wired to real
-//! functionality (fd + ripgrep engines); literature/codegen commands print the
-//! catalogue and note what is still a stub.
+//! `discover`, `search`, `scan`, and `methods` wrap `kovan-discovery` and
+//! `kovan-codegen`'s catalogue directly. `symbols`/`summary` wrap
+//! `kovan-semantics`'s ripgrep-first extractor. `lit` wraps `kovan-literature`'s
+//! PDF → Markdown → `KovanDocument` → BibTeX pipeline. `gen` wraps
+//! `kovan-codegen::generate`; entries not yet backed by a template report
+//! `CodegenError::Unimplemented` as a CLI error (see `kovan methods` for which
+//! ones those are).
+//!
+//! See each `commands::*` submodule for the implementation of one subcommand
+//! (or command group) at a time — this file is only the `clap` surface and
+//! dispatcher.
 
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Parser, Subcommand};
 
-use kovan_codegen::{LinearSolver, Method, NonlinearSolver, OdeSolver, RootFinder};
-use kovan_discovery::{discover_kind, search_file, FileKind};
-use kovan_semantics::{rough_definition_scan, LanguageAdapter};
+mod commands;
+
+use commands::gen::GenCommand;
+use commands::lit::LitCommand;
+use commands::{KindArg, LangArg};
 
 /// KOVAN — deterministic knowledge tooling for the Outram Park ecosystem.
 #[derive(Parser)]
@@ -43,11 +61,19 @@ enum Command {
         #[arg(long, value_enum)]
         kind: Option<KindArg>,
     },
-    /// Search a single file with a regular expression (ripgrep engine).
+    /// Regex search — a single file (`--path`) or a whole repository
+    /// (`--root`/`--kind`; root defaults to `.`, kind to `source`). `--path`
+    /// wins if both are given.
     Search {
-        /// File to search.
+        /// File to search (single-file mode).
         #[arg(long)]
-        path: PathBuf,
+        path: Option<PathBuf>,
+        /// Root directory to search (repository mode).
+        #[arg(long)]
+        root: Option<PathBuf>,
+        /// File kind to search, in repository mode (default: source).
+        #[arg(long, value_enum)]
+        kind: Option<KindArg>,
         /// Regular expression.
         #[arg(long)]
         pattern: String,
@@ -63,44 +89,51 @@ enum Command {
     },
     /// List the numerical-method codegen catalogue.
     Methods,
-}
-
-#[derive(Clone, Copy, ValueEnum)]
-enum KindArg {
-    Source,
-    Markdown,
-    Pdf,
-    Metadata,
-}
-
-impl From<KindArg> for FileKind {
-    fn from(k: KindArg) -> Self {
-        match k {
-            KindArg::Source => FileKind::Source,
-            KindArg::Markdown => FileKind::Markdown,
-            KindArg::Pdf => FileKind::Pdf,
-            KindArg::Metadata => FileKind::Metadata,
-        }
-    }
-}
-
-#[derive(Clone, Copy, ValueEnum)]
-enum LangArg {
-    Rust,
-    Cpp,
-    Python,
-    Fortran,
-}
-
-impl From<LangArg> for LanguageAdapter {
-    fn from(l: LangArg) -> Self {
-        match l {
-            LangArg::Rust => LanguageAdapter::Rust,
-            LangArg::Cpp => LanguageAdapter::Cpp,
-            LangArg::Python => LanguageAdapter::Python,
-            LangArg::Fortran => LanguageAdapter::Fortran,
-        }
-    }
+    /// Literature pipeline: PDF import, BibTeX, Markdown outline
+    /// (`kovan-literature`).
+    #[command(subcommand)]
+    Lit(LitCommand),
+    /// Catalogue a repository's symbols (`kovan-semantics`, ripgrep-first).
+    Symbols {
+        /// Root directory of the repository.
+        #[arg(default_value = ".")]
+        root: PathBuf,
+        /// Source language.
+        #[arg(long, value_enum)]
+        lang: LangArg,
+        /// Render the full `symbols.md` artifact instead of line-oriented output.
+        #[arg(long)]
+        markdown: bool,
+        /// Write the `symbols.md` artifact here (implies `--markdown`).
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Repository display name for the Markdown heading (default: the
+        /// root directory's name).
+        #[arg(long)]
+        name: Option<String>,
+    },
+    /// Render `repository-summary.md` for a repository (`kovan-semantics`).
+    Summary {
+        /// Root directory of the repository.
+        #[arg(default_value = ".")]
+        root: PathBuf,
+        /// Source language.
+        #[arg(long, value_enum)]
+        lang: LangArg,
+        /// Repository ID (default: the display name, lowercased and
+        /// space-hyphenated).
+        #[arg(long)]
+        id: Option<String>,
+        /// Repository display name (default: the root directory's name).
+        #[arg(long)]
+        name: Option<String>,
+        /// Write `repository-summary.md` here instead of stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Generate numerical-method Rust source (`kovan-codegen`).
+    #[command(subcommand)]
+    Gen(GenCommand),
 }
 
 fn main() -> std::process::ExitCode {
@@ -117,87 +150,178 @@ fn main() -> std::process::ExitCode {
 fn run(command: Command) -> Result<(), String> {
     match command {
         Command::Discover { root, kind } => {
-            let kind = kind.map(FileKind::from);
-            let files = match kind {
-                Some(k) => discover_kind(&root, k),
-                None => kovan_discovery::discover(&root, &[]),
-            };
-            for f in files {
-                println!("{}", f.display());
-            }
+            commands::discover::run(root, kind);
             Ok(())
         }
-        Command::Search { path, pattern } => {
-            let hits = search_file(&path, &pattern).map_err(|e| e.to_string())?;
-            for h in hits {
-                println!("{}:{}: {}", path.display(), h.line, h.text);
-            }
-            Ok(())
-        }
-        Command::Scan { root, lang } => {
-            let hits =
-                rough_definition_scan(&root, lang.into()).map_err(|e| e.to_string())?;
-            for (path, m) in hits {
-                println!("{}:{}: {}", path.display(), m.line, m.text);
-            }
-            Ok(())
-        }
+        Command::Search {
+            path,
+            root,
+            kind,
+            pattern,
+        } => commands::search::run(path, root, kind, &pattern),
+        Command::Scan { root, lang } => commands::scan::run(root, lang),
         Command::Methods => {
-            println!("root-finders:");
-            for m in [
-                RootFinder::Bisection,
-                RootFinder::RegulaFalsi,
-                RootFinder::Illinois,
-                RootFinder::Pegasus,
-                RootFinder::Secant,
-                RootFinder::NewtonRaphson,
-                RootFinder::Brent,
-            ] {
-                println!("  {:?} (codegen: {})", m, stub_status(Method::Root(m)));
-            }
-            println!("linear-solvers:");
-            for m in [
-                LinearSolver::Jacobi,
-                LinearSolver::GaussSeidel,
-                LinearSolver::Sor,
-                LinearSolver::ConjugateGradient,
-                LinearSolver::BiCgStab,
-                LinearSolver::Gmres,
-                LinearSolver::Lu,
-                LinearSolver::Qr,
-                LinearSolver::Cholesky,
-            ] {
-                println!("  {:?} (codegen: {})", m, stub_status(Method::Linear(m)));
-            }
-            println!("nonlinear-solvers:");
-            for m in [
-                NonlinearSolver::Newton,
-                NonlinearSolver::QuasiNewton,
-                NonlinearSolver::Broyden,
-                NonlinearSolver::TrustRegion,
-            ] {
-                println!("  {:?} (codegen: {})", m, stub_status(Method::Nonlinear(m)));
-            }
-            println!("ode-solvers:");
-            for m in [
-                OdeSolver::Euler,
-                OdeSolver::Rk2,
-                OdeSolver::Rk4,
-                OdeSolver::DormandPrince,
-                OdeSolver::BackwardEuler,
-                OdeSolver::CrankNicolson,
-            ] {
-                println!("  {:?} (codegen: {})", m, stub_status(Method::Ode(m)));
-            }
+            commands::methods::run();
             Ok(())
         }
+        Command::Lit(cmd) => commands::lit::run(cmd),
+        Command::Symbols {
+            root,
+            lang,
+            markdown,
+            out,
+            name,
+        } => commands::symbols::run_symbols(root, lang, markdown, out, name),
+        Command::Summary {
+            root,
+            lang,
+            id,
+            name,
+            out,
+        } => commands::symbols::run_summary(root, lang, id, name, out),
+        Command::Gen(cmd) => commands::gen::run(cmd),
     }
 }
 
-/// Report whether codegen for a method is implemented yet (all stubbed today).
-fn stub_status(method: Method) -> &'static str {
-    match kovan_codegen::generate(method) {
-        Ok(_) => "ready",
-        Err(_) => "not-implemented",
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(args: &[&str]) -> Cli {
+        let mut full = vec!["kovan"];
+        full.extend_from_slice(args);
+        Cli::try_parse_from(full).expect("args should parse")
+    }
+
+    #[test]
+    fn discover_parses_with_defaults() {
+        let cli = parse(&["discover"]);
+        match cli.command {
+            Command::Discover { root, kind } => {
+                assert_eq!(root, PathBuf::from("."));
+                assert!(kind.is_none());
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn search_single_file_mode_parses() {
+        let cli = parse(&["search", "--path", "src/lib.rs", "--pattern", "fn \\w+"]);
+        match cli.command {
+            Command::Search {
+                path,
+                root,
+                pattern,
+                ..
+            } => {
+                assert_eq!(path, Some(PathBuf::from("src/lib.rs")));
+                assert!(root.is_none());
+                assert_eq!(pattern, "fn \\w+");
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn search_repository_mode_parses() {
+        let cli = parse(&[
+            "search",
+            "--root",
+            ".",
+            "--kind",
+            "source",
+            "--pattern",
+            "x",
+        ]);
+        match cli.command {
+            Command::Search {
+                path, root, kind, ..
+            } => {
+                assert!(path.is_none());
+                assert_eq!(root, Some(PathBuf::from(".")));
+                assert!(kind.is_some());
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn search_requires_pattern() {
+        assert!(Cli::try_parse_from(["kovan", "search", "--path", "x"]).is_err());
+    }
+
+    #[test]
+    fn methods_takes_no_arguments() {
+        assert!(matches!(parse(&["methods"]).command, Command::Methods));
+    }
+
+    #[test]
+    fn symbols_requires_lang() {
+        assert!(Cli::try_parse_from(["kovan", "symbols", "."]).is_err());
+    }
+
+    #[test]
+    fn symbols_parses_with_root_and_flags() {
+        let cli = parse(&["symbols", "some/repo", "--lang", "rust", "--markdown"]);
+        match cli.command {
+            Command::Symbols { root, markdown, .. } => {
+                assert_eq!(root, PathBuf::from("some/repo"));
+                assert!(markdown);
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn summary_defaults_root_to_dot() {
+        let cli = parse(&["summary", "--lang", "cpp"]);
+        match cli.command {
+            Command::Summary { root, .. } => assert_eq!(root, PathBuf::from(".")),
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn lit_import_parses() {
+        let cli = parse(&["lit", "import", "paper.pdf", "--json-out", "doc.json"]);
+        match cli.command {
+            Command::Lit(LitCommand::Import { pdf, json_out, .. }) => {
+                assert_eq!(pdf, PathBuf::from("paper.pdf"));
+                assert_eq!(json_out, Some(PathBuf::from("doc.json")));
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn lit_bibtex_parses() {
+        let cli = parse(&["lit", "bibtex", "doc.json"]);
+        assert!(matches!(
+            cli.command,
+            Command::Lit(LitCommand::Bibtex { .. })
+        ));
+    }
+
+    #[test]
+    fn gen_root_parses_method_and_out() {
+        let cli = parse(&["gen", "root", "newton-raphson", "--out", "nr.rs"]);
+        match cli.command {
+            Command::Gen(GenCommand::Root { out, .. }) => {
+                assert_eq!(out, Some(PathBuf::from("nr.rs")));
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn gen_pde_parses() {
+        let cli = parse(&["gen", "pde", "poisson1d-finite-difference"]);
+        assert!(matches!(cli.command, Command::Gen(GenCommand::Pde { .. })));
+    }
+
+    #[test]
+    fn gen_requires_a_method() {
+        assert!(Cli::try_parse_from(["kovan", "gen", "root"]).is_err());
     }
 }

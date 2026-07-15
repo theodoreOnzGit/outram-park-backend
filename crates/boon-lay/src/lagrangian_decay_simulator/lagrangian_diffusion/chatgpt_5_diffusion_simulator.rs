@@ -1,4 +1,4 @@
-use outram_mc_libs::rng::{lcg::prn, distributions::sample_exp};
+use outram_mc_libs::rng::{distributions::sample_exp, lcg::prn};
 use std::f64::consts::PI;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -11,11 +11,19 @@ struct Vec3 {
 
 impl Vec3 {
     fn add(&self, other: Vec3) -> Vec3 {
-        Vec3 { x: self.x + other.x, y: self.y + other.y, z: self.z + other.z }
+        Vec3 {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
     }
 
     fn scale(&self, s: f64) -> Vec3 {
-        Vec3 { x: self.x * s, y: self.y * s, z: self.z * s }
+        Vec3 {
+            x: self.x * s,
+            y: self.y * s,
+            z: self.z * s,
+        }
     }
 
     fn norm(&self) -> f64 {
@@ -25,7 +33,11 @@ impl Vec3 {
     fn normalize(&self) -> Vec3 {
         let n = self.norm();
         if n == 0.0 {
-            Vec3 { x: 1.0, y: 0.0, z: 0.0 }
+            Vec3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            }
         } else {
             self.scale(1.0 / n)
         }
@@ -62,7 +74,10 @@ impl Particle {
             Some(d) => d.normalize(),
             None => sample_isotropic_direction(seed),
         };
-        Particle { pos: initial_pos, dir }
+        Particle {
+            pos: initial_pos,
+            dir,
+        }
     }
 }
 
@@ -91,12 +106,18 @@ fn simulate(
 
 #[test]
 fn chat_gpt_sim() {
-    let t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+    let t = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
     let mut seed: u64 = t.subsec_nanos() as u64 ^ t.as_secs().wrapping_mul(0x9e3779b97f4a7c15);
 
     let sigma_s = 0.5_f64;
     let n_collisions = 1000;
-    let initial_pos = Vec3 { x: 0.0, y: 0.0, z: 0.0 };
+    let initial_pos = Vec3 {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
     let initial_dir = None;
 
     let trajectory = simulate(sigma_s, n_collisions, initial_pos, initial_dir, &mut seed);

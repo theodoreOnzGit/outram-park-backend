@@ -3,8 +3,8 @@ use fission_yields_data::prelude::Nuclide;
 use crate::prelude::SingleNuclideSimulatorMC;
 
 impl SingleNuclideSimulatorMC {
-    // this is vibe coded 
-    // obtains a unique list of nuclides  
+    // this is vibe coded
+    // obtains a unique list of nuclides
     // within the decay chain for the simulator
 
     // Unique nuclides from a single simulator (sorted by Z,A; order not preserved)
@@ -19,15 +19,13 @@ impl SingleNuclideSimulatorMC {
         v.sort_by_key(|&(_, key)| key);
         v.dedup_by_key(|&mut (_, key)| key);
 
-        // I had to make an edition because it was not including the  
+        // I had to make an edition because it was not including the
         // current nuclide
-        // then add the existing nuclide 
-        let mut unique_nuclide_vector: Vec<Nuclide> = 
-            v.into_iter().map(|(n, _)| n).collect();
+        // then add the existing nuclide
+        let mut unique_nuclide_vector: Vec<Nuclide> = v.into_iter().map(|(n, _)| n).collect();
         unique_nuclide_vector.push(self.current_nuclide);
 
         unique_nuclide_vector
-
     }
 
     // Unique nuclides across multiple simulators (sorted by Z,A; order not preserved)
@@ -36,7 +34,7 @@ impl SingleNuclideSimulatorMC {
         for sim in sims {
             for &(n, _) in &sim.stochastic_decay_chain.nuclides_and_decay_data_vec {
                 v.push((n, n.get_z_a()));
-                // need to get the current nuclide also otherwise 
+                // need to get the current nuclide also otherwise
                 // only plotted products
                 //
                 // this is rather inefficient, but okay lah
@@ -45,7 +43,6 @@ impl SingleNuclideSimulatorMC {
         }
 
         // we also need to get the existing nuclide (missed by ChatGPT5)
-        
 
         v.sort_by_key(|&(_, key)| key);
         v.dedup_by_key(|&mut (_, key)| key);
@@ -61,28 +58,22 @@ impl SingleNuclideSimulatorMC {
         unique: &[Nuclide],
     ) -> Vec<(Nuclide, u64)> {
         // Initialize counts aligned to `unique`
-        let mut nuclide_counter_vec: Vec<(Nuclide, u64)> = unique.iter().cloned().map(|n| (n, 0)).collect();
+        let mut nuclide_counter_vec: Vec<(Nuclide, u64)> =
+            unique.iter().cloned().map(|n| (n, 0)).collect();
         // this counts starts everything at zero
 
-        // so we have to iterate over every simulator 
+        // so we have to iterate over every simulator
 
         for sim in sims {
-
             let current_nuclide: Nuclide = sim.current_nuclide;
 
-            // then let's compare it to the nuclide 
+            // then let's compare it to the nuclide
             for (nuclide_to_check, current_count) in nuclide_counter_vec.iter_mut() {
-
                 if current_nuclide == *nuclide_to_check {
                     *current_count += 1;
                 }
-
             }
-
-
-
         }
-
 
         nuclide_counter_vec
     }

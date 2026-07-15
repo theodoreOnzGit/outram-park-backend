@@ -1,12 +1,11 @@
 use std::f64::consts::PI;
 
 use fission_yields_data::prelude::Nuclide;
-use uom::ConstZero;
 use uom::si::f64::*;
 use uom::si::heat_capacity::boltzmann_constant;
 use uom::si::molar_heat_capacity::molar_gas_constant;
 use uom::si::ratio::ratio;
-
+use uom::ConstZero;
 
 /// Mean speed (Maxwell–Boltzmann) at temperature T for a particle of mass m:
 /// v_mean = sqrt(8 k_B T / (pi m))
@@ -14,8 +13,7 @@ use uom::si::ratio::ratio;
 /// used uom si botlzmann constant
 pub fn mean_speed(medium_temperature: ThermodynamicTemperature, particle_mass: Mass) -> Velocity {
     // k_B * T has dimension of energy
-    let k_b_t: Energy =  HeatCapacity::new::<boltzmann_constant>(1.0) * 
-        medium_temperature;
+    let k_b_t: Energy = HeatCapacity::new::<boltzmann_constant>(1.0) * medium_temperature;
     // specific energy (m^2/s^2)
     let specific = (8.0 * k_b_t) / (PI * particle_mass);
     // sqrt to get velocity
@@ -30,11 +28,11 @@ pub fn mean_speed(medium_temperature: ThermodynamicTemperature, particle_mass: M
 /// now this is not quite atomic jumps as chatGPT suggested,
 /// D = 1/6 a^2 * nu
 ///
-/// However, atomic jumps assume diffusion is only within monocrystalline 
-/// material without defects. 
+/// However, atomic jumps assume diffusion is only within monocrystalline
+/// material without defects.
 ///
 /// In reality, there are defects, grain boundaries, dislocations etc.
-/// Therefore, we need an effective diffusion coefficient to consider 
+/// Therefore, we need an effective diffusion coefficient to consider
 /// this
 pub fn expected_collisions_atomic_jumps(
     medium_temperature: ThermodynamicTemperature,
@@ -46,32 +44,30 @@ pub fn expected_collisions_atomic_jumps(
     // Compute in scalar form to avoid needing reciprocal-velocity quantity:
     // (t/ell) has units s/m, v_mean has m/s -> dimensionless.
 
-    return (t/mean_free_path * v_mean).get::<ratio>();
+    return (t / mean_free_path * v_mean).get::<ratio>();
 }
 
-
-/// diffusion coefficient 
+/// diffusion coefficient
 /// from Jiang 2023
-/// Jiang, W., Toptan, A., Hales, J. D., Spencer, B. W., & 
-/// Novascone, S. R. (2023). Fission product transport in TRISO particles 
-/// and pebbles (No. INL/EXT-21-63549-Rev001). Idaho National Lab.(INL), 
+/// Jiang, W., Toptan, A., Hales, J. D., Spencer, B. W., &
+/// Novascone, S. R. (2023). Fission product transport in TRISO particles
+/// and pebbles (No. INL/EXT-21-63549-Rev001). Idaho National Lab.(INL),
 /// Idaho Falls, ID (United States).
 ///
 /// D = D1 exp (-Q1/RT) + D2 exp (-Q2/RT)
 ///
-/// Neutron fluence is also a factor, 
+/// Neutron fluence is also a factor,
 /// but if there is no neutron fluence, just give the None enum
 pub fn try_get_diffusion_coeff_jiang(
     triso_layer: TrisoPebbleLayerMaterial,
     nuclide: Nuclide,
     temperature: ThermodynamicTemperature,
     gamma_neutron_fluence: Option<ArealNumberDensity>,
-    ) -> Option<DiffusionCoefficient> {
-
-    let (z,_a) = nuclide.get_z_a();
+) -> Option<DiffusionCoefficient> {
+    let (z, _a) = nuclide.get_z_a();
 
     let d: Option<DiffusionCoefficient> = match z {
-        // Silver 
+        // Silver
         47 => {
             let d1: DiffusionCoefficient = get_d1_for_ag(triso_layer);
             let q1: MolarEnergy = get_q1_for_ag(triso_layer);
@@ -83,27 +79,21 @@ pub fn try_get_diffusion_coeff_jiang(
 
             let rt: MolarEnergy = r * temperature;
 
-            let q1_by_rt: Ratio = q1/rt;
-            let q2_by_rt: Ratio = q2/rt;
+            let q1_by_rt: Ratio = q1 / rt;
+            let q2_by_rt: Ratio = q2 / rt;
 
-            let d = d1 * (-q1_by_rt).get::<ratio>().exp()
-                + d2 * (-q2_by_rt).get::<ratio>().exp();
+            let d = d1 * (-q1_by_rt).get::<ratio>().exp() + d2 * (-q2_by_rt).get::<ratio>().exp();
 
             Some(d)
-
-
-        },
-        // cesium 
+        }
+        // cesium
         55 => {
-
             // if no neutron fluence is supplied, just do zero
             let neutron_fluence: ArealNumberDensity = match gamma_neutron_fluence {
                 Some(fluence) => fluence,
                 None => ArealNumberDensity::ZERO,
             };
-            let d1: DiffusionCoefficient = get_d1_for_cs(
-                triso_layer, neutron_fluence
-            );
+            let d1: DiffusionCoefficient = get_d1_for_cs(triso_layer, neutron_fluence);
             let q1: MolarEnergy = get_q1_for_cs(triso_layer);
             let d2: DiffusionCoefficient = get_d2_for_cs(triso_layer);
             let q2: MolarEnergy = get_q2_for_cs(triso_layer);
@@ -113,21 +103,16 @@ pub fn try_get_diffusion_coeff_jiang(
 
             let rt: MolarEnergy = r * temperature;
 
-            let q1_by_rt: Ratio = q1/rt;
-            let q2_by_rt: Ratio = q2/rt;
+            let q1_by_rt: Ratio = q1 / rt;
+            let q2_by_rt: Ratio = q2 / rt;
 
-            let d = d1 * (-q1_by_rt).get::<ratio>().exp()
-                + d2 * (-q2_by_rt).get::<ratio>().exp();
+            let d = d1 * (-q1_by_rt).get::<ratio>().exp() + d2 * (-q2_by_rt).get::<ratio>().exp();
 
             Some(d)
-
-
-
-        },
-        // strontium 
+        }
+        // strontium
         38 => {
-
-            let d1: DiffusionCoefficient = get_d1_for_sr( triso_layer);
+            let d1: DiffusionCoefficient = get_d1_for_sr(triso_layer);
             let q1: MolarEnergy = get_q1_for_sr(triso_layer);
             let d2: DiffusionCoefficient = get_d2_for_sr(triso_layer);
             let q2: MolarEnergy = get_q2_for_sr(triso_layer);
@@ -137,22 +122,17 @@ pub fn try_get_diffusion_coeff_jiang(
 
             let rt: MolarEnergy = r * temperature;
 
-            let q1_by_rt: Ratio = q1/rt;
-            let q2_by_rt: Ratio = q2/rt;
+            let q1_by_rt: Ratio = q1 / rt;
+            let q2_by_rt: Ratio = q2 / rt;
 
-            let d = d1 * (-q1_by_rt).get::<ratio>().exp()
-                + d2 * (-q2_by_rt).get::<ratio>().exp();
+            let d = d1 * (-q1_by_rt).get::<ratio>().exp() + d2 * (-q2_by_rt).get::<ratio>().exp();
 
             Some(d)
-
-
-
-        },
-        // krypton 
+        }
+        // krypton
         //
         36 => {
-
-            let d1: DiffusionCoefficient = get_d1_for_kr( triso_layer, temperature);
+            let d1: DiffusionCoefficient = get_d1_for_kr(triso_layer, temperature);
             let q1: MolarEnergy = get_q1_for_kr(triso_layer, temperature);
             let d2: DiffusionCoefficient = get_d2_for_kr(triso_layer, temperature);
             let q2: MolarEnergy = get_q2_for_kr(triso_layer, temperature);
@@ -162,36 +142,30 @@ pub fn try_get_diffusion_coeff_jiang(
 
             let rt: MolarEnergy = r * temperature;
 
-            let q1_by_rt: Ratio = q1/rt;
-            let q2_by_rt: Ratio = q2/rt;
+            let q1_by_rt: Ratio = q1 / rt;
+            let q2_by_rt: Ratio = q2 / rt;
 
-            let d = d1 * (-q1_by_rt).get::<ratio>().exp()
-                + d2 * (-q2_by_rt).get::<ratio>().exp();
+            let d = d1 * (-q1_by_rt).get::<ratio>().exp() + d2 * (-q2_by_rt).get::<ratio>().exp();
 
             Some(d)
-
-
-
-        },
+        }
         // for anything else, just assume it's silver
         _ => {
             let nuclide = Nuclide::Ag110m;
             return try_get_diffusion_coeff_jiang(
-                triso_layer, nuclide, temperature, gamma_neutron_fluence);
+                triso_layer,
+                nuclide,
+                temperature,
+                gamma_neutron_fluence,
+            );
         }
     };
 
     return d;
-
 }
 
 pub mod diffusion_coeffs;
 use diffusion_coeffs::*;
-
-
-
-
-
 
 /// triso layer for diffusion
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -201,31 +175,28 @@ pub enum TrisoPebbleLayerMaterial {
     SiC,
     MatrixGraphite,
     StructuralGraphite,
-    /// from CRP 6 tests within 
-    /// Hales, J. D., Jiang, W., Toptan, A., & Gamble, 
-    /// K. A. (2021). Modeling fission product 
-    /// diffusion in TRISO fuel particles with BISON. 
+    /// from CRP 6 tests within
+    /// Hales, J. D., Jiang, W., Toptan, A., & Gamble,
+    /// K. A. (2021). Modeling fission product
+    /// diffusion in TRISO fuel particles with BISON.
     /// Journal of Nuclear Materials, 548, 152840.
     ///
-    /// Tests 3d and 3e have cracked material, 
-    /// wherein the diffusion coefficient is 
+    /// Tests 3d and 3e have cracked material,
+    /// wherein the diffusion coefficient is
     /// 1e-6 m2/s
     CrackedMaterial,
-    /// buffer layer 
+    /// buffer layer
     Buffer,
 }
-
-
-
 
 /// boltzmann collision test
 #[test]
 fn boltzmann_test() {
+    use uom::si::length::meter;
     use uom::si::mass::kilogram;
+    use uom::si::thermodynamic_temperature::kelvin;
     use uom::si::time::second;
     use uom::si::velocity::meter_per_second;
-    use uom::si::length::meter;
-    use uom::si::thermodynamic_temperature::kelvin;
     // Example: nitrogen molecule at room temperature
     // Temperature T = 300 K
     let room_temp = ThermodynamicTemperature::new::<kelvin>(300.0);

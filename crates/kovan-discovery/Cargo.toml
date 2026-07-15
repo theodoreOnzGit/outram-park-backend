@@ -11,3 +11,9 @@ ignore.workspace = true
 grep-searcher.workspace = true
 grep-regex.workspace = true
 grep-matcher.workspace = true
+
+[dev-dependencies]
+# Throwaway fixture trees (with a real .gitignore) for discovery/search
+# tests — pure-Rust, Android-friendly, dev-only so it never touches the
+# Android library build (see CLAUDE.md's Android portability rule).
+tempfile.workspace = true

@@ -4,19 +4,18 @@ pub struct Sphere {
     pub x: Length,
     pub y: Length,
     pub z: Length,
-    pub r: Length
+    pub r: Length,
 }
 
 impl Sphere {
     pub fn is_point_in_sphere(&self, point: [Length; 3]) -> bool {
-
-        let center_meters: [f64;3] = [
+        let center_meters: [f64; 3] = [
             self.x.get::<meter>(),
             self.y.get::<meter>(),
             self.z.get::<meter>(),
         ];
 
-        let point_meters: [f64;3] = [
+        let point_meters: [f64; 3] = [
             point[0].get::<meter>(),
             point[1].get::<meter>(),
             point[2].get::<meter>(),
@@ -25,7 +24,6 @@ impl Sphere {
         let radius_meters = self.r.get::<meter>();
 
         point_in_sphere(center_meters, radius_meters, point_meters)
-
     }
 }
 
@@ -43,4 +41,3 @@ fn point_in_sphere(center: [f64; 3], radius: f64, p: [f64; 3]) -> bool {
     let r = (radius - eps).max(0.0);
     dist2 < r * r
 }
-

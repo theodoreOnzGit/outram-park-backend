@@ -1,4 +1,3 @@
-
 use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell;
 use boon_lay::Nuclide;
 use boon_lay::prelude::SingleNuclideSimulatorMC;
@@ -14,20 +13,16 @@ use uom::si::length::millimeter;
 
 use crate::triso_simulator_v1::TRISOSimApp;
 
-
-#[derive(Clone,Copy, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct TrisoParticleUi {
     triso_cell: TrisoCell,
 }
 
 impl Default for TrisoParticleUi {
     fn default() -> Self {
-
         let triso_cell = TrisoCell::new_crp6_geometry();
 
-        Self {
-            triso_cell,
-        }
+        Self { triso_cell }
     }
 }
 
@@ -48,17 +43,14 @@ impl Widget for TrisoParticleUi {
         let sic_radius: Length = 0.5 * self.get_diameter_after_sic();
         let opyc_radius: Length = 0.5 * self.get_diameter_after_opyc();
 
-        let scale_length_per_pixel: Length = opyc_radius/(outer_radius as f64);
-        let inner_kernel_radius_pixels: f32
-            = (inner_kernel_radius/scale_length_per_pixel).get::<ratio>() as f32;
-        let buffer_radius_pixels: f32
-            = (buffer_radius/scale_length_per_pixel).get::<ratio>() as f32;
-        let ipyc_radius_pixels: f32
-            = (ipyc_radius/scale_length_per_pixel).get::<ratio>() as f32;
-        let sic_radius_pixels: f32
-            = (sic_radius/scale_length_per_pixel).get::<ratio>() as f32;
-        let opyc_radius_pixels: f32
-            = (opyc_radius/scale_length_per_pixel).get::<ratio>() as f32;
+        let scale_length_per_pixel: Length = opyc_radius / (outer_radius as f64);
+        let inner_kernel_radius_pixels: f32 =
+            (inner_kernel_radius / scale_length_per_pixel).get::<ratio>() as f32;
+        let buffer_radius_pixels: f32 =
+            (buffer_radius / scale_length_per_pixel).get::<ratio>() as f32;
+        let ipyc_radius_pixels: f32 = (ipyc_radius / scale_length_per_pixel).get::<ratio>() as f32;
+        let sic_radius_pixels: f32 = (sic_radius / scale_length_per_pixel).get::<ratio>() as f32;
+        let opyc_radius_pixels: f32 = (opyc_radius / scale_length_per_pixel).get::<ratio>() as f32;
 
         let fuel_kernel_nuclide = Nuclide::U235;
         let buffer_nuclide = Nuclide::C12;
@@ -83,7 +75,6 @@ impl Widget for TrisoParticleUi {
     }
 }
 
-
 impl TrisoParticleUi {
     pub fn get_triso_cell(&self) -> &TrisoCell {
         &self.triso_cell
@@ -103,20 +94,25 @@ impl TrisoParticleUi {
         centre_x_pixels: f32,
         centre_y_pixels: f32,
         x_width_pixels: f32,
-        y_width_pixels: f32){
-
+        y_width_pixels: f32,
+    ) {
         let top_left_x: f32 = centre_x_pixels - 0.5 * x_width_pixels;
         let top_left_y: f32 = centre_y_pixels - 0.5 * y_width_pixels;
         let bottom_right_x: f32 = centre_x_pixels + 0.5 * x_width_pixels;
         let bottom_right_y: f32 = centre_y_pixels + 0.5 * y_width_pixels;
 
         let rect: Rect = Rect {
-            min: Pos2 { x: top_left_x, y: top_left_y },
-            max: Pos2 { x: bottom_right_x, y: bottom_right_y },
+            min: Pos2 {
+                x: top_left_x,
+                y: top_left_y,
+            },
+            max: Pos2 {
+                x: bottom_right_x,
+                y: bottom_right_y,
+            },
         };
 
         ui.put(rect, *self);
-
     }
 
     pub fn put_particle_vector_with_size_and_centre(
@@ -126,8 +122,7 @@ impl TrisoParticleUi {
         triso_centre_y_pixels: f32,
         triso_width_pixels: f32,
         sampled_particle_sims_for_plotting: Vec<SingleNuclideSimulatorMC>,
-    ){
-
+    ) {
         let triso_diameter: Length = self.get_diameter_after_opyc();
 
         let radionuclide_x_width_pixels = triso_width_pixels * 0.003;
@@ -139,7 +134,6 @@ impl TrisoParticleUi {
         let z_min = Length::new::<millimeter>(-0.1);
 
         for radionuclide_sim in sampled_particle_sims_for_plotting {
-
             let radionuclide_position = radionuclide_sim.position;
 
             let (_x, _y, z) = radionuclide_position;
@@ -151,11 +145,8 @@ impl TrisoParticleUi {
                 continue;
             }
 
-            let (x_pixel,y_pixel, _z_pixel) =
-                Self::convert_coordinate_to_pixel(
-                    radionuclide_position,
-                    scale_length_per_pixel
-                );
+            let (x_pixel, y_pixel, _z_pixel) =
+                Self::convert_coordinate_to_pixel(radionuclide_position, scale_length_per_pixel);
 
             let radionuclide_center_x_pixels = triso_centre_x_pixels + x_pixel;
             let radionuclide_center_y_pixels = triso_centre_y_pixels + y_pixel;
@@ -163,14 +154,10 @@ impl TrisoParticleUi {
             let nuclide = radionuclide_sim.get_current_nuclide();
             let colour = TRISOSimApp::element_color(nuclide);
 
-            let center = Pos2::new(
-                radionuclide_center_x_pixels,
-                radionuclide_center_y_pixels
-            );
+            let center = Pos2::new(radionuclide_center_x_pixels, radionuclide_center_y_pixels);
             let fission_prod_radius = radionuclide_x_width_pixels;
             painter.circle_filled(center, fission_prod_radius, colour);
         }
-
     }
 
     pub fn get_diameter_after_buffer(&self) -> Length {
@@ -191,16 +178,15 @@ impl TrisoParticleUi {
 
     pub fn convert_coordinate_to_pixel(
         coordinate: (Length, Length, Length),
-        scale_length_per_pixel: Length) -> (f32, f32, f32) {
-
-        let (x,y,z) = coordinate;
+        scale_length_per_pixel: Length,
+    ) -> (f32, f32, f32) {
+        let (x, y, z) = coordinate;
         let x_pixel: f32 = (x / scale_length_per_pixel).get::<ratio>() as f32;
         let y_pixel: f32 = (y / scale_length_per_pixel).get::<ratio>() as f32;
         let z_pixel: f32 = (z / scale_length_per_pixel).get::<ratio>() as f32;
 
         (x_pixel, y_pixel, z_pixel)
     }
-
 }
 
 impl AsRef<TrisoCell> for TrisoParticleUi {

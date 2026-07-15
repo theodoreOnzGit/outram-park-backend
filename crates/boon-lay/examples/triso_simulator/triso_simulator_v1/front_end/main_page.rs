@@ -1,15 +1,13 @@
-use boon_lay::Nuclide;
-use boon_lay::prelude::SingleNuclideSimulatorMC;
 use boon_lay::prelude::decay_library::DecayLibrary;
+use boon_lay::prelude::SingleNuclideSimulatorMC;
+use boon_lay::Nuclide;
 use egui::{Color32, Rect, Ui};
 use outram_mc_libs::rng::lcg::Lcg64;
 
 use crate::triso_simulator_v1::{front_end::triso_particle::TrisoParticleUi, TRISOSimApp};
 
 impl TRISOSimApp {
-
     pub fn main_page(&mut self, ui: &mut Ui) {
-
         let ui_rectangle: Rect = ui.min_rect();
         let viewport = ui.clip_rect();
 
@@ -21,10 +19,8 @@ impl TRISOSimApp {
         const COLS: usize = 500;
         const ROWS: usize = 500;
 
-        let (rect, _response) = ui.allocate_exact_size(
-            egui::vec2(XSIZE, YSIZE),
-            egui::Sense::hover()
-        );
+        let (rect, _response) =
+            ui.allocate_exact_size(egui::vec2(XSIZE, YSIZE), egui::Sense::hover());
 
         let dx = XSIZE / COLS as f32;
         let dy = XSIZE / ROWS as f32;
@@ -33,15 +29,15 @@ impl TRISOSimApp {
 
         let (nuclide_sim_vec_1, _decay_library): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
             self.decay_sim_thread_1_ptr.lock().unwrap().clone();
-        let (nuclide_sim_vec_2,_): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
+        let (nuclide_sim_vec_2, _): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
             self.decay_sim_thread_2_ptr.lock().unwrap().clone();
-        let (nuclide_sim_vec_3,_): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
+        let (nuclide_sim_vec_3, _): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
             self.decay_sim_thread_3_ptr.lock().unwrap().clone();
-        let (nuclide_sim_vec_4,_): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
+        let (nuclide_sim_vec_4, _): (Vec<SingleNuclideSimulatorMC>, DecayLibrary) =
             self.decay_sim_thread_4_ptr.lock().unwrap().clone();
 
-        let mut nuclide_sim_full_vec: Vec<SingleNuclideSimulatorMC> =
-            nuclide_sim_vec_1.into_iter()
+        let mut nuclide_sim_full_vec: Vec<SingleNuclideSimulatorMC> = nuclide_sim_vec_1
+            .into_iter()
             .chain(nuclide_sim_vec_2)
             .chain(nuclide_sim_vec_3)
             .chain(nuclide_sim_vec_4)
@@ -64,7 +60,9 @@ impl TRISOSimApp {
 
         fn shuffle_in_place<T>(v: &mut [T], seed: u64) {
             let len = v.len();
-            if len <= 1 { return; }
+            if len <= 1 {
+                return;
+            }
             let mut rng = Lcg64::new(seed as u128);
             for i in (1..len).rev() {
                 let j = uniform_usize(&mut rng, i + 1);
@@ -84,11 +82,7 @@ impl TRISOSimApp {
         let seed = 20_999_u64;
 
         let sampled_particles_for_plotting: Vec<SingleNuclideSimulatorMC> =
-            take_random_without_replacement(
-                &mut nuclide_sim_full_vec,
-                2000,
-                seed
-            );
+            take_random_without_replacement(&mut nuclide_sim_full_vec, 2000, seed);
 
         {
             let mut triso_picture = TrisoParticleUi::default();
@@ -102,25 +96,25 @@ impl TRISOSimApp {
 
             let triso_width = 1.0 * (viewport.bottom() - viewport.top());
 
-            let triso_centre_x = left_limit + right_limit/3.0;
-            let triso_centre_y = top_limit + bottom_limit/2.0;
+            let triso_centre_x = left_limit + right_limit / 3.0;
+            let triso_centre_y = top_limit + bottom_limit / 2.0;
 
-            triso_picture.put_self_with_size_and_centre(ui,
+            triso_picture.put_self_with_size_and_centre(
+                ui,
                 triso_centre_x,
                 triso_centre_y,
                 triso_width,
                 triso_width,
             );
-            triso_picture.put_particle_vector_with_size_and_centre(ui,
+            triso_picture.put_particle_vector_with_size_and_centre(
+                ui,
                 triso_centre_x,
                 triso_centre_y,
                 triso_width,
                 sampled_particles_for_plotting,
             );
         }
-
     }
-
 
     pub fn element_color(nuclide: Nuclide) -> Color32 {
         use egui::Color32;

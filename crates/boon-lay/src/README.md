@@ -56,3 +56,41 @@ lambda is called jump distance (similar to mean free path).
 
 Jump distances are on the order of 2-3 angstroms for SiC. And about 2 
 angstroms for PyC
+
+
+# TRISO-ATOPS Eulerian fork (`triso_atops_fork`)
+
+Everything above describes boon-lay's **Lagrangian** (single-atom Monte-Carlo)
+view of TRISO fission-product transport. The `triso_atops_fork` module adds the
+complementary **Eulerian / continuum-diffusion** view: a Rust fork of Idaho
+National Laboratory's MIT-licensed
+[TRISO-ATOPS](https://github.com/IdahoLabResearch/TRISO-ATOPS) (commit
+`de374c8`).
+
+Instead of tracking atoms, it uses closed-form analytical solutions to the
+Fickian diffusion equation — the **Booth** equivalent-sphere model, a
+**breakthrough** model (for silver through SiC), and a graphite **attenuation**
+model — to compute per-nuclide release fractions directly. The equations come
+from the NP-MHTGR New Production Reactor Program (EG&G Idaho, 1989); half-lives
+are from the IAEA Live Chart of Nuclides.
+
+What is ported and verified this pass (uom-typed, tested):
+
+- `nuclide_model` — the TRISO-ATOPS nuclide record, the five transport element
+  groups, and the 84-nuclide supported table.
+- `diffusion` — Arrhenius diffusion coefficients `D(T)` for the kernel, matrix
+  graphite, and Ag-in-SiC, plus the time-integrated `∫D dt`.
+- `release_models` — Booth (long/short-lived), breakthrough, graphite
+  attenuation, their transient (accident) variants, and the group dispatchers
+  `rb_fail` / `release_fraction_transient`.
+
+Scaffolded / deferred (see beads op-b4a.2.2 / op-b4a.2.3): the coolant
+**activity** bookkeeping (circulating / plate-out / HPS) and the nodal
+orchestration + JSON run-file driver — their upstream unit conventions mix
+atoms/Ci/Bq and need a dimensional-analysis pass before uom wiring. The
+**GUI was intentionally not ported** (headless-library + Android rule).
+
+Provenance/attribution: `LICENSE.triso-atops`, `NOTICE.triso-atops`, per-file
+headers, and `upstream_source/TRISO-ATOPS/PROVENANCE.md` (gitignored,
+reference-only clone). Full Python→Rust module map and V&V results:
+[`docs/triso-atops-fork.md`](../docs/triso-atops-fork.md).

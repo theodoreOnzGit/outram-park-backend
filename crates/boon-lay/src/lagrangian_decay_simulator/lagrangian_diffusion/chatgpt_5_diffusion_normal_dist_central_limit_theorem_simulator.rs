@@ -1,4 +1,4 @@
-use outram_mc_libs::rng::{lcg::prn, distributions::sample_normal};
+use outram_mc_libs::rng::{distributions::sample_normal, lcg::prn};
 
 fn per_component_variance_from_m2(n: usize, e_s2: f64) -> f64 {
     (n as f64) * e_s2 / 3.0
@@ -12,7 +12,11 @@ fn per_component_variance_exponential(n: usize, lambda: f64) -> f64 {
 /// Sample a 3D Gaussian displacement vector X ~ N(0, sigma2 * I3).
 fn sample_gaussian_vector(seed: &mut u64, sigma2: f64) -> [f64; 3] {
     let s = sigma2.sqrt();
-    [s * sample_normal(seed), s * sample_normal(seed), s * sample_normal(seed)]
+    [
+        s * sample_normal(seed),
+        s * sample_normal(seed),
+        s * sample_normal(seed),
+    ]
 }
 
 /// Sample a unit direction uniformly on S^2.
@@ -47,7 +51,10 @@ fn diffusion_gaussian_sum() {
     let lambda = 1.0;
     let sigma2 = per_component_variance_exponential(n, lambda);
 
-    println!("Gaussian vectors X ~ N(0, sigma2 I3), with sigma2 = {:.6}", sigma2);
+    println!(
+        "Gaussian vectors X ~ N(0, sigma2 I3), with sigma2 = {:.6}",
+        sigma2
+    );
     for i in 0..5 {
         let x = sample_gaussian_vector(&mut seed, sigma2);
         println!("vec #{i}: [{:.4}, {:.4}, {:.4}]", x[0], x[1], x[2]);
@@ -57,7 +64,9 @@ fn diffusion_gaussian_sum() {
     for i in 0..5 {
         let (r, u) = sample_distance_and_direction(&mut seed, sigma2);
         let x = [r * u[0], r * u[1], r * u[2]];
-        println!("pair #{i}: R = {:.4}, u = [{:.4}, {:.4}, {:.4}], X = [{:.4}, {:.4}, {:.4}]",
-                 r, u[0], u[1], u[2], x[0], x[1], x[2]);
+        println!(
+            "pair #{i}: R = {:.4}, u = [{:.4}, {:.4}, {:.4}], X = [{:.4}, {:.4}, {:.4}]",
+            r, u[0], u[1], u[2], x[0], x[1], x[2]
+        );
     }
 }

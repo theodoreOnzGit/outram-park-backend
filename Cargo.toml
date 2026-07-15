@@ -15,7 +15,7 @@ members = [
     "crates/nee_soon",
     "crates/outram-park-fork-coolprop",
     "crates/tampines",
-    "crates/outram-park-digital-twin-gui",
+    "crates/outram-park-digital-twin-engine",
     # KOVAN — knowledge layer (deterministic literature/semantics/codegen tooling)
     "crates/kovan-common",
     "crates/kovan-discovery",
@@ -62,8 +62,17 @@ ignore = "0.4"               # fd/ripgrep's walker: .gitignore-aware file discov
 grep-searcher = "0.1"        # ripgrep engine — deterministic text search ...
 grep-regex = "0.1"           # ... its regex matcher
 grep-matcher = "0.1"         # ... shared matcher trait
+regex = "1"                  # pure-Rust, Android-friendly regex — capture extraction in kovan-semantics' ripgrep-first symbol scanner
 petgraph = "0.6"             # optional graph layer (module/dependency/literature graphs)
+# KOVAN-literature PDF ingestion. Both pure-Rust, offline, Android-buildable
+# (checked on aarch64-linux-android), no C/native build deps, MIT-licensed
+# (GPLv3-compatible). pdf-extract does deterministic plain-text extraction;
+# lopdf is its low-level PDF object model, reused here for Info-dict metadata
+# and raw image-asset extraction. See docs/kovan.md "PDF Processing".
+pdf-extract = "0.12"         # deterministic pure-Rust PDF text extraction
+lopdf = "0.42"               # low-level PDF object model (metadata + assets)
 clap = { version = "4.5", features = ["derive"] }  # kovan-cli (agent-facing)
+tempfile = "3.14"             # dev-dep: throwaway fixture trees for discovery/search tests (pure-Rust, Android-friendly)
 # TUI stack for kovan-tui (human-facing). Pulled ONLY by kovan-tui under a
 # `cfg(not(target_os = "android"))` table — TUI is desktop scope per the Android
 # rule; the libraries stay headless/Android-buildable. ratatui re-exports its
@@ -135,7 +144,7 @@ outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version
 tampines            = { path = "crates/tampines",            version = "0.1.0" }
 # Reusable visualization framework — visual process objects whose rendering
 # derives directly from tampines/nee_soon physics state (scaffold).
-outram-park-digital-twin-gui = { path = "crates/outram-park-digital-twin-gui", version = "0.1.0" }
+outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engine", version = "0.1.0" }
 
 # KOVAN knowledge-layer crates — depend on these by path (in-tree).
 kovan-common     = { path = "crates/kovan-common",     version = "0.0.0" }

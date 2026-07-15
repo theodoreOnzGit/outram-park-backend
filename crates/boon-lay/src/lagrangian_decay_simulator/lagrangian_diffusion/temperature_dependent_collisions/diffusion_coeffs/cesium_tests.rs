@@ -1,5 +1,6 @@
-use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::{TrisoPebbleLayerMaterial, try_get_diffusion_coeff_jiang};
-
+use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::{
+    try_get_diffusion_coeff_jiang, TrisoPebbleLayerMaterial,
+};
 
 // If you already use the `approx` crate elsewhere, this is the nicest way:
 // approx = "0.5"
@@ -22,7 +23,8 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_sic() {
 
     // neutron fluence: 5.5e25 n/m^2
     // Adjust constructor/units to your ArealNumberDensity type.
-    let fluence = ArealNumberDensity::new::<uom::si::areal_number_density::per_square_meter>(5.5e25);
+    let fluence =
+        ArealNumberDensity::new::<uom::si::areal_number_density::per_square_meter>(5.5e25);
     let gamma_neutron_fluence = Some(fluence);
 
     // (T [K], log10(D [m^2/s]))
@@ -47,11 +49,11 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_sic() {
         (1811.5385, -16.1262),
         (1883.3333, -15.8472),
         (1950.6410, -15.4086),
-        // note that for these values, a larger error 
+        // note that for these values, a larger error
         // bound is required as the logscale gets bigger
         (2017.9487, -14.9302),
         (2087.5000, -14.6910),
-        ];
+    ];
 
     // THEN
     // Tolerance: choose something appropriate for your implementation
@@ -62,13 +64,9 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_sic() {
     for &(t_k, log10_d) in data {
         let temperature = ThermodynamicTemperature::new::<kelvin>(t_k);
 
-        let got = try_get_diffusion_coeff_jiang(
-            triso_layer,
-            nuclide,
-            temperature,
-            gamma_neutron_fluence,
-        )
-            .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
+        let got =
+            try_get_diffusion_coeff_jiang(triso_layer, nuclide, temperature, gamma_neutron_fluence)
+                .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
 
         dbg!(&temperature);
         // expected D in m^2/s
@@ -82,24 +80,14 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_sic() {
         let got_d_m2_s = got.get::<uom::si::diffusion_coefficient::square_meter_per_second>();
 
         if t_k > 2000.0 {
-
             // larger tolerance for higher temperatures
             let rtol = 0.40;
-            assert_relative_eq!(
-                got_d_m2_s,
-                expected_d_m2_s,
-                max_relative=rtol,
-            );
+            assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
 
             continue;
         }
 
-
-        assert_relative_eq!(
-            got_d_m2_s,
-            expected_d_m2_s,
-            max_relative=rtol,
-        );
+        assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
     }
 }
 
@@ -110,7 +98,8 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_pyc() {
     let nuclide = Nuclide::Cs137;
 
     // neutron fluence: 5.5e25 n/m^2
-    let fluence = ArealNumberDensity::new::<uom::si::areal_number_density::per_square_meter>(5.5e25);
+    let fluence =
+        ArealNumberDensity::new::<uom::si::areal_number_density::per_square_meter>(5.5e25);
     let gamma_neutron_fluence = Some(fluence);
 
     // (T [K], log10(D [m^2/s])) for Cs in PyC
@@ -142,7 +131,7 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_pyc() {
         (1968.5897, -13.0565),
         (2024.6795, -12.8173),
         (2076.2821, -12.7375),
-        ];
+    ];
 
     // THEN
     // Tolerance: adjust as needed for your PyC implementation
@@ -151,13 +140,9 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_pyc() {
     for &(t_k, log10_d) in data {
         let temperature = ThermodynamicTemperature::new::<kelvin>(t_k);
 
-        let got = try_get_diffusion_coeff_jiang(
-            triso_layer,
-            nuclide,
-            temperature,
-            gamma_neutron_fluence,
-        )
-            .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
+        let got =
+            try_get_diffusion_coeff_jiang(triso_layer, nuclide, temperature, gamma_neutron_fluence)
+                .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
 
         // expected D in m^2/s
         let expected_d_m2_s = 10f64.powf(log10_d);
@@ -166,22 +151,13 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_pyc() {
 
         dbg!(&temperature);
         if t_k > 1629.0 {
-
             // larger tolerance for higher temperatures
             let rtol = 0.25;
-            assert_relative_eq!(
-                got_d_m2_s,
-                expected_d_m2_s,
-                max_relative=rtol,
-            );
+            assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
 
             continue;
         }
-        assert_relative_eq!(
-            got_d_m2_s,
-            expected_d_m2_s,
-            max_relative = rtol,
-        );
+        assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
     }
 }
 
@@ -231,35 +207,22 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_kernel() {
     for &(t_k, log10_d) in data {
         let temperature = ThermodynamicTemperature::new::<kelvin>(t_k);
 
-        let got = try_get_diffusion_coeff_jiang(
-            triso_layer,
-            nuclide,
-            temperature,
-            gamma_neutron_fluence,
-        )
-        .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
+        let got =
+            try_get_diffusion_coeff_jiang(triso_layer, nuclide, temperature, gamma_neutron_fluence)
+                .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
 
         let expected_d_m2_s = 10f64.powf(log10_d);
         let got_d_m2_s = got.get::<uom::si::diffusion_coefficient::square_meter_per_second>();
 
         dbg!(&temperature);
         if t_k > 1551.0 {
-
             // larger tolerance for higher temperatures
             let rtol = 0.35;
-            assert_relative_eq!(
-                got_d_m2_s,
-                expected_d_m2_s,
-                max_relative=rtol,
-            );
+            assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
 
             continue;
         }
-        assert_relative_eq!(
-            got_d_m2_s,
-            expected_d_m2_s,
-            max_relative = rtol,
-        );
+        assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
     }
 }
 
@@ -298,21 +261,13 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_buffer() {
     for &(t_k, log10_d) in data {
         let temperature = ThermodynamicTemperature::new::<kelvin>(t_k);
 
-        let got = try_get_diffusion_coeff_jiang(
-            triso_layer,
-            nuclide,
-            temperature,
-            gamma_neutron_fluence,
-        )
-        .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
+        let got =
+            try_get_diffusion_coeff_jiang(triso_layer, nuclide, temperature, gamma_neutron_fluence)
+                .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
 
         let expected_d_m2_s = 10f64.powf(log10_d);
         let got_d_m2_s = got.get::<uom::si::diffusion_coefficient::square_meter_per_second>();
 
-        assert_relative_eq!(
-            got_d_m2_s,
-            expected_d_m2_s,
-            max_relative = rtol,
-        );
+        assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);
     }
 }

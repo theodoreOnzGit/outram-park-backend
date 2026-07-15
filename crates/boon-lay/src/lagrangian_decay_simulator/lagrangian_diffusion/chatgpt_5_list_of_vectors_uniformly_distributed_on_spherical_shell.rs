@@ -4,11 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Returns (x, y, z) uniformly distributed in the volume of the spherical shell
 /// between radii r_in and r_out (0 <= r_in < r_out).
-fn random_point_in_spherical_shell(
-    r_in: f64,
-    r_out: f64,
-    seed: &mut u64,
-) -> (f64, f64, f64) {
+fn random_point_in_spherical_shell(r_in: f64, r_out: f64, seed: &mut u64) -> (f64, f64, f64) {
     assert!(r_in >= 0.0 && r_in < r_out, "Require 0 <= r_in < r_out");
 
     // Sample radius with correct volume weighting: r ~ proportional to r^2
@@ -29,7 +25,9 @@ fn random_point_in_spherical_shell(
 
 #[test]
 fn rng_test() {
-    let t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+    let t = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
     let mut seed: u64 = t.subsec_nanos() as u64 ^ t.as_secs().wrapping_mul(0x9e3779b97f4a7c15);
 
     let r = 1.0;
@@ -48,7 +46,6 @@ fn rng_test() {
         println!("shell: {x:.6}, {y:.6}, {z:.6}");
     }
 }
-
 
 type Point3 = (f64, f64, f64);
 

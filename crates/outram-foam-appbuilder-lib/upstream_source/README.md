@@ -33,5 +33,35 @@ OpenCFD Ltd.
 
 ---
 
+# GeN-Foam (reactor multiphysics — the `genfoam` port)
+
+This crate is also the in-workspace home for the Rust port of **GeN-Foam**
+(Generalized Nuclear Foam), an OpenFOAM-based reactor-multiphysics solver
+(neutronics + thermal-hydraulics + thermo-mechanics). The port lives under
+`src/genfoam/`; the upstream C++ is used reference-only.
+
+- **Project:** GeN-Foam
+- **Repository:** <https://gitlab.com/foam-for-nuclear/GeN-Foam>
+- **Commit at last sync:** `652b3da`
+- **License:** GPL-3.0
+- **Date accessed:** 2026-07-15
+- **Original copyright:** (C) 2015–2022 EPFL (École polytechnique fédérale de
+  Lausanne); principal authors incl. Carlo Fiorina, Stefan Radman,
+  Thomas Guilbaud. Built on OpenFOAM v2506.
+- **Clone command:**
+  `git clone https://gitlab.com/foam-for-nuclear/GeN-Foam.git upstream_source/GeN-Foam`
+  then `git -C upstream_source/GeN-Foam checkout 652b3da`
+
+GeN-Foam is GPL-3.0, matching this crate. The port is an **independent
+translation**, not an EPFL / OpenFOAM Foundation / ESI release, and is not
+endorsed by or affiliated with any of them. GeN-Foam and its tutorials are
+open-source / public literature and are permitted as reference and benchmark
+input under the workspace data policy. Every Rust file ported from GeN-Foam
+keeps an attribution header naming the upstream project, source path, commit
+`652b3da`, and GPL-3.0. Module map + translation order:
+`docs/genfoam-port-plan.md`.
+
+---
+
 If a clone is added here, it is expected to be **gitignored** — never
 committed, present for development only.

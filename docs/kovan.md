@@ -883,3 +883,11 @@ work is marked `// TODO(kovan)`; nothing not-yet-working is presented as done.
 Dependency choices honour the recommended minimal stack (serde/toml,
 pulldown-cmark, ignore + ripgrep engine, clap, ratatui) and intentionally avoid
 Tree-sitter, SQLite, Tantivy, and vector/LLM layers for the first version.
+
+**2026-07-15 implementation pass:** the `// TODO(kovan)` scaffolds across all
+seven crates were fleshed into working functionality (one agent per crate). The
+non-trivial decisions each agent made — and the items still needing a human call
+(e.g. `kovan-common` type additions requested by downstream crates, new
+third-party deps, one behaviour change) — are collected for review in
+[`kovan-agent-decisions-for-review.md`](kovan-agent-decisions-for-review.md),
+which links each crate's full `DECISIONS.md`.

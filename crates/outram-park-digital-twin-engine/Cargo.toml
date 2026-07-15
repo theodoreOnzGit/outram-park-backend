@@ -1,0 +1,49 @@
+[package]
+name = "outram-park-digital-twin-engine"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Reusable visualization framework for OUTRAM PARK digital twins -- visual process objects whose rendering derives directly from physics state"
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Physics backends this framework visualizes. Real (non-dev) dependencies --
+# unlike tampines, this crate's whole purpose is presentation, so it makes no
+# Android-portability claim and GUI deps are not confined to examples/.
+tampines.workspace = true
+nee_soon.workspace = true
+chem-eng-real-time-process-control-simulator.workspace = true
+
+# GUI stack.
+egui.workspace = true
+eframe.workspace = true
+egui_plot.workspace = true
+egui_extras.workspace = true
+
+# Public API primitives -- dimensioned quantities.
+uom.workspace = true
+
+# Dev-dependencies for the migrated fhr_sim_v2 simulator example. These are the
+# physics/support crates the example imports directly that are not already real
+# deps above (tampines, nee_soon, egui, egui_plot, uom, chem-eng are). All
+# inherit versions from the root [workspace.dependencies].
+#
+# NOTE: ndarray-linalg is deliberately NOT a dependency. The secondary-loop mass
+# balance solve now uses outram-foam-basic-lib's pure-Rust dense LU `SquareMatrix`
+# (an OpenFOAM port) instead of a BLAS/LAPACK linear solver.
+[dev-dependencies]
+teh-o-prke.workspace = true
+tampines-steam-tables.workspace = true
+tuas_boussinesq_solver.workspace = true
+roots.workspace = true
+ndarray.workspace = true
+outram-foam-basic-lib.workspace = true
+serde.workspace = true
+env_logger.workspace = true
+
+[[example]]
+name = "fhr_sim_v2"
+path = "examples/fhr_sim_v2/main.rs"
+

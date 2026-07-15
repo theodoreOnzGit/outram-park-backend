@@ -8,8 +8,10 @@
 // eframe = "0.27"
 // egui = "0.27"
 
-use eframe::{egui, egui::{Color32, Pos2, Stroke, Widget}};
-
+use eframe::{
+    egui,
+    egui::{Color32, Pos2, Stroke, Widget},
+};
 
 #[derive(Clone)]
 struct _TrisoParticle {
@@ -33,10 +35,13 @@ struct _TrisoParticle {
 impl Default for _TrisoParticle {
     fn default() -> Self {
         Self {
-            _diameter_mm: 1.0,          // 1 mm (metadata)
-            ui_diameter_ratio: 0.40,   // occupy ~40% of the UI
-            num_rings: 18,             // adjust to taste
-            stroke: Stroke { width: 6.0, color: Color32::WHITE },
+            _diameter_mm: 1.0,       // 1 mm (metadata)
+            ui_diameter_ratio: 0.40, // occupy ~40% of the UI
+            num_rings: 18,           // adjust to taste
+            stroke: Stroke {
+                width: 6.0,
+                color: Color32::WHITE,
+            },
             color: Color32::WHITE,
         }
     }
@@ -98,9 +103,15 @@ impl eframe::App for _App {
                     ui.label("Rings:");
                     ui.add(egui::Slider::new(&mut self.particle.num_rings, 0..=30));
                     ui.label("Line width:");
-                    ui.add(egui::Slider::new(&mut self.particle.stroke.width, 1.0..=12.0));
+                    ui.add(egui::Slider::new(
+                        &mut self.particle.stroke.width,
+                        1.0..=12.0,
+                    ));
                     ui.label("Diameter ratio:");
-                    ui.add(egui::Slider::new(&mut self.particle.ui_diameter_ratio, 0.1..=0.9));
+                    ui.add(egui::Slider::new(
+                        &mut self.particle.ui_diameter_ratio,
+                        0.1..=0.9,
+                    ));
                 });
                 ui.separator();
 

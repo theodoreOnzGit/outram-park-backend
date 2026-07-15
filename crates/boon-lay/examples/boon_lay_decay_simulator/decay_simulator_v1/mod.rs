@@ -12,7 +12,6 @@ use crate::decay_simulator_v1::backend::simulator_state::SimulatorState;
 use crate::decay_simulator_v1::front_end::Panel;
 
 pub fn decay_simulator_v1() -> eframe::Result<()> {
-
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([800.0, 800.0]),
         ..Default::default()
@@ -38,13 +37,13 @@ pub struct DecaySimApp {
     open_panel: Panel,
 
     #[serde(skip)]
-    decay_sim_thread_1_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>,DecayLibrary)>>,
+    decay_sim_thread_1_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
     #[serde(skip)]
-    decay_sim_thread_2_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>,DecayLibrary)>>,
+    decay_sim_thread_2_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
     #[serde(skip)]
-    decay_sim_thread_3_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>,DecayLibrary)>>,
+    decay_sim_thread_3_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
     #[serde(skip)]
-    decay_sim_thread_4_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>,DecayLibrary)>>,
+    decay_sim_thread_4_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
 
     #[serde(skip)]
     simulator_state: Arc<Mutex<SimulatorState>>,
@@ -62,12 +61,9 @@ impl DecaySimApp {
 
         let decay_sim_thread_1_ptr: Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>> =
             new_decay_sim_app.decay_sim_thread_1_ptr.clone();
-        let decay_sim_thread_2_ptr =
-            new_decay_sim_app.decay_sim_thread_2_ptr.clone();
-        let decay_sim_thread_3_ptr =
-            new_decay_sim_app.decay_sim_thread_3_ptr.clone();
-        let decay_sim_thread_4_ptr =
-            new_decay_sim_app.decay_sim_thread_4_ptr.clone();
+        let decay_sim_thread_2_ptr = new_decay_sim_app.decay_sim_thread_2_ptr.clone();
+        let decay_sim_thread_3_ptr = new_decay_sim_app.decay_sim_thread_3_ptr.clone();
+        let decay_sim_thread_4_ptr = new_decay_sim_app.decay_sim_thread_4_ptr.clone();
 
         let simulator_state_thread_1_ptr: Arc<Mutex<SimulatorState>> =
             new_decay_sim_app.simulator_state.clone();
@@ -78,21 +74,20 @@ impl DecaySimApp {
         let simulator_state_thread_4_ptr: Arc<Mutex<SimulatorState>> =
             new_decay_sim_app.simulator_state.clone();
 
-        let decay_sim_plotting_thread_1_ptr =
-            new_decay_sim_app.decay_sim_thread_1_ptr.clone();
-        let decay_sim_plotting_thread_2_ptr =
-            new_decay_sim_app.decay_sim_thread_2_ptr.clone();
-        let decay_sim_plotting_thread_3_ptr =
-            new_decay_sim_app.decay_sim_thread_3_ptr.clone();
-        let decay_sim_plotting_thread_4_ptr =
-            new_decay_sim_app.decay_sim_thread_4_ptr.clone();
+        let decay_sim_plotting_thread_1_ptr = new_decay_sim_app.decay_sim_thread_1_ptr.clone();
+        let decay_sim_plotting_thread_2_ptr = new_decay_sim_app.decay_sim_thread_2_ptr.clone();
+        let decay_sim_plotting_thread_3_ptr = new_decay_sim_app.decay_sim_thread_3_ptr.clone();
+        let decay_sim_plotting_thread_4_ptr = new_decay_sim_app.decay_sim_thread_4_ptr.clone();
 
-        simulator_state_thread_4_ptr.lock().unwrap().update_fractions_using_decay_sim_thread_ptrs(
-            decay_sim_plotting_thread_1_ptr.clone(),
-            decay_sim_plotting_thread_2_ptr.clone(),
-            decay_sim_plotting_thread_3_ptr.clone(),
-            decay_sim_plotting_thread_4_ptr.clone(),
-        );
+        simulator_state_thread_4_ptr
+            .lock()
+            .unwrap()
+            .update_fractions_using_decay_sim_thread_ptrs(
+                decay_sim_plotting_thread_1_ptr.clone(),
+                decay_sim_plotting_thread_2_ptr.clone(),
+                decay_sim_plotting_thread_3_ptr.clone(),
+                decay_sim_plotting_thread_4_ptr.clone(),
+            );
 
         let num_threads = 4;
         let barrier: Arc<Barrier> = Arc::new(Barrier::new(num_threads));
@@ -101,7 +96,7 @@ impl DecaySimApp {
         let barrier_3 = Arc::clone(&barrier);
         let barrier_4 = Arc::clone(&barrier);
 
-        thread::spawn(move ||{
+        thread::spawn(move || {
             let thread_number = 1;
             Self::run_decay_chain_simulation(
                 decay_sim_thread_1_ptr,
@@ -110,7 +105,7 @@ impl DecaySimApp {
                 barrier_1,
             );
         });
-        thread::spawn(move ||{
+        thread::spawn(move || {
             let thread_number = 2;
             Self::run_decay_chain_simulation(
                 decay_sim_thread_2_ptr,
@@ -119,7 +114,7 @@ impl DecaySimApp {
                 barrier_2,
             );
         });
-        thread::spawn(move ||{
+        thread::spawn(move || {
             let thread_number = 3;
             Self::run_decay_chain_simulation(
                 decay_sim_thread_3_ptr,
@@ -128,7 +123,7 @@ impl DecaySimApp {
                 barrier_3,
             );
         });
-        thread::spawn(move ||{
+        thread::spawn(move || {
             let thread_number = 4;
             Self::run_decay_chain_simulation(
                 decay_sim_thread_4_ptr,
@@ -140,24 +135,29 @@ impl DecaySimApp {
         let simulator_state_thread_5_ptr: Arc<Mutex<SimulatorState>> =
             new_decay_sim_app.simulator_state.clone();
 
-        thread::spawn(move ||{
+        thread::spawn(move || {
             loop {
-                simulator_state_thread_5_ptr.lock().unwrap().update_fractions_using_decay_sim_thread_ptrs(
-                    decay_sim_plotting_thread_1_ptr.clone(),
-                    decay_sim_plotting_thread_2_ptr.clone(),
-                    decay_sim_plotting_thread_3_ptr.clone(),
-                    decay_sim_plotting_thread_4_ptr.clone(),
-                );
+                simulator_state_thread_5_ptr
+                    .lock()
+                    .unwrap()
+                    .update_fractions_using_decay_sim_thread_ptrs(
+                        decay_sim_plotting_thread_1_ptr.clone(),
+                        decay_sim_plotting_thread_2_ptr.clone(),
+                        decay_sim_plotting_thread_3_ptr.clone(),
+                        decay_sim_plotting_thread_4_ptr.clone(),
+                    );
 
-                let time_to_sleep_seconds =
-                    simulator_state_thread_5_ptr.lock().unwrap().graph_data_record_interval_seconds;
+                let time_to_sleep_seconds = simulator_state_thread_5_ptr
+                    .lock()
+                    .unwrap()
+                    .graph_data_record_interval_seconds;
 
                 let time_to_sleep_milliseconds: u64 =
-                    (time_to_sleep_seconds*1000.0).round() as u64;
+                    (time_to_sleep_seconds * 1000.0).round() as u64;
                 let time_to_sleep_non_realtime: Duration =
                     Duration::from_millis(time_to_sleep_milliseconds);
                 thread::sleep(time_to_sleep_non_realtime);
-            };
+            }
         });
 
         new_decay_sim_app
@@ -174,10 +174,12 @@ impl Default for DecaySimApp {
         fn build_four_vec(
             num_of_nuclides: usize,
             nuclide: Nuclide,
-        ) -> (Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
-        Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
-        Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
-        Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>) {
+        ) -> (
+            Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
+            Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
+            Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
+            Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>,
+        ) {
             let seeds = [550_u64, 47, 58, 1414];
 
             let sims: Vec<Arc<Mutex<(Vec<SingleNuclideSimulatorMC>, DecayLibrary)>>> = seeds
@@ -189,7 +191,7 @@ impl Default for DecaySimApp {
                         seed,
                     )
                 })
-            .collect();
+                .collect();
 
             let mut it = sims.into_iter();
             (
@@ -199,11 +201,12 @@ impl Default for DecaySimApp {
                 it.next().unwrap(),
             )
         }
-        let (decay_sim_thread_1_ptr,
+        let (
+            decay_sim_thread_1_ptr,
             decay_sim_thread_2_ptr,
             decay_sim_thread_3_ptr,
-            decay_sim_thread_4_ptr,)
-            = build_four_vec(num_of_nuclides.try_into().unwrap(), nuclide);
+            decay_sim_thread_4_ptr,
+        ) = build_four_vec(num_of_nuclides.try_into().unwrap(), nuclide);
 
         let simulator_state = Arc::new(Mutex::new(SimulatorState::default()));
         let csv_simulator_state: SimulatorState = simulator_state.lock().unwrap().clone();
@@ -243,41 +246,41 @@ impl eframe::App for DecaySimApp {
             egui::ScrollArea::both().show(ui, |ui| {
                 ui.heading("Boon Lay Decay Simulator v1");
                 ui.separator();
-                ui.horizontal(
-                    |ui| {
-                        ui.selectable_value(&mut self.open_panel, Panel::MainPage, "Main Page");
-                        ui.selectable_value(&mut self.open_panel, Panel::GraphPage, "Graph Page");
-                        ui.selectable_value(&mut self.open_panel, Panel::PeriodicTable, "Periodic Table (Legend)");
-                    }
-                );
+                ui.horizontal(|ui| {
+                    ui.selectable_value(&mut self.open_panel, Panel::MainPage, "Main Page");
+                    ui.selectable_value(&mut self.open_panel, Panel::GraphPage, "Graph Page");
+                    ui.selectable_value(
+                        &mut self.open_panel,
+                        Panel::PeriodicTable,
+                        "Periodic Table (Legend)",
+                    );
+                });
                 ui.separator();
             });
         });
 
-        egui::SidePanel::right("Supplementary Info").show(&ctx, |ui|{
-            match self.open_panel {
-                Panel::MainPage => {
-                    egui::ScrollArea::both().show(ui, |ui| {
-                        self.side_panel(ui);
-                        self.citation_disclaimer_and_acknowledgements(ui);
-                    });
-                },
-                Panel::GraphPage => {
-                    egui::ScrollArea::both().show(ui, |ui| {
-                        self.graph_page_side_panel(ui);
-                        self.citation_disclaimer_and_acknowledgements(ui);
-                    });
-                },
-                _ => {
-                    egui::ScrollArea::both().show(ui, |ui| {
-                        self.side_panel(ui);
-                        self.citation_disclaimer_and_acknowledgements(ui);
-                    });
-                },
+        egui::SidePanel::right("Supplementary Info").show(&ctx, |ui| match self.open_panel {
+            Panel::MainPage => {
+                egui::ScrollArea::both().show(ui, |ui| {
+                    self.side_panel(ui);
+                    self.citation_disclaimer_and_acknowledgements(ui);
+                });
+            }
+            Panel::GraphPage => {
+                egui::ScrollArea::both().show(ui, |ui| {
+                    self.graph_page_side_panel(ui);
+                    self.citation_disclaimer_and_acknowledgements(ui);
+                });
+            }
+            _ => {
+                egui::ScrollArea::both().show(ui, |ui| {
+                    self.side_panel(ui);
+                    self.citation_disclaimer_and_acknowledgements(ui);
+                });
             }
         });
 
-        egui::TopBottomPanel::bottom("github").show(&ctx, |ui|{
+        egui::TopBottomPanel::bottom("github").show(&ctx, |ui| {
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 powered_by_egui_and_eframe(ui);
                 egui::warn_if_debug_build(ui);
@@ -290,22 +293,22 @@ impl eframe::App for DecaySimApp {
                     egui::ScrollArea::both().show(ui, |ui| {
                         self.main_page(ui);
                     });
-                },
+                }
                 Panel::PeriodicTable => {
                     egui::ScrollArea::both().show(ui, |ui| {
                         self.periodic_table(ui);
                     });
-                },
+                }
                 Panel::GraphPage => {
                     egui::ScrollArea::both().show(ui, |ui| {
                         self.graph_page(ui);
                     });
-                },
+                }
             }
 
             ui.add(egui::github_link_file!(
-                    "https://github.com/theodoreOnzGit/boon-lay/blob/develop/",
-                    "Boon Lay Github Repo"
+                "https://github.com/theodoreOnzGit/boon-lay/blob/develop/",
+                "Boon Lay Github Repo"
             ));
         });
 
@@ -327,5 +330,5 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
     });
 }
 
-pub mod front_end;
 pub mod backend;
+pub mod front_end;

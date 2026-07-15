@@ -1,0 +1,65 @@
+TRISO-ATOPS attribution notice
+===============================
+
+The `boon-lay::triso_atops_fork` module is a Rust fork/port of TRISO-ATOPS
+(TRISO Analysis TOol for Predictive Source terms), an open-source (MIT)
+continuum/Eulerian TRISO fission-product source-term code from Idaho National
+Laboratory.
+
+Upstream project : TRISO-ATOPS
+Upstream URL     : https://github.com/IdahoLabResearch/TRISO-ATOPS
+Upstream commit  : de374c881743938c25c01a71a9adb8fbfd488f95 ("de374c8")
+Upstream license : MIT (see LICENSE.triso-atops in this directory)
+Date accessed    : 2026-07-15
+
+The ported Rust module is distributed under GPL-3.0 as part of the combined
+`boon-lay` work; the upstream MIT copyright and this notice are retained per the
+MIT license terms. MIT is GPLv3-compatible, so this combination is permitted.
+
+Original TRISO-ATOPS attribution, reproduced from the upstream NOTICE.txt
+------------------------------------------------------------------------
+
+This project contains code from Idaho National Laboratory.
+Github URL: https://github.com/IdahoLabResearch/TRISO-ATOPS
+Licensed under MIT
+
+(c) 2026 Battelle Energy Alliance, LLC
+ALL RIGHTS RESERVED
+
+Prepared by Battelle Energy Alliance, LLC
+Under Contract No. DE-AC07-05ID14517
+With the U. S. Department of Energy
+
+NOTICE:  This computer software was prepared by Battelle Energy
+Alliance, LLC, hereinafter the Contractor, under Contract
+No. AC07-05ID14517 with the United States (U. S.) Department of
+Energy (DOE).  The Government is granted for itself and others acting on
+its behalf a nonexclusive, paid-up, irrevocable worldwide license in this
+data to reproduce, prepare derivative works, and perform publicly and
+display publicly, by or on behalf of the Government. There is provision for
+the possible extension of the term of this license.  Subsequent to that
+period or any extension granted, the Government is granted for itself and
+others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+license in this data to reproduce, prepare derivative works, distribute
+copies to the public, perform publicly and display publicly, and to permit
+others to do so.  The specific term of the license can be identified by
+inquiry made to Contractor or DOE.  NEITHER THE UNITED STATES NOR THE UNITED
+STATES DEPARTMENT OF ENERGY, NOR CONTRACTOR MAKES ANY WARRANTY, EXPRESS OR
+IMPLIED, OR ASSUMES ANY LIABILITY OR RESPONSIBILITY FOR THE USE, ACCURACY,
+COMPLETENESS, OR USEFULNESS OR ANY INFORMATION, APPARATUS, PRODUCT, OR
+PROCESS DISCLOSED, OR REPRESENTS THAT ITS USE WOULD NOT INFRINGE PRIVATELY
+OWNED RIGHTS.
+
+Authors:
+
+Benjamin D. Stoyer
+David A. Petti
+Alexandra C. Raichart
+
+(The TRISO-ATOPS User Manual additionally credits Kyler E. Egan.)
+
+The physics equations used in TRISO-ATOPS originate from the NP-MHTGR New
+Production Reactor Program (1989):
+  E. Anderson et al., "Generic Reactor Plant Description and Source Terms
+  Volume 1," EG&G Idaho Inc., Idaho Falls, 1989.
+Half-life data are from the IAEA Live Chart of Nuclides.
