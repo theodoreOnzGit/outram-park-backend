@@ -19,10 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::primitives::scalar::{SMALL, VSMALL};
-use super::roots::{RootType, Roots};
 use super::linear_eqn::LinearEqn;
 use super::quadratic_eqn::QuadraticEqn;
+use super::roots::{RootType, Roots};
+use crate::primitives::scalar::{SMALL, VSMALL};
 
 /// Solves `a·x³ + b·x² + c·x + d = 0`. Maps to `Foam::cubicEqn`.
 ///
@@ -40,7 +40,11 @@ pub struct CubicEqn {
 
 #[inline]
 fn sign(x: f64) -> f64 {
-    if x >= 0.0 { 1.0 } else { -1.0 }
+    if x >= 0.0 {
+        1.0
+    } else {
+        -1.0
+    }
 }
 
 impl CubicEqn {
@@ -93,7 +97,11 @@ impl CubicEqn {
         let p = -(f64::mul_add(-a, c, w) + f64::mul_add(b, b / 3.0, -w));
         let q = b * b * b * 2.0 / 27.0 - b * c * a / 3.0 + d * a * a;
         let num_discr = p * p * p / 27.0 + q * q / 4.0;
-        let discr = if num_discr.abs() > VSMALL { num_discr } else { 0.0 };
+        let discr = if num_discr.abs() > VSMALL {
+            num_discr
+        } else {
+            0.0
+        };
 
         let three_real = discr < 0.0;
         let one_real_two_complex = discr > 0.0;
@@ -128,10 +136,7 @@ impl CubicEqn {
                 let x_im = sqrt3 / 2.0 * (w + p / 3.0 / w);
                 // Product-of-roots gives the third (real) root
                 return Roots::concat_1_2(
-                    Roots::<1>::new(
-                        RootType::Real,
-                        -a * d / (x_re * x_re + x_im * x_im),
-                    ),
+                    Roots::<1>::new(RootType::Real, -a * d / (x_re * x_re + x_im * x_im)),
                     Roots::<2>::from_pair(
                         Roots::<1>::new(RootType::Complex, x_re),
                         Roots::<1>::new(RootType::Complex, x_im),
@@ -224,7 +229,11 @@ mod tests {
     fn value_at_real_roots() {
         let eq = CubicEqn::new(1.0, -6.0, 11.0, -6.0);
         for x in real_roots(eq.roots()) {
-            assert!(eq.value(x).abs() < 1e-10, "residual at x={x}: {}", eq.value(x));
+            assert!(
+                eq.value(x).abs() < 1e-10,
+                "residual at x={x}: {}",
+                eq.value(x)
+            );
         }
     }
 
@@ -232,9 +241,17 @@ mod tests {
     fn one_real_two_complex_root_type_tags() {
         // x³ + x + 1 = 0: slot 0 must be Real, slots 1 and 2 must be Complex.
         let r = CubicEqn::new(1.0, 0.0, 1.0, 1.0).roots();
-        assert_eq!(r.root_type(0), RootType::Real,    "slot 0 should be Real");
-        assert_eq!(r.root_type(1), RootType::Complex, "slot 1 should be Complex");
-        assert_eq!(r.root_type(2), RootType::Complex, "slot 2 should be Complex");
+        assert_eq!(r.root_type(0), RootType::Real, "slot 0 should be Real");
+        assert_eq!(
+            r.root_type(1),
+            RootType::Complex,
+            "slot 1 should be Complex"
+        );
+        assert_eq!(
+            r.root_type(2),
+            RootType::Complex,
+            "slot 2 should be Complex"
+        );
     }
 
     #[test]
@@ -242,6 +259,9 @@ mod tests {
         // 0·x³ + 1·x² - 3x + 2: first two slots are Real, third must be Nan.
         let r = CubicEqn::new(0.0, 1.0, -3.0, 2.0).roots();
         let nan_count = (0..3).filter(|&i| r.root_type(i) == RootType::Nan).count();
-        assert_eq!(nan_count, 1, "exactly one Nan slot expected; got {nan_count}");
+        assert_eq!(
+            nan_count, 1,
+            "exactly one Nan slot expected; got {nan_count}"
+        );
     }
 }

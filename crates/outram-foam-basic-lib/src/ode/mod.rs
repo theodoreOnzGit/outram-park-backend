@@ -41,13 +41,7 @@ pub trait OdeSystem {
     /// Fill `dfdx` and `dfdy` with the Jacobian at `(x, y)`.
     ///
     /// Required only by stiff solvers (Rosenbrock23). The default panics.
-    fn jacobian(
-        &self,
-        _x: f64,
-        _y: &[f64],
-        _dfdx: &mut Vec<f64>,
-        _dfdy: &mut SquareMatrix,
-    ) {
+    fn jacobian(&self, _x: f64, _y: &[f64], _dfdx: &mut Vec<f64>, _dfdy: &mut SquareMatrix) {
         unimplemented!("jacobian not implemented for this ODE system");
     }
 }
@@ -166,8 +160,7 @@ pub(crate) fn adaptive_step(
 
     let threshold = (cfg.max_scale / cfg.safe_scale).powf(-1.0 / cfg.alpha_inc);
     *dx_try = if err > threshold {
-        let scale = (cfg.safe_scale * err.powf(-cfg.alpha_inc))
-            .clamp(cfg.min_scale, cfg.max_scale);
+        let scale = (cfg.safe_scale * err.powf(-cfg.alpha_inc)).clamp(cfg.min_scale, cfg.max_scale);
         dx * scale
     } else {
         dx * cfg.safe_scale * cfg.max_scale

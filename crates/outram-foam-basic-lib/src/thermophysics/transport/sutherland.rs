@@ -19,10 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::thermophysics::imports::*;
-use crate::thermophysics::eos::EquationOfState;
-use crate::thermophysics::thermo::ThermoModel;
 use super::traits::TransportModel;
+use crate::thermophysics::eos::EquationOfState;
+use crate::thermophysics::imports::*;
+use crate::thermophysics::thermo::ThermoModel;
 
 /// Sutherland's law viscosity model.
 ///
@@ -39,8 +39,8 @@ use super::traits::TransportModel;
 #[derive(Debug, Clone)]
 pub struct SutherlandTransport<T: ThermoModel> {
     thermo: T,
-    as_: f64,  // Sutherland coefficient As [kg/(m·s·K^0.5)]
-    ts: f64,   // Sutherland temperature Ts [K]
+    as_: f64, // Sutherland coefficient As [kg/(m·s·K^0.5)]
+    ts: f64,  // Sutherland temperature Ts [K]
 }
 
 impl<T: ThermoModel> SutherlandTransport<T> {
@@ -79,26 +79,56 @@ impl<T: ThermoModel> SutherlandTransport<T> {
 // --- EquationOfState delegation ---
 
 impl<T: ThermoModel> EquationOfState for SutherlandTransport<T> {
-    fn mol_weight(&self) -> MolarMass                    { self.thermo.mol_weight() }
-    fn r(&self) -> SpecificHeatCapacity                  { self.thermo.r() }
-    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { self.thermo.rho(p, t) }
-    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { self.thermo.psi(p, t) }
-    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { self.thermo.z(p, t) }
-    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.cp_m_cv(p, t) }
-    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.cp_eos(p, t) }
-    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.h_eos(p, t) }
-    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.e_eos(p, t) }
-    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.s_eos(p, t) }
+    fn mol_weight(&self) -> MolarMass {
+        self.thermo.mol_weight()
+    }
+    fn r(&self) -> SpecificHeatCapacity {
+        self.thermo.r()
+    }
+    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity {
+        self.thermo.rho(p, t)
+    }
+    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility {
+        self.thermo.psi(p, t)
+    }
+    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio {
+        self.thermo.z(p, t)
+    }
+    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.cp_m_cv(p, t)
+    }
+    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.cp_eos(p, t)
+    }
+    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.h_eos(p, t)
+    }
+    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.e_eos(p, t)
+    }
+    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.s_eos(p, t)
+    }
 }
 
 // --- ThermoModel delegation ---
 
 impl<T: ThermoModel> ThermoModel for SutherlandTransport<T> {
-    fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.cp(p, t) }
-    fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.ha(p, t) }
-    fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.hs(p, t) }
-    fn hc(&self) -> AvailableEnergy { self.thermo.hc() }
-    fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.s(p, t) }
+    fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.cp(p, t)
+    }
+    fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.ha(p, t)
+    }
+    fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.hs(p, t)
+    }
+    fn hc(&self) -> AvailableEnergy {
+        self.thermo.hc()
+    }
+    fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.s(p, t)
+    }
 }
 
 // --- TransportModel ---
@@ -123,12 +153,12 @@ mod tests {
     use super::*;
     use crate::thermophysics::eos::PerfectGas;
     use crate::thermophysics::thermo::HConstThermo;
+    use approx::assert_relative_eq;
+    use uom::si::available_energy::joule_per_kilogram;
     use uom::si::molar_mass::gram_per_mole;
     use uom::si::pressure::pascal;
-    use uom::si::thermodynamic_temperature::kelvin;
     use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
-    use uom::si::available_energy::joule_per_kilogram;
-    use approx::assert_relative_eq;
+    use uom::si::thermodynamic_temperature::kelvin;
 
     fn air_sutherland() -> SutherlandTransport<HConstThermo<PerfectGas>> {
         let eos = PerfectGas::new(MolarMass::new::<gram_per_mole>(28.97));
@@ -186,8 +216,12 @@ mod tests {
             ThermodynamicTemperature::new::<kelvin>(t2_val),
         );
         let p = Pressure::new::<pascal>(101_325.0);
-        let got1 = s.mu(p, ThermodynamicTemperature::new::<kelvin>(t1_val)).get::<pascal_second>();
-        let got2 = s.mu(p, ThermodynamicTemperature::new::<kelvin>(t2_val)).get::<pascal_second>();
+        let got1 = s
+            .mu(p, ThermodynamicTemperature::new::<kelvin>(t1_val))
+            .get::<pascal_second>();
+        let got2 = s
+            .mu(p, ThermodynamicTemperature::new::<kelvin>(t2_val))
+            .get::<pascal_second>();
         assert_relative_eq!(got1, mu1_val, epsilon = 1e-8);
         assert_relative_eq!(got2, mu2_val, epsilon = 1e-8);
     }

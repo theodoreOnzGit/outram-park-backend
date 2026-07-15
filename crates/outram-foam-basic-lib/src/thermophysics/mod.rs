@@ -20,9 +20,9 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod constants;
-pub mod error;
-pub mod quantities;
-pub mod imports;
 pub mod eos;
+pub mod error;
+pub mod imports;
+pub mod quantities;
 pub mod thermo;
 pub mod transport;

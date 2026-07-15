@@ -27,28 +27,25 @@
 //! directory, mirrored from the workspace root) for the full attribution
 //! and non-affiliation notice.
 
-pub mod primitives;
-pub mod polynomial;
+pub mod fields;
+pub mod fluid_thermo;
+pub mod fv_operators;
+pub mod interpolation;
+pub mod ldu_matrix;
 pub mod math;
 pub mod matrix;
-pub mod ode;
-pub mod interpolation;
-pub mod thermophysics;
-pub mod fields;
 pub mod mesh;
-pub mod ldu_matrix;
-pub mod fv_operators;
-pub mod fluid_thermo;
+pub mod ode;
+pub mod polynomial;
 pub mod prelude;
+pub mod primitives;
+pub mod thermophysics;
 
-
-/// this part is extension in Rust 
-/// Now under here, I want to expose the openfoam primitives to something 
+/// this part is extension in Rust
+/// Now under here, I want to expose the openfoam primitives to something
 /// that can be human readable
 ///
-/// Also useful add-ons for the underlying libraries are put here, 
-/// eg. generating one dimensional meshes for system code type simulations 
+/// Also useful add-ons for the underlying libraries are put here,
+/// eg. generating one dimensional meshes for system code type simulations
 /// in TAMPINES
 pub mod interface;
-
-

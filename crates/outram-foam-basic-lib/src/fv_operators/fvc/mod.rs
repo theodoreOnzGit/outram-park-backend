@@ -21,8 +21,10 @@
 
 mod ddt_corr;
 mod div;
+mod div_tensor;
 mod flux;
 mod grad;
+mod grad_vec;
 mod interpolate;
 mod muscl;
 mod reconstruct;
@@ -30,8 +32,10 @@ mod sn_grad;
 
 pub use ddt_corr::ddt_corr;
 pub use div::{div, div_flux, div_vec};
-pub use flux::{flux, buoyancy_flux};
+pub use div_tensor::{div_symm_tensor, div_tensor};
+pub use flux::{buoyancy_flux, flux};
 pub use grad::grad;
+pub use grad_vec::grad_vec;
 pub use interpolate::interpolate;
 pub use muscl::{reconstruct_pos_neg, Limiter};
 pub use reconstruct::reconstruct;

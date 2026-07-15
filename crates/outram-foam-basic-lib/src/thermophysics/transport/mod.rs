@@ -19,14 +19,14 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub(crate) mod traits;
 pub mod const_transport;
-pub mod sutherland;
 pub mod polynomial;
+pub mod sutherland;
 pub mod tabulated;
+pub(crate) mod traits;
 
-pub use traits::*;
 pub use const_transport::*;
-pub use sutherland::*;
 pub use polynomial::*;
+pub use sutherland::*;
 pub use tabulated::*;
+pub use traits::*;

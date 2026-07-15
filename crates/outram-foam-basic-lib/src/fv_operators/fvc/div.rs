@@ -19,11 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use super::interpolate;
 use crate::fields::boundary::bc::PatchField;
 use crate::fields::field::Field;
 use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
-use super::interpolate;
 
 /// `∇·φ_f = (1/V_O) · Σ_f φ_f` — net volumetric flux per unit volume.
 ///
@@ -134,40 +134,53 @@ pub fn div_vec(phi: &SurfaceScalarField, u: &VolVectorField) -> VolVectorField {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
-    use crate::primitives::Vector3;
     use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
     use crate::fields::field::Field;
     use crate::fields::surface_field::SurfaceScalarField;
-    use crate::mesh::fv_mesh::{FvMeshBuilder, BoundaryPatch, PatchKind};
+    use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
+    use crate::primitives::Vector3;
+    use std::sync::Arc;
 
     fn unit_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {
-        Arc::new(FvMeshBuilder::new()
-            .n_cells(2).n_internal_faces(1)
-            .owner(vec![0, 1, 0]).neighbour(vec![1])
-            .patches(vec![
-                BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
-                BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
-            ])
-            .cell_volumes(vec![0.5, 0.5])
-            .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
-            .face_area_vectors(vec![
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(-1.0, 0.0, 0.0),
-            ])
-            .face_centres(vec![
-                Vector3::new(0.5, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, 0.0, 0.0),
-            ])
-            .build().unwrap())
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![0.5, 0.5])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
     }
 
     fn phi_field(m: Arc<crate::mesh::fv_mesh::FvMesh>, int: f64, bnd: f64) -> SurfaceScalarField {
         let ni = m.n_internal_faces;
-        let bnd_pf: Vec<_> = m.patches.iter()
-            .map(|p| PatchField { bc: BoundaryCondition::ZeroGradient, values: Field::uniform(p.size, bnd) })
+        let bnd_pf: Vec<_> = m
+            .patches
+            .iter()
+            .map(|p| PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::uniform(p.size, bnd),
+            })
             .collect();
         SurfaceScalarField::new("phi", m, Field::uniform(ni, int), bnd_pf)
     }
@@ -193,7 +206,15 @@ mod tests {
         let m = unit_mesh();
         let phi = phi_field(m.clone(), 1.0, 0.0);
         let d = div_flux(&phi);
-        assert!((d.internal[0] - 2.0).abs() < 1e-10, "div_flux[0]={}", d.internal[0]);
-        assert!((d.internal[1] - (-2.0)).abs() < 1e-10, "div_flux[1]={}", d.internal[1]);
+        assert!(
+            (d.internal[0] - 2.0).abs() < 1e-10,
+            "div_flux[0]={}",
+            d.internal[0]
+        );
+        assert!(
+            (d.internal[1] - (-2.0)).abs() < 1e-10,
+            "div_flux[1]={}",
+            d.internal[1]
+        );
     }
 }

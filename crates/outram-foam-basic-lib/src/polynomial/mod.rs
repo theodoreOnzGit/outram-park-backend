@@ -19,14 +19,14 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod roots;
-pub mod linear_eqn;
-pub mod quadratic_eqn;
 pub mod cubic_eqn;
+pub mod linear_eqn;
 pub mod polynomial;
+pub mod quadratic_eqn;
+pub mod roots;
 
-pub use roots::{RootType, Roots};
-pub use linear_eqn::LinearEqn;
-pub use quadratic_eqn::QuadraticEqn;
 pub use cubic_eqn::CubicEqn;
+pub use linear_eqn::LinearEqn;
 pub use polynomial::Polynomial;
+pub use quadratic_eqn::QuadraticEqn;
+pub use roots::{RootType, Roots};

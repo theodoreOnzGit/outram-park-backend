@@ -21,8 +21,8 @@
 
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
-use crate::fields::vol_field::VolScalarField;
 use crate::fields::surface_field::SurfaceScalarField;
+use crate::fields::vol_field::VolScalarField;
 
 /// Surface-normal gradient: `∂φ/∂n|_f = (φ_N − φ_O) / |C_N − C_O|`.
 ///
@@ -54,10 +54,18 @@ pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
                 match &bc_patch.bc {
                     BoundaryCondition::ZeroGradient | BoundaryCondition::Symmetry => 0.0,
                     BoundaryCondition::FixedValue(v) => {
-                        if d < 1e-300 { 0.0 } else { (*v - vol.internal[owner]) / d }
+                        if d < 1e-300 {
+                            0.0
+                        } else {
+                            (*v - vol.internal[owner]) / d
+                        }
                     }
                     BoundaryCondition::FixedField(ff) => {
-                        if d < 1e-300 { 0.0 } else { (ff[fi] - vol.internal[owner]) / d }
+                        if d < 1e-300 {
+                            0.0
+                        } else {
+                            (ff[fi] - vol.internal[owner]) / d
+                        }
                     }
                     _ => 0.0,
                 }
@@ -80,32 +88,40 @@ pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
-    use crate::primitives::Vector3;
     use crate::fields::vol_field::VolScalarField;
-    use crate::mesh::fv_mesh::{FvMeshBuilder, BoundaryPatch, PatchKind};
+    use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
+    use crate::primitives::Vector3;
+    use std::sync::Arc;
 
     fn unit_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {
-        Arc::new(FvMeshBuilder::new()
-            .n_cells(2).n_internal_faces(1)
-            .owner(vec![0, 1, 0]).neighbour(vec![1])
-            .patches(vec![
-                BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
-                BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
-            ])
-            .cell_volumes(vec![1.0, 1.0])
-            .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
-            .face_area_vectors(vec![
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(-1.0, 0.0, 0.0),
-            ])
-            .face_centres(vec![
-                Vector3::new(0.5, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, 0.0, 0.0),
-            ])
-            .build().unwrap())
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![1.0, 1.0])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
     }
 
     #[test]

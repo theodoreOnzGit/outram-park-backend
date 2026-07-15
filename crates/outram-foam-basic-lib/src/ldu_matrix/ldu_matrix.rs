@@ -50,11 +50,7 @@ pub struct LduMatrix {
 }
 
 impl LduMatrix {
-    pub fn new(
-        n_cells: usize,
-        owner: Vec<usize>,
-        neighbour: Vec<usize>,
-    ) -> Self {
+    pub fn new(n_cells: usize, owner: Vec<usize>, neighbour: Vec<usize>) -> Self {
         let n_int = owner.len();
         debug_assert_eq!(neighbour.len(), n_int);
         Self {
@@ -98,11 +94,19 @@ impl LduMatrix {
     /// L1-scaled norm of residual: `||r||₁ / (||A·x||₁ + ε)`.
     pub fn normalised_residual(&self, x: &[f64], b: &[f64]) -> f64 {
         let ax = self.multiply(x);
-        let r_norm: f64 = b.iter().zip(ax.iter()).map(|(bi, ai)| (bi - ai).abs()).sum();
-        let ax_norm: f64 = ax.iter().map(|a| a.abs()).sum::<f64>()
-            + b.iter().map(|bi| bi.abs()).sum::<f64>();
+        let r_norm: f64 = b
+            .iter()
+            .zip(ax.iter())
+            .map(|(bi, ai)| (bi - ai).abs())
+            .sum();
+        let ax_norm: f64 =
+            ax.iter().map(|a| a.abs()).sum::<f64>() + b.iter().map(|bi| bi.abs()).sum::<f64>();
         let denom = ax_norm * 0.5;
-        if denom < f64::EPSILON { r_norm } else { r_norm / denom }
+        if denom < f64::EPSILON {
+            r_norm
+        } else {
+            r_norm / denom
+        }
     }
 }
 
@@ -130,7 +134,7 @@ mod tests {
     fn tridiag_3x3() -> LduMatrix {
         // faces: f0 = (0,1), f1 = (1,2)
         let mut m = LduMatrix::new(3, vec![0, 1], vec![1, 2]);
-        m.diag  = vec![ 2.0,  2.0,  2.0];
+        m.diag = vec![2.0, 2.0, 2.0];
         m.upper = vec![-1.0, -1.0];
         m.lower = vec![-1.0, -1.0];
         m
@@ -152,8 +156,12 @@ mod tests {
         let x = vec![1.0, 1.0, 1.0];
         let y = m.multiply(&x);
         assert_relative_eq!(y[0], 2.0 * 1.0 + (-1.0) * 1.0, epsilon = 1e-12);
-        assert_relative_eq!(y[1], (-1.0)*1.0 + 2.0*1.0 + (-1.0)*1.0, epsilon = 1e-12);
-        assert_relative_eq!(y[2], (-1.0)*1.0 + 2.0*1.0, epsilon = 1e-12);
+        assert_relative_eq!(
+            y[1],
+            (-1.0) * 1.0 + 2.0 * 1.0 + (-1.0) * 1.0,
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(y[2], (-1.0) * 1.0 + 2.0 * 1.0, epsilon = 1e-12);
     }
 
     #[test]

@@ -19,16 +19,20 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+mod d2dt2;
 mod ddt;
 mod ddt_vec;
 mod div;
 mod div_vec;
 mod laplacian;
 mod laplacian_vec;
+mod sup;
 
+pub use d2dt2::{d2dt2, d2dt2_coeff};
 pub use ddt::{ddt, ddt_coeff};
-pub use ddt_vec::{ddt_vec, ddt_coeff_vec};
+pub use ddt_vec::{ddt_coeff_vec, ddt_vec};
 pub use div::div;
 pub use div_vec::div_vec;
 pub use laplacian::laplacian;
 pub use laplacian_vec::laplacian_vec;
+pub use sup::{sp, sp_vec, su, su_sp, su_sp_vec, su_vec};

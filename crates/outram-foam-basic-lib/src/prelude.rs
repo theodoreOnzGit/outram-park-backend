@@ -44,11 +44,8 @@
 /// - EOS traits/types: `EquationOfState`, `PerfectGas`, `RhoConst`
 /// - Thermo traits/types: `ThermoModel`, `HConstThermo`, `JanafThermo`
 /// - Transport traits/types: `TransportModel`, `ConstTransport`, `SutherlandTransport`
-
 // --- Primitive scalars ---
-pub use crate::primitives::{
-    SMALL, VSMALL, GREAT, VGREAT, ROOT_SMALL, ROOT_VSMALL, ROOT_GREAT,
-};
+pub use crate::primitives::{GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL};
 
 // --- Primitive tensor types ---
 pub use crate::primitives::{SphericalTensor, SymmTensor, Tensor, Vector3};
@@ -65,42 +62,47 @@ pub use crate::math::{
 pub use crate::matrix::{MatrixError, SquareMatrix};
 
 // --- ODE solvers (Layer 1e) ---
-pub use crate::ode::{Euler, OdeError, OdeSystem, OdeSolverConfig, Rkf45, Rosenbrock23};
+pub use crate::ode::{Euler, OdeError, OdeSolverConfig, OdeSystem, Rkf45, Rosenbrock23};
 
 // --- Interpolation (Layer 1f) ---
 pub use crate::interpolation::{interpolate_spline_xy, interpolate_xy};
 
 // --- Specie-level thermophysics (Layer 1h) ---
-pub use crate::thermophysics::quantities::Compressibility;
-pub use crate::thermophysics::error::ThermoError;
 pub use crate::thermophysics::eos::*;
+pub use crate::thermophysics::error::ThermoError;
+pub use crate::thermophysics::quantities::Compressibility;
 pub use crate::thermophysics::thermo::*;
 pub use crate::thermophysics::transport::*;
 
 // --- Fields (Layer 2) ---
 pub use crate::fields::{
-    Field,
-    VolField, VolScalarField, VolVectorField, VolTensorField, VolSymmTensorField,
-    SurfaceField, SurfaceScalarField, SurfaceVectorField,
-    BoundaryCondition, PatchField,
+    BoundaryCondition, Field, PatchField, SurfaceField, SurfaceScalarField, SurfaceVectorField,
+    VolField, VolScalarField, VolSymmTensorField, VolTensorField, VolVectorField,
 };
 
 // --- Mesh (Layer 2) ---
-pub use crate::mesh::{FvMesh, FvMeshBuilder, BoundaryPatch, MeshError, PatchKind, RegionInterface};
+pub use crate::mesh::{
+    BoundaryPatch, FvMesh, FvMeshBuilder, MeshError, PatchKind, RegionInterface,
+};
 
 // --- Sparse linear system (Layer 2) ---
-pub use crate::ldu_matrix::{LduMatrix, FvMatrix, FvVectorMatrix, SolverSettings, SolverPerformance};
+pub use crate::ldu_matrix::{
+    FvMatrix, FvVectorMatrix, LduMatrix, SolverPerformance, SolverSettings,
+};
 
 // --- FV operators (Layer 3) ---
-pub use crate::fv_operators::{fvc, fvm, adjust_phi};
+pub use crate::fv_operators::{adjust_phi, fvc, fvm};
+
+// --- Field-level tensor algebra (tr/symm/two_symm/dev/dev2 on vol fields) ---
+pub use crate::fields::vol_field_algebra;
 
 // --- Field-level fluid thermodynamics (Layer 4) ---
-pub use crate::fluid_thermo::{FluidThermo, PsiThermo, RhoThermo, SolidThermo, ConstSolidThermo};
+pub use crate::fluid_thermo::{ConstSolidThermo, FluidThermo, PsiThermo, RhoThermo, SolidThermo};
 
 // --- LDU solvers ---
-pub use crate::ldu_matrix::{gauss_seidel, conjugate_gradient, gamg};
+pub use crate::ldu_matrix::{conjugate_gradient, gamg, gauss_seidel};
 
-// -- Interface --- 
+// -- Interface ---
 //
 // Basically, OpenFOAM primitives aren't easy to use.
 // But I want some functions that can help construct and use them

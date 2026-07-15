@@ -19,10 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::thermophysics::imports::*;
-use crate::thermophysics::constants::R_UNIVERSAL;
-use crate::polynomial::Polynomial;
 use super::traits::EquationOfState;
+use crate::polynomial::Polynomial;
+use crate::thermophysics::constants::R_UNIVERSAL;
+use crate::thermophysics::imports::*;
 
 /// Incompressible polynomial EOS: `v(T) = poly(T)`, so `ρ = 1 / poly(T)`.
 ///
@@ -97,12 +97,12 @@ impl<const N: usize> EquationOfState for IcoPolynomial<N> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use uom::si::molar_mass::gram_per_mole;
-    use uom::si::thermodynamic_temperature::kelvin;
-    use uom::si::pressure::pascal;
-    use uom::si::mass_density::kilogram_per_cubic_meter;
-    use uom::si::available_energy::joule_per_kilogram;
     use approx::assert_relative_eq;
+    use uom::si::available_energy::joule_per_kilogram;
+    use uom::si::mass_density::kilogram_per_cubic_meter;
+    use uom::si::molar_mass::gram_per_mole;
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
 
     /// Two-term specific-volume polynomial for water, valid near 300 K.
     /// Fit: v(T) ≈ 1/998.0 + 4e-7·(T−298.15)·(1/998.0)²  (simplified)
@@ -160,6 +160,9 @@ mod tests {
         let t2 = ThermodynamicTemperature::new::<kelvin>(310.0);
         let rho1 = w.rho(p, t1).get::<kilogram_per_cubic_meter>();
         let rho2 = w.rho(p, t2).get::<kilogram_per_cubic_meter>();
-        assert!(rho1 > rho2, "rho should decrease with T for positive slope poly");
+        assert!(
+            rho1 > rho2,
+            "rho should decrease with T for positive slope poly"
+        );
     }
 }

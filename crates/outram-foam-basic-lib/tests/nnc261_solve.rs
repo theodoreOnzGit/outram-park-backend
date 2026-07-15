@@ -89,8 +89,7 @@ fn nnc261_lu_roundtrip() {
     let mtx_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
         .join("nnc261.mtx");
-    let contents =
-        std::fs::read_to_string(&mtx_path).expect("could not read tests/nnc261.mtx");
+    let contents = std::fs::read_to_string(&mtx_path).expect("could not read tests/nnc261.mtx");
 
     let a = load_matrix_market(&contents);
     assert_eq!(a.n(), 261, "expected a 261×261 matrix");

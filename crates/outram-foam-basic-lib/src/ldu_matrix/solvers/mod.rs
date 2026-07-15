@@ -19,10 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod gauss_seidel;
 pub mod conjugate_gradient;
 pub mod gamg;
+pub mod gauss_seidel;
 
-pub use gauss_seidel::gauss_seidel;
 pub use conjugate_gradient::conjugate_gradient;
 pub use gamg::gamg;
+pub use gauss_seidel::gauss_seidel;

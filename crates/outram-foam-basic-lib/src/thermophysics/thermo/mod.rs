@@ -19,14 +19,14 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub(crate) mod traits;
 pub mod h_const;
-pub mod janaf;
 pub mod h_polynomial;
 pub mod h_tabulated;
+pub mod janaf;
+pub(crate) mod traits;
 
-pub use traits::*;
 pub use h_const::*;
-pub use janaf::*;
 pub use h_polynomial::*;
 pub use h_tabulated::*;
+pub use janaf::*;
+pub use traits::*;

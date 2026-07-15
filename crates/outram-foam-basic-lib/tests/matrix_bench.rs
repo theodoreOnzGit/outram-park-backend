@@ -61,8 +61,12 @@ fn make_problem(n: usize) -> (SquareMatrix, Array2<f64>, Vec<f64>) {
 
     for i in 0..n {
         for j in 0..n {
-            let v = ((i.wrapping_mul(7).wrapping_add(j.wrapping_mul(13)).wrapping_add(1)) % 17 + 1)
-                as f64;
+            let v = ((i
+                .wrapping_mul(7)
+                .wrapping_add(j.wrapping_mul(13))
+                .wrapping_add(1))
+                % 17
+                + 1) as f64;
             sq.set(i, j, v);
             nd[[i, j]] = v;
         }
@@ -77,11 +81,11 @@ fn make_problem(n: usize) -> (SquareMatrix, Array2<f64>, Vec<f64>) {
 
 fn iters(n: usize) -> usize {
     match n {
-        0..=10  => 20_000,
+        0..=10 => 20_000,
         11..=20 => 8_000,
         21..=50 => 2_000,
         51..=100 => 400,
-        _       => 80,
+        _ => 80,
     }
 }
 

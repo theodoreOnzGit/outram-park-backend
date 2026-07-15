@@ -26,11 +26,11 @@
 //! reach second order, à la OpenFOAM's `interpolate(field, pos)` /
 //! `interpolate(field, neg)`.
 
+use super::{grad, interpolate};
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
 use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::VolScalarField;
-use super::{grad, interpolate};
 
 /// Slope / flux limiter for MUSCL reconstruction.
 ///
@@ -53,10 +53,10 @@ impl Limiter {
     #[inline]
     fn lambda(self, r: f64) -> f64 {
         match self {
-            Limiter::Upwind  => 0.0,
-            Limiter::Linear  => 1.0,
+            Limiter::Upwind => 0.0,
+            Limiter::Linear => 1.0,
             Limiter::VanLeer => (r + r.abs()) / (1.0 + r.abs()),
-            Limiter::Minmod  => 0.0_f64.max(r.min(1.0)),
+            Limiter::Minmod => 0.0_f64.max(r.min(1.0)),
         }
     }
 }
@@ -85,18 +85,18 @@ pub fn reconstruct_pos_neg(
     field: &VolScalarField,
     limiter: Limiter,
 ) -> (SurfaceScalarField, SurfaceScalarField) {
-    let mesh   = field.mesh.clone();
-    let grad_c = grad(field);       // cell gradients ∇φ
-    let lin    = interpolate(field); // central face values (+ boundary)
-    let phi    = field.internal.as_slice();
-    let gc     = grad_c.internal.as_slice();
+    let mesh = field.mesh.clone();
+    let grad_c = grad(field); // cell gradients ∇φ
+    let lin = interpolate(field); // central face values (+ boundary)
+    let phi = field.internal.as_slice();
+    let gc = grad_c.internal.as_slice();
     const TINY: f64 = 1e-30;
 
     let mut pos = vec![0.0_f64; mesh.n_internal_faces];
     let mut neg = vec![0.0_f64; mesh.n_internal_faces];
 
     for f in 0..mesh.n_internal_faces {
-        let o  = mesh.owner[f];
+        let o = mesh.owner[f];
         let nb = mesh.neighbour[f];
         let gradf = phi[nb] - phi[o];
 
@@ -108,17 +108,18 @@ pub fn reconstruct_pos_neg(
             continue;
         }
 
-        let d       = mesh.cell_centres[nb] - mesh.cell_centres[o];
+        let d = mesh.cell_centres[nb] - mesh.cell_centres[o];
         let phi_lin = lin.internal[f];
-        let r_pos   = 2.0 * d.dot(gc[o])  / gradf - 1.0;
-        let r_neg   = 2.0 * d.dot(gc[nb]) / gradf - 1.0;
+        let r_pos = 2.0 * d.dot(gc[o]) / gradf - 1.0;
+        let r_neg = 2.0 * d.dot(gc[nb]) / gradf - 1.0;
 
-        pos[f] = phi[o]  + limiter.lambda(r_pos) * (phi_lin - phi[o]);
+        pos[f] = phi[o] + limiter.lambda(r_pos) * (phi_lin - phi[o]);
         neg[f] = phi[nb] + limiter.lambda(r_neg) * (phi_lin - phi[nb]);
     }
 
     let boundary = || -> Vec<PatchField<f64>> {
-        lin.boundary.iter()
+        lin.boundary
+            .iter()
             .map(|lb| PatchField {
                 bc: BoundaryCondition::ZeroGradient,
                 values: lb.values.clone(),
@@ -127,48 +128,60 @@ pub fn reconstruct_pos_neg(
     };
 
     let pos_field = SurfaceScalarField::new(
-        format!("{}_pos", field.name), mesh.clone(), Field::new(pos), boundary());
+        format!("{}_pos", field.name),
+        mesh.clone(),
+        Field::new(pos),
+        boundary(),
+    );
     let neg_field = SurfaceScalarField::new(
-        format!("{}_neg", field.name), mesh, Field::new(neg), boundary());
+        format!("{}_neg", field.name),
+        mesh,
+        Field::new(neg),
+        boundary(),
+    );
     (pos_field, neg_field)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
-    use crate::primitives::Vector3;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
+    use crate::primitives::Vector3;
+    use std::sync::Arc;
 
     // 3-cell 1-D mesh, dx = 1, cells centred at 0.5, 1.5, 2.5.
     fn line_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {
-        Arc::new(FvMeshBuilder::new()
-            .n_cells(3).n_internal_faces(2)
-            .owner(vec![0, 1, 0, 2])
-            .neighbour(vec![1, 2])
-            .patches(vec![
-                BoundaryPatch::new("left",  2, 1, PatchKind::Patch),
-                BoundaryPatch::new("right", 3, 1, PatchKind::Patch),
-            ])
-            .cell_volumes(vec![1.0, 1.0, 1.0])
-            .cell_centres(vec![
-                Vector3::new(0.5, 0.0, 0.0),
-                Vector3::new(1.5, 0.0, 0.0),
-                Vector3::new(2.5, 0.0, 0.0),
-            ])
-            .face_area_vectors(vec![
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(-1.0, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-            ])
-            .face_centres(vec![
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(2.0, 0.0, 0.0),
-                Vector3::new(0.0, 0.0, 0.0),
-                Vector3::new(3.0, 0.0, 0.0),
-            ])
-            .build().unwrap())
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(3)
+                .n_internal_faces(2)
+                .owner(vec![0, 1, 0, 2])
+                .neighbour(vec![1, 2])
+                .patches(vec![
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Patch),
+                    BoundaryPatch::new("right", 3, 1, PatchKind::Patch),
+                ])
+                .cell_volumes(vec![1.0, 1.0, 1.0])
+                .cell_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.5, 0.0, 0.0),
+                    Vector3::new(2.5, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(2.0, 0.0, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                    Vector3::new(3.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
     }
 
     #[test]
@@ -186,8 +199,16 @@ mod tests {
         f.boundary[1].values = Field::new(vec![3.0]);
         let (pos, neg) = reconstruct_pos_neg(&f, Limiter::VanLeer);
         // Internal face 0 is at x = 1.0 → φ = 1.0
-        assert!((pos.internal[0] - 1.0).abs() < 1e-9, "pos = {}", pos.internal[0]);
-        assert!((neg.internal[0] - 1.0).abs() < 1e-9, "neg = {}", neg.internal[0]);
+        assert!(
+            (pos.internal[0] - 1.0).abs() < 1e-9,
+            "pos = {}",
+            pos.internal[0]
+        );
+        assert!(
+            (neg.internal[0] - 1.0).abs() < 1e-9,
+            "neg = {}",
+            neg.internal[0]
+        );
     }
 
     #[test]

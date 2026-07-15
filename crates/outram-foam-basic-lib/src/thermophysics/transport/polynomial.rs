@@ -19,11 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::thermophysics::imports::*;
-use crate::thermophysics::eos::EquationOfState;
-use crate::thermophysics::thermo::ThermoModel;
-use crate::polynomial::Polynomial;
 use super::traits::TransportModel;
+use crate::polynomial::Polynomial;
+use crate::thermophysics::eos::EquationOfState;
+use crate::thermophysics::imports::*;
+use crate::thermophysics::thermo::ThermoModel;
 
 /// Polynomial transport model: μ(T) and κ(T) evaluated from `Polynomial<N>`.
 ///
@@ -41,33 +41,67 @@ pub struct PolynomialTransport<T: ThermoModel, const N: usize> {
 
 impl<T: ThermoModel, const N: usize> PolynomialTransport<T, N> {
     pub fn new(thermo: T, mu_poly: Polynomial<N>, kappa_poly: Polynomial<N>) -> Self {
-        Self { thermo, mu_poly, kappa_poly }
+        Self {
+            thermo,
+            mu_poly,
+            kappa_poly,
+        }
     }
 }
 
 // --- EquationOfState delegation ---
 
 impl<T: ThermoModel, const N: usize> EquationOfState for PolynomialTransport<T, N> {
-    fn mol_weight(&self) -> MolarMass                    { self.thermo.mol_weight() }
-    fn r(&self) -> SpecificHeatCapacity                  { self.thermo.r() }
-    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { self.thermo.rho(p, t) }
-    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { self.thermo.psi(p, t) }
-    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { self.thermo.z(p, t) }
-    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.cp_m_cv(p, t) }
-    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.cp_eos(p, t) }
-    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.h_eos(p, t) }
-    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.e_eos(p, t) }
-    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.s_eos(p, t) }
+    fn mol_weight(&self) -> MolarMass {
+        self.thermo.mol_weight()
+    }
+    fn r(&self) -> SpecificHeatCapacity {
+        self.thermo.r()
+    }
+    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity {
+        self.thermo.rho(p, t)
+    }
+    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility {
+        self.thermo.psi(p, t)
+    }
+    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio {
+        self.thermo.z(p, t)
+    }
+    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.cp_m_cv(p, t)
+    }
+    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.cp_eos(p, t)
+    }
+    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.h_eos(p, t)
+    }
+    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.e_eos(p, t)
+    }
+    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.s_eos(p, t)
+    }
 }
 
 // --- ThermoModel delegation ---
 
 impl<T: ThermoModel, const N: usize> ThermoModel for PolynomialTransport<T, N> {
-    fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.cp(p, t) }
-    fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.ha(p, t) }
-    fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.hs(p, t) }
-    fn hc(&self) -> AvailableEnergy { self.thermo.hc() }
-    fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.s(p, t) }
+    fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.cp(p, t)
+    }
+    fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.ha(p, t)
+    }
+    fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.hs(p, t)
+    }
+    fn hc(&self) -> AvailableEnergy {
+        self.thermo.hc()
+    }
+    fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.s(p, t)
+    }
 }
 
 // --- TransportModel ---
@@ -87,14 +121,14 @@ mod tests {
     use super::*;
     use crate::thermophysics::eos::PerfectGas;
     use crate::thermophysics::thermo::HConstThermo;
-    use uom::si::molar_mass::gram_per_mole;
-    use uom::si::pressure::pascal;
-    use uom::si::thermodynamic_temperature::kelvin;
-    use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
+    use approx::assert_relative_eq;
     use uom::si::available_energy::joule_per_kilogram;
     use uom::si::dynamic_viscosity::pascal_second;
+    use uom::si::molar_mass::gram_per_mole;
+    use uom::si::pressure::pascal;
+    use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
     use uom::si::thermal_conductivity::watt_per_meter_kelvin;
-    use approx::assert_relative_eq;
+    use uom::si::thermodynamic_temperature::kelvin;
 
     fn air_poly_transport() -> PolynomialTransport<HConstThermo<PerfectGas>, 2> {
         let eos = PerfectGas::new(MolarMass::new::<gram_per_mole>(28.97));

@@ -19,9 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::primitives::scalar::{SMALL, VSMALL};
-use super::roots::{RootType, Roots};
 use super::linear_eqn::LinearEqn;
+use super::roots::{RootType, Roots};
+use crate::primitives::scalar::{SMALL, VSMALL};
 
 /// Solves `a·x² + b·x + c = 0`. Maps to `Foam::quadraticEqn`.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -33,7 +33,11 @@ pub struct QuadraticEqn {
 
 #[inline]
 fn sign(x: f64) -> f64 {
-    if x >= 0.0 { 1.0 } else { -1.0 }
+    if x >= 0.0 {
+        1.0
+    } else {
+        -1.0
+    }
 }
 
 impl QuadraticEqn {
@@ -81,22 +85,20 @@ impl QuadraticEqn {
         // Numerically accurate discriminant b²/4 − a·c via FMA compensation
         let w = a * c;
         let num_discr = f64::mul_add(-a, c, w) + f64::mul_add(b, b / 4.0, -w);
-        let discr = if num_discr.abs() > VSMALL { num_discr } else { 0.0 };
+        let discr = if num_discr.abs() > VSMALL {
+            num_discr
+        } else {
+            0.0
+        };
 
         if discr > 0.0 {
             // Two distinct real roots — use numerically stable form
             let x = -b / 2.0 - sign(b) * discr.sqrt();
-            Roots::from_pair(
-                LinearEqn::new(-a, x).roots(),
-                LinearEqn::new(-x, c).roots(),
-            )
+            Roots::from_pair(LinearEqn::new(-a, x).roots(), LinearEqn::new(-x, c).roots())
         } else if discr < 0.0 {
             // Complex conjugate pair: Re ± Im·i
             let x_re = Roots::<1>::new(RootType::Complex, -b / 2.0 / a);
-            let x_im = Roots::<1>::new(
-                RootType::Complex,
-                sign(b) * (-discr).sqrt() / a,
-            );
+            let x_im = Roots::<1>::new(RootType::Complex, sign(b) * (-discr).sqrt() / a);
             Roots::from_pair(x_re, x_im)
         } else {
             // One repeated real root
@@ -134,7 +136,7 @@ mod tests {
         let r = eq.roots();
         assert_eq!(r.root_type(0), RootType::Complex);
         assert_eq!(r.root_type(1), RootType::Complex);
-        assert!((r[0]).abs() < 1e-14);   // Re = 0
+        assert!((r[0]).abs() < 1e-14); // Re = 0
         assert!((r[1] - 1.0).abs() < 1e-14); // Im = 1
     }
 

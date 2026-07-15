@@ -19,7 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use uom::si::{ISQ, Quantity, SI};
+use uom::si::{Quantity, ISQ, SI};
 use uom::typenum::{N2, P2, Z0};
 
 /// Compressibility ψ = ∂ρ/∂p|_T  —  SI units: s²/m²  (L⁻²·T²)

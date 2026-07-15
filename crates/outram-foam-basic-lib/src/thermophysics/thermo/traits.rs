@@ -19,10 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::thermophysics::imports::*;
-use crate::thermophysics::constants::{T_MIN, T_MAX};
-use crate::thermophysics::error::ThermoError;
+use crate::thermophysics::constants::{T_MAX, T_MIN};
 use crate::thermophysics::eos::EquationOfState;
+use crate::thermophysics::error::ThermoError;
+use crate::thermophysics::imports::*;
 
 /// Per-species thermodynamic model — sensible/absolute enthalpy, entropy, and
 /// Newton-iteration T-solvers.
@@ -132,5 +132,8 @@ fn newton_t(
             return Ok(ThermodynamicTemperature::new::<kelvin>(t));
         }
     }
-    Err(ThermoError::NonConvergent { max_iter: MAX_ITER, last_t: t })
+    Err(ThermoError::NonConvergent {
+        max_iter: MAX_ITER,
+        last_t: t,
+    })
 }

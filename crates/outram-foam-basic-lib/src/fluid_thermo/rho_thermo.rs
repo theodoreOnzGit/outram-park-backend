@@ -21,12 +21,12 @@
 
 use std::sync::Arc;
 
+use super::traits::FluidThermo;
 use crate::fields::field::Field;
 use crate::fields::vol_field::VolScalarField;
 use crate::mesh::fv_mesh::FvMesh;
 use crate::thermophysics::imports::*;
 use crate::thermophysics::transport::TransportModel;
-use super::traits::FluidThermo;
 
 /// Compressible thermo using explicit EOS density: `ρ = ρ(p, T)`.
 ///
@@ -39,10 +39,10 @@ use super::traits::FluidThermo;
 pub struct RhoThermo<M: TransportModel> {
     /// Per-species transport/thermo/EOS kernel (mesh-independent).
     pub species: M,
-    pub p:   VolScalarField,
-    pub t:   VolScalarField,
+    pub p: VolScalarField,
+    pub t: VolScalarField,
     /// Sensible enthalpy `hs` [J/kg].
-    pub he:  VolScalarField,
+    pub he: VolScalarField,
     pub rho: VolScalarField,
     /// Compressibility ψ = ∂ρ/∂p|_T [s²/m²] — stored for the pressure eqn.
     pub psi: VolScalarField,
@@ -54,14 +54,14 @@ impl<M: TransportModel> RhoThermo<M> {
         let p_val = Pressure::new::<pascal>(p_init);
         let t_val = ThermodynamicTemperature::new::<kelvin>(t_init);
 
-        let hs  = species.hs(p_val, t_val).get::<joule_per_kilogram>();
+        let hs = species.hs(p_val, t_val).get::<joule_per_kilogram>();
         let rho = species.rho(p_val, t_val).get::<kilogram_per_cubic_meter>();
         let psi = rho / p_init;
 
         Self {
-            p:   VolScalarField::uniform("p",   mesh.clone(), p_init),
-            t:   VolScalarField::uniform("T",   mesh.clone(), t_init),
-            he:  VolScalarField::uniform("he",  mesh.clone(), hs),
+            p: VolScalarField::uniform("p", mesh.clone(), p_init),
+            t: VolScalarField::uniform("T", mesh.clone(), t_init),
+            he: VolScalarField::uniform("he", mesh.clone(), hs),
             rho: VolScalarField::uniform("rho", mesh.clone(), rho),
             psi: VolScalarField::uniform("psi", mesh.clone(), psi),
             species,
@@ -71,11 +71,11 @@ impl<M: TransportModel> RhoThermo<M> {
     fn correct_internal(&mut self) {
         let n = self.p.mesh.n_cells;
         for c in 0..n {
-            let p_c   = Pressure::new::<pascal>(self.p.internal[c]);
+            let p_c = Pressure::new::<pascal>(self.p.internal[c]);
             let t_old = ThermodynamicTemperature::new::<kelvin>(self.t.internal[c]);
-            let he_c  = AvailableEnergy::new::<joule_per_kilogram>(self.he.internal[c]);
+            let he_c = AvailableEnergy::new::<joule_per_kilogram>(self.he.internal[c]);
 
-            let t_c   = self.species.t_from_hs(he_c, p_c, t_old).unwrap_or(t_old);
+            let t_c = self.species.t_from_hs(he_c, p_c, t_old).unwrap_or(t_old);
             self.t.internal[c] = t_c.get::<kelvin>();
 
             // Explicit EOS density — not ψ·p
@@ -91,7 +91,7 @@ impl<M: TransportModel> RhoThermo<M> {
         for (pi, patch) in mesh.patches.iter().enumerate() {
             for fi in 0..patch.size {
                 let owner = mesh.owner[patch.start + fi];
-                self.t.boundary[pi].values[fi]  = self.t.internal[owner];
+                self.t.boundary[pi].values[fi] = self.t.internal[owner];
                 self.rho.boundary[pi].values[fi] = self.rho.internal[owner];
                 self.psi.boundary[pi].values[fi] = self.psi.internal[owner];
                 let p_f = Pressure::new::<pascal>(self.p.boundary[pi].values[fi]);
@@ -102,7 +102,11 @@ impl<M: TransportModel> RhoThermo<M> {
         }
     }
 
-    fn transport_field(&self, name: &str, f: impl Fn(Pressure, ThermodynamicTemperature) -> f64) -> VolScalarField {
+    fn transport_field(
+        &self,
+        name: &str,
+        f: impl Fn(Pressure, ThermodynamicTemperature) -> f64,
+    ) -> VolScalarField {
         let mesh = self.p.mesh.clone();
         let internal = Field::from_fn(mesh.n_cells, |c| {
             f(
@@ -110,42 +114,67 @@ impl<M: TransportModel> RhoThermo<M> {
                 ThermodynamicTemperature::new::<kelvin>(self.t.internal[c]),
             )
         });
-        let boundary = mesh.patches.iter().enumerate().map(|(pi, patch)| {
-            let values = Field::from_fn(patch.size, |fi| {
-                f(
-                    Pressure::new::<pascal>(self.p.boundary[pi].values[fi]),
-                    ThermodynamicTemperature::new::<kelvin>(self.t.boundary[pi].values[fi]),
-                )
-            });
-            crate::fields::boundary::bc::PatchField {
-                bc: crate::fields::boundary::bc::BoundaryCondition::ZeroGradient,
-                values,
-            }
-        }).collect();
+        let boundary = mesh
+            .patches
+            .iter()
+            .enumerate()
+            .map(|(pi, patch)| {
+                let values = Field::from_fn(patch.size, |fi| {
+                    f(
+                        Pressure::new::<pascal>(self.p.boundary[pi].values[fi]),
+                        ThermodynamicTemperature::new::<kelvin>(self.t.boundary[pi].values[fi]),
+                    )
+                });
+                crate::fields::boundary::bc::PatchField {
+                    bc: crate::fields::boundary::bc::BoundaryCondition::ZeroGradient,
+                    values,
+                }
+            })
+            .collect();
         VolScalarField::new(name, mesh, internal, boundary)
     }
 }
 
 impl<M: TransportModel> FluidThermo for RhoThermo<M> {
-    fn mesh(&self) -> &Arc<FvMesh> { &self.p.mesh }
-    fn p(&self)   -> &VolScalarField { &self.p }
-    fn p_mut(&mut self) -> &mut VolScalarField { &mut self.p }
-    fn t(&self)   -> &VolScalarField { &self.t }
-    fn rho(&self) -> &VolScalarField { &self.rho }
-    fn he(&self)  -> &VolScalarField { &self.he }
-    fn he_mut(&mut self) -> &mut VolScalarField { &mut self.he }
-    fn psi(&self) -> &VolScalarField { &self.psi }
+    fn mesh(&self) -> &Arc<FvMesh> {
+        &self.p.mesh
+    }
+    fn p(&self) -> &VolScalarField {
+        &self.p
+    }
+    fn p_mut(&mut self) -> &mut VolScalarField {
+        &mut self.p
+    }
+    fn t(&self) -> &VolScalarField {
+        &self.t
+    }
+    fn rho(&self) -> &VolScalarField {
+        &self.rho
+    }
+    fn he(&self) -> &VolScalarField {
+        &self.he
+    }
+    fn he_mut(&mut self) -> &mut VolScalarField {
+        &mut self.he
+    }
+    fn psi(&self) -> &VolScalarField {
+        &self.psi
+    }
 
     fn mu(&self) -> VolScalarField {
         self.transport_field("mu", |p, t| self.species.mu(p, t).get::<pascal_second>())
     }
 
     fn kappa(&self) -> VolScalarField {
-        self.transport_field("kappa", |p, t| self.species.kappa(p, t).get::<watt_per_meter_kelvin>())
+        self.transport_field("kappa", |p, t| {
+            self.species.kappa(p, t).get::<watt_per_meter_kelvin>()
+        })
     }
 
     fn alpha_h(&self) -> VolScalarField {
-        self.transport_field("alpha", |p, t| self.species.alpha_h(p, t).get::<pascal_second>())
+        self.transport_field("alpha", |p, t| {
+            self.species.alpha_h(p, t).get::<pascal_second>()
+        })
     }
 
     fn correct(&mut self) {
@@ -164,8 +193,8 @@ impl<M: TransportModel> FluidThermo for RhoThermo<M> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::primitives::Vector3;
-    use crate::mesh::fv_mesh::{FvMeshBuilder, BoundaryPatch, PatchKind};
     use crate::thermophysics::eos::PerfectGas;
     use crate::thermophysics::thermo::HConstThermo;
     use crate::thermophysics::transport::ConstTransport;
@@ -180,30 +209,42 @@ mod tests {
             ThermodynamicTemperature::new::<kelvin>(298.15),
             AvailableEnergy::new::<joule_per_kilogram>(0.0),
         );
-        ConstTransport::new(thermo, DynamicViscosity::new::<pascal_second>(1.81e-5), Ratio::new::<ratio>(0.71))
+        ConstTransport::new(
+            thermo,
+            DynamicViscosity::new::<pascal_second>(1.81e-5),
+            Ratio::new::<ratio>(0.71),
+        )
     }
 
     fn tiny_mesh() -> Arc<FvMesh> {
-        Arc::new(FvMeshBuilder::new()
-            .n_cells(2).n_internal_faces(1)
-            .owner(vec![0, 1, 0]).neighbour(vec![1])
-            .patches(vec![
-                BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
-                BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
-            ])
-            .cell_volumes(vec![1.0, 1.0])
-            .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
-            .face_area_vectors(vec![
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(-1.0, 0.0, 0.0),
-            ])
-            .face_centres(vec![
-                Vector3::new(0.5, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, 0.0, 0.0),
-            ])
-            .build().unwrap())
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![1.0, 1.0])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
     }
 
     #[test]
@@ -226,7 +267,7 @@ mod tests {
         assert_relative_eq!(thermo.t.internal[0], 500.0, epsilon = 1.0);
         // ρ should decrease at higher T (ideal gas: ρ = p/(R·T))
         let rho_cold = 101325.0 / (287.05 * 300.0);
-        let rho_hot  = 101325.0 / (287.05 * 500.0);
+        let rho_hot = 101325.0 / (287.05 * 500.0);
         assert!(thermo.rho.internal[0] < rho_cold);
         assert_relative_eq!(thermo.rho.internal[0], rho_hot, epsilon = 0.1);
     }
@@ -240,10 +281,6 @@ mod tests {
         let mut rho = RhoThermo::new(air_thermo(), m, 101325.0, 300.0);
         psi.correct();
         rho.correct();
-        assert_relative_eq!(
-            psi.rho.internal[0],
-            rho.rho.internal[0],
-            epsilon = 1e-8
-        );
+        assert_relative_eq!(psi.rho.internal[0], rho.rho.internal[0], epsilon = 1e-8);
     }
 }

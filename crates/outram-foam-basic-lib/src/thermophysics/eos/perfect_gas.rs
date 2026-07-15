@@ -19,9 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::thermophysics::imports::*;
-use crate::thermophysics::constants::{P_REF, R_UNIVERSAL};
 use super::traits::EquationOfState;
+use crate::thermophysics::constants::{P_REF, R_UNIVERSAL};
+use crate::thermophysics::imports::*;
 
 /// Ideal perfect gas: p = ρ·R·T.
 ///
@@ -89,11 +89,11 @@ impl EquationOfState for PerfectGas {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
+    use uom::si::mass_density::kilogram_per_cubic_meter;
+    use uom::si::molar_mass::gram_per_mole;
     use uom::si::pressure::pascal;
     use uom::si::thermodynamic_temperature::kelvin;
-    use uom::si::molar_mass::gram_per_mole;
-    use uom::si::mass_density::kilogram_per_cubic_meter;
-    use approx::assert_relative_eq;
 
     fn air() -> PerfectGas {
         PerfectGas::new(MolarMass::new::<gram_per_mole>(28.97))

@@ -19,8 +19,8 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::ldu_matrix::ldu_matrix::LduMatrix;
 use crate::ldu_matrix::fv_matrix::{SolverPerformance, SolverSettings};
+use crate::ldu_matrix::ldu_matrix::LduMatrix;
 
 /// Preconditioned Conjugate Gradient solver for **symmetric** LDU matrices.
 ///
@@ -97,7 +97,11 @@ pub fn conjugate_gradient(
     if final_residual < settings.tolerance {
         return (
             x,
-            SolverPerformance { n_iterations: 0, final_residual, converged: true },
+            SolverPerformance {
+                n_iterations: 0,
+                final_residual,
+                converged: true,
+            },
         );
     }
 
@@ -112,9 +116,13 @@ pub fn conjugate_gradient(
         let alpha = rz / pap;
 
         // x = x + alpha * p
-        for c in 0..n { x[c] += alpha * p[c]; }
+        for c in 0..n {
+            x[c] += alpha * p[c];
+        }
         // r = r - alpha * A·p
-        for c in 0..n { r[c] -= alpha * ap[c]; }
+        for c in 0..n {
+            r[c] -= alpha * ap[c];
+        }
 
         // z = M^{-1} · r  (DIC apply)
         dic_precondition(ldu, &r_diag, &r, &mut z);
@@ -129,7 +137,9 @@ pub fn conjugate_gradient(
 
         let beta = rz_new / rz;
         // p = z + beta * p
-        for c in 0..n { p[c] = z[c] + beta * p[c]; }
+        for c in 0..n {
+            p[c] = z[c] + beta * p[c];
+        }
 
         rz = rz_new;
     }
@@ -210,7 +220,7 @@ mod tests {
         let neighbour: Vec<usize> = (1..n).collect();
         let mut m = LduMatrix::new(n, owner, neighbour);
         let coeff = 1.0 / (h * h);
-        m.diag  = vec![2.0 * coeff; n];
+        m.diag = vec![2.0 * coeff; n];
         m.upper = vec![-coeff; n - 1];
         m.lower = vec![-coeff; n - 1];
         let b = vec![1.0; n];
@@ -222,7 +232,10 @@ mod tests {
         let mut m = LduMatrix::new(3, vec![], vec![]);
         m.diag = vec![2.0, 3.0, 4.0];
         let b = vec![4.0, 9.0, 8.0];
-        let settings = SolverSettings { tolerance: 1e-10, max_iter: 100 };
+        let settings = SolverSettings {
+            tolerance: 1e-10,
+            max_iter: 100,
+        };
         let (x, perf) = conjugate_gradient(&m, &b, None, &settings);
         assert!(perf.converged, "residual = {}", perf.final_residual);
         assert_relative_eq!(x[0], 2.0, epsilon = 1e-8);
@@ -235,9 +248,16 @@ mod tests {
         let n = 50;
         let h = 1.0 / (n + 1) as f64;
         let (m, b) = tridiag(n);
-        let settings = SolverSettings { tolerance: 1e-10, max_iter: 1000 };
+        let settings = SolverSettings {
+            tolerance: 1e-10,
+            max_iter: 1000,
+        };
         let (x, perf) = conjugate_gradient(&m, &b, None, &settings);
-        assert!(perf.converged, "did not converge: residual = {}", perf.final_residual);
+        assert!(
+            perf.converged,
+            "did not converge: residual = {}",
+            perf.final_residual
+        );
         // Check against exact solution φ = x*(1-x)/2 at interior points
         for i in 0..n {
             let xi = (i + 1) as f64 * h;
@@ -251,10 +271,18 @@ mod tests {
         // CG should converge in at most n iterations on an n×n SPD system
         let n = 20;
         let (m, b) = tridiag(n);
-        let settings = SolverSettings { tolerance: 1e-10, max_iter: 500 };
+        let settings = SolverSettings {
+            tolerance: 1e-10,
+            max_iter: 500,
+        };
         let (_, perf) = conjugate_gradient(&m, &b, None, &settings);
         assert!(perf.converged);
         // CG on a tridiagonal SPD should need << n iterations with preconditioning
-        assert!(perf.n_iterations <= n, "expected <= {} iters, got {}", n, perf.n_iterations);
+        assert!(
+            perf.n_iterations <= n,
+            "expected <= {} iters, got {}",
+            n,
+            perf.n_iterations
+        );
     }
 }

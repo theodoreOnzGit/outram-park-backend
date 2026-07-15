@@ -19,9 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::ops::{Add, Sub, Mul, Div, Neg, AddAssign, SubAssign};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 
-use crate::primitives::{Vector3, Tensor, SymmTensor, SphericalTensor};
+use crate::primitives::{SphericalTensor, SymmTensor, Tensor, Vector3};
 
 /// A flat array over all cells or faces, with element-wise arithmetic.
 ///
@@ -41,11 +41,15 @@ impl<T: Clone> Field<T> {
     }
 
     pub fn uniform(n: usize, value: T) -> Self {
-        Self { data: vec![value; n] }
+        Self {
+            data: vec![value; n],
+        }
     }
 
     pub fn from_fn(n: usize, f: impl Fn(usize) -> T) -> Self {
-        Self { data: (0..n).map(f).collect() }
+        Self {
+            data: (0..n).map(f).collect(),
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -77,7 +81,9 @@ impl<T: Clone> Field<T> {
     }
 
     pub fn map<U: Clone>(&self, f: impl Fn(&T) -> U) -> Field<U> {
-        Field { data: self.data.iter().map(f).collect() }
+        Field {
+            data: self.data.iter().map(f).collect(),
+        }
     }
 }
 
@@ -95,7 +101,11 @@ impl Field<f64> {
     }
 
     pub fn mean(&self) -> f64 {
-        if self.data.is_empty() { 0.0 } else { self.sum() / self.data.len() as f64 }
+        if self.data.is_empty() {
+            0.0
+        } else {
+            self.sum() / self.data.len() as f64
+        }
     }
 
     pub fn min(&self) -> f64 {
@@ -122,20 +132,32 @@ impl Field<f64> {
 
     /// Element-wise product of two scalar fields.
     pub fn pointwise_mul(&self, rhs: &Self) -> Self {
-        assert_eq!(self.len(), rhs.len(), "Field length mismatch in pointwise_mul");
+        assert_eq!(
+            self.len(),
+            rhs.len(),
+            "Field length mismatch in pointwise_mul"
+        );
         Field::from_fn(self.len(), |i| self.data[i] * rhs.data[i])
     }
 
     /// Element-wise division of two scalar fields.
     pub fn pointwise_div(&self, rhs: &Self) -> Self {
-        assert_eq!(self.len(), rhs.len(), "Field length mismatch in pointwise_div");
+        assert_eq!(
+            self.len(),
+            rhs.len(),
+            "Field length mismatch in pointwise_div"
+        );
         Field::from_fn(self.len(), |i| self.data[i] / rhs.data[i])
     }
 
     /// Weighted sum: sum(w[i] * x[i]).
     pub fn weighted_sum(&self, weights: &Field<f64>) -> f64 {
         assert_eq!(self.len(), weights.len());
-        self.data.iter().zip(weights.data.iter()).map(|(x, w)| x * w).sum()
+        self.data
+            .iter()
+            .zip(weights.data.iter())
+            .map(|(x, w)| x * w)
+            .sum()
     }
 }
 
@@ -173,7 +195,9 @@ impl<T> std::ops::IndexMut<usize> for Field<T> {
 }
 
 impl<T> AsRef<[T]> for Field<T> {
-    fn as_ref(&self) -> &[T] { &self.data }
+    fn as_ref(&self) -> &[T] {
+        &self.data
+    }
 }
 
 impl<T> IntoIterator for Field<T> {
@@ -193,12 +217,14 @@ impl<'a, T> IntoIterator for &'a Field<T> {
 }
 
 impl<T: Clone> From<Vec<T>> for Field<T> {
-    fn from(v: Vec<T>) -> Self { Self::new(v) }
+    fn from(v: Vec<T>) -> Self {
+        Self::new(v)
+    }
 }
 
 // ── Arithmetic — Field<T> op Field<T> ────────────────────────────────────────
 
-impl<T: Add<Output=T> + Clone> Add for Field<T> {
+impl<T: Add<Output = T> + Clone> Add for Field<T> {
     type Output = Self;
     fn add(self, rhs: Self) -> Self {
         assert_eq!(self.len(), rhs.len(), "Field length mismatch in add");
@@ -206,7 +232,7 @@ impl<T: Add<Output=T> + Clone> Add for Field<T> {
     }
 }
 
-impl<T: Sub<Output=T> + Clone> Sub for Field<T> {
+impl<T: Sub<Output = T> + Clone> Sub for Field<T> {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self {
         assert_eq!(self.len(), rhs.len(), "Field length mismatch in sub");
@@ -214,14 +240,14 @@ impl<T: Sub<Output=T> + Clone> Sub for Field<T> {
     }
 }
 
-impl<T: Neg<Output=T> + Clone> Neg for Field<T> {
+impl<T: Neg<Output = T> + Clone> Neg for Field<T> {
     type Output = Self;
     fn neg(self) -> Self {
         self.map(|x| -x.clone())
     }
 }
 
-impl<T: Add<Output=T> + Clone> AddAssign for Field<T> {
+impl<T: Add<Output = T> + Clone> AddAssign for Field<T> {
     fn add_assign(&mut self, rhs: Self) {
         assert_eq!(self.len(), rhs.len());
         for (a, b) in self.data.iter_mut().zip(rhs.data) {
@@ -230,7 +256,7 @@ impl<T: Add<Output=T> + Clone> AddAssign for Field<T> {
     }
 }
 
-impl<T: Sub<Output=T> + Clone> SubAssign for Field<T> {
+impl<T: Sub<Output = T> + Clone> SubAssign for Field<T> {
     fn sub_assign(&mut self, rhs: Self) {
         assert_eq!(self.len(), rhs.len());
         for (a, b) in self.data.iter_mut().zip(rhs.data) {
@@ -241,7 +267,7 @@ impl<T: Sub<Output=T> + Clone> SubAssign for Field<T> {
 
 // ── Arithmetic — Field<T> op f64 ─────────────────────────────────────────────
 
-impl<T: Mul<f64, Output=T> + Clone> Mul<f64> for Field<T> {
+impl<T: Mul<f64, Output = T> + Clone> Mul<f64> for Field<T> {
     type Output = Self;
     fn mul(self, rhs: f64) -> Self {
         self.map(|x| x.clone() * rhs)
@@ -263,7 +289,7 @@ impl Mul<Field<Vector3>> for f64 {
     }
 }
 
-impl<T: Mul<f64, Output=T> + Clone> Div<f64> for Field<T> {
+impl<T: Mul<f64, Output = T> + Clone> Div<f64> for Field<T> {
     type Output = Self;
     fn div(self, rhs: f64) -> Self {
         let inv = 1.0 / rhs;
@@ -305,23 +331,33 @@ impl Mul<Field<Vector3>> for Field<f64> {
 // ── Default ───────────────────────────────────────────────────────────────────
 
 impl Default for Field<f64> {
-    fn default() -> Self { Self::new(vec![]) }
+    fn default() -> Self {
+        Self::new(vec![])
+    }
 }
 
 impl Default for Field<Vector3> {
-    fn default() -> Self { Self::new(vec![]) }
+    fn default() -> Self {
+        Self::new(vec![])
+    }
 }
 
 impl Default for Field<Tensor> {
-    fn default() -> Self { Self::new(vec![]) }
+    fn default() -> Self {
+        Self::new(vec![])
+    }
 }
 
 impl Default for Field<SymmTensor> {
-    fn default() -> Self { Self::new(vec![]) }
+    fn default() -> Self {
+        Self::new(vec![])
+    }
 }
 
 impl Default for Field<SphericalTensor> {
-    fn default() -> Self { Self::new(vec![]) }
+    fn default() -> Self {
+        Self::new(vec![])
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -376,8 +412,14 @@ mod tests {
 
     #[test]
     fn vector3_add_fields() {
-        let a = Field::new(vec![Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 1.0, 0.0)]);
-        let b = Field::new(vec![Vector3::new(0.0, 0.0, 1.0), Vector3::new(1.0, 0.0, 0.0)]);
+        let a = Field::new(vec![
+            Vector3::new(1.0, 0.0, 0.0),
+            Vector3::new(0.0, 1.0, 0.0),
+        ]);
+        let b = Field::new(vec![
+            Vector3::new(0.0, 0.0, 1.0),
+            Vector3::new(1.0, 0.0, 0.0),
+        ]);
         let c = a + b;
         assert_eq!(c[0], Vector3::new(1.0, 0.0, 1.0));
         assert_eq!(c[1], Vector3::new(1.0, 1.0, 0.0));
@@ -385,7 +427,10 @@ mod tests {
 
     #[test]
     fn vector3_scale_by_scalar_field() {
-        let v = Field::new(vec![Vector3::new(1.0, 2.0, 3.0), Vector3::new(4.0, 5.0, 6.0)]);
+        let v = Field::new(vec![
+            Vector3::new(1.0, 2.0, 3.0),
+            Vector3::new(4.0, 5.0, 6.0),
+        ]);
         let s = Field::new(vec![2.0, 0.5]);
         let result = v.scale(&s);
         assert_eq!(result[0], Vector3::new(2.0, 4.0, 6.0));

@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+pub mod psi_thermo;
+pub mod rho_thermo;
+pub mod solid_thermo;
 /// Field-level fluid thermodynamic interface (Layer 4).
 ///
 /// Mirrors `Foam::fluidThermo` / `Foam::psiThermo` / `Foam::rhoThermo` from
@@ -28,11 +31,8 @@
 /// `psi`) and uses a per-species `TransportModel` (from Layer 1h) to evaluate
 /// properties cell-by-cell.
 pub mod traits;
-pub mod psi_thermo;
-pub mod rho_thermo;
-pub mod solid_thermo;
 
-pub use traits::FluidThermo;
 pub use psi_thermo::PsiThermo;
 pub use rho_thermo::RhoThermo;
-pub use solid_thermo::{SolidThermo, ConstSolidThermo};
+pub use solid_thermo::{ConstSolidThermo, SolidThermo};
+pub use traits::FluidThermo;

@@ -20,5 +20,5 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod square_matrix;
-pub use square_matrix::SquareMatrix;
 pub use square_matrix::MatrixError;
+pub use square_matrix::SquareMatrix;

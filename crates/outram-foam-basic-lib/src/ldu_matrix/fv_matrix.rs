@@ -22,14 +22,14 @@
 use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
 use std::sync::Arc;
 
-use crate::mesh::fv_mesh::FvMesh;
-use crate::fields::field::Field;
-use crate::fields::vol_field::VolScalarField;
-use crate::fields::boundary::bc::PatchField;
 use super::ldu_matrix::LduMatrix;
-use super::solvers::gauss_seidel::gauss_seidel;
 use super::solvers::conjugate_gradient::conjugate_gradient;
 use super::solvers::gamg::gamg;
+use super::solvers::gauss_seidel::gauss_seidel;
+use crate::fields::boundary::bc::PatchField;
+use crate::fields::field::Field;
+use crate::fields::vol_field::VolScalarField;
+use crate::mesh::fv_mesh::FvMesh;
 
 /// Sparse implicit matrix equation `A·φ = b` for a scalar field φ.
 ///
@@ -54,7 +54,10 @@ pub struct SolverSettings {
 
 impl Default for SolverSettings {
     fn default() -> Self {
-        Self { tolerance: 1e-7, max_iter: 1000 }
+        Self {
+            tolerance: 1e-7,
+            max_iter: 1000,
+        }
     }
 }
 
@@ -69,9 +72,9 @@ pub struct SolverPerformance {
 impl FvMatrix {
     /// Create a new zero-initialised FvMatrix for the given mesh.
     pub fn new(mesh: Arc<FvMesh>) -> Self {
-        let owner    = mesh.owner[..mesh.n_internal_faces].to_vec();
+        let owner = mesh.owner[..mesh.n_internal_faces].to_vec();
         let neighbour = mesh.neighbour.to_vec();
-        let n_cells  = mesh.n_cells;
+        let n_cells = mesh.n_cells;
         Self {
             mesh,
             ldu: LduMatrix::new(n_cells, owner, neighbour),
@@ -90,17 +93,16 @@ impl FvMatrix {
     ) -> (VolScalarField, SolverPerformance) {
         let mut x = vec![0.0_f64; self.mesh.n_cells];
         let b: Vec<f64> = self.source.iter().copied().collect();
-        let (iters, res) = gauss_seidel(&self.ldu, &b, &mut x, settings.tolerance, settings.max_iter);
+        let (iters, res) =
+            gauss_seidel(&self.ldu, &b, &mut x, settings.tolerance, settings.max_iter);
 
-        let boundary = self.mesh.patches.iter()
+        let boundary = self
+            .mesh
+            .patches
+            .iter()
             .map(|p| PatchField::zero_gradient(p.size))
             .collect();
-        let field = VolScalarField::new(
-            name,
-            self.mesh.clone(),
-            Field::new(x),
-            boundary,
-        );
+        let field = VolScalarField::new(name, self.mesh.clone(), Field::new(x), boundary);
         let perf = SolverPerformance {
             n_iterations: iters,
             final_residual: res,
@@ -156,7 +158,10 @@ impl FvMatrix {
         let b: Vec<f64> = self.source.iter().copied().collect();
         let (x, perf) = conjugate_gradient(&self.ldu, &b, x0, &settings);
 
-        let boundary = self.mesh.patches.iter()
+        let boundary = self
+            .mesh
+            .patches
+            .iter()
             .map(|p| PatchField::zero_gradient(p.size))
             .collect();
         let field = VolScalarField::new(name, self.mesh.clone(), Field::new(x), boundary);
@@ -202,7 +207,10 @@ impl FvMatrix {
         let b: Vec<f64> = self.source.iter().copied().collect();
         let (x, perf) = gamg(&self.ldu, &b, x0, &settings);
 
-        let boundary = self.mesh.patches.iter()
+        let boundary = self
+            .mesh
+            .patches
+            .iter()
             .map(|p| PatchField::zero_gradient(p.size))
             .collect();
         let field = VolScalarField::new(name, self.mesh.clone(), Field::new(x), boundary);
@@ -229,9 +237,9 @@ impl FvMatrix {
         let n = self.ldu.neighbour[face];
         // Laplacian: upper[f] = lower[f] = -coeff (off-diagonal negative)
         self.ldu.upper[face] -= coeff;
-        self.ldu.lower[face]  -= coeff;
-        self.ldu.diag[o]     += coeff;
-        self.ldu.diag[n]     += coeff;
+        self.ldu.lower[face] -= coeff;
+        self.ldu.diag[o] += coeff;
+        self.ldu.diag[n] += coeff;
     }
 
     /// Pin one cell to a reference value — fixes the singular pressure matrix
@@ -241,17 +249,25 @@ impl FvMatrix {
     /// `source[cell]` so that the solution is forced toward `value`.
     pub fn set_reference(&mut self, cell: usize, value: f64) {
         self.ldu.diag[cell] += 1e30;
-        self.source[cell]   += 1e30 * value;
+        self.source[cell] += 1e30 * value;
     }
 
     /// Diagonal coefficient per cell: `A[c] = diag[c]`.
     ///
     /// Used in PISO: `rAU = 1 / pEqn.a_field()`.
     pub fn a_field(&self) -> VolScalarField {
-        let boundary = self.mesh.patches.iter()
+        let boundary = self
+            .mesh
+            .patches
+            .iter()
             .map(|p| PatchField::zero_gradient(p.size))
             .collect();
-        VolScalarField::new("A", self.mesh.clone(), Field::new(self.ldu.diag.clone()), boundary)
+        VolScalarField::new(
+            "A",
+            self.mesh.clone(),
+            Field::new(self.ldu.diag.clone()),
+            boundary,
+        )
     }
 
     /// Off-diagonal residual: `H[c] = source[c] − Σ off-diag · x`.
@@ -261,14 +277,19 @@ impl FvMatrix {
     pub fn h_field(&self, x: &VolScalarField) -> VolScalarField {
         let n = self.mesh.n_cells;
         let mut h = vec![0.0_f64; n];
-        for c in 0..n { h[c] = self.source[c]; }
-        for f in 0..self.mesh.n_internal_faces {
-            let o  = self.ldu.owner[f];
-            let nb = self.ldu.neighbour[f];
-            h[o]  -= x.internal[nb] * self.ldu.upper[f];
-            h[nb] -= x.internal[o]  * self.ldu.lower[f];
+        for c in 0..n {
+            h[c] = self.source[c];
         }
-        let boundary = self.mesh.patches.iter()
+        for f in 0..self.mesh.n_internal_faces {
+            let o = self.ldu.owner[f];
+            let nb = self.ldu.neighbour[f];
+            h[o] -= x.internal[nb] * self.ldu.upper[f];
+            h[nb] -= x.internal[o] * self.ldu.lower[f];
+        }
+        let boundary = self
+            .mesh
+            .patches
+            .iter()
             .map(|p| PatchField::zero_gradient(p.size))
             .collect();
         VolScalarField::new("H", self.mesh.clone(), Field::new(h), boundary)
@@ -280,9 +301,15 @@ impl FvMatrix {
 impl Add for FvMatrix {
     type Output = Self;
     fn add(mut self, rhs: Self) -> Self {
-        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) { *a += b; }
-        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) { *a += b; }
-        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) { *a += b; }
+        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) {
+            *a += b;
+        }
+        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) {
+            *a += b;
+        }
+        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) {
+            *a += b;
+        }
         self.source += rhs.source;
         self
     }
@@ -291,9 +318,15 @@ impl Add for FvMatrix {
 impl Sub for FvMatrix {
     type Output = Self;
     fn sub(mut self, rhs: Self) -> Self {
-        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) { *a -= b; }
-        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) { *a -= b; }
-        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) { *a -= b; }
+        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) {
+            *a -= b;
+        }
+        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) {
+            *a -= b;
+        }
+        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) {
+            *a -= b;
+        }
         self.source -= rhs.source;
         self
     }
@@ -302,9 +335,15 @@ impl Sub for FvMatrix {
 impl Neg for FvMatrix {
     type Output = Self;
     fn neg(mut self) -> Self {
-        for x in self.ldu.diag.iter_mut() { *x = -*x; }
-        for x in self.ldu.lower.iter_mut() { *x = -*x; }
-        for x in self.ldu.upper.iter_mut() { *x = -*x; }
+        for x in self.ldu.diag.iter_mut() {
+            *x = -*x;
+        }
+        for x in self.ldu.lower.iter_mut() {
+            *x = -*x;
+        }
+        for x in self.ldu.upper.iter_mut() {
+            *x = -*x;
+        }
         self.source = -self.source;
         self
     }
@@ -312,18 +351,30 @@ impl Neg for FvMatrix {
 
 impl AddAssign for FvMatrix {
     fn add_assign(&mut self, rhs: Self) {
-        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) { *a += b; }
-        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) { *a += b; }
-        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) { *a += b; }
+        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) {
+            *a += b;
+        }
+        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) {
+            *a += b;
+        }
+        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) {
+            *a += b;
+        }
         self.source += rhs.source;
     }
 }
 
 impl SubAssign for FvMatrix {
     fn sub_assign(&mut self, rhs: Self) {
-        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) { *a -= b; }
-        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) { *a -= b; }
-        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) { *a -= b; }
+        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) {
+            *a -= b;
+        }
+        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) {
+            *a -= b;
+        }
+        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) {
+            *a -= b;
+        }
         self.source -= rhs.source;
     }
 }
@@ -333,8 +384,8 @@ impl SubAssign for FvMatrix {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::primitives::Vector3;
-    use crate::mesh::fv_mesh::{FvMeshBuilder, BoundaryPatch, PatchKind};
     use approx::assert_relative_eq;
 
     fn unit_mesh() -> Arc<FvMesh> {
@@ -346,7 +397,7 @@ mod tests {
                 .neighbour(vec![1])
                 .patches(vec![
                     BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
-                    BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
                 ])
                 .cell_volumes(vec![1.0, 1.0])
                 .cell_centres(vec![
@@ -364,7 +415,7 @@ mod tests {
                     Vector3::new(0.0, 0.0, 0.0),
                 ])
                 .build()
-                .unwrap()
+                .unwrap(),
         )
     }
 
@@ -379,7 +430,11 @@ mod tests {
         mat.source = Field::new(vec![6.0, 10.0]);
 
         let (phi, perf) = mat.solve("phi", SolverSettings::default());
-        assert!(perf.converged, "did not converge: residual = {}", perf.final_residual);
+        assert!(
+            perf.converged,
+            "did not converge: residual = {}",
+            perf.final_residual
+        );
         assert_relative_eq!(phi.internal[0], 2.0, epsilon = 1e-6);
         assert_relative_eq!(phi.internal[1], 2.0, epsilon = 1e-6);
     }

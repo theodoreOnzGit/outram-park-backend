@@ -20,7 +20,7 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 use crate::fields::field::Field;
-use crate::primitives::Vector3;
+use crate::primitives::{SymmTensor, Tensor, Vector3};
 
 /// Boundary condition variant for a single patch.
 ///
@@ -79,7 +79,10 @@ impl PatchField<f64> {
     }
 
     pub fn empty() -> Self {
-        Self { bc: BoundaryCondition::Empty, values: Field::new(vec![]) }
+        Self {
+            bc: BoundaryCondition::Empty,
+            values: Field::new(vec![]),
+        }
     }
 }
 
@@ -99,6 +102,47 @@ impl PatchField<Vector3> {
     }
 
     pub fn empty_vec() -> Self {
-        Self { bc: BoundaryCondition::Empty, values: Field::new(vec![]) }
+        Self {
+            bc: BoundaryCondition::Empty,
+            values: Field::new(vec![]),
+        }
+    }
+}
+
+impl PatchField<Tensor> {
+    /// Dirichlet patch holding a uniform `Tensor` value.
+    pub fn fixed_value_tensor(size: usize, v: Tensor) -> Self {
+        Self {
+            bc: BoundaryCondition::FixedValue(v),
+            values: Field::uniform(size, v),
+        }
+    }
+
+    /// Zero-gradient (Neumann) patch for a `Tensor` field; values default to
+    /// `Tensor::ZERO` and are overwritten by the operator that owns them.
+    pub fn zero_gradient_tensor(size: usize) -> Self {
+        Self {
+            bc: BoundaryCondition::ZeroGradient,
+            values: Field::uniform(size, Tensor::ZERO),
+        }
+    }
+}
+
+impl PatchField<SymmTensor> {
+    /// Dirichlet patch holding a uniform `SymmTensor` value.
+    pub fn fixed_value_symm_tensor(size: usize, v: SymmTensor) -> Self {
+        Self {
+            bc: BoundaryCondition::FixedValue(v),
+            values: Field::uniform(size, v),
+        }
+    }
+
+    /// Zero-gradient (Neumann) patch for a `SymmTensor` field; values default to
+    /// `SymmTensor::ZERO` and are overwritten by the operator that owns them.
+    pub fn zero_gradient_symm_tensor(size: usize) -> Self {
+        Self {
+            bc: BoundaryCondition::ZeroGradient,
+            values: Field::uniform(size, SymmTensor::ZERO),
+        }
     }
 }

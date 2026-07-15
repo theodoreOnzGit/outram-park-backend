@@ -19,12 +19,13 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod field;
 pub mod boundary;
-pub mod vol_field;
+pub mod field;
 pub mod surface_field;
+pub mod vol_field;
+pub mod vol_field_algebra;
 
-pub use field::Field;
-pub use vol_field::*;
-pub use surface_field::*;
 pub use boundary::*;
+pub use field::Field;
+pub use surface_field::*;
+pub use vol_field::*;

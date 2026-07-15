@@ -22,8 +22,8 @@
 use std::sync::Arc;
 
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
-use crate::mesh::fv_mesh::FvMesh;
 use crate::ldu_matrix::fv_vector_matrix::FvVectorMatrix;
+use crate::mesh::fv_mesh::FvMesh;
 
 /// Implicit Euler ddt for a `VolVectorField`:
 /// `∂U/∂t ≈ (U − U_old) / Δt`
@@ -76,38 +76,46 @@ pub fn ddt_coeff_vec(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::ldu_matrix::fv_matrix::SolverSettings;
+    use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::primitives::Vector3;
 
     fn unit_mesh() -> Arc<FvMesh> {
-        Arc::new(FvMeshBuilder::new()
-            .n_cells(2).n_internal_faces(1)
-            .owner(vec![0, 1, 0]).neighbour(vec![1])
-            .patches(vec![
-                BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
-                BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
-            ])
-            .cell_volumes(vec![1.0, 1.0])
-            .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
-            .face_area_vectors(vec![
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(-1.0, 0.0, 0.0),
-            ])
-            .face_centres(vec![
-                Vector3::new(0.5, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, 0.0, 0.0),
-            ])
-            .build().unwrap())
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![1.0, 1.0])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
     }
 
     #[test]
     fn ddt_vec_recovers_constant_field() {
         let m = unit_mesh();
         let u_old = VolVectorField::uniform("Uold", m.clone(), Vector3::new(1.0, 2.0, 3.0));
-        let u     = VolVectorField::uniform("U", m.clone(), Vector3::new(1.0, 2.0, 3.0));
+        let u = VolVectorField::uniform("U", m.clone(), Vector3::new(1.0, 2.0, 3.0));
         let mat = ddt_vec(&u, &u_old, 0.1, m);
         let (u_new, perf) = mat.solve("U", SolverSettings::default());
         assert!(perf.converged, "not converged");
@@ -120,9 +128,9 @@ mod tests {
     fn ddt_coeff_vec_diagonal_is_coeff_times_volume_over_dt() {
         // rho = 2, V = 1, dt = 0.5  →  diag = 2*1/0.5 = 4
         let m = unit_mesh();
-        let rho   = VolScalarField::uniform("rho", m.clone(), 2.0);
+        let rho = VolScalarField::uniform("rho", m.clone(), 2.0);
         let u_old = VolVectorField::uniform("Uold", m.clone(), Vector3::new(3.0, 0.0, 0.0));
-        let u     = VolVectorField::zero("U", m.clone());
+        let u = VolVectorField::zero("U", m.clone());
         let mat = ddt_coeff_vec(&rho, &u, &u_old, 0.5, m);
         assert!((mat.ldu.diag[0] - 4.0).abs() < 1e-12);
         assert!((mat.ldu.diag[1] - 4.0).abs() < 1e-12);
@@ -133,9 +141,9 @@ mod tests {
     #[test]
     fn ddt_coeff_vec_solves_to_old_when_no_spatial_terms() {
         let m = unit_mesh();
-        let rho   = VolScalarField::uniform("rho", m.clone(), 5.0);
+        let rho = VolScalarField::uniform("rho", m.clone(), 5.0);
         let u_old = VolVectorField::uniform("Uold", m.clone(), Vector3::new(2.0, -1.0, 4.0));
-        let u     = VolVectorField::zero("U", m.clone());
+        let u = VolVectorField::zero("U", m.clone());
         let mat = ddt_coeff_vec(&rho, &u, &u_old, 1.0, m);
         let (u_new, perf) = mat.solve("U", SolverSettings::default());
         assert!(perf.converged);
