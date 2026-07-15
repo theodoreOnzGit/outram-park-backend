@@ -9,7 +9,7 @@ pub use crate::geometry::position::{Position, Direction};
 pub use crate::geometry::surface::{BoundaryType, Sphere, SurfaceKind, XPlane, YPlane, ZPlane, ZCylinder};
 pub use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 pub use crate::geometry::universe::Universe;
-pub use crate::geometry::lattice::RectLattice;
+pub use crate::geometry::lattice::{HexLattice, HexOrientation, Lattice, RectLattice};
 pub use crate::geometry::geometry::{BoundaryHit, Coord, Crossing, Geometry, GeometryPath};
 pub use crate::particle::particle::{Particle, ParticleType};
 pub use crate::material::material::{MacroXs, Material};
