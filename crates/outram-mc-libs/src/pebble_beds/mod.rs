@@ -17,8 +17,14 @@
 //!   continues). The neutron never needs to know how many TRISO surfaces it flew
 //!   past — the dominant win for doubly-heterogeneous media.
 //! - **[`stochastic_media`]** — generating and sampling the random packed geometry
-//!   itself (Random Sequential Addition, Chord Length Sampling, RSA–DEM/ODR–DEM
-//!   hybrids). See the [`references`] bibliography.
+//!   itself. Random Sequential Addition (RSA) is implemented
+//!   ([`stochastic_media::pack_spheres`]); Chord Length Sampling and the
+//!   RSA–DEM/ODR–DEM high-density hybrids are future work. See the [`references`]
+//!   bibliography.
+//! - **[`keff_delta`]** — the assembly: a fission-source k-eigenvalue power
+//!   iteration over a reflective cube of packed kernels, with every history
+//!   streamed by delta tracking ([`keff_delta::run_keff_delta`]). This is the
+//!   doubly-heterogeneous k-eff the other two modules exist to make tractable.
 //!
 //! # Why a dedicated module
 //!
@@ -35,5 +41,6 @@
 //! papers in the RMC code; the machine-readable citations are in [`references`].
 
 pub mod delta_tracking;
+pub mod keff_delta;
 pub mod references;
 pub mod stochastic_media;
