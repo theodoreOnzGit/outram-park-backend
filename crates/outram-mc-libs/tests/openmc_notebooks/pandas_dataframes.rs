@@ -14,7 +14,7 @@
 
 /// GAP placeholder for the `pandas-dataframes` notebook. See the module docs.
 #[test]
-#[ignore = "requires tally DataFrame export atop scored tallies (op-6tz.22 -> op-6tz.9)"]
+#[ignore = "ON HOLD (user 2026-07-15): do NOT reimplement pandas; a Rust-native data representation (serde/CSV or polars/arrow) is TBD, not this notebook (op-6tz.22)"]
 fn pandas_dataframe_export() {
     unimplemented!("pandas-dataframes: requires tally DataFrame export atop scored tallies (op-6tz.22 -> op-6tz.9)");
 }
