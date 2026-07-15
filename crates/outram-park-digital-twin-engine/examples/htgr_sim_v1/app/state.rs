@@ -30,7 +30,7 @@ pub struct HtgrSnapshot {
     pub reactor_power_mw: f64,
     /// Prompt-excursion-layer power \[MW\].
     pub prompt_power_mw: f64,
-    /// Delayed-neutron layer's tracked contribution \[MW\].
+    /// Delayed-neutron power increment `S*dt` added this step \[MW\].
     pub delayed_power_mw: f64,
     /// Lumped fuel temperature \[K\].
     pub fuel_temperature_k: f64,

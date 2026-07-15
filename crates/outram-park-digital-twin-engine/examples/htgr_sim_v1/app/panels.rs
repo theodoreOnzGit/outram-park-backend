@@ -114,7 +114,7 @@ pub fn draw_plots_panel(ui: &mut Ui, plots: &HtgrPlotData) {
                 PlotPoints::from(plots.prompt_power_mw.clone()),
             ));
             plot_ui.line(Line::new(
-                "Delayed layer [MW]",
+                "Delayed increment/step [MW]",
                 PlotPoints::from(plots.delayed_power_mw.clone()),
             ));
             plot_ui.line(Line::new(
@@ -165,8 +165,8 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot) {
             );
             row(
                 ui,
-                "Delayed-layer power",
-                format!("{:.3} MWth", s.delayed_power_mw),
+                "Delayed increment (S*dt)",
+                format!("{:.3} MWth/step", s.delayed_power_mw),
             );
             row(
                 ui,
