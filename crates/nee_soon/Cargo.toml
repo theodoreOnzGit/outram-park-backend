@@ -18,6 +18,11 @@ exclude = ["verification_and_validation/*.csv"]
 njoy-outram-park-fork = { workspace = true }   # nuclear data / cross sections
 outram-mc-libs           = { workspace = true }   # Monte Carlo transport
 teh-o-prke            = { workspace = true }   # point reactor kinetics (PRKE)
+# GeN-Foam SP3 neutronics + porous-media TH + multi_region coupling. Used by the
+# Xin Wang SP3 workflow scaffold (src/xin_wang_sp3_workflow/). The SP3 solver
+# port is in progress in a parallel session; the scaffold codes against its
+# intended NeutronicsModel::Sp3 / Sp3Neutronics interface (see op-fr2.2.4).
+outram-foam-appbuilder-lib = { workspace = true }   # GeN-Foam SP3 multiphysics host
 
 # Public API primitives — dimensioned quantities and error types for the
 # object-oriented surface.

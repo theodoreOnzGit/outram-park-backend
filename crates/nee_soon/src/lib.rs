@@ -17,6 +17,15 @@
 //! | Monte Carlo transport | [`outram_mc_libs`] | CSG geometry, k-eigenvalue, Woodcock tracking |
 //! | Point reactor kinetics | [`teh_o_prke`] | PRKE precursor/reactivity time response |
 //! | Prompt excursion (Nordheim-Fuchs) | [`teh_o_prke::nordheim_fuchs`] | real-time-friendly closed-form prompt excursion + adiabatic fuel feedback, the "Prompt Excursion Layer" beneath full PRKE |
+//! | GeN-Foam SP3 multiphysics | [`outram_foam_appbuilder_lib::genfoam`] | SP3 neutronics + porous-media TH + multi-region coupling (host for the Xin Wang workflow) |
+//!
+//! ## Worked coupling: the Xin Wang SP3 workflow
+//!
+//! [`xin_wang_sp3_workflow`] is a **scaffold** of the four-stage
+//! njoy → openmc → genfoam pipeline that reproduces Figure 4.29 (Mk1 PB-FHR
+//! control-rod-removal transient) of Xin Wang's 2018 UC Berkeley PhD
+//! dissertation. Each stage is a documented, beaded placeholder; the extracted
+//! thesis methodology and case data live in the crate's `docs/xin-wang-thesis/`.
 //!
 //! ## Entry point
 //!
@@ -46,6 +55,8 @@
 //! work, deliberately out of scope for this pass.
 
 #![forbid(unsafe_code)]
+
+pub mod xin_wang_sp3_workflow;
 
 pub use teh_o_prke::nordheim_fuchs::NordheimFuchsExactTimestepper;
 pub use teh_o_prke::teh_o_prke_error::TehOPrkeError;
@@ -161,9 +172,6 @@ mod tests {
             direct.step(dt);
         }
 
-        assert_eq!(
-            via_facade.power.get::<watt>(),
-            direct.power.get::<watt>()
-        );
+        assert_eq!(via_facade.power.get::<watt>(), direct.power.get::<watt>());
     }
 }
