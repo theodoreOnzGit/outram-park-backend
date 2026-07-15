@@ -17,3 +17,7 @@ crates/njoy-outram-park-fork/tests/resources/*.h5
 # KOVAN proprietary literature is user-owned content that must never be
 # committed (see crates/kovan-literature). The whole tree stays local.
 crates/kovan-literature/proprietary/
+
+# Generated outram-mc ↔ OpenMC-notebook comparison CSVs — reproducible from the
+# verification tests + the .ipynb reference values; kept local, not committed.
+crates/outram-mc-libs/verification_and_validation/openmc_notebook_comparisons/

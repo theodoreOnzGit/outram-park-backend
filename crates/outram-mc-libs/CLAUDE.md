@@ -31,6 +31,22 @@ the OUTRAM PARK Monte Carlo path. This is a durable direction, not a one-off.
   (source notebook + commit) per RESPONSIBLE_USE.md; V&V docs state methodology
   **and** measured results. Tracked under beads epic **op-6tz**.
 
+### Reference values + comparison outputs (MANDATORY)
+
+- **For ALL outram-mc comparisons, reference values come from the openmc
+  `.ipynb` files themselves** — the k-effective / tally results stored in the
+  notebook cell outputs (fetch the raw notebook; cite the notebook + commit).
+  Do not invent or approximate a reference; use the number the notebook printed,
+  and match the notebook's geometry / material / data as closely as the
+  available data allows so the comparison is apples-to-apples.
+- **Write each comparison as a CSV** to
+  `verification_and_validation/openmc_notebook_comparisons/` (one CSV per
+  notebook; columns: date, notebook, case, our k ± σ, reference k ± σ, Δk (pcm),
+  combined σ, σ-distance, data used on each side, stats note). That folder is
+  **gitignored** — the CSVs are reproducible generated outputs, kept local, not
+  committed. The interpretation/write-up still goes in the committed V&V docs +
+  the relevant bead.
+
 ---
 
 ## Porting rule (mandatory) — mirror the canonical source, do not reinvent
