@@ -2830,6 +2830,7 @@ dependencies = [
  "lopdf",
  "serde_json",
  "tempfile",
+ "which",
 ]
 
 [[package]]
@@ -3314,6 +3315,7 @@ name = "nee_soon"
 version = "0.1.0"
 dependencies = [
  "njoy-outram-park-fork",
+ "outram-foam-appbuilder-lib",
  "outram-mc-libs",
  "teh-o-prke",
  "thiserror 2.0.18",
@@ -6521,6 +6523,15 @@ dependencies = [
  "log",
  "raw-window-handle",
  "web-sys",
+]
+
+[[package]]
+name = "which"
+version = "8.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f3ef584124b911bcc3875c2f1472e80f24361ceb789bd1c62b3e9a3df9ff43c"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

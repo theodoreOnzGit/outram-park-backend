@@ -21,6 +21,7 @@ pub mod lit;
 pub mod methods;
 pub mod scan;
 pub mod search;
+pub mod setup;
 pub mod symbols;
 
 use clap::ValueEnum;

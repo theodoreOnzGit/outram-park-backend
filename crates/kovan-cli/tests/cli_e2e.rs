@@ -358,3 +358,21 @@ fn lit_bibtex_missing_pdf_reports_an_error() {
     assert!(!out.status.success());
     assert!(!stderr(&out).is_empty());
 }
+
+// ---------------------------------------------------------------------
+// setup
+// ---------------------------------------------------------------------
+
+/// `--dry-run` must never spawn `cargo install` (no network, no writes) —
+/// this only checks the report is well-formed and the command succeeds.
+#[test]
+fn setup_dry_run_reports_without_installing() {
+    let out = kovan(&["setup", "--dry-run"]);
+    assert!(out.status.success(), "{}", stderr(&out));
+    let text = stdout(&out);
+    assert!(text.contains("kovan setup"), "{text}");
+    assert!(text.contains("dry run"), "{text}");
+    // One reported line per curated tool (either "already on PATH" or "would
+    // run `cargo install ...`"); `rg` (ripgrep) is in the curated list.
+    assert!(text.contains("rg"), "{text}");
+}

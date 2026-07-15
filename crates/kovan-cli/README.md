@@ -17,9 +17,24 @@ principles (deterministic-first, local-first, Android-first) and mission.
 ## Install / run
 
 ```bash
-cargo build --release -p kovan-cli
-./target/release/kovan --help
+cargo install --path crates/kovan-cli
+kovan --help
 ```
+
+(or, without installing to `~/.cargo/bin`: `cargo build --release -p kovan-cli`
+and run `./target/release/kovan --help`.)
+
+Optionally, bring your shell up to a useful baseline for working in this
+repository:
+
+```bash
+kovan setup             # installs any of a curated tool list (rg, fd, bat, ...) missing from PATH
+kovan setup --dry-run   # report what would be installed, without installing anything
+```
+
+`kovan setup` is an explicit, online, desktop-scope convenience — see
+"`setup`" below. It never runs automatically and has no bearing on the rest
+of this crate's offline/Android-clean operation (see "Android").
 
 ## Commands
 
@@ -36,6 +51,7 @@ kovan gen root newton-raphson
 kovan lit import paper.pdf --json-out doc.json
 kovan lit bibtex doc.json
 kovan lit outline paper.pdf
+kovan setup --dry-run
 ```
 
 Every command's own `--help` documents its flags; the summary below is the
@@ -122,14 +138,44 @@ from it, never the reverse.
   documented result of `kovan-literature`'s deliberately conservative heading
   detection (see its crate docs), not a CLI bug.
 
+### `setup` — curated external CLI tools (`commands::setup`)
+
+`setup [--dry-run] [--force]` installs a small, hard-coded, easily-extended
+list of useful external Rust CLI tools via `cargo install`, skipping any
+whose binary is already on `PATH`:
+
+| crate (`cargo install <crate>`) | binary | purpose |
+|---|---|---|
+| `eza` | `eza` | modern `ls` replacement (colour, git status, tree view) |
+| `ripgrep` | `rg` | fast recursive regex search — what `kovan-discovery`/`kovan-semantics` shell out to |
+| `fd-find` | `fd` | fast, user-friendly `find` replacement |
+| `bat` | `bat` | `cat` with syntax highlighting and git-diff markers |
+| `tokei` | `tokei` | fast source-code line counter / per-language breakdown |
+
+- `--dry-run` — report which tools are already present vs. would be
+  installed; installs nothing.
+- `--force` — reinstall even if the binary is already on `PATH`.
+- A missing `cargo`, a network failure, or a non-zero `cargo install` exit
+  are all caught per-tool and reported (`[FAILED] <tool> — <reason>`) rather
+  than panicking; one failing tool never stops the rest. The command exits
+  non-zero only if at least one requested install genuinely failed.
+
+**`setup` is explicit, online, and desktop-scope** — no other `kovan`
+subcommand calls it, it is never run automatically, and it does not affect
+the rest of this crate's offline/Android-clean core operation (below). On
+Android it detects PATH presence normally but no-ops the actual install
+(there is no meaningful `cargo install`-a-dev-tool host on-device).
+
 ## Determinism & offline guarantees
 
-Every subcommand is deterministic and fully offline, inheriting the
-guarantees of the library crate it wraps (see each `kovan-*` crate's own
-`README.md`/crate docs for the specifics: `kovan-discovery`'s sorted-output
-contract, `kovan-literature`'s byte-for-byte PDF pipeline, `kovan-codegen`'s
-byte-identical generation). The CLI itself adds no additional
-non-determinism — it only formats and prints what the library call returned.
+Every subcommand **except `setup`** is deterministic and fully offline,
+inheriting the guarantees of the library crate it wraps (see each `kovan-*`
+crate's own `README.md`/crate docs for the specifics: `kovan-discovery`'s
+sorted-output contract, `kovan-literature`'s byte-for-byte PDF pipeline,
+`kovan-codegen`'s byte-identical generation). The CLI itself adds no
+additional non-determinism — it only formats and prints what the library
+call returned. `setup` is the one deliberate exception: it reads the live
+`PATH` and, unless `--dry-run`, reaches the network via `cargo install`.
 
 ## Android
 
@@ -168,7 +214,8 @@ src/
     ├── methods.rs            `kovan methods`
     ├── symbols.rs             `kovan symbols` / `kovan summary`
     ├── gen.rs                  `kovan gen <family> <method>`
-    └── lit.rs                   `kovan lit import|bibtex|outline`
+    ├── lit.rs                   `kovan lit import|bibtex|outline`
+    └── setup.rs                  `kovan setup` (curated external-tool installer)
 ```
 
 One module per command (or command group), so `main.rs` stays a thin `clap`

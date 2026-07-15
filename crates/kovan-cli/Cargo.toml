@@ -19,6 +19,10 @@ clap.workspace = true
 # `lit import`/`lit bibtex` round-trip a `KovanDocument` through JSON on disk
 # (kovan-common's canonical serde format).
 serde_json.workspace = true
+# `kovan setup`: PATH-presence check for the curated external-tool list
+# (pure-Rust, Android-fine; the `cargo install` spawn itself is desktop-scope
+# and only runs when a user explicitly invokes `setup`).
+which.workspace = true
 
 [dev-dependencies]
 # `lopdf` builds a small synthetic PDF fixture for the `lit` end-to-end tests

@@ -21,3 +21,10 @@ crates/kovan-literature/proprietary/
 # Generated outram-mc ↔ OpenMC-notebook comparison CSVs — reproducible from the
 # verification tests + the .ipynb reference values; kept local, not committed.
 crates/outram-mc-libs/verification_and_validation/openmc_notebook_comparisons/
+
+# Raw source PDF of the Xin Wang (2018) UC Berkeley PhD dissertation
+# (~9 MB, open literature: escholarship.org/uc/item/40q3985m). The committed
+# deliverable is the extracted markdown in crates/nee_soon/docs/xin-wang-thesis/,
+# not the binary. Keep the raw PDF local.
+xin wang thesis.pdf
+*thesis*.pdf

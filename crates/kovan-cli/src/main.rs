@@ -18,6 +18,7 @@
 //! kovan lit import paper.pdf --json-out doc.json
 //! kovan lit bibtex doc.json
 //! kovan lit outline paper.pdf
+//! kovan setup --dry-run
 //! ```
 //!
 //! `discover`, `search`, `scan`, and `methods` wrap `kovan-discovery` and
@@ -26,7 +27,10 @@
 //! PDF → Markdown → `KovanDocument` → BibTeX pipeline. `gen` wraps
 //! `kovan-codegen::generate`; entries not yet backed by a template report
 //! `CodegenError::Unimplemented` as a CLI error (see `kovan methods` for which
-//! ones those are).
+//! ones those are). `setup` is a standalone, explicit, online, desktop-scope
+//! convenience — see `commands::setup` — that installs a curated list of
+//! external CLI tools via `cargo install`; nothing else in this crate calls
+//! it or depends on it running.
 //!
 //! See each `commands::*` submodule for the implementation of one subcommand
 //! (or command group) at a time — this file is only the `clap` surface and
@@ -134,6 +138,19 @@ enum Command {
     /// Generate numerical-method Rust source (`kovan-codegen`).
     #[command(subcommand)]
     Gen(GenCommand),
+    /// Install a curated list of useful external CLI tools via `cargo
+    /// install`, skipping any already on PATH. Explicit, online,
+    /// desktop-scope convenience — never run automatically, and has no
+    /// bearing on the rest of `kovan`'s offline/Android-clean operation
+    /// (see `commands::setup`).
+    Setup {
+        /// Report what would be installed without installing anything.
+        #[arg(long)]
+        dry_run: bool,
+        /// Reinstall even if the tool's binary is already on PATH.
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 fn main() -> std::process::ExitCode {
@@ -180,6 +197,7 @@ fn run(command: Command) -> Result<(), String> {
             out,
         } => commands::symbols::run_summary(root, lang, id, name, out),
         Command::Gen(cmd) => commands::gen::run(cmd),
+        Command::Setup { dry_run, force } => commands::setup::run(dry_run, force),
     }
 }
 
@@ -323,5 +341,29 @@ mod tests {
     #[test]
     fn gen_requires_a_method() {
         assert!(Cli::try_parse_from(["kovan", "gen", "root"]).is_err());
+    }
+
+    #[test]
+    fn setup_parses_with_defaults() {
+        let cli = parse(&["setup"]);
+        match cli.command {
+            Command::Setup { dry_run, force } => {
+                assert!(!dry_run);
+                assert!(!force);
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn setup_parses_dry_run_and_force() {
+        let cli = parse(&["setup", "--dry-run", "--force"]);
+        match cli.command {
+            Command::Setup { dry_run, force } => {
+                assert!(dry_run);
+                assert!(force);
+            }
+            _ => panic!("wrong variant"),
+        }
     }
 }
