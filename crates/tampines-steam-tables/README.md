@@ -295,6 +295,15 @@ never drawn.
 
 # Changelog
 
+v0.2.2 — (p,h)-flash robustness (patch)
+
+Patch release. Hardened the `(p, h)` flash in Regions 4 and 5 (VLE dome /
+high-temperature steam) for the transient control-volume path;
+`TampinesSteamArray` gains OpenFOAM-style pressure bounding and is wired into
+the fhr_sim_v2 steam-generator tube example; the `lambda_ph_eqm`
+critical-enhancement term now handles the two-phase region. No breaking API
+changes.
+
 v0.2.1 — transient mass & energy balance and
 unified multiphase critical-flow dispatcher
 

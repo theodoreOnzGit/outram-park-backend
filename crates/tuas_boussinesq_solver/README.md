@@ -54,6 +54,14 @@ The general rules this illustrates, which hold throughout the crate:
 
 # Changelog
 
+## 0.1.4
+
+Patch release. Added SAM (NED-2021 Table 4) coupled natural-circulation
+comparison columns plus an AI-generated SAM / TUAS / experiment summary;
+adopted the CIET pipe-38 form-loss coefficient K = 17.8 in the shared
+`(p, h)`-flash path; added the workspace-wide "unverified until validated"
+notice to the README. No breaking API changes.
+
 ## 0.1.3 
 
 Removed outram_foam_basic_lib dependencies to avoid dependency loops. 
