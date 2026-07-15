@@ -142,6 +142,12 @@ pub enum CouplingLoopError {
     },
     /// The point-kinetics sub-solve failed.
     PointKinetics(PointKineticsError),
+    /// A mesh-based neutronics sub-solve failed (cross-section materialisation or
+    /// eigenvalue/transient solve). The message is the underlying
+    /// `NeutronicsError`, kept as a `String` so this error stays `Clone`
+    /// ([`crate::genfoam::neutronics::NeutronicsError`] wraps un-`Clone` RBF
+    /// diagnostics).
+    Neutronics(String),
     /// The loop hit `max_iterations` without reaching `min_residual`.
     NotConverged {
         /// Residual at the final iteration.
@@ -158,6 +164,7 @@ impl std::fmt::Display for CouplingLoopError {
                 write!(f, "coupling field '{field}' missing on region '{region}'")
             }
             CouplingLoopError::PointKinetics(e) => write!(f, "point-kinetics sub-solve: {e:?}"),
+            CouplingLoopError::Neutronics(msg) => write!(f, "mesh neutronics sub-solve: {msg}"),
             CouplingLoopError::NotConverged {
                 residual,
                 iterations,
@@ -472,6 +479,7 @@ impl RegionKernel for PrescribedRegion {
 /// a variant here — every `match` on [`RegionModel`] then fails to compile until
 /// it handles the new case (exhaustiveness).
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum RegionModel {
     /// 0-D point-kinetics neutronics with Doppler feedback.
     Neutronics(LumpedNeutronics),
@@ -479,8 +487,17 @@ pub enum RegionModel {
     ThermalHydraulics(LumpedThermal),
     /// Externally-driven / not-yet-ported region.
     Prescribed(PrescribedRegion),
-    // Future: MeshNeutronics(DiffusionNeutronics), MeshThermalHydraulics(...),
-    // ThermoMechanics(...) — added as those ports land (see module docs).
+    /// Mesh-based multigroup-diffusion neutronics with cross-section temperature
+    /// feedback (wraps [`DiffusionNeutronics`](crate::genfoam::neutronics::DiffusionNeutronics)).
+    /// The `DiffusionNeutronics` it carries is far larger than the lumped
+    /// variants, which clippy's `large_enum_variant` flags; the standard `Box`
+    /// fix is banned by the workspace rules, so the lint is allowed on this enum.
+    MeshNeutronics(super::mesh_region::MeshNeutronics),
+    /// Mesh-based per-cell thermal-hydraulics (the integration seam for the full
+    /// [`thermal_hydraulics`](crate::genfoam::thermal_hydraulics) solver).
+    MeshThermalHydraulics(super::mesh_region::MeshThermalHydraulics),
+    // Future: ThermoMechanics(MechanicsMeshSolver) — added when the TM meshDisp
+    // source region is wired (see multi_region module docs, op-p6p.8.2).
 }
 
 impl RegionModel {
@@ -491,6 +508,10 @@ impl RegionModel {
             RegionModel::Neutronics(m) => m.begin_step(),
             RegionModel::ThermalHydraulics(m) => m.begin_step(),
             RegionModel::Prescribed(_) => {}
+            // Mesh neutronics re-solves the eigenvalue from scratch each Picard
+            // iterate, so it carries no start-of-step baseline to snapshot.
+            RegionModel::MeshNeutronics(_) => {}
+            RegionModel::MeshThermalHydraulics(m) => m.begin_step(),
         }
     }
 
@@ -505,6 +526,8 @@ impl RegionModel {
             RegionModel::Neutronics(m) => m.correct(region, dt, tight),
             RegionModel::ThermalHydraulics(m) => m.correct(region, dt, tight),
             RegionModel::Prescribed(m) => m.correct(region, dt, tight),
+            RegionModel::MeshNeutronics(m) => m.correct(region, dt, tight),
+            RegionModel::MeshThermalHydraulics(m) => m.correct(region, dt, tight),
         }
     }
 
@@ -515,6 +538,8 @@ impl RegionModel {
             RegionModel::Neutronics(m) => m.region_name(),
             RegionModel::ThermalHydraulics(m) => m.region_name(),
             RegionModel::Prescribed(m) => m.region_name(),
+            RegionModel::MeshNeutronics(m) => m.region_name(),
+            RegionModel::MeshThermalHydraulics(m) => m.region_name(),
         }
     }
 
@@ -529,6 +554,9 @@ impl RegionModel {
             // tightly every pass, as does neutronics.
             RegionModel::Neutronics(_) | RegionModel::ThermalHydraulics(_) => true,
             RegionModel::Prescribed(_) => true,
+            // Mesh neutronics and the per-cell energy balance likewise have no
+            // separate momentum solve, so they iterate tightly every pass.
+            RegionModel::MeshNeutronics(_) | RegionModel::MeshThermalHydraulics(_) => true,
         }
     }
 }
@@ -642,7 +670,17 @@ impl MultiPhysicsSolver {
             iter += 1;
             self.residual_history.push(residual);
 
-            if residual < self.min_residual {
+            // Convergence guard against a *cold-start* false positive: with more
+            // than one coupled region, the first sweep can leave every model
+            // individually at rest (zero residual) before its feedback has
+            // propagated across the mesh map — e.g. a mesh-neutronics region at
+            // its reference temperature has not yet deposited power on the TH
+            // region, and the TH region has not yet fed a temperature back. A
+            // genuinely coupled fixed point needs at least two sweeps for
+            // information to travel in both directions, so only a single-region
+            // problem may converge on the first sweep.
+            let allow_converge = iter >= 2 || self.models.len() <= 1;
+            if residual < self.min_residual && allow_converge {
                 return Ok(iter);
             }
             if iter >= self.max_iterations {

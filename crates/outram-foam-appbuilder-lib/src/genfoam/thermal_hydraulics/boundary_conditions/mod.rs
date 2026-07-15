@@ -12,17 +12,33 @@
 
 //! # `genfoam::thermal_hydraulics::boundary_conditions` — GeN-Foam TH boundary conditions
 //!
-//! This module will hold the GeN-Foam-specific thermal-hydraulics boundary
-//! conditions layered on top of basic-lib's generic BC set: the
-//! NusseltThermalBaffle1D coupled-wall condition, blackBodyRadiation,
-//! velocityRundown (pump/flow coastdown), and timeFieldTable (tabulated
-//! time-varying field BC). Generic OpenFOAM BC machinery (fixedValue,
-//! zeroGradient, and the rest of basic-lib's BC set) does NOT belong here —
-//! only the GeN-Foam-specific closures above it.
+//! GeN-Foam-specific thermal-hydraulics boundary conditions layered on top of
+//! basic-lib's generic BC set. Generic OpenFOAM BC machinery (fixedValue,
+//! zeroGradient, and the rest of basic-lib's BC set) does **not** belong
+//! here — only the GeN-Foam-specific closures below it.
 //!
-//! Ports upstream `src/classes/thermalHydraulics/src/boundaryConditions/**`.
+//! Ports upstream `src/classes/thermalHydraulics/src/boundaryConditions/**`
+//! (commit 652b3da). Each is a **physical-value closure**: a plain struct
+//! plus methods computing boundary values from `uom`-dimensioned inputs
+//! (temperatures, time, per-face slices), not a full `fvPatchField` — the
+//! per-face mesh loop and "wire this into the solver" plumbing belong to the
+//! porous-solver bead (op-p6p.7.11).
 //!
-//! Scaffold-only — no boundary conditions are implemented yet. See bead
-//! op-p6p.7.13.
+//! ## Module map
+//!
+//! | Submodule | Ports | Status |
+//! |---|---|---|
+//! | [`blackbody_radiation`] | `blackBodyRadiation` | Ported — [`BlackBodyRadiationBc`] |
+//! | [`velocity_rundown`] | `velocityRundown` | Ported — [`VelocityRundownBc`] |
+//! | [`time_field_table`] | `timeFieldTable` | Ported — [`TimeFieldTable`] |
+//! | [`nusselt_baffle`] | `NusseltThermalBaffle1D` | **Scaffold only** — [`NusseltThermalBaffle1DBc`]; every method is `unimplemented!()`. See the module doc for why (cross-patch implicit coupling) and bead op-p6p.7.13 for the follow-up. |
 
-// TODO(genfoam): port NusseltThermalBaffle1D, blackBodyRadiation, velocityRundown, timeFieldTable (bead op-p6p.7.13).
+pub mod blackbody_radiation;
+pub mod nusselt_baffle;
+pub mod time_field_table;
+pub mod velocity_rundown;
+
+pub use blackbody_radiation::BlackBodyRadiationBc;
+pub use nusselt_baffle::{BaffleSide, NusseltCorrelationCoefficients, NusseltThermalBaffle1DBc};
+pub use time_field_table::{TimeFieldTable, TimeFieldTableError};
+pub use velocity_rundown::VelocityRundownBc;

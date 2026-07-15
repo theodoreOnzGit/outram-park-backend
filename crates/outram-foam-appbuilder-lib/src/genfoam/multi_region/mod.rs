@@ -31,6 +31,8 @@
 //! | [`rbf_mapping`] | `meshHandler::interpolateAndMapFields` (polyharmonic-spline path) | Radial-basis-function mapping ([`RbfFieldMap`]) for **non-conformal** meshes that do not volume-overlap — fits a polyharmonic spline to scattered samples and evaluates it on the target mesh. |
 //! | [`coupling_fields`] | `meshHandler` region registry + `mappings` / `mapAllFields` | The [`MeshHandler`]: region meshes, their named coupling fields, and the pairwise mappings; [`MeshHandler::interpolate_coupling_fields`] is `interpolateCouplingFields`. |
 //! | [`outer_iteration`] | `multiPhysicsSolver::correctPhysics` | The tightly-coupled Picard loop ([`MultiPhysicsSolver`]) advancing the regions and exchanging feedback to convergence, enum-dispatched over [`RegionModel`] (no `dyn`). |
+//! | [`mesh_region`] | region-solver dispatch → `diffusionNeutronics` / `thermalHydraulics` | The **mesh-based** [`RegionModel`] variants: [`MeshNeutronics`] drives the real multigroup-diffusion solver with cross-section temperature feedback; [`MeshThermalHydraulics`] is the per-cell energy-balance seam for the full TH solver. |
+//! | [`reactivity_feedback`] | `pointKineticNeutronics` feedback assembly | The [`ReactivityFeedback`] layer: turns the mesh temperature / density feedback fields into a scalar reactivity `Δρ` (Doppler + expansion + coolant density), generalising the lumped `α(T−T_ref)` to spatial fields. |
 //!
 //! **Start with an example**, not the API: the loop wired end-to-end (0-D
 //! neutronics ↔ lumped thermal-hydraulics, using the already-ported
@@ -71,22 +73,34 @@
 //! its fidelity and the loop is honest about not moving points.
 //!
 //! **Port status:** field mapping (volumetric + RBF), coupled-feedback assembly,
-//! and the outer Picard loop are ported and verified end-to-end against the 0-D
-//! neutronics ↔ lumped-TH coupling. Dispatch to the *mesh-based* neutronics/TH
-//! models is wired-in-waiting (new [`RegionModel`] variants) as those parallel
-//! ports land. See `docs/genfoam-port-plan.md`.
+//! and the outer Picard loop are ported and verified end-to-end against both the
+//! 0-D neutronics ↔ lumped-TH coupling *and* the **mesh-based** path: the
+//! [`MeshNeutronics`] variant drives the real multigroup-diffusion solver
+//! ([`crate::genfoam::neutronics::DiffusionNeutronics`]) with cross-section
+//! (Doppler) temperature feedback through the [`reactivity_feedback`] layer, and
+//! [`MeshThermalHydraulics`] closes the loop across non-conformal meshes (V&V:
+//! power-density conservation across the `CellVolumeWeight` map and negative
+//! Doppler feedback lowering `k_eff` — see [`mesh_region`]'s tests). The full
+//! porous/two-phase TH solver (`op-p6p.7`) drops into the same
+//! [`MeshThermalHydraulics`] seam when it lands; per-cell (rather than mean)
+//! cross-section feedback awaits a neutronics-subtree API addition (tracked on
+//! `op-p6p.8.4`). See `docs/genfoam-port-plan.md`.
 
 pub mod coupling_fields;
+pub mod mesh_region;
 pub mod mesh_to_mesh;
 pub mod outer_iteration;
 pub mod rbf_mapping;
+pub mod reactivity_feedback;
 
 // Curated re-exports (human interface layer): the handful of types a user needs
 // to build a coupled multi-region run without hunting through submodules.
 pub use coupling_fields::{CouplingError, CouplingField, CouplingRegion, FieldKind, MeshHandler};
+pub use mesh_region::{MeshNeutronics, MeshThermalHydraulics};
 pub use mesh_to_mesh::{MapCombine, MappingMethod, MeshToMesh};
 pub use outer_iteration::{
     lumped_cell_mesh, CouplingLoopError, FeedbackCoefficient, LumpedNeutronics, LumpedThermal,
     MultiPhysicsSolver, PrescribedRegion, RegionKernel, RegionModel,
 };
 pub use rbf_mapping::{PolyharmonicMode, RbfFieldMap, RbfMapError};
+pub use reactivity_feedback::{DopplerLaw, FeedbackTerm, ImportanceWeight, ReactivityFeedback};
