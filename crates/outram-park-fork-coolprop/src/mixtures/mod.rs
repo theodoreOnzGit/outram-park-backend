@@ -1,13 +1,15 @@
 //! Multi-fluid mixture properties — the CoolProp `HelmholtzEOSMixtureBackend`
 //! (GERG-2008-style multi-fluid model).
 //!
-//! **One real binary pair is ported and verified: Nitrogen–Oxygen** (`F = 0`,
-//! see [`binary_pairs`]). The evaluation engine ([`Mixture::residual_derivs`],
+//! **840 of the 888 upstream binary pairs are ported**, including all 40
+//! departure-bearing pairs and all 40 departure functions (the 48 skipped
+//! pairs touch a fluid outside the crate's 137 ported pure fluids). The
+//! reference-verified pair is **Nitrogen–Oxygen** (`F = 0`, see
+//! [`binary_pairs`]). The evaluation engine ([`Mixture::residual_derivs`],
 //! [`Mixture::state_trho_molar`]) is real, not a stub. **No flash/VLE** is
-//! implemented — only direct `(T, ρ_molar, x)` evaluation, matching what the
-//! original scaffold's function signatures promised. Full binary-pair/
-//! departure-function data coverage (887 more pairs) is a follow-up (bead
-//! op-kbc.16).
+//! implemented — only direct `(T, ρ_molar, x)` evaluation — and the mixture
+//! path has **not** been validated against GERG-2008 reference values yet
+//! (bead op-kbc.16).
 //!
 //! # What this models
 //!

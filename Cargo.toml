@@ -148,7 +148,7 @@ njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.
 # Coupling / integration layer — composes njoy-outram-park-fork, outram-mc-libs and
 # teh-o-prke behind one object-oriented facade (scaffold).
 nee_soon            = { path = "crates/nee_soon",            version = "0.1.0" }
-outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.0.1" }
+outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.1.0" }
 # Central thermal-hydraulic framework — composes tuas_boussinesq_solver,
 # outram-park-fork-coolprop, tampines-steam-tables, outram-foam-basic-lib and
 # chem-eng-real-time-process-control-simulator (scaffold).

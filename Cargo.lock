@@ -4924,7 +4924,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-coolprop"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "approx",
  "uom 0.38.0",

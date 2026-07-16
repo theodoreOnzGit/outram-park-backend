@@ -4,6 +4,22 @@
 //! (MIT) — thermophysical properties from Helmholtz-energy-explicit equations
 //! of state — built to OUTRAM PARK's design rules:
 //!
+//! > **Independent fork, not the official CoolProp.** This crate is not
+//! > affiliated with, endorsed by, or maintained by the CoolProp project or its
+//! > authors. "CoolProp" is used only to identify the upstream work it is
+//! > derived from (see `TRADEMARKS.md`, `NOTICE`).
+//! >
+//! > **Licence: GPL-3.0-only.** CoolProp itself is MIT, but this crate ships
+//! > GPL-3.0-only OpenFOAM-derived code ([`openfoam_algorithms`]), so the crate
+//! > as a whole is GPL-3.0-only; the CoolProp-derived parts keep their MIT
+//! > provenance in-tree.
+//! >
+//! > **⚠️ No human V&V has been performed yet — use at your own risk.** The
+//! > automated tests here are self-consistency and primary-standard checks; no
+//! > human-reviewed validation against CoolProp reference outputs exists yet
+//! > (planned, bead op-kbc.3). Not for nuclear facility operation, reactor
+//! > control, safety-critical, or licensing decisions.
+//!
 //! - **Enum dispatch, no trait objects.** Fluids are a [`Fluid`] enum and
 //!   EOS-term forms are [`eos::ResidualTerm`] / [`eos::IdealTerm`] enums,
 //!   dispatched by `match` (see [`eos`]).
@@ -101,25 +117,30 @@ pub mod vle;
 // --- Newer backends / refinements (bead op-kbc) ---
 //
 // Not yet wired into the public prelude below — see each module's `//!` doc
-// for implementation status (`humid_air` has real physics; `incompressibles`
-// and `mixtures` are still `todo!()` skeletons).
+// for implementation status and per-domain coverage/limitations.
 
 /// Humid (moist) air properties — the CoolProp `HAPropsSI` backend (ASHRAE
-/// RP-1485). `(T,p,W)`/`(T,p,R)` inputs implemented and verified; see the
-/// module doc for coverage (bead op-kbc.14).
+/// RP-1485). `(T,p,{W|R|psi_w|Tdp|Twb})` inputs implemented and verified; the
+/// psychrometric core only (no cp/cv/transport, no ice branch, no `T`-unknown
+/// inversions). See the module doc for coverage (bead op-kbc.14).
 pub mod humid_air;
 
-/// Incompressible-fluid properties — the CoolProp `INCOMP` backend.
-/// **Scaffold only** (bead op-kbc.15).
+/// Incompressible-fluid properties — the CoolProp `INCOMP` backend. All 126
+/// upstream fluids ported (74 pure, 39 mass-based, 13 volume-based) with
+/// rho/cp/conductivity/viscosity/enthalpy; T66-verified. `T_freeze`, `psat`,
+/// and entropy/internal-energy are not yet ported (bead op-kbc.15).
 pub mod incompressibles;
 
 /// Multi-fluid mixture properties — the CoolProp Helmholtz mixture backend.
-/// **Scaffold only** (bead op-kbc.16).
+/// Evaluation-only: 840/888 binary pairs and all 40 departure functions
+/// ported; direct `(T, rho_molar, x)` evaluation works, but there is no
+/// flash/VLE and no validation against GERG-2008 reference values yet
+/// (bead op-kbc.16).
 pub mod mixtures;
 
 /// General corresponding-states transport (Chung / ECS / rhosr-CS) — the
 /// viscosity fallback for fluids with no dedicated fit. **Scaffold only**
-/// (bead op-kbc.17).
+/// (returns `None`; bead op-kbc.17).
 pub mod transport_corresponding_states;
 
 /// Vendored pure-Rust OpenFOAM finite-volume layer + 1-D compressible solvers,

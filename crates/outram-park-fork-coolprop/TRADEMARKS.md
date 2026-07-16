@@ -92,5 +92,5 @@ and have concerns about how your project is referenced in Outram Park,
 please open a GitHub issue or contact the maintainers directly. We will
 respond promptly and in good faith.
 
-Contact: <fill in — probably snrokct@nus.edu.sg>
-Repository: <fill in — Outram Park GitHub URL>
+Contact: via GitHub issues at the repository below.
+Repository: https://github.com/theodoreOnzGit/outram-park-backend

@@ -1,14 +1,35 @@
 <!--
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: GPL-3.0-only
 Part of Outram Park (outram-park-backend).
 A fork/translation of CoolProp (https://github.com/CoolProp/CoolProp, MIT).
-CoolProp is not affiliated with or endorsing this fork. See NOTICE / TRADEMARKS.md.
+This crate is GPL-3.0-only: it ships GPL-3.0 OpenFOAM-derived code, which is
+infective, so the whole crate is GPL-3.0. CoolProp-derived parts keep their MIT
+provenance in-tree (see NOTICE). CoolProp is not affiliated with or endorsing
+this fork. See NOTICE / TRADEMARKS.md.
 -->
 
 # outram-park-fork-coolprop
 
 <!-- vv-unverified-banner -->
-> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+> ⚠️ **No human V&V has been done yet — use at your own risk.** This crate
+> compiles and its automated tests pass (self-consistency checks and spot
+> checks against primary standards — IAPWS-95, ASHRAE, NIST/literature, T66),
+> but **no human-reviewed validation against CoolProp's own reference outputs
+> exists yet** (planned, bead op-kbc.3). Like all code in this workspace it is
+> **unverified and untrusted** until a specific V&V case — human-reviewed and
+> intended for journal / arXiv publication — demonstrates otherwise. See the
+> workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for
+> nuclear facility operation, reactor control, safety-critical, or licensing
+> decisions.
+>
+> **Scope of the 0.1.0 release** (honest coverage): pure-fluid HEOS core is
+> the validated-shaped path — all 137 CoolProp fluids with full thermodynamics,
+> `(T,ρ)/(p,T)/(p,h)/(p,s)` flashes and saturation/VLE; incompressibles cover
+> all 126 fluids (ρ/cp/k/μ/h). Known limitations: transport (μ,λ) is
+> implemented for only 48/137 fluids (corresponding-states fallback returns
+> `None`); surface tension and melting lines are absent; humid air is the
+> psychrometric core only (no cp/cv/transport, no ice branch); mixtures are
+> evaluation-only (no flash/VLE, not validated vs GERG-2008).
 
 
 A pure-Rust fork/translation of **[CoolProp](https://github.com/CoolProp/CoolProp)**
@@ -358,3 +379,28 @@ doc and `gen_mixture.py`'s `build_departure_terms`).
 - Wagner & Pruß (2002), *The IAPWS Formulation 1995…* (IAPWS-95), J. Phys.
   Chem. Ref. Data 31(2)
 - Span & Wagner, multiparameter Helmholtz equations of state
+
+# Changelog
+
+## 0.1.0 — first crates.io release
+
+First published release. The crate compiles clean and all automated tests pass
+(309 passed / 0 failed / 18 ignored at tag time), but **no human V&V has been
+performed yet — use at your own risk** (see the banner above).
+
+- **Licence corrected to GPL-3.0-only.** Earlier internal metadata marked this
+  crate MIT (provisional). It ships GPL-3.0-only OpenFOAM-derived code
+  (`src/openfoam_algorithms/openfoam_source/*`), which is infective, so the
+  crate as a whole is **GPL-3.0-only**. CoolProp-derived portions retain their
+  MIT provenance in-tree (see `NOTICE`). Added a top-level `LICENSE` (GPL-3.0).
+- **Coverage at 0.1.0:** pure-fluid HEOS core — all 137 CoolProp fluids with
+  full thermodynamics, `(T,ρ)/(p,T)/(p,h)/(p,s)` flashes, saturation/VLE;
+  incompressibles — all 126 fluids (ρ/cp/k/μ/h); humid air — psychrometric
+  core; mixtures — 840/888 binary pairs + 40 departure functions,
+  evaluation-only.
+- **Known limitations:** transport (μ,λ) for only 48/137 fluids (CS fallback
+  returns `None`); surface tension and melting lines absent; humid air has no
+  cp/cv/transport and no ice branch; mixtures have no flash/VLE and are not yet
+  validated against GERG-2008; no systematic CoolProp-oracle cross-check yet
+  (planned, bead op-kbc.3). Property/flash APIs currently return raw `f64` SI
+  (only the `OPCPFluidSingleCV`/`OPCPFluidArray` control volumes are `uom`-typed).
