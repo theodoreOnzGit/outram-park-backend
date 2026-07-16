@@ -19,5 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Boundary-condition types for cell- and face-centred fields: the
+//! `BoundaryCondition` enum (fixed value, zero gradient, symmetry, etc.) and
+//! the `PatchField` wrapper that pairs a BC with its current per-face values.
+
+/// Boundary-condition variants (`BoundaryCondition`) and the `PatchField`
+/// container that pairs a BC with its current per-face values.
 pub mod bc;
 pub use bc::*;

@@ -2,17 +2,17 @@
 //! density inputs `(T, ρ)`.
 //!
 //! `(T, ρ)` are the EOS's *natural* inputs, so these are exact single
-//! evaluations (no iteration). The `(T, p)` / `(p, h)` … flashes CoolProp's
-//! `PropsSI` also offers require a density solve and are a follow-up
-//! (bead op-kbc).
+//! evaluations (no iteration). The `(T, p)` / `(p, h)` / `(p, s)` flashes
+//! CoolProp's `PropsSI` also offers require an iterative density (and/or
+//! temperature) solve and live in [`crate::flash`].
 //!
-//! All public functions take/return **mass-based SI**: temperature in kelvin,
-//! density in kg/m³, pressure in Pa, specific energies in J/kg, specific heats
-//! in J/(kg·K), speed of sound in m/s. The molar EOS quantities are converted
-//! at this boundary using the fluid's molar mass.
+//! All public functions take/return **mass-based SI**: temperature in kelvin
+//! \[K\], density in kg/m³, pressure in Pa, specific energies in J/kg, specific
+//! heats in J/(kg·K), speed of sound in m/s. The molar EOS quantities are
+//! converted at this boundary using the fluid's molar mass.
 //!
-//! (A `uom`-typed public wrapper, matching the workspace's units convention, is
-//! a planned follow-up — bead op-kbc. Internally the EOS is raw `f64` SI.)
+//! Internally the EOS is raw `f64` SI; the `uom`-typed public wrapper matching
+//! the workspace's units convention is [`crate::single_cv::OPCPFluidSingleCV`].
 
 use crate::eos::FluidEos;
 use crate::fluid::Fluid;
@@ -95,5 +95,3 @@ pub fn state_trho(fluid: Fluid, t: f64, rho: f64) -> FluidState {
 pub fn pressure_trho(fluid: Fluid, t: f64, rho: f64) -> f64 {
     state_trho(fluid, t, rho).pressure
 }
-
-

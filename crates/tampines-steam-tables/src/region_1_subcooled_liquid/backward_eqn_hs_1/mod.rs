@@ -1,9 +1,14 @@
-use uom::si::pressure::megapascal;
-use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
-use uom::si::ratio::ratio;
-use uom::si::f64::*;
-use uom::si::available_energy::kilojoule_per_kilogram;
+//! IAPWS-IF97 Region 1 backward equation: pressure as a function of specific
+//! enthalpy and specific entropy, `p(h,s)`.
 
+use uom::si::available_energy::kilojoule_per_kilogram;
+use uom::si::f64::*;
+use uom::si::pressure::megapascal;
+use uom::si::ratio::ratio;
+use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
+
+// IAPWS-IF97 Region 1 backward-equation coefficients (I_i, J_i, n_i) for
+// p(h,s).
 const REGION_1_BACK_COEFFS_HS: [[f64; 3]; 19] = [
     [0.0, 0.0, -0.691_997_014_660_582],
     [0.0, 1.0, -0.183_612_548_787_560e2],
@@ -26,22 +31,24 @@ const REGION_1_BACK_COEFFS_HS: [[f64; 3]; 19] = [
     [5.0, 0.0, -0.436_407_041_874_559e3],
 ];
 
+/// Returns the region-1 backward-equation pressure `p(h,s)`: specific
+/// enthalpy `h` (J/kg) and specific entropy `s` (J/(kg.K)) in, `Pressure`
+/// (Pa) out.
 pub fn p_hs_1(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
     let p_ref = Pressure::new::<megapascal>(100.0);
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(3400.0);
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(7.6);
 
-    let eta: f64 = (h/h_ref).get::<ratio>();
-    let sigma: f64 = (s/s_ref).get::<ratio>();
+    let eta: f64 = (h / h_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
 
     let mut pi: f64 = 0.0;
-
 
     for coefficient in REGION_1_BACK_COEFFS_HS {
         let ii = coefficient[0];
         let ji = coefficient[1];
         let ni = coefficient[2];
-        pi  += ni * (eta + 0.05).powf(ii) * (sigma + 0.05).powf(ji);
+        pi += ni * (eta + 0.05).powf(ii) * (sigma + 0.05).powf(ji);
     }
 
     return pi * p_ref;

@@ -19,11 +19,14 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-/// Wall function utilities for RAS turbulence models.
-///
-/// C++ source: `src/TurbulenceModels/turbulenceModels/RAS/derivedFvPatchFields/`
-///
-/// Used when the mesh is too coarse to resolve the viscous sublayer (y⁺ > ~11).
+//! Wall-function utilities for RAS turbulence models.
+//!
+//! C++ source: `src/TurbulenceModels/turbulenceModels/RAS/derivedFvPatchFields/`
+//!
+//! Used when the mesh is too coarse to resolve the viscous sublayer (y⁺ > ~11).
+//! These are **standalone helper functions**, not yet wired into any model as
+//! patch boundary conditions, and are untested. The log-law constants
+//! (κ = 0.41, E = 9.8, y⁺_lam = 11) are hard-coded.
 
 /// Dimensionless wall distance y⁺ = u_τ · y / ν.
 ///
@@ -58,7 +61,9 @@ pub fn u_tau(u_wall: f64, y: f64, nu: f64) -> f64 {
         let df = u_plus + 1.0 / KAPPA;
         let du = f / df;
         u_tau -= du;
-        if du.abs() < TOL * u_tau { break; }
+        if du.abs() < TOL * u_tau {
+            break;
+        }
     }
     u_tau
 }
@@ -71,7 +76,7 @@ pub fn u_tau(u_wall: f64, y: f64, nu: f64) -> f64 {
 pub fn nu_t_wall(y_p: f64, nu: f64) -> f64 {
     const KAPPA: f64 = 0.41;
     const E: f64 = 9.8;
-    const YP_LAM: f64 = 11.0;  // laminar/turbulent sublayer transition
+    const YP_LAM: f64 = 11.0; // laminar/turbulent sublayer transition
 
     if y_p <= YP_LAM {
         0.0

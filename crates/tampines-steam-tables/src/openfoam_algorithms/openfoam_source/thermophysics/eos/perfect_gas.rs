@@ -19,9 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::openfoam_algorithms::openfoam_source::imports::*;
-use crate::openfoam_algorithms::openfoam_source::constants::{P_REF, R_UNIVERSAL};
 use super::traits::EquationOfState;
+use crate::openfoam_algorithms::openfoam_source::constants::{P_REF, R_UNIVERSAL};
+use crate::openfoam_algorithms::openfoam_source::imports::*;
 
 /// Ideal perfect gas: p = ρ·R·T.
 ///
@@ -33,6 +33,10 @@ pub struct PerfectGas {
 }
 
 impl PerfectGas {
+    /// Construct a perfect-gas EOS closure for a species of the given molar
+    /// mass `mol_weight` [kg/mol]. The specific gas constant `R` is derived
+    /// from it (`R = R_universal / mol_weight`); no other species data is
+    /// needed for the ideal-gas law.
     pub fn new(mol_weight: MolarMass) -> Self {
         Self { mol_weight }
     }
@@ -89,11 +93,11 @@ impl EquationOfState for PerfectGas {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
+    use uom::si::mass_density::kilogram_per_cubic_meter;
+    use uom::si::molar_mass::gram_per_mole;
     use uom::si::pressure::pascal;
     use uom::si::thermodynamic_temperature::kelvin;
-    use uom::si::molar_mass::gram_per_mole;
-    use uom::si::mass_density::kilogram_per_cubic_meter;
-    use approx::assert_relative_eq;
 
     fn air() -> PerfectGas {
         PerfectGas::new(MolarMass::new::<gram_per_mole>(28.97))

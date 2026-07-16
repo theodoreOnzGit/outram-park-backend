@@ -19,6 +19,14 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Per-species equations of state — `(p, T)` → density ρ [kg/m³],
+//! compressibility ψ = ∂ρ/∂p|_T [s²/m²], compressibility factor Z [-], and the
+//! enthalpy / entropy / internal-energy departures from the ideal-gas value.
+//!
+//! Each model implements [`EquationOfState`]. Available models: ideal
+//! [`PerfectGas`], constant-density [`RhoConst`], incompressible specific-volume
+//! polynomial [`IcoPolynomial`], and real-gas [`PengRobinsonGas`].
+
 pub mod ico_polynomial;
 pub mod peng_robinson;
 pub mod perfect_gas;

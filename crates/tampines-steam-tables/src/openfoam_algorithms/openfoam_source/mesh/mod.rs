@@ -19,8 +19,16 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Finite-volume mesh topology and geometry ([`fv_mesh::FvMesh`]), plus
+//! multi-region coupling ([`region_interface::RegionInterface`], e.g. for
+//! conjugate heat transfer between a fluid and a solid region).
+
 pub(crate) mod error;
+/// Mesh topology (owner/neighbour, boundary patches) and geometry (cell
+/// volumes, centres, face areas/normals) — see [`fv_mesh::FvMesh`].
 pub mod fv_mesh;
+/// Region-to-region coupling (e.g. CHT fluid/solid interfaces) — see
+/// [`region_interface::RegionInterface`].
 pub mod region_interface;
 
 pub use error::MeshError;

@@ -19,6 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Finite-volume field containers: the raw per-cell `Field`, the cell-centred
+//! `VolScalarField`/`VolVectorField`, the face-centred `SurfaceScalarField`,
+//! and their boundary (`PatchField`) machinery. Mirrors OpenFOAM's
+//! `GeometricField` layer (`volField`/`surfaceField`).
+
 pub mod field;
 pub mod boundary;
 pub mod vol_field;

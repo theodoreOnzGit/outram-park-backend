@@ -19,10 +19,26 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Layer 1a — the primitive numeric types OpenFOAM builds everything on.
+//!
+//! This module holds the dimensionless scalar type and small-/large-number
+//! constants (`scalar`) together with the fixed-size 3-D tensor-algebra
+//! primitives: a 3-vector (`Vector3`), a full 3×3 tensor (`Tensor`), a
+//! symmetric 3×3 tensor (`SymmTensor`), and an isotropic diagonal tensor
+//! (`SphericalTensor`). All components are plain `f64` (dimensionless SI);
+//! `uom`-dimensioned quantities are layered on top elsewhere in the crate.
+//! Each type mirrors its `Foam::` counterpart, including component storage
+//! order and the OpenFOAM operator conventions (`&`, `&&`, `^`, `*`).
+
+/// The scalar floating-point type and the small/large numeric constants.
 pub mod scalar;
+/// Isotropic diagonal tensor `ii * I` (`SphericalTensor`).
 pub mod spherical_tensor;
+/// Symmetric 3×3 tensor (`SymmTensor`).
 pub mod symm_tensor;
+/// Full (non-symmetric) 3×3 tensor (`Tensor`).
 pub mod tensor;
+/// 3-component vector (`Vector3`).
 pub mod vector;
 
 pub use scalar::{

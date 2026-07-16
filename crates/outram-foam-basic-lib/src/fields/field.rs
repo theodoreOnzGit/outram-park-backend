@@ -36,50 +36,61 @@ pub struct Field<T> {
 // ── Construction ─────────────────────────────────────────────────────────────
 
 impl<T: Clone> Field<T> {
+    /// Wrap an existing `Vec<T>` as a field (no copy).
     pub fn new(data: Vec<T>) -> Self {
         Self { data }
     }
 
+    /// Field of `n` elements all equal to `value`.
     pub fn uniform(n: usize, value: T) -> Self {
         Self {
             data: vec![value; n],
         }
     }
 
+    /// Field of `n` elements, element `i` set to `f(i)`.
     pub fn from_fn(n: usize, f: impl Fn(usize) -> T) -> Self {
         Self {
             data: (0..n).map(f).collect(),
         }
     }
 
+    /// Number of elements in the field.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// True if the field has no elements.
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 
+    /// Borrow the underlying storage as a slice.
     pub fn as_slice(&self) -> &[T] {
         &self.data
     }
 
+    /// Mutably borrow the underlying storage as a slice.
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         &mut self.data
     }
 
+    /// Consume the field, returning its underlying `Vec<T>`.
     pub fn into_vec(self) -> Vec<T> {
         self.data
     }
 
+    /// Iterator over element references.
     pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.data.iter()
     }
 
+    /// Iterator over mutable element references.
     pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, T> {
         self.data.iter_mut()
     }
 
+    /// Map `f` element-wise, returning a new `Field<U>` of the same length.
     pub fn map<U: Clone>(&self, f: impl Fn(&T) -> U) -> Field<U> {
         Field {
             data: self.data.iter().map(f).collect(),
@@ -88,18 +99,22 @@ impl<T: Clone> Field<T> {
 }
 
 impl Field<f64> {
+    /// Scalar field of `n` zeros.
     pub fn zeros(n: usize) -> Self {
         Self::uniform(n, 0.0)
     }
 
+    /// Scalar field of `n` ones.
     pub fn ones(n: usize) -> Self {
         Self::uniform(n, 1.0)
     }
 
+    /// Sum of all elements.
     pub fn sum(&self) -> f64 {
         self.data.iter().copied().sum()
     }
 
+    /// Arithmetic mean of all elements; returns `0.0` for an empty field.
     pub fn mean(&self) -> f64 {
         if self.data.is_empty() {
             0.0
@@ -108,14 +123,17 @@ impl Field<f64> {
         }
     }
 
+    /// Smallest element (`+∞` for an empty field).
     pub fn min(&self) -> f64 {
         self.data.iter().cloned().fold(f64::INFINITY, f64::min)
     }
 
+    /// Largest element (`−∞` for an empty field).
     pub fn max(&self) -> f64 {
         self.data.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
     }
 
+    /// Euclidean (L2) norm: `sqrt(sum(x_i²))`.
     pub fn l2_norm(&self) -> f64 {
         self.data.iter().map(|x| x * x).sum::<f64>().sqrt()
     }
@@ -162,6 +180,7 @@ impl Field<f64> {
 }
 
 impl Field<Vector3> {
+    /// Vector field of `n` zero vectors.
     pub fn zero_vec(n: usize) -> Self {
         Self::uniform(n, Vector3::ZERO)
     }

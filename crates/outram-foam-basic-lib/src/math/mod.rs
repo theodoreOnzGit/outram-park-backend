@@ -19,6 +19,16 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Special mathematical functions used by the thermophysics and statistics
+//! kernels.
+//!
+//! Ports the OpenFOAM `primitives/functions/Math` helpers: the inverse error
+//! function ([`erf_inv`]), the regularised lower/upper incomplete gamma
+//! functions and their unnormalised forms ([`inc_gamma_ratio_p`],
+//! [`inc_gamma_ratio_q`], [`inc_gamma_p`], [`inc_gamma_q`]), and the inverse of
+//! the regularised lower incomplete gamma ([`inv_inc_gamma`]). All arguments and
+//! results are dimensionless `f64`.
+
 pub mod erf_inv;
 pub mod inc_gamma;
 pub mod inv_inc_gamma;

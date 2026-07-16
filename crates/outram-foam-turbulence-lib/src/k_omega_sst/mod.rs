@@ -42,17 +42,19 @@
 //! `RhoPimpleFoam` and turbulence wall-function boundary conditions, both
 //! tracked in `outram-foam-appbuilder-lib/TODO.md`.
 
-use std::sync::Arc;
-use outram_foam_basic_lib::prelude::{
-    FvMesh, FvVectorMatrix, VolScalarField, VolVectorField, SurfaceScalarField,
-    Field, PatchField, Vector3, Tensor, PatchKind, SolverSettings,
-};
-use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use crate::traits::TurbulenceModel;
+use outram_foam_basic_lib::fv_operators::{fvc, fvm};
+use outram_foam_basic_lib::prelude::{
+    Field, FvMesh, FvVectorMatrix, PatchField, PatchKind, SolverSettings, SurfaceScalarField,
+    Tensor, Vector3, VolScalarField, VolVectorField,
+};
+use std::sync::Arc;
 
 /// Outer (dyadic) product a ⊗ b → Tensor. (`Vector3 * Vector3` is the dyad.)
 #[inline]
-fn outer(a: Vector3, b: Vector3) -> Tensor { a * b }
+fn outer(a: Vector3, b: Vector3) -> Tensor {
+    a * b
+}
 
 /// Tensor·vector contraction (T·v)_i = Σ_j T_ij v_j.
 #[inline]
@@ -67,19 +69,23 @@ fn tensor_dot_vec(t: Tensor, v: Vector3) -> Vector3 {
 /// Menter k-ω SST turbulence model (1994).
 pub struct KOmegaSST {
     pub mesh: Arc<FvMesh>,
-    pub k:     VolScalarField,
+    /// Turbulent kinetic energy k [m²/s²].
+    pub k: VolScalarField,
+    /// Specific dissipation rate ω [1/s].
     pub omega: VolScalarField,
-    pub nu_t:  VolScalarField,
+    /// Turbulent kinematic viscosity ν_t [m²/s], from the Bradshaw-limited
+    /// ν_t = a1·k / max(a1·ω, |S|·F2).
+    pub nu_t: VolScalarField,
     /// Blending function F1 — 1 in inner layer, 0 in free stream.
     f1: VolScalarField,
     /// Blending function F2 — activates the stress limiter near walls.
     f2: VolScalarField,
     /// Velocity field — set by the solver each step before `correct()`.
-    pub u:   VolVectorField,
+    pub u: VolVectorField,
     /// Face volumetric flux φ = U·Sf — set by the solver each step.
     pub phi: SurfaceScalarField,
     /// Molecular kinematic viscosity ν.
-    pub nu:  VolScalarField,
+    pub nu: VolScalarField,
     /// Distance to the nearest wall, per cell (computed once at construction).
     y: Vec<f64>,
     /// Time step [s].
@@ -88,47 +94,79 @@ pub struct KOmegaSST {
     pub prt: f64,
 }
 
-// ── Menter (1994) SST coefficients ───────────────────────────────────────────
-pub const SIGMA_K1:  f64 = 0.85;
-pub const SIGMA_K2:  f64 = 1.00;
-pub const SIGMA_W1:  f64 = 0.50;
-pub const SIGMA_W2:  f64 = 0.856;
-pub const BETA1:     f64 = 0.075;
-pub const BETA2:     f64 = 0.0828;
+// ── Menter (1994) SST coefficients (dimensionless) ───────────────────────────
+/// k-diffusion coefficient σ_k for the inner (k-ω) set.
+pub const SIGMA_K1: f64 = 0.85;
+/// k-diffusion coefficient σ_k for the outer (transformed k-ε) set.
+pub const SIGMA_K2: f64 = 1.00;
+/// ω-diffusion coefficient σ_ω for the inner (k-ω) set.
+pub const SIGMA_W1: f64 = 0.50;
+/// ω-diffusion coefficient σ_ω for the outer (transformed k-ε) set.
+pub const SIGMA_W2: f64 = 0.856;
+/// ω-destruction coefficient β for the inner (k-ω) set.
+pub const BETA1: f64 = 0.075;
+/// ω-destruction coefficient β for the outer (transformed k-ε) set.
+pub const BETA2: f64 = 0.0828;
+/// k-destruction coefficient β* (Cμ), shared by both sets.
 pub const BETA_STAR: f64 = 0.09;
-pub const KAPPA:     f64 = 0.41;   // von Kármán constant
-pub const A1:        f64 = 0.31;   // stress-limiter coefficient
+/// von Kármán constant κ.
+pub const KAPPA: f64 = 0.41;
+/// Bradshaw stress-limiter coefficient a1 (in ν_t = a1·k / max(a1·ω, |S|·F2)).
+pub const A1: f64 = 0.31;
 
 /// Lower clamps to keep divisions finite.
 const SMALL: f64 = 1e-14;
 
 impl KOmegaSST {
+    /// Construct a k-ω SST model over `mesh` with Menter (1994) coefficients.
+    ///
+    /// Fields start uniform (k = 1e-4 m²/s², ω = 1 s⁻¹, ν_t = 0), U and φ zero,
+    /// ν = 1e-5 m²/s, dt = 1e-3 s, Prt = 0.85. The wall-distance field is
+    /// computed once here from the mesh `Wall` patches. Set `u`, `phi`, `nu`,
+    /// and `dt` each time step before calling [`TurbulenceModel::correct`].
     pub fn new(mesh: Arc<FvMesh>) -> Self {
-        let k     = VolScalarField::uniform("k",     mesh.clone(), 1e-4);
+        let k = VolScalarField::uniform("k", mesh.clone(), 1e-4);
         let omega = VolScalarField::uniform("omega", mesh.clone(), 1.0);
-        let nu_t  = VolScalarField::zeros("nut",  mesh.clone());
-        let f1    = VolScalarField::uniform("F1", mesh.clone(), 1.0);
-        let f2    = VolScalarField::zeros("F2", mesh.clone());
-        let u     = VolVectorField::zero("U",  mesh.clone());
-        let phi   = SurfaceScalarField::zeros("phi", mesh.clone());
-        let nu    = VolScalarField::uniform("nu", mesh.clone(), 1e-5);
-        let y     = compute_wall_distance(&mesh);
-        Self { mesh, k, omega, nu_t, f1, f2, u, phi, nu, y, dt: 1e-3, prt: 0.85 }
+        let nu_t = VolScalarField::zeros("nut", mesh.clone());
+        let f1 = VolScalarField::uniform("F1", mesh.clone(), 1.0);
+        let f2 = VolScalarField::zeros("F2", mesh.clone());
+        let u = VolVectorField::zero("U", mesh.clone());
+        let phi = SurfaceScalarField::zeros("phi", mesh.clone());
+        let nu = VolScalarField::uniform("nu", mesh.clone(), 1e-5);
+        let y = compute_wall_distance(&mesh);
+        Self {
+            mesh,
+            k,
+            omega,
+            nu_t,
+            f1,
+            f2,
+            u,
+            phi,
+            nu,
+            y,
+            dt: 1e-3,
+            prt: 0.85,
+        }
     }
 
     /// γ (a.k.a. α) blending coefficient for the ω production term:
     /// `γ = β/β* − σ_ω·κ²/√β*`, evaluated for each k-ω / k-ε set.
-    fn gamma1() -> f64 { BETA1 / BETA_STAR - SIGMA_W1 * KAPPA * KAPPA / BETA_STAR.sqrt() }
-    fn gamma2() -> f64 { BETA2 / BETA_STAR - SIGMA_W2 * KAPPA * KAPPA / BETA_STAR.sqrt() }
+    fn gamma1() -> f64 {
+        BETA1 / BETA_STAR - SIGMA_W1 * KAPPA * KAPPA / BETA_STAR.sqrt()
+    }
+    fn gamma2() -> f64 {
+        BETA2 / BETA_STAR - SIGMA_W2 * KAPPA * KAPPA / BETA_STAR.sqrt()
+    }
 
     /// Cell-centred velocity gradient ∇U (Gauss), one `Tensor` per cell.
     fn grad_u(&self) -> Vec<Tensor> {
         let mesh = &self.mesh;
-        let u_f  = fvc::interpolate(&self.u);
+        let u_f = fvc::interpolate(&self.u);
         let mut g = vec![Tensor::ZERO; mesh.n_cells];
         for f in 0..mesh.n_internal_faces {
             let c = outer(u_f.internal[f], mesh.face_area_vectors[f]);
-            g[mesh.owner[f]]     = g[mesh.owner[f]] + c;
+            g[mesh.owner[f]] = g[mesh.owner[f]] + c;
             g[mesh.neighbour[f]] = g[mesh.neighbour[f]] - c;
         }
         for (pi, patch) in mesh.patches.iter().enumerate() {
@@ -148,8 +186,8 @@ impl KOmegaSST {
     /// Bradshaw stress limiter: `νt = a1·k / max(a1·ω, |S|·F2)`.
     fn update_nut(&mut self, mag_s: &[f64]) {
         let n = self.mesh.n_cells;
-        let k  = self.k.internal.as_slice();
-        let w  = self.omega.internal.as_slice();
+        let k = self.k.internal.as_slice();
+        let w = self.omega.internal.as_slice();
         let f2 = self.f2.internal.as_slice();
         let mut nut = vec![0.0_f64; n];
         for c in 0..n {
@@ -162,7 +200,9 @@ impl KOmegaSST {
 
 /// Build a `VolScalarField` from per-cell values with zero-gradient boundaries.
 fn scalar_field(name: &str, mesh: Arc<FvMesh>, vals: Vec<f64>) -> VolScalarField {
-    let boundary = mesh.patches.iter()
+    let boundary = mesh
+        .patches
+        .iter()
         .map(|p| PatchField::zero_gradient(p.size))
         .collect();
     VolScalarField::new(name, mesh, Field::new(vals), boundary)
@@ -180,18 +220,25 @@ fn compute_wall_distance(mesh: &FvMesh) -> Vec<f64> {
             }
         }
     }
-    (0..mesh.n_cells).map(|c| {
-        if wall_faces.is_empty() { return BIG; }
-        let cc = mesh.cell_centres[c];
-        wall_faces.iter().map(|wf| (*wf - cc).mag()).fold(BIG, f64::min)
-    }).collect()
+    (0..mesh.n_cells)
+        .map(|c| {
+            if wall_faces.is_empty() {
+                return BIG;
+            }
+            let cc = mesh.cell_centres[c];
+            wall_faces
+                .iter()
+                .map(|wf| (*wf - cc).mag())
+                .fold(BIG, f64::min)
+        })
+        .collect()
 }
 
 impl TurbulenceModel for KOmegaSST {
     fn div_dev_rho_reff(&self, u: &VolVectorField) -> FvVectorMatrix {
         // Effective viscosity ν_eff = ν + νt.
         let n = self.mesh.n_cells;
-        let nu  = self.nu.internal.as_slice();
+        let nu = self.nu.internal.as_slice();
         let nut = self.nu_t.internal.as_slice();
         let nu_eff_cell: Vec<f64> = (0..n).map(|c| nu[c] + nut[c]).collect();
         let nu_eff = scalar_field("nuEff", self.mesh.clone(), nu_eff_cell);
@@ -217,12 +264,12 @@ impl TurbulenceModel for KOmegaSST {
             // linear face tensor (owner/neighbour average) · Sf
             let bf = (b[mesh.owner[f]] + b[mesh.neighbour[f]]) * 0.5;
             let flux = tensor_dot_vec(bf, mesh.face_area_vectors[f]);
-            div_b[mesh.owner[f]]     = div_b[mesh.owner[f]] + flux;
+            div_b[mesh.owner[f]] = div_b[mesh.owner[f]] + flux;
             div_b[mesh.neighbour[f]] = div_b[mesh.neighbour[f]] - flux;
         }
         for c in 0..n {
             let dvb = div_b[c] * (1.0 / mesh.cell_volumes[c]); // ∇·B
-            // −∇·B on the LHS → move to the matrix source (RHS) with +V·∇·B.
+                                                               // −∇·B on the LHS → move to the matrix source (RHS) with +V·∇·B.
             eqn.source[c] = eqn.source[c] + dvb * mesh.cell_volumes[c];
         }
         eqn
@@ -230,18 +277,18 @@ impl TurbulenceModel for KOmegaSST {
 
     fn correct(&mut self) {
         let mesh = self.mesh.clone();
-        let n    = mesh.n_cells;
-        let dt   = self.dt;
+        let n = mesh.n_cells;
+        let dt = self.dt;
         let settings = SolverSettings::default();
 
         // ── Strain rate |S| = √(2 S:S), S = symm(∇U) ─────────────────────────
         let grad_u = self.grad_u();
         let mut mag_s = vec![0.0_f64; n]; // |S|
-        let mut s2    = vec![0.0_f64; n]; // |S|² = 2·S:S  (= production/νt)
+        let mut s2 = vec![0.0_f64; n]; // |S|² = 2·S:S  (= production/νt)
         for c in 0..n {
-            let s  = grad_u[c].symm();
+            let s = grad_u[c].symm();
             let ss = s.double_inner(s);
-            s2[c]    = 2.0 * ss;
+            s2[c] = 2.0 * ss;
             mag_s[c] = s2[c].sqrt();
         }
 
@@ -253,16 +300,16 @@ impl TurbulenceModel for KOmegaSST {
         let nu: Vec<f64> = self.nu.internal.as_slice().to_vec();
         let kk: Vec<f64> = self.k.internal.as_slice().to_vec();
         let ww: Vec<f64> = self.omega.internal.as_slice().to_vec();
-        let gk  = grad_k.internal.as_slice();
-        let gw  = grad_w.internal.as_slice();
+        let gk = grad_k.internal.as_slice();
+        let gw = grad_w.internal.as_slice();
 
         let mut f1 = vec![0.0_f64; n];
         let mut f2 = vec![0.0_f64; n];
         let mut cdkw = vec![0.0_f64; n];
         for c in 0..n {
-            let y  = self.y[c].max(SMALL);
-            let k  = kk[c].max(SMALL);
-            let w  = ww[c].max(SMALL);
+            let y = self.y[c].max(SMALL);
+            let k = kk[c].max(SMALL);
+            let w = ww[c].max(SMALL);
             let nc = nu[c].max(SMALL);
             let cd = (2.0 * SIGMA_W2 / w * gk[c].dot(gw[c])).max(1.0e-10);
             cdkw[c] = cd;
@@ -270,8 +317,7 @@ impl TurbulenceModel for KOmegaSST {
                 .max(500.0 * nc / (y * y * w))
                 .min(4.0 * SIGMA_W2 * k / (cd * y * y));
             f1[c] = arg1.powi(4).tanh();
-            let arg2 = (2.0 * k.sqrt() / (BETA_STAR * w * y))
-                .max(500.0 * nc / (y * y * w));
+            let arg2 = (2.0 * k.sqrt() / (BETA_STAR * w * y)).max(500.0 * nc / (y * y * w));
             f2[c] = (arg2 * arg2).tanh();
         }
         self.f1.internal = Field::new(f1.clone());
@@ -297,17 +343,18 @@ impl TurbulenceModel for KOmegaSST {
         for c in 0..n {
             let v = mesh.cell_volumes[c];
             let gamma = f1[c] * g1 + (1.0 - f1[c]) * g2;
-            let beta  = f1[c] * BETA1 + (1.0 - f1[c]) * BETA2;
+            let beta = f1[c] * BETA1 + (1.0 - f1[c]) * BETA2;
             // explicit production + cross-diffusion sources (× V):
-            w_eqn.source[c] = w_eqn.source[c]
-                + v * (gamma * s2[c] + (1.0 - f1[c]) * cdkw[c]);
+            w_eqn.source[c] = w_eqn.source[c] + v * (gamma * s2[c] + (1.0 - f1[c]) * cdkw[c]);
             // implicit destruction βω² → Sp(βω, ω): add βω·V to the diagonal.
             w_eqn.ldu.diag[c] += v * beta * ww[c].max(SMALL);
         }
         let (omega_new, _) = w_eqn.solve("omega", settings);
         self.omega = omega_new;
         for v in self.omega.internal.as_mut_slice() {
-            if *v < SMALL { *v = SMALL; }
+            if *v < SMALL {
+                *v = SMALL;
+            }
         }
 
         // ── k transport ──────────────────────────────────────────────────────
@@ -333,19 +380,23 @@ impl TurbulenceModel for KOmegaSST {
         let (k_new, _) = k_eqn.solve("k", settings);
         self.k = k_new;
         for v in self.k.internal.as_mut_slice() {
-            if *v < SMALL { *v = SMALL; }
+            if *v < SMALL {
+                *v = SMALL;
+            }
         }
 
         // Final νt with the updated k, ω.
         self.update_nut(&mag_s);
     }
 
-    fn nu_t(&self) -> &VolScalarField { &self.nu_t }
+    fn nu_t(&self) -> &VolScalarField {
+        &self.nu_t
+    }
 
     fn alpha_eff(&self, alpha: &VolScalarField) -> VolScalarField {
         // α_eff = α + α_t,  α_t = νt / Prt
         let n = self.mesh.n_cells;
-        let a   = alpha.internal.as_slice();
+        let a = alpha.internal.as_slice();
         let nut = self.nu_t.internal.as_slice();
         let vals: Vec<f64> = (0..n).map(|c| a[c] + nut[c] / self.prt).collect();
         scalar_field("alphaEff", self.mesh.clone(), vals)
@@ -354,7 +405,7 @@ impl TurbulenceModel for KOmegaSST {
     fn mu_eff_field(&self, mu: &VolScalarField) -> VolScalarField {
         // μ_eff = μ + μ_t  (incompressible: ν + νt)
         let n = self.mesh.n_cells;
-        let m   = mu.internal.as_slice();
+        let m = mu.internal.as_slice();
         let nut = self.nu_t.internal.as_slice();
         let vals: Vec<f64> = (0..n).map(|c| m[c] + nut[c]).collect();
         scalar_field("muEff", self.mesh.clone(), vals)
@@ -364,24 +415,31 @@ impl TurbulenceModel for KOmegaSST {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use outram_foam_basic_lib::prelude::{FvMeshBuilder, BoundaryPatch};
+    use outram_foam_basic_lib::prelude::{BoundaryPatch, FvMeshBuilder};
 
-    fn vx(x: f64) -> Vector3 { Vector3::new(x, 0.0, 0.0) }
+    fn vx(x: f64) -> Vector3 {
+        Vector3::new(x, 0.0, 0.0)
+    }
 
     // 3 cells along x (centres 0.5, 1.5, 2.5); the left patch (x = 0) is a Wall.
     fn line_mesh_with_wall() -> Arc<FvMesh> {
-        Arc::new(FvMeshBuilder::new()
-            .n_cells(3).n_internal_faces(2)
-            .owner(vec![0, 1, 0, 2]).neighbour(vec![1, 2])
-            .patches(vec![
-                BoundaryPatch::new("wall", 2, 1, PatchKind::Wall),
-                BoundaryPatch::new("top",  3, 1, PatchKind::Patch),
-            ])
-            .cell_volumes(vec![1.0, 1.0, 1.0])
-            .cell_centres(vec![vx(0.5), vx(1.5), vx(2.5)])
-            .face_area_vectors(vec![vx(1.0), vx(1.0), vx(-1.0), vx(1.0)])
-            .face_centres(vec![vx(1.0), vx(2.0), vx(0.0), vx(3.0)])
-            .build().unwrap())
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(3)
+                .n_internal_faces(2)
+                .owner(vec![0, 1, 0, 2])
+                .neighbour(vec![1, 2])
+                .patches(vec![
+                    BoundaryPatch::new("wall", 2, 1, PatchKind::Wall),
+                    BoundaryPatch::new("top", 3, 1, PatchKind::Patch),
+                ])
+                .cell_volumes(vec![1.0, 1.0, 1.0])
+                .cell_centres(vec![vx(0.5), vx(1.5), vx(2.5)])
+                .face_area_vectors(vec![vx(1.0), vx(1.0), vx(-1.0), vx(1.0)])
+                .face_centres(vec![vx(1.0), vx(2.0), vx(0.0), vx(3.0)])
+                .build()
+                .unwrap(),
+        )
     }
 
     #[test]
@@ -399,9 +457,9 @@ mod tests {
         // νt = a1·k / max(a1·ω, |S|·F2)
         let m = line_mesh_with_wall();
         let mut model = KOmegaSST::new(m);
-        model.k.internal     = Field::new(vec![0.2, 0.2, 0.2]);
+        model.k.internal = Field::new(vec![0.2, 0.2, 0.2]);
         model.omega.internal = Field::new(vec![10.0, 10.0, 10.0]);
-        model.f2.internal    = Field::new(vec![1.0, 1.0, 1.0]);
+        model.f2.internal = Field::new(vec![1.0, 1.0, 1.0]);
         // Cell 0: |S| large → limiter active (|S|·F2 > a1·ω)
         // Cell 2: |S| small → a1·ω branch
         let mag_s = vec![100.0, 0.0, 0.0];

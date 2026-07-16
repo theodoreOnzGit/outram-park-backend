@@ -39,9 +39,13 @@ use crate::primitives::Vector3;
 /// nearest-face-centre search (see `from_face_centres`).
 #[derive(Debug, Clone)]
 pub struct RegionInterface {
+    /// Mesh on side A of the interface.
     pub mesh_a: Arc<FvMesh>,
+    /// Index of the coupled patch within `mesh_a.patches`.
     pub patch_a: usize,
+    /// Mesh on side B of the interface.
     pub mesh_b: Arc<FvMesh>,
+    /// Index of the coupled patch within `mesh_b.patches`.
     pub patch_b: usize,
     /// `face_map[fi_a]` = `fi_b` on the B-side patch.
     pub face_map: Vec<usize>,

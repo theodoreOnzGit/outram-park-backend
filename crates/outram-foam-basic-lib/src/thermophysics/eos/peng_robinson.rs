@@ -53,6 +53,9 @@ pub struct PengRobinsonGas {
 }
 
 impl PengRobinsonGas {
+    /// Construct a Peng-Robinson EOS from molar mass W [kg/mol], critical
+    /// temperature Tc [K], critical pressure Pc [Pa], and acentric factor ω [-]
+    /// (κ correlation valid for ω < 0.49).
     pub fn new(
         mol_weight: MolarMass,
         tc: ThermodynamicTemperature,

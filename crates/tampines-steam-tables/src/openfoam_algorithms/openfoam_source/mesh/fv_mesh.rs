@@ -37,8 +37,15 @@ pub struct BoundaryPatch {
 }
 
 impl BoundaryPatch {
+    /// Build a boundary patch descriptor covering global faces
+    /// `[start, start + size)`.
     pub fn new(name: impl Into<String>, start: usize, size: usize, kind: PatchKind) -> Self {
-        Self { name: name.into(), start, size, kind }
+        Self {
+            name: name.into(),
+            start,
+            size,
+            kind,
+        }
     }
 
     /// Last+1 face index (exclusive upper bound).
@@ -55,13 +62,20 @@ impl BoundaryPatch {
 /// Topological type of a boundary patch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PatchKind {
-    Patch,      // generic boundary
-    Wall,       // no-slip wall
-    Symmetry,   // symmetry plane
-    Empty,      // 2-D reduced case (zero area)
-    Wedge,      // axisymmetric wedge
-    Cyclic,     // periodic / matching pair
-    Processor,  // inter-processor decomposition seam
+    /// Generic boundary (no special FV treatment implied by the kind alone).
+    Patch,
+    /// No-slip wall.
+    Wall,
+    /// Symmetry plane.
+    Symmetry,
+    /// 2-D reduced case (zero-area empty direction).
+    Empty,
+    /// Axisymmetric wedge.
+    Wedge,
+    /// Periodic / matching pair.
+    Cyclic,
+    /// Inter-processor decomposition seam.
+    Processor,
 }
 
 /// Finite-volume mesh — topology and geometry in a flat data structure.
@@ -80,7 +94,6 @@ pub enum PatchKind {
 #[derive(Debug, Clone)]
 pub struct FvMesh {
     // ── Topology ──────────────────────────────────────────────────────────────
-
     /// Number of cells.
     pub n_cells: usize,
     /// Number of internal faces (both owner and neighbour defined).
@@ -98,7 +111,6 @@ pub struct FvMesh {
     pub patches: Vec<BoundaryPatch>,
 
     // ── Geometry ──────────────────────────────────────────────────────────────
-
     /// Cell volumes `V[c]` [m³].
     pub cell_volumes: Vec<f64>,
     /// Cell centres `C[c]` [m].
@@ -147,18 +159,26 @@ impl FvMesh {
     pub fn validate(&self) -> Result<(), MeshError> {
         let check_len = |array, got, expected| {
             if got != expected {
-                Err(MeshError::ArrayLengthMismatch { array, expected, got })
+                Err(MeshError::ArrayLengthMismatch {
+                    array,
+                    expected,
+                    got,
+                })
             } else {
                 Ok(())
             }
         };
-        check_len("owner",            self.owner.len(),            self.n_faces)?;
-        check_len("neighbour",        self.neighbour.len(),        self.n_internal_faces)?;
-        check_len("cell_volumes",     self.cell_volumes.len(),     self.n_cells)?;
-        check_len("cell_centres",     self.cell_centres.len(),     self.n_cells)?;
-        check_len("face_area_vectors",self.face_area_vectors.len(),self.n_faces)?;
-        check_len("face_areas",       self.face_areas.len(),       self.n_faces)?;
-        check_len("face_centres",     self.face_centres.len(),     self.n_faces)?;
+        check_len("owner", self.owner.len(), self.n_faces)?;
+        check_len("neighbour", self.neighbour.len(), self.n_internal_faces)?;
+        check_len("cell_volumes", self.cell_volumes.len(), self.n_cells)?;
+        check_len("cell_centres", self.cell_centres.len(), self.n_cells)?;
+        check_len(
+            "face_area_vectors",
+            self.face_area_vectors.len(),
+            self.n_faces,
+        )?;
+        check_len("face_areas", self.face_areas.len(), self.n_faces)?;
+        check_len("face_centres", self.face_centres.len(), self.n_faces)?;
 
         // Patches must cover [n_internal_faces, n_faces) without gaps.
         let mut covered = self.n_internal_faces;
@@ -173,7 +193,10 @@ impl FvMesh {
             covered += p.size;
         }
         if covered != self.n_faces {
-            return Err(MeshError::PatchCoverageMismatch { covered, n_faces: self.n_faces });
+            return Err(MeshError::PatchCoverageMismatch {
+                covered,
+                n_faces: self.n_faces,
+            });
         }
         Ok(())
     }
@@ -195,18 +218,62 @@ pub struct FvMeshBuilder {
 }
 
 impl FvMeshBuilder {
-    pub fn new() -> Self { Self::default() }
+    /// Start building a mesh with all fields at their zero/empty default.
+    pub fn new() -> Self {
+        Self::default()
+    }
 
-    pub fn n_cells(mut self, n: usize) -> Self { self.n_cells = n; self }
-    pub fn n_internal_faces(mut self, n: usize) -> Self { self.n_internal_faces = n; self }
-    pub fn owner(mut self, v: Vec<usize>) -> Self { self.owner = v; self }
-    pub fn neighbour(mut self, v: Vec<usize>) -> Self { self.neighbour = v; self }
-    pub fn patches(mut self, v: Vec<BoundaryPatch>) -> Self { self.patches = v; self }
-    pub fn cell_volumes(mut self, v: Vec<f64>) -> Self { self.cell_volumes = v; self }
-    pub fn cell_centres(mut self, v: Vec<Vector3>) -> Self { self.cell_centres = v; self }
-    pub fn face_area_vectors(mut self, v: Vec<Vector3>) -> Self { self.face_area_vectors = v; self }
-    pub fn face_areas(mut self, v: Vec<f64>) -> Self { self.face_areas = v; self }
-    pub fn face_centres(mut self, v: Vec<Vector3>) -> Self { self.face_centres = v; self }
+    /// Set the cell count.
+    pub fn n_cells(mut self, n: usize) -> Self {
+        self.n_cells = n;
+        self
+    }
+    /// Set the internal-face count.
+    pub fn n_internal_faces(mut self, n: usize) -> Self {
+        self.n_internal_faces = n;
+        self
+    }
+    /// Set `owner[f]` for every face.
+    pub fn owner(mut self, v: Vec<usize>) -> Self {
+        self.owner = v;
+        self
+    }
+    /// Set `neighbour[f]` for every internal face.
+    pub fn neighbour(mut self, v: Vec<usize>) -> Self {
+        self.neighbour = v;
+        self
+    }
+    /// Set the boundary patch descriptors.
+    pub fn patches(mut self, v: Vec<BoundaryPatch>) -> Self {
+        self.patches = v;
+        self
+    }
+    /// Set the per-cell volumes `V[c]` \[m³\].
+    pub fn cell_volumes(mut self, v: Vec<f64>) -> Self {
+        self.cell_volumes = v;
+        self
+    }
+    /// Set the per-cell centres `C[c]` \[m\].
+    pub fn cell_centres(mut self, v: Vec<Vector3>) -> Self {
+        self.cell_centres = v;
+        self
+    }
+    /// Set the per-face area vectors `Sf[f]` \[m²\].
+    pub fn face_area_vectors(mut self, v: Vec<Vector3>) -> Self {
+        self.face_area_vectors = v;
+        self
+    }
+    /// Set the per-face area magnitudes `|Sf[f]|` \[m²\] explicitly
+    /// (otherwise derived from `face_area_vectors` by [`Self::build`]).
+    pub fn face_areas(mut self, v: Vec<f64>) -> Self {
+        self.face_areas = v;
+        self
+    }
+    /// Set the per-face centres `Cf[f]` \[m\].
+    pub fn face_centres(mut self, v: Vec<Vector3>) -> Self {
+        self.face_centres = v;
+        self
+    }
 
     /// Derive `face_areas` from `face_area_vectors` if not set.
     fn ensure_face_areas(&mut self) {
@@ -215,6 +282,8 @@ impl FvMeshBuilder {
         }
     }
 
+    /// Finish building: derives `face_areas` if unset, assembles the
+    /// [`FvMesh`], and runs [`FvMesh::validate`] before returning it.
     pub fn build(mut self) -> Result<FvMesh, MeshError> {
         self.ensure_face_areas();
         let n_faces = self.owner.len();
@@ -257,17 +326,20 @@ mod tests {
             .n_internal_faces(1)
             // faces: [0=internal, 1=right boundary, 2=left boundary]
             .owner(vec![0, 1, 0])
-            .neighbour(vec![1])          // only internal face 0
+            .neighbour(vec![1]) // only internal face 0
             .patches(vec![
                 BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
-                BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
+                BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
             ])
             .cell_volumes(vec![1.0, 1.0])
-            .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
+            .cell_centres(vec![
+                Vector3::new(0.25, 0.0, 0.0),
+                Vector3::new(0.75, 0.0, 0.0),
+            ])
             .face_area_vectors(vec![
-                Vector3::new(1.0, 0.0, 0.0),   // internal face: pointing right (owner→neighbour)
-                Vector3::new(1.0, 0.0, 0.0),   // right boundary: outward
-                Vector3::new(-1.0, 0.0, 0.0),  // left boundary: outward
+                Vector3::new(1.0, 0.0, 0.0), // internal face: pointing right (owner→neighbour)
+                Vector3::new(1.0, 0.0, 0.0), // right boundary: outward
+                Vector3::new(-1.0, 0.0, 0.0), // left boundary: outward
             ])
             .face_centres(vec![
                 Vector3::new(0.5, 0.0, 0.0),
@@ -298,7 +370,7 @@ mod tests {
     #[test]
     fn patch_for_face() {
         let m = two_cell_mesh();
-        assert_eq!(m.patch_for_face(0), None);         // internal
+        assert_eq!(m.patch_for_face(0), None); // internal
         assert_eq!(m.patch_for_face(1), Some((0, 0))); // right patch (index 0), local face 0
         assert_eq!(m.patch_for_face(2), Some((1, 0))); // left patch (index 1), local face 0
     }

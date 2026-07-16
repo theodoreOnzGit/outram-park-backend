@@ -40,6 +40,7 @@ fn sign(x: f64) -> f64 {
 }
 
 impl LinearEqn {
+    /// Construct `a·x + b` from its two `f64` coefficients.
     #[inline]
     pub fn new(a: f64, b: f64) -> Self {
         Self { a, b }

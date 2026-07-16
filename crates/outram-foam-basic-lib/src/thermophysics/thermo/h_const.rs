@@ -46,6 +46,10 @@ pub struct HConstThermo<E: EquationOfState> {
 }
 
 impl<E: EquationOfState> HConstThermo<E> {
+    /// Construct a constant-Cp thermo model wrapping `eos`, with heat capacity
+    /// `cp` [J/(kg·K)], heat of formation `hf` [J/kg], sensible-enthalpy
+    /// reference temperature `tref` [K], and sensible enthalpy `hsref` [J/kg]
+    /// at `tref`.
     pub fn new(
         eos: E,
         cp: SpecificHeatCapacity,

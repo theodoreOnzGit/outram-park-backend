@@ -43,6 +43,9 @@ pub struct ConstTransport<T: ThermoModel> {
 }
 
 impl<T: ThermoModel> ConstTransport<T> {
+    /// Builds a constant-transport model wrapping a thermodynamic model
+    /// `thermo`, with constant dynamic viscosity `mu` (Pa·s) and Prandtl
+    /// number `pr` (dimensionless); thermal conductivity follows from `pr`.
     pub fn new(thermo: T, mu: DynamicViscosity, pr: Ratio) -> Self {
         use uom::si::ratio::ratio;
         Self {

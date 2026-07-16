@@ -39,7 +39,9 @@ use crate::mesh::fv_mesh::FvMesh;
 /// Assembled incrementally by `fvm::` operators in Layer 3; solved via
 /// `self.solve()`.
 pub struct FvMatrix {
+    /// Mesh the equation is defined on (shares the face addressing).
     pub mesh: Arc<FvMesh>,
+    /// Sparse LDU coefficients of the operator `A`.
     pub ldu: LduMatrix,
     /// Right-hand-side source term, length `n_cells`.
     pub source: Field<f64>,
@@ -48,7 +50,9 @@ pub struct FvMatrix {
 /// Solver settings passed to `FvMatrix::solve`.
 #[derive(Debug, Clone, Copy)]
 pub struct SolverSettings {
+    /// Convergence tolerance on the normalised residual (dimensionless).
     pub tolerance: f64,
+    /// Maximum iteration/sweep count before giving up.
     pub max_iter: usize,
 }
 
@@ -64,8 +68,11 @@ impl Default for SolverSettings {
 /// Summary of a linear solve.
 #[derive(Debug, Clone, Copy)]
 pub struct SolverPerformance {
+    /// Number of iterations/sweeps actually performed.
     pub n_iterations: usize,
+    /// Normalised residual at exit (dimensionless).
     pub final_residual: f64,
+    /// `true` if `final_residual` dropped below the requested tolerance.
     pub converged: bool,
 }
 

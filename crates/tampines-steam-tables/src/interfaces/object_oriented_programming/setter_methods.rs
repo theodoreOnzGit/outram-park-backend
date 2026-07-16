@@ -1,16 +1,30 @@
 use uom::si::{f64::*, mass::kilogram};
 impl super::TampinesSteamTableCV {
+    /// Re-flashes the control volume in place from `(T,p,x)`, where
+    /// temperature `T` is in K, pressure `p` is in Pa, and `x` is the
+    /// steam quality (vapour mass fraction, only meaningful on the
+    /// saturation line). The fixed control-volume `volume` is preserved;
+    /// all intensive properties are recomputed via
+    /// [`Self::new_from_tp_quality`].
     pub fn set_tpx(&mut self, t: ThermodynamicTemperature, p: Pressure, x: f64) {
         let volume = self.get_volume();
 
         *self = Self::new_from_tp_quality(t, p, volume, x);
     }
 
+    /// Re-flashes the control volume in place from `(p,h)`, where pressure
+    /// `p` is in Pa and specific enthalpy `h` is in J/kg. The fixed
+    /// control-volume `volume` is preserved; all intensive properties are
+    /// recomputed via [`Self::new_from_ph`].
     pub fn set_ph(&mut self, p: Pressure, h: AvailableEnergy) {
         let volume = self.get_volume();
 
         *self = Self::new_from_ph(p, h, volume);
     }
+    /// Re-flashes the control volume in place from `(p,s)`, where pressure
+    /// `p` is in Pa and specific entropy `s` is in J/(kg*K). The fixed
+    /// control-volume `volume` is preserved; all intensive properties are
+    /// recomputed via [`Self::new_from_ps`].
     pub fn set_ps(&mut self, p: Pressure, s: SpecificHeatCapacity) {
         let volume = self.get_volume();
 

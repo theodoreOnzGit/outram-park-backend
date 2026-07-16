@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.0.1
+**Version:** 0.1.0
 
 **Format Version:** 60
 
@@ -11,6 +11,22 @@
 A pure-Rust fork/translation of [CoolProp](https://github.com/CoolProp/CoolProp)
 (MIT) — thermophysical properties from Helmholtz-energy-explicit equations
 of state — built to OUTRAM PARK's design rules:
+
+> **Independent fork, not the official CoolProp.** This crate is not
+> affiliated with, endorsed by, or maintained by the CoolProp project or its
+> authors. "CoolProp" is used only to identify the upstream work it is
+> derived from (see `TRADEMARKS.md`, `NOTICE`).
+>
+> **Licence: GPL-3.0-only.** CoolProp itself is MIT, but this crate ships
+> GPL-3.0-only OpenFOAM-derived code ([`openfoam_algorithms`]), so the crate
+> as a whole is GPL-3.0-only; the CoolProp-derived parts keep their MIT
+> provenance in-tree.
+>
+> **⚠️ No human V&V has been performed yet — use at your own risk.** The
+> automated tests here are self-consistency and primary-standard checks; no
+> human-reviewed validation against CoolProp reference outputs exists yet
+> (planned, bead op-kbc.3). Not for nuclear facility operation, reactor
+> control, safety-critical, or licensing decisions.
 
 - **Enum dispatch, no trait objects.** Fluids are a [`Fluid`] enum and
   EOS-term forms are [`eos::ResidualTerm`] / [`eos::IdealTerm`] enums,
@@ -6778,17 +6794,17 @@ Thermodynamic properties from the Helmholtz EOS, given temperature and
 density inputs `(T, ρ)`.
 
 `(T, ρ)` are the EOS's *natural* inputs, so these are exact single
-evaluations (no iteration). The `(T, p)` / `(p, h)` … flashes CoolProp's
-`PropsSI` also offers require a density solve and are a follow-up
-(bead op-kbc).
+evaluations (no iteration). The `(T, p)` / `(p, h)` / `(p, s)` flashes
+CoolProp's `PropsSI` also offers require an iterative density (and/or
+temperature) solve and live in [`crate::flash`].
 
-All public functions take/return **mass-based SI**: temperature in kelvin,
-density in kg/m³, pressure in Pa, specific energies in J/kg, specific heats
-in J/(kg·K), speed of sound in m/s. The molar EOS quantities are converted
-at this boundary using the fluid's molar mass.
+All public functions take/return **mass-based SI**: temperature in kelvin
+\[K\], density in kg/m³, pressure in Pa, specific energies in J/kg, specific
+heats in J/(kg·K), speed of sound in m/s. The molar EOS quantities are
+converted at this boundary using the fluid's molar mass.
 
-(A `uom`-typed public wrapper, matching the workspace's units convention, is
-a planned follow-up — bead op-kbc. Internally the EOS is raw `f64` SI.)
+Internally the EOS is raw `f64` SI; the `uom`-typed public wrapper matching
+the workspace's units convention is [`crate::single_cv::OPCPFluidSingleCV`].
 
 ```rust
 pub mod props { /* ... */ }
@@ -7236,16 +7252,26 @@ common model subset:
   dilute `ratio_of_polynomials` or `eta0_and_poly`; residual `polynomial` or
   `polynomial_and_exponential`.
 
-# Deliberate omission — critical enhancement
+# Critical enhancement — partial coverage
 
-The near-critical enhancement terms (viscosity/conductivity
-`simplified_Olchowy_Sengers`, etc.) are **not** evaluated — the same fast-path
-simplification `tampines-steam-tables` makes. Away from the critical point
-their contribution is negligible; within roughly a few percent of `T_c`,`ρ_c`
-`λ` in particular is under-predicted. Fluids whose transport is *hardcoded*
-(Water, CO₂, the R-blends, …) or uses an unimplemented model carry **no**
-transport model here (`Fluid::transport()` → the relevant field is `None`) —
-never a wrong number.
+**Conductivity** near-critical enhancement `λ_c` **is** evaluated where a
+fluid carries the term: the generic `simplified_Olchowy_Sengers` crossover
+and the hardcoded R123 / ammonia terms (see [`CriticalConductivity`]), plus
+the self-contained critical terms baked into the heavy-water and methane
+hardcoded formulas. Two hardcoded fluids deliberately drop it — Water (the
+IAPWS `λ̄₂` term) and Helium (the 3.5–12 K `λ_c`) — the same fast-path
+simplification `tampines-steam-tables` makes.
+
+**Viscosity** has no critical-enhancement term at all (Water's IAPWS `μ̄₂`
+is likewise omitted). Away from the critical point this is negligible;
+within roughly a few percent of `T_c`,`ρ_c` the omitted term slightly
+under-predicts `μ`.
+
+A fluid whose transport uses a model this port does **not** implement carries
+no model for that property (`Fluid::transport()` → the relevant field is
+`None`) — never a wrong number. Fluid-specific *hardcoded* formulas that
+**are** implemented (Water, heavy water, helium, CO₂, ethane, the xylenes,
+R23, methanol, methane) are exposed and returned like any other model.
 
 ```rust
 pub mod transport { /* ... */ }
@@ -8781,8 +8807,8 @@ pub struct FluidTransport {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `viscosity` | `Option<ViscosityModel>` |  |
-| `conductivity` | `Option<ConductivityModel>` |  |
+| `viscosity` | `Option<ViscosityModel>` | Dynamic-viscosity model, or `None` if the fluid ships no supported one. |
+| `conductivity` | `Option<ConductivityModel>` | Thermal-conductivity model, or `None` if the fluid ships no supported one. |
 
 ##### Implementations
 
@@ -9170,8 +9196,9 @@ pub fn phase_at_ph(fluid: crate::fluid::Fluid, p: f64, h: f64) -> PhaseAtPh { /*
 ## Module `humid_air`
 
 Humid (moist) air properties — the CoolProp `HAPropsSI` backend (ASHRAE
-RP-1485). `(T,p,W)`/`(T,p,R)` inputs implemented and verified; see the
-module doc for coverage (bead op-kbc.14).
+RP-1485). `(T,p,{W|R|psi_w|Tdp|Twb})` inputs implemented and verified; the
+psychrometric core only (no cp/cv/transport, no ice branch, no `T`-unknown
+inversions). See the module doc for coverage (bead op-kbc.14).
 Humid (moist) air properties — the CoolProp `HAPropsSI` backend.
 
 Ported from CoolProp `HumidAirProp.cpp`, following ASHRAE RP-1485 /
@@ -9192,7 +9219,11 @@ the saturation **enhancement factor** in [`saturation`].
 - **Outputs**: `T`, `p`, `ψ_w`, `W`, `R`, specific enthalpy `H`, specific
   entropy `S`, specific volume `V` (all per kg dry air), the water
   partial pressure `p_w`, and the wet-bulb temperature `T_wb` and
-  dew-point temperature `T_dp`.
+  dew-point temperature `T_dp`. Also the derived-energy family: specific
+  internal energy `U`, the isobaric and isochoric heat capacities `cp`,
+  `cv`, the compressibility factor `Z`, and the humid-air-basis (per kg
+  *humid* air) variants of the mass-specific quantities: `Hha`, `Sha`,
+  `Vha`, `Uha`, `cp_ha`, `cv_ha`.
 - **Range**: liquid-water branch only, `T > 273.16 K` (the IAPWS triple
   point) — the ice-sublimation branch is not ported (see [`saturation`]).
 
@@ -9458,6 +9489,16 @@ pub enum HumidAirParam {
     Entropy,
     Volume,
     WaterPartialPressure,
+    EnthalpyHumidAir,
+    EntropyHumidAir,
+    VolumeHumidAir,
+    InternalEnergy,
+    InternalEnergyHumidAir,
+    IsobaricHeatCapacity,
+    IsobaricHeatCapacityHumidAir,
+    IsochoricHeatCapacity,
+    IsochoricHeatCapacityHumidAir,
+    CompressibilityFactor,
 }
 ```
 
@@ -9511,6 +9552,70 @@ Mixture specific volume per kg dry air \[m³/kg\] (CoolProp `V`/`Vda`).
 ###### `WaterPartialPressure`
 
 Partial pressure of water vapour `p_w` \[Pa\] (CoolProp `P_w`).
+
+###### `EnthalpyHumidAir`
+
+Mixture specific enthalpy per kg **humid** air \[J/kg\] (CoolProp
+`Hha`). Equals [`Enthalpy`](Self::Enthalpy) divided by `(1 + W)`.
+
+###### `EntropyHumidAir`
+
+Mixture specific entropy per kg **humid** air \[J/(kg·K)\] (CoolProp
+`Sha`). Equals [`Entropy`](Self::Entropy) divided by `(1 + W)`. Carries
+the same absolute-reference caveat as [`Entropy`](Self::Entropy) — see
+the module doc.
+
+###### `VolumeHumidAir`
+
+Mixture specific volume per kg **humid** air \[m³/kg\] (CoolProp `Vha`).
+Equals [`Volume`](Self::Volume) divided by `(1 + W)`.
+
+###### `InternalEnergy`
+
+Mixture specific internal energy per kg **dry** air \[J/kg\] (CoolProp
+`U`/`Uda`). `u = h − p·v` on the mixture molar basis, then converted
+per kg dry air the same way [`Enthalpy`](Self::Enthalpy) is.
+
+###### `InternalEnergyHumidAir`
+
+Mixture specific internal energy per kg **humid** air \[J/kg\] (CoolProp
+`Uha`). Equals [`InternalEnergy`](Self::InternalEnergy) divided by
+`(1 + W)`.
+
+###### `IsobaricHeatCapacity`
+
+Isobaric (constant-`p`) specific heat capacity per kg **dry** air
+\[J/(kg·K)\] (CoolProp `C`/`cp`). Central finite difference of the
+mixture molar enthalpy `h̄` with respect to `T` at fixed `p` and `ψ_w`
+(matching CoolProp's own `Cp` implementation), converted to a dry-air
+mass basis. Equals [`IsobaricHeatCapacityHumidAir`](Self::IsobaricHeatCapacityHumidAir)
+times `(1 + W)`.
+
+###### `IsobaricHeatCapacityHumidAir`
+
+Isobaric (constant-`p`) specific heat capacity per kg **humid** air
+\[J/(kg·K)\] (CoolProp `Cha`/`cp_ha`).
+
+###### `IsochoricHeatCapacity`
+
+Isochoric (constant-`v`) specific heat capacity per kg **dry** air
+\[J/(kg·K)\] (CoolProp `CV`). Central finite difference of the mixture
+molar internal energy `ū` with respect to `T` at fixed molar volume
+`v̄` and `ψ_w` (the pressure is re-solved from the EOS at each `T`,
+matching CoolProp), converted to a dry-air mass basis. Equals
+[`IsochoricHeatCapacityHumidAir`](Self::IsochoricHeatCapacityHumidAir)
+times `(1 + W)`.
+
+###### `IsochoricHeatCapacityHumidAir`
+
+Isochoric (constant-`v`) specific heat capacity per kg **humid** air
+\[J/(kg·K)\] (CoolProp `CVha`/`cv_ha`).
+
+###### `CompressibilityFactor`
+
+Compressibility factor `Z = p·v̄ / (R̄·T)` \[-\] (CoolProp `Z`), where
+`v̄` is the mixture molar volume \[m³/mol\] and `R̄ = 8.314472
+J/(mol·K)`. Dimensionless; identical on either mass basis.
 
 ##### Implementations
 
@@ -9846,8 +9951,10 @@ pub fn ha_props(output: HumidAirParam, in1: HaInput, in2: HaInput, in3: HaInput)
 
 ## Module `incompressibles`
 
-Incompressible-fluid properties — the CoolProp `INCOMP` backend.
-**Scaffold only** (bead op-kbc.15).
+Incompressible-fluid properties — the CoolProp `INCOMP` backend. All 126
+upstream fluids ported (74 pure, 39 mass-based, 13 volume-based) with
+rho/cp/conductivity/viscosity/enthalpy; T66-verified. `T_freeze`, `psat`,
+and entropy/internal-energy are not yet ported (bead op-kbc.15).
 Incompressible-fluid properties — the CoolProp `INCOMP` backend.
 
 The evaluation engine (this module) is real and verified against T66
@@ -9877,7 +9984,7 @@ CoolProp's `IncompressibleFluid` supports five fit forms
 (`IncompressibleFluid.cpp`); this port implements the four CoolProp's own
 126 incompressible-liquid JSON files actually use — `polynomial`
 (density/specific_heat/conductivity, always; also 2 fluids' viscosity),
-`exppolynomial` (117 fluids' viscosity), `exponential` (46 pure fluids'
+`exppolynomial` (65 fluids' viscosity), `exponential` (46 pure fluids'
 viscosity) and `logexponential` (3 pure fluids' viscosity). `polyoffset`
 is in CoolProp's format but unused by any of the 126 fluids surveyed here,
 so it is not implemented — [`IncompressibleError::PropertyUnavailable`] if
@@ -9888,6 +9995,24 @@ fluids' JSON carries an all-**zero** coefficient block for one property
 (CoolProp's own upstream data has never fit it, e.g. Acetone's
 `conductivity` and LiBr's `conductivity`/`viscosity`) — `dev/gen_incompressible.py`
 detects this and also emits `None` rather than a knowingly-wrong `0.0`.
+
+# Auxiliary and derived properties
+
+Beyond the four core fits, each fluid also carries the CoolProp auxiliary
+correlations where upstream ships real coefficients:
+- [`Incompressible::t_freeze`] — freezing temperature `T_freeze(x)` \[K\] as
+  a function of antifreeze composition (48 brine/glycol/antifreeze solutions;
+  [`IncompressibleError::PropertyUnavailable`] otherwise, including the one
+  fluid whose fit uses the unimplemented `polyoffset` form).
+- [`Incompressible::saturation_pressure`] — vapour pressure `p_sat(T, x)`
+  \[Pa\], valid on `[t_min_psat, t_max]` (38 fluids; `OutOfRange` below
+  `t_min_psat`, `PropertyUnavailable` when absent).
+
+Two further quantities are *derived* from the `specific_heat` polynomial the
+module already integrates for enthalpy, so they need no extra coefficients:
+- [`Incompressible::entropy`] — `s = ∫ c_p/T dT` (zero at `t_range.0`);
+- [`Incompressible::internal_energy`] — `u = h − p/ρ` (CoolProp `calc_umass`,
+  the one incompressible property that genuinely depends on `p`).
 
 # Units
 
@@ -12654,6 +12779,9 @@ pub struct IncompressibleFluid {
     pub heat_capacity: PropertyFit,
     pub conductivity: Option<PropertyFit>,
     pub viscosity: Option<PropertyFit>,
+    pub t_freeze: Option<PropertyFit>,
+    pub p_sat: Option<PropertyFit>,
+    pub t_min_psat: f64,
 }
 ```
 
@@ -12671,6 +12799,9 @@ pub struct IncompressibleFluid {
 | `heat_capacity` | `PropertyFit` | Isobaric heat-capacity fit `c(T, x)` \[J/(kg·K)\]. |
 | `conductivity` | `Option<PropertyFit>` | Thermal-conductivity fit `λ(T, x)` \[W/(m·K)\], or `None` if CoolProp<br>ships no real correlation (an all-zero placeholder in its own JSON). |
 | `viscosity` | `Option<PropertyFit>` | Dynamic-viscosity fit `μ(T, x)` \[Pa·s\], or `None` if CoolProp ships no<br>viscosity correlation for this fluid (7 of the 126 ported fluids, plus<br>a few more with an all-zero placeholder). |
+| `t_freeze` | `Option<PropertyFit>` | Freezing-temperature fit `T_freeze(x)` \[K\] as a function of composition<br>`x`, or `None` when CoolProp ships no real correlation. Populated for the<br>48 brine/glycol/antifreeze solutions that carry upstream coeffs; the one<br>fluid whose upstream `T_freeze` uses the unimplemented `polyoffset` form<br>(ExampleSecCool) is `None`. Note the fit variable is the **composition**<br>`x`, not temperature — evaluated via [`Incompressible::t_freeze`]. |
+| `p_sat` | `Option<PropertyFit>` | Saturation-pressure fit `p_sat(T, x)` \[Pa\], valid only for<br>`T ∈ [t_min_psat, t_range.1]`, or `None` when CoolProp ships no real<br>correlation. Populated for the 38 fluids that carry upstream coeffs —<br>evaluated via [`Incompressible::saturation_pressure`]. |
+| `t_min_psat` | `f64` | Lowest temperature \[K\] at which [`Self::p_sat`] is valid (CoolProp<br>`TminPsat`); below it the saturation curve is not fitted. `f64::NAN` when<br>the fluid carries no saturation-pressure correlation. |
 
 ##### Implementations
 
@@ -12867,17 +12998,22 @@ pub use fluid_enum::Incompressible;
 ## Module `mixtures`
 
 Multi-fluid mixture properties — the CoolProp Helmholtz mixture backend.
-**Scaffold only** (bead op-kbc.16).
+Evaluation-only: 840/888 binary pairs and all 40 departure functions
+ported; direct `(T, rho_molar, x)` evaluation works, but there is no
+flash/VLE and no validation against GERG-2008 reference values yet
+(bead op-kbc.16).
 Multi-fluid mixture properties — the CoolProp `HelmholtzEOSMixtureBackend`
 (GERG-2008-style multi-fluid model).
 
-**One real binary pair is ported and verified: Nitrogen–Oxygen** (`F = 0`,
-see [`binary_pairs`]). The evaluation engine ([`Mixture::residual_derivs`],
+**840 of the 888 upstream binary pairs are ported**, including all 40
+departure-bearing pairs and all 40 departure functions (the 48 skipped
+pairs touch a fluid outside the crate's 137 ported pure fluids). The
+reference-verified pair is **Nitrogen–Oxygen** (`F = 0`, see
+[`binary_pairs`]). The evaluation engine ([`Mixture::residual_derivs`],
 [`Mixture::state_trho_molar`]) is real, not a stub. **No flash/VLE** is
-implemented — only direct `(T, ρ_molar, x)` evaluation, matching what the
-original scaffold's function signatures promised. Full binary-pair/
-departure-function data coverage (887 more pairs) is a follow-up (bead
-op-kbc.16).
+implemented — only direct `(T, ρ_molar, x)` evaluation — and the mixture
+path has **not** been validated against GERG-2008 reference values yet
+(bead op-kbc.16).
 
 # What this models
 
@@ -13258,6 +13394,27 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `predefined`
+
+Predefined mixtures — ready-made compositions so a user need not hand-build
+the parallel `(components, mole_fractions)` arrays.
+
+Compositions are transcribed from CoolProp's predefined-mixture table
+(`dev/mixtures/predefined_mixtures.json`, the source of the `*.mix` fluids),
+MIT-licensed. Each constructor builds the arrays and routes them through
+[`Mixture::new`], so the same composition hygiene (lengths, non-negativity,
+`Σ x_i = 1` within [`Mixture::SUM_TOLERANCE`]) applies to the predefined
+sets as to any user composition. The tabulated fractions all sum to 1 to
+well within that tolerance, so these constructors are effectively infallible
+— the fallibility is retained only so the single validation path in
+[`Mixture::new`] stays the sole gatekeeper.
+
+Molar composition (mole fractions), not mass fractions.
+
+```rust
+pub mod predefined { /* ... */ }
+```
+
 ## Module `reducing`
 
 Composition-dependent **reducing functions** `T_r(x)`, `ρ_r(x)` for the
@@ -13311,8 +13468,9 @@ pub fn reducing_density(mix: &super::Mixture) -> f64 { /* ... */ }
 A multi-fluid mixture: components plus their mole fractions (parallel
 arrays, summing to 1).
 
-Kept small and `Copy`-friendly via fixed capacity would constrain `N`; for
-the scaffold we own `Vec`s (the mixture is built once, then queried).
+Components and mole fractions are owned `Vec`s (rather than a fixed-capacity
+inline array, which would constrain the component count `N`): a mixture is
+built once, then queried many times.
 
 ```rust
 pub struct Mixture {
@@ -13333,9 +13491,19 @@ pub struct Mixture {
 ###### Methods
 
 - ```rust
+  pub fn air() -> Result<Mixture, MixtureError> { /* ... */ }
+  ```
+  Standard dry air as a three-component multi-fluid mixture — Nitrogen /
+
+- ```rust
+  pub fn r410a() -> Result<Mixture, MixtureError> { /* ... */ }
+  ```
+  R-410A refrigerant blend — a near-azeotropic binary of R-32 and R-125.
+
+- ```rust
   pub fn new(components: Vec<Fluid>, mole_fractions: Vec<f64>) -> Result<Self, MixtureError> { /* ... */ }
   ```
-  Build a mixture, validating the composition (lengths match, ≥ 2
+  Build a mixture, validating the composition:
 
 - ```rust
   pub fn reducing_temperature(self: &Self) -> f64 { /* ... */ }
@@ -13553,6 +13721,8 @@ Failure modes of a mixture query.
 ```rust
 pub enum MixtureError {
     MalformedComposition,
+    InvalidMoleFraction,
+    UnnormalizedComposition,
     MissingBinaryPair,
     NonConvergent,
 }
@@ -13563,6 +13733,18 @@ pub enum MixtureError {
 ###### `MalformedComposition`
 
 `components.len() != mole_fractions.len()`, or fewer than two components.
+
+###### `InvalidMoleFraction`
+
+A mole fraction is negative or non-finite (`NaN`/`inf`).
+
+###### `UnnormalizedComposition`
+
+The mole fractions do not sum to 1 within [`Mixture::SUM_TOLERANCE`].
+
+Compositions are **not** silently renormalised — an unnormalised vector
+is a caller bug (a dropped or mistyped component), so it is surfaced as
+an error rather than papered over.
 
 ###### `MissingBinaryPair`
 
@@ -13661,7 +13843,7 @@ A flash / VLE iteration did not converge.
 
 General corresponding-states transport (Chung / ECS / rhosr-CS) — the
 viscosity fallback for fluids with no dedicated fit. **Scaffold only**
-(bead op-kbc.17).
+(returns `None`; bead op-kbc.17).
 General **corresponding-states** transport models — the fallback viscosity
 (and, later, conductivity) correlations CoolProp uses for fluids that carry
 no fluid-specific transport fit.
@@ -13672,11 +13854,16 @@ return `None` from [`crate::transport::viscosity`]).
 
 # Why this exists
 
-~6 fluids (cyclopentane, isopentane, ethylbenzene, R1234yf, R1234ze(E),
-R152A) have no dedicated viscosity correlation in CoolProp — they use a
-generalised corresponding-states method keyed off a reference fluid. Until
-these are implemented [`crate::transport::viscosity`] returns `None` for
-them (never a wrong number). Closing this is the last viscosity-coverage gap.
+Four fluids (ethylbenzene, R1234yf, R1234ze(E), R152A) have no dedicated
+viscosity correlation in CoolProp — they use a generalised
+corresponding-states method keyed off a reference fluid. Until these are
+implemented [`crate::transport::viscosity`] returns `None` for them (never a
+wrong number). Closing this is the last viscosity-coverage gap.
+
+(The Chung method itself is already implemented, in
+[`crate::transport`] as [`crate::transport::ViscosityModel::Chung`], and is
+wired to cyclopentane and isopentane there — so those two do *not* return
+`None`. This module remains for the ECS and `rhosr`-CS methods.)
 
 ```rust
 pub mod transport_corresponding_states { /* ... */ }
@@ -13898,6 +14085,10 @@ pub struct OPCPFluidArray {
     pub delta_t: uom::si::f64::Time,
     pub n_outer_correctors: usize,
     pub n_inner_correctors: usize,
+    pub p_under_relaxation: uom::si::f64::Ratio,
+    pub u_under_relaxation: uom::si::f64::Ratio,
+    pub p_min: uom::si::f64::Pressure,
+    pub p_max: uom::si::f64::Pressure,
     pub u: VolField<crate::openfoam_algorithms::openfoam_source::Vector3>,
     pub p: VolField<f64>,
     pub rho: VolField<f64>,
@@ -13907,6 +14098,16 @@ pub struct OPCPFluidArray {
     pub alpha_h: VolField<f64>,
     pub psi: VolField<f64>,
     pub phi: SurfaceField<f64>,
+    pub xs_area: uom::si::f64::Area,
+    pub wetted_perimeter: uom::si::f64::Length,
+    pub incline_angle: uom::si::f64::Angle,
+    pub mass_flowrate: uom::si::f64::MassRate,
+    pub pressure_loss: uom::si::f64::Pressure,
+    pub internal_pressure_source: uom::si::f64::Pressure,
+    pub lateral_adjacent_array_temperature_vector: Vec<Vec<uom::si::f64::ThermodynamicTemperature>>,
+    pub lateral_adjacent_array_conductance_vector: Vec<Vec<uom::si::f64::ThermalConductance>>,
+    pub q_vector: Vec<uom::si::f64::Power>,
+    pub q_fraction_vector: Vec<Vec<f64>>,
 }
 ```
 
@@ -13917,8 +14118,12 @@ pub struct OPCPFluidArray {
 | `fluid` | `crate::fluid::Fluid` | The working fluid whose CoolProp Helmholtz EOS closes the thermo update. |
 | `mesh` | `std::sync::Arc<FvMesh>` | 1-D finite-volume mesh (built by [`create_one_d_mesh`]). |
 | `delta_t` | `uom::si::f64::Time` | Fixed time step Δt [s]. |
-| `n_outer_correctors` | `usize` | Number of PIMPLE outer correctors (≥ 1). |
+| `n_outer_correctors` | `usize` | Number of PIMPLE outer correctors (≥ 1). See<br>[`Self::set_piso_algorithm`] / [`Self::set_simple_algorithm`] /<br>[`Self::set_pimple_algorithm`] for the PISO/SIMPLE/PIMPLE presets. |
 | `n_inner_correctors` | `usize` | Number of PISO pressure correctors per outer loop (≥ 1). |
+| `p_under_relaxation` | `uom::si::f64::Ratio` | Explicit pressure under-relaxation factor α_p ∈ (0, 1] applied once<br>per inner correction: `p ← p_prev + α_p·(p_solved − p_prev)`.<br>`1.0` (the [`Self::new`] default, matching classic transient PISO)<br>takes each correction in full; smaller values trade convergence<br>speed for stability in iterative (SIMPLE-style) solves. |
+| `u_under_relaxation` | `uom::si::f64::Ratio` | Explicit velocity under-relaxation factor α_u ∈ (0, 1] -- see<br>[`Self::p_under_relaxation`]. |
+| `p_min` | `uom::si::f64::Pressure` | Lower pressure bound \[Pa\] applied after every pressure solve (see<br>[`Self::step`]). Defaults to a wide, near-vacuum floor (1 Pa) that<br>just prevents a violent transient from driving a cell to negative<br>absolute pressure; raise it with [`Self::set_pressure_bounds`] for a<br>tighter (e.g. fluid-EOS or cavitation) floor. Mirrors OpenFOAM's<br>`pressureControl::limit` `pMin`/`pMax` bounding — see [`Self::step`]. |
+| `p_max` | `uom::si::f64::Pressure` | Upper pressure bound \[Pa\] applied after every pressure solve.<br>Defaults to a wide 1 GPa ceiling. See [`Self::p_min`]. |
 | `u` | `VolField<crate::openfoam_algorithms::openfoam_source::Vector3>` | Velocity field [m/s]. |
 | `p` | `VolField<f64>` | Pressure field [Pa]. |
 | `rho` | `VolField<f64>` | Density field [kg/m³]. |
@@ -13928,10 +14133,130 @@ pub struct OPCPFluidArray {
 | `alpha_h` | `VolField<f64>` | Effective thermal diffusivity αh = κ/Cp [kg/(m·s)]. |
 | `psi` | `VolField<f64>` | Compressibility ψ = (∂ρ/∂p)_T [s²/m²], from the EOS in `correct_thermo`. |
 | `phi` | `SurfaceField<f64>` | Mass flux φ = ρ U·Sf [kg/s]. |
+| `xs_area` | `uom::si::f64::Area` | Constant cross-sectional area \[m²\], duplicating the value baked into<br>the mesh at construction — kept explicit so [`Self::get_hydraulic_diameter`]<br>doesn't need to reach into mesh internals. |
+| `wetted_perimeter` | `uom::si::f64::Length` | Wetted perimeter \[m\], used with `xs_area` for the hydraulic diameter<br>`D_h = 4·xs_area/wetted_perimeter` (see [`Self::get_hydraulic_diameter`]).<br>Defaults to zero at construction — set it before relying on that method. |
+| `incline_angle` | `uom::si::f64::Angle` | Incline angle from horizontal \[rad\] — bookkeeping for a future<br>hydrostatic-pressure term in a pipe-network layer built on top of this<br>array. Not read by `step()`. |
+| `mass_flowrate` | `uom::si::f64::MassRate` | Bulk mass flowrate \[kg/s\] — plain storage for a caller-driven pipe-<br>network layer. **Not** read by `step()`: this solver computes its own<br>per-cell mass flux `phi` from the momentum/pressure equations, so this<br>field never feeds back into the PIMPLE loop. |
+| `pressure_loss` | `uom::si::f64::Pressure` | Pressure loss \[Pa\] — plain storage, independent of `mass_flowrate`<br>(no Reynolds/Bejan recomputation between the two; see<br>[`Self::set_mass_flowrate`]). |
+| `internal_pressure_source` | `uom::si::f64::Pressure` | Internal pressure source \[Pa\] (e.g. a simulated pump) — plain storage. |
+| `lateral_adjacent_array_temperature_vector` | `Vec<Vec<uom::si::f64::ThermodynamicTemperature>>` | One entry per laterally-connected array/solid; each inner `Vec` has one<br>temperature per mesh cell (length `mesh.n_cells`). Populated by<br>[`Self::lateral_link_new_temperature_vector_avg_conductance`], consumed<br>and cleared once per [`Self::step`] (see [`Self::clear_vectors`]). |
+| `lateral_adjacent_array_conductance_vector` | `Vec<Vec<uom::si::f64::ThermalConductance>>` | Parallel to `lateral_adjacent_array_temperature_vector`: per-cell<br>thermal conductance \[W/K\] to each laterally-connected array. |
+| `q_vector` | `Vec<uom::si::f64::Power>` | One entry per registered heat source; total power `q_vector[i]` is<br>distributed across cells by `q_fraction_vector[i]` (see<br>[`Self::lateral_link_new_power_vector`]). |
+| `q_fraction_vector` | `Vec<Vec<f64>>` | Parallel to `q_vector`: per-cell distribution fraction (length<br>`mesh.n_cells`, need not sum to 1 — mirrors TUAS's `q_fraction_vector`). |
 
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn lateral_link_new_temperature_vector_avg_conductance(self: &mut Self, average_thermal_conductance: ThermalConductance, temperature_vec: Vec<ThermodynamicTemperature>) -> Result<(), OPCPFluidArrayError> { /* ... */ }
+  ```
+  Register one lateral (radial) thermal link to another array/solid at a
+
+- ```rust
+  pub fn lateral_link_new_power_vector(self: &mut Self, power_source: Power, q_fraction_vec: Vec<f64>) -> Result<(), OPCPFluidArrayError> { /* ... */ }
+  ```
+  Register a volumetric heat source for use in the next [`Self::step`].
+
+- ```rust
+  pub fn clear_vectors(self: &mut Self) { /* ... */ }
+  ```
+  Empty all registered lateral-coupling and heat-source vectors.
+
+- ```rust
+  pub fn get_wetted_perimeter(self: &Self) -> Length { /* ... */ }
+  ```
+  Wetted perimeter \[m\] (bookkeeping — see [`Self::get_hydraulic_diameter`]).
+
+- ```rust
+  pub fn set_wetted_perimeter(self: &mut Self, wetted_perimeter: Length) { /* ... */ }
+  ```
+  Set the wetted perimeter \[m\].
+
+- ```rust
+  pub fn get_incline_angle(self: &Self) -> Angle { /* ... */ }
+  ```
+  Incline angle from horizontal \[rad\] (bookkeeping only).
+
+- ```rust
+  pub fn set_incline_angle(self: &mut Self, incline_angle: Angle) { /* ... */ }
+  ```
+  Set the incline angle from horizontal \[rad\].
+
+- ```rust
+  pub fn get_hydraulic_diameter(self: &Self) -> Length { /* ... */ }
+  ```
+  Hydraulic diameter `D_h = 4 * xs_area / wetted_perimeter` \[m\].
+
+- ```rust
+  pub fn get_mass_flowrate(self: &Self) -> MassRate { /* ... */ }
+  ```
+  Bulk mass flowrate \[kg/s\] (plain storage — see the field's doc comment
+
+- ```rust
+  pub fn set_mass_flowrate(self: &mut Self, mass_flowrate: MassRate) { /* ... */ }
+  ```
+  Set the bulk mass flowrate \[kg/s\].
+
+- ```rust
+  pub fn get_pressure_loss(self: &Self) -> Pressure { /* ... */ }
+  ```
+  Pressure loss \[Pa\] (plain storage, independent of `mass_flowrate`).
+
+- ```rust
+  pub fn set_pressure_loss(self: &mut Self, pressure_loss: Pressure) { /* ... */ }
+  ```
+  Set the pressure loss \[Pa\].
+
+- ```rust
+  pub fn get_internal_pressure_source(self: &Self) -> Pressure { /* ... */ }
+  ```
+  Internal pressure source \[Pa\] (e.g. a simulated pump; plain storage).
+
+- ```rust
+  pub fn set_internal_pressure_source(self: &mut Self, internal_pressure_source: Pressure) { /* ... */ }
+  ```
+  Set the internal pressure source \[Pa\].
+
+- ```rust
+  pub fn get_temperature_vector(self: &Self) -> Vec<ThermodynamicTemperature> { /* ... */ }
+  ```
+  Per-cell temperature \[K\], read from the `t` field (length `mesh.n_cells`).
+
+- ```rust
+  pub fn set_temperature_vector(self: &mut Self, temperature_vec: Vec<ThermodynamicTemperature>) -> Result<(), OPCPFluidArrayError> { /* ... */ }
+  ```
+  Overwrite the per-cell temperature at the current pressure.
+
+- ```rust
+  pub fn set_inlet_velocity(self: &mut Self, velocity: Velocity) { /* ... */ }
+  ```
+  Prescribes a fixed inlet velocity boundary condition on the
+
+- ```rust
+  pub fn set_inlet_enthalpy(self: &mut Self, h: AvailableEnergy) { /* ... */ }
+  ```
+  Prescribes a fixed inlet specific-enthalpy boundary condition on
+
+- ```rust
+  pub fn set_outlet_pressure(self: &mut Self, p: Pressure) { /* ... */ }
+  ```
+  Prescribes a fixed outlet pressure boundary condition on the
+
+- ```rust
+  pub fn get_outlet_pressure(self: &Self) -> Pressure { /* ... */ }
+  ```
+  Outlet-cell (the last cell, owner of the `"right"` patch) pressure
+
+- ```rust
+  pub fn get_outlet_enthalpy(self: &Self) -> AvailableEnergy { /* ... */ }
+  ```
+  Outlet-cell specific enthalpy.
+
+- ```rust
+  pub fn get_outlet_temperature(self: &Self) -> ThermodynamicTemperature { /* ... */ }
+  ```
+  Outlet-cell temperature.
 
 - ```rust
   pub fn new(fluid: Fluid, length: Length, xs_area: Area, number_of_cells: i64, delta_t: Time) -> Result<Self, MeshError> { /* ... */ }
@@ -13957,6 +14282,71 @@ pub struct OPCPFluidArray {
   pub fn run(self: &mut Self, n_steps: usize) { /* ... */ }
   ```
   Advance `n_steps` time steps of size `delta_t`.
+
+- ```rust
+  pub fn get_n_outer_correctors(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of PIMPLE outer correctors per [`Self::step`] call.
+
+- ```rust
+  pub fn set_n_outer_correctors(self: &mut Self, n: usize) { /* ... */ }
+  ```
+  Sets the number of PIMPLE outer correctors (clamped to ≥ 1).
+
+- ```rust
+  pub fn get_n_inner_correctors(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of PISO pressure correctors per outer loop.
+
+- ```rust
+  pub fn set_n_inner_correctors(self: &mut Self, n: usize) { /* ... */ }
+  ```
+  Sets the number of PISO inner pressure correctors (clamped to ≥ 1).
+
+- ```rust
+  pub fn get_pressure_under_relaxation(self: &Self) -> Ratio { /* ... */ }
+  ```
+  Pressure under-relaxation factor α_p -- see
+
+- ```rust
+  pub fn set_pressure_under_relaxation(self: &mut Self, alpha: Ratio) { /* ... */ }
+  ```
+  Sets the pressure under-relaxation factor, clamped to (0, 1].
+
+- ```rust
+  pub fn get_velocity_under_relaxation(self: &Self) -> Ratio { /* ... */ }
+  ```
+  Velocity under-relaxation factor α_u -- see
+
+- ```rust
+  pub fn set_velocity_under_relaxation(self: &mut Self, alpha: Ratio) { /* ... */ }
+  ```
+  Sets the velocity under-relaxation factor, clamped to (0, 1].
+
+- ```rust
+  pub fn set_piso_algorithm(self: &mut Self, n_correctors: usize) { /* ... */ }
+  ```
+  Configures this array for a transient PISO solve: one outer
+
+- ```rust
+  pub fn set_simple_algorithm(self: &mut Self, n_outer_iterations: usize) { /* ... */ }
+  ```
+  Configures this array for a SIMPLE steady-state solve:
+
+- ```rust
+  pub fn set_pimple_algorithm(self: &mut Self, n_outer_correctors: usize, n_inner_correctors: usize, pressure_under_relaxation: Ratio, velocity_under_relaxation: Ratio) { /* ... */ }
+  ```
+  Configures this array for a PIMPLE solve -- multiple outer
+
+- ```rust
+  pub fn get_pressure_bounds(self: &Self) -> (Pressure, Pressure) { /* ... */ }
+  ```
+  Current pressure bounds `(p_min, p_max)` applied after every pressure
+
+- ```rust
+  pub fn set_pressure_bounds(self: &mut Self, p_min: Pressure, p_max: Pressure) { /* ... */ }
+  ```
+  Sets the pressure bounds `[p_min, p_max]` clamped after every pressure
 
 ###### Trait Implementations
 
@@ -14029,6 +14419,14 @@ pub struct OPCPFluidArray {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+### Re-exports
+
+#### Re-export `OPCPFluidArrayError`
+
+```rust
+pub use lateral_coupling::OPCPFluidArrayError;
+```
+
 ## Re-exports
 
 ### Re-export `FluidAncillaries`
@@ -14107,6 +14505,12 @@ pub use fluid::Fluid;
 
 ```rust
 pub use openfoam_algorithms::rhoPimpleFoam::OPCPFluidArray;
+```
+
+### Re-export `OPCPFluidArrayError`
+
+```rust
+pub use openfoam_algorithms::rhoPimpleFoam::OPCPFluidArrayError;
 ```
 
 ### Re-export `state_trho`

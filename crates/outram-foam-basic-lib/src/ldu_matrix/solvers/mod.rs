@@ -19,6 +19,22 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Iterative linear solvers for the sparse LDU systems `A·x = b`.
+//!
+//! Each solver takes an [`LduMatrix`](super::ldu_matrix::LduMatrix) and a
+//! right-hand side and returns the solution together with the iteration count
+//! and final normalised residual:
+//!
+//! - [`gauss_seidel`] — a robust smoother that also handles the asymmetric
+//!   (convection-bearing) momentum matrix.
+//! - [`conjugate_gradient`] — DIC-preconditioned CG for symmetric SPD systems
+//!   (the pressure Poisson equation).
+//! - [`gamg`] — algebraic multigrid for the same symmetric SPD systems, with
+//!   near mesh-independent convergence on fine grids.
+//!
+//! Belongs here: the linear-solver kernels only. The matrix assembly and the
+//! `FvMatrix`/`FvVectorMatrix` wrappers that call them live one level up.
+
 pub mod conjugate_gradient;
 pub mod gamg;
 pub mod gauss_seidel;

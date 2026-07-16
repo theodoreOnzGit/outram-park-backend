@@ -19,9 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
 use crate::openfoam_algorithms::openfoam_source::fv_mesh::FvMesh;
 use crate::openfoam_algorithms::openfoam_source::vol_field::VolScalarField;
+use std::sync::Arc;
 
 /// Field-level fluid thermodynamic model.
 ///
@@ -35,10 +35,13 @@ use crate::openfoam_algorithms::openfoam_source::vol_field::VolScalarField;
 /// Computed transport fields (`mu`, `kappa`, `alpha_h`) are returned by value
 /// rather than stored, to keep the struct lean and avoid stale-field bugs.
 pub trait FluidThermo {
+    /// The mesh this thermo model's fields are defined over.
     fn mesh(&self) -> &Arc<FvMesh>;
 
     /// Pressure field [Pa].
     fn p(&self) -> &VolScalarField;
+    /// Mutable access to the pressure field [Pa], for the solver to write
+    /// back a corrected `p`.
     fn p_mut(&mut self) -> &mut VolScalarField;
 
     /// Temperature field [K].
@@ -49,6 +52,8 @@ pub trait FluidThermo {
 
     /// Energy field — sensible enthalpy `hs` [J/kg] by default.
     fn he(&self) -> &VolScalarField;
+    /// Mutable access to the energy field [J/kg], for the solver to write
+    /// back the energy-equation solution.
     fn he_mut(&mut self) -> &mut VolScalarField;
 
     /// Compressibility field ψ = ∂ρ/∂p|_T [s²/m²].

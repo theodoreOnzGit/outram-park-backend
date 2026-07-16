@@ -1,4 +1,13 @@
+//! IAPWS-IF97 Region 1 (subcooled liquid / compressed water): valid for
+//! 273.15 K <= T <= 623.15 K at pressures up to 100 MPa, on the liquid side
+//! of the saturation line. Properties are derived from the dimensionless
+//! specific Gibbs free energy `gamma_1(tau, pi)` and its `pi`/`tau`
+//! derivatives (see [`gamma_derivatives`]); forward `(p,T)` calls live here,
+//! backward `(p,h)`, `(p,s)` and `(h,s)` flashes live in the
+//! `backward_eqn_*_1` submodules.
 
+/// IAPWS-IF97 Table 2 coefficients (I_i, J_i, n_i) for the Region 1
+/// dimensionless Gibbs free energy `gamma_1(pi, tau)` and its derivatives.
 pub const REGION_1_COEFFS: [[f64; 3]; 34] = [
     [0.0, -2.0, 0.14632971213167],
     [0.0, -1.0, -0.84548187169114],
@@ -36,6 +45,8 @@ pub const REGION_1_COEFFS: [[f64; 3]; 34] = [
     [32.0, -41.0, -0.93537087292458e-25],
 ];
 
+/// IAPWS-IF97 Region 1 backward-equation coefficients (I_i, J_i, n_i) for
+/// `T(p,h)` (Table 6), used by `theta_ph_1`/`t_ph_1` in [`backward_eqn_ph_1`].
 pub const REGION_1_BACK_COEFFS_PH: [[f64; 3]; 20] = [
     [0.0, 0.0, -0.23872489924521e+3],
     [0.0, 1.0, 0.40421188637945e+3],
@@ -58,6 +69,8 @@ pub const REGION_1_BACK_COEFFS_PH: [[f64; 3]; 20] = [
     [5.0, 32.0, 0.58265442020601e-14],
     [6.0, 32.0, -0.15020185953503e-16],
 ];
+// IAPWS-IF97 Region 1 backward-equation coefficients for `T(p,s)` (Table 8),
+// used by `t_ps_1_kelvin` in `backward_eqn_ps_1::float_equations`.
 const REGION_1_BACK_COEFFS_PS: [[f64; 3]; 20] = [
     [0.0, 0.0, 0.17478268058307e+03],
     [0.0, 1.0, 0.34806930892873e+02],
@@ -81,37 +94,39 @@ const REGION_1_BACK_COEFFS_PS: [[f64; 3]; 20] = [
     [4.0, 32.0, -0.30732199903668e-30],
 ];
 
+/// Dimensionless specific Gibbs free energy `gamma(pi, tau)` for Region 1
+/// (subcooled liquid), the base potential the intensive properties derive from
+/// (dimensionless; `pi` = reduced pressure, `tau` = reduced temperature).
 pub mod gamma_dimensionless_specific_gibbs_free_energy;
 pub use gamma_dimensionless_specific_gibbs_free_energy::*;
 
 /// derivatives for dimensionless gibbs free energy
 /// used to calculate specific volume, entropy,
 /// internal energy, enthalpy,
-/// cp, cv 
-/// speed of sound 
+/// cp, cv
+/// speed of sound
 /// isentropic exopnent
 ///
-/// isobaric cubic exapnsion coeff 
+/// isobaric cubic exapnsion coeff
 /// isothermal compressibility
 pub mod gamma_derivatives;
 pub use gamma_derivatives::*;
 
 /// intensive properties caluclated using the gamma_derivatives
 ///
-/// these include 
-/// specific volume 
+/// these include
+/// specific volume
 /// specific enthalpy
-/// specific internal energy 
+/// specific internal energy
 /// specific entropy
-/// specific cp 
-/// specific cv 
-/// speed of sound 
+/// specific cp
+/// specific cv
+/// speed of sound
 /// isentropic exponent (not done)
 /// isobaric cubic expansion coeff (not done)
 /// isothermal compressibility (not done)
 pub mod intensive_properties;
 pub use intensive_properties::*;
-
 
 /// important tests to ensure things are working correctly
 #[cfg(test)]
@@ -121,35 +136,33 @@ use uom::si::f64::*;
 use uom::si::pressure::pascal;
 use uom::si::thermodynamic_temperature::kelvin;
 
-
-/// Returns the region-1 tau (dimensionless temperature)
-/// Pressure is assumed to be in Pa
+/// Returns the region-1 tau (dimensionless reduced temperature, 1386/T)
+/// Temperature is assumed to be in K
 pub fn tau_1(t: ThermodynamicTemperature) -> f64 {
     // Temperature is assumed to be in K
     let t_kelvin = t.get::<kelvin>();
     1386.0 / t_kelvin
 }
 
-/// Returns the region-1 pi (dimensionless pressure)
-/// Temperature is assumed to be in K
+/// Returns the region-1 pi (dimensionless reduced pressure, p/16.53 MPa)
+/// Pressure is assumed to be in Pa
 pub fn pi_1(p: Pressure) -> f64 {
-
     let p_pascals = p.get::<pascal>();
     // Pressure is assumed to be in Pa
     p_pascals / (16.53e6)
 }
 
-
-
-/// contains code and functions for backward equations for region 1 
+/// contains code and functions for backward equations for region 1
 /// pressure and enthalpy (p,h) flash
 pub mod backward_eqn_ph_1;
 pub use backward_eqn_ph_1::*;
 
-/// contains code and functions for backwards equations 
-/// pressure and entropy (p,s) flash 
+/// contains code and functions for backwards equations
+/// pressure and entropy (p,s) flash
 pub mod backward_eqn_ps_1;
 pub use backward_eqn_ps_1::*;
 
+/// contains code and functions for backward equations for region 1
+/// specific enthalpy and specific entropy (h,s) flash
 pub mod backward_eqn_hs_1;
 pub use backward_eqn_hs_1::*;

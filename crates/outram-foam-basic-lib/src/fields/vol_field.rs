@@ -34,7 +34,9 @@ use crate::primitives::{SymmTensor, Tensor, Vector3};
 /// The internal field has length `mesh.n_cells`.
 #[derive(Debug, Clone)]
 pub struct VolField<T: Clone> {
+    /// Field name (diagnostic label, e.g. `"p"`, `"U"`, `"T"`).
     pub name: String,
+    /// Mesh this field is defined on.
     pub mesh: Arc<FvMesh>,
     /// Cell-centred values; length == `mesh.n_cells`.
     pub internal: Field<T>,
@@ -45,14 +47,21 @@ pub struct VolField<T: Clone> {
 
 // ── Type aliases (matching OpenFOAM names) ────────────────────────────────────
 
+/// Scalar volume field: one `f64` per cell (e.g. pressure [Pa], temperature [K]).
 pub type VolScalarField = VolField<f64>;
+/// Vector volume field: one `Vector3` per cell (e.g. velocity [m/s]).
 pub type VolVectorField = VolField<Vector3>;
+/// General (rank-2) tensor volume field: one `Tensor` per cell.
 pub type VolTensorField = VolField<Tensor>;
+/// Symmetric (rank-2) tensor volume field: one `SymmTensor` per cell (e.g. stress).
 pub type VolSymmTensorField = VolField<SymmTensor>;
 
 // ── Construction ─────────────────────────────────────────────────────────────
 
 impl<T: Clone + Default> VolField<T> {
+    /// Assemble a volume field from its cell-centred values and per-patch
+    /// boundary fields. In debug builds, asserts that `internal` has length
+    /// `mesh.n_cells` and that `boundary` has one entry per patch.
     pub fn new(
         name: impl Into<String>,
         mesh: Arc<FvMesh>,
@@ -90,6 +99,7 @@ impl VolScalarField {
         Self::new(name, mesh, Field::uniform(n_cells, value), boundary)
     }
 
+    /// Zero-valued scalar field over the entire domain (zero-gradient boundaries).
     pub fn zeros(name: impl Into<String>, mesh: Arc<FvMesh>) -> Self {
         Self::uniform(name, mesh, 0.0)
     }
@@ -107,6 +117,7 @@ impl VolVectorField {
         Self::new(name, mesh, Field::uniform(n_cells, value), boundary)
     }
 
+    /// Zero-valued vector field over the entire domain (zero-gradient boundaries).
     pub fn zero(name: impl Into<String>, mesh: Arc<FvMesh>) -> Self {
         Self::uniform(name, mesh, Vector3::ZERO)
     }

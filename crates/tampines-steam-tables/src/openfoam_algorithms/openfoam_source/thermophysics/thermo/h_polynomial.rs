@@ -51,6 +51,9 @@ pub struct HPolynomialThermo<E: EquationOfState, const N: usize> {
 }
 
 impl<E: EquationOfState, const N: usize> HPolynomialThermo<E, N> {
+    /// Builds a polynomial-cp thermodynamic model from an equation of state
+    /// `eos`, the cp(T) polynomial `cps` (J/(kg·K)), the formation enthalpy
+    /// `hf` (J/kg), and the formation entropy `sf` (J/(kg·K)).
     pub fn new(
         eos: E,
         cps: Polynomial<N>,

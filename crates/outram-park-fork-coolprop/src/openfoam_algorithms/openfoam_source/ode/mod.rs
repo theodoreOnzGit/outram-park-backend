@@ -19,6 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Ordinary-differential-equation solvers for systems `dy/dx = f(x, y)` (the
+//! `OdeSystem` trait): explicit Euler, adaptive Runge–Kutta–Fehlberg
+//! (`Rkf45`), and the stiff Rosenbrock23 (which needs the Jacobian). Mirrors
+//! OpenFOAM's `ODESolver` hierarchy from `src/ODE/`.
+
 pub mod euler;
 pub mod rkf45;
 pub mod rosenbrock23;
@@ -93,9 +98,14 @@ impl Default for OdeSolverConfig {
 
 // ── Error type ───────────────────────────────────────────────────────────────
 
+/// Failure modes of the adaptive ODE integrators.
 #[derive(Debug, Clone, PartialEq)]
 pub enum OdeError {
+    /// The adaptive step size shrank below the representable/tolerance floor
+    /// without meeting the error criterion (typically excessive stiffness).
     StepSizeUnderflow,
+    /// The integration hit its step-count budget (the carried value) before
+    /// reaching the end of the interval.
     MaxStepsExceeded(usize),
 }
 

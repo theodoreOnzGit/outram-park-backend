@@ -511,6 +511,12 @@ pub fn get_critical_pressure_and_mass_flux_multiphase_ph(
     }
 }
 
+/// Diagnostic-only helper: scans the HEM mass flux `G` (kg/(m²·s)) along the
+/// isentrope from the stagnation pressure `p0` (Pa) at fixed stagnation entropy
+/// `s0` (J/(kg·K)) down to the steam-table lower pressure limit, printing the
+/// peak via `dbg!`. Returns nothing — for interactive investigation of the
+/// choke, not a production entry point. Use the
+/// `get_critical_pressure_and_mass_flux_multiphase_ph` dispatcher instead.
 #[inline]
 pub fn isentropic_pressure_scan_of_mass_flux(
     s0: SpecificHeatCapacity,

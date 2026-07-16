@@ -40,7 +40,9 @@ use crate::primitives::Vector3;
 /// `n_internal_faces`.
 #[derive(Debug, Clone)]
 pub struct SurfaceField<T: Clone> {
+    /// Field name (diagnostic label, e.g. `"phi"`).
     pub name: String,
+    /// Mesh this field is defined on.
     pub mesh: Arc<FvMesh>,
     /// Face values for all internal faces; length == `mesh.n_internal_faces`.
     pub internal: Field<T>,
@@ -51,12 +53,17 @@ pub struct SurfaceField<T: Clone> {
 
 // ── Type aliases ──────────────────────────────────────────────────────────────
 
+/// Scalar surface field: one `f64` per face (e.g. face flux `phi` [m³/s]).
 pub type SurfaceScalarField = SurfaceField<f64>;
+/// Vector surface field: one `Vector3` per face.
 pub type SurfaceVectorField = SurfaceField<Vector3>;
 
 // ── Construction ─────────────────────────────────────────────────────────────
 
 impl<T: Clone> SurfaceField<T> {
+    /// Assemble a surface field from its internal-face values and per-patch
+    /// boundary fields. In debug builds, asserts that `internal` has length
+    /// `mesh.n_internal_faces` and that `boundary` has one entry per patch.
     pub fn new(
         name: impl Into<String>,
         mesh: Arc<FvMesh>,
@@ -83,6 +90,8 @@ impl<T: Clone> SurfaceField<T> {
 }
 
 impl SurfaceScalarField {
+    /// Scalar surface field with all internal-face values zero and zero-gradient
+    /// boundary patches.
     pub fn zeros(name: impl Into<String>, mesh: Arc<FvMesh>) -> Self {
         let n_int = mesh.n_internal_faces;
         let boundary = mesh
@@ -93,6 +102,8 @@ impl SurfaceScalarField {
         Self::new(name, mesh, Field::zeros(n_int), boundary)
     }
 
+    /// Scalar surface field with all internal-face values set to `value` and
+    /// zero-gradient boundary patches.
     pub fn uniform(name: impl Into<String>, mesh: Arc<FvMesh>, value: f64) -> Self {
         let n_int = mesh.n_internal_faces;
         let boundary = mesh
@@ -105,6 +116,8 @@ impl SurfaceScalarField {
 }
 
 impl SurfaceVectorField {
+    /// Vector surface field with all internal-face values zero and zero-gradient
+    /// boundary patches.
     pub fn zero(name: impl Into<String>, mesh: Arc<FvMesh>) -> Self {
         let n_int = mesh.n_internal_faces;
         let boundary = mesh

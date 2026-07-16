@@ -41,12 +41,17 @@ use crate::primitives::Vector3;
 /// Gauss-Seidel solves (one per component).
 #[derive(Debug, Clone)]
 pub struct FvVectorMatrix {
+    /// Mesh the equation is defined on (shares the face addressing).
     pub mesh: Arc<FvMesh>,
+    /// Scalar LDU coefficients of the operator `A` (shared by all 3 components).
     pub ldu: LduMatrix,
+    /// Right-hand-side vector source per cell, length `n_cells`.
     pub source: Field<Vector3>,
 }
 
 impl FvVectorMatrix {
+    /// Allocate a zero-initialised vector matrix for `mesh` (zero coefficients,
+    /// zero source).
     pub fn new(mesh: Arc<FvMesh>) -> Self {
         let n_cells = mesh.n_cells;
         let owner = mesh.owner[..mesh.n_internal_faces].to_vec();
@@ -58,12 +63,14 @@ impl FvVectorMatrix {
         }
     }
 
+    /// Add `coeff[c]` to the diagonal of cell `c` (e.g. a time-derivative term).
     pub fn add_to_diag(&mut self, coeff: &Field<f64>) {
         for c in 0..self.mesh.n_cells {
             self.ldu.diag[c] += coeff[c];
         }
     }
 
+    /// Add `term[c]` to the vector source of cell `c`.
     pub fn add_to_source(&mut self, term: &Field<Vector3>) {
         for c in 0..self.mesh.n_cells {
             self.source[c] = self.source[c] + term[c];

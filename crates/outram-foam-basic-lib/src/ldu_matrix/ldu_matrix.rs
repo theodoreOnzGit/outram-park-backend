@@ -33,7 +33,9 @@
 /// For a symmetric matrix (e.g. Laplacian), `lower[f] == upper[f]`.
 #[derive(Debug, Clone)]
 pub struct LduMatrix {
+    /// Number of cells (matrix rows/columns; length of `diag`).
     pub n_cells: usize,
+    /// Number of internal faces (length of `lower`/`upper`).
     pub n_internal_faces: usize,
 
     /// Diagonal coefficients, length `n_cells`.
@@ -50,6 +52,9 @@ pub struct LduMatrix {
 }
 
 impl LduMatrix {
+    /// Allocate a zero-filled LDU matrix for `n_cells` cells connected by the
+    /// internal faces given by `owner`/`neighbour` (one entry per internal face,
+    /// with `owner[f] < neighbour[f]`). All coefficients start at 0.0.
     pub fn new(n_cells: usize, owner: Vec<usize>, neighbour: Vec<usize>) -> Self {
         let n_int = owner.len();
         debug_assert_eq!(neighbour.len(), n_int);

@@ -20,9 +20,13 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 pub(crate) mod traits;
+/// Constant-cp thermodynamic model: enthalpy h = cp·T (J/kg), cp constant.
 pub mod h_const;
+/// JANAF-table (NASA 7-coefficient) thermodynamic model for cp/h/s (SI units).
 pub mod janaf;
+/// Polynomial-in-temperature cp thermodynamic model, enthalpy by integration (SI units).
 pub mod h_polynomial;
+/// Tabulated (interpolated) enthalpy/cp thermodynamic model (SI units).
 pub mod h_tabulated;
 
 pub use traits::*;

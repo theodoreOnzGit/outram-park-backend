@@ -19,8 +19,16 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Dimensionless special-function kernels (inverse error function, regularised
+//! incomplete gamma and its inverse) ported from `Foam::Math`. Pure numerics —
+//! no physical units are attached at this layer.
+
+/// Inverse error function (Winitzki approximation).
 pub mod erf_inv;
+/// Regularised/unregularised incomplete gamma functions `P(a,x)`, `Q(a,x)`,
+/// `γ(a,x)`, `Γ(a,x)` (DiDonato & Morris algorithm).
 pub mod inc_gamma;
+/// Inverse of the regularised lower incomplete gamma function `P(a,x)`.
 pub mod inv_inc_gamma;
 
 pub use erf_inv::erf_inv;

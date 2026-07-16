@@ -19,6 +19,19 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Specie-level thermophysics: mesh-independent per-species property kernels.
+//!
+//! Ports the OpenFOAM `thermophysicalModels/specie` layer. Properties are built
+//! in three stacked layers, each wrapping the one below:
+//! - [`eos`] — equation of state: density ρ, compressibility ψ, compressibility
+//!   factor Z, and enthalpy/entropy/internal-energy departures from `(p, T)`.
+//! - [`thermo`] — specific heat Cp, enthalpy, entropy, and Newton `T`-inversion.
+//! - [`transport`] — dynamic viscosity μ and thermal conductivity κ.
+//!
+//! Supporting modules: [`constants`] (physical constants), [`error`] (the
+//! [`ThermoError`](error::ThermoError) type), [`quantities`] (uom type aliases),
+//! and [`imports`] (shared uom re-exports used by every implementation file).
+
 pub mod constants;
 pub mod eos;
 pub mod error;

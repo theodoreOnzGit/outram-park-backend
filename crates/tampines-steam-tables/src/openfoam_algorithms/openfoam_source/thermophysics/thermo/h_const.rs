@@ -46,6 +46,9 @@ pub struct HConstThermo<E: EquationOfState> {
 }
 
 impl<E: EquationOfState> HConstThermo<E> {
+    /// Builds a constant-cp thermodynamic model from an equation of state
+    /// `eos`, the constant isobaric specific heat `cp` (J/(kg·K)), the
+    /// formation enthalpy `hf` (J/kg), and the reference temperature `tref` (K).
     pub fn new(
         eos: E,
         cp: SpecificHeatCapacity,

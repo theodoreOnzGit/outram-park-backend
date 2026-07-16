@@ -19,19 +19,38 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Specie-level thermophysics layer ported from OpenFOAM's
+//! `src/thermophysicalModels/specie/` primitives: equations of state,
+//! per-species thermodynamic (Cp/enthalpy/entropy) closures, and per-species
+//! transport (viscosity/thermal conductivity) closures, all built on `uom`
+//! dimensioned quantities.
+
+/// Physical/reference constants shared across EOS, thermo, and transport
+/// closures (universal gas constant, standard-state T/p, Newton-iteration
+/// bounds).
 pub mod constants;
-pub(crate) mod error;
-pub mod quantities;
-pub mod imports;
+/// Equation-of-state closures — density ρ, compressibility ψ, and
+/// enthalpy/entropy/Cp departure terms as functions of pressure and
+/// temperature (perfect gas, constant density, incompressible polynomial,
+/// Peng-Robinson real gas).
 pub mod eos;
+pub(crate) mod error;
+/// Common `uom` quantity/unit re-exports shared by every EOS/thermo/transport
+/// implementation file in this layer.
+pub mod imports;
+/// `uom` type aliases for compound quantities used by this layer that are
+/// not already provided by `uom::si::f64` (e.g. compressibility ψ).
+pub mod quantities;
+/// Per-species thermodynamic (Cp / enthalpy / entropy) closures layered on
+/// top of an `EquationOfState`.
 pub mod thermo;
+/// Per-species transport (dynamic viscosity / thermal conductivity) closures.
 pub mod transport;
 
-
 pub use constants::*;
-pub use error::*;
-pub use quantities::*;
-pub use imports::*;
 pub use eos::*;
+pub use error::*;
+pub use imports::*;
+pub use quantities::*;
 pub use thermo::*;
 pub use transport::*;

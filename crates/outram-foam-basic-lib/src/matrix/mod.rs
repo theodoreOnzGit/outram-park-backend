@@ -19,6 +19,14 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Dense square-matrix linear algebra.
+//!
+//! Provides [`SquareMatrix`], a row-major `n×n` matrix of `f64` with in-place
+//! LU decomposition (Crout, scaled partial pivoting) and back-substitution — the
+//! direct linear solver used by the stiff ODE solver and other kernels. Failure
+//! to solve is reported through [`MatrixError`]. Entries are bare `f64`; the
+//! matrix carries no unit information.
+
 pub mod square_matrix;
 pub use square_matrix::MatrixError;
 pub use square_matrix::SquareMatrix;

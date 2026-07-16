@@ -3,6 +3,17 @@
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 
+## Bookkeeping status
+
+> Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping pass" command). A crate is **complete** only once the maintainer has personally signed off on BOTH axes below.
+
+| Axis | Status |
+|---|---|
+| Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
+| Human / user interface — human-reviewed | ❌ Not yet manually checked |
+
+**Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
+
 
 > **This is OUTRAM PARK's independent Rust translation of selected OpenFOAM®
 > algorithms.** It is not the official OpenFOAM® software and is not
@@ -44,7 +55,7 @@ let mut m = SquareMatrix::new(3);
 m.set(0, 0, 2.0); m.set(0, 1, 1.0); m.set(0, 2, 0.0);
 m.set(1, 0, 1.0); m.set(1, 1, 3.0); m.set(1, 2, 1.0);
 m.set(2, 0, 0.0); m.set(2, 1, 1.0); m.set(2, 2, 4.0);
-let x = m.solve(&[7.0, 10.0, 15.0]);  // returns Vec<f64>
+let x = m.solve(&[7.0, 10.0, 15.0]);  // returns Result<Vec<f64>, MatrixError>
 
 // FV operators
 use outram_foam_basic_lib::fv_operators::{fvm, fvc};

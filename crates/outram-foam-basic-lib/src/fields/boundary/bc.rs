@@ -58,12 +58,14 @@ impl<T: Clone + Default> BoundaryCondition<T> {
 /// `Calculated` they are written by the operator code.
 #[derive(Debug, Clone)]
 pub struct PatchField<T: Clone> {
+    /// The boundary condition applied on this patch.
     pub bc: BoundaryCondition<T>,
     /// Current face values for this patch (length == patch.size).
     pub values: Field<T>,
 }
 
 impl PatchField<f64> {
+    /// Dirichlet patch holding a uniform scalar `v` on all `size` faces.
     pub fn fixed_value(size: usize, v: f64) -> Self {
         Self {
             bc: BoundaryCondition::FixedValue(v),
@@ -71,6 +73,8 @@ impl PatchField<f64> {
         }
     }
 
+    /// Zero-gradient (Neumann) scalar patch of `size` faces; values default to
+    /// `0.0` and are overwritten by the operator that owns them.
     pub fn zero_gradient(size: usize) -> Self {
         Self {
             bc: BoundaryCondition::ZeroGradient,
@@ -78,6 +82,7 @@ impl PatchField<f64> {
         }
     }
 
+    /// Empty (zero-area) scalar patch — no faces, no physical value.
     pub fn empty() -> Self {
         Self {
             bc: BoundaryCondition::Empty,
@@ -87,6 +92,7 @@ impl PatchField<f64> {
 }
 
 impl PatchField<Vector3> {
+    /// Dirichlet patch holding a uniform `Vector3` value `v` on all `size` faces.
     pub fn fixed_value_vec(size: usize, v: Vector3) -> Self {
         Self {
             bc: BoundaryCondition::FixedValue(v),
@@ -94,6 +100,8 @@ impl PatchField<Vector3> {
         }
     }
 
+    /// Zero-gradient (Neumann) vector patch of `size` faces; values default to
+    /// `Vector3::ZERO` and are overwritten by the operator that owns them.
     pub fn zero_gradient_vec(size: usize) -> Self {
         Self {
             bc: BoundaryCondition::ZeroGradient,
@@ -101,6 +109,7 @@ impl PatchField<Vector3> {
         }
     }
 
+    /// Empty (zero-area) vector patch — no faces, no physical value.
     pub fn empty_vec() -> Self {
         Self {
             bc: BoundaryCondition::Empty,

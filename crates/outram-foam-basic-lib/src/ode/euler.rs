@@ -26,6 +26,7 @@ use super::{
 /// Explicit first-order Euler solver with adaptive step size.
 /// Maps to `Foam::Euler` (which inherits from `adaptiveSolver`).
 pub struct Euler {
+    /// Adaptive step-size controller settings (tolerances, scale limits).
     pub config: OdeSolverConfig,
     // scratch buffers (sized to n_eqns)
     dydx0: Vec<f64>,
@@ -34,6 +35,9 @@ pub struct Euler {
 }
 
 impl Euler {
+    /// Create a solver for an `n`-equation system with the given absolute and
+    /// relative per-equation error tolerances; other controller parameters take
+    /// their [`OdeSolverConfig::default`] values.
     pub fn new(n: usize, abs_tol: f64, rel_tol: f64) -> Self {
         let mut cfg = OdeSolverConfig::default();
         cfg.abs_tol = abs_tol;

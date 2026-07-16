@@ -19,6 +19,12 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Finite-volume operators, split into the explicit `fvc` and implicit `fvm`
+//! namespaces (plus the `adjust_phi` continuity flux-balancing helper). These
+//! are the discretisation building blocks the `rhoPimpleFoam` solver composes
+//! into its momentum, pressure and energy equations. Mirrors OpenFOAM's
+//! `src/finiteVolume/finiteVolume/`.
+
 pub(crate) mod adjust_phi;
 
 /// Explicit finite-volume operators — return a new field.

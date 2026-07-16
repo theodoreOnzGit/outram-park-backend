@@ -19,6 +19,15 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Full (non-symmetric) 3×3 tensor (`Tensor`) and its OpenFOAM-style
+//! operators, invariants, and decompositions.
+//!
+//! Components are dimensionless `f64` stored row-major
+//! (xx, xy, xz, yx, yy, yz, zx, zy, zz). Operator names follow OpenFOAM:
+//! `mat_mul`/`mat_vec` are the single inner product (`&`), `double_inner`
+//! the double contraction (`&&`), and the dyadic/outer product is `Mul`
+//! (`*`) of two vectors.
+
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use super::spherical_tensor::SphericalTensor;
@@ -42,6 +51,7 @@ pub struct Tensor {
 }
 
 impl Tensor {
+    /// The zero tensor (all nine components 0).
     pub const ZERO: Self = Self {
         xx: 0.0,
         xy: 0.0,
@@ -53,6 +63,7 @@ impl Tensor {
         zy: 0.0,
         zz: 0.0,
     };
+    /// The identity tensor (unit diagonal, zero off-diagonal).
     pub const IDENTITY: Self = Self {
         xx: 1.0,
         xy: 0.0,
@@ -65,6 +76,7 @@ impl Tensor {
         zz: 1.0,
     };
 
+    /// Construct a tensor from its nine components in row-major order.
     #[allow(clippy::too_many_arguments)]
     #[inline]
     pub fn new(
@@ -123,29 +135,33 @@ impl Tensor {
         }
     }
 
-    // Row access
+    /// First (x) row as a vector: (xx, xy, xz).
     #[inline]
     pub fn row_x(self) -> Vector3 {
         Vector3::new(self.xx, self.xy, self.xz)
     }
+    /// Second (y) row as a vector: (yx, yy, yz).
     #[inline]
     pub fn row_y(self) -> Vector3 {
         Vector3::new(self.yx, self.yy, self.yz)
     }
+    /// Third (z) row as a vector: (zx, zy, zz).
     #[inline]
     pub fn row_z(self) -> Vector3 {
         Vector3::new(self.zx, self.zy, self.zz)
     }
 
-    // Column access
+    /// First (x) column as a vector: (xx, yx, zx).
     #[inline]
     pub fn col_x(self) -> Vector3 {
         Vector3::new(self.xx, self.yx, self.zx)
     }
+    /// Second (y) column as a vector: (xy, yy, zy).
     #[inline]
     pub fn col_y(self) -> Vector3 {
         Vector3::new(self.xy, self.yy, self.zy)
     }
+    /// Third (z) column as a vector: (xz, yz, zz).
     #[inline]
     pub fn col_z(self) -> Vector3 {
         Vector3::new(self.xz, self.yz, self.zz)
@@ -862,56 +878,67 @@ impl Mul<Vector3> for Vector3 {
 
 // --- Free functions ---
 
+/// Trace tr(T) = xx + yy + zz.
 #[inline]
 pub fn tr(t: Tensor) -> f64 {
     t.tr()
 }
 
+/// Determinant det(T).
 #[inline]
 pub fn det(t: Tensor) -> f64 {
     t.det()
 }
 
+/// Inverse T⁻¹ (panics in debug builds if singular).
 #[inline]
 pub fn inv(t: Tensor) -> Tensor {
     t.inv()
 }
 
+/// Symmetric part `0.5*(T + Tᵀ)`.
 #[inline]
 pub fn symm(t: Tensor) -> SymmTensor {
     t.symm()
 }
 
+/// Twice the symmetric part `T + Tᵀ`.
 #[inline]
 pub fn two_symm(t: Tensor) -> SymmTensor {
     t.two_symm()
 }
 
+/// Skew-symmetric part `0.5*(T - Tᵀ)`.
 #[inline]
 pub fn skew(t: Tensor) -> Tensor {
     t.skew()
 }
 
+/// Deviatoric part `T - (tr/3)*I`.
 #[inline]
 pub fn dev(t: Tensor) -> Tensor {
     t.dev()
 }
 
+/// Two-thirds deviatoric `T - (2*tr/3)*I`.
 #[inline]
 pub fn dev2(t: Tensor) -> Tensor {
     t.dev2()
 }
 
+/// Deviatoric of the symmetric part `symm(T) - (tr/3)*I`.
 #[inline]
 pub fn dev_symm(t: Tensor) -> SymmTensor {
     t.dev_symm()
 }
 
+/// Deviatoric of twice the symmetric part `twoSymm(T) - (2*tr/3)*I`.
 #[inline]
 pub fn dev_two_symm(t: Tensor) -> SymmTensor {
     t.dev_two_symm()
 }
 
+/// Linear interpolation `(1-t)*a + t*b` between two tensors.
 #[inline]
 pub fn lerp(a: Tensor, b: Tensor, t: f64) -> Tensor {
     Tensor::lerp(a, b, t)

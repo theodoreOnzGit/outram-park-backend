@@ -50,6 +50,7 @@ pub struct SquareMatrix {
 }
 
 impl SquareMatrix {
+    /// Allocate an `n×n` matrix initialised to all zeros.
     pub fn new(n: usize) -> Self {
         Self {
             n,
@@ -57,25 +58,30 @@ impl SquareMatrix {
         }
     }
 
+    /// The matrix order `n` (number of rows = number of columns).
     pub fn n(&self) -> usize {
         self.n
     }
 
+    /// Element in row `i`, column `j` (both 0-based, must be `< n`).
     #[inline]
     pub fn get(&self, i: usize, j: usize) -> f64 {
         self.data[i * self.n + j]
     }
 
+    /// Set the element in row `i`, column `j` to `v` (0-based indices `< n`).
     #[inline]
     pub fn set(&mut self, i: usize, j: usize, v: f64) {
         self.data[i * self.n + j] = v;
     }
 
+    /// Add `v` to the element in row `i`, column `j` (0-based indices `< n`).
     #[inline]
     pub fn add(&mut self, i: usize, j: usize, v: f64) {
         self.data[i * self.n + j] += v;
     }
 
+    /// Reset every entry to zero, keeping the same order `n`.
     pub fn fill_zero(&mut self) {
         self.data.iter_mut().for_each(|x| *x = 0.0);
     }

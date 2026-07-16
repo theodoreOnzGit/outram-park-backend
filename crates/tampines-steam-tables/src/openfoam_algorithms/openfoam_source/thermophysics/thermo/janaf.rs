@@ -54,6 +54,10 @@ pub struct JanafThermo<E: EquationOfState> {
 }
 
 impl<E: EquationOfState> JanafThermo<E> {
+    /// Builds a JANAF/NASA-7 thermodynamic model from an equation of state
+    /// `eos` and the fit's validity bounds `tlow`/`thigh` (K) split at the
+    /// common temperature `tcommon` (K), with the low/high coefficient sets
+    /// supplied in the remaining arguments.
     pub fn new(
         eos: E,
         tlow: f64,

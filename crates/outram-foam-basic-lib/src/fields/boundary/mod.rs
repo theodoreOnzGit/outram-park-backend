@@ -19,5 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Boundary conditions and per-patch boundary field values.
+//!
+//! Defines [`BoundaryCondition`] (the BC variant applied on a patch — fixed
+//! value, zero gradient, symmetry, empty, calculated) and [`PatchField`] (the
+//! BC together with the current face values it holds for one patch).
+
 pub mod bc;
 pub use bc::*;

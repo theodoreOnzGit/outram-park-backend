@@ -19,5 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Large-Eddy Simulation (LES) sub-grid-scale closures.
+//!
+//! Currently holds only the [`Smagorinsky`] model, which is a **scaffold** (its
+//! trait methods `todo!()`-panic — see [`smagorinsky`]).
+
 pub mod smagorinsky;
 pub use smagorinsky::Smagorinsky;

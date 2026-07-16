@@ -19,8 +19,8 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::openfoam_algorithms::openfoam_source::scalar::{SMALL, VSMALL, VGREAT};
 use super::roots::{RootType, Roots};
+use crate::openfoam_algorithms::openfoam_source::scalar::{SMALL, VGREAT, VSMALL};
 
 /// Solves `a·x + b = 0`. Maps to `Foam::linearEqn`.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -32,10 +32,15 @@ pub struct LinearEqn {
 /// Sign of x: +1 if x ≥ 0, else −1. Matches OpenFOAM `sign()`.
 #[inline]
 fn sign(x: f64) -> f64 {
-    if x >= 0.0 { 1.0 } else { -1.0 }
+    if x >= 0.0 {
+        1.0
+    } else {
+        -1.0
+    }
 }
 
 impl LinearEqn {
+    /// Construct `a·x + b = 0` from its coefficients.
     #[inline]
     pub fn new(a: f64, b: f64) -> Self {
         Self { a, b }

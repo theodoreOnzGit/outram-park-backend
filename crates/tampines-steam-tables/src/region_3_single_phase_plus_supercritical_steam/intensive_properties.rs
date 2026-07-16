@@ -1,7 +1,9 @@
-
 use crate::constants::specific_gas_constant_of_water;
 
-use super::{delta_3, phi_3, phi_delta_3, phi_delta_delta_3, phi_delta_tau_3, phi_tau_3, phi_tau_tau_3, tau_3};
+use super::{
+    delta_3, phi_3, phi_delta_3, phi_delta_delta_3, phi_delta_tau_3, phi_tau_3, phi_tau_tau_3,
+    tau_3,
+};
 use uom::si::f64::*;
 
 /// Returns the pressure given t and rho
@@ -29,7 +31,9 @@ pub fn s_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> SpecificHeatC
 /// Temperature is assumed to be in K
 /// density is assumed to be in kg/m^3
 pub fn h_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> AvailableEnergy {
-    (tau_3(t) * phi_tau_3(rho, t) + delta_3(rho) * phi_delta_3(rho, t)) * specific_gas_constant_of_water() * t
+    (tau_3(t) * phi_tau_3(rho, t) + delta_3(rho) * phi_delta_3(rho, t))
+        * specific_gas_constant_of_water()
+        * t
 }
 
 /// Returns the isochoric specific heat given t and rho
@@ -64,11 +68,10 @@ pub fn w_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> Velocity {
         .sqrt()
 }
 
-
-// to make the inverse pressure type 
-// it is m s^2 / kg 
-use uom::si::{ISQ, SI, Quantity};
-use uom::typenum::{Z0, P1, P2, N1};
+// to make the inverse pressure type
+// it is m s^2 / kg
+use uom::si::{Quantity, ISQ, SI};
+use uom::typenum::{N1, P1, P2, Z0};
 
 // quantity is defined
 // ## Generic Parameters
@@ -80,11 +83,14 @@ use uom::typenum::{Z0, P1, P2, N1};
 // * `N`: Amount of substance dimension.
 // * `J`: Luminous intensity dimension.
 // * `K`: Kind.
+/// Reciprocal-pressure quantity (SI unit `m s^2 / kg`, i.e. Pa^-1).
+/// `uom` has no built-in inverse-pressure quantity, so this alias is used
+/// as the return type for isothermal compressibility (`kappa_t_rho_t_3`,
+/// `kappa_t_tp_3`).
 pub type InversePressure = Quantity<ISQ<P1, N1, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 
-/// isentropic exponent in region 3 
+/// isentropic exponent in region 3
 pub fn kappa_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
-
     let delta = delta_3(rho);
     let tau = tau_3(t);
     let phi_delta = phi_delta_3(rho, t);
@@ -92,19 +98,16 @@ pub fn kappa_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
     let phi_delta_tau = phi_delta_tau_3(rho, t);
     let phi_tau_tau = phi_tau_tau_3(rho, t);
 
-    let first_term = 2.0 + delta * phi_delta_delta/phi_delta;
+    let first_term = 2.0 + delta * phi_delta_delta / phi_delta;
 
     let second_term_num = (delta * phi_delta - delta * tau * phi_delta_tau).powi(2);
     let second_term_den = delta * tau.powi(2) * phi_delta * phi_tau_tau;
 
-    return first_term - second_term_num/second_term_den;
-
+    return first_term - second_term_num / second_term_den;
 }
-
 
 /// Returns the region-3 isobaric cubic expansion coeff
 pub fn alpha_v_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> TemperatureCoefficient {
-
     let delta = delta_3(rho);
     let tau = tau_3(t);
     let phi_delta = phi_delta_3(rho, t);
@@ -114,13 +117,11 @@ pub fn alpha_v_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> Tempera
     let num = phi_delta - tau * phi_delta_tau;
     let den = 2.0 * phi_delta + delta * phi_delta_delta;
 
-    return t.recip() * (num/den);
-
+    return t.recip() * (num / den);
 }
 
 /// Returns the region-3 isothermal compressibility
 pub fn kappa_t_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> InversePressure {
-
     let r = specific_gas_constant_of_water();
     let rho_r_t: Pressure = rho * r * t;
 
@@ -131,25 +132,19 @@ pub fn kappa_t_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> Inverse
     let den = 2.0 * delta * phi_delta + delta.powi(2) * phi_delta_delta;
 
     return rho_r_t.recip() * den.recip();
-
-
 }
 
 /// Returns the region-3 relative pressure coefficient
 pub fn alpha_p_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> TemperatureCoefficient {
-
     let tau = tau_3(t);
     let phi_delta = phi_delta_3(rho, t);
     let phi_delta_tau = phi_delta_tau_3(rho, t);
 
-    return t.recip() * (1.0 - tau * phi_delta_tau/phi_delta );
-
+    return t.recip() * (1.0 - tau * phi_delta_tau / phi_delta);
 }
-
 
 /// Returns the region-3 isothermal stress coefficient
 pub fn beta_p_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> MassDensity {
-
     let delta = delta_3(rho);
     let phi_delta = phi_delta_3(rho, t);
     let phi_delta_delta = phi_delta_delta_3(rho, t);
@@ -157,5 +152,4 @@ pub fn beta_p_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> MassDens
     let num = 2.0 + delta * phi_delta_delta / phi_delta;
 
     return rho * num;
-
 }

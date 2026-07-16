@@ -44,19 +44,29 @@ impl<const N: usize> Polynomial<N> {
     /// `poly(x) = coeffs[0] + coeffs[1]·x + coeffs[2]·x² + …`
     #[inline]
     pub fn new(coeffs: [f64; N]) -> Self {
-        Self { coeffs, log_coeff: 0.0, log_active: false }
+        Self {
+            coeffs,
+            log_coeff: 0.0,
+            log_active: false,
+        }
     }
 
+    /// The `N` polynomial coefficients, constant term first (`coeffs[0]` is
+    /// the `x⁰` term, `coeffs[N-1]` is the `x^(N-1)` term).
     #[inline]
     pub fn coeffs(&self) -> &[f64; N] {
         &self.coeffs
     }
 
+    /// Coefficient of the optional `log(x)` term (meaningful only when
+    /// [`log_active`](Self::log_active) is `true`).
     #[inline]
     pub fn log_coeff(&self) -> f64 {
         self.log_coeff
     }
 
+    /// Whether the `log_coeff · ln(x)` term is included when evaluating,
+    /// differentiating, or integrating this polynomial.
     #[inline]
     pub fn log_active(&self) -> bool {
         self.log_active
@@ -106,8 +116,7 @@ impl<const N: usize> Polynomial<N> {
             integ += self.coeffs[i] / (i as f64 + 1.0) * (pow_x2 - pow_x1);
         }
         if self.log_active {
-            integ += self.log_coeff
-                * ((x2 * x2.ln() - x2) - (x1 * x1.ln() - x1));
+            integ += self.log_coeff * ((x2 * x2.ln() - x2) - (x1 * x1.ln() - x1));
         }
         integ
     }
@@ -127,7 +136,11 @@ impl<const N: usize> Polynomial<N> {
         }
         let log_coeff = self.coeffs[0];
         let log_active = log_coeff.abs() > VSMALL;
-        Self { coeffs: new_coeffs, log_coeff, log_active }
+        Self {
+            coeffs: new_coeffs,
+            log_coeff,
+            log_active,
+        }
     }
 }
 
@@ -157,9 +170,9 @@ mod tests {
     fn quadratic_poly() {
         // p(x) = 1 + 2x + 3x²
         let p = Polynomial::new([1.0, 2.0, 3.0]);
-        assert!((p.value(2.0) - 17.0).abs() < 1e-14);  // 1 + 4 + 12
+        assert!((p.value(2.0) - 17.0).abs() < 1e-14); // 1 + 4 + 12
         assert!((p.derivative(2.0) - 14.0).abs() < 1e-14); // 2 + 12
-        // ∫₀¹ = [x + x² + x³]₀¹ = 3
+                                                           // ∫₀¹ = [x + x² + x³]₀¹ = 3
         assert!((p.integral(0.0, 1.0) - 3.0).abs() < 1e-14);
     }
 

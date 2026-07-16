@@ -1,3 +1,5 @@
+use crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh;
+use crate::openfoam_algorithms::openfoam_source::*;
 ///*---------------------------------------------------------------------------*\
 //  =========                 |
 //  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
@@ -202,13 +204,13 @@
 //
 //
 //// ************************************************************************* //
-
 use std::sync::Arc;
-use uom::si::f64::{Angle, Area, Length, MassRate, Power, Pressure, Ratio, ThermalConductance, ThermodynamicTemperature, Time};
+use uom::si::f64::{
+    Angle, Area, Length, MassRate, Power, Pressure, Ratio, ThermalConductance,
+    ThermodynamicTemperature, Time,
+};
 use uom::si::ratio::ratio;
 use uom::si::time::second;
-use crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh;
-use crate::openfoam_algorithms::openfoam_source::*;
 
 mod lateral_coupling;
 pub use lateral_coupling::TampinesSteamArrayError;
@@ -234,7 +236,9 @@ fn correct_bcs(field: &mut VolScalarField, bcs: &[BoundaryCondition<f64>]) {
     for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
         pf.bc = bc.clone();
         if let BoundaryCondition::FixedValue(v) = bc {
-            for x in pf.values.iter_mut() { *x = *v; }
+            for x in pf.values.iter_mut() {
+                *x = *v;
+            }
         }
     }
 }
@@ -244,7 +248,9 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
     for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
         pf.bc = bc.clone();
         if let BoundaryCondition::FixedValue(v) = bc {
-            for x in pf.values.iter_mut() { *x = *v; }
+            for x in pf.values.iter_mut() {
+                *x = *v;
+            }
         }
     }
 }
@@ -264,7 +270,7 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
 ///   ∂ρ/∂t   + ∇·(ρU)    = 0            (continuity, explicit rhoEqn)
 ///   ∂(ρU)/∂t + ∇·(ρUU)  = −∇p + ∇·τ    (momentum, UEqn)
 ///   ∂(ρh)/∂t + ∇·(ρUh)  = dp/dt        (energy, h-form, EEqn)
-///   ρ = ψ·p                             (EOS — see `correct_thermo`)
+///   ρ, T, ψ, μ, αh from a real IAPWS-IF97 (p,h) flash (see `correct_thermo`)
 /// ```
 ///
 /// ## What differs from `RhoPimpleFoam`
@@ -273,9 +279,9 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
 /// - **Control**: a few plain fields (`delta_t`, corrector counts) replace the
 ///   `ControlDict` / `FvSchemes` / `FvSolution` dictionaries — this crate does
 ///   not consume OpenFOAM case files.
-/// - **Thermophysics**: the placeholder `ρ = ψ·p` EOS in [`Self::correct_thermo`]
-///   is the intended plug-in point for the TAMPINES steam tables (see the
-///   `EEqn.rs` / `rhoEqn.rs` / `pEqn.rs` reference files in this module).
+/// - **Thermophysics**: [`Self::correct_thermo`] closes the EOS with a real
+///   IAPWS-IF97 `(p, h)` flash (not a placeholder linearisation) — see that
+///   method's doc comment for the exact per-cell property list.
 ///
 /// C++ reference: `applications/solvers/compressible/rhoPimpleFoam/`.
 #[derive(Clone)]
@@ -330,7 +336,8 @@ pub struct TampinesSteamArray {
     pub mu: VolScalarField,
     /// Effective thermal diffusivity αh = κ/Cp \[kg/(m·s)\].
     pub alpha_h: VolScalarField,
-    /// Compressibility ψ = ∂ρ/∂p|_T = ρ/p \[s²/m²\].
+    /// Compressibility ψ = ∂ρ/∂p|_T = ρ·κ_T \[s²/m²\] (κ_T from a real
+    /// IAPWS-IF97 flash — see [`Self::correct_thermo`]).
     pub psi: VolScalarField,
     /// Mass flux φ = ρ U·Sf \[kg/s\].
     pub phi: SurfaceScalarField,
@@ -407,22 +414,35 @@ impl TampinesSteamArray {
         // pattern `outram_park_fork_coolprop::OPCPFluidArray::new` uses for
         // its own initial condition).
         let p0 = uom::si::f64::Pressure::new::<uom::si::pressure::pascal>(1.0e5);
-        let t0 = uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(300.0);
-        let he0 = crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase(t0, p0);
-        let v0 = crate::interfaces::functional_programming::pt_flash_eqm::v_tp_eqm_single_phase(t0, p0);
+        let t0 = uom::si::f64::ThermodynamicTemperature::new::<
+            uom::si::thermodynamic_temperature::kelvin,
+        >(300.0);
+        let he0 =
+            crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase(t0, p0);
+        let v0 =
+            crate::interfaces::functional_programming::pt_flash_eqm::v_tp_eqm_single_phase(t0, p0);
         let rho0 = 1.0 / v0.get::<uom::si::specific_volume::cubic_meter_per_kilogram>();
-        let kappa_t0 = crate::interfaces::functional_programming::pt_flash_eqm::kappa_t_tp_eqm(t0, p0).value;
+        let kappa_t0 =
+            crate::interfaces::functional_programming::pt_flash_eqm::kappa_t_tp_eqm(t0, p0).value;
         let psi0 = rho0 * kappa_t0;
 
-        let u       = VolVectorField::zero("U", mesh.clone());
-        let p       = VolScalarField::uniform("p", mesh.clone(), p0.get::<uom::si::pressure::pascal>());
-        let rho     = VolScalarField::uniform("rho", mesh.clone(), rho0);
-        let t       = VolScalarField::uniform("T", mesh.clone(), t0.get::<uom::si::thermodynamic_temperature::kelvin>());
-        let he      = VolScalarField::uniform("he", mesh.clone(), he0.get::<uom::si::available_energy::joule_per_kilogram>());
-        let mu      = VolScalarField::uniform("mu", mesh.clone(), 1.8e-5);
+        let u = VolVectorField::zero("U", mesh.clone());
+        let p = VolScalarField::uniform("p", mesh.clone(), p0.get::<uom::si::pressure::pascal>());
+        let rho = VolScalarField::uniform("rho", mesh.clone(), rho0);
+        let t = VolScalarField::uniform(
+            "T",
+            mesh.clone(),
+            t0.get::<uom::si::thermodynamic_temperature::kelvin>(),
+        );
+        let he = VolScalarField::uniform(
+            "he",
+            mesh.clone(),
+            he0.get::<uom::si::available_energy::joule_per_kilogram>(),
+        );
+        let mu = VolScalarField::uniform("mu", mesh.clone(), 1.8e-5);
         let alpha_h = VolScalarField::uniform("alphaEff", mesh.clone(), 2.5e-5);
-        let psi     = VolScalarField::uniform("psi", mesh.clone(), psi0);
-        let phi     = SurfaceScalarField::zeros("phi", mesh.clone());
+        let psi = VolScalarField::uniform("psi", mesh.clone(), psi0);
+        let phi = SurfaceScalarField::zeros("phi", mesh.clone());
 
         Ok(Self {
             mesh,
@@ -484,10 +504,10 @@ impl TampinesSteamArray {
     /// (mirrors the same lag documented on
     /// `outram_park_fork_coolprop::OPCPFluidArray::correct_thermo`).
     pub fn correct_thermo(&mut self) {
+        use crate::dynamic_viscosity::mu_ph_eqm;
         use crate::interfaces::functional_programming::ph_flash_eqm::{
             cp_ph_eqm, kappa_t_ph_eqm, lambda_ph_eqm, t_ph_eqm, v_ph_eqm,
         };
-        use crate::dynamic_viscosity::mu_ph_eqm;
         use uom::si::available_energy::joule_per_kilogram;
         use uom::si::pressure::pascal;
         use uom::si::specific_volume::cubic_meter_per_kilogram;
@@ -522,16 +542,19 @@ impl TampinesSteamArray {
     /// Boundary conditions are re-applied after every field update.
     pub fn step(&mut self) {
         let mesh = self.mesh.clone();
-        let n    = mesh.n_cells;
-        let dt   = self.delta_t.get::<second>();
-        let settings   = SolverSettings::default();                            // U, energy (GS)
-        let p_settings = SolverSettings { tolerance: 1e-8, max_iter: 2_000 };  // pEqn (PCG)
+        let n = mesh.n_cells;
+        let dt = self.delta_t.get::<second>();
+        let settings = SolverSettings::default(); // U, energy (GS)
+        let p_settings = SolverSettings {
+            tolerance: 1e-8,
+            max_iter: 2_000,
+        }; // pEqn (PCG)
         let n_outer = self.n_outer_correctors.max(1);
         let n_inner = self.n_inner_correctors.max(1);
 
-        let u_old   = self.u.clone();
-        let p_old   = self.p.clone();
-        let he_old  = self.he.clone();
+        let u_old = self.u.clone();
+        let p_old = self.p.clone();
+        let he_old = self.he.clone();
         let rho_old = self.rho.clone();
 
         let u_bcs = capture_bcs(&self.u.boundary);
@@ -605,25 +628,30 @@ impl TampinesSteamArray {
                         .map(|c| h_sl[c] * (1.0 / a_sl[c].max(1e-30)))
                         .collect();
                     VolVectorField::new(
-                        "HbyA", mesh.clone(), Field::new(vals),
-                        mesh.patches.iter().map(|p| PatchField::zero_gradient_vec(p.size)).collect(),
+                        "HbyA",
+                        mesh.clone(),
+                        Field::new(vals),
+                        mesh.patches
+                            .iter()
+                            .map(|p| PatchField::zero_gradient_vec(p.size))
+                            .collect(),
                     )
                 };
 
-                let rho_f    = fvc::interpolate(&self.rho);    // ρ_f [kg/m³]
-                let rho_rauf = rho_f.clone() * rauf.clone();    // [s]
-                // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
+                let rho_f = fvc::interpolate(&self.rho); // ρ_f [kg/m³]
+                let rho_rauf = rho_f.clone() * rauf.clone(); // [s]
+                                                             // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
                 let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya);
 
                 // Pressure source = ψ·V/dt·p_old − (net φ_HbyA outflow) [kg/s].
-                let psi_sl   = self.psi.internal.as_slice();
+                let psi_sl = self.psi.internal.as_slice();
                 let p_old_sl = p_old.internal.as_slice();
                 let source_p = {
                     let mut s = vec![0.0_f64; n];
                     {
                         let phi_int = phi_hbya.internal.as_slice();
                         for f in 0..mesh.n_internal_faces {
-                            s[mesh.owner[f]]     -= phi_int[f];
+                            s[mesh.owner[f]] -= phi_int[f];
                             s[mesh.neighbour[f]] += phi_int[f];
                         }
                     }
@@ -654,7 +682,7 @@ impl TampinesSteamArray {
                                     // regression test).
                                     phi_hbya.boundary[pi].values[fi] = corrected_flux;
                                     corrected_flux
-                                },
+                                }
                                 // outlet / zero-gradient: keep the extrapolated flux
                                 _ => phi_hbya.boundary[pi].values[fi],
                             };
@@ -761,7 +789,7 @@ impl TampinesSteamArray {
                 // Correct the mass flux: φ = φ_HbyA − ρ_f·rAU_f·snGrad(p)·|Sf|.
                 let sng = fvc::sn_grad(&self.p);
                 {
-                    let sng_sl      = sng.internal.as_slice();
+                    let sng_sl = sng.internal.as_slice();
                     let rho_rauf_sl = rho_rauf.internal.as_slice();
                     for f in 0..mesh.n_internal_faces {
                         phi_hbya.internal[f] -= rho_rauf_sl[f] * sng_sl[f] * mesh.face_areas[f];
@@ -786,9 +814,9 @@ impl TampinesSteamArray {
 
             // ── Energy equation ─────────────────────────────────────────────
             //   ∂(ρh)/∂t + ∇·(φh) + (−∇·(αh∇h)) = dp/dt   [+ laplacian sign]
-            let conv_he   = fvc::div(&self.phi, &self.he);   // explicit ∇·(φh)/V
+            let conv_he = fvc::div(&self.phi, &self.he); // explicit ∇·(φh)/V
             let alpha_h_f = fvc::interpolate(&self.alpha_h);
-            let dp_dt     = (self.p.clone() - p_old.clone()) * (1.0 / dt);
+            let dp_dt = (self.p.clone() - p_old.clone()) * (1.0 / dt);
 
             let mut e_eqn = fvm::ddt_coeff(&self.rho, &self.he, &he_old, dt)
                 + fvm::laplacian(&alpha_h_f, &self.he);
@@ -803,7 +831,8 @@ impl TampinesSteamArray {
                     // Lateral (radial) thermal coupling: Q = h·(T_neighbour − T_cell)
                     // per registered link, plus any registered volumetric heat source.
                     let t_c = self.t.internal[c];
-                    for (link, temps) in self.lateral_adjacent_array_conductance_vector
+                    for (link, temps) in self
+                        .lateral_adjacent_array_conductance_vector
                         .iter()
                         .zip(self.lateral_adjacent_array_temperature_vector.iter())
                     {
@@ -811,9 +840,7 @@ impl TampinesSteamArray {
                         let t_n = temps[c].get::<uom::si::thermodynamic_temperature::kelvin>();
                         e_eqn.source[c] += h * (t_n - t_c);
                     }
-                    e_eqn.source[c] += self
-                        .cell_heat_source_power(c)
-                        .get::<uom::si::power::watt>();
+                    e_eqn.source[c] += self.cell_heat_source_power(c).get::<uom::si::power::watt>();
                 }
             }
             let (he_new, _) = e_eqn.solve("he", settings);
@@ -975,7 +1002,12 @@ mod tests {
 
         let all_finite = array.p.internal.as_slice().iter().all(|x| x.is_finite())
             && array.rho.internal.as_slice().iter().all(|x| x.is_finite())
-            && array.u.internal.as_slice().iter().all(|v| v.mag().is_finite());
+            && array
+                .u
+                .internal
+                .as_slice()
+                .iter()
+                .all(|v| v.mag().is_finite());
         assert!(all_finite, "fields must stay finite over 10 steps");
     }
 
@@ -987,7 +1019,10 @@ mod tests {
             0,
             Time::new::<second>(1e-4),
         );
-        assert!(matches!(err, Err(MeshError::NonPositiveCellCount { got: 0 })));
+        assert!(matches!(
+            err,
+            Err(MeshError::NonPositiveCellCount { got: 0 })
+        ));
     }
 
     #[test]
@@ -1031,7 +1066,9 @@ mod tests {
         array.correct_thermo();
 
         let p = Pressure::new::<uom::si::pressure::pascal>(2.0e5);
-        let h = uom::si::f64::AvailableEnergy::new::<uom::si::available_energy::joule_per_kilogram>(5.0e5);
+        let h = uom::si::f64::AvailableEnergy::new::<uom::si::available_energy::joule_per_kilogram>(
+            5.0e5,
+        );
         let expected_t = t_ph_eqm(p, h).get::<uom::si::thermodynamic_temperature::kelvin>();
         let expected_lambda = lambda_ph_eqm(p, h).value;
         let expected_alpha_h = expected_lambda
@@ -1053,7 +1090,9 @@ mod tests {
     /// `thermal_conductivity::lambda_2_crit_enhancement_term_tp_two_phase_estimate`).
     #[test]
     fn correct_thermo_survives_two_phase_boiling_cell() {
-        use crate::interfaces::functional_programming::ph_flash_eqm::{ph_flash_region, x_ph_flash};
+        use crate::interfaces::functional_programming::ph_flash_eqm::{
+            ph_flash_region, x_ph_flash,
+        };
         use crate::interfaces::functional_programming::pt_flash_eqm::FwdEqnRegion;
 
         let mut array = TampinesSteamArray::new(
@@ -1067,10 +1106,19 @@ mod tests {
         // 1 bar, h ≈ 1.5 MJ/kg is squarely inside the two-phase dome
         // (h_f ≈ 0.42 MJ/kg, h_g ≈ 2.68 MJ/kg ⇒ x ≈ 0.48).
         let p = Pressure::new::<uom::si::pressure::pascal>(1.0e5);
-        let h = uom::si::f64::AvailableEnergy::new::<uom::si::available_energy::joule_per_kilogram>(1.5e6);
-        assert_eq!(ph_flash_region(p, h), FwdEqnRegion::Region4, "sample must be two-phase");
+        let h = uom::si::f64::AvailableEnergy::new::<uom::si::available_energy::joule_per_kilogram>(
+            1.5e6,
+        );
+        assert_eq!(
+            ph_flash_region(p, h),
+            FwdEqnRegion::Region4,
+            "sample must be two-phase"
+        );
         let x = x_ph_flash(p, h);
-        assert!(x > 0.0 && x < 1.0, "quality {x} should be strictly two-phase");
+        assert!(
+            x > 0.0 && x < 1.0,
+            "quality {x} should be strictly two-phase"
+        );
 
         for c in 0..3 {
             array.p.internal[c] = p.get::<uom::si::pressure::pascal>();

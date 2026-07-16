@@ -1,7 +1,7 @@
-use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
-use uom::si::ratio::ratio;
-use uom::si::f64::*;
 use uom::si::available_energy::kilojoule_per_kilogram;
+use uom::si::f64::*;
+use uom::si::ratio::ratio;
+use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
 
 /// this is for eq 2.44 on page 84
 /// based on table 2.73
@@ -14,15 +14,15 @@ const HB13_PRIME_S_BOUNDARY_EQN_COEFFS: [[f64; 3]; 6] = [
     [6.0, -3.0, -0.690_815_545_851_641e2],
 ];
 
-
-/// this function represents the saturated liquid line
-/// for hs flashing between region 1 and region 4
-pub fn hb13_s_boundary_enthalpy(
-    s: SpecificHeatCapacity) -> AvailableEnergy {
-
+/// IAPWS-IF97 h_B13(s) boundary equation: the specific enthalpy
+/// (`AvailableEnergy`, J/kg) of the B13 boundary between Region 1 (subcooled
+/// liquid) and Region 3 (near-critical) as a function of specific entropy `s`
+/// (`SpecificHeatCapacity` unit, J/(kg*K)). Used by the `(h,s)` region
+/// dispatch to separate Region 1 from Region 3.
+pub fn hb13_s_boundary_enthalpy(s: SpecificHeatCapacity) -> AvailableEnergy {
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(3.8);
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(1700.0);
-    let sigma: f64 = (s/s_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
 
     let mut eta: f64 = 0.0;
 
@@ -35,8 +35,4 @@ pub fn hb13_s_boundary_enthalpy(
     }
 
     return h_ref * eta;
-
 }
-
-
-

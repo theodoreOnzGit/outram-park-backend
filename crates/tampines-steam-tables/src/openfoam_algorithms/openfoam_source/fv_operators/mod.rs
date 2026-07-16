@@ -19,6 +19,15 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Finite-volume operator layer: the explicit (`fvc`) and implicit (`fvm`)
+//! operator namespaces, plus the global-continuity flux correction
+//! (`adjust_phi`). Mirrors `src/finiteVolume/finiteVolume/{fvc,fvm}/` and
+//! `src/finiteVolume/cfdTools/general/adjustPhi/` from OpenFOAM.
+
+/// Global-continuity flux correction — see [`adjust_phi::adjust_phi`].
+///
+/// Usage mirrors `Foam::adjustPhi` from
+/// `src/finiteVolume/cfdTools/general/adjustPhi/adjustPhi.C`.
 pub(crate) mod adjust_phi;
 
 /// Explicit finite-volume operators — return a new field.

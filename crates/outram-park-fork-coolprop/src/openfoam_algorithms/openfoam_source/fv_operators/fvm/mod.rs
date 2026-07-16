@@ -19,6 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Implicit finite-volume operators (`fvm`) — each assembles its discretised
+//! term into a sparse `FvMatrix`/`FvVectorMatrix` (time derivative, divergence,
+//! Laplacian, in scalar and vector forms) to be solved for the unknown field.
+//! Mirrors `Foam::fvm::` from `src/finiteVolume/finiteVolume/fvm/`.
+
 mod ddt;
 mod ddt_vec;
 mod div;

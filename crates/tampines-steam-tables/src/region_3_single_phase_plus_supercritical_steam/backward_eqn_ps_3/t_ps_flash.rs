@@ -1,13 +1,17 @@
-use uom::si::{f64::*, pressure::megapascal, ratio::ratio, specific_heat_capacity::kilojoule_per_kilogram_kelvin, thermodynamic_temperature::kelvin};
+use uom::si::{
+    f64::*, pressure::megapascal, ratio::ratio,
+    specific_heat_capacity::kilojoule_per_kilogram_kelvin, thermodynamic_temperature::kelvin,
+};
 
+/// Region 3a backward equation: temperature from `(p,s)`, valid on the
+/// lower-entropy side of the 3a/3b boundary.
 pub(crate) fn t_ps_3a(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemperature {
-
     let p_ref = Pressure::new::<megapascal>(100.0);
     let t_ref = ThermodynamicTemperature::new::<kelvin>(760.0);
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(4.4);
 
-    let sigma: f64 = (s/s_ref).get::<ratio>();
-    let pi: f64 = (p/p_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
+    let pi: f64 = (p / p_ref).get::<ratio>();
 
     let mut theta = 0.0;
 
@@ -17,7 +21,7 @@ pub(crate) fn t_ps_3a(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemp
         let ni = coeffs[2];
 
         theta += ni * (pi + 0.240).powf(ii) * (sigma - 0.703).powf(ji);
-    };
+    }
 
     return theta * t_ref;
 }
@@ -38,7 +42,7 @@ const T_PS_SUBREGION_3A_COEFFS: [[f64; 3]; 33] = [
     [-6.0, 32.0, 0.971_777_947_349_413e13],
     [-5.0, 0.0, -0.571_527_767_052_397e-4],
     [-5.0, 14.0, 0.288_307_949_778_420e5],
-    [-5.0, 32.0 , -0.744_428_289_262_703e14],
+    [-5.0, 32.0, -0.744_428_289_262_703e14],
     [-4.0, 6.0, 0.128_017_324_848_921e2],
     [-4.0, 10.0, -0.368_275_545_889_071e3],
     [-4.0, 36.0, 0.664_768_904_779_177e16],
@@ -58,14 +62,15 @@ const T_PS_SUBREGION_3A_COEFFS: [[f64; 3]; 33] = [
     [10.0, 2.0, 0.123_220_024_851_555e-2],
 ];
 
+/// Region 3b backward equation: temperature from `(p,s)`, valid on the
+/// higher-entropy side of the 3a/3b boundary.
 pub(crate) fn t_ps_3b(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemperature {
-
     let p_ref = Pressure::new::<megapascal>(100.0);
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(5.3);
     let t_ref = ThermodynamicTemperature::new::<kelvin>(860.0);
 
-    let sigma: f64 = (s/s_ref).get::<ratio>();
-    let pi: f64 = (p/p_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
+    let pi: f64 = (p / p_ref).get::<ratio>();
 
     let mut theta = 0.0;
 
@@ -75,14 +80,14 @@ pub(crate) fn t_ps_3b(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemp
         let ni = coeffs[2];
 
         theta += ni * (pi + 0.760).powf(ii) * (sigma - 0.818).powf(ji);
-    };
+    }
 
     return theta * t_ref;
 }
 
 const T_PS_SUBREGION_3B_COEFFS: [[f64; 3]; 28] = [
     [-12.0, 1.0, 0.527_111_701_601_660],
-    [-12.0,3.0, -0.401_317_830_052_742e2],
+    [-12.0, 3.0, -0.401_317_830_052_742e2],
     [-12.0, 4.0, 0.153_020_073_134_484e3],
     [-12.0, 7.0, -0.224_799_398_218_827e4],
     [-8.0, 0.0, -0.193_993_484_669_048],
@@ -110,6 +115,3 @@ const T_PS_SUBREGION_3B_COEFFS: [[f64; 3]; 28] = [
     [12.0, 1.0, 0.193_848_122_022_095e-4],
     [14.0, 2.0, -0.215_095_749_182_309e-4],
 ];
-
-
-

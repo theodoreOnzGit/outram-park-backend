@@ -19,7 +19,17 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod interpolate_xy;
+//! Dimensionless 1-D interpolation over tabulated `(x, y)` data.
+//!
+//! [`interpolate_xy`] does piecewise-linear interpolation;
+//! [`interpolate_spline_xy`] does Catmull-Rom cubic-spline interpolation.
+//! Both clamp to the endpoint `y` value outside the table range and assume
+//! `xs` is sorted ascending. Used by tabulated thermophysical property
+//! lookups; callers attach `uom` units at their own call sites.
+
+/// Cubic-spline interpolation of a tabulated `y(x)` curve (dimensionless `f64`).
 pub mod interpolate_spline_xy;
-pub use interpolate_xy::interpolate_xy;
+/// Piecewise-linear interpolation of a tabulated `y(x)` curve (dimensionless `f64`).
+pub mod interpolate_xy;
 pub use interpolate_spline_xy::interpolate_spline_xy;
+pub use interpolate_xy::interpolate_xy;

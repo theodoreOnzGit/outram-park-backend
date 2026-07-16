@@ -44,6 +44,7 @@ const D3: f64 = 2.185_138_002_766_405_851_2;
 /// Requires the user's `OdeSystem::jacobian` to be implemented.
 /// Maps to `Foam::Rosenbrock23`.
 pub struct Rosenbrock23 {
+    /// Adaptive step-size controller settings (tolerances, scale limits).
     pub config: OdeSolverConfig,
     n: usize,
     dydx0: Vec<f64>,
@@ -60,6 +61,10 @@ pub struct Rosenbrock23 {
 }
 
 impl Rosenbrock23 {
+    /// Create a stiff solver for an `n`-equation system with the given absolute
+    /// and relative per-equation error tolerances; other controller parameters
+    /// take their [`OdeSolverConfig::default`] values. The system must
+    /// implement [`OdeSystem::jacobian`].
     pub fn new(n: usize, abs_tol: f64, rel_tol: f64) -> Self {
         let mut cfg = OdeSolverConfig::default();
         cfg.abs_tol = abs_tol;
@@ -189,6 +194,8 @@ impl Rosenbrock23 {
         Ok(())
     }
 
+    /// Integrate from `x_start` to `x_end`, updating `y` in place and leaving
+    /// the last accepted step size in `dx_est`.
     pub fn integrate(
         &mut self,
         ode: &dyn OdeSystem,

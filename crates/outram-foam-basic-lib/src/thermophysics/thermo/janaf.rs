@@ -54,6 +54,10 @@ pub struct JanafThermo<E: EquationOfState> {
 }
 
 impl<E: EquationOfState> JanafThermo<E> {
+    /// Construct a NASA-7 (JANAF) thermo model wrapping `eos`, valid over
+    /// [`tlow`, `thigh`] K with the low/high coefficient switch at `tcommon` K.
+    /// `low` / `high` are the seven R-pre-scaled coefficients used for
+    /// T < `tcommon` and T >= `tcommon` respectively.
     pub fn new(eos: E, tlow: f64, thigh: f64, tcommon: f64, low: [f64; 7], high: [f64; 7]) -> Self {
         Self {
             eos,

@@ -20,9 +20,14 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 pub(crate) mod traits;
+/// Constant-transport model: dynamic viscosity (Pa·s) and thermal conductivity
+/// (W/(m·K)) held constant.
 pub mod const_transport;
+/// Sutherland-law model for temperature-dependent dynamic viscosity (Pa·s).
 pub mod sutherland;
+/// Polynomial-in-temperature transport model for viscosity/conductivity (SI units).
 pub mod polynomial;
+/// Tabulated (interpolated) transport model for viscosity/conductivity (SI units).
 pub mod tabulated;
 
 pub use traits::*;

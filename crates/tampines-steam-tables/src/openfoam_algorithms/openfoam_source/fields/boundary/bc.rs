@@ -21,7 +21,6 @@
 
 use crate::openfoam_algorithms::openfoam_source::{Field, Vector3};
 
-
 /// Boundary condition variant for a single patch.
 ///
 /// Covers the BC types required by the target solvers.  More exotic types
@@ -64,6 +63,7 @@ pub struct PatchField<T: Clone> {
 }
 
 impl PatchField<f64> {
+    /// `FixedValue` scalar patch: all `size` faces hold the same value `v`.
     pub fn fixed_value(size: usize, v: f64) -> Self {
         Self {
             bc: BoundaryCondition::FixedValue(v),
@@ -71,6 +71,8 @@ impl PatchField<f64> {
         }
     }
 
+    /// `ZeroGradient` scalar patch of `size` faces, initial values zeroed
+    /// (overwritten once the owning operator's `update_coeffs` runs).
     pub fn zero_gradient(size: usize) -> Self {
         Self {
             bc: BoundaryCondition::ZeroGradient,
@@ -78,12 +80,17 @@ impl PatchField<f64> {
         }
     }
 
+    /// `Empty` scalar patch (2-D / wedge direction) with no face values.
     pub fn empty() -> Self {
-        Self { bc: BoundaryCondition::Empty, values: Field::new(vec![]) }
+        Self {
+            bc: BoundaryCondition::Empty,
+            values: Field::new(vec![]),
+        }
     }
 }
 
 impl PatchField<Vector3> {
+    /// `FixedValue` vector patch: all `size` faces hold the same value `v`.
     pub fn fixed_value_vec(size: usize, v: Vector3) -> Self {
         Self {
             bc: BoundaryCondition::FixedValue(v),
@@ -91,6 +98,8 @@ impl PatchField<Vector3> {
         }
     }
 
+    /// `ZeroGradient` vector patch of `size` faces, initial values zeroed
+    /// (overwritten once the owning operator's `update_coeffs` runs).
     pub fn zero_gradient_vec(size: usize) -> Self {
         Self {
             bc: BoundaryCondition::ZeroGradient,
@@ -98,7 +107,11 @@ impl PatchField<Vector3> {
         }
     }
 
+    /// `Empty` vector patch (2-D / wedge direction) with no face values.
     pub fn empty_vec() -> Self {
-        Self { bc: BoundaryCondition::Empty, values: Field::new(vec![]) }
+        Self {
+            bc: BoundaryCondition::Empty,
+            values: Field::new(vec![]),
+        }
     }
 }

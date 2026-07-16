@@ -41,6 +41,7 @@ fn sign(x: f64) -> f64 {
 }
 
 impl QuadraticEqn {
+    /// Construct `a·x² + b·x + c` from its three `f64` coefficients.
     #[inline]
     pub fn new(a: f64, b: f64, c: f64) -> Self {
         Self { a, b, c }

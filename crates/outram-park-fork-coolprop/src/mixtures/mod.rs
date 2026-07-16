@@ -50,8 +50,9 @@ use crate::fluid::Fluid;
 /// A multi-fluid mixture: components plus their mole fractions (parallel
 /// arrays, summing to 1).
 ///
-/// Kept small and `Copy`-friendly via fixed capacity would constrain `N`; for
-/// the scaffold we own `Vec`s (the mixture is built once, then queried).
+/// Components and mole fractions are owned `Vec`s (rather than a fixed-capacity
+/// inline array, which would constrain the component count `N`): a mixture is
+/// built once, then queried many times.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mixture {
     /// Pure components.

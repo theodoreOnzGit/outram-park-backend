@@ -19,13 +19,31 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! The scalar floating-point type and OpenFOAM's small/large numeric
+//! guard constants.
+//!
+//! `Scalar` is OpenFOAM's `scalar` (double-precision, dimensionless) and
+//! `Label` is its `label` (signed integer index/count). The constants are
+//! the fixed thresholds OpenFOAM uses to guard against divide-by-zero and
+//! overflow; they are dimensionless and identical in value to the upstream
+//! `doubleScalar` definitions.
+
+/// OpenFOAM `scalar` — a dimensionless double-precision floating-point value.
 pub type Scalar = f64;
+/// OpenFOAM `label` — a signed integer used for indices and counts.
 pub type Label = i64;
 
+/// Small number used to guard against division by (near-)zero (1e-15).
 pub const SMALL: Scalar = 1e-15;
+/// Very small number near the underflow floor (1e-300).
 pub const VSMALL: Scalar = 1e-300;
+/// Square root of `SMALL` (≈ 3.162e-8).
 pub const ROOT_SMALL: Scalar = 3.162_277_660_168_379_5e-8; // sqrt(1e-15)
+/// Square root of `VSMALL` (1e-150).
 pub const ROOT_VSMALL: Scalar = 1e-150; // sqrt(1e-300)
+/// Large number used as a finite stand-in for "infinity" (1e15).
 pub const GREAT: Scalar = 1e15;
+/// Very large number near the overflow ceiling (1e300).
 pub const VGREAT: Scalar = 1e300;
+/// Square root of `GREAT` (≈ 3.162e7).
 pub const ROOT_GREAT: Scalar = 3.162_277_660_168_379_5e7; // sqrt(1e15)

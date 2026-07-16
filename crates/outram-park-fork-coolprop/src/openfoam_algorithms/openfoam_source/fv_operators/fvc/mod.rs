@@ -19,6 +19,12 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Explicit finite-volume operators (`fvc`) — each returns a *new* field
+//! evaluated from the current field values: gradient, divergence, face
+//! interpolation, surface-normal gradient, flux, reconstruction, MUSCL
+//! limiting and ddt correction. Mirrors `Foam::fvc::` from
+//! `src/finiteVolume/finiteVolume/fvc/`.
+
 mod ddt_corr;
 mod div;
 mod flux;

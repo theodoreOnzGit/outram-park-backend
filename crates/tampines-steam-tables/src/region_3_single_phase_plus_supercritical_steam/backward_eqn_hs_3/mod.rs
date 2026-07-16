@@ -1,43 +1,40 @@
-// for region 3 
-// backward equations 
-// use T(p,h) after finding pressure 
-// and v(p,s) after finding pressure
-//
+//! Region-3 (h,s) backward equation: recovers pressure from specific
+//! enthalpy and specific entropy, `(h,s) -> p`. This is the entry point for
+//! an (h,s) flash in region 3 — once `p` is known, `T`/`v` follow from the
+//! `(p,h)` or `(p,s)` backward equations in the sibling modules.
 
-
-
+use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
+use uom::si::pressure::megapascal;
 use uom::si::ratio::ratio;
 use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
-use uom::si::pressure::megapascal;
-use uom::si::available_energy::kilojoule_per_kilogram;
 
-// assuming we are already in region 3
-// calculate temperature given p and h
+/// Region-3 backward equation: returns pressure given specific enthalpy
+/// and specific entropy, `(h,s) -> p`.
+/// Assumes `(h,s)` is already known to be in region 3; dispatches to the
+/// 3a or 3b subregion equation based on the s3a3b entropy boundary
+/// (`s3a3b ~= 4.412 kJ/(kg K)`).
 #[inline]
 pub fn p_hs_3(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
+    let s3a3b = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(4.412_021_482_234_76);
 
-    let s3a3b = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(
-        4.412_021_482_234_76
-    );
-
-    // assuming hs point is in region 3, 
+    // assuming hs point is in region 3,
     if s > s3a3b {
         return p_hs_3b(h, s);
     } else {
         return p_hs_3a(h, s);
     };
-
 }
 
+/// Region 3a backward equation: pressure from `(h,s)` (table 2.88),
+/// valid on the lower-entropy side of the s3a3b boundary.
 pub(crate) fn p_hs_3a(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
-
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(2300.0);
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(4.4);
     let p_ref = Pressure::new::<megapascal>(99.0);
 
-    let eta: f64 = (h/h_ref).get::<ratio>();
-    let sigma: f64 = (s/s_ref).get::<ratio>();
+    let eta: f64 = (h / h_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
 
     let mut pi: f64 = 0.0;
 
@@ -47,22 +44,20 @@ pub(crate) fn p_hs_3a(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
         let ni = coeffs[2];
 
         pi += ni * (eta - 1.01).powf(ii) * (sigma - 0.75).powf(ji);
-    };
+    }
 
     return pi * p_ref;
-
-
 }
 
-
+/// Region 3b backward equation: pressure from `(h,s)` (table 2.89),
+/// valid on the higher-entropy side of the s3a3b boundary.
 pub(crate) fn p_hs_3b(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
-
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(2800.0);
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(5.3);
     let p_ref = Pressure::new::<megapascal>(16.6);
 
-    let eta: f64 = (h/h_ref).get::<ratio>();
-    let sigma: f64 = (s/s_ref).get::<ratio>();
+    let eta: f64 = (h / h_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
 
     let mut pi: f64 = 0.0;
 
@@ -72,15 +67,10 @@ pub(crate) fn p_hs_3b(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
         let ni = coeffs[2];
 
         pi += ni * (eta - 0.681).powf(ii) * (sigma - 0.792).powf(ji);
-    };
+    }
 
     return pi.recip() * p_ref;
-
-
-
 }
-
-
 
 /// based on table 2.88
 const SUBREGION_3A_BACK_COEFFS_HS: [[f64; 3]; 33] = [
@@ -130,7 +120,7 @@ const SUBREGION_3B_BACK_COEFFS_HS: [[f64; 3]; 35] = [
     [-10.0, 10.0, -0.186_312_419_488_279e2],
     [-10.0, 14.0, 0.510_973_543_414_101e3],
     [-10.0, 18.0, 0.373_847_005_822_362e6],
-    [-8.0 ,2.0, 0.299_804_024_666_572e-7],
+    [-8.0, 2.0, 0.299_804_024_666_572e-7],
     [-8.0, 8.0, 0.200_544_393_820_342e2],
     [-6.0, 2.0, -0.498_030_487_662_829e-5],
     [-6.0, 6.0, -0.102_301_806_360_030e2],

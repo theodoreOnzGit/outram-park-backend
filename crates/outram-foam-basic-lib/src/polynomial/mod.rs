@@ -19,6 +19,16 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Closed-form polynomial equation solvers and a fixed-degree polynomial type.
+//!
+//! Ports the OpenFOAM `primitives/polynomialEqns` layer: the linear, quadratic,
+//! and cubic root finders (`LinearEqn`, `QuadraticEqn`, `CubicEqn`) that return a
+//! tagged [`Roots`] container distinguishing real, complex, infinite, and NaN
+//! roots, plus the general [`Polynomial<N>`](polynomial::Polynomial) value /
+//! derivative / integral type. All coefficients and results are bare `f64` in SI
+//! (dimensionless) form — these are numerical building blocks, not dimensioned
+//! physical quantities.
+
 pub mod cubic_eqn;
 pub mod linear_eqn;
 pub mod polynomial;

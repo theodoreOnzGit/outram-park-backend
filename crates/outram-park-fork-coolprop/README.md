@@ -31,6 +31,17 @@ this fork. See NOTICE / TRADEMARKS.md.
 > psychrometric core only (no cp/cv/transport, no ice branch); mixtures are
 > evaluation-only (no flash/VLE, not validated vs GERG-2008).
 
+## Bookkeeping status
+
+> Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping pass" command). A crate is **complete** only once the maintainer has personally signed off on BOTH axes below.
+
+| Axis | Status |
+|---|---|
+| Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
+| Human / user interface — human-reviewed | ❌ Not yet manually checked |
+
+**Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
+
 
 A pure-Rust fork/translation of **[CoolProp](https://github.com/CoolProp/CoolProp)**
 (MIT) — thermophysical properties from Helmholtz-energy-explicit equations of
@@ -109,12 +120,16 @@ End-to-end and verified:
 `tests/non_analytic_critical_region.rs`.
 
 **Humid air** (`humid_air`, ASHRAE RP-1485 / `HAPropsSI`-equivalent, bead
-op-kbc.14): `(T,p,W)`/`(T,p,R)` inputs; `W`, `R`, `ψ_w`, specific enthalpy and
-volume outputs. Verified against the ASHRAE ideal-gas psychrometric
-approximation (`c_p`, `v` agree to <0.1% at 25 °C — see
-`tests/humid_air_reference.rs`). Entropy, wet-bulb and dew-point temperature
-are not implemented (need CoolProp's ideal-gas reference-state offset
-calibration / Brent solves, respectively — see the module doc).
+op-kbc.14): `(T,p,{W|R|ψ_w|T_dp|T_wb})` inputs (any one humidity measure);
+`W`, `R`, `ψ_w`, specific enthalpy, specific volume, **entropy `S`**, and the
+**wet-bulb `T_wb`** and **dew-point `T_dp`** temperatures as outputs. Verified
+against the ASHRAE ideal-gas psychrometric approximation (`c_p`, `v` agree to
+<0.1% at 25 °C), wet-bulb/dew-point against Stull (2011) and the exact
+saturation identity (<0.5 K), and entropy's temperature dependence against the
+rigorous `dS/dT = Cp/T` identity (wet-bulb/dew-point/entropy added 2026-07-13 —
+see `tests/humid_air_reference.rs`). Caveat: entropy's *absolute* value sits on
+a different reference-state footing than CoolProp's own (see the module doc's
+caveats section); still no cp/cv/transport and no ice branch.
 
 **Chung (1988) corresponding-states viscosity** (`transport::ViscosityModel::Chung`,
 bead op-kbc.17, done 2026-07-10): wired for the two fluids CoolProp itself
@@ -199,14 +214,10 @@ reducing-function/departure-function engine itself), and:
   ECS instead maps a fluid onto a *reference fluid's own transport surface*
   via shape-factor correlations — a second transport subsystem, not an
   extension of Chung.
-- **`humid_air` entropy, wet-bulb, dew-point.** Entropy needs CoolProp's
-  ideal-gas reference-state offset calibration
-  (`ensure_ref_offsets` in `HumidAirProp.cpp`) — evaluating the real
-  Water/Air EOS at fixed reference points to pin absolute IAPWS/Lemmon-
-  convention constants; the simpler polynomial path used for enthalpy has no
-  entropy equivalent (CoolProp's own source has `"Not implemented"` on that
-  branch). Wet-bulb/dew-point need a bracketed root-finder (Brent) wrapping
-  the whole property evaluation, not just more data.
+
+(`humid_air` entropy, wet-bulb and dew-point — previously listed here as
+scoped out — were since implemented and verified, 2026-07-13; see the humid-air
+section above.)
 
 Three real issues were found this way, none by inspection — all by checking
 computed values against known references or running the codegen over the

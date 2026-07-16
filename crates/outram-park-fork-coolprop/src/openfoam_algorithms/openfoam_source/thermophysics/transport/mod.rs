@@ -19,6 +19,12 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Transport-property models giving dynamic viscosity `μ` [Pa·s] and thermal
+//! conductivity `λ` [W/(m·K)] vs temperature: constant (`const_transport`),
+//! Sutherland's law (`sutherland`), polynomial (`polynomial`) and tabulated
+//! (`tabulated`) forms. The `traits` submodule is the contract each
+//! implements. Mirrors OpenFOAM's `src/thermophysicalModels/specie/transport/`.
+
 pub(crate) mod traits;
 pub mod const_transport;
 pub mod sutherland;

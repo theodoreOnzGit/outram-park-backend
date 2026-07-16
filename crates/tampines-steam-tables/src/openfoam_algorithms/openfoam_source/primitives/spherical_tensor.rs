@@ -29,9 +29,13 @@ pub struct SphericalTensor {
 }
 
 impl SphericalTensor {
+    /// The zero spherical tensor (`ii = 0`).
     pub const ZERO: Self = Self { ii: 0.0 };
+    /// The identity spherical tensor (`ii = 1`, i.e. `I`).
     pub const IDENTITY: Self = Self { ii: 1.0 };
 
+    /// Build a spherical (isotropic) tensor `ii * I` from its single
+    /// independent component `ii`.
     #[inline]
     pub fn new(ii: f64) -> Self {
         Self { ii }
@@ -49,6 +53,7 @@ impl SphericalTensor {
         3.0 * self.ii * self.ii
     }
 
+    /// Frobenius norm (square root of [`Self::mag_sqr`]).
     #[inline]
     pub fn mag(self) -> f64 {
         self.mag_sqr().sqrt()
@@ -81,7 +86,9 @@ impl SphericalTensor {
     /// Linear interpolation
     #[inline]
     pub fn lerp(a: Self, b: Self, t: f64) -> Self {
-        Self { ii: (1.0 - t) * a.ii + t * b.ii }
+        Self {
+            ii: (1.0 - t) * a.ii + t * b.ii,
+        }
     }
 }
 
@@ -90,37 +97,53 @@ impl SphericalTensor {
 impl Neg for SphericalTensor {
     type Output = Self;
     #[inline]
-    fn neg(self) -> Self { Self { ii: -self.ii } }
+    fn neg(self) -> Self {
+        Self { ii: -self.ii }
+    }
 }
 
 impl Add for SphericalTensor {
     type Output = Self;
     #[inline]
-    fn add(self, rhs: Self) -> Self { Self { ii: self.ii + rhs.ii } }
+    fn add(self, rhs: Self) -> Self {
+        Self {
+            ii: self.ii + rhs.ii,
+        }
+    }
 }
 
 impl Sub for SphericalTensor {
     type Output = Self;
     #[inline]
-    fn sub(self, rhs: Self) -> Self { Self { ii: self.ii - rhs.ii } }
+    fn sub(self, rhs: Self) -> Self {
+        Self {
+            ii: self.ii - rhs.ii,
+        }
+    }
 }
 
 impl Mul<f64> for SphericalTensor {
     type Output = Self;
     #[inline]
-    fn mul(self, s: f64) -> Self { Self { ii: self.ii * s } }
+    fn mul(self, s: f64) -> Self {
+        Self { ii: self.ii * s }
+    }
 }
 
 impl Mul<SphericalTensor> for f64 {
     type Output = SphericalTensor;
     #[inline]
-    fn mul(self, st: SphericalTensor) -> SphericalTensor { st * self }
+    fn mul(self, st: SphericalTensor) -> SphericalTensor {
+        st * self
+    }
 }
 
 impl Div<f64> for SphericalTensor {
     type Output = Self;
     #[inline]
-    fn div(self, s: f64) -> Self { Self { ii: self.ii / s } }
+    fn div(self, s: f64) -> Self {
+        Self { ii: self.ii / s }
+    }
 }
 
 /// `scalar / SphericalTensor` — maps to C++ `operator/(Cmpt, SphericalTensor)`
@@ -134,18 +157,33 @@ impl Div<SphericalTensor> for f64 {
 
 // --- Free functions mirroring OpenFOAM globals ---
 
+/// Free-function form of [`SphericalTensor::tr`]: the trace `3 * ii`.
 #[inline]
-pub fn tr(st: SphericalTensor) -> f64 { st.tr() }
+pub fn tr(st: SphericalTensor) -> f64 {
+    st.tr()
+}
 
+/// Free-function form of [`SphericalTensor::det`]: the determinant `ii³`.
 #[inline]
-pub fn det(st: SphericalTensor) -> f64 { st.det() }
+pub fn det(st: SphericalTensor) -> f64 {
+    st.det()
+}
 
+/// Free-function form of [`SphericalTensor::inv`]: the inverse `1/ii`.
 #[inline]
-pub fn inv(st: SphericalTensor) -> SphericalTensor { st.inv() }
+pub fn inv(st: SphericalTensor) -> SphericalTensor {
+    st.inv()
+}
 
+/// Free-function form of [`SphericalTensor::mag_sqr`]: Frobenius norm
+/// squared, `3 * ii²`.
 #[inline]
-pub fn mag_sqr(st: SphericalTensor) -> f64 { st.mag_sqr() }
+pub fn mag_sqr(st: SphericalTensor) -> f64 {
+    st.mag_sqr()
+}
 
+/// Free-function form of [`SphericalTensor::lerp`]: linear interpolation
+/// `(1-t)*a + t*b`.
 #[inline]
 pub fn lerp(a: SphericalTensor, b: SphericalTensor, t: f64) -> SphericalTensor {
     SphericalTensor::lerp(a, b, t)

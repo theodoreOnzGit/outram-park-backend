@@ -19,6 +19,12 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Finite-volume mesh: the `FvMesh` topology and geometry (cell volumes, face
+//! areas/normals, owner/neighbour addressing, boundary patches), the
+//! `RegionInterface` linking coupled regions, and the `MeshError` type. Mirrors
+//! OpenFOAM's `fvMesh`/`polyMesh` (built here in-memory rather than read from a
+//! `polyMesh` directory).
+
 pub(crate) mod error;
 pub mod fv_mesh;
 pub mod region_interface;

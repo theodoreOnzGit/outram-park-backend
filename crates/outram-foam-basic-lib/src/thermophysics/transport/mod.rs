@@ -19,6 +19,15 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Per-species transport models — dynamic viscosity μ [Pa·s] and thermal
+//! conductivity κ [W/(m·K)], layered on top of a
+//! [`ThermoModel`](crate::thermophysics::thermo::ThermoModel).
+//!
+//! Each model implements [`TransportModel`]. Available models: constant-μ /
+//! constant-Prandtl [`ConstTransport`], polynomial [`PolynomialTransport`],
+//! Sutherland's-law [`SutherlandTransport`], and tabulated
+//! [`TabulatedTransport`].
+
 pub mod const_transport;
 pub mod polynomial;
 pub mod sutherland;

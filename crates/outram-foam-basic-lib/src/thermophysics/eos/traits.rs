@@ -30,6 +30,7 @@ use crate::thermophysics::imports::*;
 /// Enthalpy/entropy departure methods return the EOS *contribution* only;
 /// the full quantity is assembled in `ThermoModel`.
 pub trait EquationOfState {
+    /// Molar mass W of the species  [kg/mol].
     fn mol_weight(&self) -> MolarMass;
 
     /// Specific gas constant R = R_universal / W  [J/(kg·K)].
@@ -38,7 +39,7 @@ pub trait EquationOfState {
     /// Density ρ = ρ(p, T)  [kg/m³].
     fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity;
 
-    /// Isentropic compressibility ψ = ∂ρ/∂p|_T  [s²/m²].
+    /// Isothermal compressibility ψ = ∂ρ/∂p|_T  [s²/m²].
     fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility;
 
     /// Compressibility factor Z = p·v / (R·T)  [-].

@@ -51,6 +51,9 @@ pub enum FwdEqnRegion {
     Region5,
 }
 
+/// Two-phase (Region 4) `(T,p)` dispatch helpers: mixture property evaluation
+/// that carries steam quality, for states the single-phase `(T,p)` flashes
+/// cannot represent on their own.
 pub mod multiphase_flashing;
 pub use multiphase_flashing::*;
 

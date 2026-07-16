@@ -19,8 +19,18 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Generic adaptive ODE integrators (`dy/dx = f(x, y)`) ported from
+//! `Foam::ODESolver`/`Foam::adaptiveSolver` and concrete solvers. The system
+//! being integrated is abstracted behind [`OdeSystem`]; the physical meaning
+//! of `y` (e.g. species concentrations, reactor state) is entirely up to the
+//! caller's `OdeSystem` implementation — this module only sees plain `f64`
+//! state vectors.
+
+/// Explicit first-order adaptive Euler solver.
 pub mod euler;
+/// Adaptive embedded Runge-Kutta-Fehlberg 4(5) solver.
 pub mod rkf45;
+/// W-method Rosenbrock23 semi-implicit stiff solver.
 pub mod rosenbrock23;
 
 pub use euler::Euler;
@@ -33,6 +43,7 @@ use crate::openfoam_algorithms::openfoam_source::SquareMatrix;
 
 /// Abstract ODE system `dy/dx = f(x, y)`. Maps to `Foam::ODESystem`.
 pub trait OdeSystem {
+    /// Number of equations (length of the `y` state vector).
     fn n_eqns(&self) -> usize;
 
     /// Fill `dydx` with the derivatives at `(x, y)`.
@@ -41,13 +52,7 @@ pub trait OdeSystem {
     /// Fill `dfdx` and `dfdy` with the Jacobian at `(x, y)`.
     ///
     /// Required only by stiff solvers (Rosenbrock23). The default panics.
-    fn jacobian(
-        &self,
-        _x: f64,
-        _y: &[f64],
-        _dfdx: &mut Vec<f64>,
-        _dfdy: &mut SquareMatrix,
-    ) {
+    fn jacobian(&self, _x: f64, _y: &[f64], _dfdx: &mut Vec<f64>, _dfdy: &mut SquareMatrix) {
         unimplemented!("jacobian not implemented for this ODE system");
     }
 }
@@ -93,9 +98,14 @@ impl Default for OdeSolverConfig {
 
 // ── Error type ───────────────────────────────────────────────────────────────
 
+/// Failure modes of the adaptive ODE solvers in this module.
 #[derive(Debug, Clone, PartialEq)]
 pub enum OdeError {
+    /// The adaptive step-size controller shrank `dx` below `f64::EPSILON`
+    /// while trying to satisfy the error tolerance without converging.
     StepSizeUnderflow,
+    /// `integrate()` did not reach `x_end` within `OdeSolverConfig::max_steps`
+    /// sub-steps; the wrapped value is the step count reached.
     MaxStepsExceeded(usize),
 }
 
@@ -166,8 +176,7 @@ pub(crate) fn adaptive_step(
 
     let threshold = (cfg.max_scale / cfg.safe_scale).powf(-1.0 / cfg.alpha_inc);
     *dx_try = if err > threshold {
-        let scale = (cfg.safe_scale * err.powf(-cfg.alpha_inc))
-            .clamp(cfg.min_scale, cfg.max_scale);
+        let scale = (cfg.safe_scale * err.powf(-cfg.alpha_inc)).clamp(cfg.min_scale, cfg.max_scale);
         dx * scale
     } else {
         dx * cfg.safe_scale * cfg.max_scale

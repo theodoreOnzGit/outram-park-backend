@@ -19,6 +19,20 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Explicit (`fvc`) finite-volume operators — each returns a **new field**
+//! (a `VolField` / `SurfaceField`), never a matrix.
+//!
+//! Mirrors `Foam::fvc::` (`src/finiteVolume/finiteVolume/fvc/`). Contents:
+//! Gauss gradient (`grad`, `grad_vec`), Gauss divergence (`div`, `div_flux`,
+//! `div_vec`, `div_tensor`, `div_symm_tensor`), surface-normal gradient
+//! (`sn_grad`), linear face interpolation (`interpolate`) and flux assembly
+//! (`flux`, `buoyancy_flux`), least-squares velocity reconstruction
+//! (`reconstruct`), the Rhie–Chow time-derivative flux correction
+//! (`ddt_corr`), and MUSCL / TVD limited face reconstruction
+//! (`reconstruct_pos_neg`, `Limiter`). Field values carry raw
+//! `f64` / `Vector3` / `Tensor` element data (no `uom`), consistent with the
+//! rest of the FV operator layer.
+
 mod ddt_corr;
 mod div;
 mod div_tensor;

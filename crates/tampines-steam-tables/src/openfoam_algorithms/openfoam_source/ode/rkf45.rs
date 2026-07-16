@@ -19,7 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use super::{OdeError, OdeSystem, OdeSolverConfig, adaptive_step, integrate_interval, normalize_error};
+use super::{
+    adaptive_step, integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem,
+};
 
 // Butcher tableau coefficients — Runge-Kutta-Fehlberg 4(5)
 // Source: Foam::RKF45 constants
@@ -75,6 +77,9 @@ pub struct Rkf45 {
 }
 
 impl Rkf45 {
+    /// Construct a solver for a system of `n` equations, with the given
+    /// absolute and relative error tolerances (see [`OdeSolverConfig`]);
+    /// all other config fields take their `Default` values.
     pub fn new(n: usize, abs_tol: f64, rel_tol: f64) -> Self {
         let mut cfg = OdeSolverConfig::default();
         cfg.abs_tol = abs_tol;
@@ -93,6 +98,10 @@ impl Rkf45 {
         }
     }
 
+    /// Take one adaptive RKF45 step: computes the 6-stage embedded 4th/5th-order
+    /// pair, retrying with a smaller `dx` until the normalised error is within
+    /// tolerance. On return `x` and `y` are updated and `dx_try` holds a
+    /// suggested step size for the next call.
     pub fn solve_step(
         &mut self,
         ode: &dyn OdeSystem,
@@ -118,11 +127,15 @@ impl Rkf45 {
                 let n = y0.len();
 
                 // Stage 2
-                for i in 0..n { y_stage[i] = y0[i] + A21 * dx * dydx0[i]; }
+                for i in 0..n {
+                    y_stage[i] = y0[i] + A21 * dx * dydx0[i];
+                }
                 ode.derivatives(x0 + C2 * dx, y_stage, k2);
 
                 // Stage 3
-                for i in 0..n { y_stage[i] = y0[i] + dx * (A31 * dydx0[i] + A32 * k2[i]); }
+                for i in 0..n {
+                    y_stage[i] = y0[i] + dx * (A31 * dydx0[i] + A32 * k2[i]);
+                }
                 ode.derivatives(x0 + C3 * dx, y_stage, k3);
 
                 // Stage 4
@@ -133,31 +146,32 @@ impl Rkf45 {
 
                 // Stage 5
                 for i in 0..n {
-                    y_stage[i] = y0[i]
-                        + dx * (A51 * dydx0[i] + A52 * k2[i] + A53 * k3[i] + A54 * k4[i]);
+                    y_stage[i] =
+                        y0[i] + dx * (A51 * dydx0[i] + A52 * k2[i] + A53 * k3[i] + A54 * k4[i]);
                 }
                 ode.derivatives(x0 + C5 * dx, y_stage, k5);
 
                 // Stage 6
                 for i in 0..n {
                     y_stage[i] = y0[i]
-                        + dx * (A61 * dydx0[i] + A62 * k2[i] + A63 * k3[i]
-                              + A64 * k4[i] + A65 * k5[i]);
+                        + dx * (A61 * dydx0[i]
+                            + A62 * k2[i]
+                            + A63 * k3[i]
+                            + A64 * k4[i]
+                            + A65 * k5[i]);
                 }
                 ode.derivatives(x0 + C6 * dx, y_stage, k6);
 
                 // 5th-order solution
                 for i in 0..n {
                     y_out[i] = y0[i]
-                        + dx * (B1 * dydx0[i] + B3 * k3[i] + B4 * k4[i]
-                              + B5 * k5[i] + B6 * k6[i]);
+                        + dx * (B1 * dydx0[i] + B3 * k3[i] + B4 * k4[i] + B5 * k5[i] + B6 * k6[i]);
                 }
 
                 // Error = 5th − 4th
                 for i in 0..n {
-                    err[i] = dx
-                        * (E1 * dydx0[i] + E3 * k3[i] + E4 * k4[i]
-                         + E5 * k5[i] + E6 * k6[i]);
+                    err[i] =
+                        dx * (E1 * dydx0[i] + E3 * k3[i] + E4 * k4[i] + E5 * k5[i] + E6 * k6[i]);
                 }
 
                 normalize_error(y0, y_out, err, abs_tol, rel_tol)
@@ -171,6 +185,9 @@ impl Rkf45 {
         )
     }
 
+    /// Integrate from `x_start` to `x_end` using repeated adaptive RKF45
+    /// steps, propagating with the 5th-order solution. `dx_est` is used as
+    /// the initial trial step and is updated with the last accepted `dx`.
     pub fn integrate(
         &mut self,
         ode: &dyn OdeSystem,
@@ -197,15 +214,21 @@ mod tests {
 
     struct DecayOde;
     impl OdeSystem for DecayOde {
-        fn n_eqns(&self) -> usize { 1 }
+        fn n_eqns(&self) -> usize {
+            1
+        }
         fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
             dydx[0] = -y[0];
         }
     }
 
-    struct VanDerPol { mu: f64 }
+    struct VanDerPol {
+        mu: f64,
+    }
     impl OdeSystem for VanDerPol {
-        fn n_eqns(&self) -> usize { 2 }
+        fn n_eqns(&self) -> usize {
+            2
+        }
         fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
             dydx[0] = y[1];
             dydx[1] = self.mu * (1.0 - y[0] * y[0]) * y[1] - y[0];
@@ -223,7 +246,9 @@ mod tests {
         let expected = (-1.0_f64).exp();
         assert!(
             (y[0] - expected).abs() < 1e-6,
-            "y={:.10}, expected={:.10}", y[0], expected
+            "y={:.10}, expected={:.10}",
+            y[0],
+            expected
         );
     }
 
@@ -236,7 +261,12 @@ mod tests {
         let mut dx = 0.1;
         solver.integrate(&ode, 0.0, 5.0, &mut y, &mut dx).unwrap();
         let expected = (-5.0_f64).exp();
-        assert!((y[0] - expected).abs() < 1e-7, "y={:.12}, expected={:.12}", y[0], expected);
+        assert!(
+            (y[0] - expected).abs() < 1e-7,
+            "y={:.12}, expected={:.12}",
+            y[0],
+            expected
+        );
     }
 
     #[test]
@@ -268,17 +298,21 @@ mod tests {
             let mut x = 0.0_f64;
             for _ in 0..n {
                 let mut dx_try = h;
-                solver.solve_step(&ode, &mut x, &mut y, &mut dx_try).unwrap();
+                solver
+                    .solve_step(&ode, &mut x, &mut y, &mut dx_try)
+                    .unwrap();
             }
             (y[0] - exact).abs()
         };
 
-        let err_coarse = run(5);   // h = 0.2
-        let err_fine   = run(10);  // h = 0.1
+        let err_coarse = run(5); // h = 0.2
+        let err_fine = run(10); // h = 0.1
         let ratio = err_coarse / err_fine;
         // 5th-order propagation: ratio ≈ 2^5 = 32; accept [16, 64] to allow higher-order terms
-        assert!(ratio > 16.0 && ratio < 64.0,
-            "order ratio = {ratio:.2} (expected ~32 for RKF45 5th-order propagation)");
+        assert!(
+            ratio > 16.0 && ratio < 64.0,
+            "order ratio = {ratio:.2} (expected ~32 for RKF45 5th-order propagation)"
+        );
     }
 
     #[test]
@@ -293,7 +327,8 @@ mod tests {
         let result = solver.integrate(&ode, 0.0, 0.5, &mut y, &mut dx);
         assert!(
             matches!(result, Err(OdeError::MaxStepsExceeded(_))),
-            "expected MaxStepsExceeded, got {:?}", result
+            "expected MaxStepsExceeded, got {:?}",
+            result
         );
     }
 }

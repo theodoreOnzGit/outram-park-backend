@@ -8,11 +8,16 @@
 //!
 //! # Why this exists
 //!
-//! ~6 fluids (cyclopentane, isopentane, ethylbenzene, R1234yf, R1234ze(E),
-//! R152A) have no dedicated viscosity correlation in CoolProp — they use a
-//! generalised corresponding-states method keyed off a reference fluid. Until
-//! these are implemented [`crate::transport::viscosity`] returns `None` for
-//! them (never a wrong number). Closing this is the last viscosity-coverage gap.
+//! Four fluids (ethylbenzene, R1234yf, R1234ze(E), R152A) have no dedicated
+//! viscosity correlation in CoolProp — they use a generalised
+//! corresponding-states method keyed off a reference fluid. Until these are
+//! implemented [`crate::transport::viscosity`] returns `None` for them (never a
+//! wrong number). Closing this is the last viscosity-coverage gap.
+//!
+//! (The Chung method itself is already implemented, in
+//! [`crate::transport`] as [`crate::transport::ViscosityModel::Chung`], and is
+//! wired to cyclopentane and isopentane there — so those two do *not* return
+//! `None`. This module remains for the ECS and `rhosr`-CS methods.)
 #![allow(dead_code, unused_variables)] // TODO(op-kbc.17): drop once implemented
 
 use crate::fluid::Fluid;

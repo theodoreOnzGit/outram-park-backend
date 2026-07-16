@@ -1,13 +1,18 @@
-use uom::si::{f64::*, pressure::megapascal, ratio::ratio, specific_heat_capacity::kilojoule_per_kilogram_kelvin, specific_volume::cubic_meter_per_kilogram};
+use uom::si::{
+    f64::*, pressure::megapascal, ratio::ratio,
+    specific_heat_capacity::kilojoule_per_kilogram_kelvin,
+    specific_volume::cubic_meter_per_kilogram,
+};
 
+/// Region 3a backward equation: specific volume from `(p,s)`, valid on the
+/// lower-entropy side of the 3a/3b boundary.
 pub(crate) fn v_ps_3a(p: Pressure, s: SpecificHeatCapacity) -> SpecificVolume {
-
     let v_ref = SpecificVolume::new::<cubic_meter_per_kilogram>(0.0028);
     let p_ref = Pressure::new::<megapascal>(100.0);
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(4.4);
 
-    let sigma: f64 = (s/s_ref).get::<ratio>();
-    let pi: f64 = (p/p_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
+    let pi: f64 = (p / p_ref).get::<ratio>();
 
     let mut omega = 0.0;
 
@@ -17,7 +22,7 @@ pub(crate) fn v_ps_3a(p: Pressure, s: SpecificHeatCapacity) -> SpecificVolume {
         let ni = coeffs[2];
 
         omega += ni * (pi + 0.187).powf(ii) * (sigma - 0.755).powf(ji);
-    };
+    }
 
     return omega * v_ref;
 }
@@ -53,14 +58,15 @@ const V_PS_SUBREGION_3A_COEFFS: [[f64; 3]; 28] = [
     [6.0, 0.0, -0.145_749_861_944_416e-3],
 ];
 
+/// Region 3b backward equation: specific volume from `(p,s)`, valid on the
+/// higher-entropy side of the 3a/3b boundary.
 pub(crate) fn v_ps_3b(p: Pressure, s: SpecificHeatCapacity) -> SpecificVolume {
-
     let v_ref = SpecificVolume::new::<cubic_meter_per_kilogram>(0.0088);
     let p_ref = Pressure::new::<megapascal>(100.0);
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(5.3);
 
-    let sigma: f64 = (s/s_ref).get::<ratio>();
-    let pi: f64 = (p/p_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
+    let pi: f64 = (p / p_ref).get::<ratio>();
 
     let mut omega = 0.0;
 
@@ -70,7 +76,7 @@ pub(crate) fn v_ps_3b(p: Pressure, s: SpecificHeatCapacity) -> SpecificVolume {
         let ni = coeffs[2];
 
         omega += ni * (pi + 0.298).powf(ii) * (sigma - 0.816).powf(ji);
-    };
+    }
 
     return omega * v_ref;
 }
@@ -108,5 +114,3 @@ const V_PS_SUBREGION_3B_COEFFS: [[f64; 3]; 31] = [
     [1.0, 2.0, 0.146_407_900_162_154e2],
     [2.0, 2.0, -0.327_477_787_188_230e1],
 ];
-
-

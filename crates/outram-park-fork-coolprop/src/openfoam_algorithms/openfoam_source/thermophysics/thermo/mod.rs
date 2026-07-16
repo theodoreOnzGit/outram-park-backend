@@ -19,6 +19,12 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Caloric (enthalpy/heat-capacity vs temperature) models: constant-cp
+//! (`h_const`), NASA/JANAF polynomial (`janaf`), general polynomial
+//! (`h_polynomial`) and tabulated (`h_tabulated`) forms. The `traits` submodule
+//! is the contract each implements. Mirrors OpenFOAM's
+//! `src/thermophysicalModels/specie/thermo/`.
+
 pub(crate) mod traits;
 pub mod h_const;
 pub mod janaf;

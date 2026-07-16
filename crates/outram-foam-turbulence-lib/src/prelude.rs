@@ -19,13 +19,19 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Convenience re-exports: `use outram_foam_turbulence_lib::prelude::*;` brings
+//! the trait, the error type, every model struct, and the wall-function helpers
+//! into scope. Note that only [`KOmegaSST`] is a working model — the other
+//! structs are scaffolds whose trait methods `todo!()`-panic (see the
+//! crate-level status table).
+
 pub use crate::error::TurbulenceError;
 pub use crate::traits::TurbulenceModel;
 
-pub use crate::laminar::LaminarModel;
 pub use crate::k_epsilon::KEpsilon;
 pub use crate::k_omega::KOmega;
 pub use crate::k_omega_sst::KOmegaSST;
-pub use crate::spalart_allmaras::SpalartAllmaras;
+pub use crate::laminar::LaminarModel;
 pub use crate::les::Smagorinsky;
-pub use crate::wall_functions::{y_plus, nu_t_wall};
+pub use crate::spalart_allmaras::SpalartAllmaras;
+pub use crate::wall_functions::{nu_t_wall, y_plus};

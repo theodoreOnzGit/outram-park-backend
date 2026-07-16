@@ -19,6 +19,13 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Isotropic diagonal tensor (`SphericalTensor`) — an OpenFOAM primitive that
+//! stores only the single scalar `ii` of `ii * I`.
+//!
+//! `ii` is a dimensionless `f64`. Because the tensor is a scalar multiple of
+//! the identity, its operations reduce to scalar arithmetic (trace `3*ii`,
+//! determinant `ii³`, inverse `1/ii`).
+
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 /// Isotropic diagonal tensor: represents `ii * I` where `I` is the 3×3 identity.
@@ -29,9 +36,12 @@ pub struct SphericalTensor {
 }
 
 impl SphericalTensor {
+    /// The zero tensor (`ii = 0`).
     pub const ZERO: Self = Self { ii: 0.0 };
+    /// The identity tensor (`ii = 1`).
     pub const IDENTITY: Self = Self { ii: 1.0 };
 
+    /// Construct from the single isotropic component `ii` (the tensor is `ii*I`).
     #[inline]
     pub fn new(ii: f64) -> Self {
         Self { ii }
@@ -152,26 +162,31 @@ impl Div<SphericalTensor> for f64 {
 
 // --- Free functions mirroring OpenFOAM globals ---
 
+/// Trace tr = 3*ii.
 #[inline]
 pub fn tr(st: SphericalTensor) -> f64 {
     st.tr()
 }
 
+/// Determinant = ii³.
 #[inline]
 pub fn det(st: SphericalTensor) -> f64 {
     st.det()
 }
 
+/// Inverse = SphericalTensor(1/ii).
 #[inline]
 pub fn inv(st: SphericalTensor) -> SphericalTensor {
     st.inv()
 }
 
+/// Frobenius norm squared = 3*ii².
 #[inline]
 pub fn mag_sqr(st: SphericalTensor) -> f64 {
     st.mag_sqr()
 }
 
+/// Linear interpolation `(1-t)*a + t*b` between two spherical tensors.
 #[inline]
 pub fn lerp(a: SphericalTensor, b: SphericalTensor, t: f64) -> SphericalTensor {
     SphericalTensor::lerp(a, b, t)

@@ -101,7 +101,7 @@ on it. Items are listed in priority order.
 - **Singular matrix** — verify `Err` is returned (or a well-defined fallback), not a panic or garbage result.
 - **Ill-conditioned (Hilbert n=5, n=10)** — compute the solution, check residual `‖Ax − b‖` is within tolerance given the known condition number.
 - **Scaled-partial-pivoting path** — construct a matrix where naïve pivoting fails but scaled pivoting succeeds; confirm correct result.
-- **API decision needed:** change the return type of `SquareMatrix::solve` from `Vec<f64>` to `Result<Vec<f64>, _>` *before* more call sites exist. The current infallible API masks singular matrices silently. Do this before `teh-o-prke` and downstream solver crates adopt it.
+- **API decision — DONE.** `SquareMatrix::solve` now returns `Result<Vec<f64>, MatrixError>` (see `src/matrix/square_matrix.rs`), so singular matrices surface as `Err(MatrixError::Singular)` rather than being masked. The failure-mode tests above should assert against this `Result` API.
 
 #### Newton `T(H)` iteration robustness (JANAF)
 

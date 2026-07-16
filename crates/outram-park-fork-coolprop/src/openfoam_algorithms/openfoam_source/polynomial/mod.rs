@@ -19,6 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Closed-form polynomial root finders (linear, quadratic, cubic) with the
+//! `Roots`/`RootType` result classification, plus a general `Polynomial`
+//! evaluator. Used by the cubic equation-of-state and interpolation code.
+//! Mirrors OpenFOAM's `src/OpenFOAM/primitives/polynomialEqns/`.
+
 pub mod roots;
 pub mod linear_eqn;
 pub mod quadratic_eqn;

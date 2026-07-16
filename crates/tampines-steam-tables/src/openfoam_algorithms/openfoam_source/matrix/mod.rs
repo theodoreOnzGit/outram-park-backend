@@ -19,6 +19,13 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Generic dense square-matrix container ([`SquareMatrix`]) with LU-based
+//! direct solve — a dimensionless numeric utility (e.g. for small local
+//! linear systems), independent of the sparse `ldu_matrix` layer used for
+//! the full FV-assembled system.
+
+/// Row-major dense `n x n` matrix of `f64` and its LU-decomposition solve —
+/// see [`SquareMatrix`].
 pub mod square_matrix;
-pub use square_matrix::SquareMatrix;
 pub use square_matrix::MatrixError;
+pub use square_matrix::SquareMatrix;

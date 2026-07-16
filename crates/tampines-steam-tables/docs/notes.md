@@ -7,6 +7,25 @@ the crate overview live in CLAUDE.md.
 
 ## Choked flow (current focus)
 
+> **⚠️ SUPERSEDED (2026-07, v0.2.1) — read this first.** Much of the
+> present-tense narrative in this section predates v0.2.1 and no longer matches
+> the code. In particular: the "near-bubble-point HEM artifact" is **resolved**
+> — it was a numerical bug in the forward choke finder, **not** an HEM physics
+> limitation, and it does **not** need an HRM. The test
+> `outside_dome_stagnation_subcooled::quality_bubble_point_subcooled`
+> (x_t ≈ 0) now **passes** and is no longer `#[ignore]`d; likewise all
+> `generic_multiphase_stagnation::quality_*` and the
+> `moody_critical_mass_flux_homogeneous_eqm::isobar_pref_*` tests are **active
+> and pass** (only `isobar_pref_0_25` remains `#[ignore]`d, for a documented
+> isentrope-vs-Bernoulli divergence at p_bubble/p₀ ≈ 0.02). The solvers are now
+> fronted by a single unified dispatcher
+> `get_critical_pressure_and_mass_flux_multiphase_ph` (routing a stagnation
+> `(p0, h0)` by `ph_flash_region`), plus a `dome_crossing_interior_choke`
+> helper for supercritical Region 3. For the authoritative, current status see
+> the crate `CLAUDE.md` ("Choked flow" + "Choked-flow solver status" tables)
+> and the `README.md` Changelog (v0.2.0 → v0.2.2). The historical text below is
+> kept for the debugging trail only.
+
 `src/steam_turbine_equations/converging_diverging_nozzles/choked_flow/`
 implements critical-flow solvers using the Homogeneous Equilibrium Model (HEM):
 
@@ -138,6 +157,15 @@ Diagnosis so far:
 ---
 
 ### v0.2.0 — multiphase HEM choked flow status (2026-06)
+
+> **⚠️ SUPERSEDED by v0.2.1.** The status table and "actively failing tests"
+> list below are the v0.2.0 snapshot. Since then the near-bubble-point artifact
+> was fixed (numerical, not an HEM limit), `quality_bubble_point_subcooled`
+> passes, `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` is validated
+> across the full x_t = 0.0 … 1.00 range including the saturated-liquid line,
+> and the Moody `isobar_pref_*` tests are active and pass (region-filtered).
+> Treat the table below as history; see the crate `CLAUDE.md` and `README.md`
+> Changelog for the current status.
 
 The multiphase choked flow solvers are works in progress. Summary for future
 contributors:

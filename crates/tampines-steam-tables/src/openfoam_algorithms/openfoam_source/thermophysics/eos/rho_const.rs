@@ -19,9 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::openfoam_algorithms::openfoam_source::imports::*;
-use crate::openfoam_algorithms::openfoam_source::constants::R_UNIVERSAL;
 use super::traits::EquationOfState;
+use crate::openfoam_algorithms::openfoam_source::constants::R_UNIVERSAL;
+use crate::openfoam_algorithms::openfoam_source::imports::*;
 
 /// Constant-density (incompressible) equation of state: ρ = const.
 ///
@@ -34,6 +34,10 @@ pub struct RhoConst {
 }
 
 impl RhoConst {
+    /// Construct a constant-density EOS closure: molar mass `mol_weight`
+    /// [kg/mol] (used only to derive the specific gas constant `R`) and the
+    /// fixed density `rho0` [kg/m³] returned by [`EquationOfState::rho`]
+    /// regardless of pressure or temperature.
     pub fn new(mol_weight: MolarMass, rho0: MassDensity) -> Self {
         Self { mol_weight, rho0 }
     }
@@ -88,11 +92,11 @@ impl EquationOfState for RhoConst {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
+    use uom::si::mass_density::kilogram_per_cubic_meter;
+    use uom::si::molar_mass::gram_per_mole;
     use uom::si::pressure::pascal;
     use uom::si::thermodynamic_temperature::kelvin;
-    use uom::si::molar_mass::gram_per_mole;
-    use uom::si::mass_density::kilogram_per_cubic_meter;
-    use approx::assert_relative_eq;
 
     fn water() -> RhoConst {
         RhoConst::new(

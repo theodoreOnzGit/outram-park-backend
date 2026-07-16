@@ -21,10 +21,10 @@
 
 use std::sync::Arc;
 
-use crate::openfoam_algorithms::openfoam_source::field::Field;
 use crate::openfoam_algorithms::openfoam_source::boundary::bc::{BoundaryCondition, PatchField};
-use crate::openfoam_algorithms::openfoam_source::vol_field::VolScalarField;
+use crate::openfoam_algorithms::openfoam_source::field::Field;
 use crate::openfoam_algorithms::openfoam_source::fv_mesh::FvMesh;
+use crate::openfoam_algorithms::openfoam_source::vol_field::VolScalarField;
 
 /// Field-level solid thermodynamic model.
 ///
@@ -41,10 +41,13 @@ use crate::openfoam_algorithms::openfoam_source::fv_mesh::FvMesh;
 /// Mirrors the role of `Foam::solidThermo` from
 /// `src/thermophysicalModels/solidThermo/`.
 pub trait SolidThermo {
+    /// The mesh this solid thermo model's fields are defined over.
     fn mesh(&self) -> &Arc<FvMesh>;
 
     /// Temperature field [K].
     fn t(&self) -> &VolScalarField;
+    /// Mutable access to the temperature field [K], for the solver to write
+    /// back the conduction-equation solution.
     fn t_mut(&mut self) -> &mut VolScalarField;
 
     /// Thermal conductivity κ [W/(m·K)] — used in `fvm::laplacian(kappa, T)`.
@@ -89,9 +92,9 @@ pub trait SolidThermo {
 /// ```
 #[derive(Debug, Clone)]
 pub struct ConstSolidThermo {
-    pub t:      VolScalarField,
-    kappa_val:  f64,   // [W/(m·K)]
-    rho_cp_val: f64,   // [J/(m³·K)]
+    pub t: VolScalarField,
+    kappa_val: f64,  // [W/(m·K)]
+    rho_cp_val: f64, // [J/(m³·K)]
 }
 
 impl ConstSolidThermo {
@@ -111,7 +114,9 @@ impl ConstSolidThermo {
     fn uniform_field(&self, name: &str, val: f64) -> VolScalarField {
         let mesh = self.t.mesh.clone();
         let n = mesh.n_cells;
-        let boundary = mesh.patches.iter()
+        let boundary = mesh
+            .patches
+            .iter()
             .map(|p| PatchField {
                 bc: BoundaryCondition::ZeroGradient,
                 values: Field::uniform(p.size, val),
@@ -122,37 +127,54 @@ impl ConstSolidThermo {
 }
 
 impl SolidThermo for ConstSolidThermo {
-    fn mesh(&self) -> &Arc<FvMesh> { &self.t.mesh }
-    fn t(&self) -> &VolScalarField { &self.t }
-    fn t_mut(&mut self) -> &mut VolScalarField { &mut self.t }
-    fn kappa(&self) -> VolScalarField { self.uniform_field("kappa", self.kappa_val) }
-    fn rho_cp(&self) -> VolScalarField { self.uniform_field("rhoCp", self.rho_cp_val) }
-    fn correct(&mut self) {}  // properties are constant
+    fn mesh(&self) -> &Arc<FvMesh> {
+        &self.t.mesh
+    }
+    fn t(&self) -> &VolScalarField {
+        &self.t
+    }
+    fn t_mut(&mut self) -> &mut VolScalarField {
+        &mut self.t
+    }
+    fn kappa(&self) -> VolScalarField {
+        self.uniform_field("kappa", self.kappa_val)
+    }
+    fn rho_cp(&self) -> VolScalarField {
+        self.uniform_field("rhoCp", self.rho_cp_val)
+    }
+    fn correct(&mut self) {} // properties are constant
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
+        BoundaryPatch, FvMeshBuilder, PatchKind,
+    };
     use crate::openfoam_algorithms::openfoam_source::{SolverSettings, Vector3};
-    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use approx::assert_relative_eq;
 
     fn one_cell_mesh() -> Arc<FvMesh> {
-        Arc::new(FvMeshBuilder::new()
-            .n_cells(1).n_internal_faces(0)
-            .owner(vec![0, 0]).neighbour(vec![])
-            .patches(vec![
-                BoundaryPatch::new("hot",  0, 1, PatchKind::Wall),
-                BoundaryPatch::new("cold", 1, 1, PatchKind::Wall),
-            ])
-            .cell_volumes(vec![1.0])
-            .cell_centres(vec![Vector3::ZERO])
-            .face_area_vectors(vec![
-                Vector3::new(-1.0, 0.0, 0.0),
-                Vector3::new( 1.0, 0.0, 0.0),
-            ])
-            .face_centres(vec![Vector3::ZERO, Vector3::ZERO])
-            .build().unwrap())
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(1)
+                .n_internal_faces(0)
+                .owner(vec![0, 0])
+                .neighbour(vec![])
+                .patches(vec![
+                    BoundaryPatch::new("hot", 0, 1, PatchKind::Wall),
+                    BoundaryPatch::new("cold", 1, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![1.0])
+                .cell_centres(vec![Vector3::ZERO])
+                .face_area_vectors(vec![
+                    Vector3::new(-1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![Vector3::ZERO, Vector3::ZERO])
+                .build()
+                .unwrap(),
+        )
     }
 
     #[test]
@@ -183,41 +205,54 @@ mod tests {
     fn conduction_solve() {
         // 2-cell 1D solid, T_left=500K, T_right=300K, kappa=1, dx=0.5
         // Steady state: T[0]=450K, T[1]=350K (linear profile)
+        use crate::openfoam_algorithms::openfoam_source::fv_mesh::FvMeshBuilder;
         use crate::openfoam_algorithms::openfoam_source::fvm;
         use std::sync::Arc;
-        use crate::openfoam_algorithms::openfoam_source::fv_mesh::FvMeshBuilder;
 
-        let mesh = Arc::new(FvMeshBuilder::new()
-            .n_cells(2).n_internal_faces(1)
-            .owner(vec![0, 1, 0]).neighbour(vec![1])
-            .patches(vec![
-                BoundaryPatch::new("hot",  1, 1, PatchKind::Wall),
-                BoundaryPatch::new("cold", 2, 1, PatchKind::Wall),
-            ])
-            .cell_volumes(vec![0.5, 0.5])
-            .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
-            .face_area_vectors(vec![
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(-1.0, 0.0, 0.0),
-            ])
-            .face_centres(vec![
-                Vector3::new(0.5, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, 0.0, 0.0),
-            ])
-            .build().unwrap());
+        let mesh = Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("hot", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("cold", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![0.5, 0.5])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        );
 
         // Set FixedValue BCs: hot face (right, owner=1) = 500K, cold (left, owner=0) = 300K
         use crate::openfoam_algorithms::openfoam_source::boundary::bc::BoundaryCondition;
         use crate::openfoam_algorithms::openfoam_source::field::Field;
         let t_bcs = vec![
-            PatchField { bc: BoundaryCondition::FixedValue(500.0), values: Field::new(vec![0.0]) },
-            PatchField { bc: BoundaryCondition::FixedValue(300.0), values: Field::new(vec![0.0]) },
+            PatchField {
+                bc: BoundaryCondition::FixedValue(500.0),
+                values: Field::new(vec![0.0]),
+            },
+            PatchField {
+                bc: BoundaryCondition::FixedValue(300.0),
+                values: Field::new(vec![0.0]),
+            },
         ];
         let solid = ConstSolidThermo {
-            t: VolScalarField::new("T", mesh.clone(),
-                Field::uniform(2, 400.0), t_bcs),
+            t: VolScalarField::new("T", mesh.clone(), Field::uniform(2, 400.0), t_bcs),
             kappa_val: 1.0,
             rho_cp_val: 1.0,
         };
@@ -227,8 +262,13 @@ mod tests {
         use crate::openfoam_algorithms::openfoam_source::surface_field::SurfaceScalarField;
         let kappa_surf = {
             let n_int = mesh.n_internal_faces;
-            let bnd: Vec<_> = mesh.patches.iter()
-                .map(|p| PatchField { bc: BoundaryCondition::ZeroGradient, values: Field::uniform(p.size, 1.0) })
+            let bnd: Vec<_> = mesh
+                .patches
+                .iter()
+                .map(|p| PatchField {
+                    bc: BoundaryCondition::ZeroGradient,
+                    values: Field::uniform(p.size, 1.0),
+                })
                 .collect();
             SurfaceScalarField::new("kappa", mesh.clone(), Field::uniform(n_int, 1.0), bnd)
         };

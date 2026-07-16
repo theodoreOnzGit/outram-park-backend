@@ -19,20 +19,25 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-/// Field-level fluid thermodynamic interface (Layer 4).
-///
-/// Mirrors `Foam::fluidThermo` / `Foam::psiThermo` / `Foam::rhoThermo` from
-/// `src/thermophysicalModels/basic/`.
-///
-/// Each struct owns the primary thermodynamic fields (`p`, `T`, `he`, `rho`,
-/// `psi`) and uses a per-species `TransportModel` (from Layer 1h) to evaluate
-/// properties cell-by-cell.
-pub mod traits;
-pub mod psi_thermo;
-pub mod rho_thermo;
-pub mod solid_thermo;
+//! Field-level fluid/solid thermodynamic interface (Layer 4).
+//!
+//! Mirrors `Foam::fluidThermo` / `Foam::psiThermo` / `Foam::rhoThermo` from
+//! `src/thermophysicalModels/basic/`.
+//!
+//! Each struct owns the primary thermodynamic fields (`p`, `T`, `he`, `rho`,
+//! `psi`) and uses a per-species `TransportModel` (from Layer 1h) to evaluate
+//! properties cell-by-cell.
 
-pub use traits::*;
+/// Pressure-based compressible closure — mirrors `Foam::psiThermo`.
+pub mod psi_thermo;
+/// Density-based compressible closure — mirrors `Foam::rhoThermo`.
+pub mod rho_thermo;
+/// Constant-property solid heat-conduction closure — mirrors `Foam::solidThermo`.
+pub mod solid_thermo;
+/// `FluidThermo` trait definition (see also `solid_thermo::SolidThermo`).
+pub mod traits;
+
 pub use psi_thermo::*;
 pub use rho_thermo::*;
 pub use solid_thermo::*;
+pub use traits::*;

@@ -19,6 +19,13 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Symmetric 3×3 tensor (`SymmTensor`) and its OpenFOAM-style operators.
+//!
+//! Only the six upper-triangle components are stored (xx, xy, xz, yy, yz, zz),
+//! all dimensionless `f64`; the lower triangle is implied by symmetry. Norms
+//! and the double contraction count the off-diagonal terms twice, matching
+//! OpenFOAM.
+
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use super::spherical_tensor::SphericalTensor;
@@ -37,6 +44,7 @@ pub struct SymmTensor {
 }
 
 impl SymmTensor {
+    /// The zero tensor (all components 0).
     pub const ZERO: Self = Self {
         xx: 0.0,
         xy: 0.0,
@@ -45,6 +53,7 @@ impl SymmTensor {
         yz: 0.0,
         zz: 0.0,
     };
+    /// The identity tensor (unit diagonal, zero off-diagonal).
     pub const IDENTITY: Self = Self {
         xx: 1.0,
         xy: 0.0,
@@ -54,6 +63,7 @@ impl SymmTensor {
         zz: 1.0,
     };
 
+    /// Construct from the six upper-triangle components (xx, xy, xz, yy, yz, zz).
     #[inline]
     pub fn new(xx: f64, xy: f64, xz: f64, yy: f64, yz: f64, zz: f64) -> Self {
         Self {
@@ -531,26 +541,31 @@ impl Mul<SphericalTensor> for SymmTensor {
 
 // --- Free functions ---
 
+/// Trace tr(S) = xx + yy + zz.
 #[inline]
 pub fn tr(st: SymmTensor) -> f64 {
     st.tr()
 }
 
+/// Determinant det(S).
 #[inline]
 pub fn det(st: SymmTensor) -> f64 {
     st.det()
 }
 
+/// Inverse S⁻¹ (panics in debug builds if singular).
 #[inline]
 pub fn inv(st: SymmTensor) -> SymmTensor {
     st.inv()
 }
 
+/// Deviatoric part `S - (tr/3)*I`.
 #[inline]
 pub fn dev(st: SymmTensor) -> SymmTensor {
     st.dev()
 }
 
+/// Two-thirds deviatoric `S - (2*tr/3)*I`.
 #[inline]
 pub fn dev2(st: SymmTensor) -> SymmTensor {
     st.dev2()
@@ -586,11 +601,13 @@ pub fn sqr(v: Vector3) -> SymmTensor {
     SymmTensor::from_outer(v)
 }
 
+/// Frobenius norm squared (off-diagonal terms counted twice, per OpenFOAM).
 #[inline]
 pub fn mag_sqr(st: SymmTensor) -> f64 {
     st.mag_sqr()
 }
 
+/// Linear interpolation `(1-t)*a + t*b` between two symmetric tensors.
 #[inline]
 pub fn lerp(a: SymmTensor, b: SymmTensor, t: f64) -> SymmTensor {
     SymmTensor::lerp(a, b, t)

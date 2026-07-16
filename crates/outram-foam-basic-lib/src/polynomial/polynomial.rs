@@ -51,16 +51,19 @@ impl<const N: usize> Polynomial<N> {
         }
     }
 
+    /// The `N` polynomial coefficients, constant term (`x⁰`) first.
     #[inline]
     pub fn coeffs(&self) -> &[f64; N] {
         &self.coeffs
     }
 
+    /// Coefficient of the `ln(x)` term (zero unless the log term is active).
     #[inline]
     pub fn log_coeff(&self) -> f64 {
         self.log_coeff
     }
 
+    /// Whether the `log_coeff · ln(x)` term contributes to `value`/`derivative`.
     #[inline]
     pub fn log_active(&self) -> bool {
         self.log_active

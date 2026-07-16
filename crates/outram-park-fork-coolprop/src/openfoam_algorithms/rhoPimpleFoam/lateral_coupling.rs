@@ -41,7 +41,9 @@ pub enum OPCPFluidArrayError {
     LengthMismatch {
         /// Name of the offending argument.
         array: &'static str,
+        /// Length the argument was required to have (`mesh.n_cells`).
         expected: usize,
+        /// Length the argument actually had.
         got: usize,
     },
 }

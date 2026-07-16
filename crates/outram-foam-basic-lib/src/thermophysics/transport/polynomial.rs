@@ -40,6 +40,8 @@ pub struct PolynomialTransport<T: ThermoModel, const N: usize> {
 }
 
 impl<T: ThermoModel, const N: usize> PolynomialTransport<T, N> {
+    /// Construct a polynomial transport model wrapping `thermo`, with μ(T)
+    /// `mu_poly` [Pa·s] and κ(T) `kappa_poly` [W/(m·K)] as polynomials in T [K].
     pub fn new(thermo: T, mu_poly: Polynomial<N>, kappa_poly: Polynomial<N>) -> Self {
         Self {
             thermo,

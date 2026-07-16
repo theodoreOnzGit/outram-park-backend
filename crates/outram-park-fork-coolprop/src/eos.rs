@@ -361,24 +361,25 @@ impl ResidualTerm {
 }
 
 /// Accumulate the IAPWS-95 / Span–Wagner **non-analytic critical-region** terms
-/// into `acc` at reduced state `(δ, τ)`.
-///
-/// **Scaffold — currently a no-op (bead op-kbc.6).** Data is carried and this
-/// hook is called, but the contribution is not yet evaluated; that only
-/// degrades accuracy within ~1 % of the critical point. Away from it
-/// `ψ = exp(-C(δ-1)² - D(τ-1)²) ≈ 0`, so the true contribution is already
-/// negligible and the no-op is correct there.
+/// into `acc` at reduced state `(δ, τ)` (dimensionless reduced density and
+/// inverse reduced temperature). Adds `α` and its first/second `δ`,`τ`
+/// derivatives (`ad`, `at`, `add`, `att`, `adt`) to `acc`.
 ///
 /// The term (per index `i`) is `n_i · Δ^{b_i} · δ · ψ` with
 /// - `θ = (1 − τ) + A_i · [(δ − 1)²]^{1/(2β_i)}`,
 /// - `Δ = θ² + B_i · [(δ − 1)²]^{a_i}`,
 /// - `ψ = exp(−C_i (δ − 1)² − D_i (τ − 1)²)`.
 ///
-/// The implementation must supply `α` and its first/second `δ`,`τ` derivatives
-/// (`ad`, `at`, `add`, `att`, `adt`) — see IAPWS R6-95 Table 6.5 / CoolProp
-/// `ResidualHelmholtzNonAnalytic::all` — and **guard the `δ = 1` limit**, where
-/// several derivative factors are `0^{negative}` and must be taken to their
-/// analytic limit (CoolProp special-cases `delta == 1`).
+/// The derivatives follow IAPWS R6-95 Table 6.5 / CoolProp
+/// `ResidualHelmholtzNonAnalytic::all`. The `δ = 1` / `τ = 1` **branch point** is
+/// guarded by nudging `δ`/`τ` a few ULPs off `1.0` (as CoolProp does), because
+/// several derivative factors there are formally `0^{negative}` or `0/0`.
+///
+/// Away from the critical point `ψ ≈ 0`, so the contribution is negligible;
+/// close to it the term is what makes the EOS reproduce the true critical
+/// behaviour. Verified: Water reproduces its defining critical pressure
+/// `p(T_c, ρ_c) = p_c` to `5.2e-14` relative error — see
+/// `tests/non_analytic_critical_region.rs`.
 #[allow(clippy::too_many_arguments)]
 fn accumulate_non_analytic(
     n: &[f64],

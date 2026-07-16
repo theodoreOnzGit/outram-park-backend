@@ -19,6 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! 3-component vector (`Vector3`) and its OpenFOAM-style operators.
+//!
+//! Components are dimensionless `f64`; the same type is reused for positions,
+//! velocities, forces, etc. with the physical dimension carried by the caller.
+
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// 3-component vector. Maps to `Foam::vector` (`Foam::Vector<scalar>`).
@@ -31,32 +36,38 @@ pub struct Vector3 {
 }
 
 impl Vector3 {
+    /// Zero vector (0, 0, 0).
     pub const ZERO: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 0.0,
     };
+    /// Vector of ones (1, 1, 1).
     pub const ONE: Self = Self {
         x: 1.0,
         y: 1.0,
         z: 1.0,
     };
+    /// Unit vector along the x axis (1, 0, 0).
     pub const X: Self = Self {
         x: 1.0,
         y: 0.0,
         z: 0.0,
     };
+    /// Unit vector along the y axis (0, 1, 0).
     pub const Y: Self = Self {
         x: 0.0,
         y: 1.0,
         z: 0.0,
     };
+    /// Unit vector along the z axis (0, 0, 1).
     pub const Z: Self = Self {
         x: 0.0,
         y: 0.0,
         z: 1.0,
     };
 
+    /// Construct a vector from its x, y, z components.
     #[inline]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
         Self { x, y, z }
@@ -230,11 +241,13 @@ impl DivAssign<f64> for Vector3 {
 
 // --- Free functions mirroring OpenFOAM globals ---
 
+/// Squared magnitude |v|² of a vector.
 #[inline]
 pub fn mag_sqr(v: Vector3) -> f64 {
     v.mag_sqr()
 }
 
+/// Magnitude |v| of a vector.
 #[inline]
 pub fn mag(v: Vector3) -> f64 {
     v.mag()
@@ -252,6 +265,7 @@ pub fn cross(a: Vector3, b: Vector3) -> Vector3 {
     a.cross(b)
 }
 
+/// Linear interpolation `(1-t)*a + t*b` between two vectors.
 #[inline]
 pub fn lerp(a: Vector3, b: Vector3, t: f64) -> Vector3 {
     Vector3::lerp(a, b, t)

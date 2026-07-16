@@ -19,6 +19,12 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Species-level thermophysics (Layer 1h): physical `constants`, the `uom`
+//! `quantities` aliases, and the composable model families — equations of
+//! state (`eos`), caloric/enthalpy models (`thermo`), and transport-property
+//! models (`transport`) — that the field-level `fluid_thermo` layer evaluates
+//! cell-by-cell. Mirrors OpenFOAM's `src/thermophysicalModels/specie/`.
+
 pub mod constants;
 pub(crate) mod error;
 pub mod quantities;

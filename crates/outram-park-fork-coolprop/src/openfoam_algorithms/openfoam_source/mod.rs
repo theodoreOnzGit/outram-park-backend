@@ -19,6 +19,16 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Vendored pure-Rust OpenFOAM finite-volume layer (Layers 1–4): tensor-algebra
+//! primitives, polynomial and ODE solvers, `xy` interpolation, thermophysics
+//! kernels, cell/surface fields, the FV mesh, the LDU sparse matrices and their
+//! linear solvers, and the explicit/implicit FV operators (`fvc`/`fvm`) — plus
+//! the field-level fluid-thermo interface. Everything here is `pub(crate)`; it
+//! is the mathematical machinery the `rhoPimpleFoam` solver runs on, not a
+//! public API. `uom`-only (no `ndarray`/BLAS) so the crate stays
+//! Android-buildable. Ported from OpenFOAM `src/`; see per-module docs for the
+//! upstream `Foam::` correspondence.
+
 pub(crate) mod primitives;
 pub(crate) mod polynomial;
 pub(crate) mod math;

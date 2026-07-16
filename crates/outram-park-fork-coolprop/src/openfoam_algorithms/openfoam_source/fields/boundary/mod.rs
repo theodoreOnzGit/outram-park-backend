@@ -19,5 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Boundary conditions and per-patch boundary fields (`PatchField`,
+//! `BoundaryCondition`) for the cell/surface fields. Mirrors OpenFOAM's
+//! `fvPatchField` family (fixed value, zero gradient, empty, …).
+
 pub mod bc;
 pub use bc::*;

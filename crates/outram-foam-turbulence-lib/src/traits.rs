@@ -19,6 +19,15 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! The [`TurbulenceModel`] trait — the common contract every RAS/LES closure
+//! in this crate implements.
+//!
+//! The trait is a compile-time contract, not a dispatch mechanism: solvers hold
+//! a concrete model type (or an enum over the models) and call it through
+//! generics, so there is no `dyn` overhead. Only k-ω SST implements every method
+//! for real today; the other models satisfy the trait but `todo!()`-panic in the
+//! unimplemented methods (see the crate-level status table).
+
 use outram_foam_basic_lib::prelude::{FvVectorMatrix, VolScalarField, VolVectorField};
 
 /// Common interface for all RAS and LES turbulence models.

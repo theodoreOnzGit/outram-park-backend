@@ -30,6 +30,7 @@ use crate::openfoam_algorithms::openfoam_source::imports::*;
 /// Enthalpy/entropy departure methods return the EOS *contribution* only;
 /// the full quantity is assembled in `ThermoModel`.
 pub trait EquationOfState {
+    /// Molar mass W of the modelled substance  [kg/mol].
     fn mol_weight(&self) -> MolarMass;
 
     /// Specific gas constant R = R_universal / W  [J/(kg·K)].

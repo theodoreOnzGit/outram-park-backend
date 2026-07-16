@@ -339,8 +339,9 @@ impl OPCPFluidSingleCV {
     }
 
     /// Thermal conductivity `λ` \[W/(m·K)\], or `None` if the fluid has no
-    /// supported conductivity model or the CV is two-phase. Critical
-    /// enhancement is omitted (see [`crate::transport`]).
+    /// supported conductivity model or the CV is two-phase (mixture transport
+    /// not modelled). Includes the near-critical enhancement where the fluid
+    /// provides it (see [`crate::transport`]).
     pub fn get_thermal_conductivity(&self) -> Option<ThermalConductivity> {
         if self.quality.is_some() {
             return None;

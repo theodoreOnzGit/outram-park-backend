@@ -19,6 +19,12 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Sparse linear-system layer: the `LduMatrix` (lower/diagonal/upper
+//! face-addressed storage), the `FvMatrix`/`FvVectorMatrix` wrappers the `fvm`
+//! operators assemble into, and the `solvers` submodule (Gauss–Seidel, CG,
+//! GAMG). Mirrors OpenFOAM's `lduMatrix`/`fvMatrix` from
+//! `src/OpenFOAM/matrices/` and `src/finiteVolume/fvMatrices/`.
+
 pub mod ldu_matrix;
 pub mod fv_matrix;
 pub mod fv_vector_matrix;

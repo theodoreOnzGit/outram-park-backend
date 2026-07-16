@@ -19,11 +19,21 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
-use outram_foam_basic_lib::prelude::{FvMesh, FvVectorMatrix, VolScalarField, VolVectorField};
+//! Standard k-ε RAS model (Jones & Launder 1972) — **scaffold only**.
+//!
+//! The [`KEpsilon`] struct, its transport fields, and its model constants exist,
+//! but the transport solve is not implemented: `correct`, `div_dev_rho_reff`,
+//! `alpha_eff`, and `mu_eff_field` are `todo!()` stubs that panic if called.
+//! Only `nu_t()` (which returns the zero-initialised field) is callable.
+
 use crate::traits::TurbulenceModel;
+use outram_foam_basic_lib::prelude::{FvMesh, FvVectorMatrix, VolScalarField, VolVectorField};
+use std::sync::Arc;
 
 /// Standard two-equation k-ε turbulence model (Jones & Launder 1972).
+///
+/// **Scaffold only** — every trait method except `nu_t()` is a `todo!()` that
+/// panics if called. The struct and coefficients document the intended model:
 ///
 /// C++ source: `src/TurbulenceModels/turbulenceModels/RAS/kEpsilon/`
 ///
@@ -42,26 +52,34 @@ pub struct KEpsilon {
     // Model coefficients -- not yet read (correct() is a todo! stub); silence
     // dead_code until the k/epsilon transport equations are implemented.
     #[allow(dead_code)]
-    c_mu:    f64,  // 0.09
+    c_mu: f64, // 0.09
     #[allow(dead_code)]
-    c1_eps:  f64,  // 1.44
+    c1_eps: f64, // 1.44
     #[allow(dead_code)]
-    c2_eps:  f64,  // 1.92
+    c2_eps: f64, // 1.92
     #[allow(dead_code)]
-    sigma_k: f64,  // 1.0
+    sigma_k: f64, // 1.0
     #[allow(dead_code)]
-    sigma_e: f64,  // 1.3
+    sigma_e: f64, // 1.3
 }
 
 impl KEpsilon {
     /// Standard Jones-Launder coefficients.
     pub fn new(mesh: Arc<FvMesh>) -> Self {
-        let k       = VolScalarField::uniform("k",   mesh.clone(), 0.0);
+        let k = VolScalarField::uniform("k", mesh.clone(), 0.0);
         let epsilon = VolScalarField::uniform("epsilon", mesh.clone(), 1e-10);
-        let nu_t    = VolScalarField::zeros("nut", mesh.clone());
-        Self { mesh, k, epsilon, nu_t,
-               c_mu: 0.09, c1_eps: 1.44, c2_eps: 1.92,
-               sigma_k: 1.0, sigma_e: 1.3 }
+        let nu_t = VolScalarField::zeros("nut", mesh.clone());
+        Self {
+            mesh,
+            k,
+            epsilon,
+            nu_t,
+            c_mu: 0.09,
+            c1_eps: 1.44,
+            c2_eps: 1.92,
+            sigma_k: 1.0,
+            sigma_e: 1.3,
+        }
     }
 }
 
@@ -74,7 +92,9 @@ impl TurbulenceModel for KEpsilon {
         todo!("KEpsilon::correct — solve k and epsilon transport equations")
     }
 
-    fn nu_t(&self) -> &VolScalarField { &self.nu_t }
+    fn nu_t(&self) -> &VolScalarField {
+        &self.nu_t
+    }
 
     fn alpha_eff(&self, _alpha: &VolScalarField) -> VolScalarField {
         todo!("KEpsilon::alpha_eff — alpha + nu_t/Prt")

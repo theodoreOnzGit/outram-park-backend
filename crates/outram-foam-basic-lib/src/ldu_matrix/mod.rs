@@ -19,6 +19,24 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Sparse LDU (lower-diagonal-upper) linear algebra for implicit FV solves.
+//!
+//! Holds the face-addressed sparse matrix representation used by the
+//! finite-volume implicit operators and the iterative solvers that invert it:
+//!
+//! - [`ldu_matrix::LduMatrix`] — the raw sparse coefficients (diagonal + per-face
+//!   lower/upper off-diagonals) and matrix–vector / residual kernels.
+//! - [`fv_matrix::FvMatrix`] — a scalar equation `A·φ = b` for a `VolScalarField`,
+//!   assembled by the Layer-3 `fvm::` operators.
+//! - [`fv_vector_matrix::FvVectorMatrix`] — the vector counterpart `A·U = b` with
+//!   scalar LDU coefficients and a `Field<Vector3>` source.
+//! - [`solvers`] — Gauss-Seidel, DIC-preconditioned conjugate gradient, and GAMG
+//!   (algebraic multigrid).
+//!
+//! Belongs here: the sparse-matrix storage, its arithmetic, and the linear
+//! solvers. Field types, meshes, and the differential operators that build these
+//! matrices live in their own modules.
+
 pub mod fv_matrix;
 pub mod fv_vector_matrix;
 pub mod ldu_matrix;

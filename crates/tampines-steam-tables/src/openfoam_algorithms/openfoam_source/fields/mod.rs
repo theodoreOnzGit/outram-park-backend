@@ -19,12 +19,23 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod field;
-pub mod boundary;
-pub mod vol_field;
-pub mod surface_field;
+//! OpenFOAM-style field abstraction: the flat `Field<T>` container plus the
+//! mesh-coupled `VolField` (cell-centred) and `SurfaceField` (face-centred)
+//! wrappers, and their boundary-condition types. These are generic numeric
+//! containers — any physical unit lives in the caller-supplied element type,
+//! not in this layer.
 
-pub use field::Field;
-pub use vol_field::*;
-pub use surface_field::*;
+/// Boundary-condition types (`BoundaryCondition`, `PatchField`).
+pub mod boundary;
+/// Flat `Field<T>` container with element-wise arithmetic; the storage
+/// backing both `VolField` and `SurfaceField`.
+pub mod field;
+/// Face-centred `SurfaceField` (`Foam::surfaceScalarField`-style) and its type aliases.
+pub mod surface_field;
+/// Cell-centred `VolField` (`Foam::volScalarField`-style) and its type aliases.
+pub mod vol_field;
+
 pub use boundary::*;
+pub use field::Field;
+pub use surface_field::*;
+pub use vol_field::*;

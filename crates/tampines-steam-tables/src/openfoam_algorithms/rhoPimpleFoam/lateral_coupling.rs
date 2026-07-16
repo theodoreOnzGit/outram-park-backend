@@ -56,7 +56,9 @@ pub enum TampinesSteamArrayError {
     LengthMismatch {
         /// Name of the offending argument.
         array: &'static str,
+        /// Required length (`mesh.n_cells`).
         expected: usize,
+        /// Actual length of the supplied argument.
         got: usize,
     },
 }
@@ -64,7 +66,11 @@ pub enum TampinesSteamArrayError {
 impl std::fmt::Display for TampinesSteamArrayError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::LengthMismatch { array, expected, got } => write!(
+            Self::LengthMismatch {
+                array,
+                expected,
+                got,
+            } => write!(
                 f,
                 "{array} has length {got}, expected {expected} (mesh.n_cells)"
             ),
@@ -101,8 +107,10 @@ impl TampinesSteamArray {
             });
         }
         let conductance_vec = vec![average_thermal_conductance; n];
-        self.lateral_adjacent_array_temperature_vector.push(temperature_vec);
-        self.lateral_adjacent_array_conductance_vector.push(conductance_vec);
+        self.lateral_adjacent_array_temperature_vector
+            .push(temperature_vec);
+        self.lateral_adjacent_array_conductance_vector
+            .push(conductance_vec);
         Ok(())
     }
 
@@ -214,11 +222,11 @@ impl TampinesSteamArray {
     /// Writes `he`/`rho`/`t`/`psi` together — **not** a plain `t` field write
     /// — since `he` (specific enthalpy) is the actual PIMPLE state variable;
     /// writing `t` alone would be silently undone by the next
-    /// [`super::TampinesSteamArray::correct_thermo`] call (which still uses
-    /// the placeholder `ρ = ψ·p` EOS, not this flash -- see this module's
-    /// doc). `psi` here is set from the *real* isothermal compressibility
-    /// `ψ = ρ·κ_T`, so a caller reading it back after this call sees better
-    /// physics than `correct_thermo` alone provides.
+    /// [`super::TampinesSteamArray::correct_thermo`] call, which recomputes
+    /// `t`/`rho`/`psi` from `(p, he)` via its own real `(p, h)` flash (see
+    /// that method's doc) -- so this setter's `(p, T)` flash and
+    /// `correct_thermo`'s `(p, h)` flash are two independent real-EOS
+    /// evaluations of the same state, not a placeholder vs. real split.
     pub fn set_temperature_vector(
         &mut self,
         temperature_vec: Vec<ThermodynamicTemperature>,
@@ -407,19 +415,29 @@ mod tests {
         // would be a ~7 bar water-hammer surge whose reflection undershoots
         // below the triple-point pressure).
         let inlet_velocity = Velocity::new::<meter_per_second>(0.02);
-        let inlet_enthalpy = crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase(
-            preset_temp, outlet_pressure,
-        );
+        let inlet_enthalpy =
+            crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase(
+                preset_temp,
+                outlet_pressure,
+            );
         arr.set_inlet_velocity(inlet_velocity);
         arr.set_inlet_enthalpy(inlet_enthalpy);
         arr.set_outlet_pressure(outlet_pressure);
 
         arr.run(200);
 
-        let all_finite = arr.u.internal.as_slice().iter().all(|v| v.mag().is_finite())
+        let all_finite = arr
+            .u
+            .internal
+            .as_slice()
+            .iter()
+            .all(|v| v.mag().is_finite())
             && arr.p.internal.as_slice().iter().all(|x| x.is_finite())
             && arr.he.internal.as_slice().iter().all(|x| x.is_finite());
-        assert!(all_finite, "fields must stay finite when driven by prescribed inlet/outlet BCs");
+        assert!(
+            all_finite,
+            "fields must stay finite when driven by prescribed inlet/outlet BCs"
+        );
 
         // outlet pressure should settle near the imposed BC (small friction-driven
         // offset upstream, not a large drift)
@@ -432,8 +450,8 @@ mod tests {
         );
 
         // flow should actually be moving in +x, driven by the inlet velocity BC
-        let mean_u_x: f64 = arr.u.internal.as_slice().iter().map(|v| v.x).sum::<f64>()
-            / arr.mesh.n_cells as f64;
+        let mean_u_x: f64 =
+            arr.u.internal.as_slice().iter().map(|v| v.x).sum::<f64>() / arr.mesh.n_cells as f64;
         assert!(
             mean_u_x > 0.0,
             "flow should move in +x, driven by the inlet velocity BC; got mean u_x = {mean_u_x}"
@@ -480,9 +498,11 @@ mod tests {
         }
         let preset_temp = ThermodynamicTemperature::new::<kelvin>(320.0);
         arr.set_temperature_vector(vec![preset_temp; 10]).unwrap();
-        let inlet_enthalpy = crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase(
-            preset_temp, outlet_pressure,
-        );
+        let inlet_enthalpy =
+            crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase(
+                preset_temp,
+                outlet_pressure,
+            );
         // 0.3 m/s impulsive on liquid water is a ~4 bar Joukowsky surge --
         // far past the 1.1 bar upper bound, so the clamp must engage.
         arr.set_inlet_velocity(Velocity::new::<meter_per_second>(0.3));
@@ -528,14 +548,14 @@ mod tests {
     /// exactly what a steam-generator tube must do.
     #[test]
     fn steam_generator_tube_boils_feedwater() {
+        use crate::interfaces::functional_programming::ph_flash_eqm::x_ph_flash;
+        use crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase;
         use uom::si::available_energy::joule_per_kilogram;
         use uom::si::f64::Ratio;
         use uom::si::power::{kilowatt, watt};
         use uom::si::pressure::bar;
         use uom::si::ratio::ratio;
         use uom::si::velocity::meter_per_second;
-        use crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase;
-        use crate::interfaces::functional_programming::ph_flash_eqm::x_ph_flash;
 
         let n = 15usize;
         let mut arr = TampinesSteamArray::new(
@@ -602,7 +622,12 @@ mod tests {
         let all_finite = arr.p.internal.as_slice().iter().all(|x| x.is_finite())
             && arr.he.internal.as_slice().iter().all(|x| x.is_finite())
             && arr.t.internal.as_slice().iter().all(|x| x.is_finite())
-            && arr.u.internal.as_slice().iter().all(|v| v.mag().is_finite());
+            && arr
+                .u
+                .internal
+                .as_slice()
+                .iter()
+                .all(|v| v.mag().is_finite());
         assert!(all_finite, "steam-generator tube fields must stay finite");
 
         // Outlet is hotter than the feedwater inlet.
@@ -642,7 +667,11 @@ mod tests {
         );
         assert!(matches!(
             result,
-            Err(TampinesSteamArrayError::LengthMismatch { expected: 5, got: 3, .. })
+            Err(TampinesSteamArrayError::LengthMismatch {
+                expected: 5,
+                got: 3,
+                ..
+            })
         ));
     }
 
@@ -653,7 +682,11 @@ mod tests {
         let result = arr.lateral_link_new_power_vector(Power::new::<watt>(100.0), bad);
         assert!(matches!(
             result,
-            Err(TampinesSteamArrayError::LengthMismatch { expected: 5, got: 4, .. })
+            Err(TampinesSteamArrayError::LengthMismatch {
+                expected: 5,
+                got: 4,
+                ..
+            })
         ));
     }
 
@@ -661,7 +694,8 @@ mod tests {
     fn clear_vectors_empties_after_step() {
         let mut arr = test_array(5);
         let fractions = vec![0.2; 5];
-        arr.lateral_link_new_power_vector(Power::new::<watt>(100.0), fractions).unwrap();
+        arr.lateral_link_new_power_vector(Power::new::<watt>(100.0), fractions)
+            .unwrap();
         arr.step();
         assert!(arr.q_vector.is_empty());
         assert!(arr.q_fraction_vector.is_empty());
@@ -710,12 +744,20 @@ mod tests {
     #[test]
     fn geometry_and_flow_bookkeeping_round_trip() {
         let mut arr = test_array(2);
-        arr.set_mass_flowrate(MassRate::new::<uom::si::mass_rate::kilogram_per_second>(2.5));
+        arr.set_mass_flowrate(MassRate::new::<uom::si::mass_rate::kilogram_per_second>(
+            2.5,
+        ));
         arr.set_pressure_loss(Pressure::new::<pascal>(500.0));
         arr.set_internal_pressure_source(Pressure::new::<pascal>(1000.0));
         arr.set_incline_angle(Angle::new::<uom::si::angle::radian>(0.1));
 
-        assert!((arr.get_mass_flowrate().get::<uom::si::mass_rate::kilogram_per_second>() - 2.5).abs() < 1e-9);
+        assert!(
+            (arr.get_mass_flowrate()
+                .get::<uom::si::mass_rate::kilogram_per_second>()
+                - 2.5)
+                .abs()
+                < 1e-9
+        );
         assert!((arr.get_pressure_loss().get::<pascal>() - 500.0).abs() < 1e-9);
         assert!((arr.get_internal_pressure_source().get::<pascal>() - 1000.0).abs() < 1e-9);
         assert!((arr.get_incline_angle().get::<uom::si::angle::radian>() - 0.1).abs() < 1e-9);

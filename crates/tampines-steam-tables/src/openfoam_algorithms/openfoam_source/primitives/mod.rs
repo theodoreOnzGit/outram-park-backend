@@ -19,13 +19,29 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod scalar;
-pub mod spherical_tensor;
-pub mod vector;
-pub mod symm_tensor;
-pub mod tensor;
+//! OpenFOAM-style tensor-algebra primitives: generic, dimensionless
+//! numeric containers (`Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`,
+//! plus scalar type aliases/tolerance constants). The physical unit of a
+//! given instance is whatever `uom` quantity the caller pairs it with
+//! elsewhere (e.g. a velocity field stores `Vector3`-shaped m/s components);
+//! this layer itself only implements the algebra (dot/cross/outer products,
+//! trace, deviatoric/symmetric decomposition, inversion, eigen-invariants).
 
-pub use scalar::{Label, Scalar, GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL};
+/// Scalar type aliases (`Scalar`, `Label`) and OpenFOAM-style
+/// small/great tolerance constants.
+pub mod scalar;
+/// Isotropic (single-component) tensor — see [`SphericalTensor`].
+pub mod spherical_tensor;
+/// 3x3 symmetric tensor (6 independent components) — see [`SymmTensor`].
+pub mod symm_tensor;
+/// General 3x3 tensor — see [`Tensor`].
+pub mod tensor;
+/// 3-component vector — see [`Vector3`].
+pub mod vector;
+
+pub use scalar::{
+    Label, Scalar, GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL,
+};
 pub use spherical_tensor::SphericalTensor;
 pub use symm_tensor::SymmTensor;
 pub use tensor::Tensor;

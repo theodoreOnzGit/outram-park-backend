@@ -41,10 +41,12 @@ use crate::mesh::fv_mesh::FvMesh;
 /// Mirrors the role of `Foam::solidThermo` from
 /// `src/thermophysicalModels/solidThermo/`.
 pub trait SolidThermo {
+    /// The finite-volume mesh this solid region is defined on.
     fn mesh(&self) -> &Arc<FvMesh>;
 
     /// Temperature field [K].
     fn t(&self) -> &VolScalarField;
+    /// Mutable temperature field [K] — for the energy equation to update in place.
     fn t_mut(&mut self) -> &mut VolScalarField;
 
     /// Thermal conductivity κ [W/(m·K)] — used in `fvm::laplacian(kappa, T)`.
@@ -89,6 +91,7 @@ pub trait SolidThermo {
 /// ```
 #[derive(Debug, Clone)]
 pub struct ConstSolidThermo {
+    /// Temperature field [K].
     pub t: VolScalarField,
     kappa_val: f64,  // [W/(m·K)]
     rho_cp_val: f64, // [J/(m³·K)]

@@ -19,6 +19,20 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Implicit (`fvm`) finite-volume operators — each **assembles into a sparse
+//! matrix** (`FvMatrix` for scalar unknowns, `FvVectorMatrix` for vector
+//! unknowns) whose solve advances the field, rather than returning an explicit
+//! field.
+//!
+//! Mirrors `Foam::fvm::` (`src/finiteVolume/finiteVolume/fvm/`). Contents:
+//! implicit Euler time derivatives (`ddt`, `ddt_coeff`, `ddt_vec`,
+//! `ddt_coeff_vec`) and the second time derivative (`d2dt2`, `d2dt2_coeff`),
+//! first-order upwind convection (`div`, `div_vec`), the Gauss-orthogonal
+//! Laplacian (`laplacian`, `laplacian_vec`), and implicit / explicit source
+//! terms (`sp`, `su`, `su_sp` and their `_vec` forms). See each function's doc
+//! and the `sup` module header for the LHS / RHS sign conventions that apply
+//! when combining these matrices.
+
 mod d2dt2;
 mod ddt;
 mod ddt_vec;

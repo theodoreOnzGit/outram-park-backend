@@ -19,12 +19,25 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod ldu_matrix;
+//! LDU (Lower-Diagonal-Upper) sparse matrix layer for FV implicit operators.
+//!
+//! Provides the assembled linear-system representation ([`LduMatrix`]) that
+//! `fvm::` operators build into, the scalar- and vector-field wrappers around
+//! it ([`FvMatrix`], [`FvVectorMatrix`]), and the linear solvers that act on
+//! it ([`solvers`]: Gauss-Seidel, PCG, GAMG). All coefficients here are plain
+//! dimensionless `f64` — physical units live in the field the matrix was
+//! assembled from (the upstream `fvm::` call), not in the matrix itself.
+
+/// Scalar-field implicit equation `A·φ = b`, plus its solve entry points.
 pub mod fv_matrix;
+/// Vector-field implicit equation `A·U = b`, solved component-wise.
 pub mod fv_vector_matrix;
+/// Sparse LDU matrix storage and matrix–vector primitives (`A·x`, residual).
+pub mod ldu_matrix;
+/// Linear solvers over [`LduMatrix`]: Gauss-Seidel, PCG, and GAMG.
 pub mod solvers;
 
-pub use ldu_matrix::*;
 pub use fv_matrix::*;
 pub use fv_vector_matrix::*;
+pub use ldu_matrix::*;
 pub use solvers::*;

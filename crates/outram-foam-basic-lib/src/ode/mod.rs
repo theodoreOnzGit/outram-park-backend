@@ -19,6 +19,16 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Ordinary differential equation solvers for systems `dy/dx = f(x, y)`.
+//!
+//! Ports the OpenFOAM `ODE` layer: user systems implement the [`OdeSystem`]
+//! trait, and one of the concrete steppers integrates them with adaptive step
+//! control — [`Euler`] (explicit 1st order), [`Rkf45`] (explicit Runge-Kutta-
+//! Fehlberg 4(5)), and [`Rosenbrock23`] (semi-implicit, for stiff systems,
+//! requiring a Jacobian). The independent variable `x`, state `y`, and step
+//! size are bare `f64` in the caller's own units; tolerances are set through
+//! [`OdeSolverConfig`].
+
 pub mod euler;
 pub mod rkf45;
 pub mod rosenbrock23;
@@ -33,6 +43,7 @@ use crate::matrix::SquareMatrix;
 
 /// Abstract ODE system `dy/dx = f(x, y)`. Maps to `Foam::ODESystem`.
 pub trait OdeSystem {
+    /// Number of coupled equations (the length of the state vector `y`).
     fn n_eqns(&self) -> usize;
 
     /// Fill `dydx` with the derivatives at `(x, y)`.
@@ -87,9 +98,15 @@ impl Default for OdeSolverConfig {
 
 // ── Error type ───────────────────────────────────────────────────────────────
 
+/// Failure modes of an adaptive integration.
 #[derive(Debug, Clone, PartialEq)]
 pub enum OdeError {
+    /// The step size shrank below machine epsilon while trying to meet the
+    /// error tolerance — the system is too stiff for the chosen solver, or the
+    /// tolerances are unattainable.
     StepSizeUnderflow,
+    /// The interval could not be spanned within `max_steps` sub-steps; carries
+    /// the number of steps taken.
     MaxStepsExceeded(usize),
 }
 

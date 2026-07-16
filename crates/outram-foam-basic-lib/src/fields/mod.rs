@@ -19,6 +19,25 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Field types: the discretised quantities carried on the mesh.
+//!
+//! This module holds the data containers the FV operators read and write:
+//!
+//! - [`Field`] — a flat `Vec<T>` with element-wise arithmetic; the raw storage
+//!   with no mesh or dimension bookkeeping (mirrors `Foam::Field<Type>`).
+//! - [`boundary`] — boundary conditions ([`BoundaryCondition`]) and per-patch
+//!   boundary values ([`PatchField`]).
+//! - [`VolField`] (and the `Vol*Field` aliases) — cell-centred volume fields:
+//!   one value per cell plus one `PatchField` per boundary patch.
+//! - [`SurfaceField`] (and the `Surface*Field` aliases) — face fields: one
+//!   value per internal face plus one `PatchField` per boundary patch.
+//! - [`vol_field_algebra`] — pure per-element tensor algebra (`tr`, `symm`,
+//!   `dev`, …) lifted to whole volume fields.
+//!
+//! Physical units are not tracked at this layer; a field simply carries `f64`,
+//! `Vector3`, `Tensor`, or `SymmTensor` values in whatever SI units the caller
+//! assigns them.
+
 pub mod boundary;
 pub mod field;
 pub mod surface_field;

@@ -1,8 +1,7 @@
 use super::{pi_5, tau_5, REGION_5_COEFFS_RES};
 use uom::si::f64::*;
 
-
-/// Returns the region-2 residual gamma
+/// Returns the region-5 residual gamma
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa
 pub fn gamma_5_res(t: ThermodynamicTemperature, p: Pressure) -> f64 {

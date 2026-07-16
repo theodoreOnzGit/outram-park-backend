@@ -19,6 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Tensor-algebra primitives (Layer 1): the `Scalar`/`Label` aliases and
+//! magnitude constants (`SMALL`, `GREAT`, …), the 3-vector `Vector3`, and the
+//! `SphericalTensor`/`SymmTensor`/`Tensor` rank-2 types with their algebra.
+//! Mirrors OpenFOAM's `src/OpenFOAM/primitives/` VectorSpace types.
+
 pub mod scalar;
 pub mod spherical_tensor;
 pub mod vector;

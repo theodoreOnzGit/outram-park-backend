@@ -265,11 +265,12 @@ This layer provides pure per-molecule thermophysical kernels: equation of state,
 heat capacity / enthalpy / entropy, and transport coefficients (viscosity,
 conductivity). Everything here is mesh-independent — it is a function of `(p, T)`
 only. The field-level wrappers (`fluidThermo`, `psiThermo`, `rhoThermo`) that
-own `volScalarField` instances belong in a future `openfoam-thermo` crate.
+own `volScalarField` instances now live in this crate at `src/fluid_thermo/`
+(see Layer 4 below).
 
 #### Scope boundary
 
-| In this crate | Future crate |
+| Layer 1h (this section) | Field-level layer (`src/fluid_thermo/`, Layer 4) |
 |---|---|
 | Per-species EOS, thermo, transport kernels | `fluidThermo`, `psiThermo`, `rhoThermo` |
 | Newton iteration T(H) on a single point | Cell-loop + field correction (`thermo.correct()`) |
@@ -404,7 +405,7 @@ Sutherland coefficients from two reference points: `(mu1, T1)` and `(mu2, T2)`.
 
 ```rust
 // src/thermophysics/constants.rs
-pub const R_UNIVERSAL: f64 = 8314.46261815324;   // J/(kmol·K)  — matches Foam::RR
+pub const R_UNIVERSAL: f64 = 8.314_462_618_153_24;   // J/(mol·K)  — mol basis (see note below)
 pub const T_MIN:       f64 = 100.0;              // K floor for Newton iteration
 pub const T_MAX:       f64 = 6000.0;             // K ceiling for JANAF range
 pub const P_REF:       f64 = 101325.0;           // Pa — standard atmosphere (for entropy)
@@ -415,7 +416,7 @@ pub const P_REF:       f64 = 101325.0;           // Pa — standard atmosphere (
 ```rust
 use uom::si::f64::{
     DynamicViscosity, MassDensity, MolarMass, Pressure, Ratio,
-    SpecificEnergy, SpecificHeatCapacity, ThermalConductivity,
+    AvailableEnergy, SpecificHeatCapacity, ThermalConductivity,
     ThermodynamicTemperature,
 };
 use crate::thermophysics::quantities::Compressibility;
@@ -427,22 +428,22 @@ pub trait EquationOfState {
     fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility;
     fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio;  // dimensionless
     fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity;
-    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificEnergy;
-    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificEnergy;
+    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy;
+    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy;
     fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity;
 }
 
 pub trait ThermoModel: EquationOfState {
     fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity;
-    fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificEnergy;
-    fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificEnergy;
-    fn hc(&self) -> SpecificEnergy;
+    fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy;
+    fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy;
+    fn hc(&self) -> AvailableEnergy;
     fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity;
     fn cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity;
     // Newton iteration — default impl provided in traits.rs
-    fn t_from_ha(&self, ha: SpecificEnergy, p: Pressure, t0: ThermodynamicTemperature) -> ThermodynamicTemperature;
-    fn t_from_hs(&self, hs: SpecificEnergy, p: Pressure, t0: ThermodynamicTemperature) -> ThermodynamicTemperature;
-    fn t_from_e(&self, e: SpecificEnergy, p: Pressure, t0: ThermodynamicTemperature) -> ThermodynamicTemperature;
+    fn t_from_ha(&self, ha: AvailableEnergy, p: Pressure, t0: ThermodynamicTemperature) -> Result<ThermodynamicTemperature, ThermoError>;
+    fn t_from_hs(&self, hs: AvailableEnergy, p: Pressure, t0: ThermodynamicTemperature) -> Result<ThermodynamicTemperature, ThermoError>;
+    fn t_from_e(&self, e: AvailableEnergy, p: Pressure, t0: ThermodynamicTemperature) -> Result<ThermodynamicTemperature, ThermoError>;
 }
 
 pub trait TransportModel: ThermoModel {
@@ -503,7 +504,7 @@ This matches the pattern already used in `tuas_boussinesq_solver`.
 | Temperature | `ThermodynamicTemperature` | K |
 | Density | `MassDensity` | kg/m³ |
 | Specific heat capacity Cp, Cv | `SpecificHeatCapacity` | J/(kg·K) |
-| Specific enthalpy / energy | `SpecificEnergy` | J/kg |
+| Specific enthalpy / energy | `AvailableEnergy` | J/kg |
 | Specific entropy | `SpecificHeatCapacity` | J/(kg·K) — same dimension |
 | Specific gas constant R | `SpecificHeatCapacity` | J/(kg·K) — same dimension |
 | Dynamic viscosity | `DynamicViscosity` | Pa·s = kg/(m·s) |
@@ -545,7 +546,7 @@ uom arithmetic (uom tracks dimensions through arithmetic automatically).
 ```rust
 use uom::si::f64::{
     DynamicViscosity, MassDensity, MolarMass, Pressure, Ratio,
-    SpecificEnergy, SpecificHeatCapacity, ThermalConductivity,
+    AvailableEnergy, SpecificHeatCapacity, ThermalConductivity,
     ThermodynamicTemperature,
 };
 ```
@@ -689,12 +690,12 @@ Each EOS, thermo, and transport struct gets unit tests that verify:
 
 ---
 
-### Layer 4 — Thermophysical Models (future `openfoam-thermo` crate)
+### Layer 4 — Thermophysical Models (implemented in this crate: `src/fluid_thermo/`)
 
 > **Note:** This layer requires `volScalarField`, `fvMesh`, and field correction
-> loops — it belongs in a future **`openfoam-thermo`** crate that depends on
-> this one plus the future `openfoam-fields` crate. The per-species kernels
-> (EOS, Cp, transport) live here in Layer 1h above.
+> loops. It is now implemented in this crate at `src/fluid_thermo/` (`PsiThermo`,
+> `RhoThermo`, `ConstSolidThermo`), on top of the in-crate `src/fields/` and
+> `src/mesh/`. The per-species kernels (EOS, Cp, transport) live in Layer 1h above.
 
 **Location:** `src/thermophysicalModels/basic/`
 
@@ -890,10 +891,12 @@ src/
       tabulated.rs         ← struct TabulatedTransport<T>
 ```
 
-Future crates (not in this one):
-- `openfoam-fields` — Field, GeometricField, volScalarField, fvMesh
-- `openfoam-fv` — fvm:: / fvc:: operators, fvMatrix
-- `openfoam-thermo` — fluidThermo / psiThermo / rhoThermo (field-level; wraps Layer 1h types over vol fields)
+Now implemented in this crate (originally planned as separate crates):
+- Fields — `Field`, `VolField`, `SurfaceField`, `fvMesh` — in `src/fields/`, `src/mesh/`
+- FV operators — `fvm::` / `fvc::` operators, `fvMatrix` — in `src/fv_operators/`, `src/ldu_matrix/`
+- Field-level thermo — `fluidThermo` / `psiThermo` / `rhoThermo` — in `src/fluid_thermo/`
+
+Future crate (not in this one):
 - `openfoam-solvers` — PIMPLE loop, rhoPimpleFoam, sonicFoam
 
 ---

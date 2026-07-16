@@ -19,10 +19,17 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod gauss_seidel;
-pub mod conjugate_gradient;
-pub mod gamg;
+//! Linear solvers over [`LduMatrix`](super::LduMatrix): all operate on plain
+//! dimensionless coefficient arrays, independent of the physical field the
+//! matrix was assembled from.
 
-pub use gauss_seidel::gauss_seidel;
+/// DIC-preconditioned conjugate gradient — symmetric SPD matrices only.
+pub mod conjugate_gradient;
+/// GAMG (geometric-algebraic multigrid) V-cycle solver — symmetric SPD matrices only.
+pub mod gamg;
+/// Gauss-Seidel iterative sweep — the default, works on asymmetric matrices.
+pub mod gauss_seidel;
+
 pub use conjugate_gradient::conjugate_gradient;
 pub use gamg::gamg;
+pub use gauss_seidel::gauss_seidel;

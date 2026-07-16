@@ -37,7 +37,7 @@ conventions live in CLAUDE.md.
 | `k_omega` | `RAS/kOmega/` | Two-equation k-ω; Wilcox 1988 |
 | `k_omega_sst` | `RAS/kOmegaSST/` | Menter 1994; default for wall-bounded flows |
 | `spalart_allmaras` | `RAS/SpalartAllmaras/` | One-equation; aerospace use |
-| `les_smagorinsky` | `LES/Smagorinsky/` | Smagorinsky sub-grid model |
+| `les` (`les::smagorinsky`) | `LES/Smagorinsky/` | Smagorinsky sub-grid model |
 | `wall_functions` | `RAS/derivedFvPatchFields/` | nutWallFunction, kqRWallFunction, epsilonWallFunction, omegaWallFunction |
 
 **Implementation order:** `laminar` → `k_omega_sst` (most used in OUTRAM PARK
@@ -54,7 +54,10 @@ solver targets) → `k_epsilon` → `spalart_allmaras` → LES.
 | Turbulent dynamic viscosity | μ_t | Pa·s = kg/(m·s) | — |
 | Turbulent kinematic viscosity | ν_t | — | m²/s |
 
-In this crate all quantities carry `uom` types at API boundaries.
+In this crate these quantities are carried as bare `f64` in SI units (via
+`outram-foam-basic-lib`'s `VolScalarField` cell arrays and the wall-function
+free functions) — the units in the table above are conventions the code assumes,
+not `uom`-enforced types.
 
 
 ## k-ω SST — key constants (Menter 1994)
@@ -80,4 +83,4 @@ the mesh is too coarse to resolve the viscous sublayer (y⁺ > ~11).
 Key routines:
 - `y_plus(y, u_tau, nu) -> f64` — dimensionless wall distance
 - `u_tau(u_wall, y, nu) -> f64` — friction velocity (Newton iteration)
-- `nut_wall_function(y_plus, nu) -> f64` — ν_t at the wall cell
+- `nu_t_wall(y_p, nu) -> f64` — ν_t at the wall cell (nutWallFunction)

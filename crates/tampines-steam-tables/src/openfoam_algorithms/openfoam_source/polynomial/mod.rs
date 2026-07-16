@@ -19,14 +19,31 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod roots;
-pub mod linear_eqn;
-pub mod quadratic_eqn;
-pub mod cubic_eqn;
-pub mod polynomial;
+//! Generic dimensionless polynomial evaluation and closed-form root finders.
+//!
+//! [`Polynomial`] evaluates/differentiates/integrates a fixed-degree
+//! coefficient polynomial (optionally with an added `log(x)` term).
+//! [`LinearEqn`], [`QuadraticEqn`], and [`CubicEqn`] find the exact roots of
+//! degree-1/2/3 equations in closed form (Cardano's method for the cubic),
+//! tagging each root [`Real`](RootType::Real), [`Complex`](RootType::Complex),
+//! `PosInf`/`NegInf`, or `Nan` via [`Roots`]. All quantities here are bare
+//! `f64` — no `uom` units — since these are pure numerical-algebra building
+//! blocks used by higher-level EOS/property closures that attach units at
+//! their own call sites.
 
-pub use roots::{RootType, Roots};
-pub use linear_eqn::LinearEqn;
-pub use quadratic_eqn::QuadraticEqn;
+/// Closed-form real roots of a cubic equation (dimensionless `f64`).
+pub mod cubic_eqn;
+/// Closed-form root of a linear equation (dimensionless `f64`).
+pub mod linear_eqn;
+/// General polynomial representation and evaluation (dimensionless `f64`).
+pub mod polynomial;
+/// Closed-form real roots of a quadratic equation (dimensionless `f64`).
+pub mod quadratic_eqn;
+/// Shared real-root utilities for the polynomial solvers (dimensionless `f64`).
+pub mod roots;
+
 pub use cubic_eqn::CubicEqn;
+pub use linear_eqn::LinearEqn;
 pub use polynomial::Polynomial;
+pub use quadratic_eqn::QuadraticEqn;
+pub use roots::{RootType, Roots};

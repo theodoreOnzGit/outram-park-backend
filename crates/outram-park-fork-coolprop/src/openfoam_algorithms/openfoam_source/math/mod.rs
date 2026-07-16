@@ -19,6 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Special-function helpers used by the thermophysics and numerics layers:
+//! the inverse error function, the regularised incomplete gamma function (and
+//! its complement/ratio forms), and the inverse incomplete gamma. Mirrors the
+//! relevant pieces of OpenFOAM's `src/OpenFOAM/primitives/functions/`.
+
 pub mod erf_inv;
 pub mod inc_gamma;
 pub mod inv_inc_gamma;

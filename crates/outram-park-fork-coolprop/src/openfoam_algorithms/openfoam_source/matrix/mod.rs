@@ -19,6 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Small dense `SquareMatrix` (row-major, LU-based solve/inverse) used by the
+//! stiff ODE solver's Jacobian handling — the pure-Rust stand-in for the BLAS
+//! path so this crate needs no LAPACK. Mirrors OpenFOAM's `scalarSquareMatrix`.
+
 pub mod square_matrix;
 pub use square_matrix::SquareMatrix;
 pub use square_matrix::MatrixError;

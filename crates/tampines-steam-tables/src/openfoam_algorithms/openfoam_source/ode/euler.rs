@@ -19,7 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use super::{OdeError, OdeSystem, OdeSolverConfig, adaptive_step, integrate_interval, normalize_error};
+use super::{
+    adaptive_step, integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem,
+};
 
 /// Explicit first-order Euler solver with adaptive step size.
 /// Maps to `Foam::Euler` (which inherits from `adaptiveSolver`).
@@ -32,6 +34,9 @@ pub struct Euler {
 }
 
 impl Euler {
+    /// Construct a solver for a system of `n` equations, with the given
+    /// absolute and relative error tolerances (see [`OdeSolverConfig`]);
+    /// all other config fields take their `Default` values.
     pub fn new(n: usize, abs_tol: f64, rel_tol: f64) -> Self {
         let mut cfg = OdeSolverConfig::default();
         cfg.abs_tol = abs_tol;
@@ -103,7 +108,9 @@ mod tests {
 
     struct DecayOde;
     impl OdeSystem for DecayOde {
-        fn n_eqns(&self) -> usize { 1 }
+        fn n_eqns(&self) -> usize {
+            1
+        }
         fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
             dydx[0] = -y[0];
         }
@@ -111,10 +118,12 @@ mod tests {
 
     struct RotationOde;
     impl OdeSystem for RotationOde {
-        fn n_eqns(&self) -> usize { 2 }
+        fn n_eqns(&self) -> usize {
+            2
+        }
         fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
             dydx[0] = -y[1];
-            dydx[1] =  y[0];
+            dydx[1] = y[0];
         }
     }
 
@@ -130,7 +139,9 @@ mod tests {
         let expected = (-1.0_f64).exp();
         assert!(
             (y[0] - expected).abs() < 1e-2,
-            "y={}, expected {}", y[0], expected
+            "y={}, expected {}",
+            y[0],
+            expected
         );
     }
 
@@ -141,7 +152,9 @@ mod tests {
         let mut solver = Euler::new(2, 1e-3, 1e-2);
         let mut y = vec![1.0_f64, 0.0];
         let mut dx = 0.1;
-        solver.integrate(&ode, 0.0, std::f64::consts::PI / 2.0, &mut y, &mut dx).unwrap();
+        solver
+            .integrate(&ode, 0.0, std::f64::consts::PI / 2.0, &mut y, &mut dx)
+            .unwrap();
         assert!(y[0].abs() < 5e-2, "y0={}", y[0]);
         assert!((y[1] - 1.0).abs() < 5e-2, "y1={}", y[1]);
     }

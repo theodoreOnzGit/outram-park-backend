@@ -19,6 +19,22 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Finite-volume mesh layer: topology and geometry.
+//!
+//! This module holds the flat, cache-friendly mesh representation the FV
+//! operators run on. It contains:
+//!
+//! - [`FvMesh`] — the mesh itself (cells, faces, owner/neighbour connectivity,
+//!   cell volumes [m³], face-area vectors [m²], and cell/face centres [m]),
+//!   plus [`FvMeshBuilder`] to assemble one incrementally.
+//! - [`BoundaryPatch`] / [`PatchKind`] — boundary-patch descriptors.
+//! - [`RegionInterface`] — a face-to-face coupling map between two regions'
+//!   patches (used by conjugate-heat-transfer solvers).
+//! - [`MeshError`] — the errors raised during mesh construction and validation.
+//!
+//! It stores only the data required by the operators; the OpenFOAM
+//! `polyMesh → primitiveMesh → lduMesh` inheritance chain is not reproduced.
+
 pub mod error;
 pub mod fv_mesh;
 pub mod region_interface;

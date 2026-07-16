@@ -27,7 +27,7 @@
 //! (`IncompressibleFluid.cpp`); this port implements the four CoolProp's own
 //! 126 incompressible-liquid JSON files actually use — `polynomial`
 //! (density/specific_heat/conductivity, always; also 2 fluids' viscosity),
-//! `exppolynomial` (117 fluids' viscosity), `exponential` (46 pure fluids'
+//! `exppolynomial` (65 fluids' viscosity), `exponential` (46 pure fluids'
 //! viscosity) and `logexponential` (3 pure fluids' viscosity). `polyoffset`
 //! is in CoolProp's format but unused by any of the 126 fluids surveyed here,
 //! so it is not implemented — [`IncompressibleError::PropertyUnavailable`] if

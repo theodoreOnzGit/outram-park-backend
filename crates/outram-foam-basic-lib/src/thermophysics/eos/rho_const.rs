@@ -34,6 +34,8 @@ pub struct RhoConst {
 }
 
 impl RhoConst {
+    /// Construct a constant-density EOS from molar mass W [kg/mol] and the fixed
+    /// density ρ₀ [kg/m³] returned at every `(p, T)`.
     pub fn new(mol_weight: MolarMass, rho0: MassDensity) -> Self {
         Self { mol_weight, rho0 }
     }

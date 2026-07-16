@@ -4,7 +4,7 @@ use crate::interfaces::functional_programming::*;
 use crate::prelude::functional_programming::hs_flash_eqm::p_hs_eqm;
 use crate::region_4_vap_liq_equilibrium::{sat_pressure_4, sat_temp_4};
 
-/// this is the bread and butter for tampines steam tables, 
+/// this is the bread and butter for tampines steam tables,
 /// the control volume
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TampinesSteamTableCV {
@@ -15,29 +15,29 @@ pub struct TampinesSteamTableCV {
     specific_enthalpy: AvailableEnergy,
     specific_entropy: SpecificHeatCapacity,
 
-    /// these are extensive properties, 
+    /// these are extensive properties,
     /// Volume should be fixed for a control volume by definition
     volume: Volume,
 }
 
 impl TampinesSteamTableCV {
+    /// Creates a new control volume from a `(T,p,x)` forward flash, where
+    /// temperature `T` is in K, pressure `p` is in Pa, `volume` (m^3) is the
+    /// fixed control-volume size, and `x` is the steam quality (vapour mass
+    /// fraction). Dispatches through `pt_flash_eqm::*_tp_eqm_two_phase`, so
+    /// `x` only matters when `(T,p)` lies on the saturation line (Region 4);
+    /// elsewhere it is ignored by the underlying single-phase equations.
     pub fn new_from_tp_quality(
         temperature: ThermodynamicTemperature,
         pressure: Pressure,
         volume: Volume,
-        x: f64) -> Self {
+        x: f64,
+    ) -> Self {
+        let specific_volume = pt_flash_eqm::v_tp_eqm_two_phase(temperature, pressure, x);
 
-        let specific_volume = pt_flash_eqm::v_tp_eqm_two_phase(
-            temperature, pressure, x
-        );
+        let specific_enthalpy = pt_flash_eqm::h_tp_eqm_two_phase(temperature, pressure, x);
 
-        let specific_enthalpy = pt_flash_eqm::h_tp_eqm_two_phase(
-            temperature, pressure, x
-        );
-
-        let specific_entropy = pt_flash_eqm::s_tp_eqm_two_phase(
-            temperature, pressure, x
-        );
+        let specific_entropy = pt_flash_eqm::s_tp_eqm_two_phase(temperature, pressure, x);
 
         return Self {
             pressure,
@@ -49,27 +49,21 @@ impl TampinesSteamTableCV {
         };
     }
 
-    /// creates a new control volume assuming quality is 1 
+    /// creates a new control volume assuming quality is 1
     /// at the steam table
     ///
     /// this quality is only used at the saturation line of course
     pub fn new_from_tp_quality_1(
         temperature: ThermodynamicTemperature,
         pressure: Pressure,
-        volume: Volume,) -> Self {
-
+        volume: Volume,
+    ) -> Self {
         let x = 1.0_f64;
-        let specific_volume = pt_flash_eqm::v_tp_eqm_two_phase(
-            temperature, pressure, x
-        );
+        let specific_volume = pt_flash_eqm::v_tp_eqm_two_phase(temperature, pressure, x);
 
-        let specific_enthalpy = pt_flash_eqm::h_tp_eqm_two_phase(
-            temperature, pressure, x
-        );
+        let specific_enthalpy = pt_flash_eqm::h_tp_eqm_two_phase(temperature, pressure, x);
 
-        let specific_entropy = pt_flash_eqm::s_tp_eqm_two_phase(
-            temperature, pressure, x
-        );
+        let specific_entropy = pt_flash_eqm::s_tp_eqm_two_phase(temperature, pressure, x);
 
         return Self {
             pressure,
@@ -87,20 +81,14 @@ impl TampinesSteamTableCV {
     pub fn new_from_tp_quality_0(
         temperature: ThermodynamicTemperature,
         pressure: Pressure,
-        volume: Volume,) -> Self {
-
+        volume: Volume,
+    ) -> Self {
         let x = 0.0_f64;
-        let specific_volume = pt_flash_eqm::v_tp_eqm_two_phase(
-            temperature, pressure, x
-        );
+        let specific_volume = pt_flash_eqm::v_tp_eqm_two_phase(temperature, pressure, x);
 
-        let specific_enthalpy = pt_flash_eqm::h_tp_eqm_two_phase(
-            temperature, pressure, x
-        );
+        let specific_enthalpy = pt_flash_eqm::h_tp_eqm_two_phase(temperature, pressure, x);
 
-        let specific_entropy = pt_flash_eqm::s_tp_eqm_two_phase(
-            temperature, pressure, x
-        );
+        let specific_entropy = pt_flash_eqm::s_tp_eqm_two_phase(temperature, pressure, x);
 
         return Self {
             pressure,
@@ -112,12 +100,12 @@ impl TampinesSteamTableCV {
         };
     }
 
-
-    pub fn new_from_ph(
-        p: Pressure,
-        h: AvailableEnergy,
-        volume: Volume) -> Self {
-
+    /// Creates a new control volume from a `(p,h)` flash, where pressure
+    /// `p` is in Pa, specific enthalpy `h` is in J/kg, and `volume` (m^3) is
+    /// the fixed control-volume size. Region (1-4) is resolved internally by
+    /// `ph_flash_eqm::ph_flash_region`; Region 5 `(p,h)` flashes are
+    /// unsupported (IAPWS-IF97 has no backward `(p,h)` correlation there).
+    pub fn new_from_ph(p: Pressure, h: AvailableEnergy, volume: Volume) -> Self {
         let t = ph_flash_eqm::t_ph_eqm(p, h);
         let specific_volume = ph_flash_eqm::v_ph_eqm(p, h);
         let pressure = p;
@@ -133,14 +121,14 @@ impl TampinesSteamTableCV {
             specific_entropy,
             volume,
         };
-
     }
 
-    pub fn new_from_ps(
-        p: Pressure,
-        s: SpecificHeatCapacity,
-        volume: Volume) -> Self {
-
+    /// Creates a new control volume from a `(p,s)` flash, where pressure
+    /// `p` is in Pa, specific entropy `s` is in J/(kg*K), and `volume`
+    /// (m^3) is the fixed control-volume size. Region (1-4) is resolved
+    /// internally by `ps_flash_eqm::ps_flash_region`; Region 5 is not yet
+    /// implemented for this flash path.
+    pub fn new_from_ps(p: Pressure, s: SpecificHeatCapacity, volume: Volume) -> Self {
         let t = ps_flash_eqm::t_ps_eqm(p, s);
         let specific_volume = ps_flash_eqm::v_ps_eqm(p, s);
         let pressure = p;
@@ -156,48 +144,39 @@ impl TampinesSteamTableCV {
             specific_entropy,
             volume,
         };
-
     }
 
-
-    pub fn new_from_hs(
-        h: AvailableEnergy,
-        s: SpecificHeatCapacity,
-        volume: Volume) -> Self {
-
+    /// Creates a new control volume from an `(h,s)` flash, where specific
+    /// enthalpy `h` is in J/kg, specific entropy `s` is in J/(kg*K), and
+    /// `volume` (m^3) is the fixed control-volume size. Resolves pressure
+    /// via `hs_flash_eqm::p_hs_eqm` and delegates to [`Self::new_from_ph`].
+    pub fn new_from_hs(h: AvailableEnergy, s: SpecificHeatCapacity, volume: Volume) -> Self {
         let p = p_hs_eqm(h, s);
         return Self::new_from_ph(p, h, volume);
     }
 
-    pub fn new_from_sat_pressure_quality(
-        p: Pressure,
-        x: f64,
-        volume: Volume,) -> Self {
-
+    /// Creates a new control volume on the saturation line (Region 4) given
+    /// saturation pressure `p` in Pa, steam quality `x` (vapour mass
+    /// fraction), and `volume` (m^3). The saturation temperature is looked
+    /// up from `p` via `sat_temp_4`, then delegates to
+    /// [`Self::new_from_tp_quality`].
+    pub fn new_from_sat_pressure_quality(p: Pressure, x: f64, volume: Volume) -> Self {
         let t: ThermodynamicTemperature = sat_temp_4(p);
 
-        return Self::new_from_tp_quality(
-            t, p, volume, x
-        );
-
+        return Self::new_from_tp_quality(t, p, volume, x);
     }
 
-    pub fn new_from_sat_temp_quality(
-        t: ThermodynamicTemperature,
-        x: f64,
-        volume: Volume,) -> Self {
-
+    /// Creates a new control volume on the saturation line (Region 4) given
+    /// saturation temperature `t` in K, steam quality `x` (vapour mass
+    /// fraction), and `volume` (m^3). The saturation pressure is looked up
+    /// from `t` via `sat_pressure_4`, then delegates to
+    /// [`Self::new_from_tp_quality`].
+    pub fn new_from_sat_temp_quality(t: ThermodynamicTemperature, x: f64, volume: Volume) -> Self {
         let p: Pressure = sat_pressure_4(t);
 
-        return Self::new_from_tp_quality(
-            t, p, volume, x
-        );
-
+        return Self::new_from_tp_quality(t, p, volume, x);
     }
 }
-
-
-
 
 /// vibe coded getter methods
 pub mod getter_methods;

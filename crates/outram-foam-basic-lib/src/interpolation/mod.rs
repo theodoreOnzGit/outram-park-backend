@@ -19,6 +19,14 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! One-dimensional table interpolation over sorted `(xs, ys)` samples.
+//!
+//! Ports the OpenFOAM `interpolateXY` / `interpolateSplineXY` helpers:
+//! [`interpolate_xy`] (piecewise-linear) and [`interpolate_spline_xy`]
+//! (Catmull-Rom cubic). Both assume `xs` is sorted ascending and clamp to the
+//! endpoint value outside the table range. Abscissae and ordinates are bare
+//! `f64` in the caller's own units.
+
 pub mod interpolate_spline_xy;
 pub mod interpolate_xy;
 pub use interpolate_spline_xy::interpolate_spline_xy;

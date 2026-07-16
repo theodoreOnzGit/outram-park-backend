@@ -19,11 +19,21 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
-use outram_foam_basic_lib::prelude::{FvMesh, FvVectorMatrix, VolScalarField, VolVectorField};
+//! Smagorinsky (1963) LES sub-grid-scale model — **scaffold only**.
+//!
+//! The [`Smagorinsky`] struct and its constant exist, but the sub-grid
+//! viscosity update is not implemented: `correct`, `div_dev_rho_reff`,
+//! `alpha_eff`, and `mu_eff_field` are `todo!()` stubs that panic if called.
+//! Only `nu_t()` (which returns the zero-initialised ν_sgs field) is callable.
+
 use crate::traits::TurbulenceModel;
+use outram_foam_basic_lib::prelude::{FvMesh, FvVectorMatrix, VolScalarField, VolVectorField};
+use std::sync::Arc;
 
 /// Smagorinsky LES sub-grid scale model (1963).
+///
+/// **Scaffold only** — every trait method except `nu_t()` is a `todo!()` that
+/// panics if called. The struct documents the intended model:
 ///
 /// C++ source: `src/TurbulenceModels/LES/Smagorinsky/`
 ///
@@ -40,11 +50,18 @@ pub struct Smagorinsky {
 }
 
 impl Smagorinsky {
+    /// Construct a Smagorinsky model over `mesh` with the default constant
+    /// Cs = 0.17 and ν_sgs initialised to zero.
     pub fn new(mesh: Arc<FvMesh>) -> Self {
         let nu_sgs = VolScalarField::zeros("nuSgs", mesh.clone());
-        Self { mesh, nu_sgs, cs: 0.17 }
+        Self {
+            mesh,
+            nu_sgs,
+            cs: 0.17,
+        }
     }
 
+    /// Builder override for the Smagorinsky constant Cs (dimensionless).
     pub fn with_cs(mut self, cs: f64) -> Self {
         self.cs = cs;
         self
@@ -60,7 +77,9 @@ impl TurbulenceModel for Smagorinsky {
         todo!("Smagorinsky::correct — compute |S| per cell, update nu_sgs = (Cs·Δ)²·|S|")
     }
 
-    fn nu_t(&self) -> &VolScalarField { &self.nu_sgs }
+    fn nu_t(&self) -> &VolScalarField {
+        &self.nu_sgs
+    }
 
     fn alpha_eff(&self, _alpha: &VolScalarField) -> VolScalarField {
         todo!("Smagorinsky::alpha_eff")

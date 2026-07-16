@@ -19,14 +19,31 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Error type for turbulence-model construction and transport solves.
+//!
+//! A single [`TurbulenceError`] enum covers the failure modes the closures can
+//! report (field-shape mismatches, use-before-init, and non-physical negative
+//! turbulence quantities).
+
 use thiserror::Error;
 
+/// Failure modes reported by the turbulence closures.
 #[derive(Debug, Error)]
 pub enum TurbulenceError {
+    /// A field passed in does not match the mesh cell count (or another field's
+    /// length). The payload describes the mismatch.
     #[error("field size mismatch: {0}")]
     FieldSizeMismatch(String),
+    /// A model method was called before the model's state was initialised.
     #[error("turbulence model not initialised")]
     NotInitialised,
+    /// A turbulence quantity (e.g. k, ε, ω, ν_t) went negative, which is
+    /// non-physical. `field` names the quantity; `value` is the offending value.
     #[error("negative turbulent quantity: {field} = {value}")]
-    NegativeField { field: &'static str, value: f64 },
+    NegativeField {
+        /// Name of the turbulence field that went negative (e.g. `"k"`).
+        field: &'static str,
+        /// The offending (negative) value.
+        value: f64,
+    },
 }

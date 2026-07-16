@@ -48,6 +48,7 @@ fn sign(x: f64) -> f64 {
 }
 
 impl CubicEqn {
+    /// Construct `a·x³ + b·x² + c·x + d` from its four `f64` coefficients.
     #[inline]
     pub fn new(a: f64, b: f64, c: f64, d: f64) -> Self {
         Self { a, b, c, d }

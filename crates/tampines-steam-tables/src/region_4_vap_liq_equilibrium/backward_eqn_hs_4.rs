@@ -1,19 +1,22 @@
+use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::ratio::ratio;
 use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
-use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::thermodynamic_temperature::kelvin;
 
-// assuming we are already in region 3
-// calculate temperature given p and h
+/// Returns the IAPWS-IF97 Region 4 backward-equation saturation temperature
+/// `T_sat(h,s)`: specific enthalpy `h` (J/kg) and specific entropy `s`
+/// (J/(kg.K)) in, `ThermodynamicTemperature` (K) out. Used to locate the
+/// saturation temperature of a two-phase state directly from `(h,s)` without
+/// first solving for pressure.
 #[inline]
 pub fn tsat_hs_4(h: AvailableEnergy, s: SpecificHeatCapacity) -> ThermodynamicTemperature {
     let t_ref = ThermodynamicTemperature::new::<kelvin>(550.0);
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(2800.0);
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(9.2);
 
-    let eta: f64 = (h/h_ref).get::<ratio>();
-    let sigma: f64 = (s/s_ref).get::<ratio>();
+    let eta: f64 = (h / h_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
 
     let mut theta: f64 = 0.0;
 
@@ -23,10 +26,9 @@ pub fn tsat_hs_4(h: AvailableEnergy, s: SpecificHeatCapacity) -> ThermodynamicTe
         let ni = coeffs[2];
 
         theta += ni * (eta - 0.119).powf(ii) * (sigma - 1.07).powf(ji);
-    };
+    }
 
     return theta * t_ref;
-
 }
 /// based on table 2.94
 const REGION_4_BACK_COEFFS_HS: [[f64; 3]; 36] = [

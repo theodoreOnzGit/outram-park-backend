@@ -19,12 +19,22 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
-use outram_foam_basic_lib::prelude::{FvMesh, FvVectorMatrix, VolScalarField, VolVectorField};
+//! Spalart-Allmaras one-equation RAS model (1992) — **scaffold only**.
+//!
+//! The [`SpalartAllmaras`] struct and its model constants exist, but the ν̃
+//! transport solve is not implemented: `correct`, `div_dev_rho_reff`,
+//! `alpha_eff`, and `mu_eff_field` are `todo!()` stubs that panic if called.
+//! Only `nu_t()` (which returns the zero-initialised field) is callable.
+
 use crate::traits::TurbulenceModel;
+use outram_foam_basic_lib::prelude::{FvMesh, FvVectorMatrix, VolScalarField, VolVectorField};
+use std::sync::Arc;
 
 /// Spalart-Allmaras one-equation turbulence model (1992).
 /// Common in aerospace applications (external aerodynamics, aerofoils).
+///
+/// **Scaffold only** — every trait method except `nu_t()` is a `todo!()` that
+/// panics if called. The struct and coefficients document the intended model:
 ///
 /// C++ source: `src/TurbulenceModels/turbulenceModels/RAS/SpalartAllmaras/`
 ///
@@ -39,21 +49,33 @@ pub struct SpalartAllmaras {
     pub nu_t: VolScalarField,
 }
 
-// ── Spalart-Allmaras constants ────────────────────────────────────────────────
-pub const CB1:  f64 = 0.1355;
-pub const CB2:  f64 = 0.622;
-pub const CV1:  f64 = 7.1;
-pub const SIGMA: f64 = 2.0/3.0;
+// ── Spalart-Allmaras constants (Spalart & Allmaras 1992; dimensionless) ───────
+/// Production coefficient Cb1.
+pub const CB1: f64 = 0.1355;
+/// Diffusion coefficient Cb2.
+pub const CB2: f64 = 0.622;
+/// Viscous-function coefficient Cv1 (in fv1 = χ³/(χ³ + Cv1³)).
+pub const CV1: f64 = 7.1;
+/// Turbulent Prandtl-like diffusion constant σ.
+pub const SIGMA: f64 = 2.0 / 3.0;
+/// von Kármán constant κ.
 pub const KAPPA: f64 = 0.41;
-pub const CW1:  f64 = CB1 / (KAPPA * KAPPA) + (1.0 + CB2) / SIGMA;  // ≈ 3.239
-pub const CW2:  f64 = 0.3;
-pub const CW3:  f64 = 2.0;
+/// Wall-destruction coefficient Cw1 = Cb1/κ² + (1 + Cb2)/σ (≈ 3.239).
+pub const CW1: f64 = CB1 / (KAPPA * KAPPA) + (1.0 + CB2) / SIGMA; // ≈ 3.239
+/// Wall-destruction coefficient Cw2.
+pub const CW2: f64 = 0.3;
+/// Wall-destruction coefficient Cw3.
+pub const CW3: f64 = 2.0;
 
 impl SpalartAllmaras {
     pub fn new(mesh: Arc<FvMesh>) -> Self {
         let nu_tilde = VolScalarField::zeros("nuTilda", mesh.clone());
-        let nu_t     = VolScalarField::zeros("nut",     mesh.clone());
-        Self { mesh, nu_tilde, nu_t }
+        let nu_t = VolScalarField::zeros("nut", mesh.clone());
+        Self {
+            mesh,
+            nu_tilde,
+            nu_t,
+        }
     }
 }
 
@@ -66,7 +88,9 @@ impl TurbulenceModel for SpalartAllmaras {
         todo!("SpalartAllmaras::correct — solve ν̃ transport equation, update ν_t = ν̃·fv1")
     }
 
-    fn nu_t(&self) -> &VolScalarField { &self.nu_t }
+    fn nu_t(&self) -> &VolScalarField {
+        &self.nu_t
+    }
 
     fn alpha_eff(&self, _alpha: &VolScalarField) -> VolScalarField {
         todo!("SpalartAllmaras::alpha_eff")

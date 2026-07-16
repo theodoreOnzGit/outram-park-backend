@@ -51,6 +51,9 @@ pub struct HPolynomialThermo<E: EquationOfState, const N: usize> {
 }
 
 impl<E: EquationOfState, const N: usize> HPolynomialThermo<E, N> {
+    /// Construct a polynomial-Cp thermo model wrapping `eos`, with the Cp(T)
+    /// polynomial `cps` [J/(kg·K), T in K], heat of formation `hf` [J/kg], and
+    /// reference specific entropy `sf` [J/(kg·K)] at T_std = 298.15 K.
     pub fn new(eos: E, cps: Polynomial<N>, hf: AvailableEnergy, sf: SpecificHeatCapacity) -> Self {
         Self {
             eos,

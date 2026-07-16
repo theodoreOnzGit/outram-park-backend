@@ -19,6 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Iterative linear solvers for the `LduMatrix`: Gauss–Seidel smoothing,
+//! (preconditioned) conjugate gradient for symmetric systems, and a geometric
+//! agglomerated multigrid (GAMG). Mirrors OpenFOAM's `lduMatrix::solver`
+//! hierarchy.
+
 pub mod gauss_seidel;
 pub mod conjugate_gradient;
 pub mod gamg;

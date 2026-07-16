@@ -26,14 +26,41 @@
 //! trademark of OpenCFD Limited. See `TRADEMARKS.md` (this crate's
 //! directory, mirrored from the workspace root) for the full attribution
 //! and non-affiliation notice.
+//!
+//! # Overview
+//!
+//! Pure-Rust translation of the OpenFOAM turbulence-closure library: RAS
+//! (Reynolds-Averaged Simulation) and LES (Large-Eddy Simulation) models that
+//! supply the turbulent-stress and effective-viscosity terms a momentum solver
+//! needs. Every model implements the [`traits::TurbulenceModel`] trait; dispatch
+//! is static (generics), never `dyn`.
+//!
+//! # Implementation status (read before depending on a model)
+//!
+//! Only **k-ω SST is implemented and unit-tested**. The other closures are
+//! scaffolds — the struct and its coefficients exist, but their trait methods
+//! `todo!()`-panic if called. Constructing them is safe; driving them is not.
+//!
+//! | Module | Model | Status |
+//! |---|---|---|
+//! | [`k_omega_sst`] | Menter (1994) k-ω SST | Implemented + unit-tested |
+//! | [`laminar`] | No-op laminar | Partial — `div_dev_rho_reff` is `todo!()` |
+//! | [`k_epsilon`] | Jones & Launder (1972) k-ε | Scaffold — trait methods `todo!()` |
+//! | [`k_omega`] | Wilcox (1988) k-ω | Scaffold — trait methods `todo!()` |
+//! | [`spalart_allmaras`] | Spalart-Allmaras (1992) | Scaffold — trait methods `todo!()` |
+//! | [`les`] | Smagorinsky (1963) LES | Scaffold — trait methods `todo!()` |
+//!
+//! [`wall_functions`] provides standalone log-law helpers (`y_plus`, `u_tau`,
+//! `nu_t_wall`); they are not yet wired into any model as boundary conditions.
+//! See `README.md` ("Limitations") for the full scope/validation caveats.
 
 pub mod error;
-pub mod traits;
-pub mod laminar;
 pub mod k_epsilon;
 pub mod k_omega;
 pub mod k_omega_sst;
-pub mod spalart_allmaras;
+pub mod laminar;
 pub mod les;
-pub mod wall_functions;
 pub mod prelude;
+pub mod spalart_allmaras;
+pub mod traits;
+pub mod wall_functions;

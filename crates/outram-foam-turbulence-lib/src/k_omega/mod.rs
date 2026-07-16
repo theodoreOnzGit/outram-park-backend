@@ -19,11 +19,21 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
-use outram_foam_basic_lib::prelude::{FvMesh, FvVectorMatrix, VolScalarField, VolVectorField};
+//! Standard k-ω RAS model (Wilcox 1988) — **scaffold only**.
+//!
+//! The [`KOmega`] struct, its transport fields, and its model constants exist,
+//! but the transport solve is not implemented: `correct`, `div_dev_rho_reff`,
+//! `alpha_eff`, and `mu_eff_field` are `todo!()` stubs that panic if called.
+//! Only `nu_t()` (which returns the zero-initialised field) is callable.
+
 use crate::traits::TurbulenceModel;
+use outram_foam_basic_lib::prelude::{FvMesh, FvVectorMatrix, VolScalarField, VolVectorField};
+use std::sync::Arc;
 
 /// Standard two-equation k-ω turbulence model (Wilcox 1988).
+///
+/// **Scaffold only** — every trait method except `nu_t()` is a `todo!()` that
+/// panics if called. The struct and coefficients document the intended model:
 ///
 /// C++ source: `src/TurbulenceModels/turbulenceModels/RAS/kOmega/`
 ///
@@ -43,26 +53,34 @@ pub struct KOmega {
     // stub); silence dead_code until the k/omega transport equations are
     // implemented.
     #[allow(dead_code)]
-    alpha:   f64,  // 5/9  ≈ 0.5556
+    alpha: f64, // 5/9  ≈ 0.5556
     #[allow(dead_code)]
-    beta:    f64,  // 3/40 = 0.075
+    beta: f64, // 3/40 = 0.075
     #[allow(dead_code)]
-    beta_st: f64,  // 9/100 = 0.09  (= Cμ in k-ε)
+    beta_st: f64, // 9/100 = 0.09  (= Cμ in k-ε)
     #[allow(dead_code)]
-    sigma_k: f64,  // 0.5
+    sigma_k: f64, // 0.5
     #[allow(dead_code)]
-    sigma_w: f64,  // 0.5
+    sigma_w: f64, // 0.5
 }
 
 impl KOmega {
     /// Wilcox 1988 coefficients.
     pub fn new(mesh: Arc<FvMesh>) -> Self {
-        let k     = VolScalarField::uniform("k",     mesh.clone(), 0.0);
-        let omega = VolScalarField::uniform("omega",  mesh.clone(), 1.0);
-        let nu_t  = VolScalarField::zeros("nut",  mesh.clone());
-        Self { mesh, k, omega, nu_t,
-               alpha: 5.0/9.0, beta: 0.075, beta_st: 0.09,
-               sigma_k: 0.5, sigma_w: 0.5 }
+        let k = VolScalarField::uniform("k", mesh.clone(), 0.0);
+        let omega = VolScalarField::uniform("omega", mesh.clone(), 1.0);
+        let nu_t = VolScalarField::zeros("nut", mesh.clone());
+        Self {
+            mesh,
+            k,
+            omega,
+            nu_t,
+            alpha: 5.0 / 9.0,
+            beta: 0.075,
+            beta_st: 0.09,
+            sigma_k: 0.5,
+            sigma_w: 0.5,
+        }
     }
 }
 
@@ -75,7 +93,9 @@ impl TurbulenceModel for KOmega {
         todo!("KOmega::correct — solve k and omega transport equations")
     }
 
-    fn nu_t(&self) -> &VolScalarField { &self.nu_t }
+    fn nu_t(&self) -> &VolScalarField {
+        &self.nu_t
+    }
 
     fn alpha_eff(&self, _alpha: &VolScalarField) -> VolScalarField {
         todo!("KOmega::alpha_eff")

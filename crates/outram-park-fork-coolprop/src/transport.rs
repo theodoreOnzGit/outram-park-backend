@@ -11,16 +11,26 @@
 //!   dilute `ratio_of_polynomials` or `eta0_and_poly`; residual `polynomial` or
 //!   `polynomial_and_exponential`.
 //!
-//! # Deliberate omission — critical enhancement
+//! # Critical enhancement — partial coverage
 //!
-//! The near-critical enhancement terms (viscosity/conductivity
-//! `simplified_Olchowy_Sengers`, etc.) are **not** evaluated — the same fast-path
-//! simplification `tampines-steam-tables` makes. Away from the critical point
-//! their contribution is negligible; within roughly a few percent of `T_c`,`ρ_c`
-//! `λ` in particular is under-predicted. Fluids whose transport is *hardcoded*
-//! (Water, CO₂, the R-blends, …) or uses an unimplemented model carry **no**
-//! transport model here (`Fluid::transport()` → the relevant field is `None`) —
-//! never a wrong number.
+//! **Conductivity** near-critical enhancement `λ_c` **is** evaluated where a
+//! fluid carries the term: the generic `simplified_Olchowy_Sengers` crossover
+//! and the hardcoded R123 / ammonia terms (see [`CriticalConductivity`]), plus
+//! the self-contained critical terms baked into the heavy-water and methane
+//! hardcoded formulas. Two hardcoded fluids deliberately drop it — Water (the
+//! IAPWS `λ̄₂` term) and Helium (the 3.5–12 K `λ_c`) — the same fast-path
+//! simplification `tampines-steam-tables` makes.
+//!
+//! **Viscosity** has no critical-enhancement term at all (Water's IAPWS `μ̄₂`
+//! is likewise omitted). Away from the critical point this is negligible;
+//! within roughly a few percent of `T_c`,`ρ_c` the omitted term slightly
+//! under-predicts `μ`.
+//!
+//! A fluid whose transport uses a model this port does **not** implement carries
+//! no model for that property (`Fluid::transport()` → the relevant field is
+//! `None`) — never a wrong number. Fluid-specific *hardcoded* formulas that
+//! **are** implemented (Water, heavy water, helium, CO₂, ethane, the xylenes,
+//! R23, methanol, methane) are exposed and returned like any other model.
 
 use crate::fluid::Fluid;
 
@@ -741,7 +751,9 @@ fn helium_conductivity(t: f64, rho: f64) -> f64 {
 /// ships no supported model for that property.
 #[derive(Debug, Clone, Copy)]
 pub struct FluidTransport {
+    /// Dynamic-viscosity model, or `None` if the fluid ships no supported one.
     pub viscosity: Option<ViscosityModel>,
+    /// Thermal-conductivity model, or `None` if the fluid ships no supported one.
     pub conductivity: Option<ConductivityModel>,
 }
 

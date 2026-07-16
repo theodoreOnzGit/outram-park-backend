@@ -19,6 +19,12 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Equations of state relating pressure, temperature and density: ideal
+//! `perfect_gas`, constant-density `rho_const`, incompressible-polynomial
+//! `ico_polynomial`, and the cubic `peng_robinson`. The `traits` submodule is
+//! the compiler-enforced contract each EOS implements. Mirrors OpenFOAM's
+//! `src/thermophysicalModels/specie/equationOfState/`.
+
 pub(crate) mod traits;
 pub mod perfect_gas;
 pub mod rho_const;

@@ -19,6 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! One-dimensional table interpolation over `(x, y)` sample pairs: piecewise
+//! linear (`interpolate_xy`) and cubic-spline (`interpolate_spline_xy`).
+//! Mirrors OpenFOAM's `interpolationTable` utilities.
+
 pub mod interpolate_xy;
 pub mod interpolate_spline_xy;
 pub use interpolate_xy::interpolate_xy;
