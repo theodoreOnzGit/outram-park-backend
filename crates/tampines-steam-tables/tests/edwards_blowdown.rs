@@ -847,22 +847,26 @@ fn excess_total_variation(times: &[f64], series: &[f64], t0: f64, t1: f64) -> f6
 /// within 15 %) are sanity gates per the module V&V contract; the reported
 /// numbers are the deliverable.
 ///
-/// ## Known limitation — late-time hybrid stability
+/// ## Full-transient hybrid stability (bug op-21g.15.7 — FIXED)
 ///
-/// `HybridAllMach` is validated on `0–0.15 s`, which spans the initial
-/// rarefaction ringing and the flashing plateau (the physics of interest). Run
-/// to the **full 600 ms**, the hybrid has a *marginal-stability* limitation past
-/// `t ≈ 0.18 s`: as the pipe empties, many cells sit in the sensitive two-phase
-/// near-sonic state, and the small KNP deferred correction (`|Δφ| ~ 5 kg/s`, not
-/// a spike) can tip a cell across the IAPWS-IF97 273.15 K `(p,h)` validity edge,
-/// which `correct_thermo` correctly panics on (panic-over-stale-state). The
-/// `min(Ma)` gating and the validity-edge guard in `assemble_hybrid_dissipation`
-/// harden this but do not fully remove it — it is an inherent sensitivity of a
-/// deferred correction layered on the delicate plateau-preserving segregated
-/// EEqn. The reproducible **full-600 ms** run is the default `Pimple` mode
-/// (plateau 392.7 psia, GS-1 RMSE 58.6 psia, no cold tail); the hybrid full-run
-/// figures are therefore truncated at 0.17 s (see
-/// `collaboration/edwards_tampines_regen/figures_hybrid/`).
+/// `HybridAllMach` is stable over the **full 600 ms** transient. The earlier
+/// late-time instability past `t ≈ 0.18 s` — as the pipe empties, a rarefying
+/// near-sonic cell's continuity density `ρ_cont` collapses to its floor, the
+/// segregated EEqn diagonal `ρ_cont·V/dt` vanishes, and the explicit KNP deferred
+/// correction over-drives that nearly-empty cell across the IAPWS-IF97 273.15 K
+/// `(p,h)` validity edge (`correct_thermo` correctly panics) — is removed by the
+/// **rarefied-tail density taper** on the KNP blend (`assemble_hybrid_dissipation`):
+/// the dissipation is scaled to zero below `ρ = 50 kg/m³` and full above
+/// `ρ = 100 kg/m³`. The minimum dissipated-face density over the 0–0.15 s ringing
+/// window is ≈ 106.5 kg/m³, so the taper is inert there — the ~55 % ringing
+/// reduction and ≈ 388 psia plateau are unchanged — while the late-time emptying
+/// tail (ρ → few kg/m³, where the HEM closure degrades and there is no flashing
+/// shock to capture) reverts to pure PIMPLE, which is stable.
+///
+/// Measured (2026-07-16, 24 cells, dt = 30 µs, full 600 ms in `HybridAllMach`):
+/// plateau 387.7 psia, GS-1 RMSE vs Data 30.6 psia, no cold tail (min tail
+/// T ≈ 372 K). The `EDW_HYBRID=1` full-run figures are in
+/// `collaboration/edwards_tampines_regen/figures_hybrid_stable/`.
 #[test]
 fn edwards_hybrid_damps_ringing_vs_pimple() {
     let t_end = std::env::var("EDW_CMP_TEND")

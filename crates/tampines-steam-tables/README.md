@@ -306,6 +306,30 @@ never drawn.
 
 # Changelog
 
+v0.2.4 — `HybridAllMach` stabilised over the full transient (patch)
+
+Patch release fixing the late-time instability that made the v0.2.3
+`SolverMode::HybridAllMach` experimental (bug `op-21g.15.7`).
+
+- The full-600 ms Edwards run in `HybridAllMach` now **completes with no panic**
+  (previously crashed past t ≈ 0.18 s). Root cause: not an HEM limit — an
+  emptying mid-pipe cell rarefied in a localised runaway (ρ → near-vacuum), the
+  conservative-energy diagonal collapsed to its floor, and the explicit KNP
+  deferred-correction over-drove the state below the `(p,h)` validity edge.
+- **Fix**: a physically-motivated rarefied-tail taper on the blend weight —
+  `β` is scaled to zero below ρ ≈ 50 kg/m³ and full above ≈ 100 kg/m³
+  (`HYBRID_RHO_TAPER_LO/HI`). There is no flashing shock to capture in the
+  near-vacuum tail (where the HEM closure degrades anyway), and the minimum
+  dissipated-face density in the ringing window is 106.5 kg/m³, so the taper
+  never touches the physics of interest. No clamps, no tolerance changes.
+- **Result**: full-600 ms `HybridAllMach` is stable and now *more accurate than
+  default `Pimple`* — GS-1 pressure RMSE vs the digitised Data ≈ 30.6 psia
+  (vs 58.6 for `Pimple`), the ~55 % near-sonic ringing reduction retained, the
+  flashing plateau held (387.7 psia), no cold tail (min T ≈ 372 K). Default
+  `Pimple` remains bit-identical (920 lib tests pass). Residual void-fraction
+  oscillations in the depressurising tail remain a minor secondary artifact.
+- `SolverMode::HybridAllMach` is no longer flagged experimental in the API docs.
+
 v0.2.3 — Edwards–O'Brien blowdown V&V case, flashing-plateau fix,
 and the experimental all-Mach solver mode (patch)
 

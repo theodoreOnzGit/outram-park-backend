@@ -233,13 +233,14 @@ use central_upwind::{
 /// near-sonic faces (`β(Ma) > 0`), to damp the ringing at a near-sonic flashing
 /// front while leaving subsonic regions untouched.
 ///
-/// **[`SolverMode::HybridAllMach`] is EXPERIMENTAL / buggy — do not use for
-/// production.** It successfully damps the near-sonic ringing (~55%) over the
-/// early flashing window (0–0.15 s), but the full-600 ms Edwards run is
-/// marginally unstable past t ≈ 0.18 s (an emptying-pipe two-phase near-sonic
-/// cell over-cools across the `(p,h)` validity edge). Tracked as bug
-/// `op-21g.15.7`; future work. The **validated, reproducible full-transient
-/// path is the default [`SolverMode::Pimple`]**.
+/// [`SolverMode::HybridAllMach`] damps the near-sonic ringing (~55 % less excess
+/// total variation over 0–0.15 s) while retaining the Edwards flashing plateau
+/// (≈ 388 psia). It is **stable over the full 600 ms transient**: the earlier
+/// late-time instability (an emptying-pipe near-sonic cell driven across the
+/// `(p,h)` 273.15 K validity edge past t ≈ 0.18 s, bug `op-21g.15.7`) is fixed by
+/// the rarefied-tail density taper on the KNP dissipation — see
+/// [`TampinesSteamArray::assemble_hybrid_dissipation`]. The default
+/// [`SolverMode::Pimple`] remains bit-for-bit the historical validated path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum SolverMode {
     /// Pressure-based compressible **HEM-closed PIMPLE** — the historical,
@@ -247,10 +248,11 @@ pub enum SolverMode {
     /// over the full 600 ms transient).
     #[default]
     Pimple,
-    /// **EXPERIMENTAL / buggy** (see the enum doc and bug `op-21g.15.7`):
     /// PIMPLE + Mach-blended KNP shock-capturing dissipation (all-Mach hybrid).
-    /// Damps the near-sonic ringing but is not yet stable over the full
-    /// transient — prefer [`SolverMode::Pimple`] for production.
+    /// Damps the near-sonic ringing at the flashing front (~55 %) while retaining
+    /// the flashing plateau, and is stable over the full 600 ms Edwards transient
+    /// (rarefied-tail density taper, bug `op-21g.15.7`). The default
+    /// [`SolverMode::Pimple`] is the bit-identical historical path.
     HybridAllMach,
 }
 
@@ -278,6 +280,22 @@ struct HybridDissipation {
     /// Per-cell momentum source \[N\] (owner-loses / neighbour-gains sum).
     mom_src: Vec<Vector3>,
 }
+
+/// Lower mixture-density threshold \[kg/m³\] of the rarefied-tail taper on the
+/// all-Mach hybrid KNP dissipation. **Below** this the KNP dissipation is scaled
+/// to **zero** (rarefied emptying tail ⇒ pure PIMPLE, which is stable over the
+/// full transient). See [`TampinesSteamArray::assemble_hybrid_dissipation`] for
+/// the physical rationale and the full-transient stability fix (bug op-21g.15.7).
+const HYBRID_RHO_TAPER_LO: f64 = 50.0;
+
+/// Upper mixture-density threshold \[kg/m³\] of the rarefied-tail taper. **At or
+/// above** this the KNP dissipation is applied at full weight (the dense
+/// two-phase flashing front where the ringing lives — its minimum dissipated
+/// face density is measured at ≈ 106.5 kg/m³ over the 0–0.15 s physics window, so
+/// the front sits entirely in the full-weight band and the ~55 % ringing
+/// reduction / ≈ 388 psia plateau are unchanged). Between `LO` and `HI` the blend
+/// ramps linearly. See [`TampinesSteamArray::assemble_hybrid_dissipation`].
+const HYBRID_RHO_TAPER_HI: f64 = 100.0;
 
 // ── Boundary-condition helpers ──────────────────────────────────────────────────
 //
@@ -1321,7 +1339,41 @@ impl TampinesSteamArray {
             // through and over-drained the near-break enthalpy below the
             // 273.15 K isotherm (bead op-21g.15.6 debugging trail).
             let ma_f = ma_cell[o].min(ma_cell[nb]);
-            let beta = mach_blend(ma_f, lo, hi);
+            let mut beta = mach_blend(ma_f, lo, hi);
+
+            // Rarefied-tail (low-density) taper — the full-transient stability fix
+            // (bug op-21g.15.7). The all-Mach KNP shock-capturing is designed for
+            // the *dense* two-phase flashing front (mixture density
+            // ρ ≳ 100 kg/m³, the near-sonic region where the ringing lives). As
+            // the pipe empties, cells rarefy toward vacuum; there the HEM
+            // equilibrium closure degrades, there is no flashing shock to capture,
+            // and an explicit deferred-correction dissipation evaluated on a
+            // nearly-empty cell over-drives it: the continuity density `ρ_cont`
+            // collapses to its floor, the segregated EEqn diagonal `ρ_cont·V/dt`
+            // vanishes, and a single solve tips the cell across the IAPWS-IF97
+            // 273.15 K `(p,h)` validity edge (the panic this fix removes). Both the
+            // continuity and momentum dissipation independently trigger this in the
+            // emptying tail.
+            //
+            // The taper `g(ρ_face) = clamp((ρ_face − ρ_lo)/(ρ_hi − ρ_lo), 0, 1)`,
+            // with `ρ_face = min(ρ_owner, ρ_neighbour)` (the lighter, at-risk side),
+            // scales the blend to **zero below `ρ_lo`** (rarefied ⇒ pure PIMPLE,
+            // which is stable over the full transient) and **full above `ρ_hi`**
+            // (dense front ⇒ untouched). It is measured to be inert over the
+            // physics-of-interest window: the minimum dissipated-face density in
+            // 0–0.15 s is ≈ 106.5 kg/m³ (every ringing/plateau face sits at
+            // `ρ ≥ ρ_hi`), so the ~55 % ringing reduction and the ≈ 388 psia
+            // flashing plateau are unchanged, while the late-time emptying tail can
+            // no longer be driven out of the `(p,h)` range. See the V&V log
+            // `collaboration/edwards_tampines_regen/hybrid_stability_debug_log.md`.
+            {
+                let rho_face_min = self.rho.internal[o].min(self.rho.internal[nb]);
+                let g = ((rho_face_min - HYBRID_RHO_TAPER_LO)
+                    / (HYBRID_RHO_TAPER_HI - HYBRID_RHO_TAPER_LO))
+                    .clamp(0.0, 1.0);
+                beta *= g;
+            }
+
             if beta <= 0.0 {
                 continue;
             }
