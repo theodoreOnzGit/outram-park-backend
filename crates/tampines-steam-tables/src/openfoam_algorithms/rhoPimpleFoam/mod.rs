@@ -215,6 +215,70 @@ use uom::si::time::second;
 mod lateral_coupling;
 pub use lateral_coupling::TampinesSteamArrayError;
 
+mod central_upwind;
+use central_upwind::{
+    central_face_flux, hem_sound_speed_ph, knp_face_flux, mach_blend, velocity_component,
+    FaceState, C_MIN_MPS,
+};
+
+/// Selects the flux discretisation used by [`TampinesSteamArray::step`].
+///
+/// This is an **opt-in** switch (enum dispatch — no trait objects, per the
+/// workspace design rules). The default [`SolverMode::Pimple`] runs the
+/// pressure-based compressible PIMPLE algorithm exactly as before, bit-for-bit
+/// (the recent Edwards flashing-plateau fix and every existing test are
+/// preserved by construction). [`SolverMode::HybridAllMach`] additionally
+/// injects a **Mach-weighted KNP central-upwind dissipation** (see the
+/// `central_upwind` module) as a deferred-correction flux, active only on
+/// near-sonic faces (`β(Ma) > 0`), to damp the ringing at a near-sonic flashing
+/// front while leaving subsonic regions untouched.
+///
+/// **[`SolverMode::HybridAllMach`] is EXPERIMENTAL / buggy — do not use for
+/// production.** It successfully damps the near-sonic ringing (~55%) over the
+/// early flashing window (0–0.15 s), but the full-600 ms Edwards run is
+/// marginally unstable past t ≈ 0.18 s (an emptying-pipe two-phase near-sonic
+/// cell over-cools across the `(p,h)` validity edge). Tracked as bug
+/// `op-21g.15.7`; future work. The **validated, reproducible full-transient
+/// path is the default [`SolverMode::Pimple`]**.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum SolverMode {
+    /// Pressure-based compressible **HEM-closed PIMPLE** — the historical,
+    /// validated, default path (recovers the Edwards flashing plateau; stable
+    /// over the full 600 ms transient).
+    #[default]
+    Pimple,
+    /// **EXPERIMENTAL / buggy** (see the enum doc and bug `op-21g.15.7`):
+    /// PIMPLE + Mach-blended KNP shock-capturing dissipation (all-Mach hybrid).
+    /// Damps the near-sonic ringing but is not yet stable over the full
+    /// transient — prefer [`SolverMode::Pimple`] for production.
+    HybridAllMach,
+}
+
+/// Per-`step` hybrid KNP dissipation for the continuity and momentum equations.
+/// Both fields are the deferred-correction contribution `β·(knp − central)·|Sf|`
+/// summed appropriately; every entry is identically zero on a subsonic
+/// (`β = 0`) face, so the default `Pimple` path never sees it.
+///
+/// ## Why there is no separate energy term
+///
+/// The continuity dissipation is folded into `phi` **before** the EEqn's
+/// `rho_cont`/`conv_he` recompute, so the enthalpy shock-capturing is carried
+/// *implicitly* by the EEqn's `∇·(φh)` convection — the plateau-fix cancellation
+/// `(rho_cont − rho_old)/dt = −∇·φ` transports the dissipative enthalpy for
+/// free. Adding a *separate* explicit `ΔF_ener` source on top double-counts that
+/// enthalpy transport and breaks the finely-balanced plateau cancellation: in
+/// testing it either over-drained the near-break cell below the 273.15 K
+/// isotherm or, when scaled down to stay stable, over-damped and suppressed the
+/// physical flashing front. Energy shock-capturing therefore rides on the
+/// continuity dissipation, not a standalone source (bead op-21g.15.6 —
+/// documented in `collaboration/edwards_tampines_regen/hybrid_debug_log.md`).
+struct HybridDissipation {
+    /// Dissipative mass flux to add to `phi` \[kg/s\], one per internal face.
+    d_phi: Vec<f64>,
+    /// Per-cell momentum source \[N\] (owner-loses / neighbour-gains sum).
+    mom_src: Vec<Vector3>,
+}
+
 // ── Boundary-condition helpers ──────────────────────────────────────────────────
 //
 // The linear solver and field arithmetic rebuild output fields with zero-gradient
@@ -321,6 +385,20 @@ pub struct TampinesSteamArray {
     /// [`Self::p_min`].
     pub p_max: Pressure,
 
+    // ── All-Mach hybrid (opt-in) ─────────────────────────────────────────────
+    /// Flux-discretisation mode (default [`SolverMode::Pimple`], bit-identical
+    /// to the historical path). See [`Self::set_solver_mode`].
+    pub mode: SolverMode,
+    /// Lower Mach threshold `lo` of the hybrid blend window
+    /// `β(Ma) = clamp((Ma−lo)/(hi−lo), 0, 1)` (default `0.3`, dimensionless).
+    /// Below `lo` the KNP dissipation is identically zero. Only read when
+    /// `mode == HybridAllMach`. See [`Self::set_mach_blend_window`].
+    pub ma_blend_lo: Ratio,
+    /// Upper Mach threshold `hi` of the hybrid blend window (default `1.0`,
+    /// dimensionless). At/above `hi` the KNP dissipation is applied at full
+    /// weight. See [`Self::set_mach_blend_window`].
+    pub ma_blend_hi: Ratio,
+
     // ── Fields ──────────────────────────────────────────────────────────────
     /// Velocity field \[m/s\].
     pub u: VolVectorField,
@@ -336,8 +414,13 @@ pub struct TampinesSteamArray {
     pub mu: VolScalarField,
     /// Effective thermal diffusivity αh = κ/Cp \[kg/(m·s)\].
     pub alpha_h: VolScalarField,
-    /// Compressibility ψ = ∂ρ/∂p|_T = ρ·κ_T \[s²/m²\] (κ_T from a real
-    /// IAPWS-IF97 flash — see [`Self::correct_thermo`]).
+    /// Compressibility ψ = ∂ρ/∂p|_h \[s²/m²\] — the density's response to
+    /// pressure at **fixed enthalpy**, the correct linearisation for this
+    /// segregated pressure equation (he is frozen during the pressure solve).
+    /// Computed by a central finite difference of the real IAPWS-IF97 `(p, h)`
+    /// flash — see [`Self::correct_thermo`]. In single phase this equals the
+    /// isothermal ρ·κ_T; in the two-phase dome it is much larger because it
+    /// carries the flashing term `(v_g − v_f)·dx/dp`.
     pub psi: VolScalarField,
     /// Mass flux φ = ρ U·Sf \[kg/s\].
     pub phi: SurfaceScalarField,
@@ -464,6 +547,11 @@ impl TampinesSteamArray {
                 ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(273.15),
             ) * 1.001,
             p_max: Pressure::new::<uom::si::pressure::megapascal>(100.0),
+            // Default: pure PIMPLE ⇒ the hybrid dissipation is never assembled,
+            // so every existing constructor/test runs the unchanged code path.
+            mode: SolverMode::Pimple,
+            ma_blend_lo: Ratio::new::<ratio>(0.3),
+            ma_blend_hi: Ratio::new::<ratio>(1.0),
             u,
             p,
             rho,
@@ -490,7 +578,9 @@ impl TampinesSteamArray {
     /// `(p, he)` per cell, via a real IAPWS-IF97 `(p, h)` flash.
     ///
     /// Per cell: `T = t_ph_eqm(p,h)`, `ρ = 1/v_ph_eqm(p,h)`, the local
-    /// compressibility `ψ = ∂ρ/∂p|_T = ρ·κ_T` (`κ_T` from `kappa_t_ph_eqm`),
+    /// compressibility `ψ = ∂ρ/∂p|_h` (central finite difference of the `(p,h)`
+    /// flash — the fixed-enthalpy compressibility the segregated pressure
+    /// equation needs; captures two-phase flashing compliance),
     /// dynamic viscosity `μ = mu_ph_eqm(p,h)`, and the OpenFOAM-convention
     /// effective thermal diffusivity `αh = κ/Cp` (`lambda_ph_eqm` over
     /// `cp_ph_eqm`, **not** divided by ρ -- matches `alphaEff` as used
@@ -520,14 +610,54 @@ impl TampinesSteamArray {
             let t = t_ph_eqm(p_c, h_c);
             let v = v_ph_eqm(p_c, h_c);
             let rho = 1.0 / v.get::<cubic_meter_per_kilogram>();
-            let kappa_t = kappa_t_ph_eqm(p_c, h_c).value; // raw Pa^-1 (InversePressure has no named unit)
             let mu = mu_ph_eqm(p_c, h_c);
             let lambda = lambda_ph_eqm(p_c, h_c);
             let cp = cp_ph_eqm(p_c, h_c);
 
+            // Compressibility ψ for the pressure equation = ∂ρ/∂p **at fixed
+            // enthalpy**, computed by a central finite difference of the real
+            // (p, h) flash. This is the physically correct linearisation for
+            // this *segregated* algorithm: within a pressure-correction inner
+            // iteration `he` is frozen (it is only updated by the energy
+            // equation after the inner loop), so the density's response to the
+            // pressure change is `∂ρ/∂p|_h`, not the isothermal `∂ρ/∂p|_T`.
+            //
+            // In single phase the two agree (for an ideal gas ∂ρ/∂p|_h = ρ/p =
+            // ρ·κ_T exactly; for liquid ∂ρ/∂h|_p is tiny so |_h ≈ |_T), so this
+            // leaves the subcooled/superheated behaviour unchanged. **Inside
+            // the two-phase dome they differ by ~2 orders of magnitude**: the
+            // frozen quality-weighted isothermal value `κ_T = x·κ_vap +
+            // (1−x)·κ_liq` (`kappa_t_ph_eqm`, Region 4) omits the flashing term
+            // `(v_g − v_f)·dx/dp`, whereas `∂ρ/∂p|_h` includes it because the
+            // (p, h) flash re-solves the equilibrium quality at each pressure.
+            // That flashing compliance is exactly what pins a two-phase cell on
+            // the saturation line (`p = p_sat(T)`) as it depressurises — the
+            // Edwards flashing plateau. With the frozen isothermal ψ the
+            // pressure-eqn diagonal `ψ·V/dt` is ~100× too small in two phase
+            // and the pressure overshoots straight through the plateau.
+            let p_pa = self.p.internal[c];
+            let p_min_pa = self.p_min.get::<pascal>();
+            let p_max_pa = self.p_max.get::<pascal>();
+            let dp = (p_pa * 1.0e-3).max(50.0);
+            let p_hi = (p_pa + dp).min(p_max_pa);
+            let p_lo = (p_pa - dp).max(p_min_pa);
+            let psi_fd = if p_hi > p_lo {
+                let rho_hi = 1.0
+                    / v_ph_eqm(Pressure::new::<pascal>(p_hi), h_c)
+                        .get::<cubic_meter_per_kilogram>();
+                let rho_lo = 1.0
+                    / v_ph_eqm(Pressure::new::<pascal>(p_lo), h_c)
+                        .get::<cubic_meter_per_kilogram>();
+                (rho_hi - rho_lo) / (p_hi - p_lo)
+            } else {
+                // Degenerate (both bounds clamped together): fall back to the
+                // isothermal value so ψ stays defined at the EOS-range edges.
+                rho * kappa_t_ph_eqm(p_c, h_c).value
+            };
+
             self.rho.internal[c] = rho.max(1e-4);
             self.t.internal[c] = t.get::<kelvin>();
-            self.psi.internal[c] = (rho * kappa_t).max(1e-12);
+            self.psi.internal[c] = psi_fd.max(1e-12);
             self.mu.internal[c] = mu.value;
             self.alpha_h.internal[c] = lambda.value / cp.value;
         }
@@ -560,6 +690,12 @@ impl TampinesSteamArray {
         let u_bcs = capture_bcs(&self.u.boundary);
         let p_bcs = capture_bcs(&self.p.boundary);
 
+        // Hybrid-mode only: deferred KNP momentum dissipation, carried from one
+        // outer corrector into the next outer corrector's UEqn source (a
+        // one-corrector deferred-correction lag). Stays all-zero in `Pimple`
+        // mode, so the momentum predictor is untouched by construction.
+        let mut hybrid_mom_src = vec![Vector3::ZERO; n];
+
         for _ in 0..n_outer {
             // ── rhoEqn: explicit continuity ρ = ρ_old − dt·∇·φ ──────────────
             let div_phi = fvc::div_flux(&self.phi);
@@ -574,6 +710,15 @@ impl TampinesSteamArray {
             let mut u_eqn = fvm::ddt_coeff_vec(&self.rho, &self.u, &u_old, dt, mesh.clone())
                 + fvm::div_vec(&self.phi, &self.u, mesh.clone())
                 + fvm::laplacian_vec(&self.mu, &self.u, mesh.clone());
+
+            // Hybrid: fold the deferred KNP momentum dissipation into the UEqn
+            // source so the momentum predictor and every H(U) re-evaluation in
+            // the pressure loop see it. Zero (no-op) in `Pimple` mode.
+            if self.mode == SolverMode::HybridAllMach {
+                for c in 0..n {
+                    u_eqn.source[c] = u_eqn.source[c] + hybrid_mom_src[c];
+                }
+            }
 
             // A [kg/s]; rAU = V/A [m³·s/kg]
             let a = u_eqn.a_field();
@@ -812,13 +957,69 @@ impl TampinesSteamArray {
                 self.correct_thermo();
             }
 
+            // ── Hybrid all-Mach KNP dissipation (deferred correction) ────────
+            // Assembled from the just-converged primitives. The continuity
+            // dissipation is folded into `self.phi` HERE, *before* the EEqn's
+            // `rho_cont`/`conv_he` recompute below both read `self.phi`, so the
+            // discrete continuity invariant `(rho_cont − rho_old)/dt = −∇·φ`
+            // still holds exactly, the plateau-fix `h·∇·φ` cancellation survives,
+            // AND the enthalpy shock-capturing is carried implicitly by that
+            // convection (so no separate, destabilising energy source is added —
+            // see `HybridDissipation`). Momentum dissipation is deferred to the
+            // next outer corrector's UEqn. `Pimple` mode skips all of this.
+            if self.mode == SolverMode::HybridAllMach {
+                let diss = self.assemble_hybrid_dissipation();
+                for f in 0..mesh.n_internal_faces {
+                    self.phi.internal[f] += diss.d_phi[f];
+                }
+                hybrid_mom_src = diss.mom_src;
+            }
+
             // ── Energy equation ─────────────────────────────────────────────
             //   ∂(ρh)/∂t + ∇·(φh) + (−∇·(αh∇h)) = dp/dt   [+ laplacian sign]
             let conv_he = fvc::div(&self.phi, &self.he); // explicit ∇·(φh)/V
             let alpha_h_f = fvc::interpolate(&self.alpha_h);
             let dp_dt = (self.p.clone() - p_old.clone()) * (1.0 / dt);
 
-            let mut e_eqn = fvm::ddt_coeff(&self.rho, &self.he, &he_old, dt)
+            // Conservative energy time derivative: ∂(ρh)/∂t discretised as
+            // (ρ_cont·h − ρ_old·h_old)/dt (bead op-21g.14). Two coupled fixes:
+            //
+            //  1. The OLD-time term uses the OLD-time density `rho_old`
+            //     (previous time level), not the current density — restoring
+            //     the missing `h_old·(ρ − ρ_old)/dt` term. `ddt_coeff` reused
+            //     the *current* ρ for both terms, so it was really solving
+            //     ρ·∂h/∂t + ∇·(φh) = dp/dt, whose un-cancelled `h·∇·φ` outflow
+            //     over-drains enthalpy during the violent flash (∇·φ ≫ 0 at the
+            //     break), driving the bulk liquid subcooled and collapsing the
+            //     pressure straight past `p_sat`.
+            //
+            //  2. The NEW-time coefficient is the **continuity density**
+            //     `ρ_cont = ρ_old − dt·∇·φ` recomputed here from the final
+            //     mass flux `self.phi`, NOT the EOS density that
+            //     `correct_thermo` wrote into `self.rho` each inner corrector.
+            //     Only with `ρ_cont` does discrete continuity
+            //     `(ρ_cont − ρ_old)/dt = −∇·φ` hold *exactly*, so the
+            //     `h_old·(ρ_cont − ρ_old)/dt = −h_old·∇·φ` term cancels the
+            //     `h·∇·φ` part of `∇·(φh)` term-for-term. Using the EOS density
+            //     (which, mid-flash, drops faster than the ψ·dp/dt the pressure
+            //     equation feeds back into φ) leaves a residual that instead
+            //     spuriously *over-heats* cells (a (p,h) flash into Region 5).
+            //     With `ρ_cont` the energy equation reduces to the material
+            //     derivative ρ Dh/Dt = dp/dt ⇒ the reversible `dh ≈ dp/ρ`
+            //     (small enthalpy change) that keeps the state on the
+            //     saturation dome as p falls — the flashing plateau.
+            //     See `fvm::ddt_coeff_old`.
+            let rho_cont = {
+                let div_phi_final = fvc::div_flux(&self.phi);
+                let mut rc = rho_old.clone() + (-dt) * div_phi_final;
+                for c in 0..n {
+                    if rc.internal[c] < 1e-4 {
+                        rc.internal[c] = 1e-4;
+                    }
+                }
+                rc
+            };
+            let mut e_eqn = fvm::ddt_coeff_old(&rho_cont, &rho_old, &self.he, &he_old, dt)
                 + fvm::laplacian(&alpha_h_f, &self.he);
             {
                 let conv_sl = conv_he.internal.as_slice();
@@ -970,6 +1171,198 @@ impl TampinesSteamArray {
         );
         self.p_min = p_min;
         self.p_max = p_max;
+    }
+
+    /// The current flux-discretisation mode (see [`SolverMode`]).
+    pub fn get_solver_mode(&self) -> SolverMode {
+        self.mode
+    }
+
+    /// Selects the flux-discretisation mode. [`SolverMode::Pimple`] (the
+    /// default) runs the historical pressure-based path bit-identically;
+    /// [`SolverMode::HybridAllMach`] additionally applies the Mach-blended KNP
+    /// central-upwind dissipation as a deferred correction on near-sonic faces.
+    pub fn set_solver_mode(&mut self, mode: SolverMode) {
+        self.mode = mode;
+    }
+
+    /// The current hybrid Mach-blend window `(lo, hi)` (dimensionless Mach
+    /// thresholds). See [`Self::set_mach_blend_window`].
+    pub fn get_mach_blend_window(&self) -> (Ratio, Ratio) {
+        (self.ma_blend_lo, self.ma_blend_hi)
+    }
+
+    /// Sets the hybrid Mach-blend window `β(Ma) = clamp((Ma−lo)/(hi−lo), 0, 1)`.
+    ///
+    /// `lo` and `hi` are dimensionless Mach thresholds: below `lo` **no** KNP
+    /// dissipation is added (subsonic ⇒ the PIMPLE result is preserved), at/above
+    /// `hi` it is applied at full weight, with a linear ramp between. Only
+    /// affects [`SolverMode::HybridAllMach`]. Panics if `hi <= lo`.
+    pub fn set_mach_blend_window(&mut self, lo: Ratio, hi: Ratio) {
+        assert!(
+            hi.get::<ratio>() > lo.get::<ratio>(),
+            "mach blend window requires hi > lo, got lo = {}, hi = {}",
+            lo.get::<ratio>(),
+            hi.get::<ratio>()
+        );
+        self.ma_blend_lo = lo;
+        self.ma_blend_hi = hi;
+    }
+
+    /// Assemble the Mach-weighted KNP central-upwind dissipation from the
+    /// **current** primitive state (`ρ, U, he, p` after the inner PISO loop's
+    /// `correct_thermo`).
+    ///
+    /// Per internal face: the per-cell HEM equilibrium sound speed
+    /// ([`hem_sound_speed_ph`]) gives the cell Mach numbers; the face blend
+    /// weight is `β(Ma_face)` with `Ma_face = min(Ma_owner, Ma_neighbour)` — the
+    /// low-Mach scaling that keeps a liquid/two-phase interface stable (the
+    /// liquid side is subsonic so `β = 0` there; dissipation activates only where
+    /// *both* sides are near-sonic — see the `min` rationale at the call site).
+    /// van-Leer MUSCL owner/neighbour reconstructions of `ρ, U, he, p, c` build
+    /// the left/right [`FaceState`]s, and the deferred-correction dissipation is
+    /// `β·(knp − central)·|Sf|` — the pure KNP jump term, identically zero on a
+    /// subsonic face. Continuity dissipation is returned as a face mass flux to
+    /// fold into `phi`; momentum dissipation as an owner-loses / neighbour-gains
+    /// per-cell source. There is no separate energy source — the enthalpy
+    /// shock-capturing rides on the continuity flux through the EEqn's `∇·(φh)`
+    /// (see [`HybridDissipation`]).
+    fn assemble_hybrid_dissipation(&self) -> HybridDissipation {
+        let mesh = self.mesh.clone();
+        let n = mesh.n_cells;
+        let nif = mesh.n_internal_faces;
+        let lo = self.ma_blend_lo.get::<ratio>();
+        let hi = self.ma_blend_hi.get::<ratio>();
+
+        // Per-cell HEM equilibrium sound speed, Mach number, and a validity-edge
+        // safety flag.
+        //
+        // The KNP shock-capturing is only meaningful where the HEM `(p,h)` closure
+        // is well-defined. `safe[c]` marks cells whose temperature sits
+        // comfortably inside the IAPWS-IF97 `(p,h)` validity window (bounded by
+        // the 273.15 K and 1073.15 K isotherms the flash panics at, plus the
+        // triple-point pressure floor). Faces touching an unsafe cell get no
+        // dissipation, so the hybrid can never nudge a marginal empty-pipe-tail
+        // cell across those edges. The margins sit far from the ringing phase
+        // (whose flashing-front cells are ~490–500 K at 2–7 MPa), so the damping
+        // demonstrated on 0–0.15 s is unaffected; this only hardens the long
+        // tail against last-bit trajectory sensitivity near the edges.
+        const T_SAFE_LO_K: f64 = 300.0; // margin above the 273.15 K panic
+        const T_SAFE_HI_K: f64 = 1050.0; // margin below the 1073.15 K panic
+        let p_floor = self.p_min.get::<uom::si::pressure::pascal>();
+        let mut c_cell = vec![0.0_f64; n];
+        let mut ma_cell = vec![0.0_f64; n];
+        let mut safe = vec![false; n];
+        for i in 0..n {
+            let c = hem_sound_speed_ph(self.p.internal[i], self.he.internal[i], C_MIN_MPS);
+            c_cell[i] = c;
+            ma_cell[i] = self.u.internal[i].mag() / c;
+            let t_i = self.t.internal[i];
+            safe[i] = t_i.is_finite()
+                && (T_SAFE_LO_K..=T_SAFE_HI_K).contains(&t_i)
+                && self.p.internal[i] > p_floor;
+        }
+
+        // Reconstruct the sound speed as a field so the face wave speeds use the
+        // MUSCL owner/neighbour states, consistent with the primitives.
+        let c_field = VolScalarField::new(
+            "cHEM",
+            mesh.clone(),
+            Field::new(c_cell),
+            mesh.patches
+                .iter()
+                .map(|p| PatchField::zero_gradient(p.size))
+                .collect(),
+        );
+
+        let lim = fvc::Limiter::VanLeer;
+        let (rho_pos, rho_neg) = fvc::reconstruct_pos_neg(&self.rho, lim);
+        let (he_pos, he_neg) = fvc::reconstruct_pos_neg(&self.he, lim);
+        let (p_pos, p_neg) = fvc::reconstruct_pos_neg(&self.p, lim);
+        let (c_pos, c_neg) = fvc::reconstruct_pos_neg(&c_field, lim);
+        let ux = velocity_component(&self.u, 0);
+        let uy = velocity_component(&self.u, 1);
+        let uz = velocity_component(&self.u, 2);
+        let (ux_pos, ux_neg) = fvc::reconstruct_pos_neg(&ux, lim);
+        let (uy_pos, uy_neg) = fvc::reconstruct_pos_neg(&uy, lim);
+        let (uz_pos, uz_neg) = fvc::reconstruct_pos_neg(&uz, lim);
+
+        let mut d_phi = vec![0.0_f64; nif];
+        let mut mom_src = vec![Vector3::ZERO; n];
+
+        for f in 0..nif {
+            let o = mesh.owner[f];
+            let nb = mesh.neighbour[f];
+            let area = mesh.face_areas[f];
+            if area < 1e-300 {
+                continue;
+            }
+
+            // Validity-edge guard: no shock-capturing where the HEM closure is
+            // near its (p,h) validity boundary on either side (see `safe`).
+            if !safe[o] || !safe[nb] {
+                continue;
+            }
+
+            // Blend weight gated on the *lower* Mach of the two adjacent cells
+            // (subsonic ⇒ β = 0 ⇒ skip: exactly pure PIMPLE on this face).
+            //
+            // Using `min` (not `max`) is the low-Mach scaling that keeps the
+            // scheme stable at a liquid/two-phase interface. There the liquid
+            // side's sound speed (~1400 m/s) dominates the KNP wave speeds
+            // `a = u ± c`, so the numerical viscosity `a_L·a_R/da ~ c_liq/2` is
+            // huge; but that liquid acoustic wave is genuinely *low Mach*
+            // (|u|/c_liq ≪ 1), so it must NOT be dissipated. `min(Ma)` sees the
+            // subsonic liquid side and returns β = 0 there, activating the KNP
+            // dissipation only where *both* sides are near-sonic — the
+            // fully-developed two-phase flashing front, where `c` is uniformly
+            // small and the dissipation magnitude is physical. Gating on
+            // `max(Ma)` instead let the low-Mach liquid acoustic viscosity
+            // through and over-drained the near-break enthalpy below the
+            // 273.15 K isotherm (bead op-21g.15.6 debugging trail).
+            let ma_f = ma_cell[o].min(ma_cell[nb]);
+            let beta = mach_blend(ma_f, lo, hi);
+            if beta <= 0.0 {
+                continue;
+            }
+
+            let sf = mesh.face_area_vectors[f];
+            let n_f = Vector3::new(sf.x / area, sf.y / area, sf.z / area);
+
+            let l = FaceState {
+                rho: rho_pos.internal[f].max(1e-10),
+                u: Vector3::new(ux_pos.internal[f], uy_pos.internal[f], uz_pos.internal[f]),
+                he: he_pos.internal[f],
+                p: p_pos.internal[f],
+                c: c_pos.internal[f].max(C_MIN_MPS),
+            };
+            let r = FaceState {
+                rho: rho_neg.internal[f].max(1e-10),
+                u: Vector3::new(ux_neg.internal[f], uy_neg.internal[f], uz_neg.internal[f]),
+                he: he_neg.internal[f],
+                p: p_neg.internal[f],
+                c: c_neg.internal[f].max(C_MIN_MPS),
+            };
+
+            let knp = knp_face_flux(&l, &r, n_f);
+            let cen = central_face_flux(&l, &r, n_f);
+
+            // Continuity / momentum: deferred-correction dissipation
+            // β·(KNP − central)·|Sf| (the pure KNP jump term). Energy is carried
+            // implicitly by the continuity term (see `HybridDissipation`).
+            let d_cont = beta * (knp.cont - cen.cont) * area;
+            let d_mom = (knp.mom - cen.mom) * (beta * area);
+
+            // Continuity: add the dissipative mass flux to phi (owner→neighbour
+            // positive, matching phi's sign convention).
+            d_phi[f] += d_cont;
+            // Momentum: owner loses the outgoing flux, neighbour gains it (same
+            // convention as the rhoCentralFoam conserved-variable tendencies).
+            mom_src[o] = mom_src[o] - d_mom;
+            mom_src[nb] = mom_src[nb] + d_mom;
+        }
+
+        HybridDissipation { d_phi, mom_src }
     }
 }
 

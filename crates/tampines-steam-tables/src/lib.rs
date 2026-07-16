@@ -129,7 +129,9 @@ pub mod openfoam_algorithms;
 /// [`openfoam_algorithms::rhoPimpleFoam`], surfaced at the crate root for
 /// convenience. `TampinesSteamArray` backs each finite-volume cell with an
 /// IAPWS-IF97 `(p,h)` flash so a 1-D pipe can carry two-phase steam-water flow.
-pub use openfoam_algorithms::rhoPimpleFoam::{TampinesSteamArray, TampinesSteamArrayError};
+pub use openfoam_algorithms::rhoPimpleFoam::{
+    SolverMode, TampinesSteamArray, TampinesSteamArrayError,
+};
 
 
 

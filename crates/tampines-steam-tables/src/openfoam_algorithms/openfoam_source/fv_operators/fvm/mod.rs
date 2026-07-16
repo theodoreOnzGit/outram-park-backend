@@ -34,7 +34,7 @@ mod div_vec;
 mod laplacian;
 mod laplacian_vec;
 
-pub use ddt::{ddt, ddt_coeff};
+pub use ddt::{ddt, ddt_coeff, ddt_coeff_old};
 pub use ddt_vec::{ddt_coeff_vec, ddt_vec};
 pub use div::div;
 pub use div_vec::div_vec;

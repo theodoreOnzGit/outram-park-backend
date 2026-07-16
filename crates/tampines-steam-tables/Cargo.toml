@@ -1,6 +1,6 @@
 [package]
 name = "tampines-steam-tables"
-version = "0.2.2"
+version = "0.2.3"
 edition.workspace = true
 license.workspace = true
 description = "IAPWS-IF97 steam tables for the TAMPINES simulator -- draws from (not a 1:1 port of) the rust-steam crate; independent OUTRAM PARK implementation, not the original rust-steam project"

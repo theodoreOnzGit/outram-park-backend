@@ -306,6 +306,50 @@ never drawn.
 
 # Changelog
 
+v0.2.3 — Edwards–O'Brien blowdown V&V case, flashing-plateau fix,
+and the experimental all-Mach solver mode (patch)
+
+Patch release adding a validation case and a thermodynamic-consistency fix to
+the 1-D **HEM-closed rhoPimpleFoam** array (`TampinesSteamArray`).
+
+- **Edwards–O'Brien pipe blowdown V&V case** (`tests/edwards_blowdown.rs`): the
+  classic two-phase critical-depressurisation benchmark (Tomlinson & Aumiller,
+  B-T-3271 / Edwards & O'Brien, 1970) run on `TampinesSteamArray` — 24-CV
+  modified nodalisation, Hendrie (1973) non-isothermal axial IC, HEM choked
+  break BC. Writes gauge-station pressure/void/break-flow CSVs to
+  `verification_and_validation/` for plotting (excluded from the package).
+
+- **Flashing-plateau fix** (the primary numerical result). The array now
+  recovers the Edwards flashing plateau (GS-1 ≈ 392.7 psia, RMSE ≈ 60 psia vs
+  the digitised benchmark, down from 276) with **no non-physical subcooling**,
+  stable over the full 600 ms — emerging from two corrected thermodynamics, no
+  clamps:
+  1. **Conservative energy time-derivative** using the *continuity* density
+     (`ρ_cont = ρ_old − dt·∇·φ`) so the discrete `h·∇·φ` term cancels — the
+     textbook conservative form (the earlier port reused the current density for
+     both time levels, over-draining enthalpy during the flash → subcooling).
+  2. **Two-phase compressibility `ψ = ∂ρ/∂p|_h`** (finite difference of the
+     `(p,h)` flash) in place of the frozen quality-weighted `κ_T`, which omitted
+     the flashing term `(v_g−v_f)·dx/dp` and was ~100× too small in the dome.
+
+- **`SolverMode` API** (opt-in, enum-dispatched): `Pimple` (default —
+  HEM-closed PIMPLE, validated, stable full-transient) and **`HybridAllMach`
+  (EXPERIMENTAL / buggy)**. The hybrid injects a Mach-weighted KNP
+  central-upwind dissipation — using the **HEM equilibrium sound speed**
+  (Kieffer eq. 28, `w_ps_eqm_region4_kieffer`), never the frozen Wood–Wallis —
+  to damp the near-sonic ringing at the flashing front (~55% over 0–0.15 s).
+  It is **not production-ready**: the full-600 ms run is marginally unstable
+  past t ≈ 0.18 s (an emptying-pipe two-phase near-sonic cell over-cools across
+  the `(p,h)` validity edge and `correct_thermo` panics). Tracked as bug
+  `op-21g.15.7`; use the default `Pimple` mode. The KNP flux math is copied
+  in-tree (`central_upwind.rs`, GPLv3/OpenFOAM provenance preserved) with no
+  `outram-foam` dependency.
+
+- **Known accuracy limits** (secondary, not the qualitative failure): the
+  recovered plateau sits ~8 % high (393 vs ~355 psia) and the late (0.1–0.3 s)
+  pressure decline is shallower than the data — HEM-closure / axial-profile
+  items. As always in this workspace: unverified until validated.
+
 v0.2.2 — (p,h)-flash robustness (patch)
 
 Patch release. Hardened the `(p, h)` flash in Regions 4 and 5 (VLE dome /

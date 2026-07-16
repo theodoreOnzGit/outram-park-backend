@@ -57,6 +57,36 @@ pub fn ddt_coeff(
     mat
 }
 
+/// Conservative implicit Euler ddt with **distinct new- and old-time
+/// coefficients**: `∂(ρφ)/∂t ≈ (ρ_new·φ − ρ_old·φ_old) / Δt`.
+///
+/// Unlike [`ddt_coeff`] (which reuses one `coeff` field for both time levels),
+/// this takes the new-time density `coeff_new` (e.g. the continuity density
+/// `ρ_cont = ρ_old − Δt·∇·φ`) for the implicit diagonal and the old-time density
+/// `coeff_old` for the explicit source. Assembling `ρ_new·V/Δt` on the diagonal
+/// and `ρ_old·φ_old·V/Δt` in the source makes the discrete energy balance carry
+/// the missing `φ_old·(ρ − ρ_old)/Δt = −φ_old·∇·φ` term, which cancels the
+/// `φ·∇·φ` part of `∇·(φ·Φ)` exactly and recovers the material derivative
+/// `ρ Dφ/Dt` — the Edwards flashing-plateau fix (bead op-21g.14). See
+/// `TampinesSteamArray::step`'s energy-equation block for the full rationale.
+pub fn ddt_coeff_old(
+    coeff_new: &VolScalarField,
+    coeff_old: &VolScalarField,
+    phi: &VolScalarField,
+    phi_old: &VolScalarField,
+    dt: f64,
+) -> FvMatrix {
+    let mesh = phi.mesh.clone();
+    let mut mat = FvMatrix::new(mesh.clone());
+    for c in 0..mesh.n_cells {
+        let v_dt = mesh.cell_volumes[c] / dt;
+        mat.ldu.diag[c] += coeff_new.internal[c] * v_dt;
+        mat.source[c] += coeff_old.internal[c] * phi_old.internal[c] * v_dt;
+    }
+    let _ = phi;
+    mat
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

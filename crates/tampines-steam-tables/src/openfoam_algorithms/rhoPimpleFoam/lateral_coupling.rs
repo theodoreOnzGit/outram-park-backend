@@ -306,6 +306,23 @@ impl TampinesSteamArray {
         self.he.boundary[1] = PatchField::fixed_value(size, h.get::<joule_per_kilogram>());
     }
 
+    /// Prescribes a fixed outlet velocity boundary condition on the
+    /// `"right"` patch (x = length, the outlet -- see
+    /// [`crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh`]).
+    ///
+    /// The outlet mirror of [`Self::set_inlet_velocity`] (same `"right"` patch
+    /// index the outlet-pressure/outlet-state accessors use). For driving this
+    /// array with a known discharge velocity -- e.g. the Edwards blowdown feeds
+    /// the equivalent full-face velocity from the choked-break solution here each
+    /// step. `velocity` is the x-direction speed; positive means fluid leaving
+    /// the domain (flowing left-to-right, +x) -- takes effect on the next
+    /// [`super::TampinesSteamArray::step`].
+    pub fn set_outlet_velocity(&mut self, velocity: Velocity) {
+        let size = self.mesh.patches[0].size;
+        let v = Vector3::new(velocity.get::<meter_per_second>(), 0.0, 0.0);
+        self.u.boundary[0] = PatchField::fixed_value_vec(size, v);
+    }
+
     /// Prescribes a fixed outlet pressure boundary condition on the
     /// `"right"` patch (x = length) -- e.g. the downstream pressure a
     /// turbine or condenser imposes.
