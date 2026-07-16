@@ -28,3 +28,9 @@ crates/outram-mc-libs/verification_and_validation/openmc_notebook_comparisons/
 # not the binary. Keep the raw PDF local.
 xin wang thesis.pdf
 *thesis*.pdf
+
+# Local staging area for collaborator (e.g. Ethan) work, to be merged into the
+# proper crates later. Never committed — raw external WIP stays out of git until
+# it has been reviewed for licensing / data-policy / GPLv3 compliance and
+# integrated into the right crate.
+/collaboration/
