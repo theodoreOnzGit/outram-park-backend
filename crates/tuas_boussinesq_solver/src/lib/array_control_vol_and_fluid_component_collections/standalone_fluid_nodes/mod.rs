@@ -1,3 +1,17 @@
+//! Standalone single-material fluid-node arrays for high-Peclet-number flow.
+//!
+//! These are one-dimensional arrays of fluid control volumes advanced without
+//! axial conduction (advection-dominated, high Peclet number). Each array is
+//! coupled radially to solid surfaces through a thermal-conductance array
+//! (W/K per node) and terminated by a [`SingleCVNode`](crate::single_control_vol::SingleCVNode)
+//! at each end so it can link to neighbouring control volumes; temperatures are
+//! in kelvin.
+//!
+//! What belongs here: the timestep advancers — `core_fluid_node` (fluid coupled
+//! to a single surrounding solid, e.g. a pipe wall) and `shell_fluid_node`
+//! (fluid coupled to both an inner and an outer solid) — and the shared
+//! conductance-matrix / power-vector temperature solver in this file. Solid-only
+//! node arrays live in the sibling `standalone_solid_nodes` module.
 /// deals with fluid nodes in the core region
 pub mod core_fluid_node;
 

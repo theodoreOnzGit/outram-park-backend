@@ -9,9 +9,10 @@ use super::HeaterTopBottomHead;
 
 
 impl HeaterTopBottomHead {
-    /// advances timestep for each HeatTransferEntity within the 
-    /// HeaterVersion2Bare
-    pub fn _advance_timestep(&mut self, 
+    /// advances the timestep (the `timestep` argument is the time increment,
+    /// in seconds) for each HeatTransferEntity within the HeaterTopBottomHead:
+    /// the therminol fluid array, the steel shell, and the twisted tape.
+    pub fn _advance_timestep(&mut self,
     timestep: Time) {
 
         self.therminol_array.advance_timestep_mut_self(timestep).unwrap();
@@ -19,8 +20,8 @@ impl HeaterTopBottomHead {
         self.twisted_tape_interior.advance_timestep_mut_self(timestep).unwrap();
     }
 
-    /// advances timestep for each HeatTransferEntity within the 
-    /// HeaterVersion2Bare
+    /// advances the timestep (the `timestep` argument is the time increment,
+    /// in seconds) for each HeatTransferEntity within the HeaterTopBottomHead
     ///
     /// parallel implementation, spawns three threads to do it,
     /// however, it relies heavily upon cloning, so it may or may not 

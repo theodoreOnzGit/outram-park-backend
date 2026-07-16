@@ -1,4 +1,26 @@
-/// contains the code for single pipes and other components in 
+//! GFHR (generic Fluoride-salt-cooled High-temperature Reactor) pipe-network
+//! test suite.
+//!
+//! This module builds and exercises a simplified two-loop thermal-hydraulic
+//! model of a gFHR-style reactor and verifies the pipe-network fluid-mechanics
+//! solvers against expected mass flowrates (kg/s) and pressure drops (Pa).
+//!
+//! Module map:
+//! - [`components`] — builders for the individual pipes, pumps, mixing nodes,
+//!   and the intermediate heat exchanger (IHX) that make up the primary
+//!   (FLiBe) and intermediate (HITEC) loops.
+//! - [`single_pipe_tests`] — single-component checks: pressure change from a
+//!   fixed mass flowrate and its inverse, in forward and reverse flow.
+//! - [`single_branch`] — checks across an individual branch (a series
+//!   collection of components), e.g. the reactor branch and IHX branch.
+//! - [`multi_branch`] — the multi-branch parallel network solvers and the
+//!   full four-branch primary + intermediate loop tests (isothermal and
+//!   coupled thermal-hydraulic).
+//!
+//! Note: Radiation Heat Transfer (RHT) is NOT accounted for anywhere in this
+//! module.
+
+/// contains the code for single pipes and other components in
 /// primary and intermediate loop of what could be used to cool the gFHR
 ///
 /// generic (Fluoride Salt Cooled High Temperature Reactor)

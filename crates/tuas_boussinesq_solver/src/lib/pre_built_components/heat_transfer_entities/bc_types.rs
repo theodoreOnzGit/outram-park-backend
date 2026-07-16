@@ -25,7 +25,10 @@ impl HeatTransferEntity {
         BCType::UserSpecifiedHeatAddition(heat_addition).into()
     }
 
-    /// creates a new constant heat addition bc
+    /// creates a new adiabatic BC
+    ///
+    /// implemented as a constant heat addition BC of zero power (0 W),
+    /// so no heat crosses the boundary
     pub fn new_adiabatic_bc() -> Self {
         BCType::UserSpecifiedHeatAddition(Power::zero()).into()
     }

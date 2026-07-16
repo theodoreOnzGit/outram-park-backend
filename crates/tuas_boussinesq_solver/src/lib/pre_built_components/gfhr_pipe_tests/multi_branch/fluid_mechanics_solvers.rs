@@ -859,15 +859,22 @@ pub(crate) fn four_branch_pri_and_intermediate_loop_single_time_step(
         return fhr_state;
 }
 
+/// Snapshot of the gFHR two-loop thermal-hydraulic state after a solver step.
+///
+/// Holds the converged branch mass flowrates (kg/s) for the primary and
+/// intermediate loops, the current simulation time (s), and per-component
+/// temperature profiles (each a `Vec<f64>` of node temperatures in degrees
+/// Celsius, rounded to 2 decimal places for diagnostics). Sign convention for
+/// each flowrate is documented on its field.
 #[derive(Debug,Clone)]
 pub(crate) struct FHRThermalHydraulicsState {
-    /// reactor branch flow (upwards through the core)
+    /// reactor branch flow (upwards through the reactor core)
     /// note that positive flow means from bottom mixing node to top
     pub reactor_branch_flow: MassRate,
-    /// downcomer 1 branch flow (upwards through the core)
+    /// downcomer 1 branch flow (parallel bypass around the core)
     /// note that positive flow means from bottom mixing node to top
     pub downcomer_branch_1_flow: MassRate,
-    /// downcomer 2 branch flow (upwards through the core)
+    /// downcomer 2 branch flow (parallel bypass around the core)
     /// note that positive flow means from bottom mixing node to top
     pub downcomer_branch_2_flow: MassRate,
     /// ihx branch flow 
@@ -930,9 +937,9 @@ pub(crate) struct FHRThermalHydraulicsState {
     pub pipe_17_temp_profile_degc: Vec<f64>,
 
     // downcomers
-    /// shows the temperature profile of pipe_12
+    /// shows the temperature profile of downcomer pipe 2
     pub downcomer_2_temp_profile_degc: Vec<f64>,
-    /// shows the temperature profile of pipe_13
+    /// shows the temperature profile of downcomer pipe 3
     pub downcomer_3_temp_profile_degc: Vec<f64>,
 
 }

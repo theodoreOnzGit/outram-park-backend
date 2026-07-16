@@ -27,7 +27,10 @@ use super::LiquidMaterial::*;
 // here only makes it accessible to the 
 // specific_enthalpy/mod.rs 
 // nothing else
-pub(in crate::boussinesq_thermophysical_properties) 
+/// Returns the specific enthalpy (J/kg) of a solid `Material` at the given
+/// temperature by dispatching on the solid-material enum variant. Panics if
+/// passed a liquid material.
+pub(in crate::boussinesq_thermophysical_properties)
 fn solid_specific_enthalpy(material: Material,
     solid_temp: ThermodynamicTemperature) -> AvailableEnergy {
     
@@ -68,8 +71,11 @@ fn solid_specific_enthalpy(material: Material,
 // here only makes it accessible to the 
 // specific_enthalpy/mod.rs 
 // nothing else
-pub(in crate::boussinesq_thermophysical_properties) 
-fn liquid_specific_enthalpy(material: Material, 
+/// Returns the specific enthalpy (J/kg) of a liquid `Material` at the given
+/// temperature by dispatching on the liquid-material enum variant. Panics if
+/// passed a solid material.
+pub(in crate::boussinesq_thermophysical_properties)
+fn liquid_specific_enthalpy(material: Material,
     fluid_temp: ThermodynamicTemperature) -> AvailableEnergy {
 
     let liquid_material: LiquidMaterial = match material {

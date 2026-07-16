@@ -1,3 +1,13 @@
+//! Crate-wide error type ([`TuasLibError`]).
+//!
+//! Every fallible operation in `tuas_boussinesq_solver` returns
+//! `Result<_, TuasLibError>`. Variants cover array/dimension shape mismatches,
+//! an empty mass-flowrate vector (so a Courant number cannot be formed),
+//! thermophysical-property failures (including a temperature that falls
+//! outside a property correlation's valid range), wrong heat-transfer
+//! interaction / entity / material types, and a catch-all string error. A
+//! `From<String>`/`Into<String>` bridge is provided for interop with the many
+//! string-based error sites in the codebase.
 use thiserror::Error;
 
 /// Master Error type of this crate

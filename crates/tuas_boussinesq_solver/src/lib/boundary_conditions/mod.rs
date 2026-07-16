@@ -1,3 +1,10 @@
+//! Thermal boundary conditions for the solver.
+//!
+//! Defines [`BCType`], the closed set of boundary conditions a control volume
+//! can be attached to: a fixed temperature, a fixed heat flux (per unit area),
+//! or a fixed heat addition (power, where zero power means adiabatic). All
+//! quantities are `uom`-typed.
+
 use uom::num_traits::Zero;
 use uom::si::f64::*;
 
@@ -35,14 +42,16 @@ impl BCType {
         BCType::UserSpecifiedHeatAddition(heat_addition)
     }
 
-    /// creates a new constant heat addition bc
+    /// creates a new adiabatic BC (a heat-addition BC with zero power)
     pub fn new_adiabatic_bc() -> Self {
         BCType::UserSpecifiedHeatAddition(
             Power::zero())
     }
 
 
-    pub(crate) fn get_temperature_vector(&self) -> 
+    /// Returns the boundary temperature(s) for a fixed-temperature BC;
+    /// unimplemented for the heat-flux and heat-addition variants.
+    pub(crate) fn get_temperature_vector(&self) ->
     Result<Vec<ThermodynamicTemperature>,TuasLibError>{
 
         match self {

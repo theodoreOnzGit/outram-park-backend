@@ -1,3 +1,27 @@
+//! Non-insulated porous-media fluid components: fluid flowing through a solid
+//! matrix inside an uninsulated pipe that also exchanges heat with ambient.
+//!
+//! The canonical instance is CIET's Heater version 2 heated section, whose
+//! interior is a twisted-tape / perforated heating element treated as porous
+//! media. Three coupled control-volume arrays are modelled: the fluid
+//! (`pipe_fluid_array`), the outer pipe shell (`pipe_shell`), and the interior
+//! solid matrix (`interior_solid_array_for_porous_media`). Radial coupling is
+//! by nodal thermal conductances (W/K); the shell additionally loses heat to a
+//! constant-temperature ambient. Note this component is the heated section
+//! only — it excludes the heater top and bottom heads.
+//!
+//! Module map:
+//! - [`preprocessing`] — general lateral/axial connections and the nodal
+//!   conductances (W/K) between fluid, shell, interior and ambient; its
+//!   [`preprocessing::ciet_heater_v2`] submodule holds the CIET-heater-v2
+//!   specific conductance builders.
+//! - [`fluid_entity`] — the `FluidComponentTrait` impl (mass flow in kg/s,
+//!   pressure drop in Pa, geometry).
+//! - [`calculation`] — advances the three arrays one timestep.
+//! - [`postprocessing`] — retrieves the fluid, shell and interior temperature
+//!   vectors (in kelvin).
+//! - [`type_conversion`] — conversion into a `FluidComponent` enum variant.
+//! - [`tests`] — verification against De Wet's CIET heater-v2 data.
 
 use std::f64::consts::PI;
 

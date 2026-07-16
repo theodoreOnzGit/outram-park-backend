@@ -316,8 +316,8 @@ impl SolidColumn {
 
     }
 
-    /// attaches an constant heat rate BC to the front of this 
-    /// array control volume 
+    /// attaches an constant heat rate BC to the back of this
+    /// array control volume
     /// (constant heat rate) --- (back --- cv_self --- front)
     pub fn link_heat_addition_to_back_of_this_cv(
         &mut self,

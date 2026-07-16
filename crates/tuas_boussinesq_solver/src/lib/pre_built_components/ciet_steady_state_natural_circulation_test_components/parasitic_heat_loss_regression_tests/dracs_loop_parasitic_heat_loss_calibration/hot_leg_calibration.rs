@@ -272,8 +272,8 @@ pub fn hot_leg_regression_set_c9(){
 /// C-9,0.04699,67.40722,66.51369,39.87633,39.64593,
 ///
 ///
-/// For this function, I want to test if a certain thickness results 
-/// in the correct DHX inlet temperature. At least within 0.5 K 
+/// For this function, I want to test if a certain thickness results
+/// in the correct TCHX inlet temperature. At least within 0.5 K
 /// the regression test temperature should be within 0.05 K
 #[cfg(test)]
 pub fn dracs_hot_leg_insulation_thickness_calibration_validation_test_v1(

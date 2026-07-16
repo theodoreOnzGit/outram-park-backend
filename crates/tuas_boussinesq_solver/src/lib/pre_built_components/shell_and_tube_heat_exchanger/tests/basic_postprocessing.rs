@@ -225,9 +225,9 @@ pub fn overall_htc_postprocessing_basic_test_shell_and_tube_heat_exchanger(){
 /// I'm assuming an adiabatic bc to the outside
 /// and switching off the insulation boolean
 ///
-/// for this internal consistency test, 
-/// 1 + (T_in,t - T_out,t)/(T_in,s - T_out,t) 
-/// = exp ( [UA]/[m_t c_p] )
+/// this checks that the shell-side tube-bundle heat transfer area
+/// (circular_tube_bundle_heat_transfer_area_shell_side, in m^2) is
+/// computed correctly for a one-shell one-tube geometry
 #[test]
 pub fn shell_side_tube_bundle_area_basic_test_shell_and_tube_heat_exchanger(){
 

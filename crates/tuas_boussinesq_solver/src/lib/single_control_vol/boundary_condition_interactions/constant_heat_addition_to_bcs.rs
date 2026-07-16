@@ -94,7 +94,7 @@ pub fn calculate_constant_heat_addition_front_single_cv_back(
 ///
 /// (heat addition) ------------------ (single cv)
 ///
-/// the heat addition is at the front, the cv is at the back
+/// the single cv is at the front, the heat addition is at the back
 #[inline]
 pub fn calculate_single_cv_front_constant_heat_addition_back(
     heat_added_to_control_vol: Power,

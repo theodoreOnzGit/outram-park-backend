@@ -146,10 +146,13 @@ impl LiquidMaterial {
 }
 
 impl SolidMaterial {
-    /// returns the liquid thermal conductivity in a result enum 
+    /// returns the solid material's thermal conductivity, in W/(m K),
+    /// wrapped in a `Result`. Valid over the solid's coded correlation
+    /// temperature range (SteelSS304L falls back to a wider spline
+    /// correlation outside the primary range).
     #[inline]
     pub fn try_get_thermal_conductivity(&self,
-        solid_temp: ThermodynamicTemperature,) 
+        solid_temp: ThermodynamicTemperature,)
         -> Result<ThermalConductivity, TuasLibError>{
 
             let thermal_conductivity: ThermalConductivity = match self {

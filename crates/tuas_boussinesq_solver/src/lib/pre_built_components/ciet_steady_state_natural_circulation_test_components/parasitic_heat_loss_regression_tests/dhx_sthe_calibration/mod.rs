@@ -1,3 +1,16 @@
+//! Standalone DHX shell-and-tube heat exchanger (STHE) calibration/regression
+//! tests, decoupled from the full natural-circulation loop.
+//!
+//! Each `dhx_regression_set_c*` test drives the DHX alone with the set-C
+//! primary (shell-side) and DRACS (tube-side) mass flow rates (kg/s) and inlet
+//! temperatures (degC) from Zweibaum's unpublished CIET data, then checks the
+//! shell-side and tube-side outlet temperatures (degC) against the experimental
+//! set point (within 0.5 K) and a tighter regression value (within 0.05 K).
+//! Calibration knobs are the shell-side-to-tubes Nusselt correction factor, the
+//! insulation thickness (cm), and the shell-side-to-ambient Nusselt correction
+//! factor. Sets C-1 to C-8 use `calibration_version_2` (adds ambient heat-loss
+//! tuning); set C-9 uses `calibration_version_1`. See Zou et al. (ANL/NSE-19/11).
+
 /// Zweibaum's unpublished data:
 /// dataset number,pri loop mass flowrate (kg/s),DRACS loop mass flowrate (kg/s),DHX shell top inlet (DegC),DHX tube bottom inlet(DegC),DHX shell bottom outlet (DegC),DHX tube top outlet (DegC),
 /// C-1,0.02003,0.02686,71.47752,39.84713,53.60943,53.00304,
@@ -511,7 +524,8 @@ pub mod calibration_version_1;
 /// (2) secondly, adjust the insulation thickness until the shell side 
 /// outlet temperature is correct
 ///
-/// unfortunately, calibration version 1 is not able to account for the 
-/// voracious amount of parasitic heat loss from c5 to c7 
-/// I probably need to tweak the heat transfer to ambient as well
+/// version 2 additionally exposes a heat-transfer-to-ambient calibration
+/// (`heat_loss_to_ambient_watts_per_m2_kelvin`), which version 1 lacked, so it
+/// can account for the larger parasitic heat loss seen from c5 to c7 that
+/// version 1 could not reproduce.
 pub mod calibration_version_2;

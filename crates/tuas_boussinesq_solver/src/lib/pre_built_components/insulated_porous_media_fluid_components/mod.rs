@@ -1,3 +1,25 @@
+//! # Insulated porous-media fluid components
+//!
+//! Pre-built components modelling a fluid flowing through a porous solid
+//! matrix (a packed bed or internal structure such as CIET's MX-10 static
+//! mixer, or the annular pipe inside CIET Heater v1) enclosed by a solid pipe
+//! shell and an outer insulation layer that loses heat to ambient air.
+//!
+//! Radial layout, from the centre outwards:
+//! porous-media interior -> shell fluid -> pipe shell -> insulation -> ambient.
+//!
+//! This module defines the `InsulatedPorousMediaFluidComponent` struct and its
+//! constructors (annular pipe, CIET Heater v1 body/top/bottom heads, the
+//! DeWet insulated Heater v2, and static mixers MX-10/MX-20/MX-21 plus their
+//! adjacent pipes). Behaviour is split across submodules:
+//! - `preprocessing` — thermal-connection setup and nodal conductances (W/K),
+//!   with MX-10-specific helpers in `preprocessing::mx10`
+//! - `calculation` — timestep advance / conduction updates
+//! - `fluid_entity` — `FluidComponentTrait` (pressure drop in Pa vs mass flow in kg/s)
+//! - `postprocessing` — nodal temperature profiles (K)
+//! - `calibration` — insulation-thickness tuning of parasitic heat loss
+//! - `type_conversion` — conversion into a `FluidComponent`
+//! - `tests` — steady-state and transient validation against Zweibaum's data
 use std::f64::consts::PI;
 
 use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
@@ -35,6 +57,8 @@ use uom::ConstZero;
 #[derive(Debug,Clone,PartialEq)]
 pub struct InsulatedPorousMediaFluidComponent {
 
+    /// number of interior axial nodes along the component; the total node
+    /// count of each array is `inner_nodes + 2` (the two extra are the end nodes)
     inner_nodes: usize,
 
     /// heat transfer entity representing control volumes 

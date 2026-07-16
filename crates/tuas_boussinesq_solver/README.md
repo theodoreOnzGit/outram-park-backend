@@ -3,6 +3,17 @@
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 
+## Bookkeeping status
+
+> Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping pass" command). A crate is **complete** only once the maintainer has personally signed off on BOTH axes below.
+
+| Axis | Status |
+|---|---|
+| Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
+| Human / user interface — human-reviewed | ❌ Not yet manually checked |
+
+**Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
+
 Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows
 
 It contains traits for fluid mechanics and heat transfer 
@@ -175,15 +186,21 @@ as well, but maybe that name is for another project.
 
 ## Prerequisites
 
-As of v0.1.2, TUAS uses a pure-Rust LU solver (`outram-foam-basic-lib::matrix::SquareMatrix`)
-and no longer requires a system BLAS (OpenBLAS or Intel MKL). No extra packages need to
-be installed on Linux, macOS, or Windows.
+As of v0.1.2, TUAS uses a pure-Rust LU solver and no longer requires a system BLAS
+(OpenBLAS or Intel MKL). The solver is the crate's own OpenFOAM-derived
+`tuas_boussinesq_solver::matrix::SquareMatrix` (`src/lib/matrix.rs`); it was
+originally pulled in from `outram-foam-basic-lib` in v0.1.2 and moved in-crate in
+v0.1.3 to break a dependency loop. No extra packages need to be installed on Linux,
+macOS, or Windows.
 
 Tested on Arch Linux and Linux Mint distros. 
 
 ## Development To Do 
 
-1. Shell and Tube Heat Exchanger (STHE) constructor
+The Shell and Tube Heat Exchanger (STHE) constructor is now implemented — see
+`SimpleShellAndTubeHeatExchanger::new_custom_circular_single_pass_sthe_with_insulation`
+and `new_du_et_al_sthe` in
+`src/lib/pre_built_components/shell_and_tube_heat_exchanger/`.
 
 ## Cargo update dependencies 
 
@@ -244,7 +261,9 @@ many free and open source libraries such as:
 2. Peroxide
 3. Roots
 4. GeN-Foam and OpenFOAM
-5. outram-foam-basic-lib (pure-Rust LU solver, replaces ndarray-linalg as of v0.1.2)
+5. an in-crate OpenFOAM-derived pure-Rust LU solver
+   (`tuas_boussinesq_solver::matrix::SquareMatrix`), which replaced ndarray-linalg
+   as of v0.1.2 (first via `outram-foam-basic-lib`, then moved in-crate in v0.1.3)
 6. thiserror
 7. csv
 

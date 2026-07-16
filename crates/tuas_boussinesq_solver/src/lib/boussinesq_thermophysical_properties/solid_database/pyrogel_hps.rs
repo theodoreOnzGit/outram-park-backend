@@ -294,6 +294,12 @@ pub fn pyrogel_thermal_conductivity_commercial_factsheet_spline(
         pyrogel_hps_thermal_conductivity_value_milliwatt_per_meter_kelvin));
 }
 
+/// returns the temperature of Pyrogel HPS (as a `uom` `ThermodynamicTemperature`)
+/// given its specific enthalpy in J/kg.
+///
+/// Builds an inverted spline (enthalpy -> temperature) as an initial guess,
+/// then refines the root with the Brent-Dekker method over a ±30 K bracket.
+/// Reference (zero) enthalpy is taken at 273.15 K.
 #[inline]
 pub (crate) fn pyrogel_hps_spline_temp_attempt_1_from_specific_enthalpy(
     h_fiberglass: AvailableEnergy) -> ThermodynamicTemperature {

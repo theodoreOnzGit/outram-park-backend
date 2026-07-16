@@ -62,6 +62,10 @@ pub fn mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius(){
 }
 
 
+/// CIET Case C2 isolated-DRACS natural-circulation regression, TCHX outlet
+/// 40 degC / 313 K band, mesh refined 2 times vs the SAM nodalisation.
+/// Drives 785.9 W through the DHX; asserts the steady-state loop mass flow rate
+/// matches the SAM reference 3.1807e-2 kg/s within 2.6% (plus a 0.1% regression check).
 #[test]
 //#[ignore = "comment out for debugging"]
 pub fn mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius(){
@@ -78,6 +82,10 @@ pub fn mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius(){
     // similar to SAM
     // join threads
 }
+/// CIET Case C3 isolated-DRACS natural-circulation regression, TCHX outlet
+/// 40 degC / 313 K band, mesh refined 2 times vs the SAM nodalisation.
+/// Drives 971.4 W through the DHX; asserts the steady-state loop mass flow rate
+/// matches the SAM reference 3.4690e-2 kg/s within 2.6% (plus a 0.1% regression check).
 #[test]
 //#[ignore = "comment out for debugging"]
 pub fn mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius(){
@@ -92,6 +100,10 @@ pub fn mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius(){
 }
 
 
+/// CIET Case C4 isolated-DRACS natural-circulation regression, TCHX outlet
+/// 40 degC / 313 K band, mesh refined 2 times vs the SAM nodalisation.
+/// Drives 1185.2 W through the DHX; asserts the steady-state loop mass flow rate
+/// matches the SAM reference 3.7765e-2 kg/s within 2.6% (plus a 0.1% regression check).
 #[test]
 //#[ignore = "comment out for debugging"]
 pub fn mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius(){
@@ -104,6 +116,10 @@ pub fn mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius(){
         0.026, // max error tolerance
     ).unwrap();
 }
+/// CIET Case C5 isolated-DRACS natural-circulation regression, TCHX outlet
+/// 40 degC / 313 K band, mesh refined 2 times vs the SAM nodalisation.
+/// Drives 1369.1 W through the DHX; asserts the steady-state loop mass flow rate
+/// matches the SAM reference 4.0100e-2 kg/s within 2.6% (plus a 0.1% regression check).
 #[test]
 //#[ignore = "comment out for debugging"]
 pub fn mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius(){
@@ -116,6 +132,10 @@ pub fn mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius(){
         0.026, // max error tolerance
     ).unwrap();
 }
+/// CIET Case C6 isolated-DRACS natural-circulation regression, TCHX outlet
+/// 40 degC / 313 K band, mesh refined 2 times vs the SAM nodalisation.
+/// Drives 1584.1 W through the DHX; asserts the steady-state loop mass flow rate
+/// matches the SAM reference 4.2499e-2 kg/s within 2.6% (plus a 0.1% regression check).
 #[test]
 //#[ignore = "comment out for debugging"]
 pub fn mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius(){
@@ -128,6 +148,10 @@ pub fn mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius(){
         0.026, // max error tolerance
     ).unwrap();
 }
+/// CIET Case C7 isolated-DRACS natural-circulation regression, TCHX outlet
+/// 40 degC / 313 K band, mesh refined 2 times vs the SAM nodalisation.
+/// Drives 1763.7 W through the DHX; asserts the steady-state loop mass flow rate
+/// matches the SAM reference 4.4448e-2 kg/s within 2.6% (plus a 0.1% regression check).
 #[test]
 //#[ignore = "comment out for debugging"]
 pub fn mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius(){
@@ -140,6 +164,10 @@ pub fn mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius(){
         0.026, // max error tolerance
     ).unwrap();
 }
+/// CIET Case C8 isolated-DRACS natural-circulation regression, TCHX outlet
+/// 40 degC / 313 K band, mesh refined 2 times vs the SAM nodalisation.
+/// Drives 1970.0 W through the DHX; asserts the steady-state loop mass flow rate
+/// matches the SAM reference 4.6455e-2 kg/s within 2.6% (plus a 0.1% regression check).
 #[test]
 //#[ignore = "comment out for debugging"]
 pub fn mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius(){
@@ -152,6 +180,10 @@ pub fn mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius(){
         0.026, // max error tolerance
     ).unwrap();
 }
+/// CIET Case C9 isolated-DRACS natural-circulation regression, TCHX outlet
+/// 40 degC / 313 K band, mesh refined 2 times vs the SAM nodalisation.
+/// Drives 2177.0 W through the DHX; asserts the steady-state loop mass flow rate
+/// matches the SAM reference 4.8315e-2 kg/s within 2.6% (plus a 0.1% regression check).
 #[test]
 //#[ignore = "comment out for debugging"]
 pub fn mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius(){
@@ -206,6 +238,10 @@ use chem_eng_real_time_process_control_simulator::alpha_nightly::transfer_fn_wra
 use chem_eng_real_time_process_control_simulator::alpha_nightly::controllers::ProportionalController;
 use chem_eng_real_time_process_control_simulator::alpha_nightly::controllers::AnalogController;
 
+/// Builds the full isolated-DRACS loop and runs 3800 s of simulated natural
+/// circulation at `input_power_watts` W through the DHX, then asserts the
+/// settled loop mass flow rate (kg/s) matches both the stored regression value
+/// (to 0.1%) and the SAM reference (to `max_error_tolerance_fraction`).
 fn verify_isolated_dhx_sam_solution(
     input_power_watts: f64,
     sam_solution_mass_flowrate_kg_per_sm: f64,

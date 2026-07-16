@@ -13,9 +13,16 @@ use super::FluidArray;
 
 impl FluidArray {
 
-    /// gets the maximum timestep from the 
-    /// fluid array 
-
+    /// gets the maximum stable timestep (seconds) for this fluid array,
+    /// given a maximum allowed temperature change per step and the mass
+    /// flowrate (kg/s).
+    ///
+    /// Returns the smallest of several stability limits: the Courant-limited
+    /// timesteps of the front and back single CVs (advection), a mesh-Fourier
+    /// axial conduction limit, a radial conduction limit, and a
+    /// Nusselt-scaled solid-fluid convection limit. Because the array uses an
+    /// implicit scheme, a mesh Fourier number of 0.8 is used as the stability
+    /// threshold.
     pub fn get_max_timestep(&mut self,
     max_temperature_change: TemperatureInterval,
     mass_flowrate: MassRate) -> Result<Time, TuasLibError>{

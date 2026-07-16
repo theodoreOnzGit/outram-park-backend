@@ -57,10 +57,24 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 ### Physics
 | Rust file | C++ source |
 |---|---|
-| `src/physics/transport.rs` | `src/physics.cpp` (1249 LOC) |
+| `src/physics/transport.rs` | `src/physics.cpp` (1249 LOC) — history-based loop notes (still a stub; the live loop is `transport_csg.rs`) |
+| `src/physics/transport_csg.rs` | `src/physics.cpp`, `src/geometry.cpp` — the **live** CSG k-eigenvalue transport loop (`run_keff_csg`) |
 | `src/physics/scatter.rs` | `src/physics_common.cpp`, `src/physics.cpp` |
 | `src/physics/fission.rs` | `src/physics.cpp` — `fission()`, `create_fission_sites()` |
 | `src/physics/physics_mg.rs` | `src/physics_mg.cpp` |
+
+### Depletion (new work — not a direct transport-module port)
+| Rust file | C++ / Python source |
+|---|---|
+| `src/depletion/chain.rs` | `src/chain.cpp`, `openmc/deplete/chain.py` — decay/transmutation chain |
+| `src/depletion/cram.rs` | `openmc/deplete/cram.py` — CRAM `exp(A·dt)` matrix-exponential solver |
+| `src/depletion/matrix.rs` | `openmc/deplete/` — sparse burnup matrix assembly |
+| `src/depletion/operator.rs` | `openmc/deplete/coupled_operator.py` — one-group depletion operator |
+
+### Pebble beds (new work — doubly-heterogeneous specialization, absent upstream)
+| Rust file | C++ source |
+|---|---|
+| `src/pebble_beds/` | none upstream — `delta_tracking` (Woodcock) + `stochastic_media` sphere packing for TRISO / pebble-bed cores |
 
 ---
 
@@ -69,28 +83,28 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 1. `rng/lcg.rs` — no deps ✅ (implemented)
 2. `geometry/position.rs` — no deps ✅ (implemented)
 3. `rng/distributions.rs` — depends on lcg ✅ (stubs)
-4. `geometry/surface.rs` — depends on position (plane surfaces ✅; others TODO)
-5. `geometry/cell.rs` — depends on surface (struct ✅; `contains()` TODO)
-6. `geometry/universe.rs` — depends on cell (struct ✅; `find_cell()` TODO)
-7. `geometry/lattice.rs` — depends on universe (stubs)
-8. `geometry/geometry.rs` — depends on cell/universe/lattice (TODO)
+4. `geometry/surface.rs` — depends on position (planes ✅; `Sphere` + `ZCylinder` distance/sense ✅)
+5. `geometry/cell.rs` — depends on surface (struct ✅; `contains()` RPN region eval ✅)
+6. `geometry/universe.rs` — depends on cell (struct ✅; `find_cell()` ✅)
+7. `geometry/lattice.rs` — depends on universe (`RectLattice` ✅; `HexLattice` ring construction + indexing ✅)
+8. `geometry/geometry.rs` — depends on cell/universe/lattice (`locate()` nested lattice descent ✅)
 9. `particle/bank.rs` — depends on position ✅ (implemented)
 10. `particle/particle.rs` — depends on position ✅ (implemented)
-11. `material/nuclide.rs` — depends on ndarray (stub)
-12. `material/reaction.rs` — depends on nuclide (stub)
-13. `material/thermal.rs` — depends on nuclide (stub)
-14. `material/material.rs` — depends on nuclide + reaction (stub)
+11. `material/nuclide.rs` — depends on ndarray (✅; point/WMP grid + `xs_at_energy`, `from_core`)
+12. `material/reaction.rs` — depends on nuclide (✅)
+13. `material/thermal.rs` — depends on nuclide (✅; S(α,β) thermal-scatter tables)
+14. `material/material.rs` — depends on nuclide + reaction (✅; nuclide mixture + macroscopic XS)
 15. `source/spatial.rs` — depends on position + lcg (point + box ✅; sphere TODO)
 16. `source/energy.rs` — depends on distributions (stubs)
 17. `source/angle.rs` — depends on position + distributions (stubs)
 18. `source/source.rs` — depends on spatial/energy/angle ✅ (implemented)
 19. `tally/filter.rs` — no physics deps ✅ (4 filters implemented)
 20. `tally/tally.rs` — depends on filter ✅ (implemented)
-21. `tally/scoring.rs` — depends on particle + tally (TODO)
-22. `physics/scatter.rs` — depends on particle + nuclide (TODO)
-23. `physics/fission.rs` — depends on particle + bank + nuclide (TODO)
-24. `physics/transport.rs` — depends on all of the above (TODO)
-25. `physics/physics_mg.rs` — depends on transport (last)
+21. `tally/scoring.rs` — depends on particle + tally (✅; flux/reaction-rate scoring)
+22. `physics/scatter.rs` — depends on particle + nuclide (✅; elastic + CM-frame kinematics)
+23. `physics/fission.rs` — depends on particle + bank + nuclide (✅; ν sampling + fission-site banking)
+24. `physics/transport_csg.rs` — depends on all of the above (✅; live CSG k-eigenvalue loop, `run_keff_csg`). The generic history-based `physics/transport.rs` variant is still a stub.
+25. `physics/physics_mg.rs` — depends on transport (still a stub — last; multigroup mode pending)
 
 ---
 
@@ -103,15 +117,27 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 - `rng/distributions.rs`: `uniform()` stays in [0,1)
 
 ### P1 — Geometry correctness
-- `Sphere::distance` (quadratic solve) — test at known intersections
-- `ZCylinder::distance` — test at known intersections
-- `Cell::contains` (RPN evaluator) — simple intersection of two half-spaces
-- `Universe::find_cell` — particle locates correct cell in a 3-cell universe
+- `Sphere::distance` (quadratic solve) — test at known intersections ✅
+- `ZCylinder::distance` — test at known intersections ✅
+- `Cell::contains` (RPN evaluator) — simple intersection of two half-spaces ✅
+- `Universe::find_cell` — particle locates correct cell in a 3-cell universe ✅
 
 ### P2 — Physics correctness
-- `Nuclide::xs_at_energy` — log-log interpolation, verify at grid points and midpoints
-- Elastic scatter kinematics — energy/angle conservation in CM frame
-- Fission ν sampling — mean ν matches tabulated value
+- `Nuclide::xs_at_energy` — log-log interpolation, verify at grid points and midpoints ✅
+- Elastic scatter kinematics — energy/angle conservation in CM frame ✅
+- Fission ν sampling — mean ν matches tabulated value ✅
 - `TallyBin::rel_std_dev` — converges as 1/√N for a score stream
+
+---
+
+## End-to-end status
+
+The full CSG k-eigenvalue path is **live**: `physics::transport_csg::run_keff_csg`
+navigates surfaces/cells/universes/lattices (rect **and** hex), samples collisions,
+scatters, and banks fission sites. It is validated against the **Godiva bare-sphere**
+benchmark (ICSBEP HEU-MET-FAST-001): k_eff = 1.00094 ± 0.00198 (+94 pcm), see
+`docs/validation.md`. The `hexagonal-lattice` and `triso` notebook harnesses run this
+loop live. Still pending: the generic history-based `transport.rs`, multigroup
+(`physics_mg.rs`), DAGMC/unstructured mesh, photon transport, and the C-API.
 
 ---

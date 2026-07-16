@@ -1,4 +1,14 @@
 #![warn(missing_docs)]
+//! Conversions between dimensional (`uom`) fluid quantities and the
+//! dimensionless groups used by the friction-factor correlations.
+//!
+//! Computes the Reynolds number `Re = rho * u * D_H / mu` (from either velocity
+//! or mass flowrate, and back to mass flowrate) and the Bejan number
+//! `Be_D = Delta_P * rho * D_H^2 / mu^2` (dimensionless pressure loss), to and
+//! from a `uom` `Pressure`. Physical inputs are `uom`-typed (density in kg/m^3,
+//! velocity in m/s, hydraulic diameter in m, dynamic viscosity in Pa*s,
+//! pressure in Pa); the dimensionless results are returned as `Ratio` (or a
+//! bare `f64` where a Bejan number is taken as input).
 extern crate peroxide;
 extern crate uom;
 

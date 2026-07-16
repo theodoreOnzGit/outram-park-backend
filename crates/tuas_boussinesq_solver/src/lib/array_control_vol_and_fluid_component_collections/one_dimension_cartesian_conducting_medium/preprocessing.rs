@@ -134,6 +134,9 @@ impl CartesianConduction1DArray {
         return Ok(maximum_timestep);
     }
 
+    /// maps each node temperature (K) to its volumetric heat capacity
+    /// rho*cp (J/(m^3.K)) at the current timestep, using the array's material
+    /// and pressure; returned array is the thermal-inertia coefficient per node
     pub (in crate)
     fn get_current_timestep_rho_cp(
         material: Material,

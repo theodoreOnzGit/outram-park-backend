@@ -1,3 +1,12 @@
+//! Verification tests for the [`HeatTransferEntity`] enum layer.
+//!
+//! Contains a CIET heater v2.0 steady-state test that builds a nodalised
+//! heater (8 axial nodes, fluid `FluidArray` + steel `SolidColumn` shell)
+//! wrapped in `HeatTransferEntity` enums, exercising conductance links
+//! (W/K), heat addition (W), and advection, then advancing the timestep
+//! (seconds) and recording temperature (deg C) profiles to CSV. Also
+//! re-exports the [`mixing_joints`] adiabatic-mixing-joint tests.
+
 use std::ops::{DerefMut, Deref};
 use std::sync::{Arc, Mutex};
 use std::thread;

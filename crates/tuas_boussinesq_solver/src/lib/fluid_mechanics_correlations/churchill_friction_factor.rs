@@ -1,4 +1,14 @@
 #![warn(missing_docs)]
+//! Churchill (1977) friction-factor correlation and the Bejan-number
+//! (dimensionless pressure loss) relations built on top of it.
+//!
+//! All functions here take bare `f64` dimensionless inputs — Reynolds number,
+//! relative roughness (`epsilon / D`), length-to-diameter ratio (`L/D`) and
+//! form loss `K` — and return dimensionless `f64` results. The Churchill
+//! correlation gives the Darcy (and Fanning/Moody) friction factor with a
+//! single smooth expression valid across the laminar, transition and turbulent
+//! regimes; the Reynolds number must be strictly positive (Re = 0 or Re < 0
+//! panics).
 extern crate peroxide;
 use peroxide::prelude::*;
 

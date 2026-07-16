@@ -31,11 +31,14 @@ pub fn fiberglass_density() -> Result<MassDensity,TuasLibError> {
 pub fn fiberglass_surf_roughness() -> Length {
     Length::new::<millimeter>(0.00152)
 }
-/// returns thermal conductivity of fiberglass
+/// returns specific heat capacity of fiberglass in J/(kg·K)
+///
+/// This is a temperature-independent constant of 844 J/(kg·K); the temperature
+/// argument is ignored (no range check is applied).
 /// cited from:
-/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code 
-/// validation using the compact integral effects test (CIET) experimental 
-/// data (No. ANL/NSE-19/11). Argonne National 
+/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code
+/// validation using the compact integral effects test (CIET) experimental
+/// data (No. ANL/NSE-19/11). Argonne National
 /// Lab.(ANL), Argonne, IL (United States).
 #[inline]
 pub fn fiberglass_specific_heat_capacity(
@@ -134,6 +137,12 @@ fn fiberglass_enthalpy_test() {
 }
 
 
+/// returns the temperature of fiberglass (as a `uom` `ThermodynamicTemperature`)
+/// given its specific enthalpy in J/kg.
+///
+/// Builds an inverted spline (enthalpy -> temperature) as an initial guess,
+/// then refines the root with the Brent-Dekker method over a ±30 K bracket.
+/// Reference (zero) enthalpy is taken at 273.15 K.
 #[inline]
 pub (crate) fn fiberglass_spline_temp_attempt_1_from_specific_enthalpy(
     h_fiberglass: AvailableEnergy) -> ThermodynamicTemperature {

@@ -1,7 +1,27 @@
-// This library was developed for use in my PhD thesis under supervision 
+//! Worked examples and unit tests for the fluid-component collections.
+//!
+//! Each submodule is a runnable, self-contained example (also a `#[test]`)
+//! demonstrating how to assemble components and solve for mass flowrate (kg/s)
+//! or pressure change (Pa):
+//!
+//! - [`air_pipe_example`] — a single straight copper air pipe via
+//!   `FluidPipeCalcPressureLoss`.
+//! - [`water_pipe_example`] — an inclined water pipe with an internal pump
+//!   (pressure source) via `FluidPipeCalcPressureChange`.
+//! - [`coriolis_flowmeter_example`] — a component with a custom friction-factor
+//!   correlation `(f_darcy L/D + K) = 18 + 93000/Re^1.35`.
+//! - [`concurrency_and_multithreading_example`] — the same component moved into
+//!   threads with `Arc`/`Mutex`.
+//! - [`collection_fluid_components_in_series`] /
+//!   [`collection_fluid_components_in_parallel`] — many pipes in a
+//!   `FluidComponentCollection`.
+//! - [`super_collection_fluid_components_in_parallel`] — parallel branches of
+//!   series collections (a `FluidComponentSuperCollection`, as in CIET).
+
+// This library was developed for use in my PhD thesis under supervision
 // of Professor Per F. Peterson. It is part of a thermal hydraulics
 // library in Rust that is released under the GNU General Public License
-// v 3.0. This is partly due to the fact that some of the libraries 
+// v 3.0. This is partly due to the fact that some of the libraries
 // inherit from GeN-Foam and OpenFOAM, both licensed under GNU General
 // Public License v3.0.
 //

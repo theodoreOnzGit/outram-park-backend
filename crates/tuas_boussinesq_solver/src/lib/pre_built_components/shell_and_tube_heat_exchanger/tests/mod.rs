@@ -1,4 +1,10 @@
-/// checks if basic things such as obtaining the overall 
+//! Verification and validation tests for the shell-and-tube heat exchanger.
+//!
+//! Covers constructors, simplified heat-transfer consistency checks, the
+//! calibration helpers, and the Du et al. (2018) HITEC molten-salt to YD-325
+//! oil validation sets. Each submodule groups one family of checks.
+
+/// checks if basic things such as obtaining the overall
 /// heat transfer coefficient and shell side area work okay
 pub mod basic_postprocessing;
 

@@ -1,13 +1,13 @@
 # OUTRAM PARK Digital Twin Plan (2026-07-13)
 
 Approved plan summary for: extending `OPCPFluidArray` (coolprop), scaffolding
-the new `tampines` crate, and scaffolding the new `outram-park-digital-twin-gui`
+the new `tampines` crate, and scaffolding the new `outram-park-digital-twin-engine`
 crate. Full planning-tool record: `/home/teddy0/.claude/plans/glimmering-pondering-platypus.md`.
 
 **Beads tracking** (converted 2026-07-13, per the new standing rule in the
 root `CLAUDE.md`): Part 1 → `op-kbc.18` (child of the `outram-park-fork-coolprop`
 epic `op-kbc`); Part 2 → epic `op-dt3` (`tampines`); Part 3 → epic `op-wqk`
-(`outram-park-digital-twin-gui`). Run `bd show op-dt3` / `bd show op-wqk` /
+(`outram-park-digital-twin-engine`). Run `bd show op-dt3` / `bd show op-wqk` /
 `bd dep tree op-dt3` for live status — this file is a point-in-time summary,
 beads is the source of truth for progress.
 
@@ -26,7 +26,7 @@ lessons, papers, etc.
   psychrometrics, multiphase TH. Depends on `tuas_boussinesq_solver`,
   `outram-park-fork-coolprop`, `tampines-steam-tables`, `outram-foam-basic-lib`,
   `chem-eng-real-time-process-control-simulator`.
-- **Outram Park Digital Twin GUI** (new crate `outram-park-digital-twin-gui`)
+- **Outram Park Digital Twin GUI** (new crate `outram-park-digital-twin-engine`)
   — the reusable visualization framework. Depends on `tampines`, `nee_soon`
   (reactor-vessel/instrumentation), `chem-eng-real-time-process-control-simulator`.
   Provides visual process objects (Pipe, Pump, Valve, HeatExchanger,
@@ -78,7 +78,7 @@ and `examples/htgr_sim_v1` (thin stub) land last, after Part 3 exists.
 
 Bead children: `op-dt3.1`–`op-dt3.9` (`bd show op-dt3` for the live list).
 
-## Part 3 — `outram-park-digital-twin-gui` crate (epic `op-wqk`)
+## Part 3 — `outram-park-digital-twin-engine` crate (epic `op-wqk`)
 
 New crate, workspace member, GUI deps are real dependencies (presentation
 layer, no Android-portability claim). `color_maps/` (real, ported hot/cold +
@@ -95,7 +95,7 @@ Bead children: `op-wqk.1`–`op-wqk.6` (`bd show op-wqk` for the live list).
 1. Part 1 (`OPCPFluidArray`) — fully independent, no new crates, do first.
 2. Part 2's library modules (`fluids`/`single_phase`/.../`components`) —
    independent of Part 3.
-3. Part 3 (`outram-park-digital-twin-gui`) fully.
+3. Part 3 (`outram-park-digital-twin-engine`) fully.
 4. Part 2's `examples/` (the `fhr_sim_v2` move + `htgr_sim_v1` stub) last, so
    they can use Part 3's `app_scaffold`/components rather than being moved
    twice — enforced in beads via `op-dt3.7`/`op-dt3.8` depending on `op-wqk.6`.

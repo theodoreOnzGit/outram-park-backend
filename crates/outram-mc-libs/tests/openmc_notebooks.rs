@@ -27,7 +27,7 @@
 //! | Notebook module | Status | Gap bead |
 //! |---|---|---|
 //! | `pincell` | partial LIVE (Godiva bare-sphere k-eff) | op-6tz.7/.10/.12 |
-//! | `hexagonal_lattice` | ignored | op-6tz.11 |
+//! | `hexagonal_lattice` | LIVE (geometry correctness + k smoke, no notebook reference) | op-6tz.11 |
 //! | `triso` | LIVE (random-packed doubly-het k∞ by delta tracking) | op-6tz.16/.25 |
 //! | `candu` | ignored | op-6tz.11 |
 //! | `cad_based_geometry` | ignored | op-6tz.17 |

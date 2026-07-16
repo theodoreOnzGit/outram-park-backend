@@ -1,3 +1,10 @@
+//! Preprocessing for `InsulatedPorousMediaFluidComponent`.
+//!
+//! Sets up the lateral (radial) thermal connections between the control-volume
+//! arrays — porous-media interior, shell fluid, pipe shell and insulation —
+//! computes the nodal thermal conductances (W/K) that couple them, and wires
+//! the zero-power axial boundary conditions at each array end. MX-10 /
+//! static-mixer-specific preprocessing lives in the `mx10` submodule.
 use std::thread::{self, JoinHandle};
 
 use super::InsulatedPorousMediaFluidComponent;
@@ -229,9 +236,9 @@ impl InsulatedPorousMediaFluidComponent {
             interaction).unwrap();
     }
 
-    /// obtains the conductance from ambient to the pipe shell 
-    /// nodally speaking 
-
+    /// obtains the nodal thermal conductance (W/K) from ambient air to the
+    /// insulation node, combining the ambient-air convective resistance with
+    /// the insulation-layer conduction resistance in series
     #[inline]
     pub fn get_ambient_to_insulation_nodal_conductance(&mut self,
         heat_transfer_to_ambient: HeatTransfer) 
@@ -294,11 +301,12 @@ impl InsulatedPorousMediaFluidComponent {
 
     }
 
-    /// obtains the conductance from ambient to the pipe shell 
-    /// nodally speaking 
-
+    /// obtains the nodal thermal conductance (W/K) from the pipe shell to the
+    /// insulation node, combining the pipe-shell conduction resistance and the
+    /// insulation conduction resistance (to the shell/insulation interface) in
+    /// series
     #[inline]
-    pub fn get_pipe_shell_to_insulation_nodal_conductance(&mut self) 
+    pub fn get_pipe_shell_to_insulation_nodal_conductance(&mut self)
         -> Result<ThermalConductance,TuasLibError> {
 
             // the solid conductance is calculated using 

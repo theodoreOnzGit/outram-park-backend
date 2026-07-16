@@ -1,3 +1,24 @@
+//! Traits defining the fluid-component hydraulic contract.
+//!
+//! Everything a pipe or fluid component must expose so that mass flowrate
+//! (kg/s) and pressure change / pressure loss (Pa) can be computed lives here:
+//!
+//! - [`FluidComponentTrait`] — get/set mass flowrate, pressure loss, geometry
+//!   (cross-sectional area in m^2, hydraulic diameter in m, length in m,
+//!   incline angle), fluid properties (density in kg/m^3, viscosity in Pa.s at
+//!   a reference temperature), and internal pressure source (Pa); with default
+//!   methods relating pressure change, pressure loss, and hydrostatic head.
+//! - [`FluidComponentCollectionMethods`] — pressure change / loss and mass
+//!   flowrate for a whole collection.
+//! - [`FluidPipeCalcPressureLoss`] / [`FluidPipeCalcPressureChange`] — Churchill
+//!   friction-factor pipe correlations (via Reynolds and Bejan numbers).
+//! - [`FluidCustomComponentCalcPressureLoss`] /
+//!   [`FluidCustomComponentCalcPressureChange`] — the same for components with a
+//!   user-supplied custom Darcy-friction / form-loss correlation.
+//!
+//! Sign convention: `pressure_change = -pressure_loss +
+//! hydrostatic_pressure_change + internal_pressure_source`; gravity is taken as
+//! 9.81 m/s^2 and hydrostatic head as `rho * g * L * sin(incline_angle)`.
 
 use uom::si::f64::*;
 use uom::si::acceleration::meter_per_second_squared;

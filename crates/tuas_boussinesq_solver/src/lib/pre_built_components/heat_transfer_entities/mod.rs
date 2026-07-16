@@ -1,3 +1,28 @@
+//! Enum layer that unifies thermal control volumes (CVs) and boundary
+//! conditions (BCs) behind a single [`HeatTransferEntity`] type so a solver
+//! can hold, link, advance, and interrogate either kind through one API.
+//!
+//! Module map:
+//! - [`cv_types`] — the [`cv_types::CVType`] enum wrapping the control-volume
+//!   variants (single node, fluid array, solid array) and their `From`/
+//!   `TryFrom` conversions.
+//! - [`bc_types`] — convenience constructors that build boundary-condition
+//!   [`HeatTransferEntity`] values (constant temperature in K, heat flux in
+//!   W/m^2, heat addition in W, adiabatic).
+//! - [`preprocessing`] — sets up a heat-transfer problem: linking entities via
+//!   heat-transfer interactions (single CV–BC and CV–CV thermal connections /
+//!   conductance links in W/K), setting mass flowrates in kg/s, and computing
+//!   mesh-stability timesteps in seconds.
+//! - [`calculation`] — advances a control volume by one timestep (in seconds),
+//!   converting accumulated enthalpy-change rates into the next-timestep state.
+//! - [`postprocessing`] — extracts temperatures (K) and densities (kg/m^3)
+//!   from an entity.
+//! - [`type_conversion`] — `Into`/`TryFrom`/`TryInto` between the concrete CV
+//!   and BC types and [`HeatTransferEntity`].
+//! - [`conversion_to_data_advection`] — builds a `DataAdvection` interaction
+//!   from two heat transfer entities.
+//! - [`tests`] — mixing-joint and CIET-heater verification tests.
+
 use self::cv_types::CVType;
 use crate::tuas_lib_error::TuasLibError;
 use crate::boundary_conditions::BCType;

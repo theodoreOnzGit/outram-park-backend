@@ -1,6 +1,31 @@
 
 
-/// functions used for calculating the thermal hydraulics inside the DRACS 
+//! CIET coupled DRACS + primary-loop steady-state natural-circulation tests.
+//!
+//! This module groups everything needed to run and verify the CIET compact
+//! integral effects test (CIET) coupled natural-circulation steady states, in
+//! which the primary (heater–DHX) loop is thermally coupled to the DRACS loop
+//! through the DHX shell-and-tube heat exchanger. It contains:
+//!
+//! - `dracs_loop_calc_functions_no_tchx_calibration` /
+//!   `dracs_loop_calc_functions_sam_tchx_calibration` — per-timestep fluid-
+//!   mechanics (natural-circulation mass flow rate, kg/s) and heat-transfer
+//!   advance functions for the DRACS loop, without and with the SAM TCHX split.
+//! - `pri_loop_calc_functions` — the same for the primary heater–DHX loop.
+//! - `dhx_constructor` — builds the DHX shell-and-tube heat exchanger.
+//! - `dataset_a` / `dataset_b` / `dataset_c` — the coupled regression/validation
+//!   tests for CIET test sets A (TCHX out 46 degC), B (35 degC) and C (40 degC),
+//!   asserting simulated DRACS and primary mass flow rates (kg/s) and component
+//!   temperatures (degC) against the experimental / SAM values in Zou et al.
+//! - `isolated_dracs_loop_resistance_calibration` — pipe-38 form-loss (K)
+//!   calibration of the DRACS loop against the SAM solution.
+//! - `sam_vs_tuas_vs_experiment_summary` / `sam_table4_flowrates_kg_per_s` — the
+//!   SAM-vs-TUAS-vs-experiment comparison report and NED-2021 Table 4 data.
+//!
+//! References throughout are Zou, Hu & Charpentier (2019, ANL/NSE-19/11) and
+//! Zou, Hu, O'Grady & Hu (2021, Nuclear Engineering and Design 377, 111144).
+
+/// functions used for calculating the thermal hydraulics inside the DRACS
 /// loop
 ///
 /// mostly without tchx calibration, that is to say,

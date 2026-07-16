@@ -39,10 +39,15 @@ impl InsulatedFluidComponent {
         self.heat_transfer_to_ambient = ambient_htc;
     }
 
-    /// tries to calibrate the gnielinski nusselt 
-    /// correlation to some value 
+    /// tries to calibrate the Gnielinski Nusselt number correlation of the
+    /// pipe fluid array by a multiplicative `calibration_ratio`
+    /// (dimensionless).
     ///
-    /// if nusselt 
+    /// If the fluid array's Nusselt correlation is a Gnielinski variant
+    /// (generic or already calibrated), it is replaced with a calibrated
+    /// Gnielinski correlation carrying the new ratio. For any non-Gnielinski
+    /// correlation this is not implemented and currently panics (`todo!`).
+    /// Returns `Err(TuasLibError)` on failure paths.
     pub fn try_calibrate_gnielinski_nusselt(&mut self,
         calibration_ratio: Ratio) -> Result<(), TuasLibError>{
 

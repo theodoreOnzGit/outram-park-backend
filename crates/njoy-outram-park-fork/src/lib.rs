@@ -71,16 +71,22 @@ pub mod reconr;
 /// [`acer::thermal`], which *writes* the thermal ACE table.
 pub mod thermr;
 pub mod units;
-/// Windowed Multipole (WMP) cross-section import — **scaffold only**. This is
-/// independent **MIT CRPG** work (not NJOY/LANL); see [`wmp`] for provenance and
-/// the MIT attribution requirements. Planned Phase-4 item, after thermal S(α,β).
+/// Windowed Multipole (WMP) cross-section import — **ported** (ACER sub-block
+/// 4g). This is independent **MIT CRPG** work (not NJOY/LANL); see [`wmp`] for
+/// provenance and the MIT attribution requirements. Provides the analytic
+/// on-the-fly Doppler-broadening evaluator (Faddeeva `w(z)`), HDF5 import behind
+/// the `wmp-hdf5` feature, the WMPB/WMPL blob codecs, and a 125-nuclide CORE
+/// library baked into the crate.
 pub mod wmp;
 
 // --- NJOY processing modules — one home per module under `src/<name>/`, each
 // with its Rust source (physics or `NotPorted` stub) and co-located `README.md`.
-// The ported ones (reconr, broadr, heatr, gaspr, thermr, acer) are declared
-// above next to their long-form docs; the remainder are scaffolds. Dispatch is
-// via the `NjoyModule` enum in `modules.rs`.
+// Most are ported: reconr, broadr, heatr, gaspr, thermr, acer, and wmp are
+// declared above next to their long-form docs; unresr, purr, samm, groupr,
+// gaminr, errorr, covr, leapr, dtfr, resxsr, and mixr (below) are also ported
+// (translation-level — V&V is the trust gate). The genuine `NotPorted` stubs
+// are only ccccr, matxsr, powr, plotr, viewr, and wimsr (output formats OUTRAM
+// PARK does not target). Dispatch is via the `NjoyModule` enum in `modules.rs`.
 pub mod moder;
 pub mod unresr;
 pub mod purr;

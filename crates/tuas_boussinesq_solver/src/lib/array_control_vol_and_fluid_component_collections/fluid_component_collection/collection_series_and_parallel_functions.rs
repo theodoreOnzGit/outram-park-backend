@@ -1148,8 +1148,8 @@ pub trait FluidComponentCollectionParallelAssociatedFunctions {
 
     }
 
-    /// this function returns the minimum pressure change within
-    /// a pressure vector
+    /// this function returns the arithmetic mean (average) pressure change
+    /// within a pressure vector
     #[inline]
     fn obtain_average_pressure_from_vector(
         pressure_vector: &Vec<Pressure>) -> Pressure {

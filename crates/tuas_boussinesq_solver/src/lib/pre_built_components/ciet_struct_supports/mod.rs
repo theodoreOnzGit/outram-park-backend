@@ -1,3 +1,22 @@
+//! CIET structural supports modelled as lumped thermal masses.
+//!
+//! A structural support (e.g. a steel mounting strut or bracket in the CIET
+//! facility) is represented as a 1D solid array of control volumes that stores
+//! heat (thermal inertia) and conducts axially, while losing heat laterally to
+//! the surrounding air by natural convection. These supports are unheated;
+//! their role is to act as parasitic-heat-loss / thermal-mass nodes coupled to
+//! the environment (and, where wired up, to adjacent fluid or solid
+//! components).
+//!
+//! Physical quantities used throughout this module:
+//! - temperatures in kelvin (`ThermodynamicTemperature`),
+//! - heat-transfer coefficients in W/(m^2 K) (`HeatTransfer`),
+//! - thermal conductances in W/K (`ThermalConductance`),
+//! - lengths in metres (`Length`), areas in m^2 (`Area`).
+//!
+//! Submodules split the work into preprocessing (building conductances and
+//! lateral couplings), calculation (advancing the control volumes one
+//! timestep), and postprocessing (reading back temperature profiles).
 
 use std::f64::consts::PI;
 
@@ -8,22 +27,20 @@ use super::heat_transfer_entities::HeatTransferEntity;
 use uom::si::f64::*;
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
 use uom::si::pressure::atmosphere;
-/// represents heater version 2 without insulation 
-/// This is because during 2018-ish, the heater insulation 
-/// got burnt off and a lot of frequency response tests were done 
-/// with insulation removed
+/// A CIET structural support (e.g. a steel strut or bracket) treated as a
+/// lumped thermal mass.
 ///
-/// Heater version 2 bare has no insulation
-/// but it has a twisted tape interior
-///
-///
-/// note that it only contains the heated section, not the top nor 
-/// bottom heads
+/// The support is modelled as a 1D solid array of control volumes that stores
+/// heat and conducts axially, while losing heat laterally to the surrounding
+/// air. It is unheated: it exists to account for thermal inertia and parasitic
+/// heat loss to the environment rather than to add power.
 ///
 /// Note: need to check for memory leaks
 #[derive(Debug,Clone,PartialEq)]
 pub struct StructuralSupport {
 
+    /// number of user-specified interior nodes; the support array holds
+    /// `inner_nodes + 2` temperature nodes in total (the two ends included)
     inner_nodes: usize,
 
     /// 1D array of control volumes that simulates the 

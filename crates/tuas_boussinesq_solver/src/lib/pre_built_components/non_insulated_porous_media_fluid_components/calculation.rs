@@ -10,10 +10,11 @@ use super::NonInsulatedPorousMediaFluidComponent;
 
 
 impl NonInsulatedPorousMediaFluidComponent {
-    /// advances timestep for each HeatTransferEntity within the 
-    /// HeaterVersion2Bare
+    /// advances timestep for each HeatTransferEntity within the
+    /// NonInsulatedPorousMediaFluidComponent (fluid, pipe shell and interior
+    /// porous-media solid arrays), given the timestep (s)
     #[inline]
-    pub fn advance_timestep(&mut self, 
+    pub fn advance_timestep(&mut self,
     timestep: Time) {
 
         self.pipe_fluid_array.advance_timestep_mut_self(timestep).unwrap();
@@ -47,8 +48,8 @@ impl NonInsulatedPorousMediaFluidComponent {
         return join_handle;
 
     }
-    /// advances timestep for each HeatTransferEntity within the 
-    /// HeaterVersion2Bare
+    /// advances timestep for each HeatTransferEntity within the
+    /// NonInsulatedPorousMediaFluidComponent
     ///
     /// parallel implementation, spawns three threads to do it,
     /// however, it relies heavily upon cloning, so it may or may not 

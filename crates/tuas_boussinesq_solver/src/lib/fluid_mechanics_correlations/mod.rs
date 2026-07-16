@@ -41,6 +41,25 @@
 //! Professor Per F. Peterson
 //!
 //! Btw, I have no affiliation with the Rust foundation.
+//!
+//! # Fluid mechanics correlations
+//!
+//! Dimensionless friction and flow correlations for 1D pipe/component
+//! thermal-hydraulics. Contents:
+//! - Churchill friction factor (`churchill_friction_factor`): Darcy / Fanning /
+//!   Moody friction factor as a function of Reynolds number and relative
+//!   roughness, valid across the laminar, transition and turbulent regimes.
+//! - Custom fLDK form-loss correlations (`custom_fldk`) for user-supplied
+//!   friction-factor and form-loss (K) functions.
+//! - Non-dimensionalisation (`dimensionalisation`): Reynolds number and Bejan
+//!   number (dimensionless pressure loss) conversions to and from `uom`
+//!   quantities.
+//! - Courant number (`courant_number`): dimensionless CFL / stability numbers.
+//! - Pipe pressure-loss calculations (`pipe_calculations`).
+//!
+//! The free functions defined directly in this module (`darcy`, `moody`,
+//! `fldk`, `get_bejan_d`, `get_reynolds_number`) are thin wrappers over
+//! `churchill_friction_factor` that operate on bare `f64` dimensionless inputs.
 
 /// calculate darcy, fanning friction factor
 /// using churchill correlation

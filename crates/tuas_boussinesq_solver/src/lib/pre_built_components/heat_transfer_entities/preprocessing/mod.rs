@@ -1,3 +1,25 @@
+//! Preprocessing: wiring heat transfer entities together before a timestep.
+//!
+//! This module holds the dispatch logic that links [`HeatTransferEntity`]
+//! values (control volumes and boundary conditions) via a
+//! [`HeatTransferInteractionType`], pushing the resulting enthalpy-change
+//! rates (W) onto each control volume and computing mesh-stability timesteps
+//! (seconds). It handles all four link permutations: CV–CV, BC–CV, CV–BC, and
+//! the unsupported BC–BC (which returns an error).
+//!
+//! Module map:
+//! - [`HeatTransferEntity`] convenience linkers (`link_to_front`,
+//!   `link_to_back`, `link`) and `try_set_flowrate_for_fluid_array` (kg/s).
+//! - [`link_heat_transfer_entity`] — the top-level dispatcher that routes a
+//!   pair of entities to the correct connection routine and mutates them.
+//! - `calculate_*_serial` helpers — per-combination heat-flow and timestep
+//!   (seconds) calculators for CV–CV and CV–BC pairs.
+//! - [`try_get_thermal_conductance_based_on_interaction`] — maps an
+//!   interaction enum to a thermal conductance (W/K).
+//! - [`single_cv_and_bc_interactions`] and
+//!   [`single_cv_single_cv_interactions`] — the leaf routines for single-node
+//!   connections.
+
 use std::f64::consts::PI;
 
 use uom::si::f64::*;
@@ -170,7 +192,13 @@ pub fn link_heat_transfer_entity(entity_1: &mut HeatTransferEntity,
 }
 
 
-// the job of this function is to take in a control volume 
+/// Links two control volumes and mutates them in place.
+///
+/// Takes the underlying [`CVType`] of each entity and, for every combination
+/// of single CV / fluid array / solid array, calls the matching connection
+/// routine so the interaction (conductance in W/K, advection, etc.) updates
+/// both control volumes' enthalpy-change bookkeeping. Runs serially.
+// the job of this function is to take in a control volume
 // and then mutate it by calculating its interaction
 #[inline]
 pub (crate) fn calculate_control_volume_serial(

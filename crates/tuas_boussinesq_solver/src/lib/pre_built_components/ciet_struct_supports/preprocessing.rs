@@ -15,10 +15,14 @@ use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_
 impl StructuralSupport {
 
 
-    /// used to connect the arrays laterally 
-    /// you'll need to set the mass flowrate and heater power
+    /// connects the support's solid array laterally to the ambient air.
     ///
-    /// executes serially, and uses lots of cloning, so it's 
+    /// It laterally links the steel array to the ambient air temperature
+    /// through the air-to-steel convective conductance (W/K), applies a zero
+    /// power source (the support is unheated), and caps both axial ends with
+    /// adiabatic (zero-power) boundary conditions.
+    ///
+    /// executes serially, and uses lots of cloning, so it's
     /// heavier in resource usage,
     ///
     /// unoptimised in this regard
@@ -197,11 +201,12 @@ impl StructuralSupport {
 
 
 
-    /// spawns a thread and moves the clone of the entire heater object into the 
-    /// thread, "locking" it for parallel computation
+    /// spawns a thread and moves a clone of the entire structural-support
+    /// object into the thread, "locking" it for parallel computation while it
+    /// performs its lateral (air-coupling) connections
     ///
-    /// once that is done, the join handle is returned 
-    /// which when unwrapped, returns the heater object
+    /// once that is done, the join handle is returned
+    /// which when unwrapped, returns the structural-support object
     pub fn lateral_connection_thread_spawn(&self) -> JoinHandle<Self>{
 
         let mut component_clone = self.clone();

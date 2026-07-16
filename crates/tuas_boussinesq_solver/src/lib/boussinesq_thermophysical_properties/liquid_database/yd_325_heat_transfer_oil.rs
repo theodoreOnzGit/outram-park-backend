@@ -328,15 +328,21 @@ Result<AvailableEnergy,TuasLibError>{
 
 
 
-/// function to obtain nitrate salt temperature from specific enthalpy
-/// Du, B. C., He, Y. L., Qiu, Y., Liang, Q., & Zhou, Y. P. (2018). 
-/// Investigation on heat transfer characteristics of molten salt in 
-/// a shell-and-tube heat exchanger. International Communications 
+/// function to obtain YD-325 heat transfer oil temperature (K) from
+/// specific enthalpy (J/kg)
+///
+/// Inverts `get_yd325_specific_enthalpy` by bisection over the correlation's
+/// validity range 323 K - 523 K. Enthalpy below 0 J/kg (the h = 0 reference
+/// at the 323 K lower bound) is out of range and panics.
+///
+/// Du, B. C., He, Y. L., Qiu, Y., Liang, Q., & Zhou, Y. P. (2018).
+/// Investigation on heat transfer characteristics of molten salt in
+/// a shell-and-tube heat exchanger. International Communications
 /// in Heat and Mass Transfer, 96, 61-68.
 ///
-/// Qiu, Y., Li, M. J., Wang, W. Q., Du, B. C., & Wang, K. (2018). 
-/// An experimental study on the heat transfer performance of a prototype 
-/// molten-salt rod baffle heat exchanger for concentrated solar power. 
+/// Qiu, Y., Li, M. J., Wang, W. Q., Du, B. C., & Wang, K. (2018).
+/// An experimental study on the heat transfer performance of a prototype
+/// molten-salt rod baffle heat exchanger for concentrated solar power.
 /// Energy, 156, 63-72.
 ///
 ///

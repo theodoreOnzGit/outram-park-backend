@@ -1,3 +1,14 @@
+//! CIET steady-state natural-circulation test components and verification suites.
+//!
+//! Bundles the pre-built CIET DRACS-loop component constructors
+//! ([`dracs_loop_components`]) with the steady-state natural-circulation
+//! verification/validation test groups. These compare the TUAS-computed
+//! natural-circulation loop mass flow rate (kg/s) against Scarlat's analytical
+//! zero-heat-loss solution, the SAM code, and the CIET experimental data across
+//! the three TCHX-outlet-temperature cases A (46 degC), B (35 degC) and
+//! C (40 degC), for both the isolated DRACS loop and the DRACS loop coupled to
+//! the DHX and heater branches.
+
 /// For CIET natural circulation tests,
 ///
 /// there are two sets of tests.

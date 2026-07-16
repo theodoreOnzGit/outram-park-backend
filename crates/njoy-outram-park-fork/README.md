@@ -3,6 +3,16 @@
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 
+## Bookkeeping status
+
+> Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping pass" command). A crate is **complete** only once the maintainer has personally signed off on BOTH axes below.
+
+| Axis | Status |
+|---|---|
+| Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
+| Human / user interface — human-reviewed | ❌ Not yet manually checked |
+
+**Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
 
 Pure-Rust port (**work in progress**) of [NJOY2016] — the modular nuclear-data
 processing system that turns evaluated ENDF data into libraries for transport
@@ -10,15 +20,31 @@ codes. In OUTRAM PARK its job is to produce the **ACE** continuous-energy
 libraries that [`outram-mc-libs`] consumes: NJOY is the data-prep step *upstream* of
 an OpenMC calculation.
 
-> **Status — RECONR Phase 2c + BROADR (SIGMA1):** RECONR reconstructs ENDF
-> materials with no resonances (LRU=0, e.g. H-2), resolved SLBW/MLBW resonances
-> (LRU=1, LRF=1/2, e.g. Ar-37), and **resolved Reich-Moore resonances (LRU=1,
-> LRF=3, e.g. U-235)** — including the fissile two-channel / 3×3 complex
-> R-matrix path. BROADR now performs **full SIGMA1 free-gas Doppler broadening**
-> (both kernel terms). The `NuclearDataLibrary` OOP API supports the
+> **Status — most of the pipeline is ported (translation-level; V&V is the trust
+> gate, see banner above).** RECONR reconstructs all five ENDF-6 resolved-resonance
+> formalisms: no resonances (LRU=0, e.g. H-2), SLBW/MLBW (LRF=1/2, e.g. Ar-37),
+> Reich-Moore (LRF=3, e.g. U-235, incl. the fissile two-channel / 3×3 complex
+> R-matrix path), Adler-Adler (LRF=4), and R-Matrix-Limited (LRF=7) — the last
+> dispatched to the full `samm` port (`reconr/mf2.rs` routes LRF=7 → `samm`).
+> BROADR performs **full SIGMA1 free-gas Doppler broadening**. The unresolved
+> region is covered by **UNRESR** (infinite-dilution average σ) and **PURR** (URR
+> probability tables, incl. the `unrest` Monte Carlo core). Ported downstream of
+> RECONR/BROADR: **HEATR** (KERMA H1–H5 + damage-energy H7 two-body channels; the
+> full photon energy-balance H6 is deferred), **GASPR** (gas production MT=203–207),
+> **THERMR** (MF=7 S(α,β): coherent/incoherent elastic + inelastic), **SAMM** (all
+> six phases of the R-matrix-limited formalism, for the RECONR-reachable scope),
+> and **ACER** in full (4a cross-section core, 4c elastic angular, 4d energy
+> distributions, 4e heating column, 4f thermal S(α,β) tables, 4g Windowed
+> Multipole import). The **WMP** evaluator (`src/wmp.rs`, independent MIT CRPG
+> work — not NJOY) is a ~1276-line port with a 125-nuclide CORE library baked in.
+> The Phase-5 multigroup/covariance set is also ported: **GROUPR** (~9.4k lines),
+> **GAMINR**, **ERRORR**, **COVR**, and **LEAPR**; plus the Phase-6 formatters
+> **DTFR**, **RESXSR**, and **MIXR**. The `NuclearDataLibrary` OOP API supports the
 > `from_file → reconstruct → broaden` pipeline with uom-typed cross-section
-> queries and a `ContinuousEnergyData` export. Unresolved resonances (LRU=2,
-> PURR) are the next phase. See
+> queries and a `ContinuousEnergyData` export. The remaining `NjoyError::NotPorted`
+> stubs are only **CCCCR, MATXSR, POWR, PLOTR, VIEWR, and WIMSR** (output formats
+> OUTRAM PARK does not target). All ported modules are translation-level until a
+> V&V case demonstrates otherwise — see the banner and
 > [`docs/porting-plan.md`](docs/porting-plan.md).
 
 ## Patch notes

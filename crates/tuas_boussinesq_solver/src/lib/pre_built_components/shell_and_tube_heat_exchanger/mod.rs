@@ -1,5 +1,35 @@
+//! Single-pass, no-baffle, parallel-flow shell-and-tube heat exchanger.
+//!
+//! This module models a bundle of parallel tubes (carrying the tube-side
+//! fluid) running inside a shell (carrying the shell-side fluid), with a
+//! solid tube-wall array coupling the two fluids and an optional outer
+//! shell / insulation layer to ambient. The heat-transfer layout is:
+//!
+//! tube fluid | inner tube wall | shell fluid | outer shell | (insulation) | ambient
+//!
+//! The core type [`SimpleShellAndTubeHeatExchanger`] holds the control-volume
+//! arrays and geometry; the submodules provide the behaviour:
+//!
+//! - [`preprocessing`] — constructors and the lateral/axial thermal
+//!   connections between the tube-side fluid, tube wall, shell-side fluid,
+//!   outer shell and insulation (conductances in W/K).
+//! - [`calculation`] — advancing the timestep (conduction, heat-transfer
+//!   coefficients, parallel-tube treatment).
+//! - [`calibration`] — tuning heat-transfer coefficients and geometry
+//!   (thermal resistances in K/W, Nusselt numbers) against experimental data.
+//! - [`fluid_component`] — `FluidComponent`-style accessors giving pressure
+//!   drop (Pa) versus mass flow (kg/s) for the tube side and shell side.
+//! - [`postprocessing`] — temperatures (K), heat duty (W), overall heat
+//!   transfer coefficients (W/(m^2 K)) and heat-transfer areas (m^2).
+//! - `type_conversion` — placeholder for `From`/`TryInto` conversions.
+//! - [`tests`] — constructor, heat-transfer verification and the HITEC
+//!   molten-salt to YD-325 oil validation sets (Du et al., 2018).
+//!
+//! All physical quantities are `uom`-typed: temperatures in kelvin,
+//! mass flow in kg/s, power/heat duty in watts, length in metres.
+//
 // I'm taking data from:
-// Du, Bao-Cun, et al. "Investigation on heat transfer 
+// Du, Bao-Cun, et al. "Investigation on heat transfer
 // characteristics of molten salt in a shell-and-tube heat 
 // exchanger." International Communications in Heat and 
 // Mass Transfer 96 (2018): 61-68.

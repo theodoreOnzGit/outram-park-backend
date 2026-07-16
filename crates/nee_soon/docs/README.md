@@ -36,7 +36,16 @@ structure.
 
 ## Existing content in this folder
 
-This crate has no prior `docs/` content — this file establishes the folder.
+- **`xin-wang-thesis/`** — the extracted methodology and case data for the Xin
+  Wang SP3 workflow (`src/xin_wang_sp3_workflow/`). Five markdown files:
+  `00-overview.md`, `02-methodology-sp3.md`,
+  `03-njoy-openmc-genfoam-workflow.md`, `04-transients-fig4-29.md`, and
+  `references.md`. These document the four-stage njoy → openmc → genfoam
+  pipeline that reproduces Figure 4.29 of Xin Wang's 2018 UC Berkeley PhD
+  dissertation (open literature).
+
+The `code_structure.md` and `latex/` content described above is still not yet
+written for this crate.
 
 ## What's *not* here (yet)
 

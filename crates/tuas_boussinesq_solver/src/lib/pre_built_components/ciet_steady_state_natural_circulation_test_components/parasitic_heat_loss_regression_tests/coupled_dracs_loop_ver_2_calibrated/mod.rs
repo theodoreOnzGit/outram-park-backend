@@ -1,6 +1,15 @@
-/// c1 test for calibration set 
+//! Version 2 (calibrated) coupled DRACS + primary loop regression tests.
+//!
+//! Version 2 applies a simple best-effort calibration: DHX shell-and-tube heat
+//! exchanger (STHE) heat transfer plus per-leg parasitic-heat-loss (insulation
+//! thickness) tuning over the loop. The vertical TCHX is NOT split into equal
+//! halves here. Each set-C data point (C-1 to C-9, heater powers ~841-2765 W)
+//! is checked for DRACS/primary natural-circulation mass flow rate (kg/s)
+//! against experimental data, expecting ~8.5% over-prediction.
+
+/// c1 test for calibration set
 ///
-/// version 2 of coupled DRACS loop 
+/// version 2 of coupled DRACS loop
 ///
 /// for version 2, simple calibration is done
 /// that is, STHE calibration and parasitic heat loss calibration over the loop 
@@ -600,11 +609,11 @@ pub fn regression_long_test_calibrated_ver2_set_c9(){
 }
 
 /// function to test version 2 calibrated
-/// coupled dracs loop and compare with experimental data 
-/// this is more of a regression function, so I want to check the 
-/// output of the uncalibrated loop
-/// 
-/// 
+/// coupled dracs loop and compare with experimental data
+/// this is more of a regression function, so I want to check the
+/// output of the calibrated loop
+///
+///
 /// based on initial calibration with set c,
 /// a best effort was made 
 ///

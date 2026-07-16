@@ -1,19 +1,29 @@
+//! Zero-parasitic-heat-loss isolated DRACS loop natural-circulation tests.
+//!
+//! Drives the idealised isolated DRACS loop with zero parasitic heat loss (only
+//! the TCHX rejects heat) and compares the steady-state loop mass flow rate
+//! (kg/s) against Scarlat's analytical zero-heat-loss solution and the SAM
+//! reference for the three TCHX-outlet cases: case A (319 K / 46 degC), case B
+//! (308 K / 35 degC) and case C (313 K / 40 degC). Also holds the supporting
+//! thermal-hydraulics, PID-controller and miscellaneous debugging tests, and
+//! the mesh-refinement convergence study.
+
 /// In the original SAM publication
 ///
-/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code 
-/// validation using the compact integral effects test (CIET) experimental 
-/// data (No. ANL/NSE-19/11). Argonne National 
+/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code
+/// validation using the compact integral effects test (CIET) experimental
+/// data (No. ANL/NSE-19/11). Argonne National
 /// Lab.(ANL), Argonne, IL (United States).
 ///
 /// I found it hard to distinguish what TCHX temperatures case A,
 /// B and C were.
 ///
-/// But there was another publication which shows which is test group 
+/// But there was another publication which shows which is test group
 /// corresponds to which temperature:
 ///
-/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of 
-/// SAM using natural-circulation experimental data from the compact 
-/// integral effects test (CIET) facility. 
+/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of
+/// SAM using natural-circulation experimental data from the compact
+/// integral effects test (CIET) facility.
 /// Nuclear Engineering and Design, 377, 111144.
 ///
 /// According to table 2,
@@ -22,8 +32,8 @@
 /// Case B has 9 tests and TCHX out temperature of 35 C
 /// Case C has 9 tests and TCHX out temperature of 40 C
 ///
-/// Table 3 also provides the data 
-/// 
+/// Table 3 also provides the data
+///
 ///
 pub mod case_a;
 

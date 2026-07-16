@@ -1,4 +1,14 @@
-/// calibration strategy is to adjust insulation thickness 
+//! Parasitic-heat-loss insulation-thickness calibration for the CIET DRACS
+//! (Direct Reactor Auxiliary Cooling System) natural-circulation loop.
+//!
+//! These calibration tests tune the pipe insulation thickness (in cm) of the
+//! DRACS-loop components so the simulated parasitic heat loss reproduces
+//! Zweibaum's steady-state natural-circulation temperature measurements
+//! (DRACS-loop mass flow rate in kg/s; component temperatures in degC). The
+//! two submodules split the loop by leg: the hot leg (DHX tube top outlet ->
+//! TCHX inlet) and the cold leg (TCHX outlet -> DHX tube bottom inlet).
+
+/// calibration strategy is to adjust insulation thickness
 /// until correct parasitic heat loss is achieved
 ///
 /// Zweibaum's unpublished data:

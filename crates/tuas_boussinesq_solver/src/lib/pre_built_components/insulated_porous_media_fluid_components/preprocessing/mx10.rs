@@ -1,4 +1,11 @@
-
+//! MX-10 / static-mixer-specific preprocessing for
+//! `InsulatedPorousMediaFluidComponent`.
+//!
+//! Provides the MX-10 lateral (radial) connection routine and the nodal
+//! thermal-conductance (W/K) helpers tuned to the CIET MX-10 static-mixer
+//! geometry: air-to-insulation, therminol-to-steel-shell and
+//! steel-shell-to-fiberglass conductances, the MX-10 hydraulic-diameter
+//! Reynolds-number helper, and a threaded lateral-connection variant.
 use std::f64::consts::PI;
 use std::thread::{self, JoinHandle};
 
@@ -164,7 +171,10 @@ impl InsulatedPorousMediaFluidComponent {
 
 
 
-    /// obtains air to steel shell conductance
+    /// obtains the nodal thermal conductance (W/K) from ambient air to the
+    /// insulation (fiberglass) shell, combining the air-side convective
+    /// resistance with the fiberglass conduction resistance to ambient in
+    /// series
     #[inline]
     pub fn get_air_insulation_shell_conductance_mx10(&mut self,
     h_air_to_insulation_surf: HeatTransfer) 
@@ -399,8 +409,9 @@ impl InsulatedPorousMediaFluidComponent {
     }
 
 
-    /// obtains therminol to twisted tape conductance 
-    /// based on approx wakao correlation
+    /// obtains the nodal thermal conductance (W/K) from the steel pipe shell to
+    /// the fiberglass insulation, combining the steel-layer and fiberglass-layer
+    /// conduction resistances (to the shell/insulation interface) in series
     #[inline]
     pub fn get_steel_to_fiberglass_conductance_mx10_nodal(
     &self) -> ThermalConductance {

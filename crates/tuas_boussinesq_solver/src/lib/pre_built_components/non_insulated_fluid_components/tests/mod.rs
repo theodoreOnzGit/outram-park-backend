@@ -1,3 +1,6 @@
+//! Verification and validation tests for [`super::NonInsulatedFluidComponent`],
+//! comparing simulated steady-state heater behaviour against De Wet's CIET
+//! heater-v2 data. Test-only module (`#[cfg(test)]`).
 
 /// this does not have csv writer, was used for early test and development
 ///

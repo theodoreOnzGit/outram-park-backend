@@ -13,9 +13,16 @@ use crate::tuas_lib_error::TuasLibError;
 /// temperature array
 impl SolidColumn {
 
-    /// connects an adjacent solid or fluid node laterally 
-    /// with a given average thermal conductance
-    /// note that doing so with 
+    /// connects a laterally (radially) adjacent solid or fluid array to this
+    /// array using a single average thermal conductance (W/K) applied
+    /// uniformly to every node.
+    ///
+    /// `temperature_vec` is the adjacent array's node temperatures (SI
+    /// kelvin) and must have the same number of nodes as this array
+    /// (`len()`), else a `ShapeMismatch` error is returned. Both the
+    /// temperature array and a node-length conductance array filled with
+    /// `average_thermal_conductance` are pushed onto the lateral-coupling
+    /// vectors for use in the next `advance_timestep`.
     pub fn lateral_link_new_temperature_vector_avg_conductance(&mut self,
     average_thermal_conductance: ThermalConductance,
     temperature_vec: Vec<ThermodynamicTemperature>) 

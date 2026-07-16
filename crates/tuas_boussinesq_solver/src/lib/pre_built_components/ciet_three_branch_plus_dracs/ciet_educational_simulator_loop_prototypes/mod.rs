@@ -1,5 +1,23 @@
+//! Real-time educational simulator prototypes for the CIET three-branch
+//! plus DRACS loop.
+//!
+//! Each `version_*` submodule is a successive iteration of the loop
+//! solver used as a playable educational simulator (not a validated
+//! model):
+//!
+//! - [`version_1`] — mass flowrates solved serially; no CTAH PID
+//!   control yet.
+//! - [`version_2`] — adds CTAH (and TCHX) PID control, still single
+//!   threaded.
+//! - [`version_3`] — adds thread-based parallelism over version 2 to
+//!   run the loop faster.
+//!
+//! [`regression_tests`] guards that these changes still reproduce the
+//! expected physics (e.g. the natural-circulation loop). Time is in
+//! seconds, temperatures in degC, mass flow in kg/s and power in W in
+//! these prototype drivers.
 
-/// this ensures that despite all the changes, the three branch 
+/// this ensures that despite all the changes, the three branch
 /// ciet should still reproduce results 
 ///
 /// eg. natural circulation loop

@@ -96,19 +96,23 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 
 | Rust module | Fortran file | LOC | Status |
 |---|---|---|---|
-| `modules::groupr` | `groupr.f90` | 12.7k | ⬜ multigroup neutron/photon XS |
-| `modules::gaminr` | `gaminr.f90` | ~2k | ⬜ multigroup photon interaction |
-| `modules::errorr` | `errorr.f90` | 11.2k | ⬜ multigroup covariance matrices; next up after `samm` finishes (2026-07-07) — it is `samm`'s `Want_Partial_Derivs`/`Want_Angular_Dist` caller |
-| `modules::covr` | `covr.f90` | ~3k | ⬜ covariance output/plotting |
-| `modules::leapr` | `leapr.f90` | 3.6k | ⬜ *generate* MF=7 S(α,β) (upstream of THERMR) |
-| `modules::samm` | `samm.f90` | 7.2k | 🟨 Phase 1-6/6 done for the reachable (non-derivative, non-angular) core — `xsformula::cssammy` is a working RECONR-facing entry point; RECONR itself doesn't call it yet (still SLBW/MLBW/Reich-Moore only); derivatives/angular deferred to ERRORR; shared by reconr/unresr |
+| `modules::groupr` | `groupr.f90` | 12.7k | 🟡 multigroup neutron/photon XS — ported (~9.4k Rust lines across `src/groupr/`); translation-level, V&V pending |
+| `modules::gaminr` | `gaminr.f90` | ~2k | 🟡 multigroup photon interaction — ported (`src/gaminr/`); translation-level, V&V pending |
+| `modules::errorr` | `errorr.f90` | 11.2k | 🟡 multigroup covariance matrices — ported (`src/errorr/`); it is `samm`'s `Want_Partial_Derivs`/`Want_Angular_Dist` caller; translation-level, V&V pending |
+| `modules::covr` | `covr.f90` | ~3k | 🟡 covariance output/plotting — ported (`src/covr/`); translation-level, V&V pending |
+| `modules::leapr` | `leapr.f90` | 3.6k | 🟡 *generate* MF=7 S(α,β) (upstream of THERMR) — ported (`src/leapr/`); translation-level, V&V pending |
+| `modules::samm` | `samm.f90` | 7.2k | 🟡 Phase 1-6/6 done for the reachable (non-derivative, non-angular) core — `xsformula::cssammy` is the RECONR-facing entry point, and **RECONR now dispatches LRF=7 sections to it** (`reconr/mf2.rs`, see §8); derivatives/angular deferred to ERRORR; shared by reconr/unresr; translation-level, V&V pending |
 
 ### Formatters, plotting, misc (Phase 6 — lowest priority)
 
-Output formats for codes OUTRAM PARK does not target — port only on demand (all ⬜):
-`dtfr.f90`, `ccccr.f90`, `matxsr.f90`, `resxsr.f90`, `powr.f90`, `wimsr.f90`,
-`mixr.f90`, `plotr.f90`, `viewr.f90`, `graph.f90` (low-level plotting shared by
-`plotr`/`viewr`/`covr`).
+Output formats for codes OUTRAM PARK does not target — most are still on-demand
+`NotPorted` stubs, but three have been ported (translation-level, V&V pending):
+
+- **Ported (🟡):** `dtfr.f90` (`src/dtfr/`), `resxsr.f90` (`src/resxsr/`),
+  `mixr.f90` (`src/mixr/`).
+- **Still `NotPorted` stubs (⬜):** `ccccr.f90`, `matxsr.f90`, `powr.f90`,
+  `wimsr.f90`, `plotr.f90`, `viewr.f90`, and `graph.f90` (low-level plotting
+  shared by `plotr`/`viewr`/`covr`).
 
 > Note: `samm.f90` (Reich–Moore / R-matrix-limited resonance formalism) is shared
 > by RECONR and UNRESR. It may need to move earlier than Phase 5 if a target
@@ -226,18 +230,6 @@ Output formats for codes OUTRAM PARK does not target — port only on demand (al
     (E_max≈6.9 eV<E_d), positive/rising above, and per-collision `< the H1
     heating` at every energy; a discrete level (`Q<0`) narrows the recoil window
     (`E_max < 4C`) and adds strictly-positive damage on top of elastic.
-
-    **V&V (methodology + results).** Five unit tests in `src/heatr.rs`
-    (`cargo test -p njoy-outram-park-fork --lib heatr`, 24/24 green 2026-07-04):
-    (i) the default-`E_d` table reproduces NJOY's values; (ii) `df = 0` below
-    `E_d` and `0 < df ≤ E_R` above (partition only *removes* energy); (iii) the
-    damage fraction `df/E_R` is ≈1 just above threshold and `< 0.1` at 10 MeV
-    (electronic stopping dominates) and falls monotonically — the Lindhard
-    signature; (iv) for Fe (A=56, E_d=40 eV) the elastic MT=444 is 0 at 100 eV
-    (E_max ≈ 6.9 eV < E_d), positive and monotically rising above, and per
-    collision **< the H1 heating** `σ·E·2A/(A+1)²` at every energy (damage is a
-    partition of the recoil energy heating counts in full); (v) empty table when
-    no elastic section.
 
 - **Phase 4 — ACER.** Emit an ACE file OpenMC loads and runs. **This is the
   milestone that satisfies the OpenMC dependency.** Largest single phase

@@ -68,6 +68,9 @@ use uom::si::power::kilowatt;
 use uom::si::ratio::ratio;
 use uom::si::time::second;
 
+/// example test: full heater assembly (heated section, top/bottom heads,
+/// MX-10 mixer and structural supports) run through a transient with results
+/// written to a CSV data record.
 #[test]
 pub fn example_heater_with_struct_supports_and_mx10(){
 

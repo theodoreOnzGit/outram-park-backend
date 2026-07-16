@@ -37,39 +37,47 @@ verification tests"). This is the notebook → test → required-API mapping doc
   the notebook's full model is still gated.
 - **Gap bead** — the op-6tz child bead tracking the missing API.
 
-## Current outram-mc API reality (assessed 2026-07-15)
+## Current outram-mc API reality (assessed 2026-07-16)
 
-The only working **end-to-end** simulation path today is
-`physics::keff::run_keff` — a **homogeneous bare-sphere** k-eigenvalue power
-iteration (one `Sphere` surface, vacuum outside, one `Material`). It does **not**
-use the general CSG machinery. The general pieces exist only as **stubs**:
+The **general CSG k-eigenvalue path is now live**:
+`physics::transport_csg::run_keff_csg` navigates the full geometry
+(surfaces → cells → universes → lattices), samples collisions, scatters, and
+banks fission sites. The earlier `physics::keff::run_keff` homogeneous
+bare-sphere path is still present (it powers the Godiva validation), but the
+general machinery below is now implemented, not stubbed:
 
-- `geometry::geometry` (`locate_particle`, `distance_to_boundary`) — `TODO`, empty.
-- `physics::transport` (`transport_history_based`, `collision`) — `TODO`, empty.
-- `physics::physics_mg` (multigroup) — `TODO`, empty.
-- `tally::scoring` (`score_event`) — `TODO`, empty.
-- `geometry::universe::Universe::find_cell` — `todo!()` (panics if called).
-- `tally` filters (`CellFilter`, `MaterialFilter`, `EnergyFilter`,
-  `UniverseFilter`) and `Tally`/`TallyBin` exist as **data structures** but
-  nothing in a transport loop drives them.
-- `geometry::lattice::RectLattice::get_indices` exists; `HexLattice` indexing is
-  a stub; no lattice *transport*.
-- `material::thermal::ThermalScattering` — data stub, not sampled.
-- `pebble_beds` (`delta_tracking`, `stochastic_media` packing) — building blocks
-  exist, no assembled doubly-heterogeneous k-eff sim.
+- `geometry::geometry::Geometry::locate` — nested lattice descent (implemented).
+- `physics::transport_csg::run_keff_csg` — the live CSG k-eigenvalue loop.
+- `tally::scoring` — flux / reaction-rate scoring (implemented).
+- `geometry::universe::Universe::find_cell` — implemented (no `todo!()`).
+- `geometry::cell::Cell::contains` — RPN region evaluation (implemented).
+- `geometry::lattice`: both `RectLattice` and `HexLattice` (ring construction +
+  indexing + lattice transport) are implemented.
+- `material::{nuclide, reaction, thermal, material}` — implemented, incl.
+  `Nuclide::from_core` (embedded WMP data) and S(α,β) thermal-scatter tables.
+- `material::thermal::ThermalScattering` — implemented.
+- `depletion` — one-group CRAM burnup (`chain.rs`, `cram.rs`, `matrix.rs`,
+  `operator.rs`), live for inventory & k_inf trends.
+- `pebble_beds` (`delta_tracking`, `stochastic_media` packing) — assembled into
+  the live TRISO doubly-heterogeneous k∞ case.
 
-Consequence: the notebooks that only need a criticality eigenvalue on a simple
-convex body are the sole live cases; everything requiring real CSG navigation,
-tally scoring driven by transport, multigroup mode, depletion, photons, DAGMC/
-unstructured mesh, or the C-API is `#[ignore]` with a documented gap.
+Still genuinely gated (`#[ignore]` with a documented gap): the generic
+history-based `physics::transport` variant, multigroup mode
+(`physics::physics_mg`, still a stub), DAGMC / unstructured-mesh geometry,
+functional-expansion / mesh / distribcell tally filters, photon transport, the
+`StatePoint`/pandas inspection layer, and the C-API.
+
+Consequence: notebooks resolvable with the CSG core (criticality eigenvalue,
+hex-lattice geometry, TRISO packing, one-group depletion) are live; everything
+requiring the still-gated features above is `#[ignore]` with a documented gap.
 
 ## Mapping — outram-mc subset (this crate)
 
 | Notebook | Owner | OpenMC API exercised | outram-mc equivalent / GAP | Tractable now? | Gap bead | Notes |
 |---|---|---|---|---|---|---|
 | `pincell` | outram-mc | `Material`, `ZCylinder`/`XPlane`/`YPlane`, `Universe`, `Cell`, `Geometry`, `IndependentSource`, `Settings`, `run`, `Tally`+`CellFilter`, `StatePoint` | `run_keff` (bare-sphere k-eff) covers the criticality-eigenvalue core; full LWR pin-in-a-reflected-cell + thermal spectrum + flux tally is absent | **partial (LIVE)** | op-6tz.7, .10, .12 | Live test runs the **Godiva bare-sphere** k-eff (op-u6s.1) as the criticality-eigenvalue verification. The notebook's true LWR pin (square cell, reflective BC, S(a,b) water, cell flux tally) needs general CSG + lattice + thermal scatter + tally scoring — none live. |
-| `hexagonal-lattice` | outram-mc | `HexLattice`, `Universe`, `Cell`, `ZCylinder`, `model.HexagonalPrism`, `Plot.from_geometry` | `HexLattice` is an indexing stub; no hex lattice transport | no | op-6tz.11 (→.7) | Geometry-construction + plotting notebook; needs hex indexing + CSG navigation. |
-| `triso` | outram-mc | `model.TRISO`, `model.pack_spheres`, `model.create_triso_lattice`, `Universe`, `Cell`, `Sphere` | `pebble_beds::stochastic_media` (packing) + `delta_tracking` are pieces; no assembled TRISO k-eff sim | no | op-6tz.16 (→.7) | Doubly-heterogeneous packing → lattice → transport not wired end-to-end. |
+| `hexagonal-lattice` | outram-mc | `HexLattice`, `Universe`, `Cell`, `ZCylinder`, `model.HexagonalPrism`, `Plot.from_geometry` | `HexLattice` ring construction + indexing + `Geometry::locate` nested-lattice descent are live; the notebook itself runs **no** k-eff, so LIVE assertions are geometry-correctness properties (+ a k smoke run, no reference) | **LIVE (geometry)** | op-6tz.11 | Geometry-construction + plotting notebook. Live geometry test + supplementary k smoke; see `tests/openmc_notebooks/hexagonal_lattice.rs`. |
+| `triso` | outram-mc | `model.TRISO`, `model.pack_spheres`, `model.create_triso_lattice`, `Universe`, `Cell`, `Sphere` | `pebble_beds::stochastic_media` packing + `delta_tracking` (Woodcock) assembled into a live doubly-heterogeneous k∞ sim; notebook runs `plot` only (no reference k), so assertions are physics-correctness (packing fraction + unbiased delta tracking) | **LIVE** | op-6tz.16/.25 | Random-packed doubly-het k∞ by delta tracking; see `tests/openmc_notebooks/triso.rs`. |
 | `candu` | outram-mc | `ZCylinder`, `Cell`, `Universe`, `DistribcellFilter`, `Tally` | No cluster geometry navigation, no distribcell filter | no | op-6tz.11, .7 | CANDU cluster in a pressure tube; needs CSG descent + distribcell tally. |
 | `cad-based-geometry` | outram-mc | `DAGMCUniverse`, `dagmc`, `RegularMesh`, `MeshFilter`, `Model`, `Plot` | No DAGMC/CAD geometry backend | no | op-6tz.17 | Large; CAD geometry is long-horizon / partially out of scope for the pure-Rust CSG core. |
 | `unstructured-mesh-part-i` | outram-mc | `UnstructuredMesh`, `MeshFilter`, `lib._libmesh_enabled`, `examples.pwr_assembly` | No unstructured mesh type or mesh tally | no | op-6tz.17 | Needs libMesh/MOAB-style unstructured mesh tallies. |
@@ -105,7 +113,11 @@ this run.
 | `mdgxs-part-i` | njoy | `mgxs.MDGXS`, multi-delayed-group XS | Multi-delayed-group XS generation | |
 | `mdgxs-part-ii` | njoy | `mgxs.MDGXS`, delayed-neutron data | | |
 
-## V&V status of the one live case
+## V&V status of the live cases
+
+The live cases are now `pincell` (Godiva bare-sphere k-eff), `hexagonal-lattice`
+(geometry correctness + k smoke), `triso` (doubly-het k∞ by delta tracking), and
+`depletion` (one-group burnup trends). The benchmark-gated case is the Godiva one:
 
 - **`pincell` (partial) — Godiva bare-sphere k-eff.** Methodology & measured
   results are documented in the test module and in
@@ -115,5 +127,5 @@ this run.
   accuracy. This is a *criticality-eigenvalue* stand-in for the pincell notebook,
   **not** the notebook's LWR thermal pin cell.
 
-All other rows are `#[ignore]` with the gap bead recorded in the ignore reason —
-no fabricated passing tests.
+The remaining (still-gated) rows are `#[ignore]` with the gap bead recorded in the
+ignore reason — no fabricated passing tests.

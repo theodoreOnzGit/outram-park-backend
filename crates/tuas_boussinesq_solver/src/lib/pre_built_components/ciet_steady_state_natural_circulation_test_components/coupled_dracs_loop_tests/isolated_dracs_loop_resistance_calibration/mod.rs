@@ -1,3 +1,16 @@
+//! Isolated DRACS-loop resistance (pipe-38 form loss) calibration tests.
+//!
+//! These tests run the DRACS loop *in isolation* (decoupled from the primary
+//! loop) at the CIET set-C conditions (TCHX outlet 40 degC / 313 K) and compare
+//! the steady-state natural-circulation mass flow rate (kg/s) against the SAM
+//! analytical solution, sweeping the pipe-38 form-loss coefficient K to find the
+//! value that best matches SAM. The header comments on each test record the
+//! per-K mass-flow error; the calibration settled on K = 17.8 (see the
+//! `verify_isolated_dhx_sam_solution` driver and the parent module's V&V notes).
+//!
+//! Reference: Zou, Hu & Charpentier (2019, ANL/NSE-19/11) and Zou, Hu, O'Grady
+//! & Hu (2021, Nuclear Engineering and Design 377, 111144).
+
 use uom::si::{frequency::hertz, ratio::ratio, time::millisecond};
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::f64::*;

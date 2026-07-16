@@ -16,14 +16,22 @@ assemble simulations without wiring the crates together by hand.
 | Nuclear data / cross sections | `njoy-outram-park-fork` | energy-dependent σ(E), ν̄, χ, WMP |
 | Monte Carlo transport | `outram-mc-libs` | CSG geometry, k-eigenvalue, Woodcock tracking |
 | Point reactor kinetics | `teh-o-prke` | PRKE precursor / reactivity time response |
+| GeN-Foam SP3 multiphysics | `outram-foam-appbuilder-lib` | SP3 neutronics + porous-media TH + multi-region coupling (host for the Xin Wang SP3 workflow) |
 
 See the workspace `docs/architecture.md` for the responsibility split
 (nuclear data ⟂ Monte Carlo ⟂ deterministic/TH ⟂ coupling).
 
 ## Status
 
-**Scaffold only.** `src/lib.rs` defines the crate docs and the single facade
-struct `NeeSoon` with no coupling logic yet. Do not add physics kernels here.
+**Mostly scaffold; the prompt-excursion path is real.**
+`NeeSoon::new_prompt_excursion_model` is real, wired code — a thin pass-through
+to `teh-o-prke`'s `NordheimFuchsExactTimestepper`, backed by an integration
+test (bead op-fr2.1, closed). The `xin_wang_sp3_workflow` module now exists as a
+documented four-stage scaffold: its stage `run()` methods return
+`WorkflowError::NotYetImplemented` (each naming its tracking bead), while
+carrying real Mk1 case data. The `njoy-outram-park-fork` and `outram-mc-libs`
+coupling logic is still future work. **Do not add physics kernels here** — only
+orchestration / facade / cross-crate glue belongs in this crate.
 
 ## Design rules
 

@@ -6,9 +6,11 @@ use std::thread;
 
 impl SolidStructure {
 
-    /// advances timestep for each HeatTransferEntity within the 
+    /// advances the solid structure by one timestep, marching the solid
+    /// control-volume array forward in time. `timestep` is the time increment
+    /// in seconds (s).
     #[inline]
-    pub fn advance_timestep(&mut self, 
+    pub fn advance_timestep(&mut self,
     timestep: Time) -> Result<(),TuasLibError> {
 
         self.solid_array.advance_timestep_mut_self(timestep)?;

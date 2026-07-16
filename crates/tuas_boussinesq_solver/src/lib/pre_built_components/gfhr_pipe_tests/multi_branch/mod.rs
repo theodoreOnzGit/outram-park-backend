@@ -1,4 +1,29 @@
-/// contains code for fluid mechanics solvers 
+//! Multi-branch (parallel network) fluid-mechanics solvers and full-loop tests
+//! for the gFHR primary (FLiBe) and intermediate (HITEC) loops.
+//!
+//! The reactor primary loop is modelled as parallel branches (reactor core
+//! branch plus downcomer branches) driven by a pump pressure head (Pa), and
+//! the intermediate loop as an IHX branch and a steam-generator branch. The
+//! solvers here iterate branch mass flowrates (kg/s) so that every parallel
+//! branch shares a common pressure change (Pa).
+//!
+//! Module map:
+//! - [`fluid_mechanics_solvers`] — the isothermal four-branch solvers, the
+//!   coupled single-timestep thermal-hydraulic advance, and the
+//!   [`fluid_mechanics_solvers::FHRThermalHydraulicsState`] result struct.
+//! - [`multi_branch_solvers`] — parallel-branch iteration primitives (pressure
+//!   change from a guessed branch flowrate; mass flowrate from a pressure
+//!   change across parallel branches).
+//! - [`single_branch_solvers`] — the single-branch (series collection) mass
+//!   flowrate from pressure-change root find used by the parallel solvers.
+//! - [`debug`] — legacy standalone diagnostics for the four-branch solver.
+//! - [`regression`] — regression fixtures and tests using the library's own
+//!   pre-built pressure-change / mass-flowrate components end to end.
+//! - [`isothermal_flow`] — isothermal (fluid-mechanics-only) checks of the
+//!   full four-branch primary + intermediate loop, including the zero-flow
+//!   (pumps off) case.
+
+/// contains code for fluid mechanics solvers
 /// for the gFHR branches
 pub mod fluid_mechanics_solvers;
 

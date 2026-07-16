@@ -1,3 +1,23 @@
+//! One-dimensional solid array control volume with lateral coupling.
+//!
+//! This module defines the [`SolidColumn`] type: a 1D chain of solid
+//! control-volume nodes (e.g. a pipe wall, rod, cladding, or structural
+//! conductor) that transports heat by axial conduction along its length and
+//! by lateral (radial) conduction to adjacent arrays. There is no advection
+//! within a solid array.
+//!
+//! The submodules split the type's behaviour by concern:
+//! - `constructors` / `default` — build a `SolidColumn` (block, cylinder,
+//!   cylindrical shell, or 1D unit-area volume) and its default state;
+//! - `preprocessing` — stability timestep and bulk-temperature helpers used
+//!   before a timestep;
+//! - `lateral_connection` — register laterally adjacent temperature arrays
+//!   (with thermal conductances) and volumetric power sources;
+//! - `axial_connection` — link the array's back/front nodes to single CVs,
+//!   boundary conditions, or other array CVs;
+//! - `calculation` — assemble and solve the implicit-Euler conduction matrix
+//!   to advance the node temperatures one timestep;
+//! - `postprocessing` — read back the resulting temperature profile.
 use crate::single_control_vol::SingleCVNode;
 use crate::boussinesq_thermophysical_properties::Material;
 use crate::boussinesq_thermophysical_properties::specific_enthalpy::try_get_h;
@@ -139,7 +159,14 @@ impl SolidColumn {
     }
 
 
-    /// sets the temperature vector to a 
+    /// sets the node temperature array (in kelvin) from a temperature
+    /// vector whose length must equal the number of nodes
+    /// (`inner_nodes + 2`); returns a `ShapeMismatch` error otherwise.
+    ///
+    /// Besides writing the internal temperature array, this also
+    /// re-synchronises the specific enthalpy (J/kg) of the back and front
+    /// single control volumes to match the new first/last node
+    /// temperatures at the array's pressure.
     pub fn set_temperature_vector(&mut self,
     temperature_vec: Vec<ThermodynamicTemperature>) -> Result<(), TuasLibError>{
 
@@ -200,8 +227,10 @@ impl SolidColumn {
         Ok(())
     }
 
-    /// obtains a clone of the temperature array in Array1 ndarray 
-    /// form 
+    /// sets the node temperature array from an `Array1` of
+    /// `ThermodynamicTemperature` (SI kelvin); the array length must equal
+    /// the number of nodes. Delegates to `set_temperature_vector`, so it
+    /// also re-synchronises the back/front single-CV enthalpies.
     pub fn set_temperature_array(&mut self,
     temperature_arr: Array1<ThermodynamicTemperature>) -> Result<(),
     TuasLibError> {
@@ -220,7 +249,9 @@ impl SolidColumn {
 
     }
 
-    /// length of the fluid array 
+    /// total number of temperature nodes in the solid array,
+    /// equal to `inner_nodes + 2` (the two extra nodes are the back and
+    /// front boundary nodes)
     pub fn len(&self) -> usize {
         self.inner_nodes + 2
     }

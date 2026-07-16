@@ -1,5 +1,26 @@
-/// for gnielinski type correlations, there is a wall correction 
-/// factor which is something like (Pr_f/Pr_w)^0.11 
+//! Regression and calibration tests for parasitic heat loss in the CIET
+//! natural-circulation loops (DRACS loop and the coupled DRACS + primary loop),
+//! benchmarked against Zou et al. (ANL/NSE-19/11) and Zweibaum's unpublished
+//! CIET data (set C, heater powers ~841-2765 W).
+//!
+//! The submodules progress through calibration stages:
+//! - `wall_correction_isolated_dracs_loop_regression` - Gnielinski wall-correction
+//!   factor `(Pr_f/Pr_wall)^0.11` on the isolated DRACS loop.
+//! - `coupled_dracs_loop_ver_1_uncalibrated` - baseline coupled loop, no calibration.
+//! - `coupled_dracs_loop_ver_2_calibrated` / `..._ver_3_calibrated` /
+//!   `..._ver_6_calibrated` - successively calibrated STHE, insulation and
+//!   heater-Nusselt settings.
+//! - `dhx_sthe_calibration` - standalone DHX shell-and-tube heat exchanger (STHE)
+//!   heat-transfer / insulation calibration.
+//! - `primary_loop_parasitic_heat_loss_calibration` /
+//!   `dracs_loop_parasitic_heat_loss_calibration` - per-leg insulation calibration.
+//!
+//! Test quantities are natural-circulation mass flow rates (kg/s) in the DRACS
+//! and primary loops, component temperatures (degC), and heater surface
+//! temperatures (degC) at the given heater power (W).
+
+/// for gnielinski type correlations, there is a wall correction
+/// factor which is something like (Pr_f/Pr_w)^0.11
 ///
 /// For cooling situations, this lowers the heat transfer 
 /// coefficient. To test if this correction factor is working,

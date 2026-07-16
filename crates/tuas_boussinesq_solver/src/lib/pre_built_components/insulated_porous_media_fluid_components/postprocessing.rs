@@ -1,3 +1,7 @@
+//! Postprocessing for `InsulatedPorousMediaFluidComponent`.
+//!
+//! Extracts the nodal temperature profiles (K) of the pipe shell, shell fluid,
+//! insulation and porous-media interior arrays, plus the total node count.
 use uom::si::f64::*;
 
 use super::InsulatedPorousMediaFluidComponent;

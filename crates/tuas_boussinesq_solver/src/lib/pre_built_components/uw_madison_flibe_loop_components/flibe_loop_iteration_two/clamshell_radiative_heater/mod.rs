@@ -1,3 +1,30 @@
+//! Clamshell radiative heater sub-component for the UW-Madison FLiBe loop.
+//!
+//! Models a fluid pipe heated by a surrounding clamshell (semi-cylindrical)
+//! radiative heating element. The construction mirrors the shell-and-tube
+//! heat exchanger, but adds radiative conductances derived from coaxial
+//! cylinder view factors. Radially, the nodalisation is:
+//!
+//! ```text
+//! |-tube fluid-|-inner tube-|-annular air-|-heater elem-|-insulation-| ambient
+//! ```
+//!
+//! The [`ClamshellRadiativeHeater`] struct defined here holds the five
+//! [`HeatTransferEntity`] arrays (tube fluid, pipe/inner-tube shell, annular
+//! air, heating element, insulation) plus the geometry, ambient conditions and
+//! correlations. The work is split across sub-modules:
+//!
+//! - [`preprocessing`] — conductance calculations (convective and radiative)
+//!   and lateral connections between the layers.
+//! - [`fluid_component`] — [`FluidComponentTrait`](crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait)
+//!   impl and helpers for tube-side / annular mass flowrate (kg/s) and geometry.
+//! - [`calculation`] — timestep advancing (single-threaded and thread-spawn).
+//! - [`postprocessing`] — layer temperatures (K) and radiant heat rates (W).
+//! - [`type_conversion`] — conversions into the loop's fluid-component types.
+//! - [`tests`] — planned steady-state energy-balance unit tests.
+//!
+//! This sub-component is UNDER CONSTRUCTION: calibration and validation
+//! against the 1.7 kW heaters of the reference loop are not yet complete.
 
 use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
@@ -26,10 +53,11 @@ use uom::si::f64::*;
 #[derive(Clone,Debug,PartialEq)]
 pub struct ClamshellRadiativeHeater {
 
-    
+    /// number of interior (non-boundary) axial nodes used to discretise
+    /// each layer array
     inner_nodes: usize,
 
-    /// this HeatTransferEntity represents the pipe shell which 
+    /// this HeatTransferEntity represents the pipe shell which
     /// contains the tube side fluid
     /// it is exposed to the radiative heater and some ambient air
     pub pipe_shell_array: HeatTransferEntity,

@@ -76,8 +76,9 @@ pub fn try_get_alpha_thermal_diffusivity(material: Material,
 }
 
 impl LiquidMaterial {
-    /// wrapper that 
-    /// returns the liquid cp in a result enum 
+    /// returns the liquid material's thermal diffusivity
+    /// (alpha = k / (rho * cp)), in m^2/s, wrapped in a `Result`.
+    /// Valid over the liquid's coded correlation temperature range.
     #[inline]
     pub fn try_get_alpha_thermal_diffusivity(&self,
         fluid_temp: ThermodynamicTemperature,
@@ -93,8 +94,9 @@ impl LiquidMaterial {
 
 }
 impl SolidMaterial {
-    /// wrapper that 
-    /// returns the solid cp in a result enum 
+    /// returns the solid material's thermal diffusivity
+    /// (alpha = k / (rho * cp)), in m^2/s, wrapped in a `Result`.
+    /// Valid over the solid's coded correlation temperature range.
     #[inline]
     pub fn try_get_alpha_thermal_diffusivity(&self,
         solid_temp: ThermodynamicTemperature,

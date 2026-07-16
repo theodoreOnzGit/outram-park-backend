@@ -1,3 +1,15 @@
+//! Preprocessing for the non-insulated porous-media fluid component:
+//! establishes the thermal connections between its control-volume arrays and
+//! computes the per-node thermal conductances (W/K).
+//!
+//! This is where the fluid, pipe shell, interior porous-media solid and the
+//! ambient boundary are laterally coupled for a given mass flow rate (kg/s)
+//! and heater power (W), and where the ambient-to-shell, shell-to-fluid and
+//! interior-to-fluid nodal conductances are derived from Nusselt-number
+//! correlations plus solid-side conduction lengthscales. The
+//! [`ciet_heater_v2`] submodule holds the CIET-heater-v2-specific variants of
+//! these builders.
+
 use std::thread::JoinHandle;
 use std::thread;
 
@@ -19,9 +31,8 @@ use ndarray::*;
 
 impl NonInsulatedPorousMediaFluidComponent {
 
-    /// NonInsulatedPorousMediaFluidComponent config:
-    ///
-    /// Firstly with insulation:
+    /// NonInsulatedPorousMediaFluidComponent radial config (no insulation
+    /// layer — the outer shell is exposed directly to ambient):
     /// |               |               |              |
     /// |               |               |              |
     /// |-porous media -|- shell fluid -|-outer shell--| ambient
@@ -29,8 +40,9 @@ impl NonInsulatedPorousMediaFluidComponent {
     /// |               |               |              |
     ///
     ///
-    /// This connects the control volumes within this component 
-    /// causing them to interact given a set mass flowrate
+    /// This connects the control volumes within this component
+    /// causing them to interact given a set mass flowrate (kg/s), a shell-side
+    /// heater power (W) and a porous-media-side power (W)
     #[inline]
     pub fn lateral_and_miscellaneous_connections(&mut self,
         prandtl_wall_correction_setting: bool,

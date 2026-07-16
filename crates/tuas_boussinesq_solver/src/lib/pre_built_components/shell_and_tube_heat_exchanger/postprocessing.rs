@@ -1200,10 +1200,11 @@ impl SimpleShellAndTubeHeatExchanger {
 
 
     }
-    /// provides the tube bundle side heat transfer area 
-    /// on the shell side
+    /// provides the parasitic (shell-to-ambient) heat transfer area, in m^2
     ///
-    /// assuming the bundle of inner tubes is circular
+    /// this is the inner surface of the outer shell wetted by the shell-side
+    /// fluid, computed as pi * D_shell_id * L (shell inner diameter times
+    /// effective length), assuming the outer shell is circular
     pub fn parasitic_heat_transfer_area_shell_side(&self) -> Area {
 
         let pipe_shell_clone: SolidColumn = 
@@ -1220,10 +1221,11 @@ impl SimpleShellAndTubeHeatExchanger {
 
 
     }
-    /// provides the tube bundle side heat transfer area 
-    /// on the shell side
+    /// provides the tube bundle heat transfer area on the tube side, in m^2
     ///
-    /// assuming the bundle of inner tubes is circular
+    /// this is the total inner surface of all tubes wetted by the tube-side
+    /// fluid, computed as N_t * pi * d_i * L (number of tubes times tube
+    /// inner diameter times effective length), assuming the tubes are circular
     pub fn circular_tube_bundle_heat_transfer_area_tube_side(&self) -> Area {
 
         let n_t = self.number_of_tubes;

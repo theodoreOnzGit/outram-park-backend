@@ -10,15 +10,54 @@ A suite of Rust libraries for real-time thermal-hydraulics, reactor kinetics, st
 
 ## Crates
 
+The workspace has 22 member crates, grouped by domain below.
+
+**Thermal-hydraulics, fluid properties & process control**
+
 | Crate | Role | License |
 |---|---|---|
 | [`chem-eng-real-time-process-control-simulator`](crates/chem-eng-real-time-process-control-simulator) | PID / transfer-function process-control library for real-time simulators | Apache-2.0 |
 | [`tuas_boussinesq_solver`](crates/tuas_boussinesq_solver) | Thermal-hydraulics Boussinesq single-phase solver (TUAS) | GPL-3.0 |
-| [`teh-o-prke`](crates/teh-o-prke) | Point Reactor Kinetics for the Teh-O transport/eigenvalue solver | GPL-3.0 |
-| [`tampines-steam-tables`](crates/tampines-steam-tables) | IAPWS-IF97 steam/water properties + steam-turbine cycle equations (TAMPINES) | GPL-3.0 |
-| [`outram-foam-basic-lib`](crates/outram-foam-basic-lib) | Pure-Rust translation of the OpenFOAM primitive layer — tensor algebra, polynomial solvers, ODE integrators, interpolation utilities, FV operators (`fvm`/`fvc`, MUSCL reconstruction), and specie-level thermophysics kernels — building toward compressible CFD solvers equivalent to **rhoPimpleFoam** and **sonicFoam** | GPL-3.0 |
-| [`outram-foam-turbulence-lib`](crates/outram-foam-turbulence-lib) | RAS/LES turbulence closures (k-ω SST, …) on top of `outram-foam-basic-lib` | GPL-3.0 |
-| [`outram-foam-appbuilder-lib`](crates/outram-foam-appbuilder-lib) | Solver application layer — pimpleFoam / rhoCentralFoam / rhoPimpleFoam loops and OpenFOAM case I/O | GPL-3.0 |
+| [`tampines-steam-tables`](crates/tampines-steam-tables) | IAPWS-IF97 steam/water properties + steam-turbine & choked-flow equations (TAMPINES) | GPL-3.0 |
+| [`tampines`](crates/tampines) | Central thermal-hydraulic framework that composes the TH crates | GPL-3.0 |
+| [`outram-park-fork-coolprop`](crates/outram-park-fork-coolprop) | Pure-Rust fork of CoolProp — Helmholtz-EOS thermophysical properties (independent fork, not official CoolProp) | GPL-3.0 |
+| [`outram-park-fork-dwsim-libs`](crates/outram-park-fork-dwsim-libs) | Pure-Rust fork of DWSIM process-simulation building blocks (independent fork) | GPL-3.0 |
+
+**CFD (OpenFOAM translations)**
+
+| Crate | Role | License |
+|---|---|---|
+| [`outram-foam-basic-lib`](crates/outram-foam-basic-lib) | Pure-Rust translation of the OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, polynomial/ODE solvers, interpolation, FV operators (`fvm`/`fvc`, MUSCL), thermophysics kernels, fields, mesh (independent fork, not official OpenFOAM) | GPL-3.0 |
+| [`outram-foam-turbulence-lib`](crates/outram-foam-turbulence-lib) | RAS/LES turbulence closures (k-ω SST implemented; others scaffolded) on top of `outram-foam-basic-lib` | GPL-3.0 |
+| [`outram-foam-appbuilder-lib`](crates/outram-foam-appbuilder-lib) | Solver application layer (pimpleFoam / rhoCentralFoam / rhoPimpleFoam) + case I/O; host of the in-progress GeN-Foam deterministic-neutronics + TH port | GPL-3.0 |
+
+**Neutronics & nuclear data**
+
+| Crate | Role | License |
+|---|---|---|
+| [`teh-o-prke`](crates/teh-o-prke) | Point Reactor Kinetics (PRKE) for the Teh-O transport/eigenvalue solver | GPL-3.0 |
+| [`njoy-outram-park-fork`](crates/njoy-outram-park-fork) | NJOY2016 ENDF port — all nuclear data (RECONR/BROADR/THERMR/ACER/…, ν̄/χ, windowed multipole); exposes `XsProvider` (independent fork, not official NJOY) | GPL-3.0 |
+| [`outram-mc-libs`](crates/outram-mc-libs) | Monte Carlo transport — CSG geometry, particle tracking, k-eigenvalue, Woodcock/delta tracking, depletion; data-free (pulls cross sections from `njoy-outram-park-fork`) | GPL-3.0 |
+| [`boon-lay`](crates/boon-lay) | TRISO-particle / Lagrangian decay simulator (BOON-LAY); includes the TRISO-ATOPS fork | GPL-3.0 |
+| [`nee_soon`](crates/nee_soon) | Integration / coupling layer — composes MC + deterministic/TH + nuclear data + PRKE | GPL-3.0 |
+
+**Digital twin**
+
+| Crate | Role | License |
+|---|---|---|
+| [`outram-park-digital-twin-engine`](crates/outram-park-digital-twin-engine) | Offline digital-twin engine + egui GUI example simulators (offline demonstrations only) | GPL-3.0 |
+
+**KOVAN knowledge layer** (offline / Android-first)
+
+| Crate | Role | License |
+|---|---|---|
+| [`kovan-common`](crates/kovan-common) | Shared canonical KOVAN types (`KovanDocument`, `KovanSymbol`, …) | GPL-3.0 |
+| [`kovan-discovery`](crates/kovan-discovery) | File discovery + text search (`ignore`/ripgrep) and git-awareness (`gix`) | GPL-3.0 |
+| [`kovan-literature`](crates/kovan-literature) | Literature archive — PDF → Markdown → `KovanDocument` → BibTeX | GPL-3.0 |
+| [`kovan-semantics`](crates/kovan-semantics) | Repo understanding — ripgrep-first, escalating to language servers | GPL-3.0 |
+| [`kovan-codegen`](crates/kovan-codegen) | Deterministic code generation for known numerical methods | GPL-3.0 |
+| [`kovan-cli`](crates/kovan-cli) | Agent-facing CLI (`kovan`) — line-oriented output for coding agents | GPL-3.0 |
+| [`kovan-tui`](crates/kovan-tui) | Human-facing TUI (`ratatui`); CLI-redirect stub on Android | GPL-3.0 |
 
 ## Build
 
@@ -45,12 +84,22 @@ crates.io, so each crate can only be packaged once everything it depends on
 | # | Crate | Must be published after |
 |---|---|---|
 | 1 | `chem-eng-real-time-process-control-simulator` | — (no internal deps) |
-| 1 | `outram-foam-basic-lib` | — (no internal deps; can go in parallel with chem-eng) |
+| 1 | `outram-foam-basic-lib` | — (no internal deps) |
+| 1 | `outram-park-fork-coolprop` | — (no internal deps; only `uom`/`approx`) |
 | 2 | `outram-foam-turbulence-lib` | `outram-foam-basic-lib` |
-| 3 | `tuas_boussinesq_solver` | `outram-foam-basic-lib` (+ dev-dep `chem-eng…`) |
-| 4 | `outram-foam-appbuilder-lib` | `outram-foam-basic-lib`, `outram-foam-turbulence-lib` |
-| 5 | `teh-o-prke` | `outram-foam-basic-lib` (+ dev-deps `tuas…`, `chem-eng…`) |
-| 6 | `tampines-steam-tables` | `tuas_boussinesq_solver` (+ dev-dep `teh-o-prke`) |
+| 2 | `tuas_boussinesq_solver` | — (only dev-dep `chem-eng…`; the former `outram-foam-basic-lib` dep was removed in 0.1.3) |
+| 3 | `outram-foam-appbuilder-lib` | `outram-foam-basic-lib`, `outram-foam-turbulence-lib` |
+| 3 | `teh-o-prke` | `chem-eng…` (real dep) + dev-deps `tuas…`, `chem-eng…` |
+| 4 | `tampines-steam-tables` | `tuas…` + dev-deps `teh-o-prke`, `chem-eng…` |
+
+> This table covers the core inter-dependent crates. The remaining members
+> (`tampines`, `njoy-outram-park-fork`, `outram-mc-libs`,
+> `outram-park-fork-dwsim-libs`, `boon-lay`, `nee_soon`,
+> `outram-park-digital-twin-engine`, and the `kovan-*` crates) publish per their
+> own dependency edges; not all have been published yet. As of 2026-07-16,
+> `tuas_boussinesq_solver`, `tampines-steam-tables`, `outram-park-fork-coolprop`,
+> `outram-foam-basic-lib`, and `outram-foam-turbulence-lib` are live on crates.io
+> (`outram-foam-appbuilder-lib` publish pending).
 
 Publish each from the workspace root with `cargo publish -p <crate>` (commit
 first; `cargo publish` refuses a dirty tree). Internal deps are

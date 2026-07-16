@@ -810,9 +810,14 @@ pub fn dracs_natural_circ_thermal_hydraulics_test_prototype_1(){
     //
     // this supposes they are in series though!
     //
-    // I can prototype a function here, and then move it over to a 
+    // I can prototype a function here, and then move it over to a
     // trait implementation
 
+    /// Prototype (currently unused) helper that clones the DRACS hot-branch
+    /// components out of a `FluidComponentCollection` to trial per-component
+    /// advection thermal-hydraulics for a given top-to-bottom mass flow rate
+    /// (kg/s); superseded by the free `calculate_dracs_thermal_hydraulics`
+    /// functions used in the other tests.
     pub fn _dracs_thermal_hydraulics_calcs_hot_branch(
         hot_branch_ref: &mut FluidComponentCollection,
         _top_to_bottom_flowrate: MassRate){

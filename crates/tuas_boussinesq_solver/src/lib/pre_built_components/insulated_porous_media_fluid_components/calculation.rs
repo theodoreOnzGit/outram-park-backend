@@ -1,3 +1,8 @@
+//! Timestep advance for `InsulatedPorousMediaFluidComponent`.
+//!
+//! Advances the state of each control-volume array (shell fluid, pipe shell,
+//! insulation and porous-media interior) forward by one timestep — carrying
+//! out the conduction/energy update — either serially or by spawning threads.
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread::{self};
@@ -9,9 +14,9 @@ use super::InsulatedPorousMediaFluidComponent;
 
 
 impl InsulatedPorousMediaFluidComponent {
-    /// advances timestep for each HeatTransferEntity within the 
-    /// HeaterVersion2Bare
-    pub fn advance_timestep(&mut self, 
+    /// advances timestep for each HeatTransferEntity within the
+    /// InsulatedPorousMediaFluidComponent
+    pub fn advance_timestep(&mut self,
     timestep: Time) {
 
         self.pipe_fluid_array.advance_timestep_mut_self(timestep).unwrap();
@@ -46,8 +51,8 @@ impl InsulatedPorousMediaFluidComponent {
 
     }
 
-    /// advances timestep for each HeatTransferEntity within the 
-    /// HeaterVersion2Bare
+    /// advances timestep for each HeatTransferEntity within the
+    /// InsulatedPorousMediaFluidComponent
     ///
     /// parallel implementation, spawns three threads to do it,
     /// however, it relies heavily upon cloning, so it may or may not 

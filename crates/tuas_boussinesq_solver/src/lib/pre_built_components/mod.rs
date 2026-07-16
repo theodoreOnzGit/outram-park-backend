@@ -1,6 +1,46 @@
-/// HeatTransferEntity module 
+//! Pre-built components — the human-facing builder API of the solver.
+//!
+//! This module is the top-level map of ready-to-use thermal-hydraulic
+//! components. Each submodule bundles a fluid array and/or a solid array
+//! (control-volume collections) together with the pre-wired conductances,
+//! boundary conditions and correlations needed to advance them in time, so a
+//! user can assemble a loop without hand-building control volumes.
+//!
+//! Conventions used throughout these components: temperatures in kelvin (K)
+//! or degrees Celsius (degC), mass flow rate in kilograms per second (kg/s),
+//! heat input / power in watts (W), pressure and pressure drop in pascals
+//! (Pa), thermal conductance in watts per kelvin (W/K), and lengths / diameters
+//! in metres (m). All public signatures carry `uom` dimensioned quantities.
+//!
+//! Module map:
+//! - [`heat_transfer_entities`] — the `HeatTransferEntity` abstraction that
+//!   unifies single/arrayed control volumes and boundary conditions so they can
+//!   be connected by a user-specified heat-transfer interaction.
+//! - [`non_insulated_fluid_components`] — bare (uninsulated) pipes / fluid
+//!   components that exchange heat with an ambient temperature boundary.
+//! - [`insulated_pipes_and_fluid_components`] — pipes / fluid components with a
+//!   single insulation layer.
+//! - [`non_insulated_parallel_fluid_components`] — banks of parallel identical
+//!   tubes (e.g. the tube side of a heat exchanger or a cooler).
+//! - [`shell_and_tube_heat_exchanger`] — 1D shell-and-tube heat exchanger.
+//! - [`one_d_solid_structure`] — a standalone 1D solid conduction structure
+//!   (e.g. a hollow cylinder) with no internal fluid.
+//! - [`ciet_struct_supports`], [`ciet_heater_top_and_bottom_head_bare`] — CIET
+//!   structural-support and heater end-piece heat structures.
+//! - [`insulated_porous_media_fluid_components`],
+//!   [`non_insulated_porous_media_fluid_components`] — pipes packed with an
+//!   internal solid (packed bed / annular insert / static mixer / CIET heater).
+//! - [`ciet_isothermal_test_components`],
+//!   [`ciet_steady_state_natural_circulation_test_components`],
+//!   [`ciet_three_branch_plus_dracs`] — pre-assembled CIET loop components for
+//!   the isothermal, natural-circulation and full three-branch + DRACS tests.
+//! - [`uw_madison_flibe_loop_components`] — components for the UW Madison FLiBe
+//!   natural-circulation loop.
+//! - `gfhr_pipe_tests` — test-only gFHR pipe/branch flow checks.
+
+/// HeatTransferEntity module
 ///
-/// For practical reasons, using different functions to connect 
+/// For practical reasons, using different functions to connect
 /// control volumes of various types (whether singleCV or arrayed control 
 /// volumes) can be quite cumbersome 
 ///

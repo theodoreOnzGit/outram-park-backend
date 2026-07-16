@@ -94,13 +94,13 @@ a translation of it.
 | Transport loop | `src/physics.cpp` | `collision()`, `transport_history_based()` |
 | Scattering | `src/physics_common.cpp` | Elastic, inelastic, CM-frame kinematics |
 | Fission | `src/physics.cpp` | ν sampling, fission bank creation |
-| Multigroup | `src/physics_mg.cpp` | Group-averaged cross-section transport |
+| Multigroup | `src/physics_mg.cpp` | Group-averaged cross-section transport (stub — pending) |
+| Depletion | `src/chain.cpp`, `openmc/deplete/` | **Implemented** — CRAM `exp(A·dt)` burnup, `DepletionChain`, transmutation matrix, one-group operator (`src/depletion/`: `chain.rs`, `cram.rs`, `matrix.rs`, `operator.rs`); live one-group burnup test vs the `depletion` notebook |
 
 ### Out of scope (will NOT be ported)
 - **ENDF nuclear data parsing** — `src/endf.cpp`, `include/openmc/endf.h`
 - **HDF5 I/O** — cross-section library loading; data arrives pre-loaded
 - **XML configuration parsing** — `src/xml_interface.cpp`
-- **Depletion** — `src/chain.cpp`, transmutation matrix
 - **CMFD accelerator** — `src/cmfd_solver.cpp`
 - **Random ray extension** — `src/random_ray/`
 - **Photon/electron transport** — `src/photon.cpp`

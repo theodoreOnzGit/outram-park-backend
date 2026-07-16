@@ -1,3 +1,19 @@
+//! Verification and validation tests for [`InsulatedFluidComponent`].
+//!
+//! These test modules check the insulated-pipe model against analytical
+//! references — chiefly the log-mean-temperature-difference (LMTD) solution
+//! for a fluid losing heat to a constant ambient temperature — and probe the
+//! effect of axial conduction, insulation thickness, ambient thermal
+//! resistance, and Nusselt calibration. Temperatures are in kelvin/degC,
+//! mass flow in kg/s, and conductance (UA) in W/K.
+//!
+//! Submodule map:
+//! - [`preliminaries`] — baseline property and nodalised-UA sanity checks.
+//! - [`length_tests`] — LMTD agreement across pipe lengths (1–10 m).
+//! - [`axial_conduction_verification`] — isolates the axial-conduction
+//!   discrepancy between the analytical and computed outlet temperatures.
+//! - [`fluid_mechanics`] — internal pressure-source behaviour.
+
 /// this gives some basic tests to see what is optimal for parasitic heat loss
 pub mod preliminaries;
 

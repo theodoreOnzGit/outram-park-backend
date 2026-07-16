@@ -807,7 +807,7 @@ pub fn new_ndhx_tchx_horizontal_35a(
 ///
 ///
 /// label 35b on RELAP model by Zweibaum
-/// horizontal part of the TCHX or NDHX, 
+/// vertical part of the TCHX or NDHX,
 /// has the same loss correlations as the CTAH (horizontal)
 ///
 pub fn new_ndhx_tchx_vertical_35b(initial_temperature: ThermodynamicTemperature) -> 
@@ -884,7 +884,7 @@ NonInsulatedFluidComponent {
 /// 35b-1 is adiabatic towards the environment
 ///
 /// label 35b-1 on SAM model by Zweibaum
-/// horizontal part of the TCHX or NDHX, 
+/// vertical part of the TCHX or NDHX,
 /// has the same loss correlations as the CTAH (horizontal)
 ///
 pub fn new_ndhx_tchx_vertical_35b_1(initial_temperature: ThermodynamicTemperature) -> 
@@ -962,7 +962,7 @@ NonInsulatedFluidComponent {
 /// 35b-2 is not adiabatic towards the environment
 ///
 /// label 35b-2 on SAM model by Zweibaum
-/// horizontal part of the TCHX or NDHX, 
+/// vertical part of the TCHX or NDHX,
 /// has the same loss correlations as the CTAH (horizontal)
 ///
 pub fn new_ndhx_tchx_vertical_35b_2(initial_temperature: ThermodynamicTemperature) -> 

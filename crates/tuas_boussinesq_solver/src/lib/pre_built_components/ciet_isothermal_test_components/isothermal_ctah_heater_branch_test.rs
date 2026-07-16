@@ -8,9 +8,9 @@ use uom::si::pressure::pascal;
 use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::{fluid_component_collection::{FluidComponentCollection, FluidComponentCollectionMethods}, fluid_component_super_collection::FluidComponentSuperCollection};
 
 
-/// checks if the ctah branch is working correctly
+/// checks if the heater branch is working correctly
 /// pressure change from mass flowrate
-/// when we add various components to a series FluidComponentCollection 
+/// when we add various components to a series FluidComponentCollection
 /// this is a regression test
 #[test]
 pub fn heater_branch_with_heater_v2_test(){

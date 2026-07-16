@@ -1,8 +1,15 @@
-/// quick test for coupled dracs loop uncalibrated test 
-///
-/// just checks if the thermal hydraulics calculations can function 
-/// without error (redundant now though... was used during early 
-/// stages of testing where coding was less complicated)
+//! Version 1 (uncalibrated) coupled DRACS + primary loop regression tests.
+//!
+//! The DHX shell-and-tube heat exchanger uses uncalibrated Gnielinski
+//! correlations, so parasitic heat losses are un-tuned; these tests establish
+//! the baseline over-prediction of the natural-circulation mass flow rates
+//! (kg/s) in both loops against Zweibaum's CIET set-C data. Heater powers span
+//! ~841-2765 W with the TCHX outlet held at 40 degC.
+
+/// Quick smoke test of the uncalibrated coupled DRACS loop: runs 400 s of
+/// simulated time at 2764.53 W and checks the DRACS/primary mass flow rates
+/// (kg/s) against set-C9 data with loose tolerances (3% primary, 40% DRACS) -
+/// mainly confirms the thermal-hydraulics loop advances without error.
 #[cfg(test)]
 #[test]
 pub fn quick_test_uncalibrated_dracs_loop(){
@@ -22,11 +29,10 @@ pub fn quick_test_uncalibrated_dracs_loop(){
         dracs_loop_relative_tolerance,
         ).unwrap();
 }
-/// quick test for coupled dracs loop uncalibrated test 
-///
-/// just checks if the thermal hydraulics calculations can function 
-/// without error (redundant now though... was used during early 
-/// stages of testing where coding was less complicated)
+/// Longer uncalibrated coupled DRACS loop test: runs 4000 s of simulated time
+/// at 2764.53 W (set-C9) and checks the DRACS/primary mass flow rates (kg/s)
+/// against experimental data within a 15% tolerance, expecting the uncalibrated
+/// loop to over-predict flow by roughly 10%.
 #[cfg(test)]
 #[test]
 pub fn long_test_uncalibrated_dracs_loop(){
@@ -48,11 +54,12 @@ pub fn long_test_uncalibrated_dracs_loop(){
         dracs_loop_relative_tolerance,
         ).unwrap();
 }
-/// quick test for coupled dracs loop uncalibrated test 
-///
-/// just checks if the thermal hydraulics calculations can function 
-/// without error (redundant now though... was used during early 
-/// stages of testing where coding was less complicated)
+/// Full uncalibrated set-C regression: runs all nine CIET data points (C-1 to
+/// C-9, heater powers 841-2765 W) as parallel threads, each 3000 s of simulated
+/// time, and checks the DRACS/primary natural-circulation mass flow rates (kg/s)
+/// against the recorded uncalibrated-simulation values within 15% (10% for C-9).
+/// Also serves as the real-time-capability demonstration (~118-210 s wall time
+/// for 3000 s simulated).
 #[cfg(test)]
 #[test]
 pub fn regression_long_test_uncalibrated_dracs_loop_set_c(){

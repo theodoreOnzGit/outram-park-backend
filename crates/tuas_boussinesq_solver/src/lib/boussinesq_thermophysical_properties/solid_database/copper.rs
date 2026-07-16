@@ -30,11 +30,14 @@ pub fn copper_density() -> Result<MassDensity,TuasLibError> {
 pub fn copper_surf_roughness() -> Length {
     Length::new::<micrometer>(0.544)
 }
-/// returns thermal conductivity of copper
+/// returns specific heat capacity of copper in J/(kg·K)
+///
+/// Cubic-spline interpolation of the Zou/Zweibaum tabulated values; valid for
+/// temperatures from 200 K to 1000 K (returns a range error outside this).
 /// cited from:
-/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code 
-/// validation using the compact integral effects test (CIET) experimental 
-/// data (No. ANL/NSE-19/11). Argonne National 
+/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code
+/// validation using the compact integral effects test (CIET) experimental
+/// data (No. ANL/NSE-19/11). Argonne National
 /// Lab.(ANL), Argonne, IL (United States).
 #[inline]
 pub fn copper_specific_heat_capacity_zou_zweibaum_spline(

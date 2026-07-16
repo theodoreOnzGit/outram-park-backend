@@ -7,10 +7,9 @@ use std::thread;
 
 impl ClamshellRadiativeHeater {
 
-    /// advances timestep for each HeatTransferEntity within the 
-    /// SimpleShellAndTubeHeatExchanger
-    ///
-    /// gives each pipe the parallel tube treatment
+    /// advances the timestep (in seconds) for each HeatTransferEntity within
+    /// the ClamshellRadiativeHeater: the tube fluid, pipe/inner-tube shell,
+    /// annular air, heating element and insulation arrays.
     ///
     #[inline]
     pub fn advance_timestep(&mut self, 

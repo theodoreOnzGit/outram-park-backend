@@ -8,6 +8,9 @@ use crate::boussinesq_thermophysical_properties::LiquidMaterial;
 use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
 use crate::pre_built_components::non_insulated_porous_media_fluid_components::NonInsulatedPorousMediaFluidComponent;
 use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
+/// regression test: runs the generalised porous-media component alongside the
+/// original CIET-heater-v2 code path with identical inputs and asserts their
+/// transient temperature responses agree.
 #[test]
 //#[ignore = "debugging"]
 pub fn example_heated_section_regression_new_and_old(){
@@ -262,6 +265,8 @@ pub fn example_heated_section_regression_new_and_old(){
 }
 
 
+/// regression test: confirms the new component's steel-shell-to-ambient nodal
+/// thermal conductance (W/K) matches the original CIET-heater-v2 value.
 #[test]
 pub fn regression_new_and_old_nodal_conductance_steel_shell_to_ambient(){
     use std::time::SystemTime;
@@ -437,6 +442,8 @@ pub fn regression_new_and_old_nodal_conductance_steel_shell_to_ambient(){
 }
 
 
+/// regression test: confirms the new component's steel-shell-to-fluid nodal
+/// thermal conductance (W/K) matches the original CIET-heater-v2 value.
 #[test]
 pub fn regression_new_and_old_nodal_conductance_steel_shell_to_pipe_fluid_array(){
     use std::time::SystemTime;
@@ -614,6 +621,9 @@ pub fn regression_new_and_old_nodal_conductance_steel_shell_to_pipe_fluid_array(
 }
 
 
+/// regression test: confirms the new component's twisted-tape (interior porous
+/// media) to fluid nodal thermal conductance (W/K) matches the original
+/// CIET-heater-v2 value.
 #[test]
 pub fn regression_new_and_old_nodal_conductance_twisted_tape_to_pipe_fluid_array(){
     use std::time::SystemTime;

@@ -1,3 +1,41 @@
+//! Insulated pipes and fluid components.
+//!
+//! This module provides [`InsulatedFluidComponent`], a pre-built
+//! thermal-hydraulic component modelling an insulated pipe (or a generic
+//! insulated fluid component). It couples three one-dimensional
+//! control-volume arrays sharing the same set of axial nodes:
+//!
+//! 1. a fluid array (the flowing coolant) — [`InsulatedFluidComponent::pipe_fluid_array`],
+//! 2. a solid pipe shell wrapped around the fluid, and
+//! 3. a solid insulation layer wrapped around the shell.
+//!
+//! Radially, heat flows fluid -> shell -> insulation -> ambient. The fluid
+//! -> shell coupling uses a Nusselt-number thermal resistance (typically the
+//! Gnielinski correlation); the outermost insulation node exchanges heat with
+//! a constant ambient-temperature boundary condition through a
+//! heat-transfer-coefficient-to-ambient (units W/(m^2 K)). Axial (along-pipe)
+//! conduction within the solid arrays is modelled and is the main source of
+//! the small departures from the analytical log-mean-temperature-difference
+//! solution documented in the tests.
+//!
+//! Units throughout follow `uom`: temperatures in kelvin (or degC),
+//! mass flow in kg/s, power/heat in watts, pressure drop in pascals,
+//! thermal conductance in W/K, and lengths/thicknesses in metres.
+//!
+//! Submodule map:
+//! - [`preprocessing`] — constructors and thermal-connection / conductance
+//!   setup (lateral coupling between the arrays and to ambient).
+//! - [`calculation`] — advancing the component by one timestep (conduction,
+//!   including axial conduction).
+//! - [`calibration`] — adjusting insulation thickness, ambient
+//!   heat-transfer coefficient, and Nusselt calibration.
+//! - [`fluid_component`] — the `FluidComponentTrait` implementation
+//!   (pressure drop in Pa versus mass flow in kg/s).
+//! - [`postprocessing`] — extracting the temperature arrays (in K).
+//! - [`type_conversion`] — conversions such as `Into<FluidComponent>`.
+//! - `tests` — verification/validation tests (private).
+//! - `tutorials` — worked user-guide examples (private).
+
 use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
 use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;

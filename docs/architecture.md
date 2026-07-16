@@ -9,7 +9,7 @@ built (marked *planned*).
 
 ```
                          ┌───────────────────────────────────────────┐
-                         │  nee-soon  (planned) — integration layer    │
+                         │  nee-soon  (scaffold) — integration layer   │
                          │  human-readable coupling API; PRKE +        │
                          │  surrogates; exposes CFD-coupling interfaces│
                          └───────────────┬─────────────────────────────┘
@@ -70,7 +70,7 @@ via `XsProvider`. Responsibilities:
 It keeps no ENDF, HDF5, or WMP-parsing code. When wired, `Nuclide::xs_at_energy`
 delegates to njoy's `XsProvider::micro(e, t)`.
 
-### `nee-soon` — integration / coupling layer *(planned, working name)*
+### `nee-soon` — integration / coupling layer *(scaffold; the crate exists as `nee_soon`)*
 
 The **human-readable, AI-free-usable** front door to the whole stack. A user
 builds and runs simulations through `nee-soon` without needing to understand the

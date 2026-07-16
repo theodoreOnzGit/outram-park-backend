@@ -36,7 +36,7 @@ impl Material {
             },
         }
     }
-    /// gives the maximum temperature for the correlations in the
+    /// gives the minimum temperature (in kelvin) for the correlations in the
     /// given material
     pub fn min_temperature(&self) -> ThermodynamicTemperature {
 
@@ -81,7 +81,7 @@ impl LiquidMaterial {
             },
         }
     }
-    /// gives the maximum temperature for the correlations in the
+    /// gives the minimum temperature (in kelvin) for the correlations in the
     /// given material
     pub fn min_temperature(&self) -> ThermodynamicTemperature {
         match self {
@@ -127,7 +127,7 @@ impl SolidMaterial {
             },
         }
     }
-    /// gives the maximum temperature for the correlations in the
+    /// gives the minimum temperature (in kelvin) for the correlations in the
     /// given material
     pub fn min_temperature(&self) -> ThermodynamicTemperature {
         match self {

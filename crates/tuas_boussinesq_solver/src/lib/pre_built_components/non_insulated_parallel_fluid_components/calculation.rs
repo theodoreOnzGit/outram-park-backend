@@ -16,11 +16,11 @@ use uom::num_traits::Zero;
 
 impl NonInsulatedParallelFluidComponent {
 
-    /// advances timestep for each HeatTransferEntity within the 
-    /// NonInsulatedPipe
-    /// treats the pipe as a single tube
+    /// advances timestep for each HeatTransferEntity within the
+    /// NonInsulatedParallelFluidComponent
+    /// treats the bundle as a single tube (no per-tube correction)
     #[inline]
-    fn _advance_timestep_single_tube(&mut self, 
+    fn _advance_timestep_single_tube(&mut self,
     timestep: Time) -> Result<(),TuasLibError> {
 
         self.pipe_fluid_array.advance_timestep_mut_self(timestep)?;
@@ -29,12 +29,13 @@ impl NonInsulatedParallelFluidComponent {
         
     }
 
-    /// advances timestep for each HeatTransferEntity within the 
-    /// NonInsulatedPipe
+    /// advances timestep for each HeatTransferEntity within the
+    /// NonInsulatedParallelFluidComponent
     ///
-    /// gives each pipe the parallel tube treatment
+    /// gives each pipe the parallel tube treatment (per-tube
+    /// enthalpy-rate and power contributions scaled by 1/number_of_tubes)
     #[inline]
-    pub fn advance_timestep(&mut self, 
+    pub fn advance_timestep(&mut self,
     timestep: Time) -> Result<(),TuasLibError> {
         self.advance_timestep_for_parallel_fluid_array_bundle(timestep)?;
         self.advance_timestep_for_parallel_solid_column_bundle(timestep)?;
