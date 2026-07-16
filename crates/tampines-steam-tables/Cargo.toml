@@ -19,8 +19,15 @@ thiserror.workspace = true
 uom.workspace = true
 
 
-[dev-dependencies]
-# only the FHR simulator examples use TUAS; the library itself is TUAS-free.
+# All dev-dependencies below are used ONLY by the FHR-simulator / Rankine-cycle
+# examples (the library itself and its unit tests are TUAS-free and GUI-free).
+# They are Android-hostile: `tuas_boussinesq_solver` pulls in system BLAS via
+# `ndarray-linalg`, and the `egui`/`eframe` GUI stack pulls in `ring`, which
+# needs an Android C toolchain (`cc-rs`). Gate the whole block off Android so
+# `cargo check --target aarch64-linux-android --tests --examples` stays clean.
+# The examples themselves carry `#![cfg(not(target_os = "android"))]` so they
+# compile to nothing on Android.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
 # resolves to the in-tree crate rather than crates.io
 tuas_boussinesq_solver.workspace = true
 teh-o-prke.workspace = true

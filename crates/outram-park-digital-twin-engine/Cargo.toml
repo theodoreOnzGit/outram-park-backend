@@ -16,14 +16,21 @@ tampines.workspace = true
 nee_soon.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
 
-# GUI stack.
+# Public API primitives -- dimensioned quantities.
+uom.workspace = true
+
+# GUI stack. Android-hostile -- `eframe` pulls in `android-activity`, which
+# fails to compile as a plain library dependency (it expects the NativeActivity
+# glue), and the whole windowing stack is out of scope for Android per the
+# workspace Android-portability rule. Confined to non-Android targets so the
+# library's visual-component modules (which are gated to match in `lib.rs`)
+# drop out on Android and the crate still `cargo check`s there. Desktop builds
+# are unchanged.
+[target.'cfg(not(target_os = "android"))'.dependencies]
 egui.workspace = true
 eframe.workspace = true
 egui_plot.workspace = true
 egui_extras.workspace = true
-
-# Public API primitives -- dimensioned quantities.
-uom.workspace = true
 
 # Dev-dependencies for the migrated fhr_sim_v2 simulator example. These are the
 # physics/support crates the example imports directly that are not already real

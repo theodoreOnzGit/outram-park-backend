@@ -135,29 +135,26 @@ impl DecaySimApp {
         let simulator_state_thread_5_ptr: Arc<Mutex<SimulatorState>> =
             new_decay_sim_app.simulator_state.clone();
 
-        thread::spawn(move || {
-            loop {
-                simulator_state_thread_5_ptr
-                    .lock()
-                    .unwrap()
-                    .update_fractions_using_decay_sim_thread_ptrs(
-                        decay_sim_plotting_thread_1_ptr.clone(),
-                        decay_sim_plotting_thread_2_ptr.clone(),
-                        decay_sim_plotting_thread_3_ptr.clone(),
-                        decay_sim_plotting_thread_4_ptr.clone(),
-                    );
+        thread::spawn(move || loop {
+            simulator_state_thread_5_ptr
+                .lock()
+                .unwrap()
+                .update_fractions_using_decay_sim_thread_ptrs(
+                    decay_sim_plotting_thread_1_ptr.clone(),
+                    decay_sim_plotting_thread_2_ptr.clone(),
+                    decay_sim_plotting_thread_3_ptr.clone(),
+                    decay_sim_plotting_thread_4_ptr.clone(),
+                );
 
-                let time_to_sleep_seconds = simulator_state_thread_5_ptr
-                    .lock()
-                    .unwrap()
-                    .graph_data_record_interval_seconds;
+            let time_to_sleep_seconds = simulator_state_thread_5_ptr
+                .lock()
+                .unwrap()
+                .graph_data_record_interval_seconds;
 
-                let time_to_sleep_milliseconds: u64 =
-                    (time_to_sleep_seconds * 1000.0).round() as u64;
-                let time_to_sleep_non_realtime: Duration =
-                    Duration::from_millis(time_to_sleep_milliseconds);
-                thread::sleep(time_to_sleep_non_realtime);
-            }
+            let time_to_sleep_milliseconds: u64 = (time_to_sleep_seconds * 1000.0).round() as u64;
+            let time_to_sleep_non_realtime: Duration =
+                Duration::from_millis(time_to_sleep_milliseconds);
+            thread::sleep(time_to_sleep_non_realtime);
         });
 
         new_decay_sim_app

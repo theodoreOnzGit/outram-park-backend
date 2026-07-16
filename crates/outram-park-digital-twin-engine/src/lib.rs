@@ -48,7 +48,17 @@
 
 #![forbid(unsafe_code)]
 
+// `animation` is pure `uom` (trait contracts + travel-time math), so it stays
+// buildable on Android. The remaining modules depend on the GUI stack
+// (`egui`/`eframe`/`egui_plot`/`egui_extras`), which is Android-hostile, so
+// they compile only off Android -- matching the target-gated GUI dependencies
+// in `Cargo.toml`. On Android the library reduces to `animation`, which keeps
+// `cargo check --target aarch64-linux-android` clean (see workspace CLAUDE.md
+// Android-portability rule). Desktop builds are unchanged.
 pub mod animation;
+#[cfg(not(target_os = "android"))]
 pub mod app_scaffold;
+#[cfg(not(target_os = "android"))]
 pub mod color_maps;
+#[cfg(not(target_os = "android"))]
 pub mod components;

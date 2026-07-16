@@ -23,13 +23,21 @@ openmc-endf-8-depletion-lib-b     = { workspace = true }
 [dev-dependencies]
 approx          = { workspace = true }
 rayon           = { workspace = true }
+log             = { workspace = true }
+csv             = { workspace = true }
+
+# GUI-only dev-deps for the `boon_lay_decay_simulator` / `triso_simulator`
+# examples and the `#[cfg(test)]` `triso_particle_widget` module. These are
+# Android-hostile: egui/eframe pull in `ring` (via ureq/rustls), which needs a
+# C compiler the Android target has no toolchain for here. The examples and the
+# widget module are gated off Android with `cfg(not(target_os = "android"))`,
+# so these deps must be absent from the Android dependency graph too.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
 egui            = { workspace = true }
 eframe          = { workspace = true }
 egui_plot       = { workspace = true }
 egui_extras     = { workspace = true }
-log             = { workspace = true }
 image           = { workspace = true }
-csv             = { workspace = true }
 
 [[example]]
 name = "boon_lay_decay_simulator"

@@ -70,7 +70,11 @@ pub mod chatgpt_5_list_of_vectors_uniformly_distributed_on_spherical_shell;
 
 /// this is to draw
 /// a triso particle widget in egui
-#[cfg(test)]
+///
+/// egui/eframe are Android-hostile (transitive `ring` needs a C toolchain the
+/// Android target lacks here), so this test-only widget module is gated off
+/// Android as well as behind `cfg(test)`.
+#[cfg(all(test, not(target_os = "android")))]
 pub mod triso_particle_widget;
 
 /// this module contains functions for Gaussian distributions,

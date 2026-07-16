@@ -24,15 +24,22 @@ uom.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
 
 [dev-dependencies]
-egui.workspace = true
-eframe.workspace = true
 env_logger.workspace = true
 local-ip-address.workspace = true
 roots.workspace = true
-egui_plot.workspace = true
-egui_extras.workspace = true
 serde.workspace = true
 tuas_boussinesq_solver.workspace = true
+
+# GUI-only dev-deps for the `fhr_sim_v1` example. These are Android-hostile:
+# egui/eframe pull in `ring` (via ureq/rustls), which needs a C compiler the
+# Android target has no toolchain for here. The example itself is gated off
+# Android (item-level `cfg(not(target_os = "android"))`), so these deps must be
+# absent from the Android dependency graph too.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+egui.workspace = true
+eframe.workspace = true
+egui_plot.workspace = true
+egui_extras.workspace = true
 
 
 

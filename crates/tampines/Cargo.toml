@@ -30,12 +30,18 @@ thiserror.workspace = true
 # a headless library per the workspace's Android-portability rule. GUI deps
 # belong only under [dev-dependencies] once examples/ lands (op-dt3.7/.8).
 
-[dev-dependencies]
 # fhr_sim_v2 (op-dt3.7, moved from tampines-steam-tables). teh-o-prke +
 # nee_soon for the Nordheim-Fuchs kinetics reconstruction; the rest mirrors
 # tampines-steam-tables's former fhr_sim_v2 dev-deps (tuas_boussinesq_solver
 # and chem-eng-real-time-process-control-simulator are already real deps
 # above, usable in examples too).
+#
+# These dev-dependencies are used ONLY by the fhr_sim_v2 GUI example, and the
+# `egui`/`eframe` stack is Android-hostile (it needs a `cc`/`ring` C toolchain).
+# Gate the whole block off Android so `cargo check --target
+# aarch64-linux-android --tests --examples` does not try to build the GUI stack.
+# The example itself carries `#![cfg(not(target_os = "android"))]`.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
 teh-o-prke.workspace = true
 nee_soon.workspace = true
 ndarray.workspace = true

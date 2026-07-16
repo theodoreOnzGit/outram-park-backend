@@ -29,12 +29,24 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+// GUI (egui/eframe) example -- out of scope for Android, whose windowing stack
+// is absent and whose `android-activity` glue this crate does not provide. The
+// real entry point and its egui-using modules are gated off Android and
+// replaced by an empty `main`, so the example target still builds (to a no-op)
+// there and `cargo check --examples --target aarch64-linux-android` stays clean.
+#[cfg(target_os = "android")]
+fn main() {}
+
+#[cfg(not(target_os = "android"))]
 mod app;
+#[cfg(not(target_os = "android"))]
 mod physics;
 
+#[cfg(not(target_os = "android"))]
 use app::HtgrSimApp;
 
 /// Launch the HTGR simulator window.
+#[cfg(not(target_os = "android"))]
 fn main() -> eframe::Result<()> {
     env_logger::init(); // `RUST_LOG=debug` for logs.
 
