@@ -15,7 +15,11 @@ categories.workspace = true
 # V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
 # and never shipped in the packaged crate. `docs/` holds LaTeX sources and
 # build artifacts (.aux/.bbl/.bcf/...) that aren't crate content either.
-exclude = ["verification_and_validation/*.csv", "docs"]
+# `upstream_source/CoolProp` is the reference CoolProp clone kept in-repo for
+# provenance and codegen only (some files tracked, most gitignored) — it is not
+# crate content and must not be packaged; `upstream_source/README.md` (the
+# provenance record) is small and stays in the package.
+exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/CoolProp"]
 
 # The Helmholtz EOS engine and fluid data are pure `std` (hardcoded Rust, no
 # runtime JSON). `uom` is the only runtime dependency — it types the
