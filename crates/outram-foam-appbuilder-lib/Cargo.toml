@@ -14,7 +14,11 @@ categories.workspace = true
 # GeN-Foam` is the reference GeN-Foam clone kept in-repo for provenance only —
 # it is not crate content and must not be packaged (1324 files; the small
 # `upstream_source/README.md` provenance record stays in the package).
-exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/GeN-Foam"]
+# `tutorials/` (~30 MB of OpenFOAM case data — meshes, solution fields,
+# postProcessing output) are test/demo fixtures loaded at test runtime, not
+# crate content; shipping them pushed the packaged crate over the crates.io
+# 10 MiB limit (10.5 MiB compressed), so exclude them (kept in-repo for tests).
+exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/GeN-Foam", "tutorials"]
 
 [dependencies]
 thiserror.workspace = true
