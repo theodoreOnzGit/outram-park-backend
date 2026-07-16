@@ -6368,7 +6368,7 @@ dependencies = [
 
 [[package]]
 name = "tampines-steam-tables"
-version = "0.2.2"
+version = "0.2.4"
 dependencies = [
  "approx",
  "chem-eng-real-time-process-control-simulator",

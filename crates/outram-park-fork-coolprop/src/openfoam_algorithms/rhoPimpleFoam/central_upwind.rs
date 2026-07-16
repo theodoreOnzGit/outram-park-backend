@@ -22,35 +22,10 @@
 //! KNP (Kurganov–Noelle–Petrova) central-upwind shock-capturing flux, adapted
 //! from OUTRAM PARK's `rhoCentralFoam` port for use as a **Mach-weighted
 //! deferred-correction dissipation** term on top of the pressure-based PIMPLE
-//! array [`super::TampinesSteamArray`].
-//!
-//! ## Why this module exists (the problem it solves)
-//!
-//! This is the machinery behind step 7 of the solver's derivation (see the
-//! [`super`] module doc, "The all-Mach hybrid"). Short version: a pressure-based
-//! PIMPLE solver has **no numerical dissipation at the shortest wavelengths**, so
-//! at a sharp near-sonic flashing front it *rings* — the front develops
-//! Gibbs-like oscillations the central flux cannot damp. A density-based scheme
-//! solves this with an *upwind* flux, whose built-in viscosity keys off the local
-//! characteristic wave speeds `a = U_n ± c`. The KNP flux is the canonical
-//! central-upwind form of that idea.
-//!
-//! The trick here is to **not** switch solvers. We keep the implicit-acoustics
-//! PIMPLE array (so low-Mach flow stays cheap, per derivation step 2) and add
-//! *only* the KNP jump term as a correction, weighted by a Mach blend `β(Ma)` so
-//! it is **identically zero away from the sonic front** and the default
-//! [`super::SolverMode::Pimple`] path is bit-for-bit unchanged. Concretely the
-//! dissipation is `knp − central` (the full KNP flux minus the same flux with its
-//! jump term zeroed), so it *is* precisely the upwind viscosity and nothing else.
-//!
-//! The one thing this fluid demands that a perfect gas does not: the wave speed
-//! `c` must be the **HEM equilibrium** sound speed ([`hem_sound_speed_ph`], using
-//! the Kieffer closure in the dome), because the whole point is to sit the
-//! characteristics correctly *through a flashing interface* where the phases are
-//! exchanging mass. A frozen (Wood–Wallis) speed would misplace them. The energy
-//! variable is likewise the **static** enthalpy density `ρ·he`, matching the
-//! array's segregated EEqn, so the dissipation is consistent with the transport it
-//! corrects (details below).
+//! array [`super::OPCPFluidArray`]. This is the CoolProp-fork twin of
+//! `tampines-steam-tables`'s `rhoPimpleFoam/central_upwind.rs`; only the
+//! sound-speed closure differs (CoolProp Helmholtz EOS + Maxwell VLE here,
+//! IAPWS-IF97 there).
 //!
 //! ## What this provides (and what it deliberately drops)
 //!
@@ -65,16 +40,16 @@
 //!
 //! - **No perfect-gas EOS.** The upstream code closes the state with
 //!   `p = (γ−1)ρe` and `c = √(γp/ρ)`. That is deleted. The pressure `p` and the
-//!   **HEM equilibrium sound speed** `c` are passed in per face state
-//!   ([`FaceState`]) — computed by [`hem_sound_speed_ph`] from the real
-//!   IAPWS-IF97 `(p, h)` closure, never Wood–Wallis / frozen / perfect-gas.
+//!   sound speed `c` are passed in per face state ([`FaceState`]) —
+//!   `c` from [`hem_sound_speed_ph`], the CoolProp closure (see its doc for the
+//!   single-phase EOS speed of sound and the **two-phase HEM equilibrium**
+//!   finite-difference), never Wood–Wallis / frozen / perfect-gas.
 //! - **Static-enthalpy energy form.** The energy variable is the static
 //!   specific-enthalpy density `ρ·he` (not the total energy `ρE`), with
 //!   convective flux `ρ·U_n·he` — matching the array's segregated EEqn, which
 //!   advances `∂(ρh)/∂t + ∇·(φh) = dp/dt` in static enthalpy with the pressure
 //!   work carried by a separate `dp/dt` source. Dissipating `ρE` instead would
-//!   double-count that pressure work and over-cool the near-break cell during
-//!   the strong rarefaction (see [`knp_face_flux`]).
+//!   double-count that pressure work.
 //!
 //! ## How the dissipation is used
 //!
@@ -85,47 +60,27 @@
 //! `β(Ma) ∈ [0, 1]` ([`mach_blend`]) and injected as a deferred correction into
 //! the **continuity** (`ρ`) and **momentum** (`ρU`) equations: subsonic faces
 //! (`β = 0`) get **identically zero** added flux, so the default `Pimple` path
-//! is bit-identical; only near-sonic faces (`β → 1`, the flashing front) receive
-//! the shock-capturing damping.
-//!
-//! The **energy** dissipation is *not* a separate source. The continuity
-//! dissipation is folded into `phi` before the array's segregated static-
-//! enthalpy EEqn recomputes `∇·(φh)`, so that convection carries the enthalpy
-//! shock-capturing implicitly while preserving the plateau-fix cancellation
-//! `(ρ_cont − ρ_old)/dt = −∇·φ`. Adding a standalone `ρ·he` energy source on top
-//! double-counts that transport and destabilises the flashing plateau (it
-//! over-drained / over-heated the near-break cell out of the `(p,h)` validity
-//! range); see [`super::HybridDissipation`]. `β`'s Mach number and the KNP wave
-//! speeds still use the HEM equilibrium sound speed throughout.
+//! is bit-identical; only near-sonic faces (`β → 1`) receive the shock-capturing
+//! damping. The **energy** dissipation is *not* a separate source — the
+//! continuity dissipation is folded into `phi` before the array's segregated
+//! static-enthalpy EEqn recomputes `∇·(φh)`, so that convection carries the
+//! enthalpy shock-capturing implicitly (see [`super::HybridDissipation`]).
 
 use crate::openfoam_algorithms::openfoam_source::boundary::bc::{BoundaryCondition, PatchField};
 use crate::openfoam_algorithms::openfoam_source::field::Field;
 use crate::openfoam_algorithms::openfoam_source::vol_field::{VolScalarField, VolVectorField};
 use crate::openfoam_algorithms::openfoam_source::Vector3;
 
-use crate::interfaces::functional_programming::ph_flash_eqm::{
-    ph_flash_region, s_ph_eqm, t_ph_eqm,
-};
-use crate::interfaces::functional_programming::pt_flash_eqm::FwdEqnRegion;
-use crate::region_1_subcooled_liquid::w_tp_1;
-use crate::region_2_vapour::w_tp_2;
-use crate::region_3_single_phase_plus_supercritical_steam::w_tp_3;
-use crate::region_4_vap_liq_equilibrium::{
-    w_ps_eqm_region4_finite_diff_vol, w_ps_eqm_region4_kieffer,
-};
-use crate::region_5_steam_at_800_plus_degc::w_tp_5;
+use crate::flash::state_ph;
+use crate::fluid::Fluid;
+use crate::props::state_trho;
+use crate::vle::{phase_at_ph, saturation_at_temperature, saturation_temperature, PhaseAtPh};
 
-use uom::si::available_energy::joule_per_kilogram;
-use uom::si::f64::{AvailableEnergy, Pressure};
-use uom::si::pressure::pascal;
-use uom::si::velocity::meter_per_second;
-
-/// Defensive lower bound \[m/s\] on the HEM sound speed. The equilibrium
-/// two-phase speed can legitimately fall to a few tens of m/s near the
-/// bubble/dew points, and the Kieffer closure ([`w_ps_eqm_region4_kieffer`]) is
-/// AI-generated/unvalidated, so a non-finite or non-positive result is clamped
-/// to this floor rather than allowed to poison the Mach number or the KNP wave
-/// speeds. It sits far below any physical water/steam sound speed, so it never
+/// Defensive lower bound \[m/s\] on the sound speed. The equilibrium two-phase
+/// speed can legitimately fall to a few tens of m/s near the bubble/dew points,
+/// so a non-finite or non-positive result (or a two-phase FD that degenerates)
+/// is clamped to this floor rather than allowed to poison the Mach number or the
+/// KNP wave speeds. It sits far below any physical fluid sound speed, so it never
 /// perturbs `β` in the regimes the blend actually acts on.
 pub(crate) const C_MIN_MPS: f64 = 1.0;
 
@@ -145,7 +100,7 @@ pub(crate) struct FaceState {
     pub he: f64,
     /// Pressure `p` \[Pa\].
     pub p: f64,
-    /// HEM equilibrium sound speed `c` \[m/s\] (see [`hem_sound_speed_ph`]).
+    /// Sound speed `c` \[m/s\] (see [`hem_sound_speed_ph`]).
     pub c: f64,
 }
 
@@ -191,51 +146,131 @@ pub(crate) fn mach_blend(ma: f64, lo: f64, hi: f64) -> f64 {
     }
 }
 
-/// HEM **equilibrium** sound speed `c` \[m/s\] at a cell's `(p, h)` state.
+/// Sound speed `c` \[m/s\] at a cell's `(p, h)` state, from the **CoolProp
+/// Helmholtz EOS** (single phase) or the **HEM equilibrium** finite-difference
+/// (two phase). This is the speed used for *both* the regime Mach number *and*
+/// the KNP characteristic wave speeds `u ± c`.
 ///
-/// This is the sound speed used for *both* the regime Mach number *and* the KNP
-/// characteristic wave speeds `u ± c`. It is the true homogeneous-equilibrium
-/// speed, never Wood–Wallis (frozen) or perfect-gas:
+/// - **Single phase** (the state `(p, h)` classifies outside the saturation
+///   dome, or the fluid ships no VLE ancillaries): the thermodynamic sound speed
+///   `√((∂p/∂ρ)_s)` from the EOS ([`crate::props::FluidState::speed_of_sound`],
+///   reached by the single-phase `(p, h)` flash). In a single phase the
+///   equilibrium and frozen sound speeds *coincide* — there is no phase change to
+///   lag — so this EOS value **is** the equilibrium sound speed, not a frozen
+///   approximation of one.
+/// - **Two-phase dome** (Region between the saturated-liquid and -vapour lines,
+///   detected by [`crate::vle::phase_at_ph`]): the true
+///   **homogeneous-equilibrium (HEM)** sound speed `a = √((∂p/∂ρ)_s)` evaluated
+///   along the *equilibrium* isentrope by a central finite difference —
+///   [`hem_c_two_phase_fd`]. This is the CoolProp analogue of how the
+///   `tampines-steam-tables` twin uses IAPWS-IF97's `w_ps_eqm_region4_kieffer`:
+///   the mixture density is re-equilibrated (re-flashed on the saturation curve)
+///   at each perturbed pressure at fixed entropy, so the flashing compliance
+///   `(v_g − v_f)·dx/dp` is included — never a frozen / Wood–Wallis / single-phase
+///   speed. If that FD degenerates (perturbation leaves the dome, or a
+///   near-critical VLE solve fails) it is clamped to `c_min`.
 ///
-/// - **Two-phase dome (Region 4)**: entropy `s` from the `(p, h)` flash
-///   ([`s_ph_eqm`]) feeds Kieffer eq. 28 ([`w_ps_eqm_region4_kieffer`]) —
-///   equilibrium derivatives along the saturation curve. If that (unvalidated)
-///   closure returns a non-finite/non-positive value it falls back to the
-///   simpler finite-difference speed [`w_ps_eqm_region4_finite_diff_vol`].
-/// - **Single phase (Regions 1/2/3/5)**: the region forward speed
-///   `w_tp_{1,2,3,5}(T, p)` at `T = t_ph_eqm(p, h)`.
-///
-/// The result is clamped to `c ≥ c_min` (`c_min` in m/s, e.g. [`C_MIN_MPS`]) so
-/// a pathological non-finite value cannot poison downstream arithmetic.
+/// The result is clamped to `c ≥ c_min` (m/s) so a pathological non-finite value
+/// cannot poison downstream arithmetic.
 ///
 /// ## Parameters
+/// - `fluid` — working fluid (its EOS / VLE close the sound speed)
 /// - `p_pa`  — pressure \[Pa\]
 /// - `h_jkg` — static specific enthalpy \[J/kg\]
 /// - `c_min` — defensive lower bound on the returned speed \[m/s\]
-pub(crate) fn hem_sound_speed_ph(p_pa: f64, h_jkg: f64, c_min: f64) -> f64 {
-    let p = Pressure::new::<pascal>(p_pa);
-    let h = AvailableEnergy::new::<joule_per_kilogram>(h_jkg);
-
-    let c = match ph_flash_region(p, h) {
-        FwdEqnRegion::Region4 => {
-            let s = s_ph_eqm(p, h);
-            let c_kieffer = w_ps_eqm_region4_kieffer(p, s).get::<meter_per_second>();
-            if c_kieffer.is_finite() && c_kieffer > 0.0 {
-                c_kieffer
-            } else {
-                w_ps_eqm_region4_finite_diff_vol(p, s).get::<meter_per_second>()
-            }
-        }
-        FwdEqnRegion::Region1 => w_tp_1(t_ph_eqm(p, h), p).get::<meter_per_second>(),
-        FwdEqnRegion::Region2 => w_tp_2(t_ph_eqm(p, h), p).get::<meter_per_second>(),
-        FwdEqnRegion::Region3 => w_tp_3(t_ph_eqm(p, h), p).get::<meter_per_second>(),
-        FwdEqnRegion::Region5 => w_tp_5(t_ph_eqm(p, h), p).get::<meter_per_second>(),
+pub(crate) fn hem_sound_speed_ph(fluid: Fluid, p_pa: f64, h_jkg: f64, c_min: f64) -> f64 {
+    let c = match phase_at_ph(fluid, p_pa, h_jkg) {
+        PhaseAtPh::TwoPhase { .. } => hem_c_two_phase_fd(fluid, p_pa, h_jkg).unwrap_or(c_min),
+        PhaseAtPh::SinglePhase => match state_ph(fluid, p_pa, h_jkg) {
+            Ok(s) => s.speed_of_sound,
+            // Single-phase flash did not converge (e.g. unreachable branch); the
+            // caller's `safe[]` gate keeps such faces out of the dissipation, so
+            // the floor here is only a defensive placeholder for the Mach number.
+            Err(_) => c_min,
+        },
     };
 
     if c.is_finite() && c > c_min {
         c
     } else {
         c_min
+    }
+}
+
+/// Equilibrium (HEM) mixture mass density \[kg/m³\] at pressure `p` \[Pa\] and
+/// specific entropy `s` \[J/(kg·K)\], on the saturation dome.
+///
+/// Re-flashes the Maxwell VLE at `p` ([`crate::vle::saturation_temperature`] then
+/// [`crate::vle::saturation_at_temperature`]), reads the saturated-liquid /
+/// -vapour entropies, and picks the equilibrium quality `x = (s − s')/(s'' − s')`
+/// that reproduces `s`; the mixture density follows from
+/// `1/ρ = (1−x)/ρ' + x/ρ''`. Returns [`None`] if the state is not sub-critical /
+/// two-phase at `p` or the VLE solve fails (near-critical). `x` is clamped to
+/// `[0, 1]` so a small isentrope excursion just past a saturation line maps to
+/// the nearest saturated single-phase density rather than an extrapolated one.
+fn mixture_rho_ps_eqm(fluid: Fluid, p: f64, s: f64) -> Option<f64> {
+    let t_sat = saturation_temperature(fluid, p)?;
+    let sat = saturation_at_temperature(fluid, t_sat)?;
+    let s_l = state_trho(fluid, t_sat, sat.rho_liquid).entropy;
+    let s_v = state_trho(fluid, t_sat, sat.rho_vapour).entropy;
+    // Require a well-ordered dome (`s'' > s'`); a NaN entropy fails this and, if
+    // it slipped through, is caught by the `v.is_finite()` guard below.
+    if s_v <= s_l {
+        return None;
+    }
+    let x = ((s - s_l) / (s_v - s_l)).clamp(0.0, 1.0);
+    let v = (1.0 - x) / sat.rho_liquid + x / sat.rho_vapour;
+    if v.is_finite() && v > 0.0 {
+        Some(1.0 / v)
+    } else {
+        None
+    }
+}
+
+/// HEM **equilibrium** two-phase sound speed \[m/s\] at `(p, h)` by a central
+/// finite difference of the equilibrium isentrope: `a = √((∂p/∂ρ)_s)`.
+///
+/// The mixture entropy `s` at `(p, h)` is obtained from the saturated-phase
+/// enthalpies/entropies at `T_sat(p)`; the density is then re-equilibrated at
+/// `p ± dp` **at fixed `s`** ([`mixture_rho_ps_eqm`]) and
+/// `a² = 2·dp / (ρ(p+dp) − ρ(p−dp))`. Because the quality is re-solved at each
+/// perturbed pressure, the derivative includes the flashing term — this is the
+/// equilibrium speed, not a frozen one. Returns [`None`] if any VLE solve on the
+/// perturbed points fails or the difference is non-physical (caller clamps to
+/// `c_min`).
+fn hem_c_two_phase_fd(fluid: Fluid, p: f64, h: f64) -> Option<f64> {
+    let t_sat = saturation_temperature(fluid, p)?;
+    let sat = saturation_at_temperature(fluid, t_sat)?;
+    let sl = state_trho(fluid, t_sat, sat.rho_liquid);
+    let sv = state_trho(fluid, t_sat, sat.rho_vapour);
+    let (h_l, h_v) = (sl.enthalpy, sv.enthalpy);
+    let (s_l, s_v) = (sl.entropy, sv.entropy);
+    // Well-ordered dome guard (`h'' > h'`); a NaN is rejected here and, failing
+    // that, by the `a2.is_finite()` guard below.
+    if h_v <= h_l {
+        return None;
+    }
+    let x = ((h - h_l) / (h_v - h_l)).clamp(0.0, 1.0);
+    let s = (1.0 - x) * s_l + x * s_v;
+
+    // Central FD step in pressure. Kept a modest fraction of `p` and floored so it
+    // does not underflow at very low pressures; both perturbed points must stay
+    // sub-critical for the VLE solve, which the `?` on `mixture_rho_ps_eqm` below
+    // enforces (a near-critical perturbation returns None ⇒ clamp to c_min).
+    let dp = (p * 1.0e-3).max(50.0);
+    let rho_hi = mixture_rho_ps_eqm(fluid, p + dp, s)?;
+    let rho_lo = mixture_rho_ps_eqm(fluid, p - dp, s)?;
+    let drho = rho_hi - rho_lo;
+    // Density must rise with pressure along the isentrope; a NaN `drho` yields a
+    // NaN `a2`, caught by the `a2.is_finite()` guard below.
+    if drho <= 0.0 {
+        return None;
+    }
+    let a2 = 2.0 * dp / drho;
+    if a2.is_finite() && a2 > 0.0 {
+        Some(a2.sqrt())
+    } else {
+        None
     }
 }
 
@@ -260,12 +295,8 @@ fn face_flux_impl(l: &FaceState, r: &FaceState, n_f: Vector3, with_dissipation: 
     // the array's segregated EEqn, which advances `∂(ρh)/∂t + ∇·(φh) = dp/dt` in
     // *static* enthalpy with the pressure work carried by a separate `dp/dt`
     // source. Dissipating `ρE` here would re-inject `−Δp` pressure work (and the
-    // kinetic term) into that equation — during the strong Edwards rarefaction
-    // the large `Δp` across the flashing front then over-cools the near-break
-    // cell straight through the 273.15 K isotherm. Dissipating `ρ·he` keeps the
-    // shock-capturing viscosity consistent with the enthalpy transport it is
-    // correcting. The acoustic wave speeds `u ± c` (`c` the HEM equilibrium
-    // sound speed) are unchanged.
+    // kinetic term) into that equation. The acoustic wave speeds `u ± c` (`c` the
+    // CoolProp EOS / HEM equilibrium sound speed) are unchanged.
     let w_rho_l = l.rho;
     let w_rho_r = r.rho;
     let w_rhou_l = l.rho * l.u;
@@ -309,9 +340,9 @@ fn face_flux_impl(l: &FaceState, r: &FaceState, n_f: Vector3, with_dissipation: 
 /// ```
 ///
 /// with `W = [ρ, ρU, ρ·he]` (the **static** enthalpy density — see the module
-/// doc for why not the total energy `ρE`) and `c` the HEM equilibrium sound
-/// speed passed in via each [`FaceState`]. `n_f` is the unit face normal
-/// (owner → neighbour).
+/// doc for why not the total energy `ρE`) and `c` the CoolProp EOS / HEM
+/// equilibrium sound speed passed in via each [`FaceState`]. `n_f` is the unit
+/// face normal (owner → neighbour).
 pub(crate) fn knp_face_flux(l: &FaceState, r: &FaceState, n_f: Vector3) -> FaceFlux {
     face_flux_impl(l, r, n_f, true)
 }
@@ -456,40 +487,63 @@ mod tests {
         }
     }
 
-    /// HEM sound speed wiring: subcooled liquid water (7 MPa, h ≈ 1.0 MJ/kg,
-    /// Region 1) gives a physical liquid speed (~1000–1700 m/s), so a modest
-    /// velocity has a small Mach number; the value is finite/positive and above
-    /// the `c_min` floor.
+    /// CoolProp single-phase sound-speed wiring: Nitrogen gas at (1 bar, 300 K)
+    /// gives a physical vapour speed (~350 m/s), matches the direct EOS
+    /// `speed_of_sound`, and yields a tiny Mach number for a modest velocity
+    /// (⇒ `β = 0`, no dissipation).
     #[test]
-    fn hem_c_subcooled_liquid_and_mach() {
-        // 7 MPa, 1.0 MJ/kg is subcooled liquid (h_f(7 MPa) ≈ 1.267 MJ/kg).
-        let c = hem_sound_speed_ph(7.0e6, 1.0e6, C_MIN_MPS);
+    fn hem_c_single_phase_gas_matches_eos() {
+        // (1 bar, 300 K) Nitrogen enthalpy → single-phase (p, h).
+        let st = state_ph(Fluid::Nitrogen, 1.0e5, {
+            crate::flash::state_pt(Fluid::Nitrogen, 300.0, 1.0e5)
+                .unwrap()
+                .enthalpy
+        })
+        .unwrap();
+        let h = st.enthalpy;
+        let c = hem_sound_speed_ph(Fluid::Nitrogen, 1.0e5, h, C_MIN_MPS);
         assert!(c.is_finite() && c > C_MIN_MPS, "c = {c} not physical");
         assert!(
-            (800.0..2000.0).contains(&c),
-            "liquid-water sound speed {c} m/s outside expected band"
+            (c - st.speed_of_sound).abs() / st.speed_of_sound < 1e-9,
+            "single-phase HEM speed {c} should equal the EOS speed_of_sound {}",
+            st.speed_of_sound
+        );
+        assert!(
+            (300.0..420.0).contains(&c),
+            "N2 gas sound speed {c} m/s outside expected band"
         );
         // Ma wiring on a uniform field: |u| / c.
-        let u = 5.0_f64;
-        let ma = u / c;
-        assert!(ma < 0.02, "subcooled liquid Mach {ma} should be tiny");
+        let ma = 5.0_f64 / c;
+        assert!(ma < 0.02, "subsonic gas Mach {ma} should be tiny");
         assert_eq!(mach_blend(ma, 0.3, 1.0), 0.0, "subsonic ⇒ β = 0");
     }
 
-    /// HEM sound speed in the two-phase dome (Region 4) is finite and positive
-    /// (Kieffer closure, or its finite-difference fallback), and is far lower
-    /// than the single-phase liquid speed — the regime the blend targets.
+    /// CoolProp two-phase HEM equilibrium sound speed (Water inside the dome):
+    /// finite, positive, and well below the single-phase liquid/vapour speeds —
+    /// the near-sonic regime the blend targets. Exercises the FD-of-(p,s)
+    /// equilibrium path through the Maxwell VLE construction.
     #[test]
-    fn hem_c_two_phase_is_finite_and_lower() {
-        // 1 bar, 1.5 MJ/kg ⇒ two-phase (x ≈ 0.48).
-        let c = hem_sound_speed_ph(1.0e5, 1.5e6, C_MIN_MPS);
+    fn hem_c_two_phase_equilibrium_is_finite_and_low() {
+        // 1 bar. Build an in-dome enthalpy from the saturated-phase enthalpies at
+        // T_sat(1 bar) so the point is guaranteed two-phase for this fluid.
+        let p = 1.0e5_f64;
+        let t_sat = saturation_temperature(Fluid::Water, p).expect("water sat T at 1 bar");
+        let sat = saturation_at_temperature(Fluid::Water, t_sat).unwrap();
+        let h_l = state_trho(Fluid::Water, t_sat, sat.rho_liquid).enthalpy;
+        let h_v = state_trho(Fluid::Water, t_sat, sat.rho_vapour).enthalpy;
+        let h = 0.5 * (h_l + h_v); // x ≈ 0.5, squarely in-dome
+        assert!(
+            matches!(phase_at_ph(Fluid::Water, p, h), PhaseAtPh::TwoPhase { .. }),
+            "sample must classify two-phase"
+        );
+        let c = hem_sound_speed_ph(Fluid::Water, p, h, C_MIN_MPS);
         assert!(
             c.is_finite() && c > C_MIN_MPS,
-            "two-phase c = {c} not physical"
+            "two-phase HEM c = {c} not physical"
         );
         assert!(
             c < 800.0,
-            "two-phase HEM speed {c} m/s should be well below liquid"
+            "two-phase HEM speed {c} m/s should be well below the liquid speed"
         );
     }
 }

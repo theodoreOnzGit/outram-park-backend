@@ -1,3 +1,338 @@
+//! # A `rhoPimpleFoam` derivation from first principles — the HEM-closed 1-D pipe
+//!
+//! This module is the solver ([`TampinesSteamArray`]) that marches compressible,
+//! flashing steam/water down a 1-D pipe in time. It is a Rust re-implementation
+//! of OpenFOAM's `rhoPimpleFoam` (the reproduced C++ `main()` is kept verbatim
+//! below for provenance), **closed with the real IAPWS-IF97 steam tables as a
+//! homogeneous-equilibrium (HEM) two-phase equation of state** rather than the
+//! perfect-gas closure the stock solver ships with.
+//!
+//! The comment below is written for a reader who has *some* CFD background —
+//! you know what a finite-volume mesh, a divergence, and a linear solve are —
+//! but who has never really understood *why* `rhoPimpleFoam` is built the way it
+//! is. Everything is derived in order, each step leaning on the previous one.
+//! Navigate the code with rust-analyzer as you read: every field and method named
+//! here (`self.phi`, `self.psi`, [`TampinesSteamArray::correct_thermo`],
+//! [`TampinesSteamArray::step`], `assemble_hybrid_dissipation`, …) is real and
+//! cited exactly.
+//!
+//! ---
+//!
+//! ## 1. The governing equations (what we are actually solving)
+//!
+//! Treat the pipe as a 1-D continuum. Three conservation laws close the flow of a
+//! single (possibly two-phase, but locally *homogeneous*) fluid. In the units the
+//! code carries:
+//!
+//! **Continuity** (mass) — density `ρ` \[kg/m³\], velocity `U` \[m/s\]:
+//!
+//! > `∂ρ/∂t + ∇·(ρU) = 0`
+//!
+//! "The rate a cell's density rises equals minus the net mass flux leaving it."
+//! In the code the mass flux `ρU·Sf` is stored *directly* as the surface field
+//! `self.phi` \[kg/s\] (`Sf` = face-area vector \[m²\]), so continuity reads
+//! `∂ρ/∂t + ∇·φ = 0`, discretised explicitly as `ρ = ρ_old − dt·∇·φ` — the
+//! `rhoEqn` block at the top of [`TampinesSteamArray::step`].
+//!
+//! **Momentum** — pressure `p` \[Pa\], viscosity `μ` \[Pa·s\]:
+//!
+//! > `∂(ρU)/∂t + ∇·(ρUU) = −∇p + ∇·(μ∇U)`
+//!
+//! Newton's second law per unit volume: inertia (unsteady + advection of
+//! momentum `ρUU`) is driven by the pressure gradient plus viscous diffusion.
+//! In the code the advective term is `∇·(φU)` (reusing the same `self.phi`), so
+//! the discrete operator is `ddt_coeff_vec(ρ,U) + div_vec(φ,U) + laplacian_vec(μ,U)`
+//! — the `UEqn` block. The `−∇p` term is kept **explicit** (added to the source
+//! as `−V·∇p`), which is the whole point of the algorithm below.
+//!
+//! **Energy, enthalpy form** — static specific enthalpy `he` \[J/kg\]:
+//!
+//! > `∂(ρh)/∂t + ∇·(ρUh) = dp/dt`   (adiabatic, inviscid-work-neglected pipe)
+//!
+//! Why enthalpy `h` and not internal energy `e` or temperature `T`? Because for a
+//! flashing fluid `h` is the variable that stays *continuous and monotone* across
+//! the saturation dome (temperature plateaus at `T_sat` while the fluid boils, so
+//! `T` is a terrible primary variable there), and because the pressure-work term
+//! collapses to the clean source `dp/dt` (`enthalpy = internal energy + p·v`, and
+//! the `p·v` bookkeeping cancels the flow-work term, leaving only the local
+//! `∂p/∂t`). In the code this is `∇·(φh)` for the convection, `dp_dt =
+//! (p − p_old)/dt` for the source, plus a small conduction term `∇·(αh∇h)` with
+//! the OpenFOAM effective diffusivity `αh = κ/Cp` \[kg/(m·s)\] — the `EEqn` block.
+//!
+//! These three are not independent: `ρ`, `T`, `μ`, `αh`, and the compressibility
+//! `ψ` (below) are all functions of `(p, h)` supplied by the steam tables in
+//! [`TampinesSteamArray::correct_thermo`]. That EOS coupling is what makes the
+//! system compressible, and it is where all the difficulty lives.
+//!
+//! ---
+//!
+//! ## 2. Why *pressure-based* (`rhoPimpleFoam`), not density-based
+//!
+//! A density-based compressible solver (think `rhoCentralFoam`) treats
+//! `[ρ, ρU, ρE]` as the unknowns and marches them explicitly: compute fluxes,
+//! update the conserved variables, then back out `p` and `T` from the EOS. Simple
+//! and robust for *supersonic* shocks — but it is shackled by the **acoustic CFL
+//! limit**. An explicit scheme can only advance information one cell per step, so
+//! the timestep must resolve the fastest wave in the system: the *sound* wave,
+//! `dt ≲ Δx / (|U| + c)`. In subcooled liquid water `c ≈ 1400 m/s` while the bulk
+//! velocity might be `1 m/s` — so you pay for resolving acoustics you do not care
+//! about. This is the **low-Mach stiffness** problem: `Ma = |U|/c ≪ 1` means the
+//! acoustics are ~1000× faster than the flow, and an explicit density-based
+//! method crawls.
+//!
+//! The pressure-based cure: derive an **implicit equation for pressure** (below).
+//! An implicit solve couples the whole domain in one linear system, so acoustic
+//! information crosses many cells per step and the timestep is limited by the
+//! *convective* CFL `dt ≲ Δx/|U|`, not the acoustic one. You trade an explicit
+//! flux update for a linear solve (`solve_cg` on the pressure matrix) and buy back
+//! orders of magnitude in `dt` for low-Mach flow. That is exactly the regime an
+//! FHR secondary loop or an Edwards blowdown lives in for most of its length.
+//!
+//! ---
+//!
+//! ## 3. The PIMPLE algorithm — one timestep, walked through
+//!
+//! PIMPLE = **PISO** (Pressure-Implicit Split-Operator, the transient
+//! pressure–velocity corrector loop) nested inside **SIMPLE** (Semi-Implicit
+//! Method for Pressure-Linked Equations, which adds outer iterations and
+//! under-relaxation). The structure is two nested loops:
+//!
+//! - **outer correctors** (`n_outer_correctors`) — SIMPLE-style; re-linearise the
+//!   whole coupled system. `= 1` gives pure transient PISO
+//!   ([`TampinesSteamArray::set_piso_algorithm`]); `> 1` with under-relaxation
+//!   gives PIMPLE, letting `dt` exceed the strict PISO limit.
+//! - **inner correctors** (`n_inner_correctors`) — PISO; re-solve pressure and
+//!   re-project velocity *at fixed coefficients* to mop up the velocity–pressure
+//!   split error.
+//!
+//! ### 3a. Momentum predictor
+//!
+//! Assemble the momentum matrix `u_eqn = ddt + div + laplacian` and split it into
+//! its diagonal `A` \[kg/s\] and off-diagonal-plus-source operator `H(U)`. The
+//! matrix row for cell *c* reads `A·U_c − H(U) = −V·∇p`. "Predict" a velocity by
+//! solving this with the *old* pressure gradient (`u_eqn.solve("U", …)`). This
+//! `u_pred` satisfies momentum but **not** continuity — it is divergence-dirty.
+//! The code caches `rAU = V/A` \[m³·s/kg\] (the inverse diagonal) for the
+//! projection that follows.
+//!
+//! ### 3b. The pressure equation — where compressibility enters
+//!
+//! This is the heart of the method; derive it. Write the momentum row solved for
+//! velocity, splitting the pressure term back out:
+//!
+//! > `U = H(U)/A − (1/A)·∇p = HbyA − rAU·∇p`
+//!
+//! `HbyA = H(U)/A` \[m/s\] is the "velocity without its own pressure gradient".
+//! Take the mass flux of this and of the pressure-projection piece:
+//!
+//! > `φ = ρ_f·(HbyA·Sf) − ρ_f·rAU_f·∇p·Sf  =  φ_HbyA − ρ_f·rAU_f·snGrad(p)·|Sf|`
+//!
+//! (`_f` = face-interpolated; `snGrad` = surface-normal gradient.) Now demand that
+//! this `φ` satisfy **continuity**. For an *incompressible* flow you would demand
+//! `∇·φ = 0`, giving a pure Poisson equation `∇·(ρ_f·rAU_f·∇p) = ∇·φ_HbyA`. But
+//! this fluid is compressible: continuity is `∂ρ/∂t + ∇·φ = 0`, and `ρ` itself
+//! depends on `p`. Linearise that dependence with the **compressibility**
+//!
+//! > `ψ = ∂ρ/∂p`   \[s²/m² = kg/(m³·Pa)\]   →   `∂ρ/∂t ≈ ψ·∂p/∂t ≈ ψ·(p − p_old)/dt`.
+//!
+//! Substituting turns continuity into an implicit, well-posed pressure equation.
+//! In the code (`pEqn` block) the assembled system is
+//!
+//! > `[ laplacian(ρ_f·rAU_f) + ψ·V/dt ]·p = ψ·V/dt·p_old − (net φ_HbyA outflow)`
+//!
+//! The `ψ·V/dt` term added to `p_eqn.ldu.diag[c]` is the star of the show. It is
+//! the transient-compressible diagonal. Two things it buys:
+//!
+//! 1. **Non-singularity.** A pure incompressible pressure-Poisson matrix is
+//!    singular (pressure defined only up to a constant; needs a reference cell).
+//!    The `ψ·V/dt` diagonal makes the matrix SPD with no null space — no reference
+//!    cell needed — so `solve_cg` (PCG) converges directly.
+//! 2. **Physics.** It encodes "if you compress this cell, its density rises by
+//!    `ψ·Δp`, which continuity must account for." A stiff (nearly incompressible)
+//!    liquid has tiny `ψ` → the term vanishes → you recover the incompressible
+//!    limit. A compliant vapour or a *flashing* two-phase cell has large `ψ` →
+//!    the term dominates → pressure changes are absorbed by density change instead
+//!    of by acoustic velocity adjustment.
+//!
+//! ### 3c. Correct, then repeat
+//!
+//! With the new `p`, correct the flux `φ ← φ_HbyA − ρ_f·rAU_f·snGrad(p)·|Sf|`
+//! (now divergence-consistent) and the velocity `U ← HbyA − rAU·∇p` (now
+//! continuity-satisfying). Re-close the EOS via
+//! [`TampinesSteamArray::correct_thermo`] and loop the inner corrector. After the
+//! inner loop, solve the energy equation, and (if outer correctors remain)
+//! re-linearise. Optional explicit under-relaxation `p ← p_prev + α_p·(p − p_prev)`
+//! (`p_under_relaxation`, `u_under_relaxation`) stabilises the SIMPLE outer
+//! iterations; at `α = 1` (the PISO default) it is a no-op.
+//!
+//! ---
+//!
+//! ## 4. The HEM closure — what makes this *HEM-closed* `rhoPimpleFoam`
+//!
+//! Stock `rhoPimpleFoam` closes the EOS with a perfect gas: `ρ = p/(RT)`,
+//! `ψ = ∂ρ/∂p = 1/(RT)`, a constant-ish scalar. Here the EOS is a **real
+//! IAPWS-IF97 `(p, h)` equilibrium flash** ([`TampinesSteamArray::correct_thermo`]),
+//! and the fluid can be subcooled liquid, superheated vapour, *or* a two-phase
+//! mixture. "Homogeneous equilibrium" (HEM) means the two phases share one
+//! velocity, one pressure, and one temperature, always at thermodynamic
+//! equilibrium — so a single `(p, h)` flash returns the mixture `ρ`, `T`, quality
+//! `x`, etc. That is the cheapest self-consistent two-phase closure, and it is the
+//! right first model for fast flashing (Edwards blowdown, choked break flow).
+//!
+//! **The subtle part is which compressibility `ψ` to use.** Recall step 3b froze
+//! everything except pressure when we wrote `∂ρ/∂t ≈ ψ·∂p/∂t`. In this segregated
+//! algorithm, during the pressure solve the enthalpy `he` is held fixed (it is
+//! only updated later, by the energy equation). So the density's response to
+//! pressure that the pressure equation actually sees is the **constant-enthalpy**
+//! derivative
+//!
+//! > `ψ = ∂ρ/∂p|_h`   — stored in `self.psi`, computed by a central finite
+//! > difference of the `(p,h)` flash in `correct_thermo` (`(rho_hi − rho_lo)/(p_hi − p_lo)`).
+//!
+//! Not the isothermal `∂ρ/∂p|_T = ρ·κ_T`. In single phase the two nearly agree
+//! (for an ideal gas `∂ρ/∂p|_h = ρ/p = ρ·κ_T` exactly; for liquid `∂ρ/∂h|_p` is
+//! tiny so `|_h ≈ |_T`), so subcooled/superheated behaviour is unchanged.
+//! **Inside the two-phase dome they differ by ~100×.** The isothermal value
+//! `κ_T = x·κ_vap + (1−x)·κ_liq` freezes the quality and misses the *flashing
+//! term* `(v_g − v_f)·dx/dp`: as pressure drops, the equilibrium quality `x`
+//! rises (liquid flashes to vapour), and that phase change is a huge volumetric
+//! response. Only `∂ρ/∂p|_h` captures it, because the `(p,h)` flash re-solves the
+//! equilibrium quality at each pressure. That flashing compliance is exactly what
+//! pins a boiling cell on the saturation line `p = p_sat(T)` as it depressurises —
+//! the **Edwards flashing plateau**. Use the frozen `κ_T` and the `ψ·V/dt`
+//! diagonal is ~100× too small, so the pressure sails straight through the plateau
+//! (see the long comment in `correct_thermo`).
+//!
+//! ---
+//!
+//! ## 5. The conservative energy time-derivative — the plateau, part two
+//!
+//! Getting `ψ` right is necessary but not sufficient. The energy equation's
+//! *time derivative* must be discretised conservatively or the enthalpy field
+//! drifts. Write the enthalpy convection as `∇·(φh)`. The unsteady term must be
+//! the **conservative** form `∂(ρh)/∂t`, discretised as
+//! `(ρ_cont·h − ρ_old·h_old)/dt`, and the density multiplying the *new* time level
+//! must be the **continuity density**
+//!
+//! > `ρ_cont = ρ_old − dt·∇·φ`
+//!
+//! recomputed from the *final* mass flux `self.phi` — **not** the EOS density
+//! `self.rho` that `correct_thermo` wrote. This is the whole reason
+//! [`fvm::ddt_coeff_old`] exists (it takes distinct new/old density fields). Here
+//! is why it matters. Discrete continuity gives `(ρ_cont − ρ_old)/dt = −∇·φ`
+//! *exactly*. Expand the conservative time term and add the convection:
+//!
+//! > `(ρ_cont·h − ρ_old·h_old)/dt + ∇·(φh)`
+//!
+//! The `h_old·(ρ_cont − ρ_old)/dt = −h_old·∇·φ` piece cancels the `h·∇·φ` part of
+//! `∇·(φh)` term-for-term, and the equation collapses to the **material
+//! derivative** `ρ Dh/Dt = dp/dt`, i.e. the reversible `dh ≈ dp/ρ`. That tiny
+//! reversible enthalpy change is what keeps the state *on the saturation dome* as
+//! `p` falls — the plateau.
+//!
+//! Break the cancellation and the plateau dies:
+//!
+//! - Reuse the *current* density for both time levels (the naive `ddt_coeff`) and
+//!   you are really solving `ρ·∂h/∂t + ∇·(φh) = dp/dt`, whose un-cancelled
+//!   `h·∇·φ` outflow **over-drains enthalpy** during the violent flash (`∇·φ ≫ 0`
+//!   at the break). The bulk liquid is driven subcooled and the pressure collapses
+//!   straight past `p_sat` — the pre-fix subcooling plateau bug (bead op-21g.14).
+//! - Use the *EOS* density for `ρ_cont` and, mid-flash, it drops faster than the
+//!   `ψ·dp/dt` the pressure equation feeds back into `φ`, leaving a residual that
+//!   spuriously **over-heats** cells (a `(p,h)` flash into Region 5).
+//!
+//! Only the continuity density closes the loop. See the fully commented `EEqn`
+//! block in [`TampinesSteamArray::step`].
+//!
+//! ---
+//!
+//! ## 6. The choked break boundary condition
+//!
+//! A pipe rupture discharges to a much lower back-pressure. Once the flow at the
+//! break reaches the local sound speed it **chokes**: the throat velocity is
+//! pinned at `u_throat = a_HEM` (the HEM critical speed) and further lowering the
+//! downstream pressure cannot raise the mass flux. So the outlet BC is not a
+//! fixed pressure — it is a *critical-flow* condition. The crate already solves
+//! HEM critical flow: [`get_critical_pressure_and_mass_flux_multiphase_ph`]
+//! (`crate::steam_turbine_equations::…::choked_flow`) takes the local stagnation
+//! `(p0, h0)` at the break cell and returns `(p_crit, G_crit)` — the choke
+//! pressure and critical HEM mass flux — dispatching by `(p0,h0)` region to the
+//! in-dome / subcooled / superheated-vapour solvers. The blowdown driver converts
+//! `G_crit` to an equivalent full-face velocity and imposes it via
+//! [`TampinesSteamArray::set_outlet_velocity`] each step (the same critical-flow
+//! machinery `TampinesSteamTableCV::get_crit_pressure_and_massflux` wraps).
+//!
+//! ---
+//!
+//! ## 7. The all-Mach hybrid ([`SolverMode::HybridAllMach`])
+//!
+//! A pressure-based solver is superb at low Mach but **rings** at a sharp,
+//! near-sonic front: its central (non-upwinded) flux has no numerical dissipation
+//! to damp the shortest wavelengths, so a steep flashing front develops
+//! Gibbs-like oscillations. A density-based KNP scheme (Kurganov–Noelle–Petrova
+//! central-upwind, the `rhoCentralFoam` flux) has exactly the right dissipation
+//! for a shock — its `a_L·a_R·(W_R − W_L)` jump term is an upwind viscosity keyed
+//! to the local wave speeds `a = U_n ± c`. The hybrid keeps the pressure-based
+//! solver everywhere and **borrows only the KNP jump term as a deferred-correction
+//! dissipation**, switched on continuously by a Mach-blend weight:
+//!
+//! > `β(Ma) = clamp((Ma − lo)/(hi − lo), 0, 1)`   ([`central_upwind::mach_blend`],
+//! > defaults `lo = 0.3`, `hi = 1.0`).
+//!
+//! Subsonic faces get `β = 0` and see **identically zero** added flux, so
+//! [`SolverMode::Pimple`] stays bit-for-bit the validated path; only near-sonic
+//! faces (the flashing front) receive the shock-capturing damping. The dissipation
+//! is `β·(knp − central)·|Sf|` — the pure KNP jump term — assembled per face in
+//! [`TampinesSteamArray::assemble_hybrid_dissipation`] and injected into
+//! continuity (folded into `self.phi`) and momentum (a deferred per-cell source);
+//! energy shock-capturing rides implicitly on the continuity flux through the
+//! EEqn's `∇·(φh)`, so no separate — destabilising — energy source is added (see
+//! `HybridDissipation`).
+//!
+//! Three details make it work on *this* fluid:
+//!
+//! - **The characteristic speed must be the HEM *equilibrium* sound speed**, not
+//!   the frozen Wood–Wallis two-phase speed. The wave speeds `U_n ± c` and the
+//!   Mach number both use [`central_upwind::hem_sound_speed_ph`], which in the
+//!   dome takes the Kieffer equilibrium speed
+//!   [`crate::region_4_vap_liq_equilibrium::w_ps_eqm_region4_kieffer`] (entropy
+//!   from the `(p,h)` flash into Kieffer eq. 28). The frozen speed would put the
+//!   characteristics in the wrong place because it ignores interphase mass
+//!   transfer — the very flashing this solver is about.
+//! - **Blend on `min(Ma_owner, Ma_neighbour)`, not `max`.** At a
+//!   liquid/two-phase interface the liquid side's `c ≈ 1400 m/s` makes the KNP
+//!   viscosity `~c_liq/2` enormous, but that liquid acoustic wave is genuinely
+//!   *low Mach* and must not be dissipated. `min(Ma)` sees the subsonic liquid
+//!   side and returns `β = 0`, activating dissipation only where *both* sides are
+//!   near-sonic — the fully-developed two-phase front where `c` is uniformly small
+//!   and the damping is physical.
+//! - **A rarefied-tail density taper** scales `β` to zero below a mixture-density
+//!   floor (`HYBRID_RHO_TAPER_LO`/`HYBRID_RHO_TAPER_HI`, 50–100 kg/m³). As the
+//!   pipe empties toward vacuum the HEM closure degrades and there is no shock to
+//!   capture; an explicit dissipation on a nearly-empty cell would tip it across
+//!   the `(p,h)` 273.15 K validity edge and panic. The taper is inert over the
+//!   physics window (the front sits at `ρ ≳ 106 kg/m³`), so the ~55 % ringing
+//!   reduction and the ≈ 388 psia plateau are unchanged (bug op-21g.15.7).
+//!
+//! See the `central_upwind` module for the KNP flux math and the `FaceState`
+//! reconstruction.
+//!
+//! ---
+//!
+//! ## Where to read next
+//!
+//! - [`TampinesSteamArray::step`] — the timestep loop; the block comments there
+//!   annotate every equation cited above.
+//! - [`TampinesSteamArray::correct_thermo`] — the `(p,h)` EOS closure and the
+//!   `ψ = ∂ρ/∂p|_h` finite difference.
+//! - `central_upwind` — the KNP central-upwind flux and HEM sound speed.
+//! - Stability failure modes (BC well-posedness, pressure-source clobbering,
+//!   water-hammer, pressure bounding) are walked through in the appbuilder crate's
+//!   `docs/stability_a_students_guide.md`, which applies here verbatim.
+//!
+//! C++ reference (reproduced verbatim below for provenance):
+//! `applications/solvers/compressible/rhoPimpleFoam/`.
+
 use crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh;
 use crate::openfoam_algorithms::openfoam_source::*;
 ///*---------------------------------------------------------------------------*\
@@ -595,6 +930,15 @@ impl TampinesSteamArray {
     /// Update the thermodynamic and transport state from the current
     /// `(p, he)` per cell, via a real IAPWS-IF97 `(p, h)` flash.
     ///
+    /// This method **is** the HEM equation-of-state closure derived in
+    /// [module §4](self): every property the PIMPLE loop needs (`ρ`, `T`, `μ`,
+    /// `αh`, and the compressibility `ψ`) is a function of `(p, h)`, and this is
+    /// where those functions are evaluated. The homogeneous-equilibrium
+    /// assumption means one `(p, h)` flash returns the mixture state whether the
+    /// cell is subcooled liquid, two-phase, or superheated vapour. The
+    /// `ψ = ∂ρ/∂p|_h` finite difference below is the single most important line
+    /// for the flashing plateau — see the inline comment and module §4.
+    ///
     /// Per cell: `T = t_ph_eqm(p,h)`, `ρ = 1/v_ph_eqm(p,h)`, the local
     /// compressibility `ψ = ∂ρ/∂p|_h` (central finite difference of the `(p,h)`
     /// flash — the fixed-enthalpy compressibility the segregated pressure
@@ -683,11 +1027,33 @@ impl TampinesSteamArray {
 
     /// Advance one time step with the compressible PIMPLE algorithm.
     ///
-    /// Ported line-for-line from `RhoPimpleFoam::step` (see that solver's module
-    /// doc for the sign/convention rationale). The steps: explicit continuity
-    /// (rhoEqn) → momentum predictor (UEqn) → PISO pressure-correction loop with
-    /// the ψ·V/dt compressibility diagonal (pEqn) → energy equation (EEqn).
-    /// Boundary conditions are re-applied after every field update.
+    /// This is the concrete realisation of the derivation in the
+    /// [module-level documentation](self) — read that first for *why* each block
+    /// exists; this method is *what* runs, in order. Ported line-for-line from
+    /// `RhoPimpleFoam::step` (see that solver's module doc for the sign/convention
+    /// rationale). One `step` runs `n_outer_correctors` SIMPLE outer loops, each:
+    ///
+    /// 1. **rhoEqn** — explicit continuity `ρ = ρ_old − dt·∇·φ` (module §1).
+    /// 2. **UEqn** — momentum predictor `A·U = H(U) − V·∇p` solved with the old
+    ///    pressure gradient; caches the inverse diagonal `rAU = V/A` (module §3a).
+    /// 3. **PISO loop** — `n_inner_correctors` pressure corrections. Each assembles
+    ///    the pressure equation `[laplacian(ρ_f·rAU_f) + ψ·V/dt]·p = source` — the
+    ///    `ψ·V/dt` diagonal from `self.psi = ∂ρ/∂p|_h` is the compressible,
+    ///    non-singular term (module §3b, §4) — then corrects `φ` and `U` from the
+    ///    new `p`, bounds `p` into `[p_min, p_max]`, and re-closes the EOS via
+    ///    [`Self::correct_thermo`].
+    /// 4. **(hybrid only)** the Mach-blended KNP dissipation is folded into `φ`
+    ///    before the EEqn recompute (module §7; [`Self::assemble_hybrid_dissipation`]).
+    /// 5. **EEqn** — energy in enthalpy form, with the *conservative* time
+    ///    derivative built on the **continuity density** `ρ_cont = ρ_old − dt·∇·φ`
+    ///    (via [`fvm::ddt_coeff_old`]) so the `h·∇·φ` convection cancels and the
+    ///    equation reduces to `ρ Dh/Dt = dp/dt` — the flashing-plateau fix
+    ///    (module §5).
+    ///
+    /// Boundary conditions are re-applied after every field update (the field
+    /// arithmetic and linear solves rebuild fields with zero-gradient boundaries,
+    /// so the prescribed inlet-velocity / outlet-pressure BC types must be
+    /// re-stamped — see [`correct_bcs`] / [`correct_bcs_vec`]).
     pub fn step(&mut self) {
         let mesh = self.mesh.clone();
         let n = mesh.n_cells;
