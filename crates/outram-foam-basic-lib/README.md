@@ -120,6 +120,117 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | `SolidThermo` | Trait for solid region CHT: `rho_cp`, `kappa`, `T` |
 | `ConstSolidThermo` | Constant-property solid thermo |
 
+## Limitations
+
+Read this before depending on the crate. Every item below is grounded in the
+current source; nothing here is aspirational. See also the
+[unverified-until-validated banner](#outram-foam-basic-lib) at the top.
+
+### Scope boundaries
+
+- **Layers 1–4 only — no solver loops.** This crate provides the mathematical
+  building blocks (tensor algebra, primitives, FV operators, thermophysics
+  kernels, field thermodynamics). The **Layer 5** logic — PISO/PIMPLE loops,
+  multi-region coupling drivers, turbulence-model registries — lives in separate
+  downstream crates (`openfoam-icof`, `openfoam-cht`, `openfoam-rho`), which are
+  **not yet published**. On their own the operators here do not run a
+  time-marching CFD simulation.
+- **No turbulence models.** `LaminarModel` / `kOmegaSST` and `divDevRhoReff` are
+  planned for the CHT solver crate, not present here. Only laminar terms can be
+  assembled.
+- **No OpenFOAM case / `polyMesh` file I/O.** Meshes are constructed in code via
+  `FvMeshBuilder` (you supply `owner`/`neighbour` connectivity and the geometric
+  Vecs) or via `interface::one_dimensional_meshing::create_one_d_mesh` for 1-D
+  system-code meshes. Reading an OpenFOAM `constant/polyMesh` directory is a
+  downstream concern, not in this crate. (The DIC/warm-start discussion below
+  refers to a `read_poly_mesh` that lives in the appbuilder crate.)
+- **Serial only.** No MPI / domain decomposition; there are no processor
+  boundary patches. The linear solvers and operators run single-threaded on one
+  mesh.
+
+### Finite-volume numerics
+
+- **Implicit convection is first-order upwind only.** `fvm::div` / `fvm::div_vec`
+  assemble a first-order upwind matrix (`src/fv_operators/fvm/div.rs`). There is
+  **no** implicit higher-order/TVD convection (`linearUpwind`, `limitedLinear`,
+  `vanLeer`, etc.). Second-order TVD *reconstruction* exists only explicitly, via
+  `fvc::muscl` (`Upwind` / `Linear` / limiter variants), intended for
+  density-based central-upwind fluxes — the Kurganov–Tadmor flux assembly itself
+  is Layer-5 work and is not wired up here.
+- **Laplacian is Gauss-orthogonal only — no non-orthogonal / skewness
+  correction.** `fvm::laplacian` and `fvc::sn_grad` use the orthogonal
+  face-area-over-centre-distance coefficient
+  (`src/fv_operators/fvm/laplacian.rs`), ignoring the angle between the face-area
+  vector and the owner→neighbour vector. Diffusion is therefore accurate on
+  orthogonal meshes (hex / 1-D) but **under-resolved on non-orthogonal or skewed
+  meshes**; there is no over-relaxed/minimum-correction non-orthogonal term.
+- **Time integration is first-order.** Only implicit Euler `fvm::ddt` (plus
+  `fvm::ddt_coeff`, the vector forms, and a `d2dt2`) is provided. No
+  higher-order/backward/Crank–Nicolson time schemes.
+- **Boundary conditions are a small closed set.** `BoundaryCondition`
+  (`src/fields/boundary/bc.rs`) supports `FixedValue`, `FixedField`,
+  `ZeroGradient`, `Symmetry`, `Empty`, and `Calculated` only. There is **no**
+  `inletOutlet`, non-zero `fixedGradient`, `mixed`/Robin, wall-function,
+  `cyclic`/periodic, or processor boundary condition.
+
+### Linear solvers
+
+- **Krylov / multigrid solvers assume symmetric positive-definite systems.**
+  `conjugate_gradient` (DIC-preconditioned) and `gamg` target the symmetric
+  pressure system. Asymmetric systems fall back to `gauss_seidel`; there is no
+  BiCGStab/GMRES.
+- **GAMG rebuilds its hierarchy on every solve** and is **slower than DIC-PCG
+  below ~10^4–10^5 cells** (see the performance section below). It is
+  mesh-independent in V-cycle count but not yet cached across time steps or usable
+  as a CG preconditioner. PCG remains the default.
+- **Dense matrices provide LU only.** `SquareMatrix` implements LU with scaled
+  partial pivoting (`solve` returns `Result<Vec<f64>, MatrixError>`). The
+  QR / Cholesky / SVD factorisations named in the design doc are **not
+  implemented**.
+
+### Thermophysics accuracy (known-failing / unverified)
+
+- **Peng–Robinson EOS is inaccurate above the critical pressure.** Density errors
+  of **7–26 % vs NIST** are observed for `Pr > 1` / near-critical states; the
+  corresponding NIST cross-checks are `#[ignore]`-d pending a suspected
+  Z-root-selection or α-function fix (`src/thermophysics/eos/peng_robinson.rs`,
+  `docs/porting-roadmap.md`). Prefer `PerfectGas`, `RhoConst`, or `IcoPolynomial`
+  where density accuracy matters.
+- **JANAF `T(H)` inversion can fail to converge from a far initial guess.** The
+  Newton solve stalls crossing the `Tcommon = 1000 K` coefficient discontinuity
+  when started far away (e.g. `t0 = 100 K` targeting 3000 K); one such test is
+  `#[ignore]`-d (`src/thermophysics/thermo/janaf.rs`). Seed the iteration with a
+  reasonable temperature and handle `Err(NonConvergent)`.
+
+### ODE and polynomial restrictions
+
+- **The stiff `Rosenbrock23` solver needs a user Jacobian.** `OdeSystem::jacobian`
+  has a default that **panics** (`unimplemented!`, `src/ode/mod.rs`); only the
+  explicit `Euler` and `Rkf45` solvers work without one.
+- **`Polynomial<N>::integral()` (degree-raising form) is not implemented.** The
+  type-level definite integral that returns a `Polynomial<{N+1}>` needs nightly
+  `generic_const_exprs`; use the scalar `integral(x1, x2) -> f64` /
+  `integral_minus1` forms instead (`src/polynomial/polynomial.rs`).
+
+### Validation status
+
+- **Unverified until validated.** This crate's own test suite is unit /
+  verification tests against analytic and reference values, not full-solver
+  validation. The only end-to-end physics validation cited (lid-driven cavity,
+  Ghia Re = 100) is run in the downstream `outram-foam-appbuilder-lib` crate, not
+  here. Treat all outputs as untrusted draft until a specific V&V case covers
+  your usage. Not for nuclear facility operation, reactor control,
+  safety-critical, or licensing decisions.
+
+### Platform / build
+
+- **Pure Rust, no BLAS required by the library.** Runtime dependencies are only
+  `thiserror`, `uom`, and `ndarray`, so the library builds headless (including
+  Android and other no-system-BLAS targets). The LAPACK comparison benchmark
+  (`tests/matrix_bench.rs`) *does* need system OpenBLAS (Linux) / Intel MKL
+  (Windows/macOS); it is a **dev-dependency, target-gated off Android**, and is
+  not part of the library build.
+
 ## SquareMatrix vs LAPACK benchmark
 
 `SquareMatrix::solve` (pure-Rust LU, no external BLAS) compared to

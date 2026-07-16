@@ -10,8 +10,11 @@ readme = "README.md"
 categories.workspace = true
 # V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
 # and never shipped in the packaged crate. `docs/` (incl. the generated
-# docs/api.md rustdoc mirror) isn't crate content either.
-exclude = ["verification_and_validation/*.csv", "docs"]
+# docs/api.md rustdoc mirror) isn't crate content either. `upstream_source/
+# GeN-Foam` is the reference GeN-Foam clone kept in-repo for provenance only —
+# it is not crate content and must not be packaged (1324 files; the small
+# `upstream_source/README.md` provenance record stays in the package).
+exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/GeN-Foam"]
 
 [dependencies]
 thiserror.workspace = true
