@@ -127,12 +127,15 @@ first; `cargo publish` refuses a dirty tree without `--allow-dirty`).
 **Package hygiene already applied** via `exclude` in each manifest:
 - `tuas_boussinesq_solver`: `exclude = ["*.csv"]` — tests dump ~58 MB of CSVs into
   the crate root (far over the crates.io size limit).
-- `teh-o-prke`: `exclude = ["pki", "docs"]` — `pki/` contained a **private key**
-  (`private.pem`) that must never be published; `docs/` is a large theory PDF.
+- `teh-o-prke`: `exclude = ["pki", "docs"]` — `pki/` holds a throwaway **dummy**
+  key from early experimentation (see `crates/teh-o-prke/CLAUDE.md`), excluded
+  from the package as belt-and-braces; `docs/` is a large theory PDF.
 - `tampines-steam-tables`: `exclude = ["docs"]` — LaTeX sources/build artifacts.
 
-⚠ The private key under `teh-o-prke/pki/` is excluded from the package, but it
-still exists in the working tree — consider removing it and rotating the key.
+Note: `teh-o-prke/pki/` is **not a security concern** — it is a dummy key from
+early playing-around, is **untracked by git** (so it is never committed or
+pushed), and is `exclude`d from the package. Confirmed by the maintainer
+(2026-07-16). See `crates/teh-o-prke/CLAUDE.md`.
 
 ## Wayland / display notes
 

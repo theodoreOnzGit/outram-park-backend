@@ -270,6 +270,85 @@ what crate they need and how to call it.
   update its `///` doc comment in the same change.
 - Do not write examples that require reading internal modules to understand.
 
+## Bookkeeping pass (maintainer command)
+
+When the maintainer asks for a **"bookkeeping pass"** (or "bookkeeping", "book
+keeping", "update the docs + flags") over one or more crates, run this fixed
+routine. It keeps the docs, the completeness flags, and the issue tracker honest
+and in sync with the code. It is a recurring command, not a one-off.
+
+**The four steps:**
+
+1. **Doc-comment pass — fill gaps + fix stale (NOT a rewrite).** For every
+   public `fn` / `struct` / `enum` / `trait` / `mod` in scope: add an accurate
+   `///` / `//!` where missing; fix any doc that contradicts the current code
+   (stale "scaffold only" / `todo!()` claims, wrong counts, renamed items);
+   and **leave already-accurate docs untouched** — do not reword good docs.
+   Obey the "Human interface layer" rule above (what physical quantity, valid
+   ranges/assumptions, units even when `uom`-typed). Never strip `uom`.
+
+   **Then regenerate the rustdoc → markdown API mirror** for each crate whose
+   doc comments changed, so `docs/api.md` stays in sync with the code:
+
+   ```bash
+   python3 scripts/gen_api_docs.py <crate-dir-name>   # e.g. outram-foam-basic-lib
+   ```
+
+   This runs `cargo +nightly doc --no-deps` → rustdoc JSON → the `rustdoc-md`
+   binary → `crates/<crate>/docs/api.md`. It needs a nightly toolchain
+   (`rustup toolchain install nightly`) and `rustdoc-md`
+   (`cargo install rustdoc-md --locked`); if either is missing, install it or
+   note in the hand-off that the mirror wasn't regenerated. `docs/` is
+   `exclude`d from the packaged crate, so this mirror is repo-only and never
+   ships to crates.io.
+
+2. **Completeness flags in the README.** Every crate's `README.md` carries a
+   **`## Bookkeeping status`** block with two axes the *human maintainer* must
+   personally sign off:
+   - **Verification & Validation (V&V) — human-reviewed**
+   - **Human / user interface — human-reviewed**
+
+   Both default to **❌ Not yet manually checked** and a crate is marked
+   **INCOMPLETE** until the maintainer clears both. AI assistants must **not**
+   flip either axis to checked/✅ on their own — only the human does, because
+   these axes record *human* review (see `RESPONSIBLE_USE.md`: AI output is
+   untrusted draft material until a human reviews it). A crate flagged
+   INCOMPLETE on either axis is not ready to be described as validated or
+   trusted. The canonical block:
+
+   ```markdown
+   ## Bookkeeping status
+
+   > Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping
+   > pass" command). A crate is **complete** only once the maintainer has
+   > personally signed off on BOTH axes below.
+
+   | Axis | Status |
+   |---|---|
+   | Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
+   | Human / user interface — human-reviewed | ❌ Not yet manually checked |
+
+   **Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
+   ```
+
+3. **Staleness audit.** Sweep the READMEs, beads, and every markdown file
+   (recursively) for drift versus the actual code/state: internal
+   contradictions, references to renamed/removed crates or files, "planned/TODO"
+   items that are actually done, wrong member lists or crate counts, beads that
+   should be closed (or reopened). Fix in-crate drift; for cross-cutting or bead
+   changes, report candidates rather than silently editing — beads are closed by
+   the maintainer's decision, and the read-only auditor never mutates them.
+
+4. **Codify / update** this command here if the routine itself changes.
+
+**How to run it as a fleet:** partition strictly by crate (one agent per crate,
+no shared files → `cargo fmt -p` is safe to avoid per the parallel-agent rule),
+plus a separate **read-only** agent for the cross-cutting markdown + beads
+staleness audit (it must skip the crates being actively edited to avoid read
+races). Commit any pending verified work first so the tree is clean, and
+**exclude from the pass any crate with a publish in flight** (an uncommitted
+doc edit trips `cargo publish`'s dirty-tree guard).
+
 ## Rust design rules (mandatory)
 
 ### No trait objects — use enums for dispatch
