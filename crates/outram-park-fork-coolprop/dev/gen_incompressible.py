@@ -73,6 +73,33 @@ def build_fit(block, prop_name, fluid_name):
              "add it to gen_incompressible.py + incompressibles/mod.rs if this fires)"
              .format(fluid_name, prop_name, t))
 
+def build_aux_fit(block, prop_name, fluid_name):
+    """Like `build_fit`, but for the *auxiliary* correlations `T_freeze` and
+    `saturation_pressure` — which are optional for every fluid. Unlike the four
+    core properties (density/cp/conductivity/viscosity), an unsupported fit form
+    here is NOT fatal: `polyoffset` (used by exactly one fluid's `T_freeze`,
+    ExampleSecCool) and any `notdefined`/all-zero block simply return `None`, so
+    the port emits an honest `PropertyUnavailable` at runtime rather than a wrong
+    number — matching the module's viscosity/conductivity `None` style."""
+    if not isinstance(block, dict):
+        return None
+    t = block.get("type")
+    coeffs = block.get("coeffs")
+    if t in ("polynomial", "exppolynomial", "exponential", "logexponential") and is_all_zero(coeffs):
+        return None
+    if t == "polynomial":
+        rows = "&[" + ", ".join(slice_f64(row) for row in coeffs) + "]"
+        return "PropertyFit {{ form: PropertyForm::Polynomial, coeffs: {} }}".format(rows)
+    if t == "exppolynomial":
+        rows = "&[" + ", ".join(slice_f64(row) for row in coeffs) + "]"
+        return "PropertyFit {{ form: PropertyForm::ExpPolynomial, coeffs: {} }}".format(rows)
+    if t == "exponential":
+        return "PropertyFit {{ form: PropertyForm::Exponential, coeffs: &[{}] }}".format(slice_f64(coeffs))
+    if t == "logexponential":
+        return "PropertyFit {{ form: PropertyForm::LogExponential, coeffs: &[{}] }}".format(slice_f64(coeffs))
+    # notdefined / None / polyoffset / anything else -> honest None
+    return None
+
 def build(name, d):
     xid = d.get("xid", "pure")
     if xid not in KIND:
@@ -97,6 +124,20 @@ def build(name, d):
     visc = build_fit(d.get("viscosity"), "viscosity", name)
     visc_lit = "None" if visc is None else "Some({})".format(visc)
 
+    # Auxiliary correlations: freezing temperature T_freeze(x) and saturation
+    # pressure psat(T, x). Both are optional; `build_aux_fit` yields None (an
+    # honest PropertyUnavailable) for fluids that ship no real fit.
+    tfreeze = build_aux_fit(d.get("T_freeze"), "T_freeze", name)
+    tfreeze_lit = "None" if tfreeze is None else "Some({})".format(tfreeze)
+    psat = build_aux_fit(d.get("saturation_pressure"), "saturation_pressure", name)
+    psat_lit = "None" if psat is None else "Some({})".format(psat)
+    # TminPsat is only meaningful when a psat fit exists; below it CoolProp
+    # treats the saturation curve as unavailable. NaN when there is no psat fit.
+    if psat is None:
+        tminpsat = "f64::NAN"
+    else:
+        tminpsat = "{!r}".format(float(d.get("TminPsat", d["Tmin"])))
+
     ident = rust_const_ident(name) + "_INCOMP"
     return ident, (
         "/// CoolProp `{name}` ({xid}), `T ∈ [{tmin!r}, {tmax!r}] K`.\n"
@@ -112,9 +153,13 @@ def build(name, d):
         "    heat_capacity: {cp},\n"
         "    conductivity: {cond_lit},\n"
         "    viscosity: {visc_lit},\n"
+        "    t_freeze: {tfreeze_lit},\n"
+        "    p_sat: {psat_lit},\n"
+        "    t_min_psat: {tminpsat},\n"
         "}};\n"
     ).format(name=name, xid=xid, kind=kind, tmin=tmin, tmax=tmax, xmin=xmin, xmax=xmax, tbase=tbase, xbase=xbase,
-             ident=ident, density=density, cp=cp, cond_lit=cond_lit, visc_lit=visc_lit)
+             ident=ident, density=density, cp=cp, cond_lit=cond_lit, visc_lit=visc_lit,
+             tfreeze_lit=tfreeze_lit, psat_lit=psat_lit, tminpsat=tminpsat)
 
 def main():
     if len(sys.argv) != 2:

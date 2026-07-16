@@ -14,8 +14,31 @@ pub const HY20_INCOMP: IncompressibleFluid = IncompressibleFluid {
     x_range: (0.0, 0.0),
     t_base: 273.15,
     x_base: 0.0,
-    density: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[1202.2], &[-0.42918]] },
-    heat_capacity: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[2955.0], &[2.3]] },
-    conductivity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[0.5181167], &[0.001966495], &[-7.108434e-06], &[-1.079438e-07]] }),
-    viscosity: Some(PropertyFit { form: PropertyForm::Exponential, coeffs: &[&[642.8081, -117.2883, 9.971345]] }),
+    density: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[1202.2], &[-0.42918]],
+    },
+    heat_capacity: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[2955.0], &[2.3]],
+    },
+    conductivity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[
+            &[0.5181167],
+            &[0.001966495],
+            &[-7.108434e-06],
+            &[-1.079438e-07],
+        ],
+    }),
+    viscosity: Some(PropertyFit {
+        form: PropertyForm::Exponential,
+        coeffs: &[&[642.8081, -117.2883, 9.971345]],
+    }),
+    t_freeze: None,
+    p_sat: Some(PropertyFit {
+        form: PropertyForm::Exponential,
+        coeffs: &[&[-5000.0, 60.0, -10.0]],
+    }),
+    t_min_psat: 323.15,
 };

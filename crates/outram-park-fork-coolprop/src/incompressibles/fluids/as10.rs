@@ -14,8 +14,28 @@ pub const AS10_INCOMP: IncompressibleFluid = IncompressibleFluid {
     x_range: (0.0, 0.0),
     t_base: 273.15,
     x_base: 0.0,
-    density: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[1090.0], &[-0.2], &[1.66533e-16], &[-1.89735e-18]] },
-    heat_capacity: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[3541.83], &[2.01], &[-0.0132589]] },
-    conductivity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[0.514259], &[0.001483]] }),
-    viscosity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[0.002801549], &[-0.0001063138], &[2.35381e-06], &[-2.11481e-08]] }),
+    density: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[1090.0], &[-0.2], &[1.66533e-16], &[-1.89735e-18]],
+    },
+    heat_capacity: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[3541.83], &[2.01], &[-0.0132589]],
+    },
+    conductivity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[0.514259], &[0.001483]],
+    }),
+    viscosity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[
+            &[0.002801549],
+            &[-0.0001063138],
+            &[2.35381e-06],
+            &[-2.11481e-08],
+        ],
+    }),
+    t_freeze: None,
+    p_sat: None,
+    t_min_psat: f64::NAN,
 };

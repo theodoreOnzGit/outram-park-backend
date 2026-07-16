@@ -14,8 +14,23 @@ pub const HFE_INCOMP: IncompressibleFluid = IncompressibleFluid {
     x_range: (0.0, 0.0),
     t_base: 0.0,
     x_base: 0.0,
-    density: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[1822.37], &[-0.918485]] },
-    heat_capacity: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[871.834], &[0.858788]] },
-    conductivity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[0.992958], &[-8.33333e-05]] }),
-    viscosity: Some(PropertyFit { form: PropertyForm::ExpPolynomial, coeffs: &[&[-4.22878], &[-0.0114765], &[7.39823e-06]] }),
+    density: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[1822.37], &[-0.918485]],
+    },
+    heat_capacity: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[871.834], &[0.858788]],
+    },
+    conductivity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[0.992958], &[-8.33333e-05]],
+    }),
+    viscosity: Some(PropertyFit {
+        form: PropertyForm::ExpPolynomial,
+        coeffs: &[&[-4.22878], &[-0.0114765], &[7.39823e-06]],
+    }),
+    t_freeze: None,
+    p_sat: None,
+    t_min_psat: f64::NAN,
 };

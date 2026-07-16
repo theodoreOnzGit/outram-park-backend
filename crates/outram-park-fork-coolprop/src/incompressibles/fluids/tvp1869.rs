@@ -14,8 +14,28 @@ pub const TVP1869_INCOMP: IncompressibleFluid = IncompressibleFluid {
     x_range: (0.0, 0.0),
     t_base: 273.15,
     x_base: 0.0,
-    density: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[945.5455], &[-1.054545]] },
-    heat_capacity: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[2322.218], &[3.843636]] },
-    conductivity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[0.15], &[-0.000154545]] }),
-    viscosity: Some(PropertyFit { form: PropertyForm::ExpPolynomial, coeffs: &[&[-5.651331], &[-0.03572436], &[0.0001071302], &[-5.102013e-06]] }),
+    density: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[945.5455], &[-1.054545]],
+    },
+    heat_capacity: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[2322.218], &[3.843636]],
+    },
+    conductivity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[0.15], &[-0.000154545]],
+    }),
+    viscosity: Some(PropertyFit {
+        form: PropertyForm::ExpPolynomial,
+        coeffs: &[
+            &[-5.651331],
+            &[-0.03572436],
+            &[0.0001071302],
+            &[-5.102013e-06],
+        ],
+    }),
+    t_freeze: None,
+    p_sat: None,
+    t_min_psat: f64::NAN,
 };

@@ -14,8 +14,23 @@ pub const TCO_INCOMP: IncompressibleFluid = IncompressibleFluid {
     x_range: (0.0, 0.0),
     t_base: 0.0,
     x_base: 0.0,
-    density: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[1071.02], &[-0.778166]] },
-    heat_capacity: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[223.775], &[5.2159]] },
-    conductivity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[0.174156], &[-0.000185052]] }),
-    viscosity: Some(PropertyFit { form: PropertyForm::ExpPolynomial, coeffs: &[&[-3.47971], &[-0.0107031], &[1.14086e-06]] }),
+    density: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[1071.02], &[-0.778166]],
+    },
+    heat_capacity: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[223.775], &[5.2159]],
+    },
+    conductivity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[0.174156], &[-0.000185052]],
+    }),
+    viscosity: Some(PropertyFit {
+        form: PropertyForm::ExpPolynomial,
+        coeffs: &[&[-3.47971], &[-0.0107031], &[1.14086e-06]],
+    }),
+    t_freeze: None,
+    p_sat: None,
+    t_min_psat: f64::NAN,
 };

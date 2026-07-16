@@ -14,8 +14,36 @@ pub const EXAMPLEDIGITALPURE_INCOMP: IncompressibleFluid = IncompressibleFluid {
     x_range: (0.0, 0.0),
     t_base: 390.0,
     x_base: 0.0,
-    density: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[1192.776], &[-0.4853294], &[7.545341e-05], &[-6.339948e-07]] },
-    heat_capacity: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[3688.015], &[-1.95593], &[-0.004093648], &[0.000164408]] },
-    conductivity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[1.054674], &[0.001726354], &[-7.47401e-06], &[3.456054e-09]] }),
-    viscosity: Some(PropertyFit { form: PropertyForm::Exponential, coeffs: &[&[365.5034, -173.6257, 9.288918]] }),
+    density: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[
+            &[1192.776],
+            &[-0.4853294],
+            &[7.545341e-05],
+            &[-6.339948e-07],
+        ],
+    },
+    heat_capacity: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[3688.015], &[-1.95593], &[-0.004093648], &[0.000164408]],
+    },
+    conductivity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[
+            &[1.054674],
+            &[0.001726354],
+            &[-7.47401e-06],
+            &[3.456054e-09],
+        ],
+    }),
+    viscosity: Some(PropertyFit {
+        form: PropertyForm::Exponential,
+        coeffs: &[&[365.5034, -173.6257, 9.288918]],
+    }),
+    t_freeze: None,
+    p_sat: Some(PropertyFit {
+        form: PropertyForm::Exponential,
+        coeffs: &[&[-3854.484, -44.25504, -23.24501]],
+    }),
+    t_min_psat: 280.0,
 };

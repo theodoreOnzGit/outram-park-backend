@@ -14,8 +14,20 @@ pub const FOODICE_INCOMP: IncompressibleFluid = IncompressibleFluid {
     x_range: (0.0, 0.0),
     t_base: 273.15,
     x_base: 0.0,
-    density: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[916.89], &[-0.13071]] },
-    heat_capacity: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[2062.3], &[6.076899999999999]] },
-    conductivity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[2.2196], &[-0.0062489], &[0.00010154]] }),
+    density: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[916.89], &[-0.13071]],
+    },
+    heat_capacity: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[2062.3], &[6.076899999999999]],
+    },
+    conductivity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[2.2196], &[-0.0062489], &[0.00010154]],
+    }),
     viscosity: None,
+    t_freeze: None,
+    p_sat: None,
+    t_min_psat: f64::NAN,
 };

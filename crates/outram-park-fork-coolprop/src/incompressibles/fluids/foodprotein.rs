@@ -14,8 +14,20 @@ pub const FOODPROTEIN_INCOMP: IncompressibleFluid = IncompressibleFluid {
     x_range: (0.0, 0.0),
     t_base: 273.15,
     x_base: 0.0,
-    density: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[1329.9], &[-0.5184]] },
-    heat_capacity: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[2008.2], &[1.2088999999999999], &[-0.0013128999999999999]] },
-    conductivity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[0.17881], &[0.0011958], &[-2.7178e-06]] }),
+    density: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[1329.9], &[-0.5184]],
+    },
+    heat_capacity: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[2008.2], &[1.2088999999999999], &[-0.0013128999999999999]],
+    },
+    conductivity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[0.17881], &[0.0011958], &[-2.7178e-06]],
+    }),
     viscosity: None,
+    t_freeze: None,
+    p_sat: None,
+    t_min_psat: f64::NAN,
 };

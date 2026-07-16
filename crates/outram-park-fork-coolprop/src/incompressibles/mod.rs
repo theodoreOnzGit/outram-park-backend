@@ -39,6 +39,24 @@
 //! `conductivity` and LiBr's `conductivity`/`viscosity`) — `dev/gen_incompressible.py`
 //! detects this and also emits `None` rather than a knowingly-wrong `0.0`.
 //!
+//! # Auxiliary and derived properties
+//!
+//! Beyond the four core fits, each fluid also carries the CoolProp auxiliary
+//! correlations where upstream ships real coefficients:
+//! - [`Incompressible::t_freeze`] — freezing temperature `T_freeze(x)` \[K\] as
+//!   a function of antifreeze composition (48 brine/glycol/antifreeze solutions;
+//!   [`IncompressibleError::PropertyUnavailable`] otherwise, including the one
+//!   fluid whose fit uses the unimplemented `polyoffset` form).
+//! - [`Incompressible::saturation_pressure`] — vapour pressure `p_sat(T, x)`
+//!   \[Pa\], valid on `[t_min_psat, t_max]` (38 fluids; `OutOfRange` below
+//!   `t_min_psat`, `PropertyUnavailable` when absent).
+//!
+//! Two further quantities are *derived* from the `specific_heat` polynomial the
+//! module already integrates for enthalpy, so they need no extra coefficients:
+//! - [`Incompressible::entropy`] — `s = ∫ c_p/T dT` (zero at `t_range.0`);
+//! - [`Incompressible::internal_energy`] — `u = h − p/ρ` (CoolProp `calc_umass`,
+//!   the one incompressible property that genuinely depends on `p`).
+//!
 //! # Units
 //!
 //! Mass-based SI: `T` \[K\], `p` \[Pa\], density \[kg/m³\], `c` \[J/(kg·K)\],
@@ -125,6 +143,22 @@ pub struct IncompressibleFluid {
     /// viscosity correlation for this fluid (7 of the 126 ported fluids, plus
     /// a few more with an all-zero placeholder).
     pub viscosity: Option<PropertyFit>,
+    /// Freezing-temperature fit `T_freeze(x)` \[K\] as a function of composition
+    /// `x`, or `None` when CoolProp ships no real correlation. Populated for the
+    /// 48 brine/glycol/antifreeze solutions that carry upstream coeffs; the one
+    /// fluid whose upstream `T_freeze` uses the unimplemented `polyoffset` form
+    /// (ExampleSecCool) is `None`. Note the fit variable is the **composition**
+    /// `x`, not temperature — evaluated via [`Incompressible::t_freeze`].
+    pub t_freeze: Option<PropertyFit>,
+    /// Saturation-pressure fit `p_sat(T, x)` \[Pa\], valid only for
+    /// `T ∈ [t_min_psat, t_range.1]`, or `None` when CoolProp ships no real
+    /// correlation. Populated for the 38 fluids that carry upstream coeffs —
+    /// evaluated via [`Incompressible::saturation_pressure`].
+    pub p_sat: Option<PropertyFit>,
+    /// Lowest temperature \[K\] at which [`Self::p_sat`] is valid (CoolProp
+    /// `TminPsat`); below it the saturation curve is not fitted. `f64::NAN` when
+    /// the fluid carries no saturation-pressure correlation.
+    pub t_min_psat: f64,
 }
 
 /// Failure modes of an incompressible-property query.
@@ -185,7 +219,10 @@ impl Incompressible {
     pub fn conductivity(self, t: f64, _p: f64, x: f64) -> Result<f64, IncompressibleError> {
         self.check_inputs(t, x)?;
         let data = self.data();
-        let fit = data.conductivity.as_ref().ok_or(IncompressibleError::PropertyUnavailable)?;
+        let fit = data
+            .conductivity
+            .as_ref()
+            .ok_or(IncompressibleError::PropertyUnavailable)?;
         eval_fit(fit, t, x, data.t_base, data.x_base)
     }
 
@@ -194,7 +231,10 @@ impl Incompressible {
     pub fn viscosity(self, t: f64, _p: f64, x: f64) -> Result<f64, IncompressibleError> {
         self.check_inputs(t, x)?;
         let data = self.data();
-        let fit = data.viscosity.as_ref().ok_or(IncompressibleError::PropertyUnavailable)?;
+        let fit = data
+            .viscosity
+            .as_ref()
+            .ok_or(IncompressibleError::PropertyUnavailable)?;
         eval_fit(fit, t, x, data.t_base, data.x_base)
     }
 
@@ -210,12 +250,21 @@ impl Incompressible {
         if data.heat_capacity.form != PropertyForm::Polynomial {
             return Err(IncompressibleError::PropertyUnavailable);
         }
-        Ok(poly2d_integral_dt(data.heat_capacity.coeffs, t - data.t_base, x - data.x_base))
+        Ok(poly2d_integral_dt(
+            data.heat_capacity.coeffs,
+            t - data.t_base,
+            x - data.x_base,
+        ))
     }
 
     /// Temperature \[K\] from specific enthalpy `h` \[J/kg\] — the inverse of
     /// [`Self::enthalpy`], via Newton on `c_p = dh/dT`.
-    pub fn temperature_from_enthalpy(self, h: f64, p: f64, x: f64) -> Result<f64, IncompressibleError> {
+    pub fn temperature_from_enthalpy(
+        self,
+        h: f64,
+        p: f64,
+        x: f64,
+    ) -> Result<f64, IncompressibleError> {
         let data = self.data();
         if data.heat_capacity.form != PropertyForm::Polynomial {
             return Err(IncompressibleError::PropertyUnavailable);
@@ -235,6 +284,117 @@ impl Incompressible {
         }
         Err(IncompressibleError::OutOfRange)
     }
+
+    /// Validate a composition `x` \[-\] against the fluid's fitted range /
+    /// composition kind, without a temperature input — used by the
+    /// composition-only [`Self::t_freeze`].
+    fn check_composition(self, x: f64) -> Result<(), IncompressibleError> {
+        let data = self.data();
+        match data.kind {
+            IncompressibleKind::Pure => {
+                if x != 0.0 {
+                    return Err(IncompressibleError::CompositionMismatch);
+                }
+            }
+            IncompressibleKind::MassBased | IncompressibleKind::VolumeBased => {
+                if !(x.is_finite() && x >= data.x_range.0 && x <= data.x_range.1) {
+                    return Err(IncompressibleError::OutOfRange);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Freezing temperature `T_freeze` \[K\] at composition `x` \[-\] (mass or
+    /// volume fraction per [`IncompressibleFluid::kind`]; must be `0.0` for pure
+    /// fluids). Returns [`IncompressibleError::PropertyUnavailable`] when the
+    /// fluid ships no freezing-temperature correlation (all pure oils, and the
+    /// one fluid whose upstream fit uses the unimplemented `polyoffset` form) —
+    /// never a wrong number.
+    ///
+    /// The correlation is (essentially) pressure-independent in CoolProp's data
+    /// (every ported fit is single-row in pressure), so no pressure input is
+    /// taken. Freezing temperature is a function of the antifreeze concentration
+    /// `x` only.
+    pub fn t_freeze(self, x: f64) -> Result<f64, IncompressibleError> {
+        self.check_composition(x)?;
+        let data = self.data();
+        let fit = data
+            .t_freeze
+            .as_ref()
+            .ok_or(IncompressibleError::PropertyUnavailable)?;
+        Ok(eval_t_freeze(fit, x, data.x_base))
+    }
+
+    /// Saturation (vapour) pressure `p_sat` \[Pa\] at temperature `t` \[K\] and
+    /// composition `x` \[-\]. Returns [`IncompressibleError::PropertyUnavailable`]
+    /// when the fluid ships no saturation-pressure correlation, and
+    /// [`IncompressibleError::OutOfRange`] when `t` is below
+    /// [`IncompressibleFluid::t_min_psat`] or above `t_range.1` (where the fit is
+    /// not valid) — matching CoolProp's `TminPsat` guard, never a wrong number.
+    ///
+    /// The composition centering (`t_base`/`x_base`) and the exponential/
+    /// logexponential forms use temperature as the fit variable, identical to the
+    /// core-property fits, so this reuses the same [`eval_fit`] evaluator.
+    pub fn saturation_pressure(self, t: f64, x: f64) -> Result<f64, IncompressibleError> {
+        let data = self.data();
+        let fit = data
+            .p_sat
+            .as_ref()
+            .ok_or(IncompressibleError::PropertyUnavailable)?;
+        // psat is only fitted on [t_min_psat, t_max]; guard both ends.
+        if !(t.is_finite() && t >= data.t_min_psat && t <= data.t_range.1) {
+            return Err(IncompressibleError::OutOfRange);
+        }
+        // Composition still has to be in range / consistent with the kind.
+        match data.kind {
+            IncompressibleKind::Pure => {
+                if x != 0.0 {
+                    return Err(IncompressibleError::CompositionMismatch);
+                }
+            }
+            IncompressibleKind::MassBased | IncompressibleKind::VolumeBased => {
+                if !(x.is_finite() && x >= data.x_range.0 && x <= data.x_range.1) {
+                    return Err(IncompressibleError::OutOfRange);
+                }
+            }
+        }
+        eval_fit(fit, t, x, data.t_base, data.x_base)
+    }
+
+    /// Specific entropy \[J/(kg·K)\], `s(T) = ∫_{t_range.0}^{T} c_p(T', x)/T' dT'`
+    /// (zero at `T = t_range.0`, i.e. the bottom of the fitted range, `x` fixed —
+    /// an internally-consistent reference, not necessarily CoolProp's absolute
+    /// convention, just as [`Self::enthalpy`] is zero at `T_base`).
+    ///
+    /// Computed in closed form from the same [`PropertyForm::Polynomial`]
+    /// heat-capacity fit the module already integrates for enthalpy, matching
+    /// CoolProp's `Polynomial2DFrac::integral` with a `1/T` weight
+    /// (`x_exp = -1`). Other `c_p` fit forms return
+    /// [`IncompressibleError::PropertyUnavailable`] (never the case for the 126
+    /// ported fluids). Like the enthalpy, the pressure-dependent term
+    /// (`p·∂s/∂p`) is dropped — pressure is a free variable in this fit family.
+    pub fn entropy(self, t: f64, _p: f64, x: f64) -> Result<f64, IncompressibleError> {
+        self.check_inputs(t, x)?;
+        let data = self.data();
+        if data.heat_capacity.form != PropertyForm::Polynomial {
+            return Err(IncompressibleError::PropertyUnavailable);
+        }
+        let dx = x - data.x_base;
+        let s = |tt: f64| entropy_raw_integral(data.heat_capacity.coeffs, tt, dx, data.t_base);
+        Ok(s(t) - s(data.t_range.0))
+    }
+
+    /// Specific internal energy \[J/kg\], `u = h − p·v = h − p/ρ`, at temperature
+    /// `t` \[K\], pressure `p` \[Pa\] and composition `x` \[-\] — CoolProp's
+    /// `calc_umass`. Uses [`Self::enthalpy`] (the `c_p` integral) and
+    /// [`Self::density`]; unlike the other incompressible properties this one
+    /// genuinely depends on `p`. Propagates any range error from those calls.
+    pub fn internal_energy(self, t: f64, p: f64, x: f64) -> Result<f64, IncompressibleError> {
+        let h = self.enthalpy(t, p, x)?;
+        let rho = self.density(t, p, x)?;
+        Ok(h - p / rho)
+    }
 }
 
 /// Antiderivative in `T` of the 2-D polynomial `poly2d` (see its doc),
@@ -253,7 +413,13 @@ fn poly2d_integral_dt(coeffs: &[&[f64]], dt: f64, dx: f64) -> f64 {
 
 /// Evaluate a 2-D property polynomial `Σ_ij c_ij·(T−T_base)^i·(x−x_base)^j`
 /// (or its `exp`/hyperbolic variants, see [`PropertyForm`]) at `(t, x)`.
-fn eval_fit(fit: &PropertyFit, t: f64, x: f64, t_base: f64, x_base: f64) -> Result<f64, IncompressibleError> {
+fn eval_fit(
+    fit: &PropertyFit,
+    t: f64,
+    x: f64,
+    t_base: f64,
+    x_base: f64,
+) -> Result<f64, IncompressibleError> {
     match fit.form {
         PropertyForm::Polynomial => Ok(poly2d(fit.coeffs, t - t_base, x - x_base)),
         PropertyForm::ExpPolynomial => Ok(poly2d(fit.coeffs, t - t_base, x - x_base).exp()),
@@ -282,6 +448,76 @@ fn eval_fit(fit: &PropertyFit, t: f64, x: f64, t_base: f64, x_base: f64) -> Resu
     }
 }
 
+/// Evaluate the freezing-temperature fit `T_freeze` at composition `x`.
+///
+/// CoolProp's `IncompressibleFluid::Tfreeze(p, x)` differs from the core-property
+/// dispatch in two ways, both reproduced here:
+/// - the **polynomial/exppolynomial** forms centre their *first* (pressure)
+///   variable on `0.0` (not `Tbase`) and the composition on `x_base`; every
+///   ported `T_freeze` fit is single-row in pressure, so the pressure value is
+///   irrelevant and we evaluate at `p = 0`;
+/// - the **exponential/logexponential** forms use the **composition** `x` as the
+///   single fit variable (`baseExponential(T_freeze, x, 0.0)`), whereas psat and
+///   the core properties use temperature.
+fn eval_t_freeze(fit: &PropertyFit, x: f64, x_base: f64) -> f64 {
+    match fit.form {
+        PropertyForm::Polynomial => poly2d(fit.coeffs, 0.0, x - x_base),
+        PropertyForm::ExpPolynomial => poly2d(fit.coeffs, 0.0, x - x_base).exp(),
+        PropertyForm::Exponential => {
+            let row = fit.coeffs[0];
+            let (c0, c1, c2) = (row[0], row[1], row[2]);
+            (c0 / (x + c1) - c2).exp()
+        }
+        PropertyForm::LogExponential => {
+            let row = fit.coeffs[0];
+            let (c0, c1, c2) = (row[0], row[1], row[2]);
+            let y = x + c0;
+            let inner = 1.0 / y + 1.0 / (y * y);
+            inner.powf(c1) * c2.exp()
+        }
+    }
+}
+
+/// Indefinite entropy integral `∫ c_p(T,x)/T dT` of a
+/// [`PropertyForm::Polynomial`] `c_p` fit centred on `t_base`, evaluated at `t`
+/// with composition offset `dx = x − x_base` (integration constant dropped).
+///
+/// This mirrors CoolProp `Polynomial2DFrac::integral(..., x_exp = -1, ...)` via
+/// `fracIntCentral`: for each temperature-power row `j` the inner row is Horner-
+/// evaluated in `dx` to a coefficient `d_j`, then weighted by the closed-form
+/// antiderivative of `(T − t_base)^j / T`,
+/// `D_j(T) = (−1)^j·ln T·t_base^j + Σ_{k=0}^{j−1} C(j,k)·(−1)^k/(j−k)·T^{j−k}·t_base^k`.
+/// The formula is exact for `t_base = 0` too (`0^0 = 1`, higher powers vanish),
+/// so the eight `t_base = 0` fluids need no special case. Callers subtract the
+/// value at a reference temperature to fix the integration constant.
+fn entropy_raw_integral(coeffs: &[&[f64]], t: f64, dx: f64, t_base: f64) -> f64 {
+    fn horner(row: &[f64], v: f64) -> f64 {
+        row.iter().rev().fold(0.0, |acc, &c| acc * v + c)
+    }
+    fn binom(n: i32, k: i32) -> f64 {
+        // Small exact integer binomial via a factorial ratio (n, k <= fit order).
+        fn fact(n: i32) -> f64 {
+            (2..=n).fold(1.0, |a, i| a * i as f64)
+        }
+        fact(n) / (fact(k) * fact(n - k))
+    }
+    coeffs
+        .iter()
+        .enumerate()
+        .map(|(j, row)| {
+            let d_j = horner(row, dx);
+            let j = j as i32;
+            let mut cap = (-1.0f64).powi(j) * t.ln() * t_base.powi(j);
+            for k in 0..j {
+                cap += binom(j, k) * (-1.0f64).powi(k) / (j - k) as f64
+                    * t.powi(j - k)
+                    * t_base.powi(k);
+            }
+            d_j * cap
+        })
+        .sum()
+}
+
 /// Horner evaluation of `Σ_ij c_ij·dt^i·dx^j`, `dt = T-T_base`, `dx = x-x_base`
 /// — outer Horner over rows (`T`-power) of the inner row's Horner-in-`dx`
 /// value, matching CoolProp `Polynomial2DFrac::evaluate` with `x_exp=y_exp=0`.
@@ -289,5 +525,8 @@ fn poly2d(coeffs: &[&[f64]], dt: f64, dx: f64) -> f64 {
     fn horner(row: &[f64], dx: f64) -> f64 {
         row.iter().rev().fold(0.0, |acc, &c| acc * dx + c)
     }
-    coeffs.iter().rev().fold(0.0, |acc, row| acc * dt + horner(row, dx))
+    coeffs
+        .iter()
+        .rev()
+        .fold(0.0, |acc, row| acc * dt + horner(row, dx))
 }

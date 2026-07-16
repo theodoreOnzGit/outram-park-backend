@@ -41,6 +41,7 @@
 
 pub mod binary_pairs;
 pub mod departure;
+pub mod predefined;
 pub mod reducing;
 
 use crate::eos::HelmholtzDerivs;
@@ -87,6 +88,14 @@ pub struct MixtureState {
 pub enum MixtureError {
     /// `components.len() != mole_fractions.len()`, or fewer than two components.
     MalformedComposition,
+    /// A mole fraction is negative or non-finite (`NaN`/`inf`).
+    InvalidMoleFraction,
+    /// The mole fractions do not sum to 1 within [`Mixture::SUM_TOLERANCE`].
+    ///
+    /// Compositions are **not** silently renormalised — an unnormalised vector
+    /// is a caller bug (a dropped or mistyped component), so it is surfaced as
+    /// an error rather than papered over.
+    UnnormalizedComposition,
     /// A required binary interaction pair is not in [`binary_pairs`].
     MissingBinaryPair,
     /// A flash / VLE iteration did not converge.
@@ -94,13 +103,36 @@ pub enum MixtureError {
 }
 
 impl Mixture {
-    /// Build a mixture, validating the composition (lengths match, ≥ 2
-    /// components, fractions sum to ~1).
+    /// Absolute tolerance on `|Σ x_i - 1|` accepted by [`Mixture::new`].
+    ///
+    /// Loose enough to admit compositions rounded to a handful of significant
+    /// figures (e.g. CoolProp's predefined `.mix` tables, whose fractions are
+    /// tabulated to 6 places) yet tight enough to reject a genuinely dropped or
+    /// mistyped component.
+    pub const SUM_TOLERANCE: f64 = 1e-6;
+
+    /// Build a mixture, validating the composition:
+    /// - `components.len()` and `mole_fractions.len()` match, and there are ≥ 2
+    ///   components ([`MixtureError::MalformedComposition`]);
+    /// - every mole fraction is finite and non-negative
+    ///   ([`MixtureError::InvalidMoleFraction`]);
+    /// - `Σ x_i = 1` within [`Mixture::SUM_TOLERANCE`]
+    ///   ([`MixtureError::UnnormalizedComposition`]).
+    ///
+    /// The sum is **checked, not silently renormalised**: an unnormalised
+    /// vector is treated as a caller bug and surfaced as an error, matching the
+    /// crate's "propagate, don't paper over" error style.
     pub fn new(components: Vec<Fluid>, mole_fractions: Vec<f64>) -> Result<Self, MixtureError> {
         if components.len() < 2 || components.len() != mole_fractions.len() {
             return Err(MixtureError::MalformedComposition);
         }
-        // TODO(op-kbc.16): assert Σx ≈ 1 within tolerance; normalise if desired.
+        if mole_fractions.iter().any(|x| !x.is_finite() || *x < 0.0) {
+            return Err(MixtureError::InvalidMoleFraction);
+        }
+        let sum: f64 = mole_fractions.iter().sum();
+        if (sum - 1.0).abs() > Self::SUM_TOLERANCE {
+            return Err(MixtureError::UnnormalizedComposition);
+        }
         Ok(Self { components, mole_fractions })
     }
 

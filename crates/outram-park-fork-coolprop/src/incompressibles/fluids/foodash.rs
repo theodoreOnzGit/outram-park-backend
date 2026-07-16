@@ -14,8 +14,20 @@ pub const FOODASH_INCOMP: IncompressibleFluid = IncompressibleFluid {
     x_range: (0.0, 0.0),
     t_base: 273.15,
     x_base: 0.0,
-    density: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[2423.8], &[-0.28063]] },
-    heat_capacity: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[1092.6], &[1.8896], &[-0.0036817]] },
-    conductivity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[0.32962], &[0.0014011], &[-2.9069e-06]] }),
+    density: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[2423.8], &[-0.28063]],
+    },
+    heat_capacity: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[1092.6], &[1.8896], &[-0.0036817]],
+    },
+    conductivity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[0.32962], &[0.0014011], &[-2.9069e-06]],
+    }),
     viscosity: None,
+    t_freeze: None,
+    p_sat: None,
+    t_min_psat: f64::NAN,
 };

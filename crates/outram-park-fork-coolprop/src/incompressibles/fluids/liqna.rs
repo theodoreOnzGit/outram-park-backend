@@ -14,8 +14,45 @@ pub const LIQNA_INCOMP: IncompressibleFluid = IncompressibleFluid {
     x_range: (0.0, 0.0),
     t_base: 1450.0,
     x_base: 0.0,
-    density: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[672.0767045454262], &[-0.2524942259559509], &[-6.885234330888945e-05], &[-5.679564524241343e-08]] },
-    heat_capacity: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[1376.6592261522192], &[0.5205059522205394], &[0.0005791666665749348], &[8.33333333449815e-08]] },
-    conductivity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[39.652357954542296], &[-0.0283520543358315], &[3.7129446640339625e-06], &[-1.1838256708252004e-08]] }),
-    viscosity: Some(PropertyFit { form: PropertyForm::Exponential, coeffs: &[&[1477.5936204092418, 217.0383167635442, 9.835135835300713]] }),
+    density: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[
+            &[672.0767045454262],
+            &[-0.2524942259559509],
+            &[-6.885234330888945e-05],
+            &[-5.679564524241343e-08],
+        ],
+    },
+    heat_capacity: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[
+            &[1376.6592261522192],
+            &[0.5205059522205394],
+            &[0.0005791666665749348],
+            &[8.33333333449815e-08],
+        ],
+    },
+    conductivity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[
+            &[39.652357954542296],
+            &[-0.0283520543358315],
+            &[3.7129446640339625e-06],
+            &[-1.1838256708252004e-08],
+        ],
+    }),
+    viscosity: Some(PropertyFit {
+        form: PropertyForm::Exponential,
+        coeffs: &[&[1477.5936204092418, 217.0383167635442, 9.835135835300713]],
+    }),
+    t_freeze: None,
+    p_sat: Some(PropertyFit {
+        form: PropertyForm::Exponential,
+        coeffs: &[&[
+            -11758.328842732395,
+            -14.056138686870915,
+            -21.815692362749207,
+        ]],
+    }),
+    t_min_psat: 400.0,
 };

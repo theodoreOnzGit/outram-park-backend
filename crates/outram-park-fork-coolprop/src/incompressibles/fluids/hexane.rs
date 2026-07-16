@@ -14,8 +14,41 @@ pub const HEXANE_INCOMP: IncompressibleFluid = IncompressibleFluid {
     x_range: (0.0, 0.0),
     t_base: 318.16633879825787,
     x_base: 0.0,
-    density: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[637.9711865489224], &[-0.9260678954131932], &[-0.001160934482237086], &[-5.821455250071555e-06]] },
-    heat_capacity: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[2349.776382891306], &[4.3744660425540465], &[0.011937393898858062], &[1.1383498278355362e-05]] },
-    conductivity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[0.11460695989107247], &[-0.000280949681521805], &[5.268383548268454e-07], &[-9.302005284028526e-10]] }),
-    viscosity: Some(PropertyFit { form: PropertyForm::Exponential, coeffs: &[&[2270.150232010228, 165.13945679929213, 13.008092538765817]] }),
+    density: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[
+            &[637.9711865489224],
+            &[-0.9260678954131932],
+            &[-0.001160934482237086],
+            &[-5.821455250071555e-06],
+        ],
+    },
+    heat_capacity: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[
+            &[2349.776382891306],
+            &[4.3744660425540465],
+            &[0.011937393898858062],
+            &[1.1383498278355362e-05],
+        ],
+    },
+    conductivity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[
+            &[0.11460695989107247],
+            &[-0.000280949681521805],
+            &[5.268383548268454e-07],
+            &[-9.302005284028526e-10],
+        ],
+    }),
+    viscosity: Some(PropertyFit {
+        form: PropertyForm::Exponential,
+        coeffs: &[&[2270.150232010228, 165.13945679929213, 13.008092538765817]],
+    }),
+    t_freeze: None,
+    p_sat: Some(PropertyFit {
+        form: PropertyForm::Exponential,
+        coeffs: &[&[-5000.0, 60.0, -10.0]],
+    }),
+    t_min_psat: 438.18267759651576,
 };

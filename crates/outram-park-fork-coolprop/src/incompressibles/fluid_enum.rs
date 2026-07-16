@@ -432,7 +432,9 @@ impl Incompressible {
             Incompressible::DowQ2 => &fluids::dowq2::DOWQ2_INCOMP,
             Incompressible::Ethanol => &fluids::ethanol::ETHANOL_INCOMP,
             Incompressible::ExampleDigital => &fluids::exampledigital::EXAMPLEDIGITAL_INCOMP,
-            Incompressible::ExampleDigitalPure => &fluids::exampledigitalpure::EXAMPLEDIGITALPURE_INCOMP,
+            Incompressible::ExampleDigitalPure => {
+                &fluids::exampledigitalpure::EXAMPLEDIGITALPURE_INCOMP
+            }
             Incompressible::ExampleMelinder => &fluids::examplemelinder::EXAMPLEMELINDER_INCOMP,
             Incompressible::ExamplePure => &fluids::examplepure::EXAMPLEPURE_INCOMP,
             Incompressible::ExampleSecCool => &fluids::exampleseccool::EXAMPLESECCOOL_INCOMP,

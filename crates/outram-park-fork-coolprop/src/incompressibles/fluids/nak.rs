@@ -14,8 +14,23 @@ pub const NAK_INCOMP: IncompressibleFluid = IncompressibleFluid {
     x_range: (0.0, 0.0),
     t_base: 273.15,
     x_base: 0.0,
-    density: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[2090.0], &[-0.636]] },
-    heat_capacity: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[1443.0], &[0.172]] },
-    conductivity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[0.443], &[0.00019]] }),
-    viscosity: Some(PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[0.022714], &[-0.00012], &[2.281e-07], &[-1.474e-10]] }),
+    density: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[2090.0], &[-0.636]],
+    },
+    heat_capacity: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[1443.0], &[0.172]],
+    },
+    conductivity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[0.443], &[0.00019]],
+    }),
+    viscosity: Some(PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[&[0.022714], &[-0.00012], &[2.281e-07], &[-1.474e-10]],
+    }),
+    t_freeze: None,
+    p_sat: None,
+    t_min_psat: f64::NAN,
 };

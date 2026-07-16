@@ -55,10 +55,18 @@ pub fn henry_constant(t: f64) -> f64 {
     let tc = 647.096;
     let tr = t / tc;
     let tau = 1.0 - tr;
-    let p_ws = crate::vle::saturation_at_temperature(Fluid::Water, t.min(tc - 1e-6)).map(|s| s.pressure).unwrap_or(f64::NAN);
-    let beta_n2 = p_ws * (-9.67578 / tr + 4.72162 * tau.powf(0.355) / tr + 11.70585 * tr.powf(-0.41) * tau.exp()).exp();
-    let beta_o2 = p_ws * (-9.44833 / tr + 4.43822 * tau.powf(0.355) / tr + 11.42005 * tr.powf(-0.41) * tau.exp()).exp();
-    let beta_ar = p_ws * (-8.40954 / tr + 4.29587 * tau.powf(0.355) / tr + 10.52779 * tr.powf(-0.41) * tau.exp()).exp();
+    let p_ws = crate::vle::saturation_at_temperature(Fluid::Water, t.min(tc - 1e-6))
+        .map(|s| s.pressure)
+        .unwrap_or(f64::NAN);
+    let beta_n2 = p_ws
+        * (-9.67578 / tr + 4.72162 * tau.powf(0.355) / tr + 11.70585 * tr.powf(-0.41) * tau.exp())
+            .exp();
+    let beta_o2 = p_ws
+        * (-9.44833 / tr + 4.43822 * tau.powf(0.355) / tr + 11.42005 * tr.powf(-0.41) * tau.exp())
+            .exp();
+    let beta_ar = p_ws
+        * (-8.40954 / tr + 4.29587 * tau.powf(0.355) / tr + 10.52779 * tr.powf(-0.41) * tau.exp())
+            .exp();
     let beta_a = 1.0 / (0.7812 / beta_n2 + 0.2095 / beta_o2 + 0.0093 / beta_ar);
     1.0 / (1.01325 * beta_a)
 }
@@ -66,7 +74,8 @@ pub fn henry_constant(t: f64) -> f64 {
 /// Isothermal compressibility of liquid water `k_T(T)` \[1/Pa\] — CoolProp's
 /// polynomial surrogate (`FlagUseIsothermCompressCorrelation`).
 fn isothermal_compressibility(t: f64) -> f64 {
-    1.6261876614e-22 * t.powi(6) - 3.3016385196e-19 * t.powi(5) + 2.7978984577e-16 * t.powi(4) - 1.2672392901e-13 * t.powi(3)
+    1.6261876614e-22 * t.powi(6) - 3.3016385196e-19 * t.powi(5) + 2.7978984577e-16 * t.powi(4)
+        - 1.2672392901e-13 * t.powi(3)
         + 3.2382864853e-11 * t.powi(2)
         - 4.4318979503e-09 * t
         + 2.5455947289e-07
@@ -102,20 +111,35 @@ pub fn enhancement_factor(t: f64, p: f64) -> Result<f64, HumidAirError> {
     let rhs = |f: f64| -> f64 {
         let psi_ws = f * p_ws / p;
         let rt = R_BAR * t;
-        let line1 = ((1.0 + k_t * p_ws) * (p - p_ws) - k_t * (p * p - p_ws * p_ws) / 2.0) / rt * vbar_ws
+        let line1 = ((1.0 + k_t * p_ws) * (p - p_ws) - k_t * (p * p - p_ws * p_ws) / 2.0) / rt
+            * vbar_ws
             + (1.0 - beta_h * (1.0 - psi_ws) * p).ln();
-        let line2 = (1.0 - psi_ws).powi(2) * p / rt * b_aa - 2.0 * (1.0 - psi_ws).powi(2) * p / rt * b_aw
+        let line2 = (1.0 - psi_ws).powi(2) * p / rt * b_aa
+            - 2.0 * (1.0 - psi_ws).powi(2) * p / rt * b_aw
             - (p - p_ws - (1.0 - psi_ws).powi(2) * p) / rt * b_ww;
         let line3 = (1.0 - psi_ws).powi(3) * p * p / (rt * rt) * c_aaa
-            + (3.0 * (1.0 - psi_ws).powi(2) * (1.0 - 2.0 * (1.0 - psi_ws)) * p * p) / (2.0 * rt * rt) * c_aaw;
+            + (3.0 * (1.0 - psi_ws).powi(2) * (1.0 - 2.0 * (1.0 - psi_ws)) * p * p)
+                / (2.0 * rt * rt)
+                * c_aaw;
         let line4 = -3.0 * (1.0 - psi_ws).powi(2) * psi_ws * p * p / (rt * rt) * c_aww
-            - ((3.0 - 2.0 * psi_ws) * psi_ws * psi_ws * p * p - p_ws * p_ws) / (2.0 * rt * rt) * c_www;
-        let line5 = -((1.0 - psi_ws).powi(2) * (-2.0 + 3.0 * psi_ws) * psi_ws * p * p) / (rt * rt) * b_aa * b_ww;
-        let line6 = -(2.0 * (1.0 - psi_ws).powi(3) * (-1.0 + 3.0 * psi_ws) * p * p) / (rt * rt) * b_aa * b_aw;
-        let line7 = (6.0 * (1.0 - psi_ws).powi(2) * psi_ws * psi_ws * p * p) / (rt * rt) * b_ww * b_aw
-            - (3.0 * (1.0 - psi_ws).powi(4) * p * p) / (2.0 * rt * rt) * b_aa * b_aa;
-        let line8 = -(2.0 * (1.0 - psi_ws).powi(2) * psi_ws * (-2.0 + 3.0 * psi_ws) * p * p) / (rt * rt) * b_aw * b_aw
-            - (p_ws * p_ws - (4.0 - 3.0 * psi_ws) * psi_ws.powi(3) * p * p) / (2.0 * rt * rt) * b_ww * b_ww;
+            - ((3.0 - 2.0 * psi_ws) * psi_ws * psi_ws * p * p - p_ws * p_ws) / (2.0 * rt * rt)
+                * c_www;
+        let line5 = -((1.0 - psi_ws).powi(2) * (-2.0 + 3.0 * psi_ws) * psi_ws * p * p) / (rt * rt)
+            * b_aa
+            * b_ww;
+        let line6 = -(2.0 * (1.0 - psi_ws).powi(3) * (-1.0 + 3.0 * psi_ws) * p * p) / (rt * rt)
+            * b_aa
+            * b_aw;
+        let line7 =
+            (6.0 * (1.0 - psi_ws).powi(2) * psi_ws * psi_ws * p * p) / (rt * rt) * b_ww * b_aw
+                - (3.0 * (1.0 - psi_ws).powi(4) * p * p) / (2.0 * rt * rt) * b_aa * b_aa;
+        let line8 = -(2.0 * (1.0 - psi_ws).powi(2) * psi_ws * (-2.0 + 3.0 * psi_ws) * p * p)
+            / (rt * rt)
+            * b_aw
+            * b_aw
+            - (p_ws * p_ws - (4.0 - 3.0 * psi_ws) * psi_ws.powi(3) * p * p) / (2.0 * rt * rt)
+                * b_ww
+                * b_ww;
         line1 + line2 + line3 + line4 + line5 + line6 + line7 + line8
     };
 

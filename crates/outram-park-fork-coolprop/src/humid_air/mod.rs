@@ -18,7 +18,11 @@
 //! - **Outputs**: `T`, `p`, `ψ_w`, `W`, `R`, specific enthalpy `H`, specific
 //!   entropy `S`, specific volume `V` (all per kg dry air), the water
 //!   partial pressure `p_w`, and the wet-bulb temperature `T_wb` and
-//!   dew-point temperature `T_dp`.
+//!   dew-point temperature `T_dp`. Also the derived-energy family: specific
+//!   internal energy `U`, the isobaric and isochoric heat capacities `cp`,
+//!   `cv`, the compressibility factor `Z`, and the humid-air-basis (per kg
+//!   *humid* air) variants of the mass-specific quantities: `Hha`, `Sha`,
+//!   `Vha`, `Uha`, `cp_ha`, `cv_ha`.
 //! - **Range**: liquid-water branch only, `T > 273.16 K` (the IAPWS triple
 //!   point) — the ice-sublimation branch is not ported (see [`saturation`]).
 //!
@@ -109,6 +113,50 @@ pub enum HumidAirParam {
     Volume,
     /// Partial pressure of water vapour `p_w` \[Pa\] (CoolProp `P_w`).
     WaterPartialPressure,
+    /// Mixture specific enthalpy per kg **humid** air \[J/kg\] (CoolProp
+    /// `Hha`). Equals [`Enthalpy`](Self::Enthalpy) divided by `(1 + W)`.
+    EnthalpyHumidAir,
+    /// Mixture specific entropy per kg **humid** air \[J/(kg·K)\] (CoolProp
+    /// `Sha`). Equals [`Entropy`](Self::Entropy) divided by `(1 + W)`. Carries
+    /// the same absolute-reference caveat as [`Entropy`](Self::Entropy) — see
+    /// the module doc.
+    EntropyHumidAir,
+    /// Mixture specific volume per kg **humid** air \[m³/kg\] (CoolProp `Vha`).
+    /// Equals [`Volume`](Self::Volume) divided by `(1 + W)`.
+    VolumeHumidAir,
+    /// Mixture specific internal energy per kg **dry** air \[J/kg\] (CoolProp
+    /// `U`/`Uda`). `u = h − p·v` on the mixture molar basis, then converted
+    /// per kg dry air the same way [`Enthalpy`](Self::Enthalpy) is.
+    InternalEnergy,
+    /// Mixture specific internal energy per kg **humid** air \[J/kg\] (CoolProp
+    /// `Uha`). Equals [`InternalEnergy`](Self::InternalEnergy) divided by
+    /// `(1 + W)`.
+    InternalEnergyHumidAir,
+    /// Isobaric (constant-`p`) specific heat capacity per kg **dry** air
+    /// \[J/(kg·K)\] (CoolProp `C`/`cp`). Central finite difference of the
+    /// mixture molar enthalpy `h̄` with respect to `T` at fixed `p` and `ψ_w`
+    /// (matching CoolProp's own `Cp` implementation), converted to a dry-air
+    /// mass basis. Equals [`IsobaricHeatCapacityHumidAir`](Self::IsobaricHeatCapacityHumidAir)
+    /// times `(1 + W)`.
+    IsobaricHeatCapacity,
+    /// Isobaric (constant-`p`) specific heat capacity per kg **humid** air
+    /// \[J/(kg·K)\] (CoolProp `Cha`/`cp_ha`).
+    IsobaricHeatCapacityHumidAir,
+    /// Isochoric (constant-`v`) specific heat capacity per kg **dry** air
+    /// \[J/(kg·K)\] (CoolProp `CV`). Central finite difference of the mixture
+    /// molar internal energy `ū` with respect to `T` at fixed molar volume
+    /// `v̄` and `ψ_w` (the pressure is re-solved from the EOS at each `T`,
+    /// matching CoolProp), converted to a dry-air mass basis. Equals
+    /// [`IsochoricHeatCapacityHumidAir`](Self::IsochoricHeatCapacityHumidAir)
+    /// times `(1 + W)`.
+    IsochoricHeatCapacity,
+    /// Isochoric (constant-`v`) specific heat capacity per kg **humid** air
+    /// \[J/(kg·K)\] (CoolProp `CVha`/`cv_ha`).
+    IsochoricHeatCapacityHumidAir,
+    /// Compressibility factor `Z = p·v̄ / (R̄·T)` \[-\] (CoolProp `Z`), where
+    /// `v̄` is the mixture molar volume \[m³/mol\] and `R̄ = 8.314472
+    /// J/(mol·K)`. Dimensionless; identical on either mass basis.
+    CompressibilityFactor,
 }
 
 /// A fully-resolved humid-air state (all properties per kg **dry** air, SI).
@@ -165,7 +213,12 @@ pub type HaInput = (HumidAirParam, f64);
 /// # Errors
 /// [`HumidAirError`] if the input triple or requested output is unsupported,
 /// an input is out of range, or an inner solve fails to converge.
-pub fn ha_props(output: HumidAirParam, in1: HaInput, in2: HaInput, in3: HaInput) -> Result<f64, HumidAirError> {
+pub fn ha_props(
+    output: HumidAirParam,
+    in1: HaInput,
+    in2: HaInput,
+    in3: HaInput,
+) -> Result<f64, HumidAirError> {
     let state = solve_state(in1, in2, in3)?;
     // T_wb/T_dp are iterative solves in their own right, not plain fields of
     // the base state -- computed on demand so every other output (the
@@ -175,6 +228,30 @@ pub fn ha_props(output: HumidAirParam, in1: HaInput, in2: HaInput, in3: HaInput)
     }
     if matches!(output, HumidAirParam::TWetBulb) {
         return wet_bulb_temperature(state.t_dry_bulb, state.pressure, state.water_mole_fraction);
+    }
+    // The derived-energy family (cp/cv/Z/U + humid-air-basis variants) is not a
+    // plain field of the base state: Z and U re-solve the molar volume, and the
+    // heat capacities finite-difference it -- all fallible -- so they are
+    // dispatched here rather than in the infallible field-read match below.
+    let (t, p, psi_w, w) = (
+        state.t_dry_bulb,
+        state.pressure,
+        state.water_mole_fraction,
+        state.humidity_ratio,
+    );
+    match output {
+        HumidAirParam::InternalEnergy => {
+            return Ok(mass_internal_energy_per_kg_dry_air(t, p, psi_w)?)
+        }
+        HumidAirParam::InternalEnergyHumidAir => {
+            return Ok(mass_internal_energy_per_kg_humid_air(t, p, psi_w)?)
+        }
+        HumidAirParam::IsobaricHeatCapacity => return Ok(cp_ha_mass(t, p, psi_w)? * (1.0 + w)),
+        HumidAirParam::IsobaricHeatCapacityHumidAir => return Ok(cp_ha_mass(t, p, psi_w)?),
+        HumidAirParam::IsochoricHeatCapacity => return Ok(cv_ha_mass(t, p, psi_w)? * (1.0 + w)),
+        HumidAirParam::IsochoricHeatCapacityHumidAir => return Ok(cv_ha_mass(t, p, psi_w)?),
+        HumidAirParam::CompressibilityFactor => return Ok(compressibility_factor(t, p, psi_w)?),
+        _ => {}
     }
     Ok(match output {
         HumidAirParam::TDryBulb => state.t_dry_bulb,
@@ -186,7 +263,20 @@ pub fn ha_props(output: HumidAirParam, in1: HaInput, in2: HaInput, in3: HaInput)
         HumidAirParam::Entropy => state.entropy,
         HumidAirParam::Volume => state.volume,
         HumidAirParam::WaterPartialPressure => state.water_mole_fraction * state.pressure,
-        HumidAirParam::TWetBulb | HumidAirParam::TDewPoint => unreachable!(),
+        // Humid-air-basis (per kg humid air) variants: the dry-air-basis value
+        // divided by (1 + W), since (1 + W) = kg humid air / kg dry air.
+        HumidAirParam::EnthalpyHumidAir => state.enthalpy / (1.0 + state.humidity_ratio),
+        HumidAirParam::EntropyHumidAir => state.entropy / (1.0 + state.humidity_ratio),
+        HumidAirParam::VolumeHumidAir => state.volume / (1.0 + state.humidity_ratio),
+        HumidAirParam::TWetBulb
+        | HumidAirParam::TDewPoint
+        | HumidAirParam::InternalEnergy
+        | HumidAirParam::InternalEnergyHumidAir
+        | HumidAirParam::IsobaricHeatCapacity
+        | HumidAirParam::IsobaricHeatCapacityHumidAir
+        | HumidAirParam::IsochoricHeatCapacity
+        | HumidAirParam::IsochoricHeatCapacityHumidAir
+        | HumidAirParam::CompressibilityFactor => unreachable!(),
     })
 }
 
@@ -357,7 +447,8 @@ const P0_ENTROPY_REF: f64 = 101_325.0;
 fn ideal_gas_molar_entropy_air(t: f64, p: f64) -> f64 {
     let a = 9.2486716590e-04;
     let b = 2.8557221776e+01;
-    2.0 * a * (t - T0_ENTROPY_REF) + b * (t / T0_ENTROPY_REF).ln() - R_BAR * (p / P0_ENTROPY_REF).ln()
+    2.0 * a * (t - T0_ENTROPY_REF) + b * (t / T0_ENTROPY_REF).ln()
+        - R_BAR * (p / P0_ENTROPY_REF).ln()
 }
 
 /// Ideal-gas molar entropy of water vapour `s_w(T, p)` \[J/(mol·K)\].
@@ -380,7 +471,9 @@ fn ideal_gas_molar_entropy_water(t: f64, p: f64) -> f64 {
     let a = 2.7030251618e-03;
     let b = 3.1994361015e+01;
     let s_w0 = ideal_gas_molar_enthalpy_water(T0_ENTROPY_REF) / T0_ENTROPY_REF;
-    2.0 * a * (t - T0_ENTROPY_REF) + b * (t / T0_ENTROPY_REF).ln() - R_BAR * (p / P0_ENTROPY_REF).ln() + s_w0
+    2.0 * a * (t - T0_ENTROPY_REF) + b * (t / T0_ENTROPY_REF).ln()
+        - R_BAR * (p / P0_ENTROPY_REF).ln()
+        + s_w0
 }
 
 /// Mixture molar entropy `s̄(T, p, ψ_w, v̄)` \[J/(mol_ha·K)\]: mole-fraction-
@@ -394,7 +487,8 @@ fn molar_entropy(t: f64, p: f64, psi_w: f64, vbar: f64) -> f64 {
     let d_bm_dt = virials::d_b_mix_dt(t, psi_w);
     let cm = virials::c_mix(t, psi_w);
     let d_cm_dt = virials::d_c_mix_dt(t, psi_w);
-    let virial_term = R_BAR * ((bm + t * d_bm_dt) / vbar + (cm + t * d_cm_dt) / (2.0 * vbar * vbar));
+    let virial_term =
+        R_BAR * ((bm + t * d_bm_dt) / vbar + (cm + t * d_cm_dt) / (2.0 * vbar * vbar));
 
     let mixing_term = if psi_w > 0.0 && psi_w < 1.0 {
         -R_BAR * ((1.0 - psi_w) * (1.0 - psi_w).ln() + psi_w * psi_w.ln())
@@ -406,6 +500,97 @@ fn molar_entropy(t: f64, p: f64, psi_w: f64, vbar: f64) -> f64 {
     let sbar_w = ideal_gas_molar_entropy_water(t, p);
 
     (1.0 - psi_w) * sbar_a + psi_w * sbar_w - virial_term + mixing_term
+}
+
+/// Molar mass of humid air `M_ha` \[kg_ha / mol_ha\]: the mole-fraction-
+/// weighted mean of the water and dry-air molar masses (RP-1485). Used to
+/// convert every molar property `X̄` \[·/mol_ha\] to a per-kg-humid-air value
+/// (`X̄ / M_ha`) or a per-kg-dry-air value (`X̄·(1 + W) / M_ha`).
+fn m_ha(psi_w: f64) -> f64 {
+    MM_WATER * psi_w + (1.0 - psi_w) * MM_AIR
+}
+
+/// Forward EOS pressure `p(T, v̄, ψ_w)` \[Pa\] — the virial-truncated real-gas
+/// equation of state `p = R̄T/v̄ · (1 + B_m/v̄ + C_m/v̄²)` (RP-1485 Eq. 3.3)
+/// evaluated *forward* (given `v̄`, return `p`), the inverse of the secant
+/// solve in [`molar_volume`]. Used by the constant-volume heat-capacity finite
+/// difference, where the pressure must be re-evaluated as `T` changes at fixed
+/// `v̄` (CoolProp's `Pressure`).
+fn eos_pressure(t: f64, vbar: f64, psi_w: f64) -> f64 {
+    let bm = virials::b_mix(t, psi_w);
+    let cm = virials::c_mix(t, psi_w);
+    R_BAR * t / vbar * (1.0 + bm / vbar + cm / (vbar * vbar))
+}
+
+/// Mixture molar internal energy `ū = h̄ − p·v̄` \[J/mol_ha\] (CoolProp
+/// `MolarInternalEnergy`). `p` is the pressure consistent with the supplied
+/// `v̄` — either the state pressure, or (in the `c_v` finite difference) the
+/// EOS pressure at the perturbed temperature and fixed volume.
+fn molar_internal_energy(t: f64, psi_w: f64, vbar: f64, p: f64) -> f64 {
+    molar_enthalpy(t, psi_w, vbar) - p * vbar
+}
+
+/// Specific internal energy per kg **dry** air \[J/kg\] (CoolProp
+/// `MassInternalEnergy_per_kgda`): `ū·(1 + W) / M_ha`.
+fn mass_internal_energy_per_kg_dry_air(t: f64, p: f64, psi_w: f64) -> Result<f64, HumidAirError> {
+    let vbar = molar_volume(t, p, psi_w)?;
+    let ubar = molar_internal_energy(t, psi_w, vbar, p);
+    let w = humidity_ratio_from_psi_w(psi_w);
+    Ok(ubar * (1.0 + w) / m_ha(psi_w))
+}
+
+/// Specific internal energy per kg **humid** air \[J/kg\] (CoolProp
+/// `MassInternalEnergy_per_kgha`): `ū / M_ha`.
+fn mass_internal_energy_per_kg_humid_air(t: f64, p: f64, psi_w: f64) -> Result<f64, HumidAirError> {
+    let vbar = molar_volume(t, p, psi_w)?;
+    let ubar = molar_internal_energy(t, psi_w, vbar, p);
+    Ok(ubar / m_ha(psi_w))
+}
+
+/// Isobaric specific heat capacity per kg **humid** air `c_{p,ha}(T, p, ψ_w)`
+/// \[J/(kg·K)\] (CoolProp `GIVEN_CPHA`).
+///
+/// Central finite difference of the mixture molar enthalpy `h̄` with respect
+/// to `T` at fixed `p` and `ψ_w`, `c̄_p = (h̄(T+dT) − h̄(T−dT)) / (2·dT)` with
+/// `dT = 10⁻³ K`, divided by `M_ha`. The molar volume is re-solved at each
+/// perturbed temperature (constant pressure), matching CoolProp exactly.
+fn cp_ha_mass(t: f64, p: f64, psi_w: f64) -> Result<f64, HumidAirError> {
+    let dt = 1e-3;
+    let vbar_1 = molar_volume(t - dt, p, psi_w)?;
+    let vbar_2 = molar_volume(t + dt, p, psi_w)?;
+    let hbar_1 = molar_enthalpy(t - dt, psi_w, vbar_1);
+    let hbar_2 = molar_enthalpy(t + dt, psi_w, vbar_2);
+    let cp_bar = (hbar_2 - hbar_1) / (2.0 * dt); // [J/mol_ha/K]
+    Ok(cp_bar / m_ha(psi_w))
+}
+
+/// Isochoric specific heat capacity per kg **humid** air `c_{v,ha}(T, p, ψ_w)`
+/// \[J/(kg·K)\] (CoolProp `GIVEN_CVHA`).
+///
+/// Central finite difference of the mixture molar internal energy `ū` with
+/// respect to `T` at *fixed molar volume* `v̄` (the value solved at the base
+/// `(T, p, ψ_w)`) and fixed `ψ_w`, with `dT = 10⁻³ K`. At each perturbed
+/// temperature the pressure is re-evaluated from the EOS at the held-constant
+/// `v̄` (via [`eos_pressure`]), matching CoolProp exactly, then divided by
+/// `M_ha`.
+fn cv_ha_mass(t: f64, p: f64, psi_w: f64) -> Result<f64, HumidAirError> {
+    let dt = 1e-3;
+    let vbar = molar_volume(t, p, psi_w)?; // held constant
+    let p_1 = eos_pressure(t - dt, vbar, psi_w);
+    let p_2 = eos_pressure(t + dt, vbar, psi_w);
+    let ubar_1 = molar_internal_energy(t - dt, psi_w, vbar, p_1);
+    let ubar_2 = molar_internal_energy(t + dt, psi_w, vbar, p_2);
+    let cv_bar = (ubar_2 - ubar_1) / (2.0 * dt); // [J/mol_ha/K]
+    Ok(cv_bar / m_ha(psi_w))
+}
+
+/// Compressibility factor `Z = p·v̄ / (R̄·T)` \[-\] (CoolProp
+/// `GIVEN_COMPRESSIBILITY_FACTOR`), with `v̄` the mixture molar volume
+/// \[m³/mol_ha\] and `R̄ = 8.314472 J/(mol·K)` ([`R_BAR`]). Dimensionless and
+/// basis-independent (the same number per kg dry or per kg humid air).
+fn compressibility_factor(t: f64, p: f64, psi_w: f64) -> Result<f64, HumidAirError> {
+    let vbar = molar_volume(t, p, psi_w)?;
+    Ok(p * vbar / (R_BAR * t))
 }
 
 /// Dew-point temperature `T_dp` \[K\] (CoolProp `HumidAirProp.cpp`'s
@@ -437,7 +622,8 @@ fn dew_point_temperature(_t: f64, p: f64, psi_w: f64) -> Result<f64, HumidAirErr
         268.0
     };
 
-    let residual = |tdp: f64| -> Result<f64, HumidAirError> { Ok(psi_w - saturation_mole_fraction(tdp, p)?) };
+    let residual =
+        |tdp: f64| -> Result<f64, HumidAirError> { Ok(psi_w - saturation_mole_fraction(tdp, p)?) };
 
     let mut x1 = t0;
     let mut x2 = t0 + 0.1;
@@ -500,7 +686,9 @@ fn wet_bulb_temperature(t: f64, p: f64, psi_w: f64) -> Result<f64, HumidAirError
         // approximation to the true compressed-liquid value at the (usually
         // near-atmospheric) total pressure `p`, and it reuses the same
         // saturated-liquid pattern `saturation::vbar_ws` already relies on.
-        let rho_liquid = vle::saturation_at_temperature(Fluid::Water, twb).ok_or(HumidAirError::NonConvergent)?.rho_liquid;
+        let rho_liquid = vle::saturation_at_temperature(Fluid::Water, twb)
+            .ok_or(HumidAirError::NonConvergent)?
+            .rho_liquid;
         let h_w = crate::props::state_trho(Fluid::Water, twb, rho_liquid).enthalpy;
         let rhs = molar_enthalpy(twb, psi_ws, vbar_wb) * (1.0 + w_s) / m_ha_wb + (w - w_s) * h_w;
         Ok(lhs - rhs)
@@ -633,7 +821,11 @@ mod tests {
         // not discovered downstream in a psychrometric-chart comparison.
         let h_w_0c_j_per_mol = ideal_gas_molar_enthalpy_water(T0_ENTROPY_REF);
         let h_w_0c_j_per_kg = h_w_0c_j_per_mol / MM_WATER;
-        eprintln!("h_w(0C) = {:.1} J/mol = {:.2} kJ/kg (expect ~2501 kJ/kg)", h_w_0c_j_per_mol, h_w_0c_j_per_kg / 1000.0);
+        eprintln!(
+            "h_w(0C) = {:.1} J/mol = {:.2} kJ/kg (expect ~2501 kJ/kg)",
+            h_w_0c_j_per_mol,
+            h_w_0c_j_per_kg / 1000.0
+        );
         assert!(
             (h_w_0c_j_per_kg / 1000.0 - 2501.0).abs() < 5.0,
             "h_w(0C) = {} kJ/kg, expected ~2501 kJ/kg (latent heat of vaporization)",

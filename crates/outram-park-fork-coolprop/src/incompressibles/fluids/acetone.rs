@@ -14,8 +14,33 @@ pub const ACETONE_INCOMP: IncompressibleFluid = IncompressibleFluid {
     x_range: (0.0, 0.0),
     t_base: 307.31532668493253,
     x_base: 0.0,
-    density: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[775.6208141702908], &[-1.123377606406917], &[-0.0011550084818358675], &[-6.411257141128393e-06]] },
-    heat_capacity: PropertyFit { form: PropertyForm::Polynomial, coeffs: &[&[2161.290999517797], &[2.5429347441222636], &[0.012005532887008652], &[2.3020582795756997e-05]] },
+    density: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[
+            &[775.6208141702908],
+            &[-1.123377606406917],
+            &[-0.0011550084818358675],
+            &[-6.411257141128393e-06],
+        ],
+    },
+    heat_capacity: PropertyFit {
+        form: PropertyForm::Polynomial,
+        coeffs: &[
+            &[2161.290999517797],
+            &[2.5429347441222636],
+            &[0.012005532887008652],
+            &[2.3020582795756997e-05],
+        ],
+    },
     conductivity: None,
-    viscosity: Some(PropertyFit { form: PropertyForm::Exponential, coeffs: &[&[500.0, -60.0, 10.0]] }),
+    viscosity: Some(PropertyFit {
+        form: PropertyForm::Exponential,
+        coeffs: &[&[500.0, -60.0, 10.0]],
+    }),
+    t_freeze: None,
+    p_sat: Some(PropertyFit {
+        form: PropertyForm::Exponential,
+        coeffs: &[&[-5000.0, 60.0, -10.0]],
+    }),
+    t_min_psat: 416.4806533698651,
 };
