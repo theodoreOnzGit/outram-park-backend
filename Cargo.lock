@@ -4851,6 +4851,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "outram-blender"
+version = "0.0.0"
+dependencies = [
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "outram-foam-appbuilder-lib"
 version = "0.1.0"
 dependencies = [
