@@ -24,6 +24,7 @@
 //! the solvers). See each binary's `--help` and the `op-` beads for what is
 //! live vs stubbed.
 
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -50,6 +51,44 @@ impl CaseArgs {
             Err(CliError::CaseNotFound(self.case.clone()))
         }
     }
+}
+
+/// Rewrite an argv so **OpenFOAM single-dash long options** (`-case`, `-help`)
+/// are accepted as if they were `clap`'s double-dash form (`--case`, `--help`).
+///
+/// OpenFOAM utilities use single-dash multi-letter options; `clap` uses
+/// double-dash. This promotes any `-<word>` (single dash + two-or-more
+/// alphanumeric/`-` chars) to `--<word>`, while leaving genuine short flags
+/// (`-c`), bare values (`/tmp`), and negative numbers (`-5.0`) untouched — so
+/// `blockMesh -case cavity` works exactly like upstream. Exposed for testing.
+pub fn openfoam_argv<I, S>(args: I) -> Vec<OsString>
+where
+    I: IntoIterator<Item = S>,
+    S: Into<OsString>,
+{
+    args.into_iter()
+        .map(|a| {
+            let os: OsString = a.into();
+            match os.to_str() {
+                Some(s)
+                    if s.starts_with('-')
+                        && !s.starts_with("--")
+                        && s.len() > 2
+                        && s[1..].chars().all(|c| c.is_ascii_alphanumeric() || c == '-') =>
+                {
+                    OsString::from(format!("-{s}"))
+                }
+                _ => os,
+            }
+        })
+        .collect()
+}
+
+/// Parse [`CaseArgs`] from the process arguments using the OpenFOAM single-dash
+/// option convention (see [`openfoam_argv`]). The entry point every tool binary
+/// uses in place of `clap`'s `parse()`.
+pub fn openfoam_args() -> CaseArgs {
+    CaseArgs::parse_from(openfoam_argv(std::env::args_os()))
 }
 
 /// Errors surfaced by the CLI tools (wrapping the library layers).

@@ -38,11 +38,14 @@ the official OpenFOAM (see `TRADEMARKS.md`).
 
 | Binary | Backend | Status |
 |---|---|---|
-| `blockMesh` | `outram-foam-mesh::block_mesh` | scaffolded → wiring |
-| `ideasUnvToFoam` | `outram-foam-mesh::ideas_unv_to_foam` | scaffolded → wiring |
-| `polyDualMesh` | `outram-foam-mesh::poly_dual_mesh` | scaffolded → wiring |
-| `pimpleFoam` / `rhoCentralFoam` / `rhoPimpleFoam` / `sonicFoam` | `outram-foam-appbuilder-lib::solvers` | scaffolded → wiring |
-| `gen-foam` | `outram-foam-appbuilder-lib::genfoam` | scaffolded → wiring |
+| `blockMesh` | `outram-foam-mesh::block_mesh` | ✅ live (dict → `constant/polyMesh`) |
+| `ideasUnvToFoam` | `outram-foam-mesh::ideas_unv_to_foam` | ✅ live (`.unv` → polyMesh) |
+| `polyDualMesh` | `outram-foam-mesh::poly_dual_mesh` | ✅ live (→ `constant/dualMesh`) |
+| `rhoCentralFoam` | `outram-foam-appbuilder-lib::solvers::rho_central_foam` | ✅ live (built-in perfect-gas EOS; end-to-end Sod proof) |
+| `pimpleFoam` | `outram-foam-appbuilder-lib::solvers::pimple_foam` | ✅ live (incompressible) |
+| `rhoPimpleFoam` / `sonicFoam` | `…::solvers` | 🚧 stub — needs a `constant/thermophysicalProperties` reader (ψ/Cp/µ). Refuses to run rather than fake. |
+| `gen-foam` | `outram-foam-appbuilder-lib::genfoam` | 🚧 stub — needs a case-driven GeN-Foam driver + `constant/nuclearData` reader |
 
-Freshly scaffolded (crate + framework + per-tool binary stubs); the case-wiring
-is being implemented under the `op-fc` beads epic.
+The CLI accepts OpenFOAM's single-dash options (`-case cavity`) like upstream.
+Wiring tracked under the `op-x8x` beads epic; the stub prerequisites are beaded
+separately.
