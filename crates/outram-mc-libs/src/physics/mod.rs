@@ -1,3 +1,4 @@
+pub mod compute;
 pub mod transport;
 pub mod transport_csg;
 pub mod scatter;

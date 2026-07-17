@@ -15,6 +15,19 @@
 //!   ([`crate::physics::fission::sample_num_neutrons`]), and analog capture.
 //! - **Source** — Watt fission energy + isotropic direction for banked neutrons.
 //!
+//! # Compute backends
+//!
+//! [`run_keff`] is a thin dispatcher over [`KeffSettings::compute`]
+//! ([`ComputeType`]). All three backends run the **same physics**; they differ
+//! only in *how* the per-generation histories are executed:
+//!
+//! - [`run_keff_cpu_single`] — scalar, single RNG stream. The trusted,
+//!   deterministic, bit-reproducible reference.
+//! - [`run_keff_cpu_multi`] — the histories of a generation transported in
+//!   parallel with [`rayon`], each on an independent deterministic RNG sub-stream.
+//! - [`run_keff_gpu`] — GPU-accelerated macroscopic-Sigma_t lookup, with a
+//!   transparent CPU fallback when no GPU adapter is present.
+//!
 //! # Algorithm
 //!
 //! Standard fission-source power iteration. Each *generation* transports
@@ -85,6 +98,7 @@ use crate::geometry::position::{stream, Direction, Position};
 use crate::geometry::surface::{BoundaryType, Sphere, Surface};
 use crate::material::material::Material;
 use crate::material::nuclide::{Inelastic, Nuclide};
+use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::scatter::{
     continuum_inelastic_scatter, elastic_scatter, two_body_scatter, two_body_scatter_with_mu,
@@ -109,11 +123,29 @@ pub struct KeffSettings {
     pub watt_a: f64,
     /// Watt fission-spectrum parameter `b` \[eV⁻¹\].
     pub watt_b: f64,
+    /// Which transport backend [`run_keff`] dispatches to.
+    ///
+    /// - [`ComputeType::CpuSingleThread`] — the scalar, single-RNG-stream path
+    ///   ([`run_keff_cpu_single`]); the trusted, bit-reproducible **deterministic
+    ///   reference**. This is the [`Default`].
+    /// - [`ComputeType::CpuMultiThread`] — [`rayon`]-parallel over the histories
+    ///   of each generation ([`run_keff_cpu_multi`]) in a dedicated pool sized by
+    ///   the carried [`ThreadCount`] (default [`ThreadCount::Auto`] = every
+    ///   logical core); each history runs on its own deterministically derived RNG
+    ///   sub-stream, so the eigenvalue is reproducible independent of thread count
+    ///   (but does **not** bit-match the single-thread stream — see that
+    ///   function's docs).
+    /// - [`ComputeType::Gpu`] — GPU-accelerated macroscopic Sigma_t lookup
+    ///   ([`run_keff_gpu`]), with a transparent CPU fallback (never an error) when
+    ///   no GPU adapter is available. The GPU is `f32` acceleration only; the CPU
+    ///   single-thread path stays the trusted reference.
+    pub compute: ComputeType,
 }
 
 impl Default for KeffSettings {
     /// A modest run (2000 histories × [30 inactive + 70 active]) with the
-    /// U-235 thermal Watt spectrum. Enough for a first-look Keff in seconds.
+    /// U-235 thermal Watt spectrum, on the single-thread deterministic reference
+    /// backend. Enough for a first-look Keff in seconds.
     fn default() -> Self {
         Self {
             n_particles: 2000,
@@ -123,7 +155,24 @@ impl Default for KeffSettings {
             seed: 1,
             watt_a: 0.988e6,
             watt_b: 2.249e-6,
+            compute: ComputeType::CpuSingleThread,
         }
+    }
+}
+
+impl KeffSettings {
+    /// Return a copy of these settings with the transport backend set to
+    /// `compute`. A builder-style convenience for selecting a [`ComputeType`]
+    /// without spelling out the whole struct.
+    ///
+    /// For example, taking a base `settings` and running the same case on the
+    /// single-thread reference and then the multi-thread backend is
+    /// `run_keff(r, &mat, &nuc, &settings.with_compute(ComputeType::CpuSingleThread))`
+    /// followed by `run_keff(r, &mat, &nuc, &settings.with_compute(ComputeType::CpuMultiThread))`
+    /// — `KeffSettings` is `Copy`, so `settings` is untouched and can be reused.
+    pub fn with_compute(mut self, compute: ComputeType) -> Self {
+        self.compute = compute;
+        self
     }
 }
 
@@ -152,7 +201,45 @@ struct Site {
 /// `nuclides` is the global nuclide array the material's components index into.
 /// Returns the mean eigenvalue and its standard error over the active
 /// generations. See the module docs for the algorithm and fidelity caveats.
+///
+/// This function is a thin **dispatcher**: it selects the transport backend from
+/// [`settings.compute`](KeffSettings::compute) and forwards to the matching
+/// entry point. The physics is identical across backends.
+///
+/// - [`ComputeType::CpuSingleThread`] → [`run_keff_cpu_single`] (the trusted,
+///   bit-reproducible reference),
+/// - [`ComputeType::CpuMultiThread`] → [`run_keff_cpu_multi`] (rayon-parallel),
+/// - [`ComputeType::Gpu`] → [`run_keff_gpu`] (GPU Sigma_t lookup, CPU fallback).
 pub fn run_keff(
+    radius_cm: f64,
+    material: &Material,
+    nuclides: &[Nuclide],
+    settings: &KeffSettings,
+) -> KeffResult {
+    match settings.compute {
+        ComputeType::CpuSingleThread => run_keff_cpu_single(radius_cm, material, nuclides, settings),
+        ComputeType::CpuMultiThread(tc) => {
+            run_keff_cpu_multi(radius_cm, material, nuclides, settings, tc)
+        }
+        ComputeType::Gpu => run_keff_gpu(radius_cm, material, nuclides, settings),
+    }
+}
+
+/// Scalar, single-thread fission-source power iteration — the **trusted,
+/// deterministic, bit-reproducible reference** backend
+/// ([`ComputeType::CpuSingleThread`]).
+///
+/// This is the original [`run_keff`] algorithm: raw `f64` throughout, with a
+/// **single** RNG `seed` threaded sequentially through the whole run (initial
+/// source sampling, every history's transport, and every generation's resample
+/// all draw from the one stream). A fixed [`KeffSettings::seed`] therefore yields
+/// the same eigenvalue bit-for-bit on every machine. The other two backends
+/// ([`run_keff_cpu_multi`], [`run_keff_gpu`]) are acceleration only and are
+/// validated *against* this reference, never above it.
+///
+/// Returns the mean eigenvalue and its standard error over the active
+/// generations. See the module docs for the algorithm and fidelity caveats.
+pub fn run_keff_cpu_single(
     radius_cm: f64,
     material: &Material,
     nuclides: &[Nuclide],
@@ -200,6 +287,323 @@ pub fn run_keff(
         // Resample the next generation's source to exactly n_particles sites.
         if next_bank.is_empty() {
             // Sub-critical to extinction (or no data): nothing left to iterate.
+            break;
+        }
+        source = resample(&next_bank, settings.n_particles, &mut seed);
+    }
+
+    let (k_mean, k_std) = mean_and_stderr(&active_k);
+    KeffResult { k_mean, k_std, k_by_generation }
+}
+
+/// Per-history stride \[RNG draws\] reserved for each history's sub-stream in the
+/// multi-thread backend. Equal to [`crate::rng::lcg::DEFAULT_STRIDE`] (152 917),
+/// the same per-particle stride OpenMC reserves (`src/random_lcg.cpp`,
+/// `init_seed`): far more draws than any single bare-sphere history consumes, so
+/// adjacent histories' streams never overlap.
+const HIST_STRIDE: u64 = crate::rng::lcg::DEFAULT_STRIDE;
+
+/// Per-generation stride \[RNG draws\] reserved for each generation in the
+/// multi-thread backend. `2^40` — chosen far larger than
+/// `n_particles * HIST_STRIDE` for any realistic `n_particles` (which caps the
+/// offsets a single generation uses), so no generation's sub-streams overlap the
+/// next generation's.
+const GEN_STRIDE: u64 = 1 << 40;
+
+/// Rayon-parallel fission-source power iteration ([`ComputeType::CpuMultiThread`]).
+///
+/// Same physics and same power-iteration structure as [`run_keff_cpu_single`],
+/// but the histories **within each generation** are transported in parallel with
+/// [`rayon`]. The generation loop itself stays sequential — generation `g+1`'s
+/// source is the resampled fission bank of generation `g`, a hard data
+/// dependency.
+///
+/// # Thread pool sizing
+///
+/// The parallel sections run inside a **dedicated** [`rayon::ThreadPool`] sized
+/// to `thread_count.resolve()` (min 1), **not** the implicit global pool — the
+/// caller gets explicit, controllable sizing. [`ThreadCount::Auto`] (the
+/// default) resolves via [`std::thread::available_parallelism`], so the pool
+/// scales with the CPU's strength: a big desktop CPU gets many threads, an
+/// Android phone gets few, with no special-casing. [`ThreadCount::Fixed`] pins
+/// an exact count and [`ThreadCount::Fraction`] takes a fraction of the logical
+/// cores (both clamped to `>= 1`). This whole path is Android-clean — `rayon`
+/// and `available_parallelism` both work there — so it is **not** target-gated.
+///
+/// # Reproducibility (independent of thread count)
+///
+/// Each history is given a **completely independent, deterministic** RNG stream
+/// derived only from `(settings.seed, generation index, history index)` — never
+/// from a shared mutable seed — so the result never races and is identical
+/// regardless of how rayon schedules the work. The derivation uses the LCG
+/// jump-ahead ([`crate::rng::lcg::future_seed`]), mirroring OpenMC's per-particle
+/// independent-stream design (`src/particle.cpp`, `src/random_lcg.cpp`
+/// `init_seed`/`future_seed`, the reproducibility guarantee):
+///
+/// - `gen_base_seed = future_seed(gen * GEN_STRIDE, settings.seed)` places each
+///   generation `GEN_STRIDE = 2^40` draws apart in jump-ahead index space;
+/// - `hist_seed = future_seed(hist_idx * HIST_STRIDE, gen_base_seed)` places each
+///   history `HIST_STRIDE = 152917` draws apart within its generation.
+///
+/// **Non-overlap argument.** A single bare-sphere history draws far fewer than
+/// `HIST_STRIDE` random numbers, so history `h` stays inside its
+/// `[h*HIST_STRIDE, (h+1)*HIST_STRIDE)` slot and never touches history `h+1`'s
+/// stream. The largest offset any generation uses is `n_particles * HIST_STRIDE`,
+/// which is `< GEN_STRIDE` for any `n_particles < 2^40 / HIST_STRIDE ≈ 7.5e6`, so
+/// generations never overlap either.
+///
+/// The **initial source sampling** and each generation's **resample** run on a
+/// *separate* single sequential seed stream (`src_seed`, started at
+/// `settings.seed`) — cheap, order-independent bookkeeping kept deterministic and
+/// off the parallel path.
+///
+/// # Agreement with the reference
+///
+/// Because the per-history stream structure differs from the single sequential
+/// stream, this backend does **not** bit-match [`run_keff_cpu_single`]. It is a
+/// statistically independent estimate of the same eigenvalue and agrees with the
+/// reference within combined statistical uncertainty.
+pub fn run_keff_cpu_multi(
+    radius_cm: f64,
+    material: &Material,
+    nuclides: &[Nuclide],
+    settings: &KeffSettings,
+    thread_count: ThreadCount,
+) -> KeffResult {
+    use crate::rng::lcg::future_seed;
+    use rayon::prelude::*;
+
+    let sphere = Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: radius_cm, bc: BoundaryType::Vacuum };
+    let temp = settings.temperature_k;
+
+    // Dedicated, explicitly sized rayon pool (never the implicit global pool):
+    // `resolve()` maps the ThreadCount to a concrete worker count (>= 1). The
+    // per-history seeding below is thread-count-independent, so the eigenvalue is
+    // identical regardless of `n_threads` — only the wall time changes.
+    let n_threads = thread_count.resolve();
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(n_threads)
+        .build()
+        .expect("rayon thread pool");
+
+    // Dedicated sequential stream for source sampling + resampling only. Kept
+    // separate from the per-history transport streams so both stay deterministic.
+    let mut src_seed = settings.seed;
+
+    // Initial source: uniform in the sphere volume, isotropic, Watt energy.
+    let mut source: Vec<Site> = (0..settings.n_particles)
+        .map(|_| {
+            let (dx, dy, dz) = isotropic_direction(&mut src_seed);
+            let rr = radius_cm * prn(&mut src_seed).cbrt(); // uniform-in-volume radius
+            Site {
+                r: Position::new(rr * dx, rr * dy, rr * dz),
+                u: Direction::new(dx, dy, dz),
+                e: watt(&mut src_seed, settings.watt_a, settings.watt_b),
+            }
+        })
+        .collect();
+
+    let n_gen = settings.n_inactive + settings.n_active;
+    let mut k_by_generation = Vec::with_capacity(n_gen);
+    let mut k_running = 1.0;
+    let mut active_k = Vec::with_capacity(settings.n_active);
+
+    // Run the whole generation loop inside the dedicated pool so every
+    // `into_par_iter()` below dispatches onto exactly `n_threads` workers.
+    pool.install(|| {
+        for gen in 0..n_gen {
+            // Base seed for this generation's per-history sub-streams.
+            let gen_base_seed = future_seed((gen as u64).wrapping_mul(GEN_STRIDE), settings.seed);
+
+            // Transport every history in parallel. Each returns (production, local
+            // fission bank); `map(...).collect::<Vec<_>>()` on an indexed parallel
+            // iterator preserves input order, so the reduction below is deterministic
+            // regardless of thread count.
+            let results: Vec<(f64, Vec<Site>)> = (0..source.len())
+                .into_par_iter()
+                .map(|hist_idx| {
+                    // Independent, deterministic sub-stream for this history; owned
+                    // locally — never shared across threads.
+                    let hist_seed =
+                        future_seed((hist_idx as u64).wrapping_mul(HIST_STRIDE), gen_base_seed);
+                    let mut seed = hist_seed;
+                    let mut local_bank: Vec<Site> = Vec::new();
+                    let production = transport_history(
+                        source[hist_idx],
+                        &sphere,
+                        material,
+                        nuclides,
+                        temp,
+                        k_running,
+                        &mut local_bank,
+                        &mut seed,
+                    );
+                    (production, local_bank)
+                })
+                .collect();
+
+            // Deterministic sequential reduction: sum productions, concatenate banks
+            // in history-index order.
+            let mut production = 0.0_f64;
+            let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
+            for (prod, bank) in results {
+                production += prod;
+                next_bank.extend(bank);
+            }
+
+            let k_gen = production / settings.n_particles as f64;
+            k_by_generation.push(k_gen);
+            k_running = k_gen;
+            if gen >= settings.n_inactive {
+                active_k.push(k_gen);
+            }
+
+            if next_bank.is_empty() {
+                break;
+            }
+            source = resample(&next_bank, settings.n_particles, &mut src_seed);
+        }
+    });
+
+    let (k_mean, k_std) = mean_and_stderr(&active_k);
+    KeffResult { k_mean, k_std, k_by_generation }
+}
+
+/// GPU-accelerated fission-source power iteration ([`ComputeType::Gpu`]), with a
+/// **graceful CPU fallback** — never an error, never a panic on a missing GPU.
+///
+/// If a usable GPU adapter is present ([`crate::gpu::probe`] returns `Some`), the
+/// run is handed to [`run_keff_gpu_inner`], which serves the macroscopic total
+/// Sigma_t from a GPU-built dense table (see that function for exactly how far the
+/// GPU reaches into the loop). If no adapter is available — a headless server, CI
+/// with no Vulkan/Metal loader, or **Android**, where the whole `wgpu` path is
+/// compiled out — it emits a `log::debug!` line and transparently runs the
+/// trusted [`run_keff_cpu_single`] reference instead.
+///
+/// The GPU path is `f32` **acceleration only**; the single-thread CPU path
+/// remains the trusted, deterministic reference.
+pub fn run_keff_gpu(
+    radius_cm: f64,
+    material: &Material,
+    nuclides: &[Nuclide],
+    settings: &KeffSettings,
+) -> KeffResult {
+    #[cfg(not(target_os = "android"))]
+    {
+        if let Some(ctx) = crate::gpu::probe() {
+            return run_keff_gpu_inner(&ctx, radius_cm, material, nuclides, settings);
+        }
+    }
+    log::debug!("ComputeType::Gpu requested but no GPU adapter available — falling back to CPU");
+    run_keff_cpu_single(radius_cm, material, nuclides, settings)
+}
+
+/// The genuine GPU path behind [`run_keff_gpu`] (desktop / non-Android only).
+///
+/// # How far the GPU reaches into the transport loop
+///
+/// The transport loop is **structurally identical** to [`run_keff_cpu_single`] —
+/// same sequential single-`seed` threading, same RNG draw order — so `k_gpu`
+/// stays tightly correlated with the single-thread reference. The **only**
+/// difference is where the macroscopic total Sigma_t comes from:
+///
+/// 1. **Build once.** A dense log-spaced table of the material's macroscopic
+///    Sigma_t is tabulated up front over `[1e-3, 2e7]` eV with 16 384 points
+///    ([`crate::gpu::union_grid::UnionTotalXs::tabulate`]). Temperature is fixed
+///    for the whole run, so one table serves every generation. 16 384 points is
+///    dense enough that the resampling error versus a direct
+///    [`Material::macro_xs_total`] call is small (it is judged against the
+///    reference below, not trusted above it).
+/// 2. **GPU batch per generation (the genuine GPU penetration).** At the start of
+///    every generation, the birth energies of **all** source sites are looked up
+///    in **one GPU dispatch** ([`crate::gpu::union_grid::UnionTotalXs::lookup_gpu`],
+///    `f32`). Each history then **consumes** its GPU-computed `f32` Sigma_t as the
+///    **first-flight** total cross section (its first collision-distance sample),
+///    instead of recomputing it.
+/// 3. **CPU table lookups thereafter.** Every subsequent per-collision Sigma_t
+///    within a history — and the first flight of any `(n,2n)` secondary that
+///    starts a fresh sub-walk — is served from the **same table** by CPU linear
+///    interpolation ([`crate::gpu::union_grid::UnionTotalXs::lookup_cpu`]).
+///
+/// A history-based random walk yields collision energies **one at a time**, so
+/// dispatching a single-energy GPU kernel per collision would be dominated by
+/// kernel-launch latency — that is the honest limit of GPU penetration into a
+/// branchy history loop (see `src/gpu/mod.rs`: the "history-based transport loop
+/// … branchy, not GPU friendly" note). The batched *first-flight* lookup is the
+/// one place a whole generation's Sigma_t queries are available at once, so it is
+/// the one place the GPU is actually exercised in the eigenvalue loop.
+///
+/// The GPU `f32` values are **acceleration only**; [`run_keff_cpu_single`] stays
+/// the trusted reference. `k_gpu` differs from `k_single` only through (a) the
+/// table's dense-resampling approximation of Sigma_t and (b) `f32` rounding of
+/// the first-flight lookup — the RNG stream is otherwise identical.
+#[cfg(not(target_os = "android"))]
+pub fn run_keff_gpu_inner(
+    ctx: &crate::gpu::GpuContext,
+    radius_cm: f64,
+    material: &Material,
+    nuclides: &[Nuclide],
+    settings: &KeffSettings,
+) -> KeffResult {
+    let sphere = Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: radius_cm, bc: BoundaryType::Vacuum };
+    let mut seed = settings.seed;
+    let temp = settings.temperature_k;
+
+    // Build the dense Sigma_t table once (temperature is fixed for the run).
+    let table = crate::gpu::union_grid::UnionTotalXs::tabulate(material, nuclides, 1e-3, 2e7, 16384);
+
+    // Initial source: uniform in the sphere volume, isotropic, Watt energy —
+    // identical to run_keff_cpu_single, on the same single seed stream.
+    let mut source: Vec<Site> = (0..settings.n_particles)
+        .map(|_| {
+            let (dx, dy, dz) = isotropic_direction(&mut seed);
+            let rr = radius_cm * prn(&mut seed).cbrt();
+            Site {
+                r: Position::new(rr * dx, rr * dy, rr * dz),
+                u: Direction::new(dx, dy, dz),
+                e: watt(&mut seed, settings.watt_a, settings.watt_b),
+            }
+        })
+        .collect();
+
+    let n_gen = settings.n_inactive + settings.n_active;
+    let mut k_by_generation = Vec::with_capacity(n_gen);
+    let mut k_running = 1.0;
+    let mut active_k = Vec::with_capacity(settings.n_active);
+
+    for gen in 0..n_gen {
+        // GENUINE GPU DISPATCH: batch-evaluate every source site's birth-energy
+        // Sigma_t on the GPU in one pass. These f32 values are consumed as each
+        // history's first-flight total cross section below.
+        let birth_energies: Vec<f64> = source.iter().map(|s| s.e).collect();
+        let birth_sigma: Vec<f32> = table.lookup_gpu(ctx, &birth_energies);
+
+        let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
+        let mut production = 0.0_f64;
+
+        for (i, site) in source.iter().enumerate() {
+            production += transport_history_tabulated(
+                *site,
+                Some(birth_sigma[i] as f64),
+                &table,
+                &sphere,
+                material,
+                nuclides,
+                temp,
+                k_running,
+                &mut next_bank,
+                &mut seed,
+            );
+        }
+
+        let k_gen = production / settings.n_particles as f64;
+        k_by_generation.push(k_gen);
+        k_running = k_gen;
+        if gen >= settings.n_inactive {
+            active_k.push(k_gen);
+        }
+
+        if next_bank.is_empty() {
             break;
         }
         source = resample(&next_bank, settings.n_particles, &mut seed);
@@ -327,6 +731,115 @@ fn transport_history(
     production
 }
 
+/// The Sigma_t table-served twin of [`transport_history`] used by the GPU path
+/// ([`run_keff_gpu_inner`]).
+///
+/// It is a **verbatim mirror** of [`transport_history`] — the same random numbers
+/// are drawn in the same order, so a history stays aligned with the single-thread
+/// reference — with exactly one change: the macroscopic total Sigma_t is served
+/// from the pre-built `table` instead of [`Material::macro_xs_total`]:
+///
+/// - `first_flight_sigma_t` — if `Some(s)`, the neutron's **first** collision-
+///   distance sample uses `s` (the GPU-batched `f32` value cast to `f64`) as
+///   Sigma_t; it is consumed exactly once, on the first loop iteration of the
+///   first popped site. Every later Sigma_t lookup — subsequent collisions and
+///   the first flight of any `(n,2n)` secondary sub-walk — uses
+///   `table.lookup_cpu(&[e])[0]`.
+///
+/// Only the Sigma_t **value** differs (table/GPU vs a direct data call); the RNG
+/// usage is identical, which is what keeps `k_gpu` tightly correlated with
+/// `k_single`.
+#[cfg(not(target_os = "android"))]
+#[allow(clippy::too_many_arguments)]
+fn transport_history_tabulated(
+    site: Site,
+    first_flight_sigma_t: Option<f64>,
+    table: &crate::gpu::union_grid::UnionTotalXs,
+    sphere: &Sphere,
+    material: &Material,
+    nuclides: &[Nuclide],
+    temp: f64,
+    k_running: f64,
+    next_bank: &mut Vec<Site>,
+    seed: &mut u64,
+) -> f64 {
+    let mut production = 0.0;
+    // Consumed once, on the very first Sigma_t lookup of the whole history (the
+    // source neutron's first flight); `None` thereafter.
+    let mut first_flight_sigma = first_flight_sigma_t;
+    let mut stack: Vec<Site> = vec![site];
+
+    while let Some(start) = stack.pop() {
+        let mut r = start.r;
+        let mut u = start.u;
+        let mut e = start.e;
+
+        loop {
+            // ONLY DIFFERENCE from `transport_history`: Sigma_t comes from the
+            // GPU-built table (or the batched first-flight GPU value), not from a
+            // direct `macro_xs_total` call. No RNG is consumed here either way.
+            let sigma_t = match first_flight_sigma.take() {
+                Some(s) => s,
+                None => table.lookup_cpu(&[e])[0],
+            };
+            if !(sigma_t > 0.0) {
+                break;
+            }
+            let d_col = -prn(seed).ln() / sigma_t;
+            let d_bound = sphere.distance(r, u, false);
+
+            if d_col >= d_bound {
+                break;
+            }
+
+            r = stream(r, u, d_col);
+            let ci = material.sample_nuclide(e, seed, nuclides);
+            let nuc = &nuclides[material.components[ci].nuclide_idx];
+            let x = nuc.xs_at_energy(e, temp);
+
+            // Reaction partition — VERBATIM from `transport_history`; only the
+            // Sigma_t *source* above differs, never the RNG draws below.
+            let xi = prn(seed) * x.total;
+            if xi < x.fission {
+                let nu_bar = if x.fission > 0.0 { x.nu_fission / x.fission } else { 0.0 };
+                production += nu_bar;
+                let n = sample_num_neutrons(nu_bar, k_running, seed);
+                for _ in 0..n {
+                    let (dx, dy, dz) = isotropic_direction(seed);
+                    next_bank.push(Site {
+                        r,
+                        u: Direction::new(dx, dy, dz),
+                        e: nuc.sample_fission_energy(e, seed),
+                    });
+                }
+                break;
+            } else if xi < x.absorption {
+                break;
+            } else if xi < x.absorption + x.inelastic {
+                let (e2, u2) = match nuc.sample_inelastic(e, seed) {
+                    Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
+                    Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed),
+                };
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n {
+                let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, seed);
+                stack.push(Site { r, u: u2, e: e2 });
+                e = e2;
+                u = u2;
+            } else {
+                let (e2, u2) = match nuc.sample_elastic_mu_cm(e, seed) {
+                    Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
+                    None => elastic_scatter(e, u, nuc.awr, seed),
+                };
+                e = e2;
+                u = u2;
+            }
+        }
+    }
+    production
+}
+
 /// Resample `n` sites uniformly with replacement from `bank` — the crude
 /// population control that renormalises the fission bank back to a fixed source
 /// size each generation.
@@ -359,6 +872,28 @@ mod tests {
     use super::*;
     use crate::material::material::NuclideComponent;
 
+    /// Build the standard Godiva (HEU-MET-FAST-001) LOW-tier material +
+    /// nuclide array: U-234/235/238 at ICSBEP atom densities, T = 293.6 K,
+    /// embedded (`from_core`) data so the test stays offline.
+    fn godiva() -> (Material, Vec<Nuclide>) {
+        let nuclides = vec![
+            Nuclide::from_core("U234").unwrap(),
+            Nuclide::from_core("U235").unwrap(),
+            Nuclide::from_core("U238").unwrap(),
+        ];
+        let material = Material {
+            id: 1,
+            name: "Godiva".into(),
+            temperature: 293.6,
+            components: vec![
+                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
+                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
+                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+            ],
+        };
+        (material, nuclides)
+    }
+
     /// **LOW-fidelity Godiva V&V** (HEU-MET-FAST-001).
     ///
     /// **Methodology.** Bare HEU sphere, r = 8.7407 cm, ICSBEP atom densities
@@ -377,21 +912,7 @@ mod tests {
     /// fidelity (no self-shielding; one mean cosine; evaporation for inelastic).
     #[test]
     fn godiva_converges_to_sane_keff() {
-        let nuclides = vec![
-            Nuclide::from_core("U234").unwrap(),
-            Nuclide::from_core("U235").unwrap(),
-            Nuclide::from_core("U238").unwrap(),
-        ];
-        let material = Material {
-            id: 1,
-            name: "Godiva".into(),
-            temperature: 293.6,
-            components: vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
-                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
-            ],
-        };
+        let (material, nuclides) = godiva();
         let settings = KeffSettings {
             n_particles: 1500,
             n_inactive: 20,
@@ -428,6 +949,174 @@ mod tests {
         assert!(
             k_small < k_big,
             "3 cm sphere (k={k_small}) should leak more than 9 cm (k={k_big})"
+        );
+    }
+
+    /// **Three-compute-mode agreement V&V** — the single-thread, multi-thread, and
+    /// GPU backends must all estimate the *same* Godiva eigenvalue.
+    ///
+    /// **Methodology.** Godiva LOW-tier material (U-234/235/238 at ICSBEP atom
+    /// densities, T = 293.6 K, embedded `from_core` data), bare sphere r = 8.7407
+    /// cm, 800 histories × [15 inactive + 40 active], master seed = 1 (default).
+    /// The identical [`KeffSettings`] is run under each [`ComputeType`] via
+    /// [`KeffSettings::with_compute`]:
+    /// - single-thread = the trusted deterministic reference;
+    /// - multi-thread = rayon over histories, independent per-history RNG streams
+    ///   (a *statistically independent* estimate — different stream structure);
+    /// - GPU = GPU-batched first-flight Sigma_t + dense-table Sigma_t on the SAME
+    ///   RNG stream as single-thread (so it should agree *tightly*, differing only
+    ///   through the table resampling + `f32` rounding).
+    ///
+    /// Pass criterion: pairwise agreement within a **combined-sigma band**,
+    /// `|k_a − k_b| ≤ 5 · sqrt(σ_a² + σ_b²)`. The GPU arm **skips gracefully**
+    /// (prints `SKIP` and is not asserted) when no GPU adapter is present in the
+    /// test process, so the test is green on CPU-only CI.
+    ///
+    /// **Results (2026-07-17; adapter: NVIDIA GeForce RTX 3050, LOW-tier data,
+    /// 800 histories × [15 + 40], seed = 1).** All three modes ran (GPU arm not
+    /// skipped — a real adapter was present in the test process):
+    /// - k_single = **1.00762 ± 0.00827** (trusted reference),
+    /// - k_multi  = **1.00715 ± 0.00768**,
+    /// - k_gpu    = **1.00066 ± 0.00839**.
+    ///
+    /// Pairwise σ-distances:
+    /// - single-vs-multi: |Δk| = 0.00047 = **0.04σ** (5σ band 0.05643) — a
+    ///   statistically independent stream landing essentially on top of the
+    ///   reference, as expected;
+    /// - single-vs-gpu: |Δk| = 0.00696 = **0.59σ** (5σ band 0.05890) — larger than
+    ///   single-vs-multi despite the *shared* RNG stream. Interpretation: the GPU
+    ///   path shares the seed but not the Sigma_t values — the 16 384-point dense
+    ///   log-spaced table (`f32` first flight + `f64` CPU interp thereafter) smears
+    ///   the resonant total slightly, and once a slightly different Sigma_t flips a
+    ///   single leak-vs-collide decision (`d_col ≷ d_bound`) that history
+    ///   decorrelates from the reference. The net is a small ~700 pcm systematic
+    ///   shift, comfortably inside the 5σ band. This matches the documented limit:
+    ///   the table is an acceleration-only resampling, judged against the CPU
+    ///   reference, never trusted above it.
+    ///
+    /// All three land within ~1000 pcm of unity and of each other — the compute
+    /// selector does not change the physics.
+    #[test]
+    fn three_compute_modes_agree_on_godiva() {
+        let (material, nuclides) = godiva();
+        let base = KeffSettings {
+            n_particles: 800,
+            n_inactive: 15,
+            n_active: 40,
+            ..KeffSettings::default()
+        };
+
+        let single = run_keff(
+            8.7407,
+            &material,
+            &nuclides,
+            &base.with_compute(ComputeType::CpuSingleThread),
+        );
+        let multi = run_keff(
+            8.7407,
+            &material,
+            &nuclides,
+            &base.with_compute(ComputeType::CpuMultiThread(ThreadCount::Auto)),
+        );
+
+        eprintln!(
+            "k_single = {:.5} ± {:.5} | k_multi = {:.5} ± {:.5}",
+            single.k_mean, single.k_std, multi.k_mean, multi.k_std
+        );
+
+        // single vs multi: statistical comparison (different RNG streams).
+        let d_sm = (single.k_mean - multi.k_mean).abs();
+        let sig_sm = (single.k_std.powi(2) + multi.k_std.powi(2)).sqrt();
+        eprintln!(
+            "single-vs-multi: |Δk| = {:.5} ({:.2}σ, band {:.5})",
+            d_sm,
+            if sig_sm > 0.0 { d_sm / sig_sm } else { 0.0 },
+            5.0 * sig_sm
+        );
+        assert!(
+            d_sm <= 5.0 * sig_sm,
+            "single ({:.5}±{:.5}) vs multi ({:.5}±{:.5}) disagree beyond 5σ: |Δk|={:.5} > {:.5}",
+            single.k_mean, single.k_std, multi.k_mean, multi.k_std, d_sm, 5.0 * sig_sm
+        );
+
+        // GPU arm: skip gracefully when no adapter, else run and assert agreement.
+        if crate::gpu::probe().is_none() {
+            eprintln!("SKIP gpu arm: no adapter");
+            return;
+        }
+        let gpu = run_keff(8.7407, &material, &nuclides, &base.with_compute(ComputeType::Gpu));
+        eprintln!("k_gpu = {:.5} ± {:.5}", gpu.k_mean, gpu.k_std);
+
+        let d_sg = (single.k_mean - gpu.k_mean).abs();
+        let sig_sg = (single.k_std.powi(2) + gpu.k_std.powi(2)).sqrt();
+        eprintln!(
+            "single-vs-gpu: |Δk| = {:.5} ({:.2}σ, band {:.5})",
+            d_sg,
+            if sig_sg > 0.0 { d_sg / sig_sg } else { 0.0 },
+            5.0 * sig_sg
+        );
+        assert!(
+            d_sg <= 5.0 * sig_sg,
+            "single ({:.5}±{:.5}) vs gpu ({:.5}±{:.5}) disagree beyond 5σ: |Δk|={:.5} > {:.5}",
+            single.k_mean, single.k_std, gpu.k_mean, gpu.k_std, d_sg, 5.0 * sig_sg
+        );
+    }
+
+    /// The multi-thread backend must be **reproducible independent of thread
+    /// count and scheduling**: the reported `k_mean` is bit-for-bit identical no
+    /// matter how many workers the dedicated pool has.
+    ///
+    /// **Methodology.** Same Godiva LOW-tier case (600 histories × [10 + 20],
+    /// seed = 1) run three ways: [`ThreadCount::Fixed(1)`] twice (to check plain
+    /// run-to-run determinism) and [`ThreadCount::Fixed(4)`] once (to check
+    /// thread-count independence). Pass criterion: all three `k_mean` values are
+    /// bit-for-bit equal (`f64::to_bits`). This proves each history's RNG stream
+    /// is derived purely from `(seed, generation, history index)` via the LCG
+    /// jump-ahead — never from a shared/raced seed or the scheduling order — and
+    /// that the per-history bank concatenation is order-deterministic.
+    ///
+    /// **Results (2026-07-17).** All three runs returned an identical `k_mean`
+    /// bit pattern (`Fixed(1)` run A == `Fixed(1)` run B == `Fixed(4)`), zero
+    /// mismatches. Interpretation: the `CpuMultiThread` eigenvalue is fully
+    /// determined by the settings, independent of the resolved pool size — only
+    /// wall time changes with thread count.
+    #[test]
+    fn cpu_multi_is_reproducible() {
+        let (material, nuclides) = godiva();
+        let base = KeffSettings {
+            n_particles: 600,
+            n_inactive: 10,
+            n_active: 20,
+            ..KeffSettings::default()
+        };
+
+        let one_a = run_keff(
+            8.7407,
+            &material,
+            &nuclides,
+            &base.with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(1))),
+        )
+        .k_mean;
+        let one_b = run_keff(
+            8.7407,
+            &material,
+            &nuclides,
+            &base.with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(1))),
+        )
+        .k_mean;
+        let four = run_keff(
+            8.7407,
+            &material,
+            &nuclides,
+            &base.with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(4))),
+        )
+        .k_mean;
+
+        assert_eq!(one_a.to_bits(), one_b.to_bits(), "not run-to-run reproducible: {one_a} != {one_b}");
+        assert_eq!(
+            one_a.to_bits(),
+            four.to_bits(),
+            "k depends on thread count (1 vs 4): {one_a} != {four}"
         );
     }
 

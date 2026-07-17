@@ -23,6 +23,7 @@ pub use crate::tally::filter::{
 pub use crate::tally::mesh::RegularMesh;
 pub use crate::tally::scoring::Q_FISSION_J;
 pub use crate::tally::arithmetic::DerivedTally;
+pub use crate::physics::compute::{ComputeType, ThreadCount};
 pub use crate::physics::keff::{run_keff, KeffResult, KeffSettings};
 pub use crate::physics::transport_csg::{run_keff_csg, SourceBox};
 pub use crate::pebble_beds::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};

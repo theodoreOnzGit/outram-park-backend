@@ -33,6 +33,15 @@ uom = { workspace = true }
 openmc-endf-8-depletion-lib-a = { workspace = true }
 openmc-endf-8-depletion-lib-b = { workspace = true }
 fission-yields-data = { workspace = true }
+# Compute-mode selector (`ComputeType`) support. Both are pure-Rust and
+# Android-safe, so they are unconditional deps:
+#   * rayon  — data-parallel `CpuMultiThread` transport over the per-generation
+#     history bank (embarrassingly parallel; each history gets a deterministically
+#     derived RNG stream so results are reproducible independent of thread count).
+#   * log    — the `log::debug!` graceful-fallback message emitted when
+#     `ComputeType::Gpu` is requested but no GPU adapter is available.
+rayon = { workspace = true }
+log = { workspace = true }
 
 [features]
 # HIGH-fidelity nuclear data. Forwards to njoy's `net-fetch` tier so
