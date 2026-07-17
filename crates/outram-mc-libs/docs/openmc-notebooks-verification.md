@@ -48,7 +48,10 @@ general machinery below is now implemented, not stubbed:
 
 - `geometry::geometry::Geometry::locate` — nested lattice descent (implemented).
 - `physics::transport_csg::run_keff_csg` — the live CSG k-eigenvalue loop.
-- `tally::scoring` — flux / reaction-rate scoring (implemented).
+- `tally::scoring` — flux / reaction-rate scoring (implemented): both the
+  collision estimator (`score_collision`) and a **track-length estimator**
+  (`score_track_length` + per-batch `flush_batch`), the latter now driving the
+  CSG loop and the energy-binned flux spectrum (op-6tz.9).
 - `geometry::universe::Universe::find_cell` — implemented (no `todo!()`).
 - `geometry::cell::Cell::contains` — RPN region evaluation (implemented).
 - `geometry::lattice`: both `RectLattice` and `HexLattice` (ring construction +
@@ -61,9 +64,17 @@ general machinery below is now implemented, not stubbed:
 - `pebble_beds` (`delta_tracking`, `stochastic_media` packing) — assembled into
   the live TRISO doubly-heterogeneous k∞ case.
 
+The **multigroup (MG) k-eigenvalue path is now live** too:
+`physics::physics_mg` supplies the MGXS data types (`Mgxs` = `XSdata`/`Macroscopic`,
+`MgxsLibrary` = `MGXSLibrary`) and `run_keff_mg`, the MG twin of `run_keff_csg`
+(group-indexed collision physics — group total, absorption/fission split, χ birth
+spectrum, scatter-matrix group transfer — over the same CSG geometry). It consumes
+a supplied MGXS set; MGXS *generation* stays njoy-side.
+
 Still genuinely gated (`#[ignore]` with a documented gap): the generic
-history-based `physics::transport` variant, multigroup mode
-(`physics::physics_mg`, still a stub), DAGMC / unstructured-mesh geometry,
+history-based `physics::transport` variant, MG cross-section **plotting** and
+**mesh tallies** (mg-mode-part-ii/iii, on top of the now-live MG kernel),
+DAGMC / unstructured-mesh geometry,
 functional-expansion / mesh / distribcell tally filters, photon transport, the
 `StatePoint`/pandas inspection layer, and the C-API.
 
@@ -85,13 +96,13 @@ requiring the still-gated features above is `#[ignore]` with a documented gap.
 | `tally-arithmetic` | outram-mc | `Tally`, `EnergyFilter`, `CellFilter`, `MeshSurfaceFilter`, derived-tally algebra (`+ - * /`), `get_slice`, `summation` | Tally data structs exist; no transport-driven scoring and no derived-tally arithmetic | no | op-6tz.22, .9 | Needs scored tallies first, then the arithmetic layer. |
 | `tally-power-normalization` | outram-mc | `Tally` (heating/fission), `CellFilter`, `StatePoint`, power normalization from `kappa-fission` | No heating tally, no StatePoint | no | op-6tz.22 (→.9) | Requires a scored fission-energy tally + normalization to a target power. |
 | `expansion-filters` | outram-mc | `SpatialLegendreFilter`, `ZernikeFilter`, `ZernikeRadialFilter`, `Legendre`, `legendre_from_expcoef` | No functional-expansion filters | no | op-6tz.14 (→.9) | Legendre/Zernike moment tallies. |
-| `flux-spectrum` | outram-mc | `examples.pwr_pin_cell`, `EnergyFilter`, `mgxs.GROUP_STRUCTURES`, `Tally`, `StatePoint` | `EnergyFilter` exists; no energy-binned track-length flux tally driven by transport | no | op-6tz.9 (→.8,.7) | Needs the transport loop to score flux into energy bins. |
+| `flux-spectrum` | outram-mc | `examples.pwr_pin_cell`, `EnergyFilter`, `mgxs.GROUP_STRUCTURES`, `Tally`, `StatePoint` | **LIVE** — the CSG loop now drives a **track-length flux estimator** (`tally::scoring::score_track_length` + per-batch `flush_batch`) that scores an `EnergyFilter`-binned flux; live test asserts spectrum shape (fast tail + slowing-down side, finite/normalized, converged) | **yes** | op-6tz.9 (→.8,.7) | Fast HEU + free-gas-H infinite pin cell; energy-binned track-length flux over a 50-bin log grid. See `tests/openmc_notebooks/flux_spectrum.rs`. Volume normalization / derived-tally arithmetic is downstream op-6tz.22. |
 | `gamma-detector` | outram-mc | `data.decay_photon_energy`, `Source`, `stats.Discrete`/`Isotropic`, photon transport, `EnergyFilter` | Neutron-only; no photon transport, no decay-photon source | no | op-6tz.19 | Photon transport is out of scope (`src/photon.cpp` not ported). |
 | `post-processing` | outram-mc | `StatePoint`, `RegularMesh`, `MeshFilter`, `Tally`, mesh reshaping | No StatePoint persistence / mesh tally | no | op-6tz.22, .13 | Reads back tally results for plotting; needs scored mesh tallies + StatePoint. |
 | `pandas-dataframes` | outram-mc | `Tally.get_pandas_dataframe`, `DistribcellFilter`, `MeshFilter`, `EnergyFilter`, `Trigger` | No DataFrame export, no distribcell/mesh scoring | no | op-6tz.22 (→.9) | Pandas export is an inspection layer atop scored tallies. |
-| `mg-mode-part-i` | outram-mc | `XSdata`, `Macroscopic`, `MGXSLibrary`, `RectLattice`, multigroup `run` | `physics_mg` is a stub; no MGXS data types, no MG transport | no | op-6tz.15 | Multigroup transport execution is outram-mc's (MGXS *generation* is njoy). |
-| `mg-mode-part-ii` | outram-mc | `mgxs.Library`, `plot_xs`, `MeshFilter`, multigroup `run` | Same MG gap | no | op-6tz.15 | |
-| `mg-mode-part-iii` | outram-mc | `mgxs.Library`, `RectLattice`, `MeshFilter`, multigroup `run` | Same MG gap | no | op-6tz.15 | |
+| `mg-mode-part-i` | outram-mc | `XSdata`, `Macroscopic`, `MGXSLibrary`, `RectLattice`, multigroup `run` | **LIVE** — `physics::physics_mg`: `Mgxs` (`XSdata`/`Macroscopic`) + `MgxsLibrary` (`MGXSLibrary`) MGXS data types + `run_keff_mg` multigroup k-eigenvalue over CSG geometry | **yes** | op-6tz.15 | Multigroup transport execution is outram-mc's (MGXS *generation* is njoy). Live test asserts a **2-group infinite-medium k∞ = 1.10085 ± 0.00175 vs analytic 1.10000** (reflective cube), plus a leakage-monotonicity smoke. See `tests/openmc_notebooks/mg_mode_part_i.rs`. |
+| `mg-mode-part-ii` | outram-mc | `mgxs.Library`, `plot_xs`, `MeshFilter`, multigroup `run` | MG transport now live (`run_keff_mg`); MG cross-section **plotting** (`plot_xs`) + mesh tally still absent | no | op-6tz.15 | Needs MGXS plotting + mesh tally on top of the now-live MG kernel. |
+| `mg-mode-part-iii` | outram-mc | `mgxs.Library`, `RectLattice`, `MeshFilter`, multigroup `run` | MG transport now live; spatial **mesh tally** filter still absent | no | op-6tz.15 | Needs a mesh tally filter on top of the now-live MG kernel. |
 | `depletion` | outram-mc | `deplete.CoupledOperator`, `deplete.PredictorIntegrator`, `deplete.Results`, `deplete.Chain`, `model.pin` | **LIVE (partial)** — `depletion` module: CRAM `exp(A·dt)` solver + `DepletionChain` (chain_simple) + one-group burnup loop | **yes** (one-group trends) | op-6tz.18 | Inventory + k_inf trends match the notebook (sign/order); absolute k needs multigroup transport-coupled rates (follow-up). See `docs/ai-fleet-review/op-6tz-depletion/`. |
 | `capi` | outram-mc | `openmc.lib` (`init`, `simulation_init`, `next_batch`, `tallies`, `cells`, `materials`, `finalize`) | No in-memory run/introspection interface | no | op-6tz.20 | Needs a batch-stepping + live-edit API analog. |
 | `shielded_room_weight_window` | outram-mc | (absent at pinned commit) weight windows / variance reduction | No weight-window machinery | no | op-6tz.21 | **Notebook absent** from openmc-notebooks@cf1e5db; placeholder test tracks the variance-reduction gap. |
@@ -116,8 +127,32 @@ this run.
 ## V&V status of the live cases
 
 The live cases are now `pincell` (Godiva bare-sphere k-eff), `hexagonal-lattice`
-(geometry correctness + k smoke), `triso` (doubly-het k∞ by delta tracking), and
-`depletion` (one-group burnup trends). The benchmark-gated case is the Godiva one:
+(geometry correctness + k smoke), `triso` (doubly-het k∞ by delta tracking),
+`depletion` (one-group burnup trends), `mg-mode-part-i` (multigroup k∞ vs an
+analytic 2-group reference), and `flux-spectrum` (energy-binned track-length flux
+spectrum). The benchmark-gated case is the Godiva one:
+
+- **`flux-spectrum` — energy-binned track-length flux spectrum (op-6tz.9).**
+  Methodology & results are in `tests/openmc_notebooks/flux_spectrum.rs`. A fast
+  HEU + free-gas-H infinite reflective pin cell is run with a single `EnergyFilter`
+  (50 log bins, 1e-3 eV – 20 MeV) scoring the **track-length flux**
+  (`tally::scoring::score_track_length`, per-batch `flush_batch`). Pass criterion
+  is physical spectrum shape (no reference k): all bins finite/non-negative,
+  fractions normalize to 1, a substantial fast tail (E > 0.1 MeV) *and* substantial
+  below-0.1-MeV slowing-down flux, and a converged peak bin. Measured
+  (2026-07-17, deterministic): k_inf = 1.82844 ± 0.00917, fast fraction = 0.674,
+  below-0.1-MeV fraction = 0.326, peak-bin (1.87–3.00 MeV) batch rel-sd = 0.027.
+  This verifies the track-length energy-binned tally wiring, not spectral accuracy;
+  volume normalization / derived-tally arithmetic is downstream op-6tz.22.
+
+- **`mg-mode-part-i` — multigroup infinite-medium k∞.** Methodology & results are
+  documented in `tests/openmc_notebooks/mg_mode_part_i.rs` and the unit test in
+  `src/physics/physics_mg.rs`. A 2-group macroscopic MGXS set with a closed-form
+  infinite-medium eigenvalue k∞ = 1.10 is run in a reflective cube (zero leakage);
+  measured k∞ = 1.10085 ± 0.00175 (+0.5σ, 2026-07-17). A supplementary
+  vacuum-cube leakage smoke asserts only physics-sanity monotonicity (no invented
+  reference). This verifies the MG collision physics and CSG transport, not a
+  benchmark accuracy gate.
 
 - **`pincell` (partial) — Godiva bare-sphere k-eff.** Methodology & measured
   results are documented in the test module and in

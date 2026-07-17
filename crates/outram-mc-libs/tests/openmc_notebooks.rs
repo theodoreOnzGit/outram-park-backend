@@ -15,8 +15,9 @@
 //! ## How this harness reports honestly
 //!
 //! - **Live** tests run a *faithful* slice against the current API and assert on
-//!   a real result. Today only `pincell` has a live slice (the Godiva
-//!   bare-sphere k-eff, the sole working end-to-end path).
+//!   a real result. Live slices today: `pincell` (Godiva bare-sphere k-eff +
+//!   reflective CSG pin cell), `hexagonal_lattice`, `triso`, `depletion`, and
+//!   `flux_spectrum` (energy-binned track-length flux spectrum, op-6tz.9).
 //! - **Ignored** tests carry `#[ignore = "requires API X (op-6tz.N)"]` and an
 //!   `unimplemented!(...)` body, so they never report a fake green and, if the
 //!   ignore is removed before the API exists, they fail loudly. Each names the
@@ -36,13 +37,13 @@
 //! | `tally_arithmetic` | ignored | op-6tz.22 |
 //! | `tally_power_normalization` | ignored | op-6tz.22 |
 //! | `expansion_filters` | ignored | op-6tz.14 |
-//! | `flux_spectrum` | ignored | op-6tz.9 |
+//! | `flux_spectrum` | LIVE (energy-binned track-length flux spectrum) | op-6tz.9 |
 //! | `gamma_detector` | ignored | op-6tz.19 |
 //! | `post_processing` | ignored | op-6tz.22 |
 //! | `pandas_dataframes` | ignored | op-6tz.22 |
-//! | `mg_mode_part_i` | ignored | op-6tz.15 |
-//! | `mg_mode_part_ii` | ignored | op-6tz.15 |
-//! | `mg_mode_part_iii` | ignored | op-6tz.15 |
+//! | `mg_mode_part_i` | LIVE (multigroup k∞ vs analytic 2-group) | op-6tz.15 |
+//! | `mg_mode_part_ii` | ignored (MG plotting/mesh) | op-6tz.15 |
+//! | `mg_mode_part_iii` | ignored (MG spatial mesh) | op-6tz.15 |
 //! | `depletion` | LIVE (one-group burnup: CRAM + chain_simple, inventory & k_inf trends) | op-6tz.18 |
 //! | `capi` | ignored | op-6tz.20 |
 //! | `shielded_room_weight_window` | ignored (notebook absent upstream) | op-6tz.21 |

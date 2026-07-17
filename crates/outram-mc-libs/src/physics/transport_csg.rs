@@ -18,10 +18,12 @@
 //! 1. [`Geometry::locate`] the particle → leaf material and coordinate chain.
 //! 2. Sample distance to collision `d_col = −ln ξ / Σ_t(E)` (∞ in void).
 //! 3. [`Geometry::distance_to_boundary`] → nearest surface/lattice crossing `d_b`.
-//! 4. If `d_col < d_b`: stream to the collision, sample the reaction (the same
-//!    analog reaction partition as `keff.rs`), bank fission neutrons, and — if a
-//!    tally is attached — score the collision-estimator flux.
-//! 5. Else: stream to the boundary and apply the crossing
+//! 4. If a tally is attached, deposit the **track-length** flux/reaction-rate
+//!    contribution for the segment just streamed (`w·d` per bin, at the segment's
+//!    cell + energy) into the current batch's accumulator.
+//! 5. If `d_col < d_b`: stream to the collision, sample the reaction (the same
+//!    analog reaction partition as `keff.rs`), and bank fission neutrons.
+//! 6. Else: stream to the boundary and apply the crossing
 //!    ([`Geometry::cross_surface`]): reflect off a reflective surface, die at a
 //!    vacuum surface, otherwise pass through and re-locate.
 //!
@@ -32,8 +34,13 @@
 //! # Fidelity
 //!
 //! Analog transport (weight 1, no implicit capture or variance reduction), same
-//! collision physics and data tiers as [`crate::physics::keff`]. The collision
-//! estimator scores flux as `1/Σ_t` per real collision (see [`crate::tally`]).
+//! collision physics and data tiers as [`crate::physics::keff`]. Tallies use the
+//! **track-length estimator**: each streamed segment of length `d` deposits `w·d`
+//! (flux) and `w·d·Σ_x` (reaction rates) into its cell × energy bin, accumulated
+//! per generation and flushed as one realization per active batch (see
+//! [`crate::tally::scoring::score_track_length`] / `flush_batch`). The
+//! collision estimator ([`crate::tally::scoring::score_collision`]) remains
+//! available as an alternative.
 //!
 //! **S(α,β) thermal scattering (bead op-6tz.12).** A moderator nuclide carrying a
 //! [`crate::material::thermal::ThermalScattering`] table (attached via
@@ -56,7 +63,7 @@ use crate::physics::scatter::{
 };
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::prn;
-use crate::tally::scoring::score_collision;
+use crate::tally::scoring::{flush_batch, score_track_length};
 use crate::tally::tally::Tally;
 
 /// How the initial fission source is seeded spatially — a box the sampler
@@ -90,7 +97,8 @@ struct Site {
 /// - `source_box` — box the initial source is rejection-sampled into (must
 ///   overlap the fissile region).
 /// - `settings` — power-iteration controls (see [`KeffSettings`]).
-/// - `tally` — optional collision-estimator tally scored on active generations.
+/// - `tally` — optional track-length tally scored on active generations. Its
+///   `bins` are accumulated in place, one realization per active generation.
 ///
 /// Returns the mean eigenvalue and standard error over the active generations
 /// (a [`KeffResult`], same type as the bare-sphere driver). If a `tally` is
@@ -136,19 +144,38 @@ pub fn run_keff_csg(
     let mut k_running = 1.0;
     let mut active_k = Vec::with_capacity(settings.n_active);
 
+    // Per-batch (per-generation) track-length accumulator, one slot per tally bin.
+    // Track-length scores land here during a generation and are flushed into the
+    // tally's persistent bins once per active generation (one MC realization per
+    // batch — see `tally::scoring::flush_batch`). Empty when no tally is attached.
+    let mut batch: Vec<f64> = match tally.as_deref() {
+        Some(t) => vec![0.0; t.n_bins()],
+        None => Vec::new(),
+    };
+
     for gen in 0..n_gen {
         let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
         let mut production = 0.0_f64;
         let active = gen >= settings.n_inactive;
-        // Only pass the tally on active generations.
-        let gen_tally: Option<&mut Tally> = if active { tally.as_deref_mut() } else { None };
-        let mut gen_tally = gen_tally;
 
-        for site in &source {
-            production += transport_history(
-                *site, geom, materials, nuclides, temp, k_running, &mut next_bank,
-                &mut seed, gen_tally.as_deref_mut(),
-            );
+        // Only score the tally on active generations. `tally_def` is an immutable
+        // view of the filter/score definitions used to route each streamed segment
+        // into `batch`; the persistent bins are only touched at the flush below.
+        {
+            let tally_def: Option<&Tally> = if active { tally.as_deref() } else { None };
+            for site in &source {
+                production += transport_history(
+                    *site, geom, materials, nuclides, temp, k_running, &mut next_bank,
+                    &mut seed, tally_def, &mut batch,
+                );
+            }
+        }
+        // Close the batch: flush this generation's track-length totals into the
+        // tally as one realization (mean/variance are over active generations).
+        if active {
+            if let Some(t) = tally.as_deref_mut() {
+                flush_batch(t, &mut batch);
+            }
         }
 
         let k_gen = production / settings.n_particles as f64;
@@ -170,8 +197,13 @@ pub fn run_keff_csg(
 
 /// Transport one source neutron (plus its same-generation `(n,2n)` secondaries)
 /// to death over the CSG geometry, banking fission neutrons and scoring the
-/// optional collision-estimator tally. Returns the fission production ν̄ summed
-/// over the history's fission events.
+/// optional **track-length** flux/reaction-rate tally. Returns the fission
+/// production ν̄ summed over the history's fission events.
+///
+/// If `tally` is `Some`, every streamed free-flight segment deposits its
+/// track-length contribution (`w·d` flux, `w·d·Σ_x` reaction rates) into `batch`
+/// (the caller's per-generation accumulator); `batch` is flushed into the tally's
+/// persistent bins once per active generation.
 #[allow(clippy::too_many_arguments)]
 fn transport_history(
     site: Site,
@@ -182,7 +214,8 @@ fn transport_history(
     k_running: f64,
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
-    mut tally: Option<&mut Tally>,
+    tally: Option<&Tally>,
+    batch: &mut [f64],
 ) -> f64 {
     const NUDGE: f64 = 1.0e-9;
     let mut production = 0.0;
@@ -220,18 +253,26 @@ fn transport_history(
             let d_bound = geom.distance_to_boundary(&path);
             let d_col = if sigma_t > 0.0 { -prn(seed).max(f64::MIN_POSITIVE).ln() / sigma_t } else { f64::INFINITY };
 
+            // ── Track-length tally scoring ─────────────────────────────────
+            // The particle streams `seg = min(d_col, d_bound)` through the current
+            // cell at the current (pre-collision) energy `e`; deposit its
+            // track-length flux/reaction-rate contribution before either the
+            // collision changes `e` or the crossing changes the cell. `seg` is
+            // finite even in a void (d_col = ∞ ⇒ seg = the boundary distance);
+            // there `macro_xs` is `None`, so only the flux score deposits.
+            if let Some(t) = tally {
+                let seg = d_col.min(d_bound.distance);
+                let mxs = path.material.map(|m| materials[m].macro_xs(e, nuclides));
+                let mat_idx = path.material.unwrap_or(usize::MAX);
+                score_track_length(batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mxs.as_ref(), 1.0);
+            }
+
             if d_col < d_bound.distance {
                 // ── Collision ──────────────────────────────────────────────
                 r = stream(r, u, d_col);
                 on_surface = usize::MAX;
                 let m = path.material.expect("collision requires a material");
                 let material = &materials[m];
-
-                // Score the collision-estimator flux/reaction-rates, if tallying.
-                if let Some(t) = tally.as_deref_mut() {
-                    let macro_xs = material.macro_xs(e, nuclides);
-                    score_collision(t, cell_idx, m, leaf.universe, e, sigma_t, &macro_xs, 1.0);
-                }
 
                 // Analog reaction partition (mirrors keff.rs transport_history).
                 let ci = material.sample_nuclide(e, seed, nuclides);
