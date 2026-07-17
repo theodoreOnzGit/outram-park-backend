@@ -35,6 +35,30 @@ Data-free: all cross sections come from `njoy-outram-park-fork`'s
 `NUCLEAR_DATA.md` for how nuclear-data distribution is planned to work
 (runtime downloader + cache vs. embedded curated subsets).
 
+## Compute backend & GPU tradeoff (opt-in)
+
+The k-eigenvalue driver takes a `ComputeType` (set on `KeffSettings`), selecting
+the transport backend:
+
+- **`CpuSingleThread`** — scalar `f64`, the **bit-reproducible trusted reference**.
+- **`CpuMultiThread(ThreadCount)`** — rayon-parallel over histories; a dedicated
+  pool auto-sized to the machine (`available_parallelism`) — more threads on a
+  desktop, fewer on a phone. Reproducible independent of thread count. **~7× over
+  single-thread** on a 12-core box.
+- **`Gpu`** — GPU-accelerated (`f32`), **desktop only** (`wgpu` is target-gated
+  off Android), with a **graceful CPU fallback** (debug message when no adapter;
+  no GPU code compiled on Android).
+
+**The tradeoff, stated plainly (accepted design choice):** GPU uses `f32` for
+speed; CPU uses `f64` and stays the trusted / V&V / publication reference. And
+importantly — **Monte Carlo transport is memory-bound and branch-divergent, so
+the GPU path does *not* currently beat `CpuMultiThread`** (measured on an RTX
+3050; it's launch/transfer bound, see beads `op-u6s.7`/`op-u6s.8`). GPU compute
+*does* win on the *compute-bound* nuclear-data kernels in `njoy-outram-park-fork`
+(the Faddeeva pole-sum, up to ~60×). Rule of thumb: **GPU helps where the work is
+arithmetic-dense, not where it's memory-random** — pick the backend accordingly;
+CPU remains the trusted result either way.
+
 ## Quick start
 
 ```toml

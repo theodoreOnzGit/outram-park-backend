@@ -20,6 +20,31 @@ codes. In OUTRAM PARK its job is to produce the **ACE** continuous-energy
 libraries that [`outram-mc-libs`] consumes: NJOY is the data-prep step *upstream* of
 an OpenMC calculation.
 
+## GPU compute — precision / performance tradeoff (opt-in)
+
+njoy ships an **optional GPU compute path** (Cargo feature `gpu`, **desktop only**
+— `wgpu` is a target-gated dependency, so Android stays lean and CPU-only). It
+accelerates the *compute-bound* windowed-multipole (WMP) cross-section
+evaluation — the complex Faddeeva pole-sum — on the GPU.
+
+**The tradeoff, stated plainly (accepted design choice):**
+
+- **GPU = `f32` (single precision), fast.** On large energy grids the
+  compute-bound Faddeeva kernel is dramatically faster than the CPU (measured on
+  an NVIDIA RTX 3050: ~3× at 1e4 energies, ~23× at 1e5, ~60× at 1e6; below ~1e4
+  the CPU wins because kernel-launch overhead dominates).
+- **CPU = `f64` (double precision), trusted.** The CPU path is the
+  **deterministic reference**. The GPU `f32` result introduces accuracy loss that
+  grows on dense grids near sharp resonances — max relative error ≈ 3e-3 at 2000
+  energies, rising to ≈ 2e-2 at 1e6. So **GPU is acceleration only**; the trusted
+  / V&V / publication path stays on the CPU.
+- **Graceful fallback.** The GPU path falls back to CPU with a debug message when
+  no GPU adapter is present; on Android there is no GPU code compiled at all.
+
+Choose GPU when you want throughput on large energy grids and can accept `f32`
+precision; keep CPU for the reference/validated result. (Beads `op-0m5`,
+`op-0nh`.)
+
 > **Status — most of the pipeline is ported (translation-level; V&V is the trust
 > gate, see banner above).** RECONR reconstructs all five ENDF-6 resolved-resonance
 > formalisms: no resonances (LRU=0, e.g. H-2), SLBW/MLBW (LRF=1/2, e.g. Ar-37),

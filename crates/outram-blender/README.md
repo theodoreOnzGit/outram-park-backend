@@ -14,6 +14,13 @@ and procedurally generate geometry that feeds the OUTRAM PARK solvers — an
 `outram-foam-mesh` `polyMesh` for CFD, or an `outram-mc-libs` CSG universe for
 Monte Carlo neutron transport.
 
+> **GPU compute (optional `gpu` feature, desktop only): `f32` for speed, CPU
+> `f64` is the trusted path.** The headless GPU kernels (`wgpu`, target-gated off
+> Android) accelerate per-vertex work in single precision; the CPU
+> ([`math`]/[`faer`]) path stays the deterministic reference, with graceful CPU
+> fallback when no adapter is present. Same accepted tradeoff as the other
+> OUTRAM PARK GPU paths — acceleration in `f32`, trusted result in `f64`.
+
 > **Status: early SCAFFOLD.** This crate borrows Blender's *concepts and
 > data-structure architecture* — the BMesh half-edge topology, the
 > mesh-operator model, the modifier stack, geometry-nodes-style procedural
