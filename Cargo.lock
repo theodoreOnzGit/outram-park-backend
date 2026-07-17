@@ -4875,6 +4875,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "outram-foam-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "outram-foam-appbuilder-lib",
+ "outram-foam-basic-lib",
+ "outram-foam-mesh",
+ "thiserror 2.0.18",
+ "uom 0.38.0",
+]
+
+[[package]]
 name = "outram-foam-mesh"
 version = "0.1.0"
 dependencies = [
