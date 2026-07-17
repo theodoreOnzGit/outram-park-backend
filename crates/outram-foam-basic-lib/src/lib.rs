@@ -49,6 +49,9 @@ pub mod matrix;
 /// Layer 2 — the finite-volume mesh: cells, faces, boundary patches, and
 /// geometric metrics.
 pub mod mesh;
+/// OpenFOAM ASCII case I/O — `FoamFile` dictionaries, `polyMesh` read/write,
+/// time-directory field read/write, and whole-case reading.
+pub mod io;
 /// Layer 1e — ordinary-differential-equation solvers (Euler, RKF45,
 /// Rosenbrock23).
 pub mod ode;

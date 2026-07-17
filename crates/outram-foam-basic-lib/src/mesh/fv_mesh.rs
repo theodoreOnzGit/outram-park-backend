@@ -27,7 +27,7 @@ use crate::primitives::Vector3;
 /// Face indices in [start, start + size) within the global face array.
 /// All boundary faces appear after the internal faces in OpenFOAM ordering:
 /// `start >= n_internal_faces` for every patch.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BoundaryPatch {
     /// Patch name (e.g. `"left"`, `"wall"`, `"inlet"`).
     pub name: String,
