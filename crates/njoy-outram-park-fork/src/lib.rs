@@ -118,6 +118,27 @@ pub mod wimsr;
 /// path (f32 WGSL) is acceleration only. See the module docs for the contract.
 pub mod gpu;
 
+/// **Full-fidelity GPU windowed-multipole evaluation** — the complete WMP cross
+/// section (curve-fit background **plus** the complex Faddeeva pole-sum over each
+/// window's poles, all three channels) on the GPU, across an energy grid.
+///
+/// This extends [`gpu`] (which does only the background polynomial). It reuses
+/// [`gpu::GpuContext`]/[`gpu::probe`], ports the CPU [`wmp::faddeeva`] Weideman
+/// approximation to WGSL (`vec2<f32>` complex arithmetic), and keeps the
+/// mandatory CPU fallback: on Android, or when `probe()` returns `None`, callers
+/// use the `f64` CPU reference [`wmp::WindowedMultipole::evaluate`]. The GPU
+/// `f32` path is acceleration only; the CPU path stays the trusted reference.
+#[cfg(not(target_os = "android"))]
+pub mod gpu_wmp;
+
+/// **Per-machine performance-report generator** — hardware detection (GPU label,
+/// CPU cores, OS) plus a small markdown formatter, so a benchmark can emit a
+/// fresh report on the machine it runs on and write it to a git-ignored local
+/// path. Pure `std` (no `wgpu`), so it builds on every target including Android.
+/// The committed benchmark markdown stays a methodology template; per-machine
+/// timings live in each user's local report.
+pub mod perf_report;
+
 mod error;
 pub use endf::MtReaction;
 pub use error::NjoyError;

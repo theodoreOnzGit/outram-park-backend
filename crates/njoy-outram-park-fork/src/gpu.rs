@@ -39,12 +39,15 @@
 //!    `f64` by default), so its float reduction order will **not** bit-match the
 //!    CPU path — the GPU is *acceleration only*; V&V stays on the CPU.
 //!
-//! 4. **Scaffold honesty.** Only the curve-fit background polynomial is on the
-//!    GPU. The full windowed-multipole sum — the complex Faddeeva pole
-//!    contributions with per-window pole ranges — is **not** ported to the GPU
-//!    in this pass. See the `TODO` in [`GpuContext::curvefit_background_batch`]
-//!    and bead `op-wra`. Do not read this module as a full-fidelity WMP GPU
-//!    evaluator; it is not one.
+//! 4. **Scope of *this* module vs the full-fidelity kernel.** This module
+//!    (`gpu`) is the original demonstrator: it evaluates only the curve-fit
+//!    background polynomial on the GPU, for a single cross-section channel. The
+//!    **full windowed-multipole sum** — the complex Faddeeva pole contributions
+//!    over each window's pole range, for all three channels — lives in the
+//!    sibling module [`crate::gpu_wmp`] (bead `op-0m5`), which reuses this
+//!    module's [`GpuContext`]/[`probe`]. Read [`crate::gpu_wmp`] for the
+//!    complete GPU WMP evaluator; read *this* module for the background-only
+//!    demonstrator it grew out of.
 
 // ---------------------------------------------------------------------------
 // CPU reference — available on ALL targets (including Android). This is the
@@ -121,9 +124,32 @@ pub fn curvefit_background_batch_cpu(energies_ev: &[f64], coeffs: &[f64]) -> Vec
 #[derive(Debug)]
 pub struct GpuContext {
     /// The logical GPU device (owns pipelines, buffers, bind groups).
-    device: wgpu::Device,
+    ///
+    /// `pub(crate)` so the full-fidelity WMP kernel in [`crate::gpu_wmp`] can
+    /// dispatch on the same context obtained from [`probe`].
+    pub(crate) device: wgpu::Device,
     /// The command queue used to submit compute work to `device`.
-    queue: wgpu::Queue,
+    ///
+    /// `pub(crate)` so [`crate::gpu_wmp`] can submit to the same queue.
+    pub(crate) queue: wgpu::Queue,
+    /// The adapter's identifying info (name + backend), captured at [`probe`]
+    /// time. Used by [`GpuContext::adapter_label`] to label per-machine
+    /// performance reports (see [`crate::perf_report`]).
+    pub(crate) info: wgpu::AdapterInfo,
+}
+
+#[cfg(not(target_os = "android"))]
+impl GpuContext {
+    /// A short human label for the GPU this context runs on, e.g.
+    /// `"NVIDIA GeForce RTX 3050 / Vulkan"` — the adapter name and backend from
+    /// `wgpu::Adapter::get_info()`.
+    ///
+    /// Used to head a per-machine performance report so a reader knows which
+    /// hardware produced the numbers (GPU/CPU timings differ per machine). See
+    /// [`crate::perf_report`].
+    pub fn adapter_label(&self) -> String {
+        format!("{} / {:?}", self.info.name, self.info.backend)
+    }
 }
 
 /// A GPU compute context — **Android shim.** On Android there is no GPU backend
@@ -172,10 +198,14 @@ pub fn probe() -> Option<GpuContext> {
     // the default power preference and `force_fallback_adapter: false`.
     let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())).ok()?;
 
+    // Capture the adapter identity (name + backend) before the device request so
+    // per-machine performance reports can label the hardware.
+    let info = adapter.get_info();
+
     let (device, queue) =
         block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).ok()?;
 
-    Some(GpuContext { device, queue })
+    Some(GpuContext { device, queue, info })
 }
 
 // ---------------------------------------------------------------------------
@@ -243,9 +273,9 @@ impl GpuContext {
     /// # Scope — not the full WMP sum
     /// Only the curve-fit **background** polynomial is evaluated here. The full
     /// windowed-multipole sum (complex Faddeeva pole contributions over each
-    /// window's pole range) is **not** ported to the GPU in this pass.
-    // TODO(op-wra): port the Faddeeva pole-sum contribution to WGSL so the GPU
-    // path evaluates the complete WMP cross section, not just the background.
+    /// window's pole range) is evaluated by the sibling full-fidelity kernel
+    /// [`crate::gpu_wmp::GpuContext::wmp_evaluate_batch`] (bead `op-0m5`); this
+    /// method remains the minimal single-channel background demonstrator.
     pub fn curvefit_background_batch(&self, energies_ev: &[f32], coeffs: &[f32]) -> Vec<f32> {
         use wgpu::util::DeviceExt;
 
@@ -402,8 +432,11 @@ impl GpuContext {
 
 /// Pack a slice of `f32` into a little-endian byte buffer (4 bytes each), for
 /// upload to a GPU storage buffer. Avoids a `bytemuck` dependency.
+///
+/// `pub(crate)` so the full-fidelity WMP kernel in [`crate::gpu_wmp`] reuses the
+/// same packing rather than duplicating it.
 #[cfg(not(target_os = "android"))]
-fn f32_slice_to_le_bytes(values: &[f32]) -> Vec<u8> {
+pub(crate) fn f32_slice_to_le_bytes(values: &[f32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(values.len() * 4);
     for &v in values {
         bytes.extend_from_slice(&v.to_le_bytes());
@@ -413,8 +446,10 @@ fn f32_slice_to_le_bytes(values: &[f32]) -> Vec<u8> {
 
 /// Unpack a little-endian byte buffer (read back from the GPU) into a `Vec<f32>`.
 /// Any trailing bytes that do not form a complete `f32` are ignored.
+///
+/// `pub(crate)` so [`crate::gpu_wmp`] reuses the same unpacking.
 #[cfg(not(target_os = "android"))]
-fn le_bytes_to_f32_vec(bytes: &[u8]) -> Vec<f32> {
+pub(crate) fn le_bytes_to_f32_vec(bytes: &[u8]) -> Vec<f32> {
     bytes
         .chunks_exact(4)
         .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))

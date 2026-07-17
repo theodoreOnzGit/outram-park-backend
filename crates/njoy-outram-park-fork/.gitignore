@@ -5,3 +5,9 @@
 # V&V raw data -- the .md write-ups in verification_and_validation/ are
 # committed; standalone .csv data files they reference are not.
 /verification_and_validation/*.csv
+
+# Per-machine performance reports (perf_report). GPU/CPU timings differ per
+# machine, so the benchmark generates a fresh report on each user's hardware
+# here; only the committed methodology template is versioned, never one box's
+# numbers. See src/perf_report.rs and examples/gpu_wmp_bench.rs.
+/verification_and_validation/local_perf/

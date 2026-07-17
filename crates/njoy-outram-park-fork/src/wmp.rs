@@ -55,10 +55,15 @@ use crate::NjoyError;
 use std::sync::OnceLock;
 
 /// Boltzmann constant in \[eV/K\] (so `kT` in eV = `K_BOLTZMANN * T[K]`).
-const K_BOLTZMANN: f64 = 8.617_333_262e-5;
+///
+/// `pub(crate)` so the GPU port ([`crate::gpu_wmp`]) computes the identical
+/// `sqrt_kt = sqrt(K_BOLTZMANN * T)` the CPU evaluator uses.
+pub(crate) const K_BOLTZMANN: f64 = 8.617_333_262e-5;
 
 /// √π — appears in every Doppler-broadened pole term.
-const SQRT_PI: f64 = 1.772_453_850_905_516;
+///
+/// `pub(crate)` so the GPU port matches the CPU pole-term scaling exactly.
+pub(crate) const SQRT_PI: f64 = 1.772_453_850_905_516;
 
 // Residue / curve-fit channel order (matches OpenMC `wmp.h`: RS, RA, RF).
 const CH_SCATTER: usize = 0;
@@ -956,10 +961,15 @@ fn w_standard(z: Cf64) -> Cf64 {
 
 /// Number of terms in the Weideman rational approximation. 48 gives ≳ 1e-12
 /// accuracy across the upper half-plane, ample for cross-section evaluation.
-const WEIDEMAN_N: usize = 48;
+///
+/// `pub(crate)` so the WGSL GPU port ([`crate::gpu_wmp`]) uses the identical
+/// term count and coefficient table as the trusted CPU reference.
+pub(crate) const WEIDEMAN_N: usize = 48;
 
 /// Weideman's optimal scaling parameter `L = (N/√2)^{1/2}`.
-fn weideman_l() -> f64 {
+///
+/// `pub(crate)` so the GPU port uploads the identical `L` the CPU uses.
+pub(crate) fn weideman_l() -> f64 {
     (WEIDEMAN_N as f64 / std::f64::consts::SQRT_2).sqrt()
 }
 
@@ -969,7 +979,11 @@ fn weideman_l() -> f64 {
 /// `f_k = e^{−t_k²}·(L² + t_k²)`, `t_k = L·tan(θ_k/2)`, reordered so index 0 is
 /// the highest-degree polynomial term. Computed via a direct DFT (one-off,
 /// `O(N²)`) so the derivation stays visible rather than hidden in magic numbers.
-fn weideman_coeffs() -> &'static [f64] {
+///
+/// `pub(crate)` so the GPU port ([`crate::gpu_wmp`]) uploads this exact
+/// (host-computed, `f64`) table to the GPU as `f32`, guaranteeing the WGSL
+/// Faddeeva uses the same polynomial as the CPU reference.
+pub(crate) fn weideman_coeffs() -> &'static [f64] {
     static COEFFS: OnceLock<Vec<f64>> = OnceLock::new();
     COEFFS.get_or_init(|| {
         let n = WEIDEMAN_N;
