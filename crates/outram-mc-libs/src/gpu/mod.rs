@@ -47,6 +47,12 @@ pub mod xs_interp;
 // on every target; its GPU-only method is `#[cfg]`-gated internally.
 pub mod union_grid;
 
+// Batched next-event free-flight kernel: one flight (event) advanced in parallel
+// for a resident batch of neutrons. CPU mirror (same f32 path) + GPU compute.
+// The CPU mirror and SoA structs build on every target; the `*_gpu` function and
+// its `wgpu` imports are `#[cfg(not(target_os = "android"))]`.
+pub mod batched_flight;
+
 // ---------------------------------------------------------------------------
 // Desktop (non-Android) path: the real wgpu-backed context + probe.
 // ---------------------------------------------------------------------------

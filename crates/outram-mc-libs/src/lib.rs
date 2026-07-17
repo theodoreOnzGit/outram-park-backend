@@ -33,4 +33,9 @@ pub mod depletion;
 /// Desktop gets the real path; Android gets a CPU-only shim. GPU is acceleration
 /// only — the CPU raw-`f64` path stays the trusted, deterministic reference.
 pub mod gpu;
+/// Per-machine performance-report generator: detects this host's GPU / CPU / OS
+/// and renders a self-service "what performance is available on my PC" markdown
+/// report from measured benchmark timings. Machine-specific output is written to
+/// a gitignored local path — see [`perf_report`].
+pub mod perf_report;
 pub mod prelude;

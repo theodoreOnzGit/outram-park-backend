@@ -37,3 +37,14 @@ pub use crate::gpu::xs_interp::interp_xs_cpu;
 pub use crate::gpu::{probe as gpu_probe, GpuContext};
 #[cfg(not(target_os = "android"))]
 pub use crate::gpu::xs_interp::interp_xs_gpu;
+// Batched next-event GPU flight kernel (event-based transport). `FlightBatch`,
+// `FlightSphere`, `FlightOutcome`, and `advance_flight_cpu_mirror` build on every
+// target; the GPU dispatch `advance_flight_gpu` is present only off Android.
+pub use crate::gpu::batched_flight::{
+    advance_flight_cpu_mirror, FlightBatch, FlightOutcome, FlightSphere,
+};
+#[cfg(not(target_os = "android"))]
+pub use crate::gpu::batched_flight::advance_flight_gpu;
+// Per-machine performance-report generator (detects host GPU/CPU/OS; renders a
+// local, gitignored "what performance is available on my PC" markdown report).
+pub use crate::perf_report::{HardwareInfo, PerfReport, PerfRow};

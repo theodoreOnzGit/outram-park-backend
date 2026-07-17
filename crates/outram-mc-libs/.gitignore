@@ -4,3 +4,7 @@
 # V&V raw data -- the .md write-ups in verification_and_validation/ are
 # committed; standalone .csv data files they reference are not.
 /verification_and_validation/*.csv
+
+# Per-machine performance reports (op-u6s.7) -- generated locally by the
+# perf_report module; machine-specific numbers stay local, never committed.
+/verification_and_validation/local_perf/

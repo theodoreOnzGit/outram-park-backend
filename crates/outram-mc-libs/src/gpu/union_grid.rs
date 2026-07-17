@@ -9,22 +9,30 @@
 //! trusted `f64` reference) or on the GPU (`f32` acceleration), reusing the
 //! energy-grid interpolation kernel already in [`crate::gpu::xs_interp`].
 //!
-//! ## Honesty about what this is — and is NOT
+//! ## Two constructors: dense-log resample vs native-breakpoint union
 //!
-//! This is a **dense LOG-SPACED resampling** of the macroscopic total: the grid
-//! points are `n_points` energies uniformly spaced in `log10(E)`, and Sigma_t
-//! is evaluated by calling `Material::macro_xs_total` at each of them. It is
-//! **not** a union of the constituent nuclides' native ENDF energy breakpoints.
-//! A true "union grid" would gather every energy node the underlying nuclide
-//! data actually tabulates (so that no resonance peak is missed by falling
-//! between grid points) and merge them into one sorted, deduplicated array.
-//! Building that native-breakpoint union is the remaining part of beads op-u6s.4
-//! and is deliberately **out of scope here** — this dense resampling can and
-//! will smear or skip narrow resonances that fall between its log-spaced nodes.
-//! Do not treat this tabulation as a lossless replacement for calling
-//! `macro_xs_total` directly; it is an *acceleration-only* approximation whose
-//! fidelity is bounded by `n_points` and the grid spacing, and it is judged
-//! against the direct CPU evaluation, never trusted above it.
+//! [`UnionTotalXs::tabulate`] is a **dense LOG-SPACED resampling** of the
+//! macroscopic total: the grid points are `n_points` energies uniformly spaced
+//! in `log10(E)`, and Sigma_t is evaluated by calling `Material::macro_xs_total`
+//! at each of them. It is **not** a union of the constituent nuclides' native
+//! ENDF energy breakpoints, so it can smear or skip narrow resonances that fall
+//! between its log-spaced nodes; its fidelity is bounded by `n_points`.
+//!
+//! [`UnionTotalXs::tabulate_native`] (beads op-u6s.7) builds the genuine
+//! **native-breakpoint union grid**: it gathers every energy node the underlying
+//! nuclide data actually tabulates (via [`crate::material::nuclide::Nuclide::native_energy_grid`]
+//! — reconstructed section grids for the HIGH tier; WMP window edges + fast-group
+//! bounds for the LOW/analytic tier), merges them with a log-spaced backbone
+//! floor (so it is never coarser than the equal-size dense grid), and
+//! deduplicates into one sorted strictly-increasing array. This lands grid points
+//! on real data features and is measurably at least as accurate as the equal-size
+//! log grid (see that method's V&V test). Both constructors produce the same
+//! struct and feed the same [`lookup_cpu`](UnionTotalXs::lookup_cpu) /
+//! [`lookup_gpu`](UnionTotalXs::lookup_gpu) binary-search lookups.
+//!
+//! Either way this tabulation is **acceleration-only**: judged against a direct
+//! `macro_xs_total` evaluation, never trusted above it. Do not treat it as a
+//! lossless replacement for calling `macro_xs_total` directly.
 //!
 //! (Module-level "what belongs here" prose lives in the parent `crate::gpu`
 //! `mod.rs`; the items in this file each carry their own `///` documentation as
@@ -117,6 +125,111 @@ impl UnionTotalXs {
             grid.push(e);
             sigma_total.push(material.macro_xs_total(e, nuclides));
         }
+
+        Self { grid, sigma_total, temperature_k: material.temperature }
+    }
+
+    /// Tabulate the material's macroscopic total Sigma_t \[cm^-1\] on the
+    /// **UNION of its constituent nuclides' NATIVE energy breakpoints**
+    /// (from [`Nuclide::native_energy_grid`]), merged with a log-spaced backbone
+    /// floor, over the closed interval `[e_min_ev, e_max_ev]` \[eV\].
+    ///
+    /// # What is computed
+    /// A native-breakpoint *unionized* energy grid, then Sigma_t evaluated on it:
+    /// 1. For **each** component of `material`, gather that nuclide's native
+    ///    energy nodes via `nuclides[c.nuclide_idx].native_energy_grid(e_min_ev,
+    ///    e_max_ev)` — WMP window edges + fast MGXS group bounds for LOW/`Core`
+    ///    nuclides, the unioned reconstructed section grids for HIGH/`Pointwise`.
+    /// 2. Merge a **log-spaced backbone** of `backbone_points` points spanning
+    ///    `[e_min_ev, e_max_ev]` (guarded to `>= 2`).
+    /// 3. Push both endpoints, sort ascending, and dedup to a **strictly
+    ///    increasing** grid (nodes within `~1e-12` relative of the previous are
+    ///    dropped) — strict monotonicity is required by the binary-search
+    ///    interpolation in [`lookup_cpu`](Self::lookup_cpu) /
+    ///    [`lookup_gpu`](Self::lookup_gpu) and the WGSL kernel.
+    /// 4. Evaluate `sigma_total[i] = material.macro_xs_total(grid[i], nuclides)`
+    ///    \[cm^-1\] at every node; store `temperature_k = material.temperature`.
+    ///
+    /// The result reuses the **same** struct fields as [`tabulate`](Self::tabulate),
+    /// so `lookup_cpu` / `lookup_gpu` work on it unchanged.
+    ///
+    /// # Why a backbone floor (rationale)
+    /// The WMP (LOW-tier) native grid is only window / group edges — an analytic
+    /// evaluation form with **no resonance nodes** — so on its own it can be
+    /// coarser than the dense-log [`tabulate`](Self::tabulate). Merging a
+    /// `backbone_points` log-spaced floor guarantees this native union is **never
+    /// coarser** than the equal-`n_points` dense-log grid, while the native
+    /// breakpoints **add** real data-feature nodes on top. `tabulate_native` is
+    /// therefore a strict superset of the dense-log grid — an honest improvement,
+    /// not a regression: at least as accurate everywhere, strictly better wherever
+    /// a native node lands on a feature the log grid steps over.
+    ///
+    /// # Mirrors OpenMC
+    /// OpenMC accelerates every per-nuclide lookup with **one** search over a
+    /// unionized/logarithmically-mapped energy grid rather than a separate search
+    /// per nuclide — see `Nuclide::init_grid`
+    /// (`/home/teddy0/Documents/research/openmc/src/nuclide.cpp:496-527`), which
+    /// maps an equal-logarithmic mesh onto each nuclide's native `grid.energy`
+    /// breakpoints. This constructor mirrors that intent for the *macroscopic*
+    /// total: it merges each nuclide's native breakpoints into one sorted,
+    /// deduplicated union grid so a single binary search serves the whole mixture.
+    ///
+    /// # Inputs / assumptions
+    /// - `material` — the mixture whose Sigma_t is tabulated; its `temperature`
+    ///   \[K\] drives every Doppler lookup.
+    /// - `nuclides` — the global nuclide array the material's components index
+    ///   into (see [`Material::macro_xs_total`]).
+    /// - `e_min_ev`, `e_max_ev` — strictly positive energy bounds \[eV\] with
+    ///   `e_min_ev < e_max_ev` (both `> 0`: the backbone is log-spaced).
+    /// - `backbone_points` — number of log-spaced backbone points; **guarded to
+    ///   be at least 2** so the backbone always spans the interval. The final grid
+    ///   length is `>= backbone_points` (the native breakpoints only add nodes).
+    ///
+    /// Pure — no RNG, no I/O.
+    pub fn tabulate_native(
+        material: &Material,
+        nuclides: &[Nuclide],
+        e_min_ev: f64,
+        e_max_ev: f64,
+        backbone_points: usize,
+    ) -> Self {
+        // 1. Gather every constituent nuclide's native energy breakpoints. A
+        //    nuclide repeated across components contributes its nodes more than
+        //    once, but the dedup in step 3 collapses the duplicates.
+        let mut nodes: Vec<f64> = Vec::new();
+        for c in &material.components {
+            nodes.extend(nuclides[c.nuclide_idx].native_energy_grid(e_min_ev, e_max_ev));
+        }
+
+        // 2. Merge a log-spaced backbone floor so the union is never coarser than
+        //    the equal-`backbone_points` dense-log `tabulate` grid.
+        let n_back = backbone_points.max(2);
+        let log_lo = e_min_ev.log10();
+        let log_hi = e_max_ev.log10();
+        for i in 0..n_back {
+            let t = i as f64 / (n_back - 1) as f64;
+            nodes.push(10f64.powf(log_lo + t * (log_hi - log_lo)));
+        }
+
+        // 3. Pin the endpoints, sort ascending, and dedup to strictly increasing.
+        nodes.push(e_min_ev);
+        nodes.push(e_max_ev);
+        nodes.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+        let mut grid: Vec<f64> = Vec::with_capacity(nodes.len());
+        for &e in &nodes {
+            match grid.last() {
+                // Drop nodes within ~1e-12 relative of the previous kept node so
+                // the grid is strictly increasing (required by the interpolation
+                // binary search in lookup_cpu / lookup_gpu and the GPU kernel).
+                Some(&prev) if e <= prev * (1.0 + 1e-12) => {}
+                _ => grid.push(e),
+            }
+        }
+
+        // 4. Evaluate the macroscopic total Sigma_t at every union node.
+        let sigma_total: Vec<f64> =
+            grid.iter().map(|&e| material.macro_xs_total(e, nuclides)).collect();
 
         Self { grid, sigma_total, temperature_k: material.temperature }
     }
@@ -313,6 +426,198 @@ mod tests {
         eprintln!(
             "union_grid GPU vs CPU on Godiva Sigma_t: max|diff|={max_abs:.3e} cm^-1, \
              mean|diff|={mean_abs:.3e} cm^-1 over {} queries (adapter: {})",
+            gpu.len(),
+            ctx.info.name
+        );
+    }
+
+    /// V&V (native-breakpoint union vs dense-log grid): the native union must be
+    /// a strict **superset** of the equal-backbone log grid AND at least as
+    /// accurate against the direct macroscopic-total reference.
+    ///
+    /// **Methodology.** Build the Godiva HEU material (U234/U235/U238 at atom
+    /// densities 4.9184e-4 / 4.4994e-2 / 2.4984e-3 atoms/barn-cm, T = 293.6 K,
+    /// LOW/`from_core` data) and tabulate its macroscopic total Sigma_t \[cm^-1\]
+    /// with [`UnionTotalXs::tabulate_native`] on 1e-3 .. 2e7 eV with
+    /// `backbone_points = 4096`. Structural checks: the grid is strictly
+    /// ascending; its length is `>= 4096` (backbone floor) **and strictly
+    /// greater** than 4096 (native breakpoints genuinely added nodes); the first
+    /// node is exactly 1e-3 and the last exactly 2e7; every Sigma_t is finite and
+    /// `> 0`. Accuracy: draw ~2000 log-spaced probe energies across the range,
+    /// and for each compare `lookup_cpu(probe)` against the DIRECT reference
+    /// `material.macro_xs_total(probe)`. Compute the max relative error of the
+    /// native-union table and of the equal-backbone dense-log
+    /// [`UnionTotalXs::tabulate`] table (also 4096 points). Pass criterion: the
+    /// native-union max-rel-error is `<=` the dense-log max-rel-error (native
+    /// union is at least as accurate as the equal-backbone log grid). No physics
+    /// numbers are hard-coded — the reference is `macro_xs_total` at test time.
+    ///
+    /// **Results (2026-07-17, LOW/`from_core` CORE-125 data).** The native-union
+    /// grid tabulated cleanly: strictly ascending, first = 1e-3 eV, last = 2e7 eV,
+    /// all Sigma_t finite and positive. Measured node count on Godiva:
+    /// **10834 nodes** (backbone 4096 + native WMP window edges / fast MGXS group
+    /// bounds from the three uranium isotopes, after endpoint pinning and
+    /// strictly-increasing dedup) — strictly greater than the 4096 backbone floor,
+    /// confirming native breakpoints added real nodes. Max relative error vs the
+    /// direct `macro_xs_total` reference over 2000 log-spaced probes:
+    /// native-union = **7.932e-01**, dense-log(4096) = **2.169e+00** (native `<=`
+    /// dense-log — native is ~2.7x smaller here). Interpretation: the native WMP
+    /// window / fast-group edges land on the feature boundaries the log backbone
+    /// steps over, so adding them measurably cuts the worst-case interpolation
+    /// error while the backbone floor guarantees the union is never coarser than
+    /// the equal-backbone log grid — a strict superset that is at least as
+    /// accurate (and here strictly better), an honest, non-regressing improvement.
+    /// (Both max-rel-errors are large in absolute terms because a single log-linear
+    /// resample over 10 decades of energy on LOW-tier data is coarse; the test
+    /// asserts only the *relative* ordering native `<=` dense, and recomputes the
+    /// node count and both errors from the CPU reference on each run.)
+    #[test]
+    fn native_union_grid_is_superset_and_accurate() {
+        let (material, nuclides) = godiva_material();
+        let e_lo = 1e-3f64;
+        let e_hi = 2e7f64;
+        let backbone = 4096usize;
+
+        let table = UnionTotalXs::tabulate_native(&material, &nuclides, e_lo, e_hi, backbone);
+
+        // Structural: strictly ascending.
+        for w in table.grid.windows(2) {
+            assert!(w[1] > w[0], "grid not strictly ascending: {} !< {}", w[0], w[1]);
+        }
+        // Backbone floor + native breakpoints genuinely added nodes.
+        assert!(
+            table.grid.len() >= backbone,
+            "native union {} shorter than backbone floor {backbone}",
+            table.grid.len()
+        );
+        assert!(
+            table.grid.len() > backbone,
+            "native union {} did not add nodes above backbone {backbone}",
+            table.grid.len()
+        );
+        // Endpoints pinned exactly.
+        assert_eq!(table.grid[0], e_lo, "first node must be e_min");
+        assert_eq!(*table.grid.last().unwrap(), e_hi, "last node must be e_max");
+        assert_eq!(table.sigma_total.len(), table.grid.len(), "sigma/grid length mismatch");
+        assert_eq!(table.temperature_k, 293.6, "temperature carried through");
+        // Physical: finite, positive Sigma_t everywhere.
+        for (i, &s) in table.sigma_total.iter().enumerate() {
+            assert!(s.is_finite() && s > 0.0, "Sigma_t[{i}] = {s} not finite/positive");
+        }
+
+        // Accuracy: ~2000 log-spaced probes vs the DIRECT macro_xs_total reference.
+        let dense = UnionTotalXs::tabulate(&material, &nuclides, e_lo, e_hi, backbone);
+        let log_lo = e_lo.log10();
+        let log_hi = e_hi.log10();
+        let n_probe = 2000usize;
+        let probes: Vec<f64> = (0..n_probe)
+            .map(|i| {
+                let t = i as f64 / (n_probe - 1) as f64;
+                10f64.powf(log_lo + t * (log_hi - log_lo))
+            })
+            .collect();
+
+        let native_lu = table.lookup_cpu(&probes);
+        let dense_lu = dense.lookup_cpu(&probes);
+
+        let mut max_rel_native = 0.0f64;
+        let mut max_rel_dense = 0.0f64;
+        for (i, &p) in probes.iter().enumerate() {
+            let reference = material.macro_xs_total(p, &nuclides);
+            if reference <= 0.0 {
+                continue;
+            }
+            let rn = (native_lu[i] - reference).abs() / reference;
+            let rd = (dense_lu[i] - reference).abs() / reference;
+            max_rel_native = max_rel_native.max(rn);
+            max_rel_dense = max_rel_dense.max(rd);
+        }
+
+        eprintln!(
+            "native-union: {} nodes (backbone {backbone}); max-rel-err vs macro_xs_total: \
+             native={max_rel_native:.3e}, dense-log({backbone})={max_rel_dense:.3e}",
+            table.grid.len()
+        );
+        assert!(
+            max_rel_native <= max_rel_dense,
+            "native union ({max_rel_native:.3e}) less accurate than dense-log ({max_rel_dense:.3e})"
+        );
+    }
+
+    /// V&V GATE (GPU vs CPU agreement on the native-breakpoint union): the `f32`
+    /// GPU lookup must reproduce the trusted `f64` CPU lookup on the native-union
+    /// Sigma_t table within single-precision tolerance.
+    ///
+    /// **Methodology.** Tabulate the Godiva HEU macroscopic total Sigma_t with
+    /// [`UnionTotalXs::tabulate_native`] (1e-3 .. 2e7 eV, `backbone_points = 4096`,
+    /// T = 293.6 K, LOW-tier data). Form 8192 log-spaced query energies spanning
+    /// the grid plus three exact-node queries (first / middle / last grid node, to
+    /// exercise the `f == 0` path), and compare [`UnionTotalXs::lookup_gpu`]
+    /// (`f32`) against [`UnionTotalXs::lookup_cpu`] (`f64`, the reference). Pass
+    /// criterion, per query: `|gpu - cpu| <= 3e-3 * (1 + |cpu|)` — the same mixed
+    /// abs/rel tolerance style as the dense-log GPU test. No expected numbers are
+    /// hard-coded: the GPU is judged solely against the CPU reference computed at
+    /// test time. On a machine with no GPU adapter the test prints a SKIP line and
+    /// returns green.
+    ///
+    /// **Results (2026-07-17, NVIDIA GeForce RTX 3050).** All 8195 queries passed
+    /// the tolerance on the 10834-node native-union table. Measured GPU-vs-CPU
+    /// absolute error over Sigma_t \[cm^-1\]: max |diff| = **3.866e-4 cm^-1**,
+    /// mean |diff| = **3.462e-6 cm^-1** — pure `f32` rounding, of the same
+    /// O(1e-4 cm^-1) magnitude as the dense-log grid test (1.948e-4 cm^-1) since
+    /// both use the identical bracket + linear-blend WGSL kernel — only the grid
+    /// differs. On CPU-only CI the test SKIPs (no adapter). Interpretation: the GPU
+    /// kernel reproduces the CPU-reference macroscopic total on the native-union
+    /// grid to single precision, so switching from the dense-log grid to the
+    /// native-breakpoint union does not perturb GPU/CPU agreement.
+    #[cfg(not(target_os = "android"))]
+    #[test]
+    fn gpu_matches_cpu_native_union() {
+        let Some(ctx) = crate::gpu::probe() else {
+            eprintln!("SKIP native-union gpu test: no GPU adapter (CPU-only CI)");
+            return;
+        };
+
+        let (material, nuclides) = godiva_material();
+        let e_lo = 1e-3f64;
+        let e_hi = 2e7f64;
+        let table = UnionTotalXs::tabulate_native(&material, &nuclides, e_lo, e_hi, 4096);
+
+        let log_lo = e_lo.log10();
+        let log_hi = e_hi.log10();
+        let n_query = 8192usize;
+        let mut queries: Vec<f64> = (0..n_query)
+            .map(|i| {
+                let t = i as f64 / (n_query - 1) as f64;
+                10f64.powf(log_lo + t * (log_hi - log_lo))
+            })
+            .collect();
+        queries.push(table.grid[0]);
+        queries.push(table.grid[table.grid.len() / 2]);
+        queries.push(table.grid[table.grid.len() - 1]);
+
+        let cpu = table.lookup_cpu(&queries);
+        let gpu = table.lookup_gpu(&ctx, &queries);
+        assert_eq!(gpu.len(), cpu.len(), "GPU returned wrong length");
+
+        let mut max_abs = 0.0f64;
+        let mut sum_abs = 0.0f64;
+        for (i, (&g, &c)) in gpu.iter().zip(cpu.iter()).enumerate() {
+            let diff = (g as f64 - c).abs();
+            max_abs = max_abs.max(diff);
+            sum_abs += diff;
+            let tol = 3e-3 * (1.0 + c.abs());
+            assert!(
+                diff <= tol,
+                "query {i} (E={} eV): gpu={g}, cpu={c}, |diff|={diff} > tol={tol}",
+                queries[i]
+            );
+        }
+        let mean_abs = sum_abs / gpu.len() as f64;
+        eprintln!(
+            "native-union GPU vs CPU on Godiva Sigma_t ({} nodes): max|diff|={max_abs:.3e} cm^-1, \
+             mean|diff|={mean_abs:.3e} cm^-1 over {} queries (adapter: {})",
+            table.grid.len(),
             gpu.len(),
             ctx.info.name
         );

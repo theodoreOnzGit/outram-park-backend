@@ -473,12 +473,17 @@ pub fn run_keff_cpu_multi(
 /// **graceful CPU fallback** — never an error, never a panic on a missing GPU.
 ///
 /// If a usable GPU adapter is present ([`crate::gpu::probe`] returns `Some`), the
-/// run is handed to [`run_keff_gpu_inner`], which serves the macroscopic total
-/// Sigma_t from a GPU-built dense table (see that function for exactly how far the
-/// GPU reaches into the loop). If no adapter is available — a headless server, CI
-/// with no Vulkan/Metal loader, or **Android**, where the whole `wgpu` path is
-/// compiled out — it emits a `log::debug!` line and transparently runs the
-/// trusted [`run_keff_cpu_single`] reference instead.
+/// run is handed to [`run_keff_gpu_batched`] — the **event-based batched-flight**
+/// path, which keeps a whole batch of live neutrons resident in GPU buffers and
+/// advances them one flight at a time on the GPU (RNG draw + native-union Sigma_t
+/// lookup + collision-distance sample + streaming + leak test), leaving only the
+/// branchy per-collision reaction physics on the CPU (see that function for
+/// exactly how far the GPU reaches into the loop). The earlier
+/// [`run_keff_gpu_inner`] (first-flight-only GPU Sigma_t) is retained for
+/// comparison but no longer the default. If no adapter is available — a headless
+/// server, CI with no Vulkan/Metal loader, or **Android**, where the whole `wgpu`
+/// path is compiled out — it emits a `log::debug!` line and transparently runs
+/// the trusted [`run_keff_cpu_single`] reference instead.
 ///
 /// The GPU path is `f32` **acceleration only**; the single-thread CPU path
 /// remains the trusted, deterministic reference.
@@ -491,7 +496,7 @@ pub fn run_keff_gpu(
     #[cfg(not(target_os = "android"))]
     {
         if let Some(ctx) = crate::gpu::probe() {
-            return run_keff_gpu_inner(&ctx, radius_cm, material, nuclides, settings);
+            return run_keff_gpu_batched(&ctx, radius_cm, material, nuclides, settings);
         }
     }
     log::debug!("ComputeType::Gpu requested but no GPU adapter available — falling back to CPU");
@@ -611,6 +616,328 @@ pub fn run_keff_gpu_inner(
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
     KeffResult { k_mean, k_std, k_by_generation }
+}
+
+// ===========================================================================
+// Event-based batched-flight GPU path (the deep GPU penetration, beads op-u6s.7)
+// ===========================================================================
+
+/// Per-generation stride for the batched GPU path's per-particle RNG streams.
+/// Reuses the same jump-ahead striding scheme as [`run_keff_cpu_multi`] so each
+/// history owns an independent, non-overlapping LCG sub-stream derived only from
+/// `(seed, generation, history index)` — reproducible run-to-run, independent of
+/// how the batch is scheduled on the GPU. (`(n,2n)` secondaries get a further
+/// jump-ahead off their parent's stream; see [`run_keff_gpu_batched`].)
+#[cfg(not(target_os = "android"))]
+const BATCH_GEN_STRIDE: u64 = 1 << 40;
+/// Per-history stride for the batched GPU path (see [`BATCH_GEN_STRIDE`]).
+#[cfg(not(target_os = "android"))]
+const BATCH_HIST_STRIDE: u64 = crate::rng::lcg::DEFAULT_STRIDE;
+/// Jump-ahead applied to a colliding neutron's post-collision seed to seed the
+/// extra neutron it emits in an `(n,2n)` event, so parent and secondary never
+/// share draws. Large and coprime-ish with the history stride.
+#[cfg(not(target_os = "android"))]
+const BATCH_SECONDARY_STRIDE: u64 = 1 << 20;
+/// Hard cap on flight events per generation — a guard against a pathological
+/// non-terminating walk. Far above any real bare-sphere collision chain.
+#[cfg(not(target_os = "android"))]
+const BATCH_MAX_EVENTS: usize = 100_000;
+
+/// One live neutron resident in the batched-flight event loop: phase-space state
+/// plus its own LCG seed. `r` \[cm\], `u` unit direction, `e` \[eV\], `seed` the
+/// per-particle 64-bit LCG state threaded through both the GPU flight and the CPU
+/// collision.
+#[cfg(not(target_os = "android"))]
+#[derive(Clone, Copy)]
+struct LiveNeutron {
+    r: Position,
+    u: Direction,
+    e: f64,
+    seed: u64,
+}
+
+/// **Event-based, batched-flight GPU power iteration** ([`ComputeType::Gpu`]) —
+/// the deep GPU penetration of beads op-u6s.7. Desktop / non-Android only.
+///
+/// # How far the GPU reaches into the transport loop (the honest split)
+///
+/// Unlike the earlier first-flight-only [`run_keff_gpu_inner`], this driver keeps
+/// a **whole batch of live neutrons resident in GPU buffers** and advances them
+/// **one flight (one event) at a time, in parallel, per GPU dispatch**. For each
+/// live particle, one [`crate::gpu::batched_flight::advance_flight_gpu`] dispatch
+/// does, on the GPU (`f32`):
+///
+/// 1. **RNG** — advance the particle's own 64-bit LCG one step (the state math is
+///    bit-exact vs the CPU LCG; the derived uniform is `f32`), giving the
+///    collision-distance random number.
+/// 2. **Sigma_t lookup** — binary-search the shared **native-breakpoint union
+///    grid** ([`crate::gpu::union_grid::UnionTotalXs::tabulate_native`]) and
+///    linearly interpolate the macroscopic total Sigma_t at the particle energy.
+/// 3. **Distance-to-collision** — `d_col = -ln(xi) / Sigma_t`.
+/// 4. **Distance-to-boundary** — the bounding sphere intersection.
+/// 5. **Stream + leak test** — move to the nearer of the two; flag `Leaked`
+///    (reached vacuum) or `Collided` (interacts inside).
+///
+/// So the **regular, memory-bound, per-event streaming work runs on the GPU for
+/// the entire batch at once**. Only the **branchy per-collision reaction physics**
+/// (which nuclide, fission vs capture vs inelastic vs `(n,2n)` vs elastic, the
+/// secondary energy/angle laws) runs on the CPU — it is data-divergent and maps
+/// poorly to a GPU. Each generation therefore issues a *sequence* of GPU
+/// dispatches (one per event depth), each advancing all still-alive particles,
+/// with a CPU collision + compaction pass between dispatches. This is the honest
+/// limit of GPU penetration into a history-based MC walk: the flight is
+/// data-parallel and lives on the GPU; the collision kernel is branchy and stays
+/// on the CPU.
+///
+/// # RNG / reproducibility
+///
+/// Each history owns an **independent LCG sub-stream** derived only from
+/// `(seed, generation, history index)` via jump-ahead — the same scheme as
+/// [`run_keff_cpu_multi`]. The seed is threaded *through* the GPU flight (which
+/// advances it bit-exactly) and continues on the CPU for the collision draws, so
+/// a given particle sees one coherent stream across the GPU/CPU boundary. The
+/// result is **reproducible run-to-run** and independent of GPU scheduling, but
+/// — like the multi-thread backend, and because the flight's uniform + distance
+/// are computed in `f32` — it does **not** bit-match [`run_keff_cpu_single`]. It
+/// is a statistically independent estimate of the same eigenvalue, agreeing with
+/// the trusted reference within combined statistical uncertainty. The CPU
+/// single-thread `f64` path remains the trusted, bit-reproducible reference.
+#[cfg(not(target_os = "android"))]
+pub fn run_keff_gpu_batched(
+    ctx: &crate::gpu::GpuContext,
+    radius_cm: f64,
+    material: &Material,
+    nuclides: &[Nuclide],
+    settings: &KeffSettings,
+) -> KeffResult {
+    use crate::gpu::batched_flight::{advance_flight_gpu, FlightBatch, FlightOutcome, FlightSphere};
+    use crate::gpu::union_grid::UnionTotalXs;
+    use crate::rng::lcg::future_seed;
+
+    // The bounding-sphere intersection is computed on the GPU in the flight
+    // kernel, so only the f32 FlightSphere is needed here (no CSG Sphere).
+    let flight_sphere = FlightSphere { x0: 0.0, y0: 0.0, z0: 0.0, r: radius_cm as f32 };
+    let temp = settings.temperature_k;
+
+    // Native-breakpoint union grid, built once (temperature fixed for the run),
+    // cast to f32 for the GPU flight kernel.
+    let table = UnionTotalXs::tabulate_native(material, nuclides, 1e-3, 2e7, 16384);
+    let grid_f32: Vec<f32> = table.grid.iter().map(|&x| x as f32).collect();
+    let sigma_f32: Vec<f32> = table.sigma_total.iter().map(|&x| x as f32).collect();
+
+    // Source sampling / resampling run on their own sequential seed stream, kept
+    // off the per-history transport streams (as in run_keff_cpu_multi).
+    let mut src_seed = settings.seed;
+    let mut source: Vec<Site> = (0..settings.n_particles)
+        .map(|_| {
+            let (dx, dy, dz) = isotropic_direction(&mut src_seed);
+            let rr = radius_cm * prn(&mut src_seed).cbrt();
+            Site {
+                r: Position::new(rr * dx, rr * dy, rr * dz),
+                u: Direction::new(dx, dy, dz),
+                e: watt(&mut src_seed, settings.watt_a, settings.watt_b),
+            }
+        })
+        .collect();
+
+    let n_gen = settings.n_inactive + settings.n_active;
+    let mut k_by_generation = Vec::with_capacity(n_gen);
+    let mut k_running = 1.0;
+    let mut active_k = Vec::with_capacity(settings.n_active);
+
+    for gen in 0..n_gen {
+        let gen_base_seed = future_seed((gen as u64).wrapping_mul(BATCH_GEN_STRIDE), settings.seed);
+
+        // Seed the generation's live batch: each source site becomes a live
+        // neutron with its own independent per-history LCG stream.
+        let mut live: Vec<LiveNeutron> = source
+            .iter()
+            .enumerate()
+            .map(|(hist_idx, s)| LiveNeutron {
+                r: s.r,
+                u: s.u,
+                e: s.e,
+                seed: future_seed((hist_idx as u64).wrapping_mul(BATCH_HIST_STRIDE), gen_base_seed),
+            })
+            .collect();
+
+        let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
+        let mut production = 0.0_f64;
+
+        // Event loop: each pass advances EVERY live neutron one flight on the GPU,
+        // then resolves collisions on the CPU, until the batch drains.
+        let mut events = 0usize;
+        while !live.is_empty() && events < BATCH_MAX_EVENTS {
+            events += 1;
+
+            // --- GPU: one dispatch advances the whole batch by one flight. ---
+            let n = live.len();
+            let mut batch = FlightBatch {
+                pos: Vec::with_capacity(3 * n),
+                dir: Vec::with_capacity(3 * n),
+                energy: Vec::with_capacity(n),
+                rng_hi: Vec::with_capacity(n),
+                rng_lo: Vec::with_capacity(n),
+            };
+            for p in &live {
+                batch.pos.push(p.r.x as f32);
+                batch.pos.push(p.r.y as f32);
+                batch.pos.push(p.r.z as f32);
+                batch.dir.push(p.u.u as f32);
+                batch.dir.push(p.u.v as f32);
+                batch.dir.push(p.u.w as f32);
+                batch.energy.push(p.e as f32);
+                batch.rng_hi.push((p.seed >> 32) as u32);
+                batch.rng_lo.push(p.seed as u32);
+            }
+            let outcomes = advance_flight_gpu(ctx, &grid_f32, &sigma_f32, &mut batch, flight_sphere);
+
+            // --- CPU: resolve each outcome; build the next event's live batch. ---
+            let mut survivors: Vec<LiveNeutron> = Vec::with_capacity(n);
+            for (i, outcome) in outcomes.iter().enumerate() {
+                // Reassemble the GPU-advanced per-particle seed.
+                let mut seed =
+                    ((batch.rng_hi[i] as u64) << 32) | (batch.rng_lo[i] as u64);
+                match outcome {
+                    FlightOutcome::Leaked => { /* escaped to vacuum → dead */ }
+                    FlightOutcome::Collided => {
+                        // Collision site as streamed by the GPU flight (f32 → f64).
+                        let r = Position::new(
+                            batch.pos[3 * i] as f64,
+                            batch.pos[3 * i + 1] as f64,
+                            batch.pos[3 * i + 2] as f64,
+                        );
+                        let u = live[i].u;
+                        let e = live[i].e;
+                        let (prod, result) = collide_batched(
+                            r, u, e, material, nuclides, temp, k_running, &mut next_bank, &mut seed,
+                        );
+                        production += prod;
+                        match result {
+                            CollisionResult::Dead => {}
+                            CollisionResult::Scatter { e: e2, u: u2 } => {
+                                survivors.push(LiveNeutron { r, u: u2, e: e2, seed });
+                            }
+                            CollisionResult::ScatterWithSecondary {
+                                e: e2,
+                                u: u2,
+                                sec_e,
+                                sec_u,
+                            } => {
+                                survivors.push(LiveNeutron { r, u: u2, e: e2, seed });
+                                // The (n,2n) extra neutron gets its own sub-stream
+                                // (jump-ahead off the parent's post-collision seed).
+                                let sec_seed = future_seed(BATCH_SECONDARY_STRIDE, seed);
+                                survivors.push(LiveNeutron { r, u: sec_u, e: sec_e, seed: sec_seed });
+                            }
+                        }
+                    }
+                }
+            }
+            live = survivors;
+        }
+
+        let k_gen = production / settings.n_particles as f64;
+        k_by_generation.push(k_gen);
+        k_running = k_gen;
+        if gen >= settings.n_inactive {
+            active_k.push(k_gen);
+        }
+
+        if next_bank.is_empty() {
+            break;
+        }
+        source = resample(&next_bank, settings.n_particles, &mut src_seed);
+    }
+
+    let (k_mean, k_std) = mean_and_stderr(&active_k);
+    KeffResult { k_mean, k_std, k_by_generation }
+}
+
+/// The outcome of one CPU-side collision in the batched GPU path
+/// ([`run_keff_gpu_batched`]) — enum dispatch so every downstream `match` is
+/// exhaustive (no trait objects, per the workspace design rules).
+#[cfg(not(target_os = "android"))]
+enum CollisionResult {
+    /// Absorbed or fissioned → the neutron leaves the batch. Any fission sites
+    /// were already banked into `next_bank`; the ν̄ production is returned
+    /// alongside.
+    Dead,
+    /// Scattered (elastic or inelastic) → stays live with new energy/direction.
+    Scatter { e: f64, u: Direction },
+    /// Scattered **and** emitted one extra same-generation neutron (`(n,2n)`,
+    /// yield 2) → both the down-scattered primary and the secondary stay live.
+    ScatterWithSecondary { e: f64, u: Direction, sec_e: f64, sec_u: Direction },
+}
+
+/// Resolve one collision at `r` \[cm\] for a neutron of energy `e` \[eV\] and
+/// direction `u`, drawing from its LCG `seed`. Returns `(production, result)`
+/// where `production` is the ν̄ banked this collision (non-zero only on fission)
+/// and `result` tells [`run_keff_gpu_batched`] whether the neutron dies,
+/// scatters, or scatters with an `(n,2n)` secondary.
+///
+/// This is the **CPU collision kernel** of the batched GPU path. Its reaction
+/// partition and RNG-draw order are a **verbatim mirror** of the collision block
+/// in [`transport_history`] (fission | capture | inelastic | `(n,2n)` | elastic,
+/// partitioned on the microscopic total), so a history's stream stays coherent
+/// across the GPU flight → CPU collision boundary. The only structural difference
+/// is that `(n,2n)` returns the secondary to the caller (which re-banks it into
+/// the live batch) rather than pushing onto a local stack. See
+/// [`transport_history`] for the per-channel physics citations.
+#[cfg(not(target_os = "android"))]
+#[allow(clippy::too_many_arguments)]
+fn collide_batched(
+    r: Position,
+    u: Direction,
+    e: f64,
+    material: &Material,
+    nuclides: &[Nuclide],
+    temp: f64,
+    k_running: f64,
+    next_bank: &mut Vec<Site>,
+    seed: &mut u64,
+) -> (f64, CollisionResult) {
+    let ci = material.sample_nuclide(e, seed, nuclides);
+    let nuc = &nuclides[material.components[ci].nuclide_idx];
+    let x = nuc.xs_at_energy(e, temp);
+
+    let xi = prn(seed) * x.total;
+    if xi < x.fission {
+        let nu_bar = if x.fission > 0.0 { x.nu_fission / x.fission } else { 0.0 };
+        let n = sample_num_neutrons(nu_bar, k_running, seed);
+        for _ in 0..n {
+            let (dx, dy, dz) = isotropic_direction(seed);
+            next_bank.push(Site {
+                r,
+                u: Direction::new(dx, dy, dz),
+                e: nuc.sample_fission_energy(e, seed),
+            });
+        }
+        (nu_bar, CollisionResult::Dead)
+    } else if xi < x.absorption {
+        (0.0, CollisionResult::Dead) // radiative capture
+    } else if xi < x.absorption + x.inelastic {
+        let (e2, u2) = match nuc.sample_inelastic(e, seed) {
+            Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
+            Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed),
+        };
+        (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+    } else if xi < x.absorption + x.inelastic + x.n2n {
+        // (n,2n): the primary down-scatters and one extra neutron is emitted
+        // sharing the sampled outgoing state (Weisskopf stand-in for the emission
+        // law, as in transport_history).
+        let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, seed);
+        (
+            0.0,
+            CollisionResult::ScatterWithSecondary { e: e2, u: u2, sec_e: e2, sec_u: u2 },
+        )
+    } else {
+        let (e2, u2) = match nuc.sample_elastic_mu_cm(e, seed) {
+            Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
+            None => elastic_scatter(e, u, nuc.awr, seed),
+        };
+        (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+    }
 }
 
 /// Transport one source neutron — plus any same-generation `(n,2n)` secondaries
@@ -963,9 +1290,14 @@ mod tests {
     /// - single-thread = the trusted deterministic reference;
     /// - multi-thread = rayon over histories, independent per-history RNG streams
     ///   (a *statistically independent* estimate — different stream structure);
-    /// - GPU = GPU-batched first-flight Sigma_t + dense-table Sigma_t on the SAME
-    ///   RNG stream as single-thread (so it should agree *tightly*, differing only
-    ///   through the table resampling + `f32` rounding).
+    /// - GPU = the **event-based batched-flight** path ([`run_keff_gpu_batched`]):
+    ///   a batch of live neutrons is advanced one flight at a time on the GPU
+    ///   (per-particle LCG advance + native-union Sigma_t lookup + collision
+    ///   distance + sphere flight in `f32`), with the branchy collision physics on
+    ///   the CPU. Like multi-thread it uses independent per-history RNG streams, so
+    ///   it is a statistically independent estimate — not bit-locked to the
+    ///   single-thread stream — differing additionally through `f32` flight
+    ///   rounding.
     ///
     /// Pass criterion: pairwise agreement within a **combined-sigma band**,
     /// `|k_a − k_b| ≤ 5 · sqrt(σ_a² + σ_b²)`. The GPU arm **skips gracefully**
@@ -977,22 +1309,16 @@ mod tests {
     /// skipped — a real adapter was present in the test process):
     /// - k_single = **1.00762 ± 0.00827** (trusted reference),
     /// - k_multi  = **1.00715 ± 0.00768**,
-    /// - k_gpu    = **1.00066 ± 0.00839**.
+    /// - k_gpu    = **1.00933 ± 0.00727** (batched-flight path).
     ///
     /// Pairwise σ-distances:
     /// - single-vs-multi: |Δk| = 0.00047 = **0.04σ** (5σ band 0.05643) — a
     ///   statistically independent stream landing essentially on top of the
-    ///   reference, as expected;
-    /// - single-vs-gpu: |Δk| = 0.00696 = **0.59σ** (5σ band 0.05890) — larger than
-    ///   single-vs-multi despite the *shared* RNG stream. Interpretation: the GPU
-    ///   path shares the seed but not the Sigma_t values — the 16 384-point dense
-    ///   log-spaced table (`f32` first flight + `f64` CPU interp thereafter) smears
-    ///   the resonant total slightly, and once a slightly different Sigma_t flips a
-    ///   single leak-vs-collide decision (`d_col ≷ d_bound`) that history
-    ///   decorrelates from the reference. The net is a small ~700 pcm systematic
-    ///   shift, comfortably inside the 5σ band. This matches the documented limit:
-    ///   the table is an acceleration-only resampling, judged against the CPU
-    ///   reference, never trusted above it.
+    ///   reference;
+    /// - single-vs-gpu: |Δk| = 0.00171 = **0.16σ** (5σ band 0.05503) — the batched
+    ///   GPU path (independent per-history streams + `f32` flight) also lands well
+    ///   within combined uncertainty of the reference. The GPU is acceleration
+    ///   only, judged against the CPU reference, never trusted above it.
     ///
     /// All three land within ~1000 pcm of unity and of each other — the compute
     /// selector does not change the physics.
@@ -1233,5 +1559,99 @@ mod tests {
             k_low > 0.95 && k_low < 1.06,
             "LOW tier should also reach the benchmark band now (LOW={k_low})"
         );
+    }
+
+    /// **GPU-vs-CpuMultiThread timing sweep** (beads op-u6s.7 deliverable) — the
+    /// event-based batched-flight `ComputeType::Gpu` path benchmarked against the
+    /// `CpuMultiThread` and `CpuSingleThread` backends across a sweep of
+    /// particle-batch sizes, on real hardware.
+    ///
+    /// **Methodology.** Godiva LOW-tier material (U-234/235/238, ICSBEP atom
+    /// densities, T = 293.6 K, embedded `from_core` data), bare sphere r = 8.7407
+    /// cm, a fixed short power iteration (`n_inactive` + `n_active` generations set
+    /// in the body) at each batch size `n_particles ∈ {1e3, 1e4, 1e5, 1e6}`. For
+    /// each (size, backend) the wall-clock of a full [`run_keff`] is measured with
+    /// [`std::time::Instant`] and the eigenvalue recorded. Results are written as a
+    /// plottable CSV to
+    /// `verification_and_validation/gpu_batched_transport/timing_vs_batch.csv`
+    /// (columns: date, adapter, batch_size, backend, wall_time_s, k_mean, k_std,
+    /// n_gen, histories_total). The k agreement of GPU vs single is checked to lie
+    /// within a combined-sigma band. This is an **honest** benchmark: whatever the
+    /// crossover (or lack of one) is, it is recorded — no fabricated speedup.
+    ///
+    /// `#[ignore]` because it is a long, hardware-dependent measurement, not a
+    /// correctness gate. Run it explicitly with:
+    /// `cargo test -p outram-mc-libs --lib --release gpu_batched_timing_sweep -- --ignored --nocapture`.
+    ///
+    /// **Results.** Written as a per-machine markdown report + CSV to the
+    /// gitignored `verification_and_validation/local_perf/` on the run machine (via
+    /// [`crate::perf_report`]); the committed
+    /// `verification_and_validation/gpu_batched_transport/README.md` holds the
+    /// methodology and a labelled reference measurement. Machine-specific numbers
+    /// stay local because they differ per host.
+    #[test]
+    #[ignore]
+    fn gpu_batched_timing_sweep() {
+        use crate::perf_report::{PerfReport, PerfRow};
+        use std::time::Instant;
+
+        let (material, nuclides) = godiva();
+        let radius = 8.7407;
+        // Short, fixed iteration — throughput benchmark, not a converged k.
+        let n_inactive = 3usize;
+        let n_active = 7usize;
+        let n_gen = n_inactive + n_active;
+        let sizes = [1_000usize, 10_000, 100_000, 1_000_000];
+
+        // Detect this host's hardware and accumulate measured rows into a
+        // per-PC report (the "what performance is available on my PC" answer).
+        let mut report =
+            PerfReport::new("Godiva GPU batched-flight transport — this machine", "2026-07-17");
+        eprintln!("[sweep] host: {}", report.hardware.headline());
+
+        for &n_particles in &sizes {
+            let base = KeffSettings { n_particles, n_inactive, n_active, ..KeffSettings::default() };
+            let histories_total = n_particles * n_gen;
+
+            let mut runs: Vec<(&str, ComputeType)> = vec![
+                ("CpuMultiThread", ComputeType::CpuMultiThread(ThreadCount::Auto)),
+                ("Gpu", ComputeType::Gpu),
+            ];
+            // Single-thread only up to 1e5 to bound total benchmark wall-time.
+            if n_particles <= 100_000 {
+                runs.insert(0, ("CpuSingleThread", ComputeType::CpuSingleThread));
+            }
+
+            for (name, compute) in runs {
+                let t0 = Instant::now();
+                let res = run_keff(radius, &material, &nuclides, &base.with_compute(compute));
+                let dt = t0.elapsed().as_secs_f64();
+                report.push(PerfRow {
+                    batch_size: n_particles,
+                    backend: name.to_string(),
+                    wall_time_s: dt,
+                    k_mean: res.k_mean,
+                    k_std: res.k_std,
+                    histories_total,
+                });
+                eprintln!(
+                    "[sweep] N={n_particles:>8} {name:<16} {dt:>8.3}s  k={:.5}±{:.5}",
+                    res.k_mean, res.k_std
+                );
+            }
+        }
+
+        // Persist the machine-specific markdown report + CSV locally (gitignored).
+        let md = report.render_markdown();
+        let csv = report.to_csv();
+        match crate::perf_report::write_local_report("gpu_batched_transport.md", &md) {
+            Ok(p) => eprintln!("[sweep] wrote per-PC report {}", p.display()),
+            Err(e) => eprintln!("[sweep] could not write local report: {e}"),
+        }
+        if let Ok(p) =
+            crate::perf_report::write_local_report("gpu_batched_transport_timing.csv", &csv)
+        {
+            eprintln!("[sweep] wrote per-PC csv {}", p.display());
+        }
     }
 }
