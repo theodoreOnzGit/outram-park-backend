@@ -8,6 +8,7 @@ members = [
     "crates/outram-foam-basic-lib",
     "crates/outram-foam-turbulence-lib",
     "crates/outram-foam-appbuilder-lib",
+    "crates/outram-foam-mesh",
     "crates/outram-mc-libs",
     "crates/outram-park-fork-dwsim-libs",
     "crates/boon-lay",
@@ -139,6 +140,7 @@ tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.
 outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.0" }
 outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.0" }
 outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.0" }
+outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.0" }
 outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.1.0" }
 outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.1.0" }
 boon-lay            = { path = "crates/boon-lay",            version = "0.1.2" }

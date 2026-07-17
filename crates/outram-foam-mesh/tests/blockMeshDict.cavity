@@ -1,0 +1,72 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| Test fixture: the classic OpenFOAM lid-driven cavity blockMeshDict.          |
+| Reproduced from OpenFOAM's tutorials/incompressible/icoFoam/cavity/cavity    |
+| (GPL-3.0). Single 20x20x1 hex block, unit square scaled by 0.1 m, with a     |
+| moving lid (movingWall), fixed side/bottom walls, and empty front/back for   |
+| the pseudo-2D case.                                                          |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+
+convertToMeters 0.1;
+
+vertices
+(
+    (0 0 0)     // 0
+    (1 0 0)     // 1
+    (1 1 0)     // 2
+    (0 1 0)     // 3
+    (0 0 0.1)   // 4
+    (1 0 0.1)   // 5
+    (1 1 0.1)   // 6
+    (0 1 0.1)   // 7
+);
+
+blocks
+(
+    hex (0 1 2 3 4 5 6 7) (20 20 1) simpleGrading (1 1 1)
+);
+
+edges
+(
+);
+
+boundary
+(
+    movingWall
+    {
+        type wall;
+        faces
+        (
+            (3 7 6 2)
+        );
+    }
+    fixedWalls
+    {
+        type wall;
+        faces
+        (
+            (0 4 7 3)
+            (2 6 5 1)
+            (1 5 4 0)
+        );
+    }
+    frontAndBack
+    {
+        type empty;
+        faces
+        (
+            (0 3 2 1)
+            (4 7 6 5)
+        );
+    }
+);
+
+mergePatchPairs
+(
+);
