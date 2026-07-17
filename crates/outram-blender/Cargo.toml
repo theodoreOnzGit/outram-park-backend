@@ -28,6 +28,14 @@ thiserror = { workspace = true }
 # stays in fixed-size `crate::math` types; faer handles the big systems.
 faer = { workspace = true }
 
+# Optional GPU compute (headless, no window) behind the `gpu` feature — see
+# src/gpu.rs. Default build is wgpu-free + headless-Android-clean. GPU is
+# acceleration only; CPU (faer + math) stays the trusted/deterministic path.
+wgpu = { workspace = true, optional = true }
+
+[features]
+gpu = ["dep:wgpu"]
+
 # NOTE: no OpenGL/Vulkan/GUI dependency here. The library is headless and
 # Android-buildable. Any future viewport/GUI belongs in `examples/` behind a
 # `cfg(not(target_os = "android"))` gate, never in the library's unconditional

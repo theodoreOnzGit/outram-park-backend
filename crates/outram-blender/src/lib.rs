@@ -91,3 +91,9 @@ pub mod procedural;
 /// large one-off sparse solves (see beads `op-hzs`). None of this is wired into
 /// an operator yet — the dependency is staged for that work.
 pub use faer;
+
+/// Optional headless GPU compute (behind the `gpu` cargo feature). Absent from
+/// the default build, so a plain `cargo build` stays wgpu-free and
+/// headless-Android-clean. See [`gpu`] for the CPU-fallback contract.
+#[cfg(feature = "gpu")]
+pub mod gpu;

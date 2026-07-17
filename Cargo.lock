@@ -5265,6 +5265,7 @@ version = "0.0.0"
 dependencies = [
  "faer",
  "thiserror 2.0.18",
+ "wgpu",
 ]
 
 [[package]]
