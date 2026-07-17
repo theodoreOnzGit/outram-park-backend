@@ -25,7 +25,31 @@
 
 use super::filter::FilterEvent;
 use super::tally::{ScoreType, Tally};
+use crate::geometry::position::Position;
 use crate::material::material::MacroXs;
+
+/// Recoverable energy per fission `Q` \[J\] — the constant multiplier of the
+/// [`ScoreType::KappaFission`] score.
+///
+/// OpenMC reads a per-nuclide, energy-dependent `q_recoverable` from the
+/// `fission_energy_release` data of each nuclide
+/// (`src/nuclide.cpp:335-336`, `fission_q_recov_`) and multiplies the fission
+/// reaction rate by it (`src/tallies/tally_scoring.cpp:1480`,
+/// `SCORE_KAPPA_FISSION`). This crate's LOW-tier embedded WMP/collapsed data
+/// does **not** carry per-nuclide fission-energy-release curves (that is bead
+/// op-6tz.24), so we use a single documented constant appropriate for
+/// U-235-dominated fuel:
+///
+/// `Q ≈ 193.4 MeV = 193.4e6 eV × 1.602176634e-19 J/eV ≈ 3.0982e-11 J`.
+///
+/// The 193.4 MeV recoverable value is the textbook U-235 thermal-fission figure
+/// (e.g. Lamarsh & Baratta, *Introduction to Nuclear Engineering*; the value
+/// excludes the ~10 MeV lost to antineutrinos, matching OpenMC's `q_recoverable`
+/// semantics). Because it is a single constant rather than the true
+/// energy/nuclide-dependent curve, the *absolute* kappa-fission watts this
+/// produces are not a benchmark — but they are exactly proportional to the
+/// fission rate, which is what the power-normalization round-trip needs.
+pub const Q_FISSION_J: f64 = 3.0982e-11;
 
 /// Map a [`FilterEvent`] through every filter attached to `tally` to the flat
 /// *filter* bin index (row-major, first filter slowest-varying), or `None` if any
@@ -61,6 +85,11 @@ fn track_length_value(score: &ScoreType, d: f64, macro_xs: Option<&MacroXs>, w: 
         (ScoreType::Total, Some(x)) => wd * x.total,
         (ScoreType::Fission, Some(x)) => wd * x.fission,
         (ScoreType::NuFission, Some(x)) => wd * x.nu_fission,
+        // Kappa-fission: fission energy-deposition rate. Track-length estimator is
+        // `w·d·Σ_f·Q` — the fission reaction rate scaled by the recoverable energy
+        // per fission `Q` [J] (`src/tallies/tally_scoring.cpp:1480`). Guarded like
+        // the fission arm against E→0 non-finite Σ_f (see `score_track_length`).
+        (ScoreType::KappaFission, Some(x)) => wd * x.fission * Q_FISSION_J,
         // Σ_a is not carried on MacroXs (only Σ_t, Σ_s, Σ_f, ν-Σ_f). Approximate
         // the absorption rate as the non-scatter fraction (Σ_t − Σ_s), matching
         // the collision-estimator convention above. Documented gap op-6tz.9.
@@ -102,9 +131,23 @@ fn track_length_value(score: &ScoreType, d: f64, macro_xs: Option<&MacroXs>, w: 
 /// - `energy` — the particle energy \[eV\] over the segment (constant along a
 ///   free flight; the outgoing energy is only set after the collision is scored).
 /// - `distance` — the streamed segment length \[cm\].
+/// - `position` — a representative spatial point of the segment \[cm\] for the
+///   spatial filters ([`super::filter::MeshFilter`],
+///   [`super::filter::SpatialLegendreFilter`]); the caller passes the segment
+///   **midpoint** `r + 0.5·d·u`, the track-length-representative point. Ignored by
+///   the non-spatial (cell/material/universe/energy) filters.
 /// - `macro_xs` — the material's macroscopic cross sections at `energy`, or `None`
 ///   in a void (then only the flux score deposits).
 /// - `weight` — particle statistical weight (1.0 for analog transport).
+///
+/// # Functional-expansion (Legendre) path
+///
+/// If the tally carries a *single* expansion filter (a
+/// [`super::filter::SpatialLegendreFilter`], detected via
+/// [`super::filter::Filter::expansion_moments`]), the segment deposits
+/// `w·d·Σ_x · P_n(ξ)` into every moment bin `n` at once (mirroring OpenMC's
+/// multi-`(bin, weight)` `get_all_bins`) rather than routing through the single-bin
+/// [`filter_bin`] path. See [`super::filter::SpatialLegendreFilter`].
 #[allow(clippy::too_many_arguments)]
 pub fn score_track_length(
     batch: &mut [f64],
@@ -114,6 +157,7 @@ pub fn score_track_length(
     universe_idx: usize,
     energy: f64,
     distance: f64,
+    position: Position,
     macro_xs: Option<&MacroXs>,
     weight: f64,
 ) {
@@ -126,7 +170,33 @@ pub fn score_track_length(
         universe_idx,
         energy,
         surface_idx: usize::MAX,
+        position,
     };
+
+    // Functional-expansion path: a lone expansion filter (SpatialLegendreFilter)
+    // deposits w·d·Σ_x·P_n(ξ) into every moment bin n simultaneously, the faithful
+    // analogue of OpenMC's multi-(bin, weight) get_all_bins
+    // (`src/tallies/filter_sptl_legendre.cpp:63`). Only supported as the sole
+    // filter (documented gap op-6tz.14).
+    if tally.filters.len() == 1 {
+        if let Some(moments) = tally.filters[0].expansion_moments(&ev) {
+            let n_scores = tally.scores.len();
+            for (s_idx, score) in tally.scores.iter().enumerate() {
+                let base = track_length_value(score, distance, macro_xs, weight);
+                if !base.is_finite() {
+                    continue;
+                }
+                for (n, &pn) in moments.iter().enumerate() {
+                    let val = base * pn;
+                    if val.is_finite() {
+                        batch[n * n_scores + s_idx] += val;
+                    }
+                }
+            }
+            return;
+        }
+    }
+
     let Some(bin) = filter_bin(tally, &ev) else {
         return;
     };
@@ -197,6 +267,9 @@ pub fn score_collision(
         universe_idx,
         energy,
         surface_idx: usize::MAX,
+        // The collision estimator has no spatial-filter callers yet; a mesh /
+        // Legendre tally uses the track-length estimator. Score at the origin.
+        position: Position::ZERO,
     };
 
     // Map the event through every filter to a flat bin index (row-major, first
@@ -212,6 +285,10 @@ pub fn score_collision(
             ScoreType::Total => weight,
             ScoreType::Fission => weight * macro_xs.fission / sigma_t,
             ScoreType::NuFission => weight * macro_xs.nu_fission / sigma_t,
+            // Kappa-fission collision estimator: `w·(Σ_f/Σ_t)·Q` — the fission
+            // reaction-rate estimate scaled by the recoverable energy per fission
+            // `Q` [J] (`src/tallies/tally_scoring.cpp:1480`, SCORE_KAPPA_FISSION).
+            ScoreType::KappaFission => weight * macro_xs.fission / sigma_t * Q_FISSION_J,
             // Absorption Σ_a is not carried on MacroXs yet (only Σ_t, Σ_s, Σ_f,
             // ν-Σ_f). Approximate the collision-estimator absorption rate as the
             // non-scatter fraction Σ_t − Σ_s over Σ_t. Documented gap op-6tz.9.

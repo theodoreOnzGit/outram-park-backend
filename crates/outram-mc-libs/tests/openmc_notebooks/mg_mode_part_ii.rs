@@ -7,14 +7,21 @@
 //!
 //! **OpenMC API exercised.** mgxs.Library, plot_xs, MeshFilter, multigroup run
 //!
-//! **GAP.** Multigroup transport is a stub; MGXS generation is the njoy track's responsibility.
-//! Tracked by bead op-6tz.15. This test is `#[ignore]`d with an
-//! `unimplemented!()` body so it can never report a fake green; removing the
-//! ignore before the API exists makes it fail loudly.
+//! **GAP (sharpened 2026-07-17).** A multigroup transport mode *does* now exist
+//! ([`outram_mc_libs::physics::physics_mg::run_keff_mg`], exercised LIVE by
+//! `mg_mode_part_i`), and a `RegularMesh`/`MeshFilter` now exists too (added for
+//! `post_processing`). The remaining blocker for THIS notebook is the
+//! **generate-from-CE step**: `mgxs.Library` collapses a continuous-energy run
+//! into a multigroup library, which is the **njoy track's** responsibility
+//! (self-shielded/flux-solved MGXS, bead op-6tz.6.3) and is not available here.
+//! Without a way to produce the MGXS from a CE run, the notebook's
+//! generate-then-re-run workflow cannot be reproduced. Tracked by op-6tz.15
+//! (this crate) + op-6tz.6.3 (njoy). Kept `#[ignore]` with an `unimplemented!()`
+//! body so it can never report a fake green.
 
 /// GAP placeholder for the `mg-mode-part-ii` notebook. See the module docs.
 #[test]
-#[ignore = "requires multigroup transport mode (op-6tz.15)"]
+#[ignore = "MGXS-from-CE generation (mgxs.Library) is the njoy track (op-6tz.6.3); run_keff_mg + MeshFilter exist but the notebook's generate-then-run workflow does not (op-6tz.15)"]
 fn mg_mode_generate_and_run() {
-    unimplemented!("mg-mode-part-ii: requires multigroup transport mode (op-6tz.15)");
+    unimplemented!("mg-mode-part-ii: MGXS-from-CE generation (mgxs.Library) unavailable — njoy track op-6tz.6.3 / op-6tz.15");
 }

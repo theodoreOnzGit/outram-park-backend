@@ -18,6 +18,16 @@ pub enum ScoreType {
     Fission,
     Absorption,
     NuFission,
+    /// Fission energy-deposition rate (a.k.a. heating from fission).
+    ///
+    /// Maps to `openmc::SCORE_KAPPA_FISSION` (`src/tallies/tally_scoring.cpp:1480`).
+    /// Scores the fission reaction rate multiplied by the recoverable energy per
+    /// fission `Q` \[J\], so the accumulated bin is a fission **power** in J per
+    /// source-particle-generation. See [`super::scoring::Q_FISSION_J`] for the
+    /// constant and its provenance; it is used to normalize a k-eigenvalue tally
+    /// to a target reactor thermal power (the `tally-power-normalization`
+    /// notebook).
+    KappaFission,
     ScatterN,        // (n,xn) scatter
     Current,
     Events,

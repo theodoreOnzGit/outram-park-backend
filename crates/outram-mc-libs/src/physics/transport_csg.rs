@@ -264,7 +264,11 @@ fn transport_history(
                 let seg = d_col.min(d_bound.distance);
                 let mxs = path.material.map(|m| materials[m].macro_xs(e, nuclides));
                 let mat_idx = path.material.unwrap_or(usize::MAX);
-                score_track_length(batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mxs.as_ref(), 1.0);
+                // Spatial filters (mesh / Legendre) bin on the segment midpoint
+                // `r + 0.5·seg·u` — the track-length-representative point of the
+                // free flight (constant energy, single cell over the segment).
+                let mid = stream(r, u, 0.5 * seg);
+                score_track_length(batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mid, mxs.as_ref(), 1.0);
             }
 
             if d_col < d_bound.distance {
