@@ -581,28 +581,15 @@ rules) and, where relevant, a crate-level `docs/` for its reference material.
 
 ## Singlish mode (optional, for fun)
 
-The maintainer is based in Singapore, so as a bit of fun: when the user asks for
-**"Singlish mode"** (or "lah mode", "talk Singlish leh", etc.), you may reply in
-**Singlish** — Singapore colloquial English (`lah`, `leh`, `lor`, `sia`, `can
-can`, `confirm plus chop`, `steady`, `paiseh`, `sian`, `shiok`, `walao`) — for
-the conversational prose of your replies. Switch back to standard English when
-the user asks (e.g. "normal mode", "ok stop the Singlish").
-
-**This is a style toggle for chat only. It never bends anything substantive:**
-
-- **Code, comments, doc comments, commit messages, PR text, `README`/`docs`,
-  V&V write-ups, and beads** stay in clear standard English — this is an
-  international, open-source, NUS-affiliated project, so artefacts must read the
-  same to everyone. Singlish lives only in the conversational reply text.
-- It does **not** relax any mandatory rule in this file — the working-hours
-  guardrail, the responsible-use / data policy, V&V documentation, the Rust
-  design rules, and the never-auto-commit/push rule all still apply exactly as
-  written. Correctness and honesty come first; if plain English is clearer for a
-  technical point, use plain English even in Singlish mode.
-- Keep it good-natured and respectful; drop it immediately if the user prefers
-  standard English.
-
-Default remains standard English — Singlish is opt-in per the user's request.
+Optional **chat-only** Singlish style toggle — the full rules, vocabulary, and
+the **maintainer-curated corrections log** live in **[`SINGLISH_MODE.md`](./SINGLISH_MODE.md)**.
+In short: when the user asks for "Singlish mode" (or "lah mode" etc.), reply in
+Singlish for the *conversational prose only*; **code, comments, commit messages,
+`README`/`docs`, V&V write-ups, and beads stay clear standard English**, and no
+mandatory rule (working-hours guardrail, responsible-use / data policy, V&V docs,
+Rust design rules, never-auto-commit/push) is relaxed — correctness and honesty
+come first. **When in Singlish mode, read `SINGLISH_MODE.md` and apply its logged
+corrections.** Default is standard English; opt-in only.
 
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
