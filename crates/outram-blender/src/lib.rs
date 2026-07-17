@@ -31,6 +31,7 @@
 //! | Module | Blender analogue | Status |
 //! |---|---|---|
 //! | [`math`] | `blenlib` `BLI_math` vector types | **real** — a minimal pure-Rust [`math::Vec3`] |
+//! | [`transform`] | `Object.matrix_world` affine placement | **real** — [`transform::Affine3`] per-vertex transform (CPU reference for the GPU kernel) |
 //! | [`mesh`] | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **stub** — extrude / subdivide / bevel / boolean TODOs |
@@ -75,6 +76,7 @@ pub mod modifiers;
 pub mod ops;
 pub mod primitives;
 pub mod procedural;
+pub mod transform;
 
 /// Heavy linear-algebra backend for the *large* mesh solves the advanced
 /// operators will need — Laplacian mesh editing, ARAP deformation, and mesh

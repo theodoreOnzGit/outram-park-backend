@@ -28,9 +28,77 @@ stubs elsewhere, and a Blender dependency map.
 | `modifiers` | **STUB** | `Modifier` enum (Subsurf/Mirror/Array) + `ModifierStack`; empty stack is identity, non-empty returns `NotImplemented` |
 | `procedural` | **STUB** | `GeometryGraph` / `GeometryNode` sketch; `evaluate` returns `NoOutput` or `NotImplemented` |
 | `export::to_polymesh_surface` / `to_csg_primitive` | **STUB** | Document the `outram-foam-mesh` polyMesh and `outram-mc-libs` CSG target interfaces; return `NotImplemented` |
+| `transform` | **REAL** | `Affine3` (`3x3` linear + translation) `f64` CPU reference: `transform_point`/`transform_points`, `IDENTITY`/`translation`/`scale`/`from_rows`; 3 unit tests. Always compiled (no feature) — the trusted path. |
+| `gpu` (default build) | **ABSENT** | Feature-gated off; `cargo tree -e no-dev` confirms **no wgpu** in the default dependency tree, and default + Android checks are clean. |
+| `gpu` (`--features gpu`) | **REAL** | `probe()` really creates a `wgpu::Instance`, requests a headless compute adapter + device/queue (blocked on via an in-crate no-dep `block_on`), returns `Some`/`None`. `transform_vertices_gpu` runs a real **WGSL compute shader** (one invocation per vertex) and reads results back. CPU-checked test that **SKIPs** when no adapter. |
 
 **No fake-green.** Every stub returns a typed `NotImplemented` error and has a
-test asserting exactly that — no stub pretends to work.
+test asserting exactly that — no stub pretends to work. The GPU path is not
+faked either: its agreement test runs the real shader when an adapter exists and
+prints an explicit `SKIP` (still passing, never failing) when none does.
+
+## GPU compute path (`--features gpu`, bead `op-hzs.10`)
+
+**Real, end-to-end — no longer a scaffold `None`-stub.**
+
+- **`probe()`** — creates `wgpu::Instance::default()`, requests a **headless**
+  adapter (no surface, `power_preference = None`) and a device+queue at
+  `Limits::downlevel_defaults()` (widest hardware/software compatibility). The
+  async requests are driven by a **tiny in-crate `block_on`** (a no-op-waker
+  poll loop) rather than adding a `pollster`/async-runtime dependency — this
+  keeps the crate's dependency surface minimal (workspace single-source policy)
+  and touches no root `Cargo.toml`. Returns `None` (⇒ CPU fallback) when no
+  adapter, which is a normal outcome on headless CI / Android emulator, never an
+  error.
+- **Demonstrator kernel** — `transform_vertices_gpu(ctx, affine, positions)`
+  applies an `Affine3` (`M p + t`) to every vertex via `AFFINE_TRANSFORM_WGSL`,
+  an embarrassingly-parallel WGSL compute shader: positions as a flat `f32`
+  storage buffer, the affine as a padded `4 x vec4<f32>` uniform, one invocation
+  per vertex, result copied to a `MAP_READ` staging buffer and read back. GPU
+  math is `f32`; the CPU `Affine3::transform_points` is the trusted `f64`
+  reference.
+- **Contract preserved** — the default build is wgpu-free (verified by
+  `cargo tree`), the CPU path is always available and deterministic, and GPU is
+  acceleration only.
+
+### V&V — GPU vs CPU agreement (methodology + measured result)
+
+- **Methodology.** `gpu::tests::gpu_matches_cpu_or_skips` probes for an adapter;
+  if none, it prints `SKIP` and returns (pass, no assertion). If a device
+  exists it transforms 1000 vertices with both the GPU shader (f32) and the CPU
+  reference (f64) under an affine mixing a z-rotation, a z-scale, and a
+  translation (so a wrong row/column order or dropped translation would fail),
+  and asserts every component agrees within absolute tolerance `1e-4`.
+- **Result (2026-07-17, this worktree, Arch Linux, rustc stable, release).** An
+  adapter **was** present: the test ran the real shader and reported
+  `max abs GPU-CPU error = 1.53e-6`, well within the `1e-4` tolerance — genuine
+  GPU/CPU agreement, not a skip. The full suite is **22 unit tests + 1 doctest,
+  all pass** under `--features gpu --release`.
+
+### Build / test / Android — measured output (GPU work, 2026-07-17)
+
+- `cargo check -p outram-blender` (default) → **clean**; `cargo tree -e no-dev`
+  shows **no wgpu** in the default tree.
+- `cargo check -p outram-blender --target aarch64-linux-android` (default) →
+  **clean** (headless, no GPU stack pulled).
+- `cargo test -p outram-blender --features gpu --release` → **22 unit + 1
+  doctest pass**; GPU agreement test ran the real kernel (see result above).
+- `cargo clippy -p outram-blender --features gpu` → only the two **pre-existing**
+  `math::Vec3` `add`/`sub` "confused for std trait" warnings; the GPU/transform
+  code adds no new warnings.
+
+### Human-verify list (GPU)
+
+1. **Adapter/limits policy** — `downlevel_defaults()` + `power_preference = None`
+   is chosen for portability; confirm this is the right default vs preferring a
+   discrete GPU for real workloads.
+2. **`block_on` soundness** — the in-crate no-op-waker poll loop relies on wgpu's
+   native futures making progress under `device.poll(...)`; review the two
+   `unsafe` blocks (stack-pinned future; no-op `RawWaker` vtable).
+3. **f32 tolerance** — `1e-4` abs is for O(10)-magnitude coordinates; revisit for
+   larger meshes / coordinates where relative tolerance may be more appropriate.
+4. **Precision contract** — confirm downstream never treats GPU `f32` output as
+   the trusted path; CPU `f64` remains the reference for V&V/solvers.
 
 ## Build / test / Android — measured output
 
@@ -107,7 +175,8 @@ flagged prominently in `README.md` ("Naming & trademark") and `Cargo.toml`.
 `op-hzs.1` half-edge mesh ops · `op-hzs.2` Catmull-Clark subdivision ·
 `op-hzs.3` boolean/CSG operator · `op-hzs.4` modifier stack ·
 `op-hzs.5` procedural evaluator · `op-hzs.6` polyMesh export bridge ·
-`op-hzs.7` CSG export bridge · `op-hzs.8` dependency + math-crate + naming decisions.
+`op-hzs.7` CSG export bridge · `op-hzs.8` dependency + math-crate + naming decisions ·
+`op-hzs.10` headless GPU compute path (**this work — demonstrator kernel live**).
 
 > Note: the beads live in the local Dolt store. The passive
 > `.beads/issues.jsonl` export was **skipped** by `bd` because that file already
