@@ -56,6 +56,10 @@ peroxide = "0.41.2"
 roots = "0.0.8"
 thiserror = "2.0.18"
 uom = "0.38.0"
+# Pure-Rust dense+sparse linear algebra (SIMD via `pulp`, no system BLAS →
+# Android-safe). Used by outram-blender for the large mesh solves (Laplacian
+# editing / ARAP / parameterization); per-element math stays in fixed-size types.
+faer = "0.24"
 serde = { version = "1.0.228", features = ["derive"] }
 serde-xml-rs = "0.8.2"
 anyhow = "1.0.100"

@@ -75,3 +75,19 @@ pub mod modifiers;
 pub mod ops;
 pub mod primitives;
 pub mod procedural;
+
+/// Heavy linear-algebra backend for the *large* mesh solves the advanced
+/// operators will need — Laplacian mesh editing, ARAP deformation, and mesh
+/// parameterization all build a sparse Laplacian over the mesh and solve
+/// `A x = b`. Re-exports [`faer`], a pure-Rust, Android-safe dense **and**
+/// sparse linear-algebra library (SIMD via `pulp`, no system BLAS).
+///
+/// **Division of labour:** per-element geometry math (positions, normals,
+/// transforms) stays in the fixed-size [`math`] types — small, fast, no
+/// allocation. `faer` is only for the big systems. For interactive editing
+/// (same matrix, many right-hand sides) prefer `faer`'s sparse **Cholesky**
+/// factorization over an iterative solve. An *optional* bridge to
+/// `outram-foam-basic-lib`'s CG/GAMG iterative solvers is tracked separately for
+/// large one-off sparse solves (see beads `op-hzs`). None of this is wired into
+/// an operator yet — the dependency is staged for that work.
+pub use faer;

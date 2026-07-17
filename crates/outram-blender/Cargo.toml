@@ -22,6 +22,12 @@ exclude = ["docs"]
 # Pure-Rust error type (Android-safe, in workspace deps). No BLAS, no C, no GUI.
 thiserror = { workspace = true }
 
+# Pure-Rust dense+sparse linear algebra backend (Android-safe, no system BLAS).
+# For the large mesh solves the advanced operators need (Laplacian editing /
+# ARAP deformation / parameterization — see beads op-hzs). Per-element math
+# stays in fixed-size `crate::math` types; faer handles the big systems.
+faer = { workspace = true }
+
 # NOTE: no OpenGL/Vulkan/GUI dependency here. The library is headless and
 # Android-buildable. Any future viewport/GUI belongs in `examples/` behind a
 # `cfg(not(target_os = "android"))` gate, never in the library's unconditional
