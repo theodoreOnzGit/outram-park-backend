@@ -34,8 +34,7 @@
 use crate::math::Vec3;
 use crate::transform::Affine3;
 use core::future::Future;
-use core::pin::Pin;
-use core::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+use core::task::{Context, Poll, Waker};
 use std::sync::{Arc, Mutex};
 
 /// Re-export of the GPU backend so callers can build pipelines without adding
@@ -320,41 +319,34 @@ fn bytes_to_f32_vec(bytes: &[u8]) -> Vec<f32> {
 }
 
 /// Minimal in-crate `block_on`: drive a future to completion on the current
-/// thread by polling it with a no-op waker in a spin/yield loop.
+/// thread with **no `unsafe`** and no async-runtime dependency.
 ///
-/// wgpu's native `request_adapter` / `request_device` / buffer-map futures make
-/// progress when the device is polled (which the caller does around them), so a
-/// no-op waker is sufficient here — we never need to be woken to re-poll, we
-/// simply re-poll until `Ready`. This avoids pulling in an async-runtime
-/// dependency (e.g. `pollster`) for the crate's one blocking need, keeping the
-/// dependency surface minimal per the workspace policy. Not a general-purpose
-/// executor: do **not** use it for futures that rely on a real reactor/waker.
-fn block_on<F: Future>(mut future: F) -> F::Output {
-    // SAFETY: `future` is a local we own and never move out of before it
-    // completes; the pin is confined to this function's stack frame.
-    let mut future = unsafe { Pin::new_unchecked(&mut future) };
-    let waker = noop_waker();
+/// Uses a safe [`std::task::Wake`]-based thread-park waker (the same pattern as
+/// `outram-mc-libs`'s GPU module) and the safe [`std::pin::pin!`] macro. wgpu's
+/// native `request_adapter` / `request_device` / buffer-map futures make
+/// progress when the device is polled around them; this re-polls until `Ready`,
+/// parking the thread between polls and being unparked by the waker. Keeps the
+/// dependency surface minimal (no `pollster`) per the workspace policy. Not a
+/// general-purpose executor.
+fn block_on<F: Future>(future: F) -> F::Output {
+    struct ThreadWaker(std::thread::Thread);
+    impl std::task::Wake for ThreadWaker {
+        fn wake(self: Arc<Self>) {
+            self.0.unpark();
+        }
+        fn wake_by_ref(self: &Arc<Self>) {
+            self.0.unpark();
+        }
+    }
+    let waker = Waker::from(Arc::new(ThreadWaker(std::thread::current())));
     let mut cx = Context::from_waker(&waker);
+    let mut future = std::pin::pin!(future);
     loop {
         match future.as_mut().poll(&mut cx) {
             Poll::Ready(val) => return val,
-            Poll::Pending => std::thread::yield_now(),
+            Poll::Pending => std::thread::park(),
         }
     }
-}
-
-/// A `Waker` whose wake operations do nothing — see [`block_on`] for why that
-/// is sufficient for wgpu's native poll-driven futures.
-fn noop_waker() -> Waker {
-    fn no_op(_: *const ()) {}
-    fn clone(_: *const ()) -> RawWaker {
-        RawWaker::new(core::ptr::null(), &VTABLE)
-    }
-    static VTABLE: RawWakerVTable = RawWakerVTable::new(clone, no_op, no_op, no_op);
-    // SAFETY: every vtable function is a no-op or returns a fresh no-op
-    // RawWaker, so the RawWaker/Waker contract (thread-safe, touches no data) is
-    // trivially satisfied.
-    unsafe { Waker::from_raw(RawWaker::new(core::ptr::null(), &VTABLE)) }
 }
 
 #[cfg(test)]
