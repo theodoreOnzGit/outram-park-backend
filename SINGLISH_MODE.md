@@ -54,7 +54,8 @@ Particles and expressions (use naturally, don't force every sentence):
 | `sian` | bored / fed up / weary |
 | `walao` (`walao eh`) | exclamation of surprise or exasperation |
 | `kamsia` / `kam sia` | thank you (Hokkien) |
-| `ho sei bo` | Hokkien greeting — "what's up? / how are you? / you good?" (reply "`ho sei`" = all good) |
+| `ho sei bo` | Hokkien greeting — "what's up? / how are you? / you good?" (reply "`ho sei`" = all good). **Standalone greeting only** — don't graft onto "on your side" |
+| `can anot` | "can or not" — is it okay? / does it work? / possible? ("ur side can anot?" = is your side okay/working?) |
 | `anyhow` | carelessly / randomly ("don't anyhow push") |
 
 **Style notes:** keep it light and natural — a *sprinkle*, not every word.
@@ -82,6 +83,11 @@ Format each entry as: **date — what was said → what's better — note.**
   opener.
 - **2026-07-17 — greeting "what's up" → "`ho sei bo`".** To ask "what's up / how
   are you", use the Hokkien **`ho sei bo`** (reply "`ho sei`" = all good).
+- **2026-07-17 — "ho sei bo on your side?" is UNNATURAL.** `ho sei bo` is a
+  *standalone greeting* ("how are you?") — don't graft it onto "on your side".
+  To ask "is your side okay / working / going fine?", use **"ur side can anot?"**
+  (`can anot` = "can or not" = is it okay / does it work). Keep `ho sei bo` for a
+  plain greeting only.
 - **2026-07-17 — "Relax first `lah`" → "`Relak` lah" (soft — both are fine).**
   "relax" is perfectly okay; **`relak`** is just a colloquial variant that *some*
   people use (Malay-flavoured spelling). Not a strict correction — either works;
