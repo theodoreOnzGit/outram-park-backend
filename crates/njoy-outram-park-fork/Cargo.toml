@@ -60,6 +60,19 @@ zip = { workspace = true, optional = true }
 # Added per phase as modules are ported (see docs/porting-plan.md):
 #   ndarray  — ENDF tape arrays and cross-section grids (column-major data)
 
+# ── Optional GPU compute (desktop only; ABSENT on Android) ────────────────────
+# wgpu is a target-gated dependency so this crate stays "lean, pure-CPU" on
+# Android (`target_os = "android"`), where there is no system Vulkan/Metal/DX12
+# and the workspace Android rule forbids GPU/windowing deps in the library
+# build. On desktop it powers the optional `src/gpu.rs` compute path
+# (embarrassingly-parallel WMP kernels); `gpu::probe()` returns None at runtime
+# when no adapter is available, so the CPU path is always the fallback. The CPU
+# path remains the trusted/deterministic reference — GPU (f32) is acceleration
+# only. Version comes from the root [workspace.dependencies] (matches the
+# egui/eframe 0.34 wgpu, so no duplicate wgpu in the tree).
+[target.'cfg(not(target_os = "android"))'.dependencies]
+wgpu = { workspace = true }
+
 [features]
 # The CORE 125-nuclide windowed-multipole blob (`src/data/wmp_core.wmpl`,
 # ~4.7 MB, ENDF/B-VII.1, MIT CRPG) is ALWAYS embedded via `include_bytes!` and

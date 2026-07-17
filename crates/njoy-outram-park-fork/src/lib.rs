@@ -106,6 +106,18 @@ pub mod viewr;
 pub mod mixr;
 pub mod wimsr;
 
+/// **Optional GPU compute** for njoy's embarrassingly-parallel kernels
+/// (windowed-multipole cross-section evaluation across an energy grid).
+///
+/// Desktop builds carry a target-gated [`wgpu`](https://docs.rs/wgpu) backend
+/// behind this module; **Android** (`target_os = "android"`) gets a pure-CPU
+/// shim with the same call surface, so the crate still builds headless with no
+/// GPU stack. At runtime [`gpu::probe`] returns `None` whenever no usable GPU
+/// adapter is present (headless CI, emulators) and the caller must fall back to
+/// the CPU path. The CPU path is the trusted/deterministic reference; the GPU
+/// path (f32 WGSL) is acceleration only. See the module docs for the contract.
+pub mod gpu;
+
 mod error;
 pub use endf::MtReaction;
 pub use error::NjoyError;

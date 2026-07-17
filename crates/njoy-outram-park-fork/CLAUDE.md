@@ -58,6 +58,27 @@ crate as a whole is `GPL-3.0-only`. To stay compliant, you MUST:
   `docs/porting-plan.md` §5 — split opportunistically, don't grow them
   further without splitting first.
 
+## Dependency posture — "lean" is now target-qualified
+
+The root `CLAUDE.md` calls this crate "lean (`thiserror`, `uom`; no BLAS) so
+data consumers stay light". That still holds **on Android and for the default
+data path** — nothing pulls a BLAS/LAPACK or C/Fortran toolchain, and the
+offline WMP + MGXS path needs no network. One honest qualification since
+2026-07-17:
+
+- **Optional GPU compute (`src/gpu.rs`)** adds `wgpu` (Vulkan/Metal/DX12/GL) as
+  a **target-gated** dependency — declared only under
+  `[target.'cfg(not(target_os = "android"))'.dependencies]`. So **Android stays
+  lean and pure-CPU** (no `wgpu`, no GPU stack), while **desktop** carries `wgpu`
+  behind the target gate for the optional GPU acceleration of njoy's
+  embarrassingly-parallel kernels. At runtime `gpu::probe()` returns `None`
+  whenever no GPU adapter is present, so the CPU path is always the fallback and
+  the CPU path stays the trusted/deterministic reference (GPU `f32` is
+  acceleration only). The `wgpu` version comes from
+  `[workspace.dependencies]` (matches the egui/eframe 0.34 stack — no duplicate
+  `wgpu` in the tree). This does **not** re-introduce a BLAS/Fortran build
+  burden, and it does **not** change the Android or default-path leanness.
+
 ## Build and test
 
 **Rule: always use `--release` for builds and tests.** Never run in debug mode.
