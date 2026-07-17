@@ -404,6 +404,51 @@ fn write_vandv_csv(filename: &str, contents: &str) {
     println!("wrote V&V CSV: {}", path.display());
 }
 
+/// Writes `contents` to
+/// `verification_and_validation/sod_shock_tube_validation/<filename>` under the
+/// crate root, creating the folder if needed.
+///
+/// Unlike [`write_vandv_csv`], this writer targets the **committed** V&V
+/// sub-folder (the crate `.gitignore` only excludes `*.csv` directly under
+/// `verification_and_validation/`, not files in this sub-directory), and it is
+/// **non-fatal**: a filesystem hiccup here logs to stderr and returns rather
+/// than failing an otherwise-passing physics test. The plottable per-cell CSV
+/// it emits is the deliverable a reader plots directly (numerical profile
+/// overlaid on the analytic Riemann reference).
+fn write_plottable_csv(filename: &str, contents: &str) {
+    use std::io::Write;
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("verification_and_validation")
+        .join("sod_shock_tube_validation");
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        eprintln!("WARN: could not create {}: {e}", dir.display());
+        return;
+    }
+    let path = dir.join(filename);
+    match std::fs::File::create(&path).and_then(|mut f| f.write_all(contents.as_bytes())) {
+        Ok(()) => println!("wrote plottable V&V CSV: {}", path.display()),
+        Err(e) => eprintln!("WARN: could not write {}: {e}", path.display()),
+    }
+}
+
+/// Discrete L2 (root-mean-square) and L∞ (max-absolute) error of a numerical
+/// profile `num` against a reference profile `exact`, sampled cell-by-cell.
+/// Both norms are returned in the field's own SI units; divide by the field
+/// peak for a relative figure. Panics only on a length mismatch (a programming
+/// error), never on data.
+fn l2_linf(num: &[f64], exact: &[f64]) -> (f64, f64) {
+    assert_eq!(num.len(), exact.len(), "profile length mismatch");
+    let n = num.len().max(1) as f64;
+    let mut sum_sq = 0.0_f64;
+    let mut linf = 0.0_f64;
+    for (a, b) in num.iter().zip(exact.iter()) {
+        let d = (a - b).abs();
+        sum_sq += d * d;
+        linf = linf.max(d);
+    }
+    ((sum_sq / n).sqrt(), linf)
+}
+
 /// Build a `RhoCentralFoam` solver from the committed mesh + Sod initial fields,
 /// configured to run to `t_end` seconds with dt = 1×10⁻⁶ s.
 fn build_solver(t_end: f64) -> RhoCentralFoam {
@@ -593,4 +638,71 @@ fn rho_central_foam_matches_sod_table_ii() {
         "── worst faithful-point rel error: p={worst_p:.4}, u={worst_u:.4}, rho={worst_rho:.4} ──"
     );
     write_vandv_csv("sod_shock_tube_rhocentralfoam_vs_table_ii.csv", &csv);
+
+    // ── Plottable per-cell CSV: numerical profile overlaid on the analytic
+    //    exact Riemann solution at every cell centre, at t = τ·t0. This is the
+    //    deliverable a reader plots directly (no interpolation onto the coarse
+    //    9-station table); it also carries the whole-field L2/L∞ error norms of
+    //    the port against the analytic solution. Written on every normal run.
+    let rho_ex: Vec<f64> = xs
+        .iter()
+        .map(|&x| exact_state(l, r, x, X_DIAPHRAGM, T_TAU_02).rho)
+        .collect();
+    let u_ex: Vec<f64> = xs
+        .iter()
+        .map(|&x| exact_state(l, r, x, X_DIAPHRAGM, T_TAU_02).u)
+        .collect();
+    let p_ex: Vec<f64> = xs
+        .iter()
+        .map(|&x| exact_state(l, r, x, X_DIAPHRAGM, T_TAU_02).p)
+        .collect();
+
+    // Whole-field error norms (SI units) vs the analytic Riemann solution.
+    let (rho_l2, rho_linf) = l2_linf(&rho_p, &rho_ex);
+    let (u_l2, u_linf) = l2_linf(&u_p, &u_ex);
+    let (p_l2, p_linf) = l2_linf(&p_p, &p_ex);
+
+    let mut prof = String::new();
+    // Norm summary as `#`-comment header lines (ignored by most plotters);
+    // peaks used for the relative figures: rho_L, |u*|·u0, p_L.
+    prof.push_str(&format!(
+        "# Sod shock tube — RhoCentralFoam port vs exact Riemann, t = {T_TAU_02:.6e} s, {n} cells, dt = 1e-6 s\n"
+    ));
+    prof.push_str(&format!(
+        "# L2  error (SI): rho={rho_l2:.5e} kg/m^3, u={u_l2:.5e} m/s, p={p_l2:.5e} Pa\n"
+    ));
+    prof.push_str(&format!(
+        "# Linf error (SI): rho={rho_linf:.5e} kg/m^3, u={u_linf:.5e} m/s, p={p_linf:.5e} Pa\n"
+    ));
+    prof.push_str(&format!(
+        "# L2  error (rel to peak): rho={:.4}, u={:.4}, p={:.4}\n",
+        rho_l2 / rho_scale,
+        u_l2 / u_scale,
+        p_l2 / p_scale
+    ));
+    prof.push_str(&format!(
+        "# Linf error (rel to peak): rho={:.4}, u={:.4}, p={:.4}\n",
+        rho_linf / rho_scale,
+        u_linf / u_scale,
+        p_linf / p_scale
+    ));
+    prof.push_str("x_m,rho_numerical,u_numerical,p_numerical,rho_exact,u_exact,p_exact\n");
+    for i in 0..xs.len() {
+        prof.push_str(&format!(
+            "{:.4},{:.6},{:.6},{:.4},{:.6},{:.6},{:.4}\n",
+            xs[i], rho_p[i], u_p[i], p_p[i], rho_ex[i], u_ex[i], p_ex[i]
+        ));
+    }
+
+    println!(
+        "── whole-field error vs exact Riemann (rel to peak): \
+         L2 rho={:.4} u={:.4} p={:.4} | Linf rho={:.4} u={:.4} p={:.4} ──",
+        rho_l2 / rho_scale,
+        u_l2 / u_scale,
+        p_l2 / p_scale,
+        rho_linf / rho_scale,
+        u_linf / u_scale,
+        p_linf / p_scale
+    );
+    write_plottable_csv("sod_shock_tube_profile_vs_exact_riemann.csv", &prof);
 }

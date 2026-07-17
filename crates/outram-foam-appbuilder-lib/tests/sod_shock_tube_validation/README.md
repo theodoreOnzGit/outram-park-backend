@@ -30,6 +30,14 @@ judged against the published benchmark profile in **Sod (1978) Table II**.
     rho_central_foam_matches_sod_table_ii -- --nocapture
   ```
 
+  That same run auto-writes a **plottable per-cell CSV** overlaying the
+  numerical profile on the analytic exact Riemann solution at every cell centre
+  (columns `x_m, rho_numerical, u_numerical, p_numerical, rho_exact, u_exact,
+  p_exact`, with $L_2$/$L_\infty$ error norms as `#`-comment header lines) to
+  `verification_and_validation/sod_shock_tube_validation/sod_shock_tube_profile_vs_exact_riemann.csv`.
+  The whole-field methodology and measured norms are in
+  [`verification_and_validation/sod_shock_tube_validation/RESULTS.md`](../../verification_and_validation/sod_shock_tube_validation/RESULTS.md).
+
 ## Reference
 
 Sod, G. A. (1978). *A Survey of Several Finite Difference Methods for Systems of
