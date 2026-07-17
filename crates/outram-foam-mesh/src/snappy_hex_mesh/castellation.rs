@@ -59,6 +59,7 @@ use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKin
 use outram_foam_basic_lib::primitives::Vector3;
 
 use crate::snappy_hex_mesh::background::{BackgroundMesh, Bounds};
+use crate::snappy_hex_mesh::poly_topology::PolyPatchMesh;
 use crate::snappy_hex_mesh::stl::TriangleSoup;
 use crate::MeshError;
 
@@ -132,6 +133,12 @@ pub struct CastellatedMesh {
     /// Deduplicated mesh points [m] (corners of the kept cells). `FvMesh` itself
     /// stores only geometry, so these are carried separately for snapping.
     pub points: Vec<Vector3>,
+    /// Full point + face-connectivity view of the same mesh, in OpenFOAM face
+    /// order (internal faces first, then boundary faces by patch). This is the
+    /// moving-mesh substrate the snapping and layer phases mutate and rebuild
+    /// via [`PolyPatchMesh::build_fvmesh`]. It shares [`points`](Self::points)'
+    /// indexing.
+    pub topology: PolyPatchMesh,
     /// Boundary faces on the carved surface, with their corner points.
     pub surface_faces: Vec<SurfaceFace>,
     /// Number of kept cells at each refinement level (`cells_by_level[l]`).
@@ -288,11 +295,12 @@ pub fn castellate(
         builder.push_cell(cell_box.centre(), cell_box.volume());
     }
 
-    let (fv_mesh, points, surface_faces) = builder.finish(n_kept)?;
+    let (fv_mesh, points, topology, surface_faces) = builder.finish(n_kept)?;
 
     Ok(CastellatedMesh {
         fv_mesh,
         points,
+        topology,
         surface_faces,
         cells_by_level,
         max_level,
@@ -349,11 +357,15 @@ struct MeshAssembler {
     int_neighbour: Vec<usize>,
     int_sf: Vec<Vector3>,
     int_cf: Vec<Vector3>,
+    /// Internal-face corner point ids, wound owner→neighbour (normal +axis).
+    int_pts: Vec<[usize; 4]>,
 
     // Boundary faces bucketed per patch (7 buckets: 6 outer + surface).
     bnd_owner: [Vec<usize>; 7],
     bnd_sf: [Vec<Vector3>; 7],
     bnd_cf: [Vec<Vector3>; 7],
+    /// Boundary-face corner point ids per bucket, wound outward.
+    bnd_pts: [Vec<[usize; 4]>; 7],
 
     // Cell geometry.
     cell_centres: Vec<Vector3>,
@@ -380,9 +392,11 @@ impl MeshAssembler {
             int_neighbour: Vec::new(),
             int_sf: Vec::new(),
             int_cf: Vec::new(),
+            int_pts: Vec::new(),
             bnd_owner: Default::default(),
             bnd_sf: Default::default(),
             bnd_cf: Default::default(),
+            bnd_pts: Default::default(),
             cell_centres: Vec::new(),
             cell_volumes: Vec::new(),
             point_ids: HashMap::new(),
@@ -513,10 +527,14 @@ impl MeshAssembler {
         neighbour: usize,
     ) {
         let (sf, cf) = self.face_geometry(axis, positive, plane_g, a0, a1, b0, b1);
+        // Internal faces are always emitted on the owner's +axis side, so the
+        // owner→neighbour normal points +axis; wind the corners to match.
+        let pts = self.wound_corners(axis, plane_g, a0, a1, b0, b1, true);
         self.int_owner.push(owner);
         self.int_neighbour.push(neighbour);
         self.int_sf.push(sf);
         self.int_cf.push(cf);
+        self.int_pts.push(pts);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -533,15 +551,18 @@ impl MeshAssembler {
         owner: usize,
     ) {
         let (sf, cf) = self.face_geometry(axis, positive, plane_g, a0, a1, b0, b1);
+        // Boundary face: outward normal is +axis on the positive side, −axis on
+        // the negative side; wind the corners so the polygon normal is outward.
+        let pts = self.wound_corners(axis, plane_g, a0, a1, b0, b1, positive);
         self.bnd_owner[bucket].push(owner);
         self.bnd_sf[bucket].push(sf);
         self.bnd_cf[bucket].push(cf);
+        self.bnd_pts[bucket].push(pts);
 
         if bucket == SURFACE_BUCKET {
-            let corners = self.face_corner_points(axis, plane_g, a0, a1, b0, b1);
             self.surface_faces.push(SurfaceFace {
                 owner_cell: owner,
-                corners,
+                corners: pts,
             });
         }
     }
@@ -602,18 +623,54 @@ impl MeshAssembler {
         ]
     }
 
+    /// Corner point ids of a rectangular face, wound so the polygon's
+    /// right-hand-rule normal points along `+axis` (when `desired_positive`) or
+    /// `−axis` (otherwise).
+    ///
+    /// The base ordering from [`face_corner_points`](Self::face_corner_points) is
+    /// counter-clockwise in the `(t0, t1)` transverse plane; its natural normal
+    /// is `t0 × t1`, which equals `+axis` for `axis ∈ {0, 2}` but `−axis` for
+    /// `axis == 1` (since `x × z = −y`). The winding is reversed when it does not
+    /// match the requested sign, keeping [`PolyPatchMesh`] face normals
+    /// consistent with the `FvMesh` area-vector convention.
+    #[allow(clippy::too_many_arguments)]
+    fn wound_corners(
+        &mut self,
+        axis: usize,
+        plane_g: usize,
+        a0: usize,
+        a1: usize,
+        b0: usize,
+        b1: usize,
+        desired_positive: bool,
+    ) -> [usize; 4] {
+        let c = self.face_corner_points(axis, plane_g, a0, a1, b0, b1);
+        let natural_positive = axis != 1;
+        if desired_positive == natural_positive {
+            c
+        } else {
+            // Reverse orientation: [a, b, c, d] → [a, d, c, b].
+            [c[0], c[3], c[2], c[1]]
+        }
+    }
+
     /// Concatenate internal + per-patch boundary faces into a validated
     /// [`FvMesh`], returning it with the points and surface-face records.
     fn finish(
         self,
         n_cells: usize,
-    ) -> Result<(FvMesh, Vec<Vector3>, Vec<SurfaceFace>), MeshError> {
+    ) -> Result<(FvMesh, Vec<Vector3>, PolyPatchMesh, Vec<SurfaceFace>), MeshError> {
         let n_internal = self.int_owner.len();
 
         let mut owner = self.int_owner.clone();
         let mut sf = self.int_sf.clone();
         let mut cf = self.int_cf.clone();
         let neighbour = self.int_neighbour.clone();
+
+        // Point-connectivity faces in the same order as `owner`/`sf`: internal
+        // faces first, then boundary faces bucket by bucket.
+        let mut topo_faces: Vec<Vec<usize>> =
+            self.int_pts.iter().map(|c| c.to_vec()).collect();
 
         let mut patches = Vec::new();
         let mut start = n_internal;
@@ -633,6 +690,7 @@ impl MeshAssembler {
             owner.extend_from_slice(&self.bnd_owner[bucket]);
             sf.extend_from_slice(&self.bnd_sf[bucket]);
             cf.extend_from_slice(&self.bnd_cf[bucket]);
+            topo_faces.extend(self.bnd_pts[bucket].iter().map(|c| c.to_vec()));
             patches.push(BoundaryPatch::new(name, start, size, kind));
             start += size;
         }
@@ -640,9 +698,9 @@ impl MeshAssembler {
         let fv_mesh = FvMeshBuilder::new()
             .n_cells(n_cells)
             .n_internal_faces(n_internal)
-            .owner(owner)
-            .neighbour(neighbour)
-            .patches(patches)
+            .owner(owner.clone())
+            .neighbour(neighbour.clone())
+            .patches(patches.clone())
             .cell_volumes(self.cell_volumes.clone())
             .cell_centres(self.cell_centres.clone())
             .face_area_vectors(sf)
@@ -650,7 +708,17 @@ impl MeshAssembler {
             .build()
             .map_err(|e| MeshError::Construction(format!("assembled mesh invalid: {e}")))?;
 
-        Ok((fv_mesh, self.points, self.surface_faces))
+        let topology = PolyPatchMesh {
+            points: self.points.clone(),
+            faces: topo_faces,
+            owner,
+            neighbour,
+            n_internal_faces: n_internal,
+            n_cells,
+            patches,
+        };
+
+        Ok((fv_mesh, self.points, topology, self.surface_faces))
     }
 }
 

@@ -11,10 +11,12 @@
 // OUTRAM PARK is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; see the GNU General Public License for more details.
 
-//! Verification tests for the `snappyHexMesh` Phase-1 slice (bead op-ax7.2):
-//! STL input + castellation. Snapping / layer addition are scaffolded, so only
-//! their implemented sub-pieces (projection, grading arithmetic) and their
-//! honest `NotImplemented` returns are asserted.
+//! Verification tests for the `snappyHexMesh` pipeline (bead op-ax7.2):
+//! STL input, castellation (Phase 1), snapping (Phase 2, bead op-ax7.2.1), and
+//! layer addition (Phase 3, bead op-ax7.2.2). All three phases now run; the
+//! per-phase unit tests (with measured numbers) live in each module's
+//! `#[cfg(test)]` block, while this file exercises them end-to-end on the
+//! sphere-in-a-box case.
 //!
 //! ## Methodology
 //!
@@ -44,8 +46,14 @@
 //!   surface); 7020 internal faces, 8652 total, 1248 carved-surface faces.
 //! - Retained volume = 59.75 m³ vs analytic box−sphere = 64 − 4.189 = 59.81 m³
 //!   (staircase agreement ~0.1%). Keep-inside variant: 4.25 m³ vs sphere 4.19.
-//! - `snap` / `add_layers` return `MeshError::NotImplemented`; the projection
-//!   and grading sub-pieces they expose compute correctly.
+//! - `topology.build_fvmesh()` reproduces the castellation geometry to < 1e-9
+//!   (`topology_rebuild_reproduces_castellation_geometry`).
+//! - `snap` morphs the wall onto the sphere: max wall→surface distance drops
+//!   from the ~0.105 m staircase to < 0.02 m, mesh stays valid + watertight,
+//!   no inverted cells (`snapping_morphs_boundary_onto_sphere`).
+//! - `add_layers` extrudes graded prism layers off the carved wall, growing the
+//!   cell count with a valid, watertight, inversion-free mesh
+//!   (`layer_addition_extrudes_valid_prisms`).
 
 use outram_foam_basic_lib::primitives::Vector3;
 use outram_foam_mesh::snappy_hex_mesh::{
@@ -55,7 +63,6 @@ use outram_foam_mesh::snappy_hex_mesh::{
     snapping::{raw_surface_displacements, snap, SnapControls},
     stl::{read_stl_ascii_str, read_stl_binary, Triangle, TriangleSoup},
 };
-use outram_foam_mesh::MeshError;
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -286,6 +293,54 @@ fn castellate_box_around_sphere() {
 }
 
 #[test]
+fn topology_rebuild_reproduces_castellation_geometry() {
+    // V&V: the point + face-connectivity `topology` carried by CastellatedMesh
+    // must regenerate exactly the same finite-volume geometry the castellation
+    // assembler computed directly. This is the correctness gate for the
+    // all-face winding used by snapping/layer FvMesh rebuilds.
+    //
+    // Methodology: castellate the sphere box, then call
+    // `cast.topology.build_fvmesh()` (which recomputes face areas/centres and
+    // cell volumes/centres from points via the OpenFOAM primitiveMeshTools
+    // formulas) and compare against `cast.fv_mesh` face-by-face, cell-by-cell.
+    //
+    // Result (recorded 2026-07-17): max |ΔSf| and |ΔCf| over all faces, max
+    // |ΔV| and |ΔC| over all cells all < 1e-9 (printed below) — exact
+    // reproduction to rounding.
+    let surface = sphere_soup(Vector3::ZERO, 1.0, 24, 24);
+    let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
+    let bg = BackgroundMesh::uniform(domain, 8, 8, 8);
+    let controls = CastellationControls::new(bg, 2, Vector3::new(-1.9, -1.9, -1.9));
+    let cast = castellate(&surface, &controls).unwrap();
+
+    let rebuilt = cast.topology.build_fvmesh().expect("rebuild valid");
+    let orig = &cast.fv_mesh;
+    assert_eq!(rebuilt.n_cells, orig.n_cells);
+    assert_eq!(rebuilt.n_faces, orig.n_faces);
+    assert_eq!(rebuilt.n_internal_faces, orig.n_internal_faces);
+
+    let mut max_dsf = 0.0f64;
+    let mut max_dcf = 0.0f64;
+    for f in 0..orig.n_faces {
+        max_dsf = max_dsf.max((rebuilt.face_area_vectors[f] - orig.face_area_vectors[f]).mag());
+        max_dcf = max_dcf.max((rebuilt.face_centres[f] - orig.face_centres[f]).mag());
+    }
+    let mut max_dv = 0.0f64;
+    let mut max_dc = 0.0f64;
+    for c in 0..orig.n_cells {
+        max_dv = max_dv.max((rebuilt.cell_volumes[c] - orig.cell_volumes[c]).abs());
+        max_dc = max_dc.max((rebuilt.cell_centres[c] - orig.cell_centres[c]).mag());
+    }
+    eprintln!(
+        "rebuild vs original: max|ΔSf|={max_dsf:.2e} max|ΔCf|={max_dcf:.2e} max|ΔV|={max_dv:.2e} max|ΔC|={max_dc:.2e}"
+    );
+    assert!(max_dsf < 1e-9, "face area vectors reproduced");
+    assert!(max_dcf < 1e-9, "face centres reproduced");
+    assert!(max_dv < 1e-9, "cell volumes reproduced");
+    assert!(max_dc < 1e-9, "cell centres reproduced");
+}
+
+#[test]
 fn castellate_keep_inside_carves_external() {
     // Keeping the sphere interior should retain far fewer cells than keeping
     // the exterior, and stay watertight.
@@ -309,7 +364,12 @@ fn castellate_keep_inside_carves_external() {
 // ── Phase 2/3 scaffolds: implemented sub-pieces + honest stubs ────────────────
 
 #[test]
-fn snapping_projection_and_stub() {
+fn snapping_morphs_boundary_onto_sphere() {
+    // Integration V&V for Phase 2 (bead op-ax7.2.1). Methodology: castellate the
+    // unit sphere in the [-2,2]³ box (level 2, staircase boundary), then snap()
+    // and measure how far the moved wall-patch points sit from the true surface,
+    // versus the pre-snap staircase error; also check the rebuilt mesh stays
+    // valid + watertight with no inverted cells.
     let surface = sphere_soup(Vector3::ZERO, 1.0, 24, 24);
     let domain = Bounds::new(
         Vector3::new(-2.0, -2.0, -2.0),
@@ -325,28 +385,122 @@ fn snapping_projection_and_stub() {
     let moved = disp.iter().filter(|d| d.mag() > 1e-9).count();
     assert!(moved > 0, "some surface points project onto the STL");
 
-    // The full morph is an honest stub.
-    let err = snap(&cast, &surface, &SnapControls::default()).unwrap_err();
-    assert!(matches!(err, MeshError::NotImplemented(_)));
+    // Pre-snap staircase error at the wall-patch corner points.
+    let wall_dist = |m: &outram_foam_mesh::snappy_hex_mesh::CastellatedMesh| -> f64 {
+        let mut d = 0.0f64;
+        for f in &m.surface_faces {
+            for &p in &f.corners {
+                let q = surface.nearest_point(m.points[p]).unwrap();
+                d = d.max((m.points[p] - q).mag());
+            }
+        }
+        d
+    };
+    let pre = wall_dist(&cast);
+
+    // The full morph now runs.
+    let snapped = snap(&cast, &surface, &SnapControls::default()).expect("snap succeeds");
+    snapped.fv_mesh.validate().expect("snapped mesh valid");
+    let post = wall_dist(&snapped);
+    eprintln!("wall→surface max distance: pre-snap {pre:.4e} m, post-snap {post:.4e} m");
+    assert!(post < pre, "snapping reduces the staircase error");
+    assert!(post < 0.02, "snapped wall points lie near the surface: {post}");
+
+    // Rebuilt mesh stays watertight with no inverted cells.
+    assert!(max_cell_closure(&snapped.fv_mesh) < 1e-9, "snapped mesh watertight");
+    let min_vol = snapped
+        .fv_mesh
+        .cell_volumes
+        .iter()
+        .copied()
+        .fold(f64::INFINITY, f64::min);
+    assert!(min_vol > 0.0, "no inverted cells (min vol {min_vol:.3e})");
 }
 
 #[test]
-fn layer_grading_and_stub() {
+fn full_pipeline_castellate_snap_layers() {
+    // Integration V&V: the top-level `generate` entry runs castellation →
+    // snapping → layer addition in one call and returns a valid, watertight,
+    // inversion-free mesh. Methodology: sphere-in-box, level 1, snap on, 1 layer.
+    use outram_foam_mesh::snappy_hex_mesh::{generate, SnappyHexMeshControls};
+
+    let surface = sphere_soup(Vector3::ZERO, 1.0, 16, 16);
+    let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
+    let bg = BackgroundMesh::uniform(domain, 8, 8, 8);
+    let controls = SnappyHexMeshControls::castellation_only(CastellationControls::new(
+        bg,
+        1,
+        Vector3::new(-1.9, -1.9, -1.9),
+    ))
+    .with_snap(SnapControls::default())
+    .with_layers(LayerControls {
+        n_surface_layers: 1,
+        expansion_ratio: 1.2,
+        first_layer_thickness: 5e-3,
+        ..LayerControls::default()
+    });
+
+    let mesh = generate(&surface, &controls).expect("full pipeline runs");
+    mesh.fv_mesh.validate().expect("final mesh valid");
+    eprintln!("full pipeline → {} cells", mesh.fv_mesh.n_cells);
+    assert!(mesh.fv_mesh.n_cells > 0);
+    assert!(max_cell_closure(&mesh.fv_mesh) < 1e-9, "final mesh watertight");
+    let min_vol = mesh
+        .fv_mesh
+        .cell_volumes
+        .iter()
+        .copied()
+        .fold(f64::INFINITY, f64::min);
+    assert!(min_vol > 0.0, "no inverted cells (min vol {min_vol:.3e})");
+}
+
+#[test]
+fn layer_grading_arithmetic() {
     let c = LayerControls {
         n_surface_layers: 3,
         expansion_ratio: 2.0,
         first_layer_thickness: 1.0,
+        ..LayerControls::default()
     };
     // Geometric grading 1, 2, 4 → total 7.
     assert_eq!(layer_thicknesses(&c), vec![1.0, 2.0, 4.0]);
     assert!((total_layer_thickness(&c) - 7.0).abs() < 1e-12);
+}
 
-    // add_layers is an honest stub.
+#[test]
+fn layer_addition_extrudes_valid_prisms() {
+    // Integration V&V for Phase 3 (bead op-ax7.2.2). Methodology: castellate the
+    // sphere box (level 1), then add graded prism layers off the carved wall.
+    // The restricted extrusion grows the mesh by new prism cells; assert it
+    // yields a valid, watertight mesh with more cells and no inverted cells.
     let surface = sphere_soup(Vector3::ZERO, 1.0, 16, 16);
     let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
     let bg = BackgroundMesh::uniform(domain, 8, 8, 8);
     let ctrl = CastellationControls::new(bg, 1, Vector3::new(-1.9, -1.9, -1.9));
     let cast = castellate(&surface, &ctrl).unwrap();
-    let err = add_layers(&cast, &c).unwrap_err();
-    assert!(matches!(err, MeshError::NotImplemented(_)));
+
+    let c = LayerControls {
+        n_surface_layers: 2,
+        expansion_ratio: 1.3,
+        first_layer_thickness: 5e-3,
+        ..LayerControls::default()
+    };
+    let layered = add_layers(&cast, &c).expect("layer addition succeeds");
+    layered.fv_mesh.validate().expect("layered mesh valid");
+    eprintln!(
+        "layer addition: {} cells → {} cells",
+        cast.fv_mesh.n_cells, layered.fv_mesh.n_cells
+    );
+    assert!(
+        layered.fv_mesh.n_cells > cast.fv_mesh.n_cells,
+        "prism layers add cells"
+    );
+    assert!(max_cell_closure(&layered.fv_mesh) < 1e-9, "layered mesh watertight");
+    let min_vol = layered
+        .fv_mesh
+        .cell_volumes
+        .iter()
+        .copied()
+        .fold(f64::INFINITY, f64::min);
+    assert!(min_vol > 0.0, "no inverted prism cells (min vol {min_vol:.3e})");
 }

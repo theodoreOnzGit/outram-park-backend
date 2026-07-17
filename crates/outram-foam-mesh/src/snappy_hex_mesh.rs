@@ -35,22 +35,28 @@
 //! 1. **Castellation** ([`castellation`], **implemented**) — octree cell
 //!    refinement to the surface level, then removal of cells on the far side of
 //!    the surface from a `keep_point`. Produces a valid, conforming refined
-//!    [`FvMesh`](outram_foam_basic_lib::mesh::FvMesh).
-//! 2. **Snapping** ([`snapping`], **scaffolded**) — morph the castellated
-//!    boundary points onto the STL. The nearest-point projection primitive is
-//!    implemented and tested; the quality-constrained relaxation solve is not.
-//! 3. **Layer addition** ([`layers`], **scaffolded**) — insert graded prismatic
-//!    boundary layers. The geometric grading arithmetic is implemented and
-//!    tested; the topological extrusion is not.
+//!    [`FvMesh`](outram_foam_basic_lib::mesh::FvMesh) plus a point/face
+//!    [`PolyPatchMesh`](poly_topology::PolyPatchMesh) the later phases move.
+//! 2. **Snapping** ([`snapping`], **implemented**) — morph the castellated
+//!    boundary onto the STL via nearest-point projection, Laplacian patch
+//!    smoothing, and a quality-gated relaxation, then rebuild the `FvMesh`.
+//!    Feature-edge snapping is a restricted (tested) addition.
+//! 3. **Layer addition** ([`layers`], **implemented, restricted**) — extrude
+//!    graded prismatic boundary layers off the wall patch with expansion-ratio
+//!    grading and quality-limited collapse. The full medial-axis interior-shrink
+//!    insertion is future work (see the [`layers`] module docs).
+//!
+//! Run all three together with [`generate`] (the top-level entry), or call the
+//! phase functions individually.
 //!
 //! ## Status (bead op-ax7.2)
 //!
 //! | Phase | State | What works |
 //! |---|---|---|
 //! | STL input | ✅ done | ASCII + binary reader, inside/outside, nearest point |
-//! | Castellation | ✅ done | octree refinement + region removal → valid `FvMesh` |
-//! | Snapping | 🚧 stub | projection primitive done; morph solve `NotImplemented` |
-//! | Layer addition | 🚧 stub | grading arithmetic done; extrusion `NotImplemented` |
+//! | Castellation | ✅ done | octree refinement + region removal → valid `FvMesh` + topology |
+//! | Snapping | ✅ done | projection + smoothing + quality-gated morph + rebuild; feature-edge (restricted) |
+//! | Layer addition | 🟡 restricted | graded prism extrusion + collapse; medial-axis interior insertion is future work |
 //!
 //! ## Minimal example
 //!
@@ -78,6 +84,7 @@
 pub mod background;
 pub mod castellation;
 pub mod layers;
+pub mod poly_topology;
 pub mod snapping;
 pub mod stl;
 
@@ -85,5 +92,99 @@ pub mod stl;
 pub use background::{BackgroundMesh, Bounds};
 pub use castellation::{castellate, CastellatedMesh, CastellationControls, SurfaceFace};
 pub use layers::{add_layers, layer_thicknesses, total_layer_thickness, LayerControls};
+pub use poly_topology::{face_area_and_centre, MeshQuality, PolyPatchMesh, QualityLimits};
 pub use snapping::{raw_surface_displacements, snap, SnapControls};
 pub use stl::{read_stl, read_stl_ascii_str, read_stl_binary, read_stl_bytes, Triangle, TriangleSoup};
+
+use crate::MeshError;
+
+/// Controls for the full three-phase `snappyHexMesh` pipeline.
+///
+/// Bundles the per-phase controls and lets the snapping and layer phases be
+/// switched off individually (`None`), mirroring the `snap`/`addLayers` toggles
+/// in a `snappyHexMeshDict`. Castellation always runs (it produces the mesh the
+/// later phases refine).
+#[derive(Debug, Clone)]
+pub struct SnappyHexMeshControls {
+    /// Phase 1 — octree refinement + region removal (always run).
+    pub castellation: CastellationControls,
+    /// Phase 2 — morph the boundary onto the surface. `None` skips snapping.
+    pub snap: Option<SnapControls>,
+    /// Phase 3 — insert graded boundary layers. `None` skips layer addition.
+    pub layers: Option<LayerControls>,
+}
+
+impl SnappyHexMeshControls {
+    /// Castellation-only controls (snapping and layers disabled).
+    pub fn castellation_only(castellation: CastellationControls) -> Self {
+        Self {
+            castellation,
+            snap: None,
+            layers: None,
+        }
+    }
+
+    /// Enable snapping with the given controls (builder style).
+    pub fn with_snap(mut self, snap: SnapControls) -> Self {
+        self.snap = Some(snap);
+        self
+    }
+
+    /// Enable layer addition with the given controls (builder style).
+    pub fn with_layers(mut self, layers: LayerControls) -> Self {
+        self.layers = Some(layers);
+        self
+    }
+}
+
+/// Run the full `snappyHexMesh` pipeline: castellation → (snapping) → (layers).
+///
+/// Executes the enabled phases in order, threading the [`CastellatedMesh`]
+/// (which carries the point/face [`PolyPatchMesh`] topology and the validated
+/// [`FvMesh`](outram_foam_basic_lib::mesh::FvMesh)) from one phase to the next,
+/// and returns the final mesh. Phases whose controls are `None` are skipped.
+///
+/// This is the single top-level entry point corresponding to running the
+/// `snappyHexMesh` utility; the individual phase functions ([`castellate`],
+/// [`snap`], [`add_layers`]) remain public for finer control.
+///
+/// # Errors
+/// Propagates the first phase error — [`MeshError::Construction`] from
+/// castellation (empty surface, all cells removed, invalid assembly) or from a
+/// snapping/layer rebuild.
+///
+/// # Example
+/// ```no_run
+/// use outram_foam_mesh::snappy_hex_mesh::{
+///     background::{BackgroundMesh, Bounds},
+///     castellation::CastellationControls,
+///     generate, SnappyHexMeshControls, SnapControls, LayerControls,
+///     stl::read_stl,
+/// };
+///
+/// let surface = read_stl("sphere.stl").unwrap();
+/// let (lo, hi) = surface.bounding_box().unwrap();
+/// let domain = Bounds::new(lo, hi).expanded(0.5);
+/// let background = BackgroundMesh::uniform(domain, 10, 10, 10);
+/// let controls = SnappyHexMeshControls::castellation_only(
+///     CastellationControls::new(background, 2, domain.min),
+/// )
+/// .with_snap(SnapControls::default())
+/// .with_layers(LayerControls::default());
+///
+/// let mesh = generate(&surface, &controls).unwrap();
+/// println!("final mesh has {} cells", mesh.n_cells());
+/// ```
+pub fn generate(
+    surface: &TriangleSoup,
+    controls: &SnappyHexMeshControls,
+) -> Result<CastellatedMesh, MeshError> {
+    let mut mesh = castellate(surface, &controls.castellation)?;
+    if let Some(snap_controls) = &controls.snap {
+        mesh = snap(&mesh, surface, snap_controls)?;
+    }
+    if let Some(layer_controls) = &controls.layers {
+        mesh = add_layers(&mesh, layer_controls)?;
+    }
+    Ok(mesh)
+}

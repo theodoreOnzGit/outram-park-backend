@@ -60,9 +60,16 @@
 //! - `edges` blocks (arc / spline / polyLine) are parsed and **skipped**: all
 //!   block edges are treated as straight lines (bilinear/trilinear block map).
 //!   Curved-edge point projection is a later phase.
-//! - Only `simpleGrading (gx gy gz)` with three scalar expansion ratios is
-//!   supported. `edgeGrading` and per-direction multi-grading lists return
-//!   [`MeshError::NotImplemented`].
+//! - `simpleGrading (gx gy gz)` is fully supported, where each of the three
+//!   directions is **either** a single scalar expansion ratio **or** a
+//!   multi-grading list of `( fractionLength fractionCells expansionRatio )`
+//!   segments (OpenFOAM `gradingDescriptors`), graded piecewise-geometrically.
+//! - `edgeGrading (e0 … e11)` is supported **only** in the restricted case
+//!   where the four edges of each local direction share the same grading (then
+//!   it is exact, equivalent to `simpleGrading`). A genuinely per-edge
+//!   (non-planar) `edgeGrading` returns [`MeshError::NotImplemented`], because
+//!   this crate uses one node distribution per direction rather than OpenFOAM's
+//!   full 12-edge blend.
 //! - `mergePatchPairs` (face-merging of separately-meshed patch pairs) is
 //!   parsed and ignored; coincident-point merging across blocks is always done.
 
@@ -109,21 +116,100 @@ const HEX_FACE: [[usize; 4]; 6] = [
 //  Parsed dictionary types
 // ───────────────────────────────────────────────────────────────────────────
 
+/// One segment of a multi-grading list, as it appears inside a parenthesised
+/// per-direction grading entry `( fractionLength fractionCells expansionRatio )`.
+///
+/// Mirrors OpenFOAM's `Foam::gradingDescriptor`
+/// (`src/mesh/blockMesh/gradingDescriptor/gradingDescriptor.C`). All three
+/// fields are **dimensionless**:
+///
+/// - `fraction_length` — the fraction of the local block edge length this
+///   segment occupies (OpenFOAM `blockFraction`). Relative; the segment
+///   fractions of a direction are normalised to sum to `1` at mesh-build time.
+/// - `fraction_cells` — the fraction of the direction's cell count allocated to
+///   this segment (OpenFOAM `nDivFraction`). Relative; likewise normalised.
+/// - `expansion` — the geometric expansion ratio over the segment, defined as
+///   `end-cell-width / start-cell-width`. `1.0` is uniform spacing; a negative
+///   value is trapped and treated as its inverse (OpenFOAM
+///   `gradingDescriptor::correct`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct GradingSegment {
+    /// Fraction of the block edge length occupied by this segment
+    /// (dimensionless, relative; normalised to sum to `1` per direction).
+    pub fraction_length: f64,
+    /// Fraction of the direction's cell count in this segment (dimensionless,
+    /// relative; normalised to sum to `1` per direction).
+    pub fraction_cells: f64,
+    /// Geometric expansion ratio `end-cell-width / start-cell-width`
+    /// (dimensionless, `> 0`; negatives trapped as their inverse).
+    pub expansion: f64,
+}
+
+/// The node distribution along one local block direction.
+///
+/// Mirrors OpenFOAM's `Foam::gradingDescriptors`
+/// (`src/mesh/blockMesh/gradingDescriptor/gradingDescriptors.C`): a direction is
+/// either a single `simpleGrading` expansion ratio, or a list of
+/// [`GradingSegment`]s (multi-grading). Both are dimensionless — they only
+/// redistribute the `n + 1` node positions along the `[0, 1]` parametric edge,
+/// never the cell count.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Grading {
+    /// A single expansion ratio (OpenFOAM scalar `simpleGrading` entry),
+    /// `end-cell-width / start-cell-width`; `1.0` is uniform.
+    Uniform(f64),
+    /// A multi-grading list: the direction is split into contiguous
+    /// [`GradingSegment`]s, each graded geometrically over its own portion of
+    /// the edge. Segments are listed start → end along the local direction.
+    Multi(Vec<GradingSegment>),
+}
+
+/// Equality against a bare expansion ratio, so a `[Grading; 3]` compares equal
+/// to a `[f64; 3]` of expansion ratios (a [`Grading::Uniform`] equals its
+/// scalar ratio; a [`Grading::Multi`] never equals a scalar). This keeps the
+/// scalar `simpleGrading` case ergonomic for callers and tests that think in
+/// terms of the three plain ratios.
+impl PartialEq<f64> for Grading {
+    fn eq(&self, other: &f64) -> bool {
+        match self {
+            Grading::Uniform(r) => r == other,
+            Grading::Multi(_) => false,
+        }
+    }
+}
+
+impl Grading {
+    /// Normalised node positions `[0, 1]` for `n` cells under this grading.
+    ///
+    /// Returns `n + 1` monotonically increasing positions with `s[0] == 0` and
+    /// `s[n] == 1`. For [`Grading::Uniform`] this is the geometric single-ratio
+    /// distribution; for [`Grading::Multi`] it is the piecewise-geometric
+    /// multi-segment distribution (see [`graded_positions_multi`]).
+    fn node_positions(&self, n: usize) -> Vec<f64> {
+        match self {
+            Grading::Uniform(r) => graded_positions(n, *r),
+            Grading::Multi(segments) => graded_positions_multi(n, segments),
+        }
+    }
+}
+
 /// One `hex` block from the `blocks` list.
 ///
 /// The block is a hexahedron whose 8 corners are indices into
 /// [`BlockMeshDict::vertices`], subdivided into `cells[0] * cells[1] * cells[2]`
-/// hexahedral cells. `grading` holds the three `simpleGrading` expansion ratios
-/// (last-cell-width / first-cell-width along each local direction; `1.0` is
-/// uniform).
+/// hexahedral cells. `grading` holds the three per-direction [`Grading`]
+/// distributions (from `simpleGrading` or, when all four edges of a direction
+/// agree, `edgeGrading`); each direction only redistributes node positions
+/// along its `[0, 1]` parametric edge (`1.0` uniform expansion is even
+/// spacing).
 #[derive(Debug, Clone)]
 pub struct Block {
     /// The 8 block-corner vertex indices, in OpenFOAM hex order.
     pub vertices: [usize; 8],
     /// Cell counts `(nx, ny, nz)` along the three local directions.
     pub cells: [usize; 3],
-    /// `simpleGrading` expansion ratios `(gx, gy, gz)`.
-    pub grading: [f64; 3],
+    /// Per-direction node distributions `(gx, gy, gz)`.
+    pub grading: [Grading; 3],
 }
 
 /// One named boundary patch from the `boundary` list.
@@ -389,6 +475,104 @@ fn graded_positions(n: usize, expansion: f64) -> Vec<f64> {
     s
 }
 
+/// Normalised node positions `[0, 1]` for `n` cells under a **multi-grading**
+/// list (per-direction `simpleGrading` segments).
+///
+/// Mirrors OpenFOAM's `Foam::lineDivide`
+/// (`src/mesh/blockMesh/blockEdges/lineDivide/lineDivide.C`, lines 46–138) and
+/// the `gradingDescriptors::normalise` step
+/// (`gradingDescriptor/gradingDescriptors.C`, lines 486–503).
+///
+/// Each [`GradingSegment`] occupies `fraction_length` of the edge and receives
+/// `round(fraction_cells * n / sum_cells)` cells, graded geometrically by its
+/// `expansion` ratio over that portion. The `fraction_length` /
+/// `fraction_cells` are normalised here so each set sums to `1`; the division
+/// counts are distributed independently of segment order and the segment with
+/// the largest `fraction_cells` absorbs any rounding remainder so the total is
+/// exactly `n` (OpenFOAM `secnMaxDivs` adjustment).
+///
+/// Returns `n + 1` monotonically increasing positions with `s[0] == 0` and
+/// `s[n] == 1` (endpoints clamped exactly so block corners coincide across
+/// blocks). If `n` is smaller than the number of segments — OpenFOAM cannot
+/// place at least one division per section — the edge is meshed uniformly, as
+/// OpenFOAM does (`lineDivide.C` line 128).
+///
+/// Within a segment of `m` cells and per-cell growth `g = expansion^(1/(m-1))`,
+/// the cumulative position of the `p`-th interior node is
+/// `blockFrac * (1 - g^p) / (1 - g^m)` offset by the segment start — the same
+/// geometric-series partial sum used by the single-ratio [`graded_positions`].
+fn graded_positions_multi(n: usize, segments: &[GradingSegment]) -> Vec<f64> {
+    if n == 0 {
+        return vec![0.0];
+    }
+    // Fewer divisions than sections, or degenerate input: mesh uniformly.
+    let sum_len: f64 = segments.iter().map(|s| s.fraction_length).sum();
+    let sum_cells: f64 = segments.iter().map(|s| s.fraction_cells).sum();
+    if segments.is_empty() || n < segments.len() || sum_len <= 0.0 || sum_cells <= 0.0 {
+        return (0..=n).map(|i| i as f64 / n as f64).collect();
+    }
+
+    // Distribute divisions to sections (order-independent), rounding to nearest.
+    let n_f = n as f64;
+    let mut secn_divs: Vec<usize> = segments
+        .iter()
+        .map(|s| ((s.fraction_cells / sum_cells) * n_f + 0.5) as usize)
+        .collect();
+    let sum_secn: usize = secn_divs.iter().sum();
+    // First section with the largest fraction_cells absorbs the remainder
+    // (strict `>` keeps the earliest on ties, matching OpenFOAM `secnMaxDivs`).
+    let mut max_i = 0usize;
+    for i in 1..segments.len() {
+        if segments[i].fraction_cells > segments[max_i].fraction_cells {
+            max_i = i;
+        }
+    }
+    if sum_secn != n {
+        let adjusted = secn_divs[max_i] as isize + (n as isize - sum_secn as isize);
+        // A malformed dict could drive this negative; fall back to uniform.
+        if adjusted < 1 {
+            return (0..=n).map(|i| i as f64 / n as f64).collect();
+        }
+        secn_divs[max_i] = adjusted as usize;
+    }
+
+    let mut s = vec![0.0f64; n + 1];
+    let mut sec_start = 0.0f64;
+    let mut secn_start = 1usize; // index of the first node to fill in this section
+    for (si, seg) in segments.iter().enumerate() {
+        let block_frac = seg.fraction_length / sum_len;
+        let expansion = seg.expansion;
+        let secn_div = secn_divs[si];
+        let secn_end = secn_start + secn_div;
+        if (expansion - 1.0).abs() < 1e-12 {
+            for (offset, slot) in s[secn_start..secn_end].iter_mut().enumerate() {
+                // `p` is the node index within the section (1..=secn_div).
+                let p = (offset + 1) as f64;
+                *slot = sec_start + block_frac * p / secn_div as f64;
+            }
+        } else {
+            // Per-cell growth factor; OpenFOAM `calcGexp` returns 0 for a single
+            // cell, which makes the single-node formula collapse to blockFrac.
+            let exp_fact = if secn_div > 1 {
+                expansion.powf(1.0 / (secn_div as f64 - 1.0))
+            } else {
+                0.0
+            };
+            let denom = 1.0 - exp_fact.powi(secn_div as i32);
+            for (offset, slot) in s[secn_start..secn_end].iter_mut().enumerate() {
+                let p = (offset + 1) as i32;
+                *slot = sec_start + block_frac * (1.0 - exp_fact.powi(p)) / denom;
+            }
+        }
+        sec_start = s[secn_end - 1];
+        secn_start = secn_end;
+    }
+    // Clamp the endpoints exactly so block corners coincide across blocks.
+    s[0] = 0.0;
+    s[n] = 1.0;
+    s
+}
+
 /// Trilinear interpolation of the 8 (scaled) block corners at unit-cube
 /// parametric coordinates `(u, v, w)`.
 fn trilinear(corners: &[Vector3; 8], u: f64, v: f64, w: f64) -> Vector3 {
@@ -473,9 +657,9 @@ impl BlockMeshDict {
                     "block has a zero cell count".to_string(),
                 ));
             }
-            let us = graded_positions(nx, block.grading[0]);
-            let vs = graded_positions(ny, block.grading[1]);
-            let ws = graded_positions(nz, block.grading[2]);
+            let us = block.grading[0].node_positions(nx);
+            let vs = block.grading[1].node_positions(ny);
+            let ws = block.grading[2].node_positions(nz);
 
             // Node global-index grid for this block.
             let nnx = nx + 1;
@@ -1008,24 +1192,16 @@ fn parse_blocks(cur: &mut Cursor) -> Result<Vec<Block>, MeshError> {
             .ok_or_else(|| MeshError::DictParse("expected a grading keyword, found end".into()))?;
         let grading = match grading_kw {
             "simpleGrading" => {
+                // Three per-direction gradings, each a scalar ratio or a
+                // parenthesised multi-segment list.
                 cur.expect("(")?;
-                // Reject nested per-direction multi-grading lists.
-                if cur.peek() == Some("(") {
-                    return Err(MeshError::NotImplemented(
-                        "multi-grading list inside simpleGrading".into(),
-                    ));
-                }
-                let gx = cur.parse_f64()?;
-                let gy = cur.parse_f64()?;
-                let gz = cur.parse_f64()?;
+                let gx = parse_grading_direction(cur)?;
+                let gy = parse_grading_direction(cur)?;
+                let gz = parse_grading_direction(cur)?;
                 cur.expect(")")?;
                 [gx, gy, gz]
             }
-            "edgeGrading" => {
-                return Err(MeshError::NotImplemented(
-                    "edgeGrading (12-value per-edge grading)".into(),
-                ));
-            }
+            "edgeGrading" => parse_edge_grading(cur)?,
             other => {
                 return Err(MeshError::DictParse(format!(
                     "unknown grading keyword `{other}`"
@@ -1038,6 +1214,115 @@ fn parse_blocks(cur: &mut Cursor) -> Result<Vec<Block>, MeshError> {
             cells: [nx, ny, nz],
             grading,
         });
+    }
+    Ok(out)
+}
+
+/// Parse one per-direction grading entry: either a scalar expansion ratio
+/// ([`Grading::Uniform`]) or a parenthesised multi-segment list
+/// ([`Grading::Multi`]) of `( fractionLength fractionCells expansionRatio )`
+/// segments.
+///
+/// Mirrors OpenFOAM's `operator>>(Istream&, gradingDescriptors&)`
+/// (`gradingDescriptor/gradingDescriptors.C`, lines 521–543): a number is a
+/// single descriptor, otherwise a list of descriptors is read. A negative
+/// expansion ratio is trapped and stored as its inverse
+/// (`gradingDescriptor::correct`).
+fn parse_grading_direction(cur: &mut Cursor) -> Result<Grading, MeshError> {
+    if cur.peek() == Some("(") {
+        // Multi-segment list: `( (fl fc er) (fl fc er) ... )`.
+        cur.expect("(")?;
+        let mut segments = Vec::new();
+        while !cur.accept(")") {
+            cur.expect("(")?;
+            let fraction_length = cur.parse_f64()?;
+            let fraction_cells = cur.parse_f64()?;
+            let expansion = correct_expansion(cur.parse_f64()?);
+            cur.expect(")")?;
+            segments.push(GradingSegment {
+                fraction_length,
+                fraction_cells,
+                expansion,
+            });
+        }
+        if segments.is_empty() {
+            return Err(MeshError::DictParse(
+                "empty multi-grading list `( )`".into(),
+            ));
+        }
+        Ok(Grading::Multi(segments))
+    } else {
+        Ok(Grading::Uniform(correct_expansion(cur.parse_f64()?)))
+    }
+}
+
+/// Trap a negative expansion ratio and return its inverse, matching OpenFOAM
+/// `gradingDescriptor::correct` (`gradingDescriptor.C`, lines 235–241).
+fn correct_expansion(expansion: f64) -> f64 {
+    if expansion < 0.0 {
+        1.0 / (-expansion)
+    } else {
+        expansion
+    }
+}
+
+/// Parse an `edgeGrading ( e0 e1 ... e11 )` list of 12 per-edge gradings.
+///
+/// OpenFOAM maps the 12 hex edges to the 3 local directions in blocks of four
+/// (`blockDescriptorEdges.C`: `sizes()[edgei/4]`, `expand_[edgei]`): edges
+/// `0..3` are the x-direction, `4..7` the y-direction, `8..11` the z-direction.
+/// A faithful `edgeGrading` grades every edge independently and blends interior
+/// nodes from all 12 edge distributions (`blocks/block/blockCreate.C`), which
+/// this crate's single-distribution-per-direction block map cannot represent.
+///
+/// **Restricted port (documented approximation):** if all four edges of a
+/// direction share the same [`Grading`], that direction is collapsed to the
+/// shared distribution — which is then *exact*, identical to the equivalent
+/// `simpleGrading`. If any direction's four edges disagree, the per-edge
+/// (non-planar) distribution is genuinely unsupported and this returns
+/// [`MeshError::NotImplemented`] naming the offending direction, rather than
+/// silently averaging.
+fn parse_edge_grading(cur: &mut Cursor) -> Result<[Grading; 3], MeshError> {
+    cur.expect("(")?;
+    let mut edges: Vec<Grading> = Vec::with_capacity(12);
+    while !cur.accept(")") {
+        edges.push(parse_grading_direction(cur)?);
+        if edges.len() > 12 {
+            return Err(MeshError::DictParse(
+                "edgeGrading expects exactly 12 edge entries, found more".into(),
+            ));
+        }
+    }
+    if edges.len() != 12 {
+        return Err(MeshError::DictParse(format!(
+            "edgeGrading expects exactly 12 edge entries, found {}",
+            edges.len()
+        )));
+    }
+
+    let dir_name = ["x", "y", "z"];
+    let mut out: [Grading; 3] = [
+        Grading::Uniform(1.0),
+        Grading::Uniform(1.0),
+        Grading::Uniform(1.0),
+    ];
+    for d in 0..3 {
+        let base = d * 4;
+        let g = &edges[base];
+        for e in 1..4 {
+            if &edges[base + e] != g {
+                return Err(MeshError::NotImplemented(format!(
+                    "edgeGrading with differing ratios among the four {}-direction \
+                     edges (edges {}..{}): per-edge (non-planar) grading is not \
+                     supported; only edgeGrading whose four edges per direction \
+                     agree (equivalent to simpleGrading) is handled",
+                    dir_name[d],
+                    base,
+                    base + 3
+                )));
+            }
+        }
+        out[d] = g.clone();
     }
     Ok(out)
 }
@@ -1125,5 +1410,288 @@ fn patch_kind_from_str(t: &str) -> PatchKind {
         "cyclic" | "cyclicAMI" => PatchKind::Cyclic,
         "processor" => PatchKind::Processor,
         _ => PatchKind::Patch,
+    }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  Tests
+// ───────────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A unit-cube `blockMeshDict` (`[0,1]^3`, `convertToMeters 1`) whose
+    /// x-direction uses the multi-grading list `((0.2 0.3 4)(0.6 0.4 3)(0.2 0.3
+    /// 1))` and whose y/z are uniform. `nx` x-cells, 1 cell in y and z.
+    fn multigrading_cube_dict(nx: usize) -> String {
+        format!(
+            "convertToMeters 1;\n\
+             vertices ( (0 0 0)(1 0 0)(1 1 0)(0 1 0)(0 0 1)(1 0 1)(1 1 1)(0 1 1) );\n\
+             blocks ( hex (0 1 2 3 4 5 6 7) ({nx} 1 1) \
+             simpleGrading ( ((0.2 0.3 4)(0.6 0.4 3)(0.2 0.3 1)) 1 1 ) );\n\
+             boundary ( );\n"
+        )
+    }
+
+    /// V&V — multi-grading node distribution (`graded_positions_multi`).
+    ///
+    /// Methodology: distribute `n = 10` cells over the three segments
+    /// `(0.2,0.3,4) (0.6,0.4,3) (0.2,0.3,1)` (fractionLength, fractionCells,
+    /// expansion). Reference is OpenFOAM `lineDivide` (`lineDivide.C:46-138`):
+    /// cell counts `round(fractionCells/sumCells * n)` with the largest segment
+    /// absorbing the remainder, geometric spacing per segment. Pass criteria:
+    /// exactly 11 monotone nodes on `[0,1]`; segment boundaries land on the
+    /// cumulative fractionLengths `0.2` and `0.8`; segment-0 cell widths follow
+    /// the requested end/start ratio of 4 (per-cell ratio `4^(1/2)=2`).
+    ///
+    /// Results (measured 2026-07-17): division counts `[3,4,3]`; nodes
+    /// `[0, 0.028571, 0.085714, 0.2, 0.279762, 0.3948, 0.560713, 0.8,
+    /// 0.866667, 0.933333, 1.0]`; boundary nodes at index 3 (`x=0.2`) and 7
+    /// (`x=0.8`); segment-0 widths `[0.028571, 0.057143, 0.114286]` giving
+    /// successive ratios `2.0, 2.0` and an end/start of `4.0`; segment-2 widths
+    /// all `0.066667` (uniform, expansion 1). All criteria met.
+    #[test]
+    fn multi_grading_positions() {
+        let segs = vec![
+            GradingSegment {
+                fraction_length: 0.2,
+                fraction_cells: 0.3,
+                expansion: 4.0,
+            },
+            GradingSegment {
+                fraction_length: 0.6,
+                fraction_cells: 0.4,
+                expansion: 3.0,
+            },
+            GradingSegment {
+                fraction_length: 0.2,
+                fraction_cells: 0.3,
+                expansion: 1.0,
+            },
+        ];
+        let s = graded_positions_multi(10, &segs);
+
+        // 11 nodes, exact endpoints.
+        assert_eq!(s.len(), 11);
+        assert!((s[0] - 0.0).abs() < 1e-12);
+        assert!((s[10] - 1.0).abs() < 1e-12);
+
+        // Strictly monotone increasing.
+        for i in 1..s.len() {
+            assert!(s[i] > s[i - 1], "not monotone at node {i}: {s:?}");
+        }
+
+        // Segment boundaries at cumulative fractionLengths 0.2 and 0.8
+        // (division counts [3,4,3] -> boundary node indices 3 and 7).
+        assert!((s[3] - 0.2).abs() < 1e-9, "seg0/1 boundary = {}", s[3]);
+        assert!((s[7] - 0.8).abs() < 1e-9, "seg1/2 boundary = {}", s[7]);
+
+        // Segment-0 widths follow per-cell ratio 2.0 (end/start expansion 4).
+        let w: Vec<f64> = (0..10).map(|i| s[i + 1] - s[i]).collect();
+        assert!((w[1] / w[0] - 2.0).abs() < 1e-9, "seg0 ratio1 = {}", w[1] / w[0]);
+        assert!((w[2] / w[1] - 2.0).abs() < 1e-9, "seg0 ratio2 = {}", w[2] / w[1]);
+        assert!((w[2] / w[0] - 4.0).abs() < 1e-9, "seg0 end/start = {}", w[2] / w[0]);
+
+        // Segment-2 is uniform (expansion 1): equal widths.
+        assert!((w[8] - w[7]).abs() < 1e-9 && (w[9] - w[7]).abs() < 1e-9);
+    }
+
+    /// V&V — simple (single-ratio) grading, no regression.
+    ///
+    /// Methodology: a uniform expansion ratio of 1 must give equal cell sizes,
+    /// and the [`Grading::Uniform`] path must agree bit-for-bit with the legacy
+    /// [`graded_positions`] helper. Reference: exact even division.
+    /// Pass criterion: nodes `i/n`.
+    ///
+    /// Results (measured 2026-07-17): `Grading::Uniform(1.0).node_positions(4)`
+    /// = `[0, 0.25, 0.5, 0.75, 1.0]`; cell widths all `0.25`. Passed.
+    #[test]
+    fn simple_grading_uniform_regression() {
+        let s = Grading::Uniform(1.0).node_positions(4);
+        assert_eq!(s, vec![0.0, 0.25, 0.5, 0.75, 1.0]);
+        // node_positions dispatches to graded_positions for the Uniform case.
+        assert_eq!(s, graded_positions(4, 1.0));
+        for i in 0..4 {
+            assert!(((s[i + 1] - s[i]) - 0.25).abs() < 1e-12);
+        }
+    }
+
+    /// V&V — a single-segment multi-grading equals the scalar simpleGrading.
+    ///
+    /// Methodology: multi-grading with one segment `(1,1,r)` must reproduce the
+    /// scalar `graded_positions(n, r)` (both are the same geometric series).
+    /// Reference: [`graded_positions`]. Pass criterion: max node difference
+    /// `< 1e-12`.
+    ///
+    /// Results (measured 2026-07-17): for `r=5, n=8` the two distributions
+    /// agree to `< 1e-12` at every node. Passed.
+    #[test]
+    fn single_segment_matches_scalar() {
+        let seg = vec![GradingSegment {
+            fraction_length: 1.0,
+            fraction_cells: 1.0,
+            expansion: 5.0,
+        }];
+        let a = graded_positions_multi(8, &seg);
+        let b = graded_positions(8, 5.0);
+        for i in 0..a.len() {
+            assert!((a[i] - b[i]).abs() < 1e-12, "node {i}: {} vs {}", a[i], b[i]);
+        }
+    }
+
+    /// V&V — the parser produces the right [`Grading`] variants.
+    ///
+    /// Methodology: parse [`multigrading_cube_dict`] and inspect the block's
+    /// grading. Pass criterion: x is `Multi` with the three parsed segments;
+    /// y and z are `Uniform(1.0)`; cell counts `(10,1,1)`.
+    ///
+    /// Results (measured 2026-07-17): x = `Multi([(0.2,0.3,4),(0.6,0.4,3),
+    /// (0.2,0.3,1)])`, y = z = `Uniform(1.0)`. Passed.
+    #[test]
+    fn parse_multi_grading() {
+        let dict = BlockMeshDict::parse(&multigrading_cube_dict(10)).expect("parse");
+        assert_eq!(dict.blocks[0].cells, [10, 1, 1]);
+        match &dict.blocks[0].grading[0] {
+            Grading::Multi(segs) => {
+                assert_eq!(segs.len(), 3);
+                assert_eq!(segs[0].fraction_length, 0.2);
+                assert_eq!(segs[0].fraction_cells, 0.3);
+                assert_eq!(segs[0].expansion, 4.0);
+                assert_eq!(segs[1].expansion, 3.0);
+                assert_eq!(segs[2].expansion, 1.0);
+            }
+            other => panic!("expected Multi, got {other:?}"),
+        }
+        assert_eq!(dict.blocks[0].grading[1], Grading::Uniform(1.0));
+        assert_eq!(dict.blocks[0].grading[2], Grading::Uniform(1.0));
+    }
+
+    /// V&V — a multi-graded cube builds a valid mesh whose volume is preserved.
+    ///
+    /// Methodology: build the mesh from [`multigrading_cube_dict`] (`10x1x1`),
+    /// convert to [`FvMesh`], and check topology + geometry. Reference: the
+    /// analytic block volume `1 x 1 x 1 = 1 m^3`; grading only moves node
+    /// positions, never the cell count or total volume. Pass criteria: 10
+    /// cells; `FvMesh::validate` passes; total volume `= 1 m^3`; the built mesh
+    /// carries interior node planes at `x = 0.2 m` and `x = 0.8 m` (the segment
+    /// boundaries).
+    ///
+    /// Results (measured 2026-07-17): 10 cells; validate OK; total volume
+    /// `1.0 m^3` (error `< 1e-12`); unique x-planes include `0.2` and `0.8`.
+    /// Passed.
+    #[test]
+    fn multi_grading_build_volume() {
+        let mesh = block_mesh(&multigrading_cube_dict(10)).expect("build");
+        assert_eq!(mesh.n_cells, 10);
+
+        // Total volume equals the analytic block volume.
+        assert!(
+            (mesh.total_volume() - 1.0).abs() < 1e-12,
+            "volume = {}",
+            mesh.total_volume()
+        );
+
+        // FvMesh assembles and validates.
+        let fv = mesh.to_fv_mesh().expect("to_fv_mesh");
+        assert!(fv.validate().is_ok());
+
+        // The graded x node-planes land at the segment boundaries 0.2 and 0.8.
+        let mut xs: Vec<f64> = mesh.points.iter().map(|p| p.x).collect();
+        xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        xs.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
+        assert_eq!(xs.len(), 11, "expected 11 x-planes, got {xs:?}");
+        assert!(xs.iter().any(|&x| (x - 0.2).abs() < 1e-9));
+        assert!(xs.iter().any(|&x| (x - 0.8).abs() < 1e-9));
+    }
+
+    /// V&V — restricted `edgeGrading` with matching edges is exact.
+    ///
+    /// Methodology: an `edgeGrading` whose four x-edges all use ratio 2 and
+    /// whose y/z edges are all 1 must collapse to `simpleGrading (2 1 1)`. Build
+    /// a `4x1x1` unit cube and compare against the equivalent `simpleGrading`
+    /// mesh. Reference: OpenFOAM edge→direction mapping (edges 0..3 = x). Pass
+    /// criteria: parses to `Uniform(2)/Uniform(1)/Uniform(1)`; identical node
+    /// planes to `simpleGrading`; volume `= 1 m^3`; validate passes.
+    ///
+    /// Results (measured 2026-07-17): grading = `[Uniform(2), Uniform(1),
+    /// Uniform(1)]`; x-planes identical to `simpleGrading (2 1 1)` within
+    /// `1e-12`; total volume `1.0 m^3`; validate OK. Passed.
+    #[test]
+    fn edge_grading_equal_edges() {
+        let verts =
+            "vertices ( (0 0 0)(1 0 0)(1 1 0)(0 1 0)(0 0 1)(1 0 1)(1 1 1)(0 1 1) );";
+        let edge_dict = format!(
+            "convertToMeters 1;\n{verts}\n\
+             blocks ( hex (0 1 2 3 4 5 6 7) (4 1 1) \
+             edgeGrading ( 2 2 2 2  1 1 1 1  1 1 1 1 ) );\nboundary ( );\n"
+        );
+        let simple_dict = format!(
+            "convertToMeters 1;\n{verts}\n\
+             blocks ( hex (0 1 2 3 4 5 6 7) (4 1 1) simpleGrading (2 1 1) );\nboundary ( );\n"
+        );
+
+        let dict = BlockMeshDict::parse(&edge_dict).expect("parse edgeGrading");
+        assert_eq!(dict.blocks[0].grading[0], Grading::Uniform(2.0));
+        assert_eq!(dict.blocks[0].grading[1], Grading::Uniform(1.0));
+        assert_eq!(dict.blocks[0].grading[2], Grading::Uniform(1.0));
+
+        let m_edge = block_mesh(&edge_dict).expect("build edge");
+        let m_simple = block_mesh(&simple_dict).expect("build simple");
+        assert!((m_edge.total_volume() - 1.0).abs() < 1e-12);
+        assert!(m_edge.to_fv_mesh().expect("fv").validate().is_ok());
+
+        let planes = |m: &PolyMesh| -> Vec<f64> {
+            let mut xs: Vec<f64> = m.points.iter().map(|p| p.x).collect();
+            xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            xs.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
+            xs
+        };
+        let pe = planes(&m_edge);
+        let ps = planes(&m_simple);
+        assert_eq!(pe.len(), ps.len());
+        for (a, b) in pe.iter().zip(ps.iter()) {
+            assert!((a - b).abs() < 1e-12, "edge {a} vs simple {b}");
+        }
+    }
+
+    /// V&V — genuinely per-edge `edgeGrading` is honestly rejected.
+    ///
+    /// Methodology: an `edgeGrading` whose four x-edges disagree (2,2,3,2)
+    /// cannot be represented by one distribution per direction, so the parser
+    /// must return [`MeshError::NotImplemented`] rather than silently averaging.
+    /// Pass criterion: `parse` returns `NotImplemented` mentioning the
+    /// x-direction.
+    ///
+    /// Results (measured 2026-07-17): `NotImplemented` returned, message names
+    /// the x-direction edges. Passed.
+    #[test]
+    fn edge_grading_differing_edges_not_implemented() {
+        let dict = "convertToMeters 1;\n\
+             vertices ( (0 0 0)(1 0 0)(1 1 0)(0 1 0)(0 0 1)(1 0 1)(1 1 1)(0 1 1) );\n\
+             blocks ( hex (0 1 2 3 4 5 6 7) (4 1 1) \
+             edgeGrading ( 2 2 3 2  1 1 1 1  1 1 1 1 ) );\nboundary ( );\n";
+        match BlockMeshDict::parse(dict) {
+            Err(MeshError::NotImplemented(msg)) => {
+                assert!(msg.contains("x-direction"), "message: {msg}");
+            }
+            other => panic!("expected NotImplemented, got {other:?}"),
+        }
+    }
+
+    /// V&V — negative expansion ratios are trapped as their inverse.
+    ///
+    /// Methodology: OpenFOAM `gradingDescriptor::correct` treats a negative
+    /// expansion ratio `-r` as `1/r`. Parse `simpleGrading (-2 1 1)` and check.
+    /// Pass criterion: x grading is `Uniform(0.5)`.
+    ///
+    /// Results (measured 2026-07-17): x = `Uniform(0.5)`. Passed.
+    #[test]
+    fn negative_expansion_trapped() {
+        let dict = "convertToMeters 1;\n\
+             vertices ( (0 0 0)(1 0 0)(1 1 0)(0 1 0)(0 0 1)(1 0 1)(1 1 1)(0 1 1) );\n\
+             blocks ( hex (0 1 2 3 4 5 6 7) (4 1 1) simpleGrading (-2 1 1) );\nboundary ( );\n";
+        let parsed = BlockMeshDict::parse(dict).expect("parse");
+        assert_eq!(parsed.blocks[0].grading[0], Grading::Uniform(0.5));
     }
 }
