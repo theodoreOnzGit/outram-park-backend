@@ -28,3 +28,11 @@ pub use crate::physics::transport_csg::{run_keff_csg, SourceBox};
 pub use crate::pebble_beds::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
 pub use crate::pebble_beds::keff_delta::run_keff_delta;
 pub use crate::pebble_beds::stochastic_media::{pack_spheres, PackedSpheres, PackingConfig, PackingMethod};
+// Optional GPU compute (headless wgpu). `GpuContext` + `gpu_probe` are available
+// on every target (Android gets the CPU-only shim; `gpu_probe` there is always
+// `None`). `interp_xs_cpu` is the trusted f64 reference; `interp_xs_gpu` is the
+// f32 accelerated path, present only off Android.
+pub use crate::gpu::xs_interp::interp_xs_cpu;
+pub use crate::gpu::{probe as gpu_probe, GpuContext};
+#[cfg(not(target_os = "android"))]
+pub use crate::gpu::xs_interp::interp_xs_gpu;

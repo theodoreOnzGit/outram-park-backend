@@ -42,5 +42,20 @@ fission-yields-data = { workspace = true }
 # `--features net-fetch`. See docs/data-acquisition.md.
 net-fetch = ["njoy-outram-park-fork/net-fetch"]
 
+# Optional GPU compute (headless, no window) for the embarrassingly-parallel MC
+# kernels — see `src/gpu/`. wgpu is **target-gated OFF Android** (no system
+# Vulkan/Metal loader, no easy toolchain there), so the library still builds
+# headless for `aarch64-linux-android` via the CPU-only shim. Desktop targets
+# get the real wgpu path; the CPU (raw-f64 transport) always stays the trusted,
+# deterministic reference — GPU is acceleration only. Version is inherited from
+# the root `[workspace.dependencies]` (matched to the eframe/egui 0.34 stack).
+#
+# NOTE: no `pollster`/executor dependency is added — `src/gpu/mod.rs` hand-rolls
+# a tiny pure-std `block_on` to drive the two `request_adapter`/`request_device`
+# futures, keeping this crate's third-party surface unchanged (dependency policy:
+# all versions live in the root workspace table).
+[target.'cfg(not(target_os = "android"))'.dependencies]
+wgpu = { workspace = true }
+
 [dev-dependencies]
 approx = { workspace = true }

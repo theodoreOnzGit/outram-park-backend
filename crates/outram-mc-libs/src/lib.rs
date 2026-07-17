@@ -29,4 +29,8 @@ pub mod tally;
 pub mod physics;
 pub mod pebble_beds;
 pub mod depletion;
+/// Optional headless GPU compute (wgpu) for embarrassingly-parallel MC kernels.
+/// Desktop gets the real path; Android gets a CPU-only shim. GPU is acceleration
+/// only — the CPU raw-`f64` path stays the trusted, deterministic reference.
+pub mod gpu;
 pub mod prelude;

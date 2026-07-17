@@ -5338,6 +5338,7 @@ dependencies = [
  "openmc-endf-8-depletion-lib-b",
  "thiserror 2.0.18",
  "uom 0.38.0",
+ "wgpu",
 ]
 
 [[package]]
