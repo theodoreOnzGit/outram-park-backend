@@ -53,6 +53,17 @@ pub mod union_grid;
 // its `wgpu` imports are `#[cfg(not(target_os = "android"))]`.
 pub mod batched_flight;
 
+// Per-nuclide reaction cross sections tabulated on the shared union grid — the
+// data the fused collision kernel needs. Pure CPU tabulation; builds everywhere.
+pub mod collision_grid;
+
+// Fused flight + collision event kernel (op-u6s.8): a whole batch advances through
+// every event of a generation resident in GPU buffers, with the branchy collision
+// physics on the GPU. CPU mirror (same f32 path) + GPU compute + resident driver.
+// The mirror, SoA batch, and packed tables build on every target; the `*_gpu`
+// driver and its `wgpu` imports are `#[cfg(not(target_os = "android"))]`.
+pub mod batched_event;
+
 // ---------------------------------------------------------------------------
 // Desktop (non-Android) path: the real wgpu-backed context + probe.
 // ---------------------------------------------------------------------------

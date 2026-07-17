@@ -1,5 +1,17 @@
 # GPU batched-flight transport — timing V&V (op-u6s.7)
 
+> **Follow-up (op-u6s.8, 2026-07-17): collision physics moved onto the GPU.**
+> The "no crossover, GPU loses" verdict below was for the path that kept the
+> *collision* on the CPU (a CPU↔GPU round-trip per event). op-u6s.8 ports the
+> collision physics onto the GPU too (`run_keff_gpu_event`), so a whole
+> generation stays resident in GPU buffers. That made the GPU path **2.7x–4.1x
+> faster** and cut the deficit vs a 12-core `CpuMultiThread` from ~6.6x to ~1.9x
+> at 1e6 histories — but there is **still no crossover** vs multi-thread on the
+> RTX 3050 + 12-core pairing. `ComputeType::Gpu` now routes to the fused event
+> path by default. The full measured before/after table, the WGSL approach, and
+> the honest verdict are in **`../../docs/gpu_collision_dev_log.md`**; this note
+> is kept as the op-u6s.7 record.
+
 Verification of the event-based **batched-flight** `ComputeType::Gpu` path in
 `run_keff` against the CPU backends, and an honest wall-clock timing sweep on
 real hardware. This note is the committed **methodology + interpretation**;

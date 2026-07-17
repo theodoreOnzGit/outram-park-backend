@@ -536,6 +536,52 @@ impl Nuclide {
         self.thermal.as_ref().and_then(|th| th.sample(e, seed))
     }
 
+    /// The elastic-scattering **mean cosine** μ̄ (CM frame) this nuclide's data
+    /// carries at incident energy `e` \[eV\], as a plain `f64` value — the
+    /// tabulation seam the GPU collision kernel needs (it cannot evaluate the full
+    /// MF=4 angular distribution on device, so it drives elastic anisotropy from
+    /// this single moment via the maximum-entropy exponential-μ law, exactly like
+    /// [`sample_elastic_mu_cm`](Self::sample_elastic_mu_cm)'s LOW-tier arm).
+    ///
+    /// Returns `0.0` (⇒ the caller treats elastic as isotropic-CM) whenever the
+    /// CPU sampler would be isotropic at `e`:
+    /// - **LOW (`Core`) below `e_max`** — the WMP resonance range, isotropic-CM;
+    /// - **HIGH (`Pointwise`)** — the CPU uses the full tabulated MF=4 distribution,
+    ///   which does not reduce to a single μ̄, so the GPU path falls back to
+    ///   isotropic-CM here (a documented GPU-only approximation; the trusted CPU
+    ///   backends keep the full distribution).
+    ///
+    /// **LOW (`Core`) above `e_max`** returns the fast-group mean cosine
+    /// `fast.micro(e).mubar` — the same value [`sample_elastic_mu_cm`] feeds to
+    /// [`sample_exponential_mu`]. This is the forward-elastic lever that sets a bare
+    /// fast sphere's leakage, so the GPU path must reproduce it.
+    pub fn elastic_mubar(&self, e: f64) -> f64 {
+        match &self.xs {
+            XsSource::Core { e_max, fast, .. } => {
+                if e <= *e_max {
+                    return 0.0; // resonance range: isotropic-CM
+                }
+                fast.as_ref().map(|mg| mg.micro(e).mubar).unwrap_or(0.0)
+            }
+            XsSource::Pointwise { .. } => 0.0, // GPU path: isotropic-CM for pointwise elastic
+        }
+    }
+
+    /// The upper energy \[eV\] of this nuclide's continuous-energy (WMP) range —
+    /// the CE↔MG seam below which elastic is isotropic-CM and above which the
+    /// fast-group forward-elastic (μ̄) law applies.
+    ///
+    /// For the LOW (`Core`) tier this is the WMP `e_max`. For the HIGH
+    /// (`Pointwise`) tier there is no seam (continuous-energy throughout), so this
+    /// returns `f64::INFINITY` — every energy is "below the seam", i.e. the GPU
+    /// path treats pointwise elastic as isotropic-CM (see [`elastic_mubar`](Self::elastic_mubar)).
+    pub fn e_max_ev(&self) -> f64 {
+        match &self.xs {
+            XsSource::Core { e_max, .. } => *e_max,
+            XsSource::Pointwise { .. } => f64::INFINITY,
+        }
+    }
+
     /// Sample a fission-neutron birth energy \[eV\] given the incident energy
     /// `e_in` \[eV\] of the neutron that induced the fission.
     ///

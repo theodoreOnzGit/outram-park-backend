@@ -45,6 +45,18 @@ pub use crate::gpu::batched_flight::{
 };
 #[cfg(not(target_os = "android"))]
 pub use crate::gpu::batched_flight::advance_flight_gpu;
+// Fused flight + collision GPU event kernel (op-u6s.8 collision-on-GPU). The
+// per-nuclide reaction tables (`CollisionTables`), the packed `EventTablesF32`,
+// the SoA `EventBatch`/`EventSphere`, and the CPU-mirror drivers build on every
+// target; the resident GPU driver `advance_generation_gpu` is present only off
+// Android.
+pub use crate::gpu::collision_grid::CollisionTables;
+pub use crate::gpu::batched_event::{
+    advance_event_cpu_mirror, advance_generation_cpu_mirror, EventBatch, EventSphere,
+    EventTablesF32, FISS_NONE,
+};
+#[cfg(not(target_os = "android"))]
+pub use crate::gpu::batched_event::advance_generation_gpu;
 // Per-machine performance-report generator (detects host GPU/CPU/OS; renders a
 // local, gitignored "what performance is available on my PC" markdown report).
 pub use crate::perf_report::{HardwareInfo, PerfReport, PerfRow};
