@@ -34,10 +34,12 @@
 //! | [`transform`] | `Object.matrix_world` affine placement | **real** — [`transform::Affine3`] per-vertex transform (CPU reference for the GPU kernel) |
 //! | [`mesh`] | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
-//! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **stub** — extrude / subdivide / bevel / boolean TODOs |
-//! | [`modifiers`] | `modifiers/intern/MOD_*` modifier stack | **stub** — subsurf / mirror / array TODOs |
-//! | [`procedural`] | Geometry Nodes (`nodes/geometry/*`) | **stub** — node-graph sketch |
-//! | [`export`] | I/O exporters (`io/*`) | **stub** — bridges to `outram-foam-mesh` polyMesh + `outram-mc-libs` CSG |
+//! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / bevel (boolean delegates to [`boolean`]) |
+//! | [`subdivision`] | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
+//! | [`boolean`] | `bmo_boolean` (Manifold upstream) | **partial** — CSG union/difference/intersect (restricted; see module docs) |
+//! | [`modifiers`] | `modifiers/intern/MOD_*` modifier stack | **real** — subsurf / mirror / array |
+//! | [`procedural`] | Geometry Nodes (`nodes/geometry/*`) | **real** — node-graph evaluator |
+//! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG primitive description |
 //!
 //! ## Design rules honoured here (workspace `CLAUDE.md`)
 //!
@@ -69,6 +71,7 @@
 //! assert_eq!(cube.euler_characteristic(), 2);
 //! ```
 
+pub mod boolean;
 pub mod export;
 pub mod math;
 pub mod mesh;
@@ -76,6 +79,7 @@ pub mod modifiers;
 pub mod ops;
 pub mod primitives;
 pub mod procedural;
+pub mod subdivision;
 pub mod transform;
 
 /// Heavy linear-algebra backend for the *large* mesh solves the advanced

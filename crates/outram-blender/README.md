@@ -21,12 +21,18 @@ Monte Carlo neutron transport.
 > fallback when no adapter is present. Same accepted tradeoff as the other
 > OUTRAM PARK GPU paths — acceleration in `f32`, trusted result in `f64`.
 
-> **Status: early SCAFFOLD.** This crate borrows Blender's *concepts and
-> data-structure architecture* — the BMesh half-edge topology, the
-> mesh-operator model, the modifier stack, geometry-nodes-style procedural
-> generation. It is **not** a port of Blender's code (Blender is millions of
-> lines of C/C++/Python). Only the primitive generators are real, tested
-> algorithms today; everything else is an honest, documented `TODO` stub.
+> **Status: EARLY, but no longer a pure scaffold.** This crate borrows
+> Blender's *concepts and data-structure architecture* — the BMesh half-edge
+> topology, the mesh-operator model, the modifier stack, geometry-nodes-style
+> procedural generation. It is **not** a port of Blender's code (Blender is
+> millions of lines of C/C++/Python). The primitive generators, the mesh
+> operators (extrude / midpoint-subdivide / vertex-bevel), Catmull-Clark
+> subdivision, the modifier stack (mirror / array / subsurf), the procedural
+> node evaluator, and the export bridges (OpenFOAM polyMesh text + CSG
+> primitive fitting) are real, unit-tested algorithms. The mesh **boolean** is
+> a partial (convex-mesh intersection only; union/difference are honest
+> `Unsupported`). Remaining gaps are documented per module and tracked in beads
+> (`op-hzs.3`, `op-hzs.11`–`op-hzs.13`).
 >
 > **⚠️ AI-generated draft, untrusted until human-reviewed** per the workspace
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -67,10 +73,12 @@ included.
 | `math` | `blenlib` `BLI_math` vectors | **real** — a minimal `Vec3` |
 | `mesh` | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 | `primitives` | Add-Mesh primitive operators | **real** — cube / UV-sphere / cylinder / grid, unit-tested |
-| `ops` | `bmesh/operators` (`bmo_*`) | **stub** — extrude / subdivide / bevel / boolean |
-| `modifiers` | `modifiers/intern/MOD_*` | **stub** — subsurf / mirror / array |
-| `procedural` | Geometry Nodes | **stub** — node-graph sketch |
-| `export` | I/O exporters | **stub** — polyMesh + CSG bridges (`triangulate` is real) |
+| `ops` | `bmesh/operators` (`bmo_*`) | **real** — extrude / midpoint-subdivide / vertex-bevel (boolean delegates to `boolean`; multi-segment bevel is a follow-up) |
+| `subdivision` | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
+| `boolean` | `bmo_boolean` (Manifold upstream) | **partial** — convex-mesh Intersect (union/difference `Unsupported`) |
+| `modifiers` | `modifiers/intern/MOD_*` | **real** — mirror / array / subsurf |
+| `procedural` | Geometry Nodes | **real** — node-graph evaluator (primitive / transform / join / subdivide / boolean / output) |
+| `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh text, CSG primitive fitting (cube + sphere; cylinder/faceted are follow-ups) |
 
 ## Design rules honoured (workspace `CLAUDE.md`)
 
@@ -115,9 +123,13 @@ copy:
   The near-term route is *primitive fitting*: emit the exact analytic CSG for a
   mesh that came from a `primitives` generator.
 
-Both bridges are stubs today and the crate intentionally does **not** yet depend
-on those crates (to avoid churn while they are under active development). See
-`export`'s module docs.
+Both bridges are **implemented** — `export::to_polymesh_text` emits the OpenFOAM
+polyMesh ASCII files and `export::to_csg_primitive` fits cube/sphere primitives
+into a CSG description — but the crate intentionally does **not** yet take a
+path dependency on `outram-foam-*` / `outram-mc-libs` (it emits standalone text
+and local mirror types), to avoid churn while those crates are under active
+development. Wiring to their real types is tracked in `op-hzs.6` / `op-hzs.7`.
+See `export`'s module docs.
 
 ## Dependency map
 

@@ -277,6 +277,114 @@ impl Mesh {
     pub fn euler_characteristic(&self) -> i64 {
         self.vertices.len() as i64 - self.edges.len() as i64 + self.faces.len() as i64
     }
+
+    // ----------------------------------------------------------------------
+    // Polygon-soup view + rebuild helpers.
+    //
+    // Most mesh *operators* (extrude, subdivide, Catmull-Clark, mirror, array,
+    // boolean, procedural join) are far simpler to express as a pure function
+    // over a "polygon soup" — a flat `positions` array plus, for each face, the
+    // list of vertex indices into it — than as in-place half-edge surgery on
+    // the private `loops`/`edges` arrays. These helpers convert a `Mesh` to and
+    // from that view. Because [`Mesh::from_polygons`] rebuilds through
+    // [`Mesh::add_face`], edge deduplication and loop wiring are recomputed for
+    // free, so an operator never has to maintain the radial cycle by hand.
+    // ----------------------------------------------------------------------
+
+    /// All vertex positions in [`VertexId`] order (`positions()[i]` is the
+    /// position of `VertexId(i)`).
+    ///
+    /// The returned `Vec` has exactly [`Mesh::vertex_count`] entries. This is
+    /// the position half of the polygon-soup view (see [`Mesh::polygons`]).
+    pub fn positions(&self) -> Vec<Vec3> {
+        self.vertices.iter().map(|v| v.position).collect()
+    }
+
+    /// Every face as its ring of [`VertexId`]s, in [`FaceId`] order
+    /// (`polygons()[f]` is the boundary of `FaceId(f)`, in loop/winding order).
+    ///
+    /// Together with [`Mesh::positions`] this is a complete, connectivity-free
+    /// description of the mesh — the input form the operator modules
+    /// ([`crate::ops`], [`crate::subdivision`], [`crate::modifiers`]) compute
+    /// against, then feed back through [`Mesh::from_polygons`].
+    pub fn polygons(&self) -> Vec<Vec<VertexId>> {
+        (0..self.faces.len())
+            .map(|f| self.face_vertices(FaceId(f)))
+            .collect()
+    }
+
+    /// Rebuild a [`Mesh`] from a positions array and a list of faces, each face
+    /// given as a list of `usize` indices into `positions`.
+    ///
+    /// This is the inverse of the [`Mesh::positions`] / [`Mesh::polygons`]
+    /// view: it adds every position as a vertex (in order, so indices are
+    /// preserved) then adds each face through [`Mesh::add_face`], which
+    /// recomputes edge deduplication and loop wiring. Faces should be wound
+    /// counter-clockwise as seen from outside (outward normal), matching the
+    /// convention of the [`crate::primitives`] generators.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any face has fewer than three vertices or references an index
+    /// `>= positions.len()` — both indicate a caller bug in an operator,
+    /// surfaced loudly rather than producing broken topology (same contract as
+    /// [`Mesh::add_face`]).
+    pub fn from_polygons(positions: &[Vec3], faces: &[Vec<usize>]) -> Mesh {
+        let mut m = Mesh::new();
+        for &p in positions {
+            m.add_vertex(p);
+        }
+        for face in faces {
+            let verts: Vec<VertexId> = face.iter().map(|&i| VertexId(i)).collect();
+            m.add_face(&verts);
+        }
+        m
+    }
+
+    /// Unit outward normal of a face by **Newell's method**.
+    ///
+    /// Newell's method sums the cross-terms of consecutive edge pairs around the
+    /// face, which is robust for non-planar and concave polygons (unlike a
+    /// single `(v1 - v0) x (v2 - v0)`), and yields a vector whose magnitude is
+    /// twice the projected face area. The result is normalized to unit length;
+    /// a degenerate (zero-area) face returns [`Vec3::ZERO`] rather than `NaN`.
+    /// The direction follows the face winding: counter-clockwise as seen from
+    /// the returned normal's side.
+    pub fn face_normal(&self, face: FaceId) -> Vec3 {
+        let vs = self.face_vertices(face);
+        if vs.len() < 3 {
+            return Vec3::ZERO;
+        }
+        let mut nx = 0.0;
+        let mut ny = 0.0;
+        let mut nz = 0.0;
+        for i in 0..vs.len() {
+            let cur = self.vertices[vs[i].0].position;
+            let next = self.vertices[vs[(i + 1) % vs.len()].0].position;
+            nx += (cur.y - next.y) * (cur.z + next.z);
+            ny += (cur.z - next.z) * (cur.x + next.x);
+            nz += (cur.x - next.x) * (cur.y + next.y);
+        }
+        Vec3::new(nx, ny, nz).normalize()
+    }
+
+    /// Arithmetic mean (centroid) of a face's vertex positions.
+    ///
+    /// This is the vertex-average face point, not the area-weighted centroid;
+    /// it is what Catmull-Clark subdivision and the extrude/inset operators use
+    /// as a face point. Returns [`Vec3::ZERO`] for an out-of-range or empty
+    /// face.
+    pub fn face_centroid(&self, face: FaceId) -> Vec3 {
+        let vs = self.face_vertices(face);
+        if vs.is_empty() {
+            return Vec3::ZERO;
+        }
+        let mut acc = Vec3::ZERO;
+        for v in &vs {
+            acc = acc.add(self.vertices[v.0].position);
+        }
+        acc.scale(1.0 / vs.len() as f64)
+    }
 }
 
 #[cfg(test)]
