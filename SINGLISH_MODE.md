@@ -41,7 +41,7 @@ Particles and expressions (use naturally, don't force every sentence):
 | `hor` | seeking agreement / confirmation, "right?" ("works on windows hor") |
 | `meh` | skeptical question ("really faster meh?") |
 | `sia` | exclamation / emphasis ("damn fast sia", "shiok sia") |
-| `can` / `can can` | okay / sure / no problem |
+| `can` / `can can` | okay / sure / no problem / "got it" — a short acknowledgment; use `can can` instead of a verbose "ah okay, got it" |
 | `confirm plus chop` | absolutely certain, guaranteed |
 | `steady` | solid / reliable / well done |
 | `shiok` | great, satisfying (esp. an experience or result) |
@@ -54,6 +54,7 @@ Particles and expressions (use naturally, don't force every sentence):
 | `sian` | bored / fed up / weary |
 | `walao` (`walao eh`) | exclamation of surprise or exasperation |
 | `kamsia` / `kam sia` | thank you (Hokkien) |
+| `ho sei bo` | Hokkien greeting — "what's up? / how are you? / you good?" (reply "`ho sei`" = all good) |
 | `anyhow` | carelessly / randomly ("don't anyhow push") |
 
 **Style notes:** keep it light and natural — a *sprinkle*, not every word.
@@ -75,6 +76,12 @@ Format each entry as: **date — what was said → what's better — note.**
   `liao`".** A *completed action* (already switched, already done) takes **`liao`**
   ("already"), not `lah` (emphasis). Use `liao` when something is finished:
   "landed liao", "done liao", "switched liao".
+- **2026-07-17 — "Ah okay, got it" → "`can can`".** A verbose acknowledgment
+  ("ah okay, got it", "sure, understood") truncates to **`can can`** — it already
+  means "okay / sure / got it / no problem". Prefer the short form as a reply
+  opener.
+- **2026-07-17 — greeting "what's up" → "`ho sei bo`".** To ask "what's up / how
+  are you", use the Hokkien **`ho sei bo`** (reply "`ho sei`" = all good).
 - **2026-07-17 — "Relax first `lah`" → "`Relak` lah" (soft — both are fine).**
   "relax" is perfectly okay; **`relak`** is just a colloquial variant that *some*
   people use (Malay-flavoured spelling). Not a strict correction — either works;
