@@ -1,5 +1,12 @@
 # outram-blender
 
+> **This is a fork.** `outram-blender` is an independent, GPL-licensed
+> **fork / derivative of [Blender](https://github.com/blender/blender)'s
+> mesh-authoring architecture**, reusing its mesh/geometry design under the GPL
+> for the OUTRAM PARK multiphysics suite. It is **not** affiliated with,
+> endorsed by, or sanctioned by the Blender Foundation, and bundles no Blender
+> source code. "Blender" identifies only the upstream project it derives from.
+
 A pure-Rust, headless **mesh-authoring frontend** for the OUTRAM PARK
 multiphysics suite, inspired by the **architecture** of
 [Blender](https://github.com/blender/blender). The eventual goal is to author
@@ -18,13 +25,14 @@ Monte Carlo neutron transport.
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
 > safety-critical, or licensing decisions.
 
-## Naming & trademark (maintainer decision pending)
+## Naming & trademark (decided)
 
-The workspace convention (bead `op-ahi`) names independent forks
-`outram-park-fork-<project>` — e.g. `outram-park-fork-coolprop`. This crate was
-named **`outram-blender`** at the maintainer's explicit request, which departs
-from that convention. It is flagged here and in `Cargo.toml` for a rename
-decision.
+**Decision (2026-07-17): keep the name `outram-blender`, and clearly mark it as
+a fork.** The workspace convention (bead `op-ahi`) names independent forks
+`outram-park-fork-<project>` — e.g. `outram-park-fork-coolprop`. This crate
+deliberately keeps `outram-blender`: the `outram-` prefix already marks it as an
+OUTRAM PARK fork, and the `-blender` suffix credits the upstream lineage this
+crate derives from. The fork status is stated up top and in `Cargo.toml`.
 
 This crate is **not affiliated with, endorsed by, or sanctioned by the Blender
 Foundation.** "Blender" is used only to identify the upstream project whose

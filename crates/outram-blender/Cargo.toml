@@ -3,15 +3,14 @@ name = "outram-blender"
 version = "0.0.0"
 edition.workspace = true
 license.workspace = true
-# NAME / TRADEMARK NOTE (for the maintainer): the workspace convention (op-ahi)
-# names independent forks `outram-park-fork-<project>` (e.g.
-# `outram-park-fork-coolprop`). The maintainer explicitly requested the name
-# `outram-blender`. This crate is NOT affiliated with, endorsed by, or
-# sanctioned by the Blender Foundation; "Blender" is used only to identify the
-# upstream project whose mesh/geometry ARCHITECTURE inspired this scaffold. The
-# final published name is a maintainer decision — see README.md "Naming &
-# trademark".
-description = "Blender-inspired mesh-authoring frontend for OUTRAM PARK multiphysics (scaffold) -- an independent OUTRAM PARK project, not affiliated with the Blender Foundation"
+# NAME / TRADEMARK NOTE — DECIDED 2026-07-17: keep the name `outram-blender` and
+# mark it clearly as a fork in README.md. It departs from the op-ahi
+# `outram-park-fork-<project>` convention deliberately (the `outram-` prefix
+# already marks it an OUTRAM PARK fork; `-blender` credits the upstream lineage).
+# This crate is a GPL-licensed FORK/DERIVATIVE of Blender's mesh/geometry
+# architecture, NOT affiliated with, endorsed by, or sanctioned by the Blender
+# Foundation, and bundles no Blender source. See README.md "Naming & trademark".
+description = "A GPL-licensed fork of Blender's mesh-authoring architecture — headless mesh frontend for OUTRAM PARK multiphysics (scaffold). Not affiliated with the Blender Foundation."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
