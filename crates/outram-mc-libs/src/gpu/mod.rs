@@ -29,7 +29,9 @@
 //!
 //! - **Belongs:** headless compute contexts, WGSL kernels for embarrassingly
 //!   parallel MC sub-kernels (XS interpolation, majorant evaluation, batched
-//!   free-flight sampling), and their CPU reference + GPU-vs-CPU agreement tests.
+//!   free-flight sampling), dense-grid material-total tabulations that reuse
+//!   those kernels ([`union_grid`]), and their CPU reference + GPU-vs-CPU
+//!   agreement tests.
 //! - **Does not:** the history-based transport loop itself (branchy, not GPU
 //!   friendly), any windowing/GUI (out of scope for the library; Android-hostile),
 //!   or anything that would make a plain `cargo build` require a GPU at runtime.
@@ -39,6 +41,11 @@
 // tested) on Android too. Only the GPU-dispatch function and the `wgpu` imports
 // inside it are `#[cfg(not(target_os = "android"))]`.
 pub mod xs_interp;
+
+// Dense log-spaced tabulation of a material's macroscopic total cross section,
+// with batched CPU-reference + GPU lookup reusing the `xs_interp` kernel. Builds
+// on every target; its GPU-only method is `#[cfg]`-gated internally.
+pub mod union_grid;
 
 // ---------------------------------------------------------------------------
 // Desktop (non-Android) path: the real wgpu-backed context + probe.
