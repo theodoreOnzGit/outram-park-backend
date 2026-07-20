@@ -91,6 +91,44 @@ impl Affine3 {
     pub fn transform_points(self, positions: &[Vec3]) -> Vec<Vec3> {
         positions.iter().map(|&p| self.transform_point(p)).collect()
     }
+
+    /// Transform every position, **using the GPU as far as possible and falling
+    /// back to the CPU on any failure** — the "accelerate when we can, never
+    /// fail" entry point.
+    ///
+    /// On desktop targets it probes for a headless adapter
+    /// ([`crate::gpu::probe`]) and runs the WGSL kernel
+    /// ([`crate::gpu::try_transform_vertices_gpu`]); if there is no adapter, or
+    /// the GPU work returns a [`crate::gpu::GpuError`], it transparently returns
+    /// the CPU result instead. On Android the GPU path is compiled out entirely
+    /// and this is just [`Self::transform_points`]. It therefore **always
+    /// returns a correct transform**, whatever the platform or GPU state.
+    ///
+    /// **Precision caveat — this is not the trusted path.** When the GPU runs,
+    /// the result is `f32`-precision; when the CPU runs, it is the exact `f64`
+    /// [`Self::transform_points`]. Because which one you get depends on runtime
+    /// GPU availability, any output feeding V&V or a solver MUST call
+    /// [`Self::transform_points`] directly. Use this only for throughput-bound
+    /// authoring work where `f32` is acceptable.
+    ///
+    /// **Cost note.** Provisioning a GPU context (instance + adapter + device)
+    /// is not free. For many batches sharing one device, probe once via
+    /// [`crate::gpu::probe`] and reuse the [`crate::gpu::GpuContext`] with
+    /// [`crate::gpu::try_transform_vertices_gpu`] rather than calling this per
+    /// batch.
+    pub fn transform_points_best_effort(self, positions: &[Vec3]) -> Vec<Vec3> {
+        #[cfg(not(target_os = "android"))]
+        {
+            if let Some(ctx) = crate::gpu::probe() {
+                if let Ok(out) = crate::gpu::try_transform_vertices_gpu(&ctx, self, positions) {
+                    return out;
+                }
+                // Adapter present but the submission failed — fall through to
+                // the CPU reference path below rather than propagating.
+            }
+        }
+        self.transform_points(positions)
+    }
 }
 
 #[cfg(test)]
@@ -131,5 +169,36 @@ mod tests {
         }
         // Spot-check the rotation: (1,0,0) -> (0,1,0), then +translation.
         assert_eq!(batch[0], Vec3::new(5.0, 1.0, -1.0));
+    }
+
+    /// The best-effort dispatcher must agree with the CPU reference whether or
+    /// not a GPU is present: when the GPU runs it is `f32` within tolerance, and
+    /// when it falls back to the CPU it is bit-identical. This exercises the
+    /// "always returns a correct transform" contract on any machine.
+    #[test]
+    fn best_effort_agrees_with_cpu_reference() {
+        let t = Affine3::from_rows(
+            [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.5]], // rotate about z, scale z
+            Vec3::new(3.0, -2.0, 10.0),
+        );
+        let pts: Vec<Vec3> = (0..256)
+            .map(|i| {
+                let f = i as f64;
+                Vec3::new(f * 0.5 - 3.0, (f * 0.25).sin() * 4.0, f * 0.01)
+            })
+            .collect();
+
+        let best = t.transform_points_best_effort(&pts);
+        let cpu = t.transform_points(&pts);
+
+        assert_eq!(best.len(), cpu.len());
+        // f32 GPU tolerance over these O(10) magnitudes; exact if the CPU ran.
+        let tol = 1e-4_f64;
+        for (b, c) in best.iter().zip(cpu.iter()) {
+            assert!(
+                (b.x - c.x).abs() <= tol && (b.y - c.y).abs() <= tol && (b.z - c.z).abs() <= tol,
+                "best-effort result diverged from CPU reference beyond f32 tolerance"
+            );
+        }
     }
 }

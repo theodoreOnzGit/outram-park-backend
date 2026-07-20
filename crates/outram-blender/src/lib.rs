@@ -98,8 +98,15 @@ pub mod transform;
 /// an operator yet — the dependency is staged for that work.
 pub use faer;
 
-/// Optional headless GPU compute (behind the `gpu` cargo feature). Absent from
-/// the default build, so a plain `cargo build` stays wgpu-free and
-/// headless-Android-clean. See [`gpu`] for the CPU-fallback contract.
-#[cfg(feature = "gpu")]
+/// Headless GPU compute via `wgpu`. Compiled **unconditionally on every desktop
+/// target** (no cargo feature to opt in) so the GPU path is used as far as
+/// possible; **absent only on Android** (`target_os = "android"`), which has no
+/// system Vulkan/Metal loader and where the workspace Android rule forbids GPU
+/// deps in the library build. Whether or not this module is present, callers get
+/// a graceful CPU fallback: on Android the GPU attempt is compiled out entirely,
+/// and on desktop [`gpu::probe`] returning `None` or a recoverable
+/// [`gpu::GpuError`] routes to the CPU reference path. See
+/// [`transform::Affine3::transform_points_best_effort`] for the unified
+/// try-GPU-then-CPU entry point, and [`gpu`] for the fallback contract.
+#[cfg(not(target_os = "android"))]
 pub mod gpu;

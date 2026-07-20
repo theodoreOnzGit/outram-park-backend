@@ -14,12 +14,17 @@ and procedurally generate geometry that feeds the OUTRAM PARK solvers — an
 `outram-foam-mesh` `polyMesh` for CFD, or an `outram-mc-libs` CSG universe for
 Monte Carlo neutron transport.
 
-> **GPU compute (optional `gpu` feature, desktop only): `f32` for speed, CPU
-> `f64` is the trusted path.** The headless GPU kernels (`wgpu`, target-gated off
-> Android) accelerate per-vertex work in single precision; the CPU
-> ([`math`]/[`faer`]) path stays the deterministic reference, with graceful CPU
-> fallback when no adapter is present. Same accepted tradeoff as the other
-> OUTRAM PARK GPU paths — acceleration in `f32`, trusted result in `f64`.
+> **GPU compute (always compiled on desktop, off Android): `f32` for speed, CPU
+> `f64` is the trusted path.** The headless GPU kernels (`wgpu`) are built
+> **unconditionally on every desktop target** — no cargo feature to opt in — so
+> the GPU path is used as far as possible; wgpu is target-gated off Android only
+> (no system Vulkan/Metal loader there). They accelerate per-vertex work in
+> single precision, while the CPU ([`math`]/[`faer`]) path stays the
+> deterministic reference. Fallback to CPU is **graceful and automatic**: no
+> adapter, or a recoverable GPU error, routes to the CPU path
+> (`Affine3::transform_points_best_effort` is the unified try-GPU-then-CPU entry
+> point). Same accepted tradeoff as the other OUTRAM PARK GPU paths —
+> acceleration in `f32`, trusted result in `f64`.
 
 > **Status: EARLY, but no longer a pure scaffold.** This crate borrows
 > Blender's *concepts and data-structure architecture* — the BMesh half-edge
