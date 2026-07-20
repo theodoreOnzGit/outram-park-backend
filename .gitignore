@@ -34,3 +34,8 @@ xin wang thesis.pdf
 # it has been reviewed for licensing / data-policy / GPLv3 compliance and
 # integrated into the right crate.
 /collaboration/
+
+# Claude Code agent worktrees — transient isolated checkouts the harness creates
+# for background subagents (isolation: "worktree"). Working scratch only, never
+# committed; they are auto-cleaned when the agent finishes.
+.claude/worktrees/
