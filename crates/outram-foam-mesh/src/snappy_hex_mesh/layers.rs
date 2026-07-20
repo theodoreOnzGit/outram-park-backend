@@ -345,14 +345,14 @@ enum LayerMode {
 /// algorithm, restricted scope, and V&V).
 ///
 /// For each candidate layer count (full count first, then fewer — the
-/// quality-limited collapse), the [`InteriorInsert`](LayerMode::InteriorInsert)
+/// quality-limited collapse), the `InteriorInsert`
 /// topology is tried first at the first
 /// [`PatchKind::Wall`](outram_foam_basic_lib::mesh::PatchKind::Wall) patch: it
 /// displaces the near-wall mesh inward and inserts `n` graded prisms into the
 /// opened gap, keeping the outer boundary fixed. That candidate is accepted
 /// only if it is both **watertight** (every cell's signed face-area-vector sum
 /// vanishes) and free of non-positive-volume cells; otherwise the
-/// [`ExtrudeOutward`](LayerMode::ExtrudeOutward) topology (always watertight) is
+/// `ExtrudeOutward` topology (always watertight) is
 /// tried at the same `n`. On success the returned [`CastellatedMesh`] has:
 /// - `fv_mesh` / `topology` — the rebuilt, validated layered mesh. For an
 ///   interior insert the original wall faces are internal at the shrunk
