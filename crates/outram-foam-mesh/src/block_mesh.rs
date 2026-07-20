@@ -64,14 +64,30 @@
 //!   directions is **either** a single scalar expansion ratio **or** a
 //!   multi-grading list of `( fractionLength fractionCells expansionRatio )`
 //!   segments (OpenFOAM `gradingDescriptors`), graded piecewise-geometrically.
-//! - `edgeGrading (e0 … e11)` is supported **only** in the restricted case
-//!   where the four edges of each local direction share the same grading (then
-//!   it is exact, equivalent to `simpleGrading`). A genuinely per-edge
-//!   (non-planar) `edgeGrading` returns [`MeshError::NotImplemented`], because
-//!   this crate uses one node distribution per direction rather than OpenFOAM's
-//!   full 12-edge blend.
+//! - `edgeGrading (e0 … e11)` is **fully supported**: each of the hex's 12
+//!   edges carries its own [`Grading`] (single ratio or multi-segment), and
+//!   interior nodes are blended from all 12 edge distributions exactly as
+//!   OpenFOAM's `block::createPoints` does (the straight-edge, no-curvature
+//!   case). When the four edges of a direction happen to agree, the block
+//!   collapses to the equivalent `simpleGrading` fast path (bit-identical to a
+//!   single per-direction distribution); when they disagree, the genuine
+//!   per-edge 12-edge blend is used. See [`edge_blended_node`].
 //! - `mergePatchPairs` (face-merging of separately-meshed patch pairs) is
 //!   parsed and ignored; coincident-point merging across blocks is always done.
+//!
+//! ## Honest scope — what the per-edge blend does NOT model
+//!
+//! Only the **straight-edge** branch of OpenFOAM `block::createPoints`
+//! (`blockCreate.C:45-183`, `nCurvedEdges == 0`) is ported. The curved-edge
+//! correction (`blockCreate.C:155-180`) and the curved-**face** projection
+//! passes (`blockCreate.C:185-345`) are **not** implemented — consistent with
+//! the deferred `arc`/`spline`/`polyLine` edge and `projectFace` support above.
+//! For blocks with planar faces (all edges straight — the current scope) the
+//! blend is exact and volume-preserving; a warped internal face between cells of
+//! a per-edge-graded block is expected and handled by the divergence-theorem
+//! cell geometry. For multi-block meshes, matching gradings on any **shared**
+//! edge remain the dict author's responsibility, exactly as in OpenFOAM
+//! `blockMesh` (a mismatch leaves the shared boundary nodes un-merged).
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -202,14 +218,29 @@ impl Grading {
 /// agree, `edgeGrading`); each direction only redistributes node positions
 /// along its `[0, 1]` parametric edge (`1.0` uniform expansion is even
 /// spacing).
+///
+/// `edge_grading` is the genuine per-edge case: `Some([Grading; 12])` when an
+/// `edgeGrading` entry gives four edges of some direction *different* gradings,
+/// so interior nodes must be blended from all 12 edge distributions
+/// (OpenFOAM `block::createPoints`) rather than one distribution per direction.
+/// When it is `Some`, the block-build path uses [`edge_blended_node`] and
+/// `grading` merely holds a representative (the first edge of each direction)
+/// for inspection. When it is `None`, `grading` is authoritative and the fast
+/// trilinear per-direction map is used (this covers `simpleGrading` and every
+/// `edgeGrading` whose four edges per direction agree).
 #[derive(Debug, Clone)]
 pub struct Block {
     /// The 8 block-corner vertex indices, in OpenFOAM hex order.
     pub vertices: [usize; 8],
     /// Cell counts `(nx, ny, nz)` along the three local directions.
     pub cells: [usize; 3],
-    /// Per-direction node distributions `(gx, gy, gz)`.
+    /// Per-direction node distributions `(gx, gy, gz)`. Authoritative when
+    /// `edge_grading` is `None`; a per-direction representative otherwise.
     pub grading: [Grading; 3],
+    /// The 12 per-edge gradings, present only for a genuinely per-edge
+    /// `edgeGrading` (edges 0–3 = x, 4–7 = y, 8–11 = z; see
+    /// [`edge_blended_node`]). `None` selects the trilinear fast path.
+    pub edge_grading: Option<[Grading; 12]>,
 }
 
 /// One named boundary patch from the `boundary` list.
@@ -420,8 +451,9 @@ impl PolyMesh {
 ///
 /// # Errors
 /// [`MeshError::DictParse`] on a malformed dict, [`MeshError::NotImplemented`]
-/// for unsupported grading, or [`MeshError::Construction`] on a topological
-/// inconsistency.
+/// for an unsupported block shape (only `hex` is handled; all grading forms —
+/// `simpleGrading`, multi-grading, and full per-edge `edgeGrading` — are
+/// supported), or [`MeshError::Construction`] on a topological inconsistency.
 pub fn block_mesh(dict_text: &str) -> Result<PolyMesh, MeshError> {
     BlockMeshDict::parse(dict_text)?.build()
 }
@@ -587,6 +619,145 @@ fn trilinear(corners: &[Vector3; 8], u: f64, v: f64, w: f64) -> Vector3 {
     p
 }
 
+/// Per-edge node distributions (the `[0, 1]` `lambdaDivisions` of each of the
+/// 12 hex edges), laid out in OpenFOAM edge order.
+///
+/// Entry `e` has `n_dir + 1` monotone positions on `[0, 1]`, where the
+/// direction is `e / 4` (edges `0..3` = x with `nx + 1` entries, `4..7` = y,
+/// `8..11` = z). Mirrors the `edgeWeights[12]` array assembled by
+/// `blockDescriptor::edgesPointsWeights`
+/// (`blockDescriptor/blockDescriptorEdges.C:113-143`), whose entries are the
+/// straight-edge `lineDivide::lambdaDivisions()` for each edge.
+type EdgeLambdas = [Vec<f64>; 12];
+
+/// Build the 12 per-edge `[0, 1]` node-position arrays for a block, from its 12
+/// per-edge gradings and its `(nx, ny, nz)` cell counts.
+///
+/// Edge → direction/count follows OpenFOAM `edgesPointsWeights`
+/// (`blockDescriptorEdges.C:121-141`): edges `0,1,2,3` are subdivided into `nx`
+/// cells, `4,5,6,7` into `ny`, `8,9,10,11` into `nz`. Each edge's array is that
+/// edge's own [`Grading::node_positions`] — a single ratio or a multi-segment
+/// distribution.
+fn edge_lambdas(edge_grading: &[Grading; 12], cells: [usize; 3]) -> EdgeLambdas {
+    let [nx, ny, nz] = cells;
+    std::array::from_fn(|e| {
+        let n = match e / 4 {
+            0 => nx,
+            1 => ny,
+            _ => nz,
+        };
+        edge_grading[e].node_positions(n)
+    })
+}
+
+/// One interior node position `[m]` of a per-edge-graded hex block, blended
+/// from all 12 edge distributions.
+///
+/// Faithful port of the straight-edge branch of OpenFOAM's
+/// `Foam::block::createPoints` (`blocks/block/blockCreate.C:45-183`, the
+/// `nCurvedEdges == 0` path). `corners` are the 8 scaled block corners in hex
+/// order (`corners[0] = p000 … corners[6] = p111`, `corners[7] = p011`, matching
+/// [`HEX_CORNER`]); `el` are the [`EdgeLambdas`]; `(i, j, k)` index the node grid
+/// (`0..=nx`, `0..=ny`, `0..=nz`).
+///
+/// The node is the mean of three directional estimates. Each estimate is a
+/// convex blend (weights normalised to sum to 1, `blockCreate.C:97-127`) of the
+/// four straight edges running in that direction, evaluated at the edge's local
+/// parameter (`blockCreate.C:131-152`). For a block whose four edges per
+/// direction agree this reduces *exactly* to trilinear interpolation, so it is
+/// a strict generalisation of [`trilinear`]. All positions are in metres `[m]`
+/// (the corners are already scaled by `convertToMeters`).
+fn edge_blended_node(corners: &[Vector3; 8], el: &EdgeLambdas, i: usize, j: usize, k: usize) -> Vector3 {
+    // Corner aliases (blockCreate.C:52-60).
+    let p000 = corners[0];
+    let p100 = corners[1];
+    let p110 = corners[2];
+    let p010 = corners[3];
+    let p001 = corners[4];
+    let p101 = corners[5];
+    let p111 = corners[6];
+    let p011 = corners[7];
+
+    // Edge weights (blockCreate.C macros w0..w11): x-edges read at i, y at j,
+    // z at k.
+    let w0 = el[0][i];
+    let w1 = el[1][i];
+    let w2 = el[2][i];
+    let w3 = el[3][i];
+    let w4 = el[4][j];
+    let w5 = el[5][j];
+    let w6 = el[6][j];
+    let w7 = el[7][j];
+    let w8 = el[8][k];
+    let w9 = el[9][k];
+    let w10 = el[10][k];
+    let w11 = el[11][k];
+
+    // x-direction blend weights (blockCreate.C:92-101).
+    let mut wx1 = (1.0 - w0) * (1.0 - w4) * (1.0 - w8) + w0 * (1.0 - w5) * (1.0 - w9);
+    let mut wx2 = (1.0 - w1) * w4 * (1.0 - w11) + w1 * w5 * (1.0 - w10);
+    let mut wx3 = (1.0 - w2) * w7 * w11 + w2 * w6 * w10;
+    let mut wx4 = (1.0 - w3) * (1.0 - w7) * w8 + w3 * (1.0 - w6) * w9;
+    let sum_wx = wx1 + wx2 + wx3 + wx4;
+    wx1 /= sum_wx;
+    wx2 /= sum_wx;
+    wx3 /= sum_wx;
+    wx4 /= sum_wx;
+
+    // y-direction blend weights (blockCreate.C:105-114).
+    let mut wy1 = (1.0 - w4) * (1.0 - w0) * (1.0 - w8) + w4 * (1.0 - w1) * (1.0 - w11);
+    let mut wy2 = (1.0 - w5) * w0 * (1.0 - w9) + w5 * w1 * (1.0 - w10);
+    let mut wy3 = (1.0 - w6) * w3 * w9 + w6 * w2 * w10;
+    let mut wy4 = (1.0 - w7) * (1.0 - w3) * w8 + w7 * (1.0 - w2) * w11;
+    let sum_wy = wy1 + wy2 + wy3 + wy4;
+    wy1 /= sum_wy;
+    wy2 /= sum_wy;
+    wy3 /= sum_wy;
+    wy4 /= sum_wy;
+
+    // z-direction blend weights (blockCreate.C:118-127).
+    let mut wz1 = (1.0 - w8) * (1.0 - w0) * (1.0 - w4) + w8 * (1.0 - w3) * (1.0 - w7);
+    let mut wz2 = (1.0 - w9) * w0 * (1.0 - w5) + w9 * w3 * (1.0 - w6);
+    let mut wz3 = (1.0 - w10) * w1 * w5 + w10 * w2 * w6;
+    let mut wz4 = (1.0 - w11) * (1.0 - w1) * w4 + w11 * (1.0 - w2) * w7;
+    let sum_wz = wz1 + wz2 + wz3 + wz4;
+    wz1 /= sum_wz;
+    wz2 /= sum_wz;
+    wz3 /= sum_wz;
+    wz4 /= sum_wz;
+
+    // Points on the 12 straight edges (blockCreate.C:131-144).
+    let edgex1 = p000 + (p100 - p000) * w0;
+    let edgex2 = p010 + (p110 - p010) * w1;
+    let edgex3 = p011 + (p111 - p011) * w2;
+    let edgex4 = p001 + (p101 - p001) * w3;
+
+    let edgey1 = p000 + (p010 - p000) * w4;
+    let edgey2 = p100 + (p110 - p100) * w5;
+    let edgey3 = p101 + (p111 - p101) * w6;
+    let edgey4 = p001 + (p011 - p001) * w7;
+
+    let edgez1 = p000 + (p001 - p000) * w8;
+    let edgez2 = p100 + (p101 - p100) * w9;
+    let edgez3 = p110 + (p111 - p110) * w10;
+    let edgez4 = p010 + (p011 - p010) * w11;
+
+    // Mean of the three directional estimates (blockCreate.C:147-152).
+    (edgex1 * wx1
+        + edgex2 * wx2
+        + edgex3 * wx3
+        + edgex4 * wx4
+        + edgey1 * wy1
+        + edgey2 * wy2
+        + edgey3 * wy3
+        + edgey4 * wy4
+        + edgez1 * wz1
+        + edgez2 * wz2
+        + edgez3 * wz3
+        + edgez4 * wz4)
+        / 3.0
+}
+
 // ───────────────────────────────────────────────────────────────────────────
 //  Build
 // ───────────────────────────────────────────────────────────────────────────
@@ -657,19 +828,58 @@ impl BlockMeshDict {
                     "block has a zero cell count".to_string(),
                 ));
             }
-            let us = block.grading[0].node_positions(nx);
-            let vs = block.grading[1].node_positions(ny);
-            let ws = block.grading[2].node_positions(nz);
-
             // Node global-index grid for this block.
             let nnx = nx + 1;
             let nny = ny + 1;
             let mut grid = vec![0usize; nnx * nny * (nz + 1)];
-            for k in 0..=nz {
-                for j in 0..=ny {
-                    for i in 0..=nx {
-                        let p = trilinear(&corners, us[i], vs[j], ws[k]);
-                        grid[i + j * nnx + k * nnx * nny] = intern(p);
+            match &block.edge_grading {
+                // Fast path: one node distribution per direction (simpleGrading,
+                // or an edgeGrading whose four edges per direction agree). The
+                // block map is a straight trilinear interpolation.
+                None => {
+                    let us = block.grading[0].node_positions(nx);
+                    let vs = block.grading[1].node_positions(ny);
+                    let ws = block.grading[2].node_positions(nz);
+                    for k in 0..=nz {
+                        for j in 0..=ny {
+                            for i in 0..=nx {
+                                let p = trilinear(&corners, us[i], vs[j], ws[k]);
+                                grid[i + j * nnx + k * nnx * nny] = intern(p);
+                            }
+                        }
+                    }
+                }
+                // General per-edge path: blend interior nodes from all 12 edge
+                // distributions (OpenFOAM `block::createPoints`). Block corners
+                // are set exactly to the corner points, matching the upstream
+                // `vertex(i,j,k)` skip (blockCreate.C:69-85).
+                Some(eg) => {
+                    let el = edge_lambdas(eg, block.cells);
+                    for k in 0..=nz {
+                        for j in 0..=ny {
+                            for i in 0..=nx {
+                                let cx = i == nx;
+                                let cy = j == ny;
+                                let cz = k == nz;
+                                let is_corner =
+                                    (i == 0 || cx) && (j == 0 || cy) && (k == 0 || cz);
+                                let p = if is_corner {
+                                    let base = if !cx && !cy {
+                                        0
+                                    } else if cx && !cy {
+                                        1
+                                    } else if cx && cy {
+                                        2
+                                    } else {
+                                        3
+                                    };
+                                    corners[base + if cz { 4 } else { 0 }]
+                                } else {
+                                    edge_blended_node(&corners, &el, i, j, k)
+                                };
+                                grid[i + j * nnx + k * nnx * nny] = intern(p);
+                            }
+                        }
                     }
                 }
             }
@@ -927,7 +1137,8 @@ impl BlockMeshDict {
     ///
     /// # Errors
     /// [`MeshError::DictParse`] on malformed syntax; [`MeshError::NotImplemented`]
-    /// for unsupported grading forms.
+    /// for an unsupported block shape (only `hex`). All grading forms —
+    /// `simpleGrading`, multi-grading, and full per-edge `edgeGrading` — parse.
     pub fn parse(text: &str) -> Result<Self, MeshError> {
         let tokens = tokenize(text);
         let mut cur = Cursor::new(&tokens);
@@ -1190,7 +1401,7 @@ fn parse_blocks(cur: &mut Cursor) -> Result<Vec<Block>, MeshError> {
         let grading_kw = cur
             .next()
             .ok_or_else(|| MeshError::DictParse("expected a grading keyword, found end".into()))?;
-        let grading = match grading_kw {
+        let (grading, edge_grading) = match grading_kw {
             "simpleGrading" => {
                 // Three per-direction gradings, each a scalar ratio or a
                 // parenthesised multi-segment list.
@@ -1199,9 +1410,12 @@ fn parse_blocks(cur: &mut Cursor) -> Result<Vec<Block>, MeshError> {
                 let gy = parse_grading_direction(cur)?;
                 let gz = parse_grading_direction(cur)?;
                 cur.expect(")")?;
-                [gx, gy, gz]
+                ([gx, gy, gz], None)
             }
-            "edgeGrading" => parse_edge_grading(cur)?,
+            "edgeGrading" => {
+                let edges = parse_edge_grading(cur)?;
+                collapse_edge_grading(edges)
+            }
             other => {
                 return Err(MeshError::DictParse(format!(
                     "unknown grading keyword `{other}`"
@@ -1213,6 +1427,7 @@ fn parse_blocks(cur: &mut Cursor) -> Result<Vec<Block>, MeshError> {
             vertices: verts,
             cells: [nx, ny, nz],
             grading,
+            edge_grading,
         });
     }
     Ok(out)
@@ -1269,20 +1484,18 @@ fn correct_expansion(expansion: f64) -> f64 {
 /// Parse an `edgeGrading ( e0 e1 ... e11 )` list of 12 per-edge gradings.
 ///
 /// OpenFOAM maps the 12 hex edges to the 3 local directions in blocks of four
-/// (`blockDescriptorEdges.C`: `sizes()[edgei/4]`, `expand_[edgei]`): edges
-/// `0..3` are the x-direction, `4..7` the y-direction, `8..11` the z-direction.
-/// A faithful `edgeGrading` grades every edge independently and blends interior
-/// nodes from all 12 edge distributions (`blocks/block/blockCreate.C`), which
-/// this crate's single-distribution-per-direction block map cannot represent.
+/// (`blockDescriptorEdges.C:121-141`): edges `0..3` are the x-direction, `4..7`
+/// the y-direction, `8..11` the z-direction. Each entry is a scalar expansion
+/// ratio ([`Grading::Uniform`]) or a parenthesised multi-segment list
+/// ([`Grading::Multi`]); a negative ratio is trapped as its inverse.
 ///
-/// **Restricted port (documented approximation):** if all four edges of a
-/// direction share the same [`Grading`], that direction is collapsed to the
-/// shared distribution — which is then *exact*, identical to the equivalent
-/// `simpleGrading`. If any direction's four edges disagree, the per-edge
-/// (non-planar) distribution is genuinely unsupported and this returns
-/// [`MeshError::NotImplemented`] naming the offending direction, rather than
-/// silently averaging.
-fn parse_edge_grading(cur: &mut Cursor) -> Result<[Grading; 3], MeshError> {
+/// Returns the 12 edge gradings in OpenFOAM order; [`collapse_edge_grading`]
+/// then decides whether they reduce to a per-direction `simpleGrading` or need
+/// the full 12-edge blend of [`edge_blended_node`].
+///
+/// # Errors
+/// [`MeshError::DictParse`] if the list does not hold exactly 12 entries.
+fn parse_edge_grading(cur: &mut Cursor) -> Result<[Grading; 12], MeshError> {
     cur.expect("(")?;
     let mut edges: Vec<Grading> = Vec::with_capacity(12);
     while !cur.accept(")") {
@@ -1299,32 +1512,35 @@ fn parse_edge_grading(cur: &mut Cursor) -> Result<[Grading; 3], MeshError> {
             edges.len()
         )));
     }
+    let mut it = edges.into_iter();
+    Ok(std::array::from_fn(|_| it.next().unwrap()))
+}
 
-    let dir_name = ["x", "y", "z"];
-    let mut out: [Grading; 3] = [
-        Grading::Uniform(1.0),
-        Grading::Uniform(1.0),
-        Grading::Uniform(1.0),
-    ];
-    for d in 0..3 {
+/// Decide how a parsed 12-edge `edgeGrading` is realised.
+///
+/// If the four edges of every direction share the same [`Grading`], the block
+/// collapses to the equivalent `simpleGrading` (`edge_grading = None`), which is
+/// *exact* and takes the fast trilinear path. Otherwise the genuine per-edge
+/// distribution is kept (`edge_grading = Some(edges)`) so
+/// [`edge_blended_node`] blends interior nodes from all 12 edges; the returned
+/// `[Grading; 3]` is then just a representative (each direction's first edge)
+/// for inspection.
+///
+/// The reduction is exact: when the four edges of a direction agree, the 12-edge
+/// blend of [`edge_blended_node`] is algebraically identical to trilinear
+/// interpolation with that shared per-direction distribution (see the function
+/// docs), so the two paths produce bit-comparable node positions.
+fn collapse_edge_grading(edges: [Grading; 12]) -> ([Grading; 3], Option<[Grading; 12]>) {
+    let uniform_per_dir = (0..3).all(|d| {
         let base = d * 4;
-        let g = &edges[base];
-        for e in 1..4 {
-            if &edges[base + e] != g {
-                return Err(MeshError::NotImplemented(format!(
-                    "edgeGrading with differing ratios among the four {}-direction \
-                     edges (edges {}..{}): per-edge (non-planar) grading is not \
-                     supported; only edgeGrading whose four edges per direction \
-                     agree (equivalent to simpleGrading) is handled",
-                    dir_name[d],
-                    base,
-                    base + 3
-                )));
-            }
-        }
-        out[d] = g.clone();
+        (1..4).all(|e| edges[base + e] == edges[base])
+    });
+    let rep: [Grading; 3] = [edges[0].clone(), edges[4].clone(), edges[8].clone()];
+    if uniform_per_dir {
+        (rep, None)
+    } else {
+        (rep, Some(edges))
     }
-    Ok(out)
 }
 
 /// Parse the `boundary ( name { type t; faces ( ... ); } ... )` list.
@@ -1655,27 +1871,182 @@ mod tests {
         }
     }
 
-    /// V&V — genuinely per-edge `edgeGrading` is honestly rejected.
+    /// V&V — genuinely per-edge `edgeGrading` parses to the 12-edge blend.
     ///
-    /// Methodology: an `edgeGrading` whose four x-edges disagree (2,2,3,2)
-    /// cannot be represented by one distribution per direction, so the parser
-    /// must return [`MeshError::NotImplemented`] rather than silently averaging.
-    /// Pass criterion: `parse` returns `NotImplemented` mentioning the
-    /// x-direction.
+    /// Methodology: an `edgeGrading` whose four x-edges disagree `(1 3 2 5)`
+    /// cannot collapse to one distribution per direction, so [`parse`] must
+    /// keep the full 12 edge gradings (`edge_grading = Some(..)`) and the block
+    /// build must use [`edge_blended_node`]. Reference: OpenFOAM
+    /// `blockDescriptorEdges.C:121-141` (edges 0–3 = x). Pass criteria: the
+    /// block's `edge_grading` is `Some`; its four x edges are
+    /// `Uniform(1/3/2/5)`; y/z edges are `Uniform(1)`; the representative
+    /// `grading` is `[Uniform(1); 3]` (first edge of each direction).
     ///
-    /// Results (measured 2026-07-17): `NotImplemented` returned, message names
-    /// the x-direction edges. Passed.
+    /// Results (measured 2026-07-20): `edge_grading = Some`; x edges
+    /// `[Uniform(1), Uniform(3), Uniform(2), Uniform(5)]`; y/z all `Uniform(1)`;
+    /// representative grading `[Uniform(1), Uniform(1), Uniform(1)]`. Passed.
     #[test]
-    fn edge_grading_differing_edges_not_implemented() {
-        let dict = "convertToMeters 1;\n\
+    fn edge_grading_differing_edges_parses_per_edge() {
+        let dict = differing_edge_dict(2);
+        let parsed = BlockMeshDict::parse(&dict).expect("parse per-edge edgeGrading");
+        let block = &parsed.blocks[0];
+        let eg = block
+            .edge_grading
+            .as_ref()
+            .expect("differing edges must retain a per-edge Some(..)");
+        assert_eq!(eg[0], Grading::Uniform(1.0));
+        assert_eq!(eg[1], Grading::Uniform(3.0));
+        assert_eq!(eg[2], Grading::Uniform(2.0));
+        assert_eq!(eg[3], Grading::Uniform(5.0));
+        for e in 4..12 {
+            assert_eq!(eg[e], Grading::Uniform(1.0), "edge {e}");
+        }
+        assert_eq!(
+            block.grading,
+            [Grading::Uniform(1.0), Grading::Uniform(1.0), Grading::Uniform(1.0)]
+        );
+    }
+
+    /// A unit-cube dict `[0,1]^3` whose four x-edges (OpenFOAM edges 0,1,2,3)
+    /// carry the *different* ratios `1, 3, 2, 5` and whose y/z edges are all
+    /// uniform. `nx` x-cells, 1 cell in y and z. This is the canonical case the
+    /// old code could not represent (four distinct x distributions).
+    fn differing_edge_dict(nx: usize) -> String {
+        format!(
+            "convertToMeters 1;\n\
              vertices ( (0 0 0)(1 0 0)(1 1 0)(0 1 0)(0 0 1)(1 0 1)(1 1 1)(0 1 1) );\n\
-             blocks ( hex (0 1 2 3 4 5 6 7) (4 1 1) \
-             edgeGrading ( 2 2 3 2  1 1 1 1  1 1 1 1 ) );\nboundary ( );\n";
-        match BlockMeshDict::parse(dict) {
-            Err(MeshError::NotImplemented(msg)) => {
-                assert!(msg.contains("x-direction"), "message: {msg}");
+             blocks ( hex (0 1 2 3 4 5 6 7) ({nx} 1 1) \
+             edgeGrading ( 1 3 2 5  1 1 1 1  1 1 1 1 ) );\nboundary ( );\n"
+        )
+    }
+
+    /// Locate a mesh point within `1e-9 m` of `target`.
+    fn has_point(m: &PolyMesh, target: Vector3) -> bool {
+        m.points.iter().any(|p| (*p - target).mag() < 1e-9)
+    }
+
+    /// V&V — per-edge `edgeGrading` places each x-edge's mid-node by its OWN
+    /// grading (exact hand reference).
+    ///
+    /// Methodology: build the unit cube of [`differing_edge_dict`] with
+    /// `nx = 2, ny = nz = 1`. Every node then lies on a block edge, and the
+    /// blend of OpenFOAM `block::createPoints` (`blockCreate.C:45-183`) reduces
+    /// exactly to the single edge's `lambdaDivisions` at that node (algebraic
+    /// reduction; verified by hand for node `(i=1,j=1,k=0)` on edge 1). The four
+    /// mid-plane nodes `(i=1, *, *)` thus take the `[0,1]` mid position of their
+    /// respective x-edge:
+    ///
+    /// - `(1,0,0)` → edge 0, ratio 1 → `graded_positions(2,1)[1] = 0.5`
+    /// - `(1,1,0)` → edge 1, ratio 3 → `graded_positions(2,3)[1] = 0.25`
+    /// - `(1,1,1)` → edge 2, ratio 2 → `graded_positions(2,2)[1] = 1/3`
+    /// - `(1,0,1)` → edge 3, ratio 5 → `graded_positions(2,5)[1] = 1/6`
+    ///
+    /// Reference: the analytic geometric-series node positions and the
+    /// edge→corner map (edge 0 = corners 0-1, edge 1 = 3-2, edge 2 = 7-6,
+    /// edge 3 = 4-5). Pass criteria: the mesh carries points at
+    /// `(0.5, 0, 0)`, `(0.25, 1, 0)`, `(1/3, 1, 1)`, `(1/6, 0, 1)` (tol
+    /// `1e-9`); 2 cells; total volume `= 1 m^3`; `FvMesh::validate` OK. This is
+    /// exactly what a single distribution-per-direction map cannot do — the
+    /// four x positions at the mid plane differ.
+    ///
+    /// Results (measured 2026-07-20): all four target points present; 2 cells;
+    /// total volume `1.0 m^3` (error `< 1e-12`); validate OK. Passed.
+    #[test]
+    fn edge_grading_per_edge_exact_nodes() {
+        let mesh = block_mesh(&differing_edge_dict(2)).expect("build per-edge");
+        assert_eq!(mesh.n_cells, 2);
+
+        // Each x-edge mid-node reflects its own grading's mid position.
+        assert!(has_point(&mesh, Vector3::new(0.5, 0.0, 0.0)), "edge0 mid");
+        assert!(has_point(&mesh, Vector3::new(0.25, 1.0, 0.0)), "edge1 mid");
+        assert!(has_point(&mesh, Vector3::new(1.0 / 3.0, 1.0, 1.0)), "edge2 mid");
+        assert!(has_point(&mesh, Vector3::new(1.0 / 6.0, 0.0, 1.0)), "edge3 mid");
+
+        // Grading only moves nodes: the (warped-internal-face) mesh still fills
+        // the unit cube exactly.
+        assert!(
+            (mesh.total_volume() - 1.0).abs() < 1e-12,
+            "volume = {}",
+            mesh.total_volume()
+        );
+        let fv = mesh.to_fv_mesh().expect("to_fv_mesh");
+        assert!(fv.validate().is_ok());
+    }
+
+    /// V&V — the 12-edge blend reduces *exactly* to trilinear when the four
+    /// edges of each direction agree.
+    ///
+    /// Methodology: OpenFOAM's `block::createPoints` blend is a strict
+    /// generalisation of trilinear interpolation — for equal per-direction edge
+    /// distributions the normalised 4-edge blend in each direction collapses to
+    /// the bilinear/trilinear map (`blockCreate.C:92-152`, proven in the
+    /// [`edge_blended_node`] docs). We build the 12 edge lambda arrays for a
+    /// unit cube with all four x-edges = ratio 4 and uniform y/z (`4x4x4`
+    /// cells), then compare [`edge_blended_node`] against [`trilinear`] with the
+    /// per-direction distributions at every one of the `5x5x5 = 125` grid nodes.
+    /// Reference/pass criterion: max node discrepancy `< 1e-12 m` — the two
+    /// independent code paths must agree to round-off.
+    ///
+    /// Results (measured 2026-07-20): over all 125 nodes the maximum
+    /// `|blend - trilinear|` was `< 1e-12 m` (agreement to floating-point
+    /// round-off). This validates the blend as a correct generalisation and
+    /// shows why the equal-edges fast path stays bit-comparable. Passed.
+    #[test]
+    fn edge_blend_reduces_to_trilinear() {
+        let corners: [Vector3; 8] =
+            std::array::from_fn(|c| Vector3::new(HEX_CORNER[c][0], HEX_CORNER[c][1], HEX_CORNER[c][2]));
+
+        // All four x-edges share ratio 4; y and z uniform.
+        let mut eg: [Grading; 12] = std::array::from_fn(|_| Grading::Uniform(1.0));
+        for e in eg.iter_mut().take(4) {
+            *e = Grading::Uniform(4.0);
+        }
+        let cells = [4usize, 4, 4];
+        let el = edge_lambdas(&eg, cells);
+
+        let ux = Grading::Uniform(4.0).node_positions(4);
+        let uy = Grading::Uniform(1.0).node_positions(4);
+        let uz = Grading::Uniform(1.0).node_positions(4);
+
+        let mut max_err = 0.0f64;
+        for k in 0..=4 {
+            for j in 0..=4 {
+                for i in 0..=4 {
+                    let blended = edge_blended_node(&corners, &el, i, j, k);
+                    let tri = trilinear(&corners, ux[i], uy[j], uz[k]);
+                    max_err = max_err.max((blended - tri).mag());
+                }
             }
-            other => panic!("expected NotImplemented, got {other:?}"),
+        }
+        assert!(max_err < 1e-12, "max blend-vs-trilinear error = {max_err}");
+    }
+
+    /// V&V — a per-edge-graded block builds a valid, volume-preserving mesh at
+    /// higher resolution.
+    ///
+    /// Methodology: build [`differing_edge_dict`] with `nx = 8` (8x1x1). The
+    /// four x-edges grade differently, so the mid-block node planes warp, but
+    /// the structured hex grid still tiles the unit cube. Reference: analytic
+    /// block volume `1 m^3`; pass criteria: 8 cells; `FvMesh::validate` OK;
+    /// total volume `= 1 m^3`; every cell volume strictly positive (no inverted
+    /// cells).
+    ///
+    /// Results (measured 2026-07-20): 8 cells; validate OK; total volume
+    /// `1.0 m^3` (error `< 1e-12`); min cell volume `> 0`. Passed.
+    #[test]
+    fn edge_grading_per_edge_build_volume() {
+        let mesh = block_mesh(&differing_edge_dict(8)).expect("build per-edge 8");
+        assert_eq!(mesh.n_cells, 8);
+        assert!(
+            (mesh.total_volume() - 1.0).abs() < 1e-12,
+            "volume = {}",
+            mesh.total_volume()
+        );
+        let fv = mesh.to_fv_mesh().expect("to_fv_mesh");
+        assert!(fv.validate().is_ok());
+        // No inverted cells.
+        for (c, &v) in fv.cell_volumes.iter().enumerate() {
+            assert!(v > 0.0, "cell {c} has non-positive volume {v}");
         }
     }
 

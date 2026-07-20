@@ -26,17 +26,31 @@ of [`outram-foam-basic-lib`](../outram-foam-basic-lib)'s primitive + FV layer.
 This is an **independent OUTRAM PARK fork**, not the official OpenFOAM software
 and not endorsed by it (see `TRADEMARKS.md`).
 
-## Tools (scaffolded; implementation in progress)
+## Tools
 
 | Module | OpenFOAM tool | What it does |
 |---|---|---|
-| `block_mesh` | `blockMesh` | Structured hex meshing from a `blockMeshDict` |
+| `block_mesh` | `blockMesh` | Structured hex meshing from a `blockMeshDict`, incl. multi-grading and full per-edge `edgeGrading` |
 | `snappy_hex_mesh` | `snappyHexMesh` | Split-hex meshing around STL surfaces (castellate → snap → layers) |
 | `ideas_unv_to_foam` | `ideasUnvToFoam` | Import an I-DEAS `.unv` mesh into `polyMesh` |
 | `poly_dual_mesh` | `polyDualMesh` | Polyhedral dual-mesh construction |
 
 ## Status
 
-Freshly scaffolded (crate skeleton + module docs). Each tool is being
-implemented + tested under the `op-fm` beads epic. `snappyHexMesh` is the
-largest and lands incrementally (castellation → snapping → layers).
+Each tool is implemented and unit/integration-tested (translations of the
+OpenFOAM-dev C++, with upstream `File.C:line` provenance in the module docs).
+`snappyHexMesh` runs the full castellate → snap → layers pipeline:
+
+- **`block_mesh`** — `simpleGrading` multi-grading and full per-edge `edgeGrading`
+  (12-edge blend); straight-edge blocks only (arc/spline edges deferred).
+- **`snappy_hex_mesh` castellation** — octree refinement around STL surfaces.
+- **`snappy_hex_mesh` snapping** — surface projection + Laplacian smoothing with
+  OpenFOAM-style `pointConstraint` feature snapping (surface/edge/corner ranks).
+- **`snappy_hex_mesh` layers** — medial-axis interior shrink-and-insert (with a
+  watertight outward-extrude fallback on refined/hanging-node regions).
+
+**Unit-tested ≠ validated.** These are AI-assisted translations checked against
+the upstream source and analytical geometry, not yet validated against OpenFOAM
+mesh outputs on production cases — see each module's "Honest scope" section for
+the precise boundary of what is reproduced, and the Bookkeeping status above
+(both human-review axes remain uncleared).
