@@ -43,8 +43,9 @@ Monte Carlo neutron transport.
 > rejected honestly (`Unsupported`), not guessed. The CSG export bridge fits a
 > box / sphere / Z-cylinder / any convex polyhedron to analytic surfaces and
 > falls back to a DAGMC-style faceted solid (winding inside-test) for non-convex
-> results. The main remaining modelling gap is the multi-segment rounded bevel
-> (bead `op-hzs.11`).
+> results. The vertex bevel now rounds (a multi-segment spherical cap) as well as
+> single-chamfers. All of the epic's boolean/export/bevel workstreams
+> (`op-hzs.11`–`op-hzs.13`) are landed.
 >
 > **⚠️ AI-generated draft, untrusted until human-reviewed** per the workspace
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -85,7 +86,7 @@ included.
 | `math` | `blenlib` `BLI_math` vectors | **real** — a minimal `Vec3` |
 | `mesh` | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 | `primitives` | Add-Mesh primitive operators | **real** — cube / UV-sphere / cylinder / grid, unit-tested |
-| `ops` | `bmesh/operators` (`bmo_*`) | **real** — extrude / midpoint-subdivide / vertex-bevel (boolean delegates to `boolean`; multi-segment bevel is a follow-up) |
+| `ops` | `bmesh/operators` (`bmo_*`) | **real** — extrude / midpoint-subdivide / vertex-bevel (single chamfer or rounded multi-segment spherical cap; boolean delegates to `boolean`) |
 | `subdivision` | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
 | `boolean` | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to `boolean_general` |
 | `boolean_general` | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union / difference / intersect on non-convex closed meshes (arrangement + winding classification) |
