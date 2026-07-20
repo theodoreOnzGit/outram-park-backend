@@ -1,0 +1,46 @@
+[package]
+name = "boon-lay"
+version = "0.1.2"
+edition.workspace = true
+license.workspace = true
+description = "BOmbardment of neutrons On Nuclides with Lagrangian transport and transmutation Yields — Lagrangian radionuclide transport, decay, fission, and diffusion for TRISO/HTGR/FHR"
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
+# and never shipped in the packaged crate.
+exclude = ["verification_and_validation/*.csv"]
+
+[dependencies]
+uom             = { workspace = true }
+serde           = { workspace = true }
+serde-xml-rs    = { workspace = true }
+anyhow          = { workspace = true }
+outram-mc-libs     = { workspace = true }
+fission-yields-data               = { workspace = true }
+openmc-endf-8-depletion-lib-b     = { workspace = true }
+
+[dev-dependencies]
+approx          = { workspace = true }
+rayon           = { workspace = true }
+log             = { workspace = true }
+csv             = { workspace = true }
+
+# GUI-only dev-deps for the `boon_lay_decay_simulator` / `triso_simulator`
+# examples and the `#[cfg(test)]` `triso_particle_widget` module. These are
+# Android-hostile: egui/eframe pull in `ring` (via ureq/rustls), which needs a
+# C compiler the Android target has no toolchain for here. The examples and the
+# widget module are gated off Android with `cfg(not(target_os = "android"))`,
+# so these deps must be absent from the Android dependency graph too.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+egui            = { workspace = true }
+eframe          = { workspace = true }
+egui_plot       = { workspace = true }
+egui_extras     = { workspace = true }
+image           = { workspace = true }
+
+[[example]]
+name = "boon_lay_decay_simulator"
+
+[[example]]
+name = "triso_simulator"

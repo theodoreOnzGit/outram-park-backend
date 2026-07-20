@@ -1,6 +1,15 @@
+//! Version 3 of the CIET three-branch educational simulator loop.
+//!
+//! Version 3 keeps version 2's CTAH and TCHX PID control but solves the
+//! branch mass flowrates on separate threads (`thread::spawn`) to run
+//! faster than the serial version 2. It holds the version-3 driver
+//! [`three_branch_ciet_ver3`] plus its steady-state, DHX-blocked and
+//! reverse-diode test harnesses. Time is in seconds, temperatures in
+//! degC, mass flow in kg/s and power in W.
+
 /// this is for testing steady state forced circulation with ctah
 ///
-/// this is approximately based on Zou's publication 
+/// this is approximately based on Zou's publication
 /// where at 4000s, the pump caused fluid to flow at 0.18 kg/s 
 /// through the CTAH branch and Heater branch 
 /// so the DHX branch was closed
@@ -376,11 +385,17 @@ pub fn ctah_flow_short_test_reverse_diode_effect(){
 
 }
 
-/// this function runs ciet ver 1 test, 
-/// mass flowrates are calculated serially
-/// for simplicity
+/// this function runs the ciet version-3 three-branch transient.
 ///
-/// version 1 also has no pid control for ctah
+/// version 3 keeps the CTAH and TCHX PID controllers of version 2
+/// (filtered PID driving the CTAH outlet and TCHX outlet temperatures
+/// in degC toward their set points) but adds parallelism: the branch
+/// mass flowrates are solved on separate threads (`thread::spawn`) to
+/// speed the loop up relative to version 2's serial solve.
+/// Powers, mass flowrates, insulation thicknesses and Nusselt
+/// correction factors are supplied as bare f64 SI values (power in W,
+/// mass flow in kg/s, temperatures in degC, insulation thickness in cm,
+/// timestep in s) for regression against experimental data.
 ///
 /// this is meant to test steady state flow on the ctah
 #[cfg(test)]
@@ -543,7 +558,7 @@ pub fn three_branch_ciet_ver3(
         let mut pipe_36a = new_pipe_36a(initial_temperature);
         let mut pipe_37 = new_pipe_37(initial_temperature);
         let mut flowmeter_60_37a = new_flowmeter_60_37a(initial_temperature);
-        let mut pipe_38 = new_pipe_38(initial_temperature);
+        let mut pipe_38 = new_pipe_38_sam_model(initial_temperature);
         let mut pipe_39 = new_pipe_39(initial_temperature);
 
         // pri loop dhx branch top to bottom 5a to 17b 

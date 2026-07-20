@@ -303,7 +303,7 @@ pub fn ciet_heater_v_2_0_test_steady_state_functional_test_v_1_2_one_steel_node(
         let heater_power = heater_steady_state_power;
 
 
-        let mut wtr = Writer::from_path("ciet_heater_v_2_0_steady_state_one_steel_node.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("ciet_heater_v_2_0_steady_state_one_steel_node.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds",
@@ -313,7 +313,7 @@ pub fn ciet_heater_v_2_0_test_steady_state_functional_test_v_1_2_one_steel_node(
             "auto_timestep_calculated_seconds",])
             .unwrap();
 
-        let mut time_wtr = Writer::from_path("ciet_heater_v_2_0_steady_state_time_one_steel_node.csv")
+        let mut time_wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("ciet_heater_v_2_0_steady_state_time_one_steel_node.csv"))
             .unwrap();
 
         time_wtr.write_record(&["loop_calculation_time_ms",
@@ -328,7 +328,7 @@ pub fn ciet_heater_v_2_0_test_steady_state_functional_test_v_1_2_one_steel_node(
         // and a temperature for the outer surface temperature node 
         // for all nodes 
 
-        let mut temp_profile_wtr = Writer::from_path("ciet_heater_v_2_0_steady_state_temp_profile_one_steel_node.csv")
+        let mut temp_profile_wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("ciet_heater_v_2_0_steady_state_temp_profile_one_steel_node.csv"))
             .unwrap();
 
         // this is code for writing the array of required temperatures

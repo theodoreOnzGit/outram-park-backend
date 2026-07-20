@@ -1,0 +1,102 @@
+[package]
+name = "njoy-outram-park-fork"
+version = "0.0.1"
+edition.workspace = true
+# GPL-3.0-only for the work as a whole (matches the rest of OUTRAM PARK).
+# This crate is a derivative work of NJOY2016, which is itself under a modified
+# BSD 3-Clause license (GPL-compatible). The upstream notice is preserved in
+# LICENSE.njoy and NOTICE — keep both in the published package.
+license = "GPL-3.0-only"
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+description = "Pure-Rust port (in progress) of NJOY2016 nuclear-data processing — derivative work, not the LANL version. See NOTICE."
+keywords = ["nuclear", "endf", "cross-sections", "reconr", "neutronics"]
+
+# LICENSE.njoy and NOTICE must travel with every redistribution (BSD-3 cond. 1).
+# Integration tests and ENDF fixture files (some > 30 MB) are excluded from the
+# tarball — they are development-only and crates.io does not run them.
+include = [
+    "src/**",
+    "docs/**",
+    "LICENSE*",
+    "NOTICE",
+    "README.md",
+    "Cargo.toml",
+]
+# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
+# and never shipped in the packaged crate.
+exclude = ["verification_and_validation/*.csv"]
+
+[dependencies]
+thiserror.workspace = true
+uom.workspace = true
+# Fortran `mess(...)` (non-fatal warning, upstream continues) maps to `log`,
+# never a silent print — see docs/porting-plan.md §5. `error(...)` (fatal
+# abort) still maps to `Err(NjoyError::...)`.
+log.workspace = true
+# Data-parallel reconstruction: RECONR's adaptive resonance-grid refinement
+# (`reconr::refine_resonance_grid`) evaluates independent energy windows in
+# parallel. Pure speedup — the per-window results are identical to the serial
+# order (`delta_at` is a pure function of energy).
+rayon.workspace = true
+# Pure-Rust DEFLATE codec for the embedded WMPB blob (`WindowedMultipole::from_blob`
+# / `to_blob`). Default (non-optional): the zero-dependency shipping path decodes
+# the blob without HDF5, so the codec must be in the default build.
+miniz_oxide.workspace = true
+# Pure-Rust HDF5 reader — no system libhdf5, so it is always compiled (no build
+# burden). Used by `WindowedMultipole::load_h5` (WMP blob-baking) and the OpenMC
+# ENDF/B-8.0 code-to-code Doppler verification test. See docs/architecture.md.
+hdf5-pure.workspace = true
+# HIGH-fidelity ENDF download tier — all optional, behind the `net-fetch` feature
+# (docs/data-acquisition.md). The default lean build pulls none of these, so a
+# data consumer that only wants the embedded LOW tier stays free of a TLS/HTTP
+# dependency tree. Pure-Rust + cross-platform (rustls, not OpenSSL).
+ureq = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+directories = { workspace = true, optional = true }
+fs2 = { workspace = true, optional = true }
+zip = { workspace = true, optional = true }
+# Added per phase as modules are ported (see docs/porting-plan.md):
+#   ndarray  — ENDF tape arrays and cross-section grids (column-major data)
+
+# ── Optional GPU compute (desktop only; ABSENT on Android) ────────────────────
+# wgpu is a target-gated dependency so this crate stays "lean, pure-CPU" on
+# Android (`target_os = "android"`), where there is no system Vulkan/Metal/DX12
+# and the workspace Android rule forbids GPU/windowing deps in the library
+# build. On desktop it powers the optional `src/gpu.rs` compute path
+# (embarrassingly-parallel WMP kernels); `gpu::probe()` returns None at runtime
+# when no adapter is available, so the CPU path is always the fallback. The CPU
+# path remains the trusted/deterministic reference — GPU (f32) is acceleration
+# only. Version comes from the root [workspace.dependencies] (matches the
+# egui/eframe 0.34 wgpu, so no duplicate wgpu in the tree).
+[target.'cfg(not(target_os = "android"))'.dependencies]
+wgpu = { workspace = true }
+
+[features]
+# The CORE 125-nuclide windowed-multipole blob (`src/data/wmp_core.wmpl`,
+# ~4.7 MB, ENDF/B-VII.1, MIT CRPG) is ALWAYS embedded via `include_bytes!` and
+# exposed through `WmpLibrary::core` — there is no opt-out feature. Every build
+# resolves cross sections offline with no HDF5 and no downloads.
+#
+# HIGH-fidelity data-acquisition tier: download raw ENDF tapes from a pinned
+# upstream (see `crate::acquire` and docs/data-acquisition.md), cache them, and
+# reconstruct pointwise cross sections on device. Off by default — the embedded
+# LOW tier (WMP + fast MGXS) needs no network. Enable with
+# `--features net-fetch`.
+net-fetch = ["dep:ureq", "dep:sha2", "dep:directories", "dep:fs2", "dep:zip"]
+
+# ── Code-to-code Doppler verification: RECONR+BROADR vs OpenMC ENDF/B-8.0 .h5 ──
+# Own folder + README under tests/u238_doppler_verification/. Uses the always-on
+# hdf5-pure reader to parse the committed OpenMC U238.h5.
+[[test]]
+name = "u238_doppler_verification"
+path = "tests/u238_doppler_verification/main.rs"
+
+# ── OpenMC data-notebooks as verification tests (op-6tz.6) ────────────────────
+# One module per notebook in tests/openmc_notebooks_data/ (mapping doc:
+# docs/openmc-notebooks-data-verification.md). Explicit target because the
+# directory name collides with an auto-discovered file target otherwise.
+[[test]]
+name = "openmc_notebooks_data"
+path = "tests/openmc_notebooks_data/main.rs"

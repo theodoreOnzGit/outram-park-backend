@@ -1,3 +1,20 @@
+//! Specific-enthalpy lookups and their temperature inverse for all database
+//! materials.
+//!
+//! This module dispatches on `Material` (solid or liquid) to compute specific
+//! enthalpy (J/kg) at a given temperature via `try_get_h`, and to recover the
+//! temperature (K) from a specific enthalpy via `try_get_temperature_from_h`.
+//! The enthalpy reference (h = 0 J/kg) is 0 degrees Celsius (273.15 K) for the
+//! spline-based solids; each liquid correlation uses its own coded reference
+//! (typically the lower bound of its validity range) as documented in
+//! `liquid_database`. The pressure argument is accepted for interface
+//! uniformity but is not used (these are incompressible-liquid / solid
+//! correlations).
+//!
+//! `enthalpy_data` holds the per-material enthalpy correlations;
+//! `temperature_from_specific_enthalpy` holds the inverse (root-finding /
+//! spline) maps.
+
 use uom::si::f64::*;
 
 use crate::tuas_lib_error::TuasLibError;

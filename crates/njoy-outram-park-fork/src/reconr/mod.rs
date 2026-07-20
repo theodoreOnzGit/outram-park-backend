@@ -1,0 +1,661 @@
+//! RECONR — Reconstruct pointwise cross sections from resonance parameters.
+//!
+//! Ported from `reconr.f90` in NJOY2016 (~5 700 lines of Fortran 90).
+//!
+//! RECONR converts an ENDF evaluation into a PENDF tape: all MF=3 cross sections
+//! become fully pointwise (lin-lin TAB1), with resonance contributions from MF=2
+//! added to the smooth background. The result is a fine-grid representation ready
+//! for Doppler broadening in BROADR.
+//!
+//! ## Porting phases
+//!
+//! | Phase | Content | Status |
+//! |-------|---------|--------|
+//! | 2a | MF=1/MF=2 headers, linearisation, LRU=0 (H-2) | done |
+//! | 2b | SLBW/MLBW resonance evaluation (Ar-37 LRU=1, LRF=2) | done |
+//! | 2c | Reich-Moore (LRF=3, e.g. U-235) | done |
+//! | 2d | Unresolved resonances (LRU=2): UNRESR then PURR | **next to port** (blocks σ above the resolved region — 20 keV for U-238; see `docs/porting-plan.md` §8) |
+//! | 2e | R-Matrix Limited (LRF=7, via `crate::samm`) | **wired, unverified** (2026-07-07 — compiles/type-checks, not yet run against a real evaluation; see `../samm/README.md`) |
+//! | 2f | Adler-Adler (LRF=4, `crate::reconr::aa`) | **wired, unverified** (2026-07-07 — zero-temperature only, matching SLBW/Reich-Moore's Doppler-deferred-to-BROADR architecture; compiles/type-checks, not yet run against a real evaluation) |
+//!
+//! All resolved-resonance formalisms ENDF-6 defines (LRF=1/2/3/4/7) are now
+//! parsed and reconstructed by RECONR.
+//!
+//! ## Entry point
+//!
+//! ```no_run
+//! use std::fs::File;
+//! use njoy_outram_park_fork::{endf::tape::Tape, reconr::{reconr, ReconrConfig}};
+//!
+//! let tape = Tape::read(File::open("n-018_Ar_37-tendl2023.endf").unwrap()).unwrap();
+//! let config = ReconrConfig { mat: 1828, tolerance: 0.001, temperature: 0.0 };
+//! let result = reconr(&tape, &config).unwrap();
+//! println!("Material ZA = {}", result.material.za);
+//! ```
+
+pub mod aa;
+pub mod linearize;
+pub mod mf1;
+pub mod mf2;
+pub mod rm;
+pub mod slbw;
+
+pub use mf1::MaterialInfo;
+pub use mf2::{EnergyRange, LState, ResonanceFormalism, ResonanceInfo, RmLState, RmResonance, SlbwResonance};
+
+use crate::{
+    endf::{records::SectionCursor, tape::Tape, MtReaction},
+    NjoyError,
+};
+use rm::RmSigmas;
+use slbw::{channel_radius, eval_slbw_lstate};
+
+// ── Public configuration and result types ─────────────────────────────────────
+
+/// Configuration for one RECONR run on a single material.
+#[derive(Debug, Clone)]
+pub struct ReconrConfig {
+    /// Material number (MAT) to process.
+    pub mat: i32,
+    /// Fractional reconstruction tolerance.
+    ///
+    /// Cross sections are linearised until the linear interpolation error is
+    /// below this fraction of the local value. NJOY default: `0.001` (0.1%).
+    pub tolerance: f64,
+    /// Reconstruction temperature \[K\]. `0.0` = 0 K (no Doppler shift).
+    pub temperature: f64,
+}
+
+/// One reconstructed MF=3 section, ready for Doppler broadening.
+#[derive(Debug, Clone)]
+pub struct ReconrSection {
+    /// Reaction type. Use `MtReaction::try_from(n)` or `MtReaction::from_any(n)`
+    /// to convert from a raw integer if needed.
+    pub mt: MtReaction,
+    /// Reaction Q-value QI \[eV\] from the MF=3 TAB1 header (the energy released,
+    /// or `< 0` threshold for endothermic reactions). Carried through so ACER can
+    /// fill the ACE LQR block (which stores QI in MeV). `0.0` for elastic.
+    pub qi: f64,
+    /// Fully lin-lin (energy \[eV\], σ \[b\]) grid, sorted by energy.
+    pub pairs: Vec<(f64, f64)>,
+}
+
+/// Result of running RECONR on one material.
+#[derive(Debug, Clone)]
+pub struct ReconrResult {
+    /// Material header from MF=1/MT=451.
+    pub material: MaterialInfo,
+    /// Reconstructed MF=3 sections, sorted by MT.
+    pub sections: Vec<ReconrSection>,
+}
+
+impl ReconrResult {
+    /// Evaluate cross section \[b\] for a reaction at energy `e` \[eV\].
+    ///
+    /// Uses linear interpolation on the lin-lin grid. Returns `0.0` if
+    /// `mt` is not present or `e` is outside the tabulated range.
+    pub fn eval_mt(&self, mt: MtReaction, e: f64) -> f64 {
+        let sec = match self.sections.iter().find(|s| s.mt == mt) {
+            Some(s) => s,
+            None    => return 0.0,
+        };
+        eval_lin_lin(&sec.pairs, e)
+    }
+}
+
+/// Linear interpolation on a sorted lin-lin (x,y) grid.
+///
+/// Returns the linearly interpolated y at `x`. Returns `0.0` if the grid is empty
+/// or `x` is outside [x_min, x_max].
+pub fn eval_lin_lin(pairs: &[(f64, f64)], x: f64) -> f64 {
+    if pairs.is_empty() { return 0.0; }
+    if x <= pairs[0].0 { return pairs[0].1; }
+    if x >= pairs[pairs.len()-1].0 { return pairs[pairs.len()-1].1; }
+
+    let idx = pairs.partition_point(|&(xi, _)| xi <= x);
+    if idx == 0 { return pairs[0].1; }
+    let (x0, y0) = pairs[idx - 1];
+    let (x1, y1) = pairs[idx];
+    if (x1 - x0).abs() < 1e-30 { return y0; }
+    y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+}
+
+// ── Main entry point ──────────────────────────────────────────────────────────
+
+/// Reconstruct pointwise cross sections for one material.
+///
+/// Reads the material identified by `config.mat` from `tape`, linearises every
+/// MF=3 section to lin-lin within `config.tolerance`, and adds resonance
+/// contributions from MF=2 (SLBW/MLBW/Reich-Moore, Phases 2b/2c).
+///
+/// # Errors
+///
+/// - [`NjoyError::SectionNotFound`] — MF=1/MT=451 or MF=3 sections absent.
+/// - [`NjoyError::NotPorted`] — MF=2 contains LRF=4 (Adler-Adler).
+pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyError> {
+    let mat = config.mat;
+    let eps = config.tolerance;
+
+    // MF=1/MT=451 — material header
+    let mf1_sec = tape.section(mat, 1, 451)
+        .ok_or(NjoyError::SectionNotFound { mat, mf: 1, mt: 451 })?;
+    let material = mf1::parse_material_info(mf1_sec)?;
+
+    // MF=2/MT=151 — resonance parameters (may be absent for charged-particle data)
+    let res_info = if let Some(mf2_sec) = tape.section(mat, 2, 151) {
+        mf2::parse_resonance_info(mf2_sec)?
+    } else {
+        ResonanceInfo::default()
+    };
+
+    // MF=3 — background cross sections
+    let mut sections: Vec<ReconrSection> = tape
+        .sections()
+        .iter()
+        .filter(|s| s.key.mat == mat && s.key.mf == 3)
+        .map(|sec| {
+            let mut cur = SectionCursor::new(&sec.rows);
+            let _head = cur.read_cont()?; // MF=3 HEAD: ZA, AWR, 0, 0, 0, 0
+            let tab1 = cur.read_tab1()?;  // TAB1 header carries QM (c1), QI (c2)
+            let pairs = linearize::linearize_tab1(&tab1.interp, &tab1.pairs, eps);
+            Ok(ReconrSection {
+                mt: MtReaction::from_any(sec.key.mt),
+                qi: tab1.head.c2,
+                pairs,
+            })
+        })
+        .collect::<Result<Vec<_>, NjoyError>>()?;
+
+    sections.sort_by_key(|s| i32::from(s.mt));
+
+    // Phase 2b: add SLBW/MLBW resonance contributions
+    add_resonance_contributions(&mut sections, &res_info, eps);
+
+    Ok(ReconrResult { material, sections })
+}
+
+/// Reconstruct **only the MF=3 background** — no MF=2 resonance contributions.
+///
+/// This is the fast-range path used by the MGXS bake
+/// ([`crate::nuclear_data::Mgxs::collapse_from_reconr`]). Above a nuclide's WMP
+/// `e_max` the incident energy is beyond the resolved-resonance region, so the
+/// smooth linearised MF=3 grid *is* the cross section there. Skipping MF=2 avoids
+/// the (potentially expensive, R-matrix-inversion-heavy for LRF=7) resonance
+/// reconstruction entirely in a region where it wouldn't change the result anyway.
+///
+/// Returns the same [`ReconrResult`] shape as [`reconr`] — linearised MF=3
+/// sections sorted by MT — but with **no** resonance additions. Do **not** use it
+/// below the resonance ceiling; there it omits the resonance cross section.
+pub fn reconr_background(
+    tape: &Tape,
+    mat: i32,
+    tolerance: f64,
+) -> Result<ReconrResult, NjoyError> {
+    let mf1_sec = tape
+        .section(mat, 1, 451)
+        .ok_or(NjoyError::SectionNotFound { mat, mf: 1, mt: 451 })?;
+    let material = mf1::parse_material_info(mf1_sec)?;
+
+    let mut sections: Vec<ReconrSection> = tape
+        .sections()
+        .iter()
+        .filter(|s| s.key.mat == mat && s.key.mf == 3)
+        .map(|sec| {
+            let mut cur = SectionCursor::new(&sec.rows);
+            let _head = cur.read_cont()?; // MF=3 HEAD
+            let tab1 = cur.read_tab1()?; // TAB1 header carries QM (c1), QI (c2)
+            let pairs = linearize::linearize_tab1(&tab1.interp, &tab1.pairs, tolerance);
+            Ok(ReconrSection {
+                mt: MtReaction::from_any(sec.key.mt),
+                qi: tab1.head.c2,
+                pairs,
+            })
+        })
+        .collect::<Result<Vec<_>, NjoyError>>()?;
+    sections.sort_by_key(|s| i32::from(s.mt));
+    Ok(ReconrResult { material, sections })
+}
+
+// ── Phase 2b: resonance contribution ─────────────────────────────────────────
+
+/// Add SLBW/MLBW and Reich-Moore resonance contributions to the MF=3 background.
+///
+/// For each resolved resonance range (LRU=1), builds a dense energy grid around
+/// each resonance and evaluates the cross sections. The contributions are merged
+/// with the existing lin-lin background grid.
+///
+/// Dispatches to SLBW evaluation (LRF=1/2) or Reich-Moore evaluation (LRF=3).
+/// MT mapping: elastic (MT=2), capture (MT=102), fission (MT=18), total (MT=1).
+fn add_resonance_contributions(sections: &mut Vec<ReconrSection>, res_info: &ResonanceInfo, eps: f64) {
+    for range in res_info.resolved_slbw_ranges() {
+        add_slbw_range(sections, range, eps);
+    }
+    for range in res_info.resolved_rm_ranges() {
+        add_rm_range(sections, range, eps);
+    }
+    for range in res_info.resolved_rml_ranges() {
+        add_rml_range(sections, range, eps);
+    }
+    for range in res_info.resolved_aa_ranges() {
+        add_aa_range(sections, range, eps);
+    }
+}
+
+/// Add Adler-Adler (LRF=4) resonance contributions.
+///
+/// Unlike [`add_slbw_range`]/[`add_rm_range`], `aa::eval_aa_range` takes
+/// the whole range (not one l-state at a time) — see that function's doc
+/// comment for why Adler-Adler doesn't decompose per-l-state the way
+/// SLBW/Reich-Moore do.
+fn add_aa_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64) {
+    let Some(aa) = &range.aa else { return };
+    if aa.l_states.is_empty() {
+        return;
+    }
+
+    let mut halo = Vec::new();
+    add_aa_halo_energies(&mut halo, &aa.l_states, range.el, range.eh);
+
+    rebuild_range(sections, range.el, range.eh, halo, eps, |e| {
+        let s = aa::eval_aa_range(e, aa, range.ap);
+        RangeDelta { total: s.total, elastic: s.elastic, fission: s.fission, capture: s.capture }
+    });
+}
+
+/// Resonance cross-section contributions at one energy, by reaction \[b\].
+#[derive(Debug, Default, Clone, Copy)]
+struct RangeDelta {
+    total:   f64,
+    elastic: f64,
+    fission: f64,
+    capture: f64,
+}
+
+fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64) {
+    if range.l_states.is_empty() { return; }
+
+    // Hoist the per-l-state channel radius and resonance tuples out of the
+    // energy loop — they do not depend on energy.
+    let prepared: Vec<(u32, f64, f64, Vec<_>)> = range.l_states.iter().map(|ls| {
+        let ra = channel_radius(ls.awri, range.naps, range.ap);
+        let tuples: Vec<_> = ls.resonances.iter().map(|r| r.as_tuple()).collect();
+        (ls.l, ls.awri, ra, tuples)
+    }).collect();
+
+    let mut halo = Vec::new();
+    add_resonance_halo_energies(&mut halo, &range.l_states, range.el, range.eh);
+
+    rebuild_range(sections, range.el, range.eh, halo, eps, |e| {
+        let mut d = RangeDelta::default();
+        for (l, awri, ra, tuples) in &prepared {
+            let s = eval_slbw_lstate(e, tuples, *l, range.spi, range.ap, *awri, *ra);
+            d.elastic += s.elastic;
+            d.capture += s.capture;
+            d.fission += s.fission;
+        }
+        d.total = d.elastic + d.capture + d.fission;
+        d
+    });
+}
+
+fn add_rm_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64) {
+    if range.rm_l_states.is_empty() { return; }
+
+    let mut halo = Vec::new();
+    add_rm_halo_energies(&mut halo, &range.rm_l_states, range.el, range.eh);
+
+    rebuild_range(sections, range.el, range.eh, halo, eps, |e| {
+        let mut d = RangeDelta::default();
+        for ls in &range.rm_l_states {
+            let s: RmSigmas = rm::eval_rm_lstate(e, ls, range.ap, range.spi, range.naps);
+            d.total   += s.total;
+            d.elastic += s.elastic;
+            d.fission += s.fission;
+            d.capture += s.capture;
+        }
+        d
+    });
+}
+
+/// Add R-Matrix Limited (LRF=7) resonance contributions — dispatches into
+/// `crate::samm`, which handles the full multichannel R-matrix rather than
+/// a pole approximation (needed for light nuclides / strongly overlapping
+/// resonances that SLBW/MLBW/Reich-Moore can't represent correctly).
+///
+/// Runs `samm::setup::setup` once per range (the one-time, per-section
+/// spin/parity/penetrability/channel-amplitude setup — Phase 2 of the
+/// `samm` port), then evaluates `samm::xsformula::cssammy` at every grid
+/// energy, exactly mirroring [`add_rm_range`]'s shape.
+fn add_rml_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64) {
+    let Some(rml) = &range.rml else { return };
+    if rml.section.spin_groups.is_empty() {
+        return;
+    }
+
+    // `samm::setup::setup` mutates particle-pair defaults in place, so it
+    // needs an owned, mutable copy rather than the shared `&EnergyRange`.
+    let mut section = rml.section.clone();
+    let setup = match crate::samm::setup::setup(&mut section, rml.awr) {
+        Ok(s) => s,
+        Err(e) => {
+            log::error!(
+                "reconr: samm::setup::setup failed for LRF=7 range [{}, {}]: {e}",
+                range.el, range.eh
+            );
+            return;
+        }
+    };
+
+    let mut halo = Vec::new();
+    add_rml_halo_energies(&mut halo, &section, range.el, range.eh);
+
+    rebuild_range(sections, range.el, range.eh, halo, eps, |e| {
+        let r = crate::samm::xsformula::cssammy(&section, &setup.kinematics, &setup.amplitudes, &setup.quantum_info, e);
+        RangeDelta { total: r.total, elastic: r.elastic, fission: r.fission, capture: r.capture }
+    });
+}
+
+/// Rebuild the elastic/capture/fission/total sections over a resonance range.
+///
+/// For each of the four reactions, the new grid is the union of (a) the existing
+/// background energies inside `[el, eh]` and (b) the resonance `halo` points.
+/// At every grid energy the new cross section is `background(e) + resonance(e)`,
+/// where `background(e)` is interpolated from the **original** (pre-merge)
+/// section and `resonance(e)` comes from `delta_at`. Points outside `[el, eh]`
+/// are copied through untouched.
+///
+/// Interpolating the background from an immutable snapshot — rather than from
+/// the section as it is being modified — is essential: appending points and then
+/// interpolating the half-built (unsorted) vector causes runaway accumulation.
+///
+/// The seed grid (background energies ∪ resonance `halo`) is then **adaptively
+/// refined** ([`refine_resonance_grid`]) so linear interpolation of the
+/// resonance contribution reproduces the directly-evaluated value to within
+/// `eps` everywhere — this is what fills the multi-eV inter-resonance gaps the
+/// fixed halo leaves, where the Lorentzian wing would otherwise be grossly
+/// over-linearised (the U-238 capture-wing pedestal bug; see this crate's
+/// `docs/porting-plan.md`).
+fn rebuild_range(
+    sections: &mut Vec<ReconrSection>,
+    el: f64,
+    eh: f64,
+    halo: Vec<f64>,
+    eps: f64,
+    delta_at: impl Fn(f64) -> RangeDelta + Sync,
+) {
+    // Union energy grid inside [el, eh]: background energies + resonance halo.
+    let mut egrid = collect_background_energies(sections, el, eh);
+    egrid.extend(halo.into_iter().filter(|&e| e > el && e < eh && e > 0.0));
+    egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    egrid.dedup_by(|a, b| (*a - *b).abs() < 1e-10 * b.abs().max(1.0));
+    if egrid.is_empty() { return; }
+
+    // Adaptively refine so lin-lin interpolation of the resonance contribution
+    // is within `eps` everywhere; returns the (denser) grid and the resonance
+    // deltas already evaluated at every point (so `delta_at` is not called again).
+    let (egrid, deltas) = refine_resonance_grid(&egrid, &delta_at, eps);
+
+    for mt in [MtReaction::Mt1Total, MtReaction::Mt2Elastic,
+               MtReaction::Mt18Fission, MtReaction::Mt102Capture] {
+        let sec = match sections.iter_mut().find(|s| s.mt == mt) {
+            Some(s) => s,
+            None    => continue,
+        };
+
+        // Immutable snapshot of the background for interpolation.
+        let bg = sec.pairs.clone();
+
+        // Keep points strictly outside the resonance range as-is.
+        let mut new_pairs: Vec<(f64, f64)> =
+            bg.iter().copied().filter(|&(e, _)| e < el || e > eh).collect();
+
+        // Add background + resonance for every in-range grid energy.
+        for (i, &e) in egrid.iter().enumerate() {
+            let base = eval_lin_lin(&bg, e);
+            let add = match mt {
+                MtReaction::Mt1Total     => deltas[i].total,
+                MtReaction::Mt2Elastic   => deltas[i].elastic,
+                MtReaction::Mt18Fission  => deltas[i].fission,
+                MtReaction::Mt102Capture => deltas[i].capture,
+                _ => 0.0,
+            };
+            new_pairs.push((e, base + add));
+        }
+
+        new_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        new_pairs.dedup_by(|a, b| (a.0 - b.0).abs() < 1e-10 * b.0.abs().max(1.0));
+        sec.pairs = new_pairs;
+    }
+}
+
+/// Maximum bisection depth per resonance-grid interval. Guards against runaway
+/// recursion at a discontinuity or an unresolvably sharp feature.
+const RES_MAX_BISECTION_DEPTH: u32 = 40;
+
+/// Cross-section floor \[b\] for the relative-error test: the relative error is
+/// measured against `max(|σ|, RES_ERR_FLOOR_B)`, so a deep inter-resonance
+/// valley (σ → 0, per reaction) does not force endless subdivision chasing a
+/// vanishing *absolute* error. `0.1 b` is negligible for the resolved region of
+/// a heavy nuclide (potential scattering alone is ~10 b), so a per-reaction
+/// contribution below it need not be resolved to `eps` relative accuracy —
+/// while the ~1 b resonance wings this fix targets are still resolved to
+/// `eps × their own value`. Without a floor near this magnitude the grid
+/// over-refines ~25× (chasing µb-level capture valleys) for no physical gain.
+const RES_ERR_FLOOR_B: f64 = 0.1;
+
+/// Adaptively refine `seed_grid` so that linear interpolation of the resonance
+/// contribution `delta_at` reproduces the directly-evaluated value to within
+/// `eps` everywhere. Returns the refined, ascending grid together with the
+/// [`RangeDelta`] already evaluated at every returned point (so callers never
+/// re-evaluate `delta_at` — important since it is expensive, especially for
+/// LRF=7 which runs a full R-matrix inversion per energy).
+///
+/// This is the resonance-reconstruction analogue of
+/// [`linearize::linearize_tab1`]'s midpoint bisection: NJOY's RECONR
+/// reconstructs σ(E) on exactly such a to-tolerance grid, so the smooth
+/// Lorentzian wings between resonances are represented accurately rather than
+/// spanned by a single over-stated straight line.
+fn refine_resonance_grid(
+    seed_grid: &[f64],
+    delta_at: &(impl Fn(f64) -> RangeDelta + Sync),
+    eps: f64,
+) -> (Vec<f64>, Vec<RangeDelta>) {
+    use rayon::prelude::*;
+
+    // Each seed window [e_i, e_{i+1}] is refined completely independently
+    // (`delta_at` is a pure function of energy), so the windows run in
+    // parallel. Each produces its *left* endpoint plus any interior points;
+    // the final right endpoint is emitted once at the end. Concatenating the
+    // per-window outputs in window order reproduces the serial grid exactly.
+    let n = seed_grid.len();
+    let mut per_window: Vec<(Vec<f64>, Vec<RangeDelta>)> = (0..n - 1)
+        .into_par_iter()
+        .map(|i| {
+            let e1 = seed_grid[i];
+            let e2 = seed_grid[i + 1];
+            let d1 = delta_at(e1);
+            let d2 = delta_at(e2);
+            let mut we: Vec<f64> = vec![e1];
+            let mut wd: Vec<RangeDelta> = vec![d1];
+            refine_res_interval(e1, d1, e2, d2, delta_at, eps, 0, &mut we, &mut wd);
+            (we, wd)
+        })
+        .collect();
+
+    let total: usize = per_window.iter().map(|(e, _)| e.len()).sum::<usize>() + 1;
+    let mut out_e: Vec<f64> = Vec::with_capacity(total);
+    let mut out_d: Vec<RangeDelta> = Vec::with_capacity(total);
+    for (we, wd) in per_window.drain(..) {
+        out_e.extend(we);
+        out_d.extend(wd);
+    }
+    // Final right endpoint (each window emitted only its left endpoint + interior).
+    out_e.push(seed_grid[n - 1]);
+    out_d.push(delta_at(seed_grid[n - 1]));
+
+    (out_e, out_d)
+}
+
+/// Recursive midpoint refinement of one `[e1, e2]` interval. Interior points
+/// (and their deltas) are pushed in ascending order; the caller adds the
+/// bounding endpoints.
+#[allow(clippy::too_many_arguments)]
+fn refine_res_interval(
+    e1: f64,
+    d1: RangeDelta,
+    e2: f64,
+    d2: RangeDelta,
+    delta_at: &impl Fn(f64) -> RangeDelta,
+    eps: f64,
+    depth: u32,
+    out_e: &mut Vec<f64>,
+    out_d: &mut Vec<RangeDelta>,
+) {
+    if depth >= RES_MAX_BISECTION_DEPTH {
+        return;
+    }
+    let e_mid = 0.5 * (e1 + e2);
+    if e_mid <= e1 || e_mid >= e2 {
+        return; // interval too small to split further
+    }
+
+    let d_true = delta_at(e_mid);
+
+    // Worst relative error over the four reaction components. Linear
+    // interpolation is midpoint = ½(d1+d2), so the error is ½|d1+d2 − 2·d_mid|.
+    let comp = |a: f64, b: f64, t: f64| -> f64 {
+        let lin = 0.5 * (a + b);
+        (lin - t).abs() / t.abs().max(RES_ERR_FLOOR_B)
+    };
+    let err = comp(d1.total, d2.total, d_true.total)
+        .max(comp(d1.elastic, d2.elastic, d_true.elastic))
+        .max(comp(d1.fission, d2.fission, d_true.fission))
+        .max(comp(d1.capture, d2.capture, d_true.capture));
+
+    if err > eps {
+        refine_res_interval(e1, d1, e_mid, d_true, delta_at, eps, depth + 1, out_e, out_d);
+        out_e.push(e_mid);
+        out_d.push(d_true);
+        refine_res_interval(e_mid, d_true, e2, d2, delta_at, eps, depth + 1, out_e, out_d);
+    }
+}
+
+/// Collect all energies in `[el, eh]` already present in any section's grid.
+fn collect_background_energies(sections: &[ReconrSection], el: f64, eh: f64) -> Vec<f64> {
+    let mut energies = Vec::new();
+    for sec in sections {
+        for &(e, _) in &sec.pairs {
+            if e >= el && e <= eh {
+                energies.push(e);
+            }
+        }
+    }
+    energies.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    energies.dedup();
+    energies
+}
+
+/// Add a halo of energy points around each SLBW/MLBW resonance peak.
+///
+/// Points are placed at `E_r ± k × (Γ_tot/2)` for several values of k.
+/// Negative-energy resonances are skipped (below threshold).
+fn add_resonance_halo_energies(grid: &mut Vec<f64>, l_states: &[LState], el: f64, eh: f64) {
+    const OFFSETS: &[f64] = &[-10.0, -5.0, -2.0, -1.0, -0.5, -0.25,
+                               0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0];
+    for ls in l_states {
+        for res in &ls.resonances {
+            if res.er <= 0.0 { continue; }
+            let half_g = res.gt / 2.0;
+            grid.push(res.er);
+            for &off in OFFSETS {
+                let e = res.er + off * half_g;
+                if e > el && e < eh && e > 0.0 { grid.push(e); }
+            }
+        }
+    }
+}
+
+/// Add a halo of energy points around each Reich-Moore resonance peak.
+///
+/// Total width is `Γ_n + Γ_γ + |Γ_fA| + |Γ_fB|`.
+fn add_rm_halo_energies(grid: &mut Vec<f64>, rm_l_states: &[RmLState], el: f64, eh: f64) {
+    const OFFSETS: &[f64] = &[-10.0, -5.0, -2.0, -1.0, -0.5, -0.25,
+                               0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0];
+    for ls in rm_l_states {
+        for res in &ls.resonances {
+            if res.er <= 0.0 { continue; }
+            let gt    = res.gn + res.gg + res.gfa.abs() + res.gfb.abs();
+            let half_g = gt / 2.0;
+            grid.push(res.er);
+            for &off in OFFSETS {
+                let e = res.er + off * half_g;
+                if e > el && e < eh && e > 0.0 { grid.push(e); }
+            }
+        }
+    }
+}
+
+/// Add a halo of energy points around each R-Matrix Limited resonance peak.
+///
+/// Total width proxy is `|Gamma_gamma| + sum(|Gamma_c|)` over every explicit
+/// channel — [`crate::samm::mf2::RmlResonance`] has no single "total width"
+/// field the way SLBW/Reich-Moore resonances do (LRF=7 channels are
+/// per-spin-group, not a fixed six-column layout), so this sums what's
+/// available per resonance instead.
+fn add_rml_halo_energies(grid: &mut Vec<f64>, section: &crate::samm::mf2::RmlSection, el: f64, eh: f64) {
+    const OFFSETS: &[f64] = &[-10.0, -5.0, -2.0, -1.0, -0.5, -0.25,
+                               0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0];
+    for group in &section.spin_groups {
+        for res in &group.resonances {
+            if res.energy <= 0.0 { continue; }
+            let gt: f64 = res.gamma_gamma.abs() + res.channel_widths.iter().map(|w| w.abs()).sum::<f64>();
+            let half_g = gt / 2.0;
+            grid.push(res.energy);
+            for &off in OFFSETS {
+                let e = res.energy + off * half_g;
+                if e > el && e < eh && e > 0.0 { grid.push(e); }
+            }
+        }
+    }
+}
+
+/// Add a halo of energy points around each Adler-Adler resonance peak.
+///
+/// Total width proxy is `DW_total` (the total-reaction Adler-Adler width
+/// parameter) when nonzero, else the largest of `DW_fission`/`DW_capture`
+/// — Adler-Adler resonances always carry all three `DW`s (per the fixed
+/// 12-word-per-resonance layout, see `reconr::mf2::parse_adler_adler`), so
+/// this just prefers the "total" one to match SLBW/Reich-Moore's use of a
+/// total-reaction width for their own halos.
+fn add_aa_halo_energies(grid: &mut Vec<f64>, l_states: &[crate::reconr::mf2::AaLState], el: f64, eh: f64) {
+    const OFFSETS: &[f64] = &[-10.0, -5.0, -2.0, -1.0, -0.5, -0.25,
+                               0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0];
+    for ls in l_states {
+        for res in &ls.resonances {
+            if res.de_total <= 0.0 { continue; }
+            let gt = if res.dw_total != 0.0 {
+                res.dw_total.abs()
+            } else {
+                res.dw_fission.abs().max(res.dw_capture.abs())
+            };
+            let half_g = gt / 2.0;
+            grid.push(res.de_total);
+            for &off in OFFSETS {
+                let e = res.de_total + off * half_g;
+                if e > el && e < eh && e > 0.0 { grid.push(e); }
+            }
+        }
+    }
+}
+
+
+/// Run the RECONR card-input driver (NJOY module entry point).
+///
+/// **Status:** this module's processing physics is ported (see its `README.md`
+/// and the typed API above); the NJOY *card-input driver* itself is not yet
+/// ported, so this returns [`crate::NjoyError::NotPorted`]. Use the module's
+/// typed API directly rather than this driver.
+pub fn run() -> Result<(), crate::NjoyError> {
+    Err(crate::NjoyError::NotPorted("reconr driver (physics ported — use the module API)"))
+}
+

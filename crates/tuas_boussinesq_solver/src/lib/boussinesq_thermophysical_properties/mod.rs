@@ -56,7 +56,7 @@ impl TryInto<LiquidMaterial> for Material {
 }
 
 /// Contains a selection of solids with predefined material properties
-#[derive(Debug,Clone,Copy,PartialEq)]
+#[derive(Debug,Clone,Copy)]
 pub enum SolidMaterial {
     /// stainless steel 304 L, 
     /// material properties from 
@@ -94,8 +94,35 @@ impl Into<Material> for SolidMaterial {
     }
 }
 
+// Manual `PartialEq` (rather than `#[derive]`) because `CustomSolid` holds
+// `fn(...)` pointers, and comparing those by address via `derive`'s default
+// codegen is unreliable (function addresses can coincide or diverge across
+// codegen units -- see `std::ptr::fn_addr_eq` docs). `fn_addr_eq` is the
+// address comparison rustc itself recommends for this case.
+impl PartialEq for SolidMaterial {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::SteelSS304L, Self::SteelSS304L) => true,
+            (Self::Copper, Self::Copper) => true,
+            (Self::Fiberglass, Self::Fiberglass) => true,
+            (Self::PyrogelHPS, Self::PyrogelHPS) => true,
+            (
+                Self::CustomSolid(bounds_a, cp_a, k_a, rho_a, roughness_a),
+                Self::CustomSolid(bounds_b, cp_b, k_b, rho_b, roughness_b),
+            ) => {
+                bounds_a == bounds_b
+                    && std::ptr::fn_addr_eq(*cp_a, *cp_b)
+                    && std::ptr::fn_addr_eq(*k_a, *k_b)
+                    && std::ptr::fn_addr_eq(*rho_a, *rho_b)
+                    && roughness_a == roughness_b
+            }
+            _ => false,
+        }
+    }
+}
+
 /// Contains a selection of liquids with predefined material properties
-#[derive(Debug,Clone,Copy,PartialEq)]
+#[derive(Debug,Clone,Copy)]
 pub enum LiquidMaterial {
     /// therminol VP1 
     TherminolVP1,
@@ -165,6 +192,34 @@ pub enum LiquidMaterial {
 impl Into<Material> for LiquidMaterial {
     fn into(self) -> Material {
         Material::Liquid(self)
+    }
+}
+
+// Manual `PartialEq` -- see the matching comment on `SolidMaterial`'s impl:
+// `CustomLiquid` holds `fn(...)` pointers, so `#[derive]`'s default codegen
+// triggers rustc's "unpredictable function pointer comparisons" lint;
+// `std::ptr::fn_addr_eq` is the comparison rustc itself recommends instead.
+impl PartialEq for LiquidMaterial {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::TherminolVP1, Self::TherminolVP1) => true,
+            (Self::DowthermA, Self::DowthermA) => true,
+            (Self::HITEC, Self::HITEC) => true,
+            (Self::YD325, Self::YD325) => true,
+            (Self::FLiBe, Self::FLiBe) => true,
+            (Self::FLiNaK, Self::FLiNaK) => true,
+            (
+                Self::CustomLiquid(bounds_a, cp_a, k_a, mu_a, rho_a),
+                Self::CustomLiquid(bounds_b, cp_b, k_b, mu_b, rho_b),
+            ) => {
+                bounds_a == bounds_b
+                    && std::ptr::fn_addr_eq(*cp_a, *cp_b)
+                    && std::ptr::fn_addr_eq(*k_a, *k_b)
+                    && std::ptr::fn_addr_eq(*mu_a, *mu_b)
+                    && std::ptr::fn_addr_eq(*rho_a, *rho_b)
+            }
+            _ => false,
+        }
     }
 }
 

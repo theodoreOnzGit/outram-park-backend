@@ -13,11 +13,14 @@ use uom::si::thermodynamic_temperature::kelvin;
 
 
 use peroxide::prelude::*;
-/// returns thermal conductivity of stainless steel 304L
+/// returns specific heat capacity of stainless steel 304L in J/(kg·K)
+///
+/// Cubic-spline interpolation of the Zou/Zweibaum tabulated values; valid for
+/// temperatures from 250 K to 1000 K (returns a range error outside this).
 /// cited from:
-/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code 
-/// validation using the compact integral effects test (CIET) experimental 
-/// data (No. ANL/NSE-19/11). Argonne National 
+/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code
+/// validation using the compact integral effects test (CIET) experimental
+/// data (No. ANL/NSE-19/11). Argonne National
 /// Lab.(ANL), Argonne, IL (United States).
 #[inline]
 pub fn steel_304_l_spline_specific_heat_capacity_ciet_zweibaum(
@@ -48,14 +51,17 @@ pub fn steel_304_l_spline_specific_heat_capacity_ciet_zweibaum(
         steel_specific_heat_capacity_value));
 }
 
-/// returns thermal conductivity of stainless steel 304L
+/// returns specific heat capacity of stainless steel 304L in J/(kg·K)
+///
+/// Evaluates a pre-fitted cubic polynomial in temperature (K); valid for
+/// temperatures from 250 K to 1000 K (returns a range error outside this).
 /// cited from:
-/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code 
-/// validation using the compact integral effects test (CIET) experimental 
-/// data (No. ANL/NSE-19/11). Argonne National 
+/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code
+/// validation using the compact integral effects test (CIET) experimental
+/// data (No. ANL/NSE-19/11). Argonne National
 /// Lab.(ANL), Argonne, IL (United States).
 ///
-/// Instead of constructing a spline object on the spot and then deleting 
+/// Instead of constructing a spline object on the spot and then deleting
 /// it, I used Libreoffice Calc to construct a spline manually instead
 #[inline]
 pub fn steel_304_l_libreoffice_spline_specific_heat_capacity_ciet_zweibaum(

@@ -1,6 +1,20 @@
+//! Validation of the shell-and-tube heat exchanger against Du et al. (2018):
+//! HITEC molten salt on the shell side transferring heat to YD-325 heat
+//! transfer oil on the tube side, in a 19-tube single-pass exchanger.
+//!
+//! Du, B. C., He, Y. L., Qiu, Y., Liang, Q., & Zhou, Y. P. (2018).
+//! Investigation on heat transfer characteristics of molten salt in a
+//! shell-and-tube heat exchanger. International Communications in Heat and
+//! Mass Transfer, 96, 61-68.
+//!
+//! Sets A/B/C sweep the salt volumetric flowrate (12.63 / 14.63 / 16.63
+//! m^3/h) at roughly constant oil flow; the remaining submodules are
+//! debugging cross-checks on dimensions, thermophysical properties and the
+//! heat-transfer correlations.
+
 /// shell and tube heat exchanger test set A,
 ///
-/// This is where 
+/// This is where
 /// salt volumetric flowrate is 12.63 m3/s 
 /// oil volumetic flowrate is 15.635 m3/s 
 /// temperatures of oil and salt are varied

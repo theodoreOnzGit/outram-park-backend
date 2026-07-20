@@ -1,9 +1,16 @@
+//! Raw-`f64` implementations of the IAPWS-IF97 region-3 backward `(p,T)`
+//! specific-volume equations (table 2.103 and its neighbours), one
+//! `subregion_*` function per lettered subregion (a-z). Every function
+//! takes temperature `t` in K and pressure `p` in Pa and returns specific
+//! volume `v` in m^3/kg as a bare `f64` (no `uom`); the `uom`-wrapped
+//! entry points (`v_tp_3`, `v_tp_3c`, ...) in the parent module call these.
+//! `subregion` classifies a `(t,p)` point into the matching letter.
+
 use super::BackwardPTRegion3;
 
-
-/// looking at table 2.103 and the preceeding 
-/// sections, the subregion equations seem to 
-/// return volume in m3/kg as a result 
+/// looking at table 2.103 and the preceeding
+/// sections, the subregion equations seem to
+/// return volume in m3/kg as a result
 /// and take in pressure in Pa, temperature in K
 pub(crate) fn subregion_a(t: f64, p: f64) -> f64 {
     let i: [i32; 30] = [
@@ -1520,7 +1527,6 @@ pub(crate) fn subregion_z(t: f64, p: f64) -> f64 {
     v.powi(4) * 0.0038
 }
 
-
 const REGION_4_SATURATION_COEFFS: [f64; 10] = [
     0.11670521452767e4,
     -0.72421316703206e6,
@@ -1569,19 +1575,19 @@ fn tsat97(p: &f64) -> f64 {
     let coef_g: f64 = REGION_4_SATURATION_COEFFS[1] * beta.powi(2)
         + REGION_4_SATURATION_COEFFS[4] * beta
         + REGION_4_SATURATION_COEFFS[7];
-    let coef_d: f64 =
-        2.0 * coef_g / (-coef_f - (coef_f.powi(2) - 4.0 * coef_e * coef_g).sqrt());
+    let coef_d: f64 = 2.0 * coef_g / (-coef_f - (coef_f.powi(2) - 4.0 * coef_e * coef_g).sqrt());
 
     // Return t_sat
     (REGION_4_SATURATION_COEFFS[9] + coef_d
-     - ((REGION_4_SATURATION_COEFFS[9] + coef_d).powi(2)
-         - 4.0 * (REGION_4_SATURATION_COEFFS[8] + REGION_4_SATURATION_COEFFS[9] * coef_d))
-     .sqrt())
+        - ((REGION_4_SATURATION_COEFFS[9] + coef_d).powi(2)
+            - 4.0 * (REGION_4_SATURATION_COEFFS[8] + REGION_4_SATURATION_COEFFS[9] * coef_d))
+            .sqrt())
         * 0.5
 }
 
-// Returns the subregion that corresponds
-// to the state of water given t and p
+/// Classifies a `(t,p)` point (t in K, p in Pa) into one of the 26
+/// lettered region-3 backward `(p,T)` subregions, by comparing against the
+/// IAPWS-IF97 subregion boundary equations (t_ab, t_cd, t_ef, ...).
 pub(crate) fn subregion(t: f64, p: f64) -> BackwardPTRegion3 {
     // Create coefficient Arrays
     let coefficients_ab: [f64; 5] = [
@@ -1702,8 +1708,12 @@ pub(crate) fn subregion(t: f64, p: f64) -> BackwardPTRegion3 {
 
     // Calculate the Density
     match (t, p) {
-        (temp, pres) if (40.0e6..=100.0e6).contains(&pres) && temp <= t_ab => BackwardPTRegion3::SubregionA,
-        (temp, pres) if (40.0e6..=100.0e6).contains(&pres) && temp > t_ab => BackwardPTRegion3::SubregionB,
+        (temp, pres) if (40.0e6..=100.0e6).contains(&pres) && temp <= t_ab => {
+            BackwardPTRegion3::SubregionA
+        }
+        (temp, pres) if (40.0e6..=100.0e6).contains(&pres) && temp > t_ab => {
+            BackwardPTRegion3::SubregionB
+        }
         (temp, pres)
             if ((19.00881189e6..=40.0e6).contains(&pres) && temp <= t_cd)
                 || ((16.52916425e6..=19.008811889e6).contains(&pres) && temp <= tsat97(&pres)) =>
@@ -1716,7 +1726,9 @@ pub(crate) fn subregion(t: f64, p: f64) -> BackwardPTRegion3 {
         (temp, pres) if (25.0e6..=40.0e6).contains(&pres) && (t_ab..=t_ef).contains(&temp) => {
             BackwardPTRegion3::SubregionE
         }
-        (temp, pres) if (25.0e6..=40.0e6).contains(&pres) && t_ef < temp => BackwardPTRegion3::SubregionF,
+        (temp, pres) if (25.0e6..=40.0e6).contains(&pres) && t_ef < temp => {
+            BackwardPTRegion3::SubregionF
+        }
         (temp, pres) if (23.5e6..=25.0e6).contains(&pres) && (t_cd..=t_gh).contains(&temp) => {
             BackwardPTRegion3::SubregionG
         }
@@ -1729,7 +1741,9 @@ pub(crate) fn subregion(t: f64, p: f64) -> BackwardPTRegion3 {
         (temp, pres) if (22.5e6..=25.0e6).contains(&pres) && (t_ij..=t_jk).contains(&temp) => {
             BackwardPTRegion3::SubregionJ
         }
-        (temp, pres) if (20.5e6..=25.0e6).contains(&pres) && t_jk < temp => BackwardPTRegion3::SubregionK,
+        (temp, pres) if (20.5e6..=25.0e6).contains(&pres) && t_jk < temp => {
+            BackwardPTRegion3::SubregionK
+        }
         (temp, pres) if (22.5e6..=23.5e6).contains(&pres) && (t_cd..=t_gh).contains(&temp) => {
             BackwardPTRegion3::SubregionL
         }
@@ -1797,15 +1811,14 @@ pub(crate) fn subregion(t: f64, p: f64) -> BackwardPTRegion3 {
     }
 }
 
-
 /// Returns the specific volume given t and rho
 /// Temperature is assumed to be in K
 /// density is assumed to be in kg/m^3
 ///
 /// imported from rusteam
 ///
-/// note that this will not cover (t,p) values outside 
-/// region 3, 
+/// note that this will not cover (t,p) values outside
+/// region 3,
 ///
 pub(crate) fn v_tp_3_float(t: f64, p: f64) -> f64 {
     match subregion(t, p) {

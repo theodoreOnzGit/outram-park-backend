@@ -1,3 +1,6 @@
+/// development test: runs the CIET heater-v2 heated section together with the
+/// separately-modelled top and bottom heads, advancing the coupled components
+/// through a transient to check the assembled loop behaves sensibly.
 #[test]
 pub fn test_inclusive_heater_top_bottom_head(){
     use core::time;

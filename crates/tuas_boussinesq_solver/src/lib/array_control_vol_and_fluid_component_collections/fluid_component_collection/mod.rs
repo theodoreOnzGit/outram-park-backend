@@ -1,11 +1,34 @@
-// This library was developed for use in my PhD thesis under supervision 
+//! Fluid component collections: hydraulic-network building blocks.
+//!
+//! This module groups the abstractions used to compute mass flowrates
+//! (kg/s) and pressure changes / pressure losses (Pa) for pipes, fittings,
+//! and networks of them:
+//!
+//! - [`fluid_component`] — the [`FluidComponent`] enum (a single fluid array,
+//!   or a bundle of identical parallel fluid arrays / tubes).
+//! - [`fluid_component_traits`] — the [`FluidComponentTrait`] contract plus the
+//!   pipe/custom-component pressure-loss and pressure-change calculation traits.
+//! - [`collection_series_and_parallel_functions`] — associated functions that
+//!   combine a `Vec<FluidComponent>` in series or in parallel.
+//! - [`fluid_component_collection`] — the [`FluidComponentCollection`] struct
+//!   (a vector of components with a series/parallel orientation).
+//! - [`super_collection_series_and_parallel_functions`] and
+//!   [`fluid_component_super_collection`] — the same, one level up: a vector of
+//!   collections (branches), used e.g. for multiple loops in parallel.
+//! - [`tests_and_examples`] — worked examples showing how to assemble and solve
+//!   these networks.
+//!
+//! Pressure sign convention throughout: `pressure_change = -pressure_loss +
+//! hydrostatic_pressure_change + internal_pressure_source`.
+
+// This library was developed for use in my PhD thesis under supervision
 // of Professor Per F. Peterson. It is part of a thermal hydraulics
 // library in Rust that is released under the GNU General Public License
-// v 3.0. This is partly due to the fact that some of the libraries 
+// v 3.0. This is partly due to the fact that some of the libraries
 // inherit from GeN-Foam and OpenFOAM, both licensed under GNU General
 // Public License v3.0.
 //
-// As such, the entire library is released under GNU GPL v3.0. It is a strong 
+// As such, the entire library is released under GNU GPL v3.0. It is a strong
 // copyleft license which means you cannot use it in proprietary software.
 //
 //

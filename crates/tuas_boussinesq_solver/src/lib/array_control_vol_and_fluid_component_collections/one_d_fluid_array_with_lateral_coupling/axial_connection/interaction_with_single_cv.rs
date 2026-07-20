@@ -44,13 +44,13 @@ impl FluidArray {
             interaction)
     }
 
-    /// attaches a single cv to the exit,back,
-    /// higher or outer side of the 
+    /// attaches a single cv to the exit, front,
+    /// higher or outer side of the
     /// array cv
-    /// 
     ///
-    /// basically in whatever coordinate system, it is the lowest 
-    /// value 
+    ///
+    /// basically in whatever coordinate system, it is the highest
+    /// value
     ///
     /// for spheres, the highest r (outer side)
     /// for cylinders, the highest r or z (outer or higher)

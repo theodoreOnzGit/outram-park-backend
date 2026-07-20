@@ -1,3 +1,8 @@
+//! Reference-only, entirely commented-out C++ source mirroring OpenFOAM
+//! `simpleFoam`'s `pEqn.H` — the SIMPLE pressure-correction step: builds
+//! `phiHbyA` from the momentum-matrix reciprocal diagonal, assembles and
+//! solves `fvm::laplacian(rAtU, p) == fvc::div(phiHbyA)`, then corrects the
+//! flux and velocity. Not compiled or ported to Rust.
 //{
 //    volScalarField rAU(1.0/UEqn.A());
 //    volVectorField HbyA(constrainHbyA(rAU*UEqn.H(), U, p));

@@ -1,6 +1,18 @@
+//! Parasitic-heat-loss calibration for the CIET primary (heater)
+//! natural-circulation loop.
+//!
+//! The submodules explore three ways to make the simulated primary loop shed
+//! enough parasitic heat to match Zweibaum's steady-state natural-circulation
+//! data (primary-loop mass flow rate in kg/s; heater and DHX-shell
+//! temperatures in degC): tuning the pipe insulation thickness (in m/cm), the
+//! ambient heat-transfer coefficient (in W/(m^2 K)), and the pipe Nusselt
+//! number multiplier. Only the insulation-thickness route succeeded; the
+//! ambient-htc and Nusselt-number routes are retained as documented failed
+//! attempts (the thermal resistance is dominated by the insulation).
+
 ///
 /// This module's test attempted to tweak the insulation thickness
-/// to ambient in order to obtain the correct dhx inlet temperature 
+/// to ambient in order to obtain the correct dhx inlet temperature
 /// unfortunately, the parasitic heat losses were not sufficient 
 /// to achieve this objective,
 ///

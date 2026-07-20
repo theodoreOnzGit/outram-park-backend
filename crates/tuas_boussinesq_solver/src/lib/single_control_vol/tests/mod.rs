@@ -1,3 +1,9 @@
+//! Verification tests for `SingleCVNode` — lumped heat capacitance, automatic
+//! timestep selection, conjugate heat transfer (CIET heater cases),
+//! semi-infinite 1D transient conduction, and an adiabatic mixing joint. Each
+//! submodule checks predicted temperatures (K / degC) against an analytical or
+//! reference solution.
+
 #[cfg(test)]
 /// Contains tests for simple lumped heat capacitance
 mod lumped_heat_capacitance;

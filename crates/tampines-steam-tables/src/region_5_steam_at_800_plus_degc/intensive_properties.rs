@@ -1,19 +1,28 @@
 use crate::constants::specific_gas_constant_of_water;
 use uom::si::f64::*;
 
-use super::{gamma_5_ideal, gamma_5_res, gamma_pi_5_ideal, gamma_pi_5_res, gamma_pi_pi_5_res, gamma_pi_tau_5_res, gamma_tau_5_ideal, gamma_tau_5_res, gamma_tau_tau_5_ideal, gamma_tau_tau_5_res, pi_5, tau_5};
+use super::{
+    gamma_5_ideal, gamma_5_res, gamma_pi_5_ideal, gamma_pi_5_res, gamma_pi_pi_5_res,
+    gamma_pi_tau_5_res, gamma_tau_5_ideal, gamma_tau_5_res, gamma_tau_tau_5_ideal,
+    gamma_tau_tau_5_res, pi_5, tau_5,
+};
 /// Returns the region-5 specific volume
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa
 pub fn v_tp_5(t: ThermodynamicTemperature, p: Pressure) -> SpecificVolume {
-    ((specific_gas_constant_of_water()) * t / p) * pi_5(p) * (gamma_pi_5_ideal(t, p) + gamma_pi_5_res(t, p))
+    ((specific_gas_constant_of_water()) * t / p)
+        * pi_5(p)
+        * (gamma_pi_5_ideal(t, p) + gamma_pi_5_res(t, p))
 }
 
 /// Returns the region-5 enthalpy
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa
 pub fn h_tp_5(t: ThermodynamicTemperature, p: Pressure) -> AvailableEnergy {
-    specific_gas_constant_of_water() * t * tau_5(t) * (gamma_tau_5_ideal(t, p) + gamma_tau_5_res(t, p))
+    specific_gas_constant_of_water()
+        * t
+        * tau_5(t)
+        * (gamma_tau_5_ideal(t, p) + gamma_tau_5_res(t, p))
 }
 
 /// Returns the region-5 internal energy
@@ -42,7 +51,9 @@ pub fn s_tp_5(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity 
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa
 pub fn cp_tp_5(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity {
-    -specific_gas_constant_of_water() * tau_5(t).powi(2) * (gamma_tau_tau_5_ideal(t, p) + gamma_tau_tau_5_res(t, p))
+    -specific_gas_constant_of_water()
+        * tau_5(t).powi(2)
+        * (gamma_tau_tau_5_ideal(t, p) + gamma_tau_tau_5_res(t, p))
 }
 
 /// Returns the region-5 isochoric specific heat
@@ -67,7 +78,7 @@ pub fn w_tp_5(t: ThermodynamicTemperature, p: Pressure) -> Velocity {
     let subnum = (1.0 + pi * gamma_pi_5_res(t, p) - tau * pi * gamma_pi_tau_5_res(t, p)).powi(2);
     let subden = tau.powi(2) * (gamma_tau_tau_5_ideal(t, p) + gamma_tau_tau_5_res(t, p));
     let den = 1.0 - pi.powi(2) * gamma_pi_pi_5_res(t, p) + subnum / subden;
-    ((specific_gas_constant_of_water()  * t) * num / den).sqrt()
+    ((specific_gas_constant_of_water() * t) * num / den).sqrt()
 }
 
 /// Returns the region-5 isentropic exponent
@@ -77,31 +88,28 @@ pub fn kappa_tp_5(t: ThermodynamicTemperature, p: Pressure) -> Ratio {
     let num = 1.0 + 2.0 * pi * gamma_pi_5_res(t, p) + pi.powi(2) * gamma_pi_5_res(t, p).powi(2);
     let subnum = (1.0 + pi * gamma_pi_5_res(t, p) - tau * pi * gamma_pi_tau_5_res(t, p)).powi(2);
     let subden = tau.powi(2) * (gamma_tau_tau_5_ideal(t, p) + gamma_tau_tau_5_res(t, p));
-    let den = (1.0 - pi.powi(2) * gamma_pi_pi_5_res(t, p) 
-        + subnum / subden) * pi * (gamma_pi_5_ideal(t, p) + gamma_pi_5_res(t, p));
+    let den = (1.0 - pi.powi(2) * gamma_pi_pi_5_res(t, p) + subnum / subden)
+        * pi
+        * (gamma_pi_5_ideal(t, p) + gamma_pi_5_res(t, p));
 
-    return (num/den).into();
+    return (num / den).into();
 }
-
 
 /// Returns the region-5 isobaric cubic expansion coeff
 pub fn alpha_v_tp_5(t: ThermodynamicTemperature, p: Pressure) -> TemperatureCoefficient {
     let tau = tau_5(t);
     let pi = pi_5(p);
-    let one_over_t: TemperatureCoefficient = 
-        t.recip();
+    let one_over_t: TemperatureCoefficient = t.recip();
     let num = 1.0 + pi * gamma_pi_5_res(t, p) - tau * pi * gamma_pi_tau_5_res(t, p);
     let den = 1.0 + pi * gamma_pi_5_res(t, p);
 
-    return one_over_t * num/den;
-
+    return one_over_t * num / den;
 }
 
-
-// to make the inverse pressure type 
-// it is m s^2 / kg 
-use uom::si::{ISQ, SI, Quantity};
-use uom::typenum::{Z0, P1, P2, N1};
+// to make the inverse pressure type
+// it is m s^2 / kg
+use uom::si::{Quantity, ISQ, SI};
+use uom::typenum::{N1, P1, P2, Z0};
 
 // quantity is defined
 // ## Generic Parameters
@@ -113,6 +121,8 @@ use uom::typenum::{Z0, P1, P2, N1};
 // * `N`: Amount of substance dimension.
 // * `J`: Luminous intensity dimension.
 // * `K`: Kind.
+/// Reciprocal pressure (units of 1/Pa, i.e. m·s²/kg) — the return type of the
+/// region-5 isothermal compressibility, which `uom` has no named quantity for.
 pub type InversePressure = Quantity<ISQ<P1, N1, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 /// Returns the region-5 isobaric isothermal compressibility
 pub fn kappa_t_tp_5(t: ThermodynamicTemperature, p: Pressure) -> InversePressure {
@@ -120,6 +130,5 @@ pub fn kappa_t_tp_5(t: ThermodynamicTemperature, p: Pressure) -> InversePressure
     let num = 1.0 - pi.powi(2) * gamma_pi_pi_5_res(t, p);
     let den = 1.0 + pi * gamma_pi_5_res(t, p);
 
-    return (num/den)/p;
-
+    return (num / den) / p;
 }

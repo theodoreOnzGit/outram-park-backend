@@ -12,16 +12,15 @@ use crate::tuas_lib_error::TuasLibError;
 use std::thread::JoinHandle;
 use std::thread;
 use ndarray::*;
-use ndarray_linalg::error::LinalgError;
 use uom::num_traits::Zero;
 
 impl NonInsulatedParallelFluidComponent {
 
-    /// advances timestep for each HeatTransferEntity within the 
-    /// NonInsulatedPipe
-    /// treats the pipe as a single tube
+    /// advances timestep for each HeatTransferEntity within the
+    /// NonInsulatedParallelFluidComponent
+    /// treats the bundle as a single tube (no per-tube correction)
     #[inline]
-    fn _advance_timestep_single_tube(&mut self, 
+    fn _advance_timestep_single_tube(&mut self,
     timestep: Time) -> Result<(),TuasLibError> {
 
         self.pipe_fluid_array.advance_timestep_mut_self(timestep)?;
@@ -30,12 +29,13 @@ impl NonInsulatedParallelFluidComponent {
         
     }
 
-    /// advances timestep for each HeatTransferEntity within the 
-    /// NonInsulatedPipe
+    /// advances timestep for each HeatTransferEntity within the
+    /// NonInsulatedParallelFluidComponent
     ///
-    /// gives each pipe the parallel tube treatment
+    /// gives each pipe the parallel tube treatment (per-tube
+    /// enthalpy-rate and power contributions scaled by 1/number_of_tubes)
     #[inline]
-    pub fn advance_timestep(&mut self, 
+    pub fn advance_timestep(&mut self,
     timestep: Time) -> Result<(),TuasLibError> {
         self.advance_timestep_for_parallel_fluid_array_bundle(timestep)?;
         self.advance_timestep_for_parallel_solid_column_bundle(timestep)?;
@@ -88,10 +88,8 @@ impl NonInsulatedParallelFluidComponent {
 
         let number_of_nodes = fluid_array_clone.len();
         if number_of_nodes <= 1 {
-            return Err(LinalgError::Shape(
-                ShapeError::from_kind(
-                    ErrorKind::OutOfBounds
-                )).into());
+            return Err(TuasLibError::ShapeMismatch(
+                ShapeError::from_kind(ErrorKind::OutOfBounds).to_string()));
         }
 
         // First things first, we need to set up 
@@ -877,10 +875,8 @@ impl NonInsulatedParallelFluidComponent {
         let number_of_nodes = pipe_shell_clone.len();
 
         if number_of_nodes <= 1 {
-            return Err(LinalgError::Shape(
-                ShapeError::from_kind(
-                    ErrorKind::OutOfBounds
-                )).into());
+            return Err(TuasLibError::ShapeMismatch(
+                ShapeError::from_kind(ErrorKind::OutOfBounds).to_string()));
         }
         // First things first, we need to set up 
         // how the CV interacts with the internal array

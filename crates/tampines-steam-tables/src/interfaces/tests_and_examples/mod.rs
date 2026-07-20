@@ -1,7 +1,13 @@
 
-/// these are tests to check the functionality 
+/// these are tests to check the functionality
 /// of ph flash regions
 pub mod ph_flash_regions;
+
+/// V&V + regression tests for two (p,h)-flash edge cases that used to
+/// todo!()-panic: the p_sat(273.15 K) triple-point-pressure trap, and the
+/// deliberately-unsupported Region 5 (p,h) flash. See the module doc comment.
+#[cfg(test)]
+pub mod ph_flash_region4_edge_and_region5;
 
 /// these are tests to check the functionality 
 /// of hs flash regions

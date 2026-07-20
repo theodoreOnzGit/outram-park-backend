@@ -7,9 +7,10 @@ use super::StructuralSupport;
 
 
 impl StructuralSupport {
-    /// advances timestep for each HeatTransferEntity within the 
-    /// HeaterVersion2Bare
-    pub fn _advance_timestep(&mut self, 
+    /// advances the timestep for the support's HeatTransferEntity
+    /// (the 1D solid control-volume array), updating its node temperatures
+    /// in place; `timestep` is in seconds (`Time`)
+    pub fn _advance_timestep(&mut self,
     timestep: Time) {
 
         self.support_array.advance_timestep_mut_self(timestep).unwrap();

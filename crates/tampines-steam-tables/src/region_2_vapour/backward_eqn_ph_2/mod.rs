@@ -2,6 +2,9 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::pressure::{megapascal, pascal};
 use uom::si::f64::*;
 use uom::si::available_energy::kilojoule_per_kilogram;
+/// Region 2 backward `(p,h)` equation: temperature T (K) from pressure (Pa)
+/// and specific enthalpy (J/kg). Dispatches to the 2a / 2b / 2c subregion
+/// correlations by pressure and the 2b/2c boundary `p_2b2c(h)`.
 #[inline]
 pub fn t_ph_2(p: Pressure, h: AvailableEnergy) -> ThermodynamicTemperature {
 
@@ -51,6 +54,9 @@ pub fn h_2b2c(p: Pressure) -> AvailableEnergy {
 
 }
 
+/// Subregion 2a backward `(p,h)` correlation: temperature T (K) from the
+/// dimensionless reduced pressure `pi` and reduced enthalpy `eta`
+/// (both dimensionless). Valid for p ≤ 4 MPa.
 #[inline]
 pub fn t_ph_2a(pi: f64, eta: f64) -> ThermodynamicTemperature {
     let i: [i32; 34] = [
@@ -108,6 +114,9 @@ pub fn t_ph_2a(pi: f64, eta: f64) -> ThermodynamicTemperature {
     return ThermodynamicTemperature::new::<kelvin>(theta * t_ref_kelvin);
 }
 
+/// Subregion 2b backward `(p,h)` correlation: temperature T (K) from the
+/// dimensionless reduced pressure `pi` and reduced enthalpy `eta`
+/// (both dimensionless). Valid for p > 4 MPa below the `p_2b2c(h)` boundary.
 #[inline]
 pub fn t_ph_2b(pi: f64, eta: f64) -> ThermodynamicTemperature {
     let i: [i32; 38] = [
@@ -169,6 +178,9 @@ pub fn t_ph_2b(pi: f64, eta: f64) -> ThermodynamicTemperature {
     return ThermodynamicTemperature::new::<kelvin>(theta * t_ref_kelvin);
 }
 
+/// Subregion 2c backward `(p,h)` correlation: temperature T (K) from the
+/// dimensionless reduced pressure `pi` and reduced enthalpy `eta`
+/// (both dimensionless). Valid for p > 4 MPa above the `p_2b2c(h)` boundary.
 #[inline]
 pub fn t_ph_2c(pi: f64, eta: f64) -> ThermodynamicTemperature {
     let i: [i32; 23] = [

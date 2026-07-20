@@ -189,8 +189,8 @@ pub enum HeatTransferInteractionType {
     /// // fluid node                ----------------------------
     /// // (T_f)                solid_surface
     ///
-    /// Where r is the radius 
-    /// basically the liquid is on the inside (larger smaller r)
+    /// Where r is the radius
+    /// basically the liquid is on the inside (smaller r)
     ///
     /// between solid_cv_1 and solid_surface 
     /// there is a thermal resistance 
@@ -345,7 +345,7 @@ pub struct DataUserSpecifiedConvectionResistance{
 
     /// surface area for heat convection
     pub surf_area: SurfaceArea,
-    /// heat transfer coefficient in watts per meter per kelvin
+    /// heat transfer coefficient in watts per square meter per kelvin
     pub heat_transfer_coeff: HeatTransfer,
 
 }
@@ -372,9 +372,9 @@ pub struct DataAdvection{
     /// now, the cv is not always a cv, it could be any heat
     /// transfer entity
     pub fluid_density_heat_transfer_entity_1: MassDensity,
-    /// fluid density of control volume on left
+    /// fluid density of control volume on right
     ///
-    /// which means when you link control volumes or boundary 
+    /// which means when you link control volumes or boundary
     /// link(cv1, cv2, interaction)
     ///
     /// the picture is like this 

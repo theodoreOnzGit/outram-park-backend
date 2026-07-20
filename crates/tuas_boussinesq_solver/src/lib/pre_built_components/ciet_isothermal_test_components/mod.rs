@@ -1,3 +1,29 @@
+//! Pre-built CIET components and branches for isothermal (constant-temperature)
+//! hydraulic tests.
+//!
+//! This module holds `new_*` builder functions that construct every pipe,
+//! static mixer, flowmeter, pump, CTAH and DHX component of the Compact
+//! Integral Effects Test (CIET) facility as either an
+//! [`InsulatedFluidComponent`](super::insulated_pipes_and_fluid_components::InsulatedFluidComponent)
+//! or a
+//! [`NonInsulatedFluidComponent`](super::non_insulated_fluid_components::NonInsulatedFluidComponent).
+//! Each builder takes an initial fluid temperature (a `uom`
+//! `ThermodynamicTemperature`, i.e. kelvin/degC) and fills in the geometry
+//! (hydraulic diameter and lengths in metres, flow area in square metres,
+//! incline angle in degrees, form loss and surface roughness) from the
+//! RELAP5-3D and SAM nodalisations of CIET.
+//!
+//! Geometry parameters follow the CIET nodalisations reported by Zou, Hu &
+//! Charpentier (SAM code validation, ANL/NSE-19/11, 2019) and Zweibaum's
+//! thesis (UC Berkeley, 2015).
+//!
+//! The submodules assemble these components into branches and run the
+//! isothermal flow-rate vs pressure-drop verification tests:
+//! [`ciet_branch_builders_isothermal`] wires the components into the heater,
+//! CTAH and DHX branches, while [`isothermal_ctah_heater_branch_test`] and
+//! [`isothermal_ctah_heater_dhx_branch_test`] verify the resulting mass
+//! flow rates (kg/s) against the applied pressure change (Pa).
+
 use std::f64::consts::PI;
 
 use uom::si::angle::degree;
@@ -138,7 +164,7 @@ pub fn new_pipe_6a(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     insulated_component
 }
 
-/// creates a new pipe6a for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new static mixer 41 (label 6) for CIET using the RELAP5-3D and SAM parameters
 /// Component 6 in Compact Integral Effects Test (CIET)
 /// CTAH branch  (also known as static mixer 41)
 ///
@@ -288,10 +314,10 @@ NonInsulatedFluidComponent {
 
 
 
-/// creates a new ctah vertical for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new inactive CTAH horizontal section for CIET using the RELAP5-3D and SAM parameters
 /// in Compact Integral Effects Test (CIET)
 ///
-/// this is inactive, so it behaves more like a pipe rather than a 
+/// this is inactive, so it behaves more like a pipe rather than a
 /// heat exchanger
 ///
 /// Horizontal part of Coiled Tube Air Heater (CTAH)

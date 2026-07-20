@@ -1,3 +1,8 @@
+//! IAPWS-IF97 Region 1 backward equation: temperature as a function of
+//! pressure and specific enthalpy, `T(p,h)` (Table 6).
+
+// IAPWS-IF97 Region 1 backward-equation coefficients (I_i, J_i, n_i) for
+// T(p,h) (Table 6); local copy of `super::REGION_1_BACK_COEFFS_PH`.
 const REGION_1_BACK_COEFFS_PH: [[f64; 3]; 20] = [
     [0.0, 0.0, -0.23872489924521e+3],
     [0.0, 1.0, 0.40421188637945e+3],
@@ -21,7 +26,10 @@ const REGION_1_BACK_COEFFS_PH: [[f64; 3]; 20] = [
     [6.0, 32.0, -0.15020185953503e-16],
 ];
 
-use uom::si::{available_energy::kilojoule_per_kilogram, f64::*, pressure::megapascal, thermodynamic_temperature::kelvin};
+use uom::si::{
+    available_energy::kilojoule_per_kilogram, f64::*, pressure::megapascal,
+    thermodynamic_temperature::kelvin,
+};
 /// Returns the region-1 eta for backwards calculations
 /// Enthalpy is assumed to be in kJ/kg
 pub fn eta_1_back(h: AvailableEnergy) -> f64 {
@@ -38,13 +46,10 @@ pub fn pi_1_back(p: Pressure) -> f64 {
 /// Returns the region-1 backward correlation for T(p,h)
 ///
 /// the reference temperature is 1K
-pub fn t_ph_1(p: Pressure, h: AvailableEnergy,) -> ThermodynamicTemperature {
-    let t = ThermodynamicTemperature::new::<kelvin>(
-        1.0 * theta_ph_1(p, h)
-    );
+pub fn t_ph_1(p: Pressure, h: AvailableEnergy) -> ThermodynamicTemperature {
+    let t = ThermodynamicTemperature::new::<kelvin>(1.0 * theta_ph_1(p, h));
 
     t
-
 }
 
 /// Returns the region-1 backward correlation for theta = T/T* (p,h)
@@ -61,4 +66,3 @@ pub fn theta_ph_1(p: Pressure, h: AvailableEnergy) -> f64 {
     }
     sum
 }
-

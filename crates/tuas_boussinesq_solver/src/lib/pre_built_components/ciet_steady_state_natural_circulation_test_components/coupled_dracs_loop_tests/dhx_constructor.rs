@@ -22,9 +22,9 @@ use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial}
 /// the heat transfer coefficients are based on Gnielinski 
 /// correlation 
 ///
-/// Whereas hydrodynamically, the DHX shell and tube 
-/// sides are modelled as pipes with K values of 23.9 on 
-/// the tube side and 3.3 on the tube side 
+/// Whereas hydrodynamically, the DHX shell and tube
+/// sides are modelled as pipes with K values of 23.9 on
+/// the shell side and 3.3 on the tube side
 /// insulation thickness for DHX is 0.0508 m of fiberglass
 /// DHX is made of copper tubing on the inside
 /// and assumed to be copper on shell side as well
@@ -177,12 +177,17 @@ pub fn new_dhx_sthe_version_1(initial_temperature: ThermodynamicTemperature
 /// the heat transfer coefficients are based on Gnielinski 
 /// correlation 
 ///
-/// Whereas hydrodynamically, the DHX shell and tube 
-/// sides are modelled as pipes with K values of 23.9 on 
-/// the tube side and 3.3 on the tube side 
+/// Whereas hydrodynamically, the DHX shell and tube
+/// sides are modelled as pipes with K values of 23.9 on
+/// the shell side and 3.3 on the tube side
 /// insulation thickness for DHX is 0.0508 m of fiberglass
 /// DHX is made of copper tubing on the inside
 /// and assumed to be copper on shell side as well
+///
+/// This is the axially mesh-refined variant of [`new_dhx_sthe_version_1`]:
+/// it is identical except that the tube and shell fluid arrays use 17 inner
+/// nodes (19 total) instead of 9 inner nodes (11 total), for finer axial
+/// resolution.
 pub fn new_dhx_sthe_version_1_mesh_refined(initial_temperature: ThermodynamicTemperature
     ) -> SimpleShellAndTubeHeatExchanger {
 

@@ -92,6 +92,10 @@ extern crate peroxide;
 /// provides error types for tuas_boussinesq_solver
 pub mod tuas_lib_error;
 
+/// Pure-Rust dense LU solver (`SquareMatrix`), inlined from `outram-foam-basic-lib`
+/// so this crate has no `outram-foam-basic-lib` dependency — see the module doc.
+pub mod matrix;
+
 #[warn(missing_docs)]
 /// prelude, for easy importing 
 pub mod prelude;
@@ -177,3 +181,37 @@ pub mod array_control_vol_and_fluid_component_collections;
 /// You don't want to write everything from scratch right? 
 #[warn(missing_docs)]
 pub mod pre_built_components;
+
+/// Test-support helpers for verification & validation (V&V) tests.
+///
+/// Compiled only under `cfg(test)`, so it adds nothing to the public API.
+/// Its single job is to give every CSV-writing test a deterministic output
+/// location under the crate's gitignored `verification_and_validation/`
+/// folder, so the raw simulation traces land in one predictable place for
+/// plotting regardless of the directory a test happens to run from.
+#[cfg(test)]
+pub(crate) mod vnv_test_support {
+    use std::path::PathBuf;
+
+    /// Deterministic path for a V&V CSV output file.
+    ///
+    /// Returns `<crate manifest dir>/verification_and_validation/<file_name>`,
+    /// creating the `verification_and_validation/` directory first if it does
+    /// not exist (so a test never fails on a missing folder). The path is built
+    /// from `CARGO_MANIFEST_DIR`, so it is independent of the test process's
+    /// current working directory.
+    ///
+    /// # Parameters
+    /// - `file_name`: a bare CSV file name such as `"ciet_heater_steady_state.csv"`
+    ///   (no directory components). Name it per test/dataset so the output is
+    ///   easy to find and plot.
+    ///
+    /// The returned [`PathBuf`] is accepted directly by `csv::Writer::from_path`.
+    pub fn vnv_csv_path(file_name: &str) -> PathBuf {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("verification_and_validation");
+        std::fs::create_dir_all(&dir)
+            .expect("could not create verification_and_validation output directory");
+        dir.join(file_name)
+    }
+}

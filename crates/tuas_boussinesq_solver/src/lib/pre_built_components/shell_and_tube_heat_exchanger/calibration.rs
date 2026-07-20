@@ -119,10 +119,14 @@ impl SimpleShellAndTubeHeatExchanger {
     }
 
     /// assuming sthe inner tubes are cylindrical parallel tubes,
-    /// get the thermal resistance
+    /// get the (conductive) thermal resistance of the tube walls, in K/W
     ///
-    /// ln (d_o/d_i) * 1/(2 pi L lambda_insulation N_t)
-    pub fn get_inner_tubes_cylindrical_thermal_resistance(&self) -> 
+    /// ln (d_o/d_i) * 1/(2 pi L lambda_tube_wall N_t)
+    ///
+    /// where lambda_tube_wall is the tube-wall solid thermal conductivity
+    /// evaluated at the inner-tube bulk temperature, L the effective length
+    /// and N_t the number of parallel tubes
+    pub fn get_inner_tubes_cylindrical_thermal_resistance(&self) ->
         ThermalResistance {
 
             let inner_tube_id = self.tube_side_id;

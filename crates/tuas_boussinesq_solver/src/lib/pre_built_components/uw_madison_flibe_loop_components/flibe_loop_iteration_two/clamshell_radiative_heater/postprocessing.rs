@@ -23,8 +23,8 @@ impl ClamshellRadiativeHeater {
             self.annular_air_array.get_temperature_vector()
     }
 
-    /// gets the shell side outer tube temperature 
-    pub fn heating_element_array_temperature(&mut self,) -> 
+    /// gets the temperature (K) of the radiative heating element shell array
+    pub fn heating_element_array_temperature(&mut self,) ->
         Result<Vec<ThermodynamicTemperature>,TuasLibError>{
             self.heating_element_shell.get_temperature_vector()
     }

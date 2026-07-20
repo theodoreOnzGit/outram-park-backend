@@ -1,5 +1,4 @@
 use ndarray::*;
-use ndarray_linalg::error::LinalgError;
 use uom::num_traits::Zero;
 use uom::si::f64::*;
 use uom::si::power::watt;
@@ -59,10 +58,8 @@ impl FluidArray{
 
         let number_of_nodes = self.len();
         if number_of_nodes <= 1 {
-            return Err(LinalgError::Shape(
-                ShapeError::from_kind(
-                    ErrorKind::OutOfBounds
-                )).into());
+            return Err(TuasLibError::ShapeMismatch(
+                ShapeError::from_kind(ErrorKind::OutOfBounds).to_string()));
         }
 
         // First things first, we need to set up 

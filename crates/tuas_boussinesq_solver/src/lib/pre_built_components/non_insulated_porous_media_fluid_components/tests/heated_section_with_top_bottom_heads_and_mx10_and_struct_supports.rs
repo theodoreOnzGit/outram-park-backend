@@ -1,3 +1,6 @@
+/// development test: heated section plus top/bottom heads, the MX-10 static
+/// mixer, and structural-support heat losses (the fullest heater assembly);
+/// advances the coupled components through a transient.
 #[test]
 pub fn heater_plus_mx_10_with_supports(){
 

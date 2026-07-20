@@ -434,7 +434,7 @@ fn lumped_heat_capacitance_steel_ball_in_air() -> Result<(), TuasLibError>{
         // let's make a csv writer too 
 
         use csv::Writer;
-        let mut wtr = Writer::from_path("air_cooled_steel_sphere.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("air_cooled_steel_sphere.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds","temperature_kelvin"])
@@ -716,7 +716,7 @@ fn lumped_heat_capacitance_steel_ball_in_air_improved_api()
         // let's make a csv writer too 
 
         use csv::Writer;
-        let mut wtr = Writer::from_path("air_cooled_steel_sphere_api_test.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("air_cooled_steel_sphere_api_test.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds","temperature_kelvin"])

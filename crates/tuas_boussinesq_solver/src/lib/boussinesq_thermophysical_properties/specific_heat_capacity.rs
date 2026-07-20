@@ -38,16 +38,16 @@ use super::liquid_database::dowtherm_a::get_dowtherm_a_constant_pressure_specifi
 /// let steel_temp = ThermodynamicTemperature::new::<kelvin>(350.0);
 /// let pressure = Pressure::new::<atmosphere>(1.0);
 ///
-/// // at 350K, we should expect thermal conductivity, 
-/// // 470 W/(m K)
+/// // at 350K, we should expect a specific heat capacity of
+/// // approx 470 J/(kg K)
 ///
-/// let steel_thermal_cond: SpecificHeatCapacity = 
+/// let steel_cp: SpecificHeatCapacity =
 /// try_get_cp(steel, steel_temp, pressure).unwrap();
 ///
 ///
 /// approx::assert_relative_eq!(
 ///     470.0,
-///     steel_thermal_cond.value,
+///     steel_cp.value,
 ///     max_relative=0.035);
 ///
 /// ``` 

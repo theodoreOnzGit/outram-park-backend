@@ -3,46 +3,53 @@
 pub(crate) mod validity_range;
 pub(crate) use validity_range::*;
 
-/// this checks for boundary between single phase regions (1 to 3) 
+/// this checks for boundary between single phase regions (1 to 3)
 /// and multiphase region 4
 pub(crate) mod boundaries_from_single_phase_regions_to_region_4_multiphase;
 pub(crate) use boundaries_from_single_phase_regions_to_region_4_multiphase::*;
 
-/// this checks for boundary in between single phase regions (1 to 3) 
+/// this checks for boundary in between single phase regions (1 to 3)
 pub(crate) mod boundaries_between_single_phase_regions;
 pub(crate) use boundaries_between_single_phase_regions::*;
 use uom::si::{f64::*, pressure::megapascal, ratio::ratio, thermodynamic_temperature::kelvin};
 
-use crate::interfaces::functional_programming::pt_flash_eqm::s_tp_eqm_two_phase;
-use crate::region_1_subcooled_liquid::v_tp_1;
-use crate::region_5_steam_at_800_plus_degc::w_tp_5;
-use crate::region_5_steam_at_800_plus_degc::u_tp_5;
-use crate::region_5_steam_at_800_plus_degc::kappa_tp_5;
-use crate::region_5_steam_at_800_plus_degc::kappa_t_tp_5;
-use crate::region_5_steam_at_800_plus_degc::h_tp_5;
-use crate::region_5_steam_at_800_plus_degc::cv_tp_5;
-use crate::region_5_steam_at_800_plus_degc::cp_tp_5;
-use crate::region_5_steam_at_800_plus_degc::alpha_v_tp_5;
-use crate::region_4_vap_liq_equilibrium::sat_temp_4;
-use crate::region_4_vap_liq_equilibrium::sat_pressure_4;
-use crate::region_3_single_phase_plus_supercritical_steam::{alpha_v_rho_t_3, cp_rho_t_3, cv_tp_3, h_rho_t_3, kappa_t_tp_3, kappa_tp_3, s_3a3b_backwards_ps_boundary, s_rho_t_3, t_ps_3, u_rho_t_3, v_ps_3, v_tp_3c, v_tp_3r, v_tp_3s, v_tp_3t, v_tp_3u, v_tp_3x, v_tp_3y, v_tp_3z, w_rho_t_3};
-use crate::region_2_vapour::{alpha_v_tp_2, cp_tp_2, cv_tp_2, h_tp_2, kappa_t_tp_2, kappa_tp_2, s_tp_2, t_ps_2, u_tp_2, v_tp_2, w_tp_2};
-use crate::region_1_subcooled_liquid::w_tp_1;
-use crate::region_1_subcooled_liquid::u_tp_1;
-use crate::region_1_subcooled_liquid::t_ps_1;
-use crate::region_1_subcooled_liquid::s_tp_1;
-use crate::region_1_subcooled_liquid::kappa_tp_1;
-use crate::region_1_subcooled_liquid::kappa_t_tp_1;
-use crate::region_1_subcooled_liquid::h_tp_1;
-use crate::region_1_subcooled_liquid::cv_tp_1;
-use crate::region_1_subcooled_liquid::cp_tp_1;
-use crate::region_1_subcooled_liquid::alpha_v_tp_1;
-use crate::region_1_subcooled_liquid::InversePressure;
 use crate::interfaces::functional_programming::ph_flash_eqm::w_two_phase_homogeneous_wood_wallis;
+use crate::interfaces::functional_programming::pt_flash_eqm::s_tp_eqm_two_phase;
+use crate::region_1_subcooled_liquid::alpha_v_tp_1;
+use crate::region_1_subcooled_liquid::cp_tp_1;
+use crate::region_1_subcooled_liquid::cv_tp_1;
+use crate::region_1_subcooled_liquid::h_tp_1;
+use crate::region_1_subcooled_liquid::kappa_t_tp_1;
+use crate::region_1_subcooled_liquid::kappa_tp_1;
+use crate::region_1_subcooled_liquid::s_tp_1;
+use crate::region_1_subcooled_liquid::t_ps_1;
+use crate::region_1_subcooled_liquid::u_tp_1;
+use crate::region_1_subcooled_liquid::v_tp_1;
+use crate::region_1_subcooled_liquid::w_tp_1;
+use crate::region_1_subcooled_liquid::InversePressure;
+use crate::region_2_vapour::{
+    alpha_v_tp_2, cp_tp_2, cv_tp_2, h_tp_2, kappa_t_tp_2, kappa_tp_2, s_tp_2, t_ps_2, u_tp_2,
+    v_tp_2, w_tp_2,
+};
+use crate::region_3_single_phase_plus_supercritical_steam::{
+    alpha_v_rho_t_3, cp_rho_t_3, cv_tp_3, h_rho_t_3, kappa_t_tp_3, kappa_tp_3,
+    s_3a3b_backwards_ps_boundary, s_rho_t_3, t_ps_3, u_rho_t_3, v_ps_3, v_tp_3c, v_tp_3r, v_tp_3s,
+    v_tp_3t, v_tp_3u, v_tp_3x, v_tp_3y, v_tp_3z, w_rho_t_3,
+};
+use crate::region_4_vap_liq_equilibrium::sat_pressure_4;
+use crate::region_4_vap_liq_equilibrium::sat_temp_4;
+use crate::region_5_steam_at_800_plus_degc::alpha_v_tp_5;
+use crate::region_5_steam_at_800_plus_degc::cp_tp_5;
+use crate::region_5_steam_at_800_plus_degc::cv_tp_5;
+use crate::region_5_steam_at_800_plus_degc::h_tp_5;
+use crate::region_5_steam_at_800_plus_degc::kappa_t_tp_5;
+use crate::region_5_steam_at_800_plus_degc::kappa_tp_5;
+use crate::region_5_steam_at_800_plus_degc::u_tp_5;
+use crate::region_5_steam_at_800_plus_degc::w_tp_5;
 
 use super::pt_flash_eqm::FwdEqnRegion;
 /// obtains temperature given pressure and entropy
-pub fn t_ps_eqm(p: Pressure, s: SpecificHeatCapacity,) -> ThermodynamicTemperature {
+pub fn t_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemperature {
     let region = ps_flash_region(p, s);
 
     match region {
@@ -50,10 +57,10 @@ pub fn t_ps_eqm(p: Pressure, s: SpecificHeatCapacity,) -> ThermodynamicTemperatu
         FwdEqnRegion::Region2 => t_ps_2(p, s),
         FwdEqnRegion::Region3 => t_ps_3(p, s),
         FwdEqnRegion::Region4 => {
-            // if region 4, then just use the pressure to 
-            // determine sat liq/vap temperature 
+            // if region 4, then just use the pressure to
+            // determine sat liq/vap temperature
             sat_temp_4(p)
-        },
+        }
         FwdEqnRegion::Region5 => todo!("region 5 ps flash not implemented"),
     }
 }
@@ -66,11 +73,11 @@ pub fn v_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> SpecificVolume {
         FwdEqnRegion::Region1 => {
             let t = t_ps_1(p, s);
             v_tp_1(t, p)
-        },
+        }
         FwdEqnRegion::Region2 => {
             let t = t_ps_2(p, s);
             v_tp_2(t, p)
-        },
+        }
         FwdEqnRegion::Region3 => v_ps_3(p, s),
         FwdEqnRegion::Region4 => {
             // in region 4 we get steam quality first
@@ -78,11 +85,11 @@ pub fn v_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> SpecificVolume {
             let steam_quality = x_ps_flash(p, s);
             let t_sat = sat_temp_4(p);
 
-            // there are two cases for this... in region 4 
-            // boundary one is where temperature is below 
-            // 623.15 K 
-            // and one where it is above 623.15 K 
-            // in the first case, using region 1 and 2 is ok 
+            // there are two cases for this... in region 4
+            // boundary one is where temperature is below
+            // 623.15 K
+            // and one where it is above 623.15 K
+            // in the first case, using region 1 and 2 is ok
             // but in the latter case, it is not
             // one has to use region 3 eqns
             let t_sat_kelvin = t_sat.get::<kelvin>();
@@ -96,17 +103,17 @@ pub fn v_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> SpecificVolume {
             } else {
                 // in the case we hit region 3 and region 4 boundary, the algorithm must differ
 
-                // looks like all I need to do is use the backward equations 
+                // looks like all I need to do is use the backward equations
                 // v(t,p)
-                // let's do the liquid one first 
+                // let's do the liquid one first
 
-                // this is with reference to the pt equations on 
+                // this is with reference to the pt equations on
                 // fig 2.24 page 109
                 //
-                // alternatively, this is a cheat way... 
-                // I look at t_sat, and force it to find liquid volume 
-                // using a slightly colder temperature than tsat 
-                // and for vapour I get it slightly higher than  
+                // alternatively, this is a cheat way...
+                // I look at t_sat, and force it to find liquid volume
+                // using a slightly colder temperature than tsat
+                // and for vapour I get it slightly higher than
                 // the tsat
                 let p_mpa = p.get::<megapascal>();
                 let v_vap: SpecificVolume = {
@@ -115,7 +122,8 @@ pub fn v_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> SpecificVolume {
                         v_tp_3t(t_sat, p)
                     } else if t_sat_kelvin <= 643.15 {
                         v_tp_3r(t_sat, p)
-                    } else // this covers pressure from 21.0434 Mpa to crit point 
+                    } else
+                    // this covers pressure from 21.0434 Mpa to crit point
                     if p_mpa <= 21.9010 {
                         v_tp_3x(t_sat, p)
                     } else {
@@ -134,26 +142,21 @@ pub fn v_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> SpecificVolume {
                     } else {
                         v_tp_3y(t_sat, p)
                     }
-
-
                 };
-                // yea this didn't work well... 
+                // yea this didn't work well...
                 // I'm going to use the tp equations in their individual regions
 
                 let v = steam_quality * v_vap + (1.0 - steam_quality) * v_liq;
 
                 v
-
-
             }
-        },
+        }
         FwdEqnRegion::Region5 => todo!("ps flash not implemented for region 5"),
     }
 }
-/// obtains steam quality (vap fraction) given 
-/// pressure and entropy 
-pub fn x_ps_flash(p: Pressure, s: SpecificHeatCapacity,) -> f64 {
-
+/// obtains steam quality (vap fraction) given
+/// pressure and entropy
+pub fn x_ps_flash(p: Pressure, s: SpecificHeatCapacity) -> f64 {
     let region = ps_flash_region(p, s);
     match region {
         // region 1 is liquid (but above crit point, doesn't really mater
@@ -161,15 +164,15 @@ pub fn x_ps_flash(p: Pressure, s: SpecificHeatCapacity,) -> f64 {
         // region 2 is vapour, but above crit point doesn't really matter
         FwdEqnRegion::Region2 => 1.0,
         FwdEqnRegion::Region3 => {
-            // region 3 is special, if it is equal or above 
+            // region 3 is special, if it is equal or above
             // crit point, then just consider it vapour,
             // doesn't really matter
             if p >= Pressure::new::<megapascal>(22.064) {
                 return 1.0;
             };
 
-            // otherwise, in region 3, we check if 
-            // the entropy is below critical entropy 
+            // otherwise, in region 3, we check if
+            // the entropy is below critical entropy
             let s_crit = s_3a3b_backwards_ps_boundary();
 
             if s < s_crit {
@@ -177,7 +180,7 @@ pub fn x_ps_flash(p: Pressure, s: SpecificHeatCapacity,) -> f64 {
             } else {
                 return 1.0;
             };
-        },
+        }
         FwdEqnRegion::Region4 => {
             // for this we consider vapour liquid equilibrium
             //
@@ -185,32 +188,31 @@ pub fn x_ps_flash(p: Pressure, s: SpecificHeatCapacity,) -> f64 {
             // h = x (hvap - hliq) + hliq
             // h-hliq = x (hvap - hliq)
             // x = (h-hliq)/(hvap - hliq)
-            
-            // first let's take saturation pressure 
-            let t_sat = sat_temp_4(p);
 
+            // first let's take saturation pressure
+            let t_sat = sat_temp_4(p);
 
             let t_sat_kelvin = t_sat.get::<kelvin>();
             if t_sat_kelvin <= 623.15 {
                 let s_liq = s_tp_1(t_sat, p);
                 let s_vap = s_tp_2(t_sat, p);
 
-                let x: Ratio = (s-s_liq)/(s_vap-s_liq);
+                let x: Ratio = (s - s_liq) / (s_vap - s_liq);
                 return x.get::<ratio>();
             } else {
                 // in the case we hit region 3 and region 4 boundary, the algorithm must differ
 
-                // looks like all I need to do is use the backward equations 
+                // looks like all I need to do is use the backward equations
                 // v(t,p)
-                // let's do the liquid one first 
+                // let's do the liquid one first
 
-                // this is with reference to the pt equations on 
+                // this is with reference to the pt equations on
                 // fig 2.24 page 109
                 //
-                // alternatively, this is a cheat way... 
-                // I look at t_sat, and force it to find liquid volume 
-                // using a slightly colder temperature than tsat 
-                // and for vapour I get it slightly higher than  
+                // alternatively, this is a cheat way...
+                // I look at t_sat, and force it to find liquid volume
+                // using a slightly colder temperature than tsat
+                // and for vapour I get it slightly higher than
                 // the tsat
                 let v_vap: SpecificVolume = {
                     // this covers up to tsat at 643.15 K
@@ -218,7 +220,8 @@ pub fn x_ps_flash(p: Pressure, s: SpecificHeatCapacity,) -> f64 {
                         v_tp_3t(t_sat, p)
                     } else if t_sat_kelvin <= 643.15 {
                         v_tp_3r(t_sat, p)
-                    } else // this covers pressure from 21.0434 Mpa to crit point 
+                    } else
+                    // this covers pressure from 21.0434 Mpa to crit point
                     if t_sat_kelvin <= 646.599 {
                         v_tp_3x(t_sat, p)
                     } else {
@@ -237,10 +240,8 @@ pub fn x_ps_flash(p: Pressure, s: SpecificHeatCapacity,) -> f64 {
                     } else {
                         v_tp_3y(t_sat, p)
                     }
-
-
                 };
-                // now we have t v equations, we can get h_liq 
+                // now we have t v equations, we can get h_liq
                 // and h_vap
                 // using t,v equations
 
@@ -253,22 +254,16 @@ pub fn x_ps_flash(p: Pressure, s: SpecificHeatCapacity,) -> f64 {
                     return 1.0;
                 };
 
-
-                let x: Ratio = (s-h_liq)/(h_vap-h_liq);
+                let x: Ratio = (s - h_liq) / (h_vap - h_liq);
                 return x.get::<ratio>();
-
-
             }
-
-        },
-        // this is a placeholder, 
-        // but technically if in region 5, the vapour 
+        }
+        // this is a placeholder,
+        // but technically if in region 5, the vapour
         // quality is 1.0
         FwdEqnRegion::Region5 => 1.0,
     }
-
 }
-
 
 /// returns the internal energy given entropy and pressure
 pub fn u_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> AvailableEnergy {
@@ -290,15 +285,14 @@ pub fn u_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> AvailableEnergy {
             let v = v_ps_eqm(p, s);
             let rho = v.recip();
             u_rho_t_3(rho, t)
-        },
+        }
         FwdEqnRegion::Region4 => {
-            // for region 4 specifically, we determine 
+            // for region 4 specifically, we determine
             // steam quality first
             let t_sat = sat_temp_4(p);
             let t_sat_kelvin = t_sat.get::<kelvin>();
             let steam_quality = x_ps_flash(p, s);
             if t_sat_kelvin <= 623.15 {
-
                 let u_liq = u_tp_1(t_sat, p);
                 let u_vap = u_tp_2(t_sat, p);
 
@@ -308,17 +302,17 @@ pub fn u_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> AvailableEnergy {
             } else {
                 // in the case we hit region 3, the algorithm must differ
 
-                // looks like all I need to do is use the backward equations 
+                // looks like all I need to do is use the backward equations
                 // v(t,p)
-                // let's do the liquid one first 
+                // let's do the liquid one first
 
-                // this is with reference to the pt equations on 
+                // this is with reference to the pt equations on
                 // fig 2.24 page 109
                 //
-                // alternatively, this is a cheat way... 
-                // I look at t_sat, and force it to find liquid volume 
-                // using a slightly colder temperature than tsat 
-                // and for vapour I get it slightly higher than  
+                // alternatively, this is a cheat way...
+                // I look at t_sat, and force it to find liquid volume
+                // using a slightly colder temperature than tsat
+                // and for vapour I get it slightly higher than
                 // the tsat
 
                 let p_mpa = p.get::<megapascal>();
@@ -328,7 +322,8 @@ pub fn u_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> AvailableEnergy {
                         v_tp_3t(t_sat, p)
                     } else if t_sat_kelvin <= 643.15 {
                         v_tp_3r(t_sat, p)
-                    } else // this covers pressure from 21.0434 Mpa to crit point 
+                    } else
+                    // this covers pressure from 21.0434 Mpa to crit point
                     if p_mpa <= 21.9010 {
                         v_tp_3x(t_sat, p)
                     } else {
@@ -347,22 +342,18 @@ pub fn u_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> AvailableEnergy {
                     } else {
                         v_tp_3y(t_sat, p)
                     }
-
-
                 };
 
-                // now let's get u for liquid and vapour 
+                // now let's get u for liquid and vapour
 
                 let u_liq = u_rho_t_3(v_liq.recip(), t);
                 let u_vap = u_rho_t_3(v_vap.recip(), t);
 
-
                 let u = steam_quality * u_vap + (1.0 - steam_quality) * u_liq;
 
                 u
-
             }
-        },
+        }
         FwdEqnRegion::Region5 => u_tp_5(t, p),
     }
 }
@@ -386,15 +377,14 @@ pub fn h_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> AvailableEnergy {
             let v = v_ps_eqm(p, s);
             let rho = v.recip();
             h_rho_t_3(rho, t)
-        },
+        }
         FwdEqnRegion::Region4 => {
-            // for region 4 specifically, we determine 
+            // for region 4 specifically, we determine
             // steam quality first
             let t_sat = sat_temp_4(p);
             let t_sat_kelvin = t_sat.get::<kelvin>();
             let steam_quality = x_ps_flash(p, s);
             if t_sat_kelvin <= 623.15 {
-
                 let h_liq = h_tp_1(t_sat, p);
                 let h_vap = h_tp_2(t_sat, p);
 
@@ -404,17 +394,17 @@ pub fn h_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> AvailableEnergy {
             } else {
                 // in the case we hit region 3, the algorithm must differ
 
-                // looks like all I need to do is use the backward equations 
+                // looks like all I need to do is use the backward equations
                 // v(t,p)
-                // let's do the liquid one first 
+                // let's do the liquid one first
 
-                // this is with reference to the pt equations on 
+                // this is with reference to the pt equations on
                 // fig 2.24 page 109
                 //
-                // alternatively, this is a cheat way... 
-                // I look at t_sat, and force it to find liquid volume 
-                // using a slightly colder temperature than tsat 
-                // and for vapour I get it slightly higher than  
+                // alternatively, this is a cheat way...
+                // I look at t_sat, and force it to find liquid volume
+                // using a slightly colder temperature than tsat
+                // and for vapour I get it slightly higher than
                 // the tsat
 
                 let p_mpa = p.get::<megapascal>();
@@ -424,7 +414,8 @@ pub fn h_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> AvailableEnergy {
                         v_tp_3t(t_sat, p)
                     } else if t_sat_kelvin <= 643.15 {
                         v_tp_3r(t_sat, p)
-                    } else // this covers pressure from 21.0434 Mpa to crit point 
+                    } else
+                    // this covers pressure from 21.0434 Mpa to crit point
                     if p_mpa <= 21.9010 {
                         v_tp_3x(t_sat, p)
                     } else {
@@ -443,99 +434,93 @@ pub fn h_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> AvailableEnergy {
                     } else {
                         v_tp_3y(t_sat, p)
                     }
-
-
                 };
 
-                // now let's get u for liquid and vapour 
+                // now let's get u for liquid and vapour
 
                 let h_liq = h_rho_t_3(v_liq.recip(), t);
                 let h_vap = h_rho_t_3(v_vap.recip(), t);
 
-
                 let h = steam_quality * h_vap + (1.0 - steam_quality) * h_liq;
 
                 h
-
             }
-        },
+        }
         FwdEqnRegion::Region5 => h_tp_5(t, p),
     }
 }
 
-// allows the user to check which region one is in based on a ps flash
-//
-// note that ps flash does not work in region 5
+/// Determines which IAPWS-IF97 forward-equation region a `(p,s)` point
+/// belongs to, where pressure `p` is in Pa and specific entropy `s` is in
+/// J/(kg*K).
+///
+/// Dispatches to Region 1 (subcooled liquid), Region 2 (vapour), Region 3
+/// (single-phase near-critical/supercritical) or Region 4 (vapour-liquid
+/// equilibrium) by comparing `s` against the region-boundary entropies at
+/// the given pressure. Panics (via `check_if_within_ps_validity_region`) if
+/// the point falls outside the valid pressure/entropy envelope; Region 5 is
+/// not yet implemented for the callers that key off this dispatcher (see
+/// `todo!` panics in `t_ps_eqm`/`v_ps_eqm`).
 pub fn ps_flash_region(p: Pressure, s: SpecificHeatCapacity) -> FwdEqnRegion {
-
     check_if_within_ps_validity_region(p, s);
 
     // if inside validity range, then we will start partitioning
     // first, we check if pressure is smaller or greater than 16.529 MPa
-    // this is saturation pressure at 623.15K 
+    // this is saturation pressure at 623.15K
 
     let t_for_pressure_boundary = ThermodynamicTemperature::new::<kelvin>(623.15);
     let p_boundary = sat_pressure_4(t_for_pressure_boundary);
 
     let is_p_below_16_529_mpa = p < p_boundary;
 
-    // if p is below 16.529 mpa, then we use the eqns for below 16.529 mpa 
+    // if p is below 16.529 mpa, then we use the eqns for below 16.529 mpa
 
     if is_p_below_16_529_mpa {
-
-        let is_region_1
-            = is_ps_point_subcooled_liquid_region1_and_below_16_529_mpa(p, s);
+        let is_region_1 = is_ps_point_subcooled_liquid_region1_and_below_16_529_mpa(p, s);
         if is_region_1 {
             return FwdEqnRegion::Region1;
         };
-        let is_region_2
-            = is_ps_point_superheat_vap_region2_and_below_16_529_mpa(p, s);
+        let is_region_2 = is_ps_point_superheat_vap_region2_and_below_16_529_mpa(p, s);
 
         if is_region_2 {
             return FwdEqnRegion::Region2;
         };
-        // else return region 4 
+        // else return region 4
         return FwdEqnRegion::Region4;
-
-
-    } 
+    }
     // if pressure is above 16.529 mpa,
     // then we have region 1,2,3 and 4
-    // but we need to check the entropy as well because there are several 
+    // but we need to check the entropy as well because there are several
     // regimes this is the two psase region
     // this is from h = 1670.9 kJ/kg to about 2563.6 kJ/kg
     // and from 16.529 MPa to 22.064 Mpa (critical point)
     // here is where things are potentially two psase
 
-    let is_region_1 
-        = is_ps_point_region_1_and_above_16_529_mpa(p, s);
+    let is_region_1 = is_ps_point_region_1_and_above_16_529_mpa(p, s);
 
     if is_region_1 {
         return FwdEqnRegion::Region1;
     };
 
-    let is_region_2 
-        = is_ps_point_region_2_and_above_16_529_mpa(p, s);
+    let is_region_2 = is_ps_point_region_2_and_above_16_529_mpa(p, s);
     if is_region_2 {
         return FwdEqnRegion::Region2;
     };
 
-    // the checks for if it is region 1 or 2 already exclude points 
+    // the checks for if it is region 1 or 2 already exclude points
     // outside h = 1670.9 kJ/kg to about 2563.6 kJ/kg
     //
     // this is above 22.064 MPa
 
-    let is_region_3_above_supercrit 
-        = is_ps_point_region_3_and_above_critical_point(p, s);
+    let is_region_3_above_supercrit = is_ps_point_region_3_and_above_critical_point(p, s);
 
     if is_region_3_above_supercrit {
         return FwdEqnRegion::Region3;
     };
 
-    // we want to check if this is region 3 and in the range 
+    // we want to check if this is region 3 and in the range
     // 16.520 MPa up to crit point 22.064 MPa
-    let is_region_3_below_supercrit
-        = is_ps_point_region_3_and_from_16_529_mpa_to_crit_temp(p, s);
+    let is_region_3_below_supercrit = is_ps_point_region_3_and_from_16_529_mpa_to_crit_temp(p, s);
 
     if is_region_3_below_supercrit {
         return FwdEqnRegion::Region3;
@@ -543,19 +528,15 @@ pub fn ps_flash_region(p: Pressure, s: SpecificHeatCapacity) -> FwdEqnRegion {
 
     // now we shall have to decide if it is region 3 or 4
 
-    let is_region_4 = 
-        is_ps_point_region_4_and_above_16_529_mpa(p, s);
+    let is_region_4 = is_ps_point_region_4_and_above_16_529_mpa(p, s);
     if is_region_4 {
         return FwdEqnRegion::Region4;
     };
 
-    
-
-    // otherwise it's region 3 
+    // otherwise it's region 3
 
     return FwdEqnRegion::Region3;
 }
-
 
 /// returns the isobaric (const pressure) heat capacitygiven temperature and pressure
 pub fn cp_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> SpecificHeatCapacity {
@@ -566,7 +547,6 @@ pub fn cp_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> SpecificHeatCapacity {
         FwdEqnRegion::Region1 => cp_tp_1(t, p),
         FwdEqnRegion::Region2 => cp_tp_2(t, p),
         FwdEqnRegion::Region3 => {
-
             // near supercritical point, we have to be a little bit more careful
             // need to take into account steam quality too
 
@@ -578,9 +558,9 @@ pub fn cp_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> SpecificHeatCapacity {
             let v = v_ps_eqm(p, s);
             let rho = v.recip();
             cp_rho_t_3(rho, t)
-        },
+        }
         FwdEqnRegion::Region4 => {
-            // I'm just using quality to interpolate here 
+            // I'm just using quality to interpolate here
             // not sure if 100% correct
             let steam_quality = x_ps_flash(p, s);
             let t_sat = sat_temp_4(p);
@@ -591,11 +571,10 @@ pub fn cp_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> SpecificHeatCapacity {
             let cp = steam_quality * cp_vap + (1.0 - steam_quality) * cp_liq;
 
             cp
-        },
+        }
         FwdEqnRegion::Region5 => cp_tp_5(t, p),
     }
 }
-
 
 /// returns the isochoric (const vol) heat capacity given temperature and pressure
 pub fn cv_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> SpecificHeatCapacity {
@@ -607,7 +586,7 @@ pub fn cv_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> SpecificHeatCapacity {
         FwdEqnRegion::Region2 => cv_tp_2(t, p),
         FwdEqnRegion::Region3 => cv_tp_3(t, p),
         FwdEqnRegion::Region4 => {
-            // I'm just using quality to interpolate here 
+            // I'm just using quality to interpolate here
             // not sure if 100% correct
             let steam_quality = x_ps_flash(p, s);
             let t_sat = sat_temp_4(p);
@@ -618,16 +597,13 @@ pub fn cv_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> SpecificHeatCapacity {
             let cv = steam_quality * cv_vap + (1.0 - steam_quality) * cv_liq;
 
             cv
-        },
+        }
         FwdEqnRegion::Region5 => cv_tp_5(t, p),
     }
 }
 
-
-
-
 /// returns the speed of sound given temperature and pressure
-/// Note: when in the equilibrium zone (Region 4) it WILL give the 
+/// Note: when in the equilibrium zone (Region 4) it WILL give the
 /// wood wallis speed of sound, the frozen speed of sound
 #[inline]
 pub fn w_ps_wood_wallis(p: Pressure, s: SpecificHeatCapacity) -> Velocity {
@@ -649,9 +625,9 @@ pub fn w_ps_wood_wallis(p: Pressure, s: SpecificHeatCapacity) -> Velocity {
             let v = v_ps_eqm(p, s);
             let rho = v.recip();
             w_rho_t_3(rho, t)
-        },
+        }
         FwdEqnRegion::Region4 => {
-            // I'm just using quality to interpolate here 
+            // I'm just using quality to interpolate here
             // not sure if 100% correct
             let steam_quality = x_ps_flash(p, s);
             let t_sat = sat_temp_4(p);
@@ -659,14 +635,16 @@ pub fn w_ps_wood_wallis(p: Pressure, s: SpecificHeatCapacity) -> Velocity {
             let w_liq = w_tp_1(t_sat, p);
             let w_vap = w_tp_2(t_sat, p);
 
-
-            let rho_liq = v_tp_1(t_sat, p).recip();  // You'll need these functions
-            let rho_vap = v_tp_2(t_sat, p).recip();  // or calculate from v_tp functions
+            let rho_liq = v_tp_1(t_sat, p).recip(); // You'll need these functions
+            let rho_vap = v_tp_2(t_sat, p).recip(); // or calculate from v_tp functions
 
             // Use homogeneous equilibrium model
             let c_wood_wallis = w_two_phase_homogeneous_wood_wallis(
-                Ratio::new::<ratio>(steam_quality)
-                , w_liq, w_vap, rho_liq, rho_vap
+                Ratio::new::<ratio>(steam_quality),
+                w_liq,
+                w_vap,
+                rho_liq,
+                rho_vap,
             );
 
             //// just for reference: this is the HEM model
@@ -689,11 +667,11 @@ pub fn w_ps_wood_wallis(p: Pressure, s: SpecificHeatCapacity) -> Velocity {
             //let _c_hem_finite_diff: Velocity = v * (dv_dp_s.recip() * -1.0).sqrt();
 
             c_wood_wallis
-        },
+        }
         FwdEqnRegion::Region5 => w_tp_5(t, p),
     }
 }
-/// returns the mass flux given properties at throat (this is not 
+/// returns the mass flux given properties at throat (this is not
 /// stagnation pressure)
 /// c² = -v² * (dp/dv|_s) = -v² / (dv/dp|_s)
 /// c = v * sqrt(-1/dv_dp_s)
@@ -716,23 +694,22 @@ pub fn w_ps_wood_wallis(p: Pressure, s: SpecificHeatCapacity) -> Velocity {
 /// "enthalpy too high".
 ///
 ///
-/// Basically around bubble point, the function will return a mass flux 
+/// Basically around bubble point, the function will return a mass flux
 /// reflective of quality at 1e-4
 ///
 /// This was validated using Zaloudek's data
 #[inline]
-pub fn mass_flux_ps_eqm_throat(p: Pressure, s: SpecificHeatCapacity,) -> MassFlux {
-
+pub fn mass_flux_ps_eqm_throat(p: Pressure, s: SpecificHeatCapacity) -> MassFlux {
     let p_min = Pressure::new::<megapascal>(0.000_611_212_677 * 1.01);
     let dp = p * 1e-5; // small pressure perturbation
     let p_minus = if p - dp > p_min { p - dp } else { p_min };
 
     // NOT AI: claude was a bit slow
-    // now we detect if s is close to s_f at bubble point 
-    // let's find s_f first 
-    // 
-    // first let's take the pressure as saturation pressure 
-    // 
+    // now we detect if s is close to s_f at bubble point
+    // let's find s_f first
+    //
+    // first let's take the pressure as saturation pressure
+    //
     let tsat = sat_temp_4(p);
     let s_l = s_tp_eqm_two_phase(tsat, p, 0.0);
     let s_v = s_tp_eqm_two_phase(tsat, p, 1.0);
@@ -747,7 +724,7 @@ pub fn mass_flux_ps_eqm_throat(p: Pressure, s: SpecificHeatCapacity,) -> MassFlu
         s_adjusted = s_bubble_pt;
     }
 
-    let v_plus  = v_ps_eqm(p + dp, s_adjusted);
+    let v_plus = v_ps_eqm(p + dp, s_adjusted);
     let v_minus = v_ps_eqm(p_minus, s_adjusted);
     let dp_actual = (p + dp) - p_minus;
     let dv_dp_s = (v_plus - v_minus) / dp_actual;
@@ -756,8 +733,7 @@ pub fn mass_flux_ps_eqm_throat(p: Pressure, s: SpecificHeatCapacity,) -> MassFlu
     mass_flux_eqm
 }
 
-
-/// returns the isentropic exponent 
+/// returns the isentropic exponent
 pub fn kappa_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> Ratio {
     let t = t_ps_eqm(p, s);
     let region = ps_flash_region(p, s);
@@ -767,7 +743,7 @@ pub fn kappa_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> Ratio {
         FwdEqnRegion::Region2 => kappa_tp_2(t, p),
         FwdEqnRegion::Region3 => kappa_tp_3(t, p),
         FwdEqnRegion::Region4 => {
-            // I'm just using quality to interpolate here 
+            // I'm just using quality to interpolate here
             // not sure if 100% correct
             let steam_quality = x_ps_flash(p, s);
             let t_sat = sat_temp_4(p);
@@ -778,7 +754,7 @@ pub fn kappa_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> Ratio {
             let kappa = steam_quality * kappa_vap + (1.0 - steam_quality) * kappa_liq;
 
             kappa
-        },
+        }
         FwdEqnRegion::Region5 => kappa_tp_5(t, p),
     }
 }
@@ -803,9 +779,9 @@ pub fn alpha_v_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> TemperatureCoeffi
             let v = v_ps_eqm(p, s);
             let rho = v.recip();
             alpha_v_rho_t_3(rho, t)
-        },
+        }
         FwdEqnRegion::Region4 => {
-            // I'm just using quality to interpolate here 
+            // I'm just using quality to interpolate here
             // not sure if 100% correct
             let steam_quality = x_ps_flash(p, s);
             let t_sat = sat_temp_4(p);
@@ -816,11 +792,10 @@ pub fn alpha_v_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> TemperatureCoeffi
             let alpha_v = steam_quality * alpha_v_vap + (1.0 - steam_quality) * alpha_v_liq;
 
             alpha_v
-        },
+        }
         FwdEqnRegion::Region5 => alpha_v_tp_5(t, p),
     }
 }
-
 
 /// returns the isothermal compressibility
 pub fn kappa_t_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> InversePressure {
@@ -832,7 +807,7 @@ pub fn kappa_t_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> InversePressure {
         FwdEqnRegion::Region2 => kappa_t_tp_2(t, p),
         FwdEqnRegion::Region3 => kappa_t_tp_3(t, p),
         FwdEqnRegion::Region4 => {
-            // I'm just using quality to interpolate here 
+            // I'm just using quality to interpolate here
             // not sure if 100% correct
             let steam_quality = x_ps_flash(p, s);
             let t_sat = sat_temp_4(p);
@@ -843,22 +818,22 @@ pub fn kappa_t_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> InversePressure {
             let kappa_t = steam_quality * kappa_t_vap + (1.0 - steam_quality) * kappa_t_liq;
 
             kappa_t
-        },
+        }
         FwdEqnRegion::Region5 => kappa_t_tp_5(t, p),
     }
 }
 
-fn check_if_within_ps_validity_region(p: Pressure, s: SpecificHeatCapacity,){
+fn check_if_within_ps_validity_region(p: Pressure, s: SpecificHeatCapacity) {
     if is_outside_pressure_range(p) {
         panic!("p,s point is outside pressure range");
     };
 
     if is_below_isotherm_t_273_15(p, s) {
-        dbg!(&(p,s));
+        dbg!(&(p, s));
         panic!("p,s point below 273.15K");
     };
     if is_above_isotherm_t_1073_15(p, s) {
-        dbg!(&(p,s));
+        dbg!(&(p, s));
         panic!("p,s point above 1073.15K");
     };
 }

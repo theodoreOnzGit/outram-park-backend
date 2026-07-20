@@ -1,2 +1,36 @@
 /target
 **/*.rs.bk
+
+# OpenMC HDF5 nuclear-data libraries are large (>100 MB); keep them out of git.
+# The Doppler verification uses the extracted reference CSVs instead.
+crates/njoy-outram-park-fork/tests/resources/*.h5
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
+
+# Session progress summaries (regenerated on demand; never committed)
+/progress.md
+
+# KOVAN proprietary literature is user-owned content that must never be
+# committed (see crates/kovan-literature). The whole tree stays local.
+crates/kovan-literature/proprietary/
+
+# Generated outram-mc ↔ OpenMC-notebook comparison CSVs — reproducible from the
+# verification tests + the .ipynb reference values; kept local, not committed.
+crates/outram-mc-libs/verification_and_validation/openmc_notebook_comparisons/
+
+# Raw source PDF of the Xin Wang (2018) UC Berkeley PhD dissertation
+# (~9 MB, open literature: escholarship.org/uc/item/40q3985m). The committed
+# deliverable is the extracted markdown in crates/nee_soon/docs/xin-wang-thesis/,
+# not the binary. Keep the raw PDF local.
+xin wang thesis.pdf
+*thesis*.pdf
+
+# Local staging area for collaborator (e.g. Ethan) work, to be merged into the
+# proper crates later. Never committed — raw external WIP stays out of git until
+# it has been reviewed for licensing / data-policy / GPLv3 compliance and
+# integrated into the right crate.
+/collaboration/

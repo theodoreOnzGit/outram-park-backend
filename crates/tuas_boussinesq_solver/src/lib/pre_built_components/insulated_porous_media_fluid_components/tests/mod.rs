@@ -1,3 +1,11 @@
+//! Regression and validation tests for
+//! `InsulatedPorousMediaFluidComponent`.
+//!
+//! Checks that the nodal thermal conductances (W/K) and hydraulic diameter (m)
+//! are computed correctly against CIET Heater v1/v2 references (insulated vs
+//! non-insulated regression checks and the node-count check), and hosts the
+//! `steady_state_validation` and `transient_validation` submodules that compare
+//! the model against Zweibaum's experimental CIET heater data.
 use uom::si::length::meter;
 
 use crate::pre_built_components::ciet_isothermal_test_components::new_heated_section_version_1_label_1_without_inner_annular_pipe;

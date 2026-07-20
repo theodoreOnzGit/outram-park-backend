@@ -1,25 +1,36 @@
-use uom::si::{f64::*, molar_mass::kilogram_per_mole, ratio::ratio, thermodynamic_temperature::kelvin};
+//! IAPWS correlation for the static (relative) dielectric constant of water,
+//! epsilon — dimensionless — via the Harris-Alder g-bar factor, as a
+//! function of density (`MassDensity`, kg/m^3) and temperature
+//! (`ThermodynamicTemperature`, K).
 
-use crate::constants::{avogadro_number_na, boltzmann_constant_k, molecular_dipole_moment_mu, permittivity_of_vacuum_eps_0, rho_crit_water, t_crit_water, water_mean_molecular_polarisability_alpha};
+use uom::si::{
+    f64::*, molar_mass::kilogram_per_mole, ratio::ratio, thermodynamic_temperature::kelvin,
+};
 
+use crate::constants::{
+    avogadro_number_na, boltzmann_constant_k, molecular_dipole_moment_mu,
+    permittivity_of_vacuum_eps_0, rho_crit_water, t_crit_water,
+    water_mean_molecular_polarisability_alpha,
+};
+
+/// Static (relative) dielectric constant epsilon of water — dimensionless —
+/// at density `rho` (kg/m^3) and temperature `t` (K), per the IAPWS
+/// correlation.
 pub fn water_dielectric_const_rho_t(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
     let capital_a = captial_a(rho, t);
     let capital_b = captial_b(rho);
 
-    let exponent = 9.0 
-        + 2.0 * capital_a 
+    let exponent = 9.0
+        + 2.0 * capital_a
         + 18.0 * capital_b
-        + capital_a.powi(2) 
-        + 10.0 * capital_a * capital_b 
+        + capital_a.powi(2)
+        + 10.0 * capital_a * capital_b
         + 9.0 * capital_b.powi(2);
     let den = 4.0 * (1.0 - capital_b);
 
-    let num = 1.0 
-        + capital_a 
-        + 5.0 * capital_b 
-        + exponent.sqrt();
-    
-    return num/den;
+    let num = 1.0 + capital_a + 5.0 * capital_b + exponent.sqrt();
+
+    return num / den;
 }
 
 /// molar mass only for dielectric constant calculations,
@@ -57,9 +68,9 @@ fn captial_a(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
     let n12: f64 = 0.196_096_504_426e-2;
 
     // intermediate quantities
-    let tau: f64 = (t_c/t).get::<ratio>();
-    let delta: f64 = (rho/rho_c).get::<ratio>();
-    let t_c_by_228_k: f64 = t_c.get::<kelvin>()/(228.0);
+    let tau: f64 = (t_c / t).get::<ratio>();
+    let delta: f64 = (rho / rho_c).get::<ratio>();
+    let t_c_by_228_k: f64 = t_c.get::<kelvin>() / (228.0);
 
     // harris alder g-bar factor
     let mut g_bar: f64 = 1.0;
@@ -76,25 +87,17 @@ fn captial_a(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
         // wow, even just term 1 by itself gets u pretty close!
         let term_1 = ni * delta.powf(ii) * tau.powf(ji);
 
-
-        g_bar += term_1; 
-
-
+        g_bar += term_1;
     }
-
-
 
     let num = na * mu * mu * rho * g_bar;
     let den = mol_wt_water * epsilon_0 * k * t;
 
-    return (num/den).get::<ratio>();
-
+    return (num / den).get::<ratio>();
 }
-
 
 #[inline]
 fn captial_b(rho: MassDensity) -> f64 {
-
     let na = avogadro_number_na();
     let alpha = water_mean_molecular_polarisability_alpha();
     let mol_wt_water = molar_mass_water_for_dielectric_const();
@@ -103,7 +106,7 @@ fn captial_b(rho: MassDensity) -> f64 {
     let num = na * alpha * rho;
     let den = 3.0 * mol_wt_water * epsilon_0;
 
-    return (num/den).get::<ratio>();
+    return (num / den).get::<ratio>();
 }
 
 #[cfg(test)]

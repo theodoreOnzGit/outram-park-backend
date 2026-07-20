@@ -148,16 +148,16 @@ pub fn ihx_branch_test_get_pressure_change_from_mass_flowrate(){
 }
 
 
-/// for the intermediate heat exchanger branch, there are some pipes involved, 
-/// including the pipe representing flow through the reactor core, 
-/// which is pipe 4 and the fhr pump, component 5 
+/// for the intermediate heat exchanger branch, there are some pipes involved,
+/// including the pipe representing flow through the reactor core,
+/// which is pipe 4 and the fhr pump, component 5
 ///
-/// 
 ///
-/// this test checks if getting pressure change given a fixed mass flowrate 
-/// works for large flowrates, eg 1200 kg/s
 ///
-/// note: if you set pump pressure to zero pascals, 
+/// this test checks if iteratively getting mass flowrate from a fixed pressure
+/// change works for large flowrates, eg 1200 kg/s
+///
+/// note: if you set pump pressure to zero pascals,
 /// and then try to impose a pressure change of 
 /// -9847 Pa, we obtain a no convergence error.
 ///

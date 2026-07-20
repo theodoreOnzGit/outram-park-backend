@@ -1,13 +1,26 @@
+//! IAPWS R12-08 dynamic viscosity of water/steam, mu, in pascal-seconds
+//! (Pa*s, uom `DynamicViscosity`). The viscosity is built from a
+//! dilute-gas/background factor (`psi_0`) times a density-and-temperature
+//! residual factor (`psi_1`), evaluated at the density (`MassDensity`,
+//! kg/m^3) and temperature (`ThermodynamicTemperature`, K) of the state;
+//! the critical-enhancement term is omitted (fast path). Public entry
+//! points flash the state from `(T, p)`, `(rho, T)`, or `(p, h)` first.
+
 use uom::si::{dynamic_viscosity::pascal_second, f64::*, ratio::ratio};
 
-use crate::{constants::{rho_crit_water, t_crit_water}, interfaces::functional_programming::{ph_flash_eqm::{t_ph_eqm, v_ph_eqm}, pt_flash_eqm::{v_tp_eqm_single_phase, v_tp_eqm_two_phase}}};
-
+use crate::{
+    constants::{rho_crit_water, t_crit_water},
+    interfaces::functional_programming::{
+        ph_flash_eqm::{t_ph_eqm, v_ph_eqm},
+        pt_flash_eqm::{v_tp_eqm_single_phase, v_tp_eqm_two_phase},
+    },
+};
 
 const PSI_0_COEFFS: [[f64; 2]; 4] = [
-    [1.0,  0.167_752e-1],
-    [2.0,  0.220_462e-1],
-    [3.0,  0.636_656_4e-2],
-    [4.0,  -0.241_605e-2],
+    [1.0, 0.167_752e-1],
+    [2.0, 0.220_462e-1],
+    [3.0, 0.636_656_4e-2],
+    [4.0, -0.241_605e-2],
 ];
 
 const PSI_1_COEFFS: [[f64; 4]; 21] = [
@@ -34,55 +47,45 @@ const PSI_1_COEFFS: [[f64; 4]; 21] = [
     [21.0, 6.0, 5.0, -0.593_264e-3],
 ];
 
-/// for viscosity estimates in two phase region
-/// and single phase region
-pub fn mu_tp_eqm_two_phase(t: ThermodynamicTemperature,
-    p: Pressure,
-    x: f64) -> DynamicViscosity {
+/// Dynamic viscosity mu (Pa*s) of a two-phase equilibrium mixture at
+/// temperature `t` (K), pressure `p` (Pa) and quality `x` (dimensionless),
+/// using the HEM-mixture specific volume to get the mixture density.
+pub fn mu_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64) -> DynamicViscosity {
     let rho = v_tp_eqm_two_phase(t, p, x).recip();
     let psi = psi_0_viscosity(t) * psi_1_viscosity(t, rho);
     let eta_star = DynamicViscosity::new::<pascal_second>(1.0e-6);
 
     return psi * eta_star;
-
 }
 /// for viscosity estimates in single phase region
-pub fn mu_tp_eqm_single_phase(t: ThermodynamicTemperature,
-    p: Pressure) -> DynamicViscosity {
+pub fn mu_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> DynamicViscosity {
     let rho = v_tp_eqm_single_phase(t, p).recip();
     let psi = psi_0_viscosity(t) * psi_1_viscosity(t, rho);
     let eta_star = DynamicViscosity::new::<pascal_second>(1.0e-6);
 
     return psi * eta_star;
-
 }
 /// for viscosity estimates in two phase region
 /// and single phase region
-pub fn mu_rho_t_eqm(t: ThermodynamicTemperature,
-    rho: MassDensity,) -> DynamicViscosity {
-
+pub fn mu_rho_t_eqm(t: ThermodynamicTemperature, rho: MassDensity) -> DynamicViscosity {
     let psi = psi_0_viscosity(t) * psi_1_viscosity(t, rho);
     let eta_star = DynamicViscosity::new::<pascal_second>(1.0e-6);
 
     return psi * eta_star;
-
 }
 /// for viscosity estimates in two phase region
 /// and single phase region
 /// using enthalpy and pressure
-pub fn mu_ph_eqm(p: Pressure,
-    h: AvailableEnergy) -> DynamicViscosity {
-
+pub fn mu_ph_eqm(p: Pressure, h: AvailableEnergy) -> DynamicViscosity {
     let t = t_ph_eqm(p, h);
     let rho = v_ph_eqm(p, h).recip();
 
     return mu_rho_t_eqm(t, rho);
-
 }
 
 pub(crate) fn psi_0_viscosity(t: ThermodynamicTemperature) -> f64 {
     let t_crit_water = t_crit_water();
-    let theta = t/t_crit_water;
+    let theta = t / t_crit_water;
     let theta_f64 = theta.get::<ratio>();
 
     let mut den = 0.0;
@@ -92,22 +95,17 @@ pub(crate) fn psi_0_viscosity(t: ThermodynamicTemperature) -> f64 {
         let ni = coeffs[1];
 
         den += ni * theta_f64.powf(1.0 - i);
-
     }
 
-    return theta_f64.sqrt()*den.recip();
-
-
+    return theta_f64.sqrt() * den.recip();
 }
-pub(crate) fn psi_1_viscosity(
-    t: ThermodynamicTemperature,
-    rho: MassDensity) -> f64 {
+pub(crate) fn psi_1_viscosity(t: ThermodynamicTemperature, rho: MassDensity) -> f64 {
     let t_crit_water = t_crit_water();
-    let theta = t/t_crit_water;
+    let theta = t / t_crit_water;
     let theta_f64 = theta.get::<ratio>();
 
     let rho_crit_water = rho_crit_water();
-    let delta = rho/rho_crit_water;
+    let delta = rho / rho_crit_water;
     let delta_f64 = delta.get::<ratio>();
 
     let mut exponent: f64 = 0.0;
@@ -119,14 +117,11 @@ pub(crate) fn psi_1_viscosity(
         let ni = coeffs[3];
 
         exponent += ni * (delta_f64 - 1.0).powf(ii) * (theta_f64.recip() - 1.0).powf(ji);
-
     }
 
     exponent *= delta_f64;
 
     return exponent.exp();
-
-
 }
 
 #[cfg(test)]

@@ -1,0 +1,59 @@
+[package]
+name = "outram-foam-appbuilder-lib"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "OpenFOAM solver applications, polyMesh I/O, and case file parsing translated to Rust -- an independent OUTRAM PARK fork, not the official OpenFOAM software"
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
+# and never shipped in the packaged crate. `docs/` (incl. the generated
+# docs/api.md rustdoc mirror) isn't crate content either. `upstream_source/
+# GeN-Foam` is the reference GeN-Foam clone kept in-repo for provenance only —
+# it is not crate content and must not be packaged (1324 files; the small
+# `upstream_source/README.md` provenance record stays in the package).
+# `tutorials/` (~30 MB of OpenFOAM case data — meshes, solution fields,
+# postProcessing output) are test/demo fixtures loaded at test runtime, not
+# crate content; shipping them pushed the packaged crate over the crates.io
+# 10 MiB limit (10.5 MiB compressed), so exclude them (kept in-repo for tests).
+exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/GeN-Foam", "tutorials"]
+
+[dependencies]
+thiserror.workspace = true
+uom.workspace = true
+ndarray.workspace = true
+serde.workspace = true
+outram-foam-basic-lib.workspace = true
+outram-foam-turbulence-lib.workspace = true
+
+[dev-dependencies]
+approx.workspace = true
+
+[lib]
+name = "outram_foam_appbuilder_lib"
+path = "src/lib.rs"
+
+# ── Tutorial integration tests ────────────────────────────────────────────────
+# Each tutorial reads a real OpenFOAM-generated polyMesh + field files,
+# runs the Rust solver, and checks against the OpenFOAM reference output.
+# All tests are marked #[ignore] until the case files are present.
+# Run a single tutorial:  cargo test -p outram-foam-appbuilder-lib --test <name> -- --include-ignored
+
+[[test]]
+name = "tutorial_rho_central_foam_shock_tube"
+path = "tutorials/rho_central_foam_shock_tube.rs"
+
+# ── Validation: Sod (1978) Table II vs the Rust rhoCentralFoam port ────────────
+[[test]]
+name = "sod_shock_tube_validation"
+path = "tests/sod_shock_tube_validation/main.rs"
+
+[[test]]
+name = "tutorial_pimple_foam_cavity"
+path = "tutorials/pimple_foam_cavity.rs"
+
+[[test]]
+name = "tutorial_rho_pimple_foam_aerofoil_naca0012"
+path = "tutorials/rho_pimple_foam_aerofoil_naca0012.rs"

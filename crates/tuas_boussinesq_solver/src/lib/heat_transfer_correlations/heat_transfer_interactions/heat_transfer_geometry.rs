@@ -17,7 +17,8 @@ pub enum CylindricalAndSphericalSolidFluidArrangement {
     /// fluid               ||                  solid
     ///
     FluidOnInnerSurfaceOfSolidShell,
-    /// indicates that fluid in the inner side of a curved shell 
+    /// indicates that fluid is on the outer side (larger radius) of a
+    /// curved shell
     ///
     /// -----------------------------------------> r
     /// solid               ||                  fluid

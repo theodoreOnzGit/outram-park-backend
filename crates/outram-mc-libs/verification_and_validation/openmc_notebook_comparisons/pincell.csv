@@ -1,0 +1,2 @@
+date,notebook,case,outram_mc_k,outram_mc_sigma,openmc_ref_k,openmc_ref_sigma,delta_k_pcm,delta_rho_pcm,combined_sigma,sigma_distance,agree,ref_source,ref_commit,outram_mc_data,openmc_data,stats_note
+2026-07-15,pincell.ipynb,thermal_uo2_pin_kinf,1.39802,0.00652,1.40544,0.00302,-742,-378,0.00719,1.03,within_1sigma,openmc-notebooks,cf1e5db2cd77d53a4fa76ffd9af7ab638f468713,CORE-WMP(ENDF/B-VII.1)+free-gas+tsl-HinH2O(ENDF/B-VIII.0),NNDC-HDF5-pointwise-CE,ours 600part x (40+60)gen vs openmc 1000part x (10+90)batch

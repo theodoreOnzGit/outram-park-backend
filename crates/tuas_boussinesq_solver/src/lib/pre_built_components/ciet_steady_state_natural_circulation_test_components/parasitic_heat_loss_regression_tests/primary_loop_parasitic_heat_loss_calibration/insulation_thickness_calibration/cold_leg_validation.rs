@@ -247,8 +247,9 @@ pub fn cold_leg_validation_set_c9(){
 
 }
 
-/// This test attempted to tweak the inner tube nusselt number
-/// in order to obtain the correct dhx inlet temperature 
+/// This test tweaks the pipe insulation thickness (in cm) of the primary-loop
+/// cold leg (DHX shell bottom outlet -> heater inlet) in order to obtain the
+/// correct heater inlet temperature by matching the parasitic heat loss.
 ///
 /// I follow as the RELAP and SAM model did,
 /// which is to reduce the convective thermal resistance between 
@@ -276,8 +277,8 @@ pub fn cold_leg_validation_set_c9(){
 /// C-9,0.03547,79.02407,76.54479,
 ///
 ///
-/// For this function, I want to test if a certain thickness results 
-/// in the correct DHX inlet temperature. At least within 0.5 K 
+/// For this function, I want to test if a certain thickness results
+/// in the correct heater inlet temperature. At least within 0.5 K
 /// the regression test temperature should be within 0.05 K
 #[cfg(test)]
 pub fn cold_leg_insulation_thickness_validation_test_v1(

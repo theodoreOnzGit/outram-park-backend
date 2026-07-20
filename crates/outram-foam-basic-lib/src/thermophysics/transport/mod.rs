@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+// Derived from OpenFOAM (www.openfoam.com)
+// Copyright (C) 2004-2023 OpenFOAM Foundation
+// Copyright (C) 2016-2023 OpenCFD Ltd.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
+//! Per-species transport models — dynamic viscosity μ [Pa·s] and thermal
+//! conductivity κ [W/(m·K)], layered on top of a
+//! [`ThermoModel`](crate::thermophysics::thermo::ThermoModel).
+//!
+//! Each model implements [`TransportModel`]. Available models: constant-μ /
+//! constant-Prandtl [`ConstTransport`], polynomial [`PolynomialTransport`],
+//! Sutherland's-law [`SutherlandTransport`], and tabulated
+//! [`TabulatedTransport`].
+
+pub mod const_transport;
+pub mod polynomial;
+pub mod sutherland;
+pub mod tabulated;
+pub(crate) mod traits;
+
+pub use const_transport::*;
+pub use polynomial::*;
+pub use sutherland::*;
+pub use tabulated::*;
+pub use traits::*;

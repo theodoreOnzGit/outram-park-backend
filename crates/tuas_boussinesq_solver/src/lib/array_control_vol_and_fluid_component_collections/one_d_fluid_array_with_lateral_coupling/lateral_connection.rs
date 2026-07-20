@@ -1,5 +1,4 @@
 use ndarray::*;
-use ndarray_linalg::error::LinalgError;
 use uom::si::f64::*;
 use crate::tuas_lib_error::TuasLibError;
 
@@ -31,10 +30,7 @@ impl FluidArray{
                 ErrorKind::IncompatibleShape
             );
 
-            let linalg_error = LinalgError::Shape(shape_error);
-
-            return Err(TuasLibError::LinalgError
-                (linalg_error));
+            return Err(TuasLibError::ShapeMismatch(shape_error.to_string()));
 
         }
 
@@ -81,10 +77,7 @@ impl FluidArray{
                 ErrorKind::IncompatibleShape
             );
 
-            let linalg_error = LinalgError::Shape(shape_error);
-
-            return Err(TuasLibError::LinalgError
-                (linalg_error));
+            return Err(TuasLibError::ShapeMismatch(shape_error.to_string()));
 
         }
         

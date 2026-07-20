@@ -1,5 +1,12 @@
-/// this test checks if FluidArrays can form adiabatic mixing joints 
-/// with single cvs 
+//! Verification and integration tests for `FluidArray`.
+//!
+//! Groups the analytical/verification test suites for the fluid array: adiabatic
+//! mixing joints (energy-conserving junction of streams) and log-mean-
+//! temperature-difference parasitic heat-loss cases (fluid flowing through a
+//! pipe losing heat to a constant ambient temperature).
+
+/// this test checks if FluidArrays can form adiabatic mixing joints
+/// with single cvs
 ///
 pub mod joint_mixing;
 

@@ -1,3 +1,27 @@
+//! Non-insulated parallel fluid components: a bank of `n` identical,
+//! uninsulated tubes/pipes in parallel (all sharing a common header) that
+//! exchange heat with a constant-temperature ambient boundary.
+//!
+//! Physically, a single representative tube is modelled with two coupled
+//! control-volume arrays (fluid + pipe shell); the parallel bundle is
+//! reproduced by scaling per-tube quantities by `number_of_tubes`. As a
+//! `FluidComponent`, the bundle aggregates the parallel pressure drop (Pa)
+//! against the total mass flow rate (kg/s) across all tubes. This is suited
+//! to the tube side of a heat exchanger, or air-cooled pipes modelled as a
+//! bundled array.
+//!
+//! Module map:
+//! - [`preprocessing`] — lateral/axial thermal connections and per-node
+//!   conductances (W/K) between fluid, shell and ambient.
+//! - [`calculation`] — advances the fluid and solid arrays one timestep,
+//!   applying the parallel-tube (1/`number_of_tubes`) correction.
+//! - [`fluid_component`] — the `FluidComponentTrait` impl aggregating
+//!   pressure drop (Pa) vs total mass flow (kg/s) over the bundle.
+//! - [`postprocessing`] — retrieves the fluid and shell temperature vectors
+//!   (in kelvin).
+//! - [`type_conversion`] — conversion into a `FluidComponent` enum variant.
+//! - [`tests`] — verification tests for the parallel-tube treatment.
+
 use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
 use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
@@ -162,10 +186,12 @@ impl NonInsulatedParallelFluidComponent {
             number_of_tubes: number_of_parallel_tubes,
         };
     }
-    /// constructs a new insulated pipe
+    /// constructs a new non-insulated parallel bundle whose per-tube pressure
+    /// drop follows a custom Reynolds-power loss correlation (rather than the
+    /// bare-pipe Gnielinski/Churchill defaults)
     ///
     /// you need to supply the initial temperature, ambient temperature
-    /// as well as all the pipe parameters 
+    /// as well as all the pipe parameters
     ///
     /// The loss coefficient is calculated as:
     ///

@@ -1,0 +1,57 @@
+[package]
+name = "outram-foam-cli"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "OpenFOAM-style command-line utilities (blockMesh, pimpleFoam, gen-foam, ...) as terminal binaries -- an independent OUTRAM PARK fork, not the official OpenFOAM software"
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+exclude = ["verification_and_validation/*.csv", "docs"]
+
+[dependencies]
+thiserror.workspace = true
+uom.workspace = true
+clap.workspace = true
+outram-foam-basic-lib.workspace = true
+outram-foam-mesh.workspace = true
+outram-foam-appbuilder-lib.workspace = true
+
+[lib]
+name = "outram_foam_cli"
+path = "src/lib.rs"
+
+# One binary per OpenFOAM tool, named exactly like upstream so `blockMesh`,
+# `pimpleFoam`, `gen-foam`, ... run as terminal commands.
+[[bin]]
+name = "blockMesh"
+path = "src/bin/block_mesh.rs"
+
+[[bin]]
+name = "ideasUnvToFoam"
+path = "src/bin/ideas_unv_to_foam.rs"
+
+[[bin]]
+name = "polyDualMesh"
+path = "src/bin/poly_dual_mesh.rs"
+
+[[bin]]
+name = "pimpleFoam"
+path = "src/bin/pimple_foam.rs"
+
+[[bin]]
+name = "rhoCentralFoam"
+path = "src/bin/rho_central_foam.rs"
+
+[[bin]]
+name = "rhoPimpleFoam"
+path = "src/bin/rho_pimple_foam.rs"
+
+[[bin]]
+name = "sonicFoam"
+path = "src/bin/sonic_foam.rs"
+
+[[bin]]
+name = "gen-foam"
+path = "src/bin/gen_foam.rs"

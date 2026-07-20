@@ -360,11 +360,19 @@ pub fn ctah_flow_short_test_reverse_diode_effect(){
 
 }
 
-/// this function runs ciet ver 1 test, 
-/// mass flowrates are calculated serially
+/// this function runs the ciet version-2 three-branch transient,
+/// mass flowrates are calculated serially (single threaded)
 /// for simplicity
 ///
-/// version 1 also has no pid control for ctah
+/// unlike version 1, version 2 adds a CTAH PID controller: the
+/// heater/CTAH/DHX + DRACS loop is stepped forward in time while a
+/// filtered PID controller drives the CTAH outlet temperature (degC)
+/// toward `ctah_outlet_temperature_set_point_degc`, and a second PID
+/// controller drives the TCHX outlet toward its own set point.
+/// Powers, mass flowrates, insulation thicknesses and Nusselt
+/// correction factors are supplied as bare f64 SI values (power in W,
+/// mass flow in kg/s, temperatures in degC, insulation thickness in cm,
+/// timestep in s) for regression against experimental data.
 ///
 /// this is meant to test steady state flow on the ctah
 #[cfg(test)]
@@ -523,7 +531,7 @@ pub fn three_branch_ciet_ver2(
         let mut pipe_36a = new_pipe_36a(initial_temperature);
         let mut pipe_37 = new_pipe_37(initial_temperature);
         let mut flowmeter_60_37a = new_flowmeter_60_37a(initial_temperature);
-        let mut pipe_38 = new_pipe_38(initial_temperature);
+        let mut pipe_38 = new_pipe_38_sam_model(initial_temperature);
         let mut pipe_39 = new_pipe_39(initial_temperature);
 
         // pri loop dhx branch top to bottom 5a to 17b 

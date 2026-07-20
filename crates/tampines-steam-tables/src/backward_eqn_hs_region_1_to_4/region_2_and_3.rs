@@ -1,8 +1,7 @@
-
-use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
-use uom::si::ratio::ratio;
-use uom::si::f64::*;
 use uom::si::available_energy::kilojoule_per_kilogram;
+use uom::si::f64::*;
+use uom::si::ratio::ratio;
+use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
 
 /// this is for eq 2.44 on page 84
@@ -35,18 +34,21 @@ const TB23_PRIME_S_BOUNDARY_EQN_COEFFS: [[f64; 3]; 25] = [
     [14.0, 1.0, 0.783_237_062_349_385e7],
 ];
 
-
-/// this function represents the saturated liquid line
-/// for hs flashing between region 1 and region 4
+/// IAPWS-IF97 T_B23(h,s) boundary equation: the temperature
+/// (`ThermodynamicTemperature`, K) of the B23 boundary between Region 2
+/// (vapour) and Region 3 (near-critical) as a function of specific enthalpy
+/// `h` (`AvailableEnergy`, J/kg) and specific entropy `s`
+/// (`SpecificHeatCapacity` unit, J/(kg*K)). Used by the `(h,s)` region
+/// dispatch to separate Region 2 from Region 3.
 pub fn tb23_s_boundary_enthalpy(
     s: SpecificHeatCapacity,
-    h: AvailableEnergy) -> ThermodynamicTemperature {
-
+    h: AvailableEnergy,
+) -> ThermodynamicTemperature {
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(5.3);
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(3000.0);
     let t_ref = ThermodynamicTemperature::new::<kelvin>(900.0);
-    let sigma: f64 = (s/s_ref).get::<ratio>();
-    let eta: f64 = (h/h_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
+    let eta: f64 = (h / h_ref).get::<ratio>();
 
     let mut theta: f64 = 0.0;
 
@@ -59,8 +61,4 @@ pub fn tb23_s_boundary_enthalpy(
     }
 
     return t_ref * theta;
-
 }
-
-
-

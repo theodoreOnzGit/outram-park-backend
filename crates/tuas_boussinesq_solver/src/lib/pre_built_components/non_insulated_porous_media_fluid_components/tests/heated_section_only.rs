@@ -5,6 +5,10 @@ use crate::boussinesq_thermophysical_properties::LiquidMaterial;
 use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
 use crate::pre_built_components::non_insulated_porous_media_fluid_components::NonInsulatedPorousMediaFluidComponent;
 use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
+
+/// smoke/example test: runs the CIET heater-v2 heated section for 10 s at
+/// 0.18 kg/s Therminol VP1 and 8 kW heater power, advancing the coupled
+/// arrays each timestep; demonstrates the construct/connect/advance loop.
 #[test]
 pub fn example_heated_section_test(){
     use std::time::SystemTime;
@@ -177,6 +181,9 @@ pub fn example_heated_section_test(){
 }
 
 
+/// steady-state validation at 3 kW: drives the heated section to steady state
+/// and checks the fluid outlet temperature (K/degC) against De Wet's
+/// experimental value and a stored regression value.
 #[test]
 pub fn heated_section_test_v2_3kw(){
     use std::time::SystemTime;
@@ -364,6 +371,8 @@ pub fn heated_section_test_v2_3kw(){
 
 }
 
+/// steady-state validation at 4 kW: checks the fluid outlet temperature
+/// (K/degC) against De Wet's experimental value and a stored regression value.
 #[test]
 pub fn heated_section_test_v2_4kw(){
     use std::time::SystemTime;
@@ -555,6 +564,8 @@ pub fn heated_section_test_v2_4kw(){
 
 
 
+/// steady-state validation at 6 kW: checks the fluid outlet temperature
+/// (K/degC) against De Wet's experimental value and a stored regression value.
 #[test]
 pub fn heated_section_test_v2_6kw(){
     use std::time::SystemTime;
@@ -746,6 +757,8 @@ pub fn heated_section_test_v2_6kw(){
 
 
 
+/// steady-state validation at 8 kW: checks the fluid outlet temperature
+/// (K/degC) against De Wet's experimental value and a stored regression value.
 #[test]
 pub fn heated_section_test_v2_8kw(){
     use std::time::SystemTime;
@@ -937,6 +950,8 @@ pub fn heated_section_test_v2_8kw(){
 
 
 
+/// steady-state validation at 10 kW: checks the fluid outlet temperature
+/// (K/degC) against De Wet's experimental value and a stored regression value.
 #[test]
 pub fn heated_section_test_v2_10kw(){
     use std::time::SystemTime;

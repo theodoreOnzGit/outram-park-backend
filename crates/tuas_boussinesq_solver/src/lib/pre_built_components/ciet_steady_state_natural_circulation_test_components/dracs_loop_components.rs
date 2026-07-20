@@ -807,7 +807,7 @@ pub fn new_ndhx_tchx_horizontal_35a(
 ///
 ///
 /// label 35b on RELAP model by Zweibaum
-/// horizontal part of the TCHX or NDHX, 
+/// vertical part of the TCHX or NDHX,
 /// has the same loss correlations as the CTAH (horizontal)
 ///
 pub fn new_ndhx_tchx_vertical_35b(initial_temperature: ThermodynamicTemperature) -> 
@@ -884,7 +884,7 @@ NonInsulatedFluidComponent {
 /// 35b-1 is adiabatic towards the environment
 ///
 /// label 35b-1 on SAM model by Zweibaum
-/// horizontal part of the TCHX or NDHX, 
+/// vertical part of the TCHX or NDHX,
 /// has the same loss correlations as the CTAH (horizontal)
 ///
 pub fn new_ndhx_tchx_vertical_35b_1(initial_temperature: ThermodynamicTemperature) -> 
@@ -962,7 +962,7 @@ NonInsulatedFluidComponent {
 /// 35b-2 is not adiabatic towards the environment
 ///
 /// label 35b-2 on SAM model by Zweibaum
-/// horizontal part of the TCHX or NDHX, 
+/// vertical part of the TCHX or NDHX,
 /// has the same loss correlations as the CTAH (horizontal)
 ///
 pub fn new_ndhx_tchx_vertical_35b_2(initial_temperature: ThermodynamicTemperature) -> 
@@ -1369,7 +1369,122 @@ pub fn new_pipe_38(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
         insulation_material, 
         pipe_fluid, 
         htc_to_ambient, 
-        user_specified_inner_nodes, 
+        user_specified_inner_nodes,
+        surface_roughness);
+
+    insulated_component
+}
+
+
+/// cold leg (or branch) of DRACS — pipe 38, SAM-calibrated resistance variant
+///
+/// Identical geometry to [`new_pipe_38`] but carries the **SAM-matched form
+/// loss K = 17.8** instead of the Zweibaum RELAP value K = 0.8.
+///
+/// # Physical quantity
+///
+/// Builds the insulated DRACS cold-leg pipe 38 (an [`InsulatedFluidComponent`])
+/// used in the coupled natural-circulation loop. The form loss (dimensionless
+/// K) sets this segment's minor pressure-loss contribution to the DRACS loop
+/// hydraulic resistance.
+///
+/// # Why a separate constructor (provenance)
+///
+/// The RELAP5-3D value K = 0.8 in [`new_pipe_38`] gives too little DRACS loop
+/// resistance, so the coupled loop over-predicts the DRACS natural-circulation
+/// mass flow by +4.1…+5.5% vs the CIET experimental data (a documented bias;
+/// see the module doc in `coupled_dracs_loop_tests`). Recalibrating pipe 38 to
+/// K = 17.8 matches the SAM model: with it the isolated DRACS loop reproduces
+/// SAM to <0.35% (worst-case error improves from +2.14% at K=0.8 to +0.14% at
+/// K=17.8, validated in `isolated_dracs_loop_resistance_calibration`).
+///
+/// This mirrors the existing primary-loop precedent where
+/// `new_pipe_3_sam_model` (K = 17.15) and `new_pipe_22_sam_model` (K = 45.95)
+/// coexist beside their RELAP `new_pipe_3` / `new_pipe_22` counterparts.
+///
+/// # Where it is used (adopted 2026-07-15)
+///
+/// This is the DRACS cold-leg pipe-38 constructor used by the coupled A/B/C
+/// natural-circulation regression tests (`dataset_a/b/c`), the educational-
+/// simulator GUI/prototypes, and `isolated_dracs_loop_resistance_calibration`
+/// (which validates K = 17.8 against the SAM isolated-DRACS reference, <0.35%).
+/// The RELAP [`new_pipe_38`] (K = 0.8) is retained only for the legacy
+/// uncalibrated `ver_1` and zero-parasitic references.
+///
+/// Adopting K = 17.8 in the coupled loop improves the mean DRACS agreement
+/// (mean |error| 3.83% -> 2.76%) and fixes the documented mid/high-flow
+/// over-prediction (e.g. A4 +5.4% -> +3.3%, B8 +7.5% -> +5.4%). It does *not*
+/// help the two lowest-flow cases — B1 (655 W) -5.44% -> -6.62% and C1 (841 W)
+/// -5.41% -> -6.80% — which already under-predict at K = 0.8; form loss scales
+/// with velocity squared, so added resistance only deepens a low-flow
+/// under-prediction it cannot lift. Those two carry a documented per-point
+/// widened DRACS tolerance (see `dataset_b`/`dataset_c` and the
+/// `coupled_dracs_loop_tests` module doc); the proper physics fix, a
+/// velocity/Reynolds-dependent pipe-38 loss, is tracked as bead op-4wl.5.
+///
+/// # Assumptions / valid range
+///
+/// Same as [`new_pipe_38`]: Therminol VP-1 working fluid, SS-304L shell with
+/// fiberglass insulation, 3-node SAM nodalization, initial temperature supplied
+/// by the caller. Only the form loss differs.
+///
+/// # References
+///
+/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code validation using the
+/// compact integral effects test (CIET) experimental data (No. ANL/NSE-19/11).
+/// Argonne National Laboratory, IL.
+///
+/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of SAM using
+/// natural-circulation experimental data from the compact integral effects
+/// test (CIET) facility. Nuclear Engineering and Design, 377, 111144.
+///
+/// Zweibaum, Nicolas. Experimental validation of passive safety system models:
+/// Application to design and optimization of fluoride-salt-cooled,
+/// high-temperature reactors. University of California, Berkeley, 2015.
+pub fn new_pipe_38_sam_model(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+    let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
+    let fluid_pressure = Pressure::new::<atmosphere>(1.0);
+    let solid_pressure = Pressure::new::<atmosphere>(1.0);
+    let hydraulic_diameter = Length::new::<meter>(2.79e-2);
+    let pipe_length = Length::new::<meter>(0.33655);
+    let flow_area = Area::new::<square_meter>(6.11e-4);
+    let incline_angle = Angle::new::<degree>(-52.41533);
+    // SAM-matched form loss (RELAP/Zweibaum value is 0.8; see doc comment)
+    let form_loss = Ratio::new::<ratio>(17.8);
+    //estimated component wall roughness (doesn't matter here,
+    //but i need to fill in)
+    let surface_roughness = Length::new::<millimeter>(0.015);
+    let shell_id = hydraulic_diameter;
+    let pipe_thickness = Length::new::<meter>(0.0027686);
+    let shell_od = shell_id + 2.0 * pipe_thickness;
+    let insulation_thickness = Length::new::<meter>(0.0508);
+    let pipe_shell_material = SolidMaterial::SteelSS304L;
+    let insulation_material = SolidMaterial::Fiberglass;
+    let pipe_fluid = LiquidMaterial::TherminolVP1;
+    let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
+    // from SAM nodalisation, we have 3 nodes only,
+    // now because there are two outer nodes, the
+    // number of inner nodes is 3-2
+    let user_specified_inner_nodes = 3-2;
+
+    let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
         surface_roughness);
 
     insulated_component
@@ -1379,17 +1494,17 @@ pub fn new_pipe_38(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
 /// cold leg (or branch) of DRACS
 ///
 /// note that we will rotate these components by 180 degrees
-/// for only the hot leg, as the DRACS loop in RELAP is programmed 
+/// for only the hot leg, as the DRACS loop in RELAP is programmed
 /// in a counter clockwise fashion (see Nico Zweibaum's thesis)
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 ///

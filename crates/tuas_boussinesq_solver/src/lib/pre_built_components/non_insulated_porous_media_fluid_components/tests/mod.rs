@@ -1,3 +1,10 @@
+//! Verification and development tests for the non-insulated porous-media
+//! fluid component, using CIET's Heater version 2 as the reference case.
+//!
+//! Steady-state outlet temperatures are checked against De Wet's experimental
+//! data (Ong 2024, PhD thesis), and regression tests confirm the generalised
+//! porous-media component reproduces the original CIET-heater-v2 code path.
+
 /// heater with struct supports, mx 10, and top and bottom head,
 /// has a csv writer for results
 #[cfg(test)]

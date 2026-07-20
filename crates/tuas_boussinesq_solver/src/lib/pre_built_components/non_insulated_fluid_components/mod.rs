@@ -1,3 +1,33 @@
+//! Non-insulated fluid components — bare pipes and fluid components that
+//! exchange heat directly with an ambient boundary.
+//!
+//! This module provides [`NonInsulatedFluidComponent`], a fluid component with
+//! no insulation layer: a fluid array (the flowing coolant) coupled to a solid
+//! pipe shell, which in turn loses (or gains) heat to an ambient-temperature
+//! boundary through a user-supplied heat-transfer coefficient. Because there is
+//! no insulation, these are the right choice when heat exchange with the
+//! surroundings is intended — e.g. coolers, heaters, or piping whose heat loss
+//! is being tracked.
+//!
+//! The fluid-to-shell coupling uses a Nusselt-number correlation (Gnielinski by
+//! default; the CIET heater correlation for the heater builder). Pressure drop
+//! is set by a Darcy friction / form-loss correlation.
+//!
+//! Units: temperatures in kelvin (K) or degrees Celsius (degC), mass flow rate
+//! in kilograms per second (kg/s), heat input / power in watts (W), pressure
+//! and pressure drop in pascals (Pa), thermal conductance in watts per kelvin
+//! (W/K), heat-transfer coefficient in watts per square metre kelvin
+//! (W/(m^2 K)), and lengths / diameters in metres (m). All public signatures
+//! carry `uom` dimensioned quantities.
+//!
+//! Submodules:
+//! - [`preprocessing`] — build the ambient and fluid-to-shell conductances and
+//!   wire the lateral / axial connections; Reynolds-number helper.
+//! - [`fluid_component`] — `FluidComponentTrait` impl (mass flow ↔ pressure loss).
+//! - [`calculation`] — advance the component one timestep.
+//! - [`postprocessing`] — read back the shell and fluid nodal temperature vectors.
+//! - [`type_conversion`] — convert into a `FluidComponent`.
+//! - [`calibration`] — override the fluid Nusselt correlation.
 use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
 use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
@@ -255,12 +285,15 @@ impl NonInsulatedFluidComponent {
 
     }
 
-    /// constructs a new insulated pipe
+    /// constructs a new non-insulated custom fluid component
+    ///
+    /// like [`Self::new_bare_pipe`], but with a user-defined Darcy friction
+    /// correlation instead of the built-in pipe correlation.
     ///
     /// you need to supply the initial temperature, ambient temperature
-    /// as well as all the pipe parameters 
+    /// as well as all the component parameters
     ///
-    /// The loss coefficient is calculated as:
+    /// The Darcy friction factor is calculated as:
     ///
     /// f_darcy = form_loss + b Re^(c)
     ///

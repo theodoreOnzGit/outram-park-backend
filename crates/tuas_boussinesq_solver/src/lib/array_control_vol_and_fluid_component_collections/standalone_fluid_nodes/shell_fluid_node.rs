@@ -1,5 +1,4 @@
 use ndarray::*;
-use ndarray_linalg::error::LinalgError;
 use uom::num_traits::Zero;
 use uom::si::f64::*;
 use uom::si::power::watt;
@@ -112,10 +111,8 @@ pub fn advance_timestep_fluid_shell_array_high_peclet_number(
     // there will always be at least 2 nodes
 
     if number_of_nodes <= 1 {
-        return Err(TuasLibError::LinalgError(LinalgError::Shape(
-            ShapeError::from_kind(
-                ErrorKind::OutOfBounds
-            ))));
+        return Err(TuasLibError::ShapeMismatch(
+            ShapeError::from_kind(ErrorKind::OutOfBounds).to_string()));
     } else if number_of_nodes > 1 {
 
         let mut coefficient_matrix: Array2<ThermalConductance> = 

@@ -1,4 +1,19 @@
 # TUAS
+
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+## Bookkeeping status
+
+> Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping pass" command). A crate is **complete** only once the maintainer has personally signed off on BOTH axes below.
+
+| Axis | Status |
+|---|---|
+| Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
+| Human / user interface — human-reviewed | ❌ Not yet manually checked |
+
+**Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
+
 Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows
 
 It contains traits for fluid mechanics and heat transfer 
@@ -10,7 +25,79 @@ in development and not fully featured yet.
 The crate contains many useful traits and examples of how to use 
 those traits for your own projects.
 
+# Human-in-the-loop calibration (important)
+
+**Model calibration and validation-tolerance decisions in this crate are
+human-in-the-loop by design — they must not be automated away.** Choosing a
+loss coefficient, deciding whether a benchmark is met, and — especially —
+deciding whether to widen a tolerance or accept a documented per-point
+exception are engineering judgments that require a human reviewer. An automated
+agent can *measure* and *report*, but the accept/reject decision is a human's.
+
+The concrete worked example is the **coupled DRACS natural-circulation loop**
+(`src/lib/pre_built_components/ciet_steady_state_natural_circulation_test_components/coupled_dracs_loop_tests/`,
+V&V record `verification_and_validation/coupled_dracs_pipe38_K17p8_vs_ciet_experiment.md`):
+
+- The DRACS cold-leg pipe-38 form loss was recalibrated from the RELAP value
+  K = 0.8 to the SAM value K = 17.8. This *improves* the mean DRACS mass-flow
+  agreement with the CIET experiment (mean absolute error 3.83% to 2.76%) and
+  fixes the documented mid/high-flow over-prediction — but it *worsens* the two
+  lowest-flow cases (B1, C1), which a single uniform form loss physically cannot
+  fix (form loss scales with velocity squared, so it is negligible at low flow).
+- Whether to adopt K = 17.8 anyway, and how to handle B1/C1 (a velocity-
+  dependent loss model vs. a documented per-point tolerance widening), was a
+  **human decision**, not an automated one. The two low-flow DRACS bands and
+  two high-power heater-surface-temperature bands were widened *per-point with
+  written justification in the test source*; the benchmark (SAM mass-flow)
+  tolerances were **not** loosened.
+
+The general rules this illustrates, which hold throughout the crate:
+
+- **Never loosen a benchmark verification tolerance to make a test pass.** A
+  per-point exception is only acceptable when it is documented in the test with
+  a physical justification and reviewed by a human — never as a blanket change.
+- **A recalibration that helps on average can still degrade specific cases.**
+  Report the full per-case picture (see the V&V record's table), not just the
+  mean, and let a human weigh the trade-off.
+- **AI-assisted output is a draft until a human reviews it** (see the workspace
+  `RESPONSIBLE_USE.md` / `AI_USAGE.md`). Calibration constants and tolerance
+  decisions are exactly the kind of change that needs that review.
+
 # Changelog
+
+## 0.1.4
+
+Patch release. Added SAM (NED-2021 Table 4) coupled natural-circulation
+comparison columns plus an AI-generated SAM / TUAS / experiment summary;
+adopted the CIET pipe-38 form-loss coefficient K = 17.8 in the shared
+`(p, h)`-flash path; added the workspace-wide "unverified until validated"
+notice to the README. No breaking API changes.
+
+## 0.1.3 
+
+Removed outram_foam_basic_lib dependencies to avoid dependency loops. 
+
+## 0.1.2
+
+- **Breaking — `TuasLibError` API change:** `TuasLibError::LinalgError(ndarray_linalg::error::LinalgError)` is
+  replaced by `TuasLibError::ShapeMismatch(String)`. Any code that matches on
+  `TuasLibError::LinalgError` must be updated to match on `TuasLibError::ShapeMismatch`.
+  The variant was only ever emitted for internal dimension-guard checks (matrix/vector
+  shape mismatches), never for actual linear-algebra failures, so this change has no
+  semantic impact — the error message text is preserved.
+
+- **Dependency change — `ndarray-linalg` and system BLAS removed.** The only LU solve in
+  TUAS (`solve_conductance_matrix_power_vector` in `standalone_fluid_nodes`) is now
+  performed by `outram_foam_basic_lib::matrix::SquareMatrix::solve`, a pure-Rust LU
+  factorisation with scaled partial pivoting. All three
+  `[target.*.dependencies]` blocks for `ndarray-linalg` (Linux/macOS/Windows) are gone.
+  **Users no longer need to install OpenBLAS or Intel MKL** to build or use this crate.
+
+  Performance impact: `SquareMatrix::solve` is competitive with LAPACK DGESV for the
+  matrix sizes TUAS uses (n ≤ 50, typically 10–20). At n ≤ 20 it is actually faster due
+  to the absence of FFI call overhead (~300–400 ns per LAPACK call). OpenBLAS pulls
+  ahead above n ≈ 50 via cache-blocked BLAS-3 kernels, but that size never arises in
+  a TUAS simulation.
 
 ## 0.1.1
 
@@ -52,8 +139,6 @@ Once inside the simulator folder, run:
 ```bash 
 cargo run --example ciet_educational_simulator --release
 ```
-
-Note that for Linux and MacOS, you will need to install OpenBLAS.
 
 Also please go to the examples folder to find source code and more README.md 
 for the CIET Educational Simulator.
@@ -101,27 +186,21 @@ as well, but maybe that name is for another project.
 
 ## Prerequisites
 
-
-For linux machines, you will need to install libopenblas. I'm using 
-the dev version as an example:
-
-For Linux Mint, Ubuntu, PopOS etc.:
-```bash
-sudo apt install libopenblas-dev
-```
-
-For Arch Linux based distros, eg. endeavourOS and Arch Linux:
-
-```bash
-sudo pacman -S openblas
-```
-
+As of v0.1.2, TUAS uses a pure-Rust LU solver and no longer requires a system BLAS
+(OpenBLAS or Intel MKL). The solver is the crate's own OpenFOAM-derived
+`tuas_boussinesq_solver::matrix::SquareMatrix` (`src/lib/matrix.rs`); it was
+originally pulled in from `outram-foam-basic-lib` in v0.1.2 and moved in-crate in
+v0.1.3 to break a dependency loop. No extra packages need to be installed on Linux,
+macOS, or Windows.
 
 Tested on Arch Linux and Linux Mint distros. 
 
 ## Development To Do 
 
-1. Shell and Tube Heat Exchanger (STHE) constructor
+The Shell and Tube Heat Exchanger (STHE) constructor is now implemented — see
+`SimpleShellAndTubeHeatExchanger::new_custom_circular_single_pass_sthe_with_insulation`
+and `new_du_et_al_sthe` in
+`src/lib/pre_built_components/shell_and_tube_heat_exchanger/`.
 
 ## Cargo update dependencies 
 
@@ -182,13 +261,14 @@ many free and open source libraries such as:
 2. Peroxide
 3. Roots
 4. GeN-Foam and OpenFOAM
-5. ndarray-linalg, and therefore, Intel Math Kernel Library
-and OpenBLAS
+5. an in-crate OpenFOAM-derived pure-Rust LU solver
+   (`tuas_boussinesq_solver::matrix::SquareMatrix`), which replaced ndarray-linalg
+   as of v0.1.2 (first via `outram-foam-basic-lib`, then moved in-crate in v0.1.3)
 6. thiserror
-7. csv 
+7. csv
 
 Most are released under Apache 2.0 and MIT 
-(uom, ndarray-linalg, OpenBLAS, thiserror and peroxide)
+(uom, thiserror and peroxide)
 and roots is released under BSD 2 clause. The licensing notices
 is provided in the licensing file. The csv crate is licensed 
 under MIT or the unlicense. I'll just leave the MIT license here. 
@@ -199,11 +279,6 @@ derivative.
 OpenFOAM and GeN-Foam are released under GNU GPL v3.0. 
 As I am reliant on these libraries under the GNU GPL v3.0
 license, this software is also released under GNU GPL v3.0.
-
-The Intel math kernel library (intel-mkl) is used for linear algebra calculations 
-on windows machines, and therefore is subject to the intel simplified 
-software license. Neither I nor the writers of the crate 
-are associated with or represent Intel.
 
 I'm also not a representative of the Rust Foundation, nor am I affiliated 
 with them.

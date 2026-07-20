@@ -62,10 +62,12 @@ impl SolidColumn {
             interaction)
     }
 
-    /// attaches an solid column array control volume to the front of this 
-    /// fluid array control volume 
-    /// (back --- cv_self --- front) ---- (back --- cv_other --- front)
+    /// attaches a fluid array control volume to the front of this
+    /// solid column array control volume
+    /// (back --- cv_self --- front) ---- (back --- fluid_other --- front)
     ///
+    /// couples this solid column's front node to the other fluid array's
+    /// back node by conduction; advection is rejected
     pub fn link_fluid_array_to_the_front_of_this_solid_column(
         &mut self,
         fluid_array_other: &mut FluidArray,
@@ -89,11 +91,12 @@ impl SolidColumn {
             interaction)
     }
 
-    /// attaches an solid column 
-    /// array control volume to the back of this 
-    /// fluid array control volume 
-    /// (back --- cv_other --- front) ---- (back --- cv_self --- front)
+    /// attaches a fluid array control volume to the back of this
+    /// solid column array control volume
+    /// (back --- fluid_other --- front) ---- (back --- cv_self --- front)
     ///
+    /// couples this solid column's back node to the other fluid array's
+    /// front node by conduction; advection is rejected
     pub fn link_fluid_array_to_the_back_of_this_solid_column(
         &mut self,
         fluid_array_other: &mut FluidArray,

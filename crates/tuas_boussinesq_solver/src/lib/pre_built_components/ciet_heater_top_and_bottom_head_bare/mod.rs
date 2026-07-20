@@ -1,3 +1,16 @@
+//! CIET heater top and bottom head (bare, no insulation) components.
+//!
+//! This module models the two unheated end sections of the CIET heater
+//! (version 2) — the top head and the bottom head — as the
+//! [`HeaterTopBottomHead`] control-volume component. Each head is a lumped
+//! set of three coupled thermal masses (Therminol VP-1 fluid, SS304L steel
+//! shell, and twisted tape) exchanging heat with the ambient air.
+//!
+//! Units throughout follow `uom` SI conventions: temperatures in kelvin (K),
+//! heat-transfer coefficients in W/(m^2 K), surface areas in m^2, lengths in
+//! metres (m), and mass flow in kg/s. Submodules split the component into
+//! preprocessing (construction / connections), calculation (timestep
+//! advance), and postprocessing (temperature readout).
 
 use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
 use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
@@ -12,17 +25,21 @@ use uom::si::length::inch;
 use uom::si::length::meter;
 use uom::si::ratio::ratio;
 use uom::si::pressure::atmosphere;
-/// represents heater version 2 without insulation 
-/// This is because during 2018-ish, the heater insulation 
-/// got burnt off and a lot of frequency response tests were done 
-/// with insulation removed
+/// Models one of the CIET heater (version 2, bare/no insulation)
+/// unheated end sections — either the top head or the bottom head.
 ///
-/// Heater version 2 bare has no insulation
-/// but it has a twisted tape interior
+/// The heater insulation was burnt off around 2018, after which many
+/// frequency-response tests were run with the insulation removed; this
+/// component therefore assumes no insulation but retains the twisted-tape
+/// interior of heater version 2.
 ///
-///
-/// note that it only contains the heated section, not the top nor 
-/// bottom heads
+/// Unlike the heated-section component, this struct represents the top OR
+/// bottom head (the unheated end regions of the heater), constructed via
+/// [`HeaterTopBottomHead::new_top_head`] or
+/// [`HeaterTopBottomHead::new_bottom_head`]. Each head is modelled as three
+/// coupled thermal masses — the therminol (Therminol VP-1) fluid, the steel
+/// (SS304L) shell, and the twisted tape — together with the ambient air state
+/// used for heat loss.
 #[derive(Debug,Clone,PartialEq)]
 pub struct HeaterTopBottomHead {
 
@@ -40,11 +57,12 @@ pub struct HeaterTopBottomHead {
     /// for the therminol fluid in the heater top and bottom heads
     pub therminol_array: HeatTransferEntity,
 
-    /// ambient temperature of air used to calculate heat loss
+    /// ambient temperature of the surrounding air used to calculate heat loss
+    /// (a thermodynamic temperature, SI unit kelvin)
     pub ambient_temperature: ThermodynamicTemperature,
 
-    /// heat transfer coefficient used to calculate heat loss 
-    /// to air
+    /// heat transfer coefficient used to calculate heat loss to air
+    /// (SI unit watt per square metre per kelvin, W/(m^2 K))
     pub heat_transfer_to_air: HeatTransfer,
 
 

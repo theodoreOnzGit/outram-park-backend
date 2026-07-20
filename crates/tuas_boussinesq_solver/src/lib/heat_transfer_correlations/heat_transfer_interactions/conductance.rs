@@ -290,7 +290,7 @@ pub fn get_conductance_cylindrical_radial_two_materials(
 /// from fluid to solid heat transfer,
 /// Q = -hA (T_solid - T_fluid)
 ///
-/// resistance here is hA 
+/// conductance here is hA (watts per kelvin); the resistance is 1/(hA)
 /// where A is the curved surface area pi*D*L
 ///
 /// for solid thermal resistance, we use the 

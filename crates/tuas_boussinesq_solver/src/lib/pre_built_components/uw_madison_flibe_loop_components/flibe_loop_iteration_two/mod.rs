@@ -1,3 +1,19 @@
+//! Second-iteration model of the UW-Madison FLiBe loop.
+//!
+//! Compared with iteration one, this iteration adds an explicit
+//! clamshell radiative heater sub-component so that the heat added to
+//! (and the parasitic heat lost from) the loop's clamshell radiative
+//! heating elements can be represented directly rather than folded into
+//! a lumped calibration. It contains:
+//!
+//! - [`components`] — constructors for the 13 loop pipe segments (the
+//!   riser is now a radiative heater rather than an insulated pipe);
+//!   still under construction.
+//! - [`clamshell_radiative_heater`] — a self-contained model of a fluid pipe
+//!   surrounded by a clamshell radiative heating element, with radiative and
+//!   convective coupling between the tube fluid, inner tube, annular air,
+//!   heating element and insulation layers.
+
 /// components for second iteration of UW madison FLiBe loop model
 ///
 /// Pipes have 

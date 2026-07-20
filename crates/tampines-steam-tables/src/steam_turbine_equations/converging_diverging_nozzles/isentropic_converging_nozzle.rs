@@ -3,95 +3,95 @@ use uom::si::volume::cubic_meter;
 
 use crate::prelude::TampinesSteamTableCV;
 
-// so here is the problem statement. 
+// so here is the problem statement.
 //
 //
-// I have a converging diverging nozzle 
+// I have a converging diverging nozzle
 //
-// there is a SET 
-// inlet area, 
+// there is a SET
+// inlet area,
 // throat area,
 // outlet area,
 //
-// the conditions at inlet are known (this could be mass flowrate and 
+// the conditions at inlet are known (this could be mass flowrate and
 // inlet velocity and such)
 //
-// The pressure at the turbine outlet will be known 
+// The pressure at the turbine outlet will be known
 // (condenser pressure)
 //
-// It is very likely either 
+// It is very likely either
 //
 // 1. saturated steam
 // 2. superheated steam
 //
-// Water can in theory flow through the tubrine but that is highly 
+// Water can in theory flow through the tubrine but that is highly
 // unlikely in steam turbine
 //
 // The turbine will have inlet pressure, and outlet pressure at condenser
 //
 // There will be a series of nozzles and turbine blades
 // before then arriving at the outlet
-// 
-// The steam turbine can be a stator rotor pair interlaced with 
+//
+// The steam turbine can be a stator rotor pair interlaced with
 // many small control volumes in between each stator and rotor
 //
-// 
-// for such a case, then there will be an inlet control volume with 
-// known state, 
+//
+// for such a case, then there will be an inlet control volume with
+// known state,
 //
 // then a stator (nozzle) and rotor pair
 //
-// For such a case, this is a pressure driven flow 
+// For such a case, this is a pressure driven flow
 //
 // the pressure difference between inlet and outlet will drive the flow
 // It will be treated like a flow between two pressure points.
 // Mass flowrate will be such that the pressures will equalise.
 //
-// For now, an impulse turbine stage can look like this 
+// For now, an impulse turbine stage can look like this
 // take two adjacent control volumes ,
 //
 //
-// obtain pressure difference between them 
-// knowing outlet pressure, I would then take this to be the nozzle 
-// outlet pressure, 
+// obtain pressure difference between them
+// knowing outlet pressure, I would then take this to be the nozzle
+// outlet pressure,
 //
 // 1. I would then solve for the nozzle flow using the pressure differences
-// 2. for the turbine blade, there is torque exerted, and the velocity 
-// will be slowed down on the way out. This is based on the velocity 
+// 2. for the turbine blade, there is torque exerted, and the velocity
+// will be slowed down on the way out. This is based on the velocity
 // coefficient of the impulse turbine.
-// 3. the outlet stagnation enthalpy is then calculated to be the state 
+// 3. the outlet stagnation enthalpy is then calculated to be the state
 // of the steam entering the next control volume
 //
-// when pressure differences are given, we solve for mass flowrate 
+// when pressure differences are given, we solve for mass flowrate
 // and velocity individually.
 //
-// I suppose we could do finite differencing. 
+// I suppose we could do finite differencing.
 // In doing so, we may run into numerical errors such as Courant number.
 // May be needed to do a local timestepping of sorts.
 // Do we use rhoPimpleFoam algorithm? I myself am not sure.
 //
-// But the equations would be sort of an exponential type yeah... 
+// But the equations would be sort of an exponential type yeah...
 //
-// not sure if I want to go down this rabbit hole 
+// not sure if I want to go down this rabbit hole
 // but nevermind.
 //
-// Anyway for a nozzle, with pressure differences, and no specified 
-// mass flowrate 
+// Anyway for a nozzle, with pressure differences, and no specified
+// mass flowrate
 //
-// 1. assume stagnation in the inlet. (neglect KE in the inlet), otherwise 
+// 1. assume stagnation in the inlet. (neglect KE in the inlet), otherwise
 // add it in
 // 2. calculate throat velocity (possibly sonic), does this work?
 // 3. generally speaking, nozzles just obey mass and energy balance.
 // Energy balance is:
 // v_throat = (2.0 * (h0 - h_throat).sqrt()
 //
-// assuming inlet stagnation states are known (p0, h0), we can 
-// calculate entropy. This will also give us the inlet density of 
+// assuming inlet stagnation states are known (p0, h0), we can
+// calculate entropy. This will also give us the inlet density of
 // steam.
 //
 // Nozzle is isentropic. (s1 = s0 = s_throat)
 //
-// area of entrance and throat are known 
+// area of entrance and throat are known
 //
 // rho1 * a1 * v1 = rho2 * a2 * v2
 //
@@ -103,57 +103,64 @@ use crate::prelude::TampinesSteamTableCV;
 //
 // What we can do, is to guess a mass flowrate.
 //
-// After guessing mass flowrate, we obtain v1 first 
+// After guessing mass flowrate, we obtain v1 first
 // now we have the product of rho2 * v2.
 //
 // We have to guess h_throat iteratively. we shall have nested loop (oops)
 //
-// Otherwise, guess h_throat iteratively, the limits will be between 
+// Otherwise, guess h_throat iteratively, the limits will be between
 // v_throat is supersonic and v_throat is 0
 //
-// from then we can guess v_throat. 
+// from then we can guess v_throat.
 //
 // Better yet, just guess v_throat (v2) first.
 //
-// This makes it easy to guess h_throat. 
-// When h_throat is known, s_throat is known, thermodynamic state is fully 
-// known. 
+// This makes it easy to guess h_throat.
+// When h_throat is known, s_throat is known, thermodynamic state is fully
+// known.
 //
-// we then get a formula for v2/v1. 
+// we then get a formula for v2/v1.
 //
 // From this, we get v1. Which is the mass flowrate.
 //
-// Now, when v_throat is guessed, the pressure at the throat is also 
+// Now, when v_throat is guessed, the pressure at the throat is also
 // guessed.
 //
-// We have to see whether the pressure at the throat is good for the 
+// We have to see whether the pressure at the throat is good for the
 // pressure bounds given.
 //
-// Once having a throat pressure, we can obtain an equation to get 
-// the mass flowrate in the outside part of the nozzle given the 
+// Once having a throat pressure, we can obtain an equation to get
+// the mass flowrate in the outside part of the nozzle given the
 // nozzle diverging part.
 //
 // When the mass flowrate of the nozzle and supersonic diffuser match,
-// given the pressure difference set, 
+// given the pressure difference set,
 // then we have a mass flowrate solution in the nozzle.
 //
 //
-// After solving the nozzle part, the mass flowrate is known. And the exit 
-// velocity of the c-d nozzle is known. 
+// After solving the nozzle part, the mass flowrate is known. And the exit
+// velocity of the c-d nozzle is known.
 //
-// Then we can just perform velocity reduction in the spinning part of 
-// the impulse turbine. 
+// Then we can just perform velocity reduction in the spinning part of
+// the impulse turbine.
 //
-// And there we have it, we have mass flowrate and enthalpy at the end 
+// And there we have it, we have mass flowrate and enthalpy at the end
 // of the turbine stage.
 //
 //
 //
 //
 
-// 
 //
 //
+//
+/// Given inlet stagnation properties `(p0, h0)` and a guessed throat
+/// velocity, computes the resulting mass flow rate (kg/s) and thermodynamic
+/// state at the throat of a converging nozzle, assuming isentropic flow.
+/// The throat velocity is capped at the local speed of sound (choked flow)
+/// if the supplied `v_throat` would otherwise exceed it; in that case the
+/// throat state is the critical (Mach-1) state rather than the state implied
+/// by `v_throat` directly.
 #[inline]
 pub fn guess_massrate_and_state_for_converge_nozzle_from_stagnation(
     // these are stagnation pressure and enthalpy
@@ -161,39 +168,34 @@ pub fn guess_massrate_and_state_for_converge_nozzle_from_stagnation(
     h0: AvailableEnergy,
     v_throat: Velocity,
     a_throat: Area,
-    ) -> (MassRate, TampinesSteamTableCV) {
+) -> (MassRate, TampinesSteamTableCV) {
     // we have inlet stagnation enthalpy
     let ref_vol = Volume::new::<cubic_meter>(1.0);
     // now we have inlet stagnation state
     let state_0 = TampinesSteamTableCV::new_from_ph(p0, h0, ref_vol);
 
-
     // calculate entropy, because process should be isentropic,
     // entropy is constant
     let s0 = state_0.get_specific_entropy();
 
-
     // calculate critical pressure
-    let critical_pressure_ratio: Ratio = 
-        state_0.get_critical_pressure_ratio_pure_vapour();
+    let critical_pressure_ratio: Ratio = state_0.get_critical_pressure_ratio_pure_vapour();
 
     // this is critical pressure for mach 1
     let p_critical = critical_pressure_ratio * p0;
     let s_throat = s0;
 
-    let state_choked = TampinesSteamTableCV::new_from_ps(
-        p_critical, s_throat, ref_vol
-    );
+    let state_choked = TampinesSteamTableCV::new_from_ps(p_critical, s_throat, ref_vol);
 
     // this is
     let mut state_out = state_choked;
 
-    // we get speed of sound here 
+    // we get speed of sound here
 
     let c = state_choked.get_speed_of_sound();
 
-    // this is the velocity for mass flowrate and energy balance 
-    // calculation 
+    // this is the velocity for mass flowrate and energy balance
+    // calculation
     let mut v = v_throat;
 
     // we know throat velocity cannot exceed mach 1
@@ -204,29 +206,20 @@ pub fn guess_massrate_and_state_for_converge_nozzle_from_stagnation(
         // we are not in a choked state, this is subsonic
         // in that case,
         let h_throat = h0 - 0.5 * v * v;
-        state_out = TampinesSteamTableCV::new_from_hs(
-            h_throat, s_throat, ref_vol
-        );
-        
+        state_out = TampinesSteamTableCV::new_from_hs(h_throat, s_throat, ref_vol);
     };
     let rho_out = state_out.get_rho();
 
-
     let mass_flowrate = rho_out * v * a_throat;
 
-
-
-
-    // now, based on the above algorithm, we have to guess a mass 
-    // flowrate given a pressure across the c-d nozzle 
+    // now, based on the above algorithm, we have to guess a mass
+    // flowrate given a pressure across the c-d nozzle
     // but to do so, we have to iteratively guess velocity
-    // until the mass flowrate in both converging and diverging parts 
+    // until the mass flowrate in both converging and diverging parts
     // of the nozzle tally
-    
+
     return (mass_flowrate, state_out);
-
 }
-
 
 /// This gives the mass flowrate for choked flow given the area of a throat
 /// and the inlet stagnation properties (negligble KE)
@@ -236,35 +229,28 @@ pub fn get_choked_flow_massrate_and_state_from_stagnation_properties_and_area(
     h0: AvailableEnergy,
     a_throat: Area,
 ) -> (MassRate, TampinesSteamTableCV) {
-
     let ref_vol = Volume::new::<cubic_meter>(1.0);
     // now we have inlet stagnation state
     let state_0 = TampinesSteamTableCV::new_from_ph(p0, h0, ref_vol);
-
 
     // calculate entropy, because process should be isentropic,
     // entropy is constant
     let s0 = state_0.get_specific_entropy();
 
-
     // calculate critical pressure
-    let critical_pressure_ratio: Ratio = 
-        state_0.get_critical_pressure_ratio_pure_vapour();
+    let critical_pressure_ratio: Ratio = state_0.get_critical_pressure_ratio_pure_vapour();
 
     // this is critical pressure for mach 1
     let p_critical = critical_pressure_ratio * p0;
     let s_throat = s0;
 
-    let state_choked = TampinesSteamTableCV::new_from_ps(
-        p_critical, s_throat, ref_vol
-    );
+    let state_choked = TampinesSteamTableCV::new_from_ps(p_critical, s_throat, ref_vol);
 
     let c = state_choked.get_speed_of_sound();
 
     let rho_choked = state_choked.get_rho();
 
     let massrate: MassRate = c * rho_choked * a_throat;
-
 
     return (massrate, state_choked);
 }

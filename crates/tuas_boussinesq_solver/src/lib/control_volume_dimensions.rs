@@ -1,6 +1,15 @@
+//! Geometric dimension newtypes for control-volume construction.
+//!
+//! These are thin, `Copy` wrappers around `uom` `Length`/`Area` (SI: metres,
+//! square metres) that give each geometric input a self-documenting name —
+//! e.g. a wall thickness, a shell inner/outer diameter, a tube length, or a
+//! cross-sectional/surface area. They exist so that heat-transfer interaction
+//! enums and constructors read unambiguously and cannot silently swap, say, an
+//! inner diameter for an outer one. Convert in and out with `From<Length>` /
+//! `Into<Length>` (or `From<Area>` / `Into<Area>` for the area types).
 use uom::si::f64::*;
 
-/// XThicknessThermalConduction is essentially a struct containing 
+/// XThicknessThermalConduction is essentially a struct containing
 /// one length describing a thickness in cartesian coordinates 
 /// for thermal conduction.
 ///

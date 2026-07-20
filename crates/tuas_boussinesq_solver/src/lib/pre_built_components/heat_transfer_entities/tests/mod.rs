@@ -1,3 +1,12 @@
+//! Verification tests for the [`HeatTransferEntity`] enum layer.
+//!
+//! Contains a CIET heater v2.0 steady-state test that builds a nodalised
+//! heater (8 axial nodes, fluid `FluidArray` + steel `SolidColumn` shell)
+//! wrapped in `HeatTransferEntity` enums, exercising conductance links
+//! (W/K), heat addition (W), and advection, then advancing the timestep
+//! (seconds) and recording temperature (deg C) profiles to CSV. Also
+//! re-exports the [`mixing_joints`] adiabatic-mixing-joint tests.
+
 use std::ops::{DerefMut, Deref};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -182,7 +191,7 @@ pub fn ciet_heater_v2_speedup_using_fluid_array_solid_column_hte(){
 
         //csv writer
         //
-        let mut wtr = Writer::from_path("array_cv_test_ciet_heater_v_2_0_steady_state.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("array_cv_test_ciet_heater_v_2_0_steady_state.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds",
@@ -192,7 +201,7 @@ pub fn ciet_heater_v2_speedup_using_fluid_array_solid_column_hte(){
             "timestep_seconds",])
             .unwrap();
 
-        let mut time_wtr = Writer::from_path("array_cv_test_ciet_heater_v_2_0_calc_time_profile.csv")
+        let mut time_wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("array_cv_test_ciet_heater_v_2_0_calc_time_profile.csv"))
             .unwrap();
 
         time_wtr.write_record(&["loop_calculation_time_nanoseconds",
@@ -202,8 +211,7 @@ pub fn ciet_heater_v2_speedup_using_fluid_array_solid_column_hte(){
             "timestep_advance_time_ns",])
             .unwrap();
 
-        let mut temp_profile_wtr = Writer::from_path(
-            "array_cv_test_ciet_heater_v_2_0_temp_profile.csv")
+        let mut temp_profile_wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("array_cv_test_ciet_heater_v_2_0_temp_profile.csv"))
             .unwrap();
 
         // this is code for writing the array of required temperatures

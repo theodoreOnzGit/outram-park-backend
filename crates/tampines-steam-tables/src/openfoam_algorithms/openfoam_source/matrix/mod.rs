@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+// Derived from OpenFOAM (www.openfoam.com)
+// Copyright (C) 2004-2023 OpenFOAM Foundation
+// Copyright (C) 2016-2023 OpenCFD Ltd.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
+//! Generic dense square-matrix container ([`SquareMatrix`]) with LU-based
+//! direct solve — a dimensionless numeric utility (e.g. for small local
+//! linear systems), independent of the sparse `ldu_matrix` layer used for
+//! the full FV-assembled system.
+
+/// Row-major dense `n x n` matrix of `f64` and its LU-decomposition solve —
+/// see [`SquareMatrix`].
+pub mod square_matrix;
+pub use square_matrix::MatrixError;
+pub use square_matrix::SquareMatrix;

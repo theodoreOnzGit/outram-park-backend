@@ -1,0 +1,72 @@
+NOTICE — njoy-outram-park-fork
+==============================
+
+This crate, `njoy-outram-park-fork`, is a pure-Rust translation (port) of
+**NJOY2016** (version 2016.79), the nuclear-data processing system originally
+written in Fortran by Los Alamos National Laboratory.
+
+It is a DERIVATIVE WORK of NJOY2016. It is NOT the version available from LANL,
+and it is NOT endorsed by, affiliated with, or supported by Los Alamos National
+Security, LLC, Los Alamos National Laboratory, LANL, or the U.S. Government.
+
+For bugs, accuracy issues, or support, contact the OUTRAM PARK maintainers — NOT
+LANL or the NJOY developers.
+
+
+Provenance and modification statement
+-------------------------------------
+
+- Upstream:  NJOY2016, https://github.com/njoy/NJOY2016
+- Version translated from:  2016.79 (commit ac5adf5, 2026-04-06)
+- Nature of modification:  the Fortran 90 source has been re-implemented in
+  Rust. Algorithms, control flow, data layout, and numerical routines have been
+  restructured. Behaviour may differ from upstream NJOY2016; outputs from this
+  crate must not be assumed bit-identical to LANL NJOY2016.
+
+This statement satisfies the upstream license requirement that "If software is
+modified to produce derivative works, such modified software should be clearly
+marked, so as not to confuse it with the version available from LANL."
+
+
+Licensing
+---------
+
+- The ORIGINAL NJOY2016 source is distributed under a modified BSD 3-Clause
+  license (the LANL/DOE variant). The full text is preserved verbatim in
+  `LICENSE.njoy` and its terms continue to apply to all material derived from
+  NJOY2016.
+- The modified BSD 3-Clause license is GPL-compatible. This Rust translation,
+  as a whole, is distributed under the **GNU General Public License v3.0 only**
+  (`GPL-3.0-only`), the same license as the rest of the OUTRAM PARK workspace.
+  See `../../LICENSE` / the workspace `Cargo.toml`.
+- Per BSD-3 condition 3, the names "Los Alamos National Security, LLC",
+  "Los Alamos National Laboratory", "LANL", "the U.S. Government", and the names
+  of NJOY contributors may NOT be used to endorse or promote this crate.
+
+Note on the name "NJOY": the BSD license governs copyright, not trademark. The
+`-outram-park-fork` suffix and this NOTICE are intended to clearly distinguish
+this work from upstream. If the NJOY developers object to the use of "njoy" in
+the crate name, it will be renamed.
+
+
+Embedded Windowed Multipole data (MIT CRPG — NOT NJOY / NOT LANL)
+----------------------------------------------------------------
+
+This crate ALSO embeds a windowed-multipole cross-section data set
+(`src/data/wmp_core.wmpl`, the CORE 125-nuclide blob decoded by
+`wmp::WmpLibrary` / `wmp::WindowedMultipole`). That data is a SEPARATE work
+from NJOY2016:
+
+- Source:  MIT Computational Reactor Physics Group (CRPG) `WMP_Library`,
+  https://github.com/mit-crpg/WMP_Library (ENDF/B-VII.1 evaluations).
+- Copyright:  © 2018-2021 Massachusetts Institute of Technology.
+- License:  MIT (full text in `LICENSE-WMP`). MIT is GPL-compatible, so it
+  coexists with this crate's overall `GPL-3.0-only` licensing.
+- The windowing/curve-fit method is that of C. Josey, P. Romano, B. Forget,
+  and K. Smith (MIT CRPG). This attribution is DISTINCT from the NJOY/LANL
+  attribution above; do not conflate the two, and do not imply LANL endorsement
+  of the WMP data.
+
+The `wmp` module's evaluation algorithm is an independent Rust re-implementation
+(reference: OpenMC's MIT-licensed `src/wmp.cpp`); only the numeric data blob is
+derived from `WMP_Library`.

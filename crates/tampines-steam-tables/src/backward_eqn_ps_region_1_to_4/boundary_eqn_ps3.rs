@@ -1,5 +1,6 @@
-use uom::si::{f64::*, pressure::megapascal, specific_heat_capacity::kilojoule_per_kilogram_kelvin};
-
+use uom::si::{
+    f64::*, pressure::megapascal, specific_heat_capacity::kilojoule_per_kilogram_kelvin,
+};
 
 /// based on table 2.29
 const P_S3_S_COEFFS: [[f64; 3]; 10] = [
@@ -15,12 +16,18 @@ const P_S3_S_COEFFS: [[f64; 3]; 10] = [
     [32.0, 18.0, 0.110_649_277_244_882e37],
 ];
 
+/// IAPWS-IF97 backward boundary equation p_s3(s): the saturation pressure
+/// (`Pressure`, returned in SI Pa) as a function of the saturated specific
+/// entropy `s` (represented with the `SpecificHeatCapacity` unit, J/(kg*K))
+/// along the Region 3 / Region 4 (near-critical) boundary. Used by the
+/// `(p,s)` region dispatch to place a state relative to the saturation line
+/// near the critical point.
 #[inline]
 pub fn p_s3_s(s: SpecificHeatCapacity) -> Pressure {
     let p_ref = Pressure::new::<megapascal>(22.0);
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(5.2);
 
-    let sigma: f64 = (s/s_ref).into();
+    let sigma: f64 = (s / s_ref).into();
 
     // this is dimensionless temperature
     let mut pi = 0.0;
@@ -31,9 +38,7 @@ pub fn p_s3_s(s: SpecificHeatCapacity) -> Pressure {
         let ni = coeffs[2];
 
         pi += ni * (sigma - 1.03).powi(ii as i32) * (sigma - 0.699).powi(ji as i32);
-    };
+    }
 
     return pi * p_ref;
-
 }
-

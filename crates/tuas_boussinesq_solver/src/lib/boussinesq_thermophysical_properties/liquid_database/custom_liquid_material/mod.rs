@@ -1,6 +1,19 @@
+//! User-defined liquid material property helpers.
+//!
+//! These functions let a caller supply their own property correlations (as
+//! `fn(ThermodynamicTemperature) -> ...` closures) for a liquid not otherwise
+//! in the database. Each getter range-checks the requested temperature against
+//! caller-supplied lower/upper bounds, then evaluates the supplied correlation
+//! for density (kg/m^3), dynamic viscosity (Pa·s), constant-pressure specific
+//! heat capacity (J/(kg·K)), or thermal conductivity (W/(m·K)). Specific
+//! enthalpy (J/kg) is obtained by numerically integrating the supplied `cp`
+//! correlation from the lower-bound temperature (taken as the h = 0 J/kg
+//! reference), and temperature (K) is recovered from enthalpy by root-finding
+//! that integral.
+
 #[warn(missing_docs)]
 
-// This library was developed for use in my PhD thesis under supervision 
+// This library was developed for use in my PhD thesis under supervision
 // of Professor Per F. Peterson. It is part of a thermal hydraulics
 // library in Rust that is released under the GNU General Public License
 // v 3.0. This is partly due to the fact that some of the libraries 
@@ -429,11 +442,16 @@ pub fn test_custom_fluid_temperature_from_enthalpy(){
 }
 
 
-/// function checks if a fluid temperature falls in a range (20-180C)
+/// Checks that `fluid_temp` lies between the caller-supplied
+/// `lower_bound_temperature` and `upper_bound_temperature`
+/// (the comparison is done in degrees Celsius).
 ///
-/// If it falls outside this range, it will panic
-/// or throw an error, and the program will not run
+/// Unlike the fixed-range salt/oil checks in this database, the valid range
+/// here is whatever the caller specifies via the two bound parameters.
 ///
+/// Returns `Ok(true)` when in range; otherwise prints a diagnostic message
+/// and returns `Err(TuasLibError::ThermophysicalPropertyTemperatureRangeError)`
+/// (it does not panic).
 pub fn range_check_custom_fluid(fluid_temp: ThermodynamicTemperature,
     upper_bound_temperature: ThermodynamicTemperature,
     lower_bound_temperature: ThermodynamicTemperature,

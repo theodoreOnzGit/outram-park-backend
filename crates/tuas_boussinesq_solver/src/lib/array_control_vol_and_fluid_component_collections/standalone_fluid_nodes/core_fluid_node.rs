@@ -1,5 +1,4 @@
 use ndarray::*;
-use ndarray_linalg::error::LinalgError;
 use uom::num_traits::Zero;
 use uom::si::f64::*;
 use uom::si::power::watt;
@@ -55,11 +54,8 @@ pub fn advance_timestep_fluid_node_array_pipe_high_peclet_number(
 
     if number_of_nodes <= 1 {
         return Err(
-            TuasLibError::LinalgError(
-            LinalgError::Shape(
-            ShapeError::from_kind(
-                ErrorKind::OutOfBounds
-            ))));
+            TuasLibError::ShapeMismatch(
+            ShapeError::from_kind(ErrorKind::OutOfBounds).to_string()));
     }
     // First things first, we need to set up 
     // how the CV interacts with the internal array
@@ -564,7 +560,7 @@ pub fn fluid_node_calculation_initial_test(){
 
         // csv writer 
 
-        let mut time_wtr = Writer::from_path("fluid_node_calc_time_profile.csv")
+        let mut time_wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("fluid_node_calc_time_profile.csv"))
             .unwrap();
 
         time_wtr.write_record(&["loop_calculation_time_nanoseconds",
@@ -574,8 +570,7 @@ pub fn fluid_node_calculation_initial_test(){
             "timestep_advance_time_ns",])
             .unwrap();
 
-        let mut temp_profile_wtr = Writer::from_path(
-            "fluid_node_temp_profile.csv")
+        let mut temp_profile_wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("fluid_node_temp_profile.csv"))
             .unwrap();
 
         // this is code for writing the array of required temperatures
@@ -1081,7 +1076,7 @@ pub fn fluid_node_backflow_calculation_initial_test(){
 
         // csv writer 
 
-        let mut time_wtr = Writer::from_path("fluid_node_backflow_calc_time_profile.csv")
+        let mut time_wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("fluid_node_backflow_calc_time_profile.csv"))
             .unwrap();
 
         time_wtr.write_record(&["loop_calculation_time_nanoseconds",
@@ -1091,8 +1086,7 @@ pub fn fluid_node_backflow_calculation_initial_test(){
             "timestep_advance_time_ns",])
             .unwrap();
 
-        let mut temp_profile_wtr = Writer::from_path(
-            "fluid_node_backflow_temp_profile.csv")
+        let mut temp_profile_wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("fluid_node_backflow_temp_profile.csv"))
             .unwrap();
 
         // this is code for writing the array of required temperatures

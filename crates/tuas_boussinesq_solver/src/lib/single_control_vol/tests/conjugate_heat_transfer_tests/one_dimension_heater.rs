@@ -197,7 +197,7 @@ pub fn one_dimension_ciet_heater_v_1_0_test_for_better_sampling_frequency(){
         // csv writer, for post processing 
 
 
-        let mut wtr = Writer::from_path("one_dimension_ciet_cht.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("one_dimension_ciet_cht.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds",
@@ -430,6 +430,12 @@ pub fn one_dimension_ciet_heater_v_1_0_test_for_better_sampling_frequency(){
     return ();
 }
 
+/// One-dimensional CIET heater v1.0 conjugate-heat-transfer test that
+/// exercises the automatic timestepping path: instead of a fixed step, the
+/// step size each iteration is taken from the control volumes' computed
+/// stability limits (conduction Fourier / Courant / max-temperature-change),
+/// and the resulting solid- and fluid-node temperatures (degC) are checked
+/// against the expected heater response.
 #[test]
 //#[ignore = "already collected auto timestep test data"]
 pub fn one_dimension_ciet_heater_v_1_0_auto_timestep_test(){
@@ -549,7 +555,7 @@ pub fn one_dimension_ciet_heater_v_1_0_auto_timestep_test(){
         // csv writer, for post processing 
 
 
-        let mut wtr = Writer::from_path("one_dimension_ciet_cht_autotimestep_test.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("one_dimension_ciet_cht_autotimestep_test.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds",
@@ -888,7 +894,7 @@ pub fn one_dimension_ciet_heater_v_1_0_functional_test(){
         // csv writer, for post processing 
 
 
-        let mut wtr = Writer::from_path("one_dimension_ciet_cht_functional_test.csv")
+        let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("one_dimension_ciet_cht_functional_test.csv"))
             .unwrap();
 
         wtr.write_record(&["time_seconds",

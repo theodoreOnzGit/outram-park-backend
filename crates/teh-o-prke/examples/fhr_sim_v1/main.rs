@@ -1,16 +1,26 @@
+#[cfg(not(target_os = "android"))]
 use std::{sync::{Arc, Mutex}, thread};
 
+#[cfg(not(target_os = "android"))]
 use uom::si::{f64::*, power::kilowatt};
 
+#[cfg(not(target_os = "android"))]
 use crate::app::{graph_data::PagePlotData, panel_enum::Panel};
 
+// GUI (egui/eframe) example — out of scope for Android, which has no windowing
+// stack and no C toolchain for the transitive `ring` dep. The real entry point,
+// its egui-using module, and the GUI dev-deps are all gated out on Android and
+// replaced by an empty `main`, so the example target still builds (to a no-op).
+#[cfg(target_os = "android")]
+fn main() {}
 
-/// this represents the first iteration 
+/// this represents the first iteration
 /// of the fhr simulator
 ///
-/// basically one can do a FHR loop 
+/// basically one can do a FHR loop
 /// with a permenantly steady state steam cycle
 /// the latter uses the tampines-steam-tables
+#[cfg(not(target_os = "android"))]
 #[cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 fn main(){
 
@@ -18,6 +28,7 @@ fn main(){
 
 
 }
+#[cfg(not(target_os = "android"))]
 pub fn fhr_simulator_v1() -> eframe::Result<()> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
@@ -40,6 +51,7 @@ pub fn fhr_simulator_v1() -> eframe::Result<()> {
         ),
     )
 }
+#[cfg(not(target_os = "android"))]
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 #[derive(Clone, Debug)]
@@ -55,6 +67,7 @@ pub struct FHRSimulatorApp {
     pub fhr_simulator_ptr_for_plotting: Arc<Mutex<PagePlotData>>
 }
 
+#[cfg(not(target_os = "android"))]
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 #[derive(Clone,Copy, Debug)]
@@ -121,6 +134,7 @@ pub struct FHRState {
     pub intermediate_loop_clockwise_flow_kg_per_s: f64,
 }
 
+#[cfg(not(target_os = "android"))]
 impl Default for FHRState {
     fn default() -> Self {
         let default_temperature_degc = 500.0;
@@ -164,6 +178,7 @@ impl Default for FHRState {
     }
 }
 
+#[cfg(not(target_os = "android"))]
 impl FHRState {
 
     pub fn obtain_average_heat_removal_rate_from_pebble_bed_and_reset_counter(
@@ -179,6 +194,7 @@ impl FHRState {
 }
 
 
+#[cfg(not(target_os = "android"))]
 impl FHRSimulatorApp {
     /// Called once before the first frame.
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
@@ -234,6 +250,7 @@ impl FHRSimulatorApp {
 
     
 }
+#[cfg(not(target_os = "android"))]
 impl Default for FHRSimulatorApp {
     fn default() -> Self {
 
@@ -252,4 +269,5 @@ impl Default for FHRSimulatorApp {
     }
 }
 
+#[cfg(not(target_os = "android"))]
 pub mod app;

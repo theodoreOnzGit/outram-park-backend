@@ -1,37 +1,36 @@
 [package]
 name = "tampines-steam-tables"
-version = "0.2.0"
+version = "0.2.4"
 edition.workspace = true
 license.workspace = true
-description = "Steam Tables for the TAMPINES Library"
+description = "IAPWS-IF97 steam tables for the TAMPINES simulator -- draws from (not a 1:1 port of) the rust-steam crate; independent OUTRAM PARK implementation, not the original rust-steam project"
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 categories.workspace = true
 # `docs/` holds LaTeX sources and build artifacts (.aux/.bbl/.bcf/...) that are
 # not crate content.
-exclude = ["docs"]
+exclude = ["docs", "verification_and_validation/*.csv"]
 
 [dependencies]
 approx.workspace = true
 ndarray.workspace = true
 thiserror.workspace = true
 uom.workspace = true
-# now resolves to the in-tree crate rather than crates.io
+
+
+# All dev-dependencies below are used ONLY by the FHR-simulator / Rankine-cycle
+# examples (the library itself and its unit tests are TUAS-free and GUI-free).
+# They are Android-hostile: `tuas_boussinesq_solver` pulls in system BLAS via
+# `ndarray-linalg`, and the `egui`/`eframe` GUI stack pulls in `ring`, which
+# needs an Android C toolchain (`cc-rs`). Gate the whole block off Android so
+# `cargo check --target aarch64-linux-android --tests --examples` stays clean.
+# The examples themselves carry `#![cfg(not(target_os = "android"))]` so they
+# compile to nothing on Android.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+# resolves to the in-tree crate rather than crates.io
 tuas_boussinesq_solver.workspace = true
-
-[target.'cfg(windows)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
-
-[target.'cfg(macos)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
-
-[target.'cfg(unix)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["openblas-system"] }
-
-[dev-dependencies]
 teh-o-prke.workspace = true
-
 chem-eng-real-time-process-control-simulator.workspace = true
 egui.workspace = true
 eframe.workspace = true
@@ -53,9 +52,8 @@ path = "examples/fhr_sim_v1/main.rs"
 name = "depressurisation"
 path = "examples/depressurisation/main.rs"
 
-[[example]]
-name = "fhr_sim_v2"
-path = "examples/fhr_sim_v2/main.rs"
+# fhr_sim_v2 moved to crates/tampines/examples/fhr_sim_v2/ (op-dt3.7) -- its
+# Nordheim-Fuchs kinetics reconstruction lives there.
 
 [[example]]
 name = "rankine_cycle"

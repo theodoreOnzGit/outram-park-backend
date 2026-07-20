@@ -1,3 +1,20 @@
+//! Fluid-component (pressure-loss / mass-flowrate) behaviour for a `FluidArray`.
+//!
+//! This module holds the `DimensionlessDarcyLossCorrelations` enum, which
+//! encodes the dimensionless friction/form-loss law of a component as a
+//! function of Reynolds number: a pipe (Churchill Darcy friction factor times
+//! L/D plus a form-loss K), a simple Reynolds power law (f_darcy = A + B Re^C),
+//! or Ergun (packed bed, not yet implemented). From it, the code derives the
+//! Bejan number, the pressure loss (Pa), and the Reynolds number from a given
+//! pressure loss (root-finding on the Bejan/Reynolds relation).
+//!
+//! It also implements the `FluidArray` getters/setters that make the array
+//! behave as a fluid component: mass flowrate (kg/s), pressure loss (Pa),
+//! cross-sectional area (m^2), hydraulic diameter (m, 4A/P), and
+//! temperature-dependent fluid viscosity (Pa.s) and density (kg/m^3) evaluated
+//! at the array bulk temperature, plus incline angle and internal pressure
+//! source (e.g. a simulated pump).
+
 use crate::boussinesq_thermophysical_properties::density::try_get_rho;
 use crate::boussinesq_thermophysical_properties::dynamic_viscosity::try_get_mu_viscosity;
 use crate::tuas_lib_error::TuasLibError;

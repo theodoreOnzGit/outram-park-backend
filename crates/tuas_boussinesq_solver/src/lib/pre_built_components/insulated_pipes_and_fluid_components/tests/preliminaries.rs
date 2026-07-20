@@ -118,6 +118,11 @@ pub fn calc_overall_thermal_resistance_for_pipe(
 }
 
 
+/// Sanity-checks the nodalised conductance (UA) calculations for the 1 m
+/// insulated pipe: builds the component, computes the per-node
+/// fluid-to-shell, shell-to-insulation and insulation-to-ambient thermal
+/// resistances (in K/W) and asserts the assembled total against a
+/// hand-computed reference.
 #[test]
 pub fn assert_nodalised_ua_calcs(){
 
@@ -264,6 +269,9 @@ pub fn assert_nodalised_ua_calcs(){
 }
 
 
+/// Baseline 1 m insulated pipe LMTD check at nominal (full 5.08 cm)
+/// insulation: the computed outlet temperature (99.965 degC) agrees with the
+/// analytical LMTD value (99.959 degC).
 // 1m test
 #[test]
 pub fn static_mixer_41_label_6_1_meter_test(){
@@ -533,8 +541,12 @@ pub fn static_mixer_41_label_6_1_meter_test(){
 }
 
 
+/// 1 m insulated pipe LMTD check with the insulation thickness reduced
+/// tenfold (0.508 cm instead of 5.08 cm), increasing parasitic heat loss:
+/// the computed outlet temperature (99.883 degC) still agrees with the
+/// analytical LMTD value (99.875 degC).
 // 1m test
-// with reduced insulation thickness 
+// with reduced insulation thickness
 // instead of 5.08 cm,
 // it's 0.508 cm
 #[test]
@@ -805,6 +817,10 @@ pub fn static_mixer_41_label_6_reduced_insulation_thickness_1_meter_test(){
 }
 
 
+/// 1 m insulated pipe LMTD check combining reduced insulation thickness,
+/// added ambient thermal resistance and an increased Nusselt number: the
+/// computed outlet temperature (99.786 degC) agrees with the analytical LMTD
+/// value (99.760 degC).
 // 1m test
 #[test]
 pub fn static_mixer_41_label_6_1_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt(){

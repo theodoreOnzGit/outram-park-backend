@@ -1,3 +1,17 @@
+//! One-dimensional Cartesian conducting-medium array control volume.
+//!
+//! This module holds [`CartesianConduction1DArray`], an array control volume
+//! that models pure conduction along a single Cartesian (x-direction) axis
+//! through one homogeneous material. The medium is discretised into a chain of
+//! finite-difference temperature nodes (all temperatures in kelvin) linked by
+//! thermal resistors, with a [`SingleCVNode`] at each end so it can couple to
+//! neighbouring control volumes.
+//!
+//! What belongs here: the array type and its constructors (this file), plus the
+//! per-timestep machinery split across the `preprocessing`, `calculation`, and
+//! `postprocessing` submodules (conductance / volumetric-heat-capacity arrays,
+//! the implicit-Euler temperature advance, and temperature retrieval). Transport
+//! or two-dimensional / cylindrical conduction models do not belong here.
 use approx::assert_relative_eq;
 use ndarray::*;
 use uom::si::f64::*;

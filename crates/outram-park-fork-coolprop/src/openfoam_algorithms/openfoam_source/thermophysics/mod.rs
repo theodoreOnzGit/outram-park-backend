@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+// Derived from OpenFOAM (www.openfoam.com)
+// Copyright (C) 2004-2023 OpenFOAM Foundation
+// Copyright (C) 2016-2023 OpenCFD Ltd.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
+//! Species-level thermophysics (Layer 1h): physical `constants`, the `uom`
+//! `quantities` aliases, and the composable model families — equations of
+//! state (`eos`), caloric/enthalpy models (`thermo`), and transport-property
+//! models (`transport`) — that the field-level `fluid_thermo` layer evaluates
+//! cell-by-cell. Mirrors OpenFOAM's `src/thermophysicalModels/specie/`.
+
+pub mod constants;
+pub(crate) mod error;
+pub mod quantities;
+pub mod imports;
+pub mod eos;
+pub mod thermo;
+pub mod transport;
+
+
+pub use constants::*;
+pub use error::*;
+pub use quantities::*;
+pub use imports::*;
+pub use eos::*;
+pub use thermo::*;
+pub use transport::*;

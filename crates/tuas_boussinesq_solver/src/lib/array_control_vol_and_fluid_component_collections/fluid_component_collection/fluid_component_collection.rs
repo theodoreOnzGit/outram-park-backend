@@ -78,9 +78,11 @@ pub struct FluidComponentCollection {
 /// or FluidComponentSuperCollection are connected in series or parallel
 #[derive(Debug,Clone,PartialEq)]
 pub enum FluidComponentCollectionOreintation {
-    /// fluid components are connected in series
-    Parallel,
     /// fluid components are connected in parallel
+    /// (they share the same pressure change; mass flowrates add up)
+    Parallel,
+    /// fluid components are connected in series
+    /// (they share the same mass flowrate; pressure changes add up)
     Series
 }
 

@@ -14,16 +14,29 @@ use crate::boussinesq_thermophysical_properties::*;
 use crate::tuas_lib_error::TuasLibError;
 use uom::si::thermodynamic_temperature::kelvin;
 
+/// Intended to return the mass density of a tungsten heating element in kg/m^3.
+///
+/// Unimplemented placeholder — currently panics via `todo!()`.
 #[inline]
 pub fn tungsten_density() -> Result<MassDensity,TuasLibError> {
     todo!()
 }
 
 
+/// Intended to return the surface roughness (as a `uom` `Length`) of a
+/// tungsten heating element.
+///
+/// Unimplemented placeholder — currently panics via `todo!()`.
 pub fn tungsten_surf_roughness() -> Length {
     todo!()
 }
 
+/// Intended to return a rough estimate of the specific heat capacity of a
+/// tungsten heating element in J/(kg·K).
+///
+/// Range-checks the temperature to 10–650 °C and then panics: this is an
+/// unimplemented placeholder (`todo!()`), and the range check currently reuses
+/// the Pyrogel HPS material tag.
 #[inline]
 pub fn tungsten_specific_heat_capacity_rough_estimate(
     temperature: ThermodynamicTemperature) -> SpecificHeatCapacity {
@@ -39,6 +52,10 @@ pub fn tungsten_specific_heat_capacity_rough_estimate(
 }
 
 
+/// Intended to return the specific enthalpy of a tungsten heating element in
+/// J/kg.
+///
+/// Unimplemented placeholder — currently panics via `todo!()`.
 #[inline]
 pub fn tungsten_specific_enthalpy(
     temperature: ThermodynamicTemperature) -> AvailableEnergy {
@@ -46,6 +63,12 @@ pub fn tungsten_specific_enthalpy(
     todo!()
 }
 
+/// Intended to return the low-temperature specific heat capacity of a tungsten
+/// heating element in J/(kg·K) via a cubic spline.
+///
+/// Range-checks the temperature to 9.88–39.819 °C, builds the spline, then
+/// panics: this is an unimplemented placeholder (`todo!()`) that still carries
+/// the Pyrogel HPS spline data.
 #[inline]
 pub fn tungsten_hps_specific_heat_capacity_spline_low_temp(
     temperature: ThermodynamicTemperature) -> 
@@ -69,8 +92,14 @@ Result<SpecificHeatCapacity,TuasLibError> {
     todo!()
 }
 
+/// Intended to return DSC-derived specific power (heat flow per unit mass, a
+/// `uom` `SpecificPower`) for a tungsten heating element.
+///
+/// Range-checks the temperature to 35–327 °C, builds the spline, then panics:
+/// this is an unimplemented placeholder (`todo!()`) that still carries the
+/// Pyrogel HPS DSC data.
 #[inline]
-pub fn tungsten_spline_data(temperature: ThermodynamicTemperature,) 
+pub fn tungsten_spline_data(temperature: ThermodynamicTemperature,)
     -> Result<SpecificPower, TuasLibError> {
 
     range_check(
@@ -154,6 +183,12 @@ pub fn tungsten_spline_data(temperature: ThermodynamicTemperature,)
     todo!()
 }
 
+/// Intended to return the thermal conductivity of a tungsten heating element
+/// in W/(m·K) via a cubic spline (source data tabulated in mW/(m·K)).
+///
+/// Range-checks the temperature to 0–650 °C, builds the spline, then panics:
+/// this is an unimplemented placeholder (`todo!()`) that still carries the
+/// Pyrogel HPS conductivity data.
 #[inline]
 pub fn tungsten_thermal_conductivity(
     temperature: ThermodynamicTemperature) -> Result<ThermalConductivity,TuasLibError> {
@@ -183,6 +218,12 @@ pub fn tungsten_thermal_conductivity(
     todo!()
 }
 
+/// Intended to return the temperature of a tungsten heating element (as a
+/// `uom` `ThermodynamicTemperature`) given its specific enthalpy in J/kg,
+/// via an inverted spline plus Brent-Dekker refinement.
+///
+/// Unimplemented placeholder — the routine runs the spline/root-finding setup
+/// but panics via `todo!()` at the return, and still carries Pyrogel HPS data.
 #[inline]
 pub (crate) fn tungsten_spline_temp_attempt_1_from_specific_enthalpy(
     h_fiberglass: AvailableEnergy) -> ThermodynamicTemperature {

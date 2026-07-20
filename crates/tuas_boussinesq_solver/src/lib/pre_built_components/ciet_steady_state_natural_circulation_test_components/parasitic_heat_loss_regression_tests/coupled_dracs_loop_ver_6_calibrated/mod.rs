@@ -1,3 +1,14 @@
+//! Version 6 (calibrated) coupled DRACS + primary loop regression tests.
+//!
+//! Building on the version 2/3 STHE and insulation calibration, version 6 also
+//! calibrates the heater Nusselt-number correction factor so the simulated
+//! metallic heater surface temperature (degC) matches the CIET set-C data, with
+//! heat loss to ambient set to zero (heat is added to the metal, not directly
+//! to the fluid, unlike the SAM back-calculated approach). Each set-C point
+//! (C-1 to C-9, heater powers ~841-2765 W) asserts DRACS/primary natural-
+//! circulation mass flow rates (kg/s) and the heater surface temperature (degC).
+//! Tests are `#[ignore]`d legacy debugging runs.
+
 /// test series took about 230 s
 /// c1
 /// Version 4 increases the K of pipe 22 to 45.95

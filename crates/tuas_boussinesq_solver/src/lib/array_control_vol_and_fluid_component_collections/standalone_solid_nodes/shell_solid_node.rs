@@ -1,5 +1,4 @@
 use ndarray::*;
-use ndarray_linalg::error::LinalgError;
 
 use uom::si::f64::*;
 
@@ -77,11 +76,8 @@ pub fn advance_timestep_solid_cylindrical_shell_node_no_axial_conduction(
 
     if number_of_nodes <= 1 {
         return Err(
-            TuasLibError::LinalgError(
-            LinalgError::Shape(
-            ShapeError::from_kind(
-                ErrorKind::OutOfBounds
-            ))));
+            TuasLibError::ShapeMismatch(
+            ShapeError::from_kind(ErrorKind::OutOfBounds).to_string()));
     } else if number_of_nodes > 1 {
 
         let mut coefficient_matrix: Array2<ThermalConductance> = 
@@ -396,7 +392,7 @@ fn fluid_solid_node_calculation_initial_test(){
 
         // csv writer 
 
-        let mut time_wtr = Writer::from_path("cht_nodes_calc_time_profile.csv")
+        let mut time_wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("cht_nodes_calc_time_profile.csv"))
             .unwrap();
 
         time_wtr.write_record(&["loop_calculation_time_nanoseconds",
@@ -406,8 +402,7 @@ fn fluid_solid_node_calculation_initial_test(){
             "timestep_advance_time_ns",])
             .unwrap();
 
-        let mut temp_profile_wtr = Writer::from_path(
-            "cht_nodes_temp_profile.csv")
+        let mut temp_profile_wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path("cht_nodes_temp_profile.csv"))
             .unwrap();
 
         // this is code for writing the array of required temperatures

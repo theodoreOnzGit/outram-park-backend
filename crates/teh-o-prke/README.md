@@ -1,4 +1,8 @@
 # teh-o-prke
+
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
 Point Reactor Kinetics Equations Module for the Teh-O package
 
 Teh-O is the Transport, Eigenvalue and Hybrid Open Source Solver. It is meant to 
@@ -38,4 +42,12 @@ algorithm source files available in OpenFOAM. These are licensed files
 are available under GPLv3. The source files in Rust directly translte 
 these source files. To respect OpenFOAM copyright, the PRKE files here 
 are also released under GPLv3.
+
+**The dense LU matrix solver (`src/matrix.rs`) is also from OpenFOAM** —
+specifically, it is an inlined copy of `outram-foam-basic-lib`'s
+`matrix::SquareMatrix` (itself an OpenFOAM translation), copied in directly
+rather than kept as a path dependency so that the inter-crate dependency
+graph stays acyclic (a future `tampines`/`nee_soon` composition can pull in
+`teh-o-prke` and `tuas_boussinesq_solver` together without a dependency
+loop). See the header of `src/matrix.rs` for the full attribution.
 

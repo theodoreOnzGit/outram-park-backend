@@ -1,0 +1,90 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| Test fixture: unit cube meshed 3 x 3 x 3 (27 hexahedra), six wall patches.   |
+| A fully 3-D manifold block used to exercise blockMesh + polyDualMesh.        |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+
+convertToMeters 1.0;
+
+vertices
+(
+    (0 0 0)
+    (1 0 0)
+    (1 1 0)
+    (0 1 0)
+    (0 0 1)
+    (1 0 1)
+    (1 1 1)
+    (0 1 1)
+);
+
+blocks
+(
+    hex (0 1 2 3 4 5 6 7) (3 3 3) simpleGrading (1 1 1)
+);
+
+edges
+(
+);
+
+boundary
+(
+    xMin
+    {
+        type wall;
+        faces
+        (
+            (0 4 7 3)
+        );
+    }
+    xMax
+    {
+        type wall;
+        faces
+        (
+            (1 2 6 5)
+        );
+    }
+    yMin
+    {
+        type wall;
+        faces
+        (
+            (0 1 5 4)
+        );
+    }
+    yMax
+    {
+        type wall;
+        faces
+        (
+            (3 7 6 2)
+        );
+    }
+    zMin
+    {
+        type wall;
+        faces
+        (
+            (0 3 2 1)
+        );
+    }
+    zMax
+    {
+        type wall;
+        faces
+        (
+            (4 5 6 7)
+        );
+    }
+);
+
+mergePatchPairs
+(
+);

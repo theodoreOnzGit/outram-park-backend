@@ -1,3 +1,13 @@
+//! Courant / stability numbers for explicit 1D and 3D thermal-hydraulic
+//! marching schemes.
+//!
+//! Provides the Courant-Friedrichs-Lewy (CFL) number for fluid advection
+//! (a 1D form and OpenFOAM-style 3D control-volume forms), the Fourier number
+//! for conduction, a Biot-Fourier product for convection, and an
+//! enthalpy-transport Courant number. Each function takes `uom`-typed
+//! quantities and returns the dimensionless number as `f64`, returning
+//! `Err(value)` when the relevant stability limit is exceeded.
+
 /// calculates the courant number for a fluid
 /// given a one dimensional model
 use uom::si::{f64::*, volume_rate::cubic_meter_per_second};

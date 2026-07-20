@@ -1,3 +1,20 @@
+//! First-iteration model of the UW-Madison FLiBe loop.
+//!
+//! This iteration treats every pipe segment as an adiabatic (or bare)
+//! fluid component and does not yet model radiative heating explicitly.
+//! It contains three sub-modules:
+//!
+//! - [`components`] — constructors for the 13 loop pipe segments (riser
+//!   heater, bends, cold/hot legs), each returning an insulated or
+//!   non-insulated fluid component with its length (m), incline angle
+//!   (degrees) and geometry filled in.
+//! - [`thermal_hydraulics_calculations`] — links the components into a single
+//!   circulating branch, solves the loop mass flowrate (kg/s), advances the
+//!   coupled thermal-hydraulic state by a timestep, and reports diagnostic
+//!   temperatures (K / degC).
+//! - [`parasitic_heat_loss_calibration`] — back-calculates the heat actually
+//!   absorbed by the FLiBe (W) from the reference test tables to calibrate
+//!   parasitic heat loss / insulation.
 
 /// components for first iteration of UW madison FLiBe loop model
 ///

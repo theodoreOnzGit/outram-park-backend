@@ -1,4 +1,10 @@
-/// Emulates Frequency Response test by Chris Poresky, 
+//! Conjugate-heat-transfer verification tests built from `SingleCVNode`
+//! objects, reproducing the CIET heater (a fluid core exchanging heat through
+//! a metallic shell). Includes a 1D frequency-response case and several
+//! nodalisation/speedup variants of the heater v2.0 steady state, comparing
+//! computed node temperatures (degC) against the expected heater response.
+
+/// Emulates Frequency Response test by Chris Poresky,
 /// Poresky, C. (2017). Frequency response testing in the ciet facility. Berkeley, CA.
 mod one_dimension_heater;
 

@@ -1,0 +1,17 @@
+[package]
+name = "kovan-literature"
+description = "KOVAN nuclear-engineering knowledge archive: PDF → Markdown → KovanDocument → BibTeX."
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kovan-common.workspace = true
+serde.workspace = true
+toml.workspace = true
+pulldown-cmark.workspace = true
+# PDF ingestion — pure-Rust, offline, Android-buildable, MIT (GPLv3-compatible).
+# pdf-extract: deterministic plain-text extraction. lopdf: low-level PDF object
+# model, used for Info-dict metadata and raw image-asset extraction.
+pdf-extract.workspace = true
+lopdf.workspace = true

@@ -1,3 +1,24 @@
+//! Single control-volume (`SingleCVNode`) — the crate's core lumped thermal
+//! node together with its node-to-node and node-to-boundary-condition
+//! interactions.
+//!
+//! A `SingleCVNode` stores a lumped state for one fixed control volume: its
+//! specific enthalpy (J/kg), temperature (K), material, mass (kg), pressure
+//! (Pa) and geometric volume (m^3). Its methods abstract away the
+//! heat-transfer bookkeeping between adjacent control volumes and between a
+//! control volume and a boundary condition — each interaction pushes a power
+//! contribution (W) onto the node's enthalpy-rate vector and, where relevant,
+//! a mesh-stability timestep limit (s), so that `advance_timestep` can march
+//! the node forward one explicit Euler step.
+//!
+//! By design this module deliberately does NOT hold logic for interacting
+//! with array control volumes; that lives in
+//! `array_control_vol_and_fluid_component_collections` to keep this code
+//! readable. Submodules: `calculation` (advancing one timestep),
+//! `preprocessing` (conduction / Courant / temperature-change timestep
+//! limits), `interaction_between_two_cvs` and
+//! `wrappers_for_heat_transfer_interaction` (node-to-node heat transfer), and
+//! `boundary_condition_interactions` (node-to-boundary-condition heat/flow).
 use std::f64::consts::PI;
 use uom::si::area::square_meter;
 use uom::si::f64::*;

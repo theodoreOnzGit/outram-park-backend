@@ -1,3 +1,11 @@
+//! Pre-built pipe pressure-loss / mass-flowrate calculations.
+//!
+//! `pipe_calc_pressure_loss` maps a mass flowrate to the pressure loss across a
+//! straight pipe (including a form-loss coefficient K), and
+//! `pipe_calc_mass_flowrate` is its inverse. Both compose the Reynolds/Bejan
+//! non-dimensionalisation with the Churchill friction factor, take `uom`-typed
+//! pipe geometry and fluid properties, and handle reverse (negative) flow.
+
 use uom::si::f64::*;
 
 use super::{churchill_friction_factor, dimensionalisation};
@@ -70,8 +78,8 @@ pub fn pipe_calc_pressure_loss(
 
 
 
-/// a function which calculates pressure
-/// loss given a mass flowrate and pipe properties
+/// a function which calculates mass flowrate
+/// given a pressure loss and pipe properties
 pub fn pipe_calc_mass_flowrate(
     pressure_loss: Pressure,
     cross_sectional_area: Area,

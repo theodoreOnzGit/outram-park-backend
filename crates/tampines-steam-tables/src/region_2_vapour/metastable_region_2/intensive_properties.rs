@@ -124,8 +124,13 @@ use uom::typenum::{Z0, P1, P2, N1};
 // * `N`: Amount of substance dimension.
 // * `J`: Luminous intensity dimension.
 // * `K`: Kind.
+/// Inverse pressure, 1/Pa (SI units Pa⁻¹) — the physical dimension of an
+/// isothermal compressibility. Named alias for the raw `uom` quantity so the
+/// return types below read clearly.
 pub type InversePressure = Quantity<ISQ<P1, N1, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
-/// Returns the region-1 isobaric isothermal compressibility
+/// Isothermal compressibility kappa_T (1/Pa) of **metastable** Region 2
+/// (supersaturated vapour), from the `(T,p)` metastable Gibbs formulation.
+/// Temperature in K, pressure in Pa.
 pub fn kappa_t_tp_2_metastable(t: ThermodynamicTemperature, p: Pressure) -> InversePressure {
     let pi = pi_2(p);
     let num = 1.0 - pi.powi(2) * gamma_metastable_pi_pi_2_res(t, p);

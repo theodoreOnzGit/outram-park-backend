@@ -1,4 +1,19 @@
-/// Tutorial 1 shows how to make a pipe component 
+//! Tutorials for using [`InsulatedFluidComponent`], forming part of the
+//! user guide. Each tutorial is a runnable `#[test]` that walks through one
+//! usage scenario top-to-bottom.
+//!
+//! Submodule map:
+//! - [`tutorial_1`] — pressure loss (Pa) from a given mass flowrate (kg/s).
+//! - [`tutorial_2`] — mass flowrate (kg/s) from a given pressure loss (Pa).
+//! - [`tutorial_3`] — pressure change versus pressure drop (hydrostatic
+//!   head for natural circulation).
+//! - [`tutorial_4`] — basic heat transfer through a pipe.
+//! - [`tutorial_5`] — combined heat transfer and fluid mechanics in one
+//!   timestep.
+//! - [`tutorial_6`] — a generic Fluoride-salt-cooled High-temperature
+//!   Reactor (gFHR) flow scenario using a custom graphite pipe material.
+
+/// Tutorial 1 shows how to make a pipe component
 /// and obtain pressure losses given a mass flowrate
 pub mod tutorial_1;
 

@@ -1,4 +1,12 @@
 #![warn(missing_docs)]
+//! Form-loss (fLDK) correlations for components whose Darcy friction factor
+//! and/or form-loss coefficient K are supplied by the caller as functions.
+//!
+//! The dimensionless pressure-loss group is `fLDK = f * (L/D) + K`, and the
+//! Bejan number (dimensionless pressure loss) is `Be_D = 0.5 * fLDK * Re^2`.
+//! All inputs and outputs are bare `f64` dimensionless quantities (Reynolds
+//! number, relative roughness, `L/D`). Reynolds number is recovered from a
+//! Bejan number by bisection root-finding.
 extern crate peroxide;
 use peroxide::prelude::*;
 

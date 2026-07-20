@@ -6,8 +6,8 @@ use crate::tuas_lib_error::TuasLibError;
 
 impl FluidArray {
 
-    /// attaches an solid column array control volume to the front of this 
-    /// fluid array control volume 
+    /// attaches another fluid array control volume to the front of this
+    /// fluid array control volume
     /// (back --- cv_self --- front) ---- (back --- cv_other --- front)
     ///
     pub fn link_fluid_array_to_the_front_of_this_fluid_array(
@@ -29,9 +29,9 @@ impl FluidArray {
             interaction)
     }
 
-    /// attaches an solid column 
-    /// array control volume to the back of this 
-    /// fluid array control volume 
+    /// attaches another fluid array
+    /// control volume to the back of this
+    /// fluid array control volume
     /// (back --- cv_other --- front) ---- (back --- cv_self --- front)
     ///
     pub fn link_fluid_array_to_the_back_of_this_fluid_array(

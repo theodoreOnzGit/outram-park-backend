@@ -1,5 +1,8 @@
 
 
+/// development test: heated section plus top/bottom heads and the MX-10 static
+/// mixer downstream, but without structural-support heat losses; advances the
+/// assembled components through a transient.
 #[test]
 pub fn heater_plus_mx_10_without_supports(){
     use uom::si::f64::*;

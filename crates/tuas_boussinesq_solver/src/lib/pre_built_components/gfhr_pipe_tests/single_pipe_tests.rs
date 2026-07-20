@@ -39,13 +39,12 @@ pub fn single_pipe_flibe_mass_flow_1200_kg_per_s(){
         );
 
 }
-/// tests for flibe pipe, getting pressure drop 
+/// tests for flibe pipe, recovering the mass flowrate from a given pressure
+/// change (the inverse of the forward test above).
 ///
-/// -983020.7855354407 Pa 
-/// and 
-/// 943070.5448316006 Pa 
-/// respectively
-/// mass flowrate should be 1200 kg/s 
+/// A pressure change of -1030352.187 Pa maps back to +1200 kg/s and
+/// 906506.4112 Pa maps back to -1200 kg/s (matching the forward equation to
+/// within a 1e-5 relative tolerance).
 #[test]
 pub fn single_pipe_flibe_pressure_drop_for_mass_flow_1200_kg_per_s(){
     // set initial temp 

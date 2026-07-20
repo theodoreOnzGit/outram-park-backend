@@ -1,6 +1,6 @@
 [package]
 name = "tuas_boussinesq_solver"
-version = "0.1.1"
+version = "0.1.4"
 edition.workspace = true
 license.workspace = true
 description = "Thermo-hydraulic Uniphase Solver for Advection and Convection in Salt Flows (TUAS)"
@@ -23,15 +23,6 @@ roots.workspace = true
 thiserror.workspace = true
 uom.workspace = true
 
-[target.'cfg(windows)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
-
-[target.'cfg(macos)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
-
-[target.'cfg(unix)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["openblas-system"] }
-
 [lib]
 name = "tuas_boussinesq_solver"
 path = "src/lib/lib.rs"
@@ -44,16 +35,23 @@ name = "ciet_educational_simulator"
 # the natural circulation loop requires a PID controller
 chem-eng-real-time-process-control-simulator.workspace = true
 
-egui.workspace = true
-eframe.workspace = true
 log.workspace = true
 
 # You only need serde if you want app persistence:
 serde.workspace = true
+uom.workspace = true
+
+# GUI-only dev-deps for the `ciet_educational_simulator` example. These are
+# Android-hostile: egui/eframe pull in `ring` (via ureq/rustls), which needs a
+# C compiler that the Android target has no toolchain for here. The example
+# itself is gated off Android with `#![cfg(not(target_os = "android"))]`, so
+# these deps must be absent from the Android dependency graph too.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+egui.workspace = true
+eframe.workspace = true
 egui_extras.workspace = true
 egui_plot.workspace = true
 image.workspace = true
-uom.workspace = true
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

@@ -1,5 +1,14 @@
-/// This contains tests for the hot leg calibration of insulation 
-/// thickness, 
+//! Primary-loop insulation-thickness calibration and validation tests.
+//!
+//! These tests tune the pipe insulation thickness (in cm) of the primary-loop
+//! hot leg (heater outlet -> DHX shell inlet) and cold leg (DHX shell bottom
+//! outlet -> heater inlet) so the simulated parasitic heat loss reproduces
+//! Zweibaum's steady-state temperatures (primary-loop mass flow rate in kg/s;
+//! temperatures in degC). A calibrated thickness of about 0.24 cm was found
+//! suitable across the hot-leg datasets.
+
+/// This contains tests for the hot leg calibration of insulation
+/// thickness,
 ///
 /// a suitable calibrated thickness was found to be about 0.24 cm
 ///

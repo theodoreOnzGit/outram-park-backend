@@ -4,6 +4,10 @@ use uom::si::pressure::megapascal;
 use uom::si::f64::*;
 use uom::si::available_energy::kilojoule_per_kilogram;
 
+/// Region 2 backward `(h,s)` equation: pressure p (Pa) from specific enthalpy
+/// (J/kg) and specific entropy (J/(kg·K)). Dispatches to the 2a / 2b / 2c
+/// subregion correlations by the 5.85 kJ/(kg·K) (2b|2c) and 4 MPa (2a|2b)
+/// boundaries.
 #[inline]
 pub fn p_hs_2(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
 

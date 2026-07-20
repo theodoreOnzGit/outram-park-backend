@@ -6,8 +6,11 @@ use std::thread;
 
 impl InsulatedFluidComponent {
 
-    /// advances timestep for each HeatTransferEntity within the 
-    /// NonInsulatedPipe
+    /// advances the timestep for each HeatTransferEntity within this
+    /// InsulatedFluidComponent (pipe fluid array, pipe shell and
+    /// insulation), updating each control-volume array's temperatures.
+    ///
+    /// `timestep` is the time increment in seconds.
     #[inline]
     pub fn advance_timestep(&mut self, 
     timestep: Time) -> Result<(),TuasLibError> {
@@ -20,8 +23,12 @@ impl InsulatedFluidComponent {
     }
 
 
-    /// advances timestep by spawning a thread 
-    /// 
+    /// advances the timestep by cloning this component, moving the clone
+    /// into a spawned thread that runs `advance_timestep`, and returning the
+    /// `JoinHandle`. Unwrapping the handle yields the advanced component.
+    ///
+    /// This lets several components advance in parallel; `timestep` is the
+    /// time increment in seconds.
     pub fn advance_timestep_thread_spawn(&self,
         timestep: Time,) -> JoinHandle<Self> {
 

@@ -1,4 +1,14 @@
-/// thermal hydraulics library error 
+//! Near-stable prelude: the recommended `use
+//! tuas_boussinesq_solver::prelude::beta_testing::*;` import surface.
+//!
+//! Re-exports the crate's commonly used public items — the error type,
+//! control volumes and heat-transfer entities (`SingleCVNode`, `FluidArray`,
+//! `SolidColumn`, `HeatTransferEntity`), boundary conditions (`BCType`),
+//! materials, a set of pre-built CIET components, thermophysical-property
+//! helper functions, and the heat-transfer interaction enums and geometric
+//! dimension newtypes.
+
+/// thermal hydraulics library error
 pub use crate::tuas_lib_error::TuasLibError;
 
 /// heat transfer entities 

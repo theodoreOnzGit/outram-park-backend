@@ -30,7 +30,10 @@ use crate::boussinesq_thermophysical_properties::solid_database::ss_304_l::steel
 // here only makes it accessible to the 
 // specific_enthalpy/mod.rs 
 // nothing else
-pub(in crate::boussinesq_thermophysical_properties) 
+/// Returns the temperature (K) of a solid `Material` from its specific
+/// enthalpy (J/kg) by dispatching on the solid-material enum variant (spline
+/// or root-finding inverse). Panics if passed a liquid material.
+pub(in crate::boussinesq_thermophysical_properties)
 fn get_solid_temperature_from_specific_enthalpy(material: Material,
     h_material: AvailableEnergy) -> ThermodynamicTemperature {
     
@@ -89,8 +92,11 @@ fn get_solid_temperature_from_specific_enthalpy(material: Material,
 // here only makes it accessible to the 
 // specific_enthalpy/mod.rs 
 // nothing else
-pub(in crate::boussinesq_thermophysical_properties) 
-fn get_liquid_temperature_from_specific_enthalpy(material: Material, 
+/// Returns the temperature (K) of a liquid `Material` from its specific
+/// enthalpy (J/kg) by dispatching on the liquid-material enum variant. Panics
+/// if passed a solid material.
+pub(in crate::boussinesq_thermophysical_properties)
+fn get_liquid_temperature_from_specific_enthalpy(material: Material,
     fluid_enthalpy: AvailableEnergy) -> ThermodynamicTemperature {
 
     let liquid_material: LiquidMaterial = match material {

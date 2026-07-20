@@ -1,12 +1,22 @@
+//! Version 3 (calibrated) coupled DRACS + primary loop regression tests.
+//!
+//! Version 3 uses the same STHE / insulation calibration as version 2, but the
+//! vertical TCHX is split into two equal halves as in SAM: only the bottom half
+//! carries the calibrated heat-transfer coefficient, while the rest of the TCHX
+//! (the horizontal TCHX and 35b1) is insulated. Tests are `#[ignore]`d legacy
+//! debugging runs that check DRACS/primary natural-circulation mass flow rates
+//! (kg/s) for set-C data points (heater powers ~841-2765 W) against experimental
+//! data, expecting ~8.5% over-prediction.
+
 /// c1 for
-/// version 3 of coupled DRACS loop 
+/// version 3 of coupled DRACS loop
 ///
 /// for version 3, simple calibration is done as with version 2,
 /// but the vertical TCHX is split into two equal halves as was done in SAM,
 /// only the bottom half will have the calibrated heat transfer coefficient.
 /// The rest of the TCHX, the horizontal TCHX and 35b1, will be insulated.
 
-#[test] 
+#[test]
 #[ignore = "legacy test used for debugging"]
 pub fn regression_long_test_calibrated_ver3_set_c1(){
     use regression_coupled_dracs_loop_version_3::*;
@@ -414,8 +424,10 @@ pub fn regression_long_test_calibrated_ver3_set_c6_extra_extra_extra_long(){
 
 
 }
-/// took about 155 s on the i5-13500H 
-#[test] 
+/// Version 3 calibrated set-C6 (2288.83 W) run at 6300 s simulated time, a
+/// convergence-duration variant checking DRACS/primary mass flow rates (kg/s)
+/// within 8.5%. Took about 155 s on the i5-13500H.
+#[test]
 #[ignore = "legacy test used for debugging"]
 pub fn regression_long_test_calibrated_ver3_set_c6_extra_extra_long(){
     use regression_coupled_dracs_loop_version_3::*;
@@ -483,8 +495,10 @@ pub fn regression_long_test_calibrated_ver3_set_c6_extra_extra_long(){
 
 
 }
-/// took about 151 s on the i5-13500H 
-#[test] 
+/// Version 3 calibrated set-C6 (2288.83 W) run at 5000 s simulated time, a
+/// convergence-duration variant checking DRACS/primary mass flow rates (kg/s)
+/// within 8.5%. Took about 151 s on the i5-13500H.
+#[test]
 #[ignore = "legacy test used for debugging"]
 pub fn regression_long_test_calibrated_ver3_set_c6_extra_long(){
     use regression_coupled_dracs_loop_version_3::*;
@@ -552,8 +566,10 @@ pub fn regression_long_test_calibrated_ver3_set_c6_extra_long(){
 
 
 }
-/// took about 131 s on the i5-13500H 
-#[test] 
+/// Version 3 calibrated set-C6 (2288.83 W) run at 3800 s simulated time,
+/// checking DRACS/primary mass flow rates (kg/s) within 8.5%. Took about 131 s
+/// on the i5-13500H.
+#[test]
 #[ignore = "legacy test used for debugging"]
 pub fn regression_long_test_calibrated_ver3_set_c6(){
     use regression_coupled_dracs_loop_version_3::*;
@@ -821,14 +837,14 @@ pub fn regression_long_test_calibrated_ver3_set_c8(){
 }
 /// on i7-10875H 1.5 GHz clock speed, (throttled down)
 /// test time is ~177 s
-/// c8 for
-/// version 3 of coupled DRACS loop 
+/// c9 for
+/// version 3 of coupled DRACS loop
 ///
 /// for version 3, simple calibration is done as with version 2,
 /// but the vertical TCHX is split into two equal halves as was done in SAM,
 /// only the bottom half will have the calibrated heat transfer coefficient.
 /// The rest of the TCHX, the horizontal TCHX and 35b1, will be insulated.
-#[test] 
+#[test]
 #[ignore = "legacy test used for debugging"]
 pub fn regression_long_test_calibrated_ver3_set_c9(){
     use regression_coupled_dracs_loop_version_3::*;
@@ -889,12 +905,12 @@ pub fn regression_long_test_calibrated_ver3_set_c9(){
 
 }
 
-/// function to test version 2 calibrated
-/// coupled dracs loop and compare with experimental data 
-/// this is more of a regression function, so I want to check the 
-/// output of the uncalibrated loop
-/// 
-/// 
+/// function to test version 3 calibrated
+/// coupled dracs loop and compare with experimental data
+/// this is more of a regression function, so I want to check the
+/// output of the calibrated loop
+///
+///
 /// based on initial calibration with set c,
 /// a best effort was made 
 ///

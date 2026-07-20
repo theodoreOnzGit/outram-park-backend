@@ -42,6 +42,11 @@ use uom::si::mass_rate::kilogram_per_second;
 //
 // Anyhow, there is about a 1K discrepancy here.. I'm not entirely sure why
 //
+/// 1 m insulated pipe with reduced insulation thickness and increased UA:
+/// checks the outlet temperature (degC) of the full three-array component
+/// (fluid + shell + insulation) against the LMTD regression value. The
+/// remaining ~1 K gap (88.622 analytical vs 89.616 computed) is attributed
+/// to axial conduction absent from the analytical solution.
 #[test]
 pub fn static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua(){
 
@@ -323,6 +328,10 @@ pub fn static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua(){
 // such as cp
 //
 //
+/// Same 1 m scenario but with the shell and insulation removed so only the
+/// fluid array participates: the outlet temperature (degC) then matches the
+/// LMTD regression to ~0.07 K (88.622 vs 88.675), isolating the solid-array
+/// axial conduction as the cause of the larger discrepancy above.
 #[test]
 pub fn static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua_fluid_array_only(){
 
@@ -636,6 +645,10 @@ pub fn static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua_fluid
 // In doing this, we assert that the thermal resistance calculation 
 // functions are working as intended
 //
+/// Fluid-array-only 1 m case used to assert the internal thermal-resistance
+/// (UA) calculations work as intended: the computed outlet temperature
+/// (88.559 degC) agrees with the LMTD regression (88.622 degC) to within
+/// ~0.06 K, the residual attributed to thermophysical-property differences.
 #[test]
 pub fn reduced_thickness_increased_ua_test_interal_thermal_resistance_check_fluid_array_only(){
 

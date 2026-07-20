@@ -1,3 +1,19 @@
+//! Liquid coolant thermophysical-property correlations.
+//!
+//! Each submodule holds the temperature-dependent property correlations for
+//! one liquid coolant in the TUAS database: density (kg/m^3), dynamic
+//! viscosity (Pa·s), thermal conductivity (W/(m·K)), constant-pressure
+//! specific heat capacity (J/(kg·K)), specific enthalpy (J/kg), and the
+//! inverse enthalpy-to-temperature map. Every correlation is range-checked
+//! against its coded validity window (in kelvin or degrees Celsius) and
+//! returns a `uom`-typed quantity.
+//!
+//! Fluids covered: Dowtherm A / Therminol VP-1 (`dowtherm_a`), HITEC nitrate
+//! salt (`hitec_nitrate_salt`), YD-325 heat-transfer oil
+//! (`yd_325_heat_transfer_oil`), FLiBe (`flibe`), and FLiNaK (`flinak`).
+//! `custom_liquid_material` provides generic, user-supplied-correlation
+//! helpers for a liquid not otherwise in the database.
+
 /// property correlations for dowtherm_a,
 /// also known as therminol vp1
 pub mod dowtherm_a;

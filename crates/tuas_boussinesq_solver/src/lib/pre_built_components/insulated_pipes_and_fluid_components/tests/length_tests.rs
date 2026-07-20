@@ -23,6 +23,10 @@ use uom::si::thermodynamic_temperature::degree_celsius;
 
 use uom::si::mass_rate::kilogram_per_second;
 
+/// 1 m pipe LMTD check with reduced insulation thickness, added ambient
+/// thermal resistance and an increased Nusselt number: the computed outlet
+/// temperature (99.786 degC) matches the analytical LMTD value
+/// (99.760 degC) to well within the test tolerance.
 // 1m test
 #[test]
 pub fn static_mixer_41_label_6_1_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt(){

@@ -1,0 +1,460 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+// Derived from OpenFOAM (www.openfoam.com)
+// Copyright (C) 2004-2023 OpenFOAM Foundation
+// Copyright (C) 2016-2023 OpenCFD Ltd.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
+use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
+use std::sync::Arc;
+
+use super::ldu_matrix::LduMatrix;
+use super::solvers::conjugate_gradient::conjugate_gradient;
+use super::solvers::gamg::gamg;
+use super::solvers::gauss_seidel::gauss_seidel;
+use crate::fields::boundary::bc::PatchField;
+use crate::fields::field::Field;
+use crate::fields::vol_field::VolScalarField;
+use crate::mesh::fv_mesh::FvMesh;
+
+/// Sparse implicit matrix equation `A·φ = b` for a scalar field φ.
+///
+/// Mirrors `Foam::fvMatrix<scalar>` from
+/// `src/finiteVolume/fvMatrices/fvMatrix/fvMatrix.H`.
+///
+/// Assembled incrementally by `fvm::` operators in Layer 3; solved via
+/// `self.solve()`.
+pub struct FvMatrix {
+    /// Mesh the equation is defined on (shares the face addressing).
+    pub mesh: Arc<FvMesh>,
+    /// Sparse LDU coefficients of the operator `A`.
+    pub ldu: LduMatrix,
+    /// Right-hand-side source term, length `n_cells`.
+    pub source: Field<f64>,
+}
+
+/// Solver settings passed to `FvMatrix::solve`.
+#[derive(Debug, Clone, Copy)]
+pub struct SolverSettings {
+    /// Convergence tolerance on the normalised residual (dimensionless).
+    pub tolerance: f64,
+    /// Maximum iteration/sweep count before giving up.
+    pub max_iter: usize,
+}
+
+impl Default for SolverSettings {
+    fn default() -> Self {
+        Self {
+            tolerance: 1e-7,
+            max_iter: 1000,
+        }
+    }
+}
+
+/// Summary of a linear solve.
+#[derive(Debug, Clone, Copy)]
+pub struct SolverPerformance {
+    /// Number of iterations/sweeps actually performed.
+    pub n_iterations: usize,
+    /// Normalised residual at exit (dimensionless).
+    pub final_residual: f64,
+    /// `true` if `final_residual` dropped below the requested tolerance.
+    pub converged: bool,
+}
+
+impl FvMatrix {
+    /// Create a new zero-initialised FvMatrix for the given mesh.
+    pub fn new(mesh: Arc<FvMesh>) -> Self {
+        let owner = mesh.owner[..mesh.n_internal_faces].to_vec();
+        let neighbour = mesh.neighbour.to_vec();
+        let n_cells = mesh.n_cells;
+        Self {
+            mesh,
+            ldu: LduMatrix::new(n_cells, owner, neighbour),
+            source: Field::zeros(n_cells),
+        }
+    }
+
+    /// Solve `A·φ = source` and return the solution as a `VolScalarField`.
+    ///
+    /// Uses Gauss-Seidel as the default solver.  Layer 3 will add conjugate
+    /// gradient / GAMG when those are ported.
+    pub fn solve(
+        &self,
+        name: impl Into<String>,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        let mut x = vec![0.0_f64; self.mesh.n_cells];
+        let b: Vec<f64> = self.source.iter().copied().collect();
+        let (iters, res) =
+            gauss_seidel(&self.ldu, &b, &mut x, settings.tolerance, settings.max_iter);
+
+        let boundary = self
+            .mesh
+            .patches
+            .iter()
+            .map(|p| PatchField::zero_gradient(p.size))
+            .collect();
+        let field = VolScalarField::new(name, self.mesh.clone(), Field::new(x), boundary);
+        let perf = SolverPerformance {
+            n_iterations: iters,
+            final_residual: res,
+            converged: res < settings.tolerance,
+        };
+        (field, perf)
+    }
+
+    /// Solve the system with preconditioned conjugate gradient (cold start).
+    ///
+    /// PCG requires a symmetric SPD matrix (`upper == lower`), which holds for
+    /// the pressure Poisson equation assembled by `fvm::laplacian`. It converges
+    /// in O(√κ) iterations versus O(κ) for Gauss-Seidel — dramatically faster
+    /// for the elliptic pressure solve. Do **not** use it for the asymmetric
+    /// convection-bearing momentum matrix.
+    ///
+    /// This starts the iteration from `x = 0`. In a transient solver, prefer
+    /// [`solve_cg_with_guess`](Self::solve_cg_with_guess) to warm-start from the
+    /// previous time step's field — near steady state that converges in a
+    /// handful of iterations instead of from scratch every step.
+    pub fn solve_cg(
+        &self,
+        name: impl Into<String>,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        self.solve_cg_inner(name, None, settings)
+    }
+
+    /// Solve with PCG, **warm-started** from `initial` (typically the previous
+    /// time step's field).
+    ///
+    /// The DIC-preconditioned CG begins from `initial.internal` instead of zero.
+    /// For a transient run approaching steady state the solution barely changes
+    /// between steps, so the starting residual is tiny and the solve completes
+    /// in very few iterations — often zero. See
+    /// [`conjugate_gradient`](crate::ldu_matrix::conjugate_gradient) for the
+    /// preconditioner and warm-start details.
+    pub fn solve_cg_with_guess(
+        &self,
+        name: impl Into<String>,
+        initial: &VolScalarField,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        self.solve_cg_inner(name, Some(initial.internal.as_slice()), settings)
+    }
+
+    fn solve_cg_inner(
+        &self,
+        name: impl Into<String>,
+        x0: Option<&[f64]>,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        let b: Vec<f64> = self.source.iter().copied().collect();
+        let (x, perf) = conjugate_gradient(&self.ldu, &b, x0, &settings);
+
+        let boundary = self
+            .mesh
+            .patches
+            .iter()
+            .map(|p| PatchField::zero_gradient(p.size))
+            .collect();
+        let field = VolScalarField::new(name, self.mesh.clone(), Field::new(x), boundary);
+        (field, perf)
+    }
+
+    /// Solve the system with GAMG (algebraic multigrid), cold-started from
+    /// `x = 0`.
+    ///
+    /// GAMG requires a symmetric SPD matrix (`upper == lower`) — the pressure
+    /// Poisson case. It is near mesh-independent (a handful of V-cycles), unlike
+    /// PCG whose iteration count grows with the mesh, so it is the better choice
+    /// for the pressure solve on fine grids. As with PCG, prefer
+    /// [`solve_gamg_with_guess`](Self::solve_gamg_with_guess) in a transient
+    /// loop to warm-start from the previous time step's field.
+    pub fn solve_gamg(
+        &self,
+        name: impl Into<String>,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        self.solve_gamg_inner(name, None, settings)
+    }
+
+    /// Solve with GAMG, **warm-started** from `initial` (typically the previous
+    /// time step's field). See [`gamg`](crate::ldu_matrix::gamg) for the
+    /// multigrid algorithm and [`solve_gamg`](Self::solve_gamg) for the cold
+    /// variant.
+    pub fn solve_gamg_with_guess(
+        &self,
+        name: impl Into<String>,
+        initial: &VolScalarField,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        self.solve_gamg_inner(name, Some(initial.internal.as_slice()), settings)
+    }
+
+    fn solve_gamg_inner(
+        &self,
+        name: impl Into<String>,
+        x0: Option<&[f64]>,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        let b: Vec<f64> = self.source.iter().copied().collect();
+        let (x, perf) = gamg(&self.ldu, &b, x0, &settings);
+
+        let boundary = self
+            .mesh
+            .patches
+            .iter()
+            .map(|p| PatchField::zero_gradient(p.size))
+            .collect();
+        let field = VolScalarField::new(name, self.mesh.clone(), Field::new(x), boundary);
+        (field, perf)
+    }
+
+    // ── Operator helpers (used by fvm:: in Layer 3) ────────────────────────
+
+    /// Add `coeff * I` to the diagonal (e.g. from a time derivative term).
+    pub fn add_to_diag(&mut self, coeff: &Field<f64>) {
+        for (d, &c) in self.ldu.diag.iter_mut().zip(coeff.iter()) {
+            *d += c;
+        }
+    }
+
+    /// Add `coeff[c]` to the source at cell `c`.
+    pub fn add_to_source(&mut self, term: &Field<f64>) {
+        self.source += term.clone();
+    }
+
+    /// Add upper/lower contributions from a face (used by fvm::laplacian etc.).
+    pub fn add_face_coeff(&mut self, face: usize, coeff: f64) {
+        let o = self.ldu.owner[face];
+        let n = self.ldu.neighbour[face];
+        // Laplacian: upper[f] = lower[f] = -coeff (off-diagonal negative)
+        self.ldu.upper[face] -= coeff;
+        self.ldu.lower[face] -= coeff;
+        self.ldu.diag[o] += coeff;
+        self.ldu.diag[n] += coeff;
+    }
+
+    /// Pin one cell to a reference value — fixes the singular pressure matrix
+    /// in a closed domain (no fixed-pressure BCs).
+    ///
+    /// Adds a large coefficient to `diag[cell]` and a matching term to
+    /// `source[cell]` so that the solution is forced toward `value`.
+    pub fn set_reference(&mut self, cell: usize, value: f64) {
+        self.ldu.diag[cell] += 1e30;
+        self.source[cell] += 1e30 * value;
+    }
+
+    /// Diagonal coefficient per cell: `A[c] = diag[c]`.
+    ///
+    /// Used in PISO: `rAU = 1 / pEqn.a_field()`.
+    pub fn a_field(&self) -> VolScalarField {
+        let boundary = self
+            .mesh
+            .patches
+            .iter()
+            .map(|p| PatchField::zero_gradient(p.size))
+            .collect();
+        VolScalarField::new(
+            "A",
+            self.mesh.clone(),
+            Field::new(self.ldu.diag.clone()),
+            boundary,
+        )
+    }
+
+    /// Off-diagonal residual: `H[c] = source[c] − Σ off-diag · x`.
+    ///
+    /// For a zero initial guess `x = 0` this is just `source`.
+    /// Used in pressure correction: `H = pEqn.h_field(p)`.
+    pub fn h_field(&self, x: &VolScalarField) -> VolScalarField {
+        let n = self.mesh.n_cells;
+        let mut h = vec![0.0_f64; n];
+        for c in 0..n {
+            h[c] = self.source[c];
+        }
+        for f in 0..self.mesh.n_internal_faces {
+            let o = self.ldu.owner[f];
+            let nb = self.ldu.neighbour[f];
+            h[o] -= x.internal[nb] * self.ldu.upper[f];
+            h[nb] -= x.internal[o] * self.ldu.lower[f];
+        }
+        let boundary = self
+            .mesh
+            .patches
+            .iter()
+            .map(|p| PatchField::zero_gradient(p.size))
+            .collect();
+        VolScalarField::new("H", self.mesh.clone(), Field::new(h), boundary)
+    }
+}
+
+// ── Arithmetic ────────────────────────────────────────────────────────────────
+
+impl Add for FvMatrix {
+    type Output = Self;
+    fn add(mut self, rhs: Self) -> Self {
+        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) {
+            *a += b;
+        }
+        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) {
+            *a += b;
+        }
+        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) {
+            *a += b;
+        }
+        self.source += rhs.source;
+        self
+    }
+}
+
+impl Sub for FvMatrix {
+    type Output = Self;
+    fn sub(mut self, rhs: Self) -> Self {
+        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) {
+            *a -= b;
+        }
+        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) {
+            *a -= b;
+        }
+        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) {
+            *a -= b;
+        }
+        self.source -= rhs.source;
+        self
+    }
+}
+
+impl Neg for FvMatrix {
+    type Output = Self;
+    fn neg(mut self) -> Self {
+        for x in self.ldu.diag.iter_mut() {
+            *x = -*x;
+        }
+        for x in self.ldu.lower.iter_mut() {
+            *x = -*x;
+        }
+        for x in self.ldu.upper.iter_mut() {
+            *x = -*x;
+        }
+        self.source = -self.source;
+        self
+    }
+}
+
+impl AddAssign for FvMatrix {
+    fn add_assign(&mut self, rhs: Self) {
+        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) {
+            *a += b;
+        }
+        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) {
+            *a += b;
+        }
+        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) {
+            *a += b;
+        }
+        self.source += rhs.source;
+    }
+}
+
+impl SubAssign for FvMatrix {
+    fn sub_assign(&mut self, rhs: Self) {
+        for (a, b) in self.ldu.diag.iter_mut().zip(&rhs.ldu.diag) {
+            *a -= b;
+        }
+        for (a, b) in self.ldu.lower.iter_mut().zip(&rhs.ldu.lower) {
+            *a -= b;
+        }
+        for (a, b) in self.ldu.upper.iter_mut().zip(&rhs.ldu.upper) {
+            *a -= b;
+        }
+        self.source -= rhs.source;
+    }
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
+    use crate::primitives::Vector3;
+    use approx::assert_relative_eq;
+
+    fn unit_mesh() -> Arc<FvMesh> {
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![1.0, 1.0])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
+    }
+
+    #[test]
+    fn solve_diagonal_system() {
+        let mesh = unit_mesh();
+        let mut mat = FvMatrix::new(mesh);
+
+        // Set A = [[3,0],[0,5]], b = [6, 10]  → x = [2, 2]
+        mat.ldu.diag[0] = 3.0;
+        mat.ldu.diag[1] = 5.0;
+        mat.source = Field::new(vec![6.0, 10.0]);
+
+        let (phi, perf) = mat.solve("phi", SolverSettings::default());
+        assert!(
+            perf.converged,
+            "did not converge: residual = {}",
+            perf.final_residual
+        );
+        assert_relative_eq!(phi.internal[0], 2.0, epsilon = 1e-6);
+        assert_relative_eq!(phi.internal[1], 2.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn add_face_coeff_symmetrises_diag() {
+        let mesh = unit_mesh();
+        let mut mat = FvMatrix::new(mesh);
+        mat.add_face_coeff(0, 1.0);
+        // owner = 0, neighbour = 1 → diag[0] += 1, diag[1] += 1
+        assert_relative_eq!(mat.ldu.diag[0], 1.0);
+        assert_relative_eq!(mat.ldu.diag[1], 1.0);
+        assert_relative_eq!(mat.ldu.upper[0], -1.0);
+        assert_relative_eq!(mat.ldu.lower[0], -1.0);
+    }
+}

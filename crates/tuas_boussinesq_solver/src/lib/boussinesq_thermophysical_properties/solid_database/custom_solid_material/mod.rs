@@ -1,6 +1,21 @@
+//! # Custom (user-supplied) solid material properties
+//!
+//! Helpers that let a caller plug in their own temperature-dependent property
+//! correlations for a solid that is not in the built-in database. Each helper
+//! takes the caller's correlation as a function pointer plus an explicit valid
+//! temperature range (upper and lower bound as `uom`
+//! `ThermodynamicTemperature`), range-checks the query temperature, and then
+//! evaluates the correlation.
+//!
+//! Provided: mass density (kg/m^3), constant-pressure specific heat capacity
+//! (J/(kg·K)), thermal conductivity (W/(m·K)), specific enthalpy (J/kg,
+//! obtained by numerically integrating the supplied cp from the lower bound),
+//! and the inverse specific-enthalpy -> temperature map (solved by bisection).
+//! All inputs and outputs are `uom` dimensioned quantities.
+
 #[warn(missing_docs)]
 
-// This library was developed for use in my PhD thesis under supervision 
+// This library was developed for use in my PhD thesis under supervision
 // of Professor Per F. Peterson. It is part of a thermal hydraulics
 // library in Rust that is released under the GNU General Public License
 // v 3.0. This is partly due to the fact that some of the libraries 
@@ -300,10 +315,12 @@ impl RootFindingProblem<1, 1, (f64, f64)> for CustomSolidTemperatureFromEnthalpy
     }
 }
 
-/// function checks if a solid temperature falls in a range (20-180C)
+/// function checks if a solid temperature falls within the caller-supplied
+/// range, i.e. between `lower_bound_temperature` and `upper_bound_temperature`
+/// (both `uom` `ThermodynamicTemperature`; compared in degrees Celsius).
 ///
-/// If it falls outside this range, it will panic
-/// or throw an error, and the program will not run
+/// Returns `Ok(true)` if in range; if it falls outside, it prints a diagnostic
+/// message and returns `Err(TuasLibError::ThermophysicalPropertyTemperatureRangeError)`.
 ///
 pub fn range_check_custom_solid(solid_temp: ThermodynamicTemperature,
     upper_bound_temperature: ThermodynamicTemperature,

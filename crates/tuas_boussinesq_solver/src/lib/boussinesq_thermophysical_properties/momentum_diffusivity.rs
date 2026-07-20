@@ -30,8 +30,9 @@ pub fn try_get_nu_momentum_diffusivity(material: Material,
 
 
 impl LiquidMaterial {
-    /// wrapper that 
-    /// returns the liquid cp in a result enum 
+    /// returns the liquid material's momentum diffusivity (kinematic
+    /// viscosity, nu = mu/rho), in m^2/s, wrapped in a `Result`.
+    /// Valid over each liquid's coded correlation temperature range.
     #[inline]
     pub fn try_get_nu_momentum_diffusivity(&self,
         fluid_temp: ThermodynamicTemperature,

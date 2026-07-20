@@ -1,3 +1,23 @@
+//! A 1D fluid control-volume array (`FluidArray`) with lateral (radial)
+//! conduction coupling and axial advection.
+//!
+//! This module owns the `FluidArray` type: a chain of fluid nodes discretising
+//! a pipe or channel along its flow axis. The array carries axial advection
+//! (mass flow in kg/s) and axial conduction between neighbouring nodes, and can
+//! be coupled laterally (radially) to adjacent solid or fluid arrays through
+//! shared thermal conductances (W/K) with no radial advection. It also acts as
+//! a `FluidComponent`, providing pressure-loss / mass-flowrate relations via a
+//! Darcy friction-factor correlation.
+//!
+//! The node temperatures (K) are advanced with an implicit (backward) Euler
+//! scheme; see the `calculation` submodule for the energy balance. Submodules
+//! group the behaviour: `constructors`/`default` build arrays, `preprocessing`
+//! computes timestep/Reynolds/Nusselt quantities, `postprocessing` reads out
+//! temperature profiles, `lateral_connection` wires radial conductances and
+//! power sources, `axial_connection` links neighbouring CVs/BCs at the front and
+//! back, `fluid_component_calculation` holds the friction-loss correlations, and
+//! `type_conversion` converts to/from `FluidComponent`.
+
 use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
 use crate::single_control_vol::SingleCVNode;
 use crate::boussinesq_thermophysical_properties::Material;
@@ -6,26 +26,30 @@ use uom::si::f64::*;
 use ndarray::*;
 
 use crate::tuas_lib_error::TuasLibError;
-use ndarray_linalg::error::LinalgError;
 
 use self::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 
 
-/// this is essentially a 1D pipe array containing two CVs 
-/// and two other laterally connected arrays
-/// (it's essentially a generic solid array representing heat 
-/// structures with mainly axial conduction and radial conduction)
+/// A 1D array of fluid control volumes discretising a pipe or channel along
+/// its flow (axial) direction.
 ///
-/// it can be used to represent rods, or cylindrical shells
-/// in the latter case, the Column is hollow so to speak
+/// It contains a back single CV (lowest axial coordinate) and a front single
+/// CV (highest axial coordinate), plus `inner_nodes` interior nodes between
+/// them, and carries axial advection (mass flow in kg/s), axial conduction
+/// between neighbouring nodes, and lateral (radial) conduction coupling to
+/// adjacent solid or fluid arrays (thermal conductances in W/K, no radial
+/// advection).
 ///
-/// Usually, these will be nested inside a heat transfer component 
-/// and then be used
+/// It can represent a cylindrical pipe, an annular channel, or an arbitrary
+/// odd-shaped flow passage (see the constructors). Usually these are nested
+/// inside a larger heat-transfer component and then used.
 ///
-/// Within this array, the implicit Euler Scheme is used
+/// Node temperatures (K) are advanced with the implicit (backward) Euler
+/// scheme.
 ///
-/// You must supply the number of nodes for the fluid array
-/// Note that the front and back cv count as one node
+/// You must supply the number of nodes for the fluid array. Note that the
+/// front and back CVs each count as one node, so the total node count is
+/// `inner_nodes + 2`.
 #[derive(Debug,Clone,PartialEq)]
 pub struct FluidArray {
 
@@ -164,7 +188,12 @@ impl FluidArray {
     }
 
 
-    /// sets the temperature vector to a 
+    /// sets the node temperature array (K) from a temperature vector.
+    ///
+    /// The vector length must equal the number of nodes (`inner_nodes + 2`),
+    /// otherwise a `ShapeMismatch` error is returned. The back and front single
+    /// CV specific enthalpies are re-synchronised from the first and last
+    /// temperatures.
     pub fn set_temperature_vector(&mut self,
     temperature_vec: Vec<ThermodynamicTemperature>) -> Result<(), TuasLibError>{
 
@@ -177,10 +206,7 @@ impl FluidArray {
                 ErrorKind::IncompatibleShape
             );
 
-            let linalg_error = LinalgError::Shape(shape_error);
-
-            return Err(TuasLibError::LinalgError
-                (linalg_error));
+            return Err(TuasLibError::ShapeMismatch(shape_error.to_string()));
 
         }
 
@@ -228,8 +254,10 @@ impl FluidArray {
         Ok(())
     }
 
-    /// obtains a clone of the temperature array in Array1 ndarray 
-    /// form 
+    /// sets the node temperature array (K) from an `Array1` ndarray.
+    ///
+    /// Delegates to `set_temperature_vector`, so the same length check
+    /// (`inner_nodes + 2`) and front/back enthalpy re-synchronisation apply.
     pub fn set_temperature_array(&mut self,
     temperature_arr: Array1<ThermodynamicTemperature>) -> Result<(),
     TuasLibError> {

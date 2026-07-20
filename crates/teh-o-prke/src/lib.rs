@@ -17,8 +17,12 @@
 /// 
 pub mod zero_power_prke;
 
+/// Pure-Rust dense LU solver (`SquareMatrix`), inlined from `outram-foam-basic-lib`
+/// so this crate has no `outram-foam-basic-lib` dependency — see the module doc.
+pub mod matrix;
 
-/// contains functions and structs for fuel temperature feedback 
+
+/// contains functions and structs for fuel temperature feedback
 ///
 /// this is the simplest feedback mechanism
 /// where rudimentary thermal hydraulics model is added.
@@ -42,7 +46,20 @@ pub mod feedback_mechanisms;
 ///
 pub mod decay_heat;
 
-/// contains code for time stepping for prke 
+/// contains code for time stepping for prke
 /// some algorithms copied from OpenFOAM
 ///
 pub mod time_stepping;
+
+/// analytical (closed-form) Nordheim-Fuchs exact timestepper for prompt
+/// reactivity excursions with adiabatic fuel-temperature feedback -- a
+/// real-time-friendly "Prompt Excursion Layer", distinct from (and much
+/// cheaper than) the six-group precursor PRKE in [`zero_power_prke`].
+pub mod nordheim_fuchs;
+
+/// reusable "Delayed Neutron Layer" -- a reduced point-kinetics precursor
+/// bank modelled as five first-order lags, one per delayed-neutron group.
+/// Sits between the prompt-only [`nordheim_fuchs`] layer and a thermal-
+/// hydraulics layer, restoring the delayed-neutron source that damps a
+/// reactivity-power-temperature feedback loop.
+pub mod delayed_neutron_layer;
