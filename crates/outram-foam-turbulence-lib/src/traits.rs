@@ -24,9 +24,10 @@
 //!
 //! The trait is a compile-time contract, not a dispatch mechanism: solvers hold
 //! a concrete model type (or an enum over the models) and call it through
-//! generics, so there is no `dyn` overhead. Only k-ω SST implements every method
-//! for real today; the other models satisfy the trait but `todo!()`-panic in the
-//! unimplemented methods (see the crate-level status table).
+//! generics, so there is no `dyn` overhead. Every model in this crate (k-ω SST,
+//! k-ε, Wilcox k-ω, Spalart-Allmaras, Smagorinsky LES, and laminar) implements
+//! every method for real and is unit-tested — none `todo!()`-panic (see the
+//! crate-level status table).
 
 use outram_foam_basic_lib::prelude::{FvVectorMatrix, VolScalarField, VolVectorField};
 

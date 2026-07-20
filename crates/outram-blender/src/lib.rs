@@ -37,6 +37,8 @@
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / bevel (boolean delegates to [`boolean`]) |
 //! | [`subdivision`] | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
 //! | [`boolean`] | `bmo_boolean` (Manifold upstream) | **partial** — CSG union/difference/intersect (restricted; see module docs) |
+//! | [`boolean_predicates`] | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double fallback) |
+//! | [`boolean_classify`] | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number (+ ray-parity cross-check) |
 //! | [`modifiers`] | `modifiers/intern/MOD_*` modifier stack | **real** — subsurf / mirror / array |
 //! | [`procedural`] | Geometry Nodes (`nodes/geometry/*`) | **real** — node-graph evaluator |
 //! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG primitive description |
@@ -72,6 +74,8 @@
 //! ```
 
 pub mod boolean;
+pub mod boolean_classify;
+pub mod boolean_predicates;
 pub mod export;
 pub mod math;
 pub mod mesh;
@@ -98,8 +102,15 @@ pub mod transform;
 /// an operator yet — the dependency is staged for that work.
 pub use faer;
 
-/// Optional headless GPU compute (behind the `gpu` cargo feature). Absent from
-/// the default build, so a plain `cargo build` stays wgpu-free and
-/// headless-Android-clean. See [`gpu`] for the CPU-fallback contract.
-#[cfg(feature = "gpu")]
+/// Headless GPU compute via `wgpu`. Compiled **unconditionally on every desktop
+/// target** (no cargo feature to opt in) so the GPU path is used as far as
+/// possible; **absent only on Android** (`target_os = "android"`), which has no
+/// system Vulkan/Metal loader and where the workspace Android rule forbids GPU
+/// deps in the library build. Whether or not this module is present, callers get
+/// a graceful CPU fallback: on Android the GPU attempt is compiled out entirely,
+/// and on desktop [`gpu::probe`] returning `None` or a recoverable
+/// [`gpu::GpuError`] routes to the CPU reference path. See
+/// [`transform::Affine3::transform_points_best_effort`] for the unified
+/// try-GPU-then-CPU entry point, and [`gpu`] for the fallback contract.
+#[cfg(not(target_os = "android"))]
 pub mod gpu;

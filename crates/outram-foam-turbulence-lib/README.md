@@ -38,38 +38,38 @@ turbulence closures for use with `outram-foam-appbuilder-lib` solver loops.
 | Model | Type | C++ class | Status |
 |---|---|---|---|
 | k-ω SST (Menter 1994) | RAS two-equation | `kOmegaSST` | Implemented + unit-tested |
-| Laminar | RAS no-op | `laminar` | Partial (see Limitations) |
-| k-ε (Jones & Launder 1972) | RAS two-equation | `kEpsilon` | Scaffold only (`todo!()`) |
-| k-ω (Wilcox 1988) | RAS two-equation | `kOmega` | Scaffold only (`todo!()`) |
-| Spalart-Allmaras (1992) | RAS one-equation | `SpalartAllmaras` | Scaffold only (`todo!()`) |
-| Smagorinsky (1963) | LES sub-grid | `Smagorinsky` | Scaffold only (`todo!()`) |
+| Laminar | RAS no-op | `laminar` | Implemented + unit-tested |
+| k-ε (Jones & Launder 1972) | RAS two-equation | `kEpsilon` | Implemented + unit-tested |
+| k-ω (Wilcox) | RAS two-equation | `kOmega` | Implemented + unit-tested |
+| Spalart-Allmaras (1992) | RAS one-equation | `SpalartAllmaras` | Implemented + unit-tested |
+| Smagorinsky (1963) | LES sub-grid | `Smagorinsky` | Implemented + unit-tested |
 
 All models share the `TurbulenceModel` trait (static dispatch via generics).
-Only **k-ω SST** implements the full trait today; the other structs and their
-model coefficients exist but their `correct()` / `div_dev_rho_reff()` /
-`alpha_eff()` / `mu_eff_field()` methods `todo!()`-panic if called.
+Every model implements the full trait (`div_dev_rho_reff`, `correct`, `nu_t`,
+`alpha_eff`, `mu_eff_field`) and is unit-tested — none `todo!()`-panic. "Unit-tested"
+means the formulae/coefficients/positivity are checked against the upstream
+OpenFOAM source and analytical values; it does **not** mean benchmark-validated
+(see Limitations).
 
 ## Limitations
 
 This is an early **0.1.0** release. Read this section before depending on the
-crate — several advertised models are scaffolds, not working code.
+crate — the models are unit-tested translations, not benchmark-validated code.
 
 **Model coverage (what actually runs):**
 
-- **Only the k-ω SST model is implemented.** `KOmegaSST` implements the full
-  `TurbulenceModel` trait — `div_dev_rho_reff`, `correct`, `nu_t`, `alpha_eff`,
-  and `mu_eff_field` are all real — with F1/F2 blending, the Bradshaw stress
-  limiter, and the k and ω transport equations (`src/k_omega_sst/mod.rs`).
-- **`KEpsilon`, `KOmega`, `SpalartAllmaras`, and `Smagorinsky` are scaffolds.**
-  Each has a constructor and its model constants, but every trait method except
-  `nu_t()` is a `todo!()` stub that **panics at runtime** if called
-  (`src/k_epsilon/mod.rs`, `src/k_omega/mod.rs`, `src/spalart_allmaras/mod.rs`,
-  `src/les/smagorinsky.rs`). Constructing them is safe; using them in a solve
-  is not.
-- **`LaminarModel` is partial.** `correct` (no-op), `nu_t`, `alpha_eff`, and
-  `mu_eff_field` work, but `div_dev_rho_reff` — the momentum stress term — is
-  still `todo!()` (`src/laminar/mod.rs`), so even the laminar closure cannot be
-  driven end-to-end through the trait yet.
+- **All six closures are implemented and unit-tested.** `KOmegaSST`, `KEpsilon`,
+  `KOmega` (Wilcox), `SpalartAllmaras`, `Smagorinsky`, and `LaminarModel` each
+  implement the full `TurbulenceModel` trait — `div_dev_rho_reff`, `correct`,
+  `nu_t`, `alpha_eff`, and `mu_eff_field` are all real (no `todo!()` stubs). Each
+  was translated line-by-line from the OpenFOAM-dev C++ source with the upstream
+  `File.C:line` provenance cited in the module docs, and carries unit tests for
+  its constitutive formula and positivity/stability. See each module's "Honest
+  scope" section for exactly what was and was not reproduced.
+- **Unit-tested ≠ validated.** No model has been validated end-to-end against a
+  published turbulence benchmark; that requires a working solver loop and
+  turbulence wall-function BCs (tracked in `outram-foam-appbuilder-lib`). Treat
+  every model as untrusted draft material until a V&V case clears it.
 - **No other closures.** No realizable/RNG k-ε, no k-ω SST variants (SST-SAS,
   DDES/IDDES), no other LES sub-grid models (dynamic Smagorinsky, WALE,
   k-equation eddy viscosity), no Reynolds-stress (RSM) or transition (γ-Reθ)

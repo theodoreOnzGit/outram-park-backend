@@ -1,4 +1,4 @@
-//! GPU compute (optional, behind the `gpu` cargo feature).
+//! GPU compute (headless, target-gated OFF Android; no cargo feature).
 //!
 //! Headless GPU acceleration via [`wgpu`] for the *embarrassingly parallel*
 //! parts of mesh authoring — per-vertex / per-face kernels, subdivision
@@ -19,13 +19,19 @@
 //!
 //! ## Non-negotiable contract for using this module
 //!
-//! 1. **Feature-gated.** This module only exists under `--features gpu`. The
-//!    default build is wgpu-free and headless-Android-clean (per the workspace
-//!    Android rule) — a plain `cargo build` never pulls the GPU stack.
-//! 2. **Runtime CPU fallback is mandatory.** wgpu *compiles* for Android/CI but
-//!    at runtime there may be **no usable GPU adapter** (headless servers, the
-//!    Android emulator). Callers MUST treat [`probe`] returning `None` as
-//!    "run the CPU path", never as an error.
+//! 1. **Target-gated, not feature-gated.** This module is compiled
+//!    **unconditionally on every desktop target** — there is no `gpu` cargo
+//!    feature to enable — so the GPU path is always available and used as far as
+//!    possible. It is present on all targets **except Android**
+//!    (`target_os = "android"`), where the workspace Android rule forbids GPU
+//!    deps in the library build; there the GPU attempt is compiled out and the
+//!    CPU path runs.
+//! 2. **Runtime CPU fallback is mandatory.** Even where wgpu is compiled, at
+//!    runtime there may be **no usable GPU adapter** (headless servers, VMs) or
+//!    a submission may fail mid-flight. Callers MUST treat [`probe`] returning
+//!    `None`, and [`try_transform_vertices_gpu`] returning `Err`, as "run the
+//!    CPU path", never as a hard error. [`crate::transform::Affine3::transform_points_best_effort`]
+//!    wraps exactly this: try GPU, fall back to CPU, always return a result.
 //! 3. **CPU is the trusted / reference path.** GPU float reduction order will
 //!    not bit-match the CPU (`f64`, [`crate::transform`]) result, so anything
 //!    that feeds V&V or a solver stays CPU-deterministic. GPU is *acceleration
@@ -38,8 +44,31 @@ use core::task::{Context, Poll, Waker};
 use std::sync::{Arc, Mutex};
 
 /// Re-export of the GPU backend so callers can build pipelines without adding
-/// their own `wgpu` dependency. Only available under `--features gpu`.
+/// their own `wgpu` dependency. Present on every desktop target (absent only on
+/// Android, where this whole module is compiled out).
 pub use wgpu;
+
+/// A **recoverable** GPU execution failure from [`try_transform_vertices_gpu`].
+///
+/// Every variant means the same thing to a caller: the GPU attempt did not
+/// complete, so fall back to the CPU reference path
+/// ([`Affine3::transform_points`]). The GPU is acceleration only and never the
+/// source of truth, so a `GpuError` is a routine "use the CPU" signal, not a
+/// fatal condition — [`Affine3::transform_points_best_effort`] does this
+/// automatically. This deliberately does **not** cover the "no adapter at all"
+/// case, which surfaces earlier as [`probe`] returning `None`.
+#[derive(Debug, thiserror::Error)]
+pub enum GpuError {
+    /// Polling the device to drive the readback failed (e.g. device lost).
+    #[error("GPU device poll failed while awaiting readback: {0}")]
+    Poll(String),
+    /// The staging buffer could not be mapped back to the CPU.
+    #[error("GPU buffer map failed: {0}")]
+    Map(String),
+    /// The buffer-map callback never fired despite a wait-indefinitely poll.
+    #[error("GPU buffer map callback never fired after wait-indefinitely poll")]
+    MapCallbackMissing,
+}
 
 /// A live GPU compute context: a headless [`wgpu::Device`] and its
 /// [`wgpu::Queue`].
@@ -138,7 +167,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 const WORKGROUP_SIZE: u32 = 64;
 
 /// Apply `affine` to every position in `positions` on the GPU, returning the
-/// transformed positions in the same order.
+/// transformed positions in the same order — the **fallible** entry point.
 ///
 /// This is the demonstrator GPU kernel. It uploads the positions as an `f32`
 /// storage buffer, dispatches [`AFFINE_TRANSFORM_WGSL`] one invocation per
@@ -149,20 +178,20 @@ const WORKGROUP_SIZE: u32 = 64;
 ///
 /// An empty `positions` slice returns an empty `Vec` without touching the GPU.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if the GPU work cannot be completed (device lost, shader compile
-/// failure, or buffer-map failure). These indicate a driver/programming fault,
-/// not the "no adapter" case — that is handled earlier by [`probe`] returning
-/// `None`. Callers wanting infallible behavior should keep the CPU path as the
-/// fallback regardless.
-pub fn transform_vertices_gpu(
+/// Returns [`GpuError`] if the submitted work cannot be completed (device lost
+/// during the readback poll, or buffer-map failure). This is **recoverable**:
+/// the caller should fall back to [`Affine3::transform_points`] — which
+/// [`Affine3::transform_points_best_effort`] does automatically. The "no adapter
+/// at all" case is handled earlier by [`probe`] returning `None`, not here.
+pub fn try_transform_vertices_gpu(
     ctx: &GpuContext,
     affine: Affine3,
     positions: &[Vec3],
-) -> Vec<Vec3> {
+) -> Result<Vec<Vec3>, GpuError> {
     if positions.is_empty() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
 
     let device = &ctx.device;
@@ -280,13 +309,13 @@ pub fn transform_vertices_gpu(
     // Drive the device until the map callback fires.
     device
         .poll(wgpu::PollType::wait_indefinitely())
-        .expect("GPU poll failed while awaiting readback");
+        .map_err(|e| GpuError::Poll(format!("{e:?}")))?;
 
     let map_result = mapped.lock().unwrap().take();
     match map_result {
         Some(Ok(())) => {}
-        Some(Err(e)) => panic!("GPU buffer map failed: {e:?}"),
-        None => panic!("GPU buffer map callback never fired after wait-indefinitely poll"),
+        Some(Err(e)) => return Err(GpuError::Map(format!("{e:?}"))),
+        None => return Err(GpuError::MapCallbackMissing),
     }
 
     let out_f32: Vec<f32> = {
@@ -295,10 +324,26 @@ pub fn transform_vertices_gpu(
     };
     readback_buffer.unmap();
 
-    out_f32
+    Ok(out_f32
         .chunks_exact(3)
         .map(|c| Vec3::new(c[0] as f64, c[1] as f64, c[2] as f64))
-        .collect()
+        .collect())
+}
+
+/// Apply `affine` to every position on the GPU, panicking on failure — the
+/// strict convenience wrapper over [`try_transform_vertices_gpu`].
+///
+/// Use this only when a GPU failure should abort (e.g. a benchmark that must run
+/// on the GPU, or a test that has already confirmed an adapter via [`probe`]).
+/// For normal use prefer [`Affine3::transform_points_best_effort`], which never
+/// panics and falls back to the CPU. **Results are `f32` precision.**
+///
+/// # Panics
+///
+/// Panics if [`try_transform_vertices_gpu`] returns a [`GpuError`].
+pub fn transform_vertices_gpu(ctx: &GpuContext, affine: Affine3, positions: &[Vec3]) -> Vec<Vec3> {
+    try_transform_vertices_gpu(ctx, affine, positions)
+        .expect("GPU transform failed; use try_transform_vertices_gpu to handle failures on the CPU")
 }
 
 /// Pack a slice of `f32` into little-endian bytes for a GPU buffer upload.

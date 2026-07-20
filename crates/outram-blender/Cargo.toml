@@ -28,13 +28,18 @@ thiserror = { workspace = true }
 # stays in fixed-size `crate::math` types; faer handles the big systems.
 faer = { workspace = true }
 
-# Optional GPU compute (headless, no window) behind the `gpu` feature — see
-# src/gpu.rs. Default build is wgpu-free + headless-Android-clean. GPU is
-# acceleration only; CPU (faer + math) stays the trusted/deterministic path.
-wgpu = { workspace = true, optional = true }
-
-[features]
-gpu = ["dep:wgpu"]
+# GPU compute (headless, no window) — see src/gpu.rs. wgpu is **target-gated OFF
+# Android** (no system Vulkan/Metal loader there, and the workspace Android rule
+# forbids GPU deps in the library build), so the crate still builds headless for
+# `aarch64-linux-android` via the CPU-only path. On every desktop target wgpu is
+# built **unconditionally** — no cargo feature to opt in — so the GPU path is
+# used as far as possible, with a mandatory runtime CPU fallback (probe → None,
+# or a recoverable GPU error → CPU). GPU is acceleration only; CPU (faer + math)
+# stays the trusted/deterministic path. Version inherited from the root
+# `[workspace.dependencies]` (matched to the eframe/egui 0.34 wgpu, so no
+# duplicate wgpu in the tree).
+[target.'cfg(not(target_os = "android"))'.dependencies]
+wgpu = { workspace = true }
 
 # NOTE: no OpenGL/Vulkan/GUI dependency here. The library is headless and
 # Android-buildable. Any future viewport/GUI belongs in `examples/` behind a
