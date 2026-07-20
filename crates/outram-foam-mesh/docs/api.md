@@ -92,7 +92,7 @@ points/centres in metres `[m]`, face areas in `[m^2]`, cell volumes in
   case). When the four edges of a direction happen to agree, the block
   collapses to the equivalent `simpleGrading` fast path (bit-identical to a
   single per-direction distribution); when they disagree, the genuine
-  per-edge 12-edge blend is used. See [`edge_blended_node`].
+  per-edge 12-edge blend is used. See `edge_blended_node`.
 - `mergePatchPairs` (face-merging of separately-meshed patch pairs) is
   parsed and ignored; coincident-point merging across blocks is always done.
 
@@ -372,7 +372,7 @@ spacing).
 `edgeGrading` entry gives four edges of some direction *different* gradings,
 so interior nodes must be blended from all 12 edge distributions
 (OpenFOAM `block::createPoints`) rather than one distribution per direction.
-When it is `Some`, the block-build path uses [`edge_blended_node`] and
+When it is `Some`, the block-build path uses `edge_blended_node` and
 `grading` merely holds a representative (the first edge of each direction)
 for inspection. When it is `None`, `grading` is authoritative and the fast
 trilinear per-direction map is used (this covers `simpleGrading` and every
@@ -394,7 +394,7 @@ pub struct Block {
 | `vertices` | `[usize; 8]` | The 8 block-corner vertex indices, in OpenFOAM hex order. |
 | `cells` | `[usize; 3]` | Cell counts `(nx, ny, nz)` along the three local directions. |
 | `grading` | `[Grading; 3]` | Per-direction node distributions `(gx, gy, gz)`. Authoritative when<br>`edge_grading` is `None`; a per-direction representative otherwise. |
-| `edge_grading` | `Option<[Grading; 12]>` | The 12 per-edge gradings, present only for a genuinely per-edge<br>`edgeGrading` (edges 0–3 = x, 4–7 = y, 8–11 = z; see<br>[`edge_blended_node`]). `None` selects the trilinear fast path. |
+| `edge_grading` | `Option<[Grading; 12]>` | The 12 per-edge gradings, present only for a genuinely per-edge<br>`edgeGrading` (edges 0–3 = x, 4–7 = y, 8–11 = z; see<br>`edge_blended_node`). `None` selects the trilinear fast path. |
 
 ##### Implementations
 
@@ -2533,14 +2533,14 @@ interior insertion cannot stay watertight (see the module docs for the full
 algorithm, restricted scope, and V&V).
 
 For each candidate layer count (full count first, then fewer — the
-quality-limited collapse), the [`InteriorInsert`](LayerMode::InteriorInsert)
+quality-limited collapse), the `InteriorInsert`
 topology is tried first at the first
 [`PatchKind::Wall`](outram_foam_basic_lib::mesh::PatchKind::Wall) patch: it
 displaces the near-wall mesh inward and inserts `n` graded prisms into the
 opened gap, keeping the outer boundary fixed. That candidate is accepted
 only if it is both **watertight** (every cell's signed face-area-vector sum
 vanishes) and free of non-positive-volume cells; otherwise the
-[`ExtrudeOutward`](LayerMode::ExtrudeOutward) topology (always watertight) is
+`ExtrudeOutward` topology (always watertight) is
 tried at the same `n`. On success the returned [`CastellatedMesh`] has:
 - `fv_mesh` / `topology` — the rebuilt, validated layered mesh. For an
   interior insert the original wall faces are internal at the shrunk
@@ -3033,8 +3033,8 @@ single-region mesh does not need:
 4. **Mesh-quality-gated relaxation** (`smoothDisplacement` +
    `scaleMesh`/`meshMover.scaleMesh`, lines 2134/2208). The smoothed
    displacement is applied scaled by a relaxation factor `lambda` (start
-   1.0). The moved [`PolyPatchMesh`] is rebuilt ([`PolyPatchMesh::build_fvmesh`])
-   and its [`quality`](PolyPatchMesh::quality) checked against
+   1.0). The moved [`PolyPatchMesh`](crate::snappy_hex_mesh::PolyPatchMesh) is rebuilt ([`PolyPatchMesh::build_fvmesh`](crate::snappy_hex_mesh::PolyPatchMesh::build_fvmesh))
+   and its [`quality`](crate::snappy_hex_mesh::PolyPatchMesh::quality) checked against
    [`QualityLimits`]. If the move is accepted it is committed; otherwise
    `lambda` is halved and retried (a few backoffs), reproducing OpenFOAM's
    "relax displacement until correct mesh" loop. Nearest-surface targets are
@@ -3048,7 +3048,7 @@ single-region mesh does not need:
    dihedral angle exceeds `feature_angle_deg`) **and feature points**
    (corners where ≥2 non-collinear feature edges meet) are extracted, and
    every wall patch point near a feature is classified with a per-point
-   [`PointConstraint`] that governs how it is allowed to move:
+   `PointConstraint` that governs how it is allowed to move:
    - **rank 0 — free on surface:** ordinary nearest-surface projection (as
      for a point with no nearby feature). `constrainDisplacement` is the
      identity here.
@@ -3095,8 +3095,8 @@ Deliberately **not** modelled (documented, not silently skipped):
 
 Because [`FvMesh`](outram_foam_basic_lib::mesh::FvMesh) stores only geometry
 and no point/face-vertex topology, snapping works on the point-based
-[`PolyPatchMesh`] carried in [`CastellatedMesh::topology`]: it moves points,
-then [`PolyPatchMesh::build_fvmesh`] recomputes all finite-volume geometry.
+[`PolyPatchMesh`](crate::snappy_hex_mesh::PolyPatchMesh) carried in [`CastellatedMesh::topology`]: it moves points,
+then [`PolyPatchMesh::build_fvmesh`](crate::snappy_hex_mesh::PolyPatchMesh::build_fvmesh) recomputes all finite-volume geometry.
 
 # Verification & validation
 

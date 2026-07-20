@@ -71,7 +71,7 @@
 //!   case). When the four edges of a direction happen to agree, the block
 //!   collapses to the equivalent `simpleGrading` fast path (bit-identical to a
 //!   single per-direction distribution); when they disagree, the genuine
-//!   per-edge 12-edge blend is used. See [`edge_blended_node`].
+//!   per-edge 12-edge blend is used. See `edge_blended_node`.
 //! - `mergePatchPairs` (face-merging of separately-meshed patch pairs) is
 //!   parsed and ignored; coincident-point merging across blocks is always done.
 //!
@@ -223,7 +223,7 @@ impl Grading {
 /// `edgeGrading` entry gives four edges of some direction *different* gradings,
 /// so interior nodes must be blended from all 12 edge distributions
 /// (OpenFOAM `block::createPoints`) rather than one distribution per direction.
-/// When it is `Some`, the block-build path uses [`edge_blended_node`] and
+/// When it is `Some`, the block-build path uses `edge_blended_node` and
 /// `grading` merely holds a representative (the first edge of each direction)
 /// for inspection. When it is `None`, `grading` is authoritative and the fast
 /// trilinear per-direction map is used (this covers `simpleGrading` and every
@@ -239,7 +239,7 @@ pub struct Block {
     pub grading: [Grading; 3],
     /// The 12 per-edge gradings, present only for a genuinely per-edge
     /// `edgeGrading` (edges 0–3 = x, 4–7 = y, 8–11 = z; see
-    /// [`edge_blended_node`]). `None` selects the trilinear fast path.
+    /// `edge_blended_node`). `None` selects the trilinear fast path.
     pub edge_grading: Option<[Grading; 12]>,
 }
 
@@ -1491,7 +1491,7 @@ fn correct_expansion(expansion: f64) -> f64 {
 ///
 /// Returns the 12 edge gradings in OpenFOAM order; [`collapse_edge_grading`]
 /// then decides whether they reduce to a per-direction `simpleGrading` or need
-/// the full 12-edge blend of [`edge_blended_node`].
+/// the full 12-edge blend of `edge_blended_node`.
 ///
 /// # Errors
 /// [`MeshError::DictParse`] if the list does not hold exactly 12 entries.
@@ -1522,12 +1522,12 @@ fn parse_edge_grading(cur: &mut Cursor) -> Result<[Grading; 12], MeshError> {
 /// collapses to the equivalent `simpleGrading` (`edge_grading = None`), which is
 /// *exact* and takes the fast trilinear path. Otherwise the genuine per-edge
 /// distribution is kept (`edge_grading = Some(edges)`) so
-/// [`edge_blended_node`] blends interior nodes from all 12 edges; the returned
+/// `edge_blended_node` blends interior nodes from all 12 edges; the returned
 /// `[Grading; 3]` is then just a representative (each direction's first edge)
 /// for inspection.
 ///
 /// The reduction is exact: when the four edges of a direction agree, the 12-edge
-/// blend of [`edge_blended_node`] is algebraically identical to trilinear
+/// blend of `edge_blended_node` is algebraically identical to trilinear
 /// interpolation with that shared per-direction distribution (see the function
 /// docs), so the two paths produce bit-comparable node positions.
 fn collapse_edge_grading(edges: [Grading; 12]) -> ([Grading; 3], Option<[Grading; 12]>) {
@@ -1876,7 +1876,7 @@ mod tests {
     /// Methodology: an `edgeGrading` whose four x-edges disagree `(1 3 2 5)`
     /// cannot collapse to one distribution per direction, so [`parse`] must
     /// keep the full 12 edge gradings (`edge_grading = Some(..)`) and the block
-    /// build must use [`edge_blended_node`]. Reference: OpenFOAM
+    /// build must use `edge_blended_node`. Reference: OpenFOAM
     /// `blockDescriptorEdges.C:121-141` (edges 0–3 = x). Pass criteria: the
     /// block's `edge_grading` is `Some`; its four x edges are
     /// `Uniform(1/3/2/5)`; y/z edges are `Uniform(1)`; the representative
@@ -1980,9 +1980,9 @@ mod tests {
     /// generalisation of trilinear interpolation — for equal per-direction edge
     /// distributions the normalised 4-edge blend in each direction collapses to
     /// the bilinear/trilinear map (`blockCreate.C:92-152`, proven in the
-    /// [`edge_blended_node`] docs). We build the 12 edge lambda arrays for a
+    /// `edge_blended_node` docs). We build the 12 edge lambda arrays for a
     /// unit cube with all four x-edges = ratio 4 and uniform y/z (`4x4x4`
-    /// cells), then compare [`edge_blended_node`] against [`trilinear`] with the
+    /// cells), then compare `edge_blended_node` against [`trilinear`] with the
     /// per-direction distributions at every one of the `5x5x5 = 125` grid nodes.
     /// Reference/pass criterion: max node discrepancy `< 1e-12 m` — the two
     /// independent code paths must agree to round-off.
