@@ -1,12 +1,23 @@
 //! Export bridges from an authored [`Mesh`] to the OUTRAM PARK solvers.
 //!
-//! Two self-contained, dependency-free exporters live here. Neither pulls in
-//! `outram-foam-*` or `outram-mc-libs`: the OpenFOAM bridge emits **text**
-//! (the polyMesh ASCII files as `String`s), and the CSG bridge emits **local
-//! mirror types** ([`CsgSurface`], [`RegionToken`], [`CsgDescription`]) that
-//! shadow the consumer crate's geometry vocabulary. Wiring the real path
-//! dependencies is deferred (tracked under epic `op-hzs`); until then a caller
-//! can round-trip through these plain data forms.
+//! The **default** exporters are self-contained and dependency-free: the
+//! OpenFOAM bridge emits **text** (the polyMesh ASCII files as `String`s), the
+//! CSG bridge emits **local mirror types** ([`CsgSurface`], [`RegionToken`],
+//! [`CsgDescription`]) that shadow the consumer crate's geometry vocabulary, and
+//! [`FacetedSolid`] carries a triangulated boundary. So the frontend stays light
+//! and Android-buildable with no solver-crate dependency.
+//!
+//! **Real-type bridges** to the actual solver crates are available behind opt-in
+//! cargo features, so neither solver crate is a hard dependency:
+//!
+//! - `foam-export` → `to_poly_mesh` returns a real
+//!   `outram_foam_basic_lib::io::poly_mesh::PolyMesh` (the type its OpenFOAM
+//!   reader/writer round-trips);
+//! - `mc-export` → `to_mc_geometry` returns a real
+//!   `outram_mc_libs::prelude::Geometry` (surfaces + a cell region).
+//!
+//! These are the wired counterparts of the text / mirror exporters (epic
+//! `op-hzs`, beads `op-hzs.6`/`op-hzs.7`).
 //!
 //! An authored mesh here is a **boundary surface** — a shell of vertices,
 //! edges, and polygon faces, with *no cells*. That single fact shapes both
@@ -927,6 +938,159 @@ pub fn to_faceted_solid(mesh: &Mesh) -> FacetedSolid {
     FacetedSolid { positions, triangles }
 }
 
+// ===========================================================================
+// 4. Real-type bridges to the OUTRAM PARK solver crates (feature-gated)
+//
+// The exporters above emit self-contained text / local-mirror types so the
+// default build stays light and Android-friendly. The two functions below hand
+// geometry to the ACTUAL solver crates' types, behind opt-in cargo features
+// (`foam-export`, `mc-export`) so neither crate is a hard dependency of the
+// authoring frontend.
+// ===========================================================================
+
+/// Convert `mesh` to a real `outram-foam-basic-lib` **polyMesh boundary
+/// description** (`io::poly_mesh::PolyMesh`) — the CFD export bridge.
+///
+/// (Feature `foam-export`.) This is the real-type counterpart of
+/// [`to_polymesh_text`]: it builds the actual `PolyMesh` connectivity type that
+/// `outram-foam-basic-lib`'s OpenFOAM reader/writer round-trips, so a caller can
+/// `poly.write(dir)` it or hand it to a volume mesher.
+///
+/// Because an authored mesh is a **boundary surface with no cells**, every face
+/// is a boundary face owned by a single dummy cell `0` (`neighbour = None`),
+/// `n_internal_faces = 0`, and all faces sit in one `authoredSurface`
+/// `PatchKind::Patch` patch — exactly the dummy-cell convention
+/// [`to_polymesh_text`] documents. It is a boundary patch for a volume mesher
+/// (blockMesh / snappyHexMesh) to fill, **not** a solve-ready `FvMesh`; do not
+/// call `to_fv_mesh` on it expecting real cell volumes.
+///
+/// Coordinates are copied verbatim as dimensionless model-space `f64`s into
+/// `Vector3`; the caller assigns a length unit (conventionally metres).
+#[cfg(feature = "foam-export")]
+pub fn to_poly_mesh(mesh: &Mesh) -> outram_foam_basic_lib::io::poly_mesh::PolyMesh {
+    use outram_foam_basic_lib::io::poly_mesh::{MeshFace, PolyMesh};
+    use outram_foam_basic_lib::mesh::{BoundaryPatch, PatchKind};
+    use outram_foam_basic_lib::primitives::Vector3;
+
+    let points: Vec<Vector3> = mesh
+        .positions()
+        .iter()
+        .map(|p| Vector3::new(p.x, p.y, p.z))
+        .collect();
+
+    let mut faces: Vec<MeshFace> = Vec::with_capacity(mesh.face_count());
+    for f in 0..mesh.face_count() {
+        let verts: Vec<usize> = mesh.face_vertices(FaceId(f)).iter().map(|v| v.0).collect();
+        // Boundary face: owned by the dummy cell 0, no neighbour cell.
+        faces.push(MeshFace { verts, owner: 0, neighbour: None });
+    }
+
+    let n_faces = faces.len();
+    let patches = vec![BoundaryPatch::new("authoredSurface", 0, n_faces, PatchKind::Patch)];
+
+    PolyMesh {
+        points,
+        faces,
+        n_internal_faces: 0,
+        n_cells: 1, // single dummy cell (a surface has no real cells)
+        patches,
+    }
+}
+
+/// Convert `mesh` to a real `outram-mc-libs` CSG `Geometry` — the Monte Carlo
+/// export bridge.
+///
+/// (Feature `mc-export`.) Fits `mesh` to analytic CSG via [`to_csg_primitive`],
+/// then maps the local-mirror surfaces/region onto `outram-mc-libs`'s real
+/// `SurfaceKind` / `RegionToken` and wraps them in a single-cell `Geometry`:
+///
+/// - each [`CsgSurface`] → the matching `SurfaceKind` variant, tagged
+///   `BoundaryType::Transmissive` (an interior surface);
+/// - [`Sense::Negative`] → `HalfSpaceSense::Inside` (evaluate `< 0`),
+///   [`Sense::Positive`] → `HalfSpaceSense::Outside` (evaluate `> 0`);
+/// - the region RPN maps 1:1 onto `outram-mc-libs`'s `RegionToken`;
+/// - the region becomes one `Cell` (id `1`) filled `CellFill::Void`, in a single
+///   root `Universe`. **The `Void` fill is a placeholder** — the caller assigns
+///   the real material/fill and temperature; this bridge exports *geometry*
+///   only.
+///
+/// # Errors
+///
+/// Returns [`ExportError::NotImplemented`] if `mesh` is not a fittable primitive
+/// (propagated from [`to_csg_primitive`]) **or** if the fitted CSG contains a
+/// general [`CsgSurface::Plane`] — `outram-mc-libs` has no general-plane surface
+/// (only `XPlane`/`YPlane`/`ZPlane`/`Sphere`/`ZCylinder`), so a convex-faceted
+/// CSG (from an arbitrary convex polyhedron) cannot be represented. Box, sphere,
+/// and Z-cylinder primitives export exactly.
+#[cfg(feature = "mc-export")]
+pub fn to_mc_geometry(mesh: &Mesh) -> Result<outram_mc_libs::prelude::Geometry, ExportError> {
+    use outram_mc_libs::geometry::position::Position;
+    use outram_mc_libs::geometry::surface::{Sphere, XPlane, YPlane, ZCylinder, ZPlane};
+    use outram_mc_libs::prelude::{
+        BoundaryType, Cell, CellFill, Geometry, HalfSpaceSense, SurfaceKind, Universe,
+    };
+    use outram_mc_libs::prelude::RegionToken as McToken;
+
+    let desc = to_csg_primitive(mesh)?;
+
+    let bc = BoundaryType::Transmissive;
+    let mut surfaces: Vec<SurfaceKind> = Vec::with_capacity(desc.surfaces.len());
+    for s in &desc.surfaces {
+        let kind = match *s {
+            CsgSurface::XPlane { x0 } => SurfaceKind::XPlane(XPlane { x0, bc }),
+            CsgSurface::YPlane { y0 } => SurfaceKind::YPlane(YPlane { y0, bc }),
+            CsgSurface::ZPlane { z0 } => SurfaceKind::ZPlane(ZPlane { z0, bc }),
+            CsgSurface::Sphere { x0, y0, z0, r } => {
+                SurfaceKind::Sphere(Sphere { x0, y0, z0, r, bc })
+            }
+            CsgSurface::ZCylinder { x0, y0, r } => {
+                SurfaceKind::ZCylinder(ZCylinder { x0, y0, r, bc })
+            }
+            CsgSurface::Plane { .. } => {
+                return Err(ExportError::NotImplemented(
+                    "outram-mc-libs has no general Plane surface; a convex-faceted CSG (from \
+                     an arbitrary convex polyhedron) cannot be exported to Monte Carlo -- only \
+                     box / sphere / Z-cylinder primitives map exactly",
+                ));
+            }
+        };
+        surfaces.push(kind);
+    }
+
+    let region: Vec<McToken> = desc
+        .region
+        .iter()
+        .map(|t| match *t {
+            RegionToken::Halfspace { surface, sense } => McToken::HalfSpace {
+                surface_idx: surface,
+                sense: match sense {
+                    Sense::Negative => HalfSpaceSense::Inside,
+                    Sense::Positive => HalfSpaceSense::Outside,
+                },
+            },
+            RegionToken::Intersection => McToken::Intersection,
+            RegionToken::Union => McToken::Union,
+            RegionToken::Complement => McToken::Complement,
+        })
+        .collect();
+
+    // One geometry-only cell; the caller reassigns the fill/material/temperature.
+    let cell = Cell {
+        id: 1,
+        region,
+        fill: CellFill::Void,
+        temperature: 293.6,
+        translation: Position::ZERO,
+    };
+    Ok(Geometry {
+        surfaces,
+        cells: vec![cell],
+        universes: vec![Universe { id: 0, cell_indices: vec![0] }],
+        lattices: vec![],
+        root_universe: 0,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1206,6 +1370,85 @@ mod tests {
             !solid.contains(Vec3::new(1.5, 1.5, 0.5)),
             "reentrant-notch point (inside AABB, outside solid) must be outside"
         );
+    }
+
+    /// Real-type CFD bridge (feature `foam-export`): `to_poly_mesh(cube)` builds
+    /// an `outram-foam-basic-lib` `PolyMesh` boundary description — 8 points, 6
+    /// boundary faces (no neighbours), one dummy cell, one all-covering patch.
+    #[cfg(feature = "foam-export")]
+    #[test]
+    fn foam_poly_mesh_export_cube() {
+        let poly = to_poly_mesh(&primitives::cube(2.0));
+        assert_eq!(poly.points.len(), 8, "cube has 8 points");
+        assert_eq!(poly.faces.len(), 6, "cube has 6 faces");
+        assert_eq!(poly.n_internal_faces, 0, "a surface has no internal faces");
+        assert_eq!(poly.n_cells, 1, "single dummy cell");
+        assert_eq!(poly.patches.len(), 1, "one boundary patch");
+        assert_eq!(poly.patches[0].start, 0);
+        assert_eq!(poly.patches[0].size, 6, "patch covers every face");
+        assert!(poly.faces.iter().all(|f| f.neighbour.is_none()), "all boundary faces");
+        // Real accessors agree.
+        assert_eq!(poly.n_points(), 8);
+        assert_eq!(poly.n_boundary_faces(), 6);
+    }
+
+    /// Real-type Monte Carlo bridge (feature `mc-export`): `to_mc_geometry` maps
+    /// a fitted box to six `SurfaceKind` planes intersected in one cell, and a
+    /// uv-sphere to a single `Sphere` surface.
+    #[cfg(feature = "mc-export")]
+    #[test]
+    fn mc_geometry_export_box_and_sphere() {
+        use outram_mc_libs::prelude::{CellFill, RegionToken as McToken, SurfaceKind};
+
+        let geom = to_mc_geometry(&primitives::cube(2.0)).expect("cube exports to MC CSG");
+        assert_eq!(geom.surfaces.len(), 6, "box = six planes");
+        assert!(
+            geom.surfaces.iter().all(|s| matches!(
+                s,
+                SurfaceKind::XPlane(_) | SurfaceKind::YPlane(_) | SurfaceKind::ZPlane(_)
+            )),
+            "box surfaces must all be axis planes"
+        );
+        assert_eq!(geom.cells.len(), 1);
+        assert!(matches!(geom.cells[0].fill, CellFill::Void), "geometry-only cell is Void");
+        let halfspaces = geom.cells[0]
+            .region
+            .iter()
+            .filter(|t| matches!(t, McToken::HalfSpace { .. }))
+            .count();
+        let intersections = geom.cells[0]
+            .region
+            .iter()
+            .filter(|t| matches!(t, McToken::Intersection))
+            .count();
+        assert_eq!(halfspaces, 6, "six half-spaces");
+        assert_eq!(intersections, 5, "combined by five intersections");
+
+        let sph = to_mc_geometry(&primitives::uv_sphere(16, 8, 3.0)).expect("sphere exports");
+        assert_eq!(sph.surfaces.len(), 1);
+        assert!(matches!(sph.surfaces[0], SurfaceKind::Sphere(_)));
+    }
+
+    /// The MC bridge honestly refuses a convex-faceted CSG: `outram-mc-libs` has
+    /// no general-plane surface, so a stretched octahedron (which fits to general
+    /// `CsgSurface::Plane`s) returns `NotImplemented` rather than a wrong mapping.
+    #[cfg(feature = "mc-export")]
+    #[test]
+    fn mc_geometry_rejects_convex_faceted_plane() {
+        let positions = [
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, -1.0, 0.0),
+            Vec3::new(0.0, 0.0, 2.0),
+            Vec3::new(0.0, 0.0, -2.0),
+        ];
+        let faces = vec![
+            vec![0, 2, 4], vec![2, 1, 4], vec![1, 3, 4], vec![3, 0, 4],
+            vec![2, 0, 5], vec![1, 2, 5], vec![3, 1, 5], vec![0, 3, 5],
+        ];
+        let octa = Mesh::from_polygons(&positions, &faces);
+        assert!(matches!(to_mc_geometry(&octa), Err(ExportError::NotImplemented(_))));
     }
 
     /// [`to_faceted_solid`] orients outward regardless of the input winding, so

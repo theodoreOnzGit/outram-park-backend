@@ -43,9 +43,11 @@ Monte Carlo neutron transport.
 > rejected honestly (`Unsupported`), not guessed. The CSG export bridge fits a
 > box / sphere / Z-cylinder / any convex polyhedron to analytic surfaces and
 > falls back to a DAGMC-style faceted solid (winding inside-test) for non-convex
-> results. The vertex bevel now rounds (a multi-segment spherical cap) as well as
-> single-chamfers. All of the epic's boolean/export/bevel workstreams
-> (`op-hzs.11`–`op-hzs.13`) are landed.
+> results, and — behind opt-in cargo features (`foam-export`, `mc-export`) —
+> emits the **real** `outram-foam-basic-lib` polyMesh and `outram-mc-libs` CSG
+> types, not just local mirrors. The vertex bevel now rounds (a multi-segment
+> spherical cap) as well as single-chamfers. All of the epic's boolean / export /
+> bevel workstreams (`op-hzs.6`, `op-hzs.7`, `op-hzs.11`–`op-hzs.13`) are landed.
 >
 > **⚠️ AI-generated draft, untrusted until human-reviewed** per the workspace
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -94,7 +96,7 @@ included.
 | `boolean_classify` | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number |
 | `modifiers` | `modifiers/intern/MOD_*` | **real** — mirror / array / subsurf |
 | `procedural` | Geometry Nodes | **real** — node-graph evaluator (primitive / transform / join / subdivide / boolean / output) |
-| `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh text, CSG fitting (box / sphere / Z-cylinder / any convex polyhedron faceted), and a DAGMC-style faceted-solid route (winding `contains`) for non-convex meshes |
+| `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh text, CSG fitting (box / sphere / Z-cylinder / any convex polyhedron faceted), a DAGMC-style faceted-solid route for non-convex meshes, plus **feature-gated real-type bridges** to `outram-foam-basic-lib` (`foam-export`) and `outram-mc-libs` (`mc-export`) |
 
 ## Design rules honoured (workspace `CLAUDE.md`)
 
