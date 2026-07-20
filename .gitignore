@@ -39,3 +39,8 @@ xin wang thesis.pdf
 # for background subagents (isolation: "worktree"). Working scratch only, never
 # committed; they are auto-cleaned when the agent finishes.
 .claude/worktrees/
+
+# Vendored upstream sources for reference/validation (e.g. NJOY2016 built to
+# generate golden tapes for V&V). Large third-party trees — never committed
+# (workspace vendor rule, bead op-264). GPLv3-compatible upstreams only.
+/vendor/

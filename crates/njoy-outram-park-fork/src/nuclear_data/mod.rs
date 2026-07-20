@@ -21,6 +21,7 @@
 //! adding a new representation is a new variant that every `match` must handle.
 
 pub mod delayed;
+pub mod delayed_mgxs;
 pub mod secondary;
 pub mod weighting;
 
@@ -28,6 +29,7 @@ use crate::wmp::WindowedMultipole;
 use crate::NjoyError;
 use secondary::{FissionSpectrum, NuBar};
 pub use delayed::{DecayConstant, DelayedChi, DelayedChiGroup, DelayedNuBar};
+pub use delayed_mgxs::DelayedMgxs;
 pub use weighting::WeightingSpectrum;
 
 /// Microscopic neutron cross sections at one energy/temperature \[barn\].
