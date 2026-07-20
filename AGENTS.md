@@ -1,26 +1,33 @@
 # Agent Instructions
 
-This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
+This project uses **beads-rs** (`bd`) for issue tracking. Run `bd prime` for full workflow context.
 
-> **Architecture in one line:** Issues live in a local Dolt database
-> (`.beads/dolt/`); cross-machine sync uses `bd dolt push/pull` (a
-> git-compatible protocol), stored under `refs/dolt/data` on your git
-> remote — separate from `refs/heads/*` where your code lives.
-> `.beads/issues.jsonl` is a passive export, not the wire protocol.
+> **Tooling note (2026-07-20):** this workspace migrated off the Go beads/Dolt
+> implementation to **beads-rs** (`cargo install beads-rs`, binary `bd`). The
+> old Go binary is parked at `~/.local/bin/bd-go.deprecated`; `bd` now resolves
+> to beads-rs. All 335 beads were migrated via `bd migrate from-go`.
 >
-> See [SYNC_CONCEPTS.md](https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md)
-> for the one-screen overview and anti-patterns (don't treat JSONL as the
-> source of truth; don't `bd import` during normal operation; don't
-> reach for third-party Dolt hosting before trying the default).
+> **Architecture in one line (beads-rs):** issues live **in git refs** —
+> canonical state on `refs/heads/beads/store` (files `state.jsonl`,
+> `deps.jsonl`, `tombstones.jsonl`, `meta.json` inside that ref), backups under
+> `refs/beads/backup/*`. A background **`bd daemon`** debounces and
+> **auto-syncs** (push/pull) the `beads/store` ref to your git remote — a
+> private channel, separate from `refs/heads/*` where your code lives. There is
+> **no `bd dolt`** and **no `.beads/` Dolt DB**; `.beads/issues.jsonl` is now a
+> local compat-export **symlink**, not the source of truth.
+>
+> The daemon's auto-sync of `beads/store` is beads-rs's designed, opted-in
+> behavior — it does **not** relax the workspace rule against committing/pushing
+> **code** branches (`refs/heads/*`) without explicit approval.
 
 ## Quick Reference
 
 ```bash
 bd ready              # Find available work
 bd show <id>          # View issue details
-bd update <id> --claim  # Claim work atomically
+bd claim <id>         # Claim work
 bd close <id>         # Complete work
-bd dolt push          # Push beads data to remote
+# sync is automatic via `bd daemon`; no manual push command
 ```
 
 ## Non-Interactive Shell Commands
@@ -57,7 +64,7 @@ This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full 
 ```bash
 bd ready              # Find available work
 bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
+bd claim <id>         # Claim work
 bd close <id>         # Complete work
 ```
 
@@ -67,7 +74,7 @@ bd close <id>         # Complete work
 - Run `bd prime` for detailed command reference and session close protocol
 - Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
 
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+**Architecture in one line (beads-rs):** issues live in git refs — canonical state on `refs/heads/beads/store` (state/deps/tombstones jsonl + meta.json), backups under `refs/beads/backup/*`; a background `bd daemon` auto-syncs that ref to your git remote (separate from `refs/heads/*` code branches). No `bd dolt`, no `.beads/` Dolt DB; `.beads/issues.jsonl` is a local compat-export symlink, not the source of truth. Migrated off Go beads on 2026-07-20.
 
 ## Agent Context Profiles
 
@@ -91,7 +98,7 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 
    # Team-maintainer opt-in only, unless current instructions forbid it:
    git pull --rebase
-   bd dolt push
+   # (beads sync is automatic via `bd daemon`; no manual `bd dolt push`)
    git push
    git status
    ```
@@ -113,7 +120,7 @@ Use Beads (`bd`) for durable task tracking in repositories that include it. Use 
 ```bash
 bd ready                # Find available work
 bd show <id>            # View issue details
-bd update <id> --claim  # Claim work
+bd claim <id>           # Claim work
 bd close <id>           # Complete work
 bd prime                # Refresh Beads context
 ```
@@ -124,5 +131,5 @@ bd prime                # Refresh Beads context
 - Run `bd prime` when Beads context is missing or stale. Codex 0.129.0+ can load Beads context automatically through native hooks; use `/hooks` to inspect or toggle them.
 - Keep persistent project memory in Beads via `bd remember`; do not create ad hoc memory files.
 
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+**Architecture in one line (beads-rs):** issues live in git refs — canonical state on `refs/heads/beads/store` (state/deps/tombstones jsonl + meta.json), backups under `refs/beads/backup/*`; a background `bd daemon` auto-syncs that ref to your git remote (separate from `refs/heads/*` code branches). No `bd dolt`, no `.beads/` Dolt DB; `.beads/issues.jsonl` is a local compat-export symlink, not the source of truth. Migrated off Go beads on 2026-07-20.
 <!-- END BEADS CODEX SETUP -->

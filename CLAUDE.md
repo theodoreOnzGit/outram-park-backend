@@ -137,13 +137,29 @@ specifically, not just human contributors:
 
 ## Issue tracking & roadmap — beads (mandatory when available)
 
-This workspace tracks issues and per-crate roadmap progress with **beads**
-(`bd`). It is a dependency-aware issue tracker whose data lives in `.beads/`
-(embedded Dolt DB) with a passive export at **`.beads/issues.jsonl`**.
+This workspace tracks issues and per-crate roadmap progress with **beads-rs**
+(`bd`). It is a dependency-aware issue tracker whose canonical data lives **in
+git refs** — `refs/heads/beads/store` (holding `state.jsonl`, `deps.jsonl`,
+`tombstones.jsonl`, `meta.json`), with backups under `refs/beads/backup/*`. A
+background **`bd daemon`** debounces and **auto-syncs** that ref to the git
+remote (a private channel, separate from `refs/heads/*` code branches).
+`.beads/issues.jsonl` is now only a local compat-export **symlink**, not the
+source of truth.
 
-- **Install** (Linux/macOS with bash):
-  `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
-  (installs `bd` to `~/.local/bin`; add that to `PATH`).
+> **Migrated 2026-07-20** from the Go beads/Dolt implementation to **beads-rs**.
+> The old Go binary is parked at `~/.local/bin/bd-go.deprecated`; `bd` now
+> resolves to beads-rs. There is **no `bd dolt`**, no `.beads/` Dolt DB, and no
+> `refs/dolt/data` sync anymore — those references elsewhere in this file and in
+> per-crate docs are stale and tracked for cleanup (see the doc-sweep bead). The
+> daemon auto-syncing `beads/store` is beads-rs's designed, opted-in behavior
+> and does **not** relax the rule against committing/pushing **code** without
+> explicit approval.
+
+- **Install:** `cargo install beads-rs` (binary `bd`). First-time setup in a
+  repo: `bd init`, then `bd setup claude`, then `bd onboard`. Migrate a Go
+  export with `bd migrate from-go --input <issues.jsonl>` (comment ids must be
+  integers, every record needs a `description`, and unknown issue types like
+  `decision` must be remapped — the importer is strict).
 - **Standing rule: if `bd` is available on this machine, you MUST use it** for
   all task/roadmap tracking and progress bookkeeping — in preference to
   TodoWrite / TaskCreate / ad-hoc markdown TODO lists. Create/close/update
@@ -154,8 +170,8 @@ This workspace tracks issues and per-crate roadmap progress with **beads**
   harness task tools and note in your hand-off that beads wasn't updated.
 - **Roadmap / progress summaries come from beads.** When the user asks "where
   are we" / "summarise progress" / "what's the roadmap", read it out of beads
-  (`bd list`, `bd ready`, `bd show <id>`, `bd dep tree <id>`, or the
-  `.beads/issues.jsonl` export) rather than re-deriving from scattered docs.
+  (`bd list`, `bd ready`, `bd show <id>`, `bd status`, `bd dep`) rather than
+  re-deriving from scattered docs.
   One epic per member crate; child beads are that crate's workstreams.
 - **Relationship to the memory system.** Beads and the per-project memory
   files (`~/.claude/projects/<slug>/memory/`) are complementary and **both
@@ -595,14 +611,14 @@ corrections.** Default is standard English; opt-in only.
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
 ## Beads Issue Tracker
 
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
+This project uses **beads-rs** (`bd`) for issue tracking. Run `bd prime` to see full workflow context and commands.
 
 ### Quick Reference
 
 ```bash
 bd ready              # Find available work
 bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
+bd claim <id>         # Claim work
 bd close <id>         # Complete work
 ```
 
@@ -610,9 +626,11 @@ bd close <id>         # Complete work
 
 - Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
 - Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+- Persistent durable facts / user preferences: keep using the per-project
+  `memory/` + `MEMORY.md` workflow (see the "Issue tracking & roadmap" section
+  above — this workspace keeps MEMORY.md; it is **not** dropped).
 
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+**Architecture in one line (beads-rs):** issues live in git refs — canonical state on `refs/heads/beads/store` (state/deps/tombstones jsonl + meta.json), backups under `refs/beads/backup/*`; a background `bd daemon` auto-syncs that ref to the git remote (separate from `refs/heads/*` code branches). No `bd dolt`, no `.beads/` Dolt DB; `.beads/issues.jsonl` is a local compat-export symlink. Migrated off Go beads on 2026-07-20.
 
 ## Agent Context Profiles
 
