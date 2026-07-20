@@ -37,18 +37,22 @@
 //!
 //! # Implementation status (read before depending on a model)
 //!
-//! Only **k-ω SST is implemented and unit-tested**. The other closures are
-//! scaffolds — the struct and its coefficients exist, but their trait methods
-//! `todo!()`-panic if called. Constructing them is safe; driving them is not.
+//! Every closure now implements the full [`traits::TurbulenceModel`] contract
+//! and is unit-tested; none are `todo!()` scaffolds. **Unit-tested is not
+//! benchmark-validated** — the transport formulae, coefficients, and positivity
+//! are checked against the upstream OpenFOAM source and analytical values, but
+//! no model has yet been validated end-to-end against a published turbulence
+//! benchmark, and all use zero-gradient (not wall-function) near-wall boundary
+//! conditions. See each module's "Honest scope" section and `README.md`.
 //!
 //! | Module | Model | Status |
 //! |---|---|---|
 //! | [`k_omega_sst`] | Menter (1994) k-ω SST | Implemented + unit-tested |
-//! | [`laminar`] | No-op laminar | Partial — `div_dev_rho_reff` is `todo!()` |
-//! | [`k_epsilon`] | Jones & Launder (1972) k-ε | Scaffold — trait methods `todo!()` |
-//! | [`k_omega`] | Wilcox (1988) k-ω | Scaffold — trait methods `todo!()` |
-//! | [`spalart_allmaras`] | Spalart-Allmaras (1992) | Scaffold — trait methods `todo!()` |
-//! | [`les`] | Smagorinsky (1963) LES | Scaffold — trait methods `todo!()` |
+//! | [`laminar`] | No-op laminar (ν_t ≡ 0) | Implemented + unit-tested |
+//! | [`k_epsilon`] | Jones & Launder (1972) k-ε | Implemented + unit-tested |
+//! | [`k_omega`] | Wilcox k-ω | Implemented + unit-tested |
+//! | [`spalart_allmaras`] | Spalart-Allmaras (1992) | Implemented + unit-tested |
+//! | [`les`] | Smagorinsky (1963) LES | Implemented + unit-tested |
 //!
 //! [`wall_functions`] provides standalone log-law helpers (`y_plus`, `u_tau`,
 //! `nu_t_wall`); they are not yet wired into any model as boundary conditions.
