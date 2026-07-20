@@ -34,3 +34,8 @@ xin wang thesis.pdf
 # it has been reviewed for licensing / data-policy / GPLv3 compliance and
 # integrated into the right crate.
 /collaboration/
+
+# Vendored upstream sources for reference/validation (e.g. NJOY2016 built to
+# generate golden tapes for V&V). Large third-party trees — never committed
+# (workspace vendor rule, bead op-264). GPLv3-compatible upstreams only.
+/vendor/
