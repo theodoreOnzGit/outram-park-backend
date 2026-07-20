@@ -16,6 +16,10 @@ members = [
     "crates/njoy-outram-park-fork",
     "crates/nee_soon",
     "crates/outram-park-fork-coolprop",
+    # outram-park-fork-pflotran — pure-Rust PFLOTRAN fork (subsurface flow &
+    # reactive transport). SCAFFOLD: units/error/flow-mode shape only; RICHARDS
+    # solve, Newton-Krylov solver, grid, and I/O are planned (epic op-v6s).
+    "crates/outram-park-fork-pflotran",
     "crates/tampines",
     "crates/outram-park-digital-twin-engine",
     # KOVAN — knowledge layer (deterministic literature/semantics/codegen tooling)
