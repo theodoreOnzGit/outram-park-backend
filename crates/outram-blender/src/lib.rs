@@ -42,7 +42,7 @@
 //! | [`boolean_classify`] | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number (+ ray-parity cross-check) |
 //! | [`modifiers`] | `modifiers/intern/MOD_*` modifier stack | **real** — subsurf / mirror / array |
 //! | [`procedural`] | Geometry Nodes (`nodes/geometry/*`) | **real** — node-graph evaluator |
-//! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG primitive description |
+//! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid route |
 //!
 //! ## Design rules honoured here (workspace `CLAUDE.md`)
 //!

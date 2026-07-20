@@ -40,8 +40,11 @@ Monte Carlo neutron transport.
 > robust Shewchuk predicates), with an exact convex-`Intersect` fast path; it is
 > verified against analytic CSG volumes (two offset boxes: `∪ = 15`, `∩ = 1`,
 > `\ = 7`) and a faceted sphere ∩ box. Coplanar overlapping operand faces are
-> rejected honestly (`Unsupported`), not guessed. Remaining gaps are documented
-> per module and tracked in beads (`op-hzs.11`, `op-hzs.13`).
+> rejected honestly (`Unsupported`), not guessed. The CSG export bridge fits a
+> box / sphere / Z-cylinder / any convex polyhedron to analytic surfaces and
+> falls back to a DAGMC-style faceted solid (winding inside-test) for non-convex
+> results. The main remaining modelling gap is the multi-segment rounded bevel
+> (bead `op-hzs.11`).
 >
 > **⚠️ AI-generated draft, untrusted until human-reviewed** per the workspace
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -90,7 +93,7 @@ included.
 | `boolean_classify` | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number |
 | `modifiers` | `modifiers/intern/MOD_*` | **real** — mirror / array / subsurf |
 | `procedural` | Geometry Nodes | **real** — node-graph evaluator (primitive / transform / join / subdivide / boolean / output) |
-| `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh text, CSG primitive fitting (cube + sphere; cylinder/faceted are follow-ups) |
+| `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh text, CSG fitting (box / sphere / Z-cylinder / any convex polyhedron faceted), and a DAGMC-style faceted-solid route (winding `contains`) for non-convex meshes |
 
 ## Design rules honoured (workspace `CLAUDE.md`)
 
