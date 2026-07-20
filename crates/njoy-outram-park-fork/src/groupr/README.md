@@ -36,6 +36,9 @@ standalone). Files:
 | `input.rs` | Card deck `GrouprInput` + `parse`, selector enums (`WeightSelection`, `WeightOption`, `PrintOption`, `SmoothingOption`), `neutron_group_from_ign` adapter, `ReactionRequest` | `ruinb` `groupr.f90:1044-1130`; card reads `:628`, `:993`; option tables `:126-215` |
 | `photon_groups.rs` | `PhotonGroupStructure` enum + `photon_group_structure(igg)` boundary tables (eV) | `gengpg` `groupr.f90:4651-4863` |
 | `weights.rs` | `AnalyticWeight` closed-form weights (`iwt=2,3,4,6,7,11,12`); `ThermalFissionParams`; preserved built-in TAB1 tables (`iwt=5,8,9`) | `genwtf` `groupr.f90:4865-5113`; `getwtf` `:5115-5307` |
+| `unresolved.rs` | Bondarenko flux (`genflx_bondarenko`), URR self-shielded table + retrieval (`UnresolvedTable::store`/`shield`) | `genflx` `:5309-5684`; `stounr`/`getunr` `:6802-6994` |
+| `urr_pendf.rs` | PENDF MF=2/MT=152 tape reader: `read_urr_table` (LIST-body decode) + `read_urr_from_tape` (tape-locate) | `stounr` `:6802-6875` |
+| `pendf_feed.rs` | PENDF MF=3/MF=13 smooth cross-section tape reader: `classify_mtd` + `read_pendf_cross_section` (ordinary single-TAB1 case only) | `getsig` init branch `:6646-6753` |
 | `mod.rs` | Module map, re-exports, `run()` pipeline skeleton | `subroutine groupr` `:97-1042` |
 
 ### Ported (self-contained, tested)
@@ -63,15 +66,31 @@ ERRORR-only `ign = -1`). No boundary table is copied.
 
 ### NotPorted (explicit gap list — do not fabricate)
 
+**Note (op-3ut, 2026-07-20):** this list predates the op-bsz self-shielding
+pass and the op-3ut tape-feeder pass, both landed since it was written, and is
+stale on several entries below — `genflx`/`getunr`/`stounr` (see
+`unresolved.rs`/`urr_pendf.rs`), `panel`/`displa` (see `panel.rs`/`matrix.rs`),
+and `getsig` (see `pendf_feed.rs`, ordinary MF=3/MF=13 case only) are now
+**partially ported**; the rest of this list has not been re-audited item by
+item. A `mod.rs`-level `run()` NotPorted entry point remains accurate — the
+end-to-end pipeline is not wired together.
+
 The numeric engine and its dependencies return `NjoyError::NotPorted`:
 
 - reaction retrieval & feed functions: `getmf6`, `getff`, `getfwt`, `getflx`,
-  `getyld`, `getsig`, `getdis`, `getgfl`, `getgyl`, `getsed`, `anased`;
-- quadrature / accumulation: `panel`, `epanel`, `gengr`, `glmol`, `displa`;
-- flux calculator & URR self-shielding: `genflx`, `getfwt`, `getunr`, `stounr`;
+  `getyld`, `getsig` (MF=10 photon-production + `MT=257/258/259` derived
+  quantities only — the ordinary MF=3/MF=13 case is ported, see
+  `pendf_feed.rs`), `getdis` (anisotropic-CM only — see `matrix.rs`),
+  `getgfl`, `getgyl`, `getsed`, `anased`;
+- quadrature / accumulation: `epanel`, `gengr`, `glmol` (the vector/matrix
+  `panel`/`displa` reduction is ported — see `panel.rs`/`matrix.rs`);
+- flux calculator & URR self-shielding: `getfwt`; the slowing-down branch of
+  `genflx` (`nflmax > 0`) — the Bondarenko branch and `getunr`/`stounr` are
+  ported, see `unresolved.rs`/`urr_pendf.rs`;
 - kinematics / matrix machinery: `cm2lab`, `f6cm`, `f6lab`, `ll2lab`, `getaed`,
   `aedi`, `getco`, `gam102`, `conver`, `hnab`;
-- the GENDF record writer.
+- the GENDF matrix-record writer is ported (see `matrix.rs`/`gendf.rs`); the
+  vector-record writer was already ported before this note.
 
 Also `NotPorted` in the input layer: the flux-calculator card 8a (`iwt < 0`),
 the TAB1 weight card 8b (`iwt = 1`), the resonance-flux card 8d (`iwt = 0`), the

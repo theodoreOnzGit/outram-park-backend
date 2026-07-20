@@ -22,18 +22,31 @@
 //! - [`math`] — self-contained **numerical kernels** used by the
 //!   resonance-parameter covariance path (`efacphi`, `efacts`, `eunfac`,
 //!   `egnrl`, `cleb`, and small 3×3 matrix helpers).
+//! - [`covariance`] — the **ENDF MF=31/33 covariance-section reader**: a
+//!   faithful structural port of `covcal`'s ENDF I/O staging phase
+//!   (`errorr.f90:1868-2060`), plus the `iverf` format-era detector
+//!   (`errorr.f90:456-466`). Reads every raw field of a section's `NL`
+//!   subsections and their `NC`/`NI` sub-subsections; does **not** decode
+//!   `LB`-tagged matrix data or compute a covariance value (see the module's
+//!   own docs for the reader/solver split).
 //!
-//! What is **not** yet ported: the covariance calculation kernels (`covcal`),
-//! group averaging (`grpav`/`grpav4`), covariance collapse/output
-//! (`colaps`/`covout`), and the resonance-parameter covariance chain
-//! (`resprx`/`rpxsamm`/…). The end-to-end pipeline therefore returns
-//! `NotPorted`. See `README.md` in this directory and the review manifest
-//! under `docs/ai-fleet-review/op-cjw/` for the full gap list.
+//! What is **not** yet ported: the covariance calculation kernels (`covcal`'s
+//! group-average stage, which needs the union energy grid), group averaging
+//! (`grpav`/`grpav4`), covariance collapse/output (`colaps`/`covout`), and the
+//! resonance-parameter covariance chain (`resprx`/`rpxsamm`/…). The
+//! end-to-end pipeline therefore returns `NotPorted`. See `README.md` in this
+//! directory and the review manifest under `docs/ai-fleet-review/op-cjw/` for
+//! the full gap list.
 
+pub mod covariance;
 pub mod driver;
 pub mod groups;
 pub mod math;
 
+pub use covariance::{
+    detect_endf_version, read_covariance_section, CovarianceSection, CovarianceSubsection,
+    NcSubsection, NiSubsection, SubsectionFormat,
+};
 pub use driver::ErrorrInput;
 
 use crate::NjoyError;
