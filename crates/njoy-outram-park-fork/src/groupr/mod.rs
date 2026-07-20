@@ -75,6 +75,7 @@ pub mod kinematics;
 pub mod matrix;
 pub mod overlap;
 pub mod panel;
+pub mod pendf_feed;
 pub mod photon_groups;
 pub mod self_shielded;
 pub mod slowing_down;
@@ -109,7 +110,8 @@ pub use unresolved::{
     genflx_bondarenko, LssfFlag, OverlapContext, SelfShieldedFluxSet, UnresolvedTable,
     UnrShielded, UrrEnergyPoint, UrrReaction,
 };
-pub use urr_pendf::{lssf_from_flag, read_urr_table};
+pub use pendf_feed::{classify_mtd, read_pendf_cross_section, MtdClass, PendfCrossSection};
+pub use urr_pendf::{lssf_from_flag, read_urr_from_tape, read_urr_table};
 
 // Re-export the shared neutron group structures (owned by ERRORR's `gengpn`
 // port) so a GROUPR user finds them without knowing they live in ERRORR.
