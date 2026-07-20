@@ -538,7 +538,9 @@ mod tests {
     fn classify_point_uv_sphere() {
         let mesh = primitives::uv_sphere(24, 12, 1.0);
         let w_in = winding_number(&mesh, Vec3::ZERO);
-        assert!(approx(w_in.abs(), 1.0, 1e-3), "expected |w| ~= 1 at sphere center, got {w_in}");
+        // Sign, not just magnitude: an outward-wound sphere gives +1 inside.
+        // (Guards the uv_sphere inward-winding regression, bead op-hzs.14.)
+        assert!(approx(w_in, 1.0, 1e-3), "expected w ~= +1 at sphere center, got {w_in}");
         assert_eq!(classify_point(&mesh, Vec3::ZERO), PointClass::Inside);
 
         let w_out = winding_number(&mesh, Vec3::new(10.0, 10.0, 10.0));

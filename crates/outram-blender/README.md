@@ -34,10 +34,14 @@ Monte Carlo neutron transport.
 > operators (extrude / midpoint-subdivide / vertex-bevel), Catmull-Clark
 > subdivision, the modifier stack (mirror / array / subsurf), the procedural
 > node evaluator, and the export bridges (OpenFOAM polyMesh text + CSG
-> primitive fitting) are real, unit-tested algorithms. The mesh **boolean** is
-> a partial (convex-mesh intersection only; union/difference are honest
-> `Unsupported`). Remaining gaps are documented per module and tracked in beads
-> (`op-hzs.3`, `op-hzs.11`–`op-hzs.13`).
+> primitive fitting) are real, unit-tested algorithms. The mesh **boolean** now
+> does **general union / difference / intersect on non-convex closed meshes**
+> (surface arrangement + generalized-winding-number classification, built on the
+> robust Shewchuk predicates), with an exact convex-`Intersect` fast path; it is
+> verified against analytic CSG volumes (two offset boxes: `∪ = 15`, `∩ = 1`,
+> `\ = 7`) and a faceted sphere ∩ box. Coplanar overlapping operand faces are
+> rejected honestly (`Unsupported`), not guessed. Remaining gaps are documented
+> per module and tracked in beads (`op-hzs.11`, `op-hzs.13`).
 >
 > **⚠️ AI-generated draft, untrusted until human-reviewed** per the workspace
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -80,7 +84,10 @@ included.
 | `primitives` | Add-Mesh primitive operators | **real** — cube / UV-sphere / cylinder / grid, unit-tested |
 | `ops` | `bmesh/operators` (`bmo_*`) | **real** — extrude / midpoint-subdivide / vertex-bevel (boolean delegates to `boolean`; multi-segment bevel is a follow-up) |
 | `subdivision` | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
-| `boolean` | `bmo_boolean` (Manifold upstream) | **partial** — convex-mesh Intersect (union/difference `Unsupported`) |
+| `boolean` | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to `boolean_general` |
+| `boolean_general` | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union / difference / intersect on non-convex closed meshes (arrangement + winding classification) |
+| `boolean_predicates` | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double) |
+| `boolean_classify` | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number |
 | `modifiers` | `modifiers/intern/MOD_*` | **real** — mirror / array / subsurf |
 | `procedural` | Geometry Nodes | **real** — node-graph evaluator (primitive / transform / join / subdivide / boolean / output) |
 | `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh text, CSG primitive fitting (cube + sphere; cylinder/faceted are follow-ups) |

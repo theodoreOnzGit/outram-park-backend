@@ -1,17 +1,23 @@
-//! Mesh boolean / CSG operator — **restricted, honest partial**.
+//! Mesh boolean / CSG operator — **entry point + exact convex fast path**.
 //!
 //! Blender analogue: `bmesh/tools/bmesh_boolean` / the `bmo_boolean` operator,
-//! which upstream is backed by the **Manifold** library. A *fully general,
-//! robust* mesh boolean (arbitrary — possibly concave, self-intersecting, or
-//! non-manifold — operands, in all three modes) is a large undertaking: it needs
-//! exact/robust intersection predicates, a full arrangement of the two surfaces,
-//! and consistent inside/outside classification. That is **out of scope for this
-//! module today** and is deliberately *not* faked.
+//! which upstream is backed by the **Manifold** library. [`boolean`] is the
+//! single public entry point for all three CSG modes; it dispatches between two
+//! implementations:
 //!
-//! ## What IS implemented (and tested)
+//! - **Exact convex fast path (this module).** When both operands are convex
+//!   and the mode is [`crate::ops::BooleanMode::Intersect`], the intersection is
+//!   computed here by **half-space clipping** — an exact, non-triangulated
+//!   result (a clean n-gon mesh).
+//! - **General arrangement path** ([`crate::boolean_general`]). Union,
+//!   Difference, and any **non-convex** operand are handled there, by cutting
+//!   the two surfaces against each other and classifying the resulting patches
+//!   with the generalized winding number. See that module for its contract and
+//!   limitations (coplanar-overlap rejection, generic-position assumption,
+//!   triangulated output).
 //!
-//! Exactly one restricted case: the **intersection of two convex polyhedra**,
-//! [`crate::ops::BooleanMode::Intersect`], computed by **half-space clipping**.
+//! ## The convex fast path, in detail
+//!
 //! Every face of operand `B` defines an outward half-space
 //!
 //! - plane through [`Mesh::face_centroid`] `c` with outward unit normal
@@ -28,28 +34,11 @@
 //! plane). The result is the convex intersection `A ∩ B` — a valid closed convex
 //! mesh — for which Euler's identity `V - E + F = 2` holds.
 //!
-//! ## What is NOT implemented (honest `Unsupported`, never fake-green)
-//!
-//! - [`crate::ops::BooleanMode::Union`] and
-//!   [`crate::ops::BooleanMode::Difference`] return
-//!   [`BooleanError::Unsupported`] — these need surface arrangement +
-//!   inside/outside classification, not just clipping.
-//! - **Non-convex operands** are rejected (best-effort detection) with
-//!   [`BooleanError::Unsupported`] rather than silently producing garbage: a mesh
-//!   is treated as convex only if every vertex lies on the inner side of every
-//!   face's supporting plane. A concave operand fails that test.
-//! - A **non-overlapping / empty** intersection returns
-//!   [`BooleanError::Unsupported`] rather than an empty mesh, so a caller cannot
-//!   mistake "no overlap" for a valid degenerate solid.
-//!
-//! ## TODO — the intended robust route (tracked as a follow-up bead)
-//!
-//! Replace this restricted clipper with a Manifold-style pipeline: robust
-//! (exact or filtered) segment/triangle intersection predicates, build the
-//! arrangement of the two triangulated surfaces, classify each resulting patch
-//! as inside/outside the other solid, then stitch the kept patches. That handles
-//! all three modes for arbitrary (concave, genus-`g`) closed manifolds. Until
-//! then this module is the convex-`Intersect`-only stepping stone.
+//! A **non-overlapping / empty** convex intersection returns
+//! [`BooleanError::Unsupported`] rather than an empty mesh, so a caller cannot
+//! mistake "no overlap" for a valid degenerate solid. (When the operands are
+//! *not* both convex, `Intersect` never reaches this path — it goes to the
+//! general pipeline, which handles the empty/disjoint case there.)
 //!
 //! > **Untrusted AI-generated draft** until a human reviews it, per the workspace
 //! > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -61,42 +50,51 @@ use crate::ops::BooleanMode;
 
 /// Errors from a mesh boolean operation.
 ///
-/// The only variant today is [`BooleanError::Unsupported`], carrying a short
-/// static reason. It is returned for the modes and operand shapes this
-/// restricted implementation does not handle (see the module docs) — an honest
-/// signal, never a silently wrong mesh.
+/// The only variant is [`BooleanError::Unsupported`], carrying a short static
+/// reason. It is returned for the inputs neither the convex fast path nor the
+/// general arrangement pipeline can resolve (see the module docs and
+/// [`crate::boolean_general`]) — an honest signal, never a silently wrong mesh.
 #[derive(Debug, thiserror::Error)]
 pub enum BooleanError {
-    /// The requested boolean is outside the supported restricted case: an
-    /// unsupported [`BooleanMode`] (Union/Difference), a non-convex operand, or
-    /// an empty/non-overlapping intersection. The `&'static str` names which.
+    /// The boolean could not be resolved: an empty/non-overlapping intersection,
+    /// a **coplanar overlapping face** between the operands, an
+    /// exactly-degenerate arrangement, or a result that welds to fewer than four
+    /// faces. The `&'static str` names which.
     #[error("boolean unsupported: {0}")]
     Unsupported(&'static str),
 }
 
-/// Compute the boolean of two meshes under `mode`.
+/// Compute the boolean of two closed meshes under `mode`.
 ///
-/// **Restricted, honest partial** — see the module-level docs for the full
-/// contract. In summary:
+/// Single entry point for all three CSG modes, dispatching between the exact
+/// convex fast path (this module) and the general arrangement pipeline
+/// ([`crate::boolean_general`]) — see the module-level docs. In summary:
 ///
 /// - [`BooleanMode::Intersect`] on two **convex** closed meshes returns the
 ///   convex intersection `A ∩ B` (a valid closed mesh, `V - E + F = 2`), computed
-///   by half-space clipping of `a` against every face half-space of `b`.
-/// - [`BooleanMode::Union`] and [`BooleanMode::Difference`] return
-///   [`BooleanError::Unsupported`] — not yet implemented for general meshes.
-/// - A **non-convex** operand (best-effort detection) or an **empty /
-///   non-overlapping** intersection also returns [`BooleanError::Unsupported`].
+///   exactly by half-space clipping of `a` against every face half-space of `b`.
+/// - [`BooleanMode::Union`], [`BooleanMode::Difference`], and any **non-convex**
+///   operand are computed by [`crate::boolean_general::boolean_general`]
+///   (surface arrangement + winding classification; triangulated output).
+/// - An **empty / non-overlapping** intersection, or a coplanar-overlap /
+///   degenerate arrangement input, returns [`BooleanError::Unsupported`] rather
+///   than a silently wrong mesh.
 ///
 /// Both meshes are dimensionless model-space geometry (see [`crate::math`]);
 /// `mode` selects the CSG operation. Operands are taken by shared reference and
 /// are not modified.
 pub fn boolean(a: &Mesh, b: &Mesh, mode: BooleanMode) -> Result<Mesh, BooleanError> {
-    match mode {
-        BooleanMode::Intersect => intersect_convex(a, b),
-        BooleanMode::Union | BooleanMode::Difference => Err(BooleanError::Unsupported(
-            "union/difference of general meshes not yet implemented; only convex Intersect is supported",
-        )),
+    // Fast path: two convex operands under Intersect are handled exactly by the
+    // half-space clipper below, which yields a clean n-gon (non-triangulated)
+    // result. Everything else — Union, Difference, or any non-convex operand —
+    // goes through the general arrangement + winding-classification pipeline in
+    // [`crate::boolean_general`].
+    const CONVEX_REL_EPS: f64 = 1e-7;
+    if mode == BooleanMode::Intersect && is_convex(a, CONVEX_REL_EPS) && is_convex(b, CONVEX_REL_EPS)
+    {
+        return intersect_convex(a, b);
     }
+    crate::boolean_general::boolean_general(a, b, mode)
 }
 
 // ---------------------------------------------------------------------------
@@ -517,28 +515,48 @@ mod tests {
         assert!(approx(hi.x, 1.0, tol) && approx(hi.y, 1.0, tol) && approx(hi.z, 1.0, tol), "max = {hi:?}");
     }
 
-    /// Union and Difference are not implemented and must report it honestly
-    /// (no fake-green) via [`BooleanError::Unsupported`].
+    /// Union and Difference now dispatch to the general pipeline
+    /// ([`crate::boolean_general`]) instead of reporting `Unsupported`.
+    /// Methodology: `a = cube(2.0)` (`[-1,1]^3`) with a fully-interior
+    /// `b = cube(1.0)` (`[-0.5,0.5]^3`, no surface intersection). Union is the
+    /// outer cube (volume 8, `chi = 2`); Difference is the outer cube with an
+    /// interior cubic cavity (a two-shell solid, `chi = 4`: `2 + 2`). Pass
+    /// criterion: both succeed with those topologies.
     #[test]
-    fn union_and_difference_are_unsupported() {
+    fn union_and_difference_dispatch_to_general_path() {
         let a = primitives::cube(2.0);
         let b = primitives::cube(1.0);
-        assert!(matches!(boolean(&a, &b, BooleanMode::Union), Err(BooleanError::Unsupported(_))));
-        assert!(matches!(boolean(&a, &b, BooleanMode::Difference), Err(BooleanError::Unsupported(_))));
+
+        let uni = boolean(&a, &b, BooleanMode::Union).expect("union ok");
+        assert_eq!(uni.euler_characteristic(), 2, "union of nested cubes is the outer cube (chi=2)");
+
+        let diff = boolean(&a, &b, BooleanMode::Difference).expect("difference ok");
+        assert_eq!(
+            diff.euler_characteristic(),
+            4,
+            "cube-minus-interior-cube is a two-shell solid (chi = 2 + 2 = 4)"
+        );
     }
 
-    /// A non-convex operand (the L-prism) is rejected with `Unsupported`, not
-    /// silently mis-clipped. Methodology: the L-prism's foot-top face (plane
-    /// y=1, +y) has vertices at y=2 outside it, so [`is_convex`] returns false.
+    /// A non-convex operand is now **supported** (routed to the general
+    /// pipeline), not rejected. Methodology: intersect the concave L-prism
+    /// (cross-section area 3, height 1 -> volume 3, occupying
+    /// `[0,2]x[0,2]x[0,1]`) with a **strictly** enclosing `cube(6.0)`
+    /// (`[-3,3]^3` — the L-prism does not touch its boundary, so there is no
+    /// coplanar shared face). The intersection is the L-prism itself: closed
+    /// (`chi = 2`), same bounds. Pass criterion: succeeds; `chi = 2`; xy bounds
+    /// `[0,2]`, z bounds `[0,1]`.
     #[test]
-    fn nonconvex_operand_is_rejected() {
+    fn nonconvex_operand_intersect_is_supported() {
         let a = l_prism();
-        let b = primitives::cube(4.0);
-        let r = boolean(&a, &b, BooleanMode::Intersect);
-        assert!(
-            matches!(r, Err(BooleanError::Unsupported(msg)) if msg.contains("convex")),
-            "non-convex operand must be reported, got {r:?}"
-        );
+        let b = primitives::cube(6.0);
+        let out = boolean(&a, &b, BooleanMode::Intersect).expect("non-convex intersect should work");
+        assert_eq!(out.euler_characteristic(), 2, "L-prism ∩ enclosing cube is the L-prism (chi=2)");
+        let (lo, hi) = bounds(&out);
+        let tol = 1e-9;
+        assert!(approx(lo.x, 0.0, tol) && approx(hi.x, 2.0, tol), "x=({},{})", lo.x, hi.x);
+        assert!(approx(lo.y, 0.0, tol) && approx(hi.y, 2.0, tol), "y=({},{})", lo.y, hi.y);
+        assert!(approx(lo.z, 0.0, tol) && approx(hi.z, 1.0, tol), "z=({},{})", lo.z, hi.z);
     }
 
     /// Two disjoint convex meshes: the intersection is empty and must report
