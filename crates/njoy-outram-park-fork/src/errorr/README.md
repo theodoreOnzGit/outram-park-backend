@@ -29,16 +29,34 @@ The result feeds S/U analysis (e.g. sandwich-rule Δk/k propagation).
 
 ## How the port will implement it
 
-**Not yet ported.** Planned: an MF=31/33 reader in `crate::endf` (the NI/NC
-sub-subsection covariance patterns), then group projection reusing the GROUPR
-weighting spectrum. Vector-cross-section covariance (MF=33) first; MF=34/35/40
-later. Output pairs with `covr` for visualisation/output.
+**Partially ported.** `src/errorr/covariance.rs` is a faithful structural
+reader for MF=31/33 sections (`read_covariance_section`, plus the `iverf`
+format-era detector `detect_endf_version`): it walks a section's `NL`
+subsections and their `NC`/`NI` sub-subsections and returns every raw ENDF
+field (energy windows, `LTY`, `LS`/`LB`, the flat data array), ported
+line-for-line from `covcal`'s ENDF I/O staging phase (`errorr.f90:1868-2060`).
+It does **not** decode `LB`-tagged matrix data, apply energy windows, or
+compute a single covariance number — that group-average interpretation
+(`errorr.f90:2086-2417`) needs the union energy grid (`gridd`,
+`errorr.f90:1091-1483`, not yet ported) and is fused into `covcal`'s
+per-group-pair loop rather than being a separable decode step. MF=34/35/40 use
+different subsection layouts and are not covered by this reader. Group
+projection (reusing the GROUPR weighting spectrum) is still planned. Output
+pairs with `covr` for visualisation/output.
 
 ## Testing
 
-**TODO.** Gate: reproduce an upstream group covariance matrix (e.g. U-235 (n,f)
-MF=33) against the Fortran oracle — symmetric, positive-semidefinite, correct
-group diagonal relative variances.
+**Structural tests only so far** (`src/errorr/covariance.rs`'s
+`#[cfg(test)]` block): a synthetic hand-built round-trip, and a smoke test
+against the real `n-092_U_235-ENDF8.0.endf` MF=33/MT=1 and MT=2 sections
+checking record counts, `LTY`/`LS`/`LB` values, and the `NT = NP*(NP+1)/2`
+symmetric-pack invariant for `LB=5`. No covariance *values* are computed or
+verified yet.
+
+**Still TODO.** Gate: reproduce an upstream group covariance matrix (e.g.
+U-235 (n,f) MF=33) against the Fortran oracle — symmetric,
+positive-semidefinite, correct group diagonal relative variances. Blocked on
+the union-grid and group-average kernels above.
 
 ## Caveats
 
