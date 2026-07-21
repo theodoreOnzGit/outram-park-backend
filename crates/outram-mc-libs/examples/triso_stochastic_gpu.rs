@@ -56,19 +56,31 @@
 //! - If [`probe`](outram_mc_libs::gpu::probe) finds no adapter, the GPU arm is
 //!   skipped and only the CPU arms run — a normal, expected outcome, not an error.
 //!
-//! # The CLS physics model (self-contained, new work — not an OpenMC port)
+//! # The CLS physics model — chord sampling reused from `stochastic::cls`
 //!
 //! A 1-D binary stochastic slab of thickness `L` cm with vacuum boundaries — the
 //! canonical CLS testbed (Adams–Larsen–Pomraning-style binary Markovian media).
 //! Two phases, indexed `0 = matrix`, `1 = inclusion`, each with a macroscopic total
-//! and absorption cross section `Sigma_t`, `Sigma_a` \[cm⁻¹\]. The mean chord
-//! lengths come from the packing statistics (identical to the conventions in the
-//! crate's intended `stochastic::cls` module):
+//! and absorption cross section `Sigma_t`, `Sigma_a` \[cm⁻¹\].
 //!
-//! - inclusion mean chord `lambda_I = 4 r / 3` (Cauchy's mean chord of a sphere of
-//!   radius `r`);
-//! - matrix mean chord `lambda_M = lambda_I (1 - p) / p` for packing fraction `p`
-//!   (the binary-Markovian volume-fraction relation).
+//! **The chord physics is NOT re-implemented here — it comes from the crate's
+//! [`stochastic::cls::ClsMedium`](outram_mc_libs::stochastic::cls::ClsMedium):**
+//!
+//! - the mean chords are `ClsMedium::mean_chord_inclusion()` (`= 4 r / 3`, Cauchy's
+//!   mean chord of a sphere) and `ClsMedium::mean_chord_matrix()`
+//!   (`= (4 r / 3)(1 - p)/p`, the binary-Markovian volume-fraction relation);
+//! - every interface chord in the CPU reference (and the SCLS arm's fresh draws) is
+//!   `ClsMedium::sample_distance_to_boundary` (which draws `-mean·ln(1 - ξ)`);
+//! - the **WGSL shader and the CPU-`f32` mirror are the `f32` port of that same
+//!   `sample_distance_to_boundary`** — same `-mean·ln(1 - ξ)` chord, so the GPU, the
+//!   mirror and the CPU `f64` reference all sample the *identical* module physics and
+//!   differ only by `f32` rounding.
+//!
+//! Only the slab **transport driver** (collision on `Sigma_t`, capture on
+//! `Sigma_a/Sigma_t`, 1-D scatter, edge leakage, and the SCLS retained-interface
+//! memory) is the example's own — the module is a geometry-only sampler, not a
+//! transport solver. The crate's full 3-D `SclsMedium` is demonstrated in the sibling
+//! `triso_stochastic_media.rs` / `triso_four_methods.rs` examples.
 //!
 //! A history starts in the matrix at `x = 0` heading `+x`. Each step samples an
 //! exponential geometric chord `d_bnd = -lambda[mat] ln(xi)` (distance to the next
@@ -140,6 +152,8 @@ fn main() {
 #[cfg(not(target_os = "android"))]
 mod desktop {
     use outram_mc_libs::rng::lcg::{init_seed, INC, MULT};
+    use outram_mc_libs::stochastic::cls::ClsMedium;
+    use outram_mc_libs::stochastic::medium::MaterialId;
     use std::fs;
     use std::io::Write;
     use std::path::PathBuf;
@@ -183,21 +197,6 @@ mod desktop {
         max_iter: u32,
     }
 
-    /// Cauchy mean chord of a sphere of radius `r` \[cm\]: `4 r / 3`.
-    ///
-    /// Mirrors the crate's intended `stochastic::cls::mean_chord_length_sphere`.
-    fn mean_chord_sphere(radius: f64) -> f64 {
-        4.0 * radius / 3.0
-    }
-
-    /// Binary-Markovian matrix mean chord \[cm\]: `(4 r / 3) (1 - p) / p` for
-    /// packing fraction `p ∈ (0, 1)`.
-    ///
-    /// Mirrors the crate's intended `stochastic::cls::matrix_mean_chord_length`.
-    fn matrix_mean_chord(radius: f64, packing_fraction: f64) -> f64 {
-        mean_chord_sphere(radius) * (1.0 - packing_fraction) / packing_fraction
-    }
-
     // -----------------------------------------------------------------------
     // CPU f64 reference — the trusted eigen-truth.
     // -----------------------------------------------------------------------
@@ -207,14 +206,16 @@ mod desktop {
     /// exponential collision distance, a capture roulette on collision, and an
     /// isotropic-1-D scatter direction; streams to the nearest of {phase interface,
     /// collision, slab edge}. Returns [`Outcome`].
-    fn cls_history_f64(p: &ClsParams, seed: &mut u64) -> Outcome {
+    fn cls_history_f64(cls: &ClsMedium, p: &ClsParams, seed: &mut u64) -> Outcome {
         use outram_mc_libs::rng::lcg::prn;
         let mut x = 0.0_f64;
         let mut dir = 1.0_f64;
         let mut mat = MATRIX;
         for _ in 0..p.max_iter {
-            let xi1 = prn(seed);
-            let d_bnd = -p.lambda[mat] * xi1.ln(); // xi1 == 0 -> +inf (no interface)
+            // Chord to the next phase interface — sampled by the crate module, not
+            // re-derived: ClsMedium::sample_distance_to_boundary picks this phase's mean
+            // chord and draws -mean·ln(1-ξ).
+            let d_bnd = cls.sample_distance_to_boundary(mat == INCLUSION, seed);
             let xi2 = prn(seed);
             let d_col = -xi2.ln() / p.sigma_t[mat]; // xi2 == 0 -> +inf (no collision)
             let d_edge = if dir > 0.0 { p.l - x } else { x };
@@ -239,11 +240,11 @@ mod desktop {
 
     /// Run `n` `f64` CLS histories with per-history LCG streams derived from
     /// `master_seed` via [`init_seed`], returning the number absorbed.
-    fn cls_batch_f64(p: &ClsParams, n: usize, master_seed: i64) -> usize {
+    fn cls_batch_f64(cls: &ClsMedium, p: &ClsParams, n: usize, master_seed: i64) -> usize {
         let mut absorbed = 0usize;
         for i in 0..n {
             let mut seed = init_seed(i as i64, 0, master_seed);
-            if cls_history_f64(p, &mut seed) == Outcome::Absorbed {
+            if cls_history_f64(cls, p, &mut seed) == Outcome::Absorbed {
                 absorbed += 1;
             }
         }
@@ -284,7 +285,8 @@ mod desktop {
             let (nh, nl, xi1) = lcg_advance_f32(hi, lo);
             hi = nh;
             lo = nl;
-            let d_bnd = -p.lambda[mat] * xi1.ln();
+            // f32 port of ClsMedium::sample_distance_to_boundary (-mean·ln(1-ξ)).
+            let d_bnd = -p.lambda[mat] * (1.0 - xi1).ln();
             let (nh, nl, xi2) = lcg_advance_f32(hi, lo);
             hi = nh;
             lo = nl;
@@ -350,7 +352,7 @@ mod desktop {
     /// This is a **tutorial-level** retained-single-interface SCLS to demonstrate
     /// the memory effect — not a validated reproduction of a published SCLS
     /// (cf. `pebble_beds::references::TAN2025_CLS`).
-    fn scls_history_f64(p: &ClsParams, seed: &mut u64) -> Outcome {
+    fn scls_history_f64(cls: &ClsMedium, p: &ClsParams, seed: &mut u64) -> Outcome {
         use outram_mc_libs::rng::lcg::prn;
         let mut x = 0.0_f64;
         let mut dir = 1.0_f64;
@@ -359,15 +361,15 @@ mod desktop {
         let mut last_iface: Option<(f64, f64)> = None;
         for _ in 0..p.max_iter {
             // Semi-implicit: if we are heading back toward the retained interface,
-            // its distance is deterministic; otherwise sample a fresh chord.
+            // its distance is deterministic; otherwise sample a fresh chord through the
+            // crate module (same ClsMedium::sample_distance_to_boundary the memoryless
+            // arm uses). The retained-interface memory is the example's 1-D layer on top;
+            // the crate's full 3-D SclsMedium is demonstrated in triso_stochastic_media.rs.
             let (d_bnd, from_memory) = match last_iface {
                 Some((xpos, crossed_dir)) if crossed_dir * dir < 0.0 => {
                     ((xpos - x).abs(), true)
                 }
-                _ => {
-                    let xi1 = prn(seed);
-                    (-p.lambda[mat] * xi1.ln(), false)
-                }
+                _ => (cls.sample_distance_to_boundary(mat == INCLUSION, seed), false),
             };
             let xi2 = prn(seed);
             let d_col = -xi2.ln() / p.sigma_t[mat];
@@ -398,11 +400,11 @@ mod desktop {
     }
 
     /// Run `n` `f64` SCLS histories with per-history LCG streams from `master_seed`.
-    fn scls_batch_f64(p: &ClsParams, n: usize, master_seed: i64) -> usize {
+    fn scls_batch_f64(cls: &ClsMedium, p: &ClsParams, n: usize, master_seed: i64) -> usize {
         let mut absorbed = 0usize;
         for i in 0..n {
             let mut seed = init_seed(i as i64, 0, master_seed);
-            if scls_history_f64(p, &mut seed) == Outcome::Absorbed {
+            if scls_history_f64(cls, p, &mut seed) == Outcome::Absorbed {
                 absorbed += 1;
             }
         }
@@ -509,7 +511,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let a1 = lcg_advance(s_lo, s_hi);
         s_lo = a1.x; s_hi = a1.y;
         let xi1 = bitcast<f32>(a1.z);
-        let d_bnd = -lambda * log(xi1); // xi1 == 0 -> log = -inf -> +inf
+        // f32/WGSL port of ClsMedium::sample_distance_to_boundary: -mean*ln(1-xi),
+        // matching sample_chord's 1-xi shift so GPU, f32 mirror and CPU f64 agree.
+        let d_bnd = -lambda * log(1.0 - xi1);
 
         let a2 = lcg_advance(s_lo, s_hi);
         s_lo = a2.x; s_hi = a2.y;
@@ -731,8 +735,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         // ── Problem setup: a graphite-matrix TRISO-like unit slab. ────────────
         let radius = 0.03_f64; // inclusion (fuel kernel) radius [cm]
         let pf = 0.30_f64; // packing fraction
-        let lambda_i = mean_chord_sphere(radius);
-        let lambda_m = matrix_mean_chord(radius, pf);
+        // Chord statistics come from the crate's stochastic module (single source of
+        // truth) — not re-derived here. The CPU CLS reference below samples its chords
+        // through this same `ClsMedium`, and the WGSL shader is the f32 port of its
+        // `sample_distance_to_boundary`.
+        let cls_medium = ClsMedium::new(radius, pf, MaterialId(1), MaterialId(0));
+        let lambda_i = cls_medium.mean_chord_inclusion();
+        let lambda_m = cls_medium.mean_chord_matrix();
         let params = ClsParams {
             l: 2.0, // slab thickness [cm]
             lambda: [lambda_m, lambda_i],
@@ -767,7 +776,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
         // ── Arm 1: CPU f64 CLS (trusted reference). ───────────────────────────
         let t = Instant::now();
-        let abs_cpu = cls_batch_f64(&params, n, master_cpu);
+        let abs_cpu = cls_batch_f64(&cls_medium, &params, n, master_cpu);
         let cpu_secs = t.elapsed().as_secs_f64();
         let (p_cpu, s_cpu) = binomial(abs_cpu, n);
         let cpu_hps = n as f64 / cpu_secs;
@@ -876,7 +885,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
         // ── Arm 4: CPU SCLS (semi-implicit, retained memory) — CPU only. ──────
         let t = Instant::now();
-        let abs_scls = scls_batch_f64(&params, n, master_cpu);
+        let abs_scls = scls_batch_f64(&cls_medium, &params, n, master_cpu);
         let scls_secs = t.elapsed().as_secs_f64();
         let (p_scls, s_scls) = binomial(abs_scls, n);
         let s_comb_cls_scls = (s_cpu * s_cpu + s_scls * s_scls).sqrt();
