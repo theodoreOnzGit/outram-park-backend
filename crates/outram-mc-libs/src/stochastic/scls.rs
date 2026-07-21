@@ -43,13 +43,19 @@
 //! - [`SclsMedium::advance_to`] — move the neutron, re-centre the sphere, cull.
 //! - [`SclsMedium::retained_material_at`] — exact answer *for retained geometry*.
 //!
-//! # What is NOT implemented here
+//! # The transport driver (bead `op-eby.3`, implemented)
 //!
-//! The SCLS **transport driver**: promoting a freshly sampled chord into a stored
-//! history with a consistent centre, and coupling the whole thing to the k-eigenvalue
-//! loop. Until that exists [`SclsMedium::material_at`] returns
-//! [`MediumError::NotImplemented`] rather than a half-answer. Tracked as bead
-//! `op-eby.3`; the adaptive-radius extension is `op-eby.6`.
+//! [`SclsMedium::material_at`] marches the flight and resolves each phase boundary:
+//! matrix gaps are memoryless exponential chords, but a matrix→inclusion crossing first
+//! tests the ray against every retained inclusion and **re-enters a remembered sphere**
+//! when one is closer than the sampled gap — recovering the correlation classical CLS
+//! discards. A genuinely new crossing spawns a real sphere with a correctly-distributed
+//! impact parameter (`b = R√ξ`, giving the Cauchy mean chord `4R/3`) and remembers it;
+//! inclusion exits are the exact geometric ray–sphere exit. Its occupancy still
+//! converges to the packing fraction, and the memory is demonstrated by a re-crossing
+//! test whose history count saturates instead of growing with the number of passes.
+//! Coupling into the k-eigenvalue loop and the RSA-vs-CLS-vs-SCLS accuracy comparison is
+//! the benchmark of bead `op-eby.7`; the adaptive-radius extension is `op-eby.6`.
 //!
 //! **No accuracy claim is made here.** Whether SCLS actually recovers the explicit-RSA
 //! answer is an empirical question that the benchmark suite (bead `op-eby.7`) must
@@ -57,7 +63,9 @@
 //!
 //! This module is **new work**, not an OpenMC port — upstream has no SCLS.
 
-use crate::geometry::position::Position;
+use crate::geometry::position::{Direction, Position};
+use crate::rng::lcg::prn;
+use crate::stochastic::cls::sample_chord;
 use crate::stochastic::medium::{MaterialId, MediumError};
 
 /// Squared distance \[cm²\] between two points.
@@ -66,6 +74,68 @@ fn dist_sq(a: Position, b: Position) -> f64 {
     let dy = a.y - b.y;
     let dz = a.z - b.z;
     dx * dx + dy * dy + dz * dz
+}
+
+/// Distance from an interior point `p` along unit direction `u` to where the ray
+/// **leaves** the sphere `(center, radius)` \[cm\]. Assumes `p` is inside; returns the
+/// far (positive) root of `|p + t·u − center|² = R²`.
+fn ray_sphere_exit(p: Position, u: Direction, center: Position, radius: f64) -> f64 {
+    let oc = p - center;
+    let b = u.dot_pos(oc); // u·(p − c)
+    let c = oc.norm_sqr() - radius * radius;
+    let disc = (b * b - c).max(0.0);
+    -b + disc.sqrt()
+}
+
+/// Distance from an exterior point `p` along unit direction `u` to where the ray first
+/// **enters** the sphere `(center, radius)` \[cm\], or `None` if the ray misses it or
+/// only grazes behind `p`. `eps` skips a sphere the neutron is essentially already on
+/// (e.g. the one it just exited), avoiding an immediate spurious re-entry.
+fn ray_sphere_entry(
+    p: Position,
+    u: Direction,
+    center: Position,
+    radius: f64,
+    eps: f64,
+) -> Option<f64> {
+    let oc = p - center;
+    let b = u.dot_pos(oc);
+    let c = oc.norm_sqr() - radius * radius;
+    let disc = b * b - c;
+    if disc < 0.0 {
+        return None; // ray misses the sphere
+    }
+    let t = -b - disc.sqrt(); // near root
+    if t > eps {
+        Some(t)
+    } else {
+        None
+    }
+}
+
+/// A unit vector perpendicular to `u`, at azimuth `phi` \[rad\] around it. Used to place
+/// a freshly-sampled inclusion off the flight axis at the correct impact parameter.
+fn perpendicular(u: Direction, phi: f64) -> Position {
+    // Build one perpendicular e1 by crossing u with whichever axis is least aligned.
+    let a = if u.u.abs() < 0.9 {
+        Position::new(1.0, 0.0, 0.0)
+    } else {
+        Position::new(0.0, 1.0, 0.0)
+    };
+    let ux = Position::new(u.u, u.v, u.w);
+    // e1 = normalize(a − (a·u)u)
+    let e1 = {
+        let proj = a.dot(ux);
+        let v = a - ux * proj;
+        v / v.norm()
+    };
+    // e2 = u × e1
+    let e2 = Position::new(
+        ux.y * e1.z - ux.z * e1.y,
+        ux.z * e1.x - ux.x * e1.z,
+        ux.x * e1.y - ux.y * e1.x,
+    );
+    e1 * phi.cos() + e2 * phi.sin()
 }
 
 /// One remembered inclusion — an inclusion the neutron has already encountered.
@@ -197,6 +267,23 @@ pub struct SclsMedium {
     histories: Vec<ParticleHistory>,
     /// Remembered flight legs currently inside the window.
     flights: Vec<FlightSegment>,
+    /// Transient per-history flight state, `None` until the first [`Self::material_at`].
+    flight: Option<SclsFlight>,
+}
+
+/// Transient flight state for SCLS phase reconstruction (see [`SclsMedium::material_at`]).
+///
+/// Unlike CLS, SCLS needs the current *inclusion* (when inside one) so it can compute a
+/// geometric exit, and it derives the flight direction from successive query positions
+/// so it can test the ray against retained inclusions.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct SclsFlight {
+    /// Position of the previous `material_at` query \[cm\].
+    last_position: Position,
+    /// `true` if the neutron is currently inside an inclusion.
+    in_inclusion: bool,
+    /// The sphere `(center, radius)` the neutron is inside, when `in_inclusion`.
+    current_sphere: Option<(Position, f64)>,
 }
 
 impl SclsMedium {
@@ -216,6 +303,7 @@ impl SclsMedium {
             sphere,
             histories: Vec::new(),
             flights: Vec::new(),
+            flight: None,
         }
     }
 
@@ -276,6 +364,29 @@ impl SclsMedium {
         before - self.histories.len()
     }
 
+    /// Set the retention-window radius \[cm\] directly, then cull anything the resized
+    /// window no longer covers. Used by the adaptive-radius extension ([`AdaptiveRadius`],
+    /// bead `op-eby.6`) to replace the fixed `λ_TMFP + R_largest` rule with a
+    /// locally-estimated radius. Clamped at 0.
+    pub fn set_sphere_radius(&mut self, radius: f64) {
+        self.sphere.radius = radius.max(0.0);
+        let sphere = self.sphere;
+        self.histories.retain(|h| sphere.overlaps(h.center, h.radius));
+        self.flights
+            .retain(|f| sphere.contains(f.start) || sphere.contains(f.end));
+    }
+
+    /// One adaptive step: feed the just-completed collision-to-collision `track_length`
+    /// \[cm\] to `controller`, resize the retention window to the radius it returns, and
+    /// cull. This is design-doc §17's variable-radius SCLS — the window grows where the
+    /// neutron streams (long tracks → more geometry worth remembering) and shrinks where
+    /// it collides often (short tracks → local memory suffices), instead of holding the
+    /// static `λ_TMFP` a fixed-radius run assumes.
+    pub fn adapt_radius(&mut self, controller: &mut AdaptiveRadius, track_length: f64) {
+        let r = controller.update(track_length);
+        self.set_sphere_radius(r);
+    }
+
     /// Material at `p` \[cm\] **if remembered geometry already answers the question**.
     ///
     /// Returns `Some(inclusion_material)` when `p` falls inside a retained inclusion.
@@ -290,19 +401,232 @@ impl SclsMedium {
             .map(|h| h.material_id)
     }
 
-    /// Point membership — **not implemented**.
+    /// Discard the in-progress flight so the next [`Self::material_at`] re-seeds the
+    /// phase. Retained histories are *kept* — they are geometry, not per-flight state —
+    /// so a new history in the same neighbourhood still benefits from the memory.
+    pub fn begin_flight(&mut self) {
+        self.flight = None;
+    }
+
+    /// The phase the reconstructed flight is currently in, or `None` before the first
+    /// [`Self::material_at`]. `true` means inside an inclusion.
+    pub fn in_inclusion(&self) -> Option<bool> {
+        self.flight.map(|f| f.in_inclusion)
+    }
+
+    /// Material occupying `position` \[cm\], reconstructed along the SCLS flight
+    /// (bead `op-eby.3`).
     ///
-    /// Retained geometry alone cannot answer this (see [`Self::retained_material_at`]),
-    /// and the sampling fallback is the not-yet-built SCLS driver. Returns
-    /// [`MediumError::NotImplemented`] rather than reporting "matrix" for every
-    /// unremembered point, which would silently bias every result toward the matrix.
+    /// SCLS is CLS with bounded geometric memory. The reconstruction marches the
+    /// straight segment from the previous query to `position` along its direction and
+    /// resolves each phase boundary:
+    ///
+    /// - **Matrix → inclusion.** Sample an exponential matrix chord (the memoryless
+    ///   Markov gap), but *first* test the ray against every retained inclusion: if one
+    ///   lies closer than the sampled gap, the neutron **re-enters that remembered
+    ///   sphere** instead of inventing an independent one — this is the correlation CLS
+    ///   throws away. A genuinely new crossing spawns a real sphere, placed with a
+    ///   correctly-distributed impact parameter (`b = R√ξ`) so its geometric chord has
+    ///   the Cauchy mean `4R/3`, and remembers it (if it overlaps the window).
+    /// - **Inclusion → matrix.** Exit is the geometric ray–sphere exit of the specific
+    ///   sphere the neutron is in — exact, not resampled.
+    ///
+    /// After the march the retention window is re-centred on `position` and non-local
+    /// histories are culled ([`Self::advance_to`]). Call [`Self::begin_flight`] between
+    /// independent histories. `seed` is the crate LCG stream ([`prn`]), advanced in
+    /// place. Never errors — the `Result` matches the shared
+    /// [`super::medium::StochasticMedium::material_at`] contract.
     pub fn material_at(
         &mut self,
-        _position: Position,
-        _seed: &mut u64,
+        position: Position,
+        seed: &mut u64,
     ) -> Result<MaterialId, MediumError> {
-        Err(MediumError::NotImplemented("SCLS"))
+        let mean_matrix = self.cls.mean_chord_matrix();
+        let radius = self.cls.inclusion_radius();
+        let inclusion_mat = self.cls.inclusion_material();
+        let matrix_mat = self.cls.matrix_material();
+        let pf = self.cls.packing_fraction();
+        const EPS: f64 = 1e-12;
+
+        // First query: seed the phase from the volume-fraction prior.
+        let mut fl = match self.flight.take() {
+            Some(f) => f,
+            None => {
+                let in_inclusion = prn(seed) < pf;
+                // If seeded inside an inclusion, anchor a sphere on the birth point
+                // (neutron at centre — a negligible one-off; later inclusions are
+                // placed with the proper impact parameter).
+                let current_sphere = in_inclusion.then(|| {
+                    let h = ParticleHistory::new(position, radius, inclusion_mat);
+                    self.remember_inclusion(h);
+                    (position, radius)
+                });
+                self.flight = Some(SclsFlight {
+                    last_position: position,
+                    in_inclusion,
+                    current_sphere,
+                });
+                return Ok(if in_inclusion { inclusion_mat } else { matrix_mat });
+            }
+        };
+
+        let seg = position - fl.last_position;
+        let len = seg.norm();
+        if len > 0.0 {
+            let u = Direction::from_unnormalised(seg.x, seg.y, seg.z);
+            let u_pos = Position::new(u.u, u.v, u.w);
+            let mut pos = fl.last_position;
+            let mut t = 0.0;
+            loop {
+                if fl.in_inclusion {
+                    let (center, r) = fl
+                        .current_sphere
+                        .expect("in_inclusion implies a current sphere");
+                    let d_exit = ray_sphere_exit(pos, u, center, r);
+                    if t + d_exit <= len {
+                        t += d_exit;
+                        pos = pos + u_pos * d_exit;
+                        fl.in_inclusion = false;
+                        fl.current_sphere = None;
+                    } else {
+                        break;
+                    }
+                } else {
+                    // Memoryless matrix gap...
+                    let d_sample = sample_chord(mean_matrix, seed);
+                    // ...unless a remembered inclusion lies closer along the ray.
+                    let mut d_incl = d_sample;
+                    let mut hit: Option<(Position, f64)> = None;
+                    for h in &self.histories {
+                        if let Some(d) = ray_sphere_entry(pos, u, h.center, h.radius, EPS) {
+                            if d < d_incl {
+                                d_incl = d;
+                                hit = Some((h.center, h.radius));
+                            }
+                        }
+                    }
+                    if t + d_incl <= len {
+                        t += d_incl;
+                        pos = pos + u_pos * d_incl;
+                        fl.in_inclusion = true;
+                        // Borrow of self.histories is released; safe to mutate now.
+                        let sphere = match hit {
+                            Some(existing) => existing,
+                            None => {
+                                let center = fresh_inclusion_center(pos, u, radius, seed);
+                                self.remember_inclusion(ParticleHistory::new(
+                                    center,
+                                    radius,
+                                    inclusion_mat,
+                                ));
+                                (center, radius)
+                            }
+                        };
+                        fl.current_sphere = Some(sphere);
+                    } else {
+                        break;
+                    }
+                }
+            }
+            // Record the traversed leg for the retention bookkeeping.
+            self.remember_flight(FlightSegment::new(fl.last_position, position));
+        }
+
+        fl.last_position = position;
+        let result = if fl.in_inclusion { inclusion_mat } else { matrix_mat };
+        self.flight = Some(fl);
+        // Per design-doc §15: re-centre the window on the neutron and cull.
+        self.advance_to(position);
+        Ok(result)
     }
+}
+
+/// Adaptive inclusion-sphere radius controller (design doc §17, bead `op-eby.6`).
+///
+/// The fixed-radius SCLS ([`InclusionSphere::new`]) sizes the window from a *static*
+/// transport mean free path `λ_TMFP` supplied up front. In a heterogeneous problem the
+/// true local mean free path varies — long in optically-thin matrix, short in a dense
+/// inclusion cluster — so a single `λ_TMFP` is either too small (forgetting geometry the
+/// neutron will revisit) or too large (paying to remember geometry it never will).
+///
+/// This controller estimates the local mean free path online as an exponential moving
+/// average of the observed collision-to-collision track lengths, and sets
+///
+/// ```text
+/// R = clamp(<track> + R_largest, R_min, R_max)
+/// ```
+///
+/// mirroring the fixed rule with `<track>` in place of the static `λ_TMFP`. The EMA
+/// weight `alpha` in (0, 1] trades responsiveness (large) against stability (small).
+///
+/// This is a **research extension** whose accuracy/efficiency payoff is an empirical
+/// question for the benchmark (`op-eby.7`); no claim is made here that it beats the
+/// fixed-radius model.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AdaptiveRadius {
+    mean_track: f64,
+    alpha: f64,
+    largest_radius: f64,
+    min_radius: f64,
+    max_radius: f64,
+}
+
+impl AdaptiveRadius {
+    /// Build a controller.
+    ///
+    /// - `initial_mfp` — starting mean-free-path estimate \[cm\] (e.g. the fixed-radius
+    ///   run's `λ_TMFP`), used until enough tracks have been observed.
+    /// - `alpha` — EMA weight in (0, 1]; clamped into that range.
+    /// - `largest_radius` — `R_largest` \[cm\], added to the mean-free-path estimate.
+    /// - `min_radius` / `max_radius` — clamp bounds \[cm\] on the resulting radius.
+    pub fn new(
+        initial_mfp: f64,
+        alpha: f64,
+        largest_radius: f64,
+        min_radius: f64,
+        max_radius: f64,
+    ) -> Self {
+        Self {
+            mean_track: initial_mfp.max(0.0),
+            alpha: alpha.clamp(f64::MIN_POSITIVE, 1.0),
+            largest_radius: largest_radius.max(0.0),
+            min_radius: min_radius.max(0.0),
+            max_radius: max_radius.max(min_radius.max(0.0)),
+        }
+    }
+
+    /// The current radius estimate \[cm\] without folding in a new track.
+    pub fn radius(&self) -> f64 {
+        (self.mean_track + self.largest_radius).clamp(self.min_radius, self.max_radius)
+    }
+
+    /// The current EMA mean track length \[cm\].
+    pub fn mean_track(&self) -> f64 {
+        self.mean_track
+    }
+
+    /// Fold a new collision-to-collision `track_length` \[cm\] into the EMA and return the
+    /// updated, clamped radius \[cm\]. Non-finite or negative tracks are ignored.
+    pub fn update(&mut self, track_length: f64) -> f64 {
+        if track_length.is_finite() && track_length >= 0.0 {
+            self.mean_track = self.alpha * track_length + (1.0 - self.alpha) * self.mean_track;
+        }
+        self.radius()
+    }
+}
+
+/// Place the centre of a freshly-sampled inclusion the neutron enters at `entry` \[cm\]
+/// travelling along `u`. The impact parameter is sampled `b = R√ξ` (the correct
+/// distribution for isotropic rays hitting a sphere, giving a mean geometric chord
+/// `4R/3`), and the centre is offset off the flight axis by `b` at a uniform azimuth,
+/// so the ray enters exactly at `entry` and exits at `entry + 2√(R²−b²)·u`.
+fn fresh_inclusion_center(entry: Position, u: Direction, radius: f64, seed: &mut u64) -> Position {
+    use std::f64::consts::PI;
+    let b = radius * prn(seed).sqrt();
+    let axial = (radius * radius - b * b).max(0.0).sqrt();
+    let phi = 2.0 * PI * prn(seed);
+    let w = perpendicular(u, phi);
+    entry + Position::new(u.u, u.v, u.w) * axial + w * b
 }
 
 #[cfg(test)]
@@ -408,14 +732,147 @@ mod tests {
         assert!(m.flights().is_empty());
     }
 
-    /// Point membership is honestly reported as unimplemented.
+    /// Ray–sphere entry/exit distances are exact for a known geometry.
     #[test]
-    fn material_at_reports_not_implemented() {
-        let mut m = medium();
-        let mut seed = 1u64;
-        assert_eq!(
-            m.material_at(Position::new(0.0, 0.0, 0.0), &mut seed),
-            Err(MediumError::NotImplemented("SCLS"))
-        );
+    fn ray_sphere_intersection_distances_are_exact() {
+        let u = Direction::new(1.0, 0.0, 0.0);
+        // Sphere centred at x=1, radius 0.25: a +x ray from the origin enters at 0.75,
+        // exits at 1.25.
+        let c = Position::new(1.0, 0.0, 0.0);
+        let entry = ray_sphere_entry(Position::ZERO, u, c, 0.25, 1e-12).unwrap();
+        assert!((entry - 0.75).abs() < 1e-12, "entry {entry}");
+        // From just inside (x=0.9) the exit is at 1.25 -> distance 0.35.
+        let exit = ray_sphere_exit(Position::new(0.9, 0.0, 0.0), u, c, 0.25);
+        assert!((exit - 0.35).abs() < 1e-12, "exit {exit}");
+        // A ray that misses (offset in y beyond the radius) has no entry.
+        assert!(ray_sphere_entry(Position::new(0.0, 1.0, 0.0), u, c, 0.25, 1e-12).is_none());
+    }
+
+    /// A fresh inclusion is placed so the ray enters exactly at the entry point and the
+    /// centre sits one radius-scaled impact parameter off-axis: `|entry − centre| = R`.
+    #[test]
+    fn fresh_inclusion_center_puts_entry_on_the_surface() {
+        let u = Direction::from_unnormalised(1.0, 1.0, 0.0);
+        let entry = Position::new(0.2, -0.1, 0.3);
+        let mut seed = 5u64;
+        for _ in 0..1000 {
+            let c = fresh_inclusion_center(entry, u, 0.03, &mut seed);
+            // Entry lies on the sphere surface.
+            assert!((entry.distance(c) - 0.03).abs() < 1e-12);
+        }
+    }
+
+    /// SCLS also reproduces the packing fraction as the flight-occupancy statistic —
+    /// bounded memory must not bias the volume fraction it converges to.
+    #[test]
+    fn inclusion_fraction_along_scls_flight_converges_to_packing_fraction() {
+        let pf = 0.2;
+        let cls = ClsMedium::new(0.03, pf, MaterialId(1), MaterialId(0));
+        // Large TMFP so nothing is culled over the test flight.
+        let mut m = SclsMedium::new(cls, Position::ZERO, 100.0);
+
+        let mut seed = 20260721u64;
+        let step = 0.01;
+        let n = 300_000;
+        let mut in_incl = 0usize;
+        for i in 0..n {
+            let x = i as f64 * step;
+            if m.material_at(Position::new(x, 0.0, 0.0), &mut seed).unwrap() == MaterialId(1) {
+                in_incl += 1;
+            }
+        }
+        let frac = in_incl as f64 / n as f64;
+        assert!((frac - pf).abs() < 0.03, "SCLS inclusion fraction {frac} vs pf {pf}");
+    }
+
+    /// The memory property: oscillating across a small region many times does **not**
+    /// grow the history set without bound — the neutron re-enters remembered inclusions
+    /// instead of inventing a fresh one on every pass, so the count saturates far below
+    /// the number of crossings. A memoryless model would keep sampling new inclusions.
+    #[test]
+    fn re_crossing_reuses_remembered_inclusions() {
+        let cls = ClsMedium::new(0.03, 0.2, MaterialId(1), MaterialId(0));
+        // TMFP large enough that the whole oscillation region stays in the window.
+        let mut m = SclsMedium::new(cls, Position::ZERO, 100.0);
+
+        let mut seed = 777u64;
+        let sweeps = 400;
+        let pts = 40; // points per one-way sweep across [0, 0.4] cm
+        for s in 0..sweeps {
+            for i in 0..pts {
+                // Triangle wave: forward on even sweeps, backward on odd.
+                let frac = i as f64 / pts as f64;
+                let x = if s % 2 == 0 { frac } else { 1.0 - frac } * 0.4;
+                let _ = m.material_at(Position::new(x, 0.0, 0.0), &mut seed).unwrap();
+            }
+        }
+        // 400 sweeps × 40 points = 16000 crossings of a ~0.4 cm region. Memoryless
+        // sampling could spawn thousands of inclusions; memory keeps it bounded to the
+        // handful that actually fit in the region (region/⟨ℓ⟩ ~ a few dozen).
+        let n = m.histories().len();
+        assert!(n < 500, "history count {n} should saturate, not grow with crossings");
+        assert!(!m.histories().is_empty(), "some inclusions must have been remembered");
+    }
+
+    /// The adaptive controller's EMA converges to a constant track length, and the
+    /// radius it reports is that plus R_largest, clamped to the bounds.
+    #[test]
+    fn adaptive_radius_ema_converges_and_clamps() {
+        let mut c = AdaptiveRadius::new(0.1, 0.2, 0.03, 0.05, 5.0);
+        for _ in 0..500 {
+            c.update(1.0);
+        }
+        assert!((c.mean_track() - 1.0).abs() < 1e-6, "EMA -> 1.0, got {}", c.mean_track());
+        assert!((c.radius() - 1.03).abs() < 1e-6, "R = track + R_largest");
+
+        for _ in 0..1000 {
+            c.update(0.001);
+        }
+        assert!((c.radius() - 0.05).abs() < 1e-9, "clamped at min_radius");
+
+        for _ in 0..1000 {
+            c.update(100.0);
+        }
+        assert!((c.radius() - 5.0).abs() < 1e-9, "clamped at max_radius");
+
+        // Non-finite / negative tracks are ignored (no NaN poisoning).
+        let before = c.mean_track();
+        c.update(f64::NAN);
+        c.update(-3.0);
+        assert_eq!(c.mean_track(), before);
+    }
+
+    /// Driving `adapt_radius` with short tracks shrinks the window and culls histories
+    /// the smaller window no longer covers.
+    #[test]
+    fn adapt_radius_resizes_window_and_culls() {
+        let mut m = medium(); // sphere radius 1.0 + 0.03 = 1.03 at origin
+        m.remember_inclusion(ParticleHistory::new(
+            Position::new(0.8, 0.0, 0.0),
+            0.03,
+            MaterialId(1),
+        ));
+        assert_eq!(m.histories().len(), 1);
+
+        let mut c = AdaptiveRadius::new(1.0, 0.5, 0.03, 0.1, 2.0);
+        for _ in 0..50 {
+            m.adapt_radius(&mut c, 0.001);
+        }
+        assert!(m.sphere().radius < 0.2, "window shrank, got {}", m.sphere().radius);
+        assert!(m.histories().is_empty(), "distant inclusion culled by the smaller window");
+    }
+
+    /// The reconstruction is deterministic in the LCG stream.
+    #[test]
+    fn scls_flight_is_reproducible() {
+        let run = || {
+            let cls = ClsMedium::new(0.03, 0.25, MaterialId(1), MaterialId(0));
+            let mut m = SclsMedium::new(cls, Position::ZERO, 5.0);
+            let mut seed = 314u64;
+            (0..500)
+                .map(|i| m.material_at(Position::new(i as f64 * 0.02, 0.0, 0.0), &mut seed).unwrap())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(run(), run());
     }
 }

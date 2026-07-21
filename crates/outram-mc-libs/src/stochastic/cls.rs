@@ -26,13 +26,17 @@
 //! - [`matrix_mean_chord_length`] — the binary-Markovian matrix counterpart.
 //! - [`sample_chord`] — exponential sampling from a mean chord length.
 //!
-//! # What is NOT implemented here
+//! # The flight driver (bead `op-eby.2`, implemented)
 //!
-//! The CLS **transport driver** — threading these samples through a flight, handling
-//! inclusion entry/exit bookkeeping, and coupling to the k-eigenvalue loop — is not
-//! built out. [`ClsMedium::material_at`] returns
-//! [`MediumError::NotImplemented`] rather
-//! than a fabricated answer. Tracked as bead `op-eby.2`.
+//! [`ClsMedium::material_at`] reconstructs phase occupancy statefully along a flight:
+//! it seeds the phase from the volume-fraction prior, then advances by the scalar path
+//! length between successive queries, toggling phase and re-sampling a chord at every
+//! boundary crossed. Because the chord statistics are direction-independent this needs
+//! only the distance between queries, which *is* the memoryless approximation. Its
+//! defining consistency property — inclusion occupancy converging to the packing
+//! fraction — is unit-tested. Coupling this into the k-eigenvalue transport loop (the
+//! benchmark of bead `op-eby.7`) is the remaining integration step, not a gap in CLS
+//! itself.
 //!
 //! # References
 //!
@@ -126,18 +130,42 @@ pub fn sample_chord(mean_chord: f64, seed: &mut u64) -> f64 {
     -mean_chord * xi.ln()
 }
 
+/// Transient per-history flight state used to reconstruct phase occupancy along a
+/// CLS flight (see [`ClsMedium::material_at`]).
+///
+/// CLS is memoryless, so the only state a flight needs is *which phase the neutron
+/// is currently in* and *how far it is to the next sampled boundary*. Because the
+/// chord statistics are direction-independent (isotropic mean chord), the phase can
+/// be advanced by the scalar path length travelled since the last query — no
+/// direction is stored.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ClsFlight {
+    /// Position of the previous `material_at` query \[cm\].
+    last_position: Position,
+    /// `true` if the neutron is currently inside an inclusion.
+    in_inclusion: bool,
+    /// Remaining path length \[cm\] before the next sampled phase boundary.
+    dist_to_boundary: f64,
+}
+
 /// A memoryless chord-length-sampled random medium.
 ///
-/// Holds only the *statistics* of the packing — inclusion radius, packing fraction, and
-/// the two phase materials — never the inclusions themselves. That is the whole point:
-/// the struct is O(1) in memory regardless of how many inclusions the medium notionally
-/// contains.
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// Holds the *statistics* of the packing — inclusion radius, packing fraction, and
+/// the two phase materials — never the inclusions themselves; the only per-history
+/// state is the small [`ClsFlight`] reconstructed lazily on the first
+/// [`Self::material_at`]. That is the whole point: the struct is O(1) in memory
+/// regardless of how many inclusions the medium notionally contains.
+///
+/// Not `Copy`: a medium carries live flight state mid-history, and a silent copy
+/// would fork that state into two inconsistent flights.
+#[derive(Debug, Clone, PartialEq)]
 pub struct ClsMedium {
     inclusion_radius: f64,
     packing_fraction: f64,
     inclusion: MaterialId,
     matrix: MaterialId,
+    /// Transient flight state, `None` until the first [`Self::material_at`] seeds it.
+    flight: Option<ClsFlight>,
 }
 
 impl ClsMedium {
@@ -157,7 +185,29 @@ impl ClsMedium {
             packing_fraction,
             inclusion,
             matrix,
+            flight: None,
         }
+    }
+
+    /// The phase material id for a boolean phase flag.
+    fn phase_material(&self, in_inclusion: bool) -> MaterialId {
+        if in_inclusion {
+            self.inclusion
+        } else {
+            self.matrix
+        }
+    }
+
+    /// Discard any in-progress flight, so the next [`Self::material_at`] re-seeds the
+    /// phase from scratch. Call this when a transport driver starts a new history.
+    pub fn begin_flight(&mut self) {
+        self.flight = None;
+    }
+
+    /// The phase the reconstructed flight is currently in, or `None` before the first
+    /// [`Self::material_at`] query. `true` means inside an inclusion.
+    pub fn in_inclusion(&self) -> Option<bool> {
+        self.flight.map(|f| f.in_inclusion)
     }
 
     /// Inclusion radius \[cm\].
@@ -204,19 +254,66 @@ impl ClsMedium {
         sample_chord(mean, seed)
     }
 
-    /// Point membership — **not implemented**, and not CLS's natural query.
+    /// Material occupying `position` \[cm\], reconstructed along the CLS flight.
     ///
-    /// CLS reconstructs occupancy along a *flight*, not at an isolated point: with no
-    /// stored geometry there is nothing to test a point against. Answering this
-    /// properly means carrying the flight's phase state, which belongs to the CLS
-    /// transport driver (bead `op-eby.2`). Returns
-    /// [`MediumError::NotImplemented`] rather than guessing.
+    /// CLS has no stored geometry, so occupancy is only defined *along a flight*: this
+    /// method reconstructs it statefully. The first call seeds the phase from the
+    /// unconditional prior — the neutron is inside an inclusion with probability equal
+    /// to the packing (volume) fraction — and samples the distance to the first
+    /// boundary. Each subsequent call advances the flight by the scalar path length
+    /// travelled since the previous query, toggling phase and re-sampling a chord at
+    /// every boundary it crosses, then returns the current phase's material.
+    ///
+    /// Because CLS is memoryless the reconstruction depends only on the *distance*
+    /// between successive queries, not on direction — a neutron that reverses course
+    /// simply flies a fresh independent chord, which is precisely the correlation CLS
+    /// discards (and [`super::scls`] restores). Call [`Self::begin_flight`] between
+    /// independent histories so their phase state does not leak across.
+    ///
+    /// `seed` is the caller's LCG stream ([`prn`]), advanced in place. This never
+    /// errors — the `Result` is kept only to match the
+    /// [`super::medium::StochasticMedium::material_at`] contract shared with models
+    /// that can fail.
     pub fn material_at(
         &mut self,
-        _position: Position,
-        _seed: &mut u64,
+        position: Position,
+        seed: &mut u64,
     ) -> Result<MaterialId, MediumError> {
-        Err(MediumError::NotImplemented("CLS"))
+        // Precompute both phase means and the material ids so the mutable borrow of
+        // `self.flight` below does not conflict with `&self` method calls.
+        let mean_incl = self.mean_chord_inclusion();
+        let mean_matrix = self.mean_chord_matrix();
+        let pf = self.packing_fraction;
+        let mean_for = |in_incl: bool| if in_incl { mean_incl } else { mean_matrix };
+
+        let in_inclusion = if let Some(flight) = &mut self.flight {
+            let mut step = position.distance(flight.last_position);
+            // Cross every boundary the step reaches. Guard against a zero/degenerate
+            // mean chord (which would leave dist_to_boundary at 0 forever) with the
+            // `> 0.0` condition so the loop always terminates.
+            while step >= flight.dist_to_boundary && flight.dist_to_boundary > 0.0 {
+                step -= flight.dist_to_boundary;
+                flight.in_inclusion = !flight.in_inclusion;
+                flight.dist_to_boundary = sample_chord(mean_for(flight.in_inclusion), seed);
+            }
+            if flight.dist_to_boundary > 0.0 {
+                flight.dist_to_boundary -= step;
+            }
+            flight.last_position = position;
+            flight.in_inclusion
+        } else {
+            // First query: seed the phase from the volume-fraction prior.
+            let in_inclusion = prn(seed) < pf;
+            let dist_to_boundary = sample_chord(mean_for(in_inclusion), seed);
+            self.flight = Some(ClsFlight {
+                last_position: position,
+                in_inclusion,
+                dist_to_boundary,
+            });
+            in_inclusion
+        };
+
+        Ok(self.phase_material(in_inclusion))
     }
 }
 
@@ -288,14 +385,72 @@ mod tests {
         }
     }
 
-    /// Point membership is honestly reported as unimplemented, not fabricated.
+    /// The flight driver reconstructs occupancy whose inclusion fraction converges to
+    /// the packing (volume) fraction — the defining consistency property of CLS, since
+    /// [`matrix_mean_chord_length`] ties the two mean chords to the volume fractions.
+    ///
+    /// Methodology: fly a straight ray in fine uniform steps, query `material_at` at
+    /// each step, and count the fraction of points reported as inclusion material. The
+    /// path-length fraction in the inclusion phase is
+    /// `<ℓ_i>/(<ℓ_i>+<ℓ_m>) = pf` by construction, and uniform point spacing makes the
+    /// point fraction an unbiased estimator of it. Result (pf=0.2): the estimate lands
+    /// within a few % of 0.2.
     #[test]
-    fn material_at_reports_not_implemented() {
-        let mut m = ClsMedium::new(0.03, 0.2, MaterialId(1), MaterialId(0));
-        let mut seed = 1u64;
-        assert_eq!(
-            m.material_at(Position::new(0.0, 0.0, 0.0), &mut seed),
-            Err(MediumError::NotImplemented("CLS"))
+    fn inclusion_fraction_along_a_flight_converges_to_packing_fraction() {
+        let pf = 0.2;
+        let mut m = ClsMedium::new(0.03, pf, MaterialId(1), MaterialId(0));
+        let inclusion = MaterialId(1);
+
+        let mut seed = 20260721u64;
+        let step = 0.01;
+        let n = 400_000;
+        let mut in_incl = 0usize;
+        for i in 0..n {
+            let x = i as f64 * step;
+            let mat = m
+                .material_at(Position::new(x, 0.0, 0.0), &mut seed)
+                .expect("CLS material_at never errors");
+            if mat == inclusion {
+                in_incl += 1;
+            }
+        }
+        let frac = in_incl as f64 / n as f64;
+        // ~n·step/(<ℓ_i>+<ℓ_m>) ≈ 20000 independent chords; 5σ ≈ 0.015. Allow 0.03.
+        assert!(
+            (frac - pf).abs() < 0.03,
+            "inclusion fraction {frac} should converge to pf {pf}"
         );
+    }
+
+    /// `begin_flight` discards flight state so an independent history does not inherit
+    /// the previous one's phase, and `in_inclusion` reports the reconstructed phase.
+    #[test]
+    fn begin_flight_resets_phase_state() {
+        let mut m = ClsMedium::new(0.03, 0.2, MaterialId(1), MaterialId(0));
+        assert_eq!(m.in_inclusion(), None, "no phase before the first query");
+
+        let mut seed = 42u64;
+        let _ = m.material_at(Position::new(0.0, 0.0, 0.0), &mut seed);
+        assert!(m.in_inclusion().is_some(), "phase is seeded after the first query");
+
+        m.begin_flight();
+        assert_eq!(m.in_inclusion(), None, "begin_flight clears the flight");
+    }
+
+    /// The same seed and query sequence reproduces the same reconstruction — the flight
+    /// is deterministic in the LCG stream (reproducibility guarantee).
+    #[test]
+    fn flight_reconstruction_is_reproducible() {
+        let run = || {
+            let mut m = ClsMedium::new(0.03, 0.25, MaterialId(1), MaterialId(0));
+            let mut seed = 999u64;
+            (0..500)
+                .map(|i| {
+                    m.material_at(Position::new(i as f64 * 0.02, 0.0, 0.0), &mut seed)
+                        .unwrap()
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(run(), run(), "same seed -> identical flight");
     }
 }
