@@ -532,13 +532,32 @@ each member (`openblas-system` on unix, `intel-mkl-static` on windows/macos).
 See `docs/workspace-maintenance.md` for the rationale and the planned
 `ndarray-linalg` removal from TUAS.
 
-## Android portability (mandatory for non-GUI code)
+## Android / Termux portability (HARD RULE for non-GUI code)
 
-**Every crate's non-GUI library code must compile for Android**
-(`aarch64-linux-android` and the armv7/x86_64 emulator targets). Android has no
-system BLAS/LAPACK and no easy C/Fortran toolchain, so **Android-hostile
-dependencies must not compile on Android** — gate them off by target rather
-than letting them break the build.
+**Hard rule (not a default): every crate's non-GUI library code MUST compile on
+Termux — native, on-device Android — with Android-hostile pieces held off behind
+Android feature gates.** "Compiles on Termux" is the acceptance bar: a build run
+*inside Termux* (native `aarch64-linux-android`, no NDK cross-toolchain, no system
+BLAS/LAPACK, no C/Fortran toolchain) must succeed for every non-GUI library. This
+does not bend for convenience — if a change cannot build on Termux, it is not done
+until the offending dependency/test/example is gated off Android in the *same*
+change. Workspace-wide tracking lives in the **`op-zfr` "Android support" epic**.
+
+Termux specifics to keep in mind:
+
+- **Termux builds natively on the device**, so the target is `aarch64-linux-android`
+  and **`target_os = "android"`** (not `"linux"`). Every gate below keys off that.
+- Prefer an explicit **Cargo feature** (e.g. `android`, or an inverted
+  `native-blas`/`gui` feature that is simply *not* enabled on Termux) plus the
+  `cfg(target_os = "android")` target gate, so a Termux user gets a working build
+  from the default feature set with no manual flag-twiddling.
+- No system package manager for BLAS/LAPACK/GUI libs is assumed to exist on Termux.
+
+**Every crate's non-GUI library code must also compile for Android**
+(`aarch64-linux-android` and the armv7/x86_64 emulator targets) when cross-built
+from a host. Android has no system BLAS/LAPACK and no easy C/Fortran toolchain, so
+**Android-hostile dependencies must not compile on Android** — gate them off by
+target rather than letting them break the build.
 
 - **`ndarray-linalg`** (and anything needing system BLAS/LAPACK, or a C/Fortran
   toolchain, or `std`-GUI/windowing) is Android-hostile. Declare it only under
@@ -557,10 +576,12 @@ than letting them break the build.
   for Android — keep GUI behind examples/optional bins/features, never in the
   library's unconditional build, so the lib still builds headless for Android.
 - **New code follows this by default.** If you add a dep or a test that can't
-  build on Android, target-gate it in the same change and note it. Verify with
-  `cargo check -p <crate> --target aarch64-linux-android` (needs the Android
-  target + NDK / `cargo-ndk`) when a host has the toolchain. Workspace-wide
-  Android build tracking lives in beads (the "Android support" epic).
+  build on Android, target-gate it in the same change and note it. The
+  authoritative check is a **native Termux build** (`cargo build`/`cargo check`
+  run inside Termux on-device); a host-side `cargo check -p <crate> --target
+  aarch64-linux-android` (needs the Android target + NDK / `cargo-ndk`) is the
+  fast proxy when no device is handy. Workspace-wide Android/Termux build
+  tracking lives in beads (the **`op-zfr` "Android support" epic**).
 
 ## Build & test
 
