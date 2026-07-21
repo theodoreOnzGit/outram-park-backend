@@ -430,6 +430,40 @@ returns.
 **PIMPLE** is the hybrid: PISO inner correctors plus SIMPLE-style outer
 iterations with under-relaxation, permitting Courant numbers well above one.
 
+### F5. "The residuals converged, so the answer is right"
+
+**Why it's tempting.** Residual plots are the most visible convergence signal a
+solver produces, and driving them down feels like driving error down. The word
+"converged" does a lot of unearned work.
+
+**The correct picture.** Converged residuals mean only that you have **correctly
+solved the coupled system at that time level, with that `Δt` and that mesh**.
+They say nothing about whether the time level, the mesh, or the physics is right.
+You can have a beautifully converged, thoroughly wrong transient.
+
+Three distinct residuals are routinely conflated:
+
+| residual | what it actually measures |
+|---|---|
+| **linear-solver** (`tolerance`, `relTol`) | how well *one matrix* was inverted |
+| **outer / coupling** | whether the segregated equations now **agree with each other** |
+| *(no residual exists for)* | **temporal and spatial discretisation error** |
+
+That third row is the point: **there is no residual for `Δt` being too large or
+the mesh being too coarse.** Those errors are invisible to every convergence
+monitor the solver prints. They are found only by refinement studies — halve
+`Δt`, refine the mesh, and see whether the answer moves.
+
+**Practical corollary — a convergence trap.** The linear-solver tolerance must be
+*tighter* than the outer/coupling criterion. If it is not, each outer iteration
+injects fresh solver noise, the coupling residual plateaus above the target, and
+the outer loop **spins forever without ever satisfying it**. This is commonly
+misdiagnosed as a physics or stability problem when it is purely a
+tolerance-hierarchy mistake.
+
+**The disproof, in one line.** If converged residuals implied correctness, a
+steady-state run on a single-cell mesh would be correct — it converges beautifully.
+
 ---
 
 ## Contributing
