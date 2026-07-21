@@ -35,6 +35,7 @@
 {"from":"op-21g.8","to":"op-21g","kind":"parent","created_at":[1783948689000,0],"created_by":"teddy0@snrsiDesktop"}
 {"from":"op-21g.9","to":"op-21g","kind":"parent","created_at":[1783967176000,0],"created_by":"teddy0@snrsiDesktop"}
 {"from":"op-23s","to":"op-6tz.18","kind":"blocks","created_at":[1784128772000,0],"created_by":"teddy0@arch-desktop-aftershock"}
+{"from":"op-26w","to":"op-21g.14","kind":"discovered_from","created_at":[1784600475236,1],"created_by":"teddy0@arch-aftershock-rapid-glass-S267454"}
 {"from":"op-3f2","to":"op-p6p.7","kind":"parent","created_at":[1784123552000,0],"created_by":"teddy0@snrsiDesktop"}
 {"from":"op-3f2","to":"op-p6p.7.3","kind":"blocks","created_at":[1784123551000,0],"created_by":"teddy0@snrsiDesktop"}
 {"from":"op-3r0","to":"op-uy5","kind":"blocks","created_at":[1784291789000,0],"created_by":"teddy0@arch-desktop-aftershock"}
