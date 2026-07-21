@@ -25,6 +25,34 @@ in development and not fully featured yet.
 The crate contains many useful traits and examples of how to use 
 those traits for your own projects.
 
+# Publication & citation
+
+TUAS is described — and its verification & validation documented — in a
+peer-reviewed journal article. The article's V&V comprises a natural-circulation
+**verification** against the System Analysis Module (SAM) model of CIET, plus
+**validation** against CIET forced-circulation experimental data and a HITEC-salt
+to YD-325-oil shell-and-tube heat exchanger. The records that reproduce this V&V
+live under [`verification_and_validation/`](./verification_and_validation/).
+
+If you use TUAS in academic work, please cite:
+
+> Ong, T. K. C., Xiao, S., & Peterson, P. F. (2025). An open-source
+> Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows
+> (TUAS). *International Journal of Advanced Nuclear Reactor Design and
+> Technology*. https://doi.org/10.1016/j.jandt.2025.03.006
+
+```bibtex
+@article{ong2025tuas,
+  title   = {An open-source Thermo-hydraulic Uniphase Advection and
+             Convection Solver for Salt Flows (TUAS)},
+  author  = {Ong, Theodore Kay Chen and Xiao, Sicong and Peterson, Per F.},
+  journal = {International Journal of Advanced Nuclear Reactor Design and Technology},
+  year    = {2025},
+  doi     = {10.1016/j.jandt.2025.03.006},
+  note    = {Preprint: SSRN, doi:10.2139/ssrn.4998548}
+}
+```
+
 # Human-in-the-loop calibration (important)
 
 **Model calibration and validation-tolerance decisions in this crate are
