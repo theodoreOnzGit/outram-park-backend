@@ -125,39 +125,69 @@
 //! cargo run -p outram-mc-libs --release --example godiva_gpu_benchmark
 //! ```
 
+// On Android there is no desktop GPU compute path (wgpu is target-gated off
+// Android), so this GPU benchmark is desktop-only. Emit a stub `main` so the
+// example still compiles on Android (an example must have a `main`); every
+// desktop item below is gated with `#[cfg(not(target_os = "android"))]`.
+#[cfg(target_os = "android")]
+fn main() {
+    eprintln!("godiva_gpu_benchmark: desktop-only (GPU compute path is not built on Android)");
+}
+
+#[cfg(not(target_os = "android"))]
 use std::fs;
+#[cfg(not(target_os = "android"))]
 use std::path::PathBuf;
+#[cfg(not(target_os = "android"))]
 use std::time::Instant;
 
+#[cfg(not(target_os = "android"))]
 use outram_mc_libs::gpu::union_grid::UnionTotalXs;
+#[cfg(not(target_os = "android"))]
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+#[cfg(not(target_os = "android"))]
 use outram_mc_libs::material::nuclide::Nuclide;
+#[cfg(not(target_os = "android"))]
 use outram_mc_libs::physics::keff::{run_keff, KeffResult, KeffSettings};
+#[cfg(not(target_os = "android"))]
 use outram_mc_libs::rng::distributions::watt;
 
 /// Godiva atom densities and temperature (ICSBEP HEU-MET-FAST-001).
+#[cfg(not(target_os = "android"))]
 const RADIUS_CM: f64 = 8.7407;
+#[cfg(not(target_os = "android"))]
 const TEMPERATURE_K: f64 = 293.6;
+#[cfg(not(target_os = "android"))]
 const N_U234: f64 = 4.9184e-4;
+#[cfg(not(target_os = "android"))]
 const N_U235: f64 = 4.4994e-2;
+#[cfg(not(target_os = "android"))]
 const N_U238: f64 = 2.4984e-3;
 
 /// Energy grid bounds \[eV\] for the tabulated Sigma_t used by the XS kernel.
+#[cfg(not(target_os = "android"))]
 const E_MIN_EV: f64 = 1e-3;
+#[cfg(not(target_os = "android"))]
 const E_MAX_EV: f64 = 2e7;
 /// Number of log-spaced grid points in the tabulation.
+#[cfg(not(target_os = "android"))]
 const N_GRID: usize = 4096;
 
 /// U-235 thermal-Watt fission-spectrum parameters (same as `KeffSettings`
 /// default), used to draw representative collision-energy queries.
+#[cfg(not(target_os = "android"))]
 const WATT_A: f64 = 0.988e6;
+#[cfg(not(target_os = "android"))]
 const WATT_B: f64 = 2.249e-6;
 
 /// Batch sizes for the XS-kernel scaling curve.
+#[cfg(not(target_os = "android"))]
 const BATCH_SIZES: [usize; 3] = [1 << 16, 1 << 18, 1 << 20];
 /// Timed repetitions averaged per batch (both CPU and GPU).
+#[cfg(not(target_os = "android"))]
 const N_REPS: usize = 5;
 
+#[cfg(not(target_os = "android"))]
 fn main() {
     println!("========================================================================");
     println!(" Godiva k_eff  —  CPU baseline  +  isolated XS-kernel GPU-vs-CPU throughput");
@@ -199,6 +229,7 @@ fn main() {
 /// Build the Godiva bare-sphere HEU material and its LOW-tier (`from_core`)
 /// nuclide array. LOW tier keeps the run offline and reproducible (no network,
 /// no HDF5). Atom densities are the ICSBEP HEU-MET-FAST-001 values above.
+#[cfg(not(target_os = "android"))]
 fn godiva_material() -> (Material, Vec<Nuclide>) {
     let nuclides = vec![
         Nuclide::from_core("U234").expect("U234 in CORE WMP library"),
@@ -221,6 +252,7 @@ fn godiva_material() -> (Material, Vec<Nuclide>) {
 /// Run the CPU k_eff power iteration, time it, and print k_eff ± σ, Δk pcm,
 /// wall-clock, and source-history throughput. Returns the full [`KeffResult`]
 /// (its per-generation trace feeds the convergence CSV).
+#[cfg(not(target_os = "android"))]
 fn run_cpu_keff(material: &Material, nuclides: &[Nuclide]) -> KeffResult {
     let settings = KeffSettings {
         n_particles: 5000,
@@ -257,6 +289,7 @@ fn run_cpu_keff(material: &Material, nuclides: &[Nuclide]) -> KeffResult {
 }
 
 /// One benchmarked batch size of the XS-kernel throughput sweep.
+#[cfg(not(target_os = "android"))]
 struct XsRow {
     batch_size: usize,
     cpu_ms: f64,
@@ -274,6 +307,7 @@ struct XsRow {
 
 /// Tabulate Sigma_t and benchmark the batched CPU-vs-GPU lookup across
 /// [`BATCH_SIZES`]. Prints a per-batch table and returns the rows for the CSV.
+#[cfg(not(target_os = "android"))]
 fn run_xs_kernel_benchmark(material: &Material, nuclides: &[Nuclide]) -> Vec<XsRow> {
     println!("[2] Isolated XS-kernel throughput  (batched macroscopic total Sigma_t lookup)");
     println!(
@@ -369,6 +403,7 @@ fn run_xs_kernel_benchmark(material: &Material, nuclides: &[Nuclide]) -> Vec<XsR
 /// Sample `n` representative collision-energy queries \[eV\] from the U-235
 /// thermal-Watt fission spectrum, clamped to the tabulated grid \[E_MIN_EV,
 /// E_MAX_EV\]. These stand in for the energies the transport loop would look up.
+#[cfg(not(target_os = "android"))]
 fn sample_query_energies(seed: &mut u64, n: usize) -> Vec<f64> {
     (0..n)
         .map(|_| watt(seed, WATT_A, WATT_B).clamp(E_MIN_EV, E_MAX_EV))
@@ -376,6 +411,7 @@ fn sample_query_energies(seed: &mut u64, n: usize) -> Vec<f64> {
 }
 
 /// max and mean |gpu_f32 - cpu_f64| over a batch \[cm^-1\].
+#[cfg(not(target_os = "android"))]
 fn agreement(gpu: &[f32], cpu: &[f64]) -> (f64, f64) {
     let mut max_abs = 0.0f64;
     let mut sum_abs = 0.0f64;
@@ -389,6 +425,7 @@ fn agreement(gpu: &[f32], cpu: &[f64]) -> (f64, f64) {
 
 /// Directory for the benchmark CSVs, resolved from the crate root at compile
 /// time so the path is stable regardless of the shell's working directory.
+#[cfg(not(target_os = "android"))]
 fn csv_output_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("verification_and_validation")
@@ -403,6 +440,7 @@ fn csv_output_dir() -> PathBuf {
 /// generations only; inactive rows carry `NaN` in both cumulative columns, and
 /// the first active generation carries `NaN` σ (σ needs ≥ 2 samples). A header
 /// comment line documents this convention.
+#[cfg(not(target_os = "android"))]
 fn write_keff_convergence_csv(dir: &PathBuf, keff: &KeffResult) -> PathBuf {
     // n_inactive is not carried on KeffResult; recover it from the run settings
     // used in `run_cpu_keff` (40 inactive of 160 total generations).
@@ -444,6 +482,7 @@ fn write_keff_convergence_csv(dir: &PathBuf, keff: &KeffResult) -> PathBuf {
 /// Columns: `batch_size,cpu_ms,gpu_ms,cpu_queries_per_s,gpu_queries_per_s,
 /// gpu_speedup,max_abs_err_cm^-1,mean_abs_err_cm^-1`. GPU columns are `NaN`
 /// when no GPU adapter was available.
+#[cfg(not(target_os = "android"))]
 fn write_xs_throughput_csv(dir: &PathBuf, rows: &[XsRow]) -> PathBuf {
     let mut s = String::new();
     s.push_str(
@@ -474,6 +513,7 @@ fn write_xs_throughput_csv(dir: &PathBuf, rows: &[XsRow]) -> PathBuf {
 
 /// Mean and standard error of the mean (1σ) of a slice; σ is `NaN` for < 2
 /// samples (a progressive convergence trace has no spread on its first point).
+#[cfg(not(target_os = "android"))]
 fn mean_and_stderr(k: &[f64]) -> (f64, f64) {
     let n = k.len();
     let mean = k.iter().sum::<f64>() / n as f64;
@@ -487,6 +527,7 @@ fn mean_and_stderr(k: &[f64]) -> (f64, f64) {
 // ── Small formatting helpers (keep the print/CSV code readable). ──────────────
 
 /// Format an `f64` for a CSV cell: `NaN` literal, else 6 significant digits.
+#[cfg(not(target_os = "android"))]
 fn fmt_csv_f64(x: f64) -> String {
     if x.is_nan() {
         "NaN".to_string()
@@ -496,6 +537,7 @@ fn fmt_csv_f64(x: f64) -> String {
 }
 
 /// Format an `Option<f64>` CSV cell: `NaN` when `None`, else scientific/6-dp mix.
+#[cfg(not(target_os = "android"))]
 fn fmt_csv_opt(x: Option<f64>) -> String {
     match x {
         None => "NaN".to_string(),
@@ -504,21 +546,25 @@ fn fmt_csv_opt(x: Option<f64>) -> String {
 }
 
 /// Console: optional ms to 3 dp, or `n/a`.
+#[cfg(not(target_os = "android"))]
 fn fmt_opt3(x: Option<f64>) -> String {
     x.map(|v| format!("{v:.3}")).unwrap_or_else(|| "n/a".to_string())
 }
 
 /// Console: optional queries/s in Mqueries/s to 1 dp, or `n/a`.
+#[cfg(not(target_os = "android"))]
 fn fmt_opt_mqs(x: Option<f64>) -> String {
     x.map(|v| format!("{:.1}", v / 1e6)).unwrap_or_else(|| "n/a".to_string())
 }
 
 /// Console: optional speedup like `2.37x`, or `n/a`.
+#[cfg(not(target_os = "android"))]
 fn fmt_opt_speedup(x: Option<f64>) -> String {
     x.map(|v| format!("{v:.2}x")).unwrap_or_else(|| "n/a".to_string())
 }
 
 /// Console: optional value in scientific notation to 3 dp, or `n/a`.
+#[cfg(not(target_os = "android"))]
 fn fmt_opt_sci(x: Option<f64>) -> String {
     x.map(|v| format!("{v:.3e}")).unwrap_or_else(|| "n/a".to_string())
 }
