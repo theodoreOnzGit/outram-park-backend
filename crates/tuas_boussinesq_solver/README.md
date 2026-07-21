@@ -9,10 +9,10 @@
 
 | Axis | Status |
 |---|---|
-| Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
+| Verification & Validation (V&V) — human-reviewed | ✅ Cleared by maintainer (2026-07-21): hand-coded solver, validated against the CIET integral effects test; peer-reviewed, doi:10.1016/j.jandt.2025.03.006 |
 | Human / user interface — human-reviewed | ❌ Not yet manually checked |
 
-**Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
+**Status: INCOMPLETE** — the V&V axis is cleared (2026-07-21); the Human/user-interface axis remains to be manually checked and cleared by the maintainer.
 
 Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows
 
