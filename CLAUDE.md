@@ -582,9 +582,16 @@ target rather than letting them break the build.
     "android"))]`. Precedent: `njoy-outram-park-fork`'s
     `examples/gpu_wmp_bench.rs` and `outram-mc-libs`'s
     `examples/godiva_gpu_benchmark.rs`.
-- **GUI items** (`egui`/`eframe`/windowing examples and bins) are out of scope
-  for Android — keep GUI behind examples/optional bins/features, never in the
-  library's unconditional build, so the lib still builds headless for Android.
+- **Only windowing GUI is out of scope — terminal apps are IN scope.** Termux
+  *is* a terminal, so a **CLI or a `ratatui` TUI must compile and run on
+  Android** like any other non-GUI crate — do not exempt it. What is out of
+  scope is **`egui`/`eframe`/`wgpu`-surface/windowing** GUI: keep that behind
+  examples/optional bins/target gates, never in a library's unconditional
+  build, so the lib still builds headless for Android. Concretely: `kovan-cli`
+  (CLI) and `kovan-tui` (`ratatui` TUI — target-gated to a CLI-redirect stub on
+  Android) are **in scope and verified building** for `aarch64-linux-android`;
+  only `outram-park-digital-twin-engine` (egui/eframe) is a genuine
+  GUI exemption.
 - **New code follows this by default.** If you add a dep or a test that can't
   build on Android, target-gate it in the same change and note it.
 - **The check MUST cover all targets, not just `--lib`.** A `cargo check
