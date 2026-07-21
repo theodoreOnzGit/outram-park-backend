@@ -8,7 +8,7 @@
 //! - **Explicit / RSA** ([`RsaMedium`]) — every inclusion is generated and stored, so
 //!   the point-membership answer is *exact*. High fidelity, high memory. This is the
 //!   **reference solution** every approximate model is judged against. Built on the
-//!   already-implemented [`super::stochastic_media::pack_spheres`].
+//!   already-implemented [`crate::pebble_beds::stochastic_media::pack_spheres`].
 //! - **Chord Length Sampling (CLS)** ([`super::cls::ClsMedium`]) — nothing is stored;
 //!   inclusion crossings are re-sampled from a chord-length distribution on the fly.
 //!   Cheap, but *memoryless*: a neutron that turns around does not see the inclusion
@@ -31,7 +31,8 @@
 //! - It takes **`&mut self`**, because CLS and SCLS mutate sampler/history state on
 //!   every query — they are not pure functions of position.
 //! - It takes **`seed: &mut u64`** rather than a whole particle, matching the crate's
-//!   existing LCG convention (see [`super::delta_tracking::sample_delta_distance`]).
+//!   existing LCG convention (see
+//!   [`crate::pebble_beds::delta_tracking::sample_delta_distance`]).
 //!   The query needs randomness, not the full phase-space state.
 //! - It returns a [`Result`], so a not-yet-implemented model reports that instead of
 //!   panicking inside a transport loop.
@@ -76,7 +77,7 @@ pub enum MediumError {
 
 /// Explicit random medium — every inclusion stored, point membership exact.
 ///
-/// Wraps the already-implemented RSA packing ([`super::stochastic_media::PackedSpheres`])
+/// Wraps the already-implemented RSA packing ([`crate::pebble_beds::stochastic_media::PackedSpheres`])
 /// and tags the two phases with material ids. This is the reference model: CLS and SCLS
 /// are correct to the extent they reproduce what this returns.
 #[derive(Debug, Clone)]

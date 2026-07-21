@@ -58,7 +58,7 @@
 //! This module is **new work**, not an OpenMC port — upstream has no SCLS.
 
 use crate::geometry::position::Position;
-use crate::pebble_beds::medium::{MaterialId, MediumError};
+use crate::stochastic::medium::{MaterialId, MediumError};
 
 /// Squared distance \[cm²\] between two points.
 fn dist_sq(a: Position, b: Position) -> f64 {
@@ -207,7 +207,7 @@ impl SclsMedium {
     /// - `transport_mfp` — λ_TMFP \[cm\], see [`InclusionSphere::new`].
     ///
     /// R_largest is taken from the CLS medium's inclusion radius, since the scaffold
-    /// assumes an equal-radius packing (as [`super::stochastic_media::pack_spheres`]
+    /// assumes an equal-radius packing (as [`crate::pebble_beds::stochastic_media::pack_spheres`]
     /// generates). A polydisperse packing would pass the true maximum instead.
     pub fn new(cls: super::cls::ClsMedium, start: Position, transport_mfp: f64) -> Self {
         let sphere = InclusionSphere::new(start, transport_mfp, cls.inclusion_radius());
@@ -308,7 +308,7 @@ impl SclsMedium {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pebble_beds::cls::ClsMedium;
+    use crate::stochastic::cls::ClsMedium;
 
     fn medium() -> SclsMedium {
         let cls = ClsMedium::new(0.03, 0.2, MaterialId(1), MaterialId(0));

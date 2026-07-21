@@ -30,14 +30,14 @@
 //!
 //! # Note on the existing grid
 //!
-//! [`super::stochastic_media::PackedSpheres`] already carries a uniform spatial hash
+//! [`crate::pebble_beds::stochastic_media::PackedSpheres`] already carries a uniform spatial hash
 //! grid for its RSA overlap test. That grid is tuned for a *static, equal-radius*
 //! packing; SCLS needs an index over a *churning* history set that is rebuilt as the
 //! inclusion sphere moves. Reusing versus rebuilding it is an open question the
 //! benchmark should settle rather than a decision to make up front.
 
 use crate::geometry::position::Position;
-use crate::pebble_beds::scls::ParticleHistory;
+use crate::stochastic::scls::ParticleHistory;
 
 /// Errors from a spatial-index query.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -188,7 +188,7 @@ impl SpatialIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pebble_beds::medium::MaterialId;
+    use crate::stochastic::medium::MaterialId;
 
     fn hist(x: f64, r: f64) -> ParticleHistory {
         ParticleHistory::new(Position::new(x, 0.0, 0.0), r, MaterialId(1))

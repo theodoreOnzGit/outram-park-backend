@@ -41,15 +41,15 @@
 //! - Binary stochastic mixtures and the Markovian chord relation: Lux & Koblinger,
 //!   *Monte Carlo Particle Transport Methods*, CRC Press (1991); Zimmerman & Adams,
 //!   *Algorithms for Monte Carlo particle transport in binary statistical mixtures*
-//!   (1991). See also [`super::references`] for the dispersion-fuel bibliography.
+//!   (1991). See also [`crate::pebble_beds::references`] for the dispersion-fuel bibliography.
 //!
 //! This module is **new work**, not a port — OpenMC has no CLS implementation, so the
 //! crate's "mirror the canonical source" rule does not apply here (see the crate
 //! `CLAUDE.md`: new parts are scaffolded only where genuinely absent upstream).
 
 use crate::geometry::position::Position;
-use crate::pebble_beds::medium::{MaterialId, MediumError};
 use crate::rng::lcg::prn;
+use crate::stochastic::medium::{MaterialId, MediumError};
 
 /// Mean chord length \[cm\] through a sphere of radius `radius` \[cm\].
 ///
