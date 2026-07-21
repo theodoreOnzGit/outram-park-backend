@@ -207,7 +207,7 @@ impl SclsMedium {
     /// - `transport_mfp` — λ_TMFP \[cm\], see [`InclusionSphere::new`].
     ///
     /// R_largest is taken from the CLS medium's inclusion radius, since the scaffold
-    /// assumes an equal-radius packing (as [`crate::pebble_beds::stochastic_media::pack_spheres`]
+    /// assumes an equal-radius packing (as [`crate::pebble_beds::sphere_packing::pack_spheres`]
     /// generates). A polydisperse packing would pass the true maximum instead.
     pub fn new(cls: super::cls::ClsMedium, start: Position, transport_mfp: f64) -> Self {
         let sphere = InclusionSphere::new(start, transport_mfp, cls.inclusion_radius());

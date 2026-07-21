@@ -30,7 +30,7 @@
 //!
 //! # Note on the existing grid
 //!
-//! [`crate::pebble_beds::stochastic_media::PackedSpheres`] already carries a uniform spatial hash
+//! [`crate::pebble_beds::sphere_packing::PackedSpheres`] already carries a uniform spatial hash
 //! grid for its RSA overlap test. That grid is tuned for a *static, equal-radius*
 //! packing; SCLS needs an index over a *churning* history set that is rebuilt as the
 //! inclusion sphere moves. Reusing versus rebuilding it is an open question the

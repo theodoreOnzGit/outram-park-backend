@@ -28,7 +28,7 @@ pub use crate::physics::keff::{run_keff, KeffResult, KeffSettings};
 pub use crate::physics::transport_csg::{run_keff_csg, SourceBox};
 pub use crate::pebble_beds::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
 pub use crate::pebble_beds::keff_delta::run_keff_delta;
-pub use crate::pebble_beds::stochastic_media::{pack_spheres, PackedSpheres, PackingConfig, PackingMethod};
+pub use crate::pebble_beds::sphere_packing::{pack_spheres, PackedSpheres, PackingConfig, PackingMethod};
 // Stochastic-media research track (scaffold, beads epic op-eby). The chord
 // statistics, SCLS retention machinery and brute-force index are implemented; the
 // CLS/SCLS transport drivers are not — those paths return typed NotImplemented

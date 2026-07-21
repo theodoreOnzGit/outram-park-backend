@@ -8,7 +8,7 @@
 //! - **Explicit / RSA** ([`RsaMedium`]) — every inclusion is generated and stored, so
 //!   the point-membership answer is *exact*. High fidelity, high memory. This is the
 //!   **reference solution** every approximate model is judged against. Built on the
-//!   already-implemented [`crate::pebble_beds::stochastic_media::pack_spheres`].
+//!   already-implemented [`crate::pebble_beds::sphere_packing::pack_spheres`].
 //! - **Chord Length Sampling (CLS)** ([`super::cls::ClsMedium`]) — nothing is stored;
 //!   inclusion crossings are re-sampled from a chord-length distribution on the fly.
 //!   Cheap, but *memoryless*: a neutron that turns around does not see the inclusion
@@ -47,7 +47,7 @@
 //! CLS/SCLS material answer as a sample, not as ground truth.
 
 use crate::geometry::position::Position;
-use crate::pebble_beds::stochastic_media::PackedSpheres;
+use crate::pebble_beds::sphere_packing::PackedSpheres;
 
 /// Index of a material in the caller's material table.
 ///
@@ -77,7 +77,7 @@ pub enum MediumError {
 
 /// Explicit random medium — every inclusion stored, point membership exact.
 ///
-/// Wraps the already-implemented RSA packing ([`crate::pebble_beds::stochastic_media::PackedSpheres`])
+/// Wraps the already-implemented RSA packing ([`crate::pebble_beds::sphere_packing::PackedSpheres`])
 /// and tags the two phases with material ids. This is the reference model: CLS and SCLS
 /// are correct to the extent they reproduce what this returns.
 #[derive(Debug, Clone)]
@@ -184,8 +184,8 @@ impl StochasticMedium {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pebble_beds::stochastic_media::PackingConfig;
-    use crate::pebble_beds::stochastic_media::PackingMethod;
+    use crate::pebble_beds::sphere_packing::PackingConfig;
+    use crate::pebble_beds::sphere_packing::PackingMethod;
 
     /// An explicit RSA medium reports inclusion material inside a packed sphere and
     /// matrix material outside it.

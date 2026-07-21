@@ -2,7 +2,7 @@
 //! tracking**.
 //!
 //! This is the assembly point for the random-packed TRISO k-eff: it composes the
-//! [`super::stochastic_media`] packed geometry, the [`super::delta_tracking`]
+//! [`super::sphere_packing`] packed geometry, the [`super::delta_tracking`]
 //! flight primitives, and the crate's collision physics into a fission-source
 //! power iteration — the doubly-heterogeneous analogue of
 //! [`crate::physics::keff::run_keff`] (bare sphere) and
@@ -15,7 +15,7 @@
 //! every flight; delta tracking never looks for a surface at all. It samples the
 //! flight on a **majorant** `Σ_maj(E) ≥ Σ_t(E)` bounding every material, lands at a
 //! point, and asks only "**what material is here?**" — a point-membership test the
-//! packed-sphere grid answers in O(1) ([`super::stochastic_media::PackedSpheres::is_inside_kernel`]).
+//! packed-sphere grid answers in O(1) ([`super::sphere_packing::PackedSpheres::is_inside_kernel`]).
 //! The landing is a real collision with probability `Σ_t(local)/Σ_maj` and a
 //! virtual (do-nothing) collision otherwise. See [`super::delta_tracking`] for the
 //! primitives and their unit tests (unbiased mean free path, correct real/virtual

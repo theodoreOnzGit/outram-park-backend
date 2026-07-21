@@ -16,9 +16,9 @@
 //!   probability Σ_t(local)/Σ_maj (else it is a virtual collision and the flight
 //!   continues). The neutron never needs to know how many TRISO surfaces it flew
 //!   past — the dominant win for doubly-heterogeneous media.
-//! - **[`stochastic_media`]** — generating and sampling the random packed geometry
+//! - **[`sphere_packing`]** — generating and sampling the random packed geometry
 //!   itself. Random Sequential Addition (RSA) is implemented
-//!   ([`stochastic_media::pack_spheres`]); the RSA–DEM/ODR–DEM high-density hybrids
+//!   ([`sphere_packing::pack_spheres`]); the RSA–DEM/ODR–DEM high-density hybrids
 //!   are future work. See the [`references`] bibliography.
 //! - **[`keff_delta`]** — the assembly: a fission-source k-eigenvalue power
 //!   iteration over a reflective cube of packed kernels, with every history
@@ -32,7 +32,7 @@
 //! binary random medium — dispersion fuel, burnable-poison particles — not just pebble
 //! beds, so filing them under this reactor-specific module would misplace them. The
 //! link back is [`crate::stochastic::medium::RsaMedium`], which wraps the
-//! [`stochastic_media`] packing generated here as its exact reference model.
+//! [`sphere_packing`] packing generated here as its exact reference model.
 //!
 //! # Why a dedicated module
 //!
@@ -51,4 +51,4 @@
 pub mod delta_tracking;
 pub mod keff_delta;
 pub mod references;
-pub mod stochastic_media;
+pub mod sphere_packing;

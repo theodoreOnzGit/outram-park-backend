@@ -46,7 +46,7 @@ use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::pebble_beds::keff_delta::run_keff_delta;
-use outram_mc_libs::pebble_beds::stochastic_media::PackedSpheres;
+use outram_mc_libs::pebble_beds::sphere_packing::PackedSpheres;
 use outram_mc_libs::physics::keff::KeffSettings;
 
 fn main() {
