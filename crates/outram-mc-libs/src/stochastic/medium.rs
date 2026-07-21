@@ -164,6 +164,18 @@ impl StochasticMedium {
         }
     }
 
+    /// Discard any in-progress flight state, so the next [`Self::material_at`] starts a
+    /// fresh history. A no-op for [`Self::Rsa`] (which is stateless); resets the flight
+    /// reconstruction for [`Self::Cls`] and [`Self::Scls`]. Call it between histories in
+    /// a transport driver.
+    pub fn begin_flight(&mut self) {
+        match self {
+            Self::Rsa(_) => {}
+            Self::Cls(m) => m.begin_flight(),
+            Self::Scls(m) => m.begin_flight(),
+        }
+    }
+
     /// Short model name, for error messages and benchmark tables.
     pub fn name(&self) -> &'static str {
         match self {

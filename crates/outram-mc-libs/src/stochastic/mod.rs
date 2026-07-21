@@ -54,6 +54,7 @@
 //! not apply here (see the crate `CLAUDE.md`: new parts are scaffolded only where
 //! genuinely absent upstream).
 
+pub mod benchmark;
 pub mod cls;
 pub mod medium;
 pub mod scls;
