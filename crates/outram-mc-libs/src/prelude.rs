@@ -37,7 +37,9 @@ pub use crate::stochastic::medium::{MaterialId, MediumError, RsaMedium, Stochast
 pub use crate::stochastic::cls::{
     mean_chord_length_sphere, matrix_mean_chord_length, sample_chord, ClsMedium,
 };
-pub use crate::stochastic::scls::{FlightSegment, InclusionSphere, ParticleHistory, SclsMedium};
+pub use crate::stochastic::scls::{
+    AdaptiveRadius, FlightSegment, InclusionSphere, ParticleHistory, SclsMedium,
+};
 pub use crate::stochastic::spatial_index::{BruteForceIndex, IndexError, KdTreeIndex, SpatialIndex};
 pub use crate::stochastic::benchmark::{AbsorptionBenchmark, BenchmarkResult};
 // Optional GPU compute (headless wgpu). `GpuContext` + `gpu_probe` are available

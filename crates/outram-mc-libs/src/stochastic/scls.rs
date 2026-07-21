@@ -364,6 +364,29 @@ impl SclsMedium {
         before - self.histories.len()
     }
 
+    /// Set the retention-window radius \[cm\] directly, then cull anything the resized
+    /// window no longer covers. Used by the adaptive-radius extension ([`AdaptiveRadius`],
+    /// bead `op-eby.6`) to replace the fixed `λ_TMFP + R_largest` rule with a
+    /// locally-estimated radius. Clamped at 0.
+    pub fn set_sphere_radius(&mut self, radius: f64) {
+        self.sphere.radius = radius.max(0.0);
+        let sphere = self.sphere;
+        self.histories.retain(|h| sphere.overlaps(h.center, h.radius));
+        self.flights
+            .retain(|f| sphere.contains(f.start) || sphere.contains(f.end));
+    }
+
+    /// One adaptive step: feed the just-completed collision-to-collision `track_length`
+    /// \[cm\] to `controller`, resize the retention window to the radius it returns, and
+    /// cull. This is design-doc §17's variable-radius SCLS — the window grows where the
+    /// neutron streams (long tracks → more geometry worth remembering) and shrinks where
+    /// it collides often (short tracks → local memory suffices), instead of holding the
+    /// static `λ_TMFP` a fixed-radius run assumes.
+    pub fn adapt_radius(&mut self, controller: &mut AdaptiveRadius, track_length: f64) {
+        let r = controller.update(track_length);
+        self.set_sphere_radius(r);
+    }
+
     /// Material at `p` \[cm\] **if remembered geometry already answers the question**.
     ///
     /// Returns `Some(inclusion_material)` when `p` falls inside a retained inclusion.
@@ -515,6 +538,80 @@ impl SclsMedium {
         // Per design-doc §15: re-centre the window on the neutron and cull.
         self.advance_to(position);
         Ok(result)
+    }
+}
+
+/// Adaptive inclusion-sphere radius controller (design doc §17, bead `op-eby.6`).
+///
+/// The fixed-radius SCLS ([`InclusionSphere::new`]) sizes the window from a *static*
+/// transport mean free path `λ_TMFP` supplied up front. In a heterogeneous problem the
+/// true local mean free path varies — long in optically-thin matrix, short in a dense
+/// inclusion cluster — so a single `λ_TMFP` is either too small (forgetting geometry the
+/// neutron will revisit) or too large (paying to remember geometry it never will).
+///
+/// This controller estimates the local mean free path online as an exponential moving
+/// average of the observed collision-to-collision track lengths, and sets
+///
+/// ```text
+/// R = clamp(<track> + R_largest, R_min, R_max)
+/// ```
+///
+/// mirroring the fixed rule with `<track>` in place of the static `λ_TMFP`. The EMA
+/// weight `alpha` in (0, 1] trades responsiveness (large) against stability (small).
+///
+/// This is a **research extension** whose accuracy/efficiency payoff is an empirical
+/// question for the benchmark (`op-eby.7`); no claim is made here that it beats the
+/// fixed-radius model.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AdaptiveRadius {
+    mean_track: f64,
+    alpha: f64,
+    largest_radius: f64,
+    min_radius: f64,
+    max_radius: f64,
+}
+
+impl AdaptiveRadius {
+    /// Build a controller.
+    ///
+    /// - `initial_mfp` — starting mean-free-path estimate \[cm\] (e.g. the fixed-radius
+    ///   run's `λ_TMFP`), used until enough tracks have been observed.
+    /// - `alpha` — EMA weight in (0, 1]; clamped into that range.
+    /// - `largest_radius` — `R_largest` \[cm\], added to the mean-free-path estimate.
+    /// - `min_radius` / `max_radius` — clamp bounds \[cm\] on the resulting radius.
+    pub fn new(
+        initial_mfp: f64,
+        alpha: f64,
+        largest_radius: f64,
+        min_radius: f64,
+        max_radius: f64,
+    ) -> Self {
+        Self {
+            mean_track: initial_mfp.max(0.0),
+            alpha: alpha.clamp(f64::MIN_POSITIVE, 1.0),
+            largest_radius: largest_radius.max(0.0),
+            min_radius: min_radius.max(0.0),
+            max_radius: max_radius.max(min_radius.max(0.0)),
+        }
+    }
+
+    /// The current radius estimate \[cm\] without folding in a new track.
+    pub fn radius(&self) -> f64 {
+        (self.mean_track + self.largest_radius).clamp(self.min_radius, self.max_radius)
+    }
+
+    /// The current EMA mean track length \[cm\].
+    pub fn mean_track(&self) -> f64 {
+        self.mean_track
+    }
+
+    /// Fold a new collision-to-collision `track_length` \[cm\] into the EMA and return the
+    /// updated, clamped radius \[cm\]. Non-finite or negative tracks are ignored.
+    pub fn update(&mut self, track_length: f64) -> f64 {
+        if track_length.is_finite() && track_length >= 0.0 {
+            self.mean_track = self.alpha * track_length + (1.0 - self.alpha) * self.mean_track;
+        }
+        self.radius()
     }
 }
 
@@ -715,6 +812,54 @@ mod tests {
         let n = m.histories().len();
         assert!(n < 500, "history count {n} should saturate, not grow with crossings");
         assert!(!m.histories().is_empty(), "some inclusions must have been remembered");
+    }
+
+    /// The adaptive controller's EMA converges to a constant track length, and the
+    /// radius it reports is that plus R_largest, clamped to the bounds.
+    #[test]
+    fn adaptive_radius_ema_converges_and_clamps() {
+        let mut c = AdaptiveRadius::new(0.1, 0.2, 0.03, 0.05, 5.0);
+        for _ in 0..500 {
+            c.update(1.0);
+        }
+        assert!((c.mean_track() - 1.0).abs() < 1e-6, "EMA -> 1.0, got {}", c.mean_track());
+        assert!((c.radius() - 1.03).abs() < 1e-6, "R = track + R_largest");
+
+        for _ in 0..1000 {
+            c.update(0.001);
+        }
+        assert!((c.radius() - 0.05).abs() < 1e-9, "clamped at min_radius");
+
+        for _ in 0..1000 {
+            c.update(100.0);
+        }
+        assert!((c.radius() - 5.0).abs() < 1e-9, "clamped at max_radius");
+
+        // Non-finite / negative tracks are ignored (no NaN poisoning).
+        let before = c.mean_track();
+        c.update(f64::NAN);
+        c.update(-3.0);
+        assert_eq!(c.mean_track(), before);
+    }
+
+    /// Driving `adapt_radius` with short tracks shrinks the window and culls histories
+    /// the smaller window no longer covers.
+    #[test]
+    fn adapt_radius_resizes_window_and_culls() {
+        let mut m = medium(); // sphere radius 1.0 + 0.03 = 1.03 at origin
+        m.remember_inclusion(ParticleHistory::new(
+            Position::new(0.8, 0.0, 0.0),
+            0.03,
+            MaterialId(1),
+        ));
+        assert_eq!(m.histories().len(), 1);
+
+        let mut c = AdaptiveRadius::new(1.0, 0.5, 0.03, 0.1, 2.0);
+        for _ in 0..50 {
+            m.adapt_radius(&mut c, 0.001);
+        }
+        assert!(m.sphere().radius < 0.2, "window shrank, got {}", m.sphere().radius);
+        assert!(m.histories().is_empty(), "distant inclusion culled by the smaller window");
     }
 
     /// The reconstruction is deterministic in the LCG stream.
