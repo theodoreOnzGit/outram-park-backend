@@ -59,6 +59,16 @@ dolt-pprof/
 
 # Backup data (auto-exported JSONL, local-only)
 backup/
+*.jsonl.bak
+
+# Compat export (beads-rs, migrated 2026-07-20). Canonical issue data lives in
+# the git ref refs/heads/beads/store (state/deps/tombstones jsonl + meta.json).
+# issues.jsonl is only a per-machine symlink into ~/.local/share/beads-rs/exports/,
+# so tracking it produced a permanent typechange in `git status`.
+issues.jsonl
+
+# Auto-import staleness stamp (size + mtime of the local export; per-machine)
+.auto-import-issues.jsonl
 
 # Per-project environment file (Dolt connection config, GH#2520)
 .env
