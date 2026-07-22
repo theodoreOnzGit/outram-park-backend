@@ -72,6 +72,7 @@ use crate::grid::{BoundaryLocation, CartesianGrid};
 use crate::transport::FlowField;
 use outram_foam_basic_lib::krylov::{bicgstab, KrylovSettings, Preconditioner};
 use outram_foam_basic_lib::ldu_matrix::LduMatrix;
+use rayon::prelude::*;
 
 /// A reactive (multi-component) boundary condition bound to one of the six
 /// domain-box face locations.
@@ -487,20 +488,27 @@ impl ReactiveTransport {
 
         // Reaction sub-step: re-speciate each cell to equilibrium. Totals are
         // unchanged by speciation; only the free-primary warm-start is updated.
-        let mut new_primary = self.last_primary.clone();
-        for i in 0..n_cells {
-            let cell_totals = &new_totals[i];
-            let positive = cell_totals.iter().all(|t| t.is_finite() && *t > 0.0);
-            if !positive {
-                continue;
-            }
-            let guess = &self.last_primary[i];
-            let use_guess = guess.iter().all(|g| g.is_finite() && *g > 0.0);
-            let init = if use_guess { Some(guess.as_slice()) } else { None };
-            if let Ok(sp) = self.network.speciate(cell_totals, init) {
-                new_primary[i] = sp.primary;
-            }
-        }
+        // Each cell's speciation is an independent Newton solve — done in
+        // parallel (op-v6s.14); `ReactionNetwork::speciate` is `&self`.
+        let net = &self.network;
+        let last_primary = &self.last_primary;
+        let new_primary: Vec<Vec<f64>> = (0..n_cells)
+            .into_par_iter()
+            .map(|i| {
+                let cell_totals = &new_totals[i];
+                let positive = cell_totals.iter().all(|t| t.is_finite() && *t > 0.0);
+                if !positive {
+                    return last_primary[i].clone();
+                }
+                let guess = &last_primary[i];
+                let use_guess = guess.iter().all(|g| g.is_finite() && *g > 0.0);
+                let init = if use_guess { Some(guess.as_slice()) } else { None };
+                match net.speciate(cell_totals, init) {
+                    Ok(sp) => sp.primary,
+                    Err(_) => last_primary[i].clone(),
+                }
+            })
+            .collect();
 
         self.totals = new_totals;
         self.last_primary = new_primary;

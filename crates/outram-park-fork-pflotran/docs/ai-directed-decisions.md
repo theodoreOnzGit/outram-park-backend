@@ -43,19 +43,25 @@ and an **open question / review ask** for the human. Reviewers: search for
   (making it a solver dependency of pflotran) rather than living inside the
   pflotran crate. Confirm the `krylov` public API shape.
 
-## D2 — wgpu GPU kernels deferred (CPU pure-Rust is the trusted baseline)
+## D2 — Parallelism: rayon CPU + Android-gated wgpu addon (op-v6s.14)
 
-- **Decision.** No wgpu dependency is added in this pass. The CPU pure-Rust
-  Krylov/SpMV path is implemented as the trusted, deterministic baseline; a
-  documented seam is left so a future Android-gated wgpu SpMV/precond kernel can
-  slot in without an API change.
-- **Why.** The maintainer said "use wgpu kernels with android compatibility …
-  only if needed". A scaffold with no working solve yet has no profiled hot
-  kernel to accelerate; adding a GPU backend before the CPU path is verified
-  would invert the "CPU is the trusted path, GPU is acceleration only" rule the
-  workspace already applies in `outram-blender`.
-- **REVIEW:** approve deferring wgpu to a dedicated follow-up (a bead should be
-  filed) once the CPU RICHARDS solve is verified and profiled.
+- **CPU (rayon), trusted default.** The hot per-cell loops are parallelised with
+  rayon (pure Rust, Android-clean): RICHARDS residual + numerical Jacobian, the
+  two-phase multiphase block residual/Jacobian, and the reactive-transport
+  per-cell speciation. All writes land in disjoint indices (parallel map →
+  serial scatter), so results are **bit-identical to serial** — proven by every
+  existing test still passing.
+- **GPU (wgpu), acceleration only.** A demonstrator `gpu` module (batched van
+  Genuchten `Se(pc)` compute kernel) is **target-gated OFF Android** (verified:
+  no wgpu in the `aarch64-linux-android` dep graph) with a mandatory CPU
+  fallback (`probe()` → `None` on no-GPU hosts). GPU runs `f32`; the `f64` CPU
+  path is authoritative.
+- **REVIEW (important):** the **GPU dispatch path was NOT executed** in the dev
+  environment (no `/dev/dri`); only the CPU fallback ran. The wgpu kernel must be
+  validated on a GPU-equipped host, and it is not yet wired into the solver's
+  hot property-evaluation loop (it is a standalone accelerator for now).
+  Precision (`f32` GPU vs `f64` CPU) and whether to offload a bigger kernel
+  (SpMV, residual batch) are open.
 
 ## D3 — v1 scope (unchanged from bead op-v6s.2, restated for the build)
 
