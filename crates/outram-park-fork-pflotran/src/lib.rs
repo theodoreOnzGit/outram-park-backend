@@ -66,8 +66,10 @@
 //! - **Pure Rust, Android-safe.** No PETSc, no MPI, no system BLAS, no C/Fortran
 //!   toolchain in the library build.
 
+pub mod energy;
 pub mod error;
 pub mod flow;
+pub mod geochemistry;
 pub mod grid;
 pub mod io;
 pub mod properties;
