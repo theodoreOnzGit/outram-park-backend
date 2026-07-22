@@ -41,30 +41,35 @@ pure-Rust solver (no PETSc FFI, no MPI in v1), and an Android-buildable library.
 
 ## What exists today
 
-The v1 RICHARDS vertical slice is implemented and tested (verification-only):
+Many PFLOTRAN modes are implemented and tested — **verification-only, no
+validation, no human V&V**:
 
 | Piece | Module | Status |
 |---|---|---|
 | Physical-quantity type aliases | `units` | **real** — named `uom` aliases (`FluidPressure`, `Saturation`, `Permeability`, ...) |
-| Crate error type | `error` | **real** — `PflotranError` enum; unfinished paths return `NotImplemented`, never a fake result |
+| Crate error type | `error` | **real** — `PflotranError` enum; unfinished paths return `NotImplemented` |
 | Structured Cartesian FV grid | `grid` | **real** — cells, two-point-flux transmissibility, LDU addressing |
-| Fluid EOS + characteristic curves | `properties` | **real** — slightly-compressible water EOS; van Genuchten–Mualem & Brooks–Corey–Burdine curves with analytic (FD-checked) derivatives |
+| Fluid EOS + characteristic curves | `properties` | **real** — slightly-compressible water EOS; van Genuchten–Mualem, Brooks–Corey–Burdine, **Haverkamp (Celia)** curves; thermal `rho(p,T)`/`mu(T)`; all FD-checked |
 | Input deck + output | `io` | **real (AI-designed subset)** — card-deck parser + CSV/legacy-VTK writers. **Not** real PFLOTRAN deck syntax |
-| Newton–Krylov solver | `solver` | **real** — generic Newton driver (static dispatch), Armijo line search, over foam-basic-lib `krylov` (BiCGStab/GMRES + ILU(0)/Jacobi) |
-| RICHARDS flow mode | `flow` | **real (verification-only)** — `FlowMode` + `RichardsSimulation`: residual/Jacobian assembly, adaptive timestepping, deck-driven runs; exports a Darcy flow field for transport |
-| Conservative solute transport | `transport` | **real (verification-only)** — advection (first-order upwind) + dispersion, implicit Euler, linear direct BiCGStab solve; couples to a RICHARDS flow field |
-| TH heat transport | `energy` | **real (verification-only)** — advection–conduction of temperature, implicit Euler; one-way coupled to a RICHARDS flow field (buoyancy feedback deferred) |
-| Thermal properties | `properties::thermal` | **real** — water `rho(p,T)`/`mu(T)`/`c_w`/`k_w`, rock thermal properties |
-| Aqueous geochemistry | `geochemistry` | **real (verification-only)** — equilibrium speciation (mass-action + mass-balance Newton); ideal activities; minerals/kinetics deferred |
+| Newton–Krylov solver | `solver` | **real** — scalar + **block multi-DOF** ([`solver::block`]) Newton driver, Armijo line search, over foam-basic-lib `krylov` |
+| RICHARDS flow mode | `flow` | **real (verif-only)** — residual/Jacobian, adaptive timestepping, deck-driven; exports a Darcy flow field |
+| Conservative solute transport | `transport` | **real (verif-only)** — advection (upwind + **TVD** via foam `FluxLimiter`) + dispersion; couples to a RICHARDS flow field |
+| TH heat transport | `energy` | **real (verif-only)** — advection–conduction of temperature; one-way coupled to flow (buoyancy deferred) |
+| Aqueous geochemistry | `geochemistry` | **real (verif-only)** — equilibrium speciation (mass-action + mass-balance Newton); ideal activities |
+| Mineral kinetics | `kinetics` | **real (verif-only)** — TST precipitation/dissolution on foam's Rosenbrock/RKF45 ODE solver |
+| Reactive transport | `reactive_transport` | **real (verif-only)** — SNIA transport↔geochemistry coupling |
+| GENERAL multiphase | `multiphase` | **real (verif-only)** — two-phase air–water on the block solver (2 unknowns/cell) |
 
-**Test suite:** 84 unit + 5 integration + 1 regression + 3 verification
-(MMS 2nd-order convergence, hydrostatic gravity, closed-form advection–diffusion),
-all green in release mode; both crates cross-compile to `aarch64-linux-android`.
+**Test suite:** 105 unit + 5 integration + 1 regression + 3 verification (114
+total; MMS 2nd-order, hydrostatic gravity, closed-form advection–diffusion, TVD
+error reduction), all green in release mode; both crates cross-compile to
+`aarch64-linux-android`. The `outram-foam-basic-lib` `krylov`, `limiters` (OpenFOAM
+TVD, translated from upstream), and `solver::block` machinery back all of this.
 
-**Not yet implemented:** GENERAL multiphase (needs the multi-DOF block solver,
-op-v6s.4.1 — see `docs/general-multiphase-design.md`); reactive-transport coupling
-(transport↔geochemistry); mineral/kinetic geochemistry; two-way (buoyancy) TH
-coupling; higher-order (TVD) advection; parallelism (op-v6s.14). All validation
+**Not yet implemented / deferred:** air–water–**energy** 3-phase GENERAL (only
+two-phase isothermal so far); two-way (buoyancy) TH coupling; energy-transport
+TVD; mineral surface-area evolution / Debye–Hückel activities; **parallelism
+(op-v6s.14)**. All validation
 work is deferred (open beads op-v6s.9.x/.10.1/.11.1/.12.1/.13.1).
 
 ## Verification results (methodology + measured numbers)
