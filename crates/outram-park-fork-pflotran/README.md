@@ -53,14 +53,19 @@ The v1 RICHARDS vertical slice is implemented and tested (verification-only):
 | Newton–Krylov solver | `solver` | **real** — generic Newton driver (static dispatch), Armijo line search, over foam-basic-lib `krylov` (BiCGStab/GMRES + ILU(0)/Jacobi) |
 | RICHARDS flow mode | `flow` | **real (verification-only)** — `FlowMode` + `RichardsSimulation`: residual/Jacobian assembly, adaptive timestepping, deck-driven runs; exports a Darcy flow field for transport |
 | Conservative solute transport | `transport` | **real (verification-only)** — advection (first-order upwind) + dispersion, implicit Euler, linear direct BiCGStab solve; couples to a RICHARDS flow field |
+| TH heat transport | `energy` | **real (verification-only)** — advection–conduction of temperature, implicit Euler; one-way coupled to a RICHARDS flow field (buoyancy feedback deferred) |
+| Thermal properties | `properties::thermal` | **real** — water `rho(p,T)`/`mu(T)`/`c_w`/`k_w`, rock thermal properties |
+| Aqueous geochemistry | `geochemistry` | **real (verification-only)** — equilibrium speciation (mass-action + mass-balance Newton); ideal activities; minerals/kinetics deferred |
 
-**Test suite:** 63 unit + 4 integration + 1 regression + 3 verification
+**Test suite:** 84 unit + 5 integration + 1 regression + 3 verification
 (MMS 2nd-order convergence, hydrostatic gravity, closed-form advection–diffusion),
 all green in release mode; both crates cross-compile to `aarch64-linux-android`.
 
-Later flow modes (TH water+energy, GENERAL multiphase, reactive geochemistry) are
-**not** implemented — their entry points are documented as `NotImplemented`.
-Higher-order (TVD) advection for transport is deferred.
+**Not yet implemented:** GENERAL multiphase (needs the multi-DOF block solver,
+op-v6s.4.1 — see `docs/general-multiphase-design.md`); reactive-transport coupling
+(transport↔geochemistry); mineral/kinetic geochemistry; two-way (buoyancy) TH
+coupling; higher-order (TVD) advection; parallelism (op-v6s.14). All validation
+work is deferred (open beads op-v6s.9.x/.10.1/.11.1/.12.1/.13.1).
 
 ## Verification results (methodology + measured numbers)
 

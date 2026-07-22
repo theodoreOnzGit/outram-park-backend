@@ -208,6 +208,36 @@ and an **open question / review ask** for the human. Reviewers: search for
   face fluxes + water content; an integration test runs RICHARDS then transports
   a tracer through the exported field (bounded, advecting, mass gained).
 
+### D12 — TH energy transport (op-v6s.10)
+
+- **One-way (weak) coupling** for v1: flow (RICHARDS) is solved first and its
+  Darcy flow field is *frozen* while the energy equation is transported. The
+  temperature does **not** feed back into flow (no buoyancy, no `mu(T)` effect on
+  the flow). **REVIEW:** two-way coupling (density/viscosity feedback → buoyant
+  flow) is the natural follow-up; the `properties::thermal` `rho(p,T)`/`mu(T)`
+  needed for it already exist.
+- Energy equation mirrors the `transport` module: volumetric heat capacity
+  `C_v = theta_w rho_w c_w + (1-phi) rho_r c_r`, upwind advected enthalpy,
+  two-point conduction with **`kappa_eff = phi kappa_w + (1-phi) kappa_r`**
+  (saturated arithmetic mean — partial-saturation/series-parallel mixing
+  deferred). Linear → one BiCGStab solve.
+- Thermal properties are AI-fitted correlations, **not IAPWS-IF97** (real
+  steam/water is `tampines-steam-tables`): density `rho0 exp(c dp - beta dT)`,
+  viscosity Andrade `mu0 exp(B(1/T-1/T_ref))` with `B=1800 K`. Verification-only;
+  constants are order-of-magnitude, not from a cited benchmark.
+
+### D13 — Aqueous geochemistry (op-v6s.12)
+
+- Equilibrium speciation only: law of mass action + component mass balance,
+  log-concentration Newton with an analytic dense Jacobian (foam-basic-lib
+  `SquareMatrix` LU). Verified against a closed-form weak-acid dissociation.
+- **Ideal activities (gamma = 1)** — Debye-Hückel/Davies deferred. **No mineral
+  phases, no kinetics, no charge-balance constraint, no H2O activity.** These are
+  documented and are the obvious follow-ups for a real GIRT capability.
+- **Not yet coupled to transport** — the reaction network is a standalone solver;
+  the operator-split reactive-transport loop (transport step → per-cell
+  speciation) is a follow-up.
+
 ## Deferred to next week (2026-07-22 maintainer directive)
 
 All **Celia-1990 and validation-case work is paused** this week; the focus is

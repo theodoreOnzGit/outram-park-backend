@@ -9,6 +9,9 @@
 use outram_park_fork_pflotran::flow::FlowMode;
 use outram_park_fork_pflotran::grid::{BoundaryLocation, CartesianGrid};
 use outram_park_fork_pflotran::io::{parse_deck, write_results_csv, write_vtk_structured};
+use outram_park_fork_pflotran::energy::{
+    EnergyBoundaryCondition, EnergyBoundaryKind, EnergyTransport, ThermalParameters,
+};
 use outram_park_fork_pflotran::transport::{
     DispersionModel, SoluteTransport, TransportBoundaryCondition, TransportBoundaryKind,
 };
@@ -156,6 +159,56 @@ fn richards_transport_coupling_advects_a_tracer() {
     assert!(c[0] > c[n - 1], "no transport gradient established");
     // Solute mass must have increased (tracer entered from the inflow).
     assert!(tr.total_mass(&c) > m_initial, "no solute mass gained");
+}
+
+#[test]
+fn th_coupling_advects_a_thermal_front() {
+    // TH (one-way): solve the flow-through column, export its Darcy flow field,
+    // then transport heat injected as a hot Dirichlet temperature at the XMIN
+    // inflow. The thermal front must advance into the domain, stay bounded
+    // between the initial and inflow temperatures, and raise total energy.
+    let deck = parse_deck(INFILTRATION_DECK).unwrap();
+    let mut sim = RichardsSimulation::from_input_deck(&deck).unwrap();
+    sim.run().unwrap();
+    let flow = sim.flow_field();
+
+    let g = &deck.grid;
+    let grid = CartesianGrid::uniform(
+        g.nx,
+        g.ny,
+        g.nz,
+        Length::new::<meter>(g.dx),
+        Length::new::<meter>(g.dy),
+        Length::new::<meter>(g.dz),
+    )
+    .unwrap();
+    let thermal = ThermalParameters::water_rock_defaults();
+    let t_hot = 350.0;
+    let t_init = 290.0;
+    let boundary = vec![EnergyBoundaryCondition {
+        location: BoundaryLocation::XMin,
+        kind: EnergyBoundaryKind::DirichletTemperature(t_hot),
+    }];
+    let mut heat = EnergyTransport::new(grid, flow, thermal, boundary).unwrap();
+
+    let n = heat.n_cells();
+    let mut t = vec![t_init; n];
+    let e0 = heat.total_energy(&t);
+    heat.set_timestep(1800.0);
+    for _ in 0..48 {
+        heat.set_previous(&t);
+        heat.step(&mut t).expect("energy step converges");
+    }
+
+    for (i, &v) in t.iter().enumerate() {
+        assert!(
+            (t_init - 1.0..=t_hot + 1.0).contains(&v),
+            "temperature out of physical range at cell {i}: {v}"
+        );
+    }
+    assert!(t[0] > t_init + 1.0, "inflow did not heat up: {}", t[0]);
+    assert!(t[0] > t[n - 1], "no thermal gradient established");
+    assert!(heat.total_energy(&t) > e0, "total energy did not increase");
 }
 
 #[test]

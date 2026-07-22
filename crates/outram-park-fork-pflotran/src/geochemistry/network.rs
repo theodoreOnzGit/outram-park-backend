@@ -327,10 +327,7 @@ impl ReactionNetwork {
             }
         }
 
-        let mut iterations = 0;
         for iter in 1..=MAX_ITERS {
-            iterations = iter;
-
             let c_prim: Vec<f64> = x.iter().map(|xj| xj.exp()).collect();
             let c_sec = self.secondary_from_log_primary(&x);
 
@@ -350,7 +347,7 @@ impl ReactionNetwork {
                 return Ok(Speciation {
                     primary: c_prim,
                     secondary: c_sec,
-                    iterations,
+                    iterations: iter,
                 });
             }
 
@@ -454,9 +451,9 @@ mod tests {
     /// a relative `1e-8`, and mass balance / mass action hold to `1e-12`.
     #[test]
     fn weak_acid_dissociation_analytical() {
-        let ka = 1.8e-5;
+        let ka: f64 = 1.8e-5;
         let pka = -ka.log10();
-        let c_total = 0.1;
+        let c_total: f64 = 0.1;
 
         let net = ReactionNetwork::new(
             vec!["H+".into(), "Ac-".into()],

@@ -54,6 +54,9 @@
 //! | [`solver`] | PETSc SNES/KSP replacement | **scaffold** — Newton–Krylov over foam-basic-lib `krylov` (bead op-v6s.4, KEYSTONE) |
 //! | [`properties`] | EOS + characteristic curves | **scaffold** — EOS + retention/rel-perm curves (bead op-v6s.7) |
 //! | [`io`] | input-deck cards + output | **scaffold** — card-deck subset + CSV/VTK (bead op-v6s.6) |
+//! | [`transport`] | conservative solute transport | **working (verification-only)** — advection–diffusion, coupled to a RICHARDS flow field (bead op-v6s.11) |
+//! | [`energy`] | TH heat transport | **working (verification-only)** — advection–conduction of temperature, one-way coupled to flow (bead op-v6s.10) |
+//! | [`geochemistry`] | aqueous speciation | **working (verification-only)** — equilibrium speciation (GIRT core; bead op-v6s.12) |
 //!
 //! ## Design rules (workspace mandate)
 //!
