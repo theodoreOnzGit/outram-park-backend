@@ -62,9 +62,10 @@
 //! quantities of differing dimension; callers apply units at the case-setup layer.
 
 use crate::error::PflotranError;
-use crate::grid::{BoundaryLocation, CartesianGrid};
+use crate::grid::{Axis, BoundaryLocation, CartesianGrid};
 use outram_foam_basic_lib::krylov::{bicgstab, KrylovResult, KrylovSettings, Preconditioner};
 use outram_foam_basic_lib::ldu_matrix::LduMatrix;
+use outram_foam_basic_lib::limiters::FluxLimiter;
 
 /// A frozen flow field feeding the solute-transport step, as produced by a flow
 /// (RICHARDS) solve.
@@ -181,6 +182,12 @@ pub struct SoluteTransport {
     dt: f64,
     /// Previous-time concentration per cell, kg/m^3. Length `n_cells`.
     c_old: Vec<f64>,
+    /// Advection scheme. [`FluxLimiter::Upwind`] (the default) is pure first-order
+    /// upwind; any other TVD limiter adds an explicit **deferred-correction**
+    /// anti-diffusive flux (lagged one step), reducing numerical diffusion while
+    /// staying monotone. The gradient ratio `r` is formed along the structured
+    /// grid axis of each face; see [`SoluteTransport::step`].
+    flux_limiter: FluxLimiter,
 }
 
 impl SoluteTransport {
@@ -270,7 +277,17 @@ impl SoluteTransport {
             bc_by_location,
             dt: 1.0,
             c_old: vec![0.0; n_cells],
+            flux_limiter: FluxLimiter::Upwind,
         })
+    }
+
+    /// Select the advection scheme. [`FluxLimiter::Upwind`] (default) is
+    /// first-order; a TVD limiter (e.g. [`FluxLimiter::VanLeer`],
+    /// [`FluxLimiter::SuperBee`]) enables the deferred-correction higher-order
+    /// scheme. The limiter is the OpenFOAM-derived `FluxLimiter` from
+    /// `outram-foam-basic-lib`.
+    pub fn set_flux_limiter(&mut self, limiter: FluxLimiter) {
+        self.flux_limiter = limiter;
     }
 
     /// Set the time step `dt` (seconds). Validated (must be positive and finite)
@@ -411,6 +428,54 @@ impl SoluteTransport {
             }
         }
 
+        // Deferred-correction TVD advection (explicit, lagged on c_old): add the
+        // limited anti-diffusive flux (high-order minus first-order upwind) to the
+        // RHS. The gradient ratio r is formed from the upstream and
+        // upstream-upstream cells along the face's structured axis; a face with no
+        // far-upstream cell (domain edge) falls back to first-order. The limiter
+        // psi(r) is the OpenFOAM-derived `FluxLimiter` from outram-foam-basic-lib.
+        if self.flux_limiter != FluxLimiter::Upwind {
+            let (nx, ny, nz) = self.grid.dims();
+            for (f, conn) in connections.iter().enumerate() {
+                let q = self.flow.face_flux[f];
+                if q == 0.0 {
+                    continue;
+                }
+                let o = conn.owner;
+                let n = conn.neighbour;
+                // Owner has the lower index along the face axis (neighbour = owner
+                // + axis stride), so q > 0 flows in the +axis direction.
+                let (u, d, up_is_owner) = if q > 0.0 { (o, n, true) } else { (n, o, false) };
+                let denom = self.c_old[d] - self.c_old[u];
+                if denom.abs() < 1.0e-30 {
+                    continue;
+                }
+                let (iu, ju, ku) = self.grid.cell_ijk(u);
+                let uu = match conn.axis {
+                    Axis::X if up_is_owner => (iu > 0).then(|| self.grid.cell_index(iu - 1, ju, ku)),
+                    Axis::X => (iu + 1 < nx).then(|| self.grid.cell_index(iu + 1, ju, ku)),
+                    Axis::Y if up_is_owner => (ju > 0).then(|| self.grid.cell_index(iu, ju - 1, ku)),
+                    Axis::Y => (ju + 1 < ny).then(|| self.grid.cell_index(iu, ju + 1, ku)),
+                    Axis::Z if up_is_owner => (ku > 0).then(|| self.grid.cell_index(iu, ju, ku - 1)),
+                    Axis::Z => (ku + 1 < nz).then(|| self.grid.cell_index(iu, ju, ku + 1)),
+                };
+                let uu = match uu {
+                    Some(c) => c,
+                    None => continue, // no far-upstream cell -> first-order here
+                };
+                let r = (self.c_old[u] - self.c_old[uu]) / denom;
+                let psi = self.flux_limiter.psi(r);
+                if psi == 0.0 {
+                    continue;
+                }
+                // Anti-diffusive flux (high-order minus upwind) from U to D:
+                // |q| * 0.5 * psi(r) * (c_D - c_U). U loses it, D gains it.
+                let corr = q.abs() * 0.5 * psi * denom;
+                b[u] -= corr;
+                b[d] += corr;
+            }
+        }
+
         // Solve A c = b once (linear problem) with BiCGStab + ILU(0).
         let precond = Preconditioner::ilu0(&a);
         let settings = KrylovSettings {
@@ -499,6 +564,66 @@ mod tests {
             face_flux,
             boundary_flux,
             water_content: vec![1.0; grid.n_cells()],
+        }
+    }
+
+    /// TVD deferred-correction (calling foam-basic-lib `FluxLimiter`) must reduce
+    /// numerical diffusion versus first-order upwind on an advection-dominated
+    /// front, while staying monotone (no over/undershoot). Methodology: 50-cell
+    /// column, v = 1 m/s, D = 0.05 m^2/s (Pe = 20 — sharp front near the outlet),
+    /// InflowConcentration(1) at XMin, (0) at XMax; marched to steady state with
+    /// Upwind and with SuperBee, each compared to the exact exponential profile.
+    /// Result (2026-07-22): SuperBee's max error is strictly below Upwind's, and
+    /// SuperBee stays within [0, 1].
+    #[test]
+    fn tvd_reduces_numerical_diffusion_and_stays_bounded() {
+        let n = 50usize;
+        let dx: f64 = 0.02;
+        let (v, d, length): (f64, f64, f64) = (1.0, 0.05, 1.0);
+        let pe = v * length / d;
+        let exact = |x: f64| (pe.exp() - (pe * x / length).exp()) / (pe.exp() - 1.0);
+
+        let run = |limiter: FluxLimiter| -> Vec<f64> {
+            let grid = grid_1d(n, dx);
+            let flow = uniform_x_flow(&grid, v); // unit area => Darcy v = q
+            let boundary = vec![
+                TransportBoundaryCondition {
+                    location: BoundaryLocation::XMin,
+                    kind: TransportBoundaryKind::InflowConcentration(1.0),
+                },
+                TransportBoundaryCondition {
+                    location: BoundaryLocation::XMax,
+                    kind: TransportBoundaryKind::InflowConcentration(0.0),
+                },
+            ];
+            let mut t = SoluteTransport::new(grid, flow, DispersionModel::new(d, 0.0).unwrap(), boundary)
+                .unwrap();
+            t.set_flux_limiter(limiter);
+            t.set_timestep(1.0e6); // large dt -> steady per step
+            let mut c = vec![0.0; n];
+            for _ in 0..80 {
+                t.set_previous(&c);
+                t.step(&mut c).unwrap();
+            }
+            c
+        };
+
+        let up = run(FluxLimiter::Upwind);
+        let sb = run(FluxLimiter::SuperBee);
+
+        let err = |c: &[f64]| -> f64 {
+            (0..n)
+                .map(|i| (c[i] - exact((i as f64 + 0.5) * dx)).abs())
+                .fold(0.0, f64::max)
+        };
+        let (e_up, e_sb) = (err(&up), err(&sb));
+        println!("upwind max err = {e_up:.4}, superbee max err = {e_sb:.4}");
+        assert!(e_sb < e_up, "TVD (SuperBee) did not beat upwind: {e_sb} vs {e_up}");
+        for (i, &c) in sb.iter().enumerate() {
+            assert!(
+                (-1.0e-6..=1.0 + 1.0e-6).contains(&c),
+                "SuperBee overshoot at cell {i}: {c}"
+            );
         }
     }
 
