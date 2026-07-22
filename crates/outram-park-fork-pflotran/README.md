@@ -51,14 +51,16 @@ The v1 RICHARDS vertical slice is implemented and tested (verification-only):
 | Fluid EOS + characteristic curves | `properties` | **real** — slightly-compressible water EOS; van Genuchten–Mualem & Brooks–Corey–Burdine curves with analytic (FD-checked) derivatives |
 | Input deck + output | `io` | **real (AI-designed subset)** — card-deck parser + CSV/legacy-VTK writers. **Not** real PFLOTRAN deck syntax |
 | Newton–Krylov solver | `solver` | **real** — generic Newton driver (static dispatch), Armijo line search, over foam-basic-lib `krylov` (BiCGStab/GMRES + ILU(0)/Jacobi) |
-| RICHARDS flow mode | `flow` | **real (verification-only)** — `FlowMode` + `RichardsSimulation`: residual/Jacobian assembly, adaptive timestepping, deck-driven runs |
+| RICHARDS flow mode | `flow` | **real (verification-only)** — `FlowMode` + `RichardsSimulation`: residual/Jacobian assembly, adaptive timestepping, deck-driven runs; exports a Darcy flow field for transport |
+| Conservative solute transport | `transport` | **real (verification-only)** — advection (first-order upwind) + dispersion, implicit Euler, linear direct BiCGStab solve; couples to a RICHARDS flow field |
 
-**Test suite:** 50 unit tests + 3 integration + 1 regression + 2 verification
-(MMS 2nd-order convergence, closed-form steady state), all green in release mode;
-both crates cross-compile to `aarch64-linux-android`.
+**Test suite:** 63 unit + 4 integration + 1 regression + 3 verification
+(MMS 2nd-order convergence, hydrostatic gravity, closed-form advection–diffusion),
+all green in release mode; both crates cross-compile to `aarch64-linux-android`.
 
-Later flow modes (TH, GENERAL multiphase, solute transport, geochemistry) are
+Later flow modes (TH water+energy, GENERAL multiphase, reactive geochemistry) are
 **not** implemented — their entry points are documented as `NotImplemented`.
+Higher-order (TVD) advection for transport is deferred.
 
 ## Verification results (methodology + measured numbers)
 

@@ -7,8 +7,14 @@
 //! also serve as the crate's top-level worked examples.
 
 use outram_park_fork_pflotran::flow::FlowMode;
+use outram_park_fork_pflotran::grid::{BoundaryLocation, CartesianGrid};
 use outram_park_fork_pflotran::io::{parse_deck, write_results_csv, write_vtk_structured};
+use outram_park_fork_pflotran::transport::{
+    DispersionModel, SoluteTransport, TransportBoundaryCondition, TransportBoundaryKind,
+};
 use outram_park_fork_pflotran::RichardsSimulation;
+use uom::si::f64::Length;
+use uom::si::length::meter;
 
 /// A 1D horizontal flow-through column: 20 cells, initially unsaturated at
 /// 90 kPa, XMIN held saturated (atmospheric) and XMAX held at the drier 90 kPa.
@@ -100,6 +106,56 @@ fn flow_mode_run_matches_direct_simulation() {
     assert_eq!(mode.name(), "RICHARDS");
     let report = mode.run().expect("FlowMode run completes");
     assert!(report.steps > 0);
+}
+
+#[test]
+fn richards_transport_coupling_advects_a_tracer() {
+    // Solve the flow-through column, export its Darcy flow field, then transport
+    // a tracer injected at the wet XMIN inflow. The tracer must advect into the
+    // domain, stay bounded in [0,1], and decrease with distance from the inlet.
+    let deck = parse_deck(INFILTRATION_DECK).unwrap();
+    let mut sim = RichardsSimulation::from_input_deck(&deck).unwrap();
+    sim.run().unwrap();
+    let flow = sim.flow_field();
+
+    // Transport grid identical to the flow grid (same connectivity => the
+    // exported face/boundary flux indexing lines up).
+    let g = &deck.grid;
+    let grid = CartesianGrid::uniform(
+        g.nx,
+        g.ny,
+        g.nz,
+        Length::new::<meter>(g.dx),
+        Length::new::<meter>(g.dy),
+        Length::new::<meter>(g.dz),
+    )
+    .unwrap();
+    let dispersion = DispersionModel::new(1.0e-9, 5.0e-3).unwrap();
+    let boundary = vec![TransportBoundaryCondition {
+        location: BoundaryLocation::XMin,
+        kind: TransportBoundaryKind::InflowConcentration(1.0),
+    }];
+    let mut tr = SoluteTransport::new(grid, flow, dispersion, boundary).unwrap();
+
+    let n = tr.n_cells();
+    let mut c = vec![0.0; n]; // initially clean
+    let m_initial = tr.total_mass(&c);
+    tr.set_timestep(3600.0);
+    for _ in 0..24 {
+        tr.set_previous(&c);
+        tr.step(&mut c).expect("transport step converges");
+    }
+
+    for (i, &v) in c.iter().enumerate() {
+        assert!(
+            (-1.0e-9..=1.0 + 1.0e-9).contains(&v),
+            "concentration out of [0,1] at cell {i}: {v}"
+        );
+    }
+    assert!(c[0] > 0.5, "tracer did not enter at the inflow: c0={}", c[0]);
+    assert!(c[0] > c[n - 1], "no transport gradient established");
+    // Solute mass must have increased (tracer entered from the inflow).
+    assert!(tr.total_mass(&c) > m_initial, "no solute mass gained");
 }
 
 #[test]

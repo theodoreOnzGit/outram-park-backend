@@ -197,6 +197,16 @@ and an **open question / review ask** for the human. Reviewers: search for
 - Verification (not validation): steady 1D advection–diffusion has a closed-form
   Peclet profile `c(x) = (1 - e^{Pe x/L})/(1 - e^{Pe})`; pure diffusion is linear;
   closed domains conserve solute mass. Deferred: the Celia/validation cases.
+- **`InflowConcentration` is a true Dirichlet concentration** (dispersive
+  coupling to `c_bc` applied regardless of flux sign; advection still upwinded),
+  not an advection-only inflow. **REVIEW:** this strengthens the original spec —
+  it is the Danckwerts-vs-Dirichlet inlet choice; confirm the intended inlet
+  condition. The default no-BC boundary stays advective-outflow / zero-gradient.
+- Longitudinal dispersion only (no transverse); `bc_by_location` is a
+  `[Option<f64>;6]` that must widen if more transport BC kinds are added.
+- **Coupling verified:** `RichardsProblem::flow_field` exports volumetric Darcy
+  face fluxes + water content; an integration test runs RICHARDS then transports
+  a tracer through the exported field (bounded, advecting, mass gained).
 
 ## Deferred to next week (2026-07-22 maintainer directive)
 

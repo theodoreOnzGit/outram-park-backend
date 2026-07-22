@@ -276,6 +276,66 @@ impl RichardsProblem {
         rho_face * mobility * t_geom * dphi
     }
 
+    /// Two-point **volumetric** Darcy flux across a face (m^3/s, positive =
+    /// owner to neighbour) — the mass flux divided by the face density. Used to
+    /// export a flow field to solute transport.
+    #[inline]
+    fn volumetric_flux(&self, p_o: f64, z_o: f64, p_n: f64, z_n: f64, t_geom: f64) -> f64 {
+        let rho_face = 0.5 * (self.rho(p_o) + self.rho(p_n));
+        let dphi = (p_o - p_n) + rho_face * self.gravity * (z_o - z_n);
+        let kr_up = if dphi >= 0.0 { self.kr(p_o) } else { self.kr(p_n) };
+        let mobility = self.permeability * kr_up / self.viscosity;
+        mobility * t_geom * dphi
+    }
+
+    /// Export the [`FlowField`](crate::transport::FlowField) (volumetric Darcy
+    /// face fluxes + water content `theta_w = phi*S_l`) implied by a pressure
+    /// solution `p`, for coupling to conservative solute transport (op-v6s.11).
+    ///
+    /// Face/boundary indexing matches [`CartesianGrid::connections`] /
+    /// [`CartesianGrid::boundary_faces`]. Internal fluxes are positive
+    /// owner->neighbour; boundary fluxes are positive **outflow**.
+    pub fn flow_field(&self, p: &[f64]) -> crate::transport::FlowField {
+        let conns = self.grid.connections();
+        let face_flux: Vec<f64> = conns
+            .iter()
+            .map(|c| {
+                self.volumetric_flux(
+                    p[c.owner],
+                    self.z[c.owner],
+                    p[c.neighbour],
+                    self.z[c.neighbour],
+                    c.geometric_transmissibility,
+                )
+            })
+            .collect();
+
+        let boundary_flux: Vec<f64> = self
+            .grid
+            .boundary_faces()
+            .iter()
+            .map(|bf| match &self.bc[location_index(&bf.location)] {
+                None => 0.0,
+                // NeumannFlux is +inflow; boundary_flux is +outflow, so negate.
+                Some(BoundaryConditionKind::NeumannFlux(q)) => -q * bf.area,
+                Some(BoundaryConditionKind::DirichletPressure(p_bc)) => {
+                    let z_bc = match bf.location {
+                        BoundaryLocation::ZMin => self.z[bf.cell] - bf.distance,
+                        BoundaryLocation::ZMax => self.z[bf.cell] + bf.distance,
+                        _ => self.z[bf.cell],
+                    };
+                    self.volumetric_flux(p[bf.cell], self.z[bf.cell], *p_bc, z_bc, bf.area / bf.distance)
+                }
+            })
+            .collect();
+
+        let water_content: Vec<f64> = (0..self.grid.n_cells())
+            .map(|i| self.porosity * self.saturation(p[i]))
+            .collect();
+
+        crate::transport::FlowField { face_flux, boundary_flux, water_content }
+    }
+
     /// Residual `F_i(p)` (kg/s) for one cell: accumulation + net outflow across
     /// internal faces + boundary fluxes - source.
     fn cell_residual(&self, i: usize, p: &[f64]) -> f64 {
@@ -599,6 +659,13 @@ impl RichardsSimulation {
     /// [`RichardsProblem::total_mass`].
     pub fn total_mass(&self) -> f64 {
         self.problem.total_mass(&self.pressure)
+    }
+
+    /// The current [`FlowField`](crate::transport::FlowField) (Darcy face fluxes
+    /// + water content) for coupling to solute transport. See
+    /// [`RichardsProblem::flow_field`].
+    pub fn flow_field(&self) -> crate::transport::FlowField {
+        self.problem.flow_field(&self.pressure)
     }
 
     /// Advance by one adaptive timestep. Cuts `dt` and retries on a failed
