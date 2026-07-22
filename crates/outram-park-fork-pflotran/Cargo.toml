@@ -21,8 +21,13 @@ exclude = ["docs", "upstream_source/pflotran"]
 [dependencies]
 # Pure-Rust, Android-safe deps only (no BLAS / C / PETSc). `uom` types the
 # physical-quantity API boundary (pressure, saturation, permeability, ...);
-# `thiserror` provides the crate error enum. The pure-Rust Newton-Krylov
-# solver layer (bead op-v6s.4) is planned to reuse `outram-foam-basic-lib`'s
-# matrix machinery and will be added as a path dependency when implemented.
+# `thiserror` provides the crate error enum.
 uom.workspace = true
 thiserror.workspace = true
+# The Newton-Krylov linear-algebra backbone (bead op-v6s.4). We reuse
+# outram-foam-basic-lib's face-addressed sparse `LduMatrix` (SpMV) and its dense
+# `SquareMatrix` LU, plus the pure-Rust `krylov` module (asymmetric BiCGStab /
+# GMRES + ILU(0)/Jacobi preconditioners) added there for exactly this crate —
+# rather than translating OpenBLAS standalone. Both are pure Rust and Android-
+# clean (no system BLAS), so pflotran stays Android-buildable.
+outram-foam-basic-lib = { path = "../outram-foam-basic-lib" }

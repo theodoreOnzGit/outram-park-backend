@@ -47,10 +47,10 @@
 //! | [`units`] | dimensional quantities used throughout | **real** — named `uom` type aliases (a human hovers `Pressure`, not a raw `Quantity`) |
 //! | [`error`] | error handling | **real** — the crate [`error::PflotranError`] enum |
 //! | [`flow`] | `pm_*` process-model / flow-mode polymorphism | **scaffold** — enum-dispatch [`flow::FlowMode`] shape; RICHARDS solve not implemented |
-//! | grid (planned) | `discretization` / `grid` structured FV | *planned* — bead op-v6s.5 |
-//! | solver (planned) | PETSc SNES/KSP replacement | *planned* — bead op-v6s.4 (KEYSTONE) |
-//! | properties (planned) | EOS + characteristic curves | *planned* — bead op-v6s.7 |
-//! | io (planned) | input-deck cards + output | *planned* — bead op-v6s.6 |
+//! | [`grid`] | `discretization` / `grid` structured FV | **scaffold** — structured Cartesian FV (bead op-v6s.5) |
+//! | [`solver`] | PETSc SNES/KSP replacement | **scaffold** — Newton–Krylov over foam-basic-lib `krylov` (bead op-v6s.4, KEYSTONE) |
+//! | [`properties`] | EOS + characteristic curves | **scaffold** — EOS + retention/rel-perm curves (bead op-v6s.7) |
+//! | [`io`] | input-deck cards + output | **scaffold** — card-deck subset + CSV/VTK (bead op-v6s.6) |
 //!
 //! ## Design rules (workspace mandate)
 //!
@@ -65,6 +65,10 @@
 
 pub mod error;
 pub mod flow;
+pub mod grid;
+pub mod io;
+pub mod properties;
+pub mod solver;
 pub mod units;
 
 pub use error::PflotranError;
