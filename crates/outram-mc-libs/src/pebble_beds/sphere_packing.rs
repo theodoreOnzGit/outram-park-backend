@@ -1,4 +1,4 @@
-//! Stochastic-media geometry for dispersion fuel — random sphere packing.
+//! Random sphere packing — generating and querying explicit dispersion-fuel geometry.
 //!
 //! This is where the packed-particle geometry for a doubly-heterogeneous
 //! TRISO/pebble layout is *generated* and *queried*. A pebble holds O(10⁴) TRISO
@@ -6,6 +6,22 @@
 //! that random, non-overlapping set of kernel centres and answers the one question
 //! the [`super::delta_tracking`] flight asks over and over: **"is this point inside
 //! a fuel kernel or in the matrix?"**
+//!
+//! Despite living under [`super`], the packer itself is **application-neutral**: it
+//! places equal-radius spheres in a cube. TRISO kernels are the motivating case and
+//! supply the naming of [`PackedSpheres::is_inside_kernel`], but the same generator
+//! serves any dispersion medium — B4C burnable-poison particles, for instance.
+//!
+//! # Relationship to [`crate::stochastic`]
+//!
+//! This module is the **explicit** end of the memory/fidelity spectrum: every inclusion
+//! is stored, so point membership is exact and memory is O(N). The approximate models
+//! that sample geometry instead of storing it — Chord Length Sampling and Semi-Implicit
+//! CLS — live in [`crate::stochastic`], and treat what this module produces as their
+//! reference solution via [`crate::stochastic::medium::RsaMedium`].
+//!
+//! (Named `sphere_packing` rather than `stochastic_media` so it is not confused with
+//! that sibling module — the two would otherwise read as the same thing.)
 //!
 //! # What is implemented
 //!
@@ -42,7 +58,7 @@ use std::collections::HashMap;
 ///
 /// Mirrors OpenMC's `MAX_PF_RSP = 0.38` (`openmc/model/triso.py:20`). Above this,
 /// RSA's reject-until-no-overlap loop effectively stops finding room for new
-/// spheres; [`pack_spheres`] returns [`StochasticMediaError::PackingTooDense`]
+/// spheres; [`pack_spheres`] returns [`PackingError::PackingTooDense`]
 /// rather than spinning forever.
 pub const MAX_PF_RSA: f64 = 0.38;
 
@@ -94,7 +110,7 @@ pub struct PackingConfig {
 
 /// Errors from stochastic-media generation.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
-pub enum StochasticMediaError {
+pub enum PackingError {
     /// The requested method is not implemented yet (only [`PackingMethod::Rsa`] is).
     #[error("stochastic-media generator not implemented for {0:?} (only Rsa is)")]
     NotImplemented(PackingMethod),
@@ -132,8 +148,8 @@ impl PackingConfig {
     ///
     /// Dispatches on [`PackingConfig::method`]: [`PackingMethod::Rsa`] runs the
     /// implemented RSA packer ([`pack_spheres`]); the DEM methods return
-    /// [`StochasticMediaError::NotImplemented`] (not ported — see the module docs).
-    pub fn generate(&self) -> Result<Vec<Sphere>, StochasticMediaError> {
+    /// [`PackingError::NotImplemented`] (not ported — see the module docs).
+    pub fn generate(&self) -> Result<Vec<Sphere>, PackingError> {
         match self.method {
             PackingMethod::Rsa => pack_spheres(
                 self.particle_radius,
@@ -141,7 +157,7 @@ impl PackingConfig {
                 self.packing_fraction,
                 self.seed,
             ),
-            other => Err(StochasticMediaError::NotImplemented(other)),
+            other => Err(PackingError::NotImplemented(other)),
         }
     }
 }
@@ -182,24 +198,24 @@ fn sphere_count(radius: f64, half_width: f64, packing_fraction: f64) -> usize {
 /// - `seed` — RNG seed (uses the crate LCG [`prn`]) for a reproducible packing.
 ///
 /// # Errors
-/// - [`StochasticMediaError::PackingTooDense`] if `packing_fraction > MAX_PF_RSA`.
-/// - [`StochasticMediaError::DomainTooSmall`] if a sphere cannot fit in the cube.
-/// - [`StochasticMediaError::PlacementFailed`] if the domain saturates before all
+/// - [`PackingError::PackingTooDense`] if `packing_fraction > MAX_PF_RSA`.
+/// - [`PackingError::DomainTooSmall`] if a sphere cannot fit in the cube.
+/// - [`PackingError::PlacementFailed`] if the domain saturates before all
 ///   `N` spheres are placed (the per-sphere attempt budget is exhausted).
 pub fn pack_spheres(
     radius: f64,
     half_width: f64,
     packing_fraction: f64,
     seed: u64,
-) -> Result<Vec<Sphere>, StochasticMediaError> {
+) -> Result<Vec<Sphere>, PackingError> {
     if packing_fraction > MAX_PF_RSA {
-        return Err(StochasticMediaError::PackingTooDense {
+        return Err(PackingError::PackingTooDense {
             requested: packing_fraction,
             limit: MAX_PF_RSA,
         });
     }
     if radius >= half_width {
-        return Err(StochasticMediaError::DomainTooSmall { half_width, radius });
+        return Err(PackingError::DomainTooSmall { half_width, radius });
     }
 
     let n_target = sphere_count(radius, half_width, packing_fraction);
@@ -248,7 +264,7 @@ pub fn pack_spheres(
         loop {
             trials += 1;
             if trials > attempts_per_sphere {
-                return Err(StochasticMediaError::PlacementFailed {
+                return Err(PackingError::PlacementFailed {
                     placed,
                     target: n_target,
                     attempts: attempts_per_sphere,
@@ -321,7 +337,7 @@ impl PackedSpheres {
         half_width: f64,
         packing_fraction: f64,
         seed: u64,
-    ) -> Result<Self, StochasticMediaError> {
+    ) -> Result<Self, PackingError> {
         let spheres = pack_spheres(radius, half_width, packing_fraction, seed)?;
         Ok(Self::from_spheres(spheres, half_width, radius))
     }
@@ -522,7 +538,7 @@ mod tests {
     #[test]
     fn too_dense_is_rejected() {
         let e = pack_spheres(0.05, 1.0, 0.5, 1).unwrap_err();
-        assert!(matches!(e, StochasticMediaError::PackingTooDense { .. }));
+        assert!(matches!(e, PackingError::PackingTooDense { .. }));
     }
 
     /// The DEM methods are honestly reported as not implemented.
@@ -537,7 +553,7 @@ mod tests {
         };
         assert_eq!(
             cfg.generate(),
-            Err(StochasticMediaError::NotImplemented(PackingMethod::RsaDem))
+            Err(PackingError::NotImplemented(PackingMethod::RsaDem))
         );
     }
 

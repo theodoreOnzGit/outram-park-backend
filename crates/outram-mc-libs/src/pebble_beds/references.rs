@@ -1,7 +1,7 @@
 //! Bibliography for the pebble-bed / dispersion-fuel geometry methods.
 //!
 //! These are the stochastic-media and packing-generation papers the
-//! [`super::stochastic_media`] and [`super::delta_tracking`] work builds on —
+//! [`super::sphere_packing`] and [`super::delta_tracking`] work builds on —
 //! Zhe Chuan Tan et al.'s dispersion-fuel series in the RMC Monte Carlo code.
 //! Each is a machine-readable [`Reference`] so doc comments elsewhere can point at
 //! a concrete, rust-analyzer-navigable citation rather than a bare DOI string.

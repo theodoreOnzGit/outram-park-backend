@@ -34,10 +34,20 @@ Monte Carlo neutron transport.
 > operators (extrude / midpoint-subdivide / vertex-bevel), Catmull-Clark
 > subdivision, the modifier stack (mirror / array / subsurf), the procedural
 > node evaluator, and the export bridges (OpenFOAM polyMesh text + CSG
-> primitive fitting) are real, unit-tested algorithms. The mesh **boolean** is
-> a partial (convex-mesh intersection only; union/difference are honest
-> `Unsupported`). Remaining gaps are documented per module and tracked in beads
-> (`op-hzs.3`, `op-hzs.11`–`op-hzs.13`).
+> primitive fitting) are real, unit-tested algorithms. The mesh **boolean** now
+> does **general union / difference / intersect on non-convex closed meshes**
+> (surface arrangement + generalized-winding-number classification, built on the
+> robust Shewchuk predicates), with an exact convex-`Intersect` fast path; it is
+> verified against analytic CSG volumes (two offset boxes: `∪ = 15`, `∩ = 1`,
+> `\ = 7`) and a faceted sphere ∩ box. Coplanar overlapping operand faces are
+> rejected honestly (`Unsupported`), not guessed. The CSG export bridge fits a
+> box / sphere / Z-cylinder / any convex polyhedron to analytic surfaces and
+> falls back to a DAGMC-style faceted solid (winding inside-test) for non-convex
+> results, and — behind opt-in cargo features (`foam-export`, `mc-export`) —
+> emits the **real** `outram-foam-basic-lib` polyMesh and `outram-mc-libs` CSG
+> types, not just local mirrors. The vertex bevel now rounds (a multi-segment
+> spherical cap) as well as single-chamfers. All of the epic's boolean / export /
+> bevel workstreams (`op-hzs.6`, `op-hzs.7`, `op-hzs.11`–`op-hzs.13`) are landed.
 >
 > **⚠️ AI-generated draft, untrusted until human-reviewed** per the workspace
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -78,12 +88,15 @@ included.
 | `math` | `blenlib` `BLI_math` vectors | **real** — a minimal `Vec3` |
 | `mesh` | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 | `primitives` | Add-Mesh primitive operators | **real** — cube / UV-sphere / cylinder / grid, unit-tested |
-| `ops` | `bmesh/operators` (`bmo_*`) | **real** — extrude / midpoint-subdivide / vertex-bevel (boolean delegates to `boolean`; multi-segment bevel is a follow-up) |
+| `ops` | `bmesh/operators` (`bmo_*`) | **real** — extrude / midpoint-subdivide / vertex-bevel (single chamfer or rounded multi-segment spherical cap; boolean delegates to `boolean`) |
 | `subdivision` | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
-| `boolean` | `bmo_boolean` (Manifold upstream) | **partial** — convex-mesh Intersect (union/difference `Unsupported`) |
+| `boolean` | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to `boolean_general` |
+| `boolean_general` | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union / difference / intersect on non-convex closed meshes (arrangement + winding classification) |
+| `boolean_predicates` | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double) |
+| `boolean_classify` | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number |
 | `modifiers` | `modifiers/intern/MOD_*` | **real** — mirror / array / subsurf |
 | `procedural` | Geometry Nodes | **real** — node-graph evaluator (primitive / transform / join / subdivide / boolean / output) |
-| `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh text, CSG primitive fitting (cube + sphere; cylinder/faceted are follow-ups) |
+| `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh text, CSG fitting (box / sphere / Z-cylinder / any convex polyhedron faceted), a DAGMC-style faceted-solid route for non-convex meshes, plus **feature-gated real-type bridges** to `outram-foam-basic-lib` (`foam-export`) and `outram-mc-libs` (`mc-export`) |
 
 ## Design rules honoured (workspace `CLAUDE.md`)
 

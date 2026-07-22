@@ -48,7 +48,7 @@
 //! [`run_keff_delta`] — a fission-source power iteration over a reflective cube of
 //! packed kernels, with the geometry supplied as an O(1) `material_at` closure over
 //! [`PackedSpheres`]. The random geometry itself comes from
-//! [`outram_mc_libs::pebble_beds::stochastic_media::pack_spheres`] (Random
+//! [`outram_mc_libs::pebble_beds::sphere_packing::pack_spheres`] (Random
 //! Sequential Addition, ported from OpenMC `openmc/model/triso.py`).
 //!
 //! **Evidence it works.** Two independent checks below:
@@ -99,7 +99,7 @@
 //! shells are collapsed into the matrix); fast/epithermal LOW-tier data only
 //! ([`Nuclide::from_core`], no graphite S(α,β)); RSA packing (saturates ~0.30–0.38,
 //! so the higher pebble-bed packing fractions need the unported CRP/DEM methods —
-//! see [`outram_mc_libs::pebble_beds::stochastic_media`]). A fast HEU/H demonstrator
+//! see [`outram_mc_libs::pebble_beds::sphere_packing`]). A fast HEU/H demonstrator
 //! of the doubly-heterogeneous delta-tracking path, not a validated pebble-bed
 //! benchmark. Full write-up:
 //! `docs/ai-fleet-review/op-6tz-triso-finish/REVIEW_MANIFEST.md`.
@@ -114,7 +114,7 @@ use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::pebble_beds::delta_tracking::{track_to_collision, Majorant};
 use outram_mc_libs::pebble_beds::keff_delta::run_keff_delta;
-use outram_mc_libs::pebble_beds::stochastic_media::PackedSpheres;
+use outram_mc_libs::pebble_beds::sphere_packing::PackedSpheres;
 use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
 

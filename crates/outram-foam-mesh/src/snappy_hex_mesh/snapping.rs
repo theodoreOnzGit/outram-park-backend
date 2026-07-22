@@ -49,8 +49,8 @@
 //! 4. **Mesh-quality-gated relaxation** (`smoothDisplacement` +
 //!    `scaleMesh`/`meshMover.scaleMesh`, lines 2134/2208). The smoothed
 //!    displacement is applied scaled by a relaxation factor `lambda` (start
-//!    1.0). The moved [`PolyPatchMesh`] is rebuilt ([`PolyPatchMesh::build_fvmesh`])
-//!    and its [`quality`](PolyPatchMesh::quality) checked against
+//!    1.0). The moved [`PolyPatchMesh`](crate::snappy_hex_mesh::PolyPatchMesh) is rebuilt ([`PolyPatchMesh::build_fvmesh`](crate::snappy_hex_mesh::PolyPatchMesh::build_fvmesh))
+//!    and its [`quality`](crate::snappy_hex_mesh::PolyPatchMesh::quality) checked against
 //!    [`QualityLimits`]. If the move is accepted it is committed; otherwise
 //!    `lambda` is halved and retried (a few backoffs), reproducing OpenFOAM's
 //!    "relax displacement until correct mesh" loop. Nearest-surface targets are
@@ -64,7 +64,7 @@
 //!    dihedral angle exceeds `feature_angle_deg`) **and feature points**
 //!    (corners where ≥2 non-collinear feature edges meet) are extracted, and
 //!    every wall patch point near a feature is classified with a per-point
-//!    [`PointConstraint`] that governs how it is allowed to move:
+//!    `PointConstraint` that governs how it is allowed to move:
 //!    - **rank 0 — free on surface:** ordinary nearest-surface projection (as
 //!      for a point with no nearby feature). `constrainDisplacement` is the
 //!      identity here.
@@ -111,8 +111,8 @@
 //!
 //! Because [`FvMesh`](outram_foam_basic_lib::mesh::FvMesh) stores only geometry
 //! and no point/face-vertex topology, snapping works on the point-based
-//! [`PolyPatchMesh`] carried in [`CastellatedMesh::topology`]: it moves points,
-//! then [`PolyPatchMesh::build_fvmesh`] recomputes all finite-volume geometry.
+//! [`PolyPatchMesh`](crate::snappy_hex_mesh::PolyPatchMesh) carried in [`CastellatedMesh::topology`]: it moves points,
+//! then [`PolyPatchMesh::build_fvmesh`](crate::snappy_hex_mesh::PolyPatchMesh::build_fvmesh) recomputes all finite-volume geometry.
 //!
 //! # Verification & validation
 //!
@@ -812,7 +812,7 @@ fn detect_feature_points(edges: &[FeatureEdge]) -> Vec<Vector3> {
 }
 
 /// Classify a patch point against the feature set, returning its attraction
-/// target [m] and its [`PointConstraint`].
+/// target [m] and its `PointConstraint`.
 ///
 /// Port of the intent of `snappySnapDriver::featureAttractionUsingReconstruction`
 /// (`snappySnapDriverFeature.C:997`) and its `binFeatureFace` helper (lines

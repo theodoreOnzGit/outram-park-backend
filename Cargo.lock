@@ -5265,6 +5265,8 @@ name = "outram-blender"
 version = "0.0.0"
 dependencies = [
  "faer",
+ "outram-foam-basic-lib",
+ "outram-mc-libs",
  "thiserror 2.0.18",
  "wgpu",
 ]

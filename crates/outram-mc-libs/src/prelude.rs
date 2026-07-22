@@ -28,7 +28,20 @@ pub use crate::physics::keff::{run_keff, KeffResult, KeffSettings};
 pub use crate::physics::transport_csg::{run_keff_csg, SourceBox};
 pub use crate::pebble_beds::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
 pub use crate::pebble_beds::keff_delta::run_keff_delta;
-pub use crate::pebble_beds::stochastic_media::{pack_spheres, PackedSpheres, PackingConfig, PackingMethod};
+pub use crate::pebble_beds::sphere_packing::{pack_spheres, PackedSpheres, PackingConfig, PackingMethod};
+// Stochastic-media research track (scaffold, beads epic op-eby). The chord
+// statistics, SCLS retention machinery and brute-force index are implemented; the
+// CLS/SCLS transport drivers are not — those paths return typed NotImplemented
+// errors. See `stochastic::medium` for the model-dispatch enum.
+pub use crate::stochastic::medium::{MaterialId, MediumError, RsaMedium, StochasticMedium};
+pub use crate::stochastic::cls::{
+    mean_chord_length_sphere, matrix_mean_chord_length, sample_chord, ClsMedium,
+};
+pub use crate::stochastic::scls::{
+    AdaptiveRadius, FlightSegment, InclusionSphere, ParticleHistory, SclsMedium,
+};
+pub use crate::stochastic::spatial_index::{BruteForceIndex, IndexError, KdTreeIndex, SpatialIndex};
+pub use crate::stochastic::benchmark::{AbsorptionBenchmark, BenchmarkResult};
 // Optional GPU compute (headless wgpu). `GpuContext` + `gpu_probe` are available
 // on every target (Android gets the CPU-only shim; `gpu_probe` there is always
 // `None`). `interp_xs_cpu` is the trusted f64 reference; `interp_xs_gpu` is the

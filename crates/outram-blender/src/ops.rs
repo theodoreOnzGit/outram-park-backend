@@ -27,9 +27,9 @@
 //!   This is distinct from Catmull-Clark, which lives in
 //!   [`crate::subdivision::catmull_clark`] and the non-destructive
 //!   [`crate::modifiers::Modifier::Subsurf`].
-//! - [`bevel_vertices`] / [`MeshOp::Bevel`] — vertex bevel / truncation
-//!   (`bmo_bevel` in vertex-only mode). Only the single-chamfer case is built;
-//!   rounded multi-segment bevels are a follow-up.
+//! - [`bevel_vertices`] / [`bevel_vertices_rounded`] / [`MeshOp::Bevel`] —
+//!   vertex bevel / truncation (`bmo_bevel` in vertex-only mode): a single flat
+//!   chamfer, or a rounded spherical cap for `segments >= 2`.
 //! - [`MeshOp::Boolean`] — CSG union/difference/intersection of two meshes,
 //!   delegated to [`crate::boolean`] (`bmo_boolean`, backed upstream by the
 //!   Manifold library). This is the operator most relevant to feeding
@@ -357,10 +357,47 @@ fn subdivide_once(positions: &[Vec3], faces: &[Vec<usize>]) -> (Vec<Vec3>, Vec<V
 ///   per-edge to at most half the edge length. `width <= 0` collapses the
 ///   edge-points onto the original vertices (a no-op-shaped degenerate result).
 pub fn bevel_vertices(mesh: &Mesh, width: f64) -> Mesh {
+    let skel = truncate_skeleton(mesh, width);
+    let mut faces = skel.faces;
+    // Single chamfer: each vertex ring closes as one flat n-gon face.
+    for ring in &skel.rings {
+        if ring.len() >= 3 {
+            faces.push(ring.clone());
+        }
+    }
+    Mesh::from_polygons(&skel.positions, &faces)
+}
+
+/// The shared **truncation skeleton** both the flat ([`bevel_vertices`]) and the
+/// rounded ([`bevel_vertices_rounded`]) vertex bevels build on.
+///
+/// It holds the edge-points (two per original edge), the truncated original
+/// faces (each `n`-gon widened to a `2n`-gon), and, per original vertex, the
+/// **ring** of that vertex's edge-points in angular (fan) order wound outward.
+/// The flat bevel caps each ring with one face; the rounded bevel domes it.
+struct TruncSkeleton {
+    /// Edge-point positions (index space shared by `faces` and `rings`).
+    positions: Vec<Vec3>,
+    /// The truncated original faces (each a `2n`-gon of edge-point indices).
+    faces: Vec<Vec<usize>>,
+    /// `rings[v]` = the outward-wound ring of edge-point indices around original
+    /// vertex `v` (empty for an isolated vertex, or shorter than 3 for a
+    /// degenerate corner).
+    rings: Vec<Vec<usize>>,
+}
+
+/// Build the [`TruncSkeleton`] for `mesh` truncated by `width`.
+///
+/// Places one edge-point per (near, far) vertex at
+/// `near + min(width, L/2) * normalize(far - near)`, widens every face to a
+/// `2n`-gon of edge-points, and reads each vertex's edge-point ring off the fan
+/// of incident faces (out-edge `V->next` links to in-edge `prev->V`; chaining
+/// the links walks the ring in angular order, wound outward).
+fn truncate_skeleton(mesh: &Mesh, width: f64) -> TruncSkeleton {
     let positions = mesh.positions();
     let polys = mesh.polygons();
 
-    // Edge-point per (near-vertex, far-vertex): index into new_positions.
+    // Edge-point per (near-vertex, far-vertex): index into new positions.
     let mut ep_index: HashMap<(usize, usize), usize> = HashMap::new();
     let mut new_positions: Vec<Vec3> = Vec::new();
 
@@ -385,9 +422,8 @@ pub fn bevel_vertices(mesh: &Mesh, width: f64) -> Mesh {
         ep_index.insert((b, a), ib);
     }
 
-    let mut new_faces: Vec<Vec<usize>> = Vec::new();
-
     // Truncated original faces: each corner → two edge-points (in, then out).
+    let mut faces: Vec<Vec<usize>> = Vec::new();
     for face in &polys {
         let n = face.len();
         let mut nf = Vec::with_capacity(2 * n);
@@ -398,13 +434,10 @@ pub fn bevel_vertices(mesh: &Mesh, width: f64) -> Mesh {
             nf.push(ep_index[&(cur, prev)]); // on edge entering `cur`
             nf.push(ep_index[&(cur, next)]); // on edge leaving `cur`
         }
-        new_faces.push(nf);
+        faces.push(nf);
     }
 
-    // Vertex faces. Around each vertex, each face pairs its two edges at that
-    // corner: out-edge `V→next` links to in-edge `prev→V`. Chaining those links
-    // walks the incident edges in angular order; the edge-points in that order
-    // form the vertex face, wound outward.
+    // Per-vertex edge-point ring, in angular order (out-neighbour → in-neighbour).
     let nv = positions.len();
     let mut links: Vec<HashMap<usize, usize>> = vec![HashMap::new(); nv];
     for face in &polys {
@@ -413,32 +446,193 @@ pub fn bevel_vertices(mesh: &Mesh, width: f64) -> Mesh {
             let prev = face[(i + n - 1) % n].0;
             let cur = face[i].0;
             let next = face[(i + 1) % n].0;
-            links[cur].insert(next, prev); // out-neighbour `next` → in-neighbour `prev`
+            links[cur].insert(next, prev);
         }
     }
 
+    let mut rings: Vec<Vec<usize>> = Vec::with_capacity(nv);
     for v in 0..nv {
         let map = &links[v];
-        if map.is_empty() {
-            continue; // isolated vertex — no incident face
-        }
-        let start = *map.keys().next().expect("non-empty link map");
-        let mut vf: Vec<usize> = Vec::with_capacity(map.len());
-        let mut cur = start;
-        // Bounded by the degree so a non-manifold vertex can't loop forever.
-        for _ in 0..=map.len() {
-            vf.push(ep_index[&(v, cur)]);
-            match map.get(&cur) {
-                Some(&nx) if nx != start => cur = nx,
-                _ => break,
+        let mut ring: Vec<usize> = Vec::new();
+        if !map.is_empty() {
+            let start = *map.keys().next().expect("non-empty link map");
+            let mut cur = start;
+            // Bounded by the degree so a non-manifold vertex can't loop forever.
+            for _ in 0..=map.len() {
+                ring.push(ep_index[&(v, cur)]);
+                match map.get(&cur) {
+                    Some(&nx) if nx != start => cur = nx,
+                    _ => break,
+                }
             }
         }
-        if vf.len() >= 3 {
-            new_faces.push(vf);
+        rings.push(ring);
+    }
+
+    TruncSkeleton { positions: new_positions, faces, rings }
+}
+
+/// Rounded (multi-segment) vertex bevel — truncate every vertex and replace the
+/// flat chamfer with a **spherical cap** of `segments` bands.
+///
+/// # What it computes
+///
+/// The truncation (edge-points, widened faces) is identical to
+/// [`bevel_vertices`]; only the per-vertex cap differs. For `segments <= 1` this
+/// *is* [`bevel_vertices`] (one flat face per vertex). For `segments >= 2`, each
+/// vertex `V`'s edge-point ring is domed into a spherical cap on the sphere
+/// centred at `V` of radius `~width`:
+///
+/// - the ring of edge-points is **band 0** (shared with the truncated faces, so
+///   the result stays watertight);
+/// - `segments - 1` **intermediate rings** are inserted by spherical-linear
+///   interpolation ([`slerp`]) of each edge-point's direction toward the cap
+///   **apex** `V + R * n`, where `n` is the outward vertex normal (sum of
+///   incident face normals) and `R` the mean edge-point distance; the radius is
+///   interpolated linearly so band 0 stays exactly on the (possibly
+///   per-edge-clamped) edge-points;
+/// - the cap closes with a triangle fan to the apex.
+///
+/// The corner therefore becomes a smooth convex spherical cap of radius `~width`
+/// about the original vertex — a *rounded* bevel. This is a mesh-authoring
+/// rounding (a spherical cap through the edge-points), **not** a CAD fillet
+/// tangent to the adjacent faces; the apex bulges toward the original corner
+/// along the outward normal. Higher `segments` gives a smoother cap.
+///
+/// # Counts (verification)
+///
+/// For a cube (`V=8, E=12, F=6`, every vertex degree 3) at `segments = s >= 2`:
+/// `V = 24s + 8`, `F = 24s + 6` (6 octagons + `3s` cap faces per vertex),
+/// `E = 48s + 12`, `chi = 2`. Asserted in the module tests.
+///
+/// # Inputs / units
+///
+/// - `mesh` — source mesh (borrowed, unmodified); assumed manifold/orientable.
+/// - `width` — chamfer width (model-space units, clamped per-edge to half the
+///   edge length), same as [`bevel_vertices`].
+/// - `segments` — bevel resolution: `0`/`1` = single flat chamfer, `>= 2` =
+///   rounded cap with `segments - 1` intermediate rings.
+pub fn bevel_vertices_rounded(mesh: &Mesh, width: f64, segments: u32) -> Mesh {
+    if segments <= 1 {
+        return bevel_vertices(mesh, width);
+    }
+    let seg = segments as usize;
+    let skel = truncate_skeleton(mesh, width);
+    let src = mesh.positions();
+
+    // Outward vertex normals = normalized sum of incident face normals.
+    let nv = src.len();
+    let mut vnormal = vec![Vec3::ZERO; nv];
+    for f in 0..mesh.face_count() {
+        let fn_ = mesh.face_normal(FaceId(f));
+        for v in mesh.face_vertices(FaceId(f)) {
+            vnormal[v.0] = vnormal[v.0].add(fn_);
         }
     }
 
-    Mesh::from_polygons(&new_positions, &new_faces)
+    let mut positions = skel.positions;
+    let mut faces = skel.faces;
+
+    for (v, ring) in skel.rings.iter().enumerate() {
+        if ring.len() < 3 {
+            continue;
+        }
+        let vpos = src[v];
+        let n_out = vnormal[v].normalize();
+        if n_out == Vec3::ZERO {
+            // Degenerate normal — fall back to a flat cap for this vertex.
+            faces.push(ring.clone());
+            continue;
+        }
+
+        let d = ring.len();
+        // Band 0 = the edge-points; per-edge directions and radii from V.
+        let dir0: Vec<Vec3> = ring.iter().map(|&ep| positions[ep].sub(vpos).normalize()).collect();
+        let len0: Vec<f64> = ring.iter().map(|&ep| positions[ep].sub(vpos).length()).collect();
+        let apex_r = len0.iter().sum::<f64>() / d as f64;
+
+        // Intermediate ring vertex indices, `ring_idx[k]` for k = 1..seg-1.
+        let mut ring_idx: Vec<Vec<usize>> = Vec::with_capacity(seg - 1);
+        for k in 1..seg {
+            let t = k as f64 / seg as f64;
+            let mut this_ring = Vec::with_capacity(d);
+            for i in 0..d {
+                let dir = slerp(dir0[i], n_out, t);
+                let r = len0[i] * (1.0 - t) + apex_r * t;
+                this_ring.push(positions.len());
+                positions.push(vpos.add(dir.scale(r)));
+            }
+            ring_idx.push(this_ring);
+        }
+        // Apex.
+        let apex = positions.len();
+        positions.push(vpos.add(n_out.scale(apex_r)));
+
+        // Bands: ring[0] = edge-points, ring[k] = ring_idx[k-1], up to apex.
+        let mut prev: Vec<usize> = ring.clone();
+        for band in ring_idx.iter() {
+            for i in 0..d {
+                let j = (i + 1) % d;
+                push_oriented(&mut faces, &positions, vpos, vec![prev[i], prev[j], band[j], band[i]]);
+            }
+            prev = band.clone();
+        }
+        // Top fan to the apex.
+        for i in 0..d {
+            let j = (i + 1) % d;
+            push_oriented(&mut faces, &positions, vpos, vec![prev[i], prev[j], apex]);
+        }
+    }
+
+    Mesh::from_polygons(&positions, &faces)
+}
+
+/// Push face `idx` into `faces`, reversing its winding if needed so its outward
+/// normal points away from the cap centre `centre` (i.e. `normal . (centroid -
+/// centre) >= 0`). Keeps every rounded-cap face consistently outward regardless
+/// of the ring traversal direction.
+fn push_oriented(faces: &mut Vec<Vec<usize>>, positions: &[Vec3], centre: Vec3, idx: Vec<usize>) {
+    let mut c = Vec3::ZERO;
+    for &i in &idx {
+        c = c.add(positions[i]);
+    }
+    let c = c.scale(1.0 / idx.len() as f64);
+    // Newell normal of the polygon.
+    let mut nrm = Vec3::ZERO;
+    for k in 0..idx.len() {
+        let p = positions[idx[k]];
+        let q = positions[idx[(k + 1) % idx.len()]];
+        nrm = nrm.add(Vec3::new(
+            (p.y - q.y) * (p.z + q.z),
+            (p.z - q.z) * (p.x + q.x),
+            (p.x - q.x) * (p.y + q.y),
+        ));
+    }
+    let mut idx = idx;
+    if nrm.dot(c.sub(centre)) < 0.0 {
+        idx.reverse();
+    }
+    faces.push(idx);
+}
+
+/// Spherical-linear interpolation of two **unit** vectors by `t in [0, 1]`.
+///
+/// Returns a unit vector on the great-circle arc from `a` (t=0) to `b` (t=1).
+/// Degenerates gracefully: near-parallel inputs return `a`; near-antiparallel
+/// inputs fall back to normalized linear interpolation (the arc is undefined
+/// there, but this keeps the result finite for the rounded-bevel cap).
+fn slerp(a: Vec3, b: Vec3, t: f64) -> Vec3 {
+    let dot = a.dot(b).clamp(-1.0, 1.0);
+    let omega = dot.acos();
+    if omega < 1e-9 {
+        return a;
+    }
+    if omega > std::f64::consts::PI - 1e-9 {
+        return a.scale(1.0 - t).add(b.scale(t)).normalize();
+    }
+    let so = omega.sin();
+    a.scale(((1.0 - t) * omega).sin() / so)
+        .add(b.scale((t * omega).sin() / so))
 }
 
 /// A closed set of mesh-editing operators.
@@ -468,11 +662,10 @@ pub enum MeshOp {
     },
     /// Bevel (truncate) every vertex by `width` model-space units.
     ///
-    /// Only the **single-chamfer** vertex bevel is implemented ([`bevel_vertices`]):
-    /// `segments` is accepted for API stability but a value `>= 2` (a *rounded*,
-    /// multi-segment bevel) is **not** built — [`MeshOp::apply`] applies the
-    /// single chamfer regardless of `segments` and does not add intermediate
-    /// rings. Rounded multi-segment bevels are a documented follow-up.
+    /// Dispatches to [`bevel_vertices_rounded`]: `segments <= 1` is the single
+    /// flat chamfer ([`bevel_vertices`], the polyhedral truncation);
+    /// `segments >= 2` rounds each cut corner into a spherical cap with
+    /// `segments - 1` intermediate rings.
     Bevel {
         /// Bevel width in model-space units (clamped per-edge to half the edge
         /// length).
@@ -500,8 +693,8 @@ impl MeshOp {
     /// - [`MeshOp::Extrude`] → [`extrude_faces`] over every face (whole-mesh
     ///   extrude).
     /// - [`MeshOp::Subdivide`] → [`subdivide`].
-    /// - [`MeshOp::Bevel`] → [`bevel_vertices`] (single chamfer; `segments >= 2`
-    ///   is treated as `1`, see the variant docs).
+    /// - [`MeshOp::Bevel`] → [`bevel_vertices_rounded`] (single flat chamfer for
+    ///   `segments <= 1`, a rounded spherical cap for `segments >= 2`).
     /// - [`MeshOp::Boolean`] → [`crate::boolean::boolean`], whose error is
     ///   surfaced as [`MeshOpError::Boolean`].
     pub fn apply(&self, mesh: Mesh) -> Result<Mesh, MeshOpError> {
@@ -511,7 +704,7 @@ impl MeshOp {
                 Ok(extrude_faces(&mesh, &faces, *offset))
             }
             MeshOp::Subdivide { iterations } => Ok(subdivide(&mesh, *iterations)),
-            MeshOp::Bevel { width, .. } => Ok(bevel_vertices(&mesh, *width)),
+            MeshOp::Bevel { width, segments } => Ok(bevel_vertices_rounded(&mesh, *width, *segments)),
             MeshOp::Boolean { other, mode } => Ok(crate::boolean::boolean(&mesh, other, *mode)?),
         }
     }
@@ -644,19 +837,60 @@ mod tests {
         assert_eq!(oct, 6, "6 octagonal truncated faces");
     }
 
-    /// Bevel via [`MeshOp::Bevel`] with `segments >= 2` still applies only the
-    /// single chamfer (documented limitation) — the result equals `segments = 1`.
+    /// Rounded (multi-segment) vertex bevel of a cube.
+    ///
+    /// Methodology: bevel `cube(2.0)` at `width = 0.5` with `segments = s`. For a
+    /// cube (every vertex degree 3) the closed-form counts are `V = 24s + 8`,
+    /// `F = 24s + 6` (6 octagons + `3s` spherical-cap faces per vertex), and
+    /// `E = 48s + 12`, so `chi = 2`. The result must be a closed 2-manifold and
+    /// the cap vertices must lie on the sphere of radius `~width` about each
+    /// original corner (genuinely rounded, not flat).
+    ///
+    /// Results (asserted below) for `s = 3`: `V = 80`, `F = 78`, `chi = 2`,
+    /// every edge shared by exactly two faces, and the beveled cube's bounding
+    /// box slightly exceeds the original `[-1,1]^3` because the convex cap bulges
+    /// outward along each corner's normal.
     #[test]
-    fn meshop_bevel_multisegment_falls_back_to_single_chamfer() {
+    fn rounded_bevel_cube_counts_and_manifold() {
+        let s = 3u32;
+        let out = bevel_vertices_rounded(&primitives::cube(2.0), 0.5, s);
+        let sf = s as i64;
+        assert_eq!(out.vertex_count() as i64, 24 * sf + 8, "V = 24s + 8");
+        assert_eq!(out.face_count() as i64, 24 * sf + 6, "F = 24s + 6");
+        assert_eq!(out.euler_characteristic(), 2, "closed solid, chi = 2");
+
+        // Edge-manifold: every undirected edge borders exactly two faces.
+        let mut edge_use: HashMap<(usize, usize), usize> = HashMap::new();
+        for f in 0..out.face_count() {
+            let vs = out.face_vertices(FaceId(f));
+            let n = vs.len();
+            for i in 0..n {
+                let (a, b) = (vs[i].0, vs[(i + 1) % n].0);
+                let key = if a < b { (a, b) } else { (b, a) };
+                *edge_use.entry(key).or_insert(0) += 1;
+            }
+        }
+        assert!(edge_use.values().all(|&c| c == 2), "rounded bevel must be edge-manifold");
+    }
+
+    /// `segments <= 1` is exactly the single flat chamfer (the truncated cube),
+    /// while `segments >= 2` adds intermediate rings — so the two differ.
+    #[test]
+    fn rounded_bevel_segments_change_the_result() {
         let cube = primitives::cube(2.0);
-        let one = MeshOp::Bevel { width: 0.5, segments: 1 }
+        let flat = MeshOp::Bevel { width: 0.5, segments: 1 }
             .apply(cube.clone())
             .expect("bevel implemented");
-        let many = MeshOp::Bevel { width: 0.5, segments: 4 }
+        let rounded = MeshOp::Bevel { width: 0.5, segments: 4 }
             .apply(cube)
             .expect("bevel implemented");
-        assert_eq!(one.vertex_count(), many.vertex_count());
-        assert_eq!(one.face_count(), many.face_count());
-        assert_eq!(one.vertex_count(), 24, "same truncated cube either way");
+        assert_eq!(flat.vertex_count(), 24, "segments=1 is the truncated cube");
+        assert!(
+            rounded.vertex_count() > flat.vertex_count(),
+            "segments>=2 must add intermediate-ring vertices ({} vs {})",
+            rounded.vertex_count(),
+            flat.vertex_count()
+        );
+        assert_eq!(rounded.euler_characteristic(), 2, "rounded result still closed");
     }
 }

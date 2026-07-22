@@ -532,13 +532,32 @@ each member (`openblas-system` on unix, `intel-mkl-static` on windows/macos).
 See `docs/workspace-maintenance.md` for the rationale and the planned
 `ndarray-linalg` removal from TUAS.
 
-## Android portability (mandatory for non-GUI code)
+## Android / Termux portability (HARD RULE for non-GUI code)
 
-**Every crate's non-GUI library code must compile for Android**
-(`aarch64-linux-android` and the armv7/x86_64 emulator targets). Android has no
-system BLAS/LAPACK and no easy C/Fortran toolchain, so **Android-hostile
-dependencies must not compile on Android** — gate them off by target rather
-than letting them break the build.
+**Hard rule (not a default): every crate's non-GUI library code MUST compile on
+Termux — native, on-device Android — with Android-hostile pieces held off behind
+Android feature gates.** "Compiles on Termux" is the acceptance bar: a build run
+*inside Termux* (native `aarch64-linux-android`, no NDK cross-toolchain, no system
+BLAS/LAPACK, no C/Fortran toolchain) must succeed for every non-GUI library. This
+does not bend for convenience — if a change cannot build on Termux, it is not done
+until the offending dependency/test/example is gated off Android in the *same*
+change. Workspace-wide tracking lives in the **`op-zfr` "Android support" epic**.
+
+Termux specifics to keep in mind:
+
+- **Termux builds natively on the device**, so the target is `aarch64-linux-android`
+  and **`target_os = "android"`** (not `"linux"`). Every gate below keys off that.
+- Prefer an explicit **Cargo feature** (e.g. `android`, or an inverted
+  `native-blas`/`gui` feature that is simply *not* enabled on Termux) plus the
+  `cfg(target_os = "android")` target gate, so a Termux user gets a working build
+  from the default feature set with no manual flag-twiddling.
+- No system package manager for BLAS/LAPACK/GUI libs is assumed to exist on Termux.
+
+**Every crate's non-GUI library code must also compile for Android**
+(`aarch64-linux-android` and the armv7/x86_64 emulator targets) when cross-built
+from a host. Android has no system BLAS/LAPACK and no easy C/Fortran toolchain, so
+**Android-hostile dependencies must not compile on Android** — gate them off by
+target rather than letting them break the build.
 
 - **`ndarray-linalg`** (and anything needing system BLAS/LAPACK, or a C/Fortran
   toolchain, or `std`-GUI/windowing) is Android-hostile. Declare it only under
@@ -548,19 +567,44 @@ than letting them break the build.
   `"linux"`**, so an existing `cfg(target_os = "linux")` gate already excludes
   it — but do not *rely* on a linux-only gate to mean "not Android" without
   saying so.)
-- **Any test, bench, or example that uses an Android-hostile dep must be gated**
-  so it does not compile on Android: put `#![cfg(not(target_os = "android"))]`
-  at the top of an integration-test/bench file, or `#[cfg(not(target_os =
-  "android"))]` on the item. Precedent: `outram-foam-basic-lib`'s
-  `tests/matrix_bench.rs` (the pure-Rust `SquareMatrix` vs LAPACK benchmark).
-- **GUI items** (`egui`/`eframe`/windowing examples and bins) are out of scope
-  for Android — keep GUI behind examples/optional bins/features, never in the
-  library's unconditional build, so the lib still builds headless for Android.
+- **Examples/tests/benches count — they are NOT exempt.** A native Termux
+  `cargo build` / `cargo test` compiles **examples, integration tests, and
+  benches**, so an Android-hostile dep or a desktop-only-API reference in *any*
+  of those breaks the on-device build even when the library itself is clean.
+  Gate every one that touches an Android-hostile path:
+  - **Tests / benches** (no `main` required): put `#![cfg(not(target_os =
+    "android"))]` at the top of the file — blanking the whole file on Android is
+    fine. Precedent: `outram-foam-basic-lib`'s `tests/matrix_bench.rs`.
+  - **Examples / bins** (a `main` *is* required — a blanked file gives "main
+    function not found"): add an **Android stub `main`** under `#[cfg(target_os
+    = "android")]` that prints a "desktop-only" line, and gate every desktop
+    item (`use`/`const`/`fn`/`struct`/…) with `#[cfg(not(target_os =
+    "android"))]`. Precedent: `njoy-outram-park-fork`'s
+    `examples/gpu_wmp_bench.rs` and `outram-mc-libs`'s
+    `examples/godiva_gpu_benchmark.rs`.
+- **Only windowing GUI is out of scope — terminal apps are IN scope.** Termux
+  *is* a terminal, so a **CLI or a `ratatui` TUI must compile and run on
+  Android** like any other non-GUI crate — do not exempt it. What is out of
+  scope is **`egui`/`eframe`/`wgpu`-surface/windowing** GUI: keep that behind
+  examples/optional bins/target gates, never in a library's unconditional
+  build, so the lib still builds headless for Android. Concretely: `kovan-cli`
+  (CLI) and `kovan-tui` (`ratatui` TUI — target-gated to a CLI-redirect stub on
+  Android) are **in scope and verified building** for `aarch64-linux-android`;
+  only `outram-park-digital-twin-engine` (egui/eframe) is a genuine
+  GUI exemption.
 - **New code follows this by default.** If you add a dep or a test that can't
-  build on Android, target-gate it in the same change and note it. Verify with
-  `cargo check -p <crate> --target aarch64-linux-android` (needs the Android
-  target + NDK / `cargo-ndk`) when a host has the toolchain. Workspace-wide
-  Android build tracking lives in beads (the "Android support" epic).
+  build on Android, target-gate it in the same change and note it.
+- **The check MUST cover all targets, not just `--lib`.** A `cargo check
+  --lib --target aarch64-linux-android` checks *only the library* and silently
+  misses broken examples/tests/benches — the exact gap that let the
+  `godiva_gpu_benchmark` example ship un-gated (found only by an on-device
+  Termux build). The proxy check is therefore **`cargo check -p <crate>
+  --all-targets --target aarch64-linux-android`** (needs the Android target +
+  NDK / `cargo-ndk`). The **authoritative** check is still a **native Termux
+  build** (`cargo build` / `cargo test` run inside Termux on-device), which
+  compiles all targets by construction. Never report Android/Termux support as
+  verified from a `--lib`-only run. Workspace-wide Android/Termux build tracking
+  lives in beads (the **`op-zfr` "Android support" epic**).
 
 ## Build & test
 
