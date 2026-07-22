@@ -38,9 +38,13 @@ pub mod fluid_thermo;
 pub mod fv_operators;
 /// Layer 1f — one-dimensional data interpolation (linear and spline).
 pub mod interpolation;
+/// Layer 2 — asymmetric Krylov iterative solvers (BiCGStab, restarted GMRES)
+/// and preconditioners (Jacobi, ILU(0)) for the sparse `LduMatrix`.
+pub mod krylov;
 /// Layer 2 — sparse LDU (lower/diagonal/upper) matrices, the assembled
 /// `FvMatrix`, and iterative linear solvers (CG, Gauss–Seidel, GAMG).
 pub mod ldu_matrix;
+pub mod limiters;
 /// Layer 1g — mathematical special functions (inverse error function,
 /// incomplete gamma functions and their inverse).
 pub mod math;

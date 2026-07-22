@@ -1,0 +1,34 @@
+outram-park-fork-pflotran
+Part of Outram Park (outram-park-backend).
+
+This crate is an independent fork / Rust translation of PFLOTRAN
+  https://www.pflotran.org   (code: https://bitbucket.org/pflotran/pflotran)
+PFLOTRAN is a massively-parallel subsurface flow and reactive-transport
+simulator (Fortran + PETSc) developed cooperatively by the US Department of
+Energy national laboratories — Los Alamos (LANL), Pacific Northwest (PNNL),
+Oak Ridge (ORNL), Lawrence Berkeley (LBNL), and Sandia (SNL). Original authors
+include Peter C. Lichtner, Glenn E. Hammond, Chuan Lu, Richard T. Mills,
+Satish Karra, and the wider PFLOTRAN development team.
+
+Upstream license: GNU Lesser General Public License, version 2.1 or later
+(LGPL-2.1-or-later). LGPL-2.1 §3 explicitly permits a licensee to relicense a
+copy under the ordinary GNU GPL (version 2 or later); this crate exercises
+that option and is distributed under GPL-3.0-only, consistent with the rest of
+the Outram Park suite (which ships GPL-3.0-only code from other upstreams).
+
+LICENSE PROVENANCE — VERIFY BEFORE PUBLISH. The LGPL-2.1-or-later
+determination above was taken from the PFLOTRAN documentation and the OSTI/
+DOECODE records (2026-07-20), not from a byte-for-byte reading of the upstream
+LICENSE/COPYRIGHT file (which was not reachable from this environment). Before
+this crate is published or any upstream code is ported in, the exact upstream
+license text and per-file copyright headers MUST be confirmed against a local
+PFLOTRAN clone and recorded in upstream_source/README.md. (Bead op-v6s.1.)
+
+No PFLOTRAN source has been ported into this crate yet — it is a documented
+scaffold. When Fortran/PETSc routines are translated, each derived Rust source
+file must carry a provenance header naming the upstream source file, version/
+commit, copyright holder, and license, per the workspace attribution rule.
+
+This is an independent fork. It is not the PFLOTRAN project and is not endorsed
+by or affiliated with PFLOTRAN, its development team, or any of the national
+laboratories named above. See the workspace TRADEMARKS.md.
