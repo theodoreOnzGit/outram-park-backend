@@ -75,6 +75,7 @@ pub mod flow;
 pub mod geochemistry;
 pub mod grid;
 pub mod io;
+pub mod kinetics;
 pub mod multiphase;
 pub mod properties;
 pub mod reactive_transport;
