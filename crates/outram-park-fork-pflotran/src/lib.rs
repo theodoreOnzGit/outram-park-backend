@@ -77,6 +77,10 @@ pub mod energy;
 pub mod error;
 pub mod flow;
 pub mod geochemistry;
+/// Optional wgpu GPU acceleration — compiled only off Android (the workspace GPU
+/// rule keeps GPU deps out of the Android library build); CPU is the trusted path.
+#[cfg(not(target_os = "android"))]
+pub mod gpu;
 pub mod grid;
 pub mod io;
 pub mod kinetics;

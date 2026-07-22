@@ -5396,6 +5396,7 @@ dependencies = [
  "rayon",
  "thiserror 2.0.18",
  "uom 0.38.0",
+ "wgpu",
 ]
 
 [[package]]

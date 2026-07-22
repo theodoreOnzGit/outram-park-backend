@@ -35,3 +35,11 @@ outram-foam-basic-lib = { path = "../outram-foam-basic-lib" }
 # Rust, Android-clean — parallelises the RICHARDS residual/Jacobian, the
 # multiphase block residual, and the reactive-transport per-cell speciation.
 rayon.workspace = true
+
+# Optional GPU acceleration (bead op-v6s.14, src/gpu.rs) — target-gated OFF
+# Android (no system Vulkan/Metal loader there, and the workspace Android rule
+# forbids GPU deps in the library build), so the crate still builds headless for
+# aarch64-linux-android. On desktop it is built unconditionally with a mandatory
+# runtime CPU fallback; GPU is acceleration only, CPU is the trusted path.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+wgpu.workspace = true
