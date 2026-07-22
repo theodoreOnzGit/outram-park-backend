@@ -209,6 +209,19 @@ impl RichardsProblem {
         &self.grid
     }
 
+    /// Total fluid mass in the domain (kg) for a pressure field `p`:
+    /// `sum_i V_i * phi * S_l(p_i) * rho_l(p_i)`.
+    ///
+    /// This is the invariant Celia's mixed (mass-conservative) form preserves:
+    /// with no-flow boundaries and no source, it is unchanged across a timestep
+    /// (to the nonlinear-solver tolerance), because the summed internal fluxes
+    /// cancel and the summed residual is driven to zero.
+    pub fn total_mass(&self, p: &[f64]) -> f64 {
+        (0..self.grid.n_cells())
+            .map(|i| self.grid.cell_volume(i) * self.theta(p[i]))
+            .sum()
+    }
+
     // --- pointwise property helpers (plain f64, SI units) ---
 
     #[inline]
@@ -582,6 +595,12 @@ impl RichardsSimulation {
         &self.problem
     }
 
+    /// Total fluid mass currently in the domain (kg). See
+    /// [`RichardsProblem::total_mass`].
+    pub fn total_mass(&self) -> f64 {
+        self.problem.total_mass(&self.pressure)
+    }
+
     /// Advance by one adaptive timestep. Cuts `dt` and retries on a failed
     /// nonlinear solve; errors only if `dt` would fall below `min_dt`.
     pub fn step(&mut self) -> Result<StepReport, PflotranError> {
@@ -720,6 +739,58 @@ mod tests {
                 expected
             );
         }
+    }
+
+    /// **Mass conservation** (Celia's mixed-form invariant): a closed no-flow
+    /// domain with NO source but a NON-uniform initial pressure actively
+    /// redistributes fluid, yet total mass must be conserved to solver
+    /// tolerance across many implicit steps.
+    #[test]
+    fn closed_domain_conserves_total_mass() {
+        let n = 12usize;
+        let grid = CartesianGrid::uniform(
+            n,
+            1,
+            1,
+            Length::new::<meter>(0.05),
+            Length::new::<meter>(1.0),
+            Length::new::<meter>(1.0),
+        )
+        .unwrap();
+        let curves =
+            CharacteristicCurves::VanGenuchten(VanGenuchten::new(2.0e-4, 2.0, 0.05).unwrap());
+        let mut problem = RichardsProblem::new(
+            grid,
+            LiquidWaterEos::water(),
+            curves,
+            0.35,
+            1.0e-12,
+            0.0,
+            ATMOSPHERIC_PRESSURE,
+            vec![], // all no-flow
+        )
+        .unwrap();
+
+        // Non-uniform initial field (a pressure ramp) drives redistribution.
+        let mut p: Vec<f64> = (0..n).map(|i| 80_000.0 + 2_000.0 * i as f64).collect();
+        let m0 = problem.total_mass(&p);
+
+        let solver = NewtonSolver::new(NewtonConfig::default());
+        problem.set_timestep(300.0);
+        for _ in 0..8 {
+            problem.set_previous(&p);
+            let mut trial = p.clone();
+            solver
+                .solve(&mut problem, &mut trial)
+                .expect("closed-box step converges");
+            p = trial;
+        }
+        let m1 = problem.total_mass(&p);
+        // Field must actually have moved (otherwise the test is vacuous).
+        let moved = (0..n).map(|i| (p[i] - (80_000.0 + 2_000.0 * i as f64)).abs()).fold(0.0, f64::max);
+        assert!(moved > 1.0, "field did not redistribute (moved={moved})");
+        let rel = (m1 - m0).abs() / m0;
+        assert!(rel < 1.0e-8, "mass not conserved: rel drift {rel:e} (m0={m0}, m1={m1})");
     }
 
     /// A closed (no-flow) box with a uniform initial pressure must stay put:
