@@ -72,6 +72,7 @@ pub mod grid;
 pub mod io;
 pub mod properties;
 pub mod solver;
+pub mod transport;
 pub mod units;
 
 pub use error::PflotranError;
