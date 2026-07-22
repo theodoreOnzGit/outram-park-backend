@@ -176,3 +176,38 @@ and an **open question / review ask** for the human. Reviewers: search for
   (m/s), **positive = inflow** into the domain. `q = 0` (or an unspecified
   boundary) is a no-flow wall. **REVIEW:** confirm this matches the intended
   PFLOTRAN-style convention before any deck is shared as "PFLOTRAN-compatible".
+
+---
+
+## v1 completion status (2026-07-22)
+
+**Done and tested (verification-only):** the RICHARDS vertical slice — grid
+(op-v6s.5), properties (op-v6s.7), I/O (op-v6s.6), Newton–Krylov solver
+(op-v6s.4) + the foam-basic-lib `krylov` module, and the RICHARDS flow mode
+end-to-end (op-v6s.8). Test suite: 50 unit + 3 integration + 1 regression + 3
+verification tests, all green in release; both crates cross-compile to Android;
+the dependent foam crates still build.
+
+**Verification evidence (measured, not fabricated):**
+- MMS spatial convergence: **observed order 2.000** on the saturated operator.
+- Hydrostatic equilibrium under gravity: analytical match to **9.8e-5 Pa**.
+- Saturated steady state: exact linear profile to machine zero.
+
+**Explicitly NOT done — the human-review / follow-up backlog:**
+1. **Validation (op-v6s.9, the big one).** No comparison to published PFLOTRAN
+   gold-files or experimental data has been done — only verification. A
+   canonical transient benchmark (e.g. Celia et al. 1990 infiltration) with a
+   *sourced* reference solution is required before any validity claim. The
+   reference data must come from open literature per the workspace data policy;
+   it was not available to the AI in this environment.
+2. **Upstream license byte-for-byte re-check (op-v6s.1)** before publish.
+3. **Real PFLOTRAN input-deck syntax** — the current `io` format is an
+   AI-designed lite subset (D7).
+4. **Analytical Jacobian** as a faster alternative to the numerical one (D9);
+   **wgpu acceleration** (D2), Android-gated, once the CPU path is profiled.
+5. **Later flow modes (op-v6s.10–.14)**: TH (water+energy), conservative solute
+   transport, reactive geochemistry (GIRT), GENERAL multiphase, parallelism —
+   all out of v1 scope, not started.
+6. **Human sign-off** on both README "Bookkeeping status" axes — still ❌; an AI
+   must not flip them (RESPONSIBLE_USE.md). Every entry above is untrusted AI
+   draft until then.
