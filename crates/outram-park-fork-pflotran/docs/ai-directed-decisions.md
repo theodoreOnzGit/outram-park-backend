@@ -179,6 +179,35 @@ and an **open question / review ask** for the human. Reviewers: search for
 
 ---
 
+### D11 — Solute transport translation (op-v6s.11)
+
+- **Segregated / sequential coupling.** Transport is solved on a *frozen* flow
+  field (Darcy face fluxes + water content) exported from a RICHARDS solve
+  (`RichardsProblem::flow_field`). The passive solute does not feed back into
+  flow (conservative, non-reactive) — so the transport system is **linear** in
+  concentration and is assembled + solved directly with one BiCGStab call, no
+  Newton. **REVIEW:** fully-coupled flow+transport is a later option; segregated
+  is the standard first cut.
+- **First-order upwind advection.** Simple and monotone (no over/undershoot),
+  but adds numerical diffusion. TVD / higher-order flux limiting is deferred
+  (the bead title mentions TVD) — flag for a follow-up bead. Dispersion is a
+  symmetric two-point Fickian term with effective coefficient
+  `D_face = D_molecular + alpha_L * |v_darcy|`.
+- **Implicit Euler in time**, matching the flow discretisation.
+- Verification (not validation): steady 1D advection–diffusion has a closed-form
+  Peclet profile `c(x) = (1 - e^{Pe x/L})/(1 - e^{Pe})`; pure diffusion is linear;
+  closed domains conserve solute mass. Deferred: the Celia/validation cases.
+
+## Deferred to next week (2026-07-22 maintainer directive)
+
+All **Celia-1990 and validation-case work is paused** this week; the focus is
+PFLOTRAN **translation**. Deferred beads (noted in the store):
+- op-v6s.9 (V&V strategy), op-v6s.9.2 (Celia benchmark case), op-v6s.9.3
+  (source reference + validation gate), op-v6s.9.4 (mass-conservation
+  diagnostic — first cut already landed).
+Verification tests (analytical/MMS) continue as normal — they are part of
+translation quality, distinct from the deferred *validation-case* work.
+
 ## v1 completion status (2026-07-22)
 
 **Done and tested (verification-only):** the RICHARDS vertical slice — grid
