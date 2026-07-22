@@ -76,6 +76,7 @@ pub mod geochemistry;
 pub mod grid;
 pub mod io;
 pub mod properties;
+pub mod reactive_transport;
 pub mod solver;
 pub mod transport;
 pub mod units;
