@@ -199,3 +199,39 @@ excluding the hand-coded `tuas` + `tampines-steam-tables`; ~30M+ including
 bundled nuclear data). Cheap to *generate* (~$1-5K of tokens) but ~$150-600K to
 *replace* — the gap being domain judgment and the validation record, not the raw
 token count.
+
+### Cost to replace *without* AI
+
+The bands above are the *with-AI* replacement cost (a domain specialist paired
+with LLM tooling). This is the without-AI counterfactual — commissioning the
+same result by traditional software engineering, no LLM assistance. Two anchors:
+
+- **COCOMO-organic upper bound (non-credible).** Effort ≈ `2.4 * KLOC^1.05`
+  person-months. 569 KLOC of `.rs` → ~1,875 person-months ≈ **156 person-years**;
+  the ~302 KLOC remaining after removing `tuas` + `tampines-steam-tables` →
+  ~**80 person-years**. At a fully-loaded $150-220K/year that is roughly
+  $23-34M / $12-18M. **Not treated as credible** — it assumes from-scratch
+  novel design, whereas most of this codebase is careful translation of existing
+  reference implementations (OpenFOAM, OpenMC, NJOY, CoolProp, rust-steam), which
+  is far faster than invention. Kept only as an upper anchor, same as the
+  original COCOMO note above.
+
+- **Grounded manual-translation estimate.** Hand-translating already-designed,
+  validated numerical reference code — unit-tested and checked against
+  benchmarks as you go — runs on the order of 5-15 KLOC per engineer-month for a
+  domain-literate specialist. 569 KLOC → ~40-115 person-months (~3-10 FTE-years);
+  ~302 KLOC excluding the hand-coded crates → ~20-60 person-months
+  (~2-5 FTE-years). Adding cross-crate integration and the validation record on
+  top:
+
+| Scope | Without-AI replacement cost |
+|---|---|
+| Whole authored repo | ~$1-3M (roughly 5-15 fully-loaded FTE-years) |
+| Excl. hand-coded `tuas` + `tampines-steam-tables` | ~$0.6-1.8M |
+
+**Interpretation.** The without-AI figure is roughly **3-6x** the with-AI band
+(~$200-600K) — and that multiple *is* the AI leverage this project captures. The
+gap is smaller than the naive COCOMO comparison implies, because the hardest,
+slowest work (domain judgment, isolating subtle physics bugs, building the
+validation record — see "Is the work easily replaced?" above) is barely
+accelerated by AI; it is the mechanical translation *volume* that AI collapses.
