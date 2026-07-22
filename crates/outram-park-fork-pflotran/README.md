@@ -18,9 +18,13 @@ pure-Rust solver (no PETSc FFI, no MPI in v1), and an Android-buildable library.
 > exact upstream license must be re-verified byte-for-byte before publish — see
 > `NOTICE` and `upstream_source/README.md` (bead op-v6s.1).
 >
-> **Scaffold — no flow mode solves yet, and no human V&V.** Use at your own
-> risk. Not for nuclear facility operation, reactor control, safety-critical
-> analysis, or licensing decisions — education, research, and V&V only.
+> **Early v1: RICHARDS solves, but is VERIFICATION-ONLY and has no human V&V.**
+> The variably-saturated flow mode runs end-to-end and passes closed-form and
+> manufactured-solution verification (2nd-order convergence), but it has **not**
+> been validated against published PFLOTRAN reference cases, and no human has
+> reviewed it. Use at your own risk. Not for nuclear facility operation, reactor
+> control, safety-critical analysis, or licensing decisions — education,
+> research, and V&V only.
 
 ## Bookkeeping status
 
@@ -37,15 +41,36 @@ pure-Rust solver (no PETSc FFI, no MPI in v1), and an Android-buildable library.
 
 ## What exists today
 
-This crate is at the **scaffold** stage. Present and compiling:
+The v1 RICHARDS vertical slice is implemented and tested (verification-only):
 
 | Piece | Module | Status |
 |---|---|---|
 | Physical-quantity type aliases | `units` | **real** — named `uom` aliases (`FluidPressure`, `Saturation`, `Permeability`, ...) |
 | Crate error type | `error` | **real** — `PflotranError` enum; unfinished paths return `NotImplemented`, never a fake result |
-| Flow-mode dispatch shape | `flow` | **scaffold** — enum-dispatch `FlowMode` with a `Richards` variant; the solve is not implemented |
+| Structured Cartesian FV grid | `grid` | **real** — cells, two-point-flux transmissibility, LDU addressing |
+| Fluid EOS + characteristic curves | `properties` | **real** — slightly-compressible water EOS; van Genuchten–Mualem & Brooks–Corey–Burdine curves with analytic (FD-checked) derivatives |
+| Input deck + output | `io` | **real (AI-designed subset)** — card-deck parser + CSV/legacy-VTK writers. **Not** real PFLOTRAN deck syntax |
+| Newton–Krylov solver | `solver` | **real** — generic Newton driver (static dispatch), Armijo line search, over foam-basic-lib `krylov` (BiCGStab/GMRES + ILU(0)/Jacobi) |
+| RICHARDS flow mode | `flow` | **real (verification-only)** — `FlowMode` + `RichardsSimulation`: residual/Jacobian assembly, adaptive timestepping, deck-driven runs |
 
-Everything else named below is planned, not written.
+**Test suite:** 50 unit tests + 3 integration + 1 regression + 2 verification
+(MMS 2nd-order convergence, closed-form steady state), all green in release mode;
+both crates cross-compile to `aarch64-linux-android`.
+
+Later flow modes (TH, GENERAL multiphase, solute transport, geochemistry) are
+**not** implemented — their entry points are documented as `NotImplemented`.
+
+## Verification results (methodology + measured numbers)
+
+- **MMS spatial convergence** (`tests/verification.rs`): saturated 1D operator
+  with a manufactured sinusoidal source; Linf pressure error 40.8 → 10.3 → 2.57
+  → 0.64 → 0.16 Pa over 10→160 cells, **observed order 2.000** (2nd-order design
+  met). Verification of the two-point-flux discretisation.
+- **Closed-form steady state**: gravity-free saturated column reproduces the
+  exact linear pressure profile to machine zero.
+- These are **verification** (implemented correctly?), not **validation**
+  (matches reality?). No comparison to published PFLOTRAN gold-files exists yet
+  (bead op-v6s.9). See `docs/ai-directed-decisions.md` for every AI-made choice.
 
 ## v1 scope — the vertical slice
 
@@ -79,18 +104,19 @@ pressure.
 
 ## Roadmap (beads)
 
-Tracked under epic **op-v6s** (`outram-park-fork-pflotran`):
+Tracked under epic **op-v6s** (`outram-park-fork-pflotran`). Status below is
+AI-assessed from the code; bead closure is the maintainer's decision.
 
-- **op-v6s.1** — license + provenance (this scaffold; verify upstream before publish)
-- **op-v6s.2** — scope decision (the v1 slice above)
-- **op-v6s.3** — architecture: enum dispatch, `uom`-typed, no-FFI / no-MPI
-- **op-v6s.4** — pure-Rust Newton-Krylov solver (PETSc replacement) — *keystone*
-- **op-v6s.5** — structured Cartesian finite-volume grid
-- **op-v6s.6** — input-deck I/O + gated HDF5 / output
-- **op-v6s.7** — fluid & material properties (EOS + characteristic curves)
-- **op-v6s.8** — RICHARDS flow mode — first end-to-end solve
-- **op-v6s.9** — V&V strategy + first RICHARDS benchmark (vs PFLOTRAN gold-files)
-- **op-v6s.10 .. op-v6s.14** — TH, solute transport, reactive geochemistry, GENERAL multiphase, parallelism
+- **op-v6s.1** — license + provenance — *done (verify upstream before publish)*
+- **op-v6s.2** — scope decision (the v1 slice above) — *done*
+- **op-v6s.3** — architecture: enum dispatch, `uom`-typed, no-FFI / no-MPI — *done*
+- **op-v6s.4** — pure-Rust Newton-Krylov solver (PETSc replacement, keystone) — *implemented*
+- **op-v6s.5** — structured Cartesian finite-volume grid — *implemented*
+- **op-v6s.6** — input-deck I/O + gated HDF5 / output — *implemented (HDF5 still deferred)*
+- **op-v6s.7** — fluid & material properties (EOS + characteristic curves) — *implemented*
+- **op-v6s.8** — RICHARDS flow mode — first end-to-end solve — *implemented (verification-only)*
+- **op-v6s.9** — V&V strategy + first RICHARDS benchmark (vs PFLOTRAN gold-files) — *partial: MMS + analytical verification done; validation vs published gold-files still open*
+- **op-v6s.10 .. op-v6s.14** — TH, solute transport, reactive geochemistry, GENERAL multiphase, parallelism — *not started*
 
 ## Design rules (workspace mandate)
 

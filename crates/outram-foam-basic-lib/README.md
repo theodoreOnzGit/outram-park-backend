@@ -97,6 +97,9 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | `ldu_matrix` | `FvMatrix::solve_cg`, `FvMatrix::solve_cg_with_guess` | Cold- and warm-started PCG for the symmetric pressure system |
 | `ldu_matrix` | `FvMatrix::solve_gamg`, `FvMatrix::solve_gamg_with_guess` | Cold- and warm-started GAMG for the symmetric pressure system |
 | `ldu_matrix` | `SolverSettings`, `SolverPerformance` | Tolerance / iteration control and convergence reporting |
+| `krylov` | `bicgstab`, `gmres` | Pure-Rust Krylov solvers for **nonsymmetric** LDU systems (analogue of `Foam::PBiCGStab`); GMRES(m) is right-preconditioned. Added for the pflotran RICHARDS Jacobian, which is asymmetric under upstream weighting |
+| `krylov` | `Preconditioner` (`Identity`/`Jacobi`/`Ilu0`) | Enum-dispatched preconditioners; ILU(0) is a genuine incomplete-LU (exact for tridiagonal), Jacobi the robust fallback |
+| `krylov` | `KrylovSettings`, `KrylovResult`, `vecops` | Tolerance/restart control, convergence reporting, and BLAS-1 helpers (`dot`/`nrm2`/`axpy`/`scal`) |
 
 ### Layer 3 — Finite-volume operators
 

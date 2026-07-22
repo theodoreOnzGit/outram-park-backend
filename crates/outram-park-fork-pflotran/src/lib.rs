@@ -75,7 +75,7 @@ pub mod solver;
 pub mod units;
 
 pub use error::PflotranError;
-pub use flow::FlowMode;
+pub use flow::{FlowMode, RichardsSimulation};
 
 /// Convenience `Result` alias for the crate's fallible operations.
 ///
