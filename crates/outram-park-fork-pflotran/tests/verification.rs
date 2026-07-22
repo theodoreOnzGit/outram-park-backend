@@ -171,6 +171,68 @@ fn mms_saturated_operator_is_second_order() {
     );
 }
 
+/// **Hydrostatic equilibrium — exact gravity-term verification.**
+///
+/// Methodology: a saturated, incompressible vertical column (20 cells along z,
+/// no-flow sides/bottom, top face pinned at `p_top`) has no through-flow, so the
+/// steady state is hydrostatic: `p(z) = p_top + rho*g*(z_top - z)`. This is the
+/// only test that exercises the gravity term `Phi = p + rho*g*z` (the horizontal
+/// MMS column has constant z). The exact solution is linear in z, which the
+/// scheme must reproduce to solver tolerance independent of grid size.
+///
+/// Result (2026-07-22): max deviation from the analytical hydrostatic profile is
+/// < 1e-2 Pa across all 20 cells (asserted below), confirming the gravity term
+/// and the Z-boundary elevation handling are correct.
+#[test]
+fn hydrostatic_column_matches_analytical_gravity() {
+    let nz = 20usize;
+    let dz = 0.1;
+    let grid = CartesianGrid::uniform(
+        1,
+        1,
+        nz,
+        Length::new::<meter>(1.0),
+        Length::new::<meter>(1.0),
+        Length::new::<meter>(dz),
+    )
+    .unwrap();
+
+    let rho = 1000.0;
+    let g = 9.806_65;
+    let eos = LiquidWaterEos::new(rho, 0.0, 0.0, 1.0e-3).unwrap();
+    let curves = CharacteristicCurves::VanGenuchten(VanGenuchten::new(1.0e-4, 2.0, 0.0).unwrap());
+
+    let p_top = 2.0e5; // gauge; > p_gas(0) => saturated everywhere
+    let z_top = nz as f64 * dz; // top boundary-face elevation
+    let boundary = vec![BoundaryCondition {
+        location: BoundaryLocation::ZMax,
+        kind: BoundaryConditionKind::DirichletPressure(p_top),
+    }];
+
+    let mut problem = RichardsProblem::new(
+        grid, eos, curves, 0.35, 1.0e-12, g, 0.0, /*p_gas gauge*/ boundary,
+    )
+    .unwrap();
+    problem.set_timestep(1.0e30);
+    let n = problem.n_dof();
+    problem.set_previous(&vec![p_top; n]);
+
+    let solver = NewtonSolver::new(steady_config());
+    let mut p = vec![p_top; n];
+    solver
+        .solve(&mut problem, &mut p)
+        .expect("hydrostatic solve converges");
+
+    let mut max_err: f64 = 0.0;
+    for k in 0..nz {
+        let z = (k as f64 + 0.5) * dz;
+        let expected = p_top + rho * g * (z_top - z);
+        max_err = max_err.max((p[k] - expected).abs());
+    }
+    println!("hydrostatic max error = {max_err:.3e} Pa");
+    assert!(max_err < 1.0e-2, "hydrostatic profile error {max_err:e} Pa");
+}
+
 /// **Closed-form saturated steady state — exact linear profile.**
 ///
 /// Methodology: gravity-free saturated column, Dirichlet ends, zero source. The
