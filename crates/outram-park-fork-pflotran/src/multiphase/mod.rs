@@ -86,6 +86,7 @@ use crate::solver::block::{
     BlockLduMatrix, BlockNewtonConfig, BlockNewtonReport, BlockNewtonSolver, BlockNonlinearSystem,
 };
 
+use rayon::prelude::*;
 use uom::si::f64::{Pressure, Ratio};
 use uom::si::pressure::pascal;
 use uom::si::ratio::ratio;
@@ -594,11 +595,13 @@ impl BlockNonlinearSystem for TwoPhaseFlow {
                 "two-phase residual: state/output length must be 2 * n_cells".into(),
             ));
         }
-        for i in 0..n {
-            let (rw, rg) = self.cell_residual(i, x);
-            out[2 * i] = rw;
-            out[2 * i + 1] = rg;
-        }
+        // Per-cell residual pairs are independent — evaluate in parallel (op-v6s.14).
+        let this = &*self;
+        out.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
+            let (rw, rg) = this.cell_residual(i, x);
+            chunk[0] = rw;
+            chunk[1] = rg;
+        });
         Ok(())
     }
 
@@ -614,48 +617,62 @@ impl BlockNonlinearSystem for TwoPhaseFlow {
             ));
         }
 
-        // Base residual pairs over all cells.
-        let mut r0: Vec<(f64, f64)> = vec![(0.0, 0.0); n];
-        for i in 0..n {
-            r0[i] = self.cell_residual(i, x);
-        }
+        let this = &*self;
+
+        // Base residual pairs over all cells (parallel; independent per cell).
+        let r0: Vec<(f64, f64)> = (0..n).into_par_iter().map(|i| this.cell_residual(i, x)).collect();
 
         jac.zero();
 
         // Local finite-difference columns. Perturbing local unknown `d` of cell
         // `j` (d = 0 -> P_l, d = 1 -> S_l) affects only the residual of `j` and
-        // its face-neighbours (the two-point stencil). Each perturbation fills
-        // one column (`col = d`) of a 2x2 block: the diagonal block of `j` and,
-        // per incident face, the off-diagonal block toward the neighbour.
-        let mut xp = x.to_vec();
-        for j in 0..n {
-            for d in 0..2 {
+        // its face-neighbours (the two-point stencil). Each column's writes land
+        // in disjoint 2x2 block entries, so the expensive residual evaluations run
+        // in parallel (op-v6s.14) and the results scatter serially — identical to
+        // the serial assembly.
+        type ColumnContrib = (usize, usize, f64, f64, Vec<(usize, bool, f64, f64)>);
+        let contribs: Vec<ColumnContrib> = (0..2 * n)
+            .into_par_iter()
+            .map(|col| {
+                let j = col / 2;
+                let d = col % 2;
+                let mut xp = x.to_vec();
                 let idx = 2 * j + d;
                 let h = 1.0e-8 * (1.0 + x[idx].abs());
                 xp[idx] = x[idx] + h;
 
-                // Diagonal block: dR_j / dx_{j,d}.
-                let (rwj, rgj) = self.cell_residual(j, &xp);
-                jac.add_diag(j, 0, d, (rwj - r0[j].0) / h);
-                jac.add_diag(j, 1, d, (rgj - r0[j].1) / h);
+                let (rwj, rgj) = this.cell_residual(j, &xp);
+                let dj0 = (rwj - r0[j].0) / h;
+                let dj1 = (rgj - r0[j].1) / h;
 
-                // Off-diagonal (neighbour) blocks.
-                for &f in &self.cell_faces[j] {
-                    let c = &self.grid.connections()[f];
-                    if j == c.owner {
-                        // dR_neighbour / dx_owner -> lower[f].
-                        let (rwn, rgn) = self.cell_residual(c.neighbour, &xp);
-                        jac.add_lower(f, 0, d, (rwn - r0[c.neighbour].0) / h);
-                        jac.add_lower(f, 1, d, (rgn - r0[c.neighbour].1) / h);
-                    } else {
-                        // dR_owner / dx_neighbour -> upper[f].
-                        let (rwo, rgo) = self.cell_residual(c.owner, &xp);
-                        jac.add_upper(f, 0, d, (rwo - r0[c.owner].0) / h);
-                        jac.add_upper(f, 1, d, (rgo - r0[c.owner].1) / h);
-                    }
+                let faces: Vec<(usize, bool, f64, f64)> = this.cell_faces[j]
+                    .iter()
+                    .map(|&f| {
+                        let c = &this.grid.connections()[f];
+                        if j == c.owner {
+                            let (rwn, rgn) = this.cell_residual(c.neighbour, &xp);
+                            (f, true, (rwn - r0[c.neighbour].0) / h, (rgn - r0[c.neighbour].1) / h)
+                        } else {
+                            let (rwo, rgo) = this.cell_residual(c.owner, &xp);
+                            (f, false, (rwo - r0[c.owner].0) / h, (rgo - r0[c.owner].1) / h)
+                        }
+                    })
+                    .collect();
+                (j, d, dj0, dj1, faces)
+            })
+            .collect();
+
+        for (j, d, dj0, dj1, faces) in contribs {
+            jac.add_diag(j, 0, d, dj0);
+            jac.add_diag(j, 1, d, dj1);
+            for (f, is_lower, v0, v1) in faces {
+                if is_lower {
+                    jac.add_lower(f, 0, d, v0);
+                    jac.add_lower(f, 1, d, v1);
+                } else {
+                    jac.add_upper(f, 0, d, v0);
+                    jac.add_upper(f, 1, d, v1);
                 }
-
-                xp[idx] = x[idx];
             }
         }
 

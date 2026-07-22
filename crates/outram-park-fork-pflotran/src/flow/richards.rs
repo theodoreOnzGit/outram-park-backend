@@ -38,6 +38,7 @@ use crate::io::{BoundaryKindSpec, BoundaryLocationSpec, CurveModel, InputDeck};
 use crate::properties::{BrooksCorey, CharacteristicCurves, LiquidWaterEos, VanGenuchten};
 use crate::solver::{NewtonConfig, NewtonSolver, NonlinearSystem};
 use outram_foam_basic_lib::ldu_matrix::LduMatrix;
+use rayon::prelude::*;
 
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{Length, Pressure, Ratio};
@@ -402,9 +403,12 @@ impl NonlinearSystem for RichardsProblem {
                 "residual: state/output length mismatch with grid".into(),
             ));
         }
-        for i in 0..self.grid.n_cells() {
-            out[i] = self.cell_residual(i, x);
-        }
+        // Per-cell residuals are independent — evaluate them in parallel
+        // (op-v6s.14). `cell_residual` is `&self` (shared reads only).
+        let this = &*self;
+        out.par_iter_mut().enumerate().for_each(|(i, o)| {
+            *o = this.cell_residual(i, x);
+        });
         Ok(())
     }
 
@@ -416,43 +420,56 @@ impl NonlinearSystem for RichardsProblem {
             ));
         }
 
-        // Base residuals over all cells.
-        let mut r0 = vec![0.0; n];
-        for i in 0..n {
-            r0[i] = self.cell_residual(i, x);
-        }
+        let this = &*self;
 
-        for v in jac.diag.iter_mut() {
-            *v = 0.0;
-        }
+        // Base residuals over all cells (parallel; independent per cell).
+        let r0: Vec<f64> = (0..n).into_par_iter().map(|i| this.cell_residual(i, x)).collect();
+
+        // Local finite-difference columns: perturbing cell j only affects the
+        // residual of j and its face-neighbours (the two-point stencil). Each
+        // column's writes land in disjoint LDU entries (diag[j]; lower[f] from
+        // the owner column, upper[f] from the neighbour column), so the
+        // expensive residual evaluations are done in parallel (op-v6s.14) and the
+        // cheap results are scattered serially — bit-for-bit the same as serial.
+        let contribs: Vec<(f64, Vec<(usize, bool, f64)>)> = (0..n)
+            .into_par_iter()
+            .map(|j| {
+                let mut xp = x.to_vec();
+                let h = 1.0e-8 * (1.0 + x[j].abs());
+                xp[j] = x[j] + h;
+                let diag = (this.cell_residual(j, &xp) - r0[j]) / h;
+                let faces: Vec<(usize, bool, f64)> = this.cell_faces[j]
+                    .iter()
+                    .map(|&f| {
+                        let c = &this.grid.connections()[f];
+                        if j == c.owner {
+                            // dR_neighbour / dp_owner -> lower[f]
+                            (f, true, (this.cell_residual(c.neighbour, &xp) - r0[c.neighbour]) / h)
+                        } else {
+                            // dR_owner / dp_neighbour -> upper[f]
+                            (f, false, (this.cell_residual(c.owner, &xp) - r0[c.owner]) / h)
+                        }
+                    })
+                    .collect();
+                (diag, faces)
+            })
+            .collect();
+
         for v in jac.lower.iter_mut() {
             *v = 0.0;
         }
         for v in jac.upper.iter_mut() {
             *v = 0.0;
         }
-
-        // Local finite-difference columns: perturbing cell j only affects the
-        // residual of j and its face-neighbours (the two-point stencil).
-        let mut xp = x.to_vec();
-        for j in 0..n {
-            let h = 1.0e-8 * (1.0 + x[j].abs());
-            xp[j] = x[j] + h;
-
-            jac.diag[j] = (self.cell_residual(j, &xp) - r0[j]) / h;
-
-            for &f in &self.cell_faces[j] {
-                let c = &self.grid.connections()[f];
-                if j == c.owner {
-                    // dR_neighbour / dp_owner  -> lower[f]
-                    jac.lower[f] = (self.cell_residual(c.neighbour, &xp) - r0[c.neighbour]) / h;
+        for (j, (diag, faces)) in contribs.into_iter().enumerate() {
+            jac.diag[j] = diag;
+            for (f, is_lower, val) in faces {
+                if is_lower {
+                    jac.lower[f] = val;
                 } else {
-                    // dR_owner / dp_neighbour  -> upper[f]
-                    jac.upper[f] = (self.cell_residual(c.owner, &xp) - r0[c.owner]) / h;
+                    jac.upper[f] = val;
                 }
             }
-
-            xp[j] = x[j];
         }
 
         if jac.diag.iter().any(|v| !v.is_finite()) {

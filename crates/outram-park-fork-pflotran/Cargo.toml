@@ -31,3 +31,7 @@ thiserror.workspace = true
 # rather than translating OpenBLAS standalone. Both are pure Rust and Android-
 # clean (no system BLAS), so pflotran stays Android-buildable.
 outram-foam-basic-lib = { path = "../outram-foam-basic-lib" }
+# Data-parallelism for the hot assembly / per-cell loops (bead op-v6s.14). Pure
+# Rust, Android-clean — parallelises the RICHARDS residual/Jacobian, the
+# multiphase block residual, and the reactive-transport per-cell speciation.
+rayon.workspace = true

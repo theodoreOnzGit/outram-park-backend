@@ -5393,6 +5393,7 @@ name = "outram-park-fork-pflotran"
 version = "0.0.0"
 dependencies = [
  "outram-foam-basic-lib",
+ "rayon",
  "thiserror 2.0.18",
  "uom 0.38.0",
 ]
