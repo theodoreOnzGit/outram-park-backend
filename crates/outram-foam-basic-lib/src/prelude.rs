@@ -102,6 +102,12 @@ pub use crate::fluid_thermo::{ConstSolidThermo, FluidThermo, PsiThermo, RhoTherm
 // --- LDU solvers ---
 pub use crate::ldu_matrix::{conjugate_gradient, gamg, gauss_seidel};
 
+// --- Asymmetric Krylov solvers + preconditioners ---
+pub use crate::krylov::{
+    bicgstab, gmres, Ilu0Preconditioner, JacobiPreconditioner, KrylovResult, KrylovSettings,
+    Preconditioner,
+};
+
 // -- Interface ---
 //
 // Basically, OpenFOAM primitives aren't easy to use.

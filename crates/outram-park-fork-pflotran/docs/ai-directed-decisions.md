@@ -87,3 +87,62 @@ and an **open question / review ask** for the human. Reviewers: search for
 ## Decision log (appended as work proceeds)
 
 <!-- New decisions are appended below with the next Dn index. -->
+
+### D4 — `krylov` module in `outram-foam-basic-lib` (fleet-built)
+
+- **GMRES uses RIGHT preconditioning** (solves `A M^-1 u = b`, `x = M^-1 u`) so
+  the Givens residual estimate equals the true residual; it also recomputes the
+  true residual each restart as the authoritative stopping test.
+- **ILU(0) is a genuine incomplete-LU** (IKJ elimination on a CSR view built
+  from the LDU coefficients, restricted to A's sparsity), exact for tridiagonal
+  matrices — *not* a Jacobi fallback. Only safeguard is a small-pivot floor
+  (`1e-300`, sign-preserving).
+- Verification only: solvers cross-checked against dense `SquareMatrix` LU
+  (rel err < 1e-6) and analytic tridiagonal LU. No physical validation.
+- **REVIEW:** the crate's own `CLAUDE.md` porting workflow asks for a README
+  "Ported items" row and a `cargo test --doc` run — done in the bookkeeping
+  step; confirm the `krylov` module belongs at Layer 1b of that crate.
+
+### D5 — Grid conventions
+
+- Cell ordering **x-fastest**: `index = i + nx*(j + ny*k)`. Connection/LDU face
+  order is the same traversal (each cell emits +x, +y, +z faces), so LDU face
+  `f` ↔ `connections()[f]`, and `owner < neighbour` holds by construction.
+- `cell_index`/`cell_ijk` use `debug_assert!` bounds (no release-mode cost) —
+  out-of-range in release is UB-adjacent (panics downstream), a deliberate
+  hot-path choice. **REVIEW:** confirm acceptable.
+
+### D6 — Property models and their known singularities
+
+- **Model pairing:** van Genuchten retention ↔ **Mualem** relative permeability;
+  Brooks–Corey retention ↔ **Burdine** relative permeability. These are the
+  classical self-consistent pairings and match PFLOTRAN defaults. VG+Burdine is
+  not offered in v1.
+- **EOS:** slightly-compressible exponential `rho(p) = rho_ref*exp(c*(p-p_ref))`
+  (strictly positive, derivative exactly `c*rho` for a consistent Jacobian);
+  constant viscosity.
+- **Known non-smoothness a Newton solver must handle:** VG–Mualem
+  `dkr/dSe -> +inf` as `Se -> 1` (returned as `f64::INFINITY`, intrinsic to the
+  model); Brooks–Corey `dSe/dpc` is discontinuous at the air-entry pressure
+  `pc = 1/alpha`. **REVIEW:** these are physical properties of the models, but
+  the RICHARDS Jacobian/line-search must be robust to them (see D8).
+
+### D7 — Input-deck format is an AI-designed subset (NOT real PFLOTRAN syntax)
+
+- The `io` card grammar (`GRID`/`MATERIAL`/`CHARACTERISTIC_CURVES`/
+  `BOUNDARY_CONDITION`/`TIME` blocks, `#`/`!` comments, `END`/`/` terminators)
+  is an AI-invented minimal subset. It is **not** compatible with genuine
+  PFLOTRAN input decks and makes no fidelity claim.
+- **REVIEW (high priority):** a human must decide whether to (a) keep this
+  lite format for v1 verification and document it as non-PFLOTRAN, or (b)
+  replace it with a real PFLOTRAN input-deck parser. Flagged in `io/mod.rs`.
+
+### D8 — Newton solver strategy
+
+- Backtracking **Armijo** line search (`||F(x+λdx)|| <= (1 - 1e-4 λ)||F(x)||`,
+  λ halved from 1 up to `max_backtracks`); if none pass, take the least-residual
+  trial λ to guarantee progress.
+- **Inexact Newton:** a non-converged inner Krylov solve is tolerated (its
+  `converged` flag is ignored and the direction still used); only a non-finite
+  `dx` is fatal. **REVIEW:** whether to surface inner-solver non-convergence in
+  `NewtonReport` (currently not a field) is a maintainer decision.
