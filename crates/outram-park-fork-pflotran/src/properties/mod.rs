@@ -10,6 +10,11 @@
 //!   liquid relative-permeability `k_r(S_e)` curves, dispatched by enum over the
 //!   [`VanGenuchten`] (van Genuchten–Mualem) and [`BrooksCorey`]
 //!   (Brooks–Corey–Burdine) model families. See [`curves`].
+//! - [`ThermalWaterProperties`] and [`RockThermalProperties`] — the
+//!   temperature-dependent liquid-water and solid-matrix thermal closures the
+//!   **TH** (thermal-hydraulic) flow mode needs for its energy balance:
+//!   `rho(p, T)`, `mu(T)`, and the `c`/`k` transport coefficients (bead
+//!   op-v6s.10). Verification-only correlations, not IAPWS-IF97. See [`thermal`].
 //!
 //! # Conventions (shared by the curves)
 //!
@@ -37,6 +42,8 @@
 
 mod curves;
 mod eos;
+mod thermal;
 
 pub use curves::{BrooksCorey, CharacteristicCurves, Haverkamp, VanGenuchten};
 pub use eos::LiquidWaterEos;
+pub use thermal::{RockThermalProperties, ThermalWaterProperties};
