@@ -34,6 +34,13 @@
 //! residual or the Newton step is likewise reported as a `Convergence` failure
 //! rather than propagated silently.
 
+pub mod block;
+
+pub use block::{
+    block_bicgstab, BlockJacobiPreconditioner, BlockLduMatrix, BlockNewtonConfig, BlockNewtonReport,
+    BlockNewtonSolver, BlockNonlinearSystem,
+};
+
 use crate::error::PflotranError;
 use outram_foam_basic_lib::krylov::{
     self, KrylovSettings, Preconditioner,
