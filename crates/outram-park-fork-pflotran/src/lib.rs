@@ -7,16 +7,17 @@
 //! objects), `uom`-typed API boundaries, a pure-Rust solver (no PETSc FFI, no
 //! MPI in v1), and an Android-buildable library.
 //!
-//! > **⚠️ Early v1 — RICHARDS solves, but is VERIFICATION-ONLY.** The RICHARDS
-//! > flow mode ([`flow::RichardsSimulation`]) runs end-to-end: a structured
-//! > Cartesian two-point-flux discretisation, backward-Euler in time, solved by
-//! > the pure-Rust Newton–Krylov [`solver`] over the foam-basic-lib `krylov`
-//! > backend, driven from a parsed input deck ([`io`]). It has been **verified**
-//! > (closed-form saturated steady state; method of manufactured solutions) but
-//! > **not validated** against published PFLOTRAN reference cases (bead
-//! > op-v6s.9). Do not treat any output as validated. Later flow modes (TH,
-//! > GENERAL multiphase, transport, geochemistry) are not implemented and their
-//! > entry points return [`error::PflotranError::NotImplemented`].
+//! > **⚠️ VERIFICATION-ONLY — no validation, no human V&V yet.** Multiple modes
+//! > are implemented and unit/verification-tested, but NONE has been validated
+//! > against published PFLOTRAN reference cases (all validation is bead-tracked
+//! > and deferred: op-v6s.9.x/.10.1/.11.1/.12.1/.13.1). Do not treat any output
+//! > as validated. Implemented so far, each **verified** against closed-form /
+//! > manufactured references only:
+//! > - **RICHARDS** variably-saturated flow ([`flow::RichardsSimulation`]) — MMS 2nd-order.
+//! > - **Solute transport** ([`transport`]) + **TH heat transport** ([`energy`]) — closed-form advection–diffusion/conduction.
+//! > - **Aqueous geochemistry** ([`geochemistry`]) + **kinetics** ([`kinetics`]) + **reactive transport** ([`reactive_transport`]).
+//! > - **Two-phase (air–water) multiphase flow** ([`multiphase`]) on the block
+//! >   solver ([`solver::block`]).
 //! >
 //! > **Independent fork, not the official PFLOTRAN.** "PFLOTRAN" names only the
 //! > upstream work this crate derives from; nothing here is endorsed by or
@@ -50,13 +51,16 @@
 //! | [`units`] | dimensional quantities used throughout | **real** — named `uom` type aliases (a human hovers `Pressure`, not a raw `Quantity`) |
 //! | [`error`] | error handling | **real** — the crate [`error::PflotranError`] enum |
 //! | [`flow`] | `pm_*` process-model / flow-mode polymorphism | **working (verification-only)** — [`flow::FlowMode`] + [`flow::RichardsSimulation`]: RICHARDS residual/Jacobian + adaptive timestep (bead op-v6s.8) |
-//! | [`grid`] | `discretization` / `grid` structured FV | **scaffold** — structured Cartesian FV (bead op-v6s.5) |
-//! | [`solver`] | PETSc SNES/KSP replacement | **scaffold** — Newton–Krylov over foam-basic-lib `krylov` (bead op-v6s.4, KEYSTONE) |
-//! | [`properties`] | EOS + characteristic curves | **scaffold** — EOS + retention/rel-perm curves (bead op-v6s.7) |
-//! | [`io`] | input-deck cards + output | **scaffold** — card-deck subset + CSV/VTK (bead op-v6s.6) |
+//! | [`grid`] | `discretization` / `grid` structured FV | **real** — structured Cartesian FV, two-point flux (bead op-v6s.5) |
+//! | [`solver`] | PETSc SNES/KSP replacement | **real** — scalar + block ([`solver::block`]) Newton–Krylov over foam-basic-lib `krylov` (beads op-v6s.4, op-v6s.4.1) |
+//! | [`properties`] | EOS + characteristic curves | **real** — EOS, van Genuchten/Brooks–Corey/Haverkamp curves, thermal properties (beads op-v6s.7, op-v6s.10) |
+//! | [`io`] | input-deck cards + output | **real (AI-designed subset)** — card-deck + CSV/VTK (bead op-v6s.6) |
 //! | [`transport`] | conservative solute transport | **working (verification-only)** — advection–diffusion, coupled to a RICHARDS flow field (bead op-v6s.11) |
 //! | [`energy`] | TH heat transport | **working (verification-only)** — advection–conduction of temperature, one-way coupled to flow (bead op-v6s.10) |
 //! | [`geochemistry`] | aqueous speciation | **working (verification-only)** — equilibrium speciation (GIRT core; bead op-v6s.12) |
+//! | [`kinetics`] | mineral kinetics | **working (verification-only)** — TST precipitation/dissolution on a foam ODE solver (bead op-v6s.12) |
+//! | [`reactive_transport`] | GIRT reactive transport | **working (verification-only)** — SNIA transport↔geochemistry coupling (bead op-v6s.12) |
+//! | [`multiphase`] | GENERAL multiphase flow | **working (verification-only)** — two-phase air–water on the block solver (bead op-v6s.13) |
 //!
 //! ## Design rules (workspace mandate)
 //!
