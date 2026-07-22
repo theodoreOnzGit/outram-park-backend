@@ -146,3 +146,33 @@ and an **open question / review ask** for the human. Reviewers: search for
   `converged` flag is ignored and the direction still used); only a non-finite
   `dx` is fatal. **REVIEW:** whether to surface inner-solver non-convergence in
   `NewtonReport` (currently not a field) is a maintainer decision.
+
+### D9 — RICHARDS discretisation choices (the physics core)
+
+- **Time:** backward (implicit) Euler, first-order. **Space:** cell-centred
+  two-point flux (TPFA) finite volume. Primary unknown: liquid pressure per cell.
+- **Mobility upstream-weighted** per face (kr from the upstream cell by flow
+  potential) — standard and the source of Jacobian asymmetry. Density is the
+  arithmetic face mean; permeability isotropic homogeneous in v1.
+- **Jacobian is assembled NUMERICALLY** by local finite differences of the
+  residual over the two-point stencil (O(N·stencil), not O(N²)). Rationale: it
+  matches the residual by construction (good Newton convergence), and it
+  side-steps the singular analytical `dk_r/dSe → ∞` of van Genuchten–Mualem at
+  full saturation (D6). **REVIEW:** an analytical Jacobian would be faster and is
+  worth a follow-up bead, but numerical is the safer first cut. Perturbation
+  `h = 1e-8·(1+|p|)`.
+- **Capillary pressure** `p_c = p_gas − p_l` with a fixed reference gas pressure
+  (default atmospheric). **Gravity** default `9.80665 m/s²` in `−z`; potential
+  `Φ = p + ρ_face·g·z`. Unspecified boundaries are **no-flow**.
+- **Adaptive timestepping:** grow ×1.5 on a converged step (capped at `max_dt`),
+  cut ×0.5 and retry on nonlinear failure, abort below `min_dt = 1e-6·initial_dt`.
+  **REVIEW:** these factors are AI-chosen defaults, not tuned/validated.
+- **Verification done:** closed-form saturated 1D steady state (linear profile,
+  matches to < 5 Pa) and a stationary closed no-flow box. **Validation NOT done.**
+
+### D10 — `NeumannFlux` sign convention
+
+- `BoundaryConditionKind::NeumannFlux(q)`: `q` is the normal Darcy velocity
+  (m/s), **positive = inflow** into the domain. `q = 0` (or an unspecified
+  boundary) is a no-flow wall. **REVIEW:** confirm this matches the intended
+  PFLOTRAN-style convention before any deck is shared as "PFLOTRAN-compatible".
