@@ -12,8 +12,10 @@
 //! Two closed-form model families are provided, dispatched by the
 //! [`CharacteristicCurves`] enum (no trait objects, per the workspace rule):
 //!
-//! - [`VanGenuchten`] (van Genuchten 1980 retention + Mualem 1976 rel-perm), and
-//! - [`BrooksCorey`] (Brooks & Corey 1964 retention + Burdine rel-perm).
+//! - [`VanGenuchten`] (van Genuchten 1980 retention + Mualem 1976 rel-perm),
+//! - [`BrooksCorey`] (Brooks & Corey 1964 retention + Burdine rel-perm), and
+//! - [`Haverkamp`] (Haverkamp et al. 1977 retention + conductivity — the Celia
+//!   1990 benchmark model).
 //!
 //! # Conventions
 //!
@@ -75,6 +77,9 @@ pub enum CharacteristicCurves {
     VanGenuchten(VanGenuchten),
     /// Brooks & Corey (1964) retention + Burdine relative permeability.
     BrooksCorey(BrooksCorey),
+    /// Haverkamp et al. (1977) retention + conductivity — the constitutive model
+    /// of the canonical Celia (1990) infiltration benchmark.
+    Haverkamp(Haverkamp),
 }
 
 impl CharacteristicCurves {
@@ -87,6 +92,7 @@ impl CharacteristicCurves {
         let se = match self {
             Self::VanGenuchten(m) => m.effective_saturation(pc_pa),
             Self::BrooksCorey(m) => m.effective_saturation(pc_pa),
+            Self::Haverkamp(m) => m.effective_saturation(pc_pa),
         };
         Ratio::new::<ratio>(se.clamp(0.0, 1.0))
     }
@@ -98,6 +104,7 @@ impl CharacteristicCurves {
         match self {
             Self::VanGenuchten(m) => m.d_se_d_pc(pc_pa),
             Self::BrooksCorey(m) => m.d_se_d_pc(pc_pa),
+            Self::Haverkamp(m) => m.d_se_d_pc(pc_pa),
         }
     }
 
@@ -110,6 +117,7 @@ impl CharacteristicCurves {
         let kr = match self {
             Self::VanGenuchten(m) => m.relative_permeability(se),
             Self::BrooksCorey(m) => m.relative_permeability(se),
+            Self::Haverkamp(m) => m.relative_permeability(se),
         };
         Ratio::new::<ratio>(kr.clamp(0.0, 1.0))
     }
@@ -125,6 +133,7 @@ impl CharacteristicCurves {
         match self {
             Self::VanGenuchten(m) => m.d_kr_d_se(se),
             Self::BrooksCorey(m) => m.d_kr_d_se(se),
+            Self::Haverkamp(m) => m.d_kr_d_se(se),
         }
     }
 
@@ -133,6 +142,7 @@ impl CharacteristicCurves {
         match self {
             Self::VanGenuchten(m) => m.residual_saturation(),
             Self::BrooksCorey(m) => m.residual_saturation(),
+            Self::Haverkamp(m) => m.residual_saturation(),
         }
     }
 }
@@ -394,6 +404,186 @@ impl CharacteristicCurveModel for BrooksCorey {
     }
 }
 
+/// Haverkamp et al. (1977) retention + conductivity — the constitutive model of
+/// the canonical Celia, Bouloutas & Zarba (1990) infiltration benchmark.
+///
+/// The Haverkamp relations are naturally written in terms of **pressure head**
+/// `psi` (suction, in centimetres). This crate works in capillary pressure
+/// `p_c` (Pa), converted with `|psi_cm| = c * p_c`, where `c = cm_per_pa` (for
+/// water, `100 / (rho g) ≈ 0.0101972 cm/Pa`).
+///
+/// # Retention curve
+///
+/// $$ S_e(p_c) = \frac{\alpha}{\alpha + |\psi|^{\beta}}, \quad p_c > 0 $$
+///
+/// with `S_e = 1` for `p_c <= 0`. (Equivalently `theta = theta_r + (theta_s -
+/// theta_r) S_e`.) Its derivative w.r.t. `p_c` (`psi = c\,p_c`) is
+///
+/// $$ \frac{dS_e}{dp_c} = -\,\frac{\alpha\,\beta\,c\,|\psi|^{\beta-1}}{\left(\alpha + |\psi|^{\beta}\right)^{2}} \le 0 . $$
+///
+/// # Relative permeability (conductivity)
+///
+/// Haverkamp's conductivity `K(psi) = K_s A / (A + |psi|^gamma)` gives
+/// `k_r = K/K_s = A / (A + |psi|^{gamma})`. Because `S_e` is a strict bijection
+/// of `|psi|` (`|psi|^{beta} = alpha(1 - S_e)/S_e`), `k_r` can be written as a
+/// function of `S_e` alone, keeping the shared `k_r(S_e)` interface:
+///
+/// $$ k_r(S_e) = \frac{A}{A + \left[\alpha (1 - S_e)/S_e\right]^{\gamma/\beta}} . $$
+///
+/// This composes with `S_e(p_c)` to reproduce `A/(A + |\psi|^{\gamma})` exactly,
+/// so no separate `k_r(p_c)` entry point is needed.
+///
+/// **Provenance of the standard parameters** ([`Haverkamp::celia_1977_sand`]):
+/// Haverkamp et al. (1977) sand as used by Celia, Bouloutas & Zarba (1990),
+/// *WRR* 26(7):1483–1496 — `alpha = 1.611e6`, `beta = 3.96`, `A = 1.175e6`,
+/// `gamma = 4.74`, `theta_s = 0.287`, `theta_r = 0.075` (head in **cm**). These
+/// are widely-reproduced public-literature values. **Verification-only**: the
+/// curve is implemented and FD-checked, but the full benchmark comparison is
+/// bead op-v6s.9.2/.9.3.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Haverkamp {
+    /// Retention fitting parameter `alpha` (dimensionless; pairs with head in cm).
+    pub alpha: f64,
+    /// Retention exponent `beta` (> 0).
+    pub beta: f64,
+    /// Conductivity fitting parameter `A` (dimensionless; pairs with head in cm).
+    pub a: f64,
+    /// Conductivity exponent `gamma` (> 0).
+    pub gamma: f64,
+    /// Residual water content `theta_r` (>= 0).
+    pub theta_r: f64,
+    /// Saturated water content `theta_s` (in `(theta_r, 1]`).
+    pub theta_s: f64,
+    /// Head-per-pressure conversion `|psi_cm| = cm_per_pa * p_c[Pa]` (> 0).
+    pub cm_per_pa: f64,
+}
+
+impl Haverkamp {
+    /// Water conversion factor `100 / (rho g)` (cm of head per pascal), for
+    /// `rho = 1000 kg/m^3`, `g = 9.80665 m/s^2`.
+    pub const WATER_CM_PER_PA: f64 = 100.0 / (1000.0 * 9.806_65);
+
+    /// Construct a Haverkamp model for water (uses [`Self::WATER_CM_PER_PA`]).
+    ///
+    /// Errors unless `alpha, beta, a, gamma > 0` and `0 <= theta_r < theta_s <= 1`.
+    pub fn new(
+        alpha: f64,
+        beta: f64,
+        a: f64,
+        gamma: f64,
+        theta_r: f64,
+        theta_s: f64,
+    ) -> Result<Self, PflotranError> {
+        Self::with_conversion(alpha, beta, a, gamma, theta_r, theta_s, Self::WATER_CM_PER_PA)
+    }
+
+    /// As [`Self::new`] but with an explicit head-per-pressure factor `cm_per_pa`
+    /// (for a non-water fluid or a different unit convention). `cm_per_pa > 0`.
+    pub fn with_conversion(
+        alpha: f64,
+        beta: f64,
+        a: f64,
+        gamma: f64,
+        theta_r: f64,
+        theta_s: f64,
+        cm_per_pa: f64,
+    ) -> Result<Self, PflotranError> {
+        if !(alpha > 0.0 && beta > 0.0 && a > 0.0 && gamma > 0.0) {
+            return Err(PflotranError::InvalidInput(
+                "Haverkamp: alpha, beta, a, gamma must all be positive".into(),
+            ));
+        }
+        if !(theta_r >= 0.0 && theta_r < theta_s && theta_s <= 1.0) {
+            return Err(PflotranError::InvalidInput(format!(
+                "Haverkamp: require 0 <= theta_r < theta_s <= 1, got theta_r={theta_r}, theta_s={theta_s}"
+            )));
+        }
+        if !(cm_per_pa > 0.0) || !cm_per_pa.is_finite() {
+            return Err(PflotranError::InvalidInput(
+                "Haverkamp: cm_per_pa must be positive and finite".into(),
+            ));
+        }
+        Ok(Self { alpha, beta, a, gamma, theta_r, theta_s, cm_per_pa })
+    }
+
+    /// The standard Haverkamp (1977) sand of the Celia et al. (1990) benchmark
+    /// (`alpha=1.611e6, beta=3.96, A=1.175e6, gamma=4.74, theta_s=0.287,
+    /// theta_r=0.075`, head in cm). See the type-level provenance note.
+    pub fn celia_1977_sand() -> Self {
+        // Unwrap is safe: these literals satisfy every validity constraint.
+        Self::new(1.611e6, 3.96, 1.175e6, 4.74, 0.075, 0.287).unwrap()
+    }
+
+    /// Absolute head `|psi|` in cm for a capillary pressure `p_c` (Pa). Zero at
+    /// or below saturation (`p_c <= 0`).
+    #[inline]
+    fn abs_head_cm(&self, pc_pa: f64) -> f64 {
+        if pc_pa <= 0.0 {
+            0.0
+        } else {
+            self.cm_per_pa * pc_pa
+        }
+    }
+}
+
+impl CharacteristicCurveModel for Haverkamp {
+    fn effective_saturation(&self, pc_pa: f64) -> f64 {
+        if pc_pa <= 0.0 {
+            return 1.0;
+        }
+        let psi_b = self.abs_head_cm(pc_pa).powf(self.beta);
+        self.alpha / (self.alpha + psi_b)
+    }
+
+    fn d_se_d_pc(&self, pc_pa: f64) -> f64 {
+        if pc_pa <= 0.0 {
+            return 0.0;
+        }
+        let psi = self.abs_head_cm(pc_pa);
+        let psi_b = psi.powf(self.beta);
+        let denom = self.alpha + psi_b;
+        // dSe/dpc = -alpha*beta*c*psi^(beta-1) / (alpha+psi^beta)^2
+        -self.alpha * self.beta * self.cm_per_pa * psi.powf(self.beta - 1.0) / (denom * denom)
+    }
+
+    fn relative_permeability(&self, se: f64) -> f64 {
+        // kr = A / (A + [alpha(1-se)/se]^(gamma/beta)); guard the endpoints.
+        if se <= 0.0 {
+            return 0.0;
+        }
+        if se >= 1.0 {
+            return 1.0;
+        }
+        let u = self.alpha * (1.0 - se) / se; // = |psi|^beta
+        let w = u.powf(self.gamma / self.beta); // = |psi|^gamma
+        self.a / (self.a + w)
+    }
+
+    fn d_kr_d_se(&self, se: f64) -> f64 {
+        // dkr/dse = A*r*alpha*u^(r-1) / (se^2 * (A+g)^2), r=gamma/beta, g=u^r.
+        // -> 0 at both endpoints; guard to avoid 0*inf / inf*0 forms.
+        if se <= 0.0 || se >= 1.0 {
+            return 0.0;
+        }
+        let r = self.gamma / self.beta;
+        let u = self.alpha * (1.0 - se) / se;
+        let g = u.powf(r);
+        let ag = self.a + g;
+        let num = self.a * r * self.alpha * u.powf(r - 1.0);
+        let val = num / (se * se * ag * ag);
+        if val.is_finite() {
+            val
+        } else {
+            0.0
+        }
+    }
+
+    fn residual_saturation(&self) -> f64 {
+        // S_r = theta_r / theta_s (liquid saturation at residual water content).
+        self.theta_r / self.theta_s
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -552,5 +742,83 @@ mod tests {
         assert!(VanGenuchten::new(1e-4, 2.0, 1.0).is_err()); // sr must be < 1
         assert!(BrooksCorey::new(1e-4, 0.0, 0.1).is_err()); // lambda > 0
         assert!(BrooksCorey::new(1e-4, 2.0, -0.1).is_err()); // sr >= 0
+    }
+
+    // --- Haverkamp (Celia 1990 benchmark model) ---
+
+    fn hv() -> CharacteristicCurves {
+        CharacteristicCurves::Haverkamp(Haverkamp::celia_1977_sand())
+    }
+
+    #[test]
+    fn haverkamp_se_bounds_and_monotone() {
+        let c = hv();
+        assert!((se_val(&c, -10.0) - 1.0).abs() < 1e-15, "saturated at pc<=0");
+        let mut prev = 1.0;
+        // Sweep capillary pressure (Pa) across the unsaturated range.
+        for k in 0..40 {
+            let pcv = 100.0 * 1.2f64.powi(k);
+            let s = se_val(&c, pcv);
+            assert!((0.0..=1.0).contains(&s), "Se out of range: {s}");
+            assert!(s <= prev + 1e-12, "Se not monotone decreasing");
+            prev = s;
+        }
+    }
+
+    #[test]
+    fn haverkamp_kr_bounds_and_endpoints() {
+        let c = hv();
+        assert!((kr_val(&c, 1.0) - 1.0).abs() < 1e-12, "kr(1) = 1");
+        assert!(kr_val(&c, 0.0).abs() < 1e-12, "kr(0) = 0");
+        let mut prev = 0.0;
+        for k in 1..20 {
+            let se = k as f64 / 20.0;
+            let kr = kr_val(&c, se);
+            assert!((0.0..=1.0).contains(&kr), "kr out of range: {kr}");
+            assert!(kr >= prev - 1e-12, "kr not monotone increasing");
+            prev = kr;
+        }
+    }
+
+    #[test]
+    fn haverkamp_residual_is_theta_ratio() {
+        let m = Haverkamp::celia_1977_sand();
+        let c = CharacteristicCurves::Haverkamp(m);
+        assert!((c.residual_saturation() - 0.075 / 0.287).abs() < 1e-12);
+    }
+
+    #[test]
+    fn haverkamp_d_se_d_pc_matches_finite_difference() {
+        let c = hv();
+        for &pcv in &[500.0, 1500.0, 5000.0, 20000.0] {
+            let h = pcv * 1e-6;
+            let fd = (se_val(&c, pcv + h) - se_val(&c, pcv - h)) / (2.0 * h);
+            let ana = c.d_se_d_pc(pc(pcv));
+            assert!(
+                (ana - fd).abs() <= 1e-6 * fd.abs().max(1e-12),
+                "dSe/dpc FD mismatch at pc={pcv}: analytic {ana}, fd {fd}"
+            );
+        }
+    }
+
+    #[test]
+    fn haverkamp_d_kr_d_se_matches_finite_difference() {
+        let c = hv();
+        for &se in &[0.2, 0.4, 0.6, 0.8] {
+            let h = 1e-7;
+            let fd = (kr_val(&c, se + h) - kr_val(&c, se - h)) / (2.0 * h);
+            let ana = c.d_kr_d_se(sat(se));
+            assert!(
+                (ana - fd).abs() <= 1e-5 * fd.abs().max(1e-12),
+                "dkr/dSe FD mismatch at se={se}: analytic {ana}, fd {fd}"
+            );
+        }
+    }
+
+    #[test]
+    fn haverkamp_rejects_bad_inputs() {
+        assert!(Haverkamp::new(0.0, 3.96, 1.175e6, 4.74, 0.075, 0.287).is_err());
+        assert!(Haverkamp::new(1.611e6, 3.96, 1.175e6, 4.74, 0.3, 0.287).is_err()); // theta_r >= theta_s
+        assert!(Haverkamp::with_conversion(1.611e6, 3.96, 1.175e6, 4.74, 0.075, 0.287, -1.0).is_err());
     }
 }

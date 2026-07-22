@@ -793,6 +793,61 @@ mod tests {
         assert!(rel < 1.0e-8, "mass not conserved: rel drift {rel:e} (m0={m0}, m1={m1})");
     }
 
+    /// The Haverkamp (Celia 1990) sand model must drive a real RICHARDS solve:
+    /// a dry column with a saturated inflow face wets up monotonically and stays
+    /// physically bounded. (End-to-end integration of bead op-v6s.9.1; the full
+    /// benchmark comparison is op-v6s.9.2/.9.3.)
+    #[test]
+    fn haverkamp_sand_column_runs_and_wets_up() {
+        use crate::properties::Haverkamp;
+        let grid = CartesianGrid::uniform(
+            15,
+            1,
+            1,
+            Length::new::<meter>(0.02),
+            Length::new::<meter>(1.0),
+            Length::new::<meter>(1.0),
+        )
+        .unwrap();
+        let curves = CharacteristicCurves::Haverkamp(Haverkamp::celia_1977_sand());
+        // Permeability from the Celia saturated conductivity Ks = 0.00944 cm/s:
+        // k = Ks * mu / (rho g) with Ks in m/s.
+        let ks = 0.00944e-2; // m/s
+        let k = ks * 1.0e-3 / (1000.0 * STANDARD_GRAVITY);
+        let boundary = vec![BoundaryCondition {
+            location: BoundaryLocation::XMin,
+            kind: BoundaryConditionKind::DirichletPressure(ATMOSPHERIC_PRESSURE),
+        }];
+        let problem = RichardsProblem::new(
+            grid,
+            LiquidWaterEos::water(),
+            curves,
+            0.287,
+            k,
+            0.0,
+            ATMOSPHERIC_PRESSURE,
+            boundary,
+        )
+        .unwrap();
+        // Dry initial state: pc = 5325 Pa (|psi| ~ 54 cm) -> low saturation.
+        let mut sim = RichardsSimulation::new(
+            problem,
+            NewtonConfig::default(),
+            TimeControls::from_time_spec(600.0, 5.0, 60.0),
+            ATMOSPHERIC_PRESSURE - 5325.0,
+        );
+        let s0 = sim.saturation();
+        sim.run().expect("Haverkamp column runs");
+        let s = sim.saturation();
+        for &v in &s {
+            assert!((0.0..=1.0).contains(&v), "saturation out of bounds: {v}");
+        }
+        assert!(s[0] > s0[0] + 1e-3, "inflow cell did not wet up");
+        for w in s.windows(2) {
+            assert!(w[1] <= w[0] + 1e-6, "saturation not monotone along x");
+        }
+    }
+
     /// A closed (no-flow) box with a uniform initial pressure must stay put:
     /// zero flux everywhere, so every step leaves the field unchanged.
     #[test]

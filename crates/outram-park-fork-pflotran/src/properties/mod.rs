@@ -38,5 +38,5 @@
 mod curves;
 mod eos;
 
-pub use curves::{BrooksCorey, CharacteristicCurves, VanGenuchten};
+pub use curves::{BrooksCorey, CharacteristicCurves, Haverkamp, VanGenuchten};
 pub use eos::LiquidWaterEos;
