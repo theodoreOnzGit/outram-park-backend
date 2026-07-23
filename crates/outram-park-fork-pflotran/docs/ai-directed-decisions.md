@@ -244,6 +244,59 @@ and an **open question / review ask** for the human. Reviewers: search for
   the operator-split reactive-transport loop (transport step → per-cell
   speciation) is a follow-up.
 
+### D14 — Upstream-parity wave: standalone gap modules (op-v6s.15.*, 2026-07-23)
+
+Following the maintainer directive *"I believe there is still work to be done
+compared to upstream — file beads and spawn agent fleets to continue,"* a
+capability-gap epic (**op-v6s.15**) was opened against the full PFLOTRAN feature
+set and worked as a fleet of **standalone new modules**, each built by an agent
+that writes only its own `src/<module>/` directory (no edits to `lib.rs`,
+`Cargo.toml`, or existing modules), with the main loop wiring + compiling
+centrally. Rationale: disjoint new directories cannot collide, so the fleet is
+safe to run in parallel; the main loop owns integration and is the single
+compile authority.
+
+Landed this wave (each **verification-only**, unit-tested, no human V&V):
+
+- **`activity`** (op-v6s.15.1) — Ideal / Debye–Hückel / Davies coefficients.
+- **`sorption`** (op-v6s.15.2) — Kd/Langmuir/Freundlich isotherms + Gaines–Thomas
+  ion exchange; **linear Kd wired into `transport`** (retardation).
+- **`decay`** (op-v6s.15.3) — Bateman chains + `exp(A·dt)` scaling-and-squaring;
+  first-order decay **wired into `transport`**.
+- **`microbial`** (op-v6s.15.4) — Monod / dual-Monod biodegradation (RKF45).
+- **`eos_real`** (op-v6s.15.7) — IAPWS-IF97 liquid water via `tampines-steam-tables`.
+- **`wells`** (op-v6s.15.12) — Peaceman well index (iso/anisotropic), BHP + rate
+  control, source/sink, and Hydrostatic / SeepageFace / TimeVarying BCs.
+- **`deck`** (op-v6s.15.10) — parser for a documented **subset of genuine
+  PFLOTRAN keyword-block syntax** (Fortran `1.d-12` floats, time-unit
+  normalisation), superseding the AI-invented `io` lite format of D7 for
+  real-deck compatibility. Still a subset — unsupported cards are enumerated in
+  the module header.
+
+**Scope-splitting decision.** Three parity beads named advanced extensions
+beyond what the core module implements; rather than leave them perpetually
+"in progress", the implemented core was closed and each extension was filed as
+its own follow-up bead:
+- op-v6s.15.1 core closed → **op-s1h** Pitzer (high-ionic-strength brines).
+- op-v6s.15.2 core closed → **op-gg7** surface complexation (CCM / diffuse-layer).
+- op-v6s.15.7 core closed → **op-1y6** CO2 (Redlich–Kwong) + NaCl-brine EOS.
+
+**In flight (this wave's second fleet):** op-s1h, op-gg7, op-1y6, and
+**op-v6s.15.8** (unstructured-grid TPFA discretisation).
+
+**Still open, deliberately not fleeted yet** (they modify *existing* coupled
+modules — `flow`/`energy`/`multiphase` — so they are main-loop work, not
+disjoint-module agent work): op-v6s.15.5 (GENERAL 3-phase air–water–energy),
+op-v6s.15.6 (two-way buoyancy TH coupling). Two more are tracked as
+known-deferred because they sit outside the pure-Rust / Android-buildable
+envelope: op-v6s.15.9 (MPI scale-out) and op-v6s.15.11 (HDF5 I/O).
+
+**Integration follow-ups still open** (the standalone modules exist but are not
+yet threaded into the hot loops): `activity` → geochemistry speciation
+(currently ideal `gamma = 1`, needs per-species charges — a public-API change);
+`eos_real` → RICHARDS water density. Both are numerically load-bearing and are
+left as bounded main-loop tasks with their own commits.
+
 ## Deferred to next week (2026-07-22 maintainer directive)
 
 All **Celia-1990 and validation-case work is paused** this week; the focus is
