@@ -62,7 +62,7 @@
 //! | [`reactive_transport`] | GIRT reactive transport | **working (verification-only)** — SNIA transport↔geochemistry coupling (bead op-v6s.12) |
 //! | [`multiphase`] | GENERAL multiphase flow | **working (verification-only)** — two-phase air–water on the block solver (bead op-v6s.13) |
 //! | [`general_mode`] | GENERAL air–water–energy | **working (verification-only)** — non-isothermal nb=3 (p_l, s_l, T) on the block solver; T couples back through ρ_l(T)/μ_l(T) (bead op-v6s.15.5) |
-//! | [`thermal_convection`] | two-way buoyancy TH | **working (verification-only)** — density-driven porous convection; conductive limit + Rayleigh formula verified, convecting-regime solve is a bead-tracked follow-up (bead op-v6s.15.6) |
+//! | [`thermal_convection`] | two-way buoyancy TH | **working (verification-only)** — density-driven porous convection; conductive limit, Rayleigh formula, and Horton–Rogers–Lapwood onset across 4π² all verified via energy-row equilibration + adaptive sub-stepping (beads op-v6s.15.6, op-3tt) |
 //! | [`activity`] | aqueous activity models | **real** — Debye–Hückel / Davies coefficients (bead op-v6s.15.1) |
 //! | [`sorption`] | sorption + ion exchange | **real** — Kd/Langmuir/Freundlich isotherms + Gaines–Thomas exchange (bead op-v6s.15.2) |
 //! | [`surface_complexation`] | pH-dependent sorption | **real** — amphoteric protonation + metal binding with NEM/CCM/diffuse-layer electrostatics (bead op-gg7) |
