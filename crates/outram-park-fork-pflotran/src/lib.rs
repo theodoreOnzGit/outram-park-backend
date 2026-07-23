@@ -63,6 +63,7 @@
 //! | [`multiphase`] | GENERAL multiphase flow | **working (verification-only)** — two-phase air–water on the block solver (bead op-v6s.13) |
 //! | [`activity`] | aqueous activity models | **real** — Debye–Hückel / Davies coefficients (bead op-v6s.15.1) |
 //! | [`sorption`] | sorption + ion exchange | **real** — Kd/Langmuir/Freundlich isotherms + Gaines–Thomas exchange (bead op-v6s.15.2) |
+//! | [`surface_complexation`] | pH-dependent sorption | **real** — amphoteric protonation + metal binding with NEM/CCM/diffuse-layer electrostatics (bead op-gg7) |
 //! | [`decay`] | radioactive decay | **real** — Bateman decay chains + ingrowth (bead op-v6s.15.3) |
 //! | [`eos_real`] | real fluid EOS | **real** — IAPWS-IF97 liquid water via `tampines-steam-tables` (bead op-v6s.15.7) |
 //! | [`eos_co2_brine`] | CO2 + brine EOS | **real (approximate)** — Redlich–Kwong CO2 + Batzle–Wang NaCl brine density/viscosity (bead op-1y6) |
@@ -111,6 +112,7 @@ pub mod properties;
 pub mod reactive_transport;
 pub mod solver;
 pub mod sorption;
+pub mod surface_complexation;
 pub mod transport;
 pub mod units;
 pub mod unstructured;
