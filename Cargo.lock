@@ -4654,6 +4654,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "njoy-tui"
+version = "0.0.1"
+dependencies = [
+ "njoy-outram-park-fork",
+ "ratatui",
+]
+
+[[package]]
 name = "no_std_io2"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
