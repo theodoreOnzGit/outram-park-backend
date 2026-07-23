@@ -68,6 +68,7 @@
 //! | [`microbial`] | microbial reactions | **real** — Monod/dual-Monod biodegradation on a foam ODE solver (bead op-v6s.15.4) |
 //! | [`wells`] | wells + advanced BCs | **real** — Peaceman well index + hydrostatic/seepage/time-varying BCs (bead op-v6s.15.12) |
 //! | [`deck`] | real PFLOTRAN input deck | **real (subset)** — genuine PFLOTRAN keyword-block syntax, Fortran D-exponent floats (bead op-v6s.15.10) |
+//! | [`pitzer`] | high-ionic-strength activity | **real** — Pitzer ion-interaction virial model for brines (25 °C, binary salts) (bead op-s1h) |
 //!
 //! Modules op-v6s.15.1/.2/.3/.4/.7/.10/.12 above are standalone building blocks
 //! (upstream-parity gaps); the sorption/decay pieces are wired into
@@ -102,6 +103,7 @@ pub mod io;
 pub mod kinetics;
 pub mod microbial;
 pub mod multiphase;
+pub mod pitzer;
 pub mod properties;
 pub mod reactive_transport;
 pub mod solver;
