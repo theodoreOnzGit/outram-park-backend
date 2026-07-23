@@ -189,6 +189,24 @@ pub fn sample_uniform_direction(seed: &mut u64) -> [f64; 3] {
     [u, v, w]
 }
 
+/// Tabulate the dimensionless exit time `theta` on a **uniform** CDF grid:
+/// entry `j` is `theta` at `F = j / (m - 1)` for `j = 0..m`.
+///
+/// Unlike the internal inverse-CDF table (which is queried by binary search),
+/// this is a directly-indexable lookup — `theta(u) ~ table[u*(m-1)]` with linear
+/// interpolation — so it can be uploaded to a GPU and sampled without a search.
+/// `m` must be at least 2.
+pub fn dimensionless_exit_time_table(m: usize) -> Vec<f64> {
+    assert!(m >= 2, "table needs at least two points");
+    let cdf = exit_time_cdf();
+    (0..m)
+        .map(|j| {
+            let f = j as f64 / (m - 1) as f64;
+            cdf.sample_theta(f.min(0.999_999))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

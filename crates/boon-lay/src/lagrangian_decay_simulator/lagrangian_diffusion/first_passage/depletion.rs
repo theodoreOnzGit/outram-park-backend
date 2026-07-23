@@ -41,7 +41,6 @@
 use fission_yields_data::prelude::Nuclide;
 use outram_mc_libs::rng::lcg::prn;
 use uom::si::f64::{Frequency, Time};
-use uom::si::ratio::ratio;
 use uom::ConstZero;
 
 use crate::nuclide_reaction_and_decay_data::decay_library::DecayLibrary;

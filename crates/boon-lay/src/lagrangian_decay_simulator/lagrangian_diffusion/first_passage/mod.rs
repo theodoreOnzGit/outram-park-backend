@@ -19,6 +19,8 @@
 //! - [`depletion`] — decay and (neutron-field) transmutation as competing
 //!   clocks alongside each hop, so the walker changes nuclide as it diffuses;
 //!   the ensemble of identities over time is the depleted inventory.
+//! - [`ensemble`] — rayon-parallel drivers over many independent histories
+//!   (release fraction, depletion outcomes), since each walk is independent.
 //!
 //! ## What does not belong here
 //!
@@ -33,6 +35,7 @@
 //! the diffusion core.
 
 pub mod depletion;
+pub mod ensemble;
 pub mod interface;
 pub mod sphere_fpt;
 pub mod walk_on_spheres;

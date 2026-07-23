@@ -19,10 +19,19 @@ anyhow          = { workspace = true }
 outram-mc-libs     = { workspace = true }
 fission-yields-data               = { workspace = true }
 openmc-endf-8-depletion-lib-b     = { workspace = true }
+# Data parallelism across independent Lagrangian histories. Pure-Rust and
+# Android/Termux-safe, so it stays an unconditional dependency.
+rayon           = { workspace = true }
+
+# Optional wgpu GPU acceleration — declared only OFF Android (wgpu is an
+# Android-hostile GPU/windowing dependency per the workspace Android rule). The
+# `gpu` module is `cfg(not(target_os = "android"))`-gated; the CPU (rayon) path
+# is always available and is the trusted reference.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+wgpu = { workspace = true }
 
 [dev-dependencies]
 approx          = { workspace = true }
-rayon           = { workspace = true }
 log             = { workspace = true }
 csv             = { workspace = true }
 
