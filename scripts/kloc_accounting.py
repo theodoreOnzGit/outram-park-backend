@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 kloc_accounting.py
 ==================
 
@@ -183,9 +183,24 @@ BASELINE_FOOTNOTES = [
           "Monte Carlo solvers, via NUS AI-know."),
 ]
 
-# TUAS is reported net of the code it inherited from this repo at spin-out.
+# TUAS is reported net of the code it inherited from thermal_hydraulics_rs at
+# spin-out.
+#
+# What is subtracted is the code that ACTUALLY CAME ACROSS -- the tree at TUAS's
+# second commit, which imported the predecessor wholesale 42 minutes after the
+# initial commit -- and not the predecessor's own full extent.
+#
+# The two differ. The predecessor held 260 .rs files at 4d534af; 236 were
+# imported. Subtracting its full extent would remove 7,754 code lines that were
+# written in the predecessor and never carried forward, erasing real
+# pre-agentic work from the baseline and, because the baseline is the
+# denominator of the productivity claim, flattering the agentic figure. It
+# would also contradict the table caption, which says "net of the code it
+# inherited": inherited means what arrived, not what the predecessor happened
+# to contain.
 TUAS_KEY = "tuas_boussinesq_solver"
 TUAS_PREDECESSOR_KEY = "thermal_hydraulics_rs"
+TUAS_IMPORT_REF = "c451c8e203d5772955c2c9f3c6739e92b8180c78"   # 2024-10-10
 
 # Pinned to a commit, not to the branch tip.
 #
@@ -290,8 +305,8 @@ CLASS_LABEL = {
 # figures, the percentages, the 12.8x headline -- was written against them.
 # Recorded from the run of 2026-07-23 on develop.
 MANUSCRIPT = {
-    "baseline_total_lines": 286_972,
-    "baseline_code_lines": 173_544,
+    "baseline_total_lines": 303_463,
+    "baseline_code_lines": 181_298,
     "baseline_active_days": 367,
     "agentic_total_rust": 349_541,
     "agentic_vendored_preagentic": 173_544,
@@ -613,14 +628,22 @@ def measure_baseline(repos: list[Repo]) -> tuple[list[RepoStats], dict]:
     by_key = {s.repo.key: s for s in stats}
 
     # TUAS net of what it inherited from thermal_hydraulics_rs at spin-out.
+    # The subtrahend is the imported tree itself -- see TUAS_IMPORT_REF above.
     tuas, pred = by_key.get(TUAS_KEY), by_key.get(TUAS_PREDECESSOR_KEY)
     net = {}
     if tuas and pred and not tuas.missing and not pred.missing:
+        with materialize(tuas.repo.path, TUAS_IMPORT_REF) as tree:
+            imp_total, imp_code, imp_files = count_lines(tree)
         net = {
             "head_total": tuas.total_lines,
             "head_code": tuas.code_lines,
-            "net_total": tuas.total_lines - pred.total_lines,
-            "net_code": tuas.code_lines - pred.code_lines,
+            "import_total": imp_total,
+            "import_code": imp_code,
+            "import_files": imp_files,
+            "net_total": tuas.total_lines - imp_total,
+            "net_code": tuas.code_lines - imp_code,
+            # Written in the predecessor, not carried across at spin-out.
+            "abandoned_code": pred.code_lines - imp_code,
         }
         tuas.total_lines = net["net_total"]
         tuas.code_lines = net["net_code"]
@@ -815,10 +838,17 @@ def report(base_stats, base_totals, crate_rows, agentic_summary, check: bool) ->
         w()
         w(f"  TUAS at head       : {fmt(net['head_total'])} total, "
           f"{fmt(net['head_code'])} code")
-        w(f"  less predecessor   : {fmt(net['head_total'] - net['net_total'])} total, "
-          f"{fmt(net['head_code'] - net['net_code'])} code")
+        w(f"  less imported      : {fmt(net['import_total'])} total, "
+          f"{fmt(net['import_code'])} code "
+          f"({net['import_files']} files, at {TUAS_IMPORT_REF[:7]})")
         w(f"  TUAS net-new       : {fmt(net['net_total'])} total, "
           f"{fmt(net['net_code'])} code")
+        w(f"  predecessor kept {fmt(net['abandoned_code'])} code lines that were "
+          f"never imported;")
+        w(f"  they stay in the baseline under thermal_hydraulics_rs, and are the "
+          f"reason")
+        w(f"  the baseline total exceeds the pre-agentic code vendored into the "
+          f"backend.")
 
     if base_totals["missing"]:
         w()
@@ -1033,7 +1063,9 @@ executable doctests, appear only in the total. An active day is any calendar
 date carrying at least one commit; the total is a union of distinct dates
 rather than a column sum, because these projects overlapped in time. TUAS is
 reported net of the code it inherited from \texttt{thermal\_hydraulics\_rs} at
-spin-out, so that rows sum without double counting; at its head TUAS stands at
+spin-out --- specifically net of the tree TUAS imported wholesale at its second
+commit, \texttt{c451c8e}, rather than net of the predecessor's own full extent,
+so that what is removed is what actually came across. At its head TUAS stands at
 """ + head_total + " total and " + head_code + r""" code lines, the 96~KLOC
 quoted in the text. All figures are measured on each repository's
 \texttt{develop} branch, which is where the development history lives ---
