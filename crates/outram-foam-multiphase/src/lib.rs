@@ -42,10 +42,20 @@
 //!   void-fraction transport, algebraic slip / drift-velocity closures
 //!   (Zuber-Findlay, terminal velocity, user-defined). Ref OpenFOAM
 //!   `incompressibleDriftFlux`. **In progress** (bead `op-2kk.1`).
-//! - Stage 2 — Euler-Euler two-fluid (planned, `op-2kk.2`).
-//! - Stage 3 — Wall boiling framework (planned, `op-2kk.3`).
-//! - Stage 4 — CHF models (planned, `op-2kk.4`).
-//! - Stage 5 — Dryout / post-dryout framework (planned, `op-2kk.5`).
+//! - **Stage 2 — Euler-Euler two-fluid** ([`two_fluid`]) — per-phase
+//!   continuity + drag closures (Schiller-Naumann, Wen-Yu), 6-equation
+//!   architecture scaffolded. Ref OpenFOAM `multiphaseEuler`. Foundation done
+//!   (bead `op-2kk.2`).
+//! - **Stage 3 — Wall boiling framework** ([`wall_boiling`]) — RPI heat-flux
+//!   partitioning (Kurul & Podowski). Foundation done (bead `op-2kk.3`).
+//! - **Stage 4 — CHF models** ([`chf`]) — Biasi / W-3 / Bowring correlations +
+//!   Groeneveld LUT framework. Foundation done (bead `op-2kk.4`).
+//! - **Stage 5 — Dryout / post-dryout framework** ([`dryout`]) — reserved
+//!   interfaces + Dougall-Rohsenow worked example. Foundation done (`op-2kk.5`).
+//!
+//! All Stage 2-5 modules are **unit-tested foundations, not validated solvers**
+//! (no full pressure coupling; benchmark validation is a later human step) —
+//! see each module's "Honest scope".
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
@@ -53,7 +63,11 @@
 //! `uom`-typed API boundaries, GPLv3 + OpenFOAM provenance headers on ported
 //! files, Android-buildable (pure-Rust, no system BLAS/GUI).
 
+pub mod chf;
 pub mod drift_flux;
+pub mod dryout;
+pub mod two_fluid;
+pub mod wall_boiling;
 
 /// Errors produced by the multiphase solvers in this crate.
 #[derive(Debug, thiserror::Error)]

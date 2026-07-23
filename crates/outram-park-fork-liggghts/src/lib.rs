@@ -49,19 +49,28 @@
 //! - **Phase 1 — Particle framework** ([`particle`]) — `Particle { position,
 //!   velocity, angular_velocity, mass, radius, temperature }` + explicit time
 //!   integration. **In progress** (bead `op-t3l.1`).
-//! - Phase 2 — Contact mechanics (Hooke, Hertz) — planned (`op-t3l.2`).
-//! - Phase 3 — Boundaries (Plane, Wall, Box, Cylinder) — planned (`op-t3l.3`).
-//! - Phase 4 — Thermal DEM (particle/particle + particle/wall heat transfer) —
-//!   planned (`op-t3l.4`).
-//! - Phase 5 — Future CFD-DEM coupling (reserve architecture only) — planned
-//!   (`op-t3l.5`).
+//! - **Phase 2 — Contact mechanics** ([`contact`]) — Hooke + Hertz-Mindlin
+//!   normal/tangential contact (enum dispatch). Foundation done (`op-t3l.2`).
+//! - **Phase 3 — Boundaries** ([`boundary`]) — Plane / Wall / Box / Cylinder
+//!   signed-distance + particle overlap. Foundation done (`op-t3l.3`).
+//! - **Phase 4 — Thermal DEM** ([`thermal`]) — particle/particle + particle/wall
+//!   contact conduction + temperature integration. Foundation done (`op-t3l.4`).
+//! - **Phase 5 — CFD-DEM coupling** ([`coupling`]) — reserved architecture only
+//!   (interfaces defined, no physics). Done as reserved (`op-t3l.5`).
+//!
+//! Phases 2-4 are **clean-room, unit-tested foundations, not benchmark-validated**
+//! (that is a later human step) — see each module's "Honest scope".
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
 //! Enum dispatch (no `Box<dyn>`), no lifetime parameters (own by value / index
 //! ids), `uom`-typed API boundaries, Android-buildable (pure-Rust, no BLAS/GUI).
 
+pub mod boundary;
+pub mod contact;
+pub mod coupling;
 pub mod particle;
+pub mod thermal;
 
 /// Errors produced by the DEM library in this crate.
 #[derive(Debug, thiserror::Error)]

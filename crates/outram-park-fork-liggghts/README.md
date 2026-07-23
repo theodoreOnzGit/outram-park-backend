@@ -38,11 +38,14 @@ The **DEM / granular-mechanics pillar** of the OUTRAM PARK Phase II architecture
 
 | Phase | Module | Content | Bead | Status |
 |---|---|---|---|---|
-| 1 — Particle framework | `particle` | Particle state + explicit integration | `op-t3l.1` | In progress |
-| 2 — Contact mechanics | — | Hooke, Hertz (`trait ContactModel`) | `op-t3l.2` | Planned |
-| 3 — Boundaries | — | Plane, Wall, Box, Cylinder | `op-t3l.3` | Planned |
-| 4 — Thermal DEM | — | Particle/particle + particle/wall heat transfer | `op-t3l.4` | Planned |
-| 5 — CFD-DEM coupling | — | Reserve architecture only | `op-t3l.5` | Planned |
+| 1 — Particle framework | `particle` | Particle state + explicit integration | `op-t3l.1` | Foundation done |
+| 2 — Contact mechanics | `contact` | Hooke, Hertz-Mindlin (enum dispatch) | `op-t3l.2` | Foundation done |
+| 3 — Boundaries | `boundary` | Plane, Wall, Box, Cylinder | `op-t3l.3` | Foundation done |
+| 4 — Thermal DEM | `thermal` | Particle/particle + particle/wall heat transfer | `op-t3l.4` | Foundation done |
+| 5 — CFD-DEM coupling | `coupling` | Reserve architecture only | `op-t3l.5` | Reserved arch |
+
+Phases 1-4 are **clean-room, unit-tested foundations, not benchmark-validated**
+(validation is a later human step).
 
 Definition of done for every physics deliverable: theory documentation +
 verification tests + reference-benchmark comparison + unit-safe (`uom`)

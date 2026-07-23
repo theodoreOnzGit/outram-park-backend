@@ -33,11 +33,14 @@ Independent OUTRAM PARK fork, not the official OpenFOAM (see `TRADEMARKS.md`).
 
 | Stage | Module | OpenFOAM ref | Bead | Status |
 |---|---|---|---|---|
-| 1 — Drift Flux | `drift_flux` | `incompressibleDriftFlux` | `op-2kk.1` | In progress |
-| 2 — Euler-Euler two-fluid | — | `twoPhaseEulerFoam` | `op-2kk.2` | Planned |
-| 3 — Wall boiling framework | — | OF wall boiling | `op-2kk.3` | Planned |
-| 4 — CHF models | — | CHFModel/CHFSubCoolModel | `op-2kk.4` | Planned |
-| 5 — Dryout / post-dryout | — | — | `op-2kk.5` | Planned |
+| 1 — Drift Flux | `drift_flux` | `incompressibleDriftFlux` | `op-2kk.1` | Foundation done |
+| 2 — Euler-Euler two-fluid | `two_fluid` | `multiphaseEuler` | `op-2kk.2` | Foundation done |
+| 3 — Wall boiling framework | `wall_boiling` | OF wall boiling (RPI) | `op-2kk.3` | Foundation done |
+| 4 — CHF models | `chf` | Biasi/W-3/Bowring/Groeneveld | `op-2kk.4` | Foundation done |
+| 5 — Dryout / post-dryout | `dryout` | — | `op-2kk.5` | Reserved framework |
+
+All foundations are **unit-tested translations, not benchmark-validated** (no full
+pressure coupling; drag-only interfacial force; validation is a later human step).
 
 Definition of done for every solver: theory documentation + verification tests
 + reference-benchmark comparison + unit-safe (`uom`) implementation. Humans own
