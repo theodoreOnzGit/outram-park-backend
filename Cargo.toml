@@ -11,6 +11,7 @@ members = [
     "crates/outram-foam-mesh",
     "crates/outram-foam-cli",
     "crates/outram-mc-libs",
+    "crates/outram-mc-tui",
     "crates/outram-park-fork-dwsim-libs",
     "crates/boon-lay",
     "crates/njoy-outram-park-fork",
