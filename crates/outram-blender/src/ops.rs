@@ -761,6 +761,11 @@ pub enum MeshOp {
         /// Shell thickness in mesh units; the inner shell is offset inward.
         thickness: f64,
     },
+    /// **Recalculate normals outside**: make the winding globally consistent and
+    /// outward-facing, delegated to
+    /// [`crate::recalc_normals::recalculate_normals`]. Repairs an
+    /// inconsistently-wound polygon soup.
+    RecalculateNormals,
 }
 
 impl MeshOp {
@@ -806,6 +811,7 @@ impl MeshOp {
             MeshOp::Weld { distance } => Ok(crate::weld::weld(&mesh, *distance)),
             MeshOp::FillHoles => Ok(crate::fill_holes::fill_holes(&mesh)),
             MeshOp::Solidify { thickness } => Ok(crate::solidify::solidify(&mesh, *thickness)),
+            MeshOp::RecalculateNormals => Ok(crate::recalc_normals::recalculate_normals(&mesh)),
         }
     }
 }
