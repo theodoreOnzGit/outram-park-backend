@@ -23,6 +23,11 @@ members = [
     # solve, Newton-Krylov solver, grid, and I/O are planned (epic op-v6s).
     "crates/outram-park-fork-pflotran",
     "crates/tampines",
+    # outram-park-mpi — pure-Rust translation of an MPICH subset (MPI-3 API:
+    # communicators, datatypes, point-to-point, core collectives) over a
+    # shared-memory threads-as-ranks transport (Android-clean; TCP later behind a
+    # feature). Foundation for pflotran/outram-mc MPI scale-out (epic op-erl).
+    "crates/outram-park-mpi",
     "crates/outram-park-digital-twin-engine",
     # KOVAN — knowledge layer (deterministic literature/semantics/codegen tooling)
     "crates/kovan-common",
