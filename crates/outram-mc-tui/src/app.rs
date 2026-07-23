@@ -206,36 +206,45 @@ impl App {
 
     /// Caveat shown under the compute-backend row on the settings screen.
     ///
-    /// **Honest disclosure, not a TUI bug:** [`RunSettings::compute`] is wired
-    /// straight through to [`outram_mc_libs::physics::keff::KeffSettings::compute`]
-    /// for every preset, and [`crate::app::App::gpu_status_line`] genuinely
-    /// queries [`outram_mc_libs::gpu::probe`]. But of this crate's three
-    /// transport entry points, only
-    /// [`outram_mc_libs::physics::keff::run_keff`] (the original bare-sphere-only
-    /// driver) actually dispatches on [`ComputeType`] — verified by reading
-    /// `outram-mc-libs/src/physics/transport_csg.rs` and
-    /// `outram-mc-libs/src/pebble_beds/keff_delta.rs`, neither of which
-    /// reference `ComputeType`/`rayon`/`GpuContext` at all. Every preset in
-    /// this TUI runs through `run_keff_csg` (bare sphere, LWR cell) or
-    /// `run_keff_delta` (pebble beds) — chosen so bare sphere and LWR cell can
-    /// carry the op-iom spectrum tally — so the compute-backend selector is
-    /// currently **inert**: it is read and shown correctly, but every run
-    /// executes the deterministic single-thread CPU path regardless of what is
-    /// selected here. This is a real gap in the upstream crate's driver
-    /// surface (`run_keff_csg`/`run_keff_delta` have no `ComputeType`
-    /// dispatch), not a TUI oversight; see the crate README for the follow-up.
+    /// **Honest disclosure of what the selector does (op-fla).**
+    /// [`RunSettings::compute`] is wired straight through to
+    /// [`outram_mc_libs::physics::keff::KeffSettings::compute`] for every preset,
+    /// and both driver entry points this TUI uses — `run_keff_csg` (bare sphere,
+    /// LWR cell) and `run_keff_delta` (pebble beds) — now **dispatch on
+    /// [`ComputeType`]**:
+    ///
+    /// - **CPU (single-thread)** runs the deterministic, bit-reproducible
+    ///   reference path.
+    /// - **CPU (multi-thread)** genuinely transports the generation's histories
+    ///   in parallel across all cores with `rayon` — a real speed-up, selectable
+    ///   here.
+    /// - **GPU** has **no GPU kernel for CSG or delta-tracked geometry** yet (the
+    ///   crate's GPU transport is bare-sphere only), so for these presets it
+    ///   transparently runs the multi-threaded CPU path instead of erroring. So
+    ///   selecting GPU accelerates via multi-core CPU, not the GPU — an honest
+    ///   fallback, tracked upstream as bead op-fla. [`crate::app::App::gpu_status_line`]
+    ///   still reports whether an adapter was found.
     pub fn compute_dispatch_note(&self) -> &'static str {
-        "note: run_keff_csg/run_keff_delta (what every preset here uses) do not yet \
-         dispatch on this setting - only run_keff does. All runs are single-thread \
-         CPU regardless of the choice above; see README."
+        "note: CPU single- and multi-thread are both wired for every preset here. \
+         GPU has no CSG/delta kernel yet, so selecting it runs the multi-threaded \
+         CPU path instead (honest fallback; see op-fla / README)."
     }
 
     /// Human-readable GPU-availability line for the settings screen.
+    ///
+    /// Note the honest wording for a found adapter when GPU is selected: these
+    /// presets have no GPU transport kernel (op-fla), so even with an adapter
+    /// present the run executes the multi-threaded CPU path — the adapter is
+    /// *not* used. Only the availability itself is reported here.
     pub fn gpu_status_line(&self) -> String {
         let available = outram_mc_libs::gpu::probe().is_some();
         match (self.settings.compute, available) {
-            (ComputeType::Gpu, true) => "GPU adapter found - the run will use it".to_string(),
-            (ComputeType::Gpu, false) => "No GPU adapter found - run will fall back to CPU".to_string(),
+            (ComputeType::Gpu, true) => {
+                "GPU adapter found, but these presets have no GPU kernel (op-fla) - \
+                 the run uses the multi-threaded CPU path"
+                    .to_string()
+            }
+            (ComputeType::Gpu, false) => "No GPU adapter found - run uses the multi-threaded CPU path".to_string(),
             (_, true) => "GPU adapter available (not selected)".to_string(),
             (_, false) => "No GPU adapter on this device".to_string(),
         }

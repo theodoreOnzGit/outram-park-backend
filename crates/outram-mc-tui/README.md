@@ -56,9 +56,10 @@ The one Android-specific wrinkle is `outram-mc-libs`'s GPU compute
 needs no `cfg(target_os = "android")` of its own to handle that:
 `outram_mc_libs::gpu::probe()` already has an Android-safe CPU-only shim that
 always returns `None`, so every run transparently executes the CPU path on a
-phone, exactly as it would on a desktop with no GPU adapter. The GPU
-compute-backend *option* in the Settings screen is inert everywhere in this
-release regardless of platform — see "Known gaps" below.
+phone, exactly as it would on a desktop with no GPU adapter. The CPU
+single-/multi-thread compute-backend options are both wired for every preset;
+only the **GPU** option has no kernel for these geometries and falls back to
+the multi-threaded CPU path — see "Known gaps" below.
 
 Termux usage:
 
@@ -143,21 +144,29 @@ Raising the steppers gives a tighter (much slower) estimate; the bare-sphere
 and pebble-bed presets tolerate far larger settings quickly, since they do
 not share the LWR cell's moderator physics.
 
-**Known gap, disclosed in-app:** of `outram-mc-libs`'s three transport entry
-points, only `physics::keff::run_keff` (the original bare-sphere-only driver)
-actually dispatches on `ComputeType` — confirmed by reading
-`outram-mc-libs/src/physics/transport_csg.rs` and
-`outram-mc-libs/src/pebble_beds/keff_delta.rs`, neither of which references
-`ComputeType`, `rayon`, or `GpuContext` at all. Every preset in this TUI runs
-through `run_keff_csg` (bare sphere, LWR cell — chosen so those two can carry
-the op-iom spectrum tally) or `run_keff_delta` (pebble beds), so **the
-compute-backend selector is currently inert**: the value is read and
-displayed correctly (including a live GPU-availability check), but every run
-in this release executes the deterministic single-thread CPU path regardless
-of what is selected. This is a gap in the upstream crate's driver surface,
-not a bug in this TUI, and the Settings screen says so directly under the
-compute row (`App::compute_dispatch_note`). A natural follow-up is adding
-`ComputeType` dispatch to `run_keff_csg`/`run_keff_delta` in `outram-mc-libs`.
+**Compute-backend dispatch (op-fla — CPU wired, GPU falls back).** All three
+of `outram-mc-libs`'s transport entry points now dispatch on `ComputeType`.
+Every preset in this TUI runs through `run_keff_csg` (bare sphere, LWR cell —
+chosen so those two can carry the op-iom spectrum tally) or `run_keff_delta`
+(pebble beds), and both now honour the selector:
+
+- **CPU (single-thread)** — the deterministic, bit-reproducible reference path.
+- **CPU (multi-thread)** — genuinely transports each generation's histories in
+  parallel across all cores with `rayon` (dedicated pool, per-history jump-ahead
+  seeding so the result is reproducible independent of thread count). This is a
+  real, selectable speed-up. Backend agreement is covered by V&V tests
+  (`csg_multithread_agrees_with_single_thread` and
+  `delta_multithread_agrees_with_single_thread`): the parallel result is
+  thread-count-invariant to the bit and agrees with the single-thread reference
+  within combined statistical uncertainty.
+- **GPU** — the crate's GPU transport kernel exists only for the bare-sphere
+  driver (`physics::keff::run_keff`), which no preset here routes through. For
+  CSG and delta-tracked geometry there is **no GPU kernel yet**, so selecting
+  GPU transparently runs the **multi-threaded CPU** path instead of erroring
+  (an honest fallback, logged via `log::debug!`). The Settings screen says so
+  directly under the compute row (`App::compute_dispatch_note`) and the live
+  GPU-availability line. Wiring a genuine GPU Sigma_t lookup into CSG/delta
+  transport is the remaining follow-up tracked as bead **op-fla**.
 
 ### 3. Live convergence (op-4h8)
 

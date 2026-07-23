@@ -533,3 +533,68 @@ fn pincell_lwr_thermal_pin_benchmark() {
         result.k_mean
     );
 }
+
+/// V&V — **CSG backend agreement (op-fla)**: the rayon multi-thread CSG backend
+/// (`run_keff_csg` under `ComputeType::CpuMultiThread`) must reproduce the
+/// single-thread reference (`ComputeType::CpuSingleThread`) within combined
+/// statistical uncertainty, and its result must be **independent of thread
+/// count** — the property that makes the per-history jump-ahead seeding correct.
+///
+/// **Methodology.** The homogeneous-HEU reflective Godiva pin cell (same geometry
+/// as `pincell_reflective_cell_suppresses_leakage`), identical [`KeffSettings`]
+/// and seed, no tally. Run the single-thread reference, then the multi-thread
+/// backend at two fixed thread counts (1 and 4). Pass criteria: (a)
+/// `k_par(1) == k_par(4)` bit-for-bit (thread-count invariance); (b)
+/// `|k_seq − k_par|` within `4·σ_comb`, `σ_comb = sqrt(σ_seq² + σ_par²)` — the two
+/// are statistically consistent estimates of the same eigenvalue (they do not
+/// bit-match by design; the per-history stream structure differs from the single
+/// sequential stream).
+///
+/// **Results (2026-07-23, this environment, seed 246813579; 1200 histories,
+/// 15 inactive + 30 active).** Thread-count runs agreed **to the bit**
+/// (`k_par(1) == k_par(4)`). Reference vs parallel: `k_seq = 2.20765 ± 0.00353`,
+/// `k_par = 2.20474 ± 0.00507`, **0.47σ apart** (`σ_comb ≈ 0.0062`) — well inside
+/// the 4σ gate. (`k ≈ 2.2` is the homogeneous-HEU cell `k∞`, as in
+/// `pincell_reflective_cell_suppresses_leakage`.) Recorded per the workspace V&V
+/// rule.
+#[test]
+fn csg_multithread_agrees_with_single_thread() {
+    use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};
+
+    let nuclides = godiva_nuclides();
+    let half = 1.0;
+    let geom = pincell_geometry(0.5, half, 0, 0); // homogeneous HEU cell
+    let materials = vec![godiva_material()];
+    let src = SourceBox {
+        lower: Position::new(-half, -half, -1.0),
+        upper: Position::new(half, half, 1.0),
+    };
+    let base = KeffSettings { n_particles: 1200, n_inactive: 15, n_active: 30, seed: 246813579, ..KeffSettings::default() };
+
+    let seq = run_keff_csg(
+        &geom, &materials, &nuclides, src,
+        &KeffSettings { compute: ComputeType::CpuSingleThread, ..base }, None,
+    );
+    let par1 = run_keff_csg(
+        &geom, &materials, &nuclides, src,
+        &KeffSettings { compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(1)), ..base }, None,
+    );
+    let par4 = run_keff_csg(
+        &geom, &materials, &nuclides, src,
+        &KeffSettings { compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(4)), ..base }, None,
+    );
+
+    assert_eq!(
+        par1.k_mean, par4.k_mean,
+        "multi-thread k must be thread-count-invariant: 1-thread {} vs 4-thread {}",
+        par1.k_mean, par4.k_mean
+    );
+
+    let sigma_comb = (seq.k_std.powi(2) + par1.k_std.powi(2)).sqrt().max(1e-9);
+    let dist = (seq.k_mean - par1.k_mean).abs() / sigma_comb;
+    eprintln!(
+        "[csg backend agreement] seq = {:.5} ± {:.5}, par = {:.5} ± {:.5}  ({:.2}σ apart)",
+        seq.k_mean, seq.k_std, par1.k_mean, par1.k_std, dist
+    );
+    assert!(dist <= 4.0, "seq vs par {:.2}σ apart (> 4σ)", dist);
+}
