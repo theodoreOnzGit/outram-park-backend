@@ -253,19 +253,22 @@ def _parse_trailer(body: str) -> dict | None:
 def cmd_report() -> None:
     """Rebuild docs/token-usage.md deterministically from git log trailers."""
     root = repo_root()
-    sep = "\x00"
-    raw = git("log", "--reverse", f"--format=%H{sep}%h{sep}%aI{sep}%s{sep}%b{sep}%x01")
+    # Use git's own %x1f (field sep) / %x1e (record sep) tokens: git substitutes
+    # the raw bytes into its OUTPUT, so the argv itself stays printable (an argv
+    # cannot contain a real NUL byte — that raises in subprocess).
+    FS, RS = "\x1f", "\x1e"
+    raw = git("log", "--reverse", "--format=%H%x1f%h%x1f%aI%x1f%s%x1f%b%x1e")
     rows = []
     totals = {c: 0 for c in COMPONENTS}
     grand = 0
-    for chunk in raw.split("\x01\n"):
-        chunk = chunk.strip()
+    for chunk in raw.split(RS):
+        chunk = chunk.strip("\n").strip()
         if not chunk:
             continue
-        parts = chunk.split(sep)
+        parts = chunk.split(FS)
         if len(parts) < 5:
             continue
-        _full, short, iso, subject, bodyrest = parts[0], parts[1], parts[2], parts[3], sep.join(parts[4:])
+        _full, short, iso, subject, bodyrest = parts[0], parts[1], parts[2], parts[3], FS.join(parts[4:])
         t = _parse_trailer(bodyrest)
         if not t:
             continue
