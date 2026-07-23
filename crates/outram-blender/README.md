@@ -58,11 +58,13 @@ Monte Carlo neutron transport.
 > **recalculate-normals** (repair an inconsistently-wound soup and flip it
 > outward), **triangulate** (fan-triangulate every face into a triangle-only
 > mesh), **inset** (per-face inset ring), and **bisect** (plane cut / half-space
-> clip, pairs with fill-holes) round out the operator set. The epic's boolean /
-> export / bevel / smoothing / parameterization / deformation / decimation /
-> hull / weld / fill-holes / solidify / recalc-normals / triangulate / inset /
-> bisect workstreams (`op-hzs.6`, `op-hzs.7`, `op-hzs.11`–`op-hzs.13`,
-> `op-hzs.15`–`op-hzs.28`) are landed.
+> clip, pairs with fill-holes) round out the operator set, and **revolve / spin**
+> sweeps a profile polyline around an axis into a surface of revolution
+> (pipes / vessels / cone frusta). The epic's boolean / export / bevel /
+> smoothing / parameterization / deformation / decimation / hull / weld /
+> fill-holes / solidify / recalc-normals / triangulate / inset / bisect /
+> revolve workstreams (`op-hzs.6`, `op-hzs.7`, `op-hzs.11`–`op-hzs.13`,
+> `op-hzs.15`–`op-hzs.29`) are landed.
 >
 > **⚠️ AI-generated draft, untrusted until human-reviewed** per the workspace
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -103,6 +105,7 @@ included.
 | `math` | `blenlib` `BLI_math` vectors | **real** — a minimal `Vec3` |
 | `mesh` | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 | `primitives` | Add-Mesh primitive operators | **real** — cube / UV-sphere / cylinder / grid, unit-tested |
+| `revolve` | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cone frusta) |
 | `ops` | `bmesh/operators` (`bmo_*`) | **real** — extrude / midpoint-subdivide / vertex-bevel (single chamfer or rounded multi-segment spherical cap; boolean delegates to `boolean`) |
 | `subdivision` | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
 | `loop_subdivision` | `MOD_subsurf` (triangle path) | **real** — Loop subdivision surface for triangle meshes |
