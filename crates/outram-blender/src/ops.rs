@@ -743,6 +743,13 @@ pub enum MeshOp {
     /// Replace the mesh with the **convex hull of its vertices**, delegated to
     /// [`crate::convex_hull::convex_hull`].
     ConvexHull,
+    /// **Weld / remove-doubles**: merge vertices closer than `distance` into
+    /// one, delegated to [`crate::weld::weld`]. `distance = 0` welds only
+    /// bit-identical duplicates (a safe no-op otherwise).
+    Weld {
+        /// Euclidean merge tolerance in mesh units (`0` = exact duplicates only).
+        distance: f64,
+    },
 }
 
 impl MeshOp {
@@ -785,6 +792,7 @@ impl MeshOp {
                 Ok(crate::loop_subdivision::loop_subdivide(&mesh, *iterations))
             }
             MeshOp::ConvexHull => Ok(crate::convex_hull::convex_hull(&mesh.positions())?),
+            MeshOp::Weld { distance } => Ok(crate::weld::weld(&mesh, *distance)),
         }
     }
 }

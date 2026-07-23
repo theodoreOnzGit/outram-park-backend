@@ -50,10 +50,13 @@ Monte Carlo neutron transport.
 > geometry-processing operators** (built on `faer` sparse Cholesky) has landed:
 > the cotangent/uniform discrete **Laplacian** with implicit and Taubin
 > (shrinkage-free) **smoothing**, **harmonic/Tutte parameterization** (UV
-> unwrap), and **ARAP** (as-rigid-as-possible) handle-based **deformation**. The
-> epic's boolean / export / bevel / smoothing / parameterization / deformation
+> unwrap), and **ARAP** (as-rigid-as-possible) handle-based **deformation**.
+> **QEM decimation**, **Loop subdivision**, a robust **3D convex hull**, and a
+> **weld / remove-doubles** cleanup pass (merge coincident vertices within a
+> tolerance) round out the operator set. The epic's boolean / export / bevel /
+> smoothing / parameterization / deformation / decimation / hull / weld
 > workstreams (`op-hzs.6`, `op-hzs.7`, `op-hzs.11`–`op-hzs.13`,
-> `op-hzs.15`–`op-hzs.18`) are landed.
+> `op-hzs.15`–`op-hzs.22`) are landed.
 >
 > **⚠️ AI-generated draft, untrusted until human-reviewed** per the workspace
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -102,6 +105,7 @@ included.
 | `arap` | "As Rigid As Possible" deform | **real** — handle-based ARAP deformation (local Procrustes rotation via 3×3 SVD + cotangent-Laplacian global solve) |
 | `decimate` | `MOD_decimate` (Collapse) | **real** — QEM (Garland–Heckbert) edge-collapse mesh simplification |
 | `convex_hull` | `bmo_convex_hull` | **real** — 3D convex hull of a point set (incremental, robust `orient3d`) |
+| `weld` | `bmo_remove_doubles` / Merge by Distance | **real** — merge coincident vertices within a tolerance (grid hash + union-find; drops collapsed faces) |
 | `boolean` | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to `boolean_general` |
 | `boolean_general` | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union / difference / intersect on non-convex closed meshes (arrangement + winding classification) |
 | `boolean_predicates` | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double) |
