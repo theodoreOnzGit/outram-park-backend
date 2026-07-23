@@ -46,8 +46,23 @@ Monte Carlo neutron transport.
 > results, and — behind opt-in cargo features (`foam-export`, `mc-export`) —
 > emits the **real** `outram-foam-basic-lib` polyMesh and `outram-mc-libs` CSG
 > types, not just local mirrors. The vertex bevel now rounds (a multi-segment
-> spherical cap) as well as single-chamfers. All of the epic's boolean / export /
-> bevel workstreams (`op-hzs.6`, `op-hzs.7`, `op-hzs.11`–`op-hzs.13`) are landed.
+> spherical cap) as well as single-chamfers. A family of **sparse-solve
+> geometry-processing operators** (built on `faer` sparse Cholesky) has landed:
+> the cotangent/uniform discrete **Laplacian** with implicit and Taubin
+> (shrinkage-free) **smoothing**, **harmonic/Tutte parameterization** (UV
+> unwrap), and **ARAP** (as-rigid-as-possible) handle-based **deformation**.
+> **QEM decimation**, **Loop subdivision**, a robust **3D convex hull**, and a
+> **weld / remove-doubles** cleanup pass (merge coincident vertices within a
+> tolerance), a **fill-holes** pass (cap open boundary loops into a watertight
+> surface), **solidify** (extrude a surface into a closed shell), and
+> **recalculate-normals** (repair an inconsistently-wound soup and flip it
+> outward), **triangulate** (fan-triangulate every face into a triangle-only
+> mesh), **inset** (per-face inset ring), and **bisect** (plane cut / half-space
+> clip, pairs with fill-holes) round out the operator set. The epic's boolean /
+> export / bevel / smoothing / parameterization / deformation / decimation /
+> hull / weld / fill-holes / solidify / recalc-normals / triangulate / inset /
+> bisect workstreams (`op-hzs.6`, `op-hzs.7`, `op-hzs.11`–`op-hzs.13`,
+> `op-hzs.15`–`op-hzs.28`) are landed.
 >
 > **⚠️ AI-generated draft, untrusted until human-reviewed** per the workspace
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -90,6 +105,19 @@ included.
 | `primitives` | Add-Mesh primitive operators | **real** — cube / UV-sphere / cylinder / grid, unit-tested |
 | `ops` | `bmesh/operators` (`bmo_*`) | **real** — extrude / midpoint-subdivide / vertex-bevel (single chamfer or rounded multi-segment spherical cap; boolean delegates to `boolean`) |
 | `subdivision` | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
+| `loop_subdivision` | `MOD_subsurf` (triangle path) | **real** — Loop subdivision surface for triangle meshes |
+| `laplacian` | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit & Taubin (shrinkage-free) smoothing (first `faer` sparse Cholesky solve) |
+| `parameterize` | UV unwrap (harmonic map) | **real** — Tutte/harmonic planar parameterization of a disk (reuses the Laplacian sparse solve) |
+| `arap` | "As Rigid As Possible" deform | **real** — handle-based ARAP deformation (local Procrustes rotation via 3×3 SVD + cotangent-Laplacian global solve) |
+| `decimate` | `MOD_decimate` (Collapse) | **real** — QEM (Garland–Heckbert) edge-collapse mesh simplification |
+| `convex_hull` | `bmo_convex_hull` | **real** — 3D convex hull of a point set (incremental, robust `orient3d`) |
+| `weld` | `bmo_remove_doubles` / Merge by Distance | **real** — merge coincident vertices within a tolerance (grid hash + union-find; drops collapsed faces) |
+| `fill_holes` | `bmo_holes_fill` / Fill Holes | **real** — cap open boundary loops with a centroid triangle fan (winding-consistent, watertight) |
+| `solidify` | `MOD_solidify` (simple) | **real** — extrude a surface into a closed shell (area-weighted vertex normals, inner offset shell + rim quads) |
+| `recalc_normals` | `normals_make_consistent` (Recalculate Outside) | **real** — repair an inconsistently-wound soup (BFS orientation propagation) + flip each component outward |
+| `triangulate` | `bmo_triangulate` (fan) | **real** — fan-triangulate every face into a triangle-only mesh (distinct from `export::triangulate`'s index buffer) |
+| `inset` | `bmo_inset` (Individual) | **real** — per-face inset: shrunk inner copy toward the centroid + bridging ring quads |
+| `bisect` | Bisect (plane cut) | **real** — half-space clip every face by a plane (Sutherland–Hodgman); leaves the cut open (pairs with `fill_holes`) |
 | `boolean` | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to `boolean_general` |
 | `boolean_general` | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union / difference / intersect on non-convex closed meshes (arrangement + winding classification) |
 | `boolean_predicates` | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double) |

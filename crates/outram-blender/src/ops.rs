@@ -50,6 +50,18 @@ pub enum MeshOpError {
     /// outside the supported restricted case.
     #[error(transparent)]
     Boolean(#[from] crate::boolean::BooleanError),
+    /// Propagated from Laplacian smoothing (crate::laplacian) — the sparse solve
+    /// failed (e.g. a non-positive-definite system).
+    #[error(transparent)]
+    Laplacian(#[from] crate::laplacian::LaplacianError),
+    /// Propagated from ARAP deformation (crate::arap) — missing constraints or a
+    /// non-positive-definite system.
+    #[error(transparent)]
+    Arap(#[from] crate::arap::ArapError),
+    /// Propagated from convex-hull construction (crate::convex_hull) — a
+    /// degenerate (fewer than four distinct / collinear / coplanar) point set.
+    #[error(transparent)]
+    Hull(#[from] crate::convex_hull::HullError),
 }
 
 /// Boolean CSG mode for [`MeshOp::Boolean`] (mirrors Blender's Boolean modifier).
@@ -670,8 +682,9 @@ pub enum MeshOp {
         /// Bevel width in model-space units (clamped per-edge to half the edge
         /// length).
         width: f64,
-        /// Number of segments across the bevel. `1` = a single chamfer (the only
-        /// case built); `>= 2` is treated as `1` today (see the variant docs).
+        /// Number of segments across the bevel: `1` = a single flat chamfer,
+        /// `>= 2` = a rounded spherical cap with `segments - 1` intermediate
+        /// rings (see [`bevel_vertices_rounded`]).
         segments: u32,
     },
     /// Combine the target mesh with `other` under a [`BooleanMode`], delegated to
@@ -681,6 +694,96 @@ pub enum MeshOp {
         other: Mesh,
         /// Union / difference / intersection.
         mode: BooleanMode,
+    },
+    /// **Implicit Laplacian smoothing** (mesh fairing), delegated to
+    /// [`crate::laplacian::laplacian_smooth`]. Solves `(I + λL) x' = x` per
+    /// iteration with boundary vertices pinned; unconditionally stable.
+    Smooth {
+        /// Uniform (umbrella) or cotangent (Laplace–Beltrami) weighting.
+        weighting: crate::laplacian::LaplacianWeighting,
+        /// Smoothing strength per step (`>= 0`; `0` is a no-op).
+        lambda: f64,
+        /// Number of implicit steps (`0` is a no-op).
+        iterations: u32,
+    },
+    /// **Taubin `λ|μ` smoothing** (explicit, shrinkage-free denoising), delegated
+    /// to [`crate::laplacian::taubin_smooth`].
+    Taubin {
+        /// Uniform or cotangent weighting.
+        weighting: crate::laplacian::LaplacianWeighting,
+        /// Shrinking factor `0 < λ < 1`.
+        lambda: f64,
+        /// Un-shrinking factor `−1 < μ < −λ`.
+        mu: f64,
+        /// Number of `λ|μ` iteration pairs.
+        iterations: u32,
+    },
+    /// **As-Rigid-As-Possible deformation**, delegated to
+    /// [`crate::arap::arap_deform`]. Deforms the mesh to meet the `handles`
+    /// (vertex → target) while keeping one-rings maximally rigid.
+    Arap {
+        /// Handle constraints: each `(vertex, target position)`.
+        handles: Vec<(crate::mesh::VertexId, Vec3)>,
+        /// Number of local/global ARAP iterations.
+        iterations: u32,
+    },
+    /// **QEM mesh decimation** (quadric-error-metric simplification), delegated
+    /// to [`crate::decimate::decimate`]. Reduces the mesh to roughly
+    /// `target_faces` triangles.
+    Decimate {
+        /// The goal triangle count (a lower-bound target).
+        target_faces: usize,
+    },
+    /// **Loop subdivision** (smooth triangle subdivision surface), delegated to
+    /// [`crate::loop_subdivision::loop_subdivide`].
+    LoopSubdivide {
+        /// Number of refinement steps (each quadruples the triangle count).
+        iterations: u32,
+    },
+    /// Replace the mesh with the **convex hull of its vertices**, delegated to
+    /// [`crate::convex_hull::convex_hull`].
+    ConvexHull,
+    /// **Weld / remove-doubles**: merge vertices closer than `distance` into
+    /// one, delegated to [`crate::weld::weld`]. `distance = 0` welds only
+    /// bit-identical duplicates (a safe no-op otherwise).
+    Weld {
+        /// Euclidean merge tolerance in mesh units (`0` = exact duplicates only).
+        distance: f64,
+    },
+    /// **Fill holes**: cap every open boundary loop with a centroid triangle
+    /// fan, delegated to [`crate::fill_holes::fill_holes`]. A no-op on an
+    /// already-closed mesh.
+    FillHoles,
+    /// **Solidify**: extrude the surface into a closed shell of the given
+    /// `thickness`, delegated to [`crate::solidify::solidify`]. An open surface
+    /// becomes a slab; a closed surface becomes a hollow double shell.
+    Solidify {
+        /// Shell thickness in mesh units; the inner shell is offset inward.
+        thickness: f64,
+    },
+    /// **Recalculate normals outside**: make the winding globally consistent and
+    /// outward-facing, delegated to
+    /// [`crate::recalc_normals::recalculate_normals`]. Repairs an
+    /// inconsistently-wound polygon soup.
+    RecalculateNormals,
+    /// **Triangulate**: fan-triangulate every face into triangles, delegated to
+    /// [`crate::triangulate::triangulate`]. Produces a triangle-only mesh for
+    /// the operators/bridges that require one.
+    Triangulate,
+    /// **Inset faces**: replace each face with a shrunk inner copy plus a ring
+    /// of bridging quads, delegated to [`crate::inset::inset_faces`].
+    Inset {
+        /// Fraction each corner moves toward its face centroid, in `(0, 1)`.
+        amount: f64,
+    },
+    /// **Bisect**: cut the mesh by a plane and keep the `normal`-negative half,
+    /// delegated to [`crate::bisect::bisect`]. The cut is left open (cap it with
+    /// [`MeshOp::FillHoles`]).
+    Bisect {
+        /// A point the cutting plane passes through.
+        point: Vec3,
+        /// The plane normal; the kept half is where `normal · (x − point) <= 0`.
+        normal: Vec3,
     },
 }
 
@@ -697,6 +800,10 @@ impl MeshOp {
     ///   `segments <= 1`, a rounded spherical cap for `segments >= 2`).
     /// - [`MeshOp::Boolean`] → [`crate::boolean::boolean`], whose error is
     ///   surfaced as [`MeshOpError::Boolean`].
+    /// - [`MeshOp::Smooth`] → [`crate::laplacian::laplacian_smooth`], whose error
+    ///   is surfaced as [`MeshOpError::Laplacian`].
+    /// - [`MeshOp::Taubin`] → [`crate::laplacian::taubin_smooth`] (infallible
+    ///   explicit filter).
     pub fn apply(&self, mesh: Mesh) -> Result<Mesh, MeshOpError> {
         match self {
             MeshOp::Extrude { offset } => {
@@ -706,6 +813,27 @@ impl MeshOp {
             MeshOp::Subdivide { iterations } => Ok(subdivide(&mesh, *iterations)),
             MeshOp::Bevel { width, segments } => Ok(bevel_vertices_rounded(&mesh, *width, *segments)),
             MeshOp::Boolean { other, mode } => Ok(crate::boolean::boolean(&mesh, other, *mode)?),
+            MeshOp::Smooth { weighting, lambda, iterations } => {
+                Ok(crate::laplacian::laplacian_smooth(&mesh, *weighting, *lambda, *iterations)?)
+            }
+            MeshOp::Taubin { weighting, lambda, mu, iterations } => {
+                Ok(crate::laplacian::taubin_smooth(&mesh, *weighting, *lambda, *mu, *iterations))
+            }
+            MeshOp::Arap { handles, iterations } => {
+                Ok(crate::arap::arap_deform(&mesh, handles, *iterations)?)
+            }
+            MeshOp::Decimate { target_faces } => Ok(crate::decimate::decimate(&mesh, *target_faces)),
+            MeshOp::LoopSubdivide { iterations } => {
+                Ok(crate::loop_subdivision::loop_subdivide(&mesh, *iterations))
+            }
+            MeshOp::ConvexHull => Ok(crate::convex_hull::convex_hull(&mesh.positions())?),
+            MeshOp::Weld { distance } => Ok(crate::weld::weld(&mesh, *distance)),
+            MeshOp::FillHoles => Ok(crate::fill_holes::fill_holes(&mesh)),
+            MeshOp::Solidify { thickness } => Ok(crate::solidify::solidify(&mesh, *thickness)),
+            MeshOp::RecalculateNormals => Ok(crate::recalc_normals::recalculate_normals(&mesh)),
+            MeshOp::Triangulate => Ok(crate::triangulate::triangulate(&mesh)),
+            MeshOp::Inset { amount } => Ok(crate::inset::inset_faces(&mesh, *amount)),
+            MeshOp::Bisect { point, normal } => Ok(crate::bisect::bisect(&mesh, *point, *normal)),
         }
     }
 }
@@ -871,6 +999,23 @@ mod tests {
             }
         }
         assert!(edge_use.values().all(|&c| c == 2), "rounded bevel must be edge-manifold");
+    }
+
+    /// [`MeshOp::Smooth`] dispatches to Laplacian smoothing: it preserves the
+    /// mesh's topology (vertex/face counts and `chi`) and, on a closed sphere,
+    /// returns a valid closed mesh. (Numerical denoising behaviour is verified
+    /// in the `laplacian` module tests.)
+    #[test]
+    fn meshop_smooth_preserves_topology() {
+        use crate::laplacian::LaplacianWeighting;
+        let sphere = primitives::uv_sphere(16, 8, 1.0);
+        let (v, f, chi) = (sphere.vertex_count(), sphere.face_count(), sphere.euler_characteristic());
+        let out = MeshOp::Smooth { weighting: LaplacianWeighting::Cotangent, lambda: 0.5, iterations: 2 }
+            .apply(sphere)
+            .expect("smoothing solve ok");
+        assert_eq!(out.vertex_count(), v, "smoothing preserves vertex count");
+        assert_eq!(out.face_count(), f, "smoothing preserves face count");
+        assert_eq!(out.euler_characteristic(), chi, "smoothing preserves topology (chi)");
     }
 
     /// `segments <= 1` is exactly the single flat chamfer (the truncated cube),

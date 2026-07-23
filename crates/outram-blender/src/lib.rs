@@ -8,13 +8,18 @@
 //! `polyMesh` for CFD, or an `outram-mc-libs` CSG universe for Monte Carlo
 //! neutron transport.
 //!
-//! > **⚠️ Scaffold, not a Blender port.** Blender is millions of lines of
-//! > C/C++/Python; this crate borrows its *concepts and data-structure
-//! > architecture* (the BMesh half-edge topology, the mesh-operator model, the
-//! > modifier stack, geometry-nodes-style procedural generation) — it does
-//! > **not** port Blender's code. Where a real algorithm is implemented
-//! > (currently only [`primitives`]), it is written from first principles and
-//! > unit-tested. Everything else is an honest, documented `TODO` stub.
+//! > **⚠️ Not a Blender port.** Blender is millions of lines of C/C++/Python;
+//! > this crate borrows its *concepts and data-structure architecture* (the
+//! > BMesh half-edge topology, the mesh-operator model, the modifier stack,
+//! > geometry-nodes-style procedural generation) — it does **not** port
+//! > Blender's code (the only literally-ported piece is the Shewchuk robust
+//! > predicates in [`boolean_predicates`], with its GPL provenance header). The
+//! > algorithms here — primitives, mesh operators, subdivision (Catmull-Clark &
+//! > Loop), the general CSG boolean, the sparse-solve geometry processing
+//! > (Laplacian/Taubin smoothing, harmonic parameterization, ARAP deformation),
+//! > QEM decimation, the modifier stack, the procedural evaluator, and the
+//! > export bridges — are written from first principles and unit-tested against
+//! > analytic references. See the module map for per-module status.
 //! >
 //! > **Not affiliated with the Blender Foundation.** "Blender" names the
 //! > upstream project whose architecture inspired this work; nothing here is
@@ -36,6 +41,19 @@
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
 //! | [`subdivision`] | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
+//! | [`loop_subdivision`] | `MOD_subsurf` (triangle path) | **real** — Loop subdivision surface for triangle meshes |
+//! | [`laplacian`] | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit & Taubin smoothing (first `faer` sparse solve) |
+//! | [`parameterize`] | UV unwrap (harmonic map) | **real** — Tutte/harmonic planar parameterization of a disk (reuses the Laplacian sparse solve) |
+//! | [`arap`] | "As Rigid As Possible" deform | **real** — ARAP handle-based deformation (local rotation fit + cotangent-Laplacian global solve) |
+//! | [`decimate`] | `MOD_decimate` (Collapse) | **real** — QEM (Garland–Heckbert) edge-collapse mesh simplification |
+//! | [`convex_hull`] | `bmo_convex_hull` | **real** — 3D convex hull of a point set (incremental, robust `orient3d`) |
+//! | [`weld`] | `bmo_remove_doubles` / Merge by Distance | **real** — merge coincident vertices within a tolerance (grid hash + union-find) |
+//! | [`fill_holes`] | `bmo_holes_fill` / Fill Holes | **real** — cap open boundary loops with a centroid fan (watertight) |
+//! | [`solidify`] | `MOD_solidify` (simple) | **real** — extrude a surface into a closed shell (inner offset + rim) |
+//! | [`recalc_normals`] | `normals_make_consistent` (Recalculate Outside) | **real** — repair inconsistent winding (BFS) + flip each component outward |
+//! | [`triangulate`] | `bmo_triangulate` (fan) | **real** — fan-triangulate every face into a triangle-only mesh |
+//! | [`inset`] | `bmo_inset` (Individual) | **real** — per-face inset: shrunk inner copy + bridging ring quads |
+//! | [`bisect`] | Bisect (plane cut) | **real** — half-space clip every face by a plane (Sutherland–Hodgman); leaves the cut open |
 //! | [`boolean`] | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to [`boolean_general`] |
 //! | [`boolean_general`] | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union/difference/intersect on non-convex closed meshes (arrangement + winding classification) |
 //! | [`boolean_predicates`] | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double fallback) |
@@ -58,9 +76,10 @@
 //!
 //! ## Where to start reading
 //!
-//! [`primitives`] is the primary entry point — it is the only module with
-//! runnable code. Read [`primitives::cube`] top-to-bottom, then the
-//! [`mesh::Mesh`] type it builds on.
+//! [`primitives`] is the primary entry point. Read [`primitives::cube`]
+//! top-to-bottom, then the [`mesh::Mesh`] type it builds on; from there the
+//! [`ops::MeshOp`] enum is the map of what you can *do* to a mesh (extrude,
+//! bevel, boolean, smooth, decimate, subdivide, ARAP-deform).
 //!
 //! ```
 //! use outram_blender::primitives;
@@ -74,19 +93,32 @@
 //! assert_eq!(cube.euler_characteristic(), 2);
 //! ```
 
+pub mod arap;
+pub mod bisect;
 pub mod boolean;
 pub mod boolean_classify;
 pub mod boolean_general;
 pub mod boolean_predicates;
+pub mod convex_hull;
+pub mod decimate;
 pub mod export;
+pub mod fill_holes;
+pub mod inset;
+pub mod laplacian;
+pub mod loop_subdivision;
 pub mod math;
 pub mod mesh;
+pub mod parameterize;
 pub mod modifiers;
 pub mod ops;
 pub mod primitives;
 pub mod procedural;
+pub mod recalc_normals;
+pub mod solidify;
 pub mod subdivision;
 pub mod transform;
+pub mod triangulate;
+pub mod weld;
 
 /// Heavy linear-algebra backend for the *large* mesh solves the advanced
 /// operators will need — Laplacian mesh editing, ARAP deformation, and mesh
@@ -100,8 +132,12 @@ pub mod transform;
 /// (same matrix, many right-hand sides) prefer `faer`'s sparse **Cholesky**
 /// factorization over an iterative solve. An *optional* bridge to
 /// `outram-foam-basic-lib`'s CG/GAMG iterative solvers is tracked separately for
-/// large one-off sparse solves (see beads `op-hzs`). None of this is wired into
-/// an operator yet — the dependency is staged for that work.
+/// large one-off sparse solves (see beads `op-hzs`).
+///
+/// **First consumer:** [`laplacian`] — the cotangent/uniform discrete Laplacian
+/// and implicit Laplacian smoothing assemble a sparse system and solve it with
+/// `faer`'s sparse Cholesky. Future ARAP / parameterization operators reuse the
+/// same path.
 pub use faer;
 
 /// Headless GPU compute via `wgpu`. Compiled **unconditionally on every desktop
