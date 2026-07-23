@@ -54,6 +54,10 @@ pub enum MeshOpError {
     /// failed (e.g. a non-positive-definite system).
     #[error(transparent)]
     Laplacian(#[from] crate::laplacian::LaplacianError),
+    /// Propagated from ARAP deformation (crate::arap) — missing constraints or a
+    /// non-positive-definite system.
+    #[error(transparent)]
+    Arap(#[from] crate::arap::ArapError),
 }
 
 /// Boolean CSG mode for [`MeshOp::Boolean`] (mirrors Blender's Boolean modifier).
@@ -710,6 +714,15 @@ pub enum MeshOp {
         /// Number of `λ|μ` iteration pairs.
         iterations: u32,
     },
+    /// **As-Rigid-As-Possible deformation**, delegated to
+    /// [`crate::arap::arap_deform`]. Deforms the mesh to meet the `handles`
+    /// (vertex → target) while keeping one-rings maximally rigid.
+    Arap {
+        /// Handle constraints: each `(vertex, target position)`.
+        handles: Vec<(crate::mesh::VertexId, Vec3)>,
+        /// Number of local/global ARAP iterations.
+        iterations: u32,
+    },
 }
 
 impl MeshOp {
@@ -743,6 +756,9 @@ impl MeshOp {
             }
             MeshOp::Taubin { weighting, lambda, mu, iterations } => {
                 Ok(crate::laplacian::taubin_smooth(&mesh, *weighting, *lambda, *mu, *iterations))
+            }
+            MeshOp::Arap { handles, iterations } => {
+                Ok(crate::arap::arap_deform(&mesh, handles, *iterations)?)
             }
         }
     }
