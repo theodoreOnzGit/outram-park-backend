@@ -776,6 +776,15 @@ pub enum MeshOp {
         /// Fraction each corner moves toward its face centroid, in `(0, 1)`.
         amount: f64,
     },
+    /// **Bisect**: cut the mesh by a plane and keep the `normal`-negative half,
+    /// delegated to [`crate::bisect::bisect`]. The cut is left open (cap it with
+    /// [`MeshOp::FillHoles`]).
+    Bisect {
+        /// A point the cutting plane passes through.
+        point: Vec3,
+        /// The plane normal; the kept half is where `normal · (x − point) <= 0`.
+        normal: Vec3,
+    },
 }
 
 impl MeshOp {
@@ -824,6 +833,7 @@ impl MeshOp {
             MeshOp::RecalculateNormals => Ok(crate::recalc_normals::recalculate_normals(&mesh)),
             MeshOp::Triangulate => Ok(crate::triangulate::triangulate(&mesh)),
             MeshOp::Inset { amount } => Ok(crate::inset::inset_faces(&mesh, *amount)),
+            MeshOp::Bisect { point, normal } => Ok(crate::bisect::bisect(&mesh, *point, *normal)),
         }
     }
 }
