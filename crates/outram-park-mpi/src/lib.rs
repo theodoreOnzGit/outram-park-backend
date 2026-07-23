@@ -69,11 +69,13 @@
 //!   rank threads borrow the user closure through a scoped-thread scope.
 //! - **Pure Rust, Android-safe.** `std` threads + sync only; no C/FFI, no system MPI.
 
+pub mod collective;
 pub mod communicator;
 pub mod datatype;
 pub mod error;
 pub mod transport;
 
+pub use collective::{Reducible, ReduceOp};
 pub use communicator::{Communicator, Request, Status, TestOutcome, ANY_SOURCE, ANY_TAG};
 pub use datatype::{Datatype, MpiPrimitive};
 pub use error::{MpiError, MpiResult};
@@ -231,6 +233,120 @@ mod tests {
         .unwrap();
         assert!(out[1].is_ok());
     }
+
+    #[test]
+    fn barrier_completes_on_all_ranks() {
+        // If the barrier deadlocked or mis-routed, run() would hang; reaching the
+        // assert means every rank passed it.
+        let out = run(6, |c| {
+            c.barrier().unwrap();
+            c.rank()
+        })
+        .unwrap();
+        assert_eq!(out, vec![0, 1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn broadcast_delivers_root_data_to_all() {
+        for root in 0..4 {
+            let out = run(4, move |c| {
+                let data = if c.rank() == root {
+                    Some(vec![7.0_f64, 8.0, 9.0])
+                } else {
+                    None
+                };
+                c.broadcast(data.as_deref(), root).unwrap()
+            })
+            .unwrap();
+            for got in &out {
+                assert_eq!(got, &vec![7.0, 8.0, 9.0]);
+            }
+        }
+    }
+
+    #[test]
+    fn reduce_sum_and_max_land_on_root() {
+        // Each rank r contributes [r, 10+r]; sum over 5 ranks = [10, 60].
+        let out = run(5, |c| {
+            let r = c.rank();
+            let sum = c.reduce(&[r, 10 + r], ReduceOp::Sum, 0).unwrap();
+            let max = c.reduce(&[r, 10 + r], ReduceOp::Max, 0).unwrap();
+            (sum, max)
+        })
+        .unwrap();
+        assert_eq!(out[0].0, Some(vec![0 + 1 + 2 + 3 + 4, 10 + 11 + 12 + 13 + 14]));
+        assert_eq!(out[0].1, Some(vec![4, 14]));
+        // Non-root ranks get None.
+        assert_eq!(out[3].0, None);
+    }
+
+    #[test]
+    fn all_reduce_sum_lands_on_everyone() {
+        let out = run(4, |c| {
+            let r = c.rank();
+            c.all_reduce(&[r + 1], ReduceOp::Sum).unwrap()
+        })
+        .unwrap();
+        // sum of (1+2+3+4) = 10 on every rank.
+        for got in &out {
+            assert_eq!(got, &vec![10]);
+        }
+    }
+
+    #[test]
+    fn scatter_then_gather_roundtrips() {
+        let out = run(3, |c| {
+            // Root 0 scatters [0,1, 2,3, 4,5] as 2-element chunks.
+            let send = if c.rank() == 0 {
+                Some(vec![0_i32, 1, 2, 3, 4, 5])
+            } else {
+                None
+            };
+            let chunk = c.scatter(send.as_deref(), 2, 0).unwrap();
+            // Each rank doubles its chunk, then gathers back to root 0.
+            let doubled: Vec<i32> = chunk.iter().map(|x| x * 2).collect();
+            let gathered = c.gather(&doubled, 0).unwrap();
+            (chunk, gathered)
+        })
+        .unwrap();
+        assert_eq!(out[0].0, vec![0, 1]);
+        assert_eq!(out[1].0, vec![2, 3]);
+        assert_eq!(out[2].0, vec![4, 5]);
+        assert_eq!(out[0].1, Some(vec![0, 2, 4, 6, 8, 10]));
+        assert_eq!(out[1].1, None);
+    }
+
+    #[test]
+    fn all_gather_concatenates_on_every_rank() {
+        let out = run(4, |c| c.all_gather(&[c.rank()]).unwrap()).unwrap();
+        for got in &out {
+            assert_eq!(got, &vec![0, 1, 2, 3]);
+        }
+    }
+
+    #[test]
+    fn collectives_do_not_cross_match_user_pt2p() {
+        // A user send on the same tag a collective uses must not be consumed by
+        // the collective (separate context), and vice-versa.
+        let out = run(2, |c| {
+            if c.rank() == 0 {
+                c.send(&[999_i32], 1, TAG_LIKE_BCAST).unwrap();
+                let bc = c.broadcast(Some(&[1_i32, 2]), 0).unwrap();
+                bc
+            } else {
+                let bc = c.broadcast(None, 0).unwrap();
+                let (user, _s) = c.recv::<i32>(0, TAG_LIKE_BCAST).unwrap();
+                assert_eq!(user, vec![999]);
+                bc
+            }
+        })
+        .unwrap();
+        assert_eq!(out[1], vec![1, 2]);
+    }
+
+    // A user tag numerically equal to the internal broadcast tag (1) — proves
+    // isolation is by context, not tag.
+    const TAG_LIKE_BCAST: i32 = 1;
 
     #[test]
     fn type_mismatch_is_detected() {

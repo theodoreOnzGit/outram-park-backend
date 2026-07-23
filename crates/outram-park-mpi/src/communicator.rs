@@ -43,6 +43,15 @@ pub const ANY_TAG: i32 = -1;
 /// The context id of the world communicator every rank starts with.
 pub(crate) const WORLD_COMM_ID: usize = 0;
 
+/// Offset added to a communicator's point-to-point context id to form its
+/// **collective** context id. MPI isolates collective messages from user
+/// point-to-point messages with a hidden communication context; this crate does
+/// the same by posting collective traffic on `comm_id + COLL_CONTEXT_OFFSET`, so
+/// a user `send`/`recv` on a tag a collective happens to reuse can never match a
+/// collective's internal message. The offset is far above any real allocated
+/// comm id (which count up from 0).
+pub(crate) const COLL_CONTEXT_OFFSET: usize = 1 << 40;
+
 /// Outcome of a completed receive: which message actually matched.
 ///
 /// Mirrors `MPI_Status` (the fields a program reads: `MPI_SOURCE`, `MPI_TAG`, and
@@ -101,6 +110,50 @@ impl Communicator {
         &self.transport
     }
 
+    /// This communicator's collective context id (isolates collective messages
+    /// from user point-to-point traffic).
+    pub(crate) fn coll_ctx(&self) -> usize {
+        self.comm_id + COLL_CONTEXT_OFFSET
+    }
+
+    /// Send `data` to `dest` with `tag` on an explicit context id. The public
+    /// [`Communicator::send`] uses the point-to-point context; the collective
+    /// layer uses [`Communicator::coll_ctx`].
+    pub(crate) fn send_ctx<T: MpiPrimitive>(
+        &self,
+        data: &[T],
+        dest: i32,
+        tag: i32,
+        ctx: usize,
+    ) -> MpiResult<()> {
+        self.check_rank(dest)?;
+        let env = Envelope {
+            src: self.rank,
+            tag,
+            comm_id: ctx,
+            datatype: T::DATATYPE,
+            count: data.len(),
+            bytes: T::encode(data),
+        };
+        self.transport.post(dest as usize, env);
+        Ok(())
+    }
+
+    /// Blocking receive from `source`/`tag` on an explicit context id.
+    pub(crate) fn recv_ctx<T: MpiPrimitive>(
+        &self,
+        source: i32,
+        tag: i32,
+        ctx: usize,
+    ) -> MpiResult<(Vec<T>, Status)> {
+        let src = self.match_source(source)?;
+        let tagf = match_tag(tag);
+        let env = self
+            .transport
+            .recv_blocking(self.rank as usize, ctx, src, tagf);
+        self.decode_envelope(env)
+    }
+
     /// Validate a destination/source rank against the communicator size.
     fn check_rank(&self, rank: i32) -> MpiResult<()> {
         if rank < 0 || rank >= self.size {
@@ -121,17 +174,7 @@ impl Communicator {
     /// # Errors
     /// [`MpiError::InvalidRank`] if `dest` is outside `0..size`.
     pub fn send<T: MpiPrimitive>(&self, data: &[T], dest: i32, tag: i32) -> MpiResult<()> {
-        self.check_rank(dest)?;
-        let env = Envelope {
-            src: self.rank,
-            tag,
-            comm_id: self.comm_id,
-            datatype: T::DATATYPE,
-            count: data.len(),
-            bytes: T::encode(data),
-        };
-        self.transport.post(dest as usize, env);
-        Ok(())
+        self.send_ctx(data, dest, tag, self.comm_id)
     }
 
     /// Decode a received [`Envelope`] into `(Vec<T>, Status)`, checking the type.
@@ -159,12 +202,7 @@ impl Communicator {
     /// [`MpiError::InvalidRank`] for a non-wildcard `source` outside `0..size`;
     /// [`MpiError::TypeMismatch`] if the sender used a different datatype.
     pub fn recv<T: MpiPrimitive>(&self, source: i32, tag: i32) -> MpiResult<(Vec<T>, Status)> {
-        let src = self.match_source(source)?;
-        let tagf = match_tag(tag);
-        let env = self
-            .transport
-            .recv_blocking(self.rank as usize, self.comm_id, src, tagf);
-        self.decode_envelope(env)
+        self.recv_ctx(source, tag, self.comm_id)
     }
 
     /// Blocking receive into a caller-provided buffer (mirrors `MPI_Recv` with an

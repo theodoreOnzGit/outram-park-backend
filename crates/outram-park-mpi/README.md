@@ -57,12 +57,17 @@ assert_eq!(neighbours, vec![3, 0, 1, 2]); // rank r received from r-1 (mod 4)
 - `Datatype` + `MpiPrimitive`: the ten built-in numeric primitives
   (`i8`…`i64`, `u8`…`u64`, `f32`, `f64`), native-endian byte codec, type-tag
   checking (a mismatched decode is an error, not silent reinterpretation).
+- Collectives: `barrier`, `broadcast`, `reduce`, `all_reduce`, `scatter`,
+  `gather`, `all_gather`, with the predefined `ReduceOp`s (`Sum`, `Product`,
+  `Max`, `Min`) over any `Reducible` primitive. Broadcast/reduce use binomial
+  trees; collective traffic runs on a separate communication context, so it can
+  never cross-match user point-to-point messages.
 
 ## Roadmap (epic `op-erl`)
 
-- Collectives + reduction ops (barrier, bcast, reduce, allreduce, scatter,
-  gather, allgather).
 - Communicators: `dup`, `split`, groups.
+- Optimised collectives (recursive-doubling all-reduce, ring all-gather,
+  dissemination barrier).
 - TCP (multi-node) transport behind a Cargo feature.
 
 ## Bookkeeping status
