@@ -1,0 +1,35 @@
+outram-park-mpi
+Part of Outram Park (outram-park-backend).
+
+This crate is an independent, pure-Rust translation of a SUBSET of MPICH
+  https://www.mpich.org   (code: https://github.com/pmodels/mpich)
+MPICH is a high-performance, widely-portable implementation of the MPI (Message
+Passing Interface) standard, developed at Argonne National Laboratory (ANL) and
+by the MPICH collaboration. "MPI" names the standard (from the MPI Forum) whose
+API surface this crate implements; "MPICH" names the reference implementation
+whose semantics and (in later milestones) collective algorithms are translated.
+
+WHAT IS TRANSLATED. This crate re-implements MPI-3 concepts in idiomatic Rust:
+communicator/rank/size, predefined datatypes, point-to-point messaging, and
+(planned) collective operations. The current milestone provides a shared-memory,
+threads-as-ranks transport only. No MPICH C source is linked, compiled, or
+vendored; there is no FFI to any system MPI.
+
+LICENSE. Distributed under GPL-3.0-only, consistent with the Outram Park suite.
+MPICH itself is distributed under a permissive BSD-style license (see the MPICH
+COPYRIGHT), which is compatible with redistribution of independent derivative
+work under the GPL. This crate contains no copied MPICH source, so it carries no
+MPICH copyright header; should any MPICH algorithm be ported closely enough to
+constitute a derivative of specific source, that Rust file must carry a
+provenance header naming the upstream MPICH source file, version/commit,
+copyright holder, and license, per the workspace attribution rule.
+
+LICENSE PROVENANCE — VERIFY BEFORE PUBLISH. The MPICH license characterisation
+above was taken from general knowledge of the MPICH COPYRIGHT (BSD-style), not
+from a byte-for-byte reading of the upstream file in this environment. Before
+this crate is published, or before any MPICH source is ported in, the exact
+upstream license text and copyright must be confirmed against a local MPICH
+checkout and recorded here. (Epic op-erl.)
+
+Not affiliated with or endorsed by the MPICH project, Argonne National
+Laboratory, or the MPI Forum.

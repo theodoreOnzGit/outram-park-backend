@@ -1,0 +1,26 @@
+[package]
+name = "outram-park-mpi"
+version = "0.0.0"
+edition.workspace = true
+# GPL-3.0-only (workspace default). This crate is an independent pure-Rust
+# translation of a SUBSET of MPICH's semantics/algorithms — it links no MPICH C
+# code and is not endorsed by or affiliated with the MPICH project or Argonne
+# National Laboratory. "MPI" names only the standard whose API surface this
+# implements; "MPICH" names the reference implementation whose collective
+# algorithms are translated. Provenance lives in NOTICE + the module headers.
+license.workspace = true
+description = "Independent pure-Rust translation of an MPICH subset — the MPI-3 API surface (communicators, datatypes, point-to-point, core collectives) over a shared-memory threads-as-ranks transport. No C/FFI, Android-buildable. SCAFFOLD: shared-memory only, no TCP yet, no human V&V. Not affiliated with MPICH."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# docs/ is a repo-only provenance/design aid, never shipped in the package.
+exclude = ["docs"]
+
+[dependencies]
+# Pure-Rust, Android-safe deps only (std threads/sync for the shared-memory
+# transport; no C/FFI, no system MPI). `thiserror` provides the crate error enum.
+thiserror.workspace = true
+
+[lib]
+name = "outram_park_mpi"

@@ -52,6 +52,7 @@
 //! | `depletion` | LIVE (one-group burnup: CRAM + chain_simple, inventory & k_inf trends) | op-6tz.18 |
 //! | `capi` | LIVE partial (in-memory build/run/introspect/edit/rerun; batch-stepping is a gap) | op-6tz.20 |
 //! | `shielded_room_weight_window` | ignored (weight-window VR + notebook absent upstream) | op-6tz.21 |
+//! | `search` | LIVE (`search_for_keff` bisection driver, verified on the offline Godiva critical-radius analogue; exact boron-ppm PWR case is thermal-S(α,β)-data-gated) | op-6tz.6.5 |
 //!
 //! Run the live subset:
 //! ```text
@@ -108,3 +109,5 @@ mod depletion;
 mod capi;
 #[path = "openmc_notebooks/shielded_room_weight_window.rs"]
 mod shielded_room_weight_window;
+#[path = "openmc_notebooks/search.rs"]
+mod search;
