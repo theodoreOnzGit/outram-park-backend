@@ -61,6 +61,8 @@
 //! | [`kinetics`] | mineral kinetics | **working (verification-only)** — TST precipitation/dissolution on a foam ODE solver (bead op-v6s.12) |
 //! | [`reactive_transport`] | GIRT reactive transport | **working (verification-only)** — SNIA transport↔geochemistry coupling (bead op-v6s.12) |
 //! | [`multiphase`] | GENERAL multiphase flow | **working (verification-only)** — two-phase air–water on the block solver (bead op-v6s.13) |
+//! | [`general_mode`] | GENERAL air–water–energy | **working (verification-only)** — non-isothermal nb=3 (p_l, s_l, T) on the block solver; T couples back through ρ_l(T)/μ_l(T) (bead op-v6s.15.5) |
+//! | [`thermal_convection`] | two-way buoyancy TH | **working (verification-only)** — density-driven porous convection; conductive limit + Rayleigh formula verified, convecting-regime solve is a bead-tracked follow-up (bead op-v6s.15.6) |
 //! | [`activity`] | aqueous activity models | **real** — Debye–Hückel / Davies coefficients (bead op-v6s.15.1) |
 //! | [`sorption`] | sorption + ion exchange | **real** — Kd/Langmuir/Freundlich isotherms + Gaines–Thomas exchange (bead op-v6s.15.2) |
 //! | [`surface_complexation`] | pH-dependent sorption | **real** — amphoteric protonation + metal binding with NEM/CCM/diffuse-layer electrostatics (bead op-gg7) |
@@ -97,6 +99,7 @@ pub mod eos_co2_brine;
 pub mod eos_real;
 pub mod error;
 pub mod flow;
+pub mod general_mode;
 pub mod geochemistry;
 /// Optional wgpu GPU acceleration — compiled only off Android (the workspace GPU
 /// rule keeps GPU deps out of the Android library build); CPU is the trusted path.
@@ -113,6 +116,7 @@ pub mod reactive_transport;
 pub mod solver;
 pub mod sorption;
 pub mod surface_complexation;
+pub mod thermal_convection;
 pub mod transport;
 pub mod units;
 pub mod unstructured;
