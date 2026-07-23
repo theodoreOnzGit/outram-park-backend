@@ -298,12 +298,38 @@ its own follow-up bead:
 Whole-crate state after both fleets: **224 lib tests green in release**, the
 crate's `--lib` cross-compiles to `aarch64-linux-android`.
 
-**Still open, deliberately not fleeted yet** (they modify *existing* coupled
-modules — `flow`/`energy`/`multiphase` — so they are main-loop work, not
-disjoint-module agent work): op-v6s.15.5 (GENERAL 3-phase air–water–energy),
-op-v6s.15.6 (two-way buoyancy TH coupling). Two more are tracked as
-known-deferred because they sit outside the pure-Rust / Android-buildable
-envelope: op-v6s.15.9 (MPI scale-out) and op-v6s.15.11 (HDF5 I/O).
+**Third fleet — the coupled-physics gaps, done as NEW composed modules** (not
+edits to `flow`/`energy`/`multiphase`, which stay as-is — the same disjoint-module
+discipline, each new module *reads* the existing solver/property APIs and *reuses*
+them read-only):
+- **`general_mode`** (op-v6s.15.5) — PFLOTRAN GENERAL mode as a non-isothermal
+  nb=3 (p_l, s_l, T) block system extending the isothermal two-phase solver with
+  an energy balance; T couples back through rho_l(T)/mu_l(T). Water/gas/energy
+  conservation, isothermal-limit reduction, and thermal coupling verified (6
+  tests). Simplified GENERAL (no inter-phase partitioning / phase change / latent
+  heat), flagged.
+- **`thermal_convection`** (op-v6s.15.6) — two-way buoyancy: Boussinesq rho(T)
+  drives Darcy flow which advects heat (nb=2 p,T). The conductive limit
+  (beta=0 → no flow), the Rayleigh-number formula, Newton-under-heating, and
+  input validation verify (4 tests). **The two strongly-convecting HRL onset
+  tests are `#[ignore]`d honestly**: the finite-difference block Jacobian does
+  not robustly converge the buoyancy-coupled system at the high permeability
+  (k~1.4e-9) supercritical Rayleigh numbers need — the residual stalls near
+  ‖F‖~4e-2. This is a real solver-robustness limit, not a tuning typo (it recurs
+  even in the stably-stratified case), so rather than fabricate a green it was
+  split to a follow-up bead (**op-3tt**, analytic Jacobian / adaptive timestep).
+
+Whole crate after three fleets: **234 lib tests pass (2 ignored)**, `--lib`
+cross-compiles to `aarch64-linux-android`.
+
+**Remaining parity gaps, all outside the pure-Rust / Android-buildable envelope
+or a documented follow-up:** op-v6s.15.9 (MPI scale-out) and op-v6s.15.11 (HDF5
+I/O) — both conflict with the Android / no-C-toolchain rule and are tracked as
+known-deferred; **op-3tt** (robust convecting solve) is the one open
+implementation follow-up from this wave. The extension beads op-s1h (Pitzer),
+op-gg7 (surface complexation), and op-1y6 (CO2/brine) all landed in the second
+fleet. The integration follow-ups (activity → geochemistry speciation;
+eos_real → RICHARDS water density) remain open main-loop tasks.
 
 **Integration follow-ups still open** (the standalone modules exist but are not
 yet threaded into the hot loops): `activity` → geochemistry speciation
