@@ -200,7 +200,76 @@ fn main() {
         .expect("ARAP deform");
     report("ARAP bend grid (4 corners up)", &bent);
 
+    // ---- Mesh repair / modeling / cutting operators (crate::{weld, ----
+    //      fill_holes, recalc_normals, solidify, triangulate, inset, bisect}).
+    // Weld a face-varying "exploded" cube (each face owns its 4 corners) back
+    // into a shared-vertex solid: 24 loose corners collapse to 8.
+    let exploded = explode(&cube);
+    report("exploded cube (24 corners)", &exploded);
+    let welded = MeshOp::Weld { distance: 1e-6 }.apply(exploded).expect("weld");
+    report("MeshOp::Weld (stitched)", &welded);
+
+    // Recalculate normals outside makes winding globally consistent + outward.
+    let recalced = MeshOp::RecalculateNormals.apply(welded).expect("recalc normals");
+    report("MeshOp::RecalculateNormals", &recalced);
+
+    // Open a hole (drop one face) then cap it back to watertight.
+    let holed = drop_face0(&cube);
+    report("cube minus one face (open)", &holed);
+    let capped = MeshOp::FillHoles.apply(holed).expect("fill holes");
+    report("MeshOp::FillHoles (capped)", &capped);
+
+    // Solidify a flat grid into a closed slab.
+    let plate = primitives::grid(4, 4, 2.0);
+    let slab = MeshOp::Solidify { thickness: 0.1 }.apply(plate).expect("solidify");
+    report("MeshOp::Solidify (grid->slab)", &slab);
+
+    // Triangulate and inset the cube.
+    let triangulated = MeshOp::Triangulate.apply(cube.clone()).expect("triangulate");
+    report("MeshOp::Triangulate", &triangulated);
+    let inset = MeshOp::Inset { amount: 0.3 }.apply(cube.clone()).expect("inset");
+    report("MeshOp::Inset (0.3)", &inset);
+
+    // Bisect the cube at z = 0 (keep the lower half), then cap the cut: a
+    // closed box of half the volume.
+    let lower = MeshOp::Bisect { point: Vec3::ZERO, normal: Vec3::new(0.0, 0.0, 1.0) }
+        .apply(cube.clone())
+        .expect("bisect");
+    let half = MeshOp::FillHoles.apply(lower).expect("cap the cut");
+    report("MeshOp::Bisect + FillHoles", &half);
+
     println!("\nAll operator / modifier / procedural / export steps ran.");
+}
+
+/// Return a face-varying "explosion" of `mesh`: every face gets its own private
+/// copy of each corner, so shared corners become several coincident vertices —
+/// the classic soup a `Weld` stitches back together.
+fn explode(mesh: &Mesh) -> Mesh {
+    let ps = mesh.positions();
+    let mut positions: Vec<outram_blender::math::Vec3> = Vec::new();
+    let mut faces: Vec<Vec<usize>> = Vec::new();
+    for poly in mesh.polygons() {
+        let mut face = Vec::with_capacity(poly.len());
+        for v in poly {
+            positions.push(ps[v.0]);
+            face.push(positions.len() - 1);
+        }
+        faces.push(face);
+    }
+    Mesh::from_polygons(&positions, &faces)
+}
+
+/// Return a copy of `mesh` with its first face removed, opening a hole.
+fn drop_face0(mesh: &Mesh) -> Mesh {
+    let ps = mesh.positions();
+    let faces: Vec<Vec<usize>> = mesh
+        .polygons()
+        .into_iter()
+        .enumerate()
+        .filter(|(i, _)| *i != 0)
+        .map(|(_, poly)| poly.into_iter().map(|v| v.0).collect())
+        .collect();
+    Mesh::from_polygons(&ps, &faces)
 }
 
 /// Return a copy of `mesh` translated by `dx` along X (helper for the boolean demo).
