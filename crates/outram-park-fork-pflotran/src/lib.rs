@@ -69,6 +69,7 @@
 //! | [`wells`] | wells + advanced BCs | **real** — Peaceman well index + hydrostatic/seepage/time-varying BCs (bead op-v6s.15.12) |
 //! | [`deck`] | real PFLOTRAN input deck | **real (subset)** — genuine PFLOTRAN keyword-block syntax, Fortran D-exponent floats (bead op-v6s.15.10) |
 //! | [`pitzer`] | high-ionic-strength activity | **real** — Pitzer ion-interaction virial model for brines (25 °C, binary salts) (bead op-s1h) |
+//! | [`unstructured`] | unstructured FV grid | **real** — polyhedral cell/face connectivity + two-point-flux (TPFA) transmissibility (bead op-v6s.15.8) |
 //!
 //! Modules op-v6s.15.1/.2/.3/.4/.7/.10/.12 above are standalone building blocks
 //! (upstream-parity gaps); the sorption/decay pieces are wired into
@@ -110,6 +111,7 @@ pub mod solver;
 pub mod sorption;
 pub mod transport;
 pub mod units;
+pub mod unstructured;
 pub mod wells;
 
 pub use error::PflotranError;
