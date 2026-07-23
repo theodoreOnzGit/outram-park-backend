@@ -5412,6 +5412,7 @@ version = "0.0.0"
 dependencies = [
  "outram-foam-basic-lib",
  "rayon",
+ "tampines-steam-tables",
  "thiserror 2.0.18",
  "uom 0.38.0",
  "wgpu",
