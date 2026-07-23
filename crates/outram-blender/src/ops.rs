@@ -698,6 +698,18 @@ pub enum MeshOp {
         /// Number of implicit steps (`0` is a no-op).
         iterations: u32,
     },
+    /// **Taubin `λ|μ` smoothing** (explicit, shrinkage-free denoising), delegated
+    /// to [`crate::laplacian::taubin_smooth`].
+    Taubin {
+        /// Uniform or cotangent weighting.
+        weighting: crate::laplacian::LaplacianWeighting,
+        /// Shrinking factor `0 < λ < 1`.
+        lambda: f64,
+        /// Un-shrinking factor `−1 < μ < −λ`.
+        mu: f64,
+        /// Number of `λ|μ` iteration pairs.
+        iterations: u32,
+    },
 }
 
 impl MeshOp {
@@ -715,6 +727,8 @@ impl MeshOp {
     ///   surfaced as [`MeshOpError::Boolean`].
     /// - [`MeshOp::Smooth`] → [`crate::laplacian::laplacian_smooth`], whose error
     ///   is surfaced as [`MeshOpError::Laplacian`].
+    /// - [`MeshOp::Taubin`] → [`crate::laplacian::taubin_smooth`] (infallible
+    ///   explicit filter).
     pub fn apply(&self, mesh: Mesh) -> Result<Mesh, MeshOpError> {
         match self {
             MeshOp::Extrude { offset } => {
@@ -726,6 +740,9 @@ impl MeshOp {
             MeshOp::Boolean { other, mode } => Ok(crate::boolean::boolean(&mesh, other, *mode)?),
             MeshOp::Smooth { weighting, lambda, iterations } => {
                 Ok(crate::laplacian::laplacian_smooth(&mesh, *weighting, *lambda, *iterations)?)
+            }
+            MeshOp::Taubin { weighting, lambda, mu, iterations } => {
+                Ok(crate::laplacian::taubin_smooth(&mesh, *weighting, *lambda, *mu, *iterations))
             }
         }
     }
