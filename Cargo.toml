@@ -8,6 +8,7 @@ members = [
     "crates/outram-foam-basic-lib",
     "crates/outram-foam-turbulence-lib",
     "crates/outram-foam-appbuilder-lib",
+    "crates/outram-foam-multiphase",
     "crates/outram-foam-mesh",
     "crates/outram-foam-cli",
     "crates/outram-mc-libs",
