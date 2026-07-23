@@ -750,6 +750,10 @@ pub enum MeshOp {
         /// Euclidean merge tolerance in mesh units (`0` = exact duplicates only).
         distance: f64,
     },
+    /// **Fill holes**: cap every open boundary loop with a centroid triangle
+    /// fan, delegated to [`crate::fill_holes::fill_holes`]. A no-op on an
+    /// already-closed mesh.
+    FillHoles,
 }
 
 impl MeshOp {
@@ -793,6 +797,7 @@ impl MeshOp {
             }
             MeshOp::ConvexHull => Ok(crate::convex_hull::convex_hull(&mesh.positions())?),
             MeshOp::Weld { distance } => Ok(crate::weld::weld(&mesh, *distance)),
+            MeshOp::FillHoles => Ok(crate::fill_holes::fill_holes(&mesh)),
         }
     }
 }
