@@ -75,6 +75,8 @@
 
 pub mod activity;
 pub mod energy;
+pub mod decay;
+pub mod eos_real;
 pub mod error;
 pub mod flow;
 pub mod geochemistry;
