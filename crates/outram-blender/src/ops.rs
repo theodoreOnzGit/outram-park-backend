@@ -730,6 +730,12 @@ pub enum MeshOp {
         /// The goal triangle count (a lower-bound target).
         target_faces: usize,
     },
+    /// **Loop subdivision** (smooth triangle subdivision surface), delegated to
+    /// [`crate::loop_subdivision::loop_subdivide`].
+    LoopSubdivide {
+        /// Number of refinement steps (each quadruples the triangle count).
+        iterations: u32,
+    },
 }
 
 impl MeshOp {
@@ -768,6 +774,9 @@ impl MeshOp {
                 Ok(crate::arap::arap_deform(&mesh, handles, *iterations)?)
             }
             MeshOp::Decimate { target_faces } => Ok(crate::decimate::decimate(&mesh, *target_faces)),
+            MeshOp::LoopSubdivide { iterations } => {
+                Ok(crate::loop_subdivision::loop_subdivide(&mesh, *iterations))
+            }
         }
     }
 }
