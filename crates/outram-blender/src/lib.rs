@@ -8,13 +8,18 @@
 //! `polyMesh` for CFD, or an `outram-mc-libs` CSG universe for Monte Carlo
 //! neutron transport.
 //!
-//! > **⚠️ Scaffold, not a Blender port.** Blender is millions of lines of
-//! > C/C++/Python; this crate borrows its *concepts and data-structure
-//! > architecture* (the BMesh half-edge topology, the mesh-operator model, the
-//! > modifier stack, geometry-nodes-style procedural generation) — it does
-//! > **not** port Blender's code. Where a real algorithm is implemented
-//! > (currently only [`primitives`]), it is written from first principles and
-//! > unit-tested. Everything else is an honest, documented `TODO` stub.
+//! > **⚠️ Not a Blender port.** Blender is millions of lines of C/C++/Python;
+//! > this crate borrows its *concepts and data-structure architecture* (the
+//! > BMesh half-edge topology, the mesh-operator model, the modifier stack,
+//! > geometry-nodes-style procedural generation) — it does **not** port
+//! > Blender's code (the only literally-ported piece is the Shewchuk robust
+//! > predicates in [`boolean_predicates`], with its GPL provenance header). The
+//! > algorithms here — primitives, mesh operators, subdivision (Catmull-Clark &
+//! > Loop), the general CSG boolean, the sparse-solve geometry processing
+//! > (Laplacian/Taubin smoothing, harmonic parameterization, ARAP deformation),
+//! > QEM decimation, the modifier stack, the procedural evaluator, and the
+//! > export bridges — are written from first principles and unit-tested against
+//! > analytic references. See the module map for per-module status.
 //! >
 //! > **Not affiliated with the Blender Foundation.** "Blender" names the
 //! > upstream project whose architecture inspired this work; nothing here is
@@ -63,9 +68,10 @@
 //!
 //! ## Where to start reading
 //!
-//! [`primitives`] is the primary entry point — it is the only module with
-//! runnable code. Read [`primitives::cube`] top-to-bottom, then the
-//! [`mesh::Mesh`] type it builds on.
+//! [`primitives`] is the primary entry point. Read [`primitives::cube`]
+//! top-to-bottom, then the [`mesh::Mesh`] type it builds on; from there the
+//! [`ops::MeshOp`] enum is the map of what you can *do* to a mesh (extrude,
+//! bevel, boolean, smooth, decimate, subdivide, ARAP-deform).
 //!
 //! ```
 //! use outram_blender::primitives;
