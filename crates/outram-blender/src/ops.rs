@@ -766,6 +766,10 @@ pub enum MeshOp {
     /// [`crate::recalc_normals::recalculate_normals`]. Repairs an
     /// inconsistently-wound polygon soup.
     RecalculateNormals,
+    /// **Triangulate**: fan-triangulate every face into triangles, delegated to
+    /// [`crate::triangulate::triangulate`]. Produces a triangle-only mesh for
+    /// the operators/bridges that require one.
+    Triangulate,
 }
 
 impl MeshOp {
@@ -812,6 +816,7 @@ impl MeshOp {
             MeshOp::FillHoles => Ok(crate::fill_holes::fill_holes(&mesh)),
             MeshOp::Solidify { thickness } => Ok(crate::solidify::solidify(&mesh, *thickness)),
             MeshOp::RecalculateNormals => Ok(crate::recalc_normals::recalculate_normals(&mesh)),
+            MeshOp::Triangulate => Ok(crate::triangulate::triangulate(&mesh)),
         }
     }
 }
