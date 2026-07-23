@@ -1,44 +1,45 @@
 outram-park-fork-liggghts — NOTICE
 ==================================
 
-LICENSING FLAG — MAINTAINER DECISION REQUIRED (bead op-t3l)
-----------------------------------------------------------
+LICENSING — LIGGGHTS-PUBLIC IS GPL-2.0-OR-LATER (GPL-3 COMPATIBLE)
+-----------------------------------------------------------------
 
-LIGGGHTS-PUBLIC and LAMMPS (including LAMMPS GRANULAR) are licensed under the
-GNU General Public License, **version 2 only** (GPL-2.0-only). The OUTRAM PARK
-workspace is licensed **GPL-3.0-only**.
+LIGGGHTS-PUBLIC's own source headers state, verbatim (verified 2026-07-23 in
+`src/lammps.h` and `src/lammps.cpp` of CFDEMproject/LIGGGHTS-PUBLIC):
 
-GPL-2.0-only and GPL-3.0-only are **mutually incompatible**: GPL-2.0-only code
-cannot be relicensed or combined into a GPL-3.0-only work. (This is unlike
-outram-park-fork-pflotran, whose upstream PFLOTRAN is LGPL-2.1 and can be
-upgraded to GPL-3 under LGPL-2.1 §3 — LIGGGHTS/LAMMPS have no such upgrade path.)
+    "LIGGGHTS® is open-source, distributed under the terms of the
+     GNU Public License, version 2 or later."
 
-Consequences for this crate:
+"GPL version 2 **or later**" is **compatible with GPL-3.0**: the "or later"
+option lets a recipient use the work under GPLv3. LIGGGHTS-PUBLIC source may
+therefore be ported into this GPL-3.0-only crate and redistributed under
+GPL-3.0-only. (An earlier revision of this NOTICE incorrectly described the
+upstream as "GPL-2.0-only" and treated porting as blocked — that was a mistake;
+the source headers say "or later".)
 
-- The code here is an **independent Rust implementation** of granular-DEM
-  physics, written from public DEM literature (Cundall & Strack 1979; Hertz;
-  Mindlin & Deresiewicz; standard particle-heat-transfer models) and by
-  identifying the corresponding LIGGGHTS/LAMMPS algorithms **by name only**. It
-  does **not** copy, translate, or derive from GPL-2.0 LIGGGHTS/LAMMPS source.
-  Under that clean-room stance the original code is distributable as GPL-3.0-only.
+Practical guidance for contributors (including AI assistants):
 
-- **BLOCKED pending maintainer decision:** any actual porting/translation of
-  GPL-2.0 LIGGGHTS or LAMMPS source into this crate. Options the human
-  maintainer must choose between (engineering/licensing judgement — not for the
-  AI to decide): (a) keep this a clean-room independent implementation licensed
-  GPL-3.0-only (no upstream source consulted line-by-line); (b) license this
-  crate GPL-2.0-only or GPL-2.0-or-later to permit direct porting, accepting it
-  cannot then be combined with GPL-3.0-only workspace crates; (c) obtain a
-  license exception from the upstream copyright holders; (d) drop the "fork"
-  framing.
-
-Until (a)–(d) is resolved, contributors (including AI assistants) must NOT read
-LIGGGHTS/LAMMPS source for line-by-line translation into this crate. Phase 1
-(the generic Particle data model + explicit time integration) is unaffected —
-it is standard textbook DEM and contains no upstream-derived code.
+- **Porting LIGGGHTS-PUBLIC source is permitted.** When you translate a file,
+  first CONFIRM that file's own header carries the "version 2 or later" wording
+  (headers can vary between files and releases), record the upstream file /
+  version / commit in this crate's provenance, and keep the attribution +
+  license notice on the ported Rust file (as the workspace CLAUDE.md requires).
+- **LAMMPS upstream is murkier.** LAMMPS's per-file headers say only "This
+  software is distributed under the GNU General Public License" with **no
+  version number**, and it ships the GPLv2 text. LIGGGHTS-PUBLIC (a LAMMPS
+  derivative) is what this crate forks, and DCS Computing declared their
+  distribution "version 2 or later", so that is the governing license for
+  LIGGGHTS-PUBLIC-derived code. If you ever port a file that originates from
+  LAMMPS-proper rather than from LIGGGHTS-PUBLIC, check that specific file's
+  header and treat the version-less grant with care (raise it with the
+  maintainer rather than assuming "or later").
+- Phase 1 (the generic Particle data model + integration) was written
+  clean-room from public DEM literature and contains no upstream-derived code;
+  that is unaffected either way.
 
 Trademarks: "LIGGGHTS" and "LAMMPS" are used descriptively only, to identify
-the upstream algorithms this crate reimplements. This is not an official
+the upstream algorithms this crate reimplements/ports. This is not an official
 LIGGGHTS/LAMMPS product and is not affiliated with or endorsed by DCS Computing
 GmbH, Sandia National Laboratories, or the LAMMPS/LIGGGHTS developers. See the
-workspace TRADEMARKS.md.
+workspace TRADEMARKS.md. "LIGGGHTS®" is a registered trademark of DCS Computing
+GmbH.

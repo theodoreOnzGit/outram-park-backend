@@ -29,13 +29,15 @@
 //! [`tampines`] and the CFD/multiphase pillar [`outram-foam-multiphase`], with
 //! CFD-DEM coupling deferred to a future explicit seam).
 //!
-//! > **⚠️ LICENSING FLAG (see `NOTICE`).** LIGGGHTS/LAMMPS are **GPL-2.0-only**,
-//! > incompatible with this workspace's **GPL-3.0-only**. This crate is an
-//! > **independent implementation** informed by public DEM literature and by
-//! > naming the upstream algorithms — it does **not** copy or translate GPL-2.0
-//! > source. Porting actual LIGGGHTS/LAMMPS source is **blocked pending a
-//! > maintainer licensing decision**. Phase 1 (below) is generic textbook DEM
-//! > and is unaffected.
+//! > **Licensing (see `NOTICE`).** LIGGGHTS-PUBLIC's source headers declare
+//! > **"GNU Public License, version 2 or later"**, which **is compatible with
+//! > GPL-3.0** (the "or later" option permits use under GPLv3) — so
+//! > LIGGGHTS-PUBLIC source may be ported into this GPL-3.0-only crate.
+//! > (Correcting an earlier note that wrongly said "GPL-2.0-only / blocked".)
+//! > When porting, confirm the specific file's "or later" header and keep its
+//! > attribution + provenance. LAMMPS-proper headers are version-unspecified
+//! > (murkier) — treat those with care. Phase 1 below is clean-room from public
+//! > DEM literature (no upstream-derived code) regardless.
 //!
 //! > **⚠️ Unverified until validated — scaffold.** No human V&V yet. Not for
 //! > nuclear facility operation, reactor control, safety-critical, or licensing

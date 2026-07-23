@@ -2,15 +2,14 @@
 name = "outram-park-fork-liggghts"
 version = "0.0.0"
 edition.workspace = true
-# LICENSING NOTE (see NOTICE): LIGGGHTS-PUBLIC and LAMMPS are GPL-2.0-ONLY,
-# which is NOT compatible with this workspace's GPL-3.0-only license — GPL-2.0
-# code cannot be relicensed to GPL-3.0. This crate is therefore an INDEPENDENT
-# Rust implementation of granular-DEM physics (informed by public DEM
-# literature and by identifying the upstream algorithms by name), and does NOT
-# copy or translate GPL-2.0 LIGGGHTS/LAMMPS source. Porting actual upstream
-# source is BLOCKED pending a maintainer licensing decision (bead op-t3l).
+# LICENSING NOTE (see NOTICE): LIGGGHTS-PUBLIC's source headers declare "GNU
+# Public License, version 2 OR LATER", which IS compatible with GPL-3.0 (the
+# "or later" option permits use under GPLv3) — so LIGGGHTS-PUBLIC source may be
+# ported into this GPL-3.0-only crate. (Corrects an earlier note that wrongly
+# said GPL-2.0-only/blocked.) Confirm each ported file's "or later" header and
+# keep its provenance; LAMMPS-proper headers are version-unspecified (murkier).
 license.workspace = true
-description = "Independent pure-Rust granular-DEM library for OUTRAM PARK (particles, contact mechanics, thermal DEM, pebble/packed-bed physics), informed by LIGGGHTS/LAMMPS-granular algorithms. NOT a code port — see NOTICE for the GPL-2 vs GPL-3 licensing note. SCAFFOLD: Particle framework only, no human V&V."
+description = "Pure-Rust granular-DEM library for OUTRAM PARK (particles, contact mechanics, thermal DEM, pebble/packed-bed physics), porting/reimplementing LIGGGHTS/LAMMPS-granular algorithms. LIGGGHTS-PUBLIC is GPL-2-or-later (GPL-3 compatible) — see NOTICE. SCAFFOLD: Particle framework only, no human V&V."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"

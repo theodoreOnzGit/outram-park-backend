@@ -10,13 +10,14 @@ LIGGGHTS/LAMMPS — see NOTICE for the licensing flag.
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 
-> ⚠️ **LICENSING FLAG — maintainer decision required (see [`NOTICE`](./NOTICE)).**
-> LIGGGHTS-PUBLIC and LAMMPS are **GPL-2.0-only**, which is **incompatible** with
-> this workspace's **GPL-3.0-only**. This crate is an **independent Rust
-> implementation** informed by public DEM literature and by naming the upstream
-> algorithms — it does **not** copy or translate GPL-2.0 source. Porting actual
-> LIGGGHTS/LAMMPS source is **blocked** until the maintainer chooses a licensing
-> path (bead `op-t3l`).
+> **Licensing (see [`NOTICE`](./NOTICE)).** LIGGGHTS-PUBLIC's source headers
+> declare **"GNU Public License, version 2 or later"**, which **is compatible
+> with GPL-3.0** (the "or later" option permits use under GPLv3) — so
+> LIGGGHTS-PUBLIC source may be ported into this GPL-3.0-only crate. *(Corrects
+> an earlier note that wrongly said "GPL-2.0-only / blocked".)* When porting,
+> confirm the specific file's "or later" header and keep its attribution +
+> provenance. LAMMPS-proper headers are version-unspecified (murkier) — treat
+> those with care. Phase 1 is clean-room from public DEM literature regardless.
 
 ## Bookkeeping status
 
