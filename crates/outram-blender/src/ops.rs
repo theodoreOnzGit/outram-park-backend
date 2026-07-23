@@ -723,6 +723,13 @@ pub enum MeshOp {
         /// Number of local/global ARAP iterations.
         iterations: u32,
     },
+    /// **QEM mesh decimation** (quadric-error-metric simplification), delegated
+    /// to [`crate::decimate::decimate`]. Reduces the mesh to roughly
+    /// `target_faces` triangles.
+    Decimate {
+        /// The goal triangle count (a lower-bound target).
+        target_faces: usize,
+    },
 }
 
 impl MeshOp {
@@ -760,6 +767,7 @@ impl MeshOp {
             MeshOp::Arap { handles, iterations } => {
                 Ok(crate::arap::arap_deform(&mesh, handles, *iterations)?)
             }
+            MeshOp::Decimate { target_faces } => Ok(crate::decimate::decimate(&mesh, *target_faces)),
         }
     }
 }
