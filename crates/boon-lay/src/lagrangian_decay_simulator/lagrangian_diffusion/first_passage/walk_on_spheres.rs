@@ -22,6 +22,7 @@ use uom::si::f64::{Area, DiffusionCoefficient, Length, Time};
 use uom::ConstZero;
 
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::central_limit_theorem::oorandom_rng::OoRng64;
+use crate::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::interface::does_transmit;
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::sphere_fpt::{
     sample_first_passage_time, sample_uniform_direction,
 };
@@ -43,10 +44,44 @@ pub enum HopOutcome {
     /// The walker reached the OPyC outer surface and is released from the
     /// particle.
     Released,
-    /// The walker reached an interior layer interface. Resolving it (transmit
-    /// vs. reflect via the interface rule) is handled by the multilayer phase;
-    /// until then this outcome simply reports arrival.
+    /// The walker reached an interior layer interface and it was resolved this
+    /// step (it transmitted into the neighbour or reflected back). The walk
+    /// continues from the reinserted position on the next step.
     ReachedInterface,
+}
+
+/// Tunables for a multilayer Walk-on-Spheres walk.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WalkParams {
+    /// Distance below which a hop is treated as having *reached* the nearest
+    /// interface rather than continuing to shrink. Bounds the geometric
+    /// approach to a boundary; smaller values are more accurate but take more
+    /// hops. Choose it small relative to the thinnest layer.
+    pub capture_eps: Length,
+    /// After an interface is resolved, the walker is reinserted this many
+    /// `capture_eps` away from the interface (on the chosen side) so the next
+    /// hop is a genuine hop and not an immediate re-trigger. Must be `> 1`.
+    pub reinsert_factor: f64,
+    /// Partition/solubility ratio `K` at every interface (`1.0` = plain
+    /// concentration continuity, the default TRISO assumption).
+    pub partition_k: f64,
+    /// Safety cap on the number of steps before a walk is abandoned (returns
+    /// `None`), guarding against a walker that never escapes within budget.
+    pub max_steps: u64,
+}
+
+impl WalkParams {
+    /// Sensible defaults for a CRP-6-scale particle: `capture_eps = 10 nm`
+    /// (~1/3500 of the thinnest, 35 µm, SiC layer), reinsert at `2 * eps`, unit
+    /// partition, and a generous step cap.
+    pub fn crp6_default() -> Self {
+        Self {
+            capture_eps: Length::new::<uom::si::length::nanometer>(10.0),
+            reinsert_factor: 2.0,
+            partition_k: 1.0,
+            max_steps: 50_000_000,
+        }
+    }
 }
 
 /// A single diffusing atom tracked by the Walk-on-Spheres engine.
@@ -191,6 +226,132 @@ impl WoSWalker {
             ];
         }
     }
+
+    /// Advance one multilayer step: either a genuine Walk-on-Spheres hop within
+    /// the current shell, or — if the walker has reached an interface — one
+    /// transmission/reflection resolution.
+    ///
+    /// The hop is sized by [`shell_bounds`] so it never crosses an interface.
+    /// When the walker comes within `params.capture_eps` of an interface, it is
+    /// resolved with the interface rule ([`does_transmit`]): reaching the OPyC
+    /// outer surface releases the walker; an interior interface transmits into
+    /// the neighbour or reflects, and the walker is reinserted
+    /// `reinsert_factor * capture_eps` from the interface on the chosen side.
+    pub fn step_multilayer(&mut self, triso_cell: &TrisoCell, params: &WalkParams) -> HopOutcome {
+        let Some((inner, outer)) = shell_bounds(triso_cell, self.position) else {
+            return HopOutcome::Released;
+        };
+        let rho = self.radius();
+        let dist_out = outer - rho;
+        let dist_in = inner.map(|r_in| rho - r_in);
+
+        let hop_radius = match dist_in {
+            Some(di) if di < dist_out => di,
+            _ => dist_out,
+        };
+
+        let d_current = self.diffusion_at(triso_cell, self.position);
+
+        if hop_radius > params.capture_eps {
+            // Genuine Walk-on-Spheres hop, entirely within this shell.
+            let tau = sample_first_passage_time(&mut self.rng.0, hop_radius, d_current);
+            self.time += tau;
+            let dir = sample_uniform_direction(&mut self.rng.0);
+            self.position = [
+                self.position[0] + hop_radius * dir[0],
+                self.position[1] + hop_radius * dir[1],
+                self.position[2] + hop_radius * dir[2],
+            ];
+            return HopOutcome::Stepped;
+        }
+
+        // The walker has reached the nearest interface — decide which one.
+        let at_outer = match dist_in {
+            Some(di) => dist_out <= di,
+            None => true,
+        };
+
+        let reinsert = params.capture_eps * params.reinsert_factor;
+
+        if at_outer {
+            // The outer particle surface is an absorbing sink: reaching it is
+            // release. Interior outer boundaries transmit/reflect.
+            if outer == triso_cell.get_opyc_radius() {
+                return HopOutcome::Released;
+            }
+            let d_next = self.diffusion_at(triso_cell, self.point_at_radius(outer + reinsert));
+            if does_transmit(&mut self.rng.0, d_current, d_next, params.partition_k) {
+                self.set_radius_to(outer + reinsert);
+            } else {
+                self.set_radius_to(outer - reinsert);
+            }
+        } else {
+            let inner_radius = inner.expect("inner interface implies an inner radius");
+            let d_next = self.diffusion_at(triso_cell, self.point_at_radius(inner_radius - reinsert));
+            if does_transmit(&mut self.rng.0, d_current, d_next, params.partition_k) {
+                self.set_radius_to(inner_radius - reinsert);
+            } else {
+                self.set_radius_to(inner_radius + reinsert);
+            }
+        }
+
+        HopOutcome::ReachedInterface
+    }
+
+    /// Run the multilayer walk until the walker is released from the OPyC outer
+    /// surface, returning the release time, or `None` if the step cap in
+    /// `params` is hit first.
+    ///
+    /// This ignores decay — it is the pure-diffusion release-time driver used
+    /// by the multilayer verification; decay and transmutation clocks are layered
+    /// on in the depletion phase.
+    pub fn walk_until_released(
+        &mut self,
+        triso_cell: &TrisoCell,
+        params: &WalkParams,
+    ) -> Option<Time> {
+        for _ in 0..params.max_steps {
+            if self.step_multilayer(triso_cell, params) == HopOutcome::Released {
+                return Some(self.time);
+            }
+        }
+        None
+    }
+
+    /// Diffusion coefficient of the walker's current nuclide at `position`,
+    /// falling back to the cracked-layer default outside every known region.
+    #[inline]
+    fn diffusion_at(&self, triso_cell: &TrisoCell, position: [Length; 3]) -> DiffusionCoefficient {
+        triso_cell
+            .try_get_diffusion_coefficient(position, self.nuclide)
+            .unwrap_or_else(|| {
+                DiffusionCoefficient::new::<square_meter_per_second>(FALLBACK_DIFFUSION_M2_PER_S)
+            })
+    }
+
+    /// The point at radial distance `target` from the centre, along the walker's
+    /// current radial direction. Used to reinsert a walker just across (or back
+    /// from) an interface. If the walker is at the exact centre, falls back to
+    /// the `+x` axis so the direction is well defined.
+    #[inline]
+    fn point_at_radius(&self, target: Length) -> [Length; 3] {
+        let rho = self.radius();
+        if rho <= Length::ZERO {
+            return [target, Length::ZERO, Length::ZERO];
+        }
+        let scale = (target / rho).get::<uom::si::ratio::ratio>();
+        [
+            self.position[0] * scale,
+            self.position[1] * scale,
+            self.position[2] * scale,
+        ]
+    }
+
+    /// Move the walker radially to `target` (same direction, new radius).
+    #[inline]
+    fn set_radius_to(&mut self, target: Length) {
+        self.position = self.point_at_radius(target);
+    }
 }
 
 /// Sample a point uniformly in the volume of a ball of radius `radius`, centred
@@ -231,40 +392,49 @@ pub fn radial_distance(position: [Length; 3]) -> Length {
 /// `position` components and the returned distance are [`uom`] `Length`s.
 #[inline]
 pub fn nearest_interface_distance(triso_cell: &TrisoCell, position: [Length; 3]) -> Option<Length> {
+    let (inner, outer) = shell_bounds(triso_cell, position)?;
     let rho = radial_distance(position);
+    let dist_out = outer - rho;
+    match inner.map(|r_in| rho - r_in) {
+        Some(dist_in) => Some(if dist_in < dist_out { dist_in } else { dist_out }),
+        None => Some(dist_out),
+    }
+}
 
-    // (inner bounding radius, outer bounding radius) of the walker's shell.
-    let (inner, outer): (Option<Length>, Option<Length>) = match triso_cell.get_triso_region(position)
-    {
-        TrisoRegion::Fuel => (None, Some(triso_cell.get_fuel_radius())),
+/// The inner and outer bounding-sphere radii of the shell containing
+/// `position`.
+///
+/// Returns `(inner, outer)` where `inner` is `None` for the fuel kernel (which
+/// has no inner boundary) and `outer` is the shell's outer radius. Returns
+/// `None` if the walker is outside the particle. This is the geometry the
+/// Walk-on-Spheres step uses to size hops and to identify which interface a
+/// walker has reached.
+#[inline]
+pub fn shell_bounds(
+    triso_cell: &TrisoCell,
+    position: [Length; 3],
+) -> Option<(Option<Length>, Length)> {
+    let bounds = match triso_cell.get_triso_region(position) {
+        TrisoRegion::Fuel => (None, triso_cell.get_fuel_radius()),
         TrisoRegion::Buffer => (
             Some(triso_cell.get_fuel_radius()),
-            Some(triso_cell.get_buffer_radius()),
+            triso_cell.get_buffer_radius(),
         ),
         TrisoRegion::IPyC => (
             Some(triso_cell.get_buffer_radius()),
-            Some(triso_cell.get_ipyc_radius()),
+            triso_cell.get_ipyc_radius(),
         ),
         TrisoRegion::SiC => (
             Some(triso_cell.get_ipyc_radius()),
-            Some(triso_cell.get_sic_radius()),
+            triso_cell.get_sic_radius(),
         ),
         TrisoRegion::OPyC => (
             Some(triso_cell.get_sic_radius()),
-            Some(triso_cell.get_opyc_radius()),
+            triso_cell.get_opyc_radius(),
         ),
         TrisoRegion::Outside => return None,
     };
-
-    let dist_out = outer.map(|r_out| r_out - rho);
-    let dist_in = inner.map(|r_in| rho - r_in);
-
-    match (dist_in, dist_out) {
-        (Some(a), Some(b)) => Some(if a < b { a } else { b }),
-        (Some(a), None) => Some(a),
-        (None, Some(b)) => Some(b),
-        (None, None) => None,
-    }
+    Some(bounds)
 }
 
 #[cfg(test)]
@@ -355,5 +525,141 @@ mod tests {
         let start = at(427.4);
         let mut walker = WoSWalker::new(start, Nuclide::Cs137, OoRng64::from_u64(7));
         assert_eq!(walker.hop(&cell, capture_eps), HopOutcome::Released);
+    }
+
+    /// **The decisive interface-rule check.** A single ergodic walker in a
+    /// two-region reflecting sphere (inner `D_in`, outer `D_out`, interface at
+    /// `a`, reflecting wall at `b`) must, at equilibrium with unit partition,
+    /// spend a fraction of its *time* in each region equal to that region's
+    /// *volume* fraction — i.e. the concentration is uniform — regardless of the
+    /// diffusivity contrast. This is what fixes the transmission rule: it holds
+    /// for the linear `p = D2/(D1+D2)` rule and fails for the `sqrt(D)` rule.
+    #[test]
+    fn interface_rule_gives_uniform_equilibrium_density() {
+        use crate::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::interface::does_transmit;
+        use uom::si::length::{meter, micrometer, nanometer};
+        use uom::si::ratio::ratio;
+        use uom::si::time::second;
+
+        let a = Length::new::<micrometer>(50.0);
+        let b = Length::new::<micrometer>(100.0);
+        let d_in = DiffusionCoefficient::new::<square_meter_per_second>(1e-8);
+        let d_out = DiffusionCoefficient::new::<square_meter_per_second>(1e-9); // 10x contrast
+        let eps = Length::new::<nanometer>(20.0);
+        let reinsert = eps * 3.0;
+        let k = 1.0;
+
+        let vol_frac_in = (a.get::<meter>() / b.get::<meter>()).powi(3); // (50/100)^3 = 0.125
+
+        let set_radius = |pos: &mut [Length; 3], target: Length| {
+            let rho = radial_distance(*pos);
+            if rho <= Length::ZERO {
+                *pos = [target, Length::ZERO, Length::ZERO];
+                return;
+            }
+            let scale = (target / rho).get::<ratio>();
+            *pos = [pos[0] * scale, pos[1] * scale, pos[2] * scale];
+        };
+
+        let mut seed = 0x1357_9bdf_2468_ace0_u64;
+        let mut pos: [Length; 3] = [a * 0.5, Length::ZERO, Length::ZERO];
+        let mut t_in = 0.0_f64;
+        let mut t_out = 0.0_f64;
+
+        for _ in 0..3_000_000_u64 {
+            let rho = radial_distance(pos);
+            let in_inner = rho < a;
+            let d_here = if in_inner { d_in } else { d_out };
+            let (inner_r, outer_r): (Option<Length>, Length) = if in_inner {
+                (None, a)
+            } else {
+                (Some(a), b)
+            };
+            let dist_out = outer_r - rho;
+            let dist_in = inner_r.map(|r| rho - r);
+            let hop_radius = match dist_in {
+                Some(di) if di < dist_out => di,
+                _ => dist_out,
+            };
+
+            if hop_radius > eps {
+                let tau = sample_first_passage_time(&mut seed, hop_radius, d_here).get::<second>();
+                if in_inner {
+                    t_in += tau;
+                } else {
+                    t_out += tau;
+                }
+                let dir = sample_uniform_direction(&mut seed);
+                pos = [
+                    pos[0] + hop_radius * dir[0],
+                    pos[1] + hop_radius * dir[1],
+                    pos[2] + hop_radius * dir[2],
+                ];
+            } else {
+                let at_outer = match dist_in {
+                    Some(di) => dist_out <= di,
+                    None => true,
+                };
+                if at_outer && outer_r == b {
+                    // Reflecting outer wall (no absorption).
+                    set_radius(&mut pos, b - reinsert);
+                } else if at_outer {
+                    // Interface at `a`, currently inside going out.
+                    if does_transmit(&mut seed, d_here, d_out, k) {
+                        set_radius(&mut pos, a + reinsert);
+                    } else {
+                        set_radius(&mut pos, a - reinsert);
+                    }
+                } else {
+                    // Interface at `a`, currently outside going in.
+                    if does_transmit(&mut seed, d_here, d_in, k) {
+                        set_radius(&mut pos, a - reinsert);
+                    } else {
+                        set_radius(&mut pos, a + reinsert);
+                    }
+                }
+            }
+        }
+
+        let measured_in = t_in / (t_in + t_out);
+        assert!(
+            (measured_in - vol_frac_in).abs() < 0.02,
+            "equilibrium inner time fraction {measured_in:.4} vs volume fraction {vol_frac_in:.4} \
+             (uniform density) — transmission rule is wrong if these disagree"
+        );
+    }
+
+    /// A walker started in the fuel kernel transmits outward across at least one
+    /// interior interface within a bounded number of steps, exercising the
+    /// multilayer machinery end to end.
+    #[test]
+    fn multilayer_walk_transmits_across_interfaces() {
+        let cell = TrisoCell::new_crp6_geometry();
+        let params = WalkParams {
+            capture_eps: Length::new::<uom::si::length::nanometer>(20.0),
+            reinsert_factor: 2.0,
+            partition_k: 1.0,
+            max_steps: 500_000,
+        };
+        let mut walker =
+            WoSWalker::new_at_center(Nuclide::Cs137, OoRng64::from_u64(0x2024));
+        let fuel_radius = cell.get_fuel_radius();
+        let mut left_kernel = false;
+        let mut saw_interface = false;
+        for _ in 0..params.max_steps {
+            match walker.step_multilayer(&cell, &params) {
+                HopOutcome::ReachedInterface => saw_interface = true,
+                HopOutcome::Released => break,
+                HopOutcome::Stepped => {}
+            }
+            if walker.radius() > fuel_radius {
+                left_kernel = true;
+            }
+            if left_kernel && saw_interface {
+                break;
+            }
+        }
+        assert!(saw_interface, "walker never reached an interface");
+        assert!(left_kernel, "walker never transmitted out of the fuel kernel");
     }
 }
