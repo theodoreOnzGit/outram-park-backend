@@ -61,6 +61,13 @@
 //! | [`kinetics`] | mineral kinetics | **working (verification-only)** — TST precipitation/dissolution on a foam ODE solver (bead op-v6s.12) |
 //! | [`reactive_transport`] | GIRT reactive transport | **working (verification-only)** — SNIA transport↔geochemistry coupling (bead op-v6s.12) |
 //! | [`multiphase`] | GENERAL multiphase flow | **working (verification-only)** — two-phase air–water on the block solver (bead op-v6s.13) |
+//! | [`activity`] | aqueous activity models | **real** — Debye–Hückel / Davies coefficients (bead op-v6s.15.1) |
+//! | [`sorption`] | sorption + ion exchange | **real** — Kd/Langmuir/Freundlich isotherms + Gaines–Thomas exchange (bead op-v6s.15.2) |
+//! | [`decay`] | radioactive decay | **real** — Bateman decay chains + ingrowth (bead op-v6s.15.3) |
+//! | [`eos_real`] | real fluid EOS | **real** — IAPWS-IF97 liquid water via `tampines-steam-tables` (bead op-v6s.15.7) |
+//!
+//! Modules op-v6s.15.1/.2/.3/.7 above are standalone building blocks (upstream-
+//! parity gaps) not yet wired into the flow/transport/geochemistry hot loops.
 //!
 //! ## Design rules (workspace mandate)
 //!
