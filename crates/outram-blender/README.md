@@ -46,11 +46,14 @@ Monte Carlo neutron transport.
 > results, and — behind opt-in cargo features (`foam-export`, `mc-export`) —
 > emits the **real** `outram-foam-basic-lib` polyMesh and `outram-mc-libs` CSG
 > types, not just local mirrors. The vertex bevel now rounds (a multi-segment
-> spherical cap) as well as single-chamfers. A new `laplacian` module adds the
-> cotangent/uniform discrete Laplacian and implicit (unconditionally stable)
-> Laplacian smoothing — the crate's first **sparse-solver** operator (`faer`
-> sparse Cholesky). The epic's boolean / export / bevel / smoothing workstreams
-> (`op-hzs.6`, `op-hzs.7`, `op-hzs.11`–`op-hzs.13`, `op-hzs.15`) are landed.
+> spherical cap) as well as single-chamfers. A family of **sparse-solve
+> geometry-processing operators** (built on `faer` sparse Cholesky) has landed:
+> the cotangent/uniform discrete **Laplacian** with implicit and Taubin
+> (shrinkage-free) **smoothing**, **harmonic/Tutte parameterization** (UV
+> unwrap), and **ARAP** (as-rigid-as-possible) handle-based **deformation**. The
+> epic's boolean / export / bevel / smoothing / parameterization / deformation
+> workstreams (`op-hzs.6`, `op-hzs.7`, `op-hzs.11`–`op-hzs.13`,
+> `op-hzs.15`–`op-hzs.18`) are landed.
 >
 > **⚠️ AI-generated draft, untrusted until human-reviewed** per the workspace
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -93,7 +96,9 @@ included.
 | `primitives` | Add-Mesh primitive operators | **real** — cube / UV-sphere / cylinder / grid, unit-tested |
 | `ops` | `bmesh/operators` (`bmo_*`) | **real** — extrude / midpoint-subdivide / vertex-bevel (single chamfer or rounded multi-segment spherical cap; boolean delegates to `boolean`) |
 | `subdivision` | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
-| `laplacian` | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit Laplacian smoothing (first `faer` sparse Cholesky solve) |
+| `laplacian` | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit & Taubin (shrinkage-free) smoothing (first `faer` sparse Cholesky solve) |
+| `parameterize` | UV unwrap (harmonic map) | **real** — Tutte/harmonic planar parameterization of a disk (reuses the Laplacian sparse solve) |
+| `arap` | "As Rigid As Possible" deform | **real** — handle-based ARAP deformation (local Procrustes rotation via 3×3 SVD + cotangent-Laplacian global solve) |
 | `boolean` | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to `boolean_general` |
 | `boolean_general` | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union / difference / intersect on non-convex closed meshes (arrangement + winding classification) |
 | `boolean_predicates` | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double) |
