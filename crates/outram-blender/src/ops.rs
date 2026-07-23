@@ -58,6 +58,10 @@ pub enum MeshOpError {
     /// non-positive-definite system.
     #[error(transparent)]
     Arap(#[from] crate::arap::ArapError),
+    /// Propagated from convex-hull construction (crate::convex_hull) — a
+    /// degenerate (fewer than four distinct / collinear / coplanar) point set.
+    #[error(transparent)]
+    Hull(#[from] crate::convex_hull::HullError),
 }
 
 /// Boolean CSG mode for [`MeshOp::Boolean`] (mirrors Blender's Boolean modifier).
@@ -736,6 +740,9 @@ pub enum MeshOp {
         /// Number of refinement steps (each quadruples the triangle count).
         iterations: u32,
     },
+    /// Replace the mesh with the **convex hull of its vertices**, delegated to
+    /// [`crate::convex_hull::convex_hull`].
+    ConvexHull,
 }
 
 impl MeshOp {
@@ -777,6 +784,7 @@ impl MeshOp {
             MeshOp::LoopSubdivide { iterations } => {
                 Ok(crate::loop_subdivision::loop_subdivide(&mesh, *iterations))
             }
+            MeshOp::ConvexHull => Ok(crate::convex_hull::convex_hull(&mesh.positions())?),
         }
     }
 }

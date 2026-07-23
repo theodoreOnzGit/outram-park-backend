@@ -101,6 +101,7 @@ included.
 | `parameterize` | UV unwrap (harmonic map) | **real** — Tutte/harmonic planar parameterization of a disk (reuses the Laplacian sparse solve) |
 | `arap` | "As Rigid As Possible" deform | **real** — handle-based ARAP deformation (local Procrustes rotation via 3×3 SVD + cotangent-Laplacian global solve) |
 | `decimate` | `MOD_decimate` (Collapse) | **real** — QEM (Garland–Heckbert) edge-collapse mesh simplification |
+| `convex_hull` | `bmo_convex_hull` | **real** — 3D convex hull of a point set (incremental, robust `orient3d`) |
 | `boolean` | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to `boolean_general` |
 | `boolean_general` | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union / difference / intersect on non-convex closed meshes (arrangement + winding classification) |
 | `boolean_predicates` | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double) |
