@@ -188,6 +188,11 @@ pub struct SoluteTransport {
     /// staying monotone. The gradient ratio `r` is formed along the structured
     /// grid axis of each face; see [`SoluteTransport::step`].
     flux_limiter: FluxLimiter,
+    /// First-order radioactive-decay constant `lambda` (1/s) of the transported
+    /// solute (`lambda = ln2 / half_life`; get it from a single-nuclide
+    /// [`crate::decay::DecayChain`]). Default `0` (conservative / no decay). Added
+    /// as an implicit volumetric sink `-lambda * theta_w * c` per cell.
+    decay_constant: f64,
 }
 
 impl SoluteTransport {
@@ -278,6 +283,7 @@ impl SoluteTransport {
             dt: 1.0,
             c_old: vec![0.0; n_cells],
             flux_limiter: FluxLimiter::Upwind,
+            decay_constant: 0.0,
         })
     }
 
@@ -288,6 +294,21 @@ impl SoluteTransport {
     /// `outram-foam-basic-lib`.
     pub fn set_flux_limiter(&mut self, limiter: FluxLimiter) {
         self.flux_limiter = limiter;
+    }
+
+    /// Set the first-order radioactive-decay constant `lambda` (1/s) of the
+    /// transported solute — an implicit volumetric sink `-lambda * theta_w * c`.
+    /// `lambda = ln2 / half_life`; a single-nuclide
+    /// [`crate::decay::DecayChain`]'s `decay_constant(0)` gives it. `0` disables
+    /// decay (conservative transport). Errors on a negative/non-finite value.
+    pub fn set_decay_constant(&mut self, lambda: f64) -> Result<(), PflotranError> {
+        if lambda < 0.0 || !lambda.is_finite() {
+            return Err(PflotranError::InvalidInput(format!(
+                "decay constant must be finite and >= 0, got {lambda}"
+            )));
+        }
+        self.decay_constant = lambda;
+        Ok(())
     }
 
     /// Set the time step `dt` (seconds). Validated (must be positive and finite)
@@ -368,8 +389,11 @@ impl SoluteTransport {
         // Accumulation (implicit Euler mass term).
         let inv_dt = 1.0 / self.dt;
         for i in 0..n_cells {
-            let acc = self.flow.water_content[i] * self.grid.cell_volume(i) * inv_dt;
+            let theta_v = self.flow.water_content[i] * self.grid.cell_volume(i);
+            let acc = theta_v * inv_dt;
             a.diag[i] += acc;
+            // Implicit first-order radioactive decay sink: -lambda * theta_w * c.
+            a.diag[i] += self.decay_constant * theta_v;
             b[i] += acc * self.c_old[i];
         }
 
@@ -625,6 +649,40 @@ mod tests {
                 "SuperBee overshoot at cell {i}: {c}"
             );
         }
+    }
+
+    /// First-order radioactive decay (op-v6s.15.3 wired into transport): a
+    /// well-mixed no-flow cell must decay to half its initial concentration after
+    /// one half-life. lambda comes from a single-nuclide `decay::DecayChain`.
+    #[test]
+    fn radioactive_decay_halves_after_one_half_life() {
+        use crate::decay::{DecayChain, Nuclide};
+        let half_life = 100.0_f64; // s
+        let chain = DecayChain::new(vec![Nuclide {
+            name: "X".into(),
+            half_life_seconds: half_life,
+            daughters: vec![],
+        }])
+        .unwrap();
+        let lambda = chain.decay_constant(0);
+
+        let grid = grid_1d(1, 1.0);
+        let flow = FlowField {
+            face_flux: vec![],
+            boundary_flux: vec![0.0; grid.boundary_faces().len()],
+            water_content: vec![1.0; grid.n_cells()],
+        };
+        let mut t = SoluteTransport::new(grid, flow, DispersionModel::new(0.0, 0.0).unwrap(), vec![])
+            .unwrap();
+        t.set_decay_constant(lambda).unwrap();
+        t.set_timestep(1.0);
+        let mut c = vec![1.0];
+        for _ in 0..(half_life as usize) {
+            t.set_previous(&c);
+            t.step(&mut c).unwrap();
+        }
+        // Backward-Euler decay -> ~0.5 after one half-life (O(dt) scheme error).
+        assert!((c[0] - 0.5).abs() < 5.0e-3, "expected ~0.5 after one half-life, got {}", c[0]);
     }
 
     /// Verification test 1 — **steady 1D advection–diffusion, closed form.**
