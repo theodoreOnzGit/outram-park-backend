@@ -91,6 +91,7 @@ pub mod multiphase;
 pub mod properties;
 pub mod reactive_transport;
 pub mod solver;
+pub mod sorption;
 pub mod transport;
 pub mod units;
 
