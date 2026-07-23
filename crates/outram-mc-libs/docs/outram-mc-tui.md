@@ -1,7 +1,14 @@
 # outram-mc-tui
 
+> **Where this lives:** `outram-mc-tui` is a `[[bin]]` target **inside the
+> `outram-mc-libs` crate** (`src/bin/outram-mc-tui/`), gated behind the crate's
+> non-default **`tui`** feature — it is not a separate crate. Build/run it with
+> `--features tui --bin outram-mc-tui` (see commands below). Because the feature
+> is off by default, library consumers of `outram-mc-libs` (`tampines`,
+> `nee_soon`, …) never pull the `ratatui`/`crossterm` terminal stack.
+
 A mobile-first, touchscreen [`ratatui`](https://ratatui.rs) terminal UI over
-[`outram-mc-libs`](../outram-mc-libs): pick a preconfigured geometry/material,
+[`outram-mc-libs`](..): pick a preconfigured geometry/material,
 tune the run settings, launch a k-eigenvalue transport run, watch it converge
 live, and inspect the tallied neutron spectrum overlaid with a cross section.
 
@@ -11,7 +18,7 @@ Part of the OUTRAM PARK backend workspace — see the root `README.md` /
 is bound by.
 
 ```bash
-cargo run -p outram-mc-tui --release
+cargo run -p outram-mc-libs --features tui --bin outram-mc-tui --release
 ```
 
 ## Mobile-first, touch-first design (op-omf)
@@ -65,7 +72,7 @@ Termux usage:
 
 ```bash
 pkg install rust      # or your preferred Rust toolchain on Termux
-cargo run -p outram-mc-tui --release
+cargo run -p outram-mc-libs --features tui --bin outram-mc-tui --release
 ```
 
 Tap a card to pick a geometry, tap `+`/`-` to adjust a setting, tap `RUN` to
@@ -234,7 +241,7 @@ pre-existing type, used as-is, not introduced by this crate.
 ## Testing
 
 ```bash
-cargo test -p outram-mc-tui --release
+cargo test -p outram-mc-libs --features tui --bin outram-mc-tui --release
 ```
 
 `tests/smoke.rs` is a headless smoke test built on `ratatui::backend::TestBackend`

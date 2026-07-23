@@ -57,6 +57,14 @@ sha2 = { workspace = true, optional = true }
 directories = { workspace = true, optional = true }
 fs2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
+# Terminal-UI stack for the optional `njoy-tui` binary (behind the `tui`
+# feature — see [[bin]] below). Optional so ordinary data consumers of this
+# crate never inherit ratatui/crossterm: the default lean build pulls none of
+# it. A terminal UI is Android-in-scope per the workspace CLAUDE.md ("Android
+# portability": only windowing GUI, e.g. egui/eframe, is out of scope), so this
+# is a normal (non-target-gated) optional dependency. ratatui re-exports its
+# matched crossterm as `ratatui::crossterm`, so no separate crossterm pin.
+ratatui = { workspace = true, optional = true }
 # Added per phase as modules are ported (see docs/porting-plan.md):
 #   ndarray  — ENDF tape arrays and cross-section grids (column-major data)
 
@@ -86,6 +94,14 @@ wgpu = { workspace = true }
 # `--features net-fetch`.
 net-fetch = ["dep:ureq", "dep:sha2", "dep:directories", "dep:fs2", "dep:zip"]
 
+# Terminal UI: builds the `njoy-tui` binary — a mobile-first, touchscreen
+# JANIS-like nuclear-data browser (nuclide fuzzy-finder, log-log cross-section
+# plot, degC/K Doppler temperature input). See docs/njoy-tui.md. Off by default
+# so library/data consumers stay lean (no ratatui/crossterm). Enable with
+# `--features tui`, e.g.
+# `cargo run -p njoy-outram-park-fork --features tui --bin njoy-tui --release`.
+tui = ["dep:ratatui"]
+
 # ── Code-to-code Doppler verification: RECONR+BROADR vs OpenMC ENDF/B-8.0 .h5 ──
 # Own folder + README under tests/u238_doppler_verification/. Uses the always-on
 # hdf5-pure reader to parse the committed OpenMC U238.h5.
@@ -100,3 +116,15 @@ path = "tests/u238_doppler_verification/main.rs"
 [[test]]
 name = "openmc_notebooks_data"
 path = "tests/openmc_notebooks_data/main.rs"
+
+# ── njoy-tui: mobile-first JANIS-like nuclear-data browser TUI ────────────────
+# A [[bin]] target inside this crate rather than a separate crate, gated behind
+# the `tui` feature so the default lean build (and every data consumer) skips it
+# — `required-features` makes cargo omit the binary unless `--features tui` is
+# set. Sources live under src/bin/njoy-tui/; the binary uses this crate's own
+# library (`njoy_outram_park_fork::...`) for the WMP/MGXS data. Design doc +
+# Termux usage: docs/njoy-tui.md.
+[[bin]]
+name = "njoy-tui"
+path = "src/bin/njoy-tui/main.rs"
+required-features = ["tui"]

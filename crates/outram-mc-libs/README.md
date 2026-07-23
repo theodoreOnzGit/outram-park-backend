@@ -70,6 +70,27 @@ outram-mc-libs = "0.1.0"
 use outram_mc_libs::prelude::*;
 ```
 
+### `outram-mc-tui` — terminal transport UI (opt-in binary)
+
+This crate also ships an optional **mobile-first, touchscreen** terminal UI:
+pick a preset geometry (pebble bed / LWR cell / TMSR-like pebble bed / bare
+metal sphere), tune the run settings (CPU single/multi/GPU, histories, batches,
+seed), and watch the k-eigenvalue converge with a neutron-spectrum /
+cross-section overlay. It is a `[[bin]]` **inside this crate**, gated behind the
+non-default **`tui`** feature, so library consumers (`tampines`, `nee_soon`, …)
+never inherit the `ratatui`/`crossterm` terminal stack — only a build that asks
+for the binary does.
+
+```bash
+# run from a checkout
+cargo run    -p outram-mc-libs --features tui --bin outram-mc-tui --release
+# install the standalone binary (also works on Termux/Android)
+cargo install --path crates/outram-mc-libs --features tui
+```
+
+Full design notes and Termux usage live in
+[`docs/outram-mc-tui.md`](docs/outram-mc-tui.md).
+
 ## Scope
 
 See `CLAUDE.md` for the full porting-rule and module-scope table (RNG,

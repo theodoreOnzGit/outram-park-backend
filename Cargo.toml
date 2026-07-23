@@ -11,11 +11,9 @@ members = [
     "crates/outram-foam-mesh",
     "crates/outram-foam-cli",
     "crates/outram-mc-libs",
-    "crates/outram-mc-tui",
     "crates/outram-park-fork-dwsim-libs",
     "crates/boon-lay",
     "crates/njoy-outram-park-fork",
-    "crates/njoy-tui",
     "crates/nee_soon",
     "crates/outram-park-fork-coolprop",
     # outram-park-fork-pflotran — pure-Rust PFLOTRAN fork (subsurface flow &

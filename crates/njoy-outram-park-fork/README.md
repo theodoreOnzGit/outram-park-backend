@@ -20,6 +20,25 @@ codes. In OUTRAM PARK its job is to produce the **ACE** continuous-energy
 libraries that [`outram-mc-libs`] consumes: NJOY is the data-prep step *upstream* of
 an OpenMC calculation.
 
+## `njoy-tui` — terminal nuclear-data browser (opt-in binary)
+
+This crate ships an optional **mobile-first, touchscreen** terminal UI — a
+JANIS-like browser over the embedded WMP/MGXS data: fuzzy nuclide finder,
+log-log cross-section plot, and a °C/K Doppler-temperature stepper. It is a
+`[[bin]]` **inside this crate**, gated behind the non-default **`tui`** feature,
+so ordinary data consumers of the library never pull the `ratatui`/`crossterm`
+terminal stack — only a build that asks for the binary does.
+
+```bash
+# run from a checkout
+cargo run    -p njoy-outram-park-fork --features tui --bin njoy-tui --release
+# install the standalone binary (also works on Termux/Android)
+cargo install --path crates/njoy-outram-park-fork --features tui
+```
+
+Full design notes, the mobile-first/touch interaction model, and Termux usage
+live in [`docs/njoy-tui.md`](docs/njoy-tui.md).
+
 ## GPU compute — precision / performance tradeoff (opt-in)
 
 njoy ships an **optional GPU compute path** (Cargo feature `gpu`, **desktop only**
