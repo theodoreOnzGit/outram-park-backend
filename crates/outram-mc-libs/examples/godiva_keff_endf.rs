@@ -111,16 +111,33 @@ fn main() {
     // ── Nuclear data: reconstruct the three HEU isotopes from raw ENDF. ───────
     println!("Reconstructing HEU isotopes from {} (RECONR + BROADR @ {temp_k} K)…", lib.label());
     let t0 = Instant::now();
-    let nuclides: Vec<Nuclide> = ["U234", "U235", "U238"]
-        .iter()
-        .map(|name| {
-            let t = Instant::now();
-            let n = Nuclide::from_endf(lib, name, temp_k, 1.0e-3)
-                .unwrap_or_else(|e| panic!("reconstruct {name}: {e}"));
-            println!("  {name}: reconstructed in {:.1} s", t.elapsed().as_secs_f64());
-            n
-        })
-        .collect();
+    let mut nuclides: Vec<Nuclide> = Vec::with_capacity(3);
+    for name in ["U234", "U235", "U238"] {
+        let t = Instant::now();
+        match Nuclide::from_endf(lib, name, temp_k, 1.0e-3) {
+            Ok(n) => {
+                println!("  {name}: reconstructed in {:.1} s", t.elapsed().as_secs_f64());
+                nuclides.push(n);
+            }
+            // Fail gracefully rather than panicking with a backtrace: the usual
+            // cause is no outbound network (offline / restrictive proxy). Print
+            // an honest explanation and point at the offline LOW-tier twin, then
+            // exit non-zero cleanly.
+            Err(e) => {
+                eprintln!(
+                    "\ncould not obtain ENDF data for {name}: {e}\n\n\
+                     This HIGH-fidelity example downloads the ENDF/B-VII.1 neutron tapes\n\
+                     (~150 MB for U-234/235/238) from the IAEA Nuclear Data Services and\n\
+                     reconstructs them on device (RECONR + BROADR), so it needs outbound\n\
+                     network access to https://www-nds.iaea.org. If you are offline or\n\
+                     behind a restrictive proxy, run the offline LOW-tier twin instead\n\
+                     (embedded WMP data, no network):\n  \
+                     cargo run --release -p outram-mc-libs --example godiva_keff"
+                );
+                std::process::exit(1);
+            }
+        }
+    }
     println!("Nuclear data ready in {:.1} s.\n", t0.elapsed().as_secs_f64());
 
     // ── Material: Godiva atom densities [atoms/barn·cm] (HEU-MET-FAST-001). ────

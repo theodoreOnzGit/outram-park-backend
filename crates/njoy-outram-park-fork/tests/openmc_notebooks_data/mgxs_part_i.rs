@@ -9,7 +9,9 @@
 //! `mgxs.TotalXS`/`AbsorptionXS`/`ScatterXS` tally objects, runs Monte-Carlo
 //! transport, and extracts **flux-weighted, self-shielded** multigroup constants
 //! from the tallies. njoy does not have a transport solver or tallies (those are
-//! `outram-mc-libs`), so the full flux-solved MGXS is scaffolded `#[ignore]`.
+//! `outram-mc-libs`), so the *transport-tallied* flux-solved MGXS is not
+//! reproduced here; njoy's fixed-spectrum GROUPR reductions of that MGXS are
+//! verified live instead (all tests in this file are live, none `#[ignore]`d).
 //!
 //! What njoy *does* own is the underlying **group-collapse primitive**:
 //! averaging a pointwise σ(E) over a group under an assumed weighting spectrum,
@@ -30,12 +32,23 @@
 //! it against `Mgxs::collapse` (they agree to <0.03% on U-235). The engine is a
 //! fixed-spectrum group-average, still not the notebook's self-shielded solve.
 //!
-//! # Gaps (bead under op-6tz.6)
+//! # Status
 //!
-//! - Flux-solved / self-shielded (dilution/Bondarenko) MGXS, the group-to-group
-//!   **scatter matrix**, and group **Chi** — these need the GROUPR *matrix* path
-//!   (`cm2lab` kinematics + File-6 feeders, `NotPorted` in op-cjw.15) and/or
-//!   transport-tally MGXS from `outram-mc-libs`.
+//! All tests in this file are now **LIVE** (none `#[ignore]`d): the fixed-spectrum
+//! group collapse, the GROUPR vector group-average engine, the Bondarenko
+//! self-shielded MGXS, the group Chi, the separable fission matrix, and the
+//! group-to-group **elastic scatter matrix** (op-cjw.15 / op-3ut / op-bsz).
+//!
+//! # Gaps that remain (bead under op-6tz.6)
+//!
+//! - The **transport-tallied, flux-solved** self-shielded MGXS the notebook
+//!   actually produces (an MC solve) — these live tests use a fixed-spectrum
+//!   GROUPR reduction, a documented low-fidelity partial, not a Boltzmann solve.
+//! - The **full** `nu=True` nu-scatter matrix (all reactions + multiplicity)
+//!   needs the GROUPR *matrix* File-6 feeders (`getff`/`cm2lab`, `NotPorted` in
+//!   op-cjw.15); only the two-body elastic slice is live. See `mgxs_part_ii.rs`.
+//! - Validation against a real NJOY GROUPR GENDF golden tape / the notebook's MC
+//!   outputs (op-ini) — these are self-consistency (property) checks today.
 
 use std::fs::File;
 use std::path::PathBuf;
@@ -166,12 +179,15 @@ fn collapse_to_notebook_two_group_structure() {
 /// - Thermal group total (1071 b) dwarfs the fast group total (35 b): the 1/v
 ///   capture/fission signature.
 ///
-/// # Gap that remains (still `#[ignore]` below)
+/// # Gap that remains (now LIVE below, not `#[ignore]`d)
 ///
 /// True self-shielded (dilution/Bondarenko) MGXS, the group-to-group **scatter
-/// matrix**, and group **Chi** need the GROUPR *matrix* path (`cm2lab` kinematics
-/// + File-6 feeders), which op-cjw.15 leaves `NotPorted`, and/or transport-tally
-/// MGXS from `outram-mc-libs`.
+/// matrix**, and group **Chi** are now exercised **live** in this file
+/// (`flux_weighted_self_shielded_mgxs`, `groupr_elastic_scatter_matrix_u235`) via
+/// the ported GROUPR self-shielding (op-bsz) and matrix-elastic (op-3ut) paths.
+/// What is *still* unported is the **full** `nu=True` nu-scatter matrix (File-6
+/// `getff`/`cm2lab` feeders, `NotPorted` in op-cjw.15) and the transport-tallied
+/// flux-solved MGXS from `outram-mc-libs`.
 #[test]
 fn groupr_engine_vector_group_average() {
     /// Measured agreement between the GROUPR panel engine and `Mgxs::collapse`
