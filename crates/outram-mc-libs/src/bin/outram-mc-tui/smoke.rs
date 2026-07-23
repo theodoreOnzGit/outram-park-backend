@@ -15,11 +15,11 @@
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 
-use outram_mc_tui::app::{App, Screen};
-use outram_mc_tui::presets::{GeometryPreset, SphereVariant};
-use outram_mc_tui::settings::RunSettings;
-use outram_mc_tui::transport::run_case;
-use outram_mc_tui::ui::draw;
+use crate::app::{App, Screen};
+use crate::presets::{GeometryPreset, SphereVariant};
+use crate::settings::RunSettings;
+use crate::transport::run_case;
+use crate::ui::draw;
 
 /// Settings small enough to run in a few seconds even for this crate's
 /// slowest preset (the free-gas-hydrogen LWR cell — see

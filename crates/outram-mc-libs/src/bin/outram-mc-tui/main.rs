@@ -7,7 +7,16 @@
 //! (op-iom). See the crate README for the mobile-first/touch design and
 //! Termux usage; see `crate::transport` for what "live" honestly means here.
 //!
-//! Run it: `cargo run -p outram-mc-tui --release`.
+//! Run it: `cargo run -p outram-mc-libs --features tui --bin outram-mc-tui --release`.
+//!
+//! This binary lives **inside** the `outram-mc-libs` crate (a `[[bin]]` target
+//! gated behind the crate's non-default `tui` feature), rather than in a
+//! separate crate. `ratatui` is therefore an *optional* dependency of
+//! `outram-mc-libs`, pulled in only when `--features tui` is set, so ordinary
+//! library consumers of `outram-mc-libs` never inherit the terminal-UI stack.
+//! The module tree that used to be `outram-mc-tui`'s library (`app`, `presets`,
+//! `settings`, `spectrum`, `transport`, `ui`) is declared directly below as
+//! private modules of this binary.
 //!
 //! ## Android/Termux
 //!
@@ -22,6 +31,16 @@
 //! binary needs no `cfg(target_os = "android")` of its own to handle that; it
 //! falls out of `outram-mc-libs`'s own Android-safe `probe()` contract.
 
+// This binary's module tree (`app`, `presets`, `settings`, `spectrum`,
+// `transport`, `ui`) was authored as the `outram-mc-tui` *library* surface, so
+// a handful of items are public API that the binary's own event loop does not
+// call directly — e.g. `GeometryPreset::blurb`/`next`, `RunSettings::n_generations`,
+// `RunOutcome::{compute_requested, gpu_available}`, `RunHandle::reset`. They are
+// retained verbatim through the crate→bin move (a behaviour-preserving refactor,
+// not a rewrite); allow dead_code so the move doesn't force deleting documented,
+// still-meaningful surface. Genuinely-new dead code should still be pruned.
+#![allow(dead_code)]
+
 use std::io;
 use std::time::Duration;
 
@@ -33,8 +52,16 @@ use ratatui::crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlter
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
-use outram_mc_tui::app::{App, Screen, UiAction};
-use outram_mc_tui::{presets, ui};
+mod app;
+mod presets;
+mod settings;
+mod spectrum;
+mod transport;
+mod ui;
+#[cfg(test)]
+mod smoke;
+
+use crate::app::{App, Screen, UiAction};
 
 /// Redraw/poll tick length. Short enough that the run screen's spinner and
 /// live-reveal animation (see `app::App::on_tick`) feel responsive, long

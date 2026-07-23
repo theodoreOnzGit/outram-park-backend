@@ -4644,6 +4644,7 @@ dependencies = [
  "hdf5-pure",
  "log",
  "miniz_oxide",
+ "ratatui",
  "rayon",
  "sha2",
  "thiserror 2.0.18",
@@ -4651,14 +4652,6 @@ dependencies = [
  "ureq 2.12.1",
  "wgpu",
  "zip",
-]
-
-[[package]]
-name = "njoy-tui"
-version = "0.0.1"
-dependencies = [
- "njoy-outram-park-fork",
- "ratatui",
 ]
 
 [[package]]
@@ -5348,19 +5341,11 @@ dependencies = [
  "njoy-outram-park-fork",
  "openmc-endf-8-depletion-lib-a",
  "openmc-endf-8-depletion-lib-b",
+ "ratatui",
  "rayon",
  "thiserror 2.0.18",
  "uom 0.38.0",
  "wgpu",
-]
-
-[[package]]
-name = "outram-mc-tui"
-version = "0.1.0"
-dependencies = [
- "njoy-outram-park-fork",
- "outram-mc-libs",
- "ratatui",
 ]
 
 [[package]]
