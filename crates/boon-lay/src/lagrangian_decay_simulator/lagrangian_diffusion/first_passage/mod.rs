@@ -16,6 +16,9 @@
 //! - [`interface`] — the transmission/reflection rule applied when a walker
 //!   reaches a layer interface (continuity of concentration and flux, with an
 //!   optional partition coefficient).
+//! - [`depletion`] — decay and (neutron-field) transmutation as competing
+//!   clocks alongside each hop, so the walker changes nuclide as it diffuses;
+//!   the ensemble of identities over time is the depleted inventory.
 //!
 //! ## What does not belong here
 //!
@@ -29,6 +32,7 @@
 //! left in place; this engine is additive and is the intended replacement for
 //! the diffusion core.
 
+pub mod depletion;
 pub mod interface;
 pub mod sphere_fpt;
 pub mod walk_on_spheres;
