@@ -56,11 +56,12 @@ Monte Carlo neutron transport.
 > tolerance), a **fill-holes** pass (cap open boundary loops into a watertight
 > surface), **solidify** (extrude a surface into a closed shell), and
 > **recalculate-normals** (repair an inconsistently-wound soup and flip it
-> outward), and **triangulate** (fan-triangulate every face into a triangle-only
-> mesh) round out the operator set. The epic's boolean / export / bevel /
-> smoothing / parameterization / deformation / decimation / hull / weld /
-> fill-holes / solidify / recalc-normals / triangulate workstreams (`op-hzs.6`,
-> `op-hzs.7`, `op-hzs.11`–`op-hzs.13`, `op-hzs.15`–`op-hzs.26`) are landed.
+> outward), **triangulate** (fan-triangulate every face into a triangle-only
+> mesh), and **inset** (per-face inset ring) round out the operator set. The
+> epic's boolean / export / bevel / smoothing / parameterization / deformation /
+> decimation / hull / weld / fill-holes / solidify / recalc-normals /
+> triangulate / inset workstreams (`op-hzs.6`, `op-hzs.7`,
+> `op-hzs.11`–`op-hzs.13`, `op-hzs.15`–`op-hzs.27`) are landed.
 >
 > **⚠️ AI-generated draft, untrusted until human-reviewed** per the workspace
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -114,6 +115,7 @@ included.
 | `solidify` | `MOD_solidify` (simple) | **real** — extrude a surface into a closed shell (area-weighted vertex normals, inner offset shell + rim quads) |
 | `recalc_normals` | `normals_make_consistent` (Recalculate Outside) | **real** — repair an inconsistently-wound soup (BFS orientation propagation) + flip each component outward |
 | `triangulate` | `bmo_triangulate` (fan) | **real** — fan-triangulate every face into a triangle-only mesh (distinct from `export::triangulate`'s index buffer) |
+| `inset` | `bmo_inset` (Individual) | **real** — per-face inset: shrunk inner copy toward the centroid + bridging ring quads |
 | `boolean` | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to `boolean_general` |
 | `boolean_general` | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union / difference / intersect on non-convex closed meshes (arrangement + winding classification) |
 | `boolean_predicates` | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double) |

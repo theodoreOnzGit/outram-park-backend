@@ -770,6 +770,12 @@ pub enum MeshOp {
     /// [`crate::triangulate::triangulate`]. Produces a triangle-only mesh for
     /// the operators/bridges that require one.
     Triangulate,
+    /// **Inset faces**: replace each face with a shrunk inner copy plus a ring
+    /// of bridging quads, delegated to [`crate::inset::inset_faces`].
+    Inset {
+        /// Fraction each corner moves toward its face centroid, in `(0, 1)`.
+        amount: f64,
+    },
 }
 
 impl MeshOp {
@@ -817,6 +823,7 @@ impl MeshOp {
             MeshOp::Solidify { thickness } => Ok(crate::solidify::solidify(&mesh, *thickness)),
             MeshOp::RecalculateNormals => Ok(crate::recalc_normals::recalculate_normals(&mesh)),
             MeshOp::Triangulate => Ok(crate::triangulate::triangulate(&mesh)),
+            MeshOp::Inset { amount } => Ok(crate::inset::inset_faces(&mesh, *amount)),
         }
     }
 }
