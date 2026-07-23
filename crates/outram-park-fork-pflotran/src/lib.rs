@@ -65,9 +65,14 @@
 //! | [`sorption`] | sorption + ion exchange | **real** — Kd/Langmuir/Freundlich isotherms + Gaines–Thomas exchange (bead op-v6s.15.2) |
 //! | [`decay`] | radioactive decay | **real** — Bateman decay chains + ingrowth (bead op-v6s.15.3) |
 //! | [`eos_real`] | real fluid EOS | **real** — IAPWS-IF97 liquid water via `tampines-steam-tables` (bead op-v6s.15.7) |
+//! | [`microbial`] | microbial reactions | **real** — Monod/dual-Monod biodegradation on a foam ODE solver (bead op-v6s.15.4) |
+//! | [`wells`] | wells + advanced BCs | **real** — Peaceman well index + hydrostatic/seepage/time-varying BCs (bead op-v6s.15.12) |
+//! | [`deck`] | real PFLOTRAN input deck | **real (subset)** — genuine PFLOTRAN keyword-block syntax, Fortran D-exponent floats (bead op-v6s.15.10) |
 //!
-//! Modules op-v6s.15.1/.2/.3/.7 above are standalone building blocks (upstream-
-//! parity gaps) not yet wired into the flow/transport/geochemistry hot loops.
+//! Modules op-v6s.15.1/.2/.3/.4/.7/.10/.12 above are standalone building blocks
+//! (upstream-parity gaps); the sorption/decay pieces are wired into
+//! [`transport`], while the others are self-contained and not yet wired into the
+//! flow/transport/geochemistry hot loops.
 //!
 //! ## Design rules (workspace mandate)
 //!
@@ -81,6 +86,7 @@
 //!   toolchain in the library build.
 
 pub mod activity;
+pub mod deck;
 pub mod energy;
 pub mod decay;
 pub mod eos_real;
@@ -102,6 +108,7 @@ pub mod solver;
 pub mod sorption;
 pub mod transport;
 pub mod units;
+pub mod wells;
 
 pub use error::PflotranError;
 pub use flow::{FlowMode, RichardsSimulation};
