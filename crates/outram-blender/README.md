@@ -53,11 +53,12 @@ Monte Carlo neutron transport.
 > unwrap), and **ARAP** (as-rigid-as-possible) handle-based **deformation**.
 > **QEM decimation**, **Loop subdivision**, a robust **3D convex hull**, and a
 > **weld / remove-doubles** cleanup pass (merge coincident vertices within a
-> tolerance) and a **fill-holes** pass (cap open boundary loops into a
-> watertight surface) round out the operator set. The epic's boolean / export /
-> bevel / smoothing / parameterization / deformation / decimation / hull / weld
-> / fill-holes workstreams (`op-hzs.6`, `op-hzs.7`, `op-hzs.11`–`op-hzs.13`,
-> `op-hzs.15`–`op-hzs.23`) are landed.
+> tolerance), a **fill-holes** pass (cap open boundary loops into a watertight
+> surface), and **solidify** (extrude a surface into a closed shell) round out
+> the operator set. The epic's boolean / export / bevel / smoothing /
+> parameterization / deformation / decimation / hull / weld / fill-holes /
+> solidify workstreams (`op-hzs.6`, `op-hzs.7`, `op-hzs.11`–`op-hzs.13`,
+> `op-hzs.15`–`op-hzs.24`) are landed.
 >
 > **⚠️ AI-generated draft, untrusted until human-reviewed** per the workspace
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -108,6 +109,7 @@ included.
 | `convex_hull` | `bmo_convex_hull` | **real** — 3D convex hull of a point set (incremental, robust `orient3d`) |
 | `weld` | `bmo_remove_doubles` / Merge by Distance | **real** — merge coincident vertices within a tolerance (grid hash + union-find; drops collapsed faces) |
 | `fill_holes` | `bmo_holes_fill` / Fill Holes | **real** — cap open boundary loops with a centroid triangle fan (winding-consistent, watertight) |
+| `solidify` | `MOD_solidify` (simple) | **real** — extrude a surface into a closed shell (area-weighted vertex normals, inner offset shell + rim quads) |
 | `boolean` | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to `boolean_general` |
 | `boolean_general` | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union / difference / intersect on non-convex closed meshes (arrangement + winding classification) |
 | `boolean_predicates` | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double) |

@@ -754,6 +754,13 @@ pub enum MeshOp {
     /// fan, delegated to [`crate::fill_holes::fill_holes`]. A no-op on an
     /// already-closed mesh.
     FillHoles,
+    /// **Solidify**: extrude the surface into a closed shell of the given
+    /// `thickness`, delegated to [`crate::solidify::solidify`]. An open surface
+    /// becomes a slab; a closed surface becomes a hollow double shell.
+    Solidify {
+        /// Shell thickness in mesh units; the inner shell is offset inward.
+        thickness: f64,
+    },
 }
 
 impl MeshOp {
@@ -798,6 +805,7 @@ impl MeshOp {
             MeshOp::ConvexHull => Ok(crate::convex_hull::convex_hull(&mesh.positions())?),
             MeshOp::Weld { distance } => Ok(crate::weld::weld(&mesh, *distance)),
             MeshOp::FillHoles => Ok(crate::fill_holes::fill_holes(&mesh)),
+            MeshOp::Solidify { thickness } => Ok(crate::solidify::solidify(&mesh, *thickness)),
         }
     }
 }
