@@ -1,0 +1,44 @@
+outram-park-fork-liggghts — NOTICE
+==================================
+
+LICENSING FLAG — MAINTAINER DECISION REQUIRED (bead op-t3l)
+----------------------------------------------------------
+
+LIGGGHTS-PUBLIC and LAMMPS (including LAMMPS GRANULAR) are licensed under the
+GNU General Public License, **version 2 only** (GPL-2.0-only). The OUTRAM PARK
+workspace is licensed **GPL-3.0-only**.
+
+GPL-2.0-only and GPL-3.0-only are **mutually incompatible**: GPL-2.0-only code
+cannot be relicensed or combined into a GPL-3.0-only work. (This is unlike
+outram-park-fork-pflotran, whose upstream PFLOTRAN is LGPL-2.1 and can be
+upgraded to GPL-3 under LGPL-2.1 §3 — LIGGGHTS/LAMMPS have no such upgrade path.)
+
+Consequences for this crate:
+
+- The code here is an **independent Rust implementation** of granular-DEM
+  physics, written from public DEM literature (Cundall & Strack 1979; Hertz;
+  Mindlin & Deresiewicz; standard particle-heat-transfer models) and by
+  identifying the corresponding LIGGGHTS/LAMMPS algorithms **by name only**. It
+  does **not** copy, translate, or derive from GPL-2.0 LIGGGHTS/LAMMPS source.
+  Under that clean-room stance the original code is distributable as GPL-3.0-only.
+
+- **BLOCKED pending maintainer decision:** any actual porting/translation of
+  GPL-2.0 LIGGGHTS or LAMMPS source into this crate. Options the human
+  maintainer must choose between (engineering/licensing judgement — not for the
+  AI to decide): (a) keep this a clean-room independent implementation licensed
+  GPL-3.0-only (no upstream source consulted line-by-line); (b) license this
+  crate GPL-2.0-only or GPL-2.0-or-later to permit direct porting, accepting it
+  cannot then be combined with GPL-3.0-only workspace crates; (c) obtain a
+  license exception from the upstream copyright holders; (d) drop the "fork"
+  framing.
+
+Until (a)–(d) is resolved, contributors (including AI assistants) must NOT read
+LIGGGHTS/LAMMPS source for line-by-line translation into this crate. Phase 1
+(the generic Particle data model + explicit time integration) is unaffected —
+it is standard textbook DEM and contains no upstream-derived code.
+
+Trademarks: "LIGGGHTS" and "LAMMPS" are used descriptively only, to identify
+the upstream algorithms this crate reimplements. This is not an official
+LIGGGHTS/LAMMPS product and is not affiliated with or endorsed by DCS Computing
+GmbH, Sandia National Laboratories, or the LAMMPS/LIGGGHTS developers. See the
+workspace TRADEMARKS.md.

@@ -35,6 +35,10 @@ members = [
     # `outram-park-fork-<project>`; the maintainer requested `outram-blender`.
     # Flagged in the crate README + manifest for a rename decision.
     "crates/outram-blender",
+    # outram-park-fork-liggghts — independent Rust granular-DEM library (epic
+    # op-t3l). NOT a code port of GPL-2.0 LIGGGHTS/LAMMPS (see crate NOTICE for
+    # the GPL-2 vs GPL-3 licensing flag — maintainer decision pending).
+    "crates/outram-park-fork-liggghts",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
