@@ -12,7 +12,9 @@
 //!
 //! - `foam-export` → `to_poly_mesh` returns a real
 //!   `outram_foam_basic_lib::io::poly_mesh::PolyMesh` (the type its OpenFOAM
-//!   reader/writer round-trips);
+//!   reader/writer round-trips), and `from_poly_mesh` reads one back into a
+//!   [`Mesh`] — combined with `PolyMesh::read(dir)` this **imports** an OpenFOAM
+//!   `constant/polyMesh` directory, the inverse of `write_polymesh`;
 //! - `mc-export` → `to_mc_geometry` returns a real
 //!   `outram_mc_libs::prelude::Geometry` (surfaces + a cell region).
 //!
@@ -997,6 +999,52 @@ pub fn to_poly_mesh(mesh: &Mesh) -> outram_foam_basic_lib::io::poly_mesh::PolyMe
     }
 }
 
+/// Build an outram-blender [`Mesh`] from a real `outram-foam-basic-lib`
+/// [`PolyMesh`](outram_foam_basic_lib::io::poly_mesh::PolyMesh) — the CFD
+/// **import** bridge, the inverse of [`to_poly_mesh`].
+///
+/// (Feature `foam-export` — the same feature that gates the foam real-type
+/// bridge in both directions.) Combined with
+/// `outram_foam_basic_lib::io::poly_mesh::PolyMesh::read(dir)`, this reads an
+/// OpenFOAM `constant/polyMesh` directory straight back into an authorable
+/// surface mesh:
+///
+/// ```no_run
+/// use outram_blender::export::from_poly_mesh;
+/// use outram_foam_basic_lib::io::poly_mesh::PolyMesh;
+///
+/// let poly = PolyMesh::read("case/constant/polyMesh").expect("read polyMesh");
+/// let mesh = from_poly_mesh(&poly);
+/// ```
+///
+/// # What is and isn't reconstructed
+///
+/// A polyMesh is a **volume** description (points + faces + owner/neighbour +
+/// cells); an outram-blender [`Mesh`] is a **boundary surface**. This
+/// conversion keeps every polyMesh face as a mesh face — it rebuilds the full
+/// face soup (internal *and* boundary faces), not the cell structure. For a
+/// mesh authored/exported by [`to_poly_mesh`]/[`write_polymesh`] (all-boundary,
+/// single dummy cell) the write→read round-trip is exact. Face winding follows
+/// the polyMesh face vertex order; run
+/// [`crate::recalc_normals::recalculate_normals`] if a consistent outward
+/// orientation is required. Faces with fewer than three vertices (malformed
+/// input) are skipped rather than panicking.
+#[cfg(feature = "foam-export")]
+pub fn from_poly_mesh(poly: &outram_foam_basic_lib::io::poly_mesh::PolyMesh) -> Mesh {
+    let positions: Vec<crate::math::Vec3> = poly
+        .points
+        .iter()
+        .map(|p| crate::math::Vec3::new(p.x, p.y, p.z))
+        .collect();
+    let faces: Vec<Vec<usize>> = poly
+        .faces
+        .iter()
+        .filter(|f| f.verts.len() >= 3)
+        .map(|f| f.verts.clone())
+        .collect();
+    Mesh::from_polygons(&positions, &faces)
+}
+
 /// Convert `mesh` to a real `outram-mc-libs` CSG `Geometry` — the Monte Carlo
 /// export bridge.
 ///
@@ -1390,6 +1438,58 @@ mod tests {
         // Real accessors agree.
         assert_eq!(poly.n_points(), 8);
         assert_eq!(poly.n_boundary_faces(), 6);
+    }
+
+    /// V&V — in-memory polyMesh round-trip (feature `foam-export`).
+    ///
+    /// Methodology: export `cube(2.0)` to a real `PolyMesh` with
+    /// [`to_poly_mesh`], then read it straight back with [`from_poly_mesh`].
+    /// Pass criterion: the reconstructed mesh is the original cube topology.
+    /// Result: V = 8, E = 12, F = 6, χ = 2 — exact, because `to_poly_mesh`
+    /// preserves every point and face and `from_poly_mesh` is its inverse.
+    #[cfg(feature = "foam-export")]
+    #[test]
+    fn foam_poly_mesh_in_memory_round_trip() {
+        let cube = primitives::cube(2.0);
+        let poly = to_poly_mesh(&cube);
+        let back = from_poly_mesh(&poly);
+        assert_eq!(back.vertex_count(), 8, "8 points survive the round-trip");
+        assert_eq!(back.edge_count(), 12);
+        assert_eq!(back.face_count(), 6);
+        assert_eq!(back.euler_characteristic(), 2, "closed genus-0 cube");
+    }
+
+    /// V&V — on-disk polyMesh round-trip (feature `foam-export`).
+    ///
+    /// Methodology: [`write_polymesh`] a `cube(2.0)` to a temp
+    /// `constant/polyMesh` directory, read it back with the foam crate's
+    /// `PolyMesh::read`, then convert with [`from_poly_mesh`]. This exercises
+    /// the *actual* file-based read path a user takes to import an OpenFOAM
+    /// mesh. Pass criterion: the imported mesh matches the original cube. Result:
+    /// V = 8, E = 12, F = 6, χ = 2.
+    #[cfg(feature = "foam-export")]
+    #[test]
+    fn foam_poly_mesh_disk_round_trip() {
+        use outram_foam_basic_lib::io::poly_mesh::PolyMesh;
+
+        let cube = primitives::cube(2.0);
+        let dir = std::env::temp_dir()
+            .join(format!("outram_blender_polymesh_rt_{}", std::process::id()))
+            .join("constant")
+            .join("polyMesh");
+        write_polymesh(&cube, &dir).expect("write polyMesh to temp dir");
+
+        let poly = PolyMesh::read(&dir).expect("read polyMesh back from disk");
+        let back = from_poly_mesh(&poly);
+        assert_eq!(back.vertex_count(), 8);
+        assert_eq!(back.edge_count(), 12);
+        assert_eq!(back.face_count(), 6);
+        assert_eq!(back.euler_characteristic(), 2);
+
+        // Clean up the temp tree (best effort).
+        if let Some(root) = dir.parent().and_then(|p| p.parent()) {
+            let _ = std::fs::remove_dir_all(root);
+        }
     }
 
     /// Real-type Monte Carlo bridge (feature `mc-export`): `to_mc_geometry` maps
