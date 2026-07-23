@@ -23,6 +23,13 @@ pub mod lagrangian_decay_simulator;
 /// simulation in lagrangian
 pub mod lagrangian_transmutation_and_fission_simulator;
 
+/// Optional wgpu GPU acceleration for large Walk-on-Spheres ensembles. Compiled
+/// only off Android (the workspace GPU/Android rule); the CPU rayon path in
+/// `lagrangian_diffusion::first_passage::ensemble` is always available and is the
+/// trusted reference. See the module docs for the CPU-fallback contract.
+#[cfg(not(target_os = "android"))]
+pub mod gpu;
+
 /// Eulerian / continuum-diffusion TRISO fission-product release — a Rust fork of
 /// Idaho National Laboratory's TRISO-ATOPS (MIT). This is the continuum
 /// complement to the crate's Lagrangian (single-atom Monte-Carlo) model: it uses

@@ -100,5 +100,8 @@ mod verification {
     }
 }
 
+/// Monte-Carlo fractional-release simulation for the bare-kernel CRP-6 Case 1.
+pub mod simulation_code;
+
 #[cfg(test)]
 pub mod monte_carlo_test;

@@ -97,3 +97,9 @@ pub mod temperature_dependent_collisions;
 /// isotropic material and isotropic scattering (no medium boundaries and
 /// such).
 pub mod single_particle_simulator;
+
+/// Walk-on-Spheres / Green's-function first-passage diffusion — the exact,
+/// timestep-free replacement for the single-Gaussian step, which overshoots the
+/// thin buffer layer (see `docs/buffer_clt_failure_analysis.md`). Respects the
+/// TRISO layer interfaces by construction.
+pub mod first_passage;

@@ -733,6 +733,7 @@ dependencies = [
  "serde",
  "serde-xml-rs",
  "uom 0.38.0",
+ "wgpu",
 ]
 
 [[package]]
