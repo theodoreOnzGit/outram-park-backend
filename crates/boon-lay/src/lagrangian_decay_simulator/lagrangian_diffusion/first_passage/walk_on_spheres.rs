@@ -622,6 +622,11 @@ mod tests {
         }
 
         let measured_in = t_in / (t_in + t_out);
+        println!(
+            "interface equilibrium: measured inner time-fraction {measured_in:.4}, \
+             volume fraction {vol_frac_in:.4}, abs error {:.4}",
+            (measured_in - vol_frac_in).abs()
+        );
         assert!(
             (measured_in - vol_frac_in).abs() < 0.02,
             "equilibrium inner time fraction {measured_in:.4} vs volume fraction {vol_frac_in:.4} \
