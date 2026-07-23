@@ -281,8 +281,22 @@ its own follow-up bead:
 - op-v6s.15.2 core closed → **op-gg7** surface complexation (CCM / diffuse-layer).
 - op-v6s.15.7 core closed → **op-1y6** CO2 (Redlich–Kwong) + NaCl-brine EOS.
 
-**In flight (this wave's second fleet):** op-s1h, op-gg7, op-1y6, and
-**op-v6s.15.8** (unstructured-grid TPFA discretisation).
+**Second fleet — all landed (verification-only, unit-tested):**
+- **`pitzer`** (op-s1h) — Pitzer ion-interaction virial activity for brines;
+  matches Pitzer & Mayorga (1973) tabulations to ~0.001 (8 tests).
+- **`unstructured`** (op-v6s.15.8) — unstructured polyhedral FV grid with
+  projected-normal TPFA transmissibility (18 tests); K-orthogonality limit
+  documented.
+- **`eos_co2_brine`** (op-1y6) — Redlich–Kwong CO2 (honest −14% near-critical vs
+  Span–Wagner) + Batzle–Wang NaCl brine density/viscosity (10 tests).
+- **`surface_complexation`** (op-gg7) — amphoteric protonation + metal binding
+  with NEM / constant-capacitance / diffuse-layer electrostatics (9 tests). One
+  test's premise was corrected (bare surface for the DLM potential-sign check —
+  the metal complex's positive charge legitimately offsets deprotonation at high
+  pH); model code unchanged.
+
+Whole-crate state after both fleets: **224 lib tests green in release**, the
+crate's `--lib` cross-compiles to `aarch64-linux-android`.
 
 **Still open, deliberately not fleeted yet** (they modify *existing* coupled
 modules — `flow`/`energy`/`multiphase` — so they are main-loop work, not
