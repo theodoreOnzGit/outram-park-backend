@@ -65,6 +65,7 @@
 //! | [`sorption`] | sorption + ion exchange | **real** — Kd/Langmuir/Freundlich isotherms + Gaines–Thomas exchange (bead op-v6s.15.2) |
 //! | [`decay`] | radioactive decay | **real** — Bateman decay chains + ingrowth (bead op-v6s.15.3) |
 //! | [`eos_real`] | real fluid EOS | **real** — IAPWS-IF97 liquid water via `tampines-steam-tables` (bead op-v6s.15.7) |
+//! | [`eos_co2_brine`] | CO2 + brine EOS | **real (approximate)** — Redlich–Kwong CO2 + Batzle–Wang NaCl brine density/viscosity (bead op-1y6) |
 //! | [`microbial`] | microbial reactions | **real** — Monod/dual-Monod biodegradation on a foam ODE solver (bead op-v6s.15.4) |
 //! | [`wells`] | wells + advanced BCs | **real** — Peaceman well index + hydrostatic/seepage/time-varying BCs (bead op-v6s.15.12) |
 //! | [`deck`] | real PFLOTRAN input deck | **real (subset)** — genuine PFLOTRAN keyword-block syntax, Fortran D-exponent floats (bead op-v6s.15.10) |
@@ -91,6 +92,7 @@ pub mod activity;
 pub mod deck;
 pub mod energy;
 pub mod decay;
+pub mod eos_co2_brine;
 pub mod eos_real;
 pub mod error;
 pub mod flow;
