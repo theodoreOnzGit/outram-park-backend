@@ -55,6 +55,7 @@ use crate::geometry::geometry::{Crossing, Geometry};
 use crate::geometry::position::{stream, Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::{Inelastic, Nuclide};
+use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
@@ -62,7 +63,7 @@ use crate::physics::scatter::{
     two_body_scatter_with_mu,
 };
 use crate::rng::distributions::isotropic_direction;
-use crate::rng::lcg::prn;
+use crate::rng::lcg::{future_seed, prn};
 use crate::tally::scoring::{flush_batch, score_track_length};
 use crate::tally::tally::Tally;
 
@@ -88,6 +89,19 @@ struct Site {
     e: f64,
 }
 
+/// Per-history stride \[RNG draws\] reserved for each history's independent
+/// sub-stream in the multi-thread backend — [`crate::rng::lcg::DEFAULT_STRIDE`]
+/// (152 917), the same per-particle stride OpenMC reserves (`src/random_lcg.cpp`
+/// `init_seed`). Far more draws than any single history consumes, so adjacent
+/// histories' streams never overlap.
+const HIST_STRIDE: u64 = crate::rng::lcg::DEFAULT_STRIDE;
+
+/// Per-generation stride \[RNG draws\] reserved for each generation in the
+/// multi-thread backend — `2^40`, chosen far larger than
+/// `n_particles * HIST_STRIDE` for any realistic `n_particles`, so no
+/// generation's sub-streams overlap the next generation's.
+const GEN_STRIDE: u64 = 1 << 40;
+
 /// Run fission-source power iteration over an arbitrary CSG [`Geometry`].
 ///
 /// # Parameters
@@ -103,7 +117,70 @@ struct Site {
 /// Returns the mean eigenvalue and standard error over the active generations
 /// (a [`KeffResult`], same type as the bare-sphere driver). If a `tally` is
 /// supplied its bins are accumulated in place.
+///
+/// # Compute backend
+///
+/// This is a thin **dispatcher** over [`settings.compute`](KeffSettings::compute),
+/// mirroring [`crate::physics::keff::run_keff`]. The physics is identical across
+/// backends; only the execution strategy differs:
+///
+/// - [`ComputeType::CpuSingleThread`] → [`run_keff_csg_seq`], the scalar,
+///   single-RNG-stream **reference** — deterministic and bit-reproducible for a
+///   fixed seed.
+/// - [`ComputeType::CpuMultiThread`] → [`run_keff_csg_par`], [`rayon`]-parallel
+///   histories per generation, each with an independent jump-ahead RNG stream so
+///   the result is reproducible independent of thread count. It does **not**
+///   bit-match the single-thread reference but agrees within combined statistical
+///   uncertainty.
+/// - [`ComputeType::Gpu`] → **no GPU kernel exists for general CSG geometry** (the
+///   crate's GPU transport, [`crate::physics::keff::run_keff_gpu`], is bare-sphere
+///   only), so this transparently runs the multi-threaded CPU path and emits a
+///   `log::debug!` line. It never errors on the selection. Wiring a genuine GPU
+///   Sigma_t lookup into CSG/delta transport is tracked as follow-up work
+///   (bead op-fla).
 pub fn run_keff_csg(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+) -> KeffResult {
+    match settings.compute {
+        ComputeType::CpuSingleThread => {
+            run_keff_csg_seq(geom, materials, nuclides, source_box, settings, tally)
+        }
+        ComputeType::CpuMultiThread(tc) => {
+            run_keff_csg_par(geom, materials, nuclides, source_box, settings, tally, tc)
+        }
+        ComputeType::Gpu => {
+            log::debug!(
+                "ComputeType::Gpu requested for run_keff_csg, but no GPU kernel exists for \
+                 general CSG geometry (GPU transport is bare-sphere only) — running the \
+                 multi-threaded CPU path instead"
+            );
+            run_keff_csg_par(
+                geom,
+                materials,
+                nuclides,
+                source_box,
+                settings,
+                tally,
+                ThreadCount::Auto,
+            )
+        }
+    }
+}
+
+/// Scalar, single-thread CSG power iteration — the **trusted, deterministic,
+/// bit-reproducible reference** backend ([`ComputeType::CpuSingleThread`]).
+///
+/// One `f64` RNG stream is threaded sequentially through the whole run (initial
+/// source rejection-sampling, every history's transport, every resample), so a
+/// fixed [`KeffSettings::seed`] yields the same eigenvalue — and the same tally
+/// realizations — bit-for-bit on every machine. [`run_keff_csg_par`] is
+/// acceleration only and is validated against this reference.
+pub fn run_keff_csg_seq(
     geom: &Geometry,
     materials: &[Material],
     nuclides: &[Nuclide],
@@ -190,6 +267,177 @@ pub fn run_keff_csg(
         }
         source = resample(&next_bank, settings.n_particles, &mut seed);
     }
+
+    let (k_mean, k_std) = mean_and_stderr(&active_k);
+    KeffResult { k_mean, k_std, k_by_generation }
+}
+
+/// Rayon-parallel CSG power iteration ([`ComputeType::CpuMultiThread`]).
+///
+/// Same physics and power-iteration structure as [`run_keff_csg_seq`], but the
+/// histories **within each generation** are transported in parallel with
+/// [`rayon`] in a dedicated pool sized to `thread_count` (never the implicit
+/// global pool). The generation loop stays sequential — generation `g+1`'s source
+/// is `g`'s resampled fission bank, a hard data dependency.
+///
+/// # Reproducibility (independent of thread count)
+///
+/// Each history is given a **completely independent, deterministic** RNG stream
+/// derived only from `(settings.seed, generation, history index)` via the LCG
+/// jump-ahead ([`crate::rng::lcg::future_seed`]) — never a shared mutable seed —
+/// so the result never races and is identical regardless of how rayon schedules
+/// the work. This mirrors [`crate::physics::keff::run_keff_cpu_multi`]; see its
+/// docs for the `HIST_STRIDE` / `GEN_STRIDE` non-overlap argument. The initial
+/// source sampling and each resample run on a separate sequential `src_seed`
+/// stream, kept off the parallel path. Because the per-history stream structure
+/// differs from the single sequential stream, this backend does **not** bit-match
+/// [`run_keff_csg_seq`] — it is a statistically independent estimate of the same
+/// eigenvalue and tally, agreeing within combined uncertainty.
+///
+/// # Tally
+///
+/// When a `tally` is attached, each history accumulates its track-length scores
+/// into a **private per-history batch**; the batches are summed in history-index
+/// order into the generation batch (a deterministic reduction) and flushed as one
+/// realization per active generation — the same batch/flush contract as
+/// [`run_keff_csg_seq`], just reduced in parallel.
+pub fn run_keff_csg_par(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    mut tally: Option<&mut Tally>,
+    thread_count: ThreadCount,
+) -> KeffResult {
+    use rayon::prelude::*;
+
+    let temp = settings.temperature_k;
+    let n_bins = tally.as_deref().map(|t| t.n_bins()).unwrap_or(0);
+
+    // Dedicated, explicitly sized rayon pool. `resolve()` maps the ThreadCount to
+    // a concrete worker count (>= 1); the per-history seeding below is
+    // thread-count-independent, so the eigenvalue is identical regardless.
+    let n_threads = thread_count.resolve();
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(n_threads)
+        .build()
+        .expect("rayon thread pool");
+
+    // Dedicated sequential stream for source sampling + resampling only — kept
+    // separate from the per-history transport streams so both stay deterministic.
+    let mut src_seed = settings.seed;
+
+    // Initial source: rejection-sample the box for points in a fissile cell
+    // (identical to the single-thread path, on the sequential src stream).
+    let mut source: Vec<Site> = Vec::with_capacity(settings.n_particles);
+    let mut guard = 0usize;
+    while source.len() < settings.n_particles {
+        guard += 1;
+        if guard > settings.n_particles * 10_000 {
+            break; // pathological: box barely overlaps fuel; take what we have
+        }
+        let r = Position::new(
+            source_box.lower.x + (source_box.upper.x - source_box.lower.x) * prn(&mut src_seed),
+            source_box.lower.y + (source_box.upper.y - source_box.lower.y) * prn(&mut src_seed),
+            source_box.lower.z + (source_box.upper.z - source_box.lower.z) * prn(&mut src_seed),
+        );
+        let (dx, dy, dz) = isotropic_direction(&mut src_seed);
+        let u = Direction::new(dx, dy, dz);
+        let fissile = geom
+            .locate(r, u, usize::MAX)
+            .and_then(|p| p.material)
+            .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
+            .unwrap_or(false);
+        if fissile {
+            source.push(Site { r, u, e: 2.0e6 });
+        }
+    }
+
+    let n_gen = settings.n_inactive + settings.n_active;
+    let mut k_by_generation = Vec::with_capacity(n_gen);
+    let mut k_running = 1.0;
+    let mut active_k = Vec::with_capacity(settings.n_active);
+
+    // Run the whole generation loop inside the dedicated pool so every
+    // `into_par_iter()` dispatches onto exactly `n_threads` workers.
+    pool.install(|| {
+        for gen in 0..n_gen {
+            let active = gen >= settings.n_inactive;
+            // Base seed for this generation's per-history sub-streams.
+            let gen_base_seed = future_seed((gen as u64).wrapping_mul(GEN_STRIDE), settings.seed);
+
+            // Transport every history in parallel. `into_par_iter().map(...).collect()`
+            // on an indexed iterator preserves input order, so the reduction below
+            // is deterministic regardless of thread count. `tally_def` is an
+            // immutable view scoped to this block so the mutable flush below is free
+            // to borrow `tally` again.
+            let results: Vec<(f64, Vec<Site>, Vec<f64>)> = {
+                let tally_def: Option<&Tally> = if active { tally.as_deref() } else { None };
+                (0..source.len())
+                    .into_par_iter()
+                    .map(|hist_idx| {
+                        // Independent, deterministic sub-stream for this history;
+                        // owned locally — never shared across threads.
+                        let mut seed =
+                            future_seed((hist_idx as u64).wrapping_mul(HIST_STRIDE), gen_base_seed);
+                        let mut local_bank: Vec<Site> = Vec::new();
+                        let mut local_batch: Vec<f64> =
+                            if tally_def.is_some() { vec![0.0; n_bins] } else { Vec::new() };
+                        let production = transport_history(
+                            source[hist_idx],
+                            geom,
+                            materials,
+                            nuclides,
+                            temp,
+                            k_running,
+                            &mut local_bank,
+                            &mut seed,
+                            tally_def,
+                            &mut local_batch,
+                        );
+                        (production, local_bank, local_batch)
+                    })
+                    .collect()
+            };
+
+            // Deterministic sequential reduction: sum productions, concatenate
+            // banks and sum per-history tally batches in history-index order.
+            let mut production = 0.0_f64;
+            let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
+            let mut batch: Vec<f64> =
+                if active && n_bins > 0 { vec![0.0; n_bins] } else { Vec::new() };
+            for (prod, bank, local_batch) in results {
+                production += prod;
+                next_bank.extend(bank);
+                if !local_batch.is_empty() {
+                    for (b, v) in batch.iter_mut().zip(local_batch) {
+                        *b += v;
+                    }
+                }
+            }
+
+            // Close the batch: flush this generation's track-length totals into the
+            // tally as one realization (mean/variance over active generations).
+            if active {
+                if let Some(t) = tally.as_deref_mut() {
+                    flush_batch(t, &mut batch);
+                }
+            }
+
+            let k_gen = production / settings.n_particles as f64;
+            k_by_generation.push(k_gen);
+            k_running = k_gen.max(1.0e-6);
+            if active {
+                active_k.push(k_gen);
+            }
+
+            if next_bank.is_empty() {
+                break;
+            }
+            source = resample(&next_bank, settings.n_particles, &mut src_seed);
+        }
+    });
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
     KeffResult { k_mean, k_std, k_by_generation }
