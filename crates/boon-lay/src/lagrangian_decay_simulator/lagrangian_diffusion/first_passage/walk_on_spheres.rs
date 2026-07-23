@@ -298,6 +298,31 @@ impl WoSWalker {
         HopOutcome::ReachedInterface
     }
 
+    /// Advance the walker by pure diffusion until its simulated time reaches
+    /// `until` or it is released from the OPyC surface.
+    ///
+    /// Returns `true` if the walker is still inside the particle at `until`,
+    /// `false` if it was released first. This is the frame-stepping primitive for
+    /// a real-time animation: call it each frame with the frame's target time,
+    /// leaving the walker's position updated in place. Decay is not applied here
+    /// (use [`WoSWalker::advance_until`] for the depleting walk).
+    pub fn diffuse_until(
+        &mut self,
+        triso_cell: &TrisoCell,
+        params: &WalkParams,
+        until: Time,
+    ) -> bool {
+        for _ in 0..params.max_steps {
+            if self.time >= until {
+                return true;
+            }
+            if self.step_multilayer(triso_cell, params) == HopOutcome::Released {
+                return false;
+            }
+        }
+        true
+    }
+
     /// Run the multilayer walk until the walker is released from the OPyC outer
     /// surface, returning the release time, or `None` if the step cap in
     /// `params` is hit first.

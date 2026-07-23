@@ -53,3 +53,6 @@ name = "boon_lay_decay_simulator"
 
 [[example]]
 name = "triso_simulator"
+
+[[example]]
+name = "first_passage_realtime"
