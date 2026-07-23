@@ -50,6 +50,10 @@ pub enum MeshOpError {
     /// outside the supported restricted case.
     #[error(transparent)]
     Boolean(#[from] crate::boolean::BooleanError),
+    /// Propagated from Laplacian smoothing (crate::laplacian) — the sparse solve
+    /// failed (e.g. a non-positive-definite system).
+    #[error(transparent)]
+    Laplacian(#[from] crate::laplacian::LaplacianError),
 }
 
 /// Boolean CSG mode for [`MeshOp::Boolean`] (mirrors Blender's Boolean modifier).
@@ -670,8 +674,9 @@ pub enum MeshOp {
         /// Bevel width in model-space units (clamped per-edge to half the edge
         /// length).
         width: f64,
-        /// Number of segments across the bevel. `1` = a single chamfer (the only
-        /// case built); `>= 2` is treated as `1` today (see the variant docs).
+        /// Number of segments across the bevel: `1` = a single flat chamfer,
+        /// `>= 2` = a rounded spherical cap with `segments - 1` intermediate
+        /// rings (see [`bevel_vertices_rounded`]).
         segments: u32,
     },
     /// Combine the target mesh with `other` under a [`BooleanMode`], delegated to
@@ -681,6 +686,17 @@ pub enum MeshOp {
         other: Mesh,
         /// Union / difference / intersection.
         mode: BooleanMode,
+    },
+    /// **Implicit Laplacian smoothing** (mesh fairing), delegated to
+    /// [`crate::laplacian::laplacian_smooth`]. Solves `(I + λL) x' = x` per
+    /// iteration with boundary vertices pinned; unconditionally stable.
+    Smooth {
+        /// Uniform (umbrella) or cotangent (Laplace–Beltrami) weighting.
+        weighting: crate::laplacian::LaplacianWeighting,
+        /// Smoothing strength per step (`>= 0`; `0` is a no-op).
+        lambda: f64,
+        /// Number of implicit steps (`0` is a no-op).
+        iterations: u32,
     },
 }
 
@@ -697,6 +713,8 @@ impl MeshOp {
     ///   `segments <= 1`, a rounded spherical cap for `segments >= 2`).
     /// - [`MeshOp::Boolean`] → [`crate::boolean::boolean`], whose error is
     ///   surfaced as [`MeshOpError::Boolean`].
+    /// - [`MeshOp::Smooth`] → [`crate::laplacian::laplacian_smooth`], whose error
+    ///   is surfaced as [`MeshOpError::Laplacian`].
     pub fn apply(&self, mesh: Mesh) -> Result<Mesh, MeshOpError> {
         match self {
             MeshOp::Extrude { offset } => {
@@ -706,6 +724,9 @@ impl MeshOp {
             MeshOp::Subdivide { iterations } => Ok(subdivide(&mesh, *iterations)),
             MeshOp::Bevel { width, segments } => Ok(bevel_vertices_rounded(&mesh, *width, *segments)),
             MeshOp::Boolean { other, mode } => Ok(crate::boolean::boolean(&mesh, other, *mode)?),
+            MeshOp::Smooth { weighting, lambda, iterations } => {
+                Ok(crate::laplacian::laplacian_smooth(&mesh, *weighting, *lambda, *iterations)?)
+            }
         }
     }
 }
@@ -871,6 +892,23 @@ mod tests {
             }
         }
         assert!(edge_use.values().all(|&c| c == 2), "rounded bevel must be edge-manifold");
+    }
+
+    /// [`MeshOp::Smooth`] dispatches to Laplacian smoothing: it preserves the
+    /// mesh's topology (vertex/face counts and `chi`) and, on a closed sphere,
+    /// returns a valid closed mesh. (Numerical denoising behaviour is verified
+    /// in the `laplacian` module tests.)
+    #[test]
+    fn meshop_smooth_preserves_topology() {
+        use crate::laplacian::LaplacianWeighting;
+        let sphere = primitives::uv_sphere(16, 8, 1.0);
+        let (v, f, chi) = (sphere.vertex_count(), sphere.face_count(), sphere.euler_characteristic());
+        let out = MeshOp::Smooth { weighting: LaplacianWeighting::Cotangent, lambda: 0.5, iterations: 2 }
+            .apply(sphere)
+            .expect("smoothing solve ok");
+        assert_eq!(out.vertex_count(), v, "smoothing preserves vertex count");
+        assert_eq!(out.face_count(), f, "smoothing preserves face count");
+        assert_eq!(out.euler_characteristic(), chi, "smoothing preserves topology (chi)");
     }
 
     /// `segments <= 1` is exactly the single flat chamfer (the truncated cube),

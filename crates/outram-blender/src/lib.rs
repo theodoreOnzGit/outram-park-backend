@@ -36,6 +36,7 @@
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
 //! | [`subdivision`] | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
+//! | [`laplacian`] | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit Laplacian smoothing (first `faer` sparse solve) |
 //! | [`boolean`] | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to [`boolean_general`] |
 //! | [`boolean_general`] | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union/difference/intersect on non-convex closed meshes (arrangement + winding classification) |
 //! | [`boolean_predicates`] | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double fallback) |
@@ -79,6 +80,7 @@ pub mod boolean_classify;
 pub mod boolean_general;
 pub mod boolean_predicates;
 pub mod export;
+pub mod laplacian;
 pub mod math;
 pub mod mesh;
 pub mod modifiers;
@@ -100,8 +102,12 @@ pub mod transform;
 /// (same matrix, many right-hand sides) prefer `faer`'s sparse **Cholesky**
 /// factorization over an iterative solve. An *optional* bridge to
 /// `outram-foam-basic-lib`'s CG/GAMG iterative solvers is tracked separately for
-/// large one-off sparse solves (see beads `op-hzs`). None of this is wired into
-/// an operator yet — the dependency is staged for that work.
+/// large one-off sparse solves (see beads `op-hzs`).
+///
+/// **First consumer:** [`laplacian`] — the cotangent/uniform discrete Laplacian
+/// and implicit Laplacian smoothing assemble a sparse system and solve it with
+/// `faer`'s sparse Cholesky. Future ARAP / parameterization operators reuse the
+/// same path.
 pub use faer;
 
 /// Headless GPU compute via `wgpu`. Compiled **unconditionally on every desktop
