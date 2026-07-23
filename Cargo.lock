@@ -5355,6 +5355,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "outram-mc-tui"
+version = "0.1.0"
+dependencies = [
+ "njoy-outram-park-fork",
+ "outram-mc-libs",
+ "ratatui",
+]
+
+[[package]]
 name = "outram-park-digital-twin-engine"
 version = "0.1.0"
 dependencies = [
