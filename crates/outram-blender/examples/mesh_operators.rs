@@ -19,11 +19,17 @@
 
 use outram_blender::boolean::boolean;
 use outram_blender::export::{to_csg_primitive, to_polymesh_text};
+use outram_blender::laplacian::LaplacianWeighting;
+use outram_blender::math::Vec3;
 use outram_blender::modifiers::{Modifier, ModifierStack};
 use outram_blender::ops::{BooleanMode, MeshOp};
+use outram_blender::parameterize::{parameterize, BoundaryShape};
 use outram_blender::procedural::{GeometryGraph, GeometryNode, PrimitiveKind};
 use outram_blender::subdivision::catmull_clark;
-use outram_blender::{mesh::Mesh, primitives};
+use outram_blender::{
+    mesh::{Mesh, VertexId},
+    primitives,
+};
 
 /// Print a one-line topology summary (`V`, `E`, `F`, and `chi = V - E + F`).
 fn report(label: &str, m: &Mesh) {
@@ -112,6 +118,87 @@ fn main() {
     // A direct boolean call outside the MeshOp wrapper, for completeness.
     let self_inter = boolean(&cube, &cube, BooleanMode::Intersect).expect("self-intersection");
     report("boolean(cube, cube, Intersect)", &self_inter);
+
+    // ---- Sparse-solve geometry-processing operators (crate::{laplacian, ----
+    //      arap, decimate, loop_subdivision, convex_hull, parameterize}).
+    // These are the `faer`-backed advanced operators. A UV sphere is a good
+    // closed test surface; a grid is an open disk for parameterization + ARAP.
+    let sphere = primitives::uv_sphere(16, 8, 1.0);
+    report("uv_sphere(16,8)", &sphere);
+
+    // Implicit Laplacian fairing (cotangent weights): unconditionally stable,
+    // topology-preserving. V/E/F are unchanged; only vertex positions move.
+    let smoothed = MeshOp::Smooth {
+        weighting: LaplacianWeighting::Cotangent,
+        lambda: 0.5,
+        iterations: 3,
+    }
+    .apply(sphere.clone())
+    .expect("Laplacian smooth");
+    report("Laplacian smooth x3", &smoothed);
+
+    // Taubin λ|μ smoothing: denoises without the shrinkage a plain Laplacian
+    // pass causes. Same topology, near-preserved scale.
+    let taubin = MeshOp::Taubin {
+        weighting: LaplacianWeighting::Uniform,
+        lambda: 0.5,
+        mu: -0.53,
+        iterations: 5,
+    }
+    .apply(sphere.clone())
+    .expect("Taubin smooth");
+    report("Taubin smooth x5", &taubin);
+
+    // QEM (Garland–Heckbert) decimation to ~half the triangle budget.
+    let target = sphere.face_count() / 2;
+    let decimated = MeshOp::Decimate { target_faces: target }
+        .apply(sphere.clone())
+        .expect("decimate is infallible");
+    report("QEM decimate ~50%", &decimated);
+
+    // Loop subdivision: one refinement step quadruples the triangle count of a
+    // triangle mesh (the convex hull below is triangulated, so feed it that).
+    let hull = MeshOp::ConvexHull
+        .apply(sphere.clone())
+        .expect("convex hull of sphere vertices");
+    report("convex hull of sphere verts", &hull);
+    let loop_s = MeshOp::LoopSubdivide { iterations: 1 }
+        .apply(hull.clone())
+        .expect("loop subdivide is infallible");
+    report("Loop subdivide x1 (of hull)", &loop_s);
+
+    // Harmonic (Tutte) parameterization of an open disk: a flat grid unwrapped
+    // onto the unit square. Returns per-vertex (u, v) coordinates.
+    let plane = primitives::grid(8, 8, 2.0);
+    report("grid(8,8)", &plane);
+    let uv = parameterize(&plane, LaplacianWeighting::Uniform, BoundaryShape::Square)
+        .expect("grid is a genus-0 disk");
+    let (umin, umax) = uv
+        .iter()
+        .fold((f64::MAX, f64::MIN), |(lo, hi), &(u, _)| (lo.min(u), hi.max(u)));
+    println!(
+        "{:>34}: {} UV coords, u in [{:.3}, {:.3}]",
+        "Tutte parameterize(grid)",
+        uv.len(),
+        umin,
+        umax,
+    );
+
+    // ARAP: bend the grid by dragging its four corner vertices upward in Z while
+    // pinning the centre, keeping every one-ring as rigid as possible.
+    let n = plane.vertex_count();
+    let centre = VertexId(n / 2);
+    let handles = vec![
+        (VertexId(0), Vec3::new(-1.0, -1.0, 0.6)),
+        (VertexId(8), Vec3::new(-1.0, 1.0, 0.6)),
+        (VertexId(72), Vec3::new(1.0, -1.0, 0.6)),
+        (VertexId(80), Vec3::new(1.0, 1.0, 0.6)),
+        (centre, Vec3::new(0.0, 0.0, 0.0)),
+    ];
+    let bent = MeshOp::Arap { handles, iterations: 8 }
+        .apply(plane.clone())
+        .expect("ARAP deform");
+    report("ARAP bend grid (4 corners up)", &bent);
 
     println!("\nAll operator / modifier / procedural / export steps ran.");
 }
