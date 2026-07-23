@@ -15,4 +15,5 @@
 | Date | Commit | Subject | Total | in | out | cache_read | cache_write |
 |---|---|---|--:|--:|--:|--:|--:|
 | 2026-07-23 | `a12db7b` | feat(tooling): per-commit API-token accounting hooks + do... | 4,240,534 | 15 | 6,973 | 4,220,802 | 12,744 |
-| **TOTAL** | | **1 commits** | **4,240,534** | **15** | **6,973** | **4,220,802** | **12,744** |
+| 2026-07-23 | `e3ef6f5` | fix(tooling): token ledger report — use git %x1f/%x1e for... | 6,222,248 | 26 | 25,521 | 6,177,397 | 19,304 |
+| **TOTAL** | | **2 commits** | **10,462,782** | **41** | **32,494** | **10,398,199** | **32,048** |
