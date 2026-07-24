@@ -61,6 +61,14 @@
 //! Phases 2-4 are **clean-room, unit-tested foundations, not benchmark-validated**
 //! (that is a later human step) — see each module's "Honest scope".
 //!
+//! ## Extensions (clean-room, unit-tested)
+//!
+//! - [`simulation`] — multi-particle DEM engine: linked-cell neighbor search +
+//!   velocity-Verlet ensemble stepping composing [`contact`] + [`boundary`].
+//! - [`rolling`] — rolling resistance (Ai et al.) + cohesion (JKR / linear).
+//! - [`mesh_wall`] — triangulated (STL-style) walls + moving/rotating boundaries.
+//! - [`thermal_radiation`] — grey-body radiation + near-field gas-gap conduction.
+//!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
 //! Enum dispatch (no `Box<dyn>`), no lifetime parameters (own by value / index
@@ -69,8 +77,12 @@
 pub mod boundary;
 pub mod contact;
 pub mod coupling;
+pub mod mesh_wall;
 pub mod particle;
+pub mod rolling;
+pub mod simulation;
 pub mod thermal;
+pub mod thermal_radiation;
 
 /// Errors produced by the DEM library in this crate.
 #[derive(Debug, thiserror::Error)]
