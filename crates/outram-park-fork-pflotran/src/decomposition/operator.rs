@@ -27,7 +27,7 @@
 
 use outram_park_mpi::{Communicator, MpiResult};
 
-use super::krylov::distributed_cg_with;
+use super::krylov::{distributed_cg_with, distributed_pcg_with};
 use super::Decomposition1D;
 
 /// Harmonic mean of two conductivities — the series face transmissibility of two
@@ -110,6 +110,35 @@ impl DiffusionOperator1D {
         Ok(out)
     }
 
+    /// The operator's diagonal `A_ii` per local cell — the sum of this cell's face
+    /// transmissibilities plus `shift`, computed locally from the stored
+    /// coefficients and their halo (no communication).
+    ///
+    /// This is the Jacobi preconditioner's diagonal; a physical domain end uses the
+    /// same Dirichlet-`k_i` face weight the matvec does, so `A_ii` is exact.
+    pub fn diagonal(&self) -> Vec<f64> {
+        let n = self.k.len();
+        (0..n)
+            .map(|i| {
+                let t_w = if i > 0 {
+                    harmonic(self.k[i], self.k[i - 1])
+                } else if let Some(kl) = self.k_ghost_left {
+                    harmonic(self.k[i], kl)
+                } else {
+                    self.k[i]
+                };
+                let t_e = if i + 1 < n {
+                    harmonic(self.k[i], self.k[i + 1])
+                } else if let Some(kr) = self.k_ghost_right {
+                    harmonic(self.k[i], kr)
+                } else {
+                    self.k[i]
+                };
+                self.shift + t_w + t_e
+            })
+            .collect()
+    }
+
     /// Solve `A u = b` for this operator by distributed conjugate gradient
     /// (via [`distributed_cg_with`]). Returns this rank's solution slab + iteration
     /// count.
@@ -124,6 +153,31 @@ impl DiffusionOperator1D {
         max_iter: usize,
     ) -> MpiResult<(Vec<f64>, usize)> {
         distributed_cg_with(comm, b, |v| self.matvec(comm, v), tol, max_iter)
+    }
+
+    /// Solve `A u = b` by **Jacobi-preconditioned** distributed CG (via
+    /// [`distributed_pcg_with`] with `M⁻¹ = diag(A)⁻¹`). The diagonal solve is
+    /// purely local, so preconditioning costs no extra communication yet cuts the
+    /// iteration count on a heterogeneous-coefficient system.
+    ///
+    /// # Errors
+    /// Propagates any transport error from the matvec or reduced dot products.
+    pub fn solve_jacobi_pcg(
+        &self,
+        comm: &Communicator,
+        b: &[f64],
+        tol: f64,
+        max_iter: usize,
+    ) -> MpiResult<(Vec<f64>, usize)> {
+        let inv_diag: Vec<f64> = self.diagonal().iter().map(|d| 1.0 / d).collect();
+        distributed_pcg_with(
+            comm,
+            b,
+            |v| self.matvec(comm, v),
+            |r| Ok(r.iter().zip(&inv_diag).map(|(ri, di)| ri * di).collect()),
+            tol,
+            max_iter,
+        )
     }
 }
 
@@ -228,6 +282,44 @@ mod tests {
             })
             .unwrap();
             assert!(ok.iter().all(|&b| b), "variable-coef distributed != serial for p={p}");
+        }
+    }
+
+    #[test]
+    fn jacobi_pcg_matches_serial_and_cuts_iterations() {
+        let n = 40;
+        let shift = 0.05_f64;
+        let tol = 1e-11;
+        let k = conductivity(n);
+        let b: Vec<f64> = (0..n).map(|i| ((i as f64) * 0.25).cos() + 1.5).collect();
+        let (reference, _) = serial_diffusion_cg(n, &k, &b, shift, tol, 2000);
+
+        for p in [1, 2, 4] {
+            let k = k.clone();
+            let b = b.clone();
+            let reference = reference.clone();
+            let out = run(p, move |c| {
+                let d = Decomposition1D::new(n, c);
+                let k_local = k[d.start..d.start + d.local_len].to_vec();
+                let b_local = b[d.start..d.start + d.local_len].to_vec();
+                let op = DiffusionOperator1D::new(c, d.clone(), k_local, shift).unwrap();
+                let (x_cg, it_cg) = op.solve(c, &b_local, tol, 2000).unwrap();
+                let (x_pcg, it_pcg) = op.solve_jacobi_pcg(c, &b_local, tol, 2000).unwrap();
+                let expected = &reference[d.start..d.start + d.local_len];
+                let match_pcg = x_pcg.iter().zip(expected).all(|(a, e)| (a - e).abs() < 1e-7);
+                let match_cg = x_cg.iter().zip(expected).all(|(a, e)| (a - e).abs() < 1e-7);
+                (match_cg && match_pcg, it_cg, it_pcg)
+            })
+            .unwrap();
+            for (ok, it_cg, it_pcg) in &out {
+                assert!(ok, "PCG or CG solution wrong for p={p}");
+                // Jacobi preconditioning should not need more iterations than plain
+                // CG on this heterogeneous system (and generally fewer).
+                assert!(
+                    it_pcg <= it_cg,
+                    "Jacobi PCG took {it_pcg} iters vs CG {it_cg} (p={p})"
+                );
+            }
         }
     }
 

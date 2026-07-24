@@ -175,6 +175,61 @@ where
     Ok((x, iters))
 }
 
+/// Distributed **preconditioned** conjugate gradient for an arbitrary SPD operator.
+///
+/// Like [`distributed_cg_with`] but applies a preconditioner `precond(r) -> M⁻¹ r`
+/// each iteration (`M ≈ A`, SPD). For a Jacobi/diagonal preconditioner `precond`
+/// is purely local (no communication) and markedly accelerates convergence on a
+/// badly-scaled (e.g. heterogeneous-coefficient) system. Both `matvec` and
+/// `precond` are monomorphised closures, not trait objects.
+///
+/// # Errors
+/// Propagates any transport error from `matvec`, `precond`, or the reduced dots.
+pub fn distributed_pcg_with<F, P>(
+    comm: &Communicator,
+    b: &[f64],
+    matvec: F,
+    precond: P,
+    tol: f64,
+    max_iter: usize,
+) -> MpiResult<(Vec<f64>, usize)>
+where
+    F: Fn(&[f64]) -> MpiResult<Vec<f64>>,
+    P: Fn(&[f64]) -> MpiResult<Vec<f64>>,
+{
+    let n = b.len();
+    let mut x = vec![0.0; n];
+    let mut r = b.to_vec();
+    // Converge test is on the true residual norm; the CG scalars use r·z.
+    if distributed_dot(comm, &r, &r)?.sqrt() < tol {
+        return Ok((x, 0));
+    }
+    let mut z = precond(&r)?;
+    let mut p = z.clone();
+    let mut rz_old = distributed_dot(comm, &r, &z)?;
+    let mut iters = 0;
+    for k in 0..max_iter {
+        iters = k + 1;
+        let ap = matvec(&p)?;
+        let alpha = rz_old / distributed_dot(comm, &p, &ap)?;
+        for i in 0..n {
+            x[i] += alpha * p[i];
+            r[i] -= alpha * ap[i];
+        }
+        if distributed_dot(comm, &r, &r)?.sqrt() < tol {
+            break;
+        }
+        z = precond(&r)?;
+        let rz_new = distributed_dot(comm, &r, &z)?;
+        let beta = rz_new / rz_old;
+        for i in 0..n {
+            p[i] = z[i] + beta * p[i];
+        }
+        rz_old = rz_new;
+    }
+    Ok((x, iters))
+}
+
 /// Serial reference: the same shifted-Poisson CG solved on one rank over the whole
 /// `n_global`-cell system, the correctness oracle for [`distributed_cg`].
 pub fn serial_cg(
