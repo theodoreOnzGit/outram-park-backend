@@ -5280,6 +5280,7 @@ dependencies = [
  "approx",
  "ndarray",
  "outram-foam-basic-lib",
+ "outram-foam-multiphase",
  "outram-foam-turbulence-lib",
  "serde",
  "thiserror 2.0.18",

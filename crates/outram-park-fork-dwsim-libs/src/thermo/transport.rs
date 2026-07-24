@@ -102,9 +102,8 @@ pub fn gas_viscosity_lucas(
     let tr = t / tc;
 
     let xi = 0.176 * (tc / (mm_g.powi(3) * pc_bar.powi(4))).powf(1.0 / 6.0);
-    let eta_xi = 0.807 * tr.powf(0.618) - 0.357 * (-0.449 * tr).exp()
-        + 0.34 * (-4.058 * tr).exp()
-        + 0.018;
+    let eta_xi =
+        0.807 * tr.powf(0.618) - 0.357 * (-0.449 * tr).exp() + 0.34 * (-4.058 * tr).exp() + 0.018;
     let eta_micropoise = eta_xi / xi;
     DynamicViscosity::new::<pascal_second>(eta_micropoise * 1.0e-7)
 }
@@ -222,8 +221,7 @@ pub fn gas_viscosity_jossi_stiel_thodos(
     let xit = (critical_temperature / molar_mass_g.powi(3) / pc_atm.powi(4)).powf(1.0 / 6.0);
     // DWSIM rescales η₀ (Pa·s) by 1e7 into its internal micropoise-like unit.
     let eta0_scaled = low_pressure_viscosity.get::<pascal_second>() * 1.0e7;
-    let bracket = 1.023 + 0.23364 * rho_r + 0.58533 * rho_r.powi(2)
-        - 0.40758 * rho_r.powi(3)
+    let bracket = 1.023 + 0.23364 * rho_r + 0.58533 * rho_r.powi(2) - 0.40758 * rho_r.powi(3)
         + 0.093324 * rho_r.powi(4);
     let tmp = (bracket.powi(4) - 1.0) / xit + eta0_scaled;
     DynamicViscosity::new::<pascal_second>(tmp * 1.0e-7)
@@ -410,7 +408,9 @@ pub fn liquid_thermal_conductivity_li(
     mole_fractions: &[f64],
 ) -> ThermalConductivity {
     let n = mole_fractions.len();
-    let sum_z: f64 = (0..n).map(|i| mole_fractions[i] * critical_volumes[i]).sum();
+    let sum_z: f64 = (0..n)
+        .map(|i| mole_fractions[i] * critical_volumes[i])
+        .sum();
     let phi: Vec<f64> = (0..n)
         .map(|i| {
             if sum_z != 0.0 {
@@ -424,8 +424,7 @@ pub fn liquid_thermal_conductivity_li(
     for i in 0..n {
         for j in 0..n {
             if mole_fractions[i] != 0.0 && mole_fractions[j] != 0.0 {
-                let lambda_ij = 2.0
-                    / (1.0 / pure_conductivities[i] + 1.0 / pure_conductivities[j]);
+                let lambda_ij = 2.0 / (1.0 / pure_conductivities[i] + 1.0 / pure_conductivities[j]);
                 lambda += phi[i] * phi[j] * lambda_ij;
             }
         }
@@ -672,7 +671,10 @@ mod tests {
             .get::<pascal_second>();
         let lo = eta_ch4.min(eta_n2);
         let hi = eta_ch4.max(eta_n2);
-        assert!(mix > lo && mix < hi, "mix {mix} not strictly between {lo} and {hi}");
+        assert!(
+            mix > lo && mix < hi,
+            "mix {mix} not strictly between {lo} and {hi}"
+        );
     }
 
     /// **Methodology.** Mole-average gas viscosity (DWSIM default,
@@ -700,7 +702,15 @@ mod tests {
     #[test]
     fn letsou_stiel_liquid_viscosity_propane() {
         let propane = Component::new(
-            "Propane", 0.044096, 369.83, 4.248e6, 200.0e-6, 0.152, 231.05, [0.0; 5], f64::NAN,
+            "Propane",
+            0.044096,
+            369.83,
+            4.248e6,
+            200.0e-6,
+            0.152,
+            231.05,
+            [0.0; 5],
+            f64::NAN,
         )
         .unwrap();
         let t = t_k(0.85 * 369.83);
@@ -718,8 +728,14 @@ mod tests {
         use LiquidViscosityMixingRule::*;
         let e1 = 5.0e-4;
         let e2 = 9.0e-4;
-        for rule in [MoleAverage, LogMoleAverage, InvertedMassAverage, InvertedLogMassAverage] {
-            let single = liquid_viscosity_mixture(rule, &[1.0], &[1.0], &[e1]).get::<pascal_second>();
+        for rule in [
+            MoleAverage,
+            LogMoleAverage,
+            InvertedMassAverage,
+            InvertedLogMassAverage,
+        ] {
+            let single =
+                liquid_viscosity_mixture(rule, &[1.0], &[1.0], &[e1]).get::<pascal_second>();
             assert_relative_eq!(single, e1, max_relative = 1e-12);
         }
         let mix = liquid_viscosity_mixture(MoleAverage, &[0.5, 0.5], &[0.5, 0.5], &[e1, e2])
@@ -741,7 +757,15 @@ mod tests {
     #[test]
     fn latini_liquid_conductivity_heptane() {
         let heptane = Component::new(
-            "n-Heptane", 0.10020, 540.2, 2.74e6, 428.0e-6, 0.349, 371.58, [0.0; 5], f64::NAN,
+            "n-Heptane",
+            0.10020,
+            540.2,
+            2.74e6,
+            428.0e-6,
+            0.349,
+            371.58,
+            [0.0; 5],
+            f64::NAN,
         )
         .unwrap();
         let lambda = liquid_thermal_conductivity_latini(
@@ -788,10 +812,14 @@ mod tests {
     #[test]
     fn ely_hanley_gas_conductivity_methane_plausible() {
         let cv = MolarHeatCapacity::new::<joule_per_kelvin_mole>(27.4);
-        let lambda = gas_thermal_conductivity_ely_hanley(&reference::methane(), t_k(300.0), 0.286, cv)
-            .get::<watt_per_meter_kelvin>();
+        let lambda =
+            gas_thermal_conductivity_ely_hanley(&reference::methane(), t_k(300.0), 0.286, cv)
+                .get::<watt_per_meter_kelvin>();
         assert!(lambda.is_finite() && lambda > 0.0);
-        assert!(lambda > 0.005 && lambda < 0.2, "λ_V {lambda} out of plausible gas band");
+        assert!(
+            lambda > 0.005 && lambda < 0.2,
+            "λ_V {lambda} out of plausible gas band"
+        );
 
         let single =
             gas_thermal_conductivity_mole_average(&[1.0], &[lambda]).get::<watt_per_meter_kelvin>();
@@ -807,7 +835,15 @@ mod tests {
     #[test]
     fn brock_bird_surface_tension_benzene() {
         let benzene = Component::new(
-            "Benzene", 0.078112, 562.05, 4.895e6, 256.0e-6, 0.210, 353.24, [0.0; 5], f64::NAN,
+            "Benzene",
+            0.078112,
+            562.05,
+            4.895e6,
+            256.0e-6,
+            0.210,
+            353.24,
+            [0.0; 5],
+            f64::NAN,
         )
         .unwrap();
         let sigma = surface_tension_brock_bird(&benzene, t_k(293.15)).get::<newton_per_meter>();
@@ -822,7 +858,15 @@ mod tests {
     #[test]
     fn surface_tension_goes_to_zero_at_tc() {
         let benzene = Component::new(
-            "Benzene", 0.078112, 562.05, 4.895e6, 256.0e-6, 0.210, 353.24, [0.0; 5], f64::NAN,
+            "Benzene",
+            0.078112,
+            562.05,
+            4.895e6,
+            256.0e-6,
+            0.210,
+            353.24,
+            [0.0; 5],
+            f64::NAN,
         )
         .unwrap();
         let tc = benzene.critical_temperature;
@@ -842,8 +886,7 @@ mod tests {
     fn surface_tension_mixture_molar_average() {
         let s1 = 0.028;
         let s2 = 0.022;
-        let single =
-            surface_tension_mixture(&[1.0], &[s1], &[true]).get::<newton_per_meter>();
+        let single = surface_tension_mixture(&[1.0], &[s1], &[true]).get::<newton_per_meter>();
         assert_relative_eq!(single, s1, max_relative = 1e-12);
         let mix = surface_tension_mixture(&[0.5, 0.5], &[s1, s2], &[true, true])
             .get::<newton_per_meter>();

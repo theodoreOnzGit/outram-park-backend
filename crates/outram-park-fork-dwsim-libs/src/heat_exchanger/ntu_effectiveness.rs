@@ -3,8 +3,9 @@
 //!
 //! Ported from DWSIM `UnitOperations/HeatExchanger.vb`'s `CalcBothTemp_UA`
 //! mode, which iterates because it derives heat-capacity rates from
-//! flash-derived enthalpy slopes (non-constant, real-fluid `Cp`). This crate
-//! has no flash/property-package access of its own, so this port takes the
+//! flash-derived enthalpy slopes (non-constant, real-fluid `Cp`). This heat-
+//! exchanger port is deliberately kept decoupled from the crate's flash kernel
+//! ([`crate::thermo`]), so this port takes the
 //! heat-capacity rates `C_hot`/`C_cold` \[W/K\] as given (the standard
 //! textbook epsilon-NTU form -- Kays & London / Incropera -- which DWSIM's
 //! own per-stream effectiveness formulas reduce to when `C` is constant); a
@@ -78,9 +79,7 @@ pub fn outlet_temperature_changes(
 ) -> (TemperatureInterval, TemperatureInterval) {
     let q = result.duty.get::<uom::si::power::watt>();
     (
-        TemperatureInterval::new::<temperature_interval_kelvin>(
-            q / c_hot.get::<watt_per_kelvin>(),
-        ),
+        TemperatureInterval::new::<temperature_interval_kelvin>(q / c_hot.get::<watt_per_kelvin>()),
         TemperatureInterval::new::<temperature_interval_kelvin>(
             q / c_cold.get::<watt_per_kelvin>(),
         ),
@@ -98,7 +97,9 @@ mod tests {
         let c_cold = ThermalConductance::new::<watt_per_kelvin>(3000.0);
         let dt = TemperatureInterval::new::<temperature_interval_kelvin>(80.0);
         let result = evaluate(FlowArrangement::CounterCurrent, ua, c_hot, c_cold, dt);
-        assert!(result.effectiveness.get::<ratio>() > 0.0 && result.effectiveness.get::<ratio>() < 1.0);
+        assert!(
+            result.effectiveness.get::<ratio>() > 0.0 && result.effectiveness.get::<ratio>() < 1.0
+        );
         assert!(result.duty.get::<uom::si::power::watt>() > 0.0);
     }
 
@@ -134,7 +135,15 @@ mod tests {
         let result = evaluate(FlowArrangement::CounterCurrent, ua, c_hot, c_cold, dt);
         let (dt_hot, dt_cold) = outlet_temperature_changes(&result, c_hot, c_cold);
         let q = result.duty.get::<uom::si::power::watt>();
-        assert!((dt_hot.get::<temperature_interval_kelvin>() * c_hot.get::<watt_per_kelvin>() - q).abs() < 1e-6);
-        assert!((dt_cold.get::<temperature_interval_kelvin>() * c_cold.get::<watt_per_kelvin>() - q).abs() < 1e-6);
+        assert!(
+            (dt_hot.get::<temperature_interval_kelvin>() * c_hot.get::<watt_per_kelvin>() - q)
+                .abs()
+                < 1e-6
+        );
+        assert!(
+            (dt_cold.get::<temperature_interval_kelvin>() * c_cold.get::<watt_per_kelvin>() - q)
+                .abs()
+                < 1e-6
+        );
     }
 }

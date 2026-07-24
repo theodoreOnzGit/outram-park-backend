@@ -373,8 +373,15 @@ where
 
     // Objective f(T) = H(T,P) − H_target and its (ideal-gas) derivative Cp(T).
     let f = |t: f64| {
-        mixture_enthalpy(components, z, t, pressure, t_ref, &tp_flash, &enthalpy_departure)
-            - h_target
+        mixture_enthalpy(
+            components,
+            z,
+            t,
+            pressure,
+            t_ref,
+            &tp_flash,
+            &enthalpy_departure,
+        ) - h_target
     };
     let dfdt = |t: f64| mixture_ideal_gas_cp(components, z, t);
 
@@ -467,7 +474,10 @@ fn validate(components: &[Component], z: &[f64]) -> Result<(), EnergyFlashError>
         return Err(EnergyFlashError::Empty);
     }
     if components.len() != z.len() {
-        return Err(EnergyFlashError::LengthMismatch { a: components.len(), b: z.len() });
+        return Err(EnergyFlashError::LengthMismatch {
+            a: components.len(),
+            b: z.len(),
+        });
     }
     Ok(())
 }
@@ -494,7 +504,9 @@ where
 {
     let f0 = f(t_initial);
     if !f0.is_finite() {
-        return Err(EnergyFlashError::NonFinite { temperature: t_initial });
+        return Err(EnergyFlashError::NonFinite {
+            temperature: t_initial,
+        });
     }
     if f0.abs() <= opts.value_tol {
         return Ok((t_initial, 0, f0.abs()));
@@ -502,7 +514,9 @@ where
 
     let d0 = dfdt(t_initial);
     if !d0.is_finite() || d0.abs() < 1.0e-30 {
-        return Err(EnergyFlashError::DegenerateDerivative { temperature: t_initial });
+        return Err(EnergyFlashError::DegenerateDerivative {
+            temperature: t_initial,
+        });
     }
 
     // ---- Bracket the root: f is increasing in T. --------------------------
@@ -536,7 +550,10 @@ where
             step *= 2.0;
         }
         if !bracketed {
-            return Err(EnergyFlashError::NoBracket { t_min: opts.t_min, t_max: opts.t_max });
+            return Err(EnergyFlashError::NoBracket {
+                t_min: opts.t_min,
+                t_max: opts.t_max,
+            });
         }
     } else {
         // Need a lower T where f ≤ 0.
@@ -563,7 +580,10 @@ where
             step *= 2.0;
         }
         if !bracketed {
-            return Err(EnergyFlashError::NoBracket { t_min: opts.t_min, t_max: opts.t_max });
+            return Err(EnergyFlashError::NoBracket {
+                t_min: opts.t_min,
+                t_max: opts.t_max,
+            });
         }
     }
 
@@ -613,7 +633,10 @@ where
         }
     }
 
-    Err(EnergyFlashError::NotConverged { iterations: opts.max_iter, residual: fv.abs() })
+    Err(EnergyFlashError::NotConverged {
+        iterations: opts.max_iter,
+        residual: fv.abs(),
+    })
 }
 
 #[cfg(test)]
@@ -628,7 +651,15 @@ mod tests {
     /// constants (Poling et al. 2001, Appendix A) are used as neutral defaults.
     fn comp(cp_ig: [f64; 5]) -> Component {
         Component::new(
-            "test", 0.028014, 126.20, 3.398e6, 90.1e-6, 0.037, 77.35, cp_ig, f64::NAN,
+            "test",
+            0.028014,
+            126.20,
+            3.398e6,
+            90.1e-6,
+            0.037,
+            77.35,
+            cp_ig,
+            f64::NAN,
         )
         .expect("valid test component")
     }
@@ -665,7 +696,15 @@ mod tests {
         let dep = |_frac: &[f64], _t: f64, _p: f64, _ph: Phase| 0.0;
 
         let r = flash_ph(
-            &c, &z, p, h_target, t_ref, 300.0, flash, dep, EnergyFlashOptions::default(),
+            &c,
+            &z,
+            p,
+            h_target,
+            t_ref,
+            300.0,
+            flash,
+            dep,
+            EnergyFlashOptions::default(),
         )
         .expect("flash_ph converges");
 
@@ -685,7 +724,10 @@ mod tests {
     /// relative.
     #[test]
     fn binary_ideal_gas_recovers_weighted_cp_temperature() {
-        let comps = [comp([29.1, 0.0, 0.0, 0.0, 0.0]), comp([37.0, 0.0, 0.0, 0.0, 0.0])];
+        let comps = [
+            comp([29.1, 0.0, 0.0, 0.0, 0.0]),
+            comp([37.0, 0.0, 0.0, 0.0, 0.0]),
+        ];
         let z = [0.4, 0.6];
         let (t_ref, p) = (300.0, 1.0e5);
         let h_target = 8000.0;
@@ -695,7 +737,15 @@ mod tests {
         let dep = |_f: &[f64], _t: f64, _p: f64, _ph: Phase| 0.0;
 
         let r = flash_ph(
-            &comps, &z, p, h_target, t_ref, 400.0, flash, dep, EnergyFlashOptions::default(),
+            &comps,
+            &z,
+            p,
+            h_target,
+            t_ref,
+            400.0,
+            flash,
+            dep,
+            EnergyFlashOptions::default(),
         )
         .expect("converges");
 
@@ -727,7 +777,8 @@ mod tests {
         let flash = all_vapour(&z);
         // Capture `comps` by reference; wrap PR departure, ideal limit on None.
         let dep = |frac: &[f64], t: f64, p: f64, ph: Phase| {
-            eos.enthalpy_departure(&comps, frac, t, p, ph, None).unwrap_or(0.0)
+            eos.enthalpy_departure(&comps, frac, t, p, ph, None)
+                .unwrap_or(0.0)
         };
         // Shadow as `Copy` references so both calls below can reuse them.
         let flash = &flash;
@@ -736,7 +787,15 @@ mod tests {
         let h_known = mixture_enthalpy(&comps, &z, t_known, p, t_ref, flash, dep);
 
         let r = flash_ph(
-            &comps, &z, p, h_known, t_ref, 250.0, flash, dep, EnergyFlashOptions::default(),
+            &comps,
+            &z,
+            p,
+            h_known,
+            t_ref,
+            250.0,
+            flash,
+            dep,
+            EnergyFlashOptions::default(),
         )
         .expect("converges");
 
@@ -796,13 +855,26 @@ mod tests {
         let dep = &dep;
 
         let solve = |h: f64| {
-            flash_ph(&c, &z, p, h, t_ref, 300.0, flash, dep, EnergyFlashOptions::default())
-                .expect("converges")
-                .temperature
+            flash_ph(
+                &c,
+                &z,
+                p,
+                h,
+                t_ref,
+                300.0,
+                flash,
+                dep,
+                EnergyFlashOptions::default(),
+            )
+            .expect("converges")
+            .temperature
         };
 
         let (t1, t2, t3) = (solve(2000.0), solve(6000.0), solve(10000.0));
-        assert!(t1 < t2 && t2 < t3, "temperatures not monotone: {t1} {t2} {t3}");
+        assert!(
+            t1 < t2 && t2 < t3,
+            "temperatures not monotone: {t1} {t2} {t3}"
+        );
         assert_relative_eq!(t1, t_ref + 2000.0 / a, max_relative = 1e-9);
         assert_relative_eq!(t2, t_ref + 6000.0 / a, max_relative = 1e-9);
         assert_relative_eq!(t3, t_ref + 10000.0 / a, max_relative = 1e-9);
@@ -833,7 +905,15 @@ mod tests {
         assert_relative_eq!(s_known, a * (t_known / t_ref).ln(), max_relative = 1e-12);
 
         let r = flash_ps(
-            &c, &z, p, s_known, t_ref, p_ref, 300.0, flash, dep,
+            &c,
+            &z,
+            p,
+            s_known,
+            t_ref,
+            p_ref,
+            300.0,
+            flash,
+            dep,
             EnergyFlashOptions::default(),
         )
         .expect("converges");
@@ -848,7 +928,10 @@ mod tests {
     /// `LengthMismatch { a: 2, b: 1 }`.
     #[test]
     fn rejects_malformed_composition() {
-        let c = [comp([29.1, 0.0, 0.0, 0.0, 0.0]), comp([37.0, 0.0, 0.0, 0.0, 0.0])];
+        let c = [
+            comp([29.1, 0.0, 0.0, 0.0, 0.0]),
+            comp([37.0, 0.0, 0.0, 0.0, 0.0]),
+        ];
         let flash = |_t: f64, _p: f64| FlashResult {
             beta: 1.0,
             x: vec![],
@@ -861,13 +944,32 @@ mod tests {
         let dep = &dep;
 
         let empty = flash_ph(
-            &[], &[], 1e5, 0.0, 298.15, 300.0, flash, dep, EnergyFlashOptions::default(),
+            &[],
+            &[],
+            1e5,
+            0.0,
+            298.15,
+            300.0,
+            flash,
+            dep,
+            EnergyFlashOptions::default(),
         );
         assert_eq!(empty.unwrap_err(), EnergyFlashError::Empty);
 
         let mismatch = flash_ph(
-            &c, &[1.0], 1e5, 0.0, 298.15, 300.0, flash, dep, EnergyFlashOptions::default(),
+            &c,
+            &[1.0],
+            1e5,
+            0.0,
+            298.15,
+            300.0,
+            flash,
+            dep,
+            EnergyFlashOptions::default(),
         );
-        assert_eq!(mismatch.unwrap_err(), EnergyFlashError::LengthMismatch { a: 2, b: 1 });
+        assert_eq!(
+            mismatch.unwrap_err(),
+            EnergyFlashError::LengthMismatch { a: 2, b: 1 }
+        );
     }
 }

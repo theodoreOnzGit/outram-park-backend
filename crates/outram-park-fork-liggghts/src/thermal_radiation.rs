@@ -444,13 +444,7 @@ pub fn gas_gap_heat_rate(
     particle_i: &Particle,
     particle_j: &Particle,
 ) -> Result<f64, DemError> {
-    let h_gas = gas_gap_conductance(
-        k_g,
-        particle_i.radius,
-        particle_j.radius,
-        gap,
-        outer_radius,
-    )?;
+    let h_gas = gas_gap_conductance(k_g, particle_i.radius, particle_j.radius, gap, outer_radius)?;
     Ok(h_gas * (particle_j.temperature - particle_i.temperature))
 }
 
@@ -786,14 +780,20 @@ mod tests {
         let q_hot_wall = radiative_wall_heat_rate(&model, area, &p, 500.0).unwrap();
         assert!(q_hot_wall > 0.0, "heat flows into the colder particle");
         let q_cold_wall = radiative_wall_heat_rate(&model, area, &p, 250.0).unwrap();
-        assert!(q_cold_wall < 0.0, "heat leaves the particle to a colder wall");
+        assert!(
+            q_cold_wall < 0.0,
+            "heat leaves the particle to a colder wall"
+        );
 
         // (b) Gas gap to/from a flat wall.
         let k_g = 0.025_f64;
         let gap = 1.0e-4_f64;
         let r_out = 5.0e-3_f64;
         let q_gas_hot = gas_gap_wall_heat_rate(k_g, gap, r_out, &p, 500.0).unwrap();
-        assert!(q_gas_hot > 0.0, "gas-gap heat flows into the colder particle");
+        assert!(
+            q_gas_hot > 0.0,
+            "gas-gap heat flows into the colder particle"
+        );
         let q_gas_cold = gas_gap_wall_heat_rate(k_g, gap, r_out, &p, 250.0).unwrap();
         assert!(q_gas_cold < 0.0, "gas-gap heat leaves to a colder wall");
 

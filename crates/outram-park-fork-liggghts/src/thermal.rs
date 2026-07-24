@@ -379,7 +379,10 @@ pub fn explicit_euler_temperature(
     dt: f64,
 ) -> f64 {
     debug_assert!(mass > 0.0, "mass must be strictly positive");
-    debug_assert!(specific_heat > 0.0, "specific heat must be strictly positive");
+    debug_assert!(
+        specific_heat > 0.0,
+        "specific heat must be strictly positive"
+    );
     temperature + net_heat_rate * dt / (mass * specific_heat)
 }
 
@@ -479,13 +482,20 @@ mod tests {
         assert_abs_diff_eq!(a_c, (5.0e-7_f64).sqrt(), epsilon = 1.0e-15);
         assert_abs_diff_eq!(a_c, 7.071_067_811_865_5e-4, epsilon = 1.0e-12);
 
-        let model = ThermalModel::ContactConduction { k_i: 400.0, k_j: 400.0 };
+        let model = ThermalModel::ContactConduction {
+            k_i: 400.0,
+            k_j: 400.0,
+        };
         let h_c = model.conductance(a_c).unwrap();
         assert_abs_diff_eq!(h_c, 2.0 * 400.0 * a_c, epsilon = 1.0e-15);
         assert_abs_diff_eq!(h_c, 0.565_685_424_949_2, epsilon = 1.0e-12);
 
         // Zero overlap ⇒ zero contact radius ⇒ zero conductance.
-        assert_abs_diff_eq!(hertzian_contact_radius(r, r, 0.0).unwrap(), 0.0, epsilon = 1.0e-15);
+        assert_abs_diff_eq!(
+            hertzian_contact_radius(r, r, 0.0).unwrap(),
+            0.0,
+            epsilon = 1.0e-15
+        );
         // Negative overlap ⇒ no contact ⇒ error.
         assert!(hertzian_contact_radius(r, r, -1.0e-6).is_err());
     }
@@ -502,7 +512,10 @@ mod tests {
     /// equilibrium.
     #[test]
     fn equal_temperatures_zero_heat() {
-        let model = ThermalModel::ContactConduction { k_i: 400.0, k_j: 400.0 };
+        let model = ThermalModel::ContactConduction {
+            k_i: 400.0,
+            k_j: 400.0,
+        };
         let a_c = 1.0e-3_f64;
         assert_abs_diff_eq!(model.conductance(a_c).unwrap(), 0.8, epsilon = 1.0e-12);
 
@@ -524,7 +537,10 @@ mod tests {
     /// `< 1e-12`. Confirms the flux magnitude `h_c·ΔT` and sign convention.
     #[test]
     fn flux_sign_and_magnitude_hand_computed() {
-        let model = ThermalModel::ContactConduction { k_i: 400.0, k_j: 400.0 };
+        let model = ThermalModel::ContactConduction {
+            k_i: 400.0,
+            k_j: 400.0,
+        };
         let a_c = 1.0e-3_f64;
 
         let p_cold = particle_at(0.001, 0.01, 300.0);
@@ -554,7 +570,10 @@ mod tests {
     /// exactly (no heat created or destroyed at the contact).
     #[test]
     fn energy_conserved_two_body_exchange() {
-        let model = ThermalModel::ContactConduction { k_i: 100.0, k_j: 300.0 };
+        let model = ThermalModel::ContactConduction {
+            k_i: 100.0,
+            k_j: 300.0,
+        };
         let a_c = 2.0e-3_f64;
         // h_c = 2 * 150 * 2e-3 = 0.6 W/K
         assert_abs_diff_eq!(model.conductance(a_c).unwrap(), 0.6, epsilon = 1.0e-12);
@@ -637,6 +656,10 @@ mod tests {
         assert_abs_diff_eq!(q_cold_wall, -75.0, epsilon = 1.0e-12);
 
         // Sphere–wall effective radius is the sphere radius (flat-wall limit).
-        assert_abs_diff_eq!(sphere_wall_effective_radius(0.01).unwrap(), 0.01, epsilon = 1.0e-15);
+        assert_abs_diff_eq!(
+            sphere_wall_effective_radius(0.01).unwrap(),
+            0.01,
+            epsilon = 1.0e-15
+        );
     }
 }

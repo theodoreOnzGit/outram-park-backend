@@ -35,8 +35,8 @@ Ported from DWSIM `UnitOperations/Compressor.vb` (GPL-3.0), the mirror of
 the already-ported expander (`crate::expander::isentropic`). DWSIM computes
 the ideal outlet enthalpy `H2s` via a pressure-entropy (isentropic) flash
 and the actual outlet state via repeated pressure-enthalpy flashes -- this
-crate has no property-package/flash access of its own (see this crate's
-top-level doc and `CLAUDE.md`), so the flash-dependent steps are pushed to
+equipment port is deliberately kept decoupled from the crate's flash kernel
+([`crate::thermo`]), so the flash-dependent steps are pushed to
 the caller: the functions below take already-known enthalpies/densities as
 inputs, and [`solve_polytropic_efficiency`] takes a caller-supplied closure
 for the one flash-dependent step in DWSIM's iteration (a generic `Fn`
@@ -493,9 +493,9 @@ turbine/expander.
 
 Ported from DWSIM `UnitOperations/Expander.vb`. DWSIM computes the ideal
 outlet enthalpy `H2s` via a pressure-entropy (isentropic) flash and the
-actual outlet state via repeated pressure-enthalpy flashes -- this crate
-has no property-package/flash access of its own (see this crate's
-top-level doc), so the flash-dependent steps are pushed to the caller:
+actual outlet state via repeated pressure-enthalpy flashes -- this
+equipment port is deliberately kept decoupled from the crate's flash kernel
+([`crate::thermo`]), so the flash-dependent steps are pushed to the caller:
 the functions below take already-known enthalpies/densities as inputs,
 and [`solve_polytropic_efficiency`] takes a caller-supplied closure for
 the one flash-dependent step in DWSIM's iteration (not a trait object --
@@ -904,8 +904,9 @@ epsilon-NTU (number of transfer units) effectiveness method for a 1-1
 
 Ported from DWSIM `UnitOperations/HeatExchanger.vb`'s `CalcBothTemp_UA`
 mode, which iterates because it derives heat-capacity rates from
-flash-derived enthalpy slopes (non-constant, real-fluid `Cp`). This crate
-has no flash/property-package access of its own, so this port takes the
+flash-derived enthalpy slopes (non-constant, real-fluid `Cp`). This heat-
+exchanger port is deliberately kept decoupled from the crate's flash kernel
+([`crate::thermo`]), so this port takes the
 heat-capacity rates `C_hot`/`C_cold` \[W/K\] as given (the standard
 textbook epsilon-NTU form -- Kays & London / Incropera -- which DWSIM's
 own per-stream effectiveness formulas reduce to when `C` is constant); a
@@ -1836,7 +1837,7 @@ baffle-leakage correction `E_c` (DWSIM lines ~2298-2537).
 
 `w`, `rho`, `mu`, `k`, `cp` are the shell-side fluid's mass flow rate and
 properties (evaluated at the shell-side mean temperature -- the caller's
-responsibility, since this crate has no flash access).
+responsibility, since this rating port is decoupled from the flash kernel).
 
 # Errors
 Propagates [`ShellAndTubeError::PitchToDiameterRatioTooLarge`] from
@@ -1877,8 +1878,8 @@ Ported from DWSIM `UnitOperations/Heater.vb` (GPL-3.0), the
 `Public Overrides Sub Calculate` routine (Heater.vb:421-722). A DWSIM
 heater performs a stream-heating energy balance: the outlet enthalpy is set
 by the duty and the outlet temperature comes from a pressure-enthalpy (PH)
-flash, or vice-versa. This crate has no property-package / flash access of
-its own (see the crate top-level doc and `CLAUDE.md`), so every
+flash, or vice-versa. This equipment port is deliberately kept decoupled
+from the crate's flash kernel ([`crate::thermo`]), so every
 flash-dependent step is pushed to the caller: the functions below take
 already-known specific enthalpies / mass flow / Cp as inputs, and the
 rigorous "outlet temperature given" path takes a caller-supplied closure
@@ -2375,9 +2376,9 @@ steady-state **mass** and **adiabatic energy** balances:
 DWSIM finishes by writing `(P, Hs, W)` onto the outlet stream and letting the
 flowsheet solver run a **pressure-enthalpy (PH) flash** to recover the outlet
 temperature and phase split (Mixer.vb:98-100, :234
-`StreamSpec.Pressure_and_Enthalpy`). This crate has no property-package /
-flash access of its own (see the crate top-level docs), so — exactly as in
-[`crate::expander`] — the flash is **not** performed here. [`mix`] returns the
+`StreamSpec.Pressure_and_Enthalpy`). This mixer port is deliberately kept
+decoupled from the crate's flash kernel ([`crate::thermo`]), so — exactly as
+in [`crate::expander`] — the flash is **not** performed here. [`mix`] returns the
 mixed [`MixerOutlet`] `(pressure, specific_enthalpy, mass_flow)`, and the
 caller runs the PH flash on `(p_out, h)` to obtain outlet `T` and phase.
 
@@ -3527,11 +3528,12 @@ that reconciles the pressure difference between adjacent cells via a
 Brent root-find on `Pdrop_transition - dpt(mass_flow) = 0` (falling back
 to a least-squares solve if Brent doesn't converge -- not replicated
 here, see below). After the mass transfer, DWSIM updates each cell's
-pressure via a volume-temperature flash -- this crate has no
-property-package/flash access of its own (see this crate's top-level
-doc), so [`PipeCell`] only does the mass-balance bookkeeping; a caller
-with flash access (e.g. `tampines`) does the `(V, T) -> P` update itself
-after calling [`solve_intercell_mass_flow`].
+pressure via a volume-temperature flash -- this transient pipe port is
+deliberately **not** coupled to the crate's flash kernel (the `(V, T) -> P`
+step is left to the caller), so [`PipeCell`] only does the mass-balance
+bookkeeping; a caller (e.g. `tampines`, or the crate's own
+[`crate::thermo`] flash) does the `(V, T) -> P` update itself after calling
+[`solve_intercell_mass_flow`].
 
 Root-finding uses the [`roots`] crate's Brent implementation
 (BSD-2-Clause licensed; already an OUTRAM PARK workspace dependency) --
@@ -4064,12 +4066,13 @@ Pump duty/pressure-rise calculation modes, and NPSH.
 
 Ported from DWSIM `UnitOperations/Pump.vb`'s `Calculate()`. DWSIM follows
 each mode's algebra with a pressure-enthalpy flash to get outlet
-temperature -- this crate has no property-package/flash access of its own
-(see this crate's top-level doc), so [`PumpResult::outlet_enthalpy`] is as
-far as this port goes; a caller with flash access (e.g. `tampines`) does
-the final `(p2, h2) -> T2` flash itself. DWSIM's `Curves` mode
-(Floater-Hormann rational interpolation of head/efficiency/NPSHr/power
-vs. flow) is not ported -- see the workspace's `op-qo2.9` bead.
+temperature -- this pump port is deliberately kept decoupled from the
+crate's flash kernel ([`crate::thermo`]), so [`PumpResult::outlet_enthalpy`]
+is as far as this port goes; a caller (e.g. `tampines`, or the crate's own
+flash) does the final `(p2, h2) -> T2` flash itself. DWSIM's `Curves`
+calculation mode is not wired into the pump here -- though the underlying
+Floater-Hormann rational interpolation of head/efficiency/NPSHr/power
+vs. flow is available in [`crate::interpolation`]; see `op-qo2.9`.
 
 ```rust
 pub mod modes { /* ... */ }
@@ -6160,6 +6163,19 @@ that every equipment model ultimately needs.
   [`Component`] Cp0 coefficients (the departure reference state).
 - [`flash`] — isothermal-isobaric (TP) vapour-liquid-equilibrium flash via
   the Rachford-Rice / Nested-Loops method, with Wilson K-value initialisation.
+- [`property_package`] — glue that composes the cubic-EOS / ideal models into
+  K-values and drives an EOS-consistent PT two-phase flash
+  ([`property_package::PropertyPackageModel`], enum dispatch, no `dyn`).
+- [`energy_flash`] — isenthalpic (PH) / energy flash: solve the temperature at
+  which a mixture's total molar enthalpy meets a target `H` at fixed `P`.
+- [`saturation`] — bubble-point / dew-point temperature & pressure of a
+  multicomponent mixture, on top of the isothermal-isobaric VLE kernel.
+- [`stability`] — phase-stability analysis via Michelsen's tangent-plane
+  distance (TPD) criterion (single-/two-phase identification, flash init).
+- [`transport`] — transport-property correlations (viscosity, thermal
+  conductivity, surface tension) and their phase-mixing rules.
+- [`eos_variants`] — cubic-EOS refinements: the PRSV α-function and the
+  Peneloux volume translation, composed on top of [`cubic_eos`].
 
 ## Design (crate `CLAUDE.md`)
 
@@ -6171,9 +6187,11 @@ DWSIM-internal SI convention: Pa, K, J/mol, kg/m³).
 ## Honest scope
 
 This is the **core kernel**, not the whole of DWSIM's thermodynamics. The
-long tail — Gibbs-minimisation and inside-out flashes, 3-phase / electrolyte
-/ solid equilibria, LKP and PRSV variants, seawater/sour-water/black-oil
-packages — remains future work (see `docs/port-scope.md`, epic `op-qo2`).
+one-parameter PRSV α-function and the Peneloux volume translation are ported
+([`eos_variants`]); the long tail — Gibbs-minimisation and inside-out flashes,
+3-phase / electrolyte / solid equilibria, the LKP and PRSV2/Mathias-Copeman/Twu
+α-variants, seawater/sour-water/black-oil packages — remains future work (see
+`docs/port-scope.md`, epic `op-qo2`).
 
 ```rust
 pub mod thermo { /* ... */ }

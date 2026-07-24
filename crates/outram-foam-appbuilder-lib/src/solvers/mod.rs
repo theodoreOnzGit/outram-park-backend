@@ -19,9 +19,30 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! # `solvers` — Layer-5 OpenFOAM solver-application ports
+//!
+//! Each submodule is a self-contained Rust port of one OpenFOAM solver
+//! application: it owns its time-advancement loop, assembles and solves the
+//! governing equations each step, and enforces boundary conditions through
+//! [`outram_foam_basic_lib`]'s `FvMesh`/`FvPatch` (never re-implementing BC
+//! logic — see `bc_util`).
+//!
+//! | Submodule | Ports | Regime |
+//! |---|---|---|
+//! | [`pimple_foam`] | pimpleFoam | Incompressible transient PIMPLE |
+//! | [`rho_pimple_foam`] | rhoPimpleFoam | Compressible transient PIMPLE |
+//! | [`sonic_foam`] | sonicFoam | Transonic/supersonic compressible |
+//! | [`rho_central_foam`] | rhoCentralFoam | Density-based central-upwind (Kurganov-Tadmor) |
+//! | [`hrm_foam`] | HRMFoam | Homogeneous relaxation two-phase flashing flow |
+//! | [`reacting_two_phase_euler_foam`] | reactingTwoPhaseEulerFoam | Two-fluid Euler-Euler with reacting mass/heat transfer |
+//!
+//! `bc_util` is a crate-internal helper for capturing and re-applying patch
+//! boundary conditions around a field solve.
+
 pub(crate) mod bc_util;
 pub mod hrm_foam;
 pub mod pimple_foam;
+pub mod reacting_two_phase_euler_foam;
 pub mod rho_central_foam;
 pub mod rho_pimple_foam;
 pub mod sonic_foam;

@@ -19,6 +19,14 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! # `rho_central_foam` — density-based compressible solver (rhoCentralFoam)
+//!
+//! Rust port of rhoCentralFoam: a density-based, explicit compressible solver
+//! using the Kurganov-Noelle-Petrova (KNP) central-upwind flux with 2nd-order
+//! van Leer MUSCL reconstruction. It advances the conserved compressible fields
+//! (ρ, ρU, ρE) and is well suited to shock-dominated high-speed flow (the Sod
+//! shock-tube validation case exercises this solver). See [`RhoCentralFoam`].
+
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;

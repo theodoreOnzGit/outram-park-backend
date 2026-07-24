@@ -63,7 +63,10 @@ pub fn frictional_pressure_drop(
     density: MassDensity,
     velocity: Velocity,
 ) -> Pressure {
-    friction_factor.get::<ratio>() * (length / diameter).get::<ratio>() * density * velocity
+    friction_factor.get::<ratio>()
+        * (length / diameter).get::<ratio>()
+        * density
+        * velocity
         * velocity
         / 2.0
 }
@@ -112,6 +115,10 @@ mod tests {
         let dp10 = frictional_pressure_drop(f, Length::new::<meter>(10.0), d, rho, v);
         let dp20 = frictional_pressure_drop(f, Length::new::<meter>(20.0), d, rho, v);
         assert!(dp10.get::<pascal>() > 0.0);
-        assert_relative_eq!(dp20.get::<pascal>(), 2.0 * dp10.get::<pascal>(), max_relative = 1e-9);
+        assert_relative_eq!(
+            dp20.get::<pascal>(),
+            2.0 * dp10.get::<pascal>(),
+            max_relative = 1e-9
+        );
     }
 }

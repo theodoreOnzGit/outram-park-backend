@@ -19,6 +19,13 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! # `sonic_foam` — transonic/supersonic compressible solver (sonicFoam)
+//!
+//! Rust port of sonicFoam: a pressure-based compressible solver for trans- and
+//! supersonic flow of a single-phase gas, using the compressibility ψ = ρ/p as
+//! the primary thermodynamic closure. See [`SonicFoam`] for the pressure
+//! equation and the current explicit-convection limitation.
+
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;

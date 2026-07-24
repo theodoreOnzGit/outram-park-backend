@@ -209,7 +209,9 @@ pub enum SplitError {
     /// outlet would be negative — DWSIM `Throw New Exception` when
     /// `W < Σ spec` (Splitter.vb:290-296, :298-305, :346-351, :354-361).
     /// `inlet` and `fixed_total` are in SI units (kg/s or katal).
-    #[error("fixed flows total {fixed_total} exceed inlet flow {inlet}; remainder would be negative")]
+    #[error(
+        "fixed flows total {fixed_total} exceed inlet flow {inlet}; remainder would be negative"
+    )]
     InsufficientInletFlow {
         /// Inlet flow in SI units (kg/s or katal).
         inlet: f64,
@@ -309,7 +311,10 @@ pub fn resolve_fractions(
             Ok(fractions.clone())
         }
         SplitSpec::MassFlows(fixed) => {
-            let fixed_si: Vec<f64> = fixed.iter().map(|w| w.get::<kilogram_per_second>()).collect();
+            let fixed_si: Vec<f64> = fixed
+                .iter()
+                .map(|w| w.get::<kilogram_per_second>())
+                .collect();
             fractions_from_fixed_flows(&fixed_si, inlet_mass_flow_si)
         }
         SplitSpec::MoleFlows(fixed) => {
@@ -453,8 +458,16 @@ mod tests {
     fn thirty_seventy_fraction_split() {
         let spec = SplitSpec::Fractions(vec![Ratio::new::<ratio>(0.30), Ratio::new::<ratio>(0.70)]);
         let r = split(&spec, mass(10.0), mole(4.0)).unwrap();
-        assert_relative_eq!(r.mass_flows[0].get::<kilogram_per_second>(), 3.0, epsilon = 1e-12);
-        assert_relative_eq!(r.mass_flows[1].get::<kilogram_per_second>(), 7.0, epsilon = 1e-12);
+        assert_relative_eq!(
+            r.mass_flows[0].get::<kilogram_per_second>(),
+            3.0,
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(
+            r.mass_flows[1].get::<kilogram_per_second>(),
+            7.0,
+            epsilon = 1e-12
+        );
         assert_relative_eq!(r.mole_flows[0].get::<katal>(), 1.2, epsilon = 1e-12);
         assert_relative_eq!(r.mole_flows[1].get::<katal>(), 2.8, epsilon = 1e-12);
     }
@@ -472,9 +485,21 @@ mod tests {
             Ratio::new::<ratio>(0.3),
         ]);
         let r = split(&spec, mass(12.5), mole(3.0)).unwrap();
-        assert_relative_eq!(r.mass_flows[0].get::<kilogram_per_second>(), 2.5, epsilon = 1e-12);
-        assert_relative_eq!(r.mass_flows[1].get::<kilogram_per_second>(), 6.25, epsilon = 1e-12);
-        assert_relative_eq!(r.mass_flows[2].get::<kilogram_per_second>(), 3.75, epsilon = 1e-12);
+        assert_relative_eq!(
+            r.mass_flows[0].get::<kilogram_per_second>(),
+            2.5,
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(
+            r.mass_flows[1].get::<kilogram_per_second>(),
+            6.25,
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(
+            r.mass_flows[2].get::<kilogram_per_second>(),
+            3.75,
+            epsilon = 1e-12
+        );
         let total: f64 = r
             .mass_flows
             .iter()
@@ -494,16 +519,36 @@ mod tests {
     fn mass_flow_spec_routes_remainder() {
         let spec = SplitSpec::MassFlows(vec![mass(3.0)]);
         let r = split(&spec, mass(10.0), mole(4.0)).unwrap();
-        assert_relative_eq!(r.mass_flows[0].get::<kilogram_per_second>(), 3.0, epsilon = 1e-12);
-        assert_relative_eq!(r.mass_flows[1].get::<kilogram_per_second>(), 7.0, epsilon = 1e-12);
+        assert_relative_eq!(
+            r.mass_flows[0].get::<kilogram_per_second>(),
+            3.0,
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(
+            r.mass_flows[1].get::<kilogram_per_second>(),
+            7.0,
+            epsilon = 1e-12
+        );
         assert_relative_eq!(r.fractions[0].get::<ratio>(), 0.3, epsilon = 1e-12);
         assert_relative_eq!(r.fractions[1].get::<ratio>(), 0.7, epsilon = 1e-12);
 
         let spec3 = SplitSpec::MassFlows(vec![mass(2.0), mass(3.0)]);
         let r3 = split(&spec3, mass(10.0), mole(4.0)).unwrap();
-        assert_relative_eq!(r3.mass_flows[0].get::<kilogram_per_second>(), 2.0, epsilon = 1e-12);
-        assert_relative_eq!(r3.mass_flows[1].get::<kilogram_per_second>(), 3.0, epsilon = 1e-12);
-        assert_relative_eq!(r3.mass_flows[2].get::<kilogram_per_second>(), 5.0, epsilon = 1e-12);
+        assert_relative_eq!(
+            r3.mass_flows[0].get::<kilogram_per_second>(),
+            2.0,
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(
+            r3.mass_flows[1].get::<kilogram_per_second>(),
+            3.0,
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(
+            r3.mass_flows[2].get::<kilogram_per_second>(),
+            5.0,
+            epsilon = 1e-12
+        );
     }
 
     /// Methodology: mole-flow spec, same remainder logic on a mole basis
@@ -519,8 +564,16 @@ mod tests {
         let r = split(&spec, mass(8.0), mole(4.0)).unwrap();
         assert_relative_eq!(r.mole_flows[0].get::<katal>(), 1.5, epsilon = 1e-12);
         assert_relative_eq!(r.mole_flows[1].get::<katal>(), 2.5, epsilon = 1e-12);
-        assert_relative_eq!(r.mass_flows[0].get::<kilogram_per_second>(), 3.0, epsilon = 1e-12);
-        assert_relative_eq!(r.mass_flows[1].get::<kilogram_per_second>(), 5.0, epsilon = 1e-12);
+        assert_relative_eq!(
+            r.mass_flows[0].get::<kilogram_per_second>(),
+            3.0,
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(
+            r.mass_flows[1].get::<kilogram_per_second>(),
+            5.0,
+            epsilon = 1e-12
+        );
     }
 
     /// Methodology: fractions that do not sum to 1 must error (this port's
@@ -546,7 +599,10 @@ mod tests {
         ));
 
         let empty = SplitSpec::Fractions(vec![]);
-        assert_eq!(split(&empty, mass(10.0), mole(4.0)), Err(SplitError::NoOutlets));
+        assert_eq!(
+            split(&empty, mass(10.0), mole(4.0)),
+            Err(SplitError::NoOutlets)
+        );
     }
 
     /// Methodology: fixed flows exceeding the inlet must error (DWSIM
@@ -590,8 +646,16 @@ mod tests {
                 epsilon = 1e-3
             );
         }
-        assert_relative_eq!(outlets[0].mass_flow.get::<kilogram_per_second>(), 3.0, epsilon = 1e-12);
-        assert_relative_eq!(outlets[1].mass_flow.get::<kilogram_per_second>(), 7.0, epsilon = 1e-12);
+        assert_relative_eq!(
+            outlets[0].mass_flow.get::<kilogram_per_second>(),
+            3.0,
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(
+            outlets[1].mass_flow.get::<kilogram_per_second>(),
+            7.0,
+            epsilon = 1e-12
+        );
     }
 
     /// Methodology: an empty `MassFlows` spec is a single pass-through outlet
@@ -604,7 +668,11 @@ mod tests {
         let spec = SplitSpec::MassFlows(vec![]);
         let r = split(&spec, mass(10.0), mole(4.0)).unwrap();
         assert_eq!(r.mass_flows.len(), 1);
-        assert_relative_eq!(r.mass_flows[0].get::<kilogram_per_second>(), 10.0, epsilon = 1e-12);
+        assert_relative_eq!(
+            r.mass_flows[0].get::<kilogram_per_second>(),
+            10.0,
+            epsilon = 1e-12
+        );
         assert_relative_eq!(r.fractions[0].get::<ratio>(), 1.0, epsilon = 1e-12);
     }
 }

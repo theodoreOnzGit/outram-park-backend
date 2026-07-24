@@ -98,8 +98,8 @@ pub fn area_from_duty(
 mod tests {
     use super::*;
     use uom::si::area::square_meter;
-    use uom::si::ratio::ratio;
     use uom::si::f64::Ratio;
+    use uom::si::ratio::ratio;
 
     #[test]
     fn counter_current_lmtd_matches_hand_calc() {
@@ -125,8 +125,20 @@ mod tests {
         let t_hot_out = ThermodynamicTemperature::new::<kelvin>(333.15);
         let t_cold_in = ThermodynamicTemperature::new::<kelvin>(293.15);
         let t_cold_out = ThermodynamicTemperature::new::<kelvin>(313.15);
-        let cc = lmtd(FlowArrangement::CounterCurrent, t_hot_in, t_hot_out, t_cold_in, t_cold_out);
-        let co = lmtd(FlowArrangement::CoCurrent, t_hot_in, t_hot_out, t_cold_in, t_cold_out);
+        let cc = lmtd(
+            FlowArrangement::CounterCurrent,
+            t_hot_in,
+            t_hot_out,
+            t_cold_in,
+            t_cold_out,
+        );
+        let co = lmtd(
+            FlowArrangement::CoCurrent,
+            t_hot_in,
+            t_hot_out,
+            t_cold_in,
+            t_cold_out,
+        );
         assert!(co.get::<temperature_interval_kelvin>() < cc.get::<temperature_interval_kelvin>());
     }
 

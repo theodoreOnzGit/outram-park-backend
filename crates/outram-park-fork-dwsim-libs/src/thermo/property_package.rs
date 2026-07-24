@@ -181,9 +181,11 @@ impl PropertyPackageModel {
                 let ln_phi_l = eos.ln_phi(components, x, t, p, Phase::Liquid, None);
                 let ln_phi_v = eos.ln_phi(components, y, t, p, Phase::Vapor, None);
                 match (ln_phi_l, ln_phi_v) {
-                    (Some(l), Some(v)) => {
-                        l.iter().zip(v.iter()).map(|(&li, &vi)| (li - vi).exp()).collect()
-                    }
+                    (Some(l), Some(v)) => l
+                        .iter()
+                        .zip(v.iter())
+                        .map(|(&li, &vi)| (li - vi).exp())
+                        .collect(),
                     // No usable root for a phase → fall back to the ideal estimate.
                     _ => wilson_k_values(components, t, p),
                 }
@@ -226,7 +228,14 @@ impl PropertyPackageModel {
         let model = self;
         let k_closure =
             move |x: &[f64], y: &[f64], t: f64, p: f64| model.k_values(components, x, y, t, p);
-        nested_loops_flash(z, components, t, p, k_closure, NestedLoopsOptions::default())
+        nested_loops_flash(
+            z,
+            components,
+            t,
+            p,
+            k_closure,
+            NestedLoopsOptions::default(),
+        )
     }
 }
 
@@ -289,7 +298,9 @@ mod tests {
         let z = [0.5, 0.5];
         let (t, p) = (200.0, 2.0e6);
 
-        let fr = PropertyPackageModel::Ideal.flash_pt(&comps, &z, t, p).unwrap();
+        let fr = PropertyPackageModel::Ideal
+            .flash_pt(&comps, &z, t, p)
+            .unwrap();
 
         let kw = wilson_k_values(&comps, t, p);
         let rr = solve_rachford_rice(&z, &kw).unwrap();
@@ -299,7 +310,10 @@ mod tests {
             assert_abs_diff_eq!(fr.x[i], rr.x[i], epsilon = 1e-12);
             assert_abs_diff_eq!(fr.y[i], rr.y[i], epsilon = 1e-12);
         }
-        assert_eq!(fr.iterations, 1, "constant (Wilson) closure converges in one update");
+        assert_eq!(
+            fr.iterations, 1,
+            "constant (Wilson) closure converges in one update"
+        );
     }
 
     /// **Methodology.** A Peng-Robinson flash of a real light-hydrocarbon binary
@@ -320,10 +334,16 @@ mod tests {
         let z = [0.5, 0.5];
         let (t, p) = (200.0, 2.0e6);
 
-        let fr = PropertyPackageModel::PengRobinson.flash_pt(&comps, &z, t, p).unwrap();
+        let fr = PropertyPackageModel::PengRobinson
+            .flash_pt(&comps, &z, t, p)
+            .unwrap();
 
         // (a) genuine two-phase split.
-        assert!(fr.beta > 0.0 && fr.beta < 1.0, "expected 0 < β < 1, got {}", fr.beta);
+        assert!(
+            fr.beta > 0.0 && fr.beta < 1.0,
+            "expected 0 < β < 1, got {}",
+            fr.beta
+        );
 
         // Phase compositions normalise.
         assert_abs_diff_eq!(fr.x.iter().sum::<f64>(), 1.0, epsilon = 1e-12);
@@ -355,9 +375,15 @@ mod tests {
         let z = [0.5, 0.5];
         let (t, p) = (200.0, 2.0e6);
 
-        let fr = PropertyPackageModel::Srk.flash_pt(&comps, &z, t, p).unwrap();
+        let fr = PropertyPackageModel::Srk
+            .flash_pt(&comps, &z, t, p)
+            .unwrap();
 
-        assert!(fr.beta > 0.0 && fr.beta < 1.0, "expected 0 < β < 1, got {}", fr.beta);
+        assert!(
+            fr.beta > 0.0 && fr.beta < 1.0,
+            "expected 0 < β < 1, got {}",
+            fr.beta
+        );
         for i in 0..z.len() {
             let recon = (1.0 - fr.beta) * fr.x[i] + fr.beta * fr.y[i];
             assert_abs_diff_eq!(recon, z[i], epsilon = 1e-12);

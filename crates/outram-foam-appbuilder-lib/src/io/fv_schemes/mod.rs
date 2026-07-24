@@ -19,6 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Parser for OpenFOAM's `system/fvSchemes` — the per-operator numerical scheme
+//! selection dictionary. Each scheme family (ddt, grad, div, laplacian, snGrad,
+//! interpolation) is a typed enum on [`FvSchemes`], so rust-analyzer surfaces
+//! every valid option on hover and an unknown scheme is a `Result` error.
+
 use crate::error::AppBuilderError;
 use std::path::Path;
 

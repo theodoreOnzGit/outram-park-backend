@@ -8,11 +8,12 @@
 //! Brent root-find on `Pdrop_transition - dpt(mass_flow) = 0` (falling back
 //! to a least-squares solve if Brent doesn't converge -- not replicated
 //! here, see below). After the mass transfer, DWSIM updates each cell's
-//! pressure via a volume-temperature flash -- this crate has no
-//! property-package/flash access of its own (see this crate's top-level
-//! doc), so [`PipeCell`] only does the mass-balance bookkeeping; a caller
-//! with flash access (e.g. `tampines`) does the `(V, T) -> P` update itself
-//! after calling [`solve_intercell_mass_flow`].
+//! pressure via a volume-temperature flash -- this transient pipe port is
+//! deliberately **not** coupled to the crate's flash kernel (the `(V, T) -> P`
+//! step is left to the caller), so [`PipeCell`] only does the mass-balance
+//! bookkeeping; a caller (e.g. `tampines`, or the crate's own
+//! [`crate::thermo`] flash) does the `(V, T) -> P` update itself after calling
+//! [`solve_intercell_mass_flow`].
 //!
 //! Root-finding uses the [`roots`] crate's Brent implementation
 //! (BSD-2-Clause licensed; already an OUTRAM PARK workspace dependency) --
@@ -40,7 +41,10 @@ pub struct PipeCell {
 impl PipeCell {
     /// A new cell with the given volume and initial mass.
     pub fn new(volume: Volume, initial_mass: Mass) -> Self {
-        Self { volume, mass: initial_mass }
+        Self {
+            volume,
+            mass: initial_mass,
+        }
     }
 
     /// Mass density implied by this cell's current mass and (fixed) volume.
@@ -88,7 +92,9 @@ where
     let w = find_root_brent(
         w_bracket.0.get::<kilogram_per_second>(),
         w_bracket.1.get::<kilogram_per_second>(),
-        |w_si| pressure_drop(MassRate::new::<kilogram_per_second>(w_si)).get::<pascal>() - target_dp,
+        |w_si| {
+            pressure_drop(MassRate::new::<kilogram_per_second>(w_si)).get::<pascal>() - target_dp
+        },
         &mut convergency,
     )?;
     Ok(MassRate::new::<kilogram_per_second>(w))
@@ -106,14 +112,18 @@ mod tests {
     fn solve_intercell_mass_flow_finds_root_of_linear_resistance() {
         // Linear "resistance": dP(w) = R * w, R = 1e5 Pa / (kg/s)
         let r = 1.0e5;
-        let pressure_drop = |w: MassRate| Pressure::new::<pascal>(r * w.get::<kilogram_per_second>());
+        let pressure_drop =
+            |w: MassRate| Pressure::new::<pascal>(r * w.get::<kilogram_per_second>());
         let p_up = Pressure::new::<pascal>(200_000.0);
         let p_down = Pressure::new::<pascal>(150_000.0);
         let w = solve_intercell_mass_flow(
             p_up,
             p_down,
             pressure_drop,
-            (MassRate::new::<kilogram_per_second>(-10.0), MassRate::new::<kilogram_per_second>(10.0)),
+            (
+                MassRate::new::<kilogram_per_second>(-10.0),
+                MassRate::new::<kilogram_per_second>(10.0),
+            ),
             Pressure::new::<pascal>(1.0),
             100,
         )
@@ -125,14 +135,18 @@ mod tests {
     #[test]
     fn solve_intercell_mass_flow_handles_reverse_flow() {
         let r = 1.0e5;
-        let pressure_drop = |w: MassRate| Pressure::new::<pascal>(r * w.get::<kilogram_per_second>());
+        let pressure_drop =
+            |w: MassRate| Pressure::new::<pascal>(r * w.get::<kilogram_per_second>());
         let p_up = Pressure::new::<pascal>(150_000.0);
         let p_down = Pressure::new::<pascal>(200_000.0);
         let w = solve_intercell_mass_flow(
             p_up,
             p_down,
             pressure_drop,
-            (MassRate::new::<kilogram_per_second>(-10.0), MassRate::new::<kilogram_per_second>(10.0)),
+            (
+                MassRate::new::<kilogram_per_second>(-10.0),
+                MassRate::new::<kilogram_per_second>(10.0),
+            ),
             Pressure::new::<pascal>(1.0),
             100,
         )
@@ -155,7 +169,10 @@ mod tests {
 
     #[test]
     fn pipe_cell_density_matches_mass_over_volume() {
-        let cell = PipeCell::new(Volume::new::<cubic_meter>(2.0), Mass::new::<mass_kilogram>(1996.0));
+        let cell = PipeCell::new(
+            Volume::new::<cubic_meter>(2.0),
+            Mass::new::<mass_kilogram>(1996.0),
+        );
         assert!((cell.density().get::<kilogram_per_cubic_meter>() - 998.0).abs() < 1e-9);
     }
 }
