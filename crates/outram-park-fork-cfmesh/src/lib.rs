@@ -50,11 +50,21 @@
 //!
 //! ## Status
 //!
-//! **Scaffold** — the crate is registered and license-clean but nothing is
-//! implemented yet. The roadmap and its ordering live in beads under the
-//! `op-hzs` epic (`op-hzs.32` tet generation → `op-hzs.33` polyhedral dual →
-//! `op-hzs.34` boundary layers → `op-hzs.35` volume polyMesh export). First
-//! milestone: a valid conforming tet mesh of a cube exported to a `PolyMesh`.
+//! - **Milestone 1 — volume-mesh core + Cartesian block mesher.**
+//!   [`volume_mesh::VolumeMesh`] (points + faces + owner/neighbour + patches,
+//!   mirroring cfMesh `polyMeshGen` / OpenFOAM `polyMesh`) and
+//!   [`cartesian::cartesian_box`] (a regular hex grid of an axis-aligned box).
+//! - **Milestone 2 — castellated surface carve.** [`carve::carve_box`] overlays
+//!   a uniform Cartesian grid on a closed triangle-soup surface and keeps the
+//!   cells inside it (ray-parity inside test), producing a body-fitted
+//!   *staircase* volume mesh with a `walls` boundary patch. Verified: a
+//!   grid-aligned box carves exactly; an octahedron carve converges to its
+//!   analytic volume; every carved cell is closed.
+//!
+//! Next on the `op-hzs` roadmap: octree refinement + point **snapping** (turn
+//! the staircase into a body-fitted boundary), the polyhedral dual (`op-hzs.33`,
+//! voro++ reference), boundary layers (`op-hzs.34`), and the volume-`PolyMesh`
+//! bridge to `outram-foam-basic-lib` (`op-hzs.35`).
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
@@ -69,4 +79,7 @@
 //! > `RESPONSIBLE_USE.md`. For education / research / V&V only; not for reactor
 //! > operation, licensing, or safety-critical decisions.
 
-// Scaffold: no public items yet. Modules land per the op-hzs roadmap beads.
+pub mod cartesian;
+pub mod carve;
+pub mod math;
+pub mod volume_mesh;
