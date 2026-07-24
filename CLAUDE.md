@@ -175,6 +175,29 @@ hooks so it cannot be forgotten:
 - This does **not** relax the never-auto-commit/push rule above: the hooks only
   act *when a commit the user asked for is being made*; they never initiate one.
 
+## Historian report before every merge to `main` (mandatory)
+
+**Before merging `develop` into `main`, generate a "historian" report** — a
+python-generated markdown file accounting for the **API tokens spent** and the
+**lines / KLOC written** across the window of `develop` history being released,
+listing the commits over a `DDMMYY..DDMMYY` date range. Both the generator and
+the reports live under **`docs/historian/`** at the workspace root.
+
+- **Generate it:**
+  `python3 docs/historian/historian.py --from DDMMYY --to DDMMYY`
+  (`DDMMYY` = day-month-year, 2-digit year). With no `--from`, it defaults to
+  "everything on `develop` not yet on `main`, up to today". Output is written to
+  `docs/historian/historian_<from>_to_<to>.md`.
+- **What it contains:** total lines added/removed/net (all files + Rust-only),
+  total tokens broken out (`in`/`out`/`cache_read`/`cache_write`/`total`), a
+  per-crate lines-added breakdown, and a per-commit ledger.
+- **Sources, not estimates.** Tokens come from the `API-Usage-Since-Last-Commit`
+  commit trailers (§ token accounting above); lines come from
+  `git log --numstat --no-merges` over the range. Commits predating the token
+  hooks legitimately show *no token data* — that is correct, not a gap.
+- **Commit the generated report alongside the `develop`→`main` merge**, so each
+  release carries its own accounting. Do not hand-edit the generated markdown.
+
 ## Issue tracking & roadmap — beads (mandatory when available)
 
 This workspace tracks issues and per-crate roadmap progress with **beads-rs**
