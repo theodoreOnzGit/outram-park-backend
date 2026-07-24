@@ -5385,6 +5385,9 @@ dependencies = [
 [[package]]
 name = "outram-park-fork-cfmesh"
 version = "0.0.0"
+dependencies = [
+ "outram-foam-basic-lib",
+]
 
 [[package]]
 name = "outram-park-fork-coolprop"
@@ -5419,6 +5422,7 @@ name = "outram-park-fork-pflotran"
 version = "0.0.0"
 dependencies = [
  "outram-foam-basic-lib",
+ "outram-park-mpi",
  "rayon",
  "tampines-steam-tables",
  "thiserror 2.0.18",

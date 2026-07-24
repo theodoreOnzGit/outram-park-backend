@@ -39,6 +39,10 @@ tampines-steam-tables = { path = "../tampines-steam-tables" }
 # Rust, Android-clean — parallelises the RICHARDS residual/Jacobian, the
 # multiphase block residual, and the reactive-transport per-cell speciation.
 rayon.workspace = true
+# MPI-style domain decomposition / scale-out (bead op-v6s.15.9). The pure-Rust
+# MPICH-subset (shared-memory threads-as-ranks) drives the halo exchange in the
+# `decomposition` module. Pure Rust (std threads only), Android-clean.
+outram-park-mpi = { path = "../outram-park-mpi" }
 
 # Optional GPU acceleration (bead op-v6s.14, src/gpu.rs) — target-gated OFF
 # Android (no system Vulkan/Metal loader there, and the workspace Android rule

@@ -57,14 +57,25 @@
 //! - **Milestone 2 — castellated surface carve.** [`carve::carve_box`] overlays
 //!   a uniform Cartesian grid on a closed triangle-soup surface and keeps the
 //!   cells inside it (ray-parity inside test), producing a body-fitted
-//!   *staircase* volume mesh with a `walls` boundary patch. Verified: a
-//!   grid-aligned box carves exactly; an octahedron carve converges to its
-//!   analytic volume; every carved cell is closed.
+//!   *staircase* volume mesh with a `walls` boundary patch.
+//!   [`carve::carve_region`] extends this to the region *inside* an outer
+//!   surface but *outside* inner holes — the shell/annular pattern reactor
+//!   geometry needs (coolant around fuel pins or pebbles).
+//! - **Milestone 3a — boundary snapping.** [`snap::snap_to_surface`] projects
+//!   every boundary point onto the closest point of the surface, turning the
+//!   staircase into a body-fitted boundary.
+//! - **Milestone 3b — foam bridge (feature `foam-export`).** [`foam::to_poly_mesh`]
+//!   converts a [`volume_mesh::VolumeMesh`] into a real `outram-foam-basic-lib`
+//!   `PolyMesh`, which yields a solvable `FvMesh` via `to_fv_mesh()` — closing
+//!   the loop: surface → carve → snap → foam mesh (verified end-to-end).
+//! - **Mesh quality checks.** [`checks::check_quality`] reports face
+//!   non-orthogonality, skewness, cell aspect ratio, min face area / cell
+//!   volume, and negative-volume cells (cfMesh `polyMeshGenChecks`) — the gate
+//!   for trusting a generated mesh before it is solved.
 //!
-//! Next on the `op-hzs` roadmap: octree refinement + point **snapping** (turn
-//! the staircase into a body-fitted boundary), the polyhedral dual (`op-hzs.33`,
-//! voro++ reference), boundary layers (`op-hzs.34`), and the volume-`PolyMesh`
-//! bridge to `outram-foam-basic-lib` (`op-hzs.35`).
+//! Next on the `op-hzs` roadmap: octree refinement near the surface, the
+//! polyhedral dual (`op-hzs.33`, voro++ reference), and boundary layers
+//! (`op-hzs.34`).
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
@@ -81,5 +92,14 @@
 
 pub mod cartesian;
 pub mod carve;
+pub mod checks;
 pub mod math;
+pub mod shapes;
+pub mod snap;
 pub mod volume_mesh;
+
+/// Bridge to the real `outram-foam-basic-lib` `PolyMesh` (feature
+/// `foam-export`) — the volume-mesh output path to the CFD/TH solver. Off by
+/// default so the base crate stays dependency-free and Android-buildable.
+#[cfg(feature = "foam-export")]
+pub mod foam;

@@ -72,6 +72,7 @@
 //! | [`microbial`] | microbial reactions | **real** — Monod/dual-Monod biodegradation on a foam ODE solver (bead op-v6s.15.4) |
 //! | [`wells`] | wells + advanced BCs | **real** — Peaceman well index + hydrostatic/seepage/time-varying BCs (bead op-v6s.15.12) |
 //! | [`deck`] | real PFLOTRAN input deck | **real (subset)** — genuine PFLOTRAN keyword-block syntax, Fortran D-exponent floats (bead op-v6s.15.10) |
+//! | [`decomposition`] | MPI domain decomposition | **working (verification-only)** — 1-D partition + halo exchange over `outram-park-mpi`; distributed stencil matches serial (bead op-v6s.15.9) |
 //! | [`pitzer`] | high-ionic-strength activity | **real** — Pitzer ion-interaction virial model for brines (25 °C, binary salts) (bead op-s1h) |
 //! | [`unstructured`] | unstructured FV grid | **real** — polyhedral cell/face connectivity + two-point-flux (TPFA) transmissibility (bead op-v6s.15.8) |
 //!
@@ -93,6 +94,7 @@
 
 pub mod activity;
 pub mod deck;
+pub mod decomposition;
 pub mod energy;
 pub mod decay;
 pub mod eos_co2_brine;

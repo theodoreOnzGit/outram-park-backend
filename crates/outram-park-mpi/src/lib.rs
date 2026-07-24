@@ -59,6 +59,8 @@
 //! | [`datatype`] | predefined datatypes | [`Datatype`] tag + [`MpiPrimitive`] codec |
 //! | [`transport`] *(internal)* | device / ADI layer | shared-memory rank mailboxes |
 //! | [`communicator`] | `MPID_Comm` + pt2pt | [`Communicator`], [`Request`], [`Status`] |
+//! | [`collective`] | collectives + ops | barrier/bcast/reduce/allreduce/scatter/gather/allgather, [`ReduceOp`] |
+//! | [`comm_mgmt`] | `MPI_Comm_dup`/`split` | [`Communicator::dup`], [`Communicator::split`] |
 //!
 //! ## Design rules (workspace mandate)
 //!
@@ -70,6 +72,7 @@
 //! - **Pure Rust, Android-safe.** `std` threads + sync only; no C/FFI, no system MPI.
 
 pub mod collective;
+pub mod comm_mgmt;
 pub mod communicator;
 pub mod datatype;
 pub mod error;
@@ -80,7 +83,6 @@ pub use communicator::{Communicator, Request, Status, TestOutcome, ANY_SOURCE, A
 pub use datatype::{Datatype, MpiPrimitive};
 pub use error::{MpiError, MpiResult};
 
-use communicator::WORLD_COMM_ID;
 use transport::Transport;
 
 /// Run `f` on `n_ranks` ranks and collect their results in rank order.
@@ -126,7 +128,7 @@ where
             .map(|rank| {
                 let t = std::sync::Arc::clone(&transport);
                 scope.spawn(move || {
-                    let comm = Communicator::new(t, rank, n_ranks, WORLD_COMM_ID);
+                    let comm = Communicator::world(t, rank, n_ranks);
                     f_ref(&comm)
                 })
             })
@@ -347,6 +349,86 @@ mod tests {
     // A user tag numerically equal to the internal broadcast tag (1) — proves
     // isolation is by context, not tag.
     const TAG_LIKE_BCAST: i32 = 1;
+
+    #[test]
+    fn dup_isolates_from_the_original_communicator() {
+        // On the duplicate, ranks exchange; a same-tag message on the ORIGINAL
+        // must not be consumed by the duplicate's traffic (separate context).
+        let out = run(2, |c| {
+            let d = c.dup().unwrap();
+            if c.rank() == 0 {
+                c.send(&[11_i32], 1, 0).unwrap(); // on original
+                d.send(&[22_i32], 1, 0).unwrap(); // on duplicate, same tag
+                (0, 0)
+            } else {
+                // Receive on the duplicate first, then the original — proving they
+                // are distinct streams that don't cross-match.
+                let (dm, _) = d.recv::<i32>(0, 0).unwrap();
+                let (om, _) = c.recv::<i32>(0, 0).unwrap();
+                (dm[0], om[0])
+            }
+        })
+        .unwrap();
+        assert_eq!(out[1], (22, 11));
+    }
+
+    #[test]
+    fn dup_preserves_rank_and_size() {
+        let out = run(4, |c| {
+            let d = c.dup().unwrap();
+            (d.rank(), d.size())
+        })
+        .unwrap();
+        assert_eq!(out, vec![(0, 4), (1, 4), (2, 4), (3, 4)]);
+    }
+
+    #[test]
+    fn split_by_color_forms_subgroups_that_can_communicate() {
+        // 6 ranks split by parity: evens {0,2,4} -> new ranks 0,1,2; odds similarly.
+        let out = run(6, |c| {
+            let color = c.rank() % 2;
+            let sub = c.split(color, c.rank()).unwrap().expect("everyone has a color");
+            // In each subgroup, do an all_reduce sum of the ORIGINAL world ranks.
+            let world = c.rank();
+            let s = sub.all_reduce(&[world], ReduceOp::Sum).unwrap();
+            (color, sub.rank(), sub.size(), s[0])
+        })
+        .unwrap();
+        // Evens (world 0,2,4): size 3, sum 6. Odds (world 1,3,5): size 3, sum 9.
+        for r in 0..6 {
+            let (color, srank, ssize, sum) = out[r];
+            assert_eq!(ssize, 3);
+            assert_eq!(sum, if color == 0 { 6 } else { 9 });
+            // new rank matches key ordering (key = world rank, ascending)
+            assert_eq!(srank as usize, r / 2);
+        }
+    }
+
+    #[test]
+    fn split_key_orders_new_ranks() {
+        // All in one group, but key = reversed rank -> new ranks are reversed.
+        let out = run(4, |c| {
+            let sub = c.split(0, 3 - c.rank()).unwrap().unwrap();
+            sub.rank()
+        })
+        .unwrap();
+        assert_eq!(out, vec![3, 2, 1, 0]);
+    }
+
+    #[test]
+    fn split_undefined_color_yields_no_communicator() {
+        let out = run(4, |c| {
+            // Only even ranks form a group; odd ranks opt out.
+            let color = if c.rank() % 2 == 0 { 0 } else { Communicator::UNDEFINED };
+            let sub = c.split(color, c.rank()).unwrap();
+            sub.map(|s| (s.rank(), s.size()))
+        })
+        .unwrap();
+        assert_eq!(out[0], Some((0, 2)));
+        assert_eq!(out[1], None);
+        assert_eq!(out[2], Some((1, 2)));
+        assert_eq!(out[3], None);
+    }
 
     #[test]
     fn type_mismatch_is_detected() {
