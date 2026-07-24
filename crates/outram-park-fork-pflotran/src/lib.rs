@@ -72,7 +72,7 @@
 //! | [`microbial`] | microbial reactions | **real** — Monod/dual-Monod biodegradation on a foam ODE solver (bead op-v6s.15.4) |
 //! | [`wells`] | wells + advanced BCs | **real** — Peaceman well index + hydrostatic/seepage/time-varying BCs (bead op-v6s.15.12) |
 //! | [`deck`] | real PFLOTRAN input deck | **real (subset)** — genuine PFLOTRAN keyword-block syntax, Fortran D-exponent floats (bead op-v6s.15.10) |
-//! | [`decomposition`] | MPI domain decomposition | **working (verification-only)** — 1-D partition + halo exchange over `outram-park-mpi`; distributed stencil matches serial (bead op-v6s.15.9) |
+//! | [`decomposition`] | MPI domain decomposition | **working (verification-only)** — 1-D partition + halo exchange + distributed CG (all-reduce dot + halo matvec) over `outram-park-mpi`; matches serial (beads op-v6s.15.9, op-57m) |
 //! | [`hdf5_io`] | HDF5 snapshot output | **real (AI-designed layout)** — structured-grid solution snapshots via pure-Rust `hdf5-pure`; write/read round-trip (bead op-v6s.15.11) |
 //! | [`pitzer`] | high-ionic-strength activity | **real** — Pitzer ion-interaction virial model for brines (25 °C, binary salts) (bead op-s1h) |
 //! | [`unstructured`] | unstructured FV grid | **real** — polyhedral cell/face connectivity + two-point-flux (TPFA) transmissibility (bead op-v6s.15.8) |
