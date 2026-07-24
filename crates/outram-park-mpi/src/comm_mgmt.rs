@@ -140,8 +140,9 @@ impl Communicator {
     }
 
     /// Allocate a fresh context and broadcast it from rank 0 so the whole group
-    /// agrees (used by [`dup`](Communicator::dup)).
-    fn agree_new_context(&self) -> MpiResult<usize> {
+    /// agrees (used by [`dup`](Communicator::dup) and
+    /// [`create_from_group`](Communicator::create_from_group)).
+    pub(crate) fn agree_new_context(&self) -> MpiResult<usize> {
         let agreed = if self.rank() == 0 {
             let id = self.alloc_context() as i64;
             self.broadcast(Some(&[id]), 0)?
