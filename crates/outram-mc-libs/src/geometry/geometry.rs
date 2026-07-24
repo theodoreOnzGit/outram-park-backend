@@ -263,11 +263,107 @@ impl Geometry {
             BoundaryType::Vacuum => (r, u, false),
             BoundaryType::Reflective | BoundaryType::White | BoundaryType::Periodic => {
                 // White/Periodic are approximated as reflective (documented gap).
-                let u_new = surf.reflect(r, u);
+                // Compose the reflection off EVERY reflective surface coincident
+                // with `r` (corner/edge handling — see
+                // [`Geometry::compose_corner_reflection`]); for a lone wall this
+                // reduces exactly to `surf.reflect(r, u)`.
+                let u_new = self.compose_corner_reflection(i_surf, r, u);
                 (stream(r, u_new, NUDGE), u_new, true)
             }
             BoundaryType::Transmissive => (stream(r, u, NUDGE), u, true),
         }
+    }
+
+    /// Compose the specular reflections of every reflective-type surface
+    /// coincident with the crossing point `r`, returning the outgoing direction.
+    ///
+    /// # Physical principle
+    ///
+    /// Specular reflections **compose at a corner/edge**. When a particle streams
+    /// into a point that lies on the primary reflective surface `i_surf` *and*
+    /// (within `CORNER_TOL`) on one or more other Reflective / White / Periodic
+    /// surfaces, reflecting off only `i_surf` leaves the particle still headed
+    /// into the neighbouring wall(s). Reflecting off **all** coincident reflective
+    /// surfaces in a single event sends it back out of the corner immediately; at
+    /// a right-angle corner this is the familiar retroreflection (every involved
+    /// direction component negated at once).
+    ///
+    /// # Why this crate needs it (robustness fix, not a port)
+    ///
+    /// This crate's surface tracker advances to a boundary and then nudges a fixed
+    /// [`NUDGE`](Self::cross_surface) (`1e-9 cm`) along the outgoing direction.
+    /// Near a corner a grazing particle otherwise "ping-pongs": it alternately
+    /// re-crosses the perpendicular walls at sub-nudge distances, advancing only
+    /// ~`NUDGE` *along* the wall per event, so clearing an O(1 cm) feature can take
+    /// ~10^5–10^9 events — past `MAX_EVENTS`, where the history is capped and
+    /// leaked (a small negative bias), or previously hung. Composing the corner
+    /// reflection makes the particle leave in one event and removes the bias. This
+    /// is a robustness fix for *this crate's fixed-nudge tracker*: OpenMC advances
+    /// exactly to each surface token and never accumulates a sub-nudge residual, so
+    /// it has no directly corresponding routine — only the physics (reflections
+    /// compose at a corner) is mirrored.
+    ///
+    /// # Selection and composition
+    ///
+    /// A surface `j != i_surf` is included only when the *incoming* direction
+    /// actually **crosses** it (`|u · n_j| > 0`, judged on the incoming `u`) — the
+    /// same condition that made `i_surf` a crossing in the first place. A wall the
+    /// particle grazes exactly parallel to (`u · n_j = 0`) is skipped (reflecting
+    /// off it would be a no-op anyway). The sign of `u · n_j` is deliberately *not*
+    /// used: an axis-aligned plane's [`SurfaceKind::normal`] always points along the
+    /// +axis regardless of which side bounds the cell, so a min-side wall (cell on
+    /// the +sense side, exited with `u · n_j < 0`) must be treated identically to a
+    /// max-side wall — testing only the sign would leave min-side corners leaking.
+    /// A particle exiting a convex corner from inside the cell crosses every
+    /// coincident bounding wall, so composing all their reflections is exactly the
+    /// retroreflection that sends it back inside. The common lone-wall case has no
+    /// other coincident surface, so this reduces to exactly `surf.reflect(r, u)`
+    /// (bit-identical prior behaviour).
+    ///
+    /// Reflections are composed by applying each surface's [`SurfaceKind::reflect`]
+    /// in turn. For mutually orthogonal walls (axis-aligned cube / lattice-cell
+    /// corners — the realistic case) the order is immaterial and the result is the
+    /// exact retroreflection of the crossed components. For a corner of
+    /// non-orthogonal reflective surfaces the composition is order-dependent and
+    /// only approximate; such geometries do not arise in the current verification
+    /// set.
+    ///
+    /// `r` is the crossing point; coincidence is judged by
+    /// `|SurfaceKind::evaluate(r)| <= CORNER_TOL`.
+    fn compose_corner_reflection(&self, i_surf: usize, r: Position, u: Direction) -> Direction {
+        /// Coincidence tolerance \[cm\] for a shared corner/edge — the transport
+        /// nudge scale, so a sub-nudge ping-pong pair is always caught while any
+        /// physically distinct wall (>> 1e-9 cm away) is not.
+        const CORNER_TOL: f64 = 1.0e-9;
+
+        // Always reflect off the primary (crossed) surface.
+        let mut u_new = self.surfaces[i_surf].reflect(r, u);
+
+        for (j, surf) in self.surfaces.iter().enumerate() {
+            if j == i_surf {
+                continue;
+            }
+            if !matches!(
+                surf.bc(),
+                BoundaryType::Reflective | BoundaryType::White | BoundaryType::Periodic
+            ) {
+                continue;
+            }
+            // Coincident with the crossing point?
+            if surf.evaluate(r).abs() > CORNER_TOL {
+                continue;
+            }
+            // Reflect off any coincident wall the particle actually crosses (has a
+            // non-zero velocity component through). Sign-agnostic: min-side and
+            // max-side walls share the same +axis geometric normal, so both must be
+            // handled. A grazing wall (`u·n = 0`) is a no-op and is skipped.
+            let n = surf.normal(r);
+            let dot = u.u * n.u + u.v * n.v + u.w * n.w;
+            if dot != 0.0 {
+                u_new = surf.reflect(r, u_new);
+            }
+        }
+        u_new
     }
 }
 
