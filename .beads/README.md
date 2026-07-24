@@ -1,16 +1,42 @@
-# Beads - AI-Native Issue Tracking
+# Beads — AI-Native Issue Tracking
 
-Welcome to Beads! This repository uses **Beads** for issue tracking - a modern, AI-native tool designed to live directly in your codebase alongside your code.
+This repository uses **Beads** for issue tracking — issues that live directly
+in the repo alongside the code, driven entirely from the CLI.
+
+> **RUST BEADS ONLY.** This project uses the **Rust** implementation, the
+> [`beads-rs`](https://crates.io/crates/beads-rs) crate
+> (`github.com/delightful-ai/beads-rs`), binary `bd`. Do **not** install or
+> use any Go build of beads.
 
 ## What is Beads?
 
-Beads is issue tracking that lives in your repo, making it perfect for AI coding agents and developers who want their issues close to their code. No web UI required - everything works through the CLI and integrates seamlessly with git.
+Beads is issue tracking that lives in your repo — no web UI, everything through
+the `bd` CLI, designed to work well with AI coding agents. Issue data is stored
+as JSONL on a dedicated git branch and synced in the background over git.
 
-**Learn more:** [github.com/steveyegge/beads](https://github.com/steveyegge/beads)
+## Install
+
+```bash
+cargo install beads-rs      # installs the `bd` binary to ~/.cargo/bin
+```
+
+First-time setup in a fresh clone:
+
+```bash
+bd init
+bd setup claude
+```
+
+**Migrating the legacy store (one-time):** the pre-existing issues in
+`.beads/issues.jsonl` were written by the old Go tool. Import them into
+`beads-rs` with (dry-run first):
+
+```bash
+bd migrate from-go --input .beads/issues.jsonl --dry-run
+bd migrate from-go --input .beads/issues.jsonl
+```
 
 ## Quick Start
-
-### Essential Commands
 
 ```bash
 # Create new issues
@@ -26,56 +52,25 @@ bd show <issue-id>
 bd update <issue-id> --claim
 bd update <issue-id> --status done
 
-# Sync with Dolt remote
-bd dolt push
+# Wait for the background git sync to flush
+bd sync
 ```
 
-### Working with Issues
+## How it works
 
-Issues in Beads are:
-- **Git-native**: Stored in Dolt database with version control and branching
-- **AI-friendly**: CLI-first design works perfectly with AI coding agents
-- **Branch-aware**: Issues can follow your branch workflow
-- **Sync-ready**: Uses Dolt remotes for backup and team sharing
-
-## Why Beads?
-
-✨ **AI-Native Design**
-- Built specifically for AI-assisted development workflows
-- CLI-first interface works seamlessly with AI coding agents
-- No context switching to web UIs
-
-🚀 **Developer Focused**
-- Issues live in your repo, right next to your code
-- Works offline, syncs when you push
-- Fast, lightweight, and stays out of your way
-
-🔧 **Git Integration**
-- Dolt-native sync via bd dolt push / bd dolt pull
-- Branch-aware issue tracking
-- Dolt-native three-way merge resolution
-
-## Get Started with Beads
-
-Try Beads in your own projects:
-
-```bash
-# Install Beads
-curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
-
-# Initialize in your repo
-bd init
-
-# Create your first issue
-bd create "Try out Beads"
-```
+- **Git-native**: issues are stored as JSONL on a dedicated git branch
+  (`refs/heads/beads/store`) — canonical state in `state.jsonl`,
+  `tombstones.jsonl`, `deps.jsonl`, `meta.json`. There is **no Dolt database
+  and no SQLite**.
+- **Background sync**: mutations are debounced and pushed in the background by
+  a local daemon that starts on demand; `bd sync` just waits for the flush.
+- **Passive export**: `.beads/issues.jsonl` is a passive export, not the source
+  of truth — don't treat it as authoritative and don't `bd import` during
+  normal operation.
+- **AI-friendly**: CLI-first, no context switching to a web UI.
 
 ## Learn More
 
-- **Documentation**: [github.com/steveyegge/beads/docs](https://github.com/steveyegge/beads/tree/main/docs)
-- **Quick Start Guide**: Run `bd quickstart`
-- **Examples**: [github.com/steveyegge/beads/examples](https://github.com/steveyegge/beads/tree/main/examples)
-
----
-
-*Beads: Issue tracking that moves at the speed of thought* ⚡
+- **Crate**: [crates.io/crates/beads-rs](https://crates.io/crates/beads-rs)
+- **Source**: [github.com/delightful-ai/beads-rs](https://github.com/delightful-ai/beads-rs)
+- **Full workflow context**: run `bd prime`

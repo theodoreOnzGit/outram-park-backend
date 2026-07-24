@@ -138,12 +138,25 @@ specifically, not just human contributors:
 ## Issue tracking & roadmap — beads (mandatory when available)
 
 This workspace tracks issues and per-crate roadmap progress with **beads**
-(`bd`). It is a dependency-aware issue tracker whose data lives in `.beads/`
-(embedded Dolt DB) with a passive export at **`.beads/issues.jsonl`**.
+(`bd`). It is a dependency-aware issue tracker. In the Rust `beads-rs`
+implementation used here, issue data is stored as JSONL on a dedicated git
+branch (`refs/heads/beads/store`) and synced in the background over git —
+there is no Dolt database and no SQLite. `.beads/issues.jsonl` is a passive
+export.
 
-- **Install** (Linux/macOS with bash):
-  `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
-  (installs `bd` to `~/.local/bin`; add that to `PATH`).
+- **RUST BEADS ONLY.** Beads here is the **Rust** implementation — the
+  [`beads-rs`](https://crates.io/crates/beads-rs) crate
+  (`github.com/delightful-ai/beads-rs`), binary `bd`. Do **not** install or
+  use any Go build of beads. If only a Go `bd` is on this machine, treat beads
+  as unavailable (see the "not available" bullet below) and fall back to a
+  short markdown note rather than filing into it.
+- **Install:** `cargo install beads-rs` (installs the `bd` binary to
+  `~/.cargo/bin`; ensure that is on `PATH`). First-time setup in a fresh
+  clone: `bd init`, then `bd setup claude`.
+- **Migrating the legacy store (one-time).** The pre-existing issues in
+  `.beads/issues.jsonl` were written by the old Go tool; import them into
+  `beads-rs` with `bd migrate from-go --input .beads/issues.jsonl` (run
+  `--dry-run` first). Do this once when moving the repo onto `beads-rs`.
 - **Standing rule: if `bd` is available on this machine, you MUST use it** for
   all task/roadmap tracking and progress bookkeeping — in preference to
   TodoWrite / TaskCreate / ad-hoc markdown TODO lists. Create/close/update
@@ -612,13 +625,13 @@ bd close <id>         # Complete work
 - Run `bd prime` for detailed command reference and session close protocol
 - Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
 
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+**Architecture in one line:** with the Rust `beads-rs`, issues live as JSONL on a dedicated git branch (`refs/heads/beads/store`); `bd` syncs them in the background over git; `.beads/issues.jsonl` is a passive export. No Dolt, no SQLite.
 
 ## Agent Context Profiles
 
 The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
 
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
+- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or beads sync (`bd sync`) unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
 - **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
 - **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
 
