@@ -56,7 +56,8 @@ pub use crate::solvers::hrm_foam::{HrmFoam, HrmModelConfig};
 pub use crate::solvers::pimple_foam::{PimpleFoam, PressureSolver};
 pub use crate::solvers::reacting_two_phase_euler_foam::{
     build_default as build_reacting_two_phase_euler, InterfacialHeatTransfer,
-    InterfacialMassTransfer, PhaseSelector, PhaseThermo, ReactingTwoPhaseEulerFoam, ReactionSource,
+    InterfacialMassTransfer, PhaseSelector, PhaseSpecies, PhaseThermo, ReactingTwoPhaseEulerFoam,
+    ReactionMechanism, ReactionSource,
 };
 pub use crate::solvers::rho_central_foam::RhoCentralFoam;
 pub use crate::solvers::rho_pimple_foam::RhoPimpleFoam;

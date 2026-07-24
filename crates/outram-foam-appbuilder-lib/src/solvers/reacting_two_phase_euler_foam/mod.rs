@@ -91,11 +91,15 @@
 //!
 //! ### Honest scope (what this foundation does *not* yet do)
 //!
-//! - **Constant per-phase `Cp`, `κ`** (perfect-caloric closure `he = Cp·T`); no
-//!   multicomponent species transport (`YEqns`) or finite-rate chemistry — the
-//!   "reacting" content here is a prescribed volumetric heat source, not a
-//!   composition-resolved reaction network. Full `phaseSystem` species +
-//!   reaction kinetics remain future work.
+//! - **Constant per-phase `Cp`, `κ`** (perfect-caloric closure `he = Cp·T`).
+//!   Composition-resolved chemistry is available but reduced: an optional
+//!   single-phase multicomponent [`PhaseSpecies`] transported with the phase
+//!   mass flux + Fickian diffusion, plus a single global first-order Arrhenius
+//!   [`ReactionMechanism`] (`fuel → product`, heat-release into that phase). A
+//!   prescribed [`ReactionSource`] heat term is also kept for
+//!   composition-free cases. Multi-step mechanisms, per-species properties /
+//!   diffusivities, reversible/multi-phase reactions, and the full
+//!   `phaseSystem` kinetics remain future work.
 //! - **One-resistance** interfacial heat transfer (no interface-temperature
 //!   two-resistance solve), **operator-split** phase change (the `ṁ` source is
 //!   not folded into the implicit `α`-transport matrix), and no population
@@ -336,6 +340,151 @@ pub enum ReactionSource {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Composition-resolved species transport + finite-rate reaction
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Universal gas constant `R` `[J/(mol·K)]` (CODATA).
+const R_GAS: f64 = 8.314_462_618;
+
+/// Multicomponent **composition** carried inside one phase: a set of species
+/// mass fractions `Y_i` `[-]` transported with that phase's mass flux plus a
+/// single Fickian diffusivity. This is the composition the finite-rate
+/// [`ReactionMechanism`] acts on — the "reacting" content the prescribed
+/// [`ReactionSource`] heat term stands in for when no composition is modelled.
+///
+/// Mirrors `multiphaseEuler`'s per-phase `Y` fields (`thermophysicalPredictor.C`
+/// `compositionPredictor()` — `phase.YiEqn(Y[i]) == …`), reduced to a single
+/// phase with a shared constant diffusivity.
+pub struct PhaseSpecies {
+    /// Which phase carries this composition.
+    pub phase: PhaseSelector,
+    /// Species names, one per transported mass fraction.
+    pub names: Vec<String>,
+    /// Species mass-fraction fields `Y_i` `[-]`, `Σ_i Y_i = 1`.
+    pub y: Vec<VolScalarField>,
+    /// Old-time mass fractions for the `∂/∂t` term.
+    pub y_old: Vec<VolScalarField>,
+    /// Fickian mass diffusivity `D` `[m²/s]` (constant, ≥ 0), shared by all
+    /// species.
+    pub diffusivity: f64,
+}
+
+impl PhaseSpecies {
+    /// Build a composition from species names and uniform initial mass
+    /// fractions.
+    ///
+    /// # Parameters
+    /// - `mesh` — shared finite-volume mesh.
+    /// - `phase` — which phase carries the composition.
+    /// - `names` — species labels (length `N ≥ 1`).
+    /// - `y0` — uniform initial mass fractions `[-]`, length `N`, each in
+    ///   `[0, 1]` and summing to `1` (to `1e-6`).
+    /// - `diffusivity` — Fickian diffusivity `D` `[m²/s]`, must be `≥ 0`.
+    ///
+    /// # Errors
+    /// [`MultiphaseError::InvalidInput`] on length mismatch, out-of-range `y0`,
+    /// a non-unit sum, or negative diffusivity.
+    pub fn new(
+        mesh: Arc<FvMesh>,
+        phase: PhaseSelector,
+        names: Vec<String>,
+        y0: &[f64],
+        diffusivity: f64,
+    ) -> Result<Self, MultiphaseError> {
+        if names.is_empty() || names.len() != y0.len() {
+            return Err(MultiphaseError::InvalidInput(format!(
+                "species names ({}) and y0 ({}) must be non-empty and equal length",
+                names.len(),
+                y0.len()
+            )));
+        }
+        if diffusivity < 0.0 {
+            return Err(MultiphaseError::InvalidInput(format!(
+                "diffusivity must be >= 0 (got {diffusivity})"
+            )));
+        }
+        let mut sum = 0.0;
+        for &y in y0 {
+            if !(0.0..=1.0).contains(&y) {
+                return Err(MultiphaseError::InvalidInput(format!(
+                    "initial mass fraction must be in [0,1] (got {y})"
+                )));
+            }
+            sum += y;
+        }
+        if (sum - 1.0).abs() > 1.0e-6 {
+            return Err(MultiphaseError::InvalidInput(format!(
+                "initial mass fractions must sum to 1 (got {sum})"
+            )));
+        }
+        let y: Vec<VolScalarField> = names
+            .iter()
+            .zip(y0)
+            .map(|(name, &y0)| VolScalarField::uniform(format!("Y.{name}"), mesh.clone(), y0))
+            .collect();
+        let y_old = y.clone();
+        Ok(Self {
+            phase,
+            names,
+            y,
+            y_old,
+            diffusivity,
+        })
+    }
+
+    /// Mass-fraction field of species `i` `[-]`.
+    pub fn mass_fraction(&self, i: usize) -> &VolScalarField {
+        &self.y[i]
+    }
+
+    /// Volume-averaged mass fraction of species `i` `[-]` (diagnostic).
+    pub fn mean_mass_fraction(&self, i: usize) -> f64 {
+        let mesh = self.y[i].mesh.clone();
+        let mut sum_vy = 0.0;
+        let mut sum_v = 0.0;
+        for c in 0..mesh.n_cells {
+            let v = mesh.cell_volumes[c];
+            sum_vy += v * self.y[i].internal[c];
+            sum_v += v;
+        }
+        sum_vy / sum_v
+    }
+}
+
+/// Finite-rate homogeneous **reaction mechanism** acting on a [`PhaseSpecies`]
+/// composition and releasing heat into that phase's energy equation.
+///
+/// Enum dispatch (not `dyn`).
+#[derive(Debug, Clone, Copy)]
+pub enum ReactionMechanism {
+    /// No reaction (species are transported inertly).
+    None,
+    /// A single global irreversible reaction `fuel → product` with first-order
+    /// Arrhenius kinetics. The volumetric fuel consumption rate is
+    ///
+    /// ```text
+    /// ω = A · exp(−Ea/(R·T)) · ρ · Y_fuel     [kg/(m³·s)]
+    /// ```
+    ///
+    /// (`A` pre-exponential `[1/s]`, `Ea` activation energy `[J/mol]`). Species
+    /// sources are `−ω` (fuel) and `+ω` (product); the heat release is
+    /// `q̇ = ΔH · ω` `[W/m³]` deposited into the reacting phase's enthalpy.
+    Arrhenius {
+        /// Index of the fuel species in [`PhaseSpecies::y`].
+        fuel: usize,
+        /// Index of the product species in [`PhaseSpecies::y`].
+        product: usize,
+        /// Pre-exponential factor `A` `[1/s]`.
+        a_pre: f64,
+        /// Activation energy `Ea` `[J/mol]`.
+        e_act: f64,
+        /// Heat of reaction `ΔH` per unit fuel mass `[J/kg]` (positive =
+        /// exothermic).
+        delta_h: f64,
+    },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // The solver
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -353,8 +502,20 @@ pub struct ReactingTwoPhaseEulerFoam {
     pub heat_transfer: InterfacialHeatTransfer,
     /// Interfacial mass-transfer (phase-change) closure.
     pub mass_transfer: InterfacialMassTransfer,
-    /// Reaction heat source.
+    /// Prescribed reaction heat source (composition-free stand-in).
     pub reaction: ReactionSource,
+    /// Optional composition-resolved species transported in one phase. When set
+    /// (with a non-[`None`](ReactionMechanism::None)
+    /// [`reaction_mechanism`](Self::reaction_mechanism)) the solver runs a
+    /// composition predictor before the energy predictor, exactly as
+    /// `multiphaseEuler` does.
+    pub species: Option<PhaseSpecies>,
+    /// Finite-rate reaction mechanism acting on [`species`](Self::species);
+    /// releases heat into that phase's enthalpy equation.
+    pub reaction_mechanism: ReactionMechanism,
+    /// Cached finite-rate reaction heat `[W/m³]` produced by the composition
+    /// predictor and consumed by the energy predictor within the same corrector.
+    reaction_heat: Option<VolScalarField>,
     /// Latent heat of the dispersed→continuous phase change `L` `[J/kg]`
     /// (absorbed on evaporation `ṁ > 0`). Only used when
     /// [`mass_transfer`](Self::mass_transfer) is active.
@@ -414,6 +575,9 @@ impl ReactingTwoPhaseEulerFoam {
             heat_transfer: InterfacialHeatTransfer::Spherical,
             mass_transfer: InterfacialMassTransfer::None,
             reaction: ReactionSource::None,
+            species: None,
+            reaction_mechanism: ReactionMechanism::None,
+            reaction_heat: None,
             latent_heat: 0.0,
             residual_alpha: 1.0e-6,
             n_energy_correctors: 1,
@@ -473,6 +637,10 @@ impl ReactingTwoPhaseEulerFoam {
         // Freeze old-time enthalpy for the ddt term (state entering the step).
         self.dispersed_thermo.he_old = self.dispersed_thermo.he.clone();
         self.continuous_thermo.he_old = self.continuous_thermo.he.clone();
+        // Freeze old-time species mass fractions.
+        if let Some(species) = self.species.as_mut() {
+            species.y_old = species.y.clone();
+        }
 
         // (1) Flow: momentum predictors + shared-pressure PISO + α transport.
         self.hydro.solve_timestep(dt)?;
@@ -503,6 +671,12 @@ impl ReactingTwoPhaseEulerFoam {
             // Interfacial volumetric coefficient K [W/(m³·K)] from current state.
             let k_ht = self.interfacial_coefficient()?;
 
+            // Composition predictor (species transport + finite-rate reaction),
+            // ahead of energy so its heat release feeds the enthalpy equations —
+            // the order `multiphaseEuler` uses (compositionPredictor →
+            // energyPredictor).
+            self.composition_predictor(dt)?;
+
             // Snapshot both temperatures for the explicit other-phase source.
             let t_d_snap = self.dispersed_thermo.temperature();
             let t_c_snap = self.continuous_thermo.temperature();
@@ -511,6 +685,158 @@ impl ReactingTwoPhaseEulerFoam {
             self.solve_phase_energy(dt, true, &k_ht, &t_c_snap)?;
             // Continuous phase enthalpy equation (other phase = dispersed).
             self.solve_phase_energy(dt, false, &k_ht, &t_d_snap)?;
+        }
+        Ok(())
+    }
+
+    /// Composition predictor — advance the [`species`](Self::species) mass
+    /// fractions by one implicit step of their per-phase transport equation and
+    /// apply the finite-rate [`reaction_mechanism`](Self::reaction_mechanism),
+    /// caching the reaction heat for the energy predictor.
+    ///
+    /// For species `i` in the reacting phase (density `ρ`, fraction `α`, mass
+    /// flux `α ρ φ`, diffusivity `D`):
+    ///
+    /// ```text
+    /// ∂(α ρ Y_i)/∂t + ∇·(α ρ φ Y_i) − ∇·(α ρ D ∇Y_i) = ν_i · ω
+    /// ```
+    ///
+    /// with `ν_fuel = −1`, `ν_product = +1`, else `0`, and the Arrhenius rate
+    /// `ω = A·exp(−Ea/(R·T))·ρ·Y_fuel` `[kg/(m³·s)]`. After the solves each `Y_i`
+    /// is clamped to `[0,1]` and the set is renormalised so `Σ_i Y_i = 1`
+    /// (a bounded stand-in for OpenFOAM's `Yt`-normalisation). A no-op when no
+    /// composition is configured.
+    ///
+    /// # Errors
+    /// [`MultiphaseError::Solver`] if a species solve returns a non-finite value.
+    pub fn composition_predictor(&mut self, dt: f64) -> Result<(), MultiphaseError> {
+        self.reaction_heat = None;
+        // Pull everything needed out of `self.species` up front so the later
+        // write-back does not overlap this immutable borrow.
+        let (phase_sel, mut y, y_old, diffusivity, n_species) = match &self.species {
+            None => return Ok(()),
+            Some(s) => (
+                s.phase,
+                s.y.clone(),
+                s.y_old.clone(),
+                s.diffusivity,
+                s.names.len(),
+            ),
+        };
+        let dispersed = phase_sel == PhaseSelector::Dispersed;
+        let mesh = self.hydro.mesh.clone();
+        let n = mesh.n_cells;
+
+        // Reacting-phase handles (α, U, ρ) and its temperature.
+        let (alpha, u_phase, rho, t_field) = if dispersed {
+            (
+                self.hydro.system.dispersed.alpha().clone(),
+                self.hydro.system.dispersed.u().clone(),
+                self.hydro
+                    .system
+                    .dispersed
+                    .rho()
+                    .get::<uom::si::mass_density::kilogram_per_cubic_meter>(),
+                self.dispersed_thermo.temperature(),
+            )
+        } else {
+            (
+                self.hydro.system.continuous.alpha().clone(),
+                self.hydro.system.continuous.u().clone(),
+                self.hydro
+                    .system
+                    .continuous
+                    .rho()
+                    .get::<uom::si::mass_density::kilogram_per_cubic_meter>(),
+                self.continuous_thermo.temperature(),
+            )
+        };
+
+        // Arrhenius rate ω [kg/(m³·s)] and heat q̇ = ΔH·ω [W/m³].
+        let (omega, fuel_i, product_i) = match self.reaction_mechanism {
+            ReactionMechanism::None => (vec![0.0_f64; n], None, None),
+            ReactionMechanism::Arrhenius {
+                fuel,
+                product,
+                a_pre,
+                e_act,
+                delta_h: _,
+            } => {
+                let yf = &y[fuel];
+                let w: Vec<f64> = (0..n)
+                    .map(|c| {
+                        let t = t_field.internal[c].max(1.0);
+                        (a_pre * (-e_act / (R_GAS * t)).exp() * rho * yf.internal[c]).max(0.0)
+                    })
+                    .collect();
+                (w, Some(fuel), Some(product))
+            }
+        };
+        if let ReactionMechanism::Arrhenius { delta_h, .. } = self.reaction_mechanism {
+            let q: Vec<f64> = omega.iter().map(|&w| delta_h * w).collect();
+            self.reaction_heat = Some(scalar_field("qRxn", mesh.clone(), q));
+        }
+
+        // Shared conservative-transport coefficients (as in the energy solve).
+        let alpha_rho: VolScalarField = {
+            let vals: Vec<f64> = (0..n).map(|c| alpha.internal[c].max(0.0) * rho).collect();
+            scalar_field("alphaRho", mesh.clone(), vals)
+        };
+        let alpha_rho_phi = fvc::interpolate(&alpha_rho) * fvc::flux(&u_phase);
+        let alpha_rho_d = {
+            let vals: Vec<f64> = (0..n)
+                .map(|c| alpha.internal[c].max(0.0) * rho * diffusivity)
+                .collect();
+            fvc::interpolate(&scalar_field("alphaRhoD", mesh.clone(), vals))
+        };
+
+        // Solve each species transport with its reaction source ν_i·ω.
+        for i in 0..n_species {
+            let nu = if Some(i) == fuel_i {
+                -1.0
+            } else if Some(i) == product_i {
+                1.0
+            } else {
+                0.0
+            };
+            let yi = y[i].clone();
+            let conv = fvc::div(&alpha_rho_phi, &yi);
+            let mut eqn = fvm::ddt_coeff(&alpha_rho, &yi, &y_old[i], dt)
+                + fvm::laplacian(&alpha_rho_d, &yi);
+            for c in 0..n {
+                let v = mesh.cell_volumes[c];
+                eqn.source[c] -= v * conv.internal[c];
+                eqn.source[c] += v * nu * omega[c];
+            }
+            let (yi_new, _perf) = eqn.solve(format!("Y{i}"), self.settings);
+            for c in 0..n {
+                if !yi_new.internal[c].is_finite() {
+                    return Err(MultiphaseError::Solver(format!(
+                        "species {i} became non-finite in cell {c}"
+                    )));
+                }
+            }
+            y[i] = yi_new;
+        }
+
+        // Clamp to [0,1] and renormalise so Σ_i Y_i = 1 (bounded stand-in).
+        for c in 0..n {
+            let mut sum = 0.0;
+            for yi in y.iter_mut() {
+                let v = yi.internal[c].clamp(0.0, 1.0);
+                yi.internal[c] = v;
+                sum += v;
+            }
+            if sum > 0.0 {
+                for yi in y.iter_mut() {
+                    yi.internal[c] /= sum;
+                }
+            }
+        }
+
+        // Write the updated composition back.
+        if let Some(species) = self.species.as_mut() {
+            species.y = y;
         }
         Ok(())
     }
@@ -659,6 +985,19 @@ impl ReactingTwoPhaseEulerFoam {
             );
             if hit {
                 q_rxn.iter_mut().for_each(|x| *x = q);
+            }
+        }
+        // Finite-rate reaction heat (cached by the composition predictor) is
+        // deposited into the phase that carries the reacting composition.
+        if let (Some(species), Some(heat)) = (&self.species, &self.reaction_heat) {
+            let hit = matches!(
+                (species.phase, dispersed),
+                (PhaseSelector::Dispersed, true) | (PhaseSelector::Continuous, false)
+            );
+            if hit {
+                for c in 0..n {
+                    q_rxn[c] += heat.internal[c];
+                }
             }
         }
         let m_dot = self.mass_transfer.rate();
@@ -1082,5 +1421,107 @@ mod tests {
         let expect = alpha_d0 - m_dot * dt * steps as f64 / rho_d;
         assert!((ad - expect).abs() < 1e-9, "alpha_d off: {ad} vs {expect}");
         assert!((ad + ac - 1.0).abs() < 1e-12, "saturation broken: {}", ad + ac);
+    }
+
+    /// Helper: a single-phase continuous gas carrying an N-species composition
+    /// on the shared mesh, with a matching two-fluid system for the hydro core.
+    fn reacting_gas_solver(
+        m: &Arc<FvMesh>,
+        names: &[&str],
+        y0: &[f64],
+        t0: f64,
+    ) -> ReactingTwoPhaseEulerFoam {
+        let sys = TwoFluidSystem::new(
+            phase(m, "particles", 2.0, 2e-5, 1e-3, 0.05),
+            phase(m, "gas", 1.0, 2e-5, 1e-3, 0.95),
+        )
+        .unwrap();
+        let mut solver = build_default(
+            sys,
+            DragModel::SchillerNaumann,
+            thermo(m, "he.particles", 800.0, 0.02, t0),
+            thermo(m, "he.gas", 1200.0, 0.025, t0),
+        )
+        .unwrap();
+        // No interfacial heat exchange, so a gas-phase reaction heats only the gas.
+        solver.heat_transfer = InterfacialHeatTransfer::ConstantNu(0.0);
+        solver.species = Some(
+            PhaseSpecies::new(
+                m.clone(),
+                PhaseSelector::Continuous,
+                names.iter().map(|s| s.to_string()).collect(),
+                y0,
+                1.0e-5,
+            )
+            .unwrap(),
+        );
+        solver
+    }
+
+    /// Inert species (no reaction mechanism) are transported conservatively:
+    /// with `U = 0` and uniform initial fields, every `Y_i` is unchanged and
+    /// `Σ_i Y_i = 1` is preserved exactly.
+    #[test]
+    fn inert_species_conserve_sum() {
+        let m = mesh();
+        let mut solver = reacting_gas_solver(&m, &["A", "B", "C"], &[0.5, 0.3, 0.2], 320.0);
+        // ReactionMechanism::None by default.
+        for _ in 0..25 {
+            solver.solve_timestep(1.0e-3).unwrap();
+        }
+        let sp = solver.species.as_ref().unwrap();
+        for c in 0..m.n_cells {
+            let sum: f64 = sp.y.iter().map(|y| y.internal[c]).sum();
+            assert!((sum - 1.0).abs() < 1e-9, "sum Y != 1 in cell {c}: {sum}");
+        }
+        assert!((sp.mean_mass_fraction(0) - 0.5).abs() < 1e-9);
+        assert!((sp.mean_mass_fraction(1) - 0.3).abs() < 1e-9);
+    }
+
+    /// A single global Arrhenius reaction `fuel → product` in the gas phase
+    /// consumes fuel, produces product (conserving `ΣY = 1`), and the heat
+    /// release raises the gas temperature.
+    ///
+    /// Methodology: gas at 1500 K (hot enough that `exp(−Ea/RT)` is
+    /// appreciable), `Y = [fuel 0.8, product 0.2]`, `A = 1e4 /s`, `Ea = 5e4
+    /// J/mol`, `ΔH = 3e6 J/kg`. Pass criteria: fuel monotonically down, product
+    /// up by the same amount, `ΣY = 1` held, gas `T` strictly increases, and the
+    /// inert particulate phase (no source, `K = 0`) is untouched.
+    #[test]
+    fn arrhenius_reaction_burns_fuel_and_heats_gas() {
+        let m = mesh();
+        let t0 = 1500.0;
+        let mut solver = reacting_gas_solver(&m, &["fuel", "product"], &[0.8, 0.2], t0);
+        solver.reaction_mechanism = ReactionMechanism::Arrhenius {
+            fuel: 0,
+            product: 1,
+            a_pre: 1.0e4,
+            e_act: 5.0e4,
+            delta_h: 3.0e6,
+        };
+
+        let fuel0 = solver.species.as_ref().unwrap().mean_mass_fraction(0);
+        let gas_t0 = solver.continuous_thermo.mean_temperature();
+        let part_t0 = solver.dispersed_thermo.mean_temperature();
+
+        for _ in 0..50 {
+            solver.solve_timestep(1.0e-3).unwrap();
+        }
+
+        let sp = solver.species.as_ref().unwrap();
+        let fuel1 = sp.mean_mass_fraction(0);
+        let prod1 = sp.mean_mass_fraction(1);
+        let gas_t1 = solver.continuous_thermo.mean_temperature();
+        let part_t1 = solver.dispersed_thermo.mean_temperature();
+
+        assert!(fuel1 < fuel0 - 1e-4, "fuel not consumed: {fuel0} -> {fuel1}");
+        assert!(prod1 > 0.2 + 1e-4, "product not formed: {prod1}");
+        for c in 0..m.n_cells {
+            let sum: f64 = sp.y.iter().map(|y| y.internal[c]).sum();
+            assert!((sum - 1.0).abs() < 1e-9, "sum Y != 1: {sum}");
+        }
+        assert!(gas_t1 > gas_t0 + 1.0, "gas did not heat: {gas_t0} -> {gas_t1}");
+        // Particulate phase carries no composition and K=0 → untouched.
+        assert!((part_t1 - part_t0).abs() < 1e-2, "inert phase heated: {part_t0} -> {part_t1}");
     }
 }

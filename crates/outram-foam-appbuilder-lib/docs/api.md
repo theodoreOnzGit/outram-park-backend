@@ -25961,6 +25961,12 @@ pub use crate::solvers::reacting_two_phase_euler_foam::InterfacialMassTransfer;
 pub use crate::solvers::reacting_two_phase_euler_foam::PhaseSelector;
 ```
 
+#### Re-export `PhaseSpecies`
+
+```rust
+pub use crate::solvers::reacting_two_phase_euler_foam::PhaseSpecies;
+```
+
 #### Re-export `PhaseThermo`
 
 ```rust
@@ -25971,6 +25977,12 @@ pub use crate::solvers::reacting_two_phase_euler_foam::PhaseThermo;
 
 ```rust
 pub use crate::solvers::reacting_two_phase_euler_foam::ReactingTwoPhaseEulerFoam;
+```
+
+#### Re-export `ReactionMechanism`
+
+```rust
+pub use crate::solvers::reacting_two_phase_euler_foam::ReactionMechanism;
 ```
 
 #### Re-export `ReactionSource`
@@ -26768,11 +26780,15 @@ phases) and total thermal energy is conserved.
 
 ### Honest scope (what this foundation does *not* yet do)
 
-- **Constant per-phase `Cp`, `κ`** (perfect-caloric closure `he = Cp·T`); no
-  multicomponent species transport (`YEqns`) or finite-rate chemistry — the
-  "reacting" content here is a prescribed volumetric heat source, not a
-  composition-resolved reaction network. Full `phaseSystem` species +
-  reaction kinetics remain future work.
+- **Constant per-phase `Cp`, `κ`** (perfect-caloric closure `he = Cp·T`).
+  Composition-resolved chemistry is available but reduced: an optional
+  single-phase multicomponent [`PhaseSpecies`] transported with the phase
+  mass flux + Fickian diffusion, plus a single global first-order Arrhenius
+  [`ReactionMechanism`] (`fuel → product`, heat-release into that phase). A
+  prescribed [`ReactionSource`] heat term is also kept for
+  composition-free cases. Multi-step mechanisms, per-species properties /
+  diffusivities, reversible/multi-phase reactions, and the full
+  `phaseSystem` kinetics remain future work.
 - **One-resistance** interfacial heat transfer (no interface-temperature
   two-resistance solve), **operator-split** phase change (the `ṁ` source is
   not folded into the implicit `α`-transport matrix), and no population
@@ -27336,6 +27352,227 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+#### Struct `PhaseSpecies`
+
+Multicomponent **composition** carried inside one phase: a set of species
+mass fractions `Y_i` `[-]` transported with that phase's mass flux plus a
+single Fickian diffusivity. This is the composition the finite-rate
+[`ReactionMechanism`] acts on — the "reacting" content the prescribed
+[`ReactionSource`] heat term stands in for when no composition is modelled.
+
+Mirrors `multiphaseEuler`'s per-phase `Y` fields (`thermophysicalPredictor.C`
+`compositionPredictor()` — `phase.YiEqn(Y[i]) == …`), reduced to a single
+phase with a shared constant diffusivity.
+
+```rust
+pub struct PhaseSpecies {
+    pub phase: PhaseSelector,
+    pub names: Vec<String>,
+    pub y: Vec<VolScalarField>,
+    pub y_old: Vec<VolScalarField>,
+    pub diffusivity: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `phase` | `PhaseSelector` | Which phase carries this composition. |
+| `names` | `Vec<String>` | Species names, one per transported mass fraction. |
+| `y` | `Vec<VolScalarField>` | Species mass-fraction fields `Y_i` `[-]`, `Σ_i Y_i = 1`. |
+| `y_old` | `Vec<VolScalarField>` | Old-time mass fractions for the `∂/∂t` term. |
+| `diffusivity` | `f64` | Fickian mass diffusivity `D` `[m²/s]` (constant, ≥ 0), shared by all<br>species. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: Arc<FvMesh>, phase: PhaseSelector, names: Vec<String>, y0: &[f64], diffusivity: f64) -> Result<Self, MultiphaseError> { /* ... */ }
+  ```
+  Build a composition from species names and uniform initial mass
+
+- ```rust
+  pub fn mass_fraction(self: &Self, i: usize) -> &VolScalarField { /* ... */ }
+  ```
+  Mass-fraction field of species `i` `[-]`.
+
+- ```rust
+  pub fn mean_mass_fraction(self: &Self, i: usize) -> f64 { /* ... */ }
+  ```
+  Volume-averaged mass fraction of species `i` `[-]` (diagnostic).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `ReactionMechanism`
+
+Finite-rate homogeneous **reaction mechanism** acting on a [`PhaseSpecies`]
+composition and releasing heat into that phase's energy equation.
+
+Enum dispatch (not `dyn`).
+
+```rust
+pub enum ReactionMechanism {
+    None,
+    Arrhenius {
+        fuel: usize,
+        product: usize,
+        a_pre: f64,
+        e_act: f64,
+        delta_h: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `None`
+
+No reaction (species are transported inertly).
+
+###### `Arrhenius`
+
+A single global irreversible reaction `fuel → product` with first-order
+Arrhenius kinetics. The volumetric fuel consumption rate is
+
+```text
+ω = A · exp(−Ea/(R·T)) · ρ · Y_fuel     [kg/(m³·s)]
+```
+
+(`A` pre-exponential `[1/s]`, `Ea` activation energy `[J/mol]`). Species
+sources are `−ω` (fuel) and `+ω` (product); the heat release is
+`q̇ = ΔH · ω` `[W/m³]` deposited into the reacting phase's enthalpy.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fuel` | `usize` | Index of the fuel species in [`PhaseSpecies::y`]. |
+| `product` | `usize` | Index of the product species in [`PhaseSpecies::y`]. |
+| `a_pre` | `f64` | Pre-exponential factor `A` `[1/s]`. |
+| `e_act` | `f64` | Activation energy `Ea` `[J/mol]`. |
+| `delta_h` | `f64` | Heat of reaction `ΔH` per unit fuel mass `[J/kg]` (positive =<br>exothermic). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReactionMechanism { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 #### Struct `ReactingTwoPhaseEulerFoam`
 
 Reacting two-phase Euler-Euler solver (application layer) — see the module
@@ -27349,6 +27586,8 @@ pub struct ReactingTwoPhaseEulerFoam {
     pub heat_transfer: InterfacialHeatTransfer,
     pub mass_transfer: InterfacialMassTransfer,
     pub reaction: ReactionSource,
+    pub species: Option<PhaseSpecies>,
+    pub reaction_mechanism: ReactionMechanism,
     pub latent_heat: f64,
     pub residual_alpha: f64,
     pub n_energy_correctors: usize,
@@ -27369,7 +27608,9 @@ pub struct ReactingTwoPhaseEulerFoam {
 | `continuous_thermo` | `PhaseThermo` | Thermal state of the continuous phase. |
 | `heat_transfer` | `InterfacialHeatTransfer` | Interfacial heat-transfer closure. |
 | `mass_transfer` | `InterfacialMassTransfer` | Interfacial mass-transfer (phase-change) closure. |
-| `reaction` | `ReactionSource` | Reaction heat source. |
+| `reaction` | `ReactionSource` | Prescribed reaction heat source (composition-free stand-in). |
+| `species` | `Option<PhaseSpecies>` | Optional composition-resolved species transported in one phase. When set<br>(with a non-[`None`](ReactionMechanism::None)<br>[`reaction_mechanism`](Self::reaction_mechanism)) the solver runs a<br>composition predictor before the energy predictor, exactly as<br>`multiphaseEuler` does. |
+| `reaction_mechanism` | `ReactionMechanism` | Finite-rate reaction mechanism acting on [`species`](Self::species);<br>releases heat into that phase's enthalpy equation. |
 | `latent_heat` | `f64` | Latent heat of the dispersed→continuous phase change `L` `[J/kg]`<br>(absorbed on evaporation `ṁ > 0`). Only used when<br>[`mass_transfer`](Self::mass_transfer) is active. |
 | `residual_alpha` | `f64` | Residual volume-fraction floor `α_res` `[-]` guarding the `max(α,α_res)`<br>in the interfacial coefficient and the per-phase energy denominators<br>(mirrors OpenFOAM's `residualAlpha`). Must be `> 0`. |
 | `n_energy_correctors` | `usize` | Number of energy correctors per time step (`nEnergyCorrectors`, ≥ 1). |
@@ -27407,6 +27648,11 @@ pub struct ReactingTwoPhaseEulerFoam {
   pub fn thermophysical_predictor(self: &mut Self, dt: f64) -> Result<(), MultiphaseError> { /* ... */ }
   ```
   Energy predictor loop — assemble and solve both phase enthalpy equations
+
+- ```rust
+  pub fn composition_predictor(self: &mut Self, dt: f64) -> Result<(), MultiphaseError> { /* ... */ }
+  ```
+  Composition predictor — advance the [`species`](Self::species) mass
 
 - ```rust
   pub fn apply_mass_transfer(self: &mut Self, dt: f64) -> Result<(), MultiphaseError> { /* ... */ }
