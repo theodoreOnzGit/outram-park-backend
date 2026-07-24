@@ -115,6 +115,35 @@ pub struct DistributedLduMatrix1D {
 }
 
 impl DistributedLduMatrix1D {
+    /// Build directly from this rank's tridiagonal rows: `diag[i]` = `A_ii`,
+    /// `west[i]` = coupling to cell `i-1` (`A_{i,i-1}`), `east[i]` = coupling to
+    /// cell `i+1` (`A_{i,i+1}`), all length `decomp.local_len`. Off-domain
+    /// couplings must be `0`. Used by higher-level distributed assemblers (e.g. the
+    /// transport driver).
+    ///
+    /// # Errors
+    /// [`crate::error::PflotranError::InvalidInput`] if any array length differs
+    /// from the local cell count.
+    pub fn from_rows(
+        decomp: &Decomposition1D,
+        diag: Vec<f64>,
+        west: Vec<f64>,
+        east: Vec<f64>,
+    ) -> Result<Self, crate::error::PflotranError> {
+        let l = decomp.local_len;
+        if diag.len() != l || west.len() != l || east.len() != l {
+            return Err(crate::error::PflotranError::InvalidInput(format!(
+                "from_rows: diag/west/east must all be length {l}"
+            )));
+        }
+        Ok(DistributedLduMatrix1D {
+            decomp: decomp.clone(),
+            diag,
+            west,
+            east,
+        })
+    }
+
     /// Extract this rank's rows (per `decomp`) from a globally-assembled 1-D
     /// `LduMatrix`. The matrix must be tridiagonal in the natural 1-D ordering
     /// (`neighbour = owner + 1`), as produced by [`assemble_diffusion_ldu`] on a
