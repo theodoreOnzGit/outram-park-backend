@@ -62,6 +62,7 @@
 //! | [`modifiers`] | `modifiers/intern/MOD_*` modifier stack | **real** — subsurf / mirror / array |
 //! | [`procedural`] | Geometry Nodes (`nodes/geometry/*`) | **real** — node-graph evaluator |
 //! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid + feature-gated real-type bridges (`foam-export`, `mc-export`) |
+//! | [`stl`] | STL I/O | **real** — ASCII + binary STL read/write (surface-mesh interchange / DAGMC / Monte-Carlo feed) |
 //!
 //! ## Design rules honoured here (workspace `CLAUDE.md`)
 //!
@@ -117,6 +118,7 @@ pub mod procedural;
 pub mod recalc_normals;
 pub mod revolve;
 pub mod solidify;
+pub mod stl;
 pub mod subdivision;
 pub mod transform;
 pub mod triangulate;
