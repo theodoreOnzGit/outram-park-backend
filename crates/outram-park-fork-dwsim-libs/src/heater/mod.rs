@@ -4,8 +4,8 @@
 //! `Public Overrides Sub Calculate` routine (Heater.vb:421-722). A DWSIM
 //! heater performs a stream-heating energy balance: the outlet enthalpy is set
 //! by the duty and the outlet temperature comes from a pressure-enthalpy (PH)
-//! flash, or vice-versa. This crate has no property-package / flash access of
-//! its own (see the crate top-level doc and `CLAUDE.md`), so every
+//! flash, or vice-versa. This equipment port is deliberately kept decoupled
+//! from the crate's flash kernel ([`crate::thermo`]), so every
 //! flash-dependent step is pushed to the caller: the functions below take
 //! already-known specific enthalpies / mass flow / Cp as inputs, and the
 //! rigorous "outlet temperature given" path takes a caller-supplied closure
@@ -232,10 +232,16 @@ mod tests {
         let h2 = outlet_enthalpy_heat_added(jkg(100_000.0), w_(50_000.0), kgs(10.0), eta(1.0));
         assert_relative_eq!(h2.get::<joule_per_kilogram>(), 105_000.0, epsilon = 1e-9);
 
-        let h2_half =
-            outlet_enthalpy_heat_added(jkg(100_000.0), w_(50_000.0), kgs(10.0), eta(0.5));
-        assert_relative_eq!(h2_half.get::<joule_per_kilogram>(), 102_500.0, epsilon = 1e-9);
-        assert!(h2.get::<joule_per_kilogram>() > 100_000.0, "heater must raise enthalpy");
+        let h2_half = outlet_enthalpy_heat_added(jkg(100_000.0), w_(50_000.0), kgs(10.0), eta(0.5));
+        assert_relative_eq!(
+            h2_half.get::<joule_per_kilogram>(),
+            102_500.0,
+            epsilon = 1e-9
+        );
+        assert!(
+            h2.get::<joule_per_kilogram>() > 100_000.0,
+            "heater must raise enthalpy"
+        );
     }
 
     /// V&V — Heater, outlet-temperature mode, duty via constant-Cp.
@@ -254,7 +260,10 @@ mod tests {
         let cp = SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(4180.0);
         let q = duty_constant_cp(kgs(2.0), cp, t_k(300.0), t_k(310.0), eta(1.0));
         assert_relative_eq!(q.get::<watt>(), 83_600.0, epsilon = 1e-9);
-        assert!(q.get::<watt>() > 0.0, "heating a stream needs positive duty");
+        assert!(
+            q.get::<watt>() > 0.0,
+            "heating a stream needs positive duty"
+        );
     }
 
     /// V&V — Heater, rigorous outlet-temperature path agrees with the direct
@@ -271,7 +280,8 @@ mod tests {
     #[test]
     fn outlet_temperature_duty_rigorous_closure() {
         let h1 = jkg(1_000_000.0);
-        let flash = |t: ThermodynamicTemperature| jkg(1_000_000.0 + 4180.0 * (t.get::<kelvin>() - 300.0));
+        let flash =
+            |t: ThermodynamicTemperature| jkg(1_000_000.0 + 4180.0 * (t.get::<kelvin>() - 300.0));
         let q = duty_from_outlet_temperature(h1, kgs(3.0), eta(0.8), t_k(305.0), flash);
         assert_relative_eq!(q.get::<watt>(), 78_375.0, epsilon = 1e-9);
 
@@ -311,7 +321,10 @@ mod tests {
     /// `< 1e-9` relative.
     #[test]
     fn pressure_drop_and_temperature_change() {
-        let p2 = outlet_pressure(Pressure::new::<pascal>(200_000.0), Pressure::new::<pascal>(50_000.0));
+        let p2 = outlet_pressure(
+            Pressure::new::<pascal>(200_000.0),
+            Pressure::new::<pascal>(50_000.0),
+        );
         assert_relative_eq!(p2.get::<pascal>(), 150_000.0, epsilon = 1e-9);
 
         let t2 = outlet_temperature_from_change(

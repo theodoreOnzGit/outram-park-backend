@@ -146,11 +146,7 @@ fn main() {
         }
     }
     println!("======================================================================");
-    println!(
-        " Note: verification result (EOS-consistent, mass-balance-closing), NOT"
-    );
-    println!(
-        " validated against experimental VLE. k_ij = 0; no phase-stability test."
-    );
+    println!(" Note: verification result (EOS-consistent, mass-balance-closing), NOT");
+    println!(" validated against experimental VLE. k_ij = 0; no phase-stability test.");
     println!("======================================================================");
 }

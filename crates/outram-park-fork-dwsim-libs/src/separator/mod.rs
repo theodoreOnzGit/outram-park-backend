@@ -160,7 +160,10 @@ impl SeparatorFeed {
     pub fn from_si(molar_flow: f64, composition: &[f64], specific_enthalpy: f64) -> Self {
         Self {
             molar_flow: MolarFlowRate::new::<katal>(molar_flow),
-            composition: composition.iter().map(|&z| Ratio::new::<ratio>(z)).collect(),
+            composition: composition
+                .iter()
+                .map(|&z| Ratio::new::<ratio>(z))
+                .collect(),
             specific_enthalpy: AvailableEnergy::new::<uom::si::available_energy::joule_per_kilogram>(
                 specific_enthalpy,
             ),
@@ -303,7 +306,14 @@ impl Separator {
         let t_k = t.get::<kelvin>();
         let p_pa = p.get::<pascal>();
         let flash = self.package.flash_pt(components, &z, t_k, p_pa)?;
-        Ok(route_phases(SeparatorMode::IsothermalTp, flash, components, f, t, p))
+        Ok(route_phases(
+            SeparatorMode::IsothermalTp,
+            flash,
+            components,
+            f,
+            t,
+            p,
+        ))
     }
 
     /// **Adiabatic separator** — fix the vessel pressure `p`, find the vessel
@@ -347,7 +357,14 @@ impl Separator {
             .get::<uom::si::available_energy::joule_per_kilogram>();
         let (t_k, flash) = ph_flash(components, &z, h, p_pa)?;
         let t = ThermodynamicTemperature::new::<kelvin>(t_k);
-        Ok(route_phases(SeparatorMode::Adiabatic, flash, components, f, t, p))
+        Ok(route_phases(
+            SeparatorMode::Adiabatic,
+            flash,
+            components,
+            f,
+            t,
+            p,
+        ))
     }
 }
 
@@ -469,7 +486,9 @@ mod tests {
         let feed = SeparatorFeed::from_si(10.0, &[0.5, 0.5], 0.0);
         let sep = Separator::new(PropertyPackageModel::PengRobinson);
 
-        let r = sep.flash_isothermal(&comps, &feed, temp(200.0), pres(2.0e6)).unwrap();
+        let r = sep
+            .flash_isothermal(&comps, &feed, temp(200.0), pres(2.0e6))
+            .unwrap();
 
         // (a) genuine two-phase split.
         assert!(r.flash.beta > 0.0 && r.flash.beta < 1.0);
@@ -527,18 +546,36 @@ mod tests {
         let feed = SeparatorFeed::from_si(5.0, &[0.4, 0.6], 0.0);
         let sep = Separator::new(PropertyPackageModel::Ideal);
 
-        let r = sep.flash_isothermal(&comps, &feed, temp(250.0), pres(1.0e4)).unwrap();
+        let r = sep
+            .flash_isothermal(&comps, &feed, temp(250.0), pres(1.0e4))
+            .unwrap();
 
         assert_abs_diff_eq!(r.flash.beta, 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r.vapour.molar_flow.get::<katal>(), 5.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r.liquid.molar_flow.get::<katal>(), 0.0, epsilon = 1e-12);
-        assert_abs_diff_eq!(r.liquid.mass_flow.get::<kilogram_per_second>(), 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(
+            r.liquid.mass_flow.get::<kilogram_per_second>(),
+            0.0,
+            epsilon = 1e-12
+        );
         // Vapour composition equals the feed.
-        assert_abs_diff_eq!(r.vapour.mole_fractions[0].get::<ratio>(), 0.4, epsilon = 1e-12);
-        assert_abs_diff_eq!(r.vapour.mole_fractions[1].get::<ratio>(), 0.6, epsilon = 1e-12);
+        assert_abs_diff_eq!(
+            r.vapour.mole_fractions[0].get::<ratio>(),
+            0.4,
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            r.vapour.mole_fractions[1].get::<ratio>(),
+            0.6,
+            epsilon = 1e-12
+        );
         // All mass in the vapour outlet.
         let w_vap = r.vapour.mass_flow.get::<kilogram_per_second>();
-        assert_abs_diff_eq!(w_vap, 5.0 * (0.4 * 0.016043 + 0.6 * 0.030070), epsilon = 1e-12);
+        assert_abs_diff_eq!(
+            w_vap,
+            5.0 * (0.4 * 0.016043 + 0.6 * 0.030070),
+            epsilon = 1e-12
+        );
     }
 
     /// **Methodology.** The reverse: an all-liquid (subcooled) condition routes
@@ -554,16 +591,34 @@ mod tests {
         let feed = SeparatorFeed::from_si(5.0, &[0.4, 0.6], 0.0);
         let sep = Separator::new(PropertyPackageModel::Ideal);
 
-        let r = sep.flash_isothermal(&comps, &feed, temp(200.0), pres(5.0e7)).unwrap();
+        let r = sep
+            .flash_isothermal(&comps, &feed, temp(200.0), pres(5.0e7))
+            .unwrap();
 
         assert_abs_diff_eq!(r.flash.beta, 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r.liquid.molar_flow.get::<katal>(), 5.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r.vapour.molar_flow.get::<katal>(), 0.0, epsilon = 1e-12);
-        assert_abs_diff_eq!(r.vapour.mass_flow.get::<kilogram_per_second>(), 0.0, epsilon = 1e-12);
-        assert_abs_diff_eq!(r.liquid.mole_fractions[0].get::<ratio>(), 0.4, epsilon = 1e-12);
-        assert_abs_diff_eq!(r.liquid.mole_fractions[1].get::<ratio>(), 0.6, epsilon = 1e-12);
+        assert_abs_diff_eq!(
+            r.vapour.mass_flow.get::<kilogram_per_second>(),
+            0.0,
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            r.liquid.mole_fractions[0].get::<ratio>(),
+            0.4,
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            r.liquid.mole_fractions[1].get::<ratio>(),
+            0.6,
+            epsilon = 1e-12
+        );
         let w_liq = r.liquid.mass_flow.get::<kilogram_per_second>();
-        assert_abs_diff_eq!(w_liq, 5.0 * (0.4 * 0.016043 + 0.6 * 0.030070), epsilon = 1e-12);
+        assert_abs_diff_eq!(
+            w_liq,
+            5.0 * (0.4 * 0.016043 + 0.6 * 0.030070),
+            epsilon = 1e-12
+        );
     }
 
     /// **Methodology.** The adiabatic mode delegates the temperature-finding PH
@@ -587,7 +642,8 @@ mod tests {
         // Stub PH flash: returns a fixed T and the TP flash at that T.
         let ph = |components: &[Component], z: &[f64], _h: f64, p: f64| {
             let t_found = 205.0;
-            pkg.flash_pt(components, z, t_found, p).map(|fr| (t_found, fr))
+            pkg.flash_pt(components, z, t_found, p)
+                .map(|fr| (t_found, fr))
         };
 
         let r = sep.flash_adiabatic(&comps, &feed, pres(2.0e6), ph).unwrap();
@@ -631,7 +687,10 @@ mod tests {
         let bad_len = SeparatorFeed::from_si(10.0, &[1.0], 0.0);
         assert!(matches!(
             sep.flash_isothermal(&comps, &bad_len, temp(200.0), pres(2.0e6)),
-            Err(SeparatorError::LengthMismatch { components: 2, composition: 1 })
+            Err(SeparatorError::LengthMismatch {
+                components: 2,
+                composition: 1
+            })
         ));
 
         let neg_flow = SeparatorFeed::from_si(-1.0, &[0.5, 0.5], 0.0);

@@ -3,9 +3,9 @@
 //!
 //! Ported from DWSIM `UnitOperations/Expander.vb`. DWSIM computes the ideal
 //! outlet enthalpy `H2s` via a pressure-entropy (isentropic) flash and the
-//! actual outlet state via repeated pressure-enthalpy flashes -- this crate
-//! has no property-package/flash access of its own (see this crate's
-//! top-level doc), so the flash-dependent steps are pushed to the caller:
+//! actual outlet state via repeated pressure-enthalpy flashes -- this
+//! equipment port is deliberately kept decoupled from the crate's flash kernel
+//! ([`crate::thermo`]), so the flash-dependent steps are pushed to the caller:
 //! the functions below take already-known enthalpies/densities as inputs,
 //! and [`solve_polytropic_efficiency`] takes a caller-supplied closure for
 //! the one flash-dependent step in DWSIM's iteration (not a trait object --
@@ -30,16 +30,15 @@ pub fn generated_power(
     h2s: AvailableEnergy,
     adiabatic_efficiency: Ratio,
 ) -> Power {
-    Power::new::<watt>(
-        -w.value * (h2s - h1).value * adiabatic_efficiency.get::<ratio>(),
-    )
+    Power::new::<watt>(-w.value * (h2s - h1).value * adiabatic_efficiency.get::<ratio>())
 }
 
 /// Actual outlet enthalpy `h2 = h1 - W_gen/w`, given the generated power
 /// from [`generated_power`].
 pub fn outlet_enthalpy(h1: AvailableEnergy, generated: Power, w: MassRate) -> AvailableEnergy {
     AvailableEnergy::new::<uom::si::available_energy::joule_per_kilogram>(
-        h1.get::<uom::si::available_energy::joule_per_kilogram>() - generated.get::<watt>() / w.value,
+        h1.get::<uom::si::available_energy::joule_per_kilogram>()
+            - generated.get::<watt>() / w.value,
     )
 }
 
@@ -146,7 +145,8 @@ where
         let next_adiabatic_efficiency =
             Ratio::new::<ratio>(polytropic_efficiency.get::<ratio>() / f_ce.get::<ratio>());
 
-        let delta = (next_adiabatic_efficiency.get::<ratio>() - adiabatic_efficiency.get::<ratio>()).abs();
+        let delta =
+            (next_adiabatic_efficiency.get::<ratio>() - adiabatic_efficiency.get::<ratio>()).abs();
         adiabatic_efficiency = next_adiabatic_efficiency;
         if delta < tolerance.get::<ratio>() {
             let generated = generated_power(w, h1, h2s, adiabatic_efficiency);
@@ -240,7 +240,10 @@ mod tests {
         let evaluate_outlet = |eta: Ratio| -> (AvailableEnergy, MassDensity) {
             let generated = generated_power(w, h1, h2s, eta);
             let h2 = outlet_enthalpy(h1, generated, w);
-            (h2, rho2_ideal + MassDensity::new::<kilogram_per_cubic_meter>(0.2))
+            (
+                h2,
+                rho2_ideal + MassDensity::new::<kilogram_per_cubic_meter>(0.2),
+            )
         };
 
         let result = solve_polytropic_efficiency(

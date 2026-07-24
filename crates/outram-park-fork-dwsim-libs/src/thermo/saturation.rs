@@ -259,7 +259,10 @@ fn validate_feed(components: &[Component], z: &[f64]) -> Result<(), SaturationEr
         return Err(SaturationError::Empty);
     }
     if components.len() != z.len() {
-        return Err(SaturationError::LengthMismatch { a: z.len(), b: components.len() });
+        return Err(SaturationError::LengthMismatch {
+            a: z.len(),
+            b: components.len(),
+        });
     }
     if z.iter().any(|v| !v.is_finite()) {
         return Err(SaturationError::NonFinite);
@@ -303,7 +306,11 @@ fn wilson_temperature_guess(components: &[Component], z: &[f64], p: f64) -> f64 
     for (c, &zi) in components.iter().zip(z.iter()) {
         let denom = 1.0 - (p / c.critical_pressure).ln() / (5.373 * (1.0 + c.acentric_factor));
         let ti = c.critical_temperature / denom;
-        let ti = if ti.is_finite() && ti > 0.0 { ti } else { c.critical_temperature };
+        let ti = if ti.is_finite() && ti > 0.0 {
+            ti
+        } else {
+            c.critical_temperature
+        };
         acc += zi * ti;
     }
     acc
@@ -481,7 +488,10 @@ where
         }
     }
     if fa * fb > 0.0 {
-        return Err(SaturationError::NoBracket { var, residual: best });
+        return Err(SaturationError::NoBracket {
+            var,
+            residual: best,
+        });
     }
 
     // Illinois modified false position: keeps [a, b] bracketing the root
@@ -514,7 +524,11 @@ where
             side = 1;
         }
     }
-    Err(SaturationError::NotConverged { var, iterations: max_iter, residual: last_f.abs() })
+    Err(SaturationError::NotConverged {
+        var,
+        iterations: max_iter,
+        residual: last_f.abs(),
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -557,14 +571,44 @@ where
 
     let p0 = wilson_bubble_pressure_guess(components, z, temperature);
     let resid = |p: f64| -> Result<f64, SaturationError> {
-        eval_curve(Curve::Bubble, components, z, temperature, p, &k_values, &opts).map(|r| r.0)
+        eval_curve(
+            Curve::Bubble,
+            components,
+            z,
+            temperature,
+            p,
+            &k_values,
+            &opts,
+        )
+        .map(|r| r.0)
     };
     let p = solve_scalar(
-        &resid, p0, opts.p_min, opts.p_max, opts.x_rel_tol, opts.f_tol, opts.max_outer, "pressure",
+        &resid,
+        p0,
+        opts.p_min,
+        opts.p_max,
+        opts.x_rel_tol,
+        opts.f_tol,
+        opts.max_outer,
+        "pressure",
     )?;
-    let (residual, incip, k, iterations) =
-        eval_curve(Curve::Bubble, components, z, temperature, p, &k_values, &opts)?;
-    Ok(SaturationState { temperature, pressure: p, incipient: incip, k, iterations, residual })
+    let (residual, incip, k, iterations) = eval_curve(
+        Curve::Bubble,
+        components,
+        z,
+        temperature,
+        p,
+        &k_values,
+        &opts,
+    )?;
+    Ok(SaturationState {
+        temperature,
+        pressure: p,
+        incipient: incip,
+        k,
+        iterations,
+        residual,
+    })
 }
 
 /// Dew **pressure** at fixed temperature with a generic K-closure.
@@ -593,11 +637,25 @@ where
         eval_curve(Curve::Dew, components, z, temperature, p, &k_values, &opts).map(|r| r.0)
     };
     let p = solve_scalar(
-        &resid, p0, opts.p_min, opts.p_max, opts.x_rel_tol, opts.f_tol, opts.max_outer, "pressure",
+        &resid,
+        p0,
+        opts.p_min,
+        opts.p_max,
+        opts.x_rel_tol,
+        opts.f_tol,
+        opts.max_outer,
+        "pressure",
     )?;
     let (residual, incip, k, iterations) =
         eval_curve(Curve::Dew, components, z, temperature, p, &k_values, &opts)?;
-    Ok(SaturationState { temperature, pressure: p, incipient: incip, k, iterations, residual })
+    Ok(SaturationState {
+        temperature,
+        pressure: p,
+        incipient: incip,
+        k,
+        iterations,
+        residual,
+    })
 }
 
 /// Bubble **temperature** at fixed pressure with a generic K-closure.
@@ -628,12 +686,25 @@ where
         eval_curve(Curve::Bubble, components, z, t, pressure, &k_values, &opts).map(|r| r.0)
     };
     let t = solve_scalar(
-        &resid, t0, opts.t_min, opts.t_max, opts.x_rel_tol, opts.f_tol, opts.max_outer,
+        &resid,
+        t0,
+        opts.t_min,
+        opts.t_max,
+        opts.x_rel_tol,
+        opts.f_tol,
+        opts.max_outer,
         "temperature",
     )?;
     let (residual, incip, k, iterations) =
         eval_curve(Curve::Bubble, components, z, t, pressure, &k_values, &opts)?;
-    Ok(SaturationState { temperature: t, pressure, incipient: incip, k, iterations, residual })
+    Ok(SaturationState {
+        temperature: t,
+        pressure,
+        incipient: incip,
+        k,
+        iterations,
+        residual,
+    })
 }
 
 /// Dew **temperature** at fixed pressure with a generic K-closure.
@@ -659,12 +730,25 @@ where
         eval_curve(Curve::Dew, components, z, t, pressure, &k_values, &opts).map(|r| r.0)
     };
     let t = solve_scalar(
-        &resid, t0, opts.t_min, opts.t_max, opts.x_rel_tol, opts.f_tol, opts.max_outer,
+        &resid,
+        t0,
+        opts.t_min,
+        opts.t_max,
+        opts.x_rel_tol,
+        opts.f_tol,
+        opts.max_outer,
         "temperature",
     )?;
     let (residual, incip, k, iterations) =
         eval_curve(Curve::Dew, components, z, t, pressure, &k_values, &opts)?;
-    Ok(SaturationState { temperature: t, pressure, incipient: incip, k, iterations, residual })
+    Ok(SaturationState {
+        temperature: t,
+        pressure,
+        incipient: incip,
+        k,
+        iterations,
+        residual,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -789,7 +873,11 @@ mod tests {
         let s = bubble_pressure(&comps, &z, t, PropertyPackageModel::Ideal).unwrap();
 
         // Defining identity Σ K z = 1: residual is (Σ K z − 1).
-        assert!(s.residual.abs() < 1e-8, "bubble residual too large: {}", s.residual);
+        assert!(
+            s.residual.abs() < 1e-8,
+            "bubble residual too large: {}",
+            s.residual
+        );
         // Independent recomputation of Σ K z at the returned P.
         let k = wilson_k_values(&comps, t, s.pressure);
         let sum_kz: f64 = k.iter().zip(z.iter()).map(|(&ki, &zi)| ki * zi).sum();
@@ -814,7 +902,11 @@ mod tests {
 
         let s = dew_pressure(&comps, &z, t, PropertyPackageModel::Ideal).unwrap();
 
-        assert!(s.residual.abs() < 1e-8, "dew residual too large: {}", s.residual);
+        assert!(
+            s.residual.abs() < 1e-8,
+            "dew residual too large: {}",
+            s.residual
+        );
         let k = wilson_k_values(&comps, t, s.pressure);
         let sum_zk: f64 = z.iter().zip(k.iter()).map(|(&zi, &ki)| zi / ki).sum();
         assert_abs_diff_eq!(sum_zk, 1.0, epsilon = 1e-8);
@@ -892,7 +984,11 @@ mod tests {
         let bt = bubble_temperature(&comps, &z, bp.pressure, PropertyPackageModel::Ideal).unwrap();
 
         assert_abs_diff_eq!(bt.temperature, t, epsilon = 1e-6);
-        assert!(bt.residual.abs() < 1e-8, "bubble-T residual too large: {}", bt.residual);
+        assert!(
+            bt.residual.abs() < 1e-8,
+            "bubble-T residual too large: {}",
+            bt.residual
+        );
     }
 
     /// **Methodology.** Dew-temperature analogue of the round-trip test: solve
@@ -911,7 +1007,11 @@ mod tests {
         let dt = dew_temperature(&comps, &z, dp.pressure, PropertyPackageModel::Ideal).unwrap();
 
         assert_abs_diff_eq!(dt.temperature, t, epsilon = 1e-6);
-        assert!(dt.residual.abs() < 1e-8, "dew-T residual too large: {}", dt.residual);
+        assert!(
+            dt.residual.abs() < 1e-8,
+            "dew-T residual too large: {}",
+            dt.residual
+        );
     }
 
     /// **Methodology.** Generic K-closure path ([`bubble_pressure_with`] /

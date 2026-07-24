@@ -224,12 +224,12 @@ impl UnifacParameters {
         // Main groups: 1 = CH2, 5 = OH, 6 = CH3OH, 7 = H2O.
         let pairs = [
             // (m, n, a_mn, a_nm)
-            (1, 5, 986.5, 156.4),   // CH2 / OH
-            (1, 6, 697.2, 16.51),   // CH2 / CH3OH
-            (1, 7, 1318.0, 300.0),  // CH2 / H2O
-            (5, 6, -137.1, 249.1),  // OH / CH3OH
-            (5, 7, 353.5, -229.1),  // OH / H2O
-            (6, 7, -181.0, 289.6),  // CH3OH / H2O
+            (1, 5, 986.5, 156.4),  // CH2 / OH
+            (1, 6, 697.2, 16.51),  // CH2 / CH3OH
+            (1, 7, 1318.0, 300.0), // CH2 / H2O
+            (5, 6, -137.1, 249.1), // OH / CH3OH
+            (5, 7, 353.5, -229.1), // OH / H2O
+            (6, 7, -181.0, 289.6), // CH3OH / H2O
         ];
         for (m, n, a_mn, a_nm) in pairs {
             t.set_interaction(m, n, a_mn);
@@ -313,10 +313,7 @@ pub fn ln_gamma_combinatorial(
     let q_sum: f64 = (0..n).map(|i| x[i] * rq[i].1).sum();
     let z2 = COORDINATION_NUMBER / 2.0;
 
-    let l: Vec<f64> = rq
-        .iter()
-        .map(|&(r, q)| z2 * (r - q) - (r - 1.0))
-        .collect();
+    let l: Vec<f64> = rq.iter().map(|&(r, q)| z2 * (r - q) - (r - 1.0)).collect();
     let sum_x_l: f64 = (0..n).map(|i| x[i] * l[i]).sum();
 
     (0..n)
@@ -368,7 +365,12 @@ pub fn group_ln_gamma(
         })
         .collect();
 
-    let main = |id: usize| params.subgroup(id).expect("subgroup in table").main_group_id;
+    let main = |id: usize| {
+        params
+            .subgroup(id)
+            .expect("subgroup in table")
+            .main_group_id
+    };
 
     let mut out = HashMap::with_capacity(ids.len());
     for &k in &ids {

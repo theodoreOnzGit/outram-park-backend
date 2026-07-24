@@ -218,7 +218,10 @@ impl BinaryInteraction {
     /// All-zero `k_ij` matrix for `n` components (the geometric-mean default).
     #[must_use]
     pub fn zeros(n: usize) -> Self {
-        Self { n, k: vec![0.0; n * n] }
+        Self {
+            n,
+            k: vec![0.0; n * n],
+        }
     }
 
     /// Number of components `n` [-].
@@ -296,12 +299,7 @@ impl CubicEos {
     /// This is DWSIM's `aml2` array (`Calc_SUM2`, `PengRobinson.vb` L921); it is
     /// the composition-derivative building block of the fugacity coefficient.
     #[must_use]
-    fn a_partial(
-        self,
-        ai: &[f64],
-        z: &[f64],
-        kij: Option<&BinaryInteraction>,
-    ) -> Vec<f64> {
+    fn a_partial(self, ai: &[f64], z: &[f64], kij: Option<&BinaryInteraction>) -> Vec<f64> {
         let n = ai.len();
         let mut out = vec![0.0; n];
         for i in 0..n {
@@ -437,7 +435,10 @@ impl CubicEos {
     ) -> f64 {
         let n = comps.len();
         let ai: Vec<f64> = comps.iter().map(|c| self.a_i(c, t)).collect();
-        let ci: Vec<f64> = comps.iter().map(|c| self.alpha_slope(c.acentric_factor)).collect();
+        let ci: Vec<f64> = comps
+            .iter()
+            .map(|c| self.alpha_slope(c.acentric_factor))
+            .collect();
         let aux1 = -R / 2.0 * (self.omega_a() / t).sqrt();
         let mut aux2 = 0.0;
         for i in 0..n {
@@ -519,10 +520,8 @@ impl CubicEos {
 
         let sq = self.sqrt_disc();
         let lg = ((2.0 * zf + b * (self.u() - sq)) / (2.0 * zf + b * (self.u() + sq))).ln();
-        let da_res =
-            am / (bm * sq) * lg - R * t * ((zf - b) / zf).ln() - R * t * zf.ln();
-        let ds_res =
-            R * ((zf - b) / zf).ln() + R * zf.ln() - 1.0 / (sq * bm) * dadt * lg;
+        let da_res = am / (bm * sq) * lg - R * t * ((zf - b) / zf).ln() - R * t * zf.ln();
+        let ds_res = R * ((zf - b) / zf).ln() + R * zf.ln() - 1.0 / (sq * bm) * dadt * lg;
         Some((da_res, ds_res, zf))
     }
 }
@@ -536,14 +535,16 @@ fn select_root(roots: &[f64], phase: Phase) -> Option<f64> {
             Some(m) if m >= r => Some(m),
             _ => Some(r),
         }),
-        Phase::Liquid => roots
-            .iter()
-            .copied()
-            .filter(|&r| r > 0.0)
-            .fold(None, |acc, r| match acc {
-                Some(m) if m <= r => Some(m),
-                _ => Some(r),
-            }),
+        Phase::Liquid => {
+            roots
+                .iter()
+                .copied()
+                .filter(|&r| r > 0.0)
+                .fold(None, |acc, r| match acc {
+                    Some(m) if m <= r => Some(m),
+                    _ => Some(r),
+                })
+        }
     }
 }
 
@@ -606,7 +607,11 @@ mod tests {
         assert_relative_eq!(pr.b_i(&co2), 2.66774e-5, max_relative = 1e-4);
         // α at the critical point is exactly 1.
         assert_relative_eq!(pr.alpha(1.0, co2.acentric_factor), 1.0, epsilon = 1e-15);
-        assert_relative_eq!(pr.a_i(&co2, co2.critical_temperature), 0.396460, max_relative = 1e-4);
+        assert_relative_eq!(
+            pr.a_i(&co2, co2.critical_temperature),
+            0.396460,
+            max_relative = 1e-4
+        );
         // SRK co-volume: 0.08664 · R · Tc / Pc.
         let srk = CubicEos::Srk;
         let expected_b_srk = 0.08664 * R * co2.critical_temperature / co2.critical_pressure;
@@ -621,7 +626,11 @@ mod tests {
     #[test]
     fn alpha_slope_matches_published_polynomials() {
         let w = 0.225;
-        assert_relative_eq!(CubicEos::PengRobinson.alpha_slope(w), 0.707984, max_relative = 1e-5);
+        assert_relative_eq!(
+            CubicEos::PengRobinson.alpha_slope(w),
+            0.707984,
+            max_relative = 1e-5
+        );
         assert_relative_eq!(CubicEos::Srk.alpha_slope(w), 0.825244, max_relative = 1e-5);
     }
 
@@ -669,7 +678,9 @@ mod tests {
         let comps = [reference::carbon_dioxide()];
         let z = [1.0];
         for eos in [CubicEos::PengRobinson, CubicEos::Srk] {
-            let ln_phi = eos.ln_phi(&comps, &z, 350.0, 100.0, Phase::Vapor, None).unwrap();
+            let ln_phi = eos
+                .ln_phi(&comps, &z, 350.0, 100.0, Phase::Vapor, None)
+                .unwrap();
             assert!(ln_phi[0].abs() < 1e-4, "{eos:?} ln_phi = {}", ln_phi[0]);
         }
     }
@@ -734,14 +745,29 @@ mod tests {
         let comps = [reference::methane()];
         let z = [1.0];
         for eos in [CubicEos::PengRobinson, CubicEos::Srk] {
-            let dh = eos.enthalpy_departure(&comps, &z, 300.0, 1.0, Phase::Vapor, None).unwrap();
-            let ds = eos.entropy_departure(&comps, &z, 300.0, 1.0, Phase::Vapor, None).unwrap();
-            assert!(dh.abs() < 1e-1, "{eos:?} enthalpy departure {dh} J/mol not ~0");
-            assert!(ds.abs() < 1e-3, "{eos:?} entropy departure {ds} J/(mol·K) not ~0");
+            let dh = eos
+                .enthalpy_departure(&comps, &z, 300.0, 1.0, Phase::Vapor, None)
+                .unwrap();
+            let ds = eos
+                .entropy_departure(&comps, &z, 300.0, 1.0, Phase::Vapor, None)
+                .unwrap();
+            assert!(
+                dh.abs() < 1e-1,
+                "{eos:?} enthalpy departure {dh} J/mol not ~0"
+            );
+            assert!(
+                ds.abs() < 1e-3,
+                "{eos:?} entropy departure {ds} J/(mol·K) not ~0"
+            );
 
             // At a moderate pressure the vapour enthalpy departure is negative.
-            let dh_mod = eos.enthalpy_departure(&comps, &z, 300.0, 5.0e6, Phase::Vapor, None).unwrap();
-            assert!(dh_mod < 0.0, "{eos:?} moderate-P enthalpy departure {dh_mod} should be < 0");
+            let dh_mod = eos
+                .enthalpy_departure(&comps, &z, 300.0, 5.0e6, Phase::Vapor, None)
+                .unwrap();
+            assert!(
+                dh_mod < 0.0,
+                "{eos:?} moderate-P enthalpy departure {dh_mod} should be < 0"
+            );
         }
     }
 

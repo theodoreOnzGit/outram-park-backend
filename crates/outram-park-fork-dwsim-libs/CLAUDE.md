@@ -54,9 +54,10 @@ Documented base units:
 An earlier draft of this note sketched `PropertyPackage`/`FlashAlgorithm` as
 `dyn Trait` interfaces (mirroring DWSIM's own OO interface hierarchy). That
 violates the workspace's mandatory "no trait objects" rule (root `CLAUDE.md`,
-"Rust design rules") -- if/when flash algorithms or property packages are
-ported here (currently deferred, see `docs/port-scope.md`), dispatch must use
-an enum instead, e.g.:
+"Rust design rules"). The core flash + property-package tier is now ported
+(`thermo::flash`, `thermo::property_package`, `thermo::energy_flash`,
+`thermo::saturation`; see `docs/port-scope.md` for the remaining tail), and it
+uses enum dispatch as planned here, e.g.:
 ```rust
 pub trait PropertyPackage {
     fn flash_pt(&self, z: &[f64], p: f64, t: f64) -> FlashResult;
@@ -72,6 +73,8 @@ pub enum PropertyPackageModel {
 // impl PropertyPackage for PropertyPackageModel by match-dispatching to
 // the wrapped struct's own impl, not `&dyn PropertyPackage`.
 ```
-The equipment-model correlations already ported (`pipe`, `valve`,
-`heat_exchanger`, `expander`, `pump`) follow this: e.g. `pipe::PipeFlowCorrelation`
-and `pump::modes::PumpSpecification` are enums, not trait objects.
+This is realized by `thermo::property_package::PropertyPackageModel`
+(`Ideal` / `PengRobinson` / `Srk`), and the equipment-model correlations follow
+the same pattern: e.g. `pipe::PipeFlowCorrelation`,
+`pump::modes::PumpSpecification`, and `separator::SeparatorMode` are enums, not
+trait objects.

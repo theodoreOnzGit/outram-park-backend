@@ -279,7 +279,11 @@ pub fn peneloux_shift(comp: &Component) -> f64 {
 /// slices); `z` should sum to 1.
 #[must_use]
 pub fn peneloux_c_mix(comps: &[Component], z: &[f64]) -> f64 {
-    comps.iter().zip(z).map(|(c, &zi)| zi * peneloux_shift(c)).sum()
+    comps
+        .iter()
+        .zip(z)
+        .map(|(c, &zi)| zi * peneloux_shift(c))
+        .sum()
 }
 
 /// Peneloux-corrected molar volume `v = v_EOS − c` [m³/mol].
@@ -380,7 +384,10 @@ mod tests {
         let t08 = 0.8 * co2.critical_temperature;
         let a0 = prsv_a_i(&co2, 0.0, t08);
         let a1 = prsv_a_i(&co2, 0.03, t08);
-        assert!((a1 - a0).abs() / a0 > 1e-4, "kappa1 had no effect: {a0} {a1}");
+        assert!(
+            (a1 - a0).abs() / a0 > 1e-4,
+            "kappa1 had no effect: {a0} {a1}"
+        );
     }
 
     /// **Methodology.** [`prsv_a_mix`] must reuse the base van der Waals mixing
@@ -405,9 +412,7 @@ mod tests {
         let am = prsv_a_mix(&comps, &k1, &z, t, None);
         let a0 = prsv_a_i(&comps[0], 0.0, t);
         let a1 = prsv_a_i(&comps[1], 0.0, t);
-        let hand = z[0] * z[0] * a0
-            + z[1] * z[1] * a1
-            + 2.0 * z[0] * z[1] * (a0 * a1).sqrt();
+        let hand = z[0] * z[0] * a0 + z[1] * z[1] * a1 + 2.0 * z[0] * z[1] * (a0 * a1).sqrt();
         assert_relative_eq!(am, hand, max_relative = 1e-12);
     }
 
@@ -457,7 +462,10 @@ mod tests {
             .unwrap();
         let v_eos = zl * R * t / p;
         let v_corr = corrected_molar_volume(v_eos, &comps, &z);
-        assert!(v_corr < v_eos, "Peneloux did not lower volume: {v_corr} !< {v_eos}");
+        assert!(
+            v_corr < v_eos,
+            "Peneloux did not lower volume: {v_corr} !< {v_eos}"
+        );
         // The reduction is exactly the mixture translation c.
         assert_relative_eq!(v_eos - v_corr, peneloux_shift(&co2), max_relative = 1e-12);
         // Density increases.

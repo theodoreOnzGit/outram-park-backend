@@ -25,6 +25,19 @@
 //!   [`Component`] Cp0 coefficients (the departure reference state).
 //! - [`flash`] — isothermal-isobaric (TP) vapour-liquid-equilibrium flash via
 //!   the Rachford-Rice / Nested-Loops method, with Wilson K-value initialisation.
+//! - [`property_package`] — glue that composes the cubic-EOS / ideal models into
+//!   K-values and drives an EOS-consistent PT two-phase flash
+//!   ([`property_package::PropertyPackageModel`], enum dispatch, no `dyn`).
+//! - [`energy_flash`] — isenthalpic (PH) / energy flash: solve the temperature at
+//!   which a mixture's total molar enthalpy meets a target `H` at fixed `P`.
+//! - [`saturation`] — bubble-point / dew-point temperature & pressure of a
+//!   multicomponent mixture, on top of the isothermal-isobaric VLE kernel.
+//! - [`stability`] — phase-stability analysis via Michelsen's tangent-plane
+//!   distance (TPD) criterion (single-/two-phase identification, flash init).
+//! - [`transport`] — transport-property correlations (viscosity, thermal
+//!   conductivity, surface tension) and their phase-mixing rules.
+//! - [`eos_variants`] — cubic-EOS refinements: the PRSV α-function and the
+//!   Peneloux volume translation, composed on top of [`cubic_eos`].
 //!
 //! ## Design (crate `CLAUDE.md`)
 //!
@@ -36,21 +49,23 @@
 //! ## Honest scope
 //!
 //! This is the **core kernel**, not the whole of DWSIM's thermodynamics. The
-//! long tail — Gibbs-minimisation and inside-out flashes, 3-phase / electrolyte
-//! / solid equilibria, LKP and PRSV variants, seawater/sour-water/black-oil
-//! packages — remains future work (see `docs/port-scope.md`, epic `op-qo2`).
+//! one-parameter PRSV α-function and the Peneloux volume translation are ported
+//! ([`eos_variants`]); the long tail — Gibbs-minimisation and inside-out flashes,
+//! 3-phase / electrolyte / solid equilibria, the LKP and PRSV2/Mathias-Copeman/Twu
+//! α-variants, seawater/sour-water/black-oil packages — remains future work (see
+//! `docs/port-scope.md`, epic `op-qo2`).
 
 pub mod activity;
 pub mod component;
 pub mod cubic_eos;
 pub mod energy_flash;
+pub mod eos_variants;
 pub mod flash;
 pub mod ideal_props;
 pub mod property_package;
 pub mod saturation;
 pub mod stability;
 pub mod transport;
-pub mod eos_variants;
 pub mod unifac;
 
 pub use component::Component;

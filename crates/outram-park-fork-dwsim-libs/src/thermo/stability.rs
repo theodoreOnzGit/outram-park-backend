@@ -153,7 +153,8 @@ pub struct StabilityResult {
 fn ln_phi_min_gibbs(eos: CubicEos, comps: &[Component], w: &[f64], t: f64, p: f64) -> Vec<f64> {
     let vap = eos.ln_phi(comps, w, t, p, Phase::Vapor, None);
     let liq = eos.ln_phi(comps, w, t, p, Phase::Liquid, None);
-    let reduced_g = |ln_phi: &[f64]| -> f64 { w.iter().zip(ln_phi).map(|(&wi, &lp)| wi * lp).sum() };
+    let reduced_g =
+        |ln_phi: &[f64]| -> f64 { w.iter().zip(ln_phi).map(|(&wi, &lp)| wi * lp).sum() };
     match (vap, liq) {
         (Some(v), Some(l)) => {
             if reduced_g(&l) < reduced_g(&v) {
@@ -398,8 +399,15 @@ mod tests {
         let comps = [reference::methane(), reference::ethane()];
         let z = [0.5, 0.5];
         let r = stability_test(&comps, &z, 350.0, 5.0e5, CubicEos::PengRobinson);
-        assert!(r.stable, "supercritical CH₄/C₂H₆ gas must be stable, got {r:?}");
-        assert!(r.tm_min >= -1e-8, "tm_min must be ≥ 0 for a stable phase, got {}", r.tm_min);
+        assert!(
+            r.stable,
+            "supercritical CH₄/C₂H₆ gas must be stable, got {r:?}"
+        );
+        assert!(
+            r.tm_min >= -1e-8,
+            "tm_min must be ≥ 0 for a stable phase, got {}",
+            r.tm_min
+        );
     }
 
     /// **Methodology.** A methane/ethane feed held deep inside its two-phase
@@ -419,16 +427,29 @@ mod tests {
         let comps = [reference::methane(), reference::ethane()];
         let z = [0.5, 0.5];
         let r = stability_test(&comps, &z, 200.0, 10.0e5, CubicEos::PengRobinson);
-        assert!(!r.stable, "CH₄/C₂H₆ at 200 K / 10 bar must be unstable, got {r:?}");
-        assert!(r.tm_min < 0.0, "unstable feed must have tm_min < 0, got {}", r.tm_min);
+        assert!(
+            !r.stable,
+            "CH₄/C₂H₆ at 200 K / 10 bar must be unstable, got {r:?}"
+        );
+        assert!(
+            r.tm_min < 0.0,
+            "unstable feed must have tm_min < 0, got {}",
+            r.tm_min
+        );
         assert_abs_diff_eq!(r.tm_min, -0.66325, epsilon = 1e-4);
         let w = r.trial_composition.expect("unstable ⇒ a trial composition");
         assert_abs_diff_eq!(w.iter().sum::<f64>(), 1.0, epsilon = 1e-9);
         // The destabilising trial is a distinct (non-trivial) phase.
         let dist: f64 = (0..2).map(|i| (w[i] - z[i]).powi(2)).sum();
-        assert!(dist > 1e-3, "trial must be non-trivial (≠ feed), got w = {w:?}");
+        assert!(
+            dist > 1e-3,
+            "trial must be non-trivial (≠ feed), got w = {w:?}"
+        );
         // Incipient phase is ethane-enriched (heavier than the feed).
-        assert!(w[1] > z[1], "expected an ethane-rich incipient phase, got w = {w:?}");
+        assert!(
+            w[1] > z[1],
+            "expected an ethane-rich incipient phase, got w = {w:?}"
+        );
     }
 
     /// **Methodology.** Sign/consistency check tying [`tangent_plane_distance`] to
@@ -444,7 +465,10 @@ mod tests {
         let z = [0.5, 0.5];
         let eos = CubicEos::PengRobinson;
         let r = stability_test(&comps, &z, 200.0, 10.0e5, eos);
-        let w = r.trial_composition.clone().expect("unstable ⇒ a trial composition");
+        let w = r
+            .trial_composition
+            .clone()
+            .expect("unstable ⇒ a trial composition");
         let tm = tangent_plane_distance(&comps, &z, &w, 200.0, 10.0e5, eos);
         assert_abs_diff_eq!(tm, r.tm_min, epsilon = 1e-9);
         assert!(tm < 0.0);
