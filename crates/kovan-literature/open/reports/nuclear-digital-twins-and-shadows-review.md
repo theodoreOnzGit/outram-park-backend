@@ -343,12 +343,22 @@ Thin or absent, flagged for future revision:
 > and the three web resources (`rwth_shadow`, `oxford_shadow`,
 > `ibm_digital_twin`). Corrected: `llm_dt_2025` (journal is *Progress in
 > Nuclear Energy* 192, not "Energy"); `liu2024gnn` (print volume 211(9), 2025).
-> Still tagged `VERIFY`/unconfirmed — do not cite those fields downstream until
+> Still `⚠ NEEDS VERIFICATION` — do not cite those fields downstream until
 > resolved: `hahn_cyber` (venue/year/co-authors), `li2022rinpo` (parent-
-> conference name), and the exact author masthead of `llm_dt_2025`. Nothing
-> here is fabricated; unconfirmed fields are marked, not guessed.
+> conference name), and the exact author masthead of `llm_dt_2025`. A further
+> set is `⚠ UNVERIFIED` — plausible metadata carried over as-supplied but not
+> independently re-checked in this pass (`epri_dt_2022`, `epri_insights_2022`,
+> `mondal2024advanced`, `nrc2023digitaltwin`, `yadav2021gaps`,
+> `stewart2023safeguards`, `cappa2024advancedreactors`, `kropaczek2023dt`,
+> `assystem2024`). **Every entry now carries an inline `✓` / `⚠` status line**
+> (see the legend at the top of the BibTeX block). Nothing here is fabricated;
+> unconfirmed fields are marked, not guessed.
 
 ```bibtex
+% Verification legend:  ✓ = confirmed against an authoritative source on 24 Jul 2026;
+%   ⚠ NEEDS VERIFICATION = a specific field is known-unconfirmed, do not cite it downstream;
+%   ⚠ UNVERIFIED = metadata as-supplied, not independently checked this pass.
+% ⚠ UNVERIFIED — not independently checked this pass (metadata as-supplied)
 @techreport{epri_dt_2022,
   title = {Program on Technology Innovation: Digital Twin Applications for Advanced Reactors},
   author = {{Electric Power Research Institute}},
@@ -356,11 +366,13 @@ Thin or absent, flagged for future revision:
   note = {~134 pp. Published Q3 2022},
   url = {https://restservice.epri.com/publicdownload/000000003002023904/0/Product}
 }
+% ⚠ UNVERIFIED — not independently checked this pass (metadata as-supplied)
 @techreport{epri_insights_2022,
   title = {Insights and Innovations, Third Quarter 2022},
   author = {{Electric Power Research Institute}}, institution = {EPRI}, year = {2022},
   url = {https://restservice.epri.com/publicdownload/000000003002025805/0/Product}
 }
+% ✓ VERIFIED (24 Jul 2026) — GEMINA program & framing confirmed (see anl_gemina)
 @misc{gemina_arpae,
   title = {Generating Electricity Managed by Intelligent Nuclear Assets (GEMINA)},
   author = {{Advanced Research Projects Agency-Energy}},
@@ -368,27 +380,32 @@ Thin or absent, flagged for future revision:
   url = {https://arpa-e.energy.gov/programs-and-initiatives/view-all-programs/gemina},
   note = {Accessed 24 July 2026}
 }
+% ✓ VERIFIED (24 Jul 2026) — $28M/9 projects, ANL in 4 for $8M, $4.5M SSR APPLIED/Moltex
 @misc{anl_gemina,
   title = {Argonne to Explore How Digital Twins May Transform Nuclear Energy with ARPA-E's GEMINA Program},
   author = {{Argonne National Laboratory}}, year = {2020},
   url = {https://www.anl.gov/article/argonne-to-explore-how-digital-twins-may-transform-nuclear-energy-with-8-million-from-arpaes-gemina},
   note = {Confirmed: GEMINA is $28M across 9 projects; Argonne is in 4 of the 9 for $8M total; its largest single award is $4.5M for SSR APPLIED with Moltex Energy (SSR-W).}
 }
+% ⚠ UNVERIFIED — not independently checked this pass (DOI/OSTI ID as-supplied)
 @article{mondal2024advanced,
   title = {Advanced Manufacturing and Digital Twin Technology for Nuclear Energy},
   author = {Mondal, Kunal and Martinez, Oscar and Jain, Prashant},
   journal = {Frontiers in Energy Research}, volume = {12}, pages = {1339836}, year = {2024},
   doi = {10.3389/fenrg.2024.1339836}, note = {Review article. ORNL. OSTI ID 2317775}
 }
+% ⚠ UNVERIFIED — not independently checked this pass (report number as-supplied)
 @techreport{nrc2023digitaltwin,
   title = {State-of-Technology and Technical Challenges in Advanced Sensors, Instrumentation, and Communication to Support Digital Twin for Nuclear Energy Application},
   institution = {US Nuclear Regulatory Commission}, number = {TLR-RES/DE/REB-2023-02}, year = {2023}
 }
+% ⚠ UNVERIFIED — not independently checked this pass (author list as-supplied)
 @techreport{yadav2021gaps,
   title = {Technical Challenges and Gaps in Digital-Twin-Enabling Technologies for Nuclear Reactor Applications},
   author = {Yadav, Vaibhav and Agarwal, Vivek and Gribok, Andrei V. and Hays, Ross D. and Pluth, Adam J. and Ritter, Christopher S. and Zhang, Hongbin and Jain, Prashant K. and Ramuhalli, Pradeep and Eskins, Doug and Carlson, Jesse and Gascot, Ram\'{o}n L. and Ulmer, Christopher and Iyengar, Raj},
   institution = {US Nuclear Regulatory Commission}, year = {2021}
 }
+% ⚠ NEEDS VERIFICATION — parent-conference name unconfirmed (Indico event 298); no page numbers (it is a slide deck)
 @misc{li2022rinpo,
   title = {Nuclear Power Plant Digital Twinning for Efficient Operation},
   author = {Li, Qing},
@@ -397,22 +414,26 @@ Thin or absent, flagged for future revision:
   url = {https://conferences.iaea.org/event/298/contributions/24882/},
   note = {Presentation, not paginated proceedings (no page numbers). VERIFY parent-conference name — Indico labels event 298 the "8th DEMO Programme Workshop", which is topically inconsistent with a CNNC fission-NPP talk.}
 }
+% ⚠ UNVERIFIED — not independently checked this pass (venue/author list as-supplied)
 @inproceedings{stewart2023safeguards,
   title = {A Digital Twin of the AGN-201 Reactor to Simulate Nuclear Proliferation},
   author = {Stewart, Ryan and Shields, Ashley and Pope, Chad and Darrington, Jake and Wilsdon, Kathryn and Bays, Samuel and Heaps, Kenneth and Scott, James and Reyes, Gabriel and Schanfein, Mark},
   booktitle = {Proceedings of the INMM/ESARDA 2023 Joint Annual Meeting}, year = {2023}
 }
+% ✓ VERIFIED (24 Jul 2026) — Energies 14(14):4235, doi 10.3390/en14144235
 @article{kochunas2021digital,
   title = {Digital Twin Concepts with Uncertainty for Nuclear Power Applications},
   author = {Kochunas, Brendan and Huan, Xun},
   journal = {Energies}, volume = {14}, number = {14}, pages = {4235}, year = {2021},
   doi = {10.3390/en14144235}
 }
+% ⚠ UNVERIFIED — not independently checked this pass (SMiRT-27 venue/authors as-supplied)
 @inproceedings{cappa2024advancedreactors,
   title = {Digital Twin Applications for Advanced Reactors: Summary of EPRI 3002023904 and Ongoing Industry Efforts},
   author = {Cappa, Riccardo and Grant, Frederic and Charkas, Hasan},
   booktitle = {27th International Conference on Structural Mechanics in Reactor Technology (SMiRT-27)}, year = {2024}
 }
+% ✓ VERIFIED (24 Jul 2026) — Energy and AI 21:100555, doi 10.1016/j.egyai.2025.100555
 @article{autofluka2025,
   title = {Automating Monte Carlo Simulations in Nuclear Engineering with Domain Knowledge-Embedded Large Language Model Agents},
   author = {Ndum Ndum, Zavier and Tao, Jian and Ford, John and Liu, Yang},
@@ -421,6 +442,7 @@ Thin or absent, flagged for future revision:
   note = {AutoFLUKA. ADS bibcode 2025EneAI..2100555N},
   url = {https://www.sciencedirect.com/science/article/pii/S2666546825000874}
 }
+% ⚠ NEEDS VERIFICATION — journal/vol/doi confirmed; exact author masthead order/count still to be eyeballed on the published page
 @article{llm_dt_2025,
   title = {Large Language Model-Assisted Digital Twin for Remote Monitoring and Control of Advanced Reactors},
   author = {Ndum, Zavier and Lim, Doyeong and Ford, John and Adu, Simon and Tao, Jian and Hassan, Yassin and Liu, Yang},
@@ -429,6 +451,7 @@ Thin or absent, flagged for future revision:
   note = {DOI stem 2025; print issue Feb 2026. Author list taken from the SSRN preprint of the same title -- eyeball the published masthead for exact order/count. LLM + DT over OPC-UA for advanced reactors.},
   url = {https://www.sciencedirect.com/science/article/pii/S0149197025005700}
 }
+% ✓ VERIFIED (24 Jul 2026) — Nucl. Eng. Technol. 57:103842, doi 10.1016/j.net.2025.103842
 @article{llm_operation_2025,
   title = {Large Language Model Agent for Nuclear Reactor Operation Assistance},
   author = {Lee, Yoon Pyo and Cha, Joowon and Yu, Yonggyun and Kim, Seung Geun},
@@ -437,12 +460,14 @@ Thin or absent, flagged for future revision:
   note = {KAERI. ADS bibcode 2025NuEnT..5703842L},
   url = {https://www.sciencedirect.com/science/article/pii/S1738573325004103}
 }
+% ✓ VERIFIED (24 Jul 2026) — J. Risk Reliab. 239(6):1257-1264
 @article{xian2025sdie,
   title = {A Knowledge-Informed Large Language Model Framework for U.S. Nuclear Power Plant Shutdown Initiating Event Classification for Probabilistic Risk Assessment},
   author = {Xian, Min and Wang, Tao and Zhang, Sai and Xu, Fei and Ma, Zhegang},
   journal = {Proceedings of the Institution of Mechanical Engineers, Part O: Journal of Risk and Reliability},
   volume = {239}, number = {6}, pages = {1257--1264}, year = {2025}
 }
+% ✓ VERIFIED (24 Jul 2026) — Nucl. Technol. 211(9):2206-2223 (2025), doi 10.1080/00295450.2024.2385214
 @article{liu2024gnn,
   title = {Development of Whole System Digital Twins for Advanced Reactors: Leveraging Graph Neural Networks and SAM Simulations},
   author = {Liu, Yang and Alsafadi, Farah and Mui, Travis and O'Grady, Daniel and Hu, Rui},
@@ -450,18 +475,21 @@ Thin or absent, flagged for future revision:
   doi = {10.1080/00295450.2024.2385214},
   note = {Online-first 2024 (hence the cite key); assigned print volume 211(9), September 2025}
 }
+% ✓ VERIFIED (24 Jul 2026) — LNME, pp 96-103, doi 10.1007/978-3-030-48021-9_11
 @incollection{vare2020ltO,
   title = {Digital Twins, a New Step for Long Term Operation of Nuclear Power Plants},
   author = {Var\'{e}, Christophe and Morilhat, Patrick},
   booktitle = {Lecture Notes in Mechanical Engineering}, pages = {96--103}, year = {2020},
   doi = {10.1007/978-3-030-48021-9_11}
 }
+% ✓ VERIFIED (24 Jul 2026) — IEEE Access 10:44691-44709, doi 10.1109/ACCESS.2022.3161626
 @article{bowman2022unified,
   title = {A Unified Approach to Digital Twin Architecture — Proof-of-Concept Activity in the Nuclear Sector},
   author = {Bowman, David and Dwyer, Lynn and Levers, Andrew and Patterson, Eann A. and Purdie, Sally and Vikhorev, Konstantin},
   journal = {IEEE Access}, volume = {10}, pages = {44691--44709}, year = {2022},
   doi = {10.1109/ACCESS.2022.3161626}
 }
+% ⚠ NEEDS VERIFICATION — lead author & OSTI ID 2585051 confirmed; venue/conference, year, full co-author list still unconfirmed
 @techreport{hahn_cyber,
   title = {Digital Twins in Nuclear Power: Cybersecurity},
   author = {Hahn, Andrew S. and others},
@@ -469,6 +497,7 @@ Thin or absent, flagged for future revision:
   note = {Lead author and OSTI ID confirmed. VERIFY venue/conference, year and full co-author list against the OSTI bibliographic record.},
   url = {https://www.osti.gov/servlets/purl/2585051}
 }
+% ⚠ UNVERIFIED — not independently checked this pass (Springer DOI as-supplied)
 @incollection{kropaczek2023dt,
   title = {Digital Twins for Nuclear Power Plants and Facilities},
   author = {Kropaczek, David J. and Badalassi, Vittorio and Jain, Prashant K. and Ramuhalli, Pradeep and Pointer, W. David},
@@ -476,21 +505,25 @@ Thin or absent, flagged for future revision:
   publisher = {Springer International Publishing}, year = {2023},
   doi = {10.1007/978-3-031-21343-4_31}
 }
+% ⚠ UNVERIFIED — not independently checked this pass (author/year as-supplied)
 @misc{assystem2024,
   title = {Digital Twin: A Winning Equation for the Nuclear Industry},
   author = {Richet, Victor}, organization = {Assystem}, year = {2024}
 }
+% ✓ VERIFIED (24 Jul 2026) — se-rwth.de/research/Digital-Twins/
 @misc{rwth_shadow,
   title = {Digital Twins and Digital Shadows in Engineering and Production},
   author = {{RWTH Aachen Software Engineering Group}}, year = {2024},
   url = {https://www.se-rwth.de/research/Digital-Twins/}
 }
+% ✓ VERIFIED (24 Jul 2026) — oxfordinsights.com, 23 Oct 2023
 @misc{oxford_shadow,
   title = {Exploring the Concepts of Digital Twin, Digital Shadow and Digital Model},
   author = {Martinescu, Livia}, organization = {Oxford Insights}, year = {2023},
   url = {https://oxfordinsights.com/insights/exploring-the-concepts-of-digital-twin-digital-shadow-and-digital-model/},
   note = {Published 23 October 2023}
 }
+% ✓ VERIFIED (24 Jul 2026) — ibm.com/think/topics/digital-twin
 @misc{ibm_digital_twin,
   title = {What is a Digital Twin?}, author = {{IBM}}, year = {2025},
   url = {https://www.ibm.com/think/topics/digital-twin}
