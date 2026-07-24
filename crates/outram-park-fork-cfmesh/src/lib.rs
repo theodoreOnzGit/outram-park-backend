@@ -58,6 +58,9 @@
 //!   a uniform Cartesian grid on a closed triangle-soup surface and keeps the
 //!   cells inside it (ray-parity inside test), producing a body-fitted
 //!   *staircase* volume mesh with a `walls` boundary patch.
+//!   [`carve::carve_region`] extends this to the region *inside* an outer
+//!   surface but *outside* inner holes — the shell/annular pattern reactor
+//!   geometry needs (coolant around fuel pins or pebbles).
 //! - **Milestone 3a — boundary snapping.** [`snap::snap_to_surface`] projects
 //!   every boundary point onto the closest point of the surface, turning the
 //!   staircase into a body-fitted boundary.
