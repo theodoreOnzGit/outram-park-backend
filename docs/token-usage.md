@@ -35,6 +35,22 @@
 | 2026-07-24 | `a0ae11b` | Merge outram-blender into develop: cfMesh quality checks,... | 36,127,440 | 102 | 46,361 | 36,013,530 | 67,447 |
 | 2026-07-24 | `1ccf235` | Merge outram-mc into develop: fix nested-lattice surface-... | 36,127,440 | 102 | 46,361 | 36,013,530 | 67,447 |
 | 2026-07-24 | `724ea2e` | Merge pflotran into develop: outram-park-mpi communicator... | 36,127,440 | 102 | 46,361 | 36,013,530 | 67,447 |
+| 2026-07-24 | `46b4ccf` | outram-mc: port Torus{X,Y,Z} CSG surfaces — completes the... | 40,092,252 | 115 | 71,203 | 39,909,015 | 111,919 |
+| 2026-07-24 | `f10a000` | outram-mc: HexLattice 3-D axial rings + X-orientation rou... | 8,028,654 | 21 | 12,114 | 8,002,461 | 14,058 |
+| 2026-07-24 | `9f67449` | outram-mc: add the lattice/ dir files (complete f10a000) | 6,064,023 | 18 | 11,721 | 6,039,420 | 12,864 |
 | 2026-07-24 | `b2a5bac` | Merge remote-tracking branch 'origin/develop' into claude... | 157,164 | 4 | 290 | 155,614 | 1,256 |
+| 2026-07-24 | `f136ea0` | Merge outram-blender into develop: cfMesh polyMesh disk w... | 43,981,600 | 126 | 53,883 | 43,848,765 | 78,826 |
+| 2026-07-24 | `f7b506e` | Merge outram-foam into develop: multiphase two-fluid Eule... | 43,981,600 | 126 | 53,883 | 43,848,765 | 78,826 |
+| 2026-07-24 | `998fbf5` | Merge outram-mc into develop: Torus{X,Y,Z} CSG surfaces (... | 43,981,600 | 126 | 53,883 | 43,848,765 | 78,826 |
+| 2026-07-24 | `85c74a6` | Merge pflotran into develop: HDF5 snapshot I/O via pure-R... | 51,903,622 | 148 | 61,930 | 51,754,543 | 87,001 |
 | 2026-07-24 | `0ab7d2b` | chore: pin transitive kstring to 2.0.2 for rustc 1.94 MSRV | 2,508,572 | 55 | 15,210 | 2,467,629 | 25,678 |
-| **TOTAL** | | **24 commits** | **478,535,628** | **1,618** | **904,982** | **469,288,020** | **8,341,008** |
+| 2026-07-24 | `41052a6` | docs: regenerate api.md mirrors for dwsim-libs, multiphas... | 1,165,500 | 23 | 6,110 | 1,150,818 | 8,549 |
+| 2026-07-24 | `3e1d2d0` | Merge outram-blender into develop: cfMesh octree near-wal... | 56,555,651 | 160 | 66,281 | 56,396,808 | 92,402 |
+| 2026-07-24 | `7ca58b5` | Merge outram-foam into develop: pin transitive kstring 2.... | 56,555,651 | 160 | 66,281 | 56,396,808 | 92,402 |
+| 2026-07-24 | `8e43d71` | Merge outram-blender into develop: cfMesh multi-level oct... | 65,934,291 | 187 | 77,208 | 65,751,893 | 105,003 |
+| 2026-07-24 | `367e0d0` | Merge pflotran into develop: outram-park-mpi groups + Car... | 65,934,291 | 187 | 77,208 | 65,751,893 | 105,003 |
+| 2026-07-24 | `3dc85bc` | cfmesh: add prism boundary layers (add_boundary_layers) | 189,149 | 4 | 932 | 187,255 | 958 |
+| 2026-07-24 | `0050b92` | Merge remote-tracking branch 'origin/develop' into claude... | 1,455,130 | 27 | 6,591 | 1,439,646 | 8,866 |
+| 2026-07-24 | `efb8acd` | cfmesh: add polyhedral (median) dual — one cell per verte... | 5,250,656 | 87 | 93,137 | 5,095,585 | 61,847 |
+| 2026-07-24 | `e579dd7` | cfmesh: V&V — polyhedral dual bridges to a solvable foam ... | 2,974,882 | 39 | 10,976 | 2,937,002 | 26,865 |
+| **TOTAL** | | **40 commits** | **972,584,180** | **3,172** | **1,628,323** | **961,647,462** | **9,305,223** |
