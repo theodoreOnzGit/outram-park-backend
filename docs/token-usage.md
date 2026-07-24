@@ -37,4 +37,6 @@
 | 2026-07-24 | `724ea2e` | Merge pflotran into develop: outram-park-mpi communicator... | 36,127,440 | 102 | 46,361 | 36,013,530 | 67,447 |
 | 2026-07-24 | `b2a5bac` | Merge remote-tracking branch 'origin/develop' into claude... | 157,164 | 4 | 290 | 155,614 | 1,256 |
 | 2026-07-24 | `0ab7d2b` | chore: pin transitive kstring to 2.0.2 for rustc 1.94 MSRV | 2,508,572 | 55 | 15,210 | 2,467,629 | 25,678 |
-| **TOTAL** | | **24 commits** | **478,535,628** | **1,618** | **904,982** | **469,288,020** | **8,341,008** |
+| 2026-07-24 | `41052a6` | docs: regenerate api.md mirrors for dwsim-libs, multiphas... | 1,165,500 | 23 | 6,110 | 1,150,818 | 8,549 |
+| 2026-07-24 | `fed0bf3` | chore(docs): refresh token-usage ledger | 2,321,347 | 37 | 21,061 | 2,214,978 | 85,271 |
+| **TOTAL** | | **26 commits** | **482,022,475** | **1,678** | **932,153** | **472,653,816** | **8,434,828** |
