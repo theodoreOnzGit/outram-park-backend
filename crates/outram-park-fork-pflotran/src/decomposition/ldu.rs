@@ -138,6 +138,57 @@ impl DistributedLduMatrix1D {
         }
     }
 
+    /// Assemble this rank's rows **locally** — without ever forming the global
+    /// matrix — for the 1-D diffusion operator with per-cell conductivity
+    /// `k_local`, a uniform face geometric transmissibility `geom` (`= A_f/d_f`,
+    /// constant on a uniform grid), and diagonal Helmholtz `shift`.
+    ///
+    /// Each rank halo-exchanges its neighbours' edge conductivities once, then
+    /// builds its `(diag, west, east)` rows from local + ghost `k` — the genuinely
+    /// distributed assembly (no rank sees the whole matrix). It produces the
+    /// *identical* distributed matrix as [`from_global`](Self::from_global) applied
+    /// to [`assemble_diffusion_ldu`] (checked in the module tests).
+    ///
+    /// # Errors
+    /// Propagates any halo-exchange transport error.
+    pub fn assemble_diffusion_local(
+        comm: &Communicator,
+        decomp: &Decomposition1D,
+        k_local: &[f64],
+        geom: f64,
+        shift: f64,
+    ) -> MpiResult<Self> {
+        let kh = super::exchange_halo(comm, decomp, k_local)?;
+        let l = k_local.len();
+        let mut diag = vec![0.0; l];
+        let mut west = vec![0.0; l];
+        let mut east = vec![0.0; l];
+        for i in 0..l {
+            let gi = decomp.global_index(i);
+            // West face exists iff this is not the global-left cell.
+            if gi > 0 {
+                let k_w = if i > 0 { k_local[i - 1] } else { kh.left.unwrap_or(0.0) };
+                let t = geom * harmonic(k_local[i], k_w);
+                west[i] = -t;
+                diag[i] += t;
+            }
+            // East face exists iff this is not the global-right cell.
+            if gi + 1 < decomp.n_global {
+                let k_e = if i + 1 < l { k_local[i + 1] } else { kh.right.unwrap_or(0.0) };
+                let t = geom * harmonic(k_local[i], k_e);
+                east[i] = -t;
+                diag[i] += t;
+            }
+            diag[i] += shift;
+        }
+        Ok(DistributedLduMatrix1D {
+            decomp: decomp.clone(),
+            diag,
+            west,
+            east,
+        })
+    }
+
     /// Distributed matrix-vector product `A x` on this rank's slab, exchanging the
     /// halo for the cross-rank tridiagonal couplings.
     ///
@@ -403,6 +454,61 @@ mod tests {
             })
             .unwrap();
             assert!(ok.iter().all(|&b| b), "distributed BiCGStab != serial for p={p}");
+        }
+    }
+
+    #[test]
+    fn local_assembly_equals_global_extract_and_solves() {
+        // Per-rank local assembly must produce the SAME distributed matrix as
+        // extracting from the globally-assembled LduMatrix, and solve identically.
+        let n = 30;
+        let shift = 0.25_f64;
+        let tol = 1e-11;
+        let k = conductivity(n);
+        let grid = one_d_grid(n); // unit cells -> geometric transmissibility = 1.0
+        let geom = grid.connections()[0].geometric_transmissibility;
+        assert!((geom - 1.0).abs() < 1e-12);
+        let ldu = assemble_diffusion_ldu(&grid, &k, shift);
+        let b: Vec<f64> = (0..n).map(|i| ((i % 4) as f64) + 1.0).collect();
+        let (reference, _) = serial_ldu_cg(&ldu, &b, tol, 2000);
+
+        for p in [1, 2, 3, 5] {
+            let ldu = ldu.clone();
+            let k = k.clone();
+            let b = b.clone();
+            let reference = reference.clone();
+            let ok = run(p, move |c| {
+                let d = Decomposition1D::new(n, c);
+                let from_global = DistributedLduMatrix1D::from_global(&d, &ldu);
+                let k_local = k[d.start..d.start + d.local_len].to_vec();
+                let local =
+                    DistributedLduMatrix1D::assemble_diffusion_local(c, &d, &k_local, geom, shift)
+                        .unwrap();
+                // Identical matrix rows (diag/west/east) — no global matrix needed.
+                let same_matrix = local
+                    .diag
+                    .iter()
+                    .zip(&from_global.diag)
+                    .all(|(a, b)| (a - b).abs() < 1e-12)
+                    && local
+                        .west
+                        .iter()
+                        .zip(&from_global.west)
+                        .all(|(a, b)| (a - b).abs() < 1e-12)
+                    && local
+                        .east
+                        .iter()
+                        .zip(&from_global.east)
+                        .all(|(a, b)| (a - b).abs() < 1e-12);
+                // And solving with the locally-assembled matrix matches serial.
+                let b_local = b[d.start..d.start + d.local_len].to_vec();
+                let (x, _) = local.solve(c, &b_local, tol, 2000).unwrap();
+                let expected = &reference[d.start..d.start + d.local_len];
+                let solve_ok = x.iter().zip(expected).all(|(a, e)| (a - e).abs() < 1e-7);
+                same_matrix && solve_ok
+            })
+            .unwrap();
+            assert!(ok.iter().all(|&b| b), "local assembly != global / wrong solve for p={p}");
         }
     }
 
