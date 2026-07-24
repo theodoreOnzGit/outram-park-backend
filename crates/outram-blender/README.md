@@ -121,6 +121,7 @@ included.
 | `triangulate` | `bmo_triangulate` (fan) | **real** — fan-triangulate every face into a triangle-only mesh (distinct from `export::triangulate`'s index buffer) |
 | `inset` | `bmo_inset` (Individual) | **real** — per-face inset: shrunk inner copy toward the centroid + bridging ring quads |
 | `bisect` | Bisect (plane cut) | **real** — half-space clip every face by a plane (Sutherland–Hodgman); leaves the cut open (pairs with `fill_holes`) |
+| `edge_bevel` | Bevel (edges) | **real** — chamfer every edge (cut faces back + fill edge/corner gaps); v1 flat chamfer on closed manifolds, winding fixed via `recalc_normals` |
 | `boolean` | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to `boolean_general` |
 | `boolean_general` | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union / difference / intersect on non-convex closed meshes (arrangement + winding classification) |
 | `boolean_predicates` | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double) |
