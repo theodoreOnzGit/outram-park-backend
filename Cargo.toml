@@ -8,6 +8,7 @@ members = [
     "crates/outram-foam-basic-lib",
     "crates/outram-foam-turbulence-lib",
     "crates/outram-foam-appbuilder-lib",
+    "crates/outram-foam-multiphase",
     "crates/outram-foam-mesh",
     "crates/outram-foam-cli",
     "crates/outram-mc-libs",
@@ -21,6 +22,11 @@ members = [
     # solve, Newton-Krylov solver, grid, and I/O are planned (epic op-v6s).
     "crates/outram-park-fork-pflotran",
     "crates/tampines",
+    # outram-park-mpi — pure-Rust translation of an MPICH subset (MPI-3 API:
+    # communicators, datatypes, point-to-point, core collectives) over a
+    # shared-memory threads-as-ranks transport (Android-clean; TCP later behind a
+    # feature). Foundation for pflotran/outram-mc MPI scale-out (epic op-erl).
+    "crates/outram-park-mpi",
     "crates/outram-park-digital-twin-engine",
     # KOVAN — knowledge layer (deterministic literature/semantics/codegen tooling)
     "crates/kovan-common",
@@ -40,6 +46,10 @@ members = [
     # outram-blender (surface) and outram-foam (FvMesh). voro++ vendored as the
     # Voronoi-dual reference. SCAFFOLD (epic op-hzs; op-hzs.32–.35).
     "crates/outram-park-fork-cfmesh",
+    # outram-park-fork-liggghts — independent Rust granular-DEM library (epic
+    # op-t3l). NOT a code port of GPL-2.0 LIGGGHTS/LAMMPS (see crate NOTICE for
+    # the GPL-2 vs GPL-3 licensing flag — maintainer decision pending).
+    "crates/outram-park-fork-liggghts",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are

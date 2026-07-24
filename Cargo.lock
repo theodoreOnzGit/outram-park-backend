@@ -5321,6 +5321,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "outram-foam-multiphase"
+version = "0.0.0"
+dependencies = [
+ "approx",
+ "outram-foam-basic-lib",
+ "thiserror 2.0.18",
+ "uom 0.38.0",
+]
+
+[[package]]
 name = "outram-foam-turbulence-lib"
 version = "0.1.0"
 dependencies = [
@@ -5373,6 +5383,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "outram-park-fork-cfmesh"
+version = "0.0.0"
+
+[[package]]
 name = "outram-park-fork-coolprop"
 version = "0.1.0"
 dependencies = [
@@ -5392,14 +5406,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "outram-park-fork-liggghts"
+version = "0.0.0"
+dependencies = [
+ "approx",
+ "thiserror 2.0.18",
+ "uom 0.38.0",
+]
+
+[[package]]
 name = "outram-park-fork-pflotran"
 version = "0.0.0"
 dependencies = [
  "outram-foam-basic-lib",
  "rayon",
+ "tampines-steam-tables",
  "thiserror 2.0.18",
  "uom 0.38.0",
  "wgpu",
+]
+
+[[package]]
+name = "outram-park-mpi"
+version = "0.0.0"
+dependencies = [
+ "thiserror 2.0.18",
 ]
 
 [[package]]

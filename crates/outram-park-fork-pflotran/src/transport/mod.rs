@@ -188,6 +188,17 @@ pub struct SoluteTransport {
     /// staying monotone. The gradient ratio `r` is formed along the structured
     /// grid axis of each face; see [`SoluteTransport::step`].
     flux_limiter: FluxLimiter,
+    /// First-order radioactive-decay constant `lambda` (1/s) of the transported
+    /// solute (`lambda = ln2 / half_life`; get it from a single-nuclide
+    /// [`crate::decay::DecayChain`]). Default `0` (conservative / no decay). Added
+    /// as an implicit volumetric sink `-lambda * (theta_w + rho_b K_d) * c`.
+    decay_constant: f64,
+    /// Linear-sorption retardation contribution `rho_b * K_d` (dimensionless)
+    /// from [`crate::sorption::SorptionIsotherm::Linear`]. The storage coefficient
+    /// becomes `theta_w + rho_b K_d` (retardation `R = 1 + rho_b K_d / theta_w`).
+    /// Default `0` (no sorption). Only linear sorption keeps the system linear;
+    /// nonlinear isotherms belong in the reactive-transport path.
+    rho_b_kd: f64,
 }
 
 impl SoluteTransport {
@@ -278,6 +289,8 @@ impl SoluteTransport {
             dt: 1.0,
             c_old: vec![0.0; n_cells],
             flux_limiter: FluxLimiter::Upwind,
+            decay_constant: 0.0,
+            rho_b_kd: 0.0,
         })
     }
 
@@ -288,6 +301,53 @@ impl SoluteTransport {
     /// `outram-foam-basic-lib`.
     pub fn set_flux_limiter(&mut self, limiter: FluxLimiter) {
         self.flux_limiter = limiter;
+    }
+
+    /// Set the first-order radioactive-decay constant `lambda` (1/s) of the
+    /// transported solute — an implicit volumetric sink `-lambda * theta_w * c`.
+    /// `lambda = ln2 / half_life`; a single-nuclide
+    /// [`crate::decay::DecayChain`]'s `decay_constant(0)` gives it. `0` disables
+    /// decay (conservative transport). Errors on a negative/non-finite value.
+    pub fn set_decay_constant(&mut self, lambda: f64) -> Result<(), PflotranError> {
+        if lambda < 0.0 || !lambda.is_finite() {
+            return Err(PflotranError::InvalidInput(format!(
+                "decay constant must be finite and >= 0, got {lambda}"
+            )));
+        }
+        self.decay_constant = lambda;
+        Ok(())
+    }
+
+    /// Apply **linear** equilibrium sorption (constant retardation) to the solute,
+    /// keeping the transport system linear. `isotherm` must be
+    /// [`crate::sorption::SorptionIsotherm::Linear`] (its `K_d`); `bulk_density`
+    /// is the dry bulk density `rho_b` (kg/L). The storage becomes
+    /// `theta_w + rho_b K_d`. Nonlinear isotherms are rejected here (they make the
+    /// system nonlinear — use the reactive-transport path). `rho_b >= 0`.
+    pub fn set_linear_sorption(
+        &mut self,
+        isotherm: crate::sorption::SorptionIsotherm,
+        bulk_density: f64,
+    ) -> Result<(), PflotranError> {
+        if bulk_density < 0.0 || !bulk_density.is_finite() {
+            return Err(PflotranError::InvalidInput(format!(
+                "bulk density must be finite and >= 0, got {bulk_density}"
+            )));
+        }
+        match isotherm {
+            crate::sorption::SorptionIsotherm::Linear { kd } => {
+                if kd < 0.0 || !kd.is_finite() {
+                    return Err(PflotranError::InvalidInput(format!(
+                        "linear K_d must be finite and >= 0, got {kd}"
+                    )));
+                }
+                self.rho_b_kd = bulk_density * kd;
+                Ok(())
+            }
+            _ => Err(PflotranError::InvalidInput(
+                "only linear sorption keeps transport linear; use reactive_transport for nonlinear isotherms".into(),
+            )),
+        }
     }
 
     /// Set the time step `dt` (seconds). Validated (must be positive and finite)
@@ -368,8 +428,15 @@ impl SoluteTransport {
         // Accumulation (implicit Euler mass term).
         let inv_dt = 1.0 / self.dt;
         for i in 0..n_cells {
-            let acc = self.flow.water_content[i] * self.grid.cell_volume(i) * inv_dt;
+            // Retarded storage coefficient (theta_w + rho_b*Kd) * V — sorption
+            // slows the front; both accumulation and decay act on it.
+            let storage_v =
+                (self.flow.water_content[i] + self.rho_b_kd) * self.grid.cell_volume(i);
+            let acc = storage_v * inv_dt;
             a.diag[i] += acc;
+            // Implicit first-order radioactive decay sink over the sorbed+aqueous
+            // radionuclide: -lambda * (theta_w + rho_b*Kd) * c.
+            a.diag[i] += self.decay_constant * storage_v;
             b[i] += acc * self.c_old[i];
         }
 
@@ -625,6 +692,89 @@ mod tests {
                 "SuperBee overshoot at cell {i}: {c}"
             );
         }
+    }
+
+    /// Linear sorption (op-v6s.15.2 wired into transport) must **retard** the
+    /// advective front: with sorption the tracer travels at v/R, so after the same
+    /// time it has penetrated less far than the unsorbed case.
+    #[test]
+    fn linear_sorption_retards_the_front() {
+        use crate::sorption::SorptionIsotherm;
+        let n = 40usize;
+        let run = |sorbed: bool| -> Vec<f64> {
+            let grid = grid_1d(n, 0.025);
+            let flow = uniform_x_flow(&grid, 1.0);
+            let boundary = vec![TransportBoundaryCondition {
+                location: BoundaryLocation::XMin,
+                kind: TransportBoundaryKind::InflowConcentration(1.0),
+            }];
+            let mut t =
+                SoluteTransport::new(grid, flow, DispersionModel::new(1.0e-3, 0.0).unwrap(), boundary)
+                    .unwrap();
+            if sorbed {
+                // R = 1 + rho_b*Kd/theta_w = 1 + 1.0*1.0/1.0 = 2 (front at half speed).
+                t.set_linear_sorption(SorptionIsotherm::Linear { kd: 1.0 }, 1.0).unwrap();
+            }
+            t.set_timestep(0.05);
+            let mut c = vec![0.0; n];
+            for _ in 0..40 {
+                t.set_previous(&c);
+                t.step(&mut c).unwrap();
+            }
+            c
+        };
+        let unsorbed = run(false);
+        let sorbed = run(true);
+        // Total penetrated tracer mass is lower with sorption (front is behind).
+        let sum: fn(&[f64]) -> f64 = |c| c.iter().sum();
+        assert!(
+            sum(&sorbed) < sum(&unsorbed) - 1.0,
+            "sorption did not retard the front: sorbed sum {} vs unsorbed {}",
+            sum(&sorbed),
+            sum(&unsorbed)
+        );
+        // And nonlinear sorption is rejected in the linear solver.
+        let grid = grid_1d(2, 0.5);
+        let flow = uniform_x_flow(&grid, 1.0);
+        let mut t2 = SoluteTransport::new(grid, flow, DispersionModel::new(0.0, 0.0).unwrap(), vec![])
+            .unwrap();
+        assert!(t2
+            .set_linear_sorption(SorptionIsotherm::new_langmuir(1.0, 1.0).unwrap(), 1.0)
+            .is_err());
+    }
+
+    /// First-order radioactive decay (op-v6s.15.3 wired into transport): a
+    /// well-mixed no-flow cell must decay to half its initial concentration after
+    /// one half-life. lambda comes from a single-nuclide `decay::DecayChain`.
+    #[test]
+    fn radioactive_decay_halves_after_one_half_life() {
+        use crate::decay::{DecayChain, Nuclide};
+        let half_life = 100.0_f64; // s
+        let chain = DecayChain::new(vec![Nuclide {
+            name: "X".into(),
+            half_life_seconds: half_life,
+            daughters: vec![],
+        }])
+        .unwrap();
+        let lambda = chain.decay_constant(0);
+
+        let grid = grid_1d(1, 1.0);
+        let flow = FlowField {
+            face_flux: vec![],
+            boundary_flux: vec![0.0; grid.boundary_faces().len()],
+            water_content: vec![1.0; grid.n_cells()],
+        };
+        let mut t = SoluteTransport::new(grid, flow, DispersionModel::new(0.0, 0.0).unwrap(), vec![])
+            .unwrap();
+        t.set_decay_constant(lambda).unwrap();
+        t.set_timestep(1.0);
+        let mut c = vec![1.0];
+        for _ in 0..(half_life as usize) {
+            t.set_previous(&c);
+            t.step(&mut c).unwrap();
+        }
+        // Backward-Euler decay -> ~0.5 after one half-life (O(dt) scheme error).
+        assert!((c[0] - 0.5).abs() < 5.0e-3, "expected ~0.5 after one half-life, got {}", c[0]);
     }
 
     /// Verification test 1 — **steady 1D advection–diffusion, closed form.**

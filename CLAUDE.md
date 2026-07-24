@@ -135,6 +135,75 @@ specifically, not just human contributors:
     reference is a hard error pointing at the exact line. Prefer this over a
     blind `sed` rename, which can silently mangle a colliding name.
 
+## Token accounting on every commit (mandatory, this workspace + all repos here)
+
+**Every commit in this workspace — and in every repository worked on here — must
+carry an API-token-usage trailer, and a per-commit token ledger is kept at
+`docs/token-usage.md`.** This gives the maintainer a clear, honest accounting of
+the Claude/API tokens spent producing each commit. It is automated by two git
+hooks so it cannot be forgotten:
+
+- **`docs/historian/token_usage.py`** is the single source for token accounting —
+  it does **both** the write side and the query side. On the write side it reads
+  the Claude Code session transcripts (`~/.claude/projects/<slug>/*.jsonl` — the
+  same data `ccusage` reads) and attributes the **token delta since the previous
+  commit** to each new commit. On the query side,
+  `python3 docs/historian/token_usage.py query --from DDMMYY --to DDMMYY
+  [--branch develop] [--per-commit] [--json]` sums the token usage **recorded in
+  the git commit trailers** over any time period (reads the durable git record,
+  not the live transcript).
+- **`.githooks/prepare-commit-msg`** stamps the commit message with an
+  `API-Usage-Since-Last-Commit:` trailer (`total`, `in`, `out`, `cache_read`,
+  `cache_write`, `source`) plus an `API-Usage-Session-Cumulative:` line. It is
+  idempotent (amend/rebase safe).
+- **`.githooks/post-commit`** advances the baseline and regenerates
+  `docs/token-usage.md` from the commit-message trailers.
+
+**Rules:**
+
+- **Do not strip or fake the trailer.** The numbers come straight from the
+  transcripts; nothing is estimated or invented. A commit made outside a Claude
+  session legitimately shows `total=0 source=none` — that is correct, not a bug,
+  so never hand-write a nonzero number.
+- **`total` = `in` + `out` + `cache_read` + `cache_write`.** Cache-read (prompt-
+  cache re-reads of the growing context) usually dominates and is shown
+  separately — do not collapse it into a single figure that hides the split.
+- **Install per clone:** `./scripts/install-token-hooks.sh` (sets the local
+  `core.hooksPath` to `.githooks` and initialises the baseline). `core.hooksPath`
+  is a local, uncommitted config, so every fresh clone must run it once. The
+  hooks and script are version-controlled, so they travel with the repo.
+- **`docs/token-usage.md` is generated — never hand-edit it.** It lags the tip by
+  at most one commit (the `post-commit` regen leaves it staged for the next
+  commit); rebuild any time with `python3 docs/historian/token_usage.py report`.
+- **New repositories added to a session here inherit this rule** — copy
+  `docs/historian/token_usage.py` + `.githooks/` + `scripts/install-token-hooks.sh`
+  in and run the installer as part of onboarding that repo.
+- This does **not** relax the never-auto-commit/push rule above: the hooks only
+  act *when a commit the user asked for is being made*; they never initiate one.
+
+## Historian report before every merge to `main` (mandatory)
+
+**Before merging `develop` into `main`, generate a "historian" report** — a
+python-generated markdown file accounting for the **API tokens spent** and the
+**lines / KLOC written** across the window of `develop` history being released,
+listing the commits over a `DDMMYY..DDMMYY` date range. Both the generator and
+the reports live under **`docs/historian/`** at the workspace root.
+
+- **Generate it:**
+  `python3 docs/historian/historian.py --from DDMMYY --to DDMMYY`
+  (`DDMMYY` = day-month-year, 2-digit year). With no `--from`, it defaults to
+  "everything on `develop` not yet on `main`, up to today". Output is written to
+  `docs/historian/historian_<from>_to_<to>.md`.
+- **What it contains:** total lines added/removed/net (all files + Rust-only),
+  total tokens broken out (`in`/`out`/`cache_read`/`cache_write`/`total`), a
+  per-crate lines-added breakdown, and a per-commit ledger.
+- **Sources, not estimates.** Tokens come from the `API-Usage-Since-Last-Commit`
+  commit trailers (§ token accounting above); lines come from
+  `git log --numstat --no-merges` over the range. Commits predating the token
+  hooks legitimately show *no token data* — that is correct, not a gap.
+- **Commit the generated report alongside the `develop`→`main` merge**, so each
+  release carries its own accounting. Do not hand-edit the generated markdown.
+
 ## Issue tracking & roadmap — beads (mandatory when available)
 
 This workspace tracks issues and per-crate roadmap progress with **beads-rs**

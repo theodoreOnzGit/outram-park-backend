@@ -4,4 +4,5 @@ pub mod transport_csg;
 pub mod scatter;
 pub mod fission;
 pub mod keff;
+pub mod search;
 pub mod physics_mg;

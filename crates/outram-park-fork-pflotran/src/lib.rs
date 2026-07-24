@@ -61,6 +61,24 @@
 //! | [`kinetics`] | mineral kinetics | **working (verification-only)** — TST precipitation/dissolution on a foam ODE solver (bead op-v6s.12) |
 //! | [`reactive_transport`] | GIRT reactive transport | **working (verification-only)** — SNIA transport↔geochemistry coupling (bead op-v6s.12) |
 //! | [`multiphase`] | GENERAL multiphase flow | **working (verification-only)** — two-phase air–water on the block solver (bead op-v6s.13) |
+//! | [`general_mode`] | GENERAL air–water–energy | **working (verification-only)** — non-isothermal nb=3 (p_l, s_l, T) on the block solver; T couples back through ρ_l(T)/μ_l(T) (bead op-v6s.15.5) |
+//! | [`thermal_convection`] | two-way buoyancy TH | **working (verification-only)** — density-driven porous convection; conductive limit, Rayleigh formula, and Horton–Rogers–Lapwood onset across 4π² all verified via energy-row equilibration + adaptive sub-stepping (beads op-v6s.15.6, op-3tt) |
+//! | [`activity`] | aqueous activity models | **real** — Debye–Hückel / Davies coefficients (bead op-v6s.15.1) |
+//! | [`sorption`] | sorption + ion exchange | **real** — Kd/Langmuir/Freundlich isotherms + Gaines–Thomas exchange (bead op-v6s.15.2) |
+//! | [`surface_complexation`] | pH-dependent sorption | **real** — amphoteric protonation + metal binding with NEM/CCM/diffuse-layer electrostatics (bead op-gg7) |
+//! | [`decay`] | radioactive decay | **real** — Bateman decay chains + ingrowth (bead op-v6s.15.3) |
+//! | [`eos_real`] | real fluid EOS | **real** — IAPWS-IF97 liquid water via `tampines-steam-tables` (bead op-v6s.15.7) |
+//! | [`eos_co2_brine`] | CO2 + brine EOS | **real (approximate)** — Redlich–Kwong CO2 + Batzle–Wang NaCl brine density/viscosity (bead op-1y6) |
+//! | [`microbial`] | microbial reactions | **real** — Monod/dual-Monod biodegradation on a foam ODE solver (bead op-v6s.15.4) |
+//! | [`wells`] | wells + advanced BCs | **real** — Peaceman well index + hydrostatic/seepage/time-varying BCs (bead op-v6s.15.12) |
+//! | [`deck`] | real PFLOTRAN input deck | **real (subset)** — genuine PFLOTRAN keyword-block syntax, Fortran D-exponent floats (bead op-v6s.15.10) |
+//! | [`pitzer`] | high-ionic-strength activity | **real** — Pitzer ion-interaction virial model for brines (25 °C, binary salts) (bead op-s1h) |
+//! | [`unstructured`] | unstructured FV grid | **real** — polyhedral cell/face connectivity + two-point-flux (TPFA) transmissibility (bead op-v6s.15.8) |
+//!
+//! Modules op-v6s.15.1/.2/.3/.4/.7/.10/.12 above are standalone building blocks
+//! (upstream-parity gaps); the sorption/decay pieces are wired into
+//! [`transport`], while the others are self-contained and not yet wired into the
+//! flow/transport/geochemistry hot loops.
 //!
 //! ## Design rules (workspace mandate)
 //!
@@ -73,9 +91,15 @@
 //! - **Pure Rust, Android-safe.** No PETSc, no MPI, no system BLAS, no C/Fortran
 //!   toolchain in the library build.
 
+pub mod activity;
+pub mod deck;
 pub mod energy;
+pub mod decay;
+pub mod eos_co2_brine;
+pub mod eos_real;
 pub mod error;
 pub mod flow;
+pub mod general_mode;
 pub mod geochemistry;
 /// Optional wgpu GPU acceleration — compiled only off Android (the workspace GPU
 /// rule keeps GPU deps out of the Android library build); CPU is the trusted path.
@@ -84,12 +108,19 @@ pub mod gpu;
 pub mod grid;
 pub mod io;
 pub mod kinetics;
+pub mod microbial;
 pub mod multiphase;
+pub mod pitzer;
 pub mod properties;
 pub mod reactive_transport;
 pub mod solver;
+pub mod sorption;
+pub mod surface_complexation;
+pub mod thermal_convection;
 pub mod transport;
 pub mod units;
+pub mod unstructured;
+pub mod wells;
 
 pub use error::PflotranError;
 pub use flow::{FlowMode, RichardsSimulation};

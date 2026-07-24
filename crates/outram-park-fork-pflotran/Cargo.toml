@@ -31,6 +31,10 @@ thiserror.workspace = true
 # rather than translating OpenBLAS standalone. Both are pure Rust and Android-
 # clean (no system BLAS), so pflotran stays Android-buildable.
 outram-foam-basic-lib = { path = "../outram-foam-basic-lib" }
+# Real IAPWS-IF97 water properties for the eos_real module (op-v6s.15.7), reusing
+# the workspace steam-table crate instead of the simple correlations. Pure Rust
+# (BLAS only in its gated dev-deps), so pflotran stays Android-buildable.
+tampines-steam-tables = { path = "../tampines-steam-tables" }
 # Data-parallelism for the hot assembly / per-cell loops (bead op-v6s.14). Pure
 # Rust, Android-clean — parallelises the RICHARDS residual/Jacobian, the
 # multiphase block residual, and the reactive-transport per-cell speciation.

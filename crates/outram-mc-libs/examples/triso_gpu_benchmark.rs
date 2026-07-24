@@ -182,16 +182,34 @@ fn main() {
         lib.label()
     );
     let t_data = Instant::now();
-    let nuclides: Vec<Nuclide> = names
-        .iter()
-        .map(|name| {
-            let t = Instant::now();
-            let n = Nuclide::from_endf(lib, name, temp_k, 1.0e-3)
-                .unwrap_or_else(|e| panic!("reconstruct {name} from ENDF/B-VII.1: {e}"));
-            println!("  {name}: reconstructed in {:.1} s", t.elapsed().as_secs_f64());
-            n
-        })
-        .collect();
+    let mut nuclides: Vec<Nuclide> = Vec::with_capacity(names.len());
+    for name in names.iter() {
+        let t = Instant::now();
+        match Nuclide::from_endf(lib, name, temp_k, 1.0e-3) {
+            Ok(n) => {
+                println!("  {name}: reconstructed in {:.1} s", t.elapsed().as_secs_f64());
+                nuclides.push(n);
+            }
+            // Fail gracefully rather than panicking with a backtrace: the usual
+            // cause is no outbound network (offline / restrictive proxy). Print
+            // an honest explanation and point at the offline CORE-data twin, then
+            // exit non-zero cleanly.
+            Err(e) => {
+                eprintln!(
+                    "\ncould not obtain ENDF data for {name} from ENDF/B-VII.1: {e}\n\n\
+                     This HIGH-fidelity benchmark downloads the ENDF/B-VII.1 neutron tapes\n\
+                     from the IAEA Nuclear Data Services and reconstructs them on device\n\
+                     (RECONR + BROADR), so it needs outbound network access to\n\
+                     https://www-nds.iaea.org. If you are offline or behind a restrictive\n\
+                     proxy, run one of the offline CORE-data TRISO twins instead (embedded\n\
+                     WMP data, no network):\n  \
+                     cargo run --release -p outram-mc-libs --example triso_delta_tracking\n  \
+                     cargo run --release -p outram-mc-libs --example triso_stochastic_media"
+                );
+                std::process::exit(1);
+            }
+        }
+    }
     let data_secs = t_data.elapsed().as_secs_f64();
     println!("All four nuclides HIGH-fidelity ENDF/B-VII.1; data ready in {data_secs:.1} s.\n");
 
