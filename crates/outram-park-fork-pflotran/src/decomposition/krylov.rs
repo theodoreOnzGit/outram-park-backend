@@ -119,6 +119,62 @@ pub fn distributed_cg(
     Ok((x, iters))
 }
 
+/// Distributed conjugate gradient for an **arbitrary** SPD operator, given as a
+/// matvec closure `matvec(v) -> A v` that applies the distributed operator to this
+/// rank's slab (performing its own halo exchange). Starts from `x = 0`; returns
+/// this rank's solution slab and the iteration count.
+///
+/// This is the reusable core — [`distributed_cg`] is the shifted-Poisson
+/// specialisation, and [`super::operator::DiffusionOperator1D`] drives it with a
+/// real variable-coefficient operator. The generic parameter is a monomorphised
+/// closure, not a trait object, per the workspace design rules.
+///
+/// Convergence is on the global residual 2-norm (`sqrt(r·r) < tol`); the dot
+/// products are [`distributed_dot`]s so every rank agrees. Every rank must call
+/// this collectively with a matching `matvec`, `tol`, and `max_iter`.
+///
+/// # Errors
+/// Propagates any transport error from `matvec` or the reduced dot products.
+pub fn distributed_cg_with<F>(
+    comm: &Communicator,
+    b: &[f64],
+    matvec: F,
+    tol: f64,
+    max_iter: usize,
+) -> MpiResult<(Vec<f64>, usize)>
+where
+    F: Fn(&[f64]) -> MpiResult<Vec<f64>>,
+{
+    let n = b.len();
+    let mut x = vec![0.0; n];
+    let mut r = b.to_vec();
+    let mut p = r.clone();
+    let mut rs_old = distributed_dot(comm, &r, &r)?;
+    let mut iters = 0;
+    if rs_old.sqrt() < tol {
+        return Ok((x, 0));
+    }
+    for k in 0..max_iter {
+        iters = k + 1;
+        let ap = matvec(&p)?;
+        let alpha = rs_old / distributed_dot(comm, &p, &ap)?;
+        for i in 0..n {
+            x[i] += alpha * p[i];
+            r[i] -= alpha * ap[i];
+        }
+        let rs_new = distributed_dot(comm, &r, &r)?;
+        if rs_new.sqrt() < tol {
+            break;
+        }
+        let beta = rs_new / rs_old;
+        for i in 0..n {
+            p[i] = r[i] + beta * p[i];
+        }
+        rs_old = rs_new;
+    }
+    Ok((x, iters))
+}
+
 /// Serial reference: the same shifted-Poisson CG solved on one rank over the whole
 /// `n_global`-cell system, the correctness oracle for [`distributed_cg`].
 pub fn serial_cg(
