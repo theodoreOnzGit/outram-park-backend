@@ -41,7 +41,9 @@
 //! - **Stage 1 — Drift Flux** ([`drift_flux`]) — mixture continuity/momentum,
 //!   void-fraction transport, algebraic slip / drift-velocity closures
 //!   (Zuber-Findlay, terminal velocity, user-defined). Ref OpenFOAM
-//!   `incompressibleDriftFlux`. **In progress** (bead `op-2kk.1`).
+//!   `incompressibleDriftFlux`. Foundation done (bead `op-2kk.1`); the mixture
+//!   momentum + pressure coupling it deliberately leaves out is provided by
+//!   [`pimple`] (see below).
 //! - **Stage 2 — Euler-Euler two-fluid** ([`two_fluid`]) — per-phase
 //!   continuity + drag closures (Schiller-Naumann, Wen-Yu), 6-equation
 //!   architecture scaffolded. Ref OpenFOAM `multiphaseEuler`. Foundation done
@@ -53,9 +55,22 @@
 //! - **Stage 5 — Dryout / post-dryout framework** ([`dryout`]) — reserved
 //!   interfaces + Dougall-Rohsenow worked example. Foundation done (`op-2kk.5`).
 //!
-//! All Stage 2-5 modules are **unit-tested foundations, not validated solvers**
-//! (no full pressure coupling; benchmark validation is a later human step) —
-//! see each module's "Honest scope".
+//! ### Pressure-velocity coupling
+//!
+//! Two segregated PISO/PIMPLE loops close the momentum + pressure solve the
+//! drift-flux and two-fluid foundations deliberately leave out:
+//!
+//! - [`pimple`] — drift-flux **mixture** PISO/PIMPLE: a Rhie-Chow
+//!   pressure-correction loop on the single mixture-momentum field, advancing
+//!   `U_m`–`p`–`α` together.
+//! - [`two_fluid_pimple`] — **shared-pressure Euler-Euler** PISO: two per-phase
+//!   momentum predictors coupled through one mixture-continuity pressure
+//!   equation, advancing `U_d`–`U_c`–`p`–`α_d` together.
+//!
+//! All modules here are **unit-tested foundations, not validated solvers**
+//! (verification checks — hydrostatic balance, at-rest stability, boundedness —
+//! only; benchmark validation is a later human step) — see each module's
+//! "Honest scope".
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
