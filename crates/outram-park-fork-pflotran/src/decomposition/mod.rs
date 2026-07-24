@@ -32,6 +32,7 @@
 
 pub mod cartesian2d;
 pub mod krylov;
+pub mod ldu;
 pub mod operator;
 
 use outram_park_mpi::{Communicator, MpiResult};
