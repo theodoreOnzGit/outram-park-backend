@@ -54,4 +54,5 @@
 | 2026-07-24 | `efb8acd` | cfmesh: add polyhedral (median) dual — one cell per verte... | 5,250,656 | 87 | 93,137 | 5,095,585 | 61,847 |
 | 2026-07-24 | `e579dd7` | cfmesh: V&V — polyhedral dual bridges to a solvable foam ... | 2,974,882 | 39 | 10,976 | 2,937,002 | 26,865 |
 | 2026-07-24 | `3f5b374` | docs: refresh generated token-usage ledger | 891,335 | 10 | 3,133 | 884,930 | 3,262 |
-| **TOTAL** | | **41 commits** | **973,475,515** | **3,182** | **1,631,456** | **962,532,392** | **9,308,485** |
+| 2026-07-24 | `56eba24` | docs: refresh generated token-usage ledger (lag row) | 754,285 | 10 | 5,805 | 743,477 | 4,993 |
+| **TOTAL** | | **42 commits** | **974,229,800** | **3,192** | **1,637,261** | **963,275,869** | **9,313,478** |
