@@ -8,6 +8,11 @@ Cargo workspace for **OUTRAM PARK** — Open-source TRAnsient Multi-Phase Advanc
 
 A suite of Rust libraries for real-time thermal-hydraulics, reactor kinetics, steam-cycle thermodynamics, and compressible CFD simulation.
 
+> *"Best open-source nuclear simulator suite in Singapore, JB — and some say Batam!"* 🇸🇬
+> — with apologies to **Phua Chu Kang**. Said in fun, lah. For the real, sober
+> status, see the ⚠️ banner above: everything here is unverified until validated,
+> and **not** for facility operation.
+
 ## Crates
 
 The workspace has 22 member crates, grouped by domain below.
