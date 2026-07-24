@@ -801,8 +801,8 @@ impl ReactingTwoPhaseEulerFoam {
             };
             let yi = y[i].clone();
             let conv = fvc::div(&alpha_rho_phi, &yi);
-            let mut eqn = fvm::ddt_coeff(&alpha_rho, &yi, &y_old[i], dt)
-                + fvm::laplacian(&alpha_rho_d, &yi);
+            let mut eqn =
+                fvm::ddt_coeff(&alpha_rho, &yi, &y_old[i], dt) + fvm::laplacian(&alpha_rho_d, &yi);
             for c in 0..n {
                 let v = mesh.cell_volumes[c];
                 eqn.source[c] -= v * conv.internal[c];
@@ -886,9 +886,7 @@ impl ReactingTwoPhaseEulerFoam {
         // ── Conservative-transport coefficients ──────────────────────────────
         // ddt/convection mass weight  α_k ρ_k  [kg/m³]  (cellwise, floored).
         let alpha_rho: VolScalarField = {
-            let vals: Vec<f64> = (0..n)
-                .map(|c| alpha.internal[c].max(0.0) * rho)
-                .collect();
+            let vals: Vec<f64> = (0..n).map(|c| alpha.internal[c].max(0.0) * rho).collect();
             scalar_field("alphaRho", mesh.clone(), vals)
         };
         // Phase mass flux  α_k ρ_k (U_k·S_f)  [kg/s]  = interp(α_k ρ_k)·flux(U_k).
@@ -945,7 +943,11 @@ impl ReactingTwoPhaseEulerFoam {
         }
 
         let (he_new, perf) = eqn.solve(
-            if dispersed { "he.dispersed" } else { "he.continuous" },
+            if dispersed {
+                "he.dispersed"
+            } else {
+                "he.continuous"
+            },
             self.settings,
         );
         if !perf.final_residual.is_finite() {
@@ -1021,10 +1023,7 @@ impl ReactingTwoPhaseEulerFoam {
         let n = mesh.n_cells;
         let sys: &TwoFluidSystem = &self.hydro.system;
 
-        let d = sys
-            .dispersed
-            .diameter()
-            .get::<uom::si::length::meter>();
+        let d = sys.dispersed.diameter().get::<uom::si::length::meter>();
         let kappa_c = self.continuous_thermo.kappa;
         let cp_c = self.continuous_thermo.cp;
         let mu_c = sys
@@ -1119,10 +1118,11 @@ impl ReactingTwoPhaseEulerFoam {
         while self.time < end - 1.0e-12 {
             // Map any physical/solver failure to the diverged channel; the
             // MultiphaseError message is preserved via its Display in logs.
-            self.solve_timestep(dt).map_err(|_e| AppBuilderError::Diverged {
-                iter: 0,
-                residual: f64::NAN,
-            })?;
+            self.solve_timestep(dt)
+                .map_err(|_e| AppBuilderError::Diverged {
+                    iter: 0,
+                    residual: f64::NAN,
+                })?;
         }
         Ok(())
     }
@@ -1202,14 +1202,7 @@ mod tests {
         )
     }
 
-    fn phase(
-        m: &Arc<FvMesh>,
-        name: &str,
-        rho: f64,
-        mu: f64,
-        d: f64,
-        alpha0: f64,
-    ) -> Phase {
+    fn phase(m: &Arc<FvMesh>, name: &str, rho: f64, mu: f64, d: f64, alpha0: f64) -> Phase {
         Phase::new(
             m.clone(),
             name,
@@ -1242,7 +1235,10 @@ mod tests {
         assert!((nu - expect).abs() < 1e-12, "nu={nu} expect={expect}");
         // Spherical is the Re→0 limit.
         assert_eq!(InterfacialHeatTransfer::Spherical.nusselt(0.0, 0.7), 2.0);
-        assert_eq!(InterfacialHeatTransfer::ConstantNu(6.0).nusselt(50.0, 1.0), 6.0);
+        assert_eq!(
+            InterfacialHeatTransfer::ConstantNu(6.0).nusselt(50.0, 1.0),
+            6.0
+        );
     }
 
     /// Constructor rejects a mesh mismatch between hydro and thermal states.
@@ -1317,7 +1313,10 @@ mod tests {
         let tc = solver.continuous_thermo.mean_temperature();
         let e1 = w_d * td + w_c * tc;
 
-        assert!((td - tc).abs() < 1.0, "phases not equilibrated: Td={td} Tc={tc}");
+        assert!(
+            (td - tc).abs() < 1.0,
+            "phases not equilibrated: Td={td} Tc={tc}"
+        );
         assert!(
             (td - t_eq).abs() < 2.0 && (tc - t_eq).abs() < 2.0,
             "not at equilibrium Teq={t_eq}: Td={td} Tc={tc}"
@@ -1420,7 +1419,11 @@ mod tests {
         };
         let expect = alpha_d0 - m_dot * dt * steps as f64 / rho_d;
         assert!((ad - expect).abs() < 1e-9, "alpha_d off: {ad} vs {expect}");
-        assert!((ad + ac - 1.0).abs() < 1e-12, "saturation broken: {}", ad + ac);
+        assert!(
+            (ad + ac - 1.0).abs() < 1e-12,
+            "saturation broken: {}",
+            ad + ac
+        );
     }
 
     /// Helper: a single-phase continuous gas carrying an N-species composition
@@ -1514,14 +1517,23 @@ mod tests {
         let gas_t1 = solver.continuous_thermo.mean_temperature();
         let part_t1 = solver.dispersed_thermo.mean_temperature();
 
-        assert!(fuel1 < fuel0 - 1e-4, "fuel not consumed: {fuel0} -> {fuel1}");
+        assert!(
+            fuel1 < fuel0 - 1e-4,
+            "fuel not consumed: {fuel0} -> {fuel1}"
+        );
         assert!(prod1 > 0.2 + 1e-4, "product not formed: {prod1}");
         for c in 0..m.n_cells {
             let sum: f64 = sp.y.iter().map(|y| y.internal[c]).sum();
             assert!((sum - 1.0).abs() < 1e-9, "sum Y != 1: {sum}");
         }
-        assert!(gas_t1 > gas_t0 + 1.0, "gas did not heat: {gas_t0} -> {gas_t1}");
+        assert!(
+            gas_t1 > gas_t0 + 1.0,
+            "gas did not heat: {gas_t0} -> {gas_t1}"
+        );
         // Particulate phase carries no composition and K=0 → untouched.
-        assert!((part_t1 - part_t0).abs() < 1e-2, "inert phase heated: {part_t0} -> {part_t1}");
+        assert!(
+            (part_t1 - part_t0).abs() < 1e-2,
+            "inert phase heated: {part_t0} -> {part_t1}"
+        );
     }
 }

@@ -39,9 +39,7 @@ use outram_foam_appbuilder_lib::prelude::{
     InterfacialHeatTransfer, PhaseSelector, PhaseSpecies, PhaseThermo, ReactingTwoPhaseEulerFoam,
     ReactionMechanism,
 };
-use outram_foam_basic_lib::prelude::{
-    BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind, Vector3,
-};
+use outram_foam_basic_lib::prelude::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind, Vector3};
 use outram_foam_multiphase::two_fluid::{DragModel, Phase, TwoFluidSystem};
 use outram_foam_multiphase::two_fluid_pimple::TwoFluidPimple;
 use std::sync::Arc;
@@ -206,7 +204,5 @@ fn main() {
          a 1400 K split toward a common value.",
         100.0 * (0.8 - sp.mean_mass_fraction(0)) / 0.8
     );
-    println!(
-        "(Verification demo only — these numbers are not validated against any benchmark.)"
-    );
+    println!("(Verification demo only — these numbers are not validated against any benchmark.)");
 }

@@ -26,6 +26,12 @@ pub mod error { /* ... */ }
 
 #### Enum `AppBuilderError`
 
+Errors returned by this crate's case I/O and solver-loop entry points.
+
+Every fallible public function in `outram-foam-appbuilder-lib` reports
+through this single enum, so a caller matches one error type across mesh/
+dictionary parsing and the time-advancement loops.
+
 ```rust
 pub enum AppBuilderError {
     Io {
@@ -55,6 +61,9 @@ pub enum AppBuilderError {
 
 ###### `Io`
 
+An OS-level I/O failure while reading a case file; `path` is the file
+that could not be read and `source` is the underlying [`std::io::Error`].
+
 Fields:
 
 | Name | Type | Documentation |
@@ -63,6 +72,10 @@ Fields:
 | `source` | `std::io::Error` |  |
 
 ###### `Parse`
+
+A syntactic error in an OpenFOAM dictionary or field file. `file` and
+`line` locate the offending token (1-based line number) and `msg`
+describes what was expected.
 
 Fields:
 
@@ -74,6 +87,9 @@ Fields:
 
 ###### `MissingKey`
 
+A required dictionary entry was absent: `key` is the missing keyword and
+`dict` names the dictionary (e.g. `controlDict`) it was expected in.
+
 Fields:
 
 | Name | Type | Documentation |
@@ -83,6 +99,9 @@ Fields:
 
 ###### `Diverged`
 
+The linear/nonlinear solve failed to converge: `iter` iterations were
+taken and `residual` is the (dimensionless) residual reached at bail-out.
+
 Fields:
 
 | Name | Type | Documentation |
@@ -91,6 +110,9 @@ Fields:
 | `residual` | `f64` |  |
 
 ###### `TimeLimitReached`
+
+The time loop reached its configured end time `t` (seconds). Returned as
+a normal stop signal, not a physics failure.
 
 Fields:
 
@@ -203,12 +225,24 @@ dictionaries. It does **not** depend on `njoy-outram-park-fork` or
 
 This is an incremental, multi-session port. See
 `docs/genfoam-port-plan.md` for the full module map and translation order.
-Currently implemented:
+Each submodule's own `//!` header states its precise status; in summary:
 
-- [`neutronics::point_kinetics`] — the 0-D point-kinetics ODE core.
+- [`neutronics`] — point-kinetics (0-D), multigroup diffusion, SP3, and S_N
+  discrete-ordinates eigenvalue/transient solvers are implemented, along
+  with the shared cross-section ([`neutronics::xs`]) and flux/power
+  ([`neutronics::state`]) data structures.
+- [`thermo_mechanics`] — the linear-elastic thermal-stress constitutive core
+  and the full displacement/heat field solve on the mechanics mesh are
+  implemented.
+- [`multi_region`] — the mesh-to-mesh mapping, coupling-field registry, and
+  the tightly-coupled Picard outer iteration are implemented (with some
+  scaffolded gaps noted in that module's header).
+- [`thermal_hydraulics`] — partially ported: the `uom` unit aliases and the
+  fluid-structure drag closure carry real physics; the phase/structure
+  state, solver drivers, and remaining closures are documented scaffolds.
+  See that module's header for the per-sub-module breakdown.
 
-Everything else (XS data structures, diffusion/SP3/SN, multi-region coupling,
-thermal-hydraulics, thermo-mechanics) is planned but not yet translated.
+The generic FV building blocks ([`common`]) round out the subtree.
 
 ```rust
 pub mod genfoam { /* ... */ }
@@ -4957,8 +4991,11 @@ a model forces every `match` site to handle it.
 - [`point_kinetics`] — 0-D point-kinetics (implemented).
 - [`diffusion`] — multigroup neutron diffusion, k-eigenvalue + transient
   (implemented).
-- [`sp3`], [`sn`] — higher-order transport (documented scaffolds; see the
-  `neutronics` epic in beads).
+- [`sp3`] — simplified-P3 transport, eigenvalue + transient (implemented).
+- [`sn`] — discrete-ordinates (S_N) transport, eigenvalue + transient
+  (implemented). Each model also exposes a lightweight state-only
+  constructor (`::new`) — described in its header as a "scaffold" — that
+  allocates flux state without cross sections.
 - [`state`] — the shared spatial flux / power / precursor / power-density
   state that the spatial models read and write.
 - [`xs`] — the multigroup cross-section (`XS`) data structures.
@@ -23743,6 +23780,19 @@ pub use stress::von_mises_stress;
 ## Module `io`
 
 input and output
+# `io` — OpenFOAM case input/output
+
+Purpose-built Rust parsers and writers for the OpenFOAM ASCII case files, so
+a case can be read into typed structs (invalid keys become `Result` errors,
+not silent runtime fallbacks) and results written back out. No C++/FFI is
+used — see `poly_mesh`'s header for the rationale.
+
+- [`control_dict`] — `system/controlDict` (time control, write control).
+- [`fv_schemes`] — `system/fvSchemes` (ddt/grad/div/laplacian scheme choices).
+- [`fv_solution`] — `system/fvSolution` (linear-solver + PIMPLE controls).
+- [`poly_mesh`] — `constant/polyMesh` reader (points/faces/owner/neighbour).
+- [`field_reader`] — `0/<field>` internal-field readers (scalar and vector).
+- [`output`] — OpenFOAM-ASCII / VTK field writers (currently unimplemented).
 
 ```rust
 pub mod io { /* ... */ }
@@ -23751,6 +23801,11 @@ pub mod io { /* ... */ }
 ### Modules
 
 ## Module `control_dict`
+
+Parser for OpenFOAM's `system/controlDict` — the time-loop and output
+control dictionary. Produces the typed [`ControlDict`] with enum-valued
+start/stop/write controls, so an invalid keyword is a `Result` error rather
+than a silent runtime default.
 
 ```rust
 pub mod control_dict { /* ... */ }
@@ -24372,6 +24427,11 @@ pub fn read_vol_vector_field_full(path: &std::path::Path, mesh: &std::sync::Arc<
 ```
 
 ## Module `fv_schemes`
+
+Parser for OpenFOAM's `system/fvSchemes` — the per-operator numerical scheme
+selection dictionary. Each scheme family (ddt, grad, div, laplacian, snGrad,
+interpolation) is a typed enum on [`FvSchemes`], so rust-analyzer surfaces
+every valid option on hover and an unknown scheme is a `Result` error.
 
 ```rust
 pub mod fv_schemes { /* ... */ }
@@ -25136,6 +25196,11 @@ Fields:
 - **UnwindSafe**
 ## Module `fv_solution`
 
+Parser for OpenFOAM's `system/fvSolution` — the linear-solver, PIMPLE/PISO
+outer-loop, and under-relaxation control dictionary. Produces the typed
+[`FvSolution`], with per-field [`LinearSolverConfig`] and the
+[`PimpleControl`] loop parameters.
+
 ```rust
 pub mod fv_solution { /* ... */ }
 ```
@@ -25578,6 +25643,13 @@ pub struct PimpleControl {
 - **UnwindSafe**
 ## Module `output`
 
+Writers for simulation results — OpenFOAM ASCII field files and legacy VTK
+for ParaView.
+
+**Status: all writers in this module are unimplemented scaffolds
+(`todo!`)** — the signatures and intended file layouts are fixed, but
+calling any of them currently panics.
+
 ```rust
 pub mod output { /* ... */ }
 ```
@@ -25588,7 +25660,8 @@ pub mod output { /* ... */ }
 
 Write a scalar field to `<time_dir>/<field_name>` in OpenFOAM ASCII format.
 
-The output follows the standard OpenFOAM field file layout:
+**Not yet implemented — calling this panics (`todo!`).** The intended output
+follows the standard OpenFOAM field file layout:
 ```text
 FoamFile { version 2.0; format ascii; class volScalarField; object p; }
 dimensions [kg m-1 s-2];
@@ -25604,6 +25677,8 @@ pub fn write_scalar_field(time_dir: &std::path::Path, field: &outram_foam_basic_
 
 Write a vector field to `<time_dir>/<field_name>` in OpenFOAM ASCII format.
 
+**Not yet implemented — calling this panics (`todo!`).**
+
 ```rust
 pub fn write_vector_field(time_dir: &std::path::Path, field: &outram_foam_basic_lib::prelude::VolVectorField, dimensions: &str) -> Result<(), crate::error::AppBuilderError> { /* ... */ }
 ```
@@ -25612,7 +25687,8 @@ pub fn write_vector_field(time_dir: &std::path::Path, field: &outram_foam_basic_
 
 Write a legacy VTK unstructured grid file for ParaView.
 
-Includes mesh geometry and all provided scalar fields.
+**Not yet implemented — calling this panics (`todo!`).** When implemented it
+will include mesh geometry and all provided scalar fields.
 
 ```rust
 pub fn write_vtk(out_path: &std::path::Path, mesh_points: &[[f64; 3]], scalar_fields: &[(&str, &outram_foam_basic_lib::prelude::VolScalarField)]) -> Result<(), crate::error::AppBuilderError> { /* ... */ }
@@ -26012,6 +26088,25 @@ pub use crate::solvers::sonic_foam::SonicFoam;
 ## Module `solvers`
 
 your solvers are here!
+# `solvers` — Layer-5 OpenFOAM solver-application ports
+
+Each submodule is a self-contained Rust port of one OpenFOAM solver
+application: it owns its time-advancement loop, assembles and solves the
+governing equations each step, and enforces boundary conditions through
+[`outram_foam_basic_lib`]'s `FvMesh`/`FvPatch` (never re-implementing BC
+logic — see `bc_util`).
+
+| Submodule | Ports | Regime |
+|---|---|---|
+| [`pimple_foam`] | pimpleFoam | Incompressible transient PIMPLE |
+| [`rho_pimple_foam`] | rhoPimpleFoam | Compressible transient PIMPLE |
+| [`sonic_foam`] | sonicFoam | Transonic/supersonic compressible |
+| [`rho_central_foam`] | rhoCentralFoam | Density-based central-upwind (Kurganov-Tadmor) |
+| [`hrm_foam`] | HRMFoam | Homogeneous relaxation two-phase flashing flow |
+| [`reacting_two_phase_euler_foam`] | reactingTwoPhaseEulerFoam | Two-fluid Euler-Euler with reacting mass/heat transfer |
+
+`bc_util` is a crate-internal helper for capturing and re-applying patch
+boundary conditions around a field solve.
 
 ```rust
 pub mod solvers { /* ... */ }
@@ -26020,6 +26115,18 @@ pub mod solvers { /* ... */ }
 ### Modules
 
 ## Module `hrm_foam`
+
+# `hrm_foam` — Homogeneous Relaxation Model solver (HRMFoam)
+
+Rust port of the HRMFoam flashing-flow solver: a compressible two-phase model
+in which the vapour mass fraction relaxes toward its equilibrium value over a
+finite relaxation time θ, using the Downar-Zapolski (1996) correlation. Used
+for rapid depressurisation / flashing (e.g. blowdown) where mechanical
+equilibrium holds but thermodynamic equilibrium lags.
+
+The model constants ([`THETA_0`], [`DZ_A`], [`DZ_B`]) and their runtime
+overrides ([`HrmModelConfig`]) are defined here; [`HrmFoam`] owns the time
+loop.
 
 ```rust
 pub mod hrm_foam { /* ... */ }
@@ -27725,6 +27832,14 @@ pub fn build_default(system: outram_foam_multiphase::two_fluid::TwoFluidSystem, 
 
 ## Module `rho_central_foam`
 
+# `rho_central_foam` — density-based compressible solver (rhoCentralFoam)
+
+Rust port of rhoCentralFoam: a density-based, explicit compressible solver
+using the Kurganov-Noelle-Petrova (KNP) central-upwind flux with 2nd-order
+van Leer MUSCL reconstruction. It advances the conserved compressible fields
+(ρ, ρU, ρE) and is well suited to shock-dominated high-speed flow (the Sod
+shock-tube validation case exercises this solver). See [`RhoCentralFoam`].
+
 ```rust
 pub mod rho_central_foam { /* ... */ }
 ```
@@ -27853,6 +27968,14 @@ pub struct RhoCentralFoam {
 - **UnwindSafe**
 ## Module `rho_pimple_foam`
 
+# `rho_pimple_foam` — compressible transient PIMPLE solver (rhoPimpleFoam)
+
+Rust port of rhoPimpleFoam: the compressible counterpart of pimpleFoam,
+solving continuity, momentum, and (enthalpy-form) energy with a
+compressibility-consistent pressure equation. Suited to subsonic compressible
+transient flow. See [`RhoPimpleFoam`] for the governing equations and time
+loop; a companion stability primer lives in this module's `docs/`.
+
 ```rust
 pub mod rho_pimple_foam { /* ... */ }
 ```
@@ -27975,6 +28098,13 @@ pub struct RhoPimpleFoam {
 - **UnsafeUnpin**
 - **UnwindSafe**
 ## Module `sonic_foam`
+
+# `sonic_foam` — transonic/supersonic compressible solver (sonicFoam)
+
+Rust port of sonicFoam: a pressure-based compressible solver for trans- and
+supersonic flow of a single-phase gas, using the compressibility ψ = ρ/p as
+the primary thermodynamic closure. See [`SonicFoam`] for the pressure
+equation and the current explicit-convection limitation.
 
 ```rust
 pub mod sonic_foam { /* ... */ }

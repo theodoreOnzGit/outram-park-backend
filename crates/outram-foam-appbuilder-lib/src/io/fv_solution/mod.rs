@@ -19,6 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Parser for OpenFOAM's `system/fvSolution` — the linear-solver, PIMPLE/PISO
+//! outer-loop, and under-relaxation control dictionary. Produces the typed
+//! [`FvSolution`], with per-field [`LinearSolverConfig`] and the
+//! [`PimpleControl`] loop parameters.
+
 use crate::error::AppBuilderError;
 use std::collections::HashMap;
 use std::path::Path;

@@ -19,13 +19,21 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Writers for simulation results — OpenFOAM ASCII field files and legacy VTK
+//! for ParaView.
+//!
+//! **Status: all writers in this module are unimplemented scaffolds
+//! (`todo!`)** — the signatures and intended file layouts are fixed, but
+//! calling any of them currently panics.
+
 use crate::error::AppBuilderError;
 use outram_foam_basic_lib::prelude::{VolScalarField, VolVectorField};
 use std::path::Path;
 
 /// Write a scalar field to `<time_dir>/<field_name>` in OpenFOAM ASCII format.
 ///
-/// The output follows the standard OpenFOAM field file layout:
+/// **Not yet implemented — calling this panics (`todo!`).** The intended output
+/// follows the standard OpenFOAM field file layout:
 /// ```text
 /// FoamFile { version 2.0; format ascii; class volScalarField; object p; }
 /// dimensions [kg m-1 s-2];
@@ -42,6 +50,8 @@ pub fn write_scalar_field(
 }
 
 /// Write a vector field to `<time_dir>/<field_name>` in OpenFOAM ASCII format.
+///
+/// **Not yet implemented — calling this panics (`todo!`).**
 pub fn write_vector_field(
     time_dir: &Path,
     field: &VolVectorField,
@@ -53,7 +63,8 @@ pub fn write_vector_field(
 
 /// Write a legacy VTK unstructured grid file for ParaView.
 ///
-/// Includes mesh geometry and all provided scalar fields.
+/// **Not yet implemented — calling this panics (`todo!`).** When implemented it
+/// will include mesh geometry and all provided scalar fields.
 pub fn write_vtk(
     out_path: &Path,
     mesh_points: &[[f64; 3]],
