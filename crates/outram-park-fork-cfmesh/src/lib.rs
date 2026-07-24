@@ -50,11 +50,18 @@
 //!
 //! ## Status
 //!
-//! **Scaffold** — the crate is registered and license-clean but nothing is
-//! implemented yet. The roadmap and its ordering live in beads under the
-//! `op-hzs` epic (`op-hzs.32` tet generation → `op-hzs.33` polyhedral dual →
-//! `op-hzs.34` boundary layers → `op-hzs.35` volume polyMesh export). First
-//! milestone: a valid conforming tet mesh of a cube exported to a `PolyMesh`.
+//! **Milestone 1 — the volume-mesh core + a Cartesian block mesher.** The
+//! [`volume_mesh::VolumeMesh`] data structure (points + faces + owner/neighbour
+//! + patches, mirroring cfMesh's `polyMeshGen` and OpenFOAM's `polyMesh`) is in
+//! place, and [`cartesian::cartesian_box`] fills an axis-aligned box with a
+//! regular hex grid — the un-refined background the cfMesh `cartesianMesh`
+//! workflow builds on, and a complete valid `VolumeMesh` in its own right
+//! (verified: exact volume, closed cells, outward boundary normals).
+//!
+//! The remaining roadmap lives in beads under the `op-hzs` epic: octree
+//! refinement + surface carving of this Cartesian base, the polyhedral dual
+//! (`op-hzs.33`, voro++ reference), boundary layers (`op-hzs.34`), and the
+//! volume-`PolyMesh` bridge to `outram-foam-basic-lib` (`op-hzs.35`).
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
@@ -69,4 +76,6 @@
 //! > `RESPONSIBLE_USE.md`. For education / research / V&V only; not for reactor
 //! > operation, licensing, or safety-critical decisions.
 
-// Scaffold: no public items yet. Modules land per the op-hzs roadmap beads.
+pub mod cartesian;
+pub mod math;
+pub mod volume_mesh;

@@ -63,15 +63,21 @@ re-implemented in Rust, not transcribed verbatim from C++.
 
 ## Status
 
-**Scaffold** — registered and licence-clean, nothing implemented yet. The
-roadmap and its ordering live in **beads** under the `op-hzs` epic:
+**Milestone 1 — volume-mesh core + Cartesian block mesher (landed).** The
+`VolumeMesh` data structure (points + faces + owner/neighbour + boundary
+patches, mirroring cfMesh `polyMeshGen` / OpenFOAM `polyMesh`) and
+`cartesian::cartesian_box(min, max, [nx,ny,nz])` — a regular hex grid of an
+axis-aligned box — are implemented and verified (exact volume, closed cells via
+the discrete-Gauss check, outward boundary normals). This is the un-refined
+Cartesian background the cfMesh `cartesianMesh` workflow builds on.
 
-1. `op-hzs.32` — constrained/conforming **tetrahedralization** (foundation)
-2. `op-hzs.33` — **polyhedral dual** (`polyDualMesh`-style, voro++ reference)
-3. `op-hzs.34` — **wall boundary / prism layers**
-4. `op-hzs.35` — **volume polyMesh export** (real cells) → `outram-foam` `FvMesh`
+Remaining roadmap (beads under the `op-hzs` epic):
 
-First milestone: a valid conforming tet mesh of a cube exported to a `PolyMesh`.
+1. `op-hzs.40` — **core `VolumeMesh` + Cartesian block mesher** ✅ (milestone 1)
+2. octree refinement + **surface carving** of the Cartesian base (body-fitting)
+3. `op-hzs.33` — **polyhedral dual** (`polyDualMesh`-style, voro++ reference)
+4. `op-hzs.34` — **wall boundary / prism layers**
+5. `op-hzs.35` — **volume polyMesh bridge** to `outram-foam-basic-lib` `PolyMesh`
 
 ## Design rules (workspace `CLAUDE.md`)
 
