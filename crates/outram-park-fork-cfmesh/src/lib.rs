@@ -94,6 +94,7 @@ pub mod cartesian;
 pub mod carve;
 pub mod checks;
 pub mod math;
+pub mod reactor;
 pub mod shapes;
 pub mod snap;
 pub mod volume_mesh;
