@@ -72,6 +72,11 @@
 //!   non-orthogonality, skewness, cell aspect ratio, min face area / cell
 //!   volume, and negative-volume cells (cfMesh `polyMeshGenChecks`) — the gate
 //!   for trusting a generated mesh before it is solved.
+//! - **Octree near-wall refinement.** [`octree::refine_near_boundary`] grades
+//!   the mesh finer next to the surface, splitting each coarse transition
+//!   face into its four fine sub-faces (hanging nodes) so the coarse cell
+//!   becomes a genuine **polyhedron** — the mesh stays conforming (verified:
+//!   exact volume, closed cells, > 6-face transition cells).
 //!
 //! Next on the `op-hzs` roadmap: octree refinement near the surface, the
 //! polyhedral dual (`op-hzs.33`, voro++ reference), and boundary layers
@@ -94,6 +99,8 @@ pub mod cartesian;
 pub mod carve;
 pub mod checks;
 pub mod math;
+pub mod octree;
+pub mod reactor;
 pub mod shapes;
 pub mod snap;
 pub mod volume_mesh;

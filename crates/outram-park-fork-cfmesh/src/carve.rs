@@ -157,6 +157,22 @@ pub fn carve_region(
     })
 }
 
+/// Ergonomic wrapper over [`carve_region`] taking **owned** triangle-soup
+/// surfaces: carve the coolant region inside `domain` but outside every surface
+/// in `holes`. Equivalent to `carve_region`, without the caller having to
+/// re-borrow each soup as slices.
+///
+/// `domain` and each `hole` are `(points, triangles)` pairs (e.g. from
+/// [`crate::shapes`] or [`crate::reactor`]).
+pub fn carve_around(
+    domain: &(Vec<Vec3>, Vec<[usize; 3]>),
+    holes: &[(Vec<Vec3>, Vec<[usize; 3]>)],
+    cell_size: f64,
+) -> VolumeMesh {
+    let refs: Vec<(&[Vec3], &[[usize; 3]])> = holes.iter().map(|(p, t)| (&p[..], &t[..])).collect();
+    carve_region(&domain.0, &domain.1, &refs, cell_size)
+}
+
 // ---------------------------------------------------------------------------
 // Shared pipeline: grid → classify → assemble
 // ---------------------------------------------------------------------------
