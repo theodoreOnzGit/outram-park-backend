@@ -143,9 +143,15 @@ carry an API-token-usage trailer, and a per-commit token ledger is kept at
 the Claude/API tokens spent producing each commit. It is automated by two git
 hooks so it cannot be forgotten:
 
-- **`scripts/token_accounting.py`** reads the Claude Code session transcripts
-  (`~/.claude/projects/<slug>/*.jsonl` — the same data `ccusage` reads) and
-  attributes the **token delta since the previous commit** to each new commit.
+- **`docs/historian/token_usage.py`** is the single source for token accounting —
+  it does **both** the write side and the query side. On the write side it reads
+  the Claude Code session transcripts (`~/.claude/projects/<slug>/*.jsonl` — the
+  same data `ccusage` reads) and attributes the **token delta since the previous
+  commit** to each new commit. On the query side,
+  `python3 docs/historian/token_usage.py query --from DDMMYY --to DDMMYY
+  [--branch develop] [--per-commit] [--json]` sums the token usage **recorded in
+  the git commit trailers** over any time period (reads the durable git record,
+  not the live transcript).
 - **`.githooks/prepare-commit-msg`** stamps the commit message with an
   `API-Usage-Since-Last-Commit:` trailer (`total`, `in`, `out`, `cache_read`,
   `cache_write`, `source`) plus an `API-Usage-Session-Cumulative:` line. It is
@@ -168,9 +174,9 @@ hooks so it cannot be forgotten:
   hooks and script are version-controlled, so they travel with the repo.
 - **`docs/token-usage.md` is generated — never hand-edit it.** It lags the tip by
   at most one commit (the `post-commit` regen leaves it staged for the next
-  commit); rebuild any time with `python3 scripts/token_accounting.py report`.
+  commit); rebuild any time with `python3 docs/historian/token_usage.py report`.
 - **New repositories added to a session here inherit this rule** — copy
-  `scripts/token_accounting.py` + `.githooks/` + `scripts/install-token-hooks.sh`
+  `docs/historian/token_usage.py` + `.githooks/` + `scripts/install-token-hooks.sh`
   in and run the installer as part of onboarding that repo.
 - This does **not** relax the never-auto-commit/push rule above: the hooks only
   act *when a commit the user asked for is being made*; they never initiate one.
