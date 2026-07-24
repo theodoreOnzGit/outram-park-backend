@@ -29,4 +29,5 @@
 | 2026-07-24 | `46b4ccf` | outram-mc: port Torus{X,Y,Z} CSG surfaces — completes the... | 40,092,252 | 115 | 71,203 | 39,909,015 | 111,919 |
 | 2026-07-24 | `f10a000` | outram-mc: HexLattice 3-D axial rings + X-orientation rou... | 8,028,654 | 21 | 12,114 | 8,002,461 | 14,058 |
 | 2026-07-24 | `9f67449` | outram-mc: add the lattice/ dir files (complete f10a000) | 6,064,023 | 18 | 11,721 | 6,039,420 | 12,864 |
-| **TOTAL** | | **16 commits** | **321,063,507** | **1,106** | **699,091** | **314,029,543** | **6,333,767** |
+| 2026-07-24 | `d3f0275` | njoy + outram-mc: make ratatui unconditional — TUI bins a... | 32,670,485 | 83 | 42,593 | 31,176,851 | 1,450,958 |
+| **TOTAL** | | **17 commits** | **353,733,992** | **1,189** | **741,684** | **345,206,394** | **7,784,725** |
