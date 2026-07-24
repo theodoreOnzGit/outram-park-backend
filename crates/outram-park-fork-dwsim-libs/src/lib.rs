@@ -27,6 +27,7 @@ pub mod interpolation;
 pub mod mixer;
 pub mod pipe;
 pub mod pump;
+pub mod separator;
 pub mod splitter;
 pub mod thermo;
 pub mod valve;

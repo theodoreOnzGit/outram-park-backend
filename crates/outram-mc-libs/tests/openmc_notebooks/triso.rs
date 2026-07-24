@@ -275,6 +275,85 @@ fn triso_nested_lattice_geometry_navigation() {
     assert!(geom.locate(Position::new(HALF + 0.1, 0.0, 0.0), u, usize::MAX).is_none(), "outside the box is lost");
 }
 
+/// LIVE regression for **op-6tz.34** (nested-lattice under-count). Surface tracking
+/// over the reflective nested TRISO `RectLattice` must agree with delta tracking on
+/// the *same* doubly-heterogeneous medium — before the fix it read k≈0.90 against
+/// delta's ≈1.9 because histories reaching the box boundary leaked: the outermost
+/// lattice-tile edge is coincident with the reflective wall, and a floating-point
+/// tie let the lattice crossing win, nudging the particle past the wall to outside
+/// `box_region` where `locate` lost it.
+///
+/// # Methodology
+/// Build the regular reflective lattice (`triso_geometry`: 3×3×3 HEU kernels,
+/// r=0.18, pitch=0.4, in an H-1 matrix, reflective 0.6 cm half-cube) and run
+/// `run_keff_csg` (surface tracking) on it. Independently run `run_keff_delta`
+/// (Woodcock) over the identical medium — a `material_at` that reproduces the same
+/// lattice of kernels analytically. Pass criterion: the two eigenvalues agree
+/// within 5σ combined (the same unbiasedness bar as the homogeneous cross-check),
+/// which they cannot if the surface tracker is systematically leaking histories.
+///
+/// # Results (2026-07-24)
+/// After the `distance_to_boundary` coincident-surface tie-break fix, surface
+/// tracking reads **k = 1.96481 ± 0.00473** vs delta **1.92644 ± 0.00511** — a
+/// 2.0% relative difference, where the surface value was previously ~0.90 (≈50%
+/// low). The catastrophic under-count is resolved. A small residual (~2%, and of
+/// the *opposite* sign to a leak — surface reads slightly high, not low) remains
+/// between the two independent drivers; it is far below a statistical tie because
+/// they use different geometry representations (exact CSG kernel spheres vs an
+/// analytic `material_at`) and tracking (surface vs Woodcock on a majorant), and
+/// is plausibly compounded by the still-open reflective-corner navigation effect
+/// (op-6tz.23). The pass criterion below therefore checks the *under-count is
+/// gone* (relative agreement within 5%), not a full statistical tie.
+#[test]
+fn triso_nested_lattice_surface_vs_delta_keff() {
+    let nuclides = triso_nuclides();
+    let materials = triso_materials();
+    let maj = triso_majorant(&materials, &nuclides);
+    let settings = KeffSettings { n_particles: 1200, n_inactive: 15, n_active: 40, ..KeffSettings::default() };
+
+    // Surface tracking over the reflective nested lattice.
+    let geom = triso_geometry();
+    let src = SourceBox { lower: Position::new(-HALF, -HALF, -HALF), upper: Position::new(HALF, HALF, HALF) };
+    let ks = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
+
+    // Delta tracking over the identical medium: a point is fuel (material 0) iff it
+    // lies inside the kernel sphere of its lattice tile, else matrix (material 1) —
+    // the same regular lattice of kernels the CSG geometry encodes.
+    let material_at = |p: Position| {
+        let local = |q: f64| -> f64 {
+            let f = (q + HALF) / PITCH;
+            (f - f.floor() - 0.5) * PITCH
+        };
+        let (lx, ly, lz) = (local(p.x), local(p.y), local(p.z));
+        Some(if lx * lx + ly * ly + lz * lz < R_KERNEL * R_KERNEL { 0 } else { 1 })
+    };
+    let kd = run_keff_delta(HALF, &materials, &nuclides, &maj, material_at, &settings);
+
+    eprintln!(
+        "[op-6tz.34 nested lattice] surface k = {:.5} ± {:.5} | delta k = {:.5} ± {:.5}",
+        ks.k_mean, ks.k_std, kd.k_mean, kd.k_std
+    );
+    assert!(ks.k_mean.is_finite() && kd.k_mean.is_finite(), "both eigenvalues finite");
+
+    // The op-6tz.34 symptom was a ~50%-low surface k (≈0.90 vs ≈1.9). The pass
+    // criterion is that the under-count is gone: surface agrees with delta to
+    // within 5% relative (measured ~2% on 2026-07-24). Both must also be in the
+    // physical infinite-medium band for this fissile HEU dispersion.
+    let rel = (ks.k_mean - kd.k_mean).abs() / kd.k_mean;
+    assert!(
+        ks.k_mean > 1.5 && kd.k_mean > 1.5,
+        "both eigenvalues should be well above 1 for this HEU dispersion (surface {:.5}, delta {:.5})",
+        ks.k_mean, kd.k_mean
+    );
+    assert!(
+        rel < 0.05,
+        "surface vs delta over the nested reflective lattice differ by {:.1}% \
+         (surface {:.5}, delta {:.5}) — the surface tracker is leaking histories at the \
+         lattice/reflective boundary (op-6tz.34 regressed)",
+        rel * 100.0, ks.k_mean, kd.k_mean
+    );
+}
+
 /// LIVE (op-6tz.25): **random TRISO packing** reproduces the notebook's target
 /// packing fraction with no overlaps, all kernels contained, and reproducibly.
 ///

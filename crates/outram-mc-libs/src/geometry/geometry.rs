@@ -200,7 +200,22 @@ impl Geometry {
 
             if let Some(l_idx) = coord.lattice {
                 let (d_lat, _trans) = self.lattices[l_idx].distance(coord.r, coord.u, coord.lattice_index);
-                if d_lat < best.distance * (1.0 - FP_REL) {
+                // Root-cause fix for op-6tz.34 (nested-lattice under-count). When a
+                // lattice fills its enclosing cell exactly, the outermost tile edge
+                // is coincident with the cell's bounding (reflective) surface. If
+                // floating-point rounding lets the lattice edge win this tie, the
+                // transport loop nudges the particle a hair PAST the tile edge —
+                // which is also past the reflective wall — so it lands outside the
+                // model region and `locate` leaks it, systematically under-counting
+                // histories. A bounding surface is the harder boundary: require a
+                // lattice crossing to beat the current best by a small ABSOLUTE
+                // margin when the best is a coincident Surface, so the wall wins the
+                // tie and the particle reflects instead of leaking. A genuine
+                // interior tile crossing (no coincident surface) is unaffected.
+                const COINCIDENT_ABS: f64 = 1.0e-9; // cm; the transport nudge scale
+                let surface_tie = matches!(best.crossing, Crossing::Surface(_))
+                    && (best.distance - d_lat).abs() < COINCIDENT_ABS;
+                if d_lat < best.distance * (1.0 - FP_REL) && !surface_tie {
                     best.distance = d_lat;
                     best.crossing = Crossing::Lattice;
                     best.coord_level = i;

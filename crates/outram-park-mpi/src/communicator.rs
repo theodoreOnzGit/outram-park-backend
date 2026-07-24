@@ -68,25 +68,63 @@ pub struct Status {
 
 /// A rank's handle onto the shared-memory message fabric for one communicator.
 ///
-/// Cloning is cheap (an `Arc` bump plus three integers) and yields another handle
-/// onto the *same* communicator context — used internally to hand a context to a
-/// pending [`Request`]. Construct rank handles with [`crate::run`], not directly.
+/// Cloning is cheap (a couple of `Arc` bumps plus a few integers) and yields
+/// another handle onto the *same* communicator context — used internally to hand
+/// a context to a pending [`Request`]. Construct rank handles with [`crate::run`],
+/// not directly.
+///
+/// # Local vs global ranks
+///
+/// A communicator numbers its members `0..size` — *local* ranks. In a
+/// sub-communicator (from [`Communicator::split`]) those differ from the global
+/// thread ids that index the transport mailboxes, so the handle carries both:
+/// `world_rank` (this thread's own mailbox index) and `world_ranks` (local rank →
+/// global mailbox index) to address peers correctly. For the world communicator
+/// the mapping is the identity.
 #[derive(Clone)]
 pub struct Communicator {
     transport: Arc<Transport>,
     rank: i32,
     size: i32,
     comm_id: usize,
+    /// This thread's global mailbox index (its world rank).
+    world_rank: i32,
+    /// Local rank → global mailbox index, length `size`.
+    world_ranks: Arc<Vec<i32>>,
 }
 
 impl Communicator {
-    /// Internal constructor used by the runtime and collective/duplication paths.
-    pub(crate) fn new(transport: Arc<Transport>, rank: i32, size: i32, comm_id: usize) -> Self {
+    /// Construct the **world** communicator handle for `rank` of `size`, where the
+    /// local numbering is the identity (`local rank == global mailbox index`).
+    pub(crate) fn world(transport: Arc<Transport>, rank: i32, size: i32) -> Self {
+        Communicator {
+            transport,
+            rank,
+            size,
+            comm_id: WORLD_COMM_ID,
+            world_rank: rank,
+            world_ranks: Arc::new((0..size).collect()),
+        }
+    }
+
+    /// Internal constructor for a derived communicator (`comm_dup`/`comm_split`).
+    /// `world_ranks` maps this communicator's local ranks to global mailbox
+    /// indices; `world_rank` is this thread's own global index.
+    pub(crate) fn new(
+        transport: Arc<Transport>,
+        rank: i32,
+        size: i32,
+        comm_id: usize,
+        world_rank: i32,
+        world_ranks: Arc<Vec<i32>>,
+    ) -> Self {
         Communicator {
             transport,
             rank,
             size,
             comm_id,
+            world_rank,
+            world_ranks,
         }
     }
 
@@ -116,9 +154,28 @@ impl Communicator {
         self.comm_id + COLL_CONTEXT_OFFSET
     }
 
-    /// Send `data` to `dest` with `tag` on an explicit context id. The public
-    /// [`Communicator::send`] uses the point-to-point context; the collective
-    /// layer uses [`Communicator::coll_ctx`].
+    /// This thread's global mailbox index (its world rank) — the mailbox all of
+    /// this communicator's receives read from.
+    pub(crate) fn world_rank(&self) -> i32 {
+        self.world_rank
+    }
+
+    /// A cloned handle to the local→global rank map (for building a derived
+    /// communicator that keeps the same group, e.g. [`Communicator::dup`]).
+    pub(crate) fn world_ranks_arc(&self) -> Arc<Vec<i32>> {
+        Arc::clone(&self.world_ranks)
+    }
+
+    /// Allocate a fresh process-unique communicator context id from the transport.
+    pub(crate) fn alloc_context(&self) -> usize {
+        self.transport.alloc_comm_id()
+    }
+
+    /// Send `data` to local rank `dest` with `tag` on an explicit context id. The
+    /// public [`Communicator::send`] uses the point-to-point context; the
+    /// collective layer uses [`Communicator::coll_ctx`]. The message is delivered
+    /// to `dest`'s global mailbox but stamped with this rank's *local* id, so the
+    /// receiver matches on the communicator-local source.
     pub(crate) fn send_ctx<T: MpiPrimitive>(
         &self,
         data: &[T],
@@ -127,6 +184,7 @@ impl Communicator {
         ctx: usize,
     ) -> MpiResult<()> {
         self.check_rank(dest)?;
+        let global_dest = self.world_ranks[dest as usize];
         let env = Envelope {
             src: self.rank,
             tag,
@@ -135,11 +193,12 @@ impl Communicator {
             count: data.len(),
             bytes: T::encode(data),
         };
-        self.transport.post(dest as usize, env);
+        self.transport.post(global_dest as usize, env);
         Ok(())
     }
 
-    /// Blocking receive from `source`/`tag` on an explicit context id.
+    /// Blocking receive from local rank `source`/`tag` on an explicit context id.
+    /// Reads this thread's own global mailbox and matches on the local source id.
     pub(crate) fn recv_ctx<T: MpiPrimitive>(
         &self,
         source: i32,
@@ -150,7 +209,7 @@ impl Communicator {
         let tagf = match_tag(tag);
         let env = self
             .transport
-            .recv_blocking(self.rank as usize, ctx, src, tagf);
+            .recv_blocking(self.world_rank as usize, ctx, src, tagf);
         self.decode_envelope(env)
     }
 
@@ -349,7 +408,7 @@ impl<T: MpiPrimitive> Request<T> {
                 let tagf = match_tag(*tag);
                 match comm
                     .transport()
-                    .recv_try(comm.rank() as usize, comm.comm_id(), src, tagf)
+                    .recv_try(comm.world_rank() as usize, comm.comm_id(), src, tagf)
                 {
                     Some(env) => {
                         let (data, status) = comm.decode_envelope::<T>(env)?;
