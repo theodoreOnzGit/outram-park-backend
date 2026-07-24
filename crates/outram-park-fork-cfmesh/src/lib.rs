@@ -65,6 +65,10 @@
 //!   converts a [`volume_mesh::VolumeMesh`] into a real `outram-foam-basic-lib`
 //!   `PolyMesh`, which yields a solvable `FvMesh` via `to_fv_mesh()` — closing
 //!   the loop: surface → carve → snap → foam mesh (verified end-to-end).
+//! - **Mesh quality checks.** [`checks::check_quality`] reports face
+//!   non-orthogonality, skewness, cell aspect ratio, min face area / cell
+//!   volume, and negative-volume cells (cfMesh `polyMeshGenChecks`) — the gate
+//!   for trusting a generated mesh before it is solved.
 //!
 //! Next on the `op-hzs` roadmap: octree refinement near the surface, the
 //! polyhedral dual (`op-hzs.33`, voro++ reference), and boundary layers
@@ -85,6 +89,7 @@
 
 pub mod cartesian;
 pub mod carve;
+pub mod checks;
 pub mod math;
 pub mod snap;
 pub mod volume_mesh;
