@@ -5422,6 +5422,7 @@ name = "outram-park-fork-pflotran"
 version = "0.0.0"
 dependencies = [
  "outram-foam-basic-lib",
+ "outram-park-mpi",
  "rayon",
  "tampines-steam-tables",
  "thiserror 2.0.18",
