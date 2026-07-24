@@ -28,7 +28,7 @@
 
 use outram_foam_basic_lib::ldu_matrix::LduMatrix;
 
-use super::krylov::{distributed_cg_with, distributed_dot};
+use super::krylov::{distributed_bicgstab_with, distributed_cg_with, distributed_dot};
 use super::Decomposition1D;
 use crate::grid::CartesianGrid;
 use outram_park_mpi::{Communicator, MpiResult};
@@ -68,6 +68,34 @@ pub fn assemble_diffusion_ldu(grid: &CartesianGrid, k: &[f64], shift: f64) -> Ld
         a.diag[n] += t;
         a.upper[f] -= t;
         a.lower[f] -= t;
+    }
+    a
+}
+
+/// Assemble a **non-symmetric** advection–diffusion `LduMatrix`: the diffusion
+/// assembly of [`assemble_diffusion_ldu`] plus an upwind advection term for a
+/// constant `velocity` (m/s, `+x`).
+///
+/// Upwinding makes `upper[f] ≠ lower[f]` (the matrix is non-symmetric), so the
+/// resulting system must be solved with BiCGStab, not CG — this is the shape of
+/// the real transport Jacobian. The upwind stencil mirrors the `transport`
+/// module's assembly.
+pub fn assemble_advection_diffusion_ldu(
+    grid: &CartesianGrid,
+    k: &[f64],
+    velocity: f64,
+    shift: f64,
+) -> LduMatrix {
+    let mut a = assemble_diffusion_ldu(grid, k, shift);
+    for (f, conn) in grid.connections().iter().enumerate() {
+        let q = velocity * conn.area; // volumetric flux owner -> neighbour (+x)
+        if q >= 0.0 {
+            a.diag[conn.owner] += q;
+            a.lower[f] -= q;
+        } else {
+            a.upper[f] += q;
+            a.diag[conn.neighbour] -= q;
+        }
     }
     a
 }
@@ -148,6 +176,21 @@ impl DistributedLduMatrix1D {
     ) -> MpiResult<(Vec<f64>, usize)> {
         distributed_cg_with(comm, b, |v| self.matvec(comm, v), tol, max_iter)
     }
+
+    /// Solve `A u = b` by distributed **BiCGStab** — for a **non-symmetric**
+    /// assembled matrix (e.g. advection–diffusion) where CG does not apply.
+    ///
+    /// # Errors
+    /// Propagates any transport error from the matvec or reduced dot products.
+    pub fn solve_bicgstab(
+        &self,
+        comm: &Communicator,
+        b: &[f64],
+        tol: f64,
+        max_iter: usize,
+    ) -> MpiResult<(Vec<f64>, usize)> {
+        distributed_bicgstab_with(comm, b, |v| self.matvec(comm, v), tol, max_iter)
+    }
 }
 
 /// Serial CG on a real [`LduMatrix`] using its own [`LduMatrix::multiply`] — the
@@ -180,6 +223,61 @@ pub fn serial_ldu_cg(ldu: &LduMatrix, b: &[f64], tol: f64, max_iter: usize) -> (
             p[i] = r[i] + beta * p[i];
         }
         rs_old = rs_new;
+    }
+    (x, iters)
+}
+
+/// Serial BiCGStab on a real [`LduMatrix`] via [`LduMatrix::multiply`] — the
+/// oracle for the distributed non-symmetric solve.
+pub fn serial_ldu_bicgstab(
+    ldu: &LduMatrix,
+    b: &[f64],
+    tol: f64,
+    max_iter: usize,
+) -> (Vec<f64>, usize) {
+    let n = b.len();
+    let dot = |a: &[f64], c: &[f64]| -> f64 { a.iter().zip(c).map(|(x, y)| x * y).sum() };
+    let mut x = vec![0.0; n];
+    let mut r = b.to_vec();
+    let r_hat = r.clone();
+    let (mut rho, mut alpha, mut omega) = (1.0_f64, 1.0_f64, 1.0_f64);
+    let mut v = vec![0.0; n];
+    let mut p = vec![0.0; n];
+    let b_norm = dot(b, b).sqrt().max(1.0);
+    let mut iters = 0;
+    for k in 0..max_iter {
+        iters = k + 1;
+        let rho_new = dot(&r_hat, &r);
+        if rho_new.abs() < 1e-30 {
+            break;
+        }
+        let beta = (rho_new / rho) * (alpha / omega);
+        for i in 0..n {
+            p[i] = r[i] + beta * (p[i] - omega * v[i]);
+        }
+        v = ldu.multiply(&p);
+        alpha = rho_new / dot(&r_hat, &v);
+        let s: Vec<f64> = (0..n).map(|i| r[i] - alpha * v[i]).collect();
+        if dot(&s, &s).sqrt() / b_norm < tol {
+            for i in 0..n {
+                x[i] += alpha * p[i];
+            }
+            break;
+        }
+        let t = ldu.multiply(&s);
+        let tt = dot(&t, &t);
+        if tt < 1e-30 {
+            break;
+        }
+        omega = dot(&t, &s) / tt;
+        for i in 0..n {
+            x[i] += alpha * p[i] + omega * s[i];
+            r[i] = s[i] - omega * t[i];
+        }
+        if dot(&r, &r).sqrt() / b_norm < tol {
+            break;
+        }
+        rho = rho_new;
     }
     (x, iters)
 }
@@ -264,6 +362,47 @@ mod tests {
             })
             .unwrap();
             assert!(ok.iter().all(|&b| b), "distributed LDU solve != serial for p={p}");
+        }
+    }
+
+    #[test]
+    fn distributed_bicgstab_solves_nonsymmetric_advection_diffusion() {
+        // Advection makes the matrix non-symmetric (upper != lower); CG would fail,
+        // BiCGStab must match the serial BiCGStab across rank counts.
+        let n = 32;
+        let k = conductivity(n);
+        let grid = one_d_grid(n);
+        let ldu = assemble_advection_diffusion_ldu(&grid, &k, 2.0, 0.3);
+        // Sanity: the matrix really is non-symmetric.
+        assert!(
+            ldu.upper.iter().zip(&ldu.lower).any(|(u, l)| (u - l).abs() > 1e-9),
+            "advection-diffusion matrix should be non-symmetric"
+        );
+        let b: Vec<f64> = (0..n).map(|i| ((i % 5) as f64) + 0.5).collect();
+        let tol = 1e-10;
+        let (reference, _) = serial_ldu_bicgstab(&ldu, &b, tol, 4000);
+
+        for p in [1, 2, 3, 4, 8] {
+            let ldu = ldu.clone();
+            let b = b.clone();
+            let reference = reference.clone();
+            let ok = run(p, move |c| {
+                let d = Decomposition1D::new(n, c);
+                let dm = DistributedLduMatrix1D::from_global(&d, &ldu);
+                let b_local = b[d.start..d.start + d.local_len].to_vec();
+                let (x, _) = dm.solve_bicgstab(c, &b_local, tol, 4000).unwrap();
+                let expected = &reference[d.start..d.start + d.local_len];
+                // Also check the local residual is small.
+                let ax = dm.matvec(c, &x).unwrap();
+                let res_ok = b_local
+                    .iter()
+                    .zip(&ax)
+                    .all(|(bi, ai)| (bi - ai).abs() < 1e-6);
+                let match_ok = x.iter().zip(expected).all(|(a, e)| (a - e).abs() < 1e-6);
+                res_ok && match_ok
+            })
+            .unwrap();
+            assert!(ok.iter().all(|&b| b), "distributed BiCGStab != serial for p={p}");
         }
     }
 
