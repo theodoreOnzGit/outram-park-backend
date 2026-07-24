@@ -64,4 +64,8 @@
 | 2026-07-24 | `2a983ac` | Merge outram-mc into develop: make ratatui unconditional ... | 93,447,465 | 262 | 113,137 | 91,813,417 | 1,520,649 |
 | 2026-07-24 | `091bed9` | Merge remote-tracking branch 'origin/develop' into claude... | 3,499,432 | 27 | 5,395 | 3,483,164 | 10,846 |
 | 2026-07-24 | `1867147` | outram-foam-appbuilder-lib: reacting-Euler species transp... | 20,596,688 | 138 | 85,060 | 20,398,548 | 112,942 |
-| **TOTAL** | | **51 commits** | **1,449,956,652** | **4,796** | **2,381,213** | **1,434,330,251** | **13,240,392** |
+| 2026-07-24 | `e597fb8` | outram-foam-multiphase: bookkeeping pass (doc sync, api.m... | 6,293,774 | 36 | 69,177 | 6,178,335 | 46,226 |
+| 2026-07-24 | `477c9ff` | outram-park-fork-liggghts: bookkeeping pass (doc sync, ap... | 3,990,081 | 21 | 18,900 | 3,931,812 | 39,348 |
+| 2026-07-24 | `fddb1a9` | outram-foam-appbuilder-lib: bookkeeping pass (doc gaps + ... | 5,605,508 | 29 | 18,254 | 5,548,333 | 38,892 |
+| 2026-07-24 | `f4c3aab` | outram-park-fork-dwsim-libs: bookkeeping pass (doc gaps +... | 6,102,931 | 28 | 17,464 | 6,064,499 | 20,940 |
+| **TOTAL** | | **55 commits** | **1,471,948,946** | **4,910** | **2,505,008** | **1,456,053,230** | **13,385,798** |
