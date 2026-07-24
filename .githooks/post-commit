@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # OUTRAM PARK token-accounting hook (standing rule): after each commit, advance
 # the per-commit token baseline and regenerate docs/token-usage.md from the
-# commit-message trailers. Never blocks. See scripts/token_accounting.py.
+# commit-message trailers. Never blocks. See docs/historian/token_usage.py.
 set -u
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
-python3 "$ROOT/scripts/token_accounting.py" record || true
+python3 "$ROOT/docs/historian/token_usage.py" record || true
 exit 0

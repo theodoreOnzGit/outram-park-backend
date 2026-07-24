@@ -15,8 +15,8 @@ cd "$ROOT"
 # this. If another hooks mechanism is already configured, this overrides it for
 # this clone — reconcile by copying those hooks into .githooks/ if needed.
 git config core.hooksPath .githooks
-chmod +x .githooks/* scripts/token_accounting.py 2>/dev/null || true
+chmod +x .githooks/* docs/historian/token_usage.py 2>/dev/null || true
 
-python3 scripts/token_accounting.py init
+python3 docs/historian/token_usage.py init
 echo "Installed: core.hooksPath -> .githooks (prepare-commit-msg + post-commit)."
 echo "Every commit from now on will carry an API-Usage trailer and refresh docs/token-usage.md."
