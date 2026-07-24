@@ -23,7 +23,18 @@
 | 2026-07-23 | `d58fe9c` | Merge outram-blender branch into develop: revolve/spin op... | 40,774,298 | 148 | 69,573 | 40,136,391 | 568,186 |
 | 2026-07-23 | `db91d17` | docs(singlish): add 'bang gang' — knock off work / finish... | 48,295,948 | 175 | 80,743 | 47,636,531 | 578,499 |
 | 2026-07-24 | `6c50cdd` | refactor(tooling): consolidate token accounting into docs... | 7,215,668 | 23 | 8,724 | 7,175,809 | 31,112 |
+| 2026-07-24 | `b195d34` | docs(readme): add a (clearly-in-jest) Phua Chu Kang tagline | 6,734,604 | 22 | 11,910 | 4,983,785 | 1,738,887 |
 | 2026-07-24 | `7693155` | outram-mc: port remaining CSG quadric surfaces — Plane, X... | 51,484,074 | 185 | 117,074 | 49,259,689 | 2,107,126 |
 | 2026-07-24 | `fc7c55f` | chore(docs): refresh token-usage ledger | 3,281,946 | 12 | 9,564 | 3,263,979 | 8,391 |
+| 2026-07-24 | `cb3d3e4` | Merge outram-foam branch into develop: dwsim Tier-1 therm... | 9,929,504 | 29 | 15,312 | 9,895,505 | 18,658 |
+| 2026-07-24 | `10e52fe` | Merge outram-blender branch into develop: outram-park-for... | 16,208,481 | 49 | 24,226 | 16,154,607 | 29,599 |
+| 2026-07-24 | `81c7a61` | Merge outram-mc branch into develop: port remaining CSG q... | 16,208,481 | 49 | 24,226 | 16,154,607 | 29,599 |
+| 2026-07-24 | `6b67471` | Merge outram-blender branch into develop: cfMesh boundary... | 25,763,962 | 76 | 35,336 | 25,678,518 | 50,032 |
+| 2026-07-24 | `1a14bf9` | Merge outram-foam branch into develop: multiphase drift-f... | 25,763,962 | 76 | 35,336 | 25,678,518 | 50,032 |
 | 2026-07-24 | `a143f0e` | outram-mc: fix nested-lattice surface-tracking under-coun... | 35,914,153 | 113 | 146,389 | 34,020,064 | 1,747,587 |
-| **TOTAL** | | **13 commits** | **266,878,578** | **952** | **604,053** | **260,078,647** | **6,194,926** |
+| 2026-07-24 | `a0ae11b` | Merge outram-blender into develop: cfMesh quality checks,... | 36,127,440 | 102 | 46,361 | 36,013,530 | 67,447 |
+| 2026-07-24 | `1ccf235` | Merge outram-mc into develop: fix nested-lattice surface-... | 36,127,440 | 102 | 46,361 | 36,013,530 | 67,447 |
+| 2026-07-24 | `724ea2e` | Merge pflotran into develop: outram-park-mpi communicator... | 36,127,440 | 102 | 46,361 | 36,013,530 | 67,447 |
+| 2026-07-24 | `b2a5bac` | Merge remote-tracking branch 'origin/develop' into claude... | 157,164 | 4 | 290 | 155,614 | 1,256 |
+| 2026-07-24 | `0ab7d2b` | chore: pin transitive kstring to 2.0.2 for rustc 1.94 MSRV | 2,508,572 | 55 | 15,210 | 2,467,629 | 25,678 |
+| **TOTAL** | | **24 commits** | **478,535,628** | **1,618** | **904,982** | **469,288,020** | **8,341,008** |
