@@ -1,0 +1,26 @@
+[package]
+name = "outram-park-fork-cfmesh"
+version = "0.0.0"
+edition.workspace = true
+# GPL-3.0-only: this crate is a Rust port/fork of cfMesh (GPL-3.0-only). The
+# voro++-derived portions (BSD, LBNL) retain their permissive provenance
+# in-tree (see NOTICE); BSD is GPLv3-compatible, so the crate as a whole is
+# distributed under GPL-3.0-only.
+license.workspace = true
+description = "Pure-Rust fork/port of cfMesh (Creative Fields' automatic unstructured mesh generator: Cartesian / tetrahedral / polyhedral meshing with boundary layers), with voro++ as the Voronoi/polyhedral-dual reference. Consumes an outram-blender surface mesh and produces an outram-foam polyMesh. An independent OUTRAM PARK fork, not the official cfMesh. GPL-3.0; scaffold stage — no human V&V yet, use at your own risk."
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+# The vendored upstream clones are dev-only reference material (gitignored) and
+# must never be packaged; `upstream_source/README.md` (the small provenance
+# record) stays in the package.
+exclude = ["upstream_source/cfMesh", "upstream_source/voro"]
+
+# Scaffold stage: no dependencies yet. As the port lands it will consume
+# `outram-blender`'s `Mesh` (surface input) and target
+# `outram-foam-basic-lib`'s `io::poly_mesh::PolyMesh` (volume output). All
+# geometry math is pure Rust (no BLAS / C / Fortran) so the crate stays
+# Android/Termux-buildable, per the workspace hard rule.
+[dependencies]
+
+[dev-dependencies]

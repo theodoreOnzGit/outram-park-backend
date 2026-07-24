@@ -1,0 +1,13 @@
+# Vendored upstream sources — present for development / porting reference only,
+# NEVER committed (workspace vendor rule; see upstream_source/README.md).
+# GPLv3-compatible upstreams only.
+#
+# cfMesh (GPL-3.0-only) — primary port target: automatic unstructured mesh
+# generation (Cartesian / tetrahedral / polyhedral) with boundary layers.
+#   git clone --depth 1 https://github.com/wyldckat/cfMesh.git upstream_source/cfMesh
+/upstream_source/cfMesh/
+#
+# voro++ (modified BSD, LBNL) — 3D Voronoi tessellation, the polyhedral-dual
+# (polyDualMesh-style) reference.
+#   git clone --depth 1 https://github.com/chr1shr/voro.git upstream_source/voro
+/upstream_source/voro/

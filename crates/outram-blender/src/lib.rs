@@ -55,6 +55,7 @@
 //! | [`triangulate`] | `bmo_triangulate` (fan) | **real** — fan-triangulate every face into a triangle-only mesh |
 //! | [`inset`] | `bmo_inset` (Individual) | **real** — per-face inset: shrunk inner copy + bridging ring quads |
 //! | [`bisect`] | Bisect (plane cut) | **real** — half-space clip every face by a plane (Sutherland–Hodgman); leaves the cut open |
+//! | [`edge_bevel`] | Bevel (edges) | **real** — chamfer every edge (cut faces back + fill edge/corner gaps); winding fixed by `recalc_normals` |
 //! | [`boolean`] | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to [`boolean_general`] |
 //! | [`boolean_general`] | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union/difference/intersect on non-convex closed meshes (arrangement + winding classification) |
 //! | [`boolean_predicates`] | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double fallback) |
@@ -62,6 +63,7 @@
 //! | [`modifiers`] | `modifiers/intern/MOD_*` modifier stack | **real** — subsurf / mirror / array |
 //! | [`procedural`] | Geometry Nodes (`nodes/geometry/*`) | **real** — node-graph evaluator |
 //! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid + feature-gated real-type bridges (`foam-export`, `mc-export`) |
+//! | [`stl`] | STL I/O | **real** — ASCII + binary STL read/write (surface-mesh interchange / DAGMC / Monte-Carlo feed) |
 //!
 //! ## Design rules honoured here (workspace `CLAUDE.md`)
 //!
@@ -102,6 +104,7 @@ pub mod boolean_general;
 pub mod boolean_predicates;
 pub mod convex_hull;
 pub mod decimate;
+pub mod edge_bevel;
 pub mod export;
 pub mod fill_holes;
 pub mod inset;
@@ -117,6 +120,7 @@ pub mod procedural;
 pub mod recalc_normals;
 pub mod revolve;
 pub mod solidify;
+pub mod stl;
 pub mod subdivision;
 pub mod transform;
 pub mod triangulate;
