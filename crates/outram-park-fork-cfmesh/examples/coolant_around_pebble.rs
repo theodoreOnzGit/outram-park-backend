@@ -49,6 +49,12 @@ fn main() {
     println!("  cells              = {}", carved.cell_count());
     println!("  faces              = {} ({} internal, {} boundary)", carved.face_count(), carved.n_internal_faces(), carved.n_boundary_faces());
     println!("  staircase volume   = {:.4}", carved.total_volume());
+    // Boundary is split into BC-ready patches: the domain wall and the pebble.
+    println!("  boundary patches:");
+    for p in &carved.patches {
+        let role = if p.name == "walls" { "domain wall" } else { "pebble surface" };
+        println!("    {:<8} {:>6} faces  ({role})", p.name, p.n_faces);
+    }
 
     // ---- Snap the staircase onto both surfaces (body-fit). ------------------
     // Snap to the union of the two surfaces so every boundary point lands on

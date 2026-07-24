@@ -60,7 +60,7 @@ pub fn carve_box(points: &[Vec3], tris: &[[usize; 3]], cell_size: f64) -> Volume
     }
     let (grid_min, nx, ny, nz) = grid_for(points, cell_size);
     let (kept, n_kept) = classify(nx, ny, nz, grid_min, cell_size, |c| inside(c, points, tris));
-    assemble_kept(kept, n_kept, nx, ny, nz, grid_min, cell_size)
+    assemble_kept(&kept, n_kept, nx, ny, nz, grid_min, cell_size, &["walls".to_string()], |_| 0)
 }
 
 /// Carve the region **inside** `outer` (`outer_points`, `outer_tris`) but
@@ -102,10 +102,43 @@ pub fn carve_region(
         return empty_mesh();
     }
     let (grid_min, nx, ny, nz) = grid_for(outer_points, cell_size);
-    let (kept, n_kept) = classify(nx, ny, nz, grid_min, cell_size, |c| {
-        inside(c, outer_points, outer_tris) && holes.iter().all(|(hp, ht)| !inside(c, hp, ht))
-    });
-    assemble_kept(kept, n_kept, nx, ny, nz, grid_min, cell_size)
+    let cs = cell_size;
+    let flat = |i: usize, j: usize, k: usize| i + nx * (j + ny * k);
+    let cell_center = |i: usize, j: usize, k: usize| {
+        Vec3::new(
+            grid_min.x + cs * (i as f64 + 0.5),
+            grid_min.y + cs * (j as f64 + 0.5),
+            grid_min.z + cs * (k as f64 + 0.5),
+        )
+    };
+    // Classify every cell: which hole (if any) contains it, and whether it is a
+    // kept coolant cell (inside outer, inside no hole).
+    let mut kept = vec![None; nx * ny * nz];
+    let mut hole_of = vec![None; nx * ny * nz];
+    let mut n_kept = 0usize;
+    for k in 0..nz {
+        for j in 0..ny {
+            for i in 0..nx {
+                let c = cell_center(i, j, k);
+                let h = holes.iter().position(|(hp, ht)| inside(c, hp, ht));
+                let f = flat(i, j, k);
+                hole_of[f] = h;
+                if h.is_none() && inside(c, outer_points, outer_tris) {
+                    kept[f] = Some(n_kept);
+                    n_kept += 1;
+                }
+            }
+        }
+    }
+    // Patch 0 = "walls" (outer/domain), patch 1+h = each hole.
+    let mut names = vec!["walls".to_string()];
+    for h in 0..holes.len() {
+        names.push(format!("hole_{h}"));
+    }
+    assemble_kept(&kept, n_kept, nx, ny, nz, grid_min, cell_size, &names, |nbr| match nbr {
+        None => 0,
+        Some(f) => hole_of[f].map(|h| h + 1).unwrap_or(0),
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -167,14 +200,21 @@ fn classify(
 /// Assemble the [`VolumeMesh`] of the kept cells: internal faces between two
 /// kept cells, exposed faces as the `walls` boundary patch; points and cells
 /// compacted.
+///
+/// Boundary faces are bucketed into named patches: `patch_of(neighbour_flat)`
+/// returns the patch index for the face, given the neighbouring cell's flat
+/// index (`None` when the neighbour is outside the grid). Empty patches are
+/// dropped.
 fn assemble_kept(
-    kept: Vec<Option<usize>>,
+    kept: &[Option<usize>],
     n_kept: usize,
     nx: usize,
     ny: usize,
     nz: usize,
     grid_min: Vec3,
     cs: f64,
+    patch_names: &[String],
+    patch_of: impl Fn(Option<usize>) -> usize,
 ) -> VolumeMesh {
     if n_kept == 0 {
         return empty_mesh();
@@ -207,8 +247,9 @@ fn assemble_kept(
     let mut int_faces: Vec<Vec<usize>> = Vec::new();
     let mut int_owner: Vec<usize> = Vec::new();
     let mut int_nb: Vec<usize> = Vec::new();
-    let mut bnd_faces: Vec<Vec<usize>> = Vec::new();
-    let mut bnd_owner: Vec<usize> = Vec::new();
+    // One (faces, owner) bucket per boundary patch.
+    let mut bnd: Vec<(Vec<Vec<usize>>, Vec<usize>)> =
+        (0..patch_names.len()).map(|_| (Vec::new(), Vec::new())).collect();
 
     for k in 0..nz {
         for j in 0..ny {
@@ -225,8 +266,9 @@ fn assemble_kept(
                 ];
                 for (di, dj, dk, corners, positive) in sides {
                     let (ni, nj, nk) = (i as isize + di, j as isize + dj, k as isize + dk);
-                    let nbr = in_grid(ni, nj, nk, nx, ny, nz).and_then(|(a, b, c)| kept[flat(a, b, c)]);
-                    match (positive, nbr) {
+                    let ncoord = in_grid(ni, nj, nk, nx, ny, nz);
+                    let nbr_kept = ncoord.and_then(|(a, b, c)| kept[flat(a, b, c)]);
+                    match (positive, nbr_kept) {
                         (true, Some(nid)) => {
                             let ring = ring_of(corners, &mut new_positions, &mut point_remap);
                             int_faces.push(orient_ring(ring, oc, &new_positions));
@@ -234,9 +276,12 @@ fn assemble_kept(
                             int_nb.push(nid);
                         }
                         (_, None) => {
+                            let nbr_flat = ncoord.map(|(a, b, c)| flat(a, b, c));
+                            let pidx = patch_of(nbr_flat);
                             let ring = ring_of(corners, &mut new_positions, &mut point_remap);
-                            bnd_faces.push(orient_ring(ring, oc, &new_positions));
-                            bnd_owner.push(cid);
+                            let oriented = orient_ring(ring, oc, &new_positions);
+                            bnd[pidx].0.push(oriented);
+                            bnd[pidx].1.push(cid);
                         }
                         (false, Some(_)) => {}
                     }
@@ -245,16 +290,22 @@ fn assemble_kept(
         }
     }
 
-    let n_internal = int_faces.len();
+    // Internal faces first, then each non-empty boundary patch as a contiguous run.
     let mut faces = int_faces;
     let mut owner = int_owner;
     let mut neighbour: Vec<Option<usize>> = int_nb.into_iter().map(Some).collect();
-    let n_boundary = bnd_faces.len();
-    faces.extend(bnd_faces);
-    owner.extend(bnd_owner);
-    neighbour.extend(std::iter::repeat(None).take(n_boundary));
-
-    let patches = vec![BoundaryPatch { name: "walls".into(), start_face: n_internal, n_faces: n_boundary }];
+    let mut patches = Vec::new();
+    for (pi, (pf, po)) in bnd.into_iter().enumerate() {
+        if pf.is_empty() {
+            continue;
+        }
+        let start = faces.len();
+        let n = pf.len();
+        faces.extend(pf);
+        owner.extend(po);
+        neighbour.extend(std::iter::repeat(None).take(n));
+        patches.push(BoundaryPatch { name: patch_names[pi].clone(), start_face: start, n_faces: n });
+    }
     VolumeMesh { points: new_positions, faces, owner, neighbour, n_cells: n_kept, patches }
 }
 
@@ -381,6 +432,13 @@ mod tests {
         m.validate().expect("shell cells are closed");
         // The cavity means more boundary faces than a solid block of the same span.
         assert!(m.n_boundary_faces() > 96, "outer + inner cavity walls");
+        // Boundary is separated into two patches: outer domain + the hole cavity.
+        assert_eq!(m.patches.len(), 2, "walls + hole_0");
+        let walls = m.patches.iter().find(|p| p.name == "walls").expect("walls patch");
+        let hole = m.patches.iter().find(|p| p.name == "hole_0").expect("hole_0 patch");
+        assert_eq!(walls.n_faces, 6 * 16, "outer box 4×4 per side");
+        assert_eq!(hole.n_faces, 6 * 4, "inner cavity 2×2 per side");
+        assert_eq!(walls.n_faces + hole.n_faces, m.n_boundary_faces(), "patches cover all boundary");
     }
 
     /// V&V — carve_region with no holes equals carve_box.
