@@ -166,6 +166,12 @@ local-ip-address = "0.6.13"
 # feature / example / optional bin under `cfg(not(target_os = "android"))`,
 # never in an unconditional library build.
 wgpu = "29.0.3"
+# naga — wgpu's own shader front-end/validator, used ONLY as a (non-Android)
+# dev-dependency to statically validate hand-written WGSL kernels on CPU (no GPU
+# adapter needed), so CI without a GPU still catches shader syntax/type errors.
+# Version pinned to match `wgpu` above (same 29.x release) so no second naga is
+# pulled into the tree.
+naga = "29.0.3"
 
 # internal workspace crates — depend on these by path so members use the
 # in-tree copy rather than a crates.io release.
