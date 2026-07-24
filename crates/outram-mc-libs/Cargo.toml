@@ -76,6 +76,13 @@ wgpu = { workspace = true }
 [dev-dependencies]
 approx = { workspace = true }
 
+# naga (non-Android, dev-only): statically parse + validate the hand-written WGSL
+# GPU kernels on CPU, so shader syntax/type errors are caught even on CI without a
+# GPU adapter (where the GPU-vs-CPU agreement tests only SKIP). Not linked into the
+# library; wgpu already pulls the same naga version transitively on desktop.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+naga = { workspace = true }
+
 # ── outram-mc-tui: mobile-first preset-geometry / transport-run TUI ───────────
 # A [[bin]] target inside this crate rather than a separate crate. It always
 # builds (`ratatui` is an unconditional dependency), so `cargo run -p
