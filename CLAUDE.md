@@ -156,8 +156,15 @@ hooks so it cannot be forgotten:
   `API-Usage-Since-Last-Commit:` trailer (`total`, `in`, `out`, `cache_read`,
   `cache_write`, `source`) plus an `API-Usage-Session-Cumulative:` line. It is
   idempotent (amend/rebase safe).
-- **`.githooks/post-commit`** advances the baseline and regenerates
-  `docs/token-usage.md` from the commit-message trailers.
+- **`.githooks/post-commit`** advances the baseline and regenerates the local
+  `docs/token-usage.md` summary from the commit-message trailers.
+
+**Source of truth: the per-commit trailers, not the markdown.** The durable
+record is the `API-Usage-*` trailer in each commit message (queryable across any
+window with `python3 docs/historian/token_usage.py query --from DDMMYY --to
+DDMMYY`). `docs/token-usage.md` is a **regenerable local summary and is
+gitignored** — it is deliberately *not* tracked, because committing a generated
+file on many branches caused recurring merge conflicts. Never re-track it.
 
 **Rules:**
 
@@ -172,9 +179,11 @@ hooks so it cannot be forgotten:
   `core.hooksPath` to `.githooks` and initialises the baseline). `core.hooksPath`
   is a local, uncommitted config, so every fresh clone must run it once. The
   hooks and script are version-controlled, so they travel with the repo.
-- **`docs/token-usage.md` is generated — never hand-edit it.** It lags the tip by
-  at most one commit (the `post-commit` regen leaves it staged for the next
-  commit); rebuild any time with `python3 docs/historian/token_usage.py report`.
+- **`docs/token-usage.md` is a generated, gitignored local summary — never
+  hand-edit it and never `git add` it.** Rebuild any time with `python3
+  docs/historian/token_usage.py report`; query the tracked trailers directly with
+  the `query` subcommand. Because it is gitignored, `bd`/hook regens no longer
+  dirty the tree or conflict on merge.
 - **New repositories added to a session here inherit this rule** — copy
   `docs/historian/token_usage.py` + `.githooks/` + `scripts/install-token-hooks.sh`
   in and run the installer as part of onboarding that repo.
