@@ -59,4 +59,15 @@ impl Vec3 {
     pub fn length(self) -> f64 {
         self.dot(self).sqrt()
     }
+
+    /// Unit vector in the same direction, or [`Vec3::ZERO`] for a zero-length
+    /// input (never produces `NaN`).
+    pub fn normalize(self) -> Vec3 {
+        let len = self.length();
+        if len == 0.0 {
+            Vec3::ZERO
+        } else {
+            self.scale(1.0 / len)
+        }
+    }
 }
