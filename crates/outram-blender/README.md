@@ -121,6 +121,7 @@ included.
 | `triangulate` | `bmo_triangulate` (fan) | **real** — fan-triangulate every face into a triangle-only mesh (distinct from `export::triangulate`'s index buffer) |
 | `inset` | `bmo_inset` (Individual) | **real** — per-face inset: shrunk inner copy toward the centroid + bridging ring quads |
 | `bisect` | Bisect (plane cut) | **real** — half-space clip every face by a plane (Sutherland–Hodgman); leaves the cut open (pairs with `fill_holes`) |
+| `edge_bevel` | Bevel (edges) | **real** — chamfer every edge (cut faces back + fill edge/corner gaps); v1 flat chamfer on closed manifolds, winding fixed via `recalc_normals` |
 | `boolean` | `bmo_boolean` (Manifold upstream) | **real** — CSG entry point: exact convex-`Intersect` fast path, else delegates to `boolean_general` |
 | `boolean_general` | `mesh_boolean.cc` / `mesh_intersect.cc` arrangement | **real** — general union / difference / intersect on non-convex closed meshes (arrangement + winding classification) |
 | `boolean_predicates` | `blenlib` `math_boolean.cc` (Shewchuk) | **real** — robust `orient2d/3d`, `incircle`, `insphere` (adaptive f64 + double-double) |
@@ -128,6 +129,7 @@ included.
 | `modifiers` | `modifiers/intern/MOD_*` | **real** — mirror / array / subsurf |
 | `procedural` | Geometry Nodes | **real** — node-graph evaluator (primitive / transform / join / subdivide / boolean / output) |
 | `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh **write** (text / disk) + **read** (`from_poly_mesh`, feature `foam-export`, full `constant/polyMesh` round-trip), CSG fitting (box / sphere / Z-cylinder / any convex polyhedron faceted), a DAGMC-style faceted-solid route for non-convex meshes, plus **feature-gated real-type bridges** to `outram-foam-basic-lib` (`foam-export`) and `outram-mc-libs` (`mc-export`) |
+| `stl` | STL I/O | **real** — ASCII + binary STL read/write (auto-detect on read); the surface-mesh interchange / DAGMC / Monte-Carlo feed. Import is a triangle soup — `weld` it to recover topology |
 
 ## Design rules honoured (workspace `CLAUDE.md`)
 

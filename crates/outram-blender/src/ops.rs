@@ -785,6 +785,13 @@ pub enum MeshOp {
         /// The plane normal; the kept half is where `normal · (x − point) <= 0`.
         normal: Vec3,
     },
+    /// **Edge bevel**: chamfer every edge by `width`, delegated to
+    /// [`crate::edge_bevel::bevel_edges`]. Distinct from [`MeshOp::Bevel`], which
+    /// truncates *vertices*.
+    BevelEdges {
+        /// Distance each face is cut back from its edges (mesh units).
+        width: f64,
+    },
 }
 
 impl MeshOp {
@@ -834,6 +841,7 @@ impl MeshOp {
             MeshOp::Triangulate => Ok(crate::triangulate::triangulate(&mesh)),
             MeshOp::Inset { amount } => Ok(crate::inset::inset_faces(&mesh, *amount)),
             MeshOp::Bisect { point, normal } => Ok(crate::bisect::bisect(&mesh, *point, *normal)),
+            MeshOp::BevelEdges { width } => Ok(crate::edge_bevel::bevel_edges(&mesh, *width)),
         }
     }
 }
