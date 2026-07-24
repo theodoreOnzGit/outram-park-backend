@@ -43,6 +43,11 @@ rayon.workspace = true
 # MPICH-subset (shared-memory threads-as-ranks) drives the halo exchange in the
 # `decomposition` module. Pure Rust (std threads only), Android-clean.
 outram-park-mpi = { path = "../outram-park-mpi" }
+# HDF5 snapshot I/O (bead op-v6s.15.11), the `hdf5_io` module. Reuses the
+# workspace's pure-Rust `hdf5-pure` (no system libhdf5, no C toolchain) — the same
+# reader njoy-outram-park-fork uses — so pflotran gains portable binary output
+# while staying Android-buildable.
+hdf5-pure.workspace = true
 
 # Optional GPU acceleration (bead op-v6s.14, src/gpu.rs) — target-gated OFF
 # Android (no system Vulkan/Metal loader there, and the workspace Android rule
