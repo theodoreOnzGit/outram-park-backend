@@ -79,14 +79,22 @@ a grid-aligned box carves exactly (volume 8, 64 cells); an octahedron carve
 converges to its analytic volume (within 5 % at cell size 0.05); every carved
 cell is closed. v1 is a staircase boundary — no point snapping yet.
 
+**Milestone 3 — snapping + the foam bridge (landed).** `snap::snap_to_surface`
+projects the staircase boundary points onto the surface (body-fitting); and,
+behind the `foam-export` feature, `foam::to_poly_mesh` converts a `VolumeMesh`
+into a real `outram-foam-basic-lib` `PolyMesh` that yields a solvable `FvMesh`
+via `to_fv_mesh()`. The full loop **surface → carve → snap → foam mesh** is
+verified end-to-end (foam's own geometry engine agrees on the volume).
+
 Remaining roadmap (beads under the `op-hzs` epic):
 
 1. `op-hzs.40` — **core `VolumeMesh` + Cartesian block mesher** ✅ (milestone 1)
 2. `op-hzs.41` — **castellated surface carve** ✅ (milestone 2)
-3. octree refinement + point **snapping** (staircase → body-fitted boundary)
-4. `op-hzs.33` — **polyhedral dual** (`polyDualMesh`-style, voro++ reference)
-5. `op-hzs.34` — **wall boundary / prism layers**
-6. `op-hzs.35` — **volume polyMesh bridge** to `outram-foam-basic-lib` `PolyMesh`
+3. `op-hzs.42` — **boundary snapping** ✅ (milestone 3a)
+4. `op-hzs.35` — **volume polyMesh bridge** to `outram-foam-basic-lib` ✅ (milestone 3b)
+5. octree refinement near the surface (graded cell sizing)
+6. `op-hzs.33` — **polyhedral dual** (`polyDualMesh`-style, voro++ reference)
+7. `op-hzs.34` — **wall boundary / prism layers**
 
 ## Design rules (workspace `CLAUDE.md`)
 

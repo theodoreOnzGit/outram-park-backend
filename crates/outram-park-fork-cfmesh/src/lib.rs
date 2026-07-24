@@ -60,13 +60,15 @@
 //!   *staircase* volume mesh with a `walls` boundary patch.
 //! - **Milestone 3a — boundary snapping.** [`snap::snap_to_surface`] projects
 //!   every boundary point onto the closest point of the surface, turning the
-//!   staircase into a body-fitted boundary (verified: boundary points land on
-//!   the surface, the mesh stays a valid closed volume mesh).
+//!   staircase into a body-fitted boundary.
+//! - **Milestone 3b — foam bridge (feature `foam-export`).** [`foam::to_poly_mesh`]
+//!   converts a [`volume_mesh::VolumeMesh`] into a real `outram-foam-basic-lib`
+//!   `PolyMesh`, which yields a solvable `FvMesh` via `to_fv_mesh()` — closing
+//!   the loop: surface → carve → snap → foam mesh (verified end-to-end).
 //!
 //! Next on the `op-hzs` roadmap: octree refinement near the surface, the
-//! polyhedral dual (`op-hzs.33`, voro++ reference), boundary layers
-//! (`op-hzs.34`), and the volume-`PolyMesh` bridge to `outram-foam-basic-lib`
-//! (`op-hzs.35`).
+//! polyhedral dual (`op-hzs.33`, voro++ reference), and boundary layers
+//! (`op-hzs.34`).
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
@@ -86,3 +88,9 @@ pub mod carve;
 pub mod math;
 pub mod snap;
 pub mod volume_mesh;
+
+/// Bridge to the real `outram-foam-basic-lib` `PolyMesh` (feature
+/// `foam-export`) — the volume-mesh output path to the CFD/TH solver. Off by
+/// default so the base crate stays dependency-free and Android-buildable.
+#[cfg(feature = "foam-export")]
+pub mod foam;
