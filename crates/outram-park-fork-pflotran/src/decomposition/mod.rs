@@ -30,7 +30,9 @@
 //! partition is 1-D (structured slabs); unstructured / multi-dimensional
 //! partitioning is future work.
 
+pub mod cartesian2d;
 pub mod krylov;
+pub mod operator;
 
 use outram_park_mpi::{Communicator, MpiResult};
 
