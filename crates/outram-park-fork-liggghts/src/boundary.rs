@@ -262,7 +262,10 @@ impl Boundary {
     pub fn plane(point: Vec3, normal: Vec3) -> Result<Self, DemError> {
         let n = normal.norm();
         if n > 0.0 {
-            Ok(Self::Plane { point, normal: normal.scale(1.0 / n) })
+            Ok(Self::Plane {
+                point,
+                normal: normal.scale(1.0 / n),
+            })
         } else {
             Err(DemError::InvalidInput(
                 "plane normal must have non-zero length".to_string(),
@@ -281,7 +284,10 @@ impl Boundary {
     pub fn wall(point: Vec3, normal: Vec3) -> Result<Self, DemError> {
         let n = normal.norm();
         if n > 0.0 {
-            Ok(Self::Wall { point, normal: normal.scale(1.0 / n) })
+            Ok(Self::Wall {
+                point,
+                normal: normal.scale(1.0 / n),
+            })
         } else {
             Err(DemError::InvalidInput(
                 "wall normal must have non-zero length".to_string(),
@@ -320,7 +326,11 @@ impl Boundary {
         let a = axis_dir.norm();
         if a > 0.0 {
             if radius > 0.0 {
-                Ok(Self::Cylinder { axis_point, axis_dir: axis_dir.scale(1.0 / a), radius })
+                Ok(Self::Cylinder {
+                    axis_point,
+                    axis_dir: axis_dir.scale(1.0 / a),
+                    radius,
+                })
             } else {
                 Err(DemError::InvalidInput(format!(
                     "cylinder radius must be strictly positive, got {radius} m"
@@ -372,7 +382,11 @@ impl Boundary {
                 // negate for the positive-interior convention.
                 -(outside + inside)
             }
-            Self::Cylinder { axis_point, axis_dir, radius } => {
+            Self::Cylinder {
+                axis_point,
+                axis_dir,
+                radius,
+            } => {
                 let a = unit(axis_dir);
                 let w = point.sub(axis_point);
                 let axial = w.dot(a);
@@ -408,7 +422,11 @@ impl Boundary {
                 if delta > 0.0 {
                     // Normal points from the plane toward the particle centre's side.
                     let nc = if signed >= 0.0 { n } else { n.scale(-1.0) };
-                    Some(Contact { overlap: delta, normal: nc, point: c.sub(nc.scale(s)) })
+                    Some(Contact {
+                        overlap: delta,
+                        normal: nc,
+                        point: c.sub(nc.scale(s)),
+                    })
                 } else {
                     None
                 }
@@ -421,7 +439,11 @@ impl Boundary {
                 let delta = r - s;
                 if delta > 0.0 {
                     // One-sided: the normal is always the fixed outward +n̂.
-                    Some(Contact { overlap: delta, normal: n, point: c.sub(n.scale(s)) })
+                    Some(Contact {
+                        overlap: delta,
+                        normal: n,
+                        point: c.sub(n.scale(s)),
+                    })
                 } else {
                     None
                 }
@@ -446,12 +468,20 @@ impl Boundary {
                     .expect("six faces");
                 let delta = r - s;
                 if delta > 0.0 {
-                    Some(Contact { overlap: delta, normal: nc, point: c.sub(nc.scale(s)) })
+                    Some(Contact {
+                        overlap: delta,
+                        normal: nc,
+                        point: c.sub(nc.scale(s)),
+                    })
                 } else {
                     None
                 }
             }
-            Self::Cylinder { axis_point, axis_dir, radius } => {
+            Self::Cylinder {
+                axis_point,
+                axis_dir,
+                radius,
+            } => {
                 let a = unit(axis_dir);
                 let w = c.sub(axis_point);
                 let axial = w.dot(a);
@@ -467,7 +497,11 @@ impl Boundary {
                 if delta > 0.0 {
                     // Inward normal points from the wall toward the axis: −ρ̂.
                     let nc = radial.scale(-1.0 / rho);
-                    Some(Contact { overlap: delta, normal: nc, point: c.sub(nc.scale(s)) })
+                    Some(Contact {
+                        overlap: delta,
+                        normal: nc,
+                        point: c.sub(nc.scale(s)),
+                    })
                 } else {
                     None
                 }
@@ -513,12 +547,31 @@ mod tests {
     #[test]
     fn plane_signed_distance_known_points() {
         let plane = Boundary::plane(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).unwrap();
-        assert_abs_diff_eq!(plane.signed_distance(Vec3::new(7.0, -4.0, 2.0)), 2.0, epsilon = 1e-15);
-        assert_abs_diff_eq!(plane.signed_distance(Vec3::new(1.0, 1.0, -3.0)), -3.0, epsilon = 1e-15);
-        assert_abs_diff_eq!(plane.signed_distance(Vec3::new(5.0, 6.0, 0.0)), 0.0, epsilon = 1e-15);
+        assert_abs_diff_eq!(
+            plane.signed_distance(Vec3::new(7.0, -4.0, 2.0)),
+            2.0,
+            epsilon = 1e-15
+        );
+        assert_abs_diff_eq!(
+            plane.signed_distance(Vec3::new(1.0, 1.0, -3.0)),
+            -3.0,
+            epsilon = 1e-15
+        );
+        assert_abs_diff_eq!(
+            plane.signed_distance(Vec3::new(5.0, 6.0, 0.0)),
+            0.0,
+            epsilon = 1e-15
+        );
         // Non-unit normal is normalised defensively.
-        let plane2 = Boundary::Plane { point: Vec3::zero(), normal: Vec3::new(0.0, 0.0, 4.0) };
-        assert_abs_diff_eq!(plane2.signed_distance(Vec3::new(0.0, 0.0, 2.0)), 2.0, epsilon = 1e-15);
+        let plane2 = Boundary::Plane {
+            point: Vec3::zero(),
+            normal: Vec3::new(0.0, 0.0, 4.0),
+        };
+        assert_abs_diff_eq!(
+            plane2.signed_distance(Vec3::new(0.0, 0.0, 2.0)),
+            2.0,
+            epsilon = 1e-15
+        );
     }
 
     /// V&V — **wall (half-space) signed distance at known points**.
@@ -534,9 +587,21 @@ mod tests {
     #[test]
     fn wall_signed_distance_known_points() {
         let wall = Boundary::wall(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).unwrap();
-        assert_abs_diff_eq!(wall.signed_distance(Vec3::new(2.0, 3.0, 0.5)), 0.5, epsilon = 1e-15);
-        assert_abs_diff_eq!(wall.signed_distance(Vec3::new(0.0, 0.0, -0.25)), -0.25, epsilon = 1e-15);
-        assert_abs_diff_eq!(wall.signed_distance(Vec3::new(9.0, 9.0, 0.0)), 0.0, epsilon = 1e-15);
+        assert_abs_diff_eq!(
+            wall.signed_distance(Vec3::new(2.0, 3.0, 0.5)),
+            0.5,
+            epsilon = 1e-15
+        );
+        assert_abs_diff_eq!(
+            wall.signed_distance(Vec3::new(0.0, 0.0, -0.25)),
+            -0.25,
+            epsilon = 1e-15
+        );
+        assert_abs_diff_eq!(
+            wall.signed_distance(Vec3::new(9.0, 9.0, 0.0)),
+            0.0,
+            epsilon = 1e-15
+        );
     }
 
     /// V&V — **axis-aligned box signed distance at known points**.
@@ -555,10 +620,26 @@ mod tests {
     #[test]
     fn box_signed_distance_known_points() {
         let b = Boundary::aabb(Vec3::zero(), Vec3::new(2.0, 2.0, 2.0)).unwrap();
-        assert_abs_diff_eq!(b.signed_distance(Vec3::new(1.0, 1.0, 1.0)), 1.0, epsilon = 1e-12);
-        assert_abs_diff_eq!(b.signed_distance(Vec3::new(0.2, 1.0, 1.0)), 0.2, epsilon = 1e-12);
-        assert_abs_diff_eq!(b.signed_distance(Vec3::new(0.0, 1.0, 1.0)), 0.0, epsilon = 1e-12);
-        assert_abs_diff_eq!(b.signed_distance(Vec3::new(3.0, 1.0, 1.0)), -1.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(
+            b.signed_distance(Vec3::new(1.0, 1.0, 1.0)),
+            1.0,
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            b.signed_distance(Vec3::new(0.2, 1.0, 1.0)),
+            0.2,
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            b.signed_distance(Vec3::new(0.0, 1.0, 1.0)),
+            0.0,
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            b.signed_distance(Vec3::new(3.0, 1.0, 1.0)),
+            -1.0,
+            epsilon = 1e-12
+        );
         assert_abs_diff_eq!(
             b.signed_distance(Vec3::new(3.0, 3.0, 1.0)),
             -std::f64::consts::SQRT_2,
@@ -582,12 +663,27 @@ mod tests {
     /// axial component correctly.
     #[test]
     fn cylinder_signed_distance_known_points() {
-        let cyl =
-            Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 1.0).unwrap();
-        assert_abs_diff_eq!(cyl.signed_distance(Vec3::new(0.5, 0.0, 4.0)), 0.5, epsilon = 1e-12);
-        assert_abs_diff_eq!(cyl.signed_distance(Vec3::new(2.0, 0.0, 0.0)), -1.0, epsilon = 1e-12);
-        assert_abs_diff_eq!(cyl.signed_distance(Vec3::new(0.0, 1.0, 0.0)), 0.0, epsilon = 1e-12);
-        assert_abs_diff_eq!(cyl.signed_distance(Vec3::new(0.6, 0.8, 3.0)), 0.0, epsilon = 1e-12);
+        let cyl = Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 1.0).unwrap();
+        assert_abs_diff_eq!(
+            cyl.signed_distance(Vec3::new(0.5, 0.0, 4.0)),
+            0.5,
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            cyl.signed_distance(Vec3::new(2.0, 0.0, 0.0)),
+            -1.0,
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            cyl.signed_distance(Vec3::new(0.0, 1.0, 0.0)),
+            0.0,
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            cyl.signed_distance(Vec3::new(0.6, 0.8, 3.0)),
+            0.0,
+            epsilon = 1e-12
+        );
     }
 
     /// V&V — **sphere straddling a two-sided plane: overlap and outward
@@ -610,7 +706,9 @@ mod tests {
     fn sphere_straddling_plane_overlap_and_normal() {
         let plane = Boundary::plane(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).unwrap();
 
-        let c = plane.particle_overlap(&particle_at(Vec3::new(0.0, 0.0, 0.3), 0.5)).unwrap();
+        let c = plane
+            .particle_overlap(&particle_at(Vec3::new(0.0, 0.0, 0.3), 0.5))
+            .unwrap();
         assert_abs_diff_eq!(c.overlap, 0.2, epsilon = 1e-12);
         assert_abs_diff_eq!(c.normal.z, 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(c.normal.x, 0.0, epsilon = 1e-12);
@@ -618,13 +716,17 @@ mod tests {
         assert_abs_diff_eq!(c.point.z, 0.0, epsilon = 1e-12);
 
         // Mirror side: same overlap, flipped normal.
-        let c2 = plane.particle_overlap(&particle_at(Vec3::new(0.0, 0.0, -0.3), 0.5)).unwrap();
+        let c2 = plane
+            .particle_overlap(&particle_at(Vec3::new(0.0, 0.0, -0.3), 0.5))
+            .unwrap();
         assert_abs_diff_eq!(c2.overlap, 0.2, epsilon = 1e-12);
         assert_abs_diff_eq!(c2.normal.z, -1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(c2.point.z, 0.0, epsilon = 1e-12);
 
         // Too far: no contact.
-        assert!(plane.particle_overlap(&particle_at(Vec3::new(0.0, 0.0, 0.9), 0.5)).is_none());
+        assert!(plane
+            .particle_overlap(&particle_at(Vec3::new(0.0, 0.0, 0.9), 0.5))
+            .is_none());
     }
 
     /// V&V — **one-sided wall: contact from the front only**.
@@ -645,14 +747,20 @@ mod tests {
     fn wall_one_sided_overlap() {
         let wall = Boundary::wall(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).unwrap();
 
-        let c = wall.particle_overlap(&particle_at(Vec3::new(0.0, 0.0, 0.4), 0.5)).unwrap();
+        let c = wall
+            .particle_overlap(&particle_at(Vec3::new(0.0, 0.0, 0.4), 0.5))
+            .unwrap();
         assert_abs_diff_eq!(c.overlap, 0.1, epsilon = 1e-12);
         assert_abs_diff_eq!(c.normal.z, 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(c.point.z, 0.0, epsilon = 1e-12);
 
-        assert!(wall.particle_overlap(&particle_at(Vec3::new(0.0, 0.0, 1.0), 0.5)).is_none());
+        assert!(wall
+            .particle_overlap(&particle_at(Vec3::new(0.0, 0.0, 1.0), 0.5))
+            .is_none());
 
-        let sunk = wall.particle_overlap(&particle_at(Vec3::new(0.0, 0.0, -0.2), 0.5)).unwrap();
+        let sunk = wall
+            .particle_overlap(&particle_at(Vec3::new(0.0, 0.0, -0.2), 0.5))
+            .unwrap();
         assert_abs_diff_eq!(sunk.overlap, 0.7, epsilon = 1e-12);
         assert_abs_diff_eq!(sunk.normal.z, 1.0, epsilon = 1e-12);
     }
@@ -672,7 +780,9 @@ mod tests {
     fn particle_inside_box_near_face() {
         let b = Boundary::aabb(Vec3::zero(), Vec3::new(10.0, 10.0, 10.0)).unwrap();
 
-        let c = b.particle_overlap(&particle_at(Vec3::new(0.3, 5.0, 5.0), 0.5)).unwrap();
+        let c = b
+            .particle_overlap(&particle_at(Vec3::new(0.3, 5.0, 5.0), 0.5))
+            .unwrap();
         assert_abs_diff_eq!(c.overlap, 0.2, epsilon = 1e-12);
         assert_abs_diff_eq!(c.normal.x, 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(c.normal.y, 0.0, epsilon = 1e-12);
@@ -681,7 +791,9 @@ mod tests {
         assert_abs_diff_eq!(c.point.y, 5.0, epsilon = 1e-12);
         assert_abs_diff_eq!(c.point.z, 5.0, epsilon = 1e-12);
 
-        assert!(b.particle_overlap(&particle_at(Vec3::new(5.0, 5.0, 5.0), 0.5)).is_none());
+        assert!(b
+            .particle_overlap(&particle_at(Vec3::new(5.0, 5.0, 5.0), 0.5))
+            .is_none());
     }
 
     /// V&V — **particle inside vs. outside the cylinder radius**.
@@ -698,20 +810,25 @@ mod tests {
     /// reproduced to `< 1e-12`.
     #[test]
     fn particle_inside_outside_cylinder_radius() {
-        let cyl =
-            Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 2.0).unwrap();
+        let cyl = Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 2.0).unwrap();
 
-        let c = cyl.particle_overlap(&particle_at(Vec3::new(1.6, 0.0, 0.0), 0.5)).unwrap();
+        let c = cyl
+            .particle_overlap(&particle_at(Vec3::new(1.6, 0.0, 0.0), 0.5))
+            .unwrap();
         assert_abs_diff_eq!(c.overlap, 0.1, epsilon = 1e-12);
         assert_abs_diff_eq!(c.normal.x, -1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(c.normal.y, 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(c.normal.z, 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(c.point.x, 2.0, epsilon = 1e-12);
 
-        assert!(cyl.particle_overlap(&particle_at(Vec3::new(1.0, 0.0, 0.0), 0.5)).is_none());
+        assert!(cyl
+            .particle_overlap(&particle_at(Vec3::new(1.0, 0.0, 0.0), 0.5))
+            .is_none());
 
         // Degenerate: centre exactly on the axis → no defined radial normal.
-        assert!(cyl.particle_overlap(&particle_at(Vec3::zero(), 0.5)).is_none());
+        assert!(cyl
+            .particle_overlap(&particle_at(Vec3::zero(), 0.5))
+            .is_none());
     }
 
     /// Constructor input validation: zero-length normals/axes, an inverted box,
@@ -726,7 +843,7 @@ mod tests {
         // Inverted / degenerate box.
         assert!(Boundary::aabb(Vec3::new(1.0, 0.0, 0.0), Vec3::zero()).is_err());
         assert!(Boundary::aabb(Vec3::zero(), Vec3::new(0.0, 1.0, 1.0)).is_err()); // equal on x
-        // Non-positive cylinder radius.
+                                                                                  // Non-positive cylinder radius.
         assert!(Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 0.0).is_err());
         assert!(Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), -2.0).is_err());
         // Valid inputs succeed.

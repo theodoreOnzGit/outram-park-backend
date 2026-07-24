@@ -54,6 +54,8 @@ Phases 2-4 are **clean-room, unit-tested foundations, not benchmark-validated**
 - [`rolling`] — rolling resistance (Ai et al.) + cohesion (JKR / linear).
 - [`mesh_wall`] — triangulated (STL-style) walls + moving/rotating boundaries.
 - [`thermal_radiation`] — grey-body radiation + near-field gas-gap conduction.
+- [`bonded`] — linear parallel-bond model (Potyondy & Cundall 2004) for
+  cemented granular material, agglomerates, and TRISO/pebble-matrix bonds.
 
 ## Design rules (workspace `CLAUDE.md`)
 

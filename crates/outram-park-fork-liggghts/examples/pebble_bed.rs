@@ -217,8 +217,8 @@ fn main() {
     // the bottom.
     let cylinder = Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), CYLINDER_RADIUS)
         .expect("cylinder radius and axis are valid");
-    let floor = Boundary::wall(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0))
-        .expect("floor normal is non-zero");
+    let floor =
+        Boundary::wall(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).expect("floor normal is non-zero");
 
     // --- Contact law: damped linear spring-dashpot (Hooke) -----------------
     // Damping in the normal (and tangential) dashpot is what lets the kinetic
@@ -236,14 +236,8 @@ fn main() {
     let total_pebble_volume = n as f64 * single_volume;
 
     let gravity = Vec3::new(0.0, 0.0, -9.81);
-    let mut sim = DemSimulation::new(
-        particles,
-        vec![cylinder, floor],
-        contact,
-        gravity,
-        DT,
-    )
-    .expect("dt is strictly positive");
+    let mut sim = DemSimulation::new(particles, vec![cylinder, floor], contact, gravity, DT)
+        .expect("dt is strictly positive");
 
     let ke_initial = sim.kinetic_energy();
     sim.run(N_STEPS);
@@ -275,7 +269,9 @@ fn main() {
     // --- Report ------------------------------------------------------------
     println!("=== OUTRAM PARK — pebble-bed settling demo (DEM verification demo) ===");
     println!();
-    println!("Container      : vertical cylinder, inner radius {CYLINDER_RADIUS:.3} m, floor at z = 0");
+    println!(
+        "Container      : vertical cylinder, inner radius {CYLINDER_RADIUS:.3} m, floor at z = 0"
+    );
     println!("Pebbles        : {n} equal spheres, radius {PEBBLE_RADIUS:.3} m, density {PEBBLE_DENSITY:.0} kg/m^3");
     println!(
         "Contact model  : Hooke spring-dashpot  k_n = {K_N:.1e} N/m, gamma_n = {GAMMA_N:.0} N.s/m, mu = {FRICTION}"
@@ -291,20 +287,16 @@ fn main() {
     println!("Kinetic energy (final)    : {ke_final:.6e} J");
     println!("Settled KE threshold      : {SETTLED_KE_THRESHOLD:.6e} J");
     println!("Bed height (top of bed)   : {bed_height:.4} m");
-    println!("Lowest pebble centre z    : {lowest_center:.4} m  (floor rest ~ {PEBBLE_RADIUS:.4} m)");
+    println!(
+        "Lowest pebble centre z    : {lowest_center:.4} m  (floor rest ~ {PEBBLE_RADIUS:.4} m)"
+    );
     println!("Total pebble volume       : {total_pebble_volume:.6e} m^3");
     println!("Occupied bed volume       : {occupied_bed_volume:.6e} m^3  (pi R^2 x bed height)");
     println!("Packing fraction          : {packing_fraction:.4}");
     println!();
-    println!(
-        "Reference: monodisperse random close packing (RCP) ~ 0.6366 (Scott & Kilgour 1969)."
-    );
-    println!(
-        "This is a small, ordered-lattice, wall-confined VERIFICATION demo, so its"
-    );
-    println!(
-        "packing fraction is illustrative only and will differ from bulk RCP."
-    );
+    println!("Reference: monodisperse random close packing (RCP) ~ 0.6366 (Scott & Kilgour 1969).");
+    println!("This is a small, ordered-lattice, wall-confined VERIFICATION demo, so its");
+    println!("packing fraction is illustrative only and will differ from bulk RCP.");
     println!();
     if settled {
         println!("VERDICT: settled  (final KE {ke_final:.3e} J < {SETTLED_KE_THRESHOLD:.3e} J threshold)");

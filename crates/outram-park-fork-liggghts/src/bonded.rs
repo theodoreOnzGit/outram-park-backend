@@ -479,8 +479,7 @@ impl Bond {
         self.bend_moment = self.bend_moment.add(w_b.scale(-self.k_n * i_bend * dt));
 
         // --- Breakage criterion --------------------------------------------
-        let sigma_max =
-            self.normal_force / area + self.bend_moment.norm() * self.radius / i_bend;
+        let sigma_max = self.normal_force / area + self.bend_moment.norm() * self.radius / i_bend;
         let tau_max =
             self.shear_force.norm() / area + self.twist_moment.abs() * self.radius / j_twist;
         if sigma_max > self.sigma_c || tau_max > self.tau_c {
@@ -716,7 +715,13 @@ mod tests {
     fn unstressed_bond_carries_zero_load() {
         let mut bnd = bond(1.0e9, 4.0e8, 0.01, 1.0e6, 1.0e6);
         let a = particle(Vec3::zero(), Vec3::zero(), Vec3::zero(), 1.0, 0.1);
-        let b = particle(Vec3::new(0.5, 0.0, 0.0), Vec3::zero(), Vec3::zero(), 1.0, 0.1);
+        let b = particle(
+            Vec3::new(0.5, 0.0, 0.0),
+            Vec3::zero(),
+            Vec3::zero(),
+            1.0,
+            0.1,
+        );
 
         let f = bnd.update_bond(&a, &b, 1.0e-3);
 
@@ -828,9 +833,21 @@ mod tests {
     fn bond_geometry_matches_closed_form() {
         let bnd = bond(1.0e9, 4.0e8, 0.01, 1.0e12, 1.0e12);
         assert_abs_diff_eq!(bnd.area(), 3.141592653589793e-4, epsilon = 1.0e-15);
-        assert_abs_diff_eq!(bnd.bending_inertia(), 7.853981633974483e-9, epsilon = 1.0e-20);
-        assert_abs_diff_eq!(bnd.polar_inertia(), 1.5707963267948966e-8, epsilon = 1.0e-20);
-        assert_abs_diff_eq!(bnd.polar_inertia(), 2.0 * bnd.bending_inertia(), epsilon = 1.0e-20);
+        assert_abs_diff_eq!(
+            bnd.bending_inertia(),
+            7.853981633974483e-9,
+            epsilon = 1.0e-20
+        );
+        assert_abs_diff_eq!(
+            bnd.polar_inertia(),
+            1.5707963267948966e-8,
+            epsilon = 1.0e-20
+        );
+        assert_abs_diff_eq!(
+            bnd.polar_inertia(),
+            2.0 * bnd.bending_inertia(),
+            epsilon = 1.0e-20
+        );
     }
 
     /// Constructor validation: non-positive stiffness, radius, or strength is

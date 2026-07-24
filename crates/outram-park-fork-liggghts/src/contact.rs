@@ -620,7 +620,13 @@ mod tests {
             HookeContact::new(1000.0, 5.0, 500.0, 2.0, 0.3).expect("valid hooke"),
         );
         let a = particle(Vec3::zero(), Vec3::zero(), Vec3::zero(), 1.0, 0.5);
-        let b = particle(Vec3::new(0.9, 0.0, 0.0), Vec3::zero(), Vec3::zero(), 1.0, 0.5);
+        let b = particle(
+            Vec3::new(0.9, 0.0, 0.0),
+            Vec3::zero(),
+            Vec3::zero(),
+            1.0,
+            0.5,
+        );
 
         let cf = model.contact_force(&a, &b).expect("in contact");
         assert_abs_diff_eq!(cf.overlap, 0.1, epsilon = 1.0e-12);
@@ -661,9 +667,21 @@ mod tests {
 
         // δ = 0.01 m  → centres 0.99 apart.
         let a1 = particle(Vec3::zero(), Vec3::zero(), Vec3::zero(), 1.0, 0.5);
-        let b1 = particle(Vec3::new(0.99, 0.0, 0.0), Vec3::zero(), Vec3::zero(), 1.0, 0.5);
+        let b1 = particle(
+            Vec3::new(0.99, 0.0, 0.0),
+            Vec3::zero(),
+            Vec3::zero(),
+            1.0,
+            0.5,
+        );
         // δ = 0.04 m  → centres 0.96 apart.
-        let b2 = particle(Vec3::new(0.96, 0.0, 0.0), Vec3::zero(), Vec3::zero(), 1.0, 0.5);
+        let b2 = particle(
+            Vec3::new(0.96, 0.0, 0.0),
+            Vec3::zero(),
+            Vec3::zero(),
+            1.0,
+            0.5,
+        );
 
         let f1 = model.contact_force(&a1, &b1).expect("in contact");
         let f2 = model.contact_force(&a1, &b2).expect("in contact");
@@ -693,7 +711,13 @@ mod tests {
             HertzContact::new(Pressure::new::<pascal>(1.0e7), 0.3, 0.8, 0.3).expect("valid hertz"),
         );
         let a = particle(Vec3::zero(), Vec3::zero(), Vec3::zero(), 1.0, 0.5);
-        let b = particle(Vec3::new(1.2, 0.0, 0.0), Vec3::zero(), Vec3::zero(), 1.0, 0.5);
+        let b = particle(
+            Vec3::new(1.2, 0.0, 0.0),
+            Vec3::zero(),
+            Vec3::zero(),
+            1.0,
+            0.5,
+        );
 
         assert!(hooke.contact_force(&a, &b).is_none());
         assert!(hertz.contact_force(&a, &b).is_none());
@@ -727,7 +751,13 @@ mod tests {
             1.0,
             0.5,
         );
-        let b = particle(Vec3::new(0.9, 0.0, 0.0), Vec3::zero(), Vec3::zero(), 1.0, 0.5);
+        let b = particle(
+            Vec3::new(0.9, 0.0, 0.0),
+            Vec3::zero(),
+            Vec3::zero(),
+            1.0,
+            0.5,
+        );
 
         let cf = model.contact_force(&a, &b).expect("in contact");
         // Normal unchanged (velocity is ⟂ n̂).
@@ -788,7 +818,11 @@ mod tests {
         let hertz =
             HertzContact::new(Pressure::new::<pascal>(1.0e7), 0.3, 0.8, 0.3).expect("valid hertz");
         assert_abs_diff_eq!(hertz.effective_modulus(), 5.494505494505e6, epsilon = 1.0);
-        assert_abs_diff_eq!(hertz.effective_shear_modulus(), 1.131221719457e6, epsilon = 1.0);
+        assert_abs_diff_eq!(
+            hertz.effective_shear_modulus(),
+            1.131221719457e6,
+            epsilon = 1.0
+        );
         // β = ln(0.8)/sqrt(ln(0.8)^2 + π^2)
         let ln_e = 0.8_f64.ln();
         let beta_expected = ln_e / (ln_e * ln_e + std::f64::consts::PI.powi(2)).sqrt();

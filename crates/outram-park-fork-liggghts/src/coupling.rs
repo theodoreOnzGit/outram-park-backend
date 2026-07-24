@@ -266,8 +266,7 @@ pub trait DemCouplingResponse {
     /// # Errors
     ///
     /// Returns [`DemError::NotImplemented`] in this reserved phase.
-    fn drag_force(&self, particle: &Particle, fluid: &LocalFluidState)
-        -> Result<Vec3, DemError>;
+    fn drag_force(&self, particle: &Particle, fluid: &LocalFluidState) -> Result<Vec3, DemError>;
 
     /// Compute the **particle (solid) volume fraction** `ε_s` (dimensionless,
     /// `[0, 1)`) that `particle` projects back onto the CFD mesh, given the
@@ -323,11 +322,7 @@ impl FluidCouplingSource for ReservedFluidSource {
 pub struct ReservedDragModel;
 
 impl DemCouplingResponse for ReservedDragModel {
-    fn drag_force(
-        &self,
-        _particle: &Particle,
-        _fluid: &LocalFluidState,
-    ) -> Result<Vec3, DemError> {
+    fn drag_force(&self, _particle: &Particle, _fluid: &LocalFluidState) -> Result<Vec3, DemError> {
         Err(DemError::NotImplemented(
             "fluid→particle drag force is reserved architecture (Phase 5, bead \
              op-t3l.5); no drag correlation is implemented — deferred, and \
@@ -438,8 +433,8 @@ mod tests {
     use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
     use uom::si::length::meter;
     use uom::si::mass::kilogram;
-    use uom::si::thermodynamic_temperature::kelvin;
     use uom::si::ratio::ratio;
+    use uom::si::thermodynamic_temperature::kelvin;
     use uom::si::volume::cubic_meter;
 
     /// Helper: a valid particle to feed the (reserved) DEM side.
@@ -512,8 +507,7 @@ mod tests {
         let drag = model.drag_force(&p, &fluid);
         assert!(matches!(drag, Err(DemError::NotImplemented(_))));
 
-        let frac = model
-            .particle_volume_fraction(&p, Volume::new::<cubic_meter>(1.0e-6));
+        let frac = model.particle_volume_fraction(&p, Volume::new::<cubic_meter>(1.0e-6));
         assert!(matches!(frac, Err(DemError::NotImplemented(_))));
     }
 
