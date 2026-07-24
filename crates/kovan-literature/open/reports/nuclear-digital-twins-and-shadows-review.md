@@ -6,9 +6,10 @@ Provenance: condensed from a longer working literature review by
   literature is retained here; Outram-Park-internal research strategy,
   proposed research directions, and personal working notes were removed as
   out of scope for the open archive.
-Status of citations: under structured verification (see the note at the head
-  of the References section). Entries still needing publisher-page confirmation
-  are marked INCOMPLETE / VERIFY inline — treat those as unconfirmed.
+Status of citations: a structured verification pass (24 July 2026) has
+  confirmed most entries against authoritative sources; a few fields remain
+  unconfirmed and are marked VERIFY inline (see the note at the head of the
+  References section) — treat those specific fields as unconfirmed.
 Not a validation artifact; an educational/orientation survey only, consistent
   with the workspace RESPONSIBLE_USE.md.
 -->
@@ -160,9 +161,9 @@ Challenges: computational expense, measurement uncertainty, licensing hurdles
 → TH solver → future-state prediction, over code bases such as TRACE, RELAP,
 SAM, OpenFOAM: transient forecasting, accident management, online diagnostics.
 Recent work already couples LLM agents to physics-based TH simulators in this
-configuration; Cammi and co-workers demonstrated a lead-cooled fast-reactor DT
-with bidirectional OPC-UA connectivity and an LLM agent invoking a
-SAM-benchmarked simulator to generate quantitative control recommendations
+configuration; Ndum and co-workers demonstrated an advanced-reactor DT with
+bidirectional OPC-UA connectivity and an LLM agent invoking a physics simulator
+to generate quantitative control recommendations
 [@llm_dt_2025; @mondal2024advanced; @nrc2023digitaltwin].
 
 **3.6 Safeguards and security twins** — emerging (IAEA, national safeguards
@@ -250,9 +251,9 @@ Several capabilities often described as "future" are already published:
   end — input interpretation, file generation, execution management,
   post-processing — with a stated extension path to MCNP and PHITS
   [@autofluka2025].
-- **LLM agents coupled to physics simulators in a DT loop.** A lead-cooled
-  fast-reactor framework integrates a simulator-based DT with a domain-enhanced
-  LLM over OPC-UA, the agent invoking the simulator and issuing quantitative
+- **LLM agents coupled to physics simulators in a DT loop.** An advanced-reactor
+  framework integrates a simulator-based DT with a domain-enhanced LLM over
+  OPC-UA, the agent invoking the simulator and issuing quantitative
   recommendations that matched a conventional reference governor [@llm_dt_2025].
 - **LLM agents against reactor documentation.** An agent architecture
   integrating documentation, functions and retrieval generated a new operating
@@ -334,10 +335,18 @@ Thin or absent, flagged for future revision:
 
 ## References
 
-> **Verification status (24 July 2026).** Entries below are being checked
-> against publisher pages. Those tagged `INCOMPLETE` or `VERIFY` are not yet
-> confirmed and must not be cited downstream until resolved. Nothing here is
-> fabricated; unconfirmed fields are marked, not guessed.
+> **Verification status (24 July 2026).** A structured verification pass has
+> now confirmed most entries against authoritative sources (NASA ADS bibcodes,
+> Taylor & Francis, OSTI, IAEA Indico, institutional pages). Confirmed:
+> `autofluka2025`, `llm_operation_2025`, `liu2024gnn`, `anl_gemina`,
+> `kochunas2021digital`, `bowman2022unified`, `vare2020ltO`, `xian2025sdie`,
+> and the three web resources (`rwth_shadow`, `oxford_shadow`,
+> `ibm_digital_twin`). Corrected: `llm_dt_2025` (journal is *Progress in
+> Nuclear Energy* 192, not "Energy"); `liu2024gnn` (print volume 211(9), 2025).
+> Still tagged `VERIFY`/unconfirmed — do not cite those fields downstream until
+> resolved: `hahn_cyber` (venue/year/co-authors), `li2022rinpo` (parent-
+> conference name), and the exact author masthead of `llm_dt_2025`. Nothing
+> here is fabricated; unconfirmed fields are marked, not guessed.
 
 ```bibtex
 @techreport{epri_dt_2022,
@@ -363,7 +372,7 @@ Thin or absent, flagged for future revision:
   title = {Argonne to Explore How Digital Twins May Transform Nuclear Energy with ARPA-E's GEMINA Program},
   author = {{Argonne National Laboratory}}, year = {2020},
   url = {https://www.anl.gov/article/argonne-to-explore-how-digital-twins-may-transform-nuclear-energy-with-8-million-from-arpaes-gemina},
-  note = {VERIFY the ANL award total vs the program's $28M/9-project split}
+  note = {Confirmed: GEMINA is $28M across 9 projects; Argonne is in 4 of the 9 for $8M total; its largest single award is $4.5M for SSR APPLIED with Moltex Energy (SSR-W).}
 }
 @article{mondal2024advanced,
   title = {Advanced Manufacturing and Digital Twin Technology for Nuclear Energy},
@@ -380,10 +389,13 @@ Thin or absent, flagged for future revision:
   author = {Yadav, Vaibhav and Agarwal, Vivek and Gribok, Andrei V. and Hays, Ross D. and Pluth, Adam J. and Ritter, Christopher S. and Zhang, Hongbin and Jain, Prashant K. and Ramuhalli, Pradeep and Eskins, Doug and Carlson, Jesse and Gascot, Ram\'{o}n L. and Ulmer, Christopher and Iyengar, Raj},
   institution = {US Nuclear Regulatory Commission}, year = {2021}
 }
-@inproceedings{li2022rinpo,
+@misc{li2022rinpo,
   title = {Nuclear Power Plant Digital Twinning for Efficient Operation},
-  author = {Li, Qing}, organization = {RINPO/CNNC}, year = {2022},
-  note = {INCOMPLETE — proceedings title, venue and pages needed}
+  author = {Li, Qing},
+  organization = {Research Institute of Nuclear Power Operation (RINPO/CNNC)}, year = {2022},
+  howpublished = {Conference presentation (slide deck), IAEA Indico event 298},
+  url = {https://conferences.iaea.org/event/298/contributions/24882/},
+  note = {Presentation, not paginated proceedings (no page numbers). VERIFY parent-conference name — Indico labels event 298 the "8th DEMO Programme Workshop", which is topically inconsistent with a CNNC fission-NPP talk.}
 }
 @inproceedings{stewart2023safeguards,
   title = {A Digital Twin of the AGN-201 Reactor to Simulate Nuclear Proliferation},
@@ -403,20 +415,26 @@ Thin or absent, flagged for future revision:
 }
 @article{autofluka2025,
   title = {Automating Monte Carlo Simulations in Nuclear Engineering with Domain Knowledge-Embedded Large Language Model Agents},
-  year = {2025}, journal = {Energy and AI},
-  note = {AutoFLUKA. VERIFY full author list and volume},
+  author = {Ndum Ndum, Zavier and Tao, Jian and Ford, John and Liu, Yang},
+  journal = {Energy and AI}, volume = {21}, pages = {100555}, year = {2025},
+  doi = {10.1016/j.egyai.2025.100555},
+  note = {AutoFLUKA. ADS bibcode 2025EneAI..2100555N},
   url = {https://www.sciencedirect.com/science/article/pii/S2666546825000874}
 }
 @article{llm_dt_2025,
   title = {Large Language Model-Assisted Digital Twin for Remote Monitoring and Control of Advanced Reactors},
-  year = {2025},
-  note = {Lead-cooled fast reactor; SAM-benchmarked simulator; OPC-UA. VERIFY authors and journal},
+  author = {Ndum, Zavier and Lim, Doyeong and Ford, John and Adu, Simon and Tao, Jian and Hassan, Yassin and Liu, Yang},
+  journal = {Progress in Nuclear Energy}, volume = {192}, pages = {106172}, year = {2026},
+  doi = {10.1016/j.pnucene.2025.106172},
+  note = {DOI stem 2025; print issue Feb 2026. Author list taken from the SSRN preprint of the same title -- eyeball the published masthead for exact order/count. LLM + DT over OPC-UA for advanced reactors.},
   url = {https://www.sciencedirect.com/science/article/pii/S0149197025005700}
 }
 @article{llm_operation_2025,
   title = {Large Language Model Agent for Nuclear Reactor Operation Assistance},
-  year = {2025}, journal = {Nuclear Engineering and Technology},
-  note = {VERIFY authors, volume, pages},
+  author = {Lee, Yoon Pyo and Cha, Joowon and Yu, Yonggyun and Kim, Seung Geun},
+  journal = {Nuclear Engineering and Technology}, volume = {57}, pages = {103842}, year = {2025},
+  doi = {10.1016/j.net.2025.103842},
+  note = {KAERI. ADS bibcode 2025NuEnT..5703842L},
   url = {https://www.sciencedirect.com/science/article/pii/S1738573325004103}
 }
 @article{xian2025sdie,
@@ -427,8 +445,10 @@ Thin or absent, flagged for future revision:
 }
 @article{liu2024gnn,
   title = {Development of Whole System Digital Twins for Advanced Reactors: Leveraging Graph Neural Networks and SAM Simulations},
-  author = {Liu, Y. and Alsafadi, F. and Mui, T. and O'Grady, D. and Hu, R.},
-  journal = {Nuclear Technology}, year = {2024}, note = {VERIFY final volume/pages}
+  author = {Liu, Yang and Alsafadi, Farah and Mui, Travis and O'Grady, Daniel and Hu, Rui},
+  journal = {Nuclear Technology}, volume = {211}, number = {9}, pages = {2206--2223}, year = {2025},
+  doi = {10.1080/00295450.2024.2385214},
+  note = {Online-first 2024 (hence the cite key); assigned print volume 211(9), September 2025}
 }
 @incollection{vare2020ltO,
   title = {Digital Twins, a New Step for Long Term Operation of Nuclear Power Plants},
@@ -442,10 +462,11 @@ Thin or absent, flagged for future revision:
   journal = {IEEE Access}, volume = {10}, pages = {44691--44709}, year = {2022},
   doi = {10.1109/ACCESS.2022.3161626}
 }
-@inproceedings{hahn_cyber,
+@techreport{hahn_cyber,
   title = {Digital Twins in Nuclear Power: Cybersecurity},
   author = {Hahn, Andrew S. and others},
-  note = {Sandia National Laboratories. VERIFY venue and year},
+  institution = {Sandia National Laboratories}, number = {OSTI ID 2585051},
+  note = {Lead author and OSTI ID confirmed. VERIFY venue/conference, year and full co-author list against the OSTI bibliographic record.},
   url = {https://www.osti.gov/servlets/purl/2585051}
 }
 @incollection{kropaczek2023dt,
@@ -461,16 +482,18 @@ Thin or absent, flagged for future revision:
 }
 @misc{rwth_shadow,
   title = {Digital Twins and Digital Shadows in Engineering and Production},
-  author = {{RWTH Aachen}}, year = {2024}, note = {INCOMPLETE — needs specific publication and URL}
+  author = {{RWTH Aachen Software Engineering Group}}, year = {2024},
+  url = {https://www.se-rwth.de/research/Digital-Twins/}
 }
 @misc{oxford_shadow,
   title = {Exploring the Concepts of Digital Twin, Digital Shadow and Digital Model},
   author = {Martinescu, Livia}, organization = {Oxford Insights}, year = {2023},
-  note = {INCOMPLETE — needs URL and access date}
+  url = {https://oxfordinsights.com/insights/exploring-the-concepts-of-digital-twin-digital-shadow-and-digital-model/},
+  note = {Published 23 October 2023}
 }
 @misc{ibm_digital_twin,
   title = {What is a Digital Twin?}, author = {{IBM}}, year = {2025},
-  note = {INCOMPLETE — needs URL and access date}
+  url = {https://www.ibm.com/think/topics/digital-twin}
 }
 ```
 
@@ -486,6 +509,11 @@ carried over from the source's own revision log include: GEMINA attributed to
 **ARPA-E** (not DOE-NE) with O&M-cost framing; `kochunas2021digital` corrected to
 *Energies* 14(14):4235 (not *Nuclear Engineering and Design*); TRACE/ASTEC placed
 in the late-1990s–2000s lineage rather than Phase 1; and full-scope simulators
-noted as pre-dating (not introduced by) the post-TMI regulatory response. The
-TRACE/ASTEC and pre-TMI-simulator points, and several `VERIFY`/`INCOMPLETE`
-references, remain to be independently confirmed.
+noted as pre-dating (not introduced by) the post-TMI regulatory response. A
+citation-verification pass on 24 July 2026 further corrected `llm_dt_2025` (the
+LLM-assisted advanced-reactor DT paper is Ndum et al. in *Progress in Nuclear
+Energy* 192, not a Cammi lead-cooled-fast-reactor work — the §3.5/§6 attribution
+was fixed accordingly) and fixed `liu2024gnn`'s print volume to 211(9), 2025.
+The TRACE/ASTEC and pre-TMI-simulator points, and the `VERIFY`-tagged fields of
+`hahn_cyber`, `li2022rinpo`, and `llm_dt_2025`'s author masthead, remain to be
+independently confirmed.
