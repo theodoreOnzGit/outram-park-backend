@@ -66,6 +66,7 @@
 pub mod chf;
 pub mod drift_flux;
 pub mod dryout;
+pub mod pimple;
 pub mod two_fluid;
 pub mod wall_boiling;
 
