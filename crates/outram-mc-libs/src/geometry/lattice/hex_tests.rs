@@ -293,3 +293,182 @@ fn outside_hexagon_resolves_to_outer() {
     let far = lat.get_indices(Position::new(100.0, 100.0, 0.0), Direction::new(1.0, 0.0, 0.0));
     assert_eq!(lat.universe_at(far), Some(2), "far point → outer");
 }
+
+// ---- op-6tz.38: ring→tile fill round-trip correctness -------------------
+
+/// Build the ring-nested input for an `n_rings` hex lattice with a **distinct
+/// universe per tile**, numbered as a running counter in the exact order
+/// [`HexLattice::from_rings`] consumes: outermost ring first, then each ring
+/// in its listed order, the single central tile last. Returns the rings and
+/// the total tile count `N = 3*n_rings*(n_rings-1) + 1`. The central tile's
+/// universe is therefore always `N - 1`.
+fn distinct_rings(n_rings: usize) -> (Vec<Vec<usize>>, usize) {
+    let mut rings = Vec::with_capacity(n_rings);
+    let mut counter = 0usize;
+    for j in 0..n_rings {
+        let radius = n_rings - 1 - j; // outer-first → radius counts down
+        let count = if radius == 0 { 1 } else { 6 * radius };
+        rings.push((counter..counter + count).collect());
+        counter += count;
+    }
+    (rings, counter)
+}
+
+/// Core round-trip check shared by the X/Y, `n_rings ∈ {2,3}` cases.
+///
+/// # Methodology
+/// Build a distinct-universe-per-tile lattice via [`distinct_rings`] +
+/// [`HexLattice::from_rings`], then assert three independent properties that
+/// together pin the ring→tile fill:
+///  1. **Bijection.** Every hexagon tile holds a distinct universe in
+///     `0..N`, each used exactly once; every non-hexagon corner holds
+///     [`HEX_NONE`]. (No two ring elements collide, none is dropped.)
+///  2. **Centre.** The central element (`universe = N-1`, last in ring
+///     order) lands on the geometric centre tile
+///     `[n_rings-1, n_rings-1, 0]` — the specific op-6tz.38 symptom.
+///  3. **Geometric round-trip.** For every tile `i`, routing its
+///     [`HexLattice::center_offset`] centre through
+///     [`HexLattice::get_indices`] → [`HexLattice::universe_at`] returns
+///     exactly the universe stored at `i`. This is the literal
+///     "`universe_at(get_indices(tile_centre)) == placed universe`" contract.
+fn assert_ring_fill_round_trip(orientation: HexOrientation, n_rings: usize) {
+    let (rings, n_tiles) = distinct_rings(n_rings);
+    let pitch = 1.3;
+    let outer = 99_999usize;
+    let lat = HexLattice::from_rings(1, orientation, Position::ZERO, pitch, &rings, Some(outer));
+    let nside = lat.n_side() as i32;
+
+    // (1) bijection over the hexagon.
+    let mut seen = vec![false; n_tiles];
+    let mut valid_count = 0usize;
+    for iy in 0..nside {
+        for ix in 0..nside {
+            let i = [ix, iy, 0];
+            let stored = lat.universes[lat.flat_index(i)];
+            if lat.are_valid_indices(i) {
+                valid_count += 1;
+                assert!(
+                    stored >= 0 && (stored as usize) < n_tiles,
+                    "tile {i:?} holds {stored}, outside 0..{n_tiles}"
+                );
+                assert!(!seen[stored as usize], "universe {stored} placed on two tiles");
+                seen[stored as usize] = true;
+            } else {
+                assert_eq!(stored, HEX_NONE, "corner {i:?} must be HEX_NONE");
+            }
+        }
+    }
+    assert_eq!(valid_count, n_tiles, "valid tile count == N for {n_rings} rings");
+    assert!(seen.iter().all(|&s| s), "every universe 0..{n_tiles} placed exactly once");
+
+    // (2) central element at the centre tile.
+    let centre = [n_rings as i32 - 1, n_rings as i32 - 1, 0];
+    assert_eq!(
+        lat.universe_at(centre),
+        Some(n_tiles - 1),
+        "central element (universe {}) must land on the centre tile {centre:?}",
+        n_tiles - 1
+    );
+
+    // (3) full geometric round-trip for every tile.
+    let u = Direction::new(1.0, 0.0, 0.0);
+    for iy in 0..nside {
+        for ix in 0..nside {
+            let i = [ix, iy, 0];
+            if !lat.are_valid_indices(i) {
+                continue;
+            }
+            let c = lat.center_offset(i);
+            let got = lat.get_indices(Position::new(c.x, c.y, 0.0), u);
+            assert_eq!(got, i, "get_indices at centre of {i:?} = {got:?}");
+            let placed = lat.universes[lat.flat_index(i)] as usize;
+            assert_eq!(
+                lat.universe_at(got),
+                Some(placed),
+                "round-trip: universe_at(get_indices(centre of {i:?})) must equal placed universe {placed}"
+            );
+        }
+    }
+}
+
+/// Round-trip correctness of the ring→tile fill for the **Y** orientation,
+/// `n_rings ∈ {2, 3}` (the op-6tz.38 regression: distinct central universe
+/// must land on the centre tile).
+///
+/// # Results (2026-07-24)
+/// Passes for both. `n_rings = 2` → `N = 7` tiles, centre universe `6`;
+/// `n_rings = 3` → `N = 19` tiles, centre universe `18`. Bijection over all
+/// hexagon tiles holds and every tile centre round-trips through
+/// `get_indices` → `universe_at`. (Angular within-ring order is the
+/// documented best-effort +x-start CCW convention; not diffed against
+/// OpenMC — see the caveat on [`HexLattice::from_rings`].)
+#[test]
+fn ring_fill_round_trip_y() {
+    assert_ring_fill_round_trip(HexOrientation::Y, 2);
+    assert_ring_fill_round_trip(HexOrientation::Y, 3);
+}
+
+/// Round-trip correctness of the ring→tile fill for the **X** orientation,
+/// `n_rings ∈ {2, 3}`.
+///
+/// # Results (2026-07-24)
+/// Passes for both, same tile/centre counts as the Y case. Additionally, for
+/// the X orientation the "+x start" convention is *exact* (a tile sits
+/// precisely along +x at each radius), so the first outer-ring element
+/// (universe `0`) lands on the skewed tile `[2*n_rings-2, n_rings-1, 0]`
+/// (the +x extreme of the outer ring): `[2,1,0]` for 2 rings, `[4,2,0]` for
+/// 3 rings. This is asserted below independently of the fill code.
+#[test]
+fn ring_fill_round_trip_x() {
+    assert_ring_fill_round_trip(HexOrientation::X, 2);
+    assert_ring_fill_round_trip(HexOrientation::X, 3);
+
+    // +x-start convention (X orientation only, where +x is exact): the first
+    // element of the outer ring (universe 0) is on the +x extreme tile.
+    for n_rings in [2usize, 3] {
+        let (rings, _) = distinct_rings(n_rings);
+        let lat =
+            HexLattice::from_rings(1, HexOrientation::X, Position::ZERO, 1.0, &rings, Some(0));
+        let plus_x = [2 * n_rings as i32 - 2, n_rings as i32 - 1, 0];
+        assert_eq!(
+            lat.universes[lat.flat_index(plus_x)],
+            0,
+            "first outer-ring element must sit on the +x tile {plus_x:?} ({n_rings} rings)"
+        );
+    }
+}
+
+/// [`HexLattice::from_rings_3d`] with a single axial level must reproduce the
+/// 2-D [`HexLattice::from_rings`] planar fill **byte for byte**, keeping the
+/// 2-D and 3-D constructors consistent (only `n_axial` / `pitch[1]` differ).
+///
+/// # Results (2026-07-24)
+/// For both orientations and `n_rings ∈ {2, 3}` the single-level 3-D
+/// `universes` array equals the 2-D array exactly; `pitch` becomes
+/// `[radial, axial]` and `n_axial == 1`.
+#[test]
+fn from_rings_3d_single_level_matches_2d() {
+    for orientation in [HexOrientation::Y, HexOrientation::X] {
+        for n_rings in [2usize, 3] {
+            let (rings, _) = distinct_rings(n_rings);
+            let pitch = 1.3;
+            let planar =
+                HexLattice::from_rings(3, orientation, Position::ZERO, pitch, &rings, Some(7));
+            let stacked = HexLattice::from_rings_3d(
+                3,
+                orientation,
+                Position::ZERO,
+                pitch,
+                2.0,
+                &[rings.clone()],
+                Some(7),
+            );
+            assert_eq!(stacked.n_axial, 1);
+            assert_eq!(stacked.pitch, [pitch, 2.0]);
+            assert_eq!(
+                stacked.universes, planar.universes,
+                "single-level from_rings_3d must equal from_rings ({orientation:?}, {n_rings} rings)"
+            );
+        }
+    }
+}
