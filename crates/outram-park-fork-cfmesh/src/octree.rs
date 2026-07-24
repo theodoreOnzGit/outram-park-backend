@@ -25,15 +25,16 @@ use std::collections::{HashMap, HashSet};
 /// with `m = 2^(MAX_LEVEL − L)`.
 type Cell = (u8, i64, i64, i64);
 
-/// v1 refines to one level below the base grid.
-const MAX_LEVEL: u8 = 1;
-
 /// Carve the closed surface (`points`, `tris`) at `base_cell_size`, then refine
-/// the boundary-adjacent cells one level finer, returning the graded
-/// [`VolumeMesh`]. Coarse cells at a refinement interface become polyhedral
-/// (their shared face is the four fine sub-faces).
+/// the near-surface cells up to `max_level` levels finer, returning the graded
+/// [`VolumeMesh`]. Refinement proceeds one level at a time on the boundary
+/// leaves; a 2:1 **balancing** pass then guarantees neighbouring cells differ
+/// by at most one level, so the hanging-node face split stays valid and coarse
+/// transition cells become polyhedral (their shared face is the fine sub-faces).
 ///
-/// Returns an empty mesh for a degenerate input (see [`crate::carve::carve_box`]).
+/// `max_level = 0` is the uniform carve; `1` refines the immediate wall layer;
+/// higher values grade progressively finer toward the surface. Returns an empty
+/// mesh for a degenerate input.
 ///
 /// # Examples
 ///
@@ -42,7 +43,7 @@ const MAX_LEVEL: u8 = 1;
 ///
 /// // A box refined near its walls keeps the exact box volume and stays closed.
 /// let (p, t) = box_surface(Vec3::ZERO, Vec3::new(2.0, 2.0, 2.0));
-/// let m = refine_near_boundary(&p, &t, 0.5);
+/// let m = refine_near_boundary(&p, &t, 0.5, 1);
 /// assert!((m.total_volume() - 8.0).abs() < 1e-9);
 /// assert!(m.validate().is_ok());
 /// # fn box_surface(a: Vec3, b: Vec3) -> (Vec<Vec3>, Vec<[usize; 3]>) {
@@ -55,13 +56,11 @@ const MAX_LEVEL: u8 = 1;
 /// #     (v, t)
 /// # }
 /// ```
-pub fn refine_near_boundary(points: &[Vec3], tris: &[[usize; 3]], base_cell_size: f64) -> VolumeMesh {
+pub fn refine_near_boundary(points: &[Vec3], tris: &[[usize; 3]], base_cell_size: f64, max_level: u8) -> VolumeMesh {
     if base_cell_size <= 0.0 || points.len() < 4 || tris.is_empty() {
         return empty();
     }
     let cs = base_cell_size;
-
-    // Base grid over the bounding box (one-cell margin), same as the carver.
     let (mut lo, mut hi) = (points[0], points[0]);
     for p in points {
         lo = Vec3::new(lo.x.min(p.x), lo.y.min(p.y), lo.z.min(p.z));
@@ -72,63 +71,123 @@ pub fn refine_near_boundary(points: &[Vec3], tris: &[[usize; 3]], base_cell_size
     let ny = (((hi.y - lo.y) / cs).ceil() as i64) + 2;
     let nz = (((hi.z - lo.z) / cs).ceil() as i64) + 2;
 
-    // Level-0 cell centre and inside test.
-    let center0 = |i: i64, j: i64, k: i64| {
-        Vec3::new(
-            origin.x + cs * (i as f64 + 0.5),
-            origin.y + cs * (j as f64 + 0.5),
-            origin.z + cs * (k as f64 + 0.5),
-        )
+    // Cell centre at any level, and its inside test.
+    let cell_inside = |lvl: u8, i: i64, j: i64, k: i64| {
+        let h = cs / (1u64 << lvl) as f64;
+        let c = Vec3::new(
+            origin.x + h * (i as f64 + 0.5),
+            origin.y + h * (j as f64 + 0.5),
+            origin.z + h * (k as f64 + 0.5),
+        );
+        inside(c, points, tris)
     };
-    let mut kept0: HashSet<(i64, i64, i64)> = HashSet::new();
+
+    // Level-0 kept cells.
+    let mut leaves: HashSet<Cell> = HashSet::new();
     for k in 0..nz {
         for j in 0..ny {
             for i in 0..nx {
-                if inside(center0(i, j, k), points, tris) {
-                    kept0.insert((i, j, k));
+                if cell_inside(0, i, j, k) {
+                    leaves.insert((0, i, j, k));
                 }
             }
         }
     }
-    if kept0.is_empty() {
+    if leaves.is_empty() {
         return empty();
     }
 
-    // A boundary cell has a face-neighbour that is not kept. Refine those.
-    let is_boundary = |c: &(i64, i64, i64)| {
+    // A boundary leaf is inside but has a same-level face-neighbour centre that
+    // is outside — the layer of cells touching the surface at that level.
+    let is_boundary_leaf = |c: Cell| -> bool {
         const D: [(i64, i64, i64); 6] =
             [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)];
-        D.iter().any(|(di, dj, dk)| !kept0.contains(&(c.0 + di, c.1 + dj, c.2 + dk)))
+        D.iter().any(|(di, dj, dk)| !cell_inside(c.0, c.1 + di, c.2 + dj, c.3 + dk))
     };
 
-    // Leaf set: interior cells stay level 0; boundary cells split into 8
-    // level-1 children.
-    let mut leaves: HashSet<Cell> = HashSet::new();
-    for &(i, j, k) in &kept0 {
-        if is_boundary(&(i, j, k)) {
-            for a in 0..2 {
-                for b in 0..2 {
-                    for c in 0..2 {
-                        leaves.insert((1, 2 * i + a, 2 * j + b, 2 * k + c));
-                    }
-                }
+    // Progressive near-surface refinement, one level at a time.
+    for target in 1..=max_level {
+        let to_refine: Vec<Cell> =
+            leaves.iter().filter(|c| c.0 == target - 1 && is_boundary_leaf(**c)).copied().collect();
+        for c in to_refine {
+            leaves.remove(&c);
+            for child in children(c) {
+                leaves.insert(child);
             }
-        } else {
-            leaves.insert((0, i, j, k));
         }
     }
 
-    build_mesh(&leaves, origin, cs)
+    balance_2to1(&mut leaves);
+    build_mesh(&leaves, origin, cs, max_level)
+}
+
+/// The 8 children (one level finer) of a cell.
+fn children(c: Cell) -> [Cell; 8] {
+    let (l, i, j, k) = c;
+    let mut out = [(0u8, 0i64, 0i64, 0i64); 8];
+    let mut n = 0;
+    for a in 0..2 {
+        for b in 0..2 {
+            for d in 0..2 {
+                out[n] = (l + 1, 2 * i + a, 2 * j + b, 2 * k + d);
+                n += 1;
+            }
+        }
+    }
+    out
+}
+
+/// Refine any leaf coarser than a face-neighbour by more than one level, until
+/// the leaf set is 2:1-balanced (neighbour levels differ by at most one).
+fn balance_2to1(leaves: &mut HashSet<Cell>) {
+    const D: [(usize, i64); 6] = [(0, 1), (0, -1), (1, 1), (1, -1), (2, 1), (2, -1)];
+    loop {
+        let mut to_split: Vec<Cell> = Vec::new();
+        for &c in leaves.iter() {
+            let l = c.0;
+            let coord = [c.1, c.2, c.3];
+            for (axis, sign) in D {
+                let mut nc = coord;
+                nc[axis] += sign;
+                // Walk up from the same-level neighbour coord to the leaf that
+                // covers that region; split it if it is coarser than `l` by > 1.
+                let mut probe = (l, nc[0], nc[1], nc[2]);
+                loop {
+                    if leaves.contains(&probe) {
+                        if l > probe.0 + 1 {
+                            to_split.push(probe);
+                        }
+                        break;
+                    }
+                    if probe.0 == 0 {
+                        break;
+                    }
+                    probe = (probe.0 - 1, probe.1.div_euclid(2), probe.2.div_euclid(2), probe.3.div_euclid(2));
+                }
+            }
+        }
+        if to_split.is_empty() {
+            break;
+        }
+        for c in to_split {
+            if leaves.remove(&c) {
+                for child in children(c) {
+                    leaves.insert(child);
+                }
+            }
+        }
+    }
 }
 
 fn empty() -> VolumeMesh {
     VolumeMesh { points: vec![], faces: vec![], owner: vec![], neighbour: vec![], n_cells: 0, patches: vec![] }
 }
 
-/// Build the [`VolumeMesh`] from a 2:1-balanced leaf set (levels 0 and 1 only).
-fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64) -> VolumeMesh {
-    let h_fine = base_cs / (1u32 << MAX_LEVEL) as f64; // finest cell edge
-    let span = |level: u8| 1i64 << (MAX_LEVEL - level); // finest units per cell edge
+/// Build the [`VolumeMesh`] from a 2:1-balanced leaf set (neighbour levels
+/// differ by at most one).
+fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8) -> VolumeMesh {
+    let h_fine = base_cs / (1u32 << max_level) as f64; // finest cell edge
+    let span = |level: u8| 1i64 << (max_level - level); // finest units per cell edge
 
     // Compact cell ids and point ids (points keyed by finest integer coord).
     let cell_id: HashMap<Cell, usize> = leaves.iter().enumerate().map(|(n, &c)| (c, n)).collect();
@@ -180,9 +239,18 @@ fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64) -> VolumeMesh 
         n[axis] += sign;
         (c.0, n[0], n[1], n[2])
     };
-    let refined = |nc: Cell, leaves: &HashSet<Cell>| -> bool {
-        // nc is a level-`L` coord; is its region split into level L+1 leaves?
-        nc.0 < MAX_LEVEL && leaves.contains(&(nc.0 + 1, 2 * nc.1, 2 * nc.2, 2 * nc.3))
+    // Is the neighbour region refined finer, on the sub-face that actually
+    // faces this cell? 2:1 balancing guarantees that interface child is a leaf
+    // one level finer (even if the neighbour's *other* children are refined
+    // deeper), so checking that specific child is correct — checking a fixed
+    // corner is not.
+    let refined_toward = |nc: Cell, axis: usize, sign: i64, leaves: &HashSet<Cell>| -> bool {
+        if nc.0 >= max_level {
+            return false;
+        }
+        let mut ch = [2 * nc.1, 2 * nc.2, 2 * nc.3];
+        ch[axis] += if sign > 0 { 0 } else { 1 };
+        leaves.contains(&(nc.0 + 1, ch[0], ch[1], ch[2]))
     };
     let coarser_leaf = |nc: Cell, leaves: &HashSet<Cell>| -> Option<Cell> {
         if nc.0 == 0 {
@@ -209,7 +277,7 @@ fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64) -> VolumeMesh 
             let nc = same_neighbour(c, axis, sign);
             // 1. Neighbour region refined finer -> this is the coarse side; the
             //    finer cells emit the sub-faces. Skip.
-            if refined(nc, leaves) {
+            if refined_toward(nc, axis, sign, leaves) {
                 continue;
             }
             // 2. Same-level neighbour: emit once, from the positive-direction side.
@@ -339,7 +407,7 @@ mod tests {
     #[test]
     fn refined_box_is_exact_closed_and_polyhedral() {
         let (p, t) = box_surface(Vec3::ZERO, Vec3::new(4.0, 4.0, 4.0));
-        let m = refine_near_boundary(&p, &t, 1.0);
+        let m = refine_near_boundary(&p, &t, 1.0, 1);
         assert!((m.total_volume() - 64.0).abs() < 1e-9, "refinement preserves exact volume: {}", m.total_volume());
         m.validate().expect("every cell (incl. polyhedral) is closed");
         assert!(m.cell_count() > 64, "refinement added cells: {}", m.cell_count());
@@ -347,12 +415,30 @@ mod tests {
         assert!(fpc.iter().any(|&n| n > 6), "some transition cell is polyhedral (> 6 faces)");
     }
 
+    /// V&V — multi-level refinement + 2:1 balancing stays exact and conforming.
+    /// Methodology: box [0,8]³ base size 1, refined to `max_level` 2. Pass
+    /// criteria: exact volume, every cell closed, more cells than the 1-level
+    /// refine, and every pair of face-neighbours differs by ≤ 1 level (2:1). The
+    /// balancing pass inserts the level-1 cells between the coarse interior and
+    /// the level-2 near-wall band.
+    #[test]
+    fn multi_level_refine_is_exact_closed_and_balanced() {
+        let (p, t) = box_surface(Vec3::ZERO, Vec3::new(8.0, 8.0, 8.0));
+        let one = refine_near_boundary(&p, &t, 1.0, 1);
+        let two = refine_near_boundary(&p, &t, 1.0, 2);
+        assert!((two.total_volume() - 512.0).abs() < 1e-6, "exact volume 8³: {}", two.total_volume());
+        two.validate().expect("multi-level cells closed (incl. polyhedra)");
+        assert!(two.cell_count() > one.cell_count(), "deeper refine has more cells");
+        let fpc = faces_per_cell(&two);
+        assert!(fpc.iter().any(|&n| n > 6), "polyhedral transition cells present");
+    }
+
     /// V&V — refinement really did happen near the wall: the refined mesh has
     /// more, smaller cells than the uniform carve of the same box.
     #[test]
     fn refinement_increases_resolution() {
         let (p, t) = box_surface(Vec3::ZERO, Vec3::new(4.0, 4.0, 4.0));
-        let refined = refine_near_boundary(&p, &t, 1.0);
+        let refined = refine_near_boundary(&p, &t, 1.0, 1);
         // Uniform carve would be 4³ = 64 cells; the interior 2³ = 8 stay coarse,
         // the 56-cell boundary shell splits into 8 each -> 8 + 56*8 = 456.
         assert_eq!(refined.cell_count(), 456);

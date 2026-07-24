@@ -61,6 +61,8 @@
 //! | [`communicator`] | `MPID_Comm` + pt2pt | [`Communicator`], [`Request`], [`Status`] |
 //! | [`collective`] | collectives + ops | barrier/bcast/reduce/allreduce/scatter/gather/allgather, [`ReduceOp`] |
 //! | [`comm_mgmt`] | `MPI_Comm_dup`/`split` | [`Communicator::dup`], [`Communicator::split`] |
+//! | [`group`] | `MPI_Group_*` | [`Group`] set ops + [`Communicator::create_from_group`] |
+//! | [`topology`] | `MPI_Cart_*` | [`CartesianComm`] coords/rank/shift |
 //!
 //! ## Design rules (workspace mandate)
 //!
@@ -76,12 +78,16 @@ pub mod comm_mgmt;
 pub mod communicator;
 pub mod datatype;
 pub mod error;
+pub mod group;
+pub mod topology;
 pub mod transport;
 
 pub use collective::{Reducible, ReduceOp};
 pub use communicator::{Communicator, Request, Status, TestOutcome, ANY_SOURCE, ANY_TAG};
 pub use datatype::{Datatype, MpiPrimitive};
 pub use error::{MpiError, MpiResult};
+pub use group::Group;
+pub use topology::CartesianComm;
 
 use transport::Transport;
 
@@ -428,6 +434,100 @@ mod tests {
         assert_eq!(out[1], None);
         assert_eq!(out[2], Some((1, 2)));
         assert_eq!(out[3], None);
+    }
+
+    #[test]
+    fn comm_group_and_create_from_group_roundtrip() {
+        // Build a sub-comm over world ranks {0,2,3} via a group; members get a
+        // renumbered comm, the non-member (rank 1) gets None.
+        let out = run(4, |c| {
+            let g = c.group();
+            assert_eq!(g.size(), 4);
+            let sub_group = g.incl(&[0, 2, 3]); // group ranks -> world {0,2,3}
+            let sub = c.create_from_group(&sub_group).unwrap();
+            match sub {
+                Some(s) => {
+                    // Sum world ranks within the subgroup to prove they communicate.
+                    let sum = s.all_reduce(&[c.rank()], ReduceOp::Sum).unwrap()[0];
+                    (Some((s.rank(), s.size())), sum)
+                }
+                None => (None, -1),
+            }
+        })
+        .unwrap();
+        assert_eq!(out[0].0, Some((0, 3))); // world 0 -> sub rank 0
+        assert_eq!(out[1].0, None); // world 1 not in the group
+        assert_eq!(out[2].0, Some((1, 3))); // world 2 -> sub rank 1
+        assert_eq!(out[3].0, Some((2, 3))); // world 3 -> sub rank 2
+        assert_eq!(out[0].1, 0 + 2 + 3); // subgroup all_reduce over world ranks
+    }
+
+    #[test]
+    fn group_set_operations_are_local() {
+        let a = Group::from_world_ranks(vec![0, 1, 2, 3]);
+        let evens = a.incl(&[0, 2]); // world {0,2}
+        let odds = a.excl(&[0, 2]); // world {1,3}
+        assert_eq!(evens.world_ranks(), &[0, 2]);
+        assert_eq!(odds.world_ranks(), &[1, 3]);
+        assert_eq!(a.union(&odds).world_ranks(), &[0, 1, 2, 3]);
+        assert_eq!(evens.union(&odds).size(), 4);
+        assert_eq!(a.intersection(&evens).world_ranks(), &[0, 2]);
+        assert_eq!(a.difference(&evens).world_ranks(), &[1, 3]);
+        // translate group-rank 0,1 of `evens` (world 0,2) into `a`'s numbering.
+        assert_eq!(evens.translate_ranks(&[0, 1], &a), vec![Some(0), Some(2)]);
+    }
+
+    #[test]
+    fn cart_create_coords_and_rank_roundtrip() {
+        // 2x3 grid over 6 ranks; row-major so rank = r0*3 + r1.
+        let out = run(6, |c| {
+            let cart = c.cart_create(&[2, 3], &[false, false]).unwrap().unwrap();
+            let coords = cart.my_coords();
+            let back = cart.rank(&coords).unwrap();
+            (coords, back, c.rank())
+        })
+        .unwrap();
+        assert_eq!(out[0].0, vec![0, 0]);
+        assert_eq!(out[1].0, vec![0, 1]);
+        assert_eq!(out[3].0, vec![1, 0]);
+        assert_eq!(out[5].0, vec![1, 2]);
+        for (coords_back, back, rank) in &out {
+            let _ = coords_back;
+            assert_eq!(back, rank); // rank(coords(r)) == r
+        }
+    }
+
+    #[test]
+    fn cart_shift_finds_neighbours_with_and_without_periodicity() {
+        // 1x4 ring: periodic in dim 1.
+        let out = run(4, |c| {
+            let cart = c.cart_create(&[4], &[true]).unwrap().unwrap();
+            cart.shift(0, 1) // (source = left, dest = right)
+        })
+        .unwrap();
+        // Periodic: rank r sends to (r+1)%4, receives from (r-1+4)%4.
+        assert_eq!(out[0], (Some(3), Some(1)));
+        assert_eq!(out[3], (Some(2), Some(0)));
+
+        // Non-periodic line: the ends have a None neighbour.
+        let line = run(4, |c| {
+            let cart = c.cart_create(&[4], &[false]).unwrap().unwrap();
+            cart.shift(0, 1)
+        })
+        .unwrap();
+        assert_eq!(line[0], (None, Some(1))); // left end: no source
+        assert_eq!(line[3], (Some(2), None)); // right end: no dest
+    }
+
+    #[test]
+    fn cart_create_rejects_bad_shapes_and_surplus() {
+        let out = run(2, |c| {
+            let bad_len = c.cart_create(&[2], &[false, true]).is_err();
+            let too_big = c.cart_create(&[4], &[false]).is_err(); // needs 4 > 2 ranks
+            (bad_len, too_big)
+        })
+        .unwrap();
+        assert_eq!(out[0], (true, true));
     }
 
     #[test]

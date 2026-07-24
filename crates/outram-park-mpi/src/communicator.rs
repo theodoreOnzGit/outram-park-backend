@@ -166,6 +166,12 @@ impl Communicator {
         Arc::clone(&self.world_ranks)
     }
 
+    /// A cloned `Vec` of this communicator's members' world ranks, in local-rank
+    /// order (for building a [`crate::group::Group`]).
+    pub(crate) fn world_ranks_vec(&self) -> Vec<i32> {
+        self.world_ranks.as_ref().clone()
+    }
+
     /// Allocate a fresh process-unique communicator context id from the transport.
     pub(crate) fn alloc_context(&self) -> usize {
         self.transport.alloc_comm_id()

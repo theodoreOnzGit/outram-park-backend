@@ -30,6 +30,8 @@
 //! partition is 1-D (structured slabs); unstructured / multi-dimensional
 //! partitioning is future work.
 
+pub mod krylov;
+
 use outram_park_mpi::{Communicator, MpiResult};
 
 /// A balanced contiguous 1-D partition of `n_global` cells over a communicator.
