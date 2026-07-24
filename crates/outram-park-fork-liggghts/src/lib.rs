@@ -74,6 +74,7 @@
 //! Enum dispatch (no `Box<dyn>`), no lifetime parameters (own by value / index
 //! ids), `uom`-typed API boundaries, Android-buildable (pure-Rust, no BLAS/GUI).
 
+pub mod bonded;
 pub mod boundary;
 pub mod contact;
 pub mod coupling;
