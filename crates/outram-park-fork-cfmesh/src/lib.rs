@@ -88,9 +88,15 @@
 //!   (vertex-centred) dual, the equivalent of OpenFOAM's `polyDualMesh`. The
 //!   dual tiles the same region (verified: exact volume, closed cells, every
 //!   internal face shared by exactly two cells, genuinely > 6-face cells).
+//! - **Tetrahedralization.** [`tet::tetrahedralize`] splits every cell into
+//!   tetrahedra by centroid subdivision (the all-tet foundation; not a
+//!   from-scratch Delaunay mesher). It conserves volume and triangulates the
+//!   boundary surface (verified: positive-volume tets, boundary area == input
+//!   surface, exact volume, every cell a 4-triangle tet).
 //!
-//! Next on the `op-hzs` roadmap: face-minimal dual (merge the per-cell dual
-//! quads into single polygons) and multi-patch / feature-aware layer insertion.
+//! Next on the `op-hzs` roadmap: Delaunay-*quality* tet refinement (gmsh is a
+//! GPLv3-compatible reference), face-minimal dual, and multi-patch /
+//! feature-aware layer insertion.
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
@@ -115,6 +121,7 @@ pub mod octree;
 pub mod reactor;
 pub mod shapes;
 pub mod snap;
+pub mod tet;
 pub mod volume_mesh;
 
 /// Bridge to the real `outram-foam-basic-lib` `PolyMesh` (feature
