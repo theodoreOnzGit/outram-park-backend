@@ -68,6 +68,7 @@ pub mod drift_flux;
 pub mod dryout;
 pub mod pimple;
 pub mod two_fluid;
+pub mod two_fluid_pimple;
 pub mod wall_boiling;
 
 /// Errors produced by the multiphase solvers in this crate.
