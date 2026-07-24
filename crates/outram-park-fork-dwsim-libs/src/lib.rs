@@ -18,9 +18,14 @@
 
 #![forbid(unsafe_code)]
 
+pub mod compressor;
+pub mod cooler;
 pub mod expander;
 pub mod heat_exchanger;
+pub mod heater;
 pub mod interpolation;
+pub mod mixer;
 pub mod pipe;
 pub mod pump;
+pub mod splitter;
 pub mod valve;
