@@ -52,5 +52,16 @@
 | 2026-07-24 | `8e43d71` | Merge outram-blender into develop: cfMesh multi-level oct... | 65,934,291 | 187 | 77,208 | 65,751,893 | 105,003 |
 | 2026-07-24 | `367e0d0` | Merge pflotran into develop: outram-park-mpi groups + Car... | 65,934,291 | 187 | 77,208 | 65,751,893 | 105,003 |
 | 2026-07-24 | `afc4906` | Merge remote-tracking branch 'origin/develop' into claude... | 2,640,058 | 40 | 10,855 | 2,603,033 | 26,130 |
+| 2026-07-24 | `3dc85bc` | cfmesh: add prism boundary layers (add_boundary_layers) | 189,149 | 4 | 932 | 187,255 | 958 |
+| 2026-07-24 | `0050b92` | Merge remote-tracking branch 'origin/develop' into claude... | 1,455,130 | 27 | 6,591 | 1,439,646 | 8,866 |
+| 2026-07-24 | `5b21186` | Merge claude/outram-blender-mggk7u into develop | 72,716,199 | 205 | 86,371 | 72,513,566 | 116,057 |
+| 2026-07-24 | `fe1ca23` | Merge claude/pflortran-merge-develop-8k3wji into develop | 72,716,199 | 205 | 86,371 | 72,513,566 | 116,057 |
+| 2026-07-24 | `0cc63a4` | Merge claude/outram-foam-8ookor into develop | 72,716,199 | 205 | 86,371 | 72,513,566 | 116,057 |
+| 2026-07-24 | `5d58952` | Merge pflotran into develop: generic distributed CG + rea... | 82,330,543 | 231 | 98,230 | 82,098,368 | 133,714 |
 | 2026-07-24 | `35a4de8` | outram-foam-appbuilder-lib: reactingTwoPhaseEulerFoam app... | 26,210,679 | 276 | 210,594 | 25,680,707 | 319,102 |
-| **TOTAL** | | **40 commits** | **995,381,310** | **3,392** | **1,766,492** | **983,966,647** | **9,644,779** |
+| 2026-07-24 | `e60ddfb` | Merge remote-tracking branch 'origin/develop' into claude... | 2,237,853 | 17 | 3,670 | 2,225,657 | 8,509 |
+| 2026-07-24 | `d3f0275` | njoy + outram-mc: make ratatui unconditional — TUI bins a... | 32,670,485 | 83 | 42,593 | 31,176,851 | 1,450,958 |
+| 2026-07-24 | `2a983ac` | Merge outram-mc into develop: make ratatui unconditional ... | 93,447,465 | 262 | 113,137 | 91,813,417 | 1,520,649 |
+| 2026-07-24 | `091bed9` | Merge remote-tracking branch 'origin/develop' into claude... | 3,499,432 | 27 | 5,395 | 3,483,164 | 10,846 |
+| 2026-07-24 | `1867147` | outram-foam-appbuilder-lib: reacting-Euler species transp... | 20,596,688 | 138 | 85,060 | 20,398,548 | 112,942 |
+| **TOTAL** | | **51 commits** | **1,449,956,652** | **4,796** | **2,381,213** | **1,434,330,251** | **13,240,392** |
