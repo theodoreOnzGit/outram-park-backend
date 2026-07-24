@@ -46,7 +46,32 @@ pub struct DistributedTransport1D {
     /// West/east face dispersion coupling `D_face·θ_face·(A/d)` per owned cell.
     west_d: Vec<f64>,
     east_d: Vec<f64>,
+    /// Boundary condition at the global left (`gi = 0`) / right (`gi = n_global-1`)
+    /// domain end.
+    left_end: EndCondition,
+    right_end: EndCondition,
     dt: f64,
+}
+
+/// The condition on a global domain-end boundary face, matching the serial
+/// `SoluteTransport` boundary assembly.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum EndCondition {
+    /// No boundary flux and no concentration (a closed end).
+    Closed,
+    /// A boundary flux but no fixed concentration — the serial default: the flux
+    /// is added to the diagonal (advective outflow / zero-concentration inflow).
+    Flux(f64),
+    /// A Dirichlet concentration: advection upwinded by the flux sign plus an
+    /// always-on dispersive coupling to `concentration`.
+    Dirichlet {
+        /// Boundary-face volumetric flux (`+` = outflow, `-` = inflow), m³/s.
+        flux: f64,
+        /// Dispersive coupling `D_face·θ·(A_bnd/d_bnd)`.
+        dispersion: f64,
+        /// Boundary solute concentration `c_bc`.
+        concentration: f64,
+    },
 }
 
 impl DistributedTransport1D {
@@ -68,8 +93,18 @@ impl DistributedTransport1D {
             east_q,
             west_d,
             east_d,
+            left_end: EndCondition::Closed,
+            right_end: EndCondition::Closed,
             dt,
         }
+    }
+
+    /// Set the boundary conditions at the two global domain ends (default
+    /// [`EndCondition::Closed`]). See [`EndCondition`].
+    pub fn with_ends(mut self, left: EndCondition, right: EndCondition) -> Self {
+        self.left_end = left;
+        self.right_end = right;
+        self
     }
 
     /// Convenience constructor for **uniform** flow: constant face flux `q`,
@@ -181,8 +216,35 @@ impl DistributedTransport1D {
                     dg -= qw; // outflow to the west carries this cell's (q<0)
                 }
             }
+            // Boundary condition at a global domain end (matches the serial
+            // SoluteTransport boundary-face assembly).
+            let end = if gi == 0 {
+                Some(self.left_end)
+            } else if gi + 1 == self.decomp.n_global {
+                Some(self.right_end)
+            } else {
+                None
+            };
+            match end {
+                None | Some(EndCondition::Closed) => {}
+                Some(EndCondition::Flux(q_b)) => dg += q_b,
+                Some(EndCondition::Dirichlet {
+                    flux,
+                    dispersion,
+                    concentration,
+                }) => {
+                    if flux < 0.0 {
+                        b[i] -= flux * concentration; // inflow brings c_bc
+                    } else {
+                        dg += flux; // outflow carries interior concentration out
+                    }
+                    dg += dispersion;
+                    b[i] += dispersion * concentration;
+                }
+            }
+
             diag[i] = dg;
-            b[i] = acc * c[i];
+            b[i] += acc * c[i];
         }
         let matrix = DistributedLduMatrix1D::from_rows(&self.decomp, diag, west, east)
             .map_err(|e| outram_park_mpi::MpiError::Transport(format!("assembly: {e}")))?;
@@ -194,8 +256,11 @@ impl DistributedTransport1D {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transport::{DispersionModel, FlowField, SoluteTransport};
-    use crate::grid::CartesianGrid;
+    use crate::transport::{
+        DispersionModel, FlowField, SoluteTransport, TransportBoundaryCondition,
+        TransportBoundaryKind,
+    };
+    use crate::grid::{BoundaryLocation, CartesianGrid};
     use outram_park_mpi::run;
     use uom::si::f64::Length;
     use uom::si::length::meter;
@@ -331,6 +396,100 @@ mod tests {
             assert!(
                 ok.iter().all(|&b| b),
                 "non-uniform distributed transport != serial for p={p}"
+            );
+        }
+    }
+
+    #[test]
+    fn distributed_transport_matches_serial_with_dirichlet_inflow() {
+        // Open domain: uniform +x flow with a fixed inflow concentration at XMin
+        // and advective outflow at XMax -- the realistic transport scenario.
+        let n = 28;
+        let q = 0.6_f64;
+        let theta = 0.3_f64;
+        let dt = 0.5_f64;
+        let nsteps = 6;
+        let mol = 0.02_f64;
+        let alpha = 0.1_f64;
+        let c_in = 1.0_f64;
+
+        let grid = CartesianGrid::uniform(n, 1, 1, m(1.0), m(1.0), m(1.0)).unwrap();
+        let n_int = grid.connections().len();
+        let area = grid.connections()[0].area;
+        let geom_int = grid.connections()[0].geometric_transmissibility;
+        let mut boundary_flux = vec![0.0; grid.boundary_faces().len()];
+        let (mut xmin_area, mut xmin_dist) = (0.0_f64, 0.0_f64);
+        for (b, face) in grid.boundary_faces().iter().enumerate() {
+            match face.location {
+                BoundaryLocation::XMin => {
+                    boundary_flux[b] = -q; // inflow
+                    xmin_area = face.area;
+                    xmin_dist = face.distance;
+                }
+                BoundaryLocation::XMax => boundary_flux[b] = q, // outflow
+                _ => {}
+            }
+        }
+        let flow = FlowField {
+            face_flux: vec![q; n_int],
+            boundary_flux,
+            water_content: vec![theta; n as usize],
+        };
+        let disp = DispersionModel::new(mol, alpha).unwrap();
+        let bcs = vec![TransportBoundaryCondition {
+            location: BoundaryLocation::XMin,
+            kind: TransportBoundaryKind::InflowConcentration(c_in),
+        }];
+        let mut serial = SoluteTransport::new(grid, flow, disp, bcs).unwrap();
+        let c0 = vec![0.0_f64; n as usize];
+        let mut c_serial = c0.clone();
+        for _ in 0..nsteps {
+            serial.set_timestep(dt);
+            serial.set_previous(&c_serial);
+            serial.step(&mut c_serial).unwrap();
+        }
+
+        // XMin Dirichlet dispersive coupling d_b = (D_mol + alpha*|q|/A_bnd)*theta*(A_bnd/d_bnd).
+        let geom_bc = xmin_area / xmin_dist;
+        let d_face_bc = mol + alpha * (q.abs() / xmin_area);
+        let d_b_left = d_face_bc * theta * geom_bc;
+        let storage_cell = theta * 1.0;
+        for p in [1, 2, 3, 4] {
+            let c_serial = c_serial.clone();
+            let c0 = c0.clone();
+            let ok = run(p, move |comm| {
+                let dd = Decomposition1D::new(n, comm);
+                let storage_v = vec![storage_cell; dd.local_len];
+                let stepper = DistributedTransport1D::from_global_flow(
+                    &dd,
+                    &vec![theta; n as usize],
+                    &vec![q; n_int],
+                    mol,
+                    alpha,
+                    area,
+                    geom_int,
+                    storage_v,
+                    dt,
+                )
+                .with_ends(
+                    EndCondition::Dirichlet {
+                        flux: -q,
+                        dispersion: d_b_left,
+                        concentration: c_in,
+                    },
+                    EndCondition::Flux(q), // XMax: advective outflow, no fixed concentration
+                );
+                let mut c: Vec<f64> = c0[dd.start..dd.start + dd.local_len].to_vec();
+                for _ in 0..nsteps {
+                    c = stepper.step(comm, &c, 1e-12, 5000).unwrap();
+                }
+                let expected = &c_serial[dd.start..dd.start + dd.local_len];
+                c.iter().zip(expected).all(|(a, e)| (a - e).abs() < 1e-6)
+            })
+            .unwrap();
+            assert!(
+                ok.iter().all(|&b| b),
+                "Dirichlet-inflow distributed transport != serial for p={p}"
             );
         }
     }
