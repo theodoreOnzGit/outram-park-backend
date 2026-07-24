@@ -63,6 +63,16 @@ pub fn to_poly_mesh(mesh: &VolumeMesh) -> PolyMesh {
     }
 }
 
+/// Write `mesh` as an OpenFOAM `polyMesh` into `dir` (which becomes a
+/// `constant/polyMesh` directory): `points`, `faces`, `owner`, `neighbour`, and
+/// `boundary`. The result is a real OpenFOAM mesh directory a solver can read.
+///
+/// Convenience over [`to_poly_mesh`] followed by
+/// [`PolyMesh::write`](outram_foam_basic_lib::io::poly_mesh::PolyMesh::write).
+pub fn write_polymesh(mesh: &VolumeMesh, dir: &std::path::Path) -> Result<(), outram_foam_basic_lib::io::IoError> {
+    to_poly_mesh(mesh).write(dir)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,6 +110,24 @@ mod tests {
         assert!((poly.total_volume() - 8.0).abs() < 1e-9);
         assert_eq!(poly.patches.len(), 1);
         poly.to_fv_mesh().expect("carved mesh is solver-consumable");
+    }
+
+    /// V&V — on-disk round-trip: write a generated mesh as a real OpenFOAM
+    /// `polyMesh` and read it straight back. Methodology: `cartesian_box` 2×2×2,
+    /// `write_polymesh` to a temp dir, then `PolyMesh::read`. Result: the
+    /// re-read mesh has 8 cells, 12 internal faces, and total volume 1 — the
+    /// generator produces a solver-readable OpenFOAM mesh on disk.
+    #[test]
+    fn write_polymesh_disk_round_trip() {
+        use outram_foam_basic_lib::io::poly_mesh::PolyMesh;
+        let m = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [2, 2, 2]);
+        let dir = std::env::temp_dir().join(format!("cfmesh_polymesh_rt_{}", std::process::id()));
+        write_polymesh(&m, &dir).expect("write polyMesh to temp dir");
+        let poly = PolyMesh::read(&dir).expect("read polyMesh back");
+        assert_eq!(poly.n_cells, 8);
+        assert_eq!(poly.n_internal_faces, 12);
+        assert!((poly.total_volume() - 1.0).abs() < 1e-9);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn box_surface(a: Vec3, b: Vec3) -> (Vec<Vec3>, Vec<[usize; 3]>) {
