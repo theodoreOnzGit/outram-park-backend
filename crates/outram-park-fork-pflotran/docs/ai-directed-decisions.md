@@ -337,6 +337,33 @@ yet threaded into the hot loops): `activity` → geochemistry speciation
 `eos_real` → RICHARDS water density. Both are numerically load-bearing and are
 left as bounded main-loop tasks with their own commits.
 
+### D15 — MPI scale-out via a new pure-Rust crate (op-v6s.15.9, 2026-07-23/24)
+
+Maintainer directive: *"take the mpi upstream and start converting it to rust"* —
+MPICH subset + shared-memory transport chosen (via `AskUserQuestion`). Rather than
+bind a C MPI (which would break the Android/no-C rule), a **new workspace crate
+`outram-park-mpi`** was created: a pure-Rust translation of an MPICH subset over a
+shared-memory *threads-as-ranks* transport (own epic **op-erl**). It provides the
+MPI-3 surface pflotran needs — communicators (world + `dup`/`split`), datatypes,
+point-to-point (`send`/`recv`/`isend`/`irecv`), and collectives
+(`barrier`/`broadcast`/`reduce`/`all_reduce`/`scatter`/`gather`/`all_gather` with
+`ReduceOp`) — all Android-clean (std threads only), ~28 tests.
+
+pflotran's **`decomposition`** module (op-v6s.15.9, first slice) then depends on
+`outram-park-mpi` and demonstrates the real pattern: a balanced 1-D
+[`Decomposition1D`] partition + nearest-neighbour [`exchange_halo`], with a
+distributed Jacobi stencil that is **bit-identical to the serial reference across
+rank counts {1,2,3,4,6}**. This proves the MPI transport drives a correct
+distributed stencil end-to-end.
+
+**Deliberately scoped as a first slice (flagged for review):** the halo exchange
+is the foundation, **not** a fully MPI-parallel Newton solve — the implicit
+RICHARDS/transport Jacobian is still assembled and solved serially per rank.
+Distributing the global linear solve (parallel matrix-vector products + a
+distributed Krylov method) and multi-dimensional / unstructured partitioning are
+follow-ups. Groups/topologies for the MPI crate are bead **op-er2**; optimised
+collective algorithms and a TCP multi-node transport remain under op-erl.
+
 ## Deferred to next week (2026-07-22 maintainer directive)
 
 All **Celia-1990 and validation-case work is paused** this week; the focus is
