@@ -112,6 +112,26 @@ mod tests {
         poly.to_fv_mesh().expect("carved mesh is solver-consumable");
     }
 
+    /// V&V — the **polyhedral dual** bridges to a solvable foam `PolyMesh`. This
+    /// is the payoff for the reactor solvers: a hex background carve → median
+    /// dual → foam `PolyMesh` → `FvMesh`. Methodology: carve a unit box (0.25
+    /// cells → 64 hexes, 125 vertices), take the dual (125 polyhedral cells),
+    /// bridge, and read counts + volume back through foam. Result: 125 cells,
+    /// foam-computed volume = 1 (the pyramid decomposition agrees with the
+    /// divergence-theorem volume), and `to_fv_mesh()` succeeds on genuinely
+    /// polyhedral cells.
+    #[test]
+    fn polyhedral_dual_bridges_and_is_solver_ready() {
+        use crate::dual::polyhedral_dual;
+        let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let hex = carve_box(&p, &t, 0.25);
+        let dual = polyhedral_dual(&hex);
+        let poly = to_poly_mesh(&dual);
+        assert_eq!(poly.n_cells, hex.point_count()); // 125 — one cell per vertex
+        assert!((poly.total_volume() - 1.0).abs() < 1e-9, "foam agrees on dual volume");
+        poly.to_fv_mesh().expect("polyhedral dual is solver-consumable");
+    }
+
     /// V&V — on-disk round-trip: write a generated mesh as a real OpenFOAM
     /// `polyMesh` and read it straight back. Methodology: `cartesian_box` 2×2×2,
     /// `write_polymesh` to a temp dir, then `PolyMesh::read`. Result: the

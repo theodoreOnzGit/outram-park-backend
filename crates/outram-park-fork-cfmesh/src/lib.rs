@@ -83,9 +83,14 @@
 //!   the vacated shell is filled with `n_layers` stacked prism cells per wall
 //!   face. It is a repartition, so it preserves the mesh volume exactly
 //!   (verified: exact volume, closed, `+n_layers × wall_faces` cells).
+//! - **Polyhedral dual.** [`dual::polyhedral_dual`] turns a primal mesh into a
+//!   **polyhedral** one — one cell per primal vertex — via the median
+//!   (vertex-centred) dual, the equivalent of OpenFOAM's `polyDualMesh`. The
+//!   dual tiles the same region (verified: exact volume, closed cells, every
+//!   internal face shared by exactly two cells, genuinely > 6-face cells).
 //!
-//! Next on the `op-hzs` roadmap: the polyhedral dual (`op-hzs.33`, voro++
-//! reference) and multi-patch / feature-aware layer insertion.
+//! Next on the `op-hzs` roadmap: face-minimal dual (merge the per-cell dual
+//! quads into single polygons) and multi-patch / feature-aware layer insertion.
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
@@ -103,6 +108,7 @@
 pub mod cartesian;
 pub mod carve;
 pub mod checks;
+pub mod dual;
 pub mod layers;
 pub mod math;
 pub mod octree;
