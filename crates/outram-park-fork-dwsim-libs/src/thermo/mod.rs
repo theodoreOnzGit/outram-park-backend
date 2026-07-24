@@ -43,8 +43,11 @@
 pub mod activity;
 pub mod component;
 pub mod cubic_eos;
+pub mod energy_flash;
 pub mod flash;
 pub mod ideal_props;
+pub mod property_package;
+pub mod stability;
 pub mod unifac;
 
 pub use component::Component;
