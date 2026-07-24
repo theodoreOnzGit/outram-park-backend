@@ -38,4 +38,5 @@
 | 2026-07-24 | `b2a5bac` | Merge remote-tracking branch 'origin/develop' into claude... | 157,164 | 4 | 290 | 155,614 | 1,256 |
 | 2026-07-24 | `0ab7d2b` | chore: pin transitive kstring to 2.0.2 for rustc 1.94 MSRV | 2,508,572 | 55 | 15,210 | 2,467,629 | 25,678 |
 | 2026-07-24 | `41052a6` | docs: regenerate api.md mirrors for dwsim-libs, multiphas... | 1,165,500 | 23 | 6,110 | 1,150,818 | 8,549 |
-| **TOTAL** | | **25 commits** | **479,701,128** | **1,641** | **911,092** | **470,438,838** | **8,349,557** |
+| 2026-07-24 | `fed0bf3` | chore(docs): refresh token-usage ledger | 2,321,347 | 37 | 21,061 | 2,214,978 | 85,271 |
+| **TOTAL** | | **26 commits** | **482,022,475** | **1,678** | **932,153** | **472,653,816** | **8,434,828** |
