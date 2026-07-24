@@ -111,6 +111,22 @@ pub fn carve_region(
             grid_min.z + cs * (k as f64 + 0.5),
         )
     };
+    // Per-hole bounding boxes, so a cell only runs the (expensive) ray-parity
+    // inside test for holes whose bbox actually contains it — this is what makes
+    // many holes (a pebble bed / pin lattice) scale, since a cell is inside at
+    // most one separated hole.
+    let hole_bbox: Vec<(Vec3, Vec3)> = holes.iter().map(|(hp, _)| bbox(hp)).collect();
+    let containing_hole = |c: Vec3| -> Option<usize> {
+        for (idx, (hp, ht)) in holes.iter().enumerate() {
+            let (lo, hi) = hole_bbox[idx];
+            let in_box = c.x >= lo.x && c.x <= hi.x && c.y >= lo.y && c.y <= hi.y && c.z >= lo.z && c.z <= hi.z;
+            if in_box && inside(c, hp, ht) {
+                return Some(idx);
+            }
+        }
+        None
+    };
+
     // Classify every cell: which hole (if any) contains it, and whether it is a
     // kept coolant cell (inside outer, inside no hole).
     let mut kept = vec![None; nx * ny * nz];
@@ -120,7 +136,7 @@ pub fn carve_region(
         for j in 0..ny {
             for i in 0..nx {
                 let c = cell_center(i, j, k);
-                let h = holes.iter().position(|(hp, ht)| inside(c, hp, ht));
+                let h = containing_hole(c);
                 let f = flat(i, j, k);
                 hole_of[f] = h;
                 if h.is_none() && inside(c, outer_points, outer_tris) {
@@ -152,12 +168,7 @@ fn empty_mesh() -> VolumeMesh {
 /// Uniform grid over the bounding box of `points`, with a one-cell margin so a
 /// layer of cells lies outside the surface. Returns `(grid_min, nx, ny, nz)`.
 fn grid_for(points: &[Vec3], cs: f64) -> (Vec3, usize, usize, usize) {
-    let mut lo = points[0];
-    let mut hi = points[0];
-    for p in points {
-        lo = Vec3::new(lo.x.min(p.x), lo.y.min(p.y), lo.z.min(p.z));
-        hi = Vec3::new(hi.x.max(p.x), hi.y.max(p.y), hi.z.max(p.z));
-    }
+    let (lo, hi) = bbox(points);
     let grid_min = lo.sub(Vec3::new(cs, cs, cs));
     let nx = (((hi.x - lo.x) / cs).ceil() as usize) + 2;
     let ny = (((hi.y - lo.y) / cs).ceil() as usize) + 2;
@@ -307,6 +318,17 @@ fn assemble_kept(
         patches.push(BoundaryPatch { name: patch_names[pi].clone(), start_face: start, n_faces: n });
     }
     VolumeMesh { points: new_positions, faces, owner, neighbour, n_cells: n_kept, patches }
+}
+
+/// Axis-aligned bounding box `(lo, hi)` of a point set.
+fn bbox(points: &[Vec3]) -> (Vec3, Vec3) {
+    let mut lo = points[0];
+    let mut hi = points[0];
+    for p in points {
+        lo = Vec3::new(lo.x.min(p.x), lo.y.min(p.y), lo.z.min(p.z));
+        hi = Vec3::new(hi.x.max(p.x), hi.y.max(p.y), hi.z.max(p.z));
+    }
+    (lo, hi)
 }
 
 /// Clamp a signed cell coordinate into the grid, returning `Some((i,j,k))` if in
