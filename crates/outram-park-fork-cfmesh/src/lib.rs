@@ -57,14 +57,16 @@
 //! - **Milestone 2 — castellated surface carve.** [`carve::carve_box`] overlays
 //!   a uniform Cartesian grid on a closed triangle-soup surface and keeps the
 //!   cells inside it (ray-parity inside test), producing a body-fitted
-//!   *staircase* volume mesh with a `walls` boundary patch. Verified: a
-//!   grid-aligned box carves exactly; an octahedron carve converges to its
-//!   analytic volume; every carved cell is closed.
+//!   *staircase* volume mesh with a `walls` boundary patch.
+//! - **Milestone 3a — boundary snapping.** [`snap::snap_to_surface`] projects
+//!   every boundary point onto the closest point of the surface, turning the
+//!   staircase into a body-fitted boundary (verified: boundary points land on
+//!   the surface, the mesh stays a valid closed volume mesh).
 //!
-//! Next on the `op-hzs` roadmap: octree refinement + point **snapping** (turn
-//! the staircase into a body-fitted boundary), the polyhedral dual (`op-hzs.33`,
-//! voro++ reference), boundary layers (`op-hzs.34`), and the volume-`PolyMesh`
-//! bridge to `outram-foam-basic-lib` (`op-hzs.35`).
+//! Next on the `op-hzs` roadmap: octree refinement near the surface, the
+//! polyhedral dual (`op-hzs.33`, voro++ reference), boundary layers
+//! (`op-hzs.34`), and the volume-`PolyMesh` bridge to `outram-foam-basic-lib`
+//! (`op-hzs.35`).
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
@@ -82,4 +84,5 @@
 pub mod cartesian;
 pub mod carve;
 pub mod math;
+pub mod snap;
 pub mod volume_mesh;
