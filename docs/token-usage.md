@@ -47,12 +47,20 @@
 | 2026-07-24 | `41052a6` | docs: regenerate api.md mirrors for dwsim-libs, multiphas... | 1,165,500 | 23 | 6,110 | 1,150,818 | 8,549 |
 | 2026-07-24 | `3e1d2d0` | Merge outram-blender into develop: cfMesh octree near-wal... | 56,555,651 | 160 | 66,281 | 56,396,808 | 92,402 |
 | 2026-07-24 | `7ca58b5` | Merge outram-foam into develop: pin transitive kstring 2.... | 56,555,651 | 160 | 66,281 | 56,396,808 | 92,402 |
+| 2026-07-24 | `fed0bf3` | chore(docs): refresh token-usage ledger | 2,321,347 | 37 | 21,061 | 2,214,978 | 85,271 |
+| 2026-07-24 | `05d284b` | Merge remote-tracking branch 'origin/develop' into claude... | 1,494,863 | 24 | 7,295 | 1,479,955 | 7,589 |
 | 2026-07-24 | `8e43d71` | Merge outram-blender into develop: cfMesh multi-level oct... | 65,934,291 | 187 | 77,208 | 65,751,893 | 105,003 |
 | 2026-07-24 | `367e0d0` | Merge pflotran into develop: outram-park-mpi groups + Car... | 65,934,291 | 187 | 77,208 | 65,751,893 | 105,003 |
+| 2026-07-24 | `afc4906` | Merge remote-tracking branch 'origin/develop' into claude... | 2,640,058 | 40 | 10,855 | 2,603,033 | 26,130 |
 | 2026-07-24 | `3dc85bc` | cfmesh: add prism boundary layers (add_boundary_layers) | 189,149 | 4 | 932 | 187,255 | 958 |
 | 2026-07-24 | `0050b92` | Merge remote-tracking branch 'origin/develop' into claude... | 1,455,130 | 27 | 6,591 | 1,439,646 | 8,866 |
+| 2026-07-24 | `5b21186` | Merge claude/outram-blender-mggk7u into develop | 72,716,199 | 205 | 86,371 | 72,513,566 | 116,057 |
+| 2026-07-24 | `fe1ca23` | Merge claude/pflortran-merge-develop-8k3wji into develop | 72,716,199 | 205 | 86,371 | 72,513,566 | 116,057 |
+| 2026-07-24 | `0cc63a4` | Merge claude/outram-foam-8ookor into develop | 72,716,199 | 205 | 86,371 | 72,513,566 | 116,057 |
 | 2026-07-24 | `efb8acd` | cfmesh: add polyhedral (median) dual — one cell per verte... | 5,250,656 | 87 | 93,137 | 5,095,585 | 61,847 |
 | 2026-07-24 | `e579dd7` | cfmesh: V&V — polyhedral dual bridges to a solvable foam ... | 2,974,882 | 39 | 10,976 | 2,937,002 | 26,865 |
+| 2026-07-24 | `5d58952` | Merge pflotran into develop: generic distributed CG + rea... | 82,330,543 | 231 | 98,230 | 82,098,368 | 133,714 |
 | 2026-07-24 | `3f5b374` | docs: refresh generated token-usage ledger | 891,335 | 10 | 3,133 | 884,930 | 3,262 |
 | 2026-07-24 | `56eba24` | docs: refresh generated token-usage ledger (lag row) | 754,285 | 10 | 5,805 | 743,477 | 4,993 |
-| **TOTAL** | | **42 commits** | **974,229,800** | **3,192** | **1,637,261** | **963,275,869** | **9,313,478** |
+| 2026-07-24 | `2500a77` | Merge remote-tracking branch 'origin/develop' into claude... | 2,961,391 | 33 | 11,240 | 2,933,602 | 16,516 |
+| **TOTAL** | | **50 commits** | **1,284,126,599** | **4,172** | **2,045,055** | **1,272,146,503** | **9,930,869** |
