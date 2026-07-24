@@ -83,7 +83,7 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 1. `rng/lcg.rs` — no deps ✅ (implemented)
 2. `geometry/position.rs` — no deps ✅ (implemented)
 3. `rng/distributions.rs` — depends on lcg ✅ (stubs)
-4. `geometry/surface.rs` — depends on position (planes ✅; `Sphere` + `ZCylinder` distance/sense ✅)
+4. `geometry/surface.rs` — depends on position. All quadric surfaces ✅: axis planes (`XPlane`/`YPlane`/`ZPlane`) + general `Plane`, `Sphere`, `XCylinder`/`YCylinder`/`ZCylinder`, `XCone`/`YCone`/`ZCone`, general `Quadric` — evaluate/sense/distance/normal/reflect, unit-tested (op-ah7). Only `Torus{X,Y,Z}` (quartic) remain.
 5. `geometry/cell.rs` — depends on surface (struct ✅; `contains()` RPN region eval ✅)
 6. `geometry/universe.rs` — depends on cell (struct ✅; `find_cell()` ✅)
 7. `geometry/lattice.rs` — depends on universe (`RectLattice` ✅; `HexLattice` ring construction + indexing ✅)
