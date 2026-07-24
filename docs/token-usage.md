@@ -24,4 +24,5 @@
 | 2026-07-23 | `db91d17` | docs(singlish): add 'bang gang' — knock off work / finish... | 48,295,948 | 175 | 80,743 | 47,636,531 | 578,499 |
 | 2026-07-24 | `6c50cdd` | refactor(tooling): consolidate token accounting into docs... | 7,215,668 | 23 | 8,724 | 7,175,809 | 31,112 |
 | 2026-07-24 | `7693155` | outram-mc: port remaining CSG quadric surfaces — Plane, X... | 51,484,074 | 185 | 117,074 | 49,259,689 | 2,107,126 |
-| **TOTAL** | | **11 commits** | **227,682,479** | **827** | **448,100** | **222,794,604** | **4,438,948** |
+| 2026-07-24 | `fc7c55f` | chore(docs): refresh token-usage ledger | 3,281,946 | 12 | 9,564 | 3,263,979 | 8,391 |
+| **TOTAL** | | **12 commits** | **230,964,425** | **839** | **457,664** | **226,058,583** | **4,447,339** |
