@@ -71,13 +71,22 @@ axis-aligned box — are implemented and verified (exact volume, closed cells vi
 the discrete-Gauss check, outward boundary normals). This is the un-refined
 Cartesian background the cfMesh `cartesianMesh` workflow builds on.
 
+**Milestone 2 — castellated surface carve (landed).** `carve::carve_box(points,
+tris, cell_size)` overlays a uniform Cartesian grid on a closed triangle-soup
+surface and keeps the cells inside it (ray-parity inside test), producing a
+body-fitted **staircase** `VolumeMesh` with a `walls` boundary patch. Verified:
+a grid-aligned box carves exactly (volume 8, 64 cells); an octahedron carve
+converges to its analytic volume (within 5 % at cell size 0.05); every carved
+cell is closed. v1 is a staircase boundary — no point snapping yet.
+
 Remaining roadmap (beads under the `op-hzs` epic):
 
 1. `op-hzs.40` — **core `VolumeMesh` + Cartesian block mesher** ✅ (milestone 1)
-2. octree refinement + **surface carving** of the Cartesian base (body-fitting)
-3. `op-hzs.33` — **polyhedral dual** (`polyDualMesh`-style, voro++ reference)
-4. `op-hzs.34` — **wall boundary / prism layers**
-5. `op-hzs.35` — **volume polyMesh bridge** to `outram-foam-basic-lib` `PolyMesh`
+2. `op-hzs.41` — **castellated surface carve** ✅ (milestone 2)
+3. octree refinement + point **snapping** (staircase → body-fitted boundary)
+4. `op-hzs.33` — **polyhedral dual** (`polyDualMesh`-style, voro++ reference)
+5. `op-hzs.34` — **wall boundary / prism layers**
+6. `op-hzs.35` — **volume polyMesh bridge** to `outram-foam-basic-lib` `PolyMesh`
 
 ## Design rules (workspace `CLAUDE.md`)
 

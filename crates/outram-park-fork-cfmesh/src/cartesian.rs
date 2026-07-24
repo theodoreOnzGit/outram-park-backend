@@ -13,7 +13,7 @@
 //! turn this background grid into a body-fitted mesh, plus boundary layers.
 
 use crate::math::Vec3;
-use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
+use crate::volume_mesh::{orient_ring, BoundaryPatch, VolumeMesh};
 
 /// Mesh the axis-aligned box `[min, max]` into a regular `nx × ny × nz` grid of
 /// hexahedral cells.
@@ -191,28 +191,6 @@ pub fn cartesian_box(min: Vec3, max: Vec3, divisions: [usize; 3]) -> VolumeMesh 
     add_patch("zMax", zmax, &mut faces, &mut owner, &mut neighbour, &mut patches, &points);
 
     VolumeMesh { points, faces, owner, neighbour, n_cells: nx * ny * nz, patches }
-}
-
-/// Order the ring so its area-vector points **away from** `owner_center`
-/// (owner→neighbour for an internal face, outward for a boundary face).
-fn orient_ring(ring: Vec<usize>, owner_center: Vec3, points: &[Vec3]) -> Vec<usize> {
-    let k = ring.len();
-    let mut area = Vec3::ZERO;
-    for i in 0..k {
-        area = area.add(points[ring[i]].cross(points[ring[(i + 1) % k]]));
-    }
-    let mut c = Vec3::ZERO;
-    for &v in &ring {
-        c = c.add(points[v]);
-    }
-    let c = c.scale(1.0 / k as f64);
-    if area.dot(c.sub(owner_center)) < 0.0 {
-        let mut r = ring;
-        r.reverse();
-        r
-    } else {
-        ring
-    }
 }
 
 #[cfg(test)]

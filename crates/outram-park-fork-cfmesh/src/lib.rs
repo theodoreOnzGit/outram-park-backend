@@ -50,18 +50,21 @@
 //!
 //! ## Status
 //!
-//! **Milestone 1 — the volume-mesh core + a Cartesian block mesher.** The
-//! [`volume_mesh::VolumeMesh`] data structure (points + faces + owner/neighbour
-//! + patches, mirroring cfMesh's `polyMeshGen` and OpenFOAM's `polyMesh`) is in
-//! place, and [`cartesian::cartesian_box`] fills an axis-aligned box with a
-//! regular hex grid — the un-refined background the cfMesh `cartesianMesh`
-//! workflow builds on, and a complete valid `VolumeMesh` in its own right
-//! (verified: exact volume, closed cells, outward boundary normals).
+//! - **Milestone 1 — volume-mesh core + Cartesian block mesher.**
+//!   [`volume_mesh::VolumeMesh`] (points + faces + owner/neighbour + patches,
+//!   mirroring cfMesh `polyMeshGen` / OpenFOAM `polyMesh`) and
+//!   [`cartesian::cartesian_box`] (a regular hex grid of an axis-aligned box).
+//! - **Milestone 2 — castellated surface carve.** [`carve::carve_box`] overlays
+//!   a uniform Cartesian grid on a closed triangle-soup surface and keeps the
+//!   cells inside it (ray-parity inside test), producing a body-fitted
+//!   *staircase* volume mesh with a `walls` boundary patch. Verified: a
+//!   grid-aligned box carves exactly; an octahedron carve converges to its
+//!   analytic volume; every carved cell is closed.
 //!
-//! The remaining roadmap lives in beads under the `op-hzs` epic: octree
-//! refinement + surface carving of this Cartesian base, the polyhedral dual
-//! (`op-hzs.33`, voro++ reference), boundary layers (`op-hzs.34`), and the
-//! volume-`PolyMesh` bridge to `outram-foam-basic-lib` (`op-hzs.35`).
+//! Next on the `op-hzs` roadmap: octree refinement + point **snapping** (turn
+//! the staircase into a body-fitted boundary), the polyhedral dual (`op-hzs.33`,
+//! voro++ reference), boundary layers (`op-hzs.34`), and the volume-`PolyMesh`
+//! bridge to `outram-foam-basic-lib` (`op-hzs.35`).
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
@@ -77,5 +80,6 @@
 //! > operation, licensing, or safety-critical decisions.
 
 pub mod cartesian;
+pub mod carve;
 pub mod math;
 pub mod volume_mesh;

@@ -157,3 +157,26 @@ impl VolumeMesh {
         Ok(())
     }
 }
+
+/// Order a face `ring` so its area vector points **away from** `owner_center`
+/// (owner→neighbour for an internal face, outward for a boundary face). Shared
+/// by the meshers so face construction never has to hand-derive winding.
+pub(crate) fn orient_ring(ring: Vec<usize>, owner_center: Vec3, points: &[Vec3]) -> Vec<usize> {
+    let k = ring.len();
+    let mut area = Vec3::ZERO;
+    for i in 0..k {
+        area = area.add(points[ring[i]].cross(points[ring[(i + 1) % k]]));
+    }
+    let mut c = Vec3::ZERO;
+    for &v in &ring {
+        c = c.add(points[v]);
+    }
+    let c = c.scale(1.0 / k as f64);
+    if area.dot(c.sub(owner_center)) < 0.0 {
+        let mut r = ring;
+        r.reverse();
+        r
+    } else {
+        ring
+    }
+}
