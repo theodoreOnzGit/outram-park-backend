@@ -47,7 +47,10 @@ pub mod energy_flash;
 pub mod flash;
 pub mod ideal_props;
 pub mod property_package;
+pub mod saturation;
 pub mod stability;
+pub mod transport;
+pub mod eos_variants;
 pub mod unifac;
 
 pub use component::Component;
