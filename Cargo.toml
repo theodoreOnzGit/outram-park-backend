@@ -35,6 +35,11 @@ members = [
     # `outram-park-fork-<project>`; the maintainer requested `outram-blender`.
     # Flagged in the crate README + manifest for a rename decision.
     "crates/outram-blender",
+    # outram-park-fork-cfmesh — Rust port of cfMesh (GPL-3.0): the volume-mesh
+    # generation layer (tet / polyhedral + boundary layers) between
+    # outram-blender (surface) and outram-foam (FvMesh). voro++ vendored as the
+    # Voronoi-dual reference. SCAFFOLD (epic op-hzs; op-hzs.32–.35).
+    "crates/outram-park-fork-cfmesh",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
