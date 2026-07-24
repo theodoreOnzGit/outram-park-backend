@@ -1,15 +1,15 @@
-/// Rectangular and hexagonal lattices.
-///
-/// C++ source: `src/lattice.cpp` (1219 LOC), `include/openmc/lattice.h`.
-///
-/// A lattice tiles space with identical universes on a periodic grid. OpenMC
-/// supports two types:
-///   - `RectLattice` — 3-D rectangular grid (nx × ny × nz pitches)
-///   - `HexLattice`  — 2-D hexagonal grid (axial rings + axial levels)
-///
-/// Each lattice element maps to a universe index. The lattice is itself a
-/// special kind of universe fill: [`crate::geometry::geometry::Geometry`]
-/// descends into it exactly as it would a nested universe.
+//! Rectangular and hexagonal lattices.
+//!
+//! C++ source: `src/lattice.cpp` (1219 LOC), `include/openmc/lattice.h`.
+//!
+//! A lattice tiles space with identical universes on a periodic grid. OpenMC
+//! supports two types:
+//!   - `RectLattice` — 3-D rectangular grid (nx × ny × nz pitches)
+//!   - `HexLattice`  — 2-D hexagonal grid (axial rings + axial levels)
+//!
+//! Each lattice element maps to a universe index. The lattice is itself a
+//! special kind of universe fill: [`crate::geometry::geometry::Geometry`]
+//! descends into it exactly as it would a nested universe.
 
 use super::position::{Direction, Position};
 
@@ -537,6 +537,90 @@ impl HexLattice {
             outer,
         }
     }
+
+    /// Build a **3-D** hexagonal lattice: `levels.len()` axially-stacked copies
+    /// of a hexagonal ring fill, one full ring description per axial level.
+    ///
+    /// Mirrors OpenMC's 3-D `HexLattice` input, where `universes` is nested one
+    /// level deeper than the 2-D case — `[axial_level][ring][element]` — and the
+    /// C++ `fill_lattice_x`/`fill_lattice_y` (`src/lattice.cpp:546,598`) wrap the
+    /// 2-D ring walk in an outer axial `m` loop. Each axial level is an
+    /// independent 2-D hexagonal fill written into its own `(2*n_rings-1)^2`
+    /// slice of [`Self::universes`] at flat offset `(2*n_rings-1)^2 * iz` (see
+    /// [`Self::flat_index`]). The 2-D [`Self::from_rings`] is the special case
+    /// `levels.len() == 1`; a single-level call here reproduces its planar layout
+    /// (only `n_axial`/`pitch[1]` differ).
+    ///
+    /// # Parameters
+    /// - `id`, `orientation`, `center`, `outer` — as [`Self::from_rings`];
+    ///   `center.z` is the axial centre of the whole stack, in cm.
+    /// - `radial_pitch` — tile flat-to-flat pitch in cm (`pitch[0]`).
+    /// - `axial_pitch` — height of one axial level in cm (`pitch[1]`).
+    /// - `levels` — one entry per axial level. **`levels[0]` is the bottom level**
+    ///   (`iz = 0`, lowest z; its centre sits at `center.z - (n_axial-1)/2 ·
+    ///   axial_pitch`), matching the internal `iz` convention of
+    ///   [`Self::get_indices`]/[`Self::center_offset`]/[`Self::distance`]. This is
+    ///   the **reverse** of OpenMC's Python display (top-first) — flip the outer
+    ///   list when porting a Python case. Every level must have the same ring
+    ///   count; within a level the ring/element order is that of
+    ///   [`Self::from_rings`] (outermost ring first, single central tile last).
+    ///
+    /// Panics if `levels` is empty, if the levels disagree on ring count, or if
+    /// any ring size is inconsistent with a hexagon of that ring count.
+    pub fn from_rings_3d(
+        id: i32,
+        orientation: HexOrientation,
+        center: Position,
+        radial_pitch: f64,
+        axial_pitch: f64,
+        levels: &[Vec<Vec<usize>>],
+        outer: Option<usize>,
+    ) -> Self {
+        let n_axial = levels.len();
+        assert!(n_axial >= 1, "a hex lattice needs at least one axial level");
+        let n_rings = levels[0].len();
+        assert!(n_rings >= 1, "a hex lattice needs at least one ring");
+
+        let n_side = 2 * n_rings - 1;
+        let block = n_side * n_side;
+        let mut universes = vec![HEX_NONE; block * n_axial];
+
+        for (iz, rings) in levels.iter().enumerate() {
+            assert_eq!(
+                rings.len(),
+                n_rings,
+                "axial level {iz} has {} rings, expected {n_rings} (all levels must have the same ring count)",
+                rings.len()
+            );
+            // Validate ring sizes: outer→inner is 6(n-1), 6(n-2), …, 1.
+            for (k, ring) in rings.iter().enumerate() {
+                let expected = if k == n_rings - 1 { 1 } else { 6 * (n_rings - 1 - k) };
+                assert_eq!(
+                    ring.len(),
+                    expected,
+                    "axial level {iz} ring {k} (outer-first) has {} elements, expected {expected} for a {n_rings}-ring hex lattice",
+                    ring.len()
+                );
+            }
+            let flat: Vec<i32> = rings.iter().flatten().map(|&u| u as i32).collect();
+            let slice = &mut universes[iz * block..(iz + 1) * block];
+            match orientation {
+                HexOrientation::Y => fill_lattice_y(n_rings, &flat, slice),
+                HexOrientation::X => fill_lattice_x(n_rings, &flat, slice),
+            }
+        }
+
+        HexLattice {
+            id,
+            orientation,
+            n_rings,
+            n_axial,
+            center,
+            pitch: [radial_pitch, axial_pitch],
+            universes,
+            outer,
+        }
+    }
 }
 
 /// Fill the skewed universe array for a `'y'`-orientation hex lattice from the
@@ -690,120 +774,4 @@ impl Lattice {
 }
 
 #[cfg(test)]
-mod hex_tests {
-    use super::*;
-
-    /// A 4-ring, y-orientation lattice matching the `hexagonal-lattice` notebook:
-    /// centre (0,0), pitch 1.25, big-pin (universe index 1) at the first element
-    /// of every ring, regular pin (index 0) elsewhere, outer = 2.
-    fn notebook_lattice() -> HexLattice {
-        let outer_ring: Vec<usize> = std::iter::once(1).chain(std::iter::repeat(0).take(17)).collect();
-        let ring_1: Vec<usize> = std::iter::once(1).chain(std::iter::repeat(0).take(11)).collect();
-        let ring_2: Vec<usize> = std::iter::once(1).chain(std::iter::repeat(0).take(5)).collect();
-        let inner_ring: Vec<usize> = vec![1];
-        HexLattice::from_rings(
-            4,
-            HexOrientation::Y,
-            Position::ZERO,
-            1.25,
-            &[outer_ring, ring_1, ring_2, inner_ring],
-            Some(2),
-        )
-    }
-
-    /// The hexagon holds `3*nr*(nr-1)+1` real tiles; the rest of the skewed square
-    /// array is [`HEX_NONE`]. For 4 rings that is 37 valid tiles.
-    #[test]
-    fn valid_tile_count_matches_hexagon_formula() {
-        let lat = notebook_lattice();
-        let nr = lat.n_rings as i32;
-        let n = lat.n_side() as i32;
-        let mut valid = 0;
-        for iy in 0..n {
-            for ix in 0..n {
-                if lat.are_valid_indices([ix, iy, 0]) {
-                    valid += 1;
-                }
-            }
-        }
-        assert_eq!(valid, (3 * nr * (nr - 1) + 1) as i32, "4-ring hexagon should have 37 tiles");
-        assert_eq!(valid, 37);
-    }
-
-    /// Round-trip: placing a particle exactly at a tile centre must recover that
-    /// tile's skewed index via [`HexLattice::get_indices`]. This exercises the
-    /// centre-offset geometry and the Voronoi nearest-centre refinement together.
-    #[test]
-    fn get_indices_recovers_every_tile_center() {
-        let lat = notebook_lattice();
-        let n = lat.n_side() as i32;
-        let u = Direction::new(1.0, 0.0, 0.0);
-        for iy in 0..n {
-            for ix in 0..n {
-                let i = [ix, iy, 0];
-                if !lat.are_valid_indices(i) {
-                    continue;
-                }
-                // Tile centre in the lattice (global) frame = center + center_offset.
-                let c = lat.center_offset(i);
-                let got = lat.get_indices(Position::new(c.x, c.y, 0.0), u);
-                assert_eq!(got, i, "tile centre of {i:?} located as {got:?}");
-            }
-        }
-    }
-
-    /// The notebook fills the first element of each of the 4 rings with the big
-    /// pin (index 1) and every other tile with the regular pin (index 0): 4 big
-    /// pins, 33 regular pins.
-    #[test]
-    fn ring_fill_counts_match_notebook() {
-        let lat = notebook_lattice();
-        let big = lat.universes.iter().filter(|&&u| u == 1).count();
-        let pin = lat.universes.iter().filter(|&&u| u == 0).count();
-        let none = lat.universes.iter().filter(|&&u| u == HEX_NONE).count();
-        assert_eq!(big, 4, "one big pin per ring");
-        assert_eq!(pin, 33, "remaining tiles are regular pins");
-        assert_eq!(big + pin + none, lat.universes.len());
-        // The central tile is the innermost ring's single element → a big pin.
-        let centre = [lat.n_rings as i32 - 1, lat.n_rings as i32 - 1, 0];
-        assert_eq!(lat.universe_at(centre), Some(1), "central tile is the big pin");
-    }
-
-    /// Geometry of the y-orientation tile: its flat faces have outward normals at
-    /// ±30°, ±90°, ±150° (never along ±x). So a particle leaving the central tile
-    ///   - along +y (the delta face normal) exits at exactly half the flat-to-flat
-    ///     pitch (`pitch/2`), crossing into `[0,+1,0]`;
-    ///   - along +x exits through the +30° (beta) face at `pitch/2 / cos(30°)`,
-    ///     crossing into `[+1,0,0]`.
-    /// Both are checked against the ported `HexLattice::distance`.
-    #[test]
-    fn distance_from_center_matches_hex_face_geometry() {
-        let lat = notebook_lattice();
-        let centre = [lat.n_rings as i32 - 1, lat.n_rings as i32 - 1, 0];
-        let half = 0.5 * lat.pitch[0];
-
-        // +y → delta face → exactly half-pitch, cross into [0,+1,0].
-        let (dy, ty) = lat.distance(Position::ZERO, Direction::new(0.0, 1.0, 0.0), centre);
-        assert!((dy - half).abs() < 1e-9, "+y distance {dy} should be half-pitch {half}");
-        assert_eq!(ty, [0, 1, 0], "+y crosses into the +delta neighbour");
-
-        // +x → beta face at 30° → half-pitch / cos(30°), cross into [+1,0,0].
-        let (dx, tx) = lat.distance(Position::ZERO, Direction::new(1.0, 0.0, 0.0), centre);
-        let expect_x = half / (30.0_f64.to_radians().cos());
-        assert!((dx - expect_x).abs() < 1e-9, "+x distance {dx} should be {expect_x}");
-        assert_eq!(tx, [1, 0, 0], "+x crosses into the +beta neighbour");
-    }
-
-    /// Tiles outside the hexagon (unused corners) and beyond the grid resolve to
-    /// the `outer` universe.
-    #[test]
-    fn outside_hexagon_resolves_to_outer() {
-        let lat = notebook_lattice();
-        // Corner [0,0] of the skewed array is outside the hexagon (0+0 <= nr-2).
-        assert!(!lat.are_valid_indices([0, 0, 0]));
-        assert_eq!(lat.universe_at([0, 0, 0]), Some(2), "corner → outer");
-        // Far away in the lattice frame → outer.
-        let far = lat.get_indices(Position::new(100.0, 100.0, 0.0), Direction::new(1.0, 0.0, 0.0));
-        assert_eq!(lat.universe_at(far), Some(2), "far point → outer");
-    }
-}
+mod hex_tests;
