@@ -7,16 +7,14 @@
 //! (op-iom). See the crate README for the mobile-first/touch design and
 //! Termux usage; see `crate::transport` for what "live" honestly means here.
 //!
-//! Run it: `cargo run -p outram-mc-libs --features tui --bin outram-mc-tui --release`.
+//! Run it: `cargo run -p outram-mc-libs --bin outram-mc-tui --release`.
 //!
-//! This binary lives **inside** the `outram-mc-libs` crate (a `[[bin]]` target
-//! gated behind the crate's non-default `tui` feature), rather than in a
-//! separate crate. `ratatui` is therefore an *optional* dependency of
-//! `outram-mc-libs`, pulled in only when `--features tui` is set, so ordinary
-//! library consumers of `outram-mc-libs` never inherit the terminal-UI stack.
-//! The module tree that used to be `outram-mc-tui`'s library (`app`, `presets`,
-//! `settings`, `spectrum`, `transport`, `ui`) is declared directly below as
-//! private modules of this binary.
+//! This binary lives **inside** the `outram-mc-libs` crate (a `[[bin]]` target),
+//! rather than in a separate crate. `ratatui` is an unconditional dependency of
+//! `outram-mc-libs`, so the binary always builds with a plain `cargo build` —
+//! no feature flags. The module tree that used to be `outram-mc-tui`'s library
+//! (`app`, `presets`, `settings`, `spectrum`, `transport`, `ui`) is declared
+//! directly below as private modules of this binary.
 //!
 //! ## Android/Termux
 //!
