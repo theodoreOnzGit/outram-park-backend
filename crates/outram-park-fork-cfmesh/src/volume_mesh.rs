@@ -158,6 +158,91 @@ impl VolumeMesh {
     }
 }
 
+/// Invert the mesh to a per-cell list of **outward-wound** face rings: each
+/// cell gets its owner faces as stored (owner→neighbour = outward from the
+/// owner) and its neighbour faces reversed (outward from that cell). The
+/// inverse of [`from_cell_faces`].
+pub fn cells_faces(mesh: &VolumeMesh) -> Vec<Vec<Vec<usize>>> {
+    let mut cf: Vec<Vec<Vec<usize>>> = vec![Vec::new(); mesh.n_cells];
+    for f in 0..mesh.face_count() {
+        cf[mesh.owner[f]].push(mesh.faces[f].clone());
+        if let Some(nb) = mesh.neighbour[f] {
+            let mut rev = mesh.faces[f].clone();
+            rev.reverse();
+            cf[nb].push(rev);
+        }
+    }
+    cf
+}
+
+/// Assemble a [`VolumeMesh`] from `points` and a per-cell list of
+/// **outward-wound** face rings. Faces shared by two cells (matched by their
+/// vertex *set*) become internal faces (owner = the cell that listed it first);
+/// unmatched faces are boundary faces in a single `walls` patch. Faces are
+/// ordered internal-first.
+///
+/// This is the general "cells → connectivity" assembler used by mesh surgery
+/// such as boundary-layer insertion, where owner/neighbour are easiest to
+/// recover by matching shared faces rather than tracked directly.
+pub fn from_cell_faces(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>]) -> VolumeMesh {
+    use std::collections::HashMap;
+    // Cell centroids (vertex average over the cell's faces) — used to orient
+    // every emitted face outward from its owner, so callers need not wind the
+    // input rings correctly.
+    let centroid: Vec<Vec3> = cells
+        .iter()
+        .map(|faces| {
+            let mut c = Vec3::ZERO;
+            let mut n = 0usize;
+            for ring in faces {
+                for &v in ring {
+                    c = c.add(points[v]);
+                    n += 1;
+                }
+            }
+            if n > 0 {
+                c.scale(1.0 / n as f64)
+            } else {
+                Vec3::ZERO
+            }
+        })
+        .collect();
+
+    // First occurrence of each face (by sorted vertex key) -> (cell, ring).
+    let mut first: HashMap<Vec<usize>, (usize, Vec<usize>)> = HashMap::new();
+    let mut int_faces: Vec<Vec<usize>> = Vec::new();
+    let mut int_owner: Vec<usize> = Vec::new();
+    let mut int_nb: Vec<usize> = Vec::new();
+    for (cid, faces) in cells.iter().enumerate() {
+        for ring in faces {
+            let mut key = ring.clone();
+            key.sort_unstable();
+            if let Some((owner_cell, owner_ring)) = first.remove(&key) {
+                // Second time we see this face -> internal (owner = first cell).
+                int_faces.push(orient_ring(owner_ring, centroid[owner_cell], &points));
+                int_owner.push(owner_cell);
+                int_nb.push(cid);
+            } else {
+                first.insert(key, (cid, ring.clone()));
+            }
+        }
+    }
+    // Whatever is left unmatched is a boundary face.
+    let n_internal = int_faces.len();
+    let mut faces = int_faces;
+    let mut owner = int_owner;
+    let mut neighbour: Vec<Option<usize>> = int_nb.into_iter().map(Some).collect();
+    let mut bnd = 0usize;
+    for (_key, (cid, ring)) in first {
+        faces.push(orient_ring(ring, centroid[cid], &points));
+        owner.push(cid);
+        neighbour.push(None);
+        bnd += 1;
+    }
+    let patches = vec![BoundaryPatch { name: "walls".into(), start_face: n_internal, n_faces: bnd }];
+    VolumeMesh { points, faces, owner, neighbour, n_cells: cells.len(), patches }
+}
+
 /// Order a face `ring` so its area vector points **away from** `owner_center`
 /// (owner→neighbour for an internal face, outward for a boundary face). Shared
 /// by the meshers so face construction never has to hand-derive winding.

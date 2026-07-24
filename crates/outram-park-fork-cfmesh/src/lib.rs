@@ -77,10 +77,15 @@
 //!   face into its four fine sub-faces (hanging nodes) so the coarse cell
 //!   becomes a genuine **polyhedron** — the mesh stays conforming (verified:
 //!   exact volume, closed cells, > 6-face transition cells).
+//! - **Prism boundary layers.** [`layers::add_boundary_layers`] inserts graded
+//!   near-wall inflation layers at a wall patch (snappyHexMesh *addLayers* /
+//!   cfMesh's boundary-layer step): the interior wall points move inward and
+//!   the vacated shell is filled with `n_layers` stacked prism cells per wall
+//!   face. It is a repartition, so it preserves the mesh volume exactly
+//!   (verified: exact volume, closed, `+n_layers × wall_faces` cells).
 //!
-//! Next on the `op-hzs` roadmap: octree refinement near the surface, the
-//! polyhedral dual (`op-hzs.33`, voro++ reference), and boundary layers
-//! (`op-hzs.34`).
+//! Next on the `op-hzs` roadmap: the polyhedral dual (`op-hzs.33`, voro++
+//! reference) and multi-patch / feature-aware layer insertion.
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
@@ -98,6 +103,7 @@
 pub mod cartesian;
 pub mod carve;
 pub mod checks;
+pub mod layers;
 pub mod math;
 pub mod octree;
 pub mod reactor;
