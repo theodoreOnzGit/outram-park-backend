@@ -26,4 +26,7 @@
 | 2026-07-24 | `7693155` | outram-mc: port remaining CSG quadric surfaces — Plane, X... | 51,484,074 | 185 | 117,074 | 49,259,689 | 2,107,126 |
 | 2026-07-24 | `fc7c55f` | chore(docs): refresh token-usage ledger | 3,281,946 | 12 | 9,564 | 3,263,979 | 8,391 |
 | 2026-07-24 | `a143f0e` | outram-mc: fix nested-lattice surface-tracking under-coun... | 35,914,153 | 113 | 146,389 | 34,020,064 | 1,747,587 |
-| **TOTAL** | | **13 commits** | **266,878,578** | **952** | **604,053** | **260,078,647** | **6,194,926** |
+| 2026-07-24 | `46b4ccf` | outram-mc: port Torus{X,Y,Z} CSG surfaces — completes the... | 40,092,252 | 115 | 71,203 | 39,909,015 | 111,919 |
+| 2026-07-24 | `f10a000` | outram-mc: HexLattice 3-D axial rings + X-orientation rou... | 8,028,654 | 21 | 12,114 | 8,002,461 | 14,058 |
+| 2026-07-24 | `9f67449` | outram-mc: add the lattice/ dir files (complete f10a000) | 6,064,023 | 18 | 11,721 | 6,039,420 | 12,864 |
+| **TOTAL** | | **16 commits** | **321,063,507** | **1,106** | **699,091** | **314,029,543** | **6,333,767** |
