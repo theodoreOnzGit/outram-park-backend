@@ -25,4 +25,5 @@
 | 2026-07-24 | `6c50cdd` | refactor(tooling): consolidate token accounting into docs... | 7,215,668 | 23 | 8,724 | 7,175,809 | 31,112 |
 | 2026-07-24 | `7693155` | outram-mc: port remaining CSG quadric surfaces — Plane, X... | 51,484,074 | 185 | 117,074 | 49,259,689 | 2,107,126 |
 | 2026-07-24 | `fc7c55f` | chore(docs): refresh token-usage ledger | 3,281,946 | 12 | 9,564 | 3,263,979 | 8,391 |
-| **TOTAL** | | **12 commits** | **230,964,425** | **839** | **457,664** | **226,058,583** | **4,447,339** |
+| 2026-07-24 | `a143f0e` | outram-mc: fix nested-lattice surface-tracking under-coun... | 35,914,153 | 113 | 146,389 | 34,020,064 | 1,747,587 |
+| **TOTAL** | | **13 commits** | **266,878,578** | **952** | **604,053** | **260,078,647** | **6,194,926** |
