@@ -2,6 +2,12 @@
 
 This project uses **beads-rs** (`bd`) for issue tracking. Run `bd prime` for full workflow context.
 
+> **RUST BEADS ONLY.** Beads here is the **Rust** implementation — the
+> [`beads-rs`](https://crates.io/crates/beads-rs) crate
+> (`github.com/delightful-ai/beads-rs`), binary `bd`. Do **not** install or use
+> any Go build of beads. If only a Go `bd` is on this machine, treat beads as
+> unavailable and fall back to a short markdown note rather than filing into it.
+>
 > **Tooling note (2026-07-20):** this workspace migrated off the Go beads/Dolt
 > implementation to **beads-rs** (`cargo install beads-rs`, binary `bd`). The
 > old Go binary is parked at `~/.local/bin/bd-go.deprecated`; `bd` now resolves
@@ -27,7 +33,8 @@ bd ready              # Find available work
 bd show <id>          # View issue details
 bd claim <id>         # Claim work
 bd close <id>         # Complete work
-# sync is automatic via `bd daemon`; no manual push command
+bd sync               # Wait for the background git sync to flush
+# sync is automatic via `bd daemon`; `bd sync` only blocks until it lands
 ```
 
 ## Non-Interactive Shell Commands
@@ -80,7 +87,7 @@ bd close <id>         # Complete work
 
 The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
 
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
+- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or a manual beads sync (`bd sync`) unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
 - **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
 - **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
 
@@ -98,7 +105,7 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 
    # Team-maintainer opt-in only, unless current instructions forbid it:
    git pull --rebase
-   # (beads sync is automatic via `bd daemon`; no manual `bd dolt push`)
+   bd sync            # optional: block until the `bd daemon` flush lands
    git push
    git status
    ```

@@ -1062,18 +1062,21 @@ pub fn from_poly_mesh(poly: &outram_foam_basic_lib::io::poly_mesh::PolyMesh) -> 
 ///   the real material/fill and temperature; this bridge exports *geometry*
 ///   only.
 ///
+/// All fitted surfaces map exactly: box, sphere, and Z-cylinder primitives, plus
+/// the **convex-faceted** route — a general [`CsgSurface::Plane`] maps to
+/// `outram-mc-libs`' `Plane { a, b, c, d }` (`a·x + b·y + c·z = d`), so an
+/// arbitrary convex polyhedron exports as one half-space per face.
+///
 /// # Errors
 ///
-/// Returns [`ExportError::NotImplemented`] if `mesh` is not a fittable primitive
-/// (propagated from [`to_csg_primitive`]) **or** if the fitted CSG contains a
-/// general [`CsgSurface::Plane`] — `outram-mc-libs` has no general-plane surface
-/// (only `XPlane`/`YPlane`/`ZPlane`/`Sphere`/`ZCylinder`), so a convex-faceted
-/// CSG (from an arbitrary convex polyhedron) cannot be represented. Box, sphere,
-/// and Z-cylinder primitives export exactly.
+/// Returns [`ExportError::NotImplemented`] only if `mesh` is not a fittable
+/// primitive at all (propagated from [`to_csg_primitive`] — i.e. a non-convex
+/// mesh, which has no half-space-intersection CSG; use [`to_faceted_solid`] for
+/// that boundary representation).
 #[cfg(feature = "mc-export")]
 pub fn to_mc_geometry(mesh: &Mesh) -> Result<outram_mc_libs::prelude::Geometry, ExportError> {
     use outram_mc_libs::geometry::position::Position;
-    use outram_mc_libs::geometry::surface::{Sphere, XPlane, YPlane, ZCylinder, ZPlane};
+    use outram_mc_libs::geometry::surface::{Plane, Sphere, XPlane, YPlane, ZCylinder, ZPlane};
     use outram_mc_libs::prelude::{
         BoundaryType, Cell, CellFill, Geometry, HalfSpaceSense, SurfaceKind, Universe,
     };
@@ -1094,13 +1097,10 @@ pub fn to_mc_geometry(mesh: &Mesh) -> Result<outram_mc_libs::prelude::Geometry, 
             CsgSurface::ZCylinder { x0, y0, r } => {
                 SurfaceKind::ZCylinder(ZCylinder { x0, y0, r, bc })
             }
-            CsgSurface::Plane { .. } => {
-                return Err(ExportError::NotImplemented(
-                    "outram-mc-libs has no general Plane surface; a convex-faceted CSG (from \
-                     an arbitrary convex polyhedron) cannot be exported to Monte Carlo -- only \
-                     box / sphere / Z-cylinder primitives map exactly",
-                ));
-            }
+            // General plane `a·x + b·y + c·z = d` — the convex-faceted route (one
+            // plane per face of a convex polyhedron). outram-mc-libs `Plane`
+            // matches [`CsgSurface::Plane`] field-for-field, so this maps exactly.
+            CsgSurface::Plane { a, b, c, d } => SurfaceKind::Plane(Plane { a, b, c, d, bc }),
         };
         surfaces.push(kind);
     }

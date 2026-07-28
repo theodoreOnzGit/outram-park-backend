@@ -106,6 +106,12 @@ pub mod convex_hull;
 pub mod decimate;
 pub mod edge_bevel;
 pub mod export;
+
+/// Monte Carlo simulation setup + run (feature `mc-export`) — build materials,
+/// bundle geometry + source + settings, run a k-eigenvalue criticality
+/// calculation. The backend the outram-mc GUI drives.
+#[cfg(feature = "mc-export")]
+pub mod sim;
 pub mod fill_holes;
 pub mod inset;
 pub mod laplacian;
