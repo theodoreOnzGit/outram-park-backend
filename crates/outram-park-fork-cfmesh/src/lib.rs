@@ -101,10 +101,16 @@
 //!   vertices toward their neighbour centroid (smart Laplacian — never inverts a
 //!   cell, pins the boundary), improving cell shape while conserving volume
 //!   exactly (verified: recovers perturbed tet quality, no inversions).
+//! - **Flip-based Delaunay.** [`delaunay::flip_to_delaunay`] improves a tet mesh
+//!   toward Delaunay by bistellar 2→3 / 3→2 flips (Shewchuk [`delaunay::orient3d`]
+//!   / [`delaunay::insphere`] predicates). Volume- and boundary-preserving, with
+//!   an *improve-or-noop* guard so it can never make a mesh worse and refuses
+//!   tangled input (verified: fixes a non-Delaunay bipyramid exactly, conserves
+//!   volume + bounded growth on a block, returns invalid input unchanged).
 //!
-//! Next on the `op-hzs` roadmap: Delaunay-*quality* tet refinement via flips /
-//! point insertion (gmsh — GPLv2+, GPLv3-compatible — is a licence-clean
-//! reference) and multi-patch / feature-aware layer insertion.
+//! Next on the `op-hzs` roadmap: exact/adaptive predicates + size-driven point
+//! insertion (the rest of `op-38z`; gmsh — GPLv2+, GPLv3-compatible — is a
+//! licence-clean reference) and multi-patch / feature-aware layer insertion.
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
@@ -122,6 +128,7 @@
 pub mod cartesian;
 pub mod carve;
 pub mod checks;
+pub mod delaunay;
 pub mod dual;
 pub mod layers;
 pub mod math;
