@@ -5374,6 +5374,7 @@ dependencies = [
  "ndarray",
  "nee_soon",
  "outram-foam-basic-lib",
+ "outram-park-fork-coolprop",
  "outram-park-fork-dwsim-libs",
  "roots",
  "serde",

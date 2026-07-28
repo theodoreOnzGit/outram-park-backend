@@ -42,9 +42,19 @@
 //!
 //! ## Status
 //!
-//! **Scaffold only.** This crate is being built out incrementally; see the
-//! `op-wqk` epic in the workspace's beads issue tracker for the live module
-//! plan and progress.
+//! The four modules below are implemented: [`color_maps`] and [`app_scaffold`]
+//! are ports of already-working code, [`components`] wraps the physics types
+//! it visualizes, and [`animation`] carries the tracer kinematics. The one
+//! deliberate stand-in is [`components::InstrumentationVisual`], which stays a
+//! label/value placeholder because `nee_soon` exposes no instrumentation
+//! readout type to wrap yet.
+//!
+//! Per `RESPONSIBLE_USE.md`, everything here is **untrusted draft material
+//! until human-reviewed** — see the crate README's bookkeeping-status block for
+//! the maintainer sign-off state. The example simulators are **offline
+//! demonstrations only**.
+//!
+//! See the workspace's beads issue tracker for the live module plan.
 
 #![forbid(unsafe_code)]
 

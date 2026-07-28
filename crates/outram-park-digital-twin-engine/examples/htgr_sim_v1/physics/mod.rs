@@ -5,16 +5,38 @@
 //! are coupled:
 //!
 //! 1. [`kinetics`] -- reactor power from the prompt excursion layer + a
-//!    delayed-neutron precursor bank (see that module for what is real vs a
-//!    placeholder for the forthcoming `teh_o_prke::DelayedNeutronLayer`).
+//!    delayed-neutron precursor bank, wired to the real
+//!    `teh_o_prke::DelayedNeutronLayer`.
 //! 2. [`primary_loop`] -- reactor power heats the helium coolant; the IHX
-//!    rejects it to the secondary side.
+//!    rejects it to the secondary side, pinch-limited by an
+//!    effectiveness-NTU model.
 //! 3. [`secondary_loop`] -- the IHX duty drives a real IAPWS-IF97 steam cycle
-//!    (steam generator -> turbine -> condenser).
+//!    (feed pump -> steam generator -> turbine -> condenser -> hotwell).
 //!
-//! This is a **scaffold**: the structure and cross-crate wiring are real, but
-//! several correlations are first-cut placeholders (flagged per module and in
-//! beads `op-wqk.9.1` / `.2` / `.3`). It is not a validated HTGR model.
+//! ## The loops are coupled both ways
+//!
+//! The two loops are not run open-ended in sequence. Each step reads the
+//! secondary's saturation temperature *first* and hands it to the primary as
+//! the IHX's cold-side pinch, so:
+//!
+//! - the secondary's pressure limits how much heat the helium can shed, and
+//! - the resulting IHX helium outlet becomes the next core inlet.
+//!
+//! That closes the primary loop (the core inlet is a computed variable, not
+//! a constant) and makes the steam generator duty-limited rather than
+//! absorbing whatever the primary offers.
+//!
+//! ## Status
+//!
+//! The structure, the cross-crate wiring, and the thermophysical properties
+//! (helium via the CoolProp-derived Helmholtz EOS, water/steam via
+//! IAPWS-IF97) are **real**. What remains illustrative is the *plant data* --
+//! loop geometry, `UA` values, efficiencies, inventories and controller
+//! constants are HTGR-scale stand-ins, not a specific design's numbers -- and
+//! the live steam pressure is still held fixed (see [`secondary_loop`]).
+//! This is a demonstration model for the digital-twin engine, **not a
+//! validated HTGR model**, and must not be used for any of the purposes
+//! `RESPONSIBLE_USE.md` excludes.
 //!
 //! What belongs here: the plant orchestration and the physics->snapshot
 //! projection. What does not: GUI/rendering (that is [`crate::app`]) and the
@@ -25,6 +47,7 @@ pub mod kinetics;
 pub mod primary_loop;
 pub mod secondary_loop;
 
+use outram_park_digital_twin_engine::animation::residence_time_from_flow;
 use uom::si::f64::{MassRate, Power, Time};
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::megawatt;
@@ -87,14 +110,18 @@ impl HtgrPlant {
         self.kinetics.step(dt, external_reactivity_dollars);
         let reactor_power = self.kinetics.total_power();
 
-        // 2. Primary helium loop absorbs the power; IHX rejects it.
-        self.primary.step(dt, reactor_power, helium_flow_setpoint);
+        // 2. Primary helium loop absorbs the power; the IHX rejects it into
+        //    the secondary side, pinch-limited against the steam saturation
+        //    temperature. Reading that temperature *before* the primary step
+        //    is what closes the primary<->secondary coupling: the secondary's
+        //    pressure sets how cold the helium can get, and the resulting IHX
+        //    outlet becomes the next core inlet.
+        let secondary_sink = self.secondary.saturation_temperature();
+        self.primary
+            .step(dt, reactor_power, helium_flow_setpoint, secondary_sink);
 
-        // 3. Secondary steam loop driven by the IHX duty.
-        self.secondary.step(
-            self.primary.ihx_duty(),
-            self.primary.core_outlet_temperature(),
-        );
+        // 3. Secondary steam loop driven by that (already limited) IHX duty.
+        self.secondary.step(dt, self.primary.ihx_duty());
     }
 
     /// Project the current plant state onto the shared [`HtgrSnapshot`],
@@ -118,6 +145,16 @@ impl HtgrPlant {
         s.core_outlet_temp_k = self.primary.core_outlet_temperature().get::<kelvin>();
         s.helium_mass_flow_kg_per_s = self.primary.mass_flow().get::<kilogram_per_second>();
         s.ihx_duty_mw = self.primary.ihx_duty().get::<megawatt>();
+        s.ihx_outlet_temp_k = self.primary.ihx_outlet_temperature().get::<kelvin>();
+        s.helium_residence_time_s =
+            residence_time_from_flow(self.primary.helium_inventory(), self.primary.mass_flow())
+                .get::<second>();
+        s.primary_pressure_drop_kpa = self.primary.pressure_drop().get::<kilopascal>();
+        s.circulator_power_mw = self.primary.circulator_power().get::<megawatt>();
+        s.helium_cp_j_per_kg_k =
+            self.primary
+                .specific_heat()
+                .get::<uom::si::specific_heat_capacity::joule_per_kilogram_kelvin>();
 
         // Secondary loop.
         s.steam_pressure_mpa = self
@@ -134,6 +171,26 @@ impl HtgrPlant {
         s.turbine_power_mw = self.secondary.turbine_power().get::<megawatt>();
         s.steam_quality_after_turbine = self.secondary.steam_quality_after_turbine();
         s.condenser_pressure_kpa = self.secondary.condenser_pressure().get::<kilopascal>();
+        s.secondary_mass_flow_kg_per_s = self.secondary.mass_flow().get::<kilogram_per_second>();
+        s.secondary_residence_time_s =
+            residence_time_from_flow(self.secondary.inventory(), self.secondary.mass_flow())
+                .get::<second>();
+        s.feedwater_enthalpy_j_per_kg = self
+            .secondary
+            .feedwater_enthalpy()
+            .get::<uom::si::available_energy::joule_per_kilogram>();
+        s.condensate_enthalpy_j_per_kg = self
+            .secondary
+            .condensate()
+            .get_specific_enthalpy()
+            .get::<uom::si::available_energy::joule_per_kilogram>();
+        s.feed_pump_power_mw = self.secondary.feed_pump_power().get::<megawatt>();
+        s.net_cycle_power_mw = self.secondary.net_power().get::<megawatt>();
+        s.condenser_duty_mw = self.secondary.condenser_duty().get::<megawatt>();
+        s.cooling_water_outlet_temp_k = self
+            .secondary
+            .cooling_water_outlet_temperature()
+            .get::<kelvin>();
 
         // Clock.
         s.sim_time_s = self.sim_time.get::<second>();
