@@ -351,6 +351,12 @@ source of truth.
 > and does **not** relax the rule against committing/pushing **code** without
 > explicit approval.
 
+- **RUST BEADS ONLY.** Beads here is the **Rust** implementation — the
+  [`beads-rs`](https://crates.io/crates/beads-rs) crate
+  (`github.com/delightful-ai/beads-rs`), binary `bd`. Do **not** install or
+  use any Go build of beads. If only a Go `bd` is on this machine, treat beads
+  as unavailable (see the "not available" bullet below) and fall back to a
+  short markdown note rather than filing into it.
 - **Install:** `cargo install beads-rs` (binary `bd`). First-time setup in a
   repo: `bd init`, then `bd setup claude`, then `bd onboard`. Migrate a Go
   export with `bd migrate from-go --input <issues.jsonl>` (comment ids must be
@@ -876,7 +882,7 @@ bd close <id>         # Complete work
 
 The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
 
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
+- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or a manual beads sync (`bd sync`) unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
 - **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
 - **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
 
