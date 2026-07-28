@@ -189,6 +189,49 @@ impl DistributedTransport1D {
         Self::new(decomp.clone(), storage_v, west_q, east_q, west_d, east_d, dt)
     }
 
+    /// Build a distributed **energy (heat) transport** stepper from a global flow
+    /// field — the same advection–diffusion operator with heat coefficients,
+    /// matching the serial [`crate::energy::EnergyTransport`]:
+    /// accumulation `c_v·V` with `c_v = θ_w ρ_w c_w + (1-φ) ρ_r c_r`, upwind
+    /// advection of the heat-capacity rate `w = ρ_w c_w q`, and symmetric
+    /// conduction `κ_eff·(A/d)`.
+    ///
+    /// - `rho_cw = ρ_w c_w`; `rock_heat_capacity = (1-φ) ρ_r c_r`;
+    ///   `effective_conductivity = κ_eff`; `geom` = the uniform internal-face
+    ///   geometric transmissibility; `cell_volume` the (uniform) cell volume.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_energy_flow(
+        decomp: &Decomposition1D,
+        water_content: &[f64],
+        face_flux: &[f64],
+        rho_cw: f64,
+        rock_heat_capacity: f64,
+        effective_conductivity: f64,
+        geom: f64,
+        cell_volume: f64,
+        dt: f64,
+    ) -> Self {
+        let l = decomp.local_len;
+        let (mut west_q, mut east_q, mut west_d, mut east_d) =
+            (vec![0.0; l], vec![0.0; l], vec![0.0; l], vec![0.0; l]);
+        let mut storage_v = vec![0.0; l];
+        let d = effective_conductivity * geom;
+        for i in 0..l {
+            let gi = decomp.global_index(i);
+            let c_v = water_content[gi] * rho_cw + rock_heat_capacity;
+            storage_v[i] = c_v * cell_volume;
+            if gi + 1 < decomp.n_global {
+                east_q[i] = rho_cw * face_flux[gi];
+                east_d[i] = d;
+            }
+            if gi > 0 {
+                west_q[i] = rho_cw * face_flux[gi - 1];
+                west_d[i] = d;
+            }
+        }
+        Self::new(decomp.clone(), storage_v, west_q, east_q, west_d, east_d, dt)
+    }
+
     /// Advance the concentration `c` (this rank's slab) one implicit timestep,
     /// returning the new slab. Assembles the distributed tridiagonal transport
     /// matrix and RHS per rank, then solves with distributed BiCGStab.
@@ -673,6 +716,108 @@ mod tests {
             }
         }
         true
+    }
+
+    #[test]
+    fn distributed_energy_conduction_matches_serial() {
+        // The energy (heat) transport operator is the same advection-conduction
+        // stencil with heat coefficients, so the transport driver reproduces the
+        // real EnergyTransport module via from_energy_flow.
+        use crate::energy::{
+            EnergyBoundaryCondition, EnergyBoundaryKind, EnergyTransport, ThermalParameters,
+        };
+
+        let n = 30usize;
+        let q = 0.4_f64;
+        let theta = 0.3_f64;
+        let dt = 0.5_f64;
+        let nsteps = 6;
+        let t_in = 350.0_f64;
+        let t_init = 300.0_f64;
+
+        let grid = CartesianGrid::uniform(n, 1, 1, m(1.0), m(1.0), m(1.0)).unwrap();
+        let n_int = grid.connections().len();
+        let geom = grid.connections()[0].geometric_transmissibility;
+        let mut boundary_flux = vec![0.0; grid.boundary_faces().len()];
+        let mut xmin_geom = 0.0_f64;
+        for (b, face) in grid.boundary_faces().iter().enumerate() {
+            match face.location {
+                BoundaryLocation::XMin => {
+                    boundary_flux[b] = -q;
+                    xmin_geom = face.area / face.distance;
+                }
+                BoundaryLocation::XMax => boundary_flux[b] = q,
+                _ => {}
+            }
+        }
+        let flow = FlowField {
+            face_flux: vec![q; n_int],
+            boundary_flux,
+            water_content: vec![theta; n],
+        };
+        let thermal = ThermalParameters::new(
+            1000.0, // water_density
+            4180.0, // water_specific_heat
+            0.6,    // water_conductivity
+            2650.0, // rock_density
+            830.0,  // rock_specific_heat
+            2.5,    // rock_conductivity
+            0.35,   // porosity
+        )
+        .unwrap();
+        let bcs = vec![EnergyBoundaryCondition {
+            location: BoundaryLocation::XMin,
+            kind: EnergyBoundaryKind::DirichletTemperature(t_in),
+        }];
+        let mut serial = EnergyTransport::new(grid, flow, thermal, bcs).unwrap();
+        let mut t_serial = vec![t_init; n];
+        for _ in 0..nsteps {
+            serial.set_timestep(dt);
+            serial.set_previous(&t_serial);
+            serial.step(&mut t_serial).unwrap();
+        }
+
+        // Energy coefficients matching ThermalParameters.
+        let rho_cw = 1000.0 * 4180.0;
+        let phi = 0.35;
+        let rock_heat = (1.0 - phi) * 2650.0 * 830.0;
+        let kappa = phi * 0.6 + (1.0 - phi) * 2.5;
+        for p in [1, 2, 3, 4] {
+            let t_serial = t_serial.clone();
+            let ok = run(p, move |comm| {
+                let dd = Decomposition1D::new(n, comm);
+                let stepper = DistributedTransport1D::from_energy_flow(
+                    &dd,
+                    &vec![theta; n],
+                    &vec![q; n_int],
+                    rho_cw,
+                    rock_heat,
+                    kappa,
+                    geom,
+                    1.0, // cell volume
+                    dt,
+                )
+                .with_ends(
+                    EndCondition::Dirichlet {
+                        flux: -q * rho_cw,
+                        dispersion: kappa * xmin_geom,
+                        concentration: t_in,
+                    },
+                    EndCondition::Flux(q * rho_cw),
+                );
+                let mut t: Vec<f64> = vec![t_init; dd.local_len];
+                for _ in 0..nsteps {
+                    t = stepper.step(comm, &t, 1e-9, 5000).unwrap();
+                }
+                let expected = &t_serial[dd.start..dd.start + dd.local_len];
+                t.iter().zip(expected).all(|(a, e)| (a - e).abs() < 1e-4)
+            })
+            .unwrap();
+            assert!(
+                ok.iter().all(|&b| b),
+                "distributed energy != serial EnergyTransport for p={p}"
+            );
+        }
     }
 
     #[test]
