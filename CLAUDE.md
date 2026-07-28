@@ -135,6 +135,59 @@ specifically, not just human contributors:
     reference is a hard error pointing at the exact line. Prefer this over a
     blind `sed` rename, which can silently mangle a colliding name.
 
+## Dogfood KOPITIAM (HARD RULE)
+
+**KOPITIAM (`kopitiam`) is a first-party tool of this project's maintainer and
+MUST be dogfooded in this workspace.** Install with `cargo install kopitiam`
+(crates.io; source: https://github.com/theodoreOnzGit/kopitiam). It is a
+local-first "Semantic Runtime" CLI over real `cargo` / rust-analyzer / rustdoc
+facts, plus a PDF-to-Markdown engine. Using it here is deliberate: this
+workspace is its proving ground, so **reach for `kopitiam` first** where it
+covers the task, and **report every rough edge you hit** as a GitHub issue on
+the kopitiam repo (see "raising issues" below).
+
+**Where it is the preferred tool:**
+
+- **Token-frugal code reading.** `kopitiam tokens <path>` before deciding to
+  read a file; `kopitiam outline <file>` for a declarations-only skeleton;
+  `kopitiam slice <file> <range>` to read only the lines you need. Prefer this
+  `tokens → outline → refs → slice` loop over reading whole large files.
+- **Symbol queries.** `def`, `sig`, `refs`, `callers`, `callees`, `impls` —
+  rust-analyzer-backed, so they resolve semantically. These complement the
+  read-only LSP tool described under "Workflow rules".
+- **Rename and code actions.** `kopitiam rename` (diff preview by default,
+  `--apply` to write) and `kopitiam code-actions` **fill the exact gap** the
+  Workflow-rules section flags — the harness LSP tool is query-only and exposes
+  no rename/code-action/`applyEdit`. Prefer `kopitiam rename` over a hand-rolled
+  or `sed`-based rename.
+- **Compact diagnostics.** `kopitiam check --compact` and
+  `kopitiam test --compact` collapse cargo output to one line per distinct
+  problem — far cheaper to read than raw cargo output. **The dedup is opt-in:
+  without `--compact` (or `--json`) the raw output streams through unchanged.**
+- **PDF → Markdown.** `kopitiam pdf2md` / `translate` for literature work
+  (relevant to `kovan-literature`).
+
+**Known friction (as of kopitiam 0.2.4, verified 2026-07-28):**
+
+- `kopitiam check` / `kopitiam test` expose **no `--release` or profile flag**
+  and run the `dev` profile, which conflicts with this workspace's mandatory
+  release-mode rule. Until that is fixed upstream, use `kopitiam check
+  --compact` for fast iteration but **still run the mandated `cargo check
+  --workspace --lib --tests` / `cargo test --release`** before calling work
+  done. Do not let kopitiam's default profile silently replace the release-mode
+  requirement.
+
+**Raising issues.** Rough edges, bugs, and feature requests go to the kopitiam
+repo as GitHub issues. That repo is *not* in this workspace's default GitHub
+scope — add it to the session first (`add_repo` for
+`theodoreOnzGit/kopitiam`), then file the issue. Report what you actually ran,
+the observed output, and the expected behaviour; do not invent version numbers
+or fabricate reproductions.
+
+**This rule relaxes nothing.** The release-mode rule, the working-hours
+guardrail, never-auto-commit/push, the Android/Termux portability rule, and the
+data-policy rules all still bind when using kopitiam.
+
 ## Agent-fleet progress reporting (HARD RULE, container-timeout prevention)
 
 **Whenever you spawn an agent fleet — any background subagent, parallel agent
