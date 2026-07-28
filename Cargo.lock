@@ -5392,6 +5392,9 @@ dependencies = [
 name = "outram-park-fork-cfmesh"
 version = "0.0.0"
 dependencies = [
+ "eframe",
+ "egui",
+ "env_logger",
  "outram-foam-basic-lib",
 ]
 
