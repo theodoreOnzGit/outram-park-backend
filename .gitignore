@@ -45,6 +45,13 @@ xin wang thesis.pdf
 # (workspace vendor rule, bead op-264). GPLv3-compatible upstreams only.
 /vendor/
 
+# KOPITIAM per-project session memory (`.kopitiam/state.redb`), written when
+# kopitiam runs in this repo. Local scratch state belonging to the tool, not to
+# this project — never committed. The kopitiam source itself is a SEPARATE
+# clone outside this tree (see the "Dogfood KOPITIAM" rule in CLAUDE.md); it
+# must never be vendored or nested inside this workspace.
+.kopitiam/
+
 # Generated token-usage summary — the source of truth is the per-commit
 # API-Usage trailers in the git log (query via docs/historian/token_usage.py).
 # This markdown is a regenerable local summary, not tracked (was causing
