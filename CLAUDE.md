@@ -177,6 +177,23 @@ the kopitiam repo (see "raising issues" below).
   done. Do not let kopitiam's default profile silently replace the release-mode
   requirement.
 
+**Keep kopitiam OUT of this workspace's tree (hard requirement).** kopitiam is a
+*tool* this project consumes, not a member of this workspace:
+
+- **Install it as a binary** (`cargo install kopitiam`) — do **not** add it to
+  `[workspace.dependencies]`, do not add it as a workspace member, and do not
+  vendor its source here.
+- **If you need its source** (to read code, reproduce a bug, or prepare a
+  patch), clone it to a **separate directory outside this repository** — e.g.
+  `/workspace/kopitiam`, never anywhere under the OUTRAM PARK working tree.
+  A nested clone would pollute `git status`, break `cargo` workspace
+  discovery, and risk committing another project's history into this one.
+- **Its per-project state stays local.** Running kopitiam here writes
+  `.kopitiam/state.redb` (session memory) into the repo root; that path is
+  gitignored and must never be committed or un-ignored.
+- Keep the two projects' issues separate too: OUTRAM PARK work goes in beads,
+  kopitiam bugs go to the kopitiam GitHub repo.
+
 **Raising issues.** Rough edges, bugs, and feature requests go to the kopitiam
 repo as GitHub issues. That repo is *not* in this workspace's default GitHub
 scope — add it to the session first (`add_repo` for
