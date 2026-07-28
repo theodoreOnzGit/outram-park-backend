@@ -53,6 +53,16 @@ pub use crate::gpu::xs_interp::interp_xs_cpu;
 pub use crate::gpu::{probe as gpu_probe, GpuContext};
 #[cfg(not(target_os = "android"))]
 pub use crate::gpu::xs_interp::interp_xs_gpu;
+// Ray–surface distance for all 15 CSG SurfaceKind variants (op-9s8.2). The
+// encoding (`EncodedSurfaces`/`encode_surfaces`), the query type (`SurfaceQuery`),
+// the `MISS`/`SURF_STRIDE` constants, and the scalar f32 CPU mirror
+// (`surface_distance_cpu_f32`) build on every target; the GPU dispatch
+// `surface_distance_gpu` is present only off Android.
+pub use crate::gpu::surface_distance::{
+    encode_surfaces, surface_distance_cpu_f32, EncodedSurfaces, SurfaceQuery, MISS, SURF_STRIDE,
+};
+#[cfg(not(target_os = "android"))]
+pub use crate::gpu::surface_distance::surface_distance_gpu;
 // Batched next-event GPU flight kernel (event-based transport). `FlightBatch`,
 // `FlightSphere`, `FlightOutcome`, and `advance_flight_cpu_mirror` build on every
 // target; the GPU dispatch `advance_flight_gpu` is present only off Android.

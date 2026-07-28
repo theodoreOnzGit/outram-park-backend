@@ -2,10 +2,12 @@
 KOVAN literature archive — open/reports/
 Visibility: OPEN (open literature; safe to commit).
 Provenance: condensed from a longer working literature review by
-  Theodore Ong Kay Chen (24 July 2026). Only the neutral survey of PUBLIC
-  literature is retained here; Outram-Park-internal research strategy,
-  proposed research directions, and personal working notes were removed as
-  out of scope for the open archive.
+  Theodore Ong Kay Chen (24 July 2026). The neutral survey of PUBLIC
+  literature is retained, plus a public-facing positioning of where the
+  open-source Outram Park suite fits in the landscape (§8), grounded in the
+  project's already-public intended use (RESPONSIBLE_USE.md). Outram-Park-
+  internal research strategy, proposed research directions, and personal
+  working notes remain out of scope for the open archive.
 Status of citations: a structured verification pass (24 July 2026) has
   confirmed most entries against authoritative sources; a few fields remain
   unconfirmed and are marked VERIFY inline (see the note at the head of the
@@ -14,10 +16,12 @@ Not a validation artifact; an educational/orientation survey only, consistent
   with the workspace RESPONSIBLE_USE.md.
 -->
 
-# Nuclear Digital Twins and Digital Shadows: Literature Review and Technology Landscape
+# Nuclear Digital Twins and Digital Shadows: Literature Review — and Where Outram Park Fits
 
 **Compiled by:** Theodore Ong Kay Chen · **Date:** 24 July 2026
-**Scope:** open-literature survey of the nuclear digital-twin / digital-shadow landscape.
+**Scope:** open-literature survey of the nuclear digital-twin / digital-shadow
+landscape, read with one question in view — where an open-source, offline
+reactor-simulator suite (Outram Park) fits within it (§8).
 
 ---
 
@@ -39,9 +43,18 @@ construction, operation, maintenance, licensing, and safeguards
 
 A recurring theme in recent work is **agentic AI applied to engineering
 documentation and simulation** — automated model construction, input-deck
-generation, and LLM agents coupled to physics simulators. §7 surveys the
+generation, and LLM agents coupled to physics simulators. §6 surveys the
 published state of that area, which is more developed than a first pass
 suggests.
+
+**Framing.** This survey is read with one question in view: given the landscape
+above, where does the open-source **Outram Park** reactor-simulator suite fit?
+§8 answers directly — Outram Park sits at the mechanistic digital-*model* /
+modelling-and-simulation-substrate layer (education, research, and V&V, offline
+only), **not** as a digital shadow or an operational twin, and its KOVAN layer
+engages the agentic-AI theme on the deterministic, verification-first side. That
+placement is a design-and-governance boundary set by the project's intended use,
+not a maturity gap.
 
 ---
 
@@ -207,7 +220,7 @@ and initial capital investment [@epri_dt_2022; @epri_insights_2022;
 advanced reactors and plant modernization, and published technical assessments
 of DT-enabling technology gaps [@nrc2023digitaltwin; @yadav2021gaps]. This
 regulatory track matters: acceptance criteria, not modelling capability, is the
-binding constraint on physics-based twins entering the licensing basis (see §8).
+binding constraint on physics-based twins entering the licensing basis (see §7).
 
 ### 4.2 China — CNNC / RINPO
 
@@ -237,7 +250,7 @@ Engineering documentation → Agentic AI → Knowledge graph → Simulation mode
 Potential capabilities: automated model construction, automatic nodalization,
 design verification, input-deck generation, automated report generation. The
 effect is to shift engineering effort from manual model construction toward
-automated knowledge extraction. As §7 shows, several of these blocks are no
+automated knowledge extraction. As §6 shows, several of these blocks are no
 longer speculative.
 
 ---
@@ -305,7 +318,69 @@ generation problem.
 
 ---
 
-## 8. Coverage gaps in this review
+## 8. Where Outram Park fits in this landscape
+
+This review was compiled in part to locate the **Outram Park** open-source
+reactor-simulator suite within the taxonomy above. Outram Park is a pure-Rust,
+offline, GPLv3 simulation suite for **education, research, capability-building,
+and verification & validation** — explicitly **not** for reactor operation,
+control, licensing decisions, safety-critical analysis, safeguards-sensitive
+analysis, or live-plant coupling (see the workspace `RESPONSIBLE_USE.md`). That
+intended-use boundary determines where it sits, and where it deliberately does
+not.
+
+**It is a digital-*model* / mechanistic M&S substrate — not a shadow, not an
+operational twin.** On the §1 spectrum, Outram Park occupies the **digital
+model** end: physics-based models with no automatic link to a physical asset,
+run offline. It is not a digital shadow (no live plant-data ingest) and not a
+digital twin (no bidirectional plant coupling) — by design, not by omission.
+What it supplies is the **model-based, mechanistic core** that Kochunas and Huan
+argue any credible nuclear digital twin must rest on first, with data-driven
+methods used only to augment model-based limits [@kochunas2021digital].
+
+**Its building blocks map onto the physics a twin's core would need.** The suite
+spans Monte Carlo transport, deterministic neutronics with thermal hydraulics,
+nuclear-data processing, point-reactor kinetics, an OpenFOAM-derived
+finite-volume / CFD layer, and IAPWS-IF97 steam/water properties — delivered as
+independently publishable, unit-tested, open crates. In digital-twin terms these
+are the **high-fidelity physics kernels** that §3's reactor-physics and
+thermal-hydraulic twin concepts assume as given but rarely supply in open,
+inspectable form.
+
+**KOVAN is its entry into the agentic-AI theme — but deterministic and offline.**
+§5–6 document a fast-moving trend of LLM agents over engineering documentation
+and simulators. Outram Park's KOVAN knowledge layer (literature archive,
+repo-semantics, and deterministic code generation, exposed through an
+agent-facing CLI) targets the same workflows but takes the **opposite stance on
+the part §7 flags as hardest**: it favours deterministic, traceable, checkable
+document-to-model steps over opaque LLM generation. That aligns it with the
+review's central finding — that the **verification** problem (proving an
+extracted or generated model faithfully matches its source) is more novel and
+less solved than the generation problem.
+
+**Its V&V discipline is the point of contact with regulatory-acceptance
+concerns.** The workspace's V&V rules — verify against analytical / published
+reference cases, validate against public benchmarks, and document *both*
+methodology and measured results — are a small-scale, open instance of exactly
+the traceability and acceptance-criteria questions §7 raises for licensing-grade
+pipelines. Outram Park cannot answer those questions for an operating plant (out
+of scope by policy), but it is a place to **exercise the methods** on open
+problems.
+
+**Where it does not fit.** Operational or real-time twins, safety-critical or
+licensing use, safeguards-sensitive analysis, and any live coupling to plant or
+institutional systems are out of scope — permanently, by the project's
+responsible-use policy, not as a maturity gap to be closed later. Framing Outram
+Park as an operational digital twin would misrepresent both its design and its
+governance.
+
+*This positioning is confined to the project's public identity and intended use.
+Internal research strategy and proposed research directions are tracked outside
+this open archive.*
+
+---
+
+## 9. Coverage gaps in this review
 
 Thin or absent, flagged for future revision:
 
@@ -535,9 +610,11 @@ Thin or absent, flagged for future revision:
 ## Provenance & revision note
 
 Condensed for the KOVAN open archive from a longer working review (24 July
-2026). Retained: the neutral survey of public literature. Removed as out of
-scope for the open archive: Outram-Park-internal research strategy, proposed
-research directions/titles, and personal working notes. Factual corrections
+2026). Retained: the neutral survey of public literature, plus a public-facing
+positioning of where the open-source Outram Park suite fits in the landscape
+(§8), grounded in the project's already-public intended use (`RESPONSIBLE_USE.md`).
+Still out of scope for the open archive: Outram-Park-internal research strategy,
+proposed research directions/titles, and personal working notes. Factual corrections
 carried over from the source's own revision log include: GEMINA attributed to
 **ARPA-E** (not DOE-NE) with O&M-cost framing; `kochunas2021digital` corrected to
 *Energies* 14(14):4235 (not *Nuclear Engineering and Design*); TRACE/ASTEC placed
