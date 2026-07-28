@@ -270,6 +270,27 @@ pub fn csg_from_mesh(mesh: &Mesh, material_idx: usize) -> Result<SimGeometry, Si
     Ok(SimGeometry::Csg { geometry, source: SourceBox { lower: lo, upper: hi } })
 }
 
+/// Build a track-length **cell tally** scoring flux and ν-fission over the given
+/// cell indices, ready to attach via [`McSimSetup::run_with_tally`]. Bins are
+/// pre-sized to `cell_indices.len() × 2` and laid out `[cell * 2 + score]`
+/// (score 0 = flux, 1 = ν-fission). After the run, read a bin with
+/// [`tally_value`].
+pub fn cell_flux_tally(cell_indices: Vec<usize>) -> Tally {
+    use outram_mc_libs::prelude::{CellFilter, Filter, ScoreType, TallyBin};
+    let scores = vec![ScoreType::Flux, ScoreType::NuFission];
+    let n_bins = cell_indices.len() * scores.len();
+    let filter: Box<dyn Filter> = Box::new(CellFilter { cell_indices });
+    Tally { id: 1, name: "cell flux".into(), filters: vec![filter], scores, bins: vec![TallyBin::default(); n_bins] }
+}
+
+/// Read one bin of a tally built by [`cell_flux_tally`] as `(mean, rel_std_dev)`
+/// over `n_active` generations. `cell` indexes the tally's cell list; `score` is
+/// `0` (flux) or `1` (ν-fission). Returns `None` if the bin index is out of range.
+pub fn tally_value(tally: &Tally, cell: usize, score: usize, n_active: u64) -> Option<(f64, f64)> {
+    let i = cell * tally.scores.len() + score;
+    tally.bins.get(i).map(|b| (b.mean(n_active), b.rel_std_dev(n_active)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -379,5 +400,33 @@ mod tests {
         };
         let r = sim.run().expect("authored CSG run");
         assert!(r.k_mean > 0.90 && r.k_mean < 1.20, "authored sphere near-critical k_eff, got {}", r.k_mean);
+    }
+
+    /// V&V — a cell flux tally accumulates. Methodology: authored Godiva sphere
+    /// (single cell 0), attach a `cell_flux_tally([0])`, run, and read the flux
+    /// score. Pass criterion: the flux mean is strictly positive (the fissile
+    /// cell is sampled) with a finite relative error.
+    #[test]
+    fn cell_flux_tally_accumulates() {
+        use crate::primitives::uv_sphere;
+        let mesh = uv_sphere(24, 12, 8.7407);
+        let geometry = csg_from_mesh(&mesh, 0).expect("export");
+        let n_active = 35u64;
+        let sim = McSimSetup {
+            geometry,
+            materials: vec![godiva_heu()],
+            settings: KeffSettings {
+                n_particles: 800,
+                n_inactive: 15,
+                n_active: n_active as usize,
+                compute: ComputeType::CpuMultiThread(ThreadCount::Auto),
+                ..Default::default()
+            },
+        };
+        let mut tally = cell_flux_tally(vec![0]);
+        sim.run_with_tally(&mut tally).expect("tallied run");
+        let (flux, rel) = tally_value(&tally, 0, 0, n_active).expect("flux bin");
+        assert!(flux > 0.0 && flux.is_finite(), "positive flux score, got {flux}");
+        assert!(rel.is_finite(), "finite relative error, got {rel}");
     }
 }
