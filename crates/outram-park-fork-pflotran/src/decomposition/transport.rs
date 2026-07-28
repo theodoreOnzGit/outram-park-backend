@@ -22,6 +22,7 @@
 //! non-uniform flow, TVD, Dirichlet boundaries, and the RICHARDS/energy timesteps
 //! are the remaining op-gj5 follow-ups.
 
+use outram_foam_basic_lib::limiters::FluxLimiter;
 use outram_park_mpi::{Communicator, MpiResult};
 
 use super::ldu::DistributedLduMatrix1D;
@@ -50,6 +51,11 @@ pub struct DistributedTransport1D {
     /// domain end.
     left_end: EndCondition,
     right_end: EndCondition,
+    /// TVD advection scheme + the uniform `+x` face flux it uses. `Upwind` (the
+    /// default) adds no deferred correction; any other limiter adds the explicit,
+    /// concentration-lagged anti-diffusive flux (this slice supports uniform `+x`).
+    flux_limiter: FluxLimiter,
+    tvd_flux: f64,
     dt: f64,
 }
 
@@ -95,8 +101,20 @@ impl DistributedTransport1D {
             east_d,
             left_end: EndCondition::Closed,
             right_end: EndCondition::Closed,
+            flux_limiter: FluxLimiter::Upwind,
+            tvd_flux: 0.0,
             dt,
         }
+    }
+
+    /// Enable a TVD deferred-correction advection scheme with uniform `+x` face
+    /// flux `uniform_flux` (`> 0`). The limited high-order-minus-upwind flux is
+    /// added explicitly to the RHS (lagged on the current concentration), exactly
+    /// as the serial `SoluteTransport`. [`FluxLimiter::Upwind`] disables it.
+    pub fn with_flux_limiter(mut self, limiter: FluxLimiter, uniform_flux: f64) -> Self {
+        self.flux_limiter = limiter;
+        self.tvd_flux = uniform_flux;
+        self
     }
 
     /// Set the boundary conditions at the two global domain ends (default
@@ -246,6 +264,85 @@ impl DistributedTransport1D {
             diag[i] = dg;
             b[i] += acc * c[i];
         }
+
+        // TVD deferred correction (explicit, lagged on the current concentration),
+        // for uniform +x flow. The gradient ratio needs the two upstream cells of
+        // each face, so a 2-wide left / 1-wide right halo of `c` is exchanged. Each
+        // shared partition-boundary face is computed identically by both adjacent
+        // ranks; each applies only its owned-cell contribution (no double counting).
+        if self.flux_limiter != FluxLimiter::Upwind {
+            if l < 2 && self.decomp.right.is_some() {
+                return Err(outram_park_mpi::MpiError::Transport(
+                    "distributed TVD requires local_len >= 2 per rank".into(),
+                ));
+            }
+            const T_R: i32 = 301; // last two cells -> right neighbour
+            const T_L: i32 = 302; // first cell -> left neighbour
+            if let Some(rn) = self.decomp.right {
+                comm.send(&[c[l - 2], c[l - 1]], rn, T_R)?;
+            }
+            if let Some(ln) = self.decomp.left {
+                comm.send(&[c[0]], ln, T_L)?;
+            }
+            let (mut gl2, mut gl1, mut gr1) = (0.0, 0.0, 0.0);
+            if let Some(ln) = self.decomp.left {
+                let (val, _) = comm.recv::<f64>(ln, T_R)?; // left neighbour's last two
+                gl2 = val[0]; // c[s-2]
+                gl1 = val[1]; // c[s-1]
+            }
+            if let Some(rn) = self.decomp.right {
+                let (val, _) = comm.recv::<f64>(rn, T_L)?; // right neighbour's first
+                gr1 = val[0]; // c[s+l]
+            }
+
+            let s = self.decomp.start as i64;
+            let ng = self.decomp.n_global as i64;
+            let ll = l as i64;
+            let cval = |j: i64| -> f64 {
+                if j >= s && j < s + ll {
+                    c[(j - s) as usize]
+                } else if j == s - 1 {
+                    gl1
+                } else if j == s - 2 {
+                    gl2
+                } else if j == s + ll {
+                    gr1
+                } else {
+                    0.0
+                }
+            };
+            // Faces touching owned cells: i in [s-1 (if s>0) .. s+l-1 (if not the
+            // global-right cell)]. Face i connects cells i and i+1; for +x flow the
+            // upstream is i and the far-upstream is i-1.
+            let face_lo = if s > 0 { s - 1 } else { 0 };
+            let face_hi = if s + ll < ng { s + ll - 1 } else { s + ll - 2 };
+            for i in face_lo..=face_hi {
+                if i < 0 || i > ng - 2 {
+                    continue;
+                }
+                let uu = i - 1;
+                if uu < 0 {
+                    continue; // no far-upstream cell -> first-order here
+                }
+                let denom = cval(i + 1) - cval(i);
+                if denom.abs() < 1.0e-30 {
+                    continue;
+                }
+                let r = (cval(i) - cval(uu)) / denom;
+                let psi = self.flux_limiter.psi(r);
+                if psi == 0.0 {
+                    continue;
+                }
+                let corr = self.tvd_flux.abs() * 0.5 * psi * denom;
+                if i >= s && i < s + ll {
+                    b[(i - s) as usize] -= corr; // upstream cell
+                }
+                if i + 1 >= s && i + 1 < s + ll {
+                    b[(i + 1 - s) as usize] += corr; // downstream cell
+                }
+            }
+        }
+
         let matrix = DistributedLduMatrix1D::from_rows(&self.decomp, diag, west, east)
             .map_err(|e| outram_park_mpi::MpiError::Transport(format!("assembly: {e}")))?;
         let (x, _iters) = matrix.solve_bicgstab(comm, &b, tol, max_iter)?;
@@ -261,6 +358,7 @@ mod tests {
         TransportBoundaryKind,
     };
     use crate::grid::{BoundaryLocation, CartesianGrid};
+    use outram_foam_basic_lib::limiters::FluxLimiter;
     use outram_park_mpi::run;
     use uom::si::f64::Length;
     use uom::si::length::meter;
@@ -492,5 +590,102 @@ mod tests {
                 "Dirichlet-inflow distributed transport != serial for p={p}"
             );
         }
+    }
+
+    /// Shared harness: run the serial `SoluteTransport` and the distributed driver
+    /// on the same pure-advection (+ inflow) setup with the given limiter, and
+    /// return whether they agree cell-for-cell across several rank counts.
+    fn advection_case(limiter: FluxLimiter) -> bool {
+        let n = 32usize;
+        let q = 0.7_f64;
+        let theta = 1.0_f64;
+        let dt = 0.4_f64;
+        let nsteps = 8;
+        let c_in = 1.0_f64;
+
+        let grid = CartesianGrid::uniform(n as usize, 1, 1, m(1.0), m(1.0), m(1.0)).unwrap();
+        let n_int = grid.connections().len();
+        let area = grid.connections()[0].area;
+        let geom = grid.connections()[0].geometric_transmissibility;
+        let mut boundary_flux = vec![0.0; grid.boundary_faces().len()];
+        for (b, face) in grid.boundary_faces().iter().enumerate() {
+            boundary_flux[b] = match face.location {
+                BoundaryLocation::XMin => -q,
+                BoundaryLocation::XMax => q,
+                _ => 0.0,
+            };
+        }
+        let flow = FlowField {
+            face_flux: vec![q; n_int],
+            boundary_flux,
+            water_content: vec![theta; n],
+        };
+        let disp = DispersionModel::new(0.0, 0.0).unwrap(); // pure advection
+        let bcs = vec![TransportBoundaryCondition {
+            location: BoundaryLocation::XMin,
+            kind: TransportBoundaryKind::InflowConcentration(c_in),
+        }];
+        let mut serial = SoluteTransport::new(grid, flow, disp, bcs).unwrap();
+        serial.set_flux_limiter(limiter);
+        let mut c_serial = vec![0.0_f64; n];
+        for _ in 0..nsteps {
+            serial.set_timestep(dt);
+            serial.set_previous(&c_serial);
+            serial.step(&mut c_serial).unwrap();
+        }
+
+        let storage_cell = theta * 1.0;
+        for p in [1, 2, 3, 4] {
+            let c_serial = c_serial.clone();
+            let ok = run(p, move |comm| {
+                let dd = Decomposition1D::new(n, comm);
+                let storage_v = vec![storage_cell; dd.local_len];
+                let stepper = DistributedTransport1D::from_global_flow(
+                    &dd,
+                    &vec![theta; n],
+                    &vec![q; n_int],
+                    0.0,
+                    0.0,
+                    area,
+                    geom,
+                    storage_v,
+                    dt,
+                )
+                .with_ends(
+                    EndCondition::Dirichlet {
+                        flux: -q,
+                        dispersion: 0.0,
+                        concentration: c_in,
+                    },
+                    EndCondition::Flux(q),
+                )
+                .with_flux_limiter(limiter, q);
+                let mut c: Vec<f64> = vec![0.0; dd.local_len];
+                for _ in 0..nsteps {
+                    c = stepper.step(comm, &c, 1e-12, 5000).unwrap();
+                }
+                let expected = &c_serial[dd.start..dd.start + dd.local_len];
+                c.iter().zip(expected).all(|(a, e)| (a - e).abs() < 1e-6)
+            })
+            .unwrap();
+            if !ok.iter().all(|&b| b) {
+                return false;
+            }
+        }
+        true
+    }
+
+    #[test]
+    fn distributed_pure_advection_matches_serial() {
+        // Zero dispersion -> the transport matrix is advection-dominated (its
+        // Krylov solve triggers a BiCGStab breakdown that the restart handles).
+        assert!(advection_case(FluxLimiter::Upwind), "pure-advection upwind mismatch");
+    }
+
+    #[test]
+    fn distributed_transport_matches_serial_with_tvd_superbee() {
+        // A sharp front under a SuperBee TVD scheme -- the deferred correction
+        // needs the far-upstream cell across rank boundaries (the 2-wide halo).
+        assert!(advection_case(FluxLimiter::SuperBee), "TVD SuperBee mismatch");
     }
 }
