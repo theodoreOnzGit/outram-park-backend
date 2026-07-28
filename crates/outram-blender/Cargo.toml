@@ -68,3 +68,22 @@ wgpu = { workspace = true }
 # Android-buildable. Any future viewport/GUI belongs in `examples/` behind a
 # `cfg(not(target_os = "android"))` gate, never in the library's unconditional
 # build (workspace Android-portability rule).
+
+# GUI example stack — the `mc_studio` egui app (author geometry + set up and run
+# a basic outram-mc Monte Carlo simulation). Dev-only and **target-gated OFF
+# Android** (the windowing exemption): eframe pulls in android-activity, and the
+# workspace rule keeps windowing GUI out of any Android build. The library stays
+# headless/Android-buildable; the app is an example, never a library dep.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+eframe = { workspace = true }
+egui = { workspace = true }
+egui_plot = { workspace = true }
+env_logger = { workspace = true }
+
+# The Monte Carlo authoring GUI. Needs `mc-export` (the outram-mc-libs bridge +
+# the `sim` backend it drives), so it only builds with that feature:
+#   cargo run -p outram-blender --example mc_studio --features mc-export --release
+[[example]]
+name = "mc_studio"
+path = "examples/mc_studio/main.rs"
+required-features = ["mc-export"]
