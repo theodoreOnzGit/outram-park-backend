@@ -177,29 +177,39 @@ the kopitiam repo (see "raising issues" below).
   done. Do not let kopitiam's default profile silently replace the release-mode
   requirement.
 
-**Keep kopitiam OUT of this workspace's tree (hard requirement).** kopitiam is a
-*tool* this project consumes, not a member of this workspace:
+**CONSUME THE BINARY ONLY — NEVER MODIFY KOPITIAM FROM THIS WORKSPACE.** This
+is the hard boundary, and it does not bend:
 
-- **Install it as a binary** (`cargo install kopitiam`) — do **not** add it to
+- **Use released binaries.** Install with `cargo install kopitiam` (crates.io).
+  Upgrade by installing a newer published version. That is the *only* supported
+  way this workspace consumes kopitiam.
+- **Never edit kopitiam's source from here.** No local edits, no local patched
+  builds, no `cargo install --path` off a working copy, no commits, no
+  branches, and no pull requests to the kopitiam repo out of this workspace.
+  If a bug or missing feature blocks you, **the deliverable is a GitHub issue,
+  not a patch.**
+- **Never make it part of this workspace.** Do not add it to
   `[workspace.dependencies]`, do not add it as a workspace member, and do not
   vendor its source here.
-- **If you need its source** (to read code, reproduce a bug, or prepare a
-  patch), clone it to a **separate directory outside this repository** — e.g.
+- **If you consult its source at all, treat it as strictly read-only**, and
+  keep the clone in a **separate directory outside this repository** — e.g.
   `/workspace/kopitiam`, never anywhere under the OUTRAM PARK working tree.
   A nested clone would pollute `git status`, break `cargo` workspace
   discovery, and risk committing another project's history into this one.
+  Reading it is for writing an *accurate issue*, nothing more.
 - **Its per-project state stays local.** Running kopitiam here writes
   `.kopitiam/state.redb` (session memory) into the repo root; that path is
   gitignored and must never be committed or un-ignored.
-- Keep the two projects' issues separate too: OUTRAM PARK work goes in beads,
+- Keep the two projects' trackers separate: OUTRAM PARK work goes in beads,
   kopitiam bugs go to the kopitiam GitHub repo.
 
-**Raising issues.** Rough edges, bugs, and feature requests go to the kopitiam
-repo as GitHub issues. That repo is *not* in this workspace's default GitHub
-scope — add it to the session first (`add_repo` for
-`theodoreOnzGit/kopitiam`), then file the issue. Report what you actually ran,
-the observed output, and the expected behaviour; do not invent version numbers
-or fabricate reproductions.
+**Raising issues — the only upstream channel.** Every rough edge, bug, and
+feature request goes to the kopitiam repo as a **GitHub issue**. That repo is
+*not* in this workspace's default GitHub scope — add it to the session first
+(`add_repo` for `theodoreOnzGit/kopitiam`), then file the issue. Report what
+you actually ran, the observed output, and the expected behaviour; do not
+invent version numbers or fabricate reproductions. Filing an issue is the end
+of your involvement in the fix — do not follow it up with code.
 
 **This rule relaxes nothing.** The release-mode rule, the working-hours
 guardrail, never-auto-commit/push, the Android/Termux portability rule, and the
