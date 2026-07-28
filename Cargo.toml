@@ -83,6 +83,29 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde-xml-rs = "0.8.2"
 anyhow = "1.0.100"
 
+# OPC UA client/server — `async-opcua` (github.com/freeopcua/async-opcua), the
+# actively-maintained successor to the older `opcua` crate (locka99, last
+# released Jan 2024). Pick this one: the legacy crate's crypto layer is built on
+# **OpenSSL**, which is Android-hostile (C toolchain + system lib); `async-opcua`
+# uses a **pure-Rust** RustCrypto stack instead (`aes`, `cbc`, `hmac`, `rsa`,
+# `sha1`, `sha2`, `x509-cert`, `num-bigint-dig`) with no `*-sys` crates and no
+# `ring`.
+#
+# ANDROID: **verified building for `aarch64-linux-android` on 2026-07-28**, both
+# with default features and with `features = ["client", "server"]` — so it needs
+# no target gate and may be depended on unconditionally by non-GUI code. Re-check
+# on a major version bump: a future move to `ring`/`aws-lc-rs` would break this.
+#
+# INTENDED USE: OPC UA is an industrial plant protocol, so it is bound by
+# `RESPONSIBLE_USE.md` — usable here only for **offline demonstrations**
+# (simulated/loopback servers, education, research, V&V). It must NEVER be wired
+# to a live plant, operational system, safety-critical infrastructure, or any
+# institutional production system.
+#
+# Note: declaring it here does not build it — a member crate must opt in with
+# `async-opcua.workspace = true`.
+async-opcua = { version = "0.19.0", default-features = false }
+
 # KOVAN knowledge-layer stack — all pure-Rust and Android-friendly (no system
 # libs), matching KOVAN's offline/Android-first mandate. See docs/kovan.md.
 serde_json = "1.0"           # KovanDocument (de)serialisation, generated artifacts
