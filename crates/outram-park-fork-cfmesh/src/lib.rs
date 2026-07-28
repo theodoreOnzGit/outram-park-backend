@@ -82,7 +82,11 @@
 //!   cfMesh's boundary-layer step): the interior wall points move inward and
 //!   the vacated shell is filled with `n_layers` stacked prism cells per wall
 //!   face. It is a repartition, so it preserves the mesh volume exactly
-//!   (verified: exact volume, closed, `+n_layers × wall_faces` cells).
+//!   (verified: exact volume, closed, `+n_layers × wall_faces` cells). Flat
+//!   (box) walls only — the fixed-thickness march self-intersects on curvature.
+//!   [`layers::add_boundary_layers_adaptive`] handles **curved / polyhedral
+//!   walls** (smoothed normals + per-point thickness limiting + validity
+//!   back-off), verified valid + volume-conserving on snapped spheres/cylinders.
 //! - **Polyhedral dual.** [`dual::polyhedral_dual`] turns a primal mesh into a
 //!   **polyhedral** one — one cell per primal vertex — via the median
 //!   (vertex-centred) dual, the equivalent of OpenFOAM's `polyDualMesh`. The

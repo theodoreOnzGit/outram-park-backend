@@ -28,3 +28,20 @@ foam-export = ["dep:outram-foam-basic-lib"]
 outram-foam-basic-lib = { workspace = true, optional = true }
 
 [dev-dependencies]
+
+# GUI example stack — the `mesh_studio` egui app (author a surface → generate a
+# polyhedral volume mesh with prism boundary layers → export OpenFOAM/outram-foam
+# polyMesh). Dev-only and target-gated OFF Android (windowing exemption); the
+# library stays pure-Rust and Android-buildable.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+eframe = { workspace = true }
+egui = { workspace = true }
+env_logger = { workspace = true }
+
+# The mesh-authoring GUI. Needs `foam-export` for the polyMesh writer, so it only
+# builds with that feature:
+#   cargo run -p outram-park-fork-cfmesh --example mesh_studio --features foam-export --release
+[[example]]
+name = "mesh_studio"
+path = "examples/mesh_studio/main.rs"
+required-features = ["foam-export"]
