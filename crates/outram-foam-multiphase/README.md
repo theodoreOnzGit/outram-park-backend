@@ -39,8 +39,16 @@ Independent OUTRAM PARK fork, not the official OpenFOAM (see `TRADEMARKS.md`).
 | 4 — CHF models | `chf` | Biasi/W-3/Bowring/Groeneveld | `op-2kk.4` | Foundation done |
 | 5 — Dryout / post-dryout | `dryout` | — | `op-2kk.5` | Reserved framework |
 
-All foundations are **unit-tested translations, not benchmark-validated** (no full
-pressure coupling; drag-only interfacial force; validation is a later human step).
+**Pressure-velocity coupling.** Two segregated PISO/PIMPLE loops close the
+momentum + pressure solve the drift-flux and two-fluid foundations leave out:
+`pimple` (drift-flux mixture Rhie-Chow pressure correction, advancing
+`U_m`–`p`–`α`) and `two_fluid_pimple` (shared-pressure Euler-Euler PISO,
+advancing `U_d`–`U_c`–`p`–`α_d`). Both are tested foundations (hydrostatic
+balance, at-rest stability), not validated CFD.
+
+All foundations are **unit-tested translations, not benchmark-validated**
+(verification checks only; drag-only interfacial force; validation is a later
+human step).
 
 Definition of done for every solver: theory documentation + verification tests
 + reference-benchmark comparison + unit-safe (`uom`) implementation. Humans own

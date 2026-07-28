@@ -20,20 +20,19 @@ codes. In OUTRAM PARK its job is to produce the **ACE** continuous-energy
 libraries that [`outram-mc-libs`] consumes: NJOY is the data-prep step *upstream* of
 an OpenMC calculation.
 
-## `njoy-tui` — terminal nuclear-data browser (opt-in binary)
+## `njoy-tui` — terminal nuclear-data browser
 
-This crate ships an optional **mobile-first, touchscreen** terminal UI — a
-JANIS-like browser over the embedded WMP/MGXS data: fuzzy nuclide finder,
-log-log cross-section plot, and a °C/K Doppler-temperature stepper. It is a
-`[[bin]]` **inside this crate**, gated behind the non-default **`tui`** feature,
-so ordinary data consumers of the library never pull the `ratatui`/`crossterm`
-terminal stack — only a build that asks for the binary does.
+This crate ships a **mobile-first, touchscreen** terminal UI — a JANIS-like
+browser over the embedded WMP/MGXS data: fuzzy nuclide finder, log-log
+cross-section plot, and a °C/K Doppler-temperature stepper. It is a `[[bin]]`
+**inside this crate** (not a separate crate); `ratatui` is an unconditional
+dependency, so it always builds with a plain `cargo build` — no feature flags.
 
 ```bash
 # run from a checkout
-cargo run    -p njoy-outram-park-fork --features tui --bin njoy-tui --release
+cargo run -p njoy-outram-park-fork --bin njoy-tui --release
 # install the standalone binary (also works on Termux/Android)
-cargo install --path crates/njoy-outram-park-fork --features tui
+cargo install --path crates/njoy-outram-park-fork
 ```
 
 Full design notes, the mobile-first/touch interaction model, and Termux usage

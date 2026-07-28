@@ -337,6 +337,58 @@ yet threaded into the hot loops): `activity` → geochemistry speciation
 `eos_real` → RICHARDS water density. Both are numerically load-bearing and are
 left as bounded main-loop tasks with their own commits.
 
+### D15 — MPI scale-out via a new pure-Rust crate (op-v6s.15.9, 2026-07-23/24)
+
+Maintainer directive: *"take the mpi upstream and start converting it to rust"* —
+MPICH subset + shared-memory transport chosen (via `AskUserQuestion`). Rather than
+bind a C MPI (which would break the Android/no-C rule), a **new workspace crate
+`outram-park-mpi`** was created: a pure-Rust translation of an MPICH subset over a
+shared-memory *threads-as-ranks* transport (own epic **op-erl**). It provides the
+MPI-3 surface pflotran needs — communicators (world + `dup`/`split`), datatypes,
+point-to-point (`send`/`recv`/`isend`/`irecv`), and collectives
+(`barrier`/`broadcast`/`reduce`/`all_reduce`/`scatter`/`gather`/`all_gather` with
+`ReduceOp`) — all Android-clean (std threads only), ~28 tests.
+
+pflotran's **`decomposition`** module (op-v6s.15.9, first slice) then depends on
+`outram-park-mpi` and demonstrates the real pattern: a balanced 1-D
+[`Decomposition1D`] partition + nearest-neighbour [`exchange_halo`], with a
+distributed Jacobi stencil that is **bit-identical to the serial reference across
+rank counts {1,2,3,4,6}**. This proves the MPI transport drives a correct
+distributed stencil end-to-end.
+
+**Deliberately scoped as a first slice (flagged for review):** the halo exchange
+is the foundation, **not** a fully MPI-parallel Newton solve — the implicit
+RICHARDS/transport Jacobian is still assembled and solved serially per rank.
+Distributing the global linear solve (parallel matrix-vector products + a
+distributed Krylov method) and multi-dimensional / unstructured partitioning are
+follow-ups. Groups/topologies for the MPI crate are bead **op-er2**; optimised
+collective algorithms and a TCP multi-node transport remain under op-erl.
+
+### D16 — Distributed Krylov + 2-D Cartesian scale-out (op-57m/op-gj5, 2026-07-24)
+
+Building on D15's halo-exchange foundation, the `decomposition` module gained the
+actual **parallel linear-solver** layer, demonstrated end-to-end against serial:
+
+- **`krylov`** (op-57m) — a distributed conjugate gradient built from two MPI
+  primitives only: a halo-exchanged matvec and an `all_reduce`-reduced dot
+  product. `distributed_cg` matches `serial_cg` across ranks {1,2,3,4,6,8} and
+  drives the residual to ~0.
+- **`cartesian2d`** (op-gj5, first slice) — a **2-D block decomposition** over the
+  MPI Cartesian topology (`cart_create` + `cart_shift` find the four face
+  neighbours), a 5-point-stencil halo exchange, and a 2-D distributed CG. Verified
+  identical to a serial 2-D Poisson solve across process-grid shapes
+  {1×1, 2×2, 4×2, 3×1, 1×4}.
+
+This closes the MPI scale-out story: partition → halo-exchange matvec →
+`all_reduce` dot products → distributed Krylov, in 1-D and 2-D, all matching
+serial. **Deliberately still a model SPD operator** (shifted Poisson), not
+pflotran's real Jacobian — wiring the distributed CG into the actual
+RICHARDS/transport Newton solve, adding a distributed preconditioner, and 3-D /
+unstructured partitioning remain the open op-gj5 follow-up. The MPI crate itself
+(`outram-park-mpi`, epic op-erl) is feature-complete for its designed scope
+(point-to-point, collectives, dup/split, groups, Cartesian topologies); optimised
+collective algorithms and a TCP transport are its only roadmap remainders.
+
 ## Deferred to next week (2026-07-22 maintainer directive)
 
 All **Celia-1990 and validation-case work is paused** this week; the focus is

@@ -22,27 +22,43 @@
 use std::path::PathBuf;
 use thiserror::Error;
 
+/// Errors returned by this crate's case I/O and solver-loop entry points.
+///
+/// Every fallible public function in `outram-foam-appbuilder-lib` reports
+/// through this single enum, so a caller matches one error type across mesh/
+/// dictionary parsing and the time-advancement loops.
 #[derive(Debug, Error)]
 pub enum AppBuilderError {
+    /// An OS-level I/O failure while reading a case file; `path` is the file
+    /// that could not be read and `source` is the underlying [`std::io::Error`].
     #[error("I/O error reading {path}: {source}")]
     Io {
         path: PathBuf,
         #[source]
         source: std::io::Error,
     },
+    /// A syntactic error in an OpenFOAM dictionary or field file. `file` and
+    /// `line` locate the offending token (1-based line number) and `msg`
+    /// describes what was expected.
     #[error("parse error in {file} at line {line}: {msg}")]
     Parse {
         file: String,
         line: usize,
         msg: String,
     },
+    /// A required dictionary entry was absent: `key` is the missing keyword and
+    /// `dict` names the dictionary (e.g. `controlDict`) it was expected in.
     #[error("missing required key '{key}' in {dict}")]
     MissingKey {
         key: &'static str,
         dict: &'static str,
     },
+    /// The linear/nonlinear solve failed to converge: `iter` iterations were
+    /// taken and `residual` is the (dimensionless) residual reached at bail-out.
     #[error("solver diverged after {iter} iterations (residual {residual:.3e})")]
     Diverged { iter: usize, residual: f64 },
+    /// The time loop reached its configured end time `t` (seconds). Returned as
+    /// a normal stop signal, not a physics failure.
     #[error("time limit reached: t = {t:.6} s")]
     TimeLimitReached { t: f64 },
 }

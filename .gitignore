@@ -44,3 +44,9 @@ xin wang thesis.pdf
 # generate golden tapes for V&V). Large third-party trees — never committed
 # (workspace vendor rule, bead op-264). GPLv3-compatible upstreams only.
 /vendor/
+
+# Generated token-usage summary — the source of truth is the per-commit
+# API-Usage trailers in the git log (query via docs/historian/token_usage.py).
+# This markdown is a regenerable local summary, not tracked (was causing
+# recurring merge conflicts as a generated file committed on many branches).
+docs/token-usage.md

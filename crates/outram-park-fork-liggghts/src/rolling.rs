@@ -140,7 +140,10 @@ impl RollingTorque {
     /// The zero couple (no rolling resistance).
     #[must_use]
     pub const fn zero() -> Self {
-        Self { torque_on_a: Vec3::zero(), torque_on_b: Vec3::zero() }
+        Self {
+            torque_on_a: Vec3::zero(),
+            torque_on_b: Vec3::zero(),
+        }
     }
 }
 
@@ -283,7 +286,10 @@ impl RollingModel {
                 omega_rel.scale(-c_r)
             }
         };
-        RollingTorque { torque_on_a, torque_on_b: torque_on_a.scale(-1.0) }
+        RollingTorque {
+            torque_on_a,
+            torque_on_b: torque_on_a.scale(-1.0),
+        }
     }
 }
 
@@ -406,9 +412,7 @@ impl CohesionModel {
         match self {
             Self::None => 0.0,
             Self::LinearCohesion { k_c, max_gap } => k_c * max_gap,
-            Self::Jkr { surface_energy } => {
-                1.5 * std::f64::consts::PI * surface_energy * r_eff
-            }
+            Self::Jkr { surface_energy } => 1.5 * std::f64::consts::PI * surface_energy * r_eff,
         }
     }
 
@@ -600,9 +604,17 @@ mod tests {
 
         assert_abs_diff_eq!(model.max_attractive_force(r_eff), f_pull, epsilon = 1.0e-12);
         // In contact → attractive (negative) scalar of magnitude F_pull.
-        assert_abs_diff_eq!(model.cohesive_force(0.001, r_eff), -f_pull, epsilon = 1.0e-12);
+        assert_abs_diff_eq!(
+            model.cohesive_force(0.001, r_eff),
+            -f_pull,
+            epsilon = 1.0e-12
+        );
         // Sanity against the literal number.
-        assert_abs_diff_eq!(model.cohesive_force(0.001, r_eff), -0.047123889803, epsilon = 1.0e-9);
+        assert_abs_diff_eq!(
+            model.cohesive_force(0.001, r_eff),
+            -0.047123889803,
+            epsilon = 1.0e-9
+        );
     }
 
     /// V&V — **JKR cohesion is zero once the pair separates** (honest scope: no

@@ -27,6 +27,7 @@ ndarray.workspace = true
 serde.workspace = true
 outram-foam-basic-lib.workspace = true
 outram-foam-turbulence-lib.workspace = true
+outram-foam-multiphase.workspace = true
 
 [dev-dependencies]
 approx.workspace = true

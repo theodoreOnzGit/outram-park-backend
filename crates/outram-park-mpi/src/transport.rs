@@ -27,6 +27,7 @@
 //! a Cargo feature.
 
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 
 use crate::datatype::Datatype;
@@ -72,13 +73,31 @@ impl Mailbox {
 /// `Arc`) by every rank thread.
 pub(crate) struct Transport {
     mailboxes: Vec<Mailbox>,
+    /// Monotonic allocator for fresh communicator context ids. World is context
+    /// 0, so allocation starts at 1; `comm_dup`/`comm_split` draw new point-to-
+    /// point context ids here (their collective contexts are these plus
+    /// [`crate::communicator::COLL_CONTEXT_OFFSET`], which never collide because
+    /// allocated ids stay far below that offset).
+    next_comm_id: AtomicUsize,
 }
 
 impl Transport {
     /// Build a transport for `size` ranks (one empty mailbox each).
     pub(crate) fn new(size: usize) -> Arc<Self> {
         let mailboxes = (0..size).map(|_| Mailbox::new()).collect();
-        Arc::new(Transport { mailboxes })
+        Arc::new(Transport {
+            mailboxes,
+            next_comm_id: AtomicUsize::new(1),
+        })
+    }
+
+    /// Allocate a fresh, process-unique communicator context id.
+    ///
+    /// Called on **one** rank during a collective communicator-creation call
+    /// (`comm_dup`/`comm_split`); that rank then broadcasts the id so the whole
+    /// new group agrees on it.
+    pub(crate) fn alloc_comm_id(&self) -> usize {
+        self.next_comm_id.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Number of ranks (mailboxes) in this transport. (Used by the collective

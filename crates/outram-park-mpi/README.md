@@ -63,9 +63,19 @@ assert_eq!(neighbours, vec![3, 0, 1, 2]); // rank r received from r-1 (mod 4)
   trees; collective traffic runs on a separate communication context, so it can
   never cross-match user point-to-point messages.
 
+- Communicators: `dup` (same group, fresh context) and `split` (partition by
+  `color`, order by `key`); sub-communicators renumber ranks `0..k` and keep a
+  local→global mailbox map so point-to-point and collectives address correctly.
+
+- Groups: `Group` set operations (`incl`/`excl`/`union`/`intersection`/
+  `difference`/`translate_ranks`) + `Communicator::create_from_group`
+  (`MPI_Comm_create`).
+- Cartesian topologies: `cart_create` → `CartesianComm` with `coords`/`rank`/
+  `shift` — the last gives the `(source, dest)` neighbour pair a halo exchange
+  needs, with per-dimension periodicity.
+
 ## Roadmap (epic `op-erl`)
 
-- Communicators: `dup`, `split`, groups.
 - Optimised collectives (recursive-doubling all-reduce, ring all-gather,
   dissemination barrier).
 - TCP (multi-node) transport behind a Cargo feature.

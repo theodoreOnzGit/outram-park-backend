@@ -34,4 +34,9 @@ pub enum PflotranError {
     /// its iteration/tolerance budget.
     #[error("solver failed to converge: {0}")]
     Convergence(String),
+
+    /// A file read/write or on-disk-format error — e.g. an HDF5 snapshot that
+    /// cannot be written, opened, or parsed ([`crate::hdf5_io`]).
+    #[error("I/O error: {0}")]
+    Io(String),
 }

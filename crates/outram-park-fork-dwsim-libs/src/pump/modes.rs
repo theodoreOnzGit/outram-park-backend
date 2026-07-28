@@ -2,12 +2,13 @@
 //!
 //! Ported from DWSIM `UnitOperations/Pump.vb`'s `Calculate()`. DWSIM follows
 //! each mode's algebra with a pressure-enthalpy flash to get outlet
-//! temperature -- this crate has no property-package/flash access of its own
-//! (see this crate's top-level doc), so [`PumpResult::outlet_enthalpy`] is as
-//! far as this port goes; a caller with flash access (e.g. `tampines`) does
-//! the final `(p2, h2) -> T2` flash itself. DWSIM's `Curves` mode
-//! (Floater-Hormann rational interpolation of head/efficiency/NPSHr/power
-//! vs. flow) is not ported -- see the workspace's `op-qo2.9` bead.
+//! temperature -- this pump port is deliberately kept decoupled from the
+//! crate's flash kernel ([`crate::thermo`]), so [`PumpResult::outlet_enthalpy`]
+//! is as far as this port goes; a caller (e.g. `tampines`, or the crate's own
+//! flash) does the final `(p2, h2) -> T2` flash itself. DWSIM's `Curves`
+//! calculation mode is not wired into the pump here -- though the underlying
+//! Floater-Hormann rational interpolation of head/efficiency/NPSHr/power
+//! vs. flow is available in [`crate::interpolation`]; see `op-qo2.9`.
 
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::f64::{
@@ -79,17 +80,13 @@ pub fn evaluate(inlet: PumpInlet, spec: PumpSpecification, efficiency: Ratio) ->
     let (p2, power, h2) = match spec {
         PumpSpecification::DeltaP(delta_p) => {
             // Hydraulic power (Q_vol * dP) divided by efficiency = shaft power.
-            let power = Power::new::<watt>(
-                delta_p.get::<pascal>() / rho_l.value * w.value / eta,
-            );
+            let power = Power::new::<watt>(delta_p.get::<pascal>() / rho_l.value * w.value / eta);
             let h2 = h1 + power / w;
             (p1 + delta_p, power, h2)
         }
         PumpSpecification::OutletPressure(p2_spec) => {
             let delta_p = p2_spec - p1;
-            let power = Power::new::<watt>(
-                delta_p.get::<pascal>() / rho_l.value * w.value / eta,
-            );
+            let power = Power::new::<watt>(delta_p.get::<pascal>() / rho_l.value * w.value / eta);
             let h2 = h1 + power / w;
             (p1 + delta_p, power, h2)
         }
@@ -168,7 +165,9 @@ mod tests {
             PumpSpecification::OutletPressure(inlet.pressure + delta_p),
             eta,
         );
-        assert!((r1.outlet_pressure.get::<pascal>() - r2.outlet_pressure.get::<pascal>()).abs() < 1e-6);
+        assert!(
+            (r1.outlet_pressure.get::<pascal>() - r2.outlet_pressure.get::<pascal>()).abs() < 1e-6
+        );
         assert!((r1.power.get::<watt>() - r2.power.get::<watt>()).abs() < 1e-6);
     }
 
@@ -180,7 +179,8 @@ mod tests {
         let from_dp = evaluate(inlet, PumpSpecification::DeltaP(delta_p), eta);
         let from_power = evaluate(inlet, PumpSpecification::Power(from_dp.power), eta);
         assert!(
-            (from_dp.outlet_pressure.get::<pascal>() - from_power.outlet_pressure.get::<pascal>()).abs()
+            (from_dp.outlet_pressure.get::<pascal>() - from_power.outlet_pressure.get::<pascal>())
+                .abs()
                 < 1e-3
         );
     }
@@ -192,7 +192,10 @@ mod tests {
         let delta_p = Pressure::new::<pascal>(500_000.0);
         let result = evaluate(inlet, PumpSpecification::DeltaP(delta_p), eta);
         assert!(result.outlet_pressure.get::<pascal>() > inlet.pressure.get::<pascal>());
-        assert!(result.outlet_enthalpy.get::<joule_per_kilogram>() > inlet.enthalpy.get::<joule_per_kilogram>());
+        assert!(
+            result.outlet_enthalpy.get::<joule_per_kilogram>()
+                > inlet.enthalpy.get::<joule_per_kilogram>()
+        );
         assert!(result.head.get::<uom::si::length::meter>() > 0.0);
     }
 

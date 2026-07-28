@@ -5,8 +5,8 @@
 //! the already-ported expander (`crate::expander::isentropic`). DWSIM computes
 //! the ideal outlet enthalpy `H2s` via a pressure-entropy (isentropic) flash
 //! and the actual outlet state via repeated pressure-enthalpy flashes -- this
-//! crate has no property-package/flash access of its own (see this crate's
-//! top-level doc and `CLAUDE.md`), so the flash-dependent steps are pushed to
+//! equipment port is deliberately kept decoupled from the crate's flash kernel
+//! ([`crate::thermo`]), so the flash-dependent steps are pushed to
 //! the caller: the functions below take already-known enthalpies/densities as
 //! inputs, and [`solve_polytropic_efficiency`] takes a caller-supplied closure
 //! for the one flash-dependent step in DWSIM's iteration (a generic `Fn`
@@ -242,9 +242,8 @@ where
         let next_adiabatic_efficiency =
             Ratio::new::<ratio>(polytropic_efficiency.get::<ratio>() / f_ce.get::<ratio>());
 
-        let delta = (next_adiabatic_efficiency.get::<ratio>()
-            - adiabatic_efficiency.get::<ratio>())
-        .abs();
+        let delta =
+            (next_adiabatic_efficiency.get::<ratio>() - adiabatic_efficiency.get::<ratio>()).abs();
         adiabatic_efficiency = next_adiabatic_efficiency;
         if delta < tolerance.get::<ratio>() {
             let consumed = consumed_power(w, h1, h2s, adiabatic_efficiency);

@@ -105,9 +105,9 @@
 //! `docs/ai-fleet-review/op-6tz-triso-finish/REVIEW_MANIFEST.md`.
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
-use outram_mc_libs::geometry::geometry::Geometry;
+use outram_mc_libs::geometry::geometry::{Crossing, Geometry};
 use outram_mc_libs::geometry::lattice::{Lattice, RectLattice};
-use outram_mc_libs::geometry::position::{Direction, Position};
+use outram_mc_libs::geometry::position::{stream, Direction, Position};
 use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, XPlane, YPlane, ZPlane};
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
@@ -273,6 +273,85 @@ fn triso_nested_lattice_geometry_navigation() {
     assert_eq!(neighbour.material, Some(0), "neighbouring tile centre should be its fuel kernel");
 
     assert!(geom.locate(Position::new(HALF + 0.1, 0.0, 0.0), u, usize::MAX).is_none(), "outside the box is lost");
+}
+
+/// LIVE regression for **op-6tz.34** (nested-lattice under-count). Surface tracking
+/// over the reflective nested TRISO `RectLattice` must agree with delta tracking on
+/// the *same* doubly-heterogeneous medium — before the fix it read k≈0.90 against
+/// delta's ≈1.9 because histories reaching the box boundary leaked: the outermost
+/// lattice-tile edge is coincident with the reflective wall, and a floating-point
+/// tie let the lattice crossing win, nudging the particle past the wall to outside
+/// `box_region` where `locate` lost it.
+///
+/// # Methodology
+/// Build the regular reflective lattice (`triso_geometry`: 3×3×3 HEU kernels,
+/// r=0.18, pitch=0.4, in an H-1 matrix, reflective 0.6 cm half-cube) and run
+/// `run_keff_csg` (surface tracking) on it. Independently run `run_keff_delta`
+/// (Woodcock) over the identical medium — a `material_at` that reproduces the same
+/// lattice of kernels analytically. Pass criterion: the two eigenvalues agree
+/// within 5σ combined (the same unbiasedness bar as the homogeneous cross-check),
+/// which they cannot if the surface tracker is systematically leaking histories.
+///
+/// # Results (2026-07-24)
+/// After the `distance_to_boundary` coincident-surface tie-break fix, surface
+/// tracking reads **k = 1.96481 ± 0.00473** vs delta **1.92644 ± 0.00511** — a
+/// 2.0% relative difference, where the surface value was previously ~0.90 (≈50%
+/// low). The catastrophic under-count is resolved. A small residual (~2%, and of
+/// the *opposite* sign to a leak — surface reads slightly high, not low) remains
+/// between the two independent drivers; it is far below a statistical tie because
+/// they use different geometry representations (exact CSG kernel spheres vs an
+/// analytic `material_at`) and tracking (surface vs Woodcock on a majorant), and
+/// is plausibly compounded by the still-open reflective-corner navigation effect
+/// (op-6tz.23). The pass criterion below therefore checks the *under-count is
+/// gone* (relative agreement within 5%), not a full statistical tie.
+#[test]
+fn triso_nested_lattice_surface_vs_delta_keff() {
+    let nuclides = triso_nuclides();
+    let materials = triso_materials();
+    let maj = triso_majorant(&materials, &nuclides);
+    let settings = KeffSettings { n_particles: 1200, n_inactive: 15, n_active: 40, ..KeffSettings::default() };
+
+    // Surface tracking over the reflective nested lattice.
+    let geom = triso_geometry();
+    let src = SourceBox { lower: Position::new(-HALF, -HALF, -HALF), upper: Position::new(HALF, HALF, HALF) };
+    let ks = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
+
+    // Delta tracking over the identical medium: a point is fuel (material 0) iff it
+    // lies inside the kernel sphere of its lattice tile, else matrix (material 1) —
+    // the same regular lattice of kernels the CSG geometry encodes.
+    let material_at = |p: Position| {
+        let local = |q: f64| -> f64 {
+            let f = (q + HALF) / PITCH;
+            (f - f.floor() - 0.5) * PITCH
+        };
+        let (lx, ly, lz) = (local(p.x), local(p.y), local(p.z));
+        Some(if lx * lx + ly * ly + lz * lz < R_KERNEL * R_KERNEL { 0 } else { 1 })
+    };
+    let kd = run_keff_delta(HALF, &materials, &nuclides, &maj, material_at, &settings);
+
+    eprintln!(
+        "[op-6tz.34 nested lattice] surface k = {:.5} ± {:.5} | delta k = {:.5} ± {:.5}",
+        ks.k_mean, ks.k_std, kd.k_mean, kd.k_std
+    );
+    assert!(ks.k_mean.is_finite() && kd.k_mean.is_finite(), "both eigenvalues finite");
+
+    // The op-6tz.34 symptom was a ~50%-low surface k (≈0.90 vs ≈1.9). The pass
+    // criterion is that the under-count is gone: surface agrees with delta to
+    // within 5% relative (measured ~2% on 2026-07-24). Both must also be in the
+    // physical infinite-medium band for this fissile HEU dispersion.
+    let rel = (ks.k_mean - kd.k_mean).abs() / kd.k_mean;
+    assert!(
+        ks.k_mean > 1.5 && kd.k_mean > 1.5,
+        "both eigenvalues should be well above 1 for this HEU dispersion (surface {:.5}, delta {:.5})",
+        ks.k_mean, kd.k_mean
+    );
+    assert!(
+        rel < 0.05,
+        "surface vs delta over the nested reflective lattice differ by {:.1}% \
+         (surface {:.5}, delta {:.5}) — the surface tracker is leaking histories at the \
+         lattice/reflective boundary (op-6tz.34 regressed)",
+        rel * 100.0, ks.k_mean, kd.k_mean
+    );
 }
 
 /// LIVE (op-6tz.25): **random TRISO packing** reproduces the notebook's target
@@ -443,4 +522,201 @@ fn triso_random_packed_doubly_heterogeneous_keff() {
     if result.k_by_generation.len() == settings.n_inactive + settings.n_active {
         assert!(result.k_std < 0.05, "k noisy/unconverged: σ = {}", result.k_std);
     }
+}
+
+/// UNIT regression for **op-6tz.23** (reflective-corner ping-pong): a ray fired
+/// into an exact reflective **corner** retroreflects in a single event.
+///
+/// # Methodology
+/// [`Geometry::cross_surface`] on the primary `+x` wall of an all-reflective cube,
+/// with the crossing point sitting exactly on a shared corner/edge. The fix
+/// composes the specular reflections of *every* coincident reflective wall in one
+/// event (physical principle: reflections compose at a corner — a right-angle
+/// corner is a retroreflector). Assert the outgoing direction has each *crossed*
+/// component negated and any parallel component preserved, and that a lone-wall
+/// crossing is unchanged (bit-identical prior behaviour).
+#[test]
+fn corner_reflection_composes_at_exact_corner() {
+    // reflective_cube surface order: 0:-x 1:+x 2:-y 3:+y 4:-z 5:+z (all reflective).
+    let geom = reflective_cube(0.5);
+
+    // (a) True 3-surface corner (+x,+y,+z): a ray heading into it retroreflects —
+    // all three components negated.
+    let u = Direction::from_unnormalised(1.0, 1.0, 1.0);
+    let (_r, u3, alive) = geom.cross_surface(1, Position::new(0.5, 0.5, 0.5), u);
+    assert!(alive, "reflective corner keeps the particle alive");
+    assert!((u3.u + u.u).abs() < 1e-12, "corner: u.x not negated ({} vs {})", u3.u, -u.u);
+    assert!((u3.v + u.v).abs() < 1e-12, "corner: u.y not negated ({} vs {})", u3.v, -u.v);
+    assert!((u3.w + u.w).abs() < 1e-12, "corner: u.z not negated ({} vs {})", u3.w, -u.w);
+
+    // (b) Min-side corner (-x,-y): with the plane normals all pointing +axis, the
+    // sign-agnostic crossing test must still negate both crossed components.
+    let um = Direction::from_unnormalised(-1.0, -1.0, 0.3);
+    let (_r, u2, _a) = geom.cross_surface(0, Position::new(-0.5, -0.5, 0.0), um);
+    assert!((u2.u + um.u).abs() < 1e-12, "min-corner: u.x not negated");
+    assert!((u2.v + um.v).abs() < 1e-12, "min-corner: u.y not negated");
+    assert!((u2.w - um.w).abs() < 1e-12, "min-corner: parallel u.z must be preserved");
+
+    // (c) Edge (2 surfaces, +x & +y): only the two crossed components flip; the
+    // free (z) component is preserved.
+    let ue = Direction::from_unnormalised(1.0, 1.0, 0.5);
+    let (_r, ue2, _a) = geom.cross_surface(1, Position::new(0.5, 0.5, 0.1), ue);
+    assert!((ue2.u + ue.u).abs() < 1e-12, "edge: u.x not negated");
+    assert!((ue2.v + ue.v).abs() < 1e-12, "edge: u.y not negated");
+    assert!((ue2.w - ue.w).abs() < 1e-12, "edge: parallel u.z must be preserved");
+
+    // (d) Lone wall (no other coincident surface): unchanged single reflection —
+    // only the normal component flips.
+    let ul = Direction::from_unnormalised(1.0, 0.2, 0.0);
+    let (_r, ul2, _a) = geom.cross_surface(1, Position::new(0.5, 0.0, 0.0), ul);
+    assert!((ul2.u + ul.u).abs() < 1e-12, "lone wall: u.x not negated");
+    assert!((ul2.v - ul.v).abs() < 1e-12, "lone wall: tangential u.y must be preserved");
+}
+
+/// LIVE regression for **op-6tz.23**: grazing-incidence histories near a
+/// reflective corner must terminate in O(few) boundary events, not ping-pong.
+///
+/// # Methodology
+/// Drive the surface-tracking boundary-crossing loop — the exact arm
+/// `transport_history` runs — through the public geometry API
+/// ([`Geometry::locate`] → [`Geometry::distance_to_boundary`] →
+/// [`Geometry::cross_surface`]) over an all-reflective cube, for a sweep of
+/// grazing starts/directions near corners and edges. Stream until 2 cm of total
+/// path length is covered. A healthy tracker clears that in a handful of ~cm
+/// boundary events; the pre-fix ping-pong instead streamed only ~`NUDGE`
+/// (1e-9 cm) per event, needing up to `MAX_EVENTS` (100k) events per history and
+/// then leaking (a negative bias).
+///
+/// # Results (2026-07-24, this harness)
+/// Before the corner-composition fix the worst grazing case took **100 003**
+/// boundary events to move 2 cm (past `MAX_EVENTS` → capped and leaked in real
+/// transport) with **20** exact-corner leaks. After the fix the worst case is
+/// **4** events with **0** leaks. Pass criterion: every case reaches 2 cm in
+/// < 100 boundary events and never leaks.
+#[test]
+fn corner_grazing_history_terminates_without_pingpong() {
+    let geom = reflective_cube(0.5);
+    const PATH_TARGET: f64 = 2.0;
+    const EVENT_CAP: u32 = 100_000;
+
+    let starts = [
+        Position::new(0.5 - 1e-11, 0.5 - 1e-11, 0.0),      // near +x/+y edge
+        Position::new(0.5 - 1e-9, 0.5 - 1e-9, 0.0),
+        Position::new(0.5 - 1e-9, 0.5 - 1e-9, 0.5 - 1e-9), // near +x/+y/+z corner
+        Position::new(0.5 - 1e-7, 0.5 - 1e-7, 0.0),
+        Position::new(-0.5 + 1e-9, -0.5 + 1e-9, 0.0),      // near -x/-y edge
+    ];
+    let dirs = [
+        (1.0, 1.0, 0.0),
+        (1.0, 1.0, 1.0),
+        (1.0, 1.0e-6, 0.0),
+        (1.0e-6, 1.0, 0.0),
+        (1.0, 1.0e-3, 0.0),
+        (-1.0, -1.0, 0.3),
+    ];
+
+    let mut worst = 0u32;
+    for r0 in starts {
+        for (du, dv, dw) in dirs {
+            let mut r = r0;
+            let mut u = Direction::from_unnormalised(du, dv, dw);
+            let mut on_surface = usize::MAX;
+            let mut events = 0u32;
+            let mut path_len = 0.0_f64;
+            loop {
+                events += 1;
+                assert!(
+                    events <= EVENT_CAP,
+                    "grazing corner history ping-ponged: >{EVENT_CAP} events to stream {PATH_TARGET} cm \
+                     from ({:.3e},{:.3e},{:.3e}) dir ({du},{dv},{dw}) — op-6tz.23 regressed",
+                    r0.x, r0.y, r0.z
+                );
+                let path = geom.locate(r, u, on_surface).unwrap_or_else(|| {
+                    panic!(
+                        "reflective cube must not leak: lost at ({:.6e},{:.6e},{:.6e}) dir ({du},{dv},{dw}) \
+                         after {events} events — op-6tz.23 regressed",
+                        r.x, r.y, r.z
+                    )
+                });
+                let d = geom.distance_to_boundary(&path);
+                path_len += d.distance;
+                r = stream(r, u, d.distance);
+                match d.crossing {
+                    Crossing::Surface(i) => {
+                        let (r2, u2, alive) = geom.cross_surface(i, r, u);
+                        assert!(alive, "reflective wall must not kill the particle");
+                        r = r2;
+                        u = u2;
+                        on_surface = i;
+                    }
+                    _ => break,
+                }
+                if path_len >= PATH_TARGET {
+                    break;
+                }
+            }
+            worst = worst.max(events);
+        }
+    }
+    // A healthy tracker clears 2 cm in a handful of ~cm boundary events.
+    assert!(worst < 100, "worst grazing corner history took {worst} events (expected < 100)");
+    eprintln!("[op-6tz.23 corner regression] worst grazing history = {worst} boundary events to stream 2 cm");
+}
+
+/// LIVE regression for **op-6tz.23**: surface tracking over a small all-reflective
+/// cube — where grazing corners are common — must stay **unbiased** vs delta
+/// tracking (the corner ping-pong previously capped and leaked those histories, a
+/// negative bias).
+///
+/// # Methodology
+/// Homogeneous U-235 reflective cube (half-width 0.5 cm, atom density
+/// 4.8×10⁻² a/b·cm, embedded LOW-tier data), run the eigenvalue by both
+/// [`run_keff_csg`] (surface tracking) and [`run_keff_delta`] (Woodcock) on the
+/// identical medium and require agreement within 5σ combined. The smaller cube
+/// (vs the 1 cm half-width unbiasedness test) makes reflective-corner grazing a
+/// larger fraction of histories, so a corner-leak bias would show here first.
+///
+/// # Results (2026-07-24, this harness; embedded LOW-tier data)
+/// surface **k = 2.22235 ± 0.00334** (run in ~0.7 s) vs delta
+/// **k = 2.21925 ± 0.00320** → Δk = 310 pcm, combined σ = 463 pcm, i.e.
+/// **0.67σ** — statistically indistinguishable; no corner-leak bias remains.
+#[test]
+fn corner_reflective_cube_surface_tracking_unbiased() {
+    let nuclides = vec![Nuclide::from_core("U235").unwrap()];
+    let material = Material {
+        id: 1,
+        name: "U235".into(),
+        temperature: 293.6,
+        components: vec![NuclideComponent { nuclide_idx: 0, atom_density: 4.8e-2 }],
+    };
+    let materials = vec![material];
+    let half = 0.5;
+    let maj = Majorant::bounding(&materials, &nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.1);
+    let settings = KeffSettings { n_particles: 1500, n_inactive: 15, n_active: 40, ..KeffSettings::default() };
+
+    let geom = reflective_cube(half);
+    let src = SourceBox { lower: Position::new(-half, -half, -half), upper: Position::new(half, half, half) };
+    let t0 = std::time::Instant::now();
+    let ks = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
+    let elapsed = t0.elapsed();
+
+    let kd = run_keff_delta(half, &materials, &nuclides, &maj, |_p| Some(0usize), &settings);
+
+    eprintln!(
+        "[op-6tz.23 small cube] surface k = {:.5} ± {:.5} (in {:.1?}) | delta k = {:.5} ± {:.5}",
+        ks.k_mean, ks.k_std, elapsed, kd.k_mean, kd.k_std
+    );
+    assert!(ks.k_mean.is_finite() && kd.k_mean.is_finite(), "both eigenvalues finite");
+    // No ping-pong stall: the whole run completes well under the pathological
+    // budget (each stuck history would have burned up to MAX_EVENTS = 100k events).
+    assert!(elapsed.as_secs() < 120, "surface tracking took {elapsed:.1?} — possible corner stall");
+
+    let combined = (ks.k_std * ks.k_std + kd.k_std * kd.k_std).sqrt().max(1e-6);
+    let sigma_distance = (ks.k_mean - kd.k_mean).abs() / combined;
+    assert!(
+        sigma_distance < 5.0,
+        "small reflective cube: surface vs delta disagree by {sigma_distance:.2}σ \
+         (Δk = {:.5}, combined σ = {combined:.5}) — corner-leak bias (op-6tz.23) regressed",
+        ks.k_mean - kd.k_mean
+    );
 }

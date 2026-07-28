@@ -57,14 +57,54 @@
 //! - **Milestone 2 — castellated surface carve.** [`carve::carve_box`] overlays
 //!   a uniform Cartesian grid on a closed triangle-soup surface and keeps the
 //!   cells inside it (ray-parity inside test), producing a body-fitted
-//!   *staircase* volume mesh with a `walls` boundary patch. Verified: a
-//!   grid-aligned box carves exactly; an octahedron carve converges to its
-//!   analytic volume; every carved cell is closed.
+//!   *staircase* volume mesh with a `walls` boundary patch.
+//!   [`carve::carve_region`] extends this to the region *inside* an outer
+//!   surface but *outside* inner holes — the shell/annular pattern reactor
+//!   geometry needs (coolant around fuel pins or pebbles).
+//! - **Milestone 3a — boundary snapping.** [`snap::snap_to_surface`] projects
+//!   every boundary point onto the closest point of the surface, turning the
+//!   staircase into a body-fitted boundary.
+//! - **Milestone 3b — foam bridge (feature `foam-export`).** [`foam::to_poly_mesh`]
+//!   converts a [`volume_mesh::VolumeMesh`] into a real `outram-foam-basic-lib`
+//!   `PolyMesh`, which yields a solvable `FvMesh` via `to_fv_mesh()` — closing
+//!   the loop: surface → carve → snap → foam mesh (verified end-to-end).
+//! - **Mesh quality checks.** [`checks::check_quality`] reports face
+//!   non-orthogonality, skewness, cell aspect ratio, min face area / cell
+//!   volume, and negative-volume cells (cfMesh `polyMeshGenChecks`) — the gate
+//!   for trusting a generated mesh before it is solved.
+//! - **Octree near-wall refinement.** [`octree::refine_near_boundary`] grades
+//!   the mesh finer next to the surface, splitting each coarse transition
+//!   face into its four fine sub-faces (hanging nodes) so the coarse cell
+//!   becomes a genuine **polyhedron** — the mesh stays conforming (verified:
+//!   exact volume, closed cells, > 6-face transition cells).
+//! - **Prism boundary layers.** [`layers::add_boundary_layers`] inserts graded
+//!   near-wall inflation layers at a wall patch (snappyHexMesh *addLayers* /
+//!   cfMesh's boundary-layer step): the interior wall points move inward and
+//!   the vacated shell is filled with `n_layers` stacked prism cells per wall
+//!   face. It is a repartition, so it preserves the mesh volume exactly
+//!   (verified: exact volume, closed, `+n_layers × wall_faces` cells).
+//! - **Polyhedral dual.** [`dual::polyhedral_dual`] turns a primal mesh into a
+//!   **polyhedral** one — one cell per primal vertex — via the median
+//!   (vertex-centred) dual, the equivalent of OpenFOAM's `polyDualMesh`. The
+//!   dual tiles the same region (verified: exact volume, closed cells, every
+//!   internal face shared by exactly two cells, genuinely > 6-face cells).
+//!   Two variants: [`dual::polyhedral_dual`] (robust median, quad-fan faces)
+//!   and [`dual::polyhedral_dual_min_faces`] (**face-minimal** — one polygon
+//!   per primal edge via edge-star walking, ~40% fewer faces, verified to
+//!   conserve volume and stay closed).
+//! - **Tetrahedralization.** [`tet::tetrahedralize`] splits every cell into
+//!   tetrahedra by centroid subdivision (the all-tet foundation; not a
+//!   from-scratch Delaunay mesher). It conserves volume and triangulates the
+//!   boundary surface (verified: positive-volume tets, boundary area == input
+//!   surface, exact volume, every cell a 4-triangle tet).
+//! - **Quality smoothing.** [`smooth::laplacian_smooth`] relaxes interior
+//!   vertices toward their neighbour centroid (smart Laplacian — never inverts a
+//!   cell, pins the boundary), improving cell shape while conserving volume
+//!   exactly (verified: recovers perturbed tet quality, no inversions).
 //!
-//! Next on the `op-hzs` roadmap: octree refinement + point **snapping** (turn
-//! the staircase into a body-fitted boundary), the polyhedral dual (`op-hzs.33`,
-//! voro++ reference), boundary layers (`op-hzs.34`), and the volume-`PolyMesh`
-//! bridge to `outram-foam-basic-lib` (`op-hzs.35`).
+//! Next on the `op-hzs` roadmap: Delaunay-*quality* tet refinement via flips /
+//! point insertion (gmsh — GPLv2+, GPLv3-compatible — is a licence-clean
+//! reference) and multi-patch / feature-aware layer insertion.
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
@@ -81,5 +121,20 @@
 
 pub mod cartesian;
 pub mod carve;
+pub mod checks;
+pub mod dual;
+pub mod layers;
 pub mod math;
+pub mod octree;
+pub mod reactor;
+pub mod shapes;
+pub mod smooth;
+pub mod snap;
+pub mod tet;
 pub mod volume_mesh;
+
+/// Bridge to the real `outram-foam-basic-lib` `PolyMesh` (feature
+/// `foam-export`) — the volume-mesh output path to the CFD/TH solver. Off by
+/// default so the base crate stays dependency-free and Android-buildable.
+#[cfg(feature = "foam-export")]
+pub mod foam;

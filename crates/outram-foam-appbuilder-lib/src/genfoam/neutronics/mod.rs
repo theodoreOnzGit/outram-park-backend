@@ -35,8 +35,11 @@
 //! - [`point_kinetics`] — 0-D point-kinetics (implemented).
 //! - [`diffusion`] — multigroup neutron diffusion, k-eigenvalue + transient
 //!   (implemented).
-//! - [`sp3`], [`sn`] — higher-order transport (documented scaffolds; see the
-//!   `neutronics` epic in beads).
+//! - [`sp3`] — simplified-P3 transport, eigenvalue + transient (implemented).
+//! - [`sn`] — discrete-ordinates (S_N) transport, eigenvalue + transient
+//!   (implemented). Each model also exposes a lightweight state-only
+//!   constructor (`::new`) — described in its header as a "scaffold" — that
+//!   allocates flux state without cross sections.
 //! - [`state`] — the shared spatial flux / power / precursor / power-density
 //!   state that the spatial models read and write.
 //! - [`xs`] — the multigroup cross-section (`XS`) data structures.

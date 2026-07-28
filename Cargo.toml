@@ -166,6 +166,12 @@ local-ip-address = "0.6.13"
 # feature / example / optional bin under `cfg(not(target_os = "android"))`,
 # never in an unconditional library build.
 wgpu = "29.0.3"
+# naga — wgpu's own shader front-end/validator, used ONLY as a (non-Android)
+# dev-dependency to statically validate hand-written WGSL kernels on CPU (no GPU
+# adapter needed), so CI without a GPU still catches shader syntax/type errors.
+# Version pinned to match `wgpu` above (same 29.x release) so no second naga is
+# pulled into the tree.
+naga = "29.0.3"
 
 # internal workspace crates — depend on these by path so members use the
 # in-tree copy rather than a crates.io release.
@@ -176,6 +182,7 @@ tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.
 outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.0" }
 outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.0" }
 outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.0" }
+outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.0" }
 outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.0" }
 outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.1.0" }
 outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.1.0" }

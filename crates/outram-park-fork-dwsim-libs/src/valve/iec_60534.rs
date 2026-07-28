@@ -97,7 +97,13 @@ pub fn clamp_to_choked_liquid(
 /// pressure drop `p1 - p2` (already clamped to the choked limit if
 /// applicable, see [`clamp_to_choked_liquid`]), and piping geometry factor
 /// `f_p`.
-pub fn kv_liquid(w: MassRate, density: MassDensity, p1: Pressure, p2: Pressure, f_p: Ratio) -> ValveFlowCoefficient {
+pub fn kv_liquid(
+    w: MassRate,
+    density: MassDensity,
+    p1: Pressure,
+    p2: Pressure,
+    f_p: Ratio,
+) -> ValveFlowCoefficient {
     let w_kg_h = w.get::<kilogram_per_hour>();
     let rho = density.get::<kilogram_per_cubic_meter>();
     let dp_bar = (p1 - p2).get::<bar>();
@@ -139,14 +145,18 @@ pub fn solve_p2_liquid(
 ) -> Pressure {
     let w_kg_h = w.get::<kilogram_per_hour>();
     let rho = density.get::<kilogram_per_cubic_meter>();
-    let dp_bar = (w_kg_h / (kv.0 * f_p.get::<ratio>())).powi(2) / (rho * REFERENCE_WATER_DENSITY_KG_PER_M3);
+    let dp_bar =
+        (w_kg_h / (kv.0 * f_p.get::<ratio>())).powi(2) / (rho * REFERENCE_WATER_DENSITY_KG_PER_M3);
     p1 - Pressure::new::<bar>(dp_bar)
 }
 
 /// Expansion factor `Y = 1 - x / (3 x_choked)` for gas/vapour service, where
 /// `x = (p1-p2)/p1` is clamped to the choked-flow limit `x_choked =
 /// (k/1.4) x_T` beforehand (see [`choked_pressure_drop_ratio_gas`]).
-pub fn expansion_factor_gas(pressure_drop_ratio: Ratio, choked_pressure_drop_ratio: Ratio) -> Ratio {
+pub fn expansion_factor_gas(
+    pressure_drop_ratio: Ratio,
+    choked_pressure_drop_ratio: Ratio,
+) -> Ratio {
     let x = pressure_drop_ratio.get::<ratio>();
     let x_choked = choked_pressure_drop_ratio.get::<ratio>();
     Ratio::new::<ratio>(1.0 - x / (3.0 * x_choked))
@@ -191,7 +201,10 @@ pub fn kv_gas(
     let rho1 = density_upstream.get::<kilogram_per_cubic_meter>();
     ValveFlowCoefficient(
         w_kg_h
-            / (N6 * f_p.get::<ratio>() * y.get::<ratio>() * (x.get::<ratio>() * p1_bar * rho1).sqrt()),
+            / (N6
+                * f_p.get::<ratio>()
+                * y.get::<ratio>()
+                * (x.get::<ratio>() * p1_bar * rho1).sqrt()),
     )
 }
 
@@ -299,7 +312,11 @@ pub enum OpeningCharacteristic {
 
 impl OpeningCharacteristic {
     /// Evaluate `Kv` at a given opening percentage `opening_pct` \[0, 100\].
-    pub fn kv_at_opening(&self, kv_max: ValveFlowCoefficient, opening_pct: Ratio) -> ValveFlowCoefficient {
+    pub fn kv_at_opening(
+        &self,
+        kv_max: ValveFlowCoefficient,
+        opening_pct: Ratio,
+    ) -> ValveFlowCoefficient {
         let op = opening_pct.get::<ratio>() / 100.0;
         let factor = match self {
             Self::Linear => op,
@@ -353,7 +370,14 @@ mod tests {
         let p2_true = Pressure::new::<bar>(8.0);
 
         let (x, y) = clamp_and_expand_gas(p1, p2_true, k, x_t);
-        let kv = kv_gas(MassRate::new::<kilogram_per_hour>(1000.0), p1, density, x, y, f_p);
+        let kv = kv_gas(
+            MassRate::new::<kilogram_per_hour>(1000.0),
+            p1,
+            density,
+            x,
+            y,
+            f_p,
+        );
         let w = mass_flow_gas(kv, p1, density, x, y, f_p);
 
         let p2_solved = solve_p2_gas(w, kv, p1, density, k, x_t, f_p, Pressure::new::<bar>(1e-4));
@@ -364,9 +388,20 @@ mod tests {
     fn opening_characteristics_agree_at_full_open() {
         let kv_max = ValveFlowCoefficient(100.0);
         let full_open = Ratio::new::<ratio>(100.0);
-        assert!((OpeningCharacteristic::Linear.kv_at_opening(kv_max, full_open).0 - 100.0).abs() < 1e-9);
         assert!(
-            (OpeningCharacteristic::QuickOpening.kv_at_opening(kv_max, full_open).0 - 100.0).abs()
+            (OpeningCharacteristic::Linear
+                .kv_at_opening(kv_max, full_open)
+                .0
+                - 100.0)
+                .abs()
+                < 1e-9
+        );
+        assert!(
+            (OpeningCharacteristic::QuickOpening
+                .kv_at_opening(kv_max, full_open)
+                .0
+                - 100.0)
+                .abs()
                 < 1e-9
         );
         assert!(
@@ -383,8 +418,20 @@ mod tests {
     fn opening_characteristics_are_zero_at_closed() {
         let kv_max = ValveFlowCoefficient(100.0);
         let closed = Ratio::new::<ratio>(0.0);
-        assert!(OpeningCharacteristic::Linear.kv_at_opening(kv_max, closed).0.abs() < 1e-9);
-        assert!(OpeningCharacteristic::QuickOpening.kv_at_opening(kv_max, closed).0.abs() < 1e-9);
+        assert!(
+            OpeningCharacteristic::Linear
+                .kv_at_opening(kv_max, closed)
+                .0
+                .abs()
+                < 1e-9
+        );
+        assert!(
+            OpeningCharacteristic::QuickOpening
+                .kv_at_opening(kv_max, closed)
+                .0
+                .abs()
+                < 1e-9
+        );
     }
 
     #[test]
