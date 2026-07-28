@@ -5266,6 +5266,10 @@ dependencies = [
 name = "outram-blender"
 version = "0.0.0"
 dependencies = [
+ "eframe",
+ "egui",
+ "egui_plot",
+ "env_logger",
  "faer",
  "outram-foam-basic-lib",
  "outram-mc-libs",
@@ -5374,6 +5378,7 @@ dependencies = [
  "ndarray",
  "nee_soon",
  "outram-foam-basic-lib",
+ "outram-park-fork-coolprop",
  "outram-park-fork-dwsim-libs",
  "roots",
  "serde",
@@ -5388,6 +5393,9 @@ dependencies = [
 name = "outram-park-fork-cfmesh"
 version = "0.0.0"
 dependencies = [
+ "eframe",
+ "egui",
+ "env_logger",
  "outram-foam-basic-lib",
 ]
 

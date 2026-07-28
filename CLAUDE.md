@@ -115,7 +115,18 @@ specifically, not just human contributors:
 
 ## Workflow rules (mandatory)
 
-- **Never auto-commit or auto-push.** Do not run `git commit` or `git push` unless the user explicitly asks.
+- **Never auto-commit or auto-push.** Do not run `git commit` or `git push`
+  unless the user explicitly asks — **or the stop hook asks for it.**
+  - **The stop hook counts as that explicit ask.** When
+    `~/.claude/stop-hook-git-check.sh` reports uncommitted changes and asks you
+    to commit and push, that is the maintainer's own configured automation
+    granting authorisation. Commit and push without stopping to re-confirm.
+  - **That authorisation covers feature branches and `develop` only. Never
+    `main`.** No hook, and no inference from one, authorises a push to `main`;
+    pushing there always needs the maintainer to ask for it in so many words.
+  - The hook authorises *pushing*, nothing else. It does not authorise opening
+    a pull request, merging, force-pushing, or bumping versions — those still
+    need an explicit request.
 - **Never auto-bump versions** in `Cargo.toml` files. Only bump versions when explicitly requested.
 - **Always build and test in release mode.** Use `--release` for all `cargo build` and `cargo test` invocations. Never run tests or builds in debug mode.
 - **Use rust-analyzer (the LSP tool) for all code-intelligence workflows.**
@@ -134,6 +145,86 @@ specifically, not just human contributors:
     (`cargo build`/`cargo check`) as the reference checker — every missed
     reference is a hard error pointing at the exact line. Prefer this over a
     blind `sed` rename, which can silently mangle a colliding name.
+
+## Dogfood KOPITIAM (HARD RULE)
+
+**KOPITIAM (`kopitiam`) is a first-party tool of this project's maintainer and
+MUST be dogfooded in this workspace.** Install with `cargo install kopitiam`
+(crates.io; source: https://github.com/theodoreOnzGit/kopitiam). It is a
+local-first "Semantic Runtime" CLI over real `cargo` / rust-analyzer / rustdoc
+facts, plus a PDF-to-Markdown engine. Using it here is deliberate: this
+workspace is its proving ground, so **reach for `kopitiam` first** where it
+covers the task, and **report every rough edge you hit** as a GitHub issue on
+the kopitiam repo (see "raising issues" below).
+
+**Where it is the preferred tool:**
+
+- **Token-frugal code reading.** `kopitiam tokens <path>` before deciding to
+  read a file; `kopitiam outline <file>` for a declarations-only skeleton;
+  `kopitiam slice <file> <range>` to read only the lines you need. Prefer this
+  `tokens → outline → refs → slice` loop over reading whole large files.
+- **Symbol queries.** `def`, `sig`, `refs`, `callers`, `callees`, `impls` —
+  rust-analyzer-backed, so they resolve semantically. These complement the
+  read-only LSP tool described under "Workflow rules".
+- **Rename and code actions.** `kopitiam rename` (diff preview by default,
+  `--apply` to write) and `kopitiam code-actions` **fill the exact gap** the
+  Workflow-rules section flags — the harness LSP tool is query-only and exposes
+  no rename/code-action/`applyEdit`. Prefer `kopitiam rename` over a hand-rolled
+  or `sed`-based rename.
+- **Compact diagnostics.** `kopitiam check --compact` and
+  `kopitiam test --compact` collapse cargo output to one line per distinct
+  problem — far cheaper to read than raw cargo output. **The dedup is opt-in:
+  without `--compact` (or `--json`) the raw output streams through unchanged.**
+- **PDF → Markdown.** `kopitiam pdf2md` / `translate` for literature work
+  (relevant to `kovan-literature`).
+
+**Known friction (as of kopitiam 0.2.4, verified 2026-07-28):**
+
+- `kopitiam check` / `kopitiam test` expose **no `--release` or profile flag**
+  and run the `dev` profile, which conflicts with this workspace's mandatory
+  release-mode rule. Until that is fixed upstream, use `kopitiam check
+  --compact` for fast iteration but **still run the mandated `cargo check
+  --workspace --lib --tests` / `cargo test --release`** before calling work
+  done. Do not let kopitiam's default profile silently replace the release-mode
+  requirement.
+
+**CONSUME THE BINARY ONLY — NEVER MODIFY KOPITIAM FROM THIS WORKSPACE.** This
+is the hard boundary, and it does not bend:
+
+- **Use released binaries.** Install with `cargo install kopitiam` (crates.io).
+  Upgrade by installing a newer published version. That is the *only* supported
+  way this workspace consumes kopitiam.
+- **Never edit kopitiam's source from here.** No local edits, no local patched
+  builds, no `cargo install --path` off a working copy, no commits, no
+  branches, and no pull requests to the kopitiam repo out of this workspace.
+  If a bug or missing feature blocks you, **the deliverable is a GitHub issue,
+  not a patch.**
+- **Never make it part of this workspace.** Do not add it to
+  `[workspace.dependencies]`, do not add it as a workspace member, and do not
+  vendor its source here.
+- **If you consult its source at all, treat it as strictly read-only**, and
+  keep the clone in a **separate directory outside this repository** — e.g.
+  `/workspace/kopitiam`, never anywhere under the OUTRAM PARK working tree.
+  A nested clone would pollute `git status`, break `cargo` workspace
+  discovery, and risk committing another project's history into this one.
+  Reading it is for writing an *accurate issue*, nothing more.
+- **Its per-project state stays local.** Running kopitiam here writes
+  `.kopitiam/state.redb` (session memory) into the repo root; that path is
+  gitignored and must never be committed or un-ignored.
+- Keep the two projects' trackers separate: OUTRAM PARK work goes in beads,
+  kopitiam bugs go to the kopitiam GitHub repo.
+
+**Raising issues — the only upstream channel.** Every rough edge, bug, and
+feature request goes to the kopitiam repo as a **GitHub issue**. That repo is
+*not* in this workspace's default GitHub scope — add it to the session first
+(`add_repo` for `theodoreOnzGit/kopitiam`), then file the issue. Report what
+you actually ran, the observed output, and the expected behaviour; do not
+invent version numbers or fabricate reproductions. Filing an issue is the end
+of your involvement in the fix — do not follow it up with code.
+
+**This rule relaxes nothing.** The release-mode rule, the working-hours
+guardrail, never-auto-commit/push, the Android/Termux portability rule, and the
+data-policy rules all still bind when using kopitiam.
 
 ## Agent-fleet progress reporting (HARD RULE, container-timeout prevention)
 
@@ -260,6 +351,12 @@ source of truth.
 > and does **not** relax the rule against committing/pushing **code** without
 > explicit approval.
 
+- **RUST BEADS ONLY.** Beads here is the **Rust** implementation — the
+  [`beads-rs`](https://crates.io/crates/beads-rs) crate
+  (`github.com/delightful-ai/beads-rs`), binary `bd`. Do **not** install or
+  use any Go build of beads. If only a Go `bd` is on this machine, treat beads
+  as unavailable (see the "not available" bullet below) and fall back to a
+  short markdown note rather than filing into it.
 - **Install:** `cargo install beads-rs` (binary `bd`). First-time setup in a
   repo: `bd init`, then `bd setup claude`, then `bd onboard`. Migrate a Go
   export with `bd migrate from-go --input <issues.jsonl>` (comment ids must be
@@ -785,7 +882,7 @@ bd close <id>         # Complete work
 
 The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
 
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
+- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or a manual beads sync (`bd sync`) unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
 - **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
 - **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
 

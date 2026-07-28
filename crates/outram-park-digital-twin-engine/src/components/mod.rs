@@ -24,7 +24,7 @@ pub use condenser::CondenserVisual;
 pub use cooling_tower::CoolingTowerVisual;
 pub use heat_exchanger::HeatExchangerVisual;
 pub use instrumentation::InstrumentationVisual;
-pub use pipe::PipeVisual;
+pub use pipe::{PipeScalars, PipeVisual, PipeVisualState};
 pub use pump::PumpVisual;
 pub use reactor_vessel::ReactorVesselVisual;
 pub use steam_generator::SteamGeneratorVisual;
@@ -56,8 +56,17 @@ mod tests {
     fn hotness_clamps_and_normalizes() {
         let min = ThermodynamicTemperature::new::<kelvin>(300.0);
         let max = ThermodynamicTemperature::new::<kelvin>(400.0);
-        assert_eq!(hotness_from_temperature(ThermodynamicTemperature::new::<kelvin>(350.0), min, max), 0.5);
-        assert_eq!(hotness_from_temperature(ThermodynamicTemperature::new::<kelvin>(200.0), min, max), 0.0);
-        assert_eq!(hotness_from_temperature(ThermodynamicTemperature::new::<kelvin>(500.0), min, max), 1.0);
+        assert_eq!(
+            hotness_from_temperature(ThermodynamicTemperature::new::<kelvin>(350.0), min, max),
+            0.5
+        );
+        assert_eq!(
+            hotness_from_temperature(ThermodynamicTemperature::new::<kelvin>(200.0), min, max),
+            0.0
+        );
+        assert_eq!(
+            hotness_from_temperature(ThermodynamicTemperature::new::<kelvin>(500.0), min, max),
+            1.0
+        );
     }
 }

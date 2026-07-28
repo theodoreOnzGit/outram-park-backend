@@ -82,7 +82,11 @@
 //!   cfMesh's boundary-layer step): the interior wall points move inward and
 //!   the vacated shell is filled with `n_layers` stacked prism cells per wall
 //!   face. It is a repartition, so it preserves the mesh volume exactly
-//!   (verified: exact volume, closed, `+n_layers × wall_faces` cells).
+//!   (verified: exact volume, closed, `+n_layers × wall_faces` cells). Flat
+//!   (box) walls only — the fixed-thickness march self-intersects on curvature.
+//!   [`layers::add_boundary_layers_adaptive`] handles **curved / polyhedral
+//!   walls** (smoothed normals + per-point thickness limiting + validity
+//!   back-off), verified valid + volume-conserving on snapped spheres/cylinders.
 //! - **Polyhedral dual.** [`dual::polyhedral_dual`] turns a primal mesh into a
 //!   **polyhedral** one — one cell per primal vertex — via the median
 //!   (vertex-centred) dual, the equivalent of OpenFOAM's `polyDualMesh`. The
@@ -101,10 +105,16 @@
 //!   vertices toward their neighbour centroid (smart Laplacian — never inverts a
 //!   cell, pins the boundary), improving cell shape while conserving volume
 //!   exactly (verified: recovers perturbed tet quality, no inversions).
+//! - **Flip-based Delaunay.** [`delaunay::flip_to_delaunay`] improves a tet mesh
+//!   toward Delaunay by bistellar 2→3 / 3→2 flips (Shewchuk [`delaunay::orient3d`]
+//!   / [`delaunay::insphere`] predicates). Volume- and boundary-preserving, with
+//!   an *improve-or-noop* guard so it can never make a mesh worse and refuses
+//!   tangled input (verified: fixes a non-Delaunay bipyramid exactly, conserves
+//!   volume + bounded growth on a block, returns invalid input unchanged).
 //!
-//! Next on the `op-hzs` roadmap: Delaunay-*quality* tet refinement via flips /
-//! point insertion (gmsh — GPLv2+, GPLv3-compatible — is a licence-clean
-//! reference) and multi-patch / feature-aware layer insertion.
+//! Next on the `op-hzs` roadmap: exact/adaptive predicates + size-driven point
+//! insertion (the rest of `op-38z`; gmsh — GPLv2+, GPLv3-compatible — is a
+//! licence-clean reference) and multi-patch / feature-aware layer insertion.
 //!
 //! ## Design rules (workspace `CLAUDE.md`)
 //!
@@ -122,6 +132,7 @@
 pub mod cartesian;
 pub mod carve;
 pub mod checks;
+pub mod delaunay;
 pub mod dual;
 pub mod layers;
 pub mod math;

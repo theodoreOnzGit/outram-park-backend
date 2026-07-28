@@ -81,12 +81,21 @@ pub struct SourceBox {
     pub upper: Position,
 }
 
-/// A fission-source neutron awaiting transport in the next generation.
+/// A fission-source neutron awaiting transport in the next generation. Also the
+/// unit of work for [`crate::physics::fixed_source`], which reuses
+/// [`transport_history`].
 #[derive(Clone, Copy)]
-struct Site {
-    r: Position,
-    u: Direction,
-    e: f64,
+pub(crate) struct Site {
+    pub(crate) r: Position,
+    pub(crate) u: Direction,
+    pub(crate) e: f64,
+}
+
+impl Site {
+    /// A source/fission neutron at position `r`, direction `u`, energy `e` \[eV\].
+    pub(crate) fn new(r: Position, u: Direction, e: f64) -> Site {
+        Site { r, u, e }
+    }
 }
 
 /// Per-history stride \[RNG draws\] reserved for each history's independent
@@ -453,7 +462,7 @@ pub fn run_keff_csg_par(
 /// (the caller's per-generation accumulator); `batch` is flushed into the tally's
 /// persistent bins once per active generation.
 #[allow(clippy::too_many_arguments)]
-fn transport_history(
+pub(crate) fn transport_history(
     site: Site,
     geom: &Geometry,
     materials: &[Material],

@@ -29,6 +29,9 @@ pub use crate::physics::search::{
     search_for_keff, SearchError, SearchIteration, SearchMethod, SearchResult, SearchSettings,
 };
 pub use crate::physics::transport_csg::{run_keff_csg, SourceBox};
+pub use crate::physics::fixed_source::{
+    run_fixed_source, FixedSource, FixedSourceResult, FixedSourceSettings,
+};
 pub use crate::pebble_beds::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
 pub use crate::pebble_beds::keff_delta::run_keff_delta;
 pub use crate::pebble_beds::sphere_packing::{pack_spheres, PackedSpheres, PackingConfig, PackingMethod};

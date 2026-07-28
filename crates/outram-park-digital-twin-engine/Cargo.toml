@@ -54,6 +54,13 @@ env_logger.workspace = true
 # (FlowArrangement / PumpSpecification / OpeningCharacteristic /
 # ValveFlowCoefficient) live in this crate; tampines does not re-export them.
 outram-park-fork-dwsim-libs.workspace = true
+# htgr_sim_v1's helium primary loop evaluates real, temperature-dependent
+# helium properties (c_p, density) via `state_pt`. tampines re-exports the
+# `Fluid` selector (`tampines::fluids::TampinesFluid`) but not the property
+# flashes themselves, so the example reaches the backend directly -- same
+# precedent as outram-park-fork-dwsim-libs above. Promoting a property
+# accessor into tampines is the tidier long-term home.
+outram-park-fork-coolprop.workspace = true
 
 [[example]]
 name = "fhr_sim_v2"
