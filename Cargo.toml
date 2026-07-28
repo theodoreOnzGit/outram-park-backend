@@ -96,11 +96,16 @@ anyhow = "1.0.100"
 # no target gate and may be depended on unconditionally by non-GUI code. Re-check
 # on a major version bump: a future move to `ring`/`aws-lc-rs` would break this.
 #
-# INTENDED USE: OPC UA is an industrial plant protocol, so it is bound by
-# `RESPONSIBLE_USE.md` — usable here only for **offline demonstrations**
-# (simulated/loopback servers, education, research, V&V). It must NEVER be wired
-# to a live plant, operational system, safety-critical infrastructure, or any
-# institutional production system.
+# INTENDED USE / SCOPE: OPC UA is an industrial plant protocol. Per
+# `RESPONSIBLE_USE.md`, what *this project* builds and ships with it stays to
+# **offline demonstrations** — simulated/loopback servers for education,
+# research, and V&V. Nothing here is validated, supported, or claimed fit for
+# reactor operation, control, licensing, or safety-critical use.
+#
+# That is a statement of scope, not a restriction on you: this is GPLv3 software
+# supplied **as-is with no warranty** (GPLv3 §15-16), so downstream use is at the
+# user's own risk and their own responsibility. The project simply does not
+# certify it for operational deployment and will not represent that it is.
 #
 # Note: declaring it here does not build it — a member crate must opt in with
 # `async-opcua.workspace = true`.
