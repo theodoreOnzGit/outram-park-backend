@@ -16,8 +16,48 @@ tampines.workspace = true
 nee_soon.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
 
+# TUAS is a REAL (non-dev) dependency because the CIET Educational Simulator v2
+# is a `[[bin]]`, and Cargo does not make dev-dependencies available to binary
+# targets (only to tests/examples/benches). TUAS's own library is pure Rust
+# (approx/csv/ndarray/peroxide/roots/thiserror/uom -- no BLAS, no ndarray-linalg),
+# so promoting it here does not endanger the Android build.
+#
+# NOTE: the crate LIBRARY does not use TUAS at all -- per this crate's CLAUDE.md
+# ("no new physics in this crate's library"), all CIET physics lives in the
+# binary's own module tree under src/bin/ciet_educational_simulator_v2/.
+tuas_boussinesq_solver.workspace = true
+
 # Public API primitives -- dimensioned quantities.
 uom.workspace = true
+
+# OPC-UA (IEC 62541) interface layer for the CIET Educational Simulator v2.
+# Pure Rust (RustCrypto, not openssl-sys), so this stays Android/Termux-clean
+# and needs NO target gate -- the `ciet_opcua` library module builds everywhere,
+# including headless on Termux. `server` for the simulator, `client` for the
+# bundled demo client binary.
+#
+# SCOPE (RESPONSIBLE_USE.md): an OFFLINE demonstration interface only. Never to
+# be connected to live operational systems, plant systems, safety-critical
+# infrastructure, or institutional production systems.
+async-opcua = { workspace = true, features = ["server", "client"] }
+tokio.workspace = true
+# Cooperative mDNS/DNS-SD announce + browse, so the simulator can be found on a
+# local network without anyone scanning it. See the root Cargo.toml note.
+mdns-sd.workspace = true
+# `~/.outram-park` (Linux/Termux) / `%APPDATA%\outram-park` (Windows) discovery
+# for the OPC-UA PKI directory.
+directories.workspace = true
+# Reports the machine's own LAN address so the UI can print a connect URL that
+# other devices on the same network can actually reach.
+local-ip-address.workspace = true
+# Error enums for the OPC-UA server/discovery layer.
+thiserror.workspace = true
+
+# `RUST_LOG=debug` logging for the CIET v2 binary (v1 called `env_logger::init()`
+# and this keeps that). A REAL dependency, not a dev-dependency, because Cargo
+# does not make dev-dependencies available to [[bin]] targets. Pure Rust, so it
+# does not endanger the Android/Termux build; the headless path uses it too.
+env_logger.workspace = true
 
 # GUI stack. Android-hostile -- `eframe` pulls in `android-activity`, which
 # fails to compile as a plain library dependency (it expects the NativeActivity
@@ -43,12 +83,14 @@ egui_extras.workspace = true
 [dev-dependencies]
 teh-o-prke.workspace = true
 tampines-steam-tables.workspace = true
-tuas_boussinesq_solver.workspace = true
+# tuas_boussinesq_solver is now a REAL dependency above (the CIET v2 binary needs
+# it and bins cannot see dev-deps); it stays usable from examples/tests either way.
 roots.workspace = true
 ndarray.workspace = true
 outram-foam-basic-lib.workspace = true
 serde.workspace = true
-env_logger.workspace = true
+# env_logger is now a REAL dependency above (the CIET v2 [[bin]] needs it and
+# bins cannot see dev-deps); it stays usable from the examples either way.
 # htgr_sim_v1 schematic constructs tampines equipment wrappers (HeatExchanger,
 # SteamGenerator, Pump, Valve) whose constructor argument enums
 # (FlowArrangement / PumpSpecification / OpeningCharacteristic /
@@ -69,4 +111,20 @@ path = "examples/fhr_sim_v2/main.rs"
 [[example]]
 name = "htgr_sim_v1"
 path = "examples/htgr_sim_v1/main.rs"
+
+# CIET Educational Simulator v2 -- the simulator itself (physics + egui GUI +
+# embedded OPC-UA server). A [[bin]], not an example, so `cargo install` /
+# `cargo run --bin` reach it directly. Its physics model lives in the binary's
+# own module tree, keeping new physics out of the crate library per this crate's
+# CLAUDE.md.
+[[bin]]
+name = "ciet_educational_simulator_v2"
+path = "src/bin/ciet_educational_simulator_v2/main.rs"
+
+# The bundled OPC-UA demo *client* -- a small egui app that discovers CIET v2
+# instances on the local network over mDNS, connects, reads the live outputs and
+# writes the controls. Offline demonstration tooling only.
+[[bin]]
+name = "ciet_v2_opcua_client"
+path = "src/bin/ciet_v2_opcua_client/main.rs"
 

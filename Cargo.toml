@@ -201,6 +201,36 @@ wgpu = "29.0.3"
 # pulled into the tree.
 naga = "29.0.3"
 
+# OPC-UA support crates. `async-opcua` itself is declared once, further up under
+# "OPC UA client/server" — do not add a second entry here; duplicate keys in
+# `[workspace.dependencies]` are invalid TOML, and because the two blocks sit far
+# apart in this file a parallel edit can add one without producing a git
+# conflict. (That is exactly what happened on 2026-07-28.)
+#
+# Cooperative service discovery (mDNS / DNS-SD) so a demonstrator can announce
+# itself on the local link and a client can *browse* for it. This is the
+# deliberate alternative to scanning a subnet for open ports: the server
+# volunteers its presence (exactly like a printer or a Chromecast), nothing is
+# probed. `_opcua-tcp._tcp` is the DNS-SD service type the OPC Foundation's own
+# LDS-ME uses. Pure Rust, no async runtime of its own, MIT/Apache-2.0.
+#
+# NEVER use this crate (or any other) to build a port scanner or host sweeper
+# in this workspace — unsolicited scanning of a network you do not administer
+# breaches institutional acceptable-use policy and is out of scope per
+# RESPONSIBLE_USE.md (no security-sensitive analysis).
+mdns-sd = "0.20.3"
+# Async runtime required by async-opcua's server/client. Pure Rust; the
+# `net`/`time`/`sync` features are all the OPC-UA server needs, plus
+# `rt-multi-thread` so the server thread owns its own runtime independent of
+# any GUI event loop.
+tokio = { version = "1.53", features = [
+    "rt-multi-thread",
+    "net",
+    "time",
+    "sync",
+    "macros",
+] }
+
 # internal workspace crates — depend on these by path so members use the
 # in-tree copy rather than a crates.io release.
 chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.1.0" }
