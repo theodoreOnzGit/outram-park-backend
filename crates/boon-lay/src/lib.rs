@@ -1,6 +1,12 @@
 /// prelude is here for easy imports
 pub mod prelude;
 
+/// Compute-backend selector (`ComputeType` / `ThreadCount`) — the runtime CPU vs
+/// wgpu resource switcher for the Walk-on-Spheres ensembles, mirroring the
+/// `outram-mc-libs` `ComputeType`. Compiles on all targets (the GPU *body* is
+/// gated, not this enum), so `Gpu` is always selectable and falls back to CPU.
+pub mod compute;
+
 /// import the nuclide enum
 pub use fission_yields_data::prelude::Nuclide;
 /// import all nuclides into this crate

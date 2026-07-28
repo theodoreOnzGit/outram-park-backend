@@ -1,12 +1,14 @@
 //! Real-time TRISO diffusion driven by the Walk-on-Spheres first-passage engine.
 //!
 //! An `egui`/`eframe` demonstrator that animates an ensemble of fission-product
-//! atoms diffusing out of a TRISO particle. Each frame advances every atom by a
-//! user-set slice of simulated time using the timestep-free Walk-on-Spheres
-//! engine (in parallel with `rayon`), then draws their positions and the live
-//! release-fraction curve. Because the engine is event-driven — not
-//! timestep-limited by the fast buffer layer — the animation runs smoothly
-//! without the host lagging.
+//! atoms diffusing out of a TRISO particle. A **background worker thread** owns
+//! the ensemble and advances it with the selected compute backend
+//! ([`boon_lay::compute::ComputeType`] — CPU single/multi-thread or the `wgpu`
+//! GPU kernel), publishing a small snapshot through an `Arc<RwLock<…>>`. The UI
+//! thread only reads the latest snapshot and renders, so it never blocks on the
+//! compute and stays smooth even when the SiC-barrier bounce makes a frame
+//! expensive. A tap cycles the backend; the panel shows the effective backend
+//! and live GPU availability.
 //!
 //! GUI (egui/eframe) example — out of scope for Android, which has no windowing
 //! stack. On Android the real entry point and its egui-using module are gated
@@ -32,44 +34,58 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod app {
-    use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::central_limit_theorem::oorandom_rng::OoRng64;
-    use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::walk_on_spheres::{
-        sample_uniform_in_ball, WalkParams, WoSWalker,
+    use boon_lay::compute::ComputeType;
+    use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::live::{
+        LiveEnsemble, Snapshot,
     };
+    use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::walk_on_spheres::WalkParams;
     use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell;
     use boon_lay::Nuclide;
     use egui_plot::{Legend, Line, Plot, PlotPoints, Points};
-    use rayon::prelude::*;
-    use uom::si::f64::Time;
+    use std::sync::{Arc, RwLock};
+    use std::thread;
+    use std::time::Duration;
+    use uom::si::f64::{ThermodynamicTemperature, Time};
     use uom::si::length::micrometer;
     use uom::si::thermodynamic_temperature::degree_celsius;
     use uom::si::time::second;
-    use uom::si::f64::ThermodynamicTemperature;
 
-    /// The live diffusion demonstrator state.
-    pub struct RealtimeApp {
-        cell: TrisoCell,
-        params: WalkParams,
-        nuclide: Nuclide,
-        walkers: Vec<WoSWalker>,
-        released: Vec<bool>,
-        n_walkers: usize,
-        sim_time_s: f64,
-        /// Simulated seconds advanced per rendered frame.
-        speed_s_per_frame: f64,
+    const TEMPERATURE_C: f64 = 1600.0;
+    const NUCLIDE: Nuclide = Nuclide::Cs137;
+    const SEED: u64 = 0x0B00_1A47;
+    const MAX_HISTORY: usize = 4000;
+
+    /// State shared between the UI thread and the background compute worker.
+    ///
+    /// Per the workspace `CLAUDE.md`, shared mutable state uses `Arc<RwLock<…>>`,
+    /// not channels. The UI writes the *controls* and reads the *published*
+    /// fields; the worker does the reverse. Locks are held only briefly (never
+    /// across the heavy advance), so the UI never stalls.
+    struct Shared {
+        // --- controls: UI writes, worker reads ---
         running: bool,
-        seed: u64,
-        /// (simulated time [s], cumulative release fraction).
+        speed_s_per_frame: f64,
+        compute: ComputeType,
+        n_walkers: usize,
+        reset_requested: bool,
+        rebuild_requested: bool,
+        // --- published: worker writes, UI reads ---
+        snapshot: Snapshot,
         release_history: Vec<[f64; 2]>,
+        // --- static (set once) ---
+        gpu_available: bool,
+        gpu_name: String,
         layer_radii_um: [f64; 5],
+    }
+
+    /// The live diffusion demonstrator.
+    pub struct RealtimeApp {
+        shared: Arc<RwLock<Shared>>,
     }
 
     impl RealtimeApp {
         pub fn new() -> Self {
-            let mut cell = TrisoCell::new_crp6_geometry();
-            // A high temperature keeps the diffusion coefficients large enough
-            // that release is visible within the demo's time span.
-            cell.set_uniform_temperature(ThermodynamicTemperature::new::<degree_celsius>(1600.0));
+            let cell = TrisoCell::new_crp6_geometry();
             let layer_radii_um = [
                 cell.get_fuel_radius().get::<micrometer>(),
                 cell.get_buffer_radius().get::<micrometer>(),
@@ -77,117 +93,197 @@ mod app {
                 cell.get_sic_radius().get::<micrometer>(),
                 cell.get_opyc_radius().get::<micrometer>(),
             ];
-            let mut app = Self {
-                cell,
-                params: WalkParams::crp6_default(),
-                nuclide: Nuclide::Cs137,
-                walkers: Vec::new(),
-                released: Vec::new(),
-                n_walkers: 3000,
-                sim_time_s: 0.0,
-                speed_s_per_frame: 5.0e4,
-                running: false,
-                seed: 0x0B00_1A47,
-                release_history: Vec::new(),
-                layer_radii_um,
+            let (gpu_available, gpu_name) = match boon_lay::gpu::cached_context() {
+                Some(ctx) => (true, ctx.adapter_name().to_string()),
+                None => (false, String::new()),
             };
-            app.reset();
-            app
+
+            let shared = Arc::new(RwLock::new(Shared {
+                running: false,
+                speed_s_per_frame: 5.0e4,
+                compute: ComputeType::default(),
+                n_walkers: 3000,
+                reset_requested: false,
+                rebuild_requested: false,
+                snapshot: Snapshot::default(),
+                release_history: vec![[0.0, 0.0]],
+                gpu_available,
+                gpu_name,
+                layer_radii_um,
+            }));
+
+            let worker_shared = Arc::clone(&shared);
+            thread::spawn(move || worker(worker_shared));
+
+            Self { shared }
         }
+    }
 
-        /// Rebuild the ensemble at the kernel with a fresh clock.
-        fn reset(&mut self) {
-            let fuel_radius = self.cell.get_fuel_radius();
-            let mut master = OoRng64::from_u64(self.seed);
-            self.walkers = (0..self.n_walkers)
-                .map(|_| {
-                    let start = sample_uniform_in_ball(&mut master.0, fuel_radius);
-                    let child = OoRng64::from_u64(master.next_u64());
-                    WoSWalker::new(start, self.nuclide, child)
-                })
-                .collect();
-            self.released = vec![false; self.n_walkers];
-            self.sim_time_s = 0.0;
-            self.release_history = vec![[0.0, 0.0]];
+    /// Build a fresh ensemble of `n` atoms in the CRP-6 geometry at the demo
+    /// temperature.
+    fn build_ensemble(n: usize) -> LiveEnsemble {
+        LiveEnsemble::new(
+            TrisoCell::new_crp6_geometry(),
+            WalkParams::crp6_default(),
+            NUCLIDE,
+            ThermodynamicTemperature::new::<degree_celsius>(TEMPERATURE_C),
+            n,
+            SEED,
+        )
+    }
+
+    /// The compute worker: advance the ensemble with the selected backend and
+    /// publish a snapshot each frame. Runs for the process lifetime.
+    fn worker(shared: Arc<RwLock<Shared>>) {
+        let n0 = shared.read().unwrap().n_walkers;
+        let mut ensemble = build_ensemble(n0);
+        shared.write().unwrap().snapshot = ensemble.snapshot();
+
+        loop {
+            let (running, speed, compute, n, reset, rebuild) = {
+                let s = shared.read().unwrap();
+                (
+                    s.running,
+                    s.speed_s_per_frame,
+                    s.compute,
+                    s.n_walkers,
+                    s.reset_requested,
+                    s.rebuild_requested,
+                )
+            };
+
+            if reset || rebuild {
+                ensemble = build_ensemble(n);
+                let mut s = shared.write().unwrap();
+                s.reset_requested = false;
+                s.rebuild_requested = false;
+                s.release_history = vec![[0.0, 0.0]];
+                s.snapshot = ensemble.snapshot();
+                continue;
+            }
+
+            if !running {
+                thread::sleep(Duration::from_millis(16));
+                continue;
+            }
+
+            let until = ensemble.sim_time() + Time::new::<second>(speed);
+            ensemble.advance_frame(compute, until); // no lock held during the heavy work
+            let snapshot = ensemble.snapshot();
+
+            let mut s = shared.write().unwrap();
+            s.release_history
+                .push([snapshot.sim_time_s, snapshot.released_fraction]);
+            if s.release_history.len() > MAX_HISTORY {
+                let overflow = s.release_history.len() - MAX_HISTORY;
+                s.release_history.drain(0..overflow);
+            }
+            s.snapshot = snapshot;
         }
+    }
 
-        /// Advance every still-contained atom to the next frame's target time.
-        fn advance(&mut self) {
-            let target = self.sim_time_s + self.speed_s_per_frame;
-            let target_time = Time::new::<second>(target);
-
-            let cell = &self.cell;
-            let params = &self.params;
-            let walkers = &mut self.walkers;
-            let released = &mut self.released;
-            walkers
-                .par_iter_mut()
-                .zip(released.par_iter_mut())
-                .for_each(|(walker, is_released)| {
-                    if !*is_released && !walker.diffuse_until(cell, params, target_time) {
-                        *is_released = true;
-                    }
-                });
-
-            self.sim_time_s = target;
-            let released_count = self.released.iter().filter(|&&r| r).count();
-            let fraction = released_count as f64 / self.n_walkers.max(1) as f64;
-            self.release_history.push([self.sim_time_s, fraction]);
+    /// Honest description of the effective backend, given the selection and live
+    /// GPU availability (mirrors the `outram-mc-tui` idiom).
+    fn gpu_status_line(compute: ComputeType, available: bool, name: &str) -> String {
+        match (compute, available) {
+            (ComputeType::Gpu, true) => format!("GPU active: {name}"),
+            (ComputeType::Gpu, false) => "No GPU adapter — running on the CPU path".to_string(),
+            (_, true) => format!("GPU available: {name} (not selected)"),
+            (_, false) => "No GPU adapter on this device".to_string(),
         }
+    }
 
-        fn current_release_fraction(&self) -> f64 {
-            self.release_history.last().map(|p| p[1]).unwrap_or(0.0)
-        }
-
-        fn circle_um(radius_um: f64) -> Vec<[f64; 2]> {
-            (0..=72)
-                .map(|k| {
-                    let a = std::f64::consts::TAU * k as f64 / 72.0;
-                    [radius_um * a.cos(), radius_um * a.sin()]
-                })
-                .collect()
-        }
+    fn circle_um(radius_um: f64) -> Vec<[f64; 2]> {
+        (0..=72)
+            .map(|k| {
+                let a = std::f64::consts::TAU * k as f64 / 72.0;
+                [radius_um * a.cos(), radius_um * a.sin()]
+            })
+            .collect()
     }
 
     impl eframe::App for RealtimeApp {
         fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
             let ctx = ui.ctx().clone();
+            // Repaint at a steady display rate; the worker drives the simulation
+            // independently, so the UI never blocks on compute.
+            ctx.request_repaint_after(Duration::from_millis(33));
 
-            if self.running {
-                self.advance();
-                ctx.request_repaint();
-            }
+            // One brief read lock to grab everything the frame needs.
+            let (
+                snapshot,
+                release_history,
+                layer_radii_um,
+                gpu_available,
+                gpu_name,
+                running,
+                mut speed,
+                compute,
+                mut n_walkers,
+            ) = {
+                let s = self.shared.read().unwrap();
+                (
+                    s.snapshot.clone(),
+                    s.release_history.clone(),
+                    s.layer_radii_um,
+                    s.gpu_available,
+                    s.gpu_name.clone(),
+                    s.running,
+                    s.speed_s_per_frame,
+                    s.compute,
+                    s.n_walkers,
+                )
+            };
 
             egui::TopBottomPanel::top("controls").show(&ctx, |ui| {
                 ui.heading("Walk-on-Spheres real-time TRISO diffusion (Cs-137, 1600 \u{b0}C)");
                 ui.horizontal(|ui| {
                     if ui
-                        .button(if self.running { "\u{23f8} Pause" } else { "\u{25b6} Run" })
+                        .button(if running { "\u{23f8} Pause" } else { "\u{25b6} Run" })
                         .clicked()
                     {
-                        self.running = !self.running;
+                        self.shared.write().unwrap().running = !running;
                     }
                     if ui.button("\u{21ba} Reset").clicked() {
-                        self.reset();
+                        self.shared.write().unwrap().reset_requested = true;
                     }
                     ui.separator();
-                    ui.label(format!("sim time: {:.3e} s", self.sim_time_s));
-                    ui.label(format!(
-                        "released: {:.1}%",
-                        100.0 * self.current_release_fraction()
-                    ));
-                    ui.label(format!("atoms: {}", self.n_walkers));
+                    ui.label(format!("sim time: {:.3e} s", snapshot.sim_time_s));
+                    ui.label(format!("released: {:.1}%", 100.0 * snapshot.released_fraction));
+                    ui.label(format!("atoms: {}", snapshot.n_total));
                 });
                 ui.horizontal(|ui| {
-                    ui.add(
-                        egui::Slider::new(&mut self.speed_s_per_frame, 1.0e3..=1.0e6)
-                            .logarithmic(true)
-                            .text("sim seconds / frame"),
-                    );
-                    ui.add(
-                        egui::Slider::new(&mut self.n_walkers, 500..=20000)
-                            .text("atoms (applied on Reset)"),
-                    );
+                    if ui
+                        .add(
+                            egui::Slider::new(&mut speed, 1.0e3..=1.0e6)
+                                .logarithmic(true)
+                                .text("sim seconds / frame"),
+                        )
+                        .changed()
+                    {
+                        self.shared.write().unwrap().speed_s_per_frame = speed;
+                    }
+                    if ui
+                        .add(
+                            egui::Slider::new(&mut n_walkers, 500..=20000)
+                                .text("atoms (rebuilds on change)"),
+                        )
+                        .changed()
+                    {
+                        let mut s = self.shared.write().unwrap();
+                        s.n_walkers = n_walkers;
+                        s.rebuild_requested = true;
+                    }
+                });
+                ui.horizontal(|ui| {
+                    if ui
+                        .button(format!("\u{1f5a5} Backend: {}", compute.label()))
+                        .on_hover_text("Click to cycle CPU single \u{2192} CPU multi \u{2192} GPU")
+                        .clicked()
+                    {
+                        self.shared.write().unwrap().compute = compute.next();
+                    }
+                    ui.label(gpu_status_line(compute, gpu_available, &gpu_name));
                 });
             });
 
@@ -201,29 +297,17 @@ mod app {
                         .x_axis_label("simulated time (s)")
                         .y_axis_label("released fraction")
                         .show(ui, |plot_ui| {
-                            plot_ui.line(Line::new(
-                                "M(t)/M_inf",
-                                PlotPoints::from(self.release_history.clone()),
-                            ));
+                            plot_ui.line(Line::new("M(t)/M_inf", PlotPoints::from(release_history)));
                         });
                     ui.separator();
                     ui.label(
-                        "Each atom is walked to the OPyC surface with no timestep; \
-                         the SiC layer's interface rule holds most of them back.",
+                        "The compute runs on a background thread; the UI only reads snapshots, \
+                         so it stays smooth no matter how heavy a frame is. Each atom is walked \
+                         to the OPyC surface with no timestep; the SiC interface holds most back.",
                     );
                 });
 
             egui::CentralPanel::default().show(&ctx, |ui| {
-                let contained: Vec<[f64; 2]> = self
-                    .walkers
-                    .iter()
-                    .zip(&self.released)
-                    .filter(|(_, &r)| !r)
-                    .map(|(w, _)| {
-                        [w.position[0].get::<micrometer>(), w.position[1].get::<micrometer>()]
-                    })
-                    .collect();
-
                 Plot::new("positions")
                     .legend(Legend::default())
                     .data_aspect(1.0)
@@ -231,12 +315,15 @@ mod app {
                     .x_axis_label("x (\u{b5}m)")
                     .y_axis_label("y (\u{b5}m)")
                     .show(ui, |plot_ui| {
-                        for &r in &self.layer_radii_um {
-                            plot_ui
-                                .line(Line::new("", PlotPoints::from(Self::circle_um(r))));
+                        for &r in &layer_radii_um {
+                            plot_ui.line(Line::new("", PlotPoints::from(circle_um(r))));
                         }
                         plot_ui.points(
-                            Points::new("atoms (x-y slice)", PlotPoints::from(contained)).radius(1.5),
+                            Points::new(
+                                "atoms (x-y slice)",
+                                PlotPoints::from(snapshot.positions_xy_um),
+                            )
+                            .radius(1.5),
                         );
                     });
             });

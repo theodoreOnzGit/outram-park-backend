@@ -1,3 +1,4 @@
+use boon_lay::compute::ComputeType;
 use boon_lay::Nuclide;
 use egui::Ui;
 use egui_plot::{Legend, Line, Plot, PlotPoints};
@@ -210,6 +211,19 @@ impl TRISOSimApp {
         }
         ui.separator();
 
+        ui.heading("Compute backend (diffusion)");
+        let backend = self.simulator_state.lock().unwrap().get_compute_backend();
+        if ui
+            .button(format!("Backend: {}", backend.label()))
+            .on_hover_text("Click to cycle CPU single \u{2192} CPU multi \u{2192} GPU")
+            .clicked()
+        {
+            self.simulator_state.lock().unwrap().cycle_compute_backend();
+        }
+        ui.label(gpu_status_line(backend));
+
+        ui.separator();
+
         ui.heading("TRISO Particle Temperature Control");
         let mut simulator_state_guard = self.simulator_state.lock().unwrap();
 
@@ -354,5 +368,19 @@ impl TRISOSimApp {
             .set_user_selected_nuclide(nuclide);
 
         ui.separator();
+    }
+}
+
+/// Honest one-line description of the effective diffusion backend, given the
+/// selection and live (cached) GPU availability.
+fn gpu_status_line(backend: ComputeType) -> String {
+    let available = boon_lay::gpu::gpu_available();
+    match (backend, available) {
+        (ComputeType::Gpu, true) => {
+            "GPU active — batched, single-nuclide-D approximation".to_string()
+        }
+        (ComputeType::Gpu, false) => "No GPU adapter — diffusion runs on the CPU".to_string(),
+        (_, true) => "GPU available (not selected)".to_string(),
+        (_, false) => "No GPU adapter on this device".to_string(),
     }
 }
