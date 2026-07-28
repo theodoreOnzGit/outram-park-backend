@@ -136,6 +136,71 @@ inventory this single-node model does not carry.
 The fluoride-salt-cooled high-temperature reactor simulator, migrated from
 `tampines-steam-tables`.
 
+## Binaries — CIET Educational Simulator v2
+
+Alongside the examples, this crate ships two `[[bin]]` targets for the **CIET
+Educational Simulator v2**: a real-time educational simulator of the CIET
+integral-effects test facility (UC Berkeley), ported from v1, which remains
+available as `cargo run --release --example ciet_educational_simulator` in
+`crates/tuas_boussinesq_solver`. Its physics lives in the binary's own module
+tree, keeping new physics out of the crate library per this crate's `CLAUDE.md`.
+
+| Binary | What it is |
+|---|---|
+| `ciet_educational_simulator_v2` | The simulator: TUAS-backed CIET physics, the egui GUI, and an embedded **OPC-UA (IEC 62541)** server on a parallel thread. Also runs `--headless` (physics plus OPC-UA server, no window), which is what makes on-device Termux use possible |
+| `ciet_v2_opcua_client` | A small egui **demo OPC-UA client** that finds a running simulator over mDNS, connects, reads the live outputs and writes the controls. Desktop only |
+
+```bash
+cargo run --release --bin ciet_educational_simulator_v2
+cargo run --release --bin ciet_educational_simulator_v2 -- --headless
+cargo run --release --bin ciet_v2_opcua_client
+```
+
+The shared interface between them is the `ciet_opcua` **library** module —
+`state`, `node_map`, `server`, `discovery`, `pki_paths`. It holds no physics and
+no GUI, so it compiles everywhere the workspace targets, including headless for
+`aarch64-linux-android`; `async-opcua` uses RustCrypto rather than `openssl-sys`
+for exactly that reason. The address space is 36 variables (21 read-only
+signals, 8 writable continuous controls, 7 writable switches) at
+`opc.tcp://<host>:4840/ciet`, all derived from three enums in
+`src/ciet_opcua/node_map.rs`.
+
+**Three things to know before running it:**
+
+- **No authentication, no encryption.** The OPC-UA server uses
+  `SecurityPolicy::None` with anonymous access, so anyone on the same network can
+  read every value and write every control. That is a deliberate choice for a
+  teaching demonstrator; hardening is out of scope. Fine on a phone hotspot, a
+  home router, or a lab bench — not on public or untrusted WiFi. Use
+  `--bind 127.0.0.1` for local-only.
+- **It will not work over campus or enterprise WiFi.** Those networks enable
+  client isolation and/or filter mDNS, so both discovery and the direct
+  connection fail, and no configuration fixes it. Use a phone hotspot or a home
+  router.
+- **Offline demonstration only.** Per `RESPONSIBLE_USE.md`, the OPC-UA interface
+  exists so standard industrial tooling can drive an offline teaching model on a
+  bench. It must never be connected to live operational systems, plant systems,
+  safety-critical infrastructure, real-time plant monitoring, or institutional
+  production systems.
+
+**Honest status.** The physics is a faithful port of v1's, and the maintainer has
+done validation work on **v1** (see
+`crates/tuas_boussinesq_solver/verification_and_validation/`), but the **port
+equivalence between v1 and v2 has not been verified** — no side-by-side
+comparison has been run. The OPC-UA layer has interface unit tests (identifier
+uniqueness, clamping, `NaN` rejection, switch round-tripping, browse-name
+validity), which verify the contract and say nothing about the physics. Termux
+support is **unverified**: the `aarch64-linux-android` `cargo check` is only a
+proxy and no native on-device Termux build has been run.
+
+Documentation:
+
+- [`src/bin/ciet_educational_simulator_v2/README.md`](src/bin/ciet_educational_simulator_v2/README.md)
+  — running it, the GUI pages, the node tables, security, and limitations.
+- [`docs/ciet-v2-opcua.md`](docs/ciet-v2-opcua.md) — the deep OPC-UA reference:
+  full node table, write semantics, the discovery design and why there is no
+  scanner, the unaddressed threat model, and troubleshooting.
+
 ## Android / portability
 
 This crate makes **no Android-portability claim** for its GUI modules — unlike

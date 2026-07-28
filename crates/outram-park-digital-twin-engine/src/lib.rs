@@ -66,6 +66,12 @@
 // `cargo check --target aarch64-linux-android` clean (see workspace CLAUDE.md
 // Android-portability rule). Desktop builds are unchanged.
 pub mod animation;
+// `ciet_opcua` is the OPC-UA interface layer shared by the two CIET
+// Educational Simulator v2 binaries. It is deliberately GUI-free and
+// physics-free, and `async-opcua` is pure Rust (RustCrypto, not openssl-sys),
+// so this module builds on Android/Termux with no target gate -- the headless
+// Termux build of the simulator serves OPC-UA exactly as the desktop one does.
+pub mod ciet_opcua;
 #[cfg(not(target_os = "android"))]
 pub mod app_scaffold;
 #[cfg(not(target_os = "android"))]
