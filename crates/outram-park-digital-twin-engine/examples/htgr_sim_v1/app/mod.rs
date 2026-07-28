@@ -36,6 +36,7 @@ use crate::physics::HtgrPlant;
 use panels::{
     draw_controls, draw_diagnostics_panel, draw_plots_panel, draw_schematic_panel, Panel,
 };
+use schematic::SchematicTracers;
 use state::{HtgrPlotData, HtgrSnapshot};
 
 /// Physics timestep per substep \[s\].
@@ -59,6 +60,11 @@ pub struct HtgrSimApp {
     thread_health: ThreadHealth,
     /// Currently open panel.
     open_panel: Panel,
+    /// Flow-tracer trains for the schematic's connector runs. Owned here (not
+    /// by the widgets, which are rebuilt every repaint) and advanced once per
+    /// frame from the real loop residence times -- see
+    /// [`outram_park_digital_twin_engine::animation`].
+    tracers: SchematicTracers,
 }
 
 impl HtgrSimApp {
@@ -115,6 +121,7 @@ impl HtgrSimApp {
             plots,
             thread_health,
             open_panel: Panel::Schematic,
+            tracers: SchematicTracers::new(),
         }
     }
 }
@@ -129,6 +136,12 @@ impl eframe::App for HtgrSimApp {
         }
 
         let snapshot = self.physics.snapshot();
+
+        // Advance the schematic's flow tracers by this frame's wall-clock
+        // delta. The physics thread runs ~1:1 with wall time (10 substeps of
+        // 1 ms per 10 ms tick), so frame time is the right animation clock.
+        let frame_dt = Time::new::<second>(ui.input(|i| i.stable_dt) as f64);
+        self.tracers.advance(frame_dt, &snapshot);
 
         egui::Panel::top("htgr_top").show_inside(ui, |ui| {
             ui.heading(
@@ -148,7 +161,7 @@ impl eframe::App for HtgrSimApp {
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
             egui::ScrollArea::both().show(ui, |ui| match self.open_panel {
-                Panel::Schematic => draw_schematic_panel(ui, &snapshot),
+                Panel::Schematic => draw_schematic_panel(ui, &snapshot, &self.tracers),
                 Panel::Plots => {
                     let plots = self.plots.snapshot();
                     draw_plots_panel(ui, &plots);

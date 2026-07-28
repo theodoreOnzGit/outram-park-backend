@@ -28,7 +28,7 @@
 
 use outram_foam_basic_lib::ldu_matrix::LduMatrix;
 
-use super::krylov::{distributed_bicgstab_with, distributed_cg_with, distributed_dot};
+use super::krylov::{distributed_bicgstab_with, distributed_cg_with};
 use super::Decomposition1D;
 use crate::grid::CartesianGrid;
 use outram_park_mpi::{Communicator, MpiResult};
@@ -365,6 +365,9 @@ pub fn serial_ldu_bicgstab(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Used only by the convergence assertions below, so it is imported here
+    // rather than at module scope (where it is genuinely unused by the lib).
+    use super::super::krylov::distributed_dot;
     use outram_park_mpi::run;
     use uom::si::f64::Length;
     use uom::si::length::meter;

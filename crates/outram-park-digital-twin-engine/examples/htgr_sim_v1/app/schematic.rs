@@ -14,17 +14,31 @@
 //!
 //! Widgets used (all from the engine crate): [`ReactorVesselVisual`],
 //! [`HeatExchangerVisual`], [`SteamGeneratorVisual`], [`TurbineVisual`],
-//! [`CondenserVisual`], [`PumpVisual`], [`ValveVisual`], and
-//! [`InstrumentationVisual`]. Connectors between components are drawn as plain
-//! `painter` lines: the engine's [`PipeVisual`](outram_park_digital_twin_engine::components::PipeVisual)
-//! needs a heavy `tampines` fluid-array backend to construct, deferred to v2
-//! (bead `op-wqk.9.4`).
+//! [`CondenserVisual`], [`PumpVisual`], [`ValveVisual`],
+//! [`InstrumentationVisual`], and [`PipeVisual`] for every connector run.
+//!
+//! ## Connectors are real pipe widgets, with flow tracers
+//!
+//! The connector runs are [`PipeVisual`]s built through
+//! [`PipeVisual::from_scalars`], not raw `painter` lines. A full
+//! `tampines::components::Pipe` would need a `SinglePhaseFluidArray` or
+//! `CompressibleFluidArray` per connector, which is far more machinery than a
+//! schematic line needs; the scalar path takes this plant's own real
+//! temperature, mass flow, and residence time instead.
+//!
+//! Each run carries a [`TracerTrain`] whose marks travel at `1/residence_time`
+//! of the run per second, so the animation is a direct readout of the physical
+//! transport time: raise the helium flow and the primary tracers visibly speed
+//! up. The trains live in [`SchematicTracers`], owned by the app and advanced
+//! once per frame -- widgets are rebuilt every repaint, so a train owned by a
+//! widget would reset its phase each frame.
 
 use egui::{pos2, Color32, Pos2, Stroke, Ui, Vec2};
 
+use outram_park_digital_twin_engine::animation::TracerTrain;
 use outram_park_digital_twin_engine::components::{
-    CondenserVisual, HeatExchangerVisual, InstrumentationVisual, PumpVisual, ReactorVesselVisual,
-    SteamGeneratorVisual, TurbineVisual, ValveVisual,
+    CondenserVisual, HeatExchangerVisual, InstrumentationVisual, PipeScalars, PipeVisual,
+    PumpVisual, ReactorVesselVisual, SteamGeneratorVisual, TurbineVisual, ValveVisual,
 };
 
 use nee_soon::NordheimFuchsExactTimestepper;
@@ -36,19 +50,111 @@ use tampines::hem::HemSteamCv;
 use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
-    Area, AvailableEnergy, HeatTransfer, Power, Pressure, Ratio, ThermodynamicTemperature, Volume,
+    Area, AvailableEnergy, HeatTransfer, MassRate, Power, Pressure, Ratio,
+    ThermodynamicTemperature, Time, Volume,
 };
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
+use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::watt;
 use uom::si::pressure::megapascal;
 use uom::si::ratio::{percent, ratio};
 use uom::si::thermodynamic_temperature::kelvin;
+use uom::si::time::second;
 use uom::si::volume::cubic_meter;
 
 use crate::app::state::HtgrSnapshot;
 
-/// Draw the whole schematic from `snapshot` into `ui`.
-pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot) {
+/// Colour-map floor for the helium runs \[K\] -- below the coldest helium the
+/// loop reaches, so the return leg reads as genuinely cold rather than clipped.
+const HELIUM_COLOUR_MIN_K: f64 = 500.0;
+/// Colour-map ceiling for the helium runs \[K\].
+const HELIUM_COLOUR_MAX_K: f64 = 1200.0;
+/// Colour-map floor for the water/steam runs \[K\].
+const STEAM_COLOUR_MIN_K: f64 = 300.0;
+/// Colour-map ceiling for the water/steam runs \[K\].
+const STEAM_COLOUR_MAX_K: f64 = 900.0;
+
+/// Number of tracer marks drawn on each connector run.
+const TRACER_MARKS: usize = 5;
+
+/// Flow-tracer state for the schematic's connector runs, owned by the app and
+/// advanced once per frame.
+///
+/// Two trains, one per loop: every primary run shares the helium train and
+/// every secondary run shares the steam train, so marks stay in step around
+/// each loop. See [`crate::app::schematic`]'s module docs for why these are
+/// app-owned rather than widget-owned.
+#[derive(Debug, Clone, Copy)]
+pub struct SchematicTracers {
+    /// Marks on the helium primary runs.
+    pub primary: TracerTrain,
+    /// Marks on the water/steam secondary runs.
+    pub secondary: TracerTrain,
+}
+
+impl SchematicTracers {
+    /// Fresh, stagnant trains.
+    pub fn new() -> Self {
+        Self {
+            primary: TracerTrain::new(TRACER_MARKS),
+            secondary: TracerTrain::new(TRACER_MARKS),
+        }
+    }
+
+    /// Advance both trains by one animation frame of `dt`, using the loop
+    /// residence times and mass flows the physics thread published.
+    ///
+    /// Because the marks move at `1/residence_time` of a run per second, the
+    /// on-screen speed is the real transport speed: at zero flow the residence
+    /// time is unbounded and the trains freeze.
+    pub fn advance(&mut self, dt: Time, snapshot: &HtgrSnapshot) {
+        self.primary.advance(
+            dt,
+            Time::new::<second>(snapshot.helium_residence_time_s),
+            MassRate::new::<kilogram_per_second>(snapshot.helium_mass_flow_kg_per_s),
+        );
+        self.secondary.advance(
+            dt,
+            Time::new::<second>(snapshot.secondary_residence_time_s),
+            MassRate::new::<kilogram_per_second>(snapshot.secondary_mass_flow_kg_per_s),
+        );
+    }
+}
+
+impl Default for SchematicTracers {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Build one connector run as a scalar-backed [`PipeVisual`] carrying `tracer`.
+fn run(
+    from: Pos2,
+    to: Pos2,
+    temperature_k: f64,
+    mass_flow_kg_per_s: f64,
+    residence_time_s: f64,
+    colour_min_k: f64,
+    colour_max_k: f64,
+    tracer: TracerTrain,
+) -> PipeVisual {
+    PipeVisual::from_scalars(
+        PipeScalars {
+            temperature: ThermodynamicTemperature::new::<kelvin>(temperature_k),
+            mass_flow: MassRate::new::<kilogram_per_second>(mass_flow_kg_per_s),
+            residence_time: Time::new::<second>(residence_time_s),
+        },
+        from,
+        to - from,
+        ThermodynamicTemperature::new::<kelvin>(colour_min_k),
+        ThermodynamicTemperature::new::<kelvin>(colour_max_k),
+    )
+    .with_tracer(tracer)
+}
+
+/// Draw the whole schematic from `snapshot` into `ui`, animating the connector
+/// runs with the app-owned `tracers`.
+pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicTracers) {
     // Reserve a fixed canvas so the absolute widget positions have room; the
     // engine widgets paint at their own `screen_position`, independent of the
     // egui layout cursor.
@@ -59,23 +165,96 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot) {
     // Helper to shift a schematic-local point into canvas coordinates.
     let at = |x: f32, y: f32| -> Pos2 { pos2(x, y) + origin };
 
-    // --- Connector lines (painter; PipeVisual deferred, bead op-wqk.9.4) ---
-    let hot_he = Stroke::new(4.0, Color32::from_rgb(220, 90, 40)); // hot helium
-    let cold_he = Stroke::new(4.0, Color32::from_rgb(80, 130, 220)); // return helium
-    let steam = Stroke::new(4.0, Color32::from_rgb(210, 210, 210));
-    let heat = Stroke::new(3.0, Color32::from_rgb(240, 180, 60));
-    let painter = ui.painter();
-    // primary loop
-    painter.line_segment([at(150.0, 120.0), at(300.0, 120.0)], hot_he); // reactor -> IHX (hot)
-    painter.line_segment([at(300.0, 180.0), at(150.0, 180.0)], cold_he); // IHX -> reactor (cold)
-    painter.line_segment([at(240.0, 180.0), at(240.0, 260.0)], cold_he); // down to circulator
-                                                                         // IHX -> steam generator (heat transfer)
-    painter.line_segment([at(360.0, 150.0), at(500.0, 150.0)], heat);
-    // secondary loop
-    painter.line_segment([at(560.0, 120.0), at(700.0, 120.0)], steam); // SG -> turbine
-    painter.line_segment([at(820.0, 130.0), at(900.0, 130.0)], steam); // turbine -> condenser
-    painter.line_segment([at(900.0, 180.0), at(720.0, 300.0)], cold_he); // condenser -> feed pump
-    painter.line_segment([at(700.0, 300.0), at(540.0, 180.0)], cold_he); // feed pump -> SG
+    // --- Connector runs: real PipeVisual widgets, coloured by the fluid
+    //     temperature they actually carry and animated by the real flow ---
+    let he_flow = snapshot.helium_mass_flow_kg_per_s;
+    let he_tau = snapshot.helium_residence_time_s;
+    let steam_flow = snapshot.secondary_mass_flow_kg_per_s;
+    let steam_tau = snapshot.secondary_residence_time_s;
+
+    // Primary loop: reactor -> IHX carries core-outlet helium; the return legs
+    // carry the (cooler) IHX outlet.
+    ui.add(run(
+        at(150.0, 120.0),
+        at(300.0, 120.0),
+        snapshot.core_outlet_temp_k,
+        he_flow,
+        he_tau,
+        HELIUM_COLOUR_MIN_K,
+        HELIUM_COLOUR_MAX_K,
+        tracers.primary,
+    ));
+    ui.add(run(
+        at(300.0, 180.0),
+        at(150.0, 180.0),
+        snapshot.ihx_outlet_temp_k,
+        he_flow,
+        he_tau,
+        HELIUM_COLOUR_MIN_K,
+        HELIUM_COLOUR_MAX_K,
+        tracers.primary,
+    ));
+    ui.add(run(
+        at(240.0, 180.0),
+        at(240.0, 260.0),
+        snapshot.core_inlet_temp_k,
+        he_flow,
+        he_tau,
+        HELIUM_COLOUR_MIN_K,
+        HELIUM_COLOUR_MAX_K,
+        tracers.primary,
+    ));
+
+    // Secondary loop: SG -> turbine and turbine -> condenser carry steam; the
+    // condensate/feedwater legs carry the cold end of the cycle.
+    ui.add(run(
+        at(560.0, 120.0),
+        at(700.0, 120.0),
+        snapshot.sg_steam_outlet_temp_k,
+        steam_flow,
+        steam_tau,
+        STEAM_COLOUR_MIN_K,
+        STEAM_COLOUR_MAX_K,
+        tracers.secondary,
+    ));
+    ui.add(run(
+        at(820.0, 130.0),
+        at(900.0, 130.0),
+        snapshot.turbine_inlet_temp_k,
+        steam_flow,
+        steam_tau,
+        STEAM_COLOUR_MIN_K,
+        STEAM_COLOUR_MAX_K,
+        tracers.secondary,
+    ));
+    ui.add(run(
+        at(900.0, 180.0),
+        at(720.0, 300.0),
+        snapshot.cooling_water_outlet_temp_k,
+        steam_flow,
+        steam_tau,
+        STEAM_COLOUR_MIN_K,
+        STEAM_COLOUR_MAX_K,
+        tracers.secondary,
+    ));
+    ui.add(run(
+        at(700.0, 300.0),
+        at(540.0, 180.0),
+        snapshot.cooling_water_outlet_temp_k,
+        steam_flow,
+        steam_tau,
+        STEAM_COLOUR_MIN_K,
+        STEAM_COLOUR_MAX_K,
+        tracers.secondary,
+    ));
+
+    // IHX -> steam generator is a *heat* transfer, not a fluid run, so it stays
+    // a painter line: there is no stream, temperature, or residence time for a
+    // PipeVisual to represent.
+    ui.painter().line_segment(
+        [at(360.0, 150.0), at(500.0, 150.0)],
+        Stroke::new(3.0, Color32::from_rgb(240, 180, 60)),
+    );
 
     // --- Reactor vessel (real nee_soon prompt-excursion physics) ---
     let mut reactor_physics = NordheimFuchsExactTimestepper::default();
@@ -86,6 +265,10 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot) {
         reactor_physics,
         at(100.0, 150.0),
         Vec2::new(90.0, 120.0),
+        // Spans the fuel temperatures this HTGR model reaches, so a nominal
+        // operating point sits mid-scale rather than pinned at either end.
+        ThermodynamicTemperature::new::<kelvin>(600.0),
+        ThermodynamicTemperature::new::<kelvin>(1500.0),
     ));
 
     // --- IHX (helium/steam boundary heat exchanger) ---

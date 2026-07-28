@@ -254,55 +254,91 @@ where
 {
     let n = b.len();
     let mut x = vec![0.0; n];
+    let b_norm = distributed_dot(comm, b, b)?.sqrt().max(1.0);
+
     let mut r = b.to_vec(); // r = b - A·0
-    let r_hat = r.clone(); // fixed shadow residual
+    if distributed_dot(comm, &r, &r)?.sqrt() / b_norm < tol {
+        return Ok((x, 0));
+    }
+    let mut r_hat = r.clone(); // shadow residual (refreshed on restart)
     let mut rho = 1.0_f64;
     let mut alpha = 1.0_f64;
     let mut omega = 1.0_f64;
     let mut v = vec![0.0; n];
     let mut p = vec![0.0; n];
 
-    let b_norm = distributed_dot(comm, b, b)?.sqrt().max(1.0);
     let mut iters = 0;
-    if distributed_dot(comm, &r, &r)?.sqrt() / b_norm < tol {
-        return Ok((x, 0));
-    }
+    let mut restarts = 0usize;
+    const MAX_RESTARTS: usize = 100;
+    const EPS: f64 = 1.0e-30;
+
     for k in 0..max_iter {
         iters = k + 1;
+        // A breakdown (rho ⟂, or a near-zero denominator) means `r_hat` has become
+        // orthogonal to the residual — classic BiCGStab stagnation, which the
+        // structured advection operators trigger. Restart with a fresh shadow
+        // vector (the current true residual) instead of returning unconverged.
+        let mut breakdown = false;
         let rho_new = distributed_dot(comm, &r_hat, &r)?;
-        if rho_new.abs() < 1.0e-30 {
-            break; // breakdown
-        }
-        let beta = (rho_new / rho) * (alpha / omega);
-        for i in 0..n {
-            p[i] = r[i] + beta * (p[i] - omega * v[i]);
-        }
-        v = matvec(&p)?;
-        alpha = rho_new / distributed_dot(comm, &r_hat, &v)?;
-        let s: Vec<f64> = (0..n).map(|i| r[i] - alpha * v[i]).collect();
-        if distributed_dot(comm, &s, &s)?.sqrt() / b_norm < tol {
+        if rho_new.abs() < EPS {
+            breakdown = true;
+        } else {
+            let beta = (rho_new / rho) * (alpha / omega);
             for i in 0..n {
-                x[i] += alpha * p[i];
+                p[i] = r[i] + beta * (p[i] - omega * v[i]);
             }
-            break;
+            v = matvec(&p)?;
+            let rhv = distributed_dot(comm, &r_hat, &v)?;
+            if rhv.abs() < EPS {
+                breakdown = true;
+            } else {
+                alpha = rho_new / rhv;
+                let s: Vec<f64> = (0..n).map(|i| r[i] - alpha * v[i]).collect();
+                if distributed_dot(comm, &s, &s)?.sqrt() / b_norm < tol {
+                    for i in 0..n {
+                        x[i] += alpha * p[i];
+                    }
+                    return Ok((x, iters));
+                }
+                let t = matvec(&s)?;
+                let t_dot_t = distributed_dot(comm, &t, &t)?;
+                if t_dot_t < EPS {
+                    breakdown = true;
+                } else {
+                    omega = distributed_dot(comm, &t, &s)? / t_dot_t;
+                    for i in 0..n {
+                        x[i] += alpha * p[i] + omega * s[i];
+                        r[i] = s[i] - omega * t[i];
+                    }
+                    if distributed_dot(comm, &r, &r)?.sqrt() / b_norm < tol {
+                        return Ok((x, iters));
+                    }
+                    if omega.abs() < EPS {
+                        breakdown = true;
+                    } else {
+                        rho = rho_new;
+                    }
+                }
+            }
         }
-        let t = matvec(&s)?;
-        let t_dot_t = distributed_dot(comm, &t, &t)?;
-        if t_dot_t < 1.0e-30 {
-            break; // breakdown
+
+        if breakdown {
+            restarts += 1;
+            if restarts > MAX_RESTARTS {
+                break;
+            }
+            let ax = matvec(&x)?;
+            r = (0..n).map(|i| b[i] - ax[i]).collect();
+            if distributed_dot(comm, &r, &r)?.sqrt() / b_norm < tol {
+                return Ok((x, iters));
+            }
+            r_hat = r.clone();
+            rho = 1.0;
+            alpha = 1.0;
+            omega = 1.0;
+            v = vec![0.0; n];
+            p = vec![0.0; n];
         }
-        omega = distributed_dot(comm, &t, &s)? / t_dot_t;
-        for i in 0..n {
-            x[i] += alpha * p[i] + omega * s[i];
-            r[i] = s[i] - omega * t[i];
-        }
-        if distributed_dot(comm, &r, &r)?.sqrt() / b_norm < tol {
-            break;
-        }
-        if omega.abs() < 1.0e-30 {
-            break; // breakdown
-        }
-        rho = rho_new;
     }
     Ok((x, iters))
 }
