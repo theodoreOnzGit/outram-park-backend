@@ -12,7 +12,7 @@ use egui_plot::{Legend, Line, Plot, PlotPoints};
 
 use outram_park_digital_twin_engine::app_scaffold::{PanelSet, SharedState};
 
-use crate::app::schematic::draw_schematic;
+use crate::app::schematic::{draw_schematic, SchematicTracers};
 use crate::app::state::{HtgrPlotData, HtgrSnapshot};
 
 /// The selectable top-level panels of the HTGR simulator.
@@ -92,10 +92,10 @@ pub fn draw_controls(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, snapshot:
 }
 
 /// Schematic panel body.
-pub fn draw_schematic_panel(ui: &mut Ui, snapshot: &HtgrSnapshot) {
-    ui.heading("HTGR (helium-cooled, graphite-moderated prismatic-block) -- scaffold");
+pub fn draw_schematic_panel(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicTracers) {
+    ui.heading("HTGR (helium-cooled, graphite-moderated prismatic-block) -- demonstration model");
     ui.separator();
-    draw_schematic(ui, snapshot);
+    draw_schematic(ui, snapshot, tracers);
 }
 
 /// Time-history plots panel body.
@@ -203,6 +203,31 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot) {
                 format!("{:.1} kg/s", s.helium_mass_flow_kg_per_s),
             );
             row(ui, "IHX duty", format!("{:.2} MW", s.ihx_duty_mw));
+            row(
+                ui,
+                "IHX helium outlet",
+                format!("{:.1} K", s.ihx_outlet_temp_k),
+            );
+            row(
+                ui,
+                "Helium c_p (live EOS)",
+                format!("{:.0} J/(kg K)", s.helium_cp_j_per_kg_k),
+            );
+            row(
+                ui,
+                "Loop residence time",
+                format!("{:.2} s", s.helium_residence_time_s),
+            );
+            row(
+                ui,
+                "Loop pressure drop",
+                format!("{:.1} kPa", s.primary_pressure_drop_kpa),
+            );
+            row(
+                ui,
+                "Circulator power",
+                format!("{:.3} MW", s.circulator_power_mw),
+            );
 
             ui.label("Secondary steam loop");
             ui.label("");
@@ -227,6 +252,46 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot) {
                 ui,
                 "Condenser pressure",
                 format!("{:.1} kPa", s.condenser_pressure_kpa),
+            );
+            row(
+                ui,
+                "Feedwater flow",
+                format!("{:.1} kg/s", s.secondary_mass_flow_kg_per_s),
+            );
+            row(
+                ui,
+                "Loop residence time",
+                format!("{:.2} s", s.secondary_residence_time_s),
+            );
+            row(
+                ui,
+                "Condensate enthalpy",
+                format!("{:.1} kJ/kg", s.condensate_enthalpy_j_per_kg / 1.0e3),
+            );
+            row(
+                ui,
+                "Feedwater enthalpy",
+                format!("{:.1} kJ/kg", s.feedwater_enthalpy_j_per_kg / 1.0e3),
+            );
+            row(
+                ui,
+                "Feed-pump power",
+                format!("{:.3} MW", s.feed_pump_power_mw),
+            );
+            row(
+                ui,
+                "Net cycle power",
+                format!("{:.2} MW", s.net_cycle_power_mw),
+            );
+            row(
+                ui,
+                "Condenser duty",
+                format!("{:.2} MW", s.condenser_duty_mw),
+            );
+            row(
+                ui,
+                "Cooling-water outlet",
+                format!("{:.1} K", s.cooling_water_outlet_temp_k),
             );
         });
 }

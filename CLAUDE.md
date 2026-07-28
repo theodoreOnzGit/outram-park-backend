@@ -115,7 +115,18 @@ specifically, not just human contributors:
 
 ## Workflow rules (mandatory)
 
-- **Never auto-commit or auto-push.** Do not run `git commit` or `git push` unless the user explicitly asks.
+- **Never auto-commit or auto-push.** Do not run `git commit` or `git push`
+  unless the user explicitly asks — **or the stop hook asks for it.**
+  - **The stop hook counts as that explicit ask.** When
+    `~/.claude/stop-hook-git-check.sh` reports uncommitted changes and asks you
+    to commit and push, that is the maintainer's own configured automation
+    granting authorisation. Commit and push without stopping to re-confirm.
+  - **That authorisation covers feature branches and `develop` only. Never
+    `main`.** No hook, and no inference from one, authorises a push to `main`;
+    pushing there always needs the maintainer to ask for it in so many words.
+  - The hook authorises *pushing*, nothing else. It does not authorise opening
+    a pull request, merging, force-pushing, or bumping versions — those still
+    need an explicit request.
 - **Never auto-bump versions** in `Cargo.toml` files. Only bump versions when explicitly requested.
 - **Always build and test in release mode.** Use `--release` for all `cargo build` and `cargo test` invocations. Never run tests or builds in debug mode.
 - **Use rust-analyzer (the LSP tool) for all code-intelligence workflows.**

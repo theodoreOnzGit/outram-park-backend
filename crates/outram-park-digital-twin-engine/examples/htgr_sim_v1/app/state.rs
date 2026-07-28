@@ -48,6 +48,20 @@ pub struct HtgrSnapshot {
     pub helium_mass_flow_kg_per_s: f64,
     /// IHX duty transferred to the secondary loop \[MW\].
     pub ihx_duty_mw: f64,
+    /// Helium-side IHX outlet temperature \[K\] -- what the core inlet
+    /// relaxes toward once the return transport lag has played out.
+    pub ihx_outlet_temp_k: f64,
+    /// Helium loop residence time \[s\] (`m/m_dot`), driving the primary
+    /// flow tracers in the schematic.
+    pub helium_residence_time_s: f64,
+    /// Frictional pressure drop around the helium loop \[kPa\].
+    pub primary_pressure_drop_kpa: f64,
+    /// Circulator hydraulic power \[MW\].
+    pub circulator_power_mw: f64,
+    /// Helium isobaric specific heat \[J/(kg K)\] at the current bulk mean
+    /// temperature, from the real EOS -- shown so the operator can see the
+    /// property is evaluated live rather than frozen.
+    pub helium_cp_j_per_kg_k: f64,
 
     // --- Secondary steam loop outputs ---
     /// Live steam pressure \[MPa\].
@@ -66,6 +80,26 @@ pub struct HtgrSnapshot {
     pub steam_quality_after_turbine: f64,
     /// Condenser back-pressure \[kPa\].
     pub condenser_pressure_kpa: f64,
+    /// Secondary (feedwater/steam) mass flow \[kg/s\], as moved by the
+    /// feedwater controller.
+    pub secondary_mass_flow_kg_per_s: f64,
+    /// Secondary loop residence time \[s\] (`m/m_dot`), driving the steam-line
+    /// flow tracers in the schematic.
+    pub secondary_residence_time_s: f64,
+    /// Feedwater specific enthalpy \[J/kg\] -- condensate plus real feed-pump
+    /// work, not a fixed constant.
+    pub feedwater_enthalpy_j_per_kg: f64,
+    /// Condensate (hotwell saturated-liquid) specific enthalpy \[J/kg\], the
+    /// cold end of the cycle the feed pump lifts from.
+    pub condensate_enthalpy_j_per_kg: f64,
+    /// Feed-pump power \[MW\].
+    pub feed_pump_power_mw: f64,
+    /// Net cycle power \[MW\]: turbine output less feed-pump work.
+    pub net_cycle_power_mw: f64,
+    /// Heat rejected in the condenser \[MW\].
+    pub condenser_duty_mw: f64,
+    /// Cooling-water outlet temperature from the condenser \[K\].
+    pub cooling_water_outlet_temp_k: f64,
 
     // --- Diagnostics ---
     /// Accumulated simulation time \[s\].
@@ -87,6 +121,11 @@ impl Default for HtgrSnapshot {
             core_outlet_temp_k: 573.0,
             helium_mass_flow_kg_per_s: 85.0,
             ihx_duty_mw: 0.0,
+            ihx_outlet_temp_k: 573.0,
+            helium_residence_time_s: 0.0,
+            primary_pressure_drop_kpa: 0.0,
+            circulator_power_mw: 0.0,
+            helium_cp_j_per_kg_k: 5193.0,
             steam_pressure_mpa: 10.0,
             sg_steam_outlet_temp_k: 500.0,
             steam_enthalpy_j_per_kg: 1.0e6,
@@ -94,6 +133,14 @@ impl Default for HtgrSnapshot {
             turbine_power_mw: 0.0,
             steam_quality_after_turbine: 0.0,
             condenser_pressure_kpa: 7.0,
+            secondary_mass_flow_kg_per_s: 80.0,
+            secondary_residence_time_s: 0.0,
+            feedwater_enthalpy_j_per_kg: 1.0e6,
+            condensate_enthalpy_j_per_kg: 1.63e5,
+            feed_pump_power_mw: 0.0,
+            net_cycle_power_mw: 0.0,
+            condenser_duty_mw: 0.0,
+            cooling_water_outlet_temp_k: 298.15,
             sim_time_s: 0.0,
         }
     }
