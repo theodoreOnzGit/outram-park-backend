@@ -92,9 +92,29 @@ impl std::fmt::Display for GpuError {
 
 impl std::error::Error for GpuError {}
 
+/// A process-wide cached [`GpuContext`], probed once on first use.
+///
+/// Opening a `wgpu` device is expensive, so the per-frame animation path must not
+/// [`probe`] every frame. The first call probes; every later call reuses the same
+/// device (or the same `None` when there is no adapter). The context is `Send +
+/// Sync`, so the returned reference is safe to use from the render/worker thread.
+pub fn cached_context() -> Option<&'static GpuContext> {
+    static CTX: std::sync::OnceLock<Option<GpuContext>> = std::sync::OnceLock::new();
+    CTX.get_or_init(probe).as_ref()
+}
+
+/// Whether a GPU adapter is available (probed once, cached). For a UI to show the
+/// effective backend without re-opening a device each frame.
+pub fn gpu_available() -> bool {
+    cached_context().is_some()
+}
+
 /// Probe for a GPU adapter and open a device. Returns `None` when there is no
 /// usable adapter — a **normal, expected** outcome on headless CI / no-GPU hosts,
 /// not an error; the caller then uses the CPU path.
+///
+/// Prefer [`cached_context`] on any hot path — this opens a fresh device each
+/// call.
 pub fn probe() -> Option<GpuContext> {
     let instance = wgpu::Instance::default();
     let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -776,9 +796,8 @@ pub fn advance_multilayer_best_effort(
     nuclide: Nuclide,
     until: Time,
 ) -> bool {
-    if let Some(ctx) = probe() {
-        if try_advance_multilayer_gpu(&ctx, cell, params, walkers, released, nuclide, until).is_ok()
-        {
+    if let Some(ctx) = cached_context() {
+        if try_advance_multilayer_gpu(ctx, cell, params, walkers, released, nuclide, until).is_ok() {
             return true;
         }
     }
