@@ -5353,6 +5353,7 @@ dependencies = [
  "approx",
  "fission-yields-data",
  "log",
+ "naga",
  "ndarray",
  "njoy-outram-park-fork",
  "openmc-endf-8-depletion-lib-a",
