@@ -33,6 +33,7 @@
 pub mod cartesian2d;
 pub mod krylov;
 pub mod ldu;
+pub mod newton;
 pub mod operator;
 pub mod transport;
 
