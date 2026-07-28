@@ -5266,6 +5266,10 @@ dependencies = [
 name = "outram-blender"
 version = "0.0.0"
 dependencies = [
+ "eframe",
+ "egui",
+ "egui_plot",
+ "env_logger",
  "faer",
  "outram-foam-basic-lib",
  "outram-mc-libs",
