@@ -5780,7 +5780,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-digital-twin-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-opcua",
  "chem-eng-real-time-process-control-simulator",

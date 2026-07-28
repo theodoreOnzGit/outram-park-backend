@@ -259,7 +259,7 @@ outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version
 tampines            = { path = "crates/tampines",            version = "0.1.0" }
 # Reusable visualization framework — visual process objects whose rendering
 # derives directly from tampines/nee_soon physics state (scaffold).
-outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engine", version = "0.1.0" }
+outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engine", version = "0.2.0" }
 
 # KOVAN knowledge-layer crates — depend on these by path (in-tree).
 kovan-common     = { path = "crates/kovan-common",     version = "0.0.0" }
