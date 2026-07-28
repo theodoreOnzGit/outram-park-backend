@@ -28,7 +28,7 @@
 
 use outram_foam_basic_lib::ldu_matrix::LduMatrix;
 
-use super::krylov::{distributed_bicgstab_with, distributed_cg_with, distributed_dot};
+use super::krylov::{distributed_bicgstab_with, distributed_cg_with};
 use super::Decomposition1D;
 use crate::grid::CartesianGrid;
 use outram_park_mpi::{Communicator, MpiResult};
