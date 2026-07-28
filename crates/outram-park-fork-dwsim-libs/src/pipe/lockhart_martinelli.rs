@@ -71,14 +71,12 @@ pub fn lockhart_martinelli_pressure_drop(
     let dp_sl = frictional_pressure_drop(f_sl, length, diameter, density_liquid, v_sl);
     let dp_sg = frictional_pressure_drop(f_sg, length, diameter, density_gas, v_sg);
 
-    let x = (dp_sl.get::<pascal>() / dp_sg.get::<pascal>())
-        .sqrt();
+    let x = (dp_sl.get::<pascal>() / dp_sg.get::<pascal>()).sqrt();
     let phi_l_sq = 1.0 + 20.0 / x + 1.0 / (x * x);
     let phi_g_sq = 1.0 + 20.0 * x + x * x;
 
     let friction_pressure_drop = Pressure::new::<pascal>(
-        (phi_l_sq * dp_sl.get::<pascal>())
-            .max(phi_g_sq * dp_sg.get::<pascal>()),
+        (phi_l_sq * dp_sl.get::<pascal>()).max(phi_g_sq * dp_sg.get::<pascal>()),
     );
 
     let holdup = 1.0 / (1.0 + 20.0 / x + 1.0 / (x * x)).sqrt();
@@ -122,7 +120,9 @@ mod tests {
             DynamicViscosity::new::<pascal_second>(1.8e-5),
         );
         assert!(result.martinelli_parameter.get::<ratio>() > 1.0);
-        assert!(result.liquid_holdup.get::<ratio>() > 0.0 && result.liquid_holdup.get::<ratio>() < 1.0);
+        assert!(
+            result.liquid_holdup.get::<ratio>() > 0.0 && result.liquid_holdup.get::<ratio>() < 1.0
+        );
         assert!(result.total_pressure_drop().get::<pascal>() > 0.0);
     }
 

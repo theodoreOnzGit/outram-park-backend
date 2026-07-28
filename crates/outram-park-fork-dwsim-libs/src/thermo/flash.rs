@@ -115,7 +115,9 @@ pub enum FlashError {
     #[error("non-finite input value")]
     NonFinite,
     /// The outer nested-loops iteration did not converge within `max_outer_iter`.
-    #[error("nested-loops flash did not converge in {iterations} iterations (K change {residual:e})")]
+    #[error(
+        "nested-loops flash did not converge in {iterations} iterations (K change {residual:e})"
+    )]
     NotConverged {
         /// Iterations attempted.
         iterations: usize,
@@ -146,7 +148,12 @@ pub struct NestedLoopsOptions {
 
 impl Default for NestedLoopsOptions {
     fn default() -> Self {
-        Self { max_outer_iter: 100, k_tol: 1.0e-8, rr_tol: 1.0e-12, rr_max_iter: 200 }
+        Self {
+            max_outer_iter: 100,
+            k_tol: 1.0e-8,
+            rr_tol: 1.0e-12,
+            rr_max_iter: 200,
+        }
     }
 }
 
@@ -173,8 +180,7 @@ pub fn wilson_k_values(components: &[Component], temperature: f64, pressure: f64
         .iter()
         .map(|c| {
             (c.critical_pressure / pressure)
-                * (5.373 * (1.0 + c.acentric_factor)
-                    * (1.0 - c.critical_temperature / temperature))
+                * (5.373 * (1.0 + c.acentric_factor) * (1.0 - c.critical_temperature / temperature))
                     .exp()
         })
         .collect()
@@ -269,7 +275,10 @@ pub fn solve_rachford_rice(z: &[f64], k: &[f64]) -> Result<FlashResult, FlashErr
         return Err(FlashError::Empty);
     }
     if z.len() != k.len() {
-        return Err(FlashError::LengthMismatch { a: z.len(), b: k.len() });
+        return Err(FlashError::LengthMismatch {
+            a: z.len(),
+            b: k.len(),
+        });
     }
     if z.iter().chain(k.iter()).any(|v| !v.is_finite()) {
         return Err(FlashError::NonFinite);
@@ -313,21 +322,20 @@ pub fn solve_rachford_rice(z: &[f64], k: &[f64]) -> Result<FlashResult, FlashErr
         normalize(&mut y);
     }
 
-    Ok(FlashResult { beta, x, y, k: k.to_vec(), iterations: 0 })
+    Ok(FlashResult {
+        beta,
+        x,
+        y,
+        k: k.to_vec(),
+        iterations: 0,
+    })
 }
 
 /// Safeguarded Newton + bisection root of `g(β)` on a bracket `[lo, hi]` for
 /// which `g(lo) > 0` and `g(hi) < 0` (`g` decreasing). `rtsafe`-style: keep a
 /// shrinking bracket at all times, take a Newton step only when it lands inside
 /// and is decreasing the step, else bisect.
-fn solve_rr_bracketed(
-    z: &[f64],
-    k: &[f64],
-    lo0: f64,
-    hi0: f64,
-    tol: f64,
-    max_iter: usize,
-) -> f64 {
+fn solve_rr_bracketed(z: &[f64], k: &[f64], lo0: f64, hi0: f64, tol: f64, max_iter: usize) -> f64 {
     let mut lo = lo0;
     let mut hi = hi0;
     let mut beta = 0.5 * (lo + hi);
@@ -339,8 +347,7 @@ fn solve_rr_bracketed(
     for _ in 0..max_iter {
         // Reject the Newton step if it would leave [lo, hi], or if it is not
         // reducing the interval fast enough — then bisect instead.
-        let newton_leaves_bracket =
-            ((beta - hi) * dg - g) * ((beta - lo) * dg - g) > 0.0;
+        let newton_leaves_bracket = ((beta - hi) * dg - g) * ((beta - lo) * dg - g) > 0.0;
         if newton_leaves_bracket || (2.0 * g).abs() > (dx_old * dg).abs() || dg == 0.0 {
             dx_old = dx;
             dx = 0.5 * (hi - lo);
@@ -426,7 +433,10 @@ where
     F: Fn(&[f64], &[f64], f64, f64) -> Vec<f64>,
 {
     if components.len() != z.len() {
-        return Err(FlashError::LengthMismatch { a: z.len(), b: components.len() });
+        return Err(FlashError::LengthMismatch {
+            a: z.len(),
+            b: components.len(),
+        });
     }
 
     let mut k = wilson_k_values(components, temperature, pressure);
@@ -435,7 +445,10 @@ where
     for iter in 1..=opts.max_outer_iter {
         let k_new = k_values(&last.x, &last.y, temperature, pressure);
         if k_new.len() != z.len() {
-            return Err(FlashError::LengthMismatch { a: z.len(), b: k_new.len() });
+            return Err(FlashError::LengthMismatch {
+                a: z.len(),
+                b: k_new.len(),
+            });
         }
         if k_new.iter().any(|v| !v.is_finite()) {
             return Err(FlashError::NonFinite);
@@ -465,7 +478,10 @@ where
             .map(|(&kn, &ko)| (kn - ko).abs())
             .sum()
     };
-    Err(FlashError::NotConverged { iterations: opts.max_outer_iter, residual })
+    Err(FlashError::NotConverged {
+        iterations: opts.max_outer_iter,
+        residual,
+    })
 }
 
 #[cfg(test)]
@@ -519,7 +535,11 @@ mod tests {
         let k = [3.0, 1.2, 0.4];
         let r = solve_rachford_rice(&z, &k).unwrap();
 
-        assert!(r.beta > 0.0 && r.beta < 1.0, "expected two-phase, got β = {}", r.beta);
+        assert!(
+            r.beta > 0.0 && r.beta < 1.0,
+            "expected two-phase, got β = {}",
+            r.beta
+        );
         assert_abs_diff_eq!(r.x.iter().sum::<f64>(), 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r.y.iter().sum::<f64>(), 1.0, epsilon = 1e-12);
         for i in 0..z.len() {
@@ -599,7 +619,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(r.iterations, 2, "constant closure converges once K stops changing");
+        assert_eq!(
+            r.iterations, 2,
+            "constant closure converges once K stops changing"
+        );
         assert_abs_diff_eq!(r.beta, 0.5, epsilon = 1e-9);
         assert_abs_diff_eq!(r.x[0], 1.0 / 3.0, epsilon = 1e-9);
         assert_abs_diff_eq!(r.y[0], 2.0 / 3.0, epsilon = 1e-9);
@@ -614,7 +637,10 @@ mod tests {
     /// a `NaN` K-value → `NonFinite`.
     #[test]
     fn input_validation_errors() {
-        assert_eq!(solve_rachford_rice(&[], &[]).unwrap_err(), FlashError::Empty);
+        assert_eq!(
+            solve_rachford_rice(&[], &[]).unwrap_err(),
+            FlashError::Empty
+        );
         assert!(matches!(
             solve_rachford_rice(&[0.5, 0.5], &[2.0]).unwrap_err(),
             FlashError::LengthMismatch { .. }

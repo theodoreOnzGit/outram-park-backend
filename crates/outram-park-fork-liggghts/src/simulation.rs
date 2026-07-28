@@ -308,8 +308,7 @@ impl DemSimulation {
             .iter()
             .map(|p| {
                 let translational = 0.5 * p.mass * p.velocity.norm_squared();
-                let rotational =
-                    0.5 * p.moment_of_inertia() * p.angular_velocity.norm_squared();
+                let rotational = 0.5 * p.moment_of_inertia() * p.angular_velocity.norm_squared();
                 translational + rotational
             })
             .sum()
@@ -516,12 +515,7 @@ mod tests {
 
     /// Helper: a valid particle with the given kinematic state, mass, and radius
     /// (temperature fixed at 300 K, passive in this crate).
-    fn particle(
-        position: Vec3,
-        velocity: Vec3,
-        mass_kg: f64,
-        radius_m: f64,
-    ) -> Particle {
+    fn particle(position: Vec3, velocity: Vec3, mass_kg: f64, radius_m: f64) -> Particle {
         Particle::new(
             position,
             velocity,
@@ -535,9 +529,7 @@ mod tests {
 
     /// Helper: the standard linear spring-dashpot model used by the tests.
     fn hooke(k_n: f64, gamma_n: f64) -> ContactModel {
-        ContactModel::Hooke(
-            HookeContact::new(k_n, gamma_n, 0.0, 0.0, 0.3).expect("valid hooke"),
-        )
+        ContactModel::Hooke(HookeContact::new(k_n, gamma_n, 0.0, 0.0, 0.3).expect("valid hooke"))
     }
 
     /// Contact set found by the (private) cell-list / brute-force dispatcher,
@@ -613,9 +605,14 @@ mod tests {
     fn particle_dropped_on_floor_falls_contacts_and_rebounds() {
         let floor = Boundary::wall(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).unwrap();
         let p = particle(Vec3::new(0.0, 0.0, 0.5), Vec3::zero(), 1.0, 0.1);
-        let mut sim =
-            DemSimulation::new(vec![p], vec![floor], hooke(1.0e5, 50.0), Vec3::new(0.0, 0.0, -9.81), 1.0e-5)
-                .unwrap();
+        let mut sim = DemSimulation::new(
+            vec![p],
+            vec![floor],
+            hooke(1.0e5, 50.0),
+            Vec3::new(0.0, 0.0, -9.81),
+            1.0e-5,
+        )
+        .unwrap();
 
         let z0 = 0.5;
         let r = 0.1;
@@ -642,7 +639,10 @@ mod tests {
         // (1) it made contact with the floor.
         assert!(contacted, "particle never reached the floor");
         // (2) it did not tunnel through the wall.
-        assert!(min_z > 0.0, "particle tunnelled through the floor: min_z = {min_z}");
+        assert!(
+            min_z > 0.0,
+            "particle tunnelled through the floor: min_z = {min_z}"
+        );
         // (3) it rebounded back up off the floor.
         assert!(
             apex_after_contact > r,
@@ -678,8 +678,18 @@ mod tests {
     /// confirming a real momentum-exchanging collision rather than a fly-through.
     #[test]
     fn head_on_collision_conserves_linear_momentum() {
-        let a = particle(Vec3::new(-0.6, 0.0, 0.0), Vec3::new(2.0, 0.0, 0.0), 1.0, 0.5);
-        let b = particle(Vec3::new(0.6, 0.0, 0.0), Vec3::new(-1.0, 0.0, 0.0), 1.0, 0.5);
+        let a = particle(
+            Vec3::new(-0.6, 0.0, 0.0),
+            Vec3::new(2.0, 0.0, 0.0),
+            1.0,
+            0.5,
+        );
+        let b = particle(
+            Vec3::new(0.6, 0.0, 0.0),
+            Vec3::new(-1.0, 0.0, 0.0),
+            1.0,
+            0.5,
+        );
         let mut sim = DemSimulation::new(
             vec![a, b],
             Vec::new(),
@@ -703,10 +713,7 @@ mod tests {
         // closing; now receding, i.e. a.vx < b.vx).
         let va = sim.particles()[0].velocity.x;
         let vb = sim.particles()[1].velocity.x;
-        assert!(
-            va < vb,
-            "pair did not separate: v_a.x = {va}, v_b.x = {vb}"
-        );
+        assert!(va < vb, "pair did not separate: v_a.x = {va}, v_b.x = {vb}");
     }
 
     /// V&V — **(c) the cell-list neighbour search finds exactly the same
@@ -763,10 +770,7 @@ mod tests {
 
         let cell = contacts_via_candidate_pairs(&sim);
         let brute = contacts_via_brute_force(&sim);
-        assert_eq!(
-            cell, brute,
-            "cell-list and brute-force contact sets differ"
-        );
+        assert_eq!(cell, brute, "cell-list and brute-force contact sets differ");
         // Sanity: the packing is genuinely in contact (not a trivial empty set).
         assert!(!brute.is_empty(), "test packing had no contacts");
     }
@@ -814,7 +818,10 @@ mod tests {
         let z = sim.particles()[0].position.z;
         let speed = sim.particles()[0].velocity.norm();
         assert_abs_diff_eq!(z, z_eq, epsilon = 1e-9);
-        assert!(speed < 1e-6, "resting particle drifted: speed = {speed} m/s");
+        assert!(
+            speed < 1e-6,
+            "resting particle drifted: speed = {speed} m/s"
+        );
     }
 
     /// Constructor rejects a non-positive time step.

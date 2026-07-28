@@ -1,11 +1,10 @@
 # njoy-tui
 
 > **Where this lives:** `njoy-tui` is a `[[bin]]` target **inside the
-> `njoy-outram-park-fork` crate** (`src/bin/njoy-tui/`), gated behind the
-> crate's non-default **`tui`** feature — it is not a separate crate. Build/run
-> it with `--features tui --bin njoy-tui` (see commands below). Because the
-> feature is off by default, ordinary data consumers of the library never pull
-> the `ratatui`/`crossterm` terminal stack.
+> `njoy-outram-park-fork` crate** (`src/bin/njoy-tui/`) — it is not a separate
+> crate. `ratatui` is an unconditional dependency, so the binary always builds
+> with a plain `cargo run -p njoy-outram-park-fork --bin njoy-tui` (no feature
+> flags; see commands below).
 
 A **mobile-first, touchscreen** [`ratatui`](https://ratatui.rs) terminal
 browser for [`njoy-outram-park-fork`](..) — a
@@ -25,7 +24,7 @@ upstream NJOY component. It implements three OUTRAM PARK beads:
 ## Running it
 
 ```bash
-cargo run -p njoy-outram-park-fork --features tui --bin njoy-tui --release
+cargo run -p njoy-outram-park-fork --bin njoy-tui --release
 ```
 
 On Termux (native `aarch64-linux-android`, no NDK cross-toolchain needed —
@@ -33,7 +32,7 @@ see "Android/Termux" below):
 
 ```bash
 pkg install rust
-cargo run -p njoy-outram-park-fork --features tui --bin njoy-tui --release
+cargo run -p njoy-outram-park-fork --bin njoy-tui --release
 ```
 
 Tap a row in the nuclide list to open it, or type to filter first. On the
@@ -187,7 +186,7 @@ src/
 live inline in each module and run via:
 
 ```bash
-cargo test -p njoy-outram-park-fork --features tui --bin njoy-tui --release
+cargo test -p njoy-outram-park-fork --bin njoy-tui --release
 ```
 
 Because there is no way to drive the touchscreen/mouse loop interactively

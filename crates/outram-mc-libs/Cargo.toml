@@ -42,14 +42,13 @@ fission-yields-data = { workspace = true }
 #     `ComputeType::Gpu` is requested but no GPU adapter is available.
 rayon = { workspace = true }
 log = { workspace = true }
-# Terminal-UI stack for the optional `outram-mc-tui` binary (behind the `tui`
-# feature — see [[bin]] below). Optional so library consumers of outram-mc-libs
-# (tampines, nee_soon, …) never inherit ratatui/crossterm; only a build that
-# asks for the binary with `--features tui` pulls it. A terminal UI is
+# Terminal-UI stack for the `outram-mc-tui` binary (see [[bin]] below). An
+# unconditional (non-gated, non-target-gated) dependency: a terminal UI is
 # Android-in-scope per the workspace CLAUDE.md ("Android portability": only
-# windowing GUI is out of scope), so this is a normal (non-target-gated)
-# optional dep. ratatui re-exports its matched crossterm as `ratatui::crossterm`.
-ratatui = { workspace = true, optional = true }
+# windowing GUI is out of scope), so it compiles on every target and the binary
+# always builds with a plain `cargo build`. ratatui re-exports its matched
+# crossterm as `ratatui::crossterm`.
+ratatui = { workspace = true }
 
 [features]
 # HIGH-fidelity nuclear data. Forwards to njoy's `net-fetch` tier so
@@ -58,14 +57,6 @@ ratatui = { workspace = true, optional = true }
 # (`Nuclide::from_core`, embedded WMP + fast MGXS) needs no network. Enable with
 # `--features net-fetch`. See docs/data-acquisition.md.
 net-fetch = ["njoy-outram-park-fork/net-fetch"]
-
-# Terminal UI: builds the `outram-mc-tui` binary — a mobile-first, touchscreen
-# geometry/run TUI (preset geometries, CPU/GPU + batch settings, live k-eff
-# convergence, neutron-spectrum / cross-section overlay). See
-# docs/outram-mc-tui.md. Off by default so library consumers stay lean (no
-# ratatui/crossterm). Enable with `--features tui`, e.g.
-# `cargo run -p outram-mc-libs --features tui --bin outram-mc-tui --release`.
-tui = ["dep:ratatui"]
 
 # Optional GPU compute (headless, no window) for the embarrassingly-parallel MC
 # kernels — see `src/gpu/`. wgpu is **target-gated OFF Android** (no system
@@ -85,14 +76,21 @@ wgpu = { workspace = true }
 [dev-dependencies]
 approx = { workspace = true }
 
+# naga (non-Android, dev-only): statically parse + validate the hand-written WGSL
+# GPU kernels on CPU, so shader syntax/type errors are caught even on CI without a
+# GPU adapter (where the GPU-vs-CPU agreement tests only SKIP). Not linked into the
+# library; wgpu already pulls the same naga version transitively on desktop.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+naga = { workspace = true }
+
 # ── outram-mc-tui: mobile-first preset-geometry / transport-run TUI ───────────
-# A [[bin]] target inside this crate rather than a separate crate, gated behind
-# the `tui` feature so the default library build (and every consumer of
-# outram-mc-libs) skips it — `required-features` makes cargo omit the binary
-# unless `--features tui` is set. Sources live under src/bin/outram-mc-tui/; the
-# binary uses this crate's own library (`outram_mc_libs::...`) for transport,
-# geometry, and tallies. Design doc + Termux usage: docs/outram-mc-tui.md.
+# A [[bin]] target inside this crate rather than a separate crate. It always
+# builds (`ratatui` is an unconditional dependency), so `cargo run -p
+# outram-mc-libs --bin outram-mc-tui` and `cargo install --path
+# crates/outram-mc-libs` need no feature flags. Sources live under
+# src/bin/outram-mc-tui/; the binary uses this crate's own library
+# (`outram_mc_libs::...`) for transport, geometry, and tallies. Design doc +
+# Termux usage: docs/outram-mc-tui.md.
 [[bin]]
 name = "outram-mc-tui"
 path = "src/bin/outram-mc-tui/main.rs"
-required-features = ["tui"]

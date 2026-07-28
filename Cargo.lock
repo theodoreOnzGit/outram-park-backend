@@ -4064,9 +4064,9 @@ dependencies = [
 
 [[package]]
 name = "kstring"
-version = "2.0.3"
+version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b5c39158205a1955370d20163dcd3957e155463717747464719462f6578e149"
+checksum = "558bf9508a558512042d3095138b1f7b8fe90c5467d94f9f1da28b3731c5dbd1"
 dependencies = [
  "static_assertions",
 ]
@@ -5280,6 +5280,7 @@ dependencies = [
  "approx",
  "ndarray",
  "outram-foam-basic-lib",
+ "outram-foam-multiphase",
  "outram-foam-turbulence-lib",
  "serde",
  "thiserror 2.0.18",
@@ -5348,6 +5349,7 @@ dependencies = [
  "approx",
  "fission-yields-data",
  "log",
+ "naga",
  "ndarray",
  "njoy-outram-park-fork",
  "openmc-endf-8-depletion-lib-a",
@@ -5385,6 +5387,9 @@ dependencies = [
 [[package]]
 name = "outram-park-fork-cfmesh"
 version = "0.0.0"
+dependencies = [
+ "outram-foam-basic-lib",
+]
 
 [[package]]
 name = "outram-park-fork-coolprop"

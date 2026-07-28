@@ -171,12 +171,7 @@ impl NrtlParams {
     /// Every matrix must be square and the same size; `a`, `b`, `c` in
     /// cal/mol, cal/(mol.K), cal/(mol.K^2); `alpha` dimensionless. Panics if the
     /// matrices are not all `n x n` for a common `n`.
-    pub fn new(
-        a: Vec<Vec<f64>>,
-        b: Vec<Vec<f64>>,
-        c: Vec<Vec<f64>>,
-        alpha: Vec<Vec<f64>>,
-    ) -> Self {
+    pub fn new(a: Vec<Vec<f64>>, b: Vec<Vec<f64>>, c: Vec<Vec<f64>>, alpha: Vec<Vec<f64>>) -> Self {
         let n = a.len();
         assert_square(&a, n, "NRTL a");
         assert_square(&b, n, "NRTL b");
@@ -417,9 +412,21 @@ fn zero_matrix(n: usize) -> Vec<Vec<f64>> {
 
 /// Assert `m` is `n x n`, panicking with `label` on mismatch.
 fn assert_square(m: &[Vec<f64>], n: usize, label: &str) {
-    assert_eq!(m.len(), n, "{label}: outer dimension {} != n {}", m.len(), n);
+    assert_eq!(
+        m.len(),
+        n,
+        "{label}: outer dimension {} != n {}",
+        m.len(),
+        n
+    );
     for (r, row) in m.iter().enumerate() {
-        assert_eq!(row.len(), n, "{label}: row {r} length {} != n {}", row.len(), n);
+        assert_eq!(
+            row.len(),
+            n,
+            "{label}: row {r} length {} != n {}",
+            row.len(),
+            n
+        );
     }
 }
 
@@ -554,7 +561,10 @@ mod tests {
         let dln1 = (l1p - l1m) / (2.0 * h);
         let dln2 = (l2p - l2m) / (2.0 * h);
         let residual = x1 * dln1 + (1.0 - x1) * dln2;
-        assert!(residual.abs() < 1e-4, "Gibbs-Duhem residual {residual} too large");
+        assert!(
+            residual.abs() < 1e-4,
+            "Gibbs-Duhem residual {residual} too large"
+        );
     }
 
     // ----- UNIQUAC ---------------------------------------------------------
@@ -584,11 +594,8 @@ mod tests {
     /// **Result (2026-07-24).** Both `gamma = 1.0` to `< 1e-12`.
     #[test]
     fn uniquac_identical_species_is_ideal() {
-        let p = UniquacParams::from_energies(
-            vec![1.5, 1.5],
-            vec![1.4, 1.4],
-            m2(0.0, 0.0, 0.0, 0.0),
-        );
+        let p =
+            UniquacParams::from_energies(vec![1.5, 1.5], vec![1.4, 1.4], m2(0.0, 0.0, 0.0, 0.0));
         let g = p.activity_coefficients(&[0.3, 0.7], 310.0);
         assert_relative_eq!(g[0], 1.0, epsilon = 1e-12);
         assert_relative_eq!(g[1], 1.0, epsilon = 1e-12);
@@ -649,7 +656,10 @@ mod tests {
         let dln1 = (l1p - l1m) / (2.0 * h);
         let dln2 = (l2p - l2m) / (2.0 * h);
         let residual = x1 * dln1 + (1.0 - x1) * dln2;
-        assert!(residual.abs() < 1e-4, "Gibbs-Duhem residual {residual} too large");
+        assert!(
+            residual.abs() < 1e-4,
+            "Gibbs-Duhem residual {residual} too large"
+        );
     }
 
     /// **Methodology.** The enum dispatch surface must delegate correctly:

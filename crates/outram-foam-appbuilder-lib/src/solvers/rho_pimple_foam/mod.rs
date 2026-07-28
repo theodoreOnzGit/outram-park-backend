@@ -19,6 +19,14 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! # `rho_pimple_foam` — compressible transient PIMPLE solver (rhoPimpleFoam)
+//!
+//! Rust port of rhoPimpleFoam: the compressible counterpart of pimpleFoam,
+//! solving continuity, momentum, and (enthalpy-form) energy with a
+//! compressibility-consistent pressure equation. Suited to subsonic compressible
+//! transient flow. See [`RhoPimpleFoam`] for the governing equations and time
+//! loop; a companion stability primer lives in this module's `docs/`.
+
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;

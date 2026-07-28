@@ -378,7 +378,11 @@ impl MeshWall {
         let delta = r - dist;
         // `> 0.0` (not `>=`) also yields None for a NaN depth.
         if delta > 0.0 {
-            Some(Contact { overlap: delta, normal, point })
+            Some(Contact {
+                overlap: delta,
+                normal,
+                point,
+            })
         } else {
             None
         }
@@ -455,7 +459,11 @@ impl WallGeometry {
                     *point = rotate_point(*point);
                     *normal = rotate_dir(*normal);
                 }
-                Boundary::Cylinder { axis_point, axis_dir, .. } => {
+                Boundary::Cylinder {
+                    axis_point,
+                    axis_dir,
+                    ..
+                } => {
                     *axis_point = rotate_point(*axis_point);
                     *axis_dir = rotate_dir(*axis_dir);
                 }
@@ -533,7 +541,12 @@ impl MovingBoundary {
         angular_velocity: Vec3,
         pivot: Vec3,
     ) -> Self {
-        Self { geometry, velocity, angular_velocity, pivot }
+        Self {
+            geometry,
+            velocity,
+            angular_velocity,
+            pivot,
+        }
     }
 
     /// Material velocity of the wall surface at world point `point` `[m]`,
@@ -553,7 +566,8 @@ impl MovingBoundary {
     /// [`MovingBoundary::particle_overlap`], but any world point is valid.
     #[must_use]
     pub fn surface_velocity(&self, point: Vec3) -> Vec3 {
-        self.velocity.add(self.angular_velocity.cross(point.sub(self.pivot)))
+        self.velocity
+            .add(self.angular_velocity.cross(point.sub(self.pivot)))
     }
 
     /// Geometric overlap of particle `p` with the wall in its **current** pose,

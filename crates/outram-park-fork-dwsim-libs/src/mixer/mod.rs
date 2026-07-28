@@ -23,9 +23,9 @@
 //! DWSIM finishes by writing `(P, Hs, W)` onto the outlet stream and letting the
 //! flowsheet solver run a **pressure-enthalpy (PH) flash** to recover the outlet
 //! temperature and phase split (Mixer.vb:98-100, :234
-//! `StreamSpec.Pressure_and_Enthalpy`). This crate has no property-package /
-//! flash access of its own (see the crate top-level docs), so — exactly as in
-//! [`crate::expander`] — the flash is **not** performed here. [`mix`] returns the
+//! `StreamSpec.Pressure_and_Enthalpy`). This mixer port is deliberately kept
+//! decoupled from the crate's flash kernel ([`crate::thermo`]), so — exactly as
+//! in [`crate::expander`] — the flash is **not** performed here. [`mix`] returns the
 //! mixed [`MixerOutlet`] `(pressure, specific_enthalpy, mass_flow)`, and the
 //! caller runs the PH flash on `(p_out, h)` to obtain outlet `T` and phase.
 //!
@@ -131,7 +131,10 @@ impl core::fmt::Display for MixerError {
         match self {
             MixerError::NoInlets => write!(f, "mixer has no inlet streams"),
             MixerError::ZeroTotalMassFlow => {
-                write!(f, "mixer total mass flow is zero; mixed enthalpy is undefined")
+                write!(
+                    f,
+                    "mixer total mass flow is zero; mixed enthalpy is undefined"
+                )
             }
         }
     }
@@ -262,7 +265,10 @@ pub fn mixed_mass_fraction(
     if inlet_flows.is_empty() {
         return Err(MixerError::NoInlets);
     }
-    let w: f64 = inlet_flows.iter().map(|f| f.get::<kilogram_per_second>()).sum();
+    let w: f64 = inlet_flows
+        .iter()
+        .map(|f| f.get::<kilogram_per_second>())
+        .sum();
     if w == 0.0 {
         return Err(MixerError::ZeroTotalMassFlow);
     }
@@ -287,10 +293,7 @@ pub fn mixed_mass_fraction(
 /// Panics if the two slices differ in length. Returns an empty vector for empty
 /// input. If `Σ_j (x_j / M_j) == 0` (e.g. all-zero mass fractions), the result
 /// entries are `NaN` — the caller should mix nonzero compositions.
-pub fn mass_to_mole_fractions(
-    mass_fractions: &[Ratio],
-    molar_weights: &[MolarMass],
-) -> Vec<Ratio> {
+pub fn mass_to_mole_fractions(mass_fractions: &[Ratio], molar_weights: &[MolarMass]) -> Vec<Ratio> {
     assert_eq!(
         mass_fractions.len(),
         molar_weights.len(),
@@ -400,7 +403,11 @@ mod tests {
             PressureBehavior::Average,
         ] {
             let out = mix(&inlets, mode).unwrap();
-            assert_relative_eq!(out.mass_flow.get::<kilogram_per_second>(), 4.0, epsilon = 1e-12);
+            assert_relative_eq!(
+                out.mass_flow.get::<kilogram_per_second>(),
+                4.0,
+                epsilon = 1e-12
+            );
             assert_relative_eq!(
                 out.specific_enthalpy.get::<joule_per_kilogram>(),
                 150_000.0,
@@ -423,7 +430,10 @@ mod tests {
             outlet_pressure(&empty, PressureBehavior::Minimum),
             Err(MixerError::NoInlets)
         );
-        assert_eq!(mix(&empty, PressureBehavior::Average), Err(MixerError::NoInlets));
+        assert_eq!(
+            mix(&empty, PressureBehavior::Average),
+            Err(MixerError::NoInlets)
+        );
 
         let zero_flow = [
             InletStream::from_si(0.0, 100_000.0, 2.0e5),

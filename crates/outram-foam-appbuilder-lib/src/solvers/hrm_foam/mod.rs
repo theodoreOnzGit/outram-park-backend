@@ -19,6 +19,18 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! # `hrm_foam` — Homogeneous Relaxation Model solver (HRMFoam)
+//!
+//! Rust port of the HRMFoam flashing-flow solver: a compressible two-phase model
+//! in which the vapour mass fraction relaxes toward its equilibrium value over a
+//! finite relaxation time θ, using the Downar-Zapolski (1996) correlation. Used
+//! for rapid depressurisation / flashing (e.g. blowdown) where mechanical
+//! equilibrium holds but thermodynamic equilibrium lags.
+//!
+//! The model constants ([`THETA_0`], [`DZ_A`], [`DZ_B`]) and their runtime
+//! overrides ([`HrmModelConfig`]) are defined here; [`HrmFoam`] owns the time
+//! loop.
+
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;

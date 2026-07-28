@@ -108,7 +108,11 @@ impl Component {
         let name = name.into();
         let check = |property: &'static str, value: f64| -> Result<(), ComponentError> {
             if !value.is_finite() || value <= 0.0 {
-                Err(ComponentError::NonPositive { name: name.clone(), property, value })
+                Err(ComponentError::NonPositive {
+                    name: name.clone(),
+                    property,
+                    value,
+                })
             } else {
                 Ok(())
             }
@@ -162,8 +166,15 @@ pub mod reference {
     #[must_use]
     pub fn water() -> Component {
         Component::new(
-            "Water", 0.018015, 647.14, 22.064e6, 55.95e-6, 0.344, 373.15,
-            [0.0; 5], f64::NAN,
+            "Water",
+            0.018015,
+            647.14,
+            22.064e6,
+            55.95e-6,
+            0.344,
+            373.15,
+            [0.0; 5],
+            f64::NAN,
         )
         .expect("water reference constants are valid")
     }
@@ -172,8 +183,15 @@ pub mod reference {
     #[must_use]
     pub fn methane() -> Component {
         Component::new(
-            "Methane", 0.016043, 190.56, 4.599e6, 98.6e-6, 0.011, 111.66,
-            [0.0; 5], f64::NAN,
+            "Methane",
+            0.016043,
+            190.56,
+            4.599e6,
+            98.6e-6,
+            0.011,
+            111.66,
+            [0.0; 5],
+            f64::NAN,
         )
         .expect("methane reference constants are valid")
     }
@@ -182,8 +200,15 @@ pub mod reference {
     #[must_use]
     pub fn ethane() -> Component {
         Component::new(
-            "Ethane", 0.030070, 305.32, 4.872e6, 145.5e-6, 0.099, 184.55,
-            [0.0; 5], f64::NAN,
+            "Ethane",
+            0.030070,
+            305.32,
+            4.872e6,
+            145.5e-6,
+            0.099,
+            184.55,
+            [0.0; 5],
+            f64::NAN,
         )
         .expect("ethane reference constants are valid")
     }
@@ -192,8 +217,15 @@ pub mod reference {
     #[must_use]
     pub fn nitrogen() -> Component {
         Component::new(
-            "Nitrogen", 0.028014, 126.20, 3.398e6, 90.1e-6, 0.037, 77.35,
-            [0.0; 5], f64::NAN,
+            "Nitrogen",
+            0.028014,
+            126.20,
+            3.398e6,
+            90.1e-6,
+            0.037,
+            77.35,
+            [0.0; 5],
+            f64::NAN,
         )
         .expect("nitrogen reference constants are valid")
     }
@@ -202,8 +234,15 @@ pub mod reference {
     #[must_use]
     pub fn carbon_dioxide() -> Component {
         Component::new(
-            "CarbonDioxide", 0.044010, 304.12, 7.374e6, 94.07e-6, 0.225, 194.65,
-            [0.0; 5], f64::NAN,
+            "CarbonDioxide",
+            0.044010,
+            304.12,
+            7.374e6,
+            94.07e-6,
+            0.225,
+            194.65,
+            [0.0; 5],
+            f64::NAN,
         )
         .expect("carbon dioxide reference constants are valid")
     }
@@ -239,8 +278,41 @@ mod tests {
     /// mass each return `ComponentError::NonPositive`.
     #[test]
     fn rejects_invalid_constants() {
-        assert!(Component::new("bad", 0.018, 0.0, 1e5, f64::NAN, 0.3, f64::NAN, [0.0; 5], f64::NAN).is_err());
-        assert!(Component::new("bad", 0.018, 600.0, -1.0, f64::NAN, 0.3, f64::NAN, [0.0; 5], f64::NAN).is_err());
-        assert!(Component::new("bad", f64::NAN, 600.0, 1e5, f64::NAN, 0.3, f64::NAN, [0.0; 5], f64::NAN).is_err());
+        assert!(Component::new(
+            "bad",
+            0.018,
+            0.0,
+            1e5,
+            f64::NAN,
+            0.3,
+            f64::NAN,
+            [0.0; 5],
+            f64::NAN
+        )
+        .is_err());
+        assert!(Component::new(
+            "bad",
+            0.018,
+            600.0,
+            -1.0,
+            f64::NAN,
+            0.3,
+            f64::NAN,
+            [0.0; 5],
+            f64::NAN
+        )
+        .is_err());
+        assert!(Component::new(
+            "bad",
+            f64::NAN,
+            600.0,
+            1e5,
+            f64::NAN,
+            0.3,
+            f64::NAN,
+            [0.0; 5],
+            f64::NAN
+        )
+        .is_err());
     }
 }

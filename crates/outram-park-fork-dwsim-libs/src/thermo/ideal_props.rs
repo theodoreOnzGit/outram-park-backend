@@ -375,7 +375,15 @@ mod tests {
     /// ideal-gas routines, which read only `cp_ig_a..e`).
     fn comp(cp_ig: [f64; 5]) -> Component {
         Component::new(
-            "test", 0.030, 300.0, 5.0e6, f64::NAN, 0.1, f64::NAN, cp_ig, f64::NAN,
+            "test",
+            0.030,
+            300.0,
+            5.0e6,
+            f64::NAN,
+            0.1,
+            f64::NAN,
+            cp_ig,
+            f64::NAN,
         )
         .expect("valid test component")
     }
@@ -404,7 +412,11 @@ mod tests {
         let (t, t_ref) = (500.0, 298.15);
         let expected = a * (t - t_ref);
         assert_relative_eq!(expected, 5873.835, max_relative = 1e-12);
-        assert_relative_eq!(ideal_gas_enthalpy(&c, t, t_ref), expected, max_relative = 1e-12);
+        assert_relative_eq!(
+            ideal_gas_enthalpy(&c, t, t_ref),
+            expected,
+            max_relative = 1e-12
+        );
     }
 
     /// **Methodology.** For a constant Cp (A only), the entropy must equal
@@ -451,7 +463,11 @@ mod tests {
             + cc / 3.0 * (t.powi(3) - t0.powi(3))
             + d / 4.0 * (t.powi(4) - t0.powi(4))
             + e / 5.0 * (t.powi(5) - t0.powi(5));
-        assert_relative_eq!(ideal_gas_enthalpy(&c, t, t0), h_expected, max_relative = 1e-12);
+        assert_relative_eq!(
+            ideal_gas_enthalpy(&c, t, t0),
+            h_expected,
+            max_relative = 1e-12
+        );
 
         let s_expected = a * (t / t0).ln()
             + b * (t - t0)
@@ -511,7 +527,10 @@ mod tests {
     #[test]
     fn mixture_properties_weight_and_add_mixing_entropy() {
         let (a1, a2) = (29.1, 37.0);
-        let comps = [comp([a1, 0.0, 0.0, 0.0, 0.0]), comp([a2, 0.0, 0.0, 0.0, 0.0])];
+        let comps = [
+            comp([a1, 0.0, 0.0, 0.0, 0.0]),
+            comp([a2, 0.0, 0.0, 0.0, 0.0]),
+        ];
         let x = [0.5, 0.5];
         let (t, t_ref) = (450.0, 298.15);
         let (p, p_ref) = (2.0 * 101_325.0, 101_325.0);
@@ -522,7 +541,11 @@ mod tests {
             0.5 * a1 + 0.5 * a2,
             max_relative = 1e-13
         );
-        assert_relative_eq!(mixture_ideal_gas_cp(&comps, &x, t), 33.05, max_relative = 1e-13);
+        assert_relative_eq!(
+            mixture_ideal_gas_cp(&comps, &x, t),
+            33.05,
+            max_relative = 1e-13
+        );
 
         // (b) mixture enthalpy = weighted pure enthalpies.
         let h_expected = 0.5 * ideal_gas_enthalpy(&comps[0], t, t_ref)

@@ -107,21 +107,33 @@ impl Vec3 {
 
     /// The zero vector `(0, 0, 0)`.
     pub const fn zero() -> Self {
-        Self { x: 0.0, y: 0.0, z: 0.0 }
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
     }
 
     /// Component-wise sum `self + other`. Both operands must share the same
     /// physical unit; the result carries that unit.
     #[must_use]
     pub fn add(self, other: Self) -> Self {
-        Self { x: self.x + other.x, y: self.y + other.y, z: self.z + other.z }
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
     }
 
     /// Component-wise difference `self - other`. Both operands must share the
     /// same physical unit; the result carries that unit.
     #[must_use]
     pub fn sub(self, other: Self) -> Self {
-        Self { x: self.x - other.x, y: self.y - other.y, z: self.z - other.z }
+        Self {
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
+        }
     }
 
     /// Scalar multiple `s * self`. If `self` has unit `[U]` and `s` has unit
@@ -129,7 +141,11 @@ impl Vec3 {
     /// time `[s]` yields a displacement `[m]`).
     #[must_use]
     pub fn scale(self, s: f64) -> Self {
-        Self { x: self.x * s, y: self.y * s, z: self.z * s }
+        Self {
+            x: self.x * s,
+            y: self.y * s,
+            z: self.z * s,
+        }
     }
 
     /// Euclidean dot product `self · other` (a scalar). For operands with units
@@ -457,7 +473,9 @@ mod tests {
         let ok_v = Vec3::zero();
         // Zero mass.
         assert!(Particle::new(
-            ok_v, ok_v, ok_v,
+            ok_v,
+            ok_v,
+            ok_v,
             Mass::new::<kilogram>(0.0),
             Length::new::<meter>(0.05),
             ThermodynamicTemperature::new::<kelvin>(300.0),
@@ -465,7 +483,9 @@ mod tests {
         .is_err());
         // Negative mass.
         assert!(Particle::new(
-            ok_v, ok_v, ok_v,
+            ok_v,
+            ok_v,
+            ok_v,
             Mass::new::<kilogram>(-1.0),
             Length::new::<meter>(0.05),
             ThermodynamicTemperature::new::<kelvin>(300.0),
@@ -473,7 +493,9 @@ mod tests {
         .is_err());
         // Zero radius.
         assert!(Particle::new(
-            ok_v, ok_v, ok_v,
+            ok_v,
+            ok_v,
+            ok_v,
             Mass::new::<kilogram>(1.0),
             Length::new::<meter>(0.0),
             ThermodynamicTemperature::new::<kelvin>(300.0),
@@ -481,7 +503,9 @@ mod tests {
         .is_err());
         // Negative radius.
         assert!(Particle::new(
-            ok_v, ok_v, ok_v,
+            ok_v,
+            ok_v,
+            ok_v,
             Mass::new::<kilogram>(1.0),
             Length::new::<meter>(-0.05),
             ThermodynamicTemperature::new::<kelvin>(300.0),
@@ -489,7 +513,9 @@ mod tests {
         .is_err());
         // Non-positive temperature.
         assert!(Particle::new(
-            ok_v, ok_v, ok_v,
+            ok_v,
+            ok_v,
+            ok_v,
             Mass::new::<kilogram>(1.0),
             Length::new::<meter>(0.05),
             ThermodynamicTemperature::new::<kelvin>(0.0),
@@ -497,7 +523,9 @@ mod tests {
         .is_err());
         // A fully valid set succeeds.
         assert!(Particle::new(
-            ok_v, ok_v, ok_v,
+            ok_v,
+            ok_v,
+            ok_v,
             Mass::new::<kilogram>(1.0),
             Length::new::<meter>(0.05),
             ThermodynamicTemperature::new::<kelvin>(300.0),

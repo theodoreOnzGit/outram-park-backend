@@ -23,6 +23,19 @@ Provides solver time loops, polyMesh / field I/O, and case-file structures, and
 hosts the in-progress Rust port of GeN-Foam (deterministic reactor neutronics +
 thermal-hydraulics + thermo-mechanics).
 
+## Bookkeeping status
+
+> Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping
+> pass" command). A crate is **complete** only once the maintainer has
+> personally signed off on BOTH axes below.
+
+| Axis | Status |
+|---|---|
+| Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
+| Human / user interface — human-reviewed | ❌ Not yet manually checked |
+
+**Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
+
 Depends on (both **in-workspace path crates**, not yet on crates.io):
 - `outram-foam-basic-lib` — primitives, FV operators, fields, mesh
 - `outram-foam-turbulence-lib` — turbulence model closures
@@ -37,10 +50,11 @@ Depends on (both **in-workspace path crates**, not yet on crates.io):
 | Solver | Status |
 |---|---|
 | `pimple_foam` | Incompressible transient PISO/PIMPLE (pimpleFoam ≡ icoFoam at `nOuterCorrectors 1`). Implemented; validated against an icoFoam lid-driven-cavity reference (`tutorials/pimple_foam_cavity.rs`). |
-| `rho_central_foam` | Kurganov-Tadmor central-upwind explicit compressible (rhoCentralFoam). Implemented; **validated** against Sod (1978) Table II and an OpenFOAM reference run (`tests/sod_shock_tube_validation/`, `tutorials/rho_central_foam_shock_tube.rs`). |
+| `rho_central_foam` | Kurganov-Noelle-Petrova (KNP) central-upwind explicit compressible (rhoCentralFoam). Implemented; **validated** against Sod (1978) Table II and an OpenFOAM reference run (`tests/sod_shock_tube_validation/`, `tutorials/rho_central_foam_shock_tube.rs`). |
 | `rho_pimple_foam` | Compressible transient PIMPLE (rhoPimpleFoam), ideal-gas `ρ = ψ·p` closure. Implemented; exercised by a subsonic NACA 0012 tutorial (`tutorials/rho_pimple_foam_aerofoil_naca0012.rs`). |
 | `sonic_foam` | Transonic/supersonic ψ-based solver (sonicFoam). Implemented, but the implicit `fvm::div` scalar-convection operator is absent from basic-lib, so convection is treated **explicitly** via `fvc::div`. **No tutorial or validation case — unexercised.** |
 | `hrm_foam` | Homogeneous Relaxation Model two-phase (HRMFoam), Downar-Zapolski (1996) relaxation. Implemented. **No tutorial or validation case — unexercised.** |
+| `reacting_two_phase_euler_foam` | Reacting two-phase Euler-Euler (OpenFOAM-dev's `multiphaseEuler`, historic `reactingTwoPhaseEulerFoam`). Composes the `outram-foam-multiphase` hydrodynamic core (`TwoFluidPimple`) and adds per-phase conservative enthalpy equations, one-resistance interfacial heat transfer (Spherical / Ranz-Marshall / constant-Nu), operator-split phase change with latent heat, an optional single-phase multicomponent composition, and a global Arrhenius reaction. Implemented; demonstrated by `examples/reacting_two_phase_euler_combustion.rs`. **Verification-tested only — no benchmark validation.** |
 
 ## Case I/O (`io`)
 
@@ -70,7 +84,7 @@ translation order are in
 | `neutronics::point_kinetics` | **Implemented + verified** — 0-D point-kinetics ODE (backward-Euler), verified against the analytical inhour equation (~0.007 % on asymptotic period; `tests/genfoam_point_kinetics_inhour.rs`). Feedback / GEM / control-rod-driveline / FMU / liquid-fuel-advection coupling **deferred**. |
 | `neutronics::xs` | **Implemented** — GeN-Foam-format multigroup cross-section data structures + unit tests. |
 | `neutronics::diffusion` | **Implemented + verified** — multigroup diffusion, k-eigenvalue (power iteration) + backward-Euler transient; verified against closed-form one-group theory (`k_inf` to `~4e-16`, bare-slab buckling +0.3 pcm, mesh convergence, null transient). |
-| `neutronics::sp3`, `neutronics::sn` | **Scaffold only** — state/field allocation exists, but `solve_eigenvalue` / `step` return `NeutronicsError::ModelNotImplemented`. No transport solve. |
+| `neutronics::sp3`, `neutronics::sn` | **Implemented** transport solvers — `solve_eigenvalue` (k-eigenvalue) and `step` (transient) run when the model is built with cross-section data; SN is verified to converge with quadrature order (`sn_order_convergence`) and toward the diffusion limit (`sn_approaches_diffusion_limit`). The **state-only `::new` scaffold path** (no cross sections attached) returns `NeutronicsError::ModelNotImplemented` (`scaffold_reports_not_implemented`). |
 | `multi_region` | **Implemented + verified end-to-end** for 0-D and mesh-based diffusion↔TH coupling with Doppler feedback. Two **degraded scaffolds** remain (see Limitations): exact conservative mesh-to-mesh mapping, and actual mesh-point motion. |
 | `thermal_hydraulics::closures` | Correlation leaves ported with unit tests against published values: `fs_drag` (**verified**, analytic `f·Re → 64`), `ff_drag`, `heat_transfer`, `phase_change`, `interfacial`. `turbulence` is **partial** (closure algebra only; the k/ε transport equations and `correctNut` orchestration are deferred). |
 | `thermal_hydraulics::phase` / `structure` | Field-state + structure/power-model kernels **implemented** (with tests). |

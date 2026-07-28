@@ -16,11 +16,15 @@ categories.workspace = true
 # record) stays in the package.
 exclude = ["upstream_source/cfMesh", "upstream_source/voro"]
 
-# Scaffold stage: no dependencies yet. As the port lands it will consume
-# `outram-blender`'s `Mesh` (surface input) and target
-# `outram-foam-basic-lib`'s `io::poly_mesh::PolyMesh` (volume output). All
-# geometry math is pure Rust (no BLAS / C / Fortran) so the crate stays
-# Android/Termux-buildable, per the workspace hard rule.
+# The volume-meshing core (VolumeMesh, cartesian, carve, snap) is pure Rust
+# with no dependencies, so the crate stays Android/Termux-buildable by default.
+# The optional `foam-export` feature adds the bridge to the real
+# `outram-foam-basic-lib` `PolyMesh` (that crate is BLAS-free / Android-safe);
+# it is off by default so the base build pulls nothing.
+[features]
+foam-export = ["dep:outram-foam-basic-lib"]
+
 [dependencies]
+outram-foam-basic-lib = { workspace = true, optional = true }
 
 [dev-dependencies]

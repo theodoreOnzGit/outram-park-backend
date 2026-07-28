@@ -42,6 +42,12 @@
 // inside it are `#[cfg(not(target_os = "android"))]`.
 pub mod xs_interp;
 
+// Ray–surface distance for all 15 CSG SurfaceKind variants (op-9s8.2): the
+// geometric foundation for GPU CSG transport. Encoding + scalar f32 CPU mirror
+// (built and tested on every target, incl. Android) + WGSL compute path (the
+// `*_gpu` function and its `wgpu` imports are `#[cfg(not(target_os = "android"))]`).
+pub mod surface_distance;
+
 // Dense log-spaced tabulation of a material's macroscopic total cross section,
 // with batched CPU-reference + GPU lookup reusing the `xs_interp` kernel. Builds
 // on every target; its GPU-only method is `#[cfg]`-gated internally.

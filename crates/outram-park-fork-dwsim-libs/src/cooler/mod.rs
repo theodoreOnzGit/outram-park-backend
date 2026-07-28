@@ -193,7 +193,10 @@ mod tests {
     fn heat_removed_outlet_enthalpy() {
         let h2 = outlet_enthalpy_heat_removed(jkg(100_000.0), w_(50_000.0), kgs(10.0), eta(1.0));
         assert_relative_eq!(h2.get::<joule_per_kilogram>(), 95_000.0, epsilon = 1e-9);
-        assert!(h2.get::<joule_per_kilogram>() < 100_000.0, "cooler must lower enthalpy");
+        assert!(
+            h2.get::<joule_per_kilogram>() < 100_000.0,
+            "cooler must lower enthalpy"
+        );
 
         // Explicit opposite-sign check versus the heater on identical inputs.
         let h2_heater = crate::heater::outlet_enthalpy_heat_added(
@@ -223,7 +226,10 @@ mod tests {
         let cp = SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(4180.0);
         let q = duty_constant_cp(kgs(2.0), cp, t_k(310.0), t_k(300.0), eta(1.0));
         assert_relative_eq!(q.get::<watt>(), 83_600.0, epsilon = 1e-9);
-        assert!(q.get::<watt>() > 0.0, "cooling reports positive removed duty");
+        assert!(
+            q.get::<watt>() > 0.0,
+            "cooling reports positive removed duty"
+        );
     }
 
     /// V&V — Cooler, rigorous outlet-temperature path agrees with the direct

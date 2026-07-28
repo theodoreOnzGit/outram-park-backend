@@ -177,14 +177,12 @@ pub fn tube_side(
         64.0 / re_t
     } * geometry.tube_friction_correction_factor.get::<ratio>();
 
-    let dp_tube = fric
-        * geometry.tube_length.get::<meter>()
-        * geometry.tube_passes_per_shell as f64
-        / di
-        * v_t
-        * v_t
-        / 2.0
-        * rho.value;
+    let dp_tube =
+        fric * geometry.tube_length.get::<meter>() * geometry.tube_passes_per_shell as f64 / di
+            * v_t
+            * v_t
+            / 2.0
+            * rho.value;
 
     let h_i = k.value / di * (fric / 8.0) * re_t * pr_t
         / (1.07 + 12.7 * (fric / 8.0).sqrt() * (pr_t.powf(2.0 / 3.0) - 1.0));
@@ -207,14 +205,22 @@ fn nh_y_np_constants(layout: TubeLayout) -> ((f64, f64, f64), (f64, f64, f64), (
             (0.53807650470841084, 0.3761125784751041, -3.8741224386187474),
         ),
         TubeLayout::Square90 => (
-            (0.84134824361715088, 0.61374520485097339, -4.2696318466170409),
+            (
+                0.84134824361715088,
+                0.61374520485097339,
+                -4.2696318466170409,
+            ),
             (4.9901814007765743, -0.32437442510328618, 1.084850423269188),
             (0.5502379008813062, 0.36559560225434834, -3.99041305625483),
         ),
         TubeLayout::SquareRotated45 => (
             (0.66738654406767639, 0.680260033886211, -4.522291113086232),
             (4.5749169651729105, -0.32201759442337358, 1.17295183743691),
-            (0.36869631130961067, 0.38397859475813922, -3.6273465996780421),
+            (
+                0.36869631130961067,
+                0.38397859475813922,
+                -3.6273465996780421,
+            ),
         ),
     }
 }
@@ -248,13 +254,25 @@ pub fn colburn_j_h_friction(layout: TubeLayout, re_shell: Ratio) -> Ratio {
     let re = re_shell.get::<ratio>();
     let j = match layout {
         TubeLayout::Triangular30 | TubeLayout::TriangularRotated => {
-            if re < 100.0 { 0.497 * re.powf(0.54) } else { 0.378 * re.powf(0.59) }
+            if re < 100.0 {
+                0.497 * re.powf(0.54)
+            } else {
+                0.378 * re.powf(0.59)
+            }
         }
         TubeLayout::Square90 => {
-            if re < 100.0 { 0.385 * re.powf(0.526) } else { 0.2487 * re.powf(0.625) }
+            if re < 100.0 {
+                0.385 * re.powf(0.526)
+            } else {
+                0.2487 * re.powf(0.625)
+            }
         }
         TubeLayout::SquareRotated45 => {
-            if re < 100.0 { 0.496 * re.powf(0.54) } else { 0.354 * re.powf(0.61) }
+            if re < 100.0 {
+                0.496 * re.powf(0.54)
+            } else {
+                0.354 * re.powf(0.61)
+            }
         }
     };
     Ratio::new::<ratio>(j)
@@ -275,10 +293,18 @@ pub fn colburn_j_h_htc(layout: TubeLayout, re_shell_htc: Ratio) -> Ratio {
     let re = re_shell_htc.get::<ratio>();
     let j = match layout {
         TubeLayout::Triangular30 | TubeLayout::TriangularRotated => {
-            if re < 100.0 { 0.497 * re.powf(0.54) } else { 0.378 * re.powf(0.61) }
+            if re < 100.0 {
+                0.497 * re.powf(0.54)
+            } else {
+                0.378 * re.powf(0.61)
+            }
         }
         TubeLayout::Square90 | TubeLayout::SquareRotated45 => {
-            if re < 100.0 { 0.385 * re.powf(0.526) } else { 0.2487 * re.powf(0.625) }
+            if re < 100.0 {
+                0.385 * re.powf(0.526)
+            } else {
+                0.2487 * re.powf(0.625)
+            }
         }
     };
     Ratio::new::<ratio>(j)
@@ -301,25 +327,75 @@ pub fn shell_friction_factor(
     let re = re_shell.get::<ratio>();
     let pitch_over_de = pitch.get::<meter>() / tube_outer_diameter.get::<meter>();
 
-    let triangular_family =
-        matches!(layout, TubeLayout::Triangular30 | TubeLayout::TriangularRotated);
+    let triangular_family = matches!(
+        layout,
+        TubeLayout::Triangular30 | TubeLayout::TriangularRotated
+    );
 
     let f = if pitch_over_de <= 1.2 {
         if triangular_family {
-            if re < 100.0 { 276.46 * re.powf(-0.979) } else if re < 1000.0 { 30.26 * re.powf(-0.523) } else { 2.93 * re.powf(-0.186) }
-        } else if re < 100.0 { 230.0 * re.powf(-1.0) } else if re < 1000.0 { 16.23 * re.powf(-0.43) } else { 2.67 * re.powf(-0.173) }
+            if re < 100.0 {
+                276.46 * re.powf(-0.979)
+            } else if re < 1000.0 {
+                30.26 * re.powf(-0.523)
+            } else {
+                2.93 * re.powf(-0.186)
+            }
+        } else if re < 100.0 {
+            230.0 * re.powf(-1.0)
+        } else if re < 1000.0 {
+            16.23 * re.powf(-0.43)
+        } else {
+            2.67 * re.powf(-0.173)
+        }
     } else if pitch_over_de <= 1.3 {
         if triangular_family {
-            if re < 100.0 { 208.14 * re.powf(-0.945) } else if re < 1000.0 { 27.6 * re.powf(-0.525) } else { 2.27 * re.powf(-0.163) }
-        } else if re < 100.0 { 142.22 * re.powf(-0.949) } else if re < 1000.0 { 11.93 * re.powf(-0.43) } else { 1.77 * re.powf(-0.144) }
+            if re < 100.0 {
+                208.14 * re.powf(-0.945)
+            } else if re < 1000.0 {
+                27.6 * re.powf(-0.525)
+            } else {
+                2.27 * re.powf(-0.163)
+            }
+        } else if re < 100.0 {
+            142.22 * re.powf(-0.949)
+        } else if re < 1000.0 {
+            11.93 * re.powf(-0.43)
+        } else {
+            1.77 * re.powf(-0.144)
+        }
     } else if pitch_over_de <= 1.4 {
         if triangular_family {
-            if re < 100.0 { 122.73 * re.powf(-0.865) } else if re < 1000.0 { 17.82 * re.powf(-0.474) } else { 1.86 * re.powf(-0.146) }
-        } else if re < 100.0 { 110.77 * re.powf(-0.965) } else if re < 1000.0 { 7.524 * re.powf(-0.4) } else { 1.01 * re.powf(-0.104) }
+            if re < 100.0 {
+                122.73 * re.powf(-0.865)
+            } else if re < 1000.0 {
+                17.82 * re.powf(-0.474)
+            } else {
+                1.86 * re.powf(-0.146)
+            }
+        } else if re < 100.0 {
+            110.77 * re.powf(-0.965)
+        } else if re < 1000.0 {
+            7.524 * re.powf(-0.4)
+        } else {
+            1.01 * re.powf(-0.104)
+        }
     } else if pitch_over_de <= 1.5 {
         if triangular_family {
-            if re < 100.0 { 104.33 * re.powf(-0.869) } else if re < 1000.0 { 12.69 * re.powf(-0.434) } else { 1.526 * re.powf(-0.129) }
-        } else if re < 100.0 { 58.18 * re.powf(-0.862) } else if re < 1000.0 { 6.76 * re.powf(-0.411) } else { 0.718 * re.powf(-0.008) }
+            if re < 100.0 {
+                104.33 * re.powf(-0.869)
+            } else if re < 1000.0 {
+                12.69 * re.powf(-0.434)
+            } else {
+                1.526 * re.powf(-0.129)
+            }
+        } else if re < 100.0 {
+            58.18 * re.powf(-0.862)
+        } else if re < 1000.0 {
+            6.76 * re.powf(-0.411)
+        } else {
+            0.718 * re.powf(-0.008)
+        }
     } else {
         return Err(ShellAndTubeError::PitchToDiameterRatioTooLarge { pitch_over_de });
     };
@@ -343,7 +419,7 @@ pub struct ShellSideResult {
 ///
 /// `w`, `rho`, `mu`, `k`, `cp` are the shell-side fluid's mass flow rate and
 /// properties (evaluated at the shell-side mean temperature -- the caller's
-/// responsibility, since this crate has no flash access).
+/// responsibility, since this rating port is decoupled from the flash kernel).
 ///
 /// # Errors
 /// Propagates [`ShellAndTubeError::PitchToDiameterRatioTooLarge`] from
@@ -416,12 +492,11 @@ pub fn shell_side(
         TubeLayout::SquareRotated45 => 1.414,
     };
     let hdi = geometry.shell_baffle_cut.get::<ratio>();
-    let dp_shell = 4.0 * f_s.get::<ratio>() * g_sf * g_sf / (2.0 * rho.value) * cx * (1.0 - hdi)
-        * dsi
-        / pitch
-        * n_baffles
-        * (1.0 + y.get::<ratio>() * pitch / dsi)
-        * geometry.number_of_shells_in_series as f64;
+    let dp_shell =
+        4.0 * f_s.get::<ratio>() * g_sf * g_sf / (2.0 * rho.value) * cx * (1.0 - hdi) * dsi / pitch
+            * n_baffles
+            * (1.0 + y.get::<ratio>() * pitch / dsi)
+            * geometry.number_of_shells_in_series as f64;
 
     // HTC context: separate leakage-corrected area Ssh, separate Reynolds
     // Rsh, separate (and for triangular layouts, differently-exponented)
@@ -562,7 +637,10 @@ mod tests {
             )
             .unwrap_or_else(|e| panic!("layout {layout:?} failed: {e:?}"));
             assert!(result.htc.get::<htc_unit>() > 0.0, "layout {layout:?}");
-            assert!(result.pressure_drop.get::<pascal>() > 0.0, "layout {layout:?}");
+            assert!(
+                result.pressure_drop.get::<pascal>() > 0.0,
+                "layout {layout:?}"
+            );
         }
     }
 
@@ -575,7 +653,10 @@ mod tests {
             geometry_pitch,
             Length::new::<millimeter>(60.0),
         );
-        assert!(matches!(result, Err(ShellAndTubeError::PitchToDiameterRatioTooLarge { .. })));
+        assert!(matches!(
+            result,
+            Err(ShellAndTubeError::PitchToDiameterRatioTooLarge { .. })
+        ));
     }
 
     #[test]

@@ -19,6 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Parser for OpenFOAM's `system/controlDict` — the time-loop and output
+//! control dictionary. Produces the typed [`ControlDict`] with enum-valued
+//! start/stop/write controls, so an invalid keyword is a `Result` error rather
+//! than a silent runtime default.
+
 use crate::error::AppBuilderError;
 use std::path::Path;
 
