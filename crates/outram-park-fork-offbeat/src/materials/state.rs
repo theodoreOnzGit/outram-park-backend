@@ -49,12 +49,20 @@ pub struct MaterialState {
     /// Burnup \[**MWd/kgHM**\] — megawatt-days per kilogram of initial heavy
     /// metal.
     ///
-    /// Note the unit. Upstream stores burnup in J/kgHM on the mesh and each
-    /// correlation converts locally (`Bu/1000/0.881` appears throughout, which
-    /// is J/kgHM → MWd/kgU for a UO2 heavy-metal fraction of 0.881). That
-    /// conversion is done **once**, at the boundary of this crate, so
-    /// correlations receive MWd/kgHM directly and cannot each get it slightly
-    /// wrong.
+    /// Note the unit, and note that it differs from upstream's. OFFBEAT stores
+    /// burnup on the mesh in **MWd/t(oxide)** — `burnupFromPower.H` states
+    /// "MWd/MT_oxide" and `burnupFromPower.C` accumulates
+    /// `Bu += Q·Δt/ρ/1000` against the *bulk fuel* density. Each correlation
+    /// then converts locally: the `Bu/1000/0.881` that appears throughout is
+    /// MWd/t(oxide) → MWd/kg(oxide) → MWd/kgHM, using a UO2 heavy-metal mass
+    /// fraction of 0.881.
+    ///
+    /// This port does that conversion **once**, at the crate boundary
+    /// ([`crate::burnup`]), so correlations receive MWd/kgHM directly and cannot
+    /// each get it slightly wrong. Be aware that the two bases differ by about
+    /// 13%, which is large enough to matter and small enough to look plausible
+    /// if confused — hence naming the basis in the field's unit rather than
+    /// leaving "burnup" to mean whichever the reader assumes.
     pub burnup: f64,
 
     /// Fast-neutron fluence \[n/m²\], conventionally for E > 1 MeV.
