@@ -702,7 +702,10 @@ mod tests {
         let m = PoissonRatioModel::Tobbe1515Ti;
         assert!(rel_diff(m.value(&MaterialState::fresh(293.15)), 0.2782) < 1.0e-12);
         let top = m.value(&MaterialState::fresh(1273.0));
-        assert!(rel_diff(top, 0.277 + 6.0e-5 * 999.85) < 1.0e-12, "got {top}");
+        assert!(
+            rel_diff(top, 0.277 + 6.0e-5 * 999.85) < 1.0e-12,
+            "got {top}"
+        );
         assert!(top < POISSON_RATIO_MAX);
     }
 
@@ -839,10 +842,21 @@ mod tests {
         let m = PoissonRatioModel::MatproZircaloy;
         let nu = |t: f64| m.value(&MaterialState::fresh(t));
 
-        assert!(nu(1273.0) < POISSON_RATIO_MAX, "1273 K should still be inside");
-        assert!(rel_diff(nu(1273.0), 0.4723602214) < 1.0e-8, "got {}", nu(1273.0));
+        assert!(
+            nu(1273.0) < POISSON_RATIO_MAX,
+            "1273 K should still be inside"
+        );
+        assert!(
+            rel_diff(nu(1273.0), 0.4723602214) < 1.0e-8,
+            "got {}",
+            nu(1273.0)
+        );
         assert!(nu(1800.0) > POISSON_RATIO_MAX, "1800 K should be outside");
-        assert!(rel_diff(nu(1800.0), 0.9123505976) < 1.0e-8, "got {}", nu(1800.0));
+        assert!(
+            rel_diff(nu(1800.0), 0.9123505976) < 1.0e-8,
+            "got {}",
+            nu(1800.0)
+        );
 
         let (mut low, mut high) = (1273.0_f64, 1800.0_f64);
         for _ in 0..200 {

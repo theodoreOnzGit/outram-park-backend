@@ -347,7 +347,11 @@ impl ReleasedGasMoles {
         volume: f64,
     ) -> Result<Self> {
         for (value, quantity, unit) in [
-            (fission_gas_atoms, "released fission-gas increment", "atoms/m^3"),
+            (
+                fission_gas_atoms,
+                "released fission-gas increment",
+                "atoms/m^3",
+            ),
             (helium_atoms, "released helium increment", "atoms/m^3"),
             (volume, "fuel volume", "m^3"),
         ] {
@@ -539,13 +543,29 @@ impl FissionGasInventory {
     pub fn validate(&self) -> Result<()> {
         let fields: [(f64, &'static str, &'static str); 8] = [
             (self.gas_in_grain, "intragranular fission gas", "atoms/m^3"),
-            (self.gas_at_boundary, "grain-boundary fission gas", "atoms/m^3"),
+            (
+                self.gas_at_boundary,
+                "grain-boundary fission gas",
+                "atoms/m^3",
+            ),
             (self.gas_released, "released fission gas", "atoms/m^3"),
             (self.helium_in_grain, "intragranular helium", "atoms/m^3"),
-            (self.helium_at_boundary, "grain-boundary helium", "atoms/m^3"),
+            (
+                self.helium_at_boundary,
+                "grain-boundary helium",
+                "atoms/m^3",
+            ),
             (self.helium_released, "released helium", "atoms/m^3"),
-            (self.intragranular_swelling, "intragranular gas swelling", "-"),
-            (self.intergranular_swelling, "intergranular gas swelling", "-"),
+            (
+                self.intragranular_swelling,
+                "intragranular gas swelling",
+                "-",
+            ),
+            (
+                self.intergranular_swelling,
+                "intergranular gas swelling",
+                "-",
+            ),
         ];
         for (value, quantity, unit) in fields {
             if !value.is_finite() || value < 0.0 {
@@ -986,8 +1006,7 @@ impl FissionGasReleaseModel {
                     // Branch 2: grain-boundary gas vents; the grains hold theirs.
                     Ok(GasReleaseOutcome {
                         gas_released: inventory.gas_released + inventory.gas_at_boundary,
-                        helium_released: inventory.helium_released
-                            + inventory.helium_at_boundary,
+                        helium_released: inventory.helium_released + inventory.helium_at_boundary,
                         intragranular_swelling: inventory.intragranular_swelling,
                         intergranular_swelling: 0.0,
                     })
@@ -1213,8 +1232,7 @@ mod tests {
     /// validation of the venting criteria against RIA experiments.
     #[test]
     fn transient_venting_reproduces_the_three_upstream_branches() {
-        let model =
-            FissionGasReleaseModel::TransientVenting(TransientVentingThresholds::default());
+        let model = FissionGasReleaseModel::TransientVenting(TransientVentingThresholds::default());
         assert_eq!(model.upstream_name(), "SCIANTIXRIA");
         assert!(model.is_implemented());
 
@@ -1263,7 +1281,10 @@ mod tests {
             damage: 0.0,
         };
         assert_eq!(
-            model.correct(&inv, &hot_but_low_burnup).unwrap().gas_released,
+            model
+                .correct(&inv, &hot_but_low_burnup)
+                .unwrap()
+                .gas_released,
             inv.gas_released
         );
 
@@ -1293,8 +1314,7 @@ mod tests {
     /// of the model, not a statement about real fuel.
     #[test]
     fn release_is_monotone_non_decreasing_in_temperature() {
-        let model =
-            FissionGasReleaseModel::TransientVenting(TransientVentingThresholds::default());
+        let model = FissionGasReleaseModel::TransientVenting(TransientVentingThresholds::default());
         let inv = loaded_inventory();
 
         // Start from the release at the bottom of the sweep, so that the step
@@ -1351,8 +1371,7 @@ mod tests {
     /// created.
     #[test]
     fn venting_conserves_the_inventory() {
-        let model =
-            FissionGasReleaseModel::TransientVenting(TransientVentingThresholds::default());
+        let model = FissionGasReleaseModel::TransientVenting(TransientVentingThresholds::default());
         let inv = loaded_inventory();
         let total = inv.total_fission_gas();
         assert!(rel_diff(total, 1.0e25) < REL_TOL);
@@ -1436,11 +1455,23 @@ mod tests {
     #[test]
     fn fgr_time_step_control_matches_upstream() {
         let dt = 3600.0;
-        assert!(rel_diff(next_time_step_from_release_change(dt, 0.01, 0.02).unwrap(), 1800.0) < REL_TOL);
-        assert!(rel_diff(next_time_step_from_release_change(dt, 0.01, 0.01).unwrap(), 3600.0) < REL_TOL);
         assert!(
-            rel_diff(next_time_step_from_release_change(dt, 0.01, 0.005).unwrap(), 7200.0)
-                < REL_TOL
+            rel_diff(
+                next_time_step_from_release_change(dt, 0.01, 0.02).unwrap(),
+                1800.0
+            ) < REL_TOL
+        );
+        assert!(
+            rel_diff(
+                next_time_step_from_release_change(dt, 0.01, 0.01).unwrap(),
+                3600.0
+            ) < REL_TOL
+        );
+        assert!(
+            rel_diff(
+                next_time_step_from_release_change(dt, 0.01, 0.005).unwrap(),
+                7200.0
+            ) < REL_TOL
         );
 
         // Zero observed change -> huge but finite (upstream's SMALL guard).
@@ -1458,8 +1489,7 @@ mod tests {
     /// than producing a NaN release or a negative swelling.
     #[test]
     fn unphysical_inputs_are_rejected() {
-        let model =
-            FissionGasReleaseModel::TransientVenting(TransientVentingThresholds::default());
+        let model = FissionGasReleaseModel::TransientVenting(TransientVentingThresholds::default());
 
         let mut bad_inv = loaded_inventory();
         bad_inv.gas_in_grain = -1.0;

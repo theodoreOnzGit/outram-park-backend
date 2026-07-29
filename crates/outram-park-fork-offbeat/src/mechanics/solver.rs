@@ -15,9 +15,7 @@
 use std::sync::Arc;
 
 use outram_foam_basic_lib::fields::boundary::bc::PatchField;
-use outram_foam_basic_lib::fields::{
-    Field, VolScalarField, VolSymmTensorField, VolVectorField,
-};
+use outram_foam_basic_lib::fields::{Field, VolScalarField, VolSymmTensorField, VolVectorField};
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::ldu_matrix::SolverSettings;
 use outram_foam_basic_lib::mesh::FvMesh;

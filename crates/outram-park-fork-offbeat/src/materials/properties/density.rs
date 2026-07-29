@@ -785,10 +785,7 @@ mod tests {
         let negative = DensityModel::Constant { density: -1.0 };
         assert!(matches!(
             negative.value_checked(&MaterialState::fresh(900.0)),
-            Err(OffbeatError::Unphysical {
-                unit: "kg/m^3",
-                ..
-            })
+            Err(OffbeatError::Unphysical { unit: "kg/m^3", .. })
         ));
     }
 

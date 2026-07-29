@@ -1022,8 +1022,8 @@ impl ConductivityModel {
                 let c_w_am = americium_atom_fraction / 1.12;
                 let c_w_np = neptunium_atom_fraction / 1.14;
 
-                let a = 0.01926 + 1.06e-6 * x + 2.63e-8 * c_w_pu + 0.596 * c_w_am
-                    + 2.22e-14 * c_w_np;
+                let a =
+                    0.01926 + 1.06e-6 * x + 2.63e-8 * c_w_pu + 0.596 * c_w_am + 2.22e-14 * c_w_np;
                 let b = 2.39e-4 + 1.37e-13 * c_w_pu + 5.47e-4 * c_w_am + 2.48e-14 * c_w_np;
 
                 let phonon = 1.0 / (a + b * t);
@@ -1070,9 +1070,7 @@ impl ConductivityModel {
                     * theoretical_conductivity
                     * theoretical_density
                     * (theoretical_density - initial_density)
-                    / (theoretical_conductivity
-                        * theoretical_density
-                        * (theoretical_density - rho)
+                    / (theoretical_conductivity * theoretical_density * (theoretical_density - rho)
                         + initial_conductivity * rho * (rho - initial_density))
             }
 
@@ -1605,8 +1603,8 @@ mod tests {
         };
         let t: f64 = 1000.0;
 
-        let bare = 1.0 / (1.595e-2 + 2.493e-4 * t)
-            + 1.541e11 / t.powf(2.5) * (-1.522e4f64 / t).exp();
+        let bare =
+            1.0 / (1.595e-2 + 2.493e-4 * t) + 1.541e11 / t.powf(2.5) * (-1.522e4f64 / t).exp();
 
         let mut dense = MaterialState::fresh(t);
         dense.porosity = 0.0;
@@ -1788,7 +1786,10 @@ mod tests {
         }
         .value(&state);
 
-        assert!(with_am < clean * 0.9, "Am effect too weak: {with_am} vs {clean}");
+        assert!(
+            with_am < clean * 0.9,
+            "Am effect too weak: {with_am} vs {clean}"
+        );
         assert!((with_np - clean).abs() / clean < 1.0e-3);
     }
 

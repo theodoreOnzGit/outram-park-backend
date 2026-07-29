@@ -1072,8 +1072,8 @@ mod tests {
     fn fink_mox_einstein_term_tends_to_c1_at_high_temperature() {
         let t: f64 = 1.0e7;
         let u: f64 = 587.41 / t;
-        let cp = 322.49 * u * u * u.exp() / ((u.exp() - 1.0) * (u.exp() - 1.0))
-            + 2.0 * 1.4679e-2 * t;
+        let cp =
+            322.49 * u * u * u.exp() / ((u.exp() - 1.0) * (u.exp() - 1.0)) + 2.0 * 1.4679e-2 * t;
         let analytic = 322.49 + 2.0 * 1.4679e-2 * t;
         assert!((cp / analytic - 1.0).abs() < 1.0e-6, "{cp} vs {analytic}");
     }
@@ -1295,11 +1295,7 @@ mod tests {
             }
             t += 0.5;
         }
-        assert!(
-            (1150.0..1250.0).contains(&best.0),
-            "peak at {} K",
-            best.0
-        );
+        assert!((1150.0..1250.0).contains(&best.0), "peak at {} K", best.0);
         assert!(best.1 > 1000.0, "peak only {} J/(kg K)", best.1);
     }
 

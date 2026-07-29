@@ -110,7 +110,11 @@ fn lame_parameters_match_closed_form() {
     let m = reference_material();
     let (e, nu) = (m.young, m.poisson);
 
-    assert_relative_eq!(m.shear_modulus(), e / (2.0 * (1.0 + nu)), max_relative = 1e-12);
+    assert_relative_eq!(
+        m.shear_modulus(),
+        e / (2.0 * (1.0 + nu)),
+        max_relative = 1e-12
+    );
     assert_relative_eq!(
         m.lame_lambda(),
         e * nu / ((1.0 + nu) * (1.0 - 2.0 * nu)),

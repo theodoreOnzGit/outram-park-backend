@@ -1386,7 +1386,9 @@ mod tests {
 
         // Malformed tables are rejected.
         assert!(FastFluxHistory::new(vec![], vec![], TimeInterpolation::Linear).is_err());
-        assert!(FastFluxHistory::new(vec![0.0, 1.0], vec![1.0], TimeInterpolation::Linear).is_err());
+        assert!(
+            FastFluxHistory::new(vec![0.0, 1.0], vec![1.0], TimeInterpolation::Linear).is_err()
+        );
         assert!(
             FastFluxHistory::new(vec![1.0, 0.0], vec![1.0, 1.0], TimeInterpolation::Linear)
                 .is_err()

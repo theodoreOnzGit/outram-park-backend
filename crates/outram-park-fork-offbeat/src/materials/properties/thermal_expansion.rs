@@ -157,7 +157,7 @@ const MARTIN_STOICHIOMETRY_FACTOR: f64 = 3.98; // multiplies (2 - O/M)
 // -- Lemehov (U,Pu)O2 (thermalExpansionLemehovUPuO2.C) ----------------------
 const LEMEHOV_B: [f64; 4] = [-0.3080, 3.4303, -1.9157, 3.4636]; // percent
 const LEMEHOV_BY: f64 = 3.98; // multiplies (2 - O/M)
-// Magni melting-temperature correlation, doi:10.1016/j.jnucmat.2021.153312
+                              // Magni melting-temperature correlation, doi:10.1016/j.jnucmat.2021.153312
 const LEMEHOV_TM_A: f64 = 3147.0;
 const LEMEHOV_TM_PU: f64 = 364.85;
 const LEMEHOV_TM_OM: f64 = 1014.15;
@@ -180,10 +180,10 @@ const MAMOX_A3: ([f64; 6], f64) = ([4.4096, -1.4263, 23.5638, 0.0251, -54.751, -
 const MATPRO_ZY_P3: f64 = 6.721e-6; // 1/K, alpha phase
 const MATPRO_ZY_P4: f64 = 2.073e-3; // -,   alpha phase offset
 const MATPRO_ZY_P5: f64 = 9.7e-6; // 1/K, beta phase
-// NOTE: upstream is internally inconsistent here — the constructor initialiser
-// list sets par7 = 9.4e-3 while the dictionary default one line later is
-// 9.45e-3. 9.4e-3 is what a case without a `thermalExpansion` sub-dictionary
-// actually gets, so that is what this port uses.
+                                  // NOTE: upstream is internally inconsistent here — the constructor initialiser
+                                  // list sets par7 = 9.4e-3 while the dictionary default one line later is
+                                  // 9.45e-3. 9.4e-3 is what a case without a `thermalExpansion` sub-dictionary
+                                  // actually gets, so that is what this port uses.
 const MATPRO_ZY_P7: f64 = 9.4e-3; // -, beta phase offset
 const MATPRO_ZY_T_ALPHA: f64 = 1073.0; // K, end of the alpha phase
 const MATPRO_ZY_T_BETA: f64 = 1273.0; // K, start of the beta phase
@@ -888,7 +888,9 @@ impl ThermalExpansionModel {
     /// composition range.
     pub fn coefficient_checked(&self, state: &MaterialState) -> Result<f64> {
         self.check(state)?;
-        Ok(mean(self.principal_coefficient_raw(state.temperature, state)))
+        Ok(mean(
+            self.principal_coefficient_raw(state.temperature, state),
+        ))
     }
 
     /// The three principal instantaneous expansion coefficients \[1/K\], as
@@ -980,8 +982,8 @@ impl ThermalExpansionModel {
 
             Self::MartinUPuO2 { t_ref } => {
                 let x = -state.oxygen_deviation; // = 2 - O/M
-                // Faithful to upstream: the reference term always uses the
-                // low-temperature coefficient set, whatever t_ref is.
+                                                 // Faithful to upstream: the reference term always uses the
+                                                 // low-temperature coefficient set, whatever t_ref is.
                 let alpha_ref = cubic(&MARTIN_LOW, *t_ref) * martin_stoichiometry(x);
                 iso(martin_mean_alpha(t, x) * t - alpha_ref * t_ref)
             }
@@ -1277,8 +1279,7 @@ fn snead_sic(t: f64, t_sf: f64) -> f64 {
 fn d_snead_sic(t: f64, t_sf: f64) -> f64 {
     let alpha_sf = 1e-6 * cubic(&SNEAD_SIC, t_sf);
     let offset = alpha_sf * (t_sf - SNEAD_SIC_MEAN_REFERENCE);
-    let numerator = snead_mean_alpha(t)
-        + (t - SNEAD_SIC_MEAN_REFERENCE) * d_snead_mean_alpha(t);
+    let numerator = snead_mean_alpha(t) + (t - SNEAD_SIC_MEAN_REFERENCE) * d_snead_mean_alpha(t);
     numerator / (1.0 + offset)
 }
 
@@ -1297,7 +1298,8 @@ fn d_swindeman(t: f64) -> f64 {
 /// PARFUME buffer **mean** expansion coefficient \[1/K\].
 fn parfume_buffer_alpha(t: f64) -> f64 {
     let tc = t - 273.15;
-    PARFUME_BUFFER[0] * (1.0 + PARFUME_BUFFER[1] * (tc - PARFUME_BUFFER[2]) / PARFUME_BUFFER[3])
+    PARFUME_BUFFER[0]
+        * (1.0 + PARFUME_BUFFER[1] * (tc - PARFUME_BUFFER[2]) / PARFUME_BUFFER[3])
         * 1e-6
 }
 
@@ -1491,7 +1493,10 @@ mod tests {
         let f = |t: f64| 9.8e-6 * t - 2.61e-3 + 3.16e-1 * (-1.32e-19 / (1.38e-23 * t)).exp();
         let expected = f(1000.0) - f(300.0);
         assert!((eps - expected).abs() < 1e-18, "eps = {eps:e}");
-        assert!((eps - 6.882_159_805_861_141e-3).abs() < 1e-15, "eps = {eps:e}");
+        assert!(
+            (eps - 6.882_159_805_861_141e-3).abs() < 1e-15,
+            "eps = {eps:e}"
+        );
 
         // Shape of the defect term: negligible at 300 K, small but real at
         // 1000 K, dominant near melting.
@@ -1751,7 +1756,10 @@ mod tests {
     fn snead_branches_nearly_meet_at_1273_kelvin() {
         let below = snead_mean_alpha(SNEAD_SIC_BRANCH_TEMPERATURE - 1e-6);
         let above = snead_mean_alpha(SNEAD_SIC_BRANCH_TEMPERATURE + 1e-6);
-        assert!((below - above).abs() / above < 0.01, "{below:e} vs {above:e}");
+        assert!(
+            (below - above).abs() / above < 0.01,
+            "{below:e} vs {above:e}"
+        );
     }
 
     /// **Self-consistency check, not external validation.**
@@ -1787,7 +1795,12 @@ mod tests {
             anisotropy_factor: 1.1,
         };
         let a = anisotropic.principal_strains(&MaterialState::fresh(1000.0));
-        assert!(a[0] > a[1], "radial {:e} should exceed tangential {:e}", a[0], a[1]);
+        assert!(
+            a[0] > a[1],
+            "radial {:e} should exceed tangential {:e}",
+            a[0],
+            a[1]
+        );
         assert!((a[1] - a[2]).abs() < 1e-18, "transversely isotropic");
     }
 
@@ -1827,7 +1840,10 @@ mod tests {
         let root = 0.5 * (low + high);
         assert!((273.0..=373.0).contains(&root), "root at {root} K");
         assert!((root - 341.4).abs() < 1.0, "root at {root} K");
-        assert!(uo2(300.0) < 0.0, "the fit contracts below its own reference");
+        assert!(
+            uo2(300.0) < 0.0,
+            "the fit contracts below its own reference"
+        );
     }
 
     /// **Self-consistency check, not external validation.**

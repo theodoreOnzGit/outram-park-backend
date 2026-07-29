@@ -1129,11 +1129,13 @@ mod tests {
         s.pu_fraction = 0.25;
         s.oxygen_deviation = -0.03; // O/M = 1.97
 
-        let ratio =
-            YoungModulusModel::MatproMox.value(&s) / YoungModulusModel::MatproUo2.value(&s);
+        let ratio = YoungModulusModel::MatproMox.value(&s) / YoungModulusModel::MatproUo2.value(&s);
         let expected = (-1.35f64 * 0.03).exp() * (1.0 + 0.05 * 0.25 / 1.13);
         assert!(rel_diff(ratio, expected) < 1.0e-12, "got {ratio}");
-        assert!((-1.35f64 * 0.03).exp() < 1.0, "hypostoichiometry must soften");
+        assert!(
+            (-1.35f64 * 0.03).exp() < 1.0,
+            "hypostoichiometry must soften"
+        );
     }
 
     // ---------------------------------------------------------------------
@@ -1456,7 +1458,12 @@ mod tests {
     #[test]
     fn parfume_sic_recovers_its_tabulated_points() {
         let m = YoungModulusModel::ParfumeSiC;
-        for (t_c, e_gpa) in [(25.0, 428.0), (940.0, 375.0), (1215.0, 340.0), (1600.0, 198.0)] {
+        for (t_c, e_gpa) in [
+            (25.0, 428.0),
+            (940.0, 375.0),
+            (1215.0, 340.0),
+            (1600.0, 198.0),
+        ] {
             let e = m.value(&MaterialState::fresh(t_c + 273.15));
             assert!(rel_diff(e, e_gpa * 1.0e9) < 1.0e-12, "at {t_c} C got {e:e}");
         }
