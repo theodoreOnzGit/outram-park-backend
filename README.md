@@ -26,6 +26,7 @@ The workspace has 22 member crates, grouped by domain below.
 | [`tampines-steam-tables`](crates/tampines-steam-tables) | IAPWS-IF97 steam/water properties + steam-turbine & choked-flow equations (TAMPINES) | GPL-3.0 |
 | [`tampines`](crates/tampines) | Central thermal-hydraulic framework that composes the TH crates | GPL-3.0 |
 | [`outram-park-fork-coolprop`](crates/outram-park-fork-coolprop) | Pure-Rust fork of CoolProp — Helmholtz-EOS thermophysical properties (independent fork, not official CoolProp) | GPL-3.0 |
+| [`outram-park-fork-offbeat`](crates/outram-park-fork-offbeat) | Pure-Rust fork of OFFBEAT — nuclear fuel performance: mechanics, rheology, gap/contact, material correlations, burnup/FGR, corrosion (independent fork, not official OFFBEAT) | GPL-3.0 |
 | [`outram-park-fork-dwsim-libs`](crates/outram-park-fork-dwsim-libs) | Pure-Rust fork of DWSIM process-simulation building blocks (independent fork) | GPL-3.0 |
 
 **CFD (OpenFOAM translations)**
