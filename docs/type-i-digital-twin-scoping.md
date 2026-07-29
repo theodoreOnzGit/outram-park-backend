@@ -1,9 +1,11 @@
 # Scoping: transforming OUTRAM PARK into a Type I digital twin
 
 **Date:** 2026-07-29 · **Status:** scoping analysis, not an approved plan
-**Supersedes nothing.** This extends `docs/outram-park-dt-plan.md` (2026-07-13),
-which is the *tactical* plan for `tampines` + `outram-park-digital-twin-engine`.
-This document is the *strategic* capability roadmap sitting above it.
+**Relationship to `docs/outram-park-dt-plan.md` (2026-07-13):** that document is
+the *tactical* plan for `tampines` and `outram-park-digital-twin-engine` and
+still stands. This one is the *strategic* capability roadmap above it. One
+revision: §2 below supersedes its "reusable frameworks only" premise, per a
+maintainer decision on 2026-07-29 that simulator binaries may live in this repo.
 
 > **What this is.** An honest gap analysis between what OUTRAM PARK is today and
 > what a Type I (real-time, operator-training) digital twin requires, with an
@@ -35,23 +37,40 @@ that remains prohibited by `RESPONSIBLE_USE.md` and is out of scope permanently.
 
 ---
 
-## 2. Architectural constraint (from the 2026-07-13 plan)
+## 2. Where the simulator lives
 
-This repository holds **reusable frameworks only**. Reactor simulators are
-*example applications* built on top of those frameworks, and are destined for a
-separate parent repo (`outram-park`) that does not yet exist.
+**Maintainer decision, 2026-07-29: simulator binaries may live in this
+repository.** This revises the "reusable frameworks only" framing of the
+2026-07-13 plan, which anticipated that reactor simulators would be *example
+applications* destined for a separate parent repo (`outram-park`) that does not
+yet exist.
 
-That splits the work in two, and the split matters for every estimate below:
+Practice had already outrun that framing. As of `develop`, this repository ships
+12 binary targets and 10 simulator-shaped examples, including:
 
-- **In this repo** — real-time infrastructure, instructor-station primitives,
-  snapshot/restore, plant-scale nodalization, fuel performance, source term,
-  visualization components.
-- **In the outer repo (or `examples/` until it exists)** — the actual
-  operator-training simulator for a specific plant, its HMI layout, its scenario
-  library, its V&V dossier.
+| Target | Kind | Crate |
+|---|---|---|
+| `ciet_educational_simulator_v2` | bin | `outram-park-digital-twin-engine` |
+| `ciet_v2_opcua_client` | bin | `outram-park-digital-twin-engine` |
+| `htgr_sim_v1`, `fhr_sim_v2` | examples | `outram-park-digital-twin-engine` |
+| `fhr_sim_v1` | example | `tampines-steam-tables`, `teh-o-prke` |
+| `triso_simulator` | example | `boon-lay` |
+| `mc_studio`, `mesh_studio` | examples | `outram-blender`, `outram-park-fork-cfmesh` |
+| `pimpleFoam`, `rhoCentralFoam`, `gen_foam`, `blockMesh`, … | bins | `outram-foam-cli` |
+| `kovan`, `kovan-tui`, `njoy-tui`, `outram-mc-tui` | bins | KOVAN, njoy, outram-mc |
 
-A Type I DT is therefore **not a crate in this workspace**. It is an application
-assembled from crates in this workspace. What follows scopes the *frameworks*.
+**Consequence for this roadmap: the Type I DT can be built here directly**, as a
+binary crate alongside the frameworks it consumes. It does not wait on the outer
+repo existing, and no part of the plan below is blocked on that. The outer
+`outram-park` repo remains useful later for lessons, papers, and per-plant
+deliverables, but it is not on the critical path.
+
+The framework/application distinction survives as a *design* discipline rather
+than a repository boundary: physics, real-time infrastructure and
+instructor-station primitives belong in library crates so they stay reusable and
+independently testable; a specific plant's HMI layout, scenario library and V&V
+dossier belong in its binary. That is the same separation the CIET v2 simulator
+already observes.
 
 ---
 
