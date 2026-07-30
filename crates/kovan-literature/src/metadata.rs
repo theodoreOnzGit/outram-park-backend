@@ -7,9 +7,17 @@
 //!
 //! Metadata is recovered **best-effort**, in this order of trust:
 //!
-//! 1. **PDF Info dictionary** (`/Title`, `/Author`, `/Keywords`,
-//!    `/CreationDate`) — read losslessly via [`lopdf`]. This is the most
-//!    reliable source and is used whenever present.
+//! 0. **A recognised labelled cover page** — currently eScholarship (California
+//!    Digital Library) deposits, whose generated first page carries `Title`,
+//!    `Permalink`, `Author` and `Publication Date` labels. Explicit labels beat
+//!    everything below, and they must: eScholarship sets the PDF `/Title` of
+//!    every deposit to the constant `"UC Berkeley"`.
+//! 1. **PDF object model** — the Info dictionary (`/Title`, `/Author`,
+//!    `/Keywords`, `/CreationDate`) and the page tree (`/Pages` `/Count`), read
+//!    losslessly via [`lopdf`]. This is the most reliable source and is used
+//!    whenever present. The page count in particular comes from here rather
+//!    than from extracted text, because text extraction does not reliably mark
+//!    page boundaries.
 //! 2. **Text heuristics** — only as a fallback. The title falls back to the
 //!    first substantial line of extracted text; the year to the first plausible
 //!    `19xx`/`20xx` in the opening of the document; the DOI to the first
@@ -49,11 +57,25 @@ pub fn extract_metadata(pdf: &Path) -> Result<KovanDocument, LiteratureError> {
     let info = info_res.unwrap_or_default();
 
     let visibility = crate::storage::visibility_from_path(pdf);
-    let document_type = crate::storage::document_type_from_path(pdf);
+    let mut document_type = crate::storage::document_type_from_path(pdf);
 
-    let title = info
+    // An eScholarship deposit cover page carries explicitly *labelled* fields,
+    // so it outranks the Info dictionary: eScholarship sets `/Title` to the
+    // constant "UC Berkeley" for every deposit, which would otherwise become the
+    // title of every UC thesis in the archive.
+    let cover = escholarship_cover(&text).unwrap_or_default();
+
+    // The cover states the document is a thesis, so trust it over the fallback
+    // path inference — but never override an explicit `theses/`-style directory
+    // or any other type the storage layout already asserted.
+    if cover.is_thesis && document_type == crate::DocumentType::Other {
+        document_type = crate::DocumentType::Thesis;
+    }
+
+    let title = cover
         .title
         .clone()
+        .or_else(|| info.title.clone())
         .or_else(|| title_from_text(&text))
         .unwrap_or_else(|| {
             pdf.file_stem()
@@ -61,8 +83,12 @@ pub fn extract_metadata(pdf: &Path) -> Result<KovanDocument, LiteratureError> {
                 .unwrap_or_else(|| "Untitled".to_string())
         });
 
-    let authors = info.authors.clone();
-    let year = info.year.or_else(|| year_from_text(&text));
+    let authors = if cover.authors.is_empty() {
+        info.authors.clone()
+    } else {
+        cover.authors.clone()
+    };
+    let year = cover.year.or(info.year).or_else(|| year_from_text(&text));
     let doi = find_doi(&text);
     let keywords = info.keywords.clone();
 
@@ -70,7 +96,11 @@ pub fn extract_metadata(pdf: &Path) -> Result<KovanDocument, LiteratureError> {
     let id = make_id(&slug, &title);
 
     let markdown_body = crate::markdown::text_to_markdown(&text);
-    let page_count = page_count_from_text(&text);
+    // Prefer the PDF page tree over the text-derived count: `pdf-extract` does
+    // not emit form-feed page breaks for every producer (notably eScholarship
+    // thesis deposits), which would otherwise report every such document as a
+    // single page.
+    let page_count = info.page_count.or_else(|| page_count_from_text(&text));
 
     // Build via the KovanDocumentBuilder (kovan-common v2). `source_path`
     // records where this document was ingested from; `page_count` is counted
@@ -92,12 +122,19 @@ pub fn extract_metadata(pdf: &Path) -> Result<KovanDocument, LiteratureError> {
     if let Some(pages) = page_count {
         builder = builder.page_count(pages);
     }
+    if let Some(url) = cover.permalink {
+        builder = builder.source_url(url);
+    }
     Ok(builder.build())
 }
 
 /// Number of pages in the extracted `text`, counted from the form-feed
 /// (`U+000C`) page breaks `pdf-extract` emits between pages. `None` for empty
 /// text (no pages extracted).
+///
+/// **Fallback only** — used when the PDF page tree is unreadable. Not every PDF
+/// producer leads `pdf-extract` to emit form feeds, and when it does not, this
+/// undercounts to 1. Prefer [`InfoDict::page_count`].
 fn page_count_from_text(text: &str) -> Option<u32> {
     if text.is_empty() {
         return None;
@@ -111,19 +148,31 @@ fn page_count_from_text(text: &str) -> Option<u32> {
     )
 }
 
-/// Recovered PDF Info-dictionary fields. All optional.
+/// Recovered PDF Info-dictionary fields, plus the true page count from the
+/// document's page tree. All optional.
 #[derive(Debug, Default, Clone)]
 struct InfoDict {
     title: Option<String>,
     authors: Vec<Author>,
     year: Option<u32>,
     keywords: Vec<String>,
+    /// Number of pages in the PDF page tree (`/Pages` `/Count`), as reported by
+    /// [`lopdf::Document::get_pages`]. Authoritative — unlike a count derived
+    /// from extracted text, it does not depend on the text extractor emitting
+    /// page-break characters.
+    page_count: Option<u32>,
 }
 
-/// Read the PDF `/Info` dictionary. `Err` only when the PDF fails to load.
+/// Read the PDF `/Info` dictionary and the page-tree page count. `Err` only when
+/// the PDF fails to load.
+///
+/// The page count is read even when the document carries no `/Info` dictionary,
+/// since the two come from independent parts of the file.
 fn read_info(pdf: &Path) -> Result<InfoDict, LiteratureError> {
     let doc = Document::load(pdf)
         .map_err(|e| LiteratureError::Io(format!("load {}: {e}", pdf.display())))?;
+
+    let page_count = u32::try_from(doc.get_pages().len()).ok().filter(|n| *n > 0);
 
     let info_dict: Option<&Dictionary> = doc
         .trailer
@@ -136,7 +185,10 @@ fn read_info(pdf: &Path) -> Result<InfoDict, LiteratureError> {
         .and_then(|o| o.as_dict().ok());
 
     let Some(dict) = info_dict else {
-        return Ok(InfoDict::default());
+        return Ok(InfoDict {
+            page_count,
+            ..InfoDict::default()
+        });
     };
 
     Ok(InfoDict {
@@ -148,6 +200,7 @@ fn read_info(pdf: &Path) -> Result<InfoDict, LiteratureError> {
         keywords: info_string(dict, b"Keywords")
             .map(|k| parse_keywords(&k))
             .unwrap_or_default(),
+        page_count,
     })
 }
 
@@ -244,6 +297,170 @@ fn year_from_pdf_date(s: &str) -> Option<u32> {
         .filter(|y| (1900..=2099).contains(y))
 }
 
+/// Labelled bibliographic fields recovered from an eScholarship (California
+/// Digital Library) deposit cover page.
+///
+/// eScholarship prepends a generated cover page to every deposited UC thesis or
+/// paper, carrying explicitly *labelled* fields (`Title`, `Permalink`, `Author`,
+/// `Publication Date`). Because the labels are machine-readable, this is
+/// higher-trust than either the PDF Info dictionary — which eScholarship sets to
+/// the useless constant `"UC Berkeley"` — or any positional text heuristic.
+#[derive(Debug, Default, Clone)]
+struct CoverPage {
+    title: Option<String>,
+    authors: Vec<Author>,
+    year: Option<u32>,
+    /// The `escholarship.org/uc/item/…` permalink — the citable location of the
+    /// deposit, recorded for provenance.
+    permalink: Option<String>,
+    /// True when the cover identifies the deposit as a thesis/dissertation
+    /// ("Electronic Theses and Dissertations"), which the cover states outright
+    /// rather than leaving to be guessed.
+    is_thesis: bool,
+}
+
+impl CoverPage {
+    /// True when no field was recovered.
+    fn is_empty(&self) -> bool {
+        self.title.is_none()
+            && self.authors.is_empty()
+            && self.year.is_none()
+            && self.permalink.is_none()
+            && !self.is_thesis
+    }
+}
+
+/// How many leading characters are searched for an eScholarship cover page.
+const COVER_PAGE_CHARS: usize = 4000;
+
+/// Parse an eScholarship deposit cover page out of the front of `text`.
+///
+/// Returns `None` unless the text actually looks like an eScholarship deposit —
+/// detection requires an `escholarship.org` mention, so an ordinary paper that
+/// merely happens to contain the word "Title" is never misread as one.
+///
+/// Handles both layouts `pdf-extract` produces for these covers: `Label value`
+/// on one line, and a bare `Label` line whose value is the next non-empty line.
+fn escholarship_cover(text: &str) -> Option<CoverPage> {
+    let end = text
+        .char_indices()
+        .nth(COVER_PAGE_CHARS)
+        .map(|(i, _)| i)
+        .unwrap_or(text.len());
+    let head = &text[..end];
+    if !head.to_ascii_lowercase().contains("escholarship.org") {
+        return None;
+    }
+
+    let lines: Vec<&str> = head.lines().map(str::trim).collect();
+    let mut cover = CoverPage::default();
+
+    let head_lower = head.to_ascii_lowercase();
+    cover.is_thesis = head_lower.contains("theses and dissertations")
+        || head_lower.contains("thesis/dissertation");
+
+    for i in 0..lines.len() {
+        // "Publication Date" is probed before "Permalink"/"Author"/"Title"
+        // because the labels are distinct prefixes; order only matters in that
+        // each line yields at most one field.
+        if let Some(v) = labelled_value(&lines, i, "Publication Date", false) {
+            if cover.year.is_none() {
+                cover.year = year_from_text(&v);
+            }
+        } else if let Some(v) = labelled_value(&lines, i, "Permalink", false) {
+            if cover.permalink.is_none() {
+                cover.permalink = v
+                    .split_whitespace()
+                    .find(|t| t.contains("escholarship.org"))
+                    .map(str::to_string);
+            }
+        } else if let Some(v) = labelled_value(&lines, i, "Author", false) {
+            if cover.authors.is_empty() {
+                cover.authors = parse_authors(&v);
+            }
+        } else if let Some(v) = labelled_value(&lines, i, "Title", true) {
+            if cover.title.is_none() {
+                cover.title = (!v.is_empty()).then_some(v);
+            }
+        }
+    }
+
+    (!cover.is_empty()).then_some(cover)
+}
+
+/// The cover-page field labels. Used both to find values and to know where a
+/// wrapped value ends.
+const COVER_LABELS: [&str; 4] = ["Title", "Permalink", "Author", "Publication Date"];
+
+/// Strip a Markdown heading marker and surrounding whitespace, so the label
+/// probes work on raw extracted text and on generated Markdown alike.
+fn clean_line(line: &str) -> &str {
+    line.trim_start_matches('#').trim()
+}
+
+/// If `line` begins with one of [`COVER_LABELS`], return the rest of the line.
+///
+/// The label must be followed by end-of-line or a space, so `Title` does not
+/// match `Titles of nobility`.
+fn split_label(line: &str, label: &str) -> Option<String> {
+    let line = clean_line(line);
+    let rest = line.to_ascii_lowercase().strip_prefix(
+        &label.to_ascii_lowercase(),
+    )?.to_string();
+    if !rest.is_empty() && !rest.starts_with(' ') {
+        return None;
+    }
+    // `label` is ASCII and matched at the start, so the byte offset is valid.
+    Some(line[label.len()..].trim().to_string())
+}
+
+/// True when `line` starts a new labelled field — the terminator for a wrapped
+/// value.
+fn is_label_line(line: &str) -> bool {
+    COVER_LABELS
+        .iter()
+        .any(|l| split_label(line, l).is_some())
+}
+
+/// Read the value belonging to `label` at `lines[i]`.
+///
+/// The value is the rest of the label's own line, or — when the label stands
+/// alone on its line — the following non-empty lines.
+///
+/// When `join_wrapped` is set, continuation lines are appended until the next
+/// labelled field. Cover pages hard-wrap long titles, so without this a title
+/// like *"…for pebble-bed Fluoride-Salt-Cooled, High-Temperature Reactor (FHR)"*
+/// is silently truncated at the comma. Single-line fields (`Permalink`,
+/// `Author`, `Publication Date`) pass `false`, so they cannot swallow the
+/// eScholarship footer that follows them.
+fn labelled_value(lines: &[&str], i: usize, label: &str, join_wrapped: bool) -> Option<String> {
+    let inline = split_label(lines.get(i)?, label)?;
+
+    let mut parts: Vec<String> = Vec::new();
+    if !inline.is_empty() {
+        parts.push(inline);
+    }
+
+    for line in lines.iter().skip(i + 1) {
+        let line = clean_line(line);
+        if line.is_empty() {
+            if parts.is_empty() {
+                continue; // still looking for the value
+            }
+            break;
+        }
+        if is_label_line(line) {
+            break;
+        }
+        parts.push(line.to_string());
+        if !join_wrapped {
+            break;
+        }
+    }
+
+    (!parts.is_empty()).then(|| parts.join(" "))
+}
+
 /// The first line of extracted text that looks like a title (8–200 chars, not a
 /// URL or DOI line).
 fn title_from_text(text: &str) -> Option<String> {
@@ -287,8 +504,30 @@ fn year_from_text(text: &str) -> Option<u32> {
     None
 }
 
-/// Find the first DOI (`10.xxxx/…`) in the text, or `None`.
+/// How many leading characters of the extracted text count as "front matter"
+/// for [`find_doi`].
+///
+/// A document's *own* DOI is printed on its title page or first-page footer. A
+/// DOI appearing deep in the body is almost always a *cited* work's. 5000 chars
+/// covers a cover page plus a title page with room to spare.
+const FRONT_MATTER_CHARS: usize = 5000;
+
+/// Find the first DOI (`10.xxxx/…`) in the document's front matter, or `None`.
+///
+/// Deliberately scans only the first [`FRONT_MATTER_CHARS`] characters. Scanning
+/// the whole text picks up DOIs from the bibliography and attributes a cited
+/// paper's identifier to the document itself — e.g. the Xin Wang (2018) FHR
+/// dissertation was assigned `10.1016/j.nucengdes.2018.02.003`, which belongs to
+/// reference [6] of its own reference list. The trade-off is that a DOI printed
+/// only on a late page is missed; a missing DOI is recoverable by a human
+/// reviewer, a confidently wrong one is not.
 fn find_doi(text: &str) -> Option<String> {
+    let end = text
+        .char_indices()
+        .nth(FRONT_MATTER_CHARS)
+        .map(|(i, _)| i)
+        .unwrap_or(text.len());
+    let text = &text[..end];
     let mut search_from = 0;
     while let Some(rel) = text[search_from..].find("10.") {
         let start = search_from + rel;
@@ -382,7 +621,132 @@ fn fnv1a64(data: &[u8]) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_pdf::{build_text_pdf, tmp_path};
+    use crate::test_pdf::{build_multipage_pdf, build_text_pdf, tmp_path};
+
+    /// Regression test: the page count must come from the PDF page tree, not
+    /// from form-feed breaks in the extracted text.
+    ///
+    /// **Methodology.** Synthesise a 7-page PDF with [`build_multipage_pdf`]
+    /// (one text line per page, no Info dictionary), run [`extract_metadata`],
+    /// and require `page_count == Some(7)`. The reference is the synthetic
+    /// document's own `/Pages` `/Count`, which is exact by construction. Pass
+    /// criterion: exact equality.
+    ///
+    /// **Result (2026-07-30).** `page_count == Some(7)`, exact, no uncertainty
+    /// — the value is an integer read from the page tree. Before the fix this
+    /// returned `Some(1)`, because the three UC Berkeley theses in
+    /// `kovan_import/` extract as text with no `U+000C` page breaks at all and
+    /// the old text-derived count therefore saw a single page. Implication: page
+    /// counts are now trustworthy for `split_markdown_by_page_limit` decisions
+    /// and for provenance records, independent of the text extractor's
+    /// behaviour.
+    /// The two eScholarship cover layouts `pdf-extract` produces: `Label value`
+    /// on one line, and a bare `Label` line followed by its value.
+    #[test]
+    fn escholarship_cover_parses_both_label_layouts() {
+        // The title wraps onto a second line, exactly as on the real deposit.
+        let inline = "UC Berkeley UC Berkeley Electronic Theses and Dissertations\n\
+             Title Coupled neutronics and thermal-hydraulics modeling for pebble-bed Fluoride-Salt-Cooled,\n\
+             High-Temperature Reactor (FHR)\n\
+             Permalink https://escholarship.org/uc/item/40q3985m\n\
+             Author Wang, Xin\n\
+             Publication Date 2018\n";
+        let cover = escholarship_cover(inline).expect("inline layout recognised");
+        assert_eq!(
+            cover.title.as_deref(),
+            Some(
+                "Coupled neutronics and thermal-hydraulics modeling for pebble-bed \
+                 Fluoride-Salt-Cooled, High-Temperature Reactor (FHR)"
+            ),
+            "a wrapped title must be rejoined, not truncated at the line break"
+        );
+        assert_eq!(cover.year, Some(2018));
+        assert_eq!(
+            cover.permalink.as_deref(),
+            Some("https://escholarship.org/uc/item/40q3985m")
+        );
+        assert_eq!(cover.authors.len(), 1);
+        assert_eq!(cover.authors[0].family, "Wang");
+        assert_eq!(cover.authors[0].given, "Xin");
+
+        // Heading-per-line layout, as seen on the Alivisatos deposit.
+        let split = "# UC Berkeley\n\
+             ## UC Berkeley Electronic Theses and Dissertations\n\
+             ### Title\n\
+             #### Evaluating Remote Operations for Advanced Nuclear Reactor Control: Feasibility, Benefits,\n\
+             #### and Implementation Criteria\n\
+             ### Permalink\n\
+             #### https://escholarship.org/uc/item/1wt929p1\n\
+             ### Author\n\
+             #### Alivisatos, Clara\n\
+             ### Publication Date\n\
+             #### 2023\n";
+        let cover = escholarship_cover(split).expect("split layout recognised");
+        assert_eq!(
+            cover.title.as_deref(),
+            Some(
+                "Evaluating Remote Operations for Advanced Nuclear Reactor Control: \
+                 Feasibility, Benefits, and Implementation Criteria"
+            )
+        );
+        assert_eq!(cover.year, Some(2023));
+        assert_eq!(cover.authors[0].family, "Alivisatos");
+        assert_eq!(cover.authors[0].given, "Clara");
+    }
+
+    /// A document with no eScholarship marker must not be parsed as a deposit,
+    /// even when it contains lines beginning with the same labels.
+    #[test]
+    fn non_escholarship_text_is_not_treated_as_a_cover_page() {
+        let text = "Title of Nobility Clause\nAuthor unknown\nPublication Date 1787\n";
+        assert!(escholarship_cover(text).is_none());
+    }
+
+    /// Regression test for the false-positive DOI: a DOI that appears only in the
+    /// bibliography must not be adopted as the document's own.
+    ///
+    /// **Methodology.** Build a text whose front matter holds no DOI and whose
+    /// body, past [`FRONT_MATTER_CHARS`], holds a real reference-list DOI — the
+    /// exact one wrongly attributed to the Xin Wang (2018) dissertation. Require
+    /// `find_doi` to return `None`. Pass criterion: `None`, not the cited DOI.
+    ///
+    /// **Result (2026-07-30).** Returns `None`. Against the real PDF, `lit
+    /// import` previously reported `doi: 10.1016/j.nucengdes.2018.02.003`, which
+    /// belongs to reference [6] (Xingwei Chen et al., *Nucl. Eng. Design* 331,
+    /// 2018) found at line 1967 of the generated markdown; it now reports no DOI,
+    /// which is correct — the dissertation has none, only an eScholarship
+    /// permalink.
+    #[test]
+    fn find_doi_ignores_dois_in_the_bibliography() {
+        let mut text = String::from("A Dissertation\nby Someone\nBerkeley, 2018\n");
+        text.push_str(&"filler body text. ".repeat(400));
+        assert!(
+            text.chars().count() > FRONT_MATTER_CHARS,
+            "filler must push the reference past the front-matter window"
+        );
+        text.push_str("[6] Xingwei Chen et al. DOI: 10.1016/j.nucengdes.2018.02.003.\n");
+        assert_eq!(find_doi(&text), None);
+
+        // A DOI in the front matter is still found.
+        let front = "Some Paper\nDOI: 10.1016/j.nucengdes.2018.02.003\n";
+        assert_eq!(
+            find_doi(front).as_deref(),
+            Some("10.1016/j.nucengdes.2018.02.003")
+        );
+    }
+
+    #[test]
+    fn page_count_comes_from_the_page_tree_not_the_text() {
+        let path = tmp_path("kovan_lit_pagetree.pdf");
+        build_multipage_pdf(&path, 7);
+        let doc = extract_metadata(&path).expect("metadata");
+        assert_eq!(
+            doc.page_count,
+            Some(7),
+            "page count must come from /Pages /Count"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
 
     #[test]
     fn metadata_from_info_dictionary() {
@@ -400,7 +764,8 @@ mod tests {
         assert!(doc.id.starts_with("kovan-"));
         // v2 fields populated via the builder: source pointer + page count.
         assert_eq!(doc.source_path.as_deref(), Some(path.to_str().unwrap()));
-        assert!(doc.page_count.is_some(), "page count counted from text");
+        // Page count read from the page tree — this fixture is a single page.
+        assert_eq!(doc.page_count, Some(1));
         // SHA-256 deliberately left unset (no sha2 dep) — see DECISIONS.md.
         assert_eq!(doc.source_sha256, None);
         let _ = std::fs::remove_file(&path);
