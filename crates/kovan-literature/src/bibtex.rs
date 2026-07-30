@@ -19,6 +19,7 @@ use crate::{DocumentType, KovanDocument};
 /// | `Paper` | `@article` |
 /// | `Report` | `@techreport` |
 /// | `Manual` | `@manual` |
+/// | `Thesis` | `@phdthesis` |
 /// | `Standard` | `@misc` |
 /// | `Benchmark` | `@misc` |
 /// | `Other` | `@misc` |
@@ -34,6 +35,10 @@ use crate::{DocumentType, KovanDocument};
 /// `year`, `journal`, `volume`, `number`, `pages`, `institution`, `publisher`,
 /// `doi`, `url` (from `source_url`), `keywords`, and `abstract`. Absent optional
 /// fields are simply omitted. All values are TeX-escaped (see `escape_tex`).
+///
+/// One field is spelled per entry type: `institution` becomes **`school`** on a
+/// `@phdthesis`, which is the field BibTeX styles read for the awarding
+/// university.
 ///
 /// The output is deterministic: field order is fixed and independent of the
 /// document's construction path.
@@ -80,7 +85,15 @@ pub fn to_bibtex(doc: &KovanDocument) -> String {
         push_field(&mut out, "pages", &escape_tex(pages));
     }
     if let Some(institution) = non_empty(&doc.institution) {
-        push_field(&mut out, "institution", &escape_tex(institution));
+        // `@phdthesis` names the awarding institution `school`; `institution` is
+        // the `@techreport` spelling and BibTeX styles ignore it on a thesis,
+        // which would silently drop the university from the rendered citation.
+        let field = if doc.document_type == DocumentType::Thesis {
+            "school"
+        } else {
+            "institution"
+        };
+        push_field(&mut out, field, &escape_tex(institution));
     }
     if let Some(publisher) = non_empty(&doc.publisher) {
         push_field(&mut out, "publisher", &escape_tex(publisher));
@@ -115,6 +128,7 @@ fn entry_type_for(document_type: DocumentType) -> &'static str {
         DocumentType::Paper => "article",
         DocumentType::Report => "techreport",
         DocumentType::Manual => "manual",
+        DocumentType::Thesis => "phdthesis",
         DocumentType::Standard | DocumentType::Benchmark | DocumentType::Other => "misc",
     }
 }
