@@ -37,5 +37,6 @@
 pub mod depletion;
 pub mod ensemble;
 pub mod interface;
+pub mod live;
 pub mod sphere_fpt;
 pub mod walk_on_spheres;

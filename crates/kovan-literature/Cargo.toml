@@ -5,6 +5,32 @@ version = "0.0.0"
 edition.workspace = true
 license.workspace = true
 
+# What ships to crates.io vs what only lives in the GitHub repo.
+#
+# Excluded — source PDFs and generated markdown. Redistributing third-party
+# theses/papers on crates.io is a separate licence question from hosting them in
+# this repo, and full-text bodies run to hundreds of KB each. They stay
+# repository-only; `src/` works against whatever archive root the caller points
+# it at, so none of it is needed to build.
+#
+# Included — `generated/bibtex/open/`. Citation entries are a few hundred bytes
+# each and are pure bibliographic facts about open-access works, so shipping them
+# makes the published crate directly citable. `generated/bibtex/proprietary/` is
+# excluded: those describe user-owned content that must not leave the machine.
+#
+# Every pattern is anchored with a leading `/`. Cargo matches `exclude` with
+# gitignore semantics, where an unanchored `open/` matches a directory named
+# `open` at *any* depth — which silently excluded `generated/bibtex/open/`, the
+# one part of the archive that is meant to ship. Keep the slashes.
+exclude = [
+    "/open/",
+    "/proprietary/",
+    "/generated/markdown/",
+    "/generated/assets/",
+    "/generated/bibtex/proprietary/",
+    "/docs/",
+]
+
 [dependencies]
 kovan-common.workspace = true
 serde.workspace = true

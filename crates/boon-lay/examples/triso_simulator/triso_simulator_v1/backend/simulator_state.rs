@@ -1,3 +1,4 @@
+use boon_lay::compute::ComputeType;
 use boon_lay::{Nuclide, lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell};
 use uom::si::f64::{*};
 use uom::ConstZero;
@@ -31,6 +32,11 @@ pub struct SimulatorState {
     pub triso_cell: TrisoCell,
 
     pub user_selected_temperature: ThermodynamicTemperature,
+
+    /// Compute backend for the Walk-on-Spheres diffusion advance (CPU
+    /// single/multi-thread, or the `wgpu` GPU kernel — falls back to CPU when no
+    /// adapter is present). The decay chains always run on the CPU.
+    compute_backend: ComputeType,
 }
 
 impl Default for SimulatorState {
@@ -92,6 +98,7 @@ impl Default for SimulatorState {
             triso_cell,
             user_selected_temperature,
             release_fractions_over_time,
+            compute_backend: ComputeType::default(),
         }
     }
 }
@@ -215,6 +222,16 @@ impl SimulatorState {
 
     pub fn get_release_fractions_over_time(&self) -> &Vec<(Time, f64)> {
         &self.release_fractions_over_time
+    }
+
+    /// The selected compute backend for the diffusion advance.
+    pub fn get_compute_backend(&self) -> ComputeType {
+        self.compute_backend
+    }
+
+    /// Cycle the diffusion backend: CPU single \u{2192} CPU multi \u{2192} GPU.
+    pub fn cycle_compute_backend(&mut self) {
+        self.compute_backend = self.compute_backend.next();
     }
 }
 

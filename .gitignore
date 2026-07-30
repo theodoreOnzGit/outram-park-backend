@@ -18,6 +18,14 @@ crates/njoy-outram-park-fork/tests/resources/*.h5
 # committed (see crates/kovan-literature). The whole tree stays local.
 crates/kovan-literature/proprietary/
 
+# Artifacts *derived* from proprietary sources are equally user-owned, so the
+# proprietary side of the generated tree stays local too. The open side
+# (generated/bibtex/open/) is committed AND published — see the `exclude` list in
+# crates/kovan-literature/Cargo.toml.
+crates/kovan-literature/generated/bibtex/proprietary/
+crates/kovan-literature/generated/markdown/proprietary/
+crates/kovan-literature/generated/assets/proprietary/
+
 # Generated outram-mc ↔ OpenMC-notebook comparison CSVs — reproducible from the
 # verification tests + the .ipynb reference values; kept local, not committed.
 crates/outram-mc-libs/verification_and_validation/openmc_notebook_comparisons/
@@ -28,6 +36,23 @@ crates/outram-mc-libs/verification_and_validation/openmc_notebook_comparisons/
 # not the binary. Keep the raw PDF local.
 xin wang thesis.pdf
 *thesis*.pdf
+
+# ...but the kovan-literature OPEN archive is the exception: open-licensed source
+# PDFs and their generated markdown ARE committed to GitHub, so collaborators get
+# the literature with the repo. They are kept out of the *published crate* by the
+# `exclude` list in crates/kovan-literature/Cargo.toml, not by gitignore — the
+# two mechanisms serve different audiences (GitHub: yes, crates.io: no).
+# proprietary/ stays ignored by its own rule above, and the negation is scoped to
+# open/ so it can never re-admit a proprietary source. Generated markdown needs no
+# negation — no rule ignores *.md in the first place.
+!crates/kovan-literature/open/**/*.pdf
+
+# Local staging area for literature being imported into kovan-literature. Raw
+# source PDFs and their scratch conversions land here first; the committed
+# deliverables are the generated markdown/BibTeX under
+# crates/kovan-literature/generated/. Staging stays local so the same document
+# is not committed twice (once as scratch, once as a generated artifact).
+/kovan_import/
 
 # Local staging area for collaborator (e.g. Ethan) work, to be merged into the
 # proper crates later. Never committed — raw external WIP stays out of git until

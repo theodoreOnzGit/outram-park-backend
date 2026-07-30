@@ -17,6 +17,10 @@ members = [
     "crates/njoy-outram-park-fork",
     "crates/nee_soon",
     "crates/outram-park-fork-coolprop",
+    # outram-park-fork-offbeat -- pure-Rust OFFBEAT fork (nuclear fuel
+    # performance: mechanics, rheology, gap/contact, material correlations,
+    # burnup/FGR). SCAFFOLD (epic op-6sl); upstream GPL-3.0, not vendored.
+    "crates/outram-park-fork-offbeat",
     # outram-park-fork-pflotran — pure-Rust PFLOTRAN fork (subsurface flow &
     # reactive transport). SCAFFOLD: units/error/flow-mode shape only; RICHARDS
     # solve, Newton-Krylov solver, grid, and I/O are planned (epic op-v6s).
@@ -234,6 +238,7 @@ tokio = { version = "1.53", features = [
 # internal workspace crates — depend on these by path so members use the
 # in-tree copy rather than a crates.io release.
 chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.1.0" }
+outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.0" }
 teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.2" }
 tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.4" }
 tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.4" }
