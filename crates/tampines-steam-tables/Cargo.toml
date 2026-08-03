@@ -1,6 +1,15 @@
 [package]
 name = "tampines-steam-tables"
-version = "0.2.4"
+version = "0.2.5"
+authors = [
+    "Ong Kay Chen Theodore",
+    "Ethan Yew Hoe, Wong",
+    "Professor Per F. Peterson",
+    "University of California, Berkeley Thermal Hydraulics Lab",
+    "Singapore Nuclear Research and Safety Institute (SNRSI)",
+    "National University of Singapore (NUS)",
+    "Repository Contributors",
+]
 edition.workspace = true
 license.workspace = true
 description = "IAPWS-IF97 steam tables for the TAMPINES simulator -- draws from (not a 1:1 port of) the rust-steam crate; independent OUTRAM PARK implementation, not the original rust-steam project"

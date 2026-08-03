@@ -91,38 +91,74 @@ migration notes.
 
 ## Publishing to crates.io
 
-Current versions (bumped for the dependency migration — breaking, since `uom`
-etc. appear in public APIs):
+**Do not hand-maintain the publish order.** Derive it from `cargo metadata`,
+which is the only source that cannot go stale:
 
-| Crate | Version | License |
-|---|---|---|
-| `chem-eng-real-time-process-control-simulator` | 0.1.0 | Apache-2.0 |
-| `tuas_boussinesq_solver` | 0.1.0 | GPL-3.0-only |
-| `teh-o-prke` | 0.1.0 | GPL-3.0-only |
-| `tampines-steam-tables` | 0.2.0 | GPL-3.0-only |
-| `outram-foam-basic-lib` | 0.1.2 | GPL-3.0-only |
+```bash
+cargo metadata --format-version 1 --no-deps
+```
+
+Take the internal (workspace-member) dependency edges — **including
+dev-dependencies**, because `cargo publish` resolves those against crates.io
+too — and topologically sort. A crate can only be published once everything it
+depends on, normal *or* dev, is already live. Until then `cargo publish
+--dry-run` / `cargo package` fails with "failed to select a version"; that is
+expected, not a packaging error (`cargo package --list` still shows clean
+contents).
 
 Internal deps are `{ path = …, version = … }` in `[workspace.dependencies]`, so
-the version pins above must be kept in sync with each crate's `version` (and a
-downstream crate's pin bumped whenever an upstream crate is bumped).
-
-**Publish order is mandatory** — `cargo publish` resolves *all* dependencies,
-including dev-dependencies, against crates.io, so each crate can only be packaged
-once everything it depends on (normal **or** dev) is already live:
-
-1. `chem-eng-real-time-process-control-simulator` (no internal deps)
-1. `outram-foam-basic-lib` (no internal deps — can publish in parallel with chem-eng)
-2. `tuas_boussinesq_solver` (dev-dep: chem-eng)
-3. `teh-o-prke` (dev-deps: tuas, chem-eng)
-4. `tampines-steam-tables` (dep: tuas; dev-deps: teh-o-prke, chem-eng)
-
-Because of this, `cargo publish --dry-run` / `cargo package` for crates 2–4 will
-fail with "failed to select a version" until their upstreams are published —
-that's expected, not a packaging error (`cargo package --list` still shows clean
-contents). chem-eng's dry-run passes standalone.
+each pin must be kept in sync with that crate's own `version`, and a downstream
+pin bumped whenever an upstream is bumped.
 
 Publish each with `cargo publish -p <crate>` from the workspace root (commit
 first; `cargo publish` refuses a dirty tree without `--allow-dirty`).
+
+### Drift: the published version is not the local version
+
+A crate whose `version` is unchanged since it was published, but whose `src/`
+has moved on, is a trap. Downstream crates build locally against the *path*
+dependency but are published against the *registry* copy, so a downstream
+publish fails — or worse, silently resolves to stale code. Detect it before
+starting a run:
+
+```bash
+# commits touching a crate since the commit that introduced its current version
+bump=$(git log --format=%H -S'version = "0.1.0"' -1 -- crates/<crate>/Cargo.toml)
+git rev-list --count "$bump"..HEAD -- crates/<crate>/src
+```
+
+Anything above zero means the registry copy is stale and the crate needs a patch
+bump before the chain above it can be published.
+
+### Rate limits (measured 2026-08-03)
+
+crates.io throttles **new crate names** far harder than new versions of existing
+crates: a burst of about **5 new crates**, then roughly **one per 10 minutes**.
+Exceeding it returns `429 Too Many Requests` with an explicit `Please try again
+after <RFC-2822 date>` — wait for that timestamp rather than retrying blind. New
+*versions* of already-published crates were not throttled at all in that run.
+
+A separate `503` from the WAF has been seen when publishing many crates in quick
+succession; on a 503, wait ~30 minutes before retrying.
+
+### Every published crate must carry its licence text
+
+The tarball contains only the crate directory — a `LICENSE` at the workspace
+root does **not** ship. GPL-3 requires the licence be conveyed with the work, so
+every crate needs its own `LICENSE` copy. Crates that are ports of a permissive
+upstream additionally need that upstream's notice verbatim (MIT and BSD-3 both
+require the copyright + permission notice travel with substantial portions):
+`njoy-outram-park-fork` ships `LICENSE.njoy` + `NOTICE`, `outram-mc-libs` ships
+`LICENSE.openmc`. Verify with:
+
+```bash
+cargo package -p <crate> --list | grep -iE 'LICENSE|NOTICE|TRADEMARK'
+```
+
+Note that `include` patterns are **gitignore-style globs**: an unanchored
+`"LICENSE*"` matches at *any* depth and will drag vendored `upstream_source/`
+licence files into the package, which then fails as a dirty tree. Anchor them
+with a leading `/`.
 
 **Package hygiene already applied** via `exclude` in each manifest:
 - `tuas_boussinesq_solver`: `exclude = ["*.csv"]` — tests dump ~58 MB of CSVs into

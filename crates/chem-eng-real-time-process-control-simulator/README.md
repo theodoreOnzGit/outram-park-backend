@@ -29,7 +29,8 @@ This crate is released under the Apache 2.0 License.
 Copyright [2023] [Theodore Kay Chen Ong, Professor Per F. Peterson,
 University of California, Berkeley
 Thermal Hydraulics Lab, Repository Contributors and 
-Singapore Nuclear Research and Safety Initiative (SNRSI)]
+Singapore Nuclear Research and Safety Institute (SNRSI) and
+National University of Singapore (NUS)]
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

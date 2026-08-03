@@ -427,3 +427,10 @@ cargo test -p outram-foam-basic-lib --test matrix_bench --release -- --nocapture
 ## License
 
 GPL-3.0-only (matching the upstream OpenFOAM sources).
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore, Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.
