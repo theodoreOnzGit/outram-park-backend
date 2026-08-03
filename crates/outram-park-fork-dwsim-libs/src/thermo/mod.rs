@@ -68,6 +68,7 @@ pub mod flash_insideout_3p;
 pub mod flash_lle;
 pub mod flash_single_comp;
 pub mod flash_sle;
+pub mod flash_svlle;
 pub mod flash_vlle;
 pub mod gibbs;
 pub mod ideal_props;
@@ -80,5 +81,7 @@ pub mod saturation;
 pub mod stability;
 pub mod transport;
 pub mod unifac;
+pub mod unifac_dortmund;
+pub mod unifac_lle;
 
 pub use component::Component;
