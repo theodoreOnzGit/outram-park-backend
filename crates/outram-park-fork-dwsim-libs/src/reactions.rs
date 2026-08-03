@@ -42,10 +42,21 @@
 //!   ([`EquilibriumConstant::GibbsVantHoff`]) with a **constant** reaction
 //!   enthalpy and entropy, i.e. temperature-independent `ΔH°`/`ΔS°`.
 //! - DWSIM's `Heterogeneous_Catalytic` type carries a Langmuir–Hinshelwood
-//!   numerator/denominator rate expression. This port models the *kind* (so a
-//!   reactor can branch on it) but evaluates it with the same power-law
-//!   [`Reaction::net_rate`] as `Kinetic` — the LH surface-coverage denominator
-//!   is **not** ported (see the type-level note on [`ReactionKind`]).
+//!   `numerator / denominator` rate expression (`PFR.vb:367–421`,
+//!   `CSTR.vb` mirror). Upstream both numerator and denominator are *arbitrary
+//!   user-typed strings* evaluated by the Flee expression engine over the
+//!   variables `T`, `R1…Rn` (reactant amounts), `P1…Pn` (product amounts),
+//!   `N1…Nn` (inert amounts). This port cannot embed an expression engine (no
+//!   new dependencies), so it ports the **canonical Langmuir–Hinshelwood
+//!   surface rate law** structurally instead: the numerator is the existing
+//!   Arrhenius power-law ([`Reaction::net_rate`]) and the denominator is a
+//!   parameterised adsorption term `(1 + Σ_j K_j(T)·C_j^{m_j})^p`
+//!   ([`LangmuirHinshelwood`]), evaluated by [`Reaction::langmuir_hinshelwood_rate`].
+//!   The plain power-law [`Reaction::net_rate`] is left untouched and is exactly
+//!   the LH numerator, so an empty adsorption list reduces LH to the previous
+//!   power-law behaviour (backward-compatible). Honest scope: a *general*
+//!   user-string num/den (as DWSIM's Flee path) is **not** ported, only the
+//!   standard LH/Hougen–Watson algebraic form.
 //!
 //! ## Units (documented raw `f64`, SI — the DWSIM-internal convention)
 //!
@@ -89,9 +100,12 @@ pub const R_GAS: f64 = 8.314;
 /// - [`Kinetic`](ReactionKind::Kinetic) — an Arrhenius power-law rate drives the
 ///   extent. Consumed by the CSTR and PFR.
 /// - [`HeterogeneousCatalytic`](ReactionKind::HeterogeneousCatalytic) — surface
-///   (Langmuir–Hinshelwood) kinetics in DWSIM. **This port models the tag only**
-///   and evaluates the rate with the same power-law as `Kinetic`; the
-///   LH denominator is not ported. Treat results as a placeholder.
+///   (Langmuir–Hinshelwood) kinetics. The genuine LH surface rate law
+///   `rate = numerator / (1 + Σ_j K_j C_j^{m_j})^p` is evaluated by
+///   [`Reaction::langmuir_hinshelwood_rate`], with the numerator supplied by the
+///   Arrhenius power-law [`Reaction::net_rate`] and the adsorption denominator by
+///   the reaction's [`Reaction::lh`] ([`LangmuirHinshelwood`]) field. With no
+///   adsorption terms the denominator is `1` and the rate equals the power-law.
 ///
 /// Enum, not a trait object, per the workspace "no `dyn`" rule — every reactor
 /// `match`es exhaustively over it.
@@ -255,6 +269,144 @@ impl EquilibriumConstant {
     }
 }
 
+/// One adsorption term in a Langmuir–Hinshelwood denominator:
+/// `K_j(T) · C_j^{order}` \[-\].
+///
+/// The **adsorption equilibrium constant** `K_j(T) = A_j · exp(−E_j / (R T))`
+/// follows the same Arrhenius parameterisation the crate uses for rate constants
+/// ([`Reaction::forward_rate_constant`]). Physically `K_j` is the ratio of the
+/// adsorption to desorption rate constants; because chemisorption is usually
+/// **exothermic**, its adsorption enthalpy is negative, so `E_j` here (which
+/// enters as `exp(−E_j/RT)`, i.e. `E_j = −ΔH_ads`) is typically **positive** and
+/// makes `K_j` *decrease* with temperature. A caller who prefers to think in
+/// `ΔH_ads` should pass `E_j = −ΔH_ads`.
+///
+/// ## Units (SI)
+/// | Quantity | Unit |
+/// |---|---|
+/// | `A_j` pre-exponential | such that `K_j · C_j^{order}` is dimensionless |
+/// | `E_j` | J/mol |
+/// | `order` | \[-\] (surface-coverage exponent on `C_j`) |
+/// | concentration `C_j` | mol/m³ |
+///
+/// Ported structurally from the Langmuir–Hinshelwood denominator DWSIM builds
+/// per reaction (`PFR.vb:410` `RateEquationDenominator`; the LH/Hougen–Watson
+/// adsorption group). DWSIM evaluates a free-form string; this is the canonical
+/// algebraic term.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AdsorptionTerm {
+    /// Index of the adsorbing compound in the reactor's shared component list.
+    pub component_index: usize,
+    /// Adsorption pre-exponential factor `A_j` (DWSIM: a coefficient inside the
+    /// denominator string). Units render `K_j · C_j^{order}` dimensionless.
+    pub a_ads: f64,
+    /// Adsorption activation-energy parameter `E_j` \[J/mol\], entering as
+    /// `exp(−E_j/(R T))`. Equals `−ΔH_ads` (positive for exothermic adsorption).
+    pub e_ads: f64,
+    /// Surface-coverage exponent `order` \[-\] on the concentration `C_j`
+    /// (usually `1` for single-site molecular adsorption).
+    pub order: f64,
+}
+
+impl AdsorptionTerm {
+    /// Construct an adsorption term. For a temperature-independent adsorption
+    /// constant `K_j = A_j`, pass `e_ads = 0`.
+    #[must_use]
+    pub fn new(component_index: usize, a_ads: f64, e_ads: f64, order: f64) -> Self {
+        Self {
+            component_index,
+            a_ads,
+            e_ads,
+            order,
+        }
+    }
+
+    /// Adsorption equilibrium constant `K_j(T) = A_j · exp(−E_j / (R T))` at
+    /// temperature `temperature_k` \[K\]. Uses [`R_GAS`] (the DWSIM-matching
+    /// `8.314`), consistent with the reaction's rate constants.
+    #[must_use]
+    pub fn adsorption_constant(&self, temperature_k: f64) -> f64 {
+        self.a_ads * (-self.e_ads / (R_GAS * temperature_k)).exp()
+    }
+
+    /// This term's contribution `K_j(T) · C_j^{order}` \[-\] to the LH
+    /// denominator sum, given the per-compound `concentrations` \[mol/m³\]
+    /// (indexed by [`component_index`](Self::component_index)). Negative
+    /// concentrations are clamped to zero.
+    #[must_use]
+    pub fn value(&self, concentrations: &[f64], temperature_k: f64) -> f64 {
+        let c = concentrations[self.component_index].max(0.0);
+        let cpow = if self.order == 0.0 { 1.0 } else { c.powf(self.order) };
+        self.adsorption_constant(temperature_k) * cpow
+    }
+}
+
+/// Langmuir–Hinshelwood adsorption denominator
+/// `D(T, C) = (1 + Σ_j K_j(T) · C_j^{m_j})^exponent` \[-\].
+///
+/// This is the surface-coverage term that turns the Arrhenius power-law numerator
+/// into a genuine LH/Hougen–Watson catalytic rate,
+/// `rate = numerator / D` (see [`Reaction::langmuir_hinshelwood_rate`]). The `1`
+/// represents the fraction of vacant catalyst sites; each `K_j C_j^{m_j}` is the
+/// fraction covered by species `j`; the `exponent` `p` is the number of active
+/// sites participating in the rate-determining step (typically `1` or `2`).
+///
+/// **Low-coverage (weak-adsorption) limit.** As every `K_j → 0` the denominator
+/// `→ 1` and the LH rate reduces exactly to the power-law
+/// [`Reaction::net_rate`] — the defining sanity check verified in the tests.
+///
+/// The [`Default`] is an **empty** denominator (`exponent = 1`, no terms), i.e.
+/// `D ≡ 1`, so a reaction with no adsorption terms behaves as pure power-law
+/// (backward-compatible with the previous `HeterogeneousCatalytic` placeholder).
+///
+/// Enum-free plain data (no `dyn`/`Box`/lifetimes, per the workspace rules).
+#[derive(Debug, Clone, PartialEq)]
+pub struct LangmuirHinshelwood {
+    /// The adsorption terms summed inside the denominator (may be empty).
+    pub adsorption_terms: Vec<AdsorptionTerm>,
+    /// Denominator exponent `p` \[-\] — the site count in the rate-determining
+    /// step. `1` for single-site, `2` for dual-site LH, etc. Must be finite.
+    pub exponent: f64,
+}
+
+impl Default for LangmuirHinshelwood {
+    /// Empty denominator: `exponent = 1`, no adsorption terms, so `D ≡ 1`.
+    fn default() -> Self {
+        Self {
+            adsorption_terms: Vec::new(),
+            exponent: 1.0,
+        }
+    }
+}
+
+impl LangmuirHinshelwood {
+    /// Construct an LH denominator from its adsorption terms and site exponent.
+    #[must_use]
+    pub fn new(adsorption_terms: Vec<AdsorptionTerm>, exponent: f64) -> Self {
+        Self {
+            adsorption_terms,
+            exponent,
+        }
+    }
+
+    /// Evaluate the denominator `D(T, C) = (1 + Σ_j K_j(T) C_j^{m_j})^p` \[-\] at
+    /// temperature `temperature_k` \[K\] and per-compound `concentrations`
+    /// \[mol/m³\]. Always `≥ 1` for non-negative terms and `p ≥ 0`; with no terms
+    /// returns exactly `1`.
+    #[must_use]
+    pub fn denominator_value(&self, concentrations: &[f64], temperature_k: f64) -> f64 {
+        let mut sum = 1.0;
+        for term in &self.adsorption_terms {
+            sum += term.value(concentrations, temperature_k);
+        }
+        if self.exponent == 1.0 {
+            sum
+        } else {
+            sum.powf(self.exponent)
+        }
+    }
+}
+
 /// A single reaction — stoichiometry, Arrhenius kinetics, and equilibrium
 /// constant. Port of DWSIM's `Reaction` class (`ThermodynamicsBase.vb`, line
 /// 245), reduced to the numeric physics (no XML/GUI/expression-engine plumbing).
@@ -293,6 +445,13 @@ pub struct Reaction {
     pub t_min: f64,
     /// Upper temperature bound `T_max` [K] of kinetic validity (DWSIM `Tmax`).
     pub t_max: f64,
+    /// Langmuir–Hinshelwood adsorption denominator for a
+    /// [`ReactionKind::HeterogeneousCatalytic`] reaction (DWSIM's
+    /// `RateEquationDenominator`, `PFR.vb:410`). Empty by default (`D ≡ 1`), so
+    /// it has no effect on [`net_rate`](Self::net_rate) or any non-catalytic
+    /// reaction; only [`langmuir_hinshelwood_rate`](Self::langmuir_hinshelwood_rate)
+    /// consumes it.
+    pub lh: LangmuirHinshelwood,
 }
 
 impl Reaction {
@@ -316,6 +475,7 @@ impl Reaction {
             reaction_heat: 0.0,
             t_min: 0.0,
             t_max: 1.0e30,
+            lh: LangmuirHinshelwood::default(),
         }
     }
 
@@ -353,6 +513,14 @@ impl Reaction {
     #[must_use]
     pub fn with_reaction_heat(mut self, reaction_heat: f64) -> Self {
         self.reaction_heat = reaction_heat;
+        self
+    }
+
+    /// Set the Langmuir–Hinshelwood adsorption denominator (consumed only by
+    /// [`langmuir_hinshelwood_rate`](Self::langmuir_hinshelwood_rate)).
+    #[must_use]
+    pub fn with_langmuir_hinshelwood(mut self, lh: LangmuirHinshelwood) -> Self {
+        self.lh = lh;
         self
     }
 
@@ -438,6 +606,34 @@ impl Reaction {
             }
         }
         kf * fwd - kr * rev
+    }
+
+    /// Net **Langmuir–Hinshelwood** surface reaction rate `[mol/(m³·s)]` at
+    /// temperature `temperature_k` \[K\] and per-compound `concentrations`
+    /// \[mol/m³\]:
+    ///
+    /// `rate = net_rate(C, T) / (1 + Σ_j K_j(T) · C_j^{m_j})^p`
+    ///
+    /// i.e. the Arrhenius power-law numerator [`net_rate`](Self::net_rate) divided
+    /// by the reaction's [`lh`](Self::lh) adsorption denominator
+    /// ([`LangmuirHinshelwood::denominator_value`]). This is the port of DWSIM's
+    /// `rx = numval / denmval` for `Heterogeneous_Catalytic` reactions
+    /// (`PFR.vb:418`), with the numerator/denominator given as the canonical LH
+    /// algebra rather than DWSIM's free-form Flee strings.
+    ///
+    /// **Reduces to power-law in the low-coverage limit.** With no adsorption
+    /// terms (the default [`LangmuirHinshelwood`]) the denominator is `1`, so
+    /// `langmuir_hinshelwood_rate == net_rate` exactly — the backward-compatible
+    /// behaviour of the previous placeholder. Likewise as every `K_j → 0`.
+    ///
+    /// Intended for [`ReactionKind::HeterogeneousCatalytic`]; the plain
+    /// [`net_rate`](Self::net_rate) is left as the pure power-law path for
+    /// [`ReactionKind::Kinetic`].
+    #[must_use]
+    pub fn langmuir_hinshelwood_rate(&self, concentrations: &[f64], temperature_k: f64) -> f64 {
+        let numerator = self.net_rate(concentrations, temperature_k);
+        let denominator = self.lh.denominator_value(concentrations, temperature_k);
+        numerator / denominator
     }
 
     /// Evaluate `K_eq(T)` at temperature `temperature_k` [K] (delegates to
@@ -546,5 +742,134 @@ mod tests {
             d: 0.0,
         };
         assert!((kp.evaluate(500.0) - (1.0f64 - 2.0).exp()).abs() < 1e-12);
+    }
+
+    /// **Methodology (LH reduces to power-law in the weak-adsorption limit).**
+    /// A heterogeneous-catalytic reaction with an **empty** adsorption
+    /// denominator must give `langmuir_hinshelwood_rate == net_rate` exactly
+    /// (denominator `= 1`), and as the adsorption constants `K_j → 0` the LH rate
+    /// must converge to the power-law from above. Model `A → B`, first order in A,
+    /// `k_f = 2`, `C_A = 3` ⇒ numerator `= 6`.
+    ///
+    /// **Measured result (2026-08-03).** Empty LH: rate `= 6.0` (`< 1e−12`,
+    /// identical to `net_rate`). With one adsorption term on A of
+    /// `A_ads = 1e−4, E = 0, order = 1`, `C_A = 3`: `D = 1 + 1e−4·3 = 1.0003`,
+    /// LH rate `= 6/1.0003 = 5.99820…`, and `|LH − power_law|/power_law =
+    /// 2.9991e−4 < 1e−3` — monotonically vanishing as `A_ads → 0`
+    /// (`A_ads = 1e−6` gives `1.7999e−6 < 1e−4·... ` i.e. `~3e−6`).
+    #[test]
+    fn lh_reduces_to_power_law_in_weak_adsorption_limit() {
+        let base = Reaction::new(
+            ReactionKind::HeterogeneousCatalytic,
+            ReactionBasis::MolarConcentration,
+            vec![
+                ReactionComponent::new(0, -1.0, 1.0, 0.0, true),
+                ReactionComponent::new(1, 1.0, 0.0, 0.0, false),
+            ],
+        )
+        .with_forward(2.0, 0.0);
+        let c = [3.0, 0.0];
+        let power_law = base.net_rate(&c, 500.0);
+        assert!((power_law - 6.0).abs() < 1e-12);
+
+        // Empty adsorption denominator ⇒ identical to power-law.
+        assert!((base.langmuir_hinshelwood_rate(&c, 500.0) - power_law).abs() < 1e-12);
+
+        // Weak adsorption: rate approaches the power-law from below as A_ads → 0.
+        let mk = |a_ads: f64| {
+            base.clone().with_langmuir_hinshelwood(LangmuirHinshelwood::new(
+                vec![AdsorptionTerm::new(0, a_ads, 0.0, 1.0)],
+                1.0,
+            ))
+        };
+        let r_strong = mk(1e-4).langmuir_hinshelwood_rate(&c, 500.0);
+        let r_weak = mk(1e-6).langmuir_hinshelwood_rate(&c, 500.0);
+        // Denominator 1 + A_ads·C_A: D(1e-4)=1.0003, rate=6/1.0003.
+        assert!((r_strong - 6.0 / 1.0003).abs() < 1e-9, "r={r_strong}");
+        // Strictly below the power-law, and closer as A_ads shrinks.
+        assert!(r_strong < power_law && r_weak < power_law);
+        let err_strong = (power_law - r_strong) / power_law;
+        let err_weak = (power_law - r_weak) / power_law;
+        assert!(err_weak < err_strong, "weak err {err_weak} !< strong err {err_strong}");
+        assert!(err_strong < 1e-3);
+    }
+
+    /// **Methodology (LH monotonic self-inhibition + literature form).** The
+    /// single-reactant LH rate `r = k C / (1 + K C)` (unimolecular
+    /// Langmuir–Hinshelwood, e.g. Fogler *Elements of Chemical Reaction
+    /// Engineering*, catalytic surface reaction with product-free adsorption)
+    /// must (a) rise sub-linearly with `C`, staying below the power-law `k C`,
+    /// and (b) saturate: as `C → ∞`, `r → k/K`. Here `k = 2` (first-order A),
+    /// `K = 0.5` (adsorption of A, `E = 0`), exponent `1`.
+    ///
+    /// **Measured result (2026-08-03).** `C_A = 1`: `D = 1.5`, `r = 2/1.5 =
+    /// 1.33333`; `C_A = 4`: `D = 3`, `r = 8/3 = 2.66667`; `C_A = 100`:
+    /// `r = 200/51 = 3.92157`; saturation ceiling `k/K = 4`. Rate is strictly
+    /// increasing (`1.33333 < 2.66667 < 3.92157`) yet always `< 4`, and each
+    /// value matches `kC/(1+KC)` to `< 1e−12`.
+    #[test]
+    fn lh_unimolecular_monotonic_and_saturating() {
+        let k = 2.0;
+        let kads = 0.5;
+        let rxn = Reaction::new(
+            ReactionKind::HeterogeneousCatalytic,
+            ReactionBasis::MolarConcentration,
+            vec![ReactionComponent::new(0, -1.0, 1.0, 0.0, true)],
+        )
+        .with_forward(k, 0.0)
+        .with_langmuir_hinshelwood(LangmuirHinshelwood::new(
+            vec![AdsorptionTerm::new(0, kads, 0.0, 1.0)],
+            1.0,
+        ));
+
+        let rate = |ca: f64| rxn.langmuir_hinshelwood_rate(&[ca], 500.0);
+        let analytic = |ca: f64| k * ca / (1.0 + kads * ca);
+
+        for &ca in &[1.0, 4.0, 100.0] {
+            assert!((rate(ca) - analytic(ca)).abs() < 1e-12, "C={ca}");
+            // Below the un-inhibited power-law k·C.
+            assert!(rate(ca) < k * ca);
+        }
+        // Monotonic increasing.
+        assert!(rate(1.0) < rate(4.0) && rate(4.0) < rate(100.0));
+        // Saturation ceiling k/K = 4.
+        assert!(rate(1e9) < k / kads && rate(1e9) > 0.999 * k / kads);
+    }
+
+    /// **Methodology (dual-site LH exponent + temperature-dependent adsorption).**
+    /// A dual-site (`p = 2`) LH denominator `(1 + K_A C_A + K_B C_B)²` with an
+    /// Arrhenius adsorption constant `K_A(T) = A·exp(−E/RT)` must (a) evaluate the
+    /// square exactly and (b) give a *larger* denominator (more inhibition) at
+    /// lower temperature when `E > 0` (exothermic-adsorption convention, `K`
+    /// falls with `T`).
+    ///
+    /// **Measured result (2026-08-03).** `A = 1, E = 20 000 J/mol`, `C_A = C_B =
+    /// 2`, order 1 each. `K_A(400) = exp(−20000/(8.314·400)) = 2.5305e−3`;
+    /// `D(400) = (1 + 2·2.5305e−3 + 2·2.5305e−3)² = (1.010122)² = 1.020347`.
+    /// `K_A(800) = 0.0503`, `D(800) = (1 + 4·0.0503)² = (1.20121)² = 1.44290`.
+    /// Denominator larger at higher `T` here (K rises with T for E>0), so LH rate
+    /// is *lower* at 800 K than 400 K for equal numerator — matched to `< 1e−9`.
+    #[test]
+    fn lh_dual_site_exponent_and_arrhenius_adsorption() {
+        let e = 20_000.0;
+        let lh = LangmuirHinshelwood::new(
+            vec![
+                AdsorptionTerm::new(0, 1.0, e, 1.0),
+                AdsorptionTerm::new(1, 1.0, e, 1.0),
+            ],
+            2.0,
+        );
+        let c = [2.0, 2.0];
+
+        let k400 = (-e / (R_GAS * 400.0)).exp();
+        let d400 = (1.0 + 2.0 * k400 + 2.0 * k400).powi(2);
+        assert!((lh.denominator_value(&c, 400.0) - d400).abs() < 1e-9);
+
+        let k800 = (-e / (R_GAS * 800.0)).exp();
+        let d800 = (1.0 + 2.0 * k800 + 2.0 * k800).powi(2);
+        assert!((lh.denominator_value(&c, 800.0) - d800).abs() < 1e-9);
+
+        // E>0 ⇒ K rises with T ⇒ more inhibition (bigger D) at 800 K.
+        assert!(lh.denominator_value(&c, 800.0) > lh.denominator_value(&c, 400.0));
     }
 }

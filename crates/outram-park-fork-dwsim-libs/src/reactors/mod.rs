@@ -13,6 +13,7 @@
 //!
 //! - [`conversion_reactor`] ← `Reactors/Conversion.vb`
 //! - [`equilibrium_reactor`] ← `Reactors/Equilibrium.vb`
+//! - [`gibbs_reactor`] ← `Reactors/Gibbs.vb`
 //! - [`cstr`] ← `Reactors/CSTR.vb`
 //! - [`pfr`] ← `Reactors/PFR.vb`
 //!
@@ -48,11 +49,13 @@
 pub mod conversion_reactor;
 pub mod cstr;
 pub mod equilibrium_reactor;
+pub mod gibbs_reactor;
 pub mod pfr;
 
 pub use conversion_reactor::ConversionReactor;
 pub use cstr::Cstr;
 pub use equilibrium_reactor::EquilibriumReactor;
+pub use gibbs_reactor::{GibbsFormation, GibbsReactor};
 pub use pfr::Pfr;
 
 /// Inlet state of a reactor: the per-compound molar flows plus the intensive
@@ -152,6 +155,9 @@ pub enum ReactorModel {
     Conversion(ConversionReactor),
     /// Chemical-equilibrium reactor (`Reactors/Equilibrium.vb`).
     Equilibrium(EquilibriumReactor),
+    /// Gibbs-energy-minimisation equilibrium reactor (`Reactors/Gibbs.vb`) —
+    /// outlet speciation from a feed with **no reaction list**.
+    Gibbs(GibbsReactor),
     /// Continuous stirred-tank reactor (`Reactors/CSTR.vb`).
     Cstr(Cstr),
     /// Plug-flow reactor (`Reactors/PFR.vb`).
@@ -164,6 +170,7 @@ impl ReactorModel {
         match self {
             ReactorModel::Conversion(r) => r.solve(feed),
             ReactorModel::Equilibrium(r) => r.solve(feed),
+            ReactorModel::Gibbs(r) => r.solve(feed),
             ReactorModel::Cstr(r) => r.solve(feed),
             ReactorModel::Pfr(r) => r.solve(feed),
         }
