@@ -165,6 +165,32 @@ under each model.
 
 ---
 
+## 4a. Why this matters — HTGR water/steam ingress (priority driver)
+
+**This chemistry port is important for HTGR water-ingress accident analysis.**
+When water or steam ingresses into a hot graphite-moderated High-Temperature
+Gas-cooled Reactor core, it drives graphite–gas chemistry:
+
+$$C + H_2O \rightarrow CO + H_2 \quad (\text{steam-graphite, endothermic})$$
+
+$$CO + H_2O \rightarrow CO_2 + H_2 \quad (\text{water-gas shift})$$
+
+$$C + CO_2 \rightarrow 2\,CO \quad (\text{Boudouard})$$
+
+This produces combustible CO/H₂, corrodes graphite, and adds reactivity and
+pressure. Modelling it needs exactly the models this survey prioritises:
+
+- **Equilibrium + kinetic gas-phase reactions** (`ReactionType::Equilibrium`,
+  `::Kinetic`) and the **kinetic reactors** (CSTR/PFR) — the steam-graphite,
+  water-gas-shift and Boudouard rate/equilibrium chemistry (bead `op-tts`).
+- **Gibbs-minimisation speciation** — equilibrium CO/CO₂/H₂/H₂O/C partitioning
+  without hand-listing every reaction (bead `op-4ng`).
+- **Multicomponent gas-phase EOS** (LKP / PR-78) for the CO/CO₂/H₂/H₂O/He
+  mixture properties (bead `op-b4t`).
+
+So beads `op-tts`, `op-4ng`, and `op-b4t` are the HTGR-water-ingress-critical
+subset of this backlog, alongside the molten-salt SLE/electrolyte work.
+
 ## 5. Recommended port order for OUTRAM PARK
 
 Ranked by reactor-chemistry value (not DWSIM's petroleum-first ordering). The
