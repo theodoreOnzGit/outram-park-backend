@@ -256,8 +256,8 @@ outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   v
 outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.1" }
 outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.0" }
 outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.1.0" }
-outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.1" }
-outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.1" }
+outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.2" }
+outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.2" }
 boon-lay            = { path = "crates/boon-lay",            version = "0.1.2" }
 # All nuclear-data representation (ENDF processing, WMP + Faddeeva, lean ACE)
 # lives here; outram-mc-libs and nee_soon pull cross sections from it.
@@ -284,7 +284,7 @@ kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.0" }
 # outram-blender — Blender-inspired mesh-authoring frontend (scaffold, 0.0.0).
 # Pure-Rust, Android-safe, no internal deps yet (export bridges to
 # outram-foam-mesh / outram-mc-libs are documented stubs, wired later).
-outram-blender   = { path = "crates/outram-blender",   version = "0.0.0" }
+outram-blender   = { path = "crates/outram-blender",   version = "0.0.1" }
 
 # outram-park-fork-cfmesh — Rust port of cfMesh (GPL-3.0): the volume-mesh
 # generation layer (tet / polyhedral cells + boundary layers) that sits between
@@ -292,7 +292,7 @@ outram-blender   = { path = "crates/outram-blender",   version = "0.0.0" }
 # Android-safe by default; its `foam-export` feature adds the (BLAS-free)
 # outram-foam-basic-lib polyMesh writer. Consumed by outram-blender's optional
 # `foam-mesh` bridge.
-outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "0.0.0" }
+outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "0.0.1" }
 
 # Optimize all dependencies even in debug builds — the thermal-hydraulic
 # solvers are expensive, so unoptimized deps make tests painfully slow.

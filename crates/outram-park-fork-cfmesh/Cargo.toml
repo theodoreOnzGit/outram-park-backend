@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-cfmesh"
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 # GPL-3.0-only: this crate is a Rust port/fork of cfMesh (GPL-3.0-only). The
 # voro++-derived portions (BSD, LBNL) retain their permissive provenance
