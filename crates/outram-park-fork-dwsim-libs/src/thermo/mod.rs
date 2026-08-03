@@ -71,6 +71,7 @@ pub mod flash_sle;
 pub mod flash_svlle;
 pub mod flash_vlle;
 pub mod gibbs;
+pub mod gibbs_multiphase;
 pub mod ideal_props;
 pub mod lkp;
 pub mod pr1978;
