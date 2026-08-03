@@ -1,6 +1,6 @@
 [package]
 name = "chem-eng-real-time-process-control-simulator"
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 # NOTE: this crate is Apache-2.0, unlike the GPL-3.0 workspace default, so it
 # keeps its own license rather than inheriting from [workspace.package].

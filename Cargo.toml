@@ -237,14 +237,14 @@ tokio = { version = "1.53", features = [
 
 # internal workspace crates — depend on these by path so members use the
 # in-tree copy rather than a crates.io release.
-chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.1.0" }
+chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.1.1" }
 outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.0" }
-teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.2" }
-tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.4" }
-tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.4" }
-outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.0" }
-outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.0" }
-outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.0" }
+teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.3" }
+tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.5" }
+tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.5" }
+outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.1" }
+outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.1" }
+outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.1" }
 outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.0" }
 outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.0" }
 outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.1.0" }
@@ -257,7 +257,7 @@ njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.
 # Coupling / integration layer — composes njoy-outram-park-fork, outram-mc-libs and
 # teh-o-prke behind one object-oriented facade (scaffold).
 nee_soon            = { path = "crates/nee_soon",            version = "0.1.0" }
-outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.1.0" }
+outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.1.1" }
 # Central thermal-hydraulic framework — composes tuas_boussinesq_solver,
 # outram-park-fork-coolprop, tampines-steam-tables, outram-foam-basic-lib and
 # chem-eng-real-time-process-control-simulator (scaffold).

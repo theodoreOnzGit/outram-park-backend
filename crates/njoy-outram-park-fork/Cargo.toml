@@ -16,13 +16,16 @@ keywords = ["nuclear", "endf", "cross-sections", "reconr", "neutronics"]
 # LICENSE.njoy and NOTICE must travel with every redistribution (BSD-3 cond. 1).
 # Integration tests and ENDF fixture files (some > 30 MB) are excluded from the
 # tarball — they are development-only and crates.io does not run them.
+# Patterns are gitignore-style globs: an unanchored "LICENSE*" would also match
+# the vendored upstream_source/NJOY2016/ licence files (gitignored, so cargo
+# then refuses to package a "dirty" tree). Leading "/" anchors to the crate root.
 include = [
     "src/**",
     "docs/**",
-    "LICENSE*",
-    "NOTICE",
-    "README.md",
-    "Cargo.toml",
+    "/LICENSE*",
+    "/NOTICE",
+    "/README.md",
+    "/Cargo.toml",
 ]
 # V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
 # and never shipped in the packaged crate.
