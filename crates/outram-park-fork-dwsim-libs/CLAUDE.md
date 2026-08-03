@@ -54,10 +54,12 @@ Documented base units:
 An earlier draft of this note sketched `PropertyPackage`/`FlashAlgorithm` as
 `dyn Trait` interfaces (mirroring DWSIM's own OO interface hierarchy). That
 violates the workspace's mandatory "no trait objects" rule (root `CLAUDE.md`,
-"Rust design rules"). The core flash + property-package tier is now ported
-(`thermo::flash`, `thermo::property_package`, `thermo::energy_flash`,
-`thermo::saturation`; see `docs/port-scope.md` for the remaining tail), and it
-uses enum dispatch as planned here, e.g.:
+"Rust design rules"). A broad thermodynamics tier is now ported — the flash
+family (VLE / VLLE / LLE / SLE / SVLLE / inside-out / single-component), Gibbs
+speciation, the electrolyte tier, the advanced EOS (PR78 / PRSV2 / LKP /
+PR+Lee-Kesler), property packages, and the reactions/reactors layer (see
+`docs/chemistry-model-survey.md` for per-model status and `docs/port-scope.md`
+for the remaining tail) — and it uses enum dispatch as planned here, e.g.:
 ```rust
 pub trait PropertyPackage {
     fn flash_pt(&self, z: &[f64], p: f64, t: f64) -> FlashResult;

@@ -131,7 +131,7 @@
 //! raw `f64` (SI: K, Pa, mole fractions \[-\]) in the inner loops.
 
 use crate::thermo::cubic_eos::CubicEos;
-use crate::thermo::flash::{FlashError, FlashResult, NestedLoopsOptions};
+use crate::thermo::flash::{FlashError, FlashResult};
 use crate::thermo::flash_insideout::{inside_out_flash, InsideOutOptions};
 use crate::thermo::flash_vlle::{eos_k_values, solve_3p_fixed_k, VlleOptions, VlleResult};
 use crate::thermo::stability::stability_test;
@@ -544,7 +544,7 @@ mod tests {
 
     use super::*;
     use crate::thermo::component::reference;
-    use crate::thermo::flash::nested_loops_flash;
+    use crate::thermo::flash::{nested_loops_flash, NestedLoopsOptions};
     use crate::thermo::flash_insideout::inside_out_flash;
     use crate::thermo::property_package::PropertyPackageModel;
     use approx::assert_abs_diff_eq;
