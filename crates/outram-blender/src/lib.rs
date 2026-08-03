@@ -112,6 +112,13 @@ pub mod export;
 /// calculation. The backend the outram-mc GUI drives.
 #[cfg(feature = "mc-export")]
 pub mod sim;
+
+/// Volume-meshing bridge (feature `foam-mesh`) — hand a blender surface [`mesh::Mesh`]
+/// (or a built-in primitive) to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers
+/// `pipeline`, get back a polyhedral `VolumeMesh` + quality report, and export an
+/// OpenFOAM `polyMesh`. The backend the Mesh Studio GUI drives.
+#[cfg(feature = "foam-mesh")]
+pub mod foam_mesh;
 pub mod fill_holes;
 pub mod inset;
 pub mod laplacian;

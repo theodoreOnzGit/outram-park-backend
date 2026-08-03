@@ -286,6 +286,14 @@ kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.0" }
 # outram-foam-mesh / outram-mc-libs are documented stubs, wired later).
 outram-blender   = { path = "crates/outram-blender",   version = "0.0.0" }
 
+# outram-park-fork-cfmesh — Rust port of cfMesh (GPL-3.0): the volume-mesh
+# generation layer (tet / polyhedral cells + boundary layers) that sits between
+# the outram-blender surface frontend and the outram-foam solvers. Pure-Rust /
+# Android-safe by default; its `foam-export` feature adds the (BLAS-free)
+# outram-foam-basic-lib polyMesh writer. Consumed by outram-blender's optional
+# `foam-mesh` bridge.
+outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "0.0.0" }
+
 # Optimize all dependencies even in debug builds — the thermal-hydraulic
 # solvers are expensive, so unoptimized deps make tests painfully slow.
 # (Lifted from chem-eng's crate-level profile; profiles are only honored at the
