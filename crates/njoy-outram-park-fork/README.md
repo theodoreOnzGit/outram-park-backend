@@ -161,3 +161,10 @@ See the porting plan for the test strategy.
 
 [NJOY2016]: https://github.com/njoy/NJOY2016
 [`outram-mc-libs`]: https://github.com/theodoreOnzGit/outram-park-backend
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore, Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.

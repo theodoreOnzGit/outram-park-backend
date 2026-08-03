@@ -102,3 +102,10 @@ discipline.
 
 GPL-3.0-only (see the workspace root `LICENSE`), permitted under the terms
 of OpenMC's upstream MIT license — see `TRADEMARKS.md`.
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore, Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.

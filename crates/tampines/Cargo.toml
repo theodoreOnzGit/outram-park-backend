@@ -1,6 +1,15 @@
 [package]
 name = "tampines"
-version = "0.1.0"
+version = "0.0.1"
+authors = [
+    "Ong Kay Chen Theodore",
+    "Ethan Yew Hoe, Wong",
+    "Professor Per F. Peterson",
+    "University of California, Berkeley Thermal Hydraulics Lab",
+    "Singapore Nuclear Research and Safety Institute (SNRSI)",
+    "National University of Singapore (NUS)",
+    "Repository Contributors",
+]
 edition.workspace = true
 license.workspace = true
 description = "TAMPINES -- Thermal-hydraulic Artificial-intelligence Multi-Phase INtegrated Emulator System: the central OUTRAM PARK thermal-hydraulic framework (fluid flow, thermophysical properties, heat transfer, balance of plant, humid-air psychrometrics, multiphase TH)"

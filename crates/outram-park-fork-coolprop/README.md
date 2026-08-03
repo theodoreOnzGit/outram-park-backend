@@ -415,3 +415,10 @@ performed yet — use at your own risk** (see the banner above).
   validated against GERG-2008; no systematic CoolProp-oracle cross-check yet
   (planned, bead op-kbc.3). Property/flash APIs currently return raw `f64` SI
   (only the `OPCPFluidSingleCV`/`OPCPFluidArray` control volumes are `uom`-typed).
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore, Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.

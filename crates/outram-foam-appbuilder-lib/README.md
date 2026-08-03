@@ -211,3 +211,10 @@ real limitations** as of version 0.1.0 — grounded in the code, not aspirationa
 ## License
 
 GPL-3.0-only (follows OpenFOAM and GeN-Foam licensing).
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore, Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.

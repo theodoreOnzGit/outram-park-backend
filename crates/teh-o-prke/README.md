@@ -51,3 +51,10 @@ graph stays acyclic (a future `tampines`/`nee_soon` composition can pull in
 `teh-o-prke` and `tuas_boussinesq_solver` together without a dependency
 loop). See the header of `src/matrix.rs` for the full attribution.
 
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore, Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.

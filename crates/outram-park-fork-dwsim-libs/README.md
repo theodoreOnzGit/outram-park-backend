@@ -69,3 +69,10 @@ LKP, three-phase / electrolyte / solid equilibria, and DWSIM's reactor tier).
 GPL-3.0-only (see the workspace root `LICENSE`), matching DWSIM's own
 upstream license directly — no relicensing step is needed. See
 `TRADEMARKS.md` for the full non-affiliation notice.
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore, Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.

@@ -4977,7 +4977,7 @@ dependencies = [
 
 [[package]]
 name = "nee_soon"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "njoy-outram-park-fork",
  "outram-foam-appbuilder-lib",
@@ -5740,7 +5740,7 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-multiphase"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "approx",
  "outram-foam-basic-lib",
@@ -5761,7 +5761,7 @@ dependencies = [
 
 [[package]]
 name = "outram-mc-libs"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "approx",
  "fission-yields-data",
@@ -5780,7 +5780,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-digital-twin-engine"
-version = "0.2.0"
+version = "0.0.1"
 dependencies = [
  "async-opcua",
  "chem-eng-real-time-process-control-simulator",
@@ -5828,7 +5828,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-dwsim-libs"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "approx",
  "ndarray",
@@ -7576,7 +7576,7 @@ dependencies = [
 
 [[package]]
 name = "tampines"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "chem-eng-real-time-process-control-simulator",
  "eframe",

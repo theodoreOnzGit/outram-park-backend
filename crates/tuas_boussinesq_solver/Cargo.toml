@@ -1,6 +1,7 @@
 [package]
 name = "tuas_boussinesq_solver"
 version = "0.1.5"
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Thermo-hydraulic Uniphase Solver for Advection and Convection in Salt Flows (TUAS)"
