@@ -10,7 +10,7 @@ license.workspace = true
 # This crate is a GPL-licensed FORK/DERIVATIVE of Blender's mesh/geometry
 # architecture, NOT affiliated with, endorsed by, or sanctioned by the Blender
 # Foundation, and bundles no Blender source. See README.md "Naming & trademark".
-description = "A GPL-licensed fork of Blender's mesh-authoring architecture — headless mesh frontend for OUTRAM PARK multiphysics (scaffold). Not affiliated with the Blender Foundation."
+description = "A GPL-licensed fork of Blender's mesh-authoring architecture — headless mesh frontend for OUTRAM PARK multiphysics, with opt-in Monte Carlo (mc-export) and OpenFOAM volume-meshing (foam-mesh) solver bridges. Not affiliated with the Blender Foundation."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"

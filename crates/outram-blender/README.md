@@ -9,10 +9,21 @@
 
 A pure-Rust, headless **mesh-authoring frontend** for the OUTRAM PARK
 multiphysics suite, inspired by the **architecture** of
-[Blender](https://github.com/blender/blender). The eventual goal is to author
-and procedurally generate geometry that feeds the OUTRAM PARK solvers — an
-`outram-foam-mesh` `polyMesh` for CFD, or an `outram-mc-libs` CSG universe for
-Monte Carlo neutron transport.
+[Blender](https://github.com/blender/blender). It authors and procedurally
+generates geometry, then bridges it into two OUTRAM PARK solver workflows, each
+with its own egui studio app:
+
+- **MC Studio** (`--features mc-export`) — author a surface, fit it to an
+  `outram-mc-libs` CSG universe, attach materials, and run a k-eigenvalue
+  (criticality) Monte Carlo calculation returning `k_eff ± σ`. Backed by the
+  `sim` module.
+- **Mesh Studio** (`--features foam-mesh`) — hand a closed surface to the
+  `outram-park-fork-cfmesh` **tet → dual → boundary-layers** pipeline and export
+  an OpenFOAM `polyMesh` for CFD / thermal-hydraulics. Backed by the `foam_mesh`
+  module.
+
+The base authoring library pulls in neither solver — both bridges are opt-in
+cargo features, so the default build stays light and Android-buildable.
 
 > **GPU compute (always compiled on desktop, off Android): `f32` for speed, CPU
 > `f64` is the trusted path.** The headless GPU kernels (`wgpu`) are built
@@ -64,7 +75,13 @@ Monte Carlo neutron transport.
 > smoothing / parameterization / deformation / decimation / hull / weld /
 > fill-holes / solidify / recalc-normals / triangulate / inset / bisect /
 > revolve workstreams (`op-hzs.6`, `op-hzs.7`, `op-hzs.11`–`op-hzs.13`,
-> `op-hzs.15`–`op-hzs.29`) are landed.
+> `op-hzs.15`–`op-hzs.29`) are landed. Beyond authoring, two **end-to-end solver
+> paths** have landed, each with an egui **studio** app: **MC Studio** (feature
+> `mc-export`) authors geometry and runs a basic `outram-mc-libs` Monte Carlo
+> **k-eigenvalue** criticality calculation (`k_eff ± σ`) via the `sim` module,
+> and **Mesh Studio** (feature `foam-mesh`) volume-meshes an authored surface
+> through the `outram-park-fork-cfmesh` **tet → dual → boundary-layers** pipeline
+> and exports an OpenFOAM `polyMesh` via the `foam_mesh` module.
 >
 > **⚠️ AI-generated draft, untrusted until human-reviewed** per the workspace
 > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
@@ -81,7 +98,7 @@ crate derives from. The fork status is stated up top and in `Cargo.toml`.
 
 This crate is **not affiliated with, endorsed by, or sanctioned by the Blender
 Foundation.** "Blender" is used only to identify the upstream project whose
-mesh/geometry architecture inspired this scaffold. No Blender source code is
+mesh/geometry architecture inspired this fork. No Blender source code is
 included.
 
 ## Licensing & provenance
@@ -93,10 +110,13 @@ included.
   *provided* the GPL attribution header block (upstream project, source file,
   version/commit, copyright, license) is added to any ported file, per the
   workspace provenance rule.
-- At scaffold stage **nothing is ported** — only concepts and architecture are
-  reused, which does not carry Blender's copyright. The moment real Blender code
-  (or a third-party library's algorithm) is transcribed, its provenance header
-  and a license re-check are mandatory.
+- **No Blender source code is transcribed** — only its concepts and
+  data-structure architecture are reused, which does not carry Blender's
+  copyright. The one literally-ported algorithm is the Shewchuk robust
+  geometric predicates in `boolean_predicates` (a third-party algorithm Blender
+  also uses), which carries its own GPL provenance header. The moment further
+  real Blender code (or another third-party library's algorithm) is transcribed,
+  its provenance header and a license re-check are mandatory.
 
 ## Module map
 
@@ -130,6 +150,8 @@ included.
 | `procedural` | Geometry Nodes | **real** — node-graph evaluator (primitive / transform / join / subdivide / boolean / output) |
 | `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh **write** (text / disk) + **read** (`from_poly_mesh`, feature `foam-export`, full `constant/polyMesh` round-trip), CSG fitting (box / sphere / Z-cylinder / any convex polyhedron faceted), a DAGMC-style faceted-solid route for non-convex meshes, plus **feature-gated real-type bridges** to `outram-foam-basic-lib` (`foam-export`) and `outram-mc-libs` (`mc-export`) |
 | `stl` | STL I/O | **real** — ASCII + binary STL read/write (auto-detect on read); the surface-mesh interchange / DAGMC / Monte-Carlo feed. Import is a triangle soup — `weld` it to recover topology |
+| `sim` *(feature `mc-export`)* | — (no Blender analogue) | **real** — Monte Carlo setup + run: build materials from nuclide/density specs, bundle geometry + source + settings, run a k-eigenvalue criticality calc (`k_eff ± σ`, optional cell/flux tally) via `outram-mc-libs`. The **MC Studio** backend |
+| `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet → dual → boundary-layers pipeline → OpenFOAM `polyMesh` (with a quality report). The **Mesh Studio** backend |
 
 ## Design rules honoured (workspace `CLAUDE.md`)
 
@@ -144,7 +166,15 @@ included.
 ## Quick start
 
 ```bash
+# Headless authoring demo (no solver features needed).
 cargo run -p outram-blender --example authoring_primitives --release
+
+# MC Studio — author geometry, set up + run a basic Monte Carlo criticality calc.
+cargo run -p outram-blender --example mc_studio --features mc-export --release
+
+# Mesh Studio — author a surface, volume-mesh it (tet → dual → boundary layers),
+# export an OpenFOAM polyMesh.
+cargo run -p outram-blender --example mesh_studio --features foam-mesh --release
 ```
 
 ```rust
@@ -159,22 +189,32 @@ assert_eq!(cube.face_count(), 6);
 assert_eq!(cube.euler_characteristic(), 2);
 ```
 
-## Feeding the OUTRAM PARK solvers (planned)
+## Feeding the OUTRAM PARK solvers
 
 An authored mesh is a **boundary surface**. The two solver targets consume
-geometry differently, so each bridge (in `export`) has real work beyond a format
-copy:
+geometry differently, so each bridge has real work beyond a format copy. Both
+are now end-to-end runnable, each with a studio app (see **Quick start**):
 
-- **`outram-foam-mesh` polyMesh (CFD)** is a finite-volume *volume* mesh
-  (points, faces, owner/neighbour, boundary patches). A surface has no cells, so
-  the bridge emits a boundary patch that a volume mesher (blockMesh /
-  snappyHexMesh) then fills — it is not a ready-to-solve volume mesh.
-- **`outram-mc-libs` CSG (Monte Carlo)** is analytic constructive solid
-  geometry (`SurfaceKind` primitives combined by a signed-half-space region).
-  The near-term route is *primitive fitting*: emit the exact analytic CSG for a
-  mesh that came from a `primitives` generator.
+- **Monte Carlo (`outram-mc-libs`, feature `mc-export`).** `export` fits the
+  authored surface to an analytic CSG universe (`SurfaceKind` primitives combined
+  by a signed-half-space region, with a DAGMC faceted-solid fallback for
+  non-convex bodies); the `sim` module then attaches materials and runs a
+  **k-eigenvalue criticality** calculation (`k_eff ± σ`, optional cell/flux
+  tally). **MC Studio** drives this path.
+- **CFD volume mesh (`outram-park-fork-cfmesh` → OpenFOAM `polyMesh`, feature
+  `foam-mesh`).** A finite-volume solve needs a *volume* mesh (cells, not just a
+  boundary surface). The `foam_mesh` bridge hands the authored surface to
+  cfmesh's **tet → dual → boundary-layers** pipeline, which carves, snaps,
+  tetrahedralises, dualises into polyhedra, grows near-wall prism layers, and
+  writes a ready-to-solve `polyMesh` — no external blockMesh / snappyHexMesh
+  step. **Mesh Studio** drives this path.
 
-Both bridges are **implemented** — `export::to_polymesh_text` / `write_polymesh`
+The lower-level `export` bridge additionally emits a raw boundary-patch polyMesh
+(via `export::to_polymesh_text` / `write_polymesh`) for callers that supply their
+own volume mesher; the `foam-mesh` route above supersedes it for a
+ready-to-solve mesh.
+
+The base `export` bridges are **implemented** — `export::to_polymesh_text` / `write_polymesh`
 emit the OpenFOAM polyMesh ASCII files and `export::to_csg_primitive` fits
 cube/sphere primitives into a CSG description. polyMesh I/O is **round-trip**:
 behind the opt-in `foam-export` feature, `export::from_poly_mesh` reads a real
