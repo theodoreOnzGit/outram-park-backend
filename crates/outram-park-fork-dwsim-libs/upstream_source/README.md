@@ -7,10 +7,12 @@
 - **Project:** DWSIM
 - **Repository:** <https://github.com/DanWBR/dwsim>
 - **License:** GPL-3.0 (verify against the upstream `LICENSE` file when a
-  clone is made — not yet independently confirmed against a local checkout
-  by this crate)
-- **Branch tracked:** `dwsim8` / `master` (confirm current default branch when cloning)
-- **Commit at last sync:** not currently tracked — no persistent local clone (see note)
+  clone is made — **confirmed 2026-08-03** against the cloned `COPYING` file =
+  GNU GENERAL PUBLIC LICENSE Version 3)
+- **Branch tracked:** default branch (`master`)
+- **Commit at last sync:** `1abf72d1b6b41d3e9a8cc770d3cc4e8fc76e5766`
+  (2026-07-17) — shallow (`--depth 1`) clone taken 2026-08-03 for the
+  chemistry-model survey (`docs/chemistry-model-survey.md`).
 - **Clone command:** `git clone --depth 1 https://github.com/DanWBR/dwsim.git upstream_source/DWSIM`
 
 ## Provenance
@@ -20,10 +22,9 @@ kernels (thermal-hydraulics and thermodynamics). This crate is early-stage —
 its own README/CLAUDE.md do not yet describe the ported scope in detail; see
 beads (`bd show op-qo2`) for the current backlog status.
 
-**Note:** no persistent local DWSIM clone is currently maintained. Clone it
-with the command above when beginning active porting/verification work, and
-update this file with the exact commit and confirmed license text at that
-point.
+**Note:** the local clone is **gitignored** (dev-only, never committed). A
+shallow clone at commit `1abf72d` was taken 2026-08-03 to produce the
+chemistry-model survey; re-clone with the command above if it is absent.
 
 ## Licensing note
 
