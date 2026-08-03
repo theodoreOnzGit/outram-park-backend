@@ -78,6 +78,7 @@ pub mod pr_lee_kesler;
 pub mod property_package;
 pub mod prsv2_full;
 pub mod saturation;
+pub mod sour_water;
 pub mod stability;
 pub mod transport;
 pub mod unifac;
