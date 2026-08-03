@@ -58,9 +58,12 @@
 pub mod activity;
 pub mod component;
 pub mod cubic_eos;
+pub mod electrolyte;
 pub mod energy_flash;
 pub mod eos_variants;
 pub mod flash;
+pub mod flash_sle;
+pub mod gibbs;
 pub mod ideal_props;
 pub mod property_package;
 pub mod saturation;
