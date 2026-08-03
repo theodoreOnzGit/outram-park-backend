@@ -137,6 +137,7 @@ pub mod dual;
 pub mod layers;
 pub mod math;
 pub mod octree;
+pub mod pipeline;
 pub mod reactor;
 pub mod shapes;
 pub mod smooth;
