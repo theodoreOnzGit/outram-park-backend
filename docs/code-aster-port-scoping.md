@@ -169,11 +169,20 @@ Sequenced so the shared machinery lands before the bulk laws, and so the two
 consumers (severe accident, fuel performance) each get a usable result early.
 
 ### P0 — Catalogue ingestion and registry generation
+**Target: a new module under `outram-park-fork-offbeat/src/rheology/`** — the
+laws extend OFFBEAT's existing `ConstitutiveLaw`, not a new crate (§9.1).
+
 Parse the 231 `code_aster/Behaviours/*.py` declarations into a generated Rust
 registry: enum variants, `num_lc`, state-variable names and counts, supported
 modelisations and deformations, integration algorithm. No physics yet.
-**Acceptance:** the registry compiles, round-trips every catalogue entry, and
-`NORTON` dispatches end-to-end to a stub.
+
+Also in P0, because everything downstream depends on it: **pin the Voigt
+convention** (§8.2) with a round-trip test between code_aster's `sqrt(2)`-scaled
+ordering and the `SymmTensor` OFFBEAT inherits from `outram-foam-basic-lib`.
+
+**Acceptance:** the registry compiles, round-trips every catalogue entry,
+`NORTON` dispatches end-to-end to a stub, and the tensor round-trip test passes
+for a general (non-symmetric-shear) stress state.
 
 ### P1 — Integration-algorithm layer
 `NEWTON`, `NEWTON_1D`, `NEWTON_PERT`, `SECANTE`, `BRENT`, `RUNGE_KUTTA`, and
@@ -269,43 +278,58 @@ deriving a multiplier.
 
 ## 8. Open questions — **re-ask these before any port work begins**
 
-> **These four are maintainer decisions, not assistant defaults.** Anyone —
-> human or AI — picking this document up to start work must **put every
-> question below back to the maintainer and get an answer**, rather than
-> adopting the "leaning" note as a settled choice. The leanings record what the
-> evidence suggested on 2026-08-04; they are not approvals.
+> **These are maintainer decisions, not assistant defaults.** Anyone — human or
+> AI — picking this document up to start work must **put every question below
+> back to the maintainer and get an answer**, rather than adopting a "leaning"
+> or deferred note as a settled choice. The leanings record what the evidence
+> suggested on the date shown; they are not approvals.
 >
-> Each one changes work that is expensive to redo: the crate boundary (Q1) is
-> hard to move once laws are written against it, and the tensor convention (Q3)
-> and strain measure (Q4) are **silent-wrong-answer risks** — code that
-> compiles, runs, and produces plausible but incorrect stresses.
+> Both deferred items are **silent-wrong-answer risks** — code that compiles,
+> runs, and produces plausible but incorrect stresses. Neither announces itself
+> in a test that was not written to catch it.
 
-1. **Relationship to OFFBEAT's `ConstitutiveLaw`.** Extend that enum in place,
-   or stand up a separate crate that OFFBEAT later delegates to? *Leaning
-   separate crate* — `outram-park-fork-code-aster`, per the `op-ahi`
-   trademark-compliance naming rule. The laws serve vessel, piping and
-   containment as well as fuel, and a separate crate is independently
-   publishable. Needs deciding before P0.
-2. **MFront: port the 14 laws, or the generator?** MFront/TFEL is a separate
-   CEA/EDF project with its own licence (GPL or CeCILL — **unverified**).
-   Porting 14 laws by hand is bounded; porting a code generator is not.
-   *Leaning hand-port*, but the licence must be checked either way before the
-   MFront laws are touched at all.
-3. **Tensor conventions.** code_aster uses a specific Voigt ordering with
-   `sqrt(2)` factors on the shear components. Mapping that onto
-   `outram-foam-basic-lib`'s `SymmTensor` is a **silent-wrong-answer risk** if
-   done casually — pin it down with a round-trip test in P0, before any law is
-   ported.
-4. **Large strain.** Is `deformation=PETIT` (small strain) sufficient for the
-   target cases, or is `GDEF_LOG` needed? Creep rupture of a lower head
-   involves large deformation, so this may not be optional — and retrofitting a
-   finite-strain measure after the laws are written is a rewrite, not a patch.
+1. **MFront: hand-port the 14 laws, or port the generator?** *Recommendation:
+   **hand-port**.* See §9.4 — the licence question that previously blocked this
+   is resolved, and the `.mfront` files turn out to be **more** tractable than
+   the Fortran in `comport/`, not less: the DSL is declarative, so a `.mfront`
+   file reads close to the equations themselves. Porting the generator would
+   mean porting a C++ code generator and its type system — unbounded, and
+   pointless when only 14 laws are in scope. **Awaiting the maintainer's nod.**
+
+2. **Tensor conventions.** — **DEFERRED 2026-08-04.** code_aster uses a
+   specific Voigt ordering with `sqrt(2)` factors on the shear components.
+   Mapping that onto the `SymmTensor` convention OFFBEAT inherits from
+   `outram-foam-basic-lib` must be pinned down with a round-trip test **in P0,
+   before any law is ported** — a mismatch here silently corrupts every shear
+   term in every law downstream.
+
+3. **Large strain.** — **DEFERRED 2026-08-04.** Is `deformation=PETIT` (small
+   strain) sufficient for the target cases, or is `GDEF_LOG` needed? Creep
+   rupture of a lower head involves large deformation, so this may not be
+   optional — and retrofitting a finite-strain measure after the laws are
+   written is a rewrite, not a patch. Deferring is reasonable while the early
+   phases target small-strain cladding creep; it must be answered before the
+   vessel-failure case in P2.
 
 ---
 
 ## 9. Resolved questions
 
-1. **Is `astest/` freely distributable?** — **RESOLVED 2026-08-04: yes.**
+1. **Where do the ported laws live?** — **DECIDED 2026-08-04: extend
+   `outram-park-fork-offbeat`.** The laws go into OFFBEAT's existing
+   `rheology::ConstitutiveLaw` enum rather than into a new
+   `outram-park-fork-code-aster` crate. Rationale: it is materially cheaper —
+   the enum, `CreepModel`, `YieldStressModel`, `RheologyState` and the radial
+   `return_map()` already exist and are tested, so the port adds variants to a
+   working framework instead of standing up a parallel one. Consistent with the
+   workspace preference for fitting ported code into an existing crate and
+   creating a new one only when it would be independently publishable.
+   Dependency direction: anything code_aster-facing built later depends on
+   OFFBEAT, not the reverse. **Consequence for §5:** phase P0 no longer creates
+   a crate — it extends one, and the generated registry lands as a module under
+   `outram-park-fork-offbeat/src/rheology/`.
+
+2. **Is `astest/` freely distributable?** — **RESOLVED 2026-08-04: yes.**
    Three independent lines of evidence:
    - The upstream README states `src` contains *"Python, C/C++, Fortran source
      files, its build scripts and **most of the testcases**"*, and names the
@@ -327,12 +351,27 @@ deriving a multiplier.
    `LICENSE`; that is normal for binary assets, but it is a repository-level
    rather than per-file assurance.
 
-2. **Is the licence GPLv3-compatible?** — **RESOLVED 2026-08-04: yes,
+3. **Is the licence GPLv3-compatible?** — **RESOLVED 2026-08-04: yes,
    GPL-3.0-or-later.** The root `LICENSE` is the GPLv3 text ("Version 3,
    29 June 2007"), and every source header reads *"either version 3 of the
    License, or (at your option) any later version"*. An earlier web-page
    summary suggesting GPL-3.0-**only** was wrong; the "or later" grant is
    present in the files themselves. No compatibility work is needed.
+
+4. **What licence governs the `.mfront` laws?** — **RESOLVED 2026-08-04: a
+   non-issue, and the question was mis-framed.** Two separate things were
+   conflated:
+   - **The 14 `.mfront` files in `code_aster/mfront/`** are code_aster's *own*
+     files and carry code_aster's own GPL-3.0-or-later header (verified —
+     e.g. `VISC_ISOT_PLAS.mfront`). Porting them raises no new licence
+     question at all.
+   - **TFEL/MFront, the generator**, is a separate CEA/EDF project. Since
+     version 2.x it is released under **GPL or CeCILL-A**, with a linking
+     exception added to the GPL in 2023 — GPL-compatible either way.
+
+   So the licence blocks nothing. What remains is purely the engineering
+   choice in §8.1, and it only arises if porting the *generator* were ever
+   considered.
 
 ---
 
