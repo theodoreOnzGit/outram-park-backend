@@ -7,7 +7,7 @@
 //! physics has nowhere to hide.
 
 use egui::{Color32, Pos2, RichText, Vec2};
-use outram_park_digital_twin_engine::components::TurbineVisual;
+use outram_park_digital_twin_engine::components::{TurbineFlowPath, TurbineVisual};
 use tampines_steam_tables::steam_turbine_equations::generator::ThreePhaseElectricGeneratorTurbine;
 use uom::si::angular_velocity::{radian_per_second, revolution_per_minute};
 use uom::si::electric_potential::volt;
@@ -71,10 +71,20 @@ pub struct WidgetStudio {
     timestep_s: f64,
     /// Whether the physics is advancing.
     running: bool,
+    /// Simulated seconds per wall-clock second. 1.0 is real time.
+    sim_speed: f64,
+    /// Leftover simulated time not yet consumed by a whole timestep.
+    time_debt_s: f64,
+    /// Smoothed frame time in milliseconds, for the performance readout.
+    frame_ms: f32,
+    /// Substeps actually taken on the last frame (capped).
+    last_substeps: u32,
 
     // ── Presentation ──────────────────────────────────────────────────────
     /// On-screen size of the widget under test, in points.
     widget_size: Vec2,
+    /// Flow path drawn: double-flow (PWR standard) or single-flow.
+    flow_path: TurbineFlowPath,
 }
 
 impl Default for WidgetStudio {
@@ -89,7 +99,12 @@ impl Default for WidgetStudio {
             load_resistance_ohm: 10.0,
             timestep_s: 0.02,
             running: true,
+            sim_speed: 1.0,
+            time_debt_s: 0.0,
+            frame_ms: 0.0,
+            last_substeps: 0,
             widget_size: Vec2::new(520.0, 260.0),
+            flow_path: TurbineFlowPath::default(),
         }
     }
 }
@@ -131,10 +146,34 @@ impl WidgetStudio {
 
 impl eframe::App for WidgetStudio {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        // Measure the real frame time and pace the physics off it, rather than
+        // taking exactly one timestep per frame. One-step-per-frame ties
+        // simulated time to frame rate, and any hitch then compounds: the app
+        // falls behind, tries to catch up, and feels laggy.
+        let dt_real = ui.input(|i| i.stable_dt).clamp(0.0, 0.25) as f64;
+        self.frame_ms = 0.9 * self.frame_ms + 0.1 * (dt_real as f32 * 1000.0);
+
         if self.running {
-            self.step_physics();
-            // Physics is advancing, so keep repainting even without input.
+            self.time_debt_s += dt_real * self.sim_speed;
+            // Hard cap on catch-up work per frame. Without it a long stall
+            // queues thousands of substeps and the UI locks solid.
+            const MAX_SUBSTEPS: u32 = 8;
+            let mut taken = 0;
+            while self.time_debt_s >= self.timestep_s && taken < MAX_SUBSTEPS {
+                self.step_physics();
+                self.time_debt_s -= self.timestep_s;
+                taken += 1;
+            }
+            // Whatever could not be simulated this frame is dropped rather than
+            // carried, so the app degrades to slow-motion instead of to a
+            // growing backlog.
+            if taken == MAX_SUBSTEPS {
+                self.time_debt_s = 0.0;
+            }
+            self.last_substeps = taken;
             ui.ctx().request_repaint();
+        } else {
+            self.last_substeps = 0;
         }
 
         egui::Panel::left("picker").show_inside(ui, |ui| {
@@ -212,6 +251,11 @@ impl WidgetStudio {
                 .logarithmic(true)
                 .text("timestep [s]"),
         );
+        ui.add(
+            egui::Slider::new(&mut self.sim_speed, 0.1..=20.0)
+                .logarithmic(true)
+                .text("sim speed [x real time]"),
+        );
         ui.horizontal(|ui| {
             let label = if self.running { "Pause" } else { "Run" };
             if ui.button(label).clicked() {
@@ -226,9 +270,49 @@ impl WidgetStudio {
         });
 
         ui.add_space(8.0);
+        ui.label(RichText::new("Machine").strong());
+        ui.horizontal(|ui| {
+            ui.selectable_value(
+                &mut self.flow_path,
+                TurbineFlowPath::DoubleFlow,
+                "double flow",
+            );
+            ui.selectable_value(
+                &mut self.flow_path,
+                TurbineFlowPath::SingleFlow,
+                "single flow",
+            );
+        });
+        ui.label(
+            RichText::new(
+                "Double flow is the default and the PWR standard for both HP and LP cylinders: \
+                 saturated steam means large volumetric flow, and centre admission cancels most \
+                 of the axial thrust.",
+            )
+            .small()
+            .weak(),
+        );
+
+        ui.add_space(8.0);
         ui.label(RichText::new("Presentation").strong());
         ui.add(egui::Slider::new(&mut self.widget_size.x, 120.0..=900.0).text("width [pt]"));
         ui.add(egui::Slider::new(&mut self.widget_size.y, 60.0..=500.0).text("height [pt]"));
+
+        ui.separator();
+        ui.label(RichText::new("Performance").strong());
+        let fps = if self.frame_ms > 0.0 { 1000.0 / self.frame_ms } else { 0.0 };
+        ui.label(format!(
+            "frame {:.1} ms  ({:.0} fps) · {} substep(s)/frame",
+            self.frame_ms, fps, self.last_substeps
+        ));
+        ui.label(
+            RichText::new(
+                "Physics is paced off the real frame time, capped at 8 substeps, so a hitch \
+                 degrades to slow motion rather than a growing backlog.",
+            )
+            .small()
+            .weak(),
+        );
 
         ui.separator();
         ui.label(RichText::new("What drives what").strong());
@@ -278,6 +362,38 @@ impl WidgetStudio {
                 ));
                 ui.end_row();
 
+                let admission = TurbineVisual::new_generator(
+                    self.generator.clone(),
+                    Pos2::ZERO,
+                    self.widget_size,
+                    ThermodynamicTemperature::new::<kelvin>(300.0),
+                    ThermodynamicTemperature::new::<kelvin>(900.0),
+                );
+                let a0 = admission.stage_angles(0.0);
+                let a1 = admission.stage_angles(1.0);
+
+                ui.label("stage angles (admission)");
+                ui.label(format!(
+                    "stator {:.0}°, rotor {:.0}°, R={:.2}",
+                    a0.stator_deg, a0.rotor_deg, a0.reaction
+                ));
+                ui.end_row();
+
+                ui.label("stage angles (exhaust)");
+                ui.label(format!(
+                    "stator {:.0}°, rotor {:.0}°, R={:.2}",
+                    a1.stator_deg, a1.rotor_deg, a1.reaction
+                ));
+                ui.end_row();
+
+                ui.label("stage quality (placeholder)");
+                ui.label(format!(
+                    "x = {:.2} at admission → {:.2} at exhaust",
+                    admission.stage_quality(0.0),
+                    admission.stage_quality(1.0)
+                ));
+                ui.end_row();
+
                 ui.label("casing colour");
                 ui.label(
                     RichText::new("none — no steam path on this variant")
@@ -322,7 +438,8 @@ impl WidgetStudio {
                 ThermodynamicTemperature::new::<kelvin>(300.0),
                 ThermodynamicTemperature::new::<kelvin>(900.0),
             )
-            .at_time(self.simulation_time),
+            .at_time(self.simulation_time)
+            .with_flow_path(self.flow_path),
         );
     }
 }

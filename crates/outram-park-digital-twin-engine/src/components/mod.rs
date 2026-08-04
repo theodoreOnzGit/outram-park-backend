@@ -28,7 +28,7 @@ pub use pipe::{PipeScalars, PipeVisual, PipeVisualState};
 pub use pump::PumpVisual;
 pub use reactor_vessel::ReactorVesselVisual;
 pub use steam_generator::SteamGeneratorVisual;
-pub use turbine::{TurbineVisual, TurbineVisualState};
+pub use turbine::{StageAngles, TurbineFlowPath, TurbineVisual, TurbineVisualState};
 pub use valve::ValveVisual;
 
 use uom::si::f64::ThermodynamicTemperature;
