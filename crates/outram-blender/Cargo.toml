@@ -1,6 +1,6 @@
 [package]
 name = "outram-blender"
-version = "0.0.1"
+version = "0.0.2"
 edition.workspace = true
 license.workspace = true
 # NAME / TRADEMARK NOTE — DECIDED 2026-07-17: keep the name `outram-blender` and
