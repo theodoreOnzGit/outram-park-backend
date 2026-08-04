@@ -144,6 +144,9 @@
 //! solutions; none is a validation against experiment, and none may be
 //! described as one.
 
+/// code_aster constitutive laws (port in progress, epic op-a7p).
+pub mod aster;
+
 mod by_material;
 mod creep;
 mod law;
