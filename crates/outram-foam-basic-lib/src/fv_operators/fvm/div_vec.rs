@@ -230,7 +230,9 @@ mod tests {
     /// Result (measured 2026-08-04): max |A·1| = 0.0 (exact). PASS.
     #[test]
     fn vv_ami_nonconformal_div_vec_conserves() {
-        let ring = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_ring_ami(2, 4, 1.0, 1.0, 1.0));
+        let ring = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_ring_ami(
+            2, 4, 1.0, 1.0, 1.0,
+        ));
         let boundary = ring
             .patches
             .iter()

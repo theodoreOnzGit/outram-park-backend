@@ -344,8 +344,14 @@ mod tests {
                 values: Field::new(vec![0.0]),
             },
         ];
-        let a = laplacian(&gamma, &VolScalarField::new("T", m.clone(), Field::zeros(2), bc_fv));
-        let b = laplacian(&gamma, &VolScalarField::new("T", m.clone(), Field::zeros(2), bc_mix));
+        let a = laplacian(
+            &gamma,
+            &VolScalarField::new("T", m.clone(), Field::zeros(2), bc_fv),
+        );
+        let b = laplacian(
+            &gamma,
+            &VolScalarField::new("T", m.clone(), Field::zeros(2), bc_mix),
+        );
         for i in 0..2 {
             assert!((a.ldu.diag[i] - b.ldu.diag[i]).abs() < 1e-12);
             assert!((a.source[i] - b.source[i]).abs() < 1e-12);
@@ -386,8 +392,14 @@ mod tests {
                 values: Field::new(vec![0.0]),
             },
         ];
-        let a = laplacian(&gamma, &VolScalarField::new("T", m.clone(), Field::zeros(2), bc_fg));
-        let b = laplacian(&gamma, &VolScalarField::new("T", m.clone(), Field::zeros(2), bc_mix));
+        let a = laplacian(
+            &gamma,
+            &VolScalarField::new("T", m.clone(), Field::zeros(2), bc_fg),
+        );
+        let b = laplacian(
+            &gamma,
+            &VolScalarField::new("T", m.clone(), Field::zeros(2), bc_mix),
+        );
         for i in 0..2 {
             assert!((a.ldu.diag[i] - b.ldu.diag[i]).abs() < 1e-12);
             assert!((a.source[i] - b.source[i]).abs() < 1e-12);
@@ -423,8 +435,16 @@ mod tests {
         let settings = crate::ldu_matrix::fv_matrix::SolverSettings::default();
         let (result, perf) = mat.solve("T", settings);
         assert!(perf.converged);
-        assert!((result.internal[0] - 0.5).abs() < 1e-6, "T[0]={}", result.internal[0]);
-        assert!((result.internal[1] - 1.5).abs() < 1e-6, "T[1]={}", result.internal[1]);
+        assert!(
+            (result.internal[0] - 0.5).abs() < 1e-6,
+            "T[0]={}",
+            result.internal[0]
+        );
+        assert!(
+            (result.internal[1] - 1.5).abs() < 1e-6,
+            "T[1]={}",
+            result.internal[1]
+        );
     }
 
     /// V&V (verification, 2026-08-04). Robin / convective-boundary analytic
@@ -464,8 +484,16 @@ mod tests {
         let settings = crate::ldu_matrix::fv_matrix::SolverSettings::default();
         let (result, perf) = mat.solve("T", settings);
         assert!(perf.converged);
-        assert!((result.internal[0] - 87.5).abs() < 1e-4, "T[0]={}", result.internal[0]);
-        assert!((result.internal[1] - 62.5).abs() < 1e-4, "T[1]={}", result.internal[1]);
+        assert!(
+            (result.internal[0] - 87.5).abs() < 1e-4,
+            "T[0]={}",
+            result.internal[0]
+        );
+        assert!(
+            (result.internal[1] - 62.5).abs() < 1e-4,
+            "T[1]={}",
+            result.internal[1]
+        );
     }
 
     // ── Cyclic (periodic) V&V — verification, not validation ─────────────────
@@ -493,7 +521,8 @@ mod tests {
         let face_centres: Vec<Vector3> = (0..n)
             .map(|f| (cell_centres[f] + cell_centres[(f + 1) % n]) * 0.5)
             .collect();
-        let face_area_vectors: Vec<Vector3> = (0..n).map(|_| Vector3::new(area, 0.0, 0.0)).collect();
+        let face_area_vectors: Vec<Vector3> =
+            (0..n).map(|_| Vector3::new(area, 0.0, 0.0)).collect();
         Arc::new(
             FvMeshBuilder::new()
                 .n_cells(n)
@@ -549,7 +578,11 @@ mod tests {
         let n = 4;
         let h = 0.25;
         let area = 1.0;
-        let cyc = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_1d(n, h * n as f64, area));
+        let cyc = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_1d(
+            n,
+            h * n as f64,
+            area,
+        ));
         let ring = ring_mesh(n, h, area);
 
         let g_cyc = uniform_gamma_any(cyc.clone(), 1.0);
@@ -580,7 +613,11 @@ mod tests {
         }
         // Confirm the expected circulant stencil (diag 8, two −4 off-diagonals).
         for c in 0..n {
-            assert!((m_cyc.ldu.diag[c] - 8.0).abs() < 1e-12, "diag[{c}]={}", m_cyc.ldu.diag[c]);
+            assert!(
+                (m_cyc.ldu.diag[c] - 8.0).abs() < 1e-12,
+                "diag[{c}]={}",
+                m_cyc.ldu.diag[c]
+            );
         }
 
         // (ii) Solve both with an identical zero-mean source + identical pin.
@@ -601,7 +638,10 @@ mod tests {
         for c in 0..n {
             max_diff = max_diff.max((tc.internal[c] - tr.internal[c]).abs());
         }
-        assert!(max_diff < 1e-8, "cyclic vs ring field disagreement: {max_diff}");
+        assert!(
+            max_diff < 1e-8,
+            "cyclic vs ring field disagreement: {max_diff}"
+        );
     }
 
     // ── cyclicAMI (non-conformal periodic) V&V — verification, not validation ──
@@ -637,7 +677,9 @@ mod tests {
         let dy = ly / n as f64;
         let area = dy * depth;
 
-        let ring = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_ring_ami(n, n, lx, ly, depth));
+        let ring = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_ring_ami(
+            n, n, lx, ly, depth,
+        ));
         let g_ring = uniform_gamma_any(ring.clone(), 1.0);
         let t_ring = VolScalarField::uniform("T", ring.clone(), 0.0);
         let a_ring = laplacian(&g_ring, &t_ring);
@@ -652,7 +694,7 @@ mod tests {
         for i in 0..n {
             let a_cell = i; // A_i
             let b_cell = n + i; // B_i
-            // Probe on each lane cell; compare ring vs reference lane action.
+                                // Probe on each lane cell; compare ring vs reference lane action.
             for (probe_ring_cell, ref_local) in [(a_cell, 0usize), (b_cell, 1usize)] {
                 let mut x = vec![0.0; n_cells];
                 x[probe_ring_cell] = 1.0;
@@ -704,7 +746,9 @@ mod tests {
     /// have weight_sum = 1.0. PASS — the non-conformal seam conserves.
     #[test]
     fn vv_ami_nonconformal_diffusion_conserves() {
-        let ring = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_ring_ami(2, 4, 1.0, 1.0, 1.0));
+        let ring = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_ring_ami(
+            2, 4, 1.0, 1.0, 1.0,
+        ));
         let gamma = uniform_gamma_any(ring.clone(), 1.0);
         let t = VolScalarField::uniform("T", ring.clone(), 0.0);
         let a = laplacian(&gamma, &t);

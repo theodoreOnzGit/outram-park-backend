@@ -143,7 +143,9 @@ where
                     // `bc_patch.values` (`p0 − 0.5ρ|U|²` for totalPressure, the
                     // flow-rate inlet velocity for flowRateInletVelocity).
                     BoundaryCondition::TotalPressure { .. }
-                    | BoundaryCondition::FlowRateInletVelocity { .. } => bc_patch.values[fi].clone(),
+                    | BoundaryCondition::FlowRateInletVelocity { .. } => {
+                        bc_patch.values[fi].clone()
+                    }
                     // No-slip wall: fixedValue of zero.
                     BoundaryCondition::NoSlip => T::default(),
                     // Neumann with prescribed gradient g: φ_face = φ_cell + g·delta.
@@ -257,7 +259,15 @@ mod tests {
         p.internal[2] = 2.0;
         p.internal[3] = 3.0;
         let p_f = interpolate(&p);
-        assert!((p_f.boundary[0].values[0] - 1.5).abs() < 1e-12, "left={}", p_f.boundary[0].values[0]);
-        assert!((p_f.boundary[1].values[0] - 1.5).abs() < 1e-12, "right={}", p_f.boundary[1].values[0]);
+        assert!(
+            (p_f.boundary[0].values[0] - 1.5).abs() < 1e-12,
+            "left={}",
+            p_f.boundary[0].values[0]
+        );
+        assert!(
+            (p_f.boundary[1].values[0] - 1.5).abs() < 1e-12,
+            "right={}",
+            p_f.boundary[1].values[0]
+        );
     }
 }

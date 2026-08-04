@@ -76,9 +76,7 @@
 //! conservative). This code is an **untrusted AI-assisted draft pending human
 //! V&V review** (2026-08-04).
 
-use crate::mesh::fv_mesh::{
-    BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind,
-};
+use crate::mesh::fv_mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
 use crate::primitives::Vector3;
 
 /// One overlap between a target face and a source face on an AMI seam.
@@ -305,7 +303,10 @@ impl FvMesh {
     /// non-conformal column interfaces.
     pub fn periodic_ring_ami(n_a: usize, n_b: usize, lx: f64, ly: f64, depth: f64) -> FvMesh {
         assert!(n_a >= 1 && n_b >= 1, "periodic_ring_ami needs n_a,n_b ≥ 1");
-        assert!(lx > 0.0 && ly > 0.0 && depth > 0.0, "lx, ly, depth must be > 0");
+        assert!(
+            lx > 0.0 && ly > 0.0 && depth > 0.0,
+            "lx, ly, depth must be > 0"
+        );
         let dy_a = ly / n_a as f64;
         let dy_b = ly / n_b as f64;
         let a_area = dy_a * depth; // area of one A-column seam face [m²]
@@ -364,10 +365,12 @@ impl FvMesh {
         }
 
         // Transverse spans for overlap.
-        let a_spans: Vec<(f64, f64)> =
-            (0..n_a).map(|i| (i as f64 * dy_a, (i as f64 + 1.0) * dy_a)).collect();
-        let b_spans: Vec<(f64, f64)> =
-            (0..n_b).map(|j| (j as f64 * dy_b, (j as f64 + 1.0) * dy_b)).collect();
+        let a_spans: Vec<(f64, f64)> = (0..n_a)
+            .map(|i| (i as f64 * dy_a, (i as f64 + 1.0) * dy_a))
+            .collect();
+        let b_spans: Vec<(f64, f64)> = (0..n_b)
+            .map(|j| (j as f64 * dy_b, (j as f64 + 1.0) * dy_b))
+            .collect();
 
         // Mid AMI: target = A_right (patch 0), source = B_left (patch 1).
         let mid_overlaps = overlap_weights_1d(&a_spans, &b_spans, depth);
@@ -463,7 +466,11 @@ mod tests {
         let mut sum = 0.0;
         for (k, o) in w[0].iter().enumerate() {
             assert_eq!(o.source, k);
-            assert!((o.overlap_area - 0.5).abs() < 1e-15, "area {}", o.overlap_area);
+            assert!(
+                (o.overlap_area - 0.5).abs() < 1e-15,
+                "area {}",
+                o.overlap_area
+            );
             assert!((o.weight - 0.25).abs() < 1e-15, "weight {}", o.weight);
             sum += o.weight;
         }
@@ -546,7 +553,11 @@ mod tests {
         let m = FvMesh::periodic_ring_ami(3, 3, 1.0, 1.0, 1.0);
         assert_eq!(m.ami_couplings.len(), 6);
         for cc in &m.ami_couplings {
-            assert_eq!(cc.weights.len(), 1, "matching target should have one source");
+            assert_eq!(
+                cc.weights.len(),
+                1,
+                "matching target should have one source"
+            );
             assert!((cc.weights[0].weight - 1.0).abs() < 1e-14);
         }
     }

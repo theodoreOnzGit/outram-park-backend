@@ -38,6 +38,9 @@ pub mod fluid_thermo;
 pub mod fv_operators;
 /// Layer 1f — one-dimensional data interpolation (linear and spline).
 pub mod interpolation;
+/// OpenFOAM ASCII case I/O — `FoamFile` dictionaries, `polyMesh` read/write,
+/// time-directory field read/write, and whole-case reading.
+pub mod io;
 /// Layer 2 — asymmetric Krylov iterative solvers (BiCGStab, restarted GMRES)
 /// and preconditioners (Jacobi, ILU(0)) for the sparse `LduMatrix`.
 pub mod krylov;
@@ -53,9 +56,6 @@ pub mod matrix;
 /// Layer 2 — the finite-volume mesh: cells, faces, boundary patches, and
 /// geometric metrics.
 pub mod mesh;
-/// OpenFOAM ASCII case I/O — `FoamFile` dictionaries, `polyMesh` read/write,
-/// time-directory field read/write, and whole-case reading.
-pub mod io;
 /// Layer 1e — ordinary-differential-equation solvers (Euler, RKF45,
 /// Rosenbrock23).
 pub mod ode;

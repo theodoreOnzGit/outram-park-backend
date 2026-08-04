@@ -186,7 +186,11 @@ pub fn gmres(
                 sum -= hcols[l][i] * y[l];
             }
             let diag = hcols[i][i];
-            y[i] = if diag.abs() > HAPPY_TOL { sum / diag } else { 0.0 };
+            y[i] = if diag.abs() > HAPPY_TOL {
+                sum / diag
+            } else {
+                0.0
+            };
         }
 
         // Correction in the (un-preconditioned) Krylov space: z = Σ y_i v_i.
@@ -211,7 +215,11 @@ pub fn gmres(
     }
 
     let final_rel = nrm2(&a.residual(&x, b)) / bnorm;
-    let final_rel = if final_rel.is_finite() { final_rel } else { 1.0 };
+    let final_rel = if final_rel.is_finite() {
+        final_rel
+    } else {
+        1.0
+    };
     (
         x,
         KrylovResult {
