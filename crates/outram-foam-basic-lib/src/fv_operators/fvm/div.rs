@@ -23,6 +23,7 @@ use crate::fields::boundary::bc::BoundaryCondition;
 use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::VolScalarField;
 use crate::ldu_matrix::fv_matrix::FvMatrix;
+use crate::mesh::fv_mesh::PatchKind;
 
 /// Implicit first-order upwind convection: assembles the matrix for `∇·(φ·ψ)`.
 ///
@@ -38,6 +39,15 @@ use crate::ldu_matrix::fv_matrix::FvMatrix;
 ///   entirely to `diag[owner]` regardless of sign.
 /// - `FixedValue(v)`: inflow (`φ_f < 0`) uses the fixed value → explicit source;
 ///   outflow (`φ_f ≥ 0`) remains on the diagonal (upwind from owner).
+///
+/// ## Cyclic (periodic) patches
+///
+/// [`PatchKind::Cyclic`] patches are assembled as internal-like faces across the
+/// periodic seam (see the cyclic-coupling loop): the seam flux `φ_seam` is the
+/// outward face flux on the half0 patch, and first-order upwind selects the
+/// owner cell on outflow (`φ_seam ≥ 0`) or the partner cell across the seam on
+/// inflow (`φ_seam < 0`). This makes a periodic loop conservative — a uniform
+/// field advects around it unchanged. Mirrors `Foam::cyclicFvPatchField`.
 pub fn div(phi: &SurfaceScalarField, psi: &VolScalarField) -> FvMatrix {
     let mesh = psi.mesh.clone();
     let mut mat = FvMatrix::new(mesh.clone());
@@ -59,6 +69,10 @@ pub fn div(phi: &SurfaceScalarField, psi: &VolScalarField) -> FvMatrix {
 
     // Boundary faces
     for (pi, patch) in mesh.patches.iter().enumerate() {
+        // Cyclic patches are handled as internal-like seam couplings below.
+        if patch.kind == PatchKind::Cyclic {
+            continue;
+        }
         for fi in 0..patch.size {
             let owner = mesh.owner[patch.start + fi];
             let phi_f = phi.boundary[pi].values[fi];
@@ -111,6 +125,21 @@ pub fn div(phi: &SurfaceScalarField, psi: &VolScalarField) -> FvMatrix {
                 }
             }
         }
+    }
+
+    // Cyclic (periodic) seam couplings: first-order upwind across the seam, the
+    // partner owner cell acting as the neighbour.
+    for (i, cc) in mesh.cyclic_couplings.iter().enumerate() {
+        let cf = mesh.cyclic_coupling_face(i);
+        let o = cc.owner;
+        let nb = cc.neighbour;
+        // Outward seam flux on the half0 face points owner→neighbour across the
+        // seam, matching the internal owner→neighbour convention.
+        let phi_f = phi.boundary[cc.patch_a].values[cc.local];
+        mat.ldu.diag[o] += phi_f.max(0.0);
+        mat.ldu.upper[cf] += phi_f.min(0.0);
+        mat.ldu.diag[nb] -= phi_f.min(0.0);
+        mat.ldu.lower[cf] -= phi_f.max(0.0);
     }
 
     mat
@@ -262,5 +291,126 @@ mod tests {
         let inn = div(&phi_right_only(m.clone(), -2.0), &make_psi());
         assert!(inn.ldu.diag[1].abs() < 1e-12, "diag[1]={}", inn.ldu.diag[1]);
         assert!((inn.source[1] - 10.0).abs() < 1e-12, "source[1]={}", inn.source[1]);
+    }
+
+    // ── Cyclic (periodic) V&V — verification, not validation ─────────────────
+    // UNTRUSTED AI-ASSISTED DRAFT pending human V&V review. Date: 2026-08-04.
+
+    /// All-internal regular-n-gon ring reference mesh (see the identical helper
+    /// in `laplacian.rs` for the rationale): `n` cells, `n` internal faces, face
+    /// `f` couples cell `f` and cell `(f+1) mod n`, no boundary faces.
+    fn ring_mesh(n: usize, h: f64, area: f64) -> Arc<crate::mesh::fv_mesh::FvMesh> {
+        use std::f64::consts::PI;
+        let r = h / (2.0 * (PI / n as f64).sin());
+        let owner: Vec<usize> = (0..n).collect();
+        let neighbour: Vec<usize> = (0..n).map(|f| (f + 1) % n).collect();
+        let cell_centres: Vec<Vector3> = (0..n)
+            .map(|i| {
+                let th = 2.0 * PI * i as f64 / n as f64;
+                Vector3::new(r * th.cos(), r * th.sin(), 0.0)
+            })
+            .collect();
+        let face_centres: Vec<Vector3> = (0..n)
+            .map(|f| (cell_centres[f] + cell_centres[(f + 1) % n]) * 0.5)
+            .collect();
+        let face_area_vectors: Vec<Vector3> = (0..n).map(|_| Vector3::new(area, 0.0, 0.0)).collect();
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(n)
+                .n_internal_faces(n)
+                .owner(owner)
+                .neighbour(neighbour)
+                .patches(vec![])
+                .cell_volumes(vec![h * area; n])
+                .cell_centres(cell_centres)
+                .face_area_vectors(face_area_vectors)
+                .face_centres(face_centres)
+                .build()
+                .expect("ring mesh valid"),
+        )
+    }
+
+    /// V&V (verification, 2026-08-04). **Periodic advection: conservation + the
+    /// uniform field advects unchanged, and cyclic == ring-mesh.**
+    ///
+    /// Methodology: a uniform circulating flux Φ = 1 (mass flux `U·Sf`) around a
+    /// 4-cell periodic loop, h = 0.25, A = 1. The cyclic mesh
+    /// `periodic_1d(4, 1.0, 1.0)` carries Φ on its 3 internal faces and the seam
+    /// flux on the left/right cyclic patches (`φ_left = −Φ`, `φ_right = +Φ`, the
+    /// outward `U·Sf`). The all-internal `ring_mesh` carries Φ on all 4 faces.
+    /// First-order-upwind `fvm::div` is assembled on both.
+    ///
+    /// Pass criteria: (i) **conservation** — a uniform field is unchanged by the
+    /// convection operator, `A·[1,1,1,1] = 0` (net seam flux balances so the
+    /// loop closes); (ii) **cyclic == ring** — the assembled operators are
+    /// identical, `A·x` matching for probe vectors to < 1e-12.
+    ///
+    /// Result (measured 2026-08-04): max |A·1| = 0.0 (exact — inflow Φ balances
+    /// outflow Φ in every cell, including across the seam); max |ΔA·x| over
+    /// probes = 0.0 (identical circulant upwind stencil). PASS.
+    #[test]
+    fn vv_cyclic_advection_conserves_and_matches_ring() {
+        let n = 4;
+        let h = 0.25;
+        let area = 1.0;
+        let phi_mag = 1.0;
+        let cyc = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_1d(n, h * n as f64, area));
+        let ring = ring_mesh(n, h, area);
+
+        // Cyclic flux: uniform Φ on internal faces; seam flux is the outward
+        // U·Sf on each half (left normal −x → −Φ, right normal +x → +Φ).
+        let phi_cyc = SurfaceScalarField::new(
+            "phi",
+            cyc.clone(),
+            Field::uniform(cyc.n_internal_faces, phi_mag),
+            vec![
+                PatchField {
+                    bc: BoundaryCondition::ZeroGradient,
+                    values: Field::new(vec![-phi_mag]), // left patch, Sf = −x
+                },
+                PatchField {
+                    bc: BoundaryCondition::ZeroGradient,
+                    values: Field::new(vec![phi_mag]), // right patch, Sf = +x
+                },
+            ],
+        );
+        // Ring flux: uniform Φ on all internal faces (consistent circulation).
+        let phi_ring = SurfaceScalarField::new(
+            "phi",
+            ring.clone(),
+            Field::uniform(ring.n_internal_faces, phi_mag),
+            vec![],
+        );
+
+        let psi_cyc = VolScalarField::uniform("psi", cyc.clone(), 0.0);
+        let psi_ring = VolScalarField::uniform("psi", ring.clone(), 0.0);
+        let m_cyc = div(&phi_cyc, &psi_cyc);
+        let m_ring = div(&phi_ring, &psi_ring);
+
+        // (i) Conservation: uniform field unchanged around the loop.
+        let ones = vec![1.0; n];
+        let ay = m_cyc.ldu.multiply(&ones);
+        for c in 0..n {
+            assert!(ay[c].abs() < 1e-12, "A·1 not conserved at cell {c}: {}", ay[c]);
+        }
+
+        // (ii) cyclic == ring: identical operators.
+        let probes = [
+            vec![1.0, 0.0, 0.0, 0.0],
+            vec![0.0, 0.0, 1.0, 0.0],
+            vec![1.0, 2.0, 3.0, 4.0],
+        ];
+        for x in &probes {
+            let yc = m_cyc.ldu.multiply(x);
+            let yr = m_ring.ldu.multiply(x);
+            for c in 0..n {
+                assert!(
+                    (yc[c] - yr[c]).abs() < 1e-12,
+                    "div A·x mismatch at cell {c}: cyc={} ring={}",
+                    yc[c],
+                    yr[c]
+                );
+            }
+        }
     }
 }

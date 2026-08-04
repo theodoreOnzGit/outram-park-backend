@@ -97,6 +97,7 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | `fields` | `VolScalarField`, `VolVectorField`, `VolTensorField`, `VolSymmTensorField` | Typed aliases |
 | `fields` | `SurfaceScalarField`, `SurfaceVectorField` | Face-centred typed aliases |
 | `mesh` | `FvMesh`, `FvMeshBuilder`, `BoundaryPatch`, `PatchKind` | Unstructured polyhedral mesh |
+| `mesh` | `BoundaryPatch::new_cyclic`, `CyclicCoupling`, `FvMesh::periodic_1d` | `cyclicPolyPatch` — cyclic (periodic) patch pairing: matched half0/half1 faces + across-seam owner↔owner cell couplings; `periodic_1d` builds a 1-D periodic ring programmatically |
 | `mesh` | `RegionInterface` | Matching and non-matching multi-region face coupling for CHT |
 | `ldu_matrix` | `LduMatrix`, `FvMatrix`, `FvVectorMatrix` | Sparse LDU system; scalar and vector implicit equation assembly |
 | `ldu_matrix` | `gauss_seidel`, `conjugate_gradient` | Iterative LDU solvers (no external BLAS). CG is **DIC-preconditioned** (`Foam::DICPreconditioner`) and accepts an optional initial guess (`x0`) for warm starts |
@@ -117,15 +118,15 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | `fvm::ddt_coeff(coeff, phi, phi_old, dt)` | Density/rho_cp-weighted implicit ddt: ∂(coeff·φ)/∂t → `FvMatrix` |
 | `fvm::ddt_vec(U, U_old, dt, mesh)` | Implicit Euler ∂U/∂t → `FvVectorMatrix` |
 | `fvm::ddt_coeff_vec(coeff, U, U_old, dt, mesh)` | Density-weighted implicit ddt: ∂(ρU)/∂t → `FvVectorMatrix` |
-| `fvm::laplacian(gamma, phi)` | Diffusion −∇·(γ∇φ) → `FvMatrix` |
-| `fvm::laplacian_vec(gamma, U)` | Diffusion −∇·(γ∇U) → `FvVectorMatrix` |
-| `fvm::div(phi, psi)` | Upwind convection ∇·(φψ) → `FvMatrix` |
-| `fvm::div_vec(phi, U)` | Upwind convection ∇·(φU) → `FvVectorMatrix` |
+| `fvm::laplacian(gamma, phi)` | Diffusion −∇·(γ∇φ) → `FvMatrix` (couples cyclic/periodic seam faces as internal faces via `cyclicFvPatchField`) |
+| `fvm::laplacian_vec(gamma, U)` | Diffusion −∇·(γ∇U) → `FvVectorMatrix` (cyclic seam coupling) |
+| `fvm::div(phi, psi)` | Upwind convection ∇·(φψ) → `FvMatrix` (cyclic seam coupling) |
+| `fvm::div_vec(phi, U)` | Upwind convection ∇·(φU) → `FvVectorMatrix` (cyclic seam coupling) |
 | `fvc::grad(phi)` | Explicit cell-centred gradient → `VolVectorField` |
 | `fvc::div(phi, psi)` | Explicit scalar divergence → `VolScalarField` |
 | `fvc::div_flux(phi)` | Divergence of face flux → `VolScalarField` |
-| `fvc::interpolate(phi)` | Linear face interpolation → `SurfaceScalarField` |
-| `fvc::sn_grad(phi)` | Surface-normal gradient → `SurfaceScalarField` |
+| `fvc::interpolate(phi)` | Linear face interpolation → `SurfaceScalarField` (interpolates across the cyclic seam to the paired cell) |
+| `fvc::sn_grad(phi)` | Surface-normal gradient → `SurfaceScalarField` (gradient across the cyclic seam to the paired cell) |
 | `fvc::flux(U)` | Face flux φ = U·Sf → `SurfaceScalarField` |
 | `fvc::reconstruct(phi)` | Least-squares VolVectorField from face flux → `VolVectorField` |
 | `fvc::ddt_corr(U_old, phi_old, dt)` | PISO flux consistency correction → `SurfaceScalarField` |
@@ -189,11 +190,21 @@ current source; nothing here is aspirational. See also the
 - **Time integration is first-order.** Only implicit Euler `fvm::ddt` (plus
   `fvm::ddt_coeff`, the vector forms, and a `d2dt2`) is provided. No
   higher-order/backward/Crank–Nicolson time schemes.
-- **Boundary conditions are a small closed set.** `BoundaryCondition`
+- **Boundary conditions are a closed enum set.** `BoundaryCondition`
   (`src/fields/boundary/bc.rs`) supports `FixedValue`, `FixedField`,
-  `ZeroGradient`, `Symmetry`, `Empty`, and `Calculated` only. There is **no**
-  `inletOutlet`, non-zero `fixedGradient`, `mixed`/Robin, wall-function,
-  `cyclic`/periodic, or processor boundary condition.
+  `ZeroGradient`, `FixedGradient` (non-zero), `Mixed`/Robin, `InletOutlet`,
+  `OutletInlet`, `Slip`, `NoSlip`, `Wedge` (zero-gradient stand-in),
+  `Symmetry`, `Empty`, and `Calculated`. **Cyclic (periodic) patches** are now
+  functional at the topology/operator level — `PatchKind::Cyclic` patch pairs
+  couple across the seam like internal faces in `fvm::laplacian(_vec)` /
+  `fvm::div(_vec)` / `fvc::interpolate` / `fvc::sn_grad` (build one with
+  `FvMesh::periodic_1d` or `BoundaryPatch::new_cyclic`). Still **no**
+  wall-function or processor BC, and the `polyMesh` parser does **not yet read
+  the cyclic `neighbourPatch` ordering**, so cyclic pairs must be wired
+  programmatically (not from a read `constant/polyMesh`) for now. Cyclic support
+  is an **untrusted AI-assisted draft pending human V&V** (verified against the
+  equivalent all-internal ring mesh — see the `vv_cyclic_*` tests — not yet
+  human-reviewed).
 
 ### Linear solvers
 

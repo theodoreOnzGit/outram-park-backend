@@ -25,7 +25,7 @@ use crate::fields::boundary::bc::BoundaryCondition;
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
 use crate::fv_operators::fvc::interpolate;
 use crate::ldu_matrix::fv_vector_matrix::FvVectorMatrix;
-use crate::mesh::fv_mesh::FvMesh;
+use crate::mesh::fv_mesh::{FvMesh, PatchKind};
 
 /// Implicit vector Laplacian: `−∇·(γ ∇U)`.
 ///
@@ -61,6 +61,10 @@ pub fn laplacian_vec(
 
     // Boundary faces
     for (pi, patch) in mesh.patches.iter().enumerate() {
+        // Cyclic patches are handled as internal-like seam couplings below.
+        if patch.kind == PatchKind::Cyclic {
+            continue;
+        }
         for fi in 0..patch.size {
             let gf = patch.start + fi;
             let owner = mesh.owner[gf];
@@ -115,6 +119,26 @@ pub fn laplacian_vec(
         }
     }
 
+    // Cyclic (periodic) seam couplings: internal-face orthogonal diffusion
+    // across the seam (mirrors the scalar `fvm::laplacian` cyclic loop).
+    for (i, cc) in mesh.cyclic_couplings.iter().enumerate() {
+        let cf = mesh.cyclic_coupling_face(i);
+        let o = cc.owner;
+        let nb = cc.neighbour;
+        let d_a = (mesh.face_centres[cc.face_a] - mesh.cell_centres[o]).mag();
+        let d_b = (mesh.face_centres[cc.face_b] - mesh.cell_centres[nb]).mag();
+        let delta = (d_a + d_b).max(1e-30);
+        let area = mesh.face_area_vectors[cc.face_a].mag();
+        // Seam Γ from the half0 boundary (interpolate() fills cyclic patches with
+        // the across-seam interpolated value).
+        let gamma_seam = gamma_f.boundary[cc.patch_a].values[cc.local];
+        let coeff = gamma_seam * area / delta;
+        mat.ldu.diag[o] += coeff;
+        mat.ldu.diag[nb] += coeff;
+        mat.ldu.upper[cf] -= coeff;
+        mat.ldu.lower[cf] -= coeff;
+    }
+
     let _ = u; // consumed for BCs above; suppress dead-code lint
     mat
 }
@@ -166,6 +190,45 @@ mod tests {
                 .build()
                 .unwrap(),
         )
+    }
+
+    /// V&V (verification, 2026-08-04). Cyclic (periodic) vector Laplacian.
+    /// Methodology: on `periodic_1d(4, 1.0, 1.0)` with Γ = 1, assemble the vector
+    /// Laplacian. Its scalar LDU (shared by all 3 components) must (i) hold the
+    /// circulant periodic stencil — a cyclic seam coupling cell 0 ↔ cell 3 with
+    /// off-diagonal −Γ·A/h = −4 and diag 2·4 = 8; and (ii) be conservative — the
+    /// Laplacian of a uniform field is zero, `A·[1,1,1,1] = 0`. It also checks
+    /// that adding an implicit time-derivative matrix (`fvm::ddt_vec`, which
+    /// touches no seam) leaves the cyclic off-diagonal intact — i.e. the matrix
+    /// `+` operator lines up because every matrix on this mesh shares the LDU
+    /// face structure. Pass criteria: off-diag = −4, max |A·1| < 1e-12, sum
+    /// preserved after `+`.
+    /// Result (measured 2026-08-04): seam upper = −4.000000, diag = 8.000000,
+    /// max |A·1| = 0.0, seam upper after ddt_vec + laplacian_vec = −4.000000.
+    /// PASS.
+    #[test]
+    fn vv_cyclic_laplacian_vec_conserves() {
+        use crate::fv_operators::fvm::ddt_vec;
+        let m = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_1d(4, 1.0, 1.0));
+        let gamma = VolScalarField::uniform("nu", m.clone(), 1.0);
+        let u = VolVectorField::uniform("U", m.clone(), Vector3::new(1.0, 2.0, 3.0));
+        let mat = laplacian_vec(&gamma, &u, m.clone());
+        // Seam coupling is the last LDU face (after the 3 internal faces).
+        let cf = m.cyclic_coupling_face(0);
+        assert_relative_eq!(mat.ldu.upper[cf], -4.0, epsilon = 1e-12);
+        assert_relative_eq!(mat.ldu.lower[cf], -4.0, epsilon = 1e-12);
+        for c in 0..4 {
+            assert_relative_eq!(mat.ldu.diag[c], 8.0, epsilon = 1e-12);
+        }
+        // Conservation: Laplacian of a uniform field is zero.
+        let ones = vec![1.0; 4];
+        for &y in mat.ldu.multiply(&ones).iter() {
+            assert!(y.abs() < 1e-12, "A·1 = {y}");
+        }
+        // Matrix `+` lines up across operators (ddt_vec adds no seam term).
+        let ddt = ddt_vec(&u, &u, 1.0, m.clone());
+        let combined = ddt + laplacian_vec(&gamma, &u, m.clone());
+        assert_relative_eq!(combined.ldu.upper[cf], -4.0, epsilon = 1e-12);
     }
 
     #[test]

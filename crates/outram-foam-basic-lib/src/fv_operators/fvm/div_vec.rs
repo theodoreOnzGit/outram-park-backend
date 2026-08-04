@@ -25,7 +25,7 @@ use crate::fields::boundary::bc::BoundaryCondition;
 use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::VolVectorField;
 use crate::ldu_matrix::fv_vector_matrix::FvVectorMatrix;
-use crate::mesh::fv_mesh::FvMesh;
+use crate::mesh::fv_mesh::{FvMesh, PatchKind};
 
 /// Implicit upwind convection of a vector field `U` by a face flux `phi`:
 /// `∇·(φ U)` (assembles into a `FvVectorMatrix`).
@@ -57,6 +57,10 @@ pub fn div_vec(phi: &SurfaceScalarField, u: &VolVectorField, mesh: Arc<FvMesh>) 
 
     // Boundary faces: explicit contribution (upwind = owner cell)
     for (pi, patch) in mesh.patches.iter().enumerate() {
+        // Cyclic patches are handled as internal-like seam couplings below.
+        if patch.kind == PatchKind::Cyclic {
+            continue;
+        }
         for fi in 0..patch.size {
             let owner = mesh.owner[patch.start + fi];
             let phi_f = phi.boundary[pi].values[fi];
@@ -93,6 +97,19 @@ pub fn div_vec(phi: &SurfaceScalarField, u: &VolVectorField, mesh: Arc<FvMesh>) 
                 _ => {}
             }
         }
+    }
+
+    // Cyclic (periodic) seam couplings: first-order upwind across the seam
+    // (mirrors the scalar `fvm::div` cyclic loop).
+    for (i, cc) in mesh.cyclic_couplings.iter().enumerate() {
+        let cf = mesh.cyclic_coupling_face(i);
+        let o = cc.owner;
+        let nb = cc.neighbour;
+        let phi_f = phi.boundary[cc.patch_a].values[cc.local];
+        mat.ldu.diag[o] += phi_f.max(0.0);
+        mat.ldu.upper[cf] += phi_f.min(0.0);
+        mat.ldu.diag[nb] -= phi_f.min(0.0);
+        mat.ldu.lower[cf] -= phi_f.max(0.0);
     }
 
     let _ = u;

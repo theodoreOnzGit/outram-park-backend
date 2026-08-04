@@ -34,6 +34,16 @@ pub enum MeshError {
 
     /// `number_of_cells` was zero or negative when building a 1-D mesh.
     NonPositiveCellCount { got: i64 },
+
+    /// A [`PatchKind::Cyclic`](crate::mesh::PatchKind::Cyclic) patch pair is
+    /// inconsistent — e.g. the partner index is out of range, the partner does
+    /// not name this patch back, or the two halves have different face counts.
+    CyclicPairMismatch {
+        /// Name of the offending cyclic patch.
+        name: String,
+        /// Why the pair is invalid.
+        reason: &'static str,
+    },
 }
 
 impl std::fmt::Display for MeshError {
@@ -61,6 +71,9 @@ impl std::fmt::Display for MeshError {
             ),
             MeshError::NonPositiveCellCount { got } => {
                 write!(f, "number_of_cells must be ≥ 1, got {got}")
+            }
+            MeshError::CyclicPairMismatch { name, reason } => {
+                write!(f, "cyclic patch '{name}': {reason}")
             }
         }
     }

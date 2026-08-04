@@ -25,7 +25,7 @@ use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
 use crate::fields::surface_field::SurfaceField;
 use crate::fields::vol_field::VolField;
-use crate::mesh::fv_mesh::FvMesh;
+use crate::mesh::fv_mesh::{FvMesh, PatchKind};
 
 /// Linear interpolation weight for the **owner** cell at internal face `f`.
 ///
@@ -103,6 +103,20 @@ where
             let values = Field::from_fn(patch.size, |fi| {
                 let gf = patch.start + fi;
                 let owner = mesh.owner[gf];
+                // Cyclic (periodic) seam: linearly interpolate across the seam to
+                // the paired cell, weight from the two half-face gaps. Reduces to
+                // 0.5/0.5 for an equally spaced seam.
+                if patch.kind == PatchKind::Cyclic {
+                    if let Some(pf) = mesh.cyclic_partner_face(gf) {
+                        let paired = mesh.owner[pf];
+                        let d_a = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                        let d_b = (mesh.face_centres[pf] - mesh.cell_centres[paired]).mag();
+                        let denom = d_a + d_b;
+                        let w = if denom < 1e-300 { 0.5 } else { d_b / denom };
+                        return vol.internal[owner].clone() * w
+                            + vol.internal[paired].clone() * (1.0 - w);
+                    }
+                }
                 match &bc_patch.bc {
                     // Zero-gradient family: face value = adjacent cell value.
                     // `Slip`/`Wedge` fall here for the generic (scalar) path;
@@ -211,5 +225,25 @@ mod tests {
         p.internal[1] = 1.0;
         let p_f = interpolate(&p);
         assert!((p_f.internal[0] - 0.5).abs() < 1e-12);
+    }
+
+    /// V&V (verification, 2026-08-04). Cyclic-patch interpolation crosses the
+    /// periodic seam. Methodology: on `periodic_1d(4, 1.0, 1.0)` set the field to
+    /// `[0,1,2,3]`. The left cyclic patch (owner cell 0) is paired with cell 3
+    /// across the seam; equal half-gaps give weight 0.5, so the seam face value
+    /// is `0.5·φ_0 + 0.5·φ_3 = 1.5`; the right patch (owner cell 3, paired cell
+    /// 0) gives the same 1.5. Pass criterion: |value − 1.5| < 1e-12.
+    /// Result: left = 1.500000, right = 1.500000. PASS.
+    #[test]
+    fn vv_cyclic_interpolates_across_seam() {
+        let m = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_1d(4, 1.0, 1.0));
+        let mut p = VolScalarField::zeros("p", m.clone());
+        p.internal[0] = 0.0;
+        p.internal[1] = 1.0;
+        p.internal[2] = 2.0;
+        p.internal[3] = 3.0;
+        let p_f = interpolate(&p);
+        assert!((p_f.boundary[0].values[0] - 1.5).abs() < 1e-12, "left={}", p_f.boundary[0].values[0]);
+        assert!((p_f.boundary[1].values[0] - 1.5).abs() < 1e-12, "right={}", p_f.boundary[1].values[0]);
     }
 }

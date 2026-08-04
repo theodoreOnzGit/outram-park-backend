@@ -78,9 +78,21 @@ pub struct SolverPerformance {
 
 impl FvMatrix {
     /// Create a new zero-initialised FvMatrix for the given mesh.
+    ///
+    /// The LDU face addressing holds the mesh's internal faces followed by one
+    /// slot per [`CyclicCoupling`](crate::mesh::CyclicCoupling) (periodic-seam
+    /// coupling), so every matrix built on a given mesh has identical structure
+    /// — a prerequisite for the coefficient-wise matrix arithmetic
+    /// (`+`/`−`). Operators that ignore cyclic seams (e.g. `fvm::ddt`) simply
+    /// leave those slots zero; `fvm::laplacian`/`fvm::div` fill them via the
+    /// paired-cell coupling.
     pub fn new(mesh: Arc<FvMesh>) -> Self {
-        let owner = mesh.owner[..mesh.n_internal_faces].to_vec();
-        let neighbour = mesh.neighbour.to_vec();
+        let mut owner = mesh.owner[..mesh.n_internal_faces].to_vec();
+        let mut neighbour = mesh.neighbour.to_vec();
+        for cc in &mesh.cyclic_couplings {
+            owner.push(cc.owner);
+            neighbour.push(cc.neighbour);
+        }
         let n_cells = mesh.n_cells;
         Self {
             mesh,
@@ -287,7 +299,9 @@ impl FvMatrix {
         for c in 0..n {
             h[c] = self.source[c];
         }
-        for f in 0..self.mesh.n_internal_faces {
+        // Iterate the full LDU face count (internal + appended cyclic couplings)
+        // so periodic-seam off-diagonals contribute to H.
+        for f in 0..self.ldu.n_internal_faces {
             let o = self.ldu.owner[f];
             let nb = self.ldu.neighbour[f];
             h[o] -= x.internal[nb] * self.ldu.upper[f];

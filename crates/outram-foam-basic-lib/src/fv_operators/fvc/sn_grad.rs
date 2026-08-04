@@ -23,6 +23,7 @@ use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
 use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::VolScalarField;
+use crate::mesh::fv_mesh::PatchKind;
 
 /// Surface-normal gradient: `∂φ/∂n|_f = (φ_N − φ_O) / |C_N − C_O|`.
 ///
@@ -51,6 +52,20 @@ pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
                 let gf = patch.start + fi;
                 let owner = mesh.owner[gf];
                 let d = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                // Cyclic (periodic) seam: normal gradient across the seam to the
+                // paired cell, `(φ_paired − φ_owner) / d_seam`.
+                if patch.kind == PatchKind::Cyclic {
+                    if let Some(pf) = mesh.cyclic_partner_face(gf) {
+                        let paired = mesh.owner[pf];
+                        let d_b = (mesh.face_centres[pf] - mesh.cell_centres[paired]).mag();
+                        let delta = d + d_b;
+                        return if delta < 1e-300 {
+                            0.0
+                        } else {
+                            (vol.internal[paired] - vol.internal[owner]) / delta
+                        };
+                    }
+                }
                 match &bc_patch.bc {
                     BoundaryCondition::ZeroGradient | BoundaryCondition::Symmetry => 0.0,
                     BoundaryCondition::FixedValue(v) => {
@@ -194,5 +209,24 @@ mod tests {
         let g = sn_grad(&t);
         // patch 0 = "right", one face
         assert!((g.boundary[0].values[0] - 3.0).abs() < 1e-12, "snGrad={}", g.boundary[0].values[0]);
+    }
+
+    /// V&V (verification, 2026-08-04). Cyclic-patch surface-normal gradient
+    /// crosses the periodic seam. Methodology: on `periodic_1d(4, 1.0, 1.0)`
+    /// (h = 0.25) set the field to `[0,1,2,3]`. The left cyclic patch (owner cell
+    /// 0, paired cell 3) has seam distance `d_seam = h = 0.25`, so its
+    /// surface-normal gradient is `(φ_3 − φ_0)/d_seam = (3 − 0)/0.25 = 12`. Pass
+    /// criterion: |snGrad − 12| < 1e-10.
+    /// Result: left snGrad = 12.000000. PASS.
+    #[test]
+    fn vv_cyclic_sn_grad_across_seam() {
+        let m = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_1d(4, 1.0, 1.0));
+        let mut t = VolScalarField::zeros("T", m.clone());
+        t.internal[0] = 0.0;
+        t.internal[1] = 1.0;
+        t.internal[2] = 2.0;
+        t.internal[3] = 3.0;
+        let g = sn_grad(&t);
+        assert!((g.boundary[0].values[0] - 12.0).abs() < 1e-10, "snGrad={}", g.boundary[0].values[0]);
     }
 }
