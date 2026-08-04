@@ -219,7 +219,11 @@ mod tests {
         let t = VolScalarField::new("T", m.clone(), Field::new(vec![7.0, 9.0]), bc);
         let g = sn_grad(&t);
         // patch 0 = "right", one face
-        assert!((g.boundary[0].values[0] - 3.0).abs() < 1e-12, "snGrad={}", g.boundary[0].values[0]);
+        assert!(
+            (g.boundary[0].values[0] - 3.0).abs() < 1e-12,
+            "snGrad={}",
+            g.boundary[0].values[0]
+        );
     }
 
     /// V&V (verification, 2026-08-04). Cyclic-patch surface-normal gradient
@@ -238,6 +242,10 @@ mod tests {
         t.internal[2] = 2.0;
         t.internal[3] = 3.0;
         let g = sn_grad(&t);
-        assert!((g.boundary[0].values[0] - 12.0).abs() < 1e-10, "snGrad={}", g.boundary[0].values[0]);
+        assert!(
+            (g.boundary[0].values[0] - 12.0).abs() < 1e-10,
+            "snGrad={}",
+            g.boundary[0].values[0]
+        );
     }
 }

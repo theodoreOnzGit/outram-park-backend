@@ -305,7 +305,12 @@ mod tests {
                 values: Field::new(vec![0.0]), // patch 1 = "left"
             },
         ];
-        SurfaceScalarField::new("phi", m.clone(), Field::uniform(m.n_internal_faces, 0.0), bnd)
+        SurfaceScalarField::new(
+            "phi",
+            m.clone(),
+            Field::uniform(m.n_internal_faces, 0.0),
+            bnd,
+        )
     }
 
     /// V&V (verification, 2026-08-04). inletOutlet flux switch. Methodology:
@@ -338,13 +343,21 @@ mod tests {
 
         // Outflow: zeroGradient behaviour.
         let out = div(&phi_right_only(m.clone(), 2.0), &make_psi());
-        assert!((out.ldu.diag[1] - 2.0).abs() < 1e-12, "diag[1]={}", out.ldu.diag[1]);
+        assert!(
+            (out.ldu.diag[1] - 2.0).abs() < 1e-12,
+            "diag[1]={}",
+            out.ldu.diag[1]
+        );
         assert!(out.source[1].abs() < 1e-12, "source[1]={}", out.source[1]);
 
         // Inflow: fixedValue behaviour, source[1] -= phi_f * inlet_value = 10.
         let inn = div(&phi_right_only(m.clone(), -2.0), &make_psi());
         assert!(inn.ldu.diag[1].abs() < 1e-12, "diag[1]={}", inn.ldu.diag[1]);
-        assert!((inn.source[1] - 10.0).abs() < 1e-12, "source[1]={}", inn.source[1]);
+        assert!(
+            (inn.source[1] - 10.0).abs() < 1e-12,
+            "source[1]={}",
+            inn.source[1]
+        );
     }
 
     // ── Cyclic (periodic) V&V — verification, not validation ─────────────────
@@ -367,7 +380,8 @@ mod tests {
         let face_centres: Vec<Vector3> = (0..n)
             .map(|f| (cell_centres[f] + cell_centres[(f + 1) % n]) * 0.5)
             .collect();
-        let face_area_vectors: Vec<Vector3> = (0..n).map(|_| Vector3::new(area, 0.0, 0.0)).collect();
+        let face_area_vectors: Vec<Vector3> =
+            (0..n).map(|_| Vector3::new(area, 0.0, 0.0)).collect();
         Arc::new(
             FvMeshBuilder::new()
                 .n_cells(n)
@@ -408,7 +422,11 @@ mod tests {
         let h = 0.25;
         let area = 1.0;
         let phi_mag = 1.0;
-        let cyc = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_1d(n, h * n as f64, area));
+        let cyc = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_1d(
+            n,
+            h * n as f64,
+            area,
+        ));
         let ring = ring_mesh(n, h, area);
 
         // Cyclic flux: uniform Φ on internal faces; seam flux is the outward
@@ -445,7 +463,11 @@ mod tests {
         let ones = vec![1.0; n];
         let ay = m_cyc.ldu.multiply(&ones);
         for c in 0..n {
-            assert!(ay[c].abs() < 1e-12, "A·1 not conserved at cell {c}: {}", ay[c]);
+            assert!(
+                ay[c].abs() < 1e-12,
+                "A·1 not conserved at cell {c}: {}",
+                ay[c]
+            );
         }
 
         // (ii) cyclic == ring: identical operators.
@@ -488,7 +510,12 @@ mod tests {
                 }
             })
             .collect();
-        SurfaceScalarField::new("phi", m.clone(), Field::uniform(m.n_internal_faces, 0.0), boundary)
+        SurfaceScalarField::new(
+            "phi",
+            m.clone(),
+            Field::uniform(m.n_internal_faces, 0.0),
+            boundary,
+        )
     }
 
     /// V&V (verification, 2026-08-04). **Non-conformal (2:1) AMI advection is
@@ -509,14 +536,19 @@ mod tests {
     /// outflow in every cell across the 2:1 non-conformal seam. PASS.
     #[test]
     fn vv_ami_nonconformal_advection_conserves() {
-        let ring = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_ring_ami(2, 4, 1.0, 1.0, 1.0));
+        let ring = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_ring_ami(
+            2, 4, 1.0, 1.0, 1.0,
+        ));
         let phi = ring_uniform_phi(ring.clone(), 1.0);
         let psi = VolScalarField::uniform("psi", ring.clone(), 0.0);
         let mat = div(&phi, &psi);
 
         let ones = vec![1.0; ring.n_cells];
         for (c, &y) in mat.ldu.multiply(&ones).iter().enumerate() {
-            assert!(y.abs() < 1e-12, "advection A·1 not conserved at cell {c}: {y}");
+            assert!(
+                y.abs() < 1e-12,
+                "advection A·1 not conserved at cell {c}: {y}"
+            );
         }
     }
 
@@ -531,13 +563,18 @@ mod tests {
     /// Result (measured 2026-08-04): max |A·1| = 0.0 (exact). PASS.
     #[test]
     fn vv_ami_matching_advection_conserves() {
-        let ring = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_ring_ami(3, 3, 1.0, 1.0, 1.0));
+        let ring = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_ring_ami(
+            3, 3, 1.0, 1.0, 1.0,
+        ));
         let phi = ring_uniform_phi(ring.clone(), 1.0);
         let psi = VolScalarField::uniform("psi", ring.clone(), 0.0);
         let mat = div(&phi, &psi);
         let ones = vec![1.0; ring.n_cells];
         for (c, &y) in mat.ldu.multiply(&ones).iter().enumerate() {
-            assert!(y.abs() < 1e-12, "advection A·1 not conserved at cell {c}: {y}");
+            assert!(
+                y.abs() < 1e-12,
+                "advection A·1 not conserved at cell {c}: {y}"
+            );
         }
     }
 }

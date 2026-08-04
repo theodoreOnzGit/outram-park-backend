@@ -284,6 +284,12 @@ deriving a multiplier.
 > or deferred note as a settled choice. The leanings record what the evidence
 > suggested on the date shown; they are not approvals.
 >
+> **Questions 1 and 3 were put to the maintainer on 2026-08-04 and ANSWERED —
+> see the ANSWERED blocks below. Both answers went AGAINST this document's
+> recorded leaning; the leanings are retained for the record, struck through by
+> the answer that follows them.** Question 2 is a technical fact to be
+> established by test in P0, not a preference, and remains as written.
+>
 > Both deferred items are **silent-wrong-answer risks** — code that compiles,
 > runs, and produces plausible but incorrect stresses. Neither announces itself
 > in a test that was not written to catch it.
@@ -294,7 +300,13 @@ deriving a multiplier.
    the Fortran in `comport/`, not less: the DSL is declarative, so a `.mfront`
    file reads close to the equations themselves. Porting the generator would
    mean porting a C++ code generator and its type system — unbounded, and
-   pointless when only 14 laws are in scope. **Awaiting the maintainer's nod.**
+   pointless when only 14 laws are in scope. ~~Awaiting the maintainer's nod.~~
+   **ANSWERED 2026-08-04: port the MFront generator.** This overrides the
+   recommendation above. Consequence to plan for: the generator and its type
+   system are their own porting project, unbounded relative to the 14 laws that
+   motivated it, and it must be scoped separately before P6 rather than folded
+   into a law-porting phase. Its payoff is that any future MFront-declared law
+   arrives free.
 
 2. **Tensor conventions.** — **DEFERRED 2026-08-04.** code_aster uses a
    specific Voigt ordering with `sqrt(2)` factors on the shear components.
@@ -307,9 +319,16 @@ deriving a multiplier.
    strain) sufficient for the target cases, or is `GDEF_LOG` needed? Creep
    rupture of a lower head involves large deformation, so this may not be
    optional — and retrofitting a finite-strain measure after the laws are
-   written is a rewrite, not a patch. Deferring is reasonable while the early
+   written is a rewrite, not a patch. ~~Deferring is reasonable while the early
    phases target small-strain cladding creep; it must be answered before the
-   vessel-failure case in P2.
+   vessel-failure case in P2.~~
+   **ANSWERED 2026-08-04: design for finite strain from the start.** This
+   overrides the deferral. Consequences: P0 must carry a finite-strain
+   kinematic layer (deformation gradient, logarithmic/Hencky strain, and the
+   `GDEF_LOG` pre/post-processing code_aster wraps its small-strain laws in),
+   not only the Voigt mapping; and OFFBEAT's existing mechanics solver is
+   small-strain, so the two now differ in kinematics and the boundary between
+   them must be explicit rather than implied.
 
 ---
 

@@ -71,6 +71,7 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | Module | Rust type / fn | Notes |
 |---|---|---|
 | `primitives` | `Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor` | Full OpenFOAM tensor algebra; `SMALL`, `VSMALL`, `GREAT`, etc. |
+| `primitives::eigen` | `eigen_values`, `eigen_values_symm`, `eigen_vectors`, `eigen_vectors_symm` | Spectral decomposition of 3x3 tensors via the characteristic cubic (reuses `CubicEqn`). Ascending eigenvalues, orthonormal eigenvector rows, degenerate and triple-eigenvalue fallbacks. The basis every isotropic tensor function (log/exp/sqrt) is built on. |
 | `polynomial` | `LinearEqn`, `QuadraticEqn`, `CubicEqn` | FMA-accurate discriminants; all root branches |
 | `polynomial` | `Polynomial<const N>` | Horner eval, derivative, integral, integral_minus1 (log term) |
 | `polynomial` | `Roots<const N>`, `RootType` | 3-bit-per-root type encoding |

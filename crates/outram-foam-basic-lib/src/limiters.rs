@@ -182,7 +182,10 @@ mod tests {
             for &r in &[0.2, 0.5, 0.75, 1.3, 2.0, 4.0] {
                 let lhs = l.psi(r) / r;
                 let rhs = l.psi(1.0 / r);
-                assert!((lhs - rhs).abs() < 1e-10, "{l:?} asymmetric at r={r}: {lhs} vs {rhs}");
+                assert!(
+                    (lhs - rhs).abs() < 1e-10,
+                    "{l:?} asymmetric at r={r}: {lhs} vs {rhs}"
+                );
             }
         }
     }
@@ -203,7 +206,10 @@ mod tests {
             let l = FluxLimiter::LimitedLinear(k);
             for &r in &[-1.0, 0.0, 0.1, 0.5, 1.0, 3.0] {
                 let p = l.psi(r);
-                assert!((0.0..=1.0).contains(&p), "limitedLinear({k}) psi({r})={p} out of [0,1]");
+                assert!(
+                    (0.0..=1.0).contains(&p),
+                    "limitedLinear({k}) psi({r})={p} out of [0,1]"
+                );
             }
             assert!((l.psi(1.0) - 1.0).abs() < 1e-12);
             assert_eq!(l.psi(-1.0), 0.0);

@@ -49,7 +49,9 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use super::dict::{fmt_scalar, tokenize, write_header, FoamHeader, Token, BANNER, FOOTER, SEPARATOR};
+use super::dict::{
+    fmt_scalar, tokenize, write_header, FoamHeader, Token, BANNER, FOOTER, SEPARATOR,
+};
 use super::IoError;
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
@@ -241,7 +243,7 @@ impl FieldCursor {
             return;
         }
         self.next(); // FoamFile
-        // opening brace
+                     // opening brace
         while self.peek().is_some() && self.peek() != Some("{") {
             self.next();
         }
@@ -448,18 +450,19 @@ fn build_scalar_boundary(
     let mut out = Vec::with_capacity(mesh.patches.len());
     for patch in &mesh.patches {
         let size = patch.size;
-        let rp = find_patch(raw, &patch.name).ok_or_else(|| {
-            c.err(format!("boundaryField is missing patch `{}`", patch.name))
-        })?;
+        let rp = find_patch(raw, &patch.name)
+            .ok_or_else(|| c.err(format!("boundaryField is missing patch `{}`", patch.name)))?;
         let (bc, values) = match rp.bc_type.as_str() {
             "fixedValue" | "calculated" => {
                 let (bc_ctor, field) = match &rp.value {
-                    Some(RawValue::UniformScalar(v)) => {
-                        (BoundaryCondition::FixedValue(*v), Field::new(vec![*v; size]))
-                    }
-                    Some(RawValue::NonuniformScalar(v)) => {
-                        (BoundaryCondition::FixedField(Field::new(v.clone())), Field::new(v.clone()))
-                    }
+                    Some(RawValue::UniformScalar(v)) => (
+                        BoundaryCondition::FixedValue(*v),
+                        Field::new(vec![*v; size]),
+                    ),
+                    Some(RawValue::NonuniformScalar(v)) => (
+                        BoundaryCondition::FixedField(Field::new(v.clone())),
+                        Field::new(v.clone()),
+                    ),
                     _ => {
                         return Err(c.err(format!(
                             "patch `{}` type `{}` requires a scalar `value`",
@@ -475,9 +478,7 @@ fn build_scalar_boundary(
             }
             "zeroGradient" => (BoundaryCondition::ZeroGradient, Field::zeros(size)),
             "empty" => (BoundaryCondition::Empty, Field::new(vec![])),
-            "symmetry" | "symmetryPlane" => {
-                (BoundaryCondition::Symmetry, Field::zeros(size))
-            }
+            "symmetry" | "symmetryPlane" => (BoundaryCondition::Symmetry, Field::zeros(size)),
             // Value-free BCs round-trip fully. Value-carrying and flow-context
             // BCs (fixedGradient/mixed/inletOutlet/outletInlet/freestream/
             // pressureInletOutletVelocity/fixedFluxPressure/totalPressure/
@@ -509,9 +510,8 @@ fn build_vector_boundary(
     let mut out = Vec::with_capacity(mesh.patches.len());
     for patch in &mesh.patches {
         let size = patch.size;
-        let rp = find_patch(raw, &patch.name).ok_or_else(|| {
-            c.err(format!("boundaryField is missing patch `{}`", patch.name))
-        })?;
+        let rp = find_patch(raw, &patch.name)
+            .ok_or_else(|| c.err(format!("boundaryField is missing patch `{}`", patch.name)))?;
         let (bc, values) = match rp.bc_type.as_str() {
             "fixedValue" | "calculated" => {
                 let field = match &rp.value {
@@ -536,9 +536,7 @@ fn build_vector_boundary(
             }
             "zeroGradient" => (BoundaryCondition::ZeroGradient, Field::zero_vec(size)),
             "empty" => (BoundaryCondition::Empty, Field::new(vec![])),
-            "symmetry" | "symmetryPlane" => {
-                (BoundaryCondition::Symmetry, Field::zero_vec(size))
-            }
+            "symmetry" | "symmetryPlane" => (BoundaryCondition::Symmetry, Field::zero_vec(size)),
             // Value-free BCs round-trip fully. Value-carrying and flow-context
             // BCs (fixedGradient/mixed/inletOutlet/outletInlet/freestream/
             // pressureInletOutletVelocity/fixedFluxPressure/totalPressure/
@@ -594,7 +592,12 @@ fn all_equal_vector(v: &[Vector3]) -> Option<Vector3> {
 }
 
 fn fmt_vector(v: Vector3) -> String {
-    format!("({} {} {})", fmt_scalar(v.x), fmt_scalar(v.y), fmt_scalar(v.z))
+    format!(
+        "({} {} {})",
+        fmt_scalar(v.x),
+        fmt_scalar(v.y),
+        fmt_scalar(v.z)
+    )
 }
 
 fn write_internal_scalar(s: &mut String, v: &[f64]) {
@@ -642,7 +645,10 @@ fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
         match &pf.bc {
             BoundaryCondition::FixedValue(v) => {
                 s.push_str("        type            fixedValue;\n");
-                s.push_str(&format!("        value           uniform {};\n", fmt_scalar(*v)));
+                s.push_str(&format!(
+                    "        value           uniform {};\n",
+                    fmt_scalar(*v)
+                ));
             }
             BoundaryCondition::FixedField(f) => {
                 s.push_str("        type            fixedValue;\n");
@@ -657,7 +663,10 @@ fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
             }
             BoundaryCondition::FixedGradient(g) => {
                 s.push_str("        type            fixedGradient;\n");
-                s.push_str(&format!("        gradient        uniform {};\n", fmt_scalar(*g)));
+                s.push_str(&format!(
+                    "        gradient        uniform {};\n",
+                    fmt_scalar(*g)
+                ));
             }
             BoundaryCondition::Mixed {
                 value_fraction,
@@ -665,8 +674,14 @@ fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
                 ref_grad,
             } => {
                 s.push_str("        type            mixed;\n");
-                s.push_str(&format!("        refValue        uniform {};\n", fmt_scalar(*ref_value)));
-                s.push_str(&format!("        refGradient     uniform {};\n", fmt_scalar(*ref_grad)));
+                s.push_str(&format!(
+                    "        refValue        uniform {};\n",
+                    fmt_scalar(*ref_value)
+                ));
+                s.push_str(&format!(
+                    "        refGradient     uniform {};\n",
+                    fmt_scalar(*ref_grad)
+                ));
                 s.push_str(&format!(
                     "        valueFraction   uniform {};\n",
                     fmt_scalar(*value_fraction)
@@ -675,7 +690,10 @@ fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
             }
             BoundaryCondition::InletOutlet { inlet_value } => {
                 s.push_str("        type            inletOutlet;\n");
-                s.push_str(&format!("        inletValue      uniform {};\n", fmt_scalar(*inlet_value)));
+                s.push_str(&format!(
+                    "        inletValue      uniform {};\n",
+                    fmt_scalar(*inlet_value)
+                ));
                 write_value_scalar(s, pf.values.as_slice());
             }
             BoundaryCondition::OutletInlet { outlet_value } => {
@@ -700,12 +718,18 @@ fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
             }
             BoundaryCondition::FixedFluxPressure { gradient } => {
                 s.push_str("        type            fixedFluxPressure;\n");
-                s.push_str(&format!("        gradient        uniform {};\n", fmt_scalar(*gradient)));
+                s.push_str(&format!(
+                    "        gradient        uniform {};\n",
+                    fmt_scalar(*gradient)
+                ));
                 write_value_scalar(s, pf.values.as_slice());
             }
             BoundaryCondition::TotalPressure { p0 } => {
                 s.push_str("        type            totalPressure;\n");
-                s.push_str(&format!("        p0              uniform {};\n", fmt_scalar(*p0)));
+                s.push_str(&format!(
+                    "        p0              uniform {};\n",
+                    fmt_scalar(*p0)
+                ));
                 write_value_scalar(s, pf.values.as_slice());
             }
             BoundaryCondition::FlowRateInletVelocity {
@@ -746,7 +770,10 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
         match &pf.bc {
             BoundaryCondition::FixedValue(v) => {
                 s.push_str("        type            fixedValue;\n");
-                s.push_str(&format!("        value           uniform {};\n", fmt_vector(*v)));
+                s.push_str(&format!(
+                    "        value           uniform {};\n",
+                    fmt_vector(*v)
+                ));
             }
             BoundaryCondition::FixedField(f) => {
                 s.push_str("        type            fixedValue;\n");
@@ -761,7 +788,10 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
             }
             BoundaryCondition::FixedGradient(g) => {
                 s.push_str("        type            fixedGradient;\n");
-                s.push_str(&format!("        gradient        uniform {};\n", fmt_vector(*g)));
+                s.push_str(&format!(
+                    "        gradient        uniform {};\n",
+                    fmt_vector(*g)
+                ));
             }
             BoundaryCondition::Mixed {
                 value_fraction,
@@ -769,8 +799,14 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
                 ref_grad,
             } => {
                 s.push_str("        type            mixed;\n");
-                s.push_str(&format!("        refValue        uniform {};\n", fmt_vector(*ref_value)));
-                s.push_str(&format!("        refGradient     uniform {};\n", fmt_vector(*ref_grad)));
+                s.push_str(&format!(
+                    "        refValue        uniform {};\n",
+                    fmt_vector(*ref_value)
+                ));
+                s.push_str(&format!(
+                    "        refGradient     uniform {};\n",
+                    fmt_vector(*ref_grad)
+                ));
                 s.push_str(&format!(
                     "        valueFraction   uniform {};\n",
                     fmt_scalar(*value_fraction)
@@ -779,7 +815,10 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
             }
             BoundaryCondition::InletOutlet { inlet_value } => {
                 s.push_str("        type            inletOutlet;\n");
-                s.push_str(&format!("        inletValue      uniform {};\n", fmt_vector(*inlet_value)));
+                s.push_str(&format!(
+                    "        inletValue      uniform {};\n",
+                    fmt_vector(*inlet_value)
+                ));
                 write_value_vector(s, pf.values.as_slice());
             }
             BoundaryCondition::OutletInlet { outlet_value } => {
@@ -804,12 +843,18 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
             }
             BoundaryCondition::FixedFluxPressure { gradient } => {
                 s.push_str("        type            fixedFluxPressure;\n");
-                s.push_str(&format!("        gradient        uniform {};\n", fmt_vector(*gradient)));
+                s.push_str(&format!(
+                    "        gradient        uniform {};\n",
+                    fmt_vector(*gradient)
+                ));
                 write_value_vector(s, pf.values.as_slice());
             }
             BoundaryCondition::TotalPressure { p0 } => {
                 s.push_str("        type            totalPressure;\n");
-                s.push_str(&format!("        p0              uniform {};\n", fmt_vector(*p0)));
+                s.push_str(&format!(
+                    "        p0              uniform {};\n",
+                    fmt_vector(*p0)
+                ));
                 write_value_vector(s, pf.values.as_slice());
             }
             BoundaryCondition::FlowRateInletVelocity {
@@ -845,7 +890,10 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
 
 fn write_value_scalar(s: &mut String, v: &[f64]) {
     if let Some(u) = all_equal_scalar(v) {
-        s.push_str(&format!("        value           uniform {};\n", fmt_scalar(u)));
+        s.push_str(&format!(
+            "        value           uniform {};\n",
+            fmt_scalar(u)
+        ));
         return;
     }
     s.push_str(&format!(
@@ -863,7 +911,10 @@ fn write_value_scalar(s: &mut String, v: &[f64]) {
 
 fn write_value_vector(s: &mut String, v: &[Vector3]) {
     if let Some(u) = all_equal_vector(v) {
-        s.push_str(&format!("        value           uniform {};\n", fmt_vector(u)));
+        s.push_str(&format!(
+            "        value           uniform {};\n",
+            fmt_vector(u)
+        ));
         return;
     }
     s.push_str(&format!(

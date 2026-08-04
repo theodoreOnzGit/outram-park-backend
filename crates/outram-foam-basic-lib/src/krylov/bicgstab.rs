@@ -204,7 +204,11 @@ pub fn bicgstab(
 
     // Report the TRUE residual of the returned iterate.
     let true_rel = nrm2(&a.residual(&best_x, b)) / bnorm;
-    let true_rel = if true_rel.is_finite() { true_rel } else { best_rel };
+    let true_rel = if true_rel.is_finite() {
+        true_rel
+    } else {
+        best_rel
+    };
     (
         best_x,
         KrylovResult {

@@ -50,6 +50,12 @@ pub use crate::primitives::{GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, V
 // --- Primitive tensor types ---
 pub use crate::primitives::{SphericalTensor, SymmTensor, Tensor, Vector3};
 
+// --- Spectral decomposition (Layer 1a) ---
+pub use crate::primitives::{
+    eigen_values, eigen_values_checked, eigen_values_symm, eigen_vectors, eigen_vectors_symm,
+    eigen_vectors_symm_with, eigen_vectors_with,
+};
+
 // --- Polynomial algebra ---
 pub use crate::polynomial::{CubicEqn, LinearEqn, Polynomial, QuadraticEqn, RootType, Roots};
 

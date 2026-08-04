@@ -412,7 +412,12 @@ impl BoundaryCondition<f64> {
     /// let phi = phi_hbya - dp * g * mag_sf;
     /// assert!((phi - phi_target).abs() < 1e-12);
     /// ```
-    pub fn fixed_flux_pressure_sn_grad(phi_hbya: f64, phi_target: f64, dp: f64, mag_sf: f64) -> f64 {
+    pub fn fixed_flux_pressure_sn_grad(
+        phi_hbya: f64,
+        phi_target: f64,
+        dp: f64,
+        mag_sf: f64,
+    ) -> f64 {
         let denom = dp * mag_sf;
         if denom.abs() < 1e-300 {
             0.0
@@ -498,7 +503,11 @@ impl BoundaryCondition<Vector3> {
     /// let u = BoundaryCondition::flow_rate_inlet_velocity_value(4.0, 2.0, sf);
     /// assert!((u.x + 2.0).abs() < 1e-15);              // U = −(4/2) x̂ = −2 x̂ (inward)
     /// ```
-    pub fn flow_rate_inlet_velocity_value(q: f64, area_patch: f64, area_vector: Vector3) -> Vector3 {
+    pub fn flow_rate_inlet_velocity_value(
+        q: f64,
+        area_patch: f64,
+        area_vector: Vector3,
+    ) -> Vector3 {
         let mag = area_vector.mag();
         if mag < 1e-300 || area_patch.abs() < 1e-300 {
             Vector3::ZERO
@@ -711,13 +720,21 @@ mod tests {
         let internal = Vector3::new(3.0, 4.0, 0.0);
         let n = Vector3::new(1.0, 0.0, 0.0);
         let v = BoundaryCondition::slip_face_value(internal, n);
-        assert!(v.dot(n).abs() < 1e-15, "normal component not removed: {}", v.dot(n));
+        assert!(
+            v.dot(n).abs() < 1e-15,
+            "normal component not removed: {}",
+            v.dot(n)
+        );
         assert!((v.y - 4.0).abs() < 1e-15);
         assert!(v.z.abs() < 1e-15);
         // Oblique normal check: (1,1,0)/√2 removes the (1,1,0) part of (2,0,0).
         let n2 = Vector3::new(1.0, 1.0, 0.0) * (1.0 / 2.0_f64.sqrt());
         let v2 = BoundaryCondition::slip_face_value(Vector3::new(2.0, 0.0, 0.0), n2);
-        assert!(v2.dot(n2).abs() < 1e-15, "oblique normal not removed: {}", v2.dot(n2));
+        assert!(
+            v2.dot(n2).abs() < 1e-15,
+            "oblique normal not removed: {}",
+            v2.dot(n2)
+        );
     }
 
     /// V&V (verification, 2026-08-04). Flux switch of inletOutlet/outletInlet.
@@ -728,15 +745,22 @@ mod tests {
     /// outflow 1); zeroGradient → None. PASS.
     #[test]
     fn vv_flux_value_fraction_switch() {
-        let io = BoundaryCondition::InletOutlet { inlet_value: 5.0_f64 };
+        let io = BoundaryCondition::InletOutlet {
+            inlet_value: 5.0_f64,
+        };
         assert_eq!(io.flux_value_fraction(-1.0), Some(1.0)); // inflow
         assert_eq!(io.flux_value_fraction(1.0), Some(0.0)); // outflow
         assert_eq!(io.flux_ref_value(), Some(&5.0));
-        let oi = BoundaryCondition::OutletInlet { outlet_value: 7.0_f64 };
+        let oi = BoundaryCondition::OutletInlet {
+            outlet_value: 7.0_f64,
+        };
         assert_eq!(oi.flux_value_fraction(-1.0), Some(0.0)); // inflow
         assert_eq!(oi.flux_value_fraction(1.0), Some(1.0)); // outflow
         assert_eq!(oi.flux_ref_value(), Some(&7.0));
-        assert_eq!(BoundaryCondition::<f64>::ZeroGradient.flux_value_fraction(1.0), None);
+        assert_eq!(
+            BoundaryCondition::<f64>::ZeroGradient.flux_value_fraction(1.0),
+            None
+        );
     }
 
     /// V&V (verification, 2026-08-04). Freestream flux switch: it must behave as
@@ -748,7 +772,9 @@ mod tests {
     /// PASS. (Untrusted AI-assisted draft pending human V&V.)
     #[test]
     fn vv_freestream_switches_like_inlet_outlet() {
-        let fs = BoundaryCondition::Freestream { freestream_value: 3.5_f64 };
+        let fs = BoundaryCondition::Freestream {
+            freestream_value: 3.5_f64,
+        };
         assert_eq!(fs.flux_value_fraction(-1.0), Some(1.0)); // inflow  → fixedValue
         assert_eq!(fs.flux_value_fraction(1.0), Some(0.0)); // outflow → zeroGradient
         assert_eq!(fs.flux_ref_value(), Some(&3.5));
@@ -766,12 +792,19 @@ mod tests {
     fn vv_pressure_inlet_outlet_velocity_from_flux() {
         let sf = Vector3::new(2.0, 0.0, 0.0);
         let u = BoundaryCondition::pressure_inlet_outlet_velocity_value(3.0, sf);
-        assert!((u.x - 1.5).abs() < 1e-15, "|U| should be φ_f/|S_f| = 1.5, got {}", u.x);
-        assert!(u.y.abs() < 1e-15 && u.z.abs() < 1e-15, "velocity must be purely normal");
+        assert!(
+            (u.x - 1.5).abs() < 1e-15,
+            "|U| should be φ_f/|S_f| = 1.5, got {}",
+            u.x
+        );
+        assert!(
+            u.y.abs() < 1e-15 && u.z.abs() < 1e-15,
+            "velocity must be purely normal"
+        );
         let bc = BoundaryCondition::<Vector3>::PressureInletOutletVelocity;
         assert_eq!(bc.flux_value_fraction(-1.0), Some(1.0)); // inflow  → fixedValue
         assert_eq!(bc.flux_value_fraction(1.0), Some(0.0)); // outflow → zeroGradient
-        // Sign: outflow flux → outward velocity; inflow flux → inward.
+                                                            // Sign: outflow flux → outward velocity; inflow flux → inward.
         let out = BoundaryCondition::pressure_inlet_outlet_velocity_value(4.0, sf);
         let inn = BoundaryCondition::pressure_inlet_outlet_velocity_value(-4.0, sf);
         assert!(out.x > 0.0 && inn.x < 0.0);
@@ -789,9 +822,15 @@ mod tests {
     fn vv_fixed_flux_pressure_sn_grad_reproduces_flux() {
         let (phi_hbya, phi_target, dp, mag_sf) = (0.30_f64, 0.20, 0.5, 2.0);
         let g = BoundaryCondition::fixed_flux_pressure_sn_grad(phi_hbya, phi_target, dp, mag_sf);
-        assert!((g - 0.1).abs() < 1e-12, "snGrad should be 0.1 Pa/m, got {g}");
+        assert!(
+            (g - 0.1).abs() < 1e-12,
+            "snGrad should be 0.1 Pa/m, got {g}"
+        );
         let phi = phi_hbya - dp * g * mag_sf;
-        assert!((phi - phi_target).abs() < 1e-12, "corrected flux must equal target");
+        assert!(
+            (phi - phi_target).abs() < 1e-12,
+            "corrected flux must equal target"
+        );
         // Degenerate coefficient → zero gradient, not NaN/inf.
         assert_eq!(
             BoundaryCondition::fixed_flux_pressure_sn_grad(0.3, 0.2, 0.0, 2.0),
@@ -856,7 +895,10 @@ mod tests {
             .zip(&sfs)
             .map(|(u, s)| -u.dot(*s))
             .sum();
-        assert!((measured - q).abs() < 1e-12, "patch flux {measured} must equal Q = {q}");
+        assert!(
+            (measured - q).abs() < 1e-12,
+            "patch flux {measured} must equal Q = {q}"
+        );
         for u in pf.values.as_slice() {
             assert!((u.mag() - q / area).abs() < 1e-12); // |U| = Q/A = 2 m/s
             assert!(u.x < 0.0); // directed into the domain (−x̂)

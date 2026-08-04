@@ -355,19 +355,13 @@ impl FvMesh {
         // x=length.
         let face_centres: Vec<Vector3> = (0..n_int)
             .map(|f| Vector3::new((f as f64 + 1.0) * h, 0.0, 0.0))
-            .chain([
-                Vector3::new(0.0, 0.0, 0.0),
-                Vector3::new(length, 0.0, 0.0),
-            ])
+            .chain([Vector3::new(0.0, 0.0, 0.0), Vector3::new(length, 0.0, 0.0)])
             .collect();
         // Internal Sf = +x·area (owner→neighbour); left boundary outward = −x,
         // right boundary outward = +x.
         let face_area_vectors: Vec<Vector3> = (0..n_int)
             .map(|_| Vector3::new(area, 0.0, 0.0))
-            .chain([
-                Vector3::new(-area, 0.0, 0.0),
-                Vector3::new(area, 0.0, 0.0),
-            ])
+            .chain([Vector3::new(-area, 0.0, 0.0), Vector3::new(area, 0.0, 0.0)])
             .collect();
 
         FvMeshBuilder::new()
@@ -611,10 +605,7 @@ impl FvMeshBuilder {
     /// owner[patches[pj].start + i]`. Malformed pairs (missing/asymmetric
     /// partner, mismatched size) are skipped here and caught by
     /// [`FvMesh::validate`], which returns a descriptive error.
-    fn derive_cyclic_couplings(
-        patches: &[BoundaryPatch],
-        owner: &[usize],
-    ) -> Vec<CyclicCoupling> {
+    fn derive_cyclic_couplings(patches: &[BoundaryPatch], owner: &[usize]) -> Vec<CyclicCoupling> {
         let mut couplings = Vec::new();
         for (pi, patch) in patches.iter().enumerate() {
             if patch.kind != PatchKind::Cyclic {
