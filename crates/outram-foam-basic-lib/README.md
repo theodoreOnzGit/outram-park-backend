@@ -94,6 +94,11 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | `fields::boundary` | `BoundaryCondition::Slip` | `slipFvPatchField.H` — vector: normal component removed, tangential zeroGradient; scalar: zeroGradient |
 | `fields::boundary` | `BoundaryCondition::NoSlip` | `noSlipFvPatchField.H` — velocity fixedValue = 0 |
 | `fields::boundary` | `BoundaryCondition::Wedge` | `wedgeFvPatchField.H` — axisymmetric wedge; **first pass: zeroGradient stand-in** (rotation transform not yet implemented) |
+| `fields::boundary` | `BoundaryCondition::Freestream` | `freestreamFvPatchField.H` — far-field inletOutlet: `freestreamValue` on inflow, zeroGradient on outflow (flux-switched); self-contained |
+| `fields::boundary` | `BoundaryCondition::PressureInletOutletVelocity` | `pressureInletOutletVelocityFvPatchVectorField.H` — outflow zeroGradient, inflow `U=(φ_f/\|S_f\|)·n̂`; solver refreshes values via `update_pressure_inlet_outlet_velocity` |
+| `fields::boundary` | `BoundaryCondition::FixedFluxPressure` | `fixedFluxPressureFvPatchScalarField.H` — fixedGradient `snGrad(p)=(φ_HbyA−φ_target)/(D_p·\|S_f\|)`; solver-set gradient (`fixed_flux_pressure_sn_grad`) |
+| `fields::boundary` | `BoundaryCondition::TotalPressure` | `totalPressureFvPatchScalarField.H` — `p=p0−0.5ρ\|U\|²` (incompressible; compressible deferred); cross-field, solver refreshes via `update_total_pressure` |
+| `fields::boundary` | `BoundaryCondition::FlowRateInletVelocity` | `flowRateInletVelocityFvPatchVectorField.H` — uniform inlet `U=−(Q/A_patch)·n̂`, `A_patch=Σ\|S_f\|`; solver/geometry-driven via `update_flow_rate_inlet_velocity` |
 | `fields` | `VolScalarField`, `VolVectorField`, `VolTensorField`, `VolSymmTensorField` | Typed aliases |
 | `fields` | `SurfaceScalarField`, `SurfaceVectorField` | Face-centred typed aliases |
 | `mesh` | `FvMesh`, `FvMeshBuilder`, `BoundaryPatch`, `PatchKind` | Unstructured polyhedral mesh |
@@ -195,7 +200,12 @@ current source; nothing here is aspirational. See also the
   (`src/fields/boundary/bc.rs`) supports `FixedValue`, `FixedField`,
   `ZeroGradient`, `FixedGradient` (non-zero), `Mixed`/Robin, `InletOutlet`,
   `OutletInlet`, `Slip`, `NoSlip`, `Wedge` (zero-gradient stand-in),
-  `Symmetry`, `Empty`, and `Calculated`. **Cyclic (periodic) patches** are now
+  `Symmetry`, `Empty`, `Calculated`, and the flow-context BCs `Freestream`
+  (self-contained, flux-switched), `PressureInletOutletVelocity`,
+  `FixedFluxPressure`, `TotalPressure`, and `FlowRateInletVelocity` (the last
+  four **solver-driven** — the solver refreshes their stored values/gradient
+  each iteration via the documented `update_*` / `*_value` hooks). **Cyclic
+  (periodic) patches** are now
   functional at the topology/operator level — `PatchKind::Cyclic` patch pairs
   couple across the seam like internal faces in `fvm::laplacian(_vec)` /
   `fvm::div(_vec)` / `fvc::interpolate` / `fvc::sn_grad` (build one with

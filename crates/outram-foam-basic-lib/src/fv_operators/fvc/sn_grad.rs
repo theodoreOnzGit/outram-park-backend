@@ -91,8 +91,19 @@ pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
                         }
                     }
                     // fixedGradient: the surface-normal gradient IS the
-                    // prescribed value g [value·m⁻¹].
-                    BoundaryCondition::FixedGradient(g) => *g,
+                    // prescribed value g [value·m⁻¹]. `fixedFluxPressure` is a
+                    // fixedGradient whose gradient the solver set (`snGrad(p)`).
+                    BoundaryCondition::FixedGradient(g)
+                    | BoundaryCondition::FixedFluxPressure { gradient: g } => *g,
+                    // totalPressure: Dirichlet using the solver-computed face
+                    // value the hook wrote into the patch — snGrad = (p_f − p_c)/d.
+                    BoundaryCondition::TotalPressure { .. } => {
+                        if d < 1e-300 {
+                            0.0
+                        } else {
+                            (bc_patch.values[fi] - vol.internal[owner]) / d
+                        }
+                    }
                     // Robin/mixed gradient: w·(refValue − φ_c)/d + (1−w)·refGrad.
                     BoundaryCondition::Mixed {
                         value_fraction,

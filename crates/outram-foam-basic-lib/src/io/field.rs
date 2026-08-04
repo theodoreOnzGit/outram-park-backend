@@ -36,8 +36,13 @@
 //! - `boundaryField` types: `fixedValue` (uniform or nonuniform `value`),
 //!   `zeroGradient`, `empty`, `symmetry` / `symmetryPlane`, and `calculated`.
 //!
-//! Any other boundary type (e.g. `inletOutlet`, `fixedFluxPressure`) raises
-//! [`IoError::Unsupported`] — these are **deferred**, not silently dropped.
+//! Value-carrying and flow-context types (`fixedGradient`, `mixed`,
+//! `inletOutlet`, `outletInlet`, `freestream`, `pressureInletOutletVelocity`,
+//! `fixedFluxPressure`, `totalPressure`, `flowRateInletVelocity`) are **written**
+//! by the write functions but not yet **read** — the parser captures only the
+//! single `value` sub-entry, not `gradient`/`refValue`/`freestreamValue`/`p0`/
+//! `volumetricFlowRate`, so reading one raises [`IoError::Unsupported`]. These
+//! reads are **deferred**, not silently dropped.
 //!
 //! [`VolField`]: crate::fields::VolField
 
@@ -473,10 +478,13 @@ fn build_scalar_boundary(
             "symmetry" | "symmetryPlane" => {
                 (BoundaryCondition::Symmetry, Field::zeros(size))
             }
-            // Value-free BCs round-trip fully. Value-carrying BCs
-            // (fixedGradient/mixed/inletOutlet/outletInlet) are writable but not
-            // yet readable — the polyMesh field parser captures only the single
-            // `value` sub-entry, not `gradient`/`refValue`/`valueFraction`.
+            // Value-free BCs round-trip fully. Value-carrying and flow-context
+            // BCs (fixedGradient/mixed/inletOutlet/outletInlet/freestream/
+            // pressureInletOutletVelocity/fixedFluxPressure/totalPressure/
+            // flowRateInletVelocity) are writable but not yet readable — the
+            // field parser captures only the single `value` sub-entry, not
+            // `gradient`/`refValue`/`valueFraction`/`freestreamValue`/`p0`/
+            // `volumetricFlowRate`.
             "slip" => (BoundaryCondition::Slip, Field::zeros(size)),
             "noSlip" => (BoundaryCondition::NoSlip, Field::zeros(size)),
             "wedge" => (BoundaryCondition::Wedge, Field::zeros(size)),
@@ -531,9 +539,11 @@ fn build_vector_boundary(
             "symmetry" | "symmetryPlane" => {
                 (BoundaryCondition::Symmetry, Field::zero_vec(size))
             }
-            // Value-free BCs round-trip fully. Value-carrying BCs
-            // (fixedGradient/mixed/inletOutlet/outletInlet) are writable but not
-            // yet readable — see the scalar reader note above.
+            // Value-free BCs round-trip fully. Value-carrying and flow-context
+            // BCs (fixedGradient/mixed/inletOutlet/outletInlet/freestream/
+            // pressureInletOutletVelocity/fixedFluxPressure/totalPressure/
+            // flowRateInletVelocity) are writable but not yet readable — see the
+            // scalar reader note above.
             "slip" => (BoundaryCondition::Slip, Field::zero_vec(size)),
             "noSlip" => (BoundaryCondition::NoSlip, Field::zero_vec(size)),
             "wedge" => (BoundaryCondition::Wedge, Field::zero_vec(size)),
@@ -676,6 +686,38 @@ fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
                 ));
                 write_value_scalar(s, pf.values.as_slice());
             }
+            BoundaryCondition::Freestream { freestream_value } => {
+                s.push_str("        type            freestream;\n");
+                s.push_str(&format!(
+                    "        freestreamValue uniform {};\n",
+                    fmt_scalar(*freestream_value)
+                ));
+                write_value_scalar(s, pf.values.as_slice());
+            }
+            BoundaryCondition::PressureInletOutletVelocity => {
+                s.push_str("        type            pressureInletOutletVelocity;\n");
+                write_value_scalar(s, pf.values.as_slice());
+            }
+            BoundaryCondition::FixedFluxPressure { gradient } => {
+                s.push_str("        type            fixedFluxPressure;\n");
+                s.push_str(&format!("        gradient        uniform {};\n", fmt_scalar(*gradient)));
+                write_value_scalar(s, pf.values.as_slice());
+            }
+            BoundaryCondition::TotalPressure { p0 } => {
+                s.push_str("        type            totalPressure;\n");
+                s.push_str(&format!("        p0              uniform {};\n", fmt_scalar(*p0)));
+                write_value_scalar(s, pf.values.as_slice());
+            }
+            BoundaryCondition::FlowRateInletVelocity {
+                volumetric_flow_rate,
+            } => {
+                s.push_str("        type            flowRateInletVelocity;\n");
+                s.push_str(&format!(
+                    "        volumetricFlowRate {};\n",
+                    fmt_scalar(*volumetric_flow_rate)
+                ));
+                write_value_scalar(s, pf.values.as_slice());
+            }
             BoundaryCondition::Symmetry => {
                 s.push_str("        type            symmetry;\n");
             }
@@ -745,6 +787,38 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
                 s.push_str(&format!(
                     "        outletValue     uniform {};\n",
                     fmt_vector(*outlet_value)
+                ));
+                write_value_vector(s, pf.values.as_slice());
+            }
+            BoundaryCondition::Freestream { freestream_value } => {
+                s.push_str("        type            freestream;\n");
+                s.push_str(&format!(
+                    "        freestreamValue uniform {};\n",
+                    fmt_vector(*freestream_value)
+                ));
+                write_value_vector(s, pf.values.as_slice());
+            }
+            BoundaryCondition::PressureInletOutletVelocity => {
+                s.push_str("        type            pressureInletOutletVelocity;\n");
+                write_value_vector(s, pf.values.as_slice());
+            }
+            BoundaryCondition::FixedFluxPressure { gradient } => {
+                s.push_str("        type            fixedFluxPressure;\n");
+                s.push_str(&format!("        gradient        uniform {};\n", fmt_vector(*gradient)));
+                write_value_vector(s, pf.values.as_slice());
+            }
+            BoundaryCondition::TotalPressure { p0 } => {
+                s.push_str("        type            totalPressure;\n");
+                s.push_str(&format!("        p0              uniform {};\n", fmt_vector(*p0)));
+                write_value_vector(s, pf.values.as_slice());
+            }
+            BoundaryCondition::FlowRateInletVelocity {
+                volumetric_flow_rate,
+            } => {
+                s.push_str("        type            flowRateInletVelocity;\n");
+                s.push_str(&format!(
+                    "        volumetricFlowRate {};\n",
+                    fmt_scalar(*volumetric_flow_rate)
                 ));
                 write_value_vector(s, pf.values.as_slice());
             }

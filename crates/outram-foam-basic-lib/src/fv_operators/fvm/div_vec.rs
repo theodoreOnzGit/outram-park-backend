@@ -95,6 +95,32 @@ pub fn div_vec(phi: &SurfaceScalarField, u: &VolVectorField, mesh: Arc<FvMesh>) 
                         mat.ldu.diag[owner] += phi_f; // inflow: zeroGradient (upwind owner)
                     }
                 }
+                // freestream = inletOutlet(freestreamValue): fixedValue on
+                // inflow (phi_f < 0), zeroGradient on outflow (phi_f ≥ 0).
+                BoundaryCondition::Freestream { freestream_value } => {
+                    if phi_f >= 0.0 {
+                        mat.ldu.diag[owner] += phi_f; // outflow: zeroGradient
+                    } else {
+                        mat.source[owner] = mat.source[owner] - freestream_value * phi_f;
+                    }
+                }
+                // pressureInletOutletVelocity: zeroGradient on outflow; on inflow
+                // the fixedValue is the solver-computed normal velocity stored in
+                // the patch (refreshed via update_pressure_inlet_outlet_velocity).
+                BoundaryCondition::PressureInletOutletVelocity => {
+                    if phi_f >= 0.0 {
+                        mat.ldu.diag[owner] += phi_f; // outflow: zeroGradient
+                    } else {
+                        let u_bc = u.boundary[pi].values[fi];
+                        mat.source[owner] = mat.source[owner] - u_bc * phi_f;
+                    }
+                }
+                // flowRateInletVelocity: a fixed inlet velocity (Dirichlet) held
+                // in the patch values — explicit source like FixedValue.
+                BoundaryCondition::FlowRateInletVelocity { .. } => {
+                    let u_bc = u.boundary[pi].values[fi];
+                    mat.source[owner] = mat.source[owner] - u_bc * phi_f;
+                }
                 _ => {}
             }
         }

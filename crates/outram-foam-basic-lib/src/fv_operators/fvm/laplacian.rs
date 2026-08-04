@@ -128,9 +128,22 @@ pub fn laplacian(gamma: &SurfaceScalarField, phi: &VolScalarField) -> FvMatrix {
                     mat.ldu.diag[owner] += w * coeff;
                     mat.source[owner] += w * coeff * ref_value + (1.0 - w) * coeff * d * ref_grad;
                 }
-                // `InletOutlet`/`OutletInlet` carry no flux in the diffusion
-                // operator (degrade to zero-gradient); `Slip`/`Wedge`/`Empty`
-                // are zero-gradient-like here. No contribution.
+                // fixedFluxPressure: a fixedGradient whose gradient the solver
+                // set (snGrad(p)); same explicit boundary flux as FixedGradient.
+                BoundaryCondition::FixedFluxPressure { gradient } => {
+                    mat.source[owner] += coeff * d * gradient;
+                }
+                // totalPressure: Dirichlet using the solver-computed face value
+                // stored in the patch — implicit diagonal + explicit source.
+                BoundaryCondition::TotalPressure { .. } => {
+                    mat.ldu.diag[owner] += coeff;
+                    mat.source[owner] += coeff * phi.boundary[pi].values[fi];
+                }
+                // `InletOutlet`/`OutletInlet`/`Freestream` carry no flux in the
+                // diffusion operator (degrade to zero-gradient);
+                // `Slip`/`Wedge`/`Empty`/`pressureInletOutletVelocity`/
+                // `flowRateInletVelocity` are zero-gradient-like here. No
+                // contribution.
                 _ => {}
             }
         }

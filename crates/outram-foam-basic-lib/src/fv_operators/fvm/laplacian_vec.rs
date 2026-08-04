@@ -76,10 +76,13 @@ pub fn laplacian_vec(
             let coeff = gamma_f.boundary[pi].values[fi] * area / delta;
 
             match &u.boundary[pi].bc {
+                // Dirichlet-type: wall value from boundary.values[fi].
+                // `FlowRateInletVelocity` is a fixed inlet velocity the solver
+                // hook wrote into `values`, so it assembles identically.
                 BoundaryCondition::FixedValue(_)
                 | BoundaryCondition::FixedField(_)
-                | BoundaryCondition::Calculated(_) => {
-                    // Dirichlet-type: wall value from boundary.values[fi]
+                | BoundaryCondition::Calculated(_)
+                | BoundaryCondition::FlowRateInletVelocity { .. } => {
                     let u_wall = u.boundary[pi].values[fi];
                     mat.ldu.diag[owner] += coeff;
                     mat.source[owner] = mat.source[owner] + u_wall * coeff;
@@ -106,15 +109,22 @@ pub fn laplacian_vec(
                         + *ref_grad * ((1.0 - w) * coeff * delta);
                 }
                 // Zero-gradient-like (no implicit/explicit diffusion contribution).
-                // `InletOutlet`/`OutletInlet` carry no flux in the diffusion
+                // `InletOutlet`/`OutletInlet`/`Freestream`/
+                // `PressureInletOutletVelocity` carry no flux in the diffusion
                 // operator, so they degrade to zero-gradient here; `Slip`/`Wedge`
                 // are treated as zero-gradient at this Layer (see enum docs).
+                // `FixedFluxPressure`/`TotalPressure` are scalar pressure BCs and
+                // are not meaningful on a vector field — zero-gradient stand-in.
                 BoundaryCondition::ZeroGradient
                 | BoundaryCondition::Symmetry
                 | BoundaryCondition::Slip
                 | BoundaryCondition::Wedge
                 | BoundaryCondition::InletOutlet { .. }
                 | BoundaryCondition::OutletInlet { .. }
+                | BoundaryCondition::Freestream { .. }
+                | BoundaryCondition::PressureInletOutletVelocity
+                | BoundaryCondition::FixedFluxPressure { .. }
+                | BoundaryCondition::TotalPressure { .. }
                 | BoundaryCondition::Empty => {}
             }
         }

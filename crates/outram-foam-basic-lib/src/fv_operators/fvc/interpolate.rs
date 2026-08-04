@@ -124,19 +124,33 @@ where
                     // is applied by the momentum corrector, not this Layer-1
                     // interpolation. `InletOutlet`/`OutletInlet` have no flux in
                     // this operator, so they degrade to zero-gradient here.
+                    // `Freestream`/`PressureInletOutletVelocity` carry no flux in
+                    // this operator, so like `InletOutlet` they degrade to
+                    // zero-gradient (face value = adjacent cell value) here.
                     BoundaryCondition::ZeroGradient
                     | BoundaryCondition::Symmetry
                     | BoundaryCondition::Slip
                     | BoundaryCondition::Wedge
                     | BoundaryCondition::InletOutlet { .. }
-                    | BoundaryCondition::OutletInlet { .. } => vol.internal[owner].clone(),
+                    | BoundaryCondition::OutletInlet { .. }
+                    | BoundaryCondition::Freestream { .. }
+                    | BoundaryCondition::PressureInletOutletVelocity => vol.internal[owner].clone(),
                     BoundaryCondition::FixedValue(v) => v.clone(),
                     BoundaryCondition::FixedField(ff) => ff[fi].clone(),
                     BoundaryCondition::Calculated(ff) => ff[fi].clone(),
+                    // Solver-driven Dirichlet BCs: the face value is the
+                    // last-computed value the solver hook wrote into
+                    // `bc_patch.values` (`p0 − 0.5ρ|U|²` for totalPressure, the
+                    // flow-rate inlet velocity for flowRateInletVelocity).
+                    BoundaryCondition::TotalPressure { .. }
+                    | BoundaryCondition::FlowRateInletVelocity { .. } => bc_patch.values[fi].clone(),
                     // No-slip wall: fixedValue of zero.
                     BoundaryCondition::NoSlip => T::default(),
                     // Neumann with prescribed gradient g: φ_face = φ_cell + g·delta.
-                    BoundaryCondition::FixedGradient(g) => {
+                    // `FixedFluxPressure` is a fixedGradient whose gradient the
+                    // solver set (`snGrad(p)`), so it reconstructs the same way.
+                    BoundaryCondition::FixedGradient(g)
+                    | BoundaryCondition::FixedFluxPressure { gradient: g } => {
                         let delta = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
                         vol.internal[owner].clone() + g.clone() * delta
                     }

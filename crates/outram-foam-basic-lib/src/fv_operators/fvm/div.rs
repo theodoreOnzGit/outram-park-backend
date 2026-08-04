@@ -126,8 +126,28 @@ pub fn div(phi: &SurfaceScalarField, psi: &VolScalarField) -> FvMatrix {
                         mat.ldu.diag[owner] += phi_f; // inflow: zeroGradient
                     }
                 }
+                // freestream is inletOutlet(freestreamValue): fixedValue on
+                // inflow (phi_f < 0), zeroGradient on outflow (phi_f ≥ 0).
+                BoundaryCondition::Freestream { freestream_value } => {
+                    if phi_f >= 0.0 {
+                        mat.ldu.diag[owner] += phi_f; // outflow: zeroGradient
+                    } else {
+                        mat.source[owner] -= phi_f * freestream_value; // inflow: fixedValue
+                    }
+                }
+                // totalPressure is Dirichlet using the solver-computed face
+                // value stored in the patch: upwind owner on outflow, known
+                // explicit boundary value on inflow.
+                BoundaryCondition::TotalPressure { .. } => {
+                    if phi_f >= 0.0 {
+                        mat.ldu.diag[owner] += phi_f;
+                    } else {
+                        mat.source[owner] -= phi_f * psi.boundary[pi].values[fi];
+                    }
+                }
                 // Zero-gradient-like for convection (Slip/Wedge/NoSlip/Empty/
-                // FixedGradient/Mixed): upwind donor is the owner cell on
+                // FixedGradient/Mixed/FixedFluxPressure/pressureInletOutletVelocity/
+                // flowRateInletVelocity): upwind donor is the owner cell on
                 // outflow; inflow carries no known explicit value here.
                 _ => {
                     if phi_f >= 0.0 {
