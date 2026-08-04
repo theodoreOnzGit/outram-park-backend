@@ -678,6 +678,14 @@ built, tested, and published from this single repository.
 | `kovan-codegen` | KOVAN deterministic code generation — templates for known numerical methods (root finders, linear/nonlinear/ODE solvers). Not an AI assistant. | GPL-3.0 |
 | `kovan-cli` (bin `kovan`) | KOVAN **agent-facing** CLI (`clap`) — line-oriented output for Claude Code and other coding agents. | GPL-3.0 |
 | `kovan-tui` (bin) | KOVAN **human-facing** TUI (`ratatui`). Desktop scope: on Android it compiles to a CLI-redirect stub. | GPL-3.0 |
+| `outram-blender` | Mesh-authoring frontend (GPL fork of Blender's mesh architecture) — headless surface authoring with opt-in **Monte Carlo** (`mc-export` → `sim` → MC Studio) and **OpenFOAM volume-meshing** (`foam-mesh` → `foam_mesh` → tet-dual Mesh Studio) solver bridges. Not affiliated with the Blender Foundation. | GPL-3.0 |
+| `outram-park-fork-cfmesh` | Pure-Rust fork of **cfMesh** — Cartesian/tetrahedral/polyhedral volume meshing with boundary layers; `pipeline::surface_to_tet_dual_mesh` consumes an `outram-blender` surface and emits an `outram-foam` polyMesh. Independent fork, not official cfMesh. | GPL-3.0 |
+| `outram-foam-mesh` | OpenFOAM mesh generation & conversion (blockMesh, snappyHexMesh, ideasUnvToFoam, polyDualMesh). Independent fork, not official OpenFOAM. | GPL-3.0 |
+| `outram-foam-cli` | OpenFOAM-style command-line utilities (blockMesh, pimpleFoam, gen-foam, …) as terminal binaries. Independent fork, not official OpenFOAM. | GPL-3.0 |
+| `outram-foam-multiphase` | Phase-II multiphase CFD — drift-flux first (Euler-Euler two-fluid, wall boiling, CHF, dryout planned). Reference physics for TAMPINES reduced-order models. Scaffold, no human V&V. Independent fork, not official OpenFOAM. | GPL-3.0 |
+| `outram-park-fork-liggghts` | Pure-Rust granular-DEM library — particles, contact mechanics, thermal DEM, pebble/packed-bed physics (ports LIGGGHTS/LAMMPS-granular). LIGGGHTS-PUBLIC is GPL-2-or-later (GPL-3-compatible; see `NOTICE`). Scaffold. | GPL-3.0 |
+| `outram-park-fork-pflotran` | Pure-Rust fork of **PFLOTRAN** — subsurface flow & reactive transport; enum-dispatched, `uom`-typed, no PETSc/FFI/MPI. Scaffold, no human V&V. Independent fork. | GPL-3.0 |
+| `outram-park-mpi` | Pure-Rust **MPICH** subset — the MPI-3 API surface (communicators, datatypes, point-to-point, core collectives) over a shared-memory threads-as-ranks transport. No C/FFI, Android-buildable. Scaffold. Not affiliated with MPICH. | GPL-3.0 |
 
 > **KOVAN** is the deterministic *knowledge* layer (literature + semantics +
 > codegen), interfaced two ways: the `kovan` **CLI** for agents and the
@@ -699,8 +707,10 @@ built, tested, and published from this single repository.
 | `openfoam-icof` | `outram-foam-basic-lib` | **icoFoam** (incompressible laminar PISO) |
 | `openfoam-cht` | `outram-foam-basic-lib` | **chtMultiRegionFoam** (conjugate heat transfer, multi-region) |
 | `openfoam-rho` | `outram-foam-basic-lib` | **rhoPimpleFoam** / **sonicFoam** (compressible) |
-| `nee-soon` *(working name)* | `teh-o-prke`, `outram-mc-libs`, `njoy-outram-park-fork`, `outram-foam-appbuilder-lib` | Human-readable **integration/coupling** layer: composes MC + deterministic/TH + nuclear data, exposes CFD-coupling interfaces, PRKE + surrogates. See `docs/architecture.md`. |
 | **GenFOAM** (deterministic + TH) | *ported inside* `outram-foam-appbuilder-lib` | Deterministic neutronics + thermal hydraulics. On hold until the MC + nuclear-data path matures. |
+
+> `nee-soon` is no longer "planned" — it exists as the `nee_soon` member crate
+> (see the Members table above); it remains mostly scaffold.
 
 **Layer 5 (solver loop logic) MUST live in these separate crates**, not in
 `outram-foam-basic-lib`.  `outram-foam-basic-lib` provides the mathematical building

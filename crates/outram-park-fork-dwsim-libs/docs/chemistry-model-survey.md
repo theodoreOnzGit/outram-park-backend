@@ -39,12 +39,12 @@ chemistry lens): ★★★ high · ★★ medium · ★ low (petroleum-specific)
 | Model | Source `.vb` | LOC | Status | Rel. | Notes |
 |---|---|--:|:--:|:--:|---|
 | Peng-Robinson (PR) | `PengRobinson` | 1153 | ✅ | ★★ | Cover-gas / supercritical-CO₂ / hydrocarbon systems. `thermo::cubic_eos`. |
-| PR-1978 (corrected ω) | `PengRobinson78` | 1178 | ⬜ | ★★ | 1978 α-refit; better for heavy/high-ω species. Small delta on PR. |
+| PR-1978 (corrected ω) | `PengRobinson78` | 1178 | ✅ | ★★ | 1978 α-refit; better for heavy/high-ω species. `thermo::pr1978`. |
 | Soave-Redlich-Kwong (SRK) | `SoaveRedlichKwong` | 1199 | ✅ | ★★ | `thermo::cubic_eos`. |
-| PRSV2 (Stryjek-Vera) | `PengRobinsonStryjekVera2` | 942 | ◐ | ★★ | κ₁ α-function ported as free fn (`eos_variants`); full package (mixing/DB) not. |
+| PRSV2 (Stryjek-Vera) | `PengRobinsonStryjekVera2` | 942 | ✅ | ★★ | Full κ₁/κ₂/κ₃ α-function with Z / fugacity / departure / vapour-pressure surface. `thermo::prsv2_full` (κ₁-only free fn also in `eos_variants`). |
 | PRSV2-VL (volume-translated) | `PengRobinsonStryjekVera2VL` | 913 | ◐ | ★★ | Adds Peneloux-style volume translation (partly in `eos_variants`). |
-| Lee-Kesler-Plöcker (LKP) | `LeeKeslerPlocker` | 755 | ⬜ | ★★ | 3-parameter corresponding-states; accurate densities/enthalpies for light gases. |
-| PR + Lee-Kesler enthalpy | `PengRobinsonLeeKesler` | 409 | ⬜ | ★★ | PR K-values with LK departure functions. |
+| Lee-Kesler-Plöcker (LKP) | `LeeKeslerPlocker` | 755 | ✅ | ★★ | 3-parameter corresponding-states; accurate densities/enthalpies for light gases. `thermo::lkp`. |
+| PR + Lee-Kesler enthalpy | `PengRobinsonLeeKesler` | 409 | ✅ | ★★ | PR K-values with LK caloric departures. `thermo::pr_lee_kesler`. |
 
 ### 1b. Activity-coefficient (liquid-phase) models
 
@@ -53,8 +53,8 @@ chemistry lens): ★★★ high · ★★ medium · ★ low (petroleum-specific)
 | NRTL | `NRTL` | 374 | ✅ | ★★ | `thermo::activity`. Non-ideal liquids, aqueous. |
 | UNIQUAC | `UNIQUAC` | 396 | ✅ | ★★ | `thermo::activity`. |
 | UNIFAC | `UNIFAC` | 143 | ✅ | ★★ | Group contribution. `thermo::unifac`. |
-| UNIFAC-LLE | `UNIFACLL` | 142 | ⬜ | ★★ | LLE-parameterised UNIFAC (needs the LLE flash below). |
-| Modified UNIFAC (Dortmund) | `MODFAC` | 138 | ⬜ | ★★ | Temperature-dependent groups; better than base UNIFAC. |
+| UNIFAC-LLE | `UNIFACLL` | 142 | ✅ | ★★ | LLE-parameterised UNIFAC. `thermo::unifac_lle`. |
+| Modified UNIFAC (Dortmund) | `MODFAC` | 138 | ✅ | ★★ | Temperature-dependent groups; better than base UNIFAC. `thermo::unifac_dortmund`. |
 | NIST-Modified UNIFAC | `NISTMFAC` | 151 | ⬜ | ★ | NIST parameter set variant of MODFAC. |
 | Wilson | `WilsonPropertyPackage` | 369 | ⬜ | ★ | Cannot do LLE; superseded by NRTL/UNIQUAC for our uses. |
 | Ideal / Raoult | `Ideal` | 871 | ✅ | ★★ | `thermo::property_package::Ideal` (Wilson-K estimate). |
@@ -64,10 +64,10 @@ chemistry lens): ★★★ high · ★★ medium · ★ low (petroleum-specific)
 
 | Model | Source `.vb` | LOC | Status | Rel. | Notes |
 |---|---|--:|:--:|:--:|---|
-| Electrolyte base | `ElectrolyteBase` | 841 | ⬜ | ★★★ | Ion speciation substrate; prerequisite for the below. |
-| Ideal electrolyte | `ElectrolyteIdeal` | 643 | ⬜ | ★★★ | Simplest aqueous-ionic model — coolant water chemistry (boron, Li, pH). |
-| LIQUAC | `LIQUAC2PropertyPackage` | 638 | ⬜ | ★★★ | Long-range (Debye-Hückel) + UNIQUAC short-range for strong electrolytes. |
-| Sour water | `SourWater` | 298 | ⬜ | ★★ | H₂S/NH₃/CO₂ aqueous ionic equilibria — off-gas / coolant degassing. |
+| Electrolyte base | `ElectrolyteBase` | 841 | ✅ | ★★★ | Ion speciation substrate. `thermo::electrolyte`. |
+| Ideal electrolyte | `ElectrolyteIdeal` | 643 | ✅ | ★★★ | Molality-scale ideal + Debye-Hückel mean-ionic term. `thermo::electrolyte`. |
+| LIQUAC | `LIQUAC2PropertyPackage` | 638 | ◐ | ★★★ | Debye-Hückel long-range + middle-range + UNIQUAC short-range activity kernel ported (`thermo::electrolyte`); full package glue not. |
+| Sour water | `SourWater` | 298 | ✅ | ★★ | H₂S/NH₃/CO₂ aqueous ionic equilibria — off-gas / coolant degassing. `thermo::sour_water`. |
 
 > **Extended UNIQUAC** (a common electrolyte model) is not a standalone file
 > here — DWSIM's electrolyte activity lives in `ElectrolyteBase` +
@@ -98,23 +98,23 @@ chemistry lens): ★★★ high · ★★ medium · ★ low (petroleum-specific)
 
 ## 2. Flash algorithms — `DWSIM.Thermodynamics/FlashAlgorithms/` (23 files)
 
-The flash is the innermost equilibrium solve. The fork has the **2-phase VLE**
-core; the multi-phase and solid/electrolyte flashes are the gap.
+The flash is the innermost equilibrium solve. The fork now covers the **2-phase
+VLE** core plus the multi-phase, solid, and electrolyte flashes.
 
 | Algorithm | Source `.vb` | LOC | Phases | Status | Rel. | Notes |
 |---|---|--:|:--:|:--:|:--:|---|
 | Nested Loops (VLE) | `NestedLoops` | 4185 | VL | ✅ | ★★ | Rachford-Rice / nested loops. `thermo::flash`. |
-| Boston-Britt Inside-Out | `BostonBrittInsideOut` | 2302 | VL | ⬜ | ★★ | Faster inner/outer loop; robust for wide-boiling mixtures. |
-| Nested Loops 3P (VLLE) | `NestedLoops3PV3` | 1853 | VLL | ⬜ | ★★ | Three-phase vapour-liquid-liquid. Off-gas / immiscible. |
-| Inside-Out 3P | `BostonFournierInsideOut3P` | 2144 | VLL | ⬜ | ★★ | 3-phase Inside-Out. |
-| Gibbs minimisation 3P | `GibbsMinimization3P` | 1414 | VLL | ⬜ | ★★★ | Direct Gibbs-energy minimisation — robust for **speciation**. |
-| Gibbs minimisation (multi) | `GibbsMinimizationMulti` | 1145 | N-phase | ⬜ | ★★★ | Multi-phase Gibbs — molten-salt / fission-product speciation. |
-| **Nested Loops SLE** | `NestedLoopsSLE` | 1830 | SL | ⬜ | ★★★ | **Solid-liquid equilibrium** — salt freezing / precipitation (MSR!). |
-| Nested Loops SVLLE | `NestedLoopsSVLLE` | 315 | SVLL | ⬜ | ★★ | Solid + 3-phase fluid. |
-| Simple LLE | `SimpleLLE` | 1252 | LL | ⬜ | ★★ | Liquid-liquid split. |
+| Boston-Britt Inside-Out | `BostonBrittInsideOut` | 2302 | VL | ✅ | ★★ | Faster inner/outer loop; robust for wide-boiling mixtures. `thermo::flash_insideout`. |
+| Nested Loops 3P (VLLE) | `NestedLoops3PV3` | 1853 | VLL | ✅ | ★★ | Three-phase vapour-liquid-liquid. `thermo::flash_vlle`. |
+| Inside-Out 3P | `BostonFournierInsideOut3P` | 2144 | VLL | ✅ | ★★ | 3-phase Inside-Out. `thermo::flash_insideout_3p`. |
+| Gibbs minimisation 3P | `GibbsMinimization3P` | 1414 | VLL | ✅ | ★★★ | Direct Gibbs-energy minimisation for **speciation**. `thermo::gibbs` / `gibbs_multiphase`. |
+| Gibbs minimisation (multi) | `GibbsMinimizationMulti` | 1145 | N-phase | ✅ | ★★★ | Multi-phase Gibbs — molten-salt / fission-product speciation. `thermo::gibbs_multiphase`. |
+| **Nested Loops SLE** | `NestedLoopsSLE` | 1830 | SL | ✅ | ★★★ | **Solid-liquid equilibrium** — salt freezing / precipitation (MSR!). `thermo::flash_sle`. |
+| Nested Loops SVLLE | `NestedLoopsSVLLE` | 315 | SVLL | ✅ | ★★ | Solid + 3-phase fluid. `thermo::flash_svlle`. |
+| Simple LLE | `SimpleLLE` | 1252 | LL | ✅ | ★★ | Liquid-liquid split. `thermo::flash_lle`. |
 | Nested Loops immiscible | `NestedLoopsImmiscible` | 293 | VL(+immisc.) | ⬜ | ★ | Immiscible water/hydrocarbon. |
-| **Electrolyte SVLE** | `ElectrolyteSVLE` | 1191 | S-V-L ionic | ⬜ | ★★★ | Aqueous-ionic solid-vapour-liquid — coolant precipitation chemistry. |
-| Single-component flash | `SingleCompFlash` | 454 | any | ⬜ | ★★ | Pure-fluid saturation shortcut. |
+| **Electrolyte SVLE** | `ElectrolyteSVLE` | 1191 | S-V-L ionic | ✅ | ★★★ | Aqueous-ionic solid-vapour-liquid — coolant precipitation chemistry. `thermo::electrolyte_svle`. |
+| Single-component flash | `SingleCompFlash` | 454 | any | ✅ | ★★ | Pure-fluid saturation shortcut. `thermo::flash_single_comp`. |
 | Forced-phase flash | `ForcedPhaseFlash` | 539 | forced | ⬜ | ★ | Skip equilibrium, force a phase. |
 | Universal flash | `UniversalFlash` | 864 | dispatcher | ◐ | ★★ | Picks the right sub-flash by phase count; our `property_package` does a narrower version. |
 | Base flash | `BaseFlashAlgorithm` | 1949 | — | ◐ | — | Shared init (Wilson K, stability). Partly in `thermo::stability`. |
@@ -122,32 +122,38 @@ core; the multi-phase and solid/electrolyte flashes are the gap.
 
 ---
 
-## 3. Reactions & reactors — **entirely unported (★★★ for reactor chemistry)**
+## 3. Reactions & reactors — **now ported (★★★ for reactor chemistry)**
 
 Reaction handling has two layers: the **reaction model** (kinetics/equilibrium
-definitions) and the **reactor unit operations** that integrate them.
+definitions, `crate::reactions`) and the **reactor unit operations**
+(`crate::reactors`) that integrate them.
 
 ### 3a. Reaction model types — `ReactionType` (`DWSIM.Interfaces/Enums.vb`; definitions in `ThermodynamicsBase.vb`)
 
 | Reaction type | Status | Rel. | Notes |
 |---|:--:|:--:|---|
-| **Conversion** | ⬜ | ★★ | Fixed fractional conversion of a key reactant. |
-| **Equilibrium** | ⬜ | ★★★ | K_eq(T) from ΔG or a Gibbs solve — fission-product / corrosion / salt-redox speciation. |
-| **Kinetic** | ⬜ | ★★★ | Arrhenius rate laws (power-law) — time-resolved reactor chemistry. |
-| **Heterogeneous catalytic** | ⬜ | ★★ | Langmuir-Hinshelwood surface kinetics. |
-| Reaction basis | ⬜ | — | Activity / fugacity / molar-conc / mass-conc / molar-frac (`ReactionBasis`). |
+| **Conversion** | ✅ | ★★ | Fixed fractional conversion of a key reactant. `reactions::ReactionKind`. |
+| **Equilibrium** | ✅ | ★★★ | K_eq(T) from ΔG — fission-product / corrosion / salt-redox speciation. `reactions`. |
+| **Kinetic** | ✅ | ★★★ | Arrhenius power-law forward/reverse rate. `reactions::Reaction`. |
+| **Heterogeneous catalytic** | ✅ | ★★ | Langmuir-Hinshelwood surface kinetics. `reactions::LangmuirHinshelwood`. |
+| Reaction basis | ✅ | — | Activity / fugacity / molar-conc / mass-conc / molar-frac (`reactions::ReactionBasis`). |
 
 ### 3b. Reactor unit operations — `DWSIM.UnitOperations/Reactors/`
 
 | Reactor | Source `.vb` | LOC | Status | Rel. | Notes |
 |---|---|--:|:--:|:--:|---|
-| Gibbs | `Gibbs` | 3028 | ⬜ | ★★★ | Min-Gibbs equilibrium reactor — **speciation without reaction list** (molten-salt / fission-product equilibrium). |
-| Equilibrium | `Equilibrium` | 3798 | ⬜ | ★★★ | Simultaneous K_eq reactions. |
-| CSTR | `CSTR` | 1611 | ⬜ | ★★ | Continuous stirred tank + kinetics. |
-| PFR | `PFR` | 2274 | ⬜ | ★★ | Plug-flow + kinetics (ODE along length). |
-| Conversion | `Conversion` | 1374 | ⬜ | ★ | Fixed-conversion reactor. |
-| Base reactor | `BaseReactor` | 335 | ⬜ | — | Shared reactor substrate. |
-| Reaktoro-Gibbs | `ReaktoroGibbs` | 693 | ✗ | — | Bridge to external Reaktoro lib — out of scope (build our own Gibbs solver). |
+| Gibbs | `Gibbs` | 3028 | ✅ | ★★★ | Min-Gibbs equilibrium reactor — **speciation without reaction list**. `reactors::GibbsReactor`. |
+| Equilibrium | `Equilibrium` | 3798 | ✅ | ★★★ | Simultaneous K_eq reactions. `reactors::EquilibriumReactor`. |
+| CSTR | `CSTR` | 1611 | ✅ | ★★ | Continuous stirred tank + kinetics. `reactors::Cstr`. |
+| PFR | `PFR` | 2274 | ✅ | ★★ | Plug-flow + kinetics (ODE along length). `reactors::Pfr`. |
+| Conversion | `Conversion` | 1374 | ✅ | ★ | Fixed-conversion reactor. `reactors::ConversionReactor`. |
+| Base reactor | `BaseReactor` | 335 | ◐ | — | Shared substrate (`reactors::ReactorFeed` / `ReactorOutcome` / `ReactorModel`). |
+| Reaktoro-Gibbs | `ReaktoroGibbs` | 693 | ✗ | — | Bridge to external Reaktoro lib — out of scope (built our own Gibbs solver). |
+
+> **Simplifications** versus upstream (honest limitations): reactors hold
+> volumetric flow fixed at the feed value and solve isothermally at the feed
+> temperature (the heat of reaction is reported but not fed back into an energy
+> balance); equilibrium uses ideal activity/fugacity. See `reactors` module docs.
 
 ---
 
@@ -188,29 +194,41 @@ pressure. Modelling it needs exactly the models this survey prioritises:
 - **Multicomponent gas-phase EOS** (LKP / PR-78) for the CO/CO₂/H₂/H₂O/He
   mixture properties (bead `op-b4t`).
 
-So beads `op-tts`, `op-4ng`, and `op-b4t` are the HTGR-water-ingress-critical
-subset of this backlog, alongside the molten-salt SLE/electrolyte work.
+The enabling modules for all three are now **ported** (`crate::reactions` /
+`crate::reactors`, `thermo::gibbs` / `gibbs_multiphase`, `thermo::lkp` /
+`pr1978`) — verification, not benchmark-validation, so the HTGR chemistry itself
+still needs to be assembled and validated on these building blocks (beads
+`op-tts`, `op-4ng`, `op-b4t`), alongside the molten-salt SLE/electrolyte work.
 
-## 5. Recommended port order for OUTRAM PARK
+## 5. Port order for OUTRAM PARK — status
 
 Ranked by reactor-chemistry value (not DWSIM's petroleum-first ordering). The
-core VLE tier is done; these are the **high-value gaps**:
+core VLE tier and the six high-value gaps below are now **ported** (verification,
+not benchmark-validation — everything remains untrusted draft until human V&V):
 
-1. **Solid-liquid equilibrium flash** (`NestedLoopsSLE`) — salt freezing /
-   precipitation, the signature molten-salt-reactor need. ★★★
-2. **Gibbs-minimisation flash + Gibbs reactor** (`GibbsMinimization3P` /
+1. ✅ **Solid-liquid equilibrium flash** (`NestedLoopsSLE`) — salt freezing /
+   precipitation, the signature molten-salt-reactor need. `thermo::flash_sle`. ★★★
+2. ✅ **Gibbs-minimisation flash + Gibbs reactor** (`GibbsMinimization3P` /
    `GibbsMinimizationMulti` + `Reactors/Gibbs`) — equilibrium speciation of
-   salts / fission products without an explicit reaction list. ★★★
-3. **Electrolyte tier** (`ElectrolyteBase` → `ElectrolyteIdeal` → `LIQUAC2` +
+   salts / fission products without an explicit reaction list.
+   `thermo::gibbs` / `gibbs_multiphase`, `reactors::GibbsReactor`. ★★★
+3. ✅ **Electrolyte tier** (`ElectrolyteBase` → `ElectrolyteIdeal` → `LIQUAC2` +
    `ElectrolyteSVLE` flash) — aqueous coolant chemistry (boron/Li/pH,
-   fission-product solubility) and ionic melts. ★★★
-4. **Reaction models + kinetic/equilibrium reactors** (`ReactionType` +
+   fission-product solubility) and ionic melts. `thermo::electrolyte` /
+   `electrolyte_svle` / `sour_water`. ★★★
+4. ✅ **Reaction models + kinetic/equilibrium reactors** (`ReactionType` +
    `Reactors/{Equilibrium, CSTR, PFR}`) — time-resolved corrosion / radiolysis
-   / fission-product chemistry surrogates. ★★★
-5. **3-phase & Inside-Out flashes** (`NestedLoops3PV3`, `BostonBrittInsideOut`)
-   — off-gas / multiphase robustness. ★★
-6. **Better EOS** (`LeeKeslerPlocker`, `PengRobinson78`, full PRSV2) — improved
-   densities/enthalpies for cover gas and near-critical CO₂. ★★
+   / fission-product chemistry surrogates. `crate::reactions` / `crate::reactors`. ★★★
+5. ✅ **3-phase & Inside-Out flashes** (`NestedLoops3PV3`, `BostonBrittInsideOut`,
+   `BostonFournierInsideOut3P`) — off-gas / multiphase robustness.
+   `thermo::flash_vlle` / `flash_insideout` / `flash_insideout_3p`. ★★
+6. ✅ **Better EOS** (`LeeKeslerPlocker`, `PengRobinson78`, full PRSV2, PR+LK) —
+   improved densities/enthalpies for cover gas and near-critical CO₂.
+   `thermo::lkp` / `pr1978` / `prsv2_full` / `pr_lee_kesler`. ★★
+
+**Remaining gaps** (not yet ported): the Mathias-Copeman / Twu α-variants and
+advanced EOS (PC-SAFT, GERG-2008), the immiscible and forced-phase flashes, and
+the LIQUAC full-package glue.
 
 **Do not port** (use the existing OUTRAM crate or drop): steam tables →
 `tampines-steam-tables`; CoolProp bridges → `outram-park-fork-coolprop`;
@@ -223,12 +241,15 @@ Chao-Seader, Grayson-Streed, Seawater) unless a specific case needs them.
 
 | Category | Upstream models | Ported ✅ | Partial ◐ | Gap ⬜ | Out of scope ✗ |
 |---|--:|--:|--:|--:|--:|
-| Property packages | 30 | 6 | 4 | 13 | 7 |
-| Flash algorithms | 23 | 1 | 3 | 14 | 5 |
-| Reaction types | 4 | 0 | 0 | 4 | 0 |
-| Reactors | 7 | 0 | 0 | 6 | 1 |
+| Property packages | 30 | 15 | 4 | 4 | 7 |
+| Flash algorithms | 23 | 11 | 3 | 4 | 5 |
+| Reaction types | 4 | 4 | 0 | 0 | 0 |
+| Reactors | 7 | 5 | 1 | 0 | 1 |
 
-The fork owns a solid **2-phase VLE + cubic-EOS + activity** core. The strategic
-chemistry gaps for OUTRAM PARK are **solid-liquid & Gibbs speciation flashes**,
-the **electrolyte tier**, and **reaction/reactor** models — the chemistry a
-molten-salt or aqueous-coolant reactor simulation actually exercises.
+The fork now owns the **2-phase VLE + cubic-EOS + activity** core **plus** the
+strategic OUTRAM PARK chemistry: **solid-liquid & Gibbs speciation flashes**, the
+**electrolyte tier**, and **reaction/reactor** models — the chemistry a
+molten-salt or aqueous-coolant reactor simulation actually exercises. All of it
+is **verified, not benchmark-validated**, and untrusted draft until human V&V.
+Remaining gaps are the advanced-EOS tier (PC-SAFT / GERG / Twu) and a few
+petroleum-specific / external-bridge packages.

@@ -1,5 +1,16 @@
 # outram-blender — Scaffold Review Manifest
 
+> **⚠️ HISTORICAL SNAPSHOT (superseded).** This manifest records the AI-fleet
+> review taken at the crate's original **scaffold** stage. The "Real vs stub"
+> breakdown below (`ops` / `modifiers` / `procedural` / `export` as STUB, `gpu`
+> as feature-gated/ABSENT) reflects that early state and is **no longer current**
+> — those modules are now real, `wgpu` is compiled unconditionally on desktop
+> (no `gpu` feature), and the crate has since gained end-to-end Monte Carlo
+> (`sim` / MC Studio) and volume-meshing (`foam_mesh` / Mesh Studio) paths. For
+> the crate's actual current status and module map, read the **README.md**. This
+> file is kept as a record of the scaffold-stage review, not as a description of
+> the present code.
+
 > **⚠️ AI-GENERATED DRAFT — HUMAN REVIEW REQUIRED per `RESPONSIBLE_USE.md`.**
 > Everything in the `outram-blender` crate was produced by an AI fleet (lead +
 > subagents) and is **untrusted draft material until a human reviews it**. It

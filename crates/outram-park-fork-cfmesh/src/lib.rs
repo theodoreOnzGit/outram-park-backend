@@ -111,6 +111,19 @@
 //!   an *improve-or-noop* guard so it can never make a mesh worse and refuses
 //!   tangled input (verified: fixes a non-Delaunay bipyramid exactly, conserves
 //!   volume + bounded growth on a block, returns invalid input unchanged).
+//! - **High-level pipeline (the recommended entry point).**
+//!   [`pipeline::surface_to_tet_dual_mesh`] composes the stages above into one
+//!   call: `carve → snap → tetrahedralize → Delaunay-improve → polyhedral dual
+//!   → smooth → adaptive prism boundary layers`, driven by
+//!   [`pipeline::TetDualOptions`] and returning a [`pipeline::TetDualReport`]
+//!   (cell count, volume, quality, and a note for every stage skipped). Each
+//!   optional stage is applied only if its result stays valid (closed + no
+//!   inverted cells), otherwise it is **gracefully skipped** and the previous
+//!   mesh kept, so the returned mesh is always valid and exportable. This is the
+//!   coarse-grained meshing entry point the `outram-blender` "mesh studio" GUI
+//!   calls; the [`pipeline::box_tet_dual`] / [`pipeline::sphere_tet_dual`] /
+//!   [`pipeline::cylinder_tet_dual`] wrappers mesh the built-in primitives.
+//!   Lengths in metres, layer thickness in metres, angles in degrees.
 //!
 //! Next on the `op-hzs` roadmap: exact/adaptive predicates + size-driven point
 //! insertion (the rest of `op-38z`; gmsh — GPLv2+, GPLv3-compatible — is a
@@ -137,6 +150,7 @@ pub mod dual;
 pub mod layers;
 pub mod math;
 pub mod octree;
+pub mod pipeline;
 pub mod reactor;
 pub mod shapes;
 pub mod smooth;

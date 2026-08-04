@@ -412,7 +412,7 @@ pub fn flash_sl(
         .collect();
 
     let mut x = zf.clone(); // liquid composition, seeded with the feed
-    let mut s = null.clone();
+    let mut s: Vec<f64>; // solid composition, assigned on every exit path below
     let mut l = 1.0_f64;
     let mut last_residual = f64::INFINITY;
 

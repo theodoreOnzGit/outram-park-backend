@@ -86,15 +86,56 @@ into a real `outram-foam-basic-lib` `PolyMesh` that yields a solvable `FvMesh`
 via `to_fv_mesh()`. The full loop **surface → carve → snap → foam mesh** is
 verified end-to-end (foam's own geometry engine agrees on the volume).
 
+**Milestone 4 — the meshing kernel (landed).** The stages that turn a carved,
+snapped background mesh into a solvable polyhedral-with-layers mesh are all
+implemented and verified (exact/near-analytic volume, closed cells, no inverted
+cells): `octree::refine_near_boundary` (graded near-wall refinement),
+`tet::tetrahedralize` (centroid subdivision to an all-tet mesh),
+`delaunay::flip_to_delaunay` (bistellar 2→3 / 3→2 flips with Shewchuk
+predicates, improve-or-noop), `dual::polyhedral_dual` /
+`dual::polyhedral_dual_min_faces` (`polyDualMesh`-style median dual, robust
+quad-fan or face-minimal), `smooth::laplacian_smooth` (smart-Laplacian quality
+smoothing), and `layers::add_boundary_layers` / `add_boundary_layers_adaptive`
+(graded prism wall layers — flat walls, and curved/polyhedral walls with
+per-point thickness limiting).
+
+### High-level pipeline (the recommended entry point)
+
+`pipeline::surface_to_tet_dual_mesh(points, tris, &opts)` composes the whole
+kernel into **one call** via the **tet → dual** path — tetrahedralize the carved
+interior, take its polyhedral dual, then grow adaptive prism boundary layers:
+
+```text
+surface → carve_box → snap_to_surface → tetrahedralize → flip_to_delaunay
+  → polyhedral_dual(_min_faces) → laplacian_smooth → add_boundary_layers_adaptive
+```
+
+It is tuned by `pipeline::TetDualOptions` (all lengths in **metres**: background
+`cell_size`, `first_layer_thickness`; dimensionless `expansion ≥ 1`; per-stage
+on/off toggles) and returns a `pipeline::TetDualReport` (cell count, total volume
+in m³, checkMesh-style quality in degrees, and a note per skipped stage).
+
+Each optional stage is applied **only if its result stays valid** — closed *and*
+free of negative-volume (inverted) cells — otherwise it is **gracefully skipped**,
+the previous mesh is kept, and a human-readable line is appended to
+`TetDualReport::stage_notes`. The returned mesh is therefore always valid and
+exportable, so a caller never has to unwind a broken partial mesh. This is the
+coarse-grained entry point the **`outram-blender` Mesh Studio GUI** calls (in
+place of hand-wiring the individual stages) to author a surface and generate a
+polyhedral-with-layers volume mesh; the `box_tet_dual` / `sphere_tet_dual` /
+`cylinder_tet_dual` wrappers mesh the built-in primitives directly.
+
 Remaining roadmap (beads under the `op-hzs` epic):
 
 1. `op-hzs.40` — **core `VolumeMesh` + Cartesian block mesher** ✅ (milestone 1)
 2. `op-hzs.41` — **castellated surface carve** ✅ (milestone 2)
 3. `op-hzs.42` — **boundary snapping** ✅ (milestone 3a)
 4. `op-hzs.35` — **volume polyMesh bridge** to `outram-foam-basic-lib` ✅ (milestone 3b)
-5. octree refinement near the surface (graded cell sizing)
-6. `op-hzs.33` — **polyhedral dual** (`polyDualMesh`-style, voro++ reference)
-7. `op-hzs.34` — **wall boundary / prism layers**
+5. octree refinement near the surface (graded cell sizing) ✅
+6. `op-hzs.33` — **polyhedral dual** (`polyDualMesh`-style, voro++ reference) ✅
+7. `op-hzs.34` — **wall boundary / prism layers** ✅
+8. exact/adaptive predicates + size-driven point insertion (rest of `op-38z`);
+   multi-patch / feature-aware layer insertion
 
 ## Design rules (workspace `CLAUDE.md`)
 

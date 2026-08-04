@@ -10,7 +10,10 @@
 //!
 //! - **Belongs here:** equipment-model correlations translated from DWSIM's
 //!   `UnitOperations` (pipe pressure drop, valve sizing, heat-exchanger
-//!   rating, pump/expander thermodynamics) with `uom`-typed public APIs.
+//!   rating, pump/expander thermodynamics, [`reactors`] built on the
+//!   [`reactions`] model) with `uom`-typed public APIs, plus the [`thermo`]
+//!   thermodynamics kernel (EOS, activity models, flash algorithms, property
+//!   packages) those equipment models draw on.
 //! - **Does NOT belong here:** DWSIM's GUI, XML/JSON serialization,
 //!   property-grid reflection, or flowsheet-solver plumbing -- none of that
 //!   is physics, and none of it is ported (see each module's doc comment for

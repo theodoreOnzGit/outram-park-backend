@@ -5677,7 +5677,7 @@ dependencies = [
 
 [[package]]
 name = "outram-blender"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "eframe",
  "egui",
@@ -5686,6 +5686,7 @@ dependencies = [
  "faer",
  "outram-foam-basic-lib",
  "outram-mc-libs",
+ "outram-park-fork-cfmesh",
  "thiserror 2.0.18",
  "wgpu",
 ]
@@ -5761,7 +5762,7 @@ dependencies = [
 
 [[package]]
 name = "outram-mc-libs"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "approx",
  "fission-yields-data",
@@ -5810,7 +5811,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-cfmesh"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "eframe",
  "egui",
@@ -5828,7 +5829,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-dwsim-libs"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "approx",
  "ndarray",

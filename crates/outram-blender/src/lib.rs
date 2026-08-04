@@ -3,10 +3,22 @@
 //! A pure-Rust, headless **mesh-authoring frontend** for the OUTRAM PARK
 //! multiphysics suite, inspired by the **architecture** of
 //! [Blender](https://github.com/blender/blender) (GPLv2-or-later, which is
-//! GPLv3-compatible). The eventual goal is to author and procedurally generate
-//! geometry that feeds the OUTRAM PARK solvers — an `outram-foam-mesh`
-//! `polyMesh` for CFD, or an `outram-mc-libs` CSG universe for Monte Carlo
-//! neutron transport.
+//! GPLv3-compatible). It authors and procedurally generates geometry, then
+//! bridges it into two OUTRAM PARK solver workflows:
+//!
+//! - **Monte Carlo neutron transport** (feature `mc-export`). Author a surface,
+//!   fit it to an `outram-mc-libs` CSG universe ([`export`]), attach materials,
+//!   and run a k-eigenvalue (criticality) calculation returning `k_eff ± σ`
+//!   (the `sim` module). This path is driven by the **MC Studio** egui app
+//!   (`examples/mc_studio`).
+//! - **CFD / thermal-hydraulics volume meshing** (feature `foam-mesh`). Hand a
+//!   closed surface to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers
+//!   pipeline and write out an OpenFOAM `polyMesh` (the `foam_mesh` module). This
+//!   path is driven by the **Mesh Studio** egui app (`examples/mesh_studio`).
+//!
+//! The base authoring library (primitives, mesh operators, modifiers, procedural
+//! evaluator, geometry processing) pulls in neither solver — both bridges are
+//! opt-in cargo features, so the default build stays light and Android-buildable.
 //!
 //! > **⚠️ Not a Blender port.** Blender is millions of lines of C/C++/Python;
 //! > this crate borrows its *concepts and data-structure architecture* (the
@@ -64,6 +76,8 @@
 //! | [`procedural`] | Geometry Nodes (`nodes/geometry/*`) | **real** — node-graph evaluator |
 //! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid + feature-gated real-type bridges (`foam-export`, `mc-export`) |
 //! | [`stl`] | STL I/O | **real** — ASCII + binary STL read/write (surface-mesh interchange / DAGMC / Monte-Carlo feed) |
+//! | `sim` *(feature `mc-export`)* | — (no Blender analogue) | **real** — Monte Carlo setup + run: build materials, bundle geometry/source/settings, run a k-eigenvalue criticality calc (`k_eff ± σ`) via `outram-mc-libs`. Backend of **MC Studio** |
+//! | `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet→dual→boundary-layers pipeline → OpenFOAM `polyMesh`. Backend of **Mesh Studio** |
 //!
 //! ## Design rules honoured here (workspace `CLAUDE.md`)
 //!
@@ -112,6 +126,13 @@ pub mod export;
 /// calculation. The backend the outram-mc GUI drives.
 #[cfg(feature = "mc-export")]
 pub mod sim;
+
+/// Volume-meshing bridge (feature `foam-mesh`) — hand a blender surface [`mesh::Mesh`]
+/// (or a built-in primitive) to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers
+/// `pipeline`, get back a polyhedral `VolumeMesh` + quality report, and export an
+/// OpenFOAM `polyMesh`. The backend the Mesh Studio GUI drives.
+#[cfg(feature = "foam-mesh")]
+pub mod foam_mesh;
 pub mod fill_holes;
 pub mod inset;
 pub mod laplacian;

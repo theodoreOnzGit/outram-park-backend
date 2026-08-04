@@ -58,7 +58,8 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 | Rust file | C++ source |
 |---|---|
 | `src/physics/transport.rs` | `src/physics.cpp` (1249 LOC) — history-based loop notes (still a stub; the live loop is `transport_csg.rs`) |
-| `src/physics/transport_csg.rs` | `src/physics.cpp`, `src/geometry.cpp` — the **live** CSG k-eigenvalue transport loop (`run_keff_csg`) |
+| `src/physics/transport_csg.rs` | `src/physics.cpp`, `src/geometry.cpp` — the **live** CSG k-eigenvalue transport loop (`run_keff_csg`); its `transport_history` is the per-history kernel reused by the fixed-source driver |
+| `src/physics/fixed_source.rs` | new orchestration (not a direct port) over `transport_csg::transport_history` — **fixed-source** driver (`run_fixed_source`): external point/box source, sub-critical multiplication, no `k_eff`; analytic void-streaming V&V |
 | `src/physics/scatter.rs` | `src/physics_common.cpp`, `src/physics.cpp` |
 | `src/physics/fission.rs` | `src/physics.cpp` — `fission()`, `create_fission_sites()` |
 | `src/physics/physics_mg.rs` | `src/physics_mg.cpp` |
