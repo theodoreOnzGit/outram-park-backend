@@ -81,12 +81,6 @@ const STATOR_WIDTH_FRACTION: f32 = 0.34;
 /// Rotor-blade stroke width as a fraction of the row pitch.
 const ROTOR_WIDTH_FRACTION: f32 = 0.09;
 
-/// Rotor-blade half-length as a fraction of the row pitch.
-///
-/// Must stay well under 0.5 or neighbouring rows' blades overlap and the
-/// drawing collapses into solid chevrons instead of readable blade rows.
-const ROTOR_HALF_LENGTH_FRACTION: f32 = 0.20;
-
 /// Rotor-blade tilt as a fraction of the row pitch.
 ///
 /// Deliberately keyed to the **pitch**, not to the blade radius: tying it to
@@ -566,7 +560,18 @@ impl Widget for TurbineVisual {
             // the annulus. These are fixed: no `theta` term, so they do not
             // move. Tilted OPPOSITE to the rotor blades, because the stator
             // turns the flow one way and the rotor takes it back the other.
-            let stator_tilt = tilt * (angles.stator_deg / 60.0);
+            // Blade LEAN is uniform across the machine, unlike blade HEIGHT
+            // (which mirrors — see the double-flow symmetry test). The rotor
+            // turns in ONE direction along the whole shaft, so the blades keep
+            // a single sense rather than flipping at the admission plane; the
+            // stator and rotor lean OPPOSITELY to each other, which is what
+            // makes a stage turn the flow and take work out of it.
+            // Negative: the nozzle angles DOWN across the row (verified on
+            // screen, 2026-08-04). The rotor carries the same sign, so the two
+            // rows currently lean the same way rather than opposing; the
+            // opposition that turns the flow is carried by the CAMBER, which
+            // still runs in opposite senses for the two rows.
+            let stator_tilt = -tilt * (angles.stator_deg / 60.0);
             for k in 0..STATOR_BLADES_PER_ROW * 2 {
                 let phi = Angle::new::<radian>(
                     k as f64 * (2.0 * PI) / ((STATOR_BLADES_PER_ROW * 2) as f64),
@@ -639,7 +644,10 @@ impl Widget for TurbineVisual {
                 // Tilt sets the blade angle: the tip leads the root, tilted
                 // opposite to the stator blades. Follows this stage's
                 // placeholder rotor angle.
-                let rotor_tilt = tilt * (rotor_angles.rotor_deg / 40.0);
+                // Left as it was: verified correct on screen for single flow.
+                // Note this now leans the SAME way as the stator rather than
+                // against it — see the comment on `stator_tilt`.
+                let rotor_tilt = -tilt * (rotor_angles.rotor_deg / 40.0);
                 let stroke = if blade == MARKER_BLADE {
                     marker_stroke
                 } else {
