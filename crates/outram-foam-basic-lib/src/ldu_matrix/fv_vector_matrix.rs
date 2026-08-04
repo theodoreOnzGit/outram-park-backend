@@ -52,10 +52,29 @@ pub struct FvVectorMatrix {
 impl FvVectorMatrix {
     /// Allocate a zero-initialised vector matrix for `mesh` (zero coefficients,
     /// zero source).
+    ///
+    /// As with [`FvMatrix::new`](crate::ldu_matrix::FvMatrix::new), the LDU face
+    /// addressing holds the internal faces, then one slot per
+    /// [`CyclicCoupling`](crate::mesh::CyclicCoupling), then one slot per
+    /// [`AmiWeight`](crate::mesh::AmiWeight) of each
+    /// [`AmiCoupling`](crate::mesh::AmiCoupling), so every vector matrix on a
+    /// given mesh shares one structure and the `+`/`−` operators line up.
     pub fn new(mesh: Arc<FvMesh>) -> Self {
         let n_cells = mesh.n_cells;
-        let owner = mesh.owner[..mesh.n_internal_faces].to_vec();
-        let neighbour = mesh.neighbour.clone();
+        let mut owner = mesh.owner[..mesh.n_internal_faces].to_vec();
+        let mut neighbour = mesh.neighbour.clone();
+        for cc in &mesh.cyclic_couplings {
+            owner.push(cc.owner);
+            neighbour.push(cc.neighbour);
+        }
+        // Non-conformal (AMI) seams: one LDU face per weighted (target, source)
+        // pair, appended after the cyclic couplings in `ami_couplings` order.
+        for cc in &mesh.ami_couplings {
+            for w in &cc.weights {
+                owner.push(cc.target_cell);
+                neighbour.push(w.source_cell);
+            }
+        }
         Self {
             ldu: LduMatrix::new(n_cells, owner, neighbour),
             source: Field::from_fn(n_cells, |_| Vector3::ZERO),
@@ -112,7 +131,9 @@ impl FvVectorMatrix {
         for c in 0..n {
             h[c] = self.source[c];
         }
-        for f in 0..mesh.n_internal_faces {
+        // Full LDU face count (internal + appended cyclic couplings) so
+        // periodic-seam off-diagonals contribute to H.
+        for f in 0..self.ldu.n_internal_faces {
             let o = self.ldu.owner[f];
             let nb = self.ldu.neighbour[f];
             h[o] = h[o] - u.internal[nb] * self.ldu.upper[f];

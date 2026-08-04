@@ -404,6 +404,7 @@ fn kind_from_str(s: &str) -> PatchKind {
         "empty" => PatchKind::Empty,
         "wedge" => PatchKind::Wedge,
         "cyclic" => PatchKind::Cyclic,
+        "cyclicAMI" => PatchKind::CyclicAmi,
         "processor" => PatchKind::Processor,
         _ => PatchKind::Patch,
     }
@@ -417,6 +418,7 @@ fn kind_to_str(k: PatchKind) -> &'static str {
         PatchKind::Empty => "empty",
         PatchKind::Wedge => "wedge",
         PatchKind::Cyclic => "cyclic",
+        PatchKind::CyclicAmi => "cyclicAMI",
         PatchKind::Processor => "processor",
     }
 }

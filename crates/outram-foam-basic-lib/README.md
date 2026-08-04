@@ -87,9 +87,23 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | Module | Rust type | Notes |
 |---|---|---|
 | `fields` | `Field<T>`, `VolField<T>`, `SurfaceField<T>` | Generic field containers; `BoundaryCondition<T>`, `PatchField<T>` |
+| `fields::boundary` | `BoundaryCondition::FixedGradient` | `fixedGradientFvPatchField.H` — Neumann `φ_face = φ_cell + g·delta` |
+| `fields::boundary` | `BoundaryCondition::Mixed` | `mixedFvPatchField.H` — Robin blend of fixedValue (weight `value_fraction`) and fixedGradient; also the albedo BC |
+| `fields::boundary` | `BoundaryCondition::InletOutlet` | `inletOutletFvPatchField.H` — fixedValue on inflow, zeroGradient on outflow (flux-switched on `φ_f=U·Sf`) |
+| `fields::boundary` | `BoundaryCondition::OutletInlet` | `outletInletFvPatchField.H` — fixedValue on outflow, zeroGradient on inflow |
+| `fields::boundary` | `BoundaryCondition::Slip` | `slipFvPatchField.H` — vector: normal component removed, tangential zeroGradient; scalar: zeroGradient |
+| `fields::boundary` | `BoundaryCondition::NoSlip` | `noSlipFvPatchField.H` — velocity fixedValue = 0 |
+| `fields::boundary` | `BoundaryCondition::Wedge` | `wedgeFvPatchField.H` — axisymmetric wedge; **first pass: zeroGradient stand-in** (rotation transform not yet implemented) |
+| `fields::boundary` | `BoundaryCondition::Freestream` | `freestreamFvPatchField.H` — far-field inletOutlet: `freestreamValue` on inflow, zeroGradient on outflow (flux-switched); self-contained |
+| `fields::boundary` | `BoundaryCondition::PressureInletOutletVelocity` | `pressureInletOutletVelocityFvPatchVectorField.H` — outflow zeroGradient, inflow `U=(φ_f/\|S_f\|)·n̂`; solver refreshes values via `update_pressure_inlet_outlet_velocity` |
+| `fields::boundary` | `BoundaryCondition::FixedFluxPressure` | `fixedFluxPressureFvPatchScalarField.H` — fixedGradient `snGrad(p)=(φ_HbyA−φ_target)/(D_p·\|S_f\|)`; solver-set gradient (`fixed_flux_pressure_sn_grad`) |
+| `fields::boundary` | `BoundaryCondition::TotalPressure` | `totalPressureFvPatchScalarField.H` — `p=p0−0.5ρ\|U\|²` (incompressible; compressible deferred); cross-field, solver refreshes via `update_total_pressure` |
+| `fields::boundary` | `BoundaryCondition::FlowRateInletVelocity` | `flowRateInletVelocityFvPatchVectorField.H` — uniform inlet `U=−(Q/A_patch)·n̂`, `A_patch=Σ\|S_f\|`; solver/geometry-driven via `update_flow_rate_inlet_velocity` |
 | `fields` | `VolScalarField`, `VolVectorField`, `VolTensorField`, `VolSymmTensorField` | Typed aliases |
 | `fields` | `SurfaceScalarField`, `SurfaceVectorField` | Face-centred typed aliases |
 | `mesh` | `FvMesh`, `FvMeshBuilder`, `BoundaryPatch`, `PatchKind` | Unstructured polyhedral mesh |
+| `mesh` | `BoundaryPatch::new_cyclic`, `CyclicCoupling`, `FvMesh::periodic_1d` | `cyclicPolyPatch` — cyclic (periodic) patch pairing: matched half0/half1 faces + across-seam owner↔owner cell couplings; `periodic_1d` builds a 1-D periodic ring programmatically |
+| `mesh::ami` | `AmiCoupling`, `AmiWeight`, `AmiOverlap`, `overlap_weights_1d`, `FvMesh::periodic_ring_ami`, `PatchKind::CyclicAmi` | `cyclicAMIPolyPatch` / `AMIInterpolation` — **non-conformal** periodic (arbitrary-mesh-interface) seams: each target face couples to a geometric-overlap-weighted set of source cells (Σ weights = 1, conservative). `overlap_weights_1d` computes planar/1-D-structured interval overlaps; `periodic_ring_ami` builds a non-conformal periodic ring programmatically. **First pass: 1-D/planar-structured overlap only** — general 3-D polygon clipping, two-axis tiling, and rotational transforms deferred |
 | `mesh` | `RegionInterface` | Matching and non-matching multi-region face coupling for CHT |
 | `ldu_matrix` | `LduMatrix`, `FvMatrix`, `FvVectorMatrix` | Sparse LDU system; scalar and vector implicit equation assembly |
 | `ldu_matrix` | `gauss_seidel`, `conjugate_gradient` | Iterative LDU solvers (no external BLAS). CG is **DIC-preconditioned** (`Foam::DICPreconditioner`) and accepts an optional initial guess (`x0`) for warm starts |
@@ -110,15 +124,15 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | `fvm::ddt_coeff(coeff, phi, phi_old, dt)` | Density/rho_cp-weighted implicit ddt: ∂(coeff·φ)/∂t → `FvMatrix` |
 | `fvm::ddt_vec(U, U_old, dt, mesh)` | Implicit Euler ∂U/∂t → `FvVectorMatrix` |
 | `fvm::ddt_coeff_vec(coeff, U, U_old, dt, mesh)` | Density-weighted implicit ddt: ∂(ρU)/∂t → `FvVectorMatrix` |
-| `fvm::laplacian(gamma, phi)` | Diffusion −∇·(γ∇φ) → `FvMatrix` |
-| `fvm::laplacian_vec(gamma, U)` | Diffusion −∇·(γ∇U) → `FvVectorMatrix` |
-| `fvm::div(phi, psi)` | Upwind convection ∇·(φψ) → `FvMatrix` |
-| `fvm::div_vec(phi, U)` | Upwind convection ∇·(φU) → `FvVectorMatrix` |
+| `fvm::laplacian(gamma, phi)` | Diffusion −∇·(γ∇φ) → `FvMatrix` (couples cyclic/periodic seam faces as internal faces via `cyclicFvPatchField`; **cyclicAMI** non-conformal seams as overlap-weighted partial internal faces via `cyclicAMIFvPatchField`) |
+| `fvm::laplacian_vec(gamma, U)` | Diffusion −∇·(γ∇U) → `FvVectorMatrix` (cyclic + cyclicAMI seam coupling) |
+| `fvm::div(phi, psi)` | Upwind convection ∇·(φψ) → `FvMatrix` (cyclic + cyclicAMI seam coupling; per-target flux split by overlap weight) |
+| `fvm::div_vec(phi, U)` | Upwind convection ∇·(φU) → `FvVectorMatrix` (cyclic + cyclicAMI seam coupling) |
 | `fvc::grad(phi)` | Explicit cell-centred gradient → `VolVectorField` |
 | `fvc::div(phi, psi)` | Explicit scalar divergence → `VolScalarField` |
 | `fvc::div_flux(phi)` | Divergence of face flux → `VolScalarField` |
-| `fvc::interpolate(phi)` | Linear face interpolation → `SurfaceScalarField` |
-| `fvc::sn_grad(phi)` | Surface-normal gradient → `SurfaceScalarField` |
+| `fvc::interpolate(phi)` | Linear face interpolation → `SurfaceScalarField` (interpolates across the cyclic seam to the paired cell) |
+| `fvc::sn_grad(phi)` | Surface-normal gradient → `SurfaceScalarField` (gradient across the cyclic seam to the paired cell) |
 | `fvc::flux(U)` | Face flux φ = U·Sf → `SurfaceScalarField` |
 | `fvc::reconstruct(phi)` | Least-squares VolVectorField from face flux → `VolVectorField` |
 | `fvc::ddt_corr(U_old, phi_old, dt)` | PISO flux consistency correction → `SurfaceScalarField` |
@@ -182,11 +196,38 @@ current source; nothing here is aspirational. See also the
 - **Time integration is first-order.** Only implicit Euler `fvm::ddt` (plus
   `fvm::ddt_coeff`, the vector forms, and a `d2dt2`) is provided. No
   higher-order/backward/Crank–Nicolson time schemes.
-- **Boundary conditions are a small closed set.** `BoundaryCondition`
+- **Boundary conditions are a closed enum set.** `BoundaryCondition`
   (`src/fields/boundary/bc.rs`) supports `FixedValue`, `FixedField`,
-  `ZeroGradient`, `Symmetry`, `Empty`, and `Calculated` only. There is **no**
-  `inletOutlet`, non-zero `fixedGradient`, `mixed`/Robin, wall-function,
-  `cyclic`/periodic, or processor boundary condition.
+  `ZeroGradient`, `FixedGradient` (non-zero), `Mixed`/Robin, `InletOutlet`,
+  `OutletInlet`, `Slip`, `NoSlip`, `Wedge` (zero-gradient stand-in),
+  `Symmetry`, `Empty`, `Calculated`, and the flow-context BCs `Freestream`
+  (self-contained, flux-switched), `PressureInletOutletVelocity`,
+  `FixedFluxPressure`, `TotalPressure`, and `FlowRateInletVelocity` (the last
+  four **solver-driven** — the solver refreshes their stored values/gradient
+  each iteration via the documented `update_*` / `*_value` hooks). **Cyclic
+  (periodic) patches** are now
+  functional at the topology/operator level — `PatchKind::Cyclic` patch pairs
+  couple across the seam like internal faces in `fvm::laplacian(_vec)` /
+  `fvm::div(_vec)` / `fvc::interpolate` / `fvc::sn_grad` (build one with
+  `FvMesh::periodic_1d` or `BoundaryPatch::new_cyclic`). Still **no**
+  wall-function or processor BC, and the `polyMesh` parser does **not yet read
+  the cyclic `neighbourPatch` ordering**, so cyclic pairs must be wired
+  programmatically (not from a read `constant/polyMesh`) for now. Cyclic support
+  is an **untrusted AI-assisted draft pending human V&V** (verified against the
+  equivalent all-internal ring mesh — see the `vv_cyclic_*` tests — not yet
+  human-reviewed).
+- **Non-conformal periodic (`cyclicAMI`) patches** are functional at the
+  topology/operator level for the **1-D / planar-structured** case
+  (`PatchKind::CyclicAmi`, `mesh::ami`). Each target seam face couples to a
+  geometric-overlap-weighted set of source cells (weights sum to 1,
+  conservative) in `fvm::laplacian(_vec)` / `fvm::div(_vec)`; build a
+  non-conformal periodic ring with `FvMesh::periodic_ring_ami`. **Deferred
+  (documented in `mesh::ami`):** general 3-D polygon-clipping overlap, two-axis
+  transverse tiling, rotational-transform AMI, `fvc::interpolate`/`sn_grad`
+  across AMI seams, and reading `cyclicAMI` from a `polyMesh`. Verified in the
+  matching-mesh limit (AMI == plain cyclic) and for a 2:1 non-conformal
+  conservation case (`vv_ami_*` tests); **untrusted AI-assisted draft pending
+  human V&V** — not yet human-reviewed.
 
 ### Linear solvers
 
