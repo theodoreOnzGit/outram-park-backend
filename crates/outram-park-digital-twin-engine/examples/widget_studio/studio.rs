@@ -7,7 +7,7 @@
 //! physics has nowhere to hide.
 
 use egui::{Color32, Pos2, RichText, Vec2};
-use outram_park_digital_twin_engine::components::{TurbineFlowPath, TurbineVisual};
+use outram_park_digital_twin_engine::components::{PipeVisual, TurbineFlowPath, TurbineVisual};
 use tampines_steam_tables::steam_turbine_equations::generator::ThreePhaseElectricGeneratorTurbine;
 use uom::si::angular_velocity::{radian_per_second, revolution_per_minute};
 use uom::si::electric_potential::volt;
@@ -29,16 +29,18 @@ use uom::si::torque::newton_meter;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WidgetUnderTest {
     SteamTurbine,
+    Pipes,
 }
 
 impl WidgetUnderTest {
     /// Every widget the studio can show, in picker order.
-    pub const ALL: &'static [Self] = &[Self::SteamTurbine];
+    pub const ALL: &'static [Self] = &[Self::SteamTurbine, Self::Pipes];
 
     /// Human-readable name for the picker.
     pub fn label(self) -> &'static str {
         match self {
             Self::SteamTurbine => "Steam turbine",
+            Self::Pipes => "Pipes (3 backends)",
         }
     }
 
@@ -47,6 +49,7 @@ impl WidgetUnderTest {
     pub fn status(self) -> &'static str {
         match self {
             Self::SteamTurbine => "reworked — spins at omega from a real torque balance",
+            Self::Pipes => "salt / steam-water HEM / helium, stacked",
         }
     }
 }
@@ -85,10 +88,19 @@ pub struct WidgetStudio {
     widget_size: Vec2,
     /// Flow path drawn: double-flow (PWR standard) or single-flow.
     flow_path: TurbineFlowPath,
+
+    // ── Pipes tab ─────────────────────────────────────────────────────────
+    /// The three demonstration pipes, built once at startup (standing up a
+    /// fluid array per frame would be wasteful and pointless — the widget is
+    /// rebuilt each repaint, the physics is not).
+    pipe_rows: Vec<crate::pipes::PipeRow>,
+    /// Backends that could not be constructed, reported rather than faked.
+    pipe_errors: Vec<String>,
 }
 
 impl Default for WidgetStudio {
     fn default() -> Self {
+        let (pipe_rows, pipe_errors) = crate::pipes::build_rows();
         Self {
             selected: WidgetUnderTest::SteamTurbine,
             generator: ThreePhaseElectricGeneratorTurbine::new_250_megawatt_generator(),
@@ -105,6 +117,8 @@ impl Default for WidgetStudio {
             last_substeps: 0,
             widget_size: Vec2::new(520.0, 260.0),
             flow_path: TurbineFlowPath::default(),
+            pipe_rows,
+            pipe_errors,
         }
     }
 }
@@ -204,15 +218,76 @@ impl eframe::App for WidgetStudio {
             .min_size(320.0)
             .show_inside(ui, |ui| match self.selected {
                 WidgetUnderTest::SteamTurbine => self.turbine_controls(ui),
+                WidgetUnderTest::Pipes => self.pipe_controls(ui),
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| match self.selected {
             WidgetUnderTest::SteamTurbine => self.turbine_canvas(ui),
+            WidgetUnderTest::Pipes => {
+                crate::pipes::draw(ui, &self.pipe_rows, &self.pipe_errors)
+            }
         });
     }
 }
 
 impl WidgetStudio {
+    /// Right-hand panel for the pipes tab: what each backend is and what it
+    /// can represent.
+    fn pipe_controls(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Pipes");
+        ui.label(
+            RichText::new(
+                "One PipeVisual over three flow backends. Colour comes from the per-cell \
+                 temperature profile the backend reports; the number of colour bands IS the \
+                 finite-volume cell count.",
+            )
+            .small()
+            .weak(),
+        );
+        ui.separator();
+
+        ui.label(RichText::new("What drives what").strong());
+        egui::Grid::new("pipe_readout")
+            .num_columns(2)
+            .striped(true)
+            .show(ui, |ui| {
+                for row in &self.pipe_rows {
+                    let temps = PipeVisual::new(
+                        row.pipe.clone(),
+                        Pos2::ZERO,
+                        Vec2::new(1.0, 0.0),
+                        row.min_temp,
+                        row.max_temp,
+                    )
+                    .cell_temperatures();
+                    ui.label(row.name);
+                    if temps.is_empty() {
+                        ui.label(
+                            RichText::new("no cells reported — drawn neutral grey")
+                                .italics()
+                                .color(Color32::from_rgb(200, 140, 60)),
+                        );
+                    } else {
+                        let first = temps.first().map(|t| t.get::<kelvin>()).unwrap_or(0.0);
+                        let last = temps.last().map(|t| t.get::<kelvin>()).unwrap_or(0.0);
+                        ui.label(format!("{} cells · {first:.1} → {last:.1} K", temps.len()));
+                    }
+                    ui.end_row();
+                }
+            });
+
+        ui.add_space(8.0);
+        ui.label(
+            RichText::new(
+                "These pipes are static: their arrays are constructed but not stepped, because \
+                 tampines::components::Pipe::step is not implemented yet. The colours are the \
+                 arrays' real initial states, not a fabricated profile.",
+            )
+            .small()
+            .weak(),
+        );
+    }
+
     /// Right-hand panel: the controls that drive the turbine, and the readout
     /// naming which quantity drives which part of the rendering.
     fn turbine_controls(&mut self, ui: &mut egui::Ui) {

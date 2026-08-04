@@ -10,6 +10,7 @@
 
 use crate::compressible::CompressibleFluidArray;
 use crate::single_phase::SinglePhaseFluidArray;
+use tampines_steam_tables::openfoam_algorithms::rhoPimpleFoam::TampinesSteamArray;
 use crate::TampinesError;
 use outram_park_fork_dwsim_libs::pipe::PipeFlowCorrelation;
 use uom::si::f64::{Angle, Length, Time};
@@ -25,6 +26,16 @@ pub enum PipeBackend {
     Lumped(SinglePhaseFluidArray),
     /// Compressible, CoolProp-backed flow (gas, near-critical, ...).
     Compressible(CompressibleFluidArray),
+    /// Homogeneous-equilibrium (HEM) steam/water flow, backed by
+    /// [`TampinesSteamArray`] and IAPWS-IF97 properties.
+    ///
+    /// This is the two-phase steam/water path, and the intended BASELINE that
+    /// higher-fidelity two-phase models (drift-flux, two-fluid) are built on
+    /// and measured against — see workspace beads `op-dt3.18` and `op-dt3.19`.
+    /// Unlike [`Self::Lumped`] (single-phase liquid) and [`Self::Compressible`]
+    /// (single-phase compressible), this variant carries phase information, so
+    /// it is the one to reach for when the fluid may be wet.
+    SteamHem(TampinesSteamArray),
 }
 
 /// A pipe or pipeline segment: a flow backend plus the geometry a two-phase

@@ -701,7 +701,11 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
 ///   method's doc comment for the exact per-cell property list.
 ///
 /// C++ reference: `applications/solvers/compressible/rhoPimpleFoam/`.
-#[derive(Clone)]
+// Debug matches the sibling OPCPFluidArray (`outram-park-fork-coolprop`), which
+// is the same rhoPimpleFoam port over a different equation of state and derives
+// `Clone, Debug`. Needed so containers holding this array (e.g.
+// `tampines::components::PipeBackend`) can derive Debug too.
+#[derive(Clone, Debug)]
 pub struct TampinesSteamArray {
     /// 1-D finite-volume mesh (built by [`create_one_d_mesh`]).
     pub mesh: Arc<FvMesh>,

@@ -75,12 +75,12 @@ completion:
 
 | Case | Location | State |
 |---|---|---|
-| Edwards–O'Brien pipe blowdown | `tests/edwards_blowdown.rs` | **Run**, results recorded 2026-07-16. Sanity-only assertions (finiteness, bounds); reported as RMSE, not a hard gate |
-| Moody critical mass flux | `.../tests/moody_critical_mass_flux_homogeneous_eqm.rs` | **Partial** — 14 tests, 8 `#[ignore]`d (see bead `op-21g.2`) |
-| Zaloudek critical mass flux | `.../tests/zaloudek_critical_mass_flux_homogeneous_eqm/` | Largely present; 1 `#[ignore]`/`todo!` in the subcooled stagnation case |
-| Marviken tests 23/24 | `.../tests/marviken_tests.rs` | **Not done** — digitised data is in the file, but the test body ends in `todo!()` at line 222 |
-| Bubble-point saturation | `.../tests/bubble_point_saturation_validation.rs` | 2 tests, no ignores |
-| CD-nozzle subsonic / choked / perfectly-expanded | `.../tests/cd_nozzle_*.rs`, `diverging_nozzle_*.rs` | 9 tests, no ignores |
+| Edwards–O'Brien pipe blowdown | `tests/edwards_blowdown.rs` | **Run**, results recorded 2026-07-16. 2 tests, none ignored. Sanity-only assertions (finiteness, bounds); reported as RMSE, not a hard gate |
+| Moody critical mass flux | `.../tests/moody_critical_mass_flux_homogeneous_eqm.rs` | **Active** — 14 tests, 1 ignored, and that one is `diagnose_deep_subcooled_failures`, a diagnostic. `isobar_pref_0_25` is **not** ignored (bead `op-21g.2` looks stale) |
+| Zaloudek critical mass flux | `.../tests/zaloudek_critical_mass_flux_homogeneous_eqm/` | **Active** — 89 tests across 5 files, 1 ignored, and that one is `diagnose_bubble_point_artifact`, a diagnostic |
+| Marviken tests 23/24 | `.../tests/marviken_tests.rs` | **Not done** — `#[ignore="skip first, Marviken is more complex"]`, assertion commented out, body ends in `todo!()` at line 222. Digitised NUREG/CR-2671 data is present |
+| Bubble-point saturation | `.../tests/bubble_point_saturation_validation.rs` | 2 tests, none ignored |
+| CD-nozzle subsonic / choked / perfectly-expanded | `.../tests/cd_nozzle_*.rs`, `diverging_nozzle_*.rs` | 9 tests, **2 ignored and both unfinished** — `wet_steam_test` ("temporary skip test") and `..._wet_steam` ("test not ready"). Both are on the **wet-steam** path the turbine needs |
 | **Steam turbine — anything** | — | **Nothing.** No V&V case exists |
 | Steady-state two-phase pipe Δp | — | **Nothing** |
 | Void fraction | — | **Nothing** |
@@ -89,6 +89,13 @@ So the gaps this scope addresses are: the **entire turbine**, and the pipe's
 **steady-state** closures (friction multiplier, void fraction, post-dryout).
 The pipe's *transient* behaviour is the one thing already exercised, via
 Edwards–O'Brien.
+
+**Counting caveat.** `#[ignore]` here often carries a reason string
+(`#[ignore="..."]`), so the obvious `grep '#\[ignore\]'` **undercounts real
+skips and overcounts comment mentions**. Count with
+`grep -rnE '^\s*#\[ignore' src/`. An earlier pass of this document reported
+Moody as "8 ignored" on the bad pattern; the true figure is 1, and it is a
+diagnostic.
 
 ---
 
@@ -249,7 +256,7 @@ cases; what exists is reference *implementations* and reference *papers*.
 
 | Library | What it has | Licence | Position for us |
 |---|---|---|---|
-| **ClaRa** (`ClaRaLibrary/ClaRa`, `xrg-simulation/ClaRa-official`) | `Steam Turbine L1` — mass + energy conservation with Stodola's law and an isentropic efficiency. Structurally **exactly** the "HemSteamCv with sink terms" design in §1 | **3-clause BSD** (official library) | GPLv3-compatible one-way: may be incorporated into this GPLv3 workspace **with attribution preserved**. The best structural reference |
+| **ClaRa** (`xrg-simulation/ClaRa-official`, mirror `ClaRaLibrary/ClaRa`) | `SteamTurbineVLE_L1.mo` — "A steam turbine model based on STODOLA's law": mass + energy conservation, isentropic efficiency, and an optional mechanical port with moment of inertia `J`. Structurally **exactly** the "HemSteamCv with sink terms" design in §1, including the rotor coupling | **BSD-3-Clause**, verified at three levels — see §6.1 | GPLv3-compatible one-way: may be incorporated into this GPLv3 workspace **with copyright notice, licence conditions and disclaimer retained**. The best structural reference |
 | **ThermoPower** (`casella/ThermoPower`, Politecnico di Milano) | `TurbineStodola` and friends; applied to steam generators, combined cycles, Gen-III/IV nuclear plants | **Modelica License 2** | **Do not port.** ML2 is not clearly GPL-compatible and does not cleanly permit forking. Read for ideas only; no code, no structure-copying |
 | **MOOSE Thermal Hydraulics Module** (INL) | Component-network system TH — pipes, junctions, valves; regression + MMS verification | LGPL 2.1 | Reference for component-network architecture. **Note:** an Edwards–O'Brien case could *not* be confirmed in its public docs during this search — do not assume one exists |
 | **OpenFOAM** `wallBoiling` sub-models + published validations | RPI wall-partitioning validated against Bartolomei and DEBORA | GPL | Directly relevant to §4.2; the arXiv:1709.01783 paper is the usable write-up |
@@ -260,7 +267,62 @@ attribution header block (upstream project, source file, version/commit,
 copyright, licence) per the workspace `RESEARCH_INTEGRITY_AND_PROVENANCE.md`.
 The ThermoPower row is a hard "no", not a caution.
 
-### 6.1 Where ported code goes (maintainer direction, 2026-08-04)
+### 6.1 ClaRa licence — verified 2026-08-04
+
+Checked directly rather than taken from a search summary, because a wrong
+call here contaminates the crate. Three independent levels agree on
+**BSD-3-Clause**:
+
+1. **Repo `LICENSE`** (`xrg-simulation/ClaRa-official`) — verbatim standard
+   BSD 3-Clause text. `Copyright (c) Copyright 2013-2023, ClaRa development
+   team`; the team is TLK-Thermo GmbH (Braunschweig) and XRG Simulation GmbH
+   (Hamburg).
+2. **Per-file header** on `ClaRa/Components/TurboMachines/Turbines/`
+   `SteamTurbineVLE_L1.mo` (ClaRa v1.9.0) — "Licensed by the ClaRa
+   development team under the 3-clause BSD License. Copyright 2013-2024."
+   Identical header in both the `xrg-simulation` and `ClaRaLibrary` copies.
+3. **Per-model documentation annotation** in that same file — "This
+   component was developed by ClaRa development team under the 3-clause BSD
+   License." Original contribution: DYNCAP/DYNSTART development team,
+   copyright 2011–2024, funded by the German Federal Ministry for Economic
+   Affairs and Energy (FKZ 03ET2009, FKZ 03ET7060).
+
+Four things to know before relying on this:
+
+- **GitHub's licence detector reports `NOASSERTION` ("Other")** for the
+  repo. That is a false alarm caused by the malformed copyright line
+  (`Copyright (c) Copyright 2013-2023,`), which defeats the strict matcher.
+  The licence body is unmodified BSD-3. Expect any automated licence scan we
+  run to flag it; this note is the answer.
+- **Prefer `xrg-simulation/ClaRa-official`.** The `ClaRaLibrary/ClaRa` mirror
+  has **no `LICENSE` file at its root** (GitHub API returns 404) — its
+  per-file headers still say BSD-3, but a repo-level licence file is the
+  stronger record.
+- **Per-model provenance can differ from the blanket licence.** Every ClaRa
+  file carries the warning "Contents published in ClaRa have been
+  contributed by different authors and institutions. Please see model
+  documentation for detailed information on original authorship and
+  copyrights." So check the specific model's documentation annotation before
+  porting it — as was done above for `SteamTurbineVLE_L1.mo`, which is
+  clean. Do not generalise that result to other ClaRa models.
+- **ClaRa+ and the older demo distribution are Modelica License 2**, not
+  BSD. Do not treat "ClaRa" as one thing; only the official BSD-3 library
+  above is portable.
+
+**Dependency note:** the ClaRa turbine model imports TILMedia functions. The
+`TILMediaClaRa` submodule (`TLK-Thermo/TILMediaClaRa`) is itself
+BSD-3-Clause — cleanly detected, no ambiguity. It is *not* the commercial
+TILMedia product of the same family. In any case we do not need it: our
+property layer is IF97 via `TampinesSteamTableCV`, so a port takes the
+Stodola/efficiency/rotor algebra and drops the media calls.
+
+**What porting obliges us to do:** retain the copyright notice, the list of
+conditions, and the disclaimer; and not use the names of the copyright
+holder or contributors (ClaRa, TLK-Thermo, XRG Simulation) to endorse or
+promote our derived work. That maps directly onto the workspace attribution
+header block required by `RESEARCH_INTEGRITY_AND_PROVENANCE.md`.
+
+### 6.2 Where ported code goes (maintainer direction, 2026-08-04)
 
 **Ports arising from this scope land as modules inside the existing
 `tampines-steam-tables` and `tampines` crates — not as new workspace member

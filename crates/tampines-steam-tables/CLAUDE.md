@@ -67,16 +67,37 @@ transient two-phase coupling.
 
 Multiphase critical-flow solvers (Homogeneous Equilibrium Model) live in
 `src/steam_turbine_equations/converging_diverging_nozzles/choked_flow/`,
-validated against Moody (1975), Zaloudek HEM reference curves, and Marviken.
-The three split solvers (in-dome / subcooled / superheated-vapour) cover all
-stagnation buckets relative to the p-h VLE dome.
+validated against Moody (1975) and Zaloudek HEM reference curves. **Marviken
+is NOT yet validated** — see below. The three split solvers (in-dome /
+subcooled / superheated-vapour) cover all stagnation buckets relative to the
+p-h VLE dome.
 
 All three stagnation buckets (in-dome, subcooled, superheated) are validated.
-The only known discrepancy is `isobar_pref_0_25` (p₀ = 1.72 bar) in the Moody
-chart tests — its sole deeply-subcooled data point fails with |Δ log10 G| = 0.170
-because the IAPWS-IF97 isentrope diverges from the incompressible-Bernoulli limit
-at extreme pressure ratios (p_bubble/p₀ ≈ 0.02); it is `#[ignore]`d. All other
-Moody isobars (0.50 – 30.0 × p_ref) pass.
+The known discrepancy is `isobar_pref_0_25` (p₀ = 1.72 bar) in the Moody chart
+tests — its sole deeply-subcooled data point deviates by |Δ log10 G| = 0.170
+because the IAPWS-IF97 isentrope diverges from the incompressible-Bernoulli
+limit at extreme pressure ratios (p_bubble/p₀ ≈ 0.02). **That test is no longer
+`#[ignore]`d** — it is active and passes, because the Moody tests are now
+region-filtered and assert only their in-dome (Region 4) points, skipping the
+single-phase ones (see the region-filtering note below, and bead `op-21g.2`,
+which is a candidate for closure on those grounds). All Moody isobars
+(0.25 – 30.0 × p_ref) are active.
+
+**Ignored tests, as of 2026-08-04 — the complete list** (verify with
+`grep -rnE '^\s*#\[ignore' src/`; note several carry a reason string, so a
+`grep '#\[ignore\]'` pattern misses them):
+
+| Test | Kind |
+|---|---|
+| `moody_*::diagnose_deep_subcooled_failures` | Diagnostic — prints a table, asserts nothing |
+| `zaloudek_*::outside_dome_stagnation_subcooled::diagnose_bubble_point_artifact` | Diagnostic — per-point sweep, asserts nothing |
+| `marviken_tests::validate_against_marviken_test_24` | **Unfinished** — see the Marviken note below |
+| `cd_nozzle_choked_flow_overexpanded::wet_steam_test` | **Unfinished** — "temporary skip test" |
+| `diverging_nozzle_perfectly_expanded_supersonic::..._wet_steam` | **Unfinished** — "test not ready" |
+
+The two diagnostics are ignored by design. The three unfinished ones are real
+gaps, and all three sit on the **wet-steam** path — the same path the turbine
+work depends on.
 
 Verification tests are under `.../tests/`, validated against:
 
@@ -93,7 +114,14 @@ Verification tests are under `.../tests/`, validated against:
 - Zaloudek critical mass flux — `zaloudek_*`. NOTE: these reference values are
   graph-read (digitised) HEM curves, not raw experimental data, so keep mass-flux
   (G) tolerances loose.
-- Marviken critical flow tests — `marviken_tests.rs`.
+
+**Marviken — NOT validated (bead `op-21g.16`).** `marviken_tests.rs` looks
+like a validation case but is not one yet: the digitised inlet-pressure /
+mass-flux points from NUREG/CR-2671 (MXC-301, Fig. 8:24, tests 23 and 24) are
+in the file, but `validate_against_marviken_test_24()` ends in `todo!()` at
+line 222 and asserts nothing. Do not describe the choked-flow work as
+Marviken-validated, and do not cite it as such in a paper, until that bead is
+closed with recorded results.
 
 ### Resolved: near-bubble-point HEM artifact (x ≈ 0)
 
@@ -118,7 +146,7 @@ The original combined canary
 with the test files partitioning each Zaloudek throat by where its backward-mapped
 stagnation `(p0, h0)` lands relative to the VLE dome (`ph_flash_region`):
 
-- `subcooled_outside_dome_stagnation.rs` — stagnation OUTSIDE the dome (left
+- `outside_dome_stagnation_subcooled.rs` — stagnation OUTSIDE the dome (left
   side, Region 1 subcooled liquid). Keeps only `ph_flash_region == Region1`,
   runs `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`. The 20
   genuinely-subcooled curves (x_t = 0.05 … 1.00) pass.
@@ -148,7 +176,7 @@ The x = 0.0 bubble-point curve is the curve of primary interest going forward
 x_t = 1e-4).
 
 The former canary
-`subcooled_outside_dome_stagnation::quality_bubble_point_subcooled`
+`outside_dome_stagnation_subcooled::quality_bubble_point_subcooled`
 (x_t = 1e-4, throats essentially on the saturated-liquid line) now **passes** and
 is no longer `#[ignore]`d. The `diagnose_bubble_point_artifact` test in the same
 file prints the per-point breakdown that drove the fix (its `thr_dGlg` column is
@@ -202,7 +230,7 @@ documents the root cause and the quality-based routing.
 | `get_critical_pressure_and_mass_flux_with_stagnation_props` | ❌ Superseded — old combined dispatcher with +25% artifact; retain for reference only, no longer wired into the OOP API |
 
 **Near-bubble-point HEM artifact (x_t ≈ 0) — fixed:**
-`subcooled_outside_dome_stagnation::quality_bubble_point_subcooled` now passes.
+`outside_dome_stagnation_subcooled::quality_bubble_point_subcooled` now passes.
 The old failure was numerical (the energy-balance choke finder is blind to the
 sound-speed discontinuity at the bubble point), not an HEM physics limitation —
 HEM at the throat reproduces the x ≈ 0 reference to ±0.04 in log10 G. The solver

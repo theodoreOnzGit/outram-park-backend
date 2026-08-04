@@ -165,6 +165,15 @@ impl PipeVisual {
                     .iter()
                     .map(|t_k| ThermodynamicTemperature::new::<kelvin>(*t_k))
                     .collect(),
+                // Same field shape as the compressible array: both are ports of
+                // rhoPimpleFoam over different equations of state, so the
+                // temperature field is read identically.
+                PipeBackend::SteamHem(array) => array
+                    .t
+                    .internal
+                    .iter()
+                    .map(|t_k| ThermodynamicTemperature::new::<kelvin>(*t_k))
+                    .collect(),
             },
         }
     }
