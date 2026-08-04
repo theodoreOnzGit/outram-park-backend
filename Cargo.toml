@@ -56,6 +56,16 @@ members = [
     # op-t3l). NOT a code port of GPL-2.0 LIGGGHTS/LAMMPS (see crate NOTICE for
     # the GPL-2 vs GPL-3 licensing flag — maintainer decision pending).
     "crates/outram-park-fork-liggghts",
+    # MSRE digital-twin port targets (epic op-6w0). Independent pure-Rust
+    # forks/translations; upstream reference clones are gitignored dev-only.
+    # outram-park-fork-onix — depletion/burnup (ports MIT-licensed ONIX).
+    "crates/outram-park-fork-onix",
+    # outram-park-fork-thermochimica — molten-salt Gibbs thermochemistry
+    # (ports BSD-3 ORNL Thermochimica), FP speciation/redox/solubility.
+    "crates/outram-park-fork-thermochimica",
+    # outram-park-fork-moltres — MSR neutronics + TH on outram-foam finite
+    # volume (formulation from LGPL Moltres; NOT a MOOSE/PETSc port).
+    "crates/outram-park-fork-moltres",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
@@ -85,6 +95,7 @@ approx = "0.5.1"            # 0.6 is only a pre-release; staying on latest stabl
 csv = "1.4.0"
 ndarray = "0.17.2"
 ndarray-linalg = "0.18.1"  # features (openblas/intel-mkl) chosen per-target by each crate
+num-complex = "0.4.6"  # pure-Rust complex arithmetic (CRAM depletion resolvent solves); Android-safe, no BLAS
 peroxide = "0.41.2"
 roots = "0.0.8"
 thiserror = "2.0.18"
