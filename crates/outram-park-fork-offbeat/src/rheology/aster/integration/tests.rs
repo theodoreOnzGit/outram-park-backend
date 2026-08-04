@@ -192,6 +192,45 @@ fn secant_reproduces_its_published_error_recurrence() {
     }
 }
 
+/// **The secant method's observed order really does oscillate.**
+///
+/// *Methodology:* this test exists to make an explanatory claim checkable
+/// rather than merely asserted. The secant recurrence's doc comment says the
+/// *observed* order wanders over a finite window, which is the reason that test
+/// checks the recurrence rather than the order. Estimate the order over three
+/// successive windows and confirm the spread is real, and that the values
+/// bracket the golden ratio rather than sitting on it. Pass criterion: the
+/// spread across windows exceeds 0.2, i.e. the oscillation is larger than any
+/// tolerance a direct order test could sensibly use.
+///
+/// *Result (measured 2026-08-05):* observed orders **1.2580, 1.7958, 1.5341**
+/// over successive windows, against `φ = 1.6180`. Spread 0.5378. Interpretation:
+/// a direct assertion that the order equals `φ` would need a tolerance of ±0.4
+/// to pass reliably — wide enough to admit both Newton's order 2 and plain
+/// linear convergence, and therefore worthless. Checking the error recurrence
+/// instead is what makes the test meaningful.
+#[test]
+fn the_secant_observed_order_oscillates_around_phi() {
+    const PHI: f64 = 1.618_033_988_749_895;
+    let e = secant_errors(2.0, 3.0, 8);
+
+    let orders: Vec<f64> = (1..4)
+        .map(|n| observed_order(e[n - 1], e[n], e[n + 1]))
+        .collect();
+
+    let lo = orders.iter().copied().fold(f64::INFINITY, f64::min);
+    let hi = orders.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+
+    assert!(
+        hi - lo > 0.2,
+        "expected the observed order to oscillate; got {orders:?}"
+    );
+    assert!(
+        lo < PHI && hi > PHI,
+        "the observed orders should bracket phi = {PHI:.4}; got {orders:?}"
+    );
+}
+
 /// **The secant method is superlinear but slower than Newton.**
 ///
 /// *Methodology:* a direct consequence of the two recurrences above, and the
