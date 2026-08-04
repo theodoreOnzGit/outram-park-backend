@@ -104,12 +104,21 @@ included.
 ## Licensing & provenance
 
 - This crate is **GPL-3.0-only** (workspace default), like the other GPL
-  members of OUTRAM PARK.
+  members of OUTRAM PARK. The full text ships as `LICENSE`.
 - Blender is licensed **GPLv2-or-later**, which is **GPLv3-compatible** — so a
   future literal port of a Blender algorithm into this crate is license-clean,
   *provided* the GPL attribution header block (upstream project, source file,
   version/commit, copyright, license) is added to any ported file, per the
   workspace provenance rule.
+- **Verified against upstream on 2026-08-04**, not assumed — clone
+  `786af64a`. Blender's root `COPYING` states it is available under the GNU GPL
+  and no other licence; SPDX headers across `source/blender` are
+  overwhelmingly `GPL-2.0-or-later` (5981 files), with small numbers of
+  Apache-2.0 (167), MIT (10), BSD-3-Clause (3), Zlib (2), GPL-3.0-or-later (2)
+  and BSL-1.0 (2). The "or later" clause is what makes GPL-3.0-only
+  redistribution clean here. Upstream's GPL-2 text ships verbatim as
+  `LICENSE.blender`; the lineage and non-affiliation notice are in `NOTICE`;
+  the full record with clone instructions is in `upstream_source/README.md`.
 - **No Blender source code is transcribed** — only its concepts and
   data-structure architecture are reused, which does not carry Blender's
   copyright. The one literally-ported algorithm is the Shewchuk robust

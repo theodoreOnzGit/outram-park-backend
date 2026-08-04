@@ -16,7 +16,11 @@ repository.workspace = true
 readme = "README.md"
 categories.workspace = true
 # docs/ (dependency map, AI-fleet review manifest) is repo-only, never shipped.
-exclude = ["docs"]
+# upstream_source/ holds the gitignored Blender clone (~427 MB) kept for
+# porting reference only — it must never be packaged or redistributed. The
+# committed upstream_source/README.md provenance record is small, so it is
+# re-included explicitly.
+exclude = ["docs", "upstream_source/*", "!upstream_source/README.md"]
 
 [features]
 # Optional export bridges to the real OUTRAM PARK solver crates. OFF by default

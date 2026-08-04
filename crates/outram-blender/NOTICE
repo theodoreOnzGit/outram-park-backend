@@ -1,0 +1,55 @@
+outram-blender
+Copyright (C) 2026 OUTRAM PARK contributors
+
+This crate is licensed under the GNU General Public License v3.0 only
+(GPL-3.0-only). See the LICENSE file.
+
+================================================================================
+Upstream provenance
+================================================================================
+
+This crate is an independent fork of the mesh-authoring architecture of the
+following upstream project. Its source is vendored under `upstream_source/` for
+development reference only (gitignored, never committed, never packaged).
+
+--------------------------------------------------------------------------------
+Blender  —  ARCHITECTURE THIS CRATE DERIVES FROM
+--------------------------------------------------------------------------------
+  Upstream:   https://github.com/blender/blender
+  Origin:     Blender Foundation / Blender Authors
+  Copyright:  Blender Authors; NaN Holding BV (2001-2002) on the oldest files
+  Vendored:   commit 786af64aad84154047d93ee077e1fdd1d229f32d (2026-08-04)
+  Licence:    GNU General Public License, version 2 or later (GPL-2.0-or-later)
+
+  Verified against the upstream tree on 2026-08-04, not assumed: the root
+  COPYING file states Blender is available under the GNU GPL and no other
+  licence, and points at doc/license/GPL-license.txt, which carries the GPL
+  version 2 text (reproduced here as LICENSE.blender). SPDX identifiers across
+  source/blender are overwhelmingly GPL-2.0-or-later (5981 files), with small
+  numbers of Apache-2.0 (167), MIT (10), BSD-3-Clause (3), Zlib (2),
+  GPL-3.0-or-later (2) and BSL-1.0 (2).
+
+  GPL-2.0-or-later is GPL-3.0-compatible: the "or later" clause permits
+  redistribution under GPL-3.0, so this crate's GPL-3.0-only licence is
+  licence-clean with respect to Blender.
+
+  NO BLENDER SOURCE CODE IS BUNDLED OR PORTED INTO THIS CRATE. What is reused
+  is the mesh/geometry architecture -- the shape of the BMesh-style
+  non-manifold mesh representation and the operator model. Copyright covers
+  expression, not design, so no upstream file is redistributed here. The
+  upstream licence text and this notice are shipped anyway so the provenance
+  travels with the package and the obligations are already in place the moment
+  a literal port lands.
+
+  Any file later ported from Blender must carry an upstream provenance header
+  block (project, source file, commit, copyright, licence) per the workspace
+  RESEARCH_INTEGRITY_AND_PROVENANCE.md. Do not strip it during refactors.
+
+================================================================================
+Trademarks and non-affiliation
+================================================================================
+
+This crate is NOT affiliated with, endorsed by, or sanctioned by the Blender
+Foundation. "Blender" identifies only the upstream project this work derives
+from, and the "-blender" suffix credits that lineage. No Blender trademark is
+claimed.
