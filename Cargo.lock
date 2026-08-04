@@ -5848,11 +5848,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "outram-park-fork-moltres"
+version = "0.0.0"
+dependencies = [
+ "outram-foam-basic-lib",
+ "thiserror 2.0.18",
+ "uom 0.38.0",
+]
+
+[[package]]
 name = "outram-park-fork-offbeat"
 version = "0.0.0"
 dependencies = [
  "approx",
  "outram-foam-basic-lib",
+ "thiserror 2.0.18",
+ "uom 0.38.0",
+]
+
+[[package]]
+name = "outram-park-fork-onix"
+version = "0.0.0"
+dependencies = [
  "thiserror 2.0.18",
  "uom 0.38.0",
 ]
@@ -5869,6 +5886,14 @@ dependencies = [
  "thiserror 2.0.18",
  "uom 0.38.0",
  "wgpu",
+]
+
+[[package]]
+name = "outram-park-fork-thermochimica"
+version = "0.0.0"
+dependencies = [
+ "thiserror 2.0.18",
+ "uom 0.38.0",
 ]
 
 [[package]]

@@ -1,0 +1,19 @@
+[package]
+name = "outram-park-fork-moltres"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+description = "MSR neutronics + thermal-hydraulics on the outram-foam finite-volume layer — physics formulation from the LGPL Moltres code (circulating-fuel group diffusion + delayed-neutron precursor drift + salt TH), reimplemented on outram-foam rather than MOOSE/PETSc. SCAFFOLD: no human V&V. Not affiliated with the Moltres/ARFC project."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# docs/ and the upstream reference clone are repo-only provenance aids, never
+# shipped in the packaged crate. upstream_source/README.md (the provenance
+# record) is intentionally NOT excluded so it stays in the package.
+exclude = ["docs", "upstream_source/moltres"]
+
+[dependencies]
+uom.workspace = true
+thiserror.workspace = true
+outram-foam-basic-lib = { path = "../outram-foam-basic-lib" }
