@@ -95,6 +95,7 @@ approx = "0.5.1"            # 0.6 is only a pre-release; staying on latest stabl
 csv = "1.4.0"
 ndarray = "0.17.2"
 ndarray-linalg = "0.18.1"  # features (openblas/intel-mkl) chosen per-target by each crate
+num-complex = "0.4.6"  # pure-Rust complex arithmetic (CRAM depletion resolvent solves); Android-safe, no BLAS
 peroxide = "0.41.2"
 roots = "0.0.8"
 thiserror = "2.0.18"

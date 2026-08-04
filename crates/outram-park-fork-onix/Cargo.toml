@@ -16,4 +16,8 @@ exclude = ["docs", "upstream_source/ONIX"]
 [dependencies]
 uom.workspace = true
 thiserror.workspace = true
+# num-complex: complex arithmetic for the CRAM partial-fraction resolvent solves
+# (A - theta_k/dt * I)^{-1}. Pure Rust, no BLAS/FFI, Android-safe. Version lives
+# in the root [workspace.dependencies].
+num-complex.workspace = true
 
