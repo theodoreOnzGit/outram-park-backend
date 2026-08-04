@@ -317,7 +317,7 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
 
     // --- Turbine (colours by inlet steam temperature) ---
     let turbine = Turbine::new(steam_state, Ratio::new::<ratio>(0.85));
-    ui.add(TurbineVisual::new(
+    ui.add(TurbineVisual::new_thermo(
         turbine,
         at(760.0, 120.0),
         Vec2::new(120.0, 70.0),

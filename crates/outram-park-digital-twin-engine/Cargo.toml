@@ -17,6 +17,14 @@ tampines.workspace = true
 nee_soon.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
 
+# REAL (non-dev) dependency: `components::TurbineVisual` renders
+# `tampines_steam_tables::steam_turbine_equations::generator::
+# ThreePhaseElectricGeneratorTurbine`, whose torque-balance angular velocity
+# drives the blade animation. That is library code, not an example, so it
+# cannot be a dev-dependency. No new weight in the tree -- `tampines` already
+# depends on this crate transitively.
+tampines-steam-tables.workspace = true
+
 # TUAS is a REAL (non-dev) dependency because the CIET Educational Simulator v2
 # is a `[[bin]]`, and Cargo does not make dev-dependencies available to binary
 # targets (only to tests/examples/benches). TUAS's own library is pure Rust
@@ -83,7 +91,9 @@ egui_extras.workspace = true
 # (an OpenFOAM port) instead of a BLAS/LAPACK linear solver.
 [dev-dependencies]
 teh-o-prke.workspace = true
-tampines-steam-tables.workspace = true
+# tampines-steam-tables is now a REAL dependency above (TurbineVisual renders
+# its generator model from the library, and libraries cannot see dev-deps); it
+# stays usable from examples/tests either way.
 # tuas_boussinesq_solver is now a REAL dependency above (the CIET v2 binary needs
 # it and bins cannot see dev-deps); it stays usable from examples/tests either way.
 roots.workspace = true
@@ -104,6 +114,14 @@ outram-park-fork-dwsim-libs.workspace = true
 # precedent as outram-park-fork-dwsim-libs above. Promoting a property
 # accessor into tampines is the tidier long-term home.
 outram-park-fork-coolprop.workspace = true
+
+# Widget Studio -- the gallery app for developing and quality-controlling the
+# visual component library one widget at a time (bead op-wqk.14). Not a
+# simulator: it drives a single widget across its full state range with live
+# controls so the widget's look, feel and physics coupling can be judged.
+[[example]]
+name = "widget_studio"
+path = "examples/widget_studio/main.rs"
 
 [[example]]
 name = "fhr_sim_v2"
