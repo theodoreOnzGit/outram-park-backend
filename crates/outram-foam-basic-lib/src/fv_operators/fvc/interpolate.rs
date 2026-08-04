@@ -101,14 +101,42 @@ where
         .zip(vol.boundary.iter())
         .map(|(patch, bc_patch)| {
             let values = Field::from_fn(patch.size, |fi| {
-                let owner = mesh.owner[patch.start + fi];
+                let gf = patch.start + fi;
+                let owner = mesh.owner[gf];
                 match &bc_patch.bc {
-                    BoundaryCondition::ZeroGradient | BoundaryCondition::Symmetry => {
-                        vol.internal[owner].clone()
-                    }
+                    // Zero-gradient family: face value = adjacent cell value.
+                    // `Slip`/`Wedge` fall here for the generic (scalar) path;
+                    // the vector-specific normal removal for `Slip`/`Symmetry`
+                    // is applied by the momentum corrector, not this Layer-1
+                    // interpolation. `InletOutlet`/`OutletInlet` have no flux in
+                    // this operator, so they degrade to zero-gradient here.
+                    BoundaryCondition::ZeroGradient
+                    | BoundaryCondition::Symmetry
+                    | BoundaryCondition::Slip
+                    | BoundaryCondition::Wedge
+                    | BoundaryCondition::InletOutlet { .. }
+                    | BoundaryCondition::OutletInlet { .. } => vol.internal[owner].clone(),
                     BoundaryCondition::FixedValue(v) => v.clone(),
                     BoundaryCondition::FixedField(ff) => ff[fi].clone(),
                     BoundaryCondition::Calculated(ff) => ff[fi].clone(),
+                    // No-slip wall: fixedValue of zero.
+                    BoundaryCondition::NoSlip => T::default(),
+                    // Neumann with prescribed gradient g: φ_face = φ_cell + g·delta.
+                    BoundaryCondition::FixedGradient(g) => {
+                        let delta = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                        vol.internal[owner].clone() + g.clone() * delta
+                    }
+                    // Robin/mixed blend of the fixedValue and fixedGradient parts.
+                    BoundaryCondition::Mixed {
+                        value_fraction,
+                        ref_value,
+                        ref_grad,
+                    } => {
+                        let delta = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                        let w = *value_fraction;
+                        ref_value.clone() * w
+                            + (vol.internal[owner].clone() + ref_grad.clone() * delta) * (1.0 - w)
+                    }
                     BoundaryCondition::Empty => T::default(),
                 }
             });

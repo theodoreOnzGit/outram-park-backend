@@ -80,6 +80,29 @@ pub fn laplacian(gamma: &SurfaceScalarField, phi: &VolScalarField) -> FvMatrix {
                     mat.ldu.diag[owner] += coeff;
                     mat.source[owner] += coeff * ff[fi];
                 }
+                // No-slip wall: fixedValue of zero → implicit diagonal only.
+                BoundaryCondition::NoSlip => {
+                    mat.ldu.diag[owner] += coeff;
+                }
+                // Prescribed normal gradient g [value·m⁻¹]: explicit boundary
+                // flux gamma·area·g = (coeff·d)·g into the source, no diagonal.
+                BoundaryCondition::FixedGradient(g) => {
+                    mat.source[owner] += coeff * d * g;
+                }
+                // Robin/mixed: blend fixedValue (weight w) and fixedGradient
+                // (1-w). w=1 recovers the FixedValue arm, w=0 the FixedGradient.
+                BoundaryCondition::Mixed {
+                    value_fraction,
+                    ref_value,
+                    ref_grad,
+                } => {
+                    let w = *value_fraction;
+                    mat.ldu.diag[owner] += w * coeff;
+                    mat.source[owner] += w * coeff * ref_value + (1.0 - w) * coeff * d * ref_grad;
+                }
+                // `InletOutlet`/`OutletInlet` carry no flux in the diffusion
+                // operator (degrade to zero-gradient); `Slip`/`Wedge`/`Empty`
+                // are zero-gradient-like here. No contribution.
                 _ => {}
             }
         }
@@ -186,5 +209,167 @@ mod tests {
             "T[1] = {}",
             result.internal[1]
         );
+    }
+
+    // ── V&V for the new patch-field BCs (verification, not validation) ──────
+    // UNTRUSTED AI-ASSISTED DRAFT pending human V&V review.
+    // Data version / date taken: 2026-08-04.
+
+    /// V&V (verification, 2026-08-04). Methodology: assemble the Laplacian on
+    /// the 2-cell unit mesh with a right patch that is (a) `FixedValue(v)` and
+    /// (b) `Mixed { value_fraction: 1, ref_value: v, ref_grad: <arbitrary> }`.
+    /// A mixed BC at `value_fraction == 1` must be identical to `fixedValue`.
+    /// Pass criterion: every diag/source entry agrees to < 1e-12.
+    /// Result: max |Δdiag| = 0, max |Δsource| = 0 (exact). PASS.
+    #[test]
+    fn vv_mixed_reduces_to_fixed_value() {
+        let m = unit_mesh();
+        let gamma = uniform_gamma(m.clone(), 1.0);
+        let bc_fv = vec![
+            PatchField {
+                bc: BoundaryCondition::FixedValue(2.0),
+                values: Field::new(vec![0.0]),
+            },
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![0.0]),
+            },
+        ];
+        let bc_mix = vec![
+            PatchField {
+                bc: BoundaryCondition::Mixed {
+                    value_fraction: 1.0,
+                    ref_value: 2.0,
+                    ref_grad: 99.0, // must be ignored at w = 1
+                },
+                values: Field::new(vec![0.0]),
+            },
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![0.0]),
+            },
+        ];
+        let a = laplacian(&gamma, &VolScalarField::new("T", m.clone(), Field::zeros(2), bc_fv));
+        let b = laplacian(&gamma, &VolScalarField::new("T", m.clone(), Field::zeros(2), bc_mix));
+        for i in 0..2 {
+            assert!((a.ldu.diag[i] - b.ldu.diag[i]).abs() < 1e-12);
+            assert!((a.source[i] - b.source[i]).abs() < 1e-12);
+        }
+    }
+
+    /// V&V (verification, 2026-08-04). Methodology: as above but comparing a
+    /// right patch that is (a) `FixedGradient(g)` and (b)
+    /// `Mixed { value_fraction: 0, ref_value: <arbitrary>, ref_grad: g }`.
+    /// A mixed BC at `value_fraction == 0` must be identical to `fixedGradient`.
+    /// Pass criterion: every diag/source entry agrees to < 1e-12.
+    /// Result: max |Δdiag| = 0, max |Δsource| = 0 (exact). PASS.
+    #[test]
+    fn vv_mixed_reduces_to_fixed_gradient() {
+        let m = unit_mesh();
+        let gamma = uniform_gamma(m.clone(), 1.0);
+        let bc_fg = vec![
+            PatchField {
+                bc: BoundaryCondition::FixedGradient(0.5),
+                values: Field::new(vec![0.0]),
+            },
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![0.0]),
+            },
+        ];
+        let bc_mix = vec![
+            PatchField {
+                bc: BoundaryCondition::Mixed {
+                    value_fraction: 0.0,
+                    ref_value: 99.0, // must be ignored at w = 0
+                    ref_grad: 0.5,
+                },
+                values: Field::new(vec![0.0]),
+            },
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![0.0]),
+            },
+        ];
+        let a = laplacian(&gamma, &VolScalarField::new("T", m.clone(), Field::zeros(2), bc_fg));
+        let b = laplacian(&gamma, &VolScalarField::new("T", m.clone(), Field::zeros(2), bc_mix));
+        for i in 0..2 {
+            assert!((a.ldu.diag[i] - b.ldu.diag[i]).abs() < 1e-12);
+            assert!((a.source[i] - b.source[i]).abs() < 1e-12);
+        }
+    }
+
+    /// V&V (verification, 2026-08-04). Methodology: 1-D steady conduction
+    /// `-∇²T = 0` on the 2-cell unit mesh `x ∈ [0, 1]` (cell centres 0.25,
+    /// 0.75). Left patch `FixedValue(0)` at x=0, right patch `FixedGradient(g)`
+    /// at x=1 with g = 2.0 (outward-normal gradient). Analytic solution is
+    /// linear with slope g: T(x) = g·x, i.e. T(0.25)=0.5, T(0.75)=1.5.
+    /// Pass criterion: cell values within 1e-6 of analytic.
+    /// Result: T[0] = 0.500000, T[1] = 1.500000 (matches analytic exactly to
+    /// solver tolerance). PASS — a prescribed gradient reproduces the linear
+    /// profile.
+    #[test]
+    fn vv_fixed_gradient_linear_profile() {
+        let m = unit_mesh();
+        let gamma = uniform_gamma(m.clone(), 1.0);
+        let g = 2.0;
+        let t_bc = vec![
+            PatchField {
+                bc: BoundaryCondition::FixedGradient(g), // right, x = 1
+                values: Field::new(vec![0.0]),
+            },
+            PatchField {
+                bc: BoundaryCondition::FixedValue(0.0), // left, x = 0
+                values: Field::new(vec![0.0]),
+            },
+        ];
+        let phi = VolScalarField::new("T", m.clone(), Field::zeros(2), t_bc);
+        let mat = laplacian(&gamma, &phi);
+        let settings = crate::ldu_matrix::fv_matrix::SolverSettings::default();
+        let (result, perf) = mat.solve("T", settings);
+        assert!(perf.converged);
+        assert!((result.internal[0] - 0.5).abs() < 1e-6, "T[0]={}", result.internal[0]);
+        assert!((result.internal[1] - 1.5).abs() < 1e-6, "T[1]={}", result.internal[1]);
+    }
+
+    /// V&V (verification, 2026-08-04). Robin / convective-boundary analytic
+    /// case. Methodology: 1-D steady conduction `-k∇²T = 0`, k=1, on the 2-cell
+    /// unit mesh `x ∈ [0,1]`. Left patch `FixedValue(T0)` with T0=100 at x=0.
+    /// Right patch at x=1 is a convective (Robin) boundary
+    /// `-k dT/dx = h (T - T_inf)` with h=1, T_inf=0, cast to the mixed form
+    /// (ref_grad=0, ref_value=T_inf) with
+    /// `value_fraction = alpha·d / (alpha·d + 1)`, alpha = h/k = 1, d = 0.25 →
+    /// value_fraction = 0.2. Analytic solution: slope s = h(T_inf−T0)/(k+hL) =
+    /// −50, T(x) = 100 − 50x, giving T(0.25)=87.5, T(0.75)=62.5.
+    /// Pass criterion: cell values within 1e-4 of analytic.
+    /// Result: T[0] = 87.5000, T[1] = 62.5000 (matches analytic). PASS — the
+    /// Mixed BC reproduces the analytic Robin profile.
+    #[test]
+    fn vv_robin_convective_analytic() {
+        let m = unit_mesh();
+        let gamma = uniform_gamma(m.clone(), 1.0);
+        // alpha = h/k = 1, d = 0.25 → w = alpha*d/(alpha*d + 1) = 0.2
+        let w = 0.2;
+        let t_bc = vec![
+            PatchField {
+                bc: BoundaryCondition::Mixed {
+                    value_fraction: w,
+                    ref_value: 0.0, // T_inf
+                    ref_grad: 0.0,
+                },
+                values: Field::new(vec![0.0]),
+            },
+            PatchField {
+                bc: BoundaryCondition::FixedValue(100.0), // left, x = 0
+                values: Field::new(vec![0.0]),
+            },
+        ];
+        let phi = VolScalarField::new("T", m.clone(), Field::zeros(2), t_bc);
+        let mat = laplacian(&gamma, &phi);
+        let settings = crate::ldu_matrix::fv_matrix::SolverSettings::default();
+        let (result, perf) = mat.solve("T", settings);
+        assert!(perf.converged);
+        assert!((result.internal[0] - 87.5).abs() < 1e-4, "T[0]={}", result.internal[0]);
+        assert!((result.internal[1] - 62.5).abs() < 1e-4, "T[1]={}", result.internal[1]);
     }
 }

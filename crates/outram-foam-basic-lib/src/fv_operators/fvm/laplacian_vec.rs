@@ -79,8 +79,37 @@ pub fn laplacian_vec(
                     mat.ldu.diag[owner] += coeff;
                     mat.source[owner] = mat.source[owner] + u_wall * coeff;
                 }
+                // No-slip wall: fixedValue of zero — implicit diagonal only.
+                BoundaryCondition::NoSlip => {
+                    mat.ldu.diag[owner] += coeff;
+                }
+                // Prescribed normal gradient g [T·m⁻¹]: explicit boundary flux
+                // gamma·area·g = (coeff·delta)·g into the source.
+                BoundaryCondition::FixedGradient(g) => {
+                    mat.source[owner] = mat.source[owner] + *g * (coeff * delta);
+                }
+                // Robin/mixed: blend fixedValue (weight w) and fixedGradient (1-w).
+                BoundaryCondition::Mixed {
+                    value_fraction,
+                    ref_value,
+                    ref_grad,
+                } => {
+                    let w = *value_fraction;
+                    mat.ldu.diag[owner] += w * coeff;
+                    mat.source[owner] = mat.source[owner]
+                        + *ref_value * (w * coeff)
+                        + *ref_grad * ((1.0 - w) * coeff * delta);
+                }
+                // Zero-gradient-like (no implicit/explicit diffusion contribution).
+                // `InletOutlet`/`OutletInlet` carry no flux in the diffusion
+                // operator, so they degrade to zero-gradient here; `Slip`/`Wedge`
+                // are treated as zero-gradient at this Layer (see enum docs).
                 BoundaryCondition::ZeroGradient
                 | BoundaryCondition::Symmetry
+                | BoundaryCondition::Slip
+                | BoundaryCondition::Wedge
+                | BoundaryCondition::InletOutlet { .. }
+                | BoundaryCondition::OutletInlet { .. }
                 | BoundaryCondition::Empty => {}
             }
         }

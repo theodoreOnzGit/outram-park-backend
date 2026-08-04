@@ -87,6 +87,13 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | Module | Rust type | Notes |
 |---|---|---|
 | `fields` | `Field<T>`, `VolField<T>`, `SurfaceField<T>` | Generic field containers; `BoundaryCondition<T>`, `PatchField<T>` |
+| `fields::boundary` | `BoundaryCondition::FixedGradient` | `fixedGradientFvPatchField.H` — Neumann `φ_face = φ_cell + g·delta` |
+| `fields::boundary` | `BoundaryCondition::Mixed` | `mixedFvPatchField.H` — Robin blend of fixedValue (weight `value_fraction`) and fixedGradient; also the albedo BC |
+| `fields::boundary` | `BoundaryCondition::InletOutlet` | `inletOutletFvPatchField.H` — fixedValue on inflow, zeroGradient on outflow (flux-switched on `φ_f=U·Sf`) |
+| `fields::boundary` | `BoundaryCondition::OutletInlet` | `outletInletFvPatchField.H` — fixedValue on outflow, zeroGradient on inflow |
+| `fields::boundary` | `BoundaryCondition::Slip` | `slipFvPatchField.H` — vector: normal component removed, tangential zeroGradient; scalar: zeroGradient |
+| `fields::boundary` | `BoundaryCondition::NoSlip` | `noSlipFvPatchField.H` — velocity fixedValue = 0 |
+| `fields::boundary` | `BoundaryCondition::Wedge` | `wedgeFvPatchField.H` — axisymmetric wedge; **first pass: zeroGradient stand-in** (rotation transform not yet implemented) |
 | `fields` | `VolScalarField`, `VolVectorField`, `VolTensorField`, `VolSymmTensorField` | Typed aliases |
 | `fields` | `SurfaceScalarField`, `SurfaceVectorField` | Face-centred typed aliases |
 | `mesh` | `FvMesh`, `FvMeshBuilder`, `BoundaryPatch`, `PatchKind` | Unstructured polyhedral mesh |

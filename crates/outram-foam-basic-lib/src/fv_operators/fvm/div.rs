@@ -83,6 +83,27 @@ pub fn div(phi: &SurfaceScalarField, psi: &VolScalarField) -> FvMatrix {
                         mat.source[owner] -= phi_f * ff[fi];
                     }
                 }
+                // Flux-switched: inletOutlet = fixedValue(inletValue) on inflow
+                // (phi_f < 0), zeroGradient on outflow (phi_f ≥ 0). outletInlet
+                // is the mirror. The switch uses the sign of the outward face
+                // flux phi_f = U·Sf, decided here where the flux is available.
+                BoundaryCondition::InletOutlet { inlet_value } => {
+                    if phi_f >= 0.0 {
+                        mat.ldu.diag[owner] += phi_f; // outflow: zeroGradient
+                    } else {
+                        mat.source[owner] -= phi_f * inlet_value; // inflow: fixedValue
+                    }
+                }
+                BoundaryCondition::OutletInlet { outlet_value } => {
+                    if phi_f >= 0.0 {
+                        mat.source[owner] -= phi_f * outlet_value; // outflow: fixedValue
+                    } else {
+                        mat.ldu.diag[owner] += phi_f; // inflow: zeroGradient
+                    }
+                }
+                // Zero-gradient-like for convection (Slip/Wedge/NoSlip/Empty/
+                // FixedGradient/Mixed): upwind donor is the owner cell on
+                // outflow; inflow carries no known explicit value here.
                 _ => {
                     if phi_f >= 0.0 {
                         mat.ldu.diag[owner] += phi_f;
@@ -186,5 +207,60 @@ mod tests {
         assert!((mat.ldu.upper[0] - (-1.0)).abs() < 1e-12);
         assert!((mat.ldu.diag[0] - 0.0).abs() < 1e-12);
         assert!((mat.ldu.diag[1] - 1.0).abs() < 1e-12);
+    }
+
+    /// Build phi with a per-patch boundary flux (right patch = `right_phi`,
+    /// left patch = 0) and zero internal flux, to isolate the right patch.
+    fn phi_right_only(m: Arc<crate::mesh::fv_mesh::FvMesh>, right_phi: f64) -> SurfaceScalarField {
+        let bnd = vec![
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![right_phi]), // patch 0 = "right"
+            },
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![0.0]), // patch 1 = "left"
+            },
+        ];
+        SurfaceScalarField::new("phi", m.clone(), Field::uniform(m.n_internal_faces, 0.0), bnd)
+    }
+
+    /// V&V (verification, 2026-08-04). inletOutlet flux switch. Methodology:
+    /// isolate the right patch (owner = cell 1) of the 2-cell unit mesh, zero
+    /// internal and left-patch flux, and set the scalar field's right patch to
+    /// `InletOutlet { inlet_value: 5.0 }`. Assemble `fvm::div` twice:
+    /// - outflow (phi_f = +2 ≥ 0): must act as zeroGradient → `diag[1] += 2`,
+    ///   `source[1]` unchanged (0);
+    /// - inflow  (phi_f = −2 < 0): must act as fixedValue → `source[1] -=
+    ///   phi_f·inlet_value = 10`, `diag[1]` unchanged (0).
+    /// Pass criterion: both assembled entries match to < 1e-12.
+    /// Result: outflow diag[1] = 2.000000, source[1] = 0; inflow diag[1] = 0,
+    /// source[1] = 10.000000. PASS — the switch flips with the flux sign.
+    #[test]
+    fn vv_inlet_outlet_flux_switch() {
+        let m = unit_mesh();
+        let make_psi = || {
+            let bc = vec![
+                PatchField {
+                    bc: BoundaryCondition::InletOutlet { inlet_value: 5.0 },
+                    values: Field::new(vec![0.0]),
+                },
+                PatchField {
+                    bc: BoundaryCondition::ZeroGradient,
+                    values: Field::new(vec![0.0]),
+                },
+            ];
+            VolScalarField::new("psi", m.clone(), Field::zeros(2), bc)
+        };
+
+        // Outflow: zeroGradient behaviour.
+        let out = div(&phi_right_only(m.clone(), 2.0), &make_psi());
+        assert!((out.ldu.diag[1] - 2.0).abs() < 1e-12, "diag[1]={}", out.ldu.diag[1]);
+        assert!(out.source[1].abs() < 1e-12, "source[1]={}", out.source[1]);
+
+        // Inflow: fixedValue behaviour, source[1] -= phi_f * inlet_value = 10.
+        let inn = div(&phi_right_only(m.clone(), -2.0), &make_psi());
+        assert!(inn.ldu.diag[1].abs() < 1e-12, "diag[1]={}", inn.ldu.diag[1]);
+        assert!((inn.source[1] - 10.0).abs() < 1e-12, "source[1]={}", inn.source[1]);
     }
 }

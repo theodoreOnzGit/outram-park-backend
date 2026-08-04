@@ -71,6 +71,25 @@ pub fn div_vec(phi: &SurfaceScalarField, u: &VolVectorField, mesh: Arc<FvMesh>) 
                     // Upwind = owner: diag contribution
                     mat.ldu.diag[owner] += phi_f;
                 }
+                // No-slip wall: fixedValue of zero → explicit source is zero;
+                // the boundary face contributes nothing to owner's row.
+                BoundaryCondition::NoSlip => {}
+                // Flux-switched: inletOutlet imposes inletValue on inflow
+                // (phi_f < 0) and is zeroGradient on outflow (phi_f ≥ 0).
+                BoundaryCondition::InletOutlet { inlet_value } => {
+                    if phi_f >= 0.0 {
+                        mat.ldu.diag[owner] += phi_f; // outflow: zeroGradient (upwind owner)
+                    } else {
+                        mat.source[owner] = mat.source[owner] - inlet_value * phi_f;
+                    }
+                }
+                BoundaryCondition::OutletInlet { outlet_value } => {
+                    if phi_f >= 0.0 {
+                        mat.source[owner] = mat.source[owner] - outlet_value * phi_f;
+                    } else {
+                        mat.ldu.diag[owner] += phi_f; // inflow: zeroGradient (upwind owner)
+                    }
+                }
                 _ => {}
             }
         }
