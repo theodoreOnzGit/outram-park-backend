@@ -33,17 +33,39 @@ Blender  —  ARCHITECTURE THIS CRATE DERIVES FROM
   redistribution under GPL-3.0, so this crate's GPL-3.0-only licence is
   licence-clean with respect to Blender.
 
-  NO BLENDER SOURCE CODE IS BUNDLED OR PORTED INTO THIS CRATE. What is reused
-  is the mesh/geometry architecture -- the shape of the BMesh-style
-  non-manifold mesh representation and the operator model. Copyright covers
-  expression, not design, so no upstream file is redistributed here. The
-  upstream licence text and this notice are shipped anyway so the provenance
-  travels with the package and the obligations are already in place the moment
-  a literal port lands.
+  WHAT IS ACTUALLY DERIVED FROM BLENDER
 
-  Any file later ported from Blender must carry an upstream provenance header
-  block (project, source file, commit, copyright, licence) per the workspace
-  RESEARCH_INTEGRITY_AND_PROVENANCE.md. Do not strip it during refactors.
+  1. One file is a literal port of Blender source:
+
+       src/boolean_predicates.rs
+         from:      source/blender/blenlib/BLI_math_boolean.hh
+                    source/blender/blenlib/intern/math_boolean.cc
+         commit:    96294be75080bbf687fa7f108e344a1063713586
+         copyright: SPDX-FileCopyrightText: 2023 Blender Authors
+         licence:   SPDX-License-Identifier: GPL-2.0-or-later
+
+     Only the `double` (floating-point) predicate API is ported; Blender's
+     `mpq_class` (GMP rational) overloads are deliberately not, so this crate
+     stays Android-buildable with no C dependencies. Blender's own `double`
+     predicates are in turn a C++ adaptation of Jonathan Richard Shewchuk's
+     `predicates.c` (Carnegie Mellon University, May 1996), which its author
+     placed in the public domain. The file carries this provenance in its own
+     header block; do not strip it during refactors.
+
+  2. Everything else is an independent reimplementation of Blender's
+     mesh/geometry ARCHITECTURE -- the shape of the BMesh-style non-manifold
+     mesh representation (vert/edge/loop/face) and the modifier/operator model,
+     including its naming. No Blender code is transcribed in those files.
+     Copyright covers expression, not design.
+
+  BECAUSE OF (1), THIS CRATE IS A DERIVATIVE WORK OF GPL-2.0-OR-LATER CODE.
+  Distributing it under GPL-3.0-only is permitted precisely by that "or later"
+  clause, which is why the compatibility finding above matters in practice
+  rather than only in principle.
+
+  Any further file ported from Blender must likewise carry an upstream
+  provenance header block (project, source file, commit, copyright, licence)
+  per the workspace RESEARCH_INTEGRITY_AND_PROVENANCE.md.
 
 ================================================================================
 Trademarks and non-affiliation

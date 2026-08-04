@@ -299,7 +299,7 @@ kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.0" }
 # `mc-export` (outram-mc-libs CSG → Monte Carlo, the MC Studio GUI) and
 # `foam-mesh` (outram-park-fork-cfmesh tet-dual pipeline → OpenFOAM polyMesh,
 # the Mesh Studio GUI).
-outram-blender   = { path = "crates/outram-blender",   version = "0.0.2" }
+outram-blender   = { path = "crates/outram-blender",   version = "0.0.3" }
 
 # outram-park-fork-cfmesh — Rust port of cfMesh (GPL-3.0): the volume-mesh
 # generation layer (tet / polyhedral cells + boundary layers) that sits between

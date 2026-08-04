@@ -119,13 +119,24 @@ included.
   redistribution clean here. Upstream's GPL-2 text ships verbatim as
   `LICENSE.blender`; the lineage and non-affiliation notice are in `NOTICE`;
   the full record with clone instructions is in `upstream_source/README.md`.
-- **No Blender source code is transcribed** — only its concepts and
-  data-structure architecture are reused, which does not carry Blender's
-  copyright. The one literally-ported algorithm is the Shewchuk robust
-  geometric predicates in `boolean_predicates` (a third-party algorithm Blender
-  also uses), which carries its own GPL provenance header. The moment further
-  real Blender code (or another third-party library's algorithm) is transcribed,
-  its provenance header and a license re-check are mandatory.
+- **Exactly one file is a literal port of Blender source:**
+  `src/boolean_predicates.rs`, from `blenlib`'s `BLI_math_boolean.hh` /
+  `intern/math_boolean.cc` at commit `96294be7…` (© 2023 Blender Authors,
+  `GPL-2.0-or-later`). It carries that provenance in its own header block.
+  Only the `double` predicate API is ported — Blender's `mpq_class` (GMP
+  rational) overloads are deliberately not, so the crate stays
+  Android-buildable with no C dependencies. Blender's `double` predicates are
+  themselves a C++ adaptation of Shewchuk's public-domain `predicates.c`.
+- **Every other module is an independent reimplementation** of Blender's
+  concepts and data-structure architecture (BMesh's vert/edge/loop/face model,
+  the modifier stack, the operator naming). Design is not copyrightable, so no
+  Blender copyright attaches to those files.
+- **Consequently this crate is a derivative work of `GPL-2.0-or-later` code**,
+  and distributing it as `GPL-3.0-only` is permitted by that "or later" clause
+  — the compatibility finding above is load-bearing, not just precautionary.
+  The moment further real Blender code (or another third-party library's
+  algorithm) is transcribed, its provenance header and a license re-check are
+  mandatory.
 
 ## Module map
 

@@ -53,17 +53,37 @@ compatible with GPLv3 but *not* with GPLv2.)
 
 ## What is actually taken from upstream
 
-**No Blender source code is bundled or ported into this crate.** The crate
-reuses Blender's mesh/geometry *architecture* — the shape of the BMesh-style
-non-manifold mesh representation and the operator model. Copyright covers
-expression, not design, so no upstream file is redistributed here today.
+**One file is a literal port of Blender source:**
 
-The upstream GPL-2 licence text is nevertheless shipped as `LICENSE.blender`
-and the lineage recorded in `NOTICE`, so the provenance travels with the
-package and the obligations are already in place the moment a literal port
-lands.
+| | |
+|---|---|
+| File | `src/boolean_predicates.rs` |
+| From | `source/blender/blenlib/BLI_math_boolean.hh`, `intern/math_boolean.cc` |
+| Commit | `96294be75080bbf687fa7f108e344a1063713586` |
+| Copyright | `SPDX-FileCopyrightText: 2023 Blender Authors` |
+| Licence | `SPDX-License-Identifier: GPL-2.0-or-later` |
 
-**If you port a Blender algorithm into this crate**, the ported file must
+Only the `double` (floating-point) predicate API is ported — Blender's
+`mpq_class` (GMP rational) overloads are deliberately **not**, because this
+crate must stay Android-buildable with no C dependencies and GMP is a C
+library. Blender's own `double` predicates are in turn a C++ adaptation of
+Jonathan Richard Shewchuk's `predicates.c` (Carnegie Mellon University, May
+1996), placed by its author in the **public domain**. The file carries all of
+this in its own header block.
+
+**Everything else is an independent reimplementation** of Blender's
+mesh/geometry *architecture* — the BMesh-style non-manifold mesh
+representation (vert/edge/loop/face) and the modifier/operator model,
+including its naming. No Blender code is transcribed in those files;
+copyright covers expression, not design.
+
+**Consequence:** because of the ported file, this crate **is a derivative work
+of GPL-2.0-or-later code**. Distributing it as `GPL-3.0-only` is permitted
+precisely by the "or later" clause — so the compatibility finding above is
+load-bearing, not merely precautionary. Upstream's GPL-2 text ships as
+`LICENSE.blender` and the lineage is recorded in `NOTICE`.
+
+**If you port further Blender code into this crate**, the ported file must
 carry the GPL attribution header block (upstream project, source file,
 version/commit, copyright, licence) per the workspace
 `RESEARCH_INTEGRITY_AND_PROVENANCE.md`. Do not strip it during refactors.
