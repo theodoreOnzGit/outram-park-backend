@@ -457,12 +457,16 @@ fn p_transmit(d1: f32, d2: f32, k: f32) -> f32 {
     return num / den;
 }
 
-fn set_radius(p: ptr<function, vec3<f32>>, target: f32) {
+// NOTE: the radius parameter must NOT be named `target` -- that is a reserved
+// keyword in WGSL, and naga rejects the whole shader module at parse time
+// ("name `target` is a reserved keyword"), which takes down the entire GPU
+// path on every adapter, not just some.
+fn set_radius(p: ptr<function, vec3<f32>>, target_radius: f32) {
     let rho = length(*p);
     if (rho <= 0.0) {
-        *p = vec3<f32>(target, 0.0, 0.0);
+        *p = vec3<f32>(target_radius, 0.0, 0.0);
     } else {
-        *p = *p * (target / rho);
+        *p = *p * (target_radius / rho);
     }
 }
 
