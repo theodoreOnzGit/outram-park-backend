@@ -79,19 +79,30 @@ pub struct SolverPerformance {
 impl FvMatrix {
     /// Create a new zero-initialised FvMatrix for the given mesh.
     ///
-    /// The LDU face addressing holds the mesh's internal faces followed by one
-    /// slot per [`CyclicCoupling`](crate::mesh::CyclicCoupling) (periodic-seam
-    /// coupling), so every matrix built on a given mesh has identical structure
-    /// — a prerequisite for the coefficient-wise matrix arithmetic
-    /// (`+`/`−`). Operators that ignore cyclic seams (e.g. `fvm::ddt`) simply
-    /// leave those slots zero; `fvm::laplacian`/`fvm::div` fill them via the
-    /// paired-cell coupling.
+    /// The LDU face addressing holds the mesh's internal faces, then one slot
+    /// per [`CyclicCoupling`](crate::mesh::CyclicCoupling) (conformal periodic
+    /// seam), then one slot per [`AmiWeight`](crate::mesh::AmiWeight) of each
+    /// [`AmiCoupling`](crate::mesh::AmiCoupling) (non-conformal periodic / AMI
+    /// seam, in `ami_couplings` order — see
+    /// [`FvMesh::ami_ldu_start`](crate::mesh::FvMesh::ami_ldu_start)). Every
+    /// matrix built on a given mesh therefore shares one structure — a
+    /// prerequisite for the coefficient-wise matrix arithmetic (`+`/`−`).
+    /// Operators that ignore seams (e.g. `fvm::ddt`) simply leave those slots
+    /// zero; `fvm::laplacian`/`fvm::div` fill them via the paired-cell coupling.
     pub fn new(mesh: Arc<FvMesh>) -> Self {
         let mut owner = mesh.owner[..mesh.n_internal_faces].to_vec();
         let mut neighbour = mesh.neighbour.to_vec();
         for cc in &mesh.cyclic_couplings {
             owner.push(cc.owner);
             neighbour.push(cc.neighbour);
+        }
+        // Non-conformal (AMI) seams: one LDU face per weighted (target, source)
+        // pair, appended after the cyclic couplings in `ami_couplings` order.
+        for cc in &mesh.ami_couplings {
+            for w in &cc.weights {
+                owner.push(cc.target_cell);
+                neighbour.push(w.source_cell);
+            }
         }
         let n_cells = mesh.n_cells;
         Self {

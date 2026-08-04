@@ -28,6 +28,8 @@
 //!   cell volumes [m³], face-area vectors [m²], and cell/face centres [m]),
 //!   plus [`FvMeshBuilder`] to assemble one incrementally.
 //! - [`BoundaryPatch`] / [`PatchKind`] — boundary-patch descriptors.
+//! - [`ami`] — arbitrary-mesh-interface (non-conformal periodic / `cyclicAMI`)
+//!   face-overlap weighting and [`AmiCoupling`] representation.
 //! - [`RegionInterface`] — a face-to-face coupling map between two regions'
 //!   patches (used by conjugate-heat-transfer solvers).
 //! - [`MeshError`] — the errors raised during mesh construction and validation.
@@ -35,10 +37,12 @@
 //! It stores only the data required by the operators; the OpenFOAM
 //! `polyMesh → primitiveMesh → lduMesh` inheritance chain is not reproduced.
 
+pub mod ami;
 pub mod error;
 pub mod fv_mesh;
 pub mod region_interface;
 
+pub use ami::{AmiCoupling, AmiOverlap, AmiWeight};
 pub use error::MeshError;
 pub use fv_mesh::*;
 pub use region_interface::RegionInterface;

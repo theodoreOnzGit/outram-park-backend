@@ -54,9 +54,11 @@ impl FvVectorMatrix {
     /// zero source).
     ///
     /// As with [`FvMatrix::new`](crate::ldu_matrix::FvMatrix::new), the LDU face
-    /// addressing holds the internal faces followed by one slot per
-    /// [`CyclicCoupling`](crate::mesh::CyclicCoupling), so every vector matrix on
-    /// a given mesh shares one structure and the `+`/`−` operators line up.
+    /// addressing holds the internal faces, then one slot per
+    /// [`CyclicCoupling`](crate::mesh::CyclicCoupling), then one slot per
+    /// [`AmiWeight`](crate::mesh::AmiWeight) of each
+    /// [`AmiCoupling`](crate::mesh::AmiCoupling), so every vector matrix on a
+    /// given mesh shares one structure and the `+`/`−` operators line up.
     pub fn new(mesh: Arc<FvMesh>) -> Self {
         let n_cells = mesh.n_cells;
         let mut owner = mesh.owner[..mesh.n_internal_faces].to_vec();
@@ -64,6 +66,14 @@ impl FvVectorMatrix {
         for cc in &mesh.cyclic_couplings {
             owner.push(cc.owner);
             neighbour.push(cc.neighbour);
+        }
+        // Non-conformal (AMI) seams: one LDU face per weighted (target, source)
+        // pair, appended after the cyclic couplings in `ami_couplings` order.
+        for cc in &mesh.ami_couplings {
+            for w in &cc.weights {
+                owner.push(cc.target_cell);
+                neighbour.push(w.source_cell);
+            }
         }
         Self {
             ldu: LduMatrix::new(n_cells, owner, neighbour),

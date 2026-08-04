@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use crate::mesh::ami::AmiCoupling;
 use crate::mesh::error::MeshError;
 use crate::primitives::Vector3;
 
@@ -117,8 +118,13 @@ pub enum PatchKind {
     Empty,
     /// Axisymmetric wedge.
     Wedge,
-    /// Periodic / matching pair.
+    /// Periodic / matching pair (conformal — faces line up one-to-one).
     Cyclic,
+    /// Non-conformal periodic pair — arbitrary mesh interface (AMI). The two
+    /// halves' faces do not match one-to-one; each target face couples to a
+    /// weighted set of source faces (see [`AmiCoupling`](crate::mesh::AmiCoupling)).
+    /// Mirrors OpenFOAM `cyclicAMIPolyPatch`.
+    CyclicAmi,
     /// Inter-processor decomposition seam.
     Processor,
 }
@@ -201,6 +207,16 @@ pub struct FvMesh {
     /// [`CyclicCoupling::owner`] and [`CyclicCoupling::neighbour`], appended to
     /// the LDU face addressing after the `n_internal_faces` internal faces.
     pub cyclic_couplings: Vec<CyclicCoupling>,
+
+    /// Across-seam couplings from [`PatchKind::CyclicAmi`] (non-conformal
+    /// periodic) patch pairs, one entry per **target** seam face. Empty for a
+    /// mesh with no AMI pairs. Each entry couples its target cell to a weighted
+    /// set of source cells (the geometric face overlaps); the FV operators and
+    /// the LDU matrix append one LDU face per [`AmiWeight`](crate::mesh::AmiWeight)
+    /// after the internal faces and the [`cyclic_couplings`](Self::cyclic_couplings)
+    /// (see [`ami_ldu_start`](Self::ami_ldu_start)). Mirrors OpenFOAM
+    /// `cyclicAMIFvPatchField`.
+    pub ami_couplings: Vec<AmiCoupling>,
 
     // ── Geometry ──────────────────────────────────────────────────────────────
     /// Cell volumes `V[c]` [m³].
@@ -437,6 +453,31 @@ impl FvMesh {
                 });
             }
         }
+
+        // AMI couplings: every target/source cell index must be in range, and
+        // every target must have at least one weighted source.
+        for cc in &self.ami_couplings {
+            if cc.target_cell >= self.n_cells || cc.target_face >= self.n_faces {
+                return Err(MeshError::AmiCouplingInvalid {
+                    target_face: cc.target_face,
+                    reason: "target cell/face index out of range",
+                });
+            }
+            if cc.weights.is_empty() {
+                return Err(MeshError::AmiCouplingInvalid {
+                    target_face: cc.target_face,
+                    reason: "AMI target face has no overlapping source faces",
+                });
+            }
+            for w in &cc.weights {
+                if w.source_cell >= self.n_cells || w.source_face >= self.n_faces {
+                    return Err(MeshError::AmiCouplingInvalid {
+                        target_face: cc.target_face,
+                        reason: "source cell/face index out of range",
+                    });
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -449,6 +490,7 @@ pub struct FvMeshBuilder {
     owner: Vec<usize>,
     neighbour: Vec<usize>,
     patches: Vec<BoundaryPatch>,
+    ami_couplings: Vec<AmiCoupling>,
     cell_volumes: Vec<f64>,
     cell_centres: Vec<Vector3>,
     face_area_vectors: Vec<Vector3>,
@@ -486,6 +528,13 @@ impl FvMeshBuilder {
     /// Set the boundary patch descriptors.
     pub fn patches(mut self, v: Vec<BoundaryPatch>) -> Self {
         self.patches = v;
+        self
+    }
+    /// Set the non-conformal-periodic (AMI) seam couplings (one entry per target
+    /// seam face). Left empty by default; set by AMI mesh constructors such as
+    /// [`FvMesh::periodic_ring_ami`].
+    pub fn ami_couplings(mut self, v: Vec<AmiCoupling>) -> Self {
+        self.ami_couplings = v;
         self
     }
     /// Set the cell volumes `V[c]` [m³] (length == `n_cells`).
@@ -544,6 +593,7 @@ impl FvMeshBuilder {
             neighbour: self.neighbour,
             patches: self.patches,
             cyclic_couplings,
+            ami_couplings: self.ami_couplings,
             cell_volumes: self.cell_volumes,
             cell_centres: self.cell_centres,
             face_area_vectors: self.face_area_vectors,

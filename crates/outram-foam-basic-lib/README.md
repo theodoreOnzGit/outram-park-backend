@@ -98,6 +98,7 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | `fields` | `SurfaceScalarField`, `SurfaceVectorField` | Face-centred typed aliases |
 | `mesh` | `FvMesh`, `FvMeshBuilder`, `BoundaryPatch`, `PatchKind` | Unstructured polyhedral mesh |
 | `mesh` | `BoundaryPatch::new_cyclic`, `CyclicCoupling`, `FvMesh::periodic_1d` | `cyclicPolyPatch` — cyclic (periodic) patch pairing: matched half0/half1 faces + across-seam owner↔owner cell couplings; `periodic_1d` builds a 1-D periodic ring programmatically |
+| `mesh::ami` | `AmiCoupling`, `AmiWeight`, `AmiOverlap`, `overlap_weights_1d`, `FvMesh::periodic_ring_ami`, `PatchKind::CyclicAmi` | `cyclicAMIPolyPatch` / `AMIInterpolation` — **non-conformal** periodic (arbitrary-mesh-interface) seams: each target face couples to a geometric-overlap-weighted set of source cells (Σ weights = 1, conservative). `overlap_weights_1d` computes planar/1-D-structured interval overlaps; `periodic_ring_ami` builds a non-conformal periodic ring programmatically. **First pass: 1-D/planar-structured overlap only** — general 3-D polygon clipping, two-axis tiling, and rotational transforms deferred |
 | `mesh` | `RegionInterface` | Matching and non-matching multi-region face coupling for CHT |
 | `ldu_matrix` | `LduMatrix`, `FvMatrix`, `FvVectorMatrix` | Sparse LDU system; scalar and vector implicit equation assembly |
 | `ldu_matrix` | `gauss_seidel`, `conjugate_gradient` | Iterative LDU solvers (no external BLAS). CG is **DIC-preconditioned** (`Foam::DICPreconditioner`) and accepts an optional initial guess (`x0`) for warm starts |
@@ -118,10 +119,10 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | `fvm::ddt_coeff(coeff, phi, phi_old, dt)` | Density/rho_cp-weighted implicit ddt: ∂(coeff·φ)/∂t → `FvMatrix` |
 | `fvm::ddt_vec(U, U_old, dt, mesh)` | Implicit Euler ∂U/∂t → `FvVectorMatrix` |
 | `fvm::ddt_coeff_vec(coeff, U, U_old, dt, mesh)` | Density-weighted implicit ddt: ∂(ρU)/∂t → `FvVectorMatrix` |
-| `fvm::laplacian(gamma, phi)` | Diffusion −∇·(γ∇φ) → `FvMatrix` (couples cyclic/periodic seam faces as internal faces via `cyclicFvPatchField`) |
-| `fvm::laplacian_vec(gamma, U)` | Diffusion −∇·(γ∇U) → `FvVectorMatrix` (cyclic seam coupling) |
-| `fvm::div(phi, psi)` | Upwind convection ∇·(φψ) → `FvMatrix` (cyclic seam coupling) |
-| `fvm::div_vec(phi, U)` | Upwind convection ∇·(φU) → `FvVectorMatrix` (cyclic seam coupling) |
+| `fvm::laplacian(gamma, phi)` | Diffusion −∇·(γ∇φ) → `FvMatrix` (couples cyclic/periodic seam faces as internal faces via `cyclicFvPatchField`; **cyclicAMI** non-conformal seams as overlap-weighted partial internal faces via `cyclicAMIFvPatchField`) |
+| `fvm::laplacian_vec(gamma, U)` | Diffusion −∇·(γ∇U) → `FvVectorMatrix` (cyclic + cyclicAMI seam coupling) |
+| `fvm::div(phi, psi)` | Upwind convection ∇·(φψ) → `FvMatrix` (cyclic + cyclicAMI seam coupling; per-target flux split by overlap weight) |
+| `fvm::div_vec(phi, U)` | Upwind convection ∇·(φU) → `FvVectorMatrix` (cyclic + cyclicAMI seam coupling) |
 | `fvc::grad(phi)` | Explicit cell-centred gradient → `VolVectorField` |
 | `fvc::div(phi, psi)` | Explicit scalar divergence → `VolScalarField` |
 | `fvc::div_flux(phi)` | Divergence of face flux → `VolScalarField` |
@@ -205,6 +206,18 @@ current source; nothing here is aspirational. See also the
   is an **untrusted AI-assisted draft pending human V&V** (verified against the
   equivalent all-internal ring mesh — see the `vv_cyclic_*` tests — not yet
   human-reviewed).
+- **Non-conformal periodic (`cyclicAMI`) patches** are functional at the
+  topology/operator level for the **1-D / planar-structured** case
+  (`PatchKind::CyclicAmi`, `mesh::ami`). Each target seam face couples to a
+  geometric-overlap-weighted set of source cells (weights sum to 1,
+  conservative) in `fvm::laplacian(_vec)` / `fvm::div(_vec)`; build a
+  non-conformal periodic ring with `FvMesh::periodic_ring_ami`. **Deferred
+  (documented in `mesh::ami`):** general 3-D polygon-clipping overlap, two-axis
+  transverse tiling, rotational-transform AMI, `fvc::interpolate`/`sn_grad`
+  across AMI seams, and reading `cyclicAMI` from a `polyMesh`. Verified in the
+  matching-mesh limit (AMI == plain cyclic) and for a 2:1 non-conformal
+  conservation case (`vv_ami_*` tests); **untrusted AI-assisted draft pending
+  human V&V** — not yet human-reviewed.
 
 ### Linear solvers
 

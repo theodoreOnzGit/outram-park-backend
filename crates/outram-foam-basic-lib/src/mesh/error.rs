@@ -44,6 +44,17 @@ pub enum MeshError {
         /// Why the pair is invalid.
         reason: &'static str,
     },
+
+    /// A [`PatchKind::CyclicAmi`](crate::mesh::PatchKind::CyclicAmi)
+    /// (non-conformal periodic) coupling is inconsistent — e.g. a target/source
+    /// cell or face index is out of range, or a target face has no overlapping
+    /// source faces.
+    AmiCouplingInvalid {
+        /// Global face index of the offending AMI target face.
+        target_face: usize,
+        /// Why the coupling is invalid.
+        reason: &'static str,
+    },
 }
 
 impl std::fmt::Display for MeshError {
@@ -74,6 +85,12 @@ impl std::fmt::Display for MeshError {
             }
             MeshError::CyclicPairMismatch { name, reason } => {
                 write!(f, "cyclic patch '{name}': {reason}")
+            }
+            MeshError::AmiCouplingInvalid {
+                target_face,
+                reason,
+            } => {
+                write!(f, "AMI coupling at target face {target_face}: {reason}")
             }
         }
     }

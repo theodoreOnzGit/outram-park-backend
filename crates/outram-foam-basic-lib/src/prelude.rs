@@ -82,8 +82,12 @@ pub use crate::fields::{
 
 // --- Mesh (Layer 2) ---
 pub use crate::mesh::{
-    BoundaryPatch, CyclicCoupling, FvMesh, FvMeshBuilder, MeshError, PatchKind, RegionInterface,
+    AmiCoupling, AmiOverlap, AmiWeight, BoundaryPatch, CyclicCoupling, FvMesh, FvMeshBuilder,
+    MeshError, PatchKind, RegionInterface,
 };
+
+// --- AMI (arbitrary mesh interface) overlap weighting ---
+pub use crate::mesh::ami::overlap_weights_1d;
 
 // --- Sparse linear system (Layer 2) ---
 pub use crate::ldu_matrix::{
