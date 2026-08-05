@@ -250,8 +250,10 @@ deriving a multiplier.
   Every ported file keeps an attribution header naming the upstream project,
   source file, commit (`b504ea08`), copyright (`EDF 1991–2026`) and licence —
   the pattern `outram-park-fork-offbeat` already uses.
-- **Do not vendor.** Upstream stays outside this tree at `~/dev/codeaster/src`,
-  read-only. Never add it as a workspace member or commit its source here.
+- **Do not vendor.** Upstream stays outside this tree, read-only. Never add it
+  as a workspace member or commit its source here. In the current container the
+  clone lives at **`/opt/upstream/codeaster-src`** (this document previously
+  said `~/dev/codeaster/src`, which is not where it is).
 - **Restricted upstream data is out of scope.** code_aster is distributed as
   three repositories; the README states `validation: few testcase files with
   proprietary data` and `data: material data that can not be freely
@@ -259,10 +261,126 @@ deriving a multiplier.
   `validation` or `data` repositories — that is a `DATA_POLICY.md` line, not a
   preference. (`src/data/` itself is build templates and config, and is fine.)
   `src/astest/` **is** in scope and is licence-clean — see §8.2.
-- **V&V oracle.** `astest/` (358 files, 201 kLOC, 4,590 GPL-headered testcase
-  files) is the port's regression suite, playing the role `Cases/Verification`
-  plays for the OFFBEAT port. Each ported law should name the `astest` cases it
-  is checked against.
+- **V&V oracle — NOW AVAILABLE, but not yet used by any ported law.**
+  `astest/` is the port's regression suite, playing the role
+  `Cases/Verification` plays for the OFFBEAT port. It was missing from the
+  clone until 2026-08-05 — not absent from upstream, merely never checked out,
+  since `/opt/upstream/codeaster-src` is a **cone-mode sparse, shallow
+  checkout**. `git sparse-checkout add astest` restored it: 13,118 entries,
+  clone 88 MB → 670 MB. Licence verified GPL-3.0-or-later on inspection, and
+  in scope per §8.2 as part of `src`.
+
+  **It is usable offline — code_aster does not have to be run.** The `.comm`
+  decks embed their own expected values, and the two kinds mean different
+  things:
+
+  - `VALE_CALC` (3,960 of 4,268 decks) — code_aster's *own computed* value.
+    Matching it is **verification against code_aster**: "do we reproduce what
+    upstream's implementation produces?"
+  - `VALE_REFE` (3,383 decks) — the *analytical or experimental* reference.
+    Matching it is the validation-grade comparison, and validation remains the
+    maintainer's call per `VERIFICATION_AND_VALIDATION.md`.
+
+  **The `comp0*` family is NOT the oracle it looks like.** An earlier revision
+  of this section called it the sweet spot for a constitutive-law port, on the
+  strength of its `TEST_COMPOR(SUPPORT="ELEMENT", ...)` single-material-point
+  form. Checking what those decks actually assert says otherwise:
+
+  | `comp0*` deck category | Count of 87 |
+  |---|---|
+  | Non-zero `VALE_CALC` — a usable absolute oracle | **12** |
+  | `VALE_CALC = 0.0` only — a *difference* test | 11 |
+  | No `VALE_CALC` at all — asserted inside `TEST_COMPOR` | 64 |
+
+  `TEST_COMPOR` is a **self-consistency harness, not a reference**. Its
+  generated assertions read `VALE_CALC=0.0` against `VALE_REFE=__U[...]` with
+  `REFERENCE="AUTRE_ASTER"` — it checks that code_aster agrees with *itself*
+  across discretisations, dimensions and material orderings. Reproducing it
+  would verify our integrator's internal consistency, which the ported tests
+  already do, and would say nothing about agreement with code_aster.
+
+  Worse, the 12 decks that *do* carry absolute values exercise
+  `ENDO_ISOT_BETON` and `HUJEUX` — laws this port has not touched.
+
+  **The usable oracles are the single-element structural decks.** A single
+  hexahedron under uniform loading is a material-point test in all but name:
+  the stress state is homogeneous, so the FE answer *is* the constitutive
+  response, and none of the FE machinery this crate lacks is needed to predict
+  it.
+
+  Ranking every deck that names a ported law and carries a non-zero
+  `VALE_CALC`, cheapest first — "FO" counts temperature-dependent material
+  blocks, which are what make a deck expensive:
+
+  | Deck | Law | FO | Non-zero `VALE_CALC` | Mesh |
+  |---|---|---|---|---|
+  | `ssnv101a` | `VMIS_CIN2_CHAB` | 0 | 5 | 1 kB, one 8-node cube |
+  | `ssnv101b` | `VMIS_CIN2_CHAB` | 0 | 4 | <1 kB |
+  | `ssnv172b` | `VISC_CIN1_CHAB` | 0 | 3 | <1 kB |
+  | `ssnv113a` | `VISC_IRRA_LOG` | 0 | 5 | 1 kB |
+  | `ssnv124b` | `NORTON_HOFF` | 0 | 5 | 3 kB |
+  | `ssnv126a` | `VENDOCHAB` | 3 | 32 | anisothermal, 1000→1025 K |
+
+  **Start at `ssnv101a`** — *"plaque carrée en traction cisaillement, calcul
+  3D, modèle élastoplastique de Chaboche"*, one 8-node cube, isothermal
+  (`ALPHA=0.0`), units N/mm/s. Fully specified in the deck:
+
+  - `ELAS`: `E = 145200`, `NU = 0.3`
+  - `CIN2_CHAB`: `R_I = 151`, `R_0 = 87`, `B = 2.3`, `K = 0.43`, `W = 6.09`,
+    `C1_I = 187 × 341`, `G1_0 = 341`, `C2_I = 29 × 17184`, `G2_0 = 17184`
+  - 13 steps to `t = 1.435`; assertions at the last one: `SIXX = 143.5`
+    (`VALE_REFE` identical), `EPXX = 0.096063293855236` (refe `0.09709`),
+    `EPXY = 0.14389728238065` (refe `0.1454`), `V1 = 0.19015000369194`
+
+  It is **force-controlled and statically determinate** — `VALE_CALC` for
+  `SIXX` equals `VALE_REFE` exactly, so the stress is fixed by the applied
+  nodal forces rather than by the solve. That means the port can be driven
+  with a *prescribed stress history* and compared on strains, needing no FE
+  assembly at all.
+
+  It also closes a gap the Chaboche port explicitly could not: tension **plus
+  shear** is a non-proportional path, and the module documents that a radial
+  path cannot discriminate the `δ < 1` non-radial back-stress behaviour.
+
+  **Check each deck's `.export` for missing inputs before starting on it.**
+  A `.comm` may `import` a sibling module that the repository does not carry.
+  Measured across all 4,597 `.export` manifests on 2026-08-05, **19** declare an
+  input file that is absent — so the corpus is 99.6 % self-contained and this is
+  an exception, not a pattern. But `ssnv113a` (VISC_IRRA_LOG) is one of the 19:
+  its manifest declares `F nom ssnv113a_mater.py D 0` and that file is nowhere
+  in the clone, nor is any `*_mater.py`.
+
+  **Do not go looking for it.** code_aster ships as three repositories and the
+  `data` one is described upstream as *"material data that can not be freely
+  distributed"*. A material include absent from `src` is plausibly exactly that,
+  and `DATA_POLICY.md` puts it out of scope. Treat such a deck as unusable and
+  move on.
+
+  Note `ssnv126a` (VENDOCHAB) carries by far the most reference values, 32, but
+  is anisothermal with three temperature-function material blocks — worth doing,
+  but not first. And `ssnv230a` (IRRAD3M) carries no non-zero `VALE_CALC` at
+  all, so check each deck individually rather than trusting its naming family.
+
+  **No ported law has been checked against any of this yet.** Everything
+  landed so far (`viscoplastic`, `isotropic`, `chaboche`, `damage`,
+  `metallurgy`, `fracture` — 159 tests) is verified against closed-form limits,
+  invariants, measured convergence orders, and independent transcription of
+  upstream's algebra. Do not read those tests as agreement with code_aster.
+  Each ported law *should* name the `astest` cases it is checked against, and
+  none does; that is now unblocked work rather than a blocked premise.
+
+  The sparse include list as of 2026-08-05: `bibc/`, `bibfor/algorith/`,
+  `comport/`, `comport_prep/`, `fracture/`, `include/`, `lc/`, `metallurgy/`,
+  `modelisa/`, `nonlinear/`, `te/`, `utilifor/`, `utilitai/`,
+  `code_aster/Behaviours/`, `code_aster/MacroCommands/`, `catalo/`, `mfront/`,
+  `astest/`. (`catalo/` and `bibfor/te/` added 2026-08-05 for 15 MB; `astest/`
+  the same day for 582 MB; `code_aster/MacroCommands/` for 5 MB, needed to read
+  what `TEST_COMPOR` actually asserts.)
+
+  One open question remains genuinely blocked, and not by the sparse checkout:
+  TFEL's `hillTensor` argument convention, needed to settle the
+  `META_LEMA_ANI` shear-slot transposition. TFEL is a **separate project** and
+  is not in this clone at all.
 - **Android/Termux.** Pure-Rust, no BLAS, no FFI — the port should be
   Android-clean by construction. Verify with
   `cargo check -p <crate> --all-targets --target aarch64-linux-android`.

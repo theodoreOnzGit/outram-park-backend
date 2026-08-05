@@ -26,9 +26,12 @@
 //!
 //! It contains **no physics**. No stress is computed here. A variant
 //! appearing in [`AsterBehaviour`] means only that upstream declares that
-//! law, not that this port implements it -- ask
-//! [`AsterBehaviour::is_implemented`] for that, and expect `false` for
-//! nearly all of them at present.
+//! law, not that this port implements it. There is deliberately **no**
+//! `is_implemented` query: a hand-maintained "is it done yet" flag on 229
+//! variants would go stale the moment one more law landed, and a stale flag
+//! reading `true` is worse than no flag. The implemented set is listed in the
+//! [`super`] module documentation and in the crate README, both of which sit
+//! next to the code that would have to change.
 //!
 //! # Why generated
 //!
