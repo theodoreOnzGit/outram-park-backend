@@ -341,18 +341,30 @@ const ANALYTICAL_REFERENCE: [(usize, f64, f64, f64, f64); 5] = [
 /// integrates it with Runge-Kutta *and adaptive sub-steps*; one Euler step over
 /// a `dt` of 36000 s cannot follow it.
 ///
-/// Second, and separately, **`V8` is exactly `V7 / 100`** at every instant —
-/// `2.646947e-5` against `2.646947e-3`, and the same ratio at all five points.
-/// Upstream has `V8 ≈ V7` (`1.646053e-3` against `1.646107e-3`). An exact
-/// factor of 100 across independent instants is not a convergence artefact; it
-/// points at the isotropic-hardening variable being scaled somewhere, and it
-/// would persist even with perfect time integration.
+/// Second, `V8` is exactly `V7 / 100` at every instant — `2.646947e-5` against
+/// `2.646947e-3`. **This is not a second defect.** An earlier revision of this
+/// comment called the exact factor of 100 "not a convergence artefact" and
+/// guessed at a stray scaling in the hardening variable. That was wrong, and
+/// reading the port settles it: `integrate` computes `dp = dr / (1 - D)`, so
+/// with `D` pinned at the `0.99` ceiling, `1 - D = 0.01` and `dp = 100 dr`
+/// exactly. The ratio is arithmetic downstream of the saturation. There is
+/// **one** root cause here, not two, and fixing the damage integration should
+/// take the hardening ratio with it.
 ///
-/// **Next step:** sub-step the damage integration within each of the deck's
-/// 60 intervals and re-measure, which should settle whether the first symptom
-/// is wholly a time-integration artefact. The `V8` factor of 100 needs a
-/// separate read of the port's hardening update against `rkdvec.F90` and is not
-/// explained by sub-stepping.
+/// **Attempted and not yet working: fixed sub-stepping.** Subdividing each of
+/// the deck's 60 intervals into 200 sub-steps, with the total strain ramped
+/// linearly across them, aborts with
+/// `Unphysical { quantity: "root-finding bracket", value: NaN }` from inside
+/// the mixed-control fixed point. The cause is that the fixed point *probes*
+/// trial strains on its way to convergence, and a probe far from the solution
+/// drives the damage rate out of range before the strain ever settles. So
+/// sub-stepping alone is not enough: the driver also needs the probe to fail
+/// gracefully — either by returning a `Result` the solver can back off from,
+/// or by damping the correction so wild trial states are never visited.
+///
+/// **Next step:** make the mixed-control probe failure-tolerant, then re-apply
+/// sub-stepping and refine the subdivision until the answer stops moving. The
+/// sub-step count needed is itself worth reporting.
 ///
 /// Tracked on bead op-b0x.
 #[test]
