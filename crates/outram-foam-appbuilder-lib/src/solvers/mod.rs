@@ -30,6 +30,7 @@
 //! | Submodule | Ports | Regime |
 //! |---|---|---|
 //! | [`pimple_foam`] | pimpleFoam | Incompressible transient PIMPLE |
+//! | [`melt_foam`] | pimpleFoam + `solidificationMelting` fvModel | Incompressible buoyant PIMPLE with phase change |
 //! | [`rho_pimple_foam`] | rhoPimpleFoam | Compressible transient PIMPLE |
 //! | [`sonic_foam`] | sonicFoam | Transonic/supersonic compressible |
 //! | [`rho_central_foam`] | rhoCentralFoam | Density-based central-upwind (Kurganov-Tadmor) |
@@ -41,6 +42,7 @@
 
 pub(crate) mod bc_util;
 pub mod hrm_foam;
+pub mod melt_foam;
 pub mod pimple_foam;
 pub mod reacting_two_phase_euler_foam;
 pub mod rho_central_foam;
