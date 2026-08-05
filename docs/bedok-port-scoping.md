@@ -192,6 +192,22 @@ implementation; verified against the published benchmarks".
 Per the workspace V&V rule, each gate records **methodology and measured
 results with uncertainty**, not merely "ported".
 
+**Benchmark source documents are cited, not republished.** Decided 2026-08-05.
+The ANL-7416 (Suppl. 2) scan and the Takeda & Ikeda (1991) article live in
+`collaboration/` (gitignored), along with the full kovan text extraction, and
+**none of it is committed** — publicly readable is not the same as freely
+redistributable. ANL-7416 (Suppl. 2) is an American Nuclear Society
+publication; Takeda & Ikeda is a Taylor & Francis journal article. What goes
+into the repository is the **citation plus the specific values relied on**
+(problem identifier, reference `k_eff`, mesh table), which is ordinary
+scholarship rather than republication. A `References.md` alongside the case
+data is still outstanding.
+
+Note also that Takeda & Ikeda is **not** the IAEA-3D source — it is a separate
+set of 3-D neutron *transport* benchmarks (NEACRP-L-330), and a two-group
+diffusion code is not expected to reproduce them. IAEA-3D is problem **11-A1**
+of ANL-7416 (Suppl. 2).
+
 **Recovering the tight oracle, if wanted later.** Installing GNU Octave is
 cheap and would restore the ability to diff against the reference directly.
 Compatibility is not guaranteed — `gmres`, sparse handling, `-v7.3` `.mat`
