@@ -243,3 +243,195 @@ brief.
   (`DECISIONS.md`), previewed it and confirmed a real heading outline
   rendered; returned to Overview and confirmed `q` exits cleanly (tmux
   session terminated, pane no longer existed on the next capture attempt).
+
+---
+
+# Ingestion pass — decisions, assumptions, open questions (2026-08-05)
+
+Second pass on this crate: adding **interactive literature ingestion** (tab 6,
+`src/tui/ingest/`) so a maintainer can import a PDF from inside the TUI instead
+of typing `kovan lit import`. Scope was `crates/kovan-tui/` only — no sibling
+`kovan-*` crate was modified.
+
+## What changed
+
+- **New Ingest tab** (`src/tui/ingest/`, three files): a four-phase state
+  machine (`Picking → Running → Review → saved`, with `Failed` off both), a PDF
+  picker over `kovan_discovery::discover_kind(root, FileKind::Pdf)`, a worker
+  thread running `kovan_literature::extract_metadata`, an editable metadata
+  review form, and saving of Markdown / `KovanDocument` JSON / BibTeX.
+- **The library calls are exactly the CLI's** — `extract_metadata` and
+  `to_bibtex`, matching `kovan-cli/src/commands/lit.rs`. Nothing about the
+  pipeline is reimplemented here.
+- **Literature tab gained `i`** — hands the selected PDF to the Ingest tab
+  (`LiteratureState::take_ingest_request`, drained by `App::handle_key`) so the
+  read-only viewer stays read-only and all writing lives in one screen.
+- **The draw loop is now polled** (`event::poll` + `App::tick`) instead of
+  blocking on `event::read`, so a running extraction animates and delivers its
+  result with no key press. Poll interval is 100 ms only while work is in
+  flight, 1000 ms otherwise.
+- **`q`/`Esc` are refused on the Ingest tab while work is in flight** — a
+  running extraction or an unsaved review must be dismissed with `x` first.
+  Losing hand-corrected metadata to a reflexive `q` is a bad trade.
+- **`serde_json`** added under the existing non-Android dependency table (it is
+  only reachable from the Android-gated `tui` tree).
+
+## Why the review step is the point of this feature
+
+`kovan_literature::extract_metadata` documents itself as best-effort, and it is.
+Importing the real 1977 Argonne benchmark-problem report during this pass
+reproduced the reported failure exactly: `title: ANL-7416 Supplement 2`
+(correct), `year: 2004` (the scanner's digitisation date), `authors: []` (the
+real corporate author is "Argonne Code Center"), giving `slug: 2004anl7416`.
+That record would render a wrong `@misc` BibTeX entry and, from there, a wrong
+citation — a provenance error under `RESEARCH_INTEGRITY_AND_PROVENANCE.md`.
+
+So the tab never saves what the extractor produced without showing it first. It
+also flags what is *typically* wrong (empty authors; a year later than years
+found in the document's own front matter; `Other` document type; a title shaped
+like a report number) — advisories only, never auto-correction, because silently
+"fixing" metadata would be the same integrity problem wearing a different hat.
+
+## Design choices, spelled out
+
+- **A worker thread + `std::sync::mpsc` channel, not `Arc<RwLock<T>>` and not an
+  async runtime.** The previous pass flagged that background work would be the
+  moment to revisit the no-lock decision; having built it, a lock is still not
+  the right tool. Nothing is *shared*: the worker owns its `PathBuf`, sends one
+  `Result<KovanDocument, String>`, and exits. That is the produce-once pipeline
+  the root `CLAUDE.md` shared-state rule explicitly contrasts with simulation
+  state, and it needs no runtime — `std::thread` plus one channel is the whole
+  mechanism.
+- **Elapsed time and a spinner, never a percentage.** `kovan-literature` exposes
+  no progress callback, and a fabricated progress bar is a small lie of exactly
+  the kind KOVAN exists to avoid. Measured for the record (release build,
+  developer desktop): 12 MB / 447 pages → 0.3 s; 1.4 MB / 103 pages → 0.1 s.
+  Faster than the brief assumed — the worker thread is still right, because the
+  call is unbounded in principle and much slower in a debug build or on a phone.
+- **`catch_unwind` around the library call.** PDF parsing runs over untrusted
+  third-party bytes; a panic there must become a `Failed` phase, not a dead
+  process with the terminal left in raw mode. A worker that dies without sending
+  is caught too (`TryRecvError::Disconnected`). The terminal is cleared on every
+  transition out of `Running`, because a panic message printed by the default
+  hook can smear the frame.
+- **Abandon, not cancel.** `extract_metadata` has no cancellation token, so `x`
+  drops the receiver and the detached worker's result is discarded. The UI says
+  exactly that rather than implying the work stopped.
+- **The slug/id are re-derived from the corrected values** (`ingest/metadata.rs`),
+  so fixing the year really does change the citation key
+  (`2004anl7416` → `argonnecodecenter1977anl7416`), and the default output paths
+  follow it. See the API gap below.
+- **Output paths default to the storage layout** via
+  `kovan_literature::storage::generated_dir_for`, so Markdown and BibTeX land in
+  `generated/{markdown,bibtex}/{open,proprietary}/` with the visibility the
+  extraction inferred from the source path. The JSON record has **no** directory
+  defined in `docs/kovan.md`; it defaults beside the Markdown, flagged in the
+  code as this crate's choice rather than a layout rule. Hand-editing any path
+  pins all three so later slug changes stop moving the user's files.
+- **Corporate authors are first-class.** The author line parses `;`-separated
+  entries, splitting `Family, Given` on a comma; an entry without a comma is a
+  corporate author (`family` set, `given` empty), which is the convention
+  `kovan_common::Author` documents. Typing `Argonne Code Center` therefore yields
+  one organisation, not three people.
+- **Document type is cycled, not typed** (Left/Right) — a closed enum cannot be
+  misspelled, and the type drives the BibTeX entry type.
+
+## Missing from `kovan-literature`'s API (worked around, not patched)
+
+- **No public identifier derivation.** `make_slug`/`make_id` are private to
+  `kovan-literature`'s `metadata.rs` and run exactly once, inside
+  `extract_metadata`. There is no `derive_identifiers(&mut KovanDocument)` or
+  equivalent, so a corrected document cannot ask the library to re-derive its
+  own slug/id. Both functions are **mirrored** in `ingest/metadata.rs`, kept
+  byte-for-byte compatible and pinned by a test that reproduces the library's
+  own `doe2021test` expectation. This is real duplication and will drift if the
+  upstream algorithm changes — the proper fix is a public function there.
+- **No progress reporting.** `extract_metadata` (and `pdf_to_markdown`) are
+  all-or-nothing calls with no callback and no page counter, so the UI can only
+  show elapsed time. A `page_done: usize` callback (or an iterator over pages)
+  would let a real progress bar exist without inventing numbers.
+- **No cancellation.** Nothing in the API takes a stop flag, hence "abandon"
+  rather than "cancel".
+- **No metadata-confidence signal.** The crate knows *which* source each field
+  came from (Info dictionary, cover page, text fallback) but discards that in
+  the returned `KovanDocument`, so the TUI re-derives its advisories from the
+  finished record. Exposing provenance per field (`title_source`, `year_source`)
+  would make the review screen sharper and is arguably what a best-effort
+  extractor owes its reviewer.
+
+## What was deliberately left out
+
+- **No editing of DOI, keywords, abstract, journal locators, visibility or
+  document body.** The review form covers the fields that drive the citation and
+  the identifiers (and the ones observed to be wrong). The rest can be edited in
+  the saved JSON, which is the canonical record.
+- **No re-opening of a previously saved JSON for a second review pass.** Worth
+  adding if metadata correction becomes iterative.
+- **No BibTeX append/merge into an existing `.bib` file** — each save writes one
+  entry to its own path, matching `kovan lit bibtex`'s one-entry output.
+- **No batch/queue ingestion.** One document at a time, deliberately: the whole
+  value of this screen is a human looking at each record.
+- **No cursor-in-the-middle text editing** — `TextInput` is still
+  append/backspace only, so replacing a long default path means holding
+  `Backspace`. Mildly annoying with the ~70-character default output paths; the
+  first real fix should probably be a "clear field" key rather than a full
+  editor.
+
+## Verification performed (this pass, 2026-08-05, all commands run for real)
+
+- `cargo check -p kovan-tui --bins --tests` — clean.
+- `cargo test --release -p kovan-tui` — **98/98 unit tests pass** (44 before
+  this pass; the new ones cover the picker, the worker/channel path end to end,
+  metadata correction and slug regeneration, saving and its failure modes, and
+  rendering of every phase).
+- `cargo clippy --release -p kovan-tui --all-targets -- -D warnings` — clean.
+  One `#[allow(clippy::large_enum_variant)]` on `IngestPhase` with the reason
+  recorded in its doc comment (the suggested fix is `Box`, which the workspace
+  forbids).
+- `RUSTDOCFLAGS="-D warnings" cargo doc -p kovan-tui --no-deps --release` — clean.
+- `cargo check -p kovan-tui --all-targets --target aarch64-linux-android` —
+  clean (the full `--all-targets` form the root `CLAUDE.md` mandates, not the
+  `--lib`-only proxy).
+- `pandoc -f gfm+tex_math_dollars -t html --mathml README.md > /dev/null` —
+  exit 0, no warnings.
+- **Manual interactive test against a real document**, compiled release binary
+  in `tmux` (200×50): imported the real 12 MB / 447-page Argonne report from a
+  local (gitignored, uncommitted) working directory. Extraction returned in
+  0.3 s with 447 pages and 557 707 characters of Markdown; the review screen
+  reproduced the reported failure (`ANL-7416 Supplement 2` / `2004` / no
+  authors / `2004anl7416`) and raised all four advisories, including "earlier
+  years in the text: 1963, 1968, 1971, 1972, 1973, 1977". Corrected the author
+  to `Argonne Code Center`, the year to `1977`, the type to `Report` and the
+  institution to `Argonne National Laboratory`; the slug updated live to
+  `argonnecodecenter1977anl7416` and the pane showed "(extractor said
+  '2004anl7416')". Redirected all three output paths to a scratch directory and
+  saved: `@techreport{argonnecodecenter1977anl7416, author = {Argonne Code
+  Center}, title = {ANL-7416 Supplement 2}, year = {1977}, institution =
+  {Argonne National Laboratory}}`, a 608 KB JSON record round-tripping the
+  corrections, and a 567 KB Markdown body. Also verified the Literature tab's
+  `i` hand-off (which surfaced the same failure class on a second report:
+  `NEACRP-L-330`, year `2007`), that `q` is refused with an unsaved review on
+  screen, and that `x` then `q` exits cleanly with the terminal restored. No
+  file was written anywhere inside the repository, and no PDF was added to any
+  test fixture (both test documents are local, gitignored material).
+
+## Open questions for human review
+
+1. **Should the mirrored slug/id derivation live in `kovan-literature`
+   instead?** It is the one piece of genuine duplication introduced here, and
+   the only reason it exists is that the library's derivation is private. A
+   public `derive_identifiers` would let this crate delete ~40 lines and remove
+   a drift risk. Out of scope for this pass (kovan-tui only).
+2. **Should corrections be recorded in the saved record?** Right now a saved
+   `KovanDocument` does not say which fields a human changed — only the live UI
+   shows the `*` markers. A `corrected_fields: Vec<String>` (or a note in
+   `tags`) would make provenance auditable after the fact, which is arguably
+   what the integrity policy wants; it needs a `kovan-common` field, so it was
+   not done here.
+3. **Default output paths assume the repository root as cwd** (they start
+   `crates/kovan-literature/generated/…`), matching the Literature tab's
+   existing assumption. Running the binary from elsewhere silently produces a
+   relative path under the wrong directory — visible in the form before saving,
+   but a `--archive-root` flag or a persisted setting would be better.
+4. **No beads filed** — this agent's brief was kovan-tui only and beads are the
+   maintainer's to open/close; the three items above are the candidates.

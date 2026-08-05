@@ -71,6 +71,11 @@ pub struct LiteratureState {
     pub status: String,
     pub preview: String,
     pub preview_scroll: u16,
+    /// Set when the user presses `i` on a selected PDF: a request for
+    /// [`super::App`] to hand this file to the Ingest tab. Drained by
+    /// [`LiteratureState::take_ingest_request`] — this tab never imports
+    /// anything itself, keeping it a read-only viewer.
+    pub ingest_request: Option<PathBuf>,
 }
 
 impl Default for LiteratureState {
@@ -80,9 +85,11 @@ impl Default for LiteratureState {
             kind: LitKind::All,
             entries: Vec::new(),
             list_state: ListState::default(),
-            status: "press 'e' to edit root, Enter to scan; Enter again to preview".to_string(),
+            status: "press 'e' to edit root, Enter to scan; Enter again to preview, 'i' to import"
+                .to_string(),
             preview: String::new(),
             preview_scroll: 0,
+            ingest_request: None,
         }
     }
 }
@@ -187,11 +194,44 @@ impl LiteratureState {
         };
     }
 
+    /// Ask for the selected entry to be imported on the Ingest tab.
+    ///
+    /// Only PDFs can be ingested; anything else sets an explanatory status and
+    /// leaves the request unset.
+    fn request_ingest(&mut self) {
+        let Some(path) = self
+            .list_state
+            .selected()
+            .and_then(|i| self.entries.get(i))
+            .cloned()
+        else {
+            self.status = "no entry selected".to_string();
+            return;
+        };
+        let is_pdf = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case("pdf"));
+        if is_pdf {
+            self.status = format!("importing {} on the Ingest tab", path.display());
+            self.ingest_request = Some(path);
+        } else {
+            self.status = "only PDFs can be imported — select a .pdf entry".to_string();
+        }
+    }
+
+    /// Take a pending ingest request, if any, leaving `None` behind. Called by
+    /// [`super::App`] right after dispatching a key to this tab.
+    pub fn take_ingest_request(&mut self) -> Option<PathBuf> {
+        self.ingest_request.take()
+    }
+
     /// Handle one key event. `editing` is the shared edit-mode flag owned by
     /// [`super::App`]. Unlike the Browser/Symbols tabs, a plain (non-editing)
     /// Enter here previews the selected entry rather than re-running the
     /// scan — `r` re-scans instead, since "preview this file" is the more
-    /// useful default action once a list is already on screen.
+    /// useful default action once a list is already on screen. `i` hands the
+    /// selected PDF to the Ingest tab.
     pub fn handle_key(&mut self, key: KeyEvent, editing: &mut bool) {
         if *editing {
             match key.code {
@@ -209,6 +249,7 @@ impl LiteratureState {
         match key.code {
             KeyCode::Char('e') => *editing = true,
             KeyCode::Char('r') => self.run_scan(),
+            KeyCode::Char('i') => self.request_ingest(),
             KeyCode::Enter => self.preview_selected(),
             KeyCode::Left => self.kind = self.kind.step(-1),
             KeyCode::Right => self.kind = self.kind.step(1),
@@ -339,7 +380,7 @@ pub fn draw(frame: &mut Frame, area: Rect, state: &mut LiteratureState, editing:
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title("Entries (Enter to preview, 'r' to rescan)"),
+                .title("Entries (Enter preview, 'i' import PDF, 'r' rescan)"),
         )
         .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
     frame.render_stateful_widget(list, cols[0], &mut state.list_state);

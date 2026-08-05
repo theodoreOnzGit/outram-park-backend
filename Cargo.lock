@@ -4439,6 +4439,7 @@ dependencies = [
  "kovan-literature",
  "kovan-semantics",
  "ratatui",
+ "serde_json",
  "tempfile",
 ]
 

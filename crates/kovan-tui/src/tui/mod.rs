@@ -6,29 +6,40 @@
 //!
 //! # Navigation
 //!
-//! Five tabs ([`Tab`]), switched with `1`-`5` or `Tab`/`Shift+Tab` whenever no
+//! Six tabs ([`Tab`]), switched with `1`-`6` or `Tab`/`Shift+Tab` whenever no
 //! text field is being edited. Each tab that reads the filesystem (Browser,
-//! Symbols, Literature) owns a small text field for its root path, entered
-//! with `e` and confirmed with `Enter`/cancelled with `Esc` — see
+//! Symbols, Literature, Ingest) owns a small text field for its root path,
+//! entered with `e` and confirmed with `Enter`/cancelled with `Esc` — see
 //! [`App::editing`]. `q`/`Esc` quits from any tab, except while editing (where
-//! `Esc` only cancels the edit).
+//! `Esc` only cancels the edit) and except when the Ingest tab has work in
+//! flight (see [`App::handle_key`]).
 //!
 //! # State ownership
 //!
 //! [`App`] owns one state struct per tab by value — no `Arc`/lock anywhere.
 //! The workspace's `Arc<RwLock<T>>` rule (root `CLAUDE.md`, "Shared state")
-//! governs state shared **across threads** in a simulation timestep loop; this
-//! is a single-threaded, synchronous terminal event loop with nothing to share
-//! — each `handle_key` call runs to completion (including any filesystem read)
-//! before the next `terminal.draw` call, so plain ownership is the correct,
-//! simpler tool here. See `DECISIONS.md`.
+//! governs state shared **across threads** in a simulation timestep loop. The
+//! draw loop itself is single-threaded, and the one background worker (PDF
+//! extraction, [`ingest`]) shares no state at all: it owns its input, sends one
+//! result down an `mpsc` channel, and exits. So plain ownership remains the
+//! correct, simpler tool here. See `DECISIONS.md`.
+//!
+//! # The loop is polled, not blocking
+//!
+//! [`draw_loop`] waits on input with `event::poll` and calls [`App::tick`] each
+//! time round, so a running extraction can animate and deliver its result while
+//! the user does nothing. The poll interval is short only while work is in
+//! flight; otherwise it is long, so an idle TUI stays effectively asleep.
 
 mod browser;
+mod ingest;
 mod literature;
 mod methods;
 mod overview;
 mod symbols;
 mod text_input;
+
+use std::time::Duration;
 
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::layout::{Constraint, Layout};
@@ -37,7 +48,7 @@ use ratatui::text::Line;
 use ratatui::widgets::{Block, Paragraph, Tabs};
 use ratatui::{DefaultTerminal, Frame};
 
-/// The five human-facing screens.
+/// The six human-facing screens.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Tab {
     #[default]
@@ -46,14 +57,17 @@ pub enum Tab {
     Symbols,
     Methods,
     Literature,
+    /// Interactive literature ingestion — the only screen that writes files.
+    Ingest,
 }
 
-const TABS: [Tab; 5] = [
+const TABS: [Tab; 6] = [
     Tab::Overview,
     Tab::Browser,
     Tab::Symbols,
     Tab::Methods,
     Tab::Literature,
+    Tab::Ingest,
 ];
 
 impl Tab {
@@ -64,6 +78,7 @@ impl Tab {
             Tab::Symbols => "Symbols",
             Tab::Methods => "Methods",
             Tab::Literature => "Literature",
+            Tab::Ingest => "Ingest",
         }
     }
 
@@ -84,6 +99,7 @@ impl Tab {
             '3' => Some(Tab::Symbols),
             '4' => Some(Tab::Methods),
             '5' => Some(Tab::Literature),
+            '6' => Some(Tab::Ingest),
             _ => None,
         }
     }
@@ -103,18 +119,28 @@ pub struct App {
     symbols: symbols::SymbolsState,
     methods: methods::MethodsState,
     literature: literature::LiteratureState,
+    ingest: ingest::IngestState,
 }
 
 impl App {
     /// Route one key event to the global handlers (quit, tab switch) or, if
     /// none apply, to the active tab's own handler. Pure state mutation, no
     /// I/O beyond whatever the active tab's action performs (a filesystem
-    /// scan) — this is what the unit tests below drive directly, without a
-    /// terminal.
+    /// scan, or writing the reviewed document on the Ingest tab) — this is what
+    /// the unit tests below drive directly, without a terminal.
+    ///
+    /// One exception to the global bindings: `q`/`Esc` do **not** quit while the
+    /// Ingest tab has an extraction running or an unsaved review on screen
+    /// (`IngestState::blocks_quit`). A reflexive `q` there would throw away
+    /// hand-corrected metadata; the user must press `x` to discard first.
     pub fn handle_key(&mut self, key: KeyEvent) {
         if !self.editing {
             match key.code {
                 event::KeyCode::Char('q') | event::KeyCode::Esc => {
+                    if self.tab == Tab::Ingest && self.ingest.blocks_quit() {
+                        self.ingest.note_blocked_quit();
+                        return;
+                    }
                     self.should_quit = true;
                     return;
                 }
@@ -141,14 +167,45 @@ impl App {
             Tab::Browser => self.browser.handle_key(key, &mut self.editing),
             Tab::Symbols => self.symbols.handle_key(key, &mut self.editing),
             Tab::Methods => self.methods.handle_key(key),
-            Tab::Literature => self.literature.handle_key(key, &mut self.editing),
+            Tab::Literature => {
+                self.literature.handle_key(key, &mut self.editing);
+                // The Literature tab's `i` hands a selected PDF over to the
+                // Ingest tab rather than importing in place, so the read-only
+                // viewer stays read-only.
+                if let Some(pdf) = self.literature.take_ingest_request() {
+                    self.ingest.ingest_path(pdf);
+                    self.tab = Tab::Ingest;
+                }
+            }
+            Tab::Ingest => self.ingest.handle_key(key, &mut self.editing),
+        }
+    }
+
+    /// Advance any background work by one draw-loop iteration.
+    ///
+    /// Currently only the Ingest tab has any: it polls its worker thread and
+    /// advances the progress spinner. Returns `true` when the screen must be
+    /// fully repainted (a phase change; see `IngestState::tick`).
+    pub fn tick(&mut self) -> bool {
+        self.ingest.tick()
+    }
+
+    /// How long the draw loop should wait for a key before looping again —
+    /// short while background work is in flight so progress stays live, long
+    /// when idle so the process is effectively asleep.
+    fn poll_interval(&self) -> Duration {
+        if self.ingest.is_busy() {
+            Duration::from_millis(100)
+        } else {
+            Duration::from_millis(1000)
         }
     }
 }
 
 /// Set up the terminal, run the draw/input loop, and restore on exit (or on a
-/// draw/read error — `ratatui::restore()` always runs so a panic or an I/O
-/// error never leaves the user's terminal in raw mode).
+/// draw/read error — `ratatui::restore()` always runs, and `ratatui::init()`
+/// installs a panic hook that restores first, so neither a panic nor an I/O
+/// error can leave the user's terminal in raw mode).
 pub fn run() -> std::io::Result<()> {
     let mut terminal = ratatui::init();
     let mut app = App::default();
@@ -157,15 +214,27 @@ pub fn run() -> std::io::Result<()> {
     result
 }
 
+/// Draw, wait briefly for input, tick background work, repeat.
+///
+/// The wait is `event::poll` rather than a blocking `event::read` so a running
+/// PDF extraction can keep its elapsed-time display current and deliver its
+/// result without the user touching the keyboard.
 fn draw_loop(terminal: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     loop {
         terminal.draw(|f| draw(f, app))?;
-        if let Event::Key(key) = event::read()? {
-            // Some backends (notably Windows) report both press and release;
-            // only act on press so a single physical keystroke is one action.
-            if key.kind == KeyEventKind::Press {
-                app.handle_key(key);
+        if event::poll(app.poll_interval())? {
+            if let Event::Key(key) = event::read()? {
+                // Some backends (notably Windows) report both press and release;
+                // only act on press so a single physical keystroke is one action.
+                if key.kind == KeyEventKind::Press {
+                    app.handle_key(key);
+                }
             }
+        }
+        if app.tick() {
+            // A worker that panicked will have printed through the default hook
+            // and may have smeared the frame; repaint everything.
+            terminal.clear()?;
         }
         if app.should_quit {
             return Ok(());
@@ -195,17 +264,19 @@ fn draw(frame: &mut Frame, app: &mut App) {
         Tab::Symbols => symbols::draw(frame, chunks[1], &mut app.symbols, app.editing),
         Tab::Methods => methods::draw(frame, chunks[1], &mut app.methods),
         Tab::Literature => literature::draw(frame, chunks[1], &mut app.literature, app.editing),
+        Tab::Ingest => ingest::draw(frame, chunks[1], &mut app.ingest, app.editing),
     }
 
     let help = if app.editing {
         "editing — type, Enter to confirm, Esc to cancel"
     } else {
         match app.tab {
-            Tab::Overview => "1-5 / Tab: switch tabs   q / Esc: quit",
-            Tab::Browser => "e: edit root  Enter: rescan  Left/Right: filter  Up/Down: select  1-5: tabs  q: quit",
-            Tab::Symbols => "e: edit root  Enter: rescan  Left/Right: language  m: markdown view  1-5: tabs  q: quit",
+            Tab::Overview => "1-6 / Tab: switch tabs   q / Esc: quit",
+            Tab::Browser => "e: edit root  Enter: rescan  Left/Right: filter  Up/Down: select  1-6: tabs  q: quit",
+            Tab::Symbols => "e: edit root  Enter: rescan  Left/Right: language  m: markdown view  1-6: tabs  q: quit",
             Tab::Methods => "Left/Right: family  Up/Down: method  Enter: generate  PgUp/PgDn: scroll  q: quit",
-            Tab::Literature => "e: edit root  Enter: preview  r: rescan  Left/Right: filter  1-5: tabs  q: quit",
+            Tab::Literature => "e: edit root  Enter: preview  i: import selected PDF  r: rescan  Left/Right: filter  q: quit",
+            Tab::Ingest => app.ingest.help_line(),
         }
     };
     frame.render_widget(Paragraph::new(help), chunks[2]);
@@ -247,13 +318,13 @@ mod tests {
     #[test]
     fn tab_key_cycles_forward_and_wraps() {
         let mut app = App::default();
-        for _ in 0..5 {
+        for _ in 0..TABS.len() {
             app.handle_key(key(KeyCode::Tab));
         }
         assert_eq!(
             app.tab,
             Tab::Overview,
-            "5 steps from Overview must wrap back"
+            "one full cycle from Overview must wrap back"
         );
     }
 
@@ -261,7 +332,7 @@ mod tests {
     fn back_tab_cycles_backward_and_wraps_from_overview() {
         let mut app = App::default();
         app.handle_key(key(KeyCode::BackTab));
-        assert_eq!(app.tab, Tab::Literature);
+        assert_eq!(app.tab, Tab::Ingest, "Ingest is the last tab");
     }
 
     #[test]
@@ -297,6 +368,78 @@ mod tests {
         app.handle_key(key(KeyCode::Enter));
         assert_eq!(app.tab, Tab::Overview);
         assert!(!app.should_quit);
+    }
+
+    #[test]
+    fn digit_six_reaches_the_ingest_tab() {
+        let mut app = App::default();
+        app.handle_key(key(KeyCode::Char('6')));
+        assert_eq!(app.tab, Tab::Ingest);
+    }
+
+    #[test]
+    fn literature_i_hands_the_selected_pdf_to_the_ingest_tab() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("report.pdf"), b"not a real pdf").unwrap();
+
+        let mut app = App {
+            tab: Tab::Literature,
+            ..Default::default()
+        };
+        app.literature.root.set(dir.path().to_str().unwrap());
+        app.handle_key(key(KeyCode::Char('r'))); // scan
+        app.handle_key(key(KeyCode::Char('i'))); // import the selected PDF
+
+        assert_eq!(app.tab, Tab::Ingest, "the hand-off switches tabs");
+        assert!(app.ingest.is_busy(), "extraction started on the worker");
+        assert!(
+            app.literature.take_ingest_request().is_none(),
+            "the request must be drained, not left pending"
+        );
+
+        // Let the worker finish (the payload is not a real PDF, so it fails) —
+        // otherwise it would outlive the temp directory.
+        let start = std::time::Instant::now();
+        while start.elapsed() < Duration::from_secs(20) && !app.tick() {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(!app.ingest.is_busy(), "the job must have been collected");
+    }
+
+    #[test]
+    fn quitting_is_blocked_while_an_import_is_in_flight() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let pdf = dir.path().join("report.pdf");
+        std::fs::write(&pdf, b"not a real pdf").unwrap();
+
+        let mut app = App {
+            tab: Tab::Ingest,
+            ..Default::default()
+        };
+        app.ingest.ingest_path(pdf);
+        app.handle_key(key(KeyCode::Char('q')));
+        assert!(!app.should_quit, "q must not discard a running import");
+
+        app.handle_key(key(KeyCode::Char('x'))); // abandon
+        app.handle_key(key(KeyCode::Char('q')));
+        assert!(app.should_quit, "q quits once nothing is in flight");
+    }
+
+    #[test]
+    fn poll_interval_is_short_only_while_work_is_in_flight() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let pdf = dir.path().join("report.pdf");
+        std::fs::write(&pdf, b"not a real pdf").unwrap();
+
+        let mut app = App::default();
+        assert_eq!(app.poll_interval(), Duration::from_millis(1000));
+        app.ingest.ingest_path(pdf);
+        assert_eq!(app.poll_interval(), Duration::from_millis(100));
+
+        let start = std::time::Instant::now();
+        while start.elapsed() < Duration::from_secs(20) && !app.tick() {
+            std::thread::sleep(Duration::from_millis(5));
+        }
     }
 
     #[test]
