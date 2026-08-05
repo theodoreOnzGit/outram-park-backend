@@ -302,14 +302,50 @@ deriving a multiplier.
   Worse, the 12 decks that *do* carry absolute values exercise
   `ENDO_ISOT_BETON` and `HUJEUX` — laws this port has not touched.
 
-  **The usable oracles are the single-element structural decks.** `ssnv126a`
-  (VENDOCHAB) is one `HEXA8` element over 8 nodes carrying 32 non-zero
-  `VALE_CALC` entries plus `VALE_REFE` values such as `252.76091`. A single
+  **The usable oracles are the single-element structural decks.** A single
   hexahedron under uniform loading is a material-point test in all but name:
   the stress state is homogeneous, so the FE answer *is* the constitutive
-  response. Those need checking one at a time for mesh size — `ssnv230a`
-  (IRRAD3M), for instance, carries no non-zero `VALE_CALC` at all — but they
-  are where the absolute numbers live. Start from `ssnv126a`.
+  response, and none of the FE machinery this crate lacks is needed to predict
+  it.
+
+  Ranking every deck that names a ported law and carries a non-zero
+  `VALE_CALC`, cheapest first — "FO" counts temperature-dependent material
+  blocks, which are what make a deck expensive:
+
+  | Deck | Law | FO | Non-zero `VALE_CALC` | Mesh |
+  |---|---|---|---|---|
+  | `ssnv101a` | `VMIS_CIN2_CHAB` | 0 | 5 | 1 kB, one 8-node cube |
+  | `ssnv101b` | `VMIS_CIN2_CHAB` | 0 | 4 | <1 kB |
+  | `ssnv172b` | `VISC_CIN1_CHAB` | 0 | 3 | <1 kB |
+  | `ssnv113a` | `VISC_IRRA_LOG` | 0 | 5 | 1 kB |
+  | `ssnv124b` | `NORTON_HOFF` | 0 | 5 | 3 kB |
+  | `ssnv126a` | `VENDOCHAB` | 3 | 32 | anisothermal, 1000→1025 K |
+
+  **Start at `ssnv101a`** — *"plaque carrée en traction cisaillement, calcul
+  3D, modèle élastoplastique de Chaboche"*, one 8-node cube, isothermal
+  (`ALPHA=0.0`), units N/mm/s. Fully specified in the deck:
+
+  - `ELAS`: `E = 145200`, `NU = 0.3`
+  - `CIN2_CHAB`: `R_I = 151`, `R_0 = 87`, `B = 2.3`, `K = 0.43`, `W = 6.09`,
+    `C1_I = 187 × 341`, `G1_0 = 341`, `C2_I = 29 × 17184`, `G2_0 = 17184`
+  - 13 steps to `t = 1.435`; assertions at the last one: `SIXX = 143.5`
+    (`VALE_REFE` identical), `EPXX = 0.096063293855236` (refe `0.09709`),
+    `EPXY = 0.14389728238065` (refe `0.1454`), `V1 = 0.19015000369194`
+
+  It is **force-controlled and statically determinate** — `VALE_CALC` for
+  `SIXX` equals `VALE_REFE` exactly, so the stress is fixed by the applied
+  nodal forces rather than by the solve. That means the port can be driven
+  with a *prescribed stress history* and compared on strains, needing no FE
+  assembly at all.
+
+  It also closes a gap the Chaboche port explicitly could not: tension **plus
+  shear** is a non-proportional path, and the module documents that a radial
+  path cannot discriminate the `δ < 1` non-radial back-stress behaviour.
+
+  Note `ssnv126a` (VENDOCHAB) carries by far the most reference values, 32, but
+  is anisothermal with three temperature-function material blocks — worth doing,
+  but not first. And `ssnv230a` (IRRAD3M) carries no non-zero `VALE_CALC` at
+  all, so check each deck individually rather than trusting its naming family.
 
   **No ported law has been checked against any of this yet.** Everything
   landed so far (`viscoplastic`, `isotropic`, `chaboche`, `damage`,
