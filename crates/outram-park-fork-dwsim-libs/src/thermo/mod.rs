@@ -43,6 +43,9 @@
 //!   interaction + modified combinatorial term).
 //! - [`unifac_lle`] — UNIFAC with the liquid-liquid-equilibrium (LLE)
 //!   parameterised group-interaction table (same functional form, LLE `a_mn`).
+//! - [`chao_seader_grayson`] — Chao-Seader and Grayson-Streed semi-empirical
+//!   hydrocarbon K-value packages: regular-solution liquid activity × the
+//!   Pitzer-form pure-liquid fugacity (ν⁰) ÷ a Redlich-Kwong vapour fugacity.
 //! - [`electrolyte`] — aqueous-ionic (electrolyte) activity-coefficient tier.
 //! - [`ideal_props`] — ideal-gas heat capacity / enthalpy / entropy from the
 //!   [`Component`] Cp0 coefficients (the departure reference state).
@@ -59,6 +62,10 @@
 //! - [`flash_vlle`] — three-phase vapour-liquid-liquid equilibrium (VLLE)
 //!   nested-loops PT flash.
 //! - [`flash_lle`] — simple liquid-liquid equilibrium (LLE) isothermal split.
+//! - [`flash_immiscible`] — nested-loops immiscible flash: an ordinary
+//!   two-phase VLE on the water-free feed, plus a fully-immiscible component
+//!   (e.g. water in a hydrocarbon system) partitioned by its own pure vapour
+//!   pressure into a third, pure liquid phase.
 //! - [`flash_sle`] — solid-liquid equilibrium (SLE) flash (ideal-solubility
 //!   saturation with heat-of-fusion temperature dependence).
 //! - [`flash_svlle`] — solid + three-phase (SVLLE) flash: precipitation coupled
@@ -82,6 +89,17 @@
 //!   reaction-set speciation coupled to solid (Ksp) precipitation.
 //! - [`sour_water`] — sour-water aqueous ionic-equilibrium speciation
 //!   (H₂S / NH₃ / CO₂ / H₂O), built on the [`electrolyte_svle`] conventions.
+//!
+//! ### Specialised property packages
+//!
+//! - [`seawater`] — seawater thermophysical properties (density, specific heat,
+//!   thermal conductivity, viscosity, vapour pressure, surface tension,
+//!   boiling-point elevation) as a function of salinity and temperature
+//!   (Sharqawy 2010 / Nayar 2016 correlations).
+//! - [`black_oil`] — black-oil petroleum correlations: solution gas-oil ratio,
+//!   bubble-point pressure, oil/gas/water formation volume factors, densities,
+//!   and viscosities (Standing / Vazquez-Beggs / Beggs-Robinson /
+//!   Dranchuk-Abou-Kassem).
 //!
 //! ### Property-package glue
 //!
@@ -116,14 +134,19 @@
 //!   ([`sour_water`]).
 //! - **Group-contribution activity.** Modified UNIFAC (Dortmund)
 //!   ([`unifac_dortmund`]) and UNIFAC-LLE ([`unifac_lle`]).
+//! - **Hydrocarbon & specialised packages.** Chao-Seader / Grayson-Streed
+//!   hydrocarbon K-values ([`chao_seader_grayson`]), the nested-loops
+//!   immiscible flash ([`flash_immiscible`]), the seawater property package
+//!   ([`seawater`]), and the black-oil petroleum correlations ([`black_oil`]).
 //!
 //! **Still out of scope / future work:** the Mathias-Copeman and Twu α-variants,
-//! seawater and black-oil property packages, and the CoolProp/steam-table
-//! external-property bridges. Everything here is **verified, not
-//! benchmark-validated** — see `docs/port-scope.md` and epic `op-qo2` for the
-//! remaining backlog.
+//! and the CoolProp/steam-table external-property bridges. Everything here is
+//! **verified, not benchmark-validated** — see `docs/port-scope.md` and epic
+//! `op-qo2` for the remaining backlog.
 
 pub mod activity;
+pub mod black_oil;
+pub mod chao_seader_grayson;
 pub mod component;
 pub mod cubic_eos;
 pub mod electrolyte;
@@ -131,6 +154,7 @@ pub mod electrolyte_svle;
 pub mod energy_flash;
 pub mod eos_variants;
 pub mod flash;
+pub mod flash_immiscible;
 pub mod flash_insideout;
 pub mod flash_insideout_3p;
 pub mod flash_lle;
@@ -147,6 +171,7 @@ pub mod pr_lee_kesler;
 pub mod property_package;
 pub mod prsv2_full;
 pub mod saturation;
+pub mod seawater;
 pub mod sour_water;
 pub mod stability;
 pub mod transport;
