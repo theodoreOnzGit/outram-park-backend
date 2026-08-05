@@ -112,6 +112,19 @@ const POISSON: f64 = 0.3;
 /// Imposed axial strain at full load: `DZ = 0.1` over a specimen of length 30.
 const AXIAL_STRAIN: f64 = 0.1 / 30.0;
 
+/// Sub-steps per deck interval.
+///
+/// **One, deliberately.** Upstream's `SOLNL2` takes a single implicit step per
+/// interval, so `SUB_STEPS = 1` is what makes this test a check that the port
+/// implements *the same discretisation* — which is the question it asserts on.
+///
+/// Refining it does not improve agreement with `SOLNL2`; it moves the answer
+/// away from `SOLNL2` and toward `SOLNL`, because refined backward Euler
+/// converges to the true ODE solution that the Runge-Kutta solve approximates
+/// well. That sweep is recorded on the test below and is a useful diagnostic,
+/// but it answers a different question and would make this test slow.
+const SUB_STEPS: u16 = 1;
+
 /// Convergence tolerance of the mixed-control solve \[MPa\].
 ///
 /// The driver's tolerance, not the comparison's. Set from what the fixed point
@@ -386,6 +399,38 @@ const ANALYTICAL_REFERENCE: [(usize, f64, f64, f64, f64); 5] = [
 /// 10,000 sub-steps changed nothing, because the fault was in the saturation
 /// test rather than the step size.
 ///
+/// **Convergence study, measured 2026-08-05.** Sub-stepping each deck interval
+/// and tracking order-20 `SIZZ` against upstream's Runge-Kutta solve:
+///
+/// | sub-steps | `SIZZ` | rel. vs `SOLNL` | ratio |
+/// |---|---|---|---|
+/// | 1 | 258.158686 | 2.0289e-2 | — |
+/// | 4 | 254.377529 | 5.3449e-3 | 3.80 |
+/// | 16 | 253.369583 | 1.3613e-3 | 3.93 |
+/// | 64 | 253.111592 | 3.4166e-4 | 3.98 |
+/// | 256 | 253.046651 | 8.5007e-5 | 4.02 |
+///
+/// **The error falls by a factor of 4 for each 4-fold refinement — measured
+/// first-order convergence**, which is exactly what backward Euler must give.
+/// That is an independent check on the integrator that no single-step
+/// comparison can provide: it confirms the scheme is correctly first-order and
+/// that the refined limit is the true solution rather than a different one.
+///
+/// It also resolves the two references into one picture. At one sub-step the
+/// port reproduces `SOLNL2`, the solve computed the same way. Refined, it
+/// converges onto `SOLNL`, which approximates the exact solution. The sub-step
+/// count is the knob between them, and both agreements are real.
+///
+/// At 256 sub-steps the late instants are worth recording, because the
+/// comparison inverts. Against the analytical `VALE_REFE` at order 60, this
+/// port reads 0.931 % on `SIZZ` and **0.613 %** on damage, while upstream's own
+/// Runge-Kutta solve reads 1.190 % and **3.752 %** — so the refined result sits
+/// closer to the analytical reference than `SOLNL` does, by a factor of six on
+/// damage. At order 50 the ordering is the other way (0.782 % against upstream's
+/// 0.186 %). This is reported as a measurement and is **not** a validation
+/// claim; per `VERIFICATION_AND_VALIDATION.md` that judgement is the
+/// maintainer's.
+///
 /// **Orders 50 and 60 are reported, not asserted.** `SOLNL2` stops at order 40.
 /// By order 60 this driver saturates (`V9 = 0.99`) where upstream's RK solve
 /// reaches `0.27`, from accumulated one-step Euler error in the stiff damage
@@ -398,6 +443,7 @@ fn ssnv126a_relaxation_reproduces_code_aster() {
     let temperature = temperature_history();
 
     let mut state = LemaitreChabocheState::pristine();
+    let mut total_strain = SymmTensor::ZERO;
     let mut damage_driver = 0.0_f64;
     let times = instants();
     let mut recorded: Vec<(usize, f64, f64, f64, f64)> = Vec::new();
@@ -426,37 +472,51 @@ fn ssnv126a_relaxation_reproduces_code_aster() {
         // step-start state every time, so repeated calls during the fixed point
         // do not accumulate.
         let start = state;
+        let start_strain = total_strain;
+        let march = |target: SymmTensor| {
+            let mut inner = start;
+            let mut stress = SymmTensor::ZERO;
+            let mut chi = damage_driver;
+            let sub_dt = dt / f64::from(SUB_STEPS);
+            for j in 1..=SUB_STEPS {
+                let f = f64::from(j) / f64::from(SUB_STEPS);
+                let strain = start_strain + (target - start_strain) * f;
+                let law_j = LemaitreChabocheLaw::Vendochab(parameters_at(temp, chi));
+                let step = law_j
+                    .integrate(elastic, inner, strain, sub_dt)
+                    .expect("VENDOCHAB integration must converge");
+                inner = step.state;
+                stress = step.stress;
+                chi = step.damage_equivalent_stress;
+            }
+            (stress, inner, chi)
+        };
+
         let solution = solve_mixed_control(
             control,
             YOUNG,
             POISSON,
-            SymmTensor::ZERO,
-            |strain| {
-                law.integrate(elastic, start, strain, dt)
-                    .expect("VENDOCHAB integration must converge")
-                    .stress
-            },
+            start_strain,
+            |strain| march(strain).0,
             CONTROL_TOLERANCE,
             50_000,
         );
-
-        let increment = law
-            .integrate(elastic, start, solution.strain, dt)
-            .expect("VENDOCHAB integration must converge");
-        state = increment.state;
-        damage_driver = increment.damage_equivalent_stress;
+        let (stress_final, final_state, final_chi) = march(solution.strain);
+        total_strain = solution.strain;
+        state = final_state;
+        damage_driver = final_chi;
 
         if let Some(&(_, _, _, _, _)) = SOLNL_REFERENCE.iter().find(|r| r.0 == order) {
             println!(
                 "{order:>4} {t:>11.4e} {temp:>8.2} {:>12.6} {:>13.6e} {:>13.6e} {:>12.6e}",
-                increment.stress.zz,
+                stress_final.zz,
                 state.equivalent_viscoplastic_strain,
                 state.hardening_variable,
                 state.damage
             );
             recorded.push((
                 order,
-                increment.stress.zz,
+                stress_final.zz,
                 state.equivalent_viscoplastic_strain,
                 state.hardening_variable,
                 state.damage,
