@@ -48,13 +48,13 @@
 //! and are out of scope per `DATA_POLICY.md`.
 
 pub mod catalogue;
+pub mod chaboche;
+pub mod damage;
+pub mod fracture;
 pub mod integration;
 pub mod isotropic;
 pub mod kinematics;
 pub mod log_strain;
-pub mod chaboche;
-pub mod damage;
-pub mod fracture;
 pub mod metallurgy;
 pub mod viscoplastic;
 
@@ -66,9 +66,9 @@ pub use chaboche::{
 pub use fracture::{
     equivalent_mode_i_factor, hat_smooth_front, irwin_energy_release_rate, irwin_mode_split,
     legendre_front_mode, legendre_front_mode_derivative, max_hoop_stress_kink_angle,
-    near_tip_stress, scaled_hoop_stress, westergaard_unit_field, CrackOpeningMode,
-    CrackPlaneState, CrackTipBasis, LinearElasticConstants, ModeEnergyRelease, NearTipField,
-    PlanarCrackTipResult, StressIntensityFactors, MAX_LEGENDRE_FRONT_DEGREE,
+    near_tip_stress, scaled_hoop_stress, westergaard_unit_field, CrackOpeningMode, CrackPlaneState,
+    CrackTipBasis, LinearElasticConstants, ModeEnergyRelease, NearTipField, PlanarCrackTipResult,
+    StressIntensityFactors, MAX_LEGENDRE_FRONT_DEGREE,
 };
 pub use integration::{
     brent, newton_perturbed, newton_safeguarded, perturbed_default, secant, LocalSolution,
