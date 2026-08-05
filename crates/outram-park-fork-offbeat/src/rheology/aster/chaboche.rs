@@ -129,8 +129,8 @@
 //! All six share `num_lc = 4` and dispatch through the same upstream routine,
 //! which is why they are one enum here rather than six.
 //!
-//! **`VISCOCHAB` and `VISC_TAHERI` are not in this module.** See
-//! [`why_viscochab_and_visc_taheri_are_absent`](self#why-viscochab-and-visc_taheri-are-absent).
+//! **`VISCOCHAB` and `VISC_TAHERI` are not in this module** — see the next
+//! section for why.
 //!
 //! # Why `VISCOCHAB` and `VISC_TAHERI` are absent
 //!
@@ -1012,17 +1012,14 @@ impl ChabocheLaw {
         // corresponding delta differs from one (its `idelta` switch).
         let non_radial1 = if (m.delta1 - 1.0).abs() > f64::EPSILON {
             let beta = state.back_stress.alpha1.double_inner(flow_direction) / 1.5_f64.sqrt();
-            (1.0 + gamma1 * m.delta1 * dp - gamma1 * (1.0 - m.delta1) * beta)
-                / (1.0 + gamma1 * dp)
+            (1.0 + gamma1 * m.delta1 * dp - gamma1 * (1.0 - m.delta1) * beta) / (1.0 + gamma1 * dp)
         } else {
             1.0
         };
-        let non_radial2 = if self.back_stress_count() == 2
-            && (m.delta2 - 1.0).abs() > f64::EPSILON
+        let non_radial2 = if self.back_stress_count() == 2 && (m.delta2 - 1.0).abs() > f64::EPSILON
         {
             let beta = state.back_stress.alpha2.double_inner(flow_direction) / 1.5_f64.sqrt();
-            (1.0 + gamma2 * m.delta2 * dp - gamma2 * (1.0 - m.delta2) * beta)
-                / (1.0 + gamma2 * dp)
+            (1.0 + gamma2 * m.delta2 * dp - gamma2 * (1.0 - m.delta2) * beta) / (1.0 + gamma2 * dp)
         } else {
             1.0
         };
@@ -1103,8 +1100,7 @@ impl ChabocheLaw {
         let saturation =
             m.memory_qm + (m.memory_q0 - m.memory_qm) * (-2.0 * m.memory_mu * memory_radius).exp();
         let previous = state.memory.isotropic_increment;
-        let isotropic_increment =
-            previous + m.b * (saturation - previous) * dp / (1.0 + m.b * dp);
+        let isotropic_increment = previous + m.b * (saturation - previous) * dp / (1.0 + m.b * dp);
 
         (
             m.r0 + isotropic_increment,
@@ -1158,13 +1154,13 @@ impl ChabocheLaw {
         step: ThermoElasticStep,
         control: SolverControl,
     ) -> Result<ChabocheIncrement> {
-        let predictor =
-            self.elastic_predictor(state, previous_stress, strain_increment, step)?;
+        let predictor = self.elastic_predictor(state, previous_stress, strain_increment, step)?;
 
         // Elastic step: nothing flows, nothing hardens, the state is carried
         // through unchanged. Upstream's `seuil <= 0` branch.
         if predictor.yield_function <= 0.0 {
-            let stress = predictor.trial_deviator + SymmTensor::from_diag(1.0, 1.0, 1.0) * predictor.mean_stress;
+            let stress = predictor.trial_deviator
+                + SymmTensor::from_diag(1.0, 1.0, 1.0) * predictor.mean_stress;
             return Ok(ChabocheIncrement {
                 stress,
                 state: ChabocheState {
@@ -1192,8 +1188,7 @@ impl ChabocheLaw {
         let alpha1 = if m.c1_asymptotic != 0.0 {
             let denominator = 1.0 + local.recovery_coefficient[0] * m.delta1 * dp;
             let increment = (local.plastic_strain_increment * local.non_radial_factor[0]
-                - state.back_stress.alpha1
-                    * (local.recovery_coefficient[0] * m.delta1 * dp))
+                - state.back_stress.alpha1 * (local.recovery_coefficient[0] * m.delta1 * dp))
                 * (1.0 / denominator);
             state.back_stress.alpha1 + increment
         } else {
@@ -1202,16 +1197,15 @@ impl ChabocheLaw {
         let alpha2 = if self.back_stress_count() == 2 && m.c2_asymptotic != 0.0 {
             let denominator = 1.0 + local.recovery_coefficient[1] * m.delta2 * dp;
             let increment = (local.plastic_strain_increment * local.non_radial_factor[1]
-                - state.back_stress.alpha2
-                    * (local.recovery_coefficient[1] * m.delta2 * dp))
+                - state.back_stress.alpha2 * (local.recovery_coefficient[1] * m.delta2 * dp))
                 * (1.0 / denominator);
             state.back_stress.alpha2 + increment
         } else {
             state.back_stress.alpha2
         };
 
-        let deviatoric_stress =
-            predictor.trial_deviator - local.plastic_strain_increment * predictor.twice_shear_modulus;
+        let deviatoric_stress = predictor.trial_deviator
+            - local.plastic_strain_increment * predictor.twice_shear_modulus;
         let stress =
             deviatoric_stress + SymmTensor::from_diag(1.0, 1.0, 1.0) * predictor.mean_stress;
 
@@ -1259,8 +1253,8 @@ impl ChabocheLaw {
 
         let mut upper = predictor.yield_function / (1.5 * predictor.twice_shear_modulus + c1 + c2);
         if self.is_rate_dependent() && predictor.dt > 0.0 && m.viscous_stress > 0.0 {
-            let norton =
-                predictor.dt * (predictor.yield_function / m.viscous_stress).powf(m.viscous_exponent);
+            let norton = predictor.dt
+                * (predictor.yield_function / m.viscous_stress).powf(m.viscous_exponent);
             if norton < 1.0 {
                 upper = upper.max(norton);
             }

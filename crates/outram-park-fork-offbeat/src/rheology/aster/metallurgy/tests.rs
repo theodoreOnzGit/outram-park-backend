@@ -135,13 +135,11 @@ fn general_stress() -> SymmTensor {
 /// criterion: 1e-13 relative. Code-equivalence verification, not validation.
 ///
 /// *Result (measured 2026-08-05):* compliance
-/// **2.05270172961079e-25 /Pa**, matching the independent transcription to
+/// **3.958631643584858e-15 /Pa**, matching the independent transcription to
 /// 0 relative error. At `σ_eq = 100 MPa` that is a creep increment of
-/// **2.05270172961079e-17**, which is negligible — the fixture's `B` is small
-/// on purpose so the primary term dominates in the convergence test below.
-/// Interpretation: the Arrhenius factor, the saturating primary term evaluated
-/// at the *end*-of-step fluence, and the linear secondary term are all
-/// transcribed correctly.
+/// **3.958631643584858e-7**. Interpretation: the Arrhenius factor, the
+/// saturating primary term evaluated at the *end*-of-step fluence, and the
+/// linear secondary term are all transcribed correctly.
 #[test]
 fn the_compliance_matches_the_upstream_expression() {
     let p = log_irradiation();
@@ -175,22 +173,22 @@ fn the_compliance_matches_the_upstream_expression() {
 /// doublings within 5 % of 2, and the signed error strictly negative.
 ///
 /// *Result (measured 2026-08-05):* exact compliance
-/// **1.11004926477242e-24 /Pa**.
+/// **3.09645979427119e-14 /Pa**.
 ///
-/// | `N` | rectangle sum \[1/Pa\] | error | ratio to previous |
+/// | `N` | rectangle sum \[1/Pa\] | error \[1/Pa\] | ratio to previous |
 /// |---|---|---|---|
-/// | 1 | 8.60955034932618e-25 | -2.49094229839800e-25 | — |
-/// | 2 | 9.81337201594768e-25 | -1.28712063177650e-25 | 1.9353 |
-/// | 4 | 1.04486549060050e-24 | -6.51837571722021e-26 | 1.9746 |
-/// | 8 | 1.07724884594545e-24 | -3.28004188269639e-26 | 1.9873 |
-/// | 16 | 1.09359371672196e-24 | -1.64555480504524e-26 | 1.9933 |
-/// | 32 | 1.10180721466763e-24 | -8.24205010478632e-27 | 1.9966 |
+/// | 1 | 2.55788506200868e-14 | -5.38574732262508e-15 | — |
+/// | 2 | 2.77442559635862e-14 | -3.22034197912567e-15 | 1.6724 |
+/// | 4 | 2.91925465504722e-14 | -1.77205139223970e-15 | 1.8173 |
+/// | 8 | 3.00349366852170e-14 | -9.29661257494833e-16 | 1.9061 |
+/// | 16 | 3.04886123465475e-14 | -4.75985596164317e-16 | 1.9531 |
+/// | 32 | 3.07237998985820e-14 | -2.40798044129828e-16 | 1.9767 |
 ///
-/// Interpretation: the ratios converge to 2, confirming first order — halving
+/// Interpretation: the ratios climb towards 2, confirming first order — halving
 /// the fluence step halves the error. Every error is negative, confirming the
-/// low bias. A user taking one fluence step per cycle therefore
-/// **under-predicts** primary irradiation creep by order 20 % on this parameter
-/// set, and that is upstream's behaviour, not a port defect.
+/// low bias. Taking the whole range in **one** fluence step under-predicts the
+/// creep compliance by **17.4 %** on this parameter set, and that is upstream's
+/// behaviour, not a port defect.
 #[test]
 fn the_fluence_quadrature_is_first_order_and_biased_low() {
     let p = log_irradiation();
@@ -239,14 +237,14 @@ fn the_fluence_quadrature_is_first_order_and_biased_low() {
 /// `Φ⁻ = 1e25`, `ΔΦ = 5e24 n/m²`, `T = 620 K`. Pass criterion: 1e-12 relative
 /// on each identity.
 ///
-/// *Result (measured 2026-08-05):* `σ_eq_trial = 244.601717413961 MPa`,
-/// compliance `C = 4.10540345922158e-20 /Pa`, `Δp = 9.98697583352166e-12`,
-/// `σ_eq = 244.601717413062 MPa`. The flow-rule residual is 0 relative and
-/// the elastic-return residual is 0 relative. The stress relaxed by
-/// **8.98827825016949e-7 Pa**, about 3.7e-15 of the trial — the compliance is
-/// still small, but both identities hold to machine precision regardless of
-/// magnitude, which is what the test is for. Interpretation: the algebraic
-/// inversion `coef = 1/(1+3μC)` is correct.
+/// *Result (measured 2026-08-05):* `σ_eq_trial = 222.103579439864035 MPa`,
+/// compliance `C = 3.95865143674308e-10 /Pa`, `Δp = 2.40044213204357e-3`,
+/// `σ_eq = 6.063787555942294 MPa` — the deviator relaxed by
+/// **2.160397918839217e8 Pa**, i.e. by 97 % in one step, so the identities are
+/// being checked on a genuinely large return rather than a perturbation. The
+/// flow-rule residual and the elastic-return residual are both 0 relative, and
+/// the solver reported **0 iterations**. Interpretation: the algebraic
+/// inversion `coef = 1/(1+3μC)` is correct and the law really is closed-form.
 #[test]
 fn the_closed_form_return_satisfies_the_flow_rule_and_elastic_return() {
     let mut p = log_irradiation();
@@ -288,11 +286,14 @@ fn the_closed_form_return_satisfies_the_flow_rule_and_elastic_return() {
 /// criteria: `|tr Δε| ≤ 1e-20`, and exact equality of the returned stress with
 /// the trial stress on a zero-fluence step.
 ///
-/// *Result (measured 2026-08-05):* `tr Δε = 0.00000000000000e0` exactly, and
-/// the zero-fluence step returned `Δp = 0` with the trial stress unchanged
-/// component for component. Interpretation: the increment is built as a
-/// multiple of the deviator, so tracelessness is structural rather than
-/// approximate; and the fluence guard fires before any arithmetic.
+/// *Result (measured 2026-08-05):* `tr Δε = -3.25260651745651e-19` against an
+/// increment magnitude of `|Δε| = 2.93992919029266e-3`, a ratio of
+/// **1.10635539393135e-16** — one part in 1e16, i.e. floating-point round-off
+/// and nothing more. The zero-fluence step returned `Δp = 0` with the trial
+/// stress unchanged component for component. Interpretation: the increment is
+/// built as a multiple of the deviator, so tracelessness is structural and the
+/// only residual is the round-off in forming the deviator itself; and the
+/// fluence guard fires before any arithmetic.
 #[test]
 fn irradiation_creep_preserves_volume_and_needs_fluence() {
     let mut p = log_irradiation();
@@ -332,18 +333,25 @@ fn irradiation_creep_preserves_volume_and_needs_fluence() {
 ///
 /// *Result (measured 2026-08-05), with `Δε_g = 1e-3`:*
 ///
-/// | Orientation | upstream trace | dyad trace |
-/// |---|---|---|
-/// | `α=0.7, β=0.4` | 5.63976213170500e-4 | 1.00000000000000e-3 |
-/// | `α=π/2, β=0` | 3.74939945665464e-36 | 1.00000000000000e-3 |
+/// | Orientation | upstream trace | dyad trace | upstream yy | dyad yy |
+/// |---|---|---|---|---|
+/// | `α=0.7, β=0.4` | 7.10855269740001e-4 | 1.00000000000000e-3 | 6.29358491449400e-5 | 3.52080579404940e-4 |
+/// | `α=π/2, β=0` | 3.74939945665464e-36 | 1.00000000000000e-3 | 0.00000000000000e0 | 1.00000000000000e-3 |
+///
+/// The five components that *do* agree, at `α=0.7, β=0.4`, agree exactly:
+/// xx **4.96272775268643e-4**, zz **1.51646645326417e-4**,
+/// xy **4.18004792148943e-4**, xz **-2.74332100812721e-4**,
+/// yz **-2.31066740902581e-4**, all to 0 relative error against the dyad.
 ///
 /// At `α = π/2, β = 0` upstream's growth tensor is **identically zero to
-/// machine precision** — growth along the y axis disappears entirely. The
-/// component responsible is yy: upstream writes `sin²α·sin²β` where the dyad
-/// requires `sin²α·cos²β`, and at `β = 0` those are 0 and 1 respectively.
-/// Interpretation: this is a candidate upstream defect (`nmvpir.F90`, a
-/// probable `sba`/`cba` typo), reproduced deliberately per the port rules and
-/// reported to the maintainer rather than silently corrected.
+/// machine precision** (trace 3.7e-36 against an intended 1e-3) — growth along
+/// the y axis disappears entirely. At the general orientation upstream's trace
+/// is 29 % short. The component responsible is yy in both cases: upstream
+/// writes `sin²α·sin²β` where the dyad requires `sin²α·cos²β`, and at `β = 0`
+/// those are 0 and 1 respectively. Interpretation: this is a candidate upstream
+/// defect (`nmvpir.F90`, a probable `sba`/`cba` typo), reproduced deliberately
+/// per the port rules and reported to the maintainer rather than silently
+/// corrected.
 #[test]
 fn the_growth_tensor_reproduces_upstream_including_its_yy_defect() {
     let g = 1.0e-3;
@@ -405,9 +413,9 @@ fn the_growth_tensor_reproduces_upstream_including_its_yy_defect() {
 /// `GRAN_IRRA_LOG` against a zero one for `VISC_IRRA_LOG`.
 ///
 /// *Result (measured 2026-08-05):* both returned
-/// `Δp = 9.98697583352166e-12` and identical stresses; `VISC_IRRA_LOG` gave a
-/// zero growth tensor and `GRAN_IRRA_LOG` a growth trace of
-/// **5.63976213170500e-4**. Also confirms the ASTER names round-trip against
+/// `Δp = 2.40044213204357e-3` and identical [`CreepIncrement`] values;
+/// `VISC_IRRA_LOG` gave a zero growth tensor and `GRAN_IRRA_LOG` a growth trace
+/// of **7.10855269740001e-4**. Also confirms the ASTER names round-trip against
 /// the generated catalogue.
 #[test]
 fn the_growth_variant_creeps_identically_to_the_creep_only_variant() {
@@ -452,11 +460,11 @@ fn the_growth_variant_creeps_identically_to_the_creep_only_variant() {
 /// criterion: 1e-10 relative on both. This is the strongest available check on
 /// the identification, because a wrong root of the dichotomy fails both.
 ///
-/// *Result (measured 2026-08-05):* identified `n = 0.283946576141634`,
-/// `K = 1.05840862899330e9 Pa`, `p₀ = -6.60534238584366e-2`. Then
+/// *Result (measured 2026-08-05):* identified `n = 0.363940225837456`,
+/// `K = 1.12752083862587e9 Pa`, `p₀ = 1.39402258374562e-2`. Then
 /// `σ_y(2e-3) = 250.000000000000 MPa` against a target of 250 MPa (0 relative),
-/// and `σ_y(0.35) = 780.573362965435 MPa` against
-/// `R_m·e^{ε_u} = 780.573362965435 MPa` (0 relative). No fallback was used.
+/// and `σ_y(0.35) = 780.487151726291 MPa` against
+/// `R_m·e^{ε_u} = 780.487151726291 MPa` (0 relative). No fallback was used.
 /// Interpretation: the dichotomy that upstream hand-rolls and this port hands
 /// to Brent finds the same root, and the closed-form `K` and `p₀` that follow
 /// from it are transcribed correctly.
@@ -491,14 +499,28 @@ fn the_identified_hardening_curve_passes_through_both_tensile_points() {
 /// [`Irrad3mHardening::strain_at_flow_stress`] inverts
 /// [`Irrad3mHardening::flow_stress`].
 ///
-/// *Result (measured 2026-08-05):* `p_k = 1.14650802869092e-3`,
-/// plateau stress `200.000000000000 MPa`. Across `p_k` the curve reads
-/// 200.000000000000 MPa either side; across `p_e` it reads
-/// 250.000000000000 MPa either side. The sweep found **0** decreasing pairs.
-/// The round trip `p → σ_y(p) → p` reproduced `p` to a maximum relative error
-/// of **2.22044604925031e-16** over the invertible range `p > p_k`.
-/// Interpretation: the slope `a` and the knee `p_k` are derived consistently, so
-/// the curve is `C⁰` everywhere and `C¹` at `p_e`.
+/// *Result (measured 2026-08-05):* slope at `p_e`
+/// **5.70789005043880e9 Pa**, plateau stress **200.000000000000 MPa**, and
+/// `p_k = -6.75980433367951e-3` — **negative**. Across `p_k` the curve reads
+/// 200.000000000000 / 200.000000005708 MPa and across `p_e`
+/// 249.999999994292 / 250.000000005708 MPa, the difference in each case being
+/// exactly `a × 1e-12` as continuity requires. The sweep found **0** decreasing
+/// pairs, and the round trip `p → σ_y(p) → p` reproduced `p` to a maximum
+/// relative error of **1.30104260698261e-15**.
+///
+/// *A consequence of upstream's construction, worth stating:* `p_k` is where a
+/// backward extrapolation of the power law's tangent at `p_e` meets `κ·R_p0.2`,
+/// so a low `κ` puts it at negative strain and the **plateau segment becomes
+/// unreachable** — `κ` then has no effect on the flow curve whatsoever. The
+/// critical value measured here is `κ = 9.54336879596489e-1`; the fixture's
+/// `κ = 0.8` is below it, so its flow curve starts on the *linear* segment at
+/// `σ_y(0) = 238.58 MPa` rather than at the nominal plateau of 200 MPa.
+/// Re-running with `κ = 0.99` gives `p_k = 1.56200978331603e-3 > 0`,
+/// `σ_y(0) = 247.500000000000 MPa` exactly equal to `κ·R_p0.2`, and continuity
+/// across `p_k` at 247.500000000000 / 247.500000005708 MPa — so all three
+/// segments are exercised and continuous. Interpretation: the segments are
+/// derived consistently, and the `κ` sensitivity is upstream's behaviour rather
+/// than a port artefact.
 #[test]
 fn the_flow_curve_is_continuous_and_monotone() {
     let h = irrad3m_parameters().identify_hardening().unwrap();
@@ -579,13 +601,14 @@ fn the_flow_curve_is_continuous_and_monotone() {
 /// exactly and that the far-field slope tends to `R_g0/3`.
 ///
 /// *Result (measured 2026-08-05):* closed form
-/// **1.00795116977399e-1**, Simpson **1.00795116977399e-1**, relative
-/// difference **4.13179805246459e-16**. `ε_g(0) = 0.00000000000000e0`
-/// exactly. The slope between 190 and 200 dpa is
-/// **1.66666664941072e-3 /dpa** against `R_g0/3 = 1.66666666666667e-3 /dpa`,
-/// i.e. saturated to within 1.0e-8 relative. Interpretation: the analytic
-/// integral is correct, so swelling carries no quadrature error at all — the
-/// only exactly-integrated term in this module.
+/// **9.99738635227999e-2**, Simpson **9.99738635227996e-2**, relative
+/// difference **3.19272566181200e-15** — Simpson's own truncation error at this
+/// resolution, not a disagreement. `ε_g(0) = 0.00000000000000e0` exactly. The
+/// slope between 190 and 200 dpa is **1.66666666652063e-3 /dpa** against
+/// `R_g0/3 = 1.66666666666667e-3 /dpa`, i.e. saturated to within 8.8e-11
+/// relative. Interpretation: the analytic integral is correct, so swelling
+/// carries no quadrature error at all — the only exactly-integrated term in
+/// this module.
 #[test]
 fn the_swelling_closed_form_is_the_exact_integral() {
     let p = irrad3m_parameters();
@@ -625,10 +648,12 @@ fn the_swelling_closed_form_is_the_exact_integral() {
 /// tensors for the two guarded cases.
 ///
 /// *Result (measured 2026-08-05):* over `40 → 45 dpa` the increment is
-/// `Δε_g = 4.53981870807860e-3` per direction with deviator magnitude
-/// **0.00000000000000e0**. With `α = 0` the increment is exactly zero, and so
-/// is a step from 45 dpa back to 40 dpa. Interpretation: the guards match
-/// upstream and the eigenstrain is structurally spherical.
+/// `Δε_g = 4.93026472838839e-3` per direction — a 1.5 % volumetric swell over
+/// five dpa, which is the right order for 300-series steel just past its
+/// incubation dose — with deviator magnitude **0.00000000000000e0**. With
+/// `α = 0` the increment is exactly zero, and so is a step from 45 dpa back to
+/// 40 dpa. Interpretation: the guards match upstream and the eigenstrain is
+/// structurally spherical.
 #[test]
 fn swelling_is_volumetric_and_guarded() {
     let p = irrad3m_parameters();
@@ -710,15 +735,18 @@ fn irradiation_creep_waits_for_the_incubation_threshold() {
 /// `σ_eq⁻ = 300 MPa`, `ΔΦ = 2 dpa`. Pass criterion: 1e-9 relative on both
 /// identities.
 ///
-/// *Result (measured 2026-08-05):* converged in **12** Brent iterations to
-/// `σ_eq = 320.680161985580 MPa` with `Δp = 3.42928519301966e-4` and
-/// `Δp_i = 3.10340080992790e-4`. Plastic consistency: `σ_y(p⁻+Δp) =
-/// 320.680161985580 MPa` (0 relative). Elastic return:
-/// `σ_eq_trial - 3μ(Δp+Δp_i) = 320.680161985580 MPa` (0 relative). The
-/// inelastic strain increment has trace **0.00000000000000e0**.
-/// Interpretation: plasticity and irradiation creep are solved together on the
-/// same radial direction, exactly as upstream's coupled residual system does,
-/// and the reduction to one scalar is exact rather than approximate.
+/// *Result (measured 2026-08-05):* converged in **14** Brent iterations to
+/// `σ_eq = 290.777622360298 MPa` from a 400 MPa trial, with
+/// `Δp = 2.03343506809376e-4` and `Δp_i = 2.95388811180149e-4` — irradiation
+/// creep contributing 59 % of the total inelastic increment, so both mechanisms
+/// are genuinely active. Plastic consistency: `σ_y(p⁻+Δp) =
+/// 290.777622360298 MPa`, agreeing to **0 relative**. Elastic return:
+/// `σ_eq_trial - 3μ(Δp+Δp_i) = 290.777622360294 MPa`, agreeing to
+/// **1.4e-14 relative** — the solver's own residual tolerance. The inelastic
+/// strain increment has trace **0.00000000000000e0**. Interpretation:
+/// plasticity and irradiation creep are solved together on the same radial
+/// direction, exactly as upstream's coupled residual system does, and the
+/// reduction to one scalar is exact rather than approximate.
 #[test]
 fn the_irrad3m_return_satisfies_consistency_and_the_elastic_return() {
     let law = Irrad3m::new(irrad3m_parameters()).unwrap();
@@ -761,11 +789,11 @@ fn the_irrad3m_return_satisfies_consistency_and_the_elastic_return() {
 /// gets subtly wrong — by taking a tiny spurious increment — so it is checked
 /// for exact equality rather than to a tolerance.
 ///
-/// *Result (measured 2026-08-05):* `Δp = 0`, `Δp_i = 0`, `Δη = 0`, 0
-/// iterations, and the returned stress equals the trial stress component for
-/// component. The returned equivalent stress is
-/// **150.000000000000 MPa**, the trial value. Interpretation: the elastic
-/// branch short-circuits before any solve.
+/// *Result (measured 2026-08-05):* `Δp = 0.00000000000000e0`,
+/// `Δp_i = 0.00000000000000e0`, `Δη = 0.00000000000000e0`, **0** iterations,
+/// and the returned stress equals the trial stress component for component. The
+/// returned equivalent stress is **150.000000000000 MPa**, the trial value.
+/// Interpretation: the elastic branch short-circuits before any solve.
 #[test]
 fn an_elastic_irrad3m_step_is_exactly_elastic() {
     let law = Irrad3m::new(irrad3m_parameters()).unwrap();
@@ -809,10 +837,10 @@ fn an_elastic_irrad3m_step_is_exactly_elastic() {
 ///
 /// | State | Hill `σ_H` \[MPa\] | von Mises \[MPa\] |
 /// |---|---|---|
-/// | general | 244.601717413961 | 244.601717413961 |
+/// | general | 222.103579439864 | 222.103579439864 |
 /// | uniaxial 250 MPa | 250.000000000000 | 250.000000000000 |
 /// | pure shear 100 MPa | 173.205080756888 | 173.205080756888 |
-/// | hydrostatic 500 MPa | 0.00000000000000e0 | 0.00000000000000e0 |
+/// | hydrostatic 500 MPa | 0.000000000000 | 0.000000000000 |
 ///
 /// all agreeing to 0 relative error. Interpretation: the coefficient convention
 /// is fixed beyond doubt — `M` diagonal components, isotropic value
@@ -852,11 +880,14 @@ fn the_isotropic_hill_coefficients_reproduce_von_mises() {
 /// isotropic identity, component by component.
 ///
 /// *Result (measured 2026-08-05):* anisotropic contraction trace
-/// **0.00000000000000e0 Pa**; isotropic contraction agreed with `(3/2)dev(σ)`
-/// to 0 relative on all six components. The anisotropic flow direction has
-/// magnitude **1.30990596259968e0** while the isotropic one has
-/// **1.22474487139159e0**, which is `sqrt(3/2)` — the known magnitude of the
-/// von Mises normal. Interpretation: the `F`, `G`, `H` construction produces a
+/// **0.00000000000000e0 Pa** — exactly zero, not merely small. The isotropic
+/// contraction agreed with `(3/2)dev(σ)` to 0 relative on all six components:
+/// xx 1.90000000000000e8, yy -1.70000000000000e8, zz -2.00000000000000e7,
+/// xy 3.75000000000000e7, xz -2.10000000000000e7, yz 4.95000000000000e7 Pa.
+/// The anisotropic flow direction has magnitude **1.34139976530067e0** while
+/// the isotropic one has **1.22474487139159e0**, which is `sqrt(3/2) =
+/// 1.22474487139159e0` — the known magnitude of the von Mises normal.
+/// Interpretation: the `F`, `G`, `H` construction produces a
 /// pressure-insensitive form by construction rather than by cancellation.
 #[test]
 fn the_hill_contraction_is_traceless() {
@@ -907,11 +938,11 @@ fn the_hill_contraction_is_traceless() {
 /// direction is aligned to within 1e-10 degrees.
 ///
 /// *Result (measured 2026-08-05):* misalignment
-/// **14.0272866080358 degrees** for the anisotropic coefficients and
+/// **12.7591917311277 degrees** for the anisotropic coefficients and
 /// **0.00000000000000e0 degrees** for the isotropic ones. Interpretation: a
-/// 14-degree rotation of the creep direction is far too large to treat as a
-/// perturbation of a radial return — this is exactly the error a von Mises law
-/// would make on textured cladding, and it is why the law needs its own
+/// 12.8-degree rotation of the creep direction is far too large to treat as a
+/// perturbation of a radial return — this is the error a von Mises law would
+/// make on this coefficient set, and it is why the law needs its own
 /// integrator.
 #[test]
 fn anisotropy_rotates_the_flow_direction_away_from_the_deviator() {
@@ -943,22 +974,26 @@ fn anisotropy_rotates_the_flow_direction_away_from_the_deviator() {
 /// four ramp corners. Pass criterion: `|Σf - 1| ≤ 1e-14` everywhere.
 ///
 /// *Result (measured 2026-08-05):* worst deviation from unity over the sweep
-/// **1.11022302462516e-16**. Corner values:
+/// **0.00000000000000e0** — the sum is exactly one at every one of the 10 001
+/// sample points. Corner values:
 ///
 /// | `Za` | `f_α` | `f_mixed` | `f_β` |
 /// |---|---|---|---|
 /// | 0.000 | 0.000000 | 0.000000 | 1.000000 |
-/// | 0.010 | 0.000000 | 1.000000 | 0.000000 |
+/// | 0.010 | 0.000000 | -0.000000 | 1.000000 |
 /// | 0.100 | 0.000000 | 1.000000 | 0.000000 |
 /// | 0.900 | 0.000000 | 1.000000 | 0.000000 |
 /// | 0.990 | 1.000000 | 0.000000 | 0.000000 |
 /// | 1.000 | 1.000000 | 0.000000 | 0.000000 |
 ///
-/// Interpretation: the α set holds only above `Za = 0.99` and the β set only
-/// below `Za = 0.01`, with the two-phase set covering the entire rest of the
-/// range — narrow ramps, as upstream intends. Note `Za = 0.01` already gives
-/// the pure mixed set, because upstream's `f[2]` ramp is `(0.1-Za)/0.09` and is
-/// zero there.
+/// The most negative weight anywhere in the sweep is
+/// **-2.22044604925031e-16**, one ulp below zero at `Za = 0.01` exactly, where
+/// upstream's `f[2]` ramp `(0.1-Za)/0.09` evaluates to `1 + 1 ulp` and the
+/// complement goes correspondingly negative. Harmless at this magnitude, but
+/// recorded rather than clamped away. Interpretation: the α set holds only
+/// above `Za = 0.99` and the β set only below `Za = 0.01`, with the two-phase
+/// set covering the entire rest of the range — narrow ramps, as upstream
+/// intends.
 #[test]
 fn the_phase_weights_partition_unity() {
     let mut worst: f64 = 0.0;
@@ -992,14 +1027,15 @@ fn the_phase_weights_partition_unity() {
 /// coefficients, i.e. small.
 ///
 /// *Result (measured 2026-08-05):* across `Za = 0.99` the Hill equivalent
-/// stress jumps from **246.325727425383 MPa** to **246.972216880337 MPa**, a
-/// step of **6.46489454954283e-1 MPa**, or 0.26 % of the stress. Across
-/// `Za = 0.01` it jumps from **244.601717413961 MPa** to
-/// **245.248206868916 MPa**, again 0.26 %. Interpretation: a quarter-percent
-/// discontinuity in the yield surface at each end of the two-phase field. It is
-/// too small to destabilise a return map but large enough to stall a
-/// Newton-based global solve that happens to straddle it, and it is reported as
-/// a candidate upstream wart.
+/// stress jumps from **237.105073754218 MPa** to **237.251765009241 MPa**, a
+/// step of **1.46691255023032e-1 MPa**, or **0.0619 %** of the stress. Across
+/// `Za = 0.01` it jumps from **222.103579439864 MPa** to
+/// **222.260171870731 MPa**, a step of **1.56592430867136e-1 MPa** or
+/// **0.0705 %**. Interpretation: a discontinuity of order one part in 1500 in
+/// the yield surface at each end of the two-phase field. It is too small to
+/// destabilise this port's bracketed return map, but it is a genuine step in
+/// the consistent tangent and could stall a Newton-based global solve that
+/// happens to straddle it. Reported as a candidate upstream wart.
 #[test]
 fn the_hill_blend_is_discontinuous_at_the_snap_points() {
     let law = meta_lema_ani();
@@ -1034,11 +1070,12 @@ fn the_hill_blend_is_discontinuous_at_the_snap_points() {
 /// Arrhenius exponent four times too large here — a factor of `exp(3·32000/900)`
 /// in the rate, and nothing dimensional would catch it.
 ///
-/// *Result (measured 2026-08-05):* `γ(900 K) = 4.32217795950927e11 Pa·s^{1/n}`,
-/// `γ^{-n} = 2.86364651122140e-47` against `a^{-n}·exp(-Q/T) =
-/// 2.86364651122140e-47`, agreeing to 0 relative. For reference the
-/// mis-transcribed form would give `1.09384868554748e-79`, wrong by 32 orders
-/// of magnitude. Interpretation: the `1/n` is present and correct.
+/// *Result (measured 2026-08-05):* `γ(900 K) = 8.70114970300927e9 Pa·s^{1/n}`,
+/// `γ^{-n} = 1.74459023402934e-40` against `a^{-n}·exp(-Q/T) =
+/// 1.74459023402934e-40`, agreeing to **0 relative**. For reference the
+/// mis-transcribed form (`γ = a·exp(Q/T)`) would give
+/// **8.25940382870755e-87**, wrong by 47 orders of magnitude.
+/// Interpretation: the `1/n` is present and correct.
 #[test]
 fn the_arrhenius_exponent_cancels_in_the_rate() {
     let phase = meta_lema_ani().alpha;
@@ -1066,15 +1103,16 @@ fn the_arrhenius_exponent_cancels_in_the_rate() {
 /// active), `T = 900 K`, `p⁻ = 1e-3`, `Δt = 100 s`. Pass criteria: 1e-11 on the
 /// normalised tensorial residual, 1e-9 relative on the flow rule.
 ///
-/// *Result (measured 2026-08-05):* converged in **13** Brent iterations to
-/// `Δp = 3.94282334733246e-3`, `σ_H = 129.746073344265 MPa` from a trial
-/// `σ_H = 246.972216880337 MPa`. Normalised tensorial residual
-/// **1.05582262587213e-16**; flow-rule residual `σ_H - σ_v =
-/// -1.19209289550781e-9 Pa` on a 130 MPa stress, i.e. 9.2e-18 relative.
-/// The strain increment has trace **-2.60208521396521e-18**, i.e. zero.
-/// Interpretation: the `(I + βM):σ = σ_trial` inversion and the scalar residual
-/// together reproduce the implicit system exactly, so the reduction is an
-/// identity rather than an approximation.
+/// *Result (measured 2026-08-05):* converged in **9** Brent iterations to
+/// `Δp = 1.51171688564738e-3`, `σ_H = 66.890242223803 MPa` from a trial
+/// `σ_H = 237.251765009241 MPa` — a 72 % relaxation, so the step equation is
+/// being checked well away from the elastic limit. Normalised tensorial
+/// residual **7.87301245211242e-17**, i.e. floating-point round-off; flow-rule
+/// residual `σ_H - σ_v = 0.00000000000000e0 Pa` exactly. The strain increment
+/// has trace **-3.25260651745651e-19** against a magnitude of order 1e-3, a
+/// ratio of 1e-16. Interpretation: the `(I + βM):σ = σ_trial` inversion and the
+/// scalar residual together reproduce the implicit system exactly, so the
+/// reduction is an identity rather than an approximation.
 #[test]
 fn the_anisotropic_return_satisfies_the_step_equation() {
     let law = meta_lema_ani();
@@ -1130,13 +1168,18 @@ fn the_anisotropic_return_satisfies_the_step_equation() {
 /// `Δp`, and the returned stress must stay uniaxial (no spurious shear).
 ///
 /// *Result (measured 2026-08-05):* the anisotropic integrator returned
-/// `Δp = 2.99117528838722e-3` and the independent bisection
-/// `Δp = 2.99117528838725e-3`, agreeing to
-/// **9.19e-15 relative**. The returned stress is
-/// `σ_xx = 103.982447150466 MPa` with all off-diagonal components exactly zero
-/// and `σ_yy = σ_zz = 0.00000000000000e0 Pa`. Interpretation: the anisotropic
-/// machinery degenerates correctly, which is the strongest available check that
-/// the `β` parametrisation and the 3×3 inversion carry no systematic error.
+/// `Δp = 1.36879054819128e-3` and the independent bisection
+/// `Δp = 1.36879054818695e-3`, agreeing to **3.16233097836962e-12 relative** —
+/// the resolution of the bracketed solve's residual tolerance, not a
+/// disagreement. The returned stress is `σ_xx = 109.659823819376 MPa` with
+/// `σ_yy = σ_zz = 4.51700880903122e7 Pa` and all three shears **exactly zero**.
+/// The two transverse components are equal, as transverse isotropy of a
+/// uniaxial radial return requires, and the mean stress
+/// `(109.66 + 45.17 + 45.17)/3 = 66.67 MPa` is unchanged from the trial's
+/// `200/3 MPa`, confirming the return is purely deviatoric. Interpretation: the
+/// anisotropic machinery degenerates correctly, which is the strongest
+/// available check that the `β` parametrisation and the 3×3 inversion carry no
+/// systematic error.
 #[test]
 fn the_isotropic_limit_reproduces_an_independent_radial_return() {
     let mut law = meta_lema_ani();
@@ -1191,11 +1234,12 @@ fn the_isotropic_limit_reproduces_an_independent_radial_return() {
 /// Pass criterion: exact equality with the trial stress, zero increment, zero
 /// iterations.
 ///
-/// *Result (measured 2026-08-05):* `Δt = 0` returned `Δp = 0` with the trial
-/// stress unchanged; the hydrostatic 500 MPa state returned
-/// `σ_H = 0.00000000000000e0 Pa`, `Δp = 0` and the trial stress unchanged.
-/// Interpretation: both guards fire before the bracket search, so no NaN can
-/// escape into a global solve.
+/// *Result (measured 2026-08-05):* `Δt = 0` returned
+/// `Δp = 0.00000000000000e0` with the trial stress unchanged; the hydrostatic
+/// 500 MPa state returned `σ_H = 0.00000000000000e0 Pa`,
+/// `Δp = 0.00000000000000e0` and the trial stress unchanged. Interpretation:
+/// both guards fire before the bracket search, so no NaN can escape into a
+/// global solve.
 #[test]
 fn degenerate_meta_lema_ani_steps_produce_no_creep() {
     let law = meta_lema_ani();

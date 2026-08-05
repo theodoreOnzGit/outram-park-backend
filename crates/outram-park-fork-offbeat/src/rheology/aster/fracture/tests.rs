@@ -47,9 +47,9 @@ fn steel() -> LinearElasticConstants {
 /// | Quantity | Plane strain | Plane stress |
 /// |---|---|---|
 /// | `kappa` | 1.8000000000000000 | 2.0769230769230771 |
-/// | `E'` (Pa) | 2.1978021978021978e11 | 2.0000000000000000e11 |
+/// | `E'` (Pa) | 2.1978021978021979e11 | 2.0000000000000000e11 |
 ///
-/// `E'(plane strain) / E'(plane stress) = 1.0989010989010988`, i.e. **9.89%**.
+/// `E'(plane strain) / E'(plane stress) = 1.0989010989010990`, i.e. **9.89%**.
 /// Interpretation: an energy release rate computed with the wrong plane state at
 /// `nu = 0.3` is wrong by 9.89% — a discrepancy small enough to be attributed to
 /// mesh refinement and large enough to invalidate a toughness comparison. That
@@ -126,13 +126,13 @@ fn inadmissible_elastic_constants_are_refused() {
 ///
 /// *Results (measured 2026-08-05), `sqrt(2 pi r) * sigma` for unit `K`:*
 ///
-/// | Mode | component | plane strain | plane stress |
+/// | Mode | component | plane strain (`D_PLAN`) | plane stress (`C_PLAN`) |
 /// |---|---|---|---|
-/// | I | `sigma_yy` | 1.0000000000000004 | 1.0000000000000004 |
-/// | I | `sigma_xy` | -0.0000000000000000e0 | -0.0000000000000000e0 |
-/// | II | `sigma_xy` | 1.0000000000000002 | 1.0000000000000002 |
-/// | II | `sigma_yy` | 2.2204460492503131e-16 | 2.2204460492503131e-16 |
-/// | III | `sigma_yz` | 1.0000000000000000 | 1.0000000000000000 |
+/// | I | `sigma_yy` | 0.9999999999999999 | 1.0000000000000000 |
+/// | I | `sigma_xy` | 0.0000000000000000e0 | 0.0000000000000000e0 |
+/// | II | `sigma_xy` | 0.9999999999999999 | 0.9999999999999998 |
+/// | II | `sigma_yy` | 0.0000000000000000e0 | 0.0000000000000000e0 |
+/// | III | `sigma_yz` | 0.9999999999999999 | 0.9999999999999999 |
 ///
 /// *Interpretation:* this is the decisive test for the plane-state constants.
 /// The stress amplitude comes out of `2 cr1 (kappa - 1) (lambda + mu)` where
@@ -141,10 +141,12 @@ fn inadmissible_elastic_constants_are_refused() {
 /// the plane-strain `kappa` with the plane-stress `lambda*` (or the reverse)
 /// breaks it. Since the element routine that supplies upstream's `ka` is absent
 /// from the available clone, this identity is what stands in for it — and it
-/// passes for both states, so the mapping in [`CrackPlaneState`] is confirmed
-/// self-consistent with the Hooke law used here. The mode-III result is exactly
-/// 1 in both states, confirming that anti-plane shear does not see the in-plane
-/// constraint.
+/// passes for both states — every entry is 1 to within one or two units in the
+/// last place — so the mapping in [`CrackPlaneState`] is confirmed
+/// self-consistent with the Hooke law used here. The mode-III result is the same
+/// in both states, confirming that anti-plane shear does not see the in-plane
+/// constraint. The two zero entries are exact zeros, not small residuals: mode I
+/// produces no shear and mode II no opening stress directly ahead of the tip.
 #[test]
 fn near_tip_stress_reproduces_the_williams_singularity_in_both_plane_states() {
     let m = steel();
@@ -206,13 +208,14 @@ fn near_tip_stress_reproduces_the_williams_singularity_in_both_plane_states() {
 ///
 /// | Plane state | measured COD (m^(1/2)/Pa) | closed form | relative error |
 /// |---|---|---|---|
-/// | `D_PLAN` | 4.5966042616213426e-14 | 4.5966042616213432e-14 | 1.3e-16 |
-/// | `C_PLAN` | 4.1829298780954125e-14 | 4.1829298780954125e-14 | 0.0e0 |
+/// | `D_PLAN` | 4.5921011900766911e-14 | 4.5921011900766911e-14 | 0.0e0 |
+/// | `C_PLAN` | 5.0462650440403205e-14 | 5.0462650440403199e-14 | 1.3e-16 |
 ///
 /// *Interpretation:* the two differ by the factor `1/(1 - nu^2) = 1.0989`, i.e.
 /// the plane-strain crack opens **9.89% less** than the plane-stress one under
-/// the same `K_I`. Together with the previous test this pins the plane state
-/// from both directions: the *stress* amplitude is state-independent and the
+/// the same `K_I` — the constraint that raises `E'` also stiffens the opening.
+/// Together with the previous test this pins the plane state from both
+/// directions: the *stress* amplitude is state-independent and the
 /// *displacement* is not, so a `kappa`/`lambda` mix-up that survived the stress
 /// check would be caught here.
 #[test]
@@ -260,9 +263,9 @@ fn mode_i_crack_opening_displacement_matches_its_closed_form() {
 ///
 /// | Mode | worst relative error |
 /// |---|---|
-/// | I | 1.4964e-08 |
-/// | II | 4.4404e-09 |
-/// | III | 1.2891e-08 |
+/// | I | 4.8335e-9 |
+/// | II | 1.3811e-9 |
+/// | III | 1.2500e-9 |
 ///
 /// *Interpretation:* three to four orders of magnitude inside the tolerance and
 /// consistent with `O(h^2/r^2)` truncation, so the analytic gradient is the true
@@ -362,8 +365,8 @@ fn near_tip_field_rejects_the_tip_itself_and_angles_outside_the_branch() {
 /// criterion: 1e-12 relative.
 ///
 /// *Result (measured 2026-08-05):* Mandel dot product
-/// `1.0728063269983423e6 J/m^3`, tensor double contraction
-/// `1.0728063269983423e6 J/m^3`, relative difference `0.0e0`. Twice the strain
+/// `2.3624136442953223e8 J/m^3`, tensor double contraction
+/// `2.3624136442953223e8 J/m^3`, relative difference `0.0e0`. Twice the strain
 /// energy density, as it should be. Interpretation: a future port of the
 /// G-theta integrand can consume `small_strain_mandel` directly without
 /// re-deriving the scaling, which is the whole reason the accessor exists.
@@ -405,15 +408,15 @@ fn near_tip_strain_in_mandel_form_contracts_correctly() {
 ///
 /// *Results (measured 2026-08-05), `sigma = 100 MPa`, `a = 0.01 m`:*
 ///
-/// `K_I = 1.7724538509055161e7 Pa m^(1/2)` (17.72 MPa m^(1/2))
+/// `K_I = 1.7724538509055160e7 Pa m^(1/2)` (17.72 MPa m^(1/2))
 ///
 /// | Plane state | `G` from Irwin (J/m^2) | `sigma^2 pi a / E'` (J/m^2) |
 /// |---|---|---|
-/// | `D_PLAN` | 1.4294999999999998e3 | 1.4294999999999998e3 |
-/// | `C_PLAN` | 1.5707963267948966e3 | 1.5707963267948966e3 |
+/// | `D_PLAN` | 1.4294246573833559e3 | 1.4294246573833559e3 |
+/// | `C_PLAN` | 1.5707963267948965e3 | 1.5707963267948965e3 |
 ///
-/// *Interpretation:* the plane-strain crack releases 1429.5 J/m^2 and the
-/// plane-stress one 1570.8 J/m^2 for the same `K_I` — the same 9.89% again, now
+/// *Interpretation:* the plane-strain crack releases 1429.42 J/m^2 and the
+/// plane-stress one 1570.80 J/m^2 for the same `K_I` — the same 9.89% again, now
 /// in energy. Both agree with the closed form to machine precision, so the
 /// relation and the effective modulus are consistent with each other and with
 /// the published result.
@@ -450,16 +453,16 @@ fn irwin_relation_reproduces_the_centre_cracked_infinite_plate() {
 ///
 /// | Contribution | value (J/m^2) |
 /// |---|---|
-/// | `G_I` | 4.0950000000000003e0 |
-/// | `G_II` | 1.8199999999999998e0 |
-/// | `G_III` | 6.5000000000000000e-1 |
-/// | total | 6.5650000000000004e0 |
+/// | `G_I` | 4.0950000000000000e3 |
+/// | `G_II` | 1.8200000000000000e3 |
+/// | `G_III` | 6.5000000000000000e2 |
+/// | total | 6.5650000000000000e3 |
 ///
-/// Sum of the three single-mode calls: `6.5650000000000004e0 J/m^2`, identical.
-/// `G_III` in plane stress: `6.5000000000000000e-1 J/m^2` — the **same** value,
+/// Sum of the three single-mode calls: `6.5650000000000000e3 J/m^2`, identical.
+/// `G_III` in plane stress: `6.5000000000000000e2 J/m^2` — the **same** value,
 /// confirming the plane state does not reach mode III. For contrast, had `E'`
 /// been used for mode III in plane strain it would have read
-/// `4.5500000000000000e-1 J/m^2`, 30% low.
+/// `4.5500000000000000e2 J/m^2`, 30% low.
 #[test]
 fn mode_contributions_add_and_mode_iii_ignores_the_plane_state() {
     let m = steel();
@@ -516,9 +519,10 @@ fn mode_contributions_add_and_mode_iii_ignores_the_plane_state() {
 /// This port **reproduces** that rather than correcting it. Pass criterion:
 /// 1e-12 relative on the round trip; exactly 0 for `G < 0`.
 ///
-/// *Results (measured 2026-08-05):* `K_I` in `1.7724538509055161e7`,
-/// `G = 1.4294999999999998e3 J/m^2`, `K_eq` out `1.7724538509055159e7
-/// Pa m^(1/2)`, relative error `1.2e-16`. For `G = -1.0 J/m^2`, `K_eq = 0`.
+/// *Results (measured 2026-08-05):* `K_I` in `1.7724538509055160e7
+/// Pa m^(1/2)`, `G = 1.4294246573833559e3 J/m^2`, `K_eq` out
+/// `1.7724538509055160e7 Pa m^(1/2)`, relative error `0.0e0`. For
+/// `G = -1.0 J/m^2`, `K_eq = 0`.
 ///
 /// *Interpretation:* the clipping is upstream's judgement call, not this port's.
 /// A user seeing `K_eq = 0` from a nonzero load should read it as "the domain
@@ -559,12 +563,12 @@ fn equivalent_mode_i_factor_round_trips_and_clips_a_negative_g() {
 /// | Loading | `theta_c` (rad) | `theta_c` (deg) |
 /// |---|---|---|
 /// | pure mode I (`K_I = 1`, `K_II = 0`) | -0.0000000000000000e0 | -0.00000000000000 |
-/// | pure mode II (`K_I = 0`, `K_II = 1`) | -1.2309594173407747e0 | -70.52877936550931 |
-/// | pure mode II (`K_I = 0`, `K_II = -1`) | 1.2309594173407747e0 | 70.52877936550931 |
-/// | mixed (`K_I = 1`, `K_II = 0.5`) | -7.0180338745884270e-1 | -40.21036490385856 |
+/// | pure mode II (`K_I = 0`, `K_II = 1`) | -1.2309594173407745e0 | -70.52877936550931 |
+/// | pure mode II (`K_I = 0`, `K_II = -1`) | 1.2309594173407745e0 | 70.52877936550931 |
+/// | mixed (`K_I = 1`, `K_II = 0.5`) | -7.0175882174451543e-1 | -40.20781872203420 |
 ///
 /// `-arccos(1/3) = -1.2309594173407747 rad`; the pure mode-II value agrees to
-/// `0.0e0` relative. *Interpretation:* the criterion turns the crack away from
+/// `1.8e-16` relative. *Interpretation:* the criterion turns the crack away from
 /// the shear, and the pure-mode-I answer is exactly zero rather than
 /// `1e-17`-ish — a consequence of the rationalised form, which evaluates `-2 K_II
 /// / (K_I + sqrt(...))` and returns a hard zero when `K_II` is zero.
@@ -611,12 +615,16 @@ fn kink_angle_reproduces_its_published_limits() {
 ///
 /// | `K_II` | closed form (rad) | Brent root (rad) | difference | Brent iterations |
 /// |---|---|---|---|---|
-/// | 0.1 | -1.9558688759875167e-1 | -1.9558688759875156e-1 | 1.1e-16 | 9 |
-/// | 0.5 | -7.0180338745884270e-1 | -7.0180338745884281e-1 | 1.1e-16 | 9 |
-/// | 1.0 | -9.5316859680649337e-1 | -9.5316859680649315e-1 | 2.2e-16 | 9 |
-/// | 3.0 | -1.1725882437522047e0 | -1.1725882437522049e0 | 2.2e-16 | 9 |
+/// | 0.1 | -1.9552710137718032e-1 | -1.9552710137720489e-1 | 2.5e-14 | 6 |
+/// | 0.5 | -7.0175882174451543e-1 | -7.0175882174451421e-1 | 1.2e-15 | 7 |
+/// | 1.0 | -9.2729521800161219e-1 | -9.2729521800161219e-1 | 0.0e0 | 7 |
+/// | 3.0 | -1.1224637982012291e0 | -1.1224637982012291e0 | 0.0e0 | 7 |
 ///
-/// Hoop stress at the optimum exceeds both neighbours in every case. *Interpretation:*
+/// Hoop stress (scaled) at the optimum against its two neighbours at
+/// `theta_c +/- 0.05 rad`: `1.014747` against `1.013777`/`1.013777` at
+/// `K_II = 0.1`; `1.282795` against `1.281272`/`1.281268` at `0.5`; `1.788854`
+/// against `1.786347`/`1.786333` at `1.0`; `4.039977` against
+/// `4.033230`/`4.033168` at `3.0` — a maximum in every case. *Interpretation:*
 /// the closed form and the numerical stationary point agree to machine
 /// precision, so upstream's expression selects the correct (maximising) root of
 /// the quadratic in `tan(theta/2)` — the other root is the hoop-stress *minimum*
@@ -665,32 +673,42 @@ fn kink_angle_is_the_maximum_of_the_hoop_stress() {
 /// `theta = 2 atan(-2 K2 / (K1 + sqrt(K1^2 + 8 K2^2)))`, which has no division
 /// by `K_II`. Transcribe upstream's form here and sweep `K_II/K_I` over eight
 /// decades from 1e0 down to 1e-7 with `K_I = 1`, comparing the two. Pass
-/// criterion: 1e-12 absolute in radians wherever upstream's guard admits the
+/// criterion: 1e-8 absolute in radians wherever upstream's guard admits the
 /// input; the ported form must additionally return a finite answer at
-/// `K_II = 0`, where upstream's returns nothing.
+/// `K_II = 0`, where upstream's returns nothing. Finally, arbitrate between the
+/// two at `K_II = 1e-6` against a tightly converged Brent root of the
+/// stationarity condition (`residual_tol = 1e-18`, `step_tol = 1e-20`).
 ///
 /// *Results (measured 2026-08-05), `K_I = 1`:*
 ///
-/// | `K_II` | ported (rad) | upstream literal (rad) | absolute difference |
-/// |---|---|---|---|
-/// | 1e0 | -9.5316859680649337e-1 | -9.5316859680649337e-1 | 0.0e0 |
-/// | 1e-1 | -1.9558688759875167e-1 | -1.9558688759875164e-1 | 2.8e-17 |
-/// | 1e-2 | -1.9998666755551703e-2 | -1.9998666755551866e-2 | 1.6e-16 |
-/// | 1e-3 | -1.9999986666667553e-3 | -1.9999986666676176e-3 | 8.6e-16 |
-/// | 1e-4 | -1.9999999866666667e-4 | -1.9999999866650505e-4 | 1.6e-16 |
-/// | 1e-5 | -1.9999999998666667e-5 | -1.9999999996438335e-5 | 2.2e-15 |
-/// | 1e-6 | -1.9999999999986666e-6 | -1.9999999737968884e-6 | 2.6e-14 |
-/// | 1e-7 | -1.9999999999999866e-7 | -2.0000001654807416e-7 | 1.7e-14 |
+/// | `K_II` | ported (rad) | upstream literal (rad) | absolute difference | relative |
+/// |---|---|---|---|---|
+/// | 1e0 | -9.2729521800161219e-1 | -9.2729521800161219e-1 | 0.00e0 | 0.00e0 |
+/// | 1e-1 | -1.9552710137718032e-1 | -1.9552710137718046e-1 | 1.39e-16 | 7.10e-16 |
+/// | 1e-2 | -1.9995335372251111e-2 | -1.9995335372254001e-2 | 2.89e-15 | 1.45e-13 |
+/// | 1e-3 | -1.9999953333537336e-3 | -1.9999953333327413e-3 | 2.10e-14 | 1.05e-11 |
+/// | 1e-4 | -1.9999999533333360e-4 | -1.9999999519040312e-4 | 1.43e-13 | 7.15e-10 |
+/// | 1e-5 | -1.9999999995333335e-5 | -1.9999999494090838e-5 | 5.01e-13 | 2.51e-8 |
+/// | 1e-6 | -1.9999999999953332e-6 | -2.0000152289860735e-6 | 1.52e-11 | 7.61e-6 |
+/// | 1e-7 | -1.9999999999999533e-7 | -2.0023435354232722e-7 | 2.34e-10 | 1.17e-3 |
 ///
-/// *Interpretation:* the two agree to well inside the tolerance, so this is a
-/// numerical restatement and not a change of behaviour — but the trend in the
-/// last column is the point. Upstream's form loses relative accuracy steadily as
-/// mode II vanishes, because it computes `K1/K2 - sqrt((K1/K2)^2 + 8)`, a
-/// difference of two nearly equal large numbers. At `K_II = 1e-7 K_I` upstream
-/// has lost about eight significant figures; the ported form has lost none. At
-/// `K_II = 0` upstream's guard declines to answer at all, while the ported form
-/// returns exactly 0. Since near-mode-I is the regime most real calculations sit
-/// in, this matters more than it looks.
+/// Arbitration at `K_II = 1e-6`: Brent reference `-1.9999999999953336e-6 rad`;
+/// ported `-1.9999999999953332e-6 rad`, error `4.235e-22`; upstream
+/// `-2.0000152289860735e-6 rad`, error `1.523e-11`.
+///
+/// *Interpretation:* the two agree to well inside the tolerance in absolute
+/// terms, so this is a numerical restatement and not a change of behaviour — but
+/// the **relative** column is the point, and it grows by roughly two decades per
+/// decade of shrinking `K_II`. Upstream's form computes
+/// `K1/K2 - sqrt((K1/K2)^2 + 8)`, a difference of two nearly equal large
+/// numbers, so it loses about two significant figures for every decade `K_II`
+/// falls. By `K_II = 1e-7 K_I` its answer is wrong in the fourth significant
+/// figure (0.117%). The Brent arbitration settles which of the two is drifting:
+/// the ported value sits `4.2e-22` from the independent numerical root, upstream
+/// `1.5e-11` — eleven orders of magnitude further out. At `K_II = 0` upstream's
+/// guard declines to answer at all, while the ported form returns exactly 0.
+/// Since near-mode-I is the regime most real calculations sit in, this matters
+/// more than it looks.
 #[test]
 fn rationalised_kink_angle_agrees_with_the_upstream_literal_expression() {
     /// Upstream's expression, transcribed verbatim from the commented-out line
@@ -765,11 +783,23 @@ fn rationalised_kink_angle_agrees_with_the_upstream_literal_expression() {
 /// criterion: `Err` for `(K_I, K_II) = (-1, 0)` and `(0, 0)`; `Ok` as soon as
 /// any shear is present.
 ///
-/// *Result:* both degenerate cases rejected; `(-1, 1e-30)` accepted and returns
-/// `-3.1415926535897931e0 rad` (measured 2026-08-05) — a full turn back along
-/// the crack, which is the correct limit for a crack loaded in pure shear behind
-/// a compressive opening term, and a value a caller should treat with suspicion
-/// on physical grounds rather than numerical ones.
+/// *Results (measured 2026-08-05), `K_I = -1`:*
+///
+/// | `K_II` | `theta_c` (rad) |
+/// |---|---|
+/// | 1e-3 | -3.1375926669230498e0 |
+/// | 1e-15 | -3.1415926535897891e0 |
+/// | 1e-30 | -3.1415926535897931e0 |
+///
+/// Both degenerate cases (`K_II = 0` with `K_I = -1` and with `K_I = 0`) are
+/// rejected. *Interpretation:* the negative-`K_I` branch stays finite and
+/// converges smoothly to `-pi` as the shear vanishes — a full turn back along
+/// the crack. This is the branch that exists specifically to avoid the
+/// cancellation `K_I + sqrt(K_I^2 + 8 K_II^2)` suffers when `K_I < 0`; the
+/// first form would evaluate `-1 + 1.0` to exactly zero here and fail. The
+/// answer is numerically sound but physically suspect — a caller seeing
+/// `theta_c` near `-pi` should conclude the criterion has left its domain of
+/// validity, not that the crack turns around.
 #[test]
 fn kink_angle_refuses_a_closed_crack_in_pure_compression() {
     assert!(max_hoop_stress_kink_angle(-1.0, 0.0).is_err());
@@ -806,7 +836,7 @@ fn kink_angle_refuses_a_closed_crack_in_pure_compression() {
 /// - propagation `(0.8660254037844387, 0.4999999999999999, 0)`
 /// - normal `(-0.4999999999999999, 0.8660254037844387, 0)`
 /// - tangent `(0, 0, 1)`
-/// - worst deviation from orthonormality: `1.1102230246251565e-16`
+/// - worst deviation from orthonormality: `0.0000000000000000e0`
 /// - `|x cross y - z| = 0.0000000000000000e0`
 ///
 /// *Interpretation:* the normal is the propagation direction turned 90 degrees
@@ -865,10 +895,10 @@ fn planar_crack_tip_frame_matches_the_upstream_rotation() {
 /// *Results (measured 2026-08-05), normal tilted by 5 degrees:*
 ///
 /// - worst orthonormality deviation after Gram-Schmidt:
-///   `2.7755575615628914e-16`
+///   `0.0000000000000000e0`
 /// - front tangent preserved to `0.0000000000000000e0`
-/// - vector round-trip error `1.5700924586837752e-16`
-/// - tensor round-trip error `4.9650683064945600e-16`
+/// - vector round-trip error `0.0000000000000000e0`
+/// - tensor round-trip error `0.0000000000000000e0`
 ///
 /// *Interpretation:* silently accepting a 5-degree-skew frame would leak mode I
 /// into mode II at about `sin(5 deg) = 8.7%`. The orthogonalisation removes it,
@@ -940,11 +970,11 @@ fn three_dimensional_frame_orthogonalises_and_round_trips() {
 ///
 /// *Results (measured 2026-08-05):*
 ///
-/// - trace, local frame: `1.2802389472928466e9 Pa`
-/// - trace, global frame: `1.2802389472928469e9 Pa`
+/// - trace, local frame: `1.6073446065925560e10 Pa`
+/// - trace, global frame: `1.6073446065925554e10 Pa`
 /// - worst component discrepancy between the rotated local stress and the
-///   global stress: `2.3841857910156250e-7 Pa` on a stress scale of
-///   `5.4838214543304074e8 Pa`, i.e. `4.3e-16` relative.
+///   global stress: `1.9073486328125000e-6 Pa` on a stress scale of
+///   `9.6546407669042320e9 Pa`, i.e. `2.0e-16` relative.
 ///
 /// *Interpretation:* the field transformation and the Hooke law commute, which
 /// they must — a stress is a tensor, and computing it before or after a change
@@ -1007,35 +1037,48 @@ fn rotating_the_field_rotates_its_stress() {
 // 2-D summed-result post-processing
 // =====================================================================
 
-/// **The symmetric-half-model correction preserves the identity
-/// `G_IRWIN = G`.**
+/// **The symmetric-half-model correction *restores* the identity
+/// `G_IRWIN = G`, which does not hold before it.**
 ///
 /// *Methodology:* `cakg2d.F90` lines 485-491 double `G`, the mode-I Irwin root
 /// and `K_I` while zeroing the mode-II slots. Doubling `G` *and* the root looks
-/// inconsistent, since `G` goes as the square of the root — so the check that
-/// matters is whether the identity `G_IRWIN = G` survives. Start from a
-/// consistent half-model result (`G_half = 700 J/m^2`, so the root is
-/// `sqrt(700)`, plus a spurious mode-II root that symmetry must remove), apply
-/// the correction, and compare `g_irwin()` against `g`. Pass criterion: 1e-12
-/// relative.
+/// inconsistent, since `G_IRWIN` is the square of the root. Construct a
+/// half-model result that is consistent with a known full-model mode-I state
+/// (`G_full = 1400 J/m^2`, `root_full = sqrt(1400)`, `K_I_full = 10 MPa
+/// m^(1/2)`, every slot halved because every slot is an integral over the ring),
+/// add a spurious mode-II root that symmetry must remove, apply the correction,
+/// and check each slot's factor plus the identity `G_IRWIN = G` before and
+/// after. Pass criterion: 1e-12 relative.
 ///
 /// *Results (measured 2026-08-05):*
 ///
 /// | Quantity | before | after |
 /// |---|---|---|
 /// | `G` (J/m^2) | 7.0000000000000000e2 | 1.4000000000000000e3 |
-/// | mode-I root | 1.8708286933869707e1 | 3.7416573867739416e1 |
+/// | mode-I root | 1.8708286933869708e1 | 3.7416573867739416e1 |
 /// | mode-II root | 3.0000000000000000e0 | 0.0000000000000000e0 |
-/// | `G_IRWIN` (J/m^2) | 7.0900000000000000e2 | 1.4000000000000000e3 |
 /// | `K_I` (Pa m^(1/2)) | 5.0000000000000000e6 | 1.0000000000000000e7 |
+/// | `G_IRWIN` (J/m^2) | 3.5900000000000006e2 | 1.4000000000000002e3 |
+/// | `G_IRWIN / G` | 0.5128571428571429 | 1.0000000000000002 |
 ///
-/// After the correction `G_IRWIN = G = 1400.0 J/m^2` exactly. *Interpretation:*
-/// the doubling is consistent because the halving lives in the **domain of
-/// integration**, not in the field — meshing half the body halves both the
-/// G-theta integral and the interaction integral, and a factor of two recovers
-/// both. Had the correction been wrong, `G_IRWIN` would have come out at
-/// `4 x 700 = 2800 J/m^2` against `G = 1400 J/m^2`, which this test would have
-/// caught.
+/// With the spurious mode-II root removed from the comparison, the *before*
+/// ratio is exactly 0.5.
+///
+/// *Interpretation, and this test was written the wrong way round first:* the
+/// initial version asserted `G_IRWIN = G` on the **uncorrected** half-model
+/// result and failed, reading `G_IRWIN = 2800` against `G = 1400`. The
+/// assumption behind it — that a half-model result satisfies the Irwin identity
+/// and the correction preserves it — is wrong. What is true is that every one of
+/// the five slots is an integral over the ring, so meshing half the body halves
+/// all five; `G_IRWIN`, being a square, is therefore **quartered** while `G` is
+/// halved, and the raw half-model ratio is 0.5. The doubling restores both to
+/// their full-model values at once, and only then do they agree. The corollary
+/// noted on
+/// [`with_symmetric_half_model`](super::PlanarCrackTipResult::with_symmetric_half_model)
+/// — that slot 2 must be a quantity linear in the ring, i.e. `K_I / sqrt(E')`
+/// and not `sqrt(G_I)` — follows from the same arithmetic and is the part that
+/// cannot be checked against source, because the element routine that fills the
+/// slots is absent from the available upstream clone.
 #[test]
 fn symmetric_half_model_correction_restores_the_irwin_identity() {
     // A full-model mode-I state, and the half-model result that would produce
@@ -1114,7 +1157,7 @@ fn symmetric_half_model_correction_restores_the_irwin_identity() {
 /// | Slot | before | after |
 /// |---|---|---|
 /// | `G` | 7.0000000000000000e2 | 1.4000000000000000e4 |
-/// | mode-I root | 1.8708286933869707e1 | 3.7416573867739414e2 |
+/// | mode-I root | 2.6457513110645905e1 | 5.2915026221291805e2 |
 /// | mode-II root | 3.0000000000000000e0 | 6.0000000000000000e1 |
 /// | `K_I` | 5.0000000000000000e6 | 1.0000000000000000e8 |
 /// | `K_II` | 1.0000000000000000e6 | 2.0000000000000000e7 |
@@ -1169,14 +1212,15 @@ fn axisymmetric_normalisation_divides_every_slot() {
 ///
 /// *Results (measured 2026-08-05), `L = 0.35 m`, 8000 Simpson intervals:*
 ///
-/// - worst deviation of a diagonal entry from 1: `1.0000000000287557e0`, i.e.
-///   an error of `2.8756e-11`
-/// - worst magnitude of an off-diagonal entry: `1.1102230246251565e-16`
+/// - worst diagonal entry: `1.0000000000227200e0`, i.e. an error of `2.2720e-11`
+/// - worst magnitude of an off-diagonal entry: `8.1975923530800774e-12`
 ///
-/// *Interpretation:* orthonormal to the accuracy of the quadrature, so the
-/// normalisation is transcribed correctly. The off-diagonal entries are at
-/// rounding, which they should be — Simpson integrates the odd-symmetry products
-/// exactly.
+/// *Interpretation:* orthonormal to `2.3e-11`, which is the accuracy of the
+/// quadrature and not of the basis — the residual is Simpson's `O(h^4)`
+/// truncation on a degree-14 integrand, and it falls as the interval count
+/// rises. So the `sqrt((2n + 1)/L)` normalisation is transcribed correctly, and
+/// the family is orthogonal as well as normalised (all 56 off-diagonal entries
+/// below 1e-11).
 #[test]
 fn legendre_front_basis_is_orthonormal_over_the_front() {
     let l = 0.35;
@@ -1236,7 +1280,7 @@ fn legendre_front_basis_is_orthonormal_over_the_front() {
 /// criterion: 1e-12 absolute.
 ///
 /// *Result (measured 2026-08-05):* worst recurrence residual over all 41
-/// abscissae and all six recurrence steps: `4.4408920985006262e-16`.
+/// abscissae and all six recurrence steps: `2.1066481892262345e-14`.
 /// Interpretation: every closed form is the polynomial it claims to be; a wrong
 /// coefficient anywhere would show up here as an `O(1)` residual.
 #[test]
@@ -1271,7 +1315,7 @@ fn legendre_polynomials_satisfy_bonnets_recurrence() {
 /// accuracy, not the port's.
 ///
 /// *Result (measured 2026-08-05):* worst relative discrepancy over all 88
-/// (degree, abscissa) pairs: `1.1043055869650725e-09`. Interpretation: three
+/// (degree, abscissa) pairs: `4.4824485853288069e-9`. Interpretation: three
 /// orders inside tolerance and consistent with `O(h^2)` truncation, so the two
 /// tables agree and the `(2/L)` chain-rule prefactor is right. That prefactor is
 /// the easy thing to drop, and dropping it would show as an `O(1)` failure here.

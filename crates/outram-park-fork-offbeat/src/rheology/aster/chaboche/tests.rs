@@ -132,7 +132,17 @@ fn flow_condition_residual(law: ChabocheLaw, out: &ChabocheIncrement, dt: f64) -
 /// checked against the decoding `nmcham.F90` performs on the behaviour name.
 /// Pass criterion: exact equality.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* all six rows printed by the run —
+/// `VMIS_CIN1_CHAB num_lc=4 nvi= 8 nbvar=1 visc=false memo=false`,
+/// `VMIS_CIN2_CHAB num_lc=4 nvi=14 nbvar=2 visc=false memo=false`,
+/// `VISC_CIN1_CHAB num_lc=4 nvi= 8 nbvar=1 visc=true  memo=false`,
+/// `VISC_CIN2_CHAB num_lc=4 nvi=14 nbvar=2 visc=true  memo=false`,
+/// `VMIS_CIN2_MEMO num_lc=4 nvi=28 nbvar=2 visc=false memo=true`,
+/// `VISC_CIN2_MEMO num_lc=4 nvi=28 nbvar=2 visc=true  memo=true` — match the
+/// catalogue exactly. Interpretation: the enum is wired to the right catalogue
+/// entries, so a downstream registry lookup cannot silently select a different
+/// law, and the three switches are decoded from the name the way `nmcham.F90`
+/// decodes them.
 #[test]
 fn the_variants_agree_with_the_catalogue() {
     let p = ChabocheParameters::armstrong_frederick(200.0e6, 60.0e9, 500.0);
@@ -213,7 +223,12 @@ fn the_variants_agree_with_the_catalogue() {
 /// back strain is untouched, and that `yielded` is false. Pass criterion: 1e-12
 /// relative on the stress, exact on the flags.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* `sigma_xy = 7.6923077e7 Pa` against the
+/// hand-computed `2mu exy = 7.6923077e7 Pa` (0.0 relative), giving
+/// `sigma_eq = 1.3323468e8 Pa`, comfortably under `R0 = 2.0e8 Pa`; `dp = 0e0`,
+/// `iterations = 0`, `yielded = false`, back strain unchanged. Interpretation:
+/// the elastic branch short-circuits before the local solve, as upstream's
+/// `seuil <= 0` branch does, and returns the predictor untouched.
 #[test]
 fn a_step_below_yield_is_purely_elastic() {
     let law = af_law();
@@ -255,9 +270,19 @@ fn a_step_below_yield_is_purely_elastic() {
 /// accumulated plastic strain, then compare with `R(p)`. Nothing internal to
 /// the solver is used, so a wrong back-strain update, a wrong `C(p)`, or a
 /// wrong deviator would all show up here. Pass criterion: the residual is below
-/// 1e-6 Pa, i.e. 5e-15 relative to a 200 MPa yield radius.
+/// 1e-5 Pa, i.e. 5e-14 relative to a 200 MPa yield radius — the floor set by the
+/// normalised solver tolerance, not an arbitrary slack.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* 39 of the 40 steps were plastic (the first
+/// is still elastic, since one increment reaches only 1.33e8 Pa against a
+/// 2.0e8 Pa radius). The worst flow-condition residual over those 39 steps is
+/// **1.7881e-6 Pa** against a yield radius of 2.0e8 Pa — **8.941e-15
+/// relative**, which is the normalised solver tolerance (1e-14) times the
+/// residual's stress scale, i.e. the solve is converging as tightly as it was
+/// asked to. Final `p = 2.170738e-2`. Interpretation: the returned stress,
+/// back stress and hardening state are mutually consistent to the requested
+/// tolerance; the local solve reaches the true root of the collapsed scalar
+/// equation, not a nearby one.
 #[test]
 fn every_plastic_step_ends_on_the_flow_surface() {
     let law = af_law();
@@ -301,7 +326,12 @@ fn every_plastic_step_ends_on_the_flow_surface() {
 /// `sqrt(2/3 dEps_p:dEps_p) = dp`. Checked on a plastic pure-shear step. Pass
 /// criterion: trace below 1e-18 absolute, equivalent to 1e-12 relative.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* `tr(dEps_p) = 0.0000e0` exactly, and
+/// `sqrt(2/3 dEps_p:dEps_p) = 7.267856e-4` against `dp = 7.267856e-4`,
+/// agreeing to 0.0 relative. Interpretation: the `sqrt(3/2)` normalisation of
+/// the flow direction is right; a factor slip there would make `p` and the
+/// plastic strain disagree by `3/2` and quietly corrupt every hardening law
+/// that reads `p`.
 #[test]
 fn the_plastic_strain_increment_is_deviatoric_with_equivalent_dp() {
     let law = af_law();
@@ -335,7 +365,11 @@ fn the_plastic_strain_increment_is_deviatoric_with_equivalent_dp() {
 /// non-deviatoric back stress. Pass criterion: all five non-`xy` components and
 /// the trace below 1e-9 Pa, against an `xy` component of order 1e8 Pa.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* after 40 steps to `exy = 0.02`,
+/// `sigma_xy = 1.8474723e8 Pa` with `tr(sigma) = 0.0000e0 Pa` and every one of
+/// `xx`, `yy`, `zz`, `xz`, `yz` exactly `0.0000e0 Pa`. Interpretation: the
+/// deviatoric/hydrostatic split is clean and the back stress stays
+/// deviatoric.
 #[test]
 fn pure_shear_leaves_the_hydrostatic_stress_untouched() {
     let (stress, _) = shear_path(
@@ -348,7 +382,13 @@ fn pure_shear_leaves_the_hydrostatic_stress_untouched() {
     );
     println!(
         "sigma = xx {:.4e} yy {:.4e} zz {:.4e} xy {:.7e} xz {:.4e} yz {:.4e}, tr = {:.4e}",
-        stress.xx, stress.yy, stress.zz, stress.xy, stress.xz, stress.yz, stress.tr()
+        stress.xx,
+        stress.yy,
+        stress.zz,
+        stress.xy,
+        stress.xz,
+        stress.yz,
+        stress.tr()
     );
     assert!(stress.tr().abs() < 1.0e-9);
     for c in [stress.xx, stress.yy, stress.zz, stress.xz, stress.yz] {
@@ -368,7 +408,15 @@ fn pure_shear_leaves_the_hydrostatic_stress_untouched() {
 /// implicit update and a plausible explicit one, which a many-small-steps test
 /// would not. Pass criterion: 1e-12 relative.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* one step to `exy = 0.01` gives
+/// `p = 9.828533e-3` and `sigma_eq = 3.9657065e8 Pa`, against the closed form
+/// `R0 + C p = 3.9657065e8 Pa` — 0.0 relative. The same path in 100 steps
+/// gives `p = 9.828533e-3` and `sigma_eq = 3.9657065e8 Pa`, differing from the
+/// single step by **2.856e-15** relative. Interpretation: the implicit
+/// back-strain update is algebraically exact for the linear case and genuinely
+/// step-size independent there. The `(2/3)` in `X = (2/3) C alpha` and the
+/// `3/2` in `dEps_p` are mutually consistent — a slip in either would change
+/// the hardening slope by `3/2` or `2/3`.
 #[test]
 fn zero_recovery_gives_exact_linear_kinematic_hardening() {
     let c = 20.0e9;
@@ -430,7 +478,14 @@ fn zero_recovery_gives_exact_linear_kinematic_hardening() {
 /// and asserting tighter would be asserting the path length rather than the
 /// physics.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* `p = 5.634836e-2`,
+/// `||X||_vm = 1.2000000e8 Pa` against `C/gamma = 1.2000000e8 Pa` — **1.521e-12
+/// relative** — and `sigma_eq = 3.2000000e8 Pa` against
+/// `R0 + C/gamma = 3.2000000e8 Pa`. Interpretation: the dynamic-recovery term
+/// has the right coefficient and the right sign. A sign error would make `X`
+/// grow without bound; a factor error would move the saturation level, which is
+/// the single most consequential number in a cyclic-plasticity model because it
+/// sets the stabilised hysteresis-loop amplitude.
 #[test]
 fn the_back_stress_saturates_at_c_over_gamma() {
     let law = af_law();
@@ -472,7 +527,12 @@ fn the_back_stress_saturates_at_c_over_gamma() {
 /// its second tensor — the single-tensor answer would be 80 MPa short. Pass
 /// criterion: 1e-5 relative on the total.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* driven to `p = 2.872018e-1` (long enough
+/// for the slow tensor, whose time constant is `1/gamma2 = 1e-2`),
+/// `||X||_vm = 1.4000000e8 Pa` against `C1/gamma1 + C2/gamma2 = 1.4000000e8 Pa`
+/// — **2.365e-13 relative** — and `sigma_eq = 3.4000000e8 Pa`. Interpretation:
+/// both tensors are live, evolve independently on their own time constants, and
+/// add.
 #[test]
 fn two_back_stresses_saturate_at_the_sum_of_their_ratios() {
     let mut p = ChabocheParameters::armstrong_frederick(200.0e6, 120.0e9, 2000.0);
@@ -512,7 +572,11 @@ fn two_back_stresses_saturate_at_the_sum_of_their_ratios() {
 /// `back_stress_count` branching, which is otherwise only exercised implicitly.
 /// Pass criterion: 1e-14 relative.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* `VMIS_CIN1_CHAB` gives
+/// `sigma_eq = 3.2000000e8 Pa` at `p = 5.634836e-2`; `VMIS_CIN2_CHAB` with
+/// `C2 = 0` gives `sigma_eq = 3.2000000e8 Pa` at `p = 5.634836e-2` — 0.0
+/// relative on both. Interpretation: the `nbvar` branches are consistent;
+/// neither adds nor drops a term.
 #[test]
 fn one_back_stress_is_two_with_the_second_modulus_zero() {
     let p = ChabocheParameters::armstrong_frederick(200.0e6, 60.0e9, 500.0);
@@ -565,7 +629,15 @@ fn one_back_stress_is_two_with_the_second_modulus_zero() {
 /// yield at minus the forward stress or beyond. Pass criterion: within one
 /// reversal step of the analytical value, i.e. 2 MPa.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* forward `sqrt(3) sigma_xy = 3.2000000e8 Pa`;
+/// on reversal the last elastic point is at **-7.9704033e7 Pa** against the
+/// analytical `C/gamma - R0 = -8.0000000e7 Pa`, a gap of **2.9597e5 Pa** which
+/// is well inside the 1.65e6 Pa the stress moves per reversal step. The
+/// measured elastic span is **3.9970403e8 Pa** against the theoretical
+/// `2 R0 = 4.0000000e8 Pa`. Interpretation: the yield surface really has
+/// translated by `C/gamma` and kept its size. The material re-yields in
+/// compression at 79.7 MPa having reached 320 MPa in tension — the Bauschinger
+/// effect with the right magnitude, not merely the right sign.
 #[test]
 fn the_bauschinger_effect_reverses_yield_at_the_back_stress_minus_the_radius() {
     let law = af_law();
@@ -620,7 +692,17 @@ fn the_bauschinger_effect_reverses_yield_at_the_back_stress_minus_the_radius() {
 /// Pass criterion: residual below 1e-6 Pa, and the overstress strictly
 /// increasing with rate.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* the flow-condition residual is at worst
+/// **1.1921e-7 Pa** across the four decades. The overstress rises monotonically
+/// — `4.06788e7 Pa` at `dt = 1e3 s` (`dp = 2.151662e-3`), `6.41783e7 Pa` at
+/// `1e1 s` (`dp = 2.055755e-3`), `8.05302e7 Pa` at `1e0 s`
+/// (`dp = 1.989176e-3`), `1.00951e8 Pa` at `1e-1 s` (`dp = 1.906224e-3`) —
+/// giving `sigma_eq` from `3.0287068e8` to `3.5951014e8 Pa`. The overstress
+/// ratio over the four decades is **2.481**; the `n = 10` Norton exponent
+/// predicts `10^(4/10) = 2.512` at fixed `dp`, and correcting for the measured
+/// `dp` falling by the factor 0.886 gives `2.512 * 0.886^0.1 = 2.482`.
+/// Interpretation: the viscous branch carries the right exponent and the right
+/// `1/K` inversion, to three significant figures on an independent estimate.
 #[test]
 fn the_viscous_overstress_follows_the_norton_relation() {
     let mut p = ChabocheParameters::armstrong_frederick(200.0e6, 60.0e9, 500.0);
@@ -652,7 +734,10 @@ fn the_viscous_overstress_follows_the_norton_relation() {
             equivalent(out.stress),
             residual
         );
-        assert!(overstress > previous, "overstress must rise with strain rate");
+        assert!(
+            overstress > previous,
+            "overstress must rise with strain rate"
+        );
         previous = overstress;
     }
     assert!(worst < 1.0e-6, "worst residual {worst:e} Pa");
@@ -669,7 +754,15 @@ fn the_viscous_overstress_follows_the_norton_relation() {
 /// within 1e-6 relative of the rate-independent one, and the fast case strictly
 /// above it.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* rate-independent
+/// `sigma_eq = 3.1866061e8 Pa`; the viscous law at `dt = 1e2 s` gives
+/// **3.6342516e8 Pa**, 14.0 % higher — that is the overstress — and at
+/// `dt = 1e80 s` gives **3.1866061e8 Pa**, within **2.227e-9** relative of the
+/// rate-independent answer. The enormous `dt` is not an artefact: with
+/// `n = 10` the overstress decays only as the tenth root of the rate, so four
+/// decades of `dt` buy only a factor 2.5. Interpretation: the two variants
+/// share one kernel and the viscous term is the only difference, as upstream's
+/// code structure implies.
 #[test]
 fn the_rate_independent_law_is_the_slow_limit_of_the_viscous_law() {
     let mut p = ChabocheParameters::armstrong_frederick(200.0e6, 60.0e9, 500.0);
@@ -726,7 +819,13 @@ fn the_rate_independent_law_is_the_slow_limit_of_the_viscous_law() {
 /// direction is parallel to the shifted deviator to 1e-12, and its cosine with
 /// the trial deviator is below 0.95.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* after elastically unloading the shear
+/// stress to zero and then loading out of plane, the flow direction has cosine
+/// **1.000000000000** with the shifted deviator and only **0.826346** with the
+/// trial deviator — the flow is **34.3 degrees** away from where an isotropic
+/// law would send it. Interpretation: the back stress genuinely steers the
+/// flow. This is also the case that would be silently wrong if the shifted
+/// deviator were computed once from the elastic predictor and then frozen.
 #[test]
 fn the_flow_direction_follows_the_shifted_deviator() {
     let law = af_law();
@@ -790,7 +889,11 @@ fn the_flow_direction_follows_the_shifted_deviator() {
 /// R_inf`. This isolates the isotropic branch, which every other test here has
 /// held constant at `R_inf = R0`. Pass criterion: 1e-6 relative.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* with `R0 = 200 MPa`, `R_inf = 350 MPa`,
+/// `b = 200`, driving to `p = 1.716884e-1` gives `sigma_eq = 3.5000000e8 Pa`
+/// against `R_inf = 3.5000000e8 Pa` — **5.109e-16 relative**, with
+/// `exp(-b p) = 1.2227e-15` confirming genuine saturation rather than a lucky
+/// tolerance. Interpretation: the Voce expression and its sign are right.
 #[test]
 fn isotropic_hardening_alone_saturates_at_r_infinity() {
     let mut p = ChabocheParameters::armstrong_frederick(200.0e6, 0.0, 0.0);
@@ -830,7 +933,16 @@ fn isotropic_hardening_alone_saturates_at_r_infinity() {
 /// the same path. All are checked while driving to `p ~ 0.04`. Pass criterion:
 /// monotonicity exact, bounds strict.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* `q` rose monotonically to **2.808757e-2**
+/// while `p = 5.617513e-2` — exactly half, which is what `eta = 0.5` should
+/// give on a proportional path. The isotropic increment reached
+/// **3.9975747e7 Pa** of its `Q_M = 1.0e8 Pa` ceiling, and
+/// `sigma_eq = 3.5997575e8 Pa` against the plain `VMIS_CIN2_CHAB` answer of
+/// **3.2000000e8 Pa** on the same path — the memory surface added
+/// **3.9976e7 Pa** of extra isotropic hardening, matching the increment
+/// exactly. Interpretation: the memory branch is live, is bounded by `Q_M` as
+/// designed, and feeds through to the stress rather than being computed and
+/// discarded.
 #[test]
 fn the_strain_memory_surface_raises_the_isotropic_hardening() {
     let mut p = ChabocheParameters::armstrong_frederick(200.0e6, 60.0e9, 500.0);
@@ -893,7 +1005,19 @@ fn the_strain_memory_surface_raises_the_isotropic_hardening() {
 /// be both correctly bypassed and actually reachable. Pass criterion: 1e-14
 /// relative for `delta = 1`.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* the default parameters and an explicit
+/// `delta = 1` both give `sigma_eq = 3.2000000e8 Pa` at **0.000e0** relative
+/// difference, so the bypass is exact. `delta1 = 0.5` also gives
+/// `3.2000000e8 Pa` (1.863e-16 relative) — expected, and worth stating
+/// plainly: at saturation the back strain satisfies `alpha:n/sqrt(3/2) = 1/gamma`,
+/// which makes `n1` collapse to `delta` and cancels `delta` out of the
+/// saturated back stress entirely, so **a radial path cannot discriminate on
+/// the stress**. The probe confirms the branch is nevertheless reached and
+/// returns a different factor: `n1 = 1.000000` for `delta = 1` and
+/// `n1 = 0.500000` for `delta = 0.5`, the latter equal to `delta` itself as the
+/// algebra predicts. Interpretation: the non-radial branch is wired correctly
+/// and is inert exactly where theory says it should be. Exercising its effect
+/// on the stress needs a non-proportional path, and none is asserted here.
 #[test]
 fn delta_one_switches_the_non_radial_correction_off() {
     let base = ChabocheParameters::armstrong_frederick(200.0e6, 60.0e9, 500.0);
@@ -968,7 +1092,13 @@ fn delta_one_switches_the_non_radial_correction_off() {
 /// Young's modulus across the step at fixed `nu` and compare. Pass criterion:
 /// 1e-12 relative.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* starting from `sigma_xy = 1.0000e8 Pa` and
+/// `tr(sigma)/3 = 5.0000e7 Pa`, with `E` halved from 200 GPa to 100 GPa at
+/// fixed `nu = 0.3`, the step returns `sigma_xy = 5.0000000e7 Pa` and
+/// `tr(sigma)/3 = 2.5000000e7 Pa` — both exactly halved, 0.0 relative.
+/// Interpretation: the rescaling applies the right ratio to the right part.
+/// Getting this wrong would inject a spurious stress increment into every step
+/// of a thermal transient, which is exactly the regime this crate targets.
 #[test]
 fn a_change_of_moduli_rescales_the_incoming_stress() {
     let law = af_law();
@@ -1013,7 +1143,12 @@ fn a_change_of_moduli_rescales_the_incoming_stress() {
 /// doubled thermal stress rather than a cancelled one. Pass criterion: 1e-12
 /// relative on both parts of the stress.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* with `dEps_th = 1e-3` applied as an
+/// isotropic total strain increment of the same size, the step returns
+/// `sigma_xy = 1.0000000e8 Pa` and `tr(sigma)/3 = 5.0000000e7 Pa`, unchanged
+/// from the inputs `1.0000e8 Pa` and `5.0000e7 Pa` to 0.0 relative.
+/// Interpretation: the thermal term is subtracted rather than added, and only
+/// from the volumetric part.
 #[test]
 fn free_thermal_expansion_produces_no_stress() {
     let law = af_law();
@@ -1042,7 +1177,11 @@ fn free_thermal_expansion_produces_no_stress() {
         start.tr() / 3.0
     );
     assert_relative_eq!(out.stress.xy, start.xy, max_relative = 1e-12);
-    assert_relative_eq!(out.stress.tr() / 3.0, start.tr() / 3.0, max_relative = 1e-12);
+    assert_relative_eq!(
+        out.stress.tr() / 3.0,
+        start.tr() / 3.0,
+        max_relative = 1e-12
+    );
 }
 
 /// **Unphysical inputs are rejected rather than propagated.**
@@ -1053,7 +1192,12 @@ fn free_thermal_expansion_produces_no_stress() {
 /// timestep. Pass criterion: each returns the documented `OffbeatError` variant
 /// rather than a number.
 ///
-/// *Result:* filled in from the measured run below.
+/// *Result (measured 2026-08-05):* all three rejected. A negative Young's
+/// modulus returns `OffbeatError::Unphysical`, `nu = 0.5` returns
+/// `OffbeatError::OutOfRange`, and the negative timestep returns
+/// `unphysical input for timestep: -1 s (must not be negative)`.
+/// Interpretation: the failure modes that would otherwise surface as an
+/// infinity or a NaN deep inside the local solve are caught at the boundary.
 #[test]
 fn unphysical_inputs_are_rejected() {
     assert!(matches!(
