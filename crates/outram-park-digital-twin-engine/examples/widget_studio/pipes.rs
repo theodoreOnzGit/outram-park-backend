@@ -21,18 +21,21 @@
 //! data policy.
 
 use egui::{Pos2, RichText, Vec2};
-use outram_park_digital_twin_engine::animation::{residence_time_from_velocity, TracerTrain};
+use outram_park_digital_twin_engine::animation::{residence_time_from_velocity, TracerPulse};
 use outram_park_digital_twin_engine::components::PipeVisual;
 use tampines::components::{Pipe, PipeBackend};
 use tampines::compressible::{CompressibleFluidArray, CoolPropFluid};
-use tampines::single_phase::{LiquidMaterial, SinglePhaseFluidArray};
+use tampines::single_phase::LiquidMaterial;
+use tuas_boussinesq_solver::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent;
 use tampines_steam_tables::openfoam_algorithms::rhoPimpleFoam::TampinesSteamArray;
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::SolidMaterial;
 use uom::si::angle::degree;
 use uom::si::area::square_meter;
 use uom::si::f64::{
-    Angle, Area, Length, MassRate, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity,
+    Angle, Area, HeatTransfer, Length, MassRate, Pressure, Ratio, ThermodynamicTemperature, Time,
+    Velocity,
 };
+use uom::si::heat_transfer::watt_per_square_meter_kelvin;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::velocity::meter_per_second;
 use uom::si::length::{meter, millimeter};
@@ -49,6 +52,20 @@ use uom::si::time::second;
 /// cell count drives the drawing at all.
 const CELLS: i64 = 8;
 
+/// Minimum seconds between tracer releases.
+///
+/// One mark at a time, released no more often than this. A train of marks on a
+/// short or fast run strobes and is uncomfortable to watch; a single plug every
+/// few seconds reads cleanly and still crosses in exactly the residence time.
+const TRACER_INTERVAL_S: f64 = 2.5;
+
+/// Illustrative metal temperature at which a pipe wall is drawn red.
+///
+/// **Not a code allowable.** A real limit depends on the material, the code of
+/// construction and the duty. This is a demonstration threshold only, chosen
+/// so the studio can show the alarm state; do not cite or re-use it.
+const WALL_ALARM_K: f64 = 850.0;
+
 /// One row of the tab: a pipe plus the label explaining what it is.
 pub struct PipeRow {
     /// The physics-backed pipe.
@@ -61,13 +78,13 @@ pub struct PipeRow {
     pub min_temp: ThermodynamicTemperature,
     /// Temperature mapped to the hottest displayable colour.
     pub max_temp: ThermodynamicTemperature,
-    /// Tracer marks for this run.
+    /// The single tracer mark for this run.
     ///
     /// **Application-owned and advanced once per frame**, then copied into the
     /// widget at build time — widgets are rebuilt every repaint, so a train
     /// owned by the widget would reset its phase to zero each frame and never
     /// appear to move. See `crate::animation`.
-    pub tracer: TracerTrain,
+    pub tracer: TracerPulse,
     /// Bulk flow velocity, the studio's control over this run.
     pub velocity_m_s: f64,
 }
@@ -99,38 +116,59 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
         std::f64::consts::FRAC_PI_4 * 0.08 * 0.08,
     );
 
-    let helium_length = Length::new::<meter>(2.5);
+    // 12 m. At a 120 mm bore the original 2.5 m run drew almost square
+    // (200 x 113 points), reading as a plenum rather than a pipe. A gas duct of
+    // this bore would realistically be many metres long, so the fix is a longer
+    // PIPE, never a fudged scale — length must stay a true proportion between
+    // rows. At 80 points/m this draws 960 points, wider than the panel, which
+    // is why the canvas scrolls horizontally.
+    let helium_length = Length::new::<meter>(12.0);
     let helium_bore = Length::new::<millimeter>(120.0);
     let helium_area = Area::new::<square_meter>(
         std::f64::consts::FRAC_PI_4 * 0.12 * 0.12,
     );
 
-    // ── Molten salt: single-phase liquid, TUAS Boussinesq ─────────────────
-    // `new_cylinder` is infallible, so this row is always present.
-    let salt = SinglePhaseFluidArray::new_cylinder(
+    // ── Molten salt: TUAS PRE-BUILT insulated pipe ────────────────────────
+    // Uses the component TUAS already ships rather than assembling a bare
+    // FluidArray and wiring lateral links by hand: it couples fluid array,
+    // metal pipe shell and insulation, so it is the one row that can report a
+    // real WALL temperature. 900 K because FLiBe melts near 732 K and TUAS
+    // rejects an initial temperature below its valid range rather than
+    // extrapolating its property correlations.
+    let salt_area = Area::new::<square_meter>(std::f64::consts::FRAC_PI_4 * 0.05 * 0.05);
+    let salt = InsulatedFluidComponent::new_insulated_pipe(
+        ThermodynamicTemperature::new::<kelvin>(900.0),
+        ThermodynamicTemperature::new::<kelvin>(300.0),
+        Pressure::new::<atmosphere>(1.0),
+        Pressure::new::<atmosphere>(1.0),
+        salt_area,
+        incline,
+        Ratio::new::<ratio>(0.0),
+        salt_bore,
+        Length::new::<millimeter>(56.0),
+        Length::new::<millimeter>(20.0),
         salt_length,
         salt_bore,
-        ThermodynamicTemperature::new::<kelvin>(900.0),
-        Pressure::new::<atmosphere>(1.0),
         SolidMaterial::SteelSS304L,
+        SolidMaterial::Fiberglass,
         LiquidMaterial::FLiBe,
-        Ratio::new::<ratio>(0.0),
+        HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0),
         CELLS as usize - 2,
-        incline,
+        roughness,
     );
     rows.push(PipeRow {
         pipe: Pipe::new(
-            PipeBackend::Lumped(salt),
+            PipeBackend::InsulatedPipe(salt),
             salt_bore,
             salt_length,
             roughness,
             incline,
         ),
-        tracer: TracerTrain::new(3),
+        tracer: TracerPulse::new(Time::new::<second>(TRACER_INTERVAL_S)),
         velocity_m_s: 1.2,
         name: "Molten salt (FLiBe) — TUAS",
-        detail: "PipeBackend::Lumped · single-phase liquid, Boussinesq. \
-                 No phase information: this backend cannot represent boiling.",
+        detail: "PipeBackend::InsulatedPipe · TUAS pre-built: fluid array + metal shell + \
+                 insulation, thermally coupled. The only row reporting a WALL temperature.",
         min_temp: ThermodynamicTemperature::new::<kelvin>(800.0),
         max_temp: ThermodynamicTemperature::new::<kelvin>(1000.0),
     });
@@ -145,7 +183,7 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
                 roughness,
                 incline,
             ),
-            tracer: TracerTrain::new(3),
+            tracer: TracerPulse::new(Time::new::<second>(TRACER_INTERVAL_S)),
             velocity_m_s: 6.0,
             name: "Steam / water — TAMPINES HEM",
             detail: "PipeBackend::SteamHem · homogeneous-equilibrium two-phase, \
@@ -167,7 +205,7 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
                 roughness,
                 incline,
             ),
-            tracer: TracerTrain::new(3),
+            tracer: TracerPulse::new(Time::new::<second>(TRACER_INTERVAL_S)),
             velocity_m_s: 20.0,
             name: "Helium gas — OPCP (CoolProp)",
             detail: "PipeBackend::Compressible · single-phase compressible, \
@@ -226,6 +264,19 @@ pub fn draw(ui: &mut egui::Ui, rows: &[PipeRow], errors: &[String]) {
         );
     }
 
+    // Length is drawn to true scale, so a long run can exceed the panel width.
+    // Scrolling is the honest response: shrinking the scale to fit would make
+    // pipes of different lengths no longer comparable to each other, which is
+    // the whole point of deriving length from geometry.
+    let longest_pts = rows
+        .iter()
+        .map(|r| r.pipe.length.get::<meter>() as f32 * 80.0)
+        .fold(0.0_f32, f32::max);
+
+    // Reserve the full true-scale width so the scroll area knows how far the
+    // longest pipe actually extends.
+    ui.set_min_width(longest_pts + 40.0);
+
     let available = ui.available_rect_before_wrap();
     // Rows must clear the thickest pipe: thickness is derived from bore now,
     // so a fixed row height would clip the widest run.
@@ -249,15 +300,20 @@ pub fn draw(ui: &mut egui::Ui, rows: &[PipeRow], errors: &[String]) {
         let start = Pos2::new(available.left() + 8.0, top + row_height - 16.0);
         // Length, thickness and slope all come from the pipe's own geometry;
         // screen_vector is only the fallback direction for geometry-less runs.
-        ui.add(
-            PipeVisual::new(
-                row.pipe.clone(),
-                start,
-                Vec2::new(1.0, 0.0),
-                row.min_temp,
-                row.max_temp,
-            )
-            .with_tracer(row.tracer),
-        );
+        let mut widget = PipeVisual::new(
+            row.pipe.clone(),
+            start,
+            Vec2::new(1.0, 0.0),
+            row.min_temp,
+            row.max_temp,
+        )
+        .with_wall_alarm(ThermodynamicTemperature::new::<kelvin>(WALL_ALARM_K));
+
+        // One mark at a time, and only while it is actually in flight — the
+        // pulse reports None during the gap between releases.
+        if let Some(x) = row.tracer.position(residence_time(row)) {
+            widget = widget.with_mark_at(x);
+        }
+        ui.add(widget);
     }
 }

@@ -41,7 +41,10 @@ use uom::si::length::meter;
 use uom::si::thermodynamic_temperature::kelvin;
 
 /// Width of the pipe wall outline, in screen points.
-const PIPE_WALL_WIDTH: f32 = 1.5;
+///
+/// Deliberately heavy: the wall is a structural element carrying its own metal
+/// temperature, not a hairline border on the fluid.
+const PIPE_WALL_WIDTH: f32 = 5.0;
 
 /// Axial length of a tracer mark, as a fraction of the run length.
 ///
@@ -172,6 +175,19 @@ pub struct PipeVisual {
     pub max_temp: ThermodynamicTemperature,
     /// Metres-to-points mapping for length and cross-section.
     pub scale: PipeScale,
+    /// Metal temperature at or above which the pipe wall is drawn **red**.
+    ///
+    /// `None` (the default) never reddens. There is deliberately no built-in
+    /// limit: an allowable metal temperature depends on the material, the
+    /// code of construction and the duty, so the caller must supply the one
+    /// that applies rather than inheriting a number invented here.
+    pub wall_alarm_temp: Option<ThermodynamicTemperature>,
+    /// A single tracer mark at an explicit position in `[0, 1]`, `0` = inlet.
+    ///
+    /// Set from [`crate::animation::TracerPulse`], which shows one mark at a
+    /// time and reports `None` between releases — a train of marks strobes on
+    /// a short or fast run. Independent of [`Self::tracer`]; both may be set.
+    pub mark_at: Option<f64>,
     /// Optional flow-tracer marks drawn along the run.
     ///
     /// The train is *advanced by the application*, once per frame, and copied
@@ -199,6 +215,8 @@ impl PipeVisual {
             min_temp,
             max_temp,
             scale: PipeScale::default(),
+            wall_alarm_temp: None,
+            mark_at: None,
             tracer: None,
         }
     }
@@ -219,8 +237,25 @@ impl PipeVisual {
             min_temp,
             max_temp,
             scale: PipeScale::default(),
+            wall_alarm_temp: None,
+            mark_at: None,
             tracer: None,
         }
+    }
+
+    /// Place a single tracer mark at `position` in `[0, 1]` along the run.
+    /// Builder-style.
+    pub fn with_mark_at(mut self, position: f64) -> Self {
+        self.mark_at = Some(position.clamp(0.0, 1.0));
+        self
+    }
+
+    /// Set the metal temperature at or above which the wall is drawn red.
+    /// Builder-style. See [`PipeVisual::wall_alarm_temp`] for why there is no
+    /// default limit.
+    pub fn with_wall_alarm(mut self, alarm: ThermodynamicTemperature) -> Self {
+        self.wall_alarm_temp = Some(alarm);
+        self
     }
 
     /// Override the metres-to-points mapping. Builder-style.
@@ -267,6 +302,55 @@ impl PipeVisual {
         }
     }
 
+    /// Per-cell **metal wall** temperatures along the run, inlet -> outlet.
+    ///
+    /// `None` when the backend carries no solid structure to report. Only the
+    /// TUAS pre-built [`PipeBackend::InsulatedPipe`] couples a pipe shell to
+    /// its fluid; the bare arrays model the fluid alone, and a wall
+    /// temperature for them would have to be invented.
+    ///
+    /// That distinction is the point: a pipe whose wall temperature is unknown
+    /// must be drawn as unknown, never as cold.
+    pub fn wall_temperatures(&self) -> Option<Vec<ThermodynamicTemperature>> {
+        match &self.state {
+            PipeVisualState::Scalars(_) => None,
+            PipeVisualState::Physics(pipe) => match &pipe.backend {
+                PipeBackend::Lumped(_)
+                | PipeBackend::Compressible(_)
+                | PipeBackend::SteamHem(_) => None,
+                PipeBackend::InsulatedPipe(component) => {
+                    component.clone().pipe_shell_temperature().ok()
+                }
+            },
+        }
+    }
+
+    /// Metal wall temperature at fluid cell `i` of `n`.
+    ///
+    /// The solid shell array need not have the same node count as the fluid
+    /// array, so the fluid cell is mapped proportionally onto the shell rather
+    /// than assumed index-for-index. Returns `None` when the backend reports no
+    /// wall at all.
+    fn wall_temperature_at(
+        walls: &[ThermodynamicTemperature],
+        i: usize,
+        n: usize,
+    ) -> Option<ThermodynamicTemperature> {
+        if walls.is_empty() || n == 0 {
+            return None;
+        }
+        let f = (i as f32 + 0.5) / n as f32;
+        let idx = ((f * walls.len() as f32) as usize).min(walls.len() - 1);
+        Some(walls[idx])
+    }
+
+    /// Hottest metal wall temperature on the run, if the backend reports one.
+    pub fn peak_wall_temperature(&self) -> Option<ThermodynamicTemperature> {
+        self.wall_temperatures()?
+            .into_iter()
+            .reduce(|a, b| if b.get::<kelvin>() > a.get::<kelvin>() { b } else { a })
+    }
+
     /// How this backend's fluid phase is shaded.
     ///
     /// Derived from the backend, which is the only phase information available
@@ -281,6 +365,7 @@ impl PipeVisual {
                 PipeBackend::Lumped(_) => PipePhaseShade::Liquid,
                 PipeBackend::Compressible(_) => PipePhaseShade::Gas,
                 PipeBackend::SteamHem(_) => PipePhaseShade::TwoPhase,
+                PipeBackend::InsulatedPipe(_) => PipePhaseShade::Liquid,
             },
         }
     }
@@ -332,6 +417,13 @@ impl PipeVisual {
                     .iter()
                     .map(|t_k| ThermodynamicTemperature::new::<kelvin>(*t_k))
                     .collect(),
+                // The TUAS pre-built component owns its fluid array; its
+                // getters need &mut, so read from a clone rather than forcing
+                // every caller of this &self method to hold a mutable pipe.
+                PipeBackend::InsulatedPipe(component) => component
+                    .clone()
+                    .pipe_fluid_array_temperature()
+                    .unwrap_or_default(),
             },
         }
     }
@@ -408,9 +500,10 @@ impl Widget for PipeVisual {
         }
 
         // One box per finite-volume cell, inlet -> outlet, each filled by its
-        // own cell temperature and outlined so the cell count is countable.
+        // own cell temperature. Drawn WITHOUT an outline: the divisions between
+        // cells are wall structure and are stroked separately below, in the
+        // wall's own colour and weight.
         let n = temperatures.len();
-        let outline = Stroke::new(1.0, Color32::from_black_alpha(90));
         for (i, t) in temperatures.iter().enumerate() {
             let f0 = i as f32 / n as f32;
             let f1 = (i + 1) as f32 / n as f32;
@@ -418,23 +511,71 @@ impl Widget for PipeVisual {
             let p1 = start + direction * (length_pts * f1);
             let hotness = hotness_from_temperature(*t, self.min_temp, self.max_temp);
             let fill = shade.apply(hot_to_cold_colour_mark_1(hotness));
-            painter.add(egui::Shape::convex_polygon(quad(p0, p1), fill, outline));
+            painter.add(egui::Shape::convex_polygon(
+                quad(p0, p1),
+                fill,
+                Stroke::NONE,
+            ));
+        }
+
+        // Cell dividers: same grey and same weight as the pipe wall, because
+        // they represent the same metal. Each reddens on the MEAN of the two
+        // solid cells it sits between -- a divider is shared by both, so
+        // keying it to either one alone would misreport which side is hot.
+        let walls = self.wall_temperatures().unwrap_or_default();
+        for i in 1..n {
+            let mean_wall = match (
+                Self::wall_temperature_at(&walls, i - 1, n),
+                Self::wall_temperature_at(&walls, i, n),
+            ) {
+                (Some(a), Some(b)) => Some(ThermodynamicTemperature::new::<kelvin>(
+                    0.5 * (a.get::<kelvin>() + b.get::<kelvin>()),
+                )),
+                _ => None,
+            };
+            let colour = match (mean_wall, self.wall_alarm_temp) {
+                (Some(m), Some(alarm)) if m.get::<kelvin>() >= alarm.get::<kelvin>() => {
+                    Color32::from_rgb(220, 50, 40)
+                }
+                _ => Color32::from_gray(110),
+            };
+            let at = start + direction * (length_pts * (i as f32 / n as f32));
+            painter.line_segment(
+                [at + normal * half_t, at - normal * half_t],
+                Stroke::new(PIPE_WALL_WIDTH, colour),
+            );
         }
 
         // Pipe wall, drawn over the cell boxes so the run reads as one pipe.
+        // Grey by default; RED once the metal reaches the caller's alarm
+        // temperature. A backend with no solid structure reports no wall
+        // temperature and stays grey — unknown is drawn as unknown, never as
+        // safe.
+        let wall_colour = match (self.peak_wall_temperature(), self.wall_alarm_temp) {
+            (Some(peak), Some(alarm)) if peak.get::<kelvin>() >= alarm.get::<kelvin>() => {
+                Color32::from_rgb(220, 50, 40)
+            }
+            _ => Color32::from_gray(110),
+        };
         painter.add(egui::Shape::convex_polygon(
             quad(start, end),
             Color32::TRANSPARENT,
-            Stroke::new(PIPE_WALL_WIDTH, Color32::from_gray(70)),
+            Stroke::new(PIPE_WALL_WIDTH, wall_colour),
         ));
 
         // Tracer marks: white rectangles spanning the bore, each travelling
         // the full run in exactly one residence time (the train is advanced by
         // the application -- see the field docs). Direction of travel is the
         // train's, so a reversed flow runs them backwards.
-        if let Some(tracer) = self.tracer {
+        // Explicit single mark (from a TracerPulse), plus any train marks.
+        let marks: Vec<f64> = self
+            .mark_at
+            .into_iter()
+            .chain(self.tracer.iter().flat_map(|t| t.positions()))
+            .collect();
+        if !marks.is_empty() {
             let mark_len = (length_pts * TRACER_LENGTH_FRACTION).max(2.0);
-            for position in tracer.positions() {
+            for position in marks {
                 let centre = length_pts * position as f32;
                 // Clipped to the run so a mark straddling the outlet does not
                 // spill out of the pipe.
@@ -522,6 +663,8 @@ mod tests {
             min_temp: ThermodynamicTemperature::new::<kelvin>(300.0),
             max_temp: ThermodynamicTemperature::new::<kelvin>(400.0),
             scale: PipeScale::default(),
+            wall_alarm_temp: None,
+            mark_at: None,
             tracer: None,
         }
     }
@@ -587,6 +730,56 @@ mod tests {
     fn length_is_proportional_to_run_length() {
         let len = |m: f64| physics_pipe(50.0, m, 0.0).drawn_size().0;
         assert!((len(6.0) / len(3.0) - 2.0).abs() < 1e-3);
+    }
+
+    /// A divider sits between two solid cells and must key off their MEAN,
+    /// not either one alone — otherwise it misreports which side is hot.
+    ///
+    /// **Methodology:** map a 4-entry wall array onto 4 fluid cells and check
+    /// the proportional mapping picks each cell's own wall node, then verify
+    /// the mean of two adjacent nodes is what a divider would use.
+    ///
+    /// **Result (2026-08-05):** cells 0..3 map to wall nodes 0..3; the mean of
+    /// nodes 1 and 2 (600 K and 900 K) is 750 K, which is below an 800 K alarm
+    /// even though one side is above it. Keying to the hotter side alone would
+    /// have raised a false alarm on that divider.
+    #[test]
+    fn divider_uses_the_mean_of_its_two_solid_cells() {
+        let k = |v: f64| ThermodynamicTemperature::new::<kelvin>(v);
+        let walls = vec![k(300.0), k(600.0), k(900.0), k(1000.0)];
+        let n = 4;
+        let a = PipeVisual::wall_temperature_at(&walls, 1, n).unwrap();
+        let b = PipeVisual::wall_temperature_at(&walls, 2, n).unwrap();
+        assert_eq!(a.get::<kelvin>(), 600.0);
+        assert_eq!(b.get::<kelvin>(), 900.0);
+        let mean = 0.5 * (a.get::<kelvin>() + b.get::<kelvin>());
+        assert_eq!(mean, 750.0);
+        assert!(mean < 800.0, "mean must not trip an 800 K alarm");
+        assert!(b.get::<kelvin>() > 800.0, "but one side alone would have");
+    }
+
+    /// The solid shell need not have the same node count as the fluid array,
+    /// so the mapping must be proportional rather than index-for-index.
+    #[test]
+    fn wall_mapping_is_proportional_not_index_for_index() {
+        let k = |v: f64| ThermodynamicTemperature::new::<kelvin>(v);
+        // 2 wall nodes spread over 8 fluid cells: first half cold, second hot.
+        let walls = vec![k(300.0), k(900.0)];
+        assert_eq!(
+            PipeVisual::wall_temperature_at(&walls, 0, 8).unwrap().get::<kelvin>(),
+            300.0
+        );
+        assert_eq!(
+            PipeVisual::wall_temperature_at(&walls, 7, 8).unwrap().get::<kelvin>(),
+            900.0
+        );
+    }
+
+    /// A backend with no solid structure reports no wall, and must not be
+    /// given a fabricated one.
+    #[test]
+    fn no_wall_array_reports_none() {
+        assert!(PipeVisual::wall_temperature_at(&[], 0, 4).is_none());
     }
 
     /// Phase shading must lighten a gas relative to a liquid at the same

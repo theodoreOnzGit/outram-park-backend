@@ -11,6 +11,7 @@
 use crate::compressible::CompressibleFluidArray;
 use crate::single_phase::SinglePhaseFluidArray;
 use tampines_steam_tables::openfoam_algorithms::rhoPimpleFoam::TampinesSteamArray;
+use tuas_boussinesq_solver::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent;
 use crate::TampinesError;
 use outram_park_fork_dwsim_libs::pipe::PipeFlowCorrelation;
 use uom::si::f64::{Angle, Length, Time};
@@ -36,6 +37,15 @@ pub enum PipeBackend {
     /// (single-phase compressible), this variant carries phase information, so
     /// it is the one to reach for when the fluid may be wet.
     SteamHem(TampinesSteamArray),
+    /// A TUAS **pre-built** insulated pipe: fluid array, metal pipe shell and
+    /// insulation, already thermally coupled to each other and to an ambient
+    /// boundary.
+    ///
+    /// Prefer this over hand-assembling a [`Self::Lumped`] array and wiring
+    /// lateral links yourself — TUAS ships the coupling, and it is the only
+    /// variant that can report a **wall metal temperature** as well as a fluid
+    /// temperature, which is what a pipe's structural limit is judged against.
+    InsulatedPipe(InsulatedFluidComponent),
 }
 
 /// A pipe or pipeline segment: a flow backend plus the geometry a two-phase

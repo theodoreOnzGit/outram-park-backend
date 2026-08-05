@@ -233,7 +233,14 @@ impl eframe::App for WidgetStudio {
         egui::CentralPanel::default().show_inside(ui, |ui| match self.selected {
             WidgetUnderTest::SteamTurbine => self.turbine_canvas(ui),
             WidgetUnderTest::Pipes => {
-                crate::pipes::draw(ui, &self.pipe_rows, &self.pipe_errors)
+                // Pipes are drawn to true scale, so a long run can exceed the
+                // panel. Scroll rather than rescale: shrinking to fit would
+                // break length being comparable between rows.
+                egui::ScrollArea::horizontal()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        crate::pipes::draw(ui, &self.pipe_rows, &self.pipe_errors)
+                    });
             }
         });
     }
