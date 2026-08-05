@@ -50,6 +50,7 @@
 pub mod catalogue;
 pub mod integration;
 pub mod kinematics;
+pub mod log_strain;
 
 pub use catalogue::{AsterBehaviour, ALL};
 pub use integration::{
@@ -57,3 +58,4 @@ pub use integration::{
     ScalarAlgorithm, SolverControl,
 };
 pub use kinematics::{hencky_strain, AsterVoigt, DeformationGradient};
+pub use log_strain::LogarithmicStrain;
