@@ -250,8 +250,10 @@ deriving a multiplier.
   Every ported file keeps an attribution header naming the upstream project,
   source file, commit (`b504ea08`), copyright (`EDF 1991–2026`) and licence —
   the pattern `outram-park-fork-offbeat` already uses.
-- **Do not vendor.** Upstream stays outside this tree at `~/dev/codeaster/src`,
-  read-only. Never add it as a workspace member or commit its source here.
+- **Do not vendor.** Upstream stays outside this tree, read-only. Never add it
+  as a workspace member or commit its source here. In the current container the
+  clone lives at **`/opt/upstream/codeaster-src`** (this document previously
+  said `~/dev/codeaster/src`, which is not where it is).
 - **Restricted upstream data is out of scope.** code_aster is distributed as
   three repositories; the README states `validation: few testcase files with
   proprietary data` and `data: material data that can not be freely
@@ -259,10 +261,33 @@ deriving a multiplier.
   `validation` or `data` repositories — that is a `DATA_POLICY.md` line, not a
   preference. (`src/data/` itself is build templates and config, and is fine.)
   `src/astest/` **is** in scope and is licence-clean — see §8.2.
-- **V&V oracle.** `astest/` (358 files, 201 kLOC, 4,590 GPL-headered testcase
-  files) is the port's regression suite, playing the role `Cases/Verification`
-  plays for the OFFBEAT port. Each ported law should name the `astest` cases it
-  is checked against.
+- **V&V oracle — NOT CURRENTLY AVAILABLE, and no ported law has used it.**
+  `astest/` is *intended* to be the port's regression suite, playing the role
+  `Cases/Verification` plays for the OFFBEAT port, and each ported law *should*
+  name the `astest` cases it is checked against. **None does**, because the
+  clone at `/opt/upstream/codeaster-src` is a **cone-mode sparse, shallow
+  checkout** whose include list does not contain `astest/`. The directory is
+  not missing from upstream — it was never checked out here.
+
+  Everything ported so far (`viscoplastic`, `isotropic`, `chaboche`, `damage`,
+  `metallurgy`, `fracture` — 159 tests) is therefore verified against
+  closed-form limits, invariants, measured convergence orders, and independent
+  transcription of upstream's algebra, and **not** against upstream reference
+  output. Do not read those tests as agreement with code_aster.
+
+  The sparse include list as of 2026-08-05 is: `bibc/`, `bibfor/algorith/`,
+  `comport/`, `comport_prep/`, `fracture/`, `include/`, `lc/`, `metallurgy/`,
+  `modelisa/`, `nonlinear/`, `te/`, `utilifor/`, `utilitai/`,
+  `code_aster/Behaviours/`, `catalo/`, `mfront/`. (`catalo/` and `bibfor/te/`
+  were added on 2026-08-05, costing 15 MB.) Restoring the oracle is
+  `git sparse-checkout add astest` — `astest/` **is** in scope and
+  licence-clean per §8.2, being part of `src`. Tracked as bead `op-u3n`.
+
+  Two open questions are blocked on parts of upstream not checked out or not
+  present at all: the routine supplying `chauxi`'s `κ` per modelisation, and
+  TFEL's `hillTensor` argument convention needed to settle the
+  `META_LEMA_ANI` shear-slot transposition (TFEL is a separate project and is
+  not in this clone at all).
 - **Android/Termux.** Pure-Rust, no BLAS, no FFI — the port should be
   Android-clean by construction. Verify with
   `cargo check -p <crate> --all-targets --target aarch64-linux-android`.

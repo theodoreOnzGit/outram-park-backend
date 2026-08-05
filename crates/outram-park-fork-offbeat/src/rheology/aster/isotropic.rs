@@ -224,7 +224,7 @@ impl IsotropicHardening {
     /// `Δp = (σ_eq - σ_y - H p_m) / (H + 3μ)`, which upstream also uses rather
     /// than iterating. It is exact, so iterating it would only add rounding.
     /// The power law has no closed form and is bracketed with
-    /// [`brent`](crate::rheology::aster::integration::brent) on upstream's
+    /// [`brent`] on upstream's
     /// `nmcri2` residual. The bracket `[0, σ_eq / (3μ)]` is guaranteed to
     /// straddle the root whenever the step is plastic: at `Δp = 0` the residual
     /// is `R(p_m) - σ_eq < 0`, and at the upper end the `3μΔp` term alone

@@ -421,7 +421,7 @@ impl HeavyMetalBasis {
 ///
 /// State is carried in the crate's canonical units — burnup MWd/kgHM, fluence
 /// n/m² — so [`Self::apply_to`] can write straight into a
-/// [`MaterialState`](crate::materials::MaterialState). Every accessor names its
+/// [`MaterialState`]. Every accessor names its
 /// unit; nothing here is "just a number".
 ///
 /// # Example
@@ -705,7 +705,7 @@ impl BurnupAccumulator {
     }
 
     /// Write this accumulator's burnup and fluence into a
-    /// [`MaterialState`](crate::materials::MaterialState).
+    /// [`MaterialState`].
     ///
     /// Only those two fields are touched; temperature, porosity, swelling and
     /// the rest are left exactly as they were. This is the single point at which

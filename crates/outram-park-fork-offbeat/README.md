@@ -58,20 +58,61 @@ changes the temperature field again.
 
 ## What exists today
 
-Measured on 2026-07-30: 44 source files, 31,980 lines, **361 passing tests**, no
-`todo!()` or `unimplemented!()` anywhere. All statuses below are
-**verification-only** — see the status warning above.
+Measured on 2026-08-05: 63 source files, 55,716 lines, **520 passing tests**
+(plus 70 doc tests), no `todo!()` or `unimplemented!()` anywhere. All statuses
+below are **verification-only** — see the status warning above.
 
 | Module | LOC | Tests | Content |
 |---|---|---|---|
 | `mechanics` | 1,123 | 8 | Small-strain quasi-static solver — displacement field, linear-elastic constitutive law, eigenstrain loading, momentum assembly on foam's `ldu_matrix`/`krylov` |
-| `rheology` | 3,693 | 28 | Constitutive laws — plasticity (yield stress, hardening), creep, per-material law selection |
+| `rheology` | 27,429 | 187 | Constitutive laws — plasticity (yield stress, hardening), creep, per-material law selection; **includes the `rheology::aster` port below** |
+| ↳ `rheology::aster` | 23,733 | 159 | Port of code_aster's constitutive-law layer (EDF, GPL-3.0-or-later) — see the table below |
 | `materials` | 13,430 | 189 | Property correlations (conductivity, density, heat capacity, thermal expansion, Young's modulus, Poisson ratio, emissivity) and behavioural models (swelling, densification, relocation, phase transition, failure) |
 | `gap` | 5,477 | 68 | Fuel/cladding gap — conductance, gas mixture properties, free volume, contact, axial slice mapping |
 | `corrosion` | 5,044 | 44 | Cladding corrosion kinetics, hydrogen pickup, thermal feedback, Anderson-mixing acceleration |
 | `burnup` | 1,437 | 12 | Burnup accumulation and fast-neutron flux |
 | `fgr` | 1,553 | 12 | Fission-gas release models and OFFBEAT's SCIANTIX coupling shim |
 | `error` | — | — | `OffbeatError` enum; unfinished paths return `NotImplemented` |
+
+### The code_aster port (`rheology::aster`)
+
+code_aster is EDF's nonlinear structural solver, built to justify the integrity
+and remaining life of its own reactor fleet — so its constitutive laws are the
+*nuclear* ones (irradiation creep, Zircaloy anisotropy, vessel steels) rather
+than generic mechanical-engineering fare. Ported from a read-only clone of
+upstream's `src` repository at commit `b504ea08`; never vendored. Tracked as
+epic `op-a7p`.
+
+| Module | Tests | Laws |
+|---|---|---|
+| `catalogue` | — | The 229 behaviours upstream declares, generated from its Python catalogue |
+| `kinematics` | — | Mandel convention (`√2` on shears) and the deformation gradient |
+| `integration` | — | The scalar local solvers every law shares — Newton, secant, Brent |
+| `log_strain` | — | The `GDEF_LOG` finite-strain wrapper |
+| `viscoplastic` | 17 | `NORTON`, `LEMAITRE`, `LEMAITRE_IRRA` |
+| `isotropic` | 16 | `VMIS_ISOT_LINE`/`_PUIS` hardening, `NORTON_HOFF` |
+| `chaboche` | 19 | `VMIS_CIN1/2_CHAB`, `VISC_CIN1/2_CHAB`, `VMIS/VISC_CIN2_MEMO` |
+| `damage` | 29 | `VENDOCHAB`, `VISC_ENDO_LEMA`, `ROUSS_PR`, `ROUSS_VISC`, `GTN`, `VISC_GTN`, `CRIT_RUPT` |
+| `metallurgy` | 25 | `VISC_IRRA_LOG`, `GRAN_IRRA_LOG`, `IRRAD3M`, `META_LEMA_ANI` |
+| `fracture` | 24 | Linear-elastic fracture post-processing only — see the limitation below |
+
+**Two limitations that change results**, documented here so they are not
+discovered late:
+
+- **`fracture` is roughly 80 % blocked.** The G-theta domain integral needs
+  element shape functions, Gauss quadrature and crack-front ring topology, none
+  of which this crate has. What is implemented is the closed-form subset —
+  Irwin mode split, Westergaard near-tip fields, kink-angle criteria, and the
+  front-smoothing bases.
+- **`damage`'s `GTN` is the local form only.** Without `GRADVARI` nonlocal
+  regularisation, a structural run will localise into a single element band and
+  give mesh-dependent answers.
+
+Porting the upstream laws also surfaced several apparent defects in them. These
+are **reproduced and documented, never silently corrected** — each has a test
+that pins the discrepancy so an upstream fix breaks loudly. See the module docs
+for the full list; the sharpest is `nmvpir.F90`'s growth tensor, whose `yy`
+component makes the tensor identically zero for growth along `y`.
 
 **Not present yet**, and needed before this is a fuel-performance solver rather
 than a library of fuel-performance pieces:
