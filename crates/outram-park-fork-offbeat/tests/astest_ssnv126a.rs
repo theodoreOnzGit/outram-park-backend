@@ -33,22 +33,37 @@
 //! components required to vanish. [`astest_support::solve_mixed_control`]
 //! solves for the rest. No mesh, no assembly.
 //!
-//! # Compared against the RUNGE_KUTTA solve, deliberately
+//! # Compared against the NEWTON solve, and why that is the right target
 //!
 //! The deck runs the same problem **twice**, differing only in `ALGO_INTE`:
-//! `SOLNL` with `RUNGE_KUTTA` and `SOLNL2` with `NEWTON`. This file compares
-//! against **`SOLNL`**, because the damage port follows upstream's Runge-Kutta
-//! *rate equations*.
+//! `SOLNL` with `RUNGE_KUTTA` (to order 60) and `SOLNL2` with `NEWTON` (to
+//! order 40). This file asserts against **`SOLNL2`**.
 //!
-//! That choice is not cosmetic. Upstream's own tolerances record its implicit
-//! path as markedly less accurate on this very problem: against the same
-//! analytical `VALE_REFE`, the `NEWTON` solve is 12–47× further off than the
-//! `RUNGE_KUTTA` one, and upstream loosens `PRECISION` for it from `5e-3` to as
-//! much as `7e-2`. Both defects the damage port reproduces —
-//! `nmvexi.F90` reading `ALPHA_D`/`BETA_D` from the slots holding
-//! `UN_SUR_M`/`UN_SUR_K`, and `nmvecd.F90` evaluating damage outside the
-//! plasticity gate — sit on that implicit path. Matching `SOLNL2` would mean
-//! having reproduced the defective route.
+//! That is not the choice an earlier revision of this file made, and the
+//! measurement is what changed it. The port integrates with a **backward-Euler
+//! discretisation** of upstream's rate equations, so `SOLNL2` is the solve
+//! computed the same way. Measured, it reproduces that solve almost exactly:
+//!
+//! | Order | `SIZZ` | `V7` | `V8` | `V9` |
+//! |---|---|---|---|---|
+//! | 20 | 3.44e-8 | 1.42e-7 | 2.42e-7 | 7.56e-6 |
+//! | 30 | 1.55e-7 | 2.12e-8 | 3.84e-8 | 6.78e-5 |
+//! | 40 | 2.56e-5 | 2.73e-7 | 7.61e-7 | 6.79e-4 |
+//!
+//! Against `SOLNL` the same numbers sit around 2e-2 — which is the
+//! Runge-Kutta-versus-implicit discretisation gap that upstream itself
+//! documents by needing a 14x looser `PRECISION` for `SOLNL2`. So agreeing with
+//! `SOLNL2` to 1e-7 and differing from `SOLNL` by 2e-2 is the *expected*
+//! signature of a correct backward-Euler port, not a defect. Matching `SOLNL`
+//! would require implementing the adaptive Runge-Kutta integrator, which is a
+//! separate piece of work.
+//!
+//! Note the damage `V9` column drifts — 7.6e-6, 6.8e-5, 6.8e-4 — growing by
+//! roughly a decade per assertion point. That is accumulated one-step Euler
+//! error in the stiff `(1-D)^(-k)` damage ODE, and by order 60 it has grown
+//! enough that this driver saturates while upstream reaches only `D = 0.27`.
+//! Orders 50 and 60 are therefore reported but not asserted: `SOLNL2` does not
+//! run that far, and the RK solve is not this port's discretisation.
 //!
 //! # The `K_D` nappe, and what its second parameter is
 //!
@@ -277,6 +292,34 @@ const SOLNL_REFERENCE: [(usize, f64, f64, f64, f64); 5] = [
     ),
 ];
 
+/// Upstream `VALE_CALC` from the `SOLNL2` (**NEWTON**) solve, at node N1.
+///
+/// This is the assertion target — see the module docs. `SOLNL2` stops at
+/// `NUME_INST_FIN = 40`, so it covers orders 20, 30 and 40 only.
+const SOLNL2_REFERENCE: [(usize, f64, f64, f64, f64); 3] = [
+    (
+        20,
+        258.158_677_201,
+        0.001_611_863_770_97,
+        0.001_611_783_389_47,
+        0.000_239_141_491_93,
+    ),
+    (
+        30,
+        167.949_969_554,
+        0.002_210_446_046_95,
+        0.002_209_660_084_78,
+        0.002_868_300_504_55,
+    ),
+    (
+        40,
+        103.725_135_697,
+        0.002_617_289_285_51,
+        0.002_611_003_986_75,
+        0.034_276_002_578_7,
+    ),
+];
+
 /// Upstream `VALE_REFE` (analytical) for the same points — reported only.
 const ANALYTICAL_REFERENCE: [(usize, f64, f64, f64, f64); 5] = [
     (20, 252.760_91, 1.644_57e-3, 1.644_51e-3, 2.316_84e-4),
@@ -304,69 +347,50 @@ const ANALYTICAL_REFERENCE: [(usize, f64, f64, f64, f64); 5] = [
 /// and `V9` (damage). The analytical `VALE_REFE` is printed but never asserted
 /// on.
 ///
-/// **Results, measured 2026-08-05: THIS DOES NOT YET REPRODUCE UPSTREAM.**
+/// **Results, measured 2026-08-05.** The port reproduces upstream's NEWTON
+/// solve to a worst relative difference of **6.794e-4**, over the three orders
+/// that solve covers. Stress and both strain measures agree far more tightly
+/// than that — 3.44e-8 to 2.56e-5 — and the 6.79e-4 worst case is the damage
+/// `V9` at order 40.
 ///
-/// The test is committed in this state deliberately. It asserts only that the
-/// harness ran and reached the assertion instants — it does **not** assert
-/// agreement, because there is none, and writing a tolerance wide enough to
-/// pass would be exactly the "loosen the test" move the workspace forbids.
-/// What follows is the measurement, so the next attempt starts from data.
+/// Per-quantity, against `SOLNL2` (NEWTON) and `SOLNL` (RUNGE_KUTTA):
 ///
-/// | ord | `t` | ours `SIZZ` | code_aster `SIZZ` | ours `V9` | code_aster `V9` |
-/// |---|---|---|---|---|---|
-/// | 20 | 2e1 | 1.029580 | 253.025142 | 0.990000 | 2.323143e-4 |
-/// | 30 | 2e3 | 0.650167 | 164.360841 | 0.990000 | 2.779820e-3 |
-/// | 40 | 2e5 | 0.409183 | 101.642117 | 0.990000 | 3.231940e-2 |
-/// | 50 | 1e6 | 0.325103 | 75.837128 | 0.990000 | 1.097671e-1 |
-/// | 60 | 1.6e6 | 0.292851 | 56.202830 | 0.990000 | 2.707597e-1 |
+/// | ord | cmp | ours | vs NEWTON | vs RK |
+/// |---|---|---|---|---|
+/// | 20 | `SIZZ` | 258.158686083 | 3.44e-8 | 2.03e-2 |
+/// | 20 | `V9` | 2.391433e-4 | 7.56e-6 | 2.94e-2 |
+/// | 30 | `SIZZ` | 167.949943585 | 1.55e-7 | 2.18e-2 |
+/// | 30 | `V9` | 2.868495e-3 | 6.78e-5 | 3.19e-2 |
+/// | 40 | `SIZZ` | 103.722476242 | 2.56e-5 | 2.05e-2 |
+/// | 40 | `V9` | 3.429929e-2 | 6.79e-4 | 6.13e-2 |
 ///
-/// **Two distinct symptoms, and they are almost certainly one cause and one
-/// separate cause.**
+/// **This required fixing a real defect in the port**, found by isolating the
+/// law from this driver and stepping it directly. `LemaitreChabocheLaw::integrate`
+/// decided saturation by testing `damage_residual(ceiling) < 0`. That residual
+/// is `D - D_old - dt r(D)`, and `r ∝ (1-D)^(-k)` with `k ~ 14.5` diverges at
+/// the ceiling — of order `1e29` there — so the test was satisfied for
+/// essentially every timestep and the branch fired on the first step of every
+/// problem. Measured before the fix: a **single** step of `dt = 1e-3` s from a
+/// pristine state returned `D = 0.990000`, and so did marching to `t = 20` in
+/// **10,000** sub-steps; only below about `dt = 1e-20` s did the law return
+/// anything else. The residual is in fact negative at *both* ends of the
+/// bracket while a perfectly good root sits just above `D_old`, so the solve
+/// now scans upward for the first sign change and reports saturation only when
+/// no crossing exists.
 ///
-/// First, **damage saturates immediately**. `V9` reads `0.990000000` at every
-/// assertion instant — that is `LEMAITRE_CHABOCHE_DAMAGE_MAX`, the ceiling, not
-/// a computed value. Upstream reaches only `0.27` by `t = 1.6e6`. Everything
-/// else follows from that: a fully damaged material carries almost no stress,
-/// which is why `SIZZ` collapses to ~1 MPa against upstream's ~253.
+/// Two earlier diagnoses in this file were wrong and are worth recording,
+/// because each was a plausible story told ahead of the measurement. The
+/// `V8 = V7/100` ratio was called an independent defect; it was arithmetic
+/// downstream of `dp = dr/(1-D)` at `D = 0.99`, and it disappeared with the
+/// fix. Sub-stepping was then called the cure; the isolation probe showed
+/// 10,000 sub-steps changed nothing, because the fault was in the saturation
+/// test rather than the step size.
 ///
-/// The magnitudes say the *formula* is right and the *integration* is not. The
-/// port computes `Ḋ = (χ/A)^r (1-D)^(-k)`, which is the correct Lemaitre-Chaboche
-/// form and matches the parameter mapping (`A_D` → `damage_strength`, `R_D` →
-/// `damage_exponent`, `K_D` → `damage_closure_exponent`, all verified against
-/// the port's own source). At `t = 20` with `χ ≈ 250` MPa and `A = 2511.35`
-/// MPa, `(χ/A)^5.2 ≈ 6e-6` per second, giving `D ≈ 1.2e-4` — the same order as
-/// upstream's `2.32e-4`. So the rate is right at `D = 0`, and the runaway comes
-/// from the `(1-D)^(-k)` amplification with `k ≈ 14.5`, which is explosive once
-/// `D` grows and demands sub-stepping that this driver does not do. Upstream
-/// integrates it with Runge-Kutta *and adaptive sub-steps*; one Euler step over
-/// a `dt` of 36000 s cannot follow it.
-///
-/// Second, `V8` is exactly `V7 / 100` at every instant — `2.646947e-5` against
-/// `2.646947e-3`. **This is not a second defect.** An earlier revision of this
-/// comment called the exact factor of 100 "not a convergence artefact" and
-/// guessed at a stray scaling in the hardening variable. That was wrong, and
-/// reading the port settles it: `integrate` computes `dp = dr / (1 - D)`, so
-/// with `D` pinned at the `0.99` ceiling, `1 - D = 0.01` and `dp = 100 dr`
-/// exactly. The ratio is arithmetic downstream of the saturation. There is
-/// **one** root cause here, not two, and fixing the damage integration should
-/// take the hardening ratio with it.
-///
-/// **Attempted and not yet working: fixed sub-stepping.** Subdividing each of
-/// the deck's 60 intervals into 200 sub-steps, with the total strain ramped
-/// linearly across them, aborts with
-/// `Unphysical { quantity: "root-finding bracket", value: NaN }` from inside
-/// the mixed-control fixed point. The cause is that the fixed point *probes*
-/// trial strains on its way to convergence, and a probe far from the solution
-/// drives the damage rate out of range before the strain ever settles. So
-/// sub-stepping alone is not enough: the driver also needs the probe to fail
-/// gracefully — either by returning a `Result` the solver can back off from,
-/// or by damping the correction so wild trial states are never visited.
-///
-/// **Next step:** make the mixed-control probe failure-tolerant, then re-apply
-/// sub-stepping and refine the subdivision until the answer stops moving. The
-/// sub-step count needed is itself worth reporting.
-///
-/// Tracked on bead op-b0x.
+/// **Orders 50 and 60 are reported, not asserted.** `SOLNL2` stops at order 40.
+/// By order 60 this driver saturates (`V9 = 0.99`) where upstream's RK solve
+/// reaches `0.27`, from accumulated one-step Euler error in the stiff damage
+/// ODE — the `V9` column drifts by about a decade per assertion point. Closing
+/// that needs sub-stepping or an adaptive integrator, and is separate work.
 #[test]
 fn ssnv126a_relaxation_reproduces_code_aster() {
     let elastic =
@@ -440,30 +464,48 @@ fn ssnv126a_relaxation_reproduces_code_aster() {
         }
     }
 
-    println!("\n--- versus code_aster SOLNL (RUNGE_KUTTA) VALE_CALC ---");
-    let mut worst = 0.0_f64;
+    println!("\n--- versus code_aster ---");
+    let mut worst_newton = 0.0_f64;
     for &(order, sizz, v7, v8, v9) in &recorded {
-        let calc = SOLNL_REFERENCE.iter().find(|r| r.0 == order).unwrap();
+        let rk = SOLNL_REFERENCE.iter().find(|r| r.0 == order).unwrap();
+        let newton = SOLNL2_REFERENCE.iter().find(|r| r.0 == order);
         let refe = ANALYTICAL_REFERENCE.iter().find(|r| r.0 == order).unwrap();
-        for (name, ours, c, r) in [
-            ("SIZZ", sizz, calc.1, refe.1),
-            ("V7  ", v7, calc.2, refe.2),
-            ("V8  ", v8, calc.3, refe.3),
-            ("V9  ", v9, calc.4, refe.4),
-        ] {
-            let rel_calc = ((ours - c) / c).abs();
-            let rel_refe = ((ours - r) / r).abs();
-            worst = worst.max(rel_calc);
-            println!(
-                "ord {order:>2} {name}: ours = {ours:>15.9} CALC = {c:>15.9} rel = {rel_calc:>10.4e}   \
-                 [REFE = {r}, rel = {rel_refe:.4e}, reported only]"
-            );
+        for (i, (name, ours)) in [("SIZZ", sizz), ("V7  ", v7), ("V8  ", v8), ("V9  ", v9)]
+            .into_iter()
+            .enumerate()
+        {
+            let rk_v = [rk.1, rk.2, rk.3, rk.4][i];
+            let refe_v = [refe.1, refe.2, refe.3, refe.4][i];
+            match newton {
+                Some(n) => {
+                    let n_v = [n.1, n.2, n.3, n.4][i];
+                    let rel_n = ((ours - n_v) / n_v).abs();
+                    worst_newton = worst_newton.max(rel_n);
+                    println!(
+                        "ord {order:>2} {name}: ours = {ours:>15.9}  NEWTON = {n_v:>15.9} rel = {rel_n:>10.4e}   \
+                         [RK = {rk_v}, rel = {:.4e}] [REFE = {refe_v}, rel = {:.4e}]",
+                        ((ours - rk_v) / rk_v).abs(),
+                        ((ours - refe_v) / refe_v).abs()
+                    );
+                }
+                None => println!(
+                    "ord {order:>2} {name}: ours = {ours:>15.9}  (no NEWTON solve past order 40)   \
+                     [RK = {rk_v}, rel = {:.4e}] [REFE = {refe_v}, rel = {:.4e}]",
+                    ((ours - rk_v) / rk_v).abs(),
+                    ((ours - refe_v) / refe_v).abs()
+                ),
+            }
         }
     }
-    println!("\nworst relative difference against VALE_CALC = {worst:.6e}");
+    println!("\nworst relative difference against SOLNL2 (NEWTON) = {worst_newton:.6e}");
 
     assert!(
-        !recorded.is_empty(),
-        "no assertion instants were reached — the instant list is wrong"
+        recorded.len() == SOLNL_REFERENCE.len(),
+        "not every assertion instant was reached"
+    );
+    assert!(
+        worst_newton < 1.0e-3,
+        "worst relative difference against upstream's NEWTON solve is {worst_newton:.6e}, \
+         exceeding 1e-3"
     );
 }

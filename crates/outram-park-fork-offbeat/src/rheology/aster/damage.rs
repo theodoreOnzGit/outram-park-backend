@@ -501,6 +501,25 @@ fn from_dev_and_mean(dev: SymmTensor, mean: f64) -> SymmTensor {
 /// Smallest strictly positive normalised `f64`, upstream's `r8miem()`.
 const R8MIEM: f64 = f64::MIN_POSITIVE;
 
+/// Floor applied to the isotropic-hardening variable `r` before it is raised to
+/// `1/m`, upstream's `epsiec`.
+///
+/// **This is a physical regularisation, not a numerical guard, and the exact
+/// value matters enormously.** The Lemaitre flow rate divides by
+/// `s_c = K r^(1/m)`, which vanishes as `r → 0`, so a pristine point has an
+/// unbounded initial rate. Upstream caps it at a definite strain:
+/// `bibfor/algorith/rkdvec.F90` declares `parameter(epsiec = 1.d-8)` and
+/// applies `if (ecrou .le. epsiec) ecrou = epsiec`.
+///
+/// Using `f64::MIN_POSITIVE` here instead — as this port originally did, with a
+/// comment wrongly attributing it to upstream's `r8miem()` — changes `s_c` by
+/// about thirty orders of magnitude. For `ssnv126a`'s material
+/// (`K = 1450` MPa, `m = 9.8`): `1e-8` gives `s_c = 1450 × 0.1526 = 221` MPa,
+/// while `2.2e-308` gives `s_c = 5.8e-29` MPa. The second makes the initial
+/// flow rate astronomical, so the material relaxes to nothing within a single
+/// step of any size and damage pins at its ceiling.
+const HARDENING_FLOOR: f64 = 1.0e-8;
+
 // ===========================================================================
 // VENDOCHAB / VISC_ENDO_LEMA — Lemaitre-Chaboche damage-coupled viscoplasticity
 // ===========================================================================
@@ -929,9 +948,11 @@ impl LemaitreChabocheLaw {
             return (0.0, false);
         }
 
-        // sc = K r^(1/m); upstream floors `r` at r8miem() so the log is finite.
-        let r = if hardening_variable <= R8MIEM {
-            R8MIEM
+        // sc = K r^(1/m). Upstream floors `r` at `epsiec = 1e-8`, not at
+        // `r8miem()` — see [`HARDENING_FLOOR`], where the difference and its
+        // consequences are spelled out.
+        let r = if hardening_variable <= HARDENING_FLOOR {
+            HARDENING_FLOOR
         } else {
             hardening_variable
         };
@@ -1147,17 +1168,53 @@ impl LemaitreChabocheLaw {
 
         let mut outcome = DamageOutcome::Converged;
         let mut damage_iterations = 0;
-        let damage = if d_old >= LEMAITRE_CHABOCHE_DAMAGE_MAX
-            || damage_residual(LEMAITRE_CHABOCHE_DAMAGE_MAX) < 0.0
-        {
-            // The damage rate at the ceiling is still large enough to carry the
-            // step past it: upstream's `dammax` branch. Not a converged solve.
+
+        // Bracket the *first* root above `d_old`, scanning upward.
+        //
+        // The residual `D - d_old - dt r(D)` is **negative at both ends** for
+        // any realistic step, and that is not a sign of saturation. At
+        // `D = d_old` it is `-dt r(d_old) < 0` because the rate is positive; at
+        // the ceiling it is hugely negative because `r ∝ (1-D)^(-k)` diverges
+        // there, with `k ~ 14.5` giving a factor of order `1e29`. In between,
+        // the linear `D` term outruns the rate and the residual rises through
+        // zero — that crossing is the physical root.
+        //
+        // An earlier version tested `damage_residual(ceiling) < 0` and declared
+        // saturation. Because that test is satisfied for essentially every
+        // timestep, it fired on the very first step of every problem: measured
+        // on `ssnv126a`, damage pinned at the ceiling even for `dt = 1e-10` s,
+        // and only below about `1e-20` s did the law return anything else.
+        // Saturation must instead mean *no crossing exists*, which is what the
+        // scan below actually determines.
+        let scan_upper = LEMAITRE_CHABOCHE_DAMAGE_MAX;
+        let mut bracket: Option<(f64, f64)> = None;
+        if d_old < scan_upper {
+            let mut lower = d_old;
+            let mut f_lower = damage_residual(lower);
+            // Geometric ladder: the root sits very close to `d_old` for a small
+            // step and further out for a large one, so sampling has to be dense
+            // near the start and coarse further up.
+            let samples = 200;
+            for i in 1..=samples {
+                let f = f64::from(i) / f64::from(samples);
+                let upper = d_old + (scan_upper - d_old) * f * f * f;
+                let f_upper = damage_residual(upper);
+                if f_lower.is_finite() && f_upper.is_finite() && f_lower * f_upper <= 0.0 {
+                    bracket = Some((lower, upper));
+                    break;
+                }
+                lower = upper;
+                f_lower = f_upper;
+            }
+        }
+
+        let damage = if d_old >= LEMAITRE_CHABOCHE_DAMAGE_MAX {
             outcome = DamageOutcome::Saturated;
             LEMAITRE_CHABOCHE_DAMAGE_MAX
-        } else {
+        } else if let Some(bracket) = bracket {
             let solution = brent(
                 damage_residual,
-                (d_old, LEMAITRE_CHABOCHE_DAMAGE_MAX),
+                bracket,
                 &SolverControl {
                     max_iter: 200,
                     residual_tol: 1.0e-14,
@@ -1166,6 +1223,11 @@ impl LemaitreChabocheLaw {
             )?;
             damage_iterations = solution.iterations;
             solution.root
+        } else {
+            // No crossing anywhere below the ceiling: the step genuinely cannot
+            // be completed without passing it. Upstream's `dammax` branch.
+            outcome = DamageOutcome::Saturated;
+            LEMAITRE_CHABOCHE_DAMAGE_MAX
         };
 
         let (dr, rate_linearised, flow_iterations) = solve_hardening(damage)?;
