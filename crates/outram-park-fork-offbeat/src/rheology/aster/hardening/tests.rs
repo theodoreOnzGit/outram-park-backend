@@ -310,3 +310,88 @@ fn unphysical_parameters_are_refused() {
     println!("valid AsterPower -> {good:?}");
     assert!(good.is_ok());
 }
+
+/// **Methodology.** Two curve families have a genuinely infinite `dR/dp` at the
+/// origin — Ludwik with `n < 1`, and `ECRO_NL` with `γm < 1`. That divergence
+/// is real, but it is useless to a Newton step, so [`IsotropicHardening::slope`]
+/// evaluates them at [`SLOPE_SINGULARITY_OFFSET`] instead. This guard came from
+/// the pre-consolidation `damage` enum and now applies to every caller, so it
+/// needs its own pin.
+///
+/// Checks three things: the reported slope at `p = 0` is **finite**; it equals
+/// the slope evaluated at the offset **exactly** (the guard is a substitution,
+/// not an approximation); and [`IsotropicHardening::value`] is left untouched
+/// at the origin, returning the exact `R(0)` rather than a guarded one — a
+/// guard that perturbed the curve as well as its derivative would shift the
+/// yield surface itself.
+///
+/// Also checks the `p < 0` clamp, which a Newton iterate driving a
+/// porous-plastic return map can transiently reach: `R(-1) == R(0)`.
+///
+/// Inputs: `Ludwik { σ_y = 250 MPa, K = 500 MPa, n = 0.2 }` and
+/// `EcroNl { R0 = 400 MPa, RK = 100 MPa, P0 = 0, γm = 0.5 }`, both zero
+/// elsewhere. Pass criterion: finite slopes, bit-exact agreement with the
+/// offset evaluation, and exact `R(0)`.
+///
+/// **Results (measured 2026-08-05, release).** Ludwik
+/// `R'(0) = 3.981071705534977e17 Pa`, bit-identical to `R'(1e-12)`; EcroNl
+/// `R'(0) = 5e13 Pa`, likewise. `R(0)` came out exactly `250000000` and
+/// `400000000` Pa, and `R(-1)` matched `R(0)` bit-for-bit in both. Without the
+/// guard both slopes would be `inf`.
+///
+/// Those slopes are enormous — `K n q^(n-1)` with `q = 1e-12` and `n = 0.2` is
+/// `1e8 × 1e9.6 ≈ 4e17` — and that is the point: the guard makes the number
+/// *finite*, not *small*. A Newton step against a slope of `4e17 Pa` is
+/// useless but survivable; one against `inf` is not. It is why the porous-
+/// plastic laws bracket rather than Newton, and why `damage`'s own
+/// `matrix_hardening` fixture picks `EcroNl` over Ludwik for a virgin point.
+#[test]
+fn the_slope_guard_keeps_singular_curves_finite_at_the_origin() {
+    let ecro_nl_singular = IsotropicHardening::EcroNl {
+        r0: 400.0e6,
+        rh: 0.0,
+        r1: 0.0,
+        gamma_1: 1.0,
+        r2: 0.0,
+        gamma_2: 1.0,
+        rk: 100.0e6,
+        p0: 0.0,
+        gamma_m: 0.5,
+    };
+
+    for (name, curve, radius_at_origin) in [
+        ("Ludwik n=0.2", ludwik(), 250.0e6),
+        ("EcroNl gamma_m=0.5", ecro_nl_singular, 400.0e6),
+    ] {
+        let slope_at_origin = curve.slope(0.0);
+        let slope_at_offset = curve.slope(SLOPE_SINGULARITY_OFFSET);
+        let value_at_origin = curve.value(0.0);
+        let value_below_zero = curve.value(-1.0);
+        println!(
+            "{name}: R'(0) = {slope_at_origin:e} R'(offset) = {slope_at_offset:e} \
+             R(0) = {value_at_origin} R(-1) = {value_below_zero}"
+        );
+
+        assert!(
+            slope_at_origin.is_finite(),
+            "{name}: the guard exists precisely so this is not an infinity"
+        );
+        assert_eq!(
+            slope_at_origin, slope_at_offset,
+            "{name}: the guard substitutes the offset, it does not approximate"
+        );
+        assert_eq!(
+            value_at_origin, radius_at_origin,
+            "{name}: the guard must not move the curve, only its derivative"
+        );
+        assert_eq!(
+            value_below_zero, value_at_origin,
+            "{name}: a negative accumulated strain clamps to zero"
+        );
+        assert_eq!(
+            curve.slope(-1.0),
+            slope_at_origin,
+            "{name}: the clamp applies to the slope too"
+        );
+    }
+}

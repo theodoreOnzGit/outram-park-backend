@@ -457,7 +457,6 @@ fn ssnv126a_relaxation_reproduces_code_aster() {
         let (t_previous, t) = (times[order - 1], times[order]);
         let dt = t - t_previous;
         let temp = temperature.at(t);
-        let law = LemaitreChabocheLaw::Vendochab(parameters_at(temp, damage_driver));
 
         let control = [
             Control::Stress(0.0),

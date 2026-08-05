@@ -8588,6 +8588,21 @@ requiring a Jacobian). The independent variable `x`, state `y`, and step
 size are bare `f64` in the caller's own units; tolerances are set through
 [`OdeSolverConfig`].
 
+# Storing an integrator: [`OdeIntegrator`]
+
+The three steppers above take the system by reference on every call, which
+is awkward for any caller that wants to *keep* "the integrator for this
+material point" as a struct field — storing a borrow would force a lifetime
+parameter, which the workspace design rules forbid.
+
+[`integrator`] solves that with two enums that own what they integrate:
+[`OdeSolver`] selects the stepper, and [`OdeIntegrator`] selects how the
+system is supplied — [`OdeIntegrator::TypedState`] (a concrete system owned
+by value, statically dispatched, **preferred**) or
+[`OdeIntegrator::DynSystem`] (an `Arc<dyn OdeSystem + Send + Sync>`, kept by
+maintainer decision for flexibility). Neither borrows, so neither needs a
+lifetime.
+
 ```rust
 pub mod ode { /* ... */ }
 ```
@@ -8631,12 +8646,12 @@ pub struct Euler {
   Create a solver for an `n`-equation system with the given absolute and
 
 - ```rust
-  pub fn solve_step(self: &mut Self, ode: &dyn OdeSystem, x: &mut f64, y: &mut Vec<f64>, dx_try: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  pub fn solve_step<Sys: OdeSystem + ?Sized>(self: &mut Self, ode: &Sys, x: &mut f64, y: &mut Vec<f64>, dx_try: &mut f64) -> Result<(), OdeError> { /* ... */ }
   ```
   Take one adaptive step. On return `x` and `y` are updated and
 
 - ```rust
-  pub fn integrate(self: &mut Self, ode: &dyn OdeSystem, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  pub fn integrate<Sys: OdeSystem + ?Sized>(self: &mut Self, ode: &Sys, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
   ```
   Integrate from `x_start` to `x_end`.
 
@@ -8655,6 +8670,809 @@ pub struct Euler {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Euler { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `integrator`
+
+Enum-dispatched ODE integration — solver choice *and* system ownership.
+
+# What this adds over the bare steppers
+
+[`Euler`], [`Rkf45`] and [`Rosenbrock23`] each integrate a system you hand
+them by reference on every call. That is fine inside one function, but a
+constitutive law or a solver loop usually wants to *store* "the integrator
+for this material point" — solver plus system together — and step it later.
+Storing a borrow would require a lifetime parameter on the storing struct,
+which the workspace design rules forbid outright.
+
+This module removes the need for one. Two enums, no lifetimes anywhere:
+
+- [`OdeSolver`] — *which* stepper. A closed set (`Euler`, `Rkf45`,
+  `Rosenbrock23`), so the scheme can be chosen at run time without a trait
+  object and without heap allocation. Adding a stepper forces every `match`
+  site to be updated.
+- [`OdeIntegrator`] — *how the system is supplied*. Two variants, and they
+  are the whole point of this module:
+  - [`OdeIntegrator::TypedState`] owns a concrete, statically-known system
+    **by value**. Derivative calls are statically dispatched and inlinable.
+    **This is the preferred variant.**
+  - [`OdeIntegrator::DynSystem`] holds the system behind
+    [`SharedOdeSystem`] (`Arc<dyn OdeSystem + Send + Sync>`). It exists **by
+    maintainer decision, for flexibility**, so a caller that genuinely does
+    not know the system type at the call site — a registry, a case-file
+    reader, a test harness sweeping several systems — has a path that does
+    not require inventing an enum of its own.
+
+# Why there is no lifetime parameter
+
+Both variants **own** their system: `S` by value, or shared ownership
+through `Arc`. Nothing here borrows the system, so nothing here needs to
+name the region the borrow is valid for. An [`OdeIntegrator`] can therefore
+be stored in a struct, moved between threads, or held in a `Vec` for one
+integrator per material point, with no lifetime plumbing at any call site.
+
+# On the `dyn` in [`OdeIntegrator::DynSystem`]
+
+The workspace rule is *"no trait objects for dispatch — use enums"*, and the
+dispatch here **is** the enum: [`OdeIntegrator`] chooses between two owning
+strategies by `match`, exhaustively. The `Arc<dyn OdeSystem + Send + Sync>`
+inside one of its variants is a boundary coercion for callers who ask for
+it, kept deliberately, not an accident to be cleaned up later. Prefer
+[`OdeIntegrator::TypedState`]; reach for [`OdeIntegrator::DynSystem`] when
+the type genuinely is not known statically.
+
+# Example — the preferred typed path
+
+```rust
+use outram_foam_basic_lib::ode::{OdeIntegrator, OdeSolver, OdeSystem};
+
+struct Decay;
+impl OdeSystem for Decay {
+    fn n_eqns(&self) -> usize { 1 }
+    fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
+        dydx[0] = -y[0];
+    }
+}
+
+// Owned by value — no borrow, no lifetime, storable in any struct.
+let mut integrator = OdeIntegrator::typed(Decay, OdeSolver::rkf45(1, 1e-10, 1e-8));
+let mut y = vec![1.0_f64];
+let mut dx = 0.1;
+integrator.integrate(0.0, 1.0, &mut y, &mut dx).unwrap();
+assert!((y[0] - (-1.0_f64).exp()).abs() < 1e-8);
+```
+
+# Example — the shared `dyn` path
+
+```rust
+use std::sync::Arc;
+use outram_foam_basic_lib::ode::{OdeIntegrator, OdeSolver, OdeSystem, SharedOdeSystem};
+
+struct Decay;
+impl OdeSystem for Decay {
+    fn n_eqns(&self) -> usize { 1 }
+    fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
+        dydx[0] = -y[0];
+    }
+}
+
+let shared: SharedOdeSystem = Arc::new(Decay);
+let mut integrator = OdeIntegrator::shared(shared, OdeSolver::rkf45(1, 1e-10, 1e-8));
+let mut y = vec![1.0_f64];
+let mut dx = 0.1;
+integrator.integrate(0.0, 1.0, &mut y, &mut dx).unwrap();
+assert!((y[0] - (-1.0_f64).exp()).abs() < 1e-8);
+```
+
+```rust
+pub mod integrator { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `SharedOdeSystem`
+
+A shared, runtime-typed ODE system.
+
+`Send + Sync` is required because the only reason to reach for `Arc` over
+owning the system by value is to share it — including across threads, which
+is how this workspace shares simulation state (`Arc<T>` for read-only data).
+A system that cannot cross a thread boundary should use
+[`OdeIntegrator::TypedState`] instead.
+
+```rust
+pub type SharedOdeSystem = std::sync::Arc<dyn OdeSystem + Send + Sync>;
+```
+
+#### Enum `OdeSolver`
+
+Which stepper integrates the system — enum dispatch over the closed set of
+solvers this crate ports.
+
+The steppers carry per-equation scratch buffers sized at construction, so a
+solver built for `n` equations must only be used with an `n`-equation
+system. All variants integrate a bare `f64` state vector in the caller's own
+units; only [`OdeSolverConfig`] tolerances are interpreted here.
+
+Cloning a solver clones its scratch buffers; the clone integrates
+independently of the original.
+
+```rust
+pub enum OdeSolver {
+    Euler(super::Euler),
+    Rkf45(super::Rkf45),
+    Rosenbrock23(super::Rosenbrock23),
+}
+```
+
+##### Variants
+
+###### `Euler`
+
+Explicit first-order Euler with adaptive step size. Cheapest per step,
+but the global error falls only linearly in the step size — use it for
+smooth, non-stiff systems where accuracy is not critical.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::Euler` |  |
+
+###### `Rkf45`
+
+Explicit Runge-Kutta-Fehlberg 4(5), the general-purpose default for
+non-stiff systems. Six derivative evaluations per step, fifth-order
+propagation with an embedded fourth-order error estimate.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::Rkf45` |  |
+
+###### `Rosenbrock23`
+
+Semi-implicit W-method Rosenbrock23 for **stiff** systems. Requires the
+system to implement [`OdeSystem::jacobian`]; the default `jacobian`
+panics, so check [`OdeSolver::requires_jacobian`] before selecting it
+for a system you did not write.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::Rosenbrock23` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn euler(n: usize, abs_tol: f64, rel_tol: f64) -> Self { /* ... */ }
+  ```
+  Explicit Euler for an `n`-equation system.
+
+- ```rust
+  pub fn rkf45(n: usize, abs_tol: f64, rel_tol: f64) -> Self { /* ... */ }
+  ```
+  Runge-Kutta-Fehlberg 4(5) for an `n`-equation system. See
+
+- ```rust
+  pub fn rosenbrock23(n: usize, abs_tol: f64, rel_tol: f64) -> Self { /* ... */ }
+  ```
+  Stiff Rosenbrock23 for an `n`-equation system. See [`OdeSolver::euler`]
+
+- ```rust
+  pub const fn name(self: &Self) -> &'static str { /* ... */ }
+  ```
+  The stepper's name, for diagnostics and log lines.
+
+- ```rust
+  pub const fn requires_jacobian(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this stepper calls [`OdeSystem::jacobian`], whose default
+
+- ```rust
+  pub fn config(self: &Self) -> &OdeSolverConfig { /* ... */ }
+  ```
+  The adaptive step-size controller settings in force.
+
+- ```rust
+  pub fn config_mut(self: &mut Self) -> &mut OdeSolverConfig { /* ... */ }
+  ```
+  Mutable access to the controller settings, e.g. to lower `max_steps`.
+
+- ```rust
+  pub fn solve_step<Sys: OdeSystem + ?Sized>(self: &mut Self, ode: &Sys, x: &mut f64, y: &mut Vec<f64>, dx_try: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  ```
+  Take one adaptive step of `ode`. On return `x` and `y` are advanced and
+
+- ```rust
+  pub fn integrate<Sys: OdeSystem + ?Sized>(self: &mut Self, ode: &Sys, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  ```
+  Integrate `ode` from `x_start` to `x_end`, updating `y` in place and
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OdeSolver { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `NoTypedSystem`
+
+The zero-equation system, and the default type argument of
+[`OdeIntegrator`].
+
+[`OdeIntegrator::DynSystem`] does not use the `S` type parameter, but Rust
+still requires one to be named. `NoTypedSystem` is that name: writing
+`OdeIntegrator` with no type argument means "the `dyn` variant is the only
+one I intend to use".
+
+It is a genuine, well-defined system rather than a panicking stub — a system
+of zero equations, whose derivative vector is empty — so nothing goes wrong
+if one is integrated by accident. Integrating it is simply a no-op on an
+empty state.
+
+```rust
+pub struct NoTypedSystem;
+```
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NoTypedSystem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> NoTypedSystem { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **OdeSystem**
+  - ```rust
+    fn n_eqns(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn derivatives(self: &Self, _x: f64, _y: &[f64], _dydx: &mut Vec<f64>) { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NoTypedSystem) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TypedStateIntegrator`
+
+Solver plus a **statically-typed, owned** system — the preferred variant of
+[`OdeIntegrator`].
+
+The system is stored by value, so derivative evaluation is a direct,
+inlinable call with no vtable and no borrow to outlive. `S` may be any
+concrete type implementing [`OdeSystem`], including the caller's own enum
+over several systems.
+
+```rust
+pub struct TypedStateIntegrator<S: OdeSystem> {
+    pub solver: OdeSolver,
+    pub system: S,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solver` | `OdeSolver` | Which stepper advances the state. |
+| `system` | `S` | The system being integrated, owned outright. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(system: S, solver: OdeSolver) -> Self { /* ... */ }
+  ```
+  Pair an owned system with a solver.
+
+- ```rust
+  pub fn solve_step(self: &mut Self, x: &mut f64, y: &mut Vec<f64>, dx_try: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  ```
+  Take one adaptive step. See [`OdeSolver::solve_step`].
+
+- ```rust
+  pub fn integrate(self: &mut Self, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  ```
+  Integrate from `x_start` to `x_end`. See [`OdeSolver::integrate`].
+
+- ```rust
+  pub fn into_system(self: Self) -> S { /* ... */ }
+  ```
+  Consume the integrator and return the system, e.g. to read state the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `DynSystemIntegrator`
+
+Solver plus a **shared, runtime-typed** system.
+
+The flexibility variant, kept by maintainer decision: the system type need
+not be known where the integrator is built, and the same system can be
+shared by several integrators. Prefer [`TypedStateIntegrator`] when the type
+*is* known — it dispatches statically.
+
+```rust
+pub struct DynSystemIntegrator {
+    pub solver: OdeSolver,
+    pub system: SharedOdeSystem,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solver` | `OdeSolver` | Which stepper advances the state. |
+| `system` | `SharedOdeSystem` | The system being integrated, shared by `Arc`. Cloning the integrator<br>shares the system rather than duplicating it. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(system: SharedOdeSystem, solver: OdeSolver) -> Self { /* ... */ }
+  ```
+  Pair a shared system with a solver.
+
+- ```rust
+  pub fn solve_step(self: &mut Self, x: &mut f64, y: &mut Vec<f64>, dx_try: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  ```
+  Take one adaptive step. See [`OdeSolver::solve_step`].
+
+- ```rust
+  pub fn integrate(self: &mut Self, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  ```
+  Integrate from `x_start` to `x_end`. See [`OdeSolver::integrate`].
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DynSystemIntegrator { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `OdeIntegrator`
+
+Enum-dispatch wrapper over the two ways of owning an ODE system.
+
+This is the type to store when a struct needs "an integrator" as a field.
+Neither variant borrows, so no lifetime parameter propagates outward — the
+reason this wrapper exists.
+
+The type argument `S` names the concrete system used by
+[`TypedState`](Self::TypedState). It defaults to [`NoTypedSystem`], so an
+integrator that only ever uses [`DynSystem`](Self::DynSystem) can be written
+as a plain `OdeIntegrator`.
+
+# Choosing a variant
+
+| | [`TypedState`](Self::TypedState) | [`DynSystem`](Self::DynSystem) |
+|---|---|---|
+| System known at compile time | yes | no |
+| Dispatch | static, inlinable | vtable |
+| Ownership | by value | shared, `Arc` |
+| Use when | normal case — **prefer this** | the type is chosen at run time |
+
+```rust
+pub enum OdeIntegrator<S: OdeSystem = NoTypedSystem> {
+    TypedState(TypedStateIntegrator<S>),
+    DynSystem(DynSystemIntegrator),
+}
+```
+
+##### Variants
+
+###### `TypedState`
+
+The typed-state integrator: a concrete system owned by value, with
+static dispatch. **Preferred.**
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `TypedStateIntegrator<S>` |  |
+
+###### `DynSystem`
+
+The `dyn`-system integrator: `Arc<dyn OdeSystem + Send + Sync>`. Kept by
+maintainer decision, for flexibility where the system type is not
+statically known.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `DynSystemIntegrator` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn typed(system: S, solver: OdeSolver) -> Self { /* ... */ }
+  ```
+  Build the preferred, statically-typed integrator from an owned system.
+
+- ```rust
+  pub fn n_eqns(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of coupled equations the stored system reports.
+
+- ```rust
+  pub fn solver(self: &Self) -> &OdeSolver { /* ... */ }
+  ```
+  The stepper in use.
+
+- ```rust
+  pub fn solver_mut(self: &mut Self) -> &mut OdeSolver { /* ... */ }
+  ```
+  Mutable access to the stepper, e.g. to adjust tolerances between steps.
+
+- ```rust
+  pub const fn is_typed_state(self: &Self) -> bool { /* ... */ }
+  ```
+  `true` for the preferred, statically-dispatched variant.
+
+- ```rust
+  pub fn typed_system(self: &Self) -> Option<&S> { /* ... */ }
+  ```
+  The owned system, when this is the typed variant; `None` otherwise.
+
+- ```rust
+  pub fn shared_system(self: &Self) -> Option<&SharedOdeSystem> { /* ... */ }
+  ```
+  The shared system, when this is the `dyn` variant; `None` otherwise.
+
+- ```rust
+  pub fn solve_step(self: &mut Self, x: &mut f64, y: &mut Vec<f64>, dx_try: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  ```
+  Take one adaptive step. `x` is the independent variable, `y` the state
+
+- ```rust
+  pub fn integrate(self: &mut Self, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  ```
+  Integrate from `x_start` to `x_end`, updating `y` in place and leaving
+
+- ```rust
+  pub fn shared(system: SharedOdeSystem, solver: OdeSolver) -> Self { /* ... */ }
+  ```
+  Build the shared, runtime-typed integrator.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
 - **Freeze**
@@ -8724,12 +9542,12 @@ pub struct Rkf45 {
   Create a solver for an `n`-equation system with the given absolute and
 
 - ```rust
-  pub fn solve_step(self: &mut Self, ode: &dyn OdeSystem, x: &mut f64, y: &mut Vec<f64>, dx_try: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  pub fn solve_step<Sys: OdeSystem + ?Sized>(self: &mut Self, ode: &Sys, x: &mut f64, y: &mut Vec<f64>, dx_try: &mut f64) -> Result<(), OdeError> { /* ... */ }
   ```
   Take one adaptive step. On return `x` and `y` are updated and `dx_try`
 
 - ```rust
-  pub fn integrate(self: &mut Self, ode: &dyn OdeSystem, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  pub fn integrate<Sys: OdeSystem + ?Sized>(self: &mut Self, ode: &Sys, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
   ```
   Integrate from `x_start` to `x_end`, updating `y` in place and leaving
 
@@ -8750,6 +9568,21 @@ pub struct Rkf45 {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Rkf45 { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -8767,6 +9600,15 @@ pub struct Rkf45 {
 - **Same**
 - **Send**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -8819,12 +9661,12 @@ pub struct Rosenbrock23 {
   Create a stiff solver for an `n`-equation system with the given absolute
 
 - ```rust
-  pub fn solve_step(self: &mut Self, ode: &dyn OdeSystem, x: &mut f64, y: &mut Vec<f64>, dx_try: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  pub fn solve_step<Sys: OdeSystem + ?Sized>(self: &mut Self, ode: &Sys, x: &mut f64, y: &mut Vec<f64>, dx_try: &mut f64) -> Result<(), OdeError> { /* ... */ }
   ```
   One adaptive step (retries with smaller dx if error > 1).
 
 - ```rust
-  pub fn integrate(self: &mut Self, ode: &dyn OdeSystem, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  pub fn integrate<Sys: OdeSystem + ?Sized>(self: &mut Self, ode: &Sys, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
   ```
   Integrate from `x_start` to `x_end`, updating `y` in place and leaving
 
@@ -8845,6 +9687,21 @@ pub struct Rosenbrock23 {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Rosenbrock23 { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -8862,6 +9719,15 @@ pub struct Rosenbrock23 {
 - **Same**
 - **Send**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -9132,12 +9998,54 @@ pub trait OdeSystem {
   ```
   Fill `dfdx` and `dfdy` with the Jacobian at `(x, y)`.
 
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `NoTypedSystem`
+
 ### Re-exports
 
 #### Re-export `Euler`
 
 ```rust
 pub use euler::Euler;
+```
+
+#### Re-export `DynSystemIntegrator`
+
+```rust
+pub use integrator::DynSystemIntegrator;
+```
+
+#### Re-export `NoTypedSystem`
+
+```rust
+pub use integrator::NoTypedSystem;
+```
+
+#### Re-export `OdeIntegrator`
+
+```rust
+pub use integrator::OdeIntegrator;
+```
+
+#### Re-export `OdeSolver`
+
+```rust
+pub use integrator::OdeSolver;
+```
+
+#### Re-export `SharedOdeSystem`
+
+```rust
+pub use integrator::SharedOdeSystem;
+```
+
+#### Re-export `TypedStateIntegrator`
+
+```rust
+pub use integrator::TypedStateIntegrator;
 ```
 
 #### Re-export `Rkf45`
@@ -10460,16 +11368,40 @@ pub use crate::matrix::MatrixError;
 pub use crate::matrix::SquareMatrix;
 ```
 
+#### Re-export `DynSystemIntegrator`
+
+```rust
+pub use crate::ode::DynSystemIntegrator;
+```
+
 #### Re-export `Euler`
 
 ```rust
 pub use crate::ode::Euler;
 ```
 
+#### Re-export `NoTypedSystem`
+
+```rust
+pub use crate::ode::NoTypedSystem;
+```
+
 #### Re-export `OdeError`
 
 ```rust
 pub use crate::ode::OdeError;
+```
+
+#### Re-export `OdeIntegrator`
+
+```rust
+pub use crate::ode::OdeIntegrator;
+```
+
+#### Re-export `OdeSolver`
+
+```rust
+pub use crate::ode::OdeSolver;
 ```
 
 #### Re-export `OdeSolverConfig`
@@ -10494,6 +11426,18 @@ pub use crate::ode::Rkf45;
 
 ```rust
 pub use crate::ode::Rosenbrock23;
+```
+
+#### Re-export `SharedOdeSystem`
+
+```rust
+pub use crate::ode::SharedOdeSystem;
+```
+
+#### Re-export `TypedStateIntegrator`
+
+```rust
+pub use crate::ode::TypedStateIntegrator;
 ```
 
 #### Re-export `interpolate_spline_xy`

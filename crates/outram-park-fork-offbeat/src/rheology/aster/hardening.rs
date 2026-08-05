@@ -17,19 +17,30 @@
 //!
 //! # Why this module exists
 //!
-//! Two modules grew their own `IsotropicHardening` enum independently —
+//! Two modules had grown their own `IsotropicHardening` enum independently —
 //! [`super::isotropic`] for the `VMIS_ISOT_*` radial return, and
 //! [`super::damage`] for the Rousselier and GTN porous-plastic laws. They
-//! collided by name, and neither could be re-exported alongside the other.
+//! collided by name, so neither could be re-exported alongside the other, and
+//! a caller reaching for "the hardening curve" had to know which law it was
+//! about to feed. This module replaced both; those two now import from here.
 //!
-//! The obvious reading is that one was a duplicate. It was not. Their
+//! The obvious reading was that one was a duplicate. It was not. Their
 //! `PowerLaw` variants are **different physics**: the `isotropic` one is
 //! upstream's `ecpuis`, `R = σ_y + σ_y (E p / (α σ_y))^(1/n)`, while the
 //! `damage` one is Ludwik, `R = σ_y + K p^n`. Merging them into a single
-//! variant would have silently replaced one curve with the other.
+//! variant would have silently replaced one curve with the other, so they are
+//! kept apart as [`AsterPower`](IsotropicHardening::AsterPower) and
+//! [`Ludwik`](IsotropicHardening::Ludwik) — the names say which is which where
+//! `PowerLaw` did not.
 //!
 //! So this module is the **union**, not the intersection: every curve family
-//! either module offered, each kept distinct, under one type that both can use.
+//! either module offered, each kept distinct, under one type that both use.
+//! The consolidation was behaviour-preserving in the curves themselves; what
+//! it did change is that both callers now get the other's guards (the `p ≥ 0`
+//! clamp and [`SLOPE_SINGULARITY_OFFSET`], previously only in `damage`) and
+//! that [`radial_return`](IsotropicHardening::radial_return) — which lives in
+//! [`super::isotropic`], next to its `nmisot` provenance — now accepts all five
+//! curve families rather than two.
 //!
 //! # The curve
 //!
@@ -57,6 +68,24 @@ use crate::error::{OffbeatError, Result};
 /// Note the curve is **C0 but not C1** there: the secant slope comes out
 /// exactly `n` times the curve's own slope at `p0`.
 pub const ASTER_POWER_LINEARISATION_STRAIN: f64 = 1.0e-10;
+
+/// The accumulated plastic strain at which a curve with a genuinely infinite
+/// initial slope is evaluated instead of at `p = 0`.
+///
+/// [`IsotropicHardening::Ludwik`] with `n < 1` and
+/// [`IsotropicHardening::EcroNl`] with `γm < 1` both have `dR/dp → ∞` as
+/// `p → 0`. That divergence is **real physics, not a coding error** — the
+/// Ludwik fit really does rise vertically out of the origin. It is nonetheless
+/// useless to a Newton step, which would propose an infinite correction, so
+/// [`slope`](IsotropicHardening::slope) reports the slope at this offset
+/// instead of an infinity.
+///
+/// Unlike [`ASTER_POWER_LINEARISATION_STRAIN`] this has **no upstream
+/// counterpart**: code_aster reaches these two curves only through the
+/// bracketed solves of the porous-plastic laws, which never ask for a slope at
+/// the origin. It is this port's own guard, and it changes only the *slope*,
+/// never the curve — [`value`](IsotropicHardening::value) is exact everywhere.
+pub const SLOPE_SINGULARITY_OFFSET: f64 = 1.0e-12;
 
 /// An isotropic hardening curve `R(p)`.
 ///
@@ -162,9 +191,14 @@ impl IsotropicHardening {
     /// Flow stress `R(p)` \[Pa\] at accumulated equivalent plastic strain `p`
     /// \[-\].
     ///
-    /// `p` must be non-negative.
+    /// `p` is an accumulated (monotone) measure and should be non-negative. A
+    /// negative argument is **clamped to zero** rather than rejected, which is
+    /// the physically meaningful extension — plastic strain never
+    /// un-accumulates — and is needed because a Newton iterate driving one of
+    /// the porous-plastic return maps can transiently overshoot below zero.
     #[must_use]
     pub fn value(self, p: f64) -> f64 {
+        let p = p.max(0.0);
         match self {
             Self::Perfect { yield_stress } => yield_stress,
             Self::Linear {
@@ -202,8 +236,16 @@ impl IsotropicHardening {
     /// The local Newton solves differentiate the curve, so this must be the
     /// exact derivative of [`value`](Self::value) — a mismatched slope
     /// degrades convergence silently rather than failing.
+    ///
+    /// Two variants have a genuinely infinite slope at the origin and are
+    /// evaluated at [`SLOPE_SINGULARITY_OFFSET`] instead: `Ludwik` with
+    /// `n < 1`, and `EcroNl` with `γm < 1`. `AsterPower` handles its own
+    /// divergence differently, by upstream's secant linearisation below
+    /// [`ASTER_POWER_LINEARISATION_STRAIN`]. As in [`value`](Self::value), a
+    /// negative `p` is clamped to zero.
     #[must_use]
     pub fn slope(self, p: f64) -> f64 {
+        let p = p.max(0.0);
         match self {
             Self::Perfect { .. } => 0.0,
             Self::Linear { modulus, .. } => modulus,
@@ -211,7 +253,14 @@ impl IsotropicHardening {
                 coefficient,
                 exponent,
                 ..
-            } => coefficient * exponent * p.powf(exponent - 1.0),
+            } => {
+                let q = if exponent < 1.0 {
+                    p.max(SLOPE_SINGULARITY_OFFSET)
+                } else {
+                    p
+                };
+                coefficient * exponent * q.powf(exponent - 1.0)
+            }
             Self::AsterPower { .. } => self.aster_power_curve(p).1,
             Self::EcroNl {
                 rh,
@@ -224,9 +273,14 @@ impl IsotropicHardening {
                 gamma_m,
                 ..
             } => {
+                let base = if gamma_m < 1.0 {
+                    (p + p0).max(SLOPE_SINGULARITY_OFFSET)
+                } else {
+                    p + p0
+                };
                 rh + r1 * gamma_1 * (-gamma_1 * p).exp()
                     + r2 * gamma_2 * (-gamma_2 * p).exp()
-                    + rk * gamma_m * (p + p0).powf(gamma_m - 1.0)
+                    + rk * gamma_m * base.powf(gamma_m - 1.0)
             }
         }
     }

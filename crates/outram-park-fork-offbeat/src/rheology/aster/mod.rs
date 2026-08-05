@@ -38,11 +38,20 @@
 //! **Verification-tested draft. Nothing here is validated.** Every test in
 //! every module below is *verification* — independent transcription of
 //! upstream's algebra, closed-form limits, invariants, and measured
-//! convergence orders. Nothing has been compared against code_aster output, a
-//! cladding-creepdown measurement, or any reactor data, and no such agreement
-//! is claimed. Note also that upstream's `astest` suite is **absent** from the
-//! clone this port was made from, so the reference oracle assumed by
-//! `docs/code-aster-port-scoping.md` §7 was not available.
+//! convergence orders. Nothing has been compared against a cladding-creepdown
+//! measurement or any reactor data, and no such agreement is claimed.
+//!
+//! Upstream's `astest` suite **is** available in the read-only clone (an
+//! earlier revision of this note wrongly said it was absent — it was merely
+//! outside the sparse checkout), and it lives in the GPL-3.0-or-later `src`
+//! repository, so it is in scope under `DATA_POLICY.md`. Two of its cases are
+//! now run as integration tests — `tests/astest_ssnv101a.rs` (Chaboche) and
+//! `tests/astest_ssnv126a.rs` (`VENDOCHAB`) — against upstream's own **`VALE_CALC`**
+//! computed values. That makes them *verification against a reference
+//! implementation*: they show this port reproduces code_aster's arithmetic,
+//! **not** that either code reproduces reality. Upstream's `VALE_REFE`
+//! analytical/experimental references are deliberately never asserted here —
+//! promoting a case to validation is the maintainer's call.
 //!
 //! Foundations:
 //!
@@ -50,6 +59,7 @@
 //! - [`kinematics`] — the Mandel convention and the deformation gradient.
 //! - [`integration`] — the scalar local solvers every law below shares.
 //! - [`log_strain`] — the `GDEF_LOG` large-strain wrapper.
+//! - [`hardening`] — the one isotropic-hardening curve every law above shares.
 //!
 //! Constitutive laws:
 //!
@@ -58,6 +68,7 @@
 //! | [`viscoplastic`] | `NORTON`, `LEMAITRE`, `LEMAITRE_IRRA` |
 //! | [`isotropic`] | `VMIS_ISOT_LINE`/`_PUIS` hardening, `NORTON_HOFF` |
 //! | [`chaboche`] | `VMIS_CIN1/2_CHAB`, `VISC_CIN1/2_CHAB`, `VMIS/VISC_CIN2_MEMO` |
+//! | [`viscochab`] | `VISCOCHAB` — the 27-variable rate system of `rkdcha.F90` |
 //! | [`damage`] | `VENDOCHAB`, `VISC_ENDO_LEMA`, `ROUSS_PR`, `ROUSS_VISC`, `GTN`, `VISC_GTN`, `CRIT_RUPT` |
 //! | [`metallurgy`] | `VISC_IRRA_LOG`, `GRAN_IRRA_LOG`, `IRRAD3M`, `META_LEMA_ANI` |
 //! | [`fracture`] | linear-elastic fracture post-processing only — see below |
@@ -90,7 +101,7 @@ pub mod isotropic;
 pub mod kinematics;
 pub mod log_strain;
 pub mod metallurgy;
-pub mod viscochab; // TEMPORARY-AGENT-WIRING: remove before hand-off
+pub mod viscochab;
 pub mod viscoplastic;
 
 pub use catalogue::{AsterBehaviour, ALL};
@@ -98,15 +109,6 @@ pub use chaboche::{
     BackStress, ChabocheIncrement, ChabocheLaw, ChabocheLocalState, ChabocheParameters,
     ChabochePredictor, ChabocheState, ElasticModuli, StrainMemory, ThermoElasticStep,
 };
-// NOTE: `damage::IsotropicHardening` is deliberately NOT re-exported here.
-// It collides with [`isotropic::IsotropicHardening`], and the two are genuinely
-// different types: the `isotropic` one is the `VMIS_ISOT_*` / `VISC_ISOT_*`
-// hardening curve driving the von Mises radial return, while the `damage` one
-// is the curve set used by the Rousselier and GTN porous-plastic laws. Both
-// names are defensible in their own module, so neither was renamed unilaterally
-// — reach them as `damage::IsotropicHardening` and `isotropic::IsotropicHardening`.
-// Consolidating them into one curve type is the real fix and is a design
-// decision for the maintainer, not a mechanical rename.
 pub use damage::{
     equivalent_stress, max_principal_stress, mean_stress, DamageOutcome, GtnIncrement,
     GtnNucleation, GtnOutcome, GtnParameters, GtnState, GursonTvergaardNeedleman,
@@ -122,19 +124,29 @@ pub use fracture::{
     CrackTipBasis, LinearElasticConstants, ModeEnergyRelease, NearTipField, PlanarCrackTipResult,
     StressIntensityFactors, MAX_LEGENDRE_FRONT_DEGREE,
 };
+pub use hardening::{
+    IsotropicHardening, ASTER_POWER_LINEARISATION_STRAIN, SLOPE_SINGULARITY_OFFSET,
+};
 pub use integration::{
     brent, newton_perturbed, newton_safeguarded, perturbed_default, secant, LocalSolution,
     ScalarAlgorithm, SolverControl,
 };
-pub use isotropic::{
-    IsotropicHardening, LinearHardening, NortonHoffLimitAnalysis, PowerLawHardening,
-};
+pub use isotropic::NortonHoffLimitAnalysis;
 pub use kinematics::{hencky_strain, AsterVoigt, DeformationGradient};
 pub use log_strain::LogarithmicStrain;
 pub use metallurgy::{
     HillAnisotropy, Irrad3m, Irrad3mHardening, Irrad3mIncrement, Irrad3mParameters, Irrad3mState,
     IrradiationGrowthDirection, LogarithmicIrradiationLaw, LogarithmicIrradiationParameters,
     MetaLemaAni, MetaLemaAniIncrement, MetaLemaAniPhase, IRRAD3M_PROOF_STRAIN,
+};
+// NOTE: `viscochab`'s three consts — `ASTER_COEFFICIENT_NAMES`,
+// `INTERNAL_VARIABLE_COUNT` and `ODE_EQUATION_COUNT` — are deliberately left
+// module-qualified rather than flattened here. Each names a property of *one*
+// law, and all three would collide the moment a second rate-system law lands.
+// Reach them as `viscochab::ODE_EQUATION_COUNT`.
+pub use viscochab::{
+    ViscoplasticChabocheParameters, ViscoplasticChabocheRates, ViscoplasticChabocheState,
+    ViscoplasticChabocheSystem, ViscoplasticChabocheWithMemory, RKDCHA_ALPHA2_USES_D1,
 };
 pub use viscoplastic::{
     deviator, von_mises_of_deviator, CreepIncrement, LemaitreParameters, NortonParameters,

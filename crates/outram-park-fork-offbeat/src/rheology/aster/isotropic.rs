@@ -23,10 +23,14 @@
 //! Two things that both reuse the scalar radial return, and are otherwise
 //! unrelated:
 //!
-//! - [`IsotropicHardening`] — the hardening curve `R(p)` of code_aster's
-//!   `VMIS_ISOT_*` / `VISC_ISOT_*` family, plus the scalar return that solves
-//!   for the plastic multiplier against it. Rate-**in**dependent; see the
-//!   warning below.
+//! - The scalar radial return that solves for the plastic multiplier against a
+//!   hardening curve — code_aster's `VMIS_ISOT_*` / `VISC_ISOT_*` family.
+//!   Rate-**in**dependent; see the warning below. It is implemented as an
+//!   inherent method on [`IsotropicHardening`], which lives in
+//!   [`super::hardening`] because every law in this port shares it. `_LINE` is
+//!   [`IsotropicHardening::Linear`] and `_PUIS` is
+//!   [`IsotropicHardening::AsterPower`]; the return also accepts the three
+//!   further curve families that module carries.
 //! - [`NortonHoffLimitAnalysis`] — the `NORTON_HOFF` law, which despite its
 //!   name is not a creep law at all but a regularisation used to compute
 //!   **limit loads**.
@@ -63,140 +67,21 @@
 //! `1.5 × 2μ = 3μ`.
 
 use crate::error::{OffbeatError, Result};
+use crate::rheology::aster::hardening::IsotropicHardening;
 use crate::rheology::aster::integration::{brent, LocalSolution, SolverControl};
 use crate::rheology::aster::kinematics::AsterVoigt;
 
-/// Isotropic hardening curve `R(p)` — the radius of the von Mises yield
-/// surface as a function of accumulated equivalent plastic strain.
-///
-/// ASTER behaviour names: the `_LINE` and `_PUIS` suffixes of
-/// `VMIS_ISOT_LINE`, `VMIS_ISOT_PUIS`, `VISC_ISOT_LINE` (`num_lc = 2`).
-/// Upstream: `bibfor/comport/nmisot.F90` (legacy symbol `nmisot`), with the
-/// power-law curve in `bibfor/comport/ecpuis.F90` (`ecpuis`).
-///
-/// Enum dispatch rather than a trait object, per the workspace rule: the set of
-/// hardening curves is closed, and adding one must force every `match` to be
-/// revisited.
-///
-/// # Not ported
-///
-/// `_TRAC` — a hardening curve given as a **tabulated** traction curve read
-/// from the material deck (upstream `rctrac`/`rcfonc`). It needs the material
-/// data-table infrastructure rather than any new mechanics, so it is left out
-/// deliberately rather than approximated.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum IsotropicHardening {
-    /// Linear hardening, `R(p) = σ_y + H p`.
-    ///
-    /// Upstream's `_LINE` branch. The cheapest useful hardening model, and the
-    /// only one whose radial return has a closed-form solution.
-    Linear(LinearHardening),
-    /// Power-law (Ramberg-Osgood style) hardening.
-    ///
-    /// Upstream's `_PUIS` branch, curve `ecpuis`.
-    PowerLaw(PowerLawHardening),
-}
+// ── The radial return, on the shared hardening curve ─────────────────────────
 
-/// Parameters of linear isotropic hardening.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct LinearHardening {
-    /// Initial yield stress `σ_y` \[Pa\]. Upstream `SY` of `ECRO_LINE`.
-    ///
-    /// Must be positive; a zero or negative yield stress has no physical
-    /// meaning and is rejected by [`IsotropicHardening::radial_return`].
-    pub yield_stress: f64,
-    /// Hardening modulus `H = dR/dp` \[Pa\]. Upstream `rprim`.
-    ///
-    /// Zero gives perfect plasticity. Negative values model *softening* and are
-    /// permitted, but see the note on
-    /// [`radial_return`](IsotropicHardening::radial_return) — softening steeper
-    /// than `-3μ` destroys the uniqueness of the return.
-    pub hardening_modulus: f64,
-}
-
-/// Parameters of power-law isotropic hardening.
+/// The scalar von Mises radial return of `nmisot`, added to the shared
+/// [`IsotropicHardening`] curve.
 ///
-/// The curve is
-///
-/// `R(p) = σ_y + σ_y · (E p / (α σ_y))^(1/n)`,
-///
-/// which is upstream `ecpuis` verbatim, with `unsurn = 1/n`.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct PowerLawHardening {
-    /// Initial yield stress `σ_y` \[Pa\]. Must be positive.
-    pub yield_stress: f64,
-    /// Young's modulus `E` \[Pa\]. Must be positive.
-    pub youngs_modulus: f64,
-    /// Dimensionless coefficient `α` \[-\]. Upstream `alfafa`. Must be
-    /// positive.
-    pub alpha: f64,
-    /// Hardening exponent `n` \[-\]. Upstream stores its reciprocal as
-    /// `unsurn`. Must be positive; `n = 1` recovers linear hardening in `p`.
-    pub exponent: f64,
-}
-
-/// Below this accumulated plastic strain the power-law curve is replaced by its
-/// secant line through the origin.
-///
-/// Upstream's `p0 = 1.d-10`, reproduced exactly. The reason is that
-/// `dR/dp ∝ p^(1/n - 1)` diverges as `p → 0` for any `n > 1`, so a Newton step
-/// taken at `p = 0` would see an infinite slope. Upstream replaces the curve
-/// below `p0` with the straight line joining the origin to `R(p0)`, which is
-/// finite-sloped and continuous with the curve at `p0`.
-const POWER_LAW_LINEARISATION_STRAIN: f64 = 1.0e-10;
-
+/// The curve itself lives in [`super::hardening`] because every law in this
+/// port needs it; the *return map* below is specific to `VMIS_ISOT_*` /
+/// `VISC_ISOT_*`, so it stays here with the rest of that law's provenance.
+/// Rust gathers both inherent `impl` blocks onto one rustdoc page, so a reader
+/// hovering the type still sees the whole API at once.
 impl IsotropicHardening {
-    /// The yield radius `R(p)` \[Pa\] at accumulated equivalent plastic strain
-    /// `p` \[-\].
-    ///
-    /// `p` must be non-negative; it is an accumulated (monotone) measure.
-    #[must_use]
-    pub fn yield_radius(&self, p: f64) -> f64 {
-        match self {
-            Self::Linear(h) => h.yield_stress + h.hardening_modulus * p,
-            Self::PowerLaw(h) => {
-                let (radius, _) = power_law_curve(*h, p);
-                radius
-            }
-        }
-    }
-
-    /// The hardening slope `R'(p) = dR/dp` \[Pa\] at accumulated equivalent
-    /// plastic strain `p` \[-\].
-    #[must_use]
-    pub fn hardening_slope(&self, p: f64) -> f64 {
-        match self {
-            Self::Linear(h) => h.hardening_modulus,
-            Self::PowerLaw(h) => {
-                let (_, slope) = power_law_curve(*h, p);
-                slope
-            }
-        }
-    }
-
-    /// The initial yield stress `σ_y` \[Pa\].
-    #[must_use]
-    pub fn yield_stress(&self) -> f64 {
-        match self {
-            Self::Linear(h) => h.yield_stress,
-            Self::PowerLaw(h) => h.yield_stress,
-        }
-    }
-
-    /// The ASTER behaviour-name suffix this curve corresponds to.
-    ///
-    /// Returned verbatim, per the workspace naming rule: `"_LINE"` or
-    /// `"_PUIS"`. These are the trailing five characters upstream's `nmisot`
-    /// itself branches on, so a reader can match this port to that `if` chain
-    /// directly.
-    #[must_use]
-    pub fn aster_name_suffix(&self) -> &'static str {
-        match self {
-            Self::Linear(_) => "_LINE",
-            Self::PowerLaw(_) => "_PUIS",
-        }
-    }
-
     /// Solve the von Mises radial return for the plastic multiplier.
     ///
     /// # Arguments
@@ -218,17 +103,24 @@ impl IsotropicHardening {
     /// Otherwise `Some(solution)` with the plastic multiplier `Δp` in
     /// `solution.root`.
     ///
-    /// # Which solver, and why the linear case is not iterated
+    /// # Which solver, and why two variants are not iterated
     ///
-    /// Linear hardening admits the closed form
-    /// `Δp = (σ_eq - σ_y - H p_m) / (H + 3μ)`, which upstream also uses rather
-    /// than iterating. It is exact, so iterating it would only add rounding.
-    /// The power law has no closed form and is bracketed with
-    /// [`brent`] on upstream's
-    /// `nmcri2` residual. The bracket `[0, σ_eq / (3μ)]` is guaranteed to
-    /// straddle the root whenever the step is plastic: at `Δp = 0` the residual
-    /// is `R(p_m) - σ_eq < 0`, and at the upper end the `3μΔp` term alone
-    /// already equals `σ_eq` while `R ≥ σ_y > 0`, so the residual is positive.
+    /// [`Perfect`](IsotropicHardening::Perfect) and
+    /// [`Linear`](IsotropicHardening::Linear) admit the closed form
+    /// `Δp = (σ_eq - σ_y - H p_m) / (H + 3μ)` — with `H = 0` for `Perfect` —
+    /// which upstream also uses rather than iterating. It is exact, so
+    /// iterating it would only add rounding.
+    ///
+    /// The three nonlinear curves have no closed form and are bracketed with
+    /// [`brent`] on upstream's `nmcri2` residual. The bracket
+    /// `[0, σ_eq / (3μ)]` straddles the root whenever the step is plastic and
+    /// the curve is non-decreasing: at `Δp = 0` the residual is
+    /// `R(p_m) - σ_eq < 0`, and at the upper end the `3μΔp` term alone already
+    /// equals `σ_eq` while `R ≥ 0`, so the residual is positive. `Ludwik` and
+    /// `AsterPower` are non-decreasing by construction; `EcroNl` is too for any
+    /// parameter set with non-negative amplitudes, and [`brent`] reports an
+    /// unbracketed root rather than returning a wrong one if a softening set is
+    /// supplied.
     ///
     /// # Errors
     ///
@@ -239,8 +131,8 @@ impl IsotropicHardening {
     ///
     /// # A note on softening
     ///
-    /// A sufficiently negative `hardening_modulus` (`H ≤ -3μ`) makes the
-    /// residual non-increasing in `Δp`, so the return has no unique solution —
+    /// A sufficiently negative `modulus` (`H ≤ -3μ`) makes the residual
+    /// non-increasing in `Δp`, so the return has no unique solution —
     /// physically, the material sheds stress faster than the elastic unloading
     /// can follow. This port **rejects** that case rather than returning the
     /// formally-computed value, because the closed form still evaluates to a
@@ -276,42 +168,32 @@ impl IsotropicHardening {
         }
 
         let three_mu = 3.0 * shear_modulus;
-        let radius_at_start = self.yield_radius(accumulated_strain);
+        let radius_at_start = self.value(accumulated_strain);
 
         // Upstream's `seuil = sieleq - rp`; `seuil <= 0` is the elastic branch.
         if trial_equivalent_stress - radius_at_start <= 0.0 {
             return Ok(None);
         }
 
-        match self {
-            Self::Linear(h) => {
-                let denominator = h.hardening_modulus + three_mu;
-                if denominator <= 0.0 {
-                    return Err(OffbeatError::Unphysical {
-                        quantity: "hardening modulus",
-                        value: h.hardening_modulus,
-                        unit: "Pa",
-                        reason: "softening at or beyond -3*mu makes the radial \
-                                 return non-unique",
-                    });
-                }
-                let delta_p = (trial_equivalent_stress
-                    - h.yield_stress
-                    - h.hardening_modulus * accumulated_strain)
-                    / denominator;
-                Ok(Some(LocalSolution {
-                    root: delta_p,
-                    residual: self.return_residual(
-                        delta_p,
-                        trial_equivalent_stress,
-                        three_mu,
-                        accumulated_strain,
-                    ),
-                    iterations: 0,
-                    bisection_steps: 0,
-                }))
-            }
-            Self::PowerLaw(_) => {
+        match *self {
+            Self::Perfect { yield_stress } => self.closed_form_return(
+                yield_stress,
+                0.0,
+                trial_equivalent_stress,
+                three_mu,
+                accumulated_strain,
+            ),
+            Self::Linear {
+                yield_stress,
+                modulus,
+            } => self.closed_form_return(
+                yield_stress,
+                modulus,
+                trial_equivalent_stress,
+                three_mu,
+                accumulated_strain,
+            ),
+            Self::Ludwik { .. } | Self::AsterPower { .. } | Self::EcroNl { .. } => {
                 let upper = trial_equivalent_stress / three_mu;
                 let solution = brent(
                     |dp| {
@@ -330,6 +212,41 @@ impl IsotropicHardening {
         }
     }
 
+    /// The exact return for a curve of constant slope `H`, shared by `Perfect`
+    /// (`H = 0`) and `Linear`.
+    fn closed_form_return(
+        &self,
+        yield_stress: f64,
+        modulus: f64,
+        trial_equivalent_stress: f64,
+        three_mu: f64,
+        accumulated_strain: f64,
+    ) -> Result<Option<LocalSolution>> {
+        let denominator = modulus + three_mu;
+        if denominator <= 0.0 {
+            return Err(OffbeatError::Unphysical {
+                quantity: "hardening modulus",
+                value: modulus,
+                unit: "Pa",
+                reason: "softening at or beyond -3*mu makes the radial \
+                         return non-unique",
+            });
+        }
+        let delta_p =
+            (trial_equivalent_stress - yield_stress - modulus * accumulated_strain) / denominator;
+        Ok(Some(LocalSolution {
+            root: delta_p,
+            residual: self.return_residual(
+                delta_p,
+                trial_equivalent_stress,
+                three_mu,
+                accumulated_strain,
+            ),
+            iterations: 0,
+            bisection_steps: 0,
+        }))
+    }
+
     /// Upstream's `nmcri2` residual, `R(p_m + Δp) + 3μ Δp - σ_eq^trial`.
     ///
     /// Zero exactly when the returned stress lies on the yield surface.
@@ -344,44 +261,8 @@ impl IsotropicHardening {
         three_shear_moduli: f64,
         accumulated_strain: f64,
     ) -> f64 {
-        self.yield_radius(accumulated_strain + delta_p) + three_shear_moduli * delta_p
+        self.value(accumulated_strain + delta_p) + three_shear_moduli * delta_p
             - trial_equivalent_stress
-    }
-
-    fn validate(&self) -> Result<()> {
-        match self {
-            Self::Linear(h) => check_positive(h.yield_stress, "yield stress", "Pa"),
-            Self::PowerLaw(h) => {
-                check_positive(h.yield_stress, "yield stress", "Pa")?;
-                check_positive(h.youngs_modulus, "Young's modulus", "Pa")?;
-                check_positive(h.alpha, "power-law hardening coefficient alpha", "-")?;
-                check_positive(h.exponent, "power-law hardening exponent n", "-")
-            }
-        }
-    }
-}
-
-/// The power-law curve and its slope, upstream `ecpuis`.
-///
-/// Returns `(R(p), R'(p))` in \[Pa\] and \[Pa\] respectively. Below
-/// [`POWER_LAW_LINEARISATION_STRAIN`] the curve is the secant line through the
-/// origin, exactly as upstream does.
-fn power_law_curve(h: PowerLawHardening, p: f64) -> (f64, f64) {
-    let inverse_n = 1.0 / h.exponent;
-    let coefficient = h.youngs_modulus / (h.alpha * h.yield_stress);
-    let p0 = POWER_LAW_LINEARISATION_STRAIN;
-
-    if p <= p0 {
-        // Upstream: rp0 = sigy*(E/alfafa/sigy*p0)^(1/n) + sigy, then the
-        // straight line from (0, sigy) to (p0, rp0).
-        let radius_at_p0 = h.yield_stress * (coefficient * p0).powf(inverse_n) + h.yield_stress;
-        let slope = (radius_at_p0 - h.yield_stress) / p0;
-        (h.yield_stress + p * slope, slope)
-    } else {
-        let radius = h.yield_stress * (coefficient * p).powf(inverse_n) + h.yield_stress;
-        let slope =
-            inverse_n * h.yield_stress * coefficient * (coefficient * p).powf(inverse_n - 1.0);
-        (radius, slope)
     }
 }
 

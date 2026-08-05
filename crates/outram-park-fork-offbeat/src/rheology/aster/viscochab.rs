@@ -64,7 +64,7 @@
 //! All six-component tensors are in code_aster's Mandel convention — ordering
 //! `(XX, YY, ZZ, XY, XZ, YZ)` with the shear entries scaled by `√2`, so that a
 //! plain dot product *is* the tensor double contraction. Use
-//! [`AsterVoigt`](super::kinematics::AsterVoigt) to convert; constructing the
+//! [`AsterVoigt`] to convert; constructing the
 //! six numbers by hand without the scaling is the classic way to get this
 //! wrong.
 //!
