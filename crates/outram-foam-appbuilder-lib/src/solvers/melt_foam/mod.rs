@@ -208,10 +208,11 @@ pub struct MeltFoam {
     /// Measured on the 1-D Stefan case in this crate's `melting_vv_cases`
     /// integration test (400 cells, dt = 0.01 s, 10 000 steps, 2026-08-05):
     ///
-    /// | T-solve tolerance | Energy imbalance |
-    /// |---|---|
-    /// | `1e-7` (the generic default) | **-0.9221 %** of the wall heat input |
-    /// | `1e-14` | **-1.96e-6 J/m²**, i.e. -0.0000 % |
+    /// | T-solve tolerance | Δ(enthalpy) | ∫ wall heat | Imbalance |
+    /// |---|---|---|---|
+    /// | `1e-7` (the generic default) | 2111.019463 J/m² | 2130.665578 J/m² | -19.646 J/m², **-0.9221 %** |
+    /// | `1e-12` (this default) | 2128.217773 J/m² | 2128.218044 J/m² | -2.7108e-4 J/m², **-1.27e-5 %** |
+    /// | `1e-14` | — | 2128.218016 J/m² | -1.9647e-6 J/m², **-9.23e-8 %** |
     ///
     /// A 0.9 % energy loss would be indistinguishable from a physics error while
     /// being purely numerical, which is exactly the kind of drift that makes a
@@ -491,6 +492,32 @@ impl MeltFoam {
                         phi_hbya.internal[f] -= rauf_int[f] * sng_int[f] * mesh.face_areas[f];
                     }
                     self.phi = phi_hbya;
+                }
+
+                // Constrain the BOUNDARY face fluxes to the prescribed velocity
+                // BC — OpenFOAM's `constrainHbyA` / `phi.boundaryFieldRef()`.
+                //
+                // The corrector above touches internal faces only, so without
+                // this the boundary fluxes keep whatever `fvc::flux(HbyA)` left
+                // there: a zero-gradient *extrapolation*, which is not zero at a
+                // no-slip wall. That matters because `fvm::div` reads
+                // `phi.boundary` — a spurious inward flux on the hot wall
+                // (a `FixedValue` T patch) enters the temperature equation as
+                // `source -= phi_f·T_wall`, injecting energy through a solid
+                // wall. Measured effect before this constraint: temperatures
+                // reaching ~363 K in a cavity whose hottest boundary is 311 K.
+                //
+                // `pimple_foam` does not hit this because it transports no
+                // scalar; the momentum equation never reads `phi.boundary`.
+                for (pi, patch) in mesh.patches.iter().enumerate() {
+                    if matches!(self.u.boundary[pi].bc, BoundaryCondition::Empty) {
+                        continue;
+                    }
+                    for fi in 0..patch.size {
+                        let gf = patch.start + fi;
+                        self.phi.boundary[pi].values[fi] =
+                            self.u.boundary[pi].values[fi].dot(mesh.face_area_vectors[gf]);
+                    }
                 }
 
                 self.u = hbya - rau.clone() * fvc::grad(&self.p);

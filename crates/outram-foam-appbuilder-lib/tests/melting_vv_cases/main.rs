@@ -134,13 +134,13 @@ fn rect_mesh(nx: usize, ny: usize, width: f64, height: f64, depth: f64) -> Arc<F
     let n_internal = owner.len();
 
     let mut patches = Vec::new();
-    let mut push_patch = |name: &str,
-                          kind: PatchKind,
-                          faces: Vec<(usize, Vector3, Vector3)>,
-                          owner: &mut Vec<usize>,
-                          fav: &mut Vec<Vector3>,
-                          fc: &mut Vec<Vector3>,
-                          patches: &mut Vec<BoundaryPatch>| {
+    let push_patch = |name: &str,
+                      kind: PatchKind,
+                      faces: Vec<(usize, Vector3, Vector3)>,
+                      owner: &mut Vec<usize>,
+                      fav: &mut Vec<Vector3>,
+                      fc: &mut Vec<Vector3>,
+                      patches: &mut Vec<BoundaryPatch>| {
         let start = owner.len();
         let size = faces.len();
         for (o, a, c) in faces {
@@ -374,15 +374,8 @@ fn run_stefan(case: &StefanCase) -> StefanResult {
 
     // beta = 0 and g = 0: pure conduction, which is what the Stefan solution
     // assumes. Any buoyancy here would invalidate the comparison.
-    let coeffs = MeltFoam::boussinesq_coefficients(
-        T_MELT,
-        T_MELT + case.mushy,
-        LATENT,
-        CP,
-        1.0,
-        0.0,
-        1.0e8,
-    );
+    let coeffs =
+        MeltFoam::boussinesq_coefficients(T_MELT, T_MELT + case.mushy, LATENT, CP, 1.0, 0.0, 1.0e8);
     s.fv_models
         .push(FvModel::SolidificationMelting(SolidificationMelting::new(
             "melt",
@@ -442,7 +435,7 @@ fn run_stefan(case: &StefanCase) -> StefanResult {
 ///
 /// **Reference (exact, analytical).** The melt front advances as
 ///
-/// $$ s(t) = 2\lambda\sqrt{\alpha_{th} t}, \quad \lambda e^{\lambda^{2}}\operatorname{erf}(\lambda) = \frac{St}{\sqrt{\pi}} $$
+/// $$ s(t) = 2\lambda\sqrt{\alpha_{th} t}, \quad \lambda e^{\lambda^{2}}\mathrm{erf}(\lambda) = \frac{St}{\sqrt{\pi}} $$
 ///
 /// This is a closed-form solution of the same conservation laws the scheme
 /// discretises — no literature data is involved, so it is available even with
@@ -504,7 +497,10 @@ fn stefan_problem_matches_similarity_solution() {
     let err_int = 100.0 * (r.integral - r.exact) / r.exact;
     let err_front = 100.0 * (r.front_half - r.exact) / r.exact;
     println!("exact front         = {:.6} m", r.exact);
-    println!("integral melt       = {:.6} m  ({err_int:+.3} %)", r.integral);
+    println!(
+        "integral melt       = {:.6} m  ({err_int:+.3} %)",
+        r.integral
+    );
     println!(
         "alpha=0.5 contour   = {:.6} m  ({err_front:+.3} %)",
         r.front_half
@@ -549,7 +545,8 @@ fn stefan_problem_matches_similarity_solution() {
 /// | T-solve tolerance | Δ(enthalpy) | ∫ wall flux | Imbalance |
 /// |---|---|---|---|
 /// | `1e-7` (generic default) | 2111.019463 J/m² | 2130.665578 J/m² | **-19.646 J/m², -0.9221 %** |
-/// | `1e-12` (`MeltFoam` default) | — | 2128.218016 J/m² | **-1.96e-6 J/m², -0.0000 %** |
+/// | `1e-12` (`MeltFoam` default, what this test runs) | 2128.217773 J/m² | 2128.218044 J/m² | **-2.7108e-4 J/m², -1.27e-5 %** |
+/// | `1e-14` | — | 2128.218016 J/m² | **-1.9647e-6 J/m², -9.23e-8 %** |
 ///
 /// **Interpretation.** At a tight linear-solver tolerance the scheme conserves
 /// energy to machine precision, confirming the latent-heat source, the
@@ -622,7 +619,10 @@ fn enthalpy_porosity_conserves_energy() {
     let imbalance_pct = 100.0 * (d_h - q_in) / q_in;
     println!("d(enthalpy)   = {d_h:.6} J/m^2");
     println!("wall heat in  = {q_in:.6} J/m^2");
-    println!("imbalance     = {:+.4e} J/m^2 ({imbalance_pct:+.4} %)", d_h - q_in);
+    println!(
+        "imbalance     = {:+.4e} J/m^2 ({imbalance_pct:+.4} %)",
+        d_h - q_in
+    );
 
     assert!(
         imbalance_pct.abs() < 1e-4,
@@ -758,20 +758,49 @@ impl Default for GalliumCase {
 ///
 /// ## Results (measured 2026-08-05, `cargo test --release`)
 ///
-/// Dimensionless groups computed from the placeholder properties (printed by the
-/// test): `Pr = 0.0248`, `St = 0.0390`, `Ra = 2.408e5`.
+/// Dimensionless groups derived from the placeholder properties, as printed by
+/// the test: **`Pr = 0.0248`, `St = 0.0390`, `Ra = 1.6430e6`**.
 ///
 /// | Quantity at t = 60 s | Measured |
 /// |---|---|
-/// | Mean liquid fraction | 0.1essentially — see printed value |
-/// | Front position, top row | see printed value |
-/// | Front position, bottom row | see printed value |
-/// | Peak speed | see printed value |
+/// | Mean liquid fraction | 0.084693 |
+/// | Liquid fraction, left (hot) column | 1.000000 |
+/// | Liquid fraction, right (cold) column | 0.000000 |
+/// | Front position, top row | 0.008092 m |
+/// | Front position, mid row | 0.007474 m |
+/// | Front position, bottom row | 0.007266 m |
+/// | Top-minus-bottom tilt | 0.000826 m (**11.0 %** of the front depth) |
+/// | Peak speed | 1.102198e-2 m/s |
+/// | Temperature range | [301.3068, 310.1481] K |
 ///
-/// The numeric values are printed by the test rather than transcribed into a
-/// table here, because with unverified properties a transcribed number invites
-/// being quoted as a benchmark result. **Comparison against Gau & Viskanta:
-/// GAP — awaiting the paper.**
+/// **Interpretation — and its limits.** All five criteria hold: the cavity is
+/// partially melted, the melt leads at the hot wall, a convection cell develops
+/// at a speed consistent with the buoyant scale `sqrt(g·β·ΔT·δ) ≈ 7e-3 m/s`, the
+/// front is tilted 11 % deeper at the top than the bottom — the convection
+/// signature the experiment is known for — and the temperature stays strictly
+/// inside the wall range.
+///
+/// That the qualitative behaviour is right is **not** evidence that the melt
+/// rate is right. The properties are unverified and the run is 60 s against an
+/// experiment lasting ~19 minutes, so the numbers above are a *record of what
+/// this code did on this date*, nothing more. **Comparison against Gau &
+/// Viskanta: GAP — awaiting the paper.**
+///
+/// ## Two solver bugs this case caught (both fixed; see `melt_foam`)
+///
+/// Recorded because the *first* version of this case passed while both were
+/// live, and it is worth knowing what a passing melting test can hide:
+///
+/// 1. **The velocity field was silently renamed.** `self.u = hbya - rau*grad(p)`
+///    takes the left operand's name, so the velocity became `"HbyA"`, and
+///    `FvModels` — which dispatches on field name — skipped the buoyancy and
+///    Darcy drag on every step after the first. Peak speed was 1.18e-13 m/s and
+///    the front perfectly vertical.
+/// 2. **The boundary face fluxes of `phi` were unconstrained.** The PISO
+///    corrector touches internal faces only, so the walls kept the zero-gradient
+///    `HbyA` extrapolation instead of the prescribed zero flux; `fvm::div` reads
+///    `phi.boundary`, so energy leaked in through the hot wall and temperatures
+///    reached ~363 K against a 311 K hot wall.
 ///
 /// ## What would close the GAP
 ///
@@ -870,10 +899,13 @@ fn gallium_melting_cavity_gau_viskanta_configuration() {
     let peak_speed = (0..n)
         .map(|i| s.u.internal[i].mag())
         .fold(0.0_f64, f64::max);
-    let (t_min, t_max) = s.t.internal.as_slice().iter().fold(
-        (f64::INFINITY, f64::NEG_INFINITY),
-        |(lo, hi), &v| (lo.min(v), hi.max(v)),
-    );
+    let (t_min, t_max) =
+        s.t.internal
+            .as_slice()
+            .iter()
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+                (lo.min(v), hi.max(v))
+            });
 
     println!("--- gallium cavity, t = {t_end} s, {nx}x{ny} cells ---");
     println!("mean liquid fraction   = {mean_alpha:.6}");
@@ -904,68 +936,30 @@ fn gallium_melting_cavity_gau_viskanta_configuration() {
     );
     // 4. The front is convection-deformed, not the vertical front conduction
     //    alone would give. This is the qualitative Gau & Viskanta signature.
+    //
+    //    The bar is a *relative* tilt of at least 2 % of the front depth, not
+    //    merely `front_top > front_bottom`. An earlier version of this test used
+    //    the bare inequality and passed on a tilt of ~1e-18 m — floating-point
+    //    noise — while the solver was in fact producing no convection at all
+    //    (the fvModel was being skipped; see the melt_foam field-name
+    //    regression test). A criterion that a broken solver can satisfy by
+    //    accident is worse than no criterion, so this one has a real threshold.
+    let relative_tilt = (front_top - front_bottom) / front_mid;
+    println!(
+        "relative tilt          = {:.4} ({:.2} %)",
+        relative_tilt,
+        100.0 * relative_tilt
+    );
     assert!(
-        front_top > front_bottom,
-        "convection must advance the front further at the top ({front_top} m) \
-         than at the bottom ({front_bottom} m); an equal or inverted tilt means \
-         the buoyancy coupling is wrong"
+        relative_tilt > 0.02,
+        "convection must advance the front measurably further at the top \
+         ({front_top} m) than at the bottom ({front_bottom} m); measured \
+         relative tilt {relative_tilt:.6} is below the 2 % bar, which means the \
+         buoyancy coupling is not reaching the momentum equation"
     );
     // 5. No unphysical temperature excursion.
     assert!(
         t_min >= c.t_cold - 1e-6 && t_max <= c.t_hot + 1e-6,
         "temperature must stay within the wall range, got [{t_min}, {t_max}]"
     );
-}
-// appended diagnostic
-#[test]
-fn probe_convection_diagnosis() {
-    let c = GalliumCase::default();
-    let (nx, ny) = (40usize, 30usize);
-    let dt = 0.005;
-    let mesh = rect_mesh(nx, ny, c.width, c.height, c.depth);
-    let n = nx * ny;
-    let mut control = ControlDict::default();
-    control.delta_t = dt;
-    let mut s = MeltFoam::new(mesh.clone(), control, FvSchemes::default(), FvSolution::default());
-    s.t = VolScalarField::uniform("T", mesh.clone(), c.t_cold);
-    s.nu = VolScalarField::uniform("nu", mesh.clone(), c.kinematic_viscosity);
-    s.alpha_thermal = VolScalarField::uniform("alphat", mesh.clone(), c.thermal_diffusivity);
-    for p in [P_LEFT, P_RIGHT, P_BOTTOM, P_TOP] {
-        s.u.boundary[p].bc = BoundaryCondition::NoSlip;
-        for v in s.u.boundary[p].values.iter_mut() { *v = Vector3::new(0.0,0.0,0.0); }
-    }
-    s.t.boundary[P_LEFT].bc = BoundaryCondition::FixedValue(c.t_hot);
-    for v in s.t.boundary[P_LEFT].values.iter_mut() { *v = c.t_hot; }
-    s.t.boundary[P_RIGHT].bc = BoundaryCondition::FixedValue(c.t_cold);
-    for v in s.t.boundary[P_RIGHT].values.iter_mut() { *v = c.t_cold; }
-    s.t.boundary[P_BOTTOM].bc = BoundaryCondition::ZeroGradient;
-    s.t.boundary[P_TOP].bc = BoundaryCondition::ZeroGradient;
-    let coeffs = MeltFoam::boussinesq_coefficients(
-        c.t_melt, c.t_melt + c.mushy_interval, c.latent_heat, c.specific_heat,
-        c.density, c.thermal_expansion, c.darcy_coefficient);
-    println!("coeffs: rho_ref={} beta={} Cu_kin={} q={}", coeffs.reference_density, coeffs.thermal_expansion, coeffs.darcy_coefficient, coeffs.darcy_regularisation);
-    s.fv_models.push(FvModel::SolidificationMelting(SolidificationMelting::new(
-        "gallium","U","T",true,CellSelection::All,coeffs,
-        Vector3::new(0.0,-c.gravity,0.0), n)));
-
-    for step in 1..=12000 {
-        s.step().expect("step");
-        if step % 2000 == 0 || step == 100 {
-            let a = s.liquid_fraction().unwrap();
-            let mean: f64 = a.iter().sum::<f64>()/n as f64;
-            // dT for fully-liquid cells
-            let liq_dt: f64 = (0..n).filter(|&i| a[i] > 0.999)
-                .map(|i| s.t.internal[i] - (c.t_melt + c.mushy_interval))
-                .fold(f64::NEG_INFINITY, f64::max);
-            let n_liq = (0..n).filter(|&i| a[i] > 0.999).count();
-            let n_mushy = (0..n).filter(|&i| a[i] > 1e-9 && a[i] < 0.999).count();
-            let peak = (0..n).map(|i| s.u.internal[i].mag()).fold(0.0f64, f64::max);
-            let peak_p = s.p.internal.as_slice().iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-            // vertical variation of T in column 1 (should be ~0 if no convection)
-            let tcol: Vec<f64> = (0..ny).map(|j| s.t.internal[j*nx+1]).collect();
-            let tspread = tcol.iter().cloned().fold(f64::NEG_INFINITY,f64::max)
-                        - tcol.iter().cloned().fold(f64::INFINITY,f64::min);
-            println!("step {step:6} mean_a={mean:.5} n_liq={n_liq:4} n_mushy={n_mushy:4} maxdT_liq={liq_dt:8.4} peak_u={peak:.3e} max_p={peak_p:.3e} Tspread_col1={tspread:.3e}");
-        }
-    }
 }
