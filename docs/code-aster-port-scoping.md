@@ -342,6 +342,20 @@ deriving a multiplier.
   shear** is a non-proportional path, and the module documents that a radial
   path cannot discriminate the `δ < 1` non-radial back-stress behaviour.
 
+  **Check each deck's `.export` for missing inputs before starting on it.**
+  A `.comm` may `import` a sibling module that the repository does not carry.
+  Measured across all 4,597 `.export` manifests on 2026-08-05, **19** declare an
+  input file that is absent — so the corpus is 99.6 % self-contained and this is
+  an exception, not a pattern. But `ssnv113a` (VISC_IRRA_LOG) is one of the 19:
+  its manifest declares `F nom ssnv113a_mater.py D 0` and that file is nowhere
+  in the clone, nor is any `*_mater.py`.
+
+  **Do not go looking for it.** code_aster ships as three repositories and the
+  `data` one is described upstream as *"material data that can not be freely
+  distributed"*. A material include absent from `src` is plausibly exactly that,
+  and `DATA_POLICY.md` puts it out of scope. Treat such a deck as unusable and
+  move on.
+
   Note `ssnv126a` (VENDOCHAB) carries by far the most reference values, 32, but
   is anisothermal with three temperature-function material blocks — worth doing,
   but not first. And `ssnv230a` (IRRAD3M) carries no non-zero `VALE_CALC` at
