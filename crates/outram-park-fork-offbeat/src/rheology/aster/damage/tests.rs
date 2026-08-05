@@ -93,7 +93,7 @@ fn rousselier_params() -> RousselierParameters {
 /// solver collapses its bracket to machine precision with the residual still
 /// large. That is a property of the hardening curve, not of the return map, and
 /// code_aster's own `TRACTION` curves are piecewise-linear tables with finite
-/// slopes throughout. [`IsotropicHardening::PowerLaw`] remains available and is
+/// slopes throughout. [`IsotropicHardening::Ludwik`] remains available and is
 /// exercised by
 /// [`hardening_slopes_are_the_derivatives_of_the_curves`] away from the origin.
 fn matrix_hardening() -> IsotropicHardening {

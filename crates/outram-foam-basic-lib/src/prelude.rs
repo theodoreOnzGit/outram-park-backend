@@ -68,7 +68,10 @@ pub use crate::math::{
 pub use crate::matrix::{MatrixError, SquareMatrix};
 
 // --- ODE solvers (Layer 1e) ---
-pub use crate::ode::{Euler, OdeError, OdeSolverConfig, OdeSystem, Rkf45, Rosenbrock23};
+pub use crate::ode::{
+    DynSystemIntegrator, Euler, NoTypedSystem, OdeError, OdeIntegrator, OdeSolver, OdeSolverConfig,
+    OdeSystem, Rkf45, Rosenbrock23, SharedOdeSystem, TypedStateIntegrator,
+};
 
 // --- Interpolation (Layer 1f) ---
 pub use crate::interpolation::{interpolate_spline_xy, interpolate_xy};

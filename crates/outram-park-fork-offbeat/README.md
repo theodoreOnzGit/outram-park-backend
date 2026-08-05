@@ -22,7 +22,7 @@ and an Android/Termux-buildable library.
 > `80e84450a115b0c411e1bfa5d166379f6bf6c084` (2026-01-05).
 >
 > **SCAFFOLD / EARLY: the mechanics layer is VERIFICATION-ONLY and there is no
-> human V&V.** 361 unit tests pass and the small-strain mechanics solver matches
+> human V&V.** 545 unit tests pass and the small-strain mechanics solver matches
 > closed-form linear-elasticity solutions, but **nothing has been validated** —
 > not against OFFBEAT output, not against the upstream `Cases/Verification`
 > suite, not against fuel-irradiation data — and no human has reviewed any of
@@ -58,16 +58,17 @@ changes the temperature field again.
 
 ## What exists today
 
-Measured on 2026-08-05: 63 source files, 55,716 lines, **520 passing tests**
-(plus 70 doc tests), no `todo!()` or `unimplemented!()` anywhere. All statuses
-below are **verification-only** — see the status warning above.
+Measured on 2026-08-05: 68 source files, 59,769 lines, **545 passing tests**
+(plus 71 doc tests, and 8 integration tests run separately), no `todo!()` or
+`unimplemented!()` anywhere. All statuses below are **verification-only** — see
+the status warning above.
 
 | Module | LOC | Tests | Content |
 |---|---|---|---|
-| `mechanics` | 1,123 | 8 | Small-strain quasi-static solver — displacement field, linear-elastic constitutive law, eigenstrain loading, momentum assembly on foam's `ldu_matrix`/`krylov` |
-| `rheology` | 27,429 | 187 | Constitutive laws — plasticity (yield stress, hardening), creep, per-material law selection; **includes the `rheology::aster` port below** |
-| ↳ `rheology::aster` | 23,733 | 159 | Port of code_aster's constitutive-law layer (EDF, GPL-3.0-or-later) — see the table below |
-| `materials` | 13,430 | 189 | Property correlations (conductivity, density, heat capacity, thermal expansion, Young's modulus, Poisson ratio, emissivity) and behavioural models (swelling, densification, relocation, phase transition, failure) |
+| `mechanics` | 2,674 | 15 | Small-strain quasi-static solver — displacement field, linear-elastic constitutive law, eigenstrain loading, momentum assembly on foam's `ldu_matrix`/`krylov`, and the **creep/plasticity coupling** that drives `rheology` (mechanical-strain subtraction, inelastic strain fed back as an additional eigenstrain, once-per-step state advance, creep timestep control) |
+| `rheology` | 29,803 | 205 | Constitutive laws — plasticity (yield stress, hardening), creep, per-material law selection; **includes the `rheology::aster` port below** |
+| ↳ `rheology::aster` | 26,108 | 177 | Port of code_aster's constitutive-law layer (EDF, GPL-3.0-or-later) — see the table below |
+| `materials` | 13,521 | 189 | Property correlations (conductivity, density, heat capacity, thermal expansion, Young's modulus, Poisson ratio, emissivity) and behavioural models (swelling, densification, relocation, phase transition, failure) |
 | `gap` | 5,477 | 68 | Fuel/cladding gap — conductance, gas mixture properties, free volume, contact, axial slice mapping |
 | `corrosion` | 5,044 | 44 | Cladding corrosion kinetics, hydrogen pickup, thermal feedback, Anderson-mixing acceleration |
 | `burnup` | 1,437 | 12 | Burnup accumulation and fast-neutron flux |
@@ -86,12 +87,14 @@ epic `op-a7p`.
 | Module | Tests | Laws |
 |---|---|---|
 | `catalogue` | — | The 229 behaviours upstream declares, generated from its Python catalogue |
-| `kinematics` | — | Mandel convention (`√2` on shears) and the deformation gradient |
-| `integration` | — | The scalar local solvers every law shares — Newton, secant, Brent |
-| `log_strain` | — | The `GDEF_LOG` finite-strain wrapper |
+| `kinematics` | 10 | Mandel convention (`√2` on shears) and the deformation gradient |
+| `integration` | 13 | The scalar local solvers every law shares — Newton, secant, Brent |
+| `log_strain` | 6 | The `GDEF_LOG` finite-strain wrapper |
+| `hardening` | 6 | The one isotropic-hardening curve `R(p)` every law above shares — `Perfect`, `Linear`, Ludwik, `ECRO_PUIS`, `ECRO_NL` |
 | `viscoplastic` | 17 | `NORTON`, `LEMAITRE`, `LEMAITRE_IRRA` |
-| `isotropic` | 16 | `VMIS_ISOT_LINE`/`_PUIS` hardening, `NORTON_HOFF` |
+| `isotropic` | 17 | The `VMIS_ISOT_*` / `VISC_ISOT_*` radial return, `NORTON_HOFF` |
 | `chaboche` | 19 | `VMIS_CIN1/2_CHAB`, `VISC_CIN1/2_CHAB`, `VMIS/VISC_CIN2_MEMO` |
+| `viscochab` | 11 | `VISCOCHAB` — the 27-variable rate system of `rkdcha.F90` |
 | `damage` | 29 | `VENDOCHAB`, `VISC_ENDO_LEMA`, `ROUSS_PR`, `ROUSS_VISC`, `GTN`, `VISC_GTN`, `CRIT_RUPT` |
 | `metallurgy` | 25 | `VISC_IRRA_LOG`, `GRAN_IRRA_LOG`, `IRRAD3M`, `META_LEMA_ANI` |
 | `fracture` | 24 | Linear-elastic fracture post-processing only — see the limitation below |
@@ -99,11 +102,19 @@ epic `op-a7p`.
 **Two limitations that change results**, documented here so they are not
 discovered late:
 
-- **`fracture` is roughly 80 % blocked.** The G-theta domain integral needs
-  element shape functions, Gauss quadrature and crack-front ring topology, none
-  of which this crate has. What is implemented is the closed-form subset —
-  Irwin mode split, Westergaard near-tip fields, kink-angle criteria, and the
-  front-smoothing bases.
+- **`fracture` is roughly 80 % unported.** What is implemented is the
+  closed-form subset — Irwin mode split, Westergaard near-tip fields,
+  kink-angle criteria, and the front-smoothing bases. The G-theta domain
+  integral is **not** blocked on finite elements, as an earlier revision of
+  this README claimed: the integral is discretisation-agnostic and finite
+  volume is a viable host. What is missing is a crack front as ordered data,
+  ring quadrature, and the virtual-extension field `θ`. The real difficulty is
+  that the crack-tip field is singular (`σ ~ 1/√r`) and cell-centred FV
+  gradient reconstruction degrades exactly there, so G-theta's
+  domain-independence needs a graded mesh or an enrichment scheme. Whether
+  cell-centred FV can resolve the tip well enough at all is an **open research
+  question**, tracked as bead `op-0xv`. See the `rheology::aster::fracture`
+  module docs.
 - **`damage`'s `GTN` is the local form only.** Without `GRADVARI` nonlocal
   regularisation, a structural run will localise into a single element band and
   give mesh-dependent answers.
@@ -111,8 +122,13 @@ discovered late:
 Porting the upstream laws also surfaced several apparent defects in them. These
 are **reproduced and documented, never silently corrected** — each has a test
 that pins the discrepancy so an upstream fix breaks loudly. See the module docs
-for the full list; the sharpest is `nmvpir.F90`'s growth tensor, whose `yy`
-component makes the tensor identically zero for growth along `y`.
+for the full list. The sharpest is `nmvpir.F90`'s growth tensor, whose `yy`
+component makes the tensor identically zero for growth along `y`. Two more came
+out of `VISCOCHAB`: `rkdcha.F90`'s α₂ rate reuses `D1` where its own α₁ rate and
+the implicit residual `cvmres.F90` both say `D2` — worth **7.6 %** on `α̇₂` at
+`D1 = 0.2, D2 = 0.9` — and `rkdcha` zeroes *every* rate below the yield
+threshold including `R`'s static recovery, which `cvmres` keeps, so upstream's
+explicit and implicit paths disagree during an elastic hold.
 
 **Not present yet**, and needed before this is a fuel-performance solver rather
 than a library of fuel-performance pieces:
@@ -121,9 +137,11 @@ than a library of fuel-performance pieces:
   stack. The correlations that feed it exist; the solve does not.
 - **Multi-region coupling** — the outer fuel ↔ gap ↔ cladding iteration that
   closes the loop described above.
-- **Validation of any kind.** The upstream `Cases/Verification` and
-  `Cases/testCases` suites (~1500 entries) are the intended oracle and none of
-  them has been run against this port.
+- **Validation of any kind.** The upstream OFFBEAT `Cases/Verification` and
+  `Cases/testCases` suites (~1500 entries) are the intended oracle for the
+  fuel-performance layer and none of them has been run against this port. The
+  code_aster `astest` cases below are a *different* oracle and cover only
+  `rheology::aster`.
 
 ## Units
 
@@ -143,6 +161,29 @@ criterion, and the measured result** per the workspace V&V rule. For example,
 `σ = −3K ε*` and measured `σ_xx = −1.500 GPa` against the closed-form
 `−500 GPa × 3e-3 = −1.500 GPa`, agreeing to better than `1e-10` relative
 (`E = 200 GPa`, `ν = 0.3`, measured 2026-07-29).
+
+The rheology-coupled solve is checked in `src/mechanics/solver/rheology_tests.rs`
+against the closed-form relaxation of a linear viscoelastic solid: a bar held at
+a fixed strain of `1e-4` relaxes its von Mises stress as `q(t) = q_0 e^{-t/tau}`
+with `tau = 1040.00 s`, and the solver reproduces `q(tau)` to `6.25e-4` relative
+at 800 steps, with the error falling 4x per 4x step reduction (measured
+2026-08-05). A freely expanding body with an aggressive creep law present
+carries `1.37e-6 Pa` of residual stress and accumulates `5.49e-18` of creep
+strain against a `3e-3` eigenstrain — i.e. none.
+
+The `rheology::aster` port additionally runs two of code_aster's own `astest`
+cases as integration tests, against **upstream's computed `VALE_CALC` values**:
+
+| Test | Case | Law | Agreement |
+|---|---|---|---|
+| `tests/astest_ssnv101a.rs` | `ssnv101a` | Chaboche kinematic hardening | `1.7e-5` relative on `EPXX`, `EPXY`, `V1` vs `SOLNL` |
+| `tests/astest_ssnv126a.rs` | `ssnv126a` | `VENDOCHAB` creep-damage | `6.8e-4` relative vs `SOLNL2` (`NEWTON`), with measured first-order convergence (error ratios 3.80 / 3.93 / 3.98 / 4.02 over 4x step refinements) |
+
+`VALE_CALC` is code_aster's *own* answer, so these show this port reproduces
+that code's arithmetic. Upstream's `VALE_REFE` analytical and experimental
+references sit in the same files and are **deliberately never asserted** —
+promoting a case from verification to validation is the maintainer's call, not
+an AI assistant's.
 
 That is **verification** in this workspace's sense — "is the equation
 implemented correctly?" It is **not validation** — "does it represent physical

@@ -21,6 +21,7 @@
 //! 80.769…` GPa. Power-law hardening uses `α = 100`, `n = 10`.
 
 use super::*;
+use crate::rheology::aster::hardening::ASTER_POWER_LINEARISATION_STRAIN;
 use crate::rheology::aster::kinematics::AsterVoigt;
 use outram_foam_basic_lib::primitives::SymmTensor;
 
@@ -34,19 +35,19 @@ fn shear_modulus() -> f64 {
 }
 
 fn linear(hardening_modulus: f64) -> IsotropicHardening {
-    IsotropicHardening::Linear(LinearHardening {
+    IsotropicHardening::Linear {
         yield_stress: YIELD_STRESS,
-        hardening_modulus,
-    })
+        modulus: hardening_modulus,
+    }
 }
 
 fn power_law() -> IsotropicHardening {
-    IsotropicHardening::PowerLaw(PowerLawHardening {
+    IsotropicHardening::AsterPower {
         yield_stress: YIELD_STRESS,
         youngs_modulus: YOUNGS_MODULUS,
         alpha: 100.0,
         exponent: 10.0,
-    })
+    }
 }
 
 // ── Hardening curves ─────────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ fn power_law() -> IsotropicHardening {
 /// **Methodology.** Linear hardening is `R(p) = σ_y + H p` with constant slope
 /// `H`. Check that `R(0)` is the initial yield stress, that `R` is affine (the
 /// second difference over an evenly spaced sample vanishes), and that
-/// `hardening_slope` returns `H` everywhere. Inputs `σ_y = 250` MPa,
+/// `slope` returns `H` everywhere. Inputs `σ_y = 250` MPa,
 /// `H = 2` GPa. Tolerance 1e-9 relative. Reference: upstream `nmisot`'s
 /// `_LINE` branch, `rp = sigy + rprim*(pm+dp)`.
 ///
@@ -65,19 +66,19 @@ fn power_law() -> IsotropicHardening {
 #[test]
 fn linear_hardening_is_affine_with_the_given_slope() {
     let h = linear(2.0e9);
-    let r0 = h.yield_radius(0.0);
-    let r1 = h.yield_radius(0.01);
-    let r2 = h.yield_radius(0.02);
+    let r0 = h.value(0.0);
+    let r1 = h.value(0.01);
+    let r2 = h.value(0.02);
     let second_difference = r2 - 2.0 * r1 + r0;
     println!("R(0) = {r0}, R(0.01) = {r1}, R(0.02) = {r2}");
     println!(
         "second difference = {second_difference:e}, slope = {}",
-        h.hardening_slope(0.005)
+        h.slope(0.005)
     );
 
     assert!((r0 - YIELD_STRESS).abs() < 1e-9 * YIELD_STRESS);
     assert!(second_difference.abs() < 1e-9 * YIELD_STRESS);
-    assert!((h.hardening_slope(0.005) - 2.0e9).abs() < 1e-9 * 2.0e9);
+    assert!((h.slope(0.005) - 2.0e9).abs() < 1e-9 * 2.0e9);
 }
 
 /// **Methodology.** Upstream's `ecpuis` replaces the power-law curve below
@@ -105,16 +106,16 @@ fn linear_hardening_is_affine_with_the_given_slope() {
 #[test]
 fn the_power_law_curve_is_linearised_below_the_upstream_cutoff() {
     let h = power_law();
-    let p0 = POWER_LAW_LINEARISATION_STRAIN;
+    let p0 = ASTER_POWER_LINEARISATION_STRAIN;
 
-    let at_cutoff = h.yield_radius(p0);
-    let just_above = h.yield_radius(p0 * (1.0 + 1e-12));
-    let slope_below = h.hardening_slope(0.5 * p0);
-    let slope_above = h.hardening_slope(p0 * 10.0);
+    let at_cutoff = h.value(p0);
+    let just_above = h.value(p0 * (1.0 + 1e-12));
+    let slope_below = h.slope(0.5 * p0);
+    let slope_above = h.slope(p0 * 10.0);
 
     println!("R(p0) = {at_cutoff}, R(p0+) = {just_above}");
     println!("slope below cutoff = {slope_below:e}, slope at 10*p0 = {slope_above:e}");
-    println!("R(0) = {}", h.yield_radius(0.0));
+    println!("R(0) = {}", h.value(0.0));
 
     assert!(
         (just_above - at_cutoff).abs() < 1e-9 * at_cutoff,
@@ -122,7 +123,7 @@ fn the_power_law_curve_is_linearised_below_the_upstream_cutoff() {
     );
     assert!(slope_below.is_finite());
     assert!(slope_above.is_finite());
-    assert!((h.yield_radius(0.0) - YIELD_STRESS).abs() < 1e-9 * YIELD_STRESS);
+    assert!((h.value(0.0) - YIELD_STRESS).abs() < 1e-9 * YIELD_STRESS);
 }
 
 /// **Methodology.** A hardening curve must be monotone increasing in `p`, or
@@ -145,8 +146,8 @@ fn the_power_law_curve_is_monotone_increasing() {
     let mut previous = f64::NEG_INFINITY;
     for i in 0..=11 {
         let p = 10.0_f64.powi(-12 + i);
-        let r = h.yield_radius(p);
-        let slope = h.hardening_slope(p);
+        let r = h.value(p);
+        let slope = h.slope(p);
         println!("p = {p:e}  ->  R = {r:e}, R' = {slope:e}");
         assert!(
             r > previous,
@@ -291,10 +292,10 @@ fn the_returned_stress_lands_on_the_yield_surface() {
                 match h.radial_return(trial, mu, pm, &control).unwrap() {
                     None => {
                         elastic_cases += 1;
-                        let radius = h.yield_radius(pm);
+                        let radius = h.value(pm);
                         println!(
                             "{} trial = {trial:e} pm = {pm}  ->  ELASTIC (R(pm) = {radius:e})",
-                            h.aster_name_suffix()
+                            h.aster_name_suffix().unwrap_or("?")
                         );
                         assert!(
                             trial <= radius,
@@ -309,7 +310,7 @@ fn the_returned_stress_lands_on_the_yield_surface() {
                         println!(
                             "{} trial = {trial:e} pm = {pm}  ->  delta_p = {:e}, residual = {residual:e} Pa \
                              ({relative:e} relative), iters = {}",
-                            h.aster_name_suffix(),
+                            h.aster_name_suffix().unwrap_or("?"),
                             solution.root,
                             solution.iterations
                         );
@@ -357,7 +358,7 @@ fn perfect_plasticity_returns_exactly_to_the_initial_yield_stress() {
             .unwrap()
             .expect("both trials exceed yield");
         let closed_form = (trial - YIELD_STRESS) / (3.0 * mu);
-        let returned_radius = h.yield_radius(solution.root);
+        let returned_radius = h.value(solution.root);
         println!(
             "trial = {trial:e}  ->  delta_p = {:e} (closed form {closed_form:e}), returned radius = {returned_radius:e}",
             solution.root
@@ -438,10 +439,10 @@ fn unphysical_inputs_are_refused() {
         (
             "zero yield stress",
             linear(2.0e9).radial_return(400.0e6, mu, 0.0, &control).and(
-                IsotropicHardening::Linear(LinearHardening {
+                IsotropicHardening::Linear {
                     yield_stress: 0.0,
-                    hardening_modulus: 2.0e9,
-                })
+                    modulus: 2.0e9,
+                }
                 .radial_return(400.0e6, mu, 0.0, &control),
             ),
         ),
@@ -663,5 +664,105 @@ fn norton_hoff_refuses_a_non_positive_yield_stress() {
         let outcome = NortonHoffLimitAnalysis::new(sy).stress(strain, 2.0);
         println!("sy = {sy:e}  ->  {outcome:?}");
         assert!(matches!(outcome, Err(OffbeatError::Unphysical { .. })));
+    }
+}
+
+/// **Methodology.** Consolidating the two `IsotropicHardening` enums widened
+/// this radial return from two curve families to five: `Perfect` and `Linear`
+/// take the closed form, and `Ludwik`, `AsterPower` and `EcroNl` are bracketed
+/// with [`brent`]. Upstream's `nmisot` only ever reaches `_LINE` and `_PUIS`,
+/// so the three new paths have no upstream branch to transcribe and must be
+/// justified on the return's own defining property instead.
+///
+/// That property is the whole of the check: whatever solver produced `Δp`, the
+/// returned stress must sit **on** the yield surface, i.e. the `nmcri2`
+/// residual `R(p_m + Δp) + 3μ Δp - σ_eq^trial` must vanish. Each family is
+/// driven with the same clearly-plastic trial state and the residual is
+/// measured relative to `σ_eq^trial`.
+///
+/// Inputs: `σ_eq^trial = 400` MPa, `μ = 80.769…` GPa (from `E = 210` GPa,
+/// `ν = 0.3`), `p_m = 0`. Every curve starts at `σ_y = 250` MPa so all five are
+/// plastic at that trial. Pass criterion: `|residual| / σ_eq^trial < 1e-12`,
+/// and `Δp > 0` — a return that yielded must actually advance the plastic
+/// strain.
+///
+/// **Results (measured 2026-08-05, release).**
+///
+/// | Curve | `Δp` | residual \[Pa\] | relative | iters |
+/// |---|---|---|---|---|
+/// | `Perfect` | 6.190476190476190e-4 | 0 | 0 | 0 |
+/// | `Linear` | 6.139798488664988e-4 | 0 | 0 | 0 |
+/// | `Ludwik` | 2.320427670143995e-4 | 1.788139e-7 | 4.470e-16 | 9 |
+/// | `AsterPower` | 1.072961087918394e-4 | 1.035929e-4 | 2.590e-13 | 9 |
+/// | `EcroNl` | 5.935233776854477e-4 | 5.960464e-8 | 1.490e-16 | 5 |
+///
+/// The two closed-form families close **exactly** — a residual of literally
+/// zero, not merely small — which is the reason they are not iterated.
+///
+/// `AsterPower` is three orders worse than the other two bracketed families and
+/// sits only a factor 4 inside the pass criterion. That is not a defect in the
+/// return: with `α = 100, n = 10` the curve's slope near the root is
+/// `≈ 1.5e10 Pa`, so Brent converging `Δp` to its `f64` x-tolerance still
+/// leaves `R` uncertain at the `1e-4` Pa level. The residual is the slope times
+/// the bracket width, and the bracket is already at machine precision. Tighten
+/// the criterion past `1e-13` and this family fails for arithmetic reasons
+/// rather than physical ones.
+#[test]
+fn the_radial_return_lands_on_the_surface_for_every_curve_family() {
+    let mu = shear_modulus();
+    let control = SolverControl::default();
+    let trial = 400.0e6;
+
+    let curves = [
+        (
+            "Perfect",
+            IsotropicHardening::Perfect {
+                yield_stress: YIELD_STRESS,
+            },
+        ),
+        ("Linear", linear(2.0e9)),
+        (
+            "Ludwik",
+            IsotropicHardening::Ludwik {
+                yield_stress: YIELD_STRESS,
+                coefficient: 500.0e6,
+                exponent: 0.2,
+            },
+        ),
+        ("AsterPower", power_law()),
+        (
+            "EcroNl",
+            IsotropicHardening::EcroNl {
+                r0: YIELD_STRESS,
+                rh: 1.5e9,
+                r1: 300.0e6,
+                gamma_1: 30.0,
+                r2: 0.0,
+                gamma_2: 1.0,
+                rk: 0.0,
+                p0: 1.0,
+                gamma_m: 1.0,
+            },
+        ),
+    ];
+
+    for (name, curve) in curves {
+        let solution = curve
+            .radial_return(trial, mu, 0.0, &control)
+            .unwrap_or_else(|e| panic!("{name}: {e:?}"))
+            .unwrap_or_else(|| {
+                panic!("{name}: sigma_eq = 400 MPa is above every sigma_y = 250 MPa")
+            });
+        let relative = solution.residual.abs() / trial;
+        println!(
+            "{name:<11} delta_p = {:e}  residual = {:e} Pa ({relative:e} relative)  iters = {}",
+            solution.root, solution.residual, solution.iterations
+        );
+
+        assert!(solution.root > 0.0, "{name}: a plastic step must advance p");
+        assert!(
+            relative < 1.0e-12,
+            "{name}: the return must land on the yield surface, got {relative:e} relative"
+        );
     }
 }
