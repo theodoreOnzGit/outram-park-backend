@@ -140,6 +140,33 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | `fvc::buoyancy_flux(rho, g)` | ρ_f·(g·Sf) per face → `SurfaceScalarField` |
 | `adjust_phi(phi, U)` | Global mass-balance correction |
 
+### Layer 3 — Optional equation sources (`fvOptions` / `fvModels`)
+
+Terms a *case* attaches to an equation the *solver* knows nothing about. ESI
+OpenFOAM calls the mechanism `fvOptions`; the OpenFOAM Foundation split it into
+`fvModels` (sources) and `fvConstraints` (constraints). This port follows the
+Foundation split and implements the source half; constraints are not yet ported.
+
+| Module | Rust type / fn | Notes |
+|---|---|---|
+| `fv_options` | `FvModel`, `FvModels` | `fvModel` / `fvModels` — the model enum (closed set, enum dispatch rather than upstream's runtime-selection table) and the collection a solver hands to each equation. `FvModels::add_source_scalar` / `add_source_vector` place terms into an `FvMatrix` / `FvVectorMatrix` |
+| `fv_options` | `SourceContribution`, `EquationField` | Explicit (`Su`) / implicit (`Sp`) split, **per unit volume**; models are attached to equations by solved-field name, as upstream does |
+| `fv_options` | `CellSelection` | `fvCellZone` / `cellSetOption` — whole mesh or an explicit cell list, shared behind an `Arc` |
+| `fv_options` | `SemiImplicitSource` | `semiImplicitSource` — a general explicit + implicit source on one named field |
+| `fv_options` | `SolidificationMelting`, `SolidificationMeltingCoefficients` | `solidificationMelting` (ESI: `solidificationMeltingSource`) — enthalpy-porosity melting: liquid fraction with a eutectic-shifted effective liquidus, Carman-Kozeny Darcy momentum sink `-Cu(1-α₁)²/(α₁³+q)`, Boussinesq buoyancy, and latent heat `∂(ρα₁)/∂t` in either the temperature or enthalpy form. Upstream's once-per-timestep `curTimeIndex_` update guard is reproduced via `advance_time`. **Deviation:** signs are *not* a literal transcription of upstream's `addSup` — see below. `Cp` is a coefficient (upstream's `CpRef` mode); the thermophysical-model lookup and mesh topology changes are not ported |
+
+**Sign convention, and why this port differs from upstream line-by-line.**
+Upstream's `addSup` writes into an intermediate `fvModels` matrix that the
+solver then *subtracts*, since `solve(UEqn == fvModels.source(...))` and
+`operator==(A, B)` expands to `A - B`. Every coefficient an `addSup` writes is
+therefore negated before it reaches the system actually solved. This port places
+terms into the solved system directly — `source += V·explicit`,
+`diag -= V·implicit` — so it reproduces upstream's *solved equation*, not its
+intermediate matrix. Transcribing `Sp[celli] += Vc*S` literally would invert the
+Darcy drag into a momentum source inside the solid and destroy diagonal
+dominance exactly where the coefficient is largest; two tests in
+`fv_options/solidification_melting/tests.rs` exist specifically to catch that.
+
 ### Layer 4 — Field-level fluid thermodynamics
 
 | Type | Description |

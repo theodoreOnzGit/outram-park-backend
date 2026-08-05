@@ -103,6 +103,12 @@ pub use crate::ldu_matrix::{
 // --- FV operators (Layer 3) ---
 pub use crate::fv_operators::{adjust_phi, fvc, fvm};
 
+// --- Optional equation sources, OpenFOAM `fvOptions` / `fvModels` (Layer 3) ---
+pub use crate::fv_options::{
+    CellSelection, EquationField, FvModel, FvModels, SemiImplicitSource, SolidificationMelting,
+    SolidificationMeltingCoefficients, SourceContribution,
+};
+
 // --- Field-level tensor algebra (tr/symm/two_symm/dev/dev2 on vol fields) ---
 pub use crate::fields::vol_field_algebra;
 

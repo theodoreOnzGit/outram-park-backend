@@ -36,6 +36,9 @@ pub mod fluid_thermo;
 /// Layer 3 — finite-volume discretisation operators (`fvc` explicit, `fvm`
 /// implicit, and `adjust_phi` continuity correction).
 pub mod fv_operators;
+/// Layer 3 — optional source terms attached to finite-volume equations,
+/// OpenFOAM's `fvOptions` (Foundation `fvModels`) mechanism.
+pub mod fv_options;
 /// Layer 1f — one-dimensional data interpolation (linear and spline).
 pub mod interpolation;
 /// OpenFOAM ASCII case I/O — `FoamFile` dictionaries, `polyMesh` read/write,
