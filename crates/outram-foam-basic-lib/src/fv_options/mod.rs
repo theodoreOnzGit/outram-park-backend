@@ -88,10 +88,16 @@
 mod selection;
 mod semi_implicit;
 mod solidification_melting;
+mod solidification_porosity;
+mod temperature_table;
+mod vof_solidification_melting;
 
 pub use selection::CellSelection;
 pub use semi_implicit::SemiImplicitSource;
 pub use solidification_melting::{SolidificationMelting, SolidificationMeltingCoefficients};
+pub use solidification_porosity::{MomentumEquationForm, SolidificationPorosity};
+pub use temperature_table::TemperatureTable;
+pub use vof_solidification_melting::VofSolidificationMelting;
 
 use crate::fields::{VolScalarField, VolVectorField};
 use crate::ldu_matrix::{FvMatrix, FvVectorMatrix};
@@ -114,8 +120,24 @@ pub enum FvModel {
     /// A general explicit/implicit source, upstream `semiImplicitSource`.
     SemiImplicit(SemiImplicitSource),
     /// Solidification and melting by the enthalpy-porosity method, upstream
-    /// `solidificationMelting`.
+    /// `solidificationMelting`. The physically complete phase-change model:
+    /// tracks a liquid fraction, absorbs latent heat, carries its own
+    /// Boussinesq buoyancy.
     SolidificationMelting(SolidificationMelting),
+    /// Solidification as a bare porous blockage, upstream
+    /// `porosityModels::solidification`. **No latent heat and no buoyancy** —
+    /// it only freezes the momentum out of cold cells.
+    ///
+    /// Strictly, upstream files this under `porosityModel` rather than
+    /// `fvModel`; it is folded into this enum because from a solver's point of
+    /// view it is the same thing — a term added to the momentum equation over
+    /// a cell zone — and keeping it in a parallel mechanism would double the
+    /// wiring for no gain.
+    SolidificationPorosity(SolidificationPorosity),
+    /// Solidification and melting of a VoF phase, upstream
+    /// `VoFSolidificationMelting`. Needs a VoF phase fraction supplied from
+    /// outside; see [`FvModels::correct`].
+    VofSolidificationMelting(VofSolidificationMelting),
 }
 
 /// Which equation a source term is being applied to.
@@ -135,6 +157,8 @@ impl FvModel {
         match self {
             Self::SemiImplicit(m) => m.name(),
             Self::SolidificationMelting(m) => m.name(),
+            Self::SolidificationPorosity(m) => m.name(),
+            Self::VofSolidificationMelting(m) => m.name(),
         }
     }
 
@@ -148,6 +172,10 @@ impl FvModel {
         match self {
             Self::SemiImplicit(m) => m.field_name() == field,
             Self::SolidificationMelting(m) => {
+                field == m.velocity_name() || field == m.energy_name()
+            }
+            Self::SolidificationPorosity(m) => field == m.velocity_name(),
+            Self::VofSolidificationMelting(m) => {
                 field == m.velocity_name() || field == m.energy_name()
             }
         }
@@ -224,6 +252,56 @@ pub struct SourceContribution {
 }
 
 impl FvModels {
+    /// Advance every stateful model, once per timestep — upstream's
+    /// `fvModels::correct()`.
+    ///
+    /// Only [`VofSolidificationMelting`] needs this: its solid fraction is
+    /// driven by a VoF phase fraction that no equation assembly ever sees, so
+    /// upstream updates it from a dedicated solver call rather than lazily from
+    /// `addSup`. [`SolidificationMelting`] updates itself lazily instead (it
+    /// reads only the temperature, which every `addSup` already has), and
+    /// guards against doing so twice in one step; calling this does not disturb
+    /// that.
+    ///
+    /// `vof_phase_fraction` is the VoF condensed-phase fraction \[-\]. Passing
+    /// `None` while a [`VofSolidificationMelting`] model is attached leaves its
+    /// solid fraction frozen — legal, but almost certainly a wiring mistake, so
+    /// it is worth asserting against in a case setup.
+    pub fn correct(
+        &mut self,
+        temperature: &VolScalarField,
+        vof_phase_fraction: Option<&VolScalarField>,
+    ) {
+        for model in &mut self.models {
+            if let FvModel::VofSolidificationMelting(m) = model {
+                if let Some(alpha) = vof_phase_fraction {
+                    m.correct(temperature, alpha);
+                }
+            }
+        }
+    }
+
+    /// Roll every stateful model's history forward and re-arm its
+    /// once-per-timestep guards.
+    ///
+    /// Call **once per completed timestep**, after the equations have been
+    /// solved. Both phase-change models discretise their latent-heat source as
+    /// a first-order Euler rate against the previous step's phase fraction, so
+    /// omitting this does not merely stale the source — for
+    /// [`SolidificationMelting`] it also leaves the once-per-step guard set,
+    /// freezing the liquid fraction for the rest of the run.
+    pub fn advance_time(&mut self) {
+        for model in &mut self.models {
+            match model {
+                FvModel::SolidificationMelting(m) => m.advance_time(),
+                FvModel::VofSolidificationMelting(m) => m.advance_time(),
+                FvModel::SemiImplicit(_) | FvModel::SolidificationPorosity(_) => {
+                    // Stateless — nothing to roll forward.
+                }
+            }
+        }
+    }
+
     /// Add every applicable model's contribution to a scalar equation.
     ///
     /// `field` names the solved field, `rho` is the density used by models that
@@ -259,6 +337,14 @@ impl FvModels {
                 FvModel::SolidificationMelting(m) => {
                     m.add_energy_source(rho, temperature, dt, eqn);
                 }
+                FvModel::VofSolidificationMelting(m) => {
+                    m.add_enthalpy_source(rho, dt, eqn);
+                }
+                FvModel::SolidificationPorosity(_) => {
+                    // Momentum only — upstream's porosity model touches no
+                    // energy equation at all, and `contributes_to` already
+                    // filters it out for any field but its velocity.
+                }
             }
         }
     }
@@ -266,17 +352,22 @@ impl FvModels {
     /// Add every applicable model's contribution to a vector equation.
     ///
     /// As [`add_source_scalar`](Self::add_source_scalar), for a momentum
-    /// equation.
+    /// equation. `phase_fraction` is the optional solidifying-phase fraction
+    /// \[-\] used by [`SolidificationPorosity`] models built with
+    /// [`with_phase_fraction`](SolidificationPorosity::with_phase_fraction);
+    /// pass `None` when no model needs one, which is upstream's default
+    /// `alpha none`.
     pub fn add_source_vector(
         &mut self,
         field: &str,
         rho: &VolScalarField,
         temperature: &VolScalarField,
         velocity: &VolVectorField,
+        phase_fraction: Option<&VolScalarField>,
         dt: f64,
         eqn: &mut FvVectorMatrix,
     ) {
-        let _ = (rho, velocity, dt);
+        let _ = (velocity, dt);
         for model in &mut self.models {
             if !model.contributes_to(field) {
                 continue;
@@ -290,6 +381,12 @@ impl FvModels {
                 }
                 FvModel::SolidificationMelting(m) => {
                     m.add_momentum_source(temperature, eqn);
+                }
+                FvModel::SolidificationPorosity(m) => {
+                    m.add_momentum_source(temperature, rho, phase_fraction, eqn);
+                }
+                FvModel::VofSolidificationMelting(m) => {
+                    m.add_momentum_source(rho, eqn);
                 }
             }
         }

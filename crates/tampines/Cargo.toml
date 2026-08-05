@@ -26,6 +26,11 @@ tuas_boussinesq_solver.workspace = true
 outram-park-fork-coolprop.workspace = true
 tampines-steam-tables.workspace = true
 outram-foam-basic-lib.workspace = true
+# The 3-D multiphase reference (epic op-2kk). `multiphase_1d` reduces its
+# closures to 1-D rather than inventing its own -- the hard constraint in beads
+# op-dt3.12 / op-dt3.13. Only the algebraic closures are consumed
+# (`SlipModel`, `DragModel`); the 3-D field equations are not.
+outram-foam-multiphase.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
 # DWSIM-derived equipment-model correlations (pipe/valve/heat-exchanger/
 # expander/pump) for tampines::components (op-dt3.4) to build on.
