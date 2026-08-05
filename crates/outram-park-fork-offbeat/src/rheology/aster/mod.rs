@@ -49,6 +49,7 @@
 
 pub mod catalogue;
 pub mod integration;
+pub mod isotropic;
 pub mod kinematics;
 pub mod log_strain;
 pub mod viscoplastic;
