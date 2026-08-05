@@ -93,7 +93,10 @@ fn drag_table_is_linear_between_the_knots() {
     let mid = 0.5 * (T_SOLID + T_LIQUID);
     let d = t.value(mid);
     let closed_form = 0.5 * D_SOLID;
-    println!("D({mid}) = {d}, closed form = {closed_form}, diff = {}", d - closed_form);
+    println!(
+        "D({mid}) = {d}, closed form = {closed_form}, diff = {}",
+        d - closed_form
+    );
     assert!((d - closed_form).abs() < 1e-12 * D_SOLID);
 }
 
@@ -279,7 +282,10 @@ fn force_diagonal_matches_the_assembled_momentum_diagonal() {
     model.add_momentum_source(&t, &rho, None, &mut eqn);
 
     let force = model.force_diagonal(&t, &rho, None, &m.cell_volumes);
-    println!("force_diagonal = {force:?}, assembled diag = {:?}", eqn.ldu.diag);
+    println!(
+        "force_diagonal = {force:?}, assembled diag = {:?}",
+        eqn.ldu.diag
+    );
     for c in 0..N_CELLS {
         assert_eq!(force[c], eqn.ldu.diag[c]);
     }
