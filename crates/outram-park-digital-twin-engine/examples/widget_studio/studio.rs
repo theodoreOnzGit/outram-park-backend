@@ -185,6 +185,15 @@ impl eframe::App for WidgetStudio {
                 self.time_debt_s = 0.0;
             }
             self.last_substeps = taken;
+
+            // Pipe tracers run off wall-clock time directly (not substeps):
+            // each mark must cross its run in exactly one residence time, and
+            // that is a real-time claim, not a simulation-step one.
+            crate::pipes::advance_tracers(
+                &mut self.pipe_rows,
+                Time::new::<second>(dt_real * self.sim_speed),
+            );
+
             ui.ctx().request_repaint();
         } else {
             self.last_substeps = 0;
@@ -246,6 +255,24 @@ impl WidgetStudio {
         );
         ui.separator();
 
+        ui.label(RichText::new("Flow").strong());
+        ui.label(
+            RichText::new(
+                "Velocity sets the tracer speed. Each white mark crosses its pipe in exactly \
+                 one residence time, tau = L/u; a negative velocity runs it backwards.",
+            )
+            .small()
+            .weak(),
+        );
+        for i in 0..self.pipe_rows.len() {
+            let name = self.pipe_rows[i].name;
+            ui.add(
+                egui::Slider::new(&mut self.pipe_rows[i].velocity_m_s, -30.0..=30.0)
+                    .text(format!("{name} [m/s]")),
+            );
+        }
+
+        ui.add_space(8.0);
         ui.label(RichText::new("What drives what").strong());
         egui::Grid::new("pipe_readout")
             .num_columns(2)
@@ -270,7 +297,16 @@ impl WidgetStudio {
                     } else {
                         let first = temps.first().map(|t| t.get::<kelvin>()).unwrap_or(0.0);
                         let last = temps.last().map(|t| t.get::<kelvin>()).unwrap_or(0.0);
-                        ui.label(format!("{} cells · {first:.1} → {last:.1} K", temps.len()));
+                        let tau = crate::pipes::residence_time(row).get::<second>();
+                        let tau_txt = if tau.is_finite() {
+                            format!("tau {tau:.2} s")
+                        } else {
+                            "stagnant".to_string()
+                        };
+                        ui.label(format!(
+                            "{} cells · {first:.1} → {last:.1} K · {tau_txt}",
+                            temps.len()
+                        ));
                     }
                     ui.end_row();
                 }

@@ -53,9 +53,11 @@
 //! or an enum wrapping the tracer-bearing components, never
 //! `&dyn FlowTracer`/`&dyn TravelTime`.
 
-use uom::si::f64::{Mass, MassRate, Time};
+use uom::si::f64::{Length, Mass, MassRate, Time, Velocity};
+use uom::si::length::meter;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::time::second;
+use uom::si::velocity::meter_per_second;
 
 /// A visual tracer that moves along a component's flow path, its direction
 /// and speed derived from mass flow.
@@ -138,6 +140,27 @@ pub fn residence_time_from_flow(fluid_inventory: Mass, mass_flow: MassRate) -> T
 /// residence time) as [`FlowDirection::Stagnant`].
 pub fn infinite_residence_time() -> Time {
     Time::new::<second>(f64::INFINITY)
+}
+
+/// Residence time of a plug-flow run of `length` moving at `velocity`.
+///
+/// `tau = length / |velocity|`. This is the same quantity
+/// [`residence_time_from_flow`] returns, reached from kinematics instead of
+/// inventory: for a run of uniform cross-section `A` and density `rho` the
+/// inventory is `m = rho*A*L` and the mass flow is `m_dot = rho*A*u`, so
+/// `m/m_dot = L/u` — the density and area cancel. Use this form when the
+/// velocity is known and the density is not.
+///
+/// Returns [`infinite_residence_time`] for zero, negative-length or
+/// non-finite input: those are the cases with no well-defined tracer speed,
+/// which [`TracerTrain::advance`] then freezes rather than guessing at.
+pub fn residence_time_from_velocity(length: Length, velocity: Velocity) -> Time {
+    let l = length.get::<meter>();
+    let u = velocity.get::<meter_per_second>().abs();
+    if !l.is_finite() || !u.is_finite() || l < 0.0 || u == 0.0 {
+        return infinite_residence_time();
+    }
+    Time::new::<second>(l / u)
 }
 
 /// Which way a [`TracerTrain`] is currently moving along its flow path.
@@ -438,6 +461,64 @@ mod tests {
             let tau = self.residence_time();
             self.train.advance(dt, tau, self.mass_flow);
         }
+    }
+
+    /// The kinematic and inventory forms of the residence time must agree,
+    /// because density and area cancel between them. If they ever disagree a
+    /// tracer would visibly drift out of step with the flow it represents.
+    ///
+    /// **Methodology:** a 4 m run at 2 m/s gives `tau = L/u = 2.0 s`. Build the
+    /// equivalent inventory problem for an arbitrary `rho*A` of 3 kg/m (so
+    /// `m = 12 kg`, `m_dot = 6 kg/s`) and compare the two functions.
+    ///
+    /// **Result (2026-08-05):** both return 2.0 s, agreeing to within 1e-12 s.
+    #[test]
+    fn kinematic_and_inventory_residence_times_agree() {
+        use uom::si::f64::{Length, Velocity};
+        use uom::si::length::meter;
+        use uom::si::velocity::meter_per_second;
+
+        let tau_u = residence_time_from_velocity(
+            Length::new::<meter>(4.0),
+            Velocity::new::<meter_per_second>(2.0),
+        );
+        let tau_m = residence_time_from_flow(
+            Mass::new::<kilogram>(12.0),
+            MassRate::new::<kilogram_per_second>(6.0),
+        );
+        assert!((tau_u.get::<second>() - 2.0).abs() < 1e-12);
+        assert!((tau_u.get::<second>() - tau_m.get::<second>()).abs() < 1e-12);
+    }
+
+    /// Reversing the flow must not change how long the traverse takes — only
+    /// the sign-carrying `mass_flow` sets direction.
+    #[test]
+    fn reversed_velocity_has_the_same_residence_time() {
+        use uom::si::f64::{Length, Velocity};
+        use uom::si::length::meter;
+        use uom::si::velocity::meter_per_second;
+
+        let l = Length::new::<meter>(3.0);
+        assert_eq!(
+            residence_time_from_velocity(l, Velocity::new::<meter_per_second>(1.5)),
+            residence_time_from_velocity(l, Velocity::new::<meter_per_second>(-1.5))
+        );
+    }
+
+    /// A stagnant run has no well-defined tracer speed, so it must report an
+    /// infinite residence time and freeze rather than divide by zero.
+    #[test]
+    fn zero_velocity_gives_infinite_residence_time() {
+        use uom::si::f64::{Length, Velocity};
+        use uom::si::length::meter;
+        use uom::si::velocity::meter_per_second;
+
+        assert!(residence_time_from_velocity(
+            Length::new::<meter>(3.0),
+            Velocity::new::<meter_per_second>(0.0)
+        )
+        .get::<second>()
+        .is_infinite());
     }
 
     #[test]

@@ -21,6 +21,7 @@
 //! data policy.
 
 use egui::{Pos2, RichText, Vec2};
+use outram_park_digital_twin_engine::animation::{residence_time_from_velocity, TracerTrain};
 use outram_park_digital_twin_engine::components::PipeVisual;
 use tampines::components::{Pipe, PipeBackend};
 use tampines::compressible::{CompressibleFluidArray, CoolPropFluid};
@@ -30,8 +31,10 @@ use tuas_boussinesq_solver::boussinesq_thermophysical_properties::SolidMaterial;
 use uom::si::angle::degree;
 use uom::si::area::square_meter;
 use uom::si::f64::{
-    Angle, Area, Length, Pressure, Ratio, ThermodynamicTemperature, Time,
+    Angle, Area, Length, MassRate, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity,
 };
+use uom::si::mass_rate::kilogram_per_second;
+use uom::si::velocity::meter_per_second;
 use uom::si::length::{meter, millimeter};
 use uom::si::pressure::atmosphere;
 use uom::si::ratio::ratio;
@@ -58,6 +61,15 @@ pub struct PipeRow {
     pub min_temp: ThermodynamicTemperature,
     /// Temperature mapped to the hottest displayable colour.
     pub max_temp: ThermodynamicTemperature,
+    /// Tracer marks for this run.
+    ///
+    /// **Application-owned and advanced once per frame**, then copied into the
+    /// widget at build time — widgets are rebuilt every repaint, so a train
+    /// owned by the widget would reset its phase to zero each frame and never
+    /// appear to move. See `crate::animation`.
+    pub tracer: TracerTrain,
+    /// Bulk flow velocity, the studio's control over this run.
+    pub velocity_m_s: f64,
 }
 
 /// Build the three demonstration pipes, top to bottom.
@@ -70,18 +82,34 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     let mut rows = Vec::new();
     let mut errors = Vec::new();
 
-    let length = Length::new::<meter>(3.0);
-    let diameter = Length::new::<millimeter>(50.0);
+    // Deliberately DIFFERENT bores and lengths per row. Length and thickness
+    // are now derived from the real geometry, so identical pipes would hide
+    // that fact — three different ones make the scaling visible and checkable
+    // by eye: the helium line is the widest bore, as a gas duct would be.
     let roughness = Length::new::<millimeter>(0.045);
     let incline = Angle::new::<degree>(0.0);
-    let xs_area = Area::new::<square_meter>(0.002);
     let dt = Time::new::<second>(0.01);
+
+    let salt_length = Length::new::<meter>(3.0);
+    let salt_bore = Length::new::<millimeter>(50.0);
+
+    let steam_length = Length::new::<meter>(4.0);
+    let steam_bore = Length::new::<millimeter>(80.0);
+    let steam_area = Area::new::<square_meter>(
+        std::f64::consts::FRAC_PI_4 * 0.08 * 0.08,
+    );
+
+    let helium_length = Length::new::<meter>(2.5);
+    let helium_bore = Length::new::<millimeter>(120.0);
+    let helium_area = Area::new::<square_meter>(
+        std::f64::consts::FRAC_PI_4 * 0.12 * 0.12,
+    );
 
     // ── Molten salt: single-phase liquid, TUAS Boussinesq ─────────────────
     // `new_cylinder` is infallible, so this row is always present.
     let salt = SinglePhaseFluidArray::new_cylinder(
-        length,
-        diameter,
+        salt_length,
+        salt_bore,
         ThermodynamicTemperature::new::<kelvin>(900.0),
         Pressure::new::<atmosphere>(1.0),
         SolidMaterial::SteelSS304L,
@@ -93,11 +121,13 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     rows.push(PipeRow {
         pipe: Pipe::new(
             PipeBackend::Lumped(salt),
-            diameter,
-            length,
+            salt_bore,
+            salt_length,
             roughness,
             incline,
         ),
+        tracer: TracerTrain::new(3),
+        velocity_m_s: 1.2,
         name: "Molten salt (FLiBe) — TUAS",
         detail: "PipeBackend::Lumped · single-phase liquid, Boussinesq. \
                  No phase information: this backend cannot represent boiling.",
@@ -106,15 +136,17 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     });
 
     // ── Steam / water: two-phase HEM, IAPWS-IF97 ──────────────────────────
-    match TampinesSteamArray::new(length, xs_area, CELLS, dt) {
+    match TampinesSteamArray::new(steam_length, steam_area, CELLS, dt) {
         Ok(steam) => rows.push(PipeRow {
             pipe: Pipe::new(
                 PipeBackend::SteamHem(steam),
-                diameter,
-                length,
+                steam_bore,
+                steam_length,
                 roughness,
                 incline,
             ),
+            tracer: TracerTrain::new(3),
+            velocity_m_s: 6.0,
             name: "Steam / water — TAMPINES HEM",
             detail: "PipeBackend::SteamHem · homogeneous-equilibrium two-phase, \
                      IAPWS-IF97. The only row carrying phase information, and the \
@@ -126,18 +158,21 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     }
 
     // ── Helium: single-phase compressible, CoolProp EOS ───────────────────
-    match CompressibleFluidArray::new(CoolPropFluid::Helium, length, xs_area, CELLS, dt) {
+    match CompressibleFluidArray::new(CoolPropFluid::Helium, helium_length, helium_area, CELLS, dt) {
         Ok(helium) => rows.push(PipeRow {
             pipe: Pipe::new(
                 PipeBackend::Compressible(helium),
-                diameter,
-                length,
+                helium_bore,
+                helium_length,
                 roughness,
                 incline,
             ),
+            tracer: TracerTrain::new(3),
+            velocity_m_s: 20.0,
             name: "Helium gas — OPCP (CoolProp)",
             detail: "PipeBackend::Compressible · single-phase compressible, \
-                     Helmholtz EOS. Gas-cooled reactor working fluid.",
+                     Helmholtz EOS. Gas-cooled reactor working fluid — drawn in \
+                     LIGHTER shades because the backend carries a gas.",
             min_temp: ThermodynamicTemperature::new::<kelvin>(300.0),
             max_temp: ThermodynamicTemperature::new::<kelvin>(1200.0),
         }),
@@ -145,6 +180,30 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     }
 
     (rows, errors)
+}
+
+/// Residence time of a row at its current velocity, `tau = L/u`.
+pub fn residence_time(row: &PipeRow) -> Time {
+    residence_time_from_velocity(
+        row.pipe.length,
+        Velocity::new::<meter_per_second>(row.velocity_m_s),
+    )
+}
+
+/// Advance every row's tracer train by one frame.
+///
+/// Each mark crosses the whole run in exactly one residence time, and the sign
+/// of the velocity sets the direction — `TracerTrain::advance` takes direction
+/// from the sign of its mass-flow argument and speed only through the
+/// residence time, so a unit-magnitude rate carrying the right sign is the
+/// documented way to drive it from a velocity.
+pub fn advance_tracers(rows: &mut [PipeRow], dt: Time) {
+    for row in rows.iter_mut() {
+        let tau = residence_time(row);
+        let direction =
+            MassRate::new::<kilogram_per_second>(if row.velocity_m_s >= 0.0 { 1.0 } else { -1.0 });
+        row.tracer.advance(dt, tau, direction);
+    }
 }
 
 /// Draw the stacked pipes and their labels.
@@ -168,8 +227,9 @@ pub fn draw(ui: &mut egui::Ui, rows: &[PipeRow], errors: &[String]) {
     }
 
     let available = ui.available_rect_before_wrap();
-    let run_length = (available.width() - 260.0).max(120.0);
-    let row_height = 78.0_f32;
+    // Rows must clear the thickest pipe: thickness is derived from bore now,
+    // so a fixed row height would clip the widest run.
+    let row_height = 118.0_f32;
 
     for (i, row) in rows.iter().enumerate() {
         let top = available.top() + 12.0 + i as f32 * row_height;
@@ -187,12 +247,17 @@ pub fn draw(ui: &mut egui::Ui, rows: &[PipeRow], errors: &[String]) {
 
         // The pipe run itself, drawn below its label.
         let start = Pos2::new(available.left() + 8.0, top + row_height - 16.0);
-        ui.add(PipeVisual::new(
-            row.pipe.clone(),
-            start,
-            Vec2::new(run_length, 0.0),
-            row.min_temp,
-            row.max_temp,
-        ));
+        // Length, thickness and slope all come from the pipe's own geometry;
+        // screen_vector is only the fallback direction for geometry-less runs.
+        ui.add(
+            PipeVisual::new(
+                row.pipe.clone(),
+                start,
+                Vec2::new(1.0, 0.0),
+                row.min_temp,
+                row.max_temp,
+            )
+            .with_tracer(row.tracer),
+        );
     }
 }
