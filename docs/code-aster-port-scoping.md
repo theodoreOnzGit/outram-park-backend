@@ -261,33 +261,53 @@ deriving a multiplier.
   `validation` or `data` repositories — that is a `DATA_POLICY.md` line, not a
   preference. (`src/data/` itself is build templates and config, and is fine.)
   `src/astest/` **is** in scope and is licence-clean — see §8.2.
-- **V&V oracle — NOT CURRENTLY AVAILABLE, and no ported law has used it.**
-  `astest/` is *intended* to be the port's regression suite, playing the role
-  `Cases/Verification` plays for the OFFBEAT port, and each ported law *should*
-  name the `astest` cases it is checked against. **None does**, because the
-  clone at `/opt/upstream/codeaster-src` is a **cone-mode sparse, shallow
-  checkout** whose include list does not contain `astest/`. The directory is
-  not missing from upstream — it was never checked out here.
+- **V&V oracle — NOW AVAILABLE, but not yet used by any ported law.**
+  `astest/` is the port's regression suite, playing the role
+  `Cases/Verification` plays for the OFFBEAT port. It was missing from the
+  clone until 2026-08-05 — not absent from upstream, merely never checked out,
+  since `/opt/upstream/codeaster-src` is a **cone-mode sparse, shallow
+  checkout**. `git sparse-checkout add astest` restored it: 13,118 entries,
+  clone 88 MB → 670 MB. Licence verified GPL-3.0-or-later on inspection, and
+  in scope per §8.2 as part of `src`.
 
-  Everything ported so far (`viscoplastic`, `isotropic`, `chaboche`, `damage`,
-  `metallurgy`, `fracture` — 159 tests) is therefore verified against
-  closed-form limits, invariants, measured convergence orders, and independent
-  transcription of upstream's algebra, and **not** against upstream reference
-  output. Do not read those tests as agreement with code_aster.
+  **It is usable offline — code_aster does not have to be run.** The `.comm`
+  decks embed their own expected values, and the two kinds mean different
+  things:
 
-  The sparse include list as of 2026-08-05 is: `bibc/`, `bibfor/algorith/`,
+  - `VALE_CALC` (3,960 of 4,268 decks) — code_aster's *own computed* value.
+    Matching it is **verification against code_aster**: "do we reproduce what
+    upstream's implementation produces?"
+  - `VALE_REFE` (3,383 decks) — the *analytical or experimental* reference.
+    Matching it is the validation-grade comparison, and validation remains the
+    maintainer's call per `VERIFICATION_AND_VALIDATION.md`.
+
+  **The `comp0*` family is the sweet spot for a constitutive-law port** — 87
+  decks driving `TEST_COMPOR(SUPPORT="ELEMENT", RELATION=...)`, i.e. a *single
+  material point* with full material blocks and no structure. Those map
+  directly onto a unit test of a ported law and need none of the FE machinery
+  this crate lacks. Everything else in `astest` is a full structural run and
+  does need it. Confirmed coverage for every law ported so far, e.g.
+  `comp008e` for `VENDOCHAB`/`VISC_ENDO_LEMA`, `comp010j` for
+  `META_LEMA_ANI`, `ssnv230a`/`b` for `IRRAD3M`.
+
+  **No ported law has been checked against any of this yet.** Everything
+  landed so far (`viscoplastic`, `isotropic`, `chaboche`, `damage`,
+  `metallurgy`, `fracture` — 159 tests) is verified against closed-form limits,
+  invariants, measured convergence orders, and independent transcription of
+  upstream's algebra. Do not read those tests as agreement with code_aster.
+  Each ported law *should* name the `astest` cases it is checked against, and
+  none does; that is now unblocked work rather than a blocked premise.
+
+  The sparse include list as of 2026-08-05: `bibc/`, `bibfor/algorith/`,
   `comport/`, `comport_prep/`, `fracture/`, `include/`, `lc/`, `metallurgy/`,
   `modelisa/`, `nonlinear/`, `te/`, `utilifor/`, `utilitai/`,
-  `code_aster/Behaviours/`, `catalo/`, `mfront/`. (`catalo/` and `bibfor/te/`
-  were added on 2026-08-05, costing 15 MB.) Restoring the oracle is
-  `git sparse-checkout add astest` — `astest/` **is** in scope and
-  licence-clean per §8.2, being part of `src`. Tracked as bead `op-u3n`.
+  `code_aster/Behaviours/`, `catalo/`, `mfront/`, `astest/`. (`catalo/` and
+  `bibfor/te/` added 2026-08-05 for 15 MB; `astest/` the same day for 582 MB.)
 
-  Two open questions are blocked on parts of upstream not checked out or not
-  present at all: the routine supplying `chauxi`'s `κ` per modelisation, and
-  TFEL's `hillTensor` argument convention needed to settle the
-  `META_LEMA_ANI` shear-slot transposition (TFEL is a separate project and is
-  not in this clone at all).
+  One open question remains genuinely blocked, and not by the sparse checkout:
+  TFEL's `hillTensor` argument convention, needed to settle the
+  `META_LEMA_ANI` shear-slot transposition. TFEL is a **separate project** and
+  is not in this clone at all.
 - **Android/Termux.** Pure-Rust, no BLAS, no FFI — the port should be
   Android-clean by construction. Verify with
   `cargo check -p <crate> --all-targets --target aarch64-linux-android`.
