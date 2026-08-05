@@ -102,11 +102,17 @@ epic `op-a7p`.
 **Two limitations that change results**, documented here so they are not
 discovered late:
 
-- **`fracture` is roughly 80 % blocked.** The G-theta domain integral needs
-  element shape functions, Gauss quadrature and crack-front ring topology, none
-  of which this crate has. What is implemented is the closed-form subset —
-  Irwin mode split, Westergaard near-tip fields, kink-angle criteria, and the
-  front-smoothing bases.
+- **`fracture` is roughly 80 % unported.** What is implemented is the
+  closed-form subset — Irwin mode split, Westergaard near-tip fields,
+  kink-angle criteria, and the front-smoothing bases. The G-theta domain
+  integral is **not** blocked on finite elements, as an earlier revision of
+  this README claimed: the integral is discretisation-agnostic and finite
+  volume is a viable host. What is missing is a crack front as ordered data,
+  ring quadrature, and the virtual-extension field `θ`. The real difficulty is
+  that the crack-tip field is singular (`σ ~ 1/√r`) and cell-centred FV
+  gradient reconstruction degrades exactly there, so G-theta's
+  domain-independence needs a graded mesh or an enrichment scheme. See the
+  `rheology::aster::fracture` module docs.
 - **`damage`'s `GTN` is the local form only.** Without `GRADVARI` nonlocal
   regularisation, a structural run will localise into a single element band and
   give mesh-dependent answers.

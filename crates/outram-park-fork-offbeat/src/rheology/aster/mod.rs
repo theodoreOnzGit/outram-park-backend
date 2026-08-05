@@ -75,10 +75,13 @@
 //!
 //! Two limitations that change results and must not be discovered late:
 //!
-//! - [`fracture`] is roughly **80 % blocked**. The G-theta domain integral
-//!   needs element shape functions, Gauss quadrature and crack-front ring
-//!   topology, none of which this crate has. What is implemented is the
-//!   closed-form subset.
+//! - [`fracture`] is roughly **80 % unported** — the closed-form subset only.
+//!   It is *not* blocked on finite elements (an earlier revision of this note
+//!   said so; that was wrong). The G-theta domain integral is
+//!   discretisation-agnostic; what is missing is a crack front as ordered
+//!   data, ring quadrature, and the virtual-extension field. See that module's
+//!   docs for the real difficulty, which is FV gradient accuracy at the
+//!   `1/√r` singularity.
 //! - [`damage`]'s `GTN` is the **local** form only. Without `GRADVARI`
 //!   nonlocal regularisation a structural run will localise into one element
 //!   band and give mesh-dependent answers.
