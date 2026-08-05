@@ -116,11 +116,13 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
         std::f64::consts::FRAC_PI_4 * 0.08 * 0.08,
     );
 
-    // 7 m, not 2.5: at a 120 mm bore the shorter run drew almost square
-    // (200 x 113 points), which reads as a plenum rather than a pipe. A gas
-    // duct of this bore would realistically be many metres long, so the fix is
-    // a longer pipe rather than a fudged scale.
-    let helium_length = Length::new::<meter>(7.0);
+    // 12 m. At a 120 mm bore the original 2.5 m run drew almost square
+    // (200 x 113 points), reading as a plenum rather than a pipe. A gas duct of
+    // this bore would realistically be many metres long, so the fix is a longer
+    // PIPE, never a fudged scale — length must stay a true proportion between
+    // rows. At 80 points/m this draws 960 points, wider than the panel, which
+    // is why the canvas scrolls horizontally.
+    let helium_length = Length::new::<meter>(12.0);
     let helium_bore = Length::new::<millimeter>(120.0);
     let helium_area = Area::new::<square_meter>(
         std::f64::consts::FRAC_PI_4 * 0.12 * 0.12,
@@ -261,6 +263,19 @@ pub fn draw(ui: &mut egui::Ui, rows: &[PipeRow], errors: &[String]) {
             format!("⚠ backend unavailable, row omitted — {e}"),
         );
     }
+
+    // Length is drawn to true scale, so a long run can exceed the panel width.
+    // Scrolling is the honest response: shrinking the scale to fit would make
+    // pipes of different lengths no longer comparable to each other, which is
+    // the whole point of deriving length from geometry.
+    let longest_pts = rows
+        .iter()
+        .map(|r| r.pipe.length.get::<meter>() as f32 * 80.0)
+        .fold(0.0_f32, f32::max);
+
+    // Reserve the full true-scale width so the scroll area knows how far the
+    // longest pipe actually extends.
+    ui.set_min_width(longest_pts + 40.0);
 
     let available = ui.available_rect_before_wrap();
     // Rows must clear the thickest pipe: thickness is derived from bore now,
