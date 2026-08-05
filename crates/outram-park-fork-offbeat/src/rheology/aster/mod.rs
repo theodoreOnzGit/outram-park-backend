@@ -84,6 +84,7 @@ pub mod catalogue;
 pub mod chaboche;
 pub mod damage;
 pub mod fracture;
+pub mod hardening;
 pub mod integration;
 pub mod isotropic;
 pub mod kinematics;
