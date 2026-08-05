@@ -359,6 +359,12 @@ impl MeltFoam {
         let p_bcs = capture_bcs(&self.p.boundary);
         let t_bcs = capture_bcs(&self.t.boundary);
 
+        // The registered names of the solved fields, captured before any
+        // arithmetic can overwrite them. `FvModels` dispatches on these, so they
+        // must stay stable for the whole step.
+        let velocity_name = self.u.name.clone();
+        let temperature_name = self.t.name.clone();
+
         // `geometricOneField` stand-in. Both the momentum and the temperature
         // equation here are per unit volume with no density, so every model that
         // asks for a density gets 1.0. See the module docs.
@@ -374,7 +380,7 @@ impl MeltFoam {
             // (explicit, into the source). This is also what triggers the
             // liquid-fraction update for the whole timestep.
             self.fv_models.add_source_vector(
-                self.u.name.as_str(),
+                velocity_name.as_str(),
                 &ones,
                 &self.t,
                 &u_old,
@@ -488,6 +494,16 @@ impl MeltFoam {
                 }
 
                 self.u = hbya - rau.clone() * fvc::grad(&self.p);
+                // Restore the field's registered name. Field arithmetic keeps
+                // the LEFT operand's name (deliberately — see the crate
+                // `CLAUDE.md` note on unbounded name growth), so the line above
+                // would leave the velocity field called "HbyA". That is fatal
+                // here and silent: `FvModels` selects models by field name, so a
+                // renamed velocity makes `contributes_to("U")` false and the
+                // Darcy drag and buoyancy are dropped from every step after the
+                // first, with no error — the melt simply stops convecting. See
+                // `melt_foam::tests::velocity_field_keeps_its_name_after_correction`.
+                self.u.name = velocity_name.clone();
                 correct_bcs_vec(&mut self.u, &u_bcs);
             }
 
@@ -503,7 +519,7 @@ impl MeltFoam {
 
             // Latent heat. `ones` for the density, per the module docs.
             self.fv_models.add_source_scalar(
-                self.t.name.as_str(),
+                temperature_name.as_str(),
                 &ones,
                 &self.t,
                 dt,
@@ -511,6 +527,7 @@ impl MeltFoam {
             );
 
             let (mut t_new, _) = t_eqn.solve("T", self.temperature_solver);
+            t_new.name = temperature_name.clone();
             correct_bcs(&mut t_new, &t_bcs);
             self.t = t_new;
         }

@@ -916,3 +916,56 @@ fn gallium_melting_cavity_gau_viskanta_configuration() {
         "temperature must stay within the wall range, got [{t_min}, {t_max}]"
     );
 }
+// appended diagnostic
+#[test]
+fn probe_convection_diagnosis() {
+    let c = GalliumCase::default();
+    let (nx, ny) = (40usize, 30usize);
+    let dt = 0.005;
+    let mesh = rect_mesh(nx, ny, c.width, c.height, c.depth);
+    let n = nx * ny;
+    let mut control = ControlDict::default();
+    control.delta_t = dt;
+    let mut s = MeltFoam::new(mesh.clone(), control, FvSchemes::default(), FvSolution::default());
+    s.t = VolScalarField::uniform("T", mesh.clone(), c.t_cold);
+    s.nu = VolScalarField::uniform("nu", mesh.clone(), c.kinematic_viscosity);
+    s.alpha_thermal = VolScalarField::uniform("alphat", mesh.clone(), c.thermal_diffusivity);
+    for p in [P_LEFT, P_RIGHT, P_BOTTOM, P_TOP] {
+        s.u.boundary[p].bc = BoundaryCondition::NoSlip;
+        for v in s.u.boundary[p].values.iter_mut() { *v = Vector3::new(0.0,0.0,0.0); }
+    }
+    s.t.boundary[P_LEFT].bc = BoundaryCondition::FixedValue(c.t_hot);
+    for v in s.t.boundary[P_LEFT].values.iter_mut() { *v = c.t_hot; }
+    s.t.boundary[P_RIGHT].bc = BoundaryCondition::FixedValue(c.t_cold);
+    for v in s.t.boundary[P_RIGHT].values.iter_mut() { *v = c.t_cold; }
+    s.t.boundary[P_BOTTOM].bc = BoundaryCondition::ZeroGradient;
+    s.t.boundary[P_TOP].bc = BoundaryCondition::ZeroGradient;
+    let coeffs = MeltFoam::boussinesq_coefficients(
+        c.t_melt, c.t_melt + c.mushy_interval, c.latent_heat, c.specific_heat,
+        c.density, c.thermal_expansion, c.darcy_coefficient);
+    println!("coeffs: rho_ref={} beta={} Cu_kin={} q={}", coeffs.reference_density, coeffs.thermal_expansion, coeffs.darcy_coefficient, coeffs.darcy_regularisation);
+    s.fv_models.push(FvModel::SolidificationMelting(SolidificationMelting::new(
+        "gallium","U","T",true,CellSelection::All,coeffs,
+        Vector3::new(0.0,-c.gravity,0.0), n)));
+
+    for step in 1..=12000 {
+        s.step().expect("step");
+        if step % 2000 == 0 || step == 100 {
+            let a = s.liquid_fraction().unwrap();
+            let mean: f64 = a.iter().sum::<f64>()/n as f64;
+            // dT for fully-liquid cells
+            let liq_dt: f64 = (0..n).filter(|&i| a[i] > 0.999)
+                .map(|i| s.t.internal[i] - (c.t_melt + c.mushy_interval))
+                .fold(f64::NEG_INFINITY, f64::max);
+            let n_liq = (0..n).filter(|&i| a[i] > 0.999).count();
+            let n_mushy = (0..n).filter(|&i| a[i] > 1e-9 && a[i] < 0.999).count();
+            let peak = (0..n).map(|i| s.u.internal[i].mag()).fold(0.0f64, f64::max);
+            let peak_p = s.p.internal.as_slice().iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            // vertical variation of T in column 1 (should be ~0 if no convection)
+            let tcol: Vec<f64> = (0..ny).map(|j| s.t.internal[j*nx+1]).collect();
+            let tspread = tcol.iter().cloned().fold(f64::NEG_INFINITY,f64::max)
+                        - tcol.iter().cloned().fold(f64::INFINITY,f64::min);
+            println!("step {step:6} mean_a={mean:.5} n_liq={n_liq:4} n_mushy={n_mushy:4} maxdT_liq={liq_dt:8.4} peak_u={peak:.3e} max_p={peak_p:.3e} Tspread_col1={tspread:.3e}");
+        }
+    }
+}
