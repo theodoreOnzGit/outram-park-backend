@@ -51,6 +51,7 @@ pub mod catalogue;
 pub mod integration;
 pub mod kinematics;
 pub mod log_strain;
+pub mod viscoplastic;
 
 pub use catalogue::{AsterBehaviour, ALL};
 pub use integration::{
@@ -59,3 +60,7 @@ pub use integration::{
 };
 pub use kinematics::{hencky_strain, AsterVoigt, DeformationGradient};
 pub use log_strain::LogarithmicStrain;
+pub use viscoplastic::{
+    deviator, von_mises_of_deviator, CreepIncrement, LemaitreParameters, NortonParameters,
+    ViscoplasticLaw,
+};
