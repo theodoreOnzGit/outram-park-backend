@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/bedok",
     "crates/chem-eng-real-time-process-control-simulator",
     "crates/teh-o-prke",
     "crates/tuas_boussinesq_solver",
