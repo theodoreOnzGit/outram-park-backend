@@ -641,7 +641,8 @@ impl ViscoplasticChabocheWithMemory {
             return 0.0;
         }
         let p = &self.parameters;
-        let reduced = overstress / (p.drag_stress + p.drag_hardening_coupling * isotropic_hardening);
+        let reduced =
+            overstress / (p.drag_stress + p.drag_hardening_coupling * isotropic_hardening);
         let mut rate = reduced.powf(p.flow_exponent);
         if p.exponential_flow_coefficient > 1.0e-30 {
             rate *= (p.exponential_flow_coefficient * reduced.powf(p.flow_exponent + 1.0)).exp();
@@ -689,8 +690,9 @@ impl ViscoplasticChabocheWithMemory {
         //   `devi` = (3/2)(smx/J) p_dot   and   `petin` = sqrt(3/2) smx/J, a
         //   Euclidean unit vector in Mandel space.
         let p_dot = self.flow_rate(overstress, state.isotropic_hardening);
-        let ccin =
-            p.dynamic_recovery_floor + (1.0 - p.dynamic_recovery_floor) * (-p.isotropic_rate * state.accumulated_strain).exp();
+        let ccin = p.dynamic_recovery_floor
+            + (1.0 - p.dynamic_recovery_floor)
+                * (-p.isotropic_rate * state.accumulated_strain).exp();
         let gamma1 = p.dynamic_recovery_1 * ccin;
         let gamma2 = p.dynamic_recovery_2 * ccin;
 
@@ -755,7 +757,9 @@ impl ViscoplasticChabocheWithMemory {
         let gap = q_recovery - state.isotropic_hardening;
         // Fortran `sign(1.0d0, x)` is +1 at x = 0; `f64::signum` agrees.
         let r_dot = p.isotropic_rate * (q_asym - state.isotropic_hardening) * p_dot
-            + p.static_recovery_rate_r * gap.signum() * gap.abs().powf(p.static_recovery_exponent_r);
+            + p.static_recovery_rate_r
+                * gap.signum()
+                * gap.abs().powf(p.static_recovery_exponent_r);
 
         // Strain-memory surface — lines 159-183.
         let mut memory_sq = 0.0_f64;

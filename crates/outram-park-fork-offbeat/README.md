@@ -64,7 +64,7 @@ below are **verification-only** — see the status warning above.
 
 | Module | LOC | Tests | Content |
 |---|---|---|---|
-| `mechanics` | 1,123 | 8 | Small-strain quasi-static solver — displacement field, linear-elastic constitutive law, eigenstrain loading, momentum assembly on foam's `ldu_matrix`/`krylov` |
+| `mechanics` | 2,515 | 14 | Small-strain quasi-static solver — displacement field, linear-elastic constitutive law, eigenstrain loading, momentum assembly on foam's `ldu_matrix`/`krylov`, and the **creep/plasticity coupling** that drives `rheology` (mechanical-strain subtraction, inelastic strain fed back as an additional eigenstrain, once-per-step state advance, creep timestep control) |
 | `rheology` | 27,429 | 187 | Constitutive laws — plasticity (yield stress, hardening), creep, per-material law selection; **includes the `rheology::aster` port below** |
 | ↳ `rheology::aster` | 23,733 | 159 | Port of code_aster's constitutive-law layer (EDF, GPL-3.0-or-later) — see the table below |
 | `materials` | 13,430 | 189 | Property correlations (conductivity, density, heat capacity, thermal expansion, Young's modulus, Poisson ratio, emissivity) and behavioural models (swelling, densification, relocation, phase transition, failure) |
@@ -143,6 +143,15 @@ criterion, and the measured result** per the workspace V&V rule. For example,
 `σ = −3K ε*` and measured `σ_xx = −1.500 GPa` against the closed-form
 `−500 GPa × 3e-3 = −1.500 GPa`, agreeing to better than `1e-10` relative
 (`E = 200 GPa`, `ν = 0.3`, measured 2026-07-29).
+
+The rheology-coupled solve is checked in `src/mechanics/solver/rheology_tests.rs`
+against the closed-form relaxation of a linear viscoelastic solid: a bar held at
+a fixed strain of `1e-4` relaxes its von Mises stress as `q(t) = q_0 e^{-t/tau}`
+with `tau = 1040.00 s`, and the solver reproduces `q(tau)` to `6.25e-4` relative
+at 800 steps, with the error falling 4x per 4x step reduction (measured
+2026-08-05). A freely expanding body with an aggressive creep law present
+carries `1.37e-6 Pa` of residual stress and accumulates `5.49e-18` of creep
+strain against a `3e-3` eigenstrain — i.e. none.
 
 That is **verification** in this workspace's sense — "is the equation
 implemented correctly?" It is **not validation** — "does it represent physical

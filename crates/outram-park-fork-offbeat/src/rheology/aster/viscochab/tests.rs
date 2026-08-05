@@ -239,12 +239,16 @@ fn state_round_trips_through_the_ode_vector() {
 ///
 /// Pass criterion: every one of the 27 sub-threshold rates identically `0.0`.
 ///
-/// **Results (2026-08-05).** Sub-threshold (`σ_xx = 40 MPa`, `J = 40 MPa`,
-/// `K = 50 MPa`, overstress `-10 MPa`): all 27 rates were `0`, including
-/// `Ṙ = 0` despite `G_R > 0` — the discrepancy with `cvmres.F90` is real and
-/// is reproduced. Above threshold (`σ_xx = 200 MPa`, overstress
-/// `150000000 Pa`): `ṗ = 7.59375 1/s` and `Ṙ = 1519062500 Pa/s`, both
-/// non-zero.
+/// **Results (2026-08-05).** Sub-threshold (`σ_xx = 40 MPa`): the test printed
+/// `J = 40000000 Pa, overstress = -10000000 Pa, R_dot = 0 Pa/s, p_dot = 0
+/// 1/s`, and all 27 rates asserted exactly `0` — including `Ṙ = 0` despite
+/// `G_R > 0`. The discrepancy with `cvmres.F90` is therefore real and is
+/// reproduced. Above threshold (`σ_xx = 200 MPa`) it printed
+/// `overstress = 150000000 Pa, p_dot = 7.59375 1/s,
+/// R_dot = 1435570989173070800 Pa/s`, both non-zero, so the zero above is the
+/// branch and not a dead parameter. (The enormous `Ṙ` is an artefact of the
+/// deliberately synthetic `G_R = 2e4` with `M_R = 2`, whose unit is
+/// `Pa^(1−M_R)/s`; it is not a material value.)
 #[test]
 fn elastic_branch_zeroes_every_rate() {
     let mut params = exercise_parameters();
@@ -256,8 +260,10 @@ fn elastic_branch_zeroes_every_rate() {
     let (_, j) = law.effective_deviator(below, &state);
     let f = law.overstress(below, &state);
     let rates = law.internal_variable_rates(below, &state);
-    println!("sub-threshold: J = {j} Pa, overstress = {f} Pa, R_dot = {} Pa/s, p_dot = {} 1/s",
-        rates.isotropic_hardening_rate, rates.accumulated_strain_rate);
+    println!(
+        "sub-threshold: J = {j} Pa, overstress = {f} Pa, R_dot = {} Pa/s, p_dot = {} 1/s",
+        rates.isotropic_hardening_rate, rates.accumulated_strain_rate
+    );
     for (i, r) in rates
         .viscoplastic_strain_rate
         .components()
@@ -302,13 +308,17 @@ fn elastic_branch_zeroes_every_rate() {
 ///
 /// Checked at a general (non-uniaxial, sheared) stress state so that a mistake
 /// in the Mandel `√2` scaling of the shear entries would break property 2 — a
-/// uniaxial state would not catch it. Pass criterion: trace within `1e-18` of
-/// zero and the equivalent rate within `1e-12` relative.
+/// uniaxial state would not catch it. Pass criterion: the trace below `1e-14`
+/// of the rate's own Frobenius norm (cancellation of three numbers of order
+/// `ṗ` cannot be exact in floating point), and the equivalent rate within
+/// `1e-12` relative.
 ///
 /// **Results (2026-08-05).** At `σ = (220, 60, −40, 35, −20, 15)` MPa in Mandel
-/// components: `tr(ε̇^vi) = 0` exactly (printed `0`), `ṗ = 12.204414576615976
-/// 1/s`, equivalent of `ε̇^vi` = `12.204414576615974 1/s`, relative difference
-/// `1.455e-16` — one ulp, i.e. the identity holds to round-off.
+/// components: `ṗ = 20.62734519709515 1/s`, equivalent of `ε̇^vi` =
+/// `20.62734519709515 1/s`, relative difference `0.000e0` — bit-identical.
+/// `tr(ε̇^vi) = 1.7763568394002505e-15`, which against a rate of order 20 is a
+/// relative `8.6e-17`, i.e. round-off on the cancellation and not a volumetric
+/// component.
 #[test]
 fn flow_is_deviatoric_and_its_equivalent_rate_is_p_dot() {
     let law = ViscoplasticChabocheWithMemory::new(exercise_parameters()).unwrap();
@@ -318,14 +328,21 @@ fn flow_is_deviatoric_and_its_equivalent_rate_is_p_dot() {
     let rates = law.internal_variable_rates(stress, &state);
     let d = rates.viscoplastic_strain_rate.components();
     let trace = d[0] + d[1] + d[2];
-    let equivalent = (2.0 / 3.0 * rates.viscoplastic_strain_rate.dot(rates.viscoplastic_strain_rate))
-        .sqrt();
+    let equivalent = (2.0 / 3.0
+        * rates
+            .viscoplastic_strain_rate
+            .dot(rates.viscoplastic_strain_rate))
+    .sqrt();
     let rel = (equivalent - rates.accumulated_strain_rate).abs() / rates.accumulated_strain_rate;
     println!(
         "trace(eps_vi_dot) = {trace}, p_dot = {} 1/s, equivalent = {equivalent} 1/s, rel = {rel:.3e}",
         rates.accumulated_strain_rate
     );
-    assert!(trace.abs() < 1.0e-18, "trace = {trace}");
+    let magnitude = rates.viscoplastic_strain_rate.norm();
+    assert!(
+        trace.abs() < 1.0e-14 * magnitude,
+        "trace = {trace}, rate norm = {magnitude}"
+    );
     assert!(rel < 1.0e-12, "relative difference = {rel:.3e}");
 }
 
@@ -337,12 +354,14 @@ fn flow_is_deviatoric_and_its_equivalent_rate_is_p_dot() {
 /// `N = 5`, so the reduced overstress is `60/105 = 0.571428…`. Pass criterion:
 /// `1e-14` relative.
 ///
-/// **Results (2026-08-05).** `ALP = 0` gave `ṗ = 0.06096454420629812 1/s`
-/// against the closed form `0.5714285714285714^5 = 0.06096454420629812`
-/// (relative difference `0`). `ALP = 0.5` gave `ṗ = 0.06655000878947352 1/s`
-/// against `0.06096454420629812 · exp(0.5·0.5714285714285714^6) =
-/// 0.06655000878947352` (relative difference `0`). The guard's boundary was
-/// checked at `ALP = 1e-31`, which returned the un-multiplied `ALP = 0` value.
+/// **Results (2026-08-05).** The reduced overstress printed as
+/// `0.5714285714285714`. `ALP = 0` gave `ṗ = 0.06092699470458736 1/s` against
+/// the closed form `0.5714285714285714^5 = 0.06092699470458736` —
+/// bit-identical. `ALP = 0.5` gave `ṗ = 0.06199687943455993 1/s` against
+/// `0.06092699470458736 · exp(0.5 · 0.5714285714285714^6) =
+/// 0.06199687943455993` — also bit-identical. `ALP = 1e-31` returned exactly
+/// the `ALP = 0` value, confirming upstream's `> 1e-30` guard, and `F = 0` and
+/// `F = -1 Pa` both returned exactly `0`.
 #[test]
 fn flow_rate_matches_the_closed_form_power_law() {
     let mut params = exercise_parameters();
@@ -405,12 +424,13 @@ fn flow_rate_matches_the_closed_form_power_law() {
 /// is the intent: the discrepancy is pinned so a silent upstream change cannot
 /// pass unnoticed.
 ///
-/// **Results (2026-08-05).** Component 0 of `α̇₂`:
-/// port `-0.0022130591520297885 1/s`, `(1−D1)` form
-/// `-0.0022130591520297885 1/s` (identical), `(1−D2)` form
-/// `-0.0009605949193448603 1/s`. The two candidate forms differ by
-/// `1.2525e-3 1/s`, i.e. **130 %** of the value upstream actually computes —
-/// this is not a rounding-level discrepancy.
+/// **Results (2026-08-05).** Component 0 of `α̇₂`, as printed:
+/// port `0.05495419205908281 1/s`, `(1−D1)` form `0.05495419205908281 1/s`
+/// (bit-identical), `(1−D2)` form `0.059118552375123284 1/s`. The two
+/// candidate forms differ by `4.1644e-3 1/s`, i.e. **7.6 %** of the value
+/// upstream actually computes — far above rounding, and it grows with
+/// `|D1 − D2|` and with the alignment of `α₂` with the flow direction. All six
+/// components matched the `(1−D1)` form to `1e-12` relative.
 #[test]
 fn rkdcha_alpha2_reuses_d1_upstream_typo() {
     assert!(RKDCHA_ALPHA2_USES_D1);
@@ -424,7 +444,9 @@ fn rkdcha_alpha2_reuses_d1_upstream_typo() {
 
     let state = ViscoplasticChabocheState {
         back_strain_1: AsterVoigt::from_components([1.0e-3, -0.5e-3, -0.5e-3, 0.2e-3, 0.0, 0.0]),
-        back_strain_2: AsterVoigt::from_components([0.4e-3, 0.3e-3, -0.7e-3, -0.1e-3, 0.15e-3, 0.0]),
+        back_strain_2: AsterVoigt::from_components([
+            0.4e-3, 0.3e-3, -0.7e-3, -0.1e-3, 0.15e-3, 0.0,
+        ]),
         accumulated_strain: 0.02,
         ..ViscoplasticChabocheState::undeformed()
     };
@@ -446,7 +468,8 @@ fn rkdcha_alpha2_reuses_d1_upstream_typo() {
 
     let candidate = |split: f64| -> [f64; 6] {
         std::array::from_fn(|i| {
-            let inner = params.back_stress_recovery_split_2 * a2[i] + (1.0 - split) * na2 * petin[i];
+            let inner =
+                params.back_stress_recovery_split_2 * a2[i] + (1.0 - split) * na2 * petin[i];
             devi[i] - gamma2 * inner * p_dot
         })
     };
@@ -507,12 +530,20 @@ fn rkdcha_alpha2_reuses_d1_upstream_typo() {
 /// prediction is `‖X₁‖_vM = 2.0 MPa`. Pass criterion: within `0.1 %`.
 /// Independence of `D1` is checked by repeating at `D1 = 0.0`, `0.5` and `1.0`.
 ///
-/// **Results (2026-08-05).** Predicted `2000000 Pa`. Measured
-/// `D1 = 0: 1999999.9999999995 Pa` (relative error `2.3e-16`),
-/// `D1 = 0.5: 1999999.9999999995 Pa` (`2.3e-16`),
-/// `D1 = 1: 1999999.9999999998 Pa` (`1.2e-16`). Accumulated strain at the end
-/// was `p = 0.16628889384162078`, so flow was still active throughout and the
-/// limit is a genuine saturation rather than an arrest.
+/// **Results (2026-08-05).** Predicted `2000000 Pa`. Measured, as printed:
+///
+/// ```text
+/// D1 = 0:   |X1|_vM = 2000000.0000277264 Pa, rel = 1.386e-11, p = 4.877097589571732
+/// D1 = 0.5: |X1|_vM = 2000000.0000277457 Pa, rel = 1.387e-11, p = 4.877097589571731
+/// D1 = 1:   |X1|_vM = 2000000.0000000002 Pa, rel = 1.164e-16, p = 4.8770975895712665
+/// ```
+///
+/// All three land on `C₁/γ₁` — the `D1 = 1` case exactly, the other two to
+/// eleven digits (the residual is the finite integration time, not a bias: at
+/// `D1 = 1` the radial term vanishes identically and the remaining ODE is
+/// linear, so it converges faster). `p ≈ 4.877` at the end for every `D1`,
+/// so flow was still active throughout and this is a genuine saturation rather
+/// than an arrest.
 #[test]
 fn first_back_stress_saturates_at_c_over_gamma() {
     let c1 = 200.0e6;
@@ -534,11 +565,8 @@ fn first_back_stress_saturates_at_c_over_gamma() {
         integrator.integrate(0.0, 2000.0, &mut y, &mut dx).unwrap();
 
         let end = ViscoplasticChabocheState::from_ode_state(&y);
-        let x1 = AsterVoigt::from_components(
-            end.back_strain_1
-                .components()
-                .map(|a| 2.0 / 3.0 * c1 * a),
-        );
+        let x1 =
+            AsterVoigt::from_components(end.back_strain_1.components().map(|a| 2.0 / 3.0 * c1 * a));
         let measured = von_mises(x1);
         let rel = (measured - predicted).abs() / predicted;
         println!(
@@ -569,13 +597,13 @@ fn first_back_stress_saturates_at_c_over_gamma() {
 /// Pass criterion: (1), (3), (4) strict inequalities; (2) trace below `1e-15`
 /// of the strain magnitude.
 ///
-/// **Results (2026-08-05).** Start: `σ_vM = 153846153.84615386 Pa`. End:
-/// `σ_vM = 63771867.6301043 Pa`, `p = 0.000585544986398437`,
-/// `R = 10096026.15122697 Pa`, `q = 0.00019518166213281234`,
-/// `tr(ε^vi) = -4.336808689942018e-19`. The stress fell by 58.5 % of its
-/// initial value over the 1 s hold, `p` and `R` both grew, and the
-/// viscoplastic strain stayed deviatoric to within `4.3e-19` on a strain of
-/// order `5.9e-4` (relative `7.4e-16`).
+/// **Results (2026-08-05), as printed.** Start `σ_vM = 153846153.84615386 Pa`;
+/// end `σ_vM = 94493973.95086613 Pa`, `p = 0.0002571927795462468`,
+/// `R = 51636.37556180876 Pa`, `q = 0.00012859601821379717`,
+/// `tr(ε^vi) = 5.421010862427522e-20`. The von Mises stress fell by **38.6 %**
+/// of its initial value over the 1 s hold; `p`, `R` and `q` all grew from
+/// zero; and the viscoplastic strain stayed deviatoric to `5.4e-20` on a
+/// strain of order `2.6e-4`, i.e. a relative `2e-16`.
 #[test]
 fn strain_controlled_relaxation_runs_through_the_ode_wrapper() {
     let law = ViscoplasticChabocheWithMemory::new(exercise_parameters()).unwrap();
@@ -626,12 +654,13 @@ fn strain_controlled_relaxation_runs_through_the_ode_wrapper() {
 /// linear-in-time interpolation `ε(x) = ε_start + Δε·x/Δt` can be checked at
 /// the midpoint of the step. Pass criterion: `1e-12` relative.
 ///
-/// **Results (2026-08-05).** At `E = 200 GPa`, `ν = 0.3`, `ε_xx = 1e-3`:
-/// `σ_xx = 269230769.2307693 Pa` against the closed form
-/// `269230769.23076934 Pa`, and `σ_yy = 115384615.38461539 Pa` against
-/// `115384615.38461538 Pa`. At the step midpoint with `Δε_xx = 1e-3` the
-/// stress was `403846153.84615386 Pa`, exactly 1.5x the endpoint-free value —
-/// i.e. the interpolation used `x/Δt = 0.5`.
+/// **Results (2026-08-05), as printed.** At `E = 200 GPa`, `ν = 0.3`,
+/// `ε_xx = 1e-3`: `σ_xx = 269230769.2307692 Pa` against the closed form
+/// `269230769.2307692 Pa`, and `σ_yy = 115384615.38461538 Pa` against
+/// `115384615.38461538 Pa` — both bit-identical, and `σ_xy = 0` exactly. At
+/// `x = 1 s` of a `Δt = 2 s` step with `Δε_xx = 1e-3` the stress was
+/// `403846153.84615386 Pa`, exactly 1.5x the start value, i.e. the
+/// interpolation used `x/Δt = 0.5`.
 #[test]
 fn stress_reduces_to_hooke_and_interpolates_linearly() {
     let law = ViscoplasticChabocheWithMemory::new(exercise_parameters()).unwrap();
