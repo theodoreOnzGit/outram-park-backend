@@ -50,6 +50,7 @@ pub mod fluids;
 pub mod heat_transfer;
 pub mod hem;
 pub mod humid_air;
+pub mod multiphase_1d;
 pub mod single_phase;
 
 pub use error::TampinesError;
