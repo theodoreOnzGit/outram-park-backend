@@ -404,13 +404,12 @@ impl ViscoplasticChabocheParameters {
         ] {
             if !(0.0..=1.0).contains(&value) {
                 return Err(OffbeatError::Unphysical {
-                    quantity: "VISCOCHAB split coefficient",
+                    quantity: name,
                     value,
                     unit: "-",
                     reason: "D1, D2, ETA and A_I are fractions and must lie in [0, 1]",
                 });
             }
-            let _ = name;
         }
         Ok(())
     }
