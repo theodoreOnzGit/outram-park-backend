@@ -545,7 +545,8 @@ fn stefan_problem_matches_similarity_solution() {
 /// | T-solve tolerance | Δ(enthalpy) | ∫ wall flux | Imbalance |
 /// |---|---|---|---|
 /// | `1e-7` (generic default) | 2111.019463 J/m² | 2130.665578 J/m² | **-19.646 J/m², -0.9221 %** |
-/// | `1e-12` (`MeltFoam` default) | — | 2128.218016 J/m² | **-1.96e-6 J/m², -0.0000 %** |
+/// | `1e-12` (`MeltFoam` default, what this test runs) | 2128.217773 J/m² | 2128.218044 J/m² | **-2.7108e-4 J/m², -1.27e-5 %** |
+/// | `1e-14` | — | 2128.218016 J/m² | **-1.9647e-6 J/m², -9.23e-8 %** |
 ///
 /// **Interpretation.** At a tight linear-solver tolerance the scheme conserves
 /// energy to machine precision, confirming the latent-heat source, the

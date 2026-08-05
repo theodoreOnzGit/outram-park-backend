@@ -208,10 +208,11 @@ pub struct MeltFoam {
     /// Measured on the 1-D Stefan case in this crate's `melting_vv_cases`
     /// integration test (400 cells, dt = 0.01 s, 10 000 steps, 2026-08-05):
     ///
-    /// | T-solve tolerance | Energy imbalance |
-    /// |---|---|
-    /// | `1e-7` (the generic default) | **-0.9221 %** of the wall heat input |
-    /// | `1e-14` | **-1.96e-6 J/m²**, i.e. -0.0000 % |
+    /// | T-solve tolerance | Δ(enthalpy) | ∫ wall heat | Imbalance |
+    /// |---|---|---|---|
+    /// | `1e-7` (the generic default) | 2111.019463 J/m² | 2130.665578 J/m² | -19.646 J/m², **-0.9221 %** |
+    /// | `1e-12` (this default) | 2128.217773 J/m² | 2128.218044 J/m² | -2.7108e-4 J/m², **-1.27e-5 %** |
+    /// | `1e-14` | — | 2128.218016 J/m² | -1.9647e-6 J/m², **-9.23e-8 %** |
     ///
     /// A 0.9 % energy loss would be indistinguishable from a physics error while
     /// being purely numerical, which is exactly the kind of drift that makes a
