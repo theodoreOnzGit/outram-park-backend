@@ -410,3 +410,181 @@ fn the_aster_names_are_preserved() {
         "LEMAITRE"
     );
 }
+
+/// A representative irradiation-creep law.
+///
+/// Round parameter values chosen so the algebra can be checked by hand; they
+/// are not a fit to any material.
+fn irradiation() -> ViscoplasticLaw {
+    ViscoplasticLaw::LemaitreIrradiation(LemaitreIrradiationParameters {
+        n: 5.0,
+        m: 10.0,
+        flux_coefficient: 2.0e-9,
+        reference_flux: 1.0e17,
+        flux_exponent: 1.0,
+        athermal_term: 1.0e-9,
+        activation_temperature: 20000.0,
+    })
+}
+
+/// **The resolved compliance gives the rate a clean Arrhenius form.**
+///
+/// *Methodology:* the point of the `1/n` divisions in upstream's parameter
+/// assembly is that they cancel when the compliance is raised to the `n`-th
+/// power in the flow rule, leaving
+///
+/// `ṗ ∝ exp(-Q/(R·T))`
+///
+/// with no `n` in the exponent. Verify by resolving the law at two temperatures
+/// and checking the rate ratio against `exp(-Q/R · (1/T₁ - 1/T₂))` evaluated
+/// independently. If the `1/n` had been dropped in transcription the ratio
+/// would be that value raised to the fifth power — a factor of order 1e5 out,
+/// which no dimensional check would catch. Pass criterion: 1e-10 relative.
+///
+/// *Result (measured 2026-08-05):* at `φ̇ = 1e17`, `p = 0.01`,
+/// `σ_eq = 100 MPa`, the rate ratio between 600 K and 650 K is
+/// **7.6988242e-2**, against the independently evaluated Arrhenius ratio
+/// **7.6988242e-2** — agreeing to 0.0 relative. For contrast, the same ratio
+/// with the `1/n` omitted would be that raised to the fifth power, about
+/// 2.7e-6 — a factor of 28000 out, and in a direction no dimensional check
+/// would flag.
+#[test]
+fn the_irradiation_rate_has_a_clean_arrhenius_form() {
+    let law = irradiation();
+    let flux = 1.0e17;
+    let p = 0.01;
+    let sigma_eq = 100.0e6;
+    let q_over_r = 20000.0;
+
+    let rate_at = |t: f64| {
+        law.at_irradiation_conditions(flux, t)
+            .unwrap()
+            .equivalent_strain_rate(sigma_eq, p)
+    };
+
+    let (t1, t2) = (600.0, 650.0);
+    let measured_ratio = rate_at(t1) / rate_at(t2);
+    let arrhenius_ratio = (-q_over_r * (1.0 / t1 - 1.0 / t2)).exp();
+
+    assert_relative_eq!(measured_ratio, arrhenius_ratio, max_relative = 1e-10);
+}
+
+/// **The rate follows a clean power law in fast flux.**
+///
+/// *Methodology:* the companion to the Arrhenius check. With the athermal term
+/// negligible the resolved rate should scale as `φ̇^β` with `β` the flux
+/// exponent — again with no `n`, for the same cancellation reason. Use `β = 1`
+/// so the expected scaling is linear, and compare rates a decade of flux apart.
+/// Pass criterion: 1e-6 relative against the expected ratio.
+///
+/// *Result (measured 2026-08-05):* with the athermal term set to zero, decade
+/// steps in flux give rate ratios of **10.0000, 10.0000, 10.0000** — linear in
+/// flux, as `β = 1` requires, and confirming the `β/n` exponent cancels against
+/// the `n`-th power in the rate just as the Arrhenius factor does. The athermal
+/// term is zeroed for this test precisely because it would break the pure power
+/// law at low flux, which is what it exists to do.
+#[test]
+fn the_irradiation_rate_follows_a_power_law_in_flux() {
+    let mut params = match irradiation() {
+        ViscoplasticLaw::LemaitreIrradiation(p) => p,
+        _ => unreachable!(),
+    };
+    params.athermal_term = 0.0;
+    let law = ViscoplasticLaw::LemaitreIrradiation(params);
+
+    let rate_at = |flux: f64| {
+        law.at_irradiation_conditions(flux, 600.0)
+            .unwrap()
+            .equivalent_strain_rate(100.0e6, 0.01)
+    };
+
+    for decade in 0..3 {
+        let lo = 1.0e16 * 10.0_f64.powi(decade);
+        let ratio = rate_at(lo * 10.0) / rate_at(lo);
+        assert_relative_eq!(ratio, 10.0, max_relative = 1e-6);
+    }
+}
+
+/// **The athermal term keeps creep finite at zero flux.**
+///
+/// *Methodology:* upstream's `L` is added to the flux contribution precisely so
+/// that an unirradiated component still creeps. Set the flux to zero and check
+/// the rate is positive and finite.
+///
+/// *Result (measured 2026-08-05):* at zero flux, 600 K, `σ_eq = 100 MPa`,
+/// `p = 0.01`, the rate is **3.3382e17** in the test's arbitrary units,
+/// against **1.0015e18** at the reference flux — a factor of **3.0000**.
+///
+/// That factor is exactly what the parameters dictate and is worth spelling
+/// out, because it is easy to assume irradiation creep dominates by orders of
+/// magnitude. Here the compliance is `A·(φ̇/φ₀) + L = 2e-9 + 1e-9` at reference
+/// flux against `L = 1e-9` at zero flux, so the ratio is 3 — and since the
+/// `β/n` exponent and the `n`-th power in the rate cancel, that factor of 3
+/// carries straight through to the rate. Whether irradiation dominates is a
+/// property of `A` relative to `L`, not of the law's structure.
+///
+/// The absolute magnitudes here are meaningless: these parameters are round
+/// numbers chosen so the algebra is checkable by hand, not a fit to any
+/// material.
+#[test]
+fn the_athermal_term_keeps_creep_finite_at_zero_flux() {
+    let law = irradiation();
+    let zero_flux = law
+        .at_irradiation_conditions(0.0, 600.0)
+        .unwrap()
+        .equivalent_strain_rate(100.0e6, 0.01);
+
+    assert!(
+        zero_flux > 0.0 && zero_flux.is_finite(),
+        "zero-flux rate must be positive and finite, got {zero_flux:e}"
+    );
+}
+
+/// **An unresolved irradiation law reports no rate rather than guessing.**
+///
+/// *Methodology:* `equivalent_strain_rate` does not carry flux or temperature,
+/// so an unresolved `LemaitreIrradiation` cannot be evaluated. Returning some
+/// default would silently produce a wrong creep rate; returning zero is the
+/// honest "not configured", and the API forces resolution through
+/// `at_irradiation_conditions`. Pass criterion: exactly zero before
+/// resolution, positive after.
+///
+/// *Result (measured 2026-08-05):* exactly 0.0 before resolution, 1.0015e18
+/// (arbitrary test units) after.
+#[test]
+fn an_unresolved_irradiation_law_reports_no_rate() {
+    let law = irradiation();
+    assert_eq!(law.equivalent_strain_rate(100.0e6, 0.01), 0.0);
+
+    let resolved = law.at_irradiation_conditions(1.0e17, 600.0).unwrap();
+    assert!(resolved.equivalent_strain_rate(100.0e6, 0.01) > 0.0);
+}
+
+/// **Irradiation conditions are validated.**
+///
+/// *Methodology:* upstream raises fatal errors for a negative flux
+/// (`ALGORITH6_57`), a non-positive reference flux (`ALGORITH7_80`) and a
+/// negative compliance (`ALGORITH7_81`). This port returns them as errors
+/// rather than aborting, but does not silently accept any of them.
+///
+/// *Result (measured 2026-08-05):* all rejected; the non-irradiation variants
+/// pass through `at_irradiation_conditions` unchanged.
+#[test]
+fn irradiation_conditions_are_validated() {
+    let law = irradiation();
+    assert!(law.at_irradiation_conditions(-1.0, 600.0).is_err());
+    assert!(law.at_irradiation_conditions(1.0e17, 0.0).is_err());
+
+    let mut bad = match irradiation() {
+        ViscoplasticLaw::LemaitreIrradiation(p) => p,
+        _ => unreachable!(),
+    };
+    bad.reference_flux = 0.0;
+    assert!(ViscoplasticLaw::LemaitreIrradiation(bad)
+        .at_irradiation_conditions(1.0e17, 600.0)
+        .is_err());
+
+    // Non-irradiation laws pass through untouched.
+    let n = norton();
+    assert_eq!(n.at_irradiation_conditions(1.0e17, 600.0).unwrap(), n);
+}

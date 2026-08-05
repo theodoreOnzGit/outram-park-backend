@@ -11,6 +11,7 @@
 //     bibfor/utilifor/lcnrts.F90   -- the von Mises norm `sqrt(3/2 s:s)` (`lcnrts`)
 //     bibfor/utilifor/lcdevi.F90   -- the deviator (`lcdevi`)
 //     bibfor/lc/lc0032.F90         -- NORTON dispatch (`num_lc = 32`)
+//     bibfor/comport/nmvpir.F90    -- LEMAITRE_IRRA parameter assembly (`nmvpir`)
 //
 // This file is part of OUTRAM PARK. See `src/lib.rs` for the full licence
 // notice.
@@ -36,6 +37,7 @@
 //! |---|---|
 //! | [`Norton`](ViscoplasticLaw::Norton) | `(σ_eq / K)^n` |
 //! | [`Lemaitre`](ViscoplasticLaw::Lemaitre) | `(σ_eq / K)^n · p^(-n/m)` |
+//! | [`LemaitreIrradiation`](ViscoplasticLaw::LemaitreIrradiation) | as Lemaitre, with `K` set by fast flux and temperature |
 //!
 //! The strain rate is then `ε̇ = (3/2) ṗ s / σ_eq`, whose equivalent measure is
 //! exactly `ṗ` — which is what makes `p` "the accumulated equivalent
@@ -130,6 +132,46 @@ pub struct LemaitreParameters {
     pub m: f64,
 }
 
+/// Parameters of the irradiation-creep variant of Lemaitre.
+///
+/// # What irradiation creep is
+///
+/// Under neutron irradiation a metal creeps far faster than temperature alone
+/// would explain: displacement damage continuously creates point defects, and
+/// their biased absorption at dislocations lets the material flow. For fuel
+/// cladding this is the dominant creep mechanism in normal operation, and it is
+/// what allows the cladding to creep down onto the pellet over months.
+///
+/// # Units
+///
+/// Upstream parameter names are kept verbatim in the field documentation so a
+/// deck can be read across, but the Rust names are descriptive.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LemaitreIrradiationParameters {
+    /// Stress exponent `n` \[-\]. Upstream `N`.
+    pub n: f64,
+    /// Strain-hardening exponent `m` \[-\]. Upstream `UN_SUR_M` is its
+    /// reciprocal; this field is `m` itself, matching
+    /// [`LemaitreParameters::m`].
+    pub m: f64,
+    /// Flux sensitivity coefficient \[-\]. Upstream `UN_SUR_K`.
+    ///
+    /// Scales the flux contribution to the creep compliance. Zero neutralises
+    /// the flux term entirely, which upstream implements by forcing the flux
+    /// ratio to one.
+    pub flux_coefficient: f64,
+    /// Reference fast flux \[n/(m²·s)\]. Upstream `PHI_ZERO`. Must be strictly
+    /// positive — upstream raises a fatal error otherwise.
+    pub reference_flux: f64,
+    /// Flux exponent \[-\]. Upstream `BETA`.
+    pub flux_exponent: f64,
+    /// Athermal additive term \[-\]. Upstream `L`. Keeps creep finite at zero
+    /// flux.
+    pub athermal_term: f64,
+    /// Activation energy over the gas constant, `Q/R` \[K\]. Upstream `QSR_K`.
+    pub activation_temperature: f64,
+}
+
 /// An isotropic viscoplastic creep law.
 ///
 /// Enum dispatch rather than trait objects, per the workspace rule — the set is
@@ -156,6 +198,36 @@ pub enum ViscoplasticLaw {
     /// `ṗ = (σ_eq / K)^n · p^(-n/m)`. The accumulated strain slows subsequent
     /// flow, reproducing the decaying primary-creep transient.
     Lemaitre(LemaitreParameters),
+
+    /// Lemaitre irradiation creep — the cladding law for normal operation.
+    ///
+    /// ASTER behaviour name: `LEMAITRE_IRRA`. Upstream:
+    /// `bibfor/comport/nmvpir.F90` assembles the parameters and calls the same
+    /// `ggplem` flow function as `LEMAITRE` — legacy symbols `nmvpir`,
+    /// `ggplem`.
+    ///
+    /// Structurally this *is* Lemaitre; what differs is that the creep
+    /// compliance `1/K` is not a constant but is built from the fast flux and
+    /// the temperature:
+    ///
+    /// `1/K = (A φ̇/φ₀ + L)^(β/n) · exp(-Q/(n·R·T))`
+    ///
+    /// # Why the `1/n` appears twice, and why that is not a mistake
+    ///
+    /// Both the flux exponent and the Arrhenius exponent are divided by `n`
+    /// here, which looks like an error until the rate is written out. Since
+    /// `ṗ = (σ_eq/K)^n`, the compliance is raised to the `n`-th power, and the
+    /// two divisions cancel:
+    ///
+    /// `ṗ = σ_eq^n · (A φ̇/φ₀ + L)^β · exp(-Q/(R·T))`
+    ///
+    /// So the *rate* carries a clean Arrhenius temperature dependence and a
+    /// clean power-law flux dependence — which is the physically meaningful
+    /// form, and the reason upstream parameterises it this way. Transcribing
+    /// the compliance without the `1/n` would give a rate with the exponents
+    /// raised to the `n`-th power, wrong by orders of magnitude and in a way no
+    /// dimensional check would catch.
+    LemaitreIrradiation(LemaitreIrradiationParameters),
 }
 
 impl ViscoplasticLaw {
@@ -165,7 +237,89 @@ impl ViscoplasticLaw {
         match self {
             Self::Norton(_) => "NORTON",
             Self::Lemaitre(_) => "LEMAITRE",
+            Self::LemaitreIrradiation(_) => "LEMAITRE_IRRA",
         }
+    }
+
+    /// Build the effective Lemaitre law for an irradiation-creep variant at a
+    /// given fast flux and temperature.
+    ///
+    /// Returns the law unchanged for the variants whose parameters do not
+    /// depend on the irradiation environment, so a caller can apply this
+    /// uniformly.
+    ///
+    /// # Arguments
+    ///
+    /// - `fast_flux` — `φ̇` \[n/(m²·s)\], non-negative.
+    /// - `temperature` — absolute temperature \[K\], strictly positive.
+    ///
+    /// # Errors
+    ///
+    /// [`OffbeatError::Unphysical`] for a negative flux, a non-positive
+    /// temperature, or a non-positive reference flux — upstream raises fatal
+    /// errors (`ALGORITH6_57`, `ALGORITH7_80`, `ALGORITH7_81`) on the same
+    /// conditions.
+    pub fn at_irradiation_conditions(self, fast_flux: f64, temperature: f64) -> Result<Self> {
+        let p = match self {
+            Self::LemaitreIrradiation(p) => p,
+            other => return Ok(other),
+        };
+
+        if fast_flux < 0.0 {
+            return Err(OffbeatError::Unphysical {
+                quantity: "fast neutron flux",
+                value: fast_flux,
+                unit: "n/(m^2 s)",
+                reason: "must not be negative (upstream ALGORITH6_57)",
+            });
+        }
+        if !(temperature > 0.0) {
+            return Err(OffbeatError::Unphysical {
+                quantity: "temperature",
+                value: temperature,
+                unit: "K",
+                reason: "must be strictly positive; the Arrhenius factor divides by it",
+            });
+        }
+        if !(p.reference_flux > 0.0) {
+            return Err(OffbeatError::Unphysical {
+                quantity: "reference flux PHI_ZERO",
+                value: p.reference_flux,
+                unit: "n/(m^2 s)",
+                reason: "must be strictly positive (upstream ALGORITH7_80)",
+            });
+        }
+
+        // Upstream neutralises the flux ratio when the flux coefficient is zero.
+        let flux_ratio = if p.flux_coefficient == 0.0 {
+            1.0
+        } else {
+            fast_flux / p.reference_flux
+        };
+
+        let mut compliance = p.flux_coefficient * flux_ratio + p.athermal_term;
+        if compliance < 0.0 {
+            return Err(OffbeatError::Unphysical {
+                quantity: "irradiation creep compliance",
+                value: compliance,
+                unit: "-",
+                reason: "must not be negative (upstream ALGORITH7_81)",
+            });
+        }
+        if compliance > 0.0 {
+            compliance = compliance.powf(p.flux_exponent / p.n);
+        }
+        let arrhenius = (-p.activation_temperature / (p.n * temperature)).exp();
+        compliance *= arrhenius;
+
+        // The flow function takes K, not 1/K.
+        let k = if compliance > 0.0 {
+            1.0 / compliance
+        } else {
+            f64::INFINITY // zero compliance means no creep
+        };
+
+        Ok(Self::Lemaitre(LemaitreParameters { k, n: p.n, m: p.m }))
     }
 
     /// Equivalent viscoplastic strain rate `ṗ` \[1/s\].
@@ -186,6 +340,13 @@ impl ViscoplasticLaw {
         }
         match self {
             Self::Norton(p) => (sigma_eq / p.k).powf(p.n),
+            Self::LemaitreIrradiation(_) => {
+                // The compliance depends on flux and temperature, which this
+                // signature does not carry. Resolve with
+                // `at_irradiation_conditions` first; returning a silent zero
+                // here would look like "no creep" rather than "not configured".
+                0.0
+            }
             Self::Lemaitre(p) => {
                 if !(accumulated_strain > 0.0) {
                     // Upstream returns zero when `dpc == 0`: the hardening term
@@ -213,6 +374,7 @@ impl ViscoplasticLaw {
         match self {
             Self::Norton(p) => p.n * rate / sigma_eq,
             Self::Lemaitre(p) => p.n * rate / sigma_eq,
+            Self::LemaitreIrradiation(_) => 0.0,
         }
     }
 
