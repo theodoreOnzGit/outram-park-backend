@@ -78,7 +78,10 @@ fn one_correct_from_zero_gives_exactly_the_relaxation_coefficient() {
 
     model.correct(&t, &alpha_vof);
 
-    println!("solid_fraction after one correct = {:?}", model.solid_fraction());
+    println!(
+        "solid_fraction after one correct = {:?}",
+        model.solid_fraction()
+    );
     assert_eq!(model.solid_fraction()[0], 0.9);
 }
 
@@ -138,7 +141,10 @@ fn solid_fraction_is_capped_by_the_vof_phase_fraction() {
 
     let uncapped = 0.9 * 0.3 * 1.0 + 0.1 * before;
     println!("before = {before:.16}, uncapped blend = {uncapped:.16}, measured = {after:.16}");
-    assert!(uncapped > 0.3, "the cap must actually be binding in this test");
+    assert!(
+        uncapped > 0.3,
+        "the cap must actually be binding in this test"
+    );
     assert_eq!(after, 0.3);
 }
 
@@ -224,10 +230,7 @@ fn a_mostly_solid_cell_gains_a_large_positive_diagonal_drag() {
     model.add_momentum_source(&rho, &mut eqn);
 
     let alpha_fluid = 0.1_f64;
-    let closed_form = CELL_VOLUME
-        * rho_value
-        * 1.0e5
-        * (1.0 - alpha_fluid).powi(2)
+    let closed_form = CELL_VOLUME * rho_value * 1.0e5 * (1.0 - alpha_fluid).powi(2)
         / (alpha_fluid.powi(3) + 1.0e-3);
     println!(
         "alpha_solid = {}, diag[0] = {}, closed form = {closed_form}",

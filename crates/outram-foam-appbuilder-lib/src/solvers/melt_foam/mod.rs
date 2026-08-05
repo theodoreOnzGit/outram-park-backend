@@ -493,6 +493,32 @@ impl MeltFoam {
                     self.phi = phi_hbya;
                 }
 
+                // Constrain the BOUNDARY face fluxes to the prescribed velocity
+                // BC — OpenFOAM's `constrainHbyA` / `phi.boundaryFieldRef()`.
+                //
+                // The corrector above touches internal faces only, so without
+                // this the boundary fluxes keep whatever `fvc::flux(HbyA)` left
+                // there: a zero-gradient *extrapolation*, which is not zero at a
+                // no-slip wall. That matters because `fvm::div` reads
+                // `phi.boundary` — a spurious inward flux on the hot wall
+                // (a `FixedValue` T patch) enters the temperature equation as
+                // `source -= phi_f·T_wall`, injecting energy through a solid
+                // wall. Measured effect before this constraint: temperatures
+                // reaching ~363 K in a cavity whose hottest boundary is 311 K.
+                //
+                // `pimple_foam` does not hit this because it transports no
+                // scalar; the momentum equation never reads `phi.boundary`.
+                for (pi, patch) in mesh.patches.iter().enumerate() {
+                    if matches!(self.u.boundary[pi].bc, BoundaryCondition::Empty) {
+                        continue;
+                    }
+                    for fi in 0..patch.size {
+                        let gf = patch.start + fi;
+                        self.phi.boundary[pi].values[fi] =
+                            self.u.boundary[pi].values[fi].dot(mesh.face_area_vectors[gf]);
+                    }
+                }
+
                 self.u = hbya - rau.clone() * fvc::grad(&self.p);
                 // Restore the field's registered name. Field arithmetic keeps
                 // the LEFT operand's name (deliberately — see the crate

@@ -34,8 +34,6 @@ use super::{CellSelection, TemperatureTable};
 use crate::fields::VolScalarField;
 use crate::ldu_matrix::{FvMatrix, FvVectorMatrix};
 
-
-
 /// Solidification and melting of the condensed phase of a VoF simulation.
 ///
 /// # How this differs from the enthalpy-porosity model
@@ -224,7 +222,8 @@ impl VofSolidificationMelting {
     /// per completed timestep; the latent-heat source is proportional to
     /// `∂(ρα_s)/∂t` and is silently wrong without it.
     pub fn advance_time(&mut self) {
-        self.solid_fraction_old.copy_from_slice(&self.solid_fraction);
+        self.solid_fraction_old
+            .copy_from_slice(&self.solid_fraction);
     }
 
     /// The Darcy drag coefficient at a given **fluid** fraction \[1/s\] per
@@ -294,12 +293,7 @@ impl VofSolidificationMelting {
     /// over.
     ///
     /// `dt` is the timestep \[s\]; a non-positive `dt` contributes nothing.
-    pub fn add_enthalpy_source(
-        &self,
-        rho: &VolScalarField,
-        dt: f64,
-        eqn: &mut FvMatrix,
-    ) {
+    pub fn add_enthalpy_source(&self, rho: &VolScalarField, dt: f64, eqn: &mut FvMatrix) {
         if dt <= 0.0 {
             return;
         }
