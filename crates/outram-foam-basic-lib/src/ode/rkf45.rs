@@ -63,6 +63,7 @@ const E6: f64 = -B6;
 
 /// Runge-Kutta-Fehlberg 4(5) explicit solver with adaptive step size.
 /// Maps to `Foam::RKF45`.
+#[derive(Debug, Clone)]
 pub struct Rkf45 {
     /// Adaptive step-size controller settings (tolerances, scale limits).
     pub config: OdeSolverConfig,
@@ -101,9 +102,9 @@ impl Rkf45 {
 
     /// Take one adaptive step. On return `x` and `y` are updated and `dx_try`
     /// holds a suggested step size for the next call.
-    pub fn solve_step(
+    pub fn solve_step<Sys: OdeSystem + ?Sized>(
         &mut self,
-        ode: &dyn OdeSystem,
+        ode: &Sys,
         x: &mut f64,
         y: &mut Vec<f64>,
         dx_try: &mut f64,
@@ -186,9 +187,9 @@ impl Rkf45 {
 
     /// Integrate from `x_start` to `x_end`, updating `y` in place and leaving
     /// the last accepted step size in `dx_est`.
-    pub fn integrate(
+    pub fn integrate<Sys: OdeSystem + ?Sized>(
         &mut self,
-        ode: &dyn OdeSystem,
+        ode: &Sys,
         x_start: f64,
         x_end: f64,
         y: &mut Vec<f64>,

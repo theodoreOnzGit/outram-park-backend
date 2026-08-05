@@ -159,6 +159,7 @@ use outram_foam_basic_lib::primitives::{eigen_values_symm, SymmTensor};
 
 use crate::error::{OffbeatError, Result};
 use crate::rheology::aster::catalogue::AsterBehaviour;
+use crate::rheology::aster::hardening::IsotropicHardening;
 use crate::rheology::aster::integration::{brent, newton_safeguarded, SolverControl};
 use crate::rheology::aster::viscoplastic::{deviator, von_mises_of_deviator};
 
@@ -260,188 +261,6 @@ impl IsotropicElasticity {
     }
 }
 
-/// Isotropic hardening `R(p)` — the current radius of the yield surface.
-///
-/// # What it represents
-///
-/// `R(p)` is the flow stress \[Pa\] a material offers after accumulating
-/// equivalent plastic strain `p` \[-\]. It is the quantity a tensile test
-/// measures, and in code_aster it is normally supplied *point by point* as a
-/// `TRACTION` curve read by `rsliso.F90`. Tabulated curves are a data-plumbing
-/// concern rather than a physics one, so this port offers the closed-form
-/// families instead and leaves the table for the caller to interpolate.
-///
-/// Enum dispatch, not trait objects, per the workspace rule.
-///
-/// # Units
-///
-/// Every stress-dimensioned field is in pascal \[Pa\]; `p` and every exponent
-/// are dimensionless.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum IsotropicHardening {
-    /// Perfect plasticity: `R(p) = sigma_y`, no hardening at all.
-    ///
-    /// The limiting case, and the one that makes a return map's bracket
-    /// degenerate (the residual becomes exactly zero at its upper endpoint), so
-    /// it is worth testing against explicitly.
-    Perfect {
-        /// Initial yield stress `sigma_y` \[Pa\], strictly positive.
-        yield_stress: f64,
-    },
-    /// Linear hardening: `R(p) = sigma_y + H p`.
-    Linear {
-        /// Initial yield stress `sigma_y` \[Pa\], strictly positive.
-        yield_stress: f64,
-        /// Plastic modulus `H` \[Pa\]. Negative values describe linear
-        /// softening and are permitted, but they make the local solve
-        /// non-monotone — see the module documentation.
-        modulus: f64,
-    },
-    /// Power-law (Ludwik) hardening: `R(p) = sigma_y + K p^n`.
-    ///
-    /// The classical fit for metals. Note `dR/dp` is infinite at `p = 0` for
-    /// `n < 1`, which is real and not a coding error; [`Self::slope`] returns
-    /// the slope at a small positive offset there rather than an infinity, so a
-    /// Newton step stays finite.
-    ///
-    /// **Caution for the porous-plastic laws.** That infinite initial slope
-    /// makes the *first* plastic increment of a virgin point genuinely
-    /// ill-conditioned: with `n = 0.1` the flow stress climbs by `0.3 K` over a
-    /// plastic strain of `1e-6`, so the local residual falls by order `K`
-    /// across a porosity increment of order `1e-9` and any bracketed solver
-    /// collapses its bracket to machine precision with the residual still
-    /// large. That is a property of the curve, not of the return map. Prefer
-    /// [`Self::EcroNl`] or [`Self::Linear`] — or an interpolated `TRACTION`
-    /// table, which is what code_aster itself uses and which is piecewise
-    /// linear and therefore finite-sloped throughout.
-    PowerLaw {
-        /// Initial yield stress `sigma_y` \[Pa\], strictly positive.
-        yield_stress: f64,
-        /// Hardening coefficient `K` \[Pa\], non-negative.
-        coefficient: f64,
-        /// Hardening exponent `n` \[-\], typically 0.05-0.5 for structural
-        /// steels.
-        exponent: f64,
-    },
-    /// code_aster's `ECRO_NL` nonlinear isotropic hardening — the form
-    /// upstream's GTN law requires.
-    ///
-    /// `R(p) = R0 + RH p + R1 (1 - exp(-g1 p)) + R2 (1 - exp(-g2 p)) + RK (p + P0)^gm`
-    ///
-    /// Upstream: `f_ecro` in `bibfor/algorith/lcgtn_module.F90`, keywords
-    /// `R0`, `RH`, `R1`, `GAMMA_1`, `R2`, `GAMMA_2`, `RK`, `P0`, `GAMMA_M`.
-    /// The two saturating exponentials give the knee of the curve at small
-    /// strain, the linear term the far-field slope, and the power term a
-    /// tunable tail.
-    EcroNl {
-        /// `R0` — initial yield stress \[Pa\], strictly positive.
-        r0: f64,
-        /// `RH` — linear hardening modulus \[Pa\].
-        rh: f64,
-        /// `R1` — amplitude of the first saturating term \[Pa\].
-        r1: f64,
-        /// `GAMMA_1` — rate of the first saturating term \[-\].
-        gamma_1: f64,
-        /// `R2` — amplitude of the second saturating term \[Pa\].
-        r2: f64,
-        /// `GAMMA_2` — rate of the second saturating term \[-\].
-        gamma_2: f64,
-        /// `RK` — amplitude of the power term \[Pa\].
-        rk: f64,
-        /// `P0` — offset of the power term \[-\]; keeps it finite at `p = 0`.
-        p0: f64,
-        /// `GAMMA_M` — exponent of the power term \[-\]. Upstream defaults it
-        /// to 1 when the keyword is absent.
-        gamma_m: f64,
-    },
-}
-
-impl IsotropicHardening {
-    /// Flow stress `R(p)` \[Pa\] at accumulated equivalent plastic strain `p`.
-    ///
-    /// `p` must be non-negative; a negative argument is treated as zero, which
-    /// is the physically meaningful extension (plastic strain never
-    /// un-accumulates) rather than an error, because a Newton iterate can
-    /// transiently overshoot below zero.
-    #[must_use]
-    pub fn value(self, p: f64) -> f64 {
-        let p = p.max(0.0);
-        match self {
-            Self::Perfect { yield_stress } => yield_stress,
-            Self::Linear {
-                yield_stress,
-                modulus,
-            } => yield_stress + modulus * p,
-            Self::PowerLaw {
-                yield_stress,
-                coefficient,
-                exponent,
-            } => yield_stress + coefficient * p.powf(exponent),
-            Self::EcroNl {
-                r0,
-                rh,
-                r1,
-                gamma_1,
-                r2,
-                gamma_2,
-                rk,
-                p0,
-                gamma_m,
-            } => {
-                r0 + rh * p
-                    + r1 * (1.0 - (-gamma_1 * p).exp())
-                    + r2 * (1.0 - (-gamma_2 * p).exp())
-                    + rk * (p + p0).powf(gamma_m)
-            }
-        }
-    }
-
-    /// Hardening slope `dR/dp` \[Pa\] at accumulated equivalent plastic strain
-    /// `p`.
-    ///
-    /// Supplied so the local solves can take a true Newton step. For the
-    /// power-law family with an exponent below one the true slope diverges at
-    /// the origin; this returns the slope at `p = 1e-12` instead, which is
-    /// finite and keeps the safeguarded Newton in
-    /// [`crate::rheology::aster::integration`] from proposing an infinite step.
-    #[must_use]
-    pub fn slope(self, p: f64) -> f64 {
-        let p = p.max(0.0);
-        match self {
-            Self::Perfect { .. } => 0.0,
-            Self::Linear { modulus, .. } => modulus,
-            Self::PowerLaw {
-                coefficient,
-                exponent,
-                ..
-            } => {
-                let q = if exponent < 1.0 { p.max(1.0e-12) } else { p };
-                coefficient * exponent * q.powf(exponent - 1.0)
-            }
-            Self::EcroNl {
-                rh,
-                r1,
-                gamma_1,
-                r2,
-                gamma_2,
-                rk,
-                p0,
-                gamma_m,
-                ..
-            } => {
-                let base = if gamma_m < 1.0 {
-                    (p + p0).max(1.0e-12)
-                } else {
-                    p + p0
-                };
-                rh + r1 * gamma_1 * (-gamma_1 * p).exp()
-                    + r2 * gamma_2 * (-gamma_2 * p).exp()
-                    + rk * gamma_m * base.powf(gamma_m - 1.0)
-            }
-        }
-    }
-}
-
 // ===========================================================================
 // Stress invariants used by the damage-equivalent stresses
 // ===========================================================================
@@ -500,6 +319,25 @@ fn from_dev_and_mean(dev: SymmTensor, mean: f64) -> SymmTensor {
 
 /// Smallest strictly positive normalised `f64`, upstream's `r8miem()`.
 const R8MIEM: f64 = f64::MIN_POSITIVE;
+
+/// Floor applied to the isotropic-hardening variable `r` before it is raised to
+/// `1/m`, upstream's `epsiec`.
+///
+/// **This is a physical regularisation, not a numerical guard, and the exact
+/// value matters enormously.** The Lemaitre flow rate divides by
+/// `s_c = K r^(1/m)`, which vanishes as `r → 0`, so a pristine point has an
+/// unbounded initial rate. Upstream caps it at a definite strain:
+/// `bibfor/algorith/rkdvec.F90` declares `parameter(epsiec = 1.d-8)` and
+/// applies `if (ecrou .le. epsiec) ecrou = epsiec`.
+///
+/// Using `f64::MIN_POSITIVE` here instead — as this port originally did, with a
+/// comment wrongly attributing it to upstream's `r8miem()` — changes `s_c` by
+/// about thirty orders of magnitude. For `ssnv126a`'s material
+/// (`K = 1450` MPa, `m = 9.8`): `1e-8` gives `s_c = 1450 × 0.1526 = 221` MPa,
+/// while `2.2e-308` gives `s_c = 5.8e-29` MPa. The second makes the initial
+/// flow rate astronomical, so the material relaxes to nothing within a single
+/// step of any size and damage pins at its ceiling.
+const HARDENING_FLOOR: f64 = 1.0e-8;
 
 // ===========================================================================
 // VENDOCHAB / VISC_ENDO_LEMA — Lemaitre-Chaboche damage-coupled viscoplasticity
@@ -929,9 +767,11 @@ impl LemaitreChabocheLaw {
             return (0.0, false);
         }
 
-        // sc = K r^(1/m); upstream floors `r` at r8miem() so the log is finite.
-        let r = if hardening_variable <= R8MIEM {
-            R8MIEM
+        // sc = K r^(1/m). Upstream floors `r` at `epsiec = 1e-8`, not at
+        // `r8miem()` — see [`HARDENING_FLOOR`], where the difference and its
+        // consequences are spelled out.
+        let r = if hardening_variable <= HARDENING_FLOOR {
+            HARDENING_FLOOR
         } else {
             hardening_variable
         };
@@ -1147,17 +987,53 @@ impl LemaitreChabocheLaw {
 
         let mut outcome = DamageOutcome::Converged;
         let mut damage_iterations = 0;
-        let damage = if d_old >= LEMAITRE_CHABOCHE_DAMAGE_MAX
-            || damage_residual(LEMAITRE_CHABOCHE_DAMAGE_MAX) < 0.0
-        {
-            // The damage rate at the ceiling is still large enough to carry the
-            // step past it: upstream's `dammax` branch. Not a converged solve.
+
+        // Bracket the *first* root above `d_old`, scanning upward.
+        //
+        // The residual `D - d_old - dt r(D)` is **negative at both ends** for
+        // any realistic step, and that is not a sign of saturation. At
+        // `D = d_old` it is `-dt r(d_old) < 0` because the rate is positive; at
+        // the ceiling it is hugely negative because `r ∝ (1-D)^(-k)` diverges
+        // there, with `k ~ 14.5` giving a factor of order `1e29`. In between,
+        // the linear `D` term outruns the rate and the residual rises through
+        // zero — that crossing is the physical root.
+        //
+        // An earlier version tested `damage_residual(ceiling) < 0` and declared
+        // saturation. Because that test is satisfied for essentially every
+        // timestep, it fired on the very first step of every problem: measured
+        // on `ssnv126a`, damage pinned at the ceiling even for `dt = 1e-10` s,
+        // and only below about `1e-20` s did the law return anything else.
+        // Saturation must instead mean *no crossing exists*, which is what the
+        // scan below actually determines.
+        let scan_upper = LEMAITRE_CHABOCHE_DAMAGE_MAX;
+        let mut bracket: Option<(f64, f64)> = None;
+        if d_old < scan_upper {
+            let mut lower = d_old;
+            let mut f_lower = damage_residual(lower);
+            // Geometric ladder: the root sits very close to `d_old` for a small
+            // step and further out for a large one, so sampling has to be dense
+            // near the start and coarse further up.
+            let samples = 200;
+            for i in 1..=samples {
+                let f = f64::from(i) / f64::from(samples);
+                let upper = d_old + (scan_upper - d_old) * f * f * f;
+                let f_upper = damage_residual(upper);
+                if f_lower.is_finite() && f_upper.is_finite() && f_lower * f_upper <= 0.0 {
+                    bracket = Some((lower, upper));
+                    break;
+                }
+                lower = upper;
+                f_lower = f_upper;
+            }
+        }
+
+        let damage = if d_old >= LEMAITRE_CHABOCHE_DAMAGE_MAX {
             outcome = DamageOutcome::Saturated;
             LEMAITRE_CHABOCHE_DAMAGE_MAX
-        } else {
+        } else if let Some(bracket) = bracket {
             let solution = brent(
                 damage_residual,
-                (d_old, LEMAITRE_CHABOCHE_DAMAGE_MAX),
+                bracket,
                 &SolverControl {
                     max_iter: 200,
                     residual_tol: 1.0e-14,
@@ -1166,6 +1042,11 @@ impl LemaitreChabocheLaw {
             )?;
             damage_iterations = solution.iterations;
             solution.root
+        } else {
+            // No crossing anywhere below the ceiling: the step genuinely cannot
+            // be completed without passing it. Upstream's `dammax` branch.
+            outcome = DamageOutcome::Saturated;
+            LEMAITRE_CHABOCHE_DAMAGE_MAX
         };
 
         let (dr, rate_linearised, flow_iterations) = solve_hardening(damage)?;

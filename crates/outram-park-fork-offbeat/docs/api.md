@@ -1051,7 +1051,7 @@ to a radial strain by `ε = f · (G_cold / D_cold)`.
 
 # Why the geometry and the power live on the variant
 
-[`MaterialState`](crate::materials::MaterialState) carries the local
+[`MaterialState`] carries the local
 thermodynamic and irradiation state, not rod geometry or rod power.
 Relocation needs all three, so the cold gap, the cold pellet diameter
 and the linear power sit on this variant. The first two are fixed for a
@@ -4266,6 +4266,31 @@ reported here rather than papered over, because it is a genuine property of
 the upstream correlation pair. Use
 [`is_admissible`](PoissonRatioModel::is_admissible) to test a result.
 
+# Validation case
+
+[`MatproZircaloy`](PoissonRatioModel::MatproZircaloy) is tracked as a
+**formal validation case** (bead `op-6sl.7`). The write-up lives in the
+repository at `docs/validation/poisson_ratio_zircaloy.md`, with the source
+provenance in `docs/validation/References.md`. (Both are repo-only —
+`docs/` is excluded from the packaged crate.)
+
+In summary, as of 2026-08-05:
+
+- **Admissibility check against the `-1 < nu < 0.5` constraint: FAILS**, for
+  the reasons documented on the variant below. This needs no experimental
+  data, which is why it is the one criterion that could be evaluated.
+- **Comparison against measured Zircaloy Poisson's ratio: NOT PERFORMED.**
+  Candidate benchmark datasets are identified with full provenance in
+  `References.md` (chiefly Schwenk & Wheeler 1978, a direct `nu` measurement
+  on Zircaloy-4 over 297-589 K, and Northwood, London & Bahen 1975 for
+  Zircaloy-2 over 293-773 K), but **no measured value has been obtained or
+  transcribed**, so no accuracy claim is made here or anywhere in this
+  crate. Gaps are listed explicitly rather than filled with estimates.
+
+Nothing in this module has been validated against experiment. Treat the
+numbers as a faithful reproduction of a published correlation, not as a
+statement about Zircaloy.
+
 # Validity ranges, clamping and checking
 
 Same contract as the companion Young's-modulus module:
@@ -4470,21 +4495,42 @@ MATPRO's) form, not a transcription slip.
 # This variant can leave the admissible range
 
 Because `E` and `G` are two *independently fitted* lines, their ratio is
-not constrained to keep `nu < 0.5`, and in the beta phase it does not:
+not constrained to keep `nu < 0.5`, and it does not stay there. Two
+independent failure regimes exist:
 
-- Unirradiated, uncold-worked cladding crosses `nu = 0.5` at
-  **T = 1354.84 K** and reaches `nu = 0.912` at the top of the range
-  (1800 K).
-- At 600 K, a retained cold-work fraction above **0.1197** also pushes
-  `nu` past 0.5, because `K2` subtracts the same absolute amount from
-  both numerators and `G` is roughly a third of `E`.
+- **Temperature.** Unirradiated, uncold-worked cladding crosses
+  `nu = 0.5` at **T = 1354.838709677 K** and reaches `nu = 0.912351` at
+  the top of the range (1800 K). That leaves 445.16 K of the 1510 K
+  validity interval — 29.5% of it — beyond the crossover. `nu = 0.5` is
+  exactly the
+  condition `E = 3G`; solving it on the beta lines gives
+  `T = 1.26e10 / 9.3e6`, and bisection agrees to nine decimals.
+- **Cold work,** and this one reaches down to ordinary operating
+  temperature. `K2` subtracts the same absolute amount from both
+  numerators, and since `G` is roughly a third of `E` the subtraction
+  costs `G` proportionally three times as much, driving `nu` up. The
+  threshold **falls as temperature rises**: **0.179096 at 300 K**,
+  **0.119731 at 600 K**, and only **0.026131 at 1073 K**. Cold-worked
+  stress-relief-annealed cladding retains cold work by definition, so
+  2.6% at the top of the alpha branch is a routine condition, not a
+  corner case.
 
-Neither is a port error — both are properties of the upstream
+Fast fluence cannot mitigate either regime: `K3` divides both `E` and
+`G`, so it cancels exactly in `nu`. Oxygen content moves `nu` *down*,
+away from the bound.
+
+Neither regime is a port error — both are properties of the upstream
 correlation pair, verified against the transcribed coefficients and
-pinned down by the unit tests. Call
+pinned down by the unit tests. Upstream neither detects nor guards
+them; notably, upstream's own default Zircaloy material selects the
+*constant* Poisson model rather than this one. Call
 [`is_admissible`](Self::is_admissible) before handing the result to a
 mechanics solve, or use [`ConstantZircaloy`](Self::ConstantZircaloy) in
 the beta phase.
+
+Every number above was printed by this crate's code and transcribed;
+the full tables, the provenance and the gating-policy discussion are in
+the repository at `docs/validation/poisson_ratio_zircaloy.md`.
 
 **Inputs used:** [`temperature`](MaterialState::temperature),
 [`fast_fluence`](MaterialState::fast_fluence) \[n/m^2\],
@@ -4778,7 +4824,7 @@ The plain [`strain`](ThermalExpansionModel::strain) /
 [`coefficient`](ThermalExpansionModel::coefficient) methods **clamp** the
 temperature to the enforced range endpoints before evaluating; the
 `*_checked` variants return
-[`OffbeatError::OutOfRange`](crate::error::OffbeatError::OutOfRange)
+[`OffbeatError::OutOfRange`]
 instead. Note that clamping is a *deviation* from upstream for the two
 variants that do have a range: upstream
 [`MatproZy`](ThermalExpansionModel::MatproZy) prints a warning and then
@@ -6401,23 +6447,54 @@ Splitting this way, rather than assembling the full anisotropic operator, is
 what lets a segregated finite-volume code reuse the ordinary Laplacian
 machinery per component. The price is that outer iteration.
 
+# Inelastic deformation: creep and plasticity
+
+[`crate::rheology`] owns the constitutive laws; this module drives them.
+Attach one with [`MechanicsSolver::set_rheology`] and step the solve with
+[`MechanicsSolver::solve_creep_step`] instead of
+[`MechanicsSolver::solve_quasi_static`]. The coupling adds two things to the
+equation above:
+
+- the strain handed to the constitutive law is the **mechanical** strain
+  `ε − ε* I`, with the eigenstrain already removed, so an unconstrained
+  freely expanding body is correctly stress-free and does not creep;
+- the accumulated inelastic strain `ε_in = ε_p + ε_c` re-enters the momentum
+  balance as an additional (tensor) eigenstrain through the extra explicit
+  term `−∇·[2μ ε_in + λ tr(ε_in) I]`, which restores equilibrium after the
+  corrected stress comes back softer than the elastic one. This is the
+  finite-volume analogue of upstream's `correctAdditionalStrain`, and it
+  rides on exactly the same explicit-remainder hook as the segregated split.
+
+The per-cell [`RheologyState`](crate::rheology::RheologyState) is advanced
+**once** per completed step, after the corrector loop, never inside it.
+
 # Scope of this port
 
 **Implemented:** small-strain isotropic linear elasticity with arbitrary
-isotropic eigenstrain, quasi-static and transient (inertial) forms, on a
-single mesh region.
+isotropic eigenstrain, quasi-static and transient (inertial) forms, and the
+inelastic coupling described above (creep and plasticity through
+[`crate::rheology`], with [`CreepTimeStepControl`](crate::rheology::CreepTimeStepControl)
+bounding the step), on a single mesh region.
 
-**Not implemented here:** plasticity and creep (they belong in
-[`crate::rheology`], which returns a corrected stress this solver consumes),
-contact and gap closure ([`crate::gap`]), large-strain updated/total
-Lagrangian kinematics, and multi-material interface correction. Each is
-tracked separately under bead `op-6sl`.
+**Not implemented here:** contact and gap closure ([`crate::gap`]),
+large-strain updated/total Lagrangian kinematics, traction boundary
+conditions, and multi-material interface correction — the last of which
+matters for the stress *recovery* across a sharp material interface; see the
+measured limitation recorded on
+`solver::rheology_tests::spatially_varying_creep_keeps_the_axial_stress_uniform`.
+Each is tracked separately under bead `op-6sl`.
 
 ```rust
 pub mod mechanics { /* ... */ }
 ```
 
 ### Re-exports
+
+#### Re-export `CreepStepReport`
+
+```rust
+pub use solver::CreepStepReport;
+```
 
 #### Re-export `Eigenstrain`
 
@@ -6721,7 +6798,7 @@ constant across it — which is what [`Self::next_time_step`] is for.
 
 State is carried in the crate's canonical units — burnup MWd/kgHM, fluence
 n/m² — so [`Self::apply_to`] can write straight into a
-[`MaterialState`](crate::materials::MaterialState). Every accessor names its
+[`MaterialState`]. Every accessor names its
 unit; nothing here is "just a number".
 
 # Example
@@ -14739,7 +14816,6 @@ pub mod rheology { /* ... */ }
 
 ## Module `aster`
 
-code_aster constitutive laws (port in progress, epic op-a7p).
 code_aster constitutive laws.
 
 # What this is
@@ -14769,11 +14845,20 @@ mechanical-engineering fare. That gives one port two consumers:
 **Verification-tested draft. Nothing here is validated.** Every test in
 every module below is *verification* — independent transcription of
 upstream's algebra, closed-form limits, invariants, and measured
-convergence orders. Nothing has been compared against code_aster output, a
-cladding-creepdown measurement, or any reactor data, and no such agreement
-is claimed. Note also that upstream's `astest` suite is **absent** from the
-clone this port was made from, so the reference oracle assumed by
-`docs/code-aster-port-scoping.md` §7 was not available.
+convergence orders. Nothing has been compared against a cladding-creepdown
+measurement or any reactor data, and no such agreement is claimed.
+
+Upstream's `astest` suite **is** available in the read-only clone (an
+earlier revision of this note wrongly said it was absent — it was merely
+outside the sparse checkout), and it lives in the GPL-3.0-or-later `src`
+repository, so it is in scope under `DATA_POLICY.md`. Two of its cases are
+now run as integration tests — `tests/astest_ssnv101a.rs` (Chaboche) and
+`tests/astest_ssnv126a.rs` (`VENDOCHAB`) — against upstream's own **`VALE_CALC`**
+computed values. That makes them *verification against a reference
+implementation*: they show this port reproduces code_aster's arithmetic,
+**not** that either code reproduces reality. Upstream's `VALE_REFE`
+analytical/experimental references are deliberately never asserted here —
+promoting a case to validation is the maintainer's call.
 
 Foundations:
 
@@ -14781,6 +14866,7 @@ Foundations:
 - [`kinematics`] — the Mandel convention and the deformation gradient.
 - [`integration`] — the scalar local solvers every law below shares.
 - [`log_strain`] — the `GDEF_LOG` large-strain wrapper.
+- [`hardening`] — the one isotropic-hardening curve every law above shares.
 
 Constitutive laws:
 
@@ -14789,16 +14875,20 @@ Constitutive laws:
 | [`viscoplastic`] | `NORTON`, `LEMAITRE`, `LEMAITRE_IRRA` |
 | [`isotropic`] | `VMIS_ISOT_LINE`/`_PUIS` hardening, `NORTON_HOFF` |
 | [`chaboche`] | `VMIS_CIN1/2_CHAB`, `VISC_CIN1/2_CHAB`, `VMIS/VISC_CIN2_MEMO` |
+| [`viscochab`] | `VISCOCHAB` — the 27-variable rate system of `rkdcha.F90` |
 | [`damage`] | `VENDOCHAB`, `VISC_ENDO_LEMA`, `ROUSS_PR`, `ROUSS_VISC`, `GTN`, `VISC_GTN`, `CRIT_RUPT` |
 | [`metallurgy`] | `VISC_IRRA_LOG`, `GRAN_IRRA_LOG`, `IRRAD3M`, `META_LEMA_ANI` |
 | [`fracture`] | linear-elastic fracture post-processing only — see below |
 
 Two limitations that change results and must not be discovered late:
 
-- [`fracture`] is roughly **80 % blocked**. The G-theta domain integral
-  needs element shape functions, Gauss quadrature and crack-front ring
-  topology, none of which this crate has. What is implemented is the
-  closed-form subset.
+- [`fracture`] is roughly **80 % unported** — the closed-form subset only.
+  It is *not* blocked on finite elements (an earlier revision of this note
+  said so; that was wrong). The G-theta domain integral is
+  discretisation-agnostic; what is missing is a crack front as ordered
+  data, ring quadrature, and the virtual-extension field. See that module's
+  docs for the real difficulty, which is FV gradient accuracy at the
+  `1/√r` singularity.
 - [`damage`]'s `GTN` is the **local** form only. Without `GRADVARI`
   nonlocal regularisation a structural run will localise into one element
   band and give mesh-dependent answers.
@@ -14832,9 +14922,12 @@ supports.
 
 It contains **no physics**. No stress is computed here. A variant
 appearing in [`AsterBehaviour`] means only that upstream declares that
-law, not that this port implements it -- ask
-[`AsterBehaviour::is_implemented`] for that, and expect `false` for
-nearly all of them at present.
+law, not that this port implements it. There is deliberately **no**
+`is_implemented` query: a hand-maintained "is it done yet" flag on 229
+variants would go stale the moment one more law landed, and a stale flag
+reading `true` is worse than no flag. The implemented set is listed in the
+[`super`] module documentation and in the crate README, both of which sit
+next to the code that would have to change.
 
 # Why generated
 
@@ -19566,228 +19659,6 @@ pub struct IsotropicElasticity {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-#### Enum `IsotropicHardening`
-
-Isotropic hardening `R(p)` — the current radius of the yield surface.
-
-# What it represents
-
-`R(p)` is the flow stress \[Pa\] a material offers after accumulating
-equivalent plastic strain `p` \[-\]. It is the quantity a tensile test
-measures, and in code_aster it is normally supplied *point by point* as a
-`TRACTION` curve read by `rsliso.F90`. Tabulated curves are a data-plumbing
-concern rather than a physics one, so this port offers the closed-form
-families instead and leaves the table for the caller to interpolate.
-
-Enum dispatch, not trait objects, per the workspace rule.
-
-# Units
-
-Every stress-dimensioned field is in pascal \[Pa\]; `p` and every exponent
-are dimensionless.
-
-```rust
-pub enum IsotropicHardening {
-    Perfect {
-        yield_stress: f64,
-    },
-    Linear {
-        yield_stress: f64,
-        modulus: f64,
-    },
-    PowerLaw {
-        yield_stress: f64,
-        coefficient: f64,
-        exponent: f64,
-    },
-    EcroNl {
-        r0: f64,
-        rh: f64,
-        r1: f64,
-        gamma_1: f64,
-        r2: f64,
-        gamma_2: f64,
-        rk: f64,
-        p0: f64,
-        gamma_m: f64,
-    },
-}
-```
-
-##### Variants
-
-###### `Perfect`
-
-Perfect plasticity: `R(p) = sigma_y`, no hardening at all.
-
-The limiting case, and the one that makes a return map's bracket
-degenerate (the residual becomes exactly zero at its upper endpoint), so
-it is worth testing against explicitly.
-
-Fields:
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `yield_stress` | `f64` | Initial yield stress `sigma_y` \[Pa\], strictly positive. |
-
-###### `Linear`
-
-Linear hardening: `R(p) = sigma_y + H p`.
-
-Fields:
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `yield_stress` | `f64` | Initial yield stress `sigma_y` \[Pa\], strictly positive. |
-| `modulus` | `f64` | Plastic modulus `H` \[Pa\]. Negative values describe linear<br>softening and are permitted, but they make the local solve<br>non-monotone — see the module documentation. |
-
-###### `PowerLaw`
-
-Power-law (Ludwik) hardening: `R(p) = sigma_y + K p^n`.
-
-The classical fit for metals. Note `dR/dp` is infinite at `p = 0` for
-`n < 1`, which is real and not a coding error; [`Self::slope`] returns
-the slope at a small positive offset there rather than an infinity, so a
-Newton step stays finite.
-
-**Caution for the porous-plastic laws.** That infinite initial slope
-makes the *first* plastic increment of a virgin point genuinely
-ill-conditioned: with `n = 0.1` the flow stress climbs by `0.3 K` over a
-plastic strain of `1e-6`, so the local residual falls by order `K`
-across a porosity increment of order `1e-9` and any bracketed solver
-collapses its bracket to machine precision with the residual still
-large. That is a property of the curve, not of the return map. Prefer
-[`Self::EcroNl`] or [`Self::Linear`] — or an interpolated `TRACTION`
-table, which is what code_aster itself uses and which is piecewise
-linear and therefore finite-sloped throughout.
-
-Fields:
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `yield_stress` | `f64` | Initial yield stress `sigma_y` \[Pa\], strictly positive. |
-| `coefficient` | `f64` | Hardening coefficient `K` \[Pa\], non-negative. |
-| `exponent` | `f64` | Hardening exponent `n` \[-\], typically 0.05-0.5 for structural<br>steels. |
-
-###### `EcroNl`
-
-code_aster's `ECRO_NL` nonlinear isotropic hardening — the form
-upstream's GTN law requires.
-
-`R(p) = R0 + RH p + R1 (1 - exp(-g1 p)) + R2 (1 - exp(-g2 p)) + RK (p + P0)^gm`
-
-Upstream: `f_ecro` in `bibfor/algorith/lcgtn_module.F90`, keywords
-`R0`, `RH`, `R1`, `GAMMA_1`, `R2`, `GAMMA_2`, `RK`, `P0`, `GAMMA_M`.
-The two saturating exponentials give the knee of the curve at small
-strain, the linear term the far-field slope, and the power term a
-tunable tail.
-
-Fields:
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `r0` | `f64` | `R0` — initial yield stress \[Pa\], strictly positive. |
-| `rh` | `f64` | `RH` — linear hardening modulus \[Pa\]. |
-| `r1` | `f64` | `R1` — amplitude of the first saturating term \[Pa\]. |
-| `gamma_1` | `f64` | `GAMMA_1` — rate of the first saturating term \[-\]. |
-| `r2` | `f64` | `R2` — amplitude of the second saturating term \[Pa\]. |
-| `gamma_2` | `f64` | `GAMMA_2` — rate of the second saturating term \[-\]. |
-| `rk` | `f64` | `RK` — amplitude of the power term \[Pa\]. |
-| `p0` | `f64` | `P0` — offset of the power term \[-\]; keeps it finite at `p = 0`. |
-| `gamma_m` | `f64` | `GAMMA_M` — exponent of the power term \[-\]. Upstream defaults it<br>to 1 when the keyword is absent. |
-
-##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn value(self: Self, p: f64) -> f64 { /* ... */ }
-  ```
-  Flow stress `R(p)` \[Pa\] at accumulated equivalent plastic strain `p`.
-
-- ```rust
-  pub fn slope(self: Self, p: f64) -> f64 { /* ... */ }
-  ```
-  Hardening slope `dR/dp` \[Pa\] at accumulated equivalent plastic strain
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> IsotropicHardening { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &IsotropicHardening) -> bool { /* ... */ }
-    ```
-
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
 #### Struct `LemaitreChabocheParameters`
 
 Material parameters of the Lemaitre-Chaboche damage-coupled viscoplastic
@@ -22551,28 +22422,62 @@ pub const LEMAITRE_CHABOCHE_DAMAGE_MAX: f64 = 0.99;
 Linear-elastic fracture mechanics: the parts of code_aster's `CALC_G` that
 are *not* finite-element work.
 
-# Read this first: most of `bibfor/fracture` is **not** ported, and cannot be
+# Read this first: most of `bibfor/fracture` is **not** ported yet
 
 code_aster computes the energy release rate `G` and the stress intensity
-factors `K_I, K_II, K_III` by the **G-theta method**: a domain integral of a
-bilinear form over a ring of finite elements surrounding the crack front,
-driven by a *virtual crack extension field* `theta`. Evaluating that integral
-needs, at minimum:
+factors `K_I, K_II, K_III` by the **G-theta method**: a domain integral
 
-- element shape functions and their derivatives on the reference element,
-- a Gauss quadrature rule per element type,
-- a mesh carrying a named crack-front node group and its curvilinear
-  abscissae,
-- assembled nodal displacement, stress and internal-variable fields,
-- a solver-side "compute this option over this element group and sum the
-  elementary results" driver (upstream's `calcul` / `mesomm`).
+`G = ∫_V [σ:∇u · ∇θ - W ∇·θ] dV`
 
-This crate has **none** of that for solid mechanics at the required
-generality, so the 72-file `bibfor/fracture` directory is, today, mostly
-unportable. Rather than produce a module that looks like G-theta and computes
-nothing, this file ports only the subset that is genuinely closed-form
-algebra, and the module-level report below states precisely what is blocked
-and on what.
+over a ring surrounding the crack front, driven by a *virtual crack
+extension field* `θ`.
+
+## Not blocked on finite elements
+
+An earlier revision of this note said the method needs element shape
+functions and that this crate therefore cannot host it. **That is wrong and
+is corrected here**, because it names the wrong missing piece and would send
+a reader off to build an FE framework that is not required.
+
+The integral above is **discretisation-agnostic**. What is FE-specific in
+upstream is only that its quadrature happens to use element shape functions.
+Finite volume is a viable host: OpenFOAM ships `solidDisplacement`, a
+finite-volume segregated solver for linear-elastic small-strain deformation
+with thermal stress, and [`crate::mechanics`] is already a port of it.
+
+## What is actually missing, in either discretisation
+
+1. **A crack front as data** — ordered points, curvilinear abscissae, and a
+   per-point local basis. [`CrackTipBasis`] is the per-point piece; the
+   ordered front is not.
+2. **Quadrature over a ring domain** around that front.
+3. **The `θ` field and its gradient** on that ring.
+
+Only (1) and (2) are needed for a first working `G`.
+
+## The genuine difficulty with finite volume
+
+Recorded here so it is not rediscovered the hard way: the crack-tip field is
+**singular**, `u ~ √r` and `σ ~ 1/√r`. FE handles that with quarter-point or
+enriched elements. Cell-centred FV gradient reconstruction is typically first
+or second order and **degrades precisely where the singularity is**. G-theta
+is usable at all because of its domain-independence property, and that
+property depends on an accurate `∇u` throughout the ring — so an FV G-theta
+needs either a graded mesh near the front or an enrichment scheme. It is a
+research-flavoured task rather than a transcription, and published FV
+J-integral work should be consulted before starting. Whether cell-centred FV
+can resolve the tip well enough **at all** is an open question, tracked as
+bead `op-0xv` — it is not settled here, and nothing in this module should be
+read as claiming it is.
+
+`gbilin.F90` / `gbil3d.F90` are the natural first targets once quadrature
+exists: `gbil3d` is entirely JEVEUX-free and `gbilin` needs only the material
+lookup, both pure per-Gauss-point algebra. They were deliberately not ported
+because their only meaningful test — that the ring integral reproduces a
+known `G` — needs the quadrature first.
+
+Rather than produce a module that looks like G-theta and computes nothing,
+this file ports only the subset that is genuinely closed-form algebra.
 
 # What *is* here (portable now, and verified)
 
@@ -24298,6 +24203,351 @@ Degrees 0 through 7 are hard-coded there; anything else hits an
 pub const MAX_LEGENDRE_FRONT_DEGREE: usize = 7;
 ```
 
+## Module `hardening`
+
+The isotropic hardening curve `R(p)`, shared by every law that needs one.
+
+# Why this module exists
+
+Two modules had grown their own `IsotropicHardening` enum independently —
+[`super::isotropic`] for the `VMIS_ISOT_*` radial return, and
+[`super::damage`] for the Rousselier and GTN porous-plastic laws. They
+collided by name, so neither could be re-exported alongside the other, and
+a caller reaching for "the hardening curve" had to know which law it was
+about to feed. This module replaced both; those two now import from here.
+
+The obvious reading was that one was a duplicate. It was not. Their
+`PowerLaw` variants are **different physics**: the `isotropic` one is
+upstream's `ecpuis`, `R = σ_y + σ_y (E p / (α σ_y))^(1/n)`, while the
+`damage` one is Ludwik, `R = σ_y + K p^n`. Merging them into a single
+variant would have silently replaced one curve with the other, so they are
+kept apart as [`AsterPower`](IsotropicHardening::AsterPower) and
+[`Ludwik`](IsotropicHardening::Ludwik) — the names say which is which where
+`PowerLaw` did not.
+
+So this module is the **union**, not the intersection: every curve family
+either module offered, each kept distinct, under one type that both use.
+The consolidation was behaviour-preserving in the curves themselves; what
+it did change is that both callers now get the other's guards (the `p ≥ 0`
+clamp and [`SLOPE_SINGULARITY_OFFSET`], previously only in `damage`) and
+that [`radial_return`](IsotropicHardening::radial_return) — which lives in
+[`super::isotropic`], next to its `nmisot` provenance — now accepts all five
+curve families rather than two.
+
+# The curve
+
+`R(p)` is the radius of the yield surface at accumulated equivalent plastic
+strain `p`. Every law here needs two things from it — its value, and its
+slope `dR/dp`, which the local Newton solves differentiate through.
+
+# Units
+
+Every stress-dimensioned parameter is in pascal \[Pa\]; `p` and every
+exponent are dimensionless. `p` is non-negative by construction: it is an
+accumulated measure.
+
+```rust
+pub mod hardening { /* ... */ }
+```
+
+### Types
+
+#### Enum `IsotropicHardening`
+
+An isotropic hardening curve `R(p)`.
+
+Enum dispatch rather than trait objects, per the workspace rule: the set of
+curve families is closed, adding one forces every `match` to be revisited,
+and rust-analyzer can navigate to each variant.
+
+# Not covered
+
+Tabulated `TRACTION` curves (upstream `rctrac`/`rsliso`). They need the
+material data-table infrastructure rather than any new mechanics, so they
+are left for a caller to interpolate rather than approximated here.
+
+```rust
+pub enum IsotropicHardening {
+    Perfect {
+        yield_stress: f64,
+    },
+    Linear {
+        yield_stress: f64,
+        modulus: f64,
+    },
+    Ludwik {
+        yield_stress: f64,
+        coefficient: f64,
+        exponent: f64,
+    },
+    AsterPower {
+        yield_stress: f64,
+        youngs_modulus: f64,
+        alpha: f64,
+        exponent: f64,
+    },
+    EcroNl {
+        r0: f64,
+        rh: f64,
+        r1: f64,
+        gamma_1: f64,
+        r2: f64,
+        gamma_2: f64,
+        rk: f64,
+        p0: f64,
+        gamma_m: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Perfect`
+
+Perfect plasticity: `R(p) = σ_y`, no hardening at all.
+
+The limiting case, and the one that makes a return map's bracket
+degenerate — the residual becomes exactly zero at its upper endpoint —
+so it is worth testing against explicitly.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `yield_stress` | `f64` | Initial yield stress `σ_y` \[Pa\], strictly positive. |
+
+###### `Linear`
+
+Linear hardening: `R(p) = σ_y + H p`.
+
+ASTER: the `_LINE` suffix of `VMIS_ISOT_LINE` / `VISC_ISOT_LINE`.
+The only family whose radial return has a closed form.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `yield_stress` | `f64` | Initial yield stress `σ_y` \[Pa\], strictly positive. |
+| `modulus` | `f64` | Plastic modulus `H` \[Pa\]. Negative values describe linear<br>**softening** and are permitted, but they make the local solve<br>non-monotone — see [`radial_return`](Self::radial_return). |
+
+###### `Ludwik`
+
+Ludwik power-law hardening: `R(p) = σ_y + K p^n`.
+
+The form the Rousselier and GTN porous-plastic laws use. **Distinct
+from [`AsterPower`](Self::AsterPower)** — see the module documentation.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `yield_stress` | `f64` | Initial yield stress `σ_y` \[Pa\], strictly positive. |
+| `coefficient` | `f64` | Hardening coefficient `K` \[Pa\], non-negative. |
+| `exponent` | `f64` | Hardening exponent `n` \[-\], typically 0.05–0.5 for structural<br>steels. |
+
+###### `AsterPower`
+
+code_aster's `ECRO_PUIS` curve:
+`R(p) = σ_y + σ_y (E p / (α σ_y))^(1/n)`.
+
+ASTER: the `_PUIS` suffix of `VMIS_ISOT_PUIS`. Upstream: `ecpuis.F90`.
+**Distinct from [`Ludwik`](Self::Ludwik)** — this one carries Young's
+modulus and a dimensionless `α` inside the bracket, and is linearised
+below [`ASTER_POWER_LINEARISATION_STRAIN`].
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `yield_stress` | `f64` | Initial yield stress `σ_y` \[Pa\], strictly positive. |
+| `youngs_modulus` | `f64` | Young's modulus `E` \[Pa\], strictly positive. |
+| `alpha` | `f64` | Dimensionless coefficient `α` \[-\], upstream `alfafa`. Strictly<br>positive. |
+| `exponent` | `f64` | Hardening exponent `n` \[-\], strictly positive. Upstream stores its<br>reciprocal as `unsurn`. |
+
+###### `EcroNl`
+
+code_aster's `ECRO_NL` nonlinear isotropic hardening, which GTN needs:
+
+`R(p) = R0 + RH p + R1(1 - e^(-γ₁p)) + R2(1 - e^(-γ₂p)) + RK(p + P0)^γm`
+
+Upstream: `f_ecro` in `lcgtn_module.F90`. The two saturating
+exponentials give the knee at small strain, the linear term the
+far-field slope, and the power term a tunable tail.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r0` | `f64` | `R0` — initial yield stress \[Pa\], strictly positive. |
+| `rh` | `f64` | `RH` — linear hardening modulus \[Pa\]. |
+| `r1` | `f64` | `R1` — amplitude of the first saturating term \[Pa\]. |
+| `gamma_1` | `f64` | `GAMMA_1` — rate of the first saturating term \[-\]. |
+| `r2` | `f64` | `R2` — amplitude of the second saturating term \[Pa\]. |
+| `gamma_2` | `f64` | `GAMMA_2` — rate of the second saturating term \[-\]. |
+| `rk` | `f64` | `RK` — amplitude of the power term \[Pa\]. |
+| `p0` | `f64` | `P0` — offset of the power term \[-\]; keeps it finite at `p = 0`. |
+| `gamma_m` | `f64` | `GAMMA_M` — exponent of the power term \[-\]. Upstream defaults it<br>to 1 when the keyword is absent. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn value(self: Self, p: f64) -> f64 { /* ... */ }
+  ```
+  Flow stress `R(p)` \[Pa\] at accumulated equivalent plastic strain `p`
+
+- ```rust
+  pub fn slope(self: Self, p: f64) -> f64 { /* ... */ }
+  ```
+  Hardening slope `dR/dp` \[Pa\] at accumulated equivalent plastic strain
+
+- ```rust
+  pub fn yield_stress(self: Self) -> f64 { /* ... */ }
+  ```
+  The initial yield stress `R(0)` \[Pa\].
+
+- ```rust
+  pub fn aster_name_suffix(self: Self) -> Option<&'static str> { /* ... */ }
+  ```
+  The ASTER behaviour-name suffix this curve corresponds to, where one
+
+- ```rust
+  pub fn validate(self: Self) -> Result<()> { /* ... */ }
+  ```
+  Reject parameter sets that have no physical meaning.
+
+- ```rust
+  pub fn radial_return(self: &Self, trial_equivalent_stress: f64, shear_modulus: f64, accumulated_strain: f64, control: &SolverControl) -> Result<Option<LocalSolution>> { /* ... */ }
+  ```
+  Solve the von Mises radial return for the plastic multiplier.
+
+- ```rust
+  pub fn return_residual(self: &Self, delta_p: f64, trial_equivalent_stress: f64, three_shear_moduli: f64, accumulated_strain: f64) -> f64 { /* ... */ }
+  ```
+  Upstream's `nmcri2` residual, `R(p_m + Δp) + 3μ Δp - σ_eq^trial`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IsotropicHardening { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IsotropicHardening) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `ASTER_POWER_LINEARISATION_STRAIN`
+
+Below this accumulated plastic strain the `AsterPower` curve is replaced by
+its secant through the origin.
+
+Upstream's `p0 = 1.d-10` in `ecpuis.F90`, reproduced exactly. The reason is
+that `dR/dp ∝ p^(1/n - 1)` diverges as `p → 0` for any `n > 1`, so a Newton
+step taken at `p = 0` would see an infinite slope. Upstream replaces the
+curve below `p0` with the straight line joining the origin to `R(p0)`, which
+is finite-sloped and continuous with the curve at `p0`.
+
+Note the curve is **C0 but not C1** there: the secant slope comes out
+exactly `n` times the curve's own slope at `p0`.
+
+```rust
+pub const ASTER_POWER_LINEARISATION_STRAIN: f64 = 1.0e-10;
+```
+
+#### Constant `SLOPE_SINGULARITY_OFFSET`
+
+The accumulated plastic strain at which a curve with a genuinely infinite
+initial slope is evaluated instead of at `p = 0`.
+
+[`IsotropicHardening::Ludwik`] with `n < 1` and
+[`IsotropicHardening::EcroNl`] with `γm < 1` both have `dR/dp → ∞` as
+`p → 0`. That divergence is **real physics, not a coding error** — the
+Ludwik fit really does rise vertically out of the origin. It is nonetheless
+useless to a Newton step, which would propose an infinite correction, so
+[`slope`](IsotropicHardening::slope) reports the slope at this offset
+instead of an infinity.
+
+Unlike [`ASTER_POWER_LINEARISATION_STRAIN`] this has **no upstream
+counterpart**: code_aster reaches these two curves only through the
+bracketed solves of the porous-plastic laws, which never ask for a slope at
+the origin. It is this port's own guard, and it changes only the *slope*,
+never the curve — [`value`](IsotropicHardening::value) is exact everywhere.
+
+```rust
+pub const SLOPE_SINGULARITY_OFFSET: f64 = 1.0e-12;
+```
+
 ## Module `integration`
 
 Local integration algorithms shared by every constitutive law.
@@ -24859,10 +25109,14 @@ Isotropic hardening laws and the Norton-Hoff limit-analysis regularisation.
 Two things that both reuse the scalar radial return, and are otherwise
 unrelated:
 
-- [`IsotropicHardening`] — the hardening curve `R(p)` of code_aster's
-  `VMIS_ISOT_*` / `VISC_ISOT_*` family, plus the scalar return that solves
-  for the plastic multiplier against it. Rate-**in**dependent; see the
-  warning below.
+- The scalar radial return that solves for the plastic multiplier against a
+  hardening curve — code_aster's `VMIS_ISOT_*` / `VISC_ISOT_*` family.
+  Rate-**in**dependent; see the warning below. It is implemented as an
+  inherent method on [`IsotropicHardening`], which lives in
+  [`super::hardening`] because every law in this port shares it. `_LINE` is
+  [`IsotropicHardening::Linear`] and `_PUIS` is
+  [`IsotropicHardening::AsterPower`]; the return also accepts the three
+  further curve families that module carries.
 - [`NortonHoffLimitAnalysis`] — the `NORTON_HOFF` law, which despite its
   name is not a creep law at all but a regularisation used to compute
   **limit loads**.
@@ -24904,379 +25158,6 @@ pub mod isotropic { /* ... */ }
 
 ### Types
 
-#### Enum `IsotropicHardening`
-
-Isotropic hardening curve `R(p)` — the radius of the von Mises yield
-surface as a function of accumulated equivalent plastic strain.
-
-ASTER behaviour names: the `_LINE` and `_PUIS` suffixes of
-`VMIS_ISOT_LINE`, `VMIS_ISOT_PUIS`, `VISC_ISOT_LINE` (`num_lc = 2`).
-Upstream: `bibfor/comport/nmisot.F90` (legacy symbol `nmisot`), with the
-power-law curve in `bibfor/comport/ecpuis.F90` (`ecpuis`).
-
-Enum dispatch rather than a trait object, per the workspace rule: the set of
-hardening curves is closed, and adding one must force every `match` to be
-revisited.
-
-# Not ported
-
-`_TRAC` — a hardening curve given as a **tabulated** traction curve read
-from the material deck (upstream `rctrac`/`rcfonc`). It needs the material
-data-table infrastructure rather than any new mechanics, so it is left out
-deliberately rather than approximated.
-
-```rust
-pub enum IsotropicHardening {
-    Linear(LinearHardening),
-    PowerLaw(PowerLawHardening),
-}
-```
-
-##### Variants
-
-###### `Linear`
-
-Linear hardening, `R(p) = σ_y + H p`.
-
-Upstream's `_LINE` branch. The cheapest useful hardening model, and the
-only one whose radial return has a closed-form solution.
-
-Fields:
-
-| Index | Type | Documentation |
-|-------|------|---------------|
-| 0 | `LinearHardening` |  |
-
-###### `PowerLaw`
-
-Power-law (Ramberg-Osgood style) hardening.
-
-Upstream's `_PUIS` branch, curve `ecpuis`.
-
-Fields:
-
-| Index | Type | Documentation |
-|-------|------|---------------|
-| 0 | `PowerLawHardening` |  |
-
-##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn yield_radius(self: &Self, p: f64) -> f64 { /* ... */ }
-  ```
-  The yield radius `R(p)` \[Pa\] at accumulated equivalent plastic strain
-
-- ```rust
-  pub fn hardening_slope(self: &Self, p: f64) -> f64 { /* ... */ }
-  ```
-  The hardening slope `R'(p) = dR/dp` \[Pa\] at accumulated equivalent
-
-- ```rust
-  pub fn yield_stress(self: &Self) -> f64 { /* ... */ }
-  ```
-  The initial yield stress `σ_y` \[Pa\].
-
-- ```rust
-  pub fn aster_name_suffix(self: &Self) -> &'static str { /* ... */ }
-  ```
-  The ASTER behaviour-name suffix this curve corresponds to.
-
-- ```rust
-  pub fn radial_return(self: &Self, trial_equivalent_stress: f64, shear_modulus: f64, accumulated_strain: f64, control: &SolverControl) -> Result<Option<LocalSolution>> { /* ... */ }
-  ```
-  Solve the von Mises radial return for the plastic multiplier.
-
-- ```rust
-  pub fn return_residual(self: &Self, delta_p: f64, trial_equivalent_stress: f64, three_shear_moduli: f64, accumulated_strain: f64) -> f64 { /* ... */ }
-  ```
-  Upstream's `nmcri2` residual, `R(p_m + Δp) + 3μ Δp - σ_eq^trial`.
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> IsotropicHardening { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &IsotropicHardening) -> bool { /* ... */ }
-    ```
-
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-#### Struct `LinearHardening`
-
-Parameters of linear isotropic hardening.
-
-```rust
-pub struct LinearHardening {
-    pub yield_stress: f64,
-    pub hardening_modulus: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `yield_stress` | `f64` | Initial yield stress `σ_y` \[Pa\]. Upstream `SY` of `ECRO_LINE`.<br><br>Must be positive; a zero or negative yield stress has no physical<br>meaning and is rejected by [`IsotropicHardening::radial_return`]. |
-| `hardening_modulus` | `f64` | Hardening modulus `H = dR/dp` \[Pa\]. Upstream `rprim`.<br><br>Zero gives perfect plasticity. Negative values model *softening* and are<br>permitted, but see the note on<br>[`radial_return`](IsotropicHardening::radial_return) — softening steeper<br>than `-3μ` destroys the uniqueness of the return. |
-
-##### Implementations
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> LinearHardening { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &LinearHardening) -> bool { /* ... */ }
-    ```
-
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-#### Struct `PowerLawHardening`
-
-Parameters of power-law isotropic hardening.
-
-The curve is
-
-`R(p) = σ_y + σ_y · (E p / (α σ_y))^(1/n)`,
-
-which is upstream `ecpuis` verbatim, with `unsurn = 1/n`.
-
-```rust
-pub struct PowerLawHardening {
-    pub yield_stress: f64,
-    pub youngs_modulus: f64,
-    pub alpha: f64,
-    pub exponent: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `yield_stress` | `f64` | Initial yield stress `σ_y` \[Pa\]. Must be positive. |
-| `youngs_modulus` | `f64` | Young's modulus `E` \[Pa\]. Must be positive. |
-| `alpha` | `f64` | Dimensionless coefficient `α` \[-\]. Upstream `alfafa`. Must be<br>positive. |
-| `exponent` | `f64` | Hardening exponent `n` \[-\]. Upstream stores its reciprocal as<br>`unsurn`. Must be positive; `n = 1` recovers linear hardening in `p`. |
-
-##### Implementations
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> PowerLawHardening { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &PowerLawHardening) -> bool { /* ... */ }
-    ```
-
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
 #### Struct `NortonHoffLimitAnalysis`
 
 The Norton-Hoff regularisation used for **limit-load** analysis.
@@ -27872,6 +27753,927 @@ value.
 pub const IRRAD3M_PROOF_STRAIN: f64 = 2.0e-3;
 ```
 
+## Module `viscochab`
+
+`VISCOCHAB` — unified viscoplasticity with two back stresses, static
+recovery and a strain-memory surface.
+
+# What this law is for
+
+A reactor component held hot under load does three things at once that a
+simple creep law cannot describe together: it flows at a rate set by how far
+the stress exceeds a threshold (viscoplasticity), it *remembers* the
+direction it was last loaded in, so reversing the load yields early
+(kinematic hardening), and while it sits it slowly forgets — thermal
+recovery erodes the hardening it built up. `VISCOCHAB` is EDF's model for
+exactly that combination, which is why it is the law reached for on vessel
+and piping steels under thermal-mechanical cycling and creep-fatigue holds.
+
+# Why this module looks nothing like [`chaboche`](super::chaboche)
+
+The `VMIS_*_CHAB` family in [`chaboche`](super::chaboche) is *rate
+independent*: a yield surface plus a consistency condition, which collapses
+to one scalar unknown per step and is solved by radial return. `VISCOCHAB`
+has no consistency condition — the overstress drives an explicit flow rate,
+and every internal variable evolves by its own differential equation. There
+is nothing to collapse. Upstream reflects this by offering a `RUNGE_KUTTA`
+integration path (`algo_inte`), and that is the path ported here: the 27
+coupled rates of `rkdcha.F90`, integrated by
+[`outram_foam_basic_lib::ode::OdeIntegrator`].
+
+# The state — 27 rates in a 28-slot vector
+
+Upstream declares `nb_vari = 28` (`viscochab.py`), of which 27 evolve. In
+upstream storage order:
+
+| Slots | Symbol | Meaning | Unit |
+|---|---|---|---|
+| 1-6 | `evi` | viscoplastic strain `ε^vi` | - |
+| 7-12 | `a1v` | first back-strain `α₁` | - |
+| 13-18 | `a2v` | second back-strain `α₂` | - |
+| 19-24 | `csi` | memory-surface centre `ξ` | - |
+| 25 | `rayvi` | isotropic hardening `R` | Pa |
+| 26 | `qcum` | memory-surface radius `q` | - |
+| 27 | `evcum` | accumulated equivalent viscoplastic strain `p` | - |
+| 28 | — | integration-state indicator, rate identically zero | - |
+
+All six-component tensors are in code_aster's Mandel convention — ordering
+`(XX, YY, ZZ, XY, XZ, YZ)` with the shear entries scaled by `√2`, so that a
+plain dot product *is* the tensor double contraction. Use
+[`AsterVoigt`] to convert; constructing the
+six numbers by hand without the scaling is the classic way to get this
+wrong.
+
+# The equations, as upstream writes them
+
+With `s` the stress deviator, `X_i = (2/3)·C_i·α_i` the back stresses, and
+`n̂` the unit direction of the effective deviator:
+
+- effective deviator `smx = s - (2/3)(C₁α₁ + C₂α₂)`, equivalent
+  `J = √(3/2 · smx:smx)`
+- overstress `F = J - R - K`; **no flow at all** when `F ≤ 0`
+- flow rate `ṗ = (F/(K₀ + A_K·R))^N · exp(ALP·(F/(K₀+A_K·R))^(N+1))`
+- `ε̇^vi = (3/2)·(smx/J)·ṗ`, so `√(2/3 · ε̇^vi:ε̇^vi) = ṗ` exactly
+- `α̇_i = ε̇^vi − γ_i·[D_i·α_i + (1−D_i)(α_i·n̂)n̂]·ṗ − G_Xi·‖X_i‖^(M_i−1)·α_i`
+- `γ_i = G_i0·(A_I + (1−A_I)·e^(−B·p))`
+- `Ṙ = B·(Q(q) − R)·ṗ + G_R·sign(Q_R − R)·|Q_R − R|^(M_R)`
+- memory surface: `q̇ = ETA·(n̂·n̂*)·ṗ` and `ξ̇ = √(3/2)(1−ETA)(n̂·n̂*)·ṗ·n̂*`,
+  active only while `√(2/3 · ‖ε^vi − ξ‖²_vM) > q` and `n̂·n̂* > 0`
+
+# The implicit reference rate of 1 s⁻¹
+
+`ṗ = (F/(K₀ + A_K R))^N` is dimensionally a pure number, not a rate.
+Upstream's implicit path makes the missing factor explicit — `cvmres.F90`
+writes `Δp = Δt·(F/K)^N` — so the parameterisation carries an **implicit
+reference rate of 1 s⁻¹**, and `K₀` is only a stress if time is measured in
+seconds. The same applies to `G_R`, `G_X1` and `G_X2`, whose units
+(`Pa^(1−M)/s`) absorb the time unit. Feeding this law a timestep in hours
+and expecting hours out will be wrong by the ratio to the fourth or fifth
+power, silently.
+
+# Two places where upstream's explicit and implicit paths disagree
+
+Both were found by transcribing `rkdcha.F90` and `cvmres.F90` side by side.
+This port reproduces **`rkdcha.F90`**, because that is the routine the
+`RUNGE_KUTTA` algorithm actually runs, and pins both differences with tests
+rather than silently correcting them — see the workspace rule on upstream
+defects.
+
+1. **`rkdcha.F90` line 124 uses `(1 − D1)` in the `α₂` equation.**
+   Upstream reads
+
+   ```text
+   da1v(itens) = d1*a1v(itens)+(1.0d0-d1)*xna1v*petin(itens)
+   da2v(itens) = d2*a2v(itens)+(1.0d0-d1)*xna2v*petin(itens)
+   ```
+
+   The second line's `d2*a2v` establishes that this is the `α₂` equation, so
+   the `(1.0d0-d1)` immediately after it is inconsistent with its own line
+   and with the `α₁` line above. `cvmres.F90`'s `JF` block — the same
+   physics, integrated implicitly — uses `(1.d0-d2)` there
+   (`zz = zz*(1.d0-d2)*g20*ccin*dp*2.d0/3.d0`), and every other term in the
+   two blocks maps one-to-one once `X_i = (2/3)C_iα_i` is substituted. The
+   verdict recorded here is therefore **an upstream typo in the explicit
+   path**. It is reproduced verbatim; [`RKDCHA_ALPHA2_USES_D1`] marks it and
+   `rkdcha_alpha2_reuses_d1_upstream_typo` measures the resulting
+   discrepancy.
+
+2. **`rkdcha.F90` zeroes *every* rate when `F ≤ 0`,** including the static
+   recovery of `R`. `cvmres.F90`'s `RF` keeps its recovery term
+   `sgn·G_R·Δt·|Q_R − R|^(M_R)` regardless of whether `Δp` is zero. So the
+   two upstream paths predict different behaviour during an elastic hold:
+   explicit recovers nothing, implicit recovers. This is structural rather
+   than a slip of a subscript, so no "typo" verdict is claimed — it is
+   recorded and pinned by `elastic_branch_zeroes_every_rate`.
+
+# What is *not* ported
+
+- **`A_R` (coefficient 3).** `cvmcvx.F90` forms the threshold as
+  `J − A_R·R − K`; `rkdcha.F90` forms it as `J − R − K`, i.e. it hard-codes
+  `A_R = 1`. The explicit path is what is ported, so `A_R` is accepted,
+  stored and ignored, exactly as upstream ignores it.
+- **Thermal strain, damage coupling, orthotropic elasticity and the
+  `C_PLAN` branch** of `calsig.F90`. [`ViscoplasticChabocheSystem`] ports
+  the isothermal, isotropic, 3-D branch only.
+- **The tangent operator.** Upstream offers `PERTURBATION` /
+  `VERIFICATION` only for this law; nothing analytic exists to port.
+- **Any Jacobian.** [`OdeSystem::jacobian`] is left at its panicking
+  default, so this system must be integrated with an *explicit* stepper
+  ([`OdeSolver::rkf45`] or [`OdeSolver::euler`]), matching upstream's
+  `RUNGE_KUTTA` path. Selecting [`OdeSolver::rosenbrock23`] will panic.
+
+# Status
+
+**Verification-tested draft; not validated.** Every test here is an
+independent check of the transcription — closed-form saturation limits,
+tensor invariants, and the two upstream discrepancies above. Nothing has
+been compared against code_aster output or against a measured creep-fatigue
+curve, and no such agreement is claimed.
+
+```rust
+pub mod viscochab { /* ... */ }
+```
+
+### Types
+
+#### Struct `ViscoplasticChabocheParameters`
+
+The 25 material coefficients of `VISCOCHAB`.
+
+# Units and the implicit second
+
+Stress-like coefficients are in pascal; exponents and fractions are
+dimensionless. Three coefficients — `static_recovery_rate_r`,
+`static_recovery_rate_x1`, `static_recovery_rate_x2` — carry
+`Pa^(1−M)·s⁻¹`, and the flow rate itself carries an implicit `1 s⁻¹` (see
+the module docs). **Time must be in seconds.**
+
+# Field naming
+
+Rust names are descriptive; the upstream keyword is given for every field so
+a deck can be read across. Order matches
+[`ASTER_COEFFICIENT_NAMES`].
+
+```rust
+pub struct ViscoplasticChabocheParameters {
+    pub drag_stress: f64,
+    pub drag_hardening_coupling: f64,
+    pub threshold_hardening_multiplier: f64,
+    pub initial_threshold: f64,
+    pub flow_exponent: f64,
+    pub exponential_flow_coefficient: f64,
+    pub isotropic_rate: f64,
+    pub static_recovery_exponent_r: f64,
+    pub static_recovery_rate_r: f64,
+    pub memory_saturation_rate: f64,
+    pub hardening_saturation_max: f64,
+    pub hardening_saturation_min: f64,
+    pub recovery_target_offset: f64,
+    pub memory_split: f64,
+    pub back_stress_modulus_1: f64,
+    pub static_recovery_exponent_x1: f64,
+    pub back_stress_recovery_split_1: f64,
+    pub static_recovery_rate_x1: f64,
+    pub dynamic_recovery_1: f64,
+    pub back_stress_modulus_2: f64,
+    pub static_recovery_exponent_x2: f64,
+    pub back_stress_recovery_split_2: f64,
+    pub static_recovery_rate_x2: f64,
+    pub dynamic_recovery_2: f64,
+    pub dynamic_recovery_floor: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `drag_stress` | `f64` | `K_0` — viscous drag stress at zero isotropic hardening \[Pa\].<br>Strictly positive; it is the denominator of the flow rate. |
+| `drag_hardening_coupling` | `f64` | `A_K` — how much the isotropic hardening `R` adds to the drag \[-\].<br>Typically in `[0, 1]`. The effective drag is `K₀ + A_K·R`. |
+| `threshold_hardening_multiplier` | `f64` | `A_R` — multiplier on `R` in the threshold \[-\].<br><br>**Stored but unused**: `rkdcha.F90` hard-codes `A_R = 1` while<br>`cvmcvx.F90` honours it. Kept so a deck round-trips and so the<br>difference is visible rather than lost. |
+| `initial_threshold` | `f64` | `K` — initial elastic threshold \[Pa\], non-negative. Flow occurs only<br>where the effective equivalent stress exceeds `R + K`. |
+| `flow_exponent` | `f64` | `N` — Norton exponent of the flow rate \[-\]. Typically 3-20; larger<br>means a sharper, more nearly rate-independent response. |
+| `exponential_flow_coefficient` | `f64` | `ALP` — exponential-overstress coefficient \[-\], non-negative.<br><br>Adds `exp(ALP·(F/K)^(N+1))` to the power law, letting the rate rise<br>faster than any power at high overstress. Upstream skips the factor<br>entirely when `ALP ≤ 1e-30`, and so does this port. |
+| `isotropic_rate` | `f64` | `B` — rate of isotropic saturation and of kinematic-recovery decay<br>\[-\]. Enters both `Ṙ` and `γ_i(p)`. |
+| `static_recovery_exponent_r` | `f64` | `M_R` — exponent of the static (time) recovery of `R` \[-\]. |
+| `static_recovery_rate_r` | `f64` | `G_R` — coefficient of the static recovery of `R` \[Pa^(1−M_R)·s⁻¹\].<br>Zero disables time recovery of the isotropic hardening. |
+| `memory_saturation_rate` | `f64` | `MU` — controls how fast the asymptotic hardening `Q` follows the memory<br>radius `q` \[-\], through `1 − exp(−2·MU·q)`. |
+| `hardening_saturation_max` | `f64` | `Q_M` — asymptotic isotropic hardening at a fully developed memory<br>surface \[Pa\]. **Must be non-zero**: upstream divides by it when<br>forming `Q_R`. |
+| `hardening_saturation_min` | `f64` | `Q_0` — asymptotic isotropic hardening at zero memory radius \[Pa\]. |
+| `recovery_target_offset` | `f64` | `QR_0` — amplitude of the recovery target offset \[Pa\], entering<br>`Q_R = Q − QR_0·(1 − ((Q_M − Q)/Q_M)²)`. |
+| `memory_split` | `f64` | `ETA` — split of the memory-surface evolution between its radius `q` and<br>its centre `ξ` \[-\], in `[0, 1]`. `ETA = 1` freezes the centre and, in<br>the implicit path, disables the memory surface altogether. |
+| `back_stress_modulus_1` | `f64` | `C1` — modulus of the first back stress \[Pa\], through<br>`X₁ = (2/3)·C1·α₁`. |
+| `static_recovery_exponent_x1` | `f64` | `M_1` — exponent of the static recovery of `X₁` \[-\]. |
+| `back_stress_recovery_split_1` | `f64` | `D1` — split of the first back stress's dynamic recovery between its<br>isotropic part `α₁` and its radial part `(α₁·n̂)n̂` \[-\], in `[0, 1]`.<br>`D1 = 1` gives ordinary Armstrong-Frederick recovery. |
+| `static_recovery_rate_x1` | `f64` | `G_X1` — coefficient of the static recovery of `X₁`<br>\[Pa^(1−M_1)·s⁻¹\]. |
+| `dynamic_recovery_1` | `f64` | `G1_0` — dynamic-recovery coefficient `γ₁` at zero accumulated strain<br>\[-\]. The saturated back stress is `C1/γ₁` in equivalent measure. |
+| `back_stress_modulus_2` | `f64` | `C2` — modulus of the second back stress \[Pa\]. |
+| `static_recovery_exponent_x2` | `f64` | `M_2` — exponent of the static recovery of `X₂` \[-\]. |
+| `back_stress_recovery_split_2` | `f64` | `D2` — split of the second back stress's dynamic recovery \[-\].<br><br>**Reproduces an upstream defect**: `rkdcha.F90` applies `D2` to the<br>`α₂` term but then uses `(1 − D1)`, not `(1 − D2)`, for the radial part.<br>See [`RKDCHA_ALPHA2_USES_D1`]. |
+| `static_recovery_rate_x2` | `f64` | `G_X2` — coefficient of the static recovery of `X₂`<br>\[Pa^(1−M_2)·s⁻¹\]. |
+| `dynamic_recovery_2` | `f64` | `G2_0` — dynamic-recovery coefficient `γ₂` at zero accumulated strain<br>\[-\]. |
+| `dynamic_recovery_floor` | `f64` | `A_I` — floor of the dynamic-recovery decay \[-\], in `[0, 1]`.<br>`γ_i(p) = G_i0·(A_I + (1 − A_I)·e^(−B·p))`, so `A_I = 1` freezes `γ_i`<br>at `G_i0`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn from_aster_coefficients(coeft: [f64; 25]) -> Self { /* ... */ }
+  ```
+  Read the 25 coefficients from an upstream `coeft(1..25)` array.
+
+- ```rust
+  pub const fn to_aster_coefficients(self: Self) -> [f64; 25] { /* ... */ }
+  ```
+  The 25 coefficients back in upstream's `coeft(1..25)` order.
+
+- ```rust
+  pub fn validate(self: &Self) -> Result<()> { /* ... */ }
+  ```
+  Reject parameter sets the rate function cannot evaluate.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ViscoplasticChabocheParameters { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ViscoplasticChabocheParameters) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ViscoplasticChabocheState`
+
+The 27 evolving internal variables of `VISCOCHAB`.
+
+Tensor fields are in code_aster's Mandel convention — see the module docs.
+A pristine material is [`ViscoplasticChabocheState::undeformed`].
+
+```rust
+pub struct ViscoplasticChabocheState {
+    pub viscoplastic_strain: crate::rheology::aster::kinematics::AsterVoigt,
+    pub back_strain_1: crate::rheology::aster::kinematics::AsterVoigt,
+    pub back_strain_2: crate::rheology::aster::kinematics::AsterVoigt,
+    pub memory_centre: crate::rheology::aster::kinematics::AsterVoigt,
+    pub isotropic_hardening: f64,
+    pub memory_radius: f64,
+    pub accumulated_strain: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `viscoplastic_strain` | `crate::rheology::aster::kinematics::AsterVoigt` | `ε^vi` — viscoplastic strain \[-\], upstream `vini(1:6)`. Deviatoric:<br>viscoplastic flow preserves volume. |
+| `back_strain_1` | `crate::rheology::aster::kinematics::AsterVoigt` | `α₁` — first back-strain \[-\], upstream `vini(7:12)`. The back stress<br>is `X₁ = (2/3)·C1·α₁` \[Pa\]. |
+| `back_strain_2` | `crate::rheology::aster::kinematics::AsterVoigt` | `α₂` — second back-strain \[-\], upstream `vini(13:18)`. |
+| `memory_centre` | `crate::rheology::aster::kinematics::AsterVoigt` | `ξ` — centre of the strain-memory surface \[-\], upstream<br>`vini(19:24)`. |
+| `isotropic_hardening` | `f64` | `R` — isotropic hardening \[Pa\], upstream `vini(25)`. Adds to the<br>elastic threshold and to the viscous drag. |
+| `memory_radius` | `f64` | `q` — radius of the strain-memory surface \[-\], upstream `vini(26)`.<br>Non-negative; grows only when the strain path leaves the surface. |
+| `accumulated_strain` | `f64` | `p` — accumulated equivalent viscoplastic strain \[-\], upstream<br>`vini(27)`. Monotone non-decreasing. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn undeformed() -> Self { /* ... */ }
+  ```
+  The pristine state: no strain, no hardening, no memory.
+
+- ```rust
+  pub fn from_ode_state(y: &[f64]) -> Self { /* ... */ }
+  ```
+  Unpack from the flat 27-element ODE state vector.
+
+- ```rust
+  pub fn to_ode_state(self: Self) -> Vec<f64> { /* ... */ }
+  ```
+  Pack into the flat 27-element ODE state vector, in upstream's order.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ViscoplasticChabocheState { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ViscoplasticChabocheState { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ViscoplasticChabocheState) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ViscoplasticChabocheRates`
+
+Time derivatives of the 27 internal variables — the output of
+[`ViscoplasticChabocheWithMemory::internal_variable_rates`].
+
+Units are those of the matching [`ViscoplasticChabocheState`] field divided
+by seconds.
+
+```rust
+pub struct ViscoplasticChabocheRates {
+    pub viscoplastic_strain_rate: crate::rheology::aster::kinematics::AsterVoigt,
+    pub back_strain_1_rate: crate::rheology::aster::kinematics::AsterVoigt,
+    pub back_strain_2_rate: crate::rheology::aster::kinematics::AsterVoigt,
+    pub memory_centre_rate: crate::rheology::aster::kinematics::AsterVoigt,
+    pub isotropic_hardening_rate: f64,
+    pub memory_radius_rate: f64,
+    pub accumulated_strain_rate: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `viscoplastic_strain_rate` | `crate::rheology::aster::kinematics::AsterVoigt` | `ε̇^vi` \[1/s\], upstream `devi`. Deviatoric. |
+| `back_strain_1_rate` | `crate::rheology::aster::kinematics::AsterVoigt` | `α̇₁` \[1/s\], upstream `da1v`. |
+| `back_strain_2_rate` | `crate::rheology::aster::kinematics::AsterVoigt` | `α̇₂` \[1/s\], upstream `da2v`. |
+| `memory_centre_rate` | `crate::rheology::aster::kinematics::AsterVoigt` | `ξ̇` \[1/s\], upstream `dcsi`. |
+| `isotropic_hardening_rate` | `f64` | `Ṙ` \[Pa/s\], upstream `drayvi`. |
+| `memory_radius_rate` | `f64` | `q̇` \[1/s\], upstream `dqcum`. |
+| `accumulated_strain_rate` | `f64` | `ṗ` \[1/s\], upstream `devcum`. Non-negative. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn write_ode_derivatives(self: Self, dydx: &mut [f64]) { /* ... */ }
+  ```
+  Write the rates into a flat 27-element derivative vector, in upstream's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ViscoplasticChabocheRates { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ViscoplasticChabocheRates { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ViscoplasticChabocheRates) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ViscoplasticChabocheWithMemory`
+
+Elasto-viscoplastic Lemaitre-Chaboche law with strain memory and static
+recovery.
+
+ASTER behaviour name: `VISCOCHAB` (`num_lc = 32`, 28 internal variables, 27
+of them evolving). Upstream: `bibfor/algorith/rkdcha.F90` for the rates,
+reached through `bibfor/comport/lcdvin.F90` and driven by
+`bibfor/comport/rdif01.F90` — legacy symbols `rkdcha`, `lcdvin`, `rdif01`.
+Integration: `RUNGE_KUTTA` (ported here), or `NEWTON` / `NEWTON_RELI` via
+`cvmres`/`cvmjac` (not ported).
+
+The law itself is stateless — it is the parameter set plus the rate
+function. State lives in [`ViscoplasticChabocheState`], and integration in
+[`ViscoplasticChabocheSystem`].
+
+```rust
+pub struct ViscoplasticChabocheWithMemory {
+    pub parameters: ViscoplasticChabocheParameters,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `parameters` | `ViscoplasticChabocheParameters` | The 25 material coefficients. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(parameters: ViscoplasticChabocheParameters) -> Result<Self> { /* ... */ }
+  ```
+  Build the law from its coefficients, validating them.
+
+- ```rust
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
+  ```
+  The upstream ASTER behaviour name, `"VISCOCHAB"`.
+
+- ```rust
+  pub fn effective_deviator(self: Self, stress: AsterVoigt, state: &ViscoplasticChabocheState) -> (AsterVoigt, f64) { /* ... */ }
+  ```
+  The effective deviator `smx = dev(σ) − (2/3)(C₁α₁ + C₂α₂)` \[Pa\] and
+
+- ```rust
+  pub fn overstress(self: Self, stress: AsterVoigt, state: &ViscoplasticChabocheState) -> f64 { /* ... */ }
+  ```
+  The overstress `F = J − R − K` \[Pa\]. Flow occurs only where `F > 0`.
+
+- ```rust
+  pub fn flow_rate(self: Self, overstress: f64, isotropic_hardening: f64) -> f64 { /* ... */ }
+  ```
+  Equivalent viscoplastic strain rate `ṗ` \[1/s\] for a given overstress.
+
+- ```rust
+  pub fn internal_variable_rates(self: Self, stress: AsterVoigt, state: &ViscoplasticChabocheState) -> ViscoplasticChabocheRates { /* ... */ }
+  ```
+  The 27 internal-variable rates at a given stress and state — the direct
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ViscoplasticChabocheWithMemory { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ViscoplasticChabocheWithMemory) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ViscoplasticChabocheSystem`
+
+The `VISCOCHAB` rate system as a 27-equation
+[`OdeSystem`], ready for
+[`OdeIntegrator`].
+
+# What the independent variable is
+
+`x` is **time within the step**, running from `0` to
+[`step_duration`](Self::step_duration) \[s\]. Upstream's driver `rdif01.F90`
+uses the same convention and forms the total strain by linear interpolation,
+`ε(x) = ε_start + Δε · x/Δt`; `calsig.F90` then gives the stress. Both are
+reproduced here, isothermal and isotropic only (see the module docs for what
+is left out).
+
+# Why the stress is not part of the state
+
+Under strain control the stress is a *function* of the state:
+`σ = C:(ε(x) − ε^vi)`. Carrying it as an extra unknown would over-determine
+the system; upstream recomputes it at every derivative evaluation, and so
+does this port.
+
+# Integrator choice
+
+[`OdeSystem::jacobian`] is not implemented, so use
+[`OdeSolver::rkf45`] or [`OdeSolver::euler`].
+[`OdeSolver::rosenbrock23`] will panic.
+
+```rust
+pub struct ViscoplasticChabocheSystem {
+    pub law: ViscoplasticChabocheWithMemory,
+    pub young_modulus: f64,
+    pub poisson_ratio: f64,
+    pub total_strain_start: crate::rheology::aster::kinematics::AsterVoigt,
+    pub total_strain_increment: crate::rheology::aster::kinematics::AsterVoigt,
+    pub step_duration: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `law` | `ViscoplasticChabocheWithMemory` | The constitutive law and its 25 coefficients. |
+| `young_modulus` | `f64` | Young's modulus `E` \[Pa\], strictly positive. |
+| `poisson_ratio` | `f64` | Poisson's ratio `ν` \[-\], in `(-1, 0.5)`. |
+| `total_strain_start` | `crate::rheology::aster::kinematics::AsterVoigt` | Total strain at the start of the step \[-\], Mandel convention. |
+| `total_strain_increment` | `crate::rheology::aster::kinematics::AsterVoigt` | Total-strain increment over the step \[-\], Mandel convention. |
+| `step_duration` | `f64` | Step duration `Δt` \[s\], strictly positive. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(law: ViscoplasticChabocheWithMemory, young_modulus: f64, poisson_ratio: f64, total_strain_start: AsterVoigt, total_strain_increment: AsterVoigt, step_duration: f64) -> Result<Self> { /* ... */ }
+  ```
+  Assemble a strain-driven `VISCOCHAB` system for one step.
+
+- ```rust
+  pub fn stress_at(self: &Self, x: f64, viscoplastic_strain: AsterVoigt) -> AsterVoigt { /* ... */ }
+  ```
+  Cauchy stress \[Pa\] at time `x` \[s\] within the step, for a given
+
+- ```rust
+  pub fn integrate_step(self: Self, state: ViscoplasticChabocheState, solver: OdeSolver, initial_step: f64) -> Result<ViscoplasticChabocheState> { /* ... */ }
+  ```
+  Integrate one step from `state`, returning the state at `Δt`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ViscoplasticChabocheSystem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **OdeSystem**
+  - ```rust
+    fn n_eqns(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn derivatives(self: &Self, x: f64, y: &[f64], dydx: &mut Vec<f64>) { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ViscoplasticChabocheSystem) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `INTERNAL_VARIABLE_COUNT`
+
+Number of internal variables upstream declares for `VISCOCHAB`
+(`viscochab.py`, `nb_vari = 28`).
+
+```rust
+pub const INTERNAL_VARIABLE_COUNT: usize = 28;
+```
+
+#### Constant `ODE_EQUATION_COUNT`
+
+Number of internal variables that actually evolve — the size of the ODE
+system. The 28th is an integration-state indicator whose rate `rkdcha.F90`
+sets identically to zero (`dvin(nvi) = detat`, `detat = 0`).
+
+```rust
+pub const ODE_EQUATION_COUNT: usize = 27;
+```
+
+#### Constant `RKDCHA_ALPHA2_USES_D1`
+
+Whether this port reproduces the `(1 − D1)` that `rkdcha.F90` line 124 uses
+in the **`α₂`** equation, where symmetry with line 122 and the implicit path
+`cvmres.F90` both imply `(1 − D2)`.
+
+Always `true`: upstream defects are reproduced, not silently corrected. See
+the module documentation for the evidence and
+`rkdcha_alpha2_reuses_d1_upstream_typo` for the measured size of the
+difference. If a future upstream release fixes the line, this constant and
+that test are the two places to change.
+
+```rust
+pub const RKDCHA_ALPHA2_USES_D1: bool = true;
+```
+
+#### Constant `ASTER_COEFFICIENT_NAMES`
+
+The 25 `VISCOCHAB` material keywords, in the order upstream stores them in
+`materf(1..25, 2)`.
+
+`cvmmat.F90` fills those 25 slots from `nomc(4..28)`, so slot `i` here is
+upstream's `coeft(i)` as read by `rkdcha.F90`. Kept verbatim — these are
+what a code_aster deck contains and what the literature cites.
+
+```rust
+pub const ASTER_COEFFICIENT_NAMES: [&str; 25] = _;
+```
+
 ## Module `viscoplastic`
 
 Isotropic viscoplastic creep laws.
@@ -28928,6 +29730,24 @@ pub use fracture::StressIntensityFactors;
 pub use fracture::MAX_LEGENDRE_FRONT_DEGREE;
 ```
 
+#### Re-export `IsotropicHardening`
+
+```rust
+pub use hardening::IsotropicHardening;
+```
+
+#### Re-export `ASTER_POWER_LINEARISATION_STRAIN`
+
+```rust
+pub use hardening::ASTER_POWER_LINEARISATION_STRAIN;
+```
+
+#### Re-export `SLOPE_SINGULARITY_OFFSET`
+
+```rust
+pub use hardening::SLOPE_SINGULARITY_OFFSET;
+```
+
 #### Re-export `brent`
 
 ```rust
@@ -28976,28 +29796,10 @@ pub use integration::ScalarAlgorithm;
 pub use integration::SolverControl;
 ```
 
-#### Re-export `IsotropicHardening`
-
-```rust
-pub use isotropic::IsotropicHardening;
-```
-
-#### Re-export `LinearHardening`
-
-```rust
-pub use isotropic::LinearHardening;
-```
-
 #### Re-export `NortonHoffLimitAnalysis`
 
 ```rust
 pub use isotropic::NortonHoffLimitAnalysis;
-```
-
-#### Re-export `PowerLawHardening`
-
-```rust
-pub use isotropic::PowerLawHardening;
 ```
 
 #### Re-export `hencky_strain`
@@ -29100,6 +29902,42 @@ pub use metallurgy::MetaLemaAniPhase;
 
 ```rust
 pub use metallurgy::IRRAD3M_PROOF_STRAIN;
+```
+
+#### Re-export `ViscoplasticChabocheParameters`
+
+```rust
+pub use viscochab::ViscoplasticChabocheParameters;
+```
+
+#### Re-export `ViscoplasticChabocheRates`
+
+```rust
+pub use viscochab::ViscoplasticChabocheRates;
+```
+
+#### Re-export `ViscoplasticChabocheState`
+
+```rust
+pub use viscochab::ViscoplasticChabocheState;
+```
+
+#### Re-export `ViscoplasticChabocheSystem`
+
+```rust
+pub use viscochab::ViscoplasticChabocheSystem;
+```
+
+#### Re-export `ViscoplasticChabocheWithMemory`
+
+```rust
+pub use viscochab::ViscoplasticChabocheWithMemory;
+```
+
+#### Re-export `RKDCHA_ALPHA2_USES_D1`
+
+```rust
+pub use viscochab::RKDCHA_ALPHA2_USES_D1;
 ```
 
 #### Re-export `deviator`

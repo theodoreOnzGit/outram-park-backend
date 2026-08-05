@@ -21,28 +21,62 @@
 //! Linear-elastic fracture mechanics: the parts of code_aster's `CALC_G` that
 //! are *not* finite-element work.
 //!
-//! # Read this first: most of `bibfor/fracture` is **not** ported, and cannot be
+//! # Read this first: most of `bibfor/fracture` is **not** ported yet
 //!
 //! code_aster computes the energy release rate `G` and the stress intensity
-//! factors `K_I, K_II, K_III` by the **G-theta method**: a domain integral of a
-//! bilinear form over a ring of finite elements surrounding the crack front,
-//! driven by a *virtual crack extension field* `theta`. Evaluating that integral
-//! needs, at minimum:
+//! factors `K_I, K_II, K_III` by the **G-theta method**: a domain integral
 //!
-//! - element shape functions and their derivatives on the reference element,
-//! - a Gauss quadrature rule per element type,
-//! - a mesh carrying a named crack-front node group and its curvilinear
-//!   abscissae,
-//! - assembled nodal displacement, stress and internal-variable fields,
-//! - a solver-side "compute this option over this element group and sum the
-//!   elementary results" driver (upstream's `calcul` / `mesomm`).
+//! `G = ∫_V [σ:∇u · ∇θ - W ∇·θ] dV`
 //!
-//! This crate has **none** of that for solid mechanics at the required
-//! generality, so the 72-file `bibfor/fracture` directory is, today, mostly
-//! unportable. Rather than produce a module that looks like G-theta and computes
-//! nothing, this file ports only the subset that is genuinely closed-form
-//! algebra, and the module-level report below states precisely what is blocked
-//! and on what.
+//! over a ring surrounding the crack front, driven by a *virtual crack
+//! extension field* `θ`.
+//!
+//! ## Not blocked on finite elements
+//!
+//! An earlier revision of this note said the method needs element shape
+//! functions and that this crate therefore cannot host it. **That is wrong and
+//! is corrected here**, because it names the wrong missing piece and would send
+//! a reader off to build an FE framework that is not required.
+//!
+//! The integral above is **discretisation-agnostic**. What is FE-specific in
+//! upstream is only that its quadrature happens to use element shape functions.
+//! Finite volume is a viable host: OpenFOAM ships `solidDisplacement`, a
+//! finite-volume segregated solver for linear-elastic small-strain deformation
+//! with thermal stress, and [`crate::mechanics`] is already a port of it.
+//!
+//! ## What is actually missing, in either discretisation
+//!
+//! 1. **A crack front as data** — ordered points, curvilinear abscissae, and a
+//!    per-point local basis. [`CrackTipBasis`] is the per-point piece; the
+//!    ordered front is not.
+//! 2. **Quadrature over a ring domain** around that front.
+//! 3. **The `θ` field and its gradient** on that ring.
+//!
+//! Only (1) and (2) are needed for a first working `G`.
+//!
+//! ## The genuine difficulty with finite volume
+//!
+//! Recorded here so it is not rediscovered the hard way: the crack-tip field is
+//! **singular**, `u ~ √r` and `σ ~ 1/√r`. FE handles that with quarter-point or
+//! enriched elements. Cell-centred FV gradient reconstruction is typically first
+//! or second order and **degrades precisely where the singularity is**. G-theta
+//! is usable at all because of its domain-independence property, and that
+//! property depends on an accurate `∇u` throughout the ring — so an FV G-theta
+//! needs either a graded mesh near the front or an enrichment scheme. It is a
+//! research-flavoured task rather than a transcription, and published FV
+//! J-integral work should be consulted before starting. Whether cell-centred FV
+//! can resolve the tip well enough **at all** is an open question, tracked as
+//! bead `op-0xv` — it is not settled here, and nothing in this module should be
+//! read as claiming it is.
+//!
+//! `gbilin.F90` / `gbil3d.F90` are the natural first targets once quadrature
+//! exists: `gbil3d` is entirely JEVEUX-free and `gbilin` needs only the material
+//! lookup, both pure per-Gauss-point algebra. They were deliberately not ported
+//! because their only meaningful test — that the ring integral reproduces a
+//! known `G` — needs the quadrature first.
+//!
+//! Rather than produce a module that looks like G-theta and computes nothing,
+//! this file ports only the subset that is genuinely closed-form algebra.
 //!
 //! # What *is* here (portable now, and verified)
 //!
