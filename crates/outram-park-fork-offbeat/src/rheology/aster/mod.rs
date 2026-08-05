@@ -52,6 +52,10 @@ pub mod integration;
 pub mod isotropic;
 pub mod kinematics;
 pub mod log_strain;
+pub mod chaboche;
+pub mod damage;
+pub mod fracture;
+pub mod metallurgy;
 pub mod viscoplastic;
 
 pub use catalogue::{AsterBehaviour, ALL};
