@@ -78,6 +78,7 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | `math` | `erf_inv`, `inc_gamma_ratio_p/q`, `inc_gamma_p/q`, `inv_inc_gamma` | DiDonato–Morris (1986) |
 | `matrix` | `SquareMatrix` | Row-major n×n; LU with scaled partial pivoting; `lu_decompose`, `lu_back_substitute`, `solve` |
 | `ode` | `Euler`, `Rkf45`, `Rosenbrock23` | Adaptive explicit (RKF45) and stiff (W-method) solvers; `OdeSystem` trait |
+| `ode::integrator` | `OdeSolver`, `OdeIntegrator`, `TypedStateIntegrator`, `DynSystemIntegrator`, `SharedOdeSystem`, `NoTypedSystem` | No C++ counterpart — replaces OpenFOAM's `ODESolver::New` runtime-selection table. Enum dispatch over stepper choice *and* over how the system is owned: `TypedState` (concrete system by value, static dispatch, preferred) or `DynSystem` (`Arc<dyn OdeSystem + Send + Sync>`, kept by maintainer decision for flexibility). Neither borrows, so an integrator is storable as a struct field with no lifetime parameter. |
 | `interpolation` | `interpolate_xy`, `interpolate_spline_xy` | Linear and Catmull-Rom cubic 1-D |
 | `thermophysics::eos` | `PerfectGas`, `RhoConst`, `IcoPolynomial<N>`, `PengRobinsonGas` | `EquationOfState` trait; ρ, ψ, Z, departure functions |
 | `thermophysics::thermo` | `HConstThermo`, `JanafThermo`, `HPolynomialThermo<N>`, `HTabulatedThermo` | `ThermoModel` trait; Cp, Ha, Hs, S; Newton T(H) iteration |
@@ -428,7 +429,8 @@ cargo test -p outram-foam-basic-lib --test matrix_bench --release -- --nocapture
 ✅ Layer 1b — Dense matrices      (SquareMatrix: LU with scaled partial pivoting)
 ✅ Layer 1c — Polynomial eqns     (LinearEqn, QuadraticEqn, CubicEqn, Roots<N>)
 ✅ Layer 1d — Polynomial eval     (Polynomial<N>: Horner, derivative, integral)
-✅ Layer 1e — ODE solvers         (Euler, Rkf45, Rosenbrock23; OdeSystem trait)
+✅ Layer 1e — ODE solvers         (Euler, Rkf45, Rosenbrock23; OdeSystem trait,
+                                   OdeSolver/OdeIntegrator enum dispatch)
 ✅ Layer 1f — Interpolation       (interpolate_xy, interpolate_spline_xy)
 ✅ Layer 1g — Math functions      (erf_inv, inc_gamma_*, inv_inc_gamma)
 ✅ Layer 1h — Thermophysics       (EOS, Thermo, Transport traits + 4 impls each)

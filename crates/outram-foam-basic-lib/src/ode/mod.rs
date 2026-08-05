@@ -28,12 +28,32 @@
 //! requiring a Jacobian). The independent variable `x`, state `y`, and step
 //! size are bare `f64` in the caller's own units; tolerances are set through
 //! [`OdeSolverConfig`].
+//!
+//! # Storing an integrator: [`OdeIntegrator`]
+//!
+//! The three steppers above take the system by reference on every call, which
+//! is awkward for any caller that wants to *keep* "the integrator for this
+//! material point" as a struct field — storing a borrow would force a lifetime
+//! parameter, which the workspace design rules forbid.
+//!
+//! [`integrator`] solves that with two enums that own what they integrate:
+//! [`OdeSolver`] selects the stepper, and [`OdeIntegrator`] selects how the
+//! system is supplied — [`OdeIntegrator::TypedState`] (a concrete system owned
+//! by value, statically dispatched, **preferred**) or
+//! [`OdeIntegrator::DynSystem`] (an `Arc<dyn OdeSystem + Send + Sync>`, kept by
+//! maintainer decision for flexibility). Neither borrows, so neither needs a
+//! lifetime.
 
 pub mod euler;
+pub mod integrator;
 pub mod rkf45;
 pub mod rosenbrock23;
 
 pub use euler::Euler;
+pub use integrator::{
+    DynSystemIntegrator, NoTypedSystem, OdeIntegrator, OdeSolver, SharedOdeSystem,
+    TypedStateIntegrator,
+};
 pub use rkf45::Rkf45;
 pub use rosenbrock23::Rosenbrock23;
 
@@ -147,10 +167,10 @@ pub(crate) fn normalize_error(
 /// Calls `inner_step(x0, y0, dydx0, dx, y_out) -> err`, retrying with a
 /// smaller `dx` whenever `err > 1`. Updates `x`, `y`, and `dx_try`.
 /// Matches `Foam::adaptiveSolver::solve`.
-pub(crate) fn adaptive_step(
+pub(crate) fn adaptive_step<Sys: OdeSystem + ?Sized>(
     cfg: &OdeSolverConfig,
     mut inner_step: impl FnMut(f64, &[f64], &[f64], f64, &mut Vec<f64>) -> f64,
-    ode: &dyn OdeSystem,
+    ode: &Sys,
     x: &mut f64,
     y: &mut Vec<f64>,
     dydx0: &mut Vec<f64>,
