@@ -108,8 +108,9 @@ pub use crate::fv_operators::{adjust_phi, fvc, fvm};
 
 // --- Optional equation sources, OpenFOAM `fvOptions` / `fvModels` (Layer 3) ---
 pub use crate::fv_options::{
-    CellSelection, EquationField, FvModel, FvModels, SemiImplicitSource, SolidificationMelting,
-    SolidificationMeltingCoefficients, SourceContribution,
+    CellSelection, EquationField, FvModel, FvModels, MomentumEquationForm, SemiImplicitSource,
+    SolidificationMelting, SolidificationMeltingCoefficients, SolidificationPorosity,
+    SourceContribution, TemperatureTable, VofSolidificationMelting,
 };
 
 // --- Field-level tensor algebra (tr/symm/two_symm/dev/dev2 on vol fields) ---
