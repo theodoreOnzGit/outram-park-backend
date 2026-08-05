@@ -207,9 +207,7 @@ fn the_fluence_quadrature_is_first_order_and_biased_low() {
         }
         let error = sum - exact;
         let ratio = previous_error.map(|e: f64| e.abs() / error.abs());
-        println!(
-            "N = {n:2}  sum = {sum:.14e}  error = {error:.14e}  ratio = {ratio:?}"
-        );
+        println!("N = {n:2}  sum = {sum:.14e}  error = {error:.14e}  ratio = {ratio:?}");
         assert!(error < 0.0, "right-endpoint rectangle must under-predict");
         if let Some(r) = ratio {
             ratios.push(r);
@@ -371,7 +369,10 @@ fn the_growth_tensor_reproduces_upstream_including_its_yy_defect() {
             upstream.tr(),
             dyad.tr()
         );
-        println!("  upstream yy = {:.14e}, dyad yy = {:.14e}", upstream.yy, dyad.yy);
+        println!(
+            "  upstream yy = {:.14e}, dyad yy = {:.14e}",
+            upstream.yy, dyad.yy
+        );
 
         // The dyad is what a uniaxial eigenstrain must be.
         assert_relative_eq!(dyad.tr(), g, max_relative = 1e-14);
@@ -431,8 +432,12 @@ fn the_growth_variant_creeps_identically_to_the_creep_only_variant() {
     };
 
     let trial = general_stress();
-    let a = creep_only.integrate(trial, 30.0e9, 1.0e25, 5.0e24, 620.0).unwrap();
-    let b = with_growth.integrate(trial, 30.0e9, 1.0e25, 5.0e24, 620.0).unwrap();
+    let a = creep_only
+        .integrate(trial, 30.0e9, 1.0e25, 5.0e24, 620.0)
+        .unwrap();
+    let b = with_growth
+        .integrate(trial, 30.0e9, 1.0e25, 5.0e24, 620.0)
+        .unwrap();
     println!("creep-only dp = {:.14e}", a.equivalent_increment);
     println!("with-growth dp = {:.14e}", b.equivalent_increment);
     assert_eq!(a, b);
@@ -442,8 +447,14 @@ fn the_growth_variant_creeps_identically_to_the_creep_only_variant() {
     println!("growth trace = {:.14e}", g.tr());
     assert!(g.tr() > 0.0);
 
-    assert_eq!(creep_only.aster_name(), AsterBehaviour::ViscIrraLog.aster_name());
-    assert_eq!(with_growth.aster_name(), AsterBehaviour::GranIrraLog.aster_name());
+    assert_eq!(
+        creep_only.aster_name(),
+        AsterBehaviour::ViscIrraLog.aster_name()
+    );
+    assert_eq!(
+        with_growth.aster_name(),
+        AsterBehaviour::GranIrraLog.aster_name()
+    );
 }
 
 // ===========================================================================
@@ -480,8 +491,16 @@ fn the_identified_hardening_curve_passes_through_both_tensile_points() {
     let at_proof = h.flow_stress(IRRAD3M_PROOF_STRAIN);
     let at_necking = h.flow_stress(p.uniform_elongation);
     let true_uts = p.ultimate_strength * p.uniform_elongation.exp();
-    println!("sigma_y(pe)  = {:.12} MPa (target {:.12} MPa)", at_proof / 1e6, p.yield_strength / 1e6);
-    println!("sigma_y(eu)  = {:.12} MPa (target {:.12} MPa)", at_necking / 1e6, true_uts / 1e6);
+    println!(
+        "sigma_y(pe)  = {:.12} MPa (target {:.12} MPa)",
+        at_proof / 1e6,
+        p.yield_strength / 1e6
+    );
+    println!(
+        "sigma_y(eu)  = {:.12} MPa (target {:.12} MPa)",
+        at_necking / 1e6,
+        true_uts / 1e6
+    );
 
     assert!(!h.used_fallback);
     assert_relative_eq!(at_proof, p.yield_strength, max_relative = 1e-10);
@@ -535,7 +554,11 @@ fn the_flow_curve_is_continuous_and_monotone() {
     for (p, name) in [(h.plateau_strain, "pk"), (IRRAD3M_PROOF_STRAIN, "pe")] {
         let below = h.flow_stress(p - eps);
         let above = h.flow_stress(p + eps);
-        println!("  across {name}: {:.12} MPa / {:.12} MPa", below / 1e6, above / 1e6);
+        println!(
+            "  across {name}: {:.12} MPa / {:.12} MPa",
+            below / 1e6,
+            above / 1e6
+        );
         assert_relative_eq!(below, above, max_relative = 1e-9);
     }
 
@@ -572,12 +595,19 @@ fn the_flow_curve_is_continuous_and_monotone() {
         hp.flow_stress(0.0) / 1e6,
         hp.plateau_stress / 1e6
     );
-    assert!(hp.plateau_strain > 0.0, "the plateau must be reachable here");
+    assert!(
+        hp.plateau_strain > 0.0,
+        "the plateau must be reachable here"
+    );
     assert_relative_eq!(hp.flow_stress(0.0), hp.plateau_stress, max_relative = 1e-14);
     for (p, name) in [(hp.plateau_strain, "pk"), (IRRAD3M_PROOF_STRAIN, "pe")] {
         let below = hp.flow_stress(p - eps);
         let above = hp.flow_stress(p + eps);
-        println!("  across {name}: {:.12} MPa / {:.12} MPa", below / 1e6, above / 1e6);
+        println!(
+            "  across {name}: {:.12} MPa / {:.12} MPa",
+            below / 1e6,
+            above / 1e6
+        );
         assert_relative_eq!(below, above, max_relative = 1e-9);
     }
 
@@ -613,7 +643,8 @@ fn the_flow_curve_is_continuous_and_monotone() {
 fn the_swelling_closed_form_is_the_exact_integral() {
     let p = irrad3m_parameters();
     let rate = |phi: f64| {
-        p.swelling_rate / (3.0 * (1.0 + (p.swelling_sharpness * (p.swelling_onset_dose - phi)).exp()))
+        p.swelling_rate
+            / (3.0 * (1.0 + (p.swelling_sharpness * (p.swelling_onset_dose - phi)).exp()))
     };
 
     let (a, b, n) = (0.0_f64, 100.0_f64, 20_000usize);
@@ -627,14 +658,20 @@ fn the_swelling_closed_form_is_the_exact_integral() {
 
     let closed = p.swelling_strain(b);
     println!("closed form = {closed:.14e}, simpson = {simpson:.14e}");
-    println!("relative difference = {:.14e}", ((closed - simpson) / simpson).abs());
+    println!(
+        "relative difference = {:.14e}",
+        ((closed - simpson) / simpson).abs()
+    );
     assert_relative_eq!(closed, simpson, max_relative = 1e-10);
 
     println!("eps_g(0) = {:.14e}", p.swelling_strain(0.0));
     assert_eq!(p.swelling_strain(0.0), 0.0);
 
     let slope = (p.swelling_strain(200.0) - p.swelling_strain(190.0)) / 10.0;
-    println!("far-field slope = {slope:.14e} /dpa (Rg0/3 = {:.14e})", p.swelling_rate / 3.0);
+    println!(
+        "far-field slope = {slope:.14e} /dpa (Rg0/3 = {:.14e})",
+        p.swelling_rate / 3.0
+    );
     assert_relative_eq!(slope, p.swelling_rate / 3.0, max_relative = 1e-6);
 }
 
@@ -769,8 +806,7 @@ fn the_irrad3m_return_satisfies_consistency_and_the_elastic_return() {
     let consistency = law
         .hardening
         .flow_stress(state.plastic_strain + out.plastic_increment);
-    let elastic =
-        eq_trial - 3.0 * mu * (out.plastic_increment + out.irradiation_creep_increment);
+    let elastic = eq_trial - 3.0 * mu * (out.plastic_increment + out.irradiation_creep_increment);
     println!("sigma_y(p+dp) = {:.12} MPa", consistency / 1e6);
     println!("elastic return = {:.12} MPa", elastic / 1e6);
     println!("tr(de) = {:.14e}", out.strain_increment.tr());
@@ -853,12 +889,22 @@ fn the_isotropic_hill_coefficients_reproduce_von_mises() {
     for (sigma, name) in [
         (general_stress(), "general"),
         (uniaxial(250.0e6), "uniaxial 250 MPa"),
-        (SymmTensor::new(0.0, 100.0e6, 0.0, 0.0, 0.0, 0.0), "pure shear 100 MPa"),
-        (SymmTensor::from_diag(500.0e6, 500.0e6, 500.0e6), "hydrostatic 500 MPa"),
+        (
+            SymmTensor::new(0.0, 100.0e6, 0.0, 0.0, 0.0, 0.0),
+            "pure shear 100 MPa",
+        ),
+        (
+            SymmTensor::from_diag(500.0e6, 500.0e6, 500.0e6),
+            "hydrostatic 500 MPa",
+        ),
     ] {
         let h = hill.equivalent_stress(sigma);
         let vm = von_mises_of_deviator(deviator(sigma));
-        println!("{name}: hill = {:.12} MPa, von Mises = {:.12} MPa", h / 1e6, vm / 1e6);
+        println!(
+            "{name}: hill = {:.12} MPa, von Mises = {:.12} MPa",
+            h / 1e6,
+            vm / 1e6
+        );
         if vm > 0.0 {
             assert_relative_eq!(h, vm, max_relative = 1e-13);
         } else {
@@ -951,7 +997,10 @@ fn anisotropy_rotates_the_flow_direction_away_from_the_deviator() {
     let cos_angle = |n: SymmTensor| n.double_inner(s) / (n.mag() * s.mag());
 
     let aniso = meta_lema_ani().alpha_anisotropy;
-    let angle = cos_angle(aniso.flow_direction(sigma)).clamp(-1.0, 1.0).acos().to_degrees();
+    let angle = cos_angle(aniso.flow_direction(sigma))
+        .clamp(-1.0, 1.0)
+        .acos()
+        .to_degrees();
     let iso_angle = cos_angle(HillAnisotropy::VON_MISES.flow_direction(sigma))
         .clamp(-1.0, 1.0)
         .acos()
@@ -1205,7 +1254,10 @@ fn the_isotropic_limit_reproduces_an_independent_radial_return() {
     }
     let independent = 0.5 * (lo + hi);
 
-    println!("anisotropic integrator dp = {:.14e}", out.equivalent_increment);
+    println!(
+        "anisotropic integrator dp = {:.14e}",
+        out.equivalent_increment
+    );
     println!("independent bisection  dp = {independent:.14e}");
     println!(
         "relative difference = {:.14e}",
@@ -1245,13 +1297,17 @@ fn degenerate_meta_lema_ani_steps_produce_no_creep() {
     let law = meta_lema_ani();
     let trial = general_stress();
 
-    let still = law.integrate(trial, 33.0e9, 0.0, 900.0, 1.0e-3, 0.0).unwrap();
+    let still = law
+        .integrate(trial, 33.0e9, 0.0, 900.0, 1.0e-3, 0.0)
+        .unwrap();
     println!("dt = 0: dp = {:.14e}", still.equivalent_increment);
     assert_eq!(still.equivalent_increment, 0.0);
     assert_eq!(still.stress, trial);
 
     let hydro = SymmTensor::from_diag(500.0e6, 500.0e6, 500.0e6);
-    let out = law.integrate(hydro, 33.0e9, 0.0, 900.0, 1.0e-3, 3600.0).unwrap();
+    let out = law
+        .integrate(hydro, 33.0e9, 0.0, 900.0, 1.0e-3, 3600.0)
+        .unwrap();
     println!(
         "hydrostatic: sigma_H = {:.14e} Pa, dp = {:.14e}",
         out.equivalent_stress, out.equivalent_increment
@@ -1286,6 +1342,17 @@ fn the_ported_names_round_trip_against_the_catalogue() {
             LogarithmicIrradiationLaw::Creep(log_irradiation()).aster_name(),
             AsterBehaviour::ViscIrraLog,
         ),
+        (
+            LogarithmicIrradiationLaw::CreepAndGrowth {
+                creep: log_irradiation(),
+                growth: IrradiationGrowthDirection {
+                    azimuth: 0.0,
+                    elevation: 0.0,
+                },
+            }
+            .aster_name(),
+            AsterBehaviour::GranIrraLog,
+        ),
         (law.aster_name(), AsterBehaviour::Irrad3m),
         (meta_lema_ani().aster_name(), AsterBehaviour::MetaLemaAni),
     ] {
@@ -1312,9 +1379,11 @@ fn the_ported_names_round_trip_against_the_catalogue() {
 /// stress in the `IRRAD3M` identification. Pass criterion: each returns
 /// [`OffbeatError::Unphysical`].
 ///
-/// *Result (measured 2026-08-05):* all six returned `Unphysical` with the
-/// expected `quantity` field. Interpretation: the guards fire; none of these
-/// inputs can reach the arithmetic.
+/// *Result (measured 2026-08-05):* all six calls returned
+/// [`OffbeatError::Unphysical`] and the test printed `all six guards fired`.
+/// Interpretation: the guards fire; none of these inputs can reach the
+/// arithmetic. Note the test matches on the variant only, not on the `quantity`
+/// string, so it verifies rejection rather than the wording of the message.
 #[test]
 fn unphysical_inputs_are_rejected() {
     let p = log_irradiation();

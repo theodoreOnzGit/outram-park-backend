@@ -80,7 +80,9 @@
 //! **2. The per-Gauss-point G-theta integrand — portable in form, blocked on
 //! verification.** `gbilin.F90` (321 lines, 2-D) and `gbil3d.F90` (400 lines,
 //! 3-D) are the one real surprise: `gbil3d.F90` is entirely JEVEUX-free and
-//! `gbilin.F90` touches it only for the material lookup. Both are pure algebra
+//! `gbilin.F90` touches it only through an unused `#include "jeveux.h"` (its
+//! sole framework dependency is the material lookup `rcvalb`/`verift`). Both are
+//! pure algebra
 //! once you supply the four gradient matrices `dudm`, `dvdm`, `dtdm`, `dfdm` and
 //! the elastic constants — they compute the classical term, the thermal term,
 //! the body-force term, the dynamic term and three initial-stress terms, and
@@ -111,7 +113,7 @@
 //! `cgvcmo.F90`, `cgvein.F90`, `cgvemf.F90`, `cgverc.F90`, `cgverho.F90`,
 //! `cgVerification.F90`, `cgReadCompor.F90`, `cgComporNodes.F90`,
 //! `cgTempNodes.F90`, `cgCreateCompIncr.F90`, `cgExportTableG.F90`,
-//! `cgcrio.F90`, `gcsele.F90`, `gcfonc.F90`, `gcchar.F90`, `gchfus.F90`,
+//! `gcsele.F90`, `gcfonc.F90`, `gcchar.F90`, `gchfus.F90`,
 //! `gchs2f.F90`, `medomg.F90`, `mefor0.F90`, `mepres.F90`, `gverfo.F90`,
 //! `gver2d.F90`, `gveri3.F90`, `gverlc.F90`, `foninf2.F90`, `gimpgs.F90`,
 //! `gksimp.F90`. Keyword parsing, `.comm` deck validation, JEVEUX table writing
@@ -752,8 +754,16 @@ pub fn westergaard_unit_field(
     // Displacement, and the polar derivatives (d/dr, d/dtheta), by mode.
     let (u, du_dr, du_dtheta) = match mode {
         CrackOpeningMode::Opening => (
-            Vector3::new(cr2 * c_half * (ka - c_full), cr2 * s_half * (ka - c_full), 0.0),
-            Vector3::new(cr1 * c_half * (ka - c_full), cr1 * s_half * (ka - c_full), 0.0),
+            Vector3::new(
+                cr2 * c_half * (ka - c_full),
+                cr2 * s_half * (ka - c_full),
+                0.0,
+            ),
+            Vector3::new(
+                cr1 * c_half * (ka - c_full),
+                cr1 * s_half * (ka - c_full),
+                0.0,
+            ),
             Vector3::new(
                 cr2 * (-0.5 * s_half * (ka - c_full) + c_half * s_full),
                 cr2 * (0.5 * c_half * (ka - c_full) + s_half * s_full),
@@ -799,12 +809,7 @@ pub fn westergaard_unit_field(
 /// `d/dx = cos(t) d/dr - (sin(t)/r) d/dt` and
 /// `d/dy = sin(t) d/dr + (cos(t)/r) d/dt`, with the `z` column zero because the
 /// leading Williams term is independent of position along the front.
-fn polar_gradient_to_cartesian(
-    du_dr: Vector3,
-    du_dtheta: Vector3,
-    r: f64,
-    theta: f64,
-) -> Tensor {
+fn polar_gradient_to_cartesian(du_dr: Vector3, du_dtheta: Vector3, r: f64, theta: f64) -> Tensor {
     let (c, s) = (theta.cos(), theta.sin());
     let dx = |dr: f64, dt: f64| c * dr - s / r * dt;
     let dy = |dr: f64, dt: f64| s * dr + c / r * dt;
@@ -1140,7 +1145,10 @@ impl CrackTipBasis {
             n_raw.y - along * t.y,
             n_raw.z - along * t.z,
         );
-        let n = unit_or_error(n_ortho, "crack-plane normal, orthogonalised against the front tangent")?;
+        let n = unit_or_error(
+            n_ortho,
+            "crack-plane normal, orthogonalised against the front tangent",
+        )?;
 
         // Right-handed (propagation, normal, tangent).
         let p = n.cross(t);
@@ -1599,13 +1607,14 @@ pub fn hat_smooth_front(abscissae: &[f64], values: &mut [f64]) -> Result<()> {
             abscissae.len()
         )));
     }
-    if nno < 3 || nno % 2 == 0 {
+    if nno < 3 || (nno & 1) == 0 {
         return Err(OffbeatError::Mesh(format!(
             "crack-front hat smoothing needs an odd node count of at least 3 \
              (a chain of quadratic segments), got {nno}"
         )));
     }
-    let nnos = (nno + 1) / 2;
+    // Corner-node count: `nno` is odd here, so this is `(nno + 1) / 2`.
+    let nnos = nno.div_ceil(2);
 
     // Corner-to-corner segment lengths, upstream's `le`.
     let le: Vec<f64> = (0..nnos - 1)
@@ -1625,8 +1634,7 @@ pub fn hat_smooth_front(abscissae: &[f64], values: &mut [f64]) -> Result<()> {
         }
         let lg = 2.0 * le[i] / sum;
         let ld = 2.0 * le[i + 1] / sum;
-        smooth[i + 1] =
-            (lg * values[2 * i + 1] + values[2 * i + 2] + ld * values[2 * i + 3]) / 3.0;
+        smooth[i + 1] = (lg * values[2 * i + 1] + values[2 * i + 2] + ld * values[2 * i + 3]) / 3.0;
     }
     smooth[nnos - 1] = (values[nno - 2] + 2.0 * values[nno - 1]) / 3.0;
 

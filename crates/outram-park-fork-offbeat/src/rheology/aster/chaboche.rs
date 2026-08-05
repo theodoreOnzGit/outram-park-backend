@@ -681,7 +681,7 @@ pub enum ChabocheLaw {
     /// variables). Upstream: `bibfor/comport/nmchab.F90` via
     /// `bibfor/lc/lc0004.F90` — legacy symbols `nmchab`, `lc0004`.
     /// Integration: `SECANTE` or `BRENT`; this port uses
-    /// [`brent`](crate::rheology::aster::integration::brent).
+    /// [`brent`].
     ///
     /// Yield condition `||s - X||_vm = R(p)` with `X = (2/3) C₁ α₁`.
     VmisCin1Chab(ChabocheParameters),

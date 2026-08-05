@@ -211,8 +211,8 @@ fn near_tip_stress_reproduces_the_williams_singularity_in_both_plane_states() {
 /// | `D_PLAN` | 4.5921011900766911e-14 | 4.5921011900766911e-14 | 0.0e0 |
 /// | `C_PLAN` | 5.0462650440403205e-14 | 5.0462650440403199e-14 | 1.3e-16 |
 ///
-/// *Interpretation:* the two differ by the factor `1/(1 - nu^2) = 1.0989`, i.e.
-/// the plane-strain crack opens **9.89% less** than the plane-stress one under
+/// *Interpretation:* the two are in the ratio `1/(1 - nu^2) = 1.0989`, i.e. the
+/// plane-**stress** crack opens **9.89% more** than the plane-strain one under
 /// the same `K_I` — the constraint that raises `E'` also stiffens the opening.
 /// Together with the previous test this pins the plane state from both
 /// directions: the *stress* amplitude is state-independent and the
@@ -387,7 +387,10 @@ fn near_tip_strain_in_mandel_form_contracts_correctly() {
 
     println!("Mandel dot        = {mandel:.16e} J/m^3");
     println!("double contraction = {tensor:.16e} J/m^3");
-    println!("relative difference = {:.1e}", (mandel - tensor).abs() / tensor);
+    println!(
+        "relative difference = {:.1e}",
+        (mandel - tensor).abs() / tensor
+    );
     assert_relative_eq!(mandel, tensor, max_relative = 1e-12);
 }
 
@@ -567,8 +570,9 @@ fn equivalent_mode_i_factor_round_trips_and_clips_a_negative_g() {
 /// | pure mode II (`K_I = 0`, `K_II = -1`) | 1.2309594173407745e0 | 70.52877936550931 |
 /// | mixed (`K_I = 1`, `K_II = 0.5`) | -7.0175882174451543e-1 | -40.20781872203420 |
 ///
-/// `-arccos(1/3) = -1.2309594173407747 rad`; the pure mode-II value agrees to
-/// `1.8e-16` relative. *Interpretation:* the criterion turns the crack away from
+/// `-arccos(1/3) = -1.2309594173407747e0 rad`; the pure mode-II value differs
+/// from it by one unit in the last place. *Interpretation:* the criterion turns
+/// the crack away from
 /// the shear, and the pure-mode-I answer is exactly zero rather than
 /// `1e-17`-ish — a consequence of the rationalised form, which evaluates `-2 K_II
 /// / (K_I + sqrt(...))` and returns a hard zero when `K_II` is zero.
@@ -1062,7 +1066,8 @@ fn rotating_the_field_rotates_its_stress() {
 /// | `G_IRWIN / G` | 0.5128571428571429 | 1.0000000000000002 |
 ///
 /// With the spurious mode-II root removed from the comparison, the *before*
-/// ratio is exactly 0.5.
+/// ratio is `0.5000000000000001` (printed by the test as
+/// `mode-I-only ratio before`).
 ///
 /// *Interpretation, and this test was written the wrong way round first:* the
 /// initial version asserted `G_IRWIN = G` on the **uncorrected** half-model
@@ -1135,6 +1140,10 @@ fn symmetric_half_model_correction_restores_the_irwin_identity() {
         mode_ii_root: 0.0,
         ..half
     };
+    println!(
+        "mode-I-only ratio before = {:.16}",
+        mode_i_only.g_irwin() / mode_i_only.g
+    );
     assert_relative_eq!(
         mode_i_only.g_irwin() / mode_i_only.g,
         0.5,
@@ -1215,10 +1224,10 @@ fn axisymmetric_normalisation_divides_every_slot() {
 /// - worst diagonal entry: `1.0000000000227200e0`, i.e. an error of `2.2720e-11`
 /// - worst magnitude of an off-diagonal entry: `8.1975923530800774e-12`
 ///
-/// *Interpretation:* orthonormal to `2.3e-11`, which is the accuracy of the
-/// quadrature and not of the basis — the residual is Simpson's `O(h^4)`
-/// truncation on a degree-14 integrand, and it falls as the interval count
-/// rises. So the `sqrt((2n + 1)/L)` normalisation is transcribed correctly, and
+/// *Interpretation:* orthonormal to `2.3e-11`, a residual consistent with
+/// Simpson's `O(h^4)` truncation on a degree-14 integrand rather than with any
+/// error in the basis. So the `sqrt((2n + 1)/L)` normalisation is transcribed
+/// correctly, and
 /// the family is orthogonal as well as normalised (all 56 off-diagonal entries
 /// below 1e-11).
 #[test]
@@ -1228,9 +1237,8 @@ fn legendre_front_basis_is_orthonormal_over_the_front() {
     let h = l / n_intervals as f64;
 
     let integrate = |m: usize, n: usize| {
-        let f = |s: f64| {
-            legendre_front_mode(m, s, l).unwrap() * legendre_front_mode(n, s, l).unwrap()
-        };
+        let f =
+            |s: f64| legendre_front_mode(m, s, l).unwrap() * legendre_front_mode(n, s, l).unwrap();
         let mut sum = f(0.0) + f(l);
         for i in 1..n_intervals {
             let weight = if i % 2 == 1 { 4.0 } else { 2.0 };
@@ -1258,7 +1266,10 @@ fn legendre_front_basis_is_orthonormal_over_the_front() {
                 if value.abs() > worst_off.abs() {
                     worst_off = value;
                 }
-                assert!(value.abs() < 1.0e-9, "off-diagonal entry ({m},{n}) = {value}");
+                assert!(
+                    value.abs() < 1.0e-9,
+                    "off-diagonal entry ({m},{n}) = {value}"
+                );
             }
         }
     }
@@ -1292,9 +1303,8 @@ fn legendre_polynomials_satisfy_bonnets_recurrence() {
         let x = 2.0 * s / l - 1.0;
         for n in 1..=6usize {
             // Undo the L2 normalisation to recover the bare P_n.
-            let p = |d: usize| {
-                legendre_front_mode(d, s, l).unwrap() / ((2 * d + 1) as f64 / l).sqrt()
-            };
+            let p =
+                |d: usize| legendre_front_mode(d, s, l).unwrap() / ((2 * d + 1) as f64 / l).sqrt();
             let residual =
                 (n + 1) as f64 * p(n + 1) - (2 * n + 1) as f64 * x * p(n) + n as f64 * p(n - 1);
             worst = worst.max(residual.abs());
@@ -1362,35 +1372,52 @@ fn legendre_basis_refuses_unsupported_degrees_and_lengths() {
 // Crack-front hat smoothing
 // =====================================================================
 
-/// **Hat smoothing reproduces a constant exactly, and biases the two end values
-/// inward on a linear field.**
+/// **Hat smoothing reproduces a constant exactly, is exact in the interior on a
+/// linear field, and biases the two end values inward.**
 ///
-/// *Methodology:* two properties of `hatSmooth.F90`'s fixed three-point filter.
-/// (a) Constant preservation: the interior weights satisfy `lg + ld = 2`
-/// identically, so `(lg c + c + ld c)/3 = c`, and both end stencils are likewise
-/// convex combinations summing to 1 — a constant `G(s)` must come back unchanged
-/// on a **non-uniform** front, which is where a weight error would show. (b) The
-/// end stencils are *not* linear-preserving: `(2 v_0 + v_1)/3` pulls the first
-/// value toward the interior by one third of the end slope. That is upstream's
-/// behaviour and is reproduced, not corrected, so it is asserted rather than
-/// tolerated silently. Front: 5 nodes at abscissae `[0, 0.1, 0.3, 0.8, 1.4]` —
-/// deliberately non-uniform and with off-centre mid-side nodes.
+/// *Methodology:* two properties of `hatSmooth.F90`'s fixed three-point filter,
+/// checked on two deliberately different fronts.
+///
+/// (a) *Constant preservation* on a **non-uniform** front (5 nodes at
+/// `[0, 0.1, 0.3, 0.8, 1.4]`, with mid-side nodes deliberately off-centre): the
+/// interior weights satisfy `lg + ld = 2` identically, so `(lg c + c + ld c)/3 =
+/// c`, and both end stencils are convex combinations summing to 1. A constant
+/// `G(s)` must therefore come back unchanged, and a mistranscribed `lg`/`ld`
+/// would show only on a non-uniform front. Pass criterion: 1e-15 absolute.
+///
+/// (b) *Linear-field behaviour* on a **uniform** front (`[0, 0.25, 0.5, 0.75,
+/// 1]`, mid-side nodes at the segment midpoints), which isolates the end bias
+/// from the effect of off-centre mid-side nodes. The interior corner stencil
+/// must be exact on a linear field; the end stencils are not, and this asserts
+/// the size of the resulting bias rather than tolerating it silently. Pass
+/// criterion: interior exact to 1e-15; end shift equal to one third of the
+/// corner-to-midside spacing to 1e-12 relative.
 ///
 /// *Results (measured 2026-08-05):*
 ///
-/// - constant `7.5`: maximum deviation after smoothing
+/// - constant `7.5` on the non-uniform front: maximum deviation after smoothing
 ///   `0.0000000000000000e0`
-/// - linear `v = s`: input `[0, 0.1, 0.3, 0.8, 1.4]`, output
-///   `[0.0333333333333333, 0.1988888888888889, 0.3644444444444444,
-///   0.8655555555555555, 1.3666666666666665]`
-/// - first node moved by `+3.3333e-2` (inward), last by `-3.3333e-2` (inward);
-///   interior corner node moved by `+6.4444e-2`
+/// - linear `v = s` on the uniform front: input `[0, 0.25, 0.5, 0.75, 1]`,
+///   output `[0.0833333333333333, 0.2916666666666667, 0.5000000000000000,
+///   0.7083333333333333, 0.9166666666666666]`
+///
+/// | node | shift |
+/// |---|---|
+/// | 0 | +8.3333333333333329e-2 |
+/// | 1 | +4.1666666666666685e-2 |
+/// | 2 | +0.0000000000000000e0 |
+/// | 3 | -4.1666666666666741e-2 |
+/// | 4 | -8.3333333333333370e-2 |
 ///
 /// *Interpretation:* the constant is exact to the last bit on a non-uniform
-/// front, so the `lg`/`ld` weights are transcribed correctly. The ends move
-/// inward by exactly one third of the adjacent interval as predicted by the
-/// stencil, which is the documented limitation — a user reading a smoothed
-/// `G(s)` should not treat the two end values as converged.
+/// front, so the `lg`/`ld` weights are transcribed correctly. On the linear
+/// field the interior corner node is untouched — the stencil is second-order
+/// accurate there — while the two ends move inward by `0.08333 = 0.25/3`,
+/// exactly one third of the corner-to-midside spacing, and the adjacent mid-side
+/// nodes by half that. This is the documented limitation of upstream's filter,
+/// reproduced rather than corrected: a user reading a smoothed `G(s)` should not
+/// treat the two end values as converged, and on a coarse front the end bias can
+/// be a sizeable fraction of the front-end `G`.
 #[test]
 fn hat_smoothing_preserves_a_constant_and_biases_the_ends() {
     let abscissae = [0.0, 0.1, 0.3, 0.8, 1.4];

@@ -294,8 +294,7 @@ impl LogarithmicIrradiationParameters {
         let arrhenius = (-self.activation_temperature / temperature).exp();
         let ct = self.primary_fluence_constant;
         let primary = if ct > 0.0 {
-            self.primary_compliance
-                * ((1.0 + ct * fluence_end) / (1.0 + ct * fluence_start)).ln()
+            self.primary_compliance * ((1.0 + ct * fluence_end) / (1.0 + ct * fluence_start)).ln()
         } else {
             0.0
         };
@@ -530,9 +529,7 @@ impl LogarithmicIrradiationLaw {
     pub fn growth_strain_increment(self, growth_strain_increment: f64) -> SymmTensor {
         match self {
             Self::Creep(_) => SymmTensor::ZERO,
-            Self::CreepAndGrowth { growth, .. } => {
-                growth.strain_increment(growth_strain_increment)
-            }
+            Self::CreepAndGrowth { growth, .. } => growth.strain_increment(growth_strain_increment),
         }
     }
 
@@ -791,7 +788,8 @@ impl Irrad3mHardening {
         if sigma <= self.plateau_stress {
             0.0
         } else if sigma < self.stress_at_proof_strain && self.slope_at_proof_strain > 0.0 {
-            IRRAD3M_PROOF_STRAIN + (sigma - self.stress_at_proof_strain) / self.slope_at_proof_strain
+            IRRAD3M_PROOF_STRAIN
+                + (sigma - self.stress_at_proof_strain) / self.slope_at_proof_strain
         } else if self.coefficient > 0.0 && self.exponent > 0.0 {
             (sigma / self.coefficient).powf(1.0 / self.exponent) - self.strain_offset
         } else {
@@ -854,7 +852,11 @@ impl Irrad3mParameters {
         let f = |n: f64| 1.0 - coeffa * ((n - n0).powf(n)) / (n.powf(n));
         let f_infinity = 1.0 - coeffa * (-n0).exp();
 
-        let lower = if n0 >= 0.0 { n0 + pe / 1000.0 } else { pe / 1000.0 };
+        let lower = if n0 >= 0.0 {
+            n0 + pe / 1000.0
+        } else {
+            pe / 1000.0
+        };
         let f_lower = f(lower);
 
         // Upstream's own no-root test, transcribed. `n0 == 0` is excluded
@@ -910,7 +912,10 @@ impl Irrad3mParameters {
 
         let plateau_stress = self.yield_plateau_factor * self.yield_strength;
         let (slope_at_proof_strain, plateau_strain) = if slope > 0.0 {
-            (slope, pe - (stress_at_proof_strain - plateau_stress) / slope)
+            (
+                slope,
+                pe - (stress_at_proof_strain - plateau_stress) / slope,
+            )
         } else {
             (0.0, 0.0)
         };
@@ -982,8 +987,8 @@ impl Irrad3mParameters {
         if !(dose_end > dose_start) {
             return SymmTensor::ZERO;
         }
-        let dg =
-            self.swelling_scale * (self.swelling_strain(dose_end) - self.swelling_strain(dose_start));
+        let dg = self.swelling_scale
+            * (self.swelling_strain(dose_end) - self.swelling_strain(dose_start));
         SymmTensor::from_diag(dg, dg, dg)
     }
 }
@@ -1120,8 +1125,7 @@ impl Irrad3m {
         dose_increment: f64,
     ) -> (f64, f64) {
         let p = self.parameters;
-        let trapezoid =
-            (equivalent_stress_start + equivalent_stress_end) * dose_increment * 0.5;
+        let trapezoid = (equivalent_stress_start + equivalent_stress_end) * dose_increment * 0.5;
 
         if driver_start > p.creep_threshold {
             let d_eta = p.creep_scale * trapezoid;
@@ -1565,7 +1569,12 @@ impl MetaLemaAniPhase {
     /// upstream's guards (`pm[i] = (p_ > 0.) ? ... : 0.` and the matching test
     /// on `dp`). Without them the law would evaluate `0^m` with a negative `m`.
     #[must_use]
-    pub fn viscous_stress(self, temperature: f64, accumulated_strain: f64, strain_rate: f64) -> f64 {
+    pub fn viscous_stress(
+        self,
+        temperature: f64,
+        accumulated_strain: f64,
+        strain_rate: f64,
+    ) -> f64 {
         if !(accumulated_strain > 0.0) || !(strain_rate > 0.0) {
             return 0.0;
         }

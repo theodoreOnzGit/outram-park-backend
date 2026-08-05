@@ -59,9 +59,23 @@ pub mod metallurgy;
 pub mod viscoplastic;
 
 pub use catalogue::{AsterBehaviour, ALL};
+pub use chaboche::{
+    BackStress, ChabocheIncrement, ChabocheLaw, ChabocheLocalState, ChabocheParameters,
+    ChabochePredictor, ChabocheState, ElasticModuli, StrainMemory, ThermoElasticStep,
+};
+pub use fracture::{
+    equivalent_mode_i_factor, hat_smooth_front, irwin_energy_release_rate, irwin_mode_split,
+    legendre_front_mode, legendre_front_mode_derivative, max_hoop_stress_kink_angle,
+    near_tip_stress, scaled_hoop_stress, westergaard_unit_field, CrackOpeningMode,
+    CrackPlaneState, CrackTipBasis, LinearElasticConstants, ModeEnergyRelease, NearTipField,
+    PlanarCrackTipResult, StressIntensityFactors, MAX_LEGENDRE_FRONT_DEGREE,
+};
 pub use integration::{
     brent, newton_perturbed, newton_safeguarded, perturbed_default, secant, LocalSolution,
     ScalarAlgorithm, SolverControl,
+};
+pub use isotropic::{
+    IsotropicHardening, LinearHardening, NortonHoffLimitAnalysis, PowerLawHardening,
 };
 pub use kinematics::{hencky_strain, AsterVoigt, DeformationGradient};
 pub use log_strain::LogarithmicStrain;
