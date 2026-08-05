@@ -189,6 +189,35 @@ pub struct MeltFoam {
     pub fv_models: FvModels,
     /// Linear solver for the pressure Poisson equation.
     pub pressure_solver: PressureSolver,
+    /// Linear-solver settings for the **temperature** equation.
+    ///
+    /// # Why this is separate, and why the default is so tight
+    ///
+    /// Defaults to `tolerance = 1e-12`, far tighter than
+    /// [`SolverSettings::default`]'s `1e-7`. That is not caution for its own
+    /// sake — it is a measured requirement.
+    ///
+    /// The enthalpy-porosity scheme conserves energy *exactly* at the discrete
+    /// level: summing the temperature equation over all cells and all steps
+    /// telescopes to `Σ V·(Cp·ΔT + L·Δα) = Cp·Σ dt·(wall flux)`, with every
+    /// internal-face term cancelling. The only leak is the linear solve's own
+    /// residual, and a melting run is *long* — thousands to tens of thousands of
+    /// steps — so a per-step residual that is negligible in a short run
+    /// accumulates into a visible energy drift.
+    ///
+    /// Measured on the 1-D Stefan case in this crate's `melting_vv_cases`
+    /// integration test (400 cells, dt = 0.01 s, 10 000 steps, 2026-08-05):
+    ///
+    /// | T-solve tolerance | Energy imbalance |
+    /// |---|---|
+    /// | `1e-7` (the generic default) | **-0.9221 %** of the wall heat input |
+    /// | `1e-14` | **-1.96e-6 J/m²**, i.e. -0.0000 % |
+    ///
+    /// A 0.9 % energy loss would be indistinguishable from a physics error while
+    /// being purely numerical, which is exactly the kind of drift that makes a
+    /// melting result untrustworthy. Loosen this only with a re-run of that
+    /// energy-balance check.
+    pub temperature_solver: SolverSettings,
 }
 
 impl MeltFoam {
@@ -226,6 +255,10 @@ impl MeltFoam {
             alpha_thermal,
             fv_models: FvModels::new(),
             pressure_solver: PressureSolver::default(),
+            temperature_solver: SolverSettings {
+                tolerance: 1e-12,
+                max_iter: 2_000,
+            },
         }
     }
 
@@ -477,7 +510,7 @@ impl MeltFoam {
                 &mut t_eqn,
             );
 
-            let (mut t_new, _) = t_eqn.solve("T", settings);
+            let (mut t_new, _) = t_eqn.solve("T", self.temperature_solver);
             correct_bcs(&mut t_new, &t_bcs);
             self.t = t_new;
         }
