@@ -90,6 +90,7 @@ pub mod isotropic;
 pub mod kinematics;
 pub mod log_strain;
 pub mod metallurgy;
+pub mod viscochab; // TEMPORARY-AGENT-WIRING: remove before hand-off
 pub mod viscoplastic;
 
 pub use catalogue::{AsterBehaviour, ALL};

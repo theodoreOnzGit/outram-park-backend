@@ -757,9 +757,11 @@ impl MechanicsSolver {
             max_equivalent_creep_increment: max_creep,
             max_equivalent_plastic_increment: max_plastic,
             yielding_cells,
-            suggested_next_time_step: self
-                .time_step_control
-                .next_time_step(average, max_inelastic, dt),
+            suggested_next_time_step: self.time_step_control.next_time_step(
+                average,
+                max_inelastic,
+                dt,
+            ),
         })
     }
 
@@ -874,9 +876,8 @@ impl MechanicsSolver {
                 corrections.clear();
                 corrections.reserve(n);
                 for c in 0..n {
-                    let mechanical =
-                        Self::symm_grad(&grad_d.internal[c])
-                            - self.eigenstrain.internal[c] * SymmTensor::IDENTITY;
+                    let mechanical = Self::symm_grad(&grad_d.internal[c])
+                        - self.eigenstrain.internal[c] * SymmTensor::IDENTITY;
                     let rate = if step > 0.0 {
                         equivalent_strain(mechanical - self.mech_strain_old[c]) / step
                     } else {
@@ -1036,5 +1037,7 @@ impl MechanicsSolver {
     }
 }
 
+#[cfg(test)]
+mod rheology_tests;
 #[cfg(test)]
 mod tests;

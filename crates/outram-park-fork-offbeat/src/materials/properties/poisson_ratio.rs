@@ -67,6 +67,31 @@
 //! the upstream correlation pair. Use
 //! [`is_admissible`](PoissonRatioModel::is_admissible) to test a result.
 //!
+//! # Validation case
+//!
+//! [`MatproZircaloy`](PoissonRatioModel::MatproZircaloy) is tracked as a
+//! **formal validation case** (bead `op-6sl.7`). The write-up lives in the
+//! repository at `docs/validation/poisson_ratio_zircaloy.md`, with the source
+//! provenance in `docs/validation/References.md`. (Both are repo-only —
+//! `docs/` is excluded from the packaged crate.)
+//!
+//! In summary, as of 2026-08-05:
+//!
+//! - **Admissibility check against the `-1 < nu < 0.5` constraint: FAILS**, for
+//!   the reasons documented on the variant below. This needs no experimental
+//!   data, which is why it is the one criterion that could be evaluated.
+//! - **Comparison against measured Zircaloy Poisson's ratio: NOT PERFORMED.**
+//!   Candidate benchmark datasets are identified with full provenance in
+//!   `References.md` (chiefly Schwenk & Wheeler 1978, a direct `nu` measurement
+//!   on Zircaloy-4 over 297-589 K, and Northwood, London & Bahen 1975 for
+//!   Zircaloy-2 over 293-773 K), but **no measured value has been obtained or
+//!   transcribed**, so no accuracy claim is made here or anywhere in this
+//!   crate. Gaps are listed explicitly rather than filled with estimates.
+//!
+//! Nothing in this module has been validated against experiment. Treat the
+//! numbers as a faithful reproduction of a published correlation, not as a
+//! statement about Zircaloy.
+//!
 //! # Validity ranges, clamping and checking
 //!
 //! Same contract as the companion Young's-modulus module:
@@ -257,21 +282,42 @@ pub enum PoissonRatioModel {
     /// # This variant can leave the admissible range
     ///
     /// Because `E` and `G` are two *independently fitted* lines, their ratio is
-    /// not constrained to keep `nu < 0.5`, and in the beta phase it does not:
+    /// not constrained to keep `nu < 0.5`, and it does not stay there. Two
+    /// independent failure regimes exist:
     ///
-    /// - Unirradiated, uncold-worked cladding crosses `nu = 0.5` at
-    ///   **T = 1354.84 K** and reaches `nu = 0.912` at the top of the range
-    ///   (1800 K).
-    /// - At 600 K, a retained cold-work fraction above **0.1197** also pushes
-    ///   `nu` past 0.5, because `K2` subtracts the same absolute amount from
-    ///   both numerators and `G` is roughly a third of `E`.
+    /// - **Temperature.** Unirradiated, uncold-worked cladding crosses
+    ///   `nu = 0.5` at **T = 1354.838709677 K** and reaches `nu = 0.912351` at
+    ///   the top of the range (1800 K). That leaves 445.16 K of the 1510 K
+    ///   validity interval — 29.5% of it — beyond the crossover. `nu = 0.5` is
+    ///   exactly the
+    ///   condition `E = 3G`; solving it on the beta lines gives
+    ///   `T = 1.26e10 / 9.3e6`, and bisection agrees to nine decimals.
+    /// - **Cold work,** and this one reaches down to ordinary operating
+    ///   temperature. `K2` subtracts the same absolute amount from both
+    ///   numerators, and since `G` is roughly a third of `E` the subtraction
+    ///   costs `G` proportionally three times as much, driving `nu` up. The
+    ///   threshold **falls as temperature rises**: **0.179096 at 300 K**,
+    ///   **0.119731 at 600 K**, and only **0.026131 at 1073 K**. Cold-worked
+    ///   stress-relief-annealed cladding retains cold work by definition, so
+    ///   2.6% at the top of the alpha branch is a routine condition, not a
+    ///   corner case.
     ///
-    /// Neither is a port error — both are properties of the upstream
+    /// Fast fluence cannot mitigate either regime: `K3` divides both `E` and
+    /// `G`, so it cancels exactly in `nu`. Oxygen content moves `nu` *down*,
+    /// away from the bound.
+    ///
+    /// Neither regime is a port error — both are properties of the upstream
     /// correlation pair, verified against the transcribed coefficients and
-    /// pinned down by the unit tests. Call
+    /// pinned down by the unit tests. Upstream neither detects nor guards
+    /// them; notably, upstream's own default Zircaloy material selects the
+    /// *constant* Poisson model rather than this one. Call
     /// [`is_admissible`](Self::is_admissible) before handing the result to a
     /// mechanics solve, or use [`ConstantZircaloy`](Self::ConstantZircaloy) in
     /// the beta phase.
+    ///
+    /// Every number above was printed by this crate's code and transcribed;
+    /// the full tables, the provenance and the gating-policy discussion are in
+    /// the repository at `docs/validation/poisson_ratio_zircaloy.md`.
     ///
     /// **Inputs used:** [`temperature`](MaterialState::temperature),
     /// [`fast_fluence`](MaterialState::fast_fluence) \[n/m^2\],
@@ -458,9 +504,17 @@ impl PoissonRatioModel {
     /// nonsense rather than an inaccurate answer.
     ///
     /// Only [`MatproZircaloy`](Self::MatproZircaloy) can return `false` for a
-    /// physically sensible state — above about 1355 K, or above a retained
-    /// cold-work fraction of about 0.12 — and that is a property of the MATPRO
-    /// correlation pair, not of this port. See the variant documentation.
+    /// physically sensible state — above 1354.838709677 K, or above a retained
+    /// cold-work fraction that is itself temperature-dependent (0.179096 at
+    /// 300 K falling to 0.026131 at 1073 K) — and that is a property of the
+    /// MATPRO correlation pair, not of this port. See the variant
+    /// documentation, and `docs/validation/poisson_ratio_zircaloy.md` in the
+    /// repository for the full tables.
+    ///
+    /// **This method reports the condition; it does not decide what to do about
+    /// it.** The gating policy — clamp, fall back to a constant, or refuse the
+    /// case — is a maintainer decision tracked in bead `op-6sl.7`, and is
+    /// deliberately not implemented here.
     ///
     /// # Example
     ///
@@ -828,6 +882,14 @@ mod tests {
     /// better than 1e-3 K. Measured `nu(1800 K) = 0.91235`, far outside the
     /// admissible interval; `nu(1273 K) = 0.47236`, just inside it.
     ///
+    /// A separate 200-iteration bisection run outside the test suite on
+    /// 2026-08-05 refined the crossover to **1354.838709677 K**, matching the
+    /// closed form `1.26e10 / 9.3e6` to all nine printed decimals. A
+    /// 200 001-point sweep of the closed interval [290, 1273] K found a maximum
+    /// of `nu = 0.472360`, attained at the 1273 K endpoint — so the alpha and
+    /// interpolation branches stay admissible throughout and the failure is
+    /// confined to the beta branch above 1273 K.
+    ///
     /// # Interpretation
     ///
     /// This is **not a port defect** — it reproduces the upstream C++ exactly,
@@ -837,6 +899,14 @@ mod tests {
     /// crossover and negative beyond it. Callers working in the beta phase
     /// should use [`PoissonRatioModel::ConstantZircaloy`], or gate on
     /// [`PoissonRatioModel::is_admissible`].
+    ///
+    /// This test is the executed half of criterion **VAL-1** of the validation
+    /// case in `docs/validation/poisson_ratio_zircaloy.md`. It checks the model
+    /// against a *physical constraint*, not against *measurements* — the
+    /// comparison with measured Zircaloy Poisson's ratio (VAL-2) has **not**
+    /// been performed, and no measured value is recorded anywhere in this
+    /// crate. Passing this test says the failure is real; it says nothing about
+    /// whether the model is accurate where it is admissible.
     #[test]
     fn matpro_zircaloy_poisson_ratio_exceeds_the_admissible_limit_in_the_beta_phase() {
         let m = PoissonRatioModel::MatproZircaloy;
@@ -896,11 +966,32 @@ mod tests {
     /// Zircaloy Poisson model inadmissible even at ordinary operating
     /// temperature.
     ///
+    /// # The threshold is temperature-dependent, and falls
+    ///
+    /// This test fixes 600 K. A sweep run outside the test suite on 2026-08-05
+    /// (tabulated in `docs/validation/poisson_ratio_zircaloy.md`, Table D)
+    /// found the threshold **decreasing monotonically across the whole alpha
+    /// branch**: 0.179096 at 300 K, 0.159308 at 400 K, 0.139519 at 500 K,
+    /// 0.119731 at 600 K, 0.099942 at 700 K, 0.080154 at 800 K, 0.060365 at
+    /// 900 K, 0.040577 at 1000 K, and **0.026131 at 1073 K**. So 600 K is not
+    /// the worst case — the top of the alpha branch is, where 2.6% retained
+    /// cold work suffices.
+    ///
+    /// Note that `nu` rises monotonically with cold work only up to the point
+    /// where the shear-modulus numerator `4.04e10 - 2.168e7*T - 2.6e10*C_cw`
+    /// itself reaches zero (at `C_cw = 1.053538` for 600 K); beyond that `G` is
+    /// negative and `nu` is meaningless rather than merely inadmissible. The
+    /// bisection above is bracketed strictly below that singularity.
+    ///
     /// # Interpretation
     ///
     /// Again a faithful reproduction of upstream, not a port defect, and worth
     /// knowing before running cold-worked (rather than recrystallised) cladding
-    /// through the mechanics solve.
+    /// through the mechanics solve. Cold-worked stress-relief-annealed (CWSRA)
+    /// cladding retains cold work by definition, so a user can trip this
+    /// without ever approaching the 1355 K temperature crossover — which is the
+    /// main argument in the validation case against silently clamping or
+    /// substituting `nu`.
     #[test]
     fn matpro_zircaloy_poisson_ratio_exceeds_the_admissible_limit_at_high_cold_work() {
         let m = PoissonRatioModel::MatproZircaloy;
