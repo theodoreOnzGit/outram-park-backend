@@ -35,9 +35,42 @@
 //!
 //! # Status
 //!
-//! **P0 only: the catalogue and the kinematics.** No constitutive law is
-//! implemented yet. [`catalogue`] records what upstream declares;
-//! [`kinematics`] pins the two conventions every future law depends on.
+//! **Verification-tested draft. Nothing here is validated.** Every test in
+//! every module below is *verification* — independent transcription of
+//! upstream's algebra, closed-form limits, invariants, and measured
+//! convergence orders. Nothing has been compared against code_aster output, a
+//! cladding-creepdown measurement, or any reactor data, and no such agreement
+//! is claimed. Note also that upstream's `astest` suite is **absent** from the
+//! clone this port was made from, so the reference oracle assumed by
+//! `docs/code-aster-port-scoping.md` §7 was not available.
+//!
+//! Foundations:
+//!
+//! - [`catalogue`] — what upstream declares (229 behaviours).
+//! - [`kinematics`] — the Mandel convention and the deformation gradient.
+//! - [`integration`] — the scalar local solvers every law below shares.
+//! - [`log_strain`] — the `GDEF_LOG` large-strain wrapper.
+//!
+//! Constitutive laws:
+//!
+//! | Module | Laws |
+//! |---|---|
+//! | [`viscoplastic`] | `NORTON`, `LEMAITRE`, `LEMAITRE_IRRA` |
+//! | [`isotropic`] | `VMIS_ISOT_LINE`/`_PUIS` hardening, `NORTON_HOFF` |
+//! | [`chaboche`] | `VMIS_CIN1/2_CHAB`, `VISC_CIN1/2_CHAB`, `VMIS/VISC_CIN2_MEMO` |
+//! | [`damage`] | `VENDOCHAB`, `VISC_ENDO_LEMA`, `ROUSS_PR`, `ROUSS_VISC`, `GTN`, `VISC_GTN`, `CRIT_RUPT` |
+//! | [`metallurgy`] | `VISC_IRRA_LOG`, `GRAN_IRRA_LOG`, `IRRAD3M`, `META_LEMA_ANI` |
+//! | [`fracture`] | linear-elastic fracture post-processing only — see below |
+//!
+//! Two limitations that change results and must not be discovered late:
+//!
+//! - [`fracture`] is roughly **80 % blocked**. The G-theta domain integral
+//!   needs element shape functions, Gauss quadrature and crack-front ring
+//!   topology, none of which this crate has. What is implemented is the
+//!   closed-form subset.
+//! - [`damage`]'s `GTN` is the **local** form only. Without `GRADVARI`
+//!   nonlocal regularisation a structural run will localise into one element
+//!   band and give mesh-dependent answers.
 //!
 //! # Provenance
 //!
@@ -96,6 +129,11 @@ pub use isotropic::{
 };
 pub use kinematics::{hencky_strain, AsterVoigt, DeformationGradient};
 pub use log_strain::LogarithmicStrain;
+pub use metallurgy::{
+    HillAnisotropy, Irrad3m, Irrad3mHardening, Irrad3mIncrement, Irrad3mParameters, Irrad3mState,
+    IrradiationGrowthDirection, LogarithmicIrradiationLaw, LogarithmicIrradiationParameters,
+    MetaLemaAni, MetaLemaAniIncrement, MetaLemaAniPhase, IRRAD3M_PROOF_STRAIN,
+};
 pub use viscoplastic::{
     deviator, von_mises_of_deviator, CreepIncrement, LemaitreParameters, NortonParameters,
     ViscoplasticLaw,
