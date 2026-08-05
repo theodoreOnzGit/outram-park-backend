@@ -43,8 +43,12 @@ use uom::si::thermodynamic_temperature::kelvin;
 /// Width of the pipe wall outline, in screen points.
 const PIPE_WALL_WIDTH: f32 = 1.5;
 
-/// Radius of a tracer mark, in screen points.
-const TRACER_RADIUS: f32 = 3.0;
+/// Axial length of a tracer mark, as a fraction of the run length.
+///
+/// The mark is drawn as a rectangle spanning the pipe's full cross-section, so
+/// it reads as a plug of fluid moving down the run rather than a dot floating
+/// in it.
+const TRACER_LENGTH_FRACTION: f32 = 0.06;
 
 /// Scalar fluid state for a pipe run whose physics is not a
 /// [`tampines::components::Pipe`].
@@ -424,10 +428,26 @@ impl Widget for PipeVisual {
             Stroke::new(PIPE_WALL_WIDTH, Color32::from_gray(70)),
         ));
 
+        // Tracer marks: white rectangles spanning the bore, each travelling
+        // the full run in exactly one residence time (the train is advanced by
+        // the application -- see the field docs). Direction of travel is the
+        // train's, so a reversed flow runs them backwards.
         if let Some(tracer) = self.tracer {
+            let mark_len = (length_pts * TRACER_LENGTH_FRACTION).max(2.0);
             for position in tracer.positions() {
-                let at = start + direction * (length_pts * position as f32);
-                painter.circle_filled(at, TRACER_RADIUS, Color32::WHITE);
+                let centre = length_pts * position as f32;
+                // Clipped to the run so a mark straddling the outlet does not
+                // spill out of the pipe.
+                let a = (centre - 0.5 * mark_len).clamp(0.0, length_pts);
+                let b = (centre + 0.5 * mark_len).clamp(0.0, length_pts);
+                if b - a < 0.5 {
+                    continue;
+                }
+                painter.add(egui::Shape::convex_polygon(
+                    quad(start + direction * a, start + direction * b),
+                    Color32::WHITE,
+                    Stroke::NONE,
+                ));
             }
         }
 

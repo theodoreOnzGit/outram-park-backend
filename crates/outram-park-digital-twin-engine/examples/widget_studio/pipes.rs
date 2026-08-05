@@ -21,6 +21,7 @@
 //! data policy.
 
 use egui::{Pos2, RichText, Vec2};
+use outram_park_digital_twin_engine::animation::{residence_time_from_velocity, TracerTrain};
 use outram_park_digital_twin_engine::components::PipeVisual;
 use tampines::components::{Pipe, PipeBackend};
 use tampines::compressible::{CompressibleFluidArray, CoolPropFluid};
@@ -30,8 +31,10 @@ use tuas_boussinesq_solver::boussinesq_thermophysical_properties::SolidMaterial;
 use uom::si::angle::degree;
 use uom::si::area::square_meter;
 use uom::si::f64::{
-    Angle, Area, Length, Pressure, Ratio, ThermodynamicTemperature, Time,
+    Angle, Area, Length, MassRate, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity,
 };
+use uom::si::mass_rate::kilogram_per_second;
+use uom::si::velocity::meter_per_second;
 use uom::si::length::{meter, millimeter};
 use uom::si::pressure::atmosphere;
 use uom::si::ratio::ratio;
@@ -58,6 +61,15 @@ pub struct PipeRow {
     pub min_temp: ThermodynamicTemperature,
     /// Temperature mapped to the hottest displayable colour.
     pub max_temp: ThermodynamicTemperature,
+    /// Tracer marks for this run.
+    ///
+    /// **Application-owned and advanced once per frame**, then copied into the
+    /// widget at build time — widgets are rebuilt every repaint, so a train
+    /// owned by the widget would reset its phase to zero each frame and never
+    /// appear to move. See `crate::animation`.
+    pub tracer: TracerTrain,
+    /// Bulk flow velocity, the studio's control over this run.
+    pub velocity_m_s: f64,
 }
 
 /// Build the three demonstration pipes, top to bottom.
@@ -114,6 +126,8 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
             roughness,
             incline,
         ),
+        tracer: TracerTrain::new(3),
+        velocity_m_s: 1.2,
         name: "Molten salt (FLiBe) — TUAS",
         detail: "PipeBackend::Lumped · single-phase liquid, Boussinesq. \
                  No phase information: this backend cannot represent boiling.",
@@ -131,6 +145,8 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
                 roughness,
                 incline,
             ),
+            tracer: TracerTrain::new(3),
+            velocity_m_s: 6.0,
             name: "Steam / water — TAMPINES HEM",
             detail: "PipeBackend::SteamHem · homogeneous-equilibrium two-phase, \
                      IAPWS-IF97. The only row carrying phase information, and the \
@@ -151,6 +167,8 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
                 roughness,
                 incline,
             ),
+            tracer: TracerTrain::new(3),
+            velocity_m_s: 20.0,
             name: "Helium gas — OPCP (CoolProp)",
             detail: "PipeBackend::Compressible · single-phase compressible, \
                      Helmholtz EOS. Gas-cooled reactor working fluid — drawn in \
@@ -162,6 +180,30 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     }
 
     (rows, errors)
+}
+
+/// Residence time of a row at its current velocity, `tau = L/u`.
+pub fn residence_time(row: &PipeRow) -> Time {
+    residence_time_from_velocity(
+        row.pipe.length,
+        Velocity::new::<meter_per_second>(row.velocity_m_s),
+    )
+}
+
+/// Advance every row's tracer train by one frame.
+///
+/// Each mark crosses the whole run in exactly one residence time, and the sign
+/// of the velocity sets the direction — `TracerTrain::advance` takes direction
+/// from the sign of its mass-flow argument and speed only through the
+/// residence time, so a unit-magnitude rate carrying the right sign is the
+/// documented way to drive it from a velocity.
+pub fn advance_tracers(rows: &mut [PipeRow], dt: Time) {
+    for row in rows.iter_mut() {
+        let tau = residence_time(row);
+        let direction =
+            MassRate::new::<kilogram_per_second>(if row.velocity_m_s >= 0.0 { 1.0 } else { -1.0 });
+        row.tracer.advance(dt, tau, direction);
+    }
 }
 
 /// Draw the stacked pipes and their labels.
@@ -207,12 +249,15 @@ pub fn draw(ui: &mut egui::Ui, rows: &[PipeRow], errors: &[String]) {
         let start = Pos2::new(available.left() + 8.0, top + row_height - 16.0);
         // Length, thickness and slope all come from the pipe's own geometry;
         // screen_vector is only the fallback direction for geometry-less runs.
-        ui.add(PipeVisual::new(
-            row.pipe.clone(),
-            start,
-            Vec2::new(1.0, 0.0),
-            row.min_temp,
-            row.max_temp,
-        ));
+        ui.add(
+            PipeVisual::new(
+                row.pipe.clone(),
+                start,
+                Vec2::new(1.0, 0.0),
+                row.min_temp,
+                row.max_temp,
+            )
+            .with_tracer(row.tracer),
+        );
     }
 }
