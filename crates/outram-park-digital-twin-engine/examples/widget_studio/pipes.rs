@@ -116,7 +116,11 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
         std::f64::consts::FRAC_PI_4 * 0.08 * 0.08,
     );
 
-    let helium_length = Length::new::<meter>(2.5);
+    // 7 m, not 2.5: at a 120 mm bore the shorter run drew almost square
+    // (200 x 113 points), which reads as a plenum rather than a pipe. A gas
+    // duct of this bore would realistically be many metres long, so the fix is
+    // a longer pipe rather than a fudged scale.
+    let helium_length = Length::new::<meter>(7.0);
     let helium_bore = Length::new::<millimeter>(120.0);
     let helium_area = Area::new::<square_meter>(
         std::f64::consts::FRAC_PI_4 * 0.12 * 0.12,
