@@ -70,18 +70,34 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     let mut rows = Vec::new();
     let mut errors = Vec::new();
 
-    let length = Length::new::<meter>(3.0);
-    let diameter = Length::new::<millimeter>(50.0);
+    // Deliberately DIFFERENT bores and lengths per row. Length and thickness
+    // are now derived from the real geometry, so identical pipes would hide
+    // that fact — three different ones make the scaling visible and checkable
+    // by eye: the helium line is the widest bore, as a gas duct would be.
     let roughness = Length::new::<millimeter>(0.045);
     let incline = Angle::new::<degree>(0.0);
-    let xs_area = Area::new::<square_meter>(0.002);
     let dt = Time::new::<second>(0.01);
+
+    let salt_length = Length::new::<meter>(3.0);
+    let salt_bore = Length::new::<millimeter>(50.0);
+
+    let steam_length = Length::new::<meter>(4.0);
+    let steam_bore = Length::new::<millimeter>(80.0);
+    let steam_area = Area::new::<square_meter>(
+        std::f64::consts::FRAC_PI_4 * 0.08 * 0.08,
+    );
+
+    let helium_length = Length::new::<meter>(2.5);
+    let helium_bore = Length::new::<millimeter>(120.0);
+    let helium_area = Area::new::<square_meter>(
+        std::f64::consts::FRAC_PI_4 * 0.12 * 0.12,
+    );
 
     // ── Molten salt: single-phase liquid, TUAS Boussinesq ─────────────────
     // `new_cylinder` is infallible, so this row is always present.
     let salt = SinglePhaseFluidArray::new_cylinder(
-        length,
-        diameter,
+        salt_length,
+        salt_bore,
         ThermodynamicTemperature::new::<kelvin>(900.0),
         Pressure::new::<atmosphere>(1.0),
         SolidMaterial::SteelSS304L,
@@ -93,8 +109,8 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     rows.push(PipeRow {
         pipe: Pipe::new(
             PipeBackend::Lumped(salt),
-            diameter,
-            length,
+            salt_bore,
+            salt_length,
             roughness,
             incline,
         ),
@@ -106,12 +122,12 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     });
 
     // ── Steam / water: two-phase HEM, IAPWS-IF97 ──────────────────────────
-    match TampinesSteamArray::new(length, xs_area, CELLS, dt) {
+    match TampinesSteamArray::new(steam_length, steam_area, CELLS, dt) {
         Ok(steam) => rows.push(PipeRow {
             pipe: Pipe::new(
                 PipeBackend::SteamHem(steam),
-                diameter,
-                length,
+                steam_bore,
+                steam_length,
                 roughness,
                 incline,
             ),
@@ -126,18 +142,19 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     }
 
     // ── Helium: single-phase compressible, CoolProp EOS ───────────────────
-    match CompressibleFluidArray::new(CoolPropFluid::Helium, length, xs_area, CELLS, dt) {
+    match CompressibleFluidArray::new(CoolPropFluid::Helium, helium_length, helium_area, CELLS, dt) {
         Ok(helium) => rows.push(PipeRow {
             pipe: Pipe::new(
                 PipeBackend::Compressible(helium),
-                diameter,
-                length,
+                helium_bore,
+                helium_length,
                 roughness,
                 incline,
             ),
             name: "Helium gas — OPCP (CoolProp)",
             detail: "PipeBackend::Compressible · single-phase compressible, \
-                     Helmholtz EOS. Gas-cooled reactor working fluid.",
+                     Helmholtz EOS. Gas-cooled reactor working fluid — drawn in \
+                     LIGHTER shades because the backend carries a gas.",
             min_temp: ThermodynamicTemperature::new::<kelvin>(300.0),
             max_temp: ThermodynamicTemperature::new::<kelvin>(1200.0),
         }),
@@ -168,8 +185,9 @@ pub fn draw(ui: &mut egui::Ui, rows: &[PipeRow], errors: &[String]) {
     }
 
     let available = ui.available_rect_before_wrap();
-    let run_length = (available.width() - 260.0).max(120.0);
-    let row_height = 78.0_f32;
+    // Rows must clear the thickest pipe: thickness is derived from bore now,
+    // so a fixed row height would clip the widest run.
+    let row_height = 118.0_f32;
 
     for (i, row) in rows.iter().enumerate() {
         let top = available.top() + 12.0 + i as f32 * row_height;
@@ -187,10 +205,12 @@ pub fn draw(ui: &mut egui::Ui, rows: &[PipeRow], errors: &[String]) {
 
         // The pipe run itself, drawn below its label.
         let start = Pos2::new(available.left() + 8.0, top + row_height - 16.0);
+        // Length, thickness and slope all come from the pipe's own geometry;
+        // screen_vector is only the fallback direction for geometry-less runs.
         ui.add(PipeVisual::new(
             row.pipe.clone(),
             start,
-            Vec2::new(run_length, 0.0),
+            Vec2::new(1.0, 0.0),
             row.min_temp,
             row.max_temp,
         ));
