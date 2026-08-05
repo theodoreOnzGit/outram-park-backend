@@ -41,7 +41,10 @@ use uom::si::length::meter;
 use uom::si::thermodynamic_temperature::kelvin;
 
 /// Width of the pipe wall outline, in screen points.
-const PIPE_WALL_WIDTH: f32 = 1.5;
+///
+/// Deliberately heavy: the wall is a structural element carrying its own metal
+/// temperature, not a hairline border on the fluid.
+const PIPE_WALL_WIDTH: f32 = 5.0;
 
 /// Axial length of a tracer mark, as a fraction of the run length.
 ///
@@ -172,6 +175,19 @@ pub struct PipeVisual {
     pub max_temp: ThermodynamicTemperature,
     /// Metres-to-points mapping for length and cross-section.
     pub scale: PipeScale,
+    /// Metal temperature at or above which the pipe wall is drawn **red**.
+    ///
+    /// `None` (the default) never reddens. There is deliberately no built-in
+    /// limit: an allowable metal temperature depends on the material, the
+    /// code of construction and the duty, so the caller must supply the one
+    /// that applies rather than inheriting a number invented here.
+    pub wall_alarm_temp: Option<ThermodynamicTemperature>,
+    /// A single tracer mark at an explicit position in `[0, 1]`, `0` = inlet.
+    ///
+    /// Set from [`crate::animation::TracerPulse`], which shows one mark at a
+    /// time and reports `None` between releases — a train of marks strobes on
+    /// a short or fast run. Independent of [`Self::tracer`]; both may be set.
+    pub mark_at: Option<f64>,
     /// Optional flow-tracer marks drawn along the run.
     ///
     /// The train is *advanced by the application*, once per frame, and copied
@@ -199,6 +215,8 @@ impl PipeVisual {
             min_temp,
             max_temp,
             scale: PipeScale::default(),
+            wall_alarm_temp: None,
+            mark_at: None,
             tracer: None,
         }
     }
@@ -219,8 +237,25 @@ impl PipeVisual {
             min_temp,
             max_temp,
             scale: PipeScale::default(),
+            wall_alarm_temp: None,
+            mark_at: None,
             tracer: None,
         }
+    }
+
+    /// Place a single tracer mark at `position` in `[0, 1]` along the run.
+    /// Builder-style.
+    pub fn with_mark_at(mut self, position: f64) -> Self {
+        self.mark_at = Some(position.clamp(0.0, 1.0));
+        self
+    }
+
+    /// Set the metal temperature at or above which the wall is drawn red.
+    /// Builder-style. See [`PipeVisual::wall_alarm_temp`] for why there is no
+    /// default limit.
+    pub fn with_wall_alarm(mut self, alarm: ThermodynamicTemperature) -> Self {
+        self.wall_alarm_temp = Some(alarm);
+        self
     }
 
     /// Override the metres-to-points mapping. Builder-style.
@@ -267,6 +302,36 @@ impl PipeVisual {
         }
     }
 
+    /// Per-cell **metal wall** temperatures along the run, inlet -> outlet.
+    ///
+    /// `None` when the backend carries no solid structure to report. Only the
+    /// TUAS pre-built [`PipeBackend::InsulatedPipe`] couples a pipe shell to
+    /// its fluid; the bare arrays model the fluid alone, and a wall
+    /// temperature for them would have to be invented.
+    ///
+    /// That distinction is the point: a pipe whose wall temperature is unknown
+    /// must be drawn as unknown, never as cold.
+    pub fn wall_temperatures(&self) -> Option<Vec<ThermodynamicTemperature>> {
+        match &self.state {
+            PipeVisualState::Scalars(_) => None,
+            PipeVisualState::Physics(pipe) => match &pipe.backend {
+                PipeBackend::Lumped(_)
+                | PipeBackend::Compressible(_)
+                | PipeBackend::SteamHem(_) => None,
+                PipeBackend::InsulatedPipe(component) => {
+                    component.clone().pipe_shell_temperature().ok()
+                }
+            },
+        }
+    }
+
+    /// Hottest metal wall temperature on the run, if the backend reports one.
+    pub fn peak_wall_temperature(&self) -> Option<ThermodynamicTemperature> {
+        self.wall_temperatures()?
+            .into_iter()
+            .reduce(|a, b| if b.get::<kelvin>() > a.get::<kelvin>() { b } else { a })
+    }
+
     /// How this backend's fluid phase is shaded.
     ///
     /// Derived from the backend, which is the only phase information available
@@ -281,6 +346,7 @@ impl PipeVisual {
                 PipeBackend::Lumped(_) => PipePhaseShade::Liquid,
                 PipeBackend::Compressible(_) => PipePhaseShade::Gas,
                 PipeBackend::SteamHem(_) => PipePhaseShade::TwoPhase,
+                PipeBackend::InsulatedPipe(_) => PipePhaseShade::Liquid,
             },
         }
     }
@@ -332,6 +398,13 @@ impl PipeVisual {
                     .iter()
                     .map(|t_k| ThermodynamicTemperature::new::<kelvin>(*t_k))
                     .collect(),
+                // The TUAS pre-built component owns its fluid array; its
+                // getters need &mut, so read from a clone rather than forcing
+                // every caller of this &self method to hold a mutable pipe.
+                PipeBackend::InsulatedPipe(component) => component
+                    .clone()
+                    .pipe_fluid_array_temperature()
+                    .unwrap_or_default(),
             },
         }
     }
@@ -422,19 +495,35 @@ impl Widget for PipeVisual {
         }
 
         // Pipe wall, drawn over the cell boxes so the run reads as one pipe.
+        // Grey by default; RED once the metal reaches the caller's alarm
+        // temperature. A backend with no solid structure reports no wall
+        // temperature and stays grey — unknown is drawn as unknown, never as
+        // safe.
+        let wall_colour = match (self.peak_wall_temperature(), self.wall_alarm_temp) {
+            (Some(peak), Some(alarm)) if peak.get::<kelvin>() >= alarm.get::<kelvin>() => {
+                Color32::from_rgb(220, 50, 40)
+            }
+            _ => Color32::from_gray(110),
+        };
         painter.add(egui::Shape::convex_polygon(
             quad(start, end),
             Color32::TRANSPARENT,
-            Stroke::new(PIPE_WALL_WIDTH, Color32::from_gray(70)),
+            Stroke::new(PIPE_WALL_WIDTH, wall_colour),
         ));
 
         // Tracer marks: white rectangles spanning the bore, each travelling
         // the full run in exactly one residence time (the train is advanced by
         // the application -- see the field docs). Direction of travel is the
         // train's, so a reversed flow runs them backwards.
-        if let Some(tracer) = self.tracer {
+        // Explicit single mark (from a TracerPulse), plus any train marks.
+        let marks: Vec<f64> = self
+            .mark_at
+            .into_iter()
+            .chain(self.tracer.iter().flat_map(|t| t.positions()))
+            .collect();
+        if !marks.is_empty() {
             let mark_len = (length_pts * TRACER_LENGTH_FRACTION).max(2.0);
-            for position in tracer.positions() {
+            for position in marks {
                 let centre = length_pts * position as f32;
                 // Clipped to the run so a mark straddling the outlet does not
                 // spill out of the pipe.
@@ -522,6 +611,8 @@ mod tests {
             min_temp: ThermodynamicTemperature::new::<kelvin>(300.0),
             max_temp: ThermodynamicTemperature::new::<kelvin>(400.0),
             scale: PipeScale::default(),
+            wall_alarm_temp: None,
+            mark_at: None,
             tracer: None,
         }
     }

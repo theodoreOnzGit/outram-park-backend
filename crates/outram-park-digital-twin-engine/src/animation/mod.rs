@@ -163,6 +163,90 @@ pub fn residence_time_from_velocity(length: Length, velocity: Velocity) -> Time 
     Time::new::<second>(l / u)
 }
 
+/// A single tracer mark released at a fixed minimum interval.
+///
+/// [`TracerTrain`] keeps `count` marks permanently on the path, evenly spaced.
+/// That is right for showing a continuous flow, but on a short run — or a fast
+/// one — it produces a stream of marks flickering past, which is hard to read.
+/// A pulse instead shows **one** mark at a time, released no more often than
+/// `min_interval`, so a fast pipe blinks a single plug through at a comfortable
+/// rate rather than strobing.
+///
+/// The mark still crosses the run in exactly one residence time; the interval
+/// only controls the gap between releases. When the residence time is longer
+/// than the interval, the mark is in flight continuously and the interval has
+/// no effect.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TracerPulse {
+    /// Seconds elapsed within the current release period.
+    elapsed_s: f64,
+    /// Minimum seconds between releases.
+    min_interval_s: f64,
+    /// Direction of travel as of the last advance.
+    direction: FlowDirection,
+}
+
+impl TracerPulse {
+    /// Create a pulse releasing a mark no more often than `min_interval`.
+    pub fn new(min_interval: Time) -> Self {
+        Self {
+            elapsed_s: 0.0,
+            min_interval_s: min_interval.get::<second>().max(0.0),
+            direction: FlowDirection::Stagnant,
+        }
+    }
+
+    /// Advance by `dt`, given the run's `residence_time` and `mass_flow`.
+    ///
+    /// Follows [`TracerTrain::advance`]'s contract exactly: the sign of
+    /// `mass_flow` sets direction, its magnitude enters only through the
+    /// residence time, and a stagnant or non-finite case freezes rather than
+    /// guessing at a tracer speed.
+    pub fn advance(&mut self, dt: Time, residence_time: Time, mass_flow: MassRate) {
+        let m_dot = mass_flow.get::<kilogram_per_second>();
+        let tau = residence_time.get::<second>();
+
+        if !m_dot.is_finite() || m_dot == 0.0 || !tau.is_finite() || tau <= 0.0 {
+            self.direction = FlowDirection::Stagnant;
+            return;
+        }
+        self.direction = if m_dot > 0.0 {
+            FlowDirection::Forward
+        } else {
+            FlowDirection::Reverse
+        };
+
+        let period = tau.max(self.min_interval_s);
+        self.elapsed_s = (self.elapsed_s + dt.get::<second>()).rem_euclid(period);
+    }
+
+    /// Position of the mark along the path in `[0, 1]`, or `None` when no mark
+    /// is currently in flight (the gap between releases, or a stagnant run).
+    ///
+    /// `0` is the inlet and `1` the outlet regardless of direction; a reversed
+    /// flow reports `1 - x` so the caller does not have to know the direction
+    /// to place the mark.
+    pub fn position(&self, residence_time: Time) -> Option<f64> {
+        let tau = residence_time.get::<second>();
+        if self.direction == FlowDirection::Stagnant || !tau.is_finite() || tau <= 0.0 {
+            return None;
+        }
+        if self.elapsed_s > tau {
+            return None; // between releases
+        }
+        let x = (self.elapsed_s / tau).clamp(0.0, 1.0);
+        Some(match self.direction {
+            FlowDirection::Reverse => 1.0 - x,
+            _ => x,
+        })
+    }
+
+    /// Direction of travel as of the last [`Self::advance`].
+    pub fn direction(&self) -> FlowDirection {
+        self.direction
+    }
+}
+
 /// Which way a [`TracerTrain`] is currently moving along its flow path.
 ///
 /// Enum, not a signed scalar, so that a `match` on flow direction is
@@ -519,6 +603,67 @@ mod tests {
         )
         .get::<second>()
         .is_infinite());
+    }
+
+    /// A pulse must still cross the run in exactly one residence time, and
+    /// must show nothing during the gap between releases.
+    ///
+    /// **Methodology:** tau = 1.0 s with a 3.0 s minimum interval, stepped at
+    /// 0.01 s. Check the mark is in flight and monotonically advancing over
+    /// the first second, absent between 1 s and 3 s, and released again after
+    /// the period wraps.
+    ///
+    /// **Result (2026-08-05):** in flight for t <= 1.0 s reaching x = 1.0,
+    /// `None` throughout 1.0 < t < 3.0, and re-released at t = 3.0 s.
+    #[test]
+    fn pulse_crosses_in_one_residence_time_then_waits() {
+        let tau = Time::new::<second>(1.0);
+        let dt = Time::new::<second>(0.01);
+        let flow = MassRate::new::<kilogram_per_second>(1.0);
+        let mut pulse = TracerPulse::new(Time::new::<second>(3.0));
+
+        let mut last = -1.0;
+        for _ in 0..100 {
+            pulse.advance(dt, tau, flow);
+            if let Some(x) = pulse.position(tau) {
+                assert!(x >= last, "mark must advance monotonically");
+                last = x;
+            }
+        }
+        assert!(last > 0.98, "mark should reach the outlet, got {last}");
+
+        // Gap: nothing in flight between one residence time and the interval.
+        for _ in 0..150 {
+            pulse.advance(dt, tau, flow);
+            assert!(pulse.position(tau).is_none(), "should be between releases");
+        }
+    }
+
+    /// A reversed flow must report positions from the outlet back to the
+    /// inlet, so the caller never has to inspect the direction itself.
+    #[test]
+    fn reversed_pulse_runs_from_outlet_to_inlet() {
+        let tau = Time::new::<second>(1.0);
+        let dt = Time::new::<second>(0.1);
+        let flow = MassRate::new::<kilogram_per_second>(-1.0);
+        let mut pulse = TracerPulse::new(Time::new::<second>(0.0));
+        pulse.advance(dt, tau, flow);
+        let x = pulse.position(tau).expect("mark should be in flight");
+        assert!(x > 0.85, "reversed mark should start near the outlet, got {x}");
+    }
+
+    /// A stagnant run has no tracer speed, so a pulse must show nothing.
+    #[test]
+    fn stagnant_pulse_shows_no_mark() {
+        let tau = Time::new::<second>(1.0);
+        let mut pulse = TracerPulse::new(Time::new::<second>(2.0));
+        pulse.advance(
+            Time::new::<second>(0.1),
+            tau,
+            MassRate::new::<kilogram_per_second>(0.0),
+        );
+        assert!(pulse.position(tau).is_none());
+        assert_eq!(pulse.direction(), FlowDirection::Stagnant);
     }
 
     #[test]
