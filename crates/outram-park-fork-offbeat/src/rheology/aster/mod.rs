@@ -63,6 +63,23 @@ pub use chaboche::{
     BackStress, ChabocheIncrement, ChabocheLaw, ChabocheLocalState, ChabocheParameters,
     ChabochePredictor, ChabocheState, ElasticModuli, StrainMemory, ThermoElasticStep,
 };
+// NOTE: `damage::IsotropicHardening` is deliberately NOT re-exported here.
+// It collides with [`isotropic::IsotropicHardening`], and the two are genuinely
+// different types: the `isotropic` one is the `VMIS_ISOT_*` / `VISC_ISOT_*`
+// hardening curve driving the von Mises radial return, while the `damage` one
+// is the curve set used by the Rousselier and GTN porous-plastic laws. Both
+// names are defensible in their own module, so neither was renamed unilaterally
+// — reach them as `damage::IsotropicHardening` and `isotropic::IsotropicHardening`.
+// Consolidating them into one curve type is the real fix and is a design
+// decision for the maintainer, not a mechanical rename.
+pub use damage::{
+    equivalent_stress, max_principal_stress, mean_stress, DamageOutcome, GtnIncrement,
+    GtnNucleation, GtnOutcome, GtnParameters, GtnState, GursonTvergaardNeedleman,
+    IsotropicElasticity, LemaitreChabocheIncrement, LemaitreChabocheLaw,
+    LemaitreChabocheParameters, LemaitreChabocheState, NortonOverstress, RousselierIncrement,
+    RousselierLaw, RousselierOutcome, RousselierParameters, RousselierState, RuptureCriterion,
+    RuptureState, ViscousSinhParameters, LEMAITRE_CHABOCHE_DAMAGE_MAX,
+};
 pub use fracture::{
     equivalent_mode_i_factor, hat_smooth_front, irwin_energy_release_rate, irwin_mode_split,
     legendre_front_mode, legendre_front_mode_derivative, max_hoop_stress_kink_angle,

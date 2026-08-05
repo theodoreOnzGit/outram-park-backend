@@ -803,7 +803,7 @@ impl Irrad3mParameters {
     ///
     /// Reproduces `irrmat.F90`'s construction. Upstream finds the exponent with
     /// a hand-rolled halving dichotomy; this port brackets the same root and
-    /// hands it to [`brent`](super::integration::brent), which is the shared
+    /// hands it to [`brent`], which is the shared
     /// machinery the workspace already has and converges superlinearly on the
     /// same equation. The root is identical — only the path to it differs.
     ///
@@ -1018,6 +1018,31 @@ pub struct Irrad3mState {
     pub swelling_strain: f64,
 }
 
+impl Irrad3mState {
+    /// The state at the end of a step, given what the step produced.
+    ///
+    /// Advancing the four variables by hand is easy to get subtly wrong — the
+    /// plastic and irradiation-creep strains accumulate separately, and only
+    /// the *plastic* one hardens the material — so the arithmetic is offered
+    /// here rather than left to every caller.
+    ///
+    /// `swelling_increment` is the **linear** swelling strain `Δε_g` \[-\] for
+    /// the step, i.e. any one diagonal component of
+    /// [`Irrad3mParameters::swelling_strain_increment`]. It is passed in rather
+    /// than recomputed because swelling is resolved *before* the mechanical
+    /// step, not during it.
+    #[must_use]
+    pub fn advanced(self, increment: &Irrad3mIncrement, swelling_increment: f64) -> Self {
+        Self {
+            plastic_strain: self.plastic_strain + increment.plastic_increment,
+            creep_driver: self.creep_driver + increment.creep_driver_increment,
+            irradiation_creep_strain: self.irradiation_creep_strain
+                + increment.irradiation_creep_increment,
+            swelling_strain: self.swelling_strain + swelling_increment,
+        }
+    }
+}
+
 /// The `IRRAD3M` law: parameters plus the hardening curve identified from them.
 ///
 /// ASTER behaviour name: `IRRAD3M` (`num_lc = 30`, 7 state variables).
@@ -1170,7 +1195,7 @@ impl Irrad3m {
     ///
     /// The residual is monotone increasing in `x` and brackets on
     /// `[0, σ_eq_trial]` by construction, so
-    /// [`brent`](super::integration::brent) — derivative-free, and immune to
+    /// [`brent`] — derivative-free, and immune to
     /// the two slope discontinuities the three-segment flow curve puts in the
     /// residual — is used rather than Newton. That is a deliberate departure
     /// from upstream's declared `NEWTON`: upstream iterates on the full
@@ -1799,7 +1824,7 @@ impl MetaLemaAni {
     ///
     /// The residual is monotone decreasing — more `β` means more relaxation and
     /// more strain, so the Hill stress falls while the viscous stress rises — so
-    /// it has exactly one root, and [`brent`](super::integration::brent) finds
+    /// it has exactly one root, and [`brent`] finds
     /// it on a bracket grown from zero. This is not upstream's algorithm
     /// (`NEWTON_PERT` on the full 7-unknown implicit system); it is an exact
     /// reduction of the same equations, and it is cheaper and more robust.

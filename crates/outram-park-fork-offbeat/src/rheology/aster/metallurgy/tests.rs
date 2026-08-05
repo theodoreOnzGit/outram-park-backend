@@ -1420,3 +1420,84 @@ fn unphysical_inputs_are_rejected() {
     ));
     println!("all six guards fired");
 }
+
+/// **State bookkeeping over a multi-step dose history is additive, and the
+/// swelling term is exactly path independent.**
+///
+/// *Methodology:* swelling is an exactly-integrated analytic function of dose,
+/// so summing it over `N` sub-steps must give *identically* the same answer as
+/// one step over the whole range — no quadrature error can creep in, and any
+/// difference would mean the closed form is not the true antiderivative. Run an
+/// `IRRAD3M` history from 0 to 30 dpa in 30 steps with a **trial** stress of
+/// 180 MPa re-imposed each step, advancing the state with
+/// [`Irrad3mState::advanced`], and compare the accumulated swelling against the
+/// single-step value. Pass criterion: 1e-12 relative.
+///
+/// The creep driver is *recorded* rather than asserted against a
+/// constant-stress bound, because it is not path independent and should not be:
+/// each step relaxes the 180 MPa trial stress, and the driver integrates the
+/// **trapezoid** `(σ⁻+σ⁺)/2` of the actual stress, so it must fall below
+/// `ζ_f·σ_trial·ΔΦ`. Checking that it does — and by how much — is the useful
+/// statement.
+///
+/// *Result (measured 2026-08-05):* stepwise swelling
+/// **2.21041769827802e-3**, single-step closed form **2.21041769827802e-3**,
+/// relative difference **0.00000000000000e0** — exact to the last bit, as an
+/// analytic integral must be.
+///
+/// The driver reached **5.22439266437198e9 Pa·dpa** against the
+/// constant-stress bound `ζ_f·σ_trial·ΔΦ = 5.40000000000000e9 Pa·dpa`, a
+/// shortfall of **3.2520 %**, which is the relaxation the creep itself caused.
+/// Over the history the plastic strain stayed at exactly
+/// **0.00000000000000e0** — 180 MPa is below the identified flow stress of
+/// **238.584219899122 MPa** at zero plastic strain — so the whole inelastic
+/// response was irradiation creep, reaching **1.61219633218599e-3**.
+/// Interpretation: the state bookkeeping is additive, the swelling term is
+/// genuinely discretisation-free, and the driver correctly tracks the
+/// *relaxed* stress rather than the imposed one.
+#[test]
+fn irrad3m_state_accumulates_consistently_over_a_dose_history() {
+    let law = Irrad3m::new(irrad3m_parameters()).unwrap();
+    let trial = uniaxial(180.0e6);
+    let eq = von_mises_of_deviator(deviator(trial));
+    let (steps, total_dose) = (30usize, 30.0);
+    let step_dose = total_dose / steps as f64;
+
+    let mut state = Irrad3mState::default();
+    for i in 0..steps {
+        let (d0, d1) = (i as f64 * step_dose, (i + 1) as f64 * step_dose);
+        let swelling = law.parameters.swelling_strain_increment(d0, d1).xx;
+        let out = law.integrate(trial, 73.0e9, state, eq, step_dose).unwrap();
+        state = state.advanced(&out, swelling);
+    }
+
+    let one_shot = law.parameters.swelling_strain_increment(0.0, total_dose).xx;
+    let constant_stress_bound = law.parameters.creep_scale * eq * total_dose;
+    println!("stepwise swelling = {:.14e}", state.swelling_strain);
+    println!("single-step       = {one_shot:.14e}");
+    println!(
+        "relative difference = {:.14e}",
+        ((state.swelling_strain - one_shot) / one_shot).abs()
+    );
+    println!("driver              = {:.14e} Pa.dpa", state.creep_driver);
+    println!("constant-stress bound = {constant_stress_bound:.14e} Pa.dpa");
+    println!(
+        "shortfall = {:.4} %",
+        100.0 * (constant_stress_bound - state.creep_driver) / constant_stress_bound
+    );
+    println!("plastic strain   = {:.14e}", state.plastic_strain);
+    println!("irr creep strain = {:.14e}", state.irradiation_creep_strain);
+    println!(
+        "flow stress at p = 0: {:.12} MPa",
+        law.hardening.flow_stress(0.0) / 1e6
+    );
+
+    assert_relative_eq!(state.swelling_strain, one_shot, max_relative = 1e-12);
+    assert_eq!(state.plastic_strain, 0.0);
+    assert!(state.irradiation_creep_strain > 0.0);
+    assert!(
+        state.creep_driver < constant_stress_bound,
+        "the driver must track the relaxed stress, not the imposed one"
+    );
+    assert!(state.creep_driver > 0.9 * constant_stress_bound);
+}
