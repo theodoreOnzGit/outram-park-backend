@@ -281,14 +281,35 @@ deriving a multiplier.
     Matching it is the validation-grade comparison, and validation remains the
     maintainer's call per `VERIFICATION_AND_VALIDATION.md`.
 
-  **The `comp0*` family is the sweet spot for a constitutive-law port** — 87
-  decks driving `TEST_COMPOR(SUPPORT="ELEMENT", RELATION=...)`, i.e. a *single
-  material point* with full material blocks and no structure. Those map
-  directly onto a unit test of a ported law and need none of the FE machinery
-  this crate lacks. Everything else in `astest` is a full structural run and
-  does need it. Confirmed coverage for every law ported so far, e.g.
-  `comp008e` for `VENDOCHAB`/`VISC_ENDO_LEMA`, `comp010j` for
-  `META_LEMA_ANI`, `ssnv230a`/`b` for `IRRAD3M`.
+  **The `comp0*` family is NOT the oracle it looks like.** An earlier revision
+  of this section called it the sweet spot for a constitutive-law port, on the
+  strength of its `TEST_COMPOR(SUPPORT="ELEMENT", ...)` single-material-point
+  form. Checking what those decks actually assert says otherwise:
+
+  | `comp0*` deck category | Count of 87 |
+  |---|---|
+  | Non-zero `VALE_CALC` — a usable absolute oracle | **12** |
+  | `VALE_CALC = 0.0` only — a *difference* test | 11 |
+  | No `VALE_CALC` at all — asserted inside `TEST_COMPOR` | 64 |
+
+  `TEST_COMPOR` is a **self-consistency harness, not a reference**. Its
+  generated assertions read `VALE_CALC=0.0` against `VALE_REFE=__U[...]` with
+  `REFERENCE="AUTRE_ASTER"` — it checks that code_aster agrees with *itself*
+  across discretisations, dimensions and material orderings. Reproducing it
+  would verify our integrator's internal consistency, which the ported tests
+  already do, and would say nothing about agreement with code_aster.
+
+  Worse, the 12 decks that *do* carry absolute values exercise
+  `ENDO_ISOT_BETON` and `HUJEUX` — laws this port has not touched.
+
+  **The usable oracles are the single-element structural decks.** `ssnv126a`
+  (VENDOCHAB) is one `HEXA8` element over 8 nodes carrying 32 non-zero
+  `VALE_CALC` entries plus `VALE_REFE` values such as `252.76091`. A single
+  hexahedron under uniform loading is a material-point test in all but name:
+  the stress state is homogeneous, so the FE answer *is* the constitutive
+  response. Those need checking one at a time for mesh size — `ssnv230a`
+  (IRRAD3M), for instance, carries no non-zero `VALE_CALC` at all — but they
+  are where the absolute numbers live. Start from `ssnv126a`.
 
   **No ported law has been checked against any of this yet.** Everything
   landed so far (`viscoplastic`, `isotropic`, `chaboche`, `damage`,
@@ -301,8 +322,10 @@ deriving a multiplier.
   The sparse include list as of 2026-08-05: `bibc/`, `bibfor/algorith/`,
   `comport/`, `comport_prep/`, `fracture/`, `include/`, `lc/`, `metallurgy/`,
   `modelisa/`, `nonlinear/`, `te/`, `utilifor/`, `utilitai/`,
-  `code_aster/Behaviours/`, `catalo/`, `mfront/`, `astest/`. (`catalo/` and
-  `bibfor/te/` added 2026-08-05 for 15 MB; `astest/` the same day for 582 MB.)
+  `code_aster/Behaviours/`, `code_aster/MacroCommands/`, `catalo/`, `mfront/`,
+  `astest/`. (`catalo/` and `bibfor/te/` added 2026-08-05 for 15 MB; `astest/`
+  the same day for 582 MB; `code_aster/MacroCommands/` for 5 MB, needed to read
+  what `TEST_COMPOR` actually asserts.)
 
   One open question remains genuinely blocked, and not by the sparse checkout:
   TFEL's `hillTensor` argument convention, needed to settle the
