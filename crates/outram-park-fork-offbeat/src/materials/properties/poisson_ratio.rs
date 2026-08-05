@@ -512,9 +512,12 @@ impl PoissonRatioModel {
     /// repository for the full tables.
     ///
     /// **This method reports the condition; it does not decide what to do about
-    /// it.** The gating policy — clamp, fall back to a constant, or refuse the
-    /// case — is a maintainer decision tracked in bead `op-6sl.7`, and is
-    /// deliberately not implemented here.
+    /// it.** The policy was decided in bead `op-6sl.7` and is **refuse the
+    /// case** — see
+    /// [`LinearElastic::from_models`](crate::mechanics::LinearElastic::from_models),
+    /// which is where the gate lives. Clamping was rejected because `λ` grows
+    /// without bound as `ν → 0.5`, so the clamp tolerance rather than the
+    /// material would set the stiffness.
     ///
     /// # Example
     ///

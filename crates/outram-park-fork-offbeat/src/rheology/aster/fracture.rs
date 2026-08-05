@@ -64,7 +64,10 @@
 //! property depends on an accurate `∇u` throughout the ring — so an FV G-theta
 //! needs either a graded mesh near the front or an enrichment scheme. It is a
 //! research-flavoured task rather than a transcription, and published FV
-//! J-integral work should be consulted before starting.
+//! J-integral work should be consulted before starting. Whether cell-centred FV
+//! can resolve the tip well enough **at all** is an open question, tracked as
+//! bead `op-0xv` — it is not settled here, and nothing in this module should be
+//! read as claiming it is.
 //!
 //! `gbilin.F90` / `gbil3d.F90` are the natural first targets once quadrature
 //! exists: `gbil3d` is entirely JEVEUX-free and `gbilin` needs only the material

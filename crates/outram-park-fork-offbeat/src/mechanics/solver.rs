@@ -93,6 +93,79 @@ impl LinearElastic {
         Ok(Self { young, poisson })
     }
 
+    /// Build from a material's own correlations at a given state — **refusing
+    /// the case** when the correlation pair leaves the admissible range.
+    ///
+    /// # The policy this encodes
+    ///
+    /// MATPRO fits Zircaloy's Young's and shear moduli as *independent* lines,
+    /// so `ν = E/(2G) − 1` crosses the incompressible limit `0.5` at
+    /// `T = 1354.84` K and reaches `0.912` at 1800 K — the top of upstream's
+    /// own stated validity range. At 600 K a retained cold-work fraction above
+    /// `0.1197` does the same. That is a faithful port of a real upstream
+    /// defect; upstream neither detects nor guards it.
+    ///
+    /// Three policies were available (bead `op-6sl.7`): clamp `ν` below `0.5`,
+    /// fall back to a constant ratio, or refuse. **This refuses**, and the
+    /// reason is worth stating because clamping looks like the accommodating
+    /// choice and is in fact the worst one: `λ = Eν/((1+ν)(1−2ν))` grows
+    /// without bound as `ν → 0.5`, so a clamp at `0.5 − ε` makes `λ ≈ E/(3ε)`
+    /// — **the clamp tolerance, not the material, would set the stiffness.**
+    /// A silent answer that is wrong by however many orders of magnitude the
+    /// author of `ε` happened to choose is worse than no answer. Falling back
+    /// to a constant `ν` is defensible but substitutes a different material
+    /// without saying so, which is the same failure wearing a hat.
+    ///
+    /// A caller that genuinely wants an approximation above the crossover can
+    /// still build one explicitly with [`new`](Self::new) and document the
+    /// choice at the call site, where a reader will see it.
+    ///
+    /// # Errors
+    ///
+    /// [`OffbeatError::Unphysical`](crate::error::OffbeatError::Unphysical)
+    /// naming Poisson's ratio and the offending value, when
+    /// [`PoissonRatioModel::is_admissible`](crate::materials::properties::poisson_ratio::PoissonRatioModel::is_admissible)
+    /// is false — plus whatever either
+    /// model's own `value_checked` rejects (an out-of-range temperature, say).
+    ///
+    /// ```
+    /// use outram_park_fork_offbeat::materials::MaterialState;
+    /// use outram_park_fork_offbeat::materials::properties::poisson_ratio::PoissonRatioModel;
+    /// use outram_park_fork_offbeat::materials::properties::young_modulus::YoungModulusModel;
+    /// use outram_park_fork_offbeat::mechanics::LinearElastic;
+    ///
+    /// let young = YoungModulusModel::MatproZircaloy;
+    /// let poisson = PoissonRatioModel::MatproZircaloy;
+    ///
+    /// // Normal operating temperature: fine.
+    /// let cold = MaterialState::fresh(600.0);
+    /// assert!(LinearElastic::from_models(young, poisson, &cold).is_ok());
+    ///
+    /// // Above the 1354.84 K crossover the case is refused, not clamped.
+    /// let hot = MaterialState::fresh(1500.0);
+    /// assert!(LinearElastic::from_models(young, poisson, &hot).is_err());
+    /// ```
+    pub fn from_models(
+        young: crate::materials::properties::young_modulus::YoungModulusModel,
+        poisson: crate::materials::properties::poisson_ratio::PoissonRatioModel,
+        state: &crate::materials::MaterialState,
+    ) -> crate::error::Result<Self> {
+        let e = young.value_checked(state)?;
+        let nu = poisson.value_checked(state)?;
+        if !poisson.is_admissible(state) {
+            return Err(crate::error::OffbeatError::Unphysical {
+                quantity: "Poisson's ratio from the material correlation",
+                value: nu,
+                unit: "-",
+                reason: "outside (-1, 0.5), so the elasticity tensor is not positive \
+                         definite. The case is refused rather than clamped: lambda \
+                         diverges as nu approaches 0.5, so a clamp tolerance would set \
+                         the stiffness instead of the material. See bead op-6sl.7",
+            });
+        }
+        Self::new(e, nu)
+    }
+
     /// Shear modulus `μ = E / (2(1+ν))` \[Pa\].
     #[must_use]
     pub fn shear_modulus(&self) -> f64 {

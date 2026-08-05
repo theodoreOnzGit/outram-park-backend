@@ -22,7 +22,7 @@ and an Android/Termux-buildable library.
 > `80e84450a115b0c411e1bfa5d166379f6bf6c084` (2026-01-05).
 >
 > **SCAFFOLD / EARLY: the mechanics layer is VERIFICATION-ONLY and there is no
-> human V&V.** 544 unit tests pass and the small-strain mechanics solver matches
+> human V&V.** 545 unit tests pass and the small-strain mechanics solver matches
 > closed-form linear-elasticity solutions, but **nothing has been validated** —
 > not against OFFBEAT output, not against the upstream `Cases/Verification`
 > suite, not against fuel-irradiation data — and no human has reviewed any of
@@ -58,14 +58,14 @@ changes the temperature field again.
 
 ## What exists today
 
-Measured on 2026-08-05: 68 source files, 59,573 lines, **544 passing tests**
-(plus 70 doc tests, and 8 integration tests run separately), no `todo!()` or
+Measured on 2026-08-05: 68 source files, 59,769 lines, **545 passing tests**
+(plus 71 doc tests, and 8 integration tests run separately), no `todo!()` or
 `unimplemented!()` anywhere. All statuses below are **verification-only** — see
 the status warning above.
 
 | Module | LOC | Tests | Content |
 |---|---|---|---|
-| `mechanics` | 2,515 | 14 | Small-strain quasi-static solver — displacement field, linear-elastic constitutive law, eigenstrain loading, momentum assembly on foam's `ldu_matrix`/`krylov`, and the **creep/plasticity coupling** that drives `rheology` (mechanical-strain subtraction, inelastic strain fed back as an additional eigenstrain, once-per-step state advance, creep timestep control) |
+| `mechanics` | 2,674 | 15 | Small-strain quasi-static solver — displacement field, linear-elastic constitutive law, eigenstrain loading, momentum assembly on foam's `ldu_matrix`/`krylov`, and the **creep/plasticity coupling** that drives `rheology` (mechanical-strain subtraction, inelastic strain fed back as an additional eigenstrain, once-per-step state advance, creep timestep control) |
 | `rheology` | 29,803 | 205 | Constitutive laws — plasticity (yield stress, hardening), creep, per-material law selection; **includes the `rheology::aster` port below** |
 | ↳ `rheology::aster` | 26,108 | 177 | Port of code_aster's constitutive-law layer (EDF, GPL-3.0-or-later) — see the table below |
 | `materials` | 13,521 | 189 | Property correlations (conductivity, density, heat capacity, thermal expansion, Young's modulus, Poisson ratio, emissivity) and behavioural models (swelling, densification, relocation, phase transition, failure) |
@@ -111,8 +111,10 @@ discovered late:
   ring quadrature, and the virtual-extension field `θ`. The real difficulty is
   that the crack-tip field is singular (`σ ~ 1/√r`) and cell-centred FV
   gradient reconstruction degrades exactly there, so G-theta's
-  domain-independence needs a graded mesh or an enrichment scheme. See the
-  `rheology::aster::fracture` module docs.
+  domain-independence needs a graded mesh or an enrichment scheme. Whether
+  cell-centred FV can resolve the tip well enough at all is an **open research
+  question**, tracked as bead `op-0xv`. See the `rheology::aster::fracture`
+  module docs.
 - **`damage`'s `GTN` is the local form only.** Without `GRADVARI` nonlocal
   regularisation, a structural run will localise into a single element band and
   give mesh-dependent answers.
