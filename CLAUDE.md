@@ -192,8 +192,29 @@ edge you hit** (see "Raising issues" below).
   `kopitiam test --compact` collapse cargo output to one line per distinct
   problem — far cheaper to read than raw cargo output. **The dedup is opt-in:
   without `--compact` (or `--json`) the raw output streams through unchanged.**
-- **PDF → Markdown.** `kopitiam pdf2md` / `translate` for literature work
-  (relevant to `kovan-literature`).
+- **PDF → Markdown.** `kopitiam pdf2md` / `translate`. **But for document and
+  literature management, prefer `kovan` — see the rule immediately below.**
+
+**Document management: `kovan` is preferred over `kopitiam` (HARD RULE).**
+For ingesting, cataloguing and citing literature, use this workspace's own
+`kovan` CLI (`crates/kovan-cli`, binary `kovan`) rather than kopitiam's
+PDF tooling. `kovan lit import <pdf> --json-out <…> --markdown-out <…>` produces
+a `KovanDocument` — the canonical on-disk form — alongside the Markdown body,
+and `kovan lit bibtex` / `kovan lit outline` work from it. That keeps every
+ingested document inside the project's own knowledge layer with its metadata
+and provenance intact, instead of leaving a loose Markdown file with no record
+of where it came from.
+
+- Build it from the workspace (`cargo build --release -p kovan-cli`) — it is a
+  member crate, not something to `cargo install` from crates.io.
+- **Respect the open/proprietary split.** Public, openly published literature
+  goes under `crates/kovan-literature/open/` and is committable; anything
+  restricted goes under `proprietary/`, which is gitignored. Confirm which a
+  document is *before* ingesting it — see `DATA_POLICY.md`. The root-level
+  `collaboration/` directory is gitignored scratch space and its contents are
+  **not** automatically open; ask if the provenance is not stated.
+- `kopitiam pdf2md` remains fine for a quick one-off conversion where no
+  catalogue entry is wanted, but it is the fallback, not the default.
 
 **Known friction (as of kopitiam 0.2.4, verified 2026-07-28):**
 

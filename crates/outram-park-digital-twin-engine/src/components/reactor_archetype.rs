@@ -35,6 +35,7 @@
 //! needs handling.
 
 use crate::components::fhr_reactor_vessel::FhrReactorVesselVisual;
+use crate::components::htr10_reactor_vessel::Htr10ReactorVesselVisual;
 use crate::components::temperature_colour;
 use egui::{Color32, FontId, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, Widget};
 use nee_soon::NordheimFuchsExactTimestepper;
@@ -442,51 +443,40 @@ impl Widget for ReactorArchetypeVisual {
 }
 
 impl ReactorArchetypeVisual {
-    /// HTR-10: graphite reflector ring around a pebble bed, helium down the
-    /// annulus and up through the bed, control rods in the reflector.
-    fn draw_htr10(&self, ui: &Ui, rect: Rect) {
-        let painter = ui.painter();
-        painter.rect_filled(rect, 6.0, self.inlet_colour());
-        painter.rect_stroke(rect, 6.0, wall_stroke(), StrokeKind::Middle);
-
-        // Graphite reflector ring.
-        let reflector = rect.shrink(rect.width() * 0.10);
-        painter.rect_filled(reflector, 4.0, GRAPHITE);
-        tag(
-            ui,
-            Pos2::new(rect.center().x, rect.top() + 9.0),
-            "graphite reflector",
-            self.show_labels,
+    /// HTR-10: delegates to the **real** HTR-10 vessel widget.
+    ///
+    /// Like the FHR arm, this archetype does not draw its own HTR-10. It
+    /// builds an [`Htr10ReactorVesselVisual`], whose geometry follows the
+    /// published reactor vertical cross-section — so improving that widget
+    /// improves every consumer at once.
+    ///
+    /// The widget resolves four regions where this archetype carries three;
+    /// the reflector takes the mean of inlet and outlet, sitting as it does
+    /// between the rising cold helium and the hot bottom plenum. That is a
+    /// **display interpolation, not physics** — a caller holding real
+    /// per-region state should build the widget directly.
+    fn draw_htr10(&self, ui: &mut Ui, rect: Rect) {
+        let reflector = ThermodynamicTemperature::new::<kelvin>(
+            0.5 * (self.inlet_temp.get::<kelvin>() + self.outlet_temp.get::<kelvin>()),
         );
 
-        // Pebble bed, conical at the bottom where pebbles are drawn off.
-        let bed = Rect::from_min_max(
-            Pos2::new(reflector.left() + 6.0, reflector.top() + 14.0),
-            Pos2::new(reflector.right() - 6.0, reflector.bottom() - 18.0),
+        let mut vessel = Htr10ReactorVesselVisual::new(
+            rect.size(),
+            self.min_temp,
+            self.max_temp,
+            self.core_temp,
+            self.inlet_temp,
+            self.outlet_temp,
+            reflector,
         );
-        draw_pebble_bed(ui, bed, self.core_colour());
-        tag(ui, bed.center(), "pebble bed", self.show_labels);
+        vessel.set_control_rod_frac(self.control_rod_insertion_frac);
+        let vessel = if self.show_labels {
+            vessel
+        } else {
+            vessel.without_labels()
+        };
 
-        // Defuelling chute.
-        painter.line_segment(
-            [
-                Pos2::new(bed.center().x, bed.bottom()),
-                Pos2::new(bed.center().x, rect.bottom() - 3.0),
-            ],
-            Stroke::new(4.0, GRAPHITE),
-        );
-
-        draw_control_rods(ui, reflector, self.control_rod_insertion_frac, 2);
-
-        // Hot helium out of the top.
-        painter.rect_filled(
-            Rect::from_min_max(
-                Pos2::new(rect.right() - 8.0, rect.top() + 10.0),
-                Pos2::new(rect.right() - 2.0, rect.top() + 34.0),
-            ),
-            2.0,
-            self.outlet_colour(),
-        );
+        ui.put(rect, vessel);
     }
 
     /// MSRE: fuel salt through graphite stringers, with the drain line and
