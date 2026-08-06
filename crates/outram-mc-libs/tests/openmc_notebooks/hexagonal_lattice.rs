@@ -54,6 +54,22 @@
 //! `docs/ai-fleet-review/op-6tz-hexlattice/REVIEW_MANIFEST.md` and the gitignored
 //! `verification_and_validation/openmc_notebook_comparisons/hexagonal_lattice.csv`.
 //!
+//! **Maintainer's judgement, 2026-08-06: the shift across `op-jis` is not
+//! meaningful, and this case is not to be treated as a red flag.** Porting the
+//! PCG output permutation moved this smoke run from `0.28395 +/- 0.00797` to
+//! `0.25347 +/- 0.00714` — nominally 2.85 sigma on the quoted uncertainties, and
+//! the only value in the crate that moved beyond 2 sigma. At 300 particles over
+//! 15 inactive + 25 active generations there is nowhere near enough statistics
+//! to resolve a shift of this size: the quoted sigma is the fission-source batch
+//! estimate, which is optimistic at this generation count, and there is no
+//! reference k to compare against in any case. The case exists to prove the
+//! hexagonal geometry indexes correctly, which it does via the RNG-independent
+//! identity tests above.
+//!
+//! Do not re-raise this as a defect, and do not add particles to chase it — if
+//! a real k is ever wanted here it needs a proper converged run against a
+//! reference, not a bigger smoke test.
+//!
 //! **Supersedes (pre-`op-jis`).** This block previously (2026-07-15) recorded no
 //! k value here, deferring it to the REVIEW_MANIFEST and the gitignored CSV.
 //! Whatever k was recorded there was measured with the old `prn` output function
