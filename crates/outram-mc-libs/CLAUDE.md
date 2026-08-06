@@ -145,6 +145,39 @@ design: `init_seed(id, offset, master)` derives a unique starting seed for each
 particle.  The jump-ahead in `future_seed(n, seed)` is O(log n), implemented in
 `src/rng/lcg.rs`.
 
+### RNG goal: statistical correctness, NOT particle-for-particle parity
+
+**Maintainer's decision, 2026-08-06.** This crate does **not** need to reproduce
+OpenMC's random number sequence draw-for-draw. What it needs is for the
+**statistics to be right**.
+
+That distinction decides how RNG work is justified and tested here:
+
+- **Do not** treat "our uniforms differ from OpenMC's" as a defect in itself, and
+  do not add tests that pin our output to OpenMC golden values as an end in
+  itself. A converged result agreeing with OpenMC *within statistics* is the
+  standard, not bitwise agreement.
+- **Do** treat statistical quality as a hard requirement. The generator must
+  behave like a good uniform source in the ways Monte Carlo transport actually
+  depends on — equidistribution, and no exploitable structure in the *tuples* a
+  history consumes (position, then direction, then energy come from consecutive
+  draws, so k-tuple structure matters, not just single-draw uniformity).
+- **Do** keep the *stream separation* guarantees. Independence between particle
+  streams is a statistical property, not a parity one, and it is the thing that
+  makes a reported uncertainty mean anything. See `op-rbo`: a defect there left
+  neighbouring histories reading near-identical streams, which barely moved the
+  central value but made the quoted sigma meaningless.
+
+This does **not** relax the porting rule above. Mirroring OpenMC remains the
+default for *physics* — geometry, kinematics, cross-section treatment — because
+fidelity is this crate's whole value. The exemption is narrow and applies to the
+**bit-level output of the RNG only**, where matching upstream is a means to
+statistical quality rather than the goal itself.
+
+Practical consequence: where OpenMC's RNG design exists *for* statistical
+quality — as the PCG output permutation does, see `op-jis` — port it, and gate it
+with statistical tests rather than golden-value comparisons.
+
 ---
 
 ## Port reference (read on demand)
