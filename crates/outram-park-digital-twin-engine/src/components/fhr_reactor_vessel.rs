@@ -26,6 +26,7 @@ use egui::{epaint::PathShape, vec2, Color32, Pos2, Sense, Stroke, Vec2, Widget};
 use uom::si::{f64::*, thermodynamic_temperature::degree_celsius};
 
 use crate::color_maps::hot_to_cold_colour_mark_1;
+use crate::components::htr10_reactor_vessel::draw_triso_pebble;
 
 /// Width-to-height ratio the artwork was authored against.
 ///
@@ -896,18 +897,46 @@ impl Widget for FhrReactorVesselVisual {
         painter.add(right_downcomer_outlet_2_shape);
 
         // then pebble bed
-        for pebble_center in pebble_centers.iter() {
-            painter.circle_filled(*pebble_center, pebble_radius, Color32::BLACK);
-            painter.circle_filled(*pebble_center, core_radius, pebble_bed_colour);
+        //
+        // Each pebble is a graphite matrix speckled with TRISO kernels at the
+        // fuel colour, not a solid coloured disc — the fission heat is made in
+        // the particles, so the artwork should read as a graphite ball with
+        // hot dots in it. The scatter is seeded from the pebble's position in
+        // these lists, so it is stable across repaints; the three bands are
+        // given separate index ranges so they do not all wear the same
+        // pattern. `core_radius` (0.8 of the pebble radius) is unchanged as
+        // the fuelled zone, it is now the bound on the dots rather than the
+        // radius of a filled disc.
+        for (i, pebble_center) in pebble_centers.iter().enumerate() {
+            draw_triso_pebble(
+                &painter,
+                *pebble_center,
+                pebble_radius,
+                Color32::BLACK,
+                pebble_bed_colour,
+                i as i32,
+            );
         }
 
-        for pebble_center in pebble_centres_bottom.iter() {
-            painter.circle_filled(*pebble_center, pebble_radius, Color32::BLACK);
-            painter.circle_filled(*pebble_center, core_radius, pebble_bed_colour);
+        for (i, pebble_center) in pebble_centres_bottom.iter().enumerate() {
+            draw_triso_pebble(
+                &painter,
+                *pebble_center,
+                pebble_radius,
+                Color32::BLACK,
+                pebble_bed_colour,
+                1000 + i as i32,
+            );
         }
-        for pebble_center in pebble_centres_top.iter() {
-            painter.circle_filled(*pebble_center, pebble_radius, Color32::BLACK);
-            painter.circle_filled(*pebble_center, core_radius, pebble_bed_colour);
+        for (i, pebble_center) in pebble_centres_top.iter().enumerate() {
+            draw_triso_pebble(
+                &painter,
+                *pebble_center,
+                pebble_radius,
+                Color32::BLACK,
+                pebble_bed_colour,
+                2000 + i as i32,
+            );
         }
 
         // control rod channels and

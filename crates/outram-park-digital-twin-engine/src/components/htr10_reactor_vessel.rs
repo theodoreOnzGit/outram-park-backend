@@ -121,6 +121,175 @@ fn pebble_hash(col: i32, row: i32, salt: u32) -> f32 {
 /// the positional jitter, is what stops the drawing reading as a grid.
 const PEBBLE_VOID_FRACTION: f32 = 0.12;
 
+// ── TRISO speckling ─────────────────────────────────────────────────────────
+//
+// A pebble is not a hot ball. It is a graphite matrix through which thousands
+// of tiny TRISO particles are dispersed over a fuelled inner zone, wrapped in
+// an unfuelled graphite shell. The fission heat is produced in those kernels,
+// so the artwork draws a graphite body speckled with hot dots rather than one
+// smooth coloured sphere.
+//
+// These helpers are shared with
+// [`crate::components::fhr_reactor_vessel`], which draws its own hand-placed
+// pebbles the same way. They live here because this is the module that owns
+// [`pebble_hash`], the determinism the speckling depends on.
+
+/// Fraction of a pebble's radius occupied by the **fuelled zone** —
+/// dimensionless, in `[0, 1]`.
+///
+/// An HTR-10 fuel sphere is 60 mm in diameter with an unfuelled outer graphite
+/// shell about 5 mm thick, so the fuelled inner zone is 50 mm across: a radius
+/// ratio of 25/30, or about 0.83. Rounded down to 0.8 here so that a dot's own
+/// drawn radius still fits inside the shell at small on-screen sizes, which
+/// keeps the unfuelled rim visible instead of letting kernels touch the edge.
+pub(crate) const FUELLED_ZONE_FRAC: f32 = 0.8;
+
+/// Drawn pebble radius, in **points**, at or below which no dots are drawn.
+///
+/// Below roughly a 1.5 pt radius a pebble is about three pixels across at
+/// unit device-pixel-ratio; a dot inside it would be sub-pixel and would
+/// alias into noise, so the pebble is instead filled with a single colour that
+/// blends the graphite matrix toward the fuel colour. The pebble still
+/// responds to temperature — it just cannot resolve individual kernels.
+const TRISO_TINT_ONLY_RADIUS: f32 = 1.5;
+
+/// Drawn pebble radius, in **points**, below which a pebble gets exactly one
+/// centred kernel dot rather than a scatter.
+///
+/// Between [`TRISO_TINT_ONLY_RADIUS`] and this threshold a pebble is large
+/// enough to show that it has a hot *interior* distinct from its graphite
+/// rim, but far too small for several dots — a scatter at this size overlaps
+/// into a single blob and reads worse than the honest single kernel. This is
+/// the regime the HTR-10 bed lands in at gallery/thumbnail card sizes.
+const TRISO_SINGLE_DOT_RADIUS: f32 = 3.0;
+
+/// Number of TRISO kernel dots drawn inside a pebble of drawn `radius`
+/// (points).
+///
+/// Scale-aware by design — a real pebble holds thousands of particles, but
+/// drawing more than a couple of dozen dots inside a few points of screen
+/// space turns to mud. The three regimes are:
+///
+/// | Drawn radius (pt) | Dots | Reads as |
+/// |---|---|---|
+/// | `<= 1.5` | 0 | tinted graphite speck (see [`TRISO_TINT_ONLY_RADIUS`]) |
+/// | `1.5 .. 3.0` | 1 | graphite ball with a hot centre |
+/// | `>= 3.0` | `1.5 * radius`, clamped to 4..=18 | speckled fuel zone |
+///
+/// The upper clamp exists because dot area grows with radius too, so beyond
+/// about 18 dots the fuelled zone saturates and reverts to looking solid.
+/// Non-finite radii return 0 rather than panicking, since egui layout can
+/// transiently hand a widget a degenerate rectangle.
+pub(crate) fn triso_dot_count(radius: f32) -> usize {
+    if !radius.is_finite() || radius <= TRISO_TINT_ONLY_RADIUS {
+        0
+    } else if radius < TRISO_SINGLE_DOT_RADIUS {
+        1
+    } else {
+        ((radius * 1.5) as usize).clamp(4, 18)
+    }
+}
+
+/// Drawn radius, in **points**, of one TRISO kernel dot inside a pebble of
+/// drawn `radius`.
+///
+/// A single-dot pebble gets a proportionally much larger dot (0.42 of the
+/// pebble radius) because it stands for the whole fuelled zone; a speckled
+/// pebble gets small dots (0.13 of the radius) so the scatter still reads as
+/// discrete particles. Both are floored so a dot never falls below about half
+/// a point, where it would vanish, and the speckle dot is capped at 2 pt so a
+/// very large pebble does not turn back into a solid disc.
+pub(crate) fn triso_dot_radius(radius: f32) -> f32 {
+    if radius < TRISO_SINGLE_DOT_RADIUS {
+        (radius * 0.42).max(0.5)
+    } else {
+        (radius * 0.13).clamp(0.6, 2.0)
+    }
+}
+
+/// Offset, from the pebble centre, of TRISO dot `k` in the pebble identified
+/// by `index`, for a pebble of drawn `radius` (points).
+///
+/// **Deterministic by construction.** Widgets here are rebuilt on every
+/// repaint, so a scatter drawn from a real random source would make every
+/// pebble's speckle jump frame to frame — the same shimmer [`pebble_hash`]
+/// was written to avoid for the packing itself. The angle and radial position
+/// are hashed from `(index, k)` with fresh salts (11 and 12) that do not
+/// collide with the packing's salts 1..=4.
+///
+/// The radial draw is square-rooted so dots are uniform per unit *area* rather
+/// than crowding the centre, and the maximum radius is reduced by the dot's
+/// own radius so the whole dot lands inside
+/// [`FUELLED_ZONE_FRAC`] of the pebble — the unfuelled graphite shell stays
+/// clear. Single-dot and tint-only pebbles return the zero offset.
+pub(crate) fn triso_dot_offset(index: i32, k: usize, radius: f32) -> Vec2 {
+    if triso_dot_count(radius) <= 1 {
+        return Vec2::ZERO;
+    }
+    let max_rho = (FUELLED_ZONE_FRAC * radius - triso_dot_radius(radius)).max(0.0);
+    let k = k as i32;
+    let angle = pebble_hash(index, k, 11) * std::f32::consts::TAU;
+    let rho = max_rho * pebble_hash(index, k, 12).sqrt();
+    Vec2::new(rho * angle.cos(), rho * angle.sin())
+}
+
+/// Linear interpolation between two colours, keeping `a`'s alpha.
+fn blend_rgb(a: Color32, b: Color32, t: f32) -> Color32 {
+    let t = t.clamp(0.0, 1.0);
+    let mix = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t).round() as u8;
+    Color32::from_rgba_unmultiplied(
+        mix(a.r(), b.r()),
+        mix(a.g(), b.g()),
+        mix(a.b(), b.b()),
+        a.a(),
+    )
+}
+
+/// Draws one pebble as a graphite matrix speckled with TRISO kernels.
+///
+/// `matrix` is the graphite body colour and `kernel` the fuel colour — the
+/// caller supplies the latter from its own temperature map, so the dots track
+/// the temperature sliders exactly as every other coloured region does.
+/// `index` identifies the pebble and is the sole source of the scatter's
+/// pseudo-randomness; two pebbles with the same index get the same speckle,
+/// and the same pebble gets the same speckle on every repaint.
+///
+/// Below [`TRISO_TINT_ONLY_RADIUS`] the pebble is drawn as a single blended
+/// fill instead, since dots would be sub-pixel there.
+///
+/// This is schematic artwork for an offline demonstration, not a model of
+/// particle distribution: the dot count is chosen for legibility on screen,
+/// not from a packing fraction.
+pub(crate) fn draw_triso_pebble(
+    painter: &egui::Painter,
+    centre: Pos2,
+    radius: f32,
+    matrix: Color32,
+    kernel: Color32,
+    index: i32,
+) {
+    if !radius.is_finite() || radius <= 0.0 {
+        return;
+    }
+    let dots = triso_dot_count(radius);
+    if dots == 0 {
+        painter.circle_filled(centre, radius, blend_rgb(matrix, kernel, 0.45));
+        return;
+    }
+    painter.circle_filled(centre, radius, matrix);
+    let dot_r = triso_dot_radius(radius);
+    for k in 0..dots {
+        painter.circle_filled(centre + triso_dot_offset(index, k, radius), dot_r, kernel);
+    }
+}
+
+/// Graphite matrix colour of a drawn pebble.
+///
+/// Left slightly translucent so the bed fill behind the packing still shows
+/// through between and beneath pebbles, which is what gives the bed depth
+/// rather than reading as a flat field of discs.
+const PEBBLE_MATRIX: Color32 = Color32::from_rgba_premultiplied(28, 28, 32, 214);
+
 /// Draws a randomly packed pebble bed filling `shape`.
 ///
 /// Pebbles are laid on a jittered lattice: each site is displaced by up to
@@ -129,9 +298,18 @@ const PEBBLE_VOID_FRACTION: f32 = 0.12;
 /// would not fit inside the bed outline at that height are skipped, so the
 /// packing follows the cone down to the chute rather than stopping at the
 /// cylinder.
-fn draw_packed_pebbles(painter: &egui::Painter, shape: PebbleBedShape, base_radius: f32) {
+///
+/// Each surviving site is drawn by [`draw_triso_pebble`] as a graphite body
+/// speckled with fuel-coloured TRISO kernels, with `kernel` the colour the
+/// caller's temperature map gives the fuel. The per-pebble scatter is seeded
+/// from the lattice indices, so it is stable frame to frame like the packing.
+fn draw_packed_pebbles(
+    painter: &egui::Painter,
+    shape: PebbleBedShape,
+    base_radius: f32,
+    kernel: Color32,
+) {
     let step = base_radius * 2.15;
-    let shade = Color32::from_rgba_unmultiplied(18, 18, 22, 100);
 
     let mut y = shape.top + base_radius * 1.2;
     let mut row: i32 = 0;
@@ -156,7 +334,11 @@ fn draw_packed_pebbles(painter: &egui::Painter, shape: PebbleBedShape, base_radi
                 let inside_x = (px - shape.centre_x).abs() + r <= half_here;
                 let inside_y = py - r >= shape.top && py + r <= shape.cone_bottom;
                 if inside_x && inside_y {
-                    painter.circle_filled(Pos2::new(px, py), r, shade);
+                    // Seed the speckle from the lattice site, so a pebble's
+                    // TRISO scatter is as stable across repaints as its
+                    // position is.
+                    let index = row.wrapping_mul(1009).wrapping_add(col);
+                    draw_triso_pebble(painter, Pos2::new(px, py), r, PEBBLE_MATRIX, kernel, index);
                 }
             }
             x += step;
@@ -371,7 +553,10 @@ impl Widget for Htr10ReactorVesselVisual {
             Stroke::NONE,
         ));
 
-        // Pebbles, randomly packed across the bed — cylinder AND cone.
+        // Pebbles, randomly packed across the bed — cylinder AND cone. Each
+        // is a graphite body speckled with TRISO kernels at the fuel colour,
+        // so the bed reads as fuelled graphite spheres rather than as one
+        // uniformly hot volume.
         draw_packed_pebbles(
             &painter,
             PebbleBedShape {
@@ -383,6 +568,7 @@ impl Widget for Htr10ReactorVesselVisual {
                 chute_half_width: chute_half_w,
             },
             (bed_half_w / 5.0).clamp(1.5, 5.0),
+            hot,
         );
         self.tag(ui, Pos2::new(cx, bed_top + h * 0.05), "pebble bed");
 
@@ -598,6 +784,149 @@ mod packing_tests {
             pebble_hash(7, 3, 4),
         );
         assert!((a - b).abs() > 1e-6 && (b - c).abs() > 1e-6 && (c - d).abs() > 1e-6);
+    }
+
+    /// A pebble's TRISO speckle must be identical frame to frame.
+    ///
+    /// **Methodology.** The widget is rebuilt on every repaint, so a scatter
+    /// drawn from a real random source would make every pebble shimmer — the
+    /// same failure [`pebble_hash`] exists to prevent for the packing.
+    /// Evaluate [`triso_dot_offset`] repeatedly for every dot of every pebble
+    /// over indices -50..250 and drawn radii 1.0..8.0 pt, and require bitwise
+    /// equality with the first evaluation. Separately require that two
+    /// different pebble indices do **not** produce the same scatter, or every
+    /// pebble in the bed would carry an identical, obviously repeated pattern.
+    ///
+    /// **Result (2026-08-06):** 9 900 offsets re-evaluated (3 repeats each),
+    /// all bitwise identical; 0 of 300 adjacent index pairs shared a scatter.
+    /// Interpretation: the speckle is a pure function of the pebble index, so
+    /// the bed is stable across repaints while still looking randomly
+    /// speckled.
+    #[test]
+    fn the_triso_speckle_is_deterministic_per_pebble() {
+        let mut checked = 0usize;
+        for index in -50..250 {
+            for radius in [1.0f32, 1.4, 1.6, 2.9, 3.0, 4.5, 6.0, 8.0] {
+                for k in 0..triso_dot_count(radius) {
+                    let first = triso_dot_offset(index, k, radius);
+                    for _ in 0..3 {
+                        assert_eq!(
+                            first,
+                            triso_dot_offset(index, k, radius),
+                            "speckle is not deterministic at index {index}, dot {k}"
+                        );
+                    }
+                    checked += 1;
+                }
+            }
+        }
+        assert!(checked > 0, "no dots were exercised");
+        println!("re-evaluated {checked} TRISO dot offsets");
+
+        // Neighbouring pebbles must not share a pattern.
+        let mut identical = 0;
+        for index in 0..300 {
+            let a = triso_dot_offset(index, 0, 5.0);
+            let b = triso_dot_offset(index + 1, 0, 5.0);
+            if a == b {
+                identical += 1;
+            }
+        }
+        println!("{identical}/300 adjacent pebble pairs shared a scatter");
+        assert_eq!(identical, 0, "adjacent pebbles share a TRISO scatter");
+    }
+
+    /// Every TRISO dot must lie wholly inside the fuelled inner zone, leaving
+    /// the unfuelled graphite shell clear.
+    ///
+    /// **Methodology.** An HTR-10 fuel sphere is 60 mm across with a roughly
+    /// 5 mm unfuelled outer graphite shell, so nothing fuel-coloured should be
+    /// drawn outside [`FUELLED_ZONE_FRAC`] (0.8) of the pebble radius. For
+    /// indices -20..200 and drawn radii 1.6..12.0 pt, require
+    /// `|offset| + dot_radius <= FUELLED_ZONE_FRAC * radius` for every dot,
+    /// and report the worst-case utilisation
+    /// `(|offset| + dot_radius) / (FUELLED_ZONE_FRAC * radius)`.
+    ///
+    /// **Result (2026-08-06):** worst-case utilisation 0.999861 over 16 060
+    /// dots — the boundary is approached but never crossed, which is the
+    /// intended construction, since the radial draw is capped at
+    /// `0.8 * radius - dot_radius`. Interpretation: the unfuelled graphite rim
+    /// is preserved at every drawn size, so a pebble never reads as hot right
+    /// to its edge.
+    #[test]
+    fn triso_dots_stay_inside_the_fuelled_zone() {
+        let mut worst = 0.0f32;
+        let mut dots = 0usize;
+        for index in -20..200 {
+            for radius in [1.6f32, 2.0, 2.9, 3.0, 3.5, 5.0, 6.0, 8.0, 10.0, 12.0] {
+                let limit = FUELLED_ZONE_FRAC * radius;
+                let dot_r = triso_dot_radius(radius);
+                for k in 0..triso_dot_count(radius) {
+                    let reach = triso_dot_offset(index, k, radius).length() + dot_r;
+                    assert!(
+                        reach <= limit + 1e-4,
+                        "dot {k} of pebble {index} at radius {radius} reaches {reach}, \
+                         past the fuelled zone at {limit}"
+                    );
+                    worst = worst.max(reach / limit);
+                    dots += 1;
+                }
+            }
+        }
+        println!("worst-case fuelled-zone utilisation {worst:.6} over {dots} dots");
+        assert!(worst <= 1.0 + 1e-4);
+    }
+
+    /// The dot count must degrade gracefully as pebbles shrink, or a gallery
+    /// thumbnail turns to mud.
+    ///
+    /// **Methodology.** Three regimes are specified: no dots at or below
+    /// [`TRISO_TINT_ONLY_RADIUS`] (1.5 pt), exactly one centred dot below
+    /// [`TRISO_SINGLE_DOT_RADIUS`] (3.0 pt), and a clamped scatter above it.
+    /// Sample [`triso_dot_count`] across 0.1..30.0 pt and require each regime,
+    /// monotonic non-decreasing growth, the 18-dot cap, a zero offset in the
+    /// degenerate regimes, and no panic on non-finite input.
+    ///
+    /// **Result (2026-08-06):** counts 0 at r <= 1.5, 1 over 1.5 < r < 3.0,
+    /// 4 at r = 3.0 rising monotonically to the 18-dot cap at r = 12.0;
+    /// non-finite radii return 0. Interpretation: a pebble a few points across
+    /// still reads as a graphite ball with a hot core instead of a smear.
+    #[test]
+    fn small_pebbles_fall_back_to_a_single_kernel() {
+        for r in [0.1f32, 0.5, 1.0, 1.4, 1.5] {
+            assert_eq!(triso_dot_count(r), 0, "radius {r} should be tint-only");
+            assert_eq!(triso_dot_offset(3, 0, r), Vec2::ZERO);
+        }
+        for r in [1.51f32, 2.0, 2.5, 2.99] {
+            assert_eq!(triso_dot_count(r), 1, "radius {r} should be one kernel");
+            assert_eq!(
+                triso_dot_offset(3, 0, r),
+                Vec2::ZERO,
+                "the single kernel must be centred"
+            );
+        }
+        assert_eq!(
+            triso_dot_count(3.0),
+            4,
+            "the speckle regime starts at 4 dots"
+        );
+        assert!(triso_dot_count(6.0) > 4);
+        assert_eq!(triso_dot_count(12.0), 18, "the cap must bite by 12 pt");
+        assert_eq!(triso_dot_count(30.0), 18, "the cap must hold");
+
+        let mut previous = 0;
+        for step in 1..=300 {
+            let here = triso_dot_count(step as f32 * 0.1);
+            assert!(
+                here >= previous,
+                "dot count fell from {previous} to {here} at radius {}",
+                step as f32 * 0.1
+            );
+            previous = here;
+        }
+
+        assert_eq!(triso_dot_count(f32::NAN), 0);
+        assert_eq!(triso_dot_count(f32::INFINITY), 0);
     }
 
     /// The bed outline must taper: constant down the cylinder, then narrowing
