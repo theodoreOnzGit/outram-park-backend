@@ -41,11 +41,17 @@ pub struct BendDemo {
     pub inlet: PipeComponent,
     /// The outgoing leg, drawn at [`Self::angle_deg`] from the inlet.
     pub outlet: PipeComponent,
-    /// Turn angle in degrees, measured from straight-through.
+    /// Turn angle in degrees, **signed**, spanning `-180` to `+180`.
     ///
-    /// `0` is straight on, `90` is the classic L. The control is deliberately
-    /// allowed past 90 so the sector can be seen widening into an obtuse
-    /// joint, where a naive mitre fails worst.
+    /// `0` is straight through, `+90` the classic L turning one way, `-90` the
+    /// same joint mirrored, and `±180` a return bend. 360 degrees of range in
+    /// total, so both sides of the joint can be inspected without the geometry
+    /// ever having to turn more than half a circle.
+    ///
+    /// The SIGN is what disambiguates a return bend: at exactly 180 degrees the
+    /// two run directions are antiparallel and the turn sense cannot be
+    /// inferred, but a signed sweep says which way round. See
+    /// `PipeBendVisual::sweep_override`.
     pub angle_deg: f32,
     /// Any backend that failed to construct, reported rather than faked.
     pub errors: Vec<String>,
@@ -173,13 +179,15 @@ pub fn controls(ui: &mut egui::Ui, demo: &mut BendDemo) {
     ui.separator();
 
     ui.add(
-        egui::Slider::new(&mut demo.angle_deg, 0.0..=170.0)
-            .text("turn angle [°]"),
+        egui::Slider::new(&mut demo.angle_deg, -180.0..=180.0).text("turn angle [°]"),
     );
     ui.label(
         RichText::new(
-            "0° is straight through, 90° the classic L. Past 90° the sector widens into an \
-             obtuse joint, which is where butting two rectangles together fails worst.",
+            "0° straight through, ±90° the classic L either way, ±180° a return bend — 360° of \
+             range in total, so both sides can be inspected. Past 90° is where butting two \
+             rectangles together fails worst. At exactly ±180° the two directions are \
+             antiparallel and the turn sense cannot be inferred at all, which is why the sweep \
+             is stated with its sign rather than derived.",
         )
         .small()
         .weak(),
@@ -208,7 +216,17 @@ pub fn controls(ui: &mut egui::Ui, demo: &mut BendDemo) {
             ui.label(format!("{:.1} pt (= sector radius)", demo.thickness()));
             ui.end_row();
             ui.label("sector sweep");
-            ui.label(format!("{:.0}°", demo.angle_deg));
+            ui.label(format!(
+                "{:.0}° ({})",
+                demo.angle_deg.abs(),
+                if demo.angle_deg > 0.0 {
+                    "turning up"
+                } else if demo.angle_deg < 0.0 {
+                    "turning down"
+                } else {
+                    "straight through"
+                }
+            ));
             ui.end_row();
             ui.label("fill temperature");
             let up = demo
@@ -292,6 +310,12 @@ pub fn draw(ui: &mut egui::Ui, demo: &BendDemo) {
             demo.inlet.min_temp,
             demo.inlet.max_temp,
         )
+        // Sweep stated with its SIGN, not inferred. At ±180 the two directions
+        // are antiparallel, the cross product vanishes and the sense is
+        // genuinely ambiguous — a return bend may belly either way and both are
+        // real pipework. Negated because a positive slider angle turns up the
+        // screen, which is anticlockwise when y grows downward.
+        .with_sweep(Angle::new::<degree>(-demo.angle_deg as f64))
         .with_shade(PipePhaseShade::Gas),
     );
 

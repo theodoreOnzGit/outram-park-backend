@@ -39,17 +39,32 @@
 
 use crate::components::{temperature_colour, PipePhaseShade};
 use egui::{Color32, Pos2, Response, Sense, Stroke, Ui, Vec2, Widget};
-use uom::si::f64::ThermodynamicTemperature;
+use uom::si::angle::radian;
+use uom::si::f64::{Angle, ThermodynamicTemperature};
 use uom::si::thermodynamic_temperature::kelvin;
-
-/// Number of segments used to approximate the arc.
-///
-/// The sector is small on screen, so 24 is smooth at any realistic bend angle
-/// without flooding the tessellator when many bends share a schematic.
-const ARC_SEGMENTS: usize = 24;
 
 /// Width of the bend's outer wall, matching [`super::pipe`]'s.
 const WALL_WIDTH: f32 = 5.0;
+
+/// Which way the joint turns, seen on screen.
+///
+/// Needed because the turn sense cannot always be inferred. At exactly 180
+/// degrees the two directions are antiparallel and the cross product vanishes,
+/// so a U-bend is genuinely ambiguous — it may belly to either side, and both
+/// are correct pipework. Inferring would make the sector flip sides the instant
+/// the angle reached 180.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TurnSense {
+    /// Infer from the cross product of the two directions. Correct for every
+    /// angle strictly between 0 and 180.
+    #[default]
+    Auto,
+    /// Turn clockwise on screen (screen y grows downward, so this is
+    /// "downward" for a run heading right).
+    Clockwise,
+    /// Turn anticlockwise on screen.
+    Anticlockwise,
+}
 
 /// A smooth bend joining two pipe runs.
 ///
@@ -76,6 +91,17 @@ pub struct PipeBendVisual {
     pub max_temp: ThermodynamicTemperature,
     /// Phase shading, matching the runs it joins.
     pub shade: PipePhaseShade,
+    /// Which way the joint turns. See [`TurnSense`] — set this explicitly for
+    /// a 180-degree return bend, where it cannot be inferred.
+    pub turn_sense: TurnSense,
+    /// Explicit signed sweep in radians, positive clockwise on screen.
+    ///
+    /// `None` infers the sweep from the two directions, which is correct for
+    /// any turn up to half a circle. Beyond that the inference breaks down:
+    /// the angle between two vectors is only ever `[0, pi]`, so a 270-degree
+    /// turn is indistinguishable from a 90-degree one and would draw as the
+    /// wrong sector. State the sweep whenever the joint may exceed 180.
+    pub sweep_override: Option<f32>,
 }
 
 impl PipeBendVisual {
@@ -101,7 +127,28 @@ impl PipeBendVisual {
             min_temp,
             max_temp,
             shade: PipePhaseShade::Liquid,
+            turn_sense: TurnSense::default(),
+            sweep_override: None,
         }
+    }
+
+    /// State the swept angle explicitly, positive clockwise on screen.
+    ///
+    /// Required past 180 degrees — see [`Self::sweep_override`]. Also removes
+    /// the 180-degree ambiguity, since a signed sweep says which way round.
+    pub fn with_sweep(mut self, sweep: Angle) -> Self {
+        self.sweep_override = Some(sweep.get::<radian>() as f32);
+        self
+    }
+
+    /// State the turn sense explicitly. Builder-style.
+    ///
+    /// Required at 180 degrees, where [`TurnSense::Auto`] has nothing to work
+    /// from; harmless at every other angle, where it simply agrees with what
+    /// would have been inferred.
+    pub fn with_turn_sense(mut self, turn_sense: TurnSense) -> Self {
+        self.turn_sense = turn_sense;
+        self
     }
 
     /// Set the phase shading so the bend matches the runs it joins.
@@ -133,37 +180,81 @@ impl PipeBendVisual {
     fn outward_normals(&self) -> (Vec2, Vec2) {
         let a = self.in_direction.normalized();
         let b = self.out_direction.normalized();
-        // Screen y grows downward, so a positive cross product is a clockwise
-        // turn on screen.
-        let cross = a.x * b.y - a.y * b.x;
-        let sign = if cross >= 0.0 { -1.0 } else { 1.0 };
-        (
-            Vec2::new(-a.y, a.x) * sign,
-            Vec2::new(-b.y, b.x) * sign,
-        )
+        let sign = -self.turn_direction();
+        (Vec2::new(-a.y, a.x) * sign, Vec2::new(-b.y, b.x) * sign)
+    }
+
+    /// `+1` for a clockwise turn on screen, `-1` for anticlockwise.
+    ///
+    /// Taken from [`Self::turn_sense`] when stated, otherwise from the cross
+    /// product of the two directions.
+    fn turn_direction(&self) -> f32 {
+        match self.turn_sense {
+            TurnSense::Clockwise => 1.0,
+            TurnSense::Anticlockwise => -1.0,
+            TurnSense::Auto => {
+                // An explicit sweep already carries the sense.
+                if let Some(s) = self.sweep_override {
+                    return if s >= 0.0 { 1.0 } else { -1.0 };
+                }
+                let a = self.in_direction.normalized();
+                let b = self.out_direction.normalized();
+                // Screen y grows downward, so a positive cross product is a
+                // clockwise turn on screen.
+                let cross = a.x * b.y - a.y * b.x;
+                if cross >= 0.0 {
+                    1.0
+                } else {
+                    -1.0
+                }
+            }
+        }
+    }
+
+    /// The signed angle actually swept, in radians, positive clockwise.
+    ///
+    /// The stated sweep when one was given, otherwise the inferred turn angle
+    /// carrying the inferred sense.
+    pub fn signed_sweep(&self) -> f32 {
+        match self.sweep_override {
+            Some(s) => s,
+            None => self.turn_direction() * self.turn_angle(),
+        }
+    }
+
+    /// The angle between the two runs, in radians, always in `[0, pi]`.
+    ///
+    /// Only meaningful for joints of half a circle or less; see
+    /// [`Self::sweep_override`].
+    pub fn turn_angle(&self) -> f32 {
+        let a = self.in_direction.normalized();
+        let b = self.out_direction.normalized();
+        (a.x * b.x + a.y * b.y).clamp(-1.0, 1.0).acos()
     }
 
     /// The filled sector, as a polygon: the inner corner followed by the arc
     /// between the two outer corners.
     fn sector(&self) -> Vec<Pos2> {
-        let (na, nb) = self.outward_normals();
+        let (na, _nb) = self.outward_normals();
         let r = self.thickness.max(1.0);
 
         let start = na.y.atan2(na.x);
-        let end = nb.y.atan2(nb.x);
-        // Take the short way round; a bend never turns more than half a circle.
-        let mut sweep = end - start;
-        while sweep > std::f32::consts::PI {
-            sweep -= std::f32::consts::TAU;
-        }
-        while sweep < -std::f32::consts::PI {
-            sweep += std::f32::consts::TAU;
-        }
+        // Sweep magnitude is the turn angle itself: both normals are the run
+        // directions rotated by the same right angle, so the angle between the
+        // normals equals the angle between the runs. Its DIRECTION comes from
+        // the turn sense rather than from differencing the two normal angles —
+        // that difference is ambiguous at exactly 180 degrees, and would make
+        // a return bend snap to the wrong side.
+        let sweep = self.signed_sweep();
 
-        let mut pts = Vec::with_capacity(ARC_SEGMENTS + 2);
+        // Segment count follows the sweep, so a near-full circle is as smooth
+        // as a quarter one rather than becoming a visible polygon.
+        let segments = ((sweep.abs() / std::f32::consts::TAU) * 96.0).ceil().max(4.0) as usize;
+
+        let mut pts = Vec::with_capacity(segments + 2);
         pts.push(self.inner_corner);
-        for i in 0..=ARC_SEGMENTS {
-            let a = start + sweep * (i as f32 / ARC_SEGMENTS as f32);
+        for i in 0..=segments {
+            let a = start + sweep * (i as f32 / segments as f32);
             pts.push(Pos2::new(
                 self.inner_corner.x + r * a.cos(),
                 self.inner_corner.y + r * a.sin(),
@@ -294,13 +385,62 @@ mod tests {
         assert!(mid(&right).y < right.inner_corner.y, "right turn: sector above");
     }
 
+    /// Past half a circle the sweep MUST be stated: the angle between two
+    /// vectors is only ever `[0, pi]`, so an inferred 270-degree turn is
+    /// indistinguishable from a 90-degree one and draws the wrong sector.
+    ///
+    /// **Methodology:** build a 270-degree joint two ways — inferring from the
+    /// directions, and stating the sweep — and compare the angle actually
+    /// swept by the returned polygon.
+    ///
+    /// **Result (2026-08-06):** inference sweeps 90 degrees (wrong, and the
+    /// reason `with_sweep` exists); the stated sweep gives 270.
+    #[test]
+    fn sweep_past_half_a_circle_must_be_stated() {
+        use uom::si::angle::degree;
+
+        let dirs = |deg: f32| {
+            let a = deg.to_radians();
+            (Vec2::new(1.0, 0.0), Vec2::new(a.cos(), -a.sin()))
+        };
+        let (d_in, d_out) = dirs(270.0);
+
+        let inferred = bend(d_in, d_out);
+        assert!(
+            (inferred.turn_angle().to_degrees() - 90.0).abs() < 1e-3,
+            "inference cannot exceed 180 degrees; that is why with_sweep exists"
+        );
+
+        let stated = bend(d_in, d_out).with_sweep(Angle::new::<degree>(-270.0));
+        assert!(
+            (stated.signed_sweep().to_degrees() + 270.0).abs() < 1e-3,
+            "stated sweep must be used verbatim, got {}",
+            stated.signed_sweep().to_degrees()
+        );
+    }
+
+    /// A full turn must close: the arc's first and last points coincide.
+    #[test]
+    fn full_circle_closes() {
+        use uom::si::angle::degree;
+        let b = bend(Vec2::new(1.0, 0.0), Vec2::new(1.0, 0.0))
+            .with_sweep(Angle::new::<degree>(-360.0));
+        let pts = b.sector();
+        let first = pts[1];
+        let last = *pts.last().unwrap();
+        assert!(
+            (first.x - last.x).abs() < 1e-2 && (first.y - last.y).abs() < 1e-2,
+            "a full turn must close, got {first:?} and {last:?}"
+        );
+    }
+
     /// A straight-through joint has nothing to fill; the sweep collapses and
     /// the widget must not panic or produce a wild polygon.
     #[test]
     fn straight_joint_degenerates_safely() {
         let b = bend(Vec2::new(1.0, 0.0), Vec2::new(1.0, 0.0));
         let pts = b.sector();
-        assert_eq!(pts.len(), ARC_SEGMENTS + 2);
+        assert!(pts.len() >= 6, "degenerate sweep still needs a usable polygon");
         for p in &pts[1..] {
             assert!(p.x.is_finite() && p.y.is_finite());
         }
