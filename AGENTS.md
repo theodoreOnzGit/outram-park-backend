@@ -2,16 +2,16 @@
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
-> **Architecture in one line:** Issues live in a local Dolt database
-> (`.beads/dolt/`); cross-machine sync uses `bd dolt push/pull` (a
-> git-compatible protocol), stored under `refs/dolt/data` on your git
-> remote — separate from `refs/heads/*` where your code lives.
-> `.beads/issues.jsonl` is a passive export, not the wire protocol.
+> **RUST BEADS ONLY.** Beads here is the Rust `beads-rs` crate
+> (`cargo install beads-rs`, binary `bd`; `github.com/delightful-ai/beads-rs`).
+> Do **not** install or use any Go build of beads.
 >
-> See [SYNC_CONCEPTS.md](https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md)
-> for the one-screen overview and anti-patterns (don't treat JSONL as the
-> source of truth; don't `bd import` during normal operation; don't
-> reach for third-party Dolt hosting before trying the default).
+> **Architecture in one line:** Issues live as JSONL on a dedicated git branch
+> (`refs/heads/beads/store`) — separate from `refs/heads/*` where your code
+> lives; `bd` syncs them in the background over git. There is no Dolt database
+> and no SQLite. `.beads/issues.jsonl` is a passive export, not the source of
+> truth — don't treat it as such, and don't `bd import` during normal
+> operation.
 
 ## Quick Reference
 
@@ -20,7 +20,7 @@ bd ready              # Find available work
 bd show <id>          # View issue details
 bd update <id> --claim  # Claim work atomically
 bd close <id>         # Complete work
-bd dolt push          # Push beads data to remote
+bd sync               # Wait for background git sync to flush
 ```
 
 ## Non-Interactive Shell Commands
@@ -67,13 +67,13 @@ bd close <id>         # Complete work
 - Run `bd prime` for detailed command reference and session close protocol
 - Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
 
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+**Architecture in one line:** with the Rust `beads-rs`, issues live as JSONL on a dedicated git branch (`refs/heads/beads/store`); `bd` syncs them in the background over git; `.beads/issues.jsonl` is a passive export. No Dolt, no SQLite.
 
 ## Agent Context Profiles
 
 The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
 
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
+- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or beads sync (`bd sync`) unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
 - **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
 - **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
 
@@ -91,7 +91,7 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 
    # Team-maintainer opt-in only, unless current instructions forbid it:
    git pull --rebase
-   bd dolt push
+   bd sync            # flush beads to git (the background daemon usually handles this)
    git push
    git status
    ```
@@ -124,5 +124,5 @@ bd prime                # Refresh Beads context
 - Run `bd prime` when Beads context is missing or stale. Codex 0.129.0+ can load Beads context automatically through native hooks; use `/hooks` to inspect or toggle them.
 - Keep persistent project memory in Beads via `bd remember`; do not create ad hoc memory files.
 
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+**Architecture in one line:** with the Rust `beads-rs`, issues live as JSONL on a dedicated git branch (`refs/heads/beads/store`); `bd` syncs them in the background over git; `.beads/issues.jsonl` is a passive export. No Dolt, no SQLite.
 <!-- END BEADS CODEX SETUP -->
