@@ -1075,7 +1075,7 @@ mod tests {
 #[cfg(test)]
 mod packing_tests {
     use super::*;
-    use crate::components::pebble_packing::{BED_TOP, PACKED_PEBBLES, SPHERE_RADIUS};
+    use crate::components::pebble_packing::{PackedPebble, BED_TOP, PACKED_PEBBLES, SPHERE_RADIUS};
     use egui::{Pos2, Rect};
 
     /// A representative drawn vessel: the simulator's native 225 x 1050 pt
@@ -1121,7 +1121,7 @@ mod packing_tests {
     #[test]
     fn the_buoyant_bed_is_inverted_so_the_dense_end_is_at_the_top() {
         let bed = pebble_bed_rect(drawn_rect());
-        let (packing, window) = buoyant_bed_packing(bed);
+        let (packing, _window) = buoyant_bed_packing(bed);
 
         // 1. Ordering: the settled base is drawn at the TOP.
         let base = PackedPebbleAt::new(0.0, 0.0);
@@ -1133,26 +1133,46 @@ mod packing_tests {
             "the FHR bed is not inverted — a double flip has cancelled out"
         );
 
-        // 2. Density gradient: heavier half must be the upper one.
-        let mid = bed.center().y;
-        let (mut upper, mut lower) = (0.0f32, 0.0f32);
-        for pebble in PACKED_PEBBLES.iter().filter(|p| window.contains(p)) {
-            let area = std::f32::consts::PI * pebble.r * pebble.r;
-            if packing.centre(pebble).y < mid {
-                upper += area;
-            } else {
-                lower += area;
-            }
-        }
+        // 2. The mapping sense itself — asserted DIRECTLY, not inferred from
+        //    density.
+        //
+        // Density is the wrong instrument here and the 3-D bake proved it: a
+        // settled monodisperse bed is near-uniform through its bulk (~0.61
+        // solid fraction everywhere), so half-versus-half came out at ratio
+        // 0.979 and outer-band occupancy at 35 vs 33 — both indistinguishable
+        // from noise. The earlier flat-slice bake only appeared to show a
+        // gradient because it stored CHORD radii, and the denser region
+        // contributed more near-equatorial (large) chords. That was a weighting
+        // artefact.
+        //
+        // The mapping sense, by contrast, is exact. For a BUOYANT bed a pebble
+        // higher in the packing (larger packing y, i.e. nearer the settled
+        // free surface) must be drawn LOWER on screen (larger screen y),
+        // because the bed floats up against a retainer and its free surface
+        // faces down. Under GravityUp the same pair maps the other way.
+        let low = PackedPebble::new(0.0, 0.2, 0.0);
+        let high = PackedPebble::new(0.0, 1.8, 0.0);
+        let (low_y, high_y) = (packing.centre(&low).y, packing.centre(&high).y);
         println!(
-            "drawn circle area: upper half {upper:.4} R^2, lower half {lower:.4} R^2, \
-             ratio {:.3}",
-            upper / lower
+            "buoyant mapping: packing y 0.2 -> screen {low_y:.2}, y 1.8 -> screen {high_y:.2}"
         );
         assert!(
-            upper > lower,
-            "the dense end of the bed is at the BOTTOM — the inversion is missing, \
-             which draws an FHR as if its pebbles sank"
+            high_y > low_y,
+            "the buoyant mapping is not inverted: packing y 1.8 drew at screen \
+             {high_y:.2}, above y 0.2 at {low_y:.2}. That draws an FHR as if its \
+             pebbles sank instead of floating"
+        );
+
+        // And the HTR-10 sense must be the opposite, or one of the two is wrong.
+        let gravity = PackingTransform {
+            axis_x: bed.center().x,
+            origin_y: bed.top(),
+            scale: 1.0,
+            vertical: VerticalSense::GravityUp,
+        };
+        assert!(
+            gravity.centre(&high).y < gravity.centre(&low).y,
+            "GravityUp and Buoyant must map vertically in OPPOSITE senses"
         );
     }
 

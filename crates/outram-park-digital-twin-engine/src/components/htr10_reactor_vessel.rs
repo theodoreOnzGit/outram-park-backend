@@ -43,6 +43,7 @@
 
 use crate::components::pebble_packing::{
     PackedPebble, BARREL_HEIGHT, BED_BOUNDS, CHUTE_RADIUS, CONE_HEIGHT, PACKED_PEBBLES,
+    SPHERE_RADIUS,
 };
 use crate::components::temperature_colour;
 use egui::{Color32, FontId, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, Widget};
@@ -218,14 +219,16 @@ impl PackingTransform {
         Pos2::new(self.axis_x + pebble.x * self.scale, y)
     }
 
-    /// Screen radius of `pebble`, in points.
+    /// Screen radius of a pebble, in points.
     ///
-    /// The baked radius is the **chord** of the sphere cut by the slicing
-    /// plane, not the sphere radius, so it varies from pebble to pebble. That
-    /// spread is what a real saw-cut through a bed looks like and is preserved
-    /// here rather than normalised away.
-    pub fn radius(&self, pebble: &PackedPebble) -> f32 {
-        pebble.r * self.scale
+    /// **Every pebble is the same size.** The bed is monodisperse, and the bake
+    /// now stores sphere centres in three dimensions rather than a flat
+    /// saw-cut, so there is no per-pebble chord radius to vary. Depth is
+    /// conveyed by shading and occlusion instead — see
+    /// [`draw_packed_pebbles`] — which reads as a bed you are looking *into*
+    /// rather than a slice through.
+    pub fn radius(&self, _pebble: &PackedPebble) -> f32 {
+        SPHERE_RADIUS * self.scale
     }
 }
 
@@ -283,9 +286,9 @@ impl PackingWindow {
 
     /// Whether `pebble` is drawn wholly inside this window.
     pub fn contains(&self, pebble: &PackedPebble) -> bool {
-        pebble.x.abs() + pebble.r <= self.max_abs_x
-            && pebble.y - pebble.r >= self.min_y
-            && pebble.y + pebble.r <= self.max_y
+        pebble.x.abs() + SPHERE_RADIUS <= self.max_abs_x
+            && pebble.y - SPHERE_RADIUS >= self.min_y
+            && pebble.y + SPHERE_RADIUS <= self.max_y
     }
 }
 
@@ -531,22 +534,54 @@ pub(crate) fn draw_packed_pebbles(
     kernel: Color32,
 ) -> usize {
     let mut drawn = 0usize;
+    // The baked table is sorted FARTHEST FIRST, so painting straight through it
+    // gives painter's-algorithm occlusion for free: nearer pebbles land on top
+    // of the ones behind them. Do not re-sort.
     for (index, pebble) in PACKED_PEBBLES.iter().enumerate() {
         if !window.contains(pebble) {
             continue;
         }
+        let shade = depth_shade(pebble.depth());
         draw_triso_pebble(
             painter,
             transform.centre(pebble),
             transform.radius(pebble),
-            matrix,
-            kernel,
+            blend_rgb(BED_BACKDROP, matrix, shade),
+            blend_rgb(BED_BACKDROP, kernel, shade),
             index as i32,
         );
         drawn += 1;
     }
     drawn
 }
+
+/// Colour a pebble at the back of the depth window fades toward.
+///
+/// Not black: a bed lit from the front still scatters some light into its
+/// interior, and fading to pure black makes the far layers read as holes rather
+/// than as pebbles further away.
+const BED_BACKDROP: Color32 = Color32::from_rgb(16, 16, 20);
+
+/// Brightness a pebble is drawn at, given its depth fraction.
+///
+/// `depth` is dimensionless, `0.0` at the back of the baked window and `1.0` at
+/// the cut face. Returns a blend weight toward the pebble's own colour, so a
+/// pebble at the front is drawn at full strength and one at the back is drawn
+/// at [`MIN_DEPTH_SHADE`] of it.
+///
+/// **This is a display cue, not physics.** Nothing here models light transport
+/// in a packed bed; it exists so overlapping pebbles read as depth rather than
+/// as a flat tangle of circles. Fading the TRISO kernels along with the matrix
+/// matters as much as fading the body — kernels held at full brightness behind
+/// three layers of graphite is exactly what makes a speckled bed turn to mush.
+fn depth_shade(depth: f32) -> f32 {
+    MIN_DEPTH_SHADE + (1.0 - MIN_DEPTH_SHADE) * depth.clamp(0.0, 1.0)
+}
+
+/// How bright the farthest pebble in the window is drawn, as a fraction of its
+/// own colour. Chosen so the back layer is clearly recessed but still legibly a
+/// pebble.
+const MIN_DEPTH_SHADE: f32 = 0.45;
 
 const STEEL: Color32 = Color32::from_rgb(96, 100, 108);
 const GRAPHITE: Color32 = Color32::from_rgb(56, 56, 60);
@@ -1261,7 +1296,13 @@ mod packing_tests {
             worst / packing.scale,
             100.0 * worst / (packing.scale * 0.075)
         );
-        assert_eq!(drawn, 261, "the whole baked packing must be drawn");
+        assert_eq!(
+            drawn,
+            PACKED_PEBBLES.len(),
+            "the whole baked packing must be drawn — asserted against the table \
+             rather than a frozen count, so a re-bake cannot silently leave \
+             pebbles undrawn"
+        );
     }
 
     /// The cone must be at the BOTTOM — the single easiest thing to get
