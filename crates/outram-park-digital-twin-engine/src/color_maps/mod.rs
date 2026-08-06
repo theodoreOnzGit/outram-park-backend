@@ -9,6 +9,11 @@
 //! computed by the caller (e.g. a normalised temperature or quality), the
 //! same signature the existing call sites use.
 
+/// Fabio Crameri's Scientific colour maps (MIT). Perceptually uniform,
+/// CVD-friendly and greyscale-safe -- see the module docs for provenance and
+/// for when to prefer them over the maps in this file.
+pub mod crameri;
+
 use egui::Color32;
 
 /// Hot-to-cold colour map, variant 1: blue (cold) to red (hot), with a
