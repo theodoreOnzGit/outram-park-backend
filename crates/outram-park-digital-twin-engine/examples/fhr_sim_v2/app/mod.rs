@@ -1,13 +1,14 @@
 use std::time::Duration;
 
 use egui::{vec2, Pos2, Rect, Vec2};
-use local_widgets_and_buttons::{fhr_reactor_widget::FHRReactorWidget, pipes::SinglePipeColourBlueRedTempSensitive};
+use local_widgets_and_buttons::pipes::SinglePipeColourBlueRedTempSensitive;
 use uom::si::angular_velocity::revolution_per_minute;
 use uom::si::f64::*;
 use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::time::second;
 
 use outram_park_digital_twin_engine::app_scaffold::show_crash_modal_if_crashed;
+use outram_park_digital_twin_engine::components::FhrReactorVesselVisual;
 
 use crate::app::local_widgets_and_buttons::pipes::{SinglePipeColourBlackRedTempSensitive, SinglePipeColourBlueWhiteQualitySensitive};
 use crate::app::local_widgets_and_buttons::turbine_widget::TurbineWidget;
@@ -255,7 +256,7 @@ impl FHRSimulatorApp {
             fhr_state_clone.pipe_17_temperature_vector_degc;
 
 
-        let mut fhr_widget = FHRReactorWidget::new(
+        let mut fhr_widget = FhrReactorVesselVisual::new(
             fhr_size,
             min_temp,
             max_temp,

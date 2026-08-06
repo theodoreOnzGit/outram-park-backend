@@ -4,7 +4,6 @@ use egui::{Pos2, Rect, Ui, Widget};
 
 pub mod reactor_art;
 
-pub mod fhr_reactor_widget;
 
 pub mod pipes;
 

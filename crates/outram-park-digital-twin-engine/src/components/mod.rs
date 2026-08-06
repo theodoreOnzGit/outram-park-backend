@@ -12,6 +12,7 @@
 pub mod bend;
 mod condenser;
 pub mod cooling_tower;
+pub mod fhr_reactor_vessel;
 pub mod heat_exchanger;
 pub mod instrumentation;
 mod legend;
@@ -25,6 +26,7 @@ pub mod valve;
 
 pub use condenser::CondenserVisual;
 pub use cooling_tower::CoolingTowerVisual;
+pub use fhr_reactor_vessel::FhrReactorVesselVisual;
 pub use heat_exchanger::HeatExchangerVisual;
 pub use instrumentation::InstrumentationVisual;
 pub use pipe::{PipePhaseShade, PipeScalars, PipeScale, PipeVisual, PipeVisualState};
