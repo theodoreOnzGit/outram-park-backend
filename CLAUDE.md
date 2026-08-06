@@ -255,6 +255,29 @@ the expected behaviour**, plus the tool version from `cargo install --list`.
 Do not invent version numbers or fabricate reproductions. Filing the issue is
 the end of your involvement in the fix — do not follow it up with code.
 
+**HARD RULE — resolved issues move to `docs/kopitiam-issues/resolved/`.** Once
+an issue is actually fixed upstream, **move its markdown file** from
+`docs/kopitiam-issues/` into `docs/kopitiam-issues/resolved/`. Do not delete it
+and do not leave it sitting in the top-level queue.
+
+- **"Resolved" means verified, not announced.** Upgrade to the published
+  version that claims the fix (`cargo install kopitiam` /
+  `cargo install kopi-beans`), **re-run the exact reproduction recorded in the
+  file**, and confirm the behaviour changed. Only then move it.
+- **Record the closing evidence in the file as you move it:** the version that
+  fixes it, the date, the command re-run, and its new output. A file in
+  `resolved/` without that evidence is not a resolution, it is a claim.
+- If the fix landed upstream as a GitHub issue rather than a local file, close
+  the loop the same way — verify against a published binary before treating it
+  as done.
+- The top level of `docs/kopitiam-issues/` therefore always reads as **the live
+  queue**, and `resolved/` as the history. Anything still at the top level is
+  outstanding.
+- This also applies when the workspace's own "known friction" notes (e.g. the
+  kopitiam `--release` gap recorded above) are fixed: update or remove the note
+  in this file in the same change, so `CLAUDE.md` never advertises friction
+  that no longer exists.
+
 **Which tracker for OUTRAM PARK's own work.** `bn` (kopi-beans) is a *fork of*
 beads-rs, so it overlaps `bd` rather than complementing it. The mandatory
 "Issue tracking & roadmap" section below remains authoritative for which one

@@ -24,10 +24,38 @@ rule. In short:
 
 ## This directory is a queue, not a tracker
 
-Files here are **waiting to be upstreamed**. They are not a private bug tracker
-and they are not where OUTRAM PARK's own work is tracked — that stays in this
-workspace's issue store. Anything filed here should be mentioned in the session
-hand-off so it does not rot.
+Files at the **top level are the live queue** — outstanding, waiting to be
+upstreamed. They are not a private bug tracker and they are not where OUTRAM
+PARK's own work is tracked; that stays in this workspace's issue store. Anything
+filed here should be mentioned in the session hand-off so it does not rot.
+
+## `resolved/` — HARD RULE
+
+When an issue is actually fixed upstream, **move its file into
+`resolved/`**. Never delete it, and never leave a fixed issue at the top level.
+
+**"Resolved" means verified, not announced.** Before moving a file:
+
+1. Install the published version that claims the fix
+   (`cargo install kopitiam` / `cargo install kopi-beans`).
+2. **Re-run the exact reproduction recorded in the file.**
+3. Confirm the behaviour actually changed.
+
+Then append the closing evidence to the file as you move it:
+
+```markdown
+## Resolved
+
+- **Fixed in:** kopitiam 0.2.7
+- **Verified:** YYYY-MM-DD
+- **Re-ran:** `<the exact command from the reproduction above>`
+- **New output:** <what it printed now>
+```
+
+A file in `resolved/` **without** that evidence is not a resolution, it is a
+claim. If the workspace `CLAUDE.md` carries a matching "known friction" note,
+update or remove it in the same change so the docs never advertise friction
+that no longer exists.
 
 ## Template
 
