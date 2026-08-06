@@ -2,7 +2,7 @@
 
 **Version:** 0.0.2
 
-**Format Version:** 61
+**Format Version:** 60
 
 # Module `outram_mc_libs`
 
@@ -228,10 +228,59 @@ pub fn future_seed(n: u64, seed: u64) -> u64 { /* ... */ }
 
 #### Function `init_seed`
 
-Derive an independent seed for particle `id` from a master seed.
+Derive an independent RNG stream seed for particle `id` from a master seed.
 
-Maps to `uint64_t init_seed(int64_t id, int offset)`.
-Each particle gets a unique starting seed by striding from the master seed.
+**Upstream:** `uint64_t init_seed(int64_t id, int offset)` —
+`/home/teddy0/Documents/research/openmc/src/random_lcg.cpp:60-64`
+(declared at `include/openmc/random_lcg.h:50`). The C++ body is:
+
+```text
+return future_seed(static_cast<uint64_t>(id) * prn_stride,
+                   master_seed + offset);
+```
+
+**The mapping, stated plainly.** `id` is multiplied by the stride and that
+product is the *jump-ahead distance*; `offset` is added to the **master
+seed**, selecting a different starting point of the LCG orbit (OpenMC uses
+it to give one particle several disjoint streams — `STREAM_TRACKING`,
+`STREAM_SOURCE`, `STREAM_URR_PTABLE`, `STREAM_VOLUME`; see
+`init_particle_seeds`, `random_lcg.cpp:70-76`). So consecutive `id`s are
+[`DEFAULT_STRIDE`] draws apart, and a different `offset` is a different run
+rather than a shift inside the same one.
+
+**Signature deviation (deliberate, not a porting error).** OpenMC reads
+`master_seed` from a mutable global (`random_lcg.cpp:8`, set via
+`openmc_set_seed`). This port takes it as an explicit third parameter —
+there is no global RNG state in this crate, so the caller passes it in. The
+*semantics* are identical to upstream; only the plumbing of `master_seed`
+differs. Likewise the stride is pinned to the compile-time
+[`DEFAULT_STRIDE`] because this port has no `openmc_set_stride` equivalent
+(upstream `prn_stride` is a mutable global, `random_lcg.cpp:13`).
+
+**Wrapping.** `static_cast<uint64_t>(id) * prn_stride` is an unsigned
+64-bit multiply upstream, and `master_seed + offset` is an `int64_t` add
+that is then reinterpreted as `uint64_t`. Both are reproduced with
+`wrapping_*` so the result is identical in debug and release rather than
+panicking on overflow.
+
+# Parameters
+
+- `id` — particle (or other stream) index; stream `k` starts
+  `k * DEFAULT_STRIDE` draws into the sequence.
+- `offset` — stream selector, added to `master_seed`. Different values give
+  independent runs, not shifted views of one run.
+- `master_seed` — the run's master seed (OpenMC's `DEFAULT_SEED` is `1`).
+
+# Example
+
+```
+use outram_mc_libs::rng::lcg::{init_seed, future_seed, DEFAULT_STRIDE};
+// Consecutive ids are one full stride apart in the sequence.
+assert_eq!(
+    init_seed(4, 0, 1),
+    future_seed(DEFAULT_STRIDE, init_seed(3, 0, 1))
+);
+```
 
 ```rust
 pub fn init_seed(id: i64, offset: i64, master_seed: i64) -> u64 { /* ... */ }
@@ -241,9 +290,10 @@ pub fn init_seed(id: i64, offset: i64, master_seed: i64) -> u64 { /* ... */ }
 
 #### Constant `MULT`
 
-Linear Congruential Generator — direct port of `Foam::random_lcg`.
+Linear Congruential Generator — port of OpenMC's `random_lcg`.
 
-C++ source: `src/random_lcg.cpp`, `include/openmc/random_lcg.h`.
+C++ source: `src/random_lcg.cpp`, `include/openmc/random_lcg.h`
+(canonical tree: `/home/teddy0/Documents/research/openmc/`).
 
 OpenMC uses a 64-bit LCG with modulus 2^64 (implicit wrapping):
   x_{n+1} = MULT * x_n + INC  (mod 2^64)
@@ -2945,6 +2995,16 @@ Fields:
   ```
   This surface's boundary condition.
 
+- ```rust
+  pub fn sphere_centre_radius(self: &Self) -> Option<([f64; 3], f64)> { /* ... */ }
+  ```
+  Centre `[x0, y0, z0]` (cm) and radius (cm), for surfaces that have them.
+
+- ```rust
+  pub fn overlaps_voxel(self: &Self, centre: [f64; 3], pitch: [f64; 3]) -> bool { /* ... */ }
+  ```
+  Does this surface overlap the axis-aligned voxel of half-extent
+
 ###### Trait Implementations
 
 - **Any**
@@ -4586,6 +4646,475 @@ the corner cells that fall outside the hexagon. Mirrors OpenMC's `C_NONE`
 pub const HEX_NONE: i32 = -1;
 ```
 
+## Module `virtual_lattice`
+
+Virtual lattice — a uniform-grid accelerator for cells packed with many
+explicit TRISO particles.
+
+# Provenance
+
+Ported from the OpenMC fork `liangjg/openmc`, branch `virtual_lattice`,
+commit `be04e2804f9dc563d53429d97368c5d905070978` (2025-10-27), vendored
+read-only at `upstream_source/OpenMC-virtual-lattice/`. The feature is not
+in upstream `openmc-dev/openmc`; the branch is 14 commits ahead of
+`develop`, contributed by Liang Jingang, Li Ruihan, and `cn-skywalker`.
+
+Reference sites, all in the vendored tree:
+  - `src/cell.cpp:39`  `generate_triso_distribution` -> [`VirtualLattice::build`]
+  - `src/cell.cpp:665` `CSGCell::distance_in_virtual_lattice` ->
+    [`VirtualLattice::distance`] (in [`traversal`])
+  - `src/universe.cpp:68` `Universe::find_cell_in_virtual_lattice` ->
+    [`VirtualLattice::find_containing`]
+  - `src/surface.cpp:724` `SurfaceSphere::triso_in_mesh` ->
+    [`crate::geometry::surface::SurfaceKind::overlaps_voxel`]
+
+```text
+Copyright (c) 2011-2025 Massachusetts Institute of Technology, UChicago
+Argonne LLC, and OpenMC contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to
+deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+```
+
+OpenMC is MIT-licensed; this Rust translation is GPL-3.0-only per the
+workspace default. This is an independent translation, not an OpenMC
+release, and is not endorsed by or affiliated with the OpenMC project.
+
+# What problem this solves
+
+A TRISO fuel compact is one CSG cell whose region names tens of thousands
+of explicit spheres. Evaluating `distance_to_boundary` for such a cell costs
+O(N) surface-distance evaluations per flight — the dominant cost in a
+doubly-heterogeneous calculation.
+
+The virtual lattice overlays a uniform Cartesian grid ("voxels") on the
+cell and records, per voxel, only the spheres that overlap it. A ray then
+walks the grid voxel by voxel (a 3-D DDA) and tests only the handful of
+spheres registered in each voxel it enters, stopping as soon as the nearest
+hit is closer than the exit point of the current voxel. Cost drops from
+O(N) to roughly O(spheres per voxel x voxels crossed).
+
+This is the *explicit-geometry* alternative to Woodcock/delta tracking
+([`crate::pebble_beds::delta_tracking`]), which avoids surface tests
+entirely at the price of rejected collisions. The two are complementary:
+delta tracking wins when the majorant is tight, the virtual lattice wins
+when exact surface crossings are needed (e.g. per-layer TRISO tallies).
+
+# Units and conventions
+
+Lengths are in **cm** (the crate-wide convention, see the crate `CLAUDE.md`);
+`f64` throughout, no `uom` — this is inner-loop transport code.
+
+Voxel `(i, j, k)` spans
+`[lower_left[d] + i*pitch[d], lower_left[d] + (i+1)*pitch[d]]` per axis `d`,
+and is stored at flat index `i + j*shape[0] + k*shape[0]*shape[1]`
+(x fastest — matching the upstream indexing exactly).
+
+# Assumptions and limitations
+
+- **Spheres only.** Bucket membership is decided by
+  [`SurfaceKind::overlaps_voxel`], which upstream implements for
+  `Sphere` alone; every other surface type returns `false` there. See that
+  method's docs. A non-sphere surface handed to [`VirtualLattice::build`]
+  is therefore silently registered in no voxel, and a ray will never see it.
+- **The grid must enclose every sphere.** Spheres whose centre falls outside
+  the `shape` bounds are clipped by the neighbourhood scan and may be
+  partially or wholly unregistered. [`VirtualLattice::build`] reports these
+  through [`BuildReport::unregistered`] rather than failing, mirroring
+  upstream's silent behaviour but making it observable.
+- **A sphere is registered in every voxel it overlaps**, found by scanning
+  the 3x3x3 neighbourhood of the voxel containing its centre. A sphere with
+  radius larger than the pitch can therefore reach voxels the scan misses;
+  [`VirtualLattice::build`] flags that case in
+  [`BuildReport::radius_exceeds_pitch`]. Upstream has the same limitation
+  and does not check for it.
+
+# Verification status
+
+**Unverified.** Unit tests in `tests.rs` check the bucket build, the
+traversal, and equivalence with a brute-force scan over the same surfaces.
+No k-eigenvalue validation against the upstream `triso_virtual_lattice`
+regression case has been run — that is tracked as a separate bead.
+
+```rust
+pub mod virtual_lattice { /* ... */ }
+```
+
+### Modules
+
+## Module `traversal`
+
+Ray traversal through a [`VirtualLattice`] — the 3-D DDA voxel walk.
+
+Ported from `CSGCell::distance_in_virtual_lattice` (`src/cell.cpp:665` in
+the vendored `liangjg/openmc` `virtual_lattice` fork, commit `be04e28`).
+See the module-level docs in [`super`] for provenance and the MIT notice.
+
+```rust
+pub mod traversal { /* ... */ }
+```
+
+### Types
+
+#### Struct `BuildReport`
+
+Diagnostics from [`VirtualLattice::build`].
+
+The upstream builder silently drops geometry it cannot place. This port
+keeps the same behaviour (so results match) but reports what happened, so a
+caller can assert the grid actually covers the packing.
+
+```rust
+pub struct BuildReport {
+    pub unregistered: Vec<usize>,
+    pub radius_exceeds_pitch: Vec<usize>,
+    pub registrations: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `unregistered` | `Vec<usize>` | Surface indices that landed in no voxel at all — either not a sphere<br>(see [`SurfaceKind::overlaps_voxel`]) or entirely outside the grid. |
+| `radius_exceeds_pitch` | `Vec<usize>` | Surface indices whose radius exceeds half the smallest pitch, so the<br>3x3x3 neighbourhood scan may not have found every voxel they overlap. |
+| `registrations` | `usize` | Total (voxel, surface) registrations made — the memory cost of the grid. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BuildReport { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> BuildReport { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BuildReport) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `VirtualLattice`
+
+A uniform Cartesian grid recording which surfaces overlap each voxel.
+
+Build it once per cell with [`VirtualLattice::build`], then use
+[`VirtualLattice::distance`] for ray traversal and
+[`VirtualLattice::find_containing`] for point location.
+
+Maps to the `vl_*` fields of `openmc::CSGCell`
+(`include/openmc/cell.h`, vendored fork).
+
+```rust
+pub struct VirtualLattice {
+    pub lower_left: [f64; 3],
+    pub pitch: [f64; 3],
+    pub shape: [usize; 3],
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lower_left` | `[f64; 3]` | Lower-left corner of the grid, cm. Maps to `CSGCell::vl_lower_left_`. |
+| `pitch` | `[f64; 3]` | Voxel edge lengths, cm. Maps to `CSGCell::vl_pitch_`. All strictly > 0. |
+| `shape` | `[usize; 3]` | Voxel counts per axis. Maps to `CSGCell::vl_shape_`. All >= 1. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn distance(self: &Self, r: Position, u: Direction, surfaces: &[SurfaceKind], on_surface: usize, max_distance: f64) -> (f64, usize) { /* ... */ }
+  ```
+  Distance to the nearest registered surface along the ray `(r, u)`,
+
+- ```rust
+  pub fn distance_brute_force(r: Position, u: Direction, surfaces: &[SurfaceKind], surface_indices: &[usize], on_surface: usize) -> (f64, usize) { /* ... */ }
+  ```
+  Brute-force reference: nearest surface over *every* index in
+
+- ```rust
+  pub fn build(lower_left: [f64; 3], pitch: [f64; 3], shape: [usize; 3], surface_indices: &[usize], surfaces: &[SurfaceKind]) -> (Self, BuildReport) { /* ... */ }
+  ```
+  Build the grid, registering each surface in every voxel it overlaps.
+
+- ```rust
+  pub fn flat_index(self: &Self, ijk: [usize; 3]) -> usize { /* ... */ }
+  ```
+  Flat index of voxel `(i, j, k)`, x-fastest. Matches upstream's
+
+- ```rust
+  pub fn n_voxels(self: &Self) -> usize { /* ... */ }
+  ```
+  Total number of voxels.
+
+- ```rust
+  pub fn surfaces_in_voxel(self: &Self, ijk: [usize; 3]) -> &[usize] { /* ... */ }
+  ```
+  Surface indices registered in voxel `(i, j, k)`.
+
+- ```rust
+  pub fn indices_at(self: &Self, r: Position) -> [i64; 3] { /* ... */ }
+  ```
+  Voxel indices containing `r`, unclamped — components may be negative or
+
+- ```rust
+  pub fn clamped_indices_at(self: &Self, r: Position) -> [usize; 3] { /* ... */ }
+  ```
+  Voxel indices containing `r`, clamped into the grid.
+
+- ```rust
+  pub fn contains_indices(self: &Self, ijk: [i64; 3]) -> bool { /* ... */ }
+  ```
+  True when `ijk` addresses a voxel inside the grid.
+
+- ```rust
+  pub fn find_containing(self: &Self, r: Position, surfaces: &[SurfaceKind]) -> Option<usize> { /* ... */ }
+  ```
+  Index of the sphere strictly containing `r`, searching only the voxel
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> VirtualLattice { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &VirtualLattice) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `geometry`
 
 High-level geometry navigation: particle location and boundary crossing.
@@ -21175,6 +21704,1094 @@ pub mod gpu { /* ... */ }
 
 ### Modules
 
+## Module `capabilities`
+
+Runtime hardware capability sourcing, and CPU/GPU work splitting.
+
+# Why this module exists
+
+[`crate::gpu::probe`] used to request [`wgpu::Limits::downlevel_defaults`],
+which pins `max_storage_buffers_per_shader_stage` to **4** no matter what the
+hardware can do. The `surface_distance` kernel binds **7** storage buffers,
+so device creation validated fine but the bind-group layout was rejected:
+
+```text
+In Device::create_bind_group_layout, label = 'surf_dist.bgl'
+  Too many bindings of type StorageBuffers in Stage ShaderStages(COMPUTE),
+  limit is 4, count was 7.
+```
+
+That was self-inflicted, not a hardware limit. On the development machine
+(NVIDIA RTX A5000, NVK, Vulkan) `wgpu` reports **524,288** per-stage storage
+buffers — we were asking for 7 against a self-imposed ceiling of 4. (Raw
+Vulkan `maxPerStageDescriptorStorageBuffers` is 1,048,576 there; `wgpu`
+applies its own cap on top, and **`wgpu`'s number is the one that governs
+us**.) The fix is to *source* limits from the adapter instead of assuming a
+floor — hence this module, and the change to `probe`.
+
+# What is sourced, and from where
+
+Nothing here is hard-coded to a particular machine. Every number is read at
+runtime:
+
+| Quantity | Source |
+|---|---|
+| storage buffers per stage, binding sizes, workgroup limits | `wgpu::Adapter::limits()` |
+| adapter name / backend / discrete-vs-integrated | `wgpu::Adapter::get_info()` |
+| CPU worker threads | [`std::thread::available_parallelism`] |
+
+# Android
+
+`wgpu` is target-gated off Android (see `Cargo.toml`). Every type here is
+plain data — [`DeviceClass`] is our own enum, not `wgpu::DeviceType`, and the
+backend is a `String` — so the whole module *including its tests* builds and
+runs on `aarch64-linux-android`. Only [`GpuLimits::from_adapter`] touches
+`wgpu` and is `#[cfg]`-gated. On Android [`crate::gpu::probe`] always returns
+`None`, so [`HardwareCapabilities::with_gpu`] is built with `gpu: None`,
+which every split policy already handles as "all CPU".
+
+```rust
+pub mod capabilities { /* ... */ }
+```
+
+### Types
+
+#### Enum `DeviceClass`
+
+Broad class of a compute adapter, mirroring `wgpu::DeviceType` but without
+depending on `wgpu` (so this module builds on Android).
+
+Used by [`SplitPolicy::Auto`] to pick a starting GPU share: a discrete card
+has its own memory bandwidth, an integrated one competes with the CPU cores
+running the other half of the split, and a software adapter *is* the CPU.
+
+```rust
+pub enum DeviceClass {
+    Discrete,
+    Integrated,
+    Virtual,
+    Cpu,
+    Other,
+}
+```
+
+##### Variants
+
+###### `Discrete`
+
+Discrete card with its own VRAM and memory bandwidth.
+
+###### `Integrated`
+
+Integrated GPU sharing system memory (and bandwidth) with the CPU.
+
+###### `Virtual`
+
+Virtualised/paravirtual adapter.
+
+###### `Cpu`
+
+Software rasteriser (e.g. lavapipe/SwiftShader) — this is the CPU wearing
+a GPU hat, and is normally *slower* than the native CPU path.
+
+###### `Other`
+
+Anything the driver did not classify.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DeviceClass { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DeviceClass) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `GpuLimits`
+
+Compute-relevant limits of one GPU adapter, read from the driver.
+
+Construct from a live adapter with [`GpuLimits::from_adapter`], or by hand in
+tests. All fields are exactly what the driver reported — none are clamped,
+rounded, or defaulted.
+
+```rust
+pub struct GpuLimits {
+    pub adapter_name: String,
+    pub backend: String,
+    pub class: DeviceClass,
+    pub max_storage_buffers_per_shader_stage: u32,
+    pub max_storage_buffer_binding_size: u64,
+    pub max_buffer_size: u64,
+    pub max_compute_invocations_per_workgroup: u32,
+    pub max_compute_workgroups_per_dimension: u32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `adapter_name` | `String` | Adapter product name, e.g. `"NVIDIA RTX A5000 (NVK GA102)"`. |
+| `backend` | `String` | Graphics backend, e.g. `"Vulkan"`. |
+| `class` | `DeviceClass` | Discrete / integrated / software. |
+| `max_storage_buffers_per_shader_stage` | `u32` | Maximum storage buffers bindable in a single shader stage. **This is the<br>limit that broke `surf_dist.bgl`** when it was pinned to the downlevel<br>default of 4. |
+| `max_storage_buffer_binding_size` | `u64` | Maximum bytes in one storage-buffer binding. Caps how many work items fit<br>in a single dispatch — see [`GpuLimits::max_items_per_binding`]. |
+| `max_buffer_size` | `u64` | Maximum bytes in any single buffer allocation. |
+| `max_compute_invocations_per_workgroup` | `u32` | Maximum threads per workgroup. |
+| `max_compute_workgroups_per_dimension` | `u32` | Maximum workgroups dispatchable along one dimension. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn supports_storage_buffers(self: &Self, n: u32) -> bool { /* ... */ }
+  ```
+  Can this device host a kernel that binds `n` storage buffers in one
+
+- ```rust
+  pub fn max_items_per_binding(self: &Self, stride: u64) -> usize { /* ... */ }
+  ```
+  How many items of `stride` bytes fit in one storage-buffer binding.
+
+- ```rust
+  pub fn max_invocations_per_dispatch(self: &Self, workgroup_size: u32) -> usize { /* ... */ }
+  ```
+  How many invocations one dispatch can cover at the given workgroup size:
+
+- ```rust
+  pub fn max_chunk_items(self: &Self, stride: u64, workgroup_size: u32) -> usize { /* ... */ }
+  ```
+  Largest batch this device can process in one dispatch, respecting *both*
+
+- ```rust
+  pub fn from_adapter(adapter: &wgpu::Adapter) -> Self { /* ... */ }
+  ```
+  Build from a live `wgpu` adapter — the only function here that touches
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GpuLimits { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GpuLimits) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `HardwareCapabilities`
+
+What this machine can actually do: the GPU (if any) plus the CPU.
+
+```rust
+pub struct HardwareCapabilities {
+    pub gpu: Option<GpuLimits>,
+    pub cpu_threads: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `gpu` | `Option<GpuLimits>` | Limits of the selected adapter, or `None` when there is no usable GPU<br>(headless CI, Android, no Vulkan loader). `None` means "all CPU". |
+| `cpu_threads` | `usize` | Usable CPU threads, from [`std::thread::available_parallelism`]<br>(falls back to 1 if the platform cannot report it). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn with_gpu(gpu: Option<GpuLimits>) -> Self { /* ... */ }
+  ```
+  Read CPU thread count; pair it with GPU limits you already have.
+
+- ```rust
+  pub fn gpu_supports_storage_buffers(self: &Self, n: u32) -> bool { /* ... */ }
+  ```
+  True when a GPU exists *and* can host a kernel binding `n` storage
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HardwareCapabilities { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HardwareCapabilities) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SplitPolicy`
+
+How to divide a batch between the GPU and the CPU.
+
+```rust
+pub enum SplitPolicy {
+    CpuOnly,
+    GpuOnly,
+    GpuFraction(f64),
+    Auto,
+}
+```
+
+##### Variants
+
+###### `CpuOnly`
+
+Everything on the CPU — the trusted reference path.
+
+###### `GpuOnly`
+
+Everything the GPU can take; remainder (if any) on the CPU.
+
+###### `GpuFraction`
+
+An explicit GPU share in `[0, 1]`, clamped. Use this once
+[`measured_gpu_fraction`] has told you the real ratio for your workload.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `Auto`
+
+A capability-derived starting share — see [`SplitPolicy::auto_fraction`].
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn auto_fraction(caps: &HardwareCapabilities) -> f64 { /* ... */ }
+  ```
+  The GPU share this policy implies for the given hardware.
+
+- ```rust
+  pub fn gpu_fraction(self: Self, caps: &HardwareCapabilities) -> f64 { /* ... */ }
+  ```
+  Resolve to a concrete GPU share in `[0, 1]` for this hardware.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SplitPolicy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SplitPolicy) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SplitReason`
+
+Why a [`WorkSplit`] came out the way it did — so a caller can log or assert
+on the reason instead of reverse-engineering the numbers.
+
+```rust
+pub enum SplitReason {
+    NoGpu,
+    InsufficientStorageBuffers,
+    PolicyCpuOnly,
+    Split,
+}
+```
+
+##### Variants
+
+###### `NoGpu`
+
+No GPU present.
+
+###### `InsufficientStorageBuffers`
+
+A GPU exists but cannot bind the number of storage buffers the kernel
+needs — the original `surf_dist.bgl` failure, now caught before dispatch.
+
+###### `PolicyCpuOnly`
+
+The policy asked for no GPU share.
+
+###### `Split`
+
+Work was divided between both devices.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SplitReason { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SplitReason) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `WorkSplit`
+
+A planned division of a batch across GPU and CPU.
+
+`gpu_items + cpu_items == total` always holds.
+
+```rust
+pub struct WorkSplit {
+    pub gpu_items: usize,
+    pub cpu_items: usize,
+    pub gpu_chunk_items: usize,
+    pub reason: SplitReason,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `gpu_items` | `usize` | Items to run on the GPU. The GPU half takes the **front** of the batch. |
+| `cpu_items` | `usize` | Items to run on the CPU — the remainder, at the back of the batch. |
+| `gpu_chunk_items` | `usize` | Largest number of items one dispatch can cover; the GPU half must be<br>processed in chunks of at most this. Zero when there is no GPU share. |
+| `reason` | `SplitReason` | Why this split was chosen. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn total(self: &Self) -> usize { /* ... */ }
+  ```
+  Total items across both devices.
+
+- ```rust
+  pub fn uses_gpu(self: &Self) -> bool { /* ... */ }
+  ```
+  Does any work go to the GPU?
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WorkSplit { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &WorkSplit) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `cpu_threads`
+
+Usable CPU threads, or 1 when the platform will not say.
+
+```rust
+pub fn cpu_threads() -> usize { /* ... */ }
+```
+
+#### Function `plan_split`
+
+Plan how to divide `total` work items between GPU and CPU.
+
+# Arguments
+
+- `total` — items in the batch.
+- `caps` — hardware, from [`HardwareCapabilities::with_gpu`].
+- `policy` — see [`SplitPolicy`].
+- `storage_buffers_needed` — how many storage buffers the kernel binds in one
+  stage. The GPU share is dropped to zero if the adapter cannot host that
+  many; this is the guard that would have turned the `surf_dist.bgl` panic
+  into a clean CPU fallback.
+- `stride` — bytes per item in the largest storage binding, used with the
+  driver's binding-size limit to size dispatch chunks.
+- `workgroup_size` — threads per workgroup the kernel uses.
+
+# Guarantees
+
+- `gpu_items + cpu_items == total`.
+- `gpu_items == 0` whenever there is no usable GPU for this kernel, so the
+  caller's CPU path covers everything.
+- `gpu_chunk_items > 0` whenever `gpu_items > 0`.
+
+```rust
+pub fn plan_split(total: usize, caps: &HardwareCapabilities, policy: SplitPolicy, storage_buffers_needed: u32, stride: u64, workgroup_size: u32) -> WorkSplit { /* ... */ }
+```
+
+#### Function `measured_gpu_fraction`
+
+Turn two measured throughputs into the GPU share that finishes both halves at
+the same time.
+
+Given `gpu_items_per_second` and `cpu_items_per_second` measured on the *same*
+workload, the split that minimises wall-clock is the one proportional to
+throughput:
+
+`f_gpu = R_gpu / (R_gpu + R_cpu)`
+
+Feed the result back as [`SplitPolicy::GpuFraction`]. This is the honest way
+to set the share — [`SplitPolicy::Auto`] only guesses from device class.
+
+Returns 0.0 if both rates are zero or either is not finite.
+
+```rust
+pub fn measured_gpu_fraction(gpu_items_per_second: f64, cpu_items_per_second: f64) -> f64 { /* ... */ }
+```
+
 ## Module `xs_interp`
 
 Energy-grid cross-section interpolation, CPU reference + GPU compute path.
@@ -21604,7 +23221,7 @@ pub fn surface_distance_cpu_f32(encoded: &EncodedSurfaces, queries: &[SurfaceQue
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/surface_distance.rs:777:11: 777:32 (#0) }, crates/outram-mc-libs/src/gpu/surface_distance.rs:777:10: 777:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/surface_distance.rs:917:11: 917:32 (#0) }, crates/outram-mc-libs/src/gpu/surface_distance.rs:917:10: 917:33 (#0))])]")`
 
 Compute ray–surface distances for a batch of queries **on the GPU**, via the
 `shaders/surface_distance.wgsl` compute shader. The `f32` accelerated twin of
@@ -21631,6 +23248,47 @@ result buffer to a mappable staging buffer, blocks on
 pub fn surface_distance_gpu(ctx: &crate::gpu::GpuContext, encoded: &EncodedSurfaces, queries: &[SurfaceQuery]) -> Vec<f32> { /* ... */ }
 ```
 
+#### Function `surface_distance_hybrid`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/surface_distance.rs:1165:11: 1165:32 (#0) }, crates/outram-mc-libs/src/gpu/surface_distance.rs:1165:10: 1165:33 (#0))])]")`
+
+Evaluate a query batch across **both** devices: the GPU takes the front of
+the batch, the CPU takes the back, and the two run concurrently.
+
+Returns the distances in query order (identical layout to
+[`surface_distance_cpu_f32`]) together with the [`WorkSplit`] actually used,
+so a caller can log or assert which devices did work.
+
+# How the split is decided
+
+Entirely from **sourced hardware capability**, never assumption — see
+[`crate::gpu::capabilities`]. [`plan_split`] is given this kernel's real
+requirements ([`STORAGE_BUFFERS_NEEDED`], [`QUERY_STRIDE_BYTES`],
+[`WORKGROUP_SIZE`]) and returns an all-CPU plan whenever the GPU cannot host
+the kernel, is absent, or the policy asks for none.
+
+# Concurrency
+
+The CPU half runs on a `rayon` parallel iterator inside a scoped thread while
+this thread drives the GPU dispatch, so the two genuinely overlap rather than
+running one after the other. The GPU half is issued in chunks of at most
+`split.gpu_chunk_items` so an oversized batch cannot exceed the driver's
+binding-size or workgroup-count limits.
+
+# Accuracy
+
+The GPU half is `f32` and will not bit-match the CPU half (crate `CLAUDE.md`
+contract 2). **Do not use this for anything feeding V&V** — use
+[`surface_distance_cpu_f32`] there. Results are mixed from two different
+arithmetic paths, so a hybrid batch is inherently less reproducible than
+either path alone.
+
+```rust
+pub fn surface_distance_hybrid(ctx: Option<&crate::gpu::GpuContext>, encoded: &EncodedSurfaces, queries: &[SurfaceQuery], policy: crate::gpu::capabilities::SplitPolicy) -> (Vec<f32>, crate::gpu::capabilities::WorkSplit) { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `SURF_STRIDE`
@@ -21654,6 +23312,39 @@ arithmetic and buffer round-trips without becoming a true infinity.
 
 ```rust
 pub const MISS: f32 = 1.0e30;
+```
+
+#### Constant `STORAGE_BUFFERS_NEEDED`
+
+Storage buffers this kernel binds in a single compute stage.
+
+`surf_dist.bgl` binds bindings 0-5 and 7 as storage (tags, coeffs, query
+surface/flag/r/u, results) plus binding 6 as a uniform. A device whose
+`max_storage_buffers_per_shader_stage` is below this **cannot** host the
+kernel — that is exactly the `op-bjd` failure, and
+[`surface_distance_hybrid`] now turns it into a CPU fallback rather than a
+panic.
+
+```rust
+pub const STORAGE_BUFFERS_NEEDED: u32 = 7;
+```
+
+#### Constant `QUERY_STRIDE_BYTES`
+
+Bytes per query in the largest per-query binding (`q_r`/`q_u`: three `f32`).
+Used with the driver's `max_storage_buffer_binding_size` to size dispatch
+chunks.
+
+```rust
+pub const QUERY_STRIDE_BYTES: u64 = 12;
+```
+
+#### Constant `WORKGROUP_SIZE`
+
+Threads per workgroup in `surface_distance.wgsl` (`@workgroup_size(64)`).
+
+```rust
+pub const WORKGROUP_SIZE: u32 = 64;
 ```
 
 ## Module `union_grid`
@@ -23110,7 +24801,7 @@ pub const FISS_NONE: u32 = 0xFFFF_FFFF;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/mod.rs:175:11: 175:32 (#0) }, crates/outram-mc-libs/src/gpu/mod.rs:175:10: 175:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/mod.rs:213:11: 213:32 (#0) }, crates/outram-mc-libs/src/gpu/mod.rs:213:10: 213:33 (#0))])]")`
 
 ```rust
 pub use context::block_on;
@@ -23120,7 +24811,7 @@ pub use context::block_on;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/mod.rs:175:11: 175:32 (#0) }, crates/outram-mc-libs/src/gpu/mod.rs:175:10: 175:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/mod.rs:213:11: 213:32 (#0) }, crates/outram-mc-libs/src/gpu/mod.rs:213:10: 213:33 (#0))])]")`
 
 ```rust
 pub use context::probe;
@@ -23130,7 +24821,7 @@ pub use context::probe;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/mod.rs:175:11: 175:32 (#0) }, crates/outram-mc-libs/src/gpu/mod.rs:175:10: 175:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/mod.rs:213:11: 213:32 (#0) }, crates/outram-mc-libs/src/gpu/mod.rs:213:10: 213:33 (#0))])]")`
 
 ```rust
 pub use context::GpuContext;
@@ -23792,6 +25483,18 @@ pub use crate::geometry::lattice::Lattice;
 pub use crate::geometry::lattice::RectLattice;
 ```
 
+#### Re-export `BuildReport`
+
+```rust
+pub use crate::geometry::virtual_lattice::BuildReport;
+```
+
+#### Re-export `VirtualLattice`
+
+```rust
+pub use crate::geometry::virtual_lattice::VirtualLattice;
+```
+
 #### Re-export `BoundaryHit`
 
 ```rust
@@ -24240,7 +25943,7 @@ pub use crate::gpu::GpuContext;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:57:11: 57:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:57:10: 57:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:58:11: 58:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:58:10: 58:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::xs_interp::interp_xs_gpu;
@@ -24286,7 +25989,7 @@ pub use crate::gpu::surface_distance::SURF_STRIDE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:67:11: 67:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:67:10: 67:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:68:11: 68:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:68:10: 68:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::surface_distance::surface_distance_gpu;
@@ -24320,7 +26023,7 @@ pub use crate::gpu::batched_flight::FlightSphere;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:75:11: 75:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:75:10: 75:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:76:11: 76:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:76:10: 76:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_flight::advance_flight_gpu;
@@ -24372,7 +26075,7 @@ pub use crate::gpu::batched_event::FISS_NONE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:87:11: 87:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:87:10: 87:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:88:11: 88:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:88:10: 88:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_event::advance_generation_gpu;

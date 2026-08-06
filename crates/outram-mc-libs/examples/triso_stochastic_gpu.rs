@@ -116,17 +116,37 @@
 //! and GPU speedup. The SCLS CPU arm reports its own `P_abs ± σ` to show the
 //! memory correction relative to memoryless CLS.
 //!
-//! **Results.** Filled in from an actual run at the bottom of `main`'s printout and
-//! written to a reproducible CSV under `verification_and_validation/gpu_benchmarks/`
-//! (alongside the crate's other benchmark CSVs). On the environment where this
-//! example was authored (2026-07-21)
-//! **no GPU adapter was available** (headless, no Vulkan loader), so only the CPU
-//! `f64`, CPU `f32`-mirror, and CPU SCLS arms were exercised; the GPU arm printed
-//! its "unavailable" line and was skipped. The measured CPU CLS absorption
-//! probability, the CPU `f32`-mirror agreement with the `f64` reference, and the
-//! SCLS↔CLS difference are printed by the run. GPU-vs-CPU speedup and the
-//! statistical z-score are produced only on a machine with a real adapter and are
-//! therefore reported as "not exercised here" until run on GPU hardware.
+//! **Results (measured 2026-08-06, `N = 1048576` histories per arm).** Written to
+//! a reproducible CSV under `verification_and_validation/gpu_benchmarks/` and
+//! printed at the bottom of `main`. GPU: NVIDIA RTX A5000 (NVK GA102, Vulkan).
+//!
+//! - Arm 1, CPU `f64` CLS (trusted reference): `P_abs = 0.7014103 ± 0.0004469`
+//!   (735482/1048576 absorbed), 0.21 s, 4.97e6 histories/s.
+//! - Arm 2, CPU `f32` mirror (seed set `S_gpu`): `P_abs = 0.7016144 ± 0.0004468`,
+//!   0.19 s. `|P_f32mirror − P_f64ref| = 0.000204` = **0.32 combined σ**.
+//! - Arm 3, GPU `f32` CLS batch: `P_abs = 0.7016144 ± 0.0004468`, 0.099 s,
+//!   1.06e7 histories/s, **2.14× speedup** vs the CPU `f64` arm. z-score vs the
+//!   CPU `f64` reference = **0.32** → **PASS** (criterion ≤ 5). GPU-vs-CPU-`f32`-
+//!   mirror per-history logic: **65536/65536 outcomes matched**, 0 near-tie
+//!   mismatches (0.0000 %, criterion < 0.1 %).
+//! - Arm 4, CPU `f64` SCLS: `P_abs = 0.7013741 ± 0.0004469`; SCLS − CLS =
+//!   `−0.000036` (0.06 combined σ).
+//!
+//! Reproducibility: two consecutive runs on 2026-08-06 produced bit-identical
+//! `P_abs` and `σ` in all four arms (only wall-clock times differed).
+//!
+//! **Supersedes the 2026-07-21 authoring run.** Those numbers
+//! (`P_abs = 0.7013826` CPU `f64`, `0.7001810` `f32`-mirror, `0.7011147` SCLS;
+//! GPU arm skipped for want of an adapter) were produced with the pre-fix
+//! `rng::lcg::init_seed`, which seeded consecutive histories **one LCG draw**
+//! apart instead of one 152917-draw stride apart (bead `op-rbo`). Because each
+//! history's stream then overlapped its neighbour's almost entirely, the quoted
+//! binomial `σ` understated the true uncertainty — the histories were not
+//! independent samples. The central values happened to move very little
+//! (`ΔP_abs = +0.0000277` on the `f64` reference arm, **0.04 σ**), so the bias
+//! was small here; the invalid quantity was the *uncertainty*, not the mean.
+//! All numbers above are from re-runs with the corrected seeding and are the
+//! ones to cite.
 
 // ---------------------------------------------------------------------------
 // Android: wgpu is target-gated OFF Android (no Vulkan/Metal loader, no easy
@@ -366,10 +386,11 @@ mod desktop {
             // arm uses). The retained-interface memory is the example's 1-D layer on top;
             // the crate's full 3-D SclsMedium is demonstrated in triso_stochastic_media.rs.
             let (d_bnd, from_memory) = match last_iface {
-                Some((xpos, crossed_dir)) if crossed_dir * dir < 0.0 => {
-                    ((xpos - x).abs(), true)
-                }
-                _ => (cls.sample_distance_to_boundary(mat == INCLUSION, seed), false),
+                Some((xpos, crossed_dir)) if crossed_dir * dir < 0.0 => ((xpos - x).abs(), true),
+                _ => (
+                    cls.sample_distance_to_boundary(mat == INCLUSION, seed),
+                    false,
+                ),
             };
             let xi2 = prn(seed);
             let d_col = -xi2.ln() / p.sigma_t[mat];
@@ -679,14 +700,24 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             label: Some("cls.bg"),
             layout: &bgl,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: seeds_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: params_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 2, resource: out_buf.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: seeds_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: params_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: out_buf.as_entire_binding(),
+                },
             ],
         });
 
-        let mut encoder =
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("cls.enc") });
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("cls.enc"),
+        });
         {
             let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("cls.pass"),
@@ -699,7 +730,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         encoder.copy_buffer_to_buffer(&out_buf, 0, &out_staging, 0, out_size);
         queue.submit(Some(encoder.finish()));
 
-        out_staging.slice(..).map_async(wgpu::MapMode::Read, |r| r.unwrap());
+        out_staging
+            .slice(..)
+            .map_async(wgpu::MapMode::Read, |r| r.unwrap());
         device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
 
         let view = out_staging.slice(..).get_mapped_range();
@@ -713,7 +746,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
         codes
             .into_iter()
-            .map(|c| if c == 1 { Outcome::Absorbed } else { Outcome::Escaped })
+            .map(|c| {
+                if c == 1 {
+                    Outcome::Absorbed
+                } else {
+                    Outcome::Escaped
+                }
+            })
             .collect()
     }
 
@@ -735,10 +774,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         // ── Problem setup: a graphite-matrix TRISO-like unit slab. ────────────
         let radius = 0.03_f64; // inclusion (fuel kernel) radius [cm]
         let pf = 0.30_f64; // packing fraction
-        // Chord statistics come from the crate's stochastic module (single source of
-        // truth) — not re-derived here. The CPU CLS reference below samples its chords
-        // through this same `ClsMedium`, and the WGSL shader is the f32 port of its
-        // `sample_distance_to_boundary`.
+                           // Chord statistics come from the crate's stochastic module (single source of
+                           // truth) — not re-derived here. The CPU CLS reference below samples its chords
+                           // through this same `ClsMedium`, and the WGSL shader is the f32 port of its
+                           // `sample_distance_to_boundary`.
         let cls_medium = ClsMedium::new(radius, pf, MaterialId(1), MaterialId(0));
         let lambda_i = cls_medium.mean_chord_inclusion();
         let lambda_m = cls_medium.mean_chord_matrix();
@@ -746,8 +785,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             l: 2.0, // slab thickness [cm]
             lambda: [lambda_m, lambda_i],
             // Absorbing inclusions (fuel), lightly-absorbing scattering matrix.
-            sigma_t: [2.0, 8.0],   // [matrix, inclusion]  cm^-1
-            sigma_a: [0.05, 4.0],  // [matrix, inclusion]  cm^-1
+            sigma_t: [2.0, 8.0],  // [matrix, inclusion]  cm^-1
+            sigma_a: [0.05, 4.0], // [matrix, inclusion]  cm^-1
             max_iter: 400,
         };
         let params32 = ClsParamsF32::from_f64(&params);
@@ -781,9 +820,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let (p_cpu, s_cpu) = binomial(abs_cpu, n);
         let cpu_hps = n as f64 / cpu_secs;
         println!("Arm 1 — CPU f64 CLS (TRUSTED reference):");
-        println!(
-            "  P_abs = {p_cpu:.6} +/- {s_cpu:.6}   ({abs_cpu}/{n} absorbed)"
-        );
+        println!("  P_abs = {p_cpu:.6} +/- {s_cpu:.6}   ({abs_cpu}/{n} absorbed)");
         println!(
             "  wall-clock {cpu_secs:.3} s   throughput {:.3e} histories/s\n",
             cpu_hps
@@ -857,9 +894,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                     }
                 }
 
-                println!(
-                    "  P_abs = {p_gpu:.6} +/- {s_gpu:.6}   ({abs_gpu}/{n} absorbed)"
-                );
+                println!("  P_abs = {p_gpu:.6} +/- {s_gpu:.6}   ({abs_gpu}/{n} absorbed)");
                 println!(
                     "  wall-clock {gpu_secs:.3} s   throughput {:.3e} histories/s   \
                      speedup {speedup:.2}x vs CPU f64",
@@ -869,7 +904,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                     "  agreement vs CPU f64 reference: |P_cpu - P_gpu| = {:.6} = {z:.2} \
                      combined sigma  ->  {}",
                     (p_cpu - p_gpu).abs(),
-                    if z <= 5.0 { "PASS (<= 5 sigma)" } else { "FAIL (> 5 sigma)" }
+                    if z <= 5.0 {
+                        "PASS (<= 5 sigma)"
+                    } else {
+                        "FAIL (> 5 sigma)"
+                    }
                 );
                 println!(
                     "  GPU-vs-CPU-f32-mirror per-history logic: {}/{} outcomes match \
@@ -897,9 +936,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             p_scls - p_cpu,
             (p_scls - p_cpu).abs() / s_comb_cls_scls.max(1e-30)
         );
-        println!(
-            "  interface memory shifts absorption vs memoryless CLS (tutorial-level SCLS).\n"
-        );
+        println!("  interface memory shifts absorption vs memoryless CLS (tutorial-level SCLS).\n");
 
         // ── CSV output (reproducible; sits with the other gpu_benchmarks CSVs). ─
         let out_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -927,7 +964,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                     )
                     .unwrap();
                     if let Some((p_gpu, s_gpu, gpu_secs, speedup, z, _mm, _ck)) = csv_gpu {
-                        let dev = gpu.as_ref().map(|c| c.info.name.clone()).unwrap_or_default();
+                        let dev = gpu
+                            .as_ref()
+                            .map(|c| c.info.name.clone())
+                            .unwrap_or_default();
                         writeln!(
                             f,
                             "3,CLS,f32,gpu:{dev},{n},{p_gpu:.8},{s_gpu:.8},{gpu_secs:.4},{speedup:.4},{z:.4}"
