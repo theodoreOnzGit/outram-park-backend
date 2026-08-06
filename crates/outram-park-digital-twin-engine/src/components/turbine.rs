@@ -92,6 +92,20 @@ const ROTOR_TILT_FRACTION: f32 = 0.10;
 /// shaft. Fewer than the rotor count so the two rows stay distinguishable.
 const STATOR_BLADES_PER_ROW: usize = 4;
 
+/// Which way a fixed stator (nozzle) blade leans, as a sign on the tilt.
+///
+/// A stage extracts work by **turning** the steam: the nozzle deflects the flow
+/// one way and the moving bucket takes it back the other. Drawing the two rows
+/// leaning the same way makes the nozzles and buckets look like they agree,
+/// which is the one thing a stage must not do. So this and
+/// [`ROTOR_LEAN_SENSE`] are held opposite, and
+/// `stator_and_rotor_lean_oppositely` pins that.
+const STATOR_LEAN_SENSE: f32 = 1.0;
+
+/// Which way a moving rotor (bucket) blade leans. Opposite to
+/// [`STATOR_LEAN_SENSE`] — see there for why.
+const ROTOR_LEAN_SENSE: f32 = -1.0;
+
 /// How far the rotor row's blade height is advanced towards the NEXT stator
 /// row, as a fraction of the gap between them.
 ///
@@ -592,12 +606,17 @@ impl Widget for TurbineVisual {
             // Blade LEAN mirrors about the admission plane on a double-flow
             // machine, exactly as blade HEIGHT does — see `lean_sign_at` for
             // why, and the double-flow symmetry tests for the pinned contract.
-            // Negative: the nozzle angles DOWN across the row (verified on
-            // screen, 2026-08-04). The rotor carries the same sign, so the two
-            // rows lean the same way rather than opposing; the opposition that
-            // turns the flow is carried by the CAMBER, which still runs in
-            // opposite senses for the two rows.
-            let stator_tilt = -tilt * (angles.stator_deg / 60.0) * lean_sign_at(row_f);
+            //
+            // POSITIVE, opposite in sign to `rotor_tilt` below. The nozzle
+            // angles UP across the row while the rotor bucket angles down, so
+            // the two rows visibly oppose each other — which is what a stage
+            // does: the stator turns the flow one way and the rotor takes it
+            // back the other, and the turning is where the work comes from.
+            // Corrected on screen 2026-08-06; the rows previously leaned the
+            // SAME way, leaving the opposition carried only by the camber,
+            // which read as a machine whose nozzles and buckets agreed.
+            let stator_tilt =
+                STATOR_LEAN_SENSE * tilt * (angles.stator_deg / 60.0) * lean_sign_at(row_f);
             for k in 0..STATOR_BLADES_PER_ROW * 2 {
                 let phi = Angle::new::<radian>(
                     k as f64 * (2.0 * PI) / ((STATOR_BLADES_PER_ROW * 2) as f64),
@@ -673,10 +692,12 @@ impl Widget for TurbineVisual {
                 // plane on a double-flow machine (see `lean_sign_at`) — the
                 // rotor sits half a pitch downstream, so its lean is evaluated
                 // at `row_f + 0.5`, the same station its radius uses.
-                // Note this leans the SAME way as the stator rather than
-                // against it — see the comment on `stator_tilt`.
-                let rotor_tilt =
-                    -tilt * (rotor_angles.rotor_deg / 40.0) * lean_sign_at(row_f + 0.5);
+                // NEGATIVE, opposite in sign to `stator_tilt` above, so the
+                // bucket leans against the nozzle it sits behind.
+                let rotor_tilt = ROTOR_LEAN_SENSE
+                    * tilt
+                    * (rotor_angles.rotor_deg / 40.0)
+                    * lean_sign_at(row_f + 0.5);
                 let stroke = if blade == MARKER_BLADE {
                     marker_stroke
                 } else {
@@ -994,5 +1015,56 @@ mod double_flow_lean_tests {
             left, right,
             "double-flow halves are lopsided: {left} vs {right}"
         );
+    }
+}
+
+#[cfg(test)]
+mod stage_lean_tests {
+    use super::*;
+
+    /// A turbine stage extracts work by TURNING the steam: the fixed nozzle
+    /// deflects the flow one way, the moving bucket takes it back the other.
+    /// The two rows must therefore lean in opposite senses.
+    ///
+    /// **Methodology.** The stator and rotor tilts are each built as
+    /// `SENSE * tilt * (angle / scale) * lean_sign`, so the visible opposition
+    /// reduces to the two sense constants. Require them to be exactly opposite
+    /// and each of unit magnitude.
+    ///
+    /// **Result (2026-08-06):** stator +1, rotor -1 — opposite, unit
+    /// magnitude. Interpretation: nozzle and bucket visibly oppose across
+    /// every stage. Before this correction both carried the same sign, so the
+    /// rows leaned together and the opposition was left entirely to the
+    /// camber, which read as a machine whose nozzles and buckets agreed.
+    #[test]
+    fn stator_and_rotor_lean_oppositely() {
+        assert_eq!(
+            STATOR_LEAN_SENSE, -ROTOR_LEAN_SENSE,
+            "stator and rotor must lean in opposite senses, got {STATOR_LEAN_SENSE} and {ROTOR_LEAN_SENSE}"
+        );
+        assert_eq!(STATOR_LEAN_SENSE.abs(), 1.0);
+        assert_eq!(ROTOR_LEAN_SENSE.abs(), 1.0);
+    }
+
+    /// The opposition must survive the double-flow mirror: mirroring flips
+    /// both rows together, so they stay opposed in each half rather than
+    /// agreeing in one of them.
+    #[test]
+    fn stator_and_rotor_stay_opposed_in_both_halves() {
+        let span = (BLADE_ROWS - 1) as f32;
+        for row in 0..BLADE_ROWS {
+            let i = row as f32;
+            let stator = STATOR_LEAN_SENSE * lean_sign(TurbineFlowPath::DoubleFlow, i);
+            let rotor = ROTOR_LEAN_SENSE * lean_sign(TurbineFlowPath::DoubleFlow, i + 0.5);
+            // Rows straddling the admission plane legitimately differ, since
+            // the mirror falls between the stator and its own rotor.
+            let straddles = (i - span / 2.0).abs() < 0.75;
+            if !straddles {
+                assert_eq!(
+                    stator, -rotor,
+                    "row {row}: stator {stator} and rotor {rotor} must stay opposed"
+                );
+            }
+        }
     }
 }
