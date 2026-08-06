@@ -17,6 +17,7 @@ pub mod heat_exchanger;
 pub mod htr10_reactor_vessel;
 pub mod instrumentation;
 mod legend;
+pub mod pebble_packing;
 pub mod pipe;
 mod pipe_component;
 pub mod pump;
