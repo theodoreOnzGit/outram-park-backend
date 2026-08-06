@@ -220,6 +220,17 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     (rows, errors)
 }
 
+impl PipeRow {
+    /// Short label for a legend caption, where the full name will not fit.
+    pub fn short_name(&self) -> &'static str {
+        // First word of the row name is enough to tell the three apart.
+        match self.name.split_whitespace().next() {
+            Some(w) => w,
+            None => "pipe",
+        }
+    }
+}
+
 /// Residence time of a row at its current velocity, `tau = L/u`.
 pub fn residence_time(row: &PipeRow) -> Time {
     residence_time_from_velocity(

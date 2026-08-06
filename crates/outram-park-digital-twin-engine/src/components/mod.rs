@@ -13,6 +13,7 @@ pub mod condenser;
 pub mod cooling_tower;
 pub mod heat_exchanger;
 pub mod instrumentation;
+mod legend;
 pub mod pipe;
 pub mod pump;
 pub mod reactor_vessel;
@@ -28,6 +29,7 @@ pub use pipe::{PipeScalars, PipeVisual, PipeVisualState};
 pub use pump::PumpVisual;
 pub use reactor_vessel::ReactorVesselVisual;
 pub use steam_generator::SteamGeneratorVisual;
+pub use legend::{LegendUnit, TemperatureLegend};
 pub use turbine::{StageAngles, TurbineFlowPath, TurbineVisual, TurbineVisualState};
 pub use valve::ValveVisual;
 

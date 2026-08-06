@@ -7,7 +7,9 @@
 //! physics has nowhere to hide.
 
 use egui::{Color32, Pos2, RichText, Vec2};
-use outram_park_digital_twin_engine::components::{PipeVisual, TurbineFlowPath, TurbineVisual};
+use outram_park_digital_twin_engine::components::{
+    LegendUnit, PipeVisual, TemperatureLegend, TurbineFlowPath, TurbineVisual,
+};
 use tampines_steam_tables::steam_turbine_equations::generator::ThreePhaseElectricGeneratorTurbine;
 use uom::si::angular_velocity::{radian_per_second, revolution_per_minute};
 use uom::si::electric_potential::volt;
@@ -88,6 +90,8 @@ pub struct WidgetStudio {
     widget_size: Vec2,
     /// Flow path drawn: double-flow (PWR standard) or single-flow.
     flow_path: TurbineFlowPath,
+    /// Unit used on the colour-to-temperature legends.
+    legend_unit: LegendUnit,
 
     // ── Pipes tab ─────────────────────────────────────────────────────────
     /// The three demonstration pipes, built once at startup (standing up a
@@ -117,6 +121,7 @@ impl Default for WidgetStudio {
             last_substeps: 0,
             widget_size: Vec2::new(520.0, 260.0),
             flow_path: TurbineFlowPath::default(),
+            legend_unit: LegendUnit::Celsius,
             pipe_rows,
             pipe_errors,
         }
@@ -247,6 +252,15 @@ impl eframe::App for WidgetStudio {
 }
 
 impl WidgetStudio {
+    /// Kelvin / Celsius toggle for the legends.
+    fn legend_unit_toggle(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("Legend units").small().weak());
+            ui.selectable_value(&mut self.legend_unit, LegendUnit::Celsius, "°C");
+            ui.selectable_value(&mut self.legend_unit, LegendUnit::Kelvin, "K");
+        });
+    }
+
     /// Right-hand panel for the pipes tab: what each backend is and what it
     /// can represent.
     fn pipe_controls(&mut self, ui: &mut egui::Ui) {
@@ -318,6 +332,28 @@ impl WidgetStudio {
                     ui.end_row();
                 }
             });
+
+        ui.add_space(10.0);
+        self.legend_unit_toggle(ui);
+        ui.label(RichText::new("Colour to Temperature Legend").strong());
+        ui.label(
+            RichText::new(
+                "One scale per row: each pipe has its own display range, so a single shared \
+                 scale would misread every row but one.",
+            )
+            .small()
+            .weak(),
+        );
+        ui.horizontal_wrapped(|ui| {
+            for row in &self.pipe_rows {
+                ui.add(
+                    TemperatureLegend::new(row.min_temp, row.max_temp)
+                        .with_unit(self.legend_unit)
+                        .with_bar_size(egui::vec2(20.0, 140.0))
+                        .with_caption(row.short_name()),
+                );
+            }
+        });
 
         ui.add_space(8.0);
         ui.label(
@@ -520,6 +556,26 @@ impl WidgetStudio {
                 );
                 ui.end_row();
             });
+
+        ui.add_space(10.0);
+        self.legend_unit_toggle(ui);
+        ui.label(RichText::new("Colour to Temperature Legend").strong());
+        ui.add(
+            TemperatureLegend::new(
+                ThermodynamicTemperature::new::<kelvin>(300.0),
+                ThermodynamicTemperature::new::<kelvin>(900.0),
+            )
+            .with_unit(self.legend_unit)
+            .with_caption("casing"),
+        );
+        ui.label(
+            RichText::new(
+                "Blue cold, white at the midpoint of the range, red hot. The midpoint is \
+                 meaningful: the map is diverging, so white means 'neither hot nor cold'.",
+            )
+            .small()
+            .weak(),
+        );
 
         ui.add_space(6.0);
         ui.label(
