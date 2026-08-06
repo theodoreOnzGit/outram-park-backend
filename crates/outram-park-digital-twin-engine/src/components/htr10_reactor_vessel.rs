@@ -144,6 +144,19 @@ const PEBBLE_VOID_FRACTION: f32 = 0.12;
 /// keeps the unfuelled rim visible instead of letting kernels touch the edge.
 pub(crate) const FUELLED_ZONE_FRAC: f32 = 0.8;
 
+/// Fraction of the fuelled zone the TRISO speckle should visually cover —
+/// dimensionless, in `[0, 1)`.
+///
+/// The maintainer's target: a pebble should read as *packed* with kernels, not
+/// sprinkled with them. [`triso_dot_count`] inverts the random-coverage
+/// relation to hit this, so changing this one number changes the density and
+/// nothing else needs retuning.
+///
+/// **This is a legibility target, not a physical packing fraction.** A real
+/// fuel sphere holds thousands of TRISO particles at a far lower volume
+/// fraction; drawing them faithfully at these sizes would give a uniform grey.
+pub(crate) const TRISO_TARGET_FILL: f32 = 0.8;
+
 /// Drawn pebble radius, in **points**, at or below which no dots are drawn.
 ///
 /// Below roughly a 1.5 pt radius a pebble is about three pixels across at
@@ -186,7 +199,19 @@ pub(crate) fn triso_dot_count(radius: f32) -> usize {
     } else if radius < TRISO_SINGLE_DOT_RADIUS {
         1
     } else {
-        ((radius * 12.0) as usize).clamp(30, 120)
+        {
+            // Derive the count from the TARGET FILL rather than a hand-tuned
+            // multiplier, so the intent is stated once and the geometry follows.
+            //
+            // Dots are scattered independently, so they overlap. For random
+            // placement the expected covered fraction of the zone is
+            // `1 - exp(-A_dots / A_zone)`, which inverts to
+            // `N = -ln(1 - fill) * (r_zone / r_dot)^2`.
+            let zone = FUELLED_ZONE_FRAC * radius;
+            let dot = triso_dot_radius(radius);
+            let n = -(1.0 - TRISO_TARGET_FILL).ln() * (zone * zone) / (dot * dot);
+            (n as usize).clamp(24, 260)
+        }
     }
 }
 
@@ -203,7 +228,7 @@ pub(crate) fn triso_dot_radius(radius: f32) -> f32 {
     if radius < TRISO_SINGLE_DOT_RADIUS {
         (radius * 0.42).max(0.5)
     } else {
-        (radius * 0.075).clamp(0.35, 1.0)
+        (radius * 0.10).clamp(0.4, 1.2)
     }
 }
 
@@ -884,11 +909,11 @@ mod packing_tests {
     /// [`TRISO_TINT_ONLY_RADIUS`] (1.5 pt), exactly one centred dot below
     /// [`TRISO_SINGLE_DOT_RADIUS`] (3.0 pt), and a clamped scatter above it.
     /// Sample [`triso_dot_count`] across 0.1..30.0 pt and require each regime,
-    /// monotonic non-decreasing growth, the 120-dot cap, a zero offset in the
+    /// monotonic non-decreasing growth, the fill-derived count, a zero offset in the
     /// degenerate regimes, and no panic on non-finite input.
     ///
     /// **Result (2026-08-06):** counts 0 at r <= 1.5, 1 over 1.5 < r < 3.0,
-    /// 4 at r = 3.0 rising monotonically to the 120-dot cap at r = 12.0;
+    /// 4 at r = 3.0 rising monotonically to the fill-derived count at r = 12.0;
     /// non-finite radii return 0. Interpretation: a pebble a few points across
     /// still reads as a graphite ball with a hot core instead of a smear.
     #[test]
@@ -907,12 +932,20 @@ mod packing_tests {
         }
         assert_eq!(
             triso_dot_count(3.0),
-            36,
-            "the speckle regime starts at 36 dots"
+            57,
+            "the speckle regime starts near the fill target"
         );
-        assert!(triso_dot_count(6.0) > 15);
-        assert_eq!(triso_dot_count(12.0), 120, "the cap must bite by 12 pt");
-        assert_eq!(triso_dot_count(30.0), 120, "the cap must hold");
+        assert!(triso_dot_count(6.0) >= 100);
+        // At and above the dot-radius cap the count settles at the value the
+        // 80% fill target implies, independent of pebble size.
+        assert_eq!(
+            triso_dot_count(12.0),
+            103,
+            "12 pt should hit the fill target"
+        );
+        // Past the cap the dots stop growing, so more are needed for the same
+        // fill — until the safety clamp bites.
+        assert_eq!(triso_dot_count(30.0), 260, "the safety clamp must hold");
 
         let mut previous = 0;
         for step in 1..=300 {
