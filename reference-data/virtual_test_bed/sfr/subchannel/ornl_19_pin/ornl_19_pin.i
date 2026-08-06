@@ -1,0 +1,266 @@
+################################################################################
+## SFR 19 pin assembly benchmark                                              ##
+## SCM simulation                                                             ##
+## POC : Mauricio Tano, mauricio.tanoretamales at inl.gov                     ##
+################################################################################
+## If using or referring to this model, please cite as explained in
+## https://mooseframework.inl.gov/virtual_test_bed/citing.html
+
+T_in = 588.5
+A12 = 1.00423e3
+A13 = -0.21390
+A14 = -1.1046e-5
+rho = '${fparse A12 + A13 * T_in + A14 * T_in * T_in}'
+flow_area = 0.000467906 #m2
+vol_flow = 4.67E-05 #low flow case
+mass_flux_in = '${fparse rho *  vol_flow / flow_area}'
+P_out = 2.0e5 # Pa
+[TriSubChannelMesh]
+  [subchannel]
+    type = SCMTriAssemblyMeshGenerator
+    nrings = 3
+    n_cells = 40
+    flat_to_flat = 3.41e-2
+    heated_length = 0.5334
+    unheated_length_entry = 0.4064
+    unheated_length_exit = 0.0762
+    pin_diameter = 5.84e-3
+    pitch = 7.26e-3
+    dwire = 1.42e-3
+    hwire = 0.3048
+  []
+[]
+
+[FluidProperties]
+  [sodium]
+    type = PBSodiumFluidProperties
+  []
+[]
+
+[SubChannel]
+  type = TriSubChannel1PhaseProblem
+  fp = sodium
+  n_blocks = 1
+  P_out = 2.0e5
+  compute_density = true
+  compute_viscosity = true
+  compute_power = true
+  P_tol = 1.0e-5
+  T_tol = 1.0e-4
+  implicit = true
+  segregated = false
+  verbose_multiapps = true
+  verbose_subchannel = true
+  interpolation_scheme = upwind
+  # Heat Transfer Correlations
+  pin_HTC_closure = 'Dittus-Boelter'
+  # friction model
+  friction_closure = 'cheng'
+  full_output = true
+  # mixing model
+  mixing_closure = 'cheng_todreas'
+[]
+
+[SCMClosures]
+  [cheng]
+    type = SCMFrictionUpdatedChengTodreas
+  []
+  [Dittus-Boelter]
+    type = SCMHTCDittusBoelter
+  []
+  [cheng_todreas]
+    type = SCMMixingChengTodreas
+    CT = 2.6
+  []
+[]
+
+[ICs]
+  [S_IC]
+    type = SCMTriFlowAreaIC
+    variable = S
+  []
+
+  [w_perim_IC]
+    type = SCMTriWettedPerimIC
+    variable = w_perim
+  []
+
+  [q_prime_IC]
+    type = SCMTriPowerIC
+    variable = q_prime
+    power = 4966 #W
+    filename = "pin_power_profile_19.txt"
+  []
+
+  [T_ic]
+    type = ConstantIC
+    variable = T
+    value = ${T_in}
+  []
+
+  [P_ic]
+    type = ConstantIC
+    variable = P
+    value = 0.0
+  []
+
+  [DP_ic]
+    type = ConstantIC
+    variable = DP
+    value = 0.0
+  []
+
+  [Viscosity_ic]
+    type = ViscosityIC
+    variable = mu
+    p = ${P_out}
+    T = T
+    fp = sodium
+  []
+
+  [rho_ic]
+    type = RhoFromPressureTemperatureIC
+    variable = rho
+    p = ${P_out}
+    T = T
+    fp = sodium
+  []
+
+  [h_ic]
+    type = SpecificEnthalpyFromPressureTemperatureIC
+    variable = h
+    p = ${P_out}
+    T = T
+    fp = sodium
+  []
+
+  [mdot_ic]
+    type = ConstantIC
+    variable = mdot
+    value = 0.0
+  []
+[]
+
+[AuxKernels]
+  [T_in_bc]
+    type = ConstantAux
+    variable = T
+    boundary = inlet
+    value = ${T_in}
+    execute_on = 'timestep_begin'
+  []
+  [mdot_in_bc]
+    type = SCMMassFlowRateAux
+    variable = mdot
+    boundary = inlet
+    area = S
+    mass_flux = ${mass_flux_in}
+    execute_on = 'timestep_begin'
+  []
+[]
+
+[Outputs]
+  exodus = true
+  csv = true
+[]
+
+[Executioner]
+  type = Steady
+[]
+
+[Postprocessors]
+  [T1]
+    type = SubChannelPointValue
+    variable = T
+    index = 37
+    execute_on = "timestep_end"
+    height = 1.016
+  []
+  [T2]
+    type = SubChannelPointValue
+    variable = T
+    index = 36
+    execute_on = "timestep_end"
+    height = 1.016
+  []
+  [T3]
+    type = SubChannelPointValue
+    variable = T
+    index = 20
+    execute_on = "timestep_end"
+    height = 1.016
+  []
+  [T4]
+    type = SubChannelPointValue
+    variable = T
+    index = 10
+    execute_on = "timestep_end"
+    height = 1.016
+  []
+  [T5]
+    type = SubChannelPointValue
+    variable = T
+    index = 4
+    execute_on = "timestep_end"
+    height = 1.016
+  []
+  [T6]
+    type = SubChannelPointValue
+    variable = T
+    index = 1
+    execute_on = "timestep_end"
+    height = 1.016
+  []
+  [T7]
+    type = SubChannelPointValue
+    variable = T
+    index = 14
+    execute_on = "timestep_end"
+    height = 1.016
+  []
+  [T8]
+    type = SubChannelPointValue
+    variable = T
+    index = 28
+    execute_on = "timestep_end"
+    height = 1.016
+  []
+  ####### Assembly pressure drop
+  [DP_SubchannelDelta]
+    type = SubChannelDelta
+    variable = P
+    execute_on = 'TIMESTEP_END'
+  []
+  #####
+  [Mean_Temp]
+    type = SCMPlanarMean
+    variable = T
+    height = 2
+  []
+[]
+################################################################################
+# A multiapp that projects data to a detailed mesh
+################################################################################
+
+[MultiApps]
+  [viz]
+    type = FullSolveMultiApp
+    input_files = "ornl_19_pin_viz.i"
+    execute_on = "timestep_end"
+  []
+[]
+
+[Transfers]
+  [subchannel_transfer]
+    type = SCMSolutionTransfer
+    to_multi_app = viz
+    variable = 'mdot SumWij P DP h T rho mu S w_perim'
+  []
+
+  [pin_transfer]
+    type = SCMSolutionTransfer
+    transfer_type = pin
+    to_multi_app = viz
+    variable = 'q_prime'
+  []
+[]
