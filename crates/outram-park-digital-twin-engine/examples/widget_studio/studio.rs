@@ -33,11 +33,17 @@ pub enum WidgetUnderTest {
     SteamTurbine,
     Pipes,
     PipeBend,
+    Reactors,
 }
 
 impl WidgetUnderTest {
     /// Every widget the studio can show, in picker order.
-    pub const ALL: &'static [Self] = &[Self::SteamTurbine, Self::Pipes, Self::PipeBend];
+    pub const ALL: &'static [Self] = &[
+        Self::SteamTurbine,
+        Self::Pipes,
+        Self::PipeBend,
+        Self::Reactors,
+    ];
 
     /// Human-readable name for the picker.
     pub fn label(self) -> &'static str {
@@ -45,6 +51,7 @@ impl WidgetUnderTest {
             Self::SteamTurbine => "Steam turbine",
             Self::Pipes => "Pipes (3 backends)",
             Self::PipeBend => "Pipe bend",
+            Self::Reactors => "Reactor vessels (6 types)",
         }
     }
 
@@ -55,6 +62,9 @@ impl WidgetUnderTest {
             Self::SteamTurbine => "reworked — spins at omega from a real torque balance",
             Self::Pipes => "salt / steam-water HEM / helium, stacked",
             Self::PipeBend => "two helium runs, live turn angle",
+            Self::Reactors => {
+                "schematic art for every scoped reactor — illustrative, not validated"
+            }
         }
     }
 }
@@ -105,6 +115,9 @@ pub struct WidgetStudio {
     pipe_errors: Vec<String>,
     /// The bend demonstration: two helium legs and their joint.
     bend: crate::bend_tab::BendDemo,
+    /// The reactor-vessel gallery: shared temperatures and rod position for
+    /// every scoped architecture.
+    reactors: crate::reactor_tab::ReactorTab,
     /// Backends that failed to STEP on the last frame. Surfaced rather than
     /// swallowed: a frozen solver must not look like a working one.
     pipe_step_errors: Vec<String>,
@@ -133,6 +146,7 @@ impl Default for WidgetStudio {
             pipe_rows,
             pipe_errors,
             bend: crate::bend_tab::BendDemo::default(),
+            reactors: crate::reactor_tab::ReactorTab::default(),
             pipe_step_errors: Vec::new(),
         }
     }
@@ -206,8 +220,7 @@ impl eframe::App for WidgetStudio {
             // so it must hold regardless of frame rate.
             let sim_dt = Time::new::<second>(dt_real * self.sim_speed);
             self.pipe_step_errors = crate::pipes::step_rows(&mut self.pipe_rows, sim_dt);
-            self.pipe_step_errors
-                .extend(self.bend.step(sim_dt));
+            self.pipe_step_errors.extend(self.bend.step(sim_dt));
 
             ui.ctx().request_repaint();
         } else {
@@ -244,11 +257,13 @@ impl eframe::App for WidgetStudio {
                 WidgetUnderTest::SteamTurbine => self.turbine_controls(ui),
                 WidgetUnderTest::Pipes => self.pipe_controls(ui),
                 WidgetUnderTest::PipeBend => crate::bend_tab::controls(ui, &mut self.bend),
+                WidgetUnderTest::Reactors => crate::reactor_tab::controls(ui, &mut self.reactors),
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| match self.selected {
             WidgetUnderTest::SteamTurbine => self.turbine_canvas(ui),
             WidgetUnderTest::PipeBend => crate::bend_tab::draw(ui, &self.bend),
+            WidgetUnderTest::Reactors => crate::reactor_tab::draw(ui, &self.reactors),
             WidgetUnderTest::Pipes => {
                 // Pipes are drawn to true scale, so a long run can exceed the
                 // panel. Scroll rather than rescale: shrinking to fit would
@@ -304,7 +319,7 @@ impl WidgetStudio {
                     &mut self.pipe_rows[i].component.velocity.value,
                     -30.0..=30.0,
                 )
-                    .text(format!("{name} [m/s]")),
+                .text(format!("{name} [m/s]")),
             );
         }
 
@@ -365,7 +380,10 @@ impl WidgetStudio {
 
         ui.add_space(8.0);
         for e in &self.pipe_step_errors {
-            ui.colored_label(Color32::from_rgb(220, 80, 60), format!("⚠ step failed — {e}"));
+            ui.colored_label(
+                Color32::from_rgb(220, 80, 60),
+                format!("⚠ step failed — {e}"),
+            );
         }
         ui.label(
             RichText::new(
@@ -465,7 +483,11 @@ impl WidgetStudio {
 
         ui.separator();
         ui.label(RichText::new("Performance").strong());
-        let fps = if self.frame_ms > 0.0 { 1000.0 / self.frame_ms } else { 0.0 };
+        let fps = if self.frame_ms > 0.0 {
+            1000.0 / self.frame_ms
+        } else {
+            0.0
+        };
         ui.label(format!(
             "frame {:.1} ms  ({:.0} fps) · {} substep(s)/frame",
             self.frame_ms, fps, self.last_substeps
@@ -510,10 +532,7 @@ impl WidgetStudio {
                 )
                 .at_time(self.simulation_time)
                 .rotor_angle();
-                ui.label(format!(
-                    "{:.2} rad",
-                    theta.get::<uom::si::angle::radian>()
-                ));
+                ui.label(format!("{:.2} rad", theta.get::<uom::si::angle::radian>()));
                 ui.end_row();
 
                 ui.label("electrical power");

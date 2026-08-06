@@ -43,6 +43,9 @@ fn main() {}
 mod bend_tab;
 #[cfg(not(target_os = "android"))]
 mod pipes;
+
+/// Reactor-vessel gallery: every scoped reactor architecture, side by side.
+mod reactor_tab;
 #[cfg(not(target_os = "android"))]
 mod studio;
 

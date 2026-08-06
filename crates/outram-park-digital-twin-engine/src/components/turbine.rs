@@ -268,6 +268,38 @@ const STAGE_QUALITY_DISPLAY_MAX: f32 = 1.0;
 /// illustrative and are **not** the output of any flash calculation — do not
 /// cite or re-use them. They are replaced by the real per-stage quality when
 /// the turbine is coupled to a steam path (workspace bead `op-dt3.18`).
+/// Which way the blading leans at axial station `i`, where `i` runs from `0.0`
+/// at the left-hand row to `BLADE_ROWS - 1` at the right-hand row.
+///
+/// Returns `+1.0` or `-1.0`, a multiplier on the blade tilt.
+///
+/// # Why double flow mirrors
+///
+/// A double-flow cylinder admits steam at the **centre** and exhausts at both
+/// ends, so the axial flow runs in **opposite directions** through the two
+/// halves. For one shaft rotation sense to extract work from both, the blading
+/// in one half must be the geometric **mirror image** of the other — the lean
+/// flips at the admission plane, exactly as blade height does.
+///
+/// Leaning both halves the same way draws one half being driven backwards by
+/// its own steam, which is what this function exists to prevent.
+///
+/// Single flow has a single axial direction, so the lean is uniform and this
+/// returns `+1.0` everywhere.
+fn lean_sign(flow_path: TurbineFlowPath, i: f32) -> f32 {
+    let across = i / (BLADE_ROWS - 1) as f32; // 0..1 left to right
+    match flow_path {
+        TurbineFlowPath::SingleFlow => 1.0,
+        TurbineFlowPath::DoubleFlow => {
+            if across < 0.5 {
+                -1.0
+            } else {
+                1.0
+            }
+        }
+    }
+}
+
 fn placeholder_stage_quality(stage_fraction: f32) -> f32 {
     let f = stage_fraction.clamp(0.0, 1.0);
     // Saturated vapour at admission, progressively wetter towards exhaust.
@@ -472,6 +504,8 @@ impl Widget for TurbineVisual {
                 TurbineFlowPath::DoubleFlow => (2.0 * across - 1.0).abs(),
             }
         };
+        // Which way the blading leans at station `i` — see `lean_sign`.
+        let lean_sign_at = |i: f32| -> f32 { lean_sign(self.flow_path, i) };
         // Blade height grows with the expansion, so the annulus opens out
         // towards each exhaust.
         let radius_at =
@@ -555,18 +589,15 @@ impl Widget for TurbineVisual {
             // the annulus. These are fixed: no `theta` term, so they do not
             // move. Tilted OPPOSITE to the rotor blades, because the stator
             // turns the flow one way and the rotor takes it back the other.
-            // Blade LEAN is uniform across the machine, unlike blade HEIGHT
-            // (which mirrors — see the double-flow symmetry test). The rotor
-            // turns in ONE direction along the whole shaft, so the blades keep
-            // a single sense rather than flipping at the admission plane; the
-            // stator and rotor lean OPPOSITELY to each other, which is what
-            // makes a stage turn the flow and take work out of it.
+            // Blade LEAN mirrors about the admission plane on a double-flow
+            // machine, exactly as blade HEIGHT does — see `lean_sign_at` for
+            // why, and the double-flow symmetry tests for the pinned contract.
             // Negative: the nozzle angles DOWN across the row (verified on
             // screen, 2026-08-04). The rotor carries the same sign, so the two
-            // rows currently lean the same way rather than opposing; the
-            // opposition that turns the flow is carried by the CAMBER, which
-            // still runs in opposite senses for the two rows.
-            let stator_tilt = -tilt * (angles.stator_deg / 60.0);
+            // rows lean the same way rather than opposing; the opposition that
+            // turns the flow is carried by the CAMBER, which still runs in
+            // opposite senses for the two rows.
+            let stator_tilt = -tilt * (angles.stator_deg / 60.0) * lean_sign_at(row_f);
             for k in 0..STATOR_BLADES_PER_ROW * 2 {
                 let phi = Angle::new::<radian>(
                     k as f64 * (2.0 * PI) / ((STATOR_BLADES_PER_ROW * 2) as f64),
@@ -638,11 +669,14 @@ impl Widget for TurbineVisual {
 
                 // Tilt sets the blade angle: the tip leads the root, tilted
                 // opposite to the stator blades. Follows this stage's
-                // placeholder rotor angle.
-                // Left as it was: verified correct on screen for single flow.
-                // Note this now leans the SAME way as the stator rather than
+                // placeholder rotor angle, and mirrors about the admission
+                // plane on a double-flow machine (see `lean_sign_at`) — the
+                // rotor sits half a pitch downstream, so its lean is evaluated
+                // at `row_f + 0.5`, the same station its radius uses.
+                // Note this leans the SAME way as the stator rather than
                 // against it — see the comment on `stator_tilt`.
-                let rotor_tilt = -tilt * (rotor_angles.rotor_deg / 40.0);
+                let rotor_tilt =
+                    -tilt * (rotor_angles.rotor_deg / 40.0) * lean_sign_at(row_f + 0.5);
                 let stroke = if blade == MARKER_BLADE {
                     marker_stroke
                 } else {
@@ -876,5 +910,89 @@ mod tests {
         let v = TurbineVisual::new_generator(g, Pos2::ZERO, Vec2::new(200.0, 100.0), min, max)
             .at_time(Time::new::<second>(60.0));
         assert_eq!(v.rotor_angle().get::<radian>(), 0.0);
+    }
+}
+
+#[cfg(test)]
+mod double_flow_lean_tests {
+    use super::*;
+
+    /// A double-flow cylinder's two halves must be geometric MIRROR IMAGES,
+    /// blade lean included — not just blade height.
+    ///
+    /// **Methodology.** Steam is admitted at the centre and exhausts at both
+    /// ends, so the axial flow runs in opposite directions through the two
+    /// halves; one shaft rotation sense can only extract work from both if the
+    /// blading mirrors. Evaluate [`lean_sign`] at mirrored stations across the
+    /// machine — `i` against `(BLADE_ROWS - 1) - i` — and require the two to
+    /// carry OPPOSITE signs, and each to be exactly unit magnitude.
+    ///
+    /// **Result (2026-08-06):** every mirrored pair is opposite-signed, and no
+    /// station returns anything but +/-1. Interpretation: the two halves lean
+    /// away from the admission plane, so neither half is drawn being driven
+    /// backwards by its own steam. Before this, lean was uniform across the
+    /// machine and the halves read as translated rather than mirrored.
+    #[test]
+    fn double_flow_blade_lean_mirrors_about_the_admission_plane() {
+        let span = (BLADE_ROWS - 1) as f32;
+        for step in 0..=(BLADE_ROWS * 2) {
+            let i = span * (step as f32) / ((BLADE_ROWS * 2) as f32);
+            let mirrored = span - i;
+            let a = lean_sign(TurbineFlowPath::DoubleFlow, i);
+            let b = lean_sign(TurbineFlowPath::DoubleFlow, mirrored);
+
+            assert!(
+                a.abs() == 1.0 && b.abs() == 1.0,
+                "lean sign must be unit magnitude, got {a} and {b}"
+            );
+            // Stations exactly on the admission plane are their own mirror;
+            // everything else must oppose.
+            if (i - mirrored).abs() > 1e-6 {
+                assert_eq!(
+                    a, -b,
+                    "station {i} and its mirror {mirrored} must lean oppositely, got {a} vs {b}"
+                );
+            }
+        }
+    }
+
+    /// Single flow has one axial direction, so the lean must NOT flip — a
+    /// mirrored single-flow machine would be wrong in the other direction.
+    #[test]
+    fn single_flow_blade_lean_is_uniform() {
+        let span = (BLADE_ROWS - 1) as f32;
+        for step in 0..=BLADE_ROWS {
+            let i = span * (step as f32) / (BLADE_ROWS as f32);
+            assert_eq!(
+                lean_sign(TurbineFlowPath::SingleFlow, i),
+                1.0,
+                "single flow must not mirror, but station {i} flipped"
+            );
+        }
+    }
+
+    /// The two halves must be the same SIZE — if the split were off-centre one
+    /// half would carry more rows than the other and the mirror would be
+    /// visibly lopsided.
+    #[test]
+    fn double_flow_halves_are_balanced() {
+        let span = (BLADE_ROWS - 1) as f32;
+        let (mut left, mut right) = (0, 0);
+        for row in 0..BLADE_ROWS {
+            let i = row as f32;
+            // Skip a row sitting exactly on the plane; it belongs to neither.
+            if (i - (span - i)).abs() < 1e-6 {
+                continue;
+            }
+            if lean_sign(TurbineFlowPath::DoubleFlow, i) < 0.0 {
+                left += 1;
+            } else {
+                right += 1;
+            }
+        }
+        assert_eq!(
+            left, right,
+            "double-flow halves are lopsided: {left} vs {right}"
+        );
     }
 }
