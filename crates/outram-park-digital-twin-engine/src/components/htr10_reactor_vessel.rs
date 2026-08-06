@@ -155,7 +155,7 @@ pub(crate) const FUELLED_ZONE_FRAC: f32 = 0.8;
 /// **This is a legibility target, not a physical packing fraction.** A real
 /// fuel sphere holds thousands of TRISO particles at a far lower volume
 /// fraction; drawing them faithfully at these sizes would give a uniform grey.
-pub(crate) const TRISO_TARGET_FILL: f32 = 0.65;
+pub(crate) const TRISO_TARGET_FILL: f32 = 0.55;
 
 /// Drawn pebble radius, in **points**, at or below which no dots are drawn.
 ///
@@ -932,15 +932,15 @@ mod packing_tests {
         }
         assert_eq!(
             triso_dot_count(3.0),
-            37,
+            28,
             "the speckle regime starts near the fill target"
         );
-        assert!(triso_dot_count(6.0) >= 60);
+        assert!(triso_dot_count(6.0) >= 45);
         // At and above the dot-radius cap the count settles at the value the
         // fill target implies, independent of pebble size.
         assert_eq!(
             triso_dot_count(12.0),
-            67,
+            51,
             "12 pt should hit the fill target"
         );
         // Past the cap the dots stop growing, so more are needed for the same
