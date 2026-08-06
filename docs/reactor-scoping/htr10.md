@@ -118,6 +118,11 @@ reference it names. This should be treated as unvalidated and fixed.
 | `op-wqk.9.3` secondary is scaffold | open | **Mostly stale.** The listed defects — simplified IHX duty, fixed secondary mass flow, no real turbine expansion or condenser balance — are all now implemented and tested. Only fixed steam pressure remains true |
 | `op-wqk.9.4` schematic omits the pipe widget | open | **Stale** — the schematic uses it for every connector |
 
+> **See also [vtb-findings.md](vtb-findings.md)** — the vendored NRIC/INL
+> Virtual Test Bed carries material that closes several gaps recorded below.
+> For HTR-10 specifically it supplies confirmed report identifiers and reference
+> values that were deliberately left unasserted here.
+
 ## 4. Open validation data
 
 **Access tier: openly published, and unusually good for this reactor.**

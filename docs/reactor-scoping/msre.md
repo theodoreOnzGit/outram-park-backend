@@ -135,6 +135,11 @@ spatial side already passes its tests.
 Natural home for the reduced model is `crates/teh-o-prke`, consistent with
 `crates/nee_soon`'s stated split of new kinetics into that crate.
 
+> **See also [vtb-findings.md](vtb-findings.md)** — the vendored NRIC/INL
+> Virtual Test Bed carries material that closes several gaps recorded below.
+> For MSRE specifically it supplies confirmed report identifiers and reference
+> values that were deliberately left unasserted here.
+
 ## 5. Open validation data
 
 **Access tier: openly published national-laboratory reporting.** The MSRE
