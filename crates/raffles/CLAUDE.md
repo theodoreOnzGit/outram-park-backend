@@ -264,22 +264,57 @@ enough?") is a separate question and is not answered by any of the above.
 
 ## Android / Termux
 
-The crate is Android-clean by construction — its only dependency is
-`thiserror`. Keep it that way.
+The crate is Android-clean, and stays that way. Its dependencies are
+`thiserror` and `outram-mc-libs` (the RNG — see below); both build for
+`aarch64-linux-android`.
 
 - **Never** add `ndarray-linalg`, or anything needing system BLAS/LAPACK, a C
   or Fortran toolchain, or windowing GUI, as an unconditional dependency.
 - Surrogate fitting and correlated multivariate sampling are where this
   temptation will appear. Reach first for the pure-Rust **`faer`** already in
   the root `[workspace.dependencies]`.
-- If something BLAS-backed is genuinely unavoidable, declare it under
-  `[target.'cfg(not(target_os = "android"))'.dependencies]` **in the same
-  change**, and note it in the README.
 - Examples, tests and benches are **not** exempt — a native Termux build
   compiles them all.
-- Sampling will need an RNG. Add it to the **root** `[workspace.dependencies]`
-  (single source of truth), pick a pure-Rust one, and require explicit seeding
-  so designs are reproducible.
+
+### Follow `outram-mc-libs`'s gating conventions — do not invent a third
+
+If RAFFLES ever needs something Android-hostile, gate it **exactly the way
+`outram-mc-libs` already does**, in the same change. Read that crate's
+`Cargo.toml` and `src/gpu/` for the worked pattern; do not devise a new one:
+
+- Target-conditional dependency tables —
+  `[target.'cfg(not(target_os = "android"))'.dependencies]` (that is how
+  `outram-mc-libs` keeps `wgpu` off Android) and the matching
+  `…'.dev-dependencies]` for dev-only tools (how it keeps `naga` off).
+- `#[cfg(not(target_os = "android"))]` on the items that use them, with a
+  CPU-only shim on the Android side so the library still builds headless.
+- **Android stub `main`** in any example or binary, under
+  `#[cfg(target_os = "android")]`, since a blanked file gives "main function
+  not found".
+
+Note the workspace rule while you are here: Android's `target_os` is
+**`"android"`, not `"linux"`**, so a `cfg(target_os = "linux")` gate does
+**not** mean "not Android" — never rely on one to exclude Android.
+
+### RNG — reuse, do not add or hand-roll one
+
+**Sampling draws from `outram_mc_libs::rng::lcg`** (OpenMC's 64-bit LCG port),
+not from a `rand` crate and not from a PRNG written inside RAFFLES. Whether the
+workspace should take a general `rand` dependency is an open maintainer
+question (`docs/raven-port-scoping.md` section 10, question 1) and is not a
+port agent's call. Seeding stays **explicit** — every `generate` takes a
+`master_seed`, and independent dimensions/replicates get non-overlapping
+streams via `future_seed` jump-ahead. See `src/samplers.rs`.
+
+**Known upstream discrepancy, do not use:**
+`outram_mc_libs::rng::lcg::init_seed` computes
+`future_seed(id + offset, future_seed(DEFAULT_STRIDE, master))`, so consecutive
+`id`s land one LCG *step* apart. OpenMC's own `init_seed`
+(`src/random_lcg.cpp:60`) is `future_seed(id * prn_stride, master_seed +
+offset)` — one *stride* apart. Using the workspace helper for per-stream
+derivation would produce near-perfectly correlated streams. `src/samplers.rs`
+calls `future_seed` directly with OpenMC's semantics instead. The fix belongs
+in `outram-mc-libs`, not here.
 
 Proxy check, all targets:
 

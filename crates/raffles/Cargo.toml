@@ -39,3 +39,18 @@ exclude = ["docs", "upstream_source/raven"]
 #
 # Versions come from the root [workspace.dependencies] — never pin here.
 thiserror.workspace = true
+# RANDOM NUMBER GENERATOR (src/samplers.rs). RAFFLES does NOT ship its own
+# generator: it reuses `outram_mc_libs::rng::lcg` — the OpenMC 64-bit LCG port,
+# with the O(log n) `future_seed` jump-ahead that gives each sampled dimension a
+# provably non-overlapping stream. That is OpenMC's reproducible-parallel-MC
+# design, it is already tested, and duplicating a PRNG in one workspace is the
+# thing to avoid. The workspace has no `rand` crate; whether to add one is the
+# maintainer's call (docs/raven-port-scoping.md section 10, question 1).
+#
+# ANDROID: this dependency is Android-clean. outram-mc-libs target-gates its
+# wgpu/GPU paths (and its `naga` dev-dependency) off Android with
+# `[target.'cfg(not(target_os = "android"))'.dependencies]`, so
+# `cargo check -p raffles --all-targets --target aarch64-linux-android` passes.
+# RAFFLES follows the same gating convention if it ever needs something
+# Android-hostile — see this crate's CLAUDE.md.
+outram-mc-libs.workspace = true
