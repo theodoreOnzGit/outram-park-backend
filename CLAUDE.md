@@ -146,18 +146,35 @@ specifically, not just human contributors:
     reference is a hard error pointing at the exact line. Prefer this over a
     blind `sed` rename, which can silently mangle a colliding name.
 
-## Dogfood KOPITIAM (HARD RULE)
+## Dogfood KOPITIAM and KOPI-BEANS (HARD RULE)
 
-**KOPITIAM (`kopitiam`) is a first-party tool of this project's maintainer and
-MUST be dogfooded in this workspace.** Install with `cargo install kopitiam`
-(crates.io; source: https://github.com/theodoreOnzGit/kopitiam). It is a
-local-first "Semantic Runtime" CLI over real `cargo` / rust-analyzer / rustdoc
-facts, plus a PDF-to-Markdown engine. Using it here is deliberate: this
-workspace is its proving ground, so **reach for `kopitiam` first** where it
-covers the task, and **report every rough edge you hit** as a GitHub issue on
-the kopitiam repo (see "raising issues" below).
+**KOPITIAM (`kopitiam`) and KOPI-BEANS (`kopi-beans`, binary `bn`) are
+first-party tools of this project's maintainer and MUST be dogfooded in this
+workspace, by default.** Install both from crates.io:
 
-**Where it is the preferred tool:**
+```bash
+cargo install kopitiam     # binary: kopitiam
+cargo install kopi-beans   # binary: bn
+```
+
+Source for both: https://github.com/theodoreOnzGit/kopitiam.
+
+- **`kopitiam`** is a local-first "Semantic Runtime" CLI over real `cargo` /
+  rust-analyzer / rustdoc facts, plus a PDF-to-Markdown engine.
+- **`kopi-beans`** is a distributed, git-backed work-item tracker — a
+  Windows/Termux-capable fork of beads-rs (MIT upstream), relicensed
+  **AGPL-3.0-only**. Because it is a *fork of beads*, it covers the same ground
+  as `bd`; see "Which tracker" below before filing anything.
+
+Using them here is deliberate: this workspace is their proving ground, so
+**reach for them first** where they cover the task, and **report every rough
+edge you hit** (see "Raising issues" below).
+
+> **Licence note.** `kopi-beans` is AGPL-3.0-only. That is fine here because it
+> is **consumed as a standalone binary**, never linked or vendored — see the
+> hard boundary below. Do not add it as a dependency of any workspace crate.
+
+**Where `kopitiam` is the preferred tool:**
 
 - **Token-frugal code reading.** `kopitiam tokens <path>` before deciding to
   read a file; `kopitiam outline <file>` for a declarations-only skeleton;
@@ -188,20 +205,23 @@ the kopitiam repo (see "raising issues" below).
   done. Do not let kopitiam's default profile silently replace the release-mode
   requirement.
 
-**CONSUME THE BINARY ONLY — NEVER MODIFY KOPITIAM FROM THIS WORKSPACE.** This
-is the hard boundary, and it does not bend:
+**CONSUME THE BINARIES ONLY — NEVER MODIFY KOPITIAM OR KOPI-BEANS FROM THIS
+WORKSPACE.** This is the hard boundary, it covers **both** tools, and it does
+not bend:
 
-- **Use released binaries.** Install with `cargo install kopitiam` (crates.io).
-  Upgrade by installing a newer published version. That is the *only* supported
-  way this workspace consumes kopitiam.
-- **Never edit kopitiam's source from here.** No local edits, no local patched
+- **Use released binaries.** Install with `cargo install kopitiam` /
+  `cargo install kopi-beans` (crates.io). Upgrade by installing a newer
+  published version. That is the *only* supported way this workspace consumes
+  them.
+- **Never edit their source from here.** No local edits, no local patched
   builds, no `cargo install --path` off a working copy, no commits, no
   branches, and no pull requests to the kopitiam repo out of this workspace.
-  If a bug or missing feature blocks you, **the deliverable is a GitHub issue,
-  not a patch.**
-- **Never make it part of this workspace.** Do not add it to
-  `[workspace.dependencies]`, do not add it as a workspace member, and do not
-  vendor its source here.
+  If a bug or missing feature blocks you, **the deliverable is an issue, not a
+  patch.**
+- **Never make them part of this workspace.** Do not add either to
+  `[workspace.dependencies]`, do not add them as workspace members, and do not
+  vendor their source here. This matters doubly for `kopi-beans`, which is
+  AGPL-3.0-only.
 - **If you consult its source at all, treat it as strictly read-only**, and
   keep the clone in a **separate directory outside this repository** — e.g.
   `/workspace/kopitiam`, never anywhere under the OUTRAM PARK working tree.
@@ -211,20 +231,40 @@ is the hard boundary, and it does not bend:
 - **Its per-project state stays local.** Running kopitiam here writes
   `.kopitiam/state.redb` (session memory) into the repo root; that path is
   gitignored and must never be committed or un-ignored.
-- Keep the two projects' trackers separate: OUTRAM PARK work goes in beads,
-  kopitiam bugs go to the kopitiam GitHub repo.
+- Keep the projects' trackers separate: OUTRAM PARK work goes in this
+  workspace's tracker, kopitiam/kopi-beans bugs go upstream.
 
-**Raising issues — the only upstream channel.** Every rough edge, bug, and
-feature request goes to the kopitiam repo as a **GitHub issue**. That repo is
-*not* in this workspace's default GitHub scope — add it to the session first
-(`add_repo` for `theodoreOnzGit/kopitiam`), then file the issue. Report what
-you actually ran, the observed output, and the expected behaviour; do not
-invent version numbers or fabricate reproductions. Filing an issue is the end
-of your involvement in the fix — do not follow it up with code.
+**Raising issues — two channels, in this order.** Every rough edge, bug, and
+feature request in either tool gets written up. Never silently work around a
+defect.
+
+1. **Preferred: a GitHub issue, via `gh` if it is available.** The kopitiam
+   repo is *not* in this workspace's default GitHub scope — add it to the
+   session first (`add_repo` for `theodoreOnzGit/kopitiam`), then file with
+   `gh issue create --repo theodoreOnzGit/kopitiam`. Both tools live in that
+   one repo; say in the title which tool it concerns.
+2. **Fallback, when `gh` is unavailable or unauthenticated: file locally under
+   `docs/kopitiam-issues/`, one markdown file per issue.** Name it
+   `<tool>-<short-kebab-slug>.md` (e.g. `kopitiam-check-has-no-release-flag.md`,
+   `kopi-beans-bn-init-fails-on-termux.md`). These are a queue for later
+   upstreaming, not a private bug tracker — do not let them accumulate silently;
+   mention any new ones in your hand-off.
+
+Whichever channel: report **what you actually ran, the observed output, and
+the expected behaviour**, plus the tool version from `cargo install --list`.
+Do not invent version numbers or fabricate reproductions. Filing the issue is
+the end of your involvement in the fix — do not follow it up with code.
+
+**Which tracker for OUTRAM PARK's own work.** `bn` (kopi-beans) is a *fork of*
+beads-rs, so it overlaps `bd` rather than complementing it. The mandatory
+"Issue tracking & roadmap" section below remains authoritative for which one
+holds this workspace's issues; installing and exercising `bn` is a dogfooding
+obligation and does **not** on its own move the issue store. Do not migrate the
+tracker without an explicit instruction from the maintainer.
 
 **This rule relaxes nothing.** The release-mode rule, the working-hours
 guardrail, never-auto-commit/push, the Android/Termux portability rule, and the
-data-policy rules all still bind when using kopitiam.
+data-policy rules all still bind when using either tool.
 
 ## Agent-fleet progress reporting (HARD RULE, container-timeout prevention)
 
@@ -286,6 +326,17 @@ file on many branches caused recurring merge conflicts. Never re-track it.
 
 **Rules:**
 
+- **Token usage MUST always be documented as a summary under the commit
+  message.** Every commit carries its usage summary in the message body — the
+  `API-Usage-Since-Last-Commit:` trailer (with `total`, `in`, `out`,
+  `cache_read`, `cache_write`, `source`) plus the
+  `API-Usage-Session-Cumulative:` line, appended below the prose. This is not
+  optional and not conditional on the kind of change. The `prepare-commit-msg`
+  hook writes it automatically, so in practice the rule is: **let the hook run,
+  and never remove or edit what it appended.** If you find a commit being made
+  without it, the hooks are not installed for that clone — run
+  `./scripts/install-token-hooks.sh` before committing rather than
+  hand-writing a summary.
 - **Do not strip or fake the trailer.** The numbers come straight from the
   transcripts; nothing is estimated or invented. A commit made outside a Claude
   session legitimately shows `total=0 source=none` — that is correct, not a bug,
@@ -670,6 +721,7 @@ built, tested, and published from this single repository.
 | `outram-foam-appbuilder-lib` | OpenFOAM solver-application layer (pimpleFoam / rhoCentralFoam / rhoPimpleFoam) + case I/O; host of the in-progress **GeN-Foam** deterministic-neutronics + TH port | GPL-3.0 |
 | `boon-lay` | TRISO-particle / Lagrangian decay simulator (BOON-LAY); includes the TRISO-ATOPS fork | GPL-3.0 |
 | `nee_soon` | Integration / coupling layer — composes MC + deterministic/TH + nuclear data + PRKE (mostly scaffold; the prompt-excursion path is wired to `teh-o-prke`) | GPL-3.0 |
+| `bedok` | Systems-level multiphysics coupling — 3-D nodal-diffusion neutronics coupled to channel TH, at the fidelity band **above 1-D neutronics and below CFD**. Rust translation of a MATLAB implementation by Than Yan Ren (SNRSI), used with the author's permission. Carries a committed NEACRP BWR transient case; the benchmark gates are `#[ignore]`d and **have not been run**, so no parity claim is made. | GPL-3.0 |
 | `outram-park-digital-twin-engine` | Offline digital-twin engine + egui GUI example simulators (offline demonstrations only; formerly `outram-park-digital-twin-gui`) | GPL-3.0 |
 | `kovan-common` | **KOVAN** knowledge layer — shared canonical types (`KovanDocument`, `KovanSymbol`, …). The Rust struct is the source of truth. | GPL-3.0 |
 | `kovan-discovery` | KOVAN file discovery + text search — the `fd` (`ignore`) walker and ripgrep (`grep-*`) engine. Offline, deterministic. | GPL-3.0 |
@@ -686,6 +738,9 @@ built, tested, and published from this single repository.
 | `outram-park-fork-liggghts` | Pure-Rust granular-DEM library — particles, contact mechanics, thermal DEM, pebble/packed-bed physics (ports LIGGGHTS/LAMMPS-granular). LIGGGHTS-PUBLIC is GPL-2-or-later (GPL-3-compatible; see `NOTICE`). Scaffold. | GPL-3.0 |
 | `outram-park-fork-pflotran` | Pure-Rust fork of **PFLOTRAN** — subsurface flow & reactive transport; enum-dispatched, `uom`-typed, no PETSc/FFI/MPI. Scaffold, no human V&V. Independent fork. | GPL-3.0 |
 | `outram-park-mpi` | Pure-Rust **MPICH** subset — the MPI-3 API surface (communicators, datatypes, point-to-point, core collectives) over a shared-memory threads-as-ranks transport. No C/FFI, Android-buildable. Scaffold. Not affiliated with MPICH. | GPL-3.0 |
+| `outram-park-fork-moltres` | **Circulating-fuel MSR** multiphysics on the `outram-foam-basic-lib` FV layer — multigroup neutron diffusion + delayed-neutron **precursor drift** + salt heat transfer, reimplemented from the LGPL-2.1 **Moltres** formulation on `FvMesh`/`fvm` rather than MOOSE/PETSc finite elements. Steady eigenvalue only (no coupled flux transient), and **no crate depends on it yet**. Untrusted AI-assisted draft, no human V&V. Independent fork, not affiliated with Moltres/ARFC. | GPL-3.0 |
+| `outram-park-fork-onix` | Pure-Rust fork of **ONIX** (MIT upstream) — Bateman/CRAM depletion + fission-product inventory for the MSRE digital twin. Untrusted AI-assisted draft, no human V&V. Independent fork, not affiliated with ONIX. | GPL-3.0 |
+| `outram-park-fork-thermochimica` | Pure-Rust fork of **ORNL Thermochimica** (BSD-3) — molten-salt Gibbs-energy-minimisation thermochemistry (fission-product speciation, redox, solubility) for the MSRE digital twin. Scaffold, no human V&V. Independent fork, not affiliated with ORNL. | GPL-3.0 |
 
 > **KOVAN** is the deterministic *knowledge* layer (literature + semantics +
 > codegen), interfaced two ways: the `kovan` **CLI** for agents and the
@@ -693,6 +748,13 @@ built, tested, and published from this single repository.
 > Tree-sitter/SQLite/vector-store. Full design spec: **`docs/kovan.md`**
 > (+ `docs/kovan-architecture.md`). Non-GUI kovan crates build for Android;
 > `ratatui` is pulled only under `cfg(not(target_os = "android"))`.
+
+> **MSRE digital-twin group:** `outram-park-fork-moltres` (circulating-fuel
+> neutronics), `outram-park-fork-onix` (depletion) and
+> `outram-park-fork-thermochimica` (salt thermochemistry) exist to serve the
+> MSRE digital twin and are tracked under the **`op-6w0`** epic. All three are
+> AI-assisted drafts with no human V&V, and none is wired into a simulator yet
+> — do not describe any of them as validated. Scoping: `docs/reactor-scoping/msre.md`.
 
 > **Neutronics architecture:** the responsibility split (nuclear data ⟂ Monte
 > Carlo ⟂ deterministic/TH ⟂ coupling), the dependency graph, and phasing live in
