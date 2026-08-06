@@ -381,27 +381,6 @@ fn draw_control_rods(ui: &Ui, body: Rect, frac: f32, count: usize) {
     }
 }
 
-/// A field of pebbles filling `area`, coloured by `colour`.
-fn draw_pebble_bed(ui: &Ui, area: Rect, colour: Color32) {
-    let painter = ui.painter();
-    painter.rect_filled(area, 3.0, colour);
-    let r = (area.width() / 14.0).clamp(2.0, 6.0);
-    let step = r * 2.4;
-    let shade = Color32::from_rgba_unmultiplied(20, 20, 24, 90);
-    let mut y = area.top() + r + 1.0;
-    let mut row = 0;
-    while y < area.bottom() - r {
-        let offset = if row % 2 == 0 { 0.0 } else { step / 2.0 };
-        let mut x = area.left() + r + 1.0 + offset;
-        while x < area.right() - r {
-            painter.circle_filled(Pos2::new(x, y), r, shade);
-            x += step;
-        }
-        y += step * 0.88;
-        row += 1;
-    }
-}
-
 /// Vertical channels — graphite stringers, or a rod bundle.
 fn draw_vertical_channels(ui: &Ui, area: Rect, count: usize, colour: Color32, fill: Color32) {
     let painter = ui.painter();

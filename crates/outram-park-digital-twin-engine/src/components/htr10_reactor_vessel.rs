@@ -70,6 +70,104 @@ pub fn fit_native_aspect(available: Rect) -> Rect {
     Rect::from_center_size(available.center(), Vec2::new(fw, fh))
 }
 
+/// The outline of a pebble bed: a cylinder that narrows through a cone into
+/// the discharge chute, in screen coordinates.
+struct PebbleBedShape {
+    centre_x: f32,
+    top: f32,
+    cylinder_bottom: f32,
+    cone_bottom: f32,
+    half_width: f32,
+    chute_half_width: f32,
+}
+
+impl PebbleBedShape {
+    /// Half-width of the bed at height `y` — constant down the cylinder, then
+    /// tapering linearly to the chute through the cone.
+    fn half_width_at(&self, y: f32) -> f32 {
+        if y <= self.cylinder_bottom {
+            self.half_width
+        } else {
+            let t = ((y - self.cylinder_bottom) / (self.cone_bottom - self.cylinder_bottom))
+                .clamp(0.0, 1.0);
+            self.half_width + (self.chute_half_width - self.half_width) * t
+        }
+    }
+}
+
+/// Deterministic pseudo-random value in `[0, 1)` from two lattice indices.
+///
+/// **Determinism is the point.** The widget is rebuilt every repaint, so
+/// drawing the packing from a real random source would make the bed shimmer —
+/// every pebble jumping to a new spot each frame. Hashing the lattice indices
+/// instead gives a packing that looks random but is identical frame to frame.
+///
+/// `salt` separates the independent draws (x offset, y offset, radius, void)
+/// so they do not correlate into visible stripes.
+fn pebble_hash(col: i32, row: i32, salt: u32) -> f32 {
+    let mut h = (col as u32).wrapping_mul(0x9E37_79B9)
+        ^ (row as u32).wrapping_mul(0x85EB_CA6B)
+        ^ salt.wrapping_mul(0xC2B2_AE35);
+    h ^= h >> 15;
+    h = h.wrapping_mul(0x2545_F491);
+    h ^= h >> 13;
+    (h % 1_000_003) as f32 / 1_000_003.0
+}
+
+/// Fraction of lattice sites left empty, to break up the rows.
+///
+/// A real pebble bed packs to roughly 0.61 solid fraction, so it is visibly
+/// *not* a close-packed lattice. Dropping about one site in eight, on top of
+/// the positional jitter, is what stops the drawing reading as a grid.
+const PEBBLE_VOID_FRACTION: f32 = 0.12;
+
+/// Draws a randomly packed pebble bed filling `shape`.
+///
+/// Pebbles are laid on a jittered lattice: each site is displaced by up to
+/// half a spacing in both axes, its radius varied by roughly a fifth, and some
+/// sites dropped entirely (see [`PEBBLE_VOID_FRACTION`]). Sites whose pebble
+/// would not fit inside the bed outline at that height are skipped, so the
+/// packing follows the cone down to the chute rather than stopping at the
+/// cylinder.
+fn draw_packed_pebbles(painter: &egui::Painter, shape: PebbleBedShape, base_radius: f32) {
+    let step = base_radius * 2.15;
+    let shade = Color32::from_rgba_unmultiplied(18, 18, 22, 100);
+
+    let mut y = shape.top + base_radius * 1.2;
+    let mut row: i32 = 0;
+    while y < shape.cone_bottom - base_radius * 0.5 {
+        let half = shape.half_width_at(y);
+        // Stagger alternate rows before jittering, so the starting lattice is
+        // hexagonal rather than square.
+        let stagger = if row % 2 == 0 { 0.0 } else { step * 0.5 };
+        let mut x = shape.centre_x - half + base_radius + stagger;
+        let mut col: i32 = 0;
+
+        while x < shape.centre_x + half - base_radius {
+            if pebble_hash(col, row, 4) >= PEBBLE_VOID_FRACTION {
+                let dx = (pebble_hash(col, row, 1) - 0.5) * step * 0.85;
+                let dy = (pebble_hash(col, row, 2) - 0.5) * step * 0.7;
+                let r = base_radius * (0.78 + 0.42 * pebble_hash(col, row, 3));
+
+                let (px, py) = (x + dx, y + dy);
+                // Keep the pebble inside the bed at ITS OWN height, which is
+                // what makes the cone read as a cone.
+                let half_here = shape.half_width_at(py);
+                let inside_x = (px - shape.centre_x).abs() + r <= half_here;
+                let inside_y = py - r >= shape.top && py + r <= shape.cone_bottom;
+                if inside_x && inside_y {
+                    painter.circle_filled(Pos2::new(px, py), r, shade);
+                }
+            }
+            x += step;
+            col += 1;
+        }
+
+        y += step * 0.86;
+        row += 1;
+    }
+}
+
 const STEEL: Color32 = Color32::from_rgb(96, 100, 108);
 const GRAPHITE: Color32 = Color32::from_rgb(56, 56, 60);
 const CARBON_BRICK: Color32 = Color32::from_rgb(42, 42, 46);
@@ -273,22 +371,19 @@ impl Widget for Htr10ReactorVesselVisual {
             Stroke::NONE,
         ));
 
-        // Pebbles, drawn over the bed so it reads as a packed bed.
-        let r = (bed_half_w / 5.0).clamp(1.5, 5.0);
-        let step = r * 2.5;
-        let shade = Color32::from_rgba_unmultiplied(18, 18, 22, 95);
-        let mut y = bed_top + r * 1.5;
-        let mut row = 0;
-        while y < bed_cyl_bottom - r {
-            let offset = if row % 2 == 0 { 0.0 } else { step / 2.0 };
-            let mut x = cx - bed_half_w + r + offset;
-            while x < cx + bed_half_w - r {
-                painter.circle_filled(Pos2::new(x, y), r, shade);
-                x += step;
-            }
-            y += step * 0.86;
-            row += 1;
-        }
+        // Pebbles, randomly packed across the bed — cylinder AND cone.
+        draw_packed_pebbles(
+            &painter,
+            PebbleBedShape {
+                centre_x: cx,
+                top: bed_top,
+                cylinder_bottom: bed_cyl_bottom,
+                cone_bottom,
+                half_width: bed_half_w,
+                chute_half_width: chute_half_w,
+            },
+            (bed_half_w / 5.0).clamp(1.5, 5.0),
+        );
         self.tag(ui, Pos2::new(cx, bed_top + h * 0.05), "pebble bed");
 
         // ── Central discharge tube through the lower head ───────────────────
@@ -434,5 +529,95 @@ mod tests {
     fn degenerate_boxes_are_returned_as_is() {
         let flat = Rect::from_min_size(Pos2::ZERO, Vec2::new(200.0, 0.0));
         assert_eq!(fit_native_aspect(flat), flat);
+    }
+}
+
+#[cfg(test)]
+mod packing_tests {
+    use super::*;
+
+    fn bed() -> PebbleBedShape {
+        PebbleBedShape {
+            centre_x: 100.0,
+            top: 0.0,
+            cylinder_bottom: 100.0,
+            cone_bottom: 160.0,
+            half_width: 40.0,
+            chute_half_width: 8.0,
+        }
+    }
+
+    /// The packing must be identical frame to frame.
+    ///
+    /// **Methodology.** The widget is rebuilt on every repaint, so a packing
+    /// drawn from a real random source would make the bed shimmer. Evaluate
+    /// the hash repeatedly at the same site and require bitwise-equal results,
+    /// and require it to stay in `[0, 1)`.
+    ///
+    /// **Result (2026-08-06):** identical across repeated calls, and every
+    /// sampled site lies in range. Interpretation: the bed looks randomly
+    /// packed but is stable, so pebbles do not jump between frames.
+    #[test]
+    fn the_packing_is_deterministic_and_in_range() {
+        for col in -5..25 {
+            for row in 0..25 {
+                for salt in 1..5 {
+                    let a = pebble_hash(col, row, salt);
+                    assert_eq!(a, pebble_hash(col, row, salt), "hash is not deterministic");
+                    assert!((0.0..1.0).contains(&a), "hash {a} out of range");
+                }
+            }
+        }
+    }
+
+    /// Neighbouring sites must decorrelate, or the jitter shows as stripes
+    /// rather than reading as a random packing.
+    #[test]
+    fn adjacent_sites_do_not_correlate() {
+        let mut differing = 0;
+        for i in 0..40 {
+            if (pebble_hash(i, 0, 1) - pebble_hash(i + 1, 0, 1)).abs() > 0.05 {
+                differing += 1;
+            }
+        }
+        assert!(
+            differing > 30,
+            "adjacent sites are too similar ({differing}/40 differ) — jitter will look striped"
+        );
+    }
+
+    /// The four independent draws at one site must not agree, or radius and
+    /// position would vary together and every large pebble would sit in the
+    /// same place within its cell.
+    #[test]
+    fn the_salted_draws_are_independent() {
+        let (a, b, c, d) = (
+            pebble_hash(7, 3, 1),
+            pebble_hash(7, 3, 2),
+            pebble_hash(7, 3, 3),
+            pebble_hash(7, 3, 4),
+        );
+        assert!((a - b).abs() > 1e-6 && (b - c).abs() > 1e-6 && (c - d).abs() > 1e-6);
+    }
+
+    /// The bed outline must taper: constant down the cylinder, then narrowing
+    /// monotonically to the chute. This is what makes the cone read as a cone
+    /// rather than the packing simply stopping.
+    #[test]
+    fn the_bed_outline_tapers_through_the_cone() {
+        let b = bed();
+
+        assert_eq!(b.half_width_at(0.0), b.half_width);
+        assert_eq!(b.half_width_at(50.0), b.half_width);
+        assert_eq!(b.half_width_at(100.0), b.half_width);
+
+        let mut previous = b.half_width;
+        for step in 1..=10 {
+            let y = 100.0 + 6.0 * step as f32;
+            let here = b.half_width_at(y);
+            assert!(here < previous, "cone must narrow monotonically at y = {y}");
+            previous = here;
+        }
+        assert!((b.half_width_at(160.0) - b.chute_half_width).abs() < 1e-4);
     }
 }
