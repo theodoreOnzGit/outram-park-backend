@@ -148,7 +148,10 @@ impl PipePhaseShade {
     }
 
     /// Apply this shade's lightening to a colour.
-    fn apply(self, c: Color32) -> Color32 {
+    ///
+    /// Public so a bend can shade itself identically to the runs it joins —
+    /// a joint that did not match its pipes would read as a different fluid.
+    pub fn apply(self, c: Color32) -> Color32 {
         let f = self.lightening();
         let mix = |v: u8| -> u8 { (v as f32 + (255.0 - v as f32) * f).round() as u8 };
         Color32::from_rgb(mix(c.r()), mix(c.g()), mix(c.b()))

@@ -40,6 +40,8 @@
 fn main() {}
 
 #[cfg(not(target_os = "android"))]
+mod bend_tab;
+#[cfg(not(target_os = "android"))]
 mod pipes;
 #[cfg(not(target_os = "android"))]
 mod studio;

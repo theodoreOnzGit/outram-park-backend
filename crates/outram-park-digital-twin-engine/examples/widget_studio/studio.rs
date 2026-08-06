@@ -32,17 +32,19 @@ use uom::si::torque::newton_meter;
 pub enum WidgetUnderTest {
     SteamTurbine,
     Pipes,
+    PipeBend,
 }
 
 impl WidgetUnderTest {
     /// Every widget the studio can show, in picker order.
-    pub const ALL: &'static [Self] = &[Self::SteamTurbine, Self::Pipes];
+    pub const ALL: &'static [Self] = &[Self::SteamTurbine, Self::Pipes, Self::PipeBend];
 
     /// Human-readable name for the picker.
     pub fn label(self) -> &'static str {
         match self {
             Self::SteamTurbine => "Steam turbine",
             Self::Pipes => "Pipes (3 backends)",
+            Self::PipeBend => "Pipe bend",
         }
     }
 
@@ -52,6 +54,7 @@ impl WidgetUnderTest {
         match self {
             Self::SteamTurbine => "reworked — spins at omega from a real torque balance",
             Self::Pipes => "salt / steam-water HEM / helium, stacked",
+            Self::PipeBend => "two helium runs, live turn angle",
         }
     }
 }
@@ -100,6 +103,8 @@ pub struct WidgetStudio {
     pipe_rows: Vec<crate::pipes::PipeRow>,
     /// Backends that could not be constructed, reported rather than faked.
     pipe_errors: Vec<String>,
+    /// The bend demonstration: two helium legs and their joint.
+    bend: crate::bend_tab::BendDemo,
     /// Backends that failed to STEP on the last frame. Surfaced rather than
     /// swallowed: a frozen solver must not look like a working one.
     pipe_step_errors: Vec<String>,
@@ -127,6 +132,7 @@ impl Default for WidgetStudio {
             legend_unit: LegendUnit::Celsius,
             pipe_rows,
             pipe_errors,
+            bend: crate::bend_tab::BendDemo::default(),
             pipe_step_errors: Vec::new(),
         }
     }
@@ -198,10 +204,10 @@ impl eframe::App for WidgetStudio {
             // Pipe physics AND tracers, advanced together off wall-clock
             // time: "one traverse per residence time" is a real-time claim,
             // so it must hold regardless of frame rate.
-            self.pipe_step_errors = crate::pipes::step_rows(
-                &mut self.pipe_rows,
-                Time::new::<second>(dt_real * self.sim_speed),
-            );
+            let sim_dt = Time::new::<second>(dt_real * self.sim_speed);
+            self.pipe_step_errors = crate::pipes::step_rows(&mut self.pipe_rows, sim_dt);
+            self.pipe_step_errors
+                .extend(self.bend.step(sim_dt));
 
             ui.ctx().request_repaint();
         } else {
@@ -237,10 +243,12 @@ impl eframe::App for WidgetStudio {
             .show_inside(ui, |ui| match self.selected {
                 WidgetUnderTest::SteamTurbine => self.turbine_controls(ui),
                 WidgetUnderTest::Pipes => self.pipe_controls(ui),
+                WidgetUnderTest::PipeBend => crate::bend_tab::controls(ui, &mut self.bend),
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| match self.selected {
             WidgetUnderTest::SteamTurbine => self.turbine_canvas(ui),
+            WidgetUnderTest::PipeBend => crate::bend_tab::draw(ui, &self.bend),
             WidgetUnderTest::Pipes => {
                 // Pipes are drawn to true scale, so a long run can exceed the
                 // panel. Scroll rather than rescale: shrinking to fit would

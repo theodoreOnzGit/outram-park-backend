@@ -9,7 +9,8 @@
 //! [`instrumentation`] stays a generic label/value placeholder -- `nee_soon`
 //! does not yet expose a dedicated instrumentation-readout type to wrap.
 
-pub mod condenser;
+pub mod bend;
+mod condenser;
 pub mod cooling_tower;
 pub mod heat_exchanger;
 pub mod instrumentation;
@@ -30,6 +31,7 @@ pub use pipe::{PipePhaseShade, PipeScalars, PipeScale, PipeVisual, PipeVisualSta
 pub use pump::PumpVisual;
 pub use reactor_vessel::ReactorVesselVisual;
 pub use steam_generator::SteamGeneratorVisual;
+pub use bend::PipeBendVisual;
 pub use legend::{LegendUnit, TemperatureLegend};
 pub use pipe_component::PipeComponent;
 pub use turbine::{StageAngles, TurbineFlowPath, TurbineVisual, TurbineVisualState};
