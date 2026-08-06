@@ -18,10 +18,14 @@
 //! have not yet earned bespoke vessel art. Geometry is illustrative and does
 //! not represent any specific licensed design. See `RESPONSIBLE_USE.md`.
 //!
-//! For a reactor that *has* earned bespoke art, use the dedicated widget —
-//! [`crate::components::fhr_reactor_vessel::FhrReactorVesselVisual`] draws a
-//! pebble-bed FHR from fourteen independent temperatures, where the FHR
-//! archetype here takes three.
+//! Where a reactor *has* earned bespoke art, this module **delegates to it
+//! rather than redrawing it**: [`ReactorArchetype::Fhr`] renders the real
+//! [`crate::components::fhr_reactor_vessel::FhrReactorVesselVisual`] — the
+//! artwork migrated out of the `fhr_sim_v2` simulator — so the gallery and the
+//! simulator show the same vessel and iterating on one improves both. Its
+//! fourteen region temperatures are interpolated from the three this archetype
+//! carries; see `draw_fhr` for exactly how, and prefer building that widget
+//! directly if you hold real per-region state.
 //!
 //! # Dispatch
 //!
@@ -30,9 +34,11 @@
 //! so adding one is a variant and the compiler then points at every match that
 //! needs handling.
 
+use crate::components::fhr_reactor_vessel::FhrReactorVesselVisual;
 use crate::components::temperature_colour;
 use egui::{Color32, FontId, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, Widget};
 use uom::si::f64::ThermodynamicTemperature;
+use uom::si::thermodynamic_temperature::kelvin;
 
 /// Which reactor architecture to draw.
 ///
@@ -323,6 +329,7 @@ impl Widget for ReactorArchetypeVisual {
         match self.archetype {
             ReactorArchetype::Htr10 => self.draw_htr10(ui, rect),
             ReactorArchetype::Msre => self.draw_msre(ui, rect),
+            // FHR delegates to the real widget — see `draw_fhr`.
             ReactorArchetype::IntegralPwr => self.draw_ipwr(ui, rect),
             ReactorArchetype::Bwr => self.draw_bwr(ui, rect),
             ReactorArchetype::Fhr => self.draw_fhr(ui, rect),
@@ -564,47 +571,59 @@ impl ReactorArchetypeVisual {
         );
     }
 
-    /// FHR: pebble bed in FLiBe, downcomers either side.
+    /// FHR: delegates to the **real** pebble-bed FHR vessel widget.
     ///
-    /// The *simplified* archetype view. For the full widget, driven by
-    /// fourteen independent temperatures, see
-    /// [`crate::components::fhr_reactor_vessel::FhrReactorVesselVisual`].
-    fn draw_fhr(&self, ui: &Ui, rect: Rect) {
-        let painter = ui.painter();
-        painter.rect_filled(rect, 8.0, self.inlet_colour());
-        painter.rect_stroke(rect, 8.0, wall_stroke(), StrokeKind::Middle);
-        tag(
-            ui,
-            Pos2::new(rect.left() + 22.0, rect.center().y),
-            "downcomer",
-            self.show_labels,
-        );
-        tag(
-            ui,
-            Pos2::new(rect.right() - 22.0, rect.center().y),
-            "downcomer",
-            self.show_labels,
-        );
+    /// This archetype does not draw its own FHR. It builds a
+    /// [`FhrReactorVesselVisual`] — the artwork migrated out of the
+    /// `fhr_sim_v2` simulator — so the gallery and the simulator show the same
+    /// vessel, and iterating on that widget improves both at once.
+    ///
+    /// # Deriving fourteen temperatures from three
+    ///
+    /// [`FhrReactorVesselVisual`] resolves fourteen independent regions; this
+    /// archetype carries three. The mapping below is a **display
+    /// interpolation, not physics**:
+    ///
+    /// - pebble core takes `core_temp`;
+    /// - the bed coolant takes the mean of inlet and outlet, since it is
+    ///   mid-way along the heated path;
+    /// - core bottom and inlet take `inlet_temp`; core top and outlet take
+    ///   `outlet_temp`;
+    /// - every downcomer node takes `inlet_temp`, because a downcomer carries
+    ///   cold salt from the heat exchanger back to the bottom plenum.
+    ///
+    /// A caller that *has* real per-region state should build
+    /// [`FhrReactorVesselVisual`] directly and pass the fourteen values rather
+    /// than going through this archetype — do not feed the interpolation back
+    /// in as though it were measured.
+    fn draw_fhr(&self, ui: &mut Ui, rect: Rect) {
+        let mean = |a: ThermodynamicTemperature, b: ThermodynamicTemperature| {
+            ThermodynamicTemperature::new::<kelvin>(0.5 * (a.get::<kelvin>() + b.get::<kelvin>()))
+        };
+        let bed_coolant = mean(self.inlet_temp, self.outlet_temp);
 
-        let bed = Rect::from_min_max(
-            Pos2::new(rect.left() + rect.width() * 0.24, rect.top() + 16.0),
-            Pos2::new(rect.right() - rect.width() * 0.24, rect.bottom() - 20.0),
+        let mut vessel = FhrReactorVesselVisual::new(
+            rect.size(),
+            self.min_temp,
+            self.max_temp,
+            self.core_temp,   // pebble core
+            bed_coolant,      // bed coolant, mid-way along the heated path
+            self.inlet_temp,  // core bottom
+            self.outlet_temp, // core top
+            self.inlet_temp,  // core inlet
+            self.outlet_temp, // core outlet
+            self.inlet_temp,  // left downcomer upper
+            self.inlet_temp,  // left downcomer mid
+            self.inlet_temp,  // left downcomer lower
+            self.inlet_temp,  // right downcomer upper
+            self.inlet_temp,  // right downcomer mid
+            self.inlet_temp,  // right downcomer lower
         );
-        draw_pebble_bed(ui, bed, self.core_colour());
-        painter.rect_stroke(bed, 3.0, wall_stroke(), StrokeKind::Middle);
-        tag(ui, bed.center(), "pebble bed · FLiBe", self.show_labels);
+        // Both rods follow the single archetype-level insertion control.
+        vessel.set_left_cr_frac(self.control_rod_insertion_frac);
+        vessel.set_right_cr_frac(self.control_rod_insertion_frac);
 
-        draw_control_rods(ui, bed, self.control_rod_insertion_frac, 2);
-
-        // Hot salt leaving the top plenum.
-        painter.rect_filled(
-            Rect::from_min_max(
-                Pos2::new(bed.left(), rect.top() + 5.0),
-                Pos2::new(bed.right(), rect.top() + 13.0),
-            ),
-            2.0,
-            self.outlet_colour(),
-        );
+        ui.put(rect, vessel);
     }
 
     /// EBR-II: core, pumps and intermediate heat exchanger all submerged in a
