@@ -231,6 +231,29 @@ pub fn encode_surfaces(surfaces: &[SurfaceKind]) -> EncodedSurfaces {
 }
 
 // ───────────────────────── f32 CPU mirror (WGSL twin) ──────────────────────────
+
+/// `f32::EPSILON`, spelled as a literal so the WGSL twin can carry the identical
+/// constant (WGSL has no `f32::EPSILON`).
+const F32_EPS: f32 = 1.1920929e-7;
+
+/// Safety factor on the estimated rounding noise of the cancelled `c0` term in
+/// [`torus_distance_f32`]. `ulp(x)` is at most `x * F32_EPS`, and the FMA-vs-
+/// two-rounding difference is bounded by about half an ULP of the larger operand;
+/// 4 ULPs leaves margin for the multiplications feeding it without approaching the
+/// magnitude of a physically meaningful crossing.
+const C0_CANCELLATION_ULPS: f32 = 4.0;
+
+/// Upper bound on the noise-derived root gate in [`torus_distance_f32`], in cm.
+/// Stops a near-zero `c1` from widening the gate far enough to discard a real
+/// crossing. 1.0e-3 cm = 10 um, well below any resolvable geometry feature.
+const EPS_CAP: f32 = 1.0e-3;
+
+/// A cubic has at most three real roots. f32 noise can split a clustered triple
+/// root into four entries that survive `push_unique`'s dedup radius, so both the
+/// Rust and WGSL cubic paths clamp to this. Without the clamp the WGSL side
+/// indexes a 3-element `crits` with 4 and writes `bp[5]` on a 5-element array —
+/// which WGSL silently bounds-clamps rather than trapping. See bead `op-9s8.12`.
+const MAX_CUBIC_REAL_ROOTS: usize = 3;
 //
 // Everything below is a scalar f32 re-expression of geometry/surface.rs, written
 // in a WGSL-friendly style (fixed-size arrays, explicit counts, no slices inside
@@ -444,7 +467,11 @@ fn cubic_real_roots_f32(a: f32, b: f32, c: f32, d: f32, out: &mut [f32]) -> usiz
     let deriv = [3.0 * a, 2.0 * b, c];
     let mut crit = [0.0f32; 2];
     let nc = quadratic_real_roots_f32(3.0 * a, 2.0 * b, c, &mut crit);
-    collect_real_roots_f32(&coeffs, &deriv, &crit[..nc], out)
+    // Clamp to the mathematical maximum — see [`MAX_CUBIC_REAL_ROOTS`]. Here the
+    // caller's buffer already bounds the count, so this is normally a no-op; it is
+    // stated explicitly so the invariant is enforced identically on both sides
+    // rather than resting on a buffer size on one side and nothing on the other.
+    collect_real_roots_f32(&coeffs, &deriv, &crit[..nc], out).min(MAX_CUBIC_REAL_ROOTS)
 }
 
 /// Real roots of `a x⁴ + b x³ + c x² + d x + e` (ascending) into `out`. f32 twin
@@ -494,12 +521,52 @@ fn torus_distance_f32(
     let c3 = 4.0 * ga * gb;
     let c2 = 4.0 * gb * gb + 2.0 * ga * gc - 4.0 * a2 * alpha;
     let c1 = 4.0 * gb * gc - 8.0 * a2 * beta;
-    let c0 = gc * gc - 4.0 * a2 * gamma;
+
+    // `c0` is the quartic's constant term, i.e. the torus sense at t = 0. When the
+    // ray origin lies on (or very near) the torus it is a *catastrophically
+    // cancelling* difference of two nearly equal positive quantities — for an
+    // origin exactly on the surface the two operands are bit-identical and every
+    // mantissa bit is lost.
+    //
+    // That matters because the CPU and GPU do not round it the same way. Rust
+    // never contracts `x*y - z`, so this evaluates to exactly 0.0 here; WGSL/SPIR-V
+    // permit fusing it into a single FMA (naga emits no `NoContraction`
+    // decoration, so the driver is free to), which keeps `gc*gc` exact through one
+    // rounding and leaves ~half an ULP of residue instead of zero. That residue
+    // displaces the true root at t = 0 to `-c0/c1`, which then reads as a genuine
+    // near-zero crossing. See bead `op-9s8.11`.
+    //
+    // Both sides therefore snap `c0` to exactly zero once it is at or below the
+    // rounding noise of the subtraction that produced it. Below that threshold the
+    // value carries no information — it is indistinguishable from zero in f32.
+    let c0_raw = gc * gc - 4.0 * a2 * gamma;
+    let c0_noise = C0_CANCELLATION_ULPS * F32_EPS * (gc * gc).abs().max((4.0 * a2 * gamma).abs());
+    let c0 = if c0_raw.abs() <= c0_noise {
+        0.0
+    } else {
+        c0_raw
+    };
 
     let mut roots = [0.0f32; 4];
     let n = quartic_real_roots_f32(c4, c3, c2, c1, c0, &mut roots);
 
-    let eps = if coincident { 1.0e-5 } else { 1.0e-7 };
+    // The root gate must also track that noise floor, not sit below it. A residual
+    // perturbation `dc0` displaces a simple root near zero by `dc0/|c1|`; with the
+    // old fixed 1.0e-7 the gate sat about an order of magnitude *under* the actual
+    // f32 noise floor for cm-scale torus geometry, so noise roots always passed.
+    // (The f64 reference uses 1.0e-10, where the same displacement is ~1e-15 — five
+    // orders of margin. Scaling that to 1.0e-7 for f32 under-provisioned it.)
+    //
+    // `EPS_CAP` bounds the gate so a near-zero `c1` cannot widen it enough to
+    // swallow a legitimate crossing; at cm scale 1.0e-3 cm is 10 um, far below any
+    // resolvable geometry feature.
+    let base_eps: f32 = if coincident { 1.0e-5 } else { 1.0e-7 };
+    let noise_eps: f32 = if c1.abs() > 0.0 {
+        (c0_noise / c1.abs()).min(EPS_CAP)
+    } else {
+        0.0
+    };
+    let eps = base_eps.max(noise_eps);
     let mut best = MISS;
     for &t in &roots[..n] {
         if t <= eps {
@@ -520,7 +587,13 @@ fn torus_distance_f32(
 /// WGSL `surface_distance` function is a line-by-line translation of this. `c`
 /// is the surface's [`SURF_STRIDE`]-long coefficient row from [`encode_surfaces`].
 /// Returns [`MISS`] when the ray does not cross.
-fn surface_distance_one_f32(tag: u32, c: &[f32], r: Position, u: Direction, coincident: bool) -> f32 {
+fn surface_distance_one_f32(
+    tag: u32,
+    c: &[f32],
+    r: Position,
+    u: Direction,
+    coincident: bool,
+) -> f32 {
     let (rx, ry, rz) = (r.x as f32, r.y as f32, r.z as f32);
     let (uu, uv, uw) = (u.u as f32, u.v as f32, u.w as f32);
     match tag {
@@ -531,7 +604,11 @@ fn surface_distance_one_f32(tag: u32, c: &[f32], r: Position, u: Direction, coin
                 return MISS;
             }
             let d = (c[0] - rx) / uu;
-            if d > hint { d } else { MISS }
+            if d > hint {
+                d
+            } else {
+                MISS
+            }
         }
         // YPlane { y0 }
         1 => {
@@ -540,7 +617,11 @@ fn surface_distance_one_f32(tag: u32, c: &[f32], r: Position, u: Direction, coin
                 return MISS;
             }
             let d = (c[0] - ry) / uv;
-            if d > hint { d } else { MISS }
+            if d > hint {
+                d
+            } else {
+                MISS
+            }
         }
         // ZPlane { z0 }
         2 => {
@@ -549,7 +630,11 @@ fn surface_distance_one_f32(tag: u32, c: &[f32], r: Position, u: Direction, coin
                 return MISS;
             }
             let d = (c[0] - rz) / uw;
-            if d > hint { d } else { MISS }
+            if d > hint {
+                d
+            } else {
+                MISS
+            }
         }
         // Plane { a, b, c, d }
         3 => {
@@ -559,7 +644,11 @@ fn surface_distance_one_f32(tag: u32, c: &[f32], r: Position, u: Direction, coin
                 return MISS;
             }
             let d = -(c[0] * rx + c[1] * ry + c[2] * rz - c[3]) / denom;
-            if d > hint { d } else { MISS }
+            if d > hint {
+                d
+            } else {
+                MISS
+            }
         }
         // Sphere { x0, y0, z0, r }
         4 => {
@@ -568,7 +657,11 @@ fn surface_distance_one_f32(tag: u32, c: &[f32], r: Position, u: Direction, coin
             let oy = ry - c[1];
             let oz = rz - c[2];
             let k = ox * uu + oy * uv + oz * uw;
-            let cc = if coincident { 0.0 } else { ox * ox + oy * oy + oz * oz - c[3] * c[3] };
+            let cc = if coincident {
+                0.0
+            } else {
+                ox * ox + oy * oy + oz * oz - c[3] * c[3]
+            };
             let disc = k * k - cc;
             if disc < 0.0 {
                 return MISS;
@@ -579,7 +672,11 @@ fn surface_distance_one_f32(tag: u32, c: &[f32], r: Position, u: Direction, coin
                 d_near
             } else {
                 let d_far = -k + sq;
-                if d_far > EPS { d_far } else { MISS }
+                if d_far > EPS {
+                    d_far
+                } else {
+                    MISS
+                }
             }
         }
         // XCylinder { y0, z0, r } — radial pair (y, z), axis x
@@ -596,7 +693,11 @@ fn surface_distance_one_f32(tag: u32, c: &[f32], r: Position, u: Direction, coin
             let rsq = c[3];
             let a = uv * uv + uw * uw - rsq * uu * uu;
             let k = dy * uv + dz * uw - rsq * dx * uu;
-            let cc = if coincident { 0.0 } else { dy * dy + dz * dz - rsq * dx * dx };
+            let cc = if coincident {
+                0.0
+            } else {
+                dy * dy + dz * dz - rsq * dx * dx
+            };
             smallest_positive_root_f32(a, 2.0 * k, cc, 1.0e-7)
         }
         // YCone { x0, y0, z0, r_sq } — axis y
@@ -607,7 +708,11 @@ fn surface_distance_one_f32(tag: u32, c: &[f32], r: Position, u: Direction, coin
             let rsq = c[3];
             let a = uu * uu + uw * uw - rsq * uv * uv;
             let k = dx * uu + dz * uw - rsq * dy * uv;
-            let cc = if coincident { 0.0 } else { dx * dx + dz * dz - rsq * dy * dy };
+            let cc = if coincident {
+                0.0
+            } else {
+                dx * dx + dz * dz - rsq * dy * dy
+            };
             smallest_positive_root_f32(a, 2.0 * k, cc, 1.0e-7)
         }
         // ZCone { x0, y0, z0, r_sq } — axis z
@@ -618,7 +723,11 @@ fn surface_distance_one_f32(tag: u32, c: &[f32], r: Position, u: Direction, coin
             let rsq = c[3];
             let a = uu * uu + uv * uv - rsq * uw * uw;
             let k = dx * uu + dy * uv - rsq * dz * uw;
-            let cc = if coincident { 0.0 } else { dx * dx + dy * dy - rsq * dz * dz };
+            let cc = if coincident {
+                0.0
+            } else {
+                dx * dx + dy * dy - rsq * dz * dz
+            };
             smallest_positive_root_f32(a, 2.0 * k, cc, 1.0e-7)
         }
         // Quadric { a,b,c,d,e,f,g,h,j,k }
@@ -658,15 +767,42 @@ fn surface_distance_one_f32(tag: u32, c: &[f32], r: Position, u: Direction, coin
         }
         // XTorus { x0,y0,z0,a,b,c } — radial pair (y, z), axial x
         12 => torus_distance_f32(
-            ry - c[1], rz - c[2], rx - c[0], uv, uw, uu, c[3], c[4], c[5], coincident,
+            ry - c[1],
+            rz - c[2],
+            rx - c[0],
+            uv,
+            uw,
+            uu,
+            c[3],
+            c[4],
+            c[5],
+            coincident,
         ),
         // YTorus — radial pair (x, z), axial y
         13 => torus_distance_f32(
-            rx - c[0], rz - c[2], ry - c[1], uu, uw, uv, c[3], c[4], c[5], coincident,
+            rx - c[0],
+            rz - c[2],
+            ry - c[1],
+            uu,
+            uw,
+            uv,
+            c[3],
+            c[4],
+            c[5],
+            coincident,
         ),
         // ZTorus — radial pair (x, y), axial z
         14 => torus_distance_f32(
-            rx - c[0], ry - c[1], rz - c[2], uu, uv, uw, c[3], c[4], c[5], coincident,
+            rx - c[0],
+            ry - c[1],
+            rz - c[2],
+            uu,
+            uv,
+            uw,
+            c[3],
+            c[4],
+            c[5],
+            coincident,
         ),
         _ => MISS,
     }
@@ -698,7 +834,11 @@ fn axis_cylinder_f32(d1: f32, d2: f32, w1: f32, w2: f32, radius: f32, coincident
         (-k + sq) / a
     } else {
         let d = (-k - sq) / a;
-        if d < 0.0 { MISS } else { d }
+        if d < 0.0 {
+            MISS
+        } else {
+            d
+        }
     }
 }
 
@@ -908,19 +1048,44 @@ pub fn surface_distance_gpu(
         label: Some("surf_dist.bg"),
         layout: &bind_group_layout,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: tags_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: coeffs_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: qsurf_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 3, resource: qflag_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 4, resource: qr_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 5, resource: qu_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 6, resource: params_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 7, resource: result_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: tags_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: coeffs_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: qsurf_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: qflag_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: qr_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: qu_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 6,
+                resource: params_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 7,
+                resource: result_buf.as_entire_binding(),
+            },
         ],
     });
 
-    let mut encoder =
-        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("surf_dist.enc") });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("surf_dist.enc"),
+    });
     {
         let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("surf_dist.pass"),
@@ -1075,14 +1240,59 @@ mod tests {
             SurfaceKind::XPlane(XPlane { x0: 0.7, bc: BC }),
             SurfaceKind::YPlane(YPlane { y0: -0.3, bc: BC }),
             SurfaceKind::ZPlane(ZPlane { z0: 1.2, bc: BC }),
-            SurfaceKind::Plane(Plane { a: 1.0, b: 2.0, c: -1.0, d: 0.5, bc: BC }),
-            SurfaceKind::Sphere(Sphere { x0: 0.1, y0: -0.2, z0: 0.3, r: 1.5, bc: BC }),
-            SurfaceKind::XCylinder(XCylinder { y0: 0.2, z0: -0.1, r: 0.8, bc: BC }),
-            SurfaceKind::YCylinder(YCylinder { x0: -0.4, z0: 0.25, r: 0.9, bc: BC }),
-            SurfaceKind::ZCylinder(ZCylinder { x0: 0.15, y0: 0.05, r: 1.1, bc: BC }),
-            SurfaceKind::XCone(XCone { x0: 0.0, y0: 0.0, z0: 0.0, r_sq: 0.25, bc: BC }),
-            SurfaceKind::YCone(YCone { x0: 0.1, y0: -0.1, z0: 0.2, r_sq: 0.4, bc: BC }),
-            SurfaceKind::ZCone(ZCone { x0: -0.2, y0: 0.3, z0: 0.0, r_sq: 0.3, bc: BC }),
+            SurfaceKind::Plane(Plane {
+                a: 1.0,
+                b: 2.0,
+                c: -1.0,
+                d: 0.5,
+                bc: BC,
+            }),
+            SurfaceKind::Sphere(Sphere {
+                x0: 0.1,
+                y0: -0.2,
+                z0: 0.3,
+                r: 1.5,
+                bc: BC,
+            }),
+            SurfaceKind::XCylinder(XCylinder {
+                y0: 0.2,
+                z0: -0.1,
+                r: 0.8,
+                bc: BC,
+            }),
+            SurfaceKind::YCylinder(YCylinder {
+                x0: -0.4,
+                z0: 0.25,
+                r: 0.9,
+                bc: BC,
+            }),
+            SurfaceKind::ZCylinder(ZCylinder {
+                x0: 0.15,
+                y0: 0.05,
+                r: 1.1,
+                bc: BC,
+            }),
+            SurfaceKind::XCone(XCone {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                r_sq: 0.25,
+                bc: BC,
+            }),
+            SurfaceKind::YCone(YCone {
+                x0: 0.1,
+                y0: -0.1,
+                z0: 0.2,
+                r_sq: 0.4,
+                bc: BC,
+            }),
+            SurfaceKind::ZCone(ZCone {
+                x0: -0.2,
+                y0: 0.3,
+                z0: 0.0,
+                r_sq: 0.3,
+                bc: BC,
+            }),
             // An ellipsoid quadric: x²/1 + y²/0.5² + z²/0.75² − 1 = 0.
             SurfaceKind::Quadric(Quadric {
                 a: 1.0,
@@ -1097,9 +1307,33 @@ mod tests {
                 k: -1.0,
                 bc: BC,
             }),
-            SurfaceKind::XTorus(XTorus { x0: 0.0, y0: 0.0, z0: 0.0, a: 1.0, b: 0.3, c: 0.3, bc: BC }),
-            SurfaceKind::YTorus(YTorus { x0: 0.1, y0: 0.0, z0: -0.1, a: 1.2, b: 0.25, c: 0.35, bc: BC }),
-            SurfaceKind::ZTorus(ZTorus { x0: 0.0, y0: 0.2, z0: 0.0, a: 0.9, b: 0.2, c: 0.2, bc: BC }),
+            SurfaceKind::XTorus(XTorus {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                a: 1.0,
+                b: 0.3,
+                c: 0.3,
+                bc: BC,
+            }),
+            SurfaceKind::YTorus(YTorus {
+                x0: 0.1,
+                y0: 0.0,
+                z0: -0.1,
+                a: 1.2,
+                b: 0.25,
+                c: 0.35,
+                bc: BC,
+            }),
+            SurfaceKind::ZTorus(ZTorus {
+                x0: 0.0,
+                y0: 0.2,
+                z0: 0.0,
+                a: 0.9,
+                b: 0.2,
+                c: 0.2,
+                bc: BC,
+            }),
         ]
     }
 
@@ -1142,7 +1376,11 @@ mod tests {
         for ix in -1..=1 {
             for iy in -1..=1 {
                 for iz in -1..=1 {
-                    origins.push(Position::new(ix as f64 * 1.3, iy as f64 * 1.3, iz as f64 * 1.3));
+                    origins.push(Position::new(
+                        ix as f64 * 1.3,
+                        iy as f64 * 1.3,
+                        iz as f64 * 1.3,
+                    ));
                 }
             }
         }
@@ -1154,14 +1392,20 @@ mod tests {
                 for i in 0..n_dir {
                     let u = dir(i, n_dir);
                     let d_ref = s.distance(o, u, false);
-                    let q = SurfaceQuery { surface: si as u32, coincident: false, r: o, u };
+                    let q = SurfaceQuery {
+                        surface: si as u32,
+                        coincident: false,
+                        r: o,
+                        u,
+                    };
                     let d_f32 = surface_distance_cpu_f32(&encoded, std::slice::from_ref(&q))[0];
 
                     let ref_miss = !d_ref.is_finite();
                     let f32_miss = d_f32 >= MISS;
                     if ref_miss || f32_miss {
                         assert_eq!(
-                            ref_miss, f32_miss,
+                            ref_miss,
+                            f32_miss,
                             "surface {si} ({}): miss disagreement — f64={d_ref}, f32={d_f32}",
                             kind_name(s)
                         );
@@ -1179,7 +1423,10 @@ mod tests {
             }
         }
         // Sanity: the ray set actually produced a healthy number of real hits.
-        assert!(n_hit > 100, "too few hits ({n_hit}) — test not exercising intersections");
+        assert!(
+            n_hit > 100,
+            "too few hits ({n_hit}) — test not exercising intersections"
+        );
     }
 
     /// Coincident-origin handling: a ray starting exactly on a surface and
@@ -1191,8 +1438,19 @@ mod tests {
     /// distance in both `f64` and the `f32` mirror, agreeing within the band.
     #[test]
     fn cpu_f32_mirror_coincident_matches_f64() {
-        let sph = SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: 1.0, bc: BC });
-        let cyl = SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: 1.0, bc: BC });
+        let sph = SurfaceKind::Sphere(Sphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: 1.0,
+            bc: BC,
+        });
+        let cyl = SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: 1.0,
+            bc: BC,
+        });
         let enc = encode_surfaces(std::slice::from_ref(&sph));
         let enc_c = encode_surfaces(std::slice::from_ref(&cyl));
 
@@ -1200,17 +1458,33 @@ mod tests {
         let o = Position::new(1.0, 0.0, 0.0);
         let u = Direction::new(-1.0, 0.0, 0.0);
         let d_ref = sph.distance(o, u, true);
-        let q = SurfaceQuery { surface: 0, coincident: true, r: o, u };
+        let q = SurfaceQuery {
+            surface: 0,
+            coincident: true,
+            r: o,
+            u,
+        };
         let d_f32 = surface_distance_cpu_f32(&enc, std::slice::from_ref(&q))[0];
         assert!((d_ref - 2.0).abs() < 1e-9, "f64 sphere far chord {d_ref}");
-        assert!((d_f32 - d_ref as f32).abs() < 3e-3, "f32 sphere far chord {d_f32}");
+        assert!(
+            (d_f32 - d_ref as f32).abs() < 3e-3,
+            "f32 sphere far chord {d_f32}"
+        );
 
         // On +x of the unit cylinder, aim in -x → far side at d = 2.
         let d_ref_c = cyl.distance(o, u, true);
-        let qc = SurfaceQuery { surface: 0, coincident: true, r: o, u };
+        let qc = SurfaceQuery {
+            surface: 0,
+            coincident: true,
+            r: o,
+            u,
+        };
         let d_f32_c = surface_distance_cpu_f32(&enc_c, std::slice::from_ref(&qc))[0];
         assert!((d_ref_c - 2.0).abs() < 1e-9, "f64 cyl far chord {d_ref_c}");
-        assert!((d_f32_c - d_ref_c as f32).abs() < 3e-3, "f32 cyl far chord {d_f32_c}");
+        assert!(
+            (d_f32_c - d_ref_c as f32).abs() < 3e-3,
+            "f32 cyl far chord {d_f32_c}"
+        );
     }
 
     /// Short human name for assertion messages.
@@ -1273,16 +1547,35 @@ mod tests {
     /// 1e-3 * (1 + |cpu|)` (they share the same f32 algorithm, so agreement is
     /// tight — this only absorbs GPU rounding-order differences).
     ///
-    /// **Results (measured 2026-08-06, NVIDIA RTX A5000 / NVK, Vulkan).** This
-    /// test could not run at all until `op-bjd` was fixed — `probe` requested
-    /// downlevel limits, so `surf_dist.bgl` was rejected before any query
-    /// executed. With real adapter limits sourced, the batch runs and **13 of
-    /// the 15 surface types agree**; the two torus types do not. First
-    /// divergence: query 16033 (surface 12, `XTorus`) `gpu = 3.12e-7` vs
-    /// `cpu = 0.4967` — the GPU quartic root-finder returns a spurious
-    /// near-zero root. Tracked as its own bead; **this test currently FAILS on a
-    /// GPU host**, and that failure is a real kernel defect, not flakiness. On
-    /// CPU-only CI it prints a SKIP line and returns green.
+    /// **Results (measured 2026-08-06, NVIDIA RTX A5000 / NVK GA102, Vulkan).**
+    /// **PASSES — all 19 440 queries across all 15 surface types.** On CPU-only
+    /// CI it prints a SKIP line and returns green.
+    ///
+    /// Getting here took two fixes, both worth recording because the first hid
+    /// the second:
+    ///
+    /// 1. **`op-bjd`** — the test could not execute a single query. `probe`
+    ///    requested `Limits::downlevel_defaults()`, capping
+    ///    `max_storage_buffers_per_shader_stage` at 4 while `surf_dist.bgl`
+    ///    binds 7, so the layout was rejected on hardware that allows 524 288.
+    ///    Fixed by sourcing `adapter.limits()`.
+    /// 2. **`op-9s8.11`** — with the kernel finally running, **79 of 19 440
+    ///    queries (0.41 %) disagreed**: XTorus 70, ZTorus 9, YTorus 0,
+    ///    non-torus types 0 of 15 552. Every one was the GPU returning a
+    ///    spurious near-zero root (min `1.006e-7`, median `1.85e-7`, max
+    ///    `3.5e-6`), and every one came from a ray origin lying *exactly* on a
+    ///    torus — 4 of the 27 lattice origins sit on the XTorus, 1 on the
+    ///    ZTorus, 0 on the YTorus, which is precisely the observed 70/9/0.
+    ///    Cause: `c0 = gc*gc - 4*a2*gamma` is a fully cancelling difference
+    ///    there (operands bit-identical at `6.7599992752075195`), and WGSL
+    ///    permits fusing it into an FMA where Rust does not — leaving
+    ///    `c0 = 2.2888e-7` instead of `0.0`, which displaces the true `t = 0`
+    ///    root to `3.1208810e-7`. Fixed by snapping `c0` to zero below its own
+    ///    rounding noise and making the root gate track that noise floor.
+    ///
+    /// Worked example, query 16033 (surface 12 `XTorus`, origin `(0, -1.3, 0)`):
+    /// before the fix `gpu = 3.120881e-7` against `cpu = 0.49672258`; after it
+    /// both sides agree, and the trusted `f64` path gives `0.4967226591440329`.
     #[cfg(not(target_os = "android"))]
     #[test]
     fn gpu_matches_cpu_reference() {
@@ -1297,7 +1590,11 @@ mod tests {
         for ix in -1..=1 {
             for iy in -1..=1 {
                 for iz in -1..=1 {
-                    origins.push(Position::new(ix as f64 * 1.3, iy as f64 * 1.3, iz as f64 * 1.3));
+                    origins.push(Position::new(
+                        ix as f64 * 1.3,
+                        iy as f64 * 1.3,
+                        iz as f64 * 1.3,
+                    ));
                 }
             }
         }
@@ -1324,7 +1621,10 @@ mod tests {
             let c_miss = c >= MISS;
             let g_miss = g >= MISS;
             if c_miss || g_miss {
-                assert_eq!(c_miss, g_miss, "query {i}: miss disagreement gpu={g}, cpu={c}");
+                assert_eq!(
+                    c_miss, g_miss,
+                    "query {i}: miss disagreement gpu={g}, cpu={c}"
+                );
                 continue;
             }
             let tol = 1e-3 * (1.0 + c.abs());
@@ -1360,23 +1660,46 @@ mod tests {
         eprintln!("adapter                            : {}", g.adapter_name);
         eprintln!("backend                            : {}", g.backend);
         eprintln!("class                              : {:?}", g.class);
-        eprintln!("max_storage_buffers_per_shader_stage: {}", g.max_storage_buffers_per_shader_stage);
-        eprintln!("max_storage_buffer_binding_size    : {}", g.max_storage_buffer_binding_size);
+        eprintln!(
+            "max_storage_buffers_per_shader_stage: {}",
+            g.max_storage_buffers_per_shader_stage
+        );
+        eprintln!(
+            "max_storage_buffer_binding_size    : {}",
+            g.max_storage_buffer_binding_size
+        );
         eprintln!("max_buffer_size                    : {}", g.max_buffer_size);
-        eprintln!("max_compute_invocations_per_workgroup: {}", g.max_compute_invocations_per_workgroup);
-        eprintln!("max_compute_workgroups_per_dimension : {}", g.max_compute_workgroups_per_dimension);
+        eprintln!(
+            "max_compute_invocations_per_workgroup: {}",
+            g.max_compute_invocations_per_workgroup
+        );
+        eprintln!(
+            "max_compute_workgroups_per_dimension : {}",
+            g.max_compute_workgroups_per_dimension
+        );
         eprintln!("cpu_threads                        : {}", caps.cpu_threads);
         eprintln!("kernel needs storage buffers       : {STORAGE_BUFFERS_NEEDED}");
-        eprintln!("  -> supported?                    : {}", g.supports_storage_buffers(STORAGE_BUFFERS_NEEDED));
-        eprintln!("max chunk items ({QUERY_STRIDE_BYTES} B stride, wg {WORKGROUP_SIZE}): {}",
-            g.max_chunk_items(QUERY_STRIDE_BYTES, WORKGROUP_SIZE));
+        eprintln!(
+            "  -> supported?                    : {}",
+            g.supports_storage_buffers(STORAGE_BUFFERS_NEEDED)
+        );
+        eprintln!(
+            "max chunk items ({QUERY_STRIDE_BYTES} B stride, wg {WORKGROUP_SIZE}): {}",
+            g.max_chunk_items(QUERY_STRIDE_BYTES, WORKGROUP_SIZE)
+        );
 
         let split = plan_split(
-            1_000_000, &caps, SplitPolicy::Auto,
-            STORAGE_BUFFERS_NEEDED, QUERY_STRIDE_BYTES, WORKGROUP_SIZE,
+            1_000_000,
+            &caps,
+            SplitPolicy::Auto,
+            STORAGE_BUFFERS_NEEDED,
+            QUERY_STRIDE_BYTES,
+            WORKGROUP_SIZE,
         );
-        eprintln!("Auto split of 1e6 queries          : gpu={} cpu={} ({:?})",
-            split.gpu_items, split.cpu_items, split.reason);
+        eprintln!(
+            "Auto split of 1e6 queries          : gpu={} cpu={} ({:?})",
+            split.gpu_items, split.cpu_items, split.reason
+        );
 
         // The whole point of the fix: this kernel must be hostable here.
         assert!(g.supports_storage_buffers(STORAGE_BUFFERS_NEEDED));
@@ -1434,7 +1757,10 @@ mod tests {
             let c_miss = c >= MISS;
             let h_miss = h >= MISS;
             if c_miss || h_miss {
-                assert_eq!(c_miss, h_miss, "query {i}: miss disagreement hybrid={h}, cpu={c}");
+                assert_eq!(
+                    c_miss, h_miss,
+                    "query {i}: miss disagreement hybrid={h}, cpu={c}"
+                );
                 continue;
             }
             let tol = 1e-3 * (1.0 + c.abs());
@@ -1463,11 +1789,103 @@ mod tests {
             })
             .collect();
 
-        let (out, split) =
-            surface_distance_hybrid(None, &encoded, &queries, SplitPolicy::Auto);
+        let (out, split) = surface_distance_hybrid(None, &encoded, &queries, SplitPolicy::Auto);
 
         assert_eq!(split.reason, SplitReason::NoGpu);
         assert_eq!(split.cpu_items, queries.len());
         assert_eq!(out, surface_distance_cpu_f32(&encoded, &queries));
+    }
+
+    /// Regression for `op-9s8.12`: a cubic must never report more than three real
+    /// roots, however badly f32 noise splits a clustered triple root.
+    ///
+    /// This exact cubic was found by random search during the `op-9s8.11`
+    /// investigation. Its true roots are 0.331034, 0.331270 and 1.638816 — the
+    /// first two ~1e-4 apart, which is wider than `push_unique`'s dedup radius of
+    /// `1.0e-5 * (1 + |r|)`, so the near-double root gets counted twice and the
+    /// collector reported **four** entries before the fix.
+    ///
+    /// On the WGSL side that overflowed `quartic_real_roots`' 3-element `crits`
+    /// array and wrote `bp[5]` on a 5-element array. WGSL bounds-clamps rather than
+    /// trapping, so it silently corrupted the last breakpoint and dropped roots
+    /// beyond the final critical point — a wrong distance with no diagnostic. The
+    /// Rust mirror could not reach that state (its buffer is 3), and that asymmetry
+    /// between the twins was the defect.
+    #[test]
+    fn a_clustered_triple_root_cubic_cannot_report_four_roots() {
+        let mut out = [0.0f32; 4];
+        let n = cubic_real_roots_f32(1.0, -2.30112, 1.19506, -0.179715, &mut out);
+
+        assert!(
+            n <= MAX_CUBIC_REAL_ROOTS,
+            "cubic reported {n} real roots ({:?}); a cubic has at most {MAX_CUBIC_REAL_ROOTS}",
+            &out[..n]
+        );
+
+        // The roots it does report must still be the real ones, not garbage.
+        for &r in &out[..n] {
+            let f = ((1.0 * r - 2.30112) * r + 1.19506) * r - 0.179715;
+            assert!(f.abs() < 1.0e-4, "reported root {r} has residual {f}");
+        }
+    }
+
+    /// Regression for `op-9s8.11`: the exact ray that exposed the FMA cancellation.
+    ///
+    /// Origin `(0, -1.3, 0)` lies *exactly* on this torus (`a + b = 1.0 + 0.3`), so
+    /// the quartic's constant term is analytically zero and the CPU/GPU answer
+    /// hinges entirely on how rounding perturbs it. The trusted f64 path gives
+    /// 0.4967226591440329; the GPU used to return 3.120881e-7.
+    ///
+    /// **Scope, stated honestly:** this pins the **CPU mirror** against the f64
+    /// reference on the degenerate geometry, so the property is guarded on a
+    /// machine with no GPU (where `gpu_matches_cpu_reference` only prints a SKIP).
+    /// It would **not** have caught the original defect — the CPU path was always
+    /// correct here, because Rust does not contract and so computed `c0 = 0.0`
+    /// exactly. Only `gpu_matches_cpu_reference` on real hardware exercises the
+    /// contraction path. This test's job is to stop the *degenerate case itself*
+    /// from silently regressing, and to fail loudly if the fixture ever drifts off
+    /// the surface and stops testing what it claims to.
+    #[test]
+    fn an_origin_exactly_on_a_torus_does_not_yield_a_spurious_near_zero_root() {
+        let torus = XTorus {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            a: 1.0,
+            b: 0.3,
+            c: 0.3,
+            bc: BC,
+        };
+        let surfaces = vec![SurfaceKind::XTorus(torus)];
+        let encoded = encode_surfaces(&surfaces);
+
+        let r = Position::new(0.0, -1.3, 0.0);
+        let u = dir(1, 48);
+
+        // The origin really is on the surface — if this drifts, the test is no
+        // longer exercising the degenerate case it was written for.
+        let sense = surfaces[0].evaluate(r);
+        assert!(
+            sense.abs() < 1.0e-12,
+            "origin is no longer on the torus: {sense}"
+        );
+
+        let q = vec![SurfaceQuery {
+            surface: 0,
+            coincident: false,
+            r,
+            u,
+        }];
+        let got = surface_distance_cpu_f32(&encoded, &q)[0];
+
+        let reference = surfaces[0].distance(r, u, false) as f32;
+        assert!(
+            (got - reference).abs() <= 1.0e-3 * (1.0 + reference.abs()),
+            "f32 mirror {got} disagrees with the f64 reference {reference}"
+        );
+        assert!(
+            got > 1.0e-5,
+            "returned a spurious near-zero root ({got}); expected ~0.4967"
+        );
     }
 }
