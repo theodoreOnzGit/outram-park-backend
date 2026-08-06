@@ -67,6 +67,13 @@ members = [
     # outram-park-fork-moltres — MSR neutronics + TH on outram-foam finite
     # volume (formulation from LGPL Moltres; NOT a MOOSE/PETSc port).
     "crates/outram-park-fork-moltres",
+    # raffles — RAFFLES (Risk Analysis Framework For Learning & Ensemble
+    # Simulation): independent pure-Rust port of the UQ / risk-analysis core of
+    # RAVEN (Apache-2.0, Idaho National Laboratory). Apache-2.0 -> GPL-3.0 is
+    # ONE-WAY; see crates/raffles/NOTICE. Owned by Adolphus Lye. SCAFFOLD:
+    # module boundaries + provenance only, nothing implemented. Scoping doc:
+    # docs/raven-port-scoping.md.
+    "crates/raffles",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
