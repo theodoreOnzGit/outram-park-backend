@@ -46,6 +46,12 @@ mod pipes;
 
 /// Reactor-vessel gallery: every scoped reactor architecture, side by side.
 mod reactor_tab;
+
+/// Pump gallery: centrifugal, vertical canned-rotor and axial propeller.
+mod pump_tab;
+
+/// Steam-generator gallery: vertical U-tube, horizontal U-tube, helical coil.
+mod steam_generator_tab;
 #[cfg(not(target_os = "android"))]
 mod studio;
 

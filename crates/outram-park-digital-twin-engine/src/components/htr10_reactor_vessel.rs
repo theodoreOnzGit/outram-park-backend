@@ -41,6 +41,9 @@
 //! proportioned by eye from the figure, not dimensioned from it, and nothing
 //! here is a validated model. See `RESPONSIBLE_USE.md`.
 
+use crate::components::pebble_packing::{
+    PackedPebble, BARREL_HEIGHT, BED_BOUNDS, CHUTE_RADIUS, CONE_HEIGHT, PACKED_PEBBLES,
+};
 use crate::components::temperature_colour;
 use egui::{Color32, FontId, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, Widget};
 use uom::si::f64::ThermodynamicTemperature;
@@ -72,6 +75,12 @@ pub fn fit_native_aspect(available: Rect) -> Rect {
 
 /// The outline of a pebble bed: a cylinder that narrows through a cone into
 /// the discharge chute, in screen coordinates.
+///
+/// Every field is derived from the baked packing's own constants at render
+/// time (barrel half-width = one vessel radius, then
+/// [`BARREL_HEIGHT`]/[`CONE_HEIGHT`]/[`CHUTE_RADIUS`] times that), so the
+/// silhouette drawn here and the settled bed drawn inside it cannot drift
+/// apart.
 struct PebbleBedShape {
     centre_x: f32,
     top: f32,
@@ -95,15 +104,203 @@ impl PebbleBedShape {
     }
 }
 
-/// Deterministic pseudo-random value in `[0, 1)` from two lattice indices.
+/// The pebble bed's screen outline inside an already-letterboxed vessel
+/// `rect`.
+///
+/// Only two numbers are free: the bed's half-width (0.30 of the vessel width,
+/// proportioned from the published 1.8 m bed inside the 4.2 m vessel) and the
+/// height its top sits at. Everything below follows from the packing's own
+/// constants at one uniform scale, because the barrel half-width *is* one
+/// vessel radius in the packing's frame.
+fn pebble_bed_shape(rect: Rect) -> PebbleBedShape {
+    let half_width = rect.width() * 0.30;
+    let top = rect.top() + rect.height() * 0.20;
+    let cylinder_bottom = top + BARREL_HEIGHT * half_width;
+    PebbleBedShape {
+        centre_x: rect.center().x,
+        top,
+        cylinder_bottom,
+        cone_bottom: cylinder_bottom + CONE_HEIGHT * half_width,
+        half_width,
+        chute_half_width: CHUTE_RADIUS * half_width,
+    }
+}
+
+/// How the baked packing is laid into an HTR-10 bed: **the way it settled**.
+///
+/// Helium is a gas, so a graphite pebble is far denser than its coolant and the
+/// bed rests on itself under gravity, draining through the cone at the bottom.
+/// That is exactly the situation the DEM run simulated, so the packing is
+/// placed with no inversion and no cropping — the whole vessel maps onto the
+/// whole vessel at a single scale of `bed.half_width` points per vessel radius.
+///
+/// (The FHR vessel is the opposite case: its pebbles float, so it inverts the
+/// same packing. See [`VerticalSense`].)
+fn settled_bed_packing(bed: &PebbleBedShape) -> PackingTransform {
+    PackingTransform {
+        axis_x: bed.centre_x,
+        // Packing y = 0 is the cone/barrel junction.
+        origin_y: bed.cylinder_bottom,
+        scale: bed.half_width,
+        vertical: VerticalSense::GravityUp,
+    }
+}
+
+/// Which way the packing's `+y` (gravity-up) axis is drawn on screen.
+///
+/// The baked packing in [`crate::components::pebble_packing`] settled
+/// **downward under gravity**: its densest, most compressed layers sit at the
+/// bottom, and its loose free surface is at the top. Which end of a drawn bed
+/// that dense base belongs at is a *physics* question, not a drawing
+/// convention, so it is named rather than left to a sign in the arithmetic.
+pub(crate) enum VerticalSense {
+    /// Packing `+y` points **up the screen** — the bed sits the way it
+    /// settled, dense base at the bottom, free surface on top.
+    ///
+    /// Correct for a **gas-cooled** pebble bed such as HTR-10: helium is far
+    /// less dense than a graphite pebble, so the pebbles rest on one another
+    /// under their own weight and drain out of the bottom.
+    ///
+    /// Screen `y` grows downward while packing `y` grows upward, so this
+    /// applies one flip.
+    GravityUp,
+    /// Packing `+y` points **down the screen** — the settled bed is turned
+    /// over, dense base at the top and free surface facing down.
+    ///
+    /// Correct for a **salt-cooled** pebble bed such as an FHR: molten FLiBe
+    /// (roughly 1940 kg/m³ at operating temperature) is *denser* than a
+    /// graphite pebble (roughly 1740–1800 kg/m³), so the pebbles are buoyant.
+    /// They float upward and pack against a retaining structure at the top of
+    /// the core, and the bed's free surface is its **bottom** face.
+    ///
+    /// This is an inversion of a gravity-settled packing, which is exactly
+    /// what a buoyant bed is. It cancels against egui's downward screen `y`,
+    /// so packing `y` and screen `y` end up running the same way — that
+    /// double flip is deliberate, not a bug.
+    Buoyant,
+}
+
+/// Where the baked packing's normalised vessel frame lands on screen.
+///
+/// The packing is expressed in **vessel barrel inner radii** with its origin on
+/// the axis at the cone/barrel junction (see
+/// [`crate::components::pebble_packing`]). This maps that frame to points.
+///
+/// [`Self::scale`] is a **single** factor applied to both axes and to each
+/// pebble's radius. That is not an implementation detail: a settled packing is
+/// only valid as a packing because its spheres touch, so scaling `x` and `y`
+/// differently would open or close every contact in it and destroy the very
+/// property that makes it worth baking. If a bed's drawn proportions do not
+/// match the packing's, narrow the [`PackingWindow`] — never stretch.
+pub(crate) struct PackingTransform {
+    /// Screen x of the vessel axis (packing `x = 0`), in points.
+    pub axis_x: f32,
+    /// Screen y of the packing's origin plane (packing `y = 0`), in points.
+    ///
+    /// For [`VerticalSense::GravityUp`] that plane is the cone/barrel
+    /// junction, so this is the screen y where the cylinder ends and the cone
+    /// begins. For [`VerticalSense::Buoyant`] the same plane is drawn at the
+    /// *top* of the bed, because the packing is turned over.
+    pub origin_y: f32,
+    /// Points per vessel radius — one uniform factor for both axes.
+    pub scale: f32,
+    /// Which way packing `+y` runs on screen. See [`VerticalSense`].
+    pub vertical: VerticalSense,
+}
+
+impl PackingTransform {
+    /// Screen centre of `pebble`, in points.
+    pub fn centre(&self, pebble: &PackedPebble) -> Pos2 {
+        let y = match self.vertical {
+            VerticalSense::GravityUp => self.origin_y - pebble.y * self.scale,
+            VerticalSense::Buoyant => self.origin_y + pebble.y * self.scale,
+        };
+        Pos2::new(self.axis_x + pebble.x * self.scale, y)
+    }
+
+    /// Screen radius of `pebble`, in points.
+    ///
+    /// The baked radius is the **chord** of the sphere cut by the slicing
+    /// plane, not the sphere radius, so it varies from pebble to pebble. That
+    /// spread is what a real saw-cut through a bed looks like and is preserved
+    /// here rather than normalised away.
+    pub fn radius(&self, pebble: &PackedPebble) -> f32 {
+        pebble.r * self.scale
+    }
+}
+
+/// Which part of the baked packing a widget draws.
+///
+/// A widget whose bed has the packing's own proportions draws all of it
+/// ([`Self::whole_bed`]). A widget whose bed is a different shape takes a
+/// **sub-region** ([`Self::barrel_column`]) — cropping keeps the packing's
+/// contacts intact, where stretching would not.
+///
+/// The test is on each circle's full **extent** (`centre ± radius`), so a kept
+/// pebble is drawn wholly inside the bed outline rather than overhanging it.
+pub(crate) struct PackingWindow {
+    /// Largest `|x| + r` a pebble may reach, in vessel radii.
+    pub max_abs_x: f32,
+    /// Lowest `y - r` a pebble may reach, in vessel radii.
+    pub min_y: f32,
+    /// Highest `y + r` a pebble may reach, in vessel radii.
+    pub max_y: f32,
+}
+
+impl PackingWindow {
+    /// The whole baked bed — barrel *and* cone, every one of the 261 circles.
+    ///
+    /// The right window for a widget drawing the same vessel the packing was
+    /// settled in, which is what HTR-10's cylinder-into-a-cone bed is.
+    ///
+    /// Built from [`BED_BOUNDS`], the packing's own measured bounding box,
+    /// with a 1e-3 slack: that constant is printed to five decimals, and
+    /// without the slack the one circle that defines each bound could be
+    /// dropped by a rounding hair.
+    pub fn whole_bed() -> Self {
+        Self {
+            max_abs_x: BED_BOUNDS[1].max(-BED_BOUNDS[0]) + 1.0e-3,
+            min_y: BED_BOUNDS[2] - 1.0e-3,
+            max_y: BED_BOUNDS[3] + 1.0e-3,
+        }
+    }
+
+    /// A central vertical column of the **barrel only** (`y >= 0`), at most
+    /// `max_abs_x` vessel radii either side of the axis.
+    ///
+    /// For a bed that has no cone and is proportionally taller than the
+    /// packing's barrel. Taking a narrower column lets the full barrel height
+    /// fill the drawn bed at one uniform scale; the cost is that the column's
+    /// side boundaries are a cut through the packing rather than a wall, so
+    /// pebbles there do not rest tangentially against the bed edge.
+    pub fn barrel_column(max_abs_x: f32) -> Self {
+        Self {
+            max_abs_x,
+            min_y: 0.0,
+            max_y: BARREL_HEIGHT,
+        }
+    }
+
+    /// Whether `pebble` is drawn wholly inside this window.
+    pub fn contains(&self, pebble: &PackedPebble) -> bool {
+        pebble.x.abs() + pebble.r <= self.max_abs_x
+            && pebble.y - pebble.r >= self.min_y
+            && pebble.y + pebble.r <= self.max_y
+    }
+}
+
+/// Deterministic pseudo-random value in `[0, 1)` from two indices.
 ///
 /// **Determinism is the point.** The widget is rebuilt every repaint, so
-/// drawing the packing from a real random source would make the bed shimmer —
-/// every pebble jumping to a new spot each frame. Hashing the lattice indices
-/// instead gives a packing that looks random but is identical frame to frame.
+/// drawing anything from a real random source would make the bed shimmer —
+/// every TRISO kernel jumping to a new spot each frame. Hashing the pebble and
+/// dot indices instead gives a scatter that looks random but is identical
+/// frame to frame.
 ///
-/// `salt` separates the independent draws (x offset, y offset, radius, void)
-/// so they do not correlate into visible stripes.
+/// The pebble *positions* no longer come from here — they are the baked DEM
+/// packing in [`crate::components::pebble_packing`] — but the TRISO speckle
+/// still does, via [`triso_dot_offset`]. `salt` separates independent draws so
+/// they do not correlate into visible structure.
 fn pebble_hash(col: i32, row: i32, salt: u32) -> f32 {
     let mut h = (col as u32).wrapping_mul(0x9E37_79B9)
         ^ (row as u32).wrapping_mul(0x85EB_CA6B)
@@ -113,13 +310,6 @@ fn pebble_hash(col: i32, row: i32, salt: u32) -> f32 {
     h ^= h >> 13;
     (h % 1_000_003) as f32 / 1_000_003.0
 }
-
-/// Fraction of lattice sites left empty, to break up the rows.
-///
-/// A real pebble bed packs to roughly 0.61 solid fraction, so it is visibly
-/// *not* a close-packed lattice. Dropping about one site in eight, on top of
-/// the positional jitter, is what stops the drawing reading as a grid.
-const PEBBLE_VOID_FRACTION: f32 = 0.12;
 
 // ── TRISO speckling ─────────────────────────────────────────────────────────
 //
@@ -315,64 +505,47 @@ pub(crate) fn draw_triso_pebble(
 /// rather than reading as a flat field of discs.
 const PEBBLE_MATRIX: Color32 = Color32::from_rgba_premultiplied(28, 28, 32, 214);
 
-/// Draws a randomly packed pebble bed filling `shape`.
+/// Draws the **settled** pebble bed: the baked DEM packing, placed by
+/// `transform` and cropped to `window`.
 ///
-/// Pebbles are laid on a jittered lattice: each site is displaced by up to
-/// half a spacing in both axes, its radius varied by roughly a fifth, and some
-/// sites dropped entirely (see [`PEBBLE_VOID_FRACTION`]). Sites whose pebble
-/// would not fit inside the bed outline at that height are skipped, so the
-/// packing follows the cone down to the chute rather than stopping at the
-/// cylinder.
+/// Positions come from [`PACKED_PEBBLES`] — a cut-away slice of a real
+/// soft-sphere DEM packing settled under gravity — so pebbles rest on one
+/// another instead of floating on a lattice with unphysical gaps. Nothing is
+/// jittered, tiled, or duplicated: each baked circle is drawn at most once, and
+/// a bed larger than the packing is left honestly sparse rather than filled
+/// with a repeat.
 ///
-/// Each surviving site is drawn by [`draw_triso_pebble`] as a graphite body
-/// speckled with fuel-coloured TRISO kernels, with `kernel` the colour the
-/// caller's temperature map gives the fuel. The per-pebble scatter is seeded
-/// from the lattice indices, so it is stable frame to frame like the packing.
-fn draw_packed_pebbles(
+/// Each pebble is drawn by [`draw_triso_pebble`] as a `matrix`-coloured
+/// graphite body speckled with `kernel`-coloured TRISO kernels, with `kernel`
+/// the colour the caller's temperature map gives the fuel. The speckle is
+/// seeded from the pebble's **index in the baked table**, so it is a pure
+/// function of the data and stable across repaints.
+///
+/// Returns how many pebbles were drawn, which is what a caller checking the
+/// bed is not silently empty at a degenerate size should look at.
+pub(crate) fn draw_packed_pebbles(
     painter: &egui::Painter,
-    shape: PebbleBedShape,
-    base_radius: f32,
+    transform: &PackingTransform,
+    window: &PackingWindow,
+    matrix: Color32,
     kernel: Color32,
-) {
-    let step = base_radius * 2.15;
-
-    let mut y = shape.top + base_radius * 1.2;
-    let mut row: i32 = 0;
-    while y < shape.cone_bottom - base_radius * 0.5 {
-        let half = shape.half_width_at(y);
-        // Stagger alternate rows before jittering, so the starting lattice is
-        // hexagonal rather than square.
-        let stagger = if row % 2 == 0 { 0.0 } else { step * 0.5 };
-        let mut x = shape.centre_x - half + base_radius + stagger;
-        let mut col: i32 = 0;
-
-        while x < shape.centre_x + half - base_radius {
-            if pebble_hash(col, row, 4) >= PEBBLE_VOID_FRACTION {
-                let dx = (pebble_hash(col, row, 1) - 0.5) * step * 0.85;
-                let dy = (pebble_hash(col, row, 2) - 0.5) * step * 0.7;
-                let r = base_radius * (0.78 + 0.42 * pebble_hash(col, row, 3));
-
-                let (px, py) = (x + dx, y + dy);
-                // Keep the pebble inside the bed at ITS OWN height, which is
-                // what makes the cone read as a cone.
-                let half_here = shape.half_width_at(py);
-                let inside_x = (px - shape.centre_x).abs() + r <= half_here;
-                let inside_y = py - r >= shape.top && py + r <= shape.cone_bottom;
-                if inside_x && inside_y {
-                    // Seed the speckle from the lattice site, so a pebble's
-                    // TRISO scatter is as stable across repaints as its
-                    // position is.
-                    let index = row.wrapping_mul(1009).wrapping_add(col);
-                    draw_triso_pebble(painter, Pos2::new(px, py), r, PEBBLE_MATRIX, kernel, index);
-                }
-            }
-            x += step;
-            col += 1;
+) -> usize {
+    let mut drawn = 0usize;
+    for (index, pebble) in PACKED_PEBBLES.iter().enumerate() {
+        if !window.contains(pebble) {
+            continue;
         }
-
-        y += step * 0.86;
-        row += 1;
+        draw_triso_pebble(
+            painter,
+            transform.centre(pebble),
+            transform.radius(pebble),
+            matrix,
+            kernel,
+            index as i32,
+        );
+        drawn += 1;
     }
+    drawn
 }
 
 const STEEL: Color32 = Color32::from_rgb(96, 100, 108);
@@ -551,48 +724,57 @@ impl Widget for Htr10ReactorVesselVisual {
             "He risers",
         );
 
-        // ── Pebble bed: rounded top, cylinder, then a cone to the chute ─────
-        let bed_half_w = w * 0.30;
-        let bed_top = rect.top() + h * 0.20;
-        let bed_cyl_bottom = rect.top() + h * 0.46;
-        let cone_bottom = rect.top() + h * 0.60;
+        // ── Pebble bed: cylinder, then a cone to the chute ──────────────────
+        //
+        // The outline is DERIVED FROM THE BAKED PACKING rather than from
+        // hand-picked fractions of the box, so the settled bed lands exactly
+        // inside it — see `pebble_bed_shape`.
+        let bed = pebble_bed_shape(rect);
+        let packing = settled_bed_packing(&bed);
+        let bed_half_w = bed.half_width;
+        let bed_top = bed.top;
+        let bed_cyl_bottom = bed.cylinder_bottom;
+        let cone_bottom = bed.cone_bottom;
+        let chute_half_w = bed.chute_half_width;
         let hot = self.colour(self.pebble_temp);
 
-        // Cylindrical section with a domed upper surface.
+        // Cylindrical section. Only lightly rounded: the barrel the packing
+        // settled in is straight-walled, and a heavy corner radius would cut
+        // the outline back inside the topmost pebbles.
+        let barrel_half = bed.half_width_at(bed.top);
         let bed_body = Rect::from_min_max(
-            Pos2::new(cx - bed_half_w, bed_top),
-            Pos2::new(cx + bed_half_w, bed_cyl_bottom),
+            Pos2::new(bed.centre_x - barrel_half, bed.top),
+            Pos2::new(bed.centre_x + barrel_half, bed.cylinder_bottom),
         );
-        painter.rect_filled(bed_body, bed_half_w * 0.35, hot);
+        painter.rect_filled(bed_body, bed_half_w * 0.15, hot);
 
-        // Conical bottom funnelling into the discharge tube.
-        let chute_half_w = w * 0.055;
+        // Conical bottom funnelling into the discharge tube. Its corners are
+        // read back out of `bed`, so the drawn silhouette is by construction
+        // the taper `PebbleBedShape::half_width_at` describes — which is the
+        // same linear taper as `pebble_packing::vessel_half_width`, so the
+        // packing's lowest circles sit inside it.
+        let cone_top_half = bed.half_width_at(bed.cylinder_bottom);
+        let cone_end_half = bed.half_width_at(bed.cone_bottom);
         painter.add(egui::Shape::convex_polygon(
             vec![
-                Pos2::new(cx - bed_half_w, bed_cyl_bottom),
-                Pos2::new(cx + bed_half_w, bed_cyl_bottom),
-                Pos2::new(cx + chute_half_w, cone_bottom),
-                Pos2::new(cx - chute_half_w, cone_bottom),
+                Pos2::new(cx - cone_top_half, bed_cyl_bottom),
+                Pos2::new(cx + cone_top_half, bed_cyl_bottom),
+                Pos2::new(cx + cone_end_half, cone_bottom),
+                Pos2::new(cx - cone_end_half, cone_bottom),
             ],
             hot,
             Stroke::NONE,
         ));
 
-        // Pebbles, randomly packed across the bed — cylinder AND cone. Each
-        // is a graphite body speckled with TRISO kernels at the fuel colour,
-        // so the bed reads as fuelled graphite spheres rather than as one
-        // uniformly hot volume.
+        // Pebbles, settled across the whole bed — cylinder AND cone. Each is a
+        // graphite body speckled with TRISO kernels at the fuel colour, so the
+        // bed reads as fuelled graphite spheres rather than as one uniformly
+        // hot volume.
         draw_packed_pebbles(
             &painter,
-            PebbleBedShape {
-                centre_x: cx,
-                top: bed_top,
-                cylinder_bottom: bed_cyl_bottom,
-                cone_bottom,
-                half_width: bed_half_w,
-                chute_half_width: chute_half_w,
-            },
-            (bed_half_w / 5.0).clamp(1.5, 5.0),
+            &packing,
+            &PackingWindow::whole_bed(),
+            PEBBLE_MATRIX,
             hot,
         );
         self.tag(ui, Pos2::new(cx, bed_top + h * 0.05), "pebble bed");
@@ -758,18 +940,19 @@ mod packing_tests {
         }
     }
 
-    /// The packing must be identical frame to frame.
+    /// The speckle hash must be identical frame to frame.
     ///
-    /// **Methodology.** The widget is rebuilt on every repaint, so a packing
-    /// drawn from a real random source would make the bed shimmer. Evaluate
-    /// the hash repeatedly at the same site and require bitwise-equal results,
-    /// and require it to stay in `[0, 1)`.
+    /// **Methodology.** The widget is rebuilt on every repaint, so anything
+    /// drawn from a real random source would shimmer. Pebble *positions* are
+    /// now baked data and deterministic by construction, but the TRISO scatter
+    /// is still hashed, so evaluate the hash repeatedly at the same site,
+    /// require bitwise-equal results, and require it to stay in `[0, 1)`.
     ///
     /// **Result (2026-08-06):** identical across repeated calls, and every
-    /// sampled site lies in range. Interpretation: the bed looks randomly
-    /// packed but is stable, so pebbles do not jump between frames.
+    /// sampled site lies in range. Interpretation: the speckle is stable, so
+    /// kernels do not jump between frames.
     #[test]
-    fn the_packing_is_deterministic_and_in_range() {
+    fn the_speckle_hash_is_deterministic_and_in_range() {
         for col in -5..25 {
             for row in 0..25 {
                 for salt in 1..5 {
@@ -781,8 +964,8 @@ mod packing_tests {
         }
     }
 
-    /// Neighbouring sites must decorrelate, or the jitter shows as stripes
-    /// rather than reading as a random packing.
+    /// Neighbouring sites must decorrelate, or the TRISO scatter shows as
+    /// stripes rather than reading as randomly dispersed kernels.
     #[test]
     fn adjacent_sites_do_not_correlate() {
         let mut differing = 0;
@@ -797,9 +980,10 @@ mod packing_tests {
         );
     }
 
-    /// The four independent draws at one site must not agree, or radius and
-    /// position would vary together and every large pebble would sit in the
-    /// same place within its cell.
+    /// Differently salted draws at one site must not agree, or the
+    /// independent quantities hashed from a site (a kernel's angle and its
+    /// radial position) would move together and the scatter would collapse
+    /// onto a line.
     #[test]
     fn the_salted_draws_are_independent() {
         let (a, b, c, d) = (
@@ -960,6 +1144,186 @@ mod packing_tests {
 
         assert_eq!(triso_dot_count(f32::NAN), 0);
         assert_eq!(triso_dot_count(f32::INFINITY), 0);
+    }
+
+    /// A representative drawn vessel: a 240 pt wide card at the native
+    /// aspect, offset from the origin so a test cannot pass by assuming the
+    /// artwork starts at (0, 0).
+    fn drawn_rect() -> Rect {
+        Rect::from_min_size(
+            Pos2::new(17.0, 23.0),
+            Vec2::new(240.0, 240.0 / NATIVE_ASPECT_RATIO),
+        )
+    }
+
+    /// The drawn bed outline must be the packing's own vessel, at one uniform
+    /// scale.
+    ///
+    /// **Methodology.** The baked packing is normalised to the barrel inner
+    /// radius (`R = 1`), so a drawing that maps it faithfully has exactly one
+    /// degree of freedom: points per vessel radius. Build the bed for a
+    /// 240 x 634 pt vessel and require the barrel height, cone height and
+    /// chute half-width to equal `BARREL_HEIGHT`, `CONE_HEIGHT` and
+    /// `CHUTE_RADIUS` times the bed half-width, and require the transform's
+    /// scale to be that same half-width — i.e. no separate horizontal and
+    /// vertical scale exists to drift apart.
+    ///
+    /// **Result (2026-08-06):** half-width 72.00 pt, so the scale is
+    /// 72.00 pt per vessel radius; barrel 158.40 pt (2.2 R), cone 64.80 pt
+    /// (0.9 R), chute half-width 12.96 pt (0.18 R) — all exact to 1e-3.
+    /// Interpretation: the silhouette is the vessel the DEM run settled in,
+    /// rescaled, so the packing cannot land outside the outline through a
+    /// proportion mismatch.
+    #[test]
+    fn the_bed_outline_is_the_packings_own_vessel_at_one_scale() {
+        let bed = pebble_bed_shape(drawn_rect());
+        let packing = settled_bed_packing(&bed);
+        let r = bed.half_width;
+
+        println!(
+            "half-width {r:.2} pt; barrel {:.2} pt; cone {:.2} pt; chute half-width {:.2} pt",
+            bed.cylinder_bottom - bed.top,
+            bed.cone_bottom - bed.cylinder_bottom,
+            bed.chute_half_width
+        );
+
+        assert!(
+            (packing.scale - r).abs() < 1e-3,
+            "the scale is not isotropic"
+        );
+        assert!((bed.cylinder_bottom - bed.top - BARREL_HEIGHT * r).abs() < 1e-3);
+        assert!((bed.cone_bottom - bed.cylinder_bottom - CONE_HEIGHT * r).abs() < 1e-3);
+        assert!((bed.chute_half_width - CHUTE_RADIUS * r).abs() < 1e-3);
+    }
+
+    /// Every baked pebble must be drawn wholly inside the bed outline.
+    ///
+    /// **Methodology.** A pebble is a disc, and the cone wall is slanted, so
+    /// testing the centre alone would miss a circle clipping the taper.
+    /// Sample each drawn circle at 41 heights across its own diameter; at each
+    /// height its half-chord is `sqrt(r^2 - dy^2)`, which must fit inside
+    /// `PebbleBedShape::half_width_at` at that height. Also require the whole
+    /// circle to sit between the bed top and the cone bottom. Report the worst
+    /// overshoot, converted back to vessel radii so it can be compared with
+    /// the packing's own contact scale (`SPHERE_RADIUS` = 0.075 R).
+    ///
+    /// **Result (2026-08-06):** all 261 circles drawn, worst wall overshoot
+    /// 3.6e-4 vessel radii — 0.48 % of one sphere radius, and 0.026 pt at the
+    /// tested size. That residue is the DEM's soft-sphere contact letting a
+    /// resting sphere press very slightly into the wall, not a mapping error;
+    /// it is far below one screen pixel. Interpretation: the settled bed lands
+    /// inside the drawn silhouette, including down the cone, so no pebble is
+    /// painted onto the reflector.
+    #[test]
+    fn the_settled_packing_lands_inside_the_drawn_bed_outline() {
+        let bed = pebble_bed_shape(drawn_rect());
+        let packing = settled_bed_packing(&bed);
+        let window = PackingWindow::whole_bed();
+        let tolerance = 0.005 * packing.scale;
+
+        let mut drawn = 0usize;
+        let mut worst = f32::NEG_INFINITY;
+        for pebble in PACKED_PEBBLES {
+            assert!(
+                window.contains(pebble),
+                "the whole-bed window dropped a baked circle"
+            );
+            let centre = packing.centre(pebble);
+            let radius = packing.radius(pebble);
+            drawn += 1;
+
+            assert!(
+                centre.y - radius >= bed.top - tolerance,
+                "a pebble pokes out of the top of the bed"
+            );
+            assert!(
+                centre.y + radius <= bed.cone_bottom + tolerance,
+                "a pebble pokes out of the bottom of the cone"
+            );
+
+            for step in 0..=40 {
+                let y = centre.y - radius + 2.0 * radius * step as f32 / 40.0;
+                let chord = (radius * radius - (y - centre.y) * (y - centre.y))
+                    .max(0.0)
+                    .sqrt();
+                let over = (centre.x - bed.centre_x).abs() + chord - bed.half_width_at(y);
+                worst = worst.max(over);
+                assert!(
+                    over <= tolerance,
+                    "a pebble crosses the bed wall by {over} pt at y = {y}"
+                );
+            }
+        }
+
+        println!(
+            "{drawn} circles drawn; worst wall overshoot {:.6} vessel radii \
+             ({:.2} % of a sphere radius, {worst:.4} pt)",
+            worst / packing.scale,
+            100.0 * worst / (packing.scale * 0.075)
+        );
+        assert_eq!(drawn, 261, "the whole baked packing must be drawn");
+    }
+
+    /// The cone must be at the BOTTOM — the single easiest thing to get
+    /// backwards, and the most obviously wrong on screen.
+    ///
+    /// **Methodology.** The packing's `+y` points up while egui's screen `y`
+    /// points down, so an HTR-10 bed needs exactly one flip
+    /// ([`VerticalSense::GravityUp`]). Take the lowest and highest circles in
+    /// the baked table by packing `y` and require the lowest to be drawn at a
+    /// *larger* screen `y` (further down), to sit below the cylinder/cone
+    /// junction, and to be narrow enough for the chute; require the highest to
+    /// sit in the barrel near the bed top.
+    ///
+    /// **Result (2026-08-06):** lowest circle packing y = -0.825, drawn at
+    /// screen y 367.7, which is 210.2 pt below the highest (packing y = 2.093,
+    /// screen y 157.5); it lies 59.4 pt below the junction at 308.3, inside a
+    /// cone that is 64.8 pt deep, and its centre is 0.21 pt off the axis, well
+    /// within the 12.96 pt chute half-width. Interpretation:
+    /// the bed drains downward into the chute, as a gas-cooled pebble bed
+    /// does, and the drawing is not upside down.
+    #[test]
+    fn the_cone_is_at_the_bottom() {
+        let bed = pebble_bed_shape(drawn_rect());
+        let packing = settled_bed_packing(&bed);
+
+        let lowest = PACKED_PEBBLES
+            .iter()
+            .min_by(|a, b| a.y.total_cmp(&b.y))
+            .expect("the baked packing is not empty");
+        let highest = PACKED_PEBBLES
+            .iter()
+            .max_by(|a, b| a.y.total_cmp(&b.y))
+            .expect("the baked packing is not empty");
+
+        let low = packing.centre(lowest);
+        let high = packing.centre(highest);
+        println!(
+            "lowest packing y {:.3} drawn at screen y {:.1}; highest {:.3} at {:.1}; \
+             junction at {:.1}",
+            lowest.y, low.y, highest.y, high.y, bed.cylinder_bottom
+        );
+
+        assert!(
+            low.y > high.y,
+            "the bed is upside down — the settled base is being drawn at the top"
+        );
+        assert!(
+            low.y > bed.cylinder_bottom,
+            "the lowest pebble should be down in the CONE, not in the barrel"
+        );
+        assert!(
+            low.y < bed.cone_bottom,
+            "the lowest pebble fell out of the bottom of the cone"
+        );
+        assert!(
+            (low.x - bed.centre_x).abs() < bed.chute_half_width,
+            "the lowest pebble is not over the chute"
+        );
+        assert!(
+            high.y < bed.cylinder_bottom && high.y > bed.top,
+            "the highest pebble should be up in the barrel"
+        );
     }
 
     /// The bed outline must taper: constant down the cylinder, then narrowing

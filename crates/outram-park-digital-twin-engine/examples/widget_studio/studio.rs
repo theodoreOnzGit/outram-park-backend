@@ -34,6 +34,8 @@ pub enum WidgetUnderTest {
     Pipes,
     PipeBend,
     Reactors,
+    SteamGenerators,
+    Pumps,
 }
 
 impl WidgetUnderTest {
@@ -43,6 +45,8 @@ impl WidgetUnderTest {
         Self::Pipes,
         Self::PipeBend,
         Self::Reactors,
+        Self::SteamGenerators,
+        Self::Pumps,
     ];
 
     /// Human-readable name for the picker.
@@ -52,6 +56,8 @@ impl WidgetUnderTest {
             Self::Pipes => "Pipes (3 backends)",
             Self::PipeBend => "Pipe bend",
             Self::Reactors => "Reactor vessels (6 types)",
+            Self::SteamGenerators => "Steam generators (3 types)",
+            Self::Pumps => "Pumps (3 types)",
         }
     }
 
@@ -65,6 +71,10 @@ impl WidgetUnderTest {
             Self::Reactors => {
                 "schematic art for every scoped reactor — illustrative, not validated"
             }
+            Self::SteamGenerators => {
+                "vertical U-tube (PWR), horizontal U-tube (VVER), helical once-through"
+            }
+            Self::Pumps => "centrifugal volute, vertical canned-rotor, axial propeller",
         }
     }
 }
@@ -118,6 +128,11 @@ pub struct WidgetStudio {
     /// The reactor-vessel gallery: shared temperatures and rod position for
     /// every scoped architecture.
     reactors: crate::reactor_tab::ReactorTab,
+    /// The steam-generator gallery: three architectures under shared sliders.
+    steam_generators: crate::steam_generator_tab::SteamGeneratorTab,
+    /// The pump gallery. Owns its own simulation clock, advanced in `step`,
+    /// because a widget-owned clock would reset every repaint.
+    pumps: crate::pump_tab::PumpTab,
     /// Backends that failed to STEP on the last frame. Surfaced rather than
     /// swallowed: a frozen solver must not look like a working one.
     pipe_step_errors: Vec<String>,
@@ -147,6 +162,8 @@ impl Default for WidgetStudio {
             pipe_errors,
             bend: crate::bend_tab::BendDemo::default(),
             reactors: crate::reactor_tab::ReactorTab::default(),
+            steam_generators: crate::steam_generator_tab::SteamGeneratorTab::default(),
+            pumps: crate::pump_tab::PumpTab::default(),
             pipe_step_errors: Vec::new(),
         }
     }
@@ -221,6 +238,8 @@ impl eframe::App for WidgetStudio {
             let sim_dt = Time::new::<second>(dt_real * self.sim_speed);
             self.pipe_step_errors = crate::pipes::step_rows(&mut self.pipe_rows, sim_dt);
             self.pipe_step_errors.extend(self.bend.step(sim_dt));
+            // Pump impellers turn on an application-owned clock, like the turbine.
+            self.pumps.step(sim_dt);
 
             ui.ctx().request_repaint();
         } else {
@@ -258,12 +277,20 @@ impl eframe::App for WidgetStudio {
                 WidgetUnderTest::Pipes => self.pipe_controls(ui),
                 WidgetUnderTest::PipeBend => crate::bend_tab::controls(ui, &mut self.bend),
                 WidgetUnderTest::Reactors => crate::reactor_tab::controls(ui, &mut self.reactors),
+                WidgetUnderTest::SteamGenerators => {
+                    crate::steam_generator_tab::controls(ui, &mut self.steam_generators)
+                }
+                WidgetUnderTest::Pumps => crate::pump_tab::controls(ui, &mut self.pumps),
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| match self.selected {
             WidgetUnderTest::SteamTurbine => self.turbine_canvas(ui),
             WidgetUnderTest::PipeBend => crate::bend_tab::draw(ui, &self.bend),
             WidgetUnderTest::Reactors => crate::reactor_tab::draw(ui, &self.reactors),
+            WidgetUnderTest::SteamGenerators => {
+                crate::steam_generator_tab::draw(ui, &self.steam_generators)
+            }
+            WidgetUnderTest::Pumps => crate::pump_tab::draw(ui, &self.pumps),
             WidgetUnderTest::Pipes => {
                 // Pipes are drawn to true scale, so a long run can exceed the
                 // panel. Scroll rather than rescale: shrinking to fit would

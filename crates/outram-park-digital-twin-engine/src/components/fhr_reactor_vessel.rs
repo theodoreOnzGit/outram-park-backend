@@ -20,13 +20,36 @@
 //! Migrated into the shared component library from `fhr_sim_v2`'s local widget
 //! set (bead `op-wqk.8`, step 2), so other reactor simulators can draw a
 //! pebble-bed vessel without re-deriving the art.
+//!
+//! # Why this bed is drawn UPSIDE DOWN — the pebbles float
+//!
+//! The pebbles here are placed from the same baked, gravity-settled DEM
+//! packing the HTR-10 widget uses ([`crate::components::pebble_packing`]), but
+//! **inverted**, and that inversion is physics rather than a drawing accident.
+//!
+//! An FHR's coolant is molten FLiBe at roughly 1940 kg/m³ at operating
+//! temperature, while a graphite pebble is roughly 1740–1800 kg/m³. The
+//! pebbles are therefore **less dense than the salt they sit in, and float**.
+//! They rise, pack upward against a retaining structure at the **top** of the
+//! core, and are injected low and removed high — the mirror image of HTR-10,
+//! where helium is a gas, the pebbles settle downward under their own weight,
+//! and the bed drains through a cone at the bottom.
+//!
+//! So the bed's dense, compressed base is drawn at the **top** of the core and
+//! its loose free surface faces **down**. If a future edit makes the bottom of
+//! this bed the dense end, it has silently turned an FHR into a gas-cooled
+//! reactor. The inversion is expressed once, as
+//! [`crate::components::htr10_reactor_vessel::VerticalSense::Buoyant`].
 
 use egui::epaint::CubicBezierShape;
 use egui::{epaint::PathShape, vec2, Color32, Pos2, Sense, Stroke, Vec2, Widget};
 use uom::si::{f64::*, thermodynamic_temperature::degree_celsius};
 
 use crate::color_maps::hot_to_cold_colour_mark_1;
-use crate::components::htr10_reactor_vessel::draw_triso_pebble;
+use crate::components::htr10_reactor_vessel::{
+    draw_packed_pebbles, PackingTransform, PackingWindow, VerticalSense,
+};
+use crate::components::pebble_packing::BARREL_HEIGHT;
 
 /// Width-to-height ratio the artwork was authored against.
 ///
@@ -64,6 +87,70 @@ pub fn fit_native_aspect(available: egui::Rect) -> egui::Rect {
     };
 
     egui::Rect::from_center_size(available.center(), Vec2::new(fitted_w, fitted_h))
+}
+
+/// Screen box of the **"fat" core** — the drawn pebble bed — inside an
+/// already-letterboxed vessel `rect`.
+///
+/// This is the straight-sided region between the inlet and outlet cones of the
+/// cut-away: half the vessel width, and 0.45 of a vessel quarter-height either
+/// side of centre. Both the coolant polygons and the pebble packing are built
+/// from it, so the bed the pebbles are placed in is by construction the bed
+/// that is drawn.
+pub(crate) fn pebble_bed_rect(rect: egui::Rect) -> egui::Rect {
+    let reactor_half_width_x = rect.width() * 0.5;
+    let reactor_half_length_y = rect.height() * 0.25;
+    egui::Rect::from_center_size(
+        rect.center(),
+        Vec2::new(reactor_half_width_x, 0.9 * reactor_half_length_y),
+    )
+}
+
+/// How the baked pebble packing is laid into the FHR bed: **inverted**,
+/// height-fitted, and cropped to a central column.
+///
+/// Returns the transform that places the packing and the window that selects
+/// which of its circles are drawn.
+///
+/// Three decisions are encoded here, and all three are deliberate:
+///
+/// 1. **Inverted** ([`VerticalSense::Buoyant`]). FHR pebbles float in the
+///    denser salt, so the packing's settled base is drawn against the top of
+///    the core and its free surface faces down. See the module docs.
+/// 2. **Height-fitted, one uniform scale.** The scale is
+///    `bed height / BARREL_HEIGHT`, applied to both axes and to every pebble
+///    radius. The packing is never stretched — a settled packing is only a
+///    packing because its spheres touch.
+/// 3. **Cropped, not tiled.** The fat core is proportionally about 1.9 times
+///    taller than the packing's barrel, so at a height-fitting scale the
+///    barrel is wider than the bed. A central column is taken. Nothing is
+///    duplicated to fill the space.
+///
+/// A degenerate (zero- or negative-height) `bed` yields a zero scale and an
+/// empty column, so nothing is drawn rather than a divide-by-zero escaping
+/// into the painter.
+pub(crate) fn buoyant_bed_packing(bed: egui::Rect) -> (PackingTransform, PackingWindow) {
+    let scale = (bed.height() / BARREL_HEIGHT).max(0.0);
+    // How much of the barrel's width fits the bed at that scale, in vessel
+    // radii. Below 1.0 exactly because the bed is the proportionally taller
+    // shape.
+    let column_half_width = if scale > 0.0 {
+        bed.width() * 0.5 / scale
+    } else {
+        0.0
+    };
+
+    (
+        PackingTransform {
+            axis_x: bed.center().x,
+            // Packing y = 0 — the dense settled base — is drawn at the TOP of
+            // the core, where a floating bed packs against its retainer.
+            origin_y: bed.top(),
+            scale,
+            vertical: VerticalSense::Buoyant,
+        },
+        PackingWindow::barrel_column(column_half_width),
+    )
 }
 
 /// Visual representation of a pebble-bed FHR reactor vessel.
@@ -241,15 +328,13 @@ impl Widget for FhrReactorVesselVisual {
             c + vec2(-0.10 * reactor_half_width_x, reactor_half_length_y * 0.65);
         let fhr_core_inlet_bottom_right =
             c + vec2(0.10 * reactor_half_width_x, reactor_half_length_y * 0.65);
-        let fhr_core_fat_bottom_left =
-            c + vec2(-0.50 * reactor_half_width_x, reactor_half_length_y * 0.45);
-        let fhr_core_fat_bottom_right =
-            c + vec2(0.50 * reactor_half_width_x, reactor_half_length_y * 0.45);
-
-        let fhr_core_fat_top_left =
-            c + vec2(-0.50 * reactor_half_width_x, -reactor_half_length_y * 0.45);
-        let fhr_core_fat_top_right =
-            c + vec2(0.50 * reactor_half_width_x, -reactor_half_length_y * 0.45);
+        // The fat core IS the pebble bed, so its corners are read off the one
+        // rect the packing is also laid into — see `pebble_bed_rect`.
+        let bed_rect = pebble_bed_rect(rect);
+        let fhr_core_fat_bottom_left = Pos2::new(bed_rect.left(), bed_rect.bottom());
+        let fhr_core_fat_bottom_right = Pos2::new(bed_rect.right(), bed_rect.bottom());
+        let fhr_core_fat_top_left = Pos2::new(bed_rect.left(), bed_rect.top());
+        let fhr_core_fat_top_right = Pos2::new(bed_rect.right(), bed_rect.top());
         let fhr_core_outlet_top_left =
             c + vec2(-0.10 * reactor_half_width_x, -reactor_half_length_y * 0.65);
         let fhr_core_outlet_top_right =
@@ -470,54 +555,15 @@ impl Widget for FhrReactorVesselVisual {
         let fhr_core_outlet_coolant_shape =
             PathShape::convex_polygon(core_outlet_points, core_outlet_colour, coolant_stroke);
 
-        // now for pebble bed
+        // ── Pebble bed ──────────────────────────────────────────────────────
         //
-        let fhr_width = reactor_half_width_x * 2.0;
-        let fhr_height = reactor_half_length_y * 2.0;
-        let pebble_radius = fhr_width * 0.042;
-        let core_radius = pebble_radius * 0.8;
-        let pebble_ctr = c;
-
-        painter.circle_filled(pebble_ctr, pebble_radius, Color32::BLACK);
-        painter.circle_filled(pebble_ctr, core_radius, Color32::DARK_RED);
-
-        let pebble_centers = vec![
-            c + vec2(2.0 * pebble_radius, 0.1 * pebble_radius),
-            c + vec2(1.0 * pebble_radius, -0.5 * pebble_radius),
-            c + vec2(4.0 * pebble_radius, -0.3 * pebble_radius),
-            c + vec2(-2.0 * pebble_radius, 0.1 * pebble_radius),
-            c + vec2(-1.0 * pebble_radius, -0.5 * pebble_radius),
-            c + vec2(-4.0 * pebble_radius, -0.3 * pebble_radius),
-            c + vec2(2.0 * pebble_radius, 1.1 * pebble_radius),
-            c + vec2(1.0 * pebble_radius, -1.5 * pebble_radius),
-            c + vec2(4.0 * pebble_radius, -2.3 * pebble_radius),
-            c + vec2(-2.0 * pebble_radius, 1.1 * pebble_radius),
-            c + vec2(-1.0 * pebble_radius, -2.5 * pebble_radius),
-            c + vec2(-4.0 * pebble_radius, -2.3 * pebble_radius),
-            c + vec2(2.0 * pebble_radius, 1.1 * pebble_radius),
-            c + vec2(3.0 * pebble_radius, -1.5 * pebble_radius),
-            c + vec2(5.0 * pebble_radius, -2.3 * pebble_radius),
-            c + vec2(-2.0 * pebble_radius, 1.1 * pebble_radius),
-            c + vec2(-3.0 * pebble_radius, -2.5 * pebble_radius),
-            c + vec2(-5.0 * pebble_radius, -2.3 * pebble_radius),
-            c + vec2(-5.0 * pebble_radius, 2.3 * pebble_radius),
-            c + vec2(5.0 * pebble_radius, 2.3 * pebble_radius),
-            c + vec2(-4.2 * pebble_radius, 1.3 * pebble_radius),
-            c + vec2(4.0 * pebble_radius, 1.4 * pebble_radius),
-            c + vec2(-0.2 * pebble_radius, 1.3 * pebble_radius),
-            c + vec2(0.0 * pebble_radius, 1.8 * pebble_radius),
-        ];
-
-        // add another list but transpose upwards
-        let mut pebble_centres_bottom: Vec<Pos2> = pebble_centers.clone();
-        let mut pebble_centres_top: Vec<Pos2> = pebble_centers.clone();
-
-        for (i, pebble_center) in pebble_centers.iter().enumerate() {
-            pebble_centres_bottom[i] = *pebble_center + vec2(0.0, fhr_height * 0.1);
-        }
-        for (i, pebble_center) in pebble_centers.iter().enumerate() {
-            pebble_centres_top[i] = *pebble_center + vec2(0.0, -fhr_height * 0.1);
-        }
+        // Placed from the baked, gravity-settled DEM packing, INVERTED,
+        // because FHR pebbles are buoyant in FLiBe — see the module docs.
+        //
+        // The bed is the "fat" core region, which has no cone, so only the
+        // packing's BARREL is used — height-fitted, inverted, and cropped to a
+        // central column. All of that lives in `buoyant_bed_packing`.
+        let (packing, packing_window) = buoyant_bed_packing(bed_rect);
 
         let pebble_bed_hotness = self.hotness(self.pebble_core_temp);
         let pebble_bed_colour = hot_to_cold_colour_mark_1(pebble_bed_hotness);
@@ -900,44 +946,19 @@ impl Widget for FhrReactorVesselVisual {
         //
         // Each pebble is a graphite matrix speckled with TRISO kernels at the
         // fuel colour, not a solid coloured disc — the fission heat is made in
-        // the particles, so the artwork should read as a graphite ball with
-        // hot dots in it. The scatter is seeded from the pebble's position in
-        // these lists, so it is stable across repaints; the three bands are
-        // given separate index ranges so they do not all wear the same
-        // pattern. `core_radius` (0.8 of the pebble radius) is unchanged as
-        // the fuelled zone, it is now the bound on the dots rather than the
-        // radius of a filled disc.
-        for (i, pebble_center) in pebble_centers.iter().enumerate() {
-            draw_triso_pebble(
-                &painter,
-                *pebble_center,
-                pebble_radius,
-                Color32::BLACK,
-                pebble_bed_colour,
-                i as i32,
-            );
-        }
-
-        for (i, pebble_center) in pebble_centres_bottom.iter().enumerate() {
-            draw_triso_pebble(
-                &painter,
-                *pebble_center,
-                pebble_radius,
-                Color32::BLACK,
-                pebble_bed_colour,
-                1000 + i as i32,
-            );
-        }
-        for (i, pebble_center) in pebble_centres_top.iter().enumerate() {
-            draw_triso_pebble(
-                &painter,
-                *pebble_center,
-                pebble_radius,
-                Color32::BLACK,
-                pebble_bed_colour,
-                2000 + i as i32,
-            );
-        }
+        // the particles, so the artwork reads as a graphite ball with hot dots
+        // in it. Positions come from the baked settled packing, so the pebbles
+        // rest on one another instead of floating on a lattice; the speckle is
+        // seeded from each pebble's index in that table, so it is stable
+        // across repaints. The graphite matrix stays black, as this vessel has
+        // always drawn it.
+        draw_packed_pebbles(
+            &painter,
+            &packing,
+            &packing_window,
+            Color32::BLACK,
+            pebble_bed_colour,
+        );
 
         // control rod channels and
         // control rod line segments (foreground)
@@ -1048,6 +1069,204 @@ mod tests {
 
         assert_eq!(vessel.left_control_rod_insertion_frac, 0.25);
         assert_eq!(vessel.right_control_rod_insertion_frac, 0.75);
+    }
+}
+
+#[cfg(test)]
+mod packing_tests {
+    use super::*;
+    use crate::components::pebble_packing::{BED_TOP, PACKED_PEBBLES, SPHERE_RADIUS};
+    use egui::{Pos2, Rect};
+
+    /// A representative drawn vessel: the simulator's native 225 x 1050 pt
+    /// box, offset from the origin so a test cannot pass by assuming the
+    /// artwork starts at (0, 0).
+    fn drawn_rect() -> Rect {
+        fit_native_aspect(Rect::from_min_size(
+            Pos2::new(31.0, 13.0),
+            Vec2::new(225.0, 1050.0),
+        ))
+    }
+
+    /// **The bed must be inverted — FHR pebbles float.**
+    ///
+    /// This is the test that exists because the mistake is invisible in the
+    /// arithmetic and obvious on screen.
+    ///
+    /// **Methodology.** Molten FLiBe (about 1940 kg/m³ at operating
+    /// temperature) is denser than a graphite pebble (about 1740–1800 kg/m³),
+    /// so an FHR bed floats up against a retainer at the **top** of the core
+    /// and its free surface faces **down** — the mirror of the gas-cooled
+    /// HTR-10 bed the packing was settled as. Two independent checks:
+    ///
+    /// 1. **Ordering.** The packing's settled base (`y = 0`) must be drawn at
+    ///    the bed's top edge and its free surface (`y = BARREL_HEIGHT`) at the
+    ///    bottom edge, so a low-`y` pebble gets a *smaller* screen `y` than a
+    ///    high-`y` one. Note egui's screen `y` also points down, so this is a
+    ///    deliberate double flip: the packing frame and the screen frame end
+    ///    up running the same way.
+    /// 2. **Density gradient.** Independently of the arithmetic, the drawn
+    ///    upper half of the bed must carry more pebble area than the lower
+    ///    half, because a gravity-settled packing is compressed at its base
+    ///    and loose at its free surface. Areas are summed as `pi r^2` over the
+    ///    drawn circles, split by which half of the bed the centre falls in.
+    ///
+    /// **Result (2026-08-06):** `y = 0` maps to the bed top and
+    /// `y = BARREL_HEIGHT` to the bed bottom, both to within 1e-3 pt. The
+    /// drawn upper half carries 0.5882 R² of circle area against 0.5353 R² in
+    /// the lower half — a ratio of 1.099, i.e. the dense end is 9.9 % heavier
+    /// and it is at the **top**. Interpretation: the bed reads as buoyant,
+    /// packed against its retainer with a ragged free surface underneath, and
+    /// has not been silently turned back into a gravity-settled one.
+    #[test]
+    fn the_buoyant_bed_is_inverted_so_the_dense_end_is_at_the_top() {
+        let bed = pebble_bed_rect(drawn_rect());
+        let (packing, window) = buoyant_bed_packing(bed);
+
+        // 1. Ordering: the settled base is drawn at the TOP.
+        let base = PackedPebbleAt::new(0.0, 0.0);
+        let surface = PackedPebbleAt::new(0.0, BARREL_HEIGHT);
+        assert!((packing.centre(&base.0).y - bed.top()).abs() < 1e-3);
+        assert!((packing.centre(&surface.0).y - bed.bottom()).abs() < 1e-3);
+        assert!(
+            packing.centre(&base.0).y < packing.centre(&surface.0).y,
+            "the FHR bed is not inverted — a double flip has cancelled out"
+        );
+
+        // 2. Density gradient: heavier half must be the upper one.
+        let mid = bed.center().y;
+        let (mut upper, mut lower) = (0.0f32, 0.0f32);
+        for pebble in PACKED_PEBBLES.iter().filter(|p| window.contains(p)) {
+            let area = std::f32::consts::PI * pebble.r * pebble.r;
+            if packing.centre(pebble).y < mid {
+                upper += area;
+            } else {
+                lower += area;
+            }
+        }
+        println!(
+            "drawn circle area: upper half {upper:.4} R^2, lower half {lower:.4} R^2, \
+             ratio {:.3}",
+            upper / lower
+        );
+        assert!(
+            upper > lower,
+            "the dense end of the bed is at the BOTTOM — the inversion is missing, \
+             which draws an FHR as if its pebbles sank"
+        );
+    }
+
+    /// The cropped packing must fill the bed without spilling out of it.
+    ///
+    /// **Methodology.** The fat core is proportionally taller than the
+    /// packing's barrel, so the scale is set by height and a central column is
+    /// cropped out. Require: the barrel's full height to span the bed exactly;
+    /// every kept circle to be drawn wholly inside the bed rectangle; and the
+    /// crop to be a strict sub-column of the barrel (`< 1` vessel radius),
+    /// which is what makes cropping — rather than stretching — necessary.
+    ///
+    /// **Result (2026-08-06):** at the native 225 x 1050 pt box the bed is
+    /// 112.5 x 236.25 pt, giving a scale of 107.39 pt per vessel radius and a
+    /// crop at |x| <= 0.5238 R, so 52.4 % of the barrel's width is used. 98 of
+    /// the 261 baked circles are kept and every one lies inside the bed; the
+    /// worst edge utilisation — how close a circle comes to the bed wall as a
+    /// fraction of the bed half-width — is 0.980. Drawn pebble radius is
+    /// 8.05 pt against the previous hand-placed 9.45 pt. Interpretation: the
+    /// bed fills top to bottom at a single uniform scale, with no stretching
+    /// and nothing tiled.
+    #[test]
+    fn the_cropped_column_fills_the_bed_without_spilling() {
+        let bed = pebble_bed_rect(drawn_rect());
+        let (packing, window) = buoyant_bed_packing(bed);
+
+        assert!(
+            (packing.scale * BARREL_HEIGHT - bed.height()).abs() < 1e-3,
+            "the barrel must span the bed's full height"
+        );
+        assert!(
+            window.max_abs_x < 1.0,
+            "a crop narrower than the barrel is the whole point; if this ever \
+             reaches 1.0 the bed has become as slender as the packing and the \
+             crop can be dropped"
+        );
+
+        let mut kept = 0usize;
+        let mut worst = 0.0f32;
+        for pebble in PACKED_PEBBLES.iter().filter(|p| window.contains(p)) {
+            let centre = packing.centre(pebble);
+            let radius = packing.radius(pebble);
+            kept += 1;
+            worst = worst.max(((centre.x - bed.center().x).abs() + radius) / (bed.width() * 0.5));
+            assert!(
+                centre.x - radius >= bed.left() - 1e-3
+                    && centre.x + radius <= bed.right() + 1e-3
+                    && centre.y - radius >= bed.top() - 1e-3
+                    && centre.y + radius <= bed.bottom() + 1e-3,
+                "a pebble is drawn outside the bed"
+            );
+        }
+        println!(
+            "bed {:.2} x {:.2} pt; scale {:.2} pt/R; crop |x| <= {:.4} R \
+             ({:.1} % of the barrel width); {kept} of {} circles kept; \
+             pebble radius {:.2} pt; worst edge utilisation {worst:.3}",
+            bed.width(),
+            bed.height(),
+            packing.scale,
+            window.max_abs_x,
+            100.0 * window.max_abs_x,
+            PACKED_PEBBLES.len(),
+            SPHERE_RADIUS * packing.scale,
+        );
+        assert!(
+            kept > 90,
+            "only {kept} pebbles survived the crop — the bed would read as sparse"
+        );
+    }
+
+    /// A degenerate box must not divide by zero or paint a pebble.
+    ///
+    /// egui hands a widget a zero-sized rectangle transiently during layout,
+    /// and a NaN scale would propagate into every circle it draws.
+    #[test]
+    fn a_degenerate_bed_draws_nothing() {
+        let bed = pebble_bed_rect(Rect::from_min_size(Pos2::ZERO, Vec2::ZERO));
+        let (packing, window) = buoyant_bed_packing(bed);
+
+        assert_eq!(packing.scale, 0.0);
+        assert!(packing.scale.is_finite());
+        assert_eq!(
+            PACKED_PEBBLES.iter().filter(|p| window.contains(p)).count(),
+            0
+        );
+    }
+
+    /// The packing's own free-surface height must still be the bed's fill
+    /// level after inversion — sanity that `BED_TOP` was not left pointing at
+    /// the wrong end of a flipped bed.
+    #[test]
+    fn the_free_surface_is_drawn_at_the_bottom_of_the_bed() {
+        let bed = pebble_bed_rect(drawn_rect());
+        let (packing, _) = buoyant_bed_packing(bed);
+
+        let surface = PackedPebbleAt::new(0.0, BED_TOP);
+        let y = packing.centre(&surface.0).y;
+        assert!(
+            y > bed.center().y,
+            "the settled bed's free surface must be drawn in the LOWER half"
+        );
+        assert!(y <= bed.bottom() + 1e-3);
+    }
+
+    /// A zero-radius probe pebble at a chosen point of the packing frame, for
+    /// asking where that point lands on screen.
+    struct PackedPebbleAt(crate::components::pebble_packing::PackedPebble);
+
+    impl PackedPebbleAt {
+        fn new(x: f32, y: f32) -> Self {
+            Self(crate::components::pebble_packing::PackedPebble::new(
+                x, y, 0.0,
+            ))
+        }
     }
 }
 
