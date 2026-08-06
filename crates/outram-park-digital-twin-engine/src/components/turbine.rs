@@ -474,9 +474,8 @@ impl Widget for TurbineVisual {
         };
         // Blade height grows with the expansion, so the annulus opens out
         // towards each exhaust.
-        let radius_at = |i: f32| -> f32 {
-            hub_radius + (tip_radius - hub_radius) * stage_fraction_at(i)
-        };
+        let radius_at =
+            |i: f32| -> f32 { hub_radius + (tip_radius - hub_radius) * stage_fraction_at(i) };
         // Row `i` sits at the centre of its pitch slot.
         let x_at = |i: f32| -> f32 { rect.left() + (i + 0.5) * pitch };
 
@@ -688,7 +687,10 @@ impl Widget for TurbineVisual {
         }
 
         // End walls, closing the shell at each end of the machine.
-        for (i, x_end) in [(0usize, x_at(0.0)), (BLADE_ROWS - 1, x_at((BLADE_ROWS - 1) as f32))] {
+        for (i, x_end) in [
+            (0usize, x_at(0.0)),
+            (BLADE_ROWS - 1, x_at((BLADE_ROWS - 1) as f32)),
+        ] {
             let r = envelope[i];
             painter.line_segment(
                 [
@@ -794,7 +796,10 @@ mod tests {
         let exhaust = placeholder_stage_angles(1.0);
 
         assert_eq!(inlet.reaction, 0.0, "admission end should be impulse-like");
-        assert_eq!(exhaust.reaction, 0.5, "exhaust end should be a reaction stage");
+        assert_eq!(
+            exhaust.reaction, 0.5,
+            "exhaust end should be a reaction stage"
+        );
         assert!(
             exhaust.stator_deg < inlet.stator_deg,
             "nozzle turning should ease off as reaction rises"
@@ -809,7 +814,10 @@ mod tests {
     /// must clamp rather than extrapolate into nonsense angles.
     #[test]
     fn placeholder_angles_clamp_outside_the_machine() {
-        assert_eq!(placeholder_stage_angles(-1.0), placeholder_stage_angles(0.0));
+        assert_eq!(
+            placeholder_stage_angles(-1.0),
+            placeholder_stage_angles(0.0)
+        );
         assert_eq!(placeholder_stage_angles(2.0), placeholder_stage_angles(1.0));
     }
 

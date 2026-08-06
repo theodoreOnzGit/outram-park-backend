@@ -34,7 +34,13 @@ impl CoolingTowerVisual {
         min_temp: ThermodynamicTemperature,
         max_temp: ThermodynamicTemperature,
     ) -> Self {
-        Self { physics, screen_position, screen_vector, min_temp, max_temp }
+        Self {
+            physics,
+            screen_position,
+            screen_vector,
+            min_temp,
+            max_temp,
+        }
     }
 }
 

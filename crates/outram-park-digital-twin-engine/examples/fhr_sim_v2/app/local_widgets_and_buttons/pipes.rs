@@ -2,9 +2,9 @@ use egui::{vec2, Sense, Stroke, Vec2, Widget};
 use uom::si::{f64::*, thermodynamic_temperature::degree_celsius};
 
 
-use crate::app::local_widgets_and_buttons::{hot_to_cold_colour_mark_2, steam_quality_colour_functions::steam_quality_colour_mark_1};
-
-use super::hot_to_cold_colour_mark_1;
+use outram_park_digital_twin_engine::color_maps::{
+    hot_to_cold_colour_mark_1, hot_to_cold_colour_mark_2, steam_quality_colour_mark_1,
+};
 
 pub struct SinglePipeColourBlueRedTempSensitive {
     size: Vec2,

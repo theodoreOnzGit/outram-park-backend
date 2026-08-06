@@ -149,10 +149,7 @@ impl Widget for TemperatureLegend {
             let f = 1.0 - (i as f32 / (ticks - 1) as f32);
             let y = bar.top() + (i as f32 / (ticks - 1) as f32) * self.bar_size.y;
             painter.line_segment(
-                [
-                    Pos2::new(bar.right(), y),
-                    Pos2::new(bar.right() + 4.0, y),
-                ],
+                [Pos2::new(bar.right(), y), Pos2::new(bar.right() + 4.0, y)],
                 Stroke::new(1.0, ui.visuals().weak_text_color()),
             );
             painter.text(

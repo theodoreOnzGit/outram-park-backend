@@ -2,9 +2,9 @@ use std::ops::Deref;
 
 use egui::Ui;
 
-use crate::{app::local_widgets_and_buttons::new_temp_sensitive_button_black_red, FHRSimulatorApp, FHRState};
+use crate::{FHRSimulatorApp, FHRState};
 
-use super::local_widgets_and_buttons::new_temp_sensitive_button_blue_red;
+use outram_park_digital_twin_engine::components::temperature_button;
 
 impl FHRSimulatorApp {
 
@@ -176,11 +176,11 @@ impl FHRSimulatorApp {
                 let button_temp_degc = max_temp_degc;
                 let max_temp_string: String = 
                     button_temp_degc.to_string()+" degC or more";
-                let max_temp = new_temp_sensitive_button_blue_red(
-                    min_temp_degc, 
-                    max_temp_degc, 
-                    button_temp_degc, 
-                    &max_temp_string
+                let max_temp = temperature_button::blue_red_degc(
+                    button_temp_degc,
+                    min_temp_degc,
+                    max_temp_degc,
+                    &max_temp_string,
                 );
 
                 ui.add(max_temp);
@@ -244,11 +244,11 @@ impl FHRSimulatorApp {
                 let button_temp_degc = 700.0;
                 let button_temp_string: String = 
                     button_temp_degc.to_string()+" degrees celsius";
-                let temp_700_degc = new_temp_sensitive_button_blue_red(
-                    min_temp_degc, 
-                    max_temp_degc, 
-                    button_temp_degc, 
-                    &button_temp_string
+                let temp_700_degc = temperature_button::blue_red_degc(
+                    button_temp_degc,
+                    min_temp_degc,
+                    max_temp_degc,
+                    &button_temp_string,
                 );
                 ui.add(temp_700_degc);
 
@@ -256,55 +256,55 @@ impl FHRSimulatorApp {
                 let button_temp_degc = 650.0;
                 let button_temp_string: String = 
                     button_temp_degc.to_string()+" degrees celsius";
-                let temp_650_degc = new_temp_sensitive_button_blue_red(
-                    min_temp_degc, 
-                    max_temp_degc, 
-                    button_temp_degc, 
-                    &button_temp_string
+                let temp_650_degc = temperature_button::blue_red_degc(
+                    button_temp_degc,
+                    min_temp_degc,
+                    max_temp_degc,
+                    &button_temp_string,
                 );
                 ui.add(temp_650_degc);
                 // 600.0
                 let button_temp_degc = 600.0;
                 let button_temp_string: String = 
                     button_temp_degc.to_string()+" degrees celsius";
-                let temp_600_degc = new_temp_sensitive_button_blue_red(
-                    min_temp_degc, 
-                    max_temp_degc, 
-                    button_temp_degc, 
-                    &button_temp_string
+                let temp_600_degc = temperature_button::blue_red_degc(
+                    button_temp_degc,
+                    min_temp_degc,
+                    max_temp_degc,
+                    &button_temp_string,
                 );
                 ui.add(temp_600_degc);
                 // 550.0
                 let button_temp_degc = 550.0;
                 let button_temp_string: String = 
                     button_temp_degc.to_string()+" degrees celsius";
-                let temp_550_degc = new_temp_sensitive_button_blue_red(
-                    min_temp_degc, 
-                    max_temp_degc, 
-                    button_temp_degc, 
-                    &button_temp_string
+                let temp_550_degc = temperature_button::blue_red_degc(
+                    button_temp_degc,
+                    min_temp_degc,
+                    max_temp_degc,
+                    &button_temp_string,
                 );
                 ui.add(temp_550_degc);
                 // 500.0
                 let button_temp_degc = 500.0;
                 let button_temp_string: String = 
                     button_temp_degc.to_string()+" degrees celsius";
-                let temp_500_degc = new_temp_sensitive_button_blue_red(
-                    min_temp_degc, 
-                    max_temp_degc, 
-                    button_temp_degc, 
-                    &button_temp_string
+                let temp_500_degc = temperature_button::blue_red_degc(
+                    button_temp_degc,
+                    min_temp_degc,
+                    max_temp_degc,
+                    &button_temp_string,
                 );
                 ui.add(temp_500_degc);
                 // 450.0
                 let button_temp_degc = 450.0;
                 let button_temp_string: String = 
                     button_temp_degc.to_string()+" degrees celsius";
-                let temp_450_degc = new_temp_sensitive_button_blue_red(
-                    min_temp_degc, 
-                    max_temp_degc, 
-                    button_temp_degc, 
-                    &button_temp_string
+                let temp_450_degc = temperature_button::blue_red_degc(
+                    button_temp_degc,
+                    min_temp_degc,
+                    max_temp_degc,
+                    &button_temp_string,
                 );
                 ui.add(temp_450_degc);
 
@@ -312,11 +312,11 @@ impl FHRSimulatorApp {
                 let button_temp_degc = 400.0;
                 let button_temp_string: String = 
                     button_temp_degc.to_string()+" degrees celsius";
-                let temp_400_degc = new_temp_sensitive_button_blue_red(
-                    min_temp_degc, 
-                    max_temp_degc, 
-                    button_temp_degc, 
-                    &button_temp_string
+                let temp_400_degc = temperature_button::blue_red_degc(
+                    button_temp_degc,
+                    min_temp_degc,
+                    max_temp_degc,
+                    &button_temp_string,
                 );
                 ui.add(temp_400_degc);
 
@@ -324,11 +324,11 @@ impl FHRSimulatorApp {
                 let button_temp_degc = 350.0;
                 let button_temp_string: String = 
                     button_temp_degc.to_string()+" degrees celsius";
-                let temp_350_degc = new_temp_sensitive_button_blue_red(
-                    min_temp_degc, 
-                    max_temp_degc, 
-                    button_temp_degc, 
-                    &button_temp_string
+                let temp_350_degc = temperature_button::blue_red_degc(
+                    button_temp_degc,
+                    min_temp_degc,
+                    max_temp_degc,
+                    &button_temp_string,
                 );
                 ui.add(temp_350_degc);
 
@@ -344,11 +344,11 @@ impl FHRSimulatorApp {
                     let button_temp_degc = max_temp_degc;
                     let max_temp_string: String = 
                         button_temp_degc.to_string()+" degC or more";
-                    let max_temp_button = new_temp_sensitive_button_blue_red(
-                        min_temp_degc, 
-                        max_temp_degc, 
-                        button_temp_degc, 
-                        &max_temp_string
+                    let max_temp_button = temperature_button::blue_red_degc(
+                        button_temp_degc as f64,
+                        min_temp_degc as f64,
+                        max_temp_degc as f64,
+                        &max_temp_string,
                     );
                     ui.add(max_temp_button);
 
@@ -357,11 +357,11 @@ impl FHRSimulatorApp {
                         let button_temp_degc = current_interval_temp_degc;
                         let button_temp_string: String = 
                             button_temp_degc.to_string()+" degrees celsius";
-                        let current_interval_temp_button = new_temp_sensitive_button_black_red(
-                            min_temp_degc, 
-                            max_temp_degc, 
-                            button_temp_degc, 
-                            &button_temp_string
+                        let current_interval_temp_button = temperature_button::black_red_degc(
+                            button_temp_degc as f64,
+                            min_temp_degc as f64,
+                            max_temp_degc as f64,
+                            &button_temp_string,
                         );
                         ui.add(current_interval_temp_button);
                         current_interval_temp_degc -= interval_degc;
@@ -369,11 +369,11 @@ impl FHRSimulatorApp {
                     let button_temp_degc = min_temp_degc;
                     let min_temp_string: String = 
                         button_temp_degc.to_string()+" degC or less";
-                    let min_temp_button = new_temp_sensitive_button_blue_red(
-                        min_temp_degc, 
-                        min_temp_degc, 
-                        button_temp_degc, 
-                        &min_temp_string
+                    let min_temp_button = temperature_button::blue_red_degc(
+                        button_temp_degc as f64,
+                        min_temp_degc as f64,
+                        min_temp_degc as f64,
+                        &min_temp_string,
                     );
                     ui.add(min_temp_button);
 

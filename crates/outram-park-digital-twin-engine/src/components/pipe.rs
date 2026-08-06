@@ -33,9 +33,9 @@ use crate::animation::TracerTrain;
 use crate::components::temperature_colour;
 use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
 use tampines::components::{Pipe, PipeBackend};
+use uom::si::angle::radian;
 use uom::si::area::square_meter;
 use uom::si::f64::{Angle, Area, Length, MassRate, ThermodynamicTemperature, Time};
-use uom::si::angle::radian;
 use uom::si::length::meter;
 use uom::si::thermodynamic_temperature::kelvin;
 
@@ -81,7 +81,6 @@ pub enum PipeVisualState {
     /// Backed by caller-supplied scalars, drawn as a single coloured run.
     Scalars(PipeScalars),
 }
-
 
 /// How plant-space metres map to screen points.
 ///
@@ -351,9 +350,13 @@ impl PipeVisual {
 
     /// Hottest metal wall temperature on the run, if the backend reports one.
     pub fn peak_wall_temperature(&self) -> Option<ThermodynamicTemperature> {
-        self.wall_temperatures()?
-            .into_iter()
-            .reduce(|a, b| if b.get::<kelvin>() > a.get::<kelvin>() { b } else { a })
+        self.wall_temperatures()?.into_iter().reduce(|a, b| {
+            if b.get::<kelvin>() > a.get::<kelvin>() {
+                b
+            } else {
+                a
+            }
+        })
     }
 
     /// How this backend's fluid phase is shaded.
@@ -622,10 +625,10 @@ mod tests {
         use tampines::single_phase::{LiquidMaterial, SinglePhaseFluidArray};
         use tuas_boussinesq_solver::boussinesq_thermophysical_properties::SolidMaterial;
         use uom::si::angle::degree;
+        use uom::si::f64::{Pressure, Ratio};
         use uom::si::length::millimeter;
         use uom::si::pressure::atmosphere;
         use uom::si::ratio::ratio;
-        use uom::si::f64::{Pressure, Ratio};
 
         let diameter = Length::new::<millimeter>(bore_mm);
         let length = Length::new::<meter>(length_m);
@@ -771,11 +774,15 @@ mod tests {
         // 2 wall nodes spread over 8 fluid cells: first half cold, second hot.
         let walls = vec![k(300.0), k(900.0)];
         assert_eq!(
-            PipeVisual::wall_temperature_at(&walls, 0, 8).unwrap().get::<kelvin>(),
+            PipeVisual::wall_temperature_at(&walls, 0, 8)
+                .unwrap()
+                .get::<kelvin>(),
             300.0
         );
         assert_eq!(
-            PipeVisual::wall_temperature_at(&walls, 7, 8).unwrap().get::<kelvin>(),
+            PipeVisual::wall_temperature_at(&walls, 7, 8)
+                .unwrap()
+                .get::<kelvin>(),
             900.0
         );
     }

@@ -249,7 +249,9 @@ impl PipeBendVisual {
 
         // Segment count follows the sweep, so a near-full circle is as smooth
         // as a quarter one rather than becoming a visible polygon.
-        let segments = ((sweep.abs() / std::f32::consts::TAU) * 96.0).ceil().max(4.0) as usize;
+        let segments = ((sweep.abs() / std::f32::consts::TAU) * 96.0)
+            .ceil()
+            .max(4.0) as usize;
 
         let mut pts = Vec::with_capacity(segments + 2);
         pts.push(self.inner_corner);
@@ -274,18 +276,17 @@ impl Widget for PipeBendVisual {
     fn ui(self, ui: &mut Ui) -> Response {
         let pts = self.sector();
         let r = self.thickness.max(1.0);
-        let rect = egui::Rect::from_center_size(self.inner_corner, Vec2::splat(2.0 * r + WALL_WIDTH));
+        let rect =
+            egui::Rect::from_center_size(self.inner_corner, Vec2::splat(2.0 * r + WALL_WIDTH));
         let response = ui.allocate_rect(rect, Sense::hover());
         let painter = ui.painter();
 
-        let fill = self
-            .shade
-            .apply(temperature_colour(self.mean_temperature(), self.min_temp, self.max_temp));
-        painter.add(egui::Shape::convex_polygon(
-            pts.clone(),
-            fill,
-            Stroke::NONE,
+        let fill = self.shade.apply(temperature_colour(
+            self.mean_temperature(),
+            self.min_temp,
+            self.max_temp,
         ));
+        painter.add(egui::Shape::convex_polygon(pts.clone(), fill, Stroke::NONE));
 
         // Outer wall: the arc only, skipping the first point (the inner corner)
         // and therefore the two straight edges.
@@ -381,8 +382,14 @@ mod tests {
         };
         // Screen y grows downward: a leftward (upward) turn puts its outer
         // sector BELOW the corner, a rightward turn puts it above.
-        assert!(mid(&left).y > left.inner_corner.y, "left turn: sector below");
-        assert!(mid(&right).y < right.inner_corner.y, "right turn: sector above");
+        assert!(
+            mid(&left).y > left.inner_corner.y,
+            "left turn: sector below"
+        );
+        assert!(
+            mid(&right).y < right.inner_corner.y,
+            "right turn: sector above"
+        );
     }
 
     /// Past half a circle the sweep MUST be stated: the angle between two
@@ -423,8 +430,8 @@ mod tests {
     #[test]
     fn full_circle_closes() {
         use uom::si::angle::degree;
-        let b = bend(Vec2::new(1.0, 0.0), Vec2::new(1.0, 0.0))
-            .with_sweep(Angle::new::<degree>(-360.0));
+        let b =
+            bend(Vec2::new(1.0, 0.0), Vec2::new(1.0, 0.0)).with_sweep(Angle::new::<degree>(-360.0));
         let pts = b.sector();
         let first = pts[1];
         let last = *pts.last().unwrap();
@@ -440,7 +447,10 @@ mod tests {
     fn straight_joint_degenerates_safely() {
         let b = bend(Vec2::new(1.0, 0.0), Vec2::new(1.0, 0.0));
         let pts = b.sector();
-        assert!(pts.len() >= 6, "degenerate sweep still needs a usable polygon");
+        assert!(
+            pts.len() >= 6,
+            "degenerate sweep still needs a usable polygon"
+        );
         for p in &pts[1..] {
             assert!(p.x.is_finite() && p.y.is_finite());
         }

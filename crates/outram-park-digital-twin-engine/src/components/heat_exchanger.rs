@@ -18,7 +18,11 @@ pub struct HeatExchangerVisual {
 impl HeatExchangerVisual {
     /// Wrap a [`HeatExchanger`] with the given screen geometry.
     pub fn new(physics: HeatExchanger, screen_position: Pos2, screen_vector: Vec2) -> Self {
-        Self { physics, screen_position, screen_vector }
+        Self {
+            physics,
+            screen_position,
+            screen_vector,
+        }
     }
 }
 

@@ -21,21 +21,22 @@ mod pipe_component;
 pub mod pump;
 pub mod reactor_vessel;
 pub mod steam_generator;
+pub mod temperature_button;
 pub mod turbine;
 pub mod valve;
 
+pub use bend::PipeBendVisual;
 pub use condenser::CondenserVisual;
 pub use cooling_tower::CoolingTowerVisual;
 pub use fhr_reactor_vessel::FhrReactorVesselVisual;
 pub use heat_exchanger::HeatExchangerVisual;
 pub use instrumentation::InstrumentationVisual;
+pub use legend::{LegendUnit, TemperatureLegend};
 pub use pipe::{PipePhaseShade, PipeScalars, PipeScale, PipeVisual, PipeVisualState};
+pub use pipe_component::PipeComponent;
 pub use pump::PumpVisual;
 pub use reactor_vessel::ReactorVesselVisual;
 pub use steam_generator::SteamGeneratorVisual;
-pub use bend::PipeBendVisual;
-pub use legend::{LegendUnit, TemperatureLegend};
-pub use pipe_component::PipeComponent;
 pub use turbine::{StageAngles, TurbineFlowPath, TurbineVisual, TurbineVisualState};
 pub use valve::ValveVisual;
 
@@ -107,14 +108,11 @@ mod tests {
         let (lo, hi) = (k(300.0), k(900.0));
 
         let cold: Color32 = temperature_colour(k(300.0), lo, hi);
-        assert!(
-            cold.b() > cold.r(),
-            "cold end must be blue, got {cold:?}"
-        );
+        assert!(cold.b() > cold.r(), "cold end must be blue, got {cold:?}");
 
         let mid: Color32 = temperature_colour(k(600.0), lo, hi);
-        let spread = mid.r().max(mid.g()).max(mid.b()) as i16
-            - mid.r().min(mid.g()).min(mid.b()) as i16;
+        let spread =
+            mid.r().max(mid.g()).max(mid.b()) as i16 - mid.r().min(mid.g()).min(mid.b()) as i16;
         assert!(
             mid.r() > 180 && mid.g() > 180 && mid.b() > 180 && spread < 40,
             "midpoint must be near-neutral white, got {mid:?} spread {spread}"

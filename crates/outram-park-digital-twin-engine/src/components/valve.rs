@@ -22,7 +22,11 @@ pub struct ValveVisual {
 impl ValveVisual {
     /// Wrap a [`Valve`] with the given screen geometry.
     pub fn new(physics: Valve, screen_position: Pos2, screen_vector: Vec2) -> Self {
-        Self { physics, screen_position, screen_vector }
+        Self {
+            physics,
+            screen_position,
+            screen_vector,
+        }
     }
 }
 

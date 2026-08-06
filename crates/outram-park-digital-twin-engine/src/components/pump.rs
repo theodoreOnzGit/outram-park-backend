@@ -18,7 +18,11 @@ pub struct PumpVisual {
 impl PumpVisual {
     /// Wrap a [`Pump`] with the given screen geometry.
     pub fn new(physics: Pump, screen_position: Pos2, screen_vector: Vec2) -> Self {
-        Self { physics, screen_position, screen_vector }
+        Self {
+            physics,
+            screen_position,
+            screen_vector,
+        }
     }
 }
 
@@ -31,7 +35,8 @@ impl Widget for PumpVisual {
         let radius = self.screen_vector.length().max(1.0) / 2.0;
         let rect = Rect::from_center_size(self.screen_position, self.screen_vector);
         let response = ui.allocate_rect(rect, Sense::hover());
-        ui.painter().circle_filled(self.screen_position, radius, Color32::GRAY);
+        ui.painter()
+            .circle_filled(self.screen_position, radius, Color32::GRAY);
         response
     }
 }

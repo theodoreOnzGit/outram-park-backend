@@ -119,9 +119,11 @@ impl PipeComponent {
         let tau = self.residence_time();
         // Direction only; TracerPulse takes speed from the residence time and
         // direction from this argument's sign (see its docs).
-        let direction = MassRate::new::<kilogram_per_second>(
-            if self.velocity.value >= 0.0 { 1.0 } else { -1.0 },
-        );
+        let direction = MassRate::new::<kilogram_per_second>(if self.velocity.value >= 0.0 {
+            1.0
+        } else {
+            -1.0
+        });
         self.tracer.advance(dt, tau, direction);
 
         self.pipe.step(dt)
