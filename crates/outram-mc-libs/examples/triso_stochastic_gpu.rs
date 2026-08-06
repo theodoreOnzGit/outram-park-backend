@@ -120,20 +120,38 @@
 //! a reproducible CSV under `verification_and_validation/gpu_benchmarks/` and
 //! printed at the bottom of `main`. GPU: NVIDIA RTX A5000 (NVK GA102, Vulkan).
 //!
-//! - Arm 1, CPU `f64` CLS (trusted reference): `P_abs = 0.7014103 ± 0.0004469`
-//!   (735482/1048576 absorbed), 0.21 s, 4.97e6 histories/s.
-//! - Arm 2, CPU `f32` mirror (seed set `S_gpu`): `P_abs = 0.7016144 ± 0.0004468`,
-//!   0.19 s. `|P_f32mirror − P_f64ref| = 0.000204` = **0.32 combined σ**.
-//! - Arm 3, GPU `f32` CLS batch: `P_abs = 0.7016144 ± 0.0004468`, 0.099 s,
-//!   1.06e7 histories/s, **2.14× speedup** vs the CPU `f64` arm. z-score vs the
-//!   CPU `f64` reference = **0.32** → **PASS** (criterion ≤ 5). GPU-vs-CPU-`f32`-
-//!   mirror per-history logic: **65536/65536 outcomes matched**, 0 near-tie
-//!   mismatches (0.0000 %, criterion < 0.1 %).
-//! - Arm 4, CPU `f64` SCLS: `P_abs = 0.7013741 ± 0.0004469`; SCLS − CLS =
-//!   `−0.000036` (0.06 combined σ).
+//! - Arm 1, CPU `f64` CLS (trusted reference): `P_abs = 0.701360 ± 0.000447`
+//!   (735429/1048576 absorbed), 0.261 s, 4.019e6 histories/s.
+//! - Arm 2, CPU `f32` mirror (seed set `S_gpu`): `P_abs = 0.701614 ± 0.000447`
+//!   (735696/1048576), 0.187 s. `|P_f32mirror − P_f64ref| = 0.000255` =
+//!   **0.40 combined σ**.
+//! - Arm 3, GPU `f32` CLS batch: `P_abs = 0.701614 ± 0.000447` (735696/1048576),
+//!   0.097 s, 1.083e7 histories/s, **2.70× speedup** vs the CPU `f64` arm.
+//!   z-score vs the CPU `f64` reference = **0.40** → **PASS** (criterion ≤ 5).
+//!   GPU-vs-CPU-`f32`-mirror per-history logic: **65536/65536 outcomes matched**,
+//!   0 near-tie mismatches (0.0000 %, criterion < 0.1 %).
+//! - Arm 4, CPU `f64` SCLS: `P_abs = 0.702096 ± 0.000447` (736201/1048576);
+//!   SCLS − CLS = `+0.000736` (**1.17 combined σ**).
 //!
-//! Reproducibility: two consecutive runs on 2026-08-06 produced bit-identical
-//! `P_abs` and `σ` in all four arms (only wall-clock times differed).
+//! **Supersedes the earlier 2026-08-06 run**, which gave
+//! `P_abs = 0.7014103 ± 0.0004469` (735482/1048576) on arm 1,
+//! `0.7016144 ± 0.0004468` on arms 2 and 3 with `|Δ| = 0.000204` = 0.32 σ, and
+//! `0.7013741 ± 0.0004469` on arm 4 with SCLS − CLS = `−0.000036` (0.06 σ).
+//! Those were measured with the pre-`op-jis` `prn` output function (raw top-52
+//! LCG state bits); bead `op-jis` replaced it with OpenMC's PCG-RXS-M-XS output
+//! permutation, so every uniform changed. Arm 1's central value moved by
+//! 0.000050, **0.11 of its own σ** — statistically inert, as expected.
+//!
+//! **One sign flip worth stating plainly.** SCLS − CLS was `−0.000036`
+//! (0.06 σ) and is now `+0.000736` (1.17 σ). Both realisations are consistent
+//! with **zero** difference at the 5 σ criterion this example uses, so the flip
+//! is a re-sampling artefact and **neither sign should be read as a physical
+//! result**. The earlier text's implication that the retained-interface memory
+//! produces a resolvable shift at this N is not supported by either run; a
+//! larger N would be needed to resolve one.
+//!
+//! Reproducibility: consecutive runs produce bit-identical `P_abs` and `σ` in
+//! all four arms for a fixed generator (only wall-clock times differ).
 //!
 //! **Supersedes the 2026-07-21 authoring run.** Those numbers
 //! (`P_abs = 0.7013826` CPU `f64`, `0.7001810` `f32`-mirror, `0.7011147` SCLS;

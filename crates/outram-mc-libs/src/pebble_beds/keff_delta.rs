@@ -669,14 +669,26 @@ mod tests {
     /// consistent estimates of the same eigenvalue (they do not bit-match by
     /// design, since the stream structure differs).
     ///
-    /// **Results (2026-07-23, this environment, seed 987654321; 600 histories,
-    /// 10 inactive + 30 active).** The two thread-count runs agreed **to the bit**
-    /// (`k_par(1) == k_par(4)`). Reference vs parallel: `k_seq = 2.23637 ±
-    /// 0.00671`, `k_par = 2.22038 ± 0.00702`, **1.65σ apart** (`σ_comb ≈
-    /// 0.0097`) — well inside the 4σ gate. (`k ≈ 2.2` is the infinite-medium `k∞`
+    /// **Results (2026-08-06, this environment, seed 987654321; 600 histories,
+    /// 10 inactive + 30 active; re-measured under the `op-jis` PCG-RXS-M-XS `prn`
+    /// output permutation).** The two thread-count runs agreed **to the bit**
+    /// (`k_par(1) == k_par(4)`). Reference vs parallel: `k_seq = 2.23032 ±
+    /// 0.00708`, `k_par = 2.21802 ± 0.00666`, **1.27σ apart** — well inside the 4σ
+    /// gate. Arithmetic, so a reader can check it: `|Δk| = |2.23032 − 2.21802| =
+    /// 0.01230`; `σ_comb = sqrt(0.00708² + 0.00666²) = sqrt(5.0126e-5 + 4.4356e-5)
+    /// = sqrt(9.4482e-5) = 0.00972`; `0.01230 / 0.00972 = 1.27`; the 4σ band is
+    /// `4 × 0.00972 = 0.03888`. (`k ≈ 2.2` is the infinite-medium `k∞`
     /// of a reflective HEU cube, not a critical assembly; it is the same physics
     /// both backends must agree on, which is what this test checks.) Recorded per
     /// the workspace V&V rule.
+    ///
+    /// **Supersedes (2026-07-23, measured with the pre-`op-jis` `prn` output
+    /// function — raw top-52 state bits):** `k_seq = 2.23637 ± 0.00671`,
+    /// `k_par = 2.22038 ± 0.00702`, 1.65σ apart (`σ_comb ≈ 0.0097`). The LCG state
+    /// recurrence is unchanged, so pass criterion (a) — bit-for-bit thread-count
+    /// invariance — is a *seeding* property and did not move at all; only the
+    /// uniform doubles both backends consume changed, so both arms re-drew. No
+    /// tolerance was changed; the 4σ gate is unaltered.
     #[test]
     fn delta_multithread_agrees_with_single_thread() {
         use crate::material::material::NuclideComponent;

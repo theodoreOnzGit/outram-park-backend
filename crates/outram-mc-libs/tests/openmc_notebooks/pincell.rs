@@ -48,16 +48,34 @@
 //!    flux tally; asserts stationary k and that both cells accumulate flux with
 //!    fissions confined to the fuel.
 //!
-//! **Results (2026-07-15, this harness; asserted at run time, not hard-coded).**
-//! Godiva bare-sphere k ≈ 1.01 ± 0.002 (consistent with `keff.rs`); the
-//! homogeneous reflective pin cell lands well above it in the fast-infinite-medium
-//! band (k_inf ≫ k_sphere), confirming the reflective BC removes leakage. The
-//! heterogeneous run is stationary with positive flux tallied in both cells. The
-//! **thermal UO₂ pin** (S(α,β) wired) gave **k_inf = 1.39802 ± 0.00652**
-//! (600 particles, 40 inactive + 60 active, seeded/deterministic) — squarely in
-//! the ~1.3–1.45 physical band for a 3% UO₂ light-water pin-cell. See
+//! **Results (measured 2026-08-06, this harness; asserted at run time, not
+//! hard-coded).** Godiva bare-sphere k ≈ 1.01 (the crate's other Godiva runs,
+//! re-measured the same day: **k = 1.01042 ± 0.00174** from
+//! `examples/godiva_keff`, **k = 1.01207 ± 0.00673** from the `keff.rs`
+//! backend-agreement run — this test itself asserts a band, it records no k of
+//! its own). The homogeneous reflective pin cell gives **k_inf = 2.20758 ±
+//! 0.00383** against the same-material finite bare sphere's **k = 0.11741 ±
+//! 0.00176** — k_inf ≫ k_sphere, confirming the reflective BC removes leakage.
+//! The heterogeneous run is stationary with positive flux tallied in both cells.
+//! The **thermal UO₂ pin** could **not** be re-measured here — see the
+//! Supersedes note. See
 //! `docs/ai-fleet-review/op-6tz-pincell-triso/REVIEW_MANIFEST.md` and
 //! `docs/ai-fleet-review/op-6tz-thermal-pincell/REVIEW_MANIFEST.md`.
+//!
+//! **Supersedes (pre-`op-jis` figures, measured 2026-07-15).** The numbers above
+//! replace values taken with the old `prn` output function (uniforms formed from
+//! the raw top-52 state bits, before the PCG-RXS-M-XS output permutation of bead
+//! `op-jis`). The LCG *state* recurrence did not change, so integer-state facts,
+//! seeds and jump-ahead identities are untouched — but every sampled uniform did,
+//! so every statistic derived from them moved. Superseded values:
+//! - Godiva bare-sphere k ≈ 1.01 ± 0.002.
+//! - **Thermal UO₂ pin k_inf = 1.39802 ± 0.00652** (600 particles, 40 inactive +
+//!   60 active). **NOT RE-MEASURED — needs a re-run.** That case is data-gated on
+//!   the public ENDF/B-VIII.0 `tsl-HinH2O.endf` file, which is **absent on this
+//!   machine**, so `pincell_lwr_thermal_pin_benchmark` SKIPped on 2026-08-06 and
+//!   the run could not be repeated. No replacement value is quoted, because none
+//!   has been measured; 1.39802 ± 0.00652 must be regarded as stale until the
+//!   S(α,β) data file is available and the test is re-run.
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -469,12 +487,20 @@ fn uo2_pincell_geometry() -> Geometry {
 /// benchmark-accuracy assertion (the LOW-tier thermal data for U/O and the
 /// free-gas O treatment are approximations — see `REVIEW_MANIFEST.md`).
 ///
-/// **Results (2026-07-15, this harness).** Recorded at run time via `eprintln!`
-/// (`cargo test -- --nocapture`); the measured k_inf ± σ and the interpretation
-/// are written up in
-/// `docs/ai-fleet-review/op-6tz-thermal-pincell/REVIEW_MANIFEST.md`. Data-gated:
-/// runs the physics only when the ENDF/B-VIII.0 `tsl-HinH2O.endf` file is present
-/// (see [`locate_tsl_hinh2o`]); otherwise prints SKIP and returns.
+/// **Results — SUPERSEDED, RE-RUN REQUIRED.** The recorded figure,
+/// **k_inf = 1.39802 ± 0.00652** (measured 2026-07-15, 600 particles, 40
+/// inactive + 60 active), was produced with the **pre-`op-jis`** `prn` output
+/// function (uniforms from the raw top-52 state bits). Bead `op-jis` added
+/// OpenMC's PCG-RXS-M-XS output permutation: the LCG state recurrence is
+/// unchanged, but every sampled uniform changed, so this eigenvalue has moved by
+/// an unknown amount. It **could not be re-measured on 2026-08-06** — the test is
+/// data-gated on the public ENDF/B-VIII.0 `tsl-HinH2O.endf` file, which is not
+/// present on this machine, so the run SKIPped. **No replacement value is quoted
+/// (none has been measured).** Once the S(α,β) file is available, re-run and
+/// record the new k_inf ± σ here and in
+/// `docs/ai-fleet-review/op-6tz-thermal-pincell/REVIEW_MANIFEST.md`. When it does
+/// run, the measured k_inf ± σ is printed at run time via `eprintln!`
+/// (`cargo test -- --nocapture`); otherwise the test prints SKIP and returns.
 #[test]
 fn pincell_lwr_thermal_pin_benchmark() {
     let Some(tsl_path) = locate_tsl_hinh2o() else {
@@ -550,13 +576,20 @@ fn pincell_lwr_thermal_pin_benchmark() {
 /// bit-match by design; the per-history stream structure differs from the single
 /// sequential stream).
 ///
-/// **Results (2026-07-23, this environment, seed 246813579; 1200 histories,
-/// 15 inactive + 30 active).** Thread-count runs agreed **to the bit**
-/// (`k_par(1) == k_par(4)`). Reference vs parallel: `k_seq = 2.20765 ± 0.00353`,
-/// `k_par = 2.20474 ± 0.00507`, **0.47σ apart** (`σ_comb ≈ 0.0062`) — well inside
-/// the 4σ gate. (`k ≈ 2.2` is the homogeneous-HEU cell `k∞`, as in
-/// `pincell_reflective_cell_suppresses_leakage`.) Recorded per the workspace V&V
-/// rule.
+/// **Results (measured 2026-08-06, this environment, seed 246813579; 1200
+/// histories, 15 inactive + 30 active).** Thread-count runs agreed **to the bit**
+/// (`k_par(1) == k_par(4)`). Reference vs parallel: `k_seq = 2.19628 ± 0.00496`,
+/// `k_par = 2.21076 ± 0.00311`, **2.47σ apart** (`Δk = −1448 pcm`,
+/// `σ_comb ≈ 0.00585`) — inside the 4σ gate. (`k ≈ 2.2` is the homogeneous-HEU
+/// cell `k∞`, as in `pincell_reflective_cell_suppresses_leakage`.) Recorded per
+/// the workspace V&V rule.
+///
+/// **Supersedes (pre-`op-jis`, measured 2026-07-23):** `k_seq = 2.20765 ±
+/// 0.00353`, `k_par = 2.20474 ± 0.00507`, 0.47σ apart (`σ_comb ≈ 0.0062`). Those
+/// were taken with the old `prn` output function (raw top-52 state bits); bead
+/// `op-jis` added the PCG-RXS-M-XS output permutation, which left the LCG state
+/// recurrence — and hence the bit-exact thread-count invariance asserted here —
+/// unchanged, but moved every sampled uniform and so every eigenvalue estimate.
 #[test]
 fn csg_multithread_agrees_with_single_thread() {
     use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};

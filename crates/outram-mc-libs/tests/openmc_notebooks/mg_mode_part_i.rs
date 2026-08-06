@@ -35,11 +35,23 @@
 //! leaks less than a smaller one) with **no** invented reference, mirroring the
 //! `hexagonal_lattice` convention.
 //!
-//! **Results (2026-07-17, this harness).** Reflective-cube k∞ = 1.10085 ± 0.00175
-//! (analytic 1.10000; +0.5σ) — printed at run time with `--nocapture`. The
-//! leakage smoke's measured k ± σ are printed too. The MG collision physics
+//! **Results (measured 2026-08-06, this harness).** Reflective-cube
+//! k∞ = 1.10213 ± 0.00179 (analytic 1.10000; +213 pcm, **+1.2σ**) — printed at
+//! run time with `--nocapture`. The leakage smoke measured k(30 cm) = 0.60630 and
+//! k(12 cm) = 0.24077 (both below the analytic k∞ = 1.10, and the bigger cube
+//! leaks less), also printed at run time. The MG collision physics
 //! (group total, absorption/fission split, χ birth spectrum, scatter-matrix group
 //! transfer) and reflective/vacuum transport are confirmed correct.
+//!
+//! **Supersedes (pre-`op-jis` figures, measured 2026-07-17).** The numbers above
+//! replace values taken with the old `prn` output function (uniforms formed from
+//! the raw top-52 state bits, before bead `op-jis` added OpenMC's PCG-RXS-M-XS
+//! output permutation). The LCG *state* recurrence is unchanged, but every
+//! sampled uniform moved, and with it every eigenvalue estimate. Superseded:
+//! reflective-cube **k∞ = 1.10085 ± 0.00175** (+0.5σ from analytic); the leakage
+//! smoke's k values were not recorded in this block at the time. The **analytic
+//! k∞ = 1.10000** is a closed-form property of the MGXS set, not a measurement —
+//! it did not move.
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;

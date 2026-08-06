@@ -136,9 +136,24 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 The full CSG k-eigenvalue path is **live**: `physics::transport_csg::run_keff_csg`
 navigates surfaces/cells/universes/lattices (rect **and** hex), samples collisions,
 scatters, and banks fission sites. It is validated against the **Godiva bare-sphere**
-benchmark (ICSBEP HEU-MET-FAST-001): k_eff = 1.00094 ± 0.00198 (+94 pcm), see
-`docs/validation.md`. The `hexagonal-lattice` and `triso` notebook harnesses run this
-loop live. Still pending: the generic history-based `transport.rs`, multigroup
-(`physics_mg.rs`), DAGMC/unstructured mesh, photon transport, and the C-API.
+benchmark (ICSBEP HEU-MET-FAST-001), see `docs/validation.md`. The
+`hexagonal-lattice` and `triso` notebook harnesses run this loop live. Still
+pending: the generic history-based `transport.rs`, multigroup (`physics_mg.rs`),
+DAGMC/unstructured mesh, photon transport, and the C-API.
+
+**Godiva k_eff figures — status after `op-jis` (2026-08-06).** `rng::lcg::prn`
+gained OpenMC's PCG-RXS-M-XS output permutation; the LCG **state recurrence is
+unchanged**, so nothing in the source map or porting order above is affected, but
+sampled k values moved.
+
+- **HIGH-fidelity ENDF/B-VII.1: k_eff = 1.00094 ± 0.00198 (+94 pcm) —
+  SUPERSEDED, PENDING A RE-RUN.** Measured 2026-07-07 with the pre-`op-jis`
+  output function (raw top-52 state bits). The ENDF path needs
+  `--features net-fetch` and has no local tape cache on this machine, so it could
+  not be re-run and **no replacement value was measured or invented**.
+- **LOW-tier / offline (`Nuclide::from_core`): k_eff = 1.01042 ± 0.00174
+  (+1042 pcm vs ICSBEP 1.0000 ± 0.0010)** — re-measured **2026-08-06** from
+  `examples/godiva_keff`. *Supersedes* the pre-`op-jis` 1.01022 ± 0.00177
+  (+1022 pcm).
 
 ---

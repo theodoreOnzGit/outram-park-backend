@@ -47,15 +47,33 @@
 //!   target `P` to a tight relative tolerance, and the normalized fuel flux
 //!   `f · flux_mean` is finite and positive.
 //!
-//! **Results (measured 2026-07-17, this harness; deterministic seed).** See the
-//! `eprintln!` line emitted at run time and the CSV written to
-//! `verification_and_validation/openmc_notebook_comparisons/tally_power_normalization.csv`.
-//! With 500 particles, 20 inactive + 30 active generations, target `P = 174 W`
-//! (echoing the notebook's pin linear-power target), the run reports a fast
-//! reflective-HEU `k_inf`, a strictly-positive kappa-fission mean (J/generation), a
-//! finite normalization factor `f`, and `recovered_power` equal to 174 W to < 1e-9
-//! relative — the analytic round-trip holds and the `KappaFission == Q·Fission`
-//! identity holds to machine precision. The exact numbers are printed at run time.
+//! **Results (measured 2026-08-06, this harness; deterministic seed).** Printed
+//! by the `eprintln!` line below and written to the CSV at
+//! `verification_and_validation/openmc_notebook_comparisons/tally_power_normalization.csv`
+//! (the `date` column in that generated CSV is a literal in the test body and
+//! still reads 2026-07-17 — the authoritative date is this block).
+//! With 500 particles, 20 inactive + 30 active generations and target
+//! `P = 174 W` (echoing the notebook's pin linear-power target), the run gives
+//! **k_inf = 1.81908 ± 0.00728**, **flux_mean = 9.1782e4 ± 9.69e3**,
+//! **fission_mean = 3.6523e2 ± 3.88e0**, **kappa_mean = 1.1315e-8 J ± 1.20e-10**
+//! (with `Q_FISSION_J` = 3.0982e-11 J), normalization factor
+//! **f = 1.5377e10**, **recovered_power = 174.000000 W** (target 174.0) and
+//! **normalized_flux = 1.4114e15**. So the kappa-fission mean is strictly
+//! positive (J/generation), `f` is finite, and `recovered_power` equals 174 W to
+//! < 1e-9 relative — the analytic round-trip holds and the
+//! `KappaFission == Q·Fission` identity holds to machine precision.
+//!
+//! **Supersedes (pre-`op-jis`, measured 2026-07-17).** This block previously
+//! carried no absolute figures — it recorded only that the identities held, and
+//! deferred the numbers to run-time output and the CSV. Those run-time numbers
+//! were produced with the old `prn` output function (uniforms formed from the raw
+//! top-52 state bits, before bead `op-jis` added OpenMC's PCG-RXS-M-XS output
+//! permutation) and are superseded by the measured values above; the LCG *state*
+//! recurrence is unchanged, but every sampled uniform moved, so `k_inf` and every
+//! tally mean (flux, fission, kappa-fission — and hence `f` and the normalized
+//! flux) moved with it. **`Q_FISSION_J` = 3.0982e-11 J is a physical constant and
+//! the 174 W round-trip is exact by construction — neither moved**, and no
+//! tolerance changed.
 
 use std::io::Write;
 

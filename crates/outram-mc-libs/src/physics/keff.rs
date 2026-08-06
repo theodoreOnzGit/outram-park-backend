@@ -1487,11 +1487,25 @@ mod tests {
     /// (0.9–1.4), not a benchmark gate — this guards the full transport chain (data
     /// → geometry → collision → scatter → fission → power iteration), not accuracy.
     ///
-    /// **Results (2026-07).** k_eff ≈ 1.010 ± 0.002, i.e. ~+1 000 pcm high (down
-    /// from ~1.129 / +12 900 pcm before the LOW tier gained inelastic + forward
-    /// elastic scatter — see `docs/development-history.md`). The result is
-    /// stationary and low-noise; the small residual bias is expected for this
-    /// fidelity (no self-shielding; one mean cosine; evaporation for inelastic).
+    /// **Results (2026-08-06, re-measured under the `op-jis` PCG-RXS-M-XS `prn`
+    /// output permutation).** k_eff = **1.01997 ± 0.00571**, i.e. **+1 997 pcm**
+    /// high — inside the [0.9, 1.4] plausibility band and comfortably under the
+    /// `σ < 0.02` noise gate this test asserts. Still far down from ~1.129 /
+    /// +12 900 pcm before the LOW tier gained inelastic + forward elastic scatter
+    /// (see `docs/development-history.md`). The result is stationary; the residual
+    /// bias is expected for this fidelity (no self-shielding; one mean cosine;
+    /// evaporation for inelastic). Measured by running this test's exact
+    /// configuration (1 500 histories × [20 inactive + 40 active], default seed) on
+    /// 2026-08-06 — the test itself prints nothing, so the value was taken from a
+    /// throwaway driver replicating it verbatim.
+    ///
+    /// **Supersedes (2026-07): k_eff ≈ 1.010 ± 0.002, ~+1 000 pcm.** That figure was
+    /// measured with the pre-`op-jis` `prn` output function (raw top-52 state bits).
+    /// The LCG *state recurrence* is unchanged — seeding and jump-ahead did not move
+    /// — but every uniform double changed, so this estimator simply re-drew. Note
+    /// the quoted σ also grew (0.002 → 0.00571); at 40 active generations that
+    /// spread is ordinary batch scatter, not a fidelity change. No tolerance was
+    /// changed; the test passes as written.
     #[test]
     fn godiva_converges_to_sane_keff() {
         let (material, nuclides) = godiva();
@@ -1561,25 +1575,44 @@ mod tests {
     /// (prints `SKIP` and is not asserted) when no GPU adapter is present in the
     /// test process, so the test is green on CPU-only CI.
     ///
-    /// **Results (2026-07-17; adapter: NVIDIA GeForce RTX 3050, LOW-tier data,
-    /// 800 histories × [15 + 40], seed = 1).** All three modes ran (GPU arm not
+    /// **Results (2026-08-06; adapter: NVIDIA GeForce RTX 3050, LOW-tier data,
+    /// 800 histories × [15 + 40], seed = 1; re-measured under the `op-jis`
+    /// PCG-RXS-M-XS `prn` output permutation).** All three modes ran (GPU arm not
     /// skipped — a real adapter was present in the test process):
-    /// - k_single = **1.00762 ± 0.00827** (trusted reference),
-    /// - k_multi  = **1.00715 ± 0.00768**,
-    /// - k_gpu    = **1.01284 ± 0.00823** (fused collision-on-GPU path).
+    /// - k_single = **1.01207 ± 0.00673** (trusted reference),
+    /// - k_multi  = **1.01897 ± 0.00945**,
+    /// - k_gpu    = **1.00863 ± 0.00834** (fused collision-on-GPU path).
     ///
-    /// Pairwise σ-distances:
-    /// - single-vs-multi: |Δk| = 0.00047 = **0.04σ** (5σ band 0.05643) — a
-    ///   statistically independent stream landing essentially on top of the
-    ///   reference;
-    /// - single-vs-gpu: |Δk| = 0.00522 = **0.45σ** (combined σ 0.01167, 5σ band
-    ///   0.05833) — the fused collision-on-GPU path (independent per-history streams
+    /// Pairwise σ-distances, with `σ_comb = sqrt(σ_a² + σ_b²)` and the arithmetic
+    /// written out so a reader can check it against the numbers above:
+    /// - single-vs-multi: |Δk| = |1.01207 − 1.01897| = 0.00690;
+    ///   σ_comb = sqrt(0.00673² + 0.00945²) = sqrt(4.5293e-5 + 8.9300e-5)
+    ///   = sqrt(1.3459e-4) = 0.01160; 0.00690 / 0.01160 = **0.59σ** (5σ band
+    ///   0.05801) — a statistically independent stream well inside the reference's
+    ///   uncertainty;
+    /// - single-vs-gpu: |Δk| = |1.01207 − 1.00863| = 0.00344;
+    ///   σ_comb = sqrt(0.00673² + 0.00834²) = sqrt(4.5293e-5 + 6.9556e-5)
+    ///   = sqrt(1.1485e-4) = 0.01072; 0.00344 / 0.01072 = **0.32σ** (5σ band
+    ///   0.05358) — the fused collision-on-GPU path (independent per-history streams
     ///   + `f32` flight *and* collision) lands well within combined uncertainty of
     ///   the reference. The GPU is acceleration only, judged against the CPU
     ///   reference, never trusted above it.
     ///
-    /// All three land within ~1300 pcm of unity and within ~0.5σ of each other —
+    /// Not asserted by this test, recorded for completeness (same arithmetic):
+    /// multi-vs-gpu |Δk| = 0.01034, σ_comb = sqrt(0.00945² + 0.00834²) = 0.01260,
+    /// = **0.82σ** — the widest of the three pairs.
+    ///
+    /// All three land within ~1 900 pcm of unity and within 0.82σ of each other —
     /// moving the whole collision onto the GPU does not change the physics.
+    ///
+    /// **Supersedes (2026-07-17, measured with the pre-`op-jis` `prn` output
+    /// function — raw top-52 state bits):** k_single = 1.00762 ± 0.00827,
+    /// k_multi = 1.00715 ± 0.00768, k_gpu = 1.01284 ± 0.00823; single-vs-multi
+    /// |Δk| = 0.00047 = 0.04σ, single-vs-gpu |Δk| = 0.00522 = 0.45σ. The LCG state
+    /// recurrence is unchanged (integer-state facts, golden seeds, jump-ahead
+    /// identities and the GPU integer-state mirror all still hold), so all that
+    /// moved is the uniform stream every arm draws from — each of the three arms
+    /// re-drew independently. No tolerance was changed; the 5σ gate is unaltered.
     #[test]
     fn three_compute_modes_agree_on_godiva() {
         let (material, nuclides) = godiva();
@@ -1732,20 +1765,44 @@ mod tests {
     /// (energy transfer + forward peaking) are what close the Godiva gap and that
     /// they survive the reduction to group data.
     ///
-    /// **Results (2026-07-03; HIGH = ENDF/B-VII.1, LOW = embedded VIII.0 group;
-    /// 5000 particles, 40 inactive + 120 active generations, default seed).**
-    /// LOW k_eff = **1.01024 (+1 024 pcm)**; HIGH k_eff = **1.00367 ± 0.00182
-    /// (+367 pcm)** — both in agreement with the benchmark. The ranked HIGH-tier
-    /// lever contributions (anisotropic elastic ~10 300 pcm ≫ inelastic ~2 510 pcm
-    /// ≫ continuous-energy data ~400 pcm) are in `docs/development-history.md`.
+    /// **Results — read the two vintages separately.**
     ///
-    /// **(n,2n) multiplicity — measured worth.** A same-settings A/B (n2n on vs
+    /// **LOW tier (2026-08-06, re-measured under the `op-jis` PCG-RXS-M-XS `prn`
+    /// output permutation).** k_eff = **1.01042 ± 0.00174 (+1 042 pcm)** vs ICSBEP
+    /// 1.0000 ± 0.0010 — still in agreement with the benchmark. Source: a re-run of
+    /// `examples/godiva_keff` (5 000 particles × [40 inactive + 110 active],
+    /// embedded LOW-tier data, default seed), which is the LOW-tier Godiva case that
+    /// was actually re-executed for `op-jis`. Note it is [40 + 110], not the
+    /// [40 + 120] this test uses: the in-test LOW arm sits behind the `net-fetch`
+    /// gate and therefore re-runs together with the HIGH arm below.
+    /// *Supersedes* LOW k_eff = 1.01024 (+1 024 pcm), measured 2026-07-03 with the
+    /// pre-`op-jis` `prn` output function (raw top-52 state bits).
+    ///
+    /// **HIGH tier — SUPERSEDED BY `op-jis`, PENDING RE-RUN.** Everything from here
+    /// to the end of this doc comment (the HIGH k_eff, the ranked lever
+    /// contributions, the (n,2n) A/B and the MF=5 χ A/B) was measured on 2026-07-03
+    /// with the **pre-`op-jis`** `prn` output function (raw top-52 state bits). The
+    /// LCG state recurrence did not change, but every uniform double did, so every
+    /// one of these figures is expected to have moved. They are retained verbatim
+    /// rather than deleted because they are the last values actually measured — but
+    /// **do not cite them as current** until `examples/godiva_keff_endf` has been
+    /// re-run under the new `prn` and this block reconciled against it.
+    ///
+    /// *(2026-07-03; HIGH = ENDF/B-VII.1; 5000 particles, 40 inactive + 120 active
+    /// generations, default seed.)* HIGH k_eff = **1.00367 ± 0.00182 (+367 pcm)** —
+    /// in agreement with the benchmark. The ranked HIGH-tier lever contributions
+    /// (anisotropic elastic ~10 300 pcm ≫ inelastic ~2 510 pcm ≫ continuous-energy
+    /// data ~400 pcm) are in `docs/development-history.md`.
+    ///
+    /// **(n,2n) multiplicity — measured worth** *(2026-07-03, pre-`op-jis`; pending
+    /// re-run — see the banner above).* A same-settings A/B (n2n on vs
     /// forced off) gives 0.99872 ± 0.00173 (on) vs 0.99701 ± 0.00168 (off), a shift
     /// of **+171 ± 241 pcm** — the correct sign but only ~0.7σ, **not resolved from
     /// zero**. Expected: U (n,2n) has a ~5–6 MeV threshold and sees only the thin
     /// high-energy tail, so its Godiva worth is tens of pcm — a *fidelity* fix.
     ///
-    /// **Energy-dependent χ (ENDF MF=5) — measured worth.** Replacing the fixed
+    /// **Energy-dependent χ (ENDF MF=5) — measured worth** *(2026-07-03,
+    /// pre-`op-jis`; pending re-run — see the banner above).* Replacing the fixed
     /// thermal-Watt fission birth spectrum with the real energy-dependent MF=5/MT=18
     /// χ(E→E') (LF=1, per-nuclide, ported from OpenMC `ContinuousTabular::sample`).
     /// A paired A/B (MF=5 vs Watt, same reconstruction and seed) gives HIGH =

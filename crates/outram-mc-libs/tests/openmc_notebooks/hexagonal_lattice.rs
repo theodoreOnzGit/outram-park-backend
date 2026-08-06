@@ -45,12 +45,22 @@
 //! (Lower-level index/round-trip/distance checks live in the `hex_tests` unit
 //! module of `src/geometry/lattice.rs`.)
 //!
-//! **Results (2026-07-15, this harness).** All geometry properties pass — see
-//! [`hexagonal_lattice_geometry`]. The k-eigenvalue smoke run's measured k ± σ
-//! is printed at run time (`--nocapture`) and written up, together with the
-//! "no notebook reference" caveat, in
+//! **Results (measured 2026-08-06, this harness).** All geometry properties pass
+//! — see [`hexagonal_lattice_geometry`]; they are exact index/material identities
+//! that draw no random numbers, so they are RNG-independent. The k-eigenvalue
+//! smoke run measured **k = 0.25347 ± 0.00714** (300 particles, 15 inactive + 25
+//! active); it is printed at run time (`--nocapture`) and written up, together
+//! with the "no notebook reference" caveat, in
 //! `docs/ai-fleet-review/op-6tz-hexlattice/REVIEW_MANIFEST.md` and the gitignored
 //! `verification_and_validation/openmc_notebook_comparisons/hexagonal_lattice.csv`.
+//!
+//! **Supersedes (pre-`op-jis`).** This block previously (2026-07-15) recorded no
+//! k value here, deferring it to the REVIEW_MANIFEST and the gitignored CSV.
+//! Whatever k was recorded there was measured with the old `prn` output function
+//! (uniforms formed from the raw top-52 state bits, before bead `op-jis` added
+//! OpenMC's PCG-RXS-M-XS output permutation) and is superseded by the value
+//! above: the LCG *state* recurrence is unchanged, but every sampled uniform
+//! moved. The geometry assertions are unaffected.
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -273,9 +283,15 @@ fn hexagonal_lattice_geometry() {
 /// (seeded, deterministic). **Pass criterion:** k finite & positive, σ bounded,
 /// all generations completed. **No reference** (geometry-only notebook).
 ///
-/// **Results (2026-07-15).** Measured k ± σ printed at run time and recorded in
+/// **Results (measured 2026-08-06).** **k = 0.25347 ± 0.00714** (npart = 300,
+/// 15 inactive + 25 active) — printed at run time and recorded in
 /// `verification_and_validation/openmc_notebook_comparisons/hexagonal_lattice.csv`
 /// (gitignored) and `docs/ai-fleet-review/op-6tz-hexlattice/REVIEW_MANIFEST.md`.
+///
+/// **Supersedes (pre-`op-jis`):** the k ± σ recorded on 2026-07-15 (in the CSV /
+/// REVIEW_MANIFEST, never quoted in this doc comment) was measured with the old
+/// `prn` output function — uniforms from the raw top-52 state bits, before the
+/// PCG-RXS-M-XS output permutation — and is superseded by the value above.
 #[test]
 fn hexagonal_lattice_keff_smoke() {
     let geom = notebook_geometry();

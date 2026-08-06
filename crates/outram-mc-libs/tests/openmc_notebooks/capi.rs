@@ -60,18 +60,28 @@
 //! asserted; the reference is the sign/monotonicity of the response and the
 //! read-back of a valid tally.
 //!
-//! **Results (measured 2026-07-17, this harness; deterministic seed, 500
+//! **Results (measured 2026-08-06, this harness; deterministic seed, 500
 //! particles, 20 inactive + 40 active).**
-//! - Run A (nominal HEU, R = 6 cm): **k_A = 0.98609 ± 0.00910**; fuel-cell
-//!   track-length flux = 1.303e5 (> 0) and ν-fission tally = 1.951e4 (> 0) read
+//! - Run A (nominal HEU, R = 6 cm): **k_A = 0.97975 ± 0.00941**; fuel-cell
+//!   track-length flux = 1.3127e5 (> 0) and ν-fission tally = 1.9686e4 (> 0) read
 //!   back live.
-//! - Run B (1.5× denser HEU, same R): **k_B = 1.31288 ± 0.00984**.
-//! - Response: **Δk = k_B − k_A = +0.3268** (≈ +24× the combined σ ≈ 0.01340) —
+//! - Run B (1.5× denser HEU, same R): **k_B = 1.31318 ± 0.00845**.
+//! - Response: **Δk = k_B − k_A = +0.33343** (≈ +26× the combined σ = 0.01265) —
 //!   a denser fixed-size core is markedly more reactive, the physically correct
 //!   direction. The values are printed at run time (`--nocapture`) and recorded
 //!   in `verification_and_validation/openmc_notebook_comparisons/capi.csv`.
 //!   Interpretation: the in-memory build/run/introspect/edit-and-re-run surface
 //!   behaves correctly; only mid-run batch-stepping (op-6tz.20) remains a gap.
+//!
+//! **Supersedes (pre-`op-jis` figures, measured 2026-07-17).** The numbers above
+//! replace values taken with the old `prn` output function (uniforms formed from
+//! the raw top-52 state bits, before bead `op-jis` added OpenMC's PCG-RXS-M-XS
+//! output permutation). The LCG *state* recurrence is unchanged, but every
+//! sampled uniform moved, and with it both eigenvalues and both tally sums.
+//! Superseded: **k_A = 0.98609 ± 0.00910**, fuel flux = 1.303e5,
+//! ν-fission = 1.951e4; **k_B = 1.31288 ± 0.00984**; **Δk = +0.3268** (≈ +24×
+//! the combined σ ≈ 0.01340). The sign and magnitude of the response — the only
+//! thing this test asserts — are unchanged.
 
 use outram_mc_libs::geometry::cell::Cell;
 use outram_mc_libs::geometry::cell::{HalfSpaceSense, RegionToken};

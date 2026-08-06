@@ -91,6 +91,22 @@
 //!
 //! **Results (2026-07-17, NVIDIA GeForce RTX 3050, Vulkan; warm OS disk cache).**
 //!
+//! > **SUPERSEDED AND PENDING A RE-RUN (flagged 2026-08-06, bead `op-jis`).**
+//! > The k∞ below, and the XS-kernel error columns further down, were measured
+//! > with the pre-`op-jis` `prn` output function (the raw top-52 bits of the LCG
+//! > state). `op-jis` replaced it with OpenMC's PCG-RXS-M-XS output permutation,
+//! > which changes every uniform: the eigenvalue, the sampled kernel positions,
+//! > and the Watt-sampled query energies behind the error columns all move. This
+//! > example **could not be re-run** on 2026-08-06 — it needs `--features
+//! > net-fetch` to download the ENDF tapes and no local cache was present, so
+//! > **no number below has been replaced or estimated**. The two tracked CSVs it
+//! > writes, `verification_and_validation/gpu_benchmarks/triso_keff_convergence.csv`
+//! > and `triso_xs_throughput.csv`, therefore also still hold pre-`op-jis`
+//! > values. Re-run with
+//! > `cargo run --release -p outram-mc-libs --features net-fetch --example triso_gpu_benchmark`
+//! > before citing any of this as current. (The sibling `godiva_gpu_benchmark`,
+//! > which needs no network data, *was* re-run and is current.)
+//!
 //! - **Nuclide fidelity:** U-234, U-235, U-238, H-1 all HIGH-fidelity ENDF/B-VII.1
 //!   (carbon fell back to H-1 as documented above). Reconstruction wall-clock:
 //!   U-234 0.4 s, U-235 12.4 s, U-238 28.4 s, H-1 0.9 s; total 42.1 s (tapes were

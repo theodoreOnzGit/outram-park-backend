@@ -82,18 +82,32 @@
 //!   k∞, leakage-free), delta tracking on the bin-max majorant. Assert a
 //!   stationary, positive eigenvalue in a broad plausibility band.
 //!
-//! **Results (2026-07-15, this harness; embedded LOW-tier data).**
+//! **Results (measured 2026-08-06, this harness; embedded LOW-tier data).**
 //! - *Packing* — target pf 0.30 → **realized 0.3000**, N = 1119 kernels, zero
 //!   overlaps, all contained; packing is bit-reproducible for a fixed seed.
-//! - *Unbiasedness* — surface **k = 2.22688 ± 0.00261** vs delta
-//!   **k = 2.22492 ± 0.00242** on the identical homogeneous box: Δk = 196 pcm,
-//!   combined σ = 356 pcm, i.e. **0.55σ** — statistically indistinguishable,
+//!   **Unchanged by `op-jis`:** N is the deterministic RSA target count
+//!   `floor(pf·V_box/V_sphere)` and the realized pf follows from it, so neither
+//!   depends on the RNG's *output* function. Re-confirmed passing 2026-08-06.
+//! - *Unbiasedness* — surface **k = 2.22400 ± 0.00375** vs delta
+//!   **k = 2.22983 ± 0.00340** on the identical homogeneous box: Δk = −583 pcm,
+//!   combined σ = 506 pcm, i.e. **1.15σ** — statistically indistinguishable,
 //!   confirming the delta-tracking flight and its majorant are unbiased.
-//! - *Doubly-heterogeneous k∞* — **k = 1.87105 ± 0.00615** (random pf-0.30 HEU/H,
+//! - *Doubly-heterogeneous k∞* — **k = 1.87032 ± 0.00650** (random pf-0.30 HEU/H,
 //!   45 generations). No benchmark reference exists (the notebook runs no k-eff),
 //!   so this is a **correctness-asserted** result, not a validated one: it is a
 //!   physical infinite-medium k∞ for a fissile fast HEU medium (k∞ ≫ 1, no
 //!   leakage), converged and stationary.
+//!
+//! **Supersedes (pre-`op-jis` figures, measured 2026-07-15).** The eigenvalues
+//! above replace values taken with the old `prn` output function (uniforms formed
+//! from the raw top-52 state bits, before bead `op-jis` added OpenMC's
+//! PCG-RXS-M-XS output permutation). The LCG *state* recurrence is unchanged —
+//! so seeds, jump-ahead and the deterministic packing are untouched — but every
+//! sampled uniform moved, and with it every eigenvalue. Superseded:
+//! - *Unbiasedness* — surface **k = 2.22688 ± 0.00261** vs delta
+//!   **k = 2.22492 ± 0.00242**: Δk = 196 pcm, combined σ = 356 pcm, **0.55σ**.
+//! - *Doubly-heterogeneous k∞* — **k = 1.87105 ± 0.00615**.
+//! - *Packing* — realized pf 0.3000, N = 1119: **not superseded**, deterministic.
 //!
 //! **Honest simplifications.** Single fuel-kernel sphere (the buffer/IPyC/SiC/OPyC
 //! shells are collapsed into the matrix); fast/epithermal LOW-tier data only
@@ -292,10 +306,11 @@ fn triso_nested_lattice_geometry_navigation() {
 /// within 5σ combined (the same unbiasedness bar as the homogeneous cross-check),
 /// which they cannot if the surface tracker is systematically leaking histories.
 ///
-/// # Results (2026-07-24)
+/// # Results (measured 2026-08-06)
 /// After the `distance_to_boundary` coincident-surface tie-break fix, surface
-/// tracking reads **k = 1.96481 ± 0.00473** vs delta **1.92644 ± 0.00511** — a
-/// 2.0% relative difference, where the surface value was previously ~0.90 (≈50%
+/// tracking reads **k = 1.95984 ± 0.00484** vs delta **1.92200 ± 0.00522** — a
+/// 2.0% relative difference (Δk = +3784 pcm, combined σ = 712 pcm), where the
+/// surface value was previously ~0.90 (≈50%
 /// low). The catastrophic under-count is resolved. A small residual (~2%, and of
 /// the *opposite* sign to a leak — surface reads slightly high, not low) remains
 /// between the two independent drivers; it is far below a statistical tie because
@@ -304,6 +319,14 @@ fn triso_nested_lattice_geometry_navigation() {
 /// is plausibly compounded by the still-open reflective-corner navigation effect
 /// (op-6tz.23). The pass criterion below therefore checks the *under-count is
 /// gone* (relative agreement within 5%), not a full statistical tie.
+///
+/// **Supersedes (pre-`op-jis`, measured 2026-07-24):** surface **k = 1.96481 ±
+/// 0.00473** vs delta **1.92644 ± 0.00511** (2.0% relative). Those were taken
+/// with the old `prn` output function (raw top-52 state bits); bead `op-jis`
+/// added the PCG-RXS-M-XS output permutation, which left the LCG state
+/// recurrence unchanged but moved every sampled uniform, and hence both
+/// eigenvalues. The ~50%-low pre-fix surface value (≈0.90) is a historical
+/// pre-tie-break-fix fact and is not a superseded measurement.
 #[test]
 fn triso_nested_lattice_surface_vs_delta_keff() {
     let nuclides = triso_nuclides();
@@ -358,7 +381,10 @@ fn triso_nested_lattice_surface_vs_delta_keff() {
 /// packing fraction with no overlaps, all kernels contained, and reproducibly.
 ///
 /// Methodology + measured result: see the module V&V section (realized pf 0.3000,
-/// N = 1119, zero overlaps, 2026-07-15).
+/// N = 1119, zero overlaps; re-confirmed 2026-08-06). These two figures are
+/// **deterministic** — N is the RSA target count `floor(pf·V_box/V_sphere)` and
+/// the realized pf follows from it — so they did **not** move under bead
+/// `op-jis` (the PCG-RXS-M-XS output permutation) and are not superseded.
 #[test]
 fn triso_random_packing_is_valid() {
     let packed = PackedSpheres::pack(PACK_R, PACK_HALF, PACK_PF, PACK_SEED).expect("RSA packs at pf 0.30");
@@ -406,8 +432,13 @@ fn triso_random_packing_is_valid() {
 /// eigenvalue within combined statistical error. This is the correctness proof for
 /// the doubly-heterogeneous driver (no benchmark k exists for the notebook).
 ///
-/// Measured (2026-07-15): surface 2.22688 ± 0.00261 vs delta 2.22492 ± 0.00242 →
-/// 0.55σ. See the module V&V section.
+/// Measured (2026-08-06): surface 2.22400 ± 0.00375 vs delta 2.22983 ± 0.00340 →
+/// Δk = −583 pcm, combined σ = 506 pcm, **1.15σ**. See the module V&V section.
+///
+/// **Supersedes (pre-`op-jis`, measured 2026-07-15):** surface 2.22688 ± 0.00261
+/// vs delta 2.22492 ± 0.00242 → 0.55σ — taken with the old `prn` output function
+/// (raw top-52 state bits), before the PCG-RXS-M-XS output permutation moved
+/// every sampled uniform.
 #[test]
 fn triso_delta_tracking_unbiased_vs_surface_tracking() {
     let nuclides = vec![Nuclide::from_core("U235").unwrap()];
@@ -490,9 +521,14 @@ fn triso_delta_flight_reaches_collision_in_packed_medium() {
 /// [`run_keff_delta`] delta-tracks a fission-source power iteration through the
 /// randomly packed HEU/H medium to a stationary eigenvalue.
 ///
-/// Measured (2026-07-15): k = 1.87105 ± 0.00615 (pf 0.30, 45 generations). No
+/// Measured (2026-08-06): k = 1.87032 ± 0.00650 (pf 0.30, 45 generations). No
 /// benchmark reference (the notebook runs no k-eff) — a correctness-asserted
 /// infinite-medium result. See the module V&V section.
+///
+/// **Supersedes (pre-`op-jis`, measured 2026-07-15):** k = 1.87105 ± 0.00615 —
+/// taken with the old `prn` output function (raw top-52 state bits), before the
+/// PCG-RXS-M-XS output permutation moved every sampled uniform. (The underlying
+/// packing — pf 0.3000, N = 1119 — is deterministic and did not move.)
 #[test]
 fn triso_random_packed_doubly_heterogeneous_keff() {
     let materials = triso_materials();
@@ -587,11 +623,15 @@ fn corner_reflection_composes_at_exact_corner() {
 /// (1e-9 cm) per event, needing up to `MAX_EVENTS` (100k) events per history and
 /// then leaking (a negative bias).
 ///
-/// # Results (2026-07-24, this harness)
+/// # Results (re-confirmed 2026-08-06, this harness)
 /// Before the corner-composition fix the worst grazing case took **100 003**
 /// boundary events to move 2 cm (past `MAX_EVENTS` → capped and leaked in real
 /// transport) with **20** exact-corner leaks. After the fix the worst case is
-/// **4** events with **0** leaks. Pass criterion: every case reaches 2 cm in
+/// **4** events with **0** leaks (re-measured 2026-08-06: worst grazing history =
+/// 4 boundary events). **Not affected by `op-jis`:** this sweep is a fixed
+/// deterministic set of starts/directions driven through the geometry API and
+/// draws no random numbers, so the PCG-RXS-M-XS output permutation cannot move
+/// it; nothing here is superseded. Pass criterion: every case reaches 2 cm in
 /// < 100 boundary events and never leaks.
 #[test]
 fn corner_grazing_history_terminates_without_pingpong() {
@@ -676,10 +716,17 @@ fn corner_grazing_history_terminates_without_pingpong() {
 /// (vs the 1 cm half-width unbiasedness test) makes reflective-corner grazing a
 /// larger fraction of histories, so a corner-leak bias would show here first.
 ///
-/// # Results (2026-07-24, this harness; embedded LOW-tier data)
-/// surface **k = 2.22235 ± 0.00334** (run in ~0.7 s) vs delta
-/// **k = 2.21925 ± 0.00320** → Δk = 310 pcm, combined σ = 463 pcm, i.e.
-/// **0.67σ** — statistically indistinguishable; no corner-leak bias remains.
+/// # Results (measured 2026-08-06, this harness; embedded LOW-tier data)
+/// surface **k = 2.23150 ± 0.00320** (run in ~0.6 s) vs delta
+/// **k = 2.22983 ± 0.00340** → Δk = 167 pcm, combined σ = 467 pcm, i.e.
+/// **0.36σ** — statistically indistinguishable; no corner-leak bias remains.
+///
+/// **Supersedes (pre-`op-jis`, measured 2026-07-24):** surface **k = 2.22235 ±
+/// 0.00334** vs delta **k = 2.21925 ± 0.00320** → Δk = 310 pcm, combined
+/// σ = 463 pcm, **0.67σ**. Those were taken with the old `prn` output function
+/// (raw top-52 state bits), before bead `op-jis` added the PCG-RXS-M-XS output
+/// permutation — the LCG state recurrence is unchanged, but every sampled
+/// uniform, and hence both eigenvalues, moved.
 #[test]
 fn corner_reflective_cube_surface_tracking_unbiased() {
     let nuclides = vec![Nuclide::from_core("U235").unwrap()];

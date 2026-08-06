@@ -47,29 +47,48 @@
 //!   x↔y, so the four corner cells (and, separately, the four central cells) must
 //!   agree to within Monte-Carlo statistics.
 //!
-//! **Results (measured 2026-07-17, this harness; deterministic seed).** With 500
+//! **Results (measured 2026-08-06, this harness; deterministic seed).** With 500
 //! particles, 20 inactive + 35 active generations the run gives
-//! **k_inf = 1.83164 ± 0.00763** (matching `expansion_filters.rs`, the same
+//! **k_inf = 1.82334 ± 0.00769** (matching `expansion_filters.rs`, the same
 //! infinite-medium model). The reshaped 4 × 4 flux grid (track-length units) is:
 //!
-//! - row 0: `[1.742e4, 1.989e4, 1.989e4, 1.741e4]`
-//! - row 1: `[1.928e4, 2.373e4, 2.376e4, 1.928e4]`
-//! - row 2: `[1.930e4, 2.376e4, 2.374e4, 1.927e4]`
-//! - row 3: `[1.741e4, 1.989e4, 1.990e4, 1.742e4]`
+//! - row 0: `[1.807e4, 1.703e4, 1.704e4, 1.806e4]`
+//! - row 1: `[1.727e4, 2.253e4, 2.251e4, 1.727e4]`
+//! - row 2: `[1.729e4, 2.252e4, 2.253e4, 1.729e4]`
+//! - row 3: `[1.804e4, 1.704e4, 1.703e4, 1.806e4]`
 //!
-//! with max = 2.376e4, min = 1.741e4, total = 3.213e5 and spatial structure
-//! `(max − min)/max = 0.267`. The four **centre** cells (fuel-overlapping) are
-//! ~2.375e4 and clearly separated from the four **corner** cells (pure moderator)
-//! at ~1.741e4 — the fuel cylinder raises the flux at the pitch centre. The
-//! corner cells agree to **0.0%** (spread 5.2e0 on a mean of 1.741e4) and the
-//! centre cells to **0.0%** (spread 1.2e1 on 2.375e4): the grid is symmetric under
+//! with max = 2.253e4, min = 1.703e4, total = 2.996e5 and spatial structure
+//! `(max − min)/max = 0.244`. The four **centre** cells (fuel-overlapping) are
+//! ~2.252e4 and clearly separated from the outer ring of pure-moderator cells —
+//! the four **corner** cells at ~1.806e4 and the eight edge cells at
+//! ~1.703e4–1.729e4 (the grid minimum) — the fuel cylinder raises the flux at the
+//! pitch centre. The
+//! corner cells agree to **0.0%** (spread 8.720e0 on a mean of 1.806e4) and the
+//! centre cells to **0.0%** (spread 7.985e0 on 2.252e4): the grid is symmetric under
 //! x→−x, y→−y and x↔y, exactly as the geometry demands. Interpretation:
 //! `RegularMesh`/`MeshFilter` binning and the midpoint-position threading through
 //! the scoring path are wired correctly; the reshaped grid recovers both the
 //! fuel/moderator spatial structure and the geometry's four-fold symmetry.
 //! Absolute cell values are track-length units (volume normalization is
 //! op-6tz.22). The grid + summary are written to
-//! `verification_and_validation/openmc_notebook_comparisons/post_processing.csv`.
+//! `verification_and_validation/openmc_notebook_comparisons/post_processing.csv`
+//! (the `date` column in that generated CSV is a literal in the test body and
+//! still reads 2026-07-17 — the authoritative date is this block).
+//!
+//! **Supersedes (pre-`op-jis` figures, measured 2026-07-17).** The numbers above
+//! replace values taken with the old `prn` output function (uniforms formed from
+//! the raw top-52 state bits, before bead `op-jis` added OpenMC's PCG-RXS-M-XS
+//! output permutation). The LCG *state* recurrence is unchanged, but every
+//! sampled uniform moved, and with it every scored mesh cell. Superseded:
+//! **k_inf = 1.83164 ± 0.00763**; grid rows
+//! `[1.742e4, 1.989e4, 1.989e4, 1.741e4]`, `[1.928e4, 2.373e4, 2.376e4, 1.928e4]`,
+//! `[1.930e4, 2.376e4, 2.374e4, 1.927e4]`, `[1.741e4, 1.989e4, 1.990e4, 1.742e4]`;
+//! max = 2.376e4, min = 1.741e4, total = 3.213e5, structure = 0.267; corner mean
+//! ~1.741e4 (spread 5.2e0), centre mean ~2.375e4 (spread 1.2e1). Note the
+//! outer-ring ordering also changed: the corner cells were then the grid minimum,
+//! whereas they now sit slightly *above* the edge cells — both remain far below
+//! the fuel-overlapping centre, so the asserted structure and symmetry properties
+//! are unaffected.
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;

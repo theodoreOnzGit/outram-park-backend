@@ -55,15 +55,37 @@
 //! Data: `Nuclide::from_core` LOW-tier WMP/MGXS for every chain nuclide (all 9
 //! are in the CORE-125 set); `chain_simple.xml` decay/yield structure.
 //!
-//! **Results (2026-07-15, this harness; asserted at run time).** Recorded in
+//! **Results (measured 2026-08-06, this harness; asserted at run time).** All
+//! five trends hold. The one-group `k_inf` swings **1.91838 → 1.85661 over the
+//! 180-day cycle (−6177 pcm)**, the same sign as the notebook's MC reference
+//! swing. Also recorded in
 //! `docs/ai-fleet-review/op-6tz-depletion/REVIEW_MANIFEST.md` and the generated
 //! comparison CSV
 //! `verification_and_validation/openmc_notebook_comparisons/depletion.csv`
-//! (gitignored).
+//! (gitignored; its `date` column is a literal in the test body and still reads
+//! 2026-07-15 — the authoritative date is this block).
 //!
 //! A genuine Monte Carlo `k` on the evolved actinide inventory is exercised by
 //! [`depletion_mc_transport_coupling`] to show the transport path is wired
-//! (fast-spectrum bare sphere — absolute value not comparable to the notebook).
+//! (fast-spectrum bare sphere — absolute value not comparable to the notebook):
+//! measured 2026-08-06, **BOL k = 0.16531 ± 0.00607, EOL k = 0.16220 ± 0.00354**.
+//!
+//! **Supersedes / did-not-move (`op-jis`).** Bead `op-jis` gave `prn` OpenMC's
+//! PCG-RXS-M-XS output permutation: the LCG *state* recurrence is unchanged, but
+//! every sampled uniform moved.
+//! - **Moved:** the Monte Carlo bare-sphere `k` values above. This block
+//!   previously (2026-07-15) quoted no numbers for them, deferring to the
+//!   REVIEW_MANIFEST; whatever was recorded there was taken with the old `prn`
+//!   output function (raw top-52 state bits) and is superseded by the BOL/EOL
+//!   figures above.
+//! - **Did not move:** the one-group burnup trajectory (`deplete_predictor` +
+//!   CRAM) draws **no random numbers** — cross sections are evaluated at the
+//!   0.0253 eV thermal point and the transmutation step is a deterministic matrix
+//!   exponential — so the inventories and the `k_inf` swing are unaffected by the
+//!   RNG change.
+//! - **External, unchanged:** the notebook's own MC k reference
+//!   (1.46478 → 1.42368, −4110 pcm) and its σ values are OpenMC's published cell
+//!   outputs, not measurements of this crate.
 
 use outram_mc_libs::depletion::chain::DepletionChain;
 use outram_mc_libs::depletion::operator::{deplete_predictor, BurnupResult, BurnupSettings};
@@ -178,6 +200,15 @@ fn depletion_burnup() {
 /// is far below the notebook's moderated pin cell and is *not* a benchmark —
 /// its purpose is to show the depletion→transport coupling path executes on a
 /// depleted inventory and returns a finite eigenvalue.
+///
+/// **Results (measured 2026-08-06):** BOL **k = 0.16531 ± 0.00607**, EOL
+/// **k = 0.16220 ± 0.00354** (500 particles, 10 inactive + 30 active, seeded).
+///
+/// **Supersedes (pre-`op-jis`):** the earlier BOL/EOL values (recorded 2026-07-15
+/// only in `docs/ai-fleet-review/op-6tz-depletion/REVIEW_MANIFEST.md`, never in
+/// this doc comment) were taken with the old `prn` output function — uniforms
+/// formed from the raw top-52 state bits, before the PCG-RXS-M-XS output
+/// permutation — and are superseded by the figures above.
 #[test]
 fn depletion_mc_transport_coupling() {
     use outram_mc_libs::depletion::operator::mc_keff_of_actinide_sphere;

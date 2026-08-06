@@ -47,16 +47,31 @@
 //!   macroscopic-fission-like ratio) in every group with positive flux, and carries
 //!   a finite propagated uncertainty.
 //!
-//! **Results (measured 2026-07-17, this harness; deterministic seed).** See the
-//! `eprintln!` line and the CSV at
-//! `verification_and_validation/openmc_notebook_comparisons/tally_arithmetic.csv`.
-//! With 500 particles, 20 inactive + 30 active generations, all four identity
+//! **Results (measured 2026-08-06, this harness; deterministic seed).** Printed
+//! by the `eprintln!` line below and written to the CSV at
+//! `verification_and_validation/openmc_notebook_comparisons/tally_arithmetic.csv`
+//! (the `date` column in that generated CSV is a literal in the test body and
+//! still reads 2026-07-17 — the authoritative date is this block).
+//! With 500 particles, 20 inactive + 30 active generations the run gives
+//! **k_inf = 1.81908 ± 0.00728**, **8 energy groups, all 8 populated**,
+//! **sum_flux = 8.4174e3 ± 4.81e1** against a direct group sum of 8.4174e3
+//! (relative difference 0.0e0), and a sample fission/flux ratio of
+//! **5.1238e-1**. All four identity
 //! classes pass: the summation matches the direct sum to < 1e-9 relative, the
 //! `(a+b)-b == a` means match to floating-point tolerance while σ strictly grows,
 //! `a*2` and `a+a` agree in the mean with the expected `2σ` vs `σ√2` split, and the
-//! fission/flux ratio is finite and non-negative in every populated group. The
-//! measured `k_inf`, group count, total flux, and a sample ratio are printed at run
-//! time.
+//! fission/flux ratio is finite and non-negative in every populated group.
+//!
+//! **Supersedes (pre-`op-jis`, measured 2026-07-17).** This block previously
+//! carried no absolute figures — it recorded only that the four identity classes
+//! passed, and deferred the numbers to run-time output and the CSV. Those run-time
+//! numbers were produced with the old `prn` output function (uniforms formed from
+//! the raw top-52 state bits, before bead `op-jis` added OpenMC's PCG-RXS-M-XS
+//! output permutation) and are superseded by the measured values above; the LCG
+//! *state* recurrence is unchanged, but every sampled uniform moved, so the
+//! `k_inf` and every scored group flux/fission value moved with it. **The four
+//! asserted identities are exact algebra over whatever the tally holds and are
+//! therefore data-independent — they did not move**, and no tolerance changed.
 
 use std::io::Write;
 

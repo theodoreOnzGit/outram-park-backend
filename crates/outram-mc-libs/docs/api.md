@@ -206,9 +206,77 @@ pub struct Lcg64 {
 
 Advance the seed one step and return a uniform sample in [0, 1).
 
-Maps to `double prn(uint64_t* seed)` in OpenMC.
-The upper 52 bits of the new seed are used to form an IEEE double mantissa,
-giving uniform floating-point samples with no division.
+**Upstream:** `double prn(uint64_t* seed)` —
+`/home/teddy0/Documents/research/openmc/src/random_lcg.cpp:32-44`
+(declared `include/openmc/random_lcg.h:33`). The C++ body is:
+
+```text
+*seed = (prn_mult * (*seed) + prn_add);
+uint64_t word =
+  ((*seed >> ((*seed >> 59u) + 5u)) ^ *seed) * 12605985483714917081ull;
+uint64_t result = (word >> 43u) ^ word;
+return ldexp(result, -64);
+```
+
+# What this computes
+
+Two separate stages, and it matters which is which:
+
+1. **State advance** — `x <- MULT * x + INC (mod 2^64)`, the plain 64-bit
+   LCG recurrence. This is **unchanged** by the output permutation, so
+   [`future_seed`], [`init_seed`], the jump-ahead identity, and every
+   integer-state guarantee in this crate (including the GPU shaders'
+   bit-exact state mirror) are untouched.
+2. **Output permutation** — `PCG-RXS-M-XS` (O'Neill 2014, HMC-CS-2014-0905;
+   upstream adapts <https://github.com/imneme/pcg-c>): a **r**andom-length
+   **x**or-**s**hift whose shift amount `(x >> 59) + 5` is drawn from the
+   state's own top five bits, then a **m**ultiply by [`PCG_PERM_MULT`], then
+   a final **x**or-**s**hift fold by 43. The permuted word, not the raw
+   state, becomes the double.
+
+# Why the permutation is here (this is the whole point)
+
+A bare LCG has **Marsaglia lattice structure**: successive k-tuples of its
+outputs do not fill the unit cube, they lie on a limited family of parallel
+hyperplanes. Taking the top 52 bits of the state — what this function used
+to return — sidesteps the weak-low-order-bit problem but does nothing at all
+about the lattice, because the top bits *are* the state.
+
+Monte Carlo transport consumes **tuples**: one history draws a flight
+distance, then a scattering direction, then a secondary energy from
+*consecutive* draws. That is precisely where hyperplane structure bites. The
+RXS-M-XS permutation exists to destroy it, and measurably does — see
+[`tests::lattice_structure_lag1`] and [`tests::lattice_structure_lag2`],
+which measure the defect directly and record the before/after numbers.
+
+Reproducing OpenMC's stream bit-for-bit is a **side effect** of this port,
+not its purpose; see the "RNG goal: statistical correctness, NOT
+particle-for-particle parity" section of this crate's `CLAUDE.md`.
+
+# Range
+
+Returns a sample in `[0, 1)` for every state reachable in practice.
+
+**Known boundary case, inherited from upstream and deliberately not
+patched.** `ldexp(result, -64)` converts a `u64` to a `f64` first, and the
+1024 values `result >= 2^64 - 1024` all round to `2^64`, giving exactly
+`1.0`. The probability is `1024 / 2^64 = 2^-54 ~ 5.6e-17` per draw. Measured
+2026-08-06: **zero** occurrences in 5.0e7 consecutive draws from `seed = 1`
+(expected count 2.8e-9), and the observed maximum was
+`0.99999998925400047`. This is safe for every consumer in this crate — all
+six index-by-uniform sites clamp with `.min(len - 1)`, and `-ln(1.0) = 0`
+merely yields a zero-length flight — but it is recorded here rather than
+silently "fixed", because clamping would be an undocumented divergence from
+the reference implementation.
+
+# Example
+
+```
+use outram_mc_libs::rng::lcg::prn;
+let mut seed = 1u64;
+let x = prn(&mut seed);
+assert!((0.0..1.0).contains(&x));
+```
 
 ```rust
 pub fn prn(seed: &mut u64) -> f64 { /* ... */ }
@@ -290,13 +358,24 @@ pub fn init_seed(id: i64, offset: i64, master_seed: i64) -> u64 { /* ... */ }
 
 #### Constant `MULT`
 
-Linear Congruential Generator — port of OpenMC's `random_lcg`.
+PCG-RXS-M-XS generator over a 64-bit LCG — port of OpenMC's `random_lcg`.
 
 C++ source: `src/random_lcg.cpp`, `include/openmc/random_lcg.h`
 (canonical tree: `/home/teddy0/Documents/research/openmc/`).
 
-OpenMC uses a 64-bit LCG with modulus 2^64 (implicit wrapping):
+The **state** is a 64-bit LCG with modulus 2^64 (implicit wrapping):
   x_{n+1} = MULT * x_n + INC  (mod 2^64)
+
+The **output** is not that state. [`prn`] applies the PCG-RXS-M-XS output
+permutation before converting to a double, because the raw LCG state carries
+Marsaglia lattice structure that Monte Carlo transport is directly exposed
+to (a history draws distance, direction, and energy from consecutive draws).
+See [`prn`] for the derivation and the measured before/after statistics.
+
+Keeping the two apart matters when reading this module: the permutation
+touches the *output only*. The recurrence, and therefore [`future_seed`],
+[`init_seed`], the jump-ahead identity, and the GPU shaders' bit-exact
+integer-state mirror, are all independent of it.
 
 The jump-ahead feature lets each particle own a completely independent
 stream by skipping ahead by a per-particle stride (default 152917).
@@ -16632,14 +16711,19 @@ packing fraction) and is the empirical output the suite exists to produce. The u
 test checks the harness runs and returns physical probabilities; a representative
 measured comparison is recorded below.
 
-# Representative result (2026-07-21)
+# Representative result (2026-08-06)
 
 For `domain_half_width = 0.5 cm`, `particle_radius = 0.05 cm`, `packing_fraction =
-0.2`, `scatter_mfp = 0.3 cm`, 4000 histories (seed 20260721), absorption
-probabilities were **RSA = 0.684, CLS = 0.697 (+0.013), SCLS = 0.745 (+0.061)**.
+0.2`, `scatter_mfp = 0.3 cm`, `max_collisions = 200`, 4000 histories (seed
+20260721), absorption probabilities were **RSA = 0.6947, CLS = 0.7073 (+0.0126),
+SCLS = 0.7165 (+0.0218)**. The binomial standard error `sqrt(p(1-p)/n)` is ~0.007
+on each arm at n = 4000, so the CLS gap is ~1.2 combined-se wide and the SCLS gap
+~2.1 — but CLS/SCLS are deterministic functions of the packing statistics rather
+than unbiased estimators of the explicit geometry, so those gaps report *model*
+approximation error, not sampling noise.
 
 Two honest observations, not accuracy claims:
-- Both approximate models land within ~0.06 of the explicit reference, so the harness
+- Both approximate models land within ~0.022 of the explicit reference, so the harness
   is clearly measuring the same physics on each arm.
 - In *this* regime **CLS is actually closer to RSA than SCLS**, and both overestimate
   absorption. That is a real, regime-dependent finding — SCLS's retained inclusions
@@ -16648,6 +16732,18 @@ Two honest observations, not accuracy claims:
   higher-packing regimes is exactly the parameter study this suite exists to run; it
   is not asserted here. These numbers are reproducible from the seed but are a
   generated result, not a committed reference (crate `CLAUDE.md` V&V-output rule).
+
+**Supersedes (2026-07-21): RSA = 0.684, CLS = 0.697 (+0.013), SCLS = 0.745
+(+0.061).** Those figures were measured with the pre-`op-jis` `prn` output
+function — the raw top-52 state bits, before [`crate::rng::lcg::prn`] gained
+OpenMC's PCG-RXS-M-XS output permutation. The LCG *state recurrence* is unchanged,
+so the RSA packing and the walk are structurally identical; only the uniform
+stream every arm consumes moved, and all three arms re-drew. The qualitative
+finding survives unchanged — both models still overestimate absorption, and CLS is
+still the closer of the two — but SCLS's overestimate shrank markedly, from +0.061
+to +0.0218. No tolerance was changed. (`max_collisions = 200`, matching this
+module's own unit test, is now stated explicitly above because the superseded
+2026-07-21 record did not name it.)
 
 This module is **new work**, not an OpenMC port.
 

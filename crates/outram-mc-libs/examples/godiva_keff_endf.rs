@@ -47,6 +47,22 @@
 //!
 //! **Results (2026-07-03, ENDF/B-VII.1) — the HIGH tier reaching the benchmark.**
 //!
+//! > **SUPERSEDED AND PENDING A RE-RUN (flagged 2026-08-06, bead `op-jis`).**
+//! > Every eigenvalue in this section was measured with the pre-`op-jis` `prn`
+//! > output function (the raw top-52 bits of the LCG state). `op-jis` replaced
+//! > it with OpenMC's PCG-RXS-M-XS output permutation, which changes every
+//! > uniform drawn and therefore every k_eff below, along with the pcm
+//! > differences and lever worths derived from them. This example **could not be
+//! > re-run** on 2026-08-06: it requires `--features net-fetch` to download the
+//! > ENDF/B-VII.1 tapes and no local cache was present. **No number below has
+//! > been replaced or estimated** — they are the genuine 2026-07-03 measurements
+//! > and are recorded here unmodified. Re-run with
+//! > `cargo run --release -p outram-mc-libs --features net-fetch --example godiva_keff_endf`
+//! > and replace the table before citing any of it as current. The *qualitative*
+//! > ranking of the levers (item 3 dominating by an order of magnitude) is a
+//! > many-thousand-pcm effect and is not plausibly overturned by a re-seeding;
+//! > the marginal items 4 and 5, at ~0.7σ and ~2.0σ, may well move.
+//!
 //! | Run | k_eff | Δk vs benchmark |
 //! |---|---|---|
 //! | LOW (`godiva_keff`) | 1.12852 ± 0.00174 | +12 852 pcm |
@@ -85,8 +101,10 @@
 //! approximations (no fast self-shielding; Weisskopf stand-in for the MF=6 (n,2n)
 //! emission law), so it should not be read as each sub-model being individually
 //! exact. The LOW (embedded) tier carries the same elastic + inelastic levers from
-//! *group* data (no (n,2n) column, no MF=5 χ yet) and lands at 1.01024
-//! (+1 024 pcm); see the `godiva_keff` (LOW) example for that V&V.
+//! *group* data (no (n,2n) column, no MF=5 χ yet) and lands at **1.01042
+//! (+1 042 pcm)** — that LOW-tier value **was** re-run on 2026-08-06 under the
+//! `op-jis` generator, superseding the 1.01024 (+1 024 pcm) recorded here
+//! previously; see the `godiva_keff` (LOW) example for that V&V.
 
 #[cfg(not(feature = "net-fetch"))]
 fn main() {

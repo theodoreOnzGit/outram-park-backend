@@ -60,18 +60,26 @@
 //! and fission is confined to fuel (the moderator tallies no fission). No
 //! benchmark k (D₂O + natural-U + distribcell would be needed — all gaps above).
 //!
-//! **Results (measured 2026-07-17, this harness; deterministic seed, 400
-//! particles, 20 inactive + 40 active).** **k_eff = 0.21486 ± 0.00489** — a small,
+//! **Results (measured 2026-08-06, this harness; deterministic seed, 400
+//! particles, 20 inactive + 40 active).** **k_eff = 0.21503 ± 0.00509** — a small,
 //! strongly leaking (deeply subcritical) bare cluster, as expected for a 2.1 cm
 //! vacuum-bounded tube (the vacuum boundary maximises radial leakage and keeps
 //! thermal histories short, so the test runs in ~0.1 s). All seven fuel pins
-//! accumulate positive flux (total fuel track-length flux = 2.03e4, central pin =
-//! 3.64e3); total fuel ν-fission = 3.52e3 > 0 and the moderator tallies zero
+//! accumulate positive flux (total fuel track-length flux = 1.9906e4, central pin =
+//! 3.2857e3); total fuel ν-fission = 3.4037e3 > 0 and the moderator tallies zero
 //! fission. The measured numbers are printed at run time (`--nocapture`) and
 //! recorded in
 //! `verification_and_validation/openmc_notebook_comparisons/candu.csv`.
 //! Interpretation: the concentric-ring cluster CSG navigates and tallies
 //! correctly; DistribcellFilter (op-6tz.11) and D₂O data remain the open gaps.
+//!
+//! **Supersedes (pre-`op-jis` figures, measured 2026-07-17).** The numbers above
+//! replace values taken with the old `prn` output function (uniforms formed from
+//! the raw top-52 state bits, before bead `op-jis` added OpenMC's PCG-RXS-M-XS
+//! output permutation). The LCG *state* recurrence is unchanged, but every
+//! sampled uniform moved, and with it the eigenvalue and every tally sum.
+//! Superseded: **k_eff = 0.21486 ± 0.00489**, total fuel track-length
+//! flux = 2.03e4, central pin = 3.64e3, total fuel ν-fission = 3.52e3.
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;

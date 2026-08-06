@@ -47,22 +47,23 @@
 //! - `m_0 > 0` and dominant (`|m_n| ≪ m_0` for `n ≥ 1`),
 //! - the higher moments consistent with zero (`|m_n| / m_0` small).
 //!
-//! **Results (measured 2026-07-17, this harness; deterministic seed).** With 500
+//! **Results (measured 2026-08-06, this harness; deterministic seed).** With 500
 //! particles, 20 inactive + 35 active generations the run gives
-//! **k_inf = 1.83164 ± 0.00763** (fast HEU + free-gas-H infinite medium; a high
-//! k_inf is expected, and consistent with `flux_spectrum.rs`'s ~1.828). The axial
-//! (z) Legendre moments (± batch σ, track-length units) are:
+//! **k_inf = 1.82334 ± 0.00769** (fast HEU + free-gas-H infinite medium; a high
+//! k_inf is expected, and consistent with `flux_spectrum.rs`'s 1.82955 ±
+//! 0.01050). The axial (z) Legendre moments (± batch σ, track-length units) are:
 //!
-//! - `m_0 = +3.2133e5 ± 3.17e4`   (P_0 — mean axial flux · interval length)
-//! - `m_1 = +6.97e1  ± 4.95e1`    (P_1 — |m_1|/m_0 = 2.2e-4, statistically zero)
-//! - `m_2 = -2.24e3  ± 1.21e3`    (P_2 — |m_2|/m_0 = 7.0e-3)
-//! - `m_3 = +2.86e1  ± 1.65e1`    (P_3 — |m_3|/m_0 = 8.9e-5, statistically zero)
-//! - `m_4 = -3.30e3  ± 1.14e3`    (P_4 — |m_4|/m_0 = 1.0e-2)
+//! - `m_0 = +2.9958e5 ± 2.52e4`   (P_0 — mean axial flux · interval length)
+//! - `m_1 = +1.4858e2 ± 1.01e2`   (P_1 — |m_1|/m_0 = 4.96e-4, 1.5σ from zero)
+//! - `m_2 = -1.1607e3 ± 6.51e2`   (P_2 — |m_2|/m_0 = 3.87e-3, 1.8σ from zero)
+//! - `m_3 = +6.6722e0 ± 1.79e1`   (P_3 — |m_3|/m_0 = 2.23e-5, 0.4σ from zero)
+//! - `m_4 = -1.9903e3 ± 8.86e2`   (P_4 — |m_4|/m_0 = 6.64e-3, 2.2σ from zero)
 //!
-//! So `m_0` dominates by ~10^2–10^4: the **odd** moments (m_1, m_3) are ~10^-4 of
-//! m_0 — statistically indistinguishable from zero (< 2σ), the expected exact-zero
-//! by up/down symmetry of a flat field. The **even** moments (m_2, m_4) sit at the
-//! ~1% level and ~2–3σ from zero — a small residual axial non-uniformity from the
+//! So `m_0` dominates by ~10^2–10^4: the **odd** moments (m_1, m_3) are ~10^-4–
+//! 10^-5 of m_0 — statistically indistinguishable from zero (< 2σ), the expected
+//! exact-zero by up/down symmetry of a flat field. The **even** moments (m_2, m_4)
+//! sit at the ~0.4–0.7% level and ~2σ from zero — a small residual axial
+//! non-uniformity from the
 //! finite generation count (the source is seeded uniformly in z but the
 //! fission-site distribution equilibrates over only 35 batches); they are still
 //! ≪ m_0, so the flat-flux signature holds. Interpretation: the z-axis Legendre
@@ -71,7 +72,20 @@
 //! Absolute magnitudes are track-length units (volume normalization is op-6tz.22),
 //! so this guards the expansion-filter wiring, not moment accuracy. The measured
 //! moments are also written to
-//! `verification_and_validation/openmc_notebook_comparisons/expansion_filters.csv`.
+//! `verification_and_validation/openmc_notebook_comparisons/expansion_filters.csv`
+//! (the `date` column in that generated CSV is a literal in the test body and
+//! still reads 2026-07-17 — the authoritative date is this block).
+//!
+//! **Supersedes (pre-`op-jis` figures, measured 2026-07-17).** The numbers above
+//! replace values taken with the old `prn` output function (uniforms formed from
+//! the raw top-52 state bits, before bead `op-jis` added OpenMC's PCG-RXS-M-XS
+//! output permutation). The LCG *state* recurrence is unchanged, but every
+//! sampled uniform moved, and with it every scored moment. Superseded:
+//! **k_inf = 1.83164 ± 0.00763**, and moments
+//! `m_0 = +3.2133e5 ± 3.17e4`, `m_1 = +6.97e1 ± 4.95e1` (2.2e-4),
+//! `m_2 = -2.24e3 ± 1.21e3` (7.0e-3), `m_3 = +2.86e1 ± 1.65e1` (8.9e-5),
+//! `m_4 = -3.30e3 ± 1.14e3` (1.0e-2) — with the even moments then quoted at the
+//! ~1% level and ~2–3σ from zero.
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;

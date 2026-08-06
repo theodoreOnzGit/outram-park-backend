@@ -48,18 +48,29 @@
 //! - The batch-to-batch relative standard deviation of the total flux is small
 //!   (a converged tally).
 //!
-//! **Results (measured 2026-07-17, this harness; deterministic seed).** With 400
+//! **Results (measured 2026-08-06, this harness; deterministic seed).** With 400
 //! particles, 15 inactive + 30 active generations the run gives
-//! **k_inf = 1.82844 ± 0.00917** (fast HEU + free-gas-H infinite medium, so a
-//! high k_inf is expected), a **fast (E > 0.1 MeV) fraction = 0.674** and a
-//! **below-0.1-MeV (slowing-down + thermal) fraction = 0.326**, total track-length
-//! flux = 6.794e3 (arbitrary track-length units; volume normalization is op-6tz.22),
-//! all 50 bins finite/non-negative, and the peak energy bin (bin 45, 1.87–3.00 MeV,
-//! the fission-source region) resolved to a **batch relative std-dev of 0.027** — a
+//! **k_inf = 1.82955 ± 0.01050** (fast HEU + free-gas-H infinite medium, so a
+//! high k_inf is expected), a **fast (E > 0.1 MeV) fraction = 0.673** and a
+//! **below-0.1-MeV (slowing-down + thermal) fraction = 0.327**, total track-length
+//! flux = 6.7141e3 (arbitrary track-length units; volume normalization is op-6tz.22),
+//! all 50 bins finite/non-negative, and the peak energy bin (bin 45,
+//! 1.866–2.999 MeV, the fission-source region) resolved to a **batch relative
+//! std-dev of 0.023** — a
 //! physically sane fast-peaked, hydrogen-moderated slowing-down spectrum. The split
 //! is printed at run time and asserted against broad physical bands below (not a
 //! benchmark gate — it guards the track-length energy-binned tally wiring, not
 //! spectral accuracy).
+//!
+//! **Supersedes (pre-`op-jis` figures, measured 2026-07-17).** The numbers above
+//! replace values taken with the old `prn` output function (uniforms formed from
+//! the raw top-52 state bits, before bead `op-jis` added OpenMC's PCG-RXS-M-XS
+//! output permutation). The LCG *state* recurrence is unchanged, but every
+//! sampled uniform moved, and with it every sampled statistic. Superseded:
+//! **k_inf = 1.82844 ± 0.00917**, fast fraction **0.674**, below-0.1-MeV fraction
+//! **0.326**, total track-length flux **6.794e3**, peak-bin (bin 45) batch
+//! relative std-dev **0.027**. The peak bin index (45) and its energy range are
+//! properties of the fixed 50-bin log grid, not of the RNG, and did not move.
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
