@@ -54,6 +54,13 @@ impl Default for ReactorTab {
     }
 }
 
+/// Height of a vessel card as a multiple of its width.
+///
+/// Chosen so the tallest artwork in the gallery — the FHR vessel, at roughly
+/// 1 : 4.7 — still reads at a usable size once it letterboxes to its own
+/// proportions, without the squat architectures floating in empty space.
+const VESSEL_CARD_ASPECT: f32 = 2.1;
+
 fn degc(value: f64) -> ThermodynamicTemperature {
     ThermodynamicTemperature::new::<degree_celsius>(value)
 }
@@ -122,7 +129,11 @@ pub fn draw(ui: &mut egui::Ui, state: &ReactorTab) {
         .auto_shrink([false, false])
         .show(ui, |ui| {
             let card_w = state.cell_width;
-            let vessel_h = card_w * 1.15;
+            // Reactor vessels are tall, and the FHR artwork especially so
+            // (roughly 1 : 4.7). A near-square card left it a thin sliver once
+            // it started letterboxing to its native proportions, so the card
+            // is deliberately tall.
+            let vessel_h = card_w * VESSEL_CARD_ASPECT;
             let caption_h = 58.0;
             let gap = 14.0;
 

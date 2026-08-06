@@ -27,6 +27,44 @@ use uom::si::{f64::*, thermodynamic_temperature::degree_celsius};
 
 use crate::color_maps::hot_to_cold_colour_mark_1;
 
+/// Width-to-height ratio the artwork was authored against.
+///
+/// The drawing was laid out by hand at 225 x 1050 points in `fhr_sim_v2`, and
+/// every internal coordinate is a fraction of the box it is given. Fractions
+/// scale, but they do not preserve *proportion*: hand the widget a square box
+/// and the vessel stretches, because the horizontal features expand while the
+/// vertical ones do not shrink to match.
+///
+/// [`fit_native_aspect`] resolves that by fitting this ratio inside whatever
+/// box the caller allocated, so the artwork stays correctly proportioned at
+/// any size.
+pub const NATIVE_ASPECT_RATIO: f32 = 225.0 / 1050.0;
+
+/// The largest sub-rectangle of `available` carrying
+/// [`NATIVE_ASPECT_RATIO`], centred within it.
+///
+/// This is a letterbox: the vessel keeps its proportions and the leftover space
+/// is simply not drawn into, rather than the artwork being stretched to fill.
+///
+/// A caller that already sizes to the native ratio — as `fhr_sim_v2` does, with
+/// its hardcoded 225 x 1050 box — gets the identical rectangle back, so this is
+/// invisible there and only takes effect for callers using a different shape.
+pub fn fit_native_aspect(available: egui::Rect) -> egui::Rect {
+    let (w, h) = (available.width(), available.height());
+    if w <= 0.0 || h <= 0.0 {
+        return available;
+    }
+
+    // Height-limited if the box is wider than native, width-limited otherwise.
+    let (fitted_w, fitted_h) = if w / h > NATIVE_ASPECT_RATIO {
+        (h * NATIVE_ASPECT_RATIO, h)
+    } else {
+        (w, w / NATIVE_ASPECT_RATIO)
+    };
+
+    egui::Rect::from_center_size(available.center(), Vec2::new(fitted_w, fitted_h))
+}
+
 /// Visual representation of a pebble-bed FHR reactor vessel.
 ///
 /// Holds one temperature per drawn region plus the two control-rod insertion
@@ -179,7 +217,11 @@ impl Widget for FhrReactorVesselVisual {
             self.right_control_rod_insertion_frac = 0.0;
         };
 
-        let rect = response.rect;
+        // Fit the artwork to its native proportions inside whatever box the
+        // caller allocated. Every coordinate below is derived from `rect`, so
+        // doing this once here makes the whole drawing scale correctly at any
+        // size — see `fit_native_aspect`.
+        let rect = fit_native_aspect(response.rect);
         let c = rect.center();
 
         let rect_x = rect.width();
@@ -977,5 +1019,77 @@ mod tests {
 
         assert_eq!(vessel.left_control_rod_insertion_frac, 0.25);
         assert_eq!(vessel.right_control_rod_insertion_frac, 0.75);
+    }
+}
+
+#[cfg(test)]
+mod aspect_tests {
+    use super::*;
+    use egui::{Pos2, Rect};
+
+    fn ratio(r: Rect) -> f32 {
+        r.width() / r.height()
+    }
+
+    /// The artwork must keep its proportions in ANY box, which is what makes
+    /// it reusable outside the simulator it was drawn for.
+    ///
+    /// **Methodology.** Fit the native ratio into boxes that are square, far
+    /// too wide, and far too tall, and require each result to carry
+    /// [`NATIVE_ASPECT_RATIO`] to within 1e-4, to fit inside its box, and to
+    /// stay centred on it.
+    ///
+    /// **Results (2026-08-06):** all three fitted rects carry the native
+    /// ratio, none exceeds its box, and all remain centred. Interpretation:
+    /// the vessel letterboxes rather than stretching, so the gallery's nearly
+    /// square cards no longer distort it.
+    #[test]
+    fn fit_preserves_the_native_ratio_in_any_box() {
+        let boxes = [
+            Rect::from_min_size(Pos2::ZERO, Vec2::new(300.0, 300.0)), // square
+            Rect::from_min_size(Pos2::ZERO, Vec2::new(900.0, 200.0)), // too wide
+            Rect::from_min_size(Pos2::ZERO, Vec2::new(100.0, 900.0)), // too tall
+        ];
+
+        for b in boxes {
+            let fitted = fit_native_aspect(b);
+            assert!(
+                (ratio(fitted) - NATIVE_ASPECT_RATIO).abs() < 1e-4,
+                "box {b:?} produced ratio {}, expected {NATIVE_ASPECT_RATIO}",
+                ratio(fitted)
+            );
+            assert!(
+                fitted.width() <= b.width() + 1e-3 && fitted.height() <= b.height() + 1e-3,
+                "fitted {fitted:?} does not fit inside {b:?}"
+            );
+            assert!(
+                (fitted.center() - b.center()).length() < 1e-3,
+                "fitted rect is not centred on its box"
+            );
+        }
+    }
+
+    /// A caller already sizing to the native ratio must get its box back
+    /// unchanged — `fhr_sim_v2` hardcodes 225 x 1050, and this change must not
+    /// alter how the simulator looks.
+    #[test]
+    fn a_natively_proportioned_box_is_returned_unchanged() {
+        let native = Rect::from_min_size(Pos2::new(10.0, 20.0), Vec2::new(225.0, 1050.0));
+        let fitted = fit_native_aspect(native);
+
+        assert!((fitted.width() - native.width()).abs() < 1e-3);
+        assert!((fitted.height() - native.height()).abs() < 1e-3);
+        assert!((fitted.center() - native.center()).length() < 1e-3);
+    }
+
+    /// A degenerate box must not produce NaN geometry — a zero-height
+    /// allocation happens transiently during egui layout.
+    #[test]
+    fn degenerate_boxes_are_returned_as_is() {
+        let zero = Rect::from_min_size(Pos2::ZERO, Vec2::new(0.0, 0.0));
+        assert_eq!(fit_native_aspect(zero), zero);
+
+        let flat = Rect::from_min_size(Pos2::ZERO, Vec2::new(200.0, 0.0));
+        assert_eq!(fit_native_aspect(flat), flat);
     }
 }
