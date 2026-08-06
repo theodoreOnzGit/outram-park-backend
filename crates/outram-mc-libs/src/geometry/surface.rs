@@ -821,16 +821,24 @@ fn torus_gradient(r1: f64, r2: f64, ax: f64, a: f64, b: f64, c: f64) -> (f64, f6
 /// cleared surface equation. `f = 0` multiplied through by `b²` and rearranged
 /// isolates the square root:
 ///
-///     ρ²(t) + a² − b² + (b²/c²)·ax²(t)  =  2a·R⊥(t)          (call the LHS G(t))
+/// ```text
+/// ρ²(t) + a² − b² + (b²/c²)·ax²(t)  =  2a·R⊥(t)          (call the LHS G(t))
+/// ```
 ///
 /// where `ρ²(t) = r1² + r2²` is quadratic in `t`. Squaring to remove `R⊥`
 /// (`R⊥² = ρ²`) gives the quartic
 ///
-///     F(t) = G(t)² − 4a²·ρ²(t) = 0.
+/// ```text
+/// F(t) = G(t)² − 4a²·ρ²(t) = 0.
+/// ```
 ///
 /// With `ρ²(t) = α t² + 2β t + γ`, `ax²(t) = ax_α t² + 2 ax_β t + ax_γ`,
 /// `k = b²/c²`, and `G(t) = Ga t² + 2Gb t + Gc` where
-///     Ga = α + k·ax_α,  Gb = β + k·ax_β,  Gc = γ + a² − b² + k·ax_γ,
+///
+/// ```text
+/// Ga = α + k·ax_α,  Gb = β + k·ax_β,  Gc = γ + a² − b² + k·ax_γ,
+/// ```
+///
 /// expanding `G² − 4a²ρ²` yields the coefficients below.
 ///
 /// **Spurious roots.** Squaring also admits the branch `G(t) = −2a·R⊥(t) ≤ 0`,
