@@ -229,11 +229,20 @@ use crate::{RafflesError, Result};
 // Stream derivation
 // ---------------------------------------------------------------------------
 
-/// `2^52`, the number of distinct values `prn` can return.
+/// `2^52`, the scale used to turn a uniform back into an integer.
 ///
-/// `outram_mc_libs::rng::lcg::prn` forms its uniform from the top 52 bits of
-/// the LCG state, so multiplying its output by this constant recovers that
-/// 52-bit integer exactly, with no rounding.
+/// **The exact-round-trip claim this constant used to carry is no longer
+/// true, and the correction matters.** `outram_mc_libs::rng::lcg::prn` used to
+/// form its uniform from the raw top 52 bits of the LCG state, so multiplying
+/// by `2^52` recovered that integer exactly. It now applies OpenMC's
+/// PCG-RXS-M-XS output permutation and scales a full 64-bit word by `2^-64`
+/// (see `op-jis`), so the product is **not** generally an integer: measured
+/// 333,386 exact of 1,000,000 draws, against 1,000,000 of 1,000,000 before.
+///
+/// [`below`] remains correct and unbiased regardless — the product still spans
+/// `[0, 2^52)` uniformly, which is all the modulo needs. But do not rely on
+/// exactness here, and note that the old `bound * 2^-52` bias derivation was
+/// written for the previous generator.
 const PRN_RESOLUTION: f64 = 4_503_599_627_370_496.0;
 
 /// Derives the starting seed of an independent generator stream from a master

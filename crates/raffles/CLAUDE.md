@@ -306,15 +306,24 @@ port agent's call. Seeding stays **explicit** — every `generate` takes a
 `master_seed`, and independent dimensions/replicates get non-overlapping
 streams via `future_seed` jump-ahead. See `src/samplers.rs`.
 
-**Known upstream discrepancy, do not use:**
-`outram_mc_libs::rng::lcg::init_seed` computes
-`future_seed(id + offset, future_seed(DEFAULT_STRIDE, master))`, so consecutive
-`id`s land one LCG *step* apart. OpenMC's own `init_seed`
-(`src/random_lcg.cpp:60`) is `future_seed(id * prn_stride, master_seed +
-offset)` — one *stride* apart. Using the workspace helper for per-stream
-derivation would produce near-perfectly correlated streams. `src/samplers.rs`
-calls `future_seed` directly with OpenMC's semantics instead. The fix belongs
-in `outram-mc-libs`, not here.
+**Resolved upstream defect — the warning that used to sit here is obsolete.**
+`outram_mc_libs::rng::lcg::init_seed` was wrong: it added where OpenMC
+multiplies, so consecutive `id`s landed one LCG *step* apart instead of one
+*stride*, making per-stream derivation produce near-perfectly correlated
+streams. **Fixed in `op-rbo`** — it now matches
+`openmc/src/random_lcg.cpp:60`, and is safe to use.
+
+`src/samplers.rs` still calls `future_seed` directly with explicit stride
+arithmetic. That is now a *preference*, not a workaround: it makes the stride
+widening visible at the call site when a design needs more draws than
+`DEFAULT_STRIDE`. Either route is correct today.
+
+**Note the generator's output changed** (`op-jis`): `prn` now applies OpenMC's
+PCG-RXS-M-XS output permutation instead of returning raw state bits, which fixed
+a measured lattice defect — successive pairs previously occupied 1 of 1024 bins
+along the dual-lattice normal. RAFFLES' statistical gates still pass, but any
+*recorded* number in `src/samplers.rs` doc comments that was measured before
+that change is stale and needs re-measuring before it is cited
 
 Proxy check, all targets:
 
