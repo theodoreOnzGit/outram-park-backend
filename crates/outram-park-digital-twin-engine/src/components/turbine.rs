@@ -47,8 +47,8 @@
 //! rotation angle derives from a physics model instead of being set by the
 //! caller.
 
-use crate::color_maps::{hot_to_cold_colour_mark_1, steam_quality_colour_mark_1};
-use crate::components::hotness_from_temperature;
+use crate::color_maps::steam_quality_colour_mark_1;
+use crate::components::temperature_colour;
 use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
 use std::f64::consts::PI;
 use tampines::components::Turbine;
@@ -448,11 +448,7 @@ impl Widget for TurbineVisual {
         let hub_radius = tip_radius * HUB_RADIUS_FRACTION;
 
         let casing_colour = match self.casing_temperature() {
-            Some(t) => hot_to_cold_colour_mark_1(hotness_from_temperature(
-                t,
-                self.min_temp,
-                self.max_temp,
-            )),
+            Some(t) => temperature_colour(t, self.min_temp, self.max_temp),
             None => Color32::GRAY,
         };
         let stator_stroke = Stroke::new(pitch * STATOR_WIDTH_FRACTION, casing_colour);

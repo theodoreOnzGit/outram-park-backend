@@ -30,8 +30,7 @@
 //! interface, not a fabricated one.
 
 use crate::animation::TracerTrain;
-use crate::color_maps::hot_to_cold_colour_mark_1;
-use crate::components::hotness_from_temperature;
+use crate::components::temperature_colour;
 use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
 use tampines::components::{Pipe, PipeBackend};
 use uom::si::area::square_meter;
@@ -168,8 +167,11 @@ pub struct PipeVisual {
     pub screen_position: Pos2,
     /// On-screen direction and length, from `screen_position` to the outlet.
     pub screen_vector: Vec2,
-    /// Temperature mapped to [`crate::color_maps::hot_to_cold_colour_mark_1`]'s
-    /// `hotness = 0.0` (coldest displayable colour).
+    /// Temperature drawn in the coldest displayable colour (blue).
+    ///
+    /// The map is diverging, so the MIDPOINT of `[min_temp, max_temp]` is the
+    /// neutral white point -- set the range symmetrically about a meaningful
+    /// reference, not just to the extremes observed.
     pub min_temp: ThermodynamicTemperature,
     /// Temperature mapped to `hotness = 1.0` (hottest displayable colour).
     pub max_temp: ThermodynamicTemperature,
@@ -440,7 +442,7 @@ impl Widget for PipeVisual {
     /// according to [`PipeVisual::phase_shade`] so a gas-filled pipe reads
     /// paler than a liquid one at the same temperature.
     ///
-    /// Cell colours come from [`hot_to_cold_colour_mark_1`] over the
+    /// Cell colours come from [`crate::components::temperature_colour`] over the
     /// `[min_temp, max_temp]` range. If the backend reports no cells the run
     /// is drawn in a neutral grey rather than a made-up temperature colour,
     /// so an unpopulated pipe is visibly distinct from a cold one.
@@ -509,8 +511,7 @@ impl Widget for PipeVisual {
             let f1 = (i + 1) as f32 / n as f32;
             let p0 = start + direction * (length_pts * f0);
             let p1 = start + direction * (length_pts * f1);
-            let hotness = hotness_from_temperature(*t, self.min_temp, self.max_temp);
-            let fill = shade.apply(hot_to_cold_colour_mark_1(hotness));
+            let fill = shade.apply(temperature_colour(*t, self.min_temp, self.max_temp));
             painter.add(egui::Shape::convex_polygon(
                 quad(p0, p1),
                 fill,
@@ -599,6 +600,7 @@ impl Widget for PipeVisual {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::components::hotness_from_temperature;
     use uom::si::mass_rate::kilogram_per_second;
     use uom::si::time::second;
 
@@ -786,7 +788,7 @@ mod tests {
     /// temperature, and must never darken it.
     #[test]
     fn gas_is_lighter_than_liquid() {
-        let base = hot_to_cold_colour_mark_1(0.5);
+        let base = crate::color_maps::crameri::vik(0.5);
         let liquid = PipePhaseShade::Liquid.apply(base);
         let gas = PipePhaseShade::Gas.apply(base);
         let two_phase = PipePhaseShade::TwoPhase.apply(base);

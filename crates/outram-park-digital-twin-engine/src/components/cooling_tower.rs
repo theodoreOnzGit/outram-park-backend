@@ -5,8 +5,7 @@
 //! inlet's dry-bulb temperature -- a real, already-computed field on
 //! [`tampines::humid_air::HumidAirState`], not a placeholder.
 
-use crate::color_maps::hot_to_cold_colour_mark_1;
-use crate::components::hotness_from_temperature;
+use crate::components::temperature_colour;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use tampines::components::CoolingTower;
 use uom::si::f64::ThermodynamicTemperature;
@@ -45,12 +44,12 @@ impl Widget for CoolingTowerVisual {
     fn ui(self, ui: &mut Ui) -> Response {
         let rect = Rect::from_center_size(self.screen_position, self.screen_vector);
         let response = ui.allocate_rect(rect, Sense::hover());
-        let hotness = hotness_from_temperature(
+        let colour = temperature_colour(
             self.physics.air_inlet.t_dry_bulb,
             self.min_temp,
             self.max_temp,
         );
-        ui.painter().rect_filled(rect, 2.0, hot_to_cold_colour_mark_1(hotness));
+        ui.painter().rect_filled(rect, 2.0, colour);
         response
     }
 }
