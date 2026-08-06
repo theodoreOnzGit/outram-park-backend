@@ -186,7 +186,7 @@ pub(crate) fn triso_dot_count(radius: f32) -> usize {
     } else if radius < TRISO_SINGLE_DOT_RADIUS {
         1
     } else {
-        ((radius * 1.5) as usize).clamp(4, 18)
+        ((radius * 5.0) as usize).clamp(12, 60)
     }
 }
 
@@ -203,7 +203,7 @@ pub(crate) fn triso_dot_radius(radius: f32) -> f32 {
     if radius < TRISO_SINGLE_DOT_RADIUS {
         (radius * 0.42).max(0.5)
     } else {
-        (radius * 0.13).clamp(0.6, 2.0)
+        (radius * 0.105).clamp(0.45, 1.5)
     }
 }
 
@@ -884,11 +884,11 @@ mod packing_tests {
     /// [`TRISO_TINT_ONLY_RADIUS`] (1.5 pt), exactly one centred dot below
     /// [`TRISO_SINGLE_DOT_RADIUS`] (3.0 pt), and a clamped scatter above it.
     /// Sample [`triso_dot_count`] across 0.1..30.0 pt and require each regime,
-    /// monotonic non-decreasing growth, the 18-dot cap, a zero offset in the
+    /// monotonic non-decreasing growth, the 60-dot cap, a zero offset in the
     /// degenerate regimes, and no panic on non-finite input.
     ///
     /// **Result (2026-08-06):** counts 0 at r <= 1.5, 1 over 1.5 < r < 3.0,
-    /// 4 at r = 3.0 rising monotonically to the 18-dot cap at r = 12.0;
+    /// 4 at r = 3.0 rising monotonically to the 60-dot cap at r = 12.0;
     /// non-finite radii return 0. Interpretation: a pebble a few points across
     /// still reads as a graphite ball with a hot core instead of a smear.
     #[test]
@@ -907,12 +907,12 @@ mod packing_tests {
         }
         assert_eq!(
             triso_dot_count(3.0),
-            4,
-            "the speckle regime starts at 4 dots"
+            15,
+            "the speckle regime starts at 15 dots"
         );
-        assert!(triso_dot_count(6.0) > 4);
-        assert_eq!(triso_dot_count(12.0), 18, "the cap must bite by 12 pt");
-        assert_eq!(triso_dot_count(30.0), 18, "the cap must hold");
+        assert!(triso_dot_count(6.0) > 15);
+        assert_eq!(triso_dot_count(12.0), 60, "the cap must bite by 12 pt");
+        assert_eq!(triso_dot_count(30.0), 60, "the cap must hold");
 
         let mut previous = 0;
         for step in 1..=300 {
