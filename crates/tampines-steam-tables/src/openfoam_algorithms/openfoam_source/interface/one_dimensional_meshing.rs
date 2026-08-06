@@ -35,12 +35,18 @@ use uom::si::length::meter;
 /// Returns `Err` if `number_of_cells < 1`.
 ///
 /// ## Example
-/// ```rust
+///
+/// `openfoam_algorithms::openfoam_source` is `pub(crate)`, so this example is
+/// written against the crate-internal path and cannot be compiled as a doctest
+/// (rustdoc builds doctests as an external crate, which cannot see
+/// `pub(crate)` items).  It is exercised for real by the unit test
+/// `tests::ten_cell_mesh_topology` at the bottom of this file.
+///
+/// ```ignore
 /// use uom::si::f64::*;
 /// use uom::si::length::meter;
 /// use uom::si::area::square_meter;
-/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::*;
-/// use interface::one_dimensional_meshing::create_one_d_mesh;
+/// use crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh;
 ///
 /// let mesh = create_one_d_mesh(
 ///     Length::new::<meter>(1.0),

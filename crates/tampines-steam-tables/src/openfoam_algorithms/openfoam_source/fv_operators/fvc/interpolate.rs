@@ -49,9 +49,15 @@ fn linear_weight(mesh: &FvMesh, f: usize) -> f64 {
 /// Boundary faces: evaluated from the patch BC (zero-gradient → cell value,
 /// fixed-value → the fixed value, etc.).
 ///
-/// ```rust
-/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::*;
-/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::fv_operators::fvc;
+/// `openfoam_algorithms::openfoam_source` is `pub(crate)`, so this example is
+/// written against the crate-internal path and cannot be compiled as a doctest
+/// (rustdoc builds doctests as an external crate, which cannot see
+/// `pub(crate)` items).  It is exercised for real by the unit test
+/// `tests::uniform_field_interpolates_exactly` at the bottom of this file.
+///
+/// ```ignore
+/// use crate::openfoam_algorithms::openfoam_source::*;
+/// use crate::openfoam_algorithms::openfoam_source::fv_operators::fvc;
 /// use std::sync::Arc;
 ///
 /// let mesh = Arc::new(

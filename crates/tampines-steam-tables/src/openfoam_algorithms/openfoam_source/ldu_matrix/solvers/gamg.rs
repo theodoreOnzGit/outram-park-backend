@@ -190,8 +190,14 @@ impl GamgCycle {
 ///
 /// # Example
 ///
-/// ```
-/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::*;
+/// `openfoam_algorithms::openfoam_source` is `pub(crate)`, so this example is
+/// written against the crate-internal path and cannot be compiled as a doctest
+/// (rustdoc builds doctests as an external crate, which cannot see
+/// `pub(crate)` items).  It is exercised for real by the unit test
+/// `tests::gamg_solves_1d_poisson` at the bottom of this file.
+///
+/// ```ignore
+/// use crate::openfoam_algorithms::openfoam_source::*;
 ///
 /// // 1-D Poisson −∇²φ = 1 on [0,1], φ(0)=φ(1)=0, 63 interior points.
 /// let n = 63;
