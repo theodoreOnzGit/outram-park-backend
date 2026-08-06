@@ -46,6 +46,16 @@ pub enum OPCPFluidArrayError {
         /// Length the argument actually had.
         got: usize,
     },
+    /// The caller supplied a timestep that is not a usable positive duration.
+    ///
+    /// Reported rather than clamped or silently substituted: a zero or
+    /// negative timestep means the caller's clock is wrong, and advancing by
+    /// some other value would produce a plausible-looking result for a
+    /// simulation that never ran the requested step.
+    InvalidTimestep {
+        /// The offending timestep, in seconds.
+        seconds: f64,
+    },
 }
 
 impl std::fmt::Display for OPCPFluidArrayError {
@@ -54,6 +64,10 @@ impl std::fmt::Display for OPCPFluidArrayError {
             Self::LengthMismatch { array, expected, got } => write!(
                 f,
                 "{array} has length {got}, expected {expected} (mesh.n_cells)"
+            ),
+            Self::InvalidTimestep { seconds } => write!(
+                f,
+                "timestep must be a positive, finite duration; got {seconds} s"
             ),
         }
     }

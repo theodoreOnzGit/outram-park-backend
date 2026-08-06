@@ -240,7 +240,15 @@ impl VirtualLattice {
             }
         }
 
-        (Self { lower_left, pitch, shape, buckets }, report)
+        (
+            Self {
+                lower_left,
+                pitch,
+                shape,
+                buckets,
+            },
+            report,
+        )
     }
 
     /// Flat index of voxel `(i, j, k)`, x-fastest. Matches upstream's

@@ -1058,6 +1058,50 @@ impl TampinesSteamArray {
     /// arithmetic and linear solves rebuild fields with zero-gradient boundaries,
     /// so the prescribed inlet-velocity / outlet-pressure BC types must be
     /// re-stamped — see [`correct_bcs`] / [`correct_bcs_vec`]).
+
+    /// Advance the solution by one timestep of length `timestep`.
+    ///
+    /// This is the interface to prefer, and it matches TUAS's
+    /// `FluidArray::advance_timestep`: the caller owns the clock and states
+    /// the step each time, so a driver stepping several different components
+    /// keeps them on one timeline.
+    ///
+    /// Contrast [`Self::step`], which advances by whatever `delta_t` the array
+    /// was built with. That is fine for a fixed-step study, but if the caller's
+    /// clock ever differs the two silently diverge — the array advances by its
+    /// own stored value while the caller believes it advanced by theirs.
+    ///
+    /// Sets [`Self::delta_t`] to `timestep` before solving, so the stored value
+    /// always reflects the step actually taken.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TampinesSteamArrayError::InvalidTimestep`] if `timestep` is not
+    /// positive and finite. It is not clamped or substituted: a bad timestep
+    /// means the caller's clock is wrong, and quietly advancing by something
+    /// else yields a plausible-looking result for a step that never ran.
+    ///
+    /// # Stability
+    ///
+    /// Choosing a stable step is the caller's responsibility. This is an
+    /// explicit-in-time PIMPLE solve, so too large a step relative to the cell
+    /// size and flow speed will diverge; nothing here checks a CFL condition.
+    pub fn advance_timestep(&mut self, timestep: Time) -> Result<(), TampinesSteamArrayError> {
+        let seconds = timestep.get::<second>();
+        if !seconds.is_finite() || seconds <= 0.0 {
+            return Err(TampinesSteamArrayError::InvalidTimestep { seconds });
+        }
+        self.delta_t = timestep;
+        self.step();
+        Ok(())
+    }
+
+    /// Advance the solution by the array's stored [`Self::delta_t`].
+    ///
+    /// Prefer [`Self::advance_timestep`] unless the step is genuinely
+    /// fixed for the life of the array: this form cannot tell the caller
+    /// what step it took, so a driver with its own clock can drift from it
+    /// without either side noticing.
     pub fn step(&mut self) {
         let mesh = self.mesh.clone();
         let n = mesh.n_cells;

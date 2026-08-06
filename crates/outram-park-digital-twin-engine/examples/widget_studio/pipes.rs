@@ -21,8 +21,7 @@
 //! data policy.
 
 use egui::{Pos2, RichText, Vec2};
-use outram_park_digital_twin_engine::animation::{residence_time_from_velocity, TracerPulse};
-use outram_park_digital_twin_engine::components::PipeVisual;
+use outram_park_digital_twin_engine::components::PipeComponent;
 use tampines::components::{Pipe, PipeBackend};
 use tampines::compressible::{CompressibleFluidArray, CoolPropFluid};
 use tampines::single_phase::LiquidMaterial;
@@ -32,11 +31,9 @@ use tuas_boussinesq_solver::boussinesq_thermophysical_properties::SolidMaterial;
 use uom::si::angle::degree;
 use uom::si::area::square_meter;
 use uom::si::f64::{
-    Angle, Area, HeatTransfer, Length, MassRate, Pressure, Ratio, ThermodynamicTemperature, Time,
-    Velocity,
+    Angle, Area, HeatTransfer, Length, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity,
 };
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
-use uom::si::mass_rate::kilogram_per_second;
 use uom::si::velocity::meter_per_second;
 use uom::si::length::{meter, millimeter};
 use uom::si::pressure::atmosphere;
@@ -68,25 +65,15 @@ const WALL_ALARM_K: f64 = 850.0;
 
 /// One row of the tab: a pipe plus the label explaining what it is.
 pub struct PipeRow {
-    /// The physics-backed pipe.
-    pub pipe: Pipe,
+    /// The persistent pipe: physics array, tracer and display settings.
+    ///
+    /// Lives across frames. The egui widget it mints each repaint does not —
+    /// see `components::PipeComponent` for why the split exists.
+    pub component: PipeComponent,
     /// Short name for the row.
     pub name: &'static str,
     /// What this backend models, and what it can and cannot represent.
     pub detail: &'static str,
-    /// Temperature mapped to the coldest displayable colour.
-    pub min_temp: ThermodynamicTemperature,
-    /// Temperature mapped to the hottest displayable colour.
-    pub max_temp: ThermodynamicTemperature,
-    /// The single tracer mark for this run.
-    ///
-    /// **Application-owned and advanced once per frame**, then copied into the
-    /// widget at build time — widgets are rebuilt every repaint, so a train
-    /// owned by the widget would reset its phase to zero each frame and never
-    /// appear to move. See `crate::animation`.
-    pub tracer: TracerPulse,
-    /// Bulk flow velocity, the studio's control over this run.
-    pub velocity_m_s: f64,
 }
 
 /// Build the three demonstration pipes, top to bottom.
@@ -150,47 +137,59 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
         salt_length,
         salt_bore,
         SolidMaterial::SteelSS304L,
-        SolidMaterial::Fiberglass,
+        // PyrogelHPS, NOT Fiberglass. FLiBe here sits at 900 K = 626.85 degC,
+        // and TUAS's fibreglass correlations stop at 326.85 degC — it warned on
+        // every step once the arrays started advancing. Pyrogel HPS is rated to
+        // 650 degC, which is also what a molten-salt line would actually be
+        // lagged with. Caught only because the pipes now step; a static array
+        // never asked its insulation for a property.
+        SolidMaterial::PyrogelHPS,
         LiquidMaterial::FLiBe,
         HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0),
         CELLS as usize - 2,
         roughness,
     );
     rows.push(PipeRow {
-        pipe: Pipe::new(
-            PipeBackend::InsulatedPipe(salt),
-            salt_bore,
-            salt_length,
-            roughness,
-            incline,
-        ),
-        tracer: TracerPulse::new(Time::new::<second>(TRACER_INTERVAL_S)),
-        velocity_m_s: 1.2,
+        component: PipeComponent::new(
+            Pipe::new(
+                PipeBackend::InsulatedPipe(salt),
+                salt_bore,
+                salt_length,
+                roughness,
+                incline,
+            ),
+            ThermodynamicTemperature::new::<kelvin>(800.0),
+            ThermodynamicTemperature::new::<kelvin>(1000.0),
+            Velocity::new::<meter_per_second>(1.2),
+            Time::new::<second>(TRACER_INTERVAL_S),
+        )
+        .with_wall_alarm(ThermodynamicTemperature::new::<kelvin>(WALL_ALARM_K)),
         name: "Molten salt (FLiBe) — TUAS",
         detail: "PipeBackend::InsulatedPipe · TUAS pre-built: fluid array + metal shell + \
                  insulation, thermally coupled. The only row reporting a WALL temperature.",
-        min_temp: ThermodynamicTemperature::new::<kelvin>(800.0),
-        max_temp: ThermodynamicTemperature::new::<kelvin>(1000.0),
     });
 
     // ── Steam / water: two-phase HEM, IAPWS-IF97 ──────────────────────────
     match TampinesSteamArray::new(steam_length, steam_area, CELLS, dt) {
         Ok(steam) => rows.push(PipeRow {
-            pipe: Pipe::new(
+        component: PipeComponent::new(
+            Pipe::new(
                 PipeBackend::SteamHem(steam),
                 steam_bore,
                 steam_length,
                 roughness,
                 incline,
             ),
-            tracer: TracerPulse::new(Time::new::<second>(TRACER_INTERVAL_S)),
-            velocity_m_s: 6.0,
+            ThermodynamicTemperature::new::<kelvin>(300.0),
+            ThermodynamicTemperature::new::<kelvin>(600.0),
+            Velocity::new::<meter_per_second>(6.0),
+            Time::new::<second>(TRACER_INTERVAL_S),
+        )
+        .with_wall_alarm(ThermodynamicTemperature::new::<kelvin>(WALL_ALARM_K)),
             name: "Steam / water — TAMPINES HEM",
             detail: "PipeBackend::SteamHem · homogeneous-equilibrium two-phase, \
                      IAPWS-IF97. The only row carrying phase information, and the \
                      baseline drift-flux and two-fluid are measured against.",
-            min_temp: ThermodynamicTemperature::new::<kelvin>(300.0),
-            max_temp: ThermodynamicTemperature::new::<kelvin>(600.0),
         }),
         Err(e) => errors.push(format!("steam/water (TampinesSteamArray): {e:?}")),
     }
@@ -198,21 +197,24 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     // ── Helium: single-phase compressible, CoolProp EOS ───────────────────
     match CompressibleFluidArray::new(CoolPropFluid::Helium, helium_length, helium_area, CELLS, dt) {
         Ok(helium) => rows.push(PipeRow {
-            pipe: Pipe::new(
+        component: PipeComponent::new(
+            Pipe::new(
                 PipeBackend::Compressible(helium),
                 helium_bore,
                 helium_length,
                 roughness,
                 incline,
             ),
-            tracer: TracerPulse::new(Time::new::<second>(TRACER_INTERVAL_S)),
-            velocity_m_s: 20.0,
+            ThermodynamicTemperature::new::<kelvin>(300.0),
+            ThermodynamicTemperature::new::<kelvin>(1200.0),
+            Velocity::new::<meter_per_second>(20.0),
+            Time::new::<second>(TRACER_INTERVAL_S),
+        )
+        .with_wall_alarm(ThermodynamicTemperature::new::<kelvin>(WALL_ALARM_K)),
             name: "Helium gas — OPCP (CoolProp)",
             detail: "PipeBackend::Compressible · single-phase compressible, \
                      Helmholtz EOS. Gas-cooled reactor working fluid — drawn in \
                      LIGHTER shades because the backend carries a gas.",
-            min_temp: ThermodynamicTemperature::new::<kelvin>(300.0),
-            max_temp: ThermodynamicTemperature::new::<kelvin>(1200.0),
         }),
         Err(e) => errors.push(format!("helium (OPCPFluidArray): {e:?}")),
     }
@@ -233,26 +235,23 @@ impl PipeRow {
 
 /// Residence time of a row at its current velocity, `tau = L/u`.
 pub fn residence_time(row: &PipeRow) -> Time {
-    residence_time_from_velocity(
-        row.pipe.length,
-        Velocity::new::<meter_per_second>(row.velocity_m_s),
-    )
+    row.component.residence_time()
 }
 
-/// Advance every row's tracer train by one frame.
+/// Advance every row's PHYSICS and tracer by one frame.
 ///
-/// Each mark crosses the whole run in exactly one residence time, and the sign
-/// of the velocity sets the direction — `TracerTrain::advance` takes direction
-/// from the sign of its mass-flow argument and speed only through the
-/// residence time, so a unit-magnitude rate carrying the right sign is the
-/// documented way to drive it from a velocity.
-pub fn advance_tracers(rows: &mut [PipeRow], dt: Time) {
+/// One call per row, into the component, so the fluid state and the animation
+/// stay on the same clock. Errors are collected rather than swallowed: a
+/// backend that fails to step must be visible, not silently frozen while its
+/// tracer keeps moving and implies everything is fine.
+pub fn step_rows(rows: &mut [PipeRow], dt: Time) -> Vec<String> {
+    let mut errors = Vec::new();
     for row in rows.iter_mut() {
-        let tau = residence_time(row);
-        let direction =
-            MassRate::new::<kilogram_per_second>(if row.velocity_m_s >= 0.0 { 1.0 } else { -1.0 });
-        row.tracer.advance(dt, tau, direction);
+        if let Err(e) = row.component.step(dt) {
+            errors.push(format!("{}: {e}", row.name));
+        }
     }
+    errors
 }
 
 /// Draw the stacked pipes and their labels.
@@ -281,7 +280,7 @@ pub fn draw(ui: &mut egui::Ui, rows: &[PipeRow], errors: &[String]) {
     // the whole point of deriving length from geometry.
     let longest_pts = rows
         .iter()
-        .map(|r| r.pipe.length.get::<meter>() as f32 * 80.0)
+        .map(|r| r.component.pipe.length.get::<meter>() as f32 * 80.0)
         .fold(0.0_f32, f32::max);
 
     // Reserve the full true-scale width so the scroll area knows how far the
@@ -311,20 +310,8 @@ pub fn draw(ui: &mut egui::Ui, rows: &[PipeRow], errors: &[String]) {
         let start = Pos2::new(available.left() + 8.0, top + row_height - 16.0);
         // Length, thickness and slope all come from the pipe's own geometry;
         // screen_vector is only the fallback direction for geometry-less runs.
-        let mut widget = PipeVisual::new(
-            row.pipe.clone(),
-            start,
-            Vec2::new(1.0, 0.0),
-            row.min_temp,
-            row.max_temp,
-        )
-        .with_wall_alarm(ThermodynamicTemperature::new::<kelvin>(WALL_ALARM_K));
-
-        // One mark at a time, and only while it is actually in flight — the
-        // pulse reports None during the gap between releases.
-        if let Some(x) = row.tracer.position(residence_time(row)) {
-            widget = widget.with_mark_at(x);
-        }
-        ui.add(widget);
+        // The component mints this frame's widget; all persistent state
+        // (physics array, tracer phase) stays in the component.
+        ui.add(row.component.visual(start));
     }
 }

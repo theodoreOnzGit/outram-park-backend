@@ -1147,6 +1147,99 @@ impl SurfaceKind {
             Self::ZTorus(s) => s.bc,
         }
     }
+
+    /// Centre `[x0, y0, z0]` (cm) and radius (cm), for surfaces that have them.
+    ///
+    /// `Some` for [`Sphere`] only; `None` for every other variant. Mirrors
+    /// `Surface::get_center` / `Surface::get_radius` in the vendored
+    /// `liangjg/openmc` `virtual_lattice` fork
+    /// (`include/openmc/surface.h:88`, `src/surface.cpp:762`), where the base
+    /// class returns an empty vector and only `SurfaceSphere` overrides them.
+    ///
+    /// Used by [`crate::geometry::virtual_lattice`] to place TRISO kernels in
+    /// voxels and to test point containment.
+    #[inline]
+    pub fn sphere_centre_radius(&self) -> Option<([f64; 3], f64)> {
+        match self {
+            Self::Sphere(s) => Some(([s.x0, s.y0, s.z0], s.r)),
+            _ => None,
+        }
+    }
+
+    /// Does this surface overlap the axis-aligned voxel of half-extent
+    /// `pitch/2` centred at `centre` (both cm)?
+    ///
+    /// Ported from `Surface::triso_in_mesh` in the vendored `liangjg/openmc`
+    /// `virtual_lattice` fork (`src/surface.cpp`). Used by
+    /// [`crate::geometry::virtual_lattice::VirtualLattice::build`] to decide
+    /// bucket membership.
+    ///
+    /// # Only `Sphere` is implemented — and that matches upstream
+    ///
+    /// Upstream declares `triso_in_mesh` as a virtual on the base `Surface` and
+    /// overrides it on all 15 concrete types, but **14 of those 15 overrides
+    /// are five-line `return false;` stubs**. Only `SurfaceSphere`
+    /// (`src/surface.cpp:724`, 42 lines) carries real logic. The arms below are
+    /// written out one per variant rather than collapsed into a wildcard so the
+    /// correspondence with upstream stays one-to-one and diffable, and so
+    /// adding a variant forces a decision here.
+    ///
+    /// The practical consequence: a virtual lattice only ever accelerates
+    /// spheres. Handing it a cylinder or plane registers that surface in no
+    /// voxel, and a traversal will never report it — see
+    /// [`crate::geometry::virtual_lattice::BuildReport::unregistered`], which
+    /// makes the omission observable rather than silent.
+    ///
+    /// # Sphere test
+    ///
+    /// Standard sphere-versus-AABB check: accumulate the squared distance from
+    /// the centre to the box along each axis (zero on axes where the centre
+    /// lies within the slab), and compare against the radius.
+    ///
+    /// Upstream writes `sqrt(dis_x + dis_y + dis_z) < radius_`; this port
+    /// compares `d2 < r*r` instead. The two are identical for non-negative
+    /// operands, and the squared form avoids a `sqrt` in a build loop that runs
+    /// 27 times per TRISO particle. The comparison stays **strict**, as
+    /// upstream: a sphere exactly tangent to a voxel face is *not* registered
+    /// in it.
+    #[inline]
+    pub fn overlaps_voxel(&self, centre: [f64; 3], pitch: [f64; 3]) -> bool {
+        match self {
+            Self::Sphere(s) => {
+                let c = [s.x0, s.y0, s.z0];
+                let mut d2 = 0.0;
+                for d in 0..3 {
+                    let lo = centre[d] - pitch[d] / 2.0;
+                    let hi = centre[d] + pitch[d] / 2.0;
+                    let gap = if c[d] < lo {
+                        lo - c[d]
+                    } else if c[d] > hi {
+                        c[d] - hi
+                    } else {
+                        0.0
+                    };
+                    d2 += gap * gap;
+                }
+                d2 < s.r * s.r
+            }
+            // The 14 upstream stubs. Not "unimplemented here" — upstream
+            // returns false for all of these too (see the doc comment above).
+            Self::XPlane(_) => false,
+            Self::YPlane(_) => false,
+            Self::ZPlane(_) => false,
+            Self::Plane(_) => false,
+            Self::XCylinder(_) => false,
+            Self::YCylinder(_) => false,
+            Self::ZCylinder(_) => false,
+            Self::XCone(_) => false,
+            Self::YCone(_) => false,
+            Self::ZCone(_) => false,
+            Self::Quadric(_) => false,
+            Self::XTorus(_) => false,
+            Self::YTorus(_) => false,
+            Self::ZTorus(_) => false,
+        }
+    }
 }
 
 #[cfg(test)]

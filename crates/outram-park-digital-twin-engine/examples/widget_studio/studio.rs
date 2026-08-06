@@ -8,7 +8,7 @@
 
 use egui::{Color32, Pos2, RichText, Vec2};
 use outram_park_digital_twin_engine::components::{
-    LegendUnit, PipeVisual, TemperatureLegend, TurbineFlowPath, TurbineVisual,
+    LegendUnit, TemperatureLegend, TurbineFlowPath, TurbineVisual,
 };
 use tampines_steam_tables::steam_turbine_equations::generator::ThreePhaseElectricGeneratorTurbine;
 use uom::si::angular_velocity::{radian_per_second, revolution_per_minute};
@@ -100,6 +100,9 @@ pub struct WidgetStudio {
     pipe_rows: Vec<crate::pipes::PipeRow>,
     /// Backends that could not be constructed, reported rather than faked.
     pipe_errors: Vec<String>,
+    /// Backends that failed to STEP on the last frame. Surfaced rather than
+    /// swallowed: a frozen solver must not look like a working one.
+    pipe_step_errors: Vec<String>,
 }
 
 impl Default for WidgetStudio {
@@ -124,6 +127,7 @@ impl Default for WidgetStudio {
             legend_unit: LegendUnit::Celsius,
             pipe_rows,
             pipe_errors,
+            pipe_step_errors: Vec::new(),
         }
     }
 }
@@ -191,10 +195,10 @@ impl eframe::App for WidgetStudio {
             }
             self.last_substeps = taken;
 
-            // Pipe tracers run off wall-clock time directly (not substeps):
-            // each mark must cross its run in exactly one residence time, and
-            // that is a real-time claim, not a simulation-step one.
-            crate::pipes::advance_tracers(
+            // Pipe physics AND tracers, advanced together off wall-clock
+            // time: "one traverse per residence time" is a real-time claim,
+            // so it must hold regardless of frame rate.
+            self.pipe_step_errors = crate::pipes::step_rows(
                 &mut self.pipe_rows,
                 Time::new::<second>(dt_real * self.sim_speed),
             );
@@ -288,7 +292,10 @@ impl WidgetStudio {
         for i in 0..self.pipe_rows.len() {
             let name = self.pipe_rows[i].name;
             ui.add(
-                egui::Slider::new(&mut self.pipe_rows[i].velocity_m_s, -30.0..=30.0)
+                egui::Slider::new(
+                    &mut self.pipe_rows[i].component.velocity.value,
+                    -30.0..=30.0,
+                )
                     .text(format!("{name} [m/s]")),
             );
         }
@@ -300,14 +307,7 @@ impl WidgetStudio {
             .striped(true)
             .show(ui, |ui| {
                 for row in &self.pipe_rows {
-                    let temps = PipeVisual::new(
-                        row.pipe.clone(),
-                        Pos2::ZERO,
-                        Vec2::new(1.0, 0.0),
-                        row.min_temp,
-                        row.max_temp,
-                    )
-                    .cell_temperatures();
+                    let temps = row.component.visual(Pos2::ZERO).cell_temperatures();
                     ui.label(row.name);
                     if temps.is_empty() {
                         ui.label(
@@ -347,7 +347,7 @@ impl WidgetStudio {
         ui.horizontal_wrapped(|ui| {
             for row in &self.pipe_rows {
                 ui.add(
-                    TemperatureLegend::new(row.min_temp, row.max_temp)
+                    TemperatureLegend::new(row.component.min_temp, row.component.max_temp)
                         .with_unit(self.legend_unit)
                         .with_bar_size(egui::vec2(20.0, 140.0))
                         .with_caption(row.short_name()),
@@ -356,11 +356,14 @@ impl WidgetStudio {
         });
 
         ui.add_space(8.0);
+        for e in &self.pipe_step_errors {
+            ui.colored_label(Color32::from_rgb(220, 80, 60), format!("⚠ step failed — {e}"));
+        }
         ui.label(
             RichText::new(
-                "These pipes are static: their arrays are constructed but not stepped, because \
-                 tampines::components::Pipe::step is not implemented yet. The colours are the \
-                 arrays' real initial states, not a fabricated profile.",
+                "These pipes are LIVE: each row's array is advanced by Pipe::step every frame, \
+                 on the same clock as its tracer. A step failure is reported above rather than \
+                 leaving a frozen array looking like a working one.",
             )
             .small()
             .weak(),

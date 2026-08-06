@@ -947,6 +947,118 @@ pub fn surface_distance_gpu(
     out
 }
 
+// ────────────────────────── hybrid CPU + GPU dispatch ──────────────────────────
+
+/// Storage buffers this kernel binds in a single compute stage.
+///
+/// `surf_dist.bgl` binds bindings 0-5 and 7 as storage (tags, coeffs, query
+/// surface/flag/r/u, results) plus binding 6 as a uniform. A device whose
+/// `max_storage_buffers_per_shader_stage` is below this **cannot** host the
+/// kernel — that is exactly the `op-bjd` failure, and
+/// [`surface_distance_hybrid`] now turns it into a CPU fallback rather than a
+/// panic.
+pub const STORAGE_BUFFERS_NEEDED: u32 = 7;
+
+/// Bytes per query in the largest per-query binding (`q_r`/`q_u`: three `f32`).
+/// Used with the driver's `max_storage_buffer_binding_size` to size dispatch
+/// chunks.
+pub const QUERY_STRIDE_BYTES: u64 = 12;
+
+/// Threads per workgroup in `surface_distance.wgsl` (`@workgroup_size(64)`).
+pub const WORKGROUP_SIZE: u32 = 64;
+
+/// Evaluate a query batch across **both** devices: the GPU takes the front of
+/// the batch, the CPU takes the back, and the two run concurrently.
+///
+/// Returns the distances in query order (identical layout to
+/// [`surface_distance_cpu_f32`]) together with the [`WorkSplit`] actually used,
+/// so a caller can log or assert which devices did work.
+///
+/// # How the split is decided
+///
+/// Entirely from **sourced hardware capability**, never assumption — see
+/// [`crate::gpu::capabilities`]. [`plan_split`] is given this kernel's real
+/// requirements ([`STORAGE_BUFFERS_NEEDED`], [`QUERY_STRIDE_BYTES`],
+/// [`WORKGROUP_SIZE`]) and returns an all-CPU plan whenever the GPU cannot host
+/// the kernel, is absent, or the policy asks for none.
+///
+/// # Concurrency
+///
+/// The CPU half runs on a `rayon` parallel iterator inside a scoped thread while
+/// this thread drives the GPU dispatch, so the two genuinely overlap rather than
+/// running one after the other. The GPU half is issued in chunks of at most
+/// `split.gpu_chunk_items` so an oversized batch cannot exceed the driver's
+/// binding-size or workgroup-count limits.
+///
+/// # Accuracy
+///
+/// The GPU half is `f32` and will not bit-match the CPU half (crate `CLAUDE.md`
+/// contract 2). **Do not use this for anything feeding V&V** — use
+/// [`surface_distance_cpu_f32`] there. Results are mixed from two different
+/// arithmetic paths, so a hybrid batch is inherently less reproducible than
+/// either path alone.
+#[cfg(not(target_os = "android"))]
+pub fn surface_distance_hybrid(
+    ctx: Option<&crate::gpu::GpuContext>,
+    encoded: &EncodedSurfaces,
+    queries: &[SurfaceQuery],
+    policy: crate::gpu::capabilities::SplitPolicy,
+) -> (Vec<f32>, crate::gpu::capabilities::WorkSplit) {
+    use crate::gpu::capabilities::{plan_split, HardwareCapabilities};
+    use rayon::prelude::*;
+
+    let caps = match ctx {
+        Some(c) => c.capabilities(),
+        None => HardwareCapabilities::with_gpu(None),
+    };
+    let split = plan_split(
+        queries.len(),
+        &caps,
+        policy,
+        STORAGE_BUFFERS_NEEDED,
+        QUERY_STRIDE_BYTES,
+        WORKGROUP_SIZE,
+    );
+
+    if !split.uses_gpu() {
+        return (surface_distance_cpu_f32(encoded, queries), split);
+    }
+
+    let (gpu_queries, cpu_queries) = queries.split_at(split.gpu_items);
+    let ctx = ctx.expect("uses_gpu() implies a context");
+
+    // CPU half on a scoped thread (rayon-parallel across the machine's cores)
+    // while this thread drives the GPU. The two overlap.
+    let (gpu_out, cpu_out) = std::thread::scope(|scope| {
+        let cpu_handle = scope.spawn(|| {
+            cpu_queries
+                .par_iter()
+                .map(|q| {
+                    let si = q.surface as usize;
+                    let tag = encoded.tags[si];
+                    let base = si * SURF_STRIDE;
+                    let c = &encoded.coeffs[base..base + SURF_STRIDE];
+                    surface_distance_one_f32(tag, c, q.r, q.u, q.coincident)
+                })
+                .collect::<Vec<f32>>()
+        });
+
+        // GPU half, chunked to the driver's dispatch ceiling.
+        let mut gpu_out = Vec::with_capacity(gpu_queries.len());
+        for chunk in gpu_queries.chunks(split.gpu_chunk_items) {
+            gpu_out.extend(surface_distance_gpu(ctx, encoded, chunk));
+        }
+
+        let cpu_out = cpu_handle.join().expect("CPU half panicked");
+        (gpu_out, cpu_out)
+    });
+
+    let mut out = gpu_out;
+    out.extend(cpu_out);
+    debug_assert_eq!(out.len(), queries.len());
+    (out, split)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1161,7 +1273,15 @@ mod tests {
     /// 1e-3 * (1 + |cpu|)` (they share the same f32 algorithm, so agreement is
     /// tight — this only absorbs GPU rounding-order differences).
     ///
-    /// **Results.** On a host with an adapter this passes for the full batch; on
+    /// **Results (measured 2026-08-06, NVIDIA RTX A5000 / NVK, Vulkan).** This
+    /// test could not run at all until `op-bjd` was fixed — `probe` requested
+    /// downlevel limits, so `surf_dist.bgl` was rejected before any query
+    /// executed. With real adapter limits sourced, the batch runs and **13 of
+    /// the 15 surface types agree**; the two torus types do not. First
+    /// divergence: query 16033 (surface 12, `XTorus`) `gpu = 3.12e-7` vs
+    /// `cpu = 0.4967` — the GPU quartic root-finder returns a spurious
+    /// near-zero root. Tracked as its own bead; **this test currently FAILS on a
+    /// GPU host**, and that failure is a real kernel defect, not flakiness. On
     /// CPU-only CI it prints a SKIP line and returns green.
     #[cfg(not(target_os = "android"))]
     #[test]
@@ -1214,5 +1334,140 @@ mod tests {
                 (g - c).abs()
             );
         }
+    }
+
+    /// Diagnostic: print the hardware capabilities actually sourced from this
+    /// machine's adapter, plus the CPU thread count and the split the planner
+    /// derives from them.
+    ///
+    /// `#[ignore]`d because it asserts almost nothing and its output is
+    /// machine-specific — it exists to make the numbers behind `op-bjd`
+    /// inspectable. Run with:
+    /// `cargo test -p outram-mc-libs --lib --release probed_hardware -- --ignored --nocapture`
+    #[cfg(not(target_os = "android"))]
+    #[test]
+    #[ignore = "diagnostic: prints machine-specific adapter limits"]
+    fn diagnose_probed_hardware_capabilities() {
+        use crate::gpu::capabilities::{plan_split, SplitPolicy};
+
+        let Some(ctx) = crate::gpu::probe() else {
+            eprintln!("SKIP: no GPU adapter on this host");
+            return;
+        };
+        let caps = ctx.capabilities();
+        let g = caps.gpu.as_ref().expect("probe returned a context");
+
+        eprintln!("adapter                            : {}", g.adapter_name);
+        eprintln!("backend                            : {}", g.backend);
+        eprintln!("class                              : {:?}", g.class);
+        eprintln!("max_storage_buffers_per_shader_stage: {}", g.max_storage_buffers_per_shader_stage);
+        eprintln!("max_storage_buffer_binding_size    : {}", g.max_storage_buffer_binding_size);
+        eprintln!("max_buffer_size                    : {}", g.max_buffer_size);
+        eprintln!("max_compute_invocations_per_workgroup: {}", g.max_compute_invocations_per_workgroup);
+        eprintln!("max_compute_workgroups_per_dimension : {}", g.max_compute_workgroups_per_dimension);
+        eprintln!("cpu_threads                        : {}", caps.cpu_threads);
+        eprintln!("kernel needs storage buffers       : {STORAGE_BUFFERS_NEEDED}");
+        eprintln!("  -> supported?                    : {}", g.supports_storage_buffers(STORAGE_BUFFERS_NEEDED));
+        eprintln!("max chunk items ({QUERY_STRIDE_BYTES} B stride, wg {WORKGROUP_SIZE}): {}",
+            g.max_chunk_items(QUERY_STRIDE_BYTES, WORKGROUP_SIZE));
+
+        let split = plan_split(
+            1_000_000, &caps, SplitPolicy::Auto,
+            STORAGE_BUFFERS_NEEDED, QUERY_STRIDE_BYTES, WORKGROUP_SIZE,
+        );
+        eprintln!("Auto split of 1e6 queries          : gpu={} cpu={} ({:?})",
+            split.gpu_items, split.cpu_items, split.reason);
+
+        // The whole point of the fix: this kernel must be hostable here.
+        assert!(g.supports_storage_buffers(STORAGE_BUFFERS_NEEDED));
+    }
+
+    /// The hybrid path must give real work to **both** devices and return the
+    /// same answers as the pure-CPU reference.
+    ///
+    /// **Tori are excluded deliberately.** The GPU quartic root-finder disagrees
+    /// with the CPU mirror on `XTorus`/`YTorus`/`ZTorus` (see
+    /// `gpu_matches_cpu_reference`'s Results note and its bead). Including them
+    /// here would make this test fail for a reason that has nothing to do with
+    /// work splitting. The other 12 surface types are compared in full.
+    #[cfg(not(target_os = "android"))]
+    #[test]
+    fn hybrid_splits_work_across_both_devices() {
+        use crate::gpu::capabilities::{SplitPolicy, SplitReason};
+
+        let Some(ctx) = crate::gpu::probe() else {
+            eprintln!("SKIP hybrid test: no GPU adapter (CPU-only CI)");
+            return;
+        };
+
+        // Every surface except the three tori (indices 12, 13, 14).
+        let surfaces: Vec<SurfaceKind> = one_of_each().into_iter().take(12).collect();
+        let encoded = encode_surfaces(&surfaces);
+
+        let mut queries = Vec::new();
+        for si in 0..surfaces.len() {
+            for ix in -1..=1 {
+                for iy in -1..=1 {
+                    for i in 0..32 {
+                        queries.push(SurfaceQuery {
+                            surface: si as u32,
+                            coincident: false,
+                            r: Position::new(ix as f64 * 1.3, iy as f64 * 1.3, 0.4),
+                            u: dir(i, 32),
+                        });
+                    }
+                }
+            }
+        }
+
+        let reference = surface_distance_cpu_f32(&encoded, &queries);
+        let (hybrid, split) =
+            surface_distance_hybrid(Some(&ctx), &encoded, &queries, SplitPolicy::Auto);
+
+        assert_eq!(split.reason, SplitReason::Split, "expected a real split");
+        assert!(split.gpu_items > 0, "GPU took no load");
+        assert!(split.cpu_items > 0, "CPU took no load");
+        assert_eq!(split.total(), queries.len());
+        assert_eq!(hybrid.len(), reference.len());
+
+        for (i, (&h, &c)) in hybrid.iter().zip(reference.iter()).enumerate() {
+            let c_miss = c >= MISS;
+            let h_miss = h >= MISS;
+            if c_miss || h_miss {
+                assert_eq!(c_miss, h_miss, "query {i}: miss disagreement hybrid={h}, cpu={c}");
+                continue;
+            }
+            let tol = 1e-3 * (1.0 + c.abs());
+            assert!(
+                (h - c).abs() <= tol,
+                "query {i}: hybrid={h}, cpu={c}, |diff|={} > tol={tol}",
+                (h - c).abs()
+            );
+        }
+    }
+
+    /// With no context the hybrid path must still answer, entirely on the CPU.
+    #[cfg(not(target_os = "android"))]
+    #[test]
+    fn hybrid_without_a_gpu_runs_everything_on_the_cpu() {
+        use crate::gpu::capabilities::{SplitPolicy, SplitReason};
+
+        let surfaces = one_of_each();
+        let encoded = encode_surfaces(&surfaces);
+        let queries: Vec<SurfaceQuery> = (0..64)
+            .map(|i| SurfaceQuery {
+                surface: (i % surfaces.len()) as u32,
+                coincident: false,
+                r: Position::new(0.0, 0.0, 0.0),
+                u: dir(i, 64),
+            })
+            .collect();
+
+        let (out, split) =
+            surface_distance_hybrid(None, &encoded, &queries, SplitPolicy::Auto);
+
+        assert_eq!(split.reason, SplitReason::NoGpu);
+        assert_eq!(split.cpu_items, queries.len());
+        assert_eq!(out, surface_distance_cpu_f32(&encoded, &queries));
     }
 }

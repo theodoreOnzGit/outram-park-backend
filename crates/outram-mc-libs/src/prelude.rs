@@ -10,6 +10,7 @@ pub use crate::geometry::surface::{BoundaryType, Sphere, SurfaceKind, XPlane, YP
 pub use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 pub use crate::geometry::universe::Universe;
 pub use crate::geometry::lattice::{HexLattice, HexOrientation, Lattice, RectLattice};
+pub use crate::geometry::virtual_lattice::{BuildReport, VirtualLattice};
 pub use crate::geometry::geometry::{BoundaryHit, Coord, Crossing, Geometry, GeometryPath};
 pub use crate::particle::particle::{Particle, ParticleType};
 pub use crate::material::material::{MacroXs, Material};
