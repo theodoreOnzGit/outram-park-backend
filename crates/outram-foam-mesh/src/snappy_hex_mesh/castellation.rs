@@ -74,7 +74,7 @@ pub struct CastellationControls {
     /// Target octree refinement level applied to cells near the surface.
     /// Level `n` cells are `2ⁿ` times finer than the background per axis.
     pub surface_level: usize,
-    /// Width of the refinement band around the surface [m]. A cell is refined
+    /// Width of the refinement band around the surface `[m]`. A cell is refined
     /// while its centre lies within this distance of the surface. `None`
     /// auto-selects a one-cell band (the cell's half space-diagonal at its
     /// current level), which refines the cells the surface actually passes
@@ -114,7 +114,7 @@ struct Leaf {
 }
 
 /// A boundary face lying on the carved surface, retained (with its corner
-/// points) so the Phase-2 snapping stub has explicit geometry to project.
+/// points) so the Phase-2 snapping pass has explicit geometry to project.
 #[derive(Debug, Clone)]
 pub struct SurfaceFace {
     /// Owning kept-cell index in the output [`FvMesh`].
@@ -130,7 +130,7 @@ pub struct SurfaceFace {
 pub struct CastellatedMesh {
     /// The refined, region-removed finite-volume mesh (validated).
     pub fv_mesh: FvMesh,
-    /// Deduplicated mesh points [m] (corners of the kept cells). `FvMesh` itself
+    /// Deduplicated mesh points `[m]` (corners of the kept cells). `FvMesh` itself
     /// stores only geometry, so these are carried separately for snapping.
     pub points: Vec<Vector3>,
     /// Full point + face-connectivity view of the same mesh, in OpenFOAM face
@@ -325,7 +325,7 @@ fn should_refine(
     surface.distance_to(centre) <= band
 }
 
-/// Physical centre [m] of a leaf cell.
+/// Physical centre `[m]` of a leaf cell.
 fn leaf_centre(leaf: &Leaf, origin: Vector3, h: [f64; 3], max_level: usize) -> Vector3 {
     let s = (1usize << (max_level - leaf.level)) as f64;
     let g = [
@@ -336,7 +336,7 @@ fn leaf_centre(leaf: &Leaf, origin: Vector3, h: [f64; 3], max_level: usize) -> V
     pos_of(origin, h, g)
 }
 
-/// Map finest-grid (fractional) voxel coordinates to a physical point [m].
+/// Map finest-grid (fractional) voxel coordinates to a physical point `[m]`.
 fn pos_of(origin: Vector3, h: [f64; 3], g: [f64; 3]) -> Vector3 {
     Vector3::new(
         origin.x + g[0] * h[0],
@@ -567,7 +567,7 @@ impl MeshAssembler {
         }
     }
 
-    /// Area vector [m²] (owner→neighbour / outward) and centre [m] of an
+    /// Area vector `[m²]` (owner→neighbour / outward) and centre `[m]` of an
     /// axis-aligned rectangular face on the `axis` plane at `plane_g`,
     /// spanning transverse voxel ranges `[a0,a1] × [b0,b1]`.
     #[allow(clippy::too_many_arguments)]

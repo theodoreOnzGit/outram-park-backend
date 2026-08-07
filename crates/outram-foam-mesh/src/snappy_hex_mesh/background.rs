@@ -29,16 +29,16 @@
 
 use outram_foam_basic_lib::primitives::Vector3;
 
-/// Axis-aligned bounding box [m].
+/// Axis-aligned bounding box `[m]`.
 ///
 /// Stored as the two extreme corners `min` (lowest x, y, z) and `max`
 /// (highest). Used both for the background-mesh extent and for individual
 /// octree cell boxes.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Bounds {
-    /// Lower corner (min x, y, z) [m].
+    /// Lower corner (min x, y, z) `[m]`.
     pub min: Vector3,
-    /// Upper corner (max x, y, z) [m].
+    /// Upper corner (max x, y, z) `[m]`.
     pub max: Vector3,
 }
 
@@ -52,7 +52,7 @@ impl Bounds {
         }
     }
 
-    /// Uniformly grow the box by `pad` [m] on every side (used to wrap a
+    /// Uniformly grow the box by `pad` `[m]` on every side (used to wrap a
     /// surface in a background domain with a margin).
     pub fn expanded(&self, pad: f64) -> Self {
         let p = Vector3::new(pad, pad, pad);
@@ -62,23 +62,23 @@ impl Bounds {
         }
     }
 
-    /// Box centre [m].
+    /// Box centre `[m]`.
     pub fn centre(&self) -> Vector3 {
         (self.min + self.max) * 0.5
     }
 
-    /// Side lengths `(dx, dy, dz)` [m].
+    /// Side lengths `(dx, dy, dz)` `[m]`.
     pub fn span(&self) -> Vector3 {
         self.max - self.min
     }
 
-    /// Volume `dx·dy·dz` [m³].
+    /// Volume `dx·dy·dz` `[m³]`.
     pub fn volume(&self) -> f64 {
         let s = self.span();
         s.x * s.y * s.z
     }
 
-    /// Length of the space diagonal [m].
+    /// Length of the space diagonal `[m]`.
     pub fn diagonal(&self) -> f64 {
         self.span().mag()
     }
@@ -92,7 +92,7 @@ impl Bounds {
 /// `[min + (i,j,k)·h, min + (i+1,j+1,k+1)·h]` where `h = span / (nx,ny,nz)`.
 #[derive(Debug, Clone)]
 pub struct BackgroundMesh {
-    /// Overall domain extent [m].
+    /// Overall domain extent `[m]`.
     pub bounds: Bounds,
     /// Cell divisions along x, y, z.
     pub nx: usize,
@@ -122,7 +122,7 @@ impl BackgroundMesh {
         self.nx * self.ny * self.nz
     }
 
-    /// Level-0 cell size `(dx, dy, dz)` [m].
+    /// Level-0 cell size `(dx, dy, dz)` `[m]`.
     pub fn cell_size(&self) -> Vector3 {
         let s = self.bounds.span();
         Vector3::new(

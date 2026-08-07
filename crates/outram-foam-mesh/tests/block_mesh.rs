@@ -240,3 +240,66 @@ fn graded_block_volume_conserved() {
     let bfaces: usize = mesh.patches.iter().map(|p| p.size).sum();
     assert_eq!(bfaces, mesh.n_boundary_faces());
 }
+
+/// **Methodology (round-trip + quality).** The cavity `blockMeshDict` builds a
+/// uniform `20 × 20 × 1` Cartesian block scaled by `convertToMeters 0.1`, so
+/// each cell is exactly `0.005 × 0.005 × 0.01 m`. Being Cartesian, every metric
+/// has a closed form: non-orthogonality and skewness are exactly `0`, and the
+/// aspect ratio of every cell is
+/// `(ab + bc + ca) / (3·(abc)^(2/3))` with `a = b = 0.005`, `c = 0.01`.
+///
+/// The mesh is then converted with `PolyMesh::to_foam_poly_mesh`, written to a
+/// `constant/polyMesh` under Cargo's target tmpdir, read back with
+/// `outram_foam_basic_lib::io::PolyMesh::read`, and re-graded — the round trip
+/// must reproduce every count and metric.
+///
+/// **Results (measured 2026-08-07, release, x86_64).** 400 cells, 441 points,
+/// 860 faces (760 internal); `max_non_ortho = 0.000°`, `mean = 0.000°`;
+/// `max_skewness = 0`; `max_aspect_ratio = 1.0499342082457`, matching the closed
+/// form to `< 1e-12`; every cell volume `2.5e-7 m³` and
+/// `total_volume = 1.0000e-4 m³` (`= 0.1 × 0.1 × 0.01`); 0 inverted cells;
+/// verdict `GOOD`. After write + read-back every one of those numbers is
+/// reproduced bit for bit.
+#[test]
+fn cavity_poly_mesh_round_trips_and_is_cartesian() {
+    let mesh = outram_foam_mesh::block_mesh::block_mesh(CAVITY_DICT).expect("cavity builds");
+    let poly = mesh.to_foam_poly_mesh();
+    let q = outram_foam_mesh::assess_quality(&poly);
+    eprintln!("cavity blockMesh:\n{}", q.summary());
+
+    assert_eq!(q.n_cells, 400);
+    assert_eq!(q.n_negative_volume_cells, 0);
+    assert!(q.max_non_ortho_deg < 1e-12, "nonortho {}", q.max_non_ortho_deg);
+    assert!(q.max_skewness < 1e-12, "skew {}", q.max_skewness);
+
+    let (a, b, c) = (0.005f64, 0.005f64, 0.01f64);
+    let expected_ar = (a * b + b * c + c * a) / (3.0 * (a * b * c).powf(2.0 / 3.0));
+    assert!(
+        (q.max_aspect_ratio - expected_ar).abs() < 1e-12,
+        "AR {} vs closed form {expected_ar}",
+        q.max_aspect_ratio
+    );
+    assert!(
+        (q.total_volume - 1.0e-4).abs() < 1e-15,
+        "volume {}",
+        q.total_volume
+    );
+    assert!((q.min_cell_volume - 2.5e-7).abs() < 1e-18);
+
+    // Write → read → re-grade. `CARGO_TARGET_TMPDIR` keeps this inside target/.
+    let dir = std::path::Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join("cavity_round_trip")
+        .join("constant")
+        .join("polyMesh");
+    let _ = std::fs::remove_dir_all(&dir);
+    poly.write(&dir).expect("polyMesh writes");
+    let reread = outram_foam_basic_lib::io::PolyMesh::read(&dir).expect("polyMesh reads back");
+
+    assert_eq!(reread.points.len(), poly.points.len());
+    assert_eq!(reread.faces.len(), poly.faces.len());
+    assert_eq!(reread.n_cells, poly.n_cells);
+    assert_eq!(reread.n_internal_faces, poly.n_internal_faces);
+    assert_eq!(reread.patches.len(), poly.patches.len());
+    let q2 = outram_foam_mesh::assess_quality(&reread);
+    assert_eq!(q2, q, "quality must survive the write/read round trip");
+}

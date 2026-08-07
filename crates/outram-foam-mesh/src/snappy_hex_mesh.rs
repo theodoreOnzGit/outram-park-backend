@@ -41,13 +41,21 @@
 //!    boundary onto the STL via nearest-point projection, Laplacian patch
 //!    smoothing, and a quality-gated relaxation, then rebuild the `FvMesh`.
 //!    Feature-edge snapping is a restricted (tested) addition.
-//! 3. **Layer addition** ([`layers`], **implemented, restricted**) — extrude
-//!    graded prismatic boundary layers off the wall patch with expansion-ratio
-//!    grading and quality-limited collapse. The full medial-axis interior-shrink
-//!    insertion is future work (see the [`layers`] module docs).
+//! 3. **Layer addition** ([`layers`], **implemented, restricted**) — insert
+//!    graded prismatic boundary layers at the wall patch with expansion-ratio
+//!    grading and quality-limited collapse. Two placements exist and the driver
+//!    picks per case: the medial-axis **interior shrink-and-insert** (the real
+//!    `snappyLayerDriver` behaviour, volume-conserving) wherever it stays
+//!    watertight, and an **outward extrusion** fallback on octree hanging-node
+//!    regions, which grows the domain. Which one you got is not something to
+//!    assume — see the [`layers`] module docs, and prefer
+//!    [`crate::driver::mesh_from_surface`], which measures it and reports a
+//!    [`LayerOutcome`](crate::driver::LayerOutcome).
 //!
-//! Run all three together with [`generate`] (the top-level entry), or call the
-//! phase functions individually.
+//! Run all three together with [`generate`] (this module's top-level entry), or
+//! call the phase functions individually. For a one-call path that also picks
+//! the background mesh, converts to `PolyMesh` and grades the result, use
+//! [`crate::driver::mesh_from_surface`] instead.
 //!
 //! ## Status (bead op-ax7.2)
 //!
@@ -56,7 +64,7 @@
 //! | STL input | ✅ done | ASCII + binary reader, inside/outside, nearest point |
 //! | Castellation | ✅ done | octree refinement + region removal → valid `FvMesh` + topology |
 //! | Snapping | ✅ done | projection + smoothing + quality-gated morph + rebuild; feature-edge (restricted) |
-//! | Layer addition | 🟡 restricted | graded prism extrusion + collapse; medial-axis interior insertion is future work |
+//! | Layer addition | 🟡 restricted | graded prism insertion + collapse; medial-axis interior shrink-and-insert where watertight, outward-extrusion fallback elsewhere |
 //!
 //! ## Minimal example
 //!

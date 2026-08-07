@@ -222,10 +222,10 @@ pub struct LayerControls {
     /// Geometric expansion ratio `r` between successive layers (`> 0`, usually
     /// `> 1` so cells grow away from the wall). Dimensionless.
     pub expansion_ratio: f64,
-    /// Thickness of the layer nearest the wall [m]. Used directly unless
+    /// Thickness of the layer nearest the wall `[m]`. Used directly unless
     /// [`final_layer_thickness`](Self::final_layer_thickness) is `Some`.
     pub first_layer_thickness: f64,
-    /// Optional target thickness of the OUTERMOST layer [m]. When `Some`, the
+    /// Optional target thickness of the OUTERMOST layer `[m]`. When `Some`, the
     /// first-layer thickness is derived from it via the OpenFOAM
     /// `FIRST_AND_EXPANSION`/`FINAL_AND_EXPANSION` relation (see
     /// `layerParameters.C:927`): `first = final / rⁿ⁻¹` for `r ≠ 1`, so the
@@ -271,7 +271,7 @@ impl Default for LayerControls {
 }
 
 impl LayerControls {
-    /// Effective first-layer thickness [m] — the thickness of the wall-nearest
+    /// Effective first-layer thickness `[m]` — the thickness of the wall-nearest
     /// layer actually used for grading.
     ///
     /// Equals [`first_layer_thickness`](Self::first_layer_thickness) unless
@@ -295,7 +295,7 @@ impl LayerControls {
     }
 }
 
-/// Geometric layer thicknesses `[t, t·r, t·r², …]` [m] for `n` layers with
+/// Geometric layer thicknesses `[t, t·r, t·r², …]` `[m]` for `n` layers with
 /// effective first-layer thickness `t` ([`LayerControls::first_thickness`]) and
 /// expansion ratio `r`.
 ///
@@ -313,7 +313,7 @@ pub fn layer_thicknesses(controls: &LayerControls) -> Vec<f64> {
     out
 }
 
-/// Total boundary-layer thickness [m] — the sum of [`layer_thicknesses`].
+/// Total boundary-layer thickness `[m]` — the sum of [`layer_thicknesses`].
 pub fn total_layer_thickness(controls: &LayerControls) -> f64 {
     layer_thicknesses(controls).iter().sum()
 }
@@ -445,7 +445,7 @@ fn layered_topology_acceptable(topo: &PolyPatchMesh, controls: &LayerControls) -
     max_cell_closure(topo) <= 1e-9 * (max_face_area(topo) + 1e-300)
 }
 
-/// Largest face-area magnitude [m²] over all faces — the length scale the
+/// Largest face-area magnitude `[m²]` over all faces — the length scale the
 /// watertightness tolerance in [`layered_topology_acceptable`] is measured
 /// against.
 fn max_face_area(topo: &PolyPatchMesh) -> f64 {
@@ -887,7 +887,7 @@ mod tests {
         }
     }
 
-    /// Per-cell signed sum of face area vectors [m²]; every entry must be ~0 for
+    /// Per-cell signed sum of face area vectors `[m²]`; every entry must be ~0 for
     /// a watertight (closed) cell.
     fn cell_area_sums(topo: &PolyPatchMesh) -> Vec<Vector3> {
         let (areas, _c) = topo.face_geometry();

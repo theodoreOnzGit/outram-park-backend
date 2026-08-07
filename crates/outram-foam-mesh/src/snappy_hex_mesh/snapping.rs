@@ -170,7 +170,7 @@ pub struct SnapControls {
     /// than this ratio, so it is advisory.
     pub tolerance: f64,
     /// Mesh-quality limits the relaxation must satisfy for a move to be
-    /// committed (non-orthogonality [deg], skewness, min cell volume [m³]).
+    /// committed (non-orthogonality `[deg]`, skewness, min cell volume `[m³]`).
     pub quality: QualityLimits,
     /// Enable feature snapping (port of `snappySnapDriverFeature.C` with the
     /// `pointConstraint` accumulator of `pointConstraintI.H`): patch points near
@@ -178,7 +178,7 @@ pub struct SnapControls {
     /// near a corner (≥2 non-collinear feature edges meeting) are fully fixed on
     /// the corner vertex. See the module docs (item 5 + *Honest scope*).
     pub feature_snap: bool,
-    /// Dihedral-angle threshold [degrees] above which a shared STL edge counts
+    /// Dihedral-angle threshold `[degrees]` above which a shared STL edge counts
     /// as a feature edge. Only used when `feature_snap` is set. A box has 90°
     /// creases, so any threshold below 90 detects its edges.
     pub feature_angle_deg: f64,
@@ -770,7 +770,7 @@ impl PointConstraint {
 /// unit direction of every incident feature edge (pointing away from the shared
 /// vertex) is accumulated with [`PointConstraint::apply_edge_dir`], and the
 /// vertex is a feature point iff the accumulation saturates to
-/// [`PointConstraint::Point`]. Returns the corner positions [m].
+/// [`PointConstraint::Point`]. Returns the corner positions `[m]`.
 fn detect_feature_points(edges: &[FeatureEdge]) -> Vec<Vector3> {
     let quant = 1e-6_f64;
     let key = |v: Vector3| -> (i64, i64, i64) {
@@ -812,7 +812,7 @@ fn detect_feature_points(edges: &[FeatureEdge]) -> Vec<Vector3> {
 }
 
 /// Classify a patch point against the feature set, returning its attraction
-/// target [m] and its `PointConstraint`.
+/// target `[m]` and its `PointConstraint`.
 ///
 /// Port of the intent of `snappySnapDriver::featureAttractionUsingReconstruction`
 /// (`snappySnapDriverFeature.C:997`) and its `binFeatureFace` helper (lines
@@ -829,8 +829,8 @@ fn detect_feature_points(edges: &[FeatureEdge]) -> Vec<Vector3> {
 /// - If no feature is within band, the point is [`PointConstraint::Free`] and
 ///   its target is the supplied `surf_target` (the nearest-surface projection).
 ///
-/// `p` is the current point position [m]; `surf_target` its nearest-surface
-/// projection [m]; `edge_band`/`corner_band` are capture radii [m].
+/// `p` is the current point position `[m]`; `surf_target` its nearest-surface
+/// projection `[m]`; `edge_band`/`corner_band` are capture radii `[m]`.
 fn classify_feature(
     p: Vector3,
     surf_target: Vector3,
@@ -878,7 +878,7 @@ fn classify_feature(
     }
 }
 
-/// Mean edge length of the wall-patch faces [m] — a local length scale used to
+/// Mean edge length of the wall-patch faces `[m]` — a local length scale used to
 /// size the feature-attraction band.
 fn mean_patch_edge_length(mesh: &CastellatedMesh, wall_idx: usize) -> f64 {
     let mut total = 0.0f64;
@@ -900,7 +900,7 @@ fn mean_patch_edge_length(mesh: &CastellatedMesh, wall_idx: usize) -> f64 {
     }
 }
 
-/// Nearest point on any feature edge to `p` [m], or `None` if there are no
+/// Nearest point on any feature edge to `p` `[m]`, or `None` if there are no
 /// feature edges. Retained as a standalone crease-distance primitive used by the
 /// V&V tests to measure how close snapped points land to the feature edges.
 #[cfg_attr(not(test), allow(dead_code))]
@@ -998,7 +998,7 @@ mod tests {
         TriangleSoup::new("box", tris)
     }
 
-    /// Max distance [m] from every wall-patch point to the exact nearest
+    /// Max distance `[m]` from every wall-patch point to the exact nearest
     /// surface point, plus the mean.
     fn patch_surface_error(mesh: &CastellatedMesh, surface: &TriangleSoup) -> (f64, f64) {
         let wall = mesh
@@ -1024,7 +1024,7 @@ mod tests {
     }
 
     /// Max over all cells of the magnitude of the sum of signed (outward-oriented)
-    /// face-area vectors [m²]. Zero ⇒ every cell is a closed polyhedron.
+    /// face-area vectors `[m²]`. Zero ⇒ every cell is a closed polyhedron.
     fn max_cell_closure(mesh: &CastellatedMesh) -> f64 {
         let topo = &mesh.topology;
         let (areas, _c) = topo.face_geometry();

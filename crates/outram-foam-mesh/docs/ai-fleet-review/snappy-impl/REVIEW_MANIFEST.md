@@ -10,6 +10,28 @@
 > that review is done. Nothing here is for nuclear-facility operation, reactor
 > control, licensing, or any safety-critical use.
 
+> **Historical snapshot — partly superseded (noted 2026-08-07).** This file
+> records the state of the crate *as reviewed on 2026-07-17* and is deliberately
+> left un-rewritten as a record of that pass. Two of its "PARTIAL" findings have
+> since been addressed in the code, so do **not** read them as the current
+> status:
+>
+> - **§3 Layer addition / follow-up bead `op-ax7.2.2`** — layers are no longer
+>   only an *extrusion off the patch*. The medial-axis **interior
+>   shrink-and-insert** is now implemented (restricted to regions where it stays
+>   watertight), with the outward extrusion retained as the fallback for octree
+>   hanging-node regions. See `snappy_hex_mesh/layers.rs`'s "Honest scope" and
+>   `driver::LayerOutcome`, which reports which placement a given case got.
+> - **§4 blockMesh grading / follow-up bead `op-ax7.5`** — per-edge
+>   `edgeGrading` is no longer restricted to the equal-edges-per-direction case;
+>   the full 12-edge blend is implemented (straight-edge branch of
+>   `block::createPoints`). See `block_mesh.rs`'s module docs.
+>
+> The V&V numbers below are those measured on 2026-07-17 and were not re-run for
+> this note. Current, re-measured V&V results live in the module doc comments and
+> the crate `README.md`. The human-verify checklist in §"Human-verify checklist"
+> remains **open** — nothing here has been signed off by the maintainer.
+
 - **Date:** 2026-07-17
 - **Crate:** `crates/outram-foam-mesh` (bead epic **op-ax7**)
 - **Scope of this pass:** snappyHexMesh Phase 2 (snapping, op-ax7.2.1), Phase 3

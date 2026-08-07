@@ -101,7 +101,7 @@ const SMALL: f64 = 1.0e-15;
 /// `points`, `faces`, owner/neighbour and boundary patches (in `fv_mesh`).
 #[derive(Debug, Clone)]
 pub struct UnvPolyMesh {
-    /// Mesh points [m] — node coordinates, indexed by point id (0-based).
+    /// Mesh points `[m]` — node coordinates, indexed by point id (0-based).
     pub points: Vec<Vector3>,
     /// Global face list: each face is an ordered loop of point indices.
     /// Length equals `fv_mesh.n_faces`; internal faces first, then boundary
@@ -117,7 +117,7 @@ pub struct UnvPolyMesh {
 }
 
 impl UnvPolyMesh {
-    /// Total mesh volume [m³] — the sum of all cell volumes. A convenience for
+    /// Total mesh volume `[m³]` — the sum of all cell volumes. A convenience for
     /// V&V sanity checks.
     pub fn total_volume(&self) -> f64 {
         self.fv_mesh.cell_volumes.iter().sum()
@@ -455,7 +455,7 @@ fn parse_groups(content: &[&str], data: &mut UnvData) -> Result<(), MeshError> {
 
 // ── Geometry helpers ────────────────────────────────────────────────────────
 
-/// Face centre [m] and area vector [m²] of a planar polygon given its vertex
+/// Face centre `[m]` and area vector `[m²]` of a planar polygon given its vertex
 /// loop, using the OpenFOAM `primitiveMesh` face decomposition (fan from the
 /// vertex average, area-weighted centroid).
 fn face_centre_area(pts: &[Vector3]) -> (Vector3, Vector3) {
@@ -492,7 +492,7 @@ fn face_centre_area(pts: &[Vector3]) -> (Vector3, Vector3) {
     (centre, sum_n * 0.5)
 }
 
-/// Cell centre [m] and volume [m³] from the cell's outward-oriented faces,
+/// Cell centre `[m]` and volume `[m³]` from the cell's outward-oriented faces,
 /// using the OpenFOAM pyramid decomposition about an estimated centre.
 fn cell_centre_volume(faces: &[(Vector3, Vector3)]) -> (Vector3, f64) {
     let mut c_est = Vector3::ZERO;
