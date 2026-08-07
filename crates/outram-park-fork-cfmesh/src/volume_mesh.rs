@@ -1,3 +1,37 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Data-structure references (re-implemented in Rust, not transcribed):
+//
+//   [1] OpenFOAM `polyMesh` — the points / faces / owner / neighbour / boundary
+//       representation, the internal-faces-first ordering rule, and the
+//       owner->neighbour face-normal convention this file guarantees.
+//       src/OpenFOAM/meshes/polyMesh
+//       Copyright (C) 2011-2016 OpenFOAM Foundation
+//       Copyright (C) 2016-2023 OpenCFD Ltd. Licence: GPL-3.0-only.
+//
+//   [2] cfMesh `polyMeshGen` — the generator-side mutable form of the same
+//       structure. meshLibrary/utilities/meshes/polyMeshGen
+//       Copyright (C) 2014-2017 Creative Fields, Ltd. Licence: GPL-3.0-only.
+//
+//   Newell's method for a polygon's area vector is standard computational
+//   geometry (G. Newell, 1972).
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! The core **volume mesh** data structure — the Rust analogue of cfMesh's
 //! `polyMeshGen` and OpenFOAM's `polyMesh`.
 //!

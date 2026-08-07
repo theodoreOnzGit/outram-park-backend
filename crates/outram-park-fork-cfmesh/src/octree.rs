@@ -1,22 +1,81 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Algorithm reference (re-implemented in Rust, not transcribed):
+//   cfMesh — https://github.com/wyldckat/cfMesh
+//   meshLibrary/utilities/octrees/meshOctree (octree construction, 2:1 balancing)
+//   Copyright (C) 2014-2017 Creative Fields, Ltd.
+//   Licence: GPL-3.0-only
+//   OpenFOAM snappyHexMesh castellation refinement is the same construction:
+//   Copyright (C) 2011-2016 OpenFOAM Foundation, GPL-3.0-only
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Octree near-wall **refinement** — grade the mesh finer near the surface,
 //! keeping it conforming by splitting the coarse transition faces.
 //!
 //! [`crate::carve::carve_box`] produces a *uniform* grid. This module refines
-//! the cells adjacent to the boundary one level finer (cfMesh's octree
+//! the cells near the boundary one or more levels finer (cfMesh's octree
 //! `meshOctree` refinement, and snappyHexMesh's castellation refinement). Where
 //! a coarse cell meets four finer cells, the coarse cell's shared face is
 //! represented as the **four fine sub-faces** — the hanging-node treatment that
 //! keeps the mesh conforming and turns the coarse transition cell into a
 //! genuine **polyhedron** (more than six faces).
 //!
-//! # v1 scope
+//! # Two refinement criteria (enum-dispatched, no trait objects)
 //!
-//! A single level of refinement on the boundary-adjacent cells (interior stays
-//! coarse). One level is automatically 2:1-balanced (levels differ by at most
-//! one everywhere), so no balancing pass is needed yet; multi-level graded
-//! refinement with a balancing pass is the next step. Pure Rust, Android-safe.
+//! - [`refine_near_boundary`] — refine a leaf if a same-level face-neighbour
+//!   centre is *outside* the surface, i.e. the leaf touches the wall. This is
+//!   the original one-cell-thick shell criterion.
+//! - [`refine_near_boundary_banded`] — refine a leaf if its centre is within a
+//!   **distance band** of the surface, the band measured in multiples of that
+//!   leaf's own edge length. This is the criterion the high-level pipeline
+//!   ([`crate::pipeline::TetDualOptions::refinement_levels`]) drives, because a
+//!   band wider than one cell grades the transition out over several cells
+//!   instead of jamming it against the wall.
+//!
+//! # Edge conformity (hanging nodes inserted into coarse rings)
+//!
+//! Splitting only the *shared* face is enough for the coarse cell to stay
+//! **closed** (its face-area vectors still sum to zero), but it leaves the
+//! coarse cell's *other* faces with a T-junction: an edge of a coarse side face
+//! carries a hanging vertex that only the fine sub-faces reference. Such a cell
+//! is closed but **not combinatorially manifold** — an edge lies in only one of
+//! its faces — and [`crate::tet::tetrahedralize`]'s centroid subdivision then
+//! emits interior triangles that never find a partner, silently punching holes
+//! in the tet mesh (and corrupting its volume).
+//!
+//! The mesh assembler therefore runs an **edge-conformity pass**: every emitted face
+//! ring has each lattice point that lies strictly inside one of its edges
+//! inserted into the ring. The insertion is geometrically a no-op (the points
+//! are collinear, so the face's area vector and centroid are unchanged) but
+//! makes every edge lie in exactly two faces of every cell, which is what the
+//! downstream tet → dual path needs.
+//!
+//! # Scope
+//!
+//! Refinement is driven by proximity to the surface only — **no curvature or
+//! feature-edge criterion yet**, and no size field from an external source.
+//! Levels are 2:1-balanced (neighbouring leaves differ by at most one level)
+//! across *faces*; edge- and vertex-diagonal neighbours may differ by more, and
+//! the conformity pass above handles the extra hanging nodes that produces.
+//! Pure Rust, Android-safe.
 
 use crate::math::Vec3;
+use crate::snap::closest_point_on_surface;
 use crate::volume_mesh::{orient_ring, BoundaryPatch, VolumeMesh};
 use std::collections::{HashMap, HashSet};
 
@@ -57,6 +116,105 @@ type Cell = (u8, i64, i64, i64);
 /// # }
 /// ```
 pub fn refine_near_boundary(points: &[Vec3], tris: &[[usize; 3]], base_cell_size: f64, max_level: u8) -> VolumeMesh {
+    refine_with(points, tris, base_cell_size, max_level, RefineCriterion::TouchesWall)
+}
+
+/// Carve the closed surface (`points`, `tris`) at `base_cell_size`, then refine
+/// every leaf whose centre lies within a **distance band** of the surface, up to
+/// `max_level` levels finer, returning the graded [`VolumeMesh`].
+///
+/// This is the size-field form of [`refine_near_boundary`] and the one the
+/// high-level pipeline uses.
+///
+/// # The band
+///
+/// `band_cells` is **dimensionless — a multiple of the candidate leaf's own edge
+/// length**, not a length in metres. A level-`L-1` leaf (edge
+/// `base_cell_size / 2^(L-1)` metres) is split into its eight level-`L` children
+/// iff
+///
+/// ```text
+///   distance(leaf centre, surface)  <  band_cells * base_cell_size / 2^(L-1)
+/// ```
+///
+/// Because the band shrinks with the cell, the refined region is a **graded
+/// shell** that hugs the wall: level 1 covers a band `band_cells` base-cells
+/// thick, level 2 the inner half of it, and so on. `band_cells = 1.0` (the
+/// pipeline default) refines roughly the leaves that touch the surface, which
+/// reproduces [`refine_near_boundary`]'s shell on grid-aligned geometry;
+/// `band_cells = 2.0` grades the transition out over two cells, which is gentler
+/// on cell-size jumps at the cost of more cells.
+///
+/// # Inputs and units
+///
+/// - `points` / `tris` — a **closed, watertight, outward-wound** triangle soup,
+///   vertex positions in metres.
+/// - `base_cell_size` — level-0 cell edge, in metres; must be `> 0`.
+/// - `max_level` — refinement depth. `0` is the uniform carve (identical to
+///   [`crate::carve::carve_box`] up to face ordering); practical values are
+///   `1`–`3` (each level halves the local edge, so level 3 is a 1/8 edge).
+/// - `band_cells` — dimensionless, `> 0`. Non-positive means "never refine".
+///
+/// Returns an empty mesh for a degenerate input (non-positive `base_cell_size`,
+/// fewer than four points, no triangles, or nothing carved).
+///
+/// # Cost
+///
+/// Each candidate leaf runs one exact point-to-surface distance over every
+/// triangle (`O(leaves x triangles)`), so this is materially slower per cell
+/// than the uniform carve — the payoff is far fewer cells for the same wall
+/// resolution. See the [`crate::pipeline`] tests for measured numbers.
+///
+/// # Examples
+///
+/// ```
+/// use outram_park_fork_cfmesh::{math::Vec3, shapes::box_surface,
+///     octree::refine_near_boundary_banded, carve::carve_box};
+///
+/// // A box [0,4]^3: refine the wall band one level at base size 1 m.
+/// let (p, t) = box_surface(Vec3::ZERO, Vec3::new(4.0, 4.0, 4.0));
+/// let graded = refine_near_boundary_banded(&p, &t, 1.0, 1, 1.0);
+///
+/// // Volume is exact and every cell (including the polyhedral transition
+/// // cells) is closed.
+/// assert!((graded.total_volume() - 64.0).abs() < 1e-9);
+/// assert!(graded.validate().is_ok());
+/// // Far fewer cells than carving the whole box at the refined size 0.5 m.
+/// assert!(graded.cell_count() < carve_box(&p, &t, 0.5).cell_count());
+/// ```
+pub fn refine_near_boundary_banded(
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    base_cell_size: f64,
+    max_level: u8,
+    band_cells: f64,
+) -> VolumeMesh {
+    refine_with(points, tris, base_cell_size, max_level, RefineCriterion::DistanceBand(band_cells))
+}
+
+/// Which leaves get refined. An enum, not a trait object / closure parameter,
+/// per the workspace design rules — the set of criteria is closed and known at
+/// compile time.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum RefineCriterion {
+    /// Refine a leaf iff a same-level face-neighbour cell centre lies *outside*
+    /// the surface — the one-cell-thick shell of leaves touching the wall.
+    TouchesWall,
+    /// Refine a leaf iff `distance(centre, surface) < band * leaf_edge`, with
+    /// the payload the dimensionless `band` in multiples of the leaf's edge.
+    DistanceBand(f64),
+}
+
+/// Shared driver for [`refine_near_boundary`] / [`refine_near_boundary_banded`]:
+/// carve the level-0 leaves, refine progressively by `criterion`, 2:1-balance,
+/// and assemble the conforming [`VolumeMesh`].
+fn refine_with(
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    base_cell_size: f64,
+    max_level: u8,
+    criterion: RefineCriterion,
+) -> VolumeMesh {
     if base_cell_size <= 0.0 || points.len() < 4 || tris.is_empty() {
         return empty();
     }
@@ -72,15 +230,15 @@ pub fn refine_near_boundary(points: &[Vec3], tris: &[[usize; 3]], base_cell_size
     let nz = (((hi.z - lo.z) / cs).ceil() as i64) + 2;
 
     // Cell centre at any level, and its inside test.
-    let cell_inside = |lvl: u8, i: i64, j: i64, k: i64| {
+    let cell_centre = |lvl: u8, i: i64, j: i64, k: i64| {
         let h = cs / (1u64 << lvl) as f64;
-        let c = Vec3::new(
+        Vec3::new(
             origin.x + h * (i as f64 + 0.5),
             origin.y + h * (j as f64 + 0.5),
             origin.z + h * (k as f64 + 0.5),
-        );
-        inside(c, points, tris)
+        )
     };
+    let cell_inside = |lvl: u8, i: i64, j: i64, k: i64| inside(cell_centre(lvl, i, j, k), points, tris);
 
     // Level-0 kept cells.
     let mut leaves: HashSet<Cell> = HashSet::new();
@@ -105,10 +263,26 @@ pub fn refine_near_boundary(points: &[Vec3], tris: &[[usize; 3]], base_cell_size
         D.iter().any(|(di, dj, dk)| !cell_inside(c.0, c.1 + di, c.2 + dj, c.3 + dk))
     };
 
+    // Does a leaf at `target - 1` qualify for splitting to level `target`?
+    let qualifies = |c: Cell| -> bool {
+        match criterion {
+            RefineCriterion::TouchesWall => is_boundary_leaf(c),
+            RefineCriterion::DistanceBand(band) => {
+                if band <= 0.0 {
+                    return false;
+                }
+                let edge = cs / (1u64 << c.0) as f64;
+                let centre = cell_centre(c.0, c.1, c.2, c.3);
+                let d = centre.sub(closest_point_on_surface(centre, points, tris)).length();
+                d < band * edge
+            }
+        }
+    };
+
     // Progressive near-surface refinement, one level at a time.
     for target in 1..=max_level {
         let to_refine: Vec<Cell> =
-            leaves.iter().filter(|c| c.0 == target - 1 && is_boundary_leaf(**c)).copied().collect();
+            leaves.iter().filter(|c| c.0 == target - 1 && qualifies(**c)).copied().collect();
         for c in to_refine {
             leaves.remove(&c);
             for child in children(c) {
@@ -183,26 +357,22 @@ fn empty() -> VolumeMesh {
     VolumeMesh { points: vec![], faces: vec![], owner: vec![], neighbour: vec![], n_cells: 0, patches: vec![] }
 }
 
-/// Build the [`VolumeMesh`] from a 2:1-balanced leaf set (neighbour levels
-/// differ by at most one).
+/// Build the conforming [`VolumeMesh`] from a 2:1-balanced leaf set (neighbour
+/// levels differ by at most one across faces).
+///
+/// Runs in two passes. **Pass 1** decides, for every (leaf, direction) pair,
+/// whether that side emits a face and, if so, records its four finest-lattice
+/// corners plus owner / neighbour. **Pass 2** runs the *edge-conformity* fix
+/// described in the module docs — every lattice point lying strictly inside a
+/// recorded face edge is inserted into that face's ring — and only then
+/// allocates point indices and orients the rings. Splitting the pass this way is
+/// what makes the hanging-node set knowable before any ring is finalised.
 fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8) -> VolumeMesh {
     let h_fine = base_cs / (1u32 << max_level) as f64; // finest cell edge
     let span = |level: u8| 1i64 << (max_level - level); // finest units per cell edge
 
-    // Compact cell ids and point ids (points keyed by finest integer coord).
+    // Compact cell ids.
     let cell_id: HashMap<Cell, usize> = leaves.iter().enumerate().map(|(n, &c)| (c, n)).collect();
-    let mut points: Vec<Vec3> = Vec::new();
-    let mut pt_id: HashMap<(i64, i64, i64), usize> = HashMap::new();
-    let mut pt_of = |fi: i64, fj: i64, fk: i64, points: &mut Vec<Vec3>| -> usize {
-        *pt_id.entry((fi, fj, fk)).or_insert_with(|| {
-            points.push(Vec3::new(
-                origin.x + h_fine * fi as f64,
-                origin.y + h_fine * fj as f64,
-                origin.z + h_fine * fk as f64,
-            ));
-            points.len() - 1
-        })
-    };
 
     // Cell centre (physical) and the 4 finest-coord corners of a face.
     let center = |c: Cell| {
@@ -264,11 +434,11 @@ fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8)
         }
     };
 
-    let mut int_faces: Vec<Vec<usize>> = Vec::new();
-    let mut int_owner: Vec<usize> = Vec::new();
-    let mut int_nb: Vec<usize> = Vec::new();
-    let mut bnd_faces: Vec<Vec<usize>> = Vec::new();
-    let mut bnd_owner: Vec<usize> = Vec::new();
+    // ---- Pass 1: which sides emit a face, and with what corners/owner/nb ----
+    // (corners in finest lattice coords, owner cell id, neighbour cell id, owner
+    // centre — the centre is kept so pass 2 can orient the ring outward.)
+    let mut raw_int: Vec<([(i64, i64, i64); 4], usize, usize, Vec3)> = Vec::new();
+    let mut raw_bnd: Vec<([(i64, i64, i64); 4], usize, Vec3)> = Vec::new();
 
     const DIRS: [(usize, i64); 6] = [(0, 1), (0, -1), (1, 1), (1, -1), (2, 1), (2, -1)];
     for (&c, &cid) in &cell_id {
@@ -283,27 +453,61 @@ fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8)
             // 2. Same-level neighbour: emit once, from the positive-direction side.
             if let Some(&nid) = cell_id.get(&nc) {
                 if sign > 0 {
-                    let ring = ring_from(face_corners(c, axis, sign), &mut pt_of, &mut points);
-                    int_faces.push(orient_ring(ring, oc, &points));
-                    int_owner.push(cid);
-                    int_nb.push(nid);
+                    raw_int.push((face_corners(c, axis, sign), cid, nid, oc));
                 }
                 continue;
             }
             // 3. Coarser neighbour: this (finer) cell owns the split sub-face.
             if let Some(coarse) = coarser_leaf(nc, leaves) {
-                let nid = cell_id[&coarse];
-                let ring = ring_from(face_corners(c, axis, sign), &mut pt_of, &mut points);
-                int_faces.push(orient_ring(ring, oc, &points));
-                int_owner.push(cid);
-                int_nb.push(nid);
+                raw_int.push((face_corners(c, axis, sign), cid, cell_id[&coarse], oc));
                 continue;
             }
             // 4. No kept neighbour: boundary face.
-            let ring = ring_from(face_corners(c, axis, sign), &mut pt_of, &mut points);
-            bnd_faces.push(orient_ring(ring, oc, &points));
-            bnd_owner.push(cid);
+            raw_bnd.push((face_corners(c, axis, sign), cid, oc));
         }
+    }
+
+    // ---- Pass 2: edge conformity, then point allocation and orientation ----
+    // Every lattice point that any emitted face uses as a *corner* is a
+    // candidate hanging node for every other face whose edge passes through it.
+    let mut used: HashSet<(i64, i64, i64)> = HashSet::new();
+    for (corners, _, _, _) in &raw_int {
+        used.extend(corners.iter().copied());
+    }
+    for (corners, _, _) in &raw_bnd {
+        used.extend(corners.iter().copied());
+    }
+
+    let mut points: Vec<Vec3> = Vec::new();
+    let mut pt_id: HashMap<(i64, i64, i64), usize> = HashMap::new();
+    let mut pt_of = |coord: (i64, i64, i64), points: &mut Vec<Vec3>| -> usize {
+        *pt_id.entry(coord).or_insert_with(|| {
+            points.push(Vec3::new(
+                origin.x + h_fine * coord.0 as f64,
+                origin.y + h_fine * coord.1 as f64,
+                origin.z + h_fine * coord.2 as f64,
+            ));
+            points.len() - 1
+        })
+    };
+
+    let mut int_faces: Vec<Vec<usize>> = Vec::new();
+    let mut int_owner: Vec<usize> = Vec::new();
+    let mut int_nb: Vec<usize> = Vec::new();
+    for (corners, cid, nid, oc) in &raw_int {
+        let ring: Vec<usize> =
+            conforming_ring(*corners, &used).into_iter().map(|c| pt_of(c, &mut points)).collect();
+        int_faces.push(orient_ring(ring, *oc, &points));
+        int_owner.push(*cid);
+        int_nb.push(*nid);
+    }
+    let mut bnd_faces: Vec<Vec<usize>> = Vec::new();
+    let mut bnd_owner: Vec<usize> = Vec::new();
+    for (corners, cid, oc) in &raw_bnd {
+        let ring: Vec<usize> =
+            conforming_ring(*corners, &used).into_iter().map(|c| pt_of(c, &mut points)).collect();
+        bnd_faces.push(orient_ring(ring, *oc, &points));
+        bnd_owner.push(*cid);
     }
 
     let n_internal = int_faces.len();
@@ -318,13 +522,39 @@ fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8)
     VolumeMesh { points, faces, owner, neighbour, n_cells: leaves.len(), patches }
 }
 
-/// Resolve a face's finest-coord corners to compacted point indices.
-fn ring_from(
-    corners: [(i64, i64, i64); 4],
-    pt_of: &mut impl FnMut(i64, i64, i64, &mut Vec<Vec3>) -> usize,
-    points: &mut Vec<Vec3>,
-) -> Vec<usize> {
-    corners.iter().map(|&(i, j, k)| pt_of(i, j, k, points)).collect()
+/// The **edge-conforming** ring of an axis-aligned quad: its four corners with
+/// every lattice point of `used` that lies strictly inside one of its edges
+/// spliced in, in edge order.
+///
+/// The quad's edges are axis-aligned and its corners are finest-lattice integer
+/// coordinates, so the interior lattice points of an edge are just the integer
+/// steps between its two endpoints along the one axis they differ in. Inserting
+/// them is geometrically a **no-op** — the inserted points are exactly collinear
+/// with the edge, so the ring's Newell area vector and its centroid are
+/// unchanged — but it makes every edge of the cell lie in exactly two of that
+/// cell's faces, which is what [`crate::tet::tetrahedralize`] needs to produce a
+/// watertight tet mesh (see the module docs).
+fn conforming_ring(corners: [(i64, i64, i64); 4], used: &HashSet<(i64, i64, i64)>) -> Vec<(i64, i64, i64)> {
+    let mut ring: Vec<(i64, i64, i64)> = Vec::with_capacity(8);
+    for i in 0..4 {
+        let a = corners[i];
+        let b = corners[(i + 1) % 4];
+        ring.push(a);
+        let d = [b.0 - a.0, b.1 - a.1, b.2 - a.2];
+        // Exactly one component differs on an axis-aligned quad edge.
+        let Some(axis) = (0..3).find(|&ax| d[ax] != 0) else { continue };
+        let step = if d[axis] > 0 { 1 } else { -1 };
+        let n = d[axis].abs();
+        for s in 1..n {
+            let mut p = [a.0, a.1, a.2];
+            p[axis] += step * s;
+            let q = (p[0], p[1], p[2]);
+            if used.contains(&q) {
+                ring.push(q);
+            }
+        }
+    }
+    ring
 }
 
 /// Point-in-closed-surface test by ray parity (Möller–Trumbore).
@@ -431,6 +661,122 @@ mod tests {
         assert!(two.cell_count() > one.cell_count(), "deeper refine has more cells");
         let fpc = faces_per_cell(&two);
         assert!(fpc.iter().any(|&n| n > 6), "polyhedral transition cells present");
+    }
+
+    /// V&V — **edge conformity**: after the hanging-node insertion pass, every
+    /// edge of every cell lies in exactly **two** of that cell's faces.
+    ///
+    /// # Methodology
+    ///
+    /// This is the invariant [`crate::tet::tetrahedralize`] depends on — its
+    /// centroid subdivision emits an interior triangle per (face, edge) pair, and
+    /// those triangles only find partners if each edge is in two faces of the
+    /// cell. Refine a box `[0,4]^3` at base size 1 m to one level, invert the
+    /// mesh to per-cell face rings ([`crate::volume_mesh::cells_faces`]), and
+    /// count how many of each cell's faces contain each undirected edge. Pass
+    /// criterion: the count is 2 for every (cell, edge). Additionally, the
+    /// downstream consequence is checked directly: the tetrahedralization of the
+    /// refined mesh must conserve the exact volume (a mismatched interior
+    /// triangle becomes a spurious boundary face, which corrupts the
+    /// divergence-theorem volume) and stay closed.
+    ///
+    /// # Results (measured 2026-08-07)
+    ///
+    /// Every (cell, edge) pair has exactly 2 incident faces. The tet mesh of the
+    /// refined box has total volume 64.0 m^3 (`|dV| < 1e-6`) and `validate()`
+    /// Ok. Before the conformity pass this failed: coarse transition cells had
+    /// edges in only one face, and the tet mesh's volume was wrong.
+    #[test]
+    fn refined_cells_are_edge_manifold_and_tetrahedralize_watertight() {
+        use crate::tet::tetrahedralize;
+        use crate::volume_mesh::cells_faces;
+
+        let (p, t) = box_surface(Vec3::ZERO, Vec3::new(4.0, 4.0, 4.0));
+        let m = refine_near_boundary(&p, &t, 1.0, 1);
+
+        for (cid, cell) in cells_faces(&m).iter().enumerate() {
+            let mut per_edge: HashMap<(usize, usize), usize> = HashMap::new();
+            for ring in cell {
+                let k = ring.len();
+                for i in 0..k {
+                    let (a, b) = (ring[i], ring[(i + 1) % k]);
+                    let e = if a < b { (a, b) } else { (b, a) };
+                    *per_edge.entry(e).or_insert(0) += 1;
+                }
+            }
+            for (e, n) in per_edge {
+                assert_eq!(n, 2, "cell {cid} edge {e:?} lies in {n} faces, expected 2");
+            }
+        }
+
+        let tets = tetrahedralize(&m);
+        assert!(
+            (tets.total_volume() - 64.0).abs() < 1e-6,
+            "tet mesh of the refined box is watertight: {}",
+            tets.total_volume()
+        );
+        tets.validate().expect("tet mesh of the refined box is closed");
+    }
+
+    /// V&V — the **distance-band** criterion ([`refine_near_boundary_banded`]).
+    ///
+    /// # Methodology
+    ///
+    /// Box `[0,4]^3` at base size 1 m. (a) With `band_cells = 1.0` and one level,
+    /// the band criterion must reproduce the touching-shell criterion of
+    /// [`refine_near_boundary`] exactly — a level-0 cell of edge 1 m is within
+    /// 1 m of the surface iff it touches it on this grid-aligned geometry — so
+    /// the same 456 cells. (b) A non-positive band refines nothing, giving the
+    /// uniform 64-cell carve. (c) A wider band (`2.0`) refines strictly more.
+    /// All variants must conserve the exact 64 m^3 and stay closed.
+    ///
+    /// # Results (measured 2026-08-07)
+    ///
+    /// (a) 456 cells, identical to `refine_near_boundary`; (b) 64 cells;
+    /// (c) 512 cells (the whole box is within 2 m of its surface, so every cell
+    /// splits — 64 x 8). Volume 64.0 m^3 exactly and `validate()` Ok in all three.
+    #[test]
+    fn distance_band_criterion_matches_and_scales() {
+        let (p, t) = box_surface(Vec3::ZERO, Vec3::new(4.0, 4.0, 4.0));
+
+        let shell = refine_near_boundary(&p, &t, 1.0, 1);
+        let band1 = refine_near_boundary_banded(&p, &t, 1.0, 1, 1.0);
+        assert_eq!(band1.cell_count(), shell.cell_count(), "band 1.0 == touching shell on a box");
+        assert_eq!(band1.cell_count(), 456);
+
+        let none = refine_near_boundary_banded(&p, &t, 1.0, 1, 0.0);
+        assert_eq!(none.cell_count(), 64, "a non-positive band refines nothing");
+
+        let band2 = refine_near_boundary_banded(&p, &t, 1.0, 1, 2.0);
+        assert!(band2.cell_count() > band1.cell_count(), "a wider band refines more: {} > {}", band2.cell_count(), band1.cell_count());
+
+        for (label, m) in [("band1", &band1), ("none", &none), ("band2", &band2)] {
+            assert!((m.total_volume() - 64.0).abs() < 1e-9, "{label} volume {}", m.total_volume());
+            m.validate().unwrap_or_else(|e| panic!("{label} not closed: {e}"));
+        }
+    }
+
+    /// V&V — grading is cheaper than uniform refinement for the same wall
+    /// resolution. Methodology: box `[0,4]^3`; compare the graded mesh (base 1 m,
+    /// one level, so 0.5 m at the wall) against the uniform carve at 0.5 m, which
+    /// resolves the wall identically. Pass criterion: strictly fewer cells, same
+    /// exact volume. Measured 2026-08-07: 456 graded cells versus 512 uniform —
+    /// a modest 1.12x here because a 4 m box at 1 m cells has only a 2^3 = 8-cell
+    /// interior to leave coarse. The saving grows with the body-to-cell ratio;
+    /// see [`crate::pipeline`] for the sphere measurements.
+    #[test]
+    fn grading_costs_fewer_cells_than_uniform_at_the_same_wall_size() {
+        use crate::carve::carve_box;
+        let (p, t) = box_surface(Vec3::ZERO, Vec3::new(4.0, 4.0, 4.0));
+        let graded = refine_near_boundary_banded(&p, &t, 1.0, 1, 1.0);
+        let uniform = carve_box(&p, &t, 0.5);
+        assert!(
+            graded.cell_count() < uniform.cell_count(),
+            "graded {} < uniform {}",
+            graded.cell_count(),
+            uniform.cell_count()
+        );
+        assert!((graded.total_volume() - uniform.total_volume()).abs() < 1e-9);
     }
 
     /// V&V — refinement really did happen near the wall: the refined mesh has

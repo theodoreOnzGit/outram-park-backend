@@ -19,14 +19,33 @@ layers.
 
 ## Why this crate exists
 
-The workspace already had the mesh **representation** and finite-volume
-addressing (`outram-foam-basic-lib`'s `FvMesh` / `PolyMesh`, with
-`read`/`write`/`to_fv_mesh`) and the surface-**authoring** frontend
-(`outram-blender`) — but no unstructured mesh **generation** anywhere (no
-blockMesh, snappyHexMesh, tet/Delaunay, polyhedral dual, or boundary layers).
-Open-source, pure-Rust, GPLv3-clean tooling for this is genuinely lacking, so
-this crate **ports the proven cfMesh workflows** instead of reinventing them
-(and deliberately avoids the AGPL-licensed TetGen).
+The workspace has the mesh **representation** and finite-volume addressing
+(`outram-foam-basic-lib`'s `FvMesh` / `PolyMesh`, with `read`/`write`/
+`to_fv_mesh`) and the surface-**authoring** frontend (`outram-blender`). This
+crate supplies the **cfMesh-lineage** automatic unstructured generator between
+them: `outram-blender` surface → one call → solvable polyhedral volume mesh with
+prism wall layers. Open-source, pure-Rust, GPLv3-clean tooling for that is
+genuinely lacking, so this crate **ports the proven cfMesh workflows** instead of
+reinventing them (and deliberately avoids the AGPL-licensed TetGen).
+
+### Relationship to `outram-foam-mesh` (they overlap — read this)
+
+`outram-foam-mesh` is a **separate, earlier** crate (added 2026-07-17; this one
+2026-07-24) that ports the **OpenFOAM-lineage** mesh utilities: `blockMesh`,
+`ideasUnvToFoam`, `snappyHexMesh` castellation, the cell-centre `polyDualMesh`,
+and `checkMesh`-style `mesh_quality`. The two crates genuinely overlap — both
+turn a surface into a volume mesh, both build a dual, both insert layers — so
+pick deliberately:
+
+| | `outram-foam-mesh` | `outram-park-fork-cfmesh` (this crate) |
+|---|---|---|
+| Lineage | OpenFOAM utilities | cfMesh (+ voro++ reference) |
+| Dual | **cell-centre** (`polyDualMesh`: dual vertices at primal cell centroids) | **median / vertex-centred** (Donald) |
+| Entry point | per-utility functions mirroring the OpenFOAM binaries | one composed `pipeline::surface_to_tet_dual_mesh` call |
+| Input | OpenFOAM dictionaries / UNV / STL-style surfaces | an `outram-blender` surface triangle soup |
+
+**The two duals are different algorithms and their V&V results are not
+interchangeable** — see "Honest scope" below.
 
 ## Goal
 
@@ -48,9 +67,24 @@ record and the exact clone commands):
 | **cfMesh** | <https://github.com/wyldckat/cfMesh> | **GPL-3.0-only** | Primary port target — `meshLibrary/{cartesianMesh, tetMesh, utilities}` (Cartesian/tet meshing, surface tools, boundary layers) |
 | **voro++** | <https://github.com/chr1shr/voro> | modified-BSD (LBNL), GPLv3-compatible | Voronoi / polyhedral-dual (`polyDualMesh`-style) reference |
 
-Ported files carry the upstream provenance header block (project, source file,
-commit, copyright, licence) per the workspace provenance rule; algorithms are
-re-implemented in Rust, not transcribed verbatim from C++.
+**Every `src/*.rs` file carries an SPDX identifier and a provenance header
+block.** Because this crate re-implements published *algorithms* rather than
+transcribing C++, that block names the upstream project, the source directory or
+file the construction follows, the copyright holder and the licence — rather
+than a per-file upstream commit, which would imply a line-level correspondence
+that does not exist. Files that are original OUTRAM PARK work with no upstream
+ancestor (`math`, `shapes`, `reactor`, `pipeline`, `patches`) say so explicitly
+in the same block.
+
+Non-cfMesh algorithmic sources are credited where they are used, with the
+literature citation rather than an implied code lineage — notably
+**Shewchuk's `orient3d` / `insphere` predicates** in `delaunay` (J. R. Shewchuk,
+*Adaptive Precision Floating-Point Arithmetic and Fast Robust Geometric
+Predicates*, Discrete & Computational Geometry 18(3):305-363, 1997). Note that
+only the determinant *formulations* are taken from that work: the adaptive
+exact-arithmetic expansions that make Shewchuk's `predicates.c` robust are **not**
+implemented here, so these are plain `f64` evaluations and are not a substitute
+for the real predicates on degenerate input.
 
 ## Licensing & provenance
 
@@ -89,15 +123,46 @@ verified end-to-end (foam's own geometry engine agrees on the volume).
 **Milestone 4 — the meshing kernel (landed).** The stages that turn a carved,
 snapped background mesh into a solvable polyhedral-with-layers mesh are all
 implemented and verified (exact/near-analytic volume, closed cells, no inverted
-cells): `octree::refine_near_boundary` (graded near-wall refinement),
+cells): `octree::refine_near_boundary` / `octree::refine_near_boundary_banded`
+(graded near-wall refinement, by touching-shell or distance-band criterion; the
+assembler splices hanging nodes into coarse face rings so every edge lies in
+exactly two faces of its cell, which is what keeps `tetrahedralize` watertight on
+a graded mesh),
 `tet::tetrahedralize` (centroid subdivision to an all-tet mesh),
 `delaunay::flip_to_delaunay` (bistellar 2→3 / 3→2 flips with Shewchuk
 predicates, improve-or-noop), `dual::polyhedral_dual` /
-`dual::polyhedral_dual_min_faces` (`polyDualMesh`-style median dual, robust
+`dual::polyhedral_dual_min_faces` (median dual, robust
 quad-fan or face-minimal), `smooth::laplacian_smooth` (smart-Laplacian quality
 smoothing), and `layers::add_boundary_layers` / `add_boundary_layers_adaptive`
 (graded prism wall layers — flat walls, and curved/polyhedral walls with
 per-point thickness limiting).
+
+### Honest scope: what "verified" covers, and what is unmeasured
+
+"Verified" above means **topological and volumetric** verification —
+positive-volume cells, closed cells, exact volume conservation, boundary area
+matching the input surface, expected cell/face counts. It does **not** mean the
+cells are well *shaped*. Two specific gaps to know before citing this crate:
+
+- **The dual is the *median* (Donald / vertex-centred) dual** — dual corners at
+  edge midpoints and face/cell centroids. It is **not** the circumcentre Voronoi
+  dual, and it is **not the same algorithm** as `outram-foam-mesh`'s
+  `poly_dual_mesh`, which is the *cell-centre* dual (dual vertices at primal
+  cell centroids, one dual face per primal edge). Consequently
+  `outram-foam-mesh`'s measured result — *"dualisation does not create
+  non-orthogonality; the dual of a uniform hex block measures exactly 0° and 0
+  skewness"* — is a statement about **that** algorithm and **must not be
+  transferred to this one**. No test in `dual` calls `checks::check_quality`, so
+  this dual's orthogonality and skewness are **unmeasured**.
+- **The tet primal's quality is unmeasured**, and is the *suspected* dominant
+  source of the non-orthogonality reported downstream. `tet::tetrahedralize` is
+  centroid subdivision; its two tests assert only tet count, positive volume,
+  boundary area and exact volume — no shape metric. `delaunay`'s module docs
+  already record the defect qualitatively (the subdivision "produces a valid,
+  space-filling tet mesh, but not a *Delaunay* one — some interior faces fail the
+  empty-circumsphere test, which is what leaves slivers"). Attributing the
+  pipeline's 71–87° non-orthogonality to this stage is a **hypothesis**: nothing
+  measures quality per stage yet, so do not cite the slivers as a proven cause.
 
 ### High-level pipeline (the recommended entry point)
 
@@ -125,6 +190,68 @@ place of hand-wiring the individual stages) to author a surface and generate a
 polyhedral-with-layers volume mesh; the `box_tet_dual` / `sphere_tet_dual` /
 `cylinder_tet_dual` wrappers mesh the built-in primitives directly.
 
+#### Octree grading (opt-in): the same wall resolution for far fewer cells
+
+Stage 1 can be **octree-graded** instead of uniform, via
+`TetDualOptions::refinement_levels` (default `0` = the uniform carve, byte-for-byte
+the original behaviour) and `refinement_band`. The interior stays at `cell_size`
+and only the near-wall band is refined, so a given wall resolution costs far fewer
+cells. Measured on a radius-3 m sphere (24 × 48 UV, analytic volume 113.0973 m³),
+no boundary layers, everything else identical:
+
+| stage-1 mesher | cells | volume (m³) | volume error | max non-orth (deg) | max skewness | run by a test? |
+|---|---|---|---|---|---|---|
+| uniform 0.60 m | 3271 | 110.6614 | 2.154 % | 71.71 | 0.267 | no — doc-recorded only |
+| uniform 0.50 m | 5269 | 111.1537 | 1.719 % | 72.46 | 0.248 | **yes** — baseline arm |
+| uniform 0.40 m | 42216 | 111.3923 | 1.508 % | 85.14 | 0.924 | no — doc-recorded only |
+| uniform 0.30 m | 101376 | 111.8890 | 1.068 % | 85.38 | 2.435 | no — doc-recorded only |
+| graded 1.20 m, 1 level | 3263 | 110.8886 | 1.953 % | 86.78 | 0.507 | no — doc-recorded only |
+| graded 1.00 m, 1 level | 1381 | 111.2254 | 1.655 % | 83.80 | 0.227 | **yes** — graded arm |
+| graded 0.80 m, 1 level | 1890 | 111.3568 | 1.539 % | 84.22 | 0.260 | no — doc-recorded only |
+| graded 0.60 m, 1 level | 3921 | 111.8931 | 1.065 % | 85.58 | 0.300 | no — doc-recorded only |
+
+**Only two of the eight rows are run by a test** (`pipeline`'s
+`octree_grading_beats_the_uniform_carve_on_cells_per_accuracy`); the other six
+were measured by hand on 2026-08-07 and are recorded as evidence, not as a gate.
+Even for the two gated rows the assertions are **relative**, not value-for-value:
+both meshes closed with no inverted cells, graded volume error ≤ uniform, graded
+cell count × 2 < uniform, and `max non-orth < 90°` — a degeneracy floor that
+would pass at 89.9°, so it does not pin the tabulated 72.46 / 83.80. **No
+skewness figure is asserted anywhere**, so that whole column — including the
+2.435 outlier — is doc-recorded only.
+
+The graded family dominates the uniform family on the cells-versus-accuracy
+curve: **1381 cells at 1.66 % against 5269 at 1.72 %**, and at the fine end
+**3921 cells at 1.065 % against 101376 at 1.068 % — 25.9× fewer cells for the
+same accuracy**, with far better skewness. That second, headline pair rests on
+**two doc-recorded rows** (the uniform 0.30 m run costs ~13 s), so it is the
+weaker of the two claims. Caveat: the two families degrade through *different*
+stages on this geometry (the graded runs skip tetrahedralization, the fine
+uniform runs skip the dual), so the outputs are both valid closed meshes but not
+the same cell type — which also means the non-orthogonality and skewness columns
+are not comparing like with like down the table. This is **verification** —
+volume against the analytic sphere — **not** validation against a solve. See
+`pipeline`'s test for the full methodology.
+
+#### Named boundary patches (`inlet` / `outlet` / `walls`)
+
+`pipeline::surface_to_tet_dual_mesh_multipatch(points, tris, &regions, &opts)`
+carries an input surface's **named regions** (`patches::SurfaceRegions`) through
+to the output mesh's boundary patches, so a solver `0/` boundary-condition
+directory can actually be written against the result. Every stage after the carve
+rebuilds the mesh through `from_cell_faces` (which matches faces by vertex set
+and cannot preserve a tag) and the layer stage *creates* boundary faces, so the
+assignment is instead recovered **geometrically at the end** by
+`patches::assign_patches_by_region` — each boundary face takes the region of the
+nearest input triangle, as snappyHexMesh does. Verified through the full pipeline
+including prism layers: contiguous patches with correct counts and start offsets,
+and geometrically correct membership. The single-patch
+`surface_to_tet_dual_mesh` is unchanged.
+
+Known limitation: because classification runs last, prism layers are grown over
+the **whole** boundary, `inlet`/`outlet` included — snappyHexMesh's per-patch
+`nSurfaceLayers` selection is future work.
+
 Remaining roadmap (beads under the `op-hzs` epic):
 
 1. `op-hzs.40` — **core `VolumeMesh` + Cartesian block mesher** ✅ (milestone 1)
@@ -134,8 +261,17 @@ Remaining roadmap (beads under the `op-hzs` epic):
 5. octree refinement near the surface (graded cell sizing) ✅
 6. `op-hzs.33` — **polyhedral dual** (`polyDualMesh`-style, voro++ reference) ✅
 7. `op-hzs.34` — **wall boundary / prism layers** ✅
-8. exact/adaptive predicates + size-driven point insertion (rest of `op-38z`);
-   multi-patch / feature-aware layer insertion
+8. octree grading wired into the high-level pipeline (`refinement_levels`) ✅
+9. named boundary patches carried through to the output polyMesh
+   (`surface_to_tet_dual_mesh_multipatch`) ✅
+10. exact/adaptive predicates + size-driven point insertion (rest of `op-38z`)
+11. **patch-selective** layer insertion (layers currently grow over the whole
+    boundary, because patch classification runs last) and feature-aware layers
+12. make the adaptive layerer work on graded near-wall meshes — it currently
+    backs off to zero thickness there, which the pipeline now *reports* in
+    `TetDualReport::stage_notes` rather than failing silently
+13. feature-edge-aware snapping, so patch seams follow surface feature edges
+    rather than mesh face edges
 
 ## Design rules (workspace `CLAUDE.md`)
 

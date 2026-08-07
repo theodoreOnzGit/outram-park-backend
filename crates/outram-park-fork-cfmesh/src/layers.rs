@@ -1,3 +1,38 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Algorithm references (re-implemented in Rust, not transcribed):
+//
+//   [1] OpenFOAM snappyHexMesh `addLayers` — shrink the wall points inward by
+//       the total layer thickness and fill the vacated shell with a geometric
+//       stack of prisms.
+//       src/mesh/snappyHexMesh/snappyHexMeshDriver/snappyLayerDriver.C
+//       Copyright (C) 2011-2016 OpenFOAM Foundation
+//       Copyright (C) 2016-2023 OpenCFD Ltd. Licence: GPL-3.0-only.
+//
+//   [2] cfMesh boundary-layer generation — meshLibrary/utilities/boundaryLayers
+//       (`boundaryLayers`, `refineBoundaryLayers`).
+//       Copyright (C) 2014-2017 Creative Fields, Ltd. Licence: GPL-3.0-only.
+//
+//   [3] The smoothed-normal / thickness-limited advancing-layer variant follows
+//       the published advancing-layer idea (D. J. Mavriplis; the VMTK and
+//       Netgen implementations), from the literature, not from their code.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Prism **boundary layers** — insert graded near-wall inflation layers at a
 //! wall patch.
 //!

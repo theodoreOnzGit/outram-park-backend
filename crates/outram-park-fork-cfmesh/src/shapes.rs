@@ -1,3 +1,27 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Provenance: original OUTRAM PARK code. Not derived from any upstream project
+// — elementary parametric triangulations (axis-aligned box, UV sphere, capped
+// Z-cylinder) plus the divergence-theorem enclosed-volume formula, all standard
+// textbook constructions written from scratch so the crate can generate its own
+// test and reactor geometry with no dependency on a surface-authoring crate.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Closed **triangle-soup surface generators** for test and reactor geometry.
 //!
 //! The carver ([`crate::carve`]) takes a triangle soup (`points` + `tris`); this

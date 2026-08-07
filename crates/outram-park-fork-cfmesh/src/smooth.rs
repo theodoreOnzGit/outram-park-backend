@@ -1,3 +1,34 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Algorithm references (re-implemented in Rust, not transcribed):
+//
+//   [1] "Smart" Laplacian smoothing — accept a vertex move only if it does not
+//       degrade (here: does not invert) any incident cell.
+//       Lori A. Freitag, "On combining Laplacian and optimization-based mesh
+//       smoothing techniques", AMD-Vol. 220, Trends in Unstructured Mesh
+//       Generation, ASME, 1997, pp. 37-43. Published method, no code reused.
+//
+//   [2] cfMesh — https://github.com/wyldckat/cfMesh
+//       meshLibrary/utilities/smoothers/geometry (`meshOptimizer`), the
+//       equivalent stage in the cfMesh workflow.
+//       Copyright (C) 2014-2017 Creative Fields, Ltd. Licence: GPL-3.0-only.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Mesh-quality **smoothing** — smart Laplacian relaxation of interior vertices.
 //!
 //! This is the first, robust increment of the tet-quality-refinement roadmap

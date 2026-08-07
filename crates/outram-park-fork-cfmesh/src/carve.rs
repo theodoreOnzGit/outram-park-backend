@@ -1,3 +1,35 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Algorithm references (re-implemented in Rust, not transcribed):
+//
+//   [1] cfMesh — https://github.com/wyldckat/cfMesh
+//       meshLibrary/cartesianMesh (castellated Cartesian carve of a background
+//       grid against a closed surface).
+//       Copyright (C) 2014-2017 Creative Fields, Ltd. Licence: GPL-3.0-only.
+//       The same construction is OpenFOAM snappyHexMesh's castellation phase:
+//       Copyright (C) 2011-2016 OpenFOAM Foundation, GPL-3.0-only.
+//
+//   [2] Moeller-Trumbore ray/triangle intersection (the inside test).
+//       T. Moeller and B. Trumbore, "Fast, Minimum Storage Ray-Triangle
+//       Intersection", Journal of Graphics Tools 2(1):21-28, 1997.
+//       Published algorithm, implemented from the paper; no code reused.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Castellated Cartesian **carve** — body-fit a closed surface (or a region
 //! between surfaces) into a volume mesh by keeping the background-grid cells
 //! that lie inside it.

@@ -1,3 +1,31 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Algorithm reference (re-implemented in Rust, not transcribed):
+//   cfMesh — https://github.com/wyldckat/cfMesh
+//   meshLibrary/utilities/checkMeshDict, polyMeshGenChecks (non-orthogonality,
+//   skewness, aspect ratio, negative-volume detection).
+//   Copyright (C) 2014-2017 Creative Fields, Ltd. Licence: GPL-3.0-only.
+//   The metric definitions and the pyramid decomposition follow OpenFOAM
+//   `primitiveMeshCheck` / `checkMesh`:
+//   Copyright (C) 2011-2016 OpenFOAM Foundation
+//   Copyright (C) 2016-2023 OpenCFD Ltd. Licence: GPL-3.0-only.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Mesh **quality checks** — the Rust analogue of cfMesh's `polyMeshGenChecks`.
 //!
 //! A generated volume mesh must be *checked* before it is handed to a solver:

@@ -1,3 +1,35 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Algorithm references (re-implemented in Rust, not transcribed):
+//
+//   [1] cfMesh — https://github.com/wyldckat/cfMesh
+//       meshLibrary/cartesianMesh + meshLibrary/utilities/surfaceTools (the
+//       snap phase: project the castellated boundary onto the input surface).
+//       Copyright (C) 2014-2017 Creative Fields, Ltd. Licence: GPL-3.0-only.
+//       Same phase in OpenFOAM snappyHexMesh (`snappySnapDriver`):
+//       Copyright (C) 2011-2016 OpenFOAM Foundation, GPL-3.0-only.
+//
+//   [2] Closest point on a triangle (vertex / edge / face Voronoi regions).
+//       Christer Ericson, "Real-Time Collision Detection", Morgan Kaufmann,
+//       2005, section 5.1.5. Implemented from the book's description of the
+//       method; the book's sample code is not reproduced here.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Boundary **snapping** — pull the carved staircase boundary onto the surface.
 //!
 //! [`crate::carve::carve_box`] produces a voxelised *staircase* boundary. This
@@ -75,7 +107,12 @@ pub fn snap_to_surface(mesh: &VolumeMesh, points: &[Vec3], tris: &[[usize; 3]]) 
 }
 
 /// Closest point on the whole surface (any triangle) to `p`.
-fn closest_point_on_surface(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> Vec3 {
+///
+/// Crate-internal: [`crate::octree`]'s distance-band refinement criterion and
+/// [`crate::patches`]'s nearest-region patch classification both need the same
+/// exact point-to-surface distance the snapper uses, and must agree with it.
+/// `O(triangles)` per query — brute force, no spatial index yet.
+pub(crate) fn closest_point_on_surface(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> Vec3 {
     let mut best = p;
     let mut best_d2 = f64::MAX;
     for t in tris {

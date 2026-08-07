@@ -1,3 +1,28 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Provenance: original OUTRAM PARK code. Not derived from any upstream project
+// — structured cubic sphere lattices and square pin lattices built directly on
+// this crate's own `shapes` generators. The *geometries* (pebble bed, LWR pin
+// bundle) are generic public reactor configurations from the open literature;
+// no proprietary, partner or facility-specific geometry data is used here (see
+// the workspace DATA_POLICY.md).
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Reactor geometry generators — structured packings of the shapes a reactor
 //! model is built from, ready to hand to [`crate::carve::carve_around`].
 //!

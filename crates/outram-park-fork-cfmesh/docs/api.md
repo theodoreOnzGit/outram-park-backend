@@ -2,7 +2,7 @@
 
 **Version:** 0.0.1
 
-**Format Version:** 61
+**Format Version:** 60
 
 # Module `outram_park_fork_cfmesh`
 
@@ -22,14 +22,29 @@ surface-authoring frontend and the OpenFOAM-style solvers.
 
 ## Why this crate exists
 
-The workspace already has the mesh **representation** and finite-volume
-addressing (`outram-foam-basic-lib`'s `FvMesh` / `io::poly_mesh::PolyMesh`,
-with `read`/`write`/`to_fv_mesh`), and the surface-**authoring** frontend
-(`outram-blender`). What was missing everywhere is unstructured mesh
-**generation** — turning a closed surface into a solvable *volume* mesh with
-polyhedral cells and near-wall boundary layers. Open-source, pure-Rust,
-GPLv3-clean tooling for this is genuinely lacking, so this crate ports the
-proven cfMesh workflows rather than reinventing them.
+The workspace has the mesh **representation** and finite-volume addressing
+(`outram-foam-basic-lib`'s `FvMesh` / `io::poly_mesh::PolyMesh`, with
+`read`/`write`/`to_fv_mesh`), and the surface-**authoring** frontend
+(`outram-blender`). This crate supplies the **cfMesh-lineage** automatic
+unstructured generator between them — turning a closed `outram-blender`
+surface into a solvable *volume* mesh with polyhedral cells and near-wall
+boundary layers in one call. Open-source, pure-Rust, GPLv3-clean tooling for
+that is genuinely lacking, so this crate ports the proven cfMesh workflows
+rather than reinventing them.
+
+## Relationship to `outram-foam-mesh` (they overlap)
+
+`outram-foam-mesh` is a **separate, earlier** crate porting the
+**OpenFOAM-lineage** utilities: `blockMesh`, `ideasUnvToFoam`,
+`snappyHexMesh` castellation, the **cell-centre** `polyDualMesh`, and
+`checkMesh`-style quality assessment. Both crates turn a surface into a
+volume mesh, both build a dual and both insert layers, so the overlap is
+real. The decisive differences: that crate mirrors the individual OpenFOAM
+binaries and builds the **cell-centre** dual, whereas this one exposes a
+single composed [`pipeline::surface_to_tet_dual_mesh`] over an
+`outram-blender` surface and builds the **median (vertex-centred)** dual.
+The two duals are different algorithms and **their V&V results are not
+interchangeable** — see the [`dual`] module docs.
 
 ## Goal
 
@@ -52,9 +67,27 @@ Both live under `upstream_source/` (gitignored, dev-only — see
 - **voro++** — <https://github.com/chr1shr/voro>, modified-BSD (LBNL),
   GPLv3-compatible. Reference for the Voronoi / polyhedral-dual construction.
 
-Ported files carry the upstream provenance header block (project, source
-file, commit, copyright, licence) per the workspace provenance rule; the
-algorithms are re-implemented in Rust, not transcribed verbatim from C++.
+## Provenance of the source files
+
+**Every `src/*.rs` file carries an SPDX identifier and a provenance header
+block.** Because this crate re-implements published *algorithms* rather than
+transcribing C++, the block names the upstream project, the source directory
+or file the construction follows, the copyright holder, and the licence —
+rather than a per-file upstream commit, which would imply a line-level
+correspondence that does not exist. Files that are original OUTRAM PARK work
+with no upstream ancestor ([`math`], [`shapes`], [`reactor`], [`pipeline`],
+[`patches`]) say so explicitly in the same block.
+
+Non-cfMesh algorithmic sources are credited where they are used, with the
+literature citation rather than an implied code lineage. In particular
+[`delaunay::orient3d`] / [`delaunay::insphere`] are **Shewchuk's
+predicates** (J. R. Shewchuk, *Adaptive Precision Floating-Point Arithmetic
+and Fast Robust Geometric Predicates*, Discrete & Computational Geometry
+18(3):305-363, 1997) — note that only the determinant *formulations* are
+taken: the adaptive exact-arithmetic expansions that make Shewchuk's
+`predicates.c` robust are **not** implemented here, so these are fast `f64`
+evaluations and are not a drop-in substitute for the real thing on
+degenerate input.
 
 ## Status
 
@@ -84,7 +117,14 @@ algorithms are re-implemented in Rust, not transcribed verbatim from C++.
   the mesh finer next to the surface, splitting each coarse transition
   face into its four fine sub-faces (hanging nodes) so the coarse cell
   becomes a genuine **polyhedron** — the mesh stays conforming (verified:
-  exact volume, closed cells, > 6-face transition cells).
+  exact volume, closed cells, > 6-face transition cells). Every emitted face
+  ring additionally has the hanging nodes on its edges spliced in, so each
+  edge lies in exactly two faces of every cell — the **edge-manifold**
+  property [`tet::tetrahedralize`] needs to stay watertight on a graded mesh
+  (verified). [`octree::refine_near_boundary_banded`] is the size-field
+  form used by the pipeline: refine where the cell centre is within a
+  distance band of the surface, the band measured in the cell's own edge
+  lengths.
 - **Prism boundary layers.** [`layers::add_boundary_layers`] inserts graded
   near-wall inflation layers at a wall patch (snappyHexMesh *addLayers* /
   cfMesh's boundary-layer step): the interior wall points move inward and
@@ -96,19 +136,31 @@ algorithms are re-implemented in Rust, not transcribed verbatim from C++.
   walls** (smoothed normals + per-point thickness limiting + validity
   back-off), verified valid + volume-conserving on snapped spheres/cylinders.
 - **Polyhedral dual.** [`dual::polyhedral_dual`] turns a primal mesh into a
-  **polyhedral** one — one cell per primal vertex — via the median
-  (vertex-centred) dual, the equivalent of OpenFOAM's `polyDualMesh`. The
-  dual tiles the same region (verified: exact volume, closed cells, every
-  internal face shared by exactly two cells, genuinely > 6-face cells).
-  Two variants: [`dual::polyhedral_dual`] (robust median, quad-fan faces)
-  and [`dual::polyhedral_dual_min_faces`] (**face-minimal** — one polygon
-  per primal edge via edge-star walking, ~40% fewer faces, verified to
-  conserve volume and stay closed).
+  **polyhedral** one — one cell per primal vertex — via the **median**
+  (Donald / vertex-centred) dual. It fills the same role as OpenFOAM's
+  `polyDualMesh` but is **not the same construction**: `polyDualMesh` (and
+  `outram-foam-mesh`'s `poly_dual_mesh`) is the *cell-centre* dual, whereas
+  this places dual corners at edge midpoints and face/cell centroids, and it
+  is not the circumcentre Voronoi dual either. The dual tiles the same
+  region (verified: exact volume, closed cells, every internal face shared
+  by exactly two cells, genuinely > 6-face cells). Two variants:
+  [`dual::polyhedral_dual`] (robust median, quad-fan faces) and
+  [`dual::polyhedral_dual_min_faces`] (**face-minimal** — one polygon per
+  primal edge via edge-star walking, ~40% fewer faces, verified to conserve
+  volume and stay closed). **Not verified:** no test in [`dual`] measures
+  non-orthogonality or skewness, so this dual's orthogonality is
+  **unmeasured** — and `outram-foam-mesh`'s "dualisation does not create
+  non-orthogonality" result belongs to its *cell-centre* dual and does not
+  carry over. See the [`dual`] module docs.
 - **Tetrahedralization.** [`tet::tetrahedralize`] splits every cell into
   tetrahedra by centroid subdivision (the all-tet foundation; not a
   from-scratch Delaunay mesher). It conserves volume and triangulates the
   boundary surface (verified: positive-volume tets, boundary area == input
-  surface, exact volume, every cell a 4-triangle tet).
+  surface, exact volume, every cell a 4-triangle tet). **Not verified:** no
+  test gates any *shape*-quality metric, so the tet primal's quality is
+  **unmeasured**; [`delaunay`] records qualitatively that the subdivision
+  leaves slivers, making this the *suspected* — not demonstrated — dominant
+  non-orthogonality source downstream. See the [`tet`] module docs.
 - **Quality smoothing.** [`smooth::laplacian_smooth`] relaxes interior
   vertices toward their neighbour centroid (smart Laplacian — never inverts a
   cell, pins the boundary), improving cell shape while conserving volume
@@ -133,9 +185,41 @@ algorithms are re-implemented in Rust, not transcribed verbatim from C++.
   [`pipeline::cylinder_tet_dual`] wrappers mesh the built-in primitives.
   Lengths in metres, layer thickness in metres, angles in degrees.
 
+  Stage 1 can be **octree-graded** rather than uniform via
+  [`pipeline::TetDualOptions::refinement_levels`] (default `0` = the uniform
+  carve, unchanged): the interior stays at `cell_size` and the near-wall band
+  is refined, so a given wall resolution costs far fewer cells. Measured on a
+  radius-3 m sphere: **1381 cells at 1.66 % volume error** graded, versus
+  **5269 cells at 1.72 %** for the uniform carve resolving the same 0.5 m
+  wall; the widest measured gap is 3921 vs 101376 cells at ~1.07 % error.
+  **Only that first pair is run by a test** — and even there the assertions
+  are relative (graded no less accurate, graded uses < half the cells, both
+  meshes closed and under 90 deg non-orthogonality), not the tabulated
+  numbers; the widest-gap pair and the whole skewness column are
+  **doc-recorded only**, measured by hand on 2026-08-07. See [`pipeline`]'s
+  tests for the full table, its per-row gating column, and its caveats.
+- **Named boundary patches (`inlet` / `outlet` / `walls`).**
+  [`pipeline::surface_to_tet_dual_mesh_multipatch`] carries an input
+  surface's named regions ([`patches::SurfaceRegions`]) through to the output
+  mesh's [`volume_mesh::BoundaryPatch`] list, so a solver `0/`
+  boundary-condition directory can be written against the result. The stages
+  in between rebuild the mesh through
+  [`volume_mesh::from_cell_faces`] and cannot preserve a tag, so the
+  assignment is recovered geometrically at the end by
+  [`patches::assign_patches_by_region`] — each boundary face takes the region
+  of the nearest input triangle, as snappyHexMesh does (verified: contiguous
+  patches with correct counts and start offsets, geometrically correct
+  membership, through the full pipeline including prism layers). The
+  single-patch [`pipeline::surface_to_tet_dual_mesh`] is unchanged.
+
 Next on the `op-hzs` roadmap: exact/adaptive predicates + size-driven point
 insertion (the rest of `op-38z`; gmsh — GPLv2+, GPLv3-compatible — is a
-licence-clean reference) and multi-patch / feature-aware layer insertion.
+licence-clean reference); **patch-selective** layer insertion (layers are
+currently grown over the whole boundary, inlet/outlet included, because patch
+classification runs last); feature-edge-aware snapping and patch seams; and
+making the adaptive layerer work on graded near-wall meshes, where it
+currently backs off to zero thickness (the pipeline now reports that in
+[`pipeline::TetDualReport::stage_notes`] instead of failing silently).
 
 ## Design rules (workspace `CLAUDE.md`)
 
@@ -488,14 +572,26 @@ strictly positive volume — the validity guard that guarantees the mesh stays
 a valid tiling (no inverted or overlapping tets). The driver sweeps until no
 improving flip remains or an iteration cap is hit.
 
-# Predicates
+# Predicates — attribution
 
 [`orient3d`] (signed volume) and [`insphere`] (in-circumsphere) are the two
-Shewchuk predicates, here in plain `f64` arithmetic — adequate for the
-well-conditioned meshes this crate generates. **Exact/adaptive predicates**
-(for robustness on near-degenerate inputs) are future work; near-degenerate
-configurations are simply left un-flipped rather than flipped wrongly, so the
-result is always a valid mesh.
+geometric predicates of **Jonathan Richard Shewchuk**, *Adaptive Precision
+Floating-Point Arithmetic and Fast Robust Geometric Predicates*, Discrete &
+Computational Geometry 18(3):305-363, 1997, and the accompanying
+`predicates.c` (Carnegie Mellon University,
+<https://www.cs.cmu.edu/~quake/robust.html>, released by the author into the
+public domain).
+
+**What is and is not taken from that work.** Only the *determinant
+formulations* are — the `(b-a)·((c-a)×(d-a))` orientation determinant and the
+lifted 4x4 in-sphere determinant. Shewchuk's actual contribution, the
+adaptive multi-stage exact-arithmetic expansions that make those determinants
+*robust*, is **not implemented here**: these are plain `f64` evaluations.
+They are therefore fast and adequate for the well-conditioned meshes this
+crate generates, but they are **not** a substitute for `predicates.c` and
+must not be described as robust predicates. Exact/adaptive arithmetic is
+future work; until then, near-degenerate configurations are simply left
+un-flipped rather than flipped wrongly, so the result is always a valid mesh.
 
 # Guarantees & scope
 
@@ -517,6 +613,18 @@ Signed volume × 6 of the tetrahedron `(a, b, c, d)`: `(b−a)·((c−a)×(d−a
 Strictly positive iff the tet is **positively oriented** (`d` on the
 positive side of the plane `a, b, c`).
 
+Units: cubic metres × 6, for inputs in metres. The sign is the meaningful
+output; the magnitude is only used here as a positive-volume test.
+
+**Attribution and accuracy.** This is Shewchuk's `orient3d` determinant
+(J. R. Shewchuk, *Adaptive Precision Floating-Point Arithmetic and Fast
+Robust Geometric Predicates*, Discrete & Computational Geometry
+18(3):305-363, 1997), evaluated in **plain `f64`** — *without* his adaptive
+exact-arithmetic expansions. Near-degenerate (nearly coplanar) input can
+therefore return the wrong sign. Callers in this crate treat a near-zero
+result as "do not flip", which keeps the mesh valid; do not rely on this
+function as a robust predicate. See the module docs.
+
 ```rust
 pub fn orient3d(a: crate::math::Vec3, b: crate::math::Vec3, c: crate::math::Vec3, d: crate::math::Vec3) -> f64 { /* ... */ }
 ```
@@ -526,7 +634,14 @@ pub fn orient3d(a: crate::math::Vec3, b: crate::math::Vec3, c: crate::math::Vec3
 In-sphere predicate. When `(a, b, c, d)` is **positively oriented**
 (`orient3d(a,b,c,d) > 0`), returns a value `> 0` iff `e` lies strictly
 **inside** the circumsphere of `a, b, c, d`, `< 0` if strictly outside, and
-`0` if cospherical. (Standard lifted 4×4 determinant.)
+`0` if cospherical. Positions in metres; only the sign is meaningful.
+
+**Attribution and accuracy.** This is Shewchuk's `insphere` — the standard
+lifted 4x4 determinant with rows `(p - e, |p - e|^2)` (same reference as
+[`orient3d`]) — evaluated in **plain `f64`**, *without* his adaptive
+exact-arithmetic expansions, so it can return the wrong sign on
+near-cospherical input. Callers treat a near-zero result as "not worth
+flipping". See the module docs.
 
 ```rust
 pub fn insphere(a: crate::math::Vec3, b: crate::math::Vec3, c: crate::math::Vec3, d: crate::math::Vec3, e: crate::math::Vec3) -> f64 { /* ... */ }
@@ -561,9 +676,11 @@ pub fn flip_to_delaunay(mesh: &crate::volume_mesh::VolumeMesh, max_flips: usize)
 
 ## Module `dual`
 
-The **polyhedral dual** mesh — one polyhedral cell per primal *vertex*, the
-equivalent of OpenFOAM's `polyDualMesh` (voro++ is the reference for the
-Voronoi/median-dual idea).
+The **polyhedral dual** mesh — one polyhedral cell per primal *vertex*. It
+fills the same *role* as OpenFOAM's `polyDualMesh` (voro++ is the reference
+for the Voronoi/median-dual idea), but it is **not the same construction** —
+see "What this dual is, and what it is not" below before transferring any
+result from a cell-centre dual to this one.
 
 A finite-volume solver is usually happier on a **polyhedral** mesh than on a
 hex/tet mesh of the same region: polyhedra pack more neighbours per cell
@@ -571,11 +688,51 @@ hex/tet mesh of the same region: polyhedra pack more neighbours per cell
 to get one is to take the *dual* of a primal mesh — turn every primal
 **vertex** into a cell.
 
-# The median dual (works on any primal mesh)
+# What this dual is, and what it is not
 
-This is the **median** (a.k.a. Donald / vertex-centred) dual, not the
-circumcentre Voronoi dual, so it is well-defined for *any* primal mesh — the
-carved hex mesh this crate produces, not only a Delaunay tetrahedralisation.
+This is the **median** (a.k.a. Donald / vertex-centred) dual. Stated
+plainly, because the distinction is routinely lost:
+
+- **It is not the circumcentre Voronoi dual.** Its dual-cell corners are
+  edge *midpoints* and face/cell *centroids*, never circumcentres. The
+  payoff is that it is well-defined for *any* primal mesh — the carved hex
+  mesh this crate produces, not only a Delaunay tetrahedralisation. The
+  price is that it inherits **none** of the Voronoi dual's orthogonality
+  properties: a median-dual face is not in general perpendicular to the
+  primal edge it separates.
+- **It is not the same algorithm as `outram-foam-mesh`'s
+  `poly_dual_mesh`.** That one is the **cell-centre** dual (dual vertices
+  placed at primal *cell centroids*, one dual face per primal *edge*) — a
+  genuinely different construction, on a different primal→dual entity map.
+  Its measured V&V result — "dualisation does not create
+  non-orthogonality; the dual of a uniform hex block measures exactly 0 deg
+  and 0 skewness" — is a statement about *that* algorithm and **must not be
+  transferred to this one**. Nothing in this module has been measured
+  against it.
+
+# Honest V&V scope (what the tests in this module actually gate)
+
+The four tests below assert exactly four properties, and no more:
+
+1. **closure** — `VolumeMesh::validate` passes (every cell is a closed
+   surface), plus the internal/boundary face split is consistent;
+2. **volume conservation** — `Σ dual-cell volumes == primal domain volume`
+   to `1e-9`;
+3. **boundary match** — the dual boundary area equals the primal surface
+   area to `1e-9`;
+4. **face count / polyhedrality** — one cell per primal vertex, interior
+   cells have more than 6 faces, and the face-minimal variant has strictly
+   fewer faces than the quad-fan one.
+
+**There is no orthogonality or skewness test for this crate's dual.** No
+test in this module calls [`crate::checks::check_quality`], so the
+non-orthogonality and skewness of a median dual produced here are
+**unmeasured** at the module level. The only numbers this crate records for
+them are the whole-pipeline sphere table in [`crate::pipeline`]'s tests,
+which measures the *composed* pipeline (carve → snap → tet → dual → smooth)
+and therefore cannot attribute a figure to the dual step alone. Treat any
+claim about this dual's orthogonality as unverified until such a test
+exists.
 
 Each primal cell is split into one **corner sub-cell** per vertex: the part
 of the cell nearest that vertex, bounded by
@@ -978,19 +1135,51 @@ Octree near-wall **refinement** — grade the mesh finer near the surface,
 keeping it conforming by splitting the coarse transition faces.
 
 [`crate::carve::carve_box`] produces a *uniform* grid. This module refines
-the cells adjacent to the boundary one level finer (cfMesh's octree
+the cells near the boundary one or more levels finer (cfMesh's octree
 `meshOctree` refinement, and snappyHexMesh's castellation refinement). Where
 a coarse cell meets four finer cells, the coarse cell's shared face is
 represented as the **four fine sub-faces** — the hanging-node treatment that
 keeps the mesh conforming and turns the coarse transition cell into a
 genuine **polyhedron** (more than six faces).
 
-# v1 scope
+# Two refinement criteria (enum-dispatched, no trait objects)
 
-A single level of refinement on the boundary-adjacent cells (interior stays
-coarse). One level is automatically 2:1-balanced (levels differ by at most
-one everywhere), so no balancing pass is needed yet; multi-level graded
-refinement with a balancing pass is the next step. Pure Rust, Android-safe.
+- [`refine_near_boundary`] — refine a leaf if a same-level face-neighbour
+  centre is *outside* the surface, i.e. the leaf touches the wall. This is
+  the original one-cell-thick shell criterion.
+- [`refine_near_boundary_banded`] — refine a leaf if its centre is within a
+  **distance band** of the surface, the band measured in multiples of that
+  leaf's own edge length. This is the criterion the high-level pipeline
+  ([`crate::pipeline::TetDualOptions::refinement_levels`]) drives, because a
+  band wider than one cell grades the transition out over several cells
+  instead of jamming it against the wall.
+
+# Edge conformity (hanging nodes inserted into coarse rings)
+
+Splitting only the *shared* face is enough for the coarse cell to stay
+**closed** (its face-area vectors still sum to zero), but it leaves the
+coarse cell's *other* faces with a T-junction: an edge of a coarse side face
+carries a hanging vertex that only the fine sub-faces reference. Such a cell
+is closed but **not combinatorially manifold** — an edge lies in only one of
+its faces — and [`crate::tet::tetrahedralize`]'s centroid subdivision then
+emits interior triangles that never find a partner, silently punching holes
+in the tet mesh (and corrupting its volume).
+
+The mesh assembler therefore runs an **edge-conformity pass**: every emitted face
+ring has each lattice point that lies strictly inside one of its edges
+inserted into the ring. The insertion is geometrically a no-op (the points
+are collinear, so the face's area vector and centroid are unchanged) but
+makes every edge lie in exactly two faces of every cell, which is what the
+downstream tet → dual path needs.
+
+# Scope
+
+Refinement is driven by proximity to the surface only — **no curvature or
+feature-edge criterion yet**, and no size field from an external source.
+Levels are 2:1-balanced (neighbouring leaves differ by at most one level)
+across *faces*; edge- and vertex-diagonal neighbours may differ by more, and
+the conformity pass above handles the extra hanging nodes that produces.
+Pure Rust, Android-safe.
 
 ```rust
 pub mod octree { /* ... */ }
@@ -1034,6 +1223,331 @@ assert!(m.validate().is_ok());
 
 ```rust
 pub fn refine_near_boundary(points: &[crate::math::Vec3], tris: &[[usize; 3]], base_cell_size: f64, max_level: u8) -> crate::volume_mesh::VolumeMesh { /* ... */ }
+```
+
+#### Function `refine_near_boundary_banded`
+
+Carve the closed surface (`points`, `tris`) at `base_cell_size`, then refine
+every leaf whose centre lies within a **distance band** of the surface, up to
+`max_level` levels finer, returning the graded [`VolumeMesh`].
+
+This is the size-field form of [`refine_near_boundary`] and the one the
+high-level pipeline uses.
+
+# The band
+
+`band_cells` is **dimensionless — a multiple of the candidate leaf's own edge
+length**, not a length in metres. A level-`L-1` leaf (edge
+`base_cell_size / 2^(L-1)` metres) is split into its eight level-`L` children
+iff
+
+```text
+  distance(leaf centre, surface)  <  band_cells * base_cell_size / 2^(L-1)
+```
+
+Because the band shrinks with the cell, the refined region is a **graded
+shell** that hugs the wall: level 1 covers a band `band_cells` base-cells
+thick, level 2 the inner half of it, and so on. `band_cells = 1.0` (the
+pipeline default) refines roughly the leaves that touch the surface, which
+reproduces [`refine_near_boundary`]'s shell on grid-aligned geometry;
+`band_cells = 2.0` grades the transition out over two cells, which is gentler
+on cell-size jumps at the cost of more cells.
+
+# Inputs and units
+
+- `points` / `tris` — a **closed, watertight, outward-wound** triangle soup,
+  vertex positions in metres.
+- `base_cell_size` — level-0 cell edge, in metres; must be `> 0`.
+- `max_level` — refinement depth. `0` is the uniform carve (identical to
+  [`crate::carve::carve_box`] up to face ordering); practical values are
+  `1`–`3` (each level halves the local edge, so level 3 is a 1/8 edge).
+- `band_cells` — dimensionless, `> 0`. Non-positive means "never refine".
+
+Returns an empty mesh for a degenerate input (non-positive `base_cell_size`,
+fewer than four points, no triangles, or nothing carved).
+
+# Cost
+
+Each candidate leaf runs one exact point-to-surface distance over every
+triangle (`O(leaves x triangles)`), so this is materially slower per cell
+than the uniform carve — the payoff is far fewer cells for the same wall
+resolution. See the [`crate::pipeline`] tests for measured numbers.
+
+# Examples
+
+```
+use outram_park_fork_cfmesh::{math::Vec3, shapes::box_surface,
+    octree::refine_near_boundary_banded, carve::carve_box};
+
+// A box [0,4]^3: refine the wall band one level at base size 1 m.
+let (p, t) = box_surface(Vec3::ZERO, Vec3::new(4.0, 4.0, 4.0));
+let graded = refine_near_boundary_banded(&p, &t, 1.0, 1, 1.0);
+
+// Volume is exact and every cell (including the polyhedral transition
+// cells) is closed.
+assert!((graded.total_volume() - 64.0).abs() < 1e-9);
+assert!(graded.validate().is_ok());
+// Far fewer cells than carving the whole box at the refined size 0.5 m.
+assert!(graded.cell_count() < carve_box(&p, &t, 0.5).cell_count());
+```
+
+```rust
+pub fn refine_near_boundary_banded(points: &[crate::math::Vec3], tris: &[[usize; 3]], base_cell_size: f64, max_level: u8, band_cells: f64) -> crate::volume_mesh::VolumeMesh { /* ... */ }
+```
+
+## Module `patches`
+
+**Named boundary patches** — carry the input surface's region names through
+meshing so the output `polyMesh` has an `inlet` / `outlet` / `walls` split a
+solver case can actually be set up against.
+
+# Why this module exists
+
+Every mesher in this crate emits its boundary into a *single* patch called
+`"walls"`: [`crate::carve::carve_box`] hard-codes it, and
+[`crate::volume_mesh::from_cell_faces`] — which every stage after the carve
+(tetrahedralize, dual, layers) rebuilds through — has no patch information to
+work from at all, because it recovers connectivity by matching face vertex
+*sets*. A mesh with one patch is unusable for CFD: you cannot write a `0/`
+boundary-condition directory that says "fixed velocity here, zero gradient
+there" when there is only one "there".
+
+# How the names survive
+
+Rather than thread a patch tag through five stages that each rebuild the mesh
+from scratch (and through the boundary-layer step, which *creates* boundary
+faces that never existed in the input), this module recovers the assignment
+**geometrically, once, at the end**: every boundary face of the finished mesh
+is given the region of the input-surface triangle **closest to its centroid**.
+
+That is exactly how snappyHexMesh assigns a cut face to a surface region, and
+it is well-posed here because every boundary face of a finished mesh lies on
+(post-snap) or within roughly one cell of the input surface. It also handles
+the faces the layer stage invents, which no tag-threading scheme could.
+
+# What it does not do
+
+- **Region resolution is limited by the mesh.** Two regions closer together
+  than a cell can be mixed up on the cells that straddle them; features are
+  resolved by refining, not by this classifier.
+- **Prism layers are still grown over the whole boundary**, because the
+  classification runs after the layer stage. Selecting which patches get
+  layers (snappyHexMesh's per-patch `nSurfaceLayers`) is future work — see
+  [`crate::pipeline::surface_to_tet_dual_mesh_multipatch`].
+- **No feature-edge snapping**, so a patch boundary follows the mesh's face
+  edges, not the surface's feature edge.
+
+Pure Rust, no dependencies, Android-safe.
+
+```rust
+pub mod patches { /* ... */ }
+```
+
+### Types
+
+#### Struct `SurfaceRegions`
+
+A labelling of an input surface's triangles into **named regions**, one
+region per intended boundary patch (`inlet`, `outlet`, `walls`, ...).
+
+This is the mesher's input side of the patch story: the caller says which
+triangle belongs to which named region, and
+[`assign_patches_by_region`] turns that into the output mesh's
+[`BoundaryPatch`] list.
+
+# Invariants
+
+- `region_of_tri.len()` must equal the triangle count of the surface it
+  labels; `region_of_tri[i]` is an index into [`Self::names`].
+- `names` must be non-empty and should be unique; patch order in the output
+  mesh follows `names` order.
+
+Both are checked by [`Self::validate`], which the pipeline calls before
+meshing so a mislabelled surface is a clear error, not a silent wrong mesh.
+
+```rust
+pub struct SurfaceRegions {
+    pub names: Vec<String>,
+    pub region_of_tri: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `names` | `Vec<String>` | Patch names, in the order the output mesh's patches will appear. |
+| `region_of_tri` | `Vec<usize>` | `region_of_tri[i]` = index into [`Self::names`] for input triangle `i`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn single(name: &str, n_tris: usize) -> Self { /* ... */ }
+  ```
+  Every triangle in one region — the single-patch behaviour the crate had
+
+- ```rust
+  pub fn from_labels(labels: &[&str]) -> Self { /* ... */ }
+  ```
+  Build from a **per-triangle name**: `labels[i]` is the patch name for
+
+- ```rust
+  pub fn region_count(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of named regions.
+
+- ```rust
+  pub fn validate(self: &Self, n_tris: usize) -> Result<(), String> { /* ... */ }
+  ```
+  Check the invariants against a surface of `n_tris` triangles: names
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SurfaceRegions { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SurfaceRegions) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `assign_patches_by_region`
+
+Re-bucket `mesh`'s boundary faces into **named patches**, one per region of
+the input surface, and return the re-ordered mesh.
+
+Each boundary face is assigned the region of the input triangle **nearest to
+its centroid** (exact point-to-triangle distance, the same one
+[`crate::snap::snap_to_surface`] projects with, so a snapped face lands on
+the region it was snapped onto). Faces are then re-ordered so that:
+
+- all internal faces come first (the OpenFOAM prefix rule), keeping their
+  relative order and their owner/neighbour pairing;
+- each non-empty patch is a **contiguous run** of boundary faces, in
+  [`SurfaceRegions::names`] order, with a matching
+  [`BoundaryPatch::start_face`] / [`BoundaryPatch::n_faces`].
+
+Empty patches are dropped (a region no boundary face landed on produces no
+patch), so the caller should not assume a 1:1 patch/region correspondence.
+
+Points, cells and topology are untouched — only the face *ordering* and the
+patch list change — so the mesh's volume, closure and quality are identical
+to the input's.
+
+# Inputs and units
+
+- `mesh` — a finished [`VolumeMesh`]; must satisfy the usual invariant that
+  `owner` / `neighbour` are per-face and in range.
+- `points` / `tris` — the **input surface** the mesh was generated from,
+  positions in metres. Must be the same surface, in the same frame.
+- `regions` — labels for `tris`; see [`SurfaceRegions::validate`].
+
+# Errors
+
+`Err` if `regions` does not describe `tris` ([`SurfaceRegions::validate`]),
+or if the surface has no triangles (nothing to classify against).
+
+# Cost
+
+`O(boundary_faces x triangles)` exact distance evaluations, with a
+bounding-box reject that skips triangles which cannot beat the current best.
+There is no spatial index yet, so a large surface with a fine mesh is slow;
+the single-region case is short-circuited by the pipeline and costs nothing.
+
+# Examples
+
+```
+use outram_park_fork_cfmesh::{math::Vec3, shapes::box_surface, carve::carve_box,
+    patches::{SurfaceRegions, assign_patches_by_region}};
+
+// box_surface emits its 12 triangles face by face: -Z, +Z, -Y, +Y, +X, -X.
+let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+let regions = SurfaceRegions::from_labels(&[
+    "walls", "walls", "walls", "walls", "walls", "walls",
+    "walls", "walls", "outlet", "outlet", "inlet", "inlet",
+]);
+
+let mesh = carve_box(&p, &t, 0.5);
+let named = assign_patches_by_region(&mesh, &p, &t, &regions).unwrap();
+
+// Three patches, and they tile the boundary contiguously.
+assert_eq!(named.patches.len(), 3);
+assert!((named.total_volume() - 1.0).abs() < 1e-9); // geometry untouched
+```
+
+```rust
+pub fn assign_patches_by_region(mesh: &crate::volume_mesh::VolumeMesh, points: &[crate::math::Vec3], tris: &[[usize; 3]], regions: &SurfaceRegions) -> Result<crate::volume_mesh::VolumeMesh, String> { /* ... */ }
 ```
 
 ## Module `pipeline`
@@ -1118,6 +1632,8 @@ degrees, and [`Self::expansion`] is dimensionless. Construct with
 ```rust
 pub struct TetDualOptions {
     pub cell_size: f64,
+    pub refinement_levels: u8,
+    pub refinement_band: f64,
     pub snap: bool,
     pub delaunay: bool,
     pub max_flips: usize,
@@ -1135,7 +1651,9 @@ pub struct TetDualOptions {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `cell_size` | `f64` | Background Cartesian **cell edge length**, in metres. Sets the base<br>resolution: smaller means more, finer cells (and slower meshing). Must be<br>`> 0`; a value that carves zero cells is a hard error. |
+| `cell_size` | `f64` | Background Cartesian **cell edge length**, in metres. Sets the base<br>resolution: smaller means more, finer cells (and slower meshing). Must be<br>`> 0`; a value that carves zero cells is a hard error.<br><br>With [`Self::refinement_levels`] `> 0` this is the **coarse interior**<br>edge; the near-wall cells end up `cell_size / 2^refinement_levels`. |
+| `refinement_levels` | `u8` | Octree **near-wall refinement depth** (dimensionless count of levels).<br><br>`0` (the default) carves a *uniform* grid at [`Self::cell_size`] — the<br>crate's original behaviour, byte-for-byte. `L > 0` instead carves a<br>**graded** background mesh ([`refine_near_boundary_banded`]): the interior<br>stays at `cell_size`, and cells near the surface are split up to `L`<br>levels finer, so the wall is resolved at `cell_size / 2^L` metres while<br>the interior is not. Each level roughly halves the local wall spacing;<br>practical values are `1`-`2`.<br><br>Grading is what makes a given wall resolution affordable — see the module<br>tests for measured cell-count / accuracy trade-offs on a sphere. |
+| `refinement_band` | `f64` | Width of the refinement band, **dimensionless — in multiples of the<br>candidate cell's own edge length** (not metres).<br><br>A cell is split toward the next level iff its centre lies within<br>`refinement_band x (its own edge)` of the input surface. Because the band<br>scales with the cell, the refined region is a graded shell hugging the<br>wall. `1.0` (the default) refines roughly the cells that touch the<br>surface; `2.0` spreads the transition over two cells (gentler size jumps,<br>more cells). Ignored when [`Self::refinement_levels`] is `0`; a<br>non-positive value refines nothing. |
 | `snap` | `bool` | If `true`, project the carved staircase boundary onto the input surface<br>([`snap_to_surface`]) to body-fit it. Skipped (with a note) if it would<br>tangle a wall cell. |
 | `delaunay` | `bool` | If `true`, improve the tetrahedralization toward Delaunay by bistellar<br>flips ([`flip_to_delaunay`]) before taking the dual. Safe: the flipper is<br>improve-or-noop, so this never makes the mesh worse. |
 | `max_flips` | `usize` | Flip budget passed to [`flip_to_delaunay`] when [`Self::delaunay`] is set. |
@@ -1359,7 +1877,8 @@ tetrahedral → dual path. This is the crate's high-level meshing entry point.
   ill-defined inside test and is not supported.
 - `opts` — [`TetDualOptions`] (resolution, which stages to run, layer spec).
 
-# Pipeline (each optional stage gated by [`acceptable`], see module docs)
+# Pipeline (each optional stage gated by the private `acceptable` check —
+closed *and* no inverted cells; see the module docs)
 
 1. **Carve** a background hex mesh of the surface interior
    ([`carve_box`]) — the only mandatory stage; zero carved cells is an error.
@@ -1400,6 +1919,72 @@ assert!((report.total_volume - 1.0).abs() < 1e-9);
 
 ```rust
 pub fn surface_to_tet_dual_mesh(points: &[crate::math::Vec3], tris: &[[usize; 3]], opts: &TetDualOptions) -> Result<(crate::volume_mesh::VolumeMesh, TetDualReport), String> { /* ... */ }
+```
+
+#### Function `surface_to_tet_dual_mesh_multipatch`
+
+The same pipeline as [`surface_to_tet_dual_mesh`], but carrying the input
+surface's **named regions** through to the output mesh's boundary patches —
+so the result has an `inlet` / `outlet` / `walls` split a solver case can be
+set up against, instead of one undifferentiated `walls` patch.
+
+# Why a separate entry point
+
+Every stage after the carve rebuilds the mesh through
+[`crate::volume_mesh::from_cell_faces`], which recovers connectivity by
+matching face vertex sets and therefore cannot preserve a patch tag; the
+boundary-layer stage additionally *creates* boundary faces that no input face
+corresponds to. The names are therefore recovered **geometrically at the
+end**, by [`assign_patches_by_region`]: each boundary face of the finished
+mesh takes the region of the input triangle nearest its centroid. See
+[`crate::patches`] for the rationale and the limits of that.
+
+# Inputs
+
+- `points` / `tris` — as [`surface_to_tet_dual_mesh`]: a closed, watertight,
+  outward-wound surface, positions in metres.
+- `regions` — one region index per triangle plus the patch names; build it
+  with [`SurfaceRegions::from_labels`]. Validated before meshing starts.
+- `opts` — [`TetDualOptions`], exactly as for the single-patch entry point.
+
+# Limitation — layers are grown on the whole boundary
+
+Because classification happens after stage 7, the boundary-layer stage still
+sees the single `"walls"` patch and grows prisms over the **entire**
+boundary, inlet and outlet included. That is a valid mesh, but it is not
+snappyHexMesh's per-patch `nSurfaceLayers` behaviour; patch-selective layer
+insertion is future work. Set `opts.n_layers = 0` if layers on the flow
+openings are unacceptable for your case.
+
+# Returns
+
+As [`surface_to_tet_dual_mesh`], plus the patches on the returned mesh. A
+region that no boundary face landed on yields **no** patch, so check
+`mesh.patches` rather than assuming one patch per region. `Err` also when
+`regions` does not describe `tris`.
+
+# Examples
+
+```
+use outram_park_fork_cfmesh::{math::Vec3, shapes::box_surface,
+    patches::SurfaceRegions,
+    pipeline::{surface_to_tet_dual_mesh_multipatch, TetDualOptions}};
+
+// box_surface emits two triangles per side in the order -Z, +Z, -Y, +Y, +X, -X.
+let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+let regions = SurfaceRegions::from_labels(&[
+    "walls", "walls", "walls", "walls", "walls", "walls",
+    "walls", "walls", "outlet", "outlet", "inlet", "inlet",
+]);
+let opts = TetDualOptions { cell_size: 0.5, n_layers: 0, ..Default::default() };
+let (mesh, _report) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &opts).unwrap();
+
+let names: Vec<&str> = mesh.patches.iter().map(|q| q.name.as_str()).collect();
+assert!(names.contains(&"inlet") && names.contains(&"outlet") && names.contains(&"walls"));
+```
+
+```rust
+pub fn surface_to_tet_dual_mesh_multipatch(points: &[crate::math::Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions, opts: &TetDualOptions) -> Result<(crate::volume_mesh::VolumeMesh, TetDualReport), String> { /* ... */ }
 ```
 
 #### Function `box_tet_dual`
@@ -1744,6 +2329,36 @@ star-shaped cells (the Cartesian/carved cells this crate produces) and exact
 volume conservation, but it does not optimise tet shape or minimise count.
 Delaunay-quality refinement is future work (gmsh — GPLv2+, GPLv3-compatible —
 is a licence-clean reference for that). Pure Rust, Android-safe.
+
+# Honest V&V scope — the tet quality is UNMEASURED
+
+The two tests in this module assert exactly four things: the tet count
+(`Σ_cells Σ_faces edges`), **positive volume** (no inverted tets), the
+**boundary area** matching the input surface, and **exact volume
+conservation** — plus that every cell really is a 4-triangle tet. They call
+[`crate::checks::check_quality`] only for its `n_negative_volume_cells` /
+`min_cell_volume` fields.
+
+**No mesh-quality metric is gated here.** Neither non-orthogonality,
+skewness, nor aspect ratio of the produced tets is asserted anywhere, so the
+*shape* quality of this tet primal is unverified — "valid" here means
+"positively oriented and watertight", not "well-shaped".
+
+This matters because the tet primal is the **suspected dominant source of
+the non-orthogonality** reported downstream. Centroid subdivision emits, per
+face edge, a tet spanning a face edge, the face centroid and the cell
+centroid — a systematically sliver-prone shape.
+[`crate::delaunay`] already records the defect qualitatively: the centroid
+subdivision "produces a valid, space-filling tet mesh, but not a *Delaunay*
+one — some interior faces fail the empty-circumsphere (locally-Delaunay)
+test, which is what leaves slivers". The whole-pipeline sphere table in
+[`crate::pipeline`]'s tests measures max non-orthogonality in the 71-87 deg
+band, but nothing isolates how much of that the tet stage contributes.
+
+**This attribution is a hypothesis, not a measurement.** Confirming it needs
+a per-stage quality measurement (run [`crate::checks::check_quality`] on the
+mesh immediately after this stage and compare against the carve that fed it)
+— which does not exist yet. Do not cite the slivers as a proven cause.
 
 ```rust
 pub mod tet { /* ... */ }

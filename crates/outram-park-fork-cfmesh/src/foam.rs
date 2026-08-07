@@ -1,7 +1,35 @@
-//! Bridge from [`VolumeMesh`] to the real `outram-foam-basic-lib` **`PolyMesh`**
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Format reference (re-implemented in Rust, not transcribed):
+//   OpenFOAM `constant/polyMesh` on-disk format and the `polyPatch` kinds this
+//   bridge maps onto (`wall` vs generic `patch`).
+//   src/OpenFOAM/meshes/polyMesh
+//   Copyright (C) 2011-2016 OpenFOAM Foundation
+//   Copyright (C) 2016-2023 OpenCFD Ltd. Licence: GPL-3.0-only.
+//   The concrete reader/writer lives in the workspace's own
+//   `outram-foam-basic-lib` (GPL-3.0-only); this file only converts into it.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
+//! Bridge from [`crate::volume_mesh::VolumeMesh`] to the real
+//! `outram-foam-basic-lib` **`PolyMesh`**
 //! — the volume-mesh output path to the CFD/TH solver (feature `foam-export`).
 //!
-//! [`VolumeMesh`] is deliberately shaped like OpenFOAM's `polyMesh`
+//! [`crate::volume_mesh::VolumeMesh`] is deliberately shaped like OpenFOAM's `polyMesh`
 //! (points + faces + owner/neighbour + internal-first ordering + patches), so
 //! this bridge is nearly a field-for-field copy into
 //! `outram_foam_basic_lib::io::poly_mesh::PolyMesh`. From there the caller gets
@@ -132,22 +160,47 @@ mod tests {
         poly.to_fv_mesh().expect("polyhedral dual is solver-consumable");
     }
 
+    /// A scratch directory that deletes itself on drop — including when a test
+    /// unwinds on a failed assertion, which a trailing `remove_dir_all` call
+    /// would skip and so leak the directory. The path is taken from
+    /// [`std::env::temp_dir`], so it honours `$TMPDIR` (required on
+    /// Android/Termux, where `/tmp` does not exist).
+    struct ScratchDir {
+        path: std::path::PathBuf,
+    }
+
+    impl ScratchDir {
+        /// Create a process-unique scratch directory named `<temp>/<tag>_<pid>`.
+        fn new(tag: &str) -> Self {
+            let path = std::env::temp_dir().join(format!("{tag}_{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&path); // clear any stale leftover
+            Self { path }
+        }
+    }
+
+    impl Drop for ScratchDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
     /// V&V — on-disk round-trip: write a generated mesh as a real OpenFOAM
     /// `polyMesh` and read it straight back. Methodology: `cartesian_box` 2×2×2,
     /// `write_polymesh` to a temp dir, then `PolyMesh::read`. Result: the
     /// re-read mesh has 8 cells, 12 internal faces, and total volume 1 — the
-    /// generator produces a solver-readable OpenFOAM mesh on disk.
+    /// generator produces a solver-readable OpenFOAM mesh on disk. The scratch
+    /// directory is a [`ScratchDir`], so it is removed even if an assertion
+    /// below fails.
     #[test]
     fn write_polymesh_disk_round_trip() {
         use outram_foam_basic_lib::io::poly_mesh::PolyMesh;
         let m = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [2, 2, 2]);
-        let dir = std::env::temp_dir().join(format!("cfmesh_polymesh_rt_{}", std::process::id()));
-        write_polymesh(&m, &dir).expect("write polyMesh to temp dir");
-        let poly = PolyMesh::read(&dir).expect("read polyMesh back");
+        let scratch = ScratchDir::new("cfmesh_polymesh_rt");
+        write_polymesh(&m, &scratch.path).expect("write polyMesh to temp dir");
+        let poly = PolyMesh::read(&scratch.path).expect("read polyMesh back");
         assert_eq!(poly.n_cells, 8);
         assert_eq!(poly.n_internal_faces, 12);
         assert!((poly.total_volume() - 1.0).abs() < 1e-9);
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn box_surface(a: Vec3, b: Vec3) -> (Vec<Vec3>, Vec<[usize; 3]>) {

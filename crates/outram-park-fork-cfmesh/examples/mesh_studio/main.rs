@@ -6,8 +6,8 @@
 //! solvable polyhedral-with-layers mesh:
 //!
 //! ```text
-//! shapes  →  carve_box  →  snap_to_surface  →  polyhedral_dual  →  add_boundary_layers  →  write_polymesh
-//! (surface)  (hex bg)      (body-fit)          (polyhedral cells)   (prism wall layers)     (OpenFOAM)
+//! shapes  →  carve_box  →  snap_to_surface  →  polyhedral_dual  →  add_boundary_layers_adaptive  →  write_polymesh
+//! (surface)  (hex bg)      (body-fit)          (polyhedral cells)   (prism wall layers)             (OpenFOAM)
 //! ```
 //!
 //! Each stage is a toggle so you can inspect the mesh at any point; the default
@@ -103,6 +103,10 @@ mod app {
         p: Params,
         yaw: f32,
         pitch: f32,
+        /// Directory the `polyMesh` is written to, as typed in the export box.
+        /// Defaults to `<temp>/mesh_studio/polyMesh`, where `<temp>` is
+        /// [`std::env::temp_dir`] — so it follows `$TMPDIR` rather than
+        /// hardcoding `/tmp`, which does not exist on Android/Termux.
         export_dir: String,
         export_msg: String,
         slot: Arc<RwLock<Slot>>,
@@ -127,7 +131,11 @@ mod app {
                 },
                 yaw: 0.6,
                 pitch: 0.5,
-                export_dir: "/tmp/mesh_studio/polyMesh".into(),
+                export_dir: std::env::temp_dir()
+                    .join("mesh_studio")
+                    .join("polyMesh")
+                    .to_string_lossy()
+                    .into_owned(),
                 export_msg: String::new(),
                 slot: Arc::new(RwLock::new(Slot::default())),
                 current: None,
@@ -149,11 +157,17 @@ mod app {
     /// **Graceful degradation:** each optional stage (snap / dual / layers) is
     /// applied only if it keeps the mesh valid (closed, per `validate`);
     /// otherwise it is skipped and noted. So the result is always a valid,
-    /// exportable mesh, and the caller is told the truth about what ran. In
-    /// practice the polyhedral dual is robust on curved geometry, but prism
-    /// **boundary layers are currently reliable only on flat-walled (box)
-    /// geometry** — on a curved wall they can invalidate the mesh and are then
-    /// skipped (see the `notes`). Curved-wall prism layers are WIP (bead).
+    /// exportable mesh, and the caller is told the truth about what ran.
+    ///
+    /// In practice the polyhedral dual is robust on curved geometry, and the
+    /// layer stage uses [`add_boundary_layers_adaptive`] (smoothed normals +
+    /// per-point thickness limiting + validity back-off), which the crate's
+    /// tests exercise on snapped **spheres and cylinders** as well as flat
+    /// boxes. On a curved wall the achieved thickness may therefore be **less
+    /// than requested** rather than the stage being skipped outright; if even
+    /// the backed-off march would invalidate the mesh, the stage is skipped and
+    /// a line is added to `notes`. Read `notes` rather than assuming the full
+    /// requested layer stack was inserted.
     fn build(p: &Params) -> Result<Built, String> {
         let (pts, tris) = surface(p);
         let cs = p.cell_size.max(1e-3);
@@ -186,7 +200,7 @@ mod app {
             // (sphere/cylinder) and polyhedral walls take layers too (the
             // thickness may be reduced from the request to stay valid).
             let layered = add_boundary_layers_adaptive(&m, "walls", p.n_layers, p.first_thickness.max(1e-4), p.expansion.max(1.0));
-            m = stage(m, layered, "boundary layers could not be inserted on this geometry");
+            m = stage(m, layered, "boundary layers");
         }
         if let Err(e) = m.validate() {
             return Err(format!("generated mesh is not closed: {e}"));
