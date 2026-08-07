@@ -31,12 +31,12 @@
 //!
 //! ## What AMI is (and why it differs from plain cyclic)
 //!
-//! A plain [`PatchKind::Cyclic`](crate::mesh::PatchKind::Cyclic) patch pair is
+//! A plain [`PatchKind::Cyclic`] patch pair is
 //! **conformal**: local face `i` of one half matches local face `i` of the
 //! other exactly one-to-one, so the seam is discretised like an ordinary
 //! internal face (see [`CyclicCoupling`](crate::mesh::CyclicCoupling)).
 //!
-//! A [`PatchKind::CyclicAmi`](crate::mesh::PatchKind::CyclicAmi) pair is
+//! A [`PatchKind::CyclicAmi`] pair is
 //! **non-conformal**: the two halves' faces do *not* line up, so each *target*
 //! face overlaps several *source* faces. The coupling for one target face is
 //! therefore a **weighted set** of source cells, the weight of each being the
@@ -53,7 +53,7 @@
 //! constant out-of-plane depth (a structured 2-D seam). The overlap of a target
 //! interval `[t0, t1]` with a source interval `[s0, s1]` is the 1-D segment
 //! overlap `max(0, min(t1, s1) - max(t0, s0))`, multiplied by the constant
-//! `depth` to give an overlap **area** [m²]. This is exact for axis-aligned,
+//! `depth` to give an overlap **area** `[m²]`. This is exact for axis-aligned,
 //! coplanar, structured seams (e.g. a translational-periodic channel meshed with
 //! differing transverse resolutions on the two halves) — the case this first
 //! pass targets.
@@ -88,7 +88,7 @@ use crate::primitives::Vector3;
 pub struct AmiOverlap {
     /// Local index of the overlapping source face within the source patch.
     pub source: usize,
-    /// Geometric overlap area between the two faces [m²].
+    /// Geometric overlap area between the two faces `[m²]`.
     pub overlap_area: f64,
     /// Overlap fraction of the **target** face:
     /// `overlap_area / target_area` (dimensionless). Summed over all sources of
@@ -112,13 +112,14 @@ pub struct AmiWeight {
     /// Overlap fraction of the target face (`overlap_area / target_area`,
     /// dimensionless). Per target these sum to `≈ 1` (conservative).
     pub weight: f64,
-    /// Geometric overlap area of this target/source pair [m²]. Used as the
+    /// Geometric overlap area of this target/source pair `[m²]`. Used as the
     /// effective face area of the partial seam face in the diffusion/advection
     /// coefficient.
     pub overlap_area: f64,
 }
 
-/// One target seam face of a [`PatchKind::CyclicAmi`](crate::mesh::PatchKind::CyclicAmi)
+/// One target seam face of a
+/// [`PatchKind::CyclicAmi`]
 /// patch pair, together with the weighted set of source cells it couples to.
 ///
 /// Mirrors the coupled-interface contribution of `Foam::cyclicAMIFvPatchField`
@@ -167,15 +168,15 @@ fn interval_overlap(a0: f64, a1: f64, b0: f64, b1: f64) -> f64 {
 /// Given a target patch and a source patch each described as a list of
 /// **transverse intervals** `(lo, hi)` (the projection of each face onto a
 /// single in-plane axis of the shared seam plane) plus the constant out-of-plane
-/// `depth` [m], return for every target face the list of [`AmiOverlap`]s with
+/// `depth` `[m]`, return for every target face the list of [`AmiOverlap`]s with
 /// the source faces it geometrically overlaps.
 ///
-/// - `target_spans[i] = (t_lo, t_hi)` — transverse extent of target face `i` [m].
-/// - `source_spans[j] = (s_lo, s_hi)` — transverse extent of source face `j` [m].
-/// - `depth` — constant out-of-plane face depth [m] (`> 0`).
+/// - `target_spans[i] = (t_lo, t_hi)` — transverse extent of target face `i` `[m]`.
+/// - `source_spans[j] = (s_lo, s_hi)` — transverse extent of source face `j` `[m]`.
+/// - `depth` — constant out-of-plane face depth `[m]` (`> 0`).
 ///
 /// The overlap **area** of target `i` with source `j` is
-/// `interval_overlap · depth` [m²]; the **weight** is that area divided by the
+/// `interval_overlap · depth` `[m²]`; the **weight** is that area divided by the
 /// target face's own area `(t_hi - t_lo)·depth`, i.e. simply the fraction of the
 /// target interval covered by the source interval. Sources with zero overlap are
 /// omitted. When the target intervals are fully tiled by the source intervals
@@ -287,9 +288,9 @@ impl FvMesh {
     ///   (`≥ 1`);
     /// - `n_b` — transverse cell count of the B (mid-source / wrap-target) column
     ///   (`≥ 1`);
-    /// - `lx` — periodic (x) domain length [m] (`> 0`);
-    /// - `ly` — transverse (y) domain extent [m] (`> 0`);
-    /// - `depth` — out-of-plane (z) face depth [m] (`> 0`).
+    /// - `lx` — periodic (x) domain length `[m]` (`> 0`);
+    /// - `ly` — transverse (y) domain extent `[m]` (`> 0`);
+    /// - `depth` — out-of-plane (z) face depth `[m]` (`> 0`).
     ///
     /// Cells are ordered `A_0 … A_{n_a-1}, B_0 … B_{n_b-1}`. Patches are, in
     /// order: `"A_right"` (mid target), `"B_left"` (mid source), `"B_right"`
@@ -453,7 +454,7 @@ mod tests {
     ///
     /// Methodology: one target interval `[0, 1]`, depth `2`, over four equal
     /// sources `[0,0.25],[0.25,0.5],[0.5,0.75],[0.75,1]`. Each overlap length is
-    /// `0.25`, so each overlap area is `0.25·2 = 0.5` [m²] and each weight is
+    /// `0.25`, so each overlap area is `0.25·2 = 0.5` `[m²]` and each weight is
     /// `0.5·2 / (1·2) = 0.25`. Pass criterion: four sources, each area `0.5`,
     /// each weight `0.25`, weights sum to `1`, all to < 1e-15.
     /// Result (measured 2026-08-04): areas = [0.5,0.5,0.5,0.5], weights =

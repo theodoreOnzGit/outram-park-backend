@@ -24,15 +24,17 @@ Field types: the discretised quantities carried on the mesh.
 
 This module holds the data containers the FV operators read and write:
 
-- [`Field`] — a flat `Vec<T>` with element-wise arithmetic; the raw storage
+- [`Field`](crate::fields::field::Field) — a flat `Vec<T>` with element-wise arithmetic; the raw storage
   with no mesh or dimension bookkeeping (mirrors `Foam::Field<Type>`).
-- [`boundary`] — boundary conditions ([`BoundaryCondition`]) and per-patch
-  boundary values ([`PatchField`]).
-- [`VolField`] (and the `Vol*Field` aliases) — cell-centred volume fields:
+- [`boundary`](crate::fields::boundary) — boundary conditions
+  ([`BoundaryCondition`](crate::fields::boundary::bc::BoundaryCondition)) and
+  per-patch boundary values
+  ([`PatchField`](crate::fields::boundary::bc::PatchField)).
+- [`VolField`](crate::fields::vol_field::VolField) (and the `Vol*Field` aliases) — cell-centred volume fields:
   one value per cell plus one `PatchField` per boundary patch.
-- [`SurfaceField`] (and the `Surface*Field` aliases) — face fields: one
+- [`SurfaceField`](crate::fields::surface_field::SurfaceField) (and the `Surface*Field` aliases) — face fields: one
   value per internal face plus one `PatchField` per boundary patch.
-- [`vol_field_algebra`] — pure per-element tensor algebra (`tr`, `symm`,
+- [`vol_field_algebra`](crate::fields::vol_field_algebra) — pure per-element tensor algebra (`tr`, `symm`,
   `dev`, …) lifted to whole volume fields.
 
 Physical units are not tracked at this layer; a field simply carries `f64`,
@@ -183,7 +185,7 @@ OpenFOAM: `zeroGradientFvPatchField`.
 Neumann with a prescribed **non-zero** normal gradient `g` (`[T]·m⁻¹`).
 
 The boundary face value is `φ_face = φ_cell + g · delta`, where `delta`
-[m] is the owner-cell-centre-to-face-centre distance.  Reduces to
+`[m]` is the owner-cell-centre-to-face-centre distance.  Reduces to
 [`ZeroGradient`](Self::ZeroGradient) when `g = 0`.
 
 OpenFOAM: `fixedGradientFvPatchField`
@@ -201,7 +203,7 @@ Robin / mixed boundary condition — a per-face blend of a Dirichlet part
 (`fixedValue`, weight `value_fraction`) and a Neumann part
 (`fixedGradient`, weight `1 - value_fraction`).
 
-With `w = value_fraction ∈ [0, 1]`, `delta` [m] the cell-to-face
+With `w = value_fraction ∈ [0, 1]`, `delta` `[m]` the cell-to-face
 distance, `φ_c` the owner cell value:
 
 - face value: `φ_face = w·ref_value + (1 - w)·(φ_c + ref_grad·delta)`
@@ -233,7 +235,7 @@ Flux-switched inflow/outflow BC: behaves as
 [`ZeroGradient`](Self::ZeroGradient) on **outflow** faces.
 
 The switch is decided per face by the sign of the outward face flux
-`φ_f = U·S_f` [m³·s⁻¹]: `φ_f < 0` is inflow (fixed value), `φ_f ≥ 0` is
+`φ_f = U·S_f` `[m³·s⁻¹]`: `φ_f < 0` is inflow (fixed value), `φ_f ≥ 0` is
 outflow (zero gradient).  Equivalent to a [`Mixed`](Self::Mixed) BC whose
 `value_fraction` is set to `1` on inflow and `0` on outflow.  The flux is
 supplied by the convection operator at assembly time, so this variant is
@@ -330,10 +332,10 @@ Freestream (far-field) inflow/outflow BC — an [`InletOutlet`](Self::InletOutle
 specialised to external / far-field flow: it imposes the uniform
 freestream value on **inflow** faces and is [`ZeroGradient`](Self::ZeroGradient)
 on **outflow** faces, switched per face by the sign of the outward face
-flux `φ_f = U·S_f` [m³·s⁻¹] (`φ_f < 0` inflow, `φ_f ≥ 0` outflow).
+flux `φ_f = U·S_f` `[m³·s⁻¹]` (`φ_f < 0` inflow, `φ_f ≥ 0` outflow).
 
 For a velocity field `freestream_value` is the far-field velocity `U_∞`
-[m·s⁻¹]; for a scalar it is the far-field scalar value (`[T]`). It is
+`[m·s⁻¹]`; for a scalar it is the far-field scalar value (`[T]`). It is
 **self-contained**: the flux is supplied by the convection operator at
 assembly time, exactly like [`InletOutlet`](Self::InletOutlet), so no
 solver hook is needed. See [`flux_value_fraction`](Self::flux_value_fraction)
@@ -352,11 +354,11 @@ Fields:
 ###### `PressureInletOutletVelocity`
 
 Velocity BC for a pressure-driven inlet/outlet patch: the patch velocity
-is reconstructed from the face flux `φ_f` [m³·s⁻¹] and the face area.
+is reconstructed from the face flux `φ_f` `[m³·s⁻¹]` and the face area.
 
 On **outflow** (`φ_f ≥ 0`) it is [`ZeroGradient`](Self::ZeroGradient); on
 **inflow** (`φ_f < 0`) it imposes the flux-implied wall-normal velocity
-`U = (φ_f / |S_f|)·n̂` [m·s⁻¹], where `n̂ = S_f/|S_f|` is the unit outward
+`U = (φ_f / |S_f|)·n̂` `[m·s⁻¹]`, where `n̂ = S_f/|S_f|` is the unit outward
 face normal. (OpenFOAM sets `valueFraction = 1 − pos0(φ_f)`, i.e.
 `fixedValue` on inflow and `zeroGradient` on outflow; the imposed value is
 the normal velocity above, the tangential component taken as zero here —
@@ -376,7 +378,7 @@ OpenFOAM: `pressureInletOutletVelocityFvPatchVectorField`.
 ###### `FixedFluxPressure`
 
 Pressure BC that fixes the surface-normal pressure gradient `snGrad(p)`
-[Pa·m⁻¹] so the pressure-corrected face flux matches a target flux — the
+`[Pa·m⁻¹]` so the pressure-corrected face flux matches a target flux — the
 natural wall / outlet pressure condition in a PISO/PIMPLE pressure solve.
 
 It behaves as a [`FixedGradient`](Self::FixedGradient)`(gradient)` whose
@@ -384,11 +386,11 @@ gradient the solver sets each pressure solve from the flux mismatch:
 
 `snGrad(p) = (φ_HbyA − φ_target) / (D_p · |S_f|)`
 
-where `φ_HbyA` [m³·s⁻¹] is the momentum-predictor (H/A) face flux,
-`φ_target` [m³·s⁻¹] the desired boundary flux, `D_p` [m³·s·kg⁻¹] the
+where `φ_HbyA` `[m³·s⁻¹]` is the momentum-predictor (H/A) face flux,
+`φ_target` `[m³·s⁻¹]` the desired boundary flux, `D_p` `[m³·s·kg⁻¹]` the
 face-interpolated `rAU` (interpolated `1/A_p` from the momentum-matrix
 diagonal, which absorbs any body-force term folded into `H/A`), and `|S_f|`
-[m²] the face area. The gradient is **solver-set** because it needs the
+`[m²]` the face area. The gradient is **solver-set** because it needs the
 predictor flux and the `rAU` field, which this Layer does not own. See
 [`fixed_flux_pressure_sn_grad`](BoundaryCondition::<f64>::fixed_flux_pressure_sn_grad)
 for the pure formula. The stored `gradient` is uniform over the patch
@@ -401,7 +403,7 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `gradient` | `T` | Currently-set surface-normal pressure gradient `snGrad(p)` [Pa·m⁻¹],<br>uniform over the patch. |
+| `gradient` | `T` | Currently-set surface-normal pressure gradient `snGrad(p)` `[Pa·m⁻¹]`,<br>uniform over the patch. |
 
 ###### `TotalPressure`
 
@@ -431,7 +433,7 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `p0` | `T` | Fixed total (stagnation) pressure `p0` [Pa]. |
+| `p0` | `T` | Fixed total (stagnation) pressure `p0` `[Pa]`. |
 
 ###### `FlowRateInletVelocity`
 
@@ -459,7 +461,7 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `volumetric_flow_rate` | `f64` | Prescribed volumetric flow rate `Q` [m³·s⁻¹] (positive = into the<br>domain). |
+| `volumetric_flow_rate` | `f64` | Prescribed volumetric flow rate `Q` `[m³·s⁻¹]` (positive = into the<br>domain). |
 
 ##### Implementations
 
@@ -892,7 +894,7 @@ pub struct Field<T> {
 - ```rust
   pub fn weighted_sum(self: &Self, weights: &Field<f64>) -> f64 { /* ... */ }
   ```
-  Weighted sum: sum(w[i] * x[i]).
+  Weighted sum: `sum(w[i] * x[i])`.
 
 - ```rust
   pub fn zero_vec(n: usize) -> Self { /* ... */ }
@@ -1265,7 +1267,7 @@ pub struct SurfaceField<T: Clone> {
 - **UnwindSafe**
 #### Type Alias `SurfaceScalarField`
 
-Scalar surface field: one `f64` per face (e.g. face flux `phi` [m³/s]).
+Scalar surface field: one `f64` per face (e.g. face flux `phi` `[m³/s]`).
 
 ```rust
 pub type SurfaceScalarField = SurfaceField<f64>;
@@ -1448,7 +1450,7 @@ pub struct VolField<T: Clone> {
 - **UnwindSafe**
 #### Type Alias `VolScalarField`
 
-Scalar volume field: one `f64` per cell (e.g. pressure [Pa], temperature [K]).
+Scalar volume field: one `f64` per cell (e.g. pressure `[Pa]`, temperature `[K]`).
 
 ```rust
 pub type VolScalarField = VolField<f64>;
@@ -1456,7 +1458,7 @@ pub type VolScalarField = VolField<f64>;
 
 #### Type Alias `VolVectorField`
 
-Vector volume field: one `Vector3` per cell (e.g. velocity [m/s]).
+Vector volume field: one `Vector3` per cell (e.g. velocity `[m/s]`).
 
 ```rust
 pub type VolVectorField = VolField<crate::primitives::Vector3>;
@@ -1653,11 +1655,11 @@ pub struct PsiThermo<M: TransportModel> {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `species` | `M` | Per-species transport/thermo/EOS kernel (mesh-independent). |
-| `p` | `crate::fields::vol_field::VolScalarField` | Pressure field [Pa]. |
-| `t` | `crate::fields::vol_field::VolScalarField` | Temperature field [K]. |
-| `he` | `crate::fields::vol_field::VolScalarField` | Sensible enthalpy `hs` [J/kg]. |
-| `rho` | `crate::fields::vol_field::VolScalarField` | Density field ρ [kg/m³], stored as `ρ = ψ · p`. |
-| `psi` | `crate::fields::vol_field::VolScalarField` | Compressibility field ψ = ρ/p [s²/m²]. |
+| `p` | `crate::fields::vol_field::VolScalarField` | Pressure field `[Pa]`. |
+| `t` | `crate::fields::vol_field::VolScalarField` | Temperature field `[K]`. |
+| `he` | `crate::fields::vol_field::VolScalarField` | Sensible enthalpy `hs` `[J/kg]`. |
+| `rho` | `crate::fields::vol_field::VolScalarField` | Density field ρ `[kg/m³]`, stored as `ρ = ψ · p`. |
+| `psi` | `crate::fields::vol_field::VolScalarField` | Compressibility field ψ = ρ/p `[s²/m²]`. |
 
 ##### Implementations
 
@@ -1803,11 +1805,11 @@ pub struct RhoThermo<M: TransportModel> {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `species` | `M` | Per-species transport/thermo/EOS kernel (mesh-independent). |
-| `p` | `crate::fields::vol_field::VolScalarField` | Pressure field [Pa]. |
-| `t` | `crate::fields::vol_field::VolScalarField` | Temperature field [K]. |
-| `he` | `crate::fields::vol_field::VolScalarField` | Sensible enthalpy `hs` [J/kg]. |
-| `rho` | `crate::fields::vol_field::VolScalarField` | Density field ρ [kg/m³], computed directly from the EOS `ρ(p, T)`. |
-| `psi` | `crate::fields::vol_field::VolScalarField` | Compressibility ψ = ∂ρ/∂p|_T [s²/m²] — stored for the pressure eqn. |
+| `p` | `crate::fields::vol_field::VolScalarField` | Pressure field `[Pa]`. |
+| `t` | `crate::fields::vol_field::VolScalarField` | Temperature field `[K]`. |
+| `he` | `crate::fields::vol_field::VolScalarField` | Sensible enthalpy `hs` `[J/kg]`. |
+| `rho` | `crate::fields::vol_field::VolScalarField` | Density field ρ `[kg/m³]`, computed directly from the EOS `ρ(p, T)`. |
+| `psi` | `crate::fields::vol_field::VolScalarField` | Compressibility ψ = ∂ρ/∂p|_T `[s²/m²]` — stored for the pressure eqn. |
 
 ##### Implementations
 
@@ -1965,7 +1967,7 @@ pub struct ConstSolidThermo {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `t` | `crate::fields::vol_field::VolScalarField` | Temperature field [K]. |
+| `t` | `crate::fields::vol_field::VolScalarField` | Temperature field `[K]`. |
 | *private fields* | ... | *Some fields have been omitted* |
 
 ##### Implementations
@@ -2103,10 +2105,10 @@ pub trait SolidThermo {
 ###### Required Methods
 
 - `mesh`: The finite-volume mesh this solid region is defined on.
-- `t`: Temperature field [K].
-- `t_mut`: Mutable temperature field [K] — for the energy equation to update in place.
-- `kappa`: Thermal conductivity κ [W/(m·K)] — used in `fvm::laplacian(kappa, T)`.
-- `rho_cp`: Volumetric heat capacity ρ·Cp [J/(m³·K)] — used in `fvm::ddt(rho_cp, T)`.
+- `t`: Temperature field `[K]`.
+- `t_mut`: Mutable temperature field `[K]` — for the energy equation to update in place.
+- `kappa`: Thermal conductivity κ `[W/(m·K)]` — used in `fvm::laplacian(kappa, T)`.
+- `rho_cp`: Volumetric heat capacity ρ·Cp `[J/(m³·K)]` — used in `fvm::ddt(rho_cp, T)`.
 - `correct`: Recompute temperature-dependent properties after T has been updated.
 
 ##### Implementations
@@ -2157,16 +2159,16 @@ pub trait FluidThermo {
 ###### Required Methods
 
 - `mesh`: The finite-volume mesh these thermodynamic fields are defined on.
-- `p`: Pressure field [Pa].
-- `p_mut`: Mutable pressure field [Pa] — for the pressure equation to update in place.
-- `t`: Temperature field [K].
-- `rho`: Density field [kg/m³].
-- `he`: Energy field — sensible enthalpy `hs` [J/kg] by default.
-- `he_mut`: Mutable energy field `he` [J/kg] — for the energy equation to update in place.
-- `psi`: Compressibility field ψ = ∂ρ/∂p|_T [s²/m²].
-- `mu`: Dynamic viscosity field μ [Pa·s] — computed on demand.
-- `kappa`: Thermal conductivity field κ [W/(m·K)] — computed on demand.
-- `alpha_h`: Thermal diffusivity αh = κ/Cp [kg/(m·s)] — computed on demand.
+- `p`: Pressure field `[Pa]`.
+- `p_mut`: Mutable pressure field `[Pa]` — for the pressure equation to update in place.
+- `t`: Temperature field `[K]`.
+- `rho`: Density field `[kg/m³]`.
+- `he`: Energy field — sensible enthalpy `hs` `[J/kg]` by default.
+- `he_mut`: Mutable energy field `he` `[J/kg]` — for the energy equation to update in place.
+- `psi`: Compressibility field ψ = ∂ρ/∂p|_T `[s²/m²]`.
+- `mu`: Dynamic viscosity field μ `[Pa·s]` — computed on demand.
+- `kappa`: Thermal conductivity field κ `[W/(m·K)]` — computed on demand.
+- `alpha_h`: Thermal diffusivity αh = κ/Cp `[kg/(m·s)]` — computed on demand.
 - `correct`: Recompute `T`, `ρ`, and `ψ` from `he` + `p`.
 - `correct_rho`: Clamp density after the pressure equation:
 
@@ -2231,6 +2233,10 @@ Explicit (`fvc`) finite-volume operators — each returns a **new field**
 Mirrors `Foam::fvc::` (`src/finiteVolume/finiteVolume/fvc/`). Contents:
 Gauss gradient (`grad`, `grad_vec`), Gauss divergence (`div`, `div_flux`,
 `div_vec`, `div_tensor`, `div_symm_tensor`), surface-normal gradient
+the Gauss cell gradient (`grad`, `grad_vec`) and the mesh-independent
+least-squares cell gradient (`grad_least_squares` — exact for a linear field
+on a non-orthogonal mesh, where the Gauss gradient is not), the
+surface-normal gradient
 (`sn_grad`), linear face interpolation (`interpolate`) and flux assembly
 (`flux`, `buoyancy_flux`), least-squares velocity reconstruction
 (`reconstruct`), the Rhie–Chow time-derivative flux correction
@@ -2299,6 +2305,12 @@ pub use flux::flux;
 pub use grad::grad;
 ```
 
+#### Re-export `grad_least_squares`
+
+```rust
+pub use grad_least_squares::grad_least_squares;
+```
+
 #### Re-export `grad_vec`
 
 ```rust
@@ -2349,7 +2361,10 @@ Mirrors `Foam::fvm::` (`src/finiteVolume/finiteVolume/fvm/`). Contents:
 implicit Euler time derivatives (`ddt`, `ddt_coeff`, `ddt_vec`,
 `ddt_coeff_vec`) and the second time derivative (`d2dt2`, `d2dt2_coeff`),
 first-order upwind convection (`div`, `div_vec`), the Gauss-orthogonal
-Laplacian (`laplacian`, `laplacian_vec`), and implicit / explicit source
+Laplacian (`laplacian`, `laplacian_vec`), its **non-orthogonality-corrected**
+counterpart (`laplacian_corrected`, `solve_laplacian_non_orthogonal`,
+selected by the `NonOrthoScheme` enum — the orthogonal form is silently
+first-order-wrong on any non-hex mesh), and implicit / explicit source
 terms (`sp`, `su`, `su_sp` and their `_vec` forms). See each function's doc
 and the `sup` module header for the LHS / RHS sign conventions that apply
 when combining these matrices.
@@ -2412,6 +2427,42 @@ pub use div_vec::div_vec;
 
 ```rust
 pub use laplacian::laplacian;
+```
+
+#### Re-export `laplacian_corrected`
+
+```rust
+pub use laplacian_corrected::laplacian_corrected;
+```
+
+#### Re-export `max_non_orthogonality_deg`
+
+```rust
+pub use laplacian_corrected::max_non_orthogonality_deg;
+```
+
+#### Re-export `non_ortho_geometry`
+
+```rust
+pub use laplacian_corrected::non_ortho_geometry;
+```
+
+#### Re-export `solve_laplacian_non_orthogonal`
+
+```rust
+pub use laplacian_corrected::solve_laplacian_non_orthogonal;
+```
+
+#### Re-export `NonOrthoGeometry`
+
+```rust
+pub use laplacian_corrected::NonOrthoGeometry;
+```
+
+#### Re-export `NonOrthoScheme`
+
+```rust
+pub use laplacian_corrected::NonOrthoScheme;
 ```
 
 #### Re-export `laplacian_vec`
@@ -2497,7 +2548,7 @@ Foundation (openfoam.org) split into **`fvModels`** — terms that add
 a solution, such as fixing a value in a cell set. This port follows the
 Foundation split, because the vendored reference tree is the Foundation
 one, but the module is named `fv_options` because that is the name most
-users will search for. [`FvModel`] is the source half; constraints are not
+users will search for. [`FvModel`](crate::fv_options::FvModel) is the source half; constraints are not
 yet ported.
 
 # Why this lives in `outram-foam-basic-lib`
@@ -2519,15 +2570,17 @@ Internally an `FvMatrix` stores the system as `A·φ = b`, so a right-hand
 side contribution goes into `source`, while an implicit contribution
 proportional to `φ` goes onto the **diagonal with the opposite sign**. That
 asymmetry is the classic way to get a source term backwards, so
-[`FvModel`] never asks a caller to place terms by hand:
-[`add_source_scalar`](FvModels::add_source_scalar) and
-[`add_source_vector`](FvModels::add_source_vector) do the placement, and the
+[`FvModel`](crate::fv_options::FvModel) never asks a caller to place terms by hand:
+[`add_source_scalar`](crate::fv_options::FvModels::add_source_scalar) and
+[`add_source_vector`](crate::fv_options::FvModels::add_source_vector) do the
+placement, and the
 individual models express themselves as an explicit part and an implicit
 coefficient.
 
 # Cell selection
 
-Every model applies over a [`CellSelection`] — the whole mesh, or a named
+Every model applies over a
+[`CellSelection`](crate::fv_options::CellSelection) — the whole mesh, or a named
 subset. This is upstream's `cellSetOption`/`fvCellZone`. Selections hold
 their cell list behind an `Arc`, per the workspace rule against lifetime
 parameters, so sharing one selection between several models is free.
@@ -2558,6 +2611,8 @@ equation only invokes the models that have something to say about it.
 pub enum FvModel {
     SemiImplicit(SemiImplicitSource),
     SolidificationMelting(SolidificationMelting),
+    SolidificationPorosity(SolidificationPorosity),
+    VofSolidificationMelting(VofSolidificationMelting),
 }
 ```
 
@@ -2576,13 +2631,45 @@ Fields:
 ###### `SolidificationMelting`
 
 Solidification and melting by the enthalpy-porosity method, upstream
-`solidificationMelting`.
+`solidificationMelting`. The physically complete phase-change model:
+tracks a liquid fraction, absorbs latent heat, carries its own
+Boussinesq buoyancy.
 
 Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `SolidificationMelting` |  |
+
+###### `SolidificationPorosity`
+
+Solidification as a bare porous blockage, upstream
+`porosityModels::solidification`. **No latent heat and no buoyancy** —
+it only freezes the momentum out of cold cells.
+
+Strictly, upstream files this under `porosityModel` rather than
+`fvModel`; it is folded into this enum because from a solver's point of
+view it is the same thing — a term added to the momentum equation over
+a cell zone — and keeping it in a parallel mechanism would double the
+wiring for no gain.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SolidificationPorosity` |  |
+
+###### `VofSolidificationMelting`
+
+Solidification and melting of a VoF phase, upstream
+`VoFSolidificationMelting`. Needs a VoF phase fraction supplied from
+outside; see [`FvModels::correct`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `VofSolidificationMelting` |  |
 
 ##### Implementations
 
@@ -2818,12 +2905,22 @@ pub struct FvModels {
   Whether any attached model contributes to `field`.
 
 - ```rust
+  pub fn correct(self: &mut Self, temperature: &VolScalarField, vof_phase_fraction: Option<&VolScalarField>) { /* ... */ }
+  ```
+  Advance every stateful model, once per timestep — upstream's
+
+- ```rust
+  pub fn advance_time(self: &mut Self) { /* ... */ }
+  ```
+  Roll every stateful model's history forward and re-arm its
+
+- ```rust
   pub fn add_source_scalar(self: &mut Self, field: &str, rho: &VolScalarField, temperature: &VolScalarField, dt: f64, eqn: &mut FvMatrix) { /* ... */ }
   ```
   Add every applicable model's contribution to a scalar equation.
 
 - ```rust
-  pub fn add_source_vector(self: &mut Self, field: &str, rho: &VolScalarField, temperature: &VolScalarField, velocity: &VolVectorField, dt: f64, eqn: &mut FvVectorMatrix) { /* ... */ }
+  pub fn add_source_vector(self: &mut Self, field: &str, rho: &VolScalarField, temperature: &VolScalarField, velocity: &VolVectorField, phase_fraction: Option<&VolScalarField>, dt: f64, eqn: &mut FvVectorMatrix) { /* ... */ }
   ```
   Add every applicable model's contribution to a vector equation.
 
@@ -3047,13 +3144,38 @@ pub use solidification_melting::SolidificationMelting;
 pub use solidification_melting::SolidificationMeltingCoefficients;
 ```
 
+#### Re-export `MomentumEquationForm`
+
+```rust
+pub use solidification_porosity::MomentumEquationForm;
+```
+
+#### Re-export `SolidificationPorosity`
+
+```rust
+pub use solidification_porosity::SolidificationPorosity;
+```
+
+#### Re-export `TemperatureTable`
+
+```rust
+pub use temperature_table::TemperatureTable;
+```
+
+#### Re-export `VofSolidificationMelting`
+
+```rust
+pub use vof_solidification_melting::VofSolidificationMelting;
+```
+
 ## Module `interpolation`
 
 Layer 1f — one-dimensional data interpolation (linear and spline).
 One-dimensional table interpolation over sorted `(xs, ys)` samples.
 
 Ports the OpenFOAM `interpolateXY` / `interpolateSplineXY` helpers:
-[`interpolate_xy`] (piecewise-linear) and [`interpolate_spline_xy`]
+[`interpolate_xy`](crate::interpolation::interpolate_xy::interpolate_xy) (piecewise-linear) and
+[`interpolate_spline_xy`](crate::interpolation::interpolate_spline_xy::interpolate_spline_xy)
 (Catmull-Rom cubic). Both assume `xs` is sorted ascending and clamp to the
 endpoint value outside the table range. Abscissae and ordinates are bare
 `f64` in the caller's own units.
@@ -3134,26 +3256,31 @@ and writer, not the official OpenFOAM software.
 
 ## What lives here
 
-- [`dict`] — the `FoamFile` **dictionary** format: a tokeniser (strips
+- [`dict`](crate::io::dict) — the `FoamFile` **dictionary** format: a tokeniser (strips
   `//` and `/* */` comments; treats `( ) { } ; [ ]` as delimiters), an
-  in-memory AST ([`FoamDict`], [`FoamEntry`], [`FoamValue`],
-  [`Dimensioned`]), the [`FoamHeader`] block, and an exact-round-trip
+  in-memory AST ([`FoamDict`](crate::io::dict::FoamDict),
+  [`FoamEntry`](crate::io::dict::FoamEntry),
+  [`FoamValue`](crate::io::dict::FoamValue),
+  [`Dimensioned`](crate::io::dict::Dimensioned)), the
+  [`FoamHeader`](crate::io::dict::FoamHeader) block, and an exact-round-trip
   writer. Handles `system/controlDict`, `fvSchemes`, `fvSolution`-style
   dictionaries.
-- [`poly_mesh`] — [`PolyMesh`]: read/write `constant/polyMesh/{points,
+- [`poly_mesh`](crate::io::poly_mesh) — [`PolyMesh`](crate::io::poly_mesh::PolyMesh): read/write `constant/polyMesh/{points,
   faces, owner, neighbour, boundary}` and convert to the crate's
-  geometry-carrying [`crate::mesh::FvMesh`] via [`PolyMesh::to_fv_mesh`].
-- [`field`] — read/write a time-directory field file
+  geometry-carrying [`crate::mesh::FvMesh`] via
+  [`PolyMesh::to_fv_mesh`](crate::io::poly_mesh::PolyMesh::to_fv_mesh).
+- [`field`](crate::io::field) — read/write a time-directory field file
   (`0/p` volScalarField, `0/U` volVectorField): the `dimensions`,
   `internalField`, and `boundaryField` blocks ↔ the crate's
   [`crate::fields::VolScalarField`] / [`crate::fields::VolVectorField`].
-- [`case`] — [`FoamCase`]: read a whole case directory (`system/…`,
+- [`case`](crate::io::case) — [`FoamCase`](crate::io::case::FoamCase): read a whole case directory (`system/…`,
   `constant/polyMesh`, `0/…`) into memory, with a best-effort writer.
 
 ## Round-trip guarantee
 
 The writer and parser are inverse at the **AST level**: constructing a
-[`FoamDict`] / [`PolyMesh`] / field, serialising it, and parsing it back
+[`FoamDict`](crate::io::dict::FoamDict) /
+[`PolyMesh`](crate::io::poly_mesh::PolyMesh) / field, serialising it, and parsing it back
 reproduces an equal in-memory value. (It is not a byte-for-byte re-emitter
 of an arbitrary pre-existing file — comment banners and incidental
 whitespace are normalised — but every value round-trips.)
@@ -4895,17 +5022,17 @@ GAMG in [`crate::ldu_matrix::solvers`]) with the **nonsymmetric** iterative
 solvers a Newton–Krylov subsurface-flow solver needs, where the Jacobian is
 not symmetric:
 
-- [`bicgstab`] — preconditioned BiCGStab: fixed work/storage per iteration,
+- [`bicgstab`](crate::krylov::bicgstab()) — preconditioned BiCGStab: fixed work/storage per iteration,
   breakdown-guarded.
-- [`gmres`] — restarted, right-preconditioned GMRES(m): residual-minimising,
+- [`gmres`](crate::krylov::gmres()) — restarted, right-preconditioned GMRES(m): residual-minimising,
   robust, `O(m)` storage.
 
-and three preconditioners dispatched by the [`Preconditioner`] enum (never
+and three preconditioners dispatched by the [`Preconditioner`](crate::krylov::Preconditioner) enum (never
 trait objects, per the workspace design rules):
 
-- [`Preconditioner::identity`] — no preconditioning (`M = I`).
-- [`Preconditioner::jacobi`] — diagonal scaling; always applicable.
-- [`Preconditioner::ilu0`] — genuine ILU(0) incomplete factorisation.
+- [`Preconditioner::identity`](crate::krylov::Preconditioner::identity) — no preconditioning (`M = I`).
+- [`Preconditioner::jacobi`](crate::krylov::Preconditioner::jacobi) — diagonal scaling; always applicable.
+- [`Preconditioner::ilu0`](crate::krylov::Preconditioner::ilu0) — genuine ILU(0) incomplete factorisation.
 
 # Matrix representation and conventions
 
@@ -5372,12 +5499,13 @@ finite-volume implicit operators and the iterative solvers that invert it:
 
 - [`ldu_matrix::LduMatrix`] — the raw sparse coefficients (diagonal + per-face
   lower/upper off-diagonals) and matrix–vector / residual kernels.
-- [`fv_matrix::FvMatrix`] — a scalar equation `A·φ = b` for a `VolScalarField`,
+- [`FvMatrix`](crate::ldu_matrix::fv_matrix::FvMatrix) — a scalar equation `A·φ = b` for a `VolScalarField`,
   assembled by the Layer-3 `fvm::` operators.
-- [`fv_vector_matrix::FvVectorMatrix`] — the vector counterpart `A·U = b` with
+- [`FvVectorMatrix`](crate::ldu_matrix::fv_vector_matrix::FvVectorMatrix) — the vector counterpart `A·U = b` with
   scalar LDU coefficients and a `Field<Vector3>` source.
-- [`solvers`] — Gauss-Seidel, DIC-preconditioned conjugate gradient, and GAMG
-  (algebraic multigrid).
+- [`solvers`](crate::ldu_matrix::solvers) — Gauss-Seidel, DIC-preconditioned conjugate gradient, GAMG
+  (algebraic multigrid), and the [`krylov_solve`](crate::ldu_matrix::solvers::krylov_solve()) adapter onto the asymmetric
+  BiCGStab / GMRES kernels in [`crate::krylov`].
 
 Belongs here: the sparse-matrix storage, its arithmetic, and the linear
 solvers. Field types, meshes, and the differential operators that build these
@@ -5456,6 +5584,31 @@ pub struct FvMatrix {
   pub fn solve_gamg_with_guess</* synthetic */ impl Into<String>: Into<String>>(self: &Self, name: impl Into<String>, initial: &VolScalarField, settings: SolverSettings) -> (VolScalarField, SolverPerformance) { /* ... */ }
   ```
   Solve with GAMG, **warm-started** from `initial` (typically the previous
+
+- ```rust
+  pub fn solve_bicgstab</* synthetic */ impl Into<String>: Into<String>>(self: &Self, name: impl Into<String>, options: KrylovOptions, settings: SolverSettings) -> (VolScalarField, SolverPerformance) { /* ... */ }
+  ```
+  Solve the system with **preconditioned BiCGStab**, cold-started from
+
+- ```rust
+  pub fn solve_bicgstab_with_guess</* synthetic */ impl Into<String>: Into<String>>(self: &Self, name: impl Into<String>, initial: &VolScalarField, options: KrylovOptions, settings: SolverSettings) -> (VolScalarField, SolverPerformance) { /* ... */ }
+  ```
+  Solve with preconditioned BiCGStab, **warm-started** from `initial`
+
+- ```rust
+  pub fn solve_gmres</* synthetic */ impl Into<String>: Into<String>>(self: &Self, name: impl Into<String>, options: KrylovOptions, settings: SolverSettings) -> (VolScalarField, SolverPerformance) { /* ... */ }
+  ```
+  Solve the system with **restarted, right-preconditioned GMRES(m)**,
+
+- ```rust
+  pub fn solve_gmres_with_guess</* synthetic */ impl Into<String>: Into<String>>(self: &Self, name: impl Into<String>, initial: &VolScalarField, options: KrylovOptions, settings: SolverSettings) -> (VolScalarField, SolverPerformance) { /* ... */ }
+  ```
+  Solve with restarted GMRES(m), **warm-started** from `initial`.
+
+- ```rust
+  pub fn solve_krylov</* synthetic */ impl Into<String>: Into<String>>(self: &Self, name: impl Into<String>, initial: Option<&VolScalarField>, method: KrylovMethod, options: KrylovOptions, settings: SolverSettings) -> (VolScalarField, SolverPerformance) { /* ... */ }
+  ```
+  Solve with the Krylov method named by `method`, optionally warm-started.
 
 - ```rust
   pub fn add_to_diag(self: &mut Self, coeff: &Field<f64>) { /* ... */ }
@@ -5824,6 +5977,21 @@ pub struct FvVectorMatrix {
   ```
   Solve each component (x, y, z) as an independent scalar Gauss-Seidel problem.
 
+- ```rust
+  pub fn solve_bicgstab(self: &Self, name: &str, options: KrylovOptions, settings: SolverSettings) -> (VolVectorField, SolverPerformance) { /* ... */ }
+  ```
+  Solve each velocity component with **preconditioned BiCGStab**,
+
+- ```rust
+  pub fn solve_gmres(self: &Self, name: &str, options: KrylovOptions, settings: SolverSettings) -> (VolVectorField, SolverPerformance) { /* ... */ }
+  ```
+  Solve each velocity component with **restarted GMRES(m)**, cold-started
+
+- ```rust
+  pub fn solve_krylov(self: &Self, name: &str, initial: Option<&VolVectorField>, method: KrylovMethod, options: KrylovOptions, settings: SolverSettings) -> (VolVectorField, SolverPerformance) { /* ... */ }
+  ```
+  Solve each velocity component with the Krylov method named by `method`,
+
 ###### Trait Implementations
 
 - **Add**
@@ -6070,12 +6238,16 @@ Each solver takes an [`LduMatrix`](super::ldu_matrix::LduMatrix) and a
 right-hand side and returns the solution together with the iteration count
 and final normalised residual:
 
-- [`gauss_seidel`] — a robust smoother that also handles the asymmetric
+- [`gauss_seidel`](crate::ldu_matrix::solvers::gauss_seidel()) — a robust smoother that also handles the asymmetric
   (convection-bearing) momentum matrix.
-- [`conjugate_gradient`] — DIC-preconditioned CG for symmetric SPD systems
+- [`conjugate_gradient`](crate::ldu_matrix::solvers::conjugate_gradient()) — DIC-preconditioned CG for symmetric SPD systems
   (the pressure Poisson equation).
-- [`gamg`] — algebraic multigrid for the same symmetric SPD systems, with
+- [`gamg`](crate::ldu_matrix::solvers::gamg()) — algebraic multigrid for the same symmetric SPD systems, with
   near mesh-independent convergence on fine grids.
+- [`krylov_solve`](fn@crate::ldu_matrix::solvers::krylov_solve) — the adapter onto the **asymmetric** Krylov kernels in
+  [`crate::krylov`] (BiCGStab / restarted GMRES with identity, Jacobi or
+  ILU(0) preconditioning), for the convection-bearing matrices where PCG and
+  GAMG do not apply and Gauss-Seidel is slow.
 
 Belongs here: the linear-solver kernels only. The matrix assembly and the
 `FvMatrix`/`FvVectorMatrix` wrappers that call them live one level up.
@@ -6148,7 +6320,7 @@ one with a backing mesh.
 
 ## Why multigrid
 
-A DIC-preconditioned CG ([`conjugate_gradient`](super::conjugate_gradient))
+A DIC-preconditioned CG ([`conjugate_gradient`](crate::ldu_matrix::solvers::conjugate_gradient()))
 needs O(√κ) ≈ O(Nₓ) iterations on the pressure Poisson equation — the count
 grows as the mesh is refined. Multigrid eliminates error at every length
 scale by recursing onto coarser grids, so it converges in a handful of
@@ -6158,14 +6330,14 @@ pressure solver for this reason.
 ## The algorithm (recursive correction-scheme V-cycle)
 
 Each V-cycle is the textbook correction scheme with pre- and post-smoothing
-([`GamgCycle::solve_level`]):
+(`GamgCycle::solve_level`):
 
 1. **Pre-smooth** the current level with Gauss-Seidel (`N_PRE_SWEEPS`).
 2. Form the residual `r = b − A·x` and **restrict** it to the next coarser
-   level (additive, [`restrict_field`]).
+   level (additive, `restrict_field`).
 3. **Recurse** to compute the coarse correction; the coarsest level is
-   solved directly by dense LU ([`solve_coarsest`]).
-4. **Prolong** the correction back (injection, [`prolong_field`]) and add it.
+   solved directly by dense LU (`solve_coarsest`).
+4. **Prolong** the correction back (injection, `prolong_field`) and add it.
 5. **Post-smooth** the current level (`N_POST_SWEEPS`).
 
 Pre- *and* post-smoothing makes this a symmetric V-cycle, which converges far
@@ -6175,7 +6347,7 @@ the symmetric form is the cleaner equivalent here.
 
 The outer loop ([`gamg`]) repeats V-cycles until the relative residual
 `‖r‖₂ / ‖b‖₂` falls below `settings.tolerance` — the same convergence metric
-[`conjugate_gradient`](super::conjugate_gradient) uses, so the two solvers
+[`conjugate_gradient`](crate::ldu_matrix::solvers::conjugate_gradient()) uses, so the two solvers
 are interchangeable under one `SolverSettings`.
 
 ## Restrictions
@@ -6195,7 +6367,8 @@ pub mod gamg { /* ... */ }
 
 Solve a symmetric SPD LDU system with GAMG (algebraic multigrid).
 
-Drop-in counterpart of [`conjugate_gradient`](super::conjugate_gradient):
+Drop-in counterpart of
+[`conjugate_gradient`](crate::ldu_matrix::solvers::conjugate_gradient()):
 same signature, same `‖r‖₂ / ‖b‖₂` convergence metric, and the same warm
 start — pass `Some(previous_solution)` as `x0` to start from the last time
 step's field. The GAMG hierarchy is rebuilt each call (agglomeration is O(n)
@@ -6255,6 +6428,471 @@ Mirrors `Foam::GaussSeidelSmoother` in
 pub fn gauss_seidel(mat: &crate::ldu_matrix::ldu_matrix::LduMatrix, b: &[f64], x: &mut Vec<f64>, tol: f64, max_iter: usize) -> (usize, f64) { /* ... */ }
 ```
 
+## Module `krylov_solve`
+
+Bridge from the finite-volume solver settings to the asymmetric Krylov
+solvers in [`crate::krylov`].
+
+[`crate::krylov`] holds solver *kernels* (BiCGStab, restarted GMRES) that
+speak plain `LduMatrix` + `&[f64]`. The finite-volume layer
+([`FvMatrix`](crate::ldu_matrix::FvMatrix),
+[`FvVectorMatrix`](crate::ldu_matrix::FvVectorMatrix)) speaks
+[`SolverSettings`] / [`SolverPerformance`]. This module is the thin adapter
+between the two, plus the two small selection enums that let a caller choose
+the method and the preconditioner **by value, never by trait object**
+(workspace design rule).
+
+# Why this matters physically
+
+Any equation carrying a convection term — momentum, energy, or a transported
+scalar — assembles an **asymmetric** matrix (`lower[f] != upper[f]`), because
+upwinding puts the flux on the donor side only. The crate's symmetric
+machinery (DIC-PCG, GAMG) is therefore inapplicable to those systems, and
+before this module the only fallback was plain Gauss-Seidel, whose iteration
+count grows like the condition number `O(kappa)`. BiCGStab/GMRES with an
+ILU(0) preconditioner is the direct analogue of OpenFOAM's `PBiCGStab` with
+`DILU`, and converges far faster on the same systems. See
+`tests/krylov_convection_diffusion.rs` for measured iteration counts.
+
+# Units
+
+The linear algebra is dimensionless. `A`, `b` and `x` carry whatever units the
+assembling operator gave them (e.g. for `fvm::laplacian(gamma, T)` the source
+is `[gamma]·[T]·m`); the solver only ever forms ratios, so no `uom` typing is
+applied here. Apply units at the field/equation layer.
+
+```rust
+pub mod krylov_solve { /* ... */ }
+```
+
+### Types
+
+#### Enum `PreconditionerKind`
+
+Which preconditioner `M^{-1} ~ A^{-1}` a Krylov solve should build from the
+matrix.
+
+This is a *selection* enum: it carries no data, so it is `Copy` and can sit
+in a settings struct. The built preconditioner itself is
+[`crate::krylov::Preconditioner`]. Dispatch is by enum, never a trait object.
+
+```rust
+pub enum PreconditionerKind {
+    None,
+    Jacobi,
+    Ilu0,
+}
+```
+
+##### Variants
+
+###### `None`
+
+No preconditioning (`M = I`). Cheapest per iteration, most iterations.
+Use only as a baseline or when the matrix is already well conditioned.
+
+###### `Jacobi`
+
+Diagonal (Jacobi) scaling, `z = r / diag(A)`. Cannot break down; costs one
+divide per cell per iteration. A good default for a strongly
+diagonally-dominant matrix (small time step, low Peclet number).
+
+###### `Ilu0`
+
+ILU(0) incomplete factorisation on the matrix's own sparsity pattern —
+the analogue of OpenFOAM's `DILU`. Typically several times fewer
+iterations than Jacobi on convection-dominated systems, at the cost of one
+forward/backward sweep per iteration. **Default.**
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn build(self: Self, a: &LduMatrix) -> Preconditioner { /* ... */ }
+  ```
+  Build the concrete preconditioner for `a`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PreconditionerKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> PreconditionerKind { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PreconditionerKind) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `KrylovMethod`
+
+Which asymmetric Krylov method to run.
+
+Both handle `lower[f] != upper[f]`; neither requires symmetry or positive
+definiteness.
+
+```rust
+pub enum KrylovMethod {
+    BiCGStab,
+    Gmres,
+}
+```
+
+##### Variants
+
+###### `BiCGStab`
+
+Preconditioned BiCGStab — constant work and storage per iteration.
+The default, and the right first choice for a finite-volume momentum or
+scalar-transport matrix. Can break down on strongly nonnormal systems, in
+which case the solve returns `converged = false` with the best iterate
+found rather than garbage.
+
+###### `Gmres`
+
+Restarted, right-preconditioned GMRES(m) — minimises the residual over
+the Krylov subspace, so its residual history is monotone and it cannot
+break down, but it stores `m` basis vectors (`O(m·n_cells)` memory).
+Prefer it when BiCGStab stalls or breaks down.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KrylovMethod { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> KrylovMethod { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KrylovMethod) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `KrylovOptions`
+
+Extra controls a Krylov solve needs beyond [`SolverSettings`].
+
+Kept separate from `SolverSettings` deliberately: `SolverSettings` is shared
+with Gauss-Seidel, PCG and GAMG, and adding fields to it would break every
+existing struct-literal construction.
+
+All fields are dimensionless.
+
+```rust
+pub struct KrylovOptions {
+    pub preconditioner: PreconditionerKind,
+    pub restart: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `preconditioner` | `PreconditionerKind` | Preconditioner to build from the matrix. Default<br>[`PreconditionerKind::Ilu0`]. |
+| `restart` | `usize` | GMRES restart length `m` — the Krylov subspace dimension per outer cycle.<br>Larger `m` converges in fewer total inner iterations but costs `O(m·n)`<br>memory. Ignored by [`KrylovMethod::BiCGStab`]. `0` means "no restart"<br>(`m = max_iter`). Default `30`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn with_preconditioner(preconditioner: PreconditionerKind) -> Self { /* ... */ }
+  ```
+  Options using the given preconditioner and the default restart (`30`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KrylovOptions { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    Defaults: ILU(0) preconditioning, GMRES restart `m = 30`.
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `krylov_solve`
+
+Solve `A·x = b` with an asymmetric Krylov method, reporting in the
+finite-volume layer's [`SolverPerformance`] form.
+
+This is the single entry point that
+[`FvMatrix::solve_krylov`](crate::ldu_matrix::FvMatrix::solve_krylov) and
+[`FvVectorMatrix::solve_krylov`](crate::ldu_matrix::FvVectorMatrix::solve_krylov)
+call; use it directly when you already hold a raw [`LduMatrix`].
+
+# Arguments
+- `a` — the sparse system matrix. May be asymmetric (`lower != upper`);
+  symmetric matrices also work but PCG/GAMG are cheaper for those.
+- `b` — right-hand side, length `a.n_cells`.
+- `x0` — optional initial guess (e.g. the previous time step's field);
+  `None` starts from zero.
+- `method` — BiCGStab or GMRES(m).
+- `options` — preconditioner choice and GMRES restart length.
+- `settings` — `tolerance` and `max_iter`, shared with the other solvers.
+
+# Convergence measure
+
+`SolverPerformance::final_residual` is the **true relative 2-norm residual**
+`||b − A·x||₂ / ||b||₂` of the returned iterate, recomputed from `a` and `b`
+— the same measure
+[`conjugate_gradient`](crate::ldu_matrix::solvers::conjugate_gradient()) reports, and
+**not** the L1-scaled [`LduMatrix::normalised_residual`] that
+[`gauss_seidel`](crate::ldu_matrix::solvers::gauss_seidel()) reports. When comparing
+against Gauss-Seidel, recompute one common measure rather than comparing the
+two reported numbers directly.
+
+# Example
+
+```rust
+use outram_foam_basic_lib::ldu_matrix::LduMatrix;
+use outram_foam_basic_lib::ldu_matrix::{
+    krylov_solve, KrylovMethod, KrylovOptions, PreconditionerKind, SolverSettings,
+};
+
+// Asymmetric 3-cell chain: upper != lower (an upwinded convection stencil).
+let mut a = LduMatrix::new(3, vec![0, 1], vec![1, 2]);
+a.diag = vec![4.0, 4.0, 4.0];
+a.lower = vec![-2.0, -2.0];
+a.upper = vec![-1.0, -1.0];
+let b = vec![1.0, 2.0, 3.0];
+
+let (x, perf) = krylov_solve(
+    &a,
+    &b,
+    None,
+    KrylovMethod::BiCGStab,
+    KrylovOptions::with_preconditioner(PreconditionerKind::Ilu0),
+    &SolverSettings::default(),
+);
+assert!(perf.converged);
+
+let ax = a.multiply(&x);
+for i in 0..3 {
+    assert!((ax[i] - b[i]).abs() < 1e-6);
+}
+```
+
+```rust
+pub fn krylov_solve(a: &crate::ldu_matrix::ldu_matrix::LduMatrix, b: &[f64], x0: Option<&[f64]>, method: KrylovMethod, options: KrylovOptions, settings: &crate::ldu_matrix::fv_matrix::SolverSettings) -> (Vec<f64>, crate::ldu_matrix::fv_matrix::SolverPerformance) { /* ... */ }
+```
+
 ### Re-exports
 
 #### Re-export `conjugate_gradient`
@@ -6273,6 +6911,30 @@ pub use gamg::gamg;
 
 ```rust
 pub use gauss_seidel::gauss_seidel;
+```
+
+#### Re-export `krylov_solve`
+
+```rust
+pub use krylov_solve::krylov_solve;
+```
+
+#### Re-export `KrylovMethod`
+
+```rust
+pub use krylov_solve::KrylovMethod;
+```
+
+#### Re-export `KrylovOptions`
+
+```rust
+pub use krylov_solve::KrylovOptions;
+```
+
+#### Re-export `PreconditionerKind`
+
+```rust
+pub use krylov_solve::PreconditionerKind;
 ```
 
 ### Re-exports
@@ -6343,6 +7005,30 @@ pub use solvers::gauss_seidel;
 pub use solvers::gauss_seidel;
 ```
 
+#### Re-export `krylov_solve`
+
+```rust
+pub use solvers::krylov_solve::krylov_solve;
+```
+
+#### Re-export `KrylovMethod`
+
+```rust
+pub use solvers::krylov_solve::KrylovMethod;
+```
+
+#### Re-export `KrylovOptions`
+
+```rust
+pub use solvers::krylov_solve::KrylovOptions;
+```
+
+#### Re-export `PreconditionerKind`
+
+```rust
+pub use solvers::krylov_solve::PreconditionerKind;
+```
+
 ## Module `limiters`
 
 TVD flux limiters — field-agnostic `psi(r)` functions on plain `f64`.
@@ -6356,7 +7042,7 @@ This is a **pure-`f64`, mesh-free** API so any finite-volume code (e.g. the
 `outram-park-fork-pflotran` solute/energy transport) can build higher-order
 TVD advection without depending on this crate's field/mesh types. A separate,
 field-tied limiter for rhoCentralFoam reconstruction lives at
-[`crate::fv_operators::fvc::muscl`] (`Limiter`); this module is the reusable,
+[`crate::fv_operators::fvc::Limiter`]; this module is the reusable,
 general one, and the two should be consolidated eventually.
 
 # Provenance (translated from OpenFOAM upstream source)
@@ -6561,10 +7247,14 @@ Special mathematical functions used by the thermophysics and statistics
 kernels.
 
 Ports the OpenFOAM `primitives/functions/Math` helpers: the inverse error
-function ([`erf_inv`]), the regularised lower/upper incomplete gamma
-functions and their unnormalised forms ([`inc_gamma_ratio_p`],
-[`inc_gamma_ratio_q`], [`inc_gamma_p`], [`inc_gamma_q`]), and the inverse of
-the regularised lower incomplete gamma ([`inv_inc_gamma`]). All arguments and
+function ([`erf_inv`](crate::math::erf_inv::erf_inv)), the regularised lower/upper incomplete gamma
+functions and their unnormalised forms
+([`inc_gamma_ratio_p`](crate::math::inc_gamma::inc_gamma_ratio_p),
+[`inc_gamma_ratio_q`](crate::math::inc_gamma::inc_gamma_ratio_q),
+[`inc_gamma_p`](crate::math::inc_gamma::inc_gamma_p),
+[`inc_gamma_q`](crate::math::inc_gamma::inc_gamma_q)), and the inverse of
+the regularised lower incomplete gamma
+([`inv_inc_gamma`](crate::math::inv_inc_gamma::inv_inc_gamma)). All arguments and
 results are dimensionless `f64`.
 
 ```rust
@@ -6712,10 +7402,10 @@ pub use inv_inc_gamma::inv_inc_gamma;
 Layer 1b — dense `SquareMatrix` with direct (LU) solve.
 Dense square-matrix linear algebra.
 
-Provides [`SquareMatrix`], a row-major `n×n` matrix of `f64` with in-place
+Provides [`SquareMatrix`](crate::matrix::square_matrix::SquareMatrix), a row-major `n×n` matrix of `f64` with in-place
 LU decomposition (Crout, scaled partial pivoting) and back-substitution — the
 direct linear solver used by the stiff ODE solver and other kernels. Failure
-to solve is reported through [`MatrixError`]. Entries are bare `f64`; the
+to solve is reported through [`MatrixError`](crate::matrix::square_matrix::MatrixError). Entries are bare `f64`; the
 matrix carries no unit information.
 
 ```rust
@@ -7009,15 +7699,17 @@ Finite-volume mesh layer: topology and geometry.
 This module holds the flat, cache-friendly mesh representation the FV
 operators run on. It contains:
 
-- [`FvMesh`] — the mesh itself (cells, faces, owner/neighbour connectivity,
-  cell volumes [m³], face-area vectors [m²], and cell/face centres [m]),
-  plus [`FvMeshBuilder`] to assemble one incrementally.
-- [`BoundaryPatch`] / [`PatchKind`] — boundary-patch descriptors.
-- [`ami`] — arbitrary-mesh-interface (non-conformal periodic / `cyclicAMI`)
-  face-overlap weighting and [`AmiCoupling`] representation.
-- [`RegionInterface`] — a face-to-face coupling map between two regions'
+- [`FvMesh`](crate::mesh::fv_mesh::FvMesh) — the mesh itself (cells, faces, owner/neighbour connectivity,
+  cell volumes `[m³]`, face-area vectors `[m²]`, and cell/face centres `[m]`),
+  plus [`FvMeshBuilder`](crate::mesh::fv_mesh::FvMeshBuilder) to assemble one incrementally.
+- [`BoundaryPatch`](crate::mesh::fv_mesh::BoundaryPatch) /
+  [`PatchKind`](crate::mesh::fv_mesh::PatchKind) — boundary-patch descriptors.
+- [`ami`](crate::mesh::ami) — arbitrary-mesh-interface (non-conformal periodic / `cyclicAMI`)
+  face-overlap weighting and [`AmiCoupling`](crate::mesh::ami::AmiCoupling)
+  representation.
+- [`RegionInterface`](crate::mesh::region_interface::RegionInterface) — a face-to-face coupling map between two regions'
   patches (used by conjugate-heat-transfer solvers).
-- [`MeshError`] — the errors raised during mesh construction and validation.
+- [`MeshError`](crate::mesh::error::MeshError) — the errors raised during mesh construction and validation.
 
 It stores only the data required by the operators; the OpenFOAM
 `polyMesh → primitiveMesh → lduMesh` inheritance chain is not reproduced.
@@ -7042,12 +7734,12 @@ Mirrors OpenFOAM's
 
 ## What AMI is (and why it differs from plain cyclic)
 
-A plain [`PatchKind::Cyclic`](crate::mesh::PatchKind::Cyclic) patch pair is
+A plain [`PatchKind::Cyclic`] patch pair is
 **conformal**: local face `i` of one half matches local face `i` of the
 other exactly one-to-one, so the seam is discretised like an ordinary
 internal face (see [`CyclicCoupling`](crate::mesh::CyclicCoupling)).
 
-A [`PatchKind::CyclicAmi`](crate::mesh::PatchKind::CyclicAmi) pair is
+A [`PatchKind::CyclicAmi`] pair is
 **non-conformal**: the two halves' faces do *not* line up, so each *target*
 face overlaps several *source* faces. The coupling for one target face is
 therefore a **weighted set** of source cells, the weight of each being the
@@ -7064,7 +7756,7 @@ and treats each face as an **interval along a single transverse axis** of
 constant out-of-plane depth (a structured 2-D seam). The overlap of a target
 interval `[t0, t1]` with a source interval `[s0, s1]` is the 1-D segment
 overlap `max(0, min(t1, s1) - max(t0, s0))`, multiplied by the constant
-`depth` to give an overlap **area** [m²]. This is exact for axis-aligned,
+`depth` to give an overlap **area** `[m²]`. This is exact for axis-aligned,
 coplanar, structured seams (e.g. a translational-periodic channel meshed with
 differing transverse resolutions on the two halves) — the case this first
 pass targets.
@@ -7114,7 +7806,7 @@ pub struct AmiOverlap {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `source` | `usize` | Local index of the overlapping source face within the source patch. |
-| `overlap_area` | `f64` | Geometric overlap area between the two faces [m²]. |
+| `overlap_area` | `f64` | Geometric overlap area between the two faces `[m²]`. |
 | `weight` | `f64` | Overlap fraction of the **target** face:<br>`overlap_area / target_area` (dimensionless). Summed over all sources of<br>one target this is `1` when the target is fully covered. |
 
 ##### Implementations
@@ -7223,7 +7915,7 @@ pub struct AmiWeight {
 | `source_face` | `usize` | Global face index of the overlapped source face. |
 | `source_cell` | `usize` | Owner cell of the source face — the "neighbour" across this partial seam. |
 | `weight` | `f64` | Overlap fraction of the target face (`overlap_area / target_area`,<br>dimensionless). Per target these sum to `≈ 1` (conservative). |
-| `overlap_area` | `f64` | Geometric overlap area of this target/source pair [m²]. Used as the<br>effective face area of the partial seam face in the diffusion/advection<br>coefficient. |
+| `overlap_area` | `f64` | Geometric overlap area of this target/source pair `[m²]`. Used as the<br>effective face area of the partial seam face in the diffusion/advection<br>coefficient. |
 
 ##### Implementations
 
@@ -7307,7 +7999,8 @@ pub struct AmiWeight {
 - **UnwindSafe**
 #### Struct `AmiCoupling`
 
-One target seam face of a [`PatchKind::CyclicAmi`](crate::mesh::PatchKind::CyclicAmi)
+One target seam face of a
+[`PatchKind::CyclicAmi`]
 patch pair, together with the weighted set of source cells it couples to.
 
 Mirrors the coupled-interface contribution of `Foam::cyclicAMIFvPatchField`
@@ -7437,15 +8130,15 @@ Planar / 1-D-structured AMI overlap weights.
 Given a target patch and a source patch each described as a list of
 **transverse intervals** `(lo, hi)` (the projection of each face onto a
 single in-plane axis of the shared seam plane) plus the constant out-of-plane
-`depth` [m], return for every target face the list of [`AmiOverlap`]s with
+`depth` `[m]`, return for every target face the list of [`AmiOverlap`]s with
 the source faces it geometrically overlaps.
 
-- `target_spans[i] = (t_lo, t_hi)` — transverse extent of target face `i` [m].
-- `source_spans[j] = (s_lo, s_hi)` — transverse extent of source face `j` [m].
-- `depth` — constant out-of-plane face depth [m] (`> 0`).
+- `target_spans[i] = (t_lo, t_hi)` — transverse extent of target face `i` `[m]`.
+- `source_spans[j] = (s_lo, s_hi)` — transverse extent of source face `j` `[m]`.
+- `depth` — constant out-of-plane face depth `[m]` (`> 0`).
 
 The overlap **area** of target `i` with source `j` is
-`interval_overlap · depth` [m²]; the **weight** is that area divided by the
+`interval_overlap · depth` `[m²]`; the **weight** is that area divided by the
 target face's own area `(t_hi - t_lo)·depth`, i.e. simply the fraction of the
 target interval covered by the source interval. Sources with zero overlap are
 omitted. When the target intervals are fully tiled by the source intervals
@@ -7866,7 +8559,7 @@ Periodic / matching pair (conformal — faces line up one-to-one).
 
 Non-conformal periodic pair — arbitrary mesh interface (AMI). The two
 halves' faces do not match one-to-one; each target face couples to a
-weighted set of source faces (see [`AmiCoupling`](crate::mesh::AmiCoupling)).
+weighted set of source faces (see [`AmiCoupling`]).
 Mirrors OpenFOAM `cyclicAMIPolyPatch`.
 
 ###### `Processor`
@@ -8127,11 +8820,11 @@ pub struct FvMesh {
 | `patches` | `Vec<BoundaryPatch>` | Boundary patch descriptors (one per patch, in face-index order). |
 | `cyclic_couplings` | `Vec<CyclicCoupling>` | Across-seam cell couplings from [`PatchKind::Cyclic`] (periodic) patch<br>pairs, one entry per matched boundary-face pair. Empty for a mesh with no<br>(resolved) cyclic pairs. Each entry is treated by the FV operators and<br>the LDU matrix exactly like an internal face joining<br>[`CyclicCoupling::owner`] and [`CyclicCoupling::neighbour`], appended to<br>the LDU face addressing after the `n_internal_faces` internal faces. |
 | `ami_couplings` | `Vec<crate::mesh::ami::AmiCoupling>` | Across-seam couplings from [`PatchKind::CyclicAmi`] (non-conformal<br>periodic) patch pairs, one entry per **target** seam face. Empty for a<br>mesh with no AMI pairs. Each entry couples its target cell to a weighted<br>set of source cells (the geometric face overlaps); the FV operators and<br>the LDU matrix append one LDU face per [`AmiWeight`](crate::mesh::AmiWeight)<br>after the internal faces and the [`cyclic_couplings`](Self::cyclic_couplings)<br>(see [`ami_ldu_start`](Self::ami_ldu_start)). Mirrors OpenFOAM<br>`cyclicAMIFvPatchField`. |
-| `cell_volumes` | `Vec<f64>` | Cell volumes `V[c]` [m³]. |
-| `cell_centres` | `Vec<crate::primitives::Vector3>` | Cell centres `C[c]` [m]. |
-| `face_area_vectors` | `Vec<crate::primitives::Vector3>` | Face area vectors `Sf[f]` [m²], pointing from owner toward neighbour<br>(or outward for boundary faces). |
-| `face_areas` | `Vec<f64>` | Face area magnitudes `|Sf[f]|` [m²]. |
-| `face_centres` | `Vec<crate::primitives::Vector3>` | Face centres `Cf[f]` [m]. |
+| `cell_volumes` | `Vec<f64>` | Cell volumes `V[c]` `[m³]`. |
+| `cell_centres` | `Vec<crate::primitives::Vector3>` | Cell centres `C[c]` `[m]`. |
+| `face_area_vectors` | `Vec<crate::primitives::Vector3>` | Face area vectors `Sf[f]` `[m²]`, pointing from owner toward neighbour<br>(or outward for boundary faces). |
+| `face_areas` | `Vec<f64>` | Face area magnitudes `|Sf[f]|` `[m²]`. |
+| `face_centres` | `Vec<crate::primitives::Vector3>` | Face centres `Cf[f]` `[m]`. |
 
 ##### Implementations
 
@@ -8326,27 +9019,27 @@ pub struct FvMeshBuilder {
 - ```rust
   pub fn cell_volumes(self: Self, v: Vec<f64>) -> Self { /* ... */ }
   ```
-  Set the cell volumes `V[c]` [m³] (length == `n_cells`).
+  Set the cell volumes `V[c]` `[m³]` (length == `n_cells`).
 
 - ```rust
   pub fn cell_centres(self: Self, v: Vec<Vector3>) -> Self { /* ... */ }
   ```
-  Set the cell centres `C[c]` [m] (length == `n_cells`).
+  Set the cell centres `C[c]` `[m]` (length == `n_cells`).
 
 - ```rust
   pub fn face_area_vectors(self: Self, v: Vec<Vector3>) -> Self { /* ... */ }
   ```
-  Set the face area vectors `Sf[f]` [m²] (length == `n_faces`).
+  Set the face area vectors `Sf[f]` `[m²]` (length == `n_faces`).
 
 - ```rust
   pub fn face_areas(self: Self, v: Vec<f64>) -> Self { /* ... */ }
   ```
-  Set the face area magnitudes `|Sf[f]|` [m²]. If left unset, they are
+  Set the face area magnitudes `|Sf[f]|` `[m²]`. If left unset, they are
 
 - ```rust
   pub fn face_centres(self: Self, v: Vec<Vector3>) -> Self { /* ... */ }
   ```
-  Set the face centres `Cf[f]` [m] (length == `n_faces`).
+  Set the face centres `Cf[f]` `[m]` (length == `n_faces`).
 
 - ```rust
   pub fn build(self: Self) -> Result<FvMesh, MeshError> { /* ... */ }
@@ -8580,26 +9273,32 @@ Layer 1e — ordinary-differential-equation solvers (Euler, RKF45,
 Rosenbrock23).
 Ordinary differential equation solvers for systems `dy/dx = f(x, y)`.
 
-Ports the OpenFOAM `ODE` layer: user systems implement the [`OdeSystem`]
+Ports the OpenFOAM `ODE` layer: user systems implement the [`OdeSystem`](crate::ode::OdeSystem)
 trait, and one of the concrete steppers integrates them with adaptive step
-control — [`Euler`] (explicit 1st order), [`Rkf45`] (explicit Runge-Kutta-
-Fehlberg 4(5)), and [`Rosenbrock23`] (semi-implicit, for stiff systems,
+control — [`Euler`](crate::ode::euler::Euler) (explicit 1st order),
+[`Rkf45`](crate::ode::rkf45::Rkf45) (explicit Runge-Kutta-Fehlberg 4(5)), and
+[`Rosenbrock23`](crate::ode::rosenbrock23::Rosenbrock23) (semi-implicit, for stiff systems,
 requiring a Jacobian). The independent variable `x`, state `y`, and step
 size are bare `f64` in the caller's own units; tolerances are set through
-[`OdeSolverConfig`].
+[`OdeSolverConfig`](crate::ode::OdeSolverConfig).
 
-# Storing an integrator: [`OdeIntegrator`]
+# Storing an integrator: [`OdeIntegrator`](crate::ode::integrator::OdeIntegrator)
 
 The three steppers above take the system by reference on every call, which
 is awkward for any caller that wants to *keep* "the integrator for this
 material point" as a struct field — storing a borrow would force a lifetime
 parameter, which the workspace design rules forbid.
 
-[`integrator`] solves that with two enums that own what they integrate:
-[`OdeSolver`] selects the stepper, and [`OdeIntegrator`] selects how the
-system is supplied — [`OdeIntegrator::TypedState`] (a concrete system owned
+[`integrator`](crate::ode::integrator) solves that with two enums that own
+what they integrate: [`OdeSolver`](crate::ode::integrator::OdeSolver) selects
+the stepper, and
+[`OdeIntegrator`](crate::ode::integrator::OdeIntegrator) selects how the
+system is supplied —
+[`OdeIntegrator::TypedState`](crate::ode::integrator::OdeIntegrator::TypedState)
+(a concrete system owned
 by value, statically dispatched, **preferred**) or
-[`OdeIntegrator::DynSystem`] (an `Arc<dyn OdeSystem + Send + Sync>`, kept by
+[`OdeIntegrator::DynSystem`](crate::ode::integrator::OdeIntegrator::DynSystem)
+(an `Arc<dyn OdeSystem + Send + Sync>`, kept by
 maintainer decision for flexibility). Neither borrows, so neither needs a
 lifetime.
 
@@ -10068,7 +10767,7 @@ Closed-form polynomial equation solvers and a fixed-degree polynomial type.
 
 Ports the OpenFOAM `primitives/polynomialEqns` layer: the linear, quadratic,
 and cubic root finders (`LinearEqn`, `QuadraticEqn`, `CubicEqn`) that return a
-tagged [`Roots`] container distinguishing real, complex, infinite, and NaN
+tagged [`Roots`](crate::polynomial::roots::Roots) container distinguishing real, complex, infinite, and NaN
 roots, plus the general [`Polynomial<N>`](polynomial::Polynomial) value /
 derivative / integral type. All coefficients and results are bare `f64` in SI
 (dimensionless) form — these are numerical building blocks, not dimensioned
@@ -11656,6 +12355,48 @@ pub use crate::fv_operators::fvc;
 pub use crate::fv_operators::fvm;
 ```
 
+#### Re-export `grad_least_squares`
+
+```rust
+pub use crate::fv_operators::fvc::grad_least_squares;
+```
+
+#### Re-export `laplacian_corrected`
+
+```rust
+pub use crate::fv_operators::fvm::laplacian_corrected;
+```
+
+#### Re-export `max_non_orthogonality_deg`
+
+```rust
+pub use crate::fv_operators::fvm::max_non_orthogonality_deg;
+```
+
+#### Re-export `non_ortho_geometry`
+
+```rust
+pub use crate::fv_operators::fvm::non_ortho_geometry;
+```
+
+#### Re-export `solve_laplacian_non_orthogonal`
+
+```rust
+pub use crate::fv_operators::fvm::solve_laplacian_non_orthogonal;
+```
+
+#### Re-export `NonOrthoGeometry`
+
+```rust
+pub use crate::fv_operators::fvm::NonOrthoGeometry;
+```
+
+#### Re-export `NonOrthoScheme`
+
+```rust
+pub use crate::fv_operators::fvm::NonOrthoScheme;
+```
+
 #### Re-export `CellSelection`
 
 ```rust
@@ -11680,6 +12421,12 @@ pub use crate::fv_options::FvModel;
 pub use crate::fv_options::FvModels;
 ```
 
+#### Re-export `MomentumEquationForm`
+
+```rust
+pub use crate::fv_options::MomentumEquationForm;
+```
+
 #### Re-export `SemiImplicitSource`
 
 ```rust
@@ -11698,10 +12445,28 @@ pub use crate::fv_options::SolidificationMelting;
 pub use crate::fv_options::SolidificationMeltingCoefficients;
 ```
 
+#### Re-export `SolidificationPorosity`
+
+```rust
+pub use crate::fv_options::SolidificationPorosity;
+```
+
 #### Re-export `SourceContribution`
 
 ```rust
 pub use crate::fv_options::SourceContribution;
+```
+
+#### Re-export `TemperatureTable`
+
+```rust
+pub use crate::fv_options::TemperatureTable;
+```
+
+#### Re-export `VofSolidificationMelting`
+
+```rust
+pub use crate::fv_options::VofSolidificationMelting;
 ```
 
 #### Re-export `vol_field_algebra`
@@ -11774,6 +12539,30 @@ pub use crate::ldu_matrix::gauss_seidel;
 
 ```rust
 pub use crate::ldu_matrix::gauss_seidel;
+```
+
+#### Re-export `krylov_solve`
+
+```rust
+pub use crate::ldu_matrix::krylov_solve;
+```
+
+#### Re-export `KrylovMethod`
+
+```rust
+pub use crate::ldu_matrix::KrylovMethod;
+```
+
+#### Re-export `KrylovOptions`
+
+```rust
+pub use crate::ldu_matrix::KrylovOptions;
+```
+
+#### Re-export `PreconditionerKind`
+
+```rust
+pub use crate::ldu_matrix::PreconditionerKind;
 ```
 
 #### Re-export `bicgstab`
@@ -11894,7 +12683,7 @@ stretch". That is exactly what several continuum-mechanics operations need:
 # Method
 
 Both routines solve the characteristic cubic
-`det(T - λI) = 0` directly with [`CubicEqn`], rather than iterating a Jacobi
+`det(T - λI) = 0` directly with [`CubicEqn`](crate::polynomial::cubic_eqn::CubicEqn), rather than iterating a Jacobi
 or QR sweep. That is upstream OpenFOAM's approach and it is the right one at
 3x3: the closed-form cubic is exact up to round-off, has no iteration count
 to tune, and reuses the polynomial solver this crate already carries.
@@ -13966,14 +14755,17 @@ Specie-level thermophysics: mesh-independent per-species property kernels.
 
 Ports the OpenFOAM `thermophysicalModels/specie` layer. Properties are built
 in three stacked layers, each wrapping the one below:
-- [`eos`] — equation of state: density ρ, compressibility ψ, compressibility
+- [`eos`](crate::thermophysics::eos) — equation of state: density ρ, compressibility ψ, compressibility
   factor Z, and enthalpy/entropy/internal-energy departures from `(p, T)`.
-- [`thermo`] — specific heat Cp, enthalpy, entropy, and Newton `T`-inversion.
-- [`transport`] — dynamic viscosity μ and thermal conductivity κ.
+- [`thermo`](crate::thermophysics::thermo) — specific heat Cp, enthalpy, entropy, and Newton `T`-inversion.
+- [`transport`](crate::thermophysics::transport) — dynamic viscosity μ and thermal conductivity κ.
 
-Supporting modules: [`constants`] (physical constants), [`error`] (the
-[`ThermoError`](error::ThermoError) type), [`quantities`] (uom type aliases),
-and [`imports`] (shared uom re-exports used by every implementation file).
+Supporting modules: [`constants`](crate::thermophysics::constants) (physical
+constants), [`error`](crate::thermophysics::error) (the
+[`ThermoError`](crate::thermophysics::error::ThermoError) type),
+[`quantities`](crate::thermophysics::quantities) (uom type aliases), and
+[`imports`](crate::thermophysics::imports) (shared uom re-exports used by
+every implementation file).
 
 ```rust
 pub mod thermophysics { /* ... */ }
@@ -14032,8 +14824,8 @@ pub const P_REF: f64 = 101_325.0;
 
 ## Module `eos`
 
-Per-species equations of state — `(p, T)` → density ρ [kg/m³],
-compressibility ψ = ∂ρ/∂p|_T [s²/m²], compressibility factor Z [-], and the
+Per-species equations of state — `(p, T)` → density ρ `[kg/m³]`,
+compressibility ψ = ∂ρ/∂p|_T `[s²/m²]`, compressibility factor Z `[-]`, and the
 enthalpy / entropy / internal-energy departures from the ideal-gas value.
 
 Each model implements [`EquationOfState`]. Available models: ideal
@@ -14083,7 +14875,7 @@ pub struct IcoPolynomial<const N: usize> {
 - ```rust
   pub fn new(mol_weight: MolarMass, poly: Polynomial<N>) -> Self { /* ... */ }
   ```
-  `poly` coefficients give specific volume [m³/kg] as a polynomial in T [K].
+  `poly` coefficients give specific volume `[m³/kg]` as a polynomial in T `[K]`.
 
 ###### Trait Implementations
 
@@ -14247,7 +15039,7 @@ pub struct PengRobinsonGas {
 - ```rust
   pub fn new(mol_weight: MolarMass, tc: ThermodynamicTemperature, pc: Pressure, omega: f64) -> Self { /* ... */ }
   ```
-  Construct a Peng-Robinson EOS from molar mass W [kg/mol], critical
+  Construct a Peng-Robinson EOS from molar mass W `[kg/mol]`, critical
 
 ###### Trait Implementations
 
@@ -14402,7 +15194,7 @@ pub struct PerfectGas {
 - ```rust
   pub fn new(mol_weight: MolarMass) -> Self { /* ... */ }
   ```
-  Construct an ideal perfect-gas EOS from the species molar mass W [kg/mol].
+  Construct an ideal perfect-gas EOS from the species molar mass W `[kg/mol]`.
 
 ###### Trait Implementations
 
@@ -14551,7 +15343,7 @@ pub struct RhoConst {
 - ```rust
   pub fn new(mol_weight: MolarMass, rho0: MassDensity) -> Self { /* ... */ }
   ```
-  Construct a constant-density EOS from molar mass W [kg/mol] and the fixed
+  Construct a constant-density EOS from molar mass W `[kg/mol]` and the fixed
 
 ###### Trait Implementations
 
@@ -15089,8 +15881,8 @@ pub type Compressibility = uom::si::Quantity<uom::si::ISQ<uom::typenum::N2, uom:
 
 ## Module `thermo`
 
-Per-species thermodynamic models — specific heat Cp [J/(kg·K)],
-sensible/absolute specific enthalpy [J/kg], specific entropy [J/(kg·K)], and
+Per-species thermodynamic models — specific heat Cp `[J/(kg·K)]`,
+sensible/absolute specific enthalpy `[J/kg]`, specific entropy `[J/(kg·K)]`, and
 Newton `T`-inversion, layered on top of an
 [`EquationOfState`](crate::thermophysics::eos::EquationOfState).
 
@@ -15856,8 +16648,8 @@ pub use traits::*;
 
 ## Module `transport`
 
-Per-species transport models — dynamic viscosity μ [Pa·s] and thermal
-conductivity κ [W/(m·K)], layered on top of a
+Per-species transport models — dynamic viscosity μ `[Pa·s]` and thermal
+conductivity κ `[W/(m·K)]`, layered on top of a
 [`ThermoModel`](crate::thermophysics::thermo::ThermoModel).
 
 Each model implements [`TransportModel`]. Available models: constant-μ /
@@ -16071,7 +16863,7 @@ Polynomial transport model: μ(T) and κ(T) evaluated from `Polynomial<N>`.
 Mirrors `Foam::polynomialTransport<Thermo, PolySize>` from
 `src/thermophysicalModels/specie/transport/polynomial/`.
 
-Both mu and kappa are independent polynomials in T [K], returning Pa·s and
+Both mu and kappa are independent polynomials in T `[K]`, returning Pa·s and
 W/(m·K) respectively.  The same degree N is used for both.
 
 ```rust
@@ -16279,7 +17071,7 @@ pub struct SutherlandTransport<T: ThermoModel> {
 - ```rust
   pub fn new(thermo: T, as_: f64, ts: f64) -> Self { /* ... */ }
   ```
-  Construct directly from Sutherland coefficients As [kg/(m·s·K^0.5)] and Ts [K].
+  Construct directly from Sutherland coefficients As `[kg/(m·s·K^0.5)]` and Ts `[K]`.
 
 - ```rust
   pub fn from_two_points(thermo: T, mu1: DynamicViscosity, t1: ThermodynamicTemperature, mu2: DynamicViscosity, t2: ThermodynamicTemperature) -> Self { /* ... */ }
@@ -16653,7 +17445,8 @@ in TAMPINES
 User-facing helpers for building meshes and fields without hand-assembling
 the low-level [`crate::mesh`] and [`crate::fields`] data structures.
 
-Currently this provides [`one_dimensional_meshing`], a generator for the
+Currently this provides
+[`one_dimensional_meshing`](crate::interface::one_dimensional_meshing), a generator for the
 uniform 1-D pipe meshes used by pipe-flow and steam-table (e.g. Marviken)
 simulations.
 

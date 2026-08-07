@@ -41,7 +41,7 @@
 //! # Method
 //!
 //! Both routines solve the characteristic cubic
-//! `det(T - λI) = 0` directly with [`CubicEqn`], rather than iterating a Jacobi
+//! `det(T - λI) = 0` directly with [`CubicEqn`](crate::polynomial::cubic_eqn::CubicEqn), rather than iterating a Jacobi
 //! or QR sweep. That is upstream OpenFOAM's approach and it is the right one at
 //! 3x3: the closed-form cubic is exact up to round-off, has no iteration count
 //! to tune, and reuses the polynomial solver this crate already carries.

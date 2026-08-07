@@ -23,15 +23,17 @@
 //!
 //! This module holds the data containers the FV operators read and write:
 //!
-//! - [`Field`] — a flat `Vec<T>` with element-wise arithmetic; the raw storage
+//! - [`Field`](crate::fields::field::Field) — a flat `Vec<T>` with element-wise arithmetic; the raw storage
 //!   with no mesh or dimension bookkeeping (mirrors `Foam::Field<Type>`).
-//! - [`boundary`] — boundary conditions ([`BoundaryCondition`]) and per-patch
-//!   boundary values ([`PatchField`]).
-//! - [`VolField`] (and the `Vol*Field` aliases) — cell-centred volume fields:
+//! - [`boundary`](crate::fields::boundary) — boundary conditions
+//!   ([`BoundaryCondition`](crate::fields::boundary::bc::BoundaryCondition)) and
+//!   per-patch boundary values
+//!   ([`PatchField`](crate::fields::boundary::bc::PatchField)).
+//! - [`VolField`](crate::fields::vol_field::VolField) (and the `Vol*Field` aliases) — cell-centred volume fields:
 //!   one value per cell plus one `PatchField` per boundary patch.
-//! - [`SurfaceField`] (and the `Surface*Field` aliases) — face fields: one
+//! - [`SurfaceField`](crate::fields::surface_field::SurfaceField) (and the `Surface*Field` aliases) — face fields: one
 //!   value per internal face plus one `PatchField` per boundary patch.
-//! - [`vol_field_algebra`] — pure per-element tensor algebra (`tr`, `symm`,
+//! - [`vol_field_algebra`](crate::fields::vol_field_algebra) — pure per-element tensor algebra (`tr`, `symm`,
 //!   `dev`, …) lifted to whole volume fields.
 //!
 //! Physical units are not tracked at this layer; a field simply carries `f64`,

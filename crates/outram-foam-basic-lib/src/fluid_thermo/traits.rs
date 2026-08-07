@@ -38,32 +38,32 @@ pub trait FluidThermo {
     /// The finite-volume mesh these thermodynamic fields are defined on.
     fn mesh(&self) -> &Arc<FvMesh>;
 
-    /// Pressure field [Pa].
+    /// Pressure field `[Pa]`.
     fn p(&self) -> &VolScalarField;
-    /// Mutable pressure field [Pa] — for the pressure equation to update in place.
+    /// Mutable pressure field `[Pa]` — for the pressure equation to update in place.
     fn p_mut(&mut self) -> &mut VolScalarField;
 
-    /// Temperature field [K].
+    /// Temperature field `[K]`.
     fn t(&self) -> &VolScalarField;
 
-    /// Density field [kg/m³].
+    /// Density field `[kg/m³]`.
     fn rho(&self) -> &VolScalarField;
 
-    /// Energy field — sensible enthalpy `hs` [J/kg] by default.
+    /// Energy field — sensible enthalpy `hs` `[J/kg]` by default.
     fn he(&self) -> &VolScalarField;
-    /// Mutable energy field `he` [J/kg] — for the energy equation to update in place.
+    /// Mutable energy field `he` `[J/kg]` — for the energy equation to update in place.
     fn he_mut(&mut self) -> &mut VolScalarField;
 
-    /// Compressibility field ψ = ∂ρ/∂p|_T [s²/m²].
+    /// Compressibility field ψ = ∂ρ/∂p|_T `[s²/m²]`.
     fn psi(&self) -> &VolScalarField;
 
-    /// Dynamic viscosity field μ [Pa·s] — computed on demand.
+    /// Dynamic viscosity field μ `[Pa·s]` — computed on demand.
     fn mu(&self) -> VolScalarField;
 
-    /// Thermal conductivity field κ [W/(m·K)] — computed on demand.
+    /// Thermal conductivity field κ `[W/(m·K)]` — computed on demand.
     fn kappa(&self) -> VolScalarField;
 
-    /// Thermal diffusivity αh = κ/Cp [kg/(m·s)] — computed on demand.
+    /// Thermal diffusivity αh = κ/Cp `[kg/(m·s)]` — computed on demand.
     fn alpha_h(&self) -> VolScalarField;
 
     /// Recompute `T`, `ρ`, and `ψ` from `he` + `p`.

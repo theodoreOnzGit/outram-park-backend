@@ -122,7 +122,7 @@ pub enum PatchKind {
     Cyclic,
     /// Non-conformal periodic pair — arbitrary mesh interface (AMI). The two
     /// halves' faces do not match one-to-one; each target face couples to a
-    /// weighted set of source faces (see [`AmiCoupling`](crate::mesh::AmiCoupling)).
+    /// weighted set of source faces (see [`AmiCoupling`]).
     /// Mirrors OpenFOAM `cyclicAMIPolyPatch`.
     CyclicAmi,
     /// Inter-processor decomposition seam.
@@ -219,16 +219,16 @@ pub struct FvMesh {
     pub ami_couplings: Vec<AmiCoupling>,
 
     // ── Geometry ──────────────────────────────────────────────────────────────
-    /// Cell volumes `V[c]` [m³].
+    /// Cell volumes `V[c]` `[m³]`.
     pub cell_volumes: Vec<f64>,
-    /// Cell centres `C[c]` [m].
+    /// Cell centres `C[c]` `[m]`.
     pub cell_centres: Vec<Vector3>,
-    /// Face area vectors `Sf[f]` [m²], pointing from owner toward neighbour
+    /// Face area vectors `Sf[f]` `[m²]`, pointing from owner toward neighbour
     /// (or outward for boundary faces).
     pub face_area_vectors: Vec<Vector3>,
-    /// Face area magnitudes `|Sf[f]|` [m²].
+    /// Face area magnitudes `|Sf[f]|` `[m²]`.
     pub face_areas: Vec<f64>,
-    /// Face centres `Cf[f]` [m].
+    /// Face centres `Cf[f]` `[m]`.
     pub face_centres: Vec<Vector3>,
 }
 
@@ -310,8 +310,8 @@ impl FvMesh {
     /// ordering). The resulting mesh has:
     ///
     /// - `n` cells of width `h = length / n`, centres at `(i + 0.5)·h`, volume
-    ///   `h·area` [m³];
-    /// - `n − 1` internal faces (area vector `+x·area` [m²]);
+    ///   `h·area` `[m³]`;
+    /// - `n − 1` internal faces (area vector `+x·area` `[m²]`);
     /// - two 1-face cyclic patches — `"left"` at `x = 0` (patch 0, outward
     ///   normal `−x`) and `"right"` at `x = length` (patch 1, outward normal
     ///   `+x`) — that are each other's partners.
@@ -323,8 +323,8 @@ impl FvMesh {
     ///
     /// # Parameters
     /// - `n` — number of cells (must be ≥ 2 for a meaningful periodic loop);
-    /// - `length` — domain length [m];
-    /// - `area` — uniform cross-sectional face area [m²].
+    /// - `length` — domain length `[m]`;
+    /// - `area` — uniform cross-sectional face area `[m²]`.
     ///
     /// # Panics
     /// Panics if `n < 2` (a periodic loop needs at least two cells) or if
@@ -531,28 +531,28 @@ impl FvMeshBuilder {
         self.ami_couplings = v;
         self
     }
-    /// Set the cell volumes `V[c]` [m³] (length == `n_cells`).
+    /// Set the cell volumes `V[c]` `[m³]` (length == `n_cells`).
     pub fn cell_volumes(mut self, v: Vec<f64>) -> Self {
         self.cell_volumes = v;
         self
     }
-    /// Set the cell centres `C[c]` [m] (length == `n_cells`).
+    /// Set the cell centres `C[c]` `[m]` (length == `n_cells`).
     pub fn cell_centres(mut self, v: Vec<Vector3>) -> Self {
         self.cell_centres = v;
         self
     }
-    /// Set the face area vectors `Sf[f]` [m²] (length == `n_faces`).
+    /// Set the face area vectors `Sf[f]` `[m²]` (length == `n_faces`).
     pub fn face_area_vectors(mut self, v: Vec<Vector3>) -> Self {
         self.face_area_vectors = v;
         self
     }
-    /// Set the face area magnitudes `|Sf[f]|` [m²]. If left unset, they are
+    /// Set the face area magnitudes `|Sf[f]|` `[m²]`. If left unset, they are
     /// derived from `face_area_vectors` at build time.
     pub fn face_areas(mut self, v: Vec<f64>) -> Self {
         self.face_areas = v;
         self
     }
-    /// Set the face centres `Cf[f]` [m] (length == `n_faces`).
+    /// Set the face centres `Cf[f]` `[m]` (length == `n_faces`).
     pub fn face_centres(mut self, v: Vec<Vector3>) -> Self {
         self.face_centres = v;
         self

@@ -106,6 +106,13 @@ pub use crate::ldu_matrix::{
 // --- FV operators (Layer 3) ---
 pub use crate::fv_operators::{adjust_phi, fvc, fvm};
 
+// --- Non-orthogonal (mesh-quality) correction for the Laplacian ---
+pub use crate::fv_operators::fvc::grad_least_squares;
+pub use crate::fv_operators::fvm::{
+    laplacian_corrected, max_non_orthogonality_deg, non_ortho_geometry,
+    solve_laplacian_non_orthogonal, NonOrthoGeometry, NonOrthoScheme,
+};
+
 // --- Optional equation sources, OpenFOAM `fvOptions` / `fvModels` (Layer 3) ---
 pub use crate::fv_options::{
     CellSelection, EquationField, FvModel, FvModels, MomentumEquationForm, SemiImplicitSource,
@@ -121,6 +128,9 @@ pub use crate::fluid_thermo::{ConstSolidThermo, FluidThermo, PsiThermo, RhoTherm
 
 // --- LDU solvers ---
 pub use crate::ldu_matrix::{conjugate_gradient, gamg, gauss_seidel};
+
+// --- FvMatrix/FvVectorMatrix bridge onto the asymmetric Krylov solvers ---
+pub use crate::ldu_matrix::{krylov_solve, KrylovMethod, KrylovOptions, PreconditionerKind};
 
 // --- Asymmetric Krylov solvers + preconditioners ---
 pub use crate::krylov::{

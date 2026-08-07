@@ -26,12 +26,13 @@
 //!
 //! - [`ldu_matrix::LduMatrix`] — the raw sparse coefficients (diagonal + per-face
 //!   lower/upper off-diagonals) and matrix–vector / residual kernels.
-//! - [`fv_matrix::FvMatrix`] — a scalar equation `A·φ = b` for a `VolScalarField`,
+//! - [`FvMatrix`](crate::ldu_matrix::fv_matrix::FvMatrix) — a scalar equation `A·φ = b` for a `VolScalarField`,
 //!   assembled by the Layer-3 `fvm::` operators.
-//! - [`fv_vector_matrix::FvVectorMatrix`] — the vector counterpart `A·U = b` with
+//! - [`FvVectorMatrix`](crate::ldu_matrix::fv_vector_matrix::FvVectorMatrix) — the vector counterpart `A·U = b` with
 //!   scalar LDU coefficients and a `Field<Vector3>` source.
-//! - [`solvers`] — Gauss-Seidel, DIC-preconditioned conjugate gradient, and GAMG
-//!   (algebraic multigrid).
+//! - [`solvers`](crate::ldu_matrix::solvers) — Gauss-Seidel, DIC-preconditioned conjugate gradient, GAMG
+//!   (algebraic multigrid), and the [`krylov_solve`](crate::ldu_matrix::solvers::krylov_solve()) adapter onto the asymmetric
+//!   BiCGStab / GMRES kernels in [`crate::krylov`].
 //!
 //! Belongs here: the sparse-matrix storage, its arithmetic, and the linear
 //! solvers. Field types, meshes, and the differential operators that build these
@@ -48,3 +49,4 @@ pub use ldu_matrix::LduMatrix;
 pub use solvers::conjugate_gradient;
 pub use solvers::gamg;
 pub use solvers::gauss_seidel;
+pub use solvers::krylov_solve::{krylov_solve, KrylovMethod, KrylovOptions, PreconditionerKind};

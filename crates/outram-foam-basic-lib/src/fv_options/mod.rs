@@ -50,7 +50,7 @@
 //! a solution, such as fixing a value in a cell set. This port follows the
 //! Foundation split, because the vendored reference tree is the Foundation
 //! one, but the module is named `fv_options` because that is the name most
-//! users will search for. [`FvModel`] is the source half; constraints are not
+//! users will search for. [`FvModel`](crate::fv_options::FvModel) is the source half; constraints are not
 //! yet ported.
 //!
 //! # Why this lives in `outram-foam-basic-lib`
@@ -72,15 +72,17 @@
 //! side contribution goes into `source`, while an implicit contribution
 //! proportional to `φ` goes onto the **diagonal with the opposite sign**. That
 //! asymmetry is the classic way to get a source term backwards, so
-//! [`FvModel`] never asks a caller to place terms by hand:
-//! [`add_source_scalar`](FvModels::add_source_scalar) and
-//! [`add_source_vector`](FvModels::add_source_vector) do the placement, and the
+//! [`FvModel`](crate::fv_options::FvModel) never asks a caller to place terms by hand:
+//! [`add_source_scalar`](crate::fv_options::FvModels::add_source_scalar) and
+//! [`add_source_vector`](crate::fv_options::FvModels::add_source_vector) do the
+//! placement, and the
 //! individual models express themselves as an explicit part and an implicit
 //! coefficient.
 //!
 //! # Cell selection
 //!
-//! Every model applies over a [`CellSelection`] — the whole mesh, or a named
+//! Every model applies over a
+//! [`CellSelection`](crate::fv_options::CellSelection) — the whole mesh, or a named
 //! subset. This is upstream's `cellSetOption`/`fvCellZone`. Selections hold
 //! their cell list behind an `Arc`, per the workspace rule against lifetime
 //! parameters, so sharing one selection between several models is free.

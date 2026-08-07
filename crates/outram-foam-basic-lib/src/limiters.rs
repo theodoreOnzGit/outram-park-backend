@@ -9,7 +9,7 @@
 //! `outram-park-fork-pflotran` solute/energy transport) can build higher-order
 //! TVD advection without depending on this crate's field/mesh types. A separate,
 //! field-tied limiter for rhoCentralFoam reconstruction lives at
-//! [`crate::fv_operators::fvc::muscl`] (`Limiter`); this module is the reusable,
+//! [`crate::fv_operators::fvc::Limiter`]; this module is the reusable,
 //! general one, and the two should be consolidated eventually.
 //!
 //! # Provenance (translated from OpenFOAM upstream source)

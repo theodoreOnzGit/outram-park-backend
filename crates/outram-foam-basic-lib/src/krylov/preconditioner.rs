@@ -102,7 +102,7 @@ impl JacobiPreconditioner {
 /// The factorisation is real: for a symmetric problem it reduces to an incomplete
 /// Cholesky-like factor and typically beats Jacobi substantially; for a
 /// nonsymmetric problem it captures both off-diagonal directions. The only
-/// safeguard is a small-pivot floor ([`ILU_PIVOT_FLOOR`]): a pivot smaller than
+/// safeguard is a small-pivot floor (`ILU_PIVOT_FLOOR`): a pivot smaller than
 /// that in magnitude is bumped up (keeping its sign) so the triangular solves stay
 /// finite. In the degenerate limit where *every* off-diagonal contribution
 /// vanishes, ILU(0) coincides exactly with Jacobi — that is a property of the
@@ -134,7 +134,7 @@ impl Ilu0Preconditioner {
     ///
     /// Constructs the CSR view then runs the in-place IKJ incomplete-LU
     /// elimination restricted to existing nonzeros. Runs in roughly
-    /// `O(nnz · avg_row)` time. Pivots below [`ILU_PIVOT_FLOOR`] are floored to
+    /// `O(nnz · avg_row)` time. Pivots below `ILU_PIVOT_FLOOR` are floored to
     /// keep the factor invertible.
     pub fn new(a: &LduMatrix) -> Self {
         let n = a.n_cells;

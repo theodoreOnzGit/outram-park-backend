@@ -23,10 +23,14 @@
 //! kernels.
 //!
 //! Ports the OpenFOAM `primitives/functions/Math` helpers: the inverse error
-//! function ([`erf_inv`]), the regularised lower/upper incomplete gamma
-//! functions and their unnormalised forms ([`inc_gamma_ratio_p`],
-//! [`inc_gamma_ratio_q`], [`inc_gamma_p`], [`inc_gamma_q`]), and the inverse of
-//! the regularised lower incomplete gamma ([`inv_inc_gamma`]). All arguments and
+//! function ([`erf_inv`](crate::math::erf_inv::erf_inv)), the regularised lower/upper incomplete gamma
+//! functions and their unnormalised forms
+//! ([`inc_gamma_ratio_p`](crate::math::inc_gamma::inc_gamma_ratio_p),
+//! [`inc_gamma_ratio_q`](crate::math::inc_gamma::inc_gamma_ratio_q),
+//! [`inc_gamma_p`](crate::math::inc_gamma::inc_gamma_p),
+//! [`inc_gamma_q`](crate::math::inc_gamma::inc_gamma_q)), and the inverse of
+//! the regularised lower incomplete gamma
+//! ([`inv_inc_gamma`](crate::math::inv_inc_gamma::inv_inc_gamma)). All arguments and
 //! results are dimensionless `f64`.
 
 pub mod erf_inv;

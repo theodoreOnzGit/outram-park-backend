@@ -21,26 +21,32 @@
 
 //! Ordinary differential equation solvers for systems `dy/dx = f(x, y)`.
 //!
-//! Ports the OpenFOAM `ODE` layer: user systems implement the [`OdeSystem`]
+//! Ports the OpenFOAM `ODE` layer: user systems implement the [`OdeSystem`](crate::ode::OdeSystem)
 //! trait, and one of the concrete steppers integrates them with adaptive step
-//! control — [`Euler`] (explicit 1st order), [`Rkf45`] (explicit Runge-Kutta-
-//! Fehlberg 4(5)), and [`Rosenbrock23`] (semi-implicit, for stiff systems,
+//! control — [`Euler`](crate::ode::euler::Euler) (explicit 1st order),
+//! [`Rkf45`](crate::ode::rkf45::Rkf45) (explicit Runge-Kutta-Fehlberg 4(5)), and
+//! [`Rosenbrock23`](crate::ode::rosenbrock23::Rosenbrock23) (semi-implicit, for stiff systems,
 //! requiring a Jacobian). The independent variable `x`, state `y`, and step
 //! size are bare `f64` in the caller's own units; tolerances are set through
-//! [`OdeSolverConfig`].
+//! [`OdeSolverConfig`](crate::ode::OdeSolverConfig).
 //!
-//! # Storing an integrator: [`OdeIntegrator`]
+//! # Storing an integrator: [`OdeIntegrator`](crate::ode::integrator::OdeIntegrator)
 //!
 //! The three steppers above take the system by reference on every call, which
 //! is awkward for any caller that wants to *keep* "the integrator for this
 //! material point" as a struct field — storing a borrow would force a lifetime
 //! parameter, which the workspace design rules forbid.
 //!
-//! [`integrator`] solves that with two enums that own what they integrate:
-//! [`OdeSolver`] selects the stepper, and [`OdeIntegrator`] selects how the
-//! system is supplied — [`OdeIntegrator::TypedState`] (a concrete system owned
+//! [`integrator`](crate::ode::integrator) solves that with two enums that own
+//! what they integrate: [`OdeSolver`](crate::ode::integrator::OdeSolver) selects
+//! the stepper, and
+//! [`OdeIntegrator`](crate::ode::integrator::OdeIntegrator) selects how the
+//! system is supplied —
+//! [`OdeIntegrator::TypedState`](crate::ode::integrator::OdeIntegrator::TypedState)
+//! (a concrete system owned
 //! by value, statically dispatched, **preferred**) or
-//! [`OdeIntegrator::DynSystem`] (an `Arc<dyn OdeSystem + Send + Sync>`, kept by
+//! [`OdeIntegrator::DynSystem`](crate::ode::integrator::OdeIntegrator::DynSystem)
+//! (an `Arc<dyn OdeSystem + Send + Sync>`, kept by
 //! maintainer decision for flexibility). Neither borrows, so neither needs a
 //! lifetime.
 

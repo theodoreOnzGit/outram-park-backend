@@ -32,7 +32,7 @@ use crate::mesh::fv_mesh::{FvMesh, PatchKind};
 ///
 /// Sign convention:
 /// - `phi[f] ≥ 0` → flux flows from owner to neighbour (upwind = owner):
-///   - `diag[owner] += phi[f]`  (implicit term on U[owner])
+///   - `diag[owner] += phi[f]`  (implicit term on `U[owner]`)
 ///   - `diag[nbr]   -= 0`       (no contribution)
 ///   - `upper[f]    += phi[f].min(0.0) = 0`
 /// - `phi[f] < 0`  → flux flows from neighbour to owner (upwind = neighbour):

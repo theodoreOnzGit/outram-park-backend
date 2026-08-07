@@ -113,6 +113,9 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | `ldu_matrix` | `FvMatrix::solve_cg`, `FvMatrix::solve_cg_with_guess` | Cold- and warm-started PCG for the symmetric pressure system |
 | `ldu_matrix` | `FvMatrix::solve_gamg`, `FvMatrix::solve_gamg_with_guess` | Cold- and warm-started GAMG for the symmetric pressure system |
 | `ldu_matrix` | `SolverSettings`, `SolverPerformance` | Tolerance / iteration control and convergence reporting |
+| `ldu_matrix` | `krylov_solve`, `KrylovMethod`, `KrylovOptions`, `PreconditionerKind` | Bridge from `SolverSettings`/`SolverPerformance` onto the `krylov` module's BiCGStab/GMRES kernels; method and preconditioner selected by `Copy` enum (no trait objects) |
+| `ldu_matrix` | `FvMatrix::solve_bicgstab{,_with_guess}`, `FvMatrix::solve_gmres{,_with_guess}`, `FvMatrix::solve_krylov` | Preconditioned Krylov solve for the **asymmetric** (convection-bearing) scalar system — the analogue of `Foam::PBiCGStab` + `DILU`, where PCG/GAMG do not apply. Measured V&V in `tests/krylov_convection_diffusion.rs` |
+| `ldu_matrix` | `FvVectorMatrix::solve_bicgstab`, `solve_gmres`, `solve_krylov` | Same, per velocity component, for the asymmetric momentum matrix |
 | `krylov` | `bicgstab`, `gmres` | Pure-Rust Krylov solvers for **nonsymmetric** LDU systems (analogue of `Foam::PBiCGStab`); GMRES(m) is right-preconditioned. Added for the pflotran RICHARDS Jacobian, which is asymmetric under upstream weighting |
 | `krylov` | `Preconditioner` (`Identity`/`Jacobi`/`Ilu0`) | Enum-dispatched preconditioners; ILU(0) is a genuine incomplete-LU (exact for tridiagonal), Jacobi the robust fallback |
 | `krylov` | `KrylovSettings`, `KrylovResult`, `vecops` | Tolerance/restart control, convergence reporting, and BLAS-1 helpers (`dot`/`nrm2`/`axpy`/`scal`) |
@@ -130,7 +133,11 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 | `fvm::laplacian_vec(gamma, U)` | Diffusion −∇·(γ∇U) → `FvVectorMatrix` (cyclic + cyclicAMI seam coupling) |
 | `fvm::div(phi, psi)` | Upwind convection ∇·(φψ) → `FvMatrix` (cyclic + cyclicAMI seam coupling; per-target flux split by overlap weight) |
 | `fvm::div_vec(phi, U)` | Upwind convection ∇·(φU) → `FvVectorMatrix` (cyclic + cyclicAMI seam coupling) |
-| `fvc::grad(phi)` | Explicit cell-centred gradient → `VolVectorField` |
+| `fvm::laplacian_corrected(gamma, phi, grad_phi, scheme)` | Laplacian with **non-orthogonality correction** (`Foam::correctedSnGrad`): implicit `1/max(n·d, 0.05\|d\|)` part + explicit `k_f·(∇φ)_f`, scheme selected by the `NonOrthoScheme` enum (`Orthogonal` / `Corrected` / `Limited(w)`); `Orthogonal` is bit-for-bit `fvm::laplacian`. Internal + pure-Dirichlet boundary faces only — cyclic/cyclicAMI seams and the other BC arms keep the orthogonal treatment |
+| `fvm::solve_laplacian_non_orthogonal(gamma, phi, scheme, n_correctors, settings)` | The deferred-correction loop (`nNonOrthogonalCorrectors`): solve → recompute least-squares gradient → re-assemble → re-solve |
+| `fvm::max_non_orthogonality_deg(mesh)` / `fvm::non_ortho_geometry(sf, d)` / `NonOrthoGeometry` | `checkMesh`-equivalent max non-orthogonality statistic, and the per-face `Δ_f` / `k_f` / angle it is computed from |
+| `fvc::grad(phi)` | Explicit cell-centred Gauss gradient → `VolVectorField`. **Not exact for a linear field on a non-orthogonal mesh** — see `grad_least_squares` |
+| `fvc::grad_least_squares(phi)` | Least-squares cell gradient (`Foam::leastSquaresGrad`), inverse-distance weighted, with rank repair for 2-D/1-D meshes. Exact for a linear field on **any** mesh; the gradient the non-orthogonal correction must be driven by. V&V in `tests/non_orthogonal_laplacian.rs` |
 | `fvc::div(phi, psi)` | Explicit scalar divergence → `VolScalarField` |
 | `fvc::div_flux(phi)` | Divergence of face flux → `VolScalarField` |
 | `fvc::interpolate(phi)` | Linear face interpolation → `SurfaceScalarField` (interpolates across the cyclic seam to the paired cell) |

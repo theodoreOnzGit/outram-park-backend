@@ -23,17 +23,17 @@
 //! solvers a Newton–Krylov subsurface-flow solver needs, where the Jacobian is
 //! not symmetric:
 //!
-//! - [`bicgstab`] — preconditioned BiCGStab: fixed work/storage per iteration,
+//! - [`bicgstab`](crate::krylov::bicgstab()) — preconditioned BiCGStab: fixed work/storage per iteration,
 //!   breakdown-guarded.
-//! - [`gmres`] — restarted, right-preconditioned GMRES(m): residual-minimising,
+//! - [`gmres`](crate::krylov::gmres()) — restarted, right-preconditioned GMRES(m): residual-minimising,
 //!   robust, `O(m)` storage.
 //!
-//! and three preconditioners dispatched by the [`Preconditioner`] enum (never
+//! and three preconditioners dispatched by the [`Preconditioner`](crate::krylov::Preconditioner) enum (never
 //! trait objects, per the workspace design rules):
 //!
-//! - [`Preconditioner::identity`] — no preconditioning (`M = I`).
-//! - [`Preconditioner::jacobi`] — diagonal scaling; always applicable.
-//! - [`Preconditioner::ilu0`] — genuine ILU(0) incomplete factorisation.
+//! - [`Preconditioner::identity`](crate::krylov::Preconditioner::identity) — no preconditioning (`M = I`).
+//! - [`Preconditioner::jacobi`](crate::krylov::Preconditioner::jacobi) — diagonal scaling; always applicable.
+//! - [`Preconditioner::ilu0`](crate::krylov::Preconditioner::ilu0) — genuine ILU(0) incomplete factorisation.
 //!
 //! # Matrix representation and conventions
 //!

@@ -30,26 +30,31 @@
 //!
 //! ## What lives here
 //!
-//! - [`dict`] — the `FoamFile` **dictionary** format: a tokeniser (strips
+//! - [`dict`](crate::io::dict) — the `FoamFile` **dictionary** format: a tokeniser (strips
 //!   `//` and `/* */` comments; treats `( ) { } ; [ ]` as delimiters), an
-//!   in-memory AST ([`FoamDict`], [`FoamEntry`], [`FoamValue`],
-//!   [`Dimensioned`]), the [`FoamHeader`] block, and an exact-round-trip
+//!   in-memory AST ([`FoamDict`](crate::io::dict::FoamDict),
+//!   [`FoamEntry`](crate::io::dict::FoamEntry),
+//!   [`FoamValue`](crate::io::dict::FoamValue),
+//!   [`Dimensioned`](crate::io::dict::Dimensioned)), the
+//!   [`FoamHeader`](crate::io::dict::FoamHeader) block, and an exact-round-trip
 //!   writer. Handles `system/controlDict`, `fvSchemes`, `fvSolution`-style
 //!   dictionaries.
-//! - [`poly_mesh`] — [`PolyMesh`]: read/write `constant/polyMesh/{points,
+//! - [`poly_mesh`](crate::io::poly_mesh) — [`PolyMesh`](crate::io::poly_mesh::PolyMesh): read/write `constant/polyMesh/{points,
 //!   faces, owner, neighbour, boundary}` and convert to the crate's
-//!   geometry-carrying [`crate::mesh::FvMesh`] via [`PolyMesh::to_fv_mesh`].
-//! - [`field`] — read/write a time-directory field file
+//!   geometry-carrying [`crate::mesh::FvMesh`] via
+//!   [`PolyMesh::to_fv_mesh`](crate::io::poly_mesh::PolyMesh::to_fv_mesh).
+//! - [`field`](crate::io::field) — read/write a time-directory field file
 //!   (`0/p` volScalarField, `0/U` volVectorField): the `dimensions`,
 //!   `internalField`, and `boundaryField` blocks ↔ the crate's
 //!   [`crate::fields::VolScalarField`] / [`crate::fields::VolVectorField`].
-//! - [`case`] — [`FoamCase`]: read a whole case directory (`system/…`,
+//! - [`case`](crate::io::case) — [`FoamCase`](crate::io::case::FoamCase): read a whole case directory (`system/…`,
 //!   `constant/polyMesh`, `0/…`) into memory, with a best-effort writer.
 //!
 //! ## Round-trip guarantee
 //!
 //! The writer and parser are inverse at the **AST level**: constructing a
-//! [`FoamDict`] / [`PolyMesh`] / field, serialising it, and parsing it back
+//! [`FoamDict`](crate::io::dict::FoamDict) /
+//! [`PolyMesh`](crate::io::poly_mesh::PolyMesh) / field, serialising it, and parsing it back
 //! reproduces an equal in-memory value. (It is not a byte-for-byte re-emitter
 //! of an arbitrary pre-existing file — comment banners and incidental
 //! whitespace are normalised — but every value round-trips.)

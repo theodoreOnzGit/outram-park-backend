@@ -25,12 +25,16 @@
 //! right-hand side and returns the solution together with the iteration count
 //! and final normalised residual:
 //!
-//! - [`gauss_seidel`] — a robust smoother that also handles the asymmetric
+//! - [`gauss_seidel`](crate::ldu_matrix::solvers::gauss_seidel()) — a robust smoother that also handles the asymmetric
 //!   (convection-bearing) momentum matrix.
-//! - [`conjugate_gradient`] — DIC-preconditioned CG for symmetric SPD systems
+//! - [`conjugate_gradient`](crate::ldu_matrix::solvers::conjugate_gradient()) — DIC-preconditioned CG for symmetric SPD systems
 //!   (the pressure Poisson equation).
-//! - [`gamg`] — algebraic multigrid for the same symmetric SPD systems, with
+//! - [`gamg`](crate::ldu_matrix::solvers::gamg()) — algebraic multigrid for the same symmetric SPD systems, with
 //!   near mesh-independent convergence on fine grids.
+//! - [`krylov_solve`](fn@crate::ldu_matrix::solvers::krylov_solve) — the adapter onto the **asymmetric** Krylov kernels in
+//!   [`crate::krylov`] (BiCGStab / restarted GMRES with identity, Jacobi or
+//!   ILU(0) preconditioning), for the convection-bearing matrices where PCG and
+//!   GAMG do not apply and Gauss-Seidel is slow.
 //!
 //! Belongs here: the linear-solver kernels only. The matrix assembly and the
 //! `FvMatrix`/`FvVectorMatrix` wrappers that call them live one level up.
@@ -38,7 +42,9 @@
 pub mod conjugate_gradient;
 pub mod gamg;
 pub mod gauss_seidel;
+pub mod krylov_solve;
 
 pub use conjugate_gradient::conjugate_gradient;
 pub use gamg::gamg;
 pub use gauss_seidel::gauss_seidel;
+pub use krylov_solve::{krylov_solve, KrylovMethod, KrylovOptions, PreconditionerKind};

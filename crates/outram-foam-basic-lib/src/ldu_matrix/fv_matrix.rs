@@ -26,6 +26,7 @@ use super::ldu_matrix::LduMatrix;
 use super::solvers::conjugate_gradient::conjugate_gradient;
 use super::solvers::gamg::gamg;
 use super::solvers::gauss_seidel::gauss_seidel;
+use super::solvers::krylov_solve::{krylov_solve, KrylovMethod, KrylovOptions};
 use crate::fields::boundary::bc::PatchField;
 use crate::fields::field::Field;
 use crate::fields::vol_field::VolScalarField;
@@ -168,7 +169,7 @@ impl FvMatrix {
     /// For a transient run approaching steady state the solution barely changes
     /// between steps, so the starting residual is tiny and the solve completes
     /// in very few iterations — often zero. See
-    /// [`conjugate_gradient`](crate::ldu_matrix::conjugate_gradient) for the
+    /// [`conjugate_gradient`](crate::ldu_matrix::solvers::conjugate_gradient()) for the
     /// preconditioner and warm-start details.
     pub fn solve_cg_with_guess(
         &self,
@@ -216,7 +217,7 @@ impl FvMatrix {
     }
 
     /// Solve with GAMG, **warm-started** from `initial` (typically the previous
-    /// time step's field). See [`gamg`](crate::ldu_matrix::gamg) for the
+    /// time step's field). See [`gamg`](crate::ldu_matrix::solvers::gamg()) for the
     /// multigrid algorithm and [`solve_gamg`](Self::solve_gamg) for the cold
     /// variant.
     pub fn solve_gamg_with_guess(
@@ -236,6 +237,147 @@ impl FvMatrix {
     ) -> (VolScalarField, SolverPerformance) {
         let b: Vec<f64> = self.source.iter().copied().collect();
         let (x, perf) = gamg(&self.ldu, &b, x0, &settings);
+
+        let boundary = self
+            .mesh
+            .patches
+            .iter()
+            .map(|p| PatchField::zero_gradient(p.size))
+            .collect();
+        let field = VolScalarField::new(name, self.mesh.clone(), Field::new(x), boundary);
+        (field, perf)
+    }
+
+    // ── Asymmetric Krylov solves (convection-bearing matrices) ─────────────
+
+    /// Solve the system with **preconditioned BiCGStab**, cold-started from
+    /// `x = 0`.
+    ///
+    /// This is the solver to use for any equation carrying a convection term —
+    /// scalar transport, energy, species — where the matrix is **asymmetric**
+    /// (`lower[f] != upper[f]`) because upwinding puts the flux on the donor side
+    /// only. PCG ([`solve_cg`](Self::solve_cg)) and GAMG
+    /// ([`solve_gamg`](Self::solve_gamg)) require symmetry and must not be used
+    /// on those matrices; the only prior alternative was
+    /// [`solve`](Self::solve)'s Gauss-Seidel, whose iteration count grows like
+    /// the condition number.
+    ///
+    /// With the default [`KrylovOptions`] this is ILU(0)-preconditioned
+    /// BiCGStab — the direct analogue of OpenFOAM's `PBiCGStab` with `DILU`.
+    ///
+    /// `settings.tolerance` is tested against the **relative 2-norm residual**
+    /// `||b − A·phi||₂ / ||b||₂` (the same measure `solve_cg` uses), not the
+    /// L1-scaled measure `solve` reports.
+    ///
+    /// In a transient loop prefer
+    /// [`solve_bicgstab_with_guess`](Self::solve_bicgstab_with_guess) to
+    /// warm-start from the previous time step.
+    pub fn solve_bicgstab(
+        &self,
+        name: impl Into<String>,
+        options: KrylovOptions,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        self.solve_krylov_inner(name, None, KrylovMethod::BiCGStab, options, settings)
+    }
+
+    /// Solve with preconditioned BiCGStab, **warm-started** from `initial`
+    /// (typically the previous time step's field).
+    ///
+    /// See [`solve_bicgstab`](Self::solve_bicgstab) for when to use BiCGStab at
+    /// all. Near steady state the starting residual is already tiny, so the
+    /// solve completes in a handful of iterations — often zero.
+    pub fn solve_bicgstab_with_guess(
+        &self,
+        name: impl Into<String>,
+        initial: &VolScalarField,
+        options: KrylovOptions,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        self.solve_krylov_inner(
+            name,
+            Some(initial.internal.as_slice()),
+            KrylovMethod::BiCGStab,
+            options,
+            settings,
+        )
+    }
+
+    /// Solve the system with **restarted, right-preconditioned GMRES(m)**,
+    /// cold-started from `x = 0`.
+    ///
+    /// GMRES minimises the residual over the Krylov subspace, so its residual
+    /// history is monotone and it cannot break down the way BiCGStab can — at
+    /// the cost of storing `options.restart` basis vectors
+    /// (`O(restart · n_cells)` memory). Reach for it when
+    /// [`solve_bicgstab`](Self::solve_bicgstab) reports `converged = false` on a
+    /// strongly nonnormal (high-Peclet, highly non-orthogonal) matrix.
+    ///
+    /// Like [`solve_bicgstab`](Self::solve_bicgstab), `settings.tolerance` is
+    /// tested against `||b − A·phi||₂ / ||b||₂`.
+    pub fn solve_gmres(
+        &self,
+        name: impl Into<String>,
+        options: KrylovOptions,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        self.solve_krylov_inner(name, None, KrylovMethod::Gmres, options, settings)
+    }
+
+    /// Solve with restarted GMRES(m), **warm-started** from `initial`.
+    ///
+    /// See [`solve_gmres`](Self::solve_gmres).
+    pub fn solve_gmres_with_guess(
+        &self,
+        name: impl Into<String>,
+        initial: &VolScalarField,
+        options: KrylovOptions,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        self.solve_krylov_inner(
+            name,
+            Some(initial.internal.as_slice()),
+            KrylovMethod::Gmres,
+            options,
+            settings,
+        )
+    }
+
+    /// Solve with the Krylov method named by `method`, optionally warm-started.
+    ///
+    /// The general form behind [`solve_bicgstab`](Self::solve_bicgstab) and
+    /// [`solve_gmres`](Self::solve_gmres); use it when the method is chosen at
+    /// run time (e.g. fall back from BiCGStab to GMRES after a breakdown)
+    /// instead of being fixed at the call site.
+    ///
+    /// `initial` is the starting iterate; `None` starts from zero.
+    pub fn solve_krylov(
+        &self,
+        name: impl Into<String>,
+        initial: Option<&VolScalarField>,
+        method: KrylovMethod,
+        options: KrylovOptions,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        self.solve_krylov_inner(
+            name,
+            initial.map(|f| f.internal.as_slice()),
+            method,
+            options,
+            settings,
+        )
+    }
+
+    fn solve_krylov_inner(
+        &self,
+        name: impl Into<String>,
+        x0: Option<&[f64]>,
+        method: KrylovMethod,
+        options: KrylovOptions,
+        settings: SolverSettings,
+    ) -> (VolScalarField, SolverPerformance) {
+        let b: Vec<f64> = self.source.iter().copied().collect();
+        let (x, perf) = krylov_solve(&self.ldu, &b, x0, method, options, &settings);
 
         let boundary = self
             .mesh

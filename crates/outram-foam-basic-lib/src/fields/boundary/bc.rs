@@ -76,7 +76,7 @@ pub enum BoundaryCondition<T: Clone> {
     /// Neumann with a prescribed **non-zero** normal gradient `g` (`[T]·m⁻¹`).
     ///
     /// The boundary face value is `φ_face = φ_cell + g · delta`, where `delta`
-    /// [m] is the owner-cell-centre-to-face-centre distance.  Reduces to
+    /// `[m]` is the owner-cell-centre-to-face-centre distance.  Reduces to
     /// [`ZeroGradient`](Self::ZeroGradient) when `g = 0`.
     ///
     /// OpenFOAM: `fixedGradientFvPatchField`
@@ -86,7 +86,7 @@ pub enum BoundaryCondition<T: Clone> {
     /// (`fixedValue`, weight `value_fraction`) and a Neumann part
     /// (`fixedGradient`, weight `1 - value_fraction`).
     ///
-    /// With `w = value_fraction ∈ [0, 1]`, `delta` [m] the cell-to-face
+    /// With `w = value_fraction ∈ [0, 1]`, `delta` `[m]` the cell-to-face
     /// distance, `φ_c` the owner cell value:
     ///
     /// - face value: `φ_face = w·ref_value + (1 - w)·(φ_c + ref_grad·delta)`
@@ -115,7 +115,7 @@ pub enum BoundaryCondition<T: Clone> {
     /// [`ZeroGradient`](Self::ZeroGradient) on **outflow** faces.
     ///
     /// The switch is decided per face by the sign of the outward face flux
-    /// `φ_f = U·S_f` [m³·s⁻¹]: `φ_f < 0` is inflow (fixed value), `φ_f ≥ 0` is
+    /// `φ_f = U·S_f` `[m³·s⁻¹]`: `φ_f < 0` is inflow (fixed value), `φ_f ≥ 0` is
     /// outflow (zero gradient).  Equivalent to a [`Mixed`](Self::Mixed) BC whose
     /// `value_fraction` is set to `1` on inflow and `0` on outflow.  The flux is
     /// supplied by the convection operator at assembly time, so this variant is
@@ -184,10 +184,10 @@ pub enum BoundaryCondition<T: Clone> {
     /// specialised to external / far-field flow: it imposes the uniform
     /// freestream value on **inflow** faces and is [`ZeroGradient`](Self::ZeroGradient)
     /// on **outflow** faces, switched per face by the sign of the outward face
-    /// flux `φ_f = U·S_f` [m³·s⁻¹] (`φ_f < 0` inflow, `φ_f ≥ 0` outflow).
+    /// flux `φ_f = U·S_f` `[m³·s⁻¹]` (`φ_f < 0` inflow, `φ_f ≥ 0` outflow).
     ///
     /// For a velocity field `freestream_value` is the far-field velocity `U_∞`
-    /// [m·s⁻¹]; for a scalar it is the far-field scalar value (`[T]`). It is
+    /// `[m·s⁻¹]`; for a scalar it is the far-field scalar value (`[T]`). It is
     /// **self-contained**: the flux is supplied by the convection operator at
     /// assembly time, exactly like [`InletOutlet`](Self::InletOutlet), so no
     /// solver hook is needed. See [`flux_value_fraction`](Self::flux_value_fraction)
@@ -202,11 +202,11 @@ pub enum BoundaryCondition<T: Clone> {
         freestream_value: T,
     },
     /// Velocity BC for a pressure-driven inlet/outlet patch: the patch velocity
-    /// is reconstructed from the face flux `φ_f` [m³·s⁻¹] and the face area.
+    /// is reconstructed from the face flux `φ_f` `[m³·s⁻¹]` and the face area.
     ///
     /// On **outflow** (`φ_f ≥ 0`) it is [`ZeroGradient`](Self::ZeroGradient); on
     /// **inflow** (`φ_f < 0`) it imposes the flux-implied wall-normal velocity
-    /// `U = (φ_f / |S_f|)·n̂` [m·s⁻¹], where `n̂ = S_f/|S_f|` is the unit outward
+    /// `U = (φ_f / |S_f|)·n̂` `[m·s⁻¹]`, where `n̂ = S_f/|S_f|` is the unit outward
     /// face normal. (OpenFOAM sets `valueFraction = 1 − pos0(φ_f)`, i.e.
     /// `fixedValue` on inflow and `zeroGradient` on outflow; the imposed value is
     /// the normal velocity above, the tangential component taken as zero here —
@@ -224,7 +224,7 @@ pub enum BoundaryCondition<T: Clone> {
     /// OpenFOAM: `pressureInletOutletVelocityFvPatchVectorField`.
     PressureInletOutletVelocity,
     /// Pressure BC that fixes the surface-normal pressure gradient `snGrad(p)`
-    /// [Pa·m⁻¹] so the pressure-corrected face flux matches a target flux — the
+    /// `[Pa·m⁻¹]` so the pressure-corrected face flux matches a target flux — the
     /// natural wall / outlet pressure condition in a PISO/PIMPLE pressure solve.
     ///
     /// It behaves as a [`FixedGradient`](Self::FixedGradient)`(gradient)` whose
@@ -232,11 +232,11 @@ pub enum BoundaryCondition<T: Clone> {
     ///
     /// `snGrad(p) = (φ_HbyA − φ_target) / (D_p · |S_f|)`
     ///
-    /// where `φ_HbyA` [m³·s⁻¹] is the momentum-predictor (H/A) face flux,
-    /// `φ_target` [m³·s⁻¹] the desired boundary flux, `D_p` [m³·s·kg⁻¹] the
+    /// where `φ_HbyA` `[m³·s⁻¹]` is the momentum-predictor (H/A) face flux,
+    /// `φ_target` `[m³·s⁻¹]` the desired boundary flux, `D_p` `[m³·s·kg⁻¹]` the
     /// face-interpolated `rAU` (interpolated `1/A_p` from the momentum-matrix
     /// diagonal, which absorbs any body-force term folded into `H/A`), and `|S_f|`
-    /// [m²] the face area. The gradient is **solver-set** because it needs the
+    /// `[m²]` the face area. The gradient is **solver-set** because it needs the
     /// predictor flux and the `rAU` field, which this Layer does not own. See
     /// [`fixed_flux_pressure_sn_grad`](BoundaryCondition::<f64>::fixed_flux_pressure_sn_grad)
     /// for the pure formula. The stored `gradient` is uniform over the patch
@@ -245,7 +245,7 @@ pub enum BoundaryCondition<T: Clone> {
     ///
     /// OpenFOAM: `fixedFluxPressureFvPatchScalarField`.
     FixedFluxPressure {
-        /// Currently-set surface-normal pressure gradient `snGrad(p)` [Pa·m⁻¹],
+        /// Currently-set surface-normal pressure gradient `snGrad(p)` `[Pa·m⁻¹]`,
         /// uniform over the patch.
         gradient: T,
     },
@@ -271,7 +271,7 @@ pub enum BoundaryCondition<T: Clone> {
     ///
     /// OpenFOAM: `totalPressureFvPatchScalarField`.
     TotalPressure {
-        /// Fixed total (stagnation) pressure `p0` [Pa].
+        /// Fixed total (stagnation) pressure `p0` `[Pa]`.
         p0: T,
     },
     /// Uniform inlet-velocity BC scaled to a prescribed volumetric flow rate:
@@ -294,7 +294,7 @@ pub enum BoundaryCondition<T: Clone> {
     ///
     /// OpenFOAM: `flowRateInletVelocityFvPatchVectorField`.
     FlowRateInletVelocity {
-        /// Prescribed volumetric flow rate `Q` [m³·s⁻¹] (positive = into the
+        /// Prescribed volumetric flow rate `Q` `[m³·s⁻¹]` (positive = into the
         /// domain).
         volumetric_flow_rate: f64,
     },
@@ -322,7 +322,7 @@ impl<T: Clone + Default> BoundaryCondition<T> {
 impl<T: Clone> BoundaryCondition<T> {
     /// Value fraction (`1` ⇒ acts as `fixedValue`, `0` ⇒ acts as
     /// `zeroGradient`) for a **flux-switched** BC, given the outward face flux
-    /// `phi_f = U·S_f` [m³·s⁻¹].
+    /// `phi_f = U·S_f` `[m³·s⁻¹]`.
     ///
     /// Returns `None` for BCs that are not flux-switched.  The sign convention
     /// matches OpenFOAM's `inletOutlet`/`outletInlet`: `phi_f < 0` is inflow,
@@ -365,15 +365,15 @@ impl<T: Clone> BoundaryCondition<T> {
 impl BoundaryCondition<f64> {
     /// Incompressible total-pressure face value: `p = p0 − 0.5·ρ·|U|²`.
     ///
-    /// Physical quantity: the static pressure [Pa] imposed on a
+    /// Physical quantity: the static pressure `[Pa]` imposed on a
     /// [`TotalPressure`](Self::TotalPressure) patch given a fixed total
     /// (stagnation) pressure and the local dynamic head.
     ///
-    /// - `p0` — fixed total (stagnation) pressure [Pa].
-    /// - `rho` — density at the patch face [kg·m⁻³] (`ρ ≥ 0`).
-    /// - `u_mag` — velocity magnitude `|U|` at the patch face [m·s⁻¹] (`≥ 0`).
+    /// - `p0` — fixed total (stagnation) pressure `[Pa]`.
+    /// - `rho` — density at the patch face `[kg·m⁻³]` (`ρ ≥ 0`).
+    /// - `u_mag` — velocity magnitude `|U|` at the patch face `[m·s⁻¹]` (`≥ 0`).
     ///
-    /// Returns the static pressure [Pa]. Reduces to `p0` at `u_mag = 0`. The
+    /// Returns the static pressure `[Pa]`. Reduces to `p0` at `u_mag = 0`. The
     /// compressible (subsonic) form is deferred — see the
     /// [`TotalPressure`](Self::TotalPressure) docs.
     ///
@@ -391,16 +391,16 @@ impl BoundaryCondition<f64> {
     /// Surface-normal pressure gradient for a
     /// [`FixedFluxPressure`](Self::FixedFluxPressure) face:
     ///
-    /// `snGrad(p) = (φ_HbyA − φ_target) / (D_p · |S_f|)`   [Pa·m⁻¹]
+    /// `snGrad(p) = (φ_HbyA − φ_target) / (D_p · |S_f|)`   `[Pa·m⁻¹]`
     ///
     /// chosen so the pressure-corrected face flux
     /// `φ = φ_HbyA − D_p·snGrad(p)·|S_f|` equals the target flux `φ_target`.
     ///
-    /// - `phi_hbya` — momentum-predictor (H/A) face flux `φ_HbyA` [m³·s⁻¹]
+    /// - `phi_hbya` — momentum-predictor (H/A) face flux `φ_HbyA` `[m³·s⁻¹]`
     ///   (already includes any body-force term folded into `H/A`).
-    /// - `phi_target` — desired boundary face flux `φ_target` [m³·s⁻¹].
-    /// - `dp` — face-interpolated `rAU` coefficient `D_p` [m³·s·kg⁻¹].
-    /// - `mag_sf` — face area `|S_f|` [m²].
+    /// - `phi_target` — desired boundary face flux `φ_target` `[m³·s⁻¹]`.
+    /// - `dp` — face-interpolated `rAU` coefficient `D_p` `[m³·s·kg⁻¹]`.
+    /// - `mag_sf` — face area `|S_f|` `[m²]`.
     ///
     /// Returns `0.0` for a degenerate `D_p·|S_f| ≈ 0`.
     ///
@@ -453,13 +453,13 @@ impl BoundaryCondition<Vector3> {
     /// [`PressureInletOutletVelocity`](Self::PressureInletOutletVelocity) face:
     /// `U = (φ_f / |S_f|)·n̂` with `n̂ = S_f/|S_f|`.
     ///
-    /// Physical quantity: a velocity [m·s⁻¹] parallel to the face normal whose
+    /// Physical quantity: a velocity `[m·s⁻¹]` parallel to the face normal whose
     /// signed magnitude is `φ_f/|S_f|` — pointing **into** the domain when
     /// `φ_f < 0` (inflow), **out** when `φ_f > 0`. The tangential component is
     /// zero (OpenFOAM's optional `tangentialVelocity` is not modelled).
     ///
-    /// - `phi_f` — outward face flux `φ_f = U·S_f` [m³·s⁻¹].
-    /// - `area_vector` — the face area vector `S_f = |S_f| n̂` [m²].
+    /// - `phi_f` — outward face flux `φ_f = U·S_f` `[m³·s⁻¹]`.
+    /// - `area_vector` — the face area vector `S_f = |S_f| n̂` `[m²]`.
     ///
     /// Returns [`Vector3::ZERO`] for a degenerate zero-area face.
     ///
@@ -486,12 +486,12 @@ impl BoundaryCondition<Vector3> {
     /// prescribed volumetric flow rate and the patch-area integral:
     /// `U = −(Q / A_patch)·n̂`, `n̂ = S_f/|S_f|`.
     ///
-    /// Physical quantity: an inlet velocity [m·s⁻¹] of magnitude `Q/A_patch`
+    /// Physical quantity: an inlet velocity `[m·s⁻¹]` of magnitude `Q/A_patch`
     /// directed **into** the domain (opposite the outward normal).
     ///
-    /// - `q` — prescribed volumetric flow rate `Q` [m³·s⁻¹] (positive = inflow).
-    /// - `area_patch` — patch-area integral `A_patch = Σ_f |S_f|` [m²].
-    /// - `area_vector` — this face's area vector `S_f` [m²].
+    /// - `q` — prescribed volumetric flow rate `Q` `[m³·s⁻¹]` (positive = inflow).
+    /// - `area_patch` — patch-area integral `A_patch = Σ_f |S_f|` `[m²]`.
+    /// - `area_vector` — this face's area vector `S_f` `[m²]`.
     ///
     /// Returns [`Vector3::ZERO`] for a degenerate zero-area face or patch.
     ///
@@ -560,7 +560,7 @@ impl PatchField<f64> {
 
     /// Solver hook for a [`TotalPressure`](BoundaryCondition::TotalPressure)
     /// patch: recompute the per-face static pressures `p = p0 − 0.5·ρ·|U|²`
-    /// [Pa] from the current patch density and velocity magnitude, storing them
+    /// `[Pa]` from the current patch density and velocity magnitude, storing them
     /// in [`values`](Self::values).
     ///
     /// The solver **must** call this each outer iteration, because the boundary
@@ -568,8 +568,8 @@ impl PatchField<f64> {
     /// the BC cannot read on its own). No-op if the patch is not a
     /// `TotalPressure` BC.
     ///
-    /// - `rho` — density per face [kg·m⁻³], length == patch size.
-    /// - `u_mag` — velocity magnitude `|U|` per face [m·s⁻¹], length == patch
+    /// - `rho` — density per face `[kg·m⁻³]`, length == patch size.
+    /// - `u_mag` — velocity magnitude `|U|` per face `[m·s⁻¹]`, length == patch
     ///   size.
     pub fn update_total_pressure(&mut self, rho: &[f64], u_mag: &[f64]) {
         if let BoundaryCondition::TotalPressure { p0 } = self.bc {
@@ -611,14 +611,14 @@ impl PatchField<Vector3> {
     /// Solver hook for a
     /// [`FlowRateInletVelocity`](BoundaryCondition::FlowRateInletVelocity) patch:
     /// fill the per-face uniform inlet velocities `U = −(Q / A_patch)·n̂`
-    /// [m·s⁻¹] from the patch face-area vectors, where `A_patch = Σ_f |S_f|`.
+    /// `[m·s⁻¹]` from the patch face-area vectors, where `A_patch = Σ_f |S_f|`.
     ///
     /// The rate `Q` is read from the BC variant; the velocity magnitude depends
     /// on the patch area, which comes from the mesh, so the solver (or setup
     /// code) calls this once the patch geometry is known. No-op if the patch is
     /// not a `FlowRateInletVelocity` BC.
     ///
-    /// - `area_vectors` — this patch's face area vectors `S_f` [m²], length ==
+    /// - `area_vectors` — this patch's face area vectors `S_f` `[m²]`, length ==
     ///   patch size.
     pub fn update_flow_rate_inlet_velocity(&mut self, area_vectors: &[Vector3]) {
         if let BoundaryCondition::FlowRateInletVelocity {
@@ -643,7 +643,7 @@ impl PatchField<Vector3> {
     /// Solver hook for a
     /// [`PressureInletOutletVelocity`](BoundaryCondition::PressureInletOutletVelocity)
     /// patch: fill the per-face flux-implied wall-normal velocities
-    /// `U = (φ_f / |S_f|)·n̂` [m·s⁻¹] (OpenFOAM's `refValue`).
+    /// `U = (φ_f / |S_f|)·n̂` `[m·s⁻¹]` (OpenFOAM's `refValue`).
     ///
     /// The solver **must** call this each iteration with the current face flux,
     /// because the imposed velocity is reconstructed from the flux and face
@@ -651,9 +651,9 @@ impl PatchField<Vector3> {
     /// face (`fixedValue` on inflow, `zeroGradient` on outflow). No-op if the
     /// patch is not a `PressureInletOutletVelocity` BC.
     ///
-    /// - `phi` — outward face flux `φ_f = U·S_f` [m³·s⁻¹] per face, length ==
+    /// - `phi` — outward face flux `φ_f = U·S_f` `[m³·s⁻¹]` per face, length ==
     ///   patch size.
-    /// - `area_vectors` — this patch's face area vectors `S_f` [m²], length ==
+    /// - `area_vectors` — this patch's face area vectors `S_f` `[m²]`, length ==
     ///   patch size.
     pub fn update_pressure_inlet_outlet_velocity(&mut self, phi: &[f64], area_vectors: &[Vector3]) {
         if matches!(self.bc, BoundaryCondition::PressureInletOutletVelocity) {
