@@ -57,8 +57,9 @@ pure-component reference points, not against experimental VLE/property
 datasets. `tampines` is the intended downstream consumer.
 
 See `docs/port-scope.md` and `docs/chemistry-model-survey.md` for the full
-porting scope and per-model status, and `bd show op-qo2` for the current
-backlog. Remaining deferred items include: Petalas-Aziz, full Tinker
+porting scope and per-model status, and `bn show op-qo2` (kopi-beans; see root
+`CLAUDE.md` for the live format-version blocker on that store as of
+2026-08-07) for the current backlog. Remaining deferred items include: Petalas-Aziz, full Tinker
 shell-and-tube rating, the flash-coupled pressure update for the transient pipe
 network, the Mathias-Copeman / Twu α-variants, the advanced-EOS tier
 (PC-SAFT / GERG-2008), and the LIQUAC full-package glue.

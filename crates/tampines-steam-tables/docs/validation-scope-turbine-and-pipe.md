@@ -369,10 +369,12 @@ operational-facility data, and none may be introduced to satisfy it.
 
 ---
 
-## 9. Beads
+## 9. Issue tracker
 
-Filed 2026-08-04. Run `bd show <id>` for per-case detail, `bd ready` for
-what is unblocked.
+Filed 2026-08-04 into beads-rs; the store now belongs to kopi-beans (`bn`) —
+run `bn show <id>` for per-case detail, `bn ready` for what is unblocked (see
+root `CLAUDE.md` "Issue tracking & roadmap — kopi-beans" for the live
+format-version blocker on that store as of 2026-08-07).
 
 **Pipe / property / nozzle — under `op-21g` (tampines-steam-tables):**
 

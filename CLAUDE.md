@@ -24,8 +24,9 @@ one-line Python `datetime.now()` / Rust `chrono::Local::now()` script).
   explanation beyond the minimum needed to log something for later.
 - Do **not** agentically write code, run test suites, or open-endedly work a
   task.
-- Ideas, plans, or scaffolding that come up may be recorded — as a `bd` bead
-  or a short markdown note — and nothing more.
+- Ideas, plans, or scaffolding that come up may be recorded — as a `bn` issue
+  (once its store is readable — see "Issue tracking & roadmap" below) or a
+  short markdown note — and nothing more.
 - **Exception, still allowed outside hours:** compiling / running the
   existing test suite to confirm already-finished work is good, and pushing
   already-finished work to GitHub. Nothing beyond finishing and shipping
@@ -163,8 +164,10 @@ Source for both: https://github.com/theodoreOnzGit/kopitiam.
   rust-analyzer / rustdoc facts, plus a PDF-to-Markdown engine.
 - **`kopi-beans`** is a distributed, git-backed work-item tracker — a
   Windows/Termux-capable fork of beads-rs (MIT upstream), relicensed
-  **AGPL-3.0-only**. Because it is a *fork of beads*, it covers the same ground
-  as `bd`; see "Which tracker" below before filing anything.
+  **AGPL-3.0-only**, binary `bn`. It is this workspace's mandated issue
+  tracker (superseding beads-rs's `bd` — see "Which tracker" below); its CLI
+  mirrors `bd`'s 1:1 (`init`, `create`, `show`, `list`, `ready`, `claim`,
+  `close`, `dep`, `status`, `prime`, …).
 
 Using them here is deliberate: this workspace is their proving ground, so
 **reach for them first** where they cover the task, and **report every rough
@@ -225,6 +228,32 @@ of where it came from.
   --workspace --lib --tests` / `cargo test --release`** before calling work
   done. Do not let kopitiam's default profile silently replace the release-mode
   requirement.
+
+**Known friction (as of kopi-beans 0.1.1, verified 2026-08-07):**
+
+- **Blocker — `bn` cannot read this repo's existing store.** `bn init` /
+  `bn status` / `bn list` all fail with `error: invalid field value:
+  unsupported meta format_version 1` against the `refs/heads/beads/store` ref
+  this workspace already had from beads-rs (`bd`). Both tools use the
+  identical ref name and file layout (`state.jsonl`, `deps.jsonl`,
+  `tombstones.jsonl`, `meta.json`), but kopi-beans 0.1.1 rejects the store's
+  `meta.json` outright rather than adopting or migrating it. Filed upstream as
+  [kopitiam#16](https://github.com/theodoreOnzGit/kopitiam/issues/16) (already
+  open, filed by the maintainer 2026-08-06) — **do not hand-patch the store's
+  `meta.json` to work around this.** Until it's fixed, `bn` has no working
+  store in this repo; see the "Issue tracking & roadmap" section below for the
+  fallback this implies.
+- **`bn`'s own generated text and hooks still hardcode `bd`.** `bn prime`,
+  `bn prime --mcp`, `bn ready`'s "0 blocked" footer, and the hook command `bn
+  setup claude` / `bn setup claude --project` writes into Claude settings
+  (`"command": "bd prime"`) all say `bd`, not `bn` — even though only `bn` is
+  installed. Concretely this means `bn setup claude`'s generated hook is
+  broken out of the box (it invokes a binary that isn't on `PATH`) — **do not
+  run `bn setup claude` to configure this repo's hooks**; hand-write the hook
+  command using the real `bn` binary and a flag that actually exists instead
+  (see `.claude/settings.json`). Relatedly, `--hook-json` — the flag `bd`
+  used — is not a valid `bn prime` flag; the closest working equivalent is
+  `bn prime --mcp`.
 
 **CONSUME THE BINARIES ONLY — NEVER MODIFY KOPITIAM OR KOPI-BEANS FROM THIS
 WORKSPACE.** This is the hard boundary, it covers **both** tools, and it does
@@ -300,11 +329,15 @@ and do not leave it sitting in the top-level queue.
   that no longer exists.
 
 **Which tracker for OUTRAM PARK's own work.** `bn` (kopi-beans) is a *fork of*
-beads-rs, so it overlaps `bd` rather than complementing it. The mandatory
-"Issue tracking & roadmap" section below remains authoritative for which one
-holds this workspace's issues; installing and exercising `bn` is a dogfooding
-obligation and does **not** on its own move the issue store. Do not migrate the
-tracker without an explicit instruction from the maintainer.
+beads-rs, so it overlaps `bd` rather than complementing it — running both
+against one repo defeats the purpose. **Per explicit maintainer instruction on
+2026-08-07, kopi-beans (`bn`) replaces beads-rs (`bd`) as this workspace's
+tracker; `bd` and every beads-rs mention are being removed from this file.**
+This is *not* a dogfooding-only install anymore — see the mandatory "Issue
+tracking & roadmap" section below, which is now written for `bn`. That section
+also documents the live blocker: `bn` cannot yet read this repo's existing
+store (kopitiam#16), so the migration is real for documentation/instructions
+today, and for the data once upstream fixes the incompatibility.
 
 **This rule relaxes nothing.** The release-mode rule, the working-hours
 guardrail, never-auto-commit/push, the Android/Termux portability rule, and the
@@ -395,7 +428,7 @@ file on many branches caused recurring merge conflicts. Never re-track it.
 - **`docs/token-usage.md` is a generated, gitignored local summary — never
   hand-edit it and never `git add` it.** Rebuild any time with `python3
   docs/historian/token_usage.py report`; query the tracked trailers directly with
-  the `query` subcommand. Because it is gitignored, `bd`/hook regens no longer
+  the `query` subcommand. Because it is gitignored, `bn`/hook regens no longer
   dirty the tree or conflict on merge.
 - **New repositories added to a session here inherit this rule** — copy
   `docs/historian/token_usage.py` + `.githooks/` + `scripts/install-token-hooks.sh`
@@ -426,68 +459,77 @@ the reports live under **`docs/historian/`** at the workspace root.
 - **Commit the generated report alongside the `develop`→`main` merge**, so each
   release carries its own accounting. Do not hand-edit the generated markdown.
 
-## Issue tracking & roadmap — beads (mandatory when available)
+## Issue tracking & roadmap — kopi-beans (mandatory when available)
 
-This workspace tracks issues and per-crate roadmap progress with **beads-rs**
-(`bd`). It is a dependency-aware issue tracker whose canonical data lives **in
-git refs** — `refs/heads/beads/store` (holding `state.jsonl`, `deps.jsonl`,
-`tombstones.jsonl`, `meta.json`), with backups under `refs/beads/backup/*`. A
-background **`bd daemon`** debounces and **auto-syncs** that ref to the git
-remote (a private channel, separate from `refs/heads/*` code branches).
-`.beads/issues.jsonl` is now only a local compat-export **symlink**, not the
+This workspace tracks issues and per-crate roadmap progress with
+**kopi-beans** (`bn`). It is a dependency-aware issue tracker whose canonical
+data lives **in git refs** — `refs/heads/beads/store` (holding `state.jsonl`,
+`deps.jsonl`, `tombstones.jsonl`, `meta.json`), with backups under
+`refs/beads/backup/*`. A background daemon debounces and **auto-syncs** that
+ref to the git remote (a private channel, separate from `refs/heads/*` code
+branches). `.beads/issues.jsonl` is a local compat-export **symlink**, not the
 source of truth.
 
-> **Migrated 2026-07-20** from the Go beads/Dolt implementation to **beads-rs**.
-> The old Go binary is parked at `~/.local/bin/bd-go.deprecated`; `bd` now
-> resolves to beads-rs. There is **no `bd dolt`**, no `.beads/` Dolt DB, and no
-> `refs/dolt/data` sync anymore — those references elsewhere in this file and in
-> per-crate docs are stale and tracked for cleanup (see the doc-sweep bead). The
-> daemon auto-syncing `beads/store` is beads-rs's designed, opted-in behavior
-> and does **not** relax the rule against committing/pushing **code** without
-> explicit approval.
+> **Migrated 2026-08-07** from **beads-rs** (`bd`) to **kopi-beans** (`bn`) —
+> both forks of the same lineage, per explicit maintainer instruction. **This
+> migration is currently blocked at the data layer**: `bn` (kopi-beans 0.1.1)
+> cannot read the `refs/heads/beads/store` ref this workspace's `bd` already
+> wrote — every store-touching command (`bn init`, `bn status`, `bn list`, …)
+> fails with `unsupported meta format_version 1`. Filed upstream as
+> [kopitiam#16](https://github.com/theodoreOnzGit/kopitiam/issues/16). The old
+> ref and its ~335 issues are left untouched (do not delete it, do not
+> hand-patch its `meta.json`) so they can be recovered once upstream fixes
+> this. **Until then, there is no working CLI issue tracker in this
+> repository** — see the "not available" bullet below; it now applies to
+> everyone, not just Android/sandboxed environments, until the blocker clears.
+> A prior migration, 2026-07-20, moved this workspace off a Go/Dolt
+> implementation onto beads-rs; that history is superseded by this entry.
 
-- **RUST BEADS ONLY.** Beads here is the **Rust** implementation — the
-  [`beads-rs`](https://crates.io/crates/beads-rs) crate
-  (`github.com/delightful-ai/beads-rs`), binary `bd`. Do **not** install or
-  use any Go build of beads. If only a Go `bd` is on this machine, treat beads
-  as unavailable (see the "not available" bullet below) and fall back to a
-  short markdown note rather than filing into it.
-- **Install:** `cargo install beads-rs` (binary `bd`). First-time setup in a
-  repo: `bd init`, then `bd setup claude`, then `bd onboard`. Migrate a Go
-  export with `bd migrate from-go --input <issues.jsonl>` (comment ids must be
-  integers, every record needs a `description`, and unknown issue types like
-  `decision` must be remapped — the importer is strict).
-- **Standing rule: if `bd` is available on this machine, you MUST use it** for
-  all task/roadmap tracking and progress bookkeeping — in preference to
-  TodoWrite / TaskCreate / ad-hoc markdown TODO lists. Create/close/update
-  beads as work happens; file a bead for any follow-up you discover.
-- **If `bd` is *not* available** — e.g. an OS or environment without bash or
-  without a beads build (Android, a locked-down sandbox, etc.) — that is fine:
-  beads is optional there. Do **not** block work on it; fall back to the
-  harness task tools and note in your hand-off that beads wasn't updated.
-- **Roadmap / progress summaries come from beads.** When the user asks "where
-  are we" / "summarise progress" / "what's the roadmap", read it out of beads
-  (`bd list`, `bd ready`, `bd show <id>`, `bd status`, `bd dep`) rather than
-  re-deriving from scattered docs.
-  One epic per member crate; child beads are that crate's workstreams.
-- **Relationship to the memory system.** Beads and the per-project memory
-  files (`~/.claude/projects/<slug>/memory/`) are complementary and **both
-  stay in use**: beads tracks *tasks / roadmap / open work*; the memory files
-  track *durable facts, user preferences, and feedback*. The auto-generated
-  "Beads Issue Tracker" block lower in this file says to drop `MEMORY.md` —
-  that does **not** apply here; the memory workflow is unchanged. When in
-  doubt: a thing to *do or finish* → bead; a thing to *remember about how the
-  user works or a settled fact* → memory.
-- **After a plan is approved (exiting plan mode), convert it into beads
-  before writing any code.** One epic per new crate the plan introduces (or
-  a child under the relevant crate's existing epic, for plans scoped to one
-  crate); one child bead per part/module/deliverable the plan names, with
-  `bd dep add` wiring the real ordering constraints between them (e.g. "this
-  module wraps a type from that other bead's work" → a dependency edge, not
-  just prose). Do this even if the plan is also saved as a markdown file —
-  the markdown is for human reading, beads is what `bd ready`/`bd show`
-  make queryable across a session boundary. This is a standing rule, not a
-  one-off — apply it to every future plan-mode session in this workspace.
+- **KOPI-BEANS ONLY, going forward.** Do **not** install or use `beads-rs`
+  (binary `bd`) in this workspace anymore — `bn` (kopi-beans) is the mandated
+  tool. If you find `bd` installed from before this migration, it is a stale
+  leftover; prefer `bn` for everything below once it's unblocked.
+- **Install:** `cargo install kopi-beans` (binary `bn`). First-time setup in a
+  repo (once the format-version blocker above is fixed and `bn init`
+  actually succeeds): `bn init`, then `bn onboard`. **Do not run `bn setup
+  claude`** — as of kopi-beans 0.1.1 it writes a hook command that literally
+  invokes `bd`, not `bn` (see "Known friction" under the Dogfood section
+  above); hand-maintain `.claude/settings.json`'s hook instead.
+- **Standing rule: if `bn` is available and its store is readable, you MUST
+  use it** for all task/roadmap tracking and progress bookkeeping — in
+  preference to TodoWrite / TaskCreate / ad-hoc markdown TODO lists.
+  Create/close/update issues as work happens; file one for any follow-up you
+  discover.
+- **If `bn`'s store is *not* readable** — today, that's every environment in
+  this workspace, because of the format-version blocker above; also true for
+  an OS/environment without a `bn` build (Android, a locked-down sandbox,
+  etc.) — that is fine: fall back to the harness task tools (TaskCreate /
+  TodoWrite) and note in your hand-off that the tracker wasn't updated and
+  why.
+- **Roadmap / progress summaries come from kopi-beans**, once it's working.
+  When the user asks "where are we" / "summarise progress" / "what's the
+  roadmap", read it out of `bn` (`bn list`, `bn ready`, `bn show <id>`, `bn
+  status`, `bn dep`) rather than re-deriving from scattered docs. One epic per
+  member crate; child issues are that crate's workstreams. Until the blocker
+  clears, there is no live source for this — say so rather than guessing from
+  memory of the old beads-rs state.
+- **Relationship to the memory system.** The tracker and the per-project
+  memory files (`~/.claude/projects/<slug>/memory/`) are complementary and
+  **both stay in use**: the tracker holds *tasks / roadmap / open work*; the
+  memory files track *durable facts, user preferences, and feedback*. When in
+  doubt: a thing to *do or finish* → an issue; a thing to *remember about how
+  the user works or a settled fact* → memory.
+- **After a plan is approved (exiting plan mode), convert it into issues
+  before writing any code** (once the tracker is working). One epic per new
+  crate the plan introduces (or a child under the relevant crate's existing
+  epic, for plans scoped to one crate); one child issue per part/module/
+  deliverable the plan names, with `bn dep add` wiring the real ordering
+  constraints between them. Do this even if the plan is also saved as a
+  markdown file — the markdown is for human reading, `bn` is what `bn ready`/
+  `bn show` make queryable across a session boundary. This is a standing rule,
+  not a one-off. While the blocker above is open, record the same breakdown in
+  the harness task tools instead and note that it still needs filing into
+  `bn` once unblocked.
 
 ## README / Markdown format (mandatory)
 
@@ -972,43 +1014,51 @@ come first. **When in Singlish mode, read `SINGLISH_MODE.md` and apply its logge
 corrections.** Default is standard English; opt-in only.
 
 
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
-## Beads Issue Tracker
+<!-- BEGIN ISSUE TRACKER INTEGRATION (hand-maintained for kopi-beans since 2026-08-07; formerly BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61) -->
+## Issue Tracker (kopi-beans)
 
-This project uses **beads-rs** (`bd`) for issue tracking. Run `bd prime` to see full workflow context and commands.
+This project uses **kopi-beans** (`bn`) for issue tracking — replacing
+beads-rs (`bd`) as of 2026-08-07. Run `bn prime` to see workflow context.
+**Note the live blocker:** every command that actually touches this repo's
+store (`bn status`, `bn list`, `bn ready`, …) currently fails with
+`unsupported meta format_version 1` — see the "Issue tracking & roadmap"
+section above and [kopitiam#16](https://github.com/theodoreOnzGit/kopitiam/issues/16).
+Until that's fixed upstream, use the harness task tools instead and note the
+gap in your hand-off; do not treat `bn ready` returning an error as "no work
+available."
 
-### Quick Reference
+### Quick Reference (once the store is readable)
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd claim <id>         # Claim work
-bd close <id>         # Complete work
+bn ready              # Find available work
+bn show <id>          # View issue details
+bn claim <id>         # Claim work
+bn close <id>         # Complete work
 ```
 
 ### Rules
 
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
+- Use `bn` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists, **except while the format-version blocker above is open**, in which case those are the working fallback.
+- Run `bn prime` for workflow context. Its own output (and `bn`'s generated Claude-hook text from `bn setup claude`) still says `bd` in places — that's a known kopi-beans branding bug, not an instruction to install `bd`.
 - Persistent durable facts / user preferences: keep using the per-project
   `memory/` + `MEMORY.md` workflow (see the "Issue tracking & roadmap" section
   above — this workspace keeps MEMORY.md; it is **not** dropped).
 
-**Architecture in one line (beads-rs):** issues live in git refs — canonical state on `refs/heads/beads/store` (state/deps/tombstones jsonl + meta.json), backups under `refs/beads/backup/*`; a background `bd daemon` auto-syncs that ref to the git remote (separate from `refs/heads/*` code branches). No `bd dolt`, no `.beads/` Dolt DB; `.beads/issues.jsonl` is a local compat-export symlink. Migrated off Go beads on 2026-07-20.
+**Architecture in one line (kopi-beans):** issues live in git refs — canonical state on `refs/heads/beads/store` (state/deps/tombstones jsonl + meta.json), backups under `refs/beads/backup/*`; a background daemon auto-syncs that ref to the git remote (separate from `refs/heads/*` code branches). Same ref/file layout as beads-rs (it's a fork), which is exactly why the two collide — see the blocker above. `.beads/issues.jsonl` is a local compat-export symlink. Migrated off beads-rs on 2026-08-07 (itself migrated off Go beads on 2026-07-20).
 
 ## Agent Context Profiles
 
-The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
+The managed tracker block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
 
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or a manual beads sync (`bd sync`) unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
-- **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
-- **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
+- **Conservative (default)**: Use `bn` for task tracking when its store is readable; otherwise use the harness task tools. Do not run git commits, git pushes, or a manual sync (`bn sync`) unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
+- **Minimal**: Keep tool instruction files as pointers to `bn prime`; use the same conservative git policy unless active instructions say otherwise.
+- **Team-maintainer**: Only when the repository explicitly opts in, agents may close issues, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
 
 ## Session Completion
 
-This protocol applies when ending a Beads implementation workflow. It is subordinate to explicit user, repository, and orchestrator instructions.
+This protocol applies when ending a kopi-beans-tracked implementation workflow. It is subordinate to explicit user, repository, and orchestrator instructions.
 
-1. **File issues for remaining work** - Create beads for anything that needs follow-up
+1. **File issues for remaining work** - Create tracker issues (or, while the blocker above is open, harness tasks) for anything that needs follow-up
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
 4. **Handle git/sync by active profile**:
@@ -1024,7 +1074,7 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
 
 **Critical rules:**
-- Explicit user or orchestrator instructions override this Beads block.
+- Explicit user or orchestrator instructions override this tracker block.
 - Do not commit or push without clear authority from the active profile or the current user request.
 - If a required sync or push is blocked, stop and report the exact command and error.
-<!-- END BEADS INTEGRATION -->
+<!-- END ISSUE TRACKER INTEGRATION -->

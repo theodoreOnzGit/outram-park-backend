@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "command": "bd prime --hook-json",
+            "command": "bn prime --mcp",
             "type": "command"
           }
         ],

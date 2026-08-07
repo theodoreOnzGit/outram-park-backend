@@ -20,7 +20,9 @@
 `outram-park-fork-dwsim-libs` is a pure-Rust port of DWSIM's chemical-process modelling
 kernels (thermal-hydraulics and thermodynamics). This crate is early-stage —
 its own README/CLAUDE.md do not yet describe the ported scope in detail; see
-beads (`bd show op-qo2`) for the current backlog status.
+the tracker (`bn show op-qo2`, kopi-beans — see root `CLAUDE.md` for the live
+format-version blocker on that store as of 2026-08-07) for the current
+backlog status.
 
 **Note:** the local clone is **gitignored** (dev-only, never committed). A
 shallow clone at commit `1abf72d` was taken 2026-08-03 to produce the

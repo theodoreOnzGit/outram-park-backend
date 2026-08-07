@@ -4,12 +4,15 @@ Approved plan summary for: extending `OPCPFluidArray` (coolprop), scaffolding
 the new `tampines` crate, and scaffolding the new `outram-park-digital-twin-engine`
 crate. Full planning-tool record: `/home/teddy0/.claude/plans/glimmering-pondering-platypus.md`.
 
-**Beads tracking** (converted 2026-07-13, per the new standing rule in the
-root `CLAUDE.md`): Part 1 → `op-kbc.18` (child of the `outram-park-fork-coolprop`
-epic `op-kbc`); Part 2 → epic `op-dt3` (`tampines`); Part 3 → epic `op-wqk`
-(`outram-park-digital-twin-engine`). Run `bd show op-dt3` / `bd show op-wqk` /
-`bd dep tree op-dt3` for live status — this file is a point-in-time summary,
-beads is the source of truth for progress.
+**Tracker record** (converted 2026-07-13, per the standing rule in the root
+`CLAUDE.md`, then carried over from beads-rs to kopi-beans on 2026-08-07): Part 1 →
+`op-kbc.18` (child of the `outram-park-fork-coolprop` epic `op-kbc`); Part 2 →
+epic `op-dt3` (`tampines`); Part 3 → epic `op-wqk`
+(`outram-park-digital-twin-engine`). Run `bn show op-dt3` / `bn show op-wqk` /
+`bn dep tree op-dt3` for live status once kopi-beans' live format-version
+blocker on this store clears (see root `CLAUDE.md` "Issue tracking & roadmap —
+kopi-beans") — this file is a point-in-time summary, the tracker is the source
+of truth for progress.
 
 ## Context
 
