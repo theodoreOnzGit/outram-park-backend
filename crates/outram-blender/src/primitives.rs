@@ -1,3 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Closed-form generators for a cube, UV sphere, cylinder and grid, validated
+// against Euler's polyhedron formula V - E + F = chi (L. Euler, 1758). No named
+// published algorithm and no upstream source — written from first principles.
+// Blender analogue (architecture only): the editmesh_add "Add Mesh" operators.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! **Real** mesh primitive generators (Blender's "Add Mesh" primitives).
 //!
 //! This is the one module in the crate with fully implemented, unit-tested

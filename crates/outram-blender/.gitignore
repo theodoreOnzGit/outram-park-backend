@@ -3,6 +3,7 @@
 # GPLv3-compatible upstreams only.
 #
 # Blender (GPL-2.0-or-later) — the mesh-authoring architecture this crate's
-# design derives from. No Blender source is bundled or ported into this crate.
+# design derives from. No Blender source tree is bundled here; exactly one file,
+# src/boolean_predicates.rs, is a literal attributed port (see NOTICE).
 #   git clone --depth 1 https://github.com/blender/blender.git upstream_source/Blender
 /upstream_source/Blender/

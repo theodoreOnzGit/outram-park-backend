@@ -1,3 +1,30 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Implements: A. Jacobson, L. Kavan and O. Sorkine-Hornung, "Robust Inside-Outside
+// Segmentation using Generalized Winding Numbers", ACM Trans. Graph. 32(4)
+// (SIGGRAPH), 2013, article 33. Per-triangle signed solid angle by the formula of
+// A. van Oosterom and J. Strackee, "The Solid Angle of a Plane Triangle", IEEE
+// Trans. Biomed. Eng. BME-30(2), 1983, pp. 125-126.
+// Written from the published formulations; no upstream source was copied.
+// Blender analogue (architecture only): the inside/outside classification stage of
+// mesh_boolean.cc.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Inside/outside point classification for a closed triangle mesh.
 //!
 //! This is the primitive a **general** mesh boolean needs to decide which
@@ -18,7 +45,7 @@
 //! implements the standalone **generalized winding number** point-in-solid
 //! test (Jacobson, Kavan, Sorkine-Hornung 2013) from first principles, plus a
 //! textbook ray-casting parity check as an independent cross-check. The
-//! [`closest_point_on_triangle`] helper is the well-known point/triangle
+//! `closest_point_on_triangle` helper is the well-known point/triangle
 //! closest-point algorithm (Ericson, *Real-Time Collision Detection*,
 //! §5.1.5) — public-domain-style textbook algorithm, not Blender code.
 //!
@@ -42,7 +69,7 @@
 //! ## [`classify_point`] tolerance choices
 //!
 //! All tolerances below are **relative to the mesh's bounding-box diagonal**
-//! (`mesh_scale`, the same pattern [`crate::boolean::intersect_convex`] uses
+//! (`mesh_scale`, the same pattern `boolean::intersect_convex` uses
 //! for `clip_eps`/`weld`) so they hold at any model scale, not just
 //! unit-sized test meshes:
 //!
@@ -71,7 +98,7 @@
 //!   `classify_point` can return a confident-looking `Inside`/`Outside` that
 //!   is meaningless. This module does **not** check watertightness/manifoldness
 //!   itself — callers must ensure the input is closed (e.g. everything
-//!   [`crate::primitives`] generates, or [`crate::boolean::intersect_convex`]'s
+//!   [`crate::primitives`] generates, or `boolean::intersect_convex`'s
 //!   output).
 //! - **Fan triangulation of n-gons is inline and naive** (`(v0, v_i, v_{i+1})`
 //!   for `i = 1..n-1`): correct for the convex faces every generator in this
@@ -117,7 +144,7 @@ pub enum PointClass {
     /// The point is outside the solid (winding number `~= 0`, away from the
     /// surface).
     Outside,
-    /// The point lies on (within [`ON_BOUNDARY_REL_EPS`] * the mesh's
+    /// The point lies on (within `ON_BOUNDARY_REL_EPS` * the mesh's
     /// bounding-box diagonal of) the mesh surface itself — neither cleanly
     /// inside nor outside. See the module docs' "Limitations" section for why
     /// this is an epsilon-based judgement call, not an exact predicate.

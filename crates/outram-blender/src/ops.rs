@@ -1,3 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Mesh editing operators. Follows the published architecture of Blender's bmesh
+// operator system (bmesh/operators, bmo_*, GPL-2.0-or-later) — concepts only, no
+// upstream source was copied. Individual algorithms are cited in the module they
+// live in (boolean.rs, subdivision.rs, decimate.rs, ...).
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Mesh **operators** — the editing verbs (Blender's `bmesh/operators`, `bmo_*`).
 //!
 //! Each operator is a **pure function over the polygon-soup view** of a mesh:
@@ -43,7 +66,11 @@ use crate::mesh::{EdgeId, FaceId, Mesh};
 /// Errors returned by [`MeshOp::apply`].
 #[derive(Debug, thiserror::Error)]
 pub enum MeshOpError {
-    /// The operator is scaffolded but its algorithm is not implemented yet.
+    /// An operator is declared but its algorithm is not implemented yet.
+    ///
+    /// Retained for forward compatibility (a new [`MeshOp`] variant may land as
+    /// a stub); **every current variant is implemented**, so [`MeshOp::apply`]
+    /// never returns this today.
     #[error("mesh operator not yet implemented: {0}")]
     NotImplemented(&'static str),
     /// Propagated from a mesh boolean (crate::boolean) — the operand meshes are
@@ -498,7 +525,7 @@ fn truncate_skeleton(mesh: &Mesh, width: f64) -> TruncSkeleton {
 /// - the ring of edge-points is **band 0** (shared with the truncated faces, so
 ///   the result stays watertight);
 /// - `segments - 1` **intermediate rings** are inserted by spherical-linear
-///   interpolation ([`slerp`]) of each edge-point's direction toward the cap
+///   interpolation (`slerp`) of each edge-point's direction toward the cap
 ///   **apex** `V + R * n`, where `n` is the outward vertex normal (sum of
 ///   incident face normals) and `R` the mean edge-point distance; the radius is
 ///   interpolated linearly so band 0 stays exactly on the (possibly
@@ -811,6 +838,28 @@ impl MeshOp {
     ///   is surfaced as [`MeshOpError::Laplacian`].
     /// - [`MeshOp::Taubin`] → [`crate::laplacian::taubin_smooth`] (infallible
     ///   explicit filter).
+    /// - [`MeshOp::Arap`] → [`crate::arap::arap_deform`], error surfaced as
+    ///   [`MeshOpError::Arap`].
+    /// - [`MeshOp::Decimate`] → [`crate::decimate::decimate`].
+    /// - [`MeshOp::LoopSubdivide`] → [`crate::loop_subdivision::loop_subdivide`].
+    /// - [`MeshOp::ConvexHull`] → [`crate::convex_hull::convex_hull`] over the
+    ///   mesh's vertex positions, error surfaced as [`MeshOpError::Hull`].
+    /// - [`MeshOp::Weld`] → [`crate::weld::weld`].
+    /// - [`MeshOp::FillHoles`] → [`crate::fill_holes::fill_holes`].
+    /// - [`MeshOp::Solidify`] → [`crate::solidify::solidify`].
+    /// - [`MeshOp::RecalculateNormals`] →
+    ///   [`crate::recalc_normals::recalculate_normals`].
+    /// - [`MeshOp::Triangulate`] → [`crate::triangulate::triangulate`].
+    /// - [`MeshOp::Inset`] → [`crate::inset::inset_faces`].
+    /// - [`MeshOp::Bisect`] → [`crate::bisect::bisect`].
+    /// - [`MeshOp::BevelEdges`] → [`crate::edge_bevel::bevel_edges`].
+    ///
+    /// # Errors
+    ///
+    /// Only the four delegating variants above can fail
+    /// ([`MeshOpError::Boolean`], [`MeshOpError::Laplacian`],
+    /// [`MeshOpError::Arap`], [`MeshOpError::Hull`]); every other variant is
+    /// infallible and always returns [`Ok`].
     pub fn apply(&self, mesh: Mesh) -> Result<Mesh, MeshOpError> {
         match self {
             MeshOp::Extrude { offset } => {
@@ -859,7 +908,7 @@ mod tests {
     /// and strictly larger than the input.
     /// Result (data-independent, topological): cube 8/6 → 26 verts / 24 faces.
     #[test]
-    fn operators_report_not_implemented() {
+    fn implemented_operators_dispatch_and_edit() {
         let m = primitives::cube(1.0);
         let op = MeshOp::Subdivide { iterations: 1 };
         let out = op.apply(m).expect("subdivide is implemented");

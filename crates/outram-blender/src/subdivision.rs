@@ -1,3 +1,30 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Implements: E. Catmull and J. Clark, "Recursively generated B-spline surfaces on
+// arbitrary topological meshes", Computer-Aided Design 10(6), 1978, pp. 350-355;
+// with the standard vertex-point weights of J. Stam, "Exact Evaluation of
+// Catmull-Clark Subdivision Surfaces at Arbitrary Parameter Values", SIGGRAPH '98,
+// pp. 395-404.
+// Written from the published formulation; no upstream source was copied.
+// Blender analogue (architecture only): the Subdivision-Surface modifier
+// (OpenSubdiv-backed upstream).
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Catmull-Clark subdivision surface via **local stencils** (no global solve).
 //!
 //! Catmull-Clark refinement takes any polygon mesh and produces a smoother,

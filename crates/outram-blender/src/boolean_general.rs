@@ -1,3 +1,28 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Surface-arrangement boolean with generalized-winding-number patch
+// classification — see boolean_classify.rs for the winding-number references and
+// boolean_predicates.rs for the exact orientation tests it relies on.
+// Written from the published formulations; no upstream source was copied.
+// Blender analogue (architecture only): the mesh_boolean.cc / mesh_intersect.cc
+// arrangement pipeline.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! General mesh boolean — Union / Difference / Intersect on arbitrary closed
 //! meshes, by **surface arrangement + generalized-winding-number
 //! classification**.
@@ -49,7 +74,7 @@
 //!    *and* B's triangle, so the two operands' cut curves are numerically
 //!    identical — the output welds watertight along the seam.
 //! 3. **Retriangulate** each cut triangle, constrained to its segments, via a
-//!    2D **constrained Delaunay triangulation** ([`triangulate_constrained`],
+//!    2D **constrained Delaunay triangulation** (`triangulate_constrained`,
 //!    Bowyer–Watson + Anglada edge-insertion using the robust
 //!    [`crate::boolean_predicates::orient2d`] / `incircle`). Uncut triangles
 //!    pass through whole.

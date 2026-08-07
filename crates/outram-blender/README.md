@@ -4,8 +4,11 @@
 > **fork / derivative of [Blender](https://github.com/blender/blender)'s
 > mesh-authoring architecture**, reusing its mesh/geometry design under the GPL
 > for the OUTRAM PARK multiphysics suite. It is **not** affiliated with,
-> endorsed by, or sanctioned by the Blender Foundation, and bundles no Blender
-> source code. "Blender" identifies only the upstream project it derives from.
+> endorsed by, or sanctioned by the Blender Foundation. No Blender source tree
+> is bundled; **exactly one file** (`src/boolean_predicates.rs`) is a literal,
+> attributed port of Blender source — see
+> [Licensing & provenance](#licensing--provenance). "Blender" identifies only
+> the upstream project it derives from.
 
 A pure-Rust, headless **mesh-authoring frontend** for the OUTRAM PARK
 multiphysics suite, inspired by the **architecture** of
@@ -143,6 +146,8 @@ included.
 | Module | Blender analogue | Status |
 |---|---|---|
 | `math` | `blenlib` `BLI_math` vectors | **real** — a minimal `Vec3` |
+| `transform` | `Object.matrix_world` affine placement | **real** — `Affine3` per-vertex transform; the CPU reference the GPU kernel is validated against |
+| `gpu` *(desktop only)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform), probe + graceful CPU fallback. Compiled on every desktop target, target-gated off Android |
 | `mesh` | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 | `primitives` | Add-Mesh primitive operators | **real** — cube / UV-sphere / cylinder / grid, unit-tested |
 | `revolve` | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cone frusta) |
@@ -168,10 +173,10 @@ included.
 | `boolean_classify` | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number |
 | `modifiers` | `modifiers/intern/MOD_*` | **real** — mirror / array / subsurf |
 | `procedural` | Geometry Nodes | **real** — node-graph evaluator (primitive / transform / join / subdivide / boolean / output) |
-| `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh **write** (text / disk) + **read** (`from_poly_mesh`, feature `foam-export`, full `constant/polyMesh` round-trip), CSG fitting (box / sphere / Z-cylinder / any convex polyhedron faceted), a DAGMC-style faceted-solid route for non-convex meshes, plus **feature-gated real-type bridges** to `outram-foam-basic-lib` (`foam-export`) and `outram-mc-libs` (`mc-export`) |
+| `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh **write** (text / disk) + **read** (`from_poly_mesh`, feature `foam-export`, full `constant/polyMesh` round-trip), CSG fitting (box / sphere / Z-cylinder / any convex polyhedron faceted), a DAGMC-style faceted-solid route for non-convex meshes (with a closed-2-manifold gate — `FacetedSolid::check_closed_manifold` / `to_faceted_solid_checked` — since the winding inside-test is only defined on a closed surface), plus **feature-gated real-type bridges** to `outram-foam-basic-lib` (`foam-export`) and `outram-mc-libs` (`mc-export`) |
 | `stl` | STL I/O | **real** — ASCII + binary STL read/write (auto-detect on read); the surface-mesh interchange / DAGMC / Monte-Carlo feed. Import is a triangle soup — `weld` it to recover topology |
 | `sim` *(feature `mc-export`)* | — (no Blender analogue) | **real** — Monte Carlo setup + run: build materials from nuclide/density specs, bundle geometry + source + settings, run a k-eigenvalue criticality calc (`k_eff ± σ`, optional cell/flux tally) via `outram-mc-libs`. The **MC Studio** backend |
-| `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet → dual → boundary-layers pipeline → OpenFOAM `polyMesh` (with a quality report). The **Mesh Studio** backend |
+| `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet → dual → boundary-layers pipeline → OpenFOAM `polyMesh` (with a quality report). Gated by a **closed, consistently-wound 2-manifold check** on the input surface (`check_closed_manifold`), because the backend's carve classifies cells by ray parity and would silently mis-mesh a leaky surface. The **Mesh Studio** backend |
 
 ## Design rules honoured (workspace `CLAUDE.md`)
 
@@ -235,8 +240,11 @@ own volume mesher; the `foam-mesh` route above supersedes it for a
 ready-to-solve mesh.
 
 The base `export` bridges are **implemented** — `export::to_polymesh_text` / `write_polymesh`
-emit the OpenFOAM polyMesh ASCII files and `export::to_csg_primitive` fits
-cube/sphere primitives into a CSG description. polyMesh I/O is **round-trip**:
+emit the OpenFOAM polyMesh ASCII files, and `export::to_csg_primitive` fits a
+box / sphere / Z-cylinder / any convex polyhedron into a CSG description
+(a non-convex mesh is refused with `NotImplemented`; use
+`export::to_faceted_solid_checked` for its DAGMC-style boundary instead).
+polyMesh I/O is **round-trip**:
 behind the opt-in `foam-export` feature, `export::from_poly_mesh` reads a real
 `outram_foam_basic_lib` `PolyMesh` back into a `Mesh`, so
 `PolyMesh::read(dir)` + `from_poly_mesh` **imports** an OpenFOAM

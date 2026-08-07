@@ -1,3 +1,28 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Implements: O. Sorkine and M. Alexa, "As-Rigid-As-Possible Surface Modeling",
+// Eurographics Symposium on Geometry Processing (SGP), 2007, pp. 109-116.
+// Cotangent weights: U. Pinkall and K. Polthier, "Computing discrete minimal
+// surfaces and their conjugates", Experimental Mathematics 2(1), 1993, 15-36.
+// Written from the published formulation; no upstream source was copied.
+// Blender analogue (architecture only): the Laplacian-deform / ARAP mesh tools.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! **As-Rigid-As-Possible (ARAP) surface deformation** (Sorkine & Alexa, 2007).
 //!
 //! Blender analogue: the Laplacian-deform / "As Rigid As Possible" mesh tools.
@@ -16,7 +41,7 @@
 //! - **Local step** (fix `p'`, solve each `R_i`): form the `3×3` covariance
 //!   `S_i = Σ_j w_ij (p'_i − p'_j)(p_i − p_j)ᵀ` (deformed ⊗ rest) and take the
 //!   closest rotation `R_i = U Vᵀ` (the orthogonal Procrustes solution, with a
-//!   determinant sign-fix) from the SVD `S_i = U Σ Vᵀ` ([`closest_rotation`]) —
+//!   determinant sign-fix) from the SVD `S_i = U Σ Vᵀ` (`closest_rotation`) —
 //!   the rotation that best maps the rest one-ring onto the deformed one.
 //! - **Global step** (fix `{R_i}`, solve `p'`): solve `L p' = b` with
 //!   `b_i = Σ_j (w_ij/2)(R_i + R_j)(p_i − p_j)`, where `L` is the cotangent
@@ -238,7 +263,7 @@ pub fn arap_energy(rest: &Mesh, deformed: &[Vec3]) -> f64 {
 /// `p`, deformed `d`) and return its closest rotation.
 fn optimal_rotation(i: usize, adj: &[Vec<(usize, f64)>], rest: &[Vec3], def: &[Vec3]) -> M3 {
     // Covariance S_i = Σ w (d_i − d_j)(p_i − p_j)ᵀ (deformed ⊗ rest). Its
-    // Procrustes rotation ([`closest_rotation`], R = U Vᵀ) is the rotation that
+    // Procrustes rotation (`closest_rotation`, R = U Vᵀ) is the rotation that
     // best maps the rest one-ring onto the deformed one.
     let mut s = [[0.0f64; 3]; 3];
     for &(j, w) in &adj[i] {

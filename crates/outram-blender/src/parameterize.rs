@@ -1,3 +1,30 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Implements the Tutte / discrete-harmonic planar embedding:
+// W. T. Tutte, "How to Draw a Graph", Proc. London Math. Soc. s3-13(1), 1963,
+// pp. 743-767; M. Eck, T. DeRose, T. Duchamp, H. Hoppe, M. Lounsbery and
+// W. Stuetzle, "Multiresolution Analysis of Arbitrary Meshes", SIGGRAPH '95,
+// pp. 173-182 (discrete harmonic map); M. S. Floater, "Parametrization and smooth
+// approximation of surface triangulations", CAGD 14(3), 1997, pp. 231-250.
+// Written from the published formulations; no upstream source was copied.
+// Blender analogue (architecture only): the UV Unwrap operator.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Planar **mesh parameterization** — flatten a disk-topology surface patch to
 //! 2D `(u, v)` coordinates by a harmonic / Tutte embedding.
 //!

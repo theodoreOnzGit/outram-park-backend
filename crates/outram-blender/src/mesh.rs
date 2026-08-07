@@ -1,3 +1,29 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Index-based half-edge mesh topology. The four-element vertex / edge / loop /
+// face model follows the published architecture of Blender's BMesh
+// (source/blender/bmesh, github.com/blender/blender, GPL-2.0-or-later); the
+// pointer-linked C structures are replaced here by newtype indices into `Vec`s per
+// the workspace design rules. Concepts only — no upstream source was copied.
+// General half-edge background: K. Weiler, "Edge-Based Data Structures for Solid
+// Modeling in Curved-Surface Environments", IEEE CG&A 5(1), 1985, pp. 21-40.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! BMesh-inspired **index-based half-edge** mesh topology.
 //!
 //! This is the core data structure every other module operates on. It mirrors
@@ -25,18 +51,24 @@
 //! [`FaceId`]) into one of the `Vec`s inside [`Mesh`]. This is the
 //! `CellId(usize)`-into-a-`Vec` pattern the workspace `CLAUDE.md` prescribes.
 //!
-//! ## What is and is not implemented at scaffold stage
+//! ## What this type does and does not cover
 //!
-//! Implemented: construction ([`Mesh::add_vertex`], [`Mesh::add_face`] with
-//! automatic edge deduplication) and read-only queries (element counts,
-//! [`Mesh::face_vertices`], [`Mesh::euler_characteristic`]). This is enough for
-//! the [`crate::primitives`] generators to build valid closed meshes and for
-//! their tests to check `V - E + F`.
+//! Implemented: incremental construction ([`Mesh::add_vertex`],
+//! [`Mesh::add_face`] with automatic edge deduplication) and bulk construction
+//! from a polygon soup ([`Mesh::from_polygons`]); element accessors
+//! ([`Mesh::vertex`], [`Mesh::edge`], [`Mesh::loop_at`], [`Mesh::face`]) and
+//! counts; the soup view every operator module works over ([`Mesh::positions`],
+//! [`Mesh::polygons`]); and the derived geometry queries
+//! ([`Mesh::face_vertices`], [`Mesh::face_normal`], [`Mesh::face_centroid`],
+//! [`Mesh::euler_characteristic`]). That is the whole surface the
+//! [`crate::primitives`] generators and the [`crate::ops`] / [`crate::modifiers`]
+//! operators build on.
 //!
-//! Not yet implemented: the full radial-cycle links around an edge (BMesh's
-//! `radial_next`/`radial_prev`, needed to enumerate *all* faces on an edge for
-//! non-manifold meshes), Euler operators (split/join), and per-element custom
-//! data layers. Those are tracked in [`crate::ops`] and the crate's beads.
+//! Deliberately **not** implemented: the full radial-cycle links around an edge
+//! (BMesh's `radial_next`/`radial_prev`, needed to enumerate *all* faces on an
+//! edge for non-manifold meshes), in-place Euler operators (split/join — the
+//! operators here rebuild a fresh [`Mesh`] through [`Mesh::from_polygons`]
+//! instead), and per-element custom data layers.
 
 use crate::math::Vec3;
 
@@ -63,7 +95,8 @@ pub struct Vertex {
     pub position: Vec3,
     /// One [`Loop`] that starts at this vertex, or `None` for an isolated
     /// vertex not yet used by any face. A full BMesh stores the disk cycle of
-    /// all incident edges; this scaffold keeps just a single representative.
+    /// all incident edges; this crate deliberately keeps just a single
+    /// representative (see the module docs for what is and is not covered).
     pub loop_id: Option<LoopId>,
 }
 

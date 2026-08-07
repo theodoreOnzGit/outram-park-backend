@@ -1,3 +1,25 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Headless GPU compute via the `wgpu` crate (Apache-2.0/MIT, GPL-3.0-compatible).
+// No published algorithm — a WGSL compute-shader dispatch harness with a CPU
+// reference fallback. Target-gated off Android per the workspace portability rule.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! GPU compute (headless, target-gated OFF Android; no cargo feature).
 //!
 //! Headless GPU acceleration via [`wgpu`] for the *embarrassingly parallel*
@@ -9,7 +31,7 @@
 //!
 //! This module now carries **one real, end-to-end kernel**: applying an
 //! [`crate::transform::Affine3`] to every vertex of a mesh in parallel via a
-//! WGSL compute shader ([`transform_vertices_gpu`]). The identical computation
+//! WGSL compute shader ([`crate::gpu::transform_vertices_gpu`]). The identical computation
 //! on the CPU is [`crate::transform::Affine3::transform_points`], which is the
 //! reference the GPU result is validated against (see the tests below). This
 //! kernel is deliberately the simplest embarrassingly-parallel mesh operation —
@@ -28,14 +50,14 @@
 //!    CPU path runs.
 //! 2. **Runtime CPU fallback is mandatory.** Even where wgpu is compiled, at
 //!    runtime there may be **no usable GPU adapter** (headless servers, VMs) or
-//!    a submission may fail mid-flight. Callers MUST treat [`probe`] returning
-//!    `None`, and [`try_transform_vertices_gpu`] returning `Err`, as "run the
+//!    a submission may fail mid-flight. Callers MUST treat [`crate::gpu::probe`] returning
+//!    `None`, and [`crate::gpu::try_transform_vertices_gpu`] returning `Err`, as "run the
 //!    CPU path", never as a hard error. [`crate::transform::Affine3::transform_points_best_effort`]
 //!    wraps exactly this: try GPU, fall back to CPU, always return a result.
 //! 3. **CPU is the trusted / reference path.** GPU float reduction order will
 //!    not bit-match the CPU (`f64`, [`crate::transform`]) result, so anything
 //!    that feeds V&V or a solver stays CPU-deterministic. GPU is *acceleration
-//!    only*, and [`transform_vertices_gpu`] returns `f32`-precision results.
+//!    only*, and [`crate::gpu::transform_vertices_gpu`] returns `f32`-precision results.
 
 use crate::math::Vec3;
 use crate::transform::Affine3;
@@ -56,7 +78,7 @@ pub use wgpu;
 /// source of truth, so a `GpuError` is a routine "use the CPU" signal, not a
 /// fatal condition — [`Affine3::transform_points_best_effort`] does this
 /// automatically. This deliberately does **not** cover the "no adapter at all"
-/// case, which surfaces earlier as [`probe`] returning `None`.
+/// case, which surfaces earlier as [`crate::gpu::probe`] returning `None`.
 #[derive(Debug, thiserror::Error)]
 pub enum GpuError {
     /// Polling the device to drive the readback failed (e.g. device lost).
@@ -91,7 +113,7 @@ pub struct GpuContext {
 /// = None`, no `compatible_surface`), then requests a device + queue with the
 /// downlevel default limits (the broadest-compatibility profile, so software
 /// adapters like Lavapipe/WARP also qualify). The blocking wait on wgpu's async
-/// requests is done with a tiny in-crate executor ([`block_on`]) so this crate
+/// requests is done with a tiny in-crate executor (`block_on`) so this crate
 /// pulls in no async-runtime dependency.
 ///
 /// Returns `Some(GpuContext)` when a headless compute device is available, or
@@ -170,7 +192,7 @@ const WORKGROUP_SIZE: u32 = 64;
 /// transformed positions in the same order — the **fallible** entry point.
 ///
 /// This is the demonstrator GPU kernel. It uploads the positions as an `f32`
-/// storage buffer, dispatches [`AFFINE_TRANSFORM_WGSL`] one invocation per
+/// storage buffer, dispatches `AFFINE_TRANSFORM_WGSL` one invocation per
 /// vertex, and reads the result back. **Results are `f32` precision** — the
 /// caller must treat them as an acceleration of, and approximation to,
 /// [`Affine3::transform_points`] (the trusted `f64` CPU reference), not as a
@@ -184,7 +206,7 @@ const WORKGROUP_SIZE: u32 = 64;
 /// during the readback poll, or buffer-map failure). This is **recoverable**:
 /// the caller should fall back to [`Affine3::transform_points`] — which
 /// [`Affine3::transform_points_best_effort`] does automatically. The "no adapter
-/// at all" case is handled earlier by [`probe`] returning `None`, not here.
+/// at all" case is handled earlier by [`crate::gpu::probe`] returning `None`, not here.
 pub fn try_transform_vertices_gpu(
     ctx: &GpuContext,
     affine: Affine3,
@@ -417,7 +439,7 @@ mod tests {
     ///
     /// Methodology: probe for a headless adapter; if none, SKIP (headless CI /
     /// no GPU is expected, never a failure). If a device exists, transform a
-    /// 1000-vertex set with both [`transform_vertices_gpu`] (GPU, f32) and
+    /// 1000-vertex set with both [`crate::gpu::transform_vertices_gpu`] (GPU, f32) and
     /// [`Affine3::transform_points`] (CPU, f64 reference), and assert every
     /// component agrees within an absolute tolerance of `1e-4` (chosen for
     /// `f32` GPU precision over these O(10) magnitudes; well above f32 epsilon).

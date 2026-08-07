@@ -1,3 +1,33 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// PORTED CODE — the one file in this crate that carries upstream source.
+// Ported from Blender blenlib `BLI_math_boolean.hh` / `intern/math_boolean.cc`,
+// github.com/blender/blender @ 96294be75080bbf687fa7f108e344a1063713586.
+//     SPDX-FileCopyrightText: 2023 Blender Authors
+//     SPDX-License-Identifier: GPL-2.0-or-later
+// GPL-2.0-or-later is GPL-3.0-compatible, so the port ships as GPL-3.0-only here.
+// Underlying method: J. R. Shewchuk, "Adaptive Precision Floating-Point Arithmetic
+// and Fast Robust Geometric Predicates", Discrete & Computational Geometry 18(3),
+// 1997, pp. 305-363.
+// See the module documentation below for the full provenance statement — do not
+// remove or weaken it.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Robust geometric predicates — orientation and in-circle/in-sphere tests.
 //!
 //! Blender analogue / provenance: ported from `blender/blenlib`
@@ -54,7 +84,7 @@
 //! double-double arithmetic is *not* arbitrary precision. It resolves the
 //! sign correctly for the vast majority of practical near-degenerate
 //! configurations (anything not degenerate below roughly the 106th
-//! significant bit), and the [`tests`] module below demonstrates a concrete
+//! significant bit), and the `tests` module below demonstrates a concrete
 //! case where the `_fast` plain-`f64` path returns the wrong sign and the
 //! double-double-refined path returns the correct one. But it is not a
 //! mathematical guarantee of exactness for *arbitrarily* degenerate

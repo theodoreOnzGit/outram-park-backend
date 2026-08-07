@@ -1,8 +1,8 @@
 # Crate Documentation
 
-**Version:** 0.0.1
+**Version:** 0.0.3
 
-**Format Version:** 61
+**Format Version:** 60
 
 # Module `outram_blender`
 
@@ -44,8 +44,8 @@ opt-in cargo features, so the default build stays light and Android-buildable.
 > **Not affiliated with the Blender Foundation.** "Blender" names the
 > upstream project whose architecture inspired this work; nothing here is
 > endorsed by or sanctioned by the Blender Foundation. See the README's
-> "Naming & trademark" section — the crate name itself is a pending
-> maintainer decision.
+> "Naming & trademark" section — the maintainer decided on 2026-07-17 to
+> keep the name `outram-blender` and mark the fork status explicitly.
 >
 > **Untrusted AI-generated draft** until a human reviews it, per the
 > workspace `RESPONSIBLE_USE.md`. Not for nuclear facility operation,
@@ -82,10 +82,10 @@ opt-in cargo features, so the default build stays light and Android-buildable.
 | [`boolean_classify`] | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number (+ ray-parity cross-check) |
 | [`modifiers`] | `modifiers/intern/MOD_*` modifier stack | **real** — subsurf / mirror / array |
 | [`procedural`] | Geometry Nodes (`nodes/geometry/*`) | **real** — node-graph evaluator |
-| [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid + feature-gated real-type bridges (`foam-export`, `mc-export`) |
+| [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid (with an opt-in closed-2-manifold gate, [`export::to_faceted_solid_checked`]) + feature-gated real-type bridges (`foam-export`, `mc-export`) |
 | [`stl`] | STL I/O | **real** — ASCII + binary STL read/write (surface-mesh interchange / DAGMC / Monte-Carlo feed) |
 | `sim` *(feature `mc-export`)* | — (no Blender analogue) | **real** — Monte Carlo setup + run: build materials, bundle geometry/source/settings, run a k-eigenvalue criticality calc (`k_eff ± σ`) via `outram-mc-libs`. Backend of **MC Studio** |
-| `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet→dual→boundary-layers pipeline → OpenFOAM `polyMesh`. Backend of **Mesh Studio** |
+| `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet→dual→boundary-layers pipeline → OpenFOAM `polyMesh`, gated by a closed-2-manifold check on the surface. Backend of **Mesh Studio** |
 
 ## Design rules honoured here (workspace `CLAUDE.md`)
 
@@ -2211,6 +2211,23 @@ Errors from an export bridge.
 ```rust
 pub enum ExportError {
     NotImplemented(&'static str),
+    NotClosedSurface {
+        tri: usize,
+        a: u32,
+        b: u32,
+    },
+    NonManifoldSurface {
+        tri: usize,
+        other_tri: usize,
+        a: u32,
+        b: u32,
+    },
+    DegenerateTriangle {
+        tri: usize,
+        a: u32,
+        b: u32,
+        c: u32,
+    },
 }
 ```
 
@@ -2220,16 +2237,69 @@ pub enum ExportError {
 
 A requested export path is documented but not implemented for this mesh.
 
-Returned, for example, when [`to_csg_primitive`] is handed a mesh it
-cannot recognise as one of the fitted [`crate::primitives`] shapes (the
-general faceted/DAGMC route is not written yet). The payload is a
-human-readable explanation of what was expected.
+Returned when [`to_csg_primitive`] (or `to_mc_geometry`, which builds
+on it) is handed a mesh that is not a half-space intersection — i.e. a
+**non-convex** solid, which no combination of analytic surfaces
+describes. That is not a gap in this module: use [`to_faceted_solid`]
+for the DAGMC-style faceted boundary representation of such a solid.
+The payload is a human-readable explanation of what was expected.
 
 Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `&'static str` |  |
+
+###### `NotClosedSurface`
+
+The surface is **not closed**: directed edge `a -> b` of triangle `tri`
+has no opposing triangle, so the undirected edge `{a, b}` belongs to one
+triangle instead of two.
+
+Returned by [`FacetedSolid::check_closed_manifold`]. Inside/outside on a
+faceted solid is decided by the **generalized winding number**, which is
+only well-defined on a closed surface — an open one makes
+[`FacetedSolid::contains`] silently arbitrary.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tri` | `usize` | Index of the offending triangle in [`FacetedSolid::triangles`]. |
+| `a` | `u32` | Start vertex of the unpaired directed edge. |
+| `b` | `u32` | End vertex of the unpaired directed edge. |
+
+###### `NonManifoldSurface`
+
+Two triangles traverse the same directed edge — the surface is
+non-manifold, inconsistently wound, or has a duplicated triangle.
+
+Returned by [`FacetedSolid::check_closed_manifold`].
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tri` | `usize` | Index of the later offending triangle. |
+| `other_tri` | `usize` | Index of the triangle that already traversed this directed edge. |
+| `a` | `u32` | Start vertex of the doubly-traversed directed edge. |
+| `b` | `u32` | End vertex of the doubly-traversed directed edge. |
+
+###### `DegenerateTriangle`
+
+A triangle repeats a corner vertex, so it has no well-defined normal and
+contributes a self-edge that can never be paired.
+
+Returned by [`FacetedSolid::check_closed_manifold`].
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tri` | `usize` | Index of the offending triangle. |
+| `a` | `u32` | First corner vertex index. |
+| `b` | `u32` | Second corner vertex index. |
+| `c` | `u32` | Third corner vertex index. |
 
 ##### Implementations
 
@@ -2346,8 +2416,9 @@ A dependency-free, flattened triangle mesh: the common export denominator.
 
 Every polygon face of a [`Mesh`] is fan-triangulated into this indexed form
 (`positions` + triangle `indices` triplets). This is what an OBJ/STL writer,
-a polyMesh boundary patch, or a faceted-CSG surface would each build from —
-so it is implemented and tested even while the solver bridges are stubs.
+a polyMesh boundary patch, or a faceted-CSG surface each build from — it is
+the shared, dependency-free foundation under every exporter in this module,
+including the feature-gated real-type solver bridges.
 
 ```rust
 pub struct IndexedTriangles {
@@ -3424,6 +3495,11 @@ pub struct FacetedSolid {
   Number of boundary triangles.
 
 - ```rust
+  pub fn check_closed_manifold(self: &Self) -> Result<(), ExportError> { /* ... */ }
+  ```
+  Verify that this boundary is a **closed, consistently-wound 2-manifold** —
+
+- ```rust
   pub fn contains(self: &Self, p: Vec3) -> bool { /* ... */ }
   ```
   Test whether point `p` is inside the solid, by the **generalized winding
@@ -3645,8 +3721,55 @@ Works for any closed mesh, convex or not — this is the fallback the analytic
 that a downstream consumer using face normals (not just the sign-agnostic
 [`FacetedSolid::contains`]) sees them pointing out of the solid.
 
+# This constructor does not validate the surface
+
+It builds a [`FacetedSolid`] from whatever it is given, including an **open**
+mesh — for which [`FacetedSolid::contains`] returns confident but arbitrary
+answers (see [`FacetedSolid::check_closed_manifold`] for why). Prefer
+[`to_faceted_solid_checked`] unless the mesh is already known closed; or call
+[`FacetedSolid::check_closed_manifold`] on the result. Two further caveats
+this constructor cannot detect:
+
+- **Non-convex faces.** Fan triangulation from a face's first corner is exact
+  only for **convex** faces (as [`crate::primitives`] produces). A concave
+  `n`-gon — which [`crate::bisect`] and [`crate::boolean_general`] can emit —
+  fans into overlapping and outside-the-face triangles.
+- **Zero enclosed volume.** The outward-orientation flip below triggers on a
+  strictly negative signed volume, so a surface enclosing exactly zero volume
+  is left as-is rather than reported.
+
 ```rust
 pub fn to_faceted_solid(mesh: &crate::mesh::Mesh) -> FacetedSolid { /* ... */ }
+```
+
+#### Function `to_faceted_solid_checked`
+
+[`to_faceted_solid`], but **rejects** a surface on which the solid's
+inside/outside test would be meaningless.
+
+Builds the faceted boundary exactly as [`to_faceted_solid`] does, then runs
+[`FacetedSolid::check_closed_manifold`] on it. Use this whenever the mesh's
+closedness is not already guaranteed — an open or non-manifold boundary makes
+[`FacetedSolid::contains`] silently arbitrary, which downstream shows up as a
+transport particle in the wrong material rather than as an error.
+
+# Errors
+
+[`ExportError::DegenerateTriangle`], [`ExportError::NonManifoldSurface`], or
+[`ExportError::NotClosedSurface`], naming the offending triangle and edge.
+
+# Examples
+
+```
+use outram_blender::{primitives, export};
+
+assert!(export::to_faceted_solid_checked(&primitives::cube(2.0)).is_ok());
+// A flat patch encloses nothing; it is refused rather than silently accepted.
+assert!(export::to_faceted_solid_checked(&primitives::grid(2, 2, 1.0)).is_err());
+```
+
+```rust
+pub fn to_faceted_solid_checked(mesh: &crate::mesh::Mesh) -> Result<FacetedSolid, ExportError> { /* ... */ }
 ```
 
 ## Module `fill_holes`
@@ -4569,18 +4692,24 @@ here is a **newtype index** ([`VertexId`], [`EdgeId`], [`LoopId`],
 [`FaceId`]) into one of the `Vec`s inside [`Mesh`]. This is the
 `CellId(usize)`-into-a-`Vec` pattern the workspace `CLAUDE.md` prescribes.
 
-## What is and is not implemented at scaffold stage
+## What this type does and does not cover
 
-Implemented: construction ([`Mesh::add_vertex`], [`Mesh::add_face`] with
-automatic edge deduplication) and read-only queries (element counts,
-[`Mesh::face_vertices`], [`Mesh::euler_characteristic`]). This is enough for
-the [`crate::primitives`] generators to build valid closed meshes and for
-their tests to check `V - E + F`.
+Implemented: incremental construction ([`Mesh::add_vertex`],
+[`Mesh::add_face`] with automatic edge deduplication) and bulk construction
+from a polygon soup ([`Mesh::from_polygons`]); element accessors
+([`Mesh::vertex`], [`Mesh::edge`], [`Mesh::loop_at`], [`Mesh::face`]) and
+counts; the soup view every operator module works over ([`Mesh::positions`],
+[`Mesh::polygons`]); and the derived geometry queries
+([`Mesh::face_vertices`], [`Mesh::face_normal`], [`Mesh::face_centroid`],
+[`Mesh::euler_characteristic`]). That is the whole surface the
+[`crate::primitives`] generators and the [`crate::ops`] / [`crate::modifiers`]
+operators build on.
 
-Not yet implemented: the full radial-cycle links around an edge (BMesh's
-`radial_next`/`radial_prev`, needed to enumerate *all* faces on an edge for
-non-manifold meshes), Euler operators (split/join), and per-element custom
-data layers. Those are tracked in [`crate::ops`] and the crate's beads.
+Deliberately **not** implemented: the full radial-cycle links around an edge
+(BMesh's `radial_next`/`radial_prev`, needed to enumerate *all* faces on an
+edge for non-manifold meshes), in-place Euler operators (split/join — the
+operators here rebuild a fresh [`Mesh`] through [`Mesh::from_polygons`]
+instead), and per-element custom data layers.
 
 ```rust
 pub mod mesh { /* ... */ }
@@ -5300,7 +5429,7 @@ pub struct Vertex {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `position` | `crate::math::Vec3` | Position in dimensionless model space (see [`crate::math`]). |
-| `loop_id` | `Option<LoopId>` | One [`Loop`] that starts at this vertex, or `None` for an isolated<br>vertex not yet used by any face. A full BMesh stores the disk cycle of<br>all incident edges; this scaffold keeps just a single representative. |
+| `loop_id` | `Option<LoopId>` | One [`Loop`] that starts at this vertex, or `None` for an isolated<br>vertex not yet used by any face. A full BMesh stores the disk cycle of<br>all incident edges; this crate deliberately keeps just a single<br>representative (see the module docs for what is and is not covered). |
 
 ##### Implementations
 
@@ -7215,7 +7344,11 @@ pub enum MeshOpError {
 
 ###### `NotImplemented`
 
-The operator is scaffolded but its algorithm is not implemented yet.
+An operator is declared but its algorithm is not implemented yet.
+
+Retained for forward compatibility (a new [`MeshOp`] variant may land as
+a stub); **every current variant is implemented**, so [`MeshOp::apply`]
+never returns this today.
 
 Fields:
 
@@ -10204,7 +10337,7 @@ pub fn weld(mesh: &crate::mesh::Mesh, distance: f64) -> crate::mesh::Mesh { /* .
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-blender/src/lib.rs:186:11: 186:32 (#0) }, crates/outram-blender/src/lib.rs:186:10: 186:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-blender/src/lib.rs:211:11: 211:32 (#0) }, crates/outram-blender/src/lib.rs:211:10: 211:33 (#0))])]")`
 
 Headless GPU compute via `wgpu`. Compiled **unconditionally on every desktop
 target** (no cargo feature to opt in) so the GPU path is used as far as

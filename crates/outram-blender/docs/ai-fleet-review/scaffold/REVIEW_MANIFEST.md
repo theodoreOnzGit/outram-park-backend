@@ -149,8 +149,17 @@ pure-Rust and Android-buildable.
   obligation. Any future literal port of a Blender (or dependency) algorithm
   must add the upstream attribution header block and pass a GPLv3 license
   re-check, per the workspace provenance rule.
+- **Superseded since:** one file, `src/boolean_predicates.rs`, is now a literal
+  attributed port of Blender's `BLI_math_boolean.hh` / `math_boolean.cc`, with
+  its provenance header block in place. See `NOTICE` and the README's
+  "Licensing & provenance" section for the current record.
 
-## ⚠️ Naming / trademark flag (needs a maintainer decision)
+## ⚠️ Naming / trademark flag (RESOLVED 2026-07-17 — kept as a record)
+
+> **Resolved.** The maintainer decided on **2026-07-17** to keep the name
+> `outram-blender` and mark the fork status explicitly. See the README's
+> "Naming & trademark (decided)" section. The open question recorded below is
+> historical.
 
 The crate is named **`outram-blender`** at the maintainer's explicit request.
 The workspace convention (bead `op-ahi`) names independent forks

@@ -1,3 +1,28 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Merge coincident vertices by spatial-hash bucketing plus union-find:
+// R. E. Tarjan, "Efficiency of a Good But Not Linear Set Union Algorithm",
+// Journal of the ACM 22(2), 1975, pp. 215-225.
+// Written from the published formulation; no upstream source was copied.
+// Blender analogue (architecture only): the bmo_remove_doubles operator
+// (Merge by Distance).
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Weld / remove-doubles — merge coincident vertices within a distance
 //! tolerance into a single vertex.
 //!

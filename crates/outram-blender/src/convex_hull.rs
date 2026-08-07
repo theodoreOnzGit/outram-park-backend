@@ -1,3 +1,30 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Incremental 3-D convex hull (add points one at a time, delete the visible-face
+// horizon, re-cone) — K. L. Clarkson and P. W. Shor, "Applications of random
+// sampling in computational geometry, II", Discrete & Computational Geometry 4,
+// 1989, pp. 387-421; textbook treatment in M. de Berg et al., "Computational
+// Geometry: Algorithms and Applications", 3rd ed., Springer 2008, ch. 11.
+// Orientation tests come from boolean_predicates.rs (Shewchuk).
+// Written from the published formulation; no upstream source was copied.
+// Blender analogue (architecture only): the bmo_convex_hull operator.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! **3D convex hull** of a point set — the incremental algorithm on the robust
 //! [`crate::boolean_predicates::orient3d`] orientation test.
 //!

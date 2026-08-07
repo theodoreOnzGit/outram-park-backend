@@ -1,5 +1,27 @@
-//! Monte Carlo **simulation setup + run** — the backend the outram-mc GUI drives
-//! (feature `mc-export`).
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Monte Carlo setup/run driver over `outram-mc-libs`. Contains no transport
+// physics of its own — the k-eigenvalue calculation and its references live in
+// `outram-mc-libs` and `njoy-outram-park-fork`. No upstream source was copied.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
+//! Monte Carlo **simulation setup + run** — the backend the **MC Studio** egui
+//! app (`examples/mc_studio`) drives (feature `mc-export`).
 //!
 //! [`crate::export`] turns authored geometry into an `outram-mc-libs`
 //! [`Geometry`]. This module is the rest of "set up and run a *basic* Monte

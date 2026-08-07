@@ -1,3 +1,29 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Implements: C. T. Loop, "Smooth Subdivision Surfaces Based on Triangles",
+// M.Sc. thesis, Department of Mathematics, University of Utah, 1987; with the
+// simplified vertex weight of J. Warren and H. Weimer, "Subdivision Methods for
+// Geometric Design", Morgan Kaufmann, 2001.
+// Written from the published formulation; no upstream source was copied.
+// Blender analogue (architecture only): the Subdivision-Surface modifier,
+// triangle path.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! **Loop subdivision** — a smooth subdivision surface for **triangle** meshes.
 //!
 //! Blender analogue: the Subdivision-Surface modifier in its triangle path

@@ -1,3 +1,34 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Cotangent Laplacian: U. Pinkall and K. Polthier, "Computing discrete minimal
+// surfaces and their conjugates", Experimental Mathematics 2(1), 1993, 15-36; and
+// M. Meyer, M. Desbrun, P. Schroeder and A. H. Barr, "Discrete Differential-
+// Geometry Operators for Triangulated 2-Manifolds", in Visualization and
+// Mathematics III, Springer 2003, pp. 35-57.
+// Implicit (backward-Euler) smoothing: M. Desbrun, M. Meyer, P. Schroeder and
+// A. H. Barr, "Implicit Fairing of Irregular Meshes using Diffusion and Curvature
+// Flow", SIGGRAPH '99, pp. 317-324.
+// Shrinkage-free two-pass smoothing: G. Taubin, "A Signal Processing Approach to
+// Fair Surface Design", SIGGRAPH '95, pp. 351-358.
+// Written from the published formulations; no upstream source was copied.
+// Blender analogue (architecture only): MOD_laplaciansmooth / bmo_smooth_laplacian.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Discrete **Laplacian operators** over a mesh, and implicit **Laplacian
 //! smoothing** (mesh fairing) built on them.
 //!
