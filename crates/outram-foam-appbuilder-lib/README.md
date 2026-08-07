@@ -40,7 +40,7 @@ Depends on (both **in-workspace path crates**, not yet on crates.io):
 - `outram-foam-basic-lib` — primitives, FV operators, fields, mesh
 - `outram-foam-turbulence-lib` — turbulence model closures
 
-> **This is an early (0.1.0), in-progress crate.** Large parts of the intended
+> **This is an early (0.1.1), in-progress crate.** Large parts of the intended
 > surface are scaffolds, `todo!()`, or deliberately deferred. Read the
 > [**Limitations**](#limitations) section below before depending on it — it is
 > the honest status, and it is long on purpose.
@@ -56,6 +56,53 @@ Depends on (both **in-workspace path crates**, not yet on crates.io):
 | `sonic_foam` | Transonic/supersonic ψ-based solver (sonicFoam). Implemented, but the implicit `fvm::div` scalar-convection operator is absent from basic-lib, so convection is treated **explicitly** via `fvc::div`. **No tutorial or validation case — unexercised.** |
 | `hrm_foam` | Homogeneous Relaxation Model two-phase (HRMFoam), Downar-Zapolski (1996) relaxation. Implemented. **No tutorial or validation case — unexercised.** |
 | `reacting_two_phase_euler_foam` | Reacting two-phase Euler-Euler (OpenFOAM-dev's `multiphaseEuler`, historic `reactingTwoPhaseEulerFoam`). Composes the `outram-foam-multiphase` hydrodynamic core (`TwoFluidPimple`) and adds per-phase conservative enthalpy equations, one-resistance interfacial heat transfer (Spherical / Ranz-Marshall / constant-Nu), operator-split phase change with latent heat, an optional single-phase multicomponent composition, and a global Arrhenius reaction. Implemented; demonstrated by `examples/reacting_two_phase_euler_combustion.rs`. **Verification-tested only — no benchmark validation.** |
+
+## Turbulence closures (`turbulence`)
+
+`TurbulenceClosure` is the Layer-5 adapter over `outram-foam-turbulence-lib`.
+Dispatch is by **enum**, never `dyn`:
+
+| Variant | Model |
+|---|---|
+| `Laminar` (**default**) | no closure; ν_eff = ν |
+| `KOmegaSST` | Menter (1994) k-ω SST |
+| `KEpsilon` | Jones & Launder (1972) k-ε |
+| `KOmega` | Wilcox k-ω |
+| `SpalartAllmaras` | Spalart-Allmaras (1992) |
+| `Smagorinsky` | Smagorinsky (1963) LES |
+
+`PimpleFoam` and `RhoPimpleFoam` each carry a `turbulence` field: the momentum
+stress term comes from `div_dev_reff` (ν_eff = ν + ν_t) and `correct()` runs
+after the pressure correctors, matching OpenFOAM's `turbulence->correct()`
+position. `RhoPimpleFoam` converts kinematic ↔ dynamic (μ_eff = μ + ρν_t,
+α_eff = α + ρν_t/Pr_t) and feeds the closures the volumetric flux φ/ρ_f.
+
+```rust,ignore
+solver.turbulence = TurbulenceClosure::k_omega_sst(mesh.clone());
+solver.turbulence.set_k_omega_uniform(1.0e-2, 100.0); // k [m²/s²], ω [1/s]
+```
+
+**Read the limitations below before trusting a turbulent result** — there are no
+wall functions yet, and that is disqualifying for wall-bounded RAS.
+
+## Numerical scheme selection (`solvers::schemes`)
+
+The `ddt` and `div` entries of `FvSchemes` are honoured by `PimpleFoam`:
+
+| Family | Implemented | Behaviour of the rest |
+|---|---|---|
+| `ddtSchemes` | `Euler` (default), `Backward`, `SteadyState` | `CrankNicolson`, `LocalEuler` → `AppBuilderError::UnsupportedScheme` |
+| `divSchemes` | `GaussUpwind` (default), `GaussLinear` | `linearUpwind`, `vanLeer`, `MUSCL`, `limitedLinear` → `AppBuilderError::UnsupportedScheme` |
+
+An unimplemented selection is an **error, never a silent fallback**. Measured
+effect of choosing `Gauss linear` on the Re = 100 lid-driven cavity, 20×20 mesh
+(`tests/fv_scheme_selection.rs`, 2026-08-07): centreline RMS error against
+Ghia et al. (1982) falls from **0.0363 to 0.0224** (−38 %), peak error from
+0.0634 to 0.0426.
+
+`grad`, `laplacian`, `snGrad` and `interpolation` selections are still only
+**stored** — no solver consults them. (Nothing is *parsed* from disk either:
+`FvSchemes::read` is `todo!()`, so the struct is built in Rust.)
 
 ## Case I/O (`io`)
 
@@ -99,17 +146,25 @@ translation order are in
 ## Limitations
 
 This crate is at an early stage of a large port. The following are **known,
-real limitations** as of version 0.1.0 — grounded in the code, not aspirational.
+real limitations** as of version 0.1.1 — grounded in the code, not aspirational.
 
 ### Verification & validation
 
 - **Unverified until validated (see banner).** Only the cases with an explicit
   V&V test are trusted; everything else is untrusted draft. The currently
   V&V'd slices are: `rho_central_foam` (Sod shock tube), `pimple_foam`
-  (lid-driven cavity vs icoFoam), `genfoam::neutronics::point_kinetics`
-  (inhour), `genfoam::neutronics::diffusion` (analytical one-group theory),
+  (lid-driven cavity vs icoFoam and vs Ghia et al. 1982),
+  `melt_foam` (Stefan similarity solution + a discrete energy-conservation
+  check), `genfoam::neutronics::point_kinetics` (inhour),
+  `genfoam::neutronics::diffusion` (analytical one-group theory),
+  `genfoam::neutronics::sp3` / `::sn` (closed-form `k_inf`, angular/mesh
+  convergence, and the diffusion limit),
   `genfoam::thermal_hydraulics::closures::fs_drag` (analytic `f·Re → 64` +
-  published turbulent values), and the `genfoam::multi_region` coupling loop.
+  published turbulent values), the `genfoam::multi_region` coupling loop, and
+  the `turbulence` coupling (homogeneous k-ω decay vs its analytic solution).
+  Every one of these is a **verification** result against a closed form, a
+  published table, or another solver — none is a validation against
+  experiment.
 - **Not for reactor operation, control, licensing, or any safety-critical or
   operational use** — education / research / capability-building / V&V only.
 - **Correlation leaves are unit-tested, not system-validated.** The TH closure
@@ -125,9 +180,42 @@ real limitations** as of version 0.1.0 — grounded in the code, not aspirationa
 - `sonic_foam` uses **explicit** convection (`fvc::div`) because basic-lib has
   no implicit `fvm::div` scalar-convection operator; expect the accompanying
   stability/CFL constraints of an explicit scheme.
-- Only `rho_central_foam` is validated against an analytical/published
-  reference (Sod). `pimple_foam` is validated against an OpenFOAM (icoFoam)
-  reference; `rho_pimple_foam` has a tutorial but no hard-asserted V&V gate.
+- `rho_central_foam` (Sod shock tube) and `melt_foam` (Stefan similarity
+  solution) are the two solvers checked against a closed-form/published
+  reference. `pimple_foam` is checked against both an OpenFOAM (icoFoam)
+  reference and Ghia et al. (1982) Table I. `rho_pimple_foam` has a tutorial
+  but no hard-asserted V&V gate; `sonic_foam` and `hrm_foam` have neither.
+
+### Turbulence
+
+- **No wall functions — this is the dominant limitation.** The closures in
+  `outram-foam-turbulence-lib` use zero-gradient near-wall boundary conditions,
+  so ω is never driven to its near-wall asymptote and ν_t = k/ω is unbounded
+  next to a wall. Measured (`tests/turbulence_coupling.rs`, 2026-08-07): a
+  Re = 100 lid-driven cavity with Wilcox k-ω develops **ν_t/ν ≈ 260–330**, which
+  is physically absurd. **No wall-bounded RAS result from this stack may be
+  compared with a friction correlation and called validated.**
+- What *is* verified is the **coupling**: homogeneous k-ω decay driven through
+  the PIMPLE loop matches the analytic law `k = k0(1 + βω0t)^(−β*/β)` — ω to
+  1.8e-5 relative, k converging at first order (observed order 1.00) — and the
+  momentum operator provably picks up ν_t (exact agreement with a laminar run at
+  ν + ν_t). No model here has been validated against a published turbulence
+  benchmark.
+- The compressible path feeds the (incompressible-form) k/ω/ε transport
+  equations the volumetric flux φ/ρ_f. That is the **constant-density
+  approximation** to OpenFOAM's `fvm::div(alphaRhoPhi, k)`, exact only where ρ
+  is uniform.
+
+### Numerical schemes
+
+- `DdtScheme::Backward` is wired but **not verified as second order**:
+  `outram-foam-basic-lib`'s Rhie–Chow `fvc::ddt_corr` implements only the Euler
+  form, while `rAU` picks up BDF2's `1.5 V/Δt` diagonal. Measured consequence:
+  the Euler and Backward cavity runs converge to steady states differing by
+  1.0e-2 to 2.9e-2 m/s, and the gap *grows* as Δt is refined — the signature of
+  an inconsistency, not truncation error.
+- `FvSchemes::default().default_div` is now `GaussUpwind`, not `GaussLinear`.
+  The old value described a scheme no solver used.
 
 ### Case I/O
 
@@ -141,10 +229,12 @@ real limitations** as of version 0.1.0 — grounded in the code, not aspirationa
 
 ### GeN-Foam neutronics
 
-- **SP3 and SN transport do not solve.** They allocate state but return
-  `NeutronicsError::ModelNotImplemented` from `solve_eigenvalue` / `step`. The
-  only working spatial neutronics is multigroup **diffusion**; the only working
-  0-D model is **point kinetics**.
+- **SP3 and SN solve only when built with cross sections.** `Sp3Neutronics::new`
+  / `SnNeutronics::new` are state-only constructors: they allocate flux state
+  and every solve on them returns `NeutronicsError::ModelNotImplemented`. Use
+  `with_cross_sections` for a working model. **SN has no transient** — it
+  offers `solve_eigenvalue` only, unlike `diffusion` and `sp3`, which also
+  offer `step`.
 - **adjointDiffusion and albedoSP3 are not ported.**
 - **Point kinetics is the bare 0-D reactivity-driven ODE.** The full GeN-Foam
   `pointKineticNeutronics` couplings — temperature/density feedback fields,
@@ -202,12 +292,13 @@ real limitations** as of version 0.1.0 — grounded in the code, not aspirationa
 
 ### Documentation caveat
 
-- Some module-level `//!` status notes and `docs/genfoam-port-plan.md` predate
-  the most recent GeN-Foam commits and can **understate** what is now
-  implemented (e.g. several TH closure/solver modules described as "scaffold" in
-  older module headers now carry real code). This README's tables reflect the
-  current code; where a module doc and this README disagree, trust the code and
-  this README.
+- The module-level `//!` status notes across `genfoam` were reconciled against
+  the code on **2026-08-07**; the stale "scaffold" labels that previously
+  understated the thermal-hydraulics, SP3/SN and thermo-mechanics subtrees have
+  been corrected. `docs/genfoam-port-plan.md` still records the *translation
+  order* rather than current status — read its status table, not its older
+  per-run scope notes. Where any doc and this README disagree, trust the code
+  and this README.
 
 ## License
 

@@ -1101,7 +1101,7 @@ impl ReactingTwoPhaseEulerFoam {
     /// time at the fixed `deltaT`, mirroring the other applib solvers' `run`.
     ///
     /// # Errors
-    /// - [`AppBuilderError::TimeLimit`] if the stop control is not an end time.
+    /// - [`AppBuilderError::TimeLimitReached`] if the stop control is not an end time.
     /// - Wraps any per-step [`MultiphaseError`] as
     ///   [`AppBuilderError::Diverged`].
     pub fn run(&mut self) -> Result<(), AppBuilderError> {

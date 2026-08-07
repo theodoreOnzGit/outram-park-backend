@@ -55,7 +55,15 @@ structure.
 
 ## Existing content in this folder
 
-This folder already has `planned-modules.md` (hand-maintained) — untouched by this convention.
+Three hand-maintained items predate (and sit outside) this convention:
+
+- `planned-modules.md` — the OpenFOAM C++ source refs and the planned
+  `io::` / `solvers::` module layout.
+- `genfoam-port-plan.md` — the GeN-Foam module map, translation order, and
+  current port status.
+- `ai-fleet-review/` — per-review manifests recording what an AI fleet
+  produced and what a human still has to verify. These are **untrusted AI
+  drafts with unchecked human-verify lists**, not sign-offs.
 
 ## What's *not* here (yet)
 

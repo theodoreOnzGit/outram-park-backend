@@ -86,11 +86,9 @@ fn velocity_component(u: &VolVectorField, comp: usize) -> VolScalarField {
                 BoundaryCondition::InletOutlet { inlet_value } => BoundaryCondition::InletOutlet {
                     inlet_value: pick(*inlet_value),
                 },
-                BoundaryCondition::OutletInlet { outlet_value } => {
-                    BoundaryCondition::OutletInlet {
-                        outlet_value: pick(*outlet_value),
-                    }
-                }
+                BoundaryCondition::OutletInlet { outlet_value } => BoundaryCondition::OutletInlet {
+                    outlet_value: pick(*outlet_value),
+                },
                 BoundaryCondition::Freestream { freestream_value } => {
                     BoundaryCondition::Freestream {
                         freestream_value: pick(*freestream_value),
@@ -176,6 +174,32 @@ pub struct RhoCentralFoam {
 }
 
 impl RhoCentralFoam {
+    /// Build a density-based central-upwind (Kurganov-Noelle-Petrova) compressible
+    /// solver on `mesh`, with every field allocated at a placeholder initial
+    /// state.
+    ///
+    /// This solver is **explicit**: it takes no pressure-correction iterations, so
+    /// `solution`'s PIMPLE controls are unused and the time step must satisfy the
+    /// acoustic CFL condition. The caller sets the initial discontinuity (for a
+    /// shock tube, the left and right states) on the public members before
+    /// stepping.
+    ///
+    /// | Field | Initial value |
+    /// |---|---|
+    /// | `u` — velocity [m/s] | zero |
+    /// | `p` — static pressure, Pa | uniform 1.0e5 |
+    /// | `rho` — density [kg/m³] | uniform 1.0 |
+    /// | `e` — specific internal energy [J/kg] | zero |
+    /// | `psi_limit` | 1.0 (unused for a calorically perfect gas) |
+    /// | `phi` — mass face flux [kg/s] | zero |
+    ///
+    /// The equation of state is the calorically perfect gas `p = (γ−1)ρe` with γ
+    /// fixed at 1.4, so `p`, `rho` and `e` must be set consistently.
+    ///
+    /// # Arguments
+    ///
+    /// See [`crate::solvers::pimple_foam::PimpleFoam::new`] — the four arguments
+    /// have the same meaning and the same honoured-field caveats.
     pub fn new(
         mesh: Arc<FvMesh>,
         control: ControlDict,
@@ -430,6 +454,32 @@ impl RhoCentralFoam {
         Ok(())
     }
 
+    /// Advance the solver from the `controlDict` start time to its end time,
+    /// calling [`Self::step`] repeatedly at the fixed step `control.delta_t`.
+    ///
+    /// This is a convenience wrapper over [`Self::step`]. Set the initial field
+    /// state on the public members *before* calling it, and read the results off
+    /// those same members afterwards — **`run` writes nothing to disk**, because
+    /// every writer in [`crate::io::output`] is still `todo!()`.
+    ///
+    /// # Time control
+    ///
+    /// * Starts at `t` for [`StartControl::StartTime(t)`](StartControl::StartTime);
+    ///   any other `startFrom` selection is treated as `t = 0`.
+    /// * Runs while `t < end` for
+    ///   [`StopControl::EndTime(end)`](StopControl::EndTime). **For every other
+    ///   `stopAt` selection this returns `Ok(())` immediately without taking a
+    ///   single step**, since those selections are defined in terms of a write
+    ///   this crate cannot perform.
+    /// * The step is fixed at `control.delta_t`. `adjustTimeStep`, `maxCo` and
+    ///   `maxDeltaT` are **not implemented** — choose a Δt that respects your own
+    ///   Courant limit.
+    ///
+    /// # Errors
+    ///
+    /// Propagates the first error from [`Self::step`] (typically
+    /// [`AppBuilderError::Diverged`]); the run stops at that point with the
+    /// fields left in their last state.
     pub fn run(&mut self) -> Result<(), AppBuilderError> {
         let start = match self.control.start {
             StartControl::StartTime(t) => t,

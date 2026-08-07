@@ -63,3 +63,6 @@ pub use crate::solvers::reacting_two_phase_euler_foam::{
 pub use crate::solvers::rho_central_foam::RhoCentralFoam;
 pub use crate::solvers::rho_pimple_foam::RhoPimpleFoam;
 pub use crate::solvers::sonic_foam::SonicFoam;
+
+// Turbulence-closure selection (Layer-5 adapter over outram-foam-turbulence-lib)
+pub use crate::turbulence::TurbulenceClosure;

@@ -32,6 +32,7 @@ use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
 use crate::io::fv_solution::FvSolution;
 use crate::solvers::bc_util::{capture_bcs, correct_bcs, correct_bcs_vec};
+use crate::turbulence::TurbulenceClosure;
 use outram_foam_basic_lib::prelude::*;
 use std::sync::Arc;
 
@@ -70,9 +71,54 @@ pub struct RhoPimpleFoam {
     pub psi: VolScalarField,
     /// Mass flux φ = ρ U·Sf [kg/s]
     pub phi: SurfaceScalarField,
+    /// Turbulence closure (default [`TurbulenceClosure::Laminar`]).
+    ///
+    /// Selecting a RAS/LES model makes the momentum viscous term use the
+    /// effective **dynamic** viscosity μ_eff = μ + ρ ν_t [Pa·s] and the energy
+    /// equation use α_eff = α + ρ ν_t / Pr_t [kg/(m·s)], and advances the
+    /// model's transport equations once per time step after the pressure
+    /// correctors.
+    ///
+    /// The closures in `outram-foam-turbulence-lib` are formulated
+    /// **kinematically**, so this solver feeds them ν = μ/ρ and the
+    /// **volumetric** flux φ/ρ_f, and converts ν_t back with μ_t = ρ ν_t. That
+    /// mapping is the constant-density approximation to OpenFOAM's compressible
+    /// `fvm::div(alphaRhoPhi, k)` form — exact only where ρ is uniform. See
+    /// [`crate::turbulence`] for the full scope limits.
+    ///
+    /// **The default is laminar**, so an existing run is unaffected.
+    pub turbulence: TurbulenceClosure,
 }
 
 impl RhoPimpleFoam {
+    /// Build a compressible PIMPLE solver on `mesh`, with every field allocated
+    /// at a placeholder initial state.
+    ///
+    /// The caller is expected to overwrite the public field members before
+    /// stepping, and to set the mesh boundary conditions. The defaults describe
+    /// still air at roughly standard conditions:
+    ///
+    /// | Field | Initial value |
+    /// |---|---|
+    /// | `u` — velocity [m/s] | zero |
+    /// | `p` — static pressure, Pa | uniform 1.0e5 |
+    /// | `rho` — density [kg/m³] | uniform 1.0 |
+    /// | `t` — temperature, K | uniform 300 |
+    /// | `he` — specific enthalpy [J/kg] | zero |
+    /// | `mu` — dynamic viscosity, Pa·s | uniform 1.8e-5 |
+    /// | `alpha_h` — effective thermal diffusivity [kg/(m·s)] | uniform 2.5e-5 |
+    /// | `psi` — compressibility ρ/p [s²/m²] | uniform 1.0e-5 |
+    /// | `phi` — mass face flux [kg/s] | zero |
+    /// | `turbulence` | [`TurbulenceClosure::Laminar`] |
+    ///
+    /// Unlike [`crate::solvers::pimple_foam`], `p` here is **absolute pressure in
+    /// Pa**, and the density closure is the ideal-gas form `ρ = ψ·p`, so `psi`
+    /// and `t` must be mutually consistent for the case you are setting up.
+    ///
+    /// # Arguments
+    ///
+    /// See [`crate::solvers::pimple_foam::PimpleFoam::new`] — the four arguments
+    /// have the same meaning and the same honoured-field caveats.
     pub fn new(
         mesh: Arc<FvMesh>,
         control: ControlDict,
@@ -102,7 +148,29 @@ impl RhoPimpleFoam {
             alpha_h,
             psi,
             phi,
+            turbulence: TurbulenceClosure::default(),
         }
+    }
+
+    /// Molecular **kinematic** viscosity ν = μ/ρ [m²/s], per cell.
+    ///
+    /// The turbulence closures are kinematic; this is the field they are fed.
+    /// Density is floored at 1e-30 kg/m³ to keep the division finite.
+    fn nu_molecular(&self) -> VolScalarField {
+        let n = self.mesh.n_cells;
+        let vals: Vec<f64> = (0..n)
+            .map(|c| self.mu.internal[c] / self.rho.internal[c].max(1e-30))
+            .collect();
+        VolScalarField::new(
+            "nu",
+            self.mesh.clone(),
+            Field::new(vals),
+            self.mesh
+                .patches
+                .iter()
+                .map(|p| PatchField::zero_gradient(p.size))
+                .collect(),
+        )
     }
 
     /// Advance one time step with compressible PIMPLE.
@@ -150,11 +218,21 @@ impl RhoPimpleFoam {
                 }
             }
 
-            // ── UEqn: ∂(ρU)/∂t + ∇·(ρUU) + (−∇·(μ∇U)) ─────────────────────
+            // ── Turbulence state push ───────────────────────────────────────
+            // The closures are kinematic: feed them ν = μ/ρ and the volumetric
+            // flux φ/ρ_f. `mu_eff` below converts ν_t back to μ_t = ρ ν_t.
+            let nu_mol = self.nu_molecular();
+            let phi_vol = TurbulenceClosure::volumetric_flux(&self.phi, &self.rho);
+            self.turbulence.sync_inputs(&self.u, &phi_vol, &nu_mol, dt);
+
+            // ── UEqn: ∂(ρU)/∂t + ∇·(ρUU) + (−∇·(μ_eff ∇U)) ────────────────
             // `+ laplacian_vec`: the operator is positive-definite (= −∇·(μ∇)).
+            // μ_eff = μ + ρ ν_t; for the default laminar closure μ_eff = μ, so
+            // this is bit-for-bit the previous molecular term.
+            let mu_eff = self.turbulence.mu_eff(&self.mu, &self.rho);
             let mut u_eqn = fvm::ddt_coeff_vec(&self.rho, &self.u, &u_old, dt, mesh.clone())
                 + fvm::div_vec(&self.phi, &self.u, mesh.clone())
-                + fvm::laplacian_vec(&self.mu, &self.u, mesh.clone());
+                + fvm::laplacian_vec(&mu_eff, &self.u, mesh.clone());
 
             // A [kg/s]; rAU = V/A [m³·s/kg]
             let a = u_eqn.a_field();
@@ -298,7 +376,11 @@ impl RhoPimpleFoam {
             // ── Energy equation ─────────────────────────────────────────────
             //   ∂(ρh)/∂t + ∇·(φh) + (−∇·(αh∇h)) = dp/dt   [+ laplacian sign]
             let conv_he = fvc::div(&self.phi, &self.he); // explicit ∇·(φh)/V
-            let alpha_h_f = fvc::interpolate(&self.alpha_h);
+                                                         // α_eff = α + ρ ν_t / Pr_t; equals α for the laminar default.
+            let alpha_eff = self
+                .turbulence
+                .alpha_eff_compressible(&self.alpha_h, &self.rho);
+            let alpha_h_f = fvc::interpolate(&alpha_eff);
             let dp_dt = (self.p.clone() - p_old.clone()) * (1.0 / dt);
 
             let mut e_eqn = fvm::ddt_coeff(&self.rho, &self.he, &he_old, dt)
@@ -316,9 +398,42 @@ impl RhoPimpleFoam {
             self.he = he_new;
         }
 
+        // ── Turbulence correction (OpenFOAM `turbulence->correct()`) ─────────
+        // After the pressure correctors, on the corrected U/φ. No-op if laminar.
+        let nu_mol = self.nu_molecular();
+        let phi_vol = TurbulenceClosure::volumetric_flux(&self.phi, &self.rho);
+        self.turbulence.sync_inputs(&self.u, &phi_vol, &nu_mol, dt);
+        self.turbulence.correct();
+
         Ok(())
     }
 
+    /// Advance the solver from the `controlDict` start time to its end time,
+    /// calling [`Self::step`] repeatedly at the fixed step `control.delta_t`.
+    ///
+    /// This is a convenience wrapper over [`Self::step`]. Set the initial field
+    /// state on the public members *before* calling it, and read the results off
+    /// those same members afterwards — **`run` writes nothing to disk**, because
+    /// every writer in [`crate::io::output`] is still `todo!()`.
+    ///
+    /// # Time control
+    ///
+    /// * Starts at `t` for [`StartControl::StartTime(t)`](StartControl::StartTime);
+    ///   any other `startFrom` selection is treated as `t = 0`.
+    /// * Runs while `t < end` for
+    ///   [`StopControl::EndTime(end)`](StopControl::EndTime). **For every other
+    ///   `stopAt` selection this returns `Ok(())` immediately without taking a
+    ///   single step**, since those selections are defined in terms of a write
+    ///   this crate cannot perform.
+    /// * The step is fixed at `control.delta_t`. `adjustTimeStep`, `maxCo` and
+    ///   `maxDeltaT` are **not implemented** — choose a Δt that respects your own
+    ///   Courant limit.
+    ///
+    /// # Errors
+    ///
+    /// Propagates the first error from [`Self::step`] (typically
+    /// [`AppBuilderError::Diverged`]); the run stops at that point with the
+    /// fields left in their last state.
     pub fn run(&mut self) -> Result<(), AppBuilderError> {
         let start = match self.control.start {
             StartControl::StartTime(t) => t,

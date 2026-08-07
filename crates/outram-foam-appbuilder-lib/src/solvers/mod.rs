@@ -47,4 +47,7 @@ pub mod pimple_foam;
 pub mod reacting_two_phase_euler_foam;
 pub mod rho_central_foam;
 pub mod rho_pimple_foam;
+/// Applying `fvSchemes` selections (ddt / div) to an assembled equation.
+/// See [`schemes::ddt_vec_scheme`] and [`schemes::div_vec_scheme`].
+pub mod schemes;
 pub mod sonic_foam;
