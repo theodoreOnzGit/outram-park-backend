@@ -208,10 +208,12 @@ impl Nuclide {
     /// Attach a bound-atom S(α,β) [`ThermalScattering`] treatment to this nuclide
     /// (builder style, consumes and returns `self`).
     ///
-    /// Use it on the moderator nuclide of a *thermal* problem — e.g. the H-1 in
-    /// light water gets the H-in-H₂O `tsl` table. Below the table's thermal cutoff
-    /// (~4 eV) the neutron then scatters off the bound-atom S(α,β) law instead of
-    /// the free-gas elastic kernel: the bound cross section is used in
+    /// Use it on the moderator nuclide of a *thermal* problem — the H-1 in light
+    /// water gets the H-in-H₂O `tsl` table; the C-12/C-13 of an HTR-10 pebble
+    /// gets `tsl-crystalline-graphite`. Below the table's thermal cutoff (~4 eV)
+    /// the neutron then scatters off the bound-atom law instead of the free-gas
+    /// elastic kernel: the bound cross section (inelastic **plus** the
+    /// scatterer's elastic channel, if it has one) is used in
     /// [`Nuclide::xs_at_energy`] and the secondary energy/angle are drawn by
     /// [`Nuclide::sample_thermal`], giving the up-scatter that thermalizes the
     /// spectrum. Above the cutoff nothing changes.
@@ -328,11 +330,19 @@ impl Nuclide {
     pub fn xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS {
         let base = self.base_xs_at_energy(e, temp_k);
         // Below the S(α,β) cutoff, the bound-atom thermal law replaces the
-        // free-gas elastic channel entirely (light water has no thermal elastic).
+        // free-gas elastic channel entirely. The replacement is the *sum* of
+        // both bound channels — σ_inel(E) + σ_el(E) — not σ_inel alone: for a
+        // crystalline moderator such as graphite the coherent-elastic (Bragg)
+        // channel is ~90 % of thermal scattering at 0.0253 eV, so substituting
+        // only the inelastic part would drop the dominant channel and leave the
+        // nuclide with less scattering than the free gas it replaced (bead
+        // `op-nhoa`). For light water σ_el ≡ 0 and this reduces exactly to the
+        // previous behaviour.
+        //
         // Keep absorption/fission/inelastic/(n,2n) from the base evaluation and
-        // swap the scattering cross section for σ_inel(E), then rebuild the total.
+        // swap the scattering cross section, then rebuild the total.
         if let Some(th) = &self.thermal {
-            let sab = th.inelastic_xs(e);
+            let sab = th.total_xs(e);
             if sab > 0.0 {
                 let mut x = base;
                 x.elastic = sab;
@@ -532,6 +542,11 @@ impl Nuclide {
     /// whose cosine is in the CM frame. The outgoing energy may exceed the
     /// incident energy (thermal up-scatter), which is exactly what drives the
     /// spectrum to a Maxwellian.
+    ///
+    /// For a scatterer with a thermal **elastic** channel (graphite, ZrH) the
+    /// draw first chooses elastic vs inelastic in proportion to their cross
+    /// sections; an elastic scatter returns `e_out == e` and only redirects the
+    /// neutron. See [`ThermalScattering::sample`].
     pub fn sample_thermal(&self, e: f64, seed: &mut u64) -> Option<(f64, f64)> {
         self.thermal.as_ref().and_then(|th| th.sample(e, seed))
     }

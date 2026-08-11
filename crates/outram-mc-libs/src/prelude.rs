@@ -15,7 +15,9 @@ pub use crate::geometry::geometry::{BoundaryHit, Coord, Crossing, Geometry, Geom
 pub use crate::particle::particle::{Particle, ParticleType};
 pub use crate::material::material::{MacroXs, Material};
 pub use crate::material::nuclide::{MicroXS, Nuclide};
-pub use crate::material::thermal::ThermalScattering;
+pub use crate::material::thermal::{
+    CoherentElasticTable, IncoherentElasticTable, ThermalElastic, ThermalScattering,
+};
 pub use crate::tally::tally::{ScoreType, Tally, TallyBin};
 pub use crate::tally::filter::{
     CellFilter, EnergyFilter, Filter, LegendreAxis, MaterialFilter, MeshFilter,

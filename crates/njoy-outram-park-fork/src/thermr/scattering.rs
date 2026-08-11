@@ -378,6 +378,49 @@ impl CoherentElasticScattering {
         )
     }
 
+    /// The complete Bragg-edge step table behind
+    /// [`cross_section`](Self::cross_section) and [`sample`](Self::sample), so a
+    /// transport code can cache the *exact* channel instead of resampling the
+    /// sawtooth onto its own energy grid.
+    ///
+    /// Returns one `(E_i, σ_i)` pair per tabulated Bragg edge, ascending in
+    /// `E_i`, where `E_i` is the edge energy and `σ_i = S(E_i, T)/(E_i·natom)`
+    /// is the coherent-elastic cross section **per principal atom** at that
+    /// edge — i.e. the value [`cross_section`](Self::cross_section) takes
+    /// throughout the interval `[E_i, E_{i+1})`. Units: energy in the
+    /// [`NeutronEnergy`] alias (eV in ENDF), cross section in [`CrossSection`]
+    /// (barn in ENDF). ENDF/B-VIII.0 crystalline graphite tabulates 221 edges.
+    ///
+    /// Everything else in this channel is recoverable from the pairs, exactly:
+    /// - `σ(E) = σ_i·E_i / E` for `E ∈ [E_i, E_{i+1})`, and `0` below `E_0`
+    ///   (the `1/E` decay between edges);
+    /// - the cumulative structure factor at edge `i` is the product
+    ///   `S_i/natom = σ_i·E_i` \[eV·barn\], and the sampling weight of edge `i`
+    ///   is the increment `σ_i·E_i − σ_{i−1}·E_{i−1}` (`≥ 0`, and exactly `0`
+    ///   for a grid point that opens no reflection — graphite's leading
+    ///   0.4556 meV point).
+    ///
+    /// The table is temperature-resolved at construction; the *positions* `E_i`
+    /// are temperature-independent (they are lattice geometry) while the `σ_i`
+    /// carry the Debye-Waller suppression.
+    ///
+    /// Mirrors the pair `CoherentElasticXS::bragg_edges()` / `::factors()` that
+    /// OpenMC's `CoherentElasticAE::sample` consumes
+    /// (`src/secondary_thermal.cpp:34-54`).
+    pub fn bragg_edge_table(&self) -> Vec<(NeutronEnergy, CrossSection)> {
+        self.bragg_energies_ev
+            .iter()
+            .zip(self.s_at_t.iter())
+            .map(|(&e_ev, &s)| {
+                let sigma = if e_ev > 0.0 { s / (e_ev * self.natom) } else { 0.0 };
+                (
+                    NeutronEnergy::new::<electronvolt>(e_ev),
+                    CrossSection::new::<barn>(sigma),
+                )
+            })
+            .collect()
+    }
+
     /// Coherent-elastic cross section `σ_coh_el(E)` **per principal atom** at
     /// incident neutron energy `e`, at the construction temperature.
     ///
