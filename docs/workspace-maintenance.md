@@ -53,8 +53,10 @@ bumping to the latest stable dependencies.
 **Structural:**
 - Each crate moved to `crates/<name>`; standalone `.git`, `target/`, and
   `Cargo.lock` were dropped (histories intentionally not preserved).
-- `chem-eng…` keeps its own **Apache-2.0** license (not the GPL-3.0 default),
-  and its crate-level `[profile.*]` sections were lifted to the workspace root
+- `chem-eng…` kept its own **Apache-2.0** license (not the GPL-3.0 default)
+  until **2026-08-11**, when the maintainer relicensed it to **GPL-3.0-only**
+  (sole copyright holder; published versions <= 0.1.1 remain Apache-2.0 — see the
+  crate's `NOTICE`). Its crate-level `[profile.*]` sections were lifted to the workspace root
   (Cargo only honors profiles at the root). Its `release` opt-level=2 override
   was dropped so the solvers get default `-O3`; `dev.package."*"` opt-level=2 is
   kept at the root so unoptimized deps don't make tests painfully slow.

@@ -21,7 +21,7 @@ The workspace has 31 member crates, grouped by domain below.
 
 | Crate | Role | License |
 |---|---|---|
-| [`chem-eng-real-time-process-control-simulator`](crates/chem-eng-real-time-process-control-simulator) | PID / transfer-function process-control library for real-time simulators | Apache-2.0 |
+| [`chem-eng-real-time-process-control-simulator`](crates/chem-eng-real-time-process-control-simulator) | PID / transfer-function process-control library for real-time simulators | GPL-3.0 (published versions <= 0.1.1 on crates.io remain Apache-2.0) |
 | [`tuas_boussinesq_solver`](crates/tuas_boussinesq_solver) | Thermal-hydraulics Boussinesq single-phase solver (TUAS) | GPL-3.0 |
 | [`tampines-steam-tables`](crates/tampines-steam-tables) | IAPWS-IF97 steam/water properties + steam-turbine & choked-flow equations (TAMPINES) | GPL-3.0 |
 | [`tampines`](crates/tampines) | Central thermal-hydraulic framework that composes the TH crates | GPL-3.0 |

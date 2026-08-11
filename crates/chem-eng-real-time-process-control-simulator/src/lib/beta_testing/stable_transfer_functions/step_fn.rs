@@ -2,13 +2,24 @@
 use uom::{si::{f64::*, time::second, ratio::ratio}, ConstZero};
 
 use crate::beta_testing::errors::ChemEngProcessControlSimulatorError;
-/// Step Function struct, 
+/// Step Function struct,
 /// will help to caluclate
 /// u1(t - t1) * Kp * a_0
 /// where Kp is process gain,
 /// a_0 is the user input
 /// u(t-t1) is the heaviside function
 ///
+/// # Role
+///
+/// Since version 0.2.0 this is an **analytic reference** only, used by the
+/// verification tests of
+/// [`super::first_order_transfer_fn_with_zeroes::FirstOrderStableTransferFnForZeroes`]
+/// to check its exact O(1) recurrence. Simulations no longer superpose one of
+/// these per input change; see bead `op-fm5`.
+///
+/// Units: `process_gain` and `user_input` are dimensionless (`uom` `Ratio`);
+/// `start_time` and `current_time` are in seconds.
+#[allow(dead_code)]
 #[derive(Debug,PartialEq, PartialOrd, Clone, Copy)]
 pub struct StepFunction {
     process_gain: Ratio,
@@ -29,9 +40,10 @@ impl Default for StepFunction {
 }
 
 
+#[allow(dead_code)]
 impl StepFunction {
 
-    /// constructor 
+    /// constructor
     pub fn new(
         process_gain: Ratio,
         start_time: Time,
@@ -94,4 +106,5 @@ impl StepFunction {
         response
     }
 }
+
 

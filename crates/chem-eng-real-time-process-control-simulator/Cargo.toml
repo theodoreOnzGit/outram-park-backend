@@ -1,11 +1,13 @@
 [package]
 name = "chem-eng-real-time-process-control-simulator"
-version = "0.1.1"
+version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
-# NOTE: this crate is Apache-2.0, unlike the GPL-3.0 workspace default, so it
-# keeps its own license rather than inheriting from [workspace.package].
-license = "Apache-2.0"
+# NOTE: relicensed from Apache-2.0 to GPL-3.0-only on 2026-08-11 by maintainer
+# direction (sole copyright holder — see NOTICE). Versions <= 0.1.x already
+# published to crates.io remain Apache-2.0. The crate now matches the workspace
+# default, so it inherits the license from [workspace.package].
+license.workspace = true
 description = "Process Control Library (Chemical Engineering) with real time transfer function simulators"
 homepage.workspace = true
 repository.workspace = true

@@ -2,14 +2,30 @@
 // Thermal Hydraulics Lab, Repository Contributors and 
 // Singapore Nuclear Research and Safety Initiative (SNRSI)]
 // 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// SPDX-License-Identifier: GPL-3.0-only
+//
+// Relicensed from Apache-2.0 to GPL-3.0-only on 2026-08-11 by the sole
+// copyright holder (maintainer-directed) — see the crate NOTICE file.
+// Versions of this crate published to crates.io before the relicense
+// remain available under Apache-2.0.
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, version 3 of the License.
+//
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program.  If not, see <https://www.gnu.org/licenses/>.
 pub mod prelude;
 pub(crate) mod stable_transfer_functions;
 pub(crate) mod controllers;
 pub mod errors;
 pub mod transfer_fn_wrapper_and_enums;
+pub mod z_domain;
 
 
 use uom::si::{Quantity, ISQ, SI};
