@@ -41,3 +41,6 @@ pulldown-cmark.workspace = true
 # model, used for Info-dict metadata and raw image-asset extraction.
 pdf-extract.workspace = true
 lopdf.workspace = true
+# SHA-256 of the ingested source file, recorded as provenance (DATA_POLICY.md).
+# Pure Rust, no C toolchain, so it does not compromise the Android/Termux build.
+sha2.workspace = true

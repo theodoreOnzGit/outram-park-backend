@@ -378,18 +378,28 @@ impl FHRSimulatorApp {
         );
 
         // add to decay heat precursors
-        fhr_decay_heat.add_decay_heat_precursor1(fission_power_instantaneous * 0.04, prke_timestep);
-        fhr_decay_heat.add_decay_heat_precursor2(fission_power_instantaneous * 0.04, prke_timestep);
-        fhr_decay_heat.add_decay_heat_precursor3(fission_power_instantaneous * 0.02, prke_timestep);
+        // Advance the 23-group fission-product decay-heat model
+        // (Tobias Table 16 / 1978 draft ANS Standard). The group structure and
+        // its fractions now come from the published fit, replacing the previous
+        // ad-hoc 4%/4%/2% three-group placeholder, so no fraction is applied
+        // here -- the full prompt fission power is the source term.
+        fhr_decay_heat.advance_timestep(fission_power_instantaneous, prke_timestep);
 
         // adjust fission power for decay heat
         // fission power less decay heat = 1.0 - 0.04 - 0.04 - 0.02 = 0.9
-        let mut fission_power_corrected_for_decay_heat = fission_power_instantaneous * 0.9;
-        let mut reactor_current_decay_heat: Power =
-            fhr_decay_heat.calc_decay_heat_power_1(prke_timestep).abs();
-        reactor_current_decay_heat += fhr_decay_heat.calc_decay_heat_power_2(prke_timestep).abs();
-        reactor_current_decay_heat += fhr_decay_heat.calc_decay_heat_power_3(prke_timestep).abs();
-        fission_power_corrected_for_decay_heat += reactor_current_decay_heat;
+        // Total thermal power = prompt fission power + fission-product decay
+        // heat. The prompt term is scaled by `prompt_power_fraction()` so the
+        // decay energy is not counted twice; at equilibrium the two sum back to
+        // the full fission power by construction. That fraction is derived from
+        // the tabulated decay energy per fission, not a tuned constant.
+        //
+        // No `.abs()`: `total_decay_heat_power()` is non-negative by
+        // construction, and the previous absolute value masked a sign
+        // convention rather than fixing one.
+        let reactor_current_decay_heat: Power = fhr_decay_heat.total_decay_heat_power();
+        let fission_power_corrected_for_decay_heat =
+            fission_power_instantaneous * fhr_decay_heat.prompt_power_fraction()
+            + reactor_current_decay_heat;
 
         // with the correct fission power now, we can
         // calc temperature
@@ -712,14 +722,14 @@ mod oscillation_regression {
                 current_neutron_pop_density,
             );
 
-            decay_heat.add_decay_heat_precursor1(fission_power * 0.04, dt);
-            decay_heat.add_decay_heat_precursor2(fission_power * 0.04, dt);
-            decay_heat.add_decay_heat_precursor3(fission_power * 0.02, dt);
+        // 23-group decay heat (Tobias Table 16 / 1978 draft ANS
+        // Standard); the published fit replaces the old 4%/4%/2%
+        // three-group placeholder, so the full prompt power is the source.
+        decay_heat.advance_timestep(fission_power, dt);
 
             let mut fission_power_corrected = fission_power * 0.9;
-            let mut decay_power: Power = decay_heat.calc_decay_heat_power_1(dt).abs();
-            decay_power += decay_heat.calc_decay_heat_power_2(dt).abs();
-            decay_power += decay_heat.calc_decay_heat_power_3(dt).abs();
+        // Non-negative by construction; no `.abs()` needed.
+        let decay_power: Power = decay_heat.total_decay_heat_power();
             fission_power_corrected += decay_power;
 
             let pebble_bed_mass = Mass::new::<kilogram>(8000.0);

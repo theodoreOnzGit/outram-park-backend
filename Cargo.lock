@@ -4417,6 +4417,7 @@ dependencies = [
  "pdf-extract",
  "pulldown-cmark",
  "serde",
+ "sha2",
  "toml",
 ]
 
@@ -5849,6 +5850,7 @@ dependencies = [
  "roots",
  "thiserror 2.0.18",
  "uom 0.38.0",
+ "zip",
 ]
 
 [[package]]

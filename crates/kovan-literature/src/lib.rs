@@ -230,7 +230,10 @@ mod tests {
         let open = storage::generated_dir_for(base, storage::BIBTEX_DIR, Visibility::Open);
         let prop = storage::generated_dir_for(base, storage::BIBTEX_DIR, Visibility::Proprietary);
         assert!(open.ends_with("generated/bibtex/open"), "got {open:?}");
-        assert!(prop.ends_with("generated/bibtex/proprietary"), "got {prop:?}");
+        assert!(
+            prop.ends_with("generated/bibtex/proprietary"),
+            "got {prop:?}"
+        );
         assert_ne!(open, prop);
     }
 

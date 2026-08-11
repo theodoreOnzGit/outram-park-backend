@@ -10,6 +10,19 @@
         ],
         "matcher": ""
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "./scripts/push-beads-store.sh",
+            "type": "command",
+            "timeout": 30,
+            "statusMessage": "Publishing beads store ref"
+          }
+        ],
+        "matcher": ""
+      }
     ]
   }
 }

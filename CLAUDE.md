@@ -128,6 +128,21 @@ specifically, not just human contributors:
   - The hook authorises *pushing*, nothing else. It does not authorise opening
     a pull request, merging, force-pushing, or bumping versions — those still
     need an explicit request.
+- **Exception — the kopi-beans store ref is pushed automatically.** Per explicit
+  maintainer instruction on 2026-08-11, `refs/heads/beads/store` is published
+  without asking, by a **`Stop` hook** in `.claude/settings.json` that runs
+  **`./scripts/push-beads-store.sh`** at the end of each turn. Beads filed in a
+  session are otherwise stranded on one machine, which defeats a
+  distributed tracker.
+  - The script pushes **exactly one refspec** —
+    `refs/heads/beads/store:refs/heads/beads/store` — and nothing else. It is a
+    no-op when the local ref is absent or already matches the remote, and it
+    warns rather than failing the session if the remote is unreachable.
+  - **This carve-out does not widen.** It authorises publishing the beads store
+    ref only. It does **not** authorise pushing branches or tags, and **never**
+    `main` — that still requires the maintainer to ask in so many words. If you
+    find yourself adding a second refspec to that script, stop and ask.
+  - You may still run the push by hand at any time; it is idempotent.
 - **Never auto-bump versions** in `Cargo.toml` files. Only bump versions when explicitly requested.
 - **Always build and test in release mode.** Use `--release` for all `cargo build` and `cargo test` invocations. Never run tests or builds in debug mode.
 - **Use rust-analyzer (the LSP tool) for all code-intelligence workflows.**
@@ -510,20 +525,29 @@ data lives **in git refs** — `refs/heads/beads/store` (holding `state.jsonl`,
   progress bookkeeping — in preference to TodoWrite / TaskCreate / ad-hoc
   markdown TODO lists. Create/close/update issues as work happens; file one for
   any follow-up you discover.
-- **Syncing is manual — `bn` cannot push.** kopi-beans 0.1.2 cannot publish the
-  store ref to a non-local remote
-  ([kopitiam#19](https://github.com/theodoreOnzGit/kopitiam/issues/19)), so its
-  daemon's auto-sync does not reach GitHub and `bn status` will always show
-  `last_sync: never`. After changing beads, the ref must be pushed with real
-  `git`:
+- **Syncing is automated — a `Stop` hook publishes the store ref.**
+  `.claude/settings.json` runs `./scripts/push-beads-store.sh` at the end of
+  each turn, which pushes `refs/heads/beads/store` to `origin` (and only that
+  ref). This is the one standing exception to the never-auto-push rule; see
+  "Workflow rules" above for its exact scope. The equivalent by hand, still
+  valid and idempotent:
 
   ```bash
   git push origin refs/heads/beads/store:refs/heads/beads/store
   ```
 
-  The never-auto-push rule still applies — **surface this in your hand-off and
-  let the maintainer run it**, rather than pushing unasked. Do not treat
-  `last_sync: never` as a store fault.
+  **Status of the underlying bug is unsettled — do not restate either claim as
+  fact.** This workspace previously recorded that kopi-beans 0.1.2 cannot
+  publish the store ref at all
+  ([kopitiam#19](https://github.com/theodoreOnzGit/kopitiam/issues/19)) and that
+  `bn status` would therefore *always* show `last_sync: never`. On 2026-08-11
+  that was observed **not** to hold: after filing 27 beads, `bn status` reported
+  a real `last_sync` timestamp and `refs/heads/beads/store` on GitHub already
+  matched the local ref, so a manual push was a no-op. That is evidence the
+  daemon now syncs, but it was **not** confirmed by re-running the issue's
+  recorded reproduction. Until someone does that, treat #19 as unverified rather
+  than resolved — and note the `Stop` hook makes the answer moot in practice,
+  because the ref gets published either way.
 - **If `bn` is genuinely unavailable** — an OS/environment with no `bn` build
   (a locked-down sandbox, or Android before a Termux build is confirmed) — fall
   back to the harness task tools (TaskCreate / TodoWrite) and note in your
@@ -1058,7 +1082,7 @@ bn close <id>         # Complete work
 
 - Use `bn` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists. The only exception is an environment with no working `bn` build at all, which must be stated in the hand-off.
 - Run `bn prime` for workflow context.
-- **Sync is manual.** `bn` cannot push the store ref to GitHub ([kopitiam#19](https://github.com/theodoreOnzGit/kopitiam/issues/19)), so `bn status` always shows `last_sync: never`. After bead changes, ask the maintainer to run `git push origin refs/heads/beads/store:refs/heads/beads/store`; do not push it unasked.
+- **Sync is automated.** A `Stop` hook runs `./scripts/push-beads-store.sh`, which publishes `refs/heads/beads/store` (and only that ref) to `origin` at the end of each turn. This is the single standing exception to the never-auto-push rule and it never extends to branches, tags, or `main`. See "Issue tracking & roadmap" above for the status of [kopitiam#19](https://github.com/theodoreOnzGit/kopitiam/issues/19), which is unverified rather than resolved.
 - Persistent durable facts / user preferences: keep using the per-project
   `memory/` + `MEMORY.md` workflow (see the "Issue tracking & roadmap" section
   above — this workspace keeps MEMORY.md; it is **not** dropped).
