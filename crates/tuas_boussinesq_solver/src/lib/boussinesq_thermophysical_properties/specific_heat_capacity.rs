@@ -9,6 +9,7 @@ use super::liquid_database::yd_325_heat_transfer_oil::get_yd325_constant_pressur
 use super::solid_database::copper::copper_specific_heat_capacity_zou_zweibaum_spline;
 use super::solid_database::custom_solid_material;
 use super::solid_database::fiberglass::fiberglass_specific_heat_capacity;
+use super::solid_database::nuclear_graphite::nuclear_graphite_specific_heat_capacity_butland_maddison_spline;
 use super::solid_database::pyrogel_hps::pryogel_hps_specific_heat_capacity_rough_estimate;
 use super::solid_database::ss_304_l::steel_304_l_libreoffice_spline_specific_heat_capacity_ciet_zweibaum;
 use super::LiquidMaterial;
@@ -75,6 +76,8 @@ fn solid_specific_heat_capacity(material: Material,
         Material::Solid(Fiberglass) => Fiberglass,
         Material::Solid(PyrogelHPS) => PyrogelHPS,
         Material::Solid(Copper) => Copper,
+        Material::Solid(NuclearGraphiteMatrixA3) => NuclearGraphiteMatrixA3,
+        Material::Solid(NuclearGraphiteIG110) => NuclearGraphiteIG110,
         Material::Solid( CustomSolid((low_bound_temp,high_bound_temp),cp,k,rho_fn,roughness))=> {
             CustomSolid((low_bound_temp,high_bound_temp), cp, k, rho_fn,roughness)
         },
@@ -86,6 +89,10 @@ fn solid_specific_heat_capacity(material: Material,
         PyrogelHPS => pryogel_hps_specific_heat_capacity_rough_estimate(solid_temp) ,
         SteelSS304L => steel_304_l_libreoffice_spline_specific_heat_capacity_ciet_zweibaum(solid_temp)?,
         Copper => copper_specific_heat_capacity_zou_zweibaum_spline(solid_temp)?,
+        NuclearGraphiteMatrixA3 =>
+            nuclear_graphite_specific_heat_capacity_butland_maddison_spline(solid_temp)?,
+        NuclearGraphiteIG110 =>
+            nuclear_graphite_specific_heat_capacity_butland_maddison_spline(solid_temp)?,
         CustomSolid((low_bound_temp,high_bound_temp),cp_fn,_k,_rho_fn,_roughness) => {
             custom_solid_material::get_custom_solid_constant_pressure_specific_heat_capacity(
                 solid_temp, 

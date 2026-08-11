@@ -12,10 +12,12 @@
 //! outputs are `uom` dimensioned quantities.
 //!
 //! Active submodules: [`ss_304_l`] (SS-304L stainless steel), [`copper`],
-//! [`fiberglass`], [`pyrogel_hps`] (silica-aerogel insulation), and
-//! [`custom_solid_material`] (user-supplied correlations). The `fecral` and
-//! `generic_heating_element` modules are experimental scaffolding and are
-//! currently commented out (not part of the build).
+//! [`fiberglass`], [`pyrogel_hps`] (silica-aerogel insulation),
+//! [`nuclear_graphite`] (HTR-10 / HTR-PM A3 pebble-matrix graphite and
+//! IG-110 reflector graphite), and [`custom_solid_material`] (user-supplied
+//! correlations). The `fecral` and `generic_heating_element` modules are
+//! experimental scaffolding and are currently commented out (not part of the
+//! build).
 
 /// stainless steel 304L
 pub mod ss_304_l;
@@ -26,8 +28,15 @@ pub mod copper;
 /// fiberglass 
 pub mod fiberglass;
 
-/// custom material for solid 
+/// custom material for solid
 pub mod custom_solid_material;
+
+/// nuclear graphite (HTR-10 / HTR-PM A3 pebble matrix, and IG-110)
+///
+/// Correlations transcribed from the openly licensed Virtual Test Bed decks
+/// vendored under `reference-data/virtual_test_bed/` (CC-BY-4.0, Open tier),
+/// with cp cited to Butland & Maddison, J. Nucl. Mater. 49 (1973/74) 45-56.
+pub mod nuclear_graphite;
 
 
 /// pyrogel hps 

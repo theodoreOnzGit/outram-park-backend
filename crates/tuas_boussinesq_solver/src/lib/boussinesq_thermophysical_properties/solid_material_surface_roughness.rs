@@ -50,6 +50,16 @@ impl SolidMaterial {
             SolidMaterial::PyrogelHPS => {
                 pyrogel_hps_surf_roughness()
             },
+            // nominal machined-graphite figure (1.95 micron), the same
+            // value the in-workspace gFHR custom-graphite tutorial
+            // (tutorial_6.rs) uses; NOT a measured HTR-10 value. See
+            // nuclear_graphite::nuclear_graphite_surf_roughness
+            SolidMaterial::NuclearGraphiteMatrixA3 => {
+                super::solid_database::nuclear_graphite::nuclear_graphite_surf_roughness()
+            },
+            SolidMaterial::NuclearGraphiteIG110 => {
+                super::solid_database::nuclear_graphite::nuclear_graphite_surf_roughness()
+            },
             // user defined surface roughness
             SolidMaterial::CustomSolid(
                 (_low_bound_temp,_high_bound_temp),_cp,_k,_rho_fn,roughness

@@ -47,7 +47,10 @@ Verification tests are under `.../tests/`, validated against:
   graph-read (digitised) from Figure 2 of Saha (1978) NUREG/CR-0417. Keep
   mass-flux (G) tolerances loose; the bubble-point edge (x_t ≈ 0) is a known
   HEM physics limitation, not a validation target.
-- Marviken critical flow tests — `marviken_tests.rs`.
+- Marviken critical flow tests — `marviken_tests.rs`. **NOT validated**:
+  the digitised NUREG/CR-2671 data is present, but the test is `#[ignore]`d,
+  its assertion is commented out, and it ends in `todo!()` (see the Roadmap
+  section below and bead `op-21g.16`).
 
 ### Current effort: near-bubble-point HEM artifact
 

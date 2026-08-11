@@ -1,9 +1,16 @@
-/// this set of interfaces allows the user 
-/// to interact using a more functional programming 
+/// this set of interfaces allows the user
+/// to interact using a more functional programming
 /// style (no objects)
 ///
 /// this keeps things simple.
 pub mod functional_programming;
+
+/// Bounds-checked, `Result`-returning facade over the panicking flash
+/// internals: validates `(T,p)` / `(p,h)` input against the IAPWS-IF97
+/// validity envelope BEFORE calling the unchecked functions, returning
+/// [`checked::SteamTablesError`] instead of panicking on out-of-range or
+/// non-finite input (bead `op-t647`).
+pub mod checked;
 
 /// for OOP users who want to make a struct (class)
 /// and then use that for extracting data, 

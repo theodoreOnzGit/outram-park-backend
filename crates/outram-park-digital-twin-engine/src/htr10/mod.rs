@@ -10,8 +10,10 @@
 //!
 //! - **Belongs here:** *cited* HTR-10 design constants ([`design`]), the KTA
 //!   packed-bed pressure-drop correlation ([`kta`]), the tabulated
-//!   Zehner-Bauer-Schlunder effective bed conductivity ([`zbs`]), and the unit
-//!   tests that check them against the published values they came from.
+//!   Zehner-Bauer-Schlunder effective bed conductivity ([`zbs`]), the IAEA
+//!   core-physics benchmark specification and published reference eigenvalues
+//!   ([`neutronics`]), and the unit tests that check them against the
+//!   published values they came from.
 //! - **Does NOT belong here:** the simulator itself (solver loops, transient
 //!   models, GUI) — that is the `htgr_sim_v1` rewrite tracked under bead
 //!   `op-jyyp` — and any number that cannot cite a published source. Do not
@@ -26,7 +28,7 @@
 //!
 //! | Source | Access tier | On-disk catalogue |
 //! |---|---|---|
-//! | IAEA HTGR benchmark document, Chapter 4 (HTR-10 core physics benchmarks) | Open | `crates/kovan-literature/open/reports/htr-10-iaea.json` (kovan-113dbd09b07f9fe5) |
+//! | IAEA-TECDOC-1382, *Evaluation of high temperature gas cooled reactor performance: Benchmark analysis related to initial testing of the HTTR and HTR-10*, IAEA Vienna, November 2003 — Chapter 4 is the HTR-10 core physics benchmark | Open | `crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.json` (Chapter 4; `part1` is the HTTR half and front matter). |
 //! | Gao & Shi (2002), Nucl. Eng. Des. 218, 51-64, doi 10.1016/S0029-5493(02)00198-X | Proprietary (cited, not re-hosted) | `crates/kovan-literature/proprietary/papers/gao2002htr10th.json` (kovan-ddb61cb136fb98a9) |
 //! | Virtual Test Bed generic pebble-bed tutorial, step 2 (KTA worked example) | Open | `reference-data/virtual_test_bed/doc/content/htgr/generic-pbr-tutorial/step2.md` |
 //! | Virtual Test Bed generic PBR input (ZBS conductivity tabulation) | Open | `reference-data/virtual_test_bed/htgr/generic-pbr/pbr.i` |
@@ -47,4 +49,5 @@
 
 pub mod design;
 pub mod kta;
+pub mod neutronics;
 pub mod zbs;

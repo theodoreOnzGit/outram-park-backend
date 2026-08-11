@@ -10,6 +10,8 @@ use super::liquid_database::hitec_nitrate_salt::get_hitec_density;
 use super::liquid_database::yd_325_heat_transfer_oil::get_yd325_density;
 use super::solid_database::copper::copper_density;
 use super::solid_database::custom_solid_material;
+use super::solid_database::nuclear_graphite::nuclear_graphite_ig_110_density;
+use super::solid_database::nuclear_graphite::nuclear_graphite_matrix_a3_density;
 use super::solid_database::fiberglass::fiberglass_density;
 use super::solid_database::pyrogel_hps::pyrogel_hps_density;
 use super::solid_database::ss_304_l::steel_ss_304_l_density;
@@ -87,6 +89,8 @@ fn solid_density(material: Material,
         Material::Solid(Fiberglass) => Fiberglass,
         Material::Solid(PyrogelHPS) => PyrogelHPS,
         Material::Solid(Copper) => Copper,
+        Material::Solid(NuclearGraphiteMatrixA3) => NuclearGraphiteMatrixA3,
+        Material::Solid(NuclearGraphiteIG110) => NuclearGraphiteIG110,
         Material::Solid(CustomSolid((low_bound_temp,high_bound_temp),cp,k,rho,roughness)) => {
             CustomSolid((low_bound_temp,high_bound_temp), cp, k, rho,roughness)
         },
@@ -101,6 +105,8 @@ fn solid_density(material: Material,
         SteelSS304L => steel_ss_304_l_density()?,
         PyrogelHPS => pyrogel_hps_density()?,
         Copper => copper_density()?,
+        NuclearGraphiteMatrixA3 => nuclear_graphite_matrix_a3_density()?,
+        NuclearGraphiteIG110 => nuclear_graphite_ig_110_density()?,
         CustomSolid((low_bound_temp,high_bound_temp),_cp,_k,rho_fn,_roughness) => {
             custom_solid_material::get_custom_solid_density(
                 solid_temp, 

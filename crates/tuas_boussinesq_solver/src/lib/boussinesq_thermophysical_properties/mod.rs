@@ -69,9 +69,25 @@ pub enum SolidMaterial {
     Copper,
     /// Fiberglass material
     Fiberglass,
-    /// Pyrogel HPS, or rather a best effort approximation of that given 
-    /// available data 
+    /// Pyrogel HPS, or rather a best effort approximation of that given
+    /// available data
     PyrogelHPS,
+    /// A3-grade nuclear matrix graphite — the fuel-pebble matrix of the
+    /// HTR-10 / HTR-PM pebble-bed reactors. Conductivity from the VTB
+    /// HTR-PM pebble model (zero-fluence form; CC-BY-4.0, Open tier),
+    /// cp from the Butland & Maddison (1973/74) graphite table, density
+    /// 1730 kg/m^3 from IAEA-TECDOC-1382. Valid 300 K to 2000 K. See
+    /// `solid_database::nuclear_graphite` for the correlations, including
+    /// fluence-degraded conductivity variants not reachable from this enum.
+    NuclearGraphiteMatrixA3,
+    /// IG-110 fine-grained isotropic nuclear graphite — the HTTR / HTR-10
+    /// reflector grade. Conductivity from the VTB HTTR deck (unirradiated
+    /// quadratic; CC-BY-4.0, Open tier), cp from the Butland & Maddison
+    /// (1973/74) graphite table, density 1770 kg/m^3 per
+    /// NEA/NSC/DOC(2006)1 table 1.27. Valid 300 K to 2000 K. See
+    /// `solid_database::nuclear_graphite` for the correlations, including
+    /// fluence-degraded conductivity variants not reachable from this enum.
+    NuclearGraphiteIG110,
     /// Custom solid, for the user to decide the correlations himself 
     /// or herself
     CustomSolid(
@@ -106,6 +122,8 @@ impl PartialEq for SolidMaterial {
             (Self::Copper, Self::Copper) => true,
             (Self::Fiberglass, Self::Fiberglass) => true,
             (Self::PyrogelHPS, Self::PyrogelHPS) => true,
+            (Self::NuclearGraphiteMatrixA3, Self::NuclearGraphiteMatrixA3) => true,
+            (Self::NuclearGraphiteIG110, Self::NuclearGraphiteIG110) => true,
             (
                 Self::CustomSolid(bounds_a, cp_a, k_a, rho_a, roughness_a),
                 Self::CustomSolid(bounds_b, cp_b, k_b, rho_b, roughness_b),

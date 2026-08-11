@@ -266,7 +266,7 @@ tokio = { version = "1.53", features = [
 
 # internal workspace crates — depend on these by path so members use the
 # in-tree copy rather than a crates.io release.
-chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.1.1" }
+chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.2.0" }
 outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.0" }
 teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.3" }
 tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.5" }

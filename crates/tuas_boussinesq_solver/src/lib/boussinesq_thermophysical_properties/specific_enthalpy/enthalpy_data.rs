@@ -8,6 +8,7 @@ use crate::boussinesq_thermophysical_properties::liquid_database::hitec_nitrate_
 use crate::boussinesq_thermophysical_properties::solid_database::copper::copper_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::custom_solid_material;
 use crate::boussinesq_thermophysical_properties::solid_database::fiberglass::fiberglass_specific_enthalpy;
+use crate::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::pyrogel_hps::pyrogel_hps_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::ss_304_l::steel_304_l_spline_specific_enthalpy_ciet_zweibaum;
 
@@ -41,6 +42,8 @@ fn solid_specific_enthalpy(material: Material,
         Material::Solid(Fiberglass) => Fiberglass,
         Material::Solid(PyrogelHPS) => PyrogelHPS,
         Material::Solid(Copper) => Copper,
+        Material::Solid(NuclearGraphiteMatrixA3) => NuclearGraphiteMatrixA3,
+        Material::Solid(NuclearGraphiteIG110) => NuclearGraphiteIG110,
         Material::Solid(CustomSolid((low_bound_temp,high_bound_temp),cp,k,rho,roughness)) => {
             CustomSolid((low_bound_temp,high_bound_temp), cp, k, rho,roughness)
         },
@@ -52,6 +55,10 @@ fn solid_specific_enthalpy(material: Material,
         PyrogelHPS => pyrogel_hps_specific_enthalpy(solid_temp) ,
         SteelSS304L => steel_304_l_spline_specific_enthalpy_ciet_zweibaum(solid_temp),
         Copper => copper_specific_enthalpy(solid_temp),
+        // both graphite grades share one cp table and hence one
+        // enthalpy curve; see the nuclear_graphite module docs
+        NuclearGraphiteMatrixA3 => nuclear_graphite_specific_enthalpy(solid_temp),
+        NuclearGraphiteIG110 => nuclear_graphite_specific_enthalpy(solid_temp),
         CustomSolid((low_bound_temp,high_bound_temp),cp_fn,_k,_rho_fn,_roughness) => {
             custom_solid_material::get_custom_solid_enthalpy(
                 solid_temp, 

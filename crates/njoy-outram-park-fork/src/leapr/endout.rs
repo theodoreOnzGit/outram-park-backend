@@ -491,16 +491,16 @@ mod tests {
         let tape = endout(&out);
         let mf7 = parse_mf7(&tape, MAT).unwrap();
         let ce = mf7.coherent_elastic.expect("MT=2 coherent present");
-        assert!((ce.temperature_k - 296.0).abs() < 1e-3, "base temperature 296 K");
-        assert!(ce.s_of_e.len() > 5, "several Bragg edges retained");
+        assert!((ce.base_temperature_k() - 296.0).abs() < 1e-3, "base temperature 296 K");
+        assert!(ce.bragg_energies_ev.len() > 5, "several Bragg edges retained");
         // E ascending; cumulative S(E) non-decreasing (it only steps up).
-        assert!(ce.s_of_e.windows(2).all(|w| w[1].0 >= w[0].0), "E ascending");
+        assert!(ce.bragg_energies_ev.windows(2).all(|w| w[1] >= w[0]), "E ascending");
         assert!(
-            ce.s_of_e.windows(2).all(|w| w[1].1 >= w[0].1 - 1e-9),
+            ce.s_tables[0].windows(2).all(|w| w[1] >= w[0] - 1e-9),
             "cumulative S(E) non-decreasing"
         );
-        assert!(ce.s_of_e.iter().all(|&(_, s)| s >= 0.0), "S(E) >= 0");
-        assert!(ce.extra_temperatures_k.is_empty(), "single temperature -> no extra LISTs");
+        assert!(ce.s_tables[0].iter().all(|&s| s >= 0.0), "S(E) >= 0");
+        assert_eq!(ce.temperatures_k.len(), 1, "single temperature -> no extra LISTs");
     }
 
     #[test]

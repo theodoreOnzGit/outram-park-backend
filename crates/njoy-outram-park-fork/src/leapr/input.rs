@@ -30,9 +30,10 @@
 
 use crate::common::phys::BK_EV_PER_K;
 
-/// Coherent-elastic (Bragg) lattice option (card 5 `iel`). Only the tag is
-/// modelled here; the coherent-elastic cross section itself is produced by
-/// [`crate::thermr::coherent`] (the `coher` path in leapr.f90 is **not** ported).
+/// Coherent-elastic (Bragg) lattice option (card 5 `iel`), selecting which
+/// lattice the reciprocal-lattice sum in [`crate::leapr::coher`] (the ported
+/// `coher`/`formf`/`tausq` path of leapr.f90) runs over. Downstream, the
+/// resulting Bragg-edge `S(E)` is *evaluated* by [`crate::thermr::coherent`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElasticOption {
     /// No coherent elastic (default).

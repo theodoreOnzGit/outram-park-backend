@@ -138,11 +138,14 @@ fn refine(
 
 /// Choose the bisection midpoint in the appropriate energy coordinate.
 ///
-/// - Arithmetic mean for laws where E enters linearly (LinLin, LinLog).
-/// - Geometric mean for laws where E enters logarithmically (LogLin, LogLog).
+/// - Arithmetic mean for laws where E enters linearly (LinLin, LogLin).
+/// - Geometric mean for laws where E enters logarithmically (LinLog, LogLog).
+///
+/// (Updated 2026-08-11 alongside the `terp1` law-3/4 formula fix: ENDF INT=3
+/// `LinLog` is log-in-x, INT=4 `LogLin` is linear-in-x.)
 fn midpoint_energy(e1: f64, e2: f64, law: IntLaw) -> f64 {
     match law {
-        IntLaw::LogLin | IntLaw::LogLog => (e1 * e2).sqrt(), // geometric mean
+        IntLaw::LinLog | IntLaw::LogLog => (e1 * e2).sqrt(), // geometric mean
         _ => (e1 + e2) * 0.5,                                 // arithmetic mean
     }
 }
@@ -181,11 +184,25 @@ mod tests {
     }
 
     #[test]
-    fn lin_log_adds_points() {
-        // σ(E) = exp(E), linear in E but log in σ.  With two endpoints,
-        // the lin-lin approximation deviates significantly in between.
-        let interp = vec![(2u32, 3u32)]; // lin-log
+    fn log_lin_adds_points() {
+        // σ(E) = exp(E), linear in E but log in σ — ENDF INT=4 (log-lin:
+        // ln y linear in x). With two endpoints, the lin-lin approximation
+        // deviates significantly in between, so refinement must add points.
+        // (Until 2026-08-11 this test passed INT=3 — the terp1 laws 3/4 were
+        // swapped; see `endf::interp::terp1`.)
+        let interp = vec![(2u32, 4u32)]; // log-lin
         let pairs = vec![(0.0_f64, 1.0_f64), (4.0, f64::exp(4.0))];
+        let out = linearize_tab1(&interp, &pairs, 0.001);
+        assert!(out.len() > 2, "log-lin should add points, got {}", out.len());
+    }
+
+    #[test]
+    fn lin_log_adds_points() {
+        // σ(E) = ln(E), linear in ln E — ENDF INT=3 (lin-log: y linear in
+        // ln x). Strongly curved in linear E over a wide decade span, so
+        // refinement must add points.
+        let interp = vec![(2u32, 3u32)]; // lin-log
+        let pairs = vec![(1.0_f64, 0.0_f64), (100.0, f64::ln(100.0))];
         let out = linearize_tab1(&interp, &pairs, 0.001);
         assert!(out.len() > 2, "lin-log should add points, got {}", out.len());
     }

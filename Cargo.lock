@@ -7634,6 +7634,7 @@ dependencies = [
 name = "tampines"
 version = "0.0.1"
 dependencies = [
+ "boon-lay",
  "chem-eng-real-time-process-control-simulator",
  "eframe",
  "egui",

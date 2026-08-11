@@ -205,12 +205,15 @@
 
 use std::sync::Arc;
 use uom::si::f64::{
-    Angle, Area, Length, MassRate, Power, Pressure, Ratio, Time, ThermalConductance, ThermodynamicTemperature,
+    Angle, Area, AvailableEnergy, Length, MassDensity, MassRate, Power, Pressure, Ratio, Time,
+    ThermalConductance, ThermodynamicTemperature,
 };
 use uom::si::ratio::ratio;
 use uom::si::time::second;
 use uom::si::length::meter;
 use uom::si::angle::radian;
+use uom::si::available_energy::joule_per_kilogram;
+use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::pressure::pascal;
 use crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh;
@@ -275,25 +278,54 @@ struct HybridDissipation {
     mom_src: Vec<Vector3>,
 }
 
-/// Lower mixture-density threshold \[kg/m³\] of the rarefied-tail taper on the
-/// all-Mach hybrid KNP dissipation. **Below** this the KNP dissipation is scaled
-/// to **zero** (rarefied emptying tail ⇒ pure PIMPLE, which is stable over the
-/// full transient). See [`OPCPFluidArray::assemble_hybrid_dissipation`].
+/// **Default** lower mixture-density threshold \[kg/m³\] of the rarefied-tail
+/// taper on the all-Mach hybrid KNP dissipation — the [`OPCPFluidArray::new`]
+/// value of the *configurable* field [`OPCPFluidArray::hybrid_rho_taper_lo`].
+/// **Below** the lower threshold the KNP dissipation is scaled to **zero**
+/// (rarefied emptying tail ⇒ pure PIMPLE, which is stable over the full
+/// transient). See [`OPCPFluidArray::assemble_hybrid_dissipation`] and
+/// [`OPCPFluidArray::set_rho_taper_window`].
 ///
-/// **Regime note (CoolProp):** these thresholds (50/100 kg/m³) are inherited
-/// verbatim from the `TampinesSteamArray` water transient, where the near-sonic
-/// ringing lives on a *dense* two-phase flashing front (ρ ≳ 100 kg/m³). For a
-/// **low-density single-phase gas** case (e.g. Nitrogen at ~1 bar, ρ ≈ 1 kg/m³)
-/// the whole flow sits below `LO`, so the taper would zero the hybrid entirely —
-/// tune these before relying on `HybridAllMach` for such a case.
-const HYBRID_RHO_TAPER_LO: f64 = 50.0;
+/// **Regime / provenance note (CoolProp):** these default thresholds
+/// (50/100 kg/m³) are inherited verbatim from the `TampinesSteamArray` water
+/// transient, where the near-sonic ringing lives on a *dense* two-phase
+/// flashing front (ρ ≳ 100 kg/m³). A bare density window is only meaningful
+/// **relative to the pressure it was calibrated at** — here a steam blowdown
+/// depressurising to ~1 bar (Edwards–O'Brien), where ρ ≈ 50–100 kg/m³ marks
+/// the dense flashing mixture. At other pressures, or for a **low-density
+/// single-phase gas** (e.g. Nitrogen at ~1 bar, ρ ≈ 1 kg/m³; Helium at HTR-10
+/// conditions, ρ ≈ 1–3 kg/m³), the same numbers mean something entirely
+/// different: the whole flow sits below the lower threshold, so the taper
+/// zeroes the hybrid and `HybridAllMach` degenerates to `Pimple` — the honest,
+/// intended outcome for a deeply subsonic gas circuit. Retune the window with
+/// [`OPCPFluidArray::set_rho_taper_window`] (fluid- and pressure-aware) before
+/// relying on `HybridAllMach` for such a case, and pair it with the `(p, h)`
+/// admissibility guard ([`OPCPFluidArray::set_enthalpy_bounds`] +
+/// [`OPCPFluidArray::set_pressure_bounds`]) so the energy equation cannot
+/// overdrain enthalpy to unphysical temperatures.
+const HYBRID_RHO_TAPER_LO_DEFAULT: f64 = 50.0;
 
-/// Upper mixture-density threshold \[kg/m³\] of the rarefied-tail taper. **At or
-/// above** this the KNP dissipation is applied at full weight (the dense
-/// two-phase region where near-sonic ringing lives). Between `LO` and `HI` the
-/// blend ramps linearly. See [`OPCPFluidArray::assemble_hybrid_dissipation`] and
-/// the regime note on [`HYBRID_RHO_TAPER_LO`].
-const HYBRID_RHO_TAPER_HI: f64 = 100.0;
+/// **Default** upper mixture-density threshold \[kg/m³\] of the rarefied-tail
+/// taper — the [`OPCPFluidArray::new`] value of
+/// [`OPCPFluidArray::hybrid_rho_taper_hi`]. **At or above** the upper threshold
+/// the KNP dissipation is applied at full weight (the dense two-phase region
+/// where near-sonic ringing lives). Between the two thresholds the blend ramps
+/// linearly. See the regime/provenance note on [`HYBRID_RHO_TAPER_LO_DEFAULT`].
+const HYBRID_RHO_TAPER_HI_DEFAULT: f64 = 100.0;
+
+/// **Default** lower specific-enthalpy bound \[J/kg\] of the `(p, h)`
+/// admissibility guard — the [`OPCPFluidArray::new`] value of
+/// [`OPCPFluidArray::h_min`]. Deliberately **wide open** (−1×10⁷ J/kg): the
+/// default guard changes no physically plausible solution, it only stops a
+/// diverging energy solve from driving the `(p, h)` flash to nonsense
+/// temperatures. Tighten per fluid with
+/// [`OPCPFluidArray::set_enthalpy_bounds`].
+const H_MIN_DEFAULT: f64 = -1.0e7;
+
+/// **Default** upper specific-enthalpy bound \[J/kg\] of the `(p, h)`
+/// admissibility guard — the [`OPCPFluidArray::new`] value of
+/// [`OPCPFluidArray::h_max`]. Wide open (1×10⁸ J/kg); see [`H_MIN_DEFAULT`].
+const H_MAX_DEFAULT: f64 = 1.0e8;
 
 // ── Boundary-condition helpers ──────────────────────────────────────────────────
 //
@@ -401,6 +433,32 @@ pub struct OPCPFluidArray {
     /// Upper pressure bound \[Pa\] applied after every pressure solve.
     /// Defaults to a wide 1 GPa ceiling. See [`Self::p_min`].
     pub p_max: Pressure,
+    /// Lower specific-enthalpy bound \[J/kg\] of the **`(p, h)` admissibility
+    /// guard**, applied to every cell right after each energy-equation solve —
+    /// i.e. before [`Self::correct_thermo`] next consumes `he` — so the energy
+    /// equation cannot overdrain enthalpy past physically meaningful bounds and
+    /// hand the `(p, h)` flash a nonsense temperature. Together with
+    /// [`Self::p_min`]/[`Self::p_max`] (the pressure half of the window) this
+    /// keeps every flashed state inside a caller-chosen `(p, h)` envelope.
+    /// Defaults to a deliberately wide-open −1×10⁷ J/kg (no plausible solution
+    /// is touched); tighten per fluid with [`Self::set_enthalpy_bounds`] —
+    /// e.g. to the enthalpy range spanned by the fluid EOS's stated validity
+    /// (`t_triple`..`t_max`) at the working pressure. Every clamp is **counted**
+    /// in [`Self::h_clamp_events`], never silent.
+    pub h_min: AvailableEnergy,
+    /// Upper specific-enthalpy bound \[J/kg\] of the `(p, h)` admissibility
+    /// guard. Defaults to a wide-open 1×10⁸ J/kg. See [`Self::h_min`].
+    pub h_max: AvailableEnergy,
+    /// **Cumulative** count of cell-enthalpy clamp events (dimensionless): each
+    /// cell clamped to [`Self::h_min`]/[`Self::h_max`] after an energy-equation
+    /// solve adds 1, across all steps since construction (or since the caller
+    /// last reset it to 0 — it is plain `pub` state). `0` means the guard never
+    /// engaged. **Asymmetry note:** the pressure clamp ([`Self::p_min`]/
+    /// [`Self::p_max`], OpenFOAM `pressureControl::limit` semantics) is silent
+    /// (uncounted, matching upstream); the enthalpy clamp is deliberately
+    /// counted so an engaged guard is visible, not silent. A NaN enthalpy is
+    /// neither clamped nor counted — genuine divergence is not masked.
+    pub h_clamp_events: usize,
 
     // ── All-Mach hybrid (opt-in) ─────────────────────────────────────────────
     /// Flux-discretisation mode (default [`SolverMode::Pimple`], bit-identical
@@ -415,6 +473,22 @@ pub struct OPCPFluidArray {
     /// dimensionless). At/above `hi` the KNP dissipation is applied at full
     /// weight. See [`Self::set_mach_blend_window`].
     pub ma_blend_hi: Ratio,
+    /// Lower mixture-density threshold \[kg/m³\] of the rarefied-tail taper on
+    /// the hybrid KNP dissipation: below it the dissipation is scaled to zero
+    /// (pure PIMPLE), with a linear ramp up to [`Self::hybrid_rho_taper_hi`].
+    /// Default 50 kg/m³ — a **steam-calibrated placeholder** inherited from the
+    /// `TampinesSteamArray` Edwards–O'Brien blowdown (dense two-phase flashing
+    /// front depressurising to ~1 bar); a bare density window is only
+    /// meaningful relative to that calibration pressure, so retune it per
+    /// fluid/pressure with [`Self::set_rho_taper_window`]. Only read when
+    /// `mode == HybridAllMach`. See `HYBRID_RHO_TAPER_LO_DEFAULT` (this
+    /// module) for the full regime/provenance note.
+    pub hybrid_rho_taper_lo: MassDensity,
+    /// Upper mixture-density threshold \[kg/m³\] of the rarefied-tail taper:
+    /// at/above it the KNP dissipation is applied at full weight (default
+    /// 100 kg/m³, same steam-calibrated provenance as
+    /// [`Self::hybrid_rho_taper_lo`]). See [`Self::set_rho_taper_window`].
+    pub hybrid_rho_taper_hi: MassDensity,
 
     // ── Fields ──────────────────────────────────────────────────────────────
     /// Velocity field [m/s].
@@ -553,11 +627,24 @@ impl OPCPFluidArray {
             // `step` for the OpenFOAM `pressureControl` reference.
             p_min: Pressure::new::<pascal>(1.0),
             p_max: Pressure::new::<pascal>(1.0e9),
+            // Wide-open default (p, h) admissibility guard: no physically
+            // plausible solution is clamped; see `h_min`/`h_max`.
+            h_min: AvailableEnergy::new::<joule_per_kilogram>(H_MIN_DEFAULT),
+            h_max: AvailableEnergy::new::<joule_per_kilogram>(H_MAX_DEFAULT),
+            h_clamp_events: 0,
             // Default: pure PIMPLE ⇒ the hybrid dissipation is never assembled,
             // so every existing constructor/test runs the unchanged code path.
             mode: SolverMode::Pimple,
             ma_blend_lo: Ratio::new::<ratio>(0.3),
             ma_blend_hi: Ratio::new::<ratio>(1.0),
+            // Steam-calibrated placeholder taper window (Edwards–O'Brien
+            // provenance) — see `hybrid_rho_taper_lo` / `set_rho_taper_window`.
+            hybrid_rho_taper_lo: MassDensity::new::<kilogram_per_cubic_meter>(
+                HYBRID_RHO_TAPER_LO_DEFAULT,
+            ),
+            hybrid_rho_taper_hi: MassDensity::new::<kilogram_per_cubic_meter>(
+                HYBRID_RHO_TAPER_HI_DEFAULT,
+            ),
             u,
             p,
             rho,
@@ -1078,6 +1165,30 @@ impl OPCPFluidArray {
             }
             let (he_new, _) = e_eqn.solve("he", settings);
             self.he = he_new;
+
+            // ── (p, h) admissibility guard — enthalpy half ──────────────────
+            // Clamp each cell's just-solved enthalpy into [h_min, h_max] right
+            // here, before `correct_thermo` (next outer corrector, or the next
+            // step's inner loop) hands it to the (p, h) flash — so an
+            // overdraining energy solve cannot drive the flash to unphysical
+            // temperatures. The pressure half is the [p_min, p_max] clamp in
+            // the inner loop above. Unlike that (silent, OpenFOAM
+            // `pressureControl::limit`-style) pressure clamp, every enthalpy
+            // clamp is COUNTED in `h_clamp_events` so an engaged guard is
+            // visible. The comparisons are false for NaN, so a genuinely
+            // diverged (NaN) enthalpy is neither clamped nor counted — not
+            // masked, mirroring the pressure-clamp NaN note.
+            let h_min = self.h_min.get::<joule_per_kilogram>();
+            let h_max = self.h_max.get::<joule_per_kilogram>();
+            for hv in self.he.internal.iter_mut() {
+                if *hv < h_min {
+                    *hv = h_min;
+                    self.h_clamp_events += 1;
+                } else if *hv > h_max {
+                    *hv = h_max;
+                    self.h_clamp_events += 1;
+                }
+            }
         }
         self.clear_vectors();
     }
@@ -1241,6 +1352,68 @@ impl OPCPFluidArray {
         self.ma_blend_hi = hi;
     }
 
+    /// The current rarefied-tail density-taper window `(lo, hi)` \[kg/m³\] of
+    /// the hybrid KNP dissipation. See [`Self::set_rho_taper_window`].
+    pub fn get_rho_taper_window(&self) -> (MassDensity, MassDensity) {
+        (self.hybrid_rho_taper_lo, self.hybrid_rho_taper_hi)
+    }
+
+    /// Sets the rarefied-tail density-taper window of the hybrid KNP
+    /// dissipation: below `lo` the dissipation is scaled to zero (pure PIMPLE),
+    /// at/above `hi` it is applied at full weight, with a linear ramp between
+    /// (both in kg/m³, gated on the lighter side of each face). Only affects
+    /// [`SolverMode::HybridAllMach`]. Panics if `hi <= lo`.
+    ///
+    /// The defaults (50/100 kg/m³) are a **steam-calibrated placeholder** from
+    /// the `TampinesSteamArray` Edwards–O'Brien blowdown (dense two-phase
+    /// flashing front depressurising to ~1 bar). A bare density window is only
+    /// meaningful relative to the pressure it was calibrated at, so set a
+    /// fluid- and pressure-appropriate window here before relying on
+    /// `HybridAllMach` away from that regime — e.g. for a low-density gas
+    /// (Helium at HTR-10 conditions, ρ ≈ 1–3 kg/m³) the default window zeroes
+    /// the hybrid everywhere, degenerating it to plain PIMPLE. See
+    /// `HYBRID_RHO_TAPER_LO_DEFAULT` (this module) for the full provenance note.
+    pub fn set_rho_taper_window(&mut self, lo: MassDensity, hi: MassDensity) {
+        assert!(
+            hi.get::<kilogram_per_cubic_meter>() > lo.get::<kilogram_per_cubic_meter>(),
+            "rho taper window requires hi > lo, got lo = {} kg/m^3, hi = {} kg/m^3",
+            lo.get::<kilogram_per_cubic_meter>(),
+            hi.get::<kilogram_per_cubic_meter>()
+        );
+        self.hybrid_rho_taper_lo = lo;
+        self.hybrid_rho_taper_hi = hi;
+    }
+
+    /// The current enthalpy bounds `(h_min, h_max)` \[J/kg\] of the `(p, h)`
+    /// admissibility guard, applied to every cell after each energy-equation
+    /// solve. See [`Self::set_enthalpy_bounds`] and [`Self::h_min`].
+    pub fn get_enthalpy_bounds(&self) -> (AvailableEnergy, AvailableEnergy) {
+        (self.h_min, self.h_max)
+    }
+
+    /// Sets the enthalpy bounds `[h_min, h_max]` \[J/kg\] of the `(p, h)`
+    /// admissibility guard: after every energy-equation solve each cell's
+    /// specific enthalpy is clamped into this range — with every clamp counted
+    /// in [`Self::h_clamp_events`], never silent — before
+    /// [`Self::correct_thermo`] hands `(p, h)` to the EOS flash. Together with
+    /// [`Self::set_pressure_bounds`] this bounds the whole `(p, h)` window the
+    /// flash can be asked to evaluate, preventing an overdraining energy solve
+    /// from producing unphysical temperatures. The defaults
+    /// (−1×10⁷ / 1×10⁸ J/kg) are deliberately wide open; tighten per fluid —
+    /// e.g. to the enthalpy range spanned by the fluid EOS's stated validity
+    /// (`t_triple`..`t_max`, helium's `t_max` is 2000 K) at the working
+    /// pressure. Panics if `h_min >= h_max`.
+    pub fn set_enthalpy_bounds(&mut self, h_min: AvailableEnergy, h_max: AvailableEnergy) {
+        assert!(
+            h_min.get::<joule_per_kilogram>() < h_max.get::<joule_per_kilogram>(),
+            "enthalpy bounds require h_min < h_max, got h_min = {} J/kg, h_max = {} J/kg",
+            h_min.get::<joule_per_kilogram>(),
+            h_max.get::<joule_per_kilogram>()
+        );
+        self.h_min = h_min;
+        self.h_max = h_max;
+    }
+
     /// Assemble the Mach-weighted KNP central-upwind dissipation from the
     /// **current** primitive state (`ρ, U, he, p` after the inner PISO loop's
     /// `correct_thermo`).
@@ -1265,6 +1438,8 @@ impl OPCPFluidArray {
         let nif = mesh.n_internal_faces;
         let lo = self.ma_blend_lo.get::<ratio>();
         let hi = self.ma_blend_hi.get::<ratio>();
+        let taper_lo = self.hybrid_rho_taper_lo.get::<kilogram_per_cubic_meter>();
+        let taper_hi = self.hybrid_rho_taper_hi.get::<kilogram_per_cubic_meter>();
 
         // Per-cell sound speed, Mach number, and a validity-edge safety flag.
         //
@@ -1339,15 +1514,15 @@ impl OPCPFluidArray {
             // Rarefied-tail (low-density) taper. The all-Mach KNP shock-capturing
             // targets a *dense* near-sonic region; as a cell rarefies toward
             // vacuum an explicit deferred-correction dissipation over-drives it.
-            // The taper scales β to zero below `HYBRID_RHO_TAPER_LO` and to full
-            // above `HYBRID_RHO_TAPER_HI`, using the lighter (at-risk) face side.
-            // See the regime note on `HYBRID_RHO_TAPER_LO` for the CoolProp
+            // The taper scales β to zero below `hybrid_rho_taper_lo` and to full
+            // above `hybrid_rho_taper_hi` (configurable via
+            // `set_rho_taper_window`; defaults are the steam-calibrated 50/100
+            // kg/m³ placeholders), using the lighter (at-risk) face side. See
+            // the regime note on `HYBRID_RHO_TAPER_LO_DEFAULT` for the CoolProp
             // low-density caveat.
             {
                 let rho_face_min = self.rho.internal[o].min(self.rho.internal[nb]);
-                let g = ((rho_face_min - HYBRID_RHO_TAPER_LO)
-                    / (HYBRID_RHO_TAPER_HI - HYBRID_RHO_TAPER_LO))
-                    .clamp(0.0, 1.0);
+                let g = ((rho_face_min - taper_lo) / (taper_hi - taper_lo)).clamp(0.0, 1.0);
                 beta *= g;
             }
 
@@ -1491,7 +1666,7 @@ mod tests {
     /// scan, the MUSCL reconstructions, the face loop and its guards) end-to-end
     /// without panicking, and pins the "hybrid is opt-in and does not perturb the
     /// subsonic default" contract. (To actually engage the KNP dissipation needs a
-    /// near-sonic face with `ρ ≳ HYBRID_RHO_TAPER_HI` — a high-pressure /
+    /// near-sonic face with `ρ ≳ hybrid_rho_taper_hi` (default 100 kg/m³) — a high-pressure /
     /// choked-flow case, not this smoke test.)
     #[test]
     fn hybrid_mode_is_noop_on_subsonic_gas_and_matches_pimple() {
@@ -1525,5 +1700,186 @@ mod tests {
             assert_eq!(hybrid.u.internal[c].x, pimple.u.internal[c].x);
             assert!(hybrid.p.internal[c].is_finite() && hybrid.rho.internal[c] > 0.0);
         }
+    }
+
+    /// The rho-taper window defaults to the steam-calibrated 50/100 kg/m³
+    /// placeholder and round-trips through
+    /// [`OPCPFluidArray::set_rho_taper_window`] /
+    /// [`OPCPFluidArray::get_rho_taper_window`].
+    #[test]
+    fn rho_taper_window_defaults_and_roundtrips() {
+        let mut array = OPCPFluidArray::new(
+            Fluid::Nitrogen,
+            Length::new::<meter>(1.0),
+            Area::new::<square_meter>(0.01),
+            5,
+            Time::new::<second>(1e-4),
+        )
+        .expect("valid 1-D geometry");
+
+        let (lo, hi) = array.get_rho_taper_window();
+        assert_eq!(lo.get::<kilogram_per_cubic_meter>(), 50.0);
+        assert_eq!(hi.get::<kilogram_per_cubic_meter>(), 100.0);
+
+        array.set_rho_taper_window(
+            MassDensity::new::<kilogram_per_cubic_meter>(0.5),
+            MassDensity::new::<kilogram_per_cubic_meter>(2.0),
+        );
+        let (lo, hi) = array.get_rho_taper_window();
+        assert_eq!(lo.get::<kilogram_per_cubic_meter>(), 0.5);
+        assert_eq!(hi.get::<kilogram_per_cubic_meter>(), 2.0);
+    }
+
+    /// The `(p, h)` admissibility guard defaults wide open, and when tightened
+    /// it clamps the post-EEqn cell enthalpy **and counts every clamp** in
+    /// [`OPCPFluidArray::h_clamp_events`] (visible, never silent — unlike the
+    /// upstream-matching silent pressure clamp).
+    #[test]
+    fn enthalpy_guard_clamps_and_counts() {
+        let mut array = OPCPFluidArray::new(
+            Fluid::Nitrogen,
+            Length::new::<meter>(1.0),
+            Area::new::<square_meter>(0.01),
+            20,
+            Time::new::<second>(1e-4),
+        )
+        .expect("valid 1-D geometry");
+
+        // Wide-open defaults; no clamping on an untouched quiescent run.
+        let (h_min, h_max) = array.get_enthalpy_bounds();
+        assert_eq!(h_min.get::<joule_per_kilogram>(), -1.0e7);
+        assert_eq!(h_max.get::<joule_per_kilogram>(), 1.0e8);
+        assert_eq!(array.h_clamp_events, 0);
+        array.run(2);
+        assert_eq!(
+            array.h_clamp_events, 0,
+            "wide-open default bounds must not clamp a quiescent subsonic run"
+        );
+
+        // Tighten h_max below the current uniform enthalpy: the next EEqn
+        // solve leaves h essentially unchanged (quiescent equilibrium), so
+        // every cell must clamp to h_max and be counted.
+        let h0 = array.he.internal[0];
+        let h_cap = h0 - 1.0e4; // 10 kJ/kg below the current state
+        array.set_enthalpy_bounds(
+            AvailableEnergy::new::<joule_per_kilogram>(h0 - 1.0e5),
+            AvailableEnergy::new::<joule_per_kilogram>(h_cap),
+        );
+        array.run(1);
+        assert_eq!(
+            array.h_clamp_events,
+            array.mesh.n_cells,
+            "each of the {} cells should clamp exactly once in one step",
+            array.mesh.n_cells
+        );
+        for c in 0..array.mesh.n_cells {
+            assert!(
+                array.he.internal[c] <= h_cap,
+                "cell {c} enthalpy {} exceeds the h_max bound {}",
+                array.he.internal[c],
+                h_cap
+            );
+        }
+    }
+
+    /// V&V: the **default steam-calibrated density taper zeroes the hybrid KNP
+    /// dissipation for helium across the whole HTR-10 envelope** — i.e.
+    /// [`SolverMode::HybridAllMach`] with the default taper degenerates to
+    /// [`SolverMode::Pimple`] for helium, the honest, intended outcome for a
+    /// deeply subsonic gas circuit (see the regime note on
+    /// `HYBRID_RHO_TAPER_LO_DEFAULT`).
+    ///
+    /// **Methodology.** Helium mass density is computed from this crate's own
+    /// Ortiz-Vega-et-al. Helmholtz EOS via `flash::state_pt(Fluid::Helium, T, p)`
+    /// at four states spanning the HTR-10 operating envelope — core inlet
+    /// (523.15 K, 3.0 MPa), design core outlet (973.15 K, 3.0 MPa),
+    /// high-temperature test operation (1173.15 K, 3.0 MPa), and a cold
+    /// depressurised state (300 K, 1 bar). Pass criterion: each density is
+    /// strictly below the default lower taper threshold
+    /// `hybrid_rho_taper_lo` = 50 kg/m³ (read from a freshly constructed
+    /// helium array, so the assertion tracks the actual default), at which the
+    /// rarefied-tail taper scales the KNP dissipation weight to exactly zero.
+    ///
+    /// **Results (2026-08-11, this crate's EOS, outram-park-fork-coolprop
+    /// v0.1.1).** Computed densities:
+    /// - 523.15 K, 3.0 MPa: **2.739989 kg/m³**
+    /// - 973.15 K, 3.0 MPa: **1.478781 kg/m³**
+    /// - 1173.15 K, 3.0 MPa: **1.227576 kg/m³**
+    /// - 300 K, 1 bar: **0.160391 kg/m³**
+    ///
+    /// All are 1–2 orders of magnitude below the 50 kg/m³ default threshold,
+    /// so the taper weight `g = clamp((ρ − 50)/(100 − 50), 0, 1)` is 0 on every
+    /// face at every HTR-10 state: the hybrid is a guaranteed no-op for helium
+    /// unless the window is retuned with
+    /// [`OPCPFluidArray::set_rho_taper_window`].
+    #[test]
+    fn helium_htr10_default_taper_zeroes_hybrid() {
+        let array = OPCPFluidArray::new(
+            Fluid::Helium,
+            Length::new::<meter>(1.0),
+            Area::new::<square_meter>(0.01),
+            5,
+            Time::new::<second>(1e-4),
+        )
+        .expect("valid 1-D geometry");
+        let taper_lo = array.hybrid_rho_taper_lo.get::<kilogram_per_cubic_meter>();
+
+        for (t_k, p_pa, label) in [
+            (523.15, 3.0e6, "HTR-10 core inlet (523.15 K, 3.0 MPa)"),
+            (973.15, 3.0e6, "HTR-10 core outlet, design (973.15 K, 3.0 MPa)"),
+            (1173.15, 3.0e6, "HTR-10 high-temperature test (1173.15 K, 3.0 MPa)"),
+            (300.0, 1.0e5, "cold depressurised (300 K, 1 bar)"),
+        ] {
+            let rho = flash::state_pt(Fluid::Helium, t_k, p_pa)
+                .expect("single-phase helium state")
+                .density;
+            println!("MEASURE rho {label}: {rho:.6} kg/m^3");
+            assert!(
+                rho < taper_lo,
+                "{label}: rho = {rho} kg/m^3 must sit below the default taper lo = {taper_lo}"
+            );
+        }
+    }
+
+    /// V&V: **helium at the HTR-10 full-power operating point is deeply
+    /// subsonic** — so the Mach-blend gate (`β(Ma) = 0` below
+    /// `ma_blend_lo` = 0.3) *also* keeps the hybrid KNP dissipation off,
+    /// independently of the density taper.
+    ///
+    /// **Methodology.** Speed of sound and density are computed from this
+    /// crate's own Helmholtz EOS via `flash::state_pt(Fluid::Helium,
+    /// 748.15 K, 3.0 MPa)` (the core-average of the 523.15 K inlet / 973.15 K
+    /// outlet at the 3.0 MPa system pressure). The bulk superficial velocity
+    /// through the pebble-bed free-flow area is `u = ṁ/(ρ·A_free)` with the
+    /// primary mass flow ṁ = 4.3 kg/s, core diameter 1.8 m (frontal area
+    /// π/4·1.8² = 2.5447 m²), and bed porosity 0.39, giving
+    /// A_free = 0.39·π/4·1.8² computed in the test. The geometry and operating
+    /// figures (core diameter, porosity, mass flow, pressures, temperatures)
+    /// are from the IAEA HTR-10 benchmark description — openly published
+    /// (Open-tier) literature, per the maintainer directive of 2026-08-11.
+    /// Pass criterion: Ma = u/c < 0.01.
+    ///
+    /// **Results (2026-08-11, this crate's EOS, outram-park-fork-coolprop
+    /// v0.1.1).** ρ = **1.920936 kg/m³**, c = **1616.3754 m/s**,
+    /// A_free = **0.992429 m²**, u = **2.255569 m/s**, so
+    /// **Ma = 1.395×10⁻³** — two orders of magnitude below the 0.3 Mach-blend
+    /// threshold and well under the 0.01 pass criterion. Interpretation: an
+    /// HTR-10 helium circuit is a low-Mach flow for which `HybridAllMach`
+    /// (correctly) contributes nothing; plain PIMPLE is the appropriate
+    /// regime.
+    #[test]
+    fn helium_htr10_full_power_is_deeply_subsonic() {
+        let state = flash::state_pt(Fluid::Helium, 748.15, 3.0e6)
+            .expect("single-phase helium state");
+        let rho = state.density;
+        let c = state.speed_of_sound;
+        let mdot = 4.3_f64; // kg/s
+        let d_core = 1.8_f64; // m
+        let porosity = 0.39_f64;
+        let a_free = core::f64::consts::PI / 4.0 * d_core * d_core * porosity; // m^2
+        let u = mdot / (rho * a_free); // m/s
+        let ma = u / c;
+        println!("MEASURE rho = {rho:.6} kg/m^3, c = {c:.4} m/s, A_free = {a_free:.6} m^2, u = {u:.6} m/s, Ma = {ma:.3e}");
+        assert!(ma < 0.01, "HTR-10 helium must be deeply subsonic, got Ma = {ma}");
     }
 }

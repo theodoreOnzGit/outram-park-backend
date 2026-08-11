@@ -14,6 +14,7 @@ use crate::boussinesq_thermophysical_properties::liquid_database::yd_325_heat_tr
 use crate::boussinesq_thermophysical_properties::solid_database::copper::copper_spline_temp_attempt_2_from_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::custom_solid_material;
 use crate::boussinesq_thermophysical_properties::solid_database::fiberglass::fiberglass_spline_temp_attempt_1_from_specific_enthalpy;
+use crate::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_spline_temp_from_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::pyrogel_hps::pyrogel_hps_spline_temp_attempt_1_from_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::ss_304_l::steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zweibaum;
 
@@ -44,6 +45,8 @@ fn get_solid_temperature_from_specific_enthalpy(material: Material,
         Material::Solid(Fiberglass) => Fiberglass,
         Material::Solid(PyrogelHPS) => PyrogelHPS,
         Material::Solid(Copper) => Copper,
+        Material::Solid(NuclearGraphiteMatrixA3) => NuclearGraphiteMatrixA3,
+        Material::Solid(NuclearGraphiteIG110) => NuclearGraphiteIG110,
         Material::Solid(CustomSolid((low_bound_temp,high_bound_temp),cp,k,rho,roughness)) => {
             CustomSolid((low_bound_temp,high_bound_temp), cp, k, rho,roughness)
         },
@@ -67,9 +70,21 @@ fn get_solid_temperature_from_specific_enthalpy(material: Material,
                 steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zweibaum(
                     h_material)
             },
-            Copper => 
+            Copper =>
             {
                 copper_spline_temp_attempt_2_from_specific_enthalpy(
+                    h_material)
+            },
+            // both graphite grades share one cp table and hence one
+            // enthalpy curve; see the nuclear_graphite module docs
+            NuclearGraphiteMatrixA3 =>
+            {
+                nuclear_graphite_spline_temp_from_specific_enthalpy(
+                    h_material)
+            },
+            NuclearGraphiteIG110 =>
+            {
+                nuclear_graphite_spline_temp_from_specific_enthalpy(
                     h_material)
             },
             CustomSolid((low_bound_temp,high_bound_temp),cp_fn,_k,_rho_fn,_roughness) => {

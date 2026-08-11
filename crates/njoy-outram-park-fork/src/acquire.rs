@@ -168,10 +168,18 @@ pub fn tape_filename(mat: i32, z: u32, a: u32, symbol: &str) -> String {
 /// against the IAEA NDS listing. For any other nuclide, pass the MAT explicitly
 /// (find it in the library's directory index or the ENDF-102 manual). The set
 /// here covers the shipped Godiva/LFTR examples: light H/O, structural Fe, and
-/// the Th/U/Pu actinides.
+/// the Th/U/Pu actinides, plus carbon (C-12/C-13) for a graphite moderator.
+///
+/// Note carbon's MAT here is the **neutron** sublibrary evaluation. The graphite
+/// *thermal* S(alpha, beta) law is a separate ENDF thermal-sublibrary material
+/// (`tsl-crystalline-graphite` MAT = 30, `tsl-reactor-graphite-10P` MAT = 31,
+/// `-30P` MAT = 32) and is **not** reachable through this table or
+/// [`EndfLibrary::neutron_url`] — see [`crate::thermr`].
 pub fn well_known_mat(z: u32, a: u32) -> Option<i32> {
     let mat = match (z, a) {
         (1, 1) => 125,     // H-1
+        (6, 12) => 625,    // C-12  (graphite moderator)
+        (6, 13) => 628,    // C-13
         (8, 16) => 825,    // O-16
         (26, 56) => 2631,  // Fe-56
         (90, 232) => 9040, // Th-232
@@ -560,6 +568,10 @@ mod tests {
         assert_eq!(well_known_mat(94, 239), Some(9437));
         assert_eq!(well_known_mat(1, 1), Some(125));
         assert_eq!(well_known_mat(8, 16), Some(825));
+        // Carbon — verified against the ENDF/B-VIII.0 neutron tapes
+        // (n-006_C_012.endf / n-006_C_013.endf, MAT field cols 67-70).
+        assert_eq!(well_known_mat(6, 12), Some(625));
+        assert_eq!(well_known_mat(6, 13), Some(628));
         assert_eq!(well_known_mat(50, 120), None); // not in the shipped set
     }
 
