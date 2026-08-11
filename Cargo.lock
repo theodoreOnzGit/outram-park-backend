@@ -1132,7 +1132,7 @@ dependencies = [
 
 [[package]]
 name = "chem-eng-real-time-process-control-simulator"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "csv",
@@ -4412,11 +4412,17 @@ dependencies = [
 name = "kovan-literature"
 version = "0.0.0"
 dependencies = [
+ "clap",
+ "eframe",
+ "egui",
+ "image",
  "kovan-common",
  "lopdf",
  "pdf-extract",
  "pulldown-cmark",
+ "ratatui",
  "serde",
+ "serde_json",
  "sha2",
  "toml",
 ]

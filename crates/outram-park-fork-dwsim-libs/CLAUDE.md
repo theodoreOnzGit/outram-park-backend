@@ -2,8 +2,12 @@
 
 Pure-Rust port of DWSIM thermal-hydraulics and thermodynamics kernels.
 
-The reference C# source lives at:
-`/home/teddy0/Documents/research/dwsim/`
+The reference source lives at (STRICTLY READ-ONLY, pinned):
+`/home/teddy0/Documents/research/dwsim-upstream/`
+(branch `windows`, commit `1abf72d1b6b41d3e9a8cc770d3cc4e8fc76e5766`,
+cloned 2026-07-17). Do **not** use the older, stale clone at
+`/home/teddy0/Documents/research/dwsim/` — ports since 2026-08 cite the
+pinned `dwsim-upstream` commit in their attribution headers.
 
 **Upstream:** DWSIM is GPL-3.0 (confirmed against the upstream repository,
 2026-07-13 — an earlier version of this note incorrectly said LGPL-3.0).
