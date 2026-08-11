@@ -234,6 +234,46 @@ of where it came from.
 - `kopitiam pdf2md` remains fine for a quick one-off conversion where no
   catalogue entry is wanted, but it is the fallback, not the default.
 
+**Graph digitisation: dogfood `kovan-digitise` (HARD RULE).** Several
+validation targets this project depends on exist **only as figures** — the
+HTR-10 safety demonstration tests and the MSRE reactivity-insertion figures
+are both recorded in `docs/reactor-scoping/` as arriving that way. When data
+must come off a plot, use this workspace's own digitiser, in
+`crates/kovan-literature/src/digitiser/` with three binaries in that crate:
+
+```bash
+cargo build --release -p kovan-literature                      # CLI + TUI
+cargo build --release -p kovan-literature --features digitise-gui
+```
+
+- **`kovan-digitise` (CLI) is the agent path** — fully automatic, scriptable,
+  deterministic. **Use it rather than reading points off a figure by eye.** A
+  hand-read point has no calibration record, no uncertainty and no audit
+  trail, and is exactly the kind of silent processing step `DATA_POLICY.md`
+  forbids. Same reasoning as the 138-number Tobias Table 16 transcription:
+  prefer the machine-readable path and validate it, over eyeballing.
+- **`kovan-digitise-tui` and `kovan-digitise-gui` are the human path** —
+  automatic pass first, then the maintainer verifies. The CLI can only ever
+  emit `Unreviewed`; **only a human marks a dataset reviewed**, and editing a
+  point afterwards resets it to unreviewed. Do not attempt to mark anything
+  reviewed from an agent session.
+- **Provenance is structurally mandatory and must stay that way.** A
+  `DigitisedDataset` cannot be constructed without a `FigureSource` and a
+  `PlotCalibration`. Never add a path that exports points without them.
+- **Known limit, by design:** there is no tick-label OCR (no ML, per KOVAN's
+  offline-deterministic rule), so the axis reference values must be supplied —
+  read them off the figure and pass `--x-range`/`--y-range`, or explicit
+  `--x-ref`/`--y-ref` pixel=value pairs. Always state `--x-scale`/`--y-scale`;
+  log axes interpolate in log space and getting this wrong is silent.
+- **Report rough edges as beads, not workarounds.** Unlike kopitiam, KOVAN is
+  *our own* crate, so a defect here is a bead in this workspace (e.g.
+  `op-szai` for the metadata extractor), not an upstream issue.
+- **Accuracy is verified against synthetic ground truth only** (lin-lin and
+  log-lin 0.138% of span, log-log 0.002765 decades, measured 2026-08-11).
+  There is **no** verification against real published figures until the
+  maintainer supplies the hand-digitised Tobias oracle (`op-amfh`). Do not
+  describe digitised data as validated before then.
+
 **Known friction (as of kopitiam 0.2.5, verified 2026-08-07):**
 
 - `kopitiam check` / `kopitiam test` expose **no `--release` or profile flag**
