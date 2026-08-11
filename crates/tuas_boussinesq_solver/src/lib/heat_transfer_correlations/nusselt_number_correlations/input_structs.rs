@@ -144,15 +144,46 @@ impl Default for NusseltPrandtlReynoldsData {
 }
 
 
-/// Wakao, N., & Funazkri, T. (1978). Effect 
-/// of fluid dispersion coefficients on particle-to-fluid mass 
-/// transfer coefficients in packed beds: correlation of 
+/// Input data for the Wakao particle-to-fluid Nusselt number correlation
+/// in a packed bed of spheres.
+///
+/// Both members are dimensionless (`uom` [`Ratio`]), and both are formed
+/// on the **particle (pebble) diameter**.
+///
+/// # References
+///
+/// Wakao, N., & Funazkri, T. (1978). Effect
+/// of fluid dispersion coefficients on particle-to-fluid mass
+/// transfer coefficients in packed beds: correlation of
 /// Sherwood numbers. Chemical Engineering Science, 33(10), 1375-1384.
+/// (the mass-transfer / Sherwood form)
+///
+/// Wakao, N., Kaguei, S., & Funazkri, T. (1979). Effect of fluid
+/// dispersion coefficients on particle-to-fluid heat transfer
+/// coefficients in packed beds: correlation of Nusselt numbers.
+/// Chemical Engineering Science, 34(3), 325-336.
+/// DOI: 10.1016/0009-2509(79)85064-2
+/// (the heat-transfer / Nusselt form, which is what [`WakaoData::get`]
+/// evaluates)
 #[derive(Clone,Copy,Debug, PartialEq)]
 pub struct WakaoData {
-    /// reynolds number based on sphere diameter 
+    /// Reynolds number, dimensionless.
+    ///
+    /// Based on the **particle (sphere/pebble) diameter** `d` and the
+    /// **superficial** velocity `u` (volumetric flow divided by the
+    /// *empty* bed cross-section, not the interstitial velocity):
+    ///
+    /// Re = rho u d / mu
+    ///
+    /// Using interstitial rather than superficial velocity inflates Re
+    /// by 1/porosity (roughly a factor of 2.5 for a typical randomly
+    /// packed bed), so be explicit about which one is supplied.
     pub reynolds: Ratio,
-    /// prandtl number of the fluid
+    /// Prandtl number of the fluid, dimensionless.
+    ///
+    /// Pr = c_p mu / k. Either the bulk-fluid or the film Prandtl number
+    /// may be supplied; the correlation carries no wall-correction term,
+    /// so only one Prandtl number is used.
     pub prandtl_bulk: Ratio,
 }
 
@@ -166,27 +197,90 @@ impl Default for WakaoData {
 }
 
 impl WakaoData {
-    /// Returns: 
+    /// Returns the particle-to-fluid Nusselt number for a packed bed of
+    /// spheres, using the published Wakao correlation:
     ///
-    /// Nu = 2.0 + 1.1 * Re^0.333 Pr^0.6
-    /// note that reynolds number 
-    /// and nusselt are based on pebble or particle 
-    /// diameter
+    /// Nu = 2 + 1.1 * Pr^(1/3) * Re^0.6
     ///
-    /// for bed of packed spheres
+    /// # Physical quantity
+    ///
+    /// `Nu = h d / k_f`, the dimensionless particle-to-fluid convective
+    /// heat transfer coefficient, where `h` is the heat transfer
+    /// coefficient (W m^-2 K^-1), `d` the **particle (pebble) diameter**
+    /// (m), and `k_f` the fluid thermal conductivity (W m^-1 K^-1).
+    /// The returned value is a `uom` [`Ratio`] (dimensionless).
+    ///
+    /// Both `Nu` and `Re` are formed on the **particle/pebble diameter**,
+    /// and `Re` uses the **superficial** velocity (see
+    /// [`WakaoData::reynolds`]). `Pr = c_p mu / k` is dimensionless; either
+    /// the bulk or the film Prandtl number may be used, as the correlation
+    /// has no wall-correction term.
+    ///
+    /// The additive `2` is the exact conduction limit for an isolated
+    /// sphere in a stagnant infinite medium, so `Nu -> 2` as `Re -> 0`.
+    ///
+    /// # Valid range
+    ///
+    /// As published, roughly `15 <= Re <= 8500`, the range over which the
+    /// 1979 heat-transfer correlation was regressed against packed-bed
+    /// data. Outside that range the expression still evaluates (and still
+    /// tends to 2 as `Re -> 0`), but the answer is an extrapolation. This
+    /// function does **not** range-check: it never returns `Err` for an
+    /// out-of-range `Re`, so the caller is responsible for knowing whether
+    /// it is extrapolating. The `Result` return exists only for signature
+    /// compatibility with the other correlations in this module.
+    ///
+    /// # History — corrected 2026-08-11 (bead `op-4542`)
+    ///
+    /// **Before 2026-08-11 this function had the Reynolds and Prandtl
+    /// exponents transposed**, computing
+    ///
+    /// `Nu = 2 + 1.1 * Re^0.3333 * Pr^0.6`  (WRONG, pre-2026-08-11)
+    ///
+    /// instead of the published form above. This is not a rounding
+    /// difference — at `Re = 1000, Pr = 0.7` the corrected form returns
+    /// about 5.85 times the old value. Any result, calibration, or
+    /// tuned heat transfer coefficient produced with this function before
+    /// that date should be regarded as invalid. Downstream users who
+    /// notice a behaviour change here are seeing the fix, not a
+    /// regression.
+    ///
+    /// # References
+    ///
+    /// Wakao, N., Kaguei, S., & Funazkri, T. (1979). Effect of fluid
+    /// dispersion coefficients on particle-to-fluid heat transfer
+    /// coefficients in packed beds: correlation of Nusselt numbers.
+    /// Chemical Engineering Science, 34(3), 325-336.
+    /// DOI: 10.1016/0009-2509(79)85064-2
+    ///
+    /// Wakao, N., & Funazkri, T. (1978). Effect of fluid dispersion
+    /// coefficients on particle-to-fluid mass transfer coefficients in
+    /// packed beds: correlation of Sherwood numbers. Chemical
+    /// Engineering Science, 33(10), 1375-1384.
+    /// (the identically-shaped mass-transfer form)
+    ///
+    /// Neither primary paper was consulted at page level when this
+    /// correction was made; the equation form, its coefficients and its
+    /// stated `Re` range are transcribed from the secondary literature
+    /// (including Wang, X. (2018) PhD dissertation, ref. [45], catalogued
+    /// in this workspace as `wang2018coupled`). A human should confirm
+    /// them against the primary source before this correlation is
+    /// promoted past Prototype in the V&V pipeline.
     #[inline]
-    pub fn get(&self) 
+    pub fn get(&self)
     -> Result<Ratio,TuasLibError>{
         let reynolds: Ratio =  self.reynolds;
         let prandtl_bulk: Ratio = self.prandtl_bulk;
         let a: Ratio = Ratio::new::<ratio>(2.0);
         let b: Ratio = Ratio::new::<ratio>(1.1);
-        let c: f64 = 0.3333333333;
-        let d: f64 = 0.6;
+        // Prandtl exponent is 1/3, Reynolds exponent is 0.6.
+        // Do NOT transpose these -- see the op-4542 note above.
+        let prandtl_power: f64 = 1.0/3.0;
+        let reynolds_power: f64 = 0.6;
 
-        let nusselt: Ratio = a + 
-        b * reynolds.get::<ratio>().powf(c) 
-        * prandtl_bulk.get::<ratio>().powf(d);
+        let nusselt: Ratio = a +
+        b * prandtl_bulk.get::<ratio>().powf(prandtl_power)
+        * reynolds.get::<ratio>().powf(reynolds_power);
 
         return Ok(nusselt);
     }

@@ -126,17 +126,32 @@ pub enum NusseltCorrelation {
     /// for more fine grained control, please use another enum
     PipeGnielinskiTurbulentPrandtlBulk(GnielinskiData),
 
-    /// nusselt number for porous media 
+    /// nusselt number for porous media
     /// especially packed beds
-    /// based on Wakao Correlation
+    /// based on Wakao Correlation:
     ///
-    /// note: reynolds number based on pebble diameter
-    /// Wakao, N., & Funazkri, T. (1978). Effect 
-    /// of fluid dispersion coefficients on particle-to-fluid mass 
-    /// transfer coefficients in packed beds: correlation of 
+    /// Nu = 2 + 1.1 * Pr^(1/3) * Re^0.6
+    ///
+    /// valid for roughly 15 <= Re <= 8500
+    ///
+    /// note: both Nusselt and Reynolds numbers are based on the
+    /// particle (pebble) diameter, and Reynolds uses the superficial
+    /// velocity. See [`WakaoData::get`] for the full documentation,
+    /// including the note that this correlation had its Reynolds and
+    /// Prandtl exponents transposed before 2026-08-11 (bead `op-4542`).
+    ///
+    /// Wakao, N., Kaguei, S., & Funazkri, T. (1979). Effect of fluid
+    /// dispersion coefficients on particle-to-fluid heat transfer
+    /// coefficients in packed beds: correlation of Nusselt numbers.
+    /// Chemical Engineering Science, 34(3), 325-336.
+    /// DOI: 10.1016/0009-2509(79)85064-2
+    ///
+    /// Wakao, N., & Funazkri, T. (1978). Effect
+    /// of fluid dispersion coefficients on particle-to-fluid mass
+    /// transfer coefficients in packed beds: correlation of
     /// Sherwood numbers. Chemical Engineering Science, 33(10), 1375-1384.
     ///
-    /// only one prandtl number is required here, so you can use 
+    /// only one prandtl number is required here, so you can use
     /// bulk fluid prandtl number or film prandtl number as you wish
     Wakao(WakaoData),
 
