@@ -209,3 +209,394 @@ fn the_pipe_geometry_is_exact() {
     println!("vertical g_x = {}", vertical.axial_gravity());
     assert!((vertical.axial_gravity() + 9.806_65).abs() < 1e-9);
 }
+
+/// **Methodology — direct verification of
+/// [`super::drift_flux::AxialBoundary::ReservoirInlet`] against Bernoulli.**
+///
+/// # What is computed
+///
+/// A horizontal pipe, initially at rest and uniformly filled with **deeply
+/// subcooled** water, is opened at `t = 0` between a stagnation plenum
+/// ([`ReservoirInlet`](super::drift_flux::AxialBoundary::ReservoirInlet) at
+/// `p_0`, `h_0`) and a receiver
+/// ([`PressureOutlet`](super::drift_flux::AxialBoundary::PressureOutlet) at
+/// `p_out`) and marched to steady state. The steady face velocity is compared
+/// against a **closed form derived from the discrete scheme itself**, which for
+/// this configuration coincides with the textbook incompressible
+/// pipe-discharge result. Nothing here is compared against an experiment: this
+/// is verification, not validation.
+///
+/// # The closed form, and why it is exact for this scheme
+///
+/// Single-phase (`α = 0`) kills the drift momentum flux `Φ` (`super::drift_flux`'s
+/// `drift_momentum_flux` returns `0` at `α ≤ 0`), and a
+/// horizontal pipe kills `g_x`. Setting `u_new = u_old` in each of the three
+/// momentum balances the solver actually writes, at a spatially uniform `u` and
+/// `ρ` (justified below), leaves:
+///
+/// - **Interior face `j ∈ [1, n−1]`** — donor convection `u ∂u/∂x` vanishes at
+///   uniform `u`, and the correction `u ← u* − d (p_j − p_{j−1})` with
+///   `d = Δt/(ρ Δx)` gives `p[j] − p[j−1] = −ρ F Δx` between the two cell
+///   centres the face separates.
+/// - **Left face (the boundary under test)** — the *conservative half-cell*
+///   convection `d(u²/2)/dx ≈ (u²/2 − 0)/(Δx/2) = u²/Δx` from the stagnant
+///   plenum, with the half-cell coefficient `d = Δt/(ρ Δx/2)`, gives
+///   `u²/2 + F Δx/2 + (p[0] − p_0)/ρ = 0`. **This is the mechanism being
+///   tested**: it is exactly what the variant's doc comment claims ("the steady
+///   state of the conservative form is exactly `u = sqrt(2 (p_0 − p_1)/ρ)` …
+///   whereas the non-conservative donor form … returns `sqrt((p_0 − p_1)/ρ)`,
+///   low by `sqrt(2)`"). A regression to the non-conservative form would show
+///   up here as a `1/sqrt(2) = −29.3 %` velocity error, thirty times the
+///   tolerance below.
+/// - **Right face** — outflow uses the interior donor form, which again
+///   vanishes at uniform `u`, so `p[n−1] − p_out = ρ F Δx/2`.
+///
+/// Summing the three telescopes the interior pressures away and charges wall
+/// friction over `Δx/2 + (n−1) Δx + Δx/2 = L` exactly:
+///
+/// `p_0 − p_out = ρ u²/2 + ρ F L`,  `F = f |u| u / (2 D_h)`
+///
+/// so
+///
+/// `u_steady = sqrt( 2 (p_0 − p_out) / (ρ (1 + f L / D_h)) )`.
+///
+/// **Wall friction is incorporated into the expected value, not made
+/// negligible** — it is a ~3.5 % share of the driving head here, deliberately
+/// large enough that the test also pins the friction bookkeeping (`L`, not
+/// `L ± Δx`). `f` is the solver's own documented Darcy closure — laminar
+/// `64/Re` below `Re = 2300`, Blasius `0.316 Re^{−1/4}` above — evaluated by
+/// fixed-point iteration on `Re = ρ u D_h / μ_f`. Blasius is used well past its
+/// nominal `Re ≈ 10⁵` range; that is a property of the *code under test*, which
+/// this verification reproduces rather than corrects.
+///
+/// # Inputs
+///
+/// | Quantity | Value |
+/// |---|---|
+/// | Plenum stagnation pressure `p_0` | `1.000` MPa |
+/// | Receiver pressure `p_out` | `0.980` MPa (`Δp = 20` kPa) |
+/// | Plenum / initial temperature | `300.0` K (`T_sat(1 MPa) = 453.0` K, so ~153 K subcooled) |
+/// | Plenum stagnation enthalpy `h_0` | IF97 Region-1 `h(p_0, 300 K)` |
+/// | Initial field | uniform `p = p_out`, `T = 300 K`, `u = 0` |
+/// | Pipe | `L = 0.5` m, `D = 0.1` m, horizontal, 20 uniform cells (`Δx = 25` mm) |
+/// | Timestep / end | `Δt = 5×10⁻⁴` s, `t_end = 1.5` s (3000 steps) |
+/// | Slip closure | Zuber-Findlay `C₀ = 1.13`, `V_gj = 0.1` m/s `+x` (inert at `α = 0`) |
+/// | `τ`, outer correctors, `α_p` | solver defaults, untouched |
+///
+/// `Δp = 20` kPa is chosen so the water stays single-phase and effectively
+/// incompressible: at `ψ = ∂ρ/∂p|_h ≈ 4.5×10⁻⁷ s²/m²` the density varies by
+/// `ψ Δp / ρ ≈ 9×10⁻⁶` over the whole drop, and `u²/2 ≈ 20` J/kg against
+/// `h_0 ≈ 1.13×10⁵` J/kg is a `2×10⁻⁴` perturbation on the enthalpy — both far
+/// below the tolerance. That is what justifies "uniform `ρ`" in the derivation.
+///
+/// # Pass criterion and its justification — **pre-committed before the first
+/// run**
+///
+/// `|u_measured − u_closed_form| / u_closed_form <= 1.0 %`.
+///
+/// Error budget, summed *a priori*: property variation along the pipe (`μ_f` is
+/// the saturated-liquid value at the local cell pressure, and the cells span
+/// only ~0.7 kPa, so `f` varies by `<0.15 %`, i.e. `<0.08 %` on `u`) +
+/// compressibility (`<0.01 %`) + the `u²/2` enthalpy shift on `ρ`
+/// (`<0.001 %`) + the outer-corrector stopping tolerance (`1` Pa on a 20 kPa
+/// head, parked at worst `~3` Pa by the `α_p = 0.7` under-relaxation, i.e.
+/// `<0.01 %` on `u`) ≈ **0.1 %**. The gate is set an order of magnitude
+/// looser at **1 %** because the reference `f` is evaluated once at
+/// `(p_out, μ_f(p_out))` rather than face-by-face, and a knife-edge gate on a
+/// friction model is not what this test exists to check. The scheme has **no
+/// truncation error to budget for** — the derivation above is the discrete
+/// steady state, not its continuum limit.
+///
+/// Three further gates, all closed-form or invariant, none reverse-fitted:
+///
+/// - `u_measured < u_frictionless_Bernoulli` strictly, and within `5 %` of it —
+///   friction can only remove head, and `f L / D <= 0.05` bounds how much.
+/// - **Global continuity**: `|ṁ_in − ṁ_out| / ṁ_out <= 1×10⁻³`.
+/// - **Steadiness**: peak-to-peak variation of the inlet face velocity over the
+///   last 20 % of the march, relative to its mean, `<= 1×10⁻³`. Asserted, not
+///   assumed — a run still accelerating would otherwise pass low by an
+///   arbitrary amount.
+/// - Single-phase throughout (`max α = 0`) and `max Courant < 0.5`.
+///
+/// # Results (measured 2026-08-11, release, `cargo test --release -p tampines
+/// --lib multiphase_1d`)
+///
+/// The 3000-step march completed in **6.76 s wall clock**, no step refused, no
+/// NaN. (Two runs on 2026-08-11: 6.76 s and 6.05 s — the spread is machine
+/// load; both produced bit-identical numbers.)
+///
+/// | Quantity | Measured |
+/// |---|---|
+/// | Reference state `h_0` | `1.134923e5` J/kg (`T = 300.004` K back out of the flash, `α = 0`) |
+/// | Reference `ρ`, `μ_f` at `p_out` | `996.9502` kg/m³, `1.512639e-4` Pa·s |
+/// | `Re`, `f`, `f L/D` | `4.1034e6`, `0.007021`, `0.035105` |
+/// | **Closed form `u_steady`** | **`6.225884` m/s** |
+/// | **Measured steady inlet `u`** | **`6.225891` m/s** |
+/// | **Relative error** | **`+1.12e-6` (`+0.000112 %`)** |
+/// | Frictionless Bernoulli `sqrt(2Δp/ρ)` | `6.334222` m/s; measured is `−1.7102 %` below it |
+/// | Outlet face `u` | `6.225885` m/s |
+/// | Global continuity `\|ṁ_in − ṁ_out\|/ṁ_out` | `1.277e-6` (`48.748981` vs `48.748919` kg/s) |
+/// | Steadiness (p-p / mean, last 20 %) | `3.344e-7` |
+/// | Max material Courant | `0.12452` |
+/// | Max `α` over the run | `0` exactly |
+///
+/// Approach to steady state (inlet face velocity): `0.4007` m/s at `t = 0.01` s,
+/// `4.8199` at `0.16` s, `6.0003` at `0.31` s, `6.1927` at `0.46` s, `6.2251`
+/// at `0.76` s, `6.225891` at `1.36` s — an e-folding time of roughly
+/// `L/u ≈ 0.08` s, so `t_end = 1.5` s is ~19 time constants and the residual
+/// drift is at the `1e-7` level the steadiness metric reports.
+///
+/// **The pressure field decomposes exactly as the derivation predicts**, which
+/// is the strongest single piece of evidence here because it checks each of the
+/// three momentum balances separately rather than only their sum:
+///
+/// | Term | Predicted \[Pa\] | Measured \[Pa\] |
+/// |---|---|---|
+/// | `p_0 − p[0]` = `ρu²/2 + ρFΔx/2` | `19321.75 + 16.96` | `p[0] = 980661.29` vs predicted `980661.291` |
+/// | `p[0] − p[n−1]` = `(n−1) ρ F Δx` | `644.376` | `644.33` |
+/// | `p[n−1] − p_out` = `ρ F Δx/2` | `16.957` | `16.96` |
+///
+/// with `F = f u²/(2D) = 1.36073` m/s². Every term agrees to `≈0.01` Pa out of
+/// a 20 kPa head.
+///
+/// # Interpretation
+///
+/// The `ReservoirInlet` boundary reaches its documented Bernoulli steady state
+/// to **1.1 parts per million** — five orders inside the 1 % gate and three
+/// orders inside the ~0.1 % *a priori* error budget, i.e. the discrete steady
+/// state really is the closed form and the residual is the outer-corrector
+/// stopping tolerance rather than any modelling error. In particular:
+///
+/// - The **conservative half-cell convection** is doing exactly what its doc
+///   comment claims. The non-conservative alternative would land at
+///   `sqrt(Δp/ρ) ≈ 4.48` m/s, `−28 %`; nothing near that is seen.
+/// - The **half-cell pressure coefficient** `d = Δt/(ρ Δx/2)` is right: a
+///   whole-cell `d` at the two Dirichlet faces would mis-charge the end
+///   half-cells and show up in the `16.96` Pa end terms above (they would
+///   double), which it does not.
+/// - Wall friction is charged over exactly `L`, not `L ± Δx`.
+///
+/// **What this does NOT establish.** It is a single-phase, subcooled, steady,
+/// horizontal, low-Mach check. It says nothing about the inflow *flash* (`α`
+/// was identically zero throughout, so the `void_fraction`/`rho_g` members of
+/// the inflow state were never exercised on a two-phase inlet), nothing about
+/// the `h_0 − u²/2` static-enthalpy split beyond its `2e-4` relative size here,
+/// nothing about backflow through either boundary, and nothing about
+/// transients. Those remain unverified.
+#[test]
+fn reservoir_inlet_reaches_the_bernoulli_limit_in_subcooled_water() {
+    use std::time::Instant;
+
+    use outram_foam_basic_lib::primitives::Vector3;
+    use outram_foam_multiphase::drift_flux::SlipModel;
+    use uom::si::angle::radian;
+    use uom::si::available_energy::joule_per_kilogram;
+    use uom::si::f64::{Angle, Length, Pressure, ThermodynamicTemperature, Time};
+    use uom::si::length::meter;
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
+    use uom::si::time::second;
+
+    use super::drift_flux::{AxialBoundary, DriftFlux1d};
+
+    // ── The case, as tabulated in the doc comment above ──────────────────────
+    const P0_PA: f64 = 1.000e6;
+    const P_OUT_PA: f64 = 0.980e6;
+    const T0_K: f64 = 300.0;
+    const L_M: f64 = 0.5;
+    const D_M: f64 = 0.1;
+    const N_CELLS: usize = 20;
+    const DT_S: f64 = 5.0e-4;
+    const T_END_S: f64 = 1.5;
+    const SAMPLE_EVERY: usize = 20;
+    // Pre-committed; see the "Pass criterion" section above. Never widen this
+    // to make a run pass -- a miss is a finding about the boundary condition.
+    const REL_TOL: f64 = 1.0e-2;
+
+    // ── The closed-form reference, computed BEFORE the march ─────────────────
+    let h0 = tampines_steam_tables::region_1_subcooled_liquid::h_tp_1(
+        ThermodynamicTemperature::new::<kelvin>(T0_K),
+        Pressure::new::<pascal>(P0_PA),
+    )
+    .get::<joule_per_kilogram>();
+    let sat_out = SaturatedProperties::at(P_OUT_PA).expect("0.98 MPa is inside IF97");
+    let state_ref = TwoPhaseState::flash(P_OUT_PA, h0, sat_out).expect("subcooled flash");
+    let rho_ref = state_ref.density;
+    let mu_ref = sat_out.mu_f;
+    let dp = P0_PA - P_OUT_PA;
+
+    // The solver's own Darcy closure, reproduced (it is a private fn of
+    // `drift_flux`, so it cannot be called from a sibling test module).
+    let darcy = |re: f64| {
+        if re < 2300.0 {
+            64.0 / re
+        } else {
+            0.316 * re.powf(-0.25)
+        }
+    };
+    let u_bernoulli = (2.0 * dp / rho_ref).sqrt();
+    let mut u_expected = u_bernoulli;
+    let mut f_expected = 0.0;
+    let mut re_expected = 0.0;
+    for _ in 0..200 {
+        re_expected = rho_ref * u_expected * D_M / mu_ref;
+        f_expected = darcy(re_expected);
+        u_expected = (2.0 * dp / (rho_ref * (1.0 + f_expected * L_M / D_M))).sqrt();
+    }
+    println!(
+        "reference state: h_0 = {h0:.6e} J/kg, T = {:.3} K, rho = {rho_ref:.4} kg/m^3, \
+         mu_f = {mu_ref:.6e} Pa.s, alpha = {:.3e}",
+        state_ref.temperature, state_ref.void_fraction
+    );
+    println!(
+        "closed form: u_frictionless = {u_bernoulli:.6} m/s, Re = {re_expected:.4e}, \
+         f = {f_expected:.6}, f L/D = {:.6}, u_expected = {u_expected:.6} m/s \
+         (friction costs {:.3} %)",
+        f_expected * L_M / D_M,
+        100.0 * (1.0 - u_expected / u_bernoulli)
+    );
+    assert!(
+        state_ref.void_fraction == 0.0,
+        "the reference state must be single-phase subcooled liquid, got alpha = {}",
+        state_ref.void_fraction
+    );
+
+    // ── Build and march ──────────────────────────────────────────────────────
+    let pipe = Pipe1d::circular(
+        Length::new::<meter>(L_M),
+        Length::new::<meter>(D_M),
+        Angle::new::<radian>(0.0),
+        N_CELLS,
+    )
+    .expect("the discharge pipe is well posed");
+    let area = pipe.area_si();
+
+    let slip = SlipModel::ZuberFindlay {
+        c0: 1.13,
+        vgj: Vector3::new(0.1, 0.0, 0.0),
+    };
+    let mut solver = DriftFlux1d::new(
+        pipe,
+        slip,
+        Pressure::new::<pascal>(P_OUT_PA),
+        ThermodynamicTemperature::new::<kelvin>(T0_K),
+        Time::new::<second>(DT_S),
+    )
+    .expect("the initial state is inside IF97");
+    solver.set_left_boundary(AxialBoundary::ReservoirInlet {
+        stagnation_pressure: P0_PA,
+        stagnation_enthalpy: h0,
+    });
+    solver.set_right_boundary(AxialBoundary::PressureOutlet {
+        pressure: P_OUT_PA,
+    });
+
+    let n_steps = (T_END_S / DT_S).round() as usize;
+    let mut u_inlet_history: Vec<(f64, f64)> = Vec::new();
+    let mut max_courant = 0.0_f64;
+    let mut max_void = 0.0_f64;
+    let started = Instant::now();
+    for step in 1..=n_steps {
+        let report = solver
+            .step()
+            .unwrap_or_else(|e| panic!("step {step} failed at t = {} s: {e}", solver.time().get::<second>()));
+        max_courant = max_courant.max(report.max_courant);
+        max_void = max_void.max(report.max_void_fraction);
+        if step % SAMPLE_EVERY == 0 {
+            u_inlet_history.push((report.time, solver.face_velocity()[0]));
+        }
+    }
+    let wall = started.elapsed();
+
+    // ── Steadiness, measured rather than assumed ─────────────────────────────
+    let tail_start = u_inlet_history.len() * 4 / 5;
+    let tail = &u_inlet_history[tail_start..];
+    let tail_mean = tail.iter().map(|&(_, u)| u).sum::<f64>() / tail.len() as f64;
+    let tail_min = tail.iter().map(|&(_, u)| u).fold(f64::INFINITY, f64::min);
+    let tail_max = tail
+        .iter()
+        .map(|&(_, u)| u)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let steadiness = (tail_max - tail_min) / tail_mean;
+
+    // ── Measured quantities ──────────────────────────────────────────────────
+    let u_in = solver.face_velocity()[0];
+    let u_out = solver.face_velocity()[N_CELLS];
+    let rho = solver.density();
+    let mdot_in = rho[0] * u_in * area;
+    let mdot_out = rho[N_CELLS - 1] * u_out * area;
+    let continuity = (mdot_in - mdot_out).abs() / mdot_out.abs();
+    let rel_err = (u_in - u_expected) / u_expected;
+
+    println!(
+        "march: {n_steps} steps of {DT_S} s to t = {:.4} s in {:.2} s wall clock",
+        solver.time().get::<second>(),
+        wall.as_secs_f64()
+    );
+    for &(t, u) in u_inlet_history.iter().step_by(u_inlet_history.len() / 10) {
+        println!("  t = {t:.4} s  u_inlet = {u:.6} m/s");
+    }
+    println!(
+        "steady: u_in = {u_in:.6} m/s, u_out = {u_out:.6} m/s, \
+         u_expected = {u_expected:.6} m/s, rel err = {:.4} %",
+        100.0 * rel_err
+    );
+    println!(
+        "        vs frictionless Bernoulli {u_bernoulli:.6} m/s: {:.4} %",
+        100.0 * (u_in - u_bernoulli) / u_bernoulli
+    );
+    println!(
+        "        mdot_in = {mdot_in:.6} kg/s, mdot_out = {mdot_out:.6} kg/s, \
+         continuity = {continuity:.3e}"
+    );
+    println!(
+        "        steadiness (peak-to-peak / mean over last 20 % of the march) = {steadiness:.3e}"
+    );
+    println!("        max Courant = {max_courant:.5}, max alpha = {max_void:.3e}");
+    println!(
+        "        p[0] = {:.2} Pa, p[n-1] = {:.2} Pa, rho[0] = {:.4}, rho[n-1] = {:.4} kg/m^3",
+        solver.pressure()[0],
+        solver.pressure()[N_CELLS - 1],
+        rho[0],
+        rho[N_CELLS - 1]
+    );
+
+    // ── Gates ────────────────────────────────────────────────────────────────
+    assert!(
+        max_void == 0.0,
+        "the case must stay single-phase for the Bernoulli comparison to mean \
+         anything; got max alpha = {max_void}"
+    );
+    assert!(
+        max_courant < 0.5,
+        "material Courant {max_courant} is too large for donor-cell transport"
+    );
+    assert!(
+        steadiness <= 1.0e-3,
+        "the march has not reached steady state: peak-to-peak / mean over the \
+         last 20 % is {steadiness:e}"
+    );
+    assert!(
+        continuity <= 1.0e-3,
+        "global continuity is violated: mdot_in = {mdot_in} kg/s vs mdot_out = \
+         {mdot_out} kg/s ({continuity:e} relative)"
+    );
+    assert!(
+        u_in < u_bernoulli,
+        "wall friction can only remove head, so the steady velocity {u_in} m/s \
+         must be below the frictionless Bernoulli value {u_bernoulli} m/s"
+    );
+    assert!(
+        u_in > 0.95 * u_bernoulli,
+        "f L/D <= 0.05 bounds the friction correction at 2.5 % on u; {u_in} m/s \
+         is more than 5 % below the frictionless {u_bernoulli} m/s, so something \
+         other than the documented Darcy closure is removing momentum"
+    );
+    assert!(
+        rel_err.abs() <= REL_TOL,
+        "steady inlet velocity {u_in} m/s differs from the closed-form \
+         {u_expected} m/s by {:.4} %, outside the pre-committed {:.2} % gate",
+        100.0 * rel_err,
+        100.0 * REL_TOL
+    );
+}

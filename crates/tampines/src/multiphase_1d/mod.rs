@@ -234,4 +234,10 @@ pub fn thomas_solve(
 mod edwards_tests;
 
 #[cfg(test)]
+mod marviken_tests;
+
+#[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod two_fluid_tests;
