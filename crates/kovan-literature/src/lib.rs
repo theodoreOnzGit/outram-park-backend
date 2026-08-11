@@ -165,19 +165,50 @@ pub mod storage {
 
     /// Infer a document's [`Visibility`] from where its source file lives.
     ///
-    /// Any path that contains a `proprietary/` component is treated as
-    /// [`Visibility::Proprietary`]; everything else defaults to
-    /// [`Visibility::Open`]. This is the deterministic rule the ingestion
-    /// pipeline uses so proprietary material never gets an "open" label by
-    /// accident (`docs/kovan.md`, "Open vs Proprietary").
+    /// **Closed by default.** A document is [`Visibility::Open`] only when its
+    /// path explicitly contains an `open/` component. Everything else —
+    /// including `proprietary/`, and including any path with neither marker —
+    /// is [`Visibility::Proprietary`].
+    ///
+    /// # Why the default is closed
+    ///
+    /// The two ways of being wrong here are not symmetric:
+    ///
+    /// - Mislabelling an **open** document as proprietary costs a reviewer a
+    ///   minute and keeps a committable file out of git. Recoverable.
+    /// - Mislabelling a **proprietary** document as open invites it into
+    ///   `open/`, which `.gitignore` deliberately un-ignores for PDFs, and from
+    ///   there into a public repository. That is a licence violation, and
+    ///   pushed history is not something you can quietly take back.
+    ///
+    /// So the rule fails towards the recoverable error. This matches the
+    /// instruction in `kovan_import/README.md` — "unsure -> treat as
+    /// proprietary and ask" — and `DATA_POLICY.md`.
+    ///
+    /// # The bug this replaced
+    ///
+    /// Until 2026-08-11 this defaulted to [`Visibility::Open`] and only
+    /// special-cased `proprietary/`, so a source file staged anywhere else —
+    /// notably `kovan_import/`, the gitignored drop area where documents sit
+    /// *before* their access tier has been decided — was silently labelled
+    /// Open. That is precisely the unrecoverable direction. It was found when
+    /// Tobias (1980), a Pergamon Press work with all rights reserved, imported
+    /// as `visibility: Open` despite being written to proprietary output paths
+    /// (bead `op-nv6g`). The old doc comment claimed the function existed "so
+    /// proprietary material never gets an open label by accident", which is
+    /// what it should have done and did not.
+    ///
+    /// Note this is a *storage-layout* inference, not a licence determination.
+    /// The access tier is decided by a human reading the document's own
+    /// copyright page, then expressed by choosing where to put the file.
     pub fn visibility_from_path(path: &Path) -> Visibility {
-        let proprietary = path
+        let explicitly_open = path
             .components()
-            .any(|c| c.as_os_str().eq_ignore_ascii_case(PROPRIETARY_ROOT));
-        if proprietary {
-            Visibility::Proprietary
-        } else {
+            .any(|c| c.as_os_str().eq_ignore_ascii_case(OPEN_ROOT));
+        if explicitly_open {
             Visibility::Open
+        } else {
+            Visibility::Proprietary
         }
     }
 
@@ -221,8 +252,27 @@ mod tests {
         );
     }
 
+    /// **Methodology.** Exercise [`storage::visibility_from_path`] on the three
+    /// path classes it can meet: explicitly open, explicitly proprietary, and —
+    /// the case that matters — paths carrying *neither* marker. Pass criterion:
+    /// only an explicit `open/` component yields [`Visibility::Open`];
+    /// everything else is [`Visibility::Proprietary`].
+    ///
+    /// **Why the unmarked cases are the point.** Until 2026-08-11 this function
+    /// defaulted to Open, and the test here covered only the first two
+    /// assertions below — both of which pass under either the old rule or the
+    /// new one. The unmarked path was never exercised, so nothing failed when a
+    /// document staged in `kovan_import/` was silently labelled Open. That is
+    /// how Tobias (1980), all rights reserved to Pergamon Press, imported as
+    /// `visibility: Open` (bead `op-nv6g`). A test that only checks the cases
+    /// you thought of is how a default survives being wrong.
+    ///
+    /// **Results (2026-08-11).** All seven assertions pass. The bare-filename
+    /// and `kovan_import/` cases resolve to Proprietary, which under the old
+    /// implementation resolved to Open.
     #[test]
-    fn visibility_inferred_from_path() {
+    fn visibility_is_closed_unless_a_path_says_open() {
+        // Explicit markers.
         assert_eq!(
             storage::visibility_from_path(Path::new("open/papers/x.pdf")),
             Visibility::Open
@@ -230,6 +280,35 @@ mod tests {
         assert_eq!(
             storage::visibility_from_path(Path::new("proprietary/reports/x.pdf")),
             Visibility::Proprietary
+        );
+
+        // Neither marker: must be closed. These are the regression cases.
+        assert_eq!(
+            storage::visibility_from_path(Path::new("kovan_import/staged.pdf")),
+            Visibility::Proprietary,
+            "a document staged before its tier is decided must not be Open"
+        );
+        assert_eq!(
+            storage::visibility_from_path(Path::new("x.pdf")),
+            Visibility::Proprietary,
+            "a bare filename carries no tier evidence, so it must be closed"
+        );
+        assert_eq!(
+            storage::visibility_from_path(Path::new("/home/user/Downloads/paper.pdf")),
+            Visibility::Proprietary
+        );
+
+        // The marker is matched case-insensitively, as a whole component.
+        assert_eq!(
+            storage::visibility_from_path(Path::new("OPEN/papers/x.pdf")),
+            Visibility::Open
+        );
+        // "open" as a substring of a longer component is NOT a marker; a
+        // directory called `openfoam_cases/` must not open a document.
+        assert_eq!(
+            storage::visibility_from_path(Path::new("openfoam_cases/x.pdf")),
+            Visibility::Proprietary,
+            "a substring match must not be mistaken for the open/ component"
         );
     }
 
