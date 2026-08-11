@@ -98,6 +98,30 @@ Union. [doi:10.2760/270321](https://doi.org/10.2760/270321).
 - *Used by:* HTR-10 accident children `op-jyyp.13` (air ingress),
   `op-jyyp.14` (water ingress), `op-jyyp.7` (decay-heat path).
 
+**`nrc1982marviken`** — Joint Reactor Safety Experiments in the Marviken
+Power Station, Sweden (1982). *The Marviken Full Scale Critical Flow Tests:
+Summary Report.* NUREG/CR-2671 (MXC-301), U.S. Nuclear Regulatory Commission,
+Washington DC. Manuscript completed December 1979, published May 1982; 288 pp.
+Multinational project (Denmark, Finland, France, Netherlands, Norway, Sweden,
+USA, West Germany).
+- Files: `nureg-cr-2671-marviken.{json,pdf}`; generated markdown at
+  `generated/markdown/open/nureg-cr-2671-marviken.md`.
+- *Tier basis:* US NRC / NTIS publication — US federal government work, openly
+  published. Access tier OPEN, decided from the document's own front matter.
+- *Good for:* THE reference for the Marviken full-scale critical-flow
+  (choked-flow) blowdown tests. Fig. 8:24 provides the test 23 (3 K nominal
+  subcooling) and test 24 (33 K nominal subcooling) critical-mass-flux
+  envelopes for the 500 mm / L/D = 0.3 nozzle — this workspace's full-scale
+  experimental validation data for subcooled/saturated choked flow.
+- *Used by:* the `tampines-steam-tables` Marviken V&V gate
+  (`src/steam_turbine_equations/converging_diverging_nozzles/tests/marviken_tests.rs`,
+  bead `op-21g.16`) and the subcooled choke branch-selection fix (`op-dqng`).
+  The `tampines` drift-flux / two-fluid Marviken comparison cases (`op-ja3t`)
+  will cite it too, but have not landed yet.
+- *Ingest note (from the JSON record):* the extractor produced a barcode-line
+  title and a scan-artefact year (2009); both were corrected by hand at
+  ingest. Accessed 2026-08-11.
+
 **`robertson1965msre`** — Robertson, R. C. (1965). *MSRE Design and
 Operations Report, Part I: Description of Reactor Design.* ORNL-TM-728, Oak
 Ridge National Laboratory, January 1965.
