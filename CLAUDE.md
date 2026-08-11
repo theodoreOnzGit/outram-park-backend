@@ -213,6 +213,36 @@ edge you hit** (see "Raising issues" below).
 - **PDF → Markdown.** `kopitiam pdf2md` / `translate`. **But for document and
   literature management, prefer `kovan` — see the rule immediately below.**
 
+**ANY literature ingested OR USED goes into kovan (HARD RULE).** If a document
+informs the code — a correlation taken from it, a benchmark value cited, a
+number in a doc comment, a design decision justified by it — it belongs in
+`crates/kovan-literature`, catalogued, with its access tier and provenance. Not
+in `~/Downloads`, not loose in `reference-data/`, not read once and forgotten.
+
+- **"Used" is the trigger, not "ingested".** Reading a paper and typing one of
+  its numbers into a constant makes it a dependency of this codebase. A
+  citation in a doc comment that points at nothing in the archive is a dead
+  reference the next reader cannot check.
+- **Decide the access tier BEFORE cataloguing**, from the document's own
+  copyright page — not from where it was downloaded. Public hosting (INIS,
+  gen-4.org, a lab's website) grants no redistribution rights. Unsure means
+  **proprietary**; that failure direction is recoverable and the other is a
+  licence violation in a public repository.
+- **`kovan_import/` is the staging area** (gitignored) — drop the PDF there
+  first, decide the tier, then `kovan lit import` into `open/` or
+  `proprietary/`. Delete the staged copy once catalogued.
+- **Check the extracted metadata; it is frequently wrong.** Observed failures
+  include the article-type label, a journal running header, the PII string and
+  the Word source filename all taken as titles, editors taken as authors, and
+  a scan date taken as the publication year. `kovan lit bibtex <json>` must
+  round-trip cleanly — that is the acceptance check.
+- **Watch for a text-and-data-mining / AI-training reservation** in the
+  copyright line. Where present, catalogue metadata and factual findings only
+  and do **not** extract the full text — facts are not copyrightable, but the
+  corpus is what that clause reserves. See `op-b7bx`.
+- `crates/kovan-literature/CATALOGUE.md` is the human-readable index; keep it
+  current when adding a document.
+
 **Document management: `kovan` is preferred over `kopitiam` (HARD RULE).**
 For ingesting, cataloguing and citing literature, use this workspace's own
 `kovan` CLI (`crates/kovan-cli`, binary `kovan`) rather than kopitiam's
@@ -875,7 +905,7 @@ built, tested, and published from this single repository.
 
 | Crate (`crates/…`) | Role | License |
 |---|---|---|
-| `chem-eng-real-time-process-control-simulator` | PID / transfer-function process-control library (real-time simulators) | **Apache-2.0** |
+| `chem-eng-real-time-process-control-simulator` | PID / transfer-function process-control library (real-time simulators) | GPL-3.0 (relicensed from Apache-2.0 on 2026-08-11; published versions <= 0.1.1 stay Apache-2.0 — see crate `NOTICE`) |
 | `teh-o-prke` | Point Reactor Kinetics (PRKE) for the Teh-O transport/eigenvalue solver | GPL-3.0 |
 | `tuas_boussinesq_solver` | Thermal-hydraulics (Boussinesq single-phase) solver — TUAS | GPL-3.0 |
 | `tampines-steam-tables` | IAPWS-IF97 steam/water properties + steam-turbine equations — TAMPINES | GPL-3.0 |
