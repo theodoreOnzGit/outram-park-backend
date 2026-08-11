@@ -99,7 +99,16 @@
 //!   dispatcher, so the *break* is HEM even when the *pipe* is drift-flux or
 //!   two-fluid. This is a real modelling inconsistency and it is called out
 //!   again at the boundary condition itself.
-//! - **Nothing here is validated.** Every test is verification.
+//! - **One validation case, and only one.** As of 2026-08-11
+//!   [`drift_flux::DriftFlux1d`] is compared against the digitised
+//!   Edwards–O'Brien experimental GS-1 pressure curve by
+//!   `edwards_drift_flux_gs1_pressure_history` (see `edwards_tests.rs` for the
+//!   full V&V record: RMSE 29.0 psia over 0–0.30 s, plateau 354.3 psia inside
+//!   the experimental band, and an explicit list of what is *not* gated).
+//!   Every other test in this module is **verification** — closed-form
+//!   identities and invariants, compared against no experiment — and
+//!   [`two_fluid::TwoFluid1d`] is compared against nothing because it computes
+//!   nothing.
 //!
 //! # Units
 //!
@@ -220,6 +229,9 @@ pub fn thomas_solve(
     }
     Ok(x)
 }
+
+#[cfg(test)]
+mod edwards_tests;
 
 #[cfg(test)]
 mod tests;

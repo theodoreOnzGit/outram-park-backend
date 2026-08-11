@@ -176,10 +176,65 @@ pub enum AxialBoundary {
     /// **This is a modelling inconsistency and it is deliberate.** The break
     /// model is HEM even though the pipe is drift-flux, because the
     /// critical-flow dispatcher is the piece of this crate actually exercised
-    /// against Moody / Zaloudek / Marviken. Substituting an unvalidated
-    /// drift-flux choking model would trade a known inconsistency for an
-    /// unknown one. It is called out here, in the module docs, and in the
-    /// Edwards case, so it cannot be mistaken for an oversight.
+    /// against a reference. Substituting an unvalidated drift-flux choking
+    /// model would trade a known inconsistency for an unknown one. It is
+    /// called out here, in the module docs, and in the Edwards case, so it
+    /// cannot be mistaken for an oversight.
+    ///
+    /// **What "exercised against a reference" means here**, re-read from
+    /// `tampines-steam-tables`'s test source on 2026-08-11. The call path was
+    /// verified, not assumed: the Moody validator computes its test value via
+    /// `TampinesSteamTableCV::get_stagnation_critical_mass_flux`, which calls
+    /// `get_crit_pressure_and_massflux`, which calls
+    /// `get_critical_pressure_and_mass_flux_multiphase_ph` -- the same
+    /// dispatcher this boundary condition consumes -- and Zaloudek's
+    /// `generic_multiphase_stagnation` tests call
+    /// `get_crit_pressure_and_massflux` likewise. Note the Moody coverage of
+    /// the dispatcher is *incidental*: those tests predate the dispatcher and
+    /// reach it only because the OOP getter was rewired through it, so a
+    /// refactor of that getter could silently remove the coverage.
+    ///
+    /// - **Moody (1975) Fig. 1** -- gated **through the dispatcher**: 13
+    ///   active isobar tests
+    ///   (p0/p_ref = 0.25-30.0) assert `|log10 G_test - log10 G_ref| <= 0.06`,
+    ///   0.08 for deeply-subcooled Region-1 points. Caveat: the validator is
+    ///   region-filtered -- points that are neither in-dome (Region 4) nor
+    ///   deeply subcooled are skipped as a documented HEM limitation rather
+    ///   than asserted.
+    /// - **Zaloudek** -- gated: 89 tests across five files (21 in-dome / 21
+    ///   generic-dispatcher / 21 backward-throat / 22 subcooled, one an
+    ///   `#[ignore]`d diagnostic sweep / 4 superheated), critical-pressure
+    ///   tolerance 0.005-0.05 by curve, mass-flux log10 tolerance 0.05. Only
+    ///   the 21 generic tests exercise the dispatcher itself; the other four
+    ///   files call the regime-specific solvers directly, pinning what the
+    ///   dispatcher routes *to* rather than the routing.
+    ///   Caveat: these are graph-read HEM curves digitised from Saha (1978)
+    ///   NUREG/CR-0417, **not** experimental data -- so they check this
+    ///   implementation against another HEM, not against reality.
+    /// - **Marviken is NOT gated.** The digitised NUREG/CR-2671 test-23/24
+    ///   data exists in `marviken_tests.rs`, but the single test is
+    ///   `#[ignore = "skip first, Marviken is more complex"]`, its only
+    ///   assertion is commented out, and the body ends in `todo!()`. Do not
+    ///   cite Marviken in support of this boundary condition. Status as of
+    ///   2026-08-11: gating is being implemented in `tampines-steam-tables`
+    ///   (the op-bcg/op-4ily follow-up); re-check that crate's test suite
+    ///   for the current result rather than treating this line as permanent.
+    ///
+    /// The benchmark actually run on this solver path is **Edwards-O'Brien**,
+    /// gated by `edwards_drift_flux_gs1_pressure_history` in
+    /// `src/multiphase_1d/edwards_tests.rs` (measured 2026-08-11: full 600 ms,
+    /// GS-1 pressure RMSE 29.0 psia against the digitised experimental curve,
+    /// flashing plateau 354.3 psia inside the ~350-367 psia experimental band).
+    /// Read the caveats in that file's header before citing it: the reference
+    /// is a digitisation of a published figure, only GS-1 is gated, and the
+    /// break itself is this HEM dispatcher, so that result does **not**
+    /// validate a drift-flux critical-flow model.
+    ///
+    /// **Correction, 2026-08-11.** This paragraph previously read "The
+    /// genuinely validated benchmark on this solver path is Edwards-O'Brien
+    /// (2 active, passing tests)" while no Edwards test existed anywhere in
+    /// this crate. It does now, and the sentence has been rewritten to say
+    /// what it gates.
     ChokedOutlet {
         /// Break area as a fraction of the pipe flow area, in `(0, 1]`.
         area_fraction: f64,
@@ -1048,10 +1103,34 @@ fn upwind_scalar(field: &[f64], flux: f64, upstream: Option<usize>, downstream: 
 /// The HEM critical throat pressure \[Pa\] and mass flux \[kg/(m²·s)\] at a
 /// stagnation `(p, h)`.
 ///
-/// Delegates to the crate's existing dispatcher — the one exercised against
-/// Moody / Zaloudek / Marviken — rather than introducing a second choking
-/// model. See [`AxialBoundary::ChokedOutlet`] for why the break stays HEM even
-/// when the pipe does not.
+/// Delegates to the crate's existing dispatcher rather than introducing a
+/// second choking model. See [`AxialBoundary::ChokedOutlet`] for why the break
+/// stays HEM even when the pipe does not.
+///
+/// **V&V status of that dispatcher** (re-read from `tampines-steam-tables`'s
+/// test source on 2026-08-11):
+///
+/// - **Moody (1975) Fig. 1** -- gated: 13 active isobar tests, tolerance
+///   `|log10 G| <= 0.06` (0.08 deeply subcooled); region-filtered, so points
+///   neither in-dome (Region 4) nor deeply subcooled are skipped, not
+///   asserted. Call path verified 2026-08-11: those tests reach the *same
+///   dispatcher this function calls*, via
+///   `TampinesSteamTableCV::get_stagnation_critical_mass_flux ->
+///   get_crit_pressure_and_massflux ->
+///   get_critical_pressure_and_mass_flux_multiphase_ph` -- incidental
+///   coverage (the tests predate the dispatcher), so a getter refactor could
+///   silently remove it.
+/// - **Zaloudek** -- gated: 89 tests across five files (one an `#[ignore]`d
+///   diagnostic sweep), pressure tolerance 0.005-0.05, mass-flux log10
+///   tolerance 0.05 -- against graph-read HEM curves from Saha (1978)
+///   NUREG/CR-0417, not experimental data. Only the 21
+///   `generic_multiphase_stagnation` tests exercise the dispatcher itself;
+///   the rest pin the regime-specific solvers it routes to.
+/// - **Marviken is NOT gated** -- its test is `#[ignore]`d with its sole
+///   assertion commented out and a `todo!()` body, so it supports no claim
+///   about this function. Status as of 2026-08-11: gating is being
+///   implemented in `tampines-steam-tables` (the op-bcg/op-4ily follow-up);
+///   re-check that crate's test suite for the current result.
 fn critical_flux(p: f64, h: f64) -> (f64, f64) {
     use tampines_steam_tables::steam_turbine_equations::converging_diverging_nozzles::choked_flow::get_critical_pressure_and_mass_flux_multiphase_ph;
     use uom::si::available_energy::joule_per_kilogram;

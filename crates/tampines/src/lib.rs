@@ -47,6 +47,7 @@ pub mod cooling_tower;
 pub mod critical_flow;
 pub mod error;
 pub mod fluids;
+pub mod gas_phase;
 pub mod heat_transfer;
 pub mod hem;
 pub mod humid_air;
