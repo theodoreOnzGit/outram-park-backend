@@ -1,25 +1,25 @@
 {
   "id": "kovan-2af61bfa4458498e",
-  "slug": "robertson2002msre",
+  "slug": "robertson1965msre",
   "visibility": "Open",
-  "document_type": "Other",
-  "title": "MSRE Design and Operations Report Part I Description of Reactor Design [Disc 6]",
+  "document_type": "Report",
+  "title": "MSRE Design and Operations Report, Part I: Description of Reactor Design",
   "authors": [
     {
       "family": "Robertson",
       "given": "R.C.",
-      "affiliation": null
+      "affiliation": "Oak Ridge National Laboratory"
     }
   ],
   "abstract_text": "",
-  "year": 2002,
+  "year": 1965,
   "doi": null,
   "journal": null,
-  "institution": null,
+  "institution": "Oak Ridge National Laboratory, operated by Union Carbide Corporation for the U.S. Atomic Energy Commission",
   "publisher": null,
   "volume": null,
   "pages": null,
-  "number": null,
+  "number": "ORNL-TM-728",
   "keywords": [
     "radiator",
     "drain",
@@ -30,7 +30,13 @@
     "transmitter",
     "piping"
   ],
-  "tags": [],
+  "tags": [
+    "US AEC contractor report (Contract No. W-7405-eng-26), January 1965; the report itself states \"None of the information contained in this report is of a classified nature\" - US government-funded lab report, treated as public literature; access tier OPEN",
+    "METADATA HAND-CORRECTED 2026-08-11 (op-szai class): title was the scan-collection furniture \"MSRE Design and Operations Report Part I Description of Reactor Design [Disc 6]\", year was 2002 (the digitisation date, not the January 1965 publication date), document_type was Other, slug was robertson2002msre",
+    "PDF NOT ARCHIVED IN THIS REPO: ingested from the gitignored collaboration/ scratch area, which no longer exists locally; source_sha256 therefore unverifiable. The report is publicly available (ORNL-TM-728, widely mirrored, e.g. OSTI and the energyfromthorium document archive) - re-acquire and archive under open/reports/ to complete provenance.",
+    "scanned typescript PDF - OCR text quality is imperfect in places",
+    "accessed: before 2026-08-11 (exact date not recorded at ingest)"
+  ],
   "source_url": null,
   "source_path": "collaboration/msre-design-and-operation.pdf",
   "source_sha256": null,

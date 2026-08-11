@@ -36,7 +36,7 @@
     "published November 2003 (the extractor inferred 2004 from body text; corrected to the stated publication date)",
     "IAEA TECDOC — openly published; access tier OPEN",
     "source: https://www-pub.iaea.org/MTCD/publications/PDF/te_1382_web/",
-    "NOTE ON DUPLICATION: crates/kovan-literature/generated/markdown/open/htr-10-iaea.md is the SAME CONTENT as Part 2. It was ingested separately earlier and both now exist. Deduplicate when convenient; prefer this record, which carries full TECDOC provenance.",
+    "DEDUPLICATION RESOLVED 2026-08-11: the earlier duplicate ingest (open/reports/htr-10-iaea.json + generated/markdown/open/htr-10-iaea.md, byte-identical Chapter 4 content, title \"Chapter 4\", no provenance) was removed in favour of this record. docs/reactor-scoping/htr10-neutronics.md cites this record.",
     "accessed: 2026-08-11"
   ],
   "source_url": null,

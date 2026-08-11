@@ -1,6 +1,6 @@
 {
   "id": "kovan-62eb69c43f008d70",
-  "slug": "choo2024criticality",
+  "slug": "choo2023criticality",
   "visibility": "Open",
   "document_type": "Paper",
   "title": "Criticality Analysis of HTR-10 Using the High-Temperature Gas-Cooled Reactor Code Package",
@@ -17,14 +17,14 @@
     }
   ],
   "abstract_text": "",
-  "year": 2024,
+  "year": 2023,
   "doi": null,
-  "journal": null,
+  "journal": "Proceedings of the 15th Vietnam Conference on Nuclear Science and Technology (VINANST-15), Nha Trang, Vietnam, 9-11 August 2023",
   "institution": "Singapore Nuclear Research and Safety Initiative (SNRSI), National University of Singapore",
   "publisher": null,
   "volume": null,
   "pages": null,
-  "number": null,
+  "number": "INIS-VN-006 (proceedings report number)",
   "keywords": [
     "HTR-10",
     "pebble-bed reactor",
@@ -36,9 +36,11 @@
   "tags": [
     "IAEA INIS record 9cr77-d5t43, file 55046903",
     "publicly downloadable from IAEA INIS; treated as public literature",
-    "VENUE AND YEAR NOT STATED IN THE PDF - the 2024 year was inferred by the extractor and is UNVERIFIED; get the venue/year from the INIS record or the authors",
+    "VENUE/YEAR RESOLVED 2026-08-11 from the INIS record (https://inis.iaea.org/records/9cr77-d5t43): 15th Vietnam Conference on Nuclear Science and Technology (VINANST-15), Nha Trang City, Vietnam, 9-11 August 2023; publication August 2023; proceedings report INIS-VN-006. The INIS metadata self-consistently matches this PDF (11 pages, 584.3 kB = the archived 584342-byte file). The extractor-inferred 2024 was WRONG; year corrected 2024 -> 2023 and slug choo2024criticality -> choo2023criticality.",
+    "MAINTAINER CONFIRMATION STILL WELCOME: venue/year are from the INIS record, not stated in the PDF itself; the maintainer knows the authors personally.",
     "no explicit licence statement in the document; cite and use, do not assume redistribution rights beyond the INIS public copy",
     "authors are the maintainer supervisor (Xiao) and a former SNRSI colleague (Choo)",
+    "KNOWN STALE CROSS-REFERENCE: crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs:48 cites this paper as (2024); needs a one-character fix to (2023) (not edited during the 2026-08-11 librarian pass - live agent in that crate).",
     "accessed: 2026-08-11"
   ],
   "source_url": "https://inis.iaea.org/records/9cr77-d5t43",
