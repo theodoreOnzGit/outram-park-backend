@@ -85,12 +85,30 @@ Observables:
 
 ## Test contract (Edwards pipe test)
 
-Location:
-`tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/edwards_pipe/`
-— alongside the existing `marviken_tests.rs`, `zaloudek_*` and `moody_*`
-test directories under `converging_diverging_nozzles/tests/`. Register
-the new `edwards_pipe` module in that directory's test `mod.rs` the same
-way the existing test suites are wired.
+> **Location corrected 2026-08-11.** This section was written as a plan and
+> named a location that was never used. There is no `edwards_pipe/` directory
+> anywhere under `src/`, and nothing is registered in the
+> `converging_diverging_nozzles/tests/` `mod.rs` for it.
+
+**Actual location: `tampines-steam-tables/tests/edwards_blowdown.rs`** — an
+integration-test target at the crate root, not an in-`src` unit-test module. It
+holds two tests, `edwards_obrien_pipe_blowdown_600ms` and
+`edwards_hybrid_damps_ringing_vs_pimple`, neither `#[ignore]`d.
+
+**It is very slow.** Measured 2026-08-11: `edwards_obrien_pipe_blowdown_600ms`
+alone **384.75 s**, and the whole target (both tests, run in parallel by cargo)
+**393.58 s**. Run it as its own generously-timed invocation:
+
+```bash
+cargo test --release -p tampines-steam-tables --test edwards_blowdown
+```
+
+**A timeout is not a failure** — if the run is killed, report that it was killed,
+not that a test failed. See the crate `CLAUDE.md` "Testing notes".
+
+The original planned location, kept for the record, was
+`.../converging_diverging_nozzles/tests/edwards_pipe/`, alongside
+`marviken_tests.rs`, `zaloudek_*` and `moody_*`.
 
 Output (printed to stdout via `println!`, viewable with
 `cargo test -- --nocapture`):

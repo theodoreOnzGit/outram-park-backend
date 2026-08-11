@@ -207,9 +207,20 @@ Default tolerances: `critical_pressure_tolerance = 0.03`, `mass_flux_log_toleran
 
 ---
 
-### `quality_bubble_point_subcooled` — x_t = 1e-4 (ACTIVE FAILING CANARY)
+### `quality_bubble_point_subcooled` — x_t = 1e-4 (FIXED in v0.2.1; this section is the pre-fix trail)
 
-`#[ignore]` is commented out — this test is intentionally failing and under active investigation.
+> **Status correction, 2026-08-11.** This test is **active and passing**, not
+> failing. Verified by running it:
+> `cargo test --release -p tampines-steam-tables quality_bubble_point_subcooled`
+> gives `test result: ok. 1 passed; 0 failed; 0 ignored`. It carries no
+> `#[ignore]`. The failure recorded below was a numerical bug in the forward
+> choke finder (the energy-balance maximum is blind to the HEM sound-speed
+> discontinuity at the bubble point), **not** an HEM physics limitation, and it
+> was fixed by routing on the two-phase quality at the energy-max choke — see
+> `docs/notes.md` and the comment block above the test. The numbers below are
+> kept as the pre-fix debugging trail; do not read them as current results.
+
+At the time of writing, `#[ignore]` was commented out and the test was failing.
 
 Tol: p=0.03, G-log=0.05. 16 points tested (5–2000 psia); 3000 psia skipped (stagnation Region 3).
 

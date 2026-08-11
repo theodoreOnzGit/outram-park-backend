@@ -75,10 +75,10 @@ completion:
 
 | Case | Location | State |
 |---|---|---|
-| Edwards–O'Brien pipe blowdown | `tests/edwards_blowdown.rs` | **Run**, results recorded 2026-07-16. 2 tests, none ignored. Sanity-only assertions (finiteness, bounds); reported as RMSE, not a hard gate |
-| Moody critical mass flux | `.../tests/moody_critical_mass_flux_homogeneous_eqm.rs` | **Active** — 14 tests, 1 ignored, and that one is `diagnose_deep_subcooled_failures`, a diagnostic. `isobar_pref_0_25` is **not** ignored (bead `op-21g.2` looks stale) |
+| Edwards–O'Brien pipe blowdown | `tests/edwards_blowdown.rs` | **Run**, results recorded 2026-07-16. 2 tests, none ignored. Sanity-only assertions (finiteness, bounds); reported as RMSE, not a hard gate. **Very slow** — see the timing note below |
+| Moody critical mass flux | `.../tests/moody_critical_mass_flux_homogeneous_eqm.rs` | **Active** — 13 tests, **none ignored** (recounted 2026-08-11). `isobar_pref_0_25` is **not** ignored (bead `op-21g.2` looks stale) |
 | Zaloudek critical mass flux | `.../tests/zaloudek_critical_mass_flux_homogeneous_eqm/` | **Active** — 89 tests across 5 files, 1 ignored, and that one is `diagnose_bubble_point_artifact`, a diagnostic |
-| Marviken tests 23/24 | `.../tests/marviken_tests.rs` | **Not done** — `#[ignore="skip first, Marviken is more complex"]`, assertion commented out, body ends in `todo!()` at line 222. Digitised NUREG/CR-2671 data is present |
+| Marviken tests 23/24 | `.../tests/marviken_tests.rs` | **Done 2026-08-11, split outcome** — 6 active tests, none ignored, ~1.4 s. Test 23 (3 K subcooling) **validates** (mean dev 12.6 %, worst 23.1 %, inside a justified ±25 % band); test 24 (33 K) **fails** (mean −48.5 %, worst −70.2 %) and is kept as an honest characterisation. The bare HEM maximum-flux criterion matches both to 9–10 %, so the deficit is a solver branch defect, not HEM physics. Methodology, error budget and results in the module doc |
 | Bubble-point saturation | `.../tests/bubble_point_saturation_validation.rs` | 2 tests, none ignored |
 | CD-nozzle subsonic / choked / perfectly-expanded | `.../tests/cd_nozzle_*.rs`, `diverging_nozzle_*.rs` | 9 tests, **2 ignored and both unfinished** — `wet_steam_test` ("temporary skip test") and `..._wet_steam` ("test not ready"). Both are on the **wet-steam** path the turbine needs |
 | **Steam turbine — anything** | — | **Nothing.** No V&V case exists |
@@ -90,12 +90,47 @@ So the gaps this scope addresses are: the **entire turbine**, and the pipe's
 The pipe's *transient* behaviour is the one thing already exercised, via
 Edwards–O'Brien.
 
-**Counting caveat.** `#[ignore]` here often carries a reason string
-(`#[ignore="..."]`), so the obvious `grep '#\[ignore\]'` **undercounts real
-skips and overcounts comment mentions**. Count with
-`grep -rnE '^\s*#\[ignore' src/`. An earlier pass of this document reported
-Moody as "8 ignored" on the bad pattern; the true figure is 1, and it is a
-diagnostic.
+**Counting caveat — grep is not authoritative here.** Two traps, and this
+document has fallen into both:
+
+1. `#[ignore]` often carries a reason string (`#[ignore="..."]`), so the obvious
+   `grep '#\[ignore\]'` **undercounts real skips and overcounts comment
+   mentions**. An earlier pass reported Moody as "8 ignored" on that bad pattern.
+2. Even `grep -rnE '^\s*#\[ignore' src/` **overcounts**, because it matches
+   attributes inside `/* … */` block comments, which are not compiled. This is
+   exactly what happened with Moody: the corrected figure of "1 ignored, and it
+   is `diagnose_deep_subcooled_failures`, a diagnostic" was still wrong. That
+   function was commented out wholesale on 2026-06-30 and is not a test at all,
+   so the Moody file has **13 tests and zero ignored** (re-checked 2026-08-11).
+
+**Count from the test binary, not from grep:**
+
+```bash
+cargo test --release -p tampines-steam-tables --lib -- --list             # all tests
+cargo test --release -p tampines-steam-tables --lib -- --ignored --list   # ignored only
+```
+
+As of 2026-08-11 that gives **938 library test functions, 14 ignored** (so 924
+pass). Whole-crate figures elsewhere in this document should be read against
+those two commands.
+
+**Timing caveat — a timeout is NOT a failure.** The two Edwards–O'Brien tests in
+`tests/edwards_blowdown.rs` are far more expensive than everything else in the
+crate combined: `edwards_obrien_pipe_blowdown_600ms` integrates 20 000 PIMPLE
+steps with a real IAPWS-IF97 $(p,h)$ flash per cell per step and **took 384.75 s
+measured on 2026-08-11**; the full `edwards_blowdown` target (both tests, run in
+parallel by cargo) took **393.58 s** the same day. A whole-crate `cargo test`
+will exceed a default command timeout because of them. When that happens, record
+that the run was killed and how far it got — never convert a killed run into a
+failure count, and never loosen a tolerance to make a long test finish sooner.
+Run `cargo test --release -p tampines-steam-tables --lib` for the fast path and
+add `--test edwards_blowdown` as a separate, generously-timed invocation.
+
+Both figures are hardware- and load-dependent, and the wall-clock time of the
+`cargo test` **command** also covers compilation and any wait on the cargo
+build-directory lock — one invocation during this measurement blocked on that
+lock for over ten minutes before the test began. Quote the harness's
+`finished in <N>s` line, not shell elapsed time.
 
 ---
 

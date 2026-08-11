@@ -1,5 +1,36 @@
 # CLAUDE.md — Project Context for HRM Critical Flow Solver
 
+> ## ⚠️ SUPERSEDED — historical scratch context, do not act on it (2026-08-11)
+>
+> Three things in this file are no longer true. It is kept only as a record of
+> the HEM-to-HRM investigation that was under way before the real bug was found.
+>
+> 1. **The premise is wrong.** This file was written while the crate was
+>    "transitioning from HEM to HRM" because the subcooled solver was believed to
+>    fail on physics grounds at the saturated-liquid line. It did not. The
+>    failure was numerical — the energy-balance choke finder is blind to the HEM
+>    sound-speed discontinuity at the bubble point — and was fixed in v0.2.1 by
+>    routing on the two-phase quality at the energy-max choke. No relaxation
+>    model was needed. **There is no HRM in this crate and no failing test
+>    motivating one.**
+> 2. **"Subcooled solver: FAILING" is out of date.** As of 2026-08-11 all
+>    Zaloudek subcooled curves pass, including x_t ≈ 0
+>    (`quality_bubble_point_subcooled`, verified by running it: `1 passed;
+>    0 failed; 0 ignored`).
+> 3. **Four of the six referenced documents do not exist in this repository** —
+>    `downar_zapolski_1996.md`, `saha_1978.md`, and the two PDFs
+>    (`THE NON-EQUILIBRIUM RELAXATION MODEL FOR 1D Flashing liquid flow.pdf`,
+>    `saha hem.pdf`) are not present anywhere under this crate. They were
+>    external scratch files. Only `zaloudek_in_dome_debug.md` and
+>    `zaloudek_subcooled_debug.md` are real, and both sit alongside this file in
+>    `debug_markdowns/`. If those references are wanted again, ingest the papers
+>    properly with `kovan lit import` rather than re-adding loose paths.
+>
+> For current status read `docs/notes.md` and the crate `CLAUDE.md`, not this
+> file. Whether an HRM is warranted for *real* flashing flow remains an open
+> physics question, but it can only be settled against experimental data
+> (Marviken), not against the HEM-computed Zaloudek curves.
+
 ## Project Overview
 
 Rust-based 1D two-phase critical flow solver, transitioning from HEM

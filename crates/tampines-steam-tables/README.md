@@ -70,10 +70,21 @@ things TAMPINES has that the CoolProp fork does not (as of 2026-07-10):
   curves** — 20+ active tests per file across the in-dome / subcooled /
   superheated / generic-dispatcher / backward-throat files
   (critical-pressure relative tolerance 0.005–0.05 by curve, mass-flux
-  log10 tolerance 0.05). **Marviken is digitised but NOT gated**: the
-  NUREG/CR-2671 test-23/24 data is in `marviken_tests.rs`, but that test is
-  `#[ignore]`d, its only assertion is commented out, and it ends in
-  `todo!()` (bead `op-21g.16`). (See the Changelog below for the debugging
+  log10 tolerance 0.05). **Marviken is now gated, with a split result**: the
+  NUREG/CR-2671 test-23/24 data in `marviken_tests.rs` runs as six active
+  tests (no `#[ignore]`, ~1.4 s). Against the 500 mm / `L/D` = 0.3 nozzle,
+  the HEM dispatcher **validates on test 23** (3 K subcooling: mean
+  deviation 12.6 %, worst 23.1 %, inside the justified $\pm 25\%$
+  experimental band) but **fails on test 24** (33 K subcooling: mean
+  $-48.5\%$, worst $-70.2\%$), so it is kept as an honest characterisation
+  and **the crate must not be called Marviken-validated for subcooled
+  stagnation states**. The bare HEM maximum-mass-flux criterion, evaluated
+  in the same file from the public `(p,s)` flashes, reproduces *both* tests
+  to a mean of 9–10 % — so the test-24 deficit is a branch-selection defect
+  in `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`, **not** an
+  HEM physics limitation. Measured 2026-08-11; see the module doc of
+  `marviken_tests.rs` for methodology, error budget and the full lessons
+  note (bead `op-21g.16`). (See the Changelog below for the debugging
   history, e.g. the near-bubble-point HEM artifact and the
   Moody-vs-Zaloudek subcooled-regime reconciliation.) The CoolProp fork has
   no choked-flow / critical-mass-flux model at all — it is a
@@ -140,19 +151,57 @@ calculations for simplicity.
 cargo run --release -p tampines --example fhr_sim_v2
 ```
 
-Note that for windows PCs, sometimes there will be problems where 
-windows defender blocks the fhr_sim_v2 from being run. In those cases,
-it's better to use windows subsystem for linux (WSL). One needs to note 
-to use:
+### Running the test suite
+
+Always use `--release`. Split the fast library tests from the one very slow
+integration test:
 
 ```bash
-sudo apt install libopenblas-dev
+# Fast path — 938 library test functions, finishes in seconds
+cargo test --release -p tampines-steam-tables --lib
+
+# Slow path — the Edwards-O'Brien blowdown transient. Give it 10+ minutes.
+cargo test --release -p tampines-steam-tables --test edwards_blowdown
 ```
 
-Before running:
+**Current status, measured 2026-08-11:** `--lib` gives **924 passed, 0 failed,
+14 ignored**. List the ignored ones with
+`cargo test --release -p tampines-steam-tables --lib -- --ignored --list`.
+
+**A timeout is not a test failure.** `tests/edwards_blowdown.rs` integrates a
+600 ms two-phase pipe blowdown at `dt = 30 µs` — 20 000 PIMPLE steps, each doing
+real IAPWS-IF97 `(p, h)` flashes on every cell. Measured 2026-08-11:
+`edwards_obrien_pipe_blowdown_600ms` alone took **384.75 s**, and the full
+`edwards_blowdown` target (both tests, run in parallel by cargo) took
+**393.58 s**. A bare `cargo test` over the whole crate will therefore exceed a
+default command timeout. If that happens, report that the run was killed and how
+far it got — do not record it as a failing test, and never loosen a tolerance
+because a long test was inconvenient.
+
+Treat any written-down timing, including the two above, as indicative only:
+they are hardware- and load-dependent, and the wall-clock time of a `cargo test`
+command also covers compilation and any wait on the cargo build-directory lock
+when something else is building the workspace. The harness's own
+`finished in <N>s` line is the figure to quote.
+
+Note that for windows PCs, sometimes there will be problems where 
+windows defender blocks the fhr_sim_v2 from being run. In those cases,
+it's better to use windows subsystem for linux (WSL), then run:
+
 ```bash
 cargo run --release -p tampines --example fhr_sim_v2
 ```
+
+**No system BLAS is required** (corrected 2026-08-11). This section used to tell
+WSL users to `sudo apt install libopenblas-dev` first. That was needed when
+`tampines-steam-tables` and `tuas_boussinesq_solver` still declared
+`ndarray-linalg`; neither does any more (TUAS dropped it at v0.1.2 in favour of
+pure-Rust `peroxide`, and this crate's vestigial entries were deleted). Verify
+with `grep -n ndarray-linalg crates/tampines-steam-tables/Cargo.toml
+crates/tuas_boussinesq_solver/Cargo.toml` — no dependency declaration matches.
+Workspace-wide, the only remaining OpenBLAS consumer is
+`outram-foam-basic-lib`'s `matrix_bench` dev-dependency, which
+`fhr_sim_v2` never touches.
 
 I used rustup to install rust. So if versions of Rust are outdated 
 (error messages may tell you so), then use:
@@ -316,10 +365,15 @@ currently evaluates `ρ = ψ·p`.
 
 There is a deliberate symmetry: `TampinesSteamArray` (in TAMPINES) is a simpler
 1-D sibling of appbuilder's `RhoPimpleFoam`. The array is *intended* to be
-validated against Marviken in-crate, but **that validation has not been
-performed** (as of 2026-08-11 `marviken_tests.rs` is `#[ignore]`d, its only
-assertion is commented out, and it ends in `todo!()` — bead `op-21g.16`);
-the full solver in appbuilder then consumes the *same* tables one layer up.
+validated against Marviken in-crate. **That validation is still outstanding for
+`TampinesSteamArray` itself** — what landed on 2026-08-11 (bead `op-21g.16`) is
+the Marviken comparison for the *steady HEM critical-flow* dispatcher, not for
+the transient array solver. Its outcome is split and is written up in the module
+doc of `marviken_tests.rs`: HEM validates against test 23 (3 K subcooling, mean
+deviation 12.6 %) and **fails** against test 24 (33 K subcooling, mean
+$-48.5\%$), with the deficit traced to a solver branch choice rather than to the
+equilibrium assumption. The full solver in appbuilder then consumes the *same*
+tables one layer up.
 
 **Current choice (what was actually built, verified against `Cargo.toml`
 2026-08-11):** none of A–D exactly. Instead of depending on

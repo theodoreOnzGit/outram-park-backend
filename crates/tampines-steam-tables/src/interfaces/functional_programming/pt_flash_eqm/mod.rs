@@ -57,6 +57,9 @@ pub enum FwdEqnRegion {
 pub mod multiphase_flashing;
 pub use multiphase_flashing::*;
 
+#[cfg(test)]
+mod envelope_corner_tests;
+
 /// Panic message for a two-phase (IAPWS-IF97 Region 4) state reached through a
 /// single-phase `(T,p)` forward flash.
 ///
@@ -79,12 +82,39 @@ pub(crate) const REGION_4_TP_UNDERDETERMINED: &str =
 /// Determines which region of the pT chart
 /// a point belongs to.
 ///
-/// Returns an error if the point is outside the
-/// bounds of the IAPWS-IF97 correlations.
-///
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa
 ///
+/// # Validity envelope (and which edges are inclusive)
+///
+/// IAPWS-IF97 is defined for `273.15 K <= T <= 1073.15 K` at
+/// `0 < p <= 100 MPa` (Regions 1-4), extended to
+/// `1073.15 K <= T <= 2273.15 K` at `0 < p <= 50 MPa` (Region 5). **Both
+/// pressure ceilings are inclusive** — `p = 100 MPa` exactly is a valid
+/// IF97 state at every temperature up to 1073.15 K, and `p = 50 MPa`
+/// exactly is valid in Region 5. Corroborated inside this crate by the
+/// IAPWS-published backward-equation verification points at exactly
+/// 100 MPa in Region 3, i.e. at temperatures well above 623.15 K:
+/// `t_ph_3a(100 MPa, 2100 kJ/kg) = 733.6163014 K` and
+/// `v_ph_3a(100 MPa, 2100 kJ/kg) = 1.676229776e-3 m^3/kg`
+/// (see `region_3_.../tests/region_3_backward_t_ph.rs::t3a_ph_test3` and
+/// `.../region_3_backward_v_ph.rs::v3a_ph_test3`), and by
+/// `is_outside_pressure_range` in the `(p,h)` validity check, which
+/// rejects only `p > 100 MPa`.
+///
+/// The match arms below therefore all close their 100 MPa edge with
+/// `..=100e6`. Before 2026-08-11 the Region-2 and Region-3 arms used a
+/// half-open `..100e6`, so exactly 100 MPa above 623.15 K matched no arm
+/// and fell through to the `panic!` (bead `op-cv1c`); that also made every
+/// `(p,h)` call at exactly 100 MPa panic, because
+/// `is_above_isotherm_t_1073_15` evaluates `h_tp_eqm_single_phase` on the
+/// 1073.15 K isotherm at that pressure.
+///
+/// # Panics
+///
+/// Panics if the `(T,p)` point lies outside the envelope above. Callers
+/// that need a `Result` instead should use
+/// [`crate::interfaces::checked`].
 pub fn region_fwd_eqn_single_phase(t: ThermodynamicTemperature, p: Pressure) -> FwdEqnRegion {
     let p_sat_reg4 = sat_pressure_4(t);
 
@@ -105,7 +135,7 @@ pub fn region_fwd_eqn_single_phase(t: ThermodynamicTemperature, p: Pressure) -> 
             FwdEqnRegion::Region4
         }
         (temp, pres)
-            if (623.15..=863.15).contains(&temp) && (p_boundary_23_pascal..100e6).contains(&pres) =>
+            if (623.15..=863.15).contains(&temp) && (p_boundary_23_pascal..=100e6).contains(&pres) =>
             {
                 FwdEqnRegion::Region3
             }
@@ -113,7 +143,7 @@ pub fn region_fwd_eqn_single_phase(t: ThermodynamicTemperature, p: Pressure) -> 
             if ((273.15..=623.15).contains(&temp) && (0.0..=p_sat_reg4_pascal).contains(&pres))
                 || ((623.15..=863.15).contains(&temp)
                     && (0.0..=p_boundary_23_pascal).contains(&pres))
-                    || ((863.15..=1073.15).contains(&temp) && (0.0..100e6).contains(&pres)) =>
+                    || ((863.15..=1073.15).contains(&temp) && (0.0..=100e6).contains(&pres)) =>
             {
                 FwdEqnRegion::Region2
             }
