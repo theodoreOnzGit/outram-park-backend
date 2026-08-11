@@ -1105,6 +1105,39 @@ cargo test  --workspace --lib --tests --release    # run the test suites
 Note: a bare `cargo test --workspace` also compiles the **examples**. Use
 `--lib --tests` to skip them.
 
+### TUAS natural-circulation tests are VERY long running — run them in parallel
+
+**HARD RULE.** The CIET coupled-DRACS natural-circulation regression tests and
+simulations in `crates/tuas_boussinesq_solver` (under
+`pre_built_components/ciet_steady_state_natural_circulation_test_components/`,
+including `coupled_dracs_loop_tests/` and the
+`parasitic_heat_loss_regression_tests/`) take a **very** long time. They
+integrate a coupled loop at a 0.1 s timestep for 2000–2500 s of simulated time
+to reach steady state — see the crate `CLAUDE.md` "Testing Notes".
+
+**They must be run in parallel, not serially.** Let cargo's test harness use
+all cores rather than forcing a single thread:
+
+```bash
+# GOOD — the harness parallelises across tests by default
+cargo test --release -p tuas_boussinesq_solver
+
+# BAD — serialises every case; these tests are far too slow for this
+cargo test --release -p tuas_boussinesq_solver -- --test-threads=1
+```
+
+So: **do not add `--test-threads=1`**, and do not wrap them in anything that
+serialises execution. If a specific case needs isolation, isolate that case
+rather than the whole suite.
+
+Practical consequences for an agent or a CI step:
+- **Budget real wall-clock time.** A default 120 s command timeout will kill
+  them mid-run; give them a generous timeout or run them in the background.
+- **Run the targeted subset** while iterating (`cargo test --release -p
+  tuas_boussinesq_solver <substring>`) and the full suite only when finishing.
+- **A timeout is not a failure.** Do not report a killed run as a failing test,
+  and never loosen a tolerance because a long test was inconvenient.
+
 ## Reference material (read on demand, not per turn)
 
 These live in `docs/` so they don't load on every turn — consult them only when
