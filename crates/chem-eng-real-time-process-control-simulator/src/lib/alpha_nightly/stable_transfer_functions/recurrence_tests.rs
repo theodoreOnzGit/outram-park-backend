@@ -878,8 +878,12 @@ fn block_state_size_does_not_grow_with_step_index() {
 ///
 /// | block | step 5,000 | step 100,000 | ratio |
 /// |---|---|---|---|
-/// | filtered PID, `tau_d = 80.8 s` | 0.172 us/step | 0.175 us/step | 1.02 |
-/// | bare P controller | 0.059 us/step | 0.060 us/step | 1.02 |
+/// | filtered PID, `tau_d = 80.8 s` | 0.279 us/step | 0.279 us/step | 1.00 |
+/// | bare P controller | 0.105 us/step | 0.104 us/step | 1.00 |
+///
+/// (Taken while the machine was under heavy concurrent load, which is why the
+/// absolute figures are above the 0.17 us/step measured on an idle machine.
+/// The ratio, which is what the test asserts, is unaffected.)
 ///
 /// Flat, as an O(1) recurrence must be. For comparison, the pre-0.2.0 code
 /// measured on the same machine took 58.2 us/step at step 1,000 and
@@ -902,6 +906,11 @@ fn pid_step_cost_does_not_grow_with_step_index() {
     );
 
     let window = 2_000usize;
+    // Each checkpoint is measured as the MINIMUM of several repeated
+    // windows. Wall-clock timing on a shared machine is noisy in one
+    // direction only -- contention can add time, never remove it -- so the
+    // minimum is a far more stable estimator than a single sample.
+    let repeats = 5usize;
     let early_checkpoint = 5_000usize;
     let late_checkpoint = 100_000usize;
 
@@ -917,31 +926,38 @@ fn pid_step_cost_does_not_grow_with_step_index() {
         let at_late = step == late_checkpoint;
 
         if at_early || at_late {
-            let pid_start = Instant::now();
-            for offset in 0..window {
-                let time_seconds = (step + offset) as f64 * timestep;
-                sink += controller
-                    .set_user_input_and_calc(
-                        drive_signal(time_seconds),
-                        Time::new::<second>(time_seconds),
-                    )
-                    .unwrap()
-                    .get::<ratio>();
-            }
-            let pid_seconds = pid_start.elapsed().as_secs_f64();
+            let mut pid_seconds = f64::INFINITY;
+            let mut p_seconds = f64::INFINITY;
 
-            let p_start = Instant::now();
-            for offset in 0..window {
-                let time_seconds = (step + offset) as f64 * timestep;
-                sink += proportional
-                    .set_user_input_and_calc(
-                        drive_signal(time_seconds),
-                        Time::new::<second>(time_seconds),
-                    )
-                    .unwrap()
-                    .get::<ratio>();
+            for _ in 0..repeats {
+                let pid_start = Instant::now();
+                for offset in 0..window {
+                    let time_seconds = (step + offset) as f64 * timestep;
+                    sink += controller
+                        .set_user_input_and_calc(
+                            drive_signal(time_seconds),
+                            Time::new::<second>(time_seconds),
+                        )
+                        .unwrap()
+                        .get::<ratio>();
+                }
+                pid_seconds = pid_seconds.min(pid_start.elapsed().as_secs_f64());
+
+                let p_start = Instant::now();
+                for offset in 0..window {
+                    let time_seconds = (step + offset) as f64 * timestep;
+                    sink += proportional
+                        .set_user_input_and_calc(
+                            drive_signal(time_seconds),
+                            Time::new::<second>(time_seconds),
+                        )
+                        .unwrap()
+                        .get::<ratio>();
+                }
+                p_seconds = p_seconds.min(p_start.elapsed().as_secs_f64());
+
+                step += window;
             }
-            let p_seconds = p_start.elapsed().as_secs_f64();
 
             if at_early {
                 early_pid_seconds = pid_seconds;
@@ -950,7 +966,6 @@ fn pid_step_cost_does_not_grow_with_step_index() {
                 late_pid_seconds = pid_seconds;
                 late_p_seconds = p_seconds;
             }
-            step += window;
         } else {
             let time_seconds = step as f64 * timestep;
             sink += controller

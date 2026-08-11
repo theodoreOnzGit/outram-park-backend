@@ -711,8 +711,10 @@ fn block_state_size_does_not_grow_with_step_index() {
 ///   how the crate's proportional controller is built and which the old code
 ///   also routed through the same growing machinery.
 ///
-/// A 5,000-step warm-up is discarded, then the mean cost of a 2,000-step
-/// window is measured at step 5,000 and again at step 100,000. Pass
+/// The cost of a 2,000-step window is measured at step 5,000 and again at
+/// step 100,000, each taken as the **minimum of 5 repeated windows** —
+/// wall-clock contention can only add time, never remove it, so the minimum
+/// is a far more stable estimator than a single sample. Pass
 /// criterion: the late window costs no more than **5x** the early window.
 /// The factor is deliberately loose because this is a wall-clock measurement
 /// on a shared machine; the defect it guards against was a factor of 40 and
@@ -724,8 +726,11 @@ fn block_state_size_does_not_grow_with_step_index() {
 ///
 /// | block | step 5,000 | step 100,000 | ratio |
 /// |---|---|---|---|
-/// | filtered derivative, `tau_d = 80.8 s` | 0.0550 us/step | 0.0570 us/step | 1.04 |
-/// | pure gain | 0.0550 us/step | 0.0573 us/step | 1.04 |
+/// | filtered derivative, `tau_d = 80.8 s` | 0.0905 us/step | 0.0935 us/step | 1.03 |
+/// | pure gain | 0.0913 us/step | 0.0943 us/step | 1.03 |
+///
+/// (Taken under heavy concurrent machine load, which inflates the absolute
+/// figures; the ratio, which is what the test asserts, is unaffected.)
 ///
 /// Flat, as an O(1) recurrence must be. Wall-clock figures are specific to
 /// this CPU; the machine-independent claim is the ratio.
@@ -754,6 +759,11 @@ fn first_order_step_cost_does_not_grow_with_step_index() {
     .unwrap();
 
     let window = 2_000usize;
+    // Each checkpoint is measured as the MINIMUM of several repeated
+    // windows. Wall-clock timing on a shared machine is noisy in one
+    // direction only -- contention can add time, never remove it -- so the
+    // minimum is a far more stable estimator than a single sample.
+    let repeats = 5usize;
     let early_checkpoint = 5_000usize;
     let late_checkpoint = 100_000usize;
 
@@ -769,31 +779,38 @@ fn first_order_step_cost_does_not_grow_with_step_index() {
         let at_late = step == late_checkpoint;
 
         if at_early || at_late {
-            let derivative_start = Instant::now();
-            for offset in 0..window {
-                let time_seconds = (step + offset) as f64 * timestep;
-                sink += filtered_derivative
-                    .set_user_input_and_calc(
-                        drive_signal(time_seconds),
-                        Time::new::<second>(time_seconds),
-                    )
-                    .unwrap()
-                    .get::<ratio>();
-            }
-            let derivative_seconds = derivative_start.elapsed().as_secs_f64();
+            let mut derivative_seconds = f64::INFINITY;
+            let mut gain_seconds = f64::INFINITY;
 
-            let gain_start = Instant::now();
-            for offset in 0..window {
-                let time_seconds = (step + offset) as f64 * timestep;
-                sink += pure_gain
-                    .set_user_input_and_calc(
-                        drive_signal(time_seconds),
-                        Time::new::<second>(time_seconds),
-                    )
-                    .unwrap()
-                    .get::<ratio>();
+            for _ in 0..repeats {
+                let derivative_start = Instant::now();
+                for offset in 0..window {
+                    let time_seconds = (step + offset) as f64 * timestep;
+                    sink += filtered_derivative
+                        .set_user_input_and_calc(
+                            drive_signal(time_seconds),
+                            Time::new::<second>(time_seconds),
+                        )
+                        .unwrap()
+                        .get::<ratio>();
+                }
+                derivative_seconds = derivative_seconds.min(derivative_start.elapsed().as_secs_f64());
+
+                let gain_start = Instant::now();
+                for offset in 0..window {
+                    let time_seconds = (step + offset) as f64 * timestep;
+                    sink += pure_gain
+                        .set_user_input_and_calc(
+                            drive_signal(time_seconds),
+                            Time::new::<second>(time_seconds),
+                        )
+                        .unwrap()
+                        .get::<ratio>();
+                }
+                gain_seconds = gain_seconds.min(gain_start.elapsed().as_secs_f64());
+
+                step += window;
             }
-            let gain_seconds = gain_start.elapsed().as_secs_f64();
 
             if at_early {
                 early_derivative_seconds = derivative_seconds;
@@ -802,7 +819,6 @@ fn first_order_step_cost_does_not_grow_with_step_index() {
                 late_derivative_seconds = derivative_seconds;
                 late_gain_seconds = gain_seconds;
             }
-            step += window;
         } else {
             let time_seconds = step as f64 * timestep;
             sink += filtered_derivative
