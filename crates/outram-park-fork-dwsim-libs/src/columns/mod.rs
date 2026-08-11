@@ -39,6 +39,14 @@
 //!
 //! # Modules
 //!
+//! ## Shortcut design tier
+//!
+//! - [`shortcut`] — the **Fenske-Underwood-Gilliland** shortcut column
+//!   ([`shortcut::ShortcutColumn`], from upstream `ShortcutColumn.vb`). It
+//!   produces the stage count, feed stage, and reflux ratio a rigorous solve
+//!   needs as inputs — size with shortcut, then refine with the rigorous
+//!   solvers below.
+//!
 //! ## Data model and assembly
 //!
 //! - [`model`] — [`Stage`], [`ColumnSpec`], [`CondenserType`], [`ColumnType`],
@@ -181,6 +189,7 @@ pub mod linalg;
 pub mod model;
 pub mod newton_raphson;
 pub mod profile;
+pub mod shortcut;
 pub mod solver;
 pub mod specs;
 pub mod sum_rates;
@@ -193,6 +202,10 @@ pub use model::{
     StageHeatDuty, StagePressure, StageTemperature,
 };
 pub use profile::StageProfile;
+pub use shortcut::{
+    ShortcutColumn, ShortcutColumnError, ShortcutColumnResult, ShortcutCondenserType, ShortcutFeed,
+    ShortcutHeatDuty, UnderwoodMode,
+};
 pub use solver::ColumnSolverMethod;
 
 #[cfg(test)]
