@@ -1,0 +1,107 @@
+//! # Graph digitiser — extract `(x, y)` data points from plot images
+//!
+//! Several validation targets in this project exist **only as figures in
+//! papers** (HTR-10 safety-demonstration transients, MSRE reactivity-insertion
+//! curves, the Tobias decay-heat plots). This module turns a raster image of a
+//! published plot into numeric data points *with the provenance record that
+//! makes them usable as validation evidence* (`DATA_POLICY.md`: digitisation
+//! is a processing step and must be documented as one).
+//!
+//! ## What belongs in this module
+//!
+//! - [`raster`] — loading a plot image into an owned RGB buffer (pure-Rust
+//!   decoding via the `image` crate; PNG and JPEG).
+//! - [`calibration`] — mapping pixel coordinates to data coordinates, with
+//!   **linear and logarithmic axes independently per axis**. Log axes are
+//!   calibrated in log10 space, never by linear pixel interpolation.
+//! - [`detect`] — automatic detection of the plot frame (axis box) from dark
+//!   line runs. Deterministic; no ML, no OCR.
+//! - [`trace`] — automatic curve tracing by column scan, with enum-dispatched
+//!   strategies ([`trace::TraceStrategy`]) and colour selectors
+//!   ([`trace::CurveSelector`]).
+//! - [`dataset`] — the output types. [`dataset::DigitisedDataset`] is
+//!   deliberately impossible to construct or export without its
+//!   [`calibration::PlotCalibration`] and [`dataset::FigureSource`] attached.
+//! - [`auto`] — the one-shot automatic pipeline shared by all front ends.
+//! - [`synthetic`] — deterministic rendering of known curves to images, used
+//!   as self-consistency test fixtures (and later to cross-check the
+//!   maintainer-supplied golden oracle, bead `op-amfh`).
+//! - [`frontend`] *(feature-gated)* — the shared `clap` argument surface used
+//!   by the `kovan-digitise` CLI and `kovan-digitise-tui` binaries.
+//!
+//! ## What does not belong here
+//!
+//! - OCR / reading printed tick labels. KOVAN is deterministic and offline
+//!   (no ML), so **numeric axis values must be supplied by the caller** (they
+//!   are stated in the figure's caption/axes and are facts, not guesses); the
+//!   pixel geometry is what gets automated.
+//! - Network access of any kind.
+//! - PDF page rendering. Extract the figure to PNG/JPEG first (e.g. with
+//!   [`crate::extract_assets`] when the PDF stores it as an embedded raster).
+//!
+//! ## Units and `uom`
+//!
+//! Digitised axes carry whatever units the source figure printed — often
+//! non-SI, arbitrary, or normalised (e.g. "% of operating power",
+//! "MeV/fission·s"). The engine therefore works in plain `f64` *document
+//! units* and records the axis label text verbatim in
+//! [`dataset::DigitisedDataset::x_label`]/`y_label`; converting into `uom`
+//! quantities is the consumer's job, at the point where the unit is actually
+//! interpreted. Forcing `uom` here would require inventing dimensions for
+//! axes the engine cannot know.
+//!
+//! ## Verification status (honest limits)
+//!
+//! The engine is verified by **synthetic self-consistency tests only**
+//! (`tests/digitiser_synthetic.rs`): known curves are rendered to images at
+//! known pixel positions, digitised, and compared against the analytic
+//! values, for linear-linear, log-linear and log-log axes. Measured accuracy
+//! figures live in that test file's doc comments. **No accuracy claim is made
+//! against real published figures** — the hand-digitised golden oracle
+//! (Tobias decay-heat points, bead `op-amfh`) does not exist yet. When it
+//! lands, compare with [`synthetic`]-style tolerance checks against
+//! [`dataset::DigitisedDataset`] output over the real scans.
+
+pub mod auto;
+pub mod calibration;
+pub mod dataset;
+pub mod detect;
+#[cfg(any(feature = "digitise-cli", feature = "digitise-tui"))]
+pub mod frontend;
+pub mod raster;
+pub mod synthetic;
+pub mod trace;
+
+/// Errors produced by the graph digitiser.
+///
+/// Enum-dispatched per the workspace Rust design rules (no trait objects).
+/// Every variant carries a human-readable message describing what failed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DigitiserError {
+    /// The image file could not be read or decoded (bad path, unsupported
+    /// format, corrupt data).
+    Image(String),
+    /// Axis calibration is invalid — coincident reference pixels, coincident
+    /// reference values, or non-positive values on a logarithmic axis.
+    Calibration(String),
+    /// The plot frame (axis box) could not be detected automatically.
+    Detection(String),
+    /// Curve tracing failed (e.g. no curve pixels found inside the frame).
+    Trace(String),
+    /// A dataset file could not be read, written, or parsed.
+    Io(String),
+}
+
+impl std::fmt::Display for DigitiserError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DigitiserError::Image(m) => write!(f, "image error: {m}"),
+            DigitiserError::Calibration(m) => write!(f, "calibration error: {m}"),
+            DigitiserError::Detection(m) => write!(f, "axis detection error: {m}"),
+            DigitiserError::Trace(m) => write!(f, "trace error: {m}"),
+            DigitiserError::Io(m) => write!(f, "dataset io error: {m}"),
+        }
+    }
+}
+
+impl std::error::Error for DigitiserError {}

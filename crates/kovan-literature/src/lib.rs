@@ -50,12 +50,21 @@
 //! - [`extract_assets`] — extracts embedded raster images whose codec is already
 //!   a standalone file format (JPEG via `DCTDecode`, JPEG-2000 via `JPXDecode`).
 //!   Images stored under other filters are reported-skipped, not re-encoded.
+//! - [`digitiser`] — graph digitiser: recover `(x, y)` data points from plot
+//!   images, with mandatory calibration/provenance records. Verified against
+//!   synthetic fixtures only (see its module doc for the honest limits).
+//!   Ships three binaries over the one engine: `kovan-digitise` (automatic
+//!   CLI), `kovan-digitise-tui` (hybrid terminal review), and
+//!   `kovan-digitise-gui` (hybrid egui review; desktop-only, non-default
+//!   `digitise-gui` feature).
 
 #![forbid(unsafe_code)]
 
 use std::path::{Path, PathBuf};
 
 pub use kovan_common::{Author, DocumentType, KovanBenchmark, KovanDocument, Visibility};
+
+pub mod digitiser;
 
 mod bibtex;
 mod markdown;

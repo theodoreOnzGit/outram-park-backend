@@ -31,6 +31,38 @@ exclude = [
     "/docs/",
 ]
 
+# Graph-digitiser front ends (bead op-5v5.8): one engine in `src/digitiser/`,
+# three binaries. The CLI and ratatui TUI are default features and MUST build
+# on Termux/Android (terminal apps are in scope per the workspace Android
+# rule); the egui GUI is a NON-DEFAULT feature and its dependencies are
+# additionally target-gated off Android, so neither the default build nor any
+# crate that merely depends on this library ever pulls a GUI stack.
+[features]
+default = ["digitise-cli", "digitise-tui"]
+# `kovan-digitise` — fully automatic, scriptable, deterministic (agent path).
+digitise-cli = ["dep:clap"]
+# `kovan-digitise-tui` — hybrid: automatic pass, then terminal review.
+digitise-tui = ["dep:ratatui", "dep:clap"]
+# `kovan-digitise-gui` — hybrid egui review, graphreader-style. Desktop-only:
+# non-default feature AND the deps below are declared only off Android; the
+# binary itself compiles to a stub `main` on Android as belt-and-braces.
+digitise-gui = ["dep:eframe", "dep:egui"]
+
+[[bin]]
+name = "kovan-digitise"
+path = "src/bin/kovan_digitise.rs"
+required-features = ["digitise-cli"]
+
+[[bin]]
+name = "kovan-digitise-tui"
+path = "src/bin/kovan_digitise_tui.rs"
+required-features = ["digitise-tui"]
+
+[[bin]]
+name = "kovan-digitise-gui"
+path = "src/bin/kovan_digitise_gui.rs"
+required-features = ["digitise-gui"]
+
 [dependencies]
 kovan-common.workspace = true
 serde.workspace = true
@@ -44,3 +76,15 @@ lopdf.workspace = true
 # SHA-256 of the ingested source file, recorded as provenance (DATA_POLICY.md).
 # Pure Rust, no C toolchain, so it does not compromise the Android/Termux build.
 sha2.workspace = true
+# Graph digitiser engine: pure-Rust PNG/JPEG decoding (no C toolchain, builds
+# on Termux/Android) and JSON (de)serialisation of DigitisedDataset records.
+image.workspace = true
+serde_json.workspace = true
+# Front-end deps, all optional (see [features] above). clap and ratatui are
+# pure Rust and Android-clean; eframe/egui are desktop-only and target-gated.
+clap = { workspace = true, optional = true }
+ratatui = { workspace = true, optional = true }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+eframe = { workspace = true, optional = true }
+egui = { workspace = true, optional = true }
