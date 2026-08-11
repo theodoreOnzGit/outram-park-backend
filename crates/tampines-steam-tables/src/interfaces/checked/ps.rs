@@ -23,7 +23,7 @@
 //! | `ps_flash_eqm/mod.rs:828` "p,s point is outside pressure range" | same predicate | same two gates |
 //! | `ps_flash_eqm/mod.rs:833` "p,s point below 273.15K" | `s < s(273.15 K, p)` | entropy lower gate |
 //! | `ps_flash_eqm/mod.rs:837` "p,s point above 1073.15K" | `s > s(1073.15 K, p)` | entropy upper gate |
-//! | `pt_flash_eqm/mod.rs:198` "entropy: two-phase (T,p) ... under-determined" | reached *inside* `is_below_isotherm_t_273_15`, which evaluates `s_tp_eqm_single_phase(273.15 K, p)`; the `(T,p)` router returns Region 4 when `p == p_sat(273.15 K)` **bit-for-bit** | **exclusive** pressure lower gate (`p > p_sat(273.15 K)`, not `>=`) |
+//! | `pt_flash_eqm/mod.rs:198` "entropy: two-phase (T,p) ... under-determined" | formerly reached *inside* `is_below_isotherm_t_273_15` when `p == p_sat(273.15 K)` **bit-for-bit** | **no longer reachable**: that check now evaluates its lower bound with the Region-1 forward equation `s_tp_1` (bead `op-znjx`), and this facade mirrors it |
 //! | `boundaries_between_single_phase_regions.rs:20,23,60,63,106` "p in (p,s) point is outside validity range" | `p` below 16.529 MPa / above 100 MPa inside the `p >= 16.529 MPa` branch | unreachable: that branch is only entered when `16.529 MPa <= p <= 100 MPa` already holds |
 //! | `boundaries_from_single_phase_regions_to_region_4_multiphase.rs:30,33,75,78` "entropy of p,s point is outside validity range" | `s` outside the Region-3/4 boundary entropy band | unreachable inside the gate: the Region-1 and Region-2 tests immediately above them already returned for every `s` outside that band |
 //! | `boundaries_from_single_phase_regions_to_region_4_multiphase.rs:123,151` "pressure of p,s point is outside validity range" | `p` outside `[p_sat(273.15 K), p_sat(623.15 K)]` in the `p < 16.529 MPa` branch | pressure gate plus the branch condition |
@@ -34,18 +34,24 @@
 //! [`super::tests`]: a 273 609-point sweep of the accepted set found zero
 //! surviving panics across all ten wrapped functions.
 //!
-//! ## The `p == p_sat(273.15 K)` trap (differs from the `(p,h)` facade)
+//! ## The `p == p_sat(273.15 K)` trap — fixed 2026-08-11 (bead `op-znjx`)
 //!
-//! The `(p,h)` validity check dodges this trap deliberately by evaluating
-//! its lower enthalpy bound with the Region-1 forward equation `h_tp_1`
-//! instead of the `(T,p)` router (see the note in
-//! `ph_flash_eqm/validity_range.rs`). The `(p,s)` check does **not** — it
-//! calls `s_tp_eqm_single_phase(273.15 K, p)`, which routes to Region 4 and
-//! panics at exactly `p = p_sat(273.15 K)`. The `(p,s)` pressure floor here
-//! is therefore **exclusive** where the `(p,h)` one is inclusive. This is a
-//! defect in the internals, not in IF97 (the triple-point isobar is a
-//! perfectly good IF97 state); it is recorded as a follow-up rather than
-//! papered over.
+//! This used to be a real asymmetry with the `(p,h)` facade. The `(p,h)`
+//! validity check dodges the trap by evaluating its lower enthalpy bound
+//! with the Region-1 forward equation `h_tp_1` instead of the `(T,p)`
+//! router (see the note in `ph_flash_eqm/validity_range.rs`); the `(p,s)`
+//! check used to call `s_tp_eqm_single_phase(273.15 K, p)`, which routes to
+//! Region 4 and panics at exactly `p = p_sat(273.15 K)`, so this facade
+//! carried an **exclusive** pressure floor where the `(p,h)` one is
+//! inclusive.
+//!
+//! `ps_flash_eqm/validity_range.rs::is_below_isotherm_t_273_15` now uses
+//! `s_tp_1` for that bound, exactly as the `(p,h)` sibling uses `h_tp_1`.
+//! The floor here is therefore **inclusive** again, matching `(p,h)`, and
+//! [`check_ps_envelope`] mirrors the internal change by computing its own
+//! lower entropy bound with `s_tp_1` too. (Precedent for this kind of
+//! carve-out removal: bead `op-cv1c`, where fixing the region router's
+//! half-open 100 MPa edge let this facade drop its matching carve-out.)
 //!
 //! ## No `catch_unwind`
 //!
@@ -65,7 +71,7 @@ use crate::interfaces::functional_programming::ps_flash_eqm::{
 };
 use crate::interfaces::functional_programming::pt_flash_eqm::s_tp_eqm_single_phase;
 use crate::interfaces::functional_programming::pt_flash_eqm::s_tp_eqm_two_phase;
-use crate::region_1_subcooled_liquid::InversePressure;
+use crate::region_1_subcooled_liquid::{s_tp_1, InversePressure};
 use crate::region_4_vap_liq_equilibrium::{sat_pressure_4, sat_temp_4};
 
 use super::two_phase::check_tpx_envelope;
@@ -77,17 +83,19 @@ use super::{Result, SteamTablesError, P_MAX_PASCAL, T_MIN_KELVIN, T_R5_LOWER_KEL
 ///
 /// # Physical quantities and valid ranges
 ///
-/// - `p` — absolute pressure, Pa. Valid in the **half-open** interval
-///   `(p_sat(273.15 K), 100 MPa]`, i.e. strictly above the triple-point
-///   saturation pressure (about 611.213 Pa) and up to and including
-///   100 MPa. The lower edge is exclusive because of the Region-4 trap
-///   documented at module level; the upper edge is inclusive, matching
-///   `is_outside_pressure_range`, which rejects only `p > 100 MPa`.
+/// - `p` — absolute pressure, Pa. Valid in the **closed** interval
+///   `[p_sat(273.15 K), 100 MPa]`, i.e. from the triple-point saturation
+///   pressure (about 611.213 Pa) up to and including 100 MPa. Both edges
+///   are inclusive, matching `is_outside_pressure_range`, which rejects
+///   only `p < p_sat(273.15 K)` and `p > 100 MPa`. The lower edge was
+///   exclusive until bead `op-znjx` removed the Region-4 trap documented
+///   at module level.
 /// - `s` — specific entropy, J/(kg K). Valid between the 273.15 K and
 ///   1073.15 K isotherm entropies **at that pressure**, both edges
-///   inclusive. Both bounds are evaluated with the same
-///   `s_tp_eqm_single_phase` call the internal check uses, so the accepted
-///   set is identical rather than merely similar.
+///   inclusive. Each bound is evaluated with the same call the internal
+///   check uses — `s_tp_1` on the 273.15 K isotherm (which lies wholly in
+///   Region 1) and `s_tp_eqm_single_phase` on the 1073.15 K one — so the
+///   accepted set is identical rather than merely similar.
 ///
 /// Non-finite input is rejected first with
 /// [`SteamTablesError::NonFinite`].
@@ -110,13 +118,16 @@ pub fn check_ps_envelope(p: Pressure, s: SpecificHeatCapacity) -> Result<()> {
         });
     }
 
-    // Lower edge EXCLUSIVE: at exactly p_sat(273.15 K) the internal
-    // `is_below_isotherm_t_273_15` evaluates `s_tp_eqm_single_phase` on the
-    // 273.15 K isotherm, and the (T,p) router classifies that point as
-    // Region 4 (two-phase (T,p) is under-determined) and panics.
+    // Both edges INCLUSIVE, matching `is_outside_pressure_range`. The lower
+    // edge was exclusive until bead `op-znjx`: `is_below_isotherm_t_273_15`
+    // used to evaluate `s_tp_eqm_single_phase` on the 273.15 K isotherm, and
+    // the (T,p) router classifies exactly p == p_sat(273.15 K) as Region 4
+    // (two-phase (T,p) is under-determined) and panicked. That check now
+    // uses the Region-1 forward equation `s_tp_1`, so the triple-point
+    // isobar is a perfectly ordinary accepted state.
     let p_min_pascal =
         sat_pressure_4(ThermodynamicTemperature::new::<kelvin>(T_MIN_KELVIN)).get::<pascal>();
-    if p_pascal <= p_min_pascal || p_pascal > P_MAX_PASCAL {
+    if p_pascal < p_min_pascal || p_pascal > P_MAX_PASCAL {
         return Err(SteamTablesError::OutOfRange {
             quantity: "pressure",
             value: p_pascal,
@@ -126,12 +137,16 @@ pub fn check_ps_envelope(p: Pressure, s: SpecificHeatCapacity) -> Result<()> {
         });
     }
 
-    // Entropy window at this pressure, computed with the SAME function the
-    // internal validity check uses so the accepted set is identical. Both
-    // calls are panic-free for p strictly inside the pressure bounds above.
+    // Entropy window at this pressure, computed with the SAME functions the
+    // internal validity check uses so the accepted set is identical: the
+    // Region-1 forward equation `s_tp_1` on the 273.15 K isotherm (which
+    // lies wholly in Region 1 for every valid pressure — see the module
+    // doc's `p_sat(273.15 K)` section) and the (T,p) router on the
+    // 1073.15 K one. Both calls are panic-free inside the pressure bounds
+    // above, including at the p_sat(273.15 K) edge.
     let t_min = ThermodynamicTemperature::new::<kelvin>(T_MIN_KELVIN);
     let t_max = ThermodynamicTemperature::new::<kelvin>(T_R5_LOWER_KELVIN);
-    let s_min = s_tp_eqm_single_phase(t_min, p).get::<joule_per_kilogram_kelvin>();
+    let s_min = s_tp_1(t_min, p).get::<joule_per_kilogram_kelvin>();
     let s_max = s_tp_eqm_single_phase(t_max, p).get::<joule_per_kilogram_kelvin>();
     if s_si < s_min || s_si > s_max {
         return Err(SteamTablesError::OutOfRange {

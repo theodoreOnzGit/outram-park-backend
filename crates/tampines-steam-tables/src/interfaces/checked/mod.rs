@@ -69,10 +69,13 @@
 //! re-exported here so `interfaces::checked::*` remains the single import:
 //!
 //! - [`ps`] — the `(p,s)` flash family (11 functions plus the throat mass
-//!   flux) and [`check_ps_envelope`]. Note its pressure floor is
-//!   **exclusive** where the `(p,h)` one is inclusive: the `(p,s)` validity
-//!   check evaluates `s_tp_eqm_single_phase` on the 273.15 K isotherm and
-//!   so hits the Region-4 trap at exactly `p = p_sat(273.15 K)`.
+//!   flux) and [`check_ps_envelope`]. Its pressure floor is **inclusive**,
+//!   matching the `(p,h)` one: `p = p_sat(273.15 K)` exactly is accepted.
+//!   It was exclusive until bead `op-znjx` (2026-08-11) — the `(p,s)`
+//!   validity check used to evaluate `s_tp_eqm_single_phase` on the
+//!   273.15 K isotherm and so hit the Region-4 trap at exactly that
+//!   pressure; it now uses the Region-1 forward equation `s_tp_1`, as the
+//!   `(p,h)` check already did with `h_tp_1`.
 //! - [`two_phase`] — the quality-carrying `(T,p,x)` family (11 functions)
 //!   and [`check_tpx_envelope`]. This one **accepts** saturation-line
 //!   `(T,p)` pairs, which the single-phase gate above must reject, and it

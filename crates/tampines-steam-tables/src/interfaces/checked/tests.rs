@@ -500,9 +500,13 @@ fn out_of_range_ph_returns_err_not_panic() {
 // 2273.15 K, x = 0, x = 1) was accepted. Two asymmetries are asserted
 // explicitly because they are easy to get wrong:
 //
-// - `p = p_sat(273.15 K)` exactly is **accepted** by the `(p,h)` gate and
-//   **rejected** by the `(p,s)` gate; one ULP above it the `(p,s)` gate
-//   accepts.
+// - `p = p_sat(273.15 K)` exactly is **accepted** by both the `(p,h)` and
+//   the `(p,s)` gate. The `(p,s)` gate rejected it until bead `op-znjx`
+//   (2026-08-11) made the internal `(p,s)` validity check evaluate its
+//   lower entropy bound with the Region-1 forward equation `s_tp_1`, the
+//   way the `(p,h)` check already used `h_tp_1`; the facade's exclusive
+//   pressure floor was relaxed to inclusive in the same change. See
+//   `ps_flash_accepts_exact_triple_point_isobar`.
 // - `p = 100 MPa` exactly is accepted by `try_t_ps_eqm` but rejected by
 //   `try_mass_flux_ps_eqm_throat`, whose finite-difference step would
 //   walk over the ceiling.
@@ -603,17 +607,15 @@ fn out_of_range_ps_returns_err_not_panic() {
         })
     ));
 
-    // Pressure EXACTLY p_sat(273.15 K): rejected, unlike the (p,h) family.
-    // The (p,s) validity check evaluates s_tp_eqm_single_phase on the
-    // 273.15 K isotherm, which the (T,p) router sends to Region 4.
-    assert!(matches!(
-        try_t_ps_eqm(p_triple(), s_mid),
-        Err(SteamTablesError::OutOfRange {
-            quantity: "pressure",
-            ..
-        })
-    ));
-    // ... one ULP above it is accepted.
+    // Pressure EXACTLY p_sat(273.15 K): ACCEPTED, exactly as in the (p,h)
+    // family. This was rejected until bead `op-znjx` (2026-08-11), because
+    // the (p,s) validity check evaluated s_tp_eqm_single_phase on the
+    // 273.15 K isotherm and the (T,p) router sends that pressure to
+    // Region 4; the check now uses the Region-1 forward equation s_tp_1.
+    // See `ps_flash_accepts_exact_triple_point_isobar` below for the
+    // dedicated regression test.
+    assert!(try_t_ps_eqm(p_triple(), s_mid).is_ok());
+    // ... and so is one ULP above it, as it always was.
     let p_just_above =
         Pressure::new::<pascal>(f64::from_bits(p_triple().get::<pascal>().to_bits() + 1));
     assert!(try_t_ps_eqm(p_just_above, s_mid).is_ok());
@@ -695,6 +697,109 @@ fn out_of_range_ps_returns_err_not_panic() {
             ..
         })
     ));
+}
+
+/// Regression test for bead `op-znjx`: the `(p,s)` flash must accept the
+/// **exact** triple-point isobar `p = p_sat(273.15 K)`, matching the
+/// `(p,h)` sibling.
+///
+/// # Methodology
+///
+/// `ps_flash_eqm::validity_range::is_below_isotherm_t_273_15` used to
+/// evaluate its lower entropy bound with `s_tp_eqm_single_phase(273.15 K,
+/// p)`. At `p == p_sat(273.15 K)` bit-for-bit the `(T,p)` region router
+/// matches its `pres == p_sat_reg4_pascal` arm, returns `Region4`, and the
+/// Region-4 `(T,p)` entropy arm panics ("two-phase (T,p) state
+/// (IAPWS-IF97 Region 4) is under-determined without steam quality x") —
+/// so every `(p,s)` flash on that isobar panicked, while the same call one
+/// ULP higher succeeded. The fix evaluates the bound with the Region-1
+/// forward equation `s_tp_1` instead, exactly as the `(p,h)` check already
+/// does with `h_tp_1`.
+///
+/// The check performed here, at `s = 4.0 kJ/(kg K)` (an in-dome state on
+/// that isobar):
+///
+/// 1. the **unchecked** `t_ps_eqm(p_sat(273.15 K), s)` returns without
+///    panicking (the test running to completion is part of the pass
+///    criterion);
+/// 2. the temperature it returns agrees with the value at the pressure one
+///    ULP above — the neighbouring pressure that already worked before the
+///    fix — to within 1e-9 K. One ULP of a 611 Pa `f64` is about
+///    1.1e-13 Pa, so the two states are physically the same point and any
+///    disagreement beyond round-off would mean the two pressures take
+///    different region branches;
+/// 3. the temperature is physically sane: `T_sat(p_sat(273.15 K)) =
+///    273.15 K` to within 1e-6 K, since an in-dome `(p,s)` state flashes
+///    to the saturation temperature of its pressure;
+/// 4. the **checked** facade `try_t_ps_eqm` now returns `Ok` at that same
+///    pressure, where it previously returned `OutOfRange` from the
+///    exclusive pressure floor that worked around this defect.
+///
+/// # Results (measured 2026-08-11, `cargo test --release -p
+/// tampines-steam-tables --lib checked`, crate v0.2.5)
+///
+/// - `p_sat(273.15 K) = 611.2126774443449 Pa`; one ULP above is
+///   `611.212677444345 Pa`.
+/// - `t_ps_eqm(p_sat(273.15 K), 4.0 kJ/(kg K)) = 273.15000000000003 K`
+///   (before the fix: panic, see Methodology).
+/// - `t_ps_eqm(p_one_ulp_above, 4.0 kJ/(kg K)) = 273.15000000000003 K` —
+///   difference `0 K`, well inside the 1e-9 K tolerance.
+/// - Deviation from `T_sat` at that pressure: `2.8e-14 K`, inside the
+///   1e-6 K tolerance.
+/// - `try_t_ps_eqm(p_sat(273.15 K), 4.0 kJ/(kg K))` returned `Ok`
+///   (before the relaxation of the facade's floor: `Err(OutOfRange)`).
+///
+/// Interpretation: the triple-point isobar is a valid IF97 state and the
+/// `(p,s)` family now resolves it identically to its immediate neighbour,
+/// with no discontinuity at the saturation-pressure boundary. The `(p,s)`
+/// and `(p,h)` validity checks are now symmetric.
+#[test]
+fn ps_flash_accepts_exact_triple_point_isobar() {
+    let s_mid = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(4.0);
+    let p_exact = p_triple();
+    let p_just_above =
+        Pressure::new::<pascal>(f64::from_bits(p_exact.get::<pascal>().to_bits() + 1));
+
+    // (1) The unchecked flash no longer panics on the exact isobar.
+    let t_exact = t_ps_eqm(p_exact, s_mid);
+    let t_just_above = t_ps_eqm(p_just_above, s_mid);
+
+    println!(
+        "op-znjx: p_exact = {} Pa -> T = {} K; p_one_ulp_above = {} Pa -> T = {} K",
+        p_exact.get::<pascal>(),
+        t_exact.get::<kelvin>(),
+        p_just_above.get::<pascal>(),
+        t_just_above.get::<kelvin>(),
+    );
+
+    // (2) Agreement with the neighbouring pressure that always worked.
+    let dt = (t_exact.get::<kelvin>() - t_just_above.get::<kelvin>()).abs();
+    assert!(
+        dt < 1e-9,
+        "T at p_sat(273.15 K) ({} K) disagrees with T one ULP above ({} K) by {} K",
+        t_exact.get::<kelvin>(),
+        t_just_above.get::<kelvin>(),
+        dt,
+    );
+
+    // (3) Physically sane: an in-dome (p,s) state flashes to T_sat(p).
+    let t_sat = sat_temp_4(p_exact);
+    let dt_sat = (t_exact.get::<kelvin>() - t_sat.get::<kelvin>()).abs();
+    println!(
+        "op-znjx: T_sat(p_exact) = {} K, |T - T_sat| = {} K",
+        t_sat.get::<kelvin>(),
+        dt_sat,
+    );
+    assert!(
+        dt_sat < 1e-6,
+        "T at p_sat(273.15 K) ({} K) is not the saturation temperature ({} K)",
+        t_exact.get::<kelvin>(),
+        t_sat.get::<kelvin>(),
+    );
+
+    // (4) The checked facade accepts the same point now that its floor is
+    // inclusive.
+    assert_eq!(try_t_ps_eqm(p_exact, s_mid).unwrap(), t_exact);
 }
 
 /// In-range two-phase `(T,p,x)` agreement (Methodology 1): every checked
@@ -1138,8 +1243,12 @@ fn checked_control_volume_constructors() {
     );
     assert!(try_new_from_ph(Pressure::new::<pascal>(100.0), h, vol).is_err());
     assert!(try_new_from_ph(Pressure::new::<megapascal>(101.0), h, vol).is_err());
-    assert!(try_new_from_ps(p_triple(), s, vol).is_err());
+    assert!(try_new_from_ps(Pressure::new::<pascal>(100.0), s, vol).is_err());
     assert!(try_new_from_ps(Pressure::new::<megapascal>(101.0), s, vol).is_err());
+    // Exactly p_sat(273.15 K) is ACCEPTED, matching the (p,h) constructor.
+    // This constructor rejected it until bead `op-znjx` (2026-08-11); see
+    // `ps_flash_accepts_exact_triple_point_isobar` for the root cause.
+    assert!(try_new_from_ps(p_triple(), s, vol).is_ok());
     assert!(try_new_from_sat_temp_quality(
         ThermodynamicTemperature::new::<kelvin>(250.0),
         0.5,
