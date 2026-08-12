@@ -167,8 +167,25 @@ pub fn tape_filename(mat: i32, z: u32, a: u32, symbol: &str) -> String {
 /// varies — so rather than guess, this table holds only values **verified**
 /// against the IAEA NDS listing. For any other nuclide, pass the MAT explicitly
 /// (find it in the library's directory index or the ENDF-102 manual). The set
-/// here covers the shipped Godiva/LFTR examples: light H/O, structural Fe, and
-/// the Th/U/Pu actinides, plus carbon (C-12/C-13) for a graphite moderator.
+/// here covers the shipped Godiva/LFTR examples (light H/O, structural Fe, and
+/// the Th/U/Pu actinides) plus **carbon** for the HTR-10 graphite
+/// moderator/reflector.
+///
+/// # Carbon / graphite conventions
+///
+/// The MAT returned here is what builds the IAEA NDS download filename
+/// (`n_{mat:04}_{z}-{symbol}-{a}.zip`, see [`tape_filename`]/[`zip_filename`]),
+/// so it must be the **published** MAT or the fetch 404s. Carbon's ENDF identity
+/// changed between library vintages, but these are the standard public values
+/// (verified against the IAEA `download-endf` listing):
+///
+/// - **C-nat** (`(6, 0)` → MAT 600) — natural carbon, the single lumped
+///   evaluation used through **ENDF/B-VII.1** and JEFF-3.1 (`n_0600_6-C-0.zip`).
+/// - **C-12** (`(6, 12)` → MAT 600) — split out as the reference isotope in
+///   **ENDF/B-VIII.0**, JEFF-3.3, JENDL-5 (`n_0600_6-C-12.zip`); it reuses MAT
+///   600 because it replaced C-nat as the element's principal evaluation.
+/// - **C-13** (`(6, 13)` → MAT 631) — the minor isotope (1.1 % abundance),
+///   also split out from VIII.0 onward (`n_0631_6-C-13.zip`).
 ///
 /// Note carbon's MAT here is the **neutron** sublibrary evaluation. The graphite
 /// *thermal* S(alpha, beta) law is a separate ENDF thermal-sublibrary material
@@ -178,8 +195,9 @@ pub fn tape_filename(mat: i32, z: u32, a: u32, symbol: &str) -> String {
 pub fn well_known_mat(z: u32, a: u32) -> Option<i32> {
     let mat = match (z, a) {
         (1, 1) => 125,     // H-1
-        (6, 12) => 625,    // C-12  (graphite moderator)
-        (6, 13) => 628,    // C-13
+        (6, 0) => 600,     // C-nat (ENDF/B-VII.1, JEFF-3.1 — lumped natural carbon)
+        (6, 12) => 600,    // C-12  (ENDF/B-VIII.0+, JEFF-3.3, JENDL-5 — HTR-10 graphite)
+        (6, 13) => 631,    // C-13  (ENDF/B-VIII.0+ — 1.1% natural-abundance minor isotope)
         (8, 16) => 825,    // O-16
         (26, 56) => 2631,  // Fe-56
         (90, 232) => 9040, // Th-232
@@ -568,11 +586,33 @@ mod tests {
         assert_eq!(well_known_mat(94, 239), Some(9437));
         assert_eq!(well_known_mat(1, 1), Some(125));
         assert_eq!(well_known_mat(8, 16), Some(825));
-        // Carbon — verified against the ENDF/B-VIII.0 neutron tapes
-        // (n-006_C_012.endf / n-006_C_013.endf, MAT field cols 67-70).
-        assert_eq!(well_known_mat(6, 12), Some(625));
-        assert_eq!(well_known_mat(6, 13), Some(628));
         assert_eq!(well_known_mat(50, 120), None); // not in the shipped set
+    }
+
+    /// Carbon is registered so a graphite material can be addressed by name for
+    /// HIGH-tier reconstruction (HTR-10 moderator/reflector, bead op-h23).
+    ///
+    /// # Methodology
+    /// Structural / addressing check, not a physics-reconstruction test. The MAT
+    /// this table returns is what [`zip_filename`]/[`tape_filename`] interpolate
+    /// into the IAEA NDS download name (`n_{mat:04}_{z}-{symbol}-{a}.zip`), so a
+    /// wrong MAT silently 404s the fetch. Assert each carbon entry resolves to
+    /// the MAT that produces the **published** IAEA filename.
+    ///
+    /// # Reference / results (2026-08-12)
+    /// Checked against the public IAEA NDS `download-endf` naming convention
+    /// (`DATA_POLICY.md`: open evaluated-data metadata only). C-nat and C-12
+    /// share MAT 600 (`n_0600_6-C-0.zip` / `n_0600_6-C-12.zip`); C-13 is MAT 631
+    /// (`n_0631_6-C-13.zip`). Corrects the earlier 625/628, which built
+    /// non-existent `n_0625_*` / `n_0628_*` names. All asserts PASS.
+    #[test]
+    fn carbon_is_registered_for_graphite() {
+        assert_eq!(well_known_mat(6, 0), Some(600), "C-nat (ENDF/B-VII.1)");
+        assert_eq!(well_known_mat(6, 12), Some(600), "C-12 (ENDF/B-VIII.0+)");
+        assert_eq!(well_known_mat(6, 13), Some(631), "C-13 (ENDF/B-VIII.0+)");
+        // The MAT must build the real IAEA download filename.
+        assert_eq!(zip_filename(600, 6, 12, "C"), "n_0600_6-C-12.zip");
+        assert_eq!(zip_filename(631, 6, 13, "C"), "n_0631_6-C-13.zip");
     }
 
     /// The element table round-trips symbol ↔ Z and rejects nonsense.
