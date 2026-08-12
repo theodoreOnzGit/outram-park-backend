@@ -45,12 +45,21 @@ pub fn draw_controls(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, snapshot:
     ui.heading("Controls");
     ui.separator();
 
-    let mut reactivity = snapshot.external_reactivity_dollars;
+    let mut rod_insertion = snapshot.control_rod_insertion_fraction;
     let mut helium_flow = snapshot.helium_flow_setpoint_kg_per_s;
 
-    ui.label("External reactivity");
+    // Rod position, not reactivity. An operator moves rods; reactivity is the
+    // consequence, and is displayed below rather than commanded. The ten
+    // HTR-10 side-reflector rods are ganged as one bank here.
+    ui.label(format!(
+        "Control rod bank insertion ({} rods, ganged)",
+        crate::physics::control_rods::CONTROL_ROD_COUNT
+    ));
     let rho_changed = ui
-        .add(egui::Slider::new(&mut reactivity, -2.0..=1.0).text("$ (rho/beta)"))
+        .add(
+            egui::Slider::new(&mut rod_insertion, 0.0..=1.0)
+                .text("fraction (0 withdrawn, 1 inserted)"),
+        )
         .changed();
 
     ui.add_space(8.0);
@@ -66,17 +75,35 @@ pub fn draw_controls(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, snapshot:
 
     if rho_changed || flow_changed {
         physics.update(|s| {
-            s.external_reactivity_dollars = reactivity;
+            s.control_rod_insertion_fraction = rod_insertion;
             s.helium_flow_setpoint_kg_per_s = helium_flow;
         });
     }
 
     ui.add_space(12.0);
     ui.separator();
+    // Reactivity is shown as a RESULT of rod position, immediately under the
+    // slider that causes it, so the causal direction is visible.
+    ui.label(format!(
+        "External reactivity: {:+.3} $",
+        snapshot.external_reactivity_dollars
+    ));
     ui.label(format!(
         "Reactivity margin: {:+.3} $",
         snapshot.reactivity_margin_dollars
     ));
+    // Reference marker: where the published bank worth and cold clean excess
+    // imply criticality. Indicative only -- it carries no burnup, xenon or
+    // temperature defect, so it is not where HTR-10's rods actually sit. The
+    // bisection behind it is a few hundred flops, negligible per frame.
+    if let Some(critical) = crate::physics::control_rods::critical_insertion_fraction(
+        snapshot.delayed_neutron_fraction_pcm * 1e-5,
+    ) {
+        ui.label(format!(
+            "Cold clean critical position: {:.1}% inserted",
+            critical * 100.0
+        ));
+    }
     ui.label(format!(
         "Reactor power: {:.1} MWth",
         snapshot.reactor_power_mw

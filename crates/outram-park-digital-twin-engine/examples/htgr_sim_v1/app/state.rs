@@ -20,8 +20,19 @@ const MAX_PLOT_SAMPLES: usize = 4000;
 #[derive(Clone, Debug)]
 pub struct HtgrSnapshot {
     // --- Control inputs: written by the GUI, read by the physics thread ---
-    /// User-commanded external reactivity, in dollars (`rho/beta`).
-    pub external_reactivity_dollars: f64,
+    /// User-commanded **control-rod bank insertion fraction**, `0.0` fully
+    /// withdrawn to `1.0` fully inserted.
+    ///
+    /// This is the control input an operator actually has. Reactivity is a
+    /// *consequence* of rod position, not something commanded directly, and is
+    /// published back as [`HtgrSnapshot::external_reactivity_dollars`] for
+    /// display. The physics clamps out-of-range values at the stops, so an
+    /// OPC-UA write cannot inject unbounded reactivity -- see
+    /// [`crate::physics::control_rods`].
+    ///
+    /// The ten HTR-10 rods are ganged as one bank here; an asymmetric pattern
+    /// or a stuck rod cannot be represented.
+    pub control_rod_insertion_fraction: f64,
     /// User-commanded helium pump mass-flow setpoint \[kg/s\].
     pub helium_flow_setpoint_kg_per_s: f64,
 
@@ -45,6 +56,13 @@ pub struct HtgrSnapshot {
     /// peak fuel temperature is well above it and this model cannot resolve
     /// one, having a single lumped bed node.
     pub bed_temperature_k: f64,
+    /// External reactivity resulting from the current rod position \[dollars\].
+    ///
+    /// **Derived, not commanded.** Published by the physics thread from
+    /// [`HtgrSnapshot::control_rod_insertion_fraction`] so the GUI can show the
+    /// operator what their rod position bought them. Writing to it does
+    /// nothing -- the physics recomputes it from rod position every step.
+    pub external_reactivity_dollars: f64,
     /// Reactivity margin \[dollars\].
     pub reactivity_margin_dollars: f64,
     /// Effective total delayed-neutron fraction \[pcm\].
@@ -140,6 +158,11 @@ impl Default for HtgrSnapshot {
     /// nothing has been computed yet.
     fn default() -> Self {
         Self {
+            // Rods start near the critical position implied by the published
+            // bank worth and cold clean excess (~0.60 inserted; see
+            // `crate::physics::control_rods`), so the simulator opens close to
+            // steady state rather than on a prompt excursion.
+            control_rod_insertion_fraction: 0.6035,
             external_reactivity_dollars: 0.0,
             helium_flow_setpoint_kg_per_s: 4.3,
             reactor_power_mw: 10.0,
