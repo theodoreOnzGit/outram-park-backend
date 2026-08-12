@@ -79,7 +79,12 @@ reference implementation the other backends are verified against.
 | `compute` | `select_backend` | The single named backend-selection policy — the size rule lives in one findable function rather than scattered inline thresholds. |
 | `compute` | `ThreadCount` | `Auto` / `Fixed(n)` / `Fraction(f)` worker sizing for `CpuMulti`; always resolves to `>= 1`. |
 | `compute` | `gpu_adapter_present` | One-shot cached adapter probe. Never panics; `false` on Android, without the `gpu` feature, or with no adapter. |
-| `compute` | `CPU_MULTI_MIN_WORK_ITEMS`, `GPU_MIN_WORK_ITEMS` | Crossover thresholds. **Placeholders awaiting measurement** — bead `op-yvj.4.7` covers the benchmarks that will replace them. |
+| `compute` | `CPU_MULTI_MIN_WORK_ITEMS`, `GPU_MIN_WORK_ITEMS` | Crossover thresholds, **unmeasured placeholders** (bead `op-yvj.4.7`). Measurement has already shown `CPU_MULTI_MIN_WORK_ITEMS = 4096` to be ~6x *slower* than serial for the memory-bound field kernels, which override it — treat it as a floor against absurdity, not a tuned value. |
+| `fields::parallel` | element-wise `add`/`sub`/`scale`/`axpy` (+ `_assign`), `pointwise_mul`/`_div`, `scale_by_field`, `dot_field` | `ComputeBackend`-dispatched, generic over `f64`/`Vector3`/`Tensor`/`SymmTensor`. Bit-identical to `Serial` on every backend and size. |
+| `fields::parallel` | reductions `sum`, `mean`, `min`, `max`, `l2_norm`, `dot` | Fixed-chunk tree reduction (`REDUCTION_CHUNK = 4096`), summed in index order: **bit-reproducible run-to-run and across thread counts**, but not bit-equal to `Serial` — measured worst-case relative deviation `7.857e-14`, asserted tolerance `1e-11`. `min`/`max` *are* bit-identical. |
+| `fields::parallel` | `{add,sub,scale}_vol(_assign)`, `axpy_vol_assign`, `{add,sub,scale}_surface`, `axpy_surface_assign` | Field wrappers; each copies the left operand's name verbatim. Guarded by three name-growth regression tests (64/256-round self-referential reassignment) against the 2^step bug that once cost 24 GB and a SIGTERM. |
+| `fields::parallel` | `vol_integral`, `vol_average`, `vol_l2_norm`, `vol_min`, `vol_max` | Mesh-volume-weighted; `vol_integral` carries units `[phi]·m³`. Interior cells only — boundary patches excluded by design. |
+| `fields::parallel` | `should_parallelise`, `field_parallel_crossover`, `FIELD_PARALLEL_CROSSOVER` | The single dispatch decision point for this module; no operator has its own size test. Crossover **measured at 131 072** on 4 cores — but it is a band (65 536–262 144), not a point. `Gpu` routes to the best CPU path: there is no GPU field kernel. |
 
 ### Layers 1a–1h — Primitives and thermophysics
 

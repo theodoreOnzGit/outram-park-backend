@@ -114,13 +114,28 @@ pub enum ComputeBackend {
 ///
 /// # How this number was chosen
 ///
-/// **It is a placeholder awaiting measurement, and it is documented as such
-/// rather than presented as a tuned value.** Bead `op-yvj.4.7` covers the
-/// crossover benchmarks that will replace it; each kernel that measures its
-/// own crossover should say so in its docs and may override this.
+/// **It is a placeholder, it has NOT been justified by measurement, and the
+/// one kernel family that has since been measured found it far too low.**
+/// Bead `op-yvj.4.7` covers the crossover benchmarks that will replace it.
 ///
 /// The failure mode this guards is real and easy to reproduce: spawning
 /// threads to add two 50-element vectors is slower than doing it serially.
+///
+/// # Measured counter-evidence — read before relying on this
+///
+/// [`crate::fields::parallel`] measured its own crossover on 2026-08-12 (4
+/// logical cores, release, `--features parallel`) and found that **at exactly
+/// this threshold the parallel path was about 6x SLOWER** — `0.17x` speedup at
+/// `n = 4096`, and it lost 10 sweeps out of 10 at every size below 65 536.
+/// Those kernels are memory-bandwidth bound at 1-2 flops per element, so
+/// thread overhead dominates much further out than it would for compute-dense
+/// work. That module therefore overrides this constant at 131 072 via
+/// [`crate::fields::parallel::field_parallel_crossover`].
+///
+/// The honest reading: this constant is a *floor against absurdity*, not a
+/// tuned value, and a kernel that has not measured its own crossover should
+/// not assume this one is safe for it. Per-kernel overrides are expected, not
+/// exceptional.
 ///
 /// # Units
 ///

@@ -157,3 +157,13 @@ pub use crate::compute::{
     gpu_adapter_present, select_backend, ComputeBackend, ThreadCount, CPU_MULTI_MIN_WORK_ITEMS,
     GPU_MIN_WORK_ITEMS,
 };
+
+// --- Parallel field algebra: policy items ONLY ---
+//
+// The kernels themselves (`add`, `sub`, `sum`, `min`, `max`, `scale`, `dot`,
+// ...) are deliberately NOT re-exported here: those names would collide on
+// sight with `std` and with `ldu_matrix::parallel`. Call them path-qualified,
+// e.g. `fields::parallel::add(backend, &a, &b)`.
+pub use crate::fields::parallel::{
+    field_parallel_crossover, should_parallelise, FIELD_PARALLEL_CROSSOVER, REDUCTION_CHUNK,
+};
