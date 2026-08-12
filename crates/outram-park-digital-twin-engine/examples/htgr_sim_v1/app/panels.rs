@@ -234,6 +234,11 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot) {
             );
             row(
                 ui,
+                "  of which bed (KTA)",
+                format!("{:.2} kPa", s.bed_pressure_drop_kpa),
+            );
+            row(
+                ui,
                 "Circulator power",
                 format!("{:.3} MW", s.circulator_power_mw),
             );

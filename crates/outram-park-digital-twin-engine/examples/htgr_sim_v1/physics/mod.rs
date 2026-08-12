@@ -66,12 +66,31 @@
 //! The structure, the cross-crate wiring, the published HTR-10 operating point
 //! and core geometry, and the thermophysical properties (helium via the
 //! CoolProp-derived Helmholtz EOS, water/steam via IAPWS-IF97) are **real**.
+//!
+//! **Every published constant now comes from the library**, not from a copy
+//! kept here: [`outram_park_digital_twin_engine::htr10::design::Htr10DesignPoint`]
+//! is the single transcription of IAEA-TECDOC-1382 that the core geometry, the
+//! helium operating point, the steam conditions and the nominal power are all
+//! read from. Two copies of an operating point drift silently; there is now
+//! one.
+//!
+//! **The pebble-bed friction is real** as of 2026-08-12: the KTA packed-bed
+//! correlation ([`outram_park_digital_twin_engine::htr10::kta`]) is evaluated
+//! by [`primary_loop::bed_pressure_drop`] and gated against the Virtual Test
+//! Bed's published worked example (3493.17 Pa/m against the gold 3493 Pa/m).
+//! **That makes the friction real; it does not make the nodalisation real.**
+//! Every subsystem is still one control volume, the correlation is applied once
+//! at the bulk mean rather than integrated down the bed, and the pressure drop
+//! still cannot feed back on the flow.
+//!
 //! What remains illustrative is every *closure and every dimension the
-//! published source does not carry* -- the pebble-to-helium heat-transfer
-//! coefficient, graphite `c_p`, the loop gas volume, the steam-generator `UA`,
-//! efficiencies, inventories and controller constants. There is **no
-//! packed-bed friction correlation and no effective bed conductivity** in this
-//! workspace, so neither is used here. The live steam pressure is still held
+//! published sources do not carry* -- the pebble-to-helium heat-transfer
+//! coefficient (measurably too low, see [`pebble_bed`]), graphite `c_p`, the
+//! loop gas volume, the steam-generator `UA`, efficiencies, inventories and
+//! controller constants. An effective bed conductivity now **exists** in the
+//! workspace ([`outram_park_digital_twin_engine::htr10::zbs`]) but is
+//! deliberately not in the heat path, because one control volume has no
+//! internal gradient for it to act on. The live steam pressure is still held
 //! fixed (see [`secondary_loop`]). Replacing the invented dimensions with
 //! sourced ones is tracked as bead `op-szmi.6`.
 //!
@@ -103,12 +122,19 @@ use pebble_bed::PebbleBedCore;
 use primary_loop::HeliumPrimaryLoop;
 use secondary_loop::SteamSecondaryLoop;
 
-/// Nominal thermal power used to seed the kinetics and size the loops \[MW\]:
-/// 10 MWth (published HTR-10 figure, IAEA-TECDOC-1382 Table 4-1).
-pub const NOMINAL_THERMAL_POWER_MW: f64 = 10.0;
+/// Nominal thermal power used to seed the kinetics and size the loops: 10 MWth
+/// (published HTR-10 figure, IAEA-TECDOC-1382 Table 4-1), read from
+/// [`outram_park_digital_twin_engine::htr10::design::Htr10DesignPoint`] rather
+/// than re-typed here.
+pub fn nominal_thermal_power() -> Power {
+    pebble_bed::design().thermal_power
+}
 
-/// Nominal helium mass flow \[kg/s\]: 4.3 kg/s at full power (published).
-pub const NOMINAL_HELIUM_FLOW_KG_PER_S: f64 = pebble_bed::NOMINAL_HELIUM_FLOW_KG_PER_S;
+/// Nominal helium mass flow: 4.3 kg/s at full power (published, via the same
+/// design point).
+pub fn nominal_helium_flow() -> MassRate {
+    pebble_bed::nominal_helium_flow()
+}
 
 /// The full plant model: kinetics + pebble-bed core + helium primary loop +
 /// steam secondary loop, plus the running simulation clock.
@@ -133,13 +159,11 @@ pub struct HtgrPlant {
 impl HtgrPlant {
     /// Construct the plant at the published HTR-10 operating point.
     pub fn new() -> Self {
-        let nominal_power = Power::new::<megawatt>(NOMINAL_THERMAL_POWER_MW);
+        let nominal_power = nominal_thermal_power();
         Self {
             kinetics: HtgrKinetics::new_illustrative(nominal_power),
             core: PebbleBedCore::new(),
-            primary: HeliumPrimaryLoop::new(MassRate::new::<kilogram_per_second>(
-                NOMINAL_HELIUM_FLOW_KG_PER_S,
-            )),
+            primary: HeliumPrimaryLoop::new(nominal_helium_flow()),
             secondary: SteamSecondaryLoop::new(),
             sim_time: Time::new::<second>(0.0),
             core_heat_to_helium: Power::new::<watt>(0.0),
@@ -237,6 +261,7 @@ impl HtgrPlant {
             residence_time_from_flow(self.primary.helium_inventory(), self.primary.mass_flow())
                 .get::<second>();
         s.primary_pressure_drop_kpa = self.primary.pressure_drop().get::<kilopascal>();
+        s.bed_pressure_drop_kpa = self.primary.bed_pressure_drop().get::<kilopascal>();
         s.circulator_power_mw = self.primary.circulator_power().get::<megawatt>();
         s.helium_cp_j_per_kg_k =
             self.primary

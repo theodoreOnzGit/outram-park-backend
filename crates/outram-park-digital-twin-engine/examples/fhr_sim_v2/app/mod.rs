@@ -18,6 +18,7 @@ use crate::app::local_widgets_and_buttons::turbine_widget::TurbineWidget;
 use crate::{FHRSimulatorApp, FHRState};
 use crate::Panel;
 
+pub mod gui_frame_metrics;
 pub mod prke_backend;
 pub mod thermal_hydraulics_backend;
 
@@ -32,6 +33,11 @@ impl eframe::App for FHRSimulatorApp {
         // eframe 0.34 hands us a root `Ui`; panels are nested into it with
         // `show_inside`, and the `CentralPanel` must come last.
         // For inspiration and more examples, go to https://emilk.github.io/egui
+
+        // Start the GUI-thread frame timer. The two early returns below skip
+        // `end_frame`, so a frame spent showing a modal is not recorded rather
+        // than being recorded as an implausibly fast one.
+        self.gui_frame_metrics.begin_frame();
 
         // If a physics thread has panicked, the `FHRState` mutex is poisoned and
         // the normal panels below would `.lock().unwrap()` -> cascade-panic the
@@ -107,6 +113,12 @@ impl eframe::App for FHRSimulatorApp {
         //let repaint_time = Frequency::new::<hertz>(60.0).recip().get::<millisecond>().round();
         // this is 16.67 ms
         ui.ctx().request_repaint_after(Duration::from_millis(16));
+
+        // Close the GUI-thread frame timer. This must be the last thing in the
+        // render body so it captures the whole `ui` closure -- though note it
+        // still excludes egui's tessellation and the backend's paint/present,
+        // which happen after we return. See `gui_frame_metrics` module docs.
+        self.gui_frame_metrics.end_frame(ui.ctx());
 
         // adding the return here because there are too many closing
         // parantheses

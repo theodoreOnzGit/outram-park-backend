@@ -65,8 +65,15 @@ pub struct HtgrSnapshot {
     /// Helium loop residence time \[s\] (`m/m_dot`), driving the primary
     /// flow tracers in the schematic.
     pub helium_residence_time_s: f64,
-    /// Frictional pressure drop around the helium loop \[kPa\].
+    /// Frictional pressure drop around the whole helium loop \[kPa\]: the KTA
+    /// pebble-bed term plus the published non-bed component sum.
     pub primary_pressure_drop_kpa: f64,
+    /// The **pebble-bed** part of that drop alone \[kPa\], evaluated from the
+    /// KTA packed-bed friction correlation at the live helium density and
+    /// viscosity. Surfaced separately because it is the one hydraulic quantity
+    /// in this model that is a real correlation result rather than a carried
+    /// published figure.
+    pub bed_pressure_drop_kpa: f64,
     /// Circulator hydraulic power \[MW\].
     pub circulator_power_mw: f64,
     /// Helium isobaric specific heat \[J/(kg K)\] at the current bulk mean
@@ -149,6 +156,7 @@ impl Default for HtgrSnapshot {
             ihx_outlet_temp_k: 523.15,
             helium_residence_time_s: 0.0,
             primary_pressure_drop_kpa: 0.0,
+            bed_pressure_drop_kpa: 0.0,
             circulator_power_mw: 0.0,
             helium_cp_j_per_kg_k: 5193.0,
             steam_pressure_mpa: 4.0,

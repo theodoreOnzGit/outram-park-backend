@@ -515,6 +515,37 @@ impl FHRSimulatorApp {
                 );
 
                 ui.separator();
+                ui.separator();
+
+                // GUI-thread timings. The two blocks above measure the physics
+                // threads; without these, a report of "the simulator feels
+                // laggy" cannot be attributed to the renderer versus the
+                // model. Read them together with the module docs on
+                // `app::gui_frame_metrics` -- in particular, the CPU figure
+                // covers our own `ui` body only, so a small CPU time inside a
+                // ~16.7 ms interval is the healthy vsync-limited case, not a
+                // contradiction.
+                let gui_update_cpu_time_ms = self.gui_frame_metrics.update_cpu_time_ms();
+
+                ui.label("GUI update() CPU time Milliseconds");
+                ui.label(((1000.0 * gui_update_cpu_time_ms).round() / 1000.0).to_string());
+
+                let gui_peak_cpu_time_ms = self.gui_frame_metrics.peak_update_cpu_time_ms();
+
+                ui.label("GUI update() peak CPU time Milliseconds");
+                ui.label(((1000.0 * gui_peak_cpu_time_ms).round() / 1000.0).to_string());
+
+                let gui_frame_interval_ms = self.gui_frame_metrics.frame_interval_ms();
+
+                ui.label("GUI Frame Interval Milliseconds");
+                ui.label(((1000.0 * gui_frame_interval_ms).round() / 1000.0).to_string());
+
+                let gui_frames_per_second = self.gui_frame_metrics.frames_per_second();
+
+                ui.label("GUI Frames Per Second");
+                ui.label(((10.0 * gui_frames_per_second).round() / 10.0).to_string());
+
+                ui.separator();
                 // then acknowledgements/citing
             });
     }
