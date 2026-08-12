@@ -854,7 +854,8 @@ fn spmv_thread_scaling_benchmark() {
 
     ldu.spmv_into_min(&x, &mut y, ComputeBackend::Serial, FORCE_PARALLEL);
     let reference = y.clone();
-    let serial = best_of(5, || {
+    let iters = iters_for(m.n_cells);
+    let serial = best_per_call(7, iters, || {
         ldu.spmv_into_min(&x, &mut y, ComputeBackend::Serial, FORCE_PARALLEL);
         black_box(y[0]);
     });
@@ -877,7 +878,7 @@ fn spmv_thread_scaling_benchmark() {
         };
         let t = pool.install(|| {
             ldu.spmv_into_min(&x, &mut y, ComputeBackend::CpuMulti, FORCE_PARALLEL);
-            best_of(5, || {
+            best_per_call(7, iters, || {
                 ldu.spmv_into_min(&x, &mut y, ComputeBackend::CpuMulti, FORCE_PARALLEL);
                 black_box(y[0]);
             })

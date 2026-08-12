@@ -913,12 +913,13 @@ fn forced_parallel_add_timing(a: &Field<f64>, b: &Field<f64>) -> f64 {
 /// | `axpy_assign` | 989.04 us | 306.22 us | 3.23x |
 ///
 /// Interpretation: at a mesh of ~1e6 cells on 4 logical cores the speed-up is
-/// **2.5x-3.8x**, i.e. a substantial fraction of linear — these kernels are
-/// memory-bandwidth bound and the machine has bandwidth headroom at one thread.
-/// Across three runs the serial column varied by up to 25% and the parallel
-/// column by up to 50% (this is a shared virtualised host), so treat the
-/// magnitudes as indicative and the *ordering* — parallel decisively faster at
-/// this size — as the robust finding. This is not a controlled benchmark.
+/// **2.5x-4.3x across four runs** (2.5x-3.8x in the run tabulated above), i.e. a
+/// substantial fraction of linear — these kernels are memory-bandwidth bound and
+/// the machine has bandwidth headroom at one thread. Across those runs the serial
+/// column varied by up to 25% and the parallel column by up to 50% (this is a
+/// shared virtualised host), so treat the magnitudes as indicative and the
+/// *ordering* — parallel decisively faster at this size — as the robust finding.
+/// This is not a controlled benchmark.
 ///
 /// Run with:
 /// `cargo test -p outram-foam-basic-lib --lib --release --features parallel -- --ignored --nocapture measure_kernel_timings`
