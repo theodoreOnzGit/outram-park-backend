@@ -744,7 +744,7 @@ fn spmv_crossover_benchmark() {
         "cells", "faces", "serial (us)", "multi (us)", "speed-up"
     );
 
-    for &n in &[8_usize, 12, 16, 20, 25, 32, 40, 51, 64, 80] {
+    for &n in &[8_usize, 10, 12, 14, 16, 18, 20, 25, 32, 40, 51, 64, 80] {
         let m = Arc::new(random_matrix(n, n, n, 0x9E3779B9, true));
         let ldu = HybridLdu::new(Arc::clone(&m));
         let mut rng = Rng::new(0x1357);
@@ -828,7 +828,7 @@ fn vecop_crossover_benchmark() {
             axpy_mul * 1e6,
             axpy_ser / axpy_mul
         );
-        n *= 4;
+        n *= 2;
     }
 }
 
