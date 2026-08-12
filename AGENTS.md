@@ -12,16 +12,30 @@ This project uses **kopi-beans** (`bn`) for issue tracking — replacing
 > unavailable and fall back to a short markdown note rather than filing into
 > it.
 >
-> **BLOCKER, live as of 2026-08-07:** `bn` (kopi-beans 0.1.1) cannot read
-> the `refs/heads/beads/store` ref this workspace's `bd` already wrote — every
-> store-touching command (`bn init`, `bn status`, `bn list`, `bn ready`, …)
-> fails with `unsupported meta format_version 1`. Filed upstream as
-> [kopitiam#16](https://github.com/theodoreOnzGit/kopitiam/issues/16) (already
-> open, filed by the maintainer 2026-08-06). The old ref and its ~335 issues
-> are left untouched — do not delete it, do not hand-patch its `meta.json` to
-> work around this. **Until it's fixed, there is no working CLI issue tracker
-> in this repository** — use TodoWrite/TaskCreate or a short markdown note
-> instead, and say so in your hand-off.
+> **RESOLVED 2026-08-12 (kopi-beans ≥ 0.1.3).** The earlier blocker — `bn`
+> 0.1.1 refusing the `bd`-written store with `unsupported meta format_version
+> 1` ([kopitiam#16](https://github.com/theodoreOnzGit/kopitiam/issues/16)) — is
+> fixed: kopi-beans **0.1.3** ships `bn store migrate`, which upgrades the
+> `refs/heads/beads/store` ref from meta `format_version 1` → `2` in place. It
+> was run on this workspace on 2026-08-12; the store now reads cleanly and
+> serves **820 issues** (the local ref CRDT-merged with `origin/beads/store`),
+> and `beads-rs` (`bd`) has been uninstalled here.
+>
+> **Other clones must do the same, once each, to catch up** (the upgrade is
+> **one-way** — after it, `bd` can no longer read the store):
+>
+> ```bash
+> cargo install kopi-beans          # gives the `bn` CLI (>= 0.1.3)
+> bn store migrate --dry-run        # preview (saves the pre-migration ref
+>                                   #   under refs/beads/backup/ before writing)
+> bn store migrate                  # apply the v1 -> v2 upgrade
+> bn status                         # verify the store is readable
+> cargo uninstall beads-rs          # remove the old `bd` (optional but advised)
+> ```
+>
+> Do **not** hand-patch `meta.json` or delete the old ref to work around the
+> format gap — `bn store migrate` is the supported path and it backs the ref up
+> first.
 >
 > **Architecture in one line (kopi-beans):** issues live **in git refs** —
 > canonical state on `refs/heads/beads/store` (files `state.jsonl`,
@@ -40,7 +54,7 @@ This project uses **kopi-beans** (`bn`) for issue tracking — replacing
 > A prior migration, 2026-07-20, moved this workspace off a Go/Dolt
 > implementation onto beads-rs; that history is superseded by this entry.
 
-## Quick Reference (once the store above is readable)
+## Quick Reference
 
 ```bash
 bn ready              # Find available work
