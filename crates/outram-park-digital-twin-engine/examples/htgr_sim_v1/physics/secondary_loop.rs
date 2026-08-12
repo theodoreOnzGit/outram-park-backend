@@ -13,16 +13,24 @@
 //!
 //! ## Nodalisation
 //!
-//! **One control volume for the whole water/steam side.** The steam generator
-//! is a single enthalpy balance `h_out = h_feed + Q/m_dot` at a fixed pressure;
-//! the turbine, condenser and feed pump are each a single state-to-state flash.
-//! There is no economiser/evaporator/superheater zone tracking, no moving
-//! boundary between them, no helical-tube geometry, and no water inventory --
-//! so the model cannot show where the boiling front sits in the tube, cannot
-//! slide the steam pressure with load, and cannot represent a dryout or a
-//! feedwater-transient level swing. The refinement worth doing first is
-//! three-zone moving-boundary tracking with an inventory, which is what would
-//! make the steam pressure a computed variable (bead `op-wqk.9.3`).
+//! **One control volume for the cycle, but the steam generator is no longer
+//! part of it.** As of 2026-08-12 the water/steam side of the steam generator is
+//! a resolved 8-node counter-flow exchanger living in
+//! [`super::steam_generator`], driven by the primary loop. What remains here is
+//! the *rest* of the Rankine cycle: the turbine, the condenser and the feed pump
+//! are each a single state-to-state flash, and the steam-generator outlet is
+//! reproduced from the exchanger's own tube-side duty by the enthalpy balance
+//! `h_out = h_feed + Q_cold/m_dot`.
+//!
+//! That balance is now a **restatement of the exchanger's result**, not an
+//! independent model of it: `Q_cold` is by construction
+//! `m_dot (h_out - h_in)` on the resolved tube side, so the two agree to within
+//! one step of feedwater-controller lag. The economiser / evaporator /
+//! superheater zones and the boiling-front position are available from
+//! [`super::primary_loop::HeliumPrimaryLoop::steam_generator_state`].
+//!
+//! Still absent: a water inventory, so the steam pressure cannot slide with
+//! load, and there is no drum level to swing (bead `op-jyyp.9`).
 //!
 //! ## What is real
 //!
@@ -43,11 +51,14 @@
 //! - **The condenser has an energy balance.** The duty it rejects,
 //!   `m_dot (h_turbine_out - h_condensate)`, is carried by a cooling-water
 //!   stream whose outlet temperature follows `Q/(m_cw c_p)`.
-//! - **The steam-generator duty is pinch-limited.** The `ihx_duty` handed in
-//!   has already been capped by the primary loop's effectiveness-NTU IHX
-//!   against [`Self::saturation_temperature`], so the secondary can never
-//!   absorb more heat than the helium-to-steam temperature difference and the
-//!   `UA` support.
+//! - **The steam-generator duty comes from a resolved exchanger.** The
+//!   `ihx_duty` handed in is the heat the tube side of
+//!   [`super::steam_generator::NodalisedCounterFlowSteamGenerator`] actually
+//!   absorbed, evaluated from **local node temperatures** on both streams. It is
+//!   therefore already bounded by the real, collapsing superheater pinch rather
+//!   than by an assumed isothermal sink. The `max_absorbable_duty` backstop
+//!   below is retained but no longer binds -- see
+//!   [`tests::the_absorbable_duty_cap_no_longer_binds`] for the measured margin.
 //! - **Feedwater flow is controlled, not fixed.** A first-order-lagged
 //!   proportional law moves the feed flow toward whatever holds the target
 //!   steam enthalpy at the current duty.
@@ -130,13 +141,23 @@ const IF97_MAX_TEMPERATURE_K: f64 = 1073.15;
 /// Greatest duty \[W\] the steam side can absorb without its outlet exceeding
 /// the hot side that is heating it -- i.e. without a temperature cross.
 ///
-/// # Why this exists
+/// # Why this exists, and why it is now a backstop rather than the fix
 ///
-/// The primary loop's effectiveness-NTU pinch caps duty against the steam
-/// *saturation* temperature, and guards the helium side only. Superheat beyond
-/// saturation was therefore unbounded, which is both a second-law violation and
-/// (because IF97 panics out of range) the cause of the simulator's crash on a
-/// fast power rise. See the call site for the full account.
+/// Until 2026-08-12 the steam generator was an effectiveness-NTU lump in
+/// [`super::primary_loop`] pinching against the steam *saturation* temperature,
+/// which guarded the helium side only. Superheat beyond saturation was therefore
+/// unbounded, which is both a second-law violation and -- because IF97 panics out
+/// of range -- the cause of the simulator's crash on a fast power rise. This cap
+/// stopped the crash, but by clamping the steam outlet at the *helium inlet
+/// temperature*, which is why the GUI then showed steam as hot as the helium.
+///
+/// **The duty handed in is now correct at source**, from the resolved exchanger
+/// in [`super::steam_generator`], whose tube-side outlet can never exceed the
+/// local helium temperature. This function is kept as a **backstop** -- cheap,
+/// and the last line of defence for an IF97 range panic if a future change feeds
+/// this loop a duty from somewhere else -- and
+/// [`SteamSecondaryLoop::absorbable_duty_utilisation`] reports how far it is from
+/// binding so its inactivity is measured rather than assumed.
 ///
 /// # Method
 ///
@@ -287,6 +308,10 @@ pub struct SteamSecondaryLoop {
     steam_quality_after_turbine: f64,
     condenser_duty: Power,
     cooling_water_outlet_temperature: ThermodynamicTemperature,
+    /// How close the offered duty came to [`max_absorbable_duty`] on the most
+    /// recent step, as `Q_offered / Q_max`. See
+    /// [`Self::absorbable_duty_utilisation`].
+    absorbable_duty_utilisation: f64,
 }
 
 impl SteamSecondaryLoop {
@@ -324,15 +349,26 @@ impl SteamSecondaryLoop {
             cooling_water_outlet_temperature: ThermodynamicTemperature::new::<kelvin>(
                 COOLING_WATER_INLET_K,
             ),
+            absorbable_duty_utilisation: 0.0,
         }
     }
 
-    /// Saturation temperature at the live steam pressure -- the isothermal
-    /// cold-side temperature the primary loop's effectiveness-NTU IHX pinches
-    /// against.
+    /// Saturation temperature at the live steam pressure, from the real IF97
+    /// saturation line.
     ///
-    /// This is the coupling variable that makes the steam generator
-    /// duty-limited rather than accepting whatever the primary offers.
+    /// **This stopped being a coupling variable on 2026-08-12.** It used to be
+    /// handed to the primary loop as the isothermal cold-side temperature its
+    /// effectiveness-NTU steam generator pinched against -- which is exactly the
+    /// assumption that made a once-through unit's superheater invisible. The
+    /// exchanger now resolves the cold side, so what crosses to the primary is
+    /// the feedwater enthalpy and flow instead.
+    ///
+    /// It is kept because it is still a real, meaningful plant quantity (the
+    /// boiling temperature the evaporator zone pins itself to -- see the
+    /// evaporator plateau in
+    /// `super::steam_generator::tests::the_cold_stream_resolves_all_three_zones`)
+    /// and is a natural thing for the GUI to display.
+    #[allow(dead_code)] // no longer a coupling variable -- see the doc comment
     pub fn saturation_temperature(&self) -> ThermodynamicTemperature {
         HemSteamCv::new_from_sat_pressure_quality(self.steam_pressure, 0.0, self.reference_volume)
             .get_temperature()
@@ -422,12 +458,21 @@ impl SteamSecondaryLoop {
         // Cap on ENTHALPY, not `c_p * dT` -- the stream boils, so a specific
         // heat is not defined across the phase change. This mirrors the fix
         // already made in fhr_sim_v2's `steam_generator_duty`.
-        let q_w = q_w_uncapped.min(max_absorbable_duty(
+        let q_max = max_absorbable_duty(
             self.steam_pressure,
             hot_side_inlet_temperature,
             flow_next,
             h_feed,
-        ));
+        );
+        let q_w = q_w_uncapped.min(q_max);
+        // How hard the backstop is being leaned on. 1.0 means it is binding.
+        self.absorbable_duty_utilisation = if q_max > 0.0 {
+            q_w_uncapped / q_max
+        } else if q_w_uncapped > 0.0 {
+            f64::INFINITY
+        } else {
+            0.0
+        };
 
         // 3. Steam-generator outlet from the secondary energy balance.
         let h_steam = h_feed + q_w / flow_next;
@@ -536,6 +581,27 @@ impl SteamSecondaryLoop {
     /// Steam quality at the turbine exhaust `[0, 1]`.
     pub fn steam_quality_after_turbine(&self) -> f64 {
         self.steam_quality_after_turbine
+    }
+
+    /// How close the offered steam-generator duty came to the second-law
+    /// backstop [`max_absorbable_duty`] on the most recent step, as the
+    /// dimensionless ratio `Q_offered / Q_max`.
+    ///
+    /// - **Below 1.0**: the backstop is inactive and the steam outlet is the
+    ///   plain enthalpy balance `h_feed + Q/m_dot`. This is what normal
+    ///   operation should look like now that the duty comes from a resolved
+    ///   exchanger.
+    /// - **At or above 1.0**: the backstop is binding and the reported steam
+    ///   temperature is the clamp, not the physics. Before 2026-08-12 this was
+    ///   routine, because the duty handed in came from an effectiveness-NTU lump
+    ///   against an isothermal sink and was over-predicted; the clamp is what
+    ///   made the steam read as hot as the helium.
+    ///
+    /// Measured margin: see
+    /// [`tests::the_absorbable_duty_cap_no_longer_binds`].
+    #[allow(dead_code)] // read by the V&V tests; snapshot candidate for the app layer
+    pub fn absorbable_duty_utilisation(&self) -> f64 {
+        self.absorbable_duty_utilisation
     }
 }
 
@@ -785,12 +851,35 @@ mod tests {
     /// points on the first step, i.e. at every duty above roughly 13 MW while
     /// the feed flow is still at its floor.
     ///
+    /// **Part 3 added 2026-08-12 -- the cap must now pass with MARGIN, not by
+    /// clamping.** Parts 1 and 2 deliberately slam the loop with synthetic
+    /// duties far outside anything a real exchanger can produce, so the cap
+    /// *does* bind there and part 1 saturates against it to within 3 mK. That
+    /// proves the backstop works; it says nothing about whether the plant is
+    /// relying on it. Part 3 asks the question that matters: over the duty range
+    /// a resolved 10 MWth steam generator can actually deliver, and at the
+    /// settled feed flow, how far is the cap from binding? Pass criterion: peak
+    /// utilisation `Q_offered/Q_max` strictly below 1, and the steam outlet at
+    /// least 100 K below the hot side.
+    ///
+    /// **Part 3 results (measured 2026-08-12).** Over 8 to 12 MW at the settled
+    /// feed flow, marched 2000 steps each: peak utilisation **0.9242** and peak
+    /// steam **850.56 K** against the 973.15 K hot side -- inactive, but only
+    /// just, because these are *synthetic* duties handed straight in with no
+    /// exchanger between them and the water. See
+    /// [`tests::the_absorbable_duty_cap_no_longer_binds`] for the closed-loop
+    /// version, which is the one that answers "does the plant lean on the
+    /// backstop in normal operation" -- and which measures a larger margin
+    /// precisely because the duty there comes from a real exchanger.
+    ///
     /// **Interpretation.** The crash was the severe form of a temperature
     /// cross; a mild overshoot would merely have shown steam hotter than the
     /// helium heating it. The cap removes both by construction rather than by
-    /// widening a tolerance. Note this bounds the *outlet* only -- the steam
-    /// generator is still one control volume, so nothing here says the internal
-    /// temperature profile is right.
+    /// widening a tolerance. Note this bounds the *outlet* only. The internal
+    /// temperature profile is no longer unmodelled, though -- it is resolved in
+    /// [`super::super::steam_generator`], and its node-by-node no-cross property
+    /// is checked in
+    /// `super::super::primary_loop::tests::steam_generator_has_no_node_by_node_temperature_cross`.
     #[test]
     fn no_duty_can_drive_a_temperature_cross_on_the_steam_side() {
         let hot_side_k = nominal_hot_side().get::<kelvin>();
@@ -836,6 +925,210 @@ mod tests {
             violations > 20,
             "the uncapped formula violated at only {violations} of 40 points; \
              if this drops, the cap may no longer be doing anything"
+        );
+
+        // Part 3: at duties a real 10 MWth exchanger can produce, the cap must
+        // be inactive with margin.
+        let mut worst_utilisation = 0.0_f64;
+        let mut worst_steam_k = 0.0_f64;
+        for mw in 8..=12 {
+            let mut loop_ = SteamSecondaryLoop::new();
+            let duty = Power::new::<megawatt>(mw as f64);
+            for _ in 0..2000 {
+                loop_.step(dt(), duty, nominal_hot_side());
+                worst_utilisation = worst_utilisation.max(loop_.absorbable_duty_utilisation());
+                worst_steam_k =
+                    worst_steam_k.max(loop_.turbine_inlet_temperature().get::<kelvin>());
+            }
+        }
+        println!(
+            "part 3, 8-12 MW at settled flow: peak Q_offered/Q_max = {worst_utilisation:.4}, \
+             peak steam = {worst_steam_k:.2} K against a {hot_side_k:.2} K hot side"
+        );
+        assert!(
+            worst_utilisation < 1.0,
+            "the absorbable-duty cap still binds at realistic duties \
+             (peak utilisation {worst_utilisation})"
+        );
+        assert!(
+            worst_steam_k < hot_side_k - 100.0,
+            "steam reached {worst_steam_k} K, within 100 K of the {hot_side_k} K hot side"
+        );
+    }
+
+    /// V&V: **the second-law backstop no longer binds in normal plant
+    /// operation**, measured on the coupled primary + secondary loops.
+    ///
+    /// # Why this is the test that matters
+    ///
+    /// `max_absorbable_duty` was introduced as a crash fix, and it worked: it
+    /// turned a dead physics thread into a running simulator. But it worked by
+    /// **clamping the steam outlet at the helium inlet temperature**, so the
+    /// price of not crashing was a plainly wrong number on screen -- steam as hot
+    /// as the helium heating it. A backstop that is load-bearing is not a
+    /// backstop, it is the model.
+    ///
+    /// The duty is now produced by the resolved counter-flow exchanger in
+    /// [`super::super::steam_generator`], whose tube-side outlet cannot exceed
+    /// the local helium temperature by construction. This test measures whether
+    /// that made the clamp genuinely inactive, rather than assuming it.
+    ///
+    /// # Methodology
+    ///
+    /// The helium primary loop and this secondary loop are stepped together for
+    /// 6000 steps of 0.05 s (300 s of simulated time) at 10 MWth and the
+    /// published 4.3 kg/s, exactly as [`super::super::HtgrPlant::step`] wires
+    /// them: the secondary's feedwater state drives the exchanger's tube side,
+    /// and the exchanger's tube-side duty drives this loop. The maximum of
+    /// [`SteamSecondaryLoop::absorbable_duty_utilisation`] is recorded, and the
+    /// steam temperature is compared against the helium entering the exchanger.
+    ///
+    /// Both are reported twice: over the **whole run**, and over **normal
+    /// operation**, defined as everything after the first 10 s. The distinction
+    /// is not a convenience -- the exchanger is seeded on a linear arrangement
+    /// and spends its first second or so shedding the difference between that
+    /// arrangement and the real one, which is a start-up artefact of the seed
+    /// rather than a plant behaviour.
+    ///
+    /// Pass criteria: the backstop never binds at all (whole-run utilisation
+    /// strictly below 1.0); in normal operation it is below **0.9**, a stated
+    /// 10% margin rather than merely "did not quite bind"; and the steam stays
+    /// 100 K (whole run) / 150 K (normal operation) below the core-outlet helium.
+    ///
+    /// # Results (measured 2026-08-12)
+    ///
+    /// | Measure | Whole run | After 10 s |
+    /// |---|---|---|
+    /// | Peak `Q_offered/Q_max` | **0.9088** | **0.8807** |
+    /// | Closest steam-to-helium approach | **147.5 K** | **193.1 K** |
+    ///
+    /// The backstop is therefore inactive throughout, with **12% margin in
+    /// normal operation** and 9% even through start-up. Before this change it
+    /// was routinely binding, which is what put steam as hot as the helium on
+    /// screen.
+    ///
+    /// **Settled plant design point at 300 s** -- this is the plant's own, with
+    /// the feedwater controller in the loop:
+    ///
+    /// | Quantity | Measured | Published | Delta |
+    /// |---|---|---|---|
+    /// | Steam outlet | 714.40 K = **441.25 degC** | 440 degC | **+1.25 K** |
+    /// | Feed flow | **3.1269 kg/s** | 3.4722 kg/s | -9.9% |
+    /// | Core outlet | 994.81 K = **721.66 degC** | 700 degC | +21.7 K |
+    /// | Core inlet | 547.12 K = **273.97 degC** | 250 degC | +24.0 K |
+    /// | Turbine power | **3.096 MW** | -- (invented BOP) | -- |
+    ///
+    /// The steam temperature is the maintainer-visible symptom, and it is fixed:
+    /// **441.25 degC against a published 440 degC**. Before this change the
+    /// steam read as hot as the helium heating it, because the backstop below
+    /// was clamping it there. The ~22 K the *helium* terminals sit above
+    /// published is the `UA` calibration's residual against an 8-node
+    /// discretisation; see
+    /// [`super::super::primary_loop::STEAM_GENERATOR_UA_W_PER_K`]. It was not
+    /// tuned out.
+    ///
+    /// **This is the plant's own design point** -- the feedwater controller is
+    /// in the loop here, where
+    /// `super::super::primary_loop::tests::steam_generator_has_no_node_by_node_temperature_cross`
+    /// holds the feed flow fixed at 3.19 kg/s and lands 12 K lower.
+    ///
+    /// **The settled state is a slow limit cycle, not a fixed point.** The steam
+    /// outlet swings roughly 698-718 K with a period near 100 s, because the
+    /// feedwater controller is a *feedforward* law -- it sets flow from the duty
+    /// being offered, `Q/(h_target - h_feed)` -- acting on an exchanger with a
+    /// 38 s metal lag. The published 440 degC sits inside that swing. This
+    /// oscillation is a property of the controller, not of the exchanger, and it
+    /// was invisible before because the secondary had no thermal inertia to
+    /// oscillate against. Replacing the feedforward law with real feedback on
+    /// steam temperature is the obvious follow-up.
+    ///
+    /// # Interpretation
+    ///
+    /// A margin here means the steam temperature on screen is the exchanger's
+    /// answer, not a clamp's. It does **not** mean the exchanger is validated --
+    /// its `UA` is an explicit calibration and its geometry is part invented.
+    #[test]
+    fn the_absorbable_duty_cap_no_longer_binds() {
+        use super::super::pebble_bed;
+        use super::super::primary_loop::HeliumPrimaryLoop;
+
+        let mut primary = HeliumPrimaryLoop::new(pebble_bed::nominal_helium_flow());
+        let mut secondary = SteamSecondaryLoop::new();
+        let power = Power::new::<megawatt>(10.0);
+
+        let mut worst_utilisation = 0.0_f64;
+        let mut worst_approach_k = f64::INFINITY;
+        let mut settled_worst_utilisation = 0.0_f64;
+        let mut settled_worst_approach_k = f64::INFINITY;
+
+        for _i in 0..6000 {
+            let feed_h = secondary.feedwater_enthalpy();
+            let feed_flow = secondary.mass_flow();
+            primary.step(
+                dt(),
+                power,
+                pebble_bed::nominal_helium_flow(),
+                feed_h,
+                feed_flow,
+            );
+            secondary.step(
+                dt(),
+                primary.steam_generator_duty_to_secondary(),
+                primary.core_outlet_temperature(),
+            );
+
+            let util = secondary.absorbable_duty_utilisation();
+            let approach = primary.core_outlet_temperature().get::<kelvin>()
+                - secondary.turbine_inlet_temperature().get::<kelvin>();
+            worst_utilisation = worst_utilisation.max(util);
+            worst_approach_k = worst_approach_k.min(approach);
+            // "Normal operation" excludes the first 10 s, during which the
+            // exchanger is still shedding the arrangement it was seeded with.
+            if _i >= 200 {
+                settled_worst_utilisation = settled_worst_utilisation.max(util);
+                settled_worst_approach_k = settled_worst_approach_k.min(approach);
+            }
+        }
+
+        println!(
+            "COUPLED RUN (10 MWth, 4.3 kg/s helium, 300 s of simulated time):\n  \
+             peak Q_offered/Q_max, whole run   = {worst_utilisation:.4} (1.0 = the backstop binds)\n  \
+             peak Q_offered/Q_max, after 10 s  = {settled_worst_utilisation:.4}\n  \
+             closest steam-to-helium approach, whole run  = {worst_approach_k:.2} K\n  \
+             closest steam-to-helium approach, after 10 s = {settled_worst_approach_k:.2} K\n  \
+             settled steam outlet        = {:.2} K ({:.2} degC), published 440 degC\n  \
+             settled feed flow           = {:.4} kg/s, published 3.4722 kg/s\n  \
+             settled turbine power       = {:.4} MW\n  \
+             settled core outlet         = {:.2} K ({:.2} degC), published 700 degC\n  \
+             settled core inlet          = {:.2} K ({:.2} degC), published 250 degC",
+            secondary.turbine_inlet_temperature().get::<kelvin>(),
+            secondary.turbine_inlet_temperature().get::<kelvin>() - 273.15,
+            secondary.mass_flow().get::<kilogram_per_second>(),
+            secondary.turbine_power().get::<watt>() / 1.0e6,
+            primary.core_outlet_temperature().get::<kelvin>(),
+            primary.core_outlet_temperature().get::<kelvin>() - 273.15,
+            primary.core_inlet_temperature().get::<kelvin>(),
+            primary.core_inlet_temperature().get::<kelvin>() - 273.15,
+        );
+
+        assert!(
+            worst_utilisation < 1.0,
+            "the absorbable-duty backstop BOUND during the run: peak utilisation \
+             {worst_utilisation}"
+        );
+        assert!(
+            settled_worst_utilisation < 0.9,
+            "the absorbable-duty backstop is still load-bearing in normal operation: \
+             peak utilisation {settled_worst_utilisation} (want < 0.9)"
+        );
+        assert!(
+            worst_approach_k > 100.0,
+            "the steam came within {worst_approach_k} K of the helium heating it"
+        );
+        assert!(
+            settled_worst_approach_k > 150.0,
+            "in normal operation the steam came within {settled_worst_approach_k} K of the \
+             helium heating it"
         );
     }
 }

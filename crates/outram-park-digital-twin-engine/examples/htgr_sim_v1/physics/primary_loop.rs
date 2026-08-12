@@ -148,11 +148,14 @@
 use outram_park_digital_twin_engine::htr10::design::{Htr10DesignPoint, Htr10FuelTemperatureLimits};
 use outram_park_digital_twin_engine::htr10::kta;
 use outram_park_fork_coolprop::{state_pt, viscosity, Fluid};
+use tampines::compressible::CoolPropFluid;
+use tuas_boussinesq_solver::boussinesq_thermophysical_properties::SolidMaterial;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{
-    DynamicViscosity, Mass, MassDensity, MassRate, Power, Pressure, SpecificHeatCapacity,
-    ThermodynamicTemperature, Time, Volume,
+    AvailableEnergy, DynamicViscosity, Mass, MassDensity, MassRate, Power, Pressure,
+    SpecificHeatCapacity, ThermalConductance, ThermodynamicTemperature, Time, Volume,
 };
+use uom::si::thermal_conductance::watt_per_kelvin;
 use uom::si::mass::kilogram;
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::mass_rate::kilogram_per_second;
@@ -165,6 +168,10 @@ use uom::si::time::second;
 use uom::si::volume::cubic_meter;
 
 use super::pebble_bed;
+use super::steam_generator::{
+    NodalisedCounterFlowSteamGenerator, SteamGeneratorConfig, SteamGeneratorGeometry,
+    SteamGeneratorState,
+};
 
 // ---------------------------------------------------------------------------
 // PUBLISHED HTR-10 OPERATING POINT -- READ FROM THE LIBRARY
@@ -289,7 +296,129 @@ const CIRCULATOR_EFFICIENCY: f64 = 0.80;
 /// the settled loop sits near the published 250 degC / 700 degC end states at
 /// 10 MWth and 4.3 kg/s. It stands in for a once-through helical-tube module
 /// whose tube diameter, wall, pitch and module count are all unknown here.
-const STEAM_GENERATOR_UA_W_PER_K: f64 = 1.0e5;
+///
+/// # This number changed on 2026-08-12, and why that is not a free parameter
+/// # being nudged
+///
+/// It was **1.0e5 W/K** while the steam generator was an effectiveness-NTU lump
+/// pinching against an *isothermal saturation sink*. That formulation saw a
+/// permanent ~450 K driving difference, so it needed a large `UA` to be
+/// pinch-limited at all. The exchanger is now
+/// [`super::steam_generator::NodalisedCounterFlowSteamGenerator`], which
+/// evaluates the driving difference **node by node at local temperatures** --
+/// and a real counter-flow exchanger with a collapsing superheater pinch is far
+/// more effective per unit `UA` than the old formula implied. Carried over
+/// unchanged, 1.0e5 W/K over-cools the helium. **Measured 2026-08-12** by
+/// running [`tests::steam_generator_has_no_node_by_node_temperature_cross`]
+/// with the constant set back to 1.0e5:
+///
+/// | | 1.0e5 W/K (carried over) | 4.26e4 W/K (re-calibrated) | Published |
+/// |---|---|---|---|
+/// | Core outlet | 880.53 K = **607.4 degC** | 993.89 K = 720.7 degC | 700 degC |
+/// | Core inlet | 432.51 K = **159.4 degC** | 546.05 K = 272.9 degC | 250 degC |
+/// | Steam outlet | 710.19 K = 437.0 degC | 700.81 K = 427.7 degC | 440 degC |
+/// | Hot-end driving difference | 135.84 K | 263.80 K | -- |
+///
+/// So the old `UA` puts the whole helium circuit **92.6 K below** the published
+/// core outlet and 90.6 K below the published core inlet -- a visibly wrong
+/// plant, and worse than the defect being fixed.
+///
+/// **4.26e4 W/K is a re-calibration against the corrected physics, and it is a
+/// calibration, not a prediction.** It is the `Q/LMTD` that places 10 MW across
+/// the published terminal states (973 K / 525 K helium against 313 K / 713 K
+/// water) in counter-flow: `LMTD = (260 - 212)/ln(260/212) = 234.8 K`, so
+/// `UA = 10e6/234.8 = 4.26e4 W/K`. Nothing about the resulting agreement with
+/// the published operating point is evidence of anything -- it was put there.
+///
+/// **It was not then nudged to close the remaining gap, and there is one.** The
+/// closed-form `UA` above is derived for a *continuous* counter-flow exchanger
+/// with terminal states; the model is an 8-node discretisation reading
+/// cell-centre temperatures, and it lands about 20 K high on both helium
+/// terminals (720.7 degC against 700, 272.9 degC against 250, at a fixed
+/// 3.19 kg/s feed). That residual is reported, not tuned out: a second round of
+/// fitting would only make the agreement less informative than it already is.
+/// See [`tests::steam_generator_has_no_node_by_node_temperature_cross`] for the
+/// measured design point and
+/// [`super::steam_generator::SteamGeneratorGeometry::htr10_illustrative`] for
+/// the geometry, which is *not* fitted to this number.
+pub const STEAM_GENERATOR_UA_W_PER_K: f64 = 4.26e4;
+
+/// Fraction of the steam generator's total thermal resistance placed on the
+/// **hot (helium) side** (**invented**), 0.75.
+///
+/// The nodalised exchanger needs the overall `UA` split into a helium-to-metal
+/// conductance and a metal-to-water conductance, because the metal sits between
+/// them and its thermal mass is the point. Gas-side resistance dominating a
+/// gas-to-boiling-water exchanger is the standard qualitative picture -- boiling
+/// and high-velocity superheated steam are both far better at moving heat into a
+/// tube wall than helium is at moving it out of a shell -- but **0.75 is not a
+/// computed number**. No Dittus-Boelter, Gnielinski or helical-coil correlation
+/// is evaluated anywhere in this model.
+///
+/// What the split *does* control physically is where the metal sits between the
+/// two streams, and hence how a duty step is filtered. It does not change the
+/// series `UA`.
+const STEAM_GENERATOR_HOT_SIDE_RESISTANCE_FRACTION: f64 = 0.75;
+
+/// Number of axial nodes in the steam generator (**invented**), 8.
+///
+/// Enough to resolve *that* the economiser, evaporator and superheater zones
+/// exist and roughly where the boiling front sits -- at the design point the
+/// water side shows one superheating node, about four nodes pinned on the
+/// 523.5 K saturation plateau and two economiser nodes -- but far coarser than
+/// the 17 water + 17 helium nodes the published Chinese INET transient model
+/// used (`docs/reactor-scoping/htr10-plant-data.md` section 6). Read the axial
+/// profile as an arrangement, not a converged solution.
+///
+/// The cost is real: three coupled array solves per 0.0125 s of *simulated*
+/// time, **measured ~21 ms of wall clock per 0.05 s of simulated time**
+/// (2026-08-12, release, 8 nodes). That is about 2.4x faster than real time, so
+/// the GUI keeps up -- and because the exchanger runs on its own clock, the cost
+/// does not rise when the plant is stepped at 1 ms instead of 50 ms. It does
+/// make any test that marches thousands of plant steps expensive, which is why
+/// the tests below march 150-400 s of simulated time rather than the 400-800 s
+/// their predecessors could afford.
+const STEAM_GENERATOR_NODE_COUNT: usize = 8;
+
+/// The fixed timestep the steam-generator arrays are advanced with \[s\],
+/// 0.0125 s.
+///
+/// The exchanger accumulates whatever `dt` this loop hands it and advances in
+/// whole steps of this size -- see [`super::steam_generator::SteamGeneratorConfig::substep`].
+/// That matters because the GUI steps this plant at **1 ms**, not at the 0.05 s
+/// the tests use, and 1 ms is *below* the arrays' stability window.
+///
+/// # This is measured, from both ends
+///
+/// **Above**, by stability. The helium array's cells are ~0.6 m long and the gas
+/// moves at ~10 m/s, so at the full 0.05 s plant timestep the advective Courant
+/// number is close to 1: measured 2026-08-12, the enthalpy field goes odd-even
+/// (checkerboard) within four plant steps and clamps against the array's
+/// enthalpy bounds. 0.025 s and 0.0125 s both run 4000 plant steps clean.
+///
+/// **Below**, by a *different* instability -- this is a window, not a
+/// "smaller is safer" limit. At 0.001 s the water side begins resolving its own
+/// acoustic transient and the IF97 `(p,h)` flash goes out of range and panics.
+///
+/// **Within the window, by accuracy.** The three arrays are coupled explicitly
+/// (Lie-split): each one's lateral conductance is evaluated against its
+/// neighbours' *previous* sub-timestep temperatures, and the two fluid arrays
+/// treat that source differently from the implicit solid, so the heat the metal
+/// gives up and the heat the water takes agree only to `O(dt)`. Measured on the
+/// steady-state stream energy balance
+/// (`super::steam_generator::tests::energy_balance_closes_across_the_exchanger`,
+/// 200 s at the design point):
+///
+/// | Sub-timestep | `Q_hot` | Closure `(Q_hot - Q_cold)/Q_hot` |
+/// |---|---|---|
+/// | 0.025 s | 9.8111 MW | **+1.72%** |
+/// | 0.0125 s | 9.6719 MW | **+0.34%** |
+/// | 0.00625 s | 9.6718 MW | **+0.35%** |
+///
+/// So 0.0125 s is where both the duty and the closure have converged; halving it
+/// again buys nothing and doubles the cost. 0.025 s is visibly *not* converged
+/// -- its duty is 1.4% high -- which is why the cheaper option was rejected.
+const STEAM_GENERATOR_SUBSTEP_S: f64 = 0.0125;
 
 /// Thermal-inertia time constant of the lumped helium node in the core \[s\]
 /// (**invented**), giving the core-outlet temperature a visible first-order
@@ -316,6 +445,52 @@ const MIN_HELIUM_FLOW_KG_PER_S: f64 = 0.3;
 /// plant would command twenty times the nominal flow through a 10 MWth core.
 const MAX_HELIUM_FLOW_KG_PER_S: f64 = 8.0;
 
+/// Floor on the water/steam flow presented to the steam generator's tube side
+/// \[kg/s\] (**invented**), matching the secondary loop's own flow floor.
+///
+/// The tube side is an advection-driven array: at zero flow it has no inlet
+/// boundary to carry the feedwater state in, no residence time, and degenerates
+/// into an axial-conduction problem that this plant model has no use for. The
+/// secondary loop already clamps its own feed flow to the same value, so in
+/// normal operation this floor never binds -- it exists so that a caller passing
+/// literal zero still gets a well-posed exchanger rather than a stalled one.
+const MIN_SECONDARY_FLOW_THROUGH_SG_KG_PER_S: f64 = 0.3;
+
+/// Build the HTR-10 steam generator's configuration.
+///
+/// Everything plant-specific is assembled **here**, in the caller, so that
+/// [`super::steam_generator`] stays a general exchanger that knows nothing about
+/// the HTR-10 (or, for `fhr_sim_v2`, about a molten salt). The overall `UA` is
+/// split into a helium-to-metal and a metal-to-water conductance by
+/// [`STEAM_GENERATOR_HOT_SIDE_RESISTANCE_FRACTION`]; the two in series reproduce
+/// [`STEAM_GENERATOR_UA_W_PER_K`] exactly, which
+/// [`tests::the_conductance_split_reproduces_the_series_ua`] checks.
+///
+/// The arrays are seeded on linear station profiles between the published
+/// terminal states -- helium 700 degC in, steam at the published 440 degC out,
+/// and a 320 K cold end near the feedwater state -- so the exchanger opens at
+/// approximately its operating arrangement rather than isothermal or crossed.
+fn steam_generator_config() -> SteamGeneratorConfig {
+    let ua = STEAM_GENERATOR_UA_W_PER_K;
+    let f = STEAM_GENERATOR_HOT_SIDE_RESISTANCE_FRACTION;
+    SteamGeneratorConfig {
+        geometry: SteamGeneratorGeometry::htr10_illustrative(),
+        hot_fluid: CoolPropFluid::Helium,
+        hot_pressure: design().primary_pressure,
+        cold_pressure: design().main_steam_pressure,
+        metal: SolidMaterial::SteelSS304L,
+        hot_side_conductance: ThermalConductance::new::<watt_per_kelvin>(ua / f),
+        cold_side_conductance: ThermalConductance::new::<watt_per_kelvin>(ua / (1.0 - f)),
+        node_count: STEAM_GENERATOR_NODE_COUNT,
+        substep: Time::new::<second>(STEAM_GENERATOR_SUBSTEP_S),
+        initial_hot_end_temperature: ThermodynamicTemperature::new::<kelvin>(
+            published_core_outlet_k(),
+        ),
+        initial_cold_end_temperature: ThermodynamicTemperature::new::<kelvin>(320.0),
+        initial_cold_outlet_temperature: design().main_steam_temperature,
+    }
+}
+
 /// Lumped helium primary-loop state.
 pub struct HeliumPrimaryLoop {
     /// Isobaric specific heat of helium at the current bulk mean temperature
@@ -336,11 +511,18 @@ pub struct HeliumPrimaryLoop {
     core_outlet_temperature: ThermodynamicTemperature,
     /// Current helium mass flow (driven by the circulator setpoint).
     mass_flow: MassRate,
-    /// Most recently computed steam-generator duty transferred to the secondary
-    /// loop.
+    /// Most recently computed heat rate **leaving the helium** in the steam
+    /// generator.
     ihx_duty: Power,
+    /// Most recently computed heat rate **entering the water/steam** in the
+    /// steam generator. Differs from [`Self::ihx_duty`] by the rate of change of
+    /// energy stored in the tube metal.
+    secondary_duty: Power,
     /// Helium-side steam-generator outlet temperature (feeds the core inlet).
     ihx_outlet_temperature: ThermodynamicTemperature,
+    /// The nodalised counter-flow steam generator itself: helium shell side,
+    /// steel tube metal, water/steam tube side.
+    steam_generator: NodalisedCounterFlowSteamGenerator,
     /// Frictional pressure drop around the whole loop at the current flow: the
     /// KTA bed term plus the published non-bed remainder.
     pressure_drop: Pressure,
@@ -374,10 +556,13 @@ impl HeliumPrimaryLoop {
             core_outlet_temperature: outlet,
             mass_flow: nominal_flow,
             ihx_duty: Power::new::<watt>(0.0),
+            secondary_duty: Power::new::<watt>(0.0),
             ihx_outlet_temperature: inlet,
             pressure_drop: Pressure::new::<pascal>(0.0),
             bed_pressure_drop: Pressure::new::<pascal>(0.0),
             circulator_power: Power::new::<watt>(0.0),
+            steam_generator: NodalisedCounterFlowSteamGenerator::new(steam_generator_config())
+                .expect("the HTR-10 steam-generator configuration must be constructible"),
         }
     }
 
@@ -390,8 +575,9 @@ impl HeliumPrimaryLoop {
     /// loop the bed's thermal inertia.
     ///
     /// `flow_setpoint` is the commanded circulator flow, clamped to the
-    /// circulator's illustrative range. `secondary_sink_temperature` is the
-    /// steam-side saturation temperature the steam generator pinches against.
+    /// circulator's illustrative range. `feedwater_enthalpy` and
+    /// `secondary_mass_flow` describe the water entering the steam generator's
+    /// tube side.
     ///
     /// The step, in order:
     ///
@@ -400,22 +586,41 @@ impl HeliumPrimaryLoop {
     /// 2. Core energy balance: steady-state outlet `T_in + Q/(m_dot c_p)`,
     ///    with the displayed outlet relaxed toward it over
     ///    [`CORE_THERMAL_TIME_CONSTANT_S`].
-    /// 3. Steam generator, effectiveness-NTU with one isothermal (boiling)
-    ///    side, so `C_min = m_dot c_p` and `eps = 1 - exp(-UA/C_min)`:
-    ///    `Q = eps * m_dot * c_p * (T_out - T_sink)`. This is the pinch limit --
-    ///    the duty vanishes as the helium approaches the secondary saturation
-    ///    temperature, and can never drive it below.
-    /// 4. Helium leaves at `T_out - Q/(m_dot c_p)`, which the core inlet relaxes
-    ///    toward over [`RETURN_TRANSPORT_TIME_CONSTANT_S`], closing the loop.
+    /// 3. **Steam generator, nodalised counter-flow.** The core-outlet helium
+    ///    enters the shell side of
+    ///    [`super::steam_generator::NodalisedCounterFlowSteamGenerator`], the
+    ///    feedwater enters the tube side at the opposite end, and the exchanger
+    ///    is advanced. The duty is *not* a formula evaluated here -- it is the
+    ///    helium stream's own enthalpy drop across a resolved exchanger, and the
+    ///    helium-side outlet temperature comes back with it.
+    /// 4. The core inlet relaxes toward that helium-side outlet over
+    ///    [`RETURN_TRANSPORT_TIME_CONSTANT_S`], closing the loop.
     /// 5. Loop pressure drop -- KTA over the bed plus the published non-bed
     ///    component sum -- and circulator hydraulic power at the current flow
     ///    and density.
+    ///
+    /// # What changed on 2026-08-12
+    ///
+    /// Step 3 used to be an effectiveness-NTU lump against the steam-side
+    /// **saturation temperature**, treated as an isothermal sink:
+    ///
+    /// ```text
+    /// Q = (1 - exp(-UA/(m_dot c_p))) * m_dot * c_p * (T_core_out - T_sat)
+    /// ```
+    ///
+    /// That is right for an evaporator and wrong for a **once-through** unit,
+    /// which superheats. As the steam superheats the real driving difference
+    /// collapses; against a fixed 523 K sink with helium near 973 K it never
+    /// did, so the duty was over-predicted and the steam ran far too hot. The
+    /// nodalised exchanger evaluates the driving difference at local node
+    /// temperatures instead. See that module's docs for the full account.
     pub fn step(
         &mut self,
         dt: Time,
         core_heat_to_helium: Power,
         flow_setpoint: MassRate,
-        secondary_sink_temperature: ThermodynamicTemperature,
+        feedwater_enthalpy: AvailableEnergy,
+        secondary_mass_flow: MassRate,
     ) {
         // Clamp the commanded flow to the circulator's range so the energy
         // balance denominator and the residence time never blow up, and so a
@@ -443,18 +648,33 @@ impl HeliumPrimaryLoop {
         let t_out_next_k = t_out_k + alpha_core * (t_out_ss_k - t_out_k);
         self.core_outlet_temperature = ThermodynamicTemperature::new::<kelvin>(t_out_next_k);
 
-        // 3. Steam-generator duty, effectiveness-NTU against an isothermal
-        //    secondary side.
-        let t_sink_k = secondary_sink_temperature.get::<kelvin>();
-        let ntu = STEAM_GENERATOR_UA_W_PER_K / capacity_rate;
-        let effectiveness = 1.0 - (-ntu).exp();
-        let duty_w = (effectiveness * capacity_rate * (t_out_next_k - t_sink_k)).max(0.0);
-        self.ihx_duty = Power::new::<watt>(duty_w);
+        // 3. Steam generator: advance the resolved counter-flow exchanger. The
+        //    duty and the helium-side outlet both come OUT of it; neither is
+        //    computed here. The secondary flow is floored so the tube side never
+        //    stagnates -- at zero flow the water array has no advection and the
+        //    exchanger degenerates into a conduction problem the plant model has
+        //    no use for.
+        let sg = self
+            .steam_generator
+            .advance_timestep(
+                dt,
+                self.core_outlet_temperature,
+                self.mass_flow,
+                feedwater_enthalpy,
+                MassRate::new::<kilogram_per_second>(
+                    secondary_mass_flow
+                        .get::<kilogram_per_second>()
+                        .max(MIN_SECONDARY_FLOW_THROUGH_SG_KG_PER_S),
+                ),
+            )
+            .expect("the steam generator must advance");
+        self.ihx_duty = sg.hot_side_duty;
+        self.secondary_duty = sg.cold_side_duty;
 
-        // 4. Helium leaves the steam generator cooled by that duty; the core
-        //    inlet relaxes toward it through the return transport lag.
-        let t_ihx_out_k = t_out_next_k - duty_w / capacity_rate;
-        self.ihx_outlet_temperature = ThermodynamicTemperature::new::<kelvin>(t_ihx_out_k);
+        // 4. The core inlet relaxes toward the steam generator's helium-side
+        //    outlet through the return transport lag.
+        let t_ihx_out_k = sg.hot_outlet_temperature.get::<kelvin>();
+        self.ihx_outlet_temperature = sg.hot_outlet_temperature;
         let alpha_return = (dt_s / RETURN_TRANSPORT_TIME_CONSTANT_S).clamp(0.0, 1.0);
         let t_in_next_k = t_in_k + alpha_return * (t_ihx_out_k - t_in_k);
         self.core_inlet_temperature = ThermodynamicTemperature::new::<kelvin>(t_in_next_k);
@@ -558,10 +778,52 @@ impl HeliumPrimaryLoop {
         self.mass_flow
     }
 
-    /// Most recently computed steam-generator duty transferred to the secondary
-    /// loop.
+    /// Heat rate **leaving the helium** in the steam generator on the most
+    /// recent step -- the helium stream's own enthalpy drop across the resolved
+    /// exchanger, `m_dot (h_in - h_out)`.
     pub fn ihx_duty(&self) -> Power {
         self.ihx_duty
+    }
+
+    /// Heat rate **entering the water/steam** in the steam generator on the most
+    /// recent step, `m_dot (h_out - h_in)` on the tube side. This is what the
+    /// secondary cycle absorbs.
+    ///
+    /// It is **not** equal to [`Self::ihx_duty`] during a transient: the
+    /// difference is the rate of change of energy stored in the tube metal. That
+    /// gap is the physics the metal exists to provide, not a bookkeeping error;
+    /// at steady state it closes.
+    pub fn steam_generator_duty_to_secondary(&self) -> Power {
+        self.secondary_duty
+    }
+
+    /// The nodalised steam generator's most recent state -- per-node
+    /// temperatures on all three streams, both stream duties, and both outlets.
+    ///
+    /// The node vectors are in **hot-side index order** (element 0 at the helium
+    /// inlet), so `hot_node_temperatures[i]` and `cold_node_temperatures[i]`
+    /// are at the same physical station and their difference is the local
+    /// driving temperature difference.
+    #[allow(dead_code)] // read by the V&V tests; snapshot candidate for the app layer
+    pub fn steam_generator_state(&self) -> &SteamGeneratorState {
+        self.steam_generator.state()
+    }
+
+    /// Tube-metal thermal time constant \[s\] at `temperature`, `C_metal/UA`.
+    /// The lag a duty step is filtered through before it reaches the steam
+    /// outlet.
+    #[allow(dead_code)] // read by the V&V tests; snapshot candidate for the app layer
+    pub fn steam_generator_metal_time_constant(
+        &self,
+        temperature: ThermodynamicTemperature,
+    ) -> Time {
+        self.steam_generator.metal_time_constant(temperature)
+    }
+
+    /// Series overall conductance `UA` \[W/K\] of the steam generator.
+    #[allow(dead_code)] // read by the V&V tests; snapshot candidate for the app layer
+    pub fn steam_generator_overall_conductance(&self) -> ThermalConductance {
+        self.steam_generator.overall_conductance()
     }
 
     /// Isobaric specific heat of helium at the current bulk mean temperature.
@@ -700,6 +962,7 @@ fn helium_properties(t_k: f64) -> (SpecificHeatCapacity, f64, DynamicViscosity) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uom::si::available_energy::joule_per_kilogram;
     use uom::si::power::megawatt;
 
     fn nominal_loop() -> HeliumPrimaryLoop {
@@ -710,8 +973,42 @@ mod tests {
         pebble_bed::nominal_helium_flow()
     }
 
-    fn sink(t_k: f64) -> ThermodynamicTemperature {
-        ThermodynamicTemperature::new::<kelvin>(t_k)
+    /// Feedwater specific enthalpy the steam generator's tube side is driven
+    /// with in these tests: the secondary loop's own settled feedwater state at
+    /// the published 4.0 MPa, condensate at the 7 kPa condenser plus real pump
+    /// work. Measured 168.73 kJ/kg (2026-08-12,
+    /// `secondary_loop::tests::feedwater_enthalpy_is_condensate_plus_real_pump_work`).
+    fn feedwater() -> AvailableEnergy {
+        AvailableEnergy::new::<joule_per_kilogram>(168.73e3)
+    }
+
+    /// Secondary mass flow the tests drive the tube side with: the settled feed
+    /// flow at the plant's nominal 10 MW duty, 3.19 kg/s (measured in
+    /// `secondary_loop`), against the published 12.5 t/hr = 3.47 kg/s.
+    fn secondary_flow() -> MassRate {
+        MassRate::new::<kilogram_per_second>(3.19)
+    }
+
+    /// March the loop to a settled state at `power`, returning it.
+    ///
+    /// 200 s of simulated time at 0.05 s. That is more than ten times the
+    /// steam generator's ~38 s metal time constant and forty times the 5 s core
+    /// gas lag, so nothing here is still moving materially. Deliberately shorter
+    /// than the 400 s the pre-2026-08-12 tests used, because each plant step now
+    /// advances three coupled fluid/solid arrays (~10.8 ms of wall clock per
+    /// step) rather than evaluating a closed-form effectiveness.
+    fn settled(power: Power) -> HeliumPrimaryLoop {
+        let mut loop_ = nominal_loop();
+        for _ in 0..4000 {
+            loop_.step(
+                Time::new::<second>(0.05),
+                power,
+                nominal_flow(),
+                feedwater(),
+                secondary_flow(),
+            );
+        }
+        loop_
     }
 
     /// Methodology: helium `c_p` from the ported Helmholtz EOS is compared
@@ -776,86 +1073,258 @@ mod tests {
         );
     }
 
-    /// Methodology: the effectiveness-NTU steam generator must respect the
-    /// second law in both directions. The invariant is conditional on which way
-    /// heat can flow, checked at every one of 4000 steps of 0.05 s at 10 MWth
-    /// against a 523.5 K sink (the IF97 saturation temperature at the published
-    /// 4.0 MPa steam pressure):
+    /// V&V: **the steam generator has no temperature cross at any node**, and
+    /// the helium side stays inside its own terminal states.
     ///
-    /// - while the helium is **hotter** than the sink, the steam generator may
-    ///   cool it but never past the sink: `T_sink <= T_sg_out <= T_out`;
-    /// - while the helium is **colder** than the sink, it transfers nothing
-    ///   rather than heating the helium backwards, so `T_sg_out == T_out`.
+    /// # Why this test exists, and why it could not have existed before
     ///
-    /// Results (2026-08-12): the transfer branch held at every step. Seeded at
-    /// the published end states, the loop starts already above the sink, so the
-    /// no-transfer branch is not exercised on this run (it is on a cold start,
-    /// which is why the branch is kept). After 400 s of simulated time at
-    /// 10 MWth the loop settled at `T_in = 528.64 K` (255.5 degC),
-    /// `T_out = 976.60 K` (703.5 degC), `T_sg_out = 528.64 K` -- a 5.14 K
-    /// approach above the sink. Those settled end states sit within 6 K of the
-    /// published 250 degC / 700 degC, but note the steam-generator `UA` was
-    /// *chosen* to put them there, so this is a calibration, not a prediction.
-    /// What is *not* calibrated is the 447.96 K rise between them, which is the
-    /// energy balance on published figures -- see
-    /// `published_operating_point_closes_on_the_energy_balance`.
+    /// The steam generator used to be an effectiveness-NTU lump against an
+    /// isothermal saturation sink. A lump has **one** temperature per side, so
+    /// the only cross it could be asked about was a terminal one -- and its
+    /// predecessor test asked exactly that, on the helium side only. Nothing
+    /// constrained the steam, because the steam had no temperature in that
+    /// model, only a saturation temperature that never moved.
+    ///
+    /// The exchanger is now resolved, so "no temperature cross" can be asked the
+    /// way it should be: **at every station, is the hot stream still hotter than
+    /// the cold stream it is heating?** That is a strictly stronger question
+    /// than the terminal one -- a counter-flow exchanger can satisfy both outlet
+    /// inequalities and still cross somewhere in the middle.
+    ///
+    /// # Methodology
+    ///
+    /// The loop is marched 4000 steps of 0.05 s (200 s of simulated time) at
+    /// 10 MWth and the published 4.3 kg/s, with the tube side fed at the
+    /// secondary's settled feedwater state (168.73 kJ/kg, 3.19 kg/s). At **every
+    /// step** three things are asserted:
+    ///
+    /// 1. `SteamGeneratorState::worst_node_cross_kelvin() == 0` -- no station
+    ///    anywhere has `T_cold,i > T_hot,i`;
+    /// 2. the helium-side outlet lies between the tube-side inlet temperature
+    ///    and the helium inlet, so the shell stream cannot leave hotter than it
+    ///    arrived nor colder than the water it is heating;
+    /// 3. every node temperature on all three streams is finite.
+    ///
+    /// **Nothing in the model clamps any of this.** The lateral heat term is
+    /// `q_i = UA_i (T_up,i - T_down,i)` at local node temperatures; if the cold
+    /// stream ever overtook the hot stream the term would simply change sign.
+    /// The test measures a property, it does not police one.
+    ///
+    /// # Results (measured 2026-08-12)
+    ///
+    /// Zero crosses at every one of the 4000 steps; the worst value of
+    /// `worst_node_cross_kelvin` over the whole run was **0.000000 K**. The
+    /// settled design point, at a *fixed* 3.19 kg/s feed (the plant's own
+    /// controller-driven design point is in
+    /// `super::super::secondary_loop::tests::the_absorbable_duty_cap_no_longer_binds`):
+    ///
+    /// | Quantity | Measured | Published | Delta |
+    /// |---|---|---|---|
+    /// | Core outlet (SG helium inlet) | 993.89 K = **720.7 degC** | 700 degC | **+20.7 K** |
+    /// | Core inlet (SG helium outlet) | 546.05 K = **272.9 degC** | 250 degC | **+22.9 K** |
+    /// | SG duty, helium side | **9.9938 MW** | 10 MW | -0.06% |
+    /// | SG duty, water side | **9.9223 MW** | 10 MW | -0.78% |
+    /// | Steam outlet | 700.81 K = **427.7 degC** | 440 degC | **-12.3 K** |
+    /// | Hot-end driving difference | **263.80 K** | -- | -- |
+    ///
+    /// Axial profile at that point (hot-inlet first, kelvin):
+    ///
+    /// ```text
+    /// helium [964.60, 883.32, 809.74, 748.85, 702.85, 656.95, 620.22, 546.21]
+    /// metal  [765.50, 613.38, 595.06, 579.80, 568.37, 520.72, 491.74, 390.66]
+    /// water  [700.81, 523.50, 523.58, 523.52, 523.58, 475.80, 448.48, 339.00]
+    /// ```
+    ///
+    /// The water row is the whole point: four nodes pinned on the 523.5 K
+    /// saturation plateau with an economiser below and a superheater above.
+    ///
+    /// The **hot-end driving difference is the number this change is about**.
+    /// The isothermal-sink model saw `T_helium - T_sat` = 993.89 - 523.5 =
+    /// **470.4 K** there, and it never collapsed however hot the steam got. The
+    /// resolved exchanger sees `T_helium - T_steam` = **263.80 K**, because the
+    /// steam has superheated to 700.81 K by the time it reaches that end. The
+    /// old model was over-predicting the driving difference at the hot end by
+    /// **78%**.
+    ///
+    /// The ~21 K the helium terminals sit above published is the residual of the
+    /// `UA` calibration against an 8-node discretisation; see
+    /// [`STEAM_GENERATOR_UA_W_PER_K`]. It was **not** tuned out.
+    ///
+    /// # Interpretation
+    ///
+    /// The no-cross property is **structural**, so this test is a regression
+    /// guard on the coupling wiring (in particular the counter-flow index map --
+    /// getting it backwards would produce crosses immediately), not evidence
+    /// that the exchanger is well-sized. The `UA` that sets the temperature
+    /// *level* is a calibration; see [`STEAM_GENERATOR_UA_W_PER_K`].
     #[test]
-    fn steam_generator_respects_the_pinch_in_both_directions() {
+    fn steam_generator_has_no_node_by_node_temperature_cross() {
         let mut loop_ = nominal_loop();
-        let t_sink = sink(523.5);
-        let t_sink_k = t_sink.get::<kelvin>();
+        let mut worst_cross = 0.0_f64;
+        let mut worst_hot_end_dt = f64::INFINITY;
 
         for _ in 0..4000 {
             loop_.step(
                 Time::new::<second>(0.05),
                 Power::new::<megawatt>(10.0),
                 nominal_flow(),
-                t_sink,
+                feedwater(),
+                secondary_flow(),
             );
-            let t_out = loop_.core_outlet_temperature().get::<kelvin>();
-            let t_sg = loop_.ihx_outlet_temperature().get::<kelvin>();
+            let sg = loop_.steam_generator_state();
+            let cross = sg.worst_node_cross_kelvin();
+            worst_cross = worst_cross.max(cross);
+            worst_hot_end_dt = worst_hot_end_dt.min(sg.hot_end_driving_difference_kelvin());
 
-            if t_out > t_sink_k {
+            assert!(
+                cross <= 1e-6,
+                "temperature cross of {cross} K inside the steam generator: \
+                 hot {:?} vs cold {:?}",
+                sg.hot_node_temperatures
+                    .iter()
+                    .map(|t| t.get::<kelvin>())
+                    .collect::<Vec<_>>(),
+                sg.cold_node_temperatures
+                    .iter()
+                    .map(|t| t.get::<kelvin>())
+                    .collect::<Vec<_>>()
+            );
+
+            let t_hot_in = loop_.core_outlet_temperature().get::<kelvin>();
+            let t_hot_out = loop_.ihx_outlet_temperature().get::<kelvin>();
+            assert!(
+                t_hot_out <= t_hot_in + 1e-6,
+                "the steam generator heated the helium: {t_hot_out} K out of {t_hot_in} K in"
+            );
+            for t in sg
+                .hot_node_temperatures
+                .iter()
+                .chain(sg.metal_node_temperatures.iter())
+                .chain(sg.cold_node_temperatures.iter())
+            {
                 assert!(
-                    t_sg >= t_sink_k - 1e-9,
-                    "the steam generator cooled the helium ({t_sg} K) past the {t_sink_k} K sink"
-                );
-                assert!(
-                    t_sg <= t_out + 1e-9,
-                    "the steam generator heated the helium ({t_sg} K) above its inlet {t_out} K"
-                );
-            } else {
-                assert!(
-                    (t_sg - t_out).abs() < 1e-9,
-                    "heat moved backwards: helium {t_out} K below the sink {t_sink_k} K \
-                     but left the steam generator at {t_sg} K"
+                    t.get::<kelvin>().is_finite(),
+                    "a node temperature went non-finite"
                 );
             }
         }
 
+        let sg = loop_.steam_generator_state();
+        println!(
+            "SETTLED DESIGN POINT (10 MWth, 4.3 kg/s helium, 3.19 kg/s feed):\n  \
+             core outlet (SG helium in)  = {:.2} K ({:.1} degC), published 700 degC\n  \
+             core inlet  (SG helium out) = {:.2} K ({:.1} degC), published 250 degC\n  \
+             SG duty helium side         = {:.4} MW\n  \
+             SG duty water side          = {:.4} MW\n  \
+             steam outlet                = {:.2} K ({:.1} degC), published 440 degC\n  \
+             hot-end driving difference  = {:.2} K\n  \
+             worst node cross over run   = {:.6} K\n  \
+             UA (series)                 = {:.4e} W/K\n  \
+             metal time constant         = {:.2} s\n  \
+             hot   nodes = {:?}\n  metal nodes = {:?}\n  cold  nodes = {:?}",
+            loop_.core_outlet_temperature().get::<kelvin>(),
+            loop_.core_outlet_temperature().get::<kelvin>() - 273.15,
+            loop_.core_inlet_temperature().get::<kelvin>(),
+            loop_.core_inlet_temperature().get::<kelvin>() - 273.15,
+            loop_.ihx_duty().get::<watt>() / 1.0e6,
+            loop_.steam_generator_duty_to_secondary().get::<watt>() / 1.0e6,
+            sg.cold_outlet_temperature.get::<kelvin>(),
+            sg.cold_outlet_temperature.get::<kelvin>() - 273.15,
+            sg.hot_end_driving_difference_kelvin(),
+            worst_cross,
+            loop_
+                .steam_generator_overall_conductance()
+                .get::<watt_per_kelvin>(),
+            loop_
+                .steam_generator_metal_time_constant(ThermodynamicTemperature::new::<kelvin>(600.0))
+                .get::<second>(),
+            sg.hot_node_temperatures
+                .iter()
+                .map(|t| (t.get::<kelvin>() * 100.0).round() / 100.0)
+                .collect::<Vec<_>>(),
+            sg.metal_node_temperatures
+                .iter()
+                .map(|t| (t.get::<kelvin>() * 100.0).round() / 100.0)
+                .collect::<Vec<_>>(),
+            sg.cold_node_temperatures
+                .iter()
+                .map(|t| (t.get::<kelvin>() * 100.0).round() / 100.0)
+                .collect::<Vec<_>>(),
+        );
+
         assert!(
-            loop_.core_outlet_temperature().get::<kelvin>() > t_sink_k,
-            "the loop should settle hotter than the secondary sink at load"
+            worst_cross <= 1e-6,
+            "worst node cross over the run was {worst_cross} K"
+        );
+        assert!(
+            worst_hot_end_dt.is_finite() && worst_hot_end_dt > 0.0,
+            "the hot end must keep a positive driving difference (worst {worst_hot_end_dt} K)"
+        );
+        assert!(
+            loop_.core_outlet_temperature().get::<kelvin>()
+                > loop_.core_inlet_temperature().get::<kelvin>(),
+            "the loop must settle with a hot leg above its cold leg"
         );
     }
 
     /// The core inlet must be a computed loop variable, not a fixed constant:
-    /// cutting secondary heat removal (raising the sink temperature) must raise
-    /// the core inlet.
+    /// making the secondary less able to remove heat -- here by throttling the
+    /// feedwater flow through the steam generator from 3.19 to 2.2 kg/s -- must
+    /// raise the core inlet.
+    ///
+    /// This replaces the old sink-temperature form of the same check, which is
+    /// no longer expressible: the secondary is no longer an isothermal sink with
+    /// a temperature to raise, it is a resolved stream with a flow and an inlet
+    /// enthalpy.
+    ///
+    /// # Why the throttle is mild and the window short
+    ///
+    /// This is an **open-loop** run: 10 MWth goes into the helium regardless,
+    /// the protection system is not in the path, and the feedwater controller is
+    /// bypassed. Reduce the heat removal and the loop simply heats without
+    /// bound. Two ceilings then arrive before anything interesting does --
+    /// `SolidMaterial::SteelSS304L` is tabulated only to **1000 K** and TUAS
+    /// *panics* rather than extrapolating past it, and IF97 stops at 1073.15 K.
+    /// Measured 2026-08-12: throttling to 1.0 kg/s for 100 s drives the tube
+    /// metal through the steel limit and kills the run. 2.2 kg/s for 75 s shows
+    /// the same directional response with the metal well inside range, and the
+    /// test asserts that it stayed inside. See the module docs of
+    /// [`super::steam_generator`] for the operating margin against that ceiling
+    /// at the design point.
     #[test]
     fn core_inlet_responds_to_secondary_heat_removal() {
-        let mut cold_sink = nominal_loop();
-        let mut hot_sink = nominal_loop();
-        for _ in 0..4000 {
+        let mut strong = nominal_loop();
+        let mut weak = nominal_loop();
+        let mut worst_metal_k = 0.0_f64;
+        for _ in 0..1500 {
             let dt = Time::new::<second>(0.05);
             let q = Power::new::<megawatt>(10.0);
-            cold_sink.step(dt, q, nominal_flow(), sink(500.0));
-            hot_sink.step(dt, q, nominal_flow(), sink(600.0));
+            strong.step(dt, q, nominal_flow(), feedwater(), secondary_flow());
+            weak.step(
+                dt,
+                q,
+                nominal_flow(),
+                feedwater(),
+                MassRate::new::<kilogram_per_second>(2.2),
+            );
+            for t in weak.steam_generator_state().metal_node_temperatures.iter() {
+                worst_metal_k = worst_metal_k.max(t.get::<kelvin>());
+            }
         }
+        let strong_k = strong.core_inlet_temperature().get::<kelvin>();
+        let weak_k = weak.core_inlet_temperature().get::<kelvin>();
+        println!(
+            "core inlet after 75 s: 3.19 kg/s feed -> {strong_k:.2} K, 2.2 kg/s feed -> \
+             {weak_k:.2} K; peak tube-metal temperature on the throttled run \
+             {worst_metal_k:.2} K (SteelSS304L is tabulated to 1000 K)"
+        );
         assert!(
-            hot_sink.core_inlet_temperature().get::<kelvin>()
-                > cold_sink.core_inlet_temperature().get::<kelvin>(),
-            "a hotter secondary sink must raise the core inlet temperature"
+            weak_k > strong_k,
+            "throttling the feedwater must raise the core inlet ({weak_k} K vs {strong_k} K)"
+        );
+        assert!(
+            worst_metal_k < 1000.0,
+            "the tube metal reached {worst_metal_k} K, outside SteelSS304L's tabulated range"
         );
     }
 
@@ -863,31 +1332,49 @@ mod tests {
     /// must follow the energy balance `dT = Q/(m_dot c_p)` using the *live*
     /// helium `c_p`. Pass criterion: within 2% of that balance.
     ///
-    /// Results (2026-08-12): at 10 MWth and 4.3 kg/s the measured rise was
-    /// `976.6005 - 528.6371 = 447.9635 K`, against
-    /// `10e6/(4.3 x 5191.4532) = 447.9635 K` from the balance (the live `c_p`
-    /// at the settled 752.6 K bulk mean) -- agreement to better than 0.001%.
+    /// This is the one part of the loop the steam-generator `UA` calibration
+    /// cannot touch: the rise is set by the power and the flow, whatever
+    /// temperature level the exchanger settles the loop at.
+    ///
+    /// Results (2026-08-12): the settled rise was **447.8439 K** against
+    /// `10e6/(4.3 x c_p) = 447.9627 K` from the balance at the live `c_p` --
+    /// **-0.027%**. The rise is unchanged in kind by the steam-generator rework,
+    /// as it must be.
     #[test]
     fn core_temperature_rise_matches_the_energy_balance() {
-        let mut loop_ = nominal_loop();
-        let power = Power::new::<megawatt>(10.0);
-        for _ in 0..8000 {
-            loop_.step(
-                Time::new::<second>(0.05),
-                power,
-                nominal_flow(),
-                sink(523.5),
-            );
-        }
+        let loop_ = settled(Power::new::<megawatt>(10.0));
 
         let measured = loop_.core_outlet_temperature().get::<kelvin>()
             - loop_.core_inlet_temperature().get::<kelvin>();
-        let expected = power.get::<watt>()
+        let expected = Power::new::<megawatt>(10.0).get::<watt>()
             / (loop_.mass_flow().get::<kilogram_per_second>()
                 * loop_.specific_heat().get::<joule_per_kilogram_kelvin>());
+        println!(
+            "settled core rise = {measured:.4} K against the energy balance {expected:.4} K \
+             ({:+.3}%)",
+            100.0 * (measured - expected) / expected
+        );
         assert!(
             (measured - expected).abs() / expected < 0.02,
             "core rise {measured} K departs from the energy balance {expected} K"
+        );
+    }
+
+    /// The overall `UA` the two per-side conductances present in series must be
+    /// exactly [`STEAM_GENERATOR_UA_W_PER_K`], whatever
+    /// [`STEAM_GENERATOR_HOT_SIDE_RESISTANCE_FRACTION`] is set to.
+    ///
+    /// This is what makes the resistance split a *placement* of the metal
+    /// between the two streams rather than a second, hidden sizing knob.
+    #[test]
+    fn the_conductance_split_reproduces_the_series_ua() {
+        let loop_ = nominal_loop();
+        let ua = loop_
+            .steam_generator_overall_conductance()
+            .get::<watt_per_kelvin>();
+        assert!(
+            (ua - STEAM_GENERATOR_UA_W_PER_K).abs() / STEAM_GENERATOR_UA_W_PER_K < 1e-12,
+            "series UA {ua} W/K does not reproduce {STEAM_GENERATOR_UA_W_PER_K} W/K"
         );
     }
 
@@ -1058,15 +1545,7 @@ mod tests {
     fn loop_pressure_drop_sits_on_the_published_budget_and_rises_with_flow() {
         use uom::si::pressure::kilopascal;
 
-        let mut rated = nominal_loop();
-        for _ in 0..8000 {
-            rated.step(
-                Time::new::<second>(0.05),
-                Power::new::<megawatt>(10.0),
-                nominal_flow(),
-                sink(523.5),
-            );
-        }
+        let rated = settled(Power::new::<megawatt>(10.0));
         let total_kpa = rated.pressure_drop().get::<kilopascal>();
         let bed_kpa = rated.bed_pressure_drop().get::<kilopascal>();
         println!(
@@ -1094,13 +1573,15 @@ mod tests {
                 dt,
                 q,
                 MassRate::new::<kilogram_per_second>(2.0),
-                sink(523.5),
+                feedwater(),
+                secondary_flow(),
             );
             fast.step(
                 dt,
                 q,
                 MassRate::new::<kilogram_per_second>(6.0),
-                sink(523.5),
+                feedwater(),
+                secondary_flow(),
             );
         }
         assert!(slow.pressure_drop().get::<pascal>() > 0.0);
@@ -1139,7 +1620,8 @@ mod tests {
             Time::new::<second>(0.05),
             Power::new::<megawatt>(10.0),
             MassRate::new::<kilogram_per_second>(85.0),
-            sink(523.5),
+            feedwater(),
+            secondary_flow(),
         );
         assert!(
             (too_fast.mass_flow().get::<kilogram_per_second>() - MAX_HELIUM_FLOW_KG_PER_S).abs()
@@ -1151,7 +1633,8 @@ mod tests {
             Time::new::<second>(0.05),
             Power::new::<megawatt>(10.0),
             MassRate::new::<kilogram_per_second>(0.0),
-            sink(523.5),
+            feedwater(),
+            secondary_flow(),
         );
         assert!(
             (stopped.mass_flow().get::<kilogram_per_second>() - MIN_HELIUM_FLOW_KG_PER_S).abs()

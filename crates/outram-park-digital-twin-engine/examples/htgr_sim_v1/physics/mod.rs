@@ -11,9 +11,11 @@
 //!    which hand the helium whatever crosses the pebble surface. This is the
 //!    core's thermal inertia and it is the slowest thing in the plant.
 //! 3. [`primary_loop`] -- the helium carries that heat from the core outlet to
-//!    the steam generator, which rejects it to the secondary side,
-//!    pinch-limited by an effectiveness-NTU model.
-//! 4. [`secondary_loop`] -- the steam-generator duty drives a real IAPWS-IF97
+//!    the steam generator and returns cooled, closing the circuit.
+//! 4. [`steam_generator`] -- a **resolved 8-node counter-flow exchanger**
+//!    (helium <-> steel tube metal <-> water/steam) owned by the primary loop.
+//!    This is the only spatially discretised part of the plant.
+//! 5. [`secondary_loop`] -- the steam-generator duty drives a real IAPWS-IF97
 //!    steam cycle (feed pump -> steam generator -> turbine -> condenser ->
 //!    hotwell).
 //!
@@ -37,10 +39,14 @@
 //! |---|---|---|
 //! | Pebble bed | **1** | no axial or radial temperature profile, no peak fuel temperature |
 //! | Helium circuit | **1** (two boundary temperatures) | no gradient through the bed, no natural circulation |
-//! | Steam generator | **1** effectiveness-NTU lump | no economiser/evaporator/superheater zones |
-//! | Secondary water/steam | **1** | fixed steam pressure, no drum or inventory dynamics |
+//! | Steam generator | **8 x 3** (helium / tube metal / water, counter-flow) | resolved zones and a real metal lag; 8 nodes is coarse |
+//! | Secondary water/steam, outside the SG | **1** | fixed steam pressure, no drum or inventory dynamics |
 //! | Neutronics | **1** (point kinetics) | no spatial flux shape, no rod-position-dependent worth |
 //! | Reflector, barrel, cavity | **0** | the HTR-10 passive decay-heat path is absent entirely |
+//!
+//! **The steam generator is the exception, as of 2026-08-12**, and it is the
+//! only part of this plant that is not one control volume. See
+//! [`steam_generator`].
 //!
 //! Each module's own doc comment states what its single node lumps and what
 //! refinement to reach for first. Read [`pebble_bed`] before quoting any core
@@ -49,17 +55,29 @@
 //! ## The loops are coupled both ways
 //!
 //! The loops are not run open-ended in sequence. Each step reads the
-//! secondary's saturation temperature *first* and hands it to the primary as
-//! the steam generator's cold-side pinch, so:
+//! secondary's **feedwater state** (enthalpy and flow) *first* and hands it to
+//! the primary as the steam generator's tube-side inlet, so:
 //!
-//! - the secondary's pressure limits how much heat the helium can shed, and
+//! - the water entering the tubes limits how much heat the helium can shed, and
 //! - the resulting helium-side outlet becomes the next core inlet.
 //!
-//! That closes the primary loop (the core inlet is a computed variable, not
-//! a constant) and makes the steam generator duty-limited rather than
-//! absorbing whatever the primary offers. The pebble bed sits inside that
-//! loop: it reads the helium bulk mean temperature and returns a heat rate, so
-//! a loss of heat removal backs up into the graphite temperature.
+//! That closes the primary loop (the core inlet is a computed variable, not a
+//! constant) and makes the steam generator's duty a *resolved* result rather
+//! than a formula.
+//!
+//! Until 2026-08-12 what crossed here was the secondary's **saturation
+//! temperature**, and the exchanger was an effectiveness-NTU lump pinching
+//! against it as an isothermal sink. That is correct for an evaporator and wrong
+//! for a once-through unit: as the steam superheats the real driving difference
+//! collapses, and against a fixed sink it never did. Measured 2026-08-12, the
+//! old model over-predicted the hot-end driving difference by **78%** (470.4 K
+//! against the resolved 263.8 K), and the steam it produced was clamped at the
+//! helium inlet temperature by a downstream second-law cap. See
+//! [`steam_generator`].
+//!
+//! The pebble bed sits inside that loop: it reads the helium bulk mean
+//! temperature and returns a heat rate, so a loss of heat removal backs up into
+//! the graphite temperature.
 //!
 //! ## Status
 //!
@@ -83,11 +101,20 @@
 //! at the bulk mean rather than integrated down the bed, and the pressure drop
 //! still cannot feed back on the flow.
 //!
+//! **The steam generator is spatially resolved** as of 2026-08-12: an 8-node
+//! counter-flow exchanger coupling a helium array, a steel tube-metal column and
+//! a water/steam array through real conductances ([`steam_generator`]). It
+//! resolves the economiser / evaporator / superheater zones, carries a derived
+//! **3184 kg** of tube metal with a **38 s** thermal time constant, and cannot
+//! represent a temperature cross at any node. **That makes the arrangement real;
+//! it does not make the sizing real** -- the `UA` is still an explicit
+//! calibration and the tube diameters are still invented.
+//!
 //! What remains illustrative is every *closure and every dimension the
 //! published sources do not carry* -- the pebble-to-helium heat-transfer
 //! coefficient (measurably too low, see [`pebble_bed`]), graphite `c_p`, the
-//! loop gas volume, the steam-generator `UA`, efficiencies, inventories and
-//! controller constants. An effective bed conductivity now **exists** in the
+//! loop gas volume, the steam-generator `UA` and tube geometry, efficiencies,
+//! inventories and controller constants. An effective bed conductivity now **exists** in the
 //! workspace ([`outram_park_digital_twin_engine::htr10::zbs`]) but is
 //! deliberately not in the heat path, because one control volume has no
 //! internal gradient for it to act on. The live steam pressure is still held
@@ -109,6 +136,7 @@ pub mod pebble_bed;
 pub mod primary_loop;
 pub mod protection;
 pub mod secondary_loop;
+pub mod steam_generator;
 pub mod turbine_generator;
 
 use outram_park_digital_twin_engine::animation::residence_time_from_flow;
@@ -268,29 +296,44 @@ impl HtgrPlant {
                 .step(dt, reactor_power, helium_bulk, self.primary.mass_flow());
 
         // 3. Primary helium loop carries that heat to the steam generator,
-        //    which rejects it into the secondary side, pinch-limited against
-        //    the steam saturation temperature. Reading that temperature
-        //    *before* the primary step is what closes the primary<->secondary
-        //    coupling: the secondary's pressure sets how cold the helium can
-        //    get, and the resulting helium-side outlet becomes the next core
-        //    inlet.
-        let secondary_sink = self.secondary.saturation_temperature();
+        //    which is now a RESOLVED counter-flow exchanger rather than an
+        //    effectiveness-NTU lump. Reading the secondary's feedwater state
+        //    *before* the primary step is what closes the
+        //    primary<->secondary coupling: the water entering the tube side
+        //    sets how cold the helium can get, and the resulting helium-side
+        //    outlet becomes the next core inlet.
+        //
+        //    The feedwater enthalpy and flow are one step old, which is the
+        //    same explicit (Lie-split) coupling the saturation temperature used
+        //    to be handed over with. It is safe here because the feedwater
+        //    controller's own time constant is 10 s against a 0.05 s step, so
+        //    the flow moves well under a percent between reads.
+        let feedwater_enthalpy = self.secondary.feedwater_enthalpy();
+        let secondary_flow = self.secondary.mass_flow();
         mark_component("helium primary loop (circulator + hot gas duct)");
         self.primary.step(
             dt,
             self.core_heat_to_helium,
             helium_flow_setpoint,
-            secondary_sink,
+            feedwater_enthalpy,
+            secondary_flow,
         );
 
-        // 4. Secondary steam loop driven by that (already limited) duty.
-        // The core outlet is the hot-side inlet to the steam generator, and is
-        // what caps the steam side's absorbable duty so no temperature cross is
-        // representable. See `secondary_loop::max_absorbable_duty`.
+        // 4. Secondary steam loop, driven by the duty the steam generator's
+        // TUBE SIDE actually absorbed -- not by the heat the helium gave up.
+        // The two differ by the tube metal's stored-energy rate, which is
+        // exactly the transient the metal exists to provide.
+        //
+        // The core outlet is still handed over as the hot-side inlet, because
+        // `secondary_loop::max_absorbable_duty` is retained as a backstop. It
+        // should no longer bind: the exchanger's own outlet can never exceed
+        // the local helium temperature, so the enthalpy balance downstream is
+        // already bounded. See
+        // `secondary_loop::tests::the_absorbable_duty_cap_no_longer_binds`.
         mark_component("steam generator + secondary steam loop (IF97)");
         self.secondary.step(
             dt,
-            self.primary.ihx_duty(),
+            self.primary.steam_generator_duty_to_secondary(),
             self.primary.core_outlet_temperature(),
         );
 
@@ -397,5 +440,231 @@ impl HtgrPlant {
 impl Default for HtgrPlant {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::HtgrSnapshot;
+
+    /// The control-rod insertion fraction the GUI opens with, from
+    /// `crate::app::state::HtgrSnapshot::default` -- the bank position at which
+    /// the core is critical with no external reactivity, from
+    /// [`control_rods::critical_insertion_fraction`].
+    ///
+    /// Kept in step with the app default by
+    /// [`the_test_rod_position_matches_the_gui_default`].
+    const HTGR_GUI_INITIAL_ROD_INSERTION: f64 = 0.6035;
+
+    /// The whole-plant test must open where the GUI opens. If the app's default
+    /// rod position moves, this catches it -- withdrawing the bank by even ten
+    /// percent from critical is a prompt excursion in this core, so the two must
+    /// not be allowed to drift apart silently.
+    #[test]
+    fn the_test_rod_position_matches_the_gui_default() {
+        let gui_default = HtgrSnapshot::default().control_rod_insertion_fraction;
+        assert!(
+            (gui_default - HTGR_GUI_INITIAL_ROD_INSERTION).abs() < 1e-9,
+            "the GUI opens at rod insertion {gui_default}, this test uses \
+             {HTGR_GUI_INITIAL_ROD_INSERTION}"
+        );
+    }
+
+    /// V&V (regression): **the whole plant survives being stepped at the GUI's
+    /// own 1 ms timestep**, end to end.
+    ///
+    /// # Why this exists
+    ///
+    /// [`the_whole_plant_steps_without_crossing_or_leaving_property_range`]
+    /// steps at 0.05 s, which is a sane plant timestep and the one every loop
+    /// test uses. `crate::app` does not: its physics thread runs
+    /// `PHYSICS_DT_S = 1.0e-3 s`, ten sub-steps per 10 ms tick. Measured
+    /// 2026-08-12, a whole green test suite at 0.05 s coexisted with a simulator
+    /// that killed its physics thread within 30 s of launch, because 1 ms is
+    /// below the steam-generator arrays' stability window. Nothing in the suite
+    /// drove the plant at the rate the application does. This test does.
+    ///
+    /// # Methodology
+    ///
+    /// A fresh plant stepped 20 000 times at 1 ms -- 20 s of simulated time, the
+    /// window in which the crash occurred -- at the GUI's opening rod position
+    /// and flow. Asserted: no panic, no node-by-node cross, the tube metal
+    /// inside `SteelSS304L`'s range, and the clock advanced.
+    ///
+    /// # Results (measured 2026-08-12)
+    ///
+    /// Passes after [`super::steam_generator::SteamGeneratorConfig::substep`]
+    /// was made an accumulate-and-advance clock. Figures printed by the test.
+    #[test]
+    fn the_whole_plant_steps_at_the_gui_timestep() {
+        let mut plant = HtgrPlant::new();
+        let mut snapshot = HtgrSnapshot::default();
+        // The GUI's plant timestep -- `crate::app::PHYSICS_DT_S`.
+        let dt = Time::new::<second>(1.0e-3);
+        let flow = nominal_helium_flow();
+        let mut worst_metal_k = 0.0_f64;
+
+        for i in 0..20_000 {
+            plant.step(dt, HTGR_GUI_INITIAL_ROD_INSERTION, flow);
+            let sg = plant.primary.steam_generator_state();
+            assert!(
+                sg.worst_node_cross_kelvin() <= 1e-6,
+                "temperature cross at 1 ms plant step {i}"
+            );
+            for t in sg.metal_node_temperatures.iter() {
+                worst_metal_k = worst_metal_k.max(t.get::<kelvin>());
+            }
+        }
+        plant.write_snapshot(&mut snapshot);
+        println!(
+            "GUI-TIMESTEP RUN (20 s at 1 ms): power {:.4} MW, core outlet {:.2} K, \
+             steam {:.2} K, peak tube metal {worst_metal_k:.2} K",
+            snapshot.reactor_power_mw, snapshot.core_outlet_temp_k, snapshot.sg_steam_outlet_temp_k
+        );
+        assert!(
+            worst_metal_k < 1000.0,
+            "tube metal reached {worst_metal_k} K"
+        );
+        assert!(plant.sim_time.get::<second>() > 19.0);
+    }
+
+    /// V&V: **the whole plant runs, and its steam generator holds the second law
+    /// at every node, through the path the GUI actually drives.**
+    ///
+    /// # Why this test exists
+    ///
+    /// Every other test in this simulator drives one subsystem, or at most the
+    /// primary and secondary loops in isolation. [`HtgrPlant::step`] is the only
+    /// thing the GUI calls, and until 2026-08-12 nothing exercised it: the
+    /// kinetics, the protection system, the pebble bed, the steam generator and
+    /// the turbine shaft were each tested apart and integrated only in
+    /// production. The steam-generator rework put a stiff, panicking dependency
+    /// (three coupled CFD-style arrays, an IF97 flash that panics out of range
+    /// and a steel property table that panics above 1000 K) into that path,
+    /// which is a good reason to cover it.
+    ///
+    /// # Methodology
+    ///
+    /// A fresh [`HtgrPlant`] is stepped 3000 times at 0.05 s (150 s of simulated
+    /// time) with the control rods at the **critical insertion the GUI opens
+    /// with** ([`HTGR_GUI_INITIAL_ROD_INSERTION`] = 0.6035, the same value
+    /// `crate::app::state::HtgrSnapshot::default` carries) and the circulator at
+    /// the published 4.3 kg/s. At every step:
+    ///
+    /// - the steam generator's node-by-node cross measure must be zero;
+    /// - the steam-generator tube metal must stay inside `SteelSS304L`'s
+    ///   tabulated range (below 1000 K), since TUAS panics rather than
+    ///   extrapolating;
+    /// - every snapshot field the GUI reads must be finite.
+    ///
+    /// The snapshot projection [`HtgrPlant::write_snapshot`] is exercised too, so
+    /// a field wired to a removed accessor is caught here rather than on screen.
+    ///
+    /// # Results (measured 2026-08-12)
+    ///
+    /// 3000 steps, no panic, zero crosses. Settled figures printed by the test.
+    ///
+    /// **A note on the rod position, because it is not a free choice.** Stepping
+    /// this plant at a 50% bank insertion instead -- 10% withdrawn from critical
+    /// -- is a **prompt excursion**: measured 2026-08-12, reactor power reaches
+    /// 1073 MW within 1 s, the bed reaches 2261 K, the core outlet 2355 K, and
+    /// the run dies at 6 s when the steam generator's tube metal passes
+    /// `SteelSS304L`'s 1000 K ceiling and TUAS panics. The reactor protection
+    /// system would terminate that at its 750 degC core-outlet trip, but it is
+    /// **disarmed by default** in this simulator. That is pre-existing behaviour
+    /// and not a consequence of the steam-generator rework -- an excursion
+    /// previously died in the IF97 flash at 1073 K instead -- but the metal
+    /// ceiling now arrives first, so it is recorded here.
+    ///
+    /// # Interpretation
+    ///
+    /// This is an integration smoke test with second-law teeth, not a validation
+    /// of the plant. It says the GUI's physics thread survives its own opening
+    /// state and that the exchanger behaves inside the full coupled loop, where
+    /// the pebble bed's 184 s graphite lag and the protection system are also in
+    /// the path.
+    #[test]
+    fn the_whole_plant_steps_without_crossing_or_leaving_property_range() {
+        let mut plant = HtgrPlant::new();
+        let mut snapshot = HtgrSnapshot::default();
+        let dt = Time::new::<second>(0.05);
+        let flow = nominal_helium_flow();
+
+        let mut worst_cross = 0.0_f64;
+        let mut worst_metal_k = 0.0_f64;
+
+        for i in 0..3000 {
+            plant.step(dt, HTGR_GUI_INITIAL_ROD_INSERTION, flow);
+            plant.write_snapshot(&mut snapshot);
+
+            let sg = plant.primary.steam_generator_state();
+            worst_cross = worst_cross.max(sg.worst_node_cross_kelvin());
+            for t in sg.metal_node_temperatures.iter() {
+                worst_metal_k = worst_metal_k.max(t.get::<kelvin>());
+            }
+            assert!(
+                sg.worst_node_cross_kelvin() <= 1e-6,
+                "temperature cross of {} K in the steam generator at plant step {i}",
+                sg.worst_node_cross_kelvin()
+            );
+            for (name, v) in [
+                ("reactor_power_mw", snapshot.reactor_power_mw),
+                ("core_inlet_temp_k", snapshot.core_inlet_temp_k),
+                ("core_outlet_temp_k", snapshot.core_outlet_temp_k),
+                ("ihx_duty_mw", snapshot.ihx_duty_mw),
+                ("ihx_outlet_temp_k", snapshot.ihx_outlet_temp_k),
+                ("sg_steam_outlet_temp_k", snapshot.sg_steam_outlet_temp_k),
+                ("turbine_power_mw", snapshot.turbine_power_mw),
+                (
+                    "secondary_mass_flow_kg_per_s",
+                    snapshot.secondary_mass_flow_kg_per_s,
+                ),
+                ("bed_temperature_k", snapshot.bed_temperature_k),
+                ("shaft_speed_rpm", snapshot.shaft_speed_rpm),
+            ] {
+                assert!(
+                    v.is_finite(),
+                    "snapshot field {name} went non-finite at step {i}"
+                );
+            }
+        }
+
+        println!(
+            "WHOLE-PLANT RUN (150 s, rods at the 0.6035 critical insertion, 4.3 kg/s):\n  \
+             reactor power   = {:.4} MW\n  \
+             bed temperature = {:.2} K\n  \
+             core outlet     = {:.2} K ({:.2} degC)\n  \
+             core inlet      = {:.2} K ({:.2} degC)\n  \
+             SG duty         = {:.4} MW\n  \
+             steam outlet    = {:.2} K ({:.2} degC)\n  \
+             turbine power   = {:.4} MW, shaft {:.1} rpm\n  \
+             worst node cross over the run    = {worst_cross:.6} K\n  \
+             peak tube-metal temperature      = {worst_metal_k:.2} K (SteelSS304L limit 1000 K)",
+            snapshot.reactor_power_mw,
+            snapshot.bed_temperature_k,
+            snapshot.core_outlet_temp_k,
+            snapshot.core_outlet_temp_k - 273.15,
+            snapshot.core_inlet_temp_k,
+            snapshot.core_inlet_temp_k - 273.15,
+            snapshot.ihx_duty_mw,
+            snapshot.sg_steam_outlet_temp_k,
+            snapshot.sg_steam_outlet_temp_k - 273.15,
+            snapshot.turbine_power_mw,
+            snapshot.shaft_speed_rpm,
+        );
+
+        assert!(
+            worst_cross <= 1e-6,
+            "worst cross over the run {worst_cross} K"
+        );
+        assert!(
+            worst_metal_k < 1000.0,
+            "tube metal reached {worst_metal_k} K, outside SteelSS304L's tabulated range"
+        );
+        assert!(
+            plant.sim_time.get::<second>() > 149.0,
+            "the plant clock did not advance"
+        );
     }
 }
