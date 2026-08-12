@@ -110,11 +110,28 @@
 //! [`HtgrSnapshot`] is the only source of state here, and nothing is invented
 //! to feed a widget that wants more than it carries:
 //!
-//! - **No shaft rotation.** Neither pump has a shaft-speed model in this
-//!   plant, so both are built with `AngularVelocity::ZERO` and draw
-//!   stationary, exactly as [`TurbineVisual`] does for a thermo-only turbine.
-//!   Deriving an rpm from flow or power would be inventing physics, which this
-//!   crate's `CLAUDE.md` forbids.
+//! - **No PUMP shaft rotation.** Neither the helium circulator nor the
+//!   feedwater pump has a shaft-speed model in this plant, so both are built
+//!   with `AngularVelocity::ZERO` and draw stationary. Deriving an rpm from
+//!   flow or power would be inventing physics, which this crate's `CLAUDE.md`
+//!   forbids.
+//!
+//!   The **turbine** is the exception, and it is not an exception to the rule
+//!   -- it has a real shaft-speed model. [`crate::physics::turbine_generator`]
+//!   runs a torque balance on the turbine-generator rotor, driven by the same
+//!   enthalpy-drop power the secondary loop computes, so `TurbineVisual` is
+//!   built through `new_generator` and its blades turn at the computed
+//!   `omega`. Read that module's docs before quoting the speed: the machine is
+//!   islanded and ungoverned, and its electrical load was sized at the rated
+//!   point, so the model reproduces near-synchronous speed by construction
+//!   rather than predicting it.
+//!
+//! - **No turbine casing colour.** A consequence of the above.
+//!   `TurbineVisualState` has no variant carrying both a shaft speed and a
+//!   steam state, and the generator variant reports no casing temperature, so
+//!   the turbine draws neutral grey. Rotation was judged the more informative
+//!   of the two; the steam temperature is still shown as the `T_steam`
+//!   readout.
 //! - **No feedwater control valve.** The secondary loop controls feed *flow*,
 //!   and exposes no valve position; a `ValveVisual` would have to be fed a
 //!   fabricated opening, so it is omitted.
@@ -152,22 +169,24 @@ use outram_park_digital_twin_engine::components::{
     TurbineVisual,
 };
 
-use tampines::components::{Condenser, Turbine};
+use tampines::components::Condenser;
 use tampines::hem::HemSteamCv;
+use uom::si::angular_velocity::radian_per_second;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
-    AngularVelocity, AvailableEnergy, MassRate, Pressure, Ratio, ThermodynamicTemperature, Time,
+    AngularVelocity, AvailableEnergy, MassRate, Power, Pressure, ThermodynamicTemperature, Time,
     Volume,
 };
 use uom::si::mass_rate::kilogram_per_second;
+use uom::si::power::megawatt;
 use uom::si::pressure::{kilopascal, megapascal};
-use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::volume::cubic_meter;
 use uom::ConstZero;
 
 use crate::app::state::HtgrSnapshot;
+use crate::physics::turbine_generator;
 
 // ── Display scale ───────────────────────────────────────────────────────────
 
@@ -504,11 +523,11 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
     let steam_pressure = Pressure::new::<megapascal>(snapshot.steam_pressure_mpa);
     let condenser_pressure = Pressure::new::<kilopascal>(snapshot.condenser_pressure_kpa);
 
-    let live_steam: HemSteamCv = HemSteamCv::new_from_ph(
-        steam_pressure,
-        AvailableEnergy::new::<joule_per_kilogram>(snapshot.steam_enthalpy_j_per_kg),
-        reference_volume,
-    );
+    // (The live steam state used to be flashed here to colour the turbine
+    // casing, when the turbine was built through `TurbineVisual::new_thermo`.
+    // It is now generator-backed so the rotor can turn, and that variant
+    // carries no steam path -- see section 7. The steam temperature reaches the
+    // screen through the `T_steam` readout instead.)
     let feedwater: HemSteamCv = HemSteamCv::new_from_ph(
         steam_pressure,
         AvailableEnergy::new::<joule_per_kilogram>(snapshot.feedwater_enthalpy_j_per_kg),
@@ -811,11 +830,32 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
     //
     // Single flow: a once-through generator delivers superheated steam, which
     // is dense enough at admission for one flow path to carry the volume.
-    // Efficiency matches the secondary loop's own illustrative value.
-    let turbine = Turbine::new(live_steam, Ratio::new::<ratio>(0.85));
+    //
+    // GENERATOR-BACKED, so the rotor turns. The plant runs a real torque
+    // balance on the turbine-generator shaft (`physics::turbine_generator`),
+    // driven by the same enthalpy-drop power the secondary loop computes, and
+    // publishes the resulting angular velocity on the snapshot. The generator
+    // model is rebuilt here from that scalar -- the snapshot is scalar-only by
+    // design, and `TurbineVisual` reads nothing from the model but `omega`.
+    // The rotor phase is `theta = omega * t`, so this is the shaft's own speed
+    // and not an animation constant.
+    //
+    // TRADE-OFF, stated because it is a real loss of information: the widget's
+    // `TurbineVisualState` enum has no variant carrying BOTH a shaft speed and
+    // a steam state, and the generator variant deliberately reports no casing
+    // temperature (it is an electromechanical model with no steam path). So
+    // the casing here draws neutral grey instead of at the live steam
+    // temperature, which is what the thermo-backed variant used to give. The
+    // steam temperature is still on screen as the `T_steam` readout, and the
+    // shaft speed is added beside it. Restoring the colour needs a new widget
+    // variant in the engine crate, which is the maintainer's call.
+    let generator = turbine_generator::generator_at_speed(
+        AngularVelocity::new::<radian_per_second>(snapshot.shaft_speed_rad_per_s),
+        Power::new::<megawatt>(snapshot.generator_rating_mw.max(f64::MIN_POSITIVE)),
+    );
     ui.add(
-        TurbineVisual::new_thermo(
-            turbine,
+        TurbineVisual::new_generator(
+            generator,
             at(TURBINE_CENTRE),
             TURBINE_BOX,
             k(DISPLAY_MIN_K),
@@ -950,7 +990,7 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
     );
 
     // ── 12. Instrumentation readouts ────────────────────────────────────
-    let readouts: [(Pos2, &str, String); 9] = [
+    let readouts: [(Pos2, &str, String); 11] = [
         (
             pos2(58.0, 556.0),
             "Power",
@@ -995,6 +1035,20 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
             pos2(768.0, 280.0),
             "x_exhaust",
             format!("{:.3}", snapshot.steam_quality_after_turbine),
+        ),
+        // The shaft speed the rotor above is actually drawn turning at, and
+        // the electrical power that comes out of the same torque balance.
+        // Both are computed, not display constants -- see
+        // `crate::physics::turbine_generator`.
+        (
+            pos2(768.0, 298.0),
+            "n_shaft",
+            format!("{:.0} rpm", snapshot.shaft_speed_rpm),
+        ),
+        (
+            pos2(768.0, 316.0),
+            "P_elec",
+            format!("{:.1} MWe", snapshot.generator_electrical_power_mw),
         ),
     ];
     for (p, label, value) in readouts {

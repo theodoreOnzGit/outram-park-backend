@@ -151,9 +151,17 @@ pub fn draw_controls(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, snapshot:
         "Reactor power: {:.1} MWth",
         snapshot.reactor_power_mw
     ));
+    // Mechanical, then electrical -- these were previously one line labelled
+    // "MWe" against the MECHANICAL number, which is wrong: the enthalpy-drop
+    // power is shaft power, and the electrical output is the generator's, less
+    // its losses. The plant now computes both, so both are shown.
     ui.label(format!(
-        "Turbine power: {:.1} MWe",
+        "Turbine shaft power: {:.1} MW",
         snapshot.turbine_power_mw
+    ));
+    ui.label(format!(
+        "Generator output: {:.1} MWe at {:.0} rpm",
+        snapshot.generator_electrical_power_mw, snapshot.shaft_speed_rpm
     ));
     ui.label(format!("Sim time: {:.1} s", snapshot.sim_time_s));
 
@@ -326,7 +334,29 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot) {
                 "SG steam outlet temp",
                 format!("{:.1} K", s.sg_steam_outlet_temp_k),
             );
-            row(ui, "Turbine power", format!("{:.2} MW", s.turbine_power_mw));
+            row(
+                ui,
+                "Turbine shaft power",
+                format!("{:.2} MW", s.turbine_power_mw),
+            );
+            row(
+                ui,
+                "Shaft speed",
+                format!(
+                    "{:.0} rpm ({:.1} rad/s)",
+                    s.shaft_speed_rpm, s.shaft_speed_rad_per_s
+                ),
+            );
+            row(
+                ui,
+                "Generator output",
+                format!("{:.2} MWe", s.generator_electrical_power_mw),
+            );
+            row(
+                ui,
+                "  machine rating",
+                format!("{:.2} MW shaft", s.generator_rating_mw),
+            );
             row(
                 ui,
                 "Exhaust quality",

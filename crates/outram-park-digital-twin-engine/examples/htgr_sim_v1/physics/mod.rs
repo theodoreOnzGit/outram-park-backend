@@ -109,6 +109,7 @@ pub mod pebble_bed;
 pub mod primary_loop;
 pub mod protection;
 pub mod secondary_loop;
+pub mod turbine_generator;
 
 use outram_park_digital_twin_engine::animation::residence_time_from_flow;
 use outram_park_digital_twin_engine::app_scaffold::mark_component;
@@ -125,6 +126,7 @@ use pebble_bed::PebbleBedCore;
 use primary_loop::HeliumPrimaryLoop;
 use protection::ReactorProtectionSystem;
 use secondary_loop::SteamSecondaryLoop;
+use turbine_generator::TurbineGeneratorShaft;
 
 /// Nominal thermal power used to seed the kinetics and size the loops: 10 MWth
 /// (published HTR-10 figure, IAEA-TECDOC-1382 Table 4-1), read from
@@ -152,6 +154,12 @@ pub struct HtgrPlant {
     pub primary: HeliumPrimaryLoop,
     /// Steam secondary loop.
     pub secondary: SteamSecondaryLoop,
+    /// Turbine-generator rotor. Driven by the secondary loop's enthalpy-drop
+    /// power through a real torque balance, so the schematic's turbine rotor
+    /// turns at a computed shaft speed rather than an animation constant. See
+    /// [`turbine_generator`] -- especially on why the speed lands near
+    /// synchronous and why this is an islanded, ungoverned machine.
+    pub shaft: TurbineGeneratorShaft,
     /// Reactor protection system. Trips on measurable signals and drives the
     /// rod bank in, so a prompt excursion terminates instead of running the
     /// model out of its property range. See [`protection`].
@@ -173,6 +181,7 @@ impl HtgrPlant {
             core: PebbleBedCore::new(),
             primary: HeliumPrimaryLoop::new(nominal_helium_flow()),
             secondary: SteamSecondaryLoop::new(),
+            shaft: TurbineGeneratorShaft::new(),
             protection: ReactorProtectionSystem::new(),
             sim_time: Time::new::<second>(0.0),
             core_heat_to_helium: Power::new::<watt>(0.0),
@@ -284,6 +293,14 @@ impl HtgrPlant {
             self.primary.ihx_duty(),
             self.primary.core_outlet_temperature(),
         );
+
+        // 5. Turbine-generator shaft. Driven by the SAME enthalpy-drop power
+        // the secondary loop just computed -- `T = P/omega`, so there is one
+        // turbine power in this plant, not two. The rotor's speed is what the
+        // schematic's turbine widget draws its blades turning at.
+        mark_component("turbine-generator shaft (torque balance)");
+        self.shaft
+            .step(dt, self.secondary.turbine_power(), self.sim_time);
     }
 
     /// Project the current plant state onto the shared [`HtgrSnapshot`],
@@ -362,6 +379,15 @@ impl HtgrPlant {
             .secondary
             .cooling_water_outlet_temperature()
             .get::<kelvin>();
+
+        // Turbine-generator shaft.
+        s.shaft_speed_rad_per_s = self
+            .shaft
+            .angular_velocity()
+            .get::<uom::si::angular_velocity::radian_per_second>();
+        s.shaft_speed_rpm = self.shaft.speed_rpm();
+        s.generator_electrical_power_mw = self.shaft.electrical_power().get::<megawatt>();
+        s.generator_rating_mw = self.shaft.rated_shaft_power().get::<megawatt>();
 
         // Clock.
         s.sim_time_s = self.sim_time.get::<second>();

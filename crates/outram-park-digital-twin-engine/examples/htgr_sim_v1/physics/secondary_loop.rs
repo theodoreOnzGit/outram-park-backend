@@ -224,6 +224,47 @@ const COOLING_WATER_CP_J_PER_KG_K: f64 = 4180.0;
 /// residence time that drives the schematic's steam-line flow tracers.
 const SECONDARY_INVENTORY_KG: f64 = 2.0e3;
 
+/// Shaft power \[W\] the turbine delivers at the plant's **design point** --
+/// the machine rating the turbine-generator in [`super::turbine_generator`] is
+/// sized against.
+///
+/// # What this is
+///
+/// The same isentropic expansion [`SteamSecondaryLoop::step`] performs, but
+/// evaluated once at the *published* HTR-10 main steam conditions rather than
+/// at the live state: the published 12.5 t/hr of steam at 4.0 MPa / 440 degC
+/// (IAEA-TECDOC-1382 Table 4-1, via the design point) expanded to the condenser
+/// back-pressure and de-rated by [`TURBINE_EFFICIENCY`].
+///
+/// # Why it is a separate function
+///
+/// A generator has to be *rated* for something, and the rating must not move
+/// when the plant moves -- a machine whose nameplate followed the load would
+/// make its own speed meaningless. This is therefore a fixed property of the
+/// design point, deliberately not read off the running plant.
+///
+/// # What is published and what is not
+///
+/// The steam conditions and flow are published; the condenser pressure and the
+/// turbine efficiency it expands against are **invented** (see the module
+/// docs), so the resulting rating is an illustrative balance-of-plant figure
+/// and not an HTR-10 turbine-generator rating. IAEA-TECDOC-1382 carries no
+/// turbine detail at all.
+///
+/// Measured 2026-08-12: **3.4333 MW** (3.433280 MW).
+pub fn design_point_turbine_power() -> Power {
+    let d = super::pebble_bed::design();
+    let p_steam = d.main_steam_pressure;
+    let p_cond = Pressure::new::<megapascal>(CONDENSER_PRESSURE_MPA);
+    let v = Volume::new::<cubic_meter>(1.0);
+
+    let inlet = HemSteamCv::new_from_ph(p_steam, target_steam_enthalpy(), v);
+    let isentropic_outlet = HemSteamCv::new_from_ps(p_cond, inlet.get_specific_entropy(), v);
+    let isentropic_drop = inlet.get_specific_enthalpy() - isentropic_outlet.get_specific_enthalpy();
+
+    d.main_steam_mass_flow * isentropic_drop * TURBINE_EFFICIENCY
+}
+
 /// Steam secondary-loop state.
 pub struct SteamSecondaryLoop {
     steam_pressure: Pressure,
