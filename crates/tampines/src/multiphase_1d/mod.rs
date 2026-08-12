@@ -119,11 +119,13 @@
 
 pub mod drift_flux;
 pub mod geometry;
+pub mod interfacial;
 pub mod properties;
 pub mod two_fluid;
 
 pub use drift_flux::{DriftFlux1d, DriftFluxReport};
 pub use geometry::Pipe1d;
+pub use interfacial::{DispersedPhase, InterfacialCellState, InterfacialExchange, InterfacialSources};
 pub use properties::{SaturatedProperties, TwoPhaseState};
 pub use two_fluid::{TwoFluid1d, TwoFluidReport};
 
