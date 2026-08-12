@@ -11,6 +11,7 @@ use outram_park_digital_twin_engine::app_scaffold::show_crash_modal_if_crashed;
 use outram_park_digital_twin_engine::components::FhrReactorVesselVisual;
 
 use crate::app::local_widgets_and_buttons::pipes::{SinglePipeColourBlackRedTempSensitive, SinglePipeColourBlueWhiteQualitySensitive};
+use crate::app::thermal_hydraulics_backend::salt_freeze_guard::show_salt_freeze_modal;
 use crate::app::local_widgets_and_buttons::turbine_widget::TurbineWidget;
 use crate::{FHRSimulatorApp, FHRState};
 use crate::Panel;
@@ -36,6 +37,20 @@ impl eframe::App for FHRSimulatorApp {
         if show_crash_modal_if_crashed(ui.ctx(), &self.thread_health) {
             ui.ctx().request_repaint_after(Duration::from_millis(100));
             return;
+        }
+
+        // A salt loop freezing is the *graceful* sibling of the crash above:
+        // the thermal-hydraulics thread has parked itself before the
+        // out-of-range property call, so the `FHRState` mutex is healthy and
+        // the plant is intact. Unlike the crash path we therefore keep
+        // rendering the panels underneath -- the operator should be able to
+        // see the cold loop that caused this -- and only overlay the modal,
+        // which dims and blocks input on its own. The crash check still runs
+        // first, because a genuine panic is not recoverable.
+        let salt_loop_is_frozen =
+            show_salt_freeze_modal(ui.ctx(), &self.salt_freeze_monitor);
+        if salt_loop_is_frozen {
+            ui.ctx().request_repaint_after(Duration::from_millis(100));
         }
 
         egui::Panel::top("top_panel").show_inside(ui, |ui| {

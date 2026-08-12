@@ -33,6 +33,9 @@ use uom::si::{f64::*, power::kilowatt};
 use outram_park_digital_twin_engine::app_scaffold::{spawn_monitored, ThreadHealth};
 
 #[cfg(not(target_os = "android"))]
+use crate::app::thermal_hydraulics_backend::salt_freeze_guard::SaltFreezeMonitor;
+
+#[cfg(not(target_os = "android"))]
 use crate::app::{graph_data::PagePlotData, panel_enum::Panel};
 
 /// this is how the fhr simulator runs 
@@ -129,6 +132,16 @@ pub struct FHRSimulatorApp {
     /// stale numbers (and, because a panicking thread poisons the `FHRState`
     /// mutex, the GUI early-returns before touching that poisoned lock).
     pub thread_health: ThreadHealth,
+
+    #[serde(skip)]
+    /// Salt-freeze pause/melt handle shared with the thermal-hydraulics
+    /// thread. A frozen salt loop is a *recoverable* excursion out of the
+    /// model's valid envelope, unlike the panics `thread_health` reports, so
+    /// it gets its own flag and its own modal: the physics thread parks
+    /// before the property call that would panic, and the GUI offers a melt
+    /// that resumes it. See
+    /// [`app::thermal_hydraulics_backend::salt_freeze_guard`].
+    pub salt_freeze_monitor: SaltFreezeMonitor,
 }
 
 #[cfg(not(target_os = "android"))]
@@ -359,6 +372,14 @@ impl FHRSimulatorApp {
         // modal) instead of silently killing the subsystem.
         let thread_health: ThreadHealth = new_fhr_app.thread_health.clone();
 
+        // Salt-freeze pause handle for the thermal-hydraulics thread. Unlike
+        // `thread_health` this is a graceful, resumable stop: the physics
+        // thread detects a loop going below its salt's melting point from
+        // state and parks *before* the out-of-range property call, so the
+        // plant is held at a known-good condition rather than half-stepped.
+        let salt_freeze_monitor: SaltFreezeMonitor =
+            new_fhr_app.salt_freeze_monitor.clone();
+
         // now spawn a thread to do the kinetics
         //
         spawn_monitored("fhr-prke", thread_health.clone(), move ||{
@@ -370,7 +391,8 @@ impl FHRSimulatorApp {
         spawn_monitored("fhr-thermal-hydraulics", thread_health.clone(), move ||{
 
             FHRSimulatorApp::calculate_thermal_hydraulics_loop(
-                fhr_state_thermal_hydraulics_ptr
+                fhr_state_thermal_hydraulics_ptr,
+                salt_freeze_monitor,
             );
 
         });
@@ -404,6 +426,7 @@ impl Default for FHRSimulatorApp {
             open_panel: default_open_panel,
             fhr_simulator_ptr_for_plotting: fhr_plot_ptr,
             thread_health: ThreadHealth::new(),
+            salt_freeze_monitor: SaltFreezeMonitor::new(),
 
         }
     }

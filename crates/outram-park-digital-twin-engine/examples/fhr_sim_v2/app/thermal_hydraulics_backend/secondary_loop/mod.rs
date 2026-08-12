@@ -1,5 +1,8 @@
 use crate::{FHRSimulatorApp};
 use crate::app::thermal_hydraulics_backend::fhr_thermal_hydraulics_state::FHRThermalHydraulicsState;
+use crate::app::thermal_hydraulics_backend::secondary_loop::steam_generator_duty::{
+    feedwater_inlet_state, FeedwaterInletState,
+};
 use tampines_steam_tables::interfaces::functional_programming::ph_flash_eqm::x_ph_flash;
 use tampines_steam_tables::interfaces::functional_programming::ps_flash_eqm::x_ps_flash;
 use tampines_steam_tables::interfaces::functional_programming::{ph_flash_eqm, ps_flash_eqm, pt_flash_eqm};
@@ -117,54 +120,41 @@ impl FHRSimulatorApp {
             ThermodynamicTemperature::new::<degree_celsius>(35.0);
 
 
-        // then calculate the entropy... 
-        // 
+        // then calculate the entropy...
+        //
         let condenser_outlet_entropy: SpecificHeatCapacity
             = pt_flash_eqm::s_tp_eqm_single_phase(
-                condenser_outlet_temperature, 
+                condenser_outlet_temperature,
                 condenser_outlet_pressure);
-        let steam_quality_after_condenser = 
-            x_ps_flash(condenser_outlet_pressure, 
+        let steam_quality_after_condenser =
+            x_ps_flash(condenser_outlet_pressure,
                 condenser_outlet_entropy);
 
         // then condenser goes into pump... with new pressure
         // assume pump is isentropic... for simplicity
         //
+        // it pumps it up to a minimum of 1 bar.
         //
-        // it pumps it up to minimum of 1 bar 
+        // This is delegated to `feedwater_inlet_state` so that the
+        // steam-generator *pinch cap* (which needs the cold-side inlet to
+        // compute `Q_max`, see `steam_generator_duty`) and this cycle
+        // calculation can never disagree about where the cold stream starts.
+        // A cap computed against a different feedwater state than the cycle
+        // actually uses would not be a cap at all.
+        let feedwater_inlet: FeedwaterInletState =
+            feedwater_inlet_state(user_specified_pump_outlet_pressure);
 
-        let pump_outlet_temperature: ThermodynamicTemperature;
+        let pump_outlet_temperature: ThermodynamicTemperature =
+            feedwater_inlet.temperature;
+        let sg_inlet_pressure: Pressure = feedwater_inlet.pressure;
 
-        let one_bar = Pressure::new::<bar>(1.0);
-        let sg_inlet_pressure: Pressure;
+        // now the pump outlet temperature will form the
+        // inlet of the steam generator
 
-        if user_specified_pump_outlet_pressure < one_bar {
-            pump_outlet_temperature = 
-                ps_flash_eqm::t_ps_eqm(
-                    one_bar, condenser_outlet_entropy
-                );
-            sg_inlet_pressure = one_bar;
-        } else {
-            pump_outlet_temperature = 
-                ps_flash_eqm::t_ps_eqm(
-                    user_specified_pump_outlet_pressure, 
-                    condenser_outlet_entropy
-                );
-            sg_inlet_pressure = user_specified_pump_outlet_pressure;
+        let steam_generator_tube_inlet_enthalpy: AvailableEnergy =
+            feedwater_inlet.enthalpy;
 
-        }
-
-
-
-        // now the pump outlet temperature will form the 
-        // inlet of the steam generator 
-
-        let steam_generator_tube_inlet_enthalpy: AvailableEnergy
-            = pt_flash_eqm::h_tp_eqm_single_phase(
-                pump_outlet_temperature, sg_inlet_pressure
-            );
-
-        let pressure_after_pump = 
+        let pressure_after_pump =
             sg_inlet_pressure;
         let enthalpy_after_pump = steam_generator_tube_inlet_enthalpy;
 
@@ -409,6 +399,12 @@ pub struct SecondaryLoopState {
 ///
 /// I'm doing only a very simplified version.
 pub mod pool_boiling;
+
+/// Second-law-safe steam-generator duty: the effectiveness-NTU cap that makes
+/// a tube-side/shell-side temperature cross impossible by construction, plus
+/// the shared definition of the feedwater inlet state both this module and the
+/// shell-side heat balance read.
+pub mod steam_generator_duty;
 
 #[cfg(test)]
 pub mod vibe_code_mass_balance;

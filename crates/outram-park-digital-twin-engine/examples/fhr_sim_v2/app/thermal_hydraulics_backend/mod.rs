@@ -41,6 +41,11 @@ use pri_loop_fluid_mechanics_calc_fns::four_branch_pri_and_intermediate_loop_flu
 use tuas_boussinesq_solver::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent;
 use tuas_boussinesq_solver::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent;
 use crate::app::thermal_hydraulics_backend::secondary_loop::pool_boiling::pool_boiling_improvised_correlation_as_fraction_of_maximum;
+use crate::app::thermal_hydraulics_backend::secondary_loop::steam_generator_duty::{
+    feedwater_inlet_state, pinch_limited_steam_generator_duty, FeedwaterInletState,
+    SteamGeneratorDuty, SteamGeneratorDutyLimit,
+};
+use crate::app::thermal_hydraulics_backend::salt_freeze_guard::SaltFreezeMonitor;
 use crate::app::thermal_hydraulics_backend::secondary_loop::SecondaryLoopState;
 use crate::{FHRSimulatorApp, FHRState};
 
@@ -91,9 +96,17 @@ impl FHRSimulatorApp {
         // mixing nodes for intermediate loop
         bottom_mixing_node_intrmd_loop: &mut HeatTransferEntity,
         top_mixing_node_intrmd_loop: &mut HeatTransferEntity,
-        // steam generator settings 
+        // steam generator settings
         steam_generator_tube_side_temperature: ThermodynamicTemperature,
         steam_generator_overall_ua: ThermalConductance,
+        // Secondary-side inlet conditions, needed so the steam-generator duty
+        // can be clamped to the thermodynamic maximum
+        // `Q_max = C_min (T_salt_in - T_feed_in)` rather than run open-loop off
+        // the `UA` slider. See
+        // `secondary_loop::steam_generator_duty` for why this is a physics
+        // requirement and not a cosmetic one.
+        feedwater_inlet: FeedwaterInletState,
+        feedwater_mass_flowrate: MassRate,
 
         ) -> FHRThermalHydraulicsState {
 
@@ -320,50 +333,86 @@ impl FHRSimulatorApp {
                     .unwrap();
                 }
             let heat_added_to_steam_generator: Energy;
+            let steam_generator_duty: SteamGeneratorDuty;
             {
 
-                // for steam generator, I want to manually remove heat from it 
-                // uniformly 
+                // ── Steam-generator duty ────────────────────────────────
+                // Heat leaves the HITEC shell and enters the water/steam
+                // tube. Before 2026-08-12 this was the bare conductance
+                // product `Q = UA*(T_shell_bulk - T_tube_out)` with no upper
+                // bound, so a large enough slider `UA` transferred more heat
+                // than the pinch permits -- a second-law violation that
+                // surfaced as a tube-outlet temperature above the shell
+                // temperature. It is now clamped to the thermodynamic
+                // maximum by `pinch_limited_steam_generator_duty`; see that
+                // module for the derivation and the V&V sweep.
+                //
+                // The *same* clamped number is applied to both sides
+                // (`-Q` to the shell, `+Q` to the tube), which also closes an
+                // energy-conservation hole: the old code pushed a negative
+                // duty into the shell while the tube side clamped it at zero,
+                // creating energy out of nothing in exactly the state a cross
+                // produces.
 
                 let number_of_temperature_nodes_for_sg = 2;
                 let mut q_frac_arr: Array1<f64> = Array::default(number_of_temperature_nodes_for_sg);
                 // we want the middle node to contain all the power
                 q_frac_arr[0] = 0.5;
                 q_frac_arr[1] = 0.5;
-                let mut sg_fluid_array_clone: FluidArray = 
+                let mut sg_fluid_array_clone: FluidArray =
                     fhr_steam_generator_shell_side_14
                     .pipe_fluid_array
                     .clone()
                     .try_into()
                     .unwrap();
-                let steam_gen_heat_change: Power;
 
-                let temperature_diff = 
-                    TemperatureInterval::new::<uom::si::temperature_interval::kelvin>(
-                        sg_fluid_array_clone.try_get_bulk_temperature()
-                        .unwrap()
-                        .get::<degree_celsius>() 
-                        - steam_generator_tube_side_temperature
-                        .get::<degree_celsius>()
-                    );
+                let shell_mean_temperature = sg_fluid_array_clone
+                    .try_get_bulk_temperature()
+                    .unwrap();
 
-                // Q_added_to_destination = -UA*(T_destination - T_steam)
-                //
-                // nevertheless, I should probably do it slowly over many 
-                // slow timesteps or nodes. This heat exchanger should 
-                // be properly programmed
-                // otherwise there will be numerical instability
-                
-                steam_gen_heat_change = -temperature_diff*steam_generator_overall_ua;
-                // heat added to steam generator is 
-                heat_added_to_steam_generator = 
+                // `T_hot_in` for the pinch: the hottest shell node, which is
+                // the salt inlet end of the counter-flow exchanger.
+                let shell_inlet_temperature: ThermodynamicTemperature =
+                    sg_fluid_array_clone
+                    .get_temperature_vector()
+                    .unwrap()
+                    .into_iter()
+                    .fold(shell_mean_temperature, |hottest, node_temperature| {
+                        if node_temperature.get::<degree_celsius>()
+                            > hottest.get::<degree_celsius>() {
+                                node_temperature
+                            } else {
+                                hottest
+                            }
+                    });
+
+                // HITEC `cp` at the shell bulk temperature; the shell-side
+                // fluid is declared as `LiquidMaterial::HITEC` in
+                // `new_fhr_intermediate_loop_steam_generator_shell_side_14`.
+                let salt_specific_heat_capacity: SpecificHeatCapacity =
+                    LiquidMaterial::HITEC
+                    .try_get_cp(shell_mean_temperature)
+                    .unwrap();
+
+                steam_generator_duty = pinch_limited_steam_generator_duty(
+                    steam_generator_overall_ua,
+                    shell_mean_temperature,
+                    shell_inlet_temperature,
+                    intrmd_loop_steam_gen_br_flow,
+                    salt_specific_heat_capacity,
+                    feedwater_inlet,
+                    feedwater_mass_flowrate,
+                    steam_generator_tube_side_temperature,
+                );
+
+                // heat leaves the shell at exactly the rate it enters the tube
+                let steam_gen_heat_change: Power = -steam_generator_duty.duty;
+                heat_added_to_steam_generator =
                     steam_gen_heat_change * timestep;
-
-
 
                 sg_fluid_array_clone
                     .lateral_link_new_power_vector(
-                        steam_gen_heat_change, 
+                        steam_gen_heat_change,
                         q_frac_arr)
                     .unwrap();
 
@@ -891,6 +940,9 @@ impl FHRSimulatorApp {
                 downcomer_2_temp_profile_degc,
                 downcomer_3_temp_profile_degc,
                 heat_added_to_steam_generator_shell_side: heat_added_to_steam_generator,
+                steam_generator_effectiveness: steam_generator_duty.effectiveness,
+                steam_generator_maximum_duty: steam_generator_duty.thermodynamic_maximum,
+                steam_generator_duty_limit: steam_generator_duty.limited_by,
             };
 
             // if one wants to monitor flow through the loop
@@ -903,8 +955,24 @@ impl FHRSimulatorApp {
 
 
 
+    /// Drives the FHR primary, intermediate and secondary loops forever, one
+    /// 0.1 s thermal-hydraulics timestep at a time, publishing each step's
+    /// state into the shared [`FHRState`] the GUI reads.
+    ///
+    /// `salt_freeze_monitor` is the graceful-stop handle: at the top of every
+    /// iteration this loop checks the *previous* step's temperature profiles
+    /// for a salt node that has gone below its melting point, and if it finds
+    /// one it records the freeze and parks **before** entering a step whose
+    /// range-checked property lookups would panic the thread. It stays parked,
+    /// holding the plant exactly as it froze, until the operator presses the
+    /// melt button in the modal, at which point the frozen loop's components
+    /// are rebuilt at
+    /// [`MELT_RESTORE_TEMPERATURE_DEGC`](salt_freeze_guard::MELT_RESTORE_TEMPERATURE_DEGC)
+    /// and stepping resumes. See [`salt_freeze_guard`] for why the melt is a
+    /// deliberate, labelled teaching shortcut rather than physics.
     pub fn calculate_thermal_hydraulics_loop(
-        fhr_state: Arc<Mutex<FHRState>>){
+        fhr_state: Arc<Mutex<FHRState>>,
+        salt_freeze_monitor: SaltFreezeMonitor){
 
         let thermal_hydraulics_timestep = Time::new::<second>(0.1);
 
@@ -1025,6 +1093,9 @@ impl FHRSimulatorApp {
             downcomer_2_temp_profile_degc: vec![],
             downcomer_3_temp_profile_degc: vec![],
             heat_added_to_steam_generator_shell_side: Energy::ZERO,
+            steam_generator_effectiveness: 0.0,
+            steam_generator_maximum_duty: Power::ZERO,
+            steam_generator_duty_limit: SteamGeneratorDutyLimit::NoDrivingTemperatureDifference,
         };
 
         let mut current_fhr_steam_gen_state: SecondaryLoopState
@@ -1051,6 +1122,95 @@ impl FHRSimulatorApp {
         //
         // to be done once every timestep
         loop {
+
+            // ── salt-freeze guard ───────────────────────────────────────
+            // Checked FIRST, on the temperature profiles the *previous* step
+            // produced, so that a loop which has gone below its salt's
+            // melting point never enters the step whose range-checked
+            // property lookups (`get_flibe_density`, `get_hitec_viscosity`,
+            // ...) would return out-of-range and be unwrapped into a panic.
+            // Detecting afterwards, or catching the unwind, would leave the
+            // plant half-advanced and its stored energy indeterminate --
+            // stopping cleanly at a known state is the whole point.
+            if let Some(freeze_event) =
+                salt_freeze_guard::detect_salt_freeze(&current_fhr_thermal_hydraulics_state) {
+                    salt_freeze_monitor.record(freeze_event);
+                }
+
+            // `event()` is `None` unless a freeze is currently being
+            // reported, so this both tests "are we paused?" and gives us the
+            // loop to restore. It must be read *before* `take_melt_request`,
+            // which clears the event as it consumes the request.
+            if let Some(active_freeze) = salt_freeze_monitor.event() {
+                if salt_freeze_monitor.take_melt_request() {
+                    // The operator asked for a melt. Rebuild every component
+                    // of the frozen loop at the simulator's own cold-start
+                    // temperature. This is NOT a thaw model -- see
+                    // `salt_freeze_guard`'s module docs; the modal says so to
+                    // the user in as many words.
+                    let melt_temperature =
+                        ThermodynamicTemperature::new::<degree_celsius>(
+                            salt_freeze_guard::MELT_RESTORE_TEMPERATURE_DEGC
+                        );
+                    let frozen_loop = active_freeze.frozen_loop;
+
+                    match frozen_loop {
+                        salt_freeze_guard::FrozenLoop::PrimaryFlibe => {
+                            reactor_pipe_1 = new_reactor_vessel_pipe_1(melt_temperature);
+                            downcomer_pipe_2 = new_downcomer_pipe_2(melt_temperature);
+                            downcomer_pipe_3 = new_downcomer_pipe_3(melt_temperature);
+                            fhr_pipe_11 = new_fhr_pipe_11(melt_temperature);
+                            fhr_pipe_10 = new_fhr_pipe_10(melt_temperature);
+                            fhr_pri_loop_pump_9 = new_fhr_pri_loop_pump_9(melt_temperature);
+                            fhr_pipe_8 = new_fhr_pipe_8(melt_temperature);
+                            fhr_pipe_7 = new_fhr_pipe_7(melt_temperature);
+                            fhr_pipe_5 = new_fhr_pipe_5(melt_temperature);
+                            fhr_pipe_4 = new_fhr_pipe_4_ver_2(melt_temperature);
+                            bottom_mixing_node_pri_loop =
+                                gfhr_bottom_mixing_node_pri_loop(melt_temperature);
+                            top_mixing_node_pri_loop =
+                                gfhr_top_mixing_node_pri_loop(melt_temperature);
+                            // The IHX is a single object holding the FLiBe
+                            // shell and the HITEC tube, so melting the
+                            // primary loop necessarily resets both of its
+                            // sides. `reset_profiles_after_melt` reports the
+                            // same coupling.
+                            ihx_sthe_6 = new_ihx_sthe_6_version_1(melt_temperature);
+                        },
+                        salt_freeze_guard::FrozenLoop::IntermediateHitec => {
+                            fhr_pipe_17 = new_fhr_pipe_17(melt_temperature);
+                            fhr_pipe_12 = new_fhr_pipe_12(melt_temperature);
+                            fhr_intrmd_loop_pump_16 =
+                                new_fhr_intermediate_loop_pump_16(melt_temperature);
+                            fhr_pipe_15 = new_fhr_pipe_15(melt_temperature);
+                            fhr_steam_generator_shell_side_14 =
+                                new_fhr_intermediate_loop_steam_generator_shell_side_14(
+                                    melt_temperature);
+                            fhr_pipe_13 = new_fhr_pipe_13(melt_temperature);
+                            bottom_mixing_node_intrmd_loop =
+                                gfhr_bottom_mixing_node_intrmd_loop(melt_temperature);
+                            top_mixing_node_intrmd_loop =
+                                gfhr_top_mixing_node_intrmd_loop(melt_temperature);
+                            ihx_sthe_6 = new_ihx_sthe_6_version_1(melt_temperature);
+                        },
+                    }
+
+                    // Refresh the stale frozen profiles so the guard does not
+                    // immediately re-trip on numbers the melt has just made
+                    // untrue. The next real step overwrites them anyway.
+                    salt_freeze_guard::reset_profiles_after_melt(
+                        &mut current_fhr_thermal_hydraulics_state,
+                        frozen_loop,
+                    );
+                } else {
+                    // Parked. Hold the plant exactly as it froze; do not
+                    // advance time, do not touch a salt property.
+                    thread::sleep(Duration::from_millis(
+                        salt_freeze_guard::FREEZE_PAUSE_POLL_INTERVAL_MS
+                    ));
+                    continue;
+                }
+            }
 
             // so now, let's do the necessary things
             // first, timestep and loop time 
@@ -1170,10 +1330,30 @@ impl FHRSimulatorApp {
             }
 
 
-            let steam_generator_tube_side_temperature = 
+            let steam_generator_tube_side_temperature =
                 ThermodynamicTemperature::new::<degree_celsius>(
                     fhr_state_clone.lock().unwrap().steam_generator_tube_outlet_temperature_degc
                 );
+
+            // Secondary-side inlet conditions, read here so the
+            // steam-generator duty inside the intermediate-loop step can be
+            // clamped to `Q_max = C_min (T_salt_in - T_feed_in)`. These are
+            // the *same* sliders the secondary loop reads below, and the
+            // feedwater state comes from the one shared
+            // `feedwater_inlet_state` so the cap and the steam cycle cannot
+            // disagree about where the cold stream starts.
+            let secondary_loop_mass_flowrate_for_pinch: MassRate =
+                MassRate::new::<kilogram_per_second>(
+                    fhr_state_clone.lock().unwrap()
+                    .user_specified_secondary_loop_mass_flowrate_kg_per_s
+                );
+            let pump_outlet_pressure_for_pinch: Pressure =
+                Pressure::new::<bar>(
+                    fhr_state_clone.lock().unwrap()
+                    .user_specified_secondary_loop_pump_outlet_pressure_bar
+                );
+            let feedwater_inlet: FeedwaterInletState =
+                feedwater_inlet_state(pump_outlet_pressure_for_pinch);
 
             // now calculate the fhr primary and intermediate loops
             current_fhr_thermal_hydraulics_state = 
@@ -1192,8 +1372,10 @@ impl FHRSimulatorApp {
                     &mut fhr_pipe_15, &mut fhr_steam_generator_shell_side_14, 
                     &mut fhr_pipe_13, &mut bottom_mixing_node_intrmd_loop, 
                     &mut top_mixing_node_intrmd_loop, 
-                    steam_generator_tube_side_temperature, 
-                    steam_generator_overall_ua);
+                    steam_generator_tube_side_temperature,
+                    steam_generator_overall_ua,
+                    feedwater_inlet,
+                    secondary_loop_mass_flowrate_for_pinch);
 
             let debug = false;
             if debug {
@@ -1342,51 +1524,51 @@ impl FHRSimulatorApp {
                 // pri loop state 
                 fhr_state_lock.pipe_4_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .pipe_4_temp_profile_degc;
+                    .pipe_4_temp_profile_degc.clone();
                 fhr_state_lock.pipe_5_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .pipe_5_temp_profile_degc;
+                    .pipe_5_temp_profile_degc.clone();
                 fhr_state_lock.ihx_shell_6_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .ihx_shell_side_temp_profile_degc;
+                    .ihx_shell_side_temp_profile_degc.clone();
                 fhr_state_lock.pipe_7_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .pipe_7_temp_profile_degc;
+                    .pipe_7_temp_profile_degc.clone();
                 fhr_state_lock.pipe_8_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .pipe_8_temp_profile_degc;
+                    .pipe_8_temp_profile_degc.clone();
                 fhr_state_lock.pri_pump_9_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .pump_9_temp_profile_degc;
+                    .pump_9_temp_profile_degc.clone();
                 fhr_state_lock.pipe_10_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .pipe_10_temp_profile_degc;
+                    .pipe_10_temp_profile_degc.clone();
                 fhr_state_lock.pipe_11_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .pipe_11_temp_profile_degc;
+                    .pipe_11_temp_profile_degc.clone();
                 // intermediate loop state
                 fhr_state_lock.ihx_tube_6_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .ihx_tube_side_temp_profile_degc;
+                    .ihx_tube_side_temp_profile_degc.clone();
                 fhr_state_lock.pipe_12_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .pipe_12_temp_profile_degc;
+                    .pipe_12_temp_profile_degc.clone();
                 fhr_state_lock.pipe_13_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .pipe_13_temp_profile_degc;
+                    .pipe_13_temp_profile_degc.clone();
                 // sg = steam generator
                 fhr_state_lock.sg_shell_14_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .sg_shell_side_temp_profile_degc;
+                    .sg_shell_side_temp_profile_degc.clone();
                 fhr_state_lock.pipe_15_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .pipe_15_temp_profile_degc;
+                    .pipe_15_temp_profile_degc.clone();
                 fhr_state_lock.intrmd_pump_16_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .pump_16_temp_profile_degc;
+                    .pump_16_temp_profile_degc.clone();
                 fhr_state_lock.pipe_17_temperature_vector_degc = 
                     current_fhr_thermal_hydraulics_state
-                    .pipe_17_temp_profile_degc;
+                    .pipe_17_temp_profile_degc.clone();
 
                 // secondary loop state
                 fhr_state_lock
@@ -1510,3 +1692,294 @@ pub mod fhr_thermal_hydraulics_state;
 
 /// code responsible for rankine cycle
 pub mod secondary_loop;
+
+/// graceful salt-freeze handling: detect a loop dropping below its salt's
+/// melting point *before* the property call that would panic, pause the
+/// physics thread, and offer the operator a (deliberately unphysical, and
+/// labelled as such) melt to resume
+pub mod salt_freeze_guard;
+
+#[cfg(test)]
+mod steam_generator_pinch_at_the_nominal_operating_point {
+    use super::components::*;
+    use super::pri_loop_fluid_mechanics_calc_fns::four_branch_pri_and_intermediate_loop_fluid_mechanics_only;
+    use super::secondary_loop::steam_generator_duty::{
+        feedwater_inlet_state, pinch_limited_steam_generator_duty, SteamGeneratorDutyLimit,
+    };
+    use tampines_steam_tables::interfaces::functional_programming::ph_flash_eqm;
+    use tuas_boussinesq_solver::boussinesq_thermophysical_properties::LiquidMaterial;
+    use uom::si::f64::*;
+    use uom::si::mass_rate::kilogram_per_second;
+    use uom::si::power::watt;
+    use uom::si::pressure::{bar, kilopascal};
+    use uom::si::thermal_conductance::watt_per_kelvin;
+    use uom::si::thermodynamic_temperature::degree_celsius;
+
+    /// The intermediate-loop steam-generator-branch salt flow \[kg/s\] this
+    /// plant actually runs at, measured rather than assumed.
+    ///
+    /// Solves the four-branch fluid-mechanics problem at the shipped default
+    /// intermediate-pump pressure with every component at the 500 degC
+    /// cold-start temperature. The magnitude is what matters for the capacity
+    /// rate; the sign only records which way round the branch the salt goes.
+    fn nominal_steam_generator_branch_salt_flow() -> MassRate {
+        let cold_start = ThermodynamicTemperature::new::<degree_celsius>(500.0);
+        // `FHRState::default()` sets both loop pumps to 100 kPa, which the
+        // driver applies as -100 kPa (see `calculate_thermal_hydraulics_loop`).
+        let pump_pressure = Pressure::new::<kilopascal>(-100.0);
+
+        let (_reactor, _downcomer_1, _downcomer_2, _pri_ihx, _intrmd_ihx, sg_branch) =
+            four_branch_pri_and_intermediate_loop_fluid_mechanics_only(
+                pump_pressure,
+                pump_pressure,
+                &new_reactor_vessel_pipe_1(cold_start),
+                &new_downcomer_pipe_2(cold_start),
+                &new_downcomer_pipe_3(cold_start),
+                &new_fhr_pipe_11(cold_start),
+                &new_fhr_pipe_10(cold_start),
+                &new_fhr_pri_loop_pump_9(cold_start),
+                &new_fhr_pipe_8(cold_start),
+                &new_fhr_pipe_7(cold_start),
+                &new_ihx_sthe_6_version_1(cold_start),
+                &new_fhr_pipe_5(cold_start),
+                &new_fhr_pipe_4_ver_2(cold_start),
+                &new_fhr_pipe_17(cold_start),
+                &new_fhr_pipe_12(cold_start),
+                &new_fhr_intermediate_loop_pump_16(cold_start),
+                &new_fhr_pipe_15(cold_start),
+                &new_fhr_intermediate_loop_steam_generator_shell_side_14(cold_start),
+                &new_fhr_pipe_13(cold_start),
+            );
+
+        sg_branch
+    }
+
+    /// **V&V — where on the `UA` slider the pre-fix model started crossing,
+    /// at the plant's real nominal operating point.**
+    ///
+    /// ## Methodology
+    ///
+    /// The synthetic sweep in
+    /// [`secondary_loop::steam_generator_duty`](super::secondary_loop::steam_generator_duty)
+    /// proves the cap holds over the whole slider space, but it varies the
+    /// salt flow freely. This test instead pins the *actual* operating point
+    /// the simulator ships with, so the answer to "how far do I have to push
+    /// the slider before the physics breaks?" is a real number and not a
+    /// hypothetical:
+    ///
+    /// - salt flow **measured** by solving the four-branch fluid-mechanics
+    ///   problem at the default pump pressure
+    ///   ([`nominal_steam_generator_branch_salt_flow`]);
+    /// - shell at 500 degC (the simulator's cold-start / nominal salt
+    ///   temperature), HITEC `cp` from `tuas_boussinesq_solver`;
+    /// - feedwater 50 kg/s at 1.2 bar (both `FHRState::default()`), giving the
+    ///   feedwater inlet from the shared [`feedwater_inlet_state`];
+    /// - lagged tube outlet 100 degC.
+    ///
+    /// The `UA` slider (0 to 7.0e5 W/K) is then walked in 1e3 W/K steps to
+    /// find the lowest setting at which the **pre-fix** duty `UA * dT` exceeds
+    /// the thermodynamic maximum, and the pinch-limited duty is checked at the
+    /// slider maximum.
+    ///
+    /// ## Results — measured 2026-08-12
+    ///
+    /// Measured operating point: SG-branch salt flow **642.9 kg/s**, HITEC
+    /// `cp` **1560.0 J/(kg K)**, feedwater inlet **35.0 degC** at 1.2 bar.
+    /// Thermodynamic maximum **1.6709e8 W = 167.1 MW**, set by the
+    /// **feedwater enthalpy pinch** (the cold side runs out of temperature
+    /// difference before the 642.9 kg/s salt stream does).
+    ///
+    /// | `UA` \[W/K\] | Pre-fix duty | What the pre-fix model does |
+    /// |---|---|---|
+    /// | 1.5e5 (shipped default) | 60.0 MW | fine — below the 167.1 MW maximum, cap inactive |
+    /// | **4.18e5** | 167.1 MW | **first crossing**, 60 % of the way up the slider |
+    /// | 4.98e5 | 199.2 MW | steam outlet **787.4 degC** against a **500.0 degC** salt inlet — a **287.4 K temperature cross** |
+    /// | 5.08e5 | 203.2 MW | steam state leaves the IAPWS-IF97 envelope entirely; the `(p, h)` flash has no solution and **panics the physics thread** |
+    /// | 7.0e5 (slider maximum) | 280.0 MW | **1.68x** the thermodynamic maximum; implies cooling the 500 degC salt by 279 K to 221 degC |
+    ///
+    /// Post-fix at the slider maximum: duty capped at 167.1 MW, effectiveness
+    /// exactly 1.0000, `limited_by = FeedwaterEnthalpyPinch`. Post-fix at the
+    /// shipped default: 6.0000e7 W = 60.0 MW, `limited_by = Conductance`,
+    /// bit-identical to `UA * dT`.
+    ///
+    /// ## Interpretation
+    ///
+    /// This is the number that answers the maintainer's report directly.
+    /// Dragging the `UA` slider past **60 %** of its range put the simulator
+    /// into a second-law violation, and by 73 % it was crashing the physics
+    /// thread outright on an out-of-envelope steam state. That matches the
+    /// simulator's own long-standing note in `main.rs` — *"the steam
+    /// temperature is sometimes too high. This is especially when the UA
+    /// value exceeds some number"* — and gives that number: 4.18e5 W/K at
+    /// this operating point.
+    ///
+    /// This test is also the *regression* guard for the fix's most important
+    /// non-goal: at the **shipped default** `UA` the cap must be inactive, so
+    /// the fix must not have quietly changed the simulator's nominal duty. The
+    /// test asserts that too, and it holds — the default duty is unchanged.
+    #[test]
+    fn the_ua_slider_crossed_partway_up_at_the_nominal_operating_point() {
+        let salt_flow = nominal_steam_generator_branch_salt_flow();
+        let salt_flow_kg_per_s = salt_flow.get::<kilogram_per_second>().abs();
+        let shell = ThermodynamicTemperature::new::<degree_celsius>(500.0);
+        let salt_cp = LiquidMaterial::HITEC
+            .try_get_cp(shell)
+            .expect("HITEC cp at 500 degC");
+        let feedwater = feedwater_inlet_state(Pressure::new::<bar>(1.2));
+        let feed_flow = MassRate::new::<kilogram_per_second>(50.0);
+        let tube_outlet = ThermodynamicTemperature::new::<degree_celsius>(100.0);
+        let driving_span_k = 500.0 - 100.0;
+
+        println!(
+            "nominal SG-branch salt flow {salt_flow_kg_per_s:.1} kg/s, \
+             HITEC cp {:.1} J/(kg K), feedwater inlet {:.1} degC",
+            salt_cp.value,
+            feedwater.temperature.get::<degree_celsius>()
+        );
+
+        let duty_at = |ua_w_per_k: f64| {
+            pinch_limited_steam_generator_duty(
+                ThermalConductance::new::<watt_per_kelvin>(ua_w_per_k),
+                shell,
+                shell,
+                salt_flow,
+                salt_cp,
+                feedwater,
+                feed_flow,
+                tube_outlet,
+            )
+        };
+
+        let maximum_duty_w = duty_at(7.0e5).thermodynamic_maximum.get::<watt>();
+        println!(
+            "thermodynamic maximum {:.4e} W = {:.1} MW",
+            maximum_duty_w,
+            maximum_duty_w / 1.0e6
+        );
+
+        // lowest slider setting at which the pre-fix `UA * dT` breaks the cap
+        let mut first_crossing_ua: Option<f64> = None;
+        let mut ua = 0.0;
+        while ua <= 7.0e5 {
+            if ua * driving_span_k > maximum_duty_w {
+                first_crossing_ua = Some(ua);
+                break;
+            }
+            ua += 1.0e3;
+        }
+        let first_crossing_ua =
+            first_crossing_ua.expect("the slider must be able to reach a crossing");
+        println!(
+            "pre-fix formula first exceeds the thermodynamic maximum at \
+             UA = {first_crossing_ua:.3e} W/K ({:.0}% of the way up the 0-7.0e5 W/K slider)",
+            100.0 * first_crossing_ua / 7.0e5
+        );
+
+        let at_slider_max = duty_at(7.0e5);
+        let legacy_at_slider_max_w = 7.0e5 * driving_span_k;
+        println!(
+            "at the slider maximum: pre-fix {:.4e} W = {:.1} MW, pinch-limited {:.4e} W \
+             = {:.1} MW (eps {:.4}, limited by {:?}); the pre-fix duty is {:.2}x the \
+             maximum and would cool the salt by {:.0} K, to {:.0} degC",
+            legacy_at_slider_max_w,
+            legacy_at_slider_max_w / 1.0e6,
+            at_slider_max.duty.get::<watt>(),
+            at_slider_max.duty.get::<watt>() / 1.0e6,
+            at_slider_max.effectiveness,
+            at_slider_max.limited_by,
+            legacy_at_slider_max_w / maximum_duty_w,
+            legacy_at_slider_max_w / (salt_flow_kg_per_s * salt_cp.value),
+            500.0 - legacy_at_slider_max_w / (salt_flow_kg_per_s * salt_cp.value),
+        );
+
+        // How large a temperature cross the pre-fix model actually produced,
+        // walked up the slider. Above some setting the steam state leaves the
+        // IAPWS-IF97 envelope entirely and the `(p, h)` flash would panic --
+        // which is itself one of the crashes this simulator suffers -- so the
+        // walk stops at the last flashable point and says so.
+        let ceiling_enthalpy = feedwater.enthalpy + Power::new::<watt>(maximum_duty_w) / feed_flow;
+        let mut last_flashable: Option<(f64, f64, f64)> = None;
+        let mut ua = first_crossing_ua;
+        while ua <= 7.0e5 {
+            let legacy_w = ua * driving_span_k;
+            let outlet_enthalpy =
+                feedwater.enthalpy + Power::new::<watt>(legacy_w) / feed_flow;
+            if outlet_enthalpy > ceiling_enthalpy * 3.0 {
+                // far outside the envelope; do not attempt the flash
+                break;
+            }
+            // The flash panics once the state leaves the envelope; silence
+            // the default hook around it so the expected out-of-range does
+            // not print a scary backtrace in an otherwise passing test.
+            let previous_hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+            let flashed = std::panic::catch_unwind(|| {
+                ph_flash_eqm::t_ph_eqm(feedwater.pressure, outlet_enthalpy)
+                    .get::<degree_celsius>()
+            });
+            std::panic::set_hook(previous_hook);
+            match flashed {
+                Ok(steam_outlet_degc) => {
+                    last_flashable = Some((ua, legacy_w, steam_outlet_degc));
+                }
+                Err(_) => {
+                    println!(
+                        "at UA = {ua:.3e} W/K the pre-fix duty of {:.1} MW throws the                          steam state clean out of the IAPWS-IF97 envelope -- the (p, h)                          flash has no solution and panics the physics thread. This is                          one of the simulator's crashes, caused directly by the                          unbounded duty.",
+                        legacy_w / 1.0e6
+                    );
+                    break;
+                }
+            }
+            ua += 1.0e4;
+        }
+        if let Some((ua, legacy_w, steam_outlet_degc)) = last_flashable {
+            println!(
+                "worst pre-fix temperature cross still inside IF97: at UA = {ua:.3e} W/K \
+                 the {:.1} MW duty puts the steam outlet at {steam_outlet_degc:.1} degC \
+                 against a 500.0 degC salt inlet -- a {:.1} K cross",
+                legacy_w / 1.0e6,
+                steam_outlet_degc - 500.0
+            );
+            assert!(
+                steam_outlet_degc > 500.0,
+                "the pre-fix formula must produce a genuine cross here"
+            );
+        }
+
+        let at_default = duty_at(1.5e5);
+        println!(
+            "at the shipped default UA = 1.5e5 W/K: duty {:.4e} W = {:.1} MW, \
+             limited by {:?} (cap inactive => nominal behaviour preserved)",
+            at_default.duty.get::<watt>(),
+            at_default.duty.get::<watt>() / 1.0e6,
+            at_default.limited_by
+        );
+
+        // The defect was reachable by dragging the slider, not only at its end
+        assert!(
+            first_crossing_ua > 0.0 && first_crossing_ua < 7.0e5,
+            "the crossing threshold {first_crossing_ua:.3e} W/K must lie strictly \
+             inside the 0-7.0e5 W/K slider range"
+        );
+        // The cap binds at the top of the slider ...
+        assert!(
+            (at_slider_max.effectiveness - 1.0).abs() < 1.0e-9,
+            "at the slider maximum the exchanger must be pinch-limited, \
+             effectiveness was {}",
+            at_slider_max.effectiveness
+        );
+        // ... and is inactive at the shipped default, so the fix does not
+        // change how the simulator behaves out of the box.
+        assert_eq!(
+            at_default.limited_by,
+            SteamGeneratorDutyLimit::Conductance,
+            "the shipped default UA must not be throttled by the cap"
+        );
+        assert!(
+            (at_default.duty.get::<watt>() - 1.5e5 * driving_span_k).abs()
+                / (1.5e5 * driving_span_k)
+                < 1.0e-9,
+            "at the default UA the duty must still be exactly UA * dT"
+        );
+    }
+}
