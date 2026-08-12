@@ -1,0 +1,955 @@
+[
+ {
+  "id": "op-0f9",
+  "created_at": [
+   1785914832440,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "materials: MATPRO Zircaloy dnu/dT may have the WRONG SIGN -- literature unread, egress blocked",
+  "description": "SUSPECTED DEFECT, UNCONFIRMED. Filed as a TODO at the maintainer's request 2026-08-05. Do not act on it as if confirmed, and do not 'fix' the sign on the strength of this bead alone.\n\nTHE OBSERVATION: PoissonRatioModel::MatproZircaloy computes nu = E/(2G) - 1 from MATPRO's independently-fitted Young's and shear modulus lines. The resulting nu INCREASES with temperature -- measured 0.386353680 at 600 K, 0.5674999999999999 at 1500 K, crossing the incompressible limit 0.5 at 1354.84 K (this crossing is what op-6sl.7 gates on, now refused rather than clamped in LinearElastic::from_models).\n\nWHY THAT LOOKS WRONG: the abstract of Northwood (1975) on Zircaloy elastic constants states that measured Poisson's ratio DECREASES with temperature. If that is right, the port reproduces a correlation whose temperature derivative has the opposite sign to the measurement it is meant to represent -- and the 0.5 crossover would be an artefact of the sign error rather than a real (if unguarded) upstream defect.\n\nWHY IT IS UNCONFIRMED: only the ABSTRACT was read. The paper itself is unread because outbound egress in this container blocks every literature host (see the egress bead). An abstract is not sufficient evidence to overturn a transcription -- it does not say over what temperature range, for what alloy/texture/cold-work state, or whether the quoted trend is of measured nu or of a derived quantity.\n\nWHAT WOULD SETTLE IT, in order:\n1. Read Northwood 1975 in full and record the actual nu(T) table with its range and material condition.\n2. Re-derive nu = E/(2G) - 1 from the MATPRO E and G fits as transcribed here and check the port reproduces MATPRO's own arithmetic -- i.e. separate 'did we transcribe correctly?' from 'is MATPRO right?'. These are different questions and only the first is this port's responsibility.\n3. Only if the transcription is faithful AND the literature contradicts MATPRO: document it as an upstream defect with the measurement cited, exactly as the rkdcha.F90 and nmvpir.F90 discrepancies are handled. Reproduce, pin with a test, never silently correct.\n\nDEPENDS ON THE EGRESS BLOCKER. This cannot be resolved in this container.\n\nRelated: op-6sl.7 (crossover gating, now decided -- refuse), docs/validation/poisson_ratio_zircaloy.md (the validation case, whose benchmark data is blocked on the same egress problem).",
+  "priority": 1,
+  "type": "bug",
+  "labels": [],
+  "status": "open",
+  "_at": [
+   1785914832440,
+   1
+  ],
+  "_by": "root@vm"
+ },
+ {
+  "id": "op-0xv",
+  "created_at": [
+   1785914799479,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "fracture: FV vs FEM accuracy at the crack-tip singularity is an open research question",
+  "description": "MAINTAINER RAISED 2026-08-05: 'FV doesn't do as well around sharp corners whereas FEM might. this is indeed an open question.'\n\nThis is the residue of op-a7p.6 after the FE-blocked claim was corrected. That correction established what is NOT the problem: the G-theta domain integral G = int_V [sigma:grad(u).grad(theta) - W div(theta)] dV is discretisation-agnostic, OpenFOAM ships solidDisplacement as an FV solid solver, and offbeat's mechanics module is already a port of it. So no finite-element framework is required to host G-theta.\n\nWHAT REMAINS GENUINELY OPEN, and is the subject of this bead: whether cell-centred FV can resolve the crack-tip field accurately enough for G-theta to be trustworthy.\n\nThe tension:\n- The crack-tip field is singular: u ~ sqrt(r), sigma ~ 1/sqrt(r).\n- FE has purpose-built machinery for it -- quarter-point elements (Barsoum), which place the mid-side node at L/4 so the isoparametric map reproduces the sqrt(r) displacement exactly, and enriched/XFEM bases that add the Williams series to the approximation space.\n- FV cell-centred gradient reconstruction (least-squares or Green-Gauss) is first or second order on smooth fields and has no equivalent trick. Its accuracy degrades precisely where the singularity is.\n- G-theta is only usable because of its DOMAIN INDEPENDENCE -- the ring integral should give the same G for any ring enclosing the front. That property depends on an accurate grad(u) THROUGHOUT the ring. If FV grad(u) is polluted near the front, domain independence breaks and the computed G depends on which ring you picked, which is exactly the failure mode that makes a result untrustworthy without announcing itself.\n\nPOSSIBLE ROUTES, none yet evaluated:\n1. Graded mesh -- refine aggressively toward the front and rely on the outer ring being smooth. Cheapest, but the refinement needed is unquantified and may be impractical in 3-D.\n2. Place the ring far from the front where the field is smooth, exploiting domain independence deliberately rather than incidentally. Trades singularity error for a larger domain and more W integration.\n3. Enrichment of the FV reconstruction with the Williams series -- an FV analogue of XFEM. Research-flavoured.\n4. Extract K from the far field by fitting the Westergaard solution (westergaard_unit_field is already ported and verified) and skip the domain integral entirely for simple geometries. Limited, but needs nothing new.\n\nFIRST STEP is a literature review, not code: published FV J-integral work exists and should be read before committing to a route. BLOCKED IN THIS CONTAINER -- egress blocks every literature host (see the egress bead). This is a genuine reason this bead cannot start here, not an excuse.\n\nDO NOT start porting gbilin.F90/gbil3d.F90 against an unevaluated route. They are the right first targets once quadrature exists (gbil3d is JEVEUX-free, gbilin needs only the material lookup, both pure per-Gauss-point algebra) but their only meaningful test is that the ring integral reproduces a known G -- which is precisely the property this bead is about.",
+  "priority": 2,
+  "type": "task",
+  "labels": [],
+  "status": "open",
+  "_at": [
+   1785914799479,
+   1
+  ],
+  "_by": "root@vm"
+ },
+ {
+  "id": "op-5rg",
+  "created_at": [
+   1785912084919,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "container egress blocks every literature host -- validation work cannot source data",
+  "description": "MEASURED 2026-08-05 while sourcing benchmark data for op-6sl.7.\n\nEvery literature and report host tested refused at CONNECT with HTTP 403: osti.gov, nrc.gov, pnnl.gov, digital.library.unt.edu, inis.iaea.org, sciencedirect.com, link.aps.org, doi.org, arxiv.org. WebFetch is blocked session-wide (403 even on Wikipedia). Only code hosting (gitlab.com, github.com) and WebSearch were reachable.\n\nCONSEQUENCE FOR THE PROJECT, not just for one bead: NO validation work that needs published experimental or benchmark data can be completed in this container. The workspace's whole V&V philosophy (VERIFICATION_AND_VALIDATION.md) rests on comparing against public literature and public benchmark data, and that comparison is currently unreachable. Verification against closed-form limits and upstream algebra still works fine; validation does not.\n\nThis already blocked op-6sl.7: the validation case is written and its admissibility criterion executes, but the two criteria needing measured nu are BLOCKED, and not one measured Zircaloy elastic constant could be obtained. The correct response was to deliver a gap list rather than invent numbers, but the maintainer's actual request \u2014 accurate benchmark data \u2014 is unmet.\n\nOPTIONS FOR THE MAINTAINER:\n- widen the environment's network policy for specific literature hosts (see https://code.claude.com/docs/en/claude-code-on-the-web for how the policy is configured);\n- or fetch the papers outside the container and commit the extracted data with full provenance, which is what DATA_POLICY.md's provenance rule expects anyway;\n- or accept that validation happens on the maintainer's own machine and that container sessions do verification only, and say so in VERIFICATION_AND_VALIDATION.md so nobody rediscovers this.\n\nNote kovan-literature exists precisely for PDF-to-Markdown literature work, so the second option has tooling already.",
+  "priority": 1,
+  "type": "bug",
+  "labels": [],
+  "status": "open",
+  "_at": [
+   1785912084919,
+   1
+  ],
+  "_by": "root@vm"
+ },
+ {
+  "id": "op-6sl.12",
+  "created_at": [
+   1785912140559,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "offbeat mechanics: compact stress recovery for material interfaces (fvc::grad smears a discontinuous inelastic strain)",
+  "description": "Found while wiring rheology into the mechanics solve (op-6sl.11).\n\nMechanicsSolver recovers the stress from fvc::grad_vec(D), which on a 1-D\nstructured mesh is the wide (2*dx) central-difference gradient. Where the\naccumulated inelastic strain is DISCONTINUOUS across a material interface, that\nrecovery smears the jump over the two cells either side and reports a stress\nthere that violates 1-D equilibrium.\n\nMeasured 2026-08-05 (8-cell bar, cells 0-3 creeping with a linear Norton law,\ncells 4-7 purely elastic, 200 steps of tau/20, both x-ends displacement-pinned):\n  cell 3: sigma_xx = 18.2785 MPa\n  cell 4: sigma_xx = 23.5674 MPa\n  cells 5,6,7: sigma_xx = 20.75560 MPa, agreeing to 13 significant figures\ni.e. a 25% spread concentrated entirely at the interface, with an exactly\nuniform far field.\n\nWith a SMOOTHLY varying creep rate the spread converges away under refinement\n(whole-bar 3.47e-3 -> 1.64e-3 -> 7.95e-4 at n = 16/32/64, first order because of\nthe one-sided end cells; interior-only 3.37e-4 -> 1.12e-4 -> 3.44e-5, close to\nsecond order), so the equilibrium the solver ENFORCES is right. It is the stress\nRECOVERY that is inaccurate at a discontinuity.\n\nThis is the trade-off OpenFOAM exposes as the solidDisplacement\n'compactNormalStress' switch: the compact form uses snGrad (more convergent,\nless accurate) and the non-compact form uses grad (less convergent, more\naccurate). The port currently implements only the grad form for recovery.\n\nOptions: (a) port the compactNormalStress switch, including the\ndivSigmaExp = fvc::div(DEqn.flux()) branch that this port does not have;\n(b) recover the stress from face snGrad instead; (c) document that a material\ninterface needs mesh refinement across it. Today the limitation is documented\nand measured on\nmechanics::solver::rheology_tests::spatially_varying_creep_keeps_the_axial_stress_uniform.",
+  "acceptance_criteria": "A bar with a discontinuous creep zone reports a uniform axial stress to better than 1e-6 relative, or the limitation is closed out as accepted with a documented mesh-refinement requirement.",
+  "priority": 2,
+  "type": "task",
+  "labels": [],
+  "status": "open",
+  "_at": [
+   1785912140559,
+   1
+  ],
+  "_by": "root@vm"
+ },
+ {
+  "id": "op-7od",
+  "created_at": [
+   1785895778032,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "META_LEMA_ANI: the two hypothesis branches' shear triples are exchanged",
+  "description": "In mfront/META_LEMA_ANI.mfront lines 151-158, the AXISYMMETRICAL and 3-D branches assign the Hill coefficient array differently, and the NORMAL components are self-consistent: AXIS uses axes (r,z,theta) with normals {MRR, MZZ, MTT}, 3-D uses (r,theta,z) with normals {MRR, MTT, MZZ}. Correct for each branch's own axis ordering.\n\nThe SHEAR triples, however, are exactly each other's: AXIS assigns {MRT, MRZ, MTZ} and 3-D assigns {MRZ, MRT, MTZ}. Swapping axes 2 and 3 between the branches should swap the first two shear slots too, so each branch appears to carry the other's shear ordering. That is the signature of a copy-paste transposition rather than a convention.\n\nNOT SETTLED, and here is exactly why. Whether this is a defect depends on TFEL's hillTensor<N,real>(F,G,H,L,M,N) argument-to-shear-slot convention. Classical Hill pairs L with yz, M with zx, N with xy; if TFEL instead pairs L with xy the analysis changes from 'swapped' to 'cyclically rotated'. TFEL is a separate project and its headers are not present in this container (no Hill.hxx anywhere on the filesystem, no /usr/include/TFEL). Obtaining TFEL, or an authoritative statement of hillTensor's convention, is what closes this.\n\nThe metallurgy port reproduces the upstream ordering verbatim in HillAnisotropy::from_aster_3d, and names its struct fields by tensor slot so a caller can bypass the ambiguity. Do not 'fix' this without settling the convention first.",
+  "priority": 2,
+  "type": "task",
+  "labels": [],
+  "status": "open",
+  "_at": [
+   1785895778032,
+   1
+  ],
+  "_by": "root@vm"
+ },
+ {
+  "id": "op-a7p.10",
+  "created_at": [
+   1785912408317,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "VISCOCHAB follow-ups: implicit NEWTON path, calsig extras, aster/mod.rs re-exports",
+  "description": "Landed in this tranche: aster/viscochab.rs + viscochab/tests.rs -- the 27-ODE rkdcha.F90 rate system, the calsig.F90 isothermal isotropic stress update, and a strain-driven ViscoplasticChabocheSystem integrated by outram_foam_basic_lib::ode::OdeIntegrator. 11 verification tests green.\n\nDeliberately NOT ported, each documented in the module docs:\n1. The implicit NEWTON/NEWTON_RELI path (cvmres.F90 residual + cvmjac.F90 Jacobian). Would also give VISCOCHAB a Rosenbrock23-capable OdeSystem::jacobian.\n2. calsig.F90 extras: thermal strain (ALPHA + TEMP fields), damage coupling, orthotropic elasticity, and the C_PLAN branch.\n3. A_R (coefficient 3) is stored but unused, because rkdcha.F90 hard-codes A_R=1 while cvmcvx.F90 honours it. If the implicit path is ever ported, A_R becomes live and the two paths must be reconciled.\n4. Tangent operator -- upstream offers PERTURBATION/VERIFICATION only, so nothing analytic exists to port.\n5. Validation. Everything so far is verification only. astest/ssnv118a-d, ssnd105b-d, ssnd111a and ssnv226a in the upstream clone exercise VISCOCHAB and are the obvious oracle -- check DATA_POLICY scope before using them.\n\nSTILL NEEDED IN aster/mod.rs: the pub mod viscochab; line is in place, but the pub use re-export block is not (see the agent report for the exact list).",
+  "priority": 2,
+  "type": "task",
+  "labels": [],
+  "status": "open",
+  "_at": [
+   1785912408317,
+   1
+  ],
+  "_by": "root@vm"
+ },
+ {
+  "id": "op-a7p.9",
+  "created_at": [
+   1785886966450,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "code_aster P1b: GDEF_LOG finite-strain wrapper around the small-strain kernels",
+  "description": "The second half of P1, and the part the 2026-08-04 finite-strain decision added.\n\ncode_aster's small-strain constitutive kernels are reused at finite strain by\nwrapping them: GDEF_LOG pre-processes the deformation into a logarithmic\n(Hencky) strain, calls the small-strain law, and post-processes the resulting\nstress back to the true (Cauchy) measure with the corresponding tangent\ntransformation. Without that wrapper the ported laws can only be driven at small\nstrain, which the maintainer explicitly decided against.\n\nThe pieces already exist:\n- hencky_strain and DeformationGradient landed in P0\n  (rheology/aster/kinematics.rs), including the near-identity series branch.\n- The scalar local solvers landed in the first half of P1\n  (rheology/aster/integration.rs).\n\nWhat remains is the wrapper itself: the stress and tangent pull-back, and the\nboundary with OFFBEAT's MechanicsSolver, which is small-strain and therefore\ndiffers in kinematics. That boundary must be explicit in the API rather than\nimplied -- see the P0 bead.\n\nUpstream reference: the GDEF_LOG handling in bibfor/comport_prep/ and the\ndeformation dispatch in bibfor/lc/. Read those before designing the API.\n\nAcceptance: a law driven through the wrapper reproduces the small-strain result\nin the infinitesimal limit (the same convergence check P0 used for the strain\nmeasure), and the stress transformation is verified objective under a superposed\nrigid rotation.",
+  "priority": 1,
+  "type": "task",
+  "labels": [],
+  "status": "closed",
+  "closed_at": [
+   1785888574048,
+   1
+  ],
+  "closed_by": "root@vm",
+  "_at": [
+   1785888574048,
+   1
+  ],
+  "_by": "root@vm",
+  "_v": {
+   "acceptance_criteria": [
+    [
+     1785886966450,
+     1
+    ],
+    "root@vm"
+   ],
+   "claim": [
+    [
+     1785886966450,
+     1
+    ],
+    "root@vm"
+   ],
+   "description": [
+    [
+     1785886966450,
+     1
+    ],
+    "root@vm"
+   ],
+   "design": [
+    [
+     1785886966450,
+     1
+    ],
+    "root@vm"
+   ],
+   "estimated_minutes": [
+    [
+     1785886966450,
+     1
+    ],
+    "root@vm"
+   ],
+   "external_ref": [
+    [
+     1785886966450,
+     1
+    ],
+    "root@vm"
+   ],
+   "labels": [
+    [
+     1785886966450,
+     1
+    ],
+    "root@vm"
+   ],
+   "priority": [
+    [
+     1785886966450,
+     1
+    ],
+    "root@vm"
+   ],
+   "source_repo": [
+    [
+     1785886966450,
+     1
+    ],
+    "root@vm"
+   ],
+   "title": [
+    [
+     1785886966450,
+     1
+    ],
+    "root@vm"
+   ],
+   "type": [
+    [
+     1785886966450,
+     1
+    ],
+    "root@vm"
+   ]
+  }
+ },
+ {
+  "id": "op-b0x",
+  "created_at": [
+   1785897144831,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "code_aster: check the ported laws against astest comp0* decks",
+  "description": "PROGRESS 2026-08-05.\n\nDONE: ssnv101a (VMIS_CIN2_CHAB) verified against code_aster to 1.7e-5 relative on EPXX, EPXY and V1. Harness at crates/outram-park-fork-offbeat/tests/astest_ssnv101a.rs \u2014 reuse its pattern rather than reinventing: derive the stress from the .mail coordinates plus AFFE_CHAR_MECA forces (consistent nodal force = traction*area/4; a node with DDL_IMPO on a component contributes a reaction, not an applied force), CONFIRM the derivation by predicting the other free nodes and checking them against the deck, then drive stress-controlled with a fixed point on the elastic compliance.\n\nssnv113a (VISC_IRRA_LOG) IS UNUSABLE. Its .export declares 'F nom ssnv113a_mater.py D 0' and that file is absent from the clone; astest carries no *_mater.py at all. Measured across all 4,597 .export manifests: only 19 declare a missing input, so this is an exception, not a pattern \u2014 and ssnv113a is the only affected deck among our candidates. DO NOT go looking for the file: code_aster's 'data' repository is described upstream as material data that cannot be freely distributed, and DATA_POLICY.md puts it out of scope. Treat the deck as unusable.\n\nREMAINING CANDIDATES, all with inputs present, all harder than ssnv101a in a specific way:\n  ssnv101b  VMIS_CIN2_CHAB  2D, two QUAD4 elements, COEF(t)=50t, 30 steps. Same law already covered, so low marginal value.\n  ssnv172b  VISC_CIN1_CHAB  C_PLAN (plane stress), 2D QUAD4, 4 elements. NEW law. Plane stress needs the out-of-plane condition solved.\n  ssnv124b  NORTON_HOFF     3D_INCO_UPG (incompressible mixed u/p/g formulation), 16 elements. NEW law but the formulation is a real obstacle.\n  ssnv126a  VENDOCHAB       3D single HEXA8, 32 reference values \u2014 the richest \u2014 but ANISOTHERMAL, 1000->1025 K, with three temperature-function material blocks (ELAS_FO, LEMAITRE_FO, VENDOCHAB_FO).\n\nRECOMMENDED NEXT: ssnv126a. It is the only remaining single-element 3D case, it carries the most reference values by a wide margin, and the temperature-function material blocks are ordinary interpolation rather than a change of formulation \u2014 cheaper to handle than plane stress or an incompressible mixed element. It also exercises the damage module, where two upstream defects were deliberately reproduced, so it is the case most likely to be informative about them.",
+  "priority": 2,
+  "type": "task",
+  "labels": [],
+  "status": "in_progress",
+  "_at": [
+   1785902278533,
+   1
+  ],
+  "_by": "root@vm",
+  "_v": {
+   "acceptance_criteria": [
+    [
+     1785897144831,
+     1
+    ],
+    "root@vm"
+   ],
+   "claim": [
+    [
+     1785897144831,
+     1
+    ],
+    "root@vm"
+   ],
+   "design": [
+    [
+     1785897144831,
+     1
+    ],
+    "root@vm"
+   ],
+   "estimated_minutes": [
+    [
+     1785897144831,
+     1
+    ],
+    "root@vm"
+   ],
+   "external_ref": [
+    [
+     1785897144831,
+     1
+    ],
+    "root@vm"
+   ],
+   "labels": [
+    [
+     1785897144831,
+     1
+    ],
+    "root@vm"
+   ],
+   "priority": [
+    [
+     1785897144831,
+     1
+    ],
+    "root@vm"
+   ],
+   "source_repo": [
+    [
+     1785897144831,
+     1
+    ],
+    "root@vm"
+   ],
+   "title": [
+    [
+     1785897144831,
+     1
+    ],
+    "root@vm"
+   ],
+   "type": [
+    [
+     1785897144831,
+     1
+    ],
+    "root@vm"
+   ],
+   "workflow": [
+    [
+     1785901071626,
+     1
+    ],
+    "root@vm"
+   ]
+  }
+ },
+ {
+  "id": "op-cw7",
+  "created_at": [
+   1785921366338,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "pimple_foam: phi boundary face fluxes are unconstrained after the PISO corrector",
+  "description": "OUTSIDE THE SCOPE OF THE MELTING TASK -- reported, not fixed, because pimple_foam is verified against icoFoam reference fields and should not be touched without re-running that validation.\n\nIn crates/outram-foam-appbuilder-lib/src/solvers/pimple_foam/mod.rs, the PISO corrector updates only INTERNAL face fluxes:\n    for f in 0..mesh.n_internal_faces { phi_hbya.internal[f] -= ...; }\n    self.phi = phi_hbya;\nThe BOUNDARY values of self.phi keep whatever fvc::flux(&hbya) produced -- a zero-gradient extrapolation of HbyA, which is NOT zero at a no-slip wall. OpenFOAM constrains these (constrainHbyA / phi.boundaryFieldRef()).\n\nHarmless in pimple_foam today because it transports no scalar: the momentum equation never reads phi.boundary. It becomes a real bug the moment any scalar transport is added, because fvm::div DOES read phi.boundary -- a spurious inward flux on a FixedValue patch enters as source -= phi_f*value.\n\nMeasured in melt_foam before the fix was added there: temperatures reached 362.93 K in a cavity whose hottest boundary was 311 K. The fix is the loop now in melt_foam::step (set phi.boundary[pi].values[fi] = u.boundary[pi].values[fi].dot(face_area_vectors[gf]), skipping Empty patches).\n\nSuggested: port the same constraint into pimple_foam and re-run tutorials/pimple_foam_cavity.rs to confirm the icoFoam comparison is unchanged.",
+  "priority": 3,
+  "type": "bug",
+  "labels": [],
+  "status": "open",
+  "_at": [
+   1785921366338,
+   1
+  ],
+  "_by": "root@vm"
+ },
+ {
+  "id": "op-fph",
+  "created_at": [
+   1785895521991,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "code_aster VISCOCHAB blocked: ODE solvers take &dyn OdeSystem",
+  "description": "VISCOCHAB is a pure 27-ODE rate system (bibfor/algorith/rkdcha.F90), not a yield surface with a consistency condition, so it shares none of the chaboche module's scalar-collapse architecture. It is a clean next tranche and rkdcha.F90 has been read and understood (parameter map coeft(1..25) to nomc(4..28) verified against cvmmat.F90). BLOCKER NEEDING A MAINTAINER RULING: outram_foam_basic_lib::ode::Rkf45 takes &dyn OdeSystem, a trait object at the call site, which the workspace no-trait-objects rule forbids. Decide whether that boundary coercion is acceptable or whether a typed-state integrator is wanted. Also flagged: likely typo in rkdcha.F90 where da2v uses (1-d1) and symmetry with the da1v line implies (1-d2).",
+  "priority": 2,
+  "type": "task",
+  "labels": [],
+  "status": "closed",
+  "closed_at": [
+   1785912385877,
+   1
+  ],
+  "closed_by": "root@vm",
+  "closed_reason": "Maintainer ruled: enum-dispatch wrapper over ODE integration. Implemented as outram_foam_basic_lib::ode::integrator -- OdeSolver (Euler/Rkf45/Rosenbrock23) and OdeIntegrator<S> with TypedState(TypedStateIntegrator<S>, owned by value, preferred) and DynSystem(DynSystemIntegrator, Arc<dyn OdeSystem + Send + Sync>, kept for flexibility by maintainer decision). No lifetime parameters anywhere; the three steppers are now generic over Sys: OdeSystem + ?Sized so &dyn and &Concrete both work. VISCOCHAB ported on top of it in outram-park-fork-offbeat aster/viscochab.rs (+ viscochab/tests.rs, 11 tests). rkdcha.F90 line 124 (1-d1) VERDICT: confirmed upstream typo -- cvmres.F90 JF block uses (1-d2) for the same physics; reproduced verbatim and pinned by rkdcha_alpha2_reuses_d1_upstream_typo (7.6 pct discrepancy measured). Second discrepancy found: rkdcha zeroes R static recovery below threshold while cvmres keeps it; recorded, not corrected. aster/mod.rs still needs re-exports (see agent report).",
+  "_at": [
+   1785912385877,
+   1
+  ],
+  "_by": "root@vm",
+  "_v": {
+   "acceptance_criteria": [
+    [
+     1785895521991,
+     1
+    ],
+    "root@vm"
+   ],
+   "claim": [
+    [
+     1785895521991,
+     1
+    ],
+    "root@vm"
+   ],
+   "description": [
+    [
+     1785895521991,
+     1
+    ],
+    "root@vm"
+   ],
+   "design": [
+    [
+     1785895521991,
+     1
+    ],
+    "root@vm"
+   ],
+   "estimated_minutes": [
+    [
+     1785895521991,
+     1
+    ],
+    "root@vm"
+   ],
+   "external_ref": [
+    [
+     1785895521991,
+     1
+    ],
+    "root@vm"
+   ],
+   "labels": [
+    [
+     1785895521991,
+     1
+    ],
+    "root@vm"
+   ],
+   "priority": [
+    [
+     1785895521991,
+     1
+    ],
+    "root@vm"
+   ],
+   "source_repo": [
+    [
+     1785895521991,
+     1
+    ],
+    "root@vm"
+   ],
+   "title": [
+    [
+     1785895521991,
+     1
+    ],
+    "root@vm"
+   ],
+   "type": [
+    [
+     1785895521991,
+     1
+    ],
+    "root@vm"
+   ]
+  }
+ },
+ {
+  "id": "op-fxp",
+  "created_at": [
+   1785895521790,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "code_aster: consolidate the two IsotropicHardening types",
+  "description": "damage::IsotropicHardening and isotropic::IsotropicHardening are distinct types written by different agents. The isotropic one is the VMIS_ISOT_*/VISC_ISOT_* curve driving the von Mises radial return; the damage one is the curve set used by Rousselier and GTN. Both names are defensible in their own module, so neither was renamed and damage's is left out of the aster re-export block. Consolidating them into one curve type is a design decision, not a mechanical rename. Also worth folding in: damage::equivalent_stress overlaps semantically with viscoplastic::von_mises_of_deviator (one takes full stress, one the deviator), and scale_tensor plus the deviator/mean reassembly are duplicated across viscoplastic.rs and metallurgy.rs.",
+  "priority": 2,
+  "type": "task",
+  "labels": [],
+  "status": "in_progress",
+  "notes": [
+   {
+    "id": "82LG5Y5z",
+    "content": "STEP 2 DONE, landed 8573dcb0. Both old enums deleted; damage.rs and isotropic.rs now import aster::hardening::IsotropicHardening (5 variants). Ludwik and AsterPower kept SEPARATE -- they cross, agreeing to 0.87% at p=1e-2 and differing 14% a few decades either side; merging would silently swap one curve for the other.\n\nTwo behaviour changes, each newly tested and measured:\n- Both callers now get the other's guards: value/slope clamp p to zero, and SLOPE_SINGULARITY_OFFSET (1e-12, this port's own, no upstream counterpart) keeps Ludwik n<1 and EcroNl gamma_m<1 finite at the origin. Measured Ludwik R'(0)=3.981071705534977e17 Pa bit-identical to R'(1e-12); EcroNl R'(0)=5e13 Pa. The guard makes the slope finite, not small.\n- radial_return widened from 2 curve families to 5. nmisot only reaches _LINE/_PUIS so the 3 new paths are justified on the nmcri2 residual vanishing instead. Measured relative residuals: Perfect 0, Linear 0 (closed-form, exactly zero -- why they are not iterated), Ludwik 4.470e-16 / 9 iters, AsterPower 2.590e-13 / 9, EcroNl 1.490e-16 / 5. AsterPower is 3 orders worse because its slope near the root is ~1.5e10 Pa and Brent's bracket is already at machine precision -- arithmetic, not physics.\n\nThe return map stays in isotropic.rs next to its nmisot provenance as an inherent impl on the shared type.\n\nSTILL OPEN (the rest of this bead): damage::equivalent_stress vs viscoplastic::von_mises_of_deviator, and the duplicated scale_tensor + deviator/mean reassembly across viscoplastic.rs and metallurgy.rs. Not done -- deliberately left, since the hardening merge was the part that unblocked the re-export block. Not closing.",
+    "author": "root@vm",
+    "at": [
+     1785913432554,
+     1
+    ]
+   }
+  ],
+  "_at": [
+   1785913432554,
+   1
+  ],
+  "_by": "root@vm",
+  "_v": {
+   "acceptance_criteria": [
+    [
+     1785895521790,
+     1
+    ],
+    "root@vm"
+   ],
+   "claim": [
+    [
+     1785895521790,
+     1
+    ],
+    "root@vm"
+   ],
+   "description": [
+    [
+     1785895521790,
+     1
+    ],
+    "root@vm"
+   ],
+   "design": [
+    [
+     1785895521790,
+     1
+    ],
+    "root@vm"
+   ],
+   "estimated_minutes": [
+    [
+     1785895521790,
+     1
+    ],
+    "root@vm"
+   ],
+   "external_ref": [
+    [
+     1785895521790,
+     1
+    ],
+    "root@vm"
+   ],
+   "labels": [
+    [
+     1785895521790,
+     1
+    ],
+    "root@vm"
+   ],
+   "priority": [
+    [
+     1785895521790,
+     1
+    ],
+    "root@vm"
+   ],
+   "source_repo": [
+    [
+     1785895521790,
+     1
+    ],
+    "root@vm"
+   ],
+   "title": [
+    [
+     1785895521790,
+     1
+    ],
+    "root@vm"
+   ],
+   "type": [
+    [
+     1785895521790,
+     1
+    ],
+    "root@vm"
+   ],
+   "workflow": [
+    [
+     1785910931039,
+     1
+    ],
+    "root@vm"
+   ]
+  }
+ },
+ {
+  "id": "op-gew",
+  "created_at": [
+   1785896808290,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "outram-foam-basic-lib: 153 rustdoc warnings",
+  "description": "cargo +nightly doc -p outram-foam-basic-lib --no-deps emits 153 warnings, all pre-existing and none from fv_options. Breakdown measured 2026-08-05: 135 unresolved intra-doc links, 8 'X is both a function and a module' ambiguities (conjugate_gradient, gamg, gauss_seidel \u2014 each exists as both, so the links need a disambiguating prefix such as [`fn@conjugate_gradient`]), 6 public docs linking to private items (Ilu0Preconditioner -> ILU_PIVOT_FLOOR, gamg -> GamgCycle::solve_level, gamg -> prolong_field), and 4 redundant explicit link targets.\n\nBroken intra-doc links are a direct hit on the workspace's 'human interface layer' rule: a reader hovering in rust-analyzer or browsing the rustdoc gets a dead link instead of the type they need. They also degrade the generated docs/api.md mirror.\n\nFor calibration, the equivalent sweep on outram-park-fork-offbeat took one pass and cleared 18 -> 0. The dominant fix there was a module carrying BOTH an outer /// doc at its declaration site and an inner //! doc in its file \u2014 rustdoc joins them and resolves links in the PARENT module's scope, so every link to a child item fails. Check for that pattern first here; it is likely responsible for a large share of the 135.",
+  "priority": 3,
+  "type": "task",
+  "labels": [],
+  "status": "open",
+  "_at": [
+   1785896808290,
+   1
+  ],
+  "_by": "root@vm"
+ },
+ {
+  "id": "op-hm2",
+  "created_at": [
+   1785921329696,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "melt_foam solver: buoyant Boussinesq PIMPLE with phase change + Stefan/energy verification",
+  "description": "DONE 2026-08-05. Added crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/ -- the missing Layer-5 loop: pimpleFoam PISO + temperature equation + FvModels wiring to BOTH momentum and energy. Verified against the closed-form Stefan similarity solution (integrated melt thickness -0.035%, monotone convergence in mesh/dt/mushy) and a discrete energy-conservation check (imbalance -1.96e-6 J/m2). Two solver bugs found and fixed with regression tests: (1) velocity field silently renamed to HbyA by field arithmetic, so FvModels skipped the momentum source after step 1; (2) phi boundary face fluxes left unconstrained, leaking energy through walls via fvm::div (T reached 363K vs a 311K hot wall). Also found the generic 1e-7 linear-solver tolerance costs 0.92% energy over 10k steps -> MeltFoam::temperature_solver defaults to 1e-12.",
+  "priority": 2,
+  "type": "feature",
+  "labels": [],
+  "status": "closed",
+  "closed_at": [
+   1785921350604,
+   1
+  ],
+  "closed_by": "root@vm",
+  "_at": [
+   1785921350604,
+   1
+  ],
+  "_by": "root@vm",
+  "_v": {
+   "acceptance_criteria": [
+    [
+     1785921329696,
+     1
+    ],
+    "root@vm"
+   ],
+   "claim": [
+    [
+     1785921329696,
+     1
+    ],
+    "root@vm"
+   ],
+   "description": [
+    [
+     1785921329696,
+     1
+    ],
+    "root@vm"
+   ],
+   "design": [
+    [
+     1785921329696,
+     1
+    ],
+    "root@vm"
+   ],
+   "estimated_minutes": [
+    [
+     1785921329696,
+     1
+    ],
+    "root@vm"
+   ],
+   "external_ref": [
+    [
+     1785921329696,
+     1
+    ],
+    "root@vm"
+   ],
+   "labels": [
+    [
+     1785921329696,
+     1
+    ],
+    "root@vm"
+   ],
+   "priority": [
+    [
+     1785921329696,
+     1
+    ],
+    "root@vm"
+   ],
+   "source_repo": [
+    [
+     1785921329696,
+     1
+    ],
+    "root@vm"
+   ],
+   "title": [
+    [
+     1785921329696,
+     1
+    ],
+    "root@vm"
+   ],
+   "type": [
+    [
+     1785921329696,
+     1
+    ],
+    "root@vm"
+   ]
+  }
+ },
+ {
+  "id": "op-hud",
+  "created_at": [
+   1785912084724,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "Zircaloy Poisson: possible WRONG SIGN in dnu/dT -- highest priority check",
+  "description": "FLAGGED 2026-08-05 during the op-6sl.7 validation-case work. NOT CONFIRMED \u2014 logged as a hypothesis to check, not a finding.\n\nSearch summaries of the abstract of Northwood, London & Bahen (1975), 'Elastic constants of zirconium alloys', J. Nucl. Mater. 55(3) 299-310, DOI 10.1016/0022-3115(75)90071-9, ADS 1975JNuM...55..299N, state that MEASURED Poisson's ratio DECREASES with temperature for Zircaloy-2.\n\nThe ported MATPRO correlation pair gives nu INCREASING with temperature throughout the alpha range \u2014 that is the whole mechanism by which it crosses 0.5 at 1354.84 K.\n\nIF THE ABSTRACT IS RIGHT, this is a wrong-SIGN error across the entire alpha range, which is far more serious than the crossover the parent bead records. The crossover would then be a symptom rather than the disease.\n\nTHE PAPER WAS NOT READ. Every literature host was blocked by this container's egress policy \u2014 osti.gov, nrc.gov, pnnl.gov, digital.library.unt.edu, inis.iaea.org, sciencedirect.com, link.aps.org, doi.org, arxiv.org all refused at CONNECT with 403, and WebFetch is blocked session-wide. So this rests on a search-result summary of an abstract, which is exactly the kind of second-hand claim that should not be trusted.\n\nTO RESOLVE, in order of value:\n1. Read Northwood 1975 itself and record the measured dnu/dT sign with its temperature range.\n2. Better, read Schwenk & Wheeler (1978), DOI 10.1016/0022-3115(78)90491-9 \u2014 it measures nu DIRECTLY on Zircaloy-4 over 297-589 K, so it settles the sign without going through E and G.\n3. Cross-check against NUREG/CR-7024 / PNNL-19417 (Luscher & Geelhood, PNNL, 2011).\n\nTracked as VAL-3 in crates/outram-park-fork-offbeat/docs/validation/poisson_ratio_zircaloy.md and as GAP-7 in the sibling References.md.\n\nDo NOT change the correlation numerics on the strength of this bead alone. If the sign is genuinely wrong upstream, the workspace rule is to REPRODUCE the defect and document it with a test that pins the discrepancy \u2014 not to silently correct it.",
+  "priority": 1,
+  "type": "bug",
+  "labels": [],
+  "status": "open",
+  "_at": [
+   1785912084724,
+   1
+  ],
+  "_by": "root@vm"
+ },
+ {
+  "id": "op-k3v",
+  "created_at": [
+   1785903472359,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "astest harness: mixed strain/stress control + temperature-dependent properties",
+  "description": "The ssnv101a harness (crates/outram-park-fork-offbeat/tests/astest_ssnv101a.rs) does PURE STRESS CONTROL with constant material properties. Every remaining astest candidate needs more than that, so the next unit of work is extending the harness, not attempting another deck with the current one.\n\nTWO CAPABILITIES NEEDED:\n\n1. MIXED strain/stress control. ssnv126a is displacement-controlled: N5-N8 carry DZ=0.1 over a 30-long specimen (eps_zz = 3.3333e-3) while the lateral faces are traction-free, so the constraint set is 'eps_zz prescribed, sigma_xx = sigma_yy = sigma_xy = sigma_xz = sigma_yz = 0'. The existing fixed point solves for all six strain components against six prescribed stresses; it needs to accept a per-component mask choosing strain-prescribed or stress-prescribed.\n\n2. Temperature-dependent material properties, evaluated per step. ssnv126a is anisothermal: T = 1000 K constant to t=2e5, then ramping to 1025 K at t=2e6. The run stops at NUME_INST_FIN=60, which is t=1.6e6, where T interpolates to about 1019.4 K \u2014 so temperature genuinely varies over the analysed range.\n\nMATERIAL FUNCTIONS IN ssnv126a, all piecewise-linear in TEMP with CONSTANT extrapolation both sides:\n  N_T  (900, 12.2)      (1000, 10.8)      (1025, 10.45)\n  M_T  (900, 1/10.5)    (1000, 1/9.8)     (1025, 1/9.625)\n  K_T  (900, 1/2110)    (1000, 1/1450)    (1025, 1/1285)\n  A_T  (900, 3191.62)   (1000, 2511.35)   (1025, 2341.3)\n  R_T  (900, 6.3)       (1000, 5.2)       (1025, 4.925)\nPlus KD_T, a DEFI_NAPPE \u2014 a 2-D table over (TEMP, X) with TEMP in (900, 1000, 1025, 1050) and each row a piecewise-linear function of X with LINEAIRE extrapolation. Bilinear interpolation, not just 1-D.\n\nALSO NOTE: the deck sets ALGO_INTE='RUNGE_KUTTA'. The damage port deliberately follows upstream's Runge-Kutta RATE EQUATIONS with the NEWTON discretisation, because upstream's three integrators disagree with each other. So a discrepancy against VALE_CALC on this deck may be a discretisation difference rather than a formulation error, and the test doc must say which it is rather than assuming.\n\nWHY ssnv126a IS STILL THE RIGHT TARGET once the harness exists: it is the only remaining single-element 3D case (a 3x3x30 HEXA8 prism), it carries 32 reference values \u2014 the most by a wide margin \u2014 and it exercises the damage module where two upstream defects were deliberately reproduced (nmvexi wrong material slots, nmvecd damaging elastic steps). If our value matches VALE_REFE but not VALE_CALC there, that is evidence the defect analysis was right; record it, do not 'fix' the port.\n\nThe alternatives need a change of FORMULATION rather than of driver, which is why they rank below it: ssnv172b is C_PLAN plane stress, ssnv124b is 3D_INCO_UPG incompressible mixed u/p/g over 16 elements, ssnv101b is 2D with two QUAD4 elements and re-tests a law already covered.\n\nInputs verified present in ssnv126a.export (comm + mail only), unlike ssnv113a.",
+  "priority": 2,
+  "type": "task",
+  "labels": [],
+  "status": "open",
+  "_at": [
+   1785903472359,
+   1
+  ],
+  "_by": "root@vm"
+ },
+ {
+  "id": "op-kus",
+  "created_at": [
+   1785910962295,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "beads store in this container is NOT backed by git refs",
+  "description": "DISCOVERED 2026-08-05 while investigating an apparent total loss of the tracker (which turned out to be operator error -- bd was being run from inside the vendored OpenFOAM clone, which is its own git repo, so it hashed a different repo identity and opened an empty store; fixed by returning to the workspace root, all 615 issues intact).\n\nTHE REAL FINDING, which is not operator error: this container's beads data is NOT durable.\n\nCLAUDE.md states the canonical store lives in git refs -- refs/heads/beads/store holding state/deps/tombstones jsonl plus meta.json, with backups under refs/beads/backup/* -- and that a background 'bd daemon' auto-syncs that ref to the remote.\n\nMeasured here:\n  git for-each-ref 'refs/heads/beads/*' 'refs/beads/*'   -> NOTHING\n  git ls-remote origin 'refs/heads/beads/*' 'refs/beads/*' -> NOTHING\n\nSo neither the local repo nor the remote carries any beads ref. The only copy of all 615 issues is the local beads-rs store under /root/.local/share/beads-rs/ (WAL 43a04eb0a133bcfd.wal plus the JSONL export). This container is ephemeral and is reclaimed after inactivity, so if it goes, the tracker goes with it -- including every bead filed this session.\n\nMITIGATION TAKEN: a 615-issue JSONL export and the WAL were copied to the session scratchpad. That is also ephemeral, so it is insurance for the next few hours only, not a fix.\n\nWHAT THE MAINTAINER NEEDS TO DECIDE:\n- whether a bd daemon should be running in this container at all, and if so how it authenticates to push refs/heads/beads/store;\n- or whether beads should simply be treated as local-only in remote containers, with an explicit export committed before a session ends;\n- note bd 0.1.26 here has NO import subcommand, so a JSONL export cannot be re-ingested by bd -- recovery from the export would be manual or need a newer bd.\n\nAlso worth guarding: bd silently opens a NEW EMPTY STORE when run from a different git repo rather than erroring. Running it one directory too deep -- inside any vendored upstream clone -- looks exactly like total data loss. Worth a kopitiam-style issue upstream to beads-rs.",
+  "priority": 1,
+  "type": "bug",
+  "labels": [],
+  "status": "open",
+  "_at": [
+   1785910962295,
+   1
+  ],
+  "_by": "root@vm"
+ },
+ {
+  "id": "op-nwe",
+  "created_at": [
+   1785921350707,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "GAP: Gau & Viskanta (1986) gallium melt benchmark data unavailable (egress blocked)",
+  "description": "The gallium melting cavity case in crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/ is a DEMONSTRATION ONLY -- it has no reference data and its material properties are UNVERIFIED placeholders collected in GalliumCase::default.\n\nEgress verified blocked 2026-08-05: doi.org, asmedigitalcollection.asme.org, scholar.google.com and general reference hosts all return 403 connect_rejected via the agent proxy. The vendored OpenFOAM tree has NO melting tutorial either (searched tutorials/ for solidification|melting|gallium), so there was no fallback source of case parameters.\n\nNo number from the paper was invented or used anywhere. The test asserts only configuration-independent physics (melt proceeds, leads at hot wall, convection develops, front tilts 11% deeper at top, T stays in wall range).\n\nTo close: retrieve Gau & Viskanta (1986) J. Heat Transfer 108(1):174-181, DOI 10.1115/1.3246884; record provenance per DATA_POLICY.md in tests/melting_vv_cases/References.md; replace GalliumCase::default with sourced properties; convert the 5 qualitative criteria into a quantitative front-position comparison with a stated tolerance. Full checklist already written in that References.md.",
+  "priority": 2,
+  "type": "task",
+  "labels": [],
+  "status": "open",
+  "_at": [
+   1785921350707,
+   1
+  ],
+  "_by": "root@vm"
+ },
+ {
+  "id": "op-u3n",
+  "created_at": [
+   1785895522193,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "code_aster scoping doc assumes astest, which is absent from the clone",
+  "description": "RESOLVED 2026-08-05. Both halves done.\n\nDIAGNOSIS (corrected twice): the agents reported astest/catalo/bibfor/te as 'absent from the clone'. They were never absent from upstream \u2014 /opt/upstream/codeaster-src is a cone-mode sparse, shallow checkout and those paths were simply not in the include list. Our own clone config, therefore fixable.\n\nFIXED: git sparse-checkout add catalo bibfor/te (15 MB), then git sparse-checkout add astest (582 MB; clone 88M -> 670M, 17G still free). astest now has 13,118 entries. Licence spot-checked GPL-3.0-or-later, in scope per section 8.2 as part of src.\n\nKEY FINDING \u2014 THE ORACLE IS USABLE OFFLINE. code_aster does not have to be built or run. The .comm decks embed expected values, and the two kinds mean different things: VALE_CALC (3,960 of 4,268 decks) is code_aster's OWN computed value, so matching it is verification against code_aster; VALE_REFE (3,383 decks) is the analytical/experimental reference, which is the validation-grade comparison and remains a maintainer call.\n\nTHE comp0* FAMILY IS THE SWEET SPOT for a constitutive-law port: 87 decks driving TEST_COMPOR(SUPPORT='ELEMENT', RELATION=...), i.e. a single material point with full material blocks and no structure. They map directly onto a unit test of a ported law and need NONE of the FE machinery this crate lacks. Everything else in astest is a full structural run and does need it.\n\nCoverage confirmed for every ported law: NORTON_HOFF 7 files, VENDOCHAB 8, ROUSS_VISC 5, VISC_GTN 5, META_LEMA_ANI 9, VISC_IRRA_LOG 5, GRAN_IRRA_LOG 9, IRRAD3M 13, VMIS_CIN2_CHAB 20, VISC_CIN1_CHAB 18, LEMAITRE 72, VMIS_ISOT_PUIS 5. Named entry points: comp008e (VENDOCHAB/VISC_ENDO_LEMA), comp010j (META_LEMA_ANI), ssnv230a/b (IRRAD3M).\n\ndocs/code-aster-port-scoping.md section 7 rewritten to match, including the corrected upstream path.\n\nFOLLOW-ON WORK, NOT PART OF THIS BEAD: no ported law has actually been checked against astest yet. That is now unblocked rather than blocked, and wants its own bead per module. Still genuinely blocked and NOT by the sparse checkout: TFEL's hillTensor argument convention for the META_LEMA_ANI shear-slot question \u2014 TFEL is a separate project, absent from this clone entirely.",
+  "priority": 2,
+  "type": "task",
+  "labels": [],
+  "status": "closed",
+  "closed_at": [
+   1785897144636,
+   1
+  ],
+  "closed_by": "root@vm",
+  "_at": [
+   1785897144636,
+   1
+  ],
+  "_by": "root@vm",
+  "_v": {
+   "acceptance_criteria": [
+    [
+     1785895522193,
+     1
+    ],
+    "root@vm"
+   ],
+   "claim": [
+    [
+     1785895522193,
+     1
+    ],
+    "root@vm"
+   ],
+   "design": [
+    [
+     1785895522193,
+     1
+    ],
+    "root@vm"
+   ],
+   "estimated_minutes": [
+    [
+     1785895522193,
+     1
+    ],
+    "root@vm"
+   ],
+   "external_ref": [
+    [
+     1785895522193,
+     1
+    ],
+    "root@vm"
+   ],
+   "labels": [
+    [
+     1785895522193,
+     1
+    ],
+    "root@vm"
+   ],
+   "priority": [
+    [
+     1785895522193,
+     1
+    ],
+    "root@vm"
+   ],
+   "source_repo": [
+    [
+     1785895522193,
+     1
+    ],
+    "root@vm"
+   ],
+   "title": [
+    [
+     1785895522193,
+     1
+    ],
+    "root@vm"
+   ],
+   "type": [
+    [
+     1785895522193,
+     1
+    ],
+    "root@vm"
+   ]
+  }
+ },
+ {
+  "id": "op-vpg",
+  "created_at": [
+   1785917575426,
+   1
+  ],
+  "created_by": "root@vm",
+  "title": "Melting/solidification: port remaining upstream models + gallium melt verification case",
+  "description": "Extend the melting/solidification coverage in outram-foam-basic-lib beyond the already-ported enthalpy-porosity fvModel (src/fv_options/solidification_melting.rs).\n\nMissing, per survey 2026-08-05:\n- porosityModels::solidification (src/finiteVolume/cfdTools/general/porosityModel/solidification/) -- simple temperature-tabulated Darcy blockage, NO latent heat.\n- fv::VoFSolidificationMelting (applications/modules/compressibleVoF/fvModels/VoFSolidificationMelting/) -- VoF variant keyed on a solid-fraction-vs-temperature table.\n- A buoyant Boussinesq incompressible PIMPLE solver loop in outram-foam-appbuilder-lib that carries a temperature equation and applies fvModels to BOTH the momentum and the energy equation. pimple_foam has neither.\n- Gau and Viskanta (1986) gallium melting verification case.",
+  "priority": 2,
+  "type": "feature",
+  "labels": [],
+  "status": "open",
+  "assignee": "root@vm",
+  "assignee_at": [
+   1785917582736,
+   1
+  ],
+  "assignee_expires": 1785921182736,
+  "_at": [
+   1785921373151,
+   1
+  ],
+  "_by": "root@vm",
+  "_v": {
+   "acceptance_criteria": [
+    [
+     1785917575426,
+     1
+    ],
+    "root@vm"
+   ],
+   "claim": [
+    [
+     1785917582736,
+     1
+    ],
+    "root@vm"
+   ],
+   "description": [
+    [
+     1785917575426,
+     1
+    ],
+    "root@vm"
+   ],
+   "design": [
+    [
+     1785917575426,
+     1
+    ],
+    "root@vm"
+   ],
+   "estimated_minutes": [
+    [
+     1785917575426,
+     1
+    ],
+    "root@vm"
+   ],
+   "external_ref": [
+    [
+     1785917575426,
+     1
+    ],
+    "root@vm"
+   ],
+   "labels": [
+    [
+     1785917575426,
+     1
+    ],
+    "root@vm"
+   ],
+   "priority": [
+    [
+     1785917575426,
+     1
+    ],
+    "root@vm"
+   ],
+   "source_repo": [
+    [
+     1785917575426,
+     1
+    ],
+    "root@vm"
+   ],
+   "title": [
+    [
+     1785917575426,
+     1
+    ],
+    "root@vm"
+   ],
+   "type": [
+    [
+     1785917575426,
+     1
+    ],
+    "root@vm"
+   ]
+  }
+ }
+]
