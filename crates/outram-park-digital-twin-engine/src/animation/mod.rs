@@ -17,6 +17,11 @@
 //! tracer-bearing component necessarily needs to expose a travel time (a
 //! tank's "residence time" is a different calculation than a pipe's).
 //!
+//! [`control_rod_drive`] is the same idea for a different mechanism: a control
+//! rod travels toward its commanded depth at a bounded drive speed rather than
+//! teleporting there, and [`ControlRodDrive`] owns that slew. It follows the
+//! same state-ownership rule as [`TracerTrain`] (below) for the same reason.
+//!
 //! [`TracerTrain`] is the concrete, reusable implementation of that motion:
 //! evenly-spaced tracer marks sharing one phase, advanced by
 //! [`TracerTrain::advance`]. [`residence_time_from_flow`] computes the
@@ -52,6 +57,10 @@
 //! dispatch mechanism -- callers should match on a concrete component type
 //! or an enum wrapping the tracer-bearing components, never
 //! `&dyn FlowTracer`/`&dyn TravelTime`.
+
+pub mod control_rod_drive;
+
+pub use control_rod_drive::{ControlRodDrive, RodDriveMotion};
 
 use uom::si::f64::{Length, Mass, MassRate, Time, Velocity};
 use uom::si::length::meter;

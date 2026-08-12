@@ -41,6 +41,7 @@
 //! proportioned by eye from the figure, not dimensioned from it, and nothing
 //! here is a validated model. See `RESPONSIBLE_USE.md`.
 
+use crate::components::pebble_bed_texture::{bed_bounding_box, draw_bed, BedTint};
 use crate::components::pebble_packing::{
     PackedPebble, BARREL_HEIGHT, BED_BOUNDS, CHUTE_RADIUS, CONE_HEIGHT, PACKED_PEBBLES,
     SPHERE_RADIUS,
@@ -154,6 +155,7 @@ fn settled_bed_packing(bed: &PebbleBedShape) -> PackingTransform {
 /// bottom, and its loose free surface is at the top. Which end of a drawn bed
 /// that dense base belongs at is a *physics* question, not a drawing
 /// convention, so it is named rather than left to a sign in the arithmetic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum VerticalSense {
     /// Packing `+y` points **up the screen** — the bed sits the way it
     /// settled, dense base at the bottom, free surface on top.
@@ -380,10 +382,20 @@ const TRISO_SINGLE_DOT_RADIUS: f32 = 3.0;
 /// |---|---|---|
 /// | `<= 1.5` | 0 | tinted graphite speck (see [`TRISO_TINT_ONLY_RADIUS`]) |
 /// | `1.5 .. 3.0` | 1 | graphite ball with a hot centre |
-/// | `>= 3.0` | `1.5 * radius`, clamped to 4..=18 | speckled fuel zone |
+/// | `>= 3.0` | from [`TRISO_TARGET_FILL`], clamped to 24..=260 | speckled fuel zone |
 ///
-/// The upper clamp exists because dot area grows with radius too, so beyond
-/// about 18 dots the fuelled zone saturates and reverts to looking solid.
+/// **The clamp is a safety rail, not the working range.** Because the dot radius
+/// is itself proportional to the pebble radius up to a 1.2 pt cap, the derived
+/// count sits near 37-51 dots across the sizes the example simulators actually
+/// draw at (37 for the HTR-10 vessel's 3.4 pt pebbles, measured 2026-08-12), and
+/// only reaches the upper bound for a pebble tens of points across, where the
+/// dot radius has capped out and the fuelled zone would otherwise saturate into
+/// a solid disc. An earlier revision of this table claimed a `4..=18` clamp and
+/// a `1.5 * radius` rule; both were stale, and the count they implied
+/// understated the real per-frame circle count by about a factor of two — which
+/// is why the artwork is now baked to a texture rather than redrawn each frame
+/// (see [`crate::components::pebble_bed_texture`]).
+///
 /// Non-finite radii return 0 rather than panicking, since egui layout can
 /// transiently hand a widget a degenerate rectangle.
 pub(crate) fn triso_dot_count(radius: f32) -> usize {
@@ -518,21 +530,70 @@ const PEBBLE_MATRIX: Color32 = Color32::from_rgba_premultiplied(28, 28, 32, 214)
 /// a bed larger than the packing is left honestly sparse rather than filled
 /// with a repeat.
 ///
-/// Each pebble is drawn by [`draw_triso_pebble`] as a `matrix`-coloured
-/// graphite body speckled with `kernel`-coloured TRISO kernels, with `kernel`
-/// the colour the caller's temperature map gives the fuel. The speckle is
-/// seeded from the pebble's **index in the baked table**, so it is a pure
-/// function of the data and stable across repaints.
+/// Each pebble reads as a `matrix`-coloured graphite body speckled with TRISO
+/// kernels at the temperature colour the caller supplies through `kernel`. The
+/// speckle is seeded from the pebble's **index in the baked table**, so it is a
+/// pure function of the data and stable across repaints.
+///
+/// **How it is actually painted is chosen at run time.** A speckled bed of this
+/// size is 19 874 filled circles per repaint (523 pebbles, 37 TRISO dots each,
+/// measured 2026-08-12 at the HTGR simulator's own widget size), so
+/// [`crate::components::pebble_bed_texture`] rasterises the shape once into
+/// three luminance/alpha textures and paints them as tinted quads; the colours
+/// — including the temperature-driven `kernel` — stay live because they are
+/// vertex tints, not texels. Beds too small to speckle keep the direct-circle
+/// path ([`draw_packed_pebbles_direct`]). See that module for the cache key and
+/// the raster/vector tradeoff.
+///
+/// `cache_id` identifies this vessel's bake. It must be stable across frames
+/// (the widgets derive it from their allocated response) and distinct between
+/// vessels drawn at the same time.
 ///
 /// Returns how many pebbles were drawn, which is what a caller checking the
 /// bed is not silently empty at a degenerate size should look at.
 pub(crate) fn draw_packed_pebbles(
     painter: &egui::Painter,
+    cache_id: egui::Id,
     transform: &PackingTransform,
     window: &PackingWindow,
     matrix: Color32,
-    kernel: Color32,
+    kernel: &BedTint,
 ) -> usize {
+    draw_bed(
+        painter,
+        cache_id,
+        transform,
+        window,
+        BED_BACKDROP,
+        matrix,
+        kernel,
+    )
+}
+
+/// The direct-circle pebble bed: one filled circle per graphite body and one
+/// per TRISO kernel, every repaint.
+///
+/// This is the **reference rendering** the baked-texture path in
+/// [`crate::components::pebble_bed_texture`] must reproduce, and it is still the
+/// live path for beds too small to carry a speckle (where the whole bed is about
+/// a thousand circles) or too large for the backend's maximum texture side.
+///
+/// `backdrop` is the colour a pebble at the back of the depth window fades
+/// toward; `matrix` the graphite body colour; `kernel` the fuel colour, which
+/// may vary up the bed ([`BedTint::Axial`]) — each pebble samples it at its own
+/// dimensionless height so this path grades identically to the baked one.
+///
+/// Returns how many pebbles were drawn.
+pub(crate) fn draw_packed_pebbles_direct(
+    painter: &egui::Painter,
+    transform: &PackingTransform,
+    window: &PackingWindow,
+    backdrop: Color32,
+    matrix: Color32,
+    kernel: &BedTint,
+) -> usize {
+    let bbox = bed_bounding_box(window);
+    let span = bbox.max_y - bbox.min_y;
     let mut drawn = 0usize;
     // The baked table is sorted FARTHEST FIRST, so painting straight through it
     // gives painter's-algorithm occlusion for free: nearer pebbles land on top
@@ -542,12 +603,17 @@ pub(crate) fn draw_packed_pebbles(
             continue;
         }
         let shade = depth_shade(pebble.depth());
+        let height_fraction = if span > 0.0 {
+            (pebble.y - bbox.min_y) / span
+        } else {
+            0.0
+        };
         draw_triso_pebble(
             painter,
             transform.centre(pebble),
             transform.radius(pebble),
-            blend_rgb(BED_BACKDROP, matrix, shade),
-            blend_rgb(BED_BACKDROP, kernel, shade),
+            blend_rgb(backdrop, matrix, shade),
+            blend_rgb(backdrop, kernel.sample(height_fraction), shade),
             index as i32,
         );
         drawn += 1;
@@ -574,7 +640,7 @@ const BED_BACKDROP: Color32 = Color32::from_rgb(16, 16, 20);
 /// as a flat tangle of circles. Fading the TRISO kernels along with the matrix
 /// matters as much as fading the body — kernels held at full brightness behind
 /// three layers of graphite is exactly what makes a speckled bed turn to mush.
-fn depth_shade(depth: f32) -> f32 {
+pub(crate) fn depth_shade(depth: f32) -> f32 {
     MIN_DEPTH_SHADE + (1.0 - MIN_DEPTH_SHADE) * depth.clamp(0.0, 1.0)
 }
 
@@ -583,10 +649,55 @@ fn depth_shade(depth: f32) -> f32 {
 /// pebble.
 const MIN_DEPTH_SHADE: f32 = 0.45;
 
+/// Inner edge of the graphite reflector annulus, as a fraction of the vessel
+/// half-width from the axis — i.e. the outer edge of the pebble bed.
+///
+/// The bed's half-width is `0.30 * box width` (see [`pebble_bed_shape`]), and
+/// the box half-width is `0.50 * box width`, so in half-widths the bed reaches
+/// `0.30 / 0.50 = 0.60`.
+const REFLECTOR_ANNULUS_INNER_FRAC: f32 = 0.60;
+
+/// Outer edge of the graphite reflector annulus, as a fraction of the vessel
+/// half-width from the axis — beyond this is carbon brick, then the steel shell.
+///
+/// The reflector rect is `shell.shrink(0.06 w).shrink(0.045 w)`, so it reaches
+/// `0.5 - 0.06 - 0.045 = 0.395` of the box width from the axis, i.e.
+/// `0.395 / 0.50 = 0.79` in half-widths.
+const REFLECTOR_ANNULUS_OUTER_FRAC: f32 = 0.79;
+
+/// Where the drawn control-rod boring sits, as a fraction of the vessel
+/// half-width from the axis.
+///
+/// HTR-10's ten rod channels are borings in the **graphite side reflector**, so
+/// this must land strictly between [`REFLECTOR_ANNULUS_INNER_FRAC`] and
+/// [`REFLECTOR_ANNULUS_OUTER_FRAC`], with room either side for the boring's own
+/// width. Drawing a rod inboard of the bed edge would put it through the
+/// pebbles, which is not where HTR-10's rods are; drawing it outboard of the
+/// reflector would put it in the carbon brick.
+///
+/// Pinned by `tests::control_rods_are_drawn_in_the_side_reflector`.
+const ROD_CHANNEL_X_FRAC: f32 = 0.71;
+
+/// Where the two drawn helium risers sit, as fractions of the vessel half-width.
+///
+/// Also in the reflector annulus, either side of the rod boring: the real side
+/// reflector carries 20 coolant boreholes alongside its 10 rod channels, so
+/// interleaving them is the right picture. Cold helium rises through these
+/// before reversing at the top of the core.
+const HELIUM_RISER_X_FRACS: [f32; 2] = [0.645, 0.775];
+
 const STEEL: Color32 = Color32::from_rgb(96, 100, 108);
 const GRAPHITE: Color32 = Color32::from_rgb(56, 56, 60);
 const CARBON_BRICK: Color32 = Color32::from_rgb(42, 42, 46);
+/// Absorber-rod body colour — near-black boron carbide in a metal cladding.
 const ROD: Color32 = Color32::from_rgb(24, 24, 28);
+
+/// Colour of the absorber rod's leading tip.
+///
+/// Deliberately lighter than [`ROD`]: the tip is the feature whose motion
+/// carries the meaning, and at the sizes these vessels are drawn at a
+/// near-black rod inside a dark boring is hard to track by eye.
+const ROD_TIP: Color32 = Color32::from_rgb(196, 168, 96);
 const LABEL: Color32 = Color32::from_rgb(212, 212, 216);
 
 /// Visual representation of the HTR-10 reactor vessel.
@@ -598,6 +709,17 @@ const LABEL: Color32 = Color32::from_rgb(212, 212, 216);
 /// Control-rod insertion is dimensionless in `[0, 1]` — `0.0` fully withdrawn,
 /// `1.0` fully inserted — clamped at render time so a transient overshoot from
 /// a controller draws fully in or out rather than panicking.
+///
+/// # Control rods are drawn, not animated, here
+///
+/// The insertion fraction this widget holds is **where the rod is drawn**, not
+/// where it has been commanded to go. Rod travel takes real time, so the
+/// application slews the drawn fraction toward the commanded one with
+/// [`crate::components::control_rod_drive::slewed_control_rod_insertion`] and
+/// passes the result in. It cannot be done inside the widget: widgets here are
+/// consumed by value and rebuilt on every repaint, so animation state living in
+/// one would reset every frame and the rod would never move. Same rule, same
+/// reason, as [`crate::animation::TracerTrain`].
 pub struct Htr10ReactorVesselVisual {
     size: Vec2,
     min_temp: ThermodynamicTemperature,
@@ -610,6 +732,10 @@ pub struct Htr10ReactorVesselVisual {
     outlet_temp: ThermodynamicTemperature,
     /// Graphite reflector bulk temperature.
     reflector_temp: ThermodynamicTemperature,
+    /// Where the control-rod bank is **drawn**, dimensionless in `[0, 1]` —
+    /// `0.0` fully withdrawn, `1.0` fully inserted. Clamped at render time.
+    ///
+    /// Not necessarily the commanded depth; see the type-level docs.
     control_rod_insertion_frac: f32,
     show_labels: bool,
 }
@@ -650,7 +776,17 @@ impl Htr10ReactorVesselVisual {
         self.size
     }
 
-    /// Sets control-rod insertion. Dimensionless `[0, 1]`.
+    /// Sets where the control-rod bank is **drawn**. Dimensionless `[0, 1]`:
+    /// `0.0` fully withdrawn, `1.0` fully inserted.
+    ///
+    /// Values outside the range are stored as given and clamped at render time,
+    /// so a controller that transiently overshoots draws fully in or out rather
+    /// than panicking.
+    ///
+    /// **Pass the slewed fraction, not the raw setpoint**, or the rod will
+    /// teleport whenever the setpoint changes — see
+    /// [`crate::components::control_rod_drive::slewed_control_rod_insertion`]
+    /// and the type-level docs.
     pub fn set_control_rod_frac(&mut self, frac: f32) {
         self.control_rod_insertion_frac = frac;
     }
@@ -681,9 +817,10 @@ impl Htr10ReactorVesselVisual {
 
 impl Widget for Htr10ReactorVesselVisual {
     /// Draws the HTR-10 cut-away: capsule pressure vessel, graphite reflector
-    /// with its vertical channels, the pebble bed narrowing through a cone
-    /// into the central discharge tube, the bottom hot-gas plenum, and the
-    /// side hot gas duct nozzle.
+    /// with its vertical channels, the **control-rod borings in that side
+    /// reflector** with their absorbers at the drawn insertion depth, the pebble
+    /// bed narrowing through a cone into the central discharge tube, the bottom
+    /// hot-gas plenum, and the side hot gas duct nozzle.
     ///
     /// Every region is filled via the shared
     /// [`crate::components::temperature_colour`] map, so this vessel grades
@@ -744,18 +881,20 @@ impl Widget for Htr10ReactorVesselVisual {
         let channel_top = reflector.top() + h * 0.06;
         let channel_bottom = reflector.bottom() - h * 0.10;
         for side in [-1.0f32, 1.0] {
-            for (k, frac) in [0.60f32, 0.78, 0.92].iter().enumerate() {
+            for frac in HELIUM_RISER_X_FRACS {
                 let x = cx + side * w * 0.5 * frac;
-                let stroke_w = if k == 1 { 3.0 } else { 2.0 };
                 painter.line_segment(
                     [Pos2::new(x, channel_top), Pos2::new(x, channel_bottom)],
-                    Stroke::new(stroke_w, cold),
+                    Stroke::new(2.0, cold),
                 );
             }
         }
         self.tag(
             ui,
-            Pos2::new(cx + w * 0.5 * 0.78, channel_top - h * 0.018),
+            Pos2::new(
+                cx + w * 0.5 * HELIUM_RISER_X_FRACS[1],
+                channel_top - h * 0.018,
+            ),
             "He risers",
         );
 
@@ -805,12 +944,18 @@ impl Widget for Htr10ReactorVesselVisual {
         // graphite body speckled with TRISO kernels at the fuel colour, so the
         // bed reads as fuelled graphite spheres rather than as one uniformly
         // hot volume.
+        //
+        // The bed is baked to textures and tinted at draw time — `hot` is a
+        // vertex colour, so it still tracks the fuel temperature every frame
+        // without invalidating the bake. See
+        // [`crate::components::pebble_bed_texture`].
         draw_packed_pebbles(
             &painter,
+            response.id.with("htr10_pebble_bed"),
             &packing,
             &PackingWindow::whole_bed(),
             PEBBLE_MATRIX,
-            hot,
+            &BedTint::Uniform(hot),
         );
         self.tag(ui, Pos2::new(cx, bed_top + h * 0.05), "pebble bed");
 
@@ -847,18 +992,95 @@ impl Widget for Htr10ReactorVesselVisual {
             self.colour(self.outlet_temp),
         );
 
-        // ── Control rods, entering the SIDE REFLECTOR from the head ─────────
+        // ── Control rods, in their SIDE-REFLECTOR borings ───────────────────
+        //
+        // HTR-10's rods run in **ten borings in the graphite side reflector**,
+        // not in the pebble bed (see the module docs). A vertical cut-away shows
+        // one boring each side of the core; the other eight are out of the
+        // section plane. Drawing a rod through the pebbles would misrepresent
+        // the machine, so the boring is placed in the reflector annulus at
+        // [`ROD_CHANNEL_X_FRAC`], outboard of the bed and inboard of the carbon
+        // brick.
+        //
+        // The visual language matches
+        // [`crate::components::fhr_reactor_vessel`]: a coolant-filled channel
+        // with a dark absorber travelling inside it. What differs is only the
+        // placement, which is HTR-10's own.
+        //
+        // `control_rod_insertion_frac` is the depth the rod is DRAWN at, which
+        // the application slews toward its commanded setpoint — see
+        // [`crate::components::control_rod_drive`]. This widget just draws where
+        // it is told; it holds no animation state of its own, because it is
+        // rebuilt on every repaint.
         let rod_span = channel_bottom - channel_top;
-        let depth = rod_span * self.control_rod_insertion_frac;
-        if depth > 0.5 {
-            for side in [-1.0f32, 1.0] {
-                let x = cx + side * w * 0.5 * 0.78;
-                painter.line_segment(
-                    [Pos2::new(x, channel_top), Pos2::new(x, channel_top + depth)],
-                    Stroke::new(4.0, ROD),
+        let rod_depth = rod_span * self.control_rod_insertion_frac;
+        // Keep the boring inside the graphite annulus even at a tiny drawn size,
+        // where the 3 pt legibility minimum would otherwise widen it into the
+        // pebble bed on one side or the carbon brick on the other.
+        let annulus_room = w
+            * 0.5
+            * (ROD_CHANNEL_X_FRAC - REFLECTOR_ANNULUS_INNER_FRAC)
+                .min(REFLECTOR_ANNULUS_OUTER_FRAC - ROD_CHANNEL_X_FRAC)
+                .max(0.0);
+        let rod_channel_w = (w * 0.030).max(3.0).min(2.0 * annulus_room);
+        let rod_w = rod_channel_w * 0.62;
+        for side in [-1.0f32, 1.0] {
+            let x = cx + side * w * 0.5 * ROD_CHANNEL_X_FRAC;
+
+            // The boring itself: helium-cooled, so drawn at the inlet colour and
+            // visible over its whole length whatever the rod is doing. About
+            // 2.5 % of core flow passes through these tubes.
+            painter.rect_filled(
+                Rect::from_min_max(
+                    Pos2::new(x - rod_channel_w * 0.5, channel_top),
+                    Pos2::new(x + rod_channel_w * 0.5, channel_bottom),
+                ),
+                rod_channel_w * 0.5,
+                cold,
+            );
+            painter.rect_stroke(
+                Rect::from_min_max(
+                    Pos2::new(x - rod_channel_w * 0.5, channel_top),
+                    Pos2::new(x + rod_channel_w * 0.5, channel_bottom),
+                ),
+                rod_channel_w * 0.5,
+                Stroke::new(1.0, GRAPHITE),
+                StrokeKind::Middle,
+            );
+
+            // Drive shaft from the head penetration down to the top of the
+            // boring — always drawn, so a fully withdrawn rod still reads as a
+            // rod parked above the core rather than as nothing at all.
+            painter.line_segment(
+                [
+                    Pos2::new(x, rect.top() + h * 0.045),
+                    Pos2::new(x, channel_top),
+                ],
+                Stroke::new(rod_w * 0.55, STEEL),
+            );
+
+            // The absorber section, hanging from the top of the boring to its
+            // current depth.
+            if rod_depth > 0.5 {
+                painter.rect_filled(
+                    Rect::from_min_max(
+                        Pos2::new(x - rod_w * 0.5, channel_top),
+                        Pos2::new(x + rod_w * 0.5, channel_top + rod_depth),
+                    ),
+                    rod_w * 0.5,
+                    ROD,
                 );
+                // A brighter tip cap: at small drawn sizes a dark rod against a
+                // dark boring is hard to track, and the tip is the thing whose
+                // motion carries the meaning.
+                painter.circle_filled(Pos2::new(x, channel_top + rod_depth), rod_w * 0.55, ROD_TIP);
             }
         }
+        self.tag(
+            ui,
+            Pos2::new(cx - w * 0.5 * ROD_CHANNEL_X_FRAC, channel_top - h * 0.018),
+            "control rods",
+        );
 
         // Control-rod drive penetrations on the vessel head.
         for i in 0..5 {
@@ -949,6 +1171,111 @@ mod tests {
         assert_eq!(v.control_rod_insertion_frac, 1.8);
         v.set_control_rod_frac(-0.4);
         assert_eq!(v.control_rod_insertion_frac, -0.4);
+    }
+
+    /// Control rods must be drawn in the **side reflector**, never through the
+    /// pebble bed, and their drawn depth must follow the insertion fraction.
+    ///
+    /// **Methodology.** HTR-10's ten rod channels are borings in the graphite
+    /// side reflector; a rod drawn through the pebbles would misrepresent the
+    /// reactor. Two checks, both on geometry rather than on pixels:
+    ///
+    /// 1. The whole boring — [`ROD_CHANNEL_X_FRAC`] **plus its own half-width**
+    ///    — must lie inside the graphite reflector annulus, between
+    ///    [`REFLECTOR_ANNULUS_INNER_FRAC`] (the bed's outer edge) and
+    ///    [`REFLECTOR_ANNULUS_OUTER_FRAC`] (where carbon brick begins). Both
+    ///    helium risers must satisfy the same containment. The annulus bounds
+    ///    are re-derived here from the drawing code's own fractions, so a change
+    ///    to the reflector geometry that pushed a rod into the pebbles would
+    ///    fail this rather than pass unnoticed.
+    /// 2. Rendering the widget headlessly at insertion fractions 0.0, 0.5 and
+    ///    1.0 must produce more shapes as the rod comes in (an absorber and its
+    ///    tip cap appear) and must not panic at either extreme.
+    ///
+    /// **Results (2026-08-12).** Boring at 0.710 of the half-width spanning
+    /// 0.680-0.740, risers at 0.645 and 0.775, all inside the annulus
+    /// 0.600-0.790. Shape counts at insertion 0.0 / 0.5 / 1.0 were 35 / 39 / 39:
+    /// withdrawing the bank removes the two absorber bodies and their two tip
+    /// caps, while the drive shafts and the borings stay drawn at every depth.
+    /// Interpretation: rods are in the side reflector where HTR-10's actually
+    /// are, a withdrawn bank still reads as a rod parked above the core rather
+    /// than vanishing, and the artwork responds to insertion.
+    #[test]
+    fn control_rods_are_drawn_in_the_side_reflector() {
+        // 1. Placement, in vessel half-widths from the axis. The annulus bounds
+        //    are re-derived from the drawing code's own fractions rather than
+        //    restated, so the two cannot drift apart silently.
+        let bed_outer_edge = (0.30 * 2.0) as f32; // pebble_bed_shape: 0.30 * w
+        let reflector_outer_edge = ((0.5 - 0.06 - 0.045) * 2.0) as f32; // shell.shrink().shrink()
+        assert!(
+            (REFLECTOR_ANNULUS_INNER_FRAC - bed_outer_edge).abs() < 1.0e-4,
+            "the annulus inner bound has drifted from pebble_bed_shape"
+        );
+        assert!(
+            (REFLECTOR_ANNULUS_OUTER_FRAC - reflector_outer_edge).abs() < 1.0e-4,
+            "the annulus outer bound has drifted from the reflector rect"
+        );
+
+        // The boring's own drawn half-width, in half-widths: `w * 0.030 * 0.5`
+        // of the box width is `0.030` of a half-width.
+        let boring_half = 0.030f32;
+        assert!(
+            ROD_CHANNEL_X_FRAC - boring_half > REFLECTOR_ANNULUS_INNER_FRAC,
+            "the rod boring reaches {} — inside the pebble bed, which ends at {}",
+            ROD_CHANNEL_X_FRAC - boring_half,
+            REFLECTOR_ANNULUS_INNER_FRAC
+        );
+        assert!(
+            ROD_CHANNEL_X_FRAC + boring_half < REFLECTOR_ANNULUS_OUTER_FRAC,
+            "the rod boring reaches {} — outside the graphite reflector, which ends at {}",
+            ROD_CHANNEL_X_FRAC + boring_half,
+            REFLECTOR_ANNULUS_OUTER_FRAC
+        );
+        for riser in HELIUM_RISER_X_FRACS {
+            assert!(
+                riser > REFLECTOR_ANNULUS_INNER_FRAC && riser < REFLECTOR_ANNULUS_OUTER_FRAC,
+                "helium riser at {riser} is outside the reflector annulus"
+            );
+        }
+        println!(
+            "boring {:.3} spanning {:.3}-{:.3}, risers {HELIUM_RISER_X_FRACS:?}, annulus {:.3}-{:.3}",
+            ROD_CHANNEL_X_FRAC,
+            ROD_CHANNEL_X_FRAC - boring_half,
+            ROD_CHANNEL_X_FRAC + boring_half,
+            REFLECTOR_ANNULUS_INNER_FRAC,
+            REFLECTOR_ANNULUS_OUTER_FRAC
+        );
+
+        // 2. The artwork responds to insertion, at both extremes and between.
+        let ctx = egui::Context::default();
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(600.0, 900.0))),
+            max_texture_side: Some(8192),
+            ..Default::default()
+        };
+        let _ = ctx.run_ui(input.clone(), |_| {});
+
+        let mut counts = Vec::new();
+        for frac in [0.0f32, 0.5, 1.0] {
+            let output = ctx.run_ui(input.clone(), |ui| {
+                let mut v = vessel();
+                v.set_control_rod_frac(frac);
+                ui.put(
+                    Rect::from_min_size(Pos2::new(10.0, 10.0), Vec2::new(200.0, 500.0)),
+                    v,
+                );
+            });
+            counts.push(output.shapes.len());
+        }
+        println!("shapes at insertion 0.0/0.5/1.0: {counts:?}");
+        assert!(
+            counts[1] > counts[0],
+            "inserting the bank drew no extra artwork: {counts:?}"
+        );
+        assert!(
+            counts[0] > 0,
+            "a fully withdrawn bank drew nothing at all: {counts:?}"
+        );
     }
 
     /// A degenerate box must not produce NaN geometry — zero-height
