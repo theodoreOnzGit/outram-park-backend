@@ -72,7 +72,7 @@
 //! reproduces frame for frame.
 
 use crate::htr10::design::{generic_coated_particle_retention_limit, Htr10FuelTemperatureLimits};
-use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Response, Sense, Shape};
+use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Response, Sense};
 use egui::{Stroke, StrokeKind, Ui, Vec2, Widget};
 use std::f32::consts::TAU;
 use uom::si::f64::{ThermodynamicTemperature, Time};
@@ -318,9 +318,7 @@ impl ExcursionStage {
     pub fn caption(self) -> &'static str {
         match self {
             Self::Quiescent => "",
-            Self::LimitExceeded => {
-                "the reactor is outside the conditions this model was built for"
-            }
+            Self::LimitExceeded => "the reactor is outside the conditions this model was built for",
             Self::Destructive => {
                 "demonstration only — beyond this point the simulation represents nothing physical"
             }
@@ -776,14 +774,6 @@ impl ExcursionOverlay {
     }
 }
 
-/// Outline of the annotated box, drawn by nothing here — kept as a marker of
-/// the one thing this module deliberately does **not** do: it never modifies,
-/// hides or reaches into the widget underneath it. The overlay composes; it
-/// does not own the vessel.
-///
-/// (Documentation-only constant so this intent survives refactoring.)
-const _COMPOSES_ONLY: () = ();
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -832,7 +822,10 @@ mod tests {
 
         let span = full_intensity_at.get::<kelvin>() - limit.get::<kelvin>();
         println!("landmarks {span:.1} K apart");
-        assert!((span - 370.0).abs() < 1e-9, "the two figures must stay distinct");
+        assert!(
+            (span - 370.0).abs() < 1e-9,
+            "the two figures must stay distinct"
+        );
 
         let at = |t: f64| ExcursionTrigger::htr10_fuel_temperature(degc(t)).intensity();
         println!(
@@ -881,7 +874,10 @@ mod tests {
         for k in -200..=200 {
             let fuel = ThermodynamicTemperature::new::<kelvin>(limit.get::<kelvin>() + k as f64);
             let i = excursion_intensity(fuel, limit, full);
-            assert!((0.0..=1.0).contains(&i), "intensity {i} out of range at +{k} K");
+            assert!(
+                (0.0..=1.0).contains(&i),
+                "intensity {i} out of range at +{k} K"
+            );
             if k <= 0 {
                 assert_eq!(i, 0.0, "annotated a reactor within its limit at +{k} K");
             }
@@ -1072,7 +1068,10 @@ mod tests {
             let radius = shock_front_radius(k as f32 / steps as f32, max);
             let step = radius - previous_radius;
             assert!(step > 0.0, "the front stalled at step {k}");
-            assert!(radius <= max + 1e-4, "the front escaped its box at step {k}");
+            assert!(
+                radius <= max + 1e-4,
+                "the front escaped its box at step {k}"
+            );
             assert!(
                 step <= previous_step + 1e-4,
                 "the front accelerated at step {k}"
@@ -1085,7 +1084,10 @@ mod tests {
             previous_radius = radius;
         }
         println!("first step {first_step:.2} points, last step {last_step:.2} points");
-        assert!(first_step > 10.0 * last_step, "the front barely decelerated");
+        assert!(
+            first_step > 10.0 * last_step,
+            "the front barely decelerated"
+        );
     }
 
     /// The banner pulse must stay bounded, be a pure function of simulation
@@ -1135,7 +1137,7 @@ mod tests {
     /// adjacent indices to decorrelate.
     ///
     /// **Result (2026-08-12):** 3 000 hash sites re-evaluated three times each,
-    /// all bitwise identical and in range; 37 of 40 adjacent index pairs
+    /// all bitwise identical and in range; 39 of 40 adjacent index pairs
     /// differed by more than 0.05; the four salted draws at one site were
     /// pairwise distinct. Interpretation: the debris pattern is fixed by the
     /// index, so it expands with the phase instead of boiling.
@@ -1146,7 +1148,11 @@ mod tests {
             for salt in 151..161u32 {
                 let first = blast_hash(index, 0, salt);
                 for _ in 0..3 {
-                    assert_eq!(first, blast_hash(index, 0, salt), "hash is not deterministic");
+                    assert_eq!(
+                        first,
+                        blast_hash(index, 0, salt),
+                        "hash is not deterministic"
+                    );
                 }
                 assert!((0.0..1.0).contains(&first), "hash {first} out of range");
                 checked += 1;
@@ -1190,7 +1196,10 @@ mod tests {
         assert!((overlay.phase() - 0.5).abs() < 1e-6);
         assert_eq!(overlay.size(), Vec2::new(180.0, 260.0));
         assert_eq!(
-            overlay.trigger().fuel_temperature().map(|t| t.get::<degree_celsius>().round()),
+            overlay
+                .trigger()
+                .fuel_temperature()
+                .map(|t| t.get::<degree_celsius>().round()),
             Some(1450.0)
         );
 

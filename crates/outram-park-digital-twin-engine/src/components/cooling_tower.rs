@@ -1079,7 +1079,9 @@ impl CoolingTowerVisual {
                 if k > 0.0 {
                     put(format!("approach to wet bulb  {k:.1} K"));
                 } else {
-                    put(format!("approach to wet bulb  {k:.1} K  (<= 0: check model)"));
+                    put(format!(
+                        "approach to wet bulb  {k:.1} K  (<= 0: check model)"
+                    ));
                 }
             }
             (None, Some(target)) => put(format!(
@@ -1090,17 +1092,15 @@ impl CoolingTowerVisual {
         }
 
         match self.cooling_range() {
-            Some(range) => put(format!(
-                "range  {:.1} K",
-                range.get::<kelvin_interval>()
-            )),
+            Some(range) => put(format!("range  {:.1} K", range.get::<kelvin_interval>())),
             None => put("range: not evaluated".to_string()),
         }
 
         if let Some(air) = drawn.air_inlet {
             put(format!(
                 "air in  {:.1} degC  RH {:.0} %  W {:.4} kg/kg",
-                air.t_dry_bulb.get::<uom::si::thermodynamic_temperature::degree_celsius>(),
+                air.t_dry_bulb
+                    .get::<uom::si::thermodynamic_temperature::degree_celsius>(),
                 air.relative_humidity.get::<percent>(),
                 air.humidity_ratio.get::<ratio>()
             ));
@@ -1108,7 +1108,8 @@ impl CoolingTowerVisual {
         match drawn.air_outlet {
             Some(air) => put(format!(
                 "air out {:.1} degC  RH {:.0} %",
-                air.t_dry_bulb.get::<uom::si::thermodynamic_temperature::degree_celsius>(),
+                air.t_dry_bulb
+                    .get::<uom::si::thermodynamic_temperature::degree_celsius>(),
                 air.relative_humidity.get::<percent>()
             )),
             None => put("air out: not evaluated — no plume drawn".to_string()),
@@ -1144,10 +1145,16 @@ impl CoolingTowerVisual {
 
         // Scale the throat so the widest point of the shell (the base) exactly
         // fills the drawn width.
-        let base_shape = hyperboloid_half_width(1.0, HYPERBOLOID_THROAT_FRACTION, 1.0, HYPERBOLOID_FLARE);
+        let base_shape =
+            hyperboloid_half_width(1.0, HYPERBOLOID_THROAT_FRACTION, 1.0, HYPERBOLOID_FLARE);
         let throat_half = 0.5 * w / base_shape;
         let half = |f: f32| {
-            hyperboloid_half_width(f, HYPERBOLOID_THROAT_FRACTION, throat_half, HYPERBOLOID_FLARE)
+            hyperboloid_half_width(
+                f,
+                HYPERBOLOID_THROAT_FRACTION,
+                throat_half,
+                HYPERBOLOID_FLARE,
+            )
         };
 
         let shell_bottom = 0.955f32;
@@ -1608,10 +1615,18 @@ mod tests {
         let mut previous = at_throat;
         for k in 1..=200 {
             let d = k as f32 * 0.004;
-            let below =
-                hyperboloid_half_width(HYPERBOLOID_THROAT_FRACTION - d, HYPERBOLOID_THROAT_FRACTION, a, HYPERBOLOID_FLARE);
-            let above =
-                hyperboloid_half_width(HYPERBOLOID_THROAT_FRACTION + d, HYPERBOLOID_THROAT_FRACTION, a, HYPERBOLOID_FLARE);
+            let below = hyperboloid_half_width(
+                HYPERBOLOID_THROAT_FRACTION - d,
+                HYPERBOLOID_THROAT_FRACTION,
+                a,
+                HYPERBOLOID_FLARE,
+            );
+            let above = hyperboloid_half_width(
+                HYPERBOLOID_THROAT_FRACTION + d,
+                HYPERBOLOID_THROAT_FRACTION,
+                a,
+                HYPERBOLOID_FLARE,
+            );
             assert!((below - above).abs() < 1e-6, "the shell is not symmetric");
             assert!(above > previous, "the shell did not flare monotonically");
             previous = above;
@@ -1624,7 +1639,13 @@ mod tests {
         // Proportional in the throat width, so the shape survives resizing.
         assert!(
             (hyperboloid_half_width(0.8, HYPERBOLOID_THROAT_FRACTION, 2.0, HYPERBOLOID_FLARE)
-                - 2.0 * hyperboloid_half_width(0.8, HYPERBOLOID_THROAT_FRACTION, 1.0, HYPERBOLOID_FLARE))
+                - 2.0
+                    * hyperboloid_half_width(
+                        0.8,
+                        HYPERBOLOID_THROAT_FRACTION,
+                        1.0,
+                        HYPERBOLOID_FLARE
+                    ))
             .abs()
                 < 1e-5
         );
@@ -1879,8 +1900,14 @@ mod tests {
         );
         println!(
             "enthalpy {:.2} -> {:.2} kJ/kg dry air",
-            humid.enthalpy.get::<uom::si::available_energy::joule_per_kilogram>() / 1000.0,
-            saturated.enthalpy.get::<uom::si::available_energy::joule_per_kilogram>() / 1000.0
+            humid
+                .enthalpy
+                .get::<uom::si::available_energy::joule_per_kilogram>()
+                / 1000.0,
+            saturated
+                .enthalpy
+                .get::<uom::si::available_energy::joule_per_kilogram>()
+                / 1000.0
         );
         assert!(
             saturated.humidity_ratio > humid.humidity_ratio,
@@ -1978,7 +2005,11 @@ mod tests {
             for salt in 101..111u32 {
                 let first = tower_hash(index, 0, salt);
                 for _ in 0..3 {
-                    assert_eq!(first, tower_hash(index, 0, salt), "hash is not deterministic");
+                    assert_eq!(
+                        first,
+                        tower_hash(index, 0, salt),
+                        "hash is not deterministic"
+                    );
                 }
                 assert!((0.0..1.0).contains(&first), "hash {first} out of range");
                 checked += 1;
