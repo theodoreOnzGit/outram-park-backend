@@ -39,7 +39,10 @@ pub use control_rod_drive::slewed_control_rod_insertion;
 pub use cooling_tower::CoolingTowerVisual;
 pub use excursion::{ExcursionOverlay, ExcursionStage, ExcursionTrigger};
 pub use fhr_reactor_vessel::FhrReactorVesselVisual;
-pub use heat_exchanger::HeatExchangerVisual;
+pub use heat_exchanger::{
+    ApproachVerdict, HeatExchangerConstruction, HeatExchangerDisplayRange, HeatExchangerKind,
+    HeatExchangerScalars, HeatExchangerVisual, HeatExchangerVisualState,
+};
 pub use htr10_reactor_vessel::Htr10ReactorVesselVisual;
 pub use instrumentation::InstrumentationVisual;
 pub use legend::{LegendUnit, TemperatureLegend};

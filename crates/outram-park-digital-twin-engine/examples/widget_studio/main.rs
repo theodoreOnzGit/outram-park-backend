@@ -56,6 +56,10 @@ mod cooling_tower_tab;
 /// directly instead of by wrecking a reactor.
 mod excursion_tab;
 
+/// Heat-exchanger gallery: counter-flow and parallel flow under one operating
+/// point, with the physics-backed row drawing its real arrangement beside them.
+mod heat_exchanger_tab;
+
 /// Reactor-vessel gallery: every scoped reactor architecture, side by side.
 mod reactor_tab;
 
