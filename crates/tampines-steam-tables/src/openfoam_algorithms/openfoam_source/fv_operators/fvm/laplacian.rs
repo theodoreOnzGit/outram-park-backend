@@ -29,13 +29,26 @@ use crate::openfoam_algorithms::openfoam_source::fv_matrix::FvMatrix;
 /// ## Sign convention (matches OpenFOAM)
 ///
 /// The returned matrix has **positive** diagonal and **negative** off-diagonals,
-/// so the matrix–vector product `A·φ` approximates `−∇·(Γ∇φ)`.  Use the matrix
-/// with a minus sign in the PDE to add the diffusion term:
+/// so the matrix–vector product `A·φ` approximates `−∇·(Γ∇φ)` — the diffusion
+/// term *already carrying its minus sign*. It is therefore **ADDED** to the
+/// equation matrix, not subtracted:
 ///
 /// ```text
 /// // ∂φ/∂t − ∇·(Γ∇φ) = S
-/// let eqn = fvm::ddt(&phi, &phi_old, dt) - fvm::laplacian(&gamma_f, &phi);
+/// let eqn = fvm::ddt(&phi, &phi_old, dt) + fvm::laplacian(&gamma_f, &phi);
 /// ```
+///
+/// **Corrected 2026-08-12.** This example previously showed `-
+/// fvm::laplacian(...)`, which is anti-diffusion and would amplify a
+/// perturbation instead of smoothing it. Every real caller in this crate already
+/// used `+` (the momentum predictor's `fvm::laplacian_vec(&mu, &u)` and the
+/// energy equation's `fvm::laplacian(&alpha_h_f, &he)`), and the sign is now
+/// pinned by a test against a closed-form reference — see
+/// `rhoPimpleFoam::lateral_coupling::tests::axial_conduction_matches_analytical_fourier_decay`,
+/// which measures the decay of a Fourier mode at +0.237 % of the analytical
+/// `exp(−a k² t)` and fails outright if the term is anti-diffusive. The same
+/// wording is likely still present in the `outram-foam-basic-lib` copy this file
+/// was vendored from.
 ///
 /// ## Boundary conditions
 ///
