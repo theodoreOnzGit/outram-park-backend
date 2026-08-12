@@ -11,8 +11,27 @@
 //! `TampinesSteamTableCV`) built from a genuine `(p,h)` / `(p,s)` /
 //! saturation flash.
 //!
+//! ## Nodalisation
+//!
+//! **One control volume for the whole water/steam side.** The steam generator
+//! is a single enthalpy balance `h_out = h_feed + Q/m_dot` at a fixed pressure;
+//! the turbine, condenser and feed pump are each a single state-to-state flash.
+//! There is no economiser/evaporator/superheater zone tracking, no moving
+//! boundary between them, no helical-tube geometry, and no water inventory --
+//! so the model cannot show where the boiling front sits in the tube, cannot
+//! slide the steam pressure with load, and cannot represent a dryout or a
+//! feedwater-transient level swing. The refinement worth doing first is
+//! three-zone moving-boundary tracking with an inventory, which is what would
+//! make the steam pressure a computed variable (bead `op-wqk.9.3`).
+//!
 //! ## What is real
 //!
+//! - **The steam conditions are the published HTR-10 ones.** Main steam at
+//!   4.0 MPa and 440 degC, 12.5 t/hr, feedwater at 104 degC, from
+//!   IAEA-TECDOC-1382 Table 4-1 (ingested at
+//!   `crates/kovan-literature/generated/markdown/open/iaea-tecdoc-1382-part2.md`).
+//!   The published unit is a **once-through modular helical-tube** steam
+//!   generator in a **separate pressure vessel** from the reactor.
 //! - **The cycle is closed.** Feedwater enthalpy is *computed*, not fixed:
 //!   condensate is the saturated liquid at condenser pressure, and the feed
 //!   pump adds real work `v dp / eta` on top of it. Changing the condenser
@@ -39,11 +58,20 @@
 //!   needs a mass-and-energy inventory for the steam generator, which this
 //!   single-node model does not carry. This is the main remaining
 //!   simplification on the secondary side.
+//! - **The feedwater temperature is not the published 104 degC.** There is no
+//!   feedwater heater train here, so the feedwater state is the condensate at
+//!   the (illustrative) condenser pressure plus the pump work, which lands near
+//!   40 degC. The published 104 degC is recorded above but not reproduced.
 //! - Condenser pressure, cooling-water inlet temperature and flow, the
-//!   turbine and pump efficiencies, the target steam enthalpy, and the
-//!   secondary inventory are **illustrative values, not a specific plant's
-//!   design data**. This is a demonstration model, not a validated
-//!   steam-cycle model.
+//!   turbine and pump efficiencies, the flow limits, and the secondary
+//!   inventory are **invented values, not design data** -- IAEA-TECDOC-1382 is
+//!   a reactor-physics benchmark and carries no condenser or turbine detail.
+//!   Replacing them with sourced figures is tracked as bead `op-szmi.6`.
+//! - The published plant is a steam-supply unit feeding a turbine-generator for
+//!   co-generation; the closed Rankine cycle with a condenser modelled here is
+//!   a plausible balance-of-plant, not the HTR-10's own.
+//!
+//! This is a demonstration model, not a validated steam-cycle model.
 
 use tampines::hem::HemSteamCv;
 use uom::si::available_energy::joule_per_kilogram;
@@ -60,53 +88,66 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::volume::cubic_meter;
 
-/// Live steam pressure at the steam-generator outlet / turbine inlet,
-/// ~10 MPa (illustrative). Held fixed -- see the module docs.
-const STEAM_PRESSURE_MPA: f64 = 10.0;
+// ---------------------------------------------------------------------------
+// PUBLISHED HTR-10 STEAM CONDITIONS (IAEA-TECDOC-1382, Table 4-1)
+// ---------------------------------------------------------------------------
 
-/// Condenser back-pressure, ~7 kPa (illustrative), consistent with the
+/// Live steam pressure at the steam-generator outlet / turbine inlet \[MPa\]:
+/// 4.0 MPa (**published**). Held fixed -- see the module docs.
+const STEAM_PRESSURE_MPA: f64 = 4.0;
+
+/// Target steam-generator outlet enthalpy the feedwater controller holds
+/// \[J/kg\]: the IF97 enthalpy of steam at the **published** 4.0 MPa and
+/// 440 degC outlet condition, 3307 kJ/kg.
+const TARGET_STEAM_ENTHALPY_J_PER_KG: f64 = 3.307e6;
+
+/// Nominal secondary mass flow \[kg/s\] the loop is seeded at: the published
+/// 12.5 t/hr main steam flow.
+const NOMINAL_SECONDARY_FLOW_KG_PER_S: f64 = 3.47;
+
+// ---------------------------------------------------------------------------
+// INVENTED PLACEHOLDERS -- balance-of-plant the published source does not carry
+// (bead `op-szmi.6`)
+// ---------------------------------------------------------------------------
+
+/// Condenser back-pressure \[MPa\], ~7 kPa (**invented**), consistent with the
 /// cooling-water inlet temperature below.
 const CONDENSER_PRESSURE_MPA: f64 = 0.007;
 
-/// Feed-pump isentropic efficiency (illustrative), 0.75.
+/// Feed-pump isentropic efficiency (**invented**), 0.75.
 const FEED_PUMP_EFFICIENCY: f64 = 0.75;
 
-/// Turbine adiabatic (isentropic) efficiency (illustrative), 0.85.
+/// Turbine adiabatic (isentropic) efficiency (**invented**), 0.85.
 const TURBINE_EFFICIENCY: f64 = 0.85;
 
-/// Target steam-generator outlet enthalpy the feedwater controller holds
-/// \[J/kg\] (illustrative), a superheated state at [`STEAM_PRESSURE_MPA`].
-const TARGET_STEAM_ENTHALPY_J_PER_KG: f64 = 3.4e6;
-
-/// Feedwater-controller time constant \[s\] (illustrative), the first-order
+/// Feedwater-controller time constant \[s\] (**invented**), the first-order
 /// lag on how fast the feed flow chases its target.
 const FEED_CONTROL_TIME_CONSTANT_S: f64 = 10.0;
 
-/// Minimum secondary mass flow \[kg/s\] -- a floor so the enthalpy balance
-/// denominator and the residence time stay finite at zero duty.
-const MIN_SECONDARY_FLOW_KG_PER_S: f64 = 5.0;
+/// Minimum secondary mass flow \[kg/s\] (**invented**) -- a floor so the
+/// enthalpy balance denominator and the residence time stay finite at zero
+/// duty. About 9% of the published nominal flow.
+const MIN_SECONDARY_FLOW_KG_PER_S: f64 = 0.3;
 
-/// Maximum secondary mass flow \[kg/s\] (illustrative feed-pump capacity).
-const MAX_SECONDARY_FLOW_KG_PER_S: f64 = 200.0;
+/// Maximum secondary mass flow \[kg/s\] (**invented** feed-pump capacity), a
+/// generous 3.5x the published nominal flow.
+const MAX_SECONDARY_FLOW_KG_PER_S: f64 = 12.0;
 
-/// Nominal secondary mass flow \[kg/s\] the loop is seeded at.
-const NOMINAL_SECONDARY_FLOW_KG_PER_S: f64 = 80.0;
-
-/// Cooling-water inlet temperature \[K\] (illustrative), ~25 degC.
+/// Cooling-water inlet temperature \[K\] (**invented**), ~25 degC.
 const COOLING_WATER_INLET_K: f64 = 298.15;
 
-/// Cooling-water mass flow \[kg/s\] (illustrative), sized for a ~10 K rise at
-/// nominal condenser duty.
-const COOLING_WATER_FLOW_KG_PER_S: f64 = 4000.0;
+/// Cooling-water mass flow \[kg/s\] (**invented**), sized for a ~10 K rise at
+/// the nominal condenser duty of a 10 MWth plant.
+const COOLING_WATER_FLOW_KG_PER_S: f64 = 200.0;
 
 /// Cooling-water isobaric specific heat \[J/(kg K)\], liquid water near
 /// ambient. Constant is appropriate here: `c_p` varies under 1% over the
 /// ~10 K rise this stream sees.
 const COOLING_WATER_CP_J_PER_KG_K: f64 = 4180.0;
 
-/// Secondary-side water/steam inventory \[kg\] (illustrative), used for the
+/// Secondary-side water/steam inventory \[kg\] (**invented**), used for the
 /// residence time that drives the schematic's steam-line flow tracers.
-const SECONDARY_INVENTORY_KG: f64 = 4.0e4;
+const SECONDARY_INVENTORY_KG: f64 = 2.0e3;
 
 /// Steam secondary-loop state.
 pub struct SteamSecondaryLoop {
@@ -384,23 +425,31 @@ mod tests {
         Time::new::<second>(0.05)
     }
 
-    /// Methodology: the saturation temperature at 10 MPa is compared against
-    /// the IAPWS-IF97 reference value, 584.15 K (311.0 degC). This is the
-    /// pinch temperature the primary loop's IHX is limited by, so an error
-    /// here would silently mis-size the whole coupling. Pass criterion:
+    /// Methodology: the saturation temperature at the **published** HTR-10 main
+    /// steam pressure of 4.0 MPa is compared against the IAPWS-IF97 saturation
+    /// line, `T_sat(4.0 MPa) = 250.35 degC = 523.50 K`. This is the pinch
+    /// temperature the primary loop's steam generator is limited by, so an
+    /// error here would silently mis-size the whole coupling -- and at HTR-10
+    /// scale it does double duty, because the published 250 degC core inlet
+    /// sits almost exactly on this saturation temperature. Pass criterion:
     /// within 1 K of the reference.
     ///
-    /// Results (2026-07-28, tampines-steam-tables IF97):
-    /// `T_sat(10 MPa) = 584.149 K` against the 584.15 K reference -- agreement
-    /// to 0.001 K. The coupling temperature handed to the primary loop is the
-    /// real saturation line, not an assumed constant.
+    /// Results (2026-08-12, tampines-steam-tables IF97):
+    /// `T_sat(4.0 MPa) = 523.5075 K` against the 523.50 K reference --
+    /// agreement to 0.008 K. The coupling temperature handed to the primary
+    /// loop is the real saturation line, not an assumed constant.
+    ///
+    /// This test previously checked 10 MPa / 584.15 K, from when the simulator
+    /// modelled a ~200 MWth prismatic plant with an invented steam pressure.
+    /// The pressure is now the published 4.0 MPa, so the reference moved with
+    /// it; the check itself is unchanged in kind.
     #[test]
     fn saturation_temperature_matches_if97_reference() {
         let loop_ = SteamSecondaryLoop::new();
         let t_sat = loop_.saturation_temperature().get::<kelvin>();
         assert!(
-            (t_sat - 584.15).abs() < 1.0,
-            "T_sat(10 MPa) = {t_sat} K departs from the IF97 reference 584.15 K"
+            (t_sat - 523.50).abs() < 1.0,
+            "T_sat(4.0 MPa) = {t_sat} K departs from the IF97 reference 523.50 K"
         );
     }
 
@@ -409,13 +458,14 @@ mod tests {
     /// work `v dp / eta`, and the feed pump must draw positive power. Pass
     /// criterion: the rise matches `v dp / eta` to 1e-9 relative.
     ///
-    /// Results (2026-07-28): `h_condensate = 163.4 kJ/kg` (saturated liquid
-    /// at 7 kPa) and `h_feed = 176.8 kJ/kg`, a 13.4 kJ/kg pump rise matching
-    /// `v dp / eta` to round-off, drawing 0.83 MW at the settled flow.
+    /// Results (2026-08-12, at the published 4.0 MPa steam pressure):
+    /// `h_condensate = 163.37 kJ/kg` (saturated liquid at 7 kPa) and
+    /// `h_feed = 168.73 kJ/kg`, a 5.36 kJ/kg pump rise matching `v dp / eta` to
+    /// round-off, drawing 17.1 kW at the settled 3.19 kg/s feed flow.
     #[test]
     fn feedwater_enthalpy_is_condensate_plus_real_pump_work() {
         let mut loop_ = SteamSecondaryLoop::new();
-        loop_.step(dt(), Power::new::<megawatt>(200.0));
+        loop_.step(dt(), Power::new::<megawatt>(10.0));
 
         let h_feed = loop_.feedwater_enthalpy().get::<joule_per_kilogram>();
         let h_cond = loop_
@@ -443,15 +493,15 @@ mod tests {
     /// rejects must equal the cooling-water stream's enthalpy pickup,
     /// `m_cw c_p (T_out - T_in)`. Pass criterion: agreement to 1e-6 relative.
     ///
-    /// Results (2026-07-28): at 200 MW IHX duty the condenser rejected
-    /// 130.10 MW into the cooling water, raising it 7.781 K above its
-    /// 298.15 K inlet. The two sides agreed to a relative error of
-    /// 1.4e-15 -- round-off. The balance closes.
+    /// Results (2026-08-12): at the plant's nominal 10 MW steam-generator duty
+    /// the condenser rejected 6.868 MW into the cooling water, raising it
+    /// 8.215 K above its 298.15 K inlet. The two sides agreed to well under
+    /// 1e-6 relative -- round-off. The balance closes.
     #[test]
     fn condenser_energy_balance_closes_onto_the_cooling_water() {
         let mut loop_ = SteamSecondaryLoop::new();
         for _ in 0..2000 {
-            loop_.step(dt(), Power::new::<megawatt>(200.0));
+            loop_.step(dt(), Power::new::<megawatt>(10.0));
         }
 
         let duty = loop_.condenser_duty().get::<watt>();
@@ -474,8 +524,8 @@ mod tests {
         let mut low = SteamSecondaryLoop::new();
         let mut high = SteamSecondaryLoop::new();
         for _ in 0..4000 {
-            low.step(dt(), Power::new::<megawatt>(60.0));
-            high.step(dt(), Power::new::<megawatt>(240.0));
+            low.step(dt(), Power::new::<megawatt>(3.0));
+            high.step(dt(), Power::new::<megawatt>(12.0));
         }
 
         let low_flow = low.mass_flow().get::<kilogram_per_second>();
@@ -495,7 +545,7 @@ mod tests {
     fn net_power_nets_off_the_feed_pump() {
         let mut loop_ = SteamSecondaryLoop::new();
         for _ in 0..2000 {
-            loop_.step(dt(), Power::new::<megawatt>(200.0));
+            loop_.step(dt(), Power::new::<megawatt>(10.0));
         }
         let net = loop_.net_power().get::<watt>();
         let expected = loop_.turbine_power().get::<watt>() - loop_.feed_pump_power().get::<watt>();
@@ -510,16 +560,21 @@ mod tests {
     /// work extracted can never exceed the heat added by the steam generator.
     /// Pass criterion: `W_turbine < Q_ihx` at a representative load.
     ///
-    /// Results (2026-07-28): at 200 MW IHX duty the turbine produced
-    /// 70.74 MW, a thermal efficiency of 35.4% (net 69.90 MW, 35.0%, after
-    /// the 0.83 MW feed pump), at a settled feed flow of 62.05 kg/s. That is
-    /// physically plausible for a 10 MPa Rankine cycle rejecting to 7 kPa
-    /// with an 0.85-efficient turbine, and comfortably below the ~53% Carnot
-    /// bound between `T_sat(10 MPa) = 584.1 K` and the 312 K condenser.
+    /// Results (2026-08-12): at the nominal 10 MW steam-generator duty the
+    /// turbine produced 3.149 MW, a thermal efficiency of 31.5% (net 3.132 MW,
+    /// 31.3%, after the 17.1 kW feed pump), at a settled feed flow of
+    /// 3.187 kg/s against the published 12.5 t/hr = 3.47 kg/s main steam flow.
+    /// The turbine inlet settled at **712.77 K = 439.6 degC**, against the
+    /// published 440 degC main steam temperature -- 0.4 K, which confirms the
+    /// target enthalpy constant was taken at the right state. The efficiency is
+    /// plausible for a 4.0 MPa Rankine cycle rejecting to 7 kPa with an
+    /// 0.85-efficient turbine, and sits below the 40.4% Carnot bound between
+    /// `T_sat(4.0 MPa) = 523.5 K` and the 312 K condenser. Exhaust quality
+    /// 0.895.
     #[test]
     fn turbine_work_never_exceeds_heat_input() {
         let mut loop_ = SteamSecondaryLoop::new();
-        let duty = Power::new::<megawatt>(200.0);
+        let duty = Power::new::<megawatt>(10.0);
         for _ in 0..2000 {
             loop_.step(dt(), duty);
         }

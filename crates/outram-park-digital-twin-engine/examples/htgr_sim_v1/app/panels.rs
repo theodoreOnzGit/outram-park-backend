@@ -55,8 +55,13 @@ pub fn draw_controls(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, snapshot:
 
     ui.add_space(8.0);
     ui.label("Helium circulator flow");
+    // Range bracketing the published HTR-10 operating point of 4.3 kg/s: down
+    // to roughly 7% flow at the bottom (below the circulator's regulated 30%
+    // turndown, so a loss-of-flow can be driven) and half again above nominal
+    // at the top. The primary loop clamps to its own circulator ceiling, so
+    // the slider cannot command a flow the machine could not pass.
     let flow_changed = ui
-        .add(egui::Slider::new(&mut helium_flow, 10.0..=150.0).text("kg/s"))
+        .add(egui::Slider::new(&mut helium_flow, 0.3..=6.0).text("kg/s"))
         .changed();
 
     if rho_changed || flow_changed {
@@ -85,15 +90,19 @@ pub fn draw_controls(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, snapshot:
     ui.add_space(12.0);
     ui.separator();
     ui.small(
-        "Scaffold only -- placeholder HTGR correlations, delayed-neutron layer \
-         stubbed pending teh_o_prke::DelayedNeutronLayer. Not validated; not for \
-         any operational or safety use.",
+        "Demonstration model. Arrangement and operating point follow the published \
+         HTR-10 description; the correlations, controller constants and loop \
+         inventories are illustrative, not a specific licensed design. Not \
+         validated; not for any operational, licensing or safety use.",
     );
 }
 
 /// Schematic panel body.
 pub fn draw_schematic_panel(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicTracers) {
-    ui.heading("HTGR (helium-cooled, graphite-moderated prismatic-block) -- demonstration model");
+    ui.heading(
+        "HTGR (helium-cooled, graphite-moderated pebble bed) -- demonstration model, \
+         HTR-10-style two-vessel arrangement",
+    );
     ui.separator();
     draw_schematic(ui, snapshot, tracers);
 }

@@ -1,41 +1,82 @@
-//! HTGR plant physics backend (scaffold).
+//! HTGR plant physics backend -- **pebble-bed** core, HTR-10 scale.
 //!
-//! Orchestrates the three subsystems of a helium-cooled, graphite-moderated
-//! HTGR into a single [`HtgrPlant`] that steps them in the physical order they
-//! are coupled:
+//! Orchestrates the four subsystems of a helium-cooled, graphite-moderated
+//! **pebble-bed** HTGR into a single [`HtgrPlant`] that steps them in the
+//! physical order they are coupled:
 //!
 //! 1. [`kinetics`] -- reactor power from the prompt excursion layer + a
 //!    delayed-neutron precursor bank, wired to the real
 //!    `teh_o_prke::DelayedNeutronLayer`.
-//! 2. [`primary_loop`] -- reactor power heats the helium coolant; the IHX
-//!    rejects it to the secondary side, pinch-limited by an
-//!    effectiveness-NTU model.
-//! 3. [`secondary_loop`] -- the IHX duty drives a real IAPWS-IF97 steam cycle
-//!    (feed pump -> steam generator -> turbine -> condenser -> hotwell).
+//! 2. [`pebble_bed`] -- the fission power heats 5.3 t of graphite pebbles,
+//!    which hand the helium whatever crosses the pebble surface. This is the
+//!    core's thermal inertia and it is the slowest thing in the plant.
+//! 3. [`primary_loop`] -- the helium carries that heat from the core outlet to
+//!    the steam generator, which rejects it to the secondary side,
+//!    pinch-limited by an effectiveness-NTU model.
+//! 4. [`secondary_loop`] -- the steam-generator duty drives a real IAPWS-IF97
+//!    steam cycle (feed pump -> steam generator -> turbine -> condenser ->
+//!    hotwell).
+//!
+//! ## This core used to be prismatic
+//!
+//! Until 2026-08-12 this simulator modelled a **prismatic-block** HTGR at
+//! roughly 200 MWth with machined coolant channels. It now models a pebble bed
+//! at the published HTR-10 operating point -- 10 MWth, helium at 3.0 MPa,
+//! 250 degC in and 700 degC out at 4.3 kg/s, 27,000 spherical fuel elements in
+//! a 1.8 m by 1.97 m bed, with **downward** flow through the bed and a
+//! separate-vessel once-through helical steam generator. The whole plant was
+//! rescaled with it, so every displayed magnitude is roughly twenty times
+//! smaller than it was.
+//!
+//! ## Nodalisation of the whole plant
+//!
+//! Every subsystem here is **one control volume**. Nothing in this plant model
+//! is spatially discretised:
+//!
+//! | Subsystem | Nodes | Consequence |
+//! |---|---|---|
+//! | Pebble bed | **1** | no axial or radial temperature profile, no peak fuel temperature |
+//! | Helium circuit | **1** (two boundary temperatures) | no gradient through the bed, no natural circulation |
+//! | Steam generator | **1** effectiveness-NTU lump | no economiser/evaporator/superheater zones |
+//! | Secondary water/steam | **1** | fixed steam pressure, no drum or inventory dynamics |
+//! | Neutronics | **1** (point kinetics) | no spatial flux shape, no rod-position-dependent worth |
+//! | Reflector, barrel, cavity | **0** | the HTR-10 passive decay-heat path is absent entirely |
+//!
+//! Each module's own doc comment states what its single node lumps and what
+//! refinement to reach for first. Read [`pebble_bed`] before quoting any core
+//! temperature from this model.
 //!
 //! ## The loops are coupled both ways
 //!
-//! The two loops are not run open-ended in sequence. Each step reads the
+//! The loops are not run open-ended in sequence. Each step reads the
 //! secondary's saturation temperature *first* and hands it to the primary as
-//! the IHX's cold-side pinch, so:
+//! the steam generator's cold-side pinch, so:
 //!
 //! - the secondary's pressure limits how much heat the helium can shed, and
-//! - the resulting IHX helium outlet becomes the next core inlet.
+//! - the resulting helium-side outlet becomes the next core inlet.
 //!
 //! That closes the primary loop (the core inlet is a computed variable, not
 //! a constant) and makes the steam generator duty-limited rather than
-//! absorbing whatever the primary offers.
+//! absorbing whatever the primary offers. The pebble bed sits inside that
+//! loop: it reads the helium bulk mean temperature and returns a heat rate, so
+//! a loss of heat removal backs up into the graphite temperature.
 //!
 //! ## Status
 //!
-//! The structure, the cross-crate wiring, and the thermophysical properties
-//! (helium via the CoolProp-derived Helmholtz EOS, water/steam via
-//! IAPWS-IF97) are **real**. What remains illustrative is the *plant data* --
-//! loop geometry, `UA` values, efficiencies, inventories and controller
-//! constants are HTGR-scale stand-ins, not a specific design's numbers -- and
-//! the live steam pressure is still held fixed (see [`secondary_loop`]).
+//! The structure, the cross-crate wiring, the published HTR-10 operating point
+//! and core geometry, and the thermophysical properties (helium via the
+//! CoolProp-derived Helmholtz EOS, water/steam via IAPWS-IF97) are **real**.
+//! What remains illustrative is every *closure and every dimension the
+//! published source does not carry* -- the pebble-to-helium heat-transfer
+//! coefficient, graphite `c_p`, the loop gas volume, the steam-generator `UA`,
+//! efficiencies, inventories and controller constants. There is **no
+//! packed-bed friction correlation and no effective bed conductivity** in this
+//! workspace, so neither is used here. The live steam pressure is still held
+//! fixed (see [`secondary_loop`]). Replacing the invented dimensions with
+//! sourced ones is tracked as bead `op-szmi.6`.
+//!
 //! This is a demonstration model for the digital-twin engine, **not a
-//! validated HTGR model**, and must not be used for any of the purposes
+//! validated HTR-10 model**, and must not be used for any of the purposes
 //! `RESPONSIBLE_USE.md` excludes.
 //!
 //! What belongs here: the plant orchestration and the physics->snapshot
@@ -44,55 +85,80 @@
 //! composes).
 
 pub mod kinetics;
+pub mod pebble_bed;
 pub mod primary_loop;
 pub mod secondary_loop;
 
 use outram_park_digital_twin_engine::animation::residence_time_from_flow;
-use uom::si::f64::{MassRate, Power, Time};
+use uom::si::f64::{MassRate, Power, ThermodynamicTemperature, Time};
 use uom::si::mass_rate::kilogram_per_second;
-use uom::si::power::megawatt;
+use uom::si::power::{megawatt, watt};
 use uom::si::pressure::kilopascal;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 
 use crate::app::state::HtgrSnapshot;
 use kinetics::{power_in_megawatts, HtgrKinetics};
+use pebble_bed::PebbleBedCore;
 use primary_loop::HeliumPrimaryLoop;
 use secondary_loop::SteamSecondaryLoop;
 
-/// Nominal HTGR thermal power used to seed the kinetics and size the loops
-/// (illustrative, ~200 MWth).
-const NOMINAL_THERMAL_POWER_MW: f64 = 200.0;
+/// Nominal thermal power used to seed the kinetics and size the loops \[MW\]:
+/// 10 MWth (published HTR-10 figure, IAEA-TECDOC-1382 Table 4-1).
+pub const NOMINAL_THERMAL_POWER_MW: f64 = 10.0;
 
-/// Nominal helium mass flow (illustrative), sized so the core temperature rise
-/// is HTGR-scale at nominal power.
-const NOMINAL_HELIUM_FLOW_KG_PER_S: f64 = 85.0;
+/// Nominal helium mass flow \[kg/s\]: 4.3 kg/s at full power (published).
+pub const NOMINAL_HELIUM_FLOW_KG_PER_S: f64 = pebble_bed::NOMINAL_HELIUM_FLOW_KG_PER_S;
 
-/// The full HTGR plant model: kinetics + helium primary loop + steam secondary
-/// loop, plus the running simulation clock.
+/// The full plant model: kinetics + pebble-bed core + helium primary loop +
+/// steam secondary loop, plus the running simulation clock.
 pub struct HtgrPlant {
     /// Reactor kinetics slot (prompt excursion + delayed-neutron bank).
     pub kinetics: HtgrKinetics,
+    /// Lumped pebble-bed core -- the graphite thermal inertia between the
+    /// fission power and the helium.
+    pub core: PebbleBedCore,
     /// Helium primary loop.
     pub primary: HeliumPrimaryLoop,
     /// Steam secondary loop.
     pub secondary: SteamSecondaryLoop,
     /// Accumulated simulation time.
     pub sim_time: Time,
+    /// Heat rate crossing the pebble surface into the helium on the most recent
+    /// step -- the core's *thermal* output, which lags the fission power by the
+    /// graphite time constant.
+    core_heat_to_helium: Power,
 }
 
 impl HtgrPlant {
-    /// Construct the plant at its nominal operating point.
+    /// Construct the plant at the published HTR-10 operating point.
     pub fn new() -> Self {
         let nominal_power = Power::new::<megawatt>(NOMINAL_THERMAL_POWER_MW);
         Self {
             kinetics: HtgrKinetics::new_illustrative(nominal_power),
+            core: PebbleBedCore::new(),
             primary: HeliumPrimaryLoop::new(MassRate::new::<kilogram_per_second>(
                 NOMINAL_HELIUM_FLOW_KG_PER_S,
             )),
             secondary: SteamSecondaryLoop::new(),
             sim_time: Time::new::<second>(0.0),
+            core_heat_to_helium: Power::new::<watt>(0.0),
         }
+    }
+
+    /// Heat rate crossing the pebble surface into the helium on the most recent
+    /// step. At steady state this equals the fission power; during a transient
+    /// it lags it by the bed's ~184 s graphite time constant.
+    #[allow(dead_code)] // snapshot candidate -- not yet wired into the app layer
+    pub fn core_heat_to_helium(&self) -> Power {
+        self.core_heat_to_helium
+    }
+
+    /// Lumped pebble (graphite) temperature -- a **bed average**, not a peak
+    /// fuel temperature. See [`pebble_bed`] for why.
+    #[allow(dead_code)] // snapshot candidate -- not yet wired into the app layer
+    pub fn pebble_temperature(&self) -> ThermodynamicTemperature {
+        self.core.temperature()
     }
 
     /// Advance the whole plant by one timestep `dt`, given the user control
@@ -106,21 +172,36 @@ impl HtgrPlant {
     ) {
         self.sim_time += dt;
 
-        // 1. Kinetics -> reactor thermal power.
+        // 1. Kinetics -> reactor fission power.
         self.kinetics.step(dt, external_reactivity_dollars);
         let reactor_power = self.kinetics.total_power();
 
-        // 2. Primary helium loop absorbs the power; the IHX rejects it into
-        //    the secondary side, pinch-limited against the steam saturation
-        //    temperature. Reading that temperature *before* the primary step
-        //    is what closes the primary<->secondary coupling: the secondary's
-        //    pressure sets how cold the helium can get, and the resulting IHX
-        //    outlet becomes the next core inlet.
-        let secondary_sink = self.secondary.saturation_temperature();
-        self.primary
-            .step(dt, reactor_power, helium_flow_setpoint, secondary_sink);
+        // 2. Pebble bed absorbs the fission power and hands the helium only
+        //    what crosses the pebble surface. The bed reads the helium bulk
+        //    mean temperature from the *previous* step, which is an explicit
+        //    (Lie-split) coupling -- safe here because the bed's ~184 s time
+        //    constant is four orders of magnitude above the timestep.
+        let helium_bulk = self.primary.helium_bulk_temperature();
+        self.core_heat_to_helium =
+            self.core
+                .step(dt, reactor_power, helium_bulk, self.primary.mass_flow());
 
-        // 3. Secondary steam loop driven by that (already limited) IHX duty.
+        // 3. Primary helium loop carries that heat to the steam generator,
+        //    which rejects it into the secondary side, pinch-limited against
+        //    the steam saturation temperature. Reading that temperature
+        //    *before* the primary step is what closes the primary<->secondary
+        //    coupling: the secondary's pressure sets how cold the helium can
+        //    get, and the resulting helium-side outlet becomes the next core
+        //    inlet.
+        let secondary_sink = self.secondary.saturation_temperature();
+        self.primary.step(
+            dt,
+            self.core_heat_to_helium,
+            helium_flow_setpoint,
+            secondary_sink,
+        );
+
+        // 4. Secondary steam loop driven by that (already limited) duty.
         self.secondary.step(dt, self.primary.ihx_duty());
     }
 
@@ -133,6 +214,12 @@ impl HtgrPlant {
         s.prompt_power_mw = power_in_megawatts(self.kinetics.prompt_power());
         s.delayed_power_mw = power_in_megawatts(self.kinetics.delayed_power());
         s.fuel_temperature_k = self.kinetics.prompt.fuel_temperature.get::<kelvin>();
+        // The BED temperature, not the kinetics fuel node. The two differ: the
+        // kinetics node is a lumped point-kinetics fuel temperature driving
+        // reactivity feedback, while this is the graphite the helium flows
+        // over. Drawing the kinetics node made the bed appear COOLER than the
+        // gas leaving it, which is thermodynamically impossible.
+        s.bed_temperature_k = self.pebble_temperature().get::<kelvin>();
         s.reactivity_margin_dollars = self.kinetics.reactivity_margin_dollars();
         s.delayed_neutron_fraction_pcm = self
             .kinetics

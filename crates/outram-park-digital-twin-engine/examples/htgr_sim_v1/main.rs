@@ -1,10 +1,16 @@
 //! # `htgr_sim_v1` -- HTGR educational simulator (scaffold)
 //!
 //! A first-cut interactive simulator for a **helium-cooled, graphite-moderated
-//! prismatic-block High-Temperature Gas-cooled Reactor (HTGR)**, built on the
+//! pebble-bed High-Temperature Gas-cooled Reactor (HTGR)**, built on the
 //! `outram-park-digital-twin-engine` crate's reusable widgets and app scaffold
 //! from the start -- deliberately **not** re-deriving local widget/threading
 //! boilerplate the way the older `fhr_sim_v2` example did.
+//!
+//! The plant is laid out as an HTR-10-style machine: a pebble bed in one
+//! pressure vessel, a once-through helical-coil steam generator with the
+//! helium circulator above it in a second pressure vessel beside it, and a hot
+//! gas duct cross-vessel between the two. See [`app::schematic`] for what that
+//! arrangement is and where it comes from.
 //!
 //! ## What this is (and is not)
 //!
