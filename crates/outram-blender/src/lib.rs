@@ -170,6 +170,7 @@ pub mod modifiers;
 pub mod ops;
 pub mod primitives;
 pub mod procedural;
+pub mod reactor;
 pub mod recalc_normals;
 pub mod revolve;
 pub mod solidify;
