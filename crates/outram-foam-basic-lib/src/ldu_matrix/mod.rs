@@ -30,6 +30,12 @@
 //!   assembled by the Layer-3 `fvm::` operators.
 //! - [`FvVectorMatrix`](crate::ldu_matrix::fv_vector_matrix::FvVectorMatrix) — the vector counterpart `A·U = b` with
 //!   scalar LDU coefficients and a `Field<Vector3>` source.
+//! - [`parallel`](crate::ldu_matrix::parallel) — the same sparse product and the
+//!   per-iteration vector operations on the hybrid execution backend
+//!   ([`HybridLdu`](crate::ldu_matrix::parallel::HybridLdu),
+//!   [`LduTopology`](crate::ldu_matrix::parallel::LduTopology)): one entry point
+//!   per operation taking a [`ComputeBackend`](crate::compute::ComputeBackend),
+//!   serial or multi-CPU, bit-for-bit identical either way.
 //! - [`solvers`](crate::ldu_matrix::solvers) — Gauss-Seidel, DIC-preconditioned conjugate gradient, GAMG
 //!   (algebraic multigrid), and the [`krylov_solve`](crate::ldu_matrix::solvers::krylov_solve()) adapter onto the asymmetric
 //!   BiCGStab / GMRES kernels in [`crate::krylov`].
@@ -41,9 +47,11 @@
 pub mod fv_matrix;
 pub mod fv_vector_matrix;
 pub mod ldu_matrix;
+pub mod parallel;
 pub mod solvers;
 
 pub use fv_matrix::{FvMatrix, SolverPerformance, SolverSettings};
+pub use parallel::{HybridLdu, LduTopology};
 pub use fv_vector_matrix::FvVectorMatrix;
 pub use ldu_matrix::LduMatrix;
 pub use solvers::conjugate_gradient;
