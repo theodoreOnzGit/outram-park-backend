@@ -231,13 +231,29 @@ report a steady 60 FPS while looking choppy.
 
 **Likely cause**, not confirmed to the metal: `nouveau` does not properly reclock
 Turing/Ampere GPUs, so the A5000 is probably running near its lowest power state.
-Reading `/sys/kernel/debug/dri/*/pstate` needs root and was not done. To measure
-the real headroom, run with vsync off — on a proprietary driver an A5000 should
-give tens of thousands of FPS:
+Reading `/sys/kernel/debug/dri/*/pstate` needs root and was not done.
+
+**Headroom, measured 2026-08-12** with vsync disabled:
 
 ```bash
-vblank_mode=0 glxgears
+$ vblank_mode=0 glxgears
+26094 frames in 5.0 seconds = 5218.667 FPS
+24746 frames in 5.0 seconds = 4949.090 FPS
 ```
+
+**Read this number with care.** `glxgears` is *not* a GPU benchmark — its
+geometry is trivial, so with vsync off it measures driver and submission
+overhead far more than GPU throughput, and it is single-threaded. So ~5 kFPS
+does **not** directly mean "the GPU is 10x slow".
+
+What it is fair to say: ~5 kFPS is low for this class of card, and it is
+*consistent with* the reclocking hypothesis and with the zink→NVK translation
+overhead. It is corroborating evidence, not proof. Anyone wanting a real answer
+should read `pstate` as root, or compare against the proprietary driver directly.
+
+The vsync-locked hitching above is the stronger evidence, because dropping frames
+against a 60 Hz lock while rendering three gears cannot be explained by
+throughput at all.
 
 **Status: ACCEPTED TRADEOFF** (maintainer, 2026-08-12). Fixing it means
 installing the proprietary `nvidia` driver (or `nvidia-lts` to match an `-lts`
