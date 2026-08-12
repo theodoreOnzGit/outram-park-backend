@@ -521,7 +521,7 @@ impl FHRSimulatorApp {
                 // threads; without these, a report of "the simulator feels
                 // laggy" cannot be attributed to the renderer versus the
                 // model. Read them together with the module docs on
-                // `app::gui_frame_metrics` -- in particular, the CPU figure
+                // `app_scaffold::gui_frame_metrics` -- in particular, the CPU figure
                 // covers our own `ui` body only, so a small CPU time inside a
                 // ~16.7 ms interval is the healthy vsync-limited case, not a
                 // contradiction.

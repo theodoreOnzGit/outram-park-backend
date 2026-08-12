@@ -18,9 +18,15 @@ use crate::app::local_widgets_and_buttons::turbine_widget::TurbineWidget;
 use crate::{FHRSimulatorApp, FHRState};
 use crate::Panel;
 
-pub mod gui_frame_metrics;
 pub mod prke_backend;
 pub mod thermal_hydraulics_backend;
+
+/// Headless measurement of what one frame of this simulator costs. Tests only --
+/// it drives the real render bodies to pin their shape counts against a
+/// regression, and records the live-application frame timings that showed the
+/// GUI to be vsync-limited rather than render-bound.
+#[cfg(test)]
+mod frame_cost;
 
 impl eframe::App for FHRSimulatorApp {
     /// Called by the frame work to save state before shutdown.
@@ -117,7 +123,8 @@ impl eframe::App for FHRSimulatorApp {
         // Close the GUI-thread frame timer. This must be the last thing in the
         // render body so it captures the whole `ui` closure -- though note it
         // still excludes egui's tessellation and the backend's paint/present,
-        // which happen after we return. See `gui_frame_metrics` module docs.
+        // which happen after we return. See the engine scaffold's
+        // `app_scaffold::gui_frame_metrics` module docs.
         self.gui_frame_metrics.end_frame(ui.ctx());
 
         // adding the return here because there are too many closing
