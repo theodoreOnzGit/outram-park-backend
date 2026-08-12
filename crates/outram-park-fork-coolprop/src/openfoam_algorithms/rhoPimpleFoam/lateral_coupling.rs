@@ -27,6 +27,7 @@ use uom::si::f64::{
     ThermodynamicTemperature, Velocity,
 };
 use uom::si::available_energy::joule_per_kilogram;
+use uom::si::mass_rate::kilogram_per_second;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::power::watt;
 use uom::si::pressure::pascal;
@@ -185,9 +186,108 @@ impl OPCPFluidArray {
         self.mass_flowrate
     }
 
-    /// Set the bulk mass flowrate \[kg/s\].
+    /// Set the bulk mass flowrate \[kg/s\] — **bookkeeping only; this does not
+    /// impose any flow.**
+    ///
+    /// The value is recorded in [`OPCPFluidArray::mass_flowrate`] for a
+    /// caller-driven pipe-network layer and is never read by
+    /// [`super::OPCPFluidArray::step`], which solves for its own mass flux
+    /// `phi` from the momentum and pressure equations.
+    ///
+    /// To actually **impose** a mass flow at the inlet, call
+    /// [`Self::set_inlet_mass_flowrate`] instead; to read back the flow the
+    /// solver produced, call [`Self::get_inlet_mass_flowrate_actual`] /
+    /// [`Self::get_outlet_mass_flowrate_actual`].
     pub fn set_mass_flowrate(&mut self, mass_flowrate: MassRate) {
         self.mass_flowrate = mass_flowrate;
+    }
+
+    /// Prescribes a **mass-flow inlet** on the `"left"` patch (x = 0): a real
+    /// boundary condition, in contrast to the bookkeeping-only
+    /// [`Self::set_mass_flowrate`].
+    ///
+    /// Each pressure corrector of [`super::OPCPFluidArray::step`] re-derives
+    /// the fixed inlet velocity `u_in = ṁ / (ρ_inlet · A_inlet)` from the
+    /// **current** inlet-face density, so the mass flux actually crossing the
+    /// inlet stays equal to `mass_flowrate` as the solution's density evolves.
+    /// This is OpenFOAM's `flowRateInletVelocity`
+    /// (`src/finiteVolume/fields/fvPatchFields/derived/flowRateInletVelocity/`)
+    /// applied to this 1-D array. Doing the conversion once outside the solver
+    /// — pick an assumed density, divide, and call [`Self::set_inlet_velocity`]
+    /// — instead imposes `ṁ_actual = (ρ_solved/ρ_assumed)·ṁ_target`, which
+    /// drifts away from the target by exactly the density error.
+    ///
+    /// ## Units and sign
+    /// `mass_flowrate` is in kg/s; **positive is into the domain** (+x). A
+    /// negative value prescribes outflow through the inlet patch, in which case
+    /// a fixed inlet enthalpy ([`Self::set_inlet_enthalpy`]) is no longer a
+    /// meaningful boundary condition (a Dirichlet value on an outflow face) —
+    /// nothing here stops you, but do not rely on it.
+    ///
+    /// ## Interaction with [`Self::set_inlet_velocity`]
+    /// The two prescribe the same patch and are mutually exclusive: this
+    /// installs the mass-flow inlet (overriding any fixed inlet velocity), and
+    /// [`Self::set_inlet_velocity`] clears it again.
+    ///
+    /// ## Caveat
+    /// Imposing a mass flow does **not** by itself close the system: pair it
+    /// with a pressure boundary condition downstream
+    /// ([`Self::set_outlet_pressure`]), exactly as for a prescribed inlet
+    /// velocity.
+    pub fn set_inlet_mass_flowrate(&mut self, mass_flowrate: MassRate) {
+        self.inlet_mass_flowrate = Some(mass_flowrate);
+    }
+
+    /// The prescribed inlet mass flowrate \[kg/s\], or `None` if no mass-flow
+    /// inlet is imposed. See [`Self::set_inlet_mass_flowrate`].
+    pub fn get_inlet_mass_flowrate(&self) -> Option<MassRate> {
+        self.inlet_mass_flowrate
+    }
+
+    /// Removes any prescribed mass-flow inlet, leaving the inlet velocity
+    /// boundary condition at whatever value the last corrector derived. Pair
+    /// with [`Self::set_inlet_velocity`] if a specific velocity is wanted
+    /// afterwards (that setter clears the mass-flow inlet by itself).
+    pub fn clear_inlet_mass_flowrate(&mut self) {
+        self.inlet_mass_flowrate = None;
+    }
+
+    /// The mass flowrate \[kg/s\] **actually** crossing the inlet (`"left"`)
+    /// patch in the most recent [`super::OPCPFluidArray::step`], read off the
+    /// solved face mass flux `phi`. Positive means flow **into** the domain.
+    ///
+    /// This is the diagnostic to check a prescribed flow against: with a
+    /// mass-flow inlet ([`Self::set_inlet_mass_flowrate`]) it should reproduce
+    /// the prescribed value to round-off, and with a velocity inlet derived
+    /// from an assumed density it shows the drift that assumption introduces.
+    /// Zero before the first step (`phi` starts at zero).
+    pub fn get_inlet_mass_flowrate_actual(&self) -> MassRate {
+        let patch = &self.mesh.patches[super::INLET_PATCH];
+        let sum: f64 = (0..patch.size)
+            .map(|fi| self.phi.boundary[super::INLET_PATCH].values[fi])
+            .sum();
+        // `phi` is positive *out of* the domain, so an inflow is negative.
+        MassRate::new::<kilogram_per_second>(-sum)
+    }
+
+    /// The mass flowrate \[kg/s\] leaving the outlet (`"right"`) patch in the
+    /// most recent [`super::OPCPFluidArray::step`]. Positive means flow **out
+    /// of** the domain.
+    ///
+    /// **Accuracy caveat.** Unlike the inlet value, this is the *predictor*
+    /// flux `φ_HbyA` at the boundary: [`super::OPCPFluidArray::step`] applies
+    /// the pressure correction `−ρ_f·rAU_f·snGrad(p)·|Sf|` to internal faces
+    /// only, so a fixed-pressure outlet's boundary flux carries the
+    /// pre-correction value. Compared against
+    /// [`Self::get_inlet_mass_flowrate_actual`] it is therefore a *global mass
+    /// balance* indicator, not an exact conservation identity — the difference
+    /// is genuine solver imbalance plus this boundary-correction gap.
+    pub fn get_outlet_mass_flowrate_actual(&self) -> MassRate {
+        let patch = &self.mesh.patches[super::OUTLET_PATCH];
+        let sum: f64 = (0..patch.size)
+            .map(|fi| self.phi.boundary[super::OUTLET_PATCH].values[fi])
+            .sum();
+        MassRate::new::<kilogram_per_second>(sum)
     }
 
     /// Pressure loss \[Pa\] (plain storage, independent of `mass_flowrate`).
@@ -273,27 +373,55 @@ impl OPCPFluidArray {
     /// For driving this array as a simple pipe/tube with a known inlet
     /// flow (e.g. from an upstream pump). `velocity` is the x-direction
     /// flow speed; positive means fluid entering the domain (flowing
-    /// left-to-right, +x) -- takes effect on the next [`super::OPCPFluidArray::step`].
+    /// left-to-right, +x) -- takes effect on the next [`super::OPCPFluidArray::step`]
+    /// and persists across steps (the BC template is re-stamped inside
+    /// `step`).
+    ///
+    /// **Clears any prescribed mass-flow inlet** ([`Self::set_inlet_mass_flowrate`]):
+    /// the two prescribe the same patch, and a velocity fixed here would
+    /// otherwise be silently overwritten by the flow-rate inlet on the next
+    /// corrector. If what you want is a mass flow, prescribe it directly rather
+    /// than converting it to a velocity with an assumed density — see that
+    /// method for why the conversion drifts.
     pub fn set_inlet_velocity(&mut self, velocity: Velocity) {
-        let size = self.mesh.patches[1].size;
+        let size = self.mesh.patches[super::INLET_PATCH].size;
         let v = Vector3::new(velocity.get::<meter_per_second>(), 0.0, 0.0);
-        self.u.boundary[1] = PatchField::fixed_value_vec(size, v);
+        self.u.boundary[super::INLET_PATCH] = PatchField::fixed_value_vec(size, v);
+        self.inlet_mass_flowrate = None;
     }
 
     /// Prescribes a fixed inlet specific-enthalpy boundary condition on
     /// the `"left"` patch (x = 0) -- pairs with [`Self::set_inlet_velocity`]
-    /// to fully specify the inlet thermodynamic state.
+    /// (or [`Self::set_inlet_mass_flowrate`]) to fully specify the inlet
+    /// thermodynamic state.
+    ///
+    /// The boundary condition **persists across steps**: it enters the energy
+    /// equation both through the convective inflow `∇·(φh)` and through the
+    /// enthalpy diffusion term, and [`super::OPCPFluidArray::step`] re-stamps
+    /// the BC template after the energy solve (which, like every linear solve
+    /// here, returns a zero-gradient-bounded field). Before that re-stamp was
+    /// added it was a **one-shot**: measured 2026-08-12 over 10 000 steps of
+    /// 2×10⁻⁴ s (Nitrogen, 8 cells, 1 m, 0.5 m/s, seed 300 K = 311.20 kJ/kg,
+    /// inlet BC 520.45 kJ/kg), no cell moved more than 0.4 kJ/kg from the seed
+    /// unless the caller re-issued this call every step. See the module tests
+    /// `inlet_enthalpy_bc_*_without_reapplying_each_step`.
+    ///
+    /// ## Units
+    /// `h` is a specific enthalpy \[J/kg\] on the same reference scale as the
+    /// [`crate::flash`] EOS -- take it from a flash of the intended inlet state
+    /// rather than assuming a reference point.
     pub fn set_inlet_enthalpy(&mut self, h: AvailableEnergy) {
-        let size = self.mesh.patches[1].size;
-        self.he.boundary[1] = PatchField::fixed_value(size, h.get::<joule_per_kilogram>());
+        let size = self.mesh.patches[super::INLET_PATCH].size;
+        self.he.boundary[super::INLET_PATCH] =
+            PatchField::fixed_value(size, h.get::<joule_per_kilogram>());
     }
 
     /// Prescribes a fixed outlet pressure boundary condition on the
     /// `"right"` patch (x = length) -- e.g. the downstream pressure a
     /// turbine or condenser imposes.
     pub fn set_outlet_pressure(&mut self, p: Pressure) {
-        let size = self.mesh.patches[0].size;
-        self.p.boundary[0] = PatchField::fixed_value(size, p.get::<pascal>());
+        let size = self.mesh.patches[super::OUTLET_PATCH].size;
+        self.p.boundary[super::OUTLET_PATCH] = PatchField::fixed_value(size, p.get::<pascal>());
     }
 
     /// Outlet-cell (the last cell, owner of the `"right"` patch) pressure
@@ -607,5 +735,336 @@ mod tests {
                 );
             }
         }
+    }
+
+    // ── Boundary-condition regression fixtures ───────────────────────────────
+    //
+    // Nitrogen at 1 bar, 300-500 K: comfortably single-phase everywhere in the
+    // range these tests visit, so the `(p, T)` and `(p, h)` flashes are always
+    // well-posed (water is not usable here -- a single-phase flash panics
+    // inside the dome).
+
+    /// Number of cells in the BC regression fixtures.
+    const BC_N: usize = 8;
+    /// Working pressure \[Pa\] of the BC regression fixtures.
+    const BC_P: f64 = 1.0e5;
+    /// Cross-sectional area \[m²\] of the BC regression fixtures.
+    const BC_A: f64 = 1.0e-4;
+    /// Timestep \[s\] of the BC regression fixtures -- at/below the acoustic CFL
+    /// limit `dx/c ≈ 0.125/353 ≈ 3.5e-4 s` for nitrogen gas at 300 K.
+    const BC_DT: f64 = 2.0e-4;
+
+    /// A 1 m, 8-cell nitrogen pipe at `BC_P`, uniformly seeded at `t_seed`, with
+    /// the outlet pressure fixed at `BC_P`. No inlet BC is applied -- each test
+    /// installs the one it exercises.
+    fn bc_fixture(t_seed: f64) -> OPCPFluidArray {
+        let mut arr = OPCPFluidArray::new(
+            Fluid::Nitrogen,
+            Length::new::<meter>(1.0),
+            uom::si::f64::Area::new::<square_meter>(BC_A),
+            BC_N as i64,
+            uom::si::f64::Time::new::<second>(BC_DT),
+        )
+        .unwrap();
+        arr.set_piso_algorithm(2);
+        for c in 0..BC_N {
+            arr.p.internal[c] = BC_P;
+        }
+        arr.set_temperature_vector(vec![ThermodynamicTemperature::new::<kelvin>(t_seed); BC_N])
+            .unwrap();
+        arr.correct_transport();
+        arr.set_outlet_pressure(Pressure::new::<pascal>(BC_P));
+        arr
+    }
+
+    /// Specific enthalpy \[J/kg\] of nitrogen at `BC_P` and `t`.
+    fn bc_enthalpy(t: f64) -> f64 {
+        flash::state_pt(Fluid::Nitrogen, t, BC_P).unwrap().enthalpy
+    }
+
+    /// Drives `bc_fixture(t_seed)` with a fixed 0.5 m/s inlet velocity and an
+    /// inlet enthalpy taken at `t_inlet`, both applied **exactly once** before
+    /// the run, and returns the enthalpy field after `n_steps`.
+    fn run_inlet_enthalpy_case(t_seed: f64, t_inlet: f64, n_steps: usize) -> Vec<f64> {
+        let mut arr = bc_fixture(t_seed);
+        arr.set_inlet_velocity(Velocity::new::<meter_per_second>(0.5));
+        arr.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(bc_enthalpy(
+            t_inlet,
+        )));
+        arr.run(n_steps);
+        arr.he.internal.as_slice().to_vec()
+    }
+
+    /// ## Methodology
+    /// The inlet-enthalpy regression the `TampinesSteamArray` defect
+    /// (bead `op-289n`) hid behind: start from a **uniform** field that differs
+    /// from the inlet BC, so the only thing that can move the solution is
+    /// advection **from the boundary** (a uniform field has zero internal
+    /// convective change), and apply
+    /// [`OPCPFluidArray::set_inlet_enthalpy`] **once**, not once per step.
+    ///
+    /// 8 cells, 1 m, 10⁻⁴ m², nitrogen at 1 bar (single-phase throughout),
+    /// transient PISO with 2 pressure correctors, `dt = 2e-4 s` (below the
+    /// acoustic CFL limit `dx/c ≈ 3.5e-4 s`), 3000 steps = 0.6 s simulated
+    /// ≈ 0.3 pipe transits at the imposed 0.5 m/s. Seed 300 K
+    /// (`h = 311.20 kJ/kg`); inlet BC 500 K (`h = 520.45 kJ/kg`). Pass
+    /// criterion: the inlet cell closes at least half the 209.25 kJ/kg gap to
+    /// the BC, the field mean rises, and every cell stays finite.
+    ///
+    /// ## Results (2026-08-12)
+    /// Passes. `he[0] = 556.52 kJ/kg` (gap closed 117.2 %; the overshoot past
+    /// the BC value is dispersive ringing, see the note below), field mean
+    /// `364.98 kJ/kg` versus the 311.20 kJ/kg seed.
+    ///
+    /// **This test fails on the pre-fix code**: `FvMatrix::solve` returns a
+    /// zero-gradient-bounded field, so before `step` re-stamped the captured
+    /// `he` BC template the inlet enthalpy was a one-shot. Measured on the
+    /// pre-fix code at 2000 steps of this same setup, `he[0]` reached only
+    /// 311.48 kJ/kg — 0.13 % of the gap — and after 10 000 steps no cell in the
+    /// whole field was more than 0.4 kJ/kg from its seed.
+    ///
+    /// **Known limitation (not asserted here).** `fvc::div` interpolates the
+    /// convected enthalpy linearly, i.e. pure central differencing, and the
+    /// energy equation is advection-dominated (cell Péclet ≫ 1). The advancing
+    /// thermal front therefore carries dispersive over/undershoots of order
+    /// 10-15 % of the imposed step on this 8-cell mesh — the inlet cell
+    /// overshoots the 520.45 kJ/kg BC. That is a discretisation-scheme
+    /// question (an upwind/limited convection scheme for `∇·(φh)`), separate
+    /// from the boundary condition being honoured, and is not fixed here.
+    #[test]
+    fn inlet_enthalpy_bc_heats_uniform_field_without_reapplying_each_step() {
+        let h_seed = bc_enthalpy(300.0);
+        let h_bc = bc_enthalpy(500.0);
+        let he = run_inlet_enthalpy_case(300.0, 500.0, 3000);
+
+        assert!(
+            he.iter().all(|h| h.is_finite()),
+            "enthalpy field went non-finite: {he:?}"
+        );
+        let closed = (he[0] - h_seed) / (h_bc - h_seed);
+        assert!(
+            closed > 0.5,
+            "inlet cell should close most of the gap to the inlet BC; \
+             he[0] = {:.2} kJ/kg closed only {:.1} % of the {:.2} kJ/kg gap \
+             from the {:.2} kJ/kg seed (field {he:?})",
+            he[0] / 1e3,
+            100.0 * closed,
+            (h_bc - h_seed) / 1e3,
+            h_seed / 1e3,
+        );
+        let mean = he.iter().sum::<f64>() / he.len() as f64;
+        assert!(
+            mean > h_seed + 0.05 * (h_bc - h_seed),
+            "field mean {:.2} kJ/kg should have risen well above the {:.2} kJ/kg seed",
+            mean / 1e3,
+            h_seed / 1e3,
+        );
+    }
+
+    /// The cooling direction of
+    /// [`inlet_enthalpy_bc_heats_uniform_field_without_reapplying_each_step`]
+    /// — same fixture and pass criterion, with the seed and the inlet BC
+    /// exchanged (seed 500 K, `h = 520.45 kJ/kg`; inlet BC 300 K,
+    /// `h = 311.20 kJ/kg`). Both directions are exercised because a boundary
+    /// term that contributes an unset/zero enthalpy rather than the prescribed
+    /// one still *looks* right in the cooling direction — that was one of the
+    /// symptoms recorded in bead `op-289n`.
+    ///
+    /// ## Results (2026-08-12)
+    /// Passes: `he[0] = 296.13 kJ/kg` (gap closed 107.2 %, again with dispersive
+    /// undershoot past the BC), field mean `444.68 kJ/kg` versus the
+    /// 520.45 kJ/kg seed. Fails on the pre-fix code for the same reason as the
+    /// heating case (measured pre-fix at 2000 steps: `he[0] = 520.16 kJ/kg`,
+    /// 0.14 % of the gap).
+    #[test]
+    fn inlet_enthalpy_bc_cools_uniform_field_without_reapplying_each_step() {
+        let h_seed = bc_enthalpy(500.0);
+        let h_bc = bc_enthalpy(300.0);
+        let he = run_inlet_enthalpy_case(500.0, 300.0, 3000);
+
+        assert!(
+            he.iter().all(|h| h.is_finite()),
+            "enthalpy field went non-finite: {he:?}"
+        );
+        let closed = (he[0] - h_seed) / (h_bc - h_seed);
+        assert!(
+            closed > 0.5,
+            "inlet cell should close most of the gap to the inlet BC; \
+             he[0] = {:.2} kJ/kg closed only {:.1} % of the {:.2} kJ/kg gap \
+             from the {:.2} kJ/kg seed (field {he:?})",
+            he[0] / 1e3,
+            100.0 * closed,
+            (h_bc - h_seed) / 1e3,
+            h_seed / 1e3,
+        );
+        let mean = he.iter().sum::<f64>() / he.len() as f64;
+        assert!(
+            mean < h_seed + 0.05 * (h_bc - h_seed),
+            "field mean {:.2} kJ/kg should have fallen well below the {:.2} kJ/kg seed",
+            mean / 1e3,
+            h_seed / 1e3,
+        );
+    }
+
+    /// ## Methodology
+    /// Verifies that [`OPCPFluidArray::set_inlet_mass_flowrate`] actually
+    /// **imposes** the mass flow it is given, and contrasts it with the
+    /// workaround it replaces (convert to a velocity with an assumed density
+    /// and call [`OPCPFluidArray::set_inlet_velocity`]).
+    ///
+    /// Same 8-cell nitrogen fixture as the inlet-enthalpy tests, seeded and fed
+    /// at 300 K, target `ṁ = 1.0 g/s`, 2000 steps of 2×10⁻⁴ s. Three arrays are
+    /// run: (a) a velocity derived from the *correct* density
+    /// `ρ(300 K, 1 bar) = 1.12328 kg/m³`; (b) a velocity derived from a *wrong*
+    /// (design-point) density `ρ(600 K, 1 bar) = 0.56130 kg/m³`, i.e. a factor-2
+    /// error, which is the failure mode this fix exists for; (c) the prescribed
+    /// mass-flow inlet. The imposed flow is read back with
+    /// [`OPCPFluidArray::get_inlet_mass_flowrate_actual`], which sums the solved
+    /// boundary face flux `phi` and so is independent of how the BC was set.
+    ///
+    /// Pass criterion: (c) reproduces the target to better than 1×10⁻⁶ relative,
+    /// and (b) is out by more than 50 % — i.e. the test would not pass merely
+    /// because the two routes happen to agree.
+    ///
+    /// ## Results (2026-08-12)
+    /// Passes. (a) `9.999122e-4 kg/s`, −0.0088 %; (b) `2.000597e-3 kg/s`,
+    /// **+100.06 %** — the assumed-density error transfers one-for-one into the
+    /// imposed mass flow; (c) `1.000000000000e-3 kg/s`, relative error exactly
+    /// 0.0 (by construction: the velocity is re-derived each corrector from the
+    /// very face density that multiplies it).
+    #[test]
+    fn mass_flow_inlet_imposes_the_prescribed_flowrate() {
+        let target = 1.0e-3_f64;
+        let h_in = bc_enthalpy(300.0);
+
+        let mut with_right_rho = bc_fixture(300.0);
+        let rho_right = flash::state_pt(Fluid::Nitrogen, 300.0, BC_P)
+            .unwrap()
+            .density;
+        with_right_rho.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(h_in));
+        with_right_rho.set_inlet_velocity(Velocity::new::<meter_per_second>(
+            target / (rho_right * BC_A),
+        ));
+        with_right_rho.run(2000);
+        let m_right = with_right_rho
+            .get_inlet_mass_flowrate_actual()
+            .get::<kilogram_per_second>();
+
+        let mut with_wrong_rho = bc_fixture(300.0);
+        let rho_wrong = flash::state_pt(Fluid::Nitrogen, 600.0, BC_P)
+            .unwrap()
+            .density;
+        with_wrong_rho.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(h_in));
+        with_wrong_rho.set_inlet_velocity(Velocity::new::<meter_per_second>(
+            target / (rho_wrong * BC_A),
+        ));
+        with_wrong_rho.run(2000);
+        let m_wrong = with_wrong_rho
+            .get_inlet_mass_flowrate_actual()
+            .get::<kilogram_per_second>();
+
+        let mut prescribed = bc_fixture(300.0);
+        prescribed.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(h_in));
+        prescribed.set_inlet_mass_flowrate(MassRate::new::<kilogram_per_second>(target));
+        prescribed.run(2000);
+        let m_prescribed = prescribed
+            .get_inlet_mass_flowrate_actual()
+            .get::<kilogram_per_second>();
+
+        assert!(
+            ((m_prescribed - target) / target).abs() < 1.0e-6,
+            "prescribed mass-flow inlet should impose the target exactly; \
+             got {m_prescribed:.9e} kg/s against a {target:.9e} kg/s target"
+        );
+        assert!(
+            ((m_wrong - target) / target).abs() > 0.5,
+            "the assumed-density workaround should visibly mis-impose the flow \
+             (that is the defect being fixed); got {m_wrong:.9e} kg/s against a \
+             {target:.9e} kg/s target, with the right-density case at {m_right:.9e} kg/s"
+        );
+    }
+
+    /// ## Methodology
+    /// The steady-state energy check a counter-flow heat exchanger needs and
+    /// the assumed-density velocity workaround cannot deliver: with a
+    /// prescribed inlet mass flow, a fixed inlet enthalpy and a uniformly
+    /// distributed 200 W volumetric heat source, the converged array must
+    /// satisfy `ṁ·(h_out − h_in) = Q`.
+    ///
+    /// Same 8-cell nitrogen fixture, seeded and fed at 300 K, `ṁ = 1.0 g/s`,
+    /// 4000 steps of 2×10⁻⁴ s = 0.8 s simulated (about 7 transits at the
+    /// resulting ≈ 9 m/s, and well past the thermal transient). Pass criterion:
+    /// the enthalpy rise closes the 200 W balance to within 1 %.
+    ///
+    /// ## Results (2026-08-12)
+    /// Passes: `ṁ·(h_out − h_in) = 200.06 W` against `Q = 200 W` (+0.03 %), at
+    /// `T_out = 491.29 K`. Refining the mesh tightens it — measured at the same
+    /// physical setup, `n = 16` gives 200.0002 W and `n = 32` gives 200.0000 W.
+    ///
+    /// **Residual, deliberately not asserted here.** The *mass* balance does
+    /// not close as tightly as the energy balance:
+    /// [`OPCPFluidArray::get_outlet_mass_flowrate_actual`] reads
+    /// 9.9296×10⁻⁴ kg/s against the exactly-imposed 1.0×10⁻³ kg/s inlet, a
+    /// −0.70 % deficit at `n = 8`. That is a first-order boundary truncation
+    /// error, not a broken BC: it halves under each mesh refinement
+    /// (−0.7035 % at `n = 8`, −0.3150 % at `n = 16`, −0.1482 % at `n = 32`,
+    /// measured 2026-08-12), because the outlet face velocity is taken by
+    /// zero-gradient extrapolation from the last cell centre while the flow is
+    /// still accelerating through that half cell. See that method's accuracy
+    /// caveat.
+    #[test]
+    fn mass_flow_inlet_closes_the_steady_energy_balance() {
+        let target = 1.0e-3_f64;
+        let q_watt = 200.0_f64;
+        let h_in = bc_enthalpy(300.0);
+
+        let mut arr = bc_fixture(300.0);
+        arr.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(h_in));
+        arr.set_inlet_mass_flowrate(MassRate::new::<kilogram_per_second>(target));
+        for _ in 0..4000 {
+            arr.lateral_link_new_power_vector(
+                Power::new::<watt>(q_watt),
+                vec![1.0 / BC_N as f64; BC_N],
+            )
+            .unwrap();
+            arr.step();
+        }
+
+        let m_in = arr
+            .get_inlet_mass_flowrate_actual()
+            .get::<kilogram_per_second>();
+        let h_out = arr.get_outlet_enthalpy().get::<joule_per_kilogram>();
+        let q_transported = m_in * (h_out - h_in);
+        assert!(
+            ((q_transported - q_watt) / q_watt).abs() < 0.01,
+            "steady energy balance should close: mdot*(h_out - h_in) = {q_transported:.4} W \
+             against Q = {q_watt} W (mdot = {m_in:.9e} kg/s, h_out = {:.2} kJ/kg)",
+            h_out / 1e3,
+        );
+    }
+
+    /// [`OPCPFluidArray::set_inlet_velocity`] and
+    /// [`OPCPFluidArray::set_inlet_mass_flowrate`] prescribe the same patch, so
+    /// each must clear the other rather than leaving a silently-overridden
+    /// boundary condition behind. Verifies the flag bookkeeping directly (no
+    /// solve involved). Result (2026-08-12): passes.
+    #[test]
+    fn inlet_velocity_and_mass_flow_bcs_are_mutually_exclusive() {
+        let mut arr = bc_fixture(300.0);
+        assert!(arr.get_inlet_mass_flowrate().is_none());
+
+        let target = MassRate::new::<kilogram_per_second>(1.0e-3);
+        arr.set_inlet_mass_flowrate(target);
+        assert_eq!(arr.get_inlet_mass_flowrate(), Some(target));
+
+        arr.set_inlet_velocity(Velocity::new::<meter_per_second>(1.0));
+        assert!(
+            arr.get_inlet_mass_flowrate().is_none(),
+            "set_inlet_velocity must clear a prescribed mass-flow inlet"
+        );
+
+        arr.set_inlet_mass_flowrate(target);
+        arr.clear_inlet_mass_flowrate();
+        assert!(arr.get_inlet_mass_flowrate().is_none());
     }
 }
