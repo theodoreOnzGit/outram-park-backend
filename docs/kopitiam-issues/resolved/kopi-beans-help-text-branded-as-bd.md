@@ -58,6 +58,15 @@ instruction to install beads-rs.
   `.claude/settings.json`. That file's hook (`bn prime --mcp`) was confirmed
   working (exit 0) on 2026-08-07 and is maintained by hand per `CLAUDE.md`.
 
+  **Addendum, 2026-08-12 (kopi-beans v0.1.3):** the overwrite concern above
+  turned out not to apply to the `--project` form. `bn setup claude --project`
+  was run and wrote `SessionStart` + `PreCompact` `bn prime` hooks into the
+  **gitignored** `.claude/settings.local.json`, leaving the committed
+  `.claude/settings.json` byte-identical (`git diff HEAD -- .claude/settings.json`
+  empty) with its `Stop` hook intact. The generated hooks are `bn`-branded, so
+  the branding fix holds there too. The **unflagged / global form was still not
+  run** and remains unverified.
+
 - **Note:** the upstream GitHub issue was still marked **OPEN** at the time of
   this verification. It needs the maintainer to close it:
 

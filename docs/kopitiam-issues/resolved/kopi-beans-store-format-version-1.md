@@ -69,3 +69,7 @@ unreachable.
 
       gh issue close 16 --repo theodoreOnzGit/kopitiam \
         --comment "Fixed in kopi-beans 0.1.2 — verified 2026-08-07, store migrated to format_version 2, bn status reads 626 issues."
+
+  **Update 2026-08-12:** upstream #16 is now **CLOSED** on GitHub
+  (`gh issue view 16 --repo theodoreOnzGit/kopitiam` reports `state: CLOSED`).
+  No further upstream action is needed for this one.
