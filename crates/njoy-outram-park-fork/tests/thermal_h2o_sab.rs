@@ -67,7 +67,8 @@ use njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering;
 use njoy_outram_park_fork::units::{NeutronEnergy, Temperature};
 use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
 
-const DEFAULT_PATH: &str = "/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt/tsl-HinH2O.endf";
+const DEFAULT_PATH: &str =
+    "/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt/tsl-HinH2O.endf";
 const HINH2O_MAT: i32 = 1;
 const BK_EV_PER_K: f64 = 8.617_333_262e-5;
 
@@ -93,34 +94,56 @@ fn load() -> Option<IncoherentInelasticScattering> {
 fn selects_the_293k_scattering_law() {
     let Some(sab) = load() else { return };
     let sel = sab.selected_temperature().get::<kelvin>();
-    assert!((sel - 293.6).abs() < 0.1, "nearest tabulated T should be 293.6 K, got {sel}");
-    assert_eq!(sab.principal_atom_count(), 2.0, "H₂O has 2 principal H atoms (B(6))");
-    assert!((sab.mass_ratio() - 0.99917).abs() < 1e-3, "A = B(3) ≈ 0.99917 for H");
+    assert!(
+        (sel - 293.6).abs() < 0.1,
+        "nearest tabulated T should be 293.6 K, got {sel}"
+    );
+    assert_eq!(
+        sab.principal_atom_count(),
+        2.0,
+        "H₂O has 2 principal H atoms (B(6))"
+    );
+    assert!(
+        (sab.mass_ratio() - 0.99917).abs() < 1e-3,
+        "A = B(3) ≈ 0.99917 for H"
+    );
 }
 
 #[test]
 fn approaches_free_atom_cross_section_at_high_energy() {
     let Some(sab) = load() else { return };
     let sigma_free = sab.free_cross_section().get::<barn>();
-    assert!((sigma_free - 20.436).abs() < 0.01, "σ_free = B(1)/2 = 20.436 b/H, got {sigma_free}");
+    assert!(
+        (sigma_free - 20.436).abs() < 0.01,
+        "σ_free = B(1)/2 = 20.436 b/H, got {sigma_free}"
+    );
 
     let xs = |e_ev: f64| {
-        sab.inelastic_xs(NeutronEnergy::new::<electronvolt>(e_ev)).get::<barn>()
+        sab.inelastic_xs(NeutronEnergy::new::<electronvolt>(e_ev))
+            .get::<barn>()
     };
     let (s1, s4, s8) = (xs(1.0), xs(4.0), xs(8.0));
     // Monotone decreasing toward the free-atom limit from above.
-    assert!(s1 > s4 && s4 > s8, "σ_inel decreases 1→4→8 eV toward σ_free: {s1} {s4} {s8}");
+    assert!(
+        s1 > s4 && s4 > s8,
+        "σ_inel decreases 1→4→8 eV toward σ_free: {s1} {s4} {s8}"
+    );
     let rel = (s8 - sigma_free).abs() / sigma_free;
-    assert!(rel < 0.05, "σ_inel(8 eV)={s8} within 5% of σ_free={sigma_free} (rel {rel:.4})");
+    assert!(
+        rel < 0.05,
+        "σ_inel(8 eV)={s8} within 5% of σ_free={sigma_free} (rel {rel:.4})"
+    );
 }
 
 #[test]
 fn thermal_cross_section_matches_bound_water() {
     let Some(sab) = load() else { return };
-    let per_h = sab.inelastic_xs(NeutronEnergy::new::<electronvolt>(0.0253)).get::<barn>();
+    let per_h = sab
+        .inelastic_xs(NeutronEnergy::new::<electronvolt>(0.0253))
+        .get::<barn>();
     let per_molecule = 2.0 * per_h; // 2 H per H₂O
-    // Literature bound scattering cross section of light water at 0.0253 eV
-    // ≈ 103 b/molecule.
+                                    // Literature bound scattering cross section of light water at 0.0253 eV
+                                    // ≈ 103 b/molecule.
     assert!(
         (90.0..=115.0).contains(&per_molecule),
         "σ_s(H₂O, 0.0253 eV) = {per_molecule} b/molecule (per-H {per_h}); expect ≈103 b"
@@ -137,11 +160,17 @@ fn double_differential_obeys_detailed_balance() {
     let (e, ep, mu) = (0.05, 0.03, 0.3);
     let fwd = ii.double_differential(e, ep, mu, t, 2.0);
     let rev = ii.double_differential(ep, e, mu, t, 2.0);
-    assert!(fwd > 0.0 && rev > 0.0, "both directions must be tabulated, got {fwd} {rev}");
+    assert!(
+        fwd > 0.0 && rev > 0.0,
+        "both directions must be tabulated, got {fwd} {rev}"
+    );
     let ratio = fwd / rev;
     let analytic = (ep / e) * (-(ep - e) / kt).exp();
     let rel = (ratio - analytic).abs() / analytic;
-    assert!(rel < 0.01, "detailed balance: ratio {ratio} vs analytic {analytic} (rel {rel:.2e})");
+    assert!(
+        rel < 0.01,
+        "detailed balance: ratio {ratio} vs analytic {analytic} (rel {rel:.2e})"
+    );
 }
 
 #[test]

@@ -26,13 +26,29 @@ pub enum DepartureTerm {
     /// [`crate::eos::ResidualTerm::Gaussian`]. CoolProp `add_Gaussian`
     /// (the tail of departure `type: "Gaussian+Exponential"`; `η=β=0` for
     /// that type's leading power-only terms).
-    Gaussian { n: f64, d: f64, t: f64, eta: f64, epsilon: f64, beta: f64, gamma: f64 },
+    Gaussian {
+        n: f64,
+        d: f64,
+        t: f64,
+        eta: f64,
+        epsilon: f64,
+        beta: f64,
+        gamma: f64,
+    },
     /// `n·δ^d·τ^t·exp(-η(δ-ε)² - β(δ-γ))` — the GERG-2008 natural-gas-model
     /// Gaussian, where **both** the `η` and `β` corrections act on `δ`
     /// (unlike [`Self::Gaussian`], whose `β` term acts on `τ`). CoolProp
     /// `add_GERG2008Gaussian` (the tail of departure `type: "GERG-2008"`;
     /// `η=β=0` for that type's leading power-only terms).
-    GergExponential { n: f64, d: f64, t: f64, eta: f64, epsilon: f64, beta: f64, gamma: f64 },
+    GergExponential {
+        n: f64,
+        d: f64,
+        t: f64,
+        eta: f64,
+        epsilon: f64,
+        beta: f64,
+        gamma: f64,
+    },
 }
 
 impl DepartureTerm {
@@ -43,22 +59,51 @@ impl DepartureTerm {
         match *self {
             DepartureTerm::Power { n, d, t, l } => {
                 // Identical to ResidualTerm::Power's per-term math (eos.rs).
-                let (e, dl) = if l == 0.0 { (1.0, 0.0) } else { let dpow_l = delta.powf(l); ((-dpow_l).exp(), l * dpow_l) };
+                let (e, dl) = if l == 0.0 {
+                    (1.0, 0.0)
+                } else {
+                    let dpow_l = delta.powf(l);
+                    ((-dpow_l).exp(), l * dpow_l)
+                };
                 let a = n * delta.powf(d) * tau.powf(t) * e;
                 let fd = (d - dl) / delta;
                 let ft = t / tau;
                 let fdd = ((d - dl) * (d - 1.0 - dl) - l * dl) / (delta * delta);
                 add(acc, a, fd, ft, fdd, t * (t - 1.0) / (tau * tau), fd * ft);
             }
-            DepartureTerm::Gaussian { n, d, t, eta, epsilon, beta, gamma } => {
+            DepartureTerm::Gaussian {
+                n,
+                d,
+                t,
+                eta,
+                epsilon,
+                beta,
+                gamma,
+            } => {
                 // Identical to ResidualTerm::Gaussian's per-term math (eos.rs).
                 let g = (-eta * (delta - epsilon).powi(2) - beta * (tau - gamma).powi(2)).exp();
                 let a = n * delta.powf(d) * tau.powf(t) * g;
                 let fd = d / delta - 2.0 * eta * (delta - epsilon);
                 let ft = t / tau - 2.0 * beta * (tau - gamma);
-                add(acc, a, fd, ft, fd * fd - d / (delta * delta) - 2.0 * eta, ft * ft - t / (tau * tau) - 2.0 * beta, fd * ft);
+                add(
+                    acc,
+                    a,
+                    fd,
+                    ft,
+                    fd * fd - d / (delta * delta) - 2.0 * eta,
+                    ft * ft - t / (tau * tau) - 2.0 * beta,
+                    fd * ft,
+                );
             }
-            DepartureTerm::GergExponential { n, d, t, eta, epsilon, beta, gamma } => {
+            DepartureTerm::GergExponential {
+                n,
+                d,
+                t,
+                eta,
+                epsilon,
+                beta,
+                gamma,
+            } => {
                 // u = -eta*(delta-epsilon)^2 - beta*(delta-gamma); both
                 // corrections act on delta (not tau) -- see the module doc.
                 let dm = delta - epsilon;
@@ -68,7 +113,15 @@ impl DepartureTerm {
                 let fd = d / delta + du_ddelta;
                 let ft = t / tau;
                 let dfd_ddelta = -d / (delta * delta) - 2.0 * eta;
-                add(acc, a, fd, ft, fd * fd + dfd_ddelta, ft * ft - t / (tau * tau), fd * ft);
+                add(
+                    acc,
+                    a,
+                    fd,
+                    ft,
+                    fd * fd + dfd_ddelta,
+                    ft * ft - t / (tau * tau),
+                    fd * ft,
+                );
             }
         }
     }
@@ -102,10 +155,19 @@ mod self_consistency_tests {
         let at = (eval_a(term, delta, tau + h) - eval_a(term, delta, tau - h)) / (2.0 * h);
         let add = (eval_a(term, delta + h, tau) - 2.0 * a + eval_a(term, delta - h, tau)) / (h * h);
         let att = (eval_a(term, delta, tau + h) - 2.0 * a + eval_a(term, delta, tau - h)) / (h * h);
-        let adt = (eval_a(term, delta + h, tau + h) - eval_a(term, delta + h, tau - h) - eval_a(term, delta - h, tau + h)
+        let adt = (eval_a(term, delta + h, tau + h)
+            - eval_a(term, delta + h, tau - h)
+            - eval_a(term, delta - h, tau + h)
             + eval_a(term, delta - h, tau - h))
             / (4.0 * h * h);
-        HelmholtzDerivs { a, ad, at, add, att, adt }
+        HelmholtzDerivs {
+            a,
+            ad,
+            at,
+            add,
+            att,
+            adt,
+        }
     }
 
     fn check(name: &str, term: DepartureTerm, delta: f64, tau: f64) {
@@ -114,24 +176,77 @@ mod self_consistency_tests {
         let fd = fd_derivs(&term, delta, tau);
         eprintln!("{name}: analytic={acc:?}\n{name}: fd      ={fd:?}");
         let rel = |a: f64, b: f64| (a - b).abs() / b.abs().max(1e-10);
-        assert!(rel(acc.ad, fd.ad) < 1e-4, "{name} ad: {} vs fd {}", acc.ad, fd.ad);
-        assert!(rel(acc.at, fd.at) < 1e-4, "{name} at: {} vs fd {}", acc.at, fd.at);
-        assert!(rel(acc.add, fd.add) < 1e-3, "{name} add: {} vs fd {}", acc.add, fd.add);
-        assert!(rel(acc.att, fd.att) < 1e-3, "{name} att: {} vs fd {}", acc.att, fd.att);
-        assert!(rel(acc.adt, fd.adt) < 1e-3, "{name} adt: {} vs fd {}", acc.adt, fd.adt);
+        assert!(
+            rel(acc.ad, fd.ad) < 1e-4,
+            "{name} ad: {} vs fd {}",
+            acc.ad,
+            fd.ad
+        );
+        assert!(
+            rel(acc.at, fd.at) < 1e-4,
+            "{name} at: {} vs fd {}",
+            acc.at,
+            fd.at
+        );
+        assert!(
+            rel(acc.add, fd.add) < 1e-3,
+            "{name} add: {} vs fd {}",
+            acc.add,
+            fd.add
+        );
+        assert!(
+            rel(acc.att, fd.att) < 1e-3,
+            "{name} att: {} vs fd {}",
+            acc.att,
+            fd.att
+        );
+        assert!(
+            rel(acc.adt, fd.adt) < 1e-3,
+            "{name} adt: {} vs fd {}",
+            acc.adt,
+            fd.adt
+        );
     }
 
     #[test]
     fn power_matches_finite_difference() {
-        check("Power(l=0)", DepartureTerm::Power { n: 0.7, d: 2.0, t: 1.5, l: 0.0 }, 0.8, 1.3);
-        check("Power(l=2)", DepartureTerm::Power { n: -0.3, d: 1.0, t: 0.7, l: 2.0 }, 0.9, 1.1);
+        check(
+            "Power(l=0)",
+            DepartureTerm::Power {
+                n: 0.7,
+                d: 2.0,
+                t: 1.5,
+                l: 0.0,
+            },
+            0.8,
+            1.3,
+        );
+        check(
+            "Power(l=2)",
+            DepartureTerm::Power {
+                n: -0.3,
+                d: 1.0,
+                t: 0.7,
+                l: 2.0,
+            },
+            0.9,
+            1.1,
+        );
     }
 
     #[test]
     fn gaussian_matches_finite_difference() {
         check(
             "Gaussian",
-            DepartureTerm::Gaussian { n: 0.5, d: 2.0, t: 1.2, eta: 0.9, epsilon: 0.5, beta: 1.5, gamma: 1.2 },
+            DepartureTerm::Gaussian {
+                n: 0.5,
+                d: 2.0,
+                t: 1.2,
+                eta: 0.9,
+                epsilon: 0.5,
+                beta: 1.5,
+                gamma: 1.2,
+            },
             0.85,
             1.15,
         );
@@ -141,14 +256,30 @@ mod self_consistency_tests {
     fn gerg_exponential_matches_finite_difference() {
         check(
             "GergExponential",
-            DepartureTerm::GergExponential { n: -0.4, d: 1.0, t: 3.65, eta: 1.0, epsilon: 0.5, beta: 1.0, gamma: 0.5 },
+            DepartureTerm::GergExponential {
+                n: -0.4,
+                d: 1.0,
+                t: 3.65,
+                eta: 1.0,
+                epsilon: 0.5,
+                beta: 1.0,
+                gamma: 0.5,
+            },
             0.8,
             1.3,
         );
         // Also check the eta=beta=0 "power-only" degenerate case.
         check(
             "GergExponential(eta=beta=0)",
-            DepartureTerm::GergExponential { n: 0.28, d: 2.0, t: 1.85, eta: 0.0, epsilon: 0.0, beta: 0.0, gamma: 0.0 },
+            DepartureTerm::GergExponential {
+                n: 0.28,
+                d: 2.0,
+                t: 1.85,
+                eta: 0.0,
+                epsilon: 0.0,
+                beta: 0.0,
+                gamma: 0.0,
+            },
             0.8,
             1.3,
         );

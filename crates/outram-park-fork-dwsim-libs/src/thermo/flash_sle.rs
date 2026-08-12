@@ -162,9 +162,8 @@ pub fn ideal_solubility(fusion_enthalpy: f64, fusion_temperature: f64, temperatu
         return 1000.0;
     }
     // -(dH/R)(1/T - 1/Tf) == -(dH/(R T))(1 - T/Tf); DWSIM writes the latter form.
-    let a = (-fusion_enthalpy / (R_GAS * temperature)
-        * (1.0 - temperature / fusion_temperature))
-        .exp();
+    let a =
+        (-fusion_enthalpy / (R_GAS * temperature) * (1.0 - temperature / fusion_temperature)).exp();
     if a.is_finite() {
         a
     } else {
@@ -539,7 +538,12 @@ pub fn flash_sl(
 }
 
 /// Assemble the final [`SleFlashResult`] (`Ok`), sharing the exit paths above.
-fn finish(l: f64, x: Vec<f64>, s: Vec<f64>, iterations: usize) -> Result<SleFlashResult, SleFlashError> {
+fn finish(
+    l: f64,
+    x: Vec<f64>,
+    s: Vec<f64>,
+    iterations: usize,
+) -> Result<SleFlashResult, SleFlashError> {
     Ok(SleFlashResult {
         liquid_fraction: l,
         solid_fraction: 1.0 - l,
@@ -621,12 +625,22 @@ mod tests {
     #[test]
     fn ideal_binary_saturation_split_matches_hand() {
         let z = [0.7, 0.3];
-        let r = flash_sl(&z, &comps(), &ActivityModel::Ideal, 320.0, SleOptions::default())
-            .expect("flash converges");
+        let r = flash_sl(
+            &z,
+            &comps(),
+            &ActivityModel::Ideal,
+            320.0,
+            SleOptions::default(),
+        )
+        .expect("flash converges");
 
         let x_a_max = ideal_solubility(HF_A, TF_A, 320.0);
         let l_hand = 0.3 / (1.0 - x_a_max);
-        assert!((r.liquid_fraction - l_hand).abs() < 1e-9, "L = {}", r.liquid_fraction);
+        assert!(
+            (r.liquid_fraction - l_hand).abs() < 1e-9,
+            "L = {}",
+            r.liquid_fraction
+        );
         assert!((r.liquid_fraction - 0.681_760_9).abs() < 1e-6);
         // Liquid is saturated in A at x_A^max; B makes up the rest.
         assert!((r.x[0] - x_a_max).abs() < 1e-9, "x_A = {}", r.x[0]);
@@ -636,7 +650,11 @@ mod tests {
         // Overall mole balance z_i = L x_i + S s_i.
         for i in 0..2 {
             let recon = r.liquid_fraction * r.x[i] + r.solid_fraction * r.s[i];
-            assert!((recon - z[i]).abs() < 1e-12, "balance i={i}: {recon} vs {}", z[i]);
+            assert!(
+                (recon - z[i]).abs() < 1e-12,
+                "balance i={i}: {recon} vs {}",
+                z[i]
+            );
         }
     }
 
@@ -685,14 +703,34 @@ mod tests {
 
         // (b) just above T_E, the eutectic composition is fully liquid.
         let z_eut = [xa, xb];
-        let r_hot = flash_sl(&z_eut, &comps(), &ActivityModel::Ideal, t_e + 0.5, SleOptions::default())
-            .expect("supra-eutectic flash converges");
-        assert!((r_hot.liquid_fraction - 1.0).abs() < 1e-6, "L above T_E = {}", r_hot.liquid_fraction);
+        let r_hot = flash_sl(
+            &z_eut,
+            &comps(),
+            &ActivityModel::Ideal,
+            t_e + 0.5,
+            SleOptions::default(),
+        )
+        .expect("supra-eutectic flash converges");
+        assert!(
+            (r_hot.liquid_fraction - 1.0).abs() < 1e-6,
+            "L above T_E = {}",
+            r_hot.liquid_fraction
+        );
 
         // (c) just below T_E, the same feed freezes completely — BOTH solids.
-        let r_cold = flash_sl(&z_eut, &comps(), &ActivityModel::Ideal, t_e - 5.0, SleOptions::default())
-            .expect("sub-eutectic flash converges");
-        assert!(r_cold.solid_fraction > 1e-3, "expected solids, S = {}", r_cold.solid_fraction);
+        let r_cold = flash_sl(
+            &z_eut,
+            &comps(),
+            &ActivityModel::Ideal,
+            t_e - 5.0,
+            SleOptions::default(),
+        )
+        .expect("sub-eutectic flash converges");
+        assert!(
+            r_cold.solid_fraction > 1e-3,
+            "expected solids, S = {}",
+            r_cold.solid_fraction
+        );
         // Reconstruct solid moles: S·s_i. Both must be positive (co-precipitation).
         assert!(r_cold.solid_fraction * r_cold.s[0] > 0.0);
         assert!(r_cold.solid_fraction * r_cold.s[1] > 0.0);
@@ -706,11 +744,25 @@ mod tests {
     #[test]
     fn single_component_melting_shortcut() {
         let z = [1.0, 0.0];
-        let hot = flash_sl(&z, &comps(), &ActivityModel::Ideal, 360.0, SleOptions::default()).unwrap();
+        let hot = flash_sl(
+            &z,
+            &comps(),
+            &ActivityModel::Ideal,
+            360.0,
+            SleOptions::default(),
+        )
+        .unwrap();
         assert_eq!(hot.liquid_fraction, 1.0);
         assert_eq!(hot.x[0], 1.0);
 
-        let cold = flash_sl(&z, &comps(), &ActivityModel::Ideal, 340.0, SleOptions::default()).unwrap();
+        let cold = flash_sl(
+            &z,
+            &comps(),
+            &ActivityModel::Ideal,
+            340.0,
+            SleOptions::default(),
+        )
+        .unwrap();
         assert_eq!(cold.liquid_fraction, 0.0);
         assert_eq!(cold.s[0], 1.0);
     }
@@ -722,7 +774,14 @@ mod tests {
     #[test]
     fn all_liquid_above_all_melting_points() {
         let z = [0.4, 0.6];
-        let r = flash_sl(&z, &comps(), &ActivityModel::Ideal, 400.0, SleOptions::default()).unwrap();
+        let r = flash_sl(
+            &z,
+            &comps(),
+            &ActivityModel::Ideal,
+            400.0,
+            SleOptions::default(),
+        )
+        .unwrap();
         assert_eq!(r.liquid_fraction, 1.0);
         assert!((r.x[0] - 0.4).abs() < 1e-12 && (r.x[1] - 0.6).abs() < 1e-12);
         assert_eq!(r.solid_fraction, 0.0);
@@ -749,7 +808,14 @@ mod tests {
         let model = ActivityModel::Nrtl(nrtl);
         let r = flash_sl(&z, &comps(), &model, 320.0, SleOptions::default()).expect("converges");
 
-        let ideal = flash_sl(&z, &comps(), &ActivityModel::Ideal, 320.0, SleOptions::default()).unwrap();
+        let ideal = flash_sl(
+            &z,
+            &comps(),
+            &ActivityModel::Ideal,
+            320.0,
+            SleOptions::default(),
+        )
+        .unwrap();
         assert!(
             r.liquid_fraction < ideal.liquid_fraction,
             "positive deviation should lower L: {} !< {}",
@@ -770,22 +836,47 @@ mod tests {
     #[test]
     fn input_validation_errors() {
         assert_eq!(
-            flash_sl(&[], &[], &ActivityModel::Ideal, 300.0, SleOptions::default()).unwrap_err(),
+            flash_sl(
+                &[],
+                &[],
+                &ActivityModel::Ideal,
+                300.0,
+                SleOptions::default()
+            )
+            .unwrap_err(),
             SleFlashError::Empty
         );
         assert!(matches!(
-            flash_sl(&[0.5, 0.5], &comps()[..1], &ActivityModel::Ideal, 300.0, SleOptions::default())
-                .unwrap_err(),
+            flash_sl(
+                &[0.5, 0.5],
+                &comps()[..1],
+                &ActivityModel::Ideal,
+                300.0,
+                SleOptions::default()
+            )
+            .unwrap_err(),
             SleFlashError::LengthMismatch { .. }
         ));
         assert!(matches!(
-            flash_sl(&[0.5, 0.5], &comps(), &ActivityModel::Ideal, -1.0, SleOptions::default())
-                .unwrap_err(),
+            flash_sl(
+                &[0.5, 0.5],
+                &comps(),
+                &ActivityModel::Ideal,
+                -1.0,
+                SleOptions::default()
+            )
+            .unwrap_err(),
             SleFlashError::NonPositiveTemperature(_)
         ));
         assert_eq!(
-            flash_sl(&[0.5, f64::NAN], &comps(), &ActivityModel::Ideal, 300.0, SleOptions::default())
-                .unwrap_err(),
+            flash_sl(
+                &[0.5, f64::NAN],
+                &comps(),
+                &ActivityModel::Ideal,
+                300.0,
+                SleOptions::default()
+            )
+            .unwrap_err(),
             SleFlashError::NonFinite
         );
     }

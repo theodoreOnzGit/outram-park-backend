@@ -301,7 +301,9 @@ fn backward_walk(flowsheet: &Flowsheet) -> Result<SolvingList, SolverError> {
             };
             let mut upstreams: Vec<ObjectId> = Vec::new();
             for slot in &obj.inputs {
-                let Some(att) = &slot.attachment else { continue };
+                let Some(att) = &slot.attachment else {
+                    continue;
+                };
                 let from_type = flowsheet
                     .object(&att.peer)
                     .map_or(ObjectType::Undefined, |o| o.object_type);
@@ -669,7 +671,10 @@ mod tests {
         assert!(pos("FEED-B") < pos("MIX-1"), "{order:?}");
         assert!(pos("MIX-1") < pos("PROD"), "{order:?}");
         assert!(order.contains(&"WIND-1".to_string()), "{order:?}");
-        assert_eq!(fs.object(&wind).unwrap().object_type, ObjectType::WindTurbine);
+        assert_eq!(
+            fs.object(&wind).unwrap().object_type,
+            ObjectType::WindTurbine
+        );
     }
 
     /// **Methodology.** `keep_last_occurrence` must reproduce LINQ's

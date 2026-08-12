@@ -24,20 +24,20 @@ use crate::openfoam_algorithms::openfoam_source::SquareMatrix;
 
 // Rosenbrock23 coefficients — Foam::Rosenbrock23 constants
 const GAMMA: f64 = 0.435_866_521_508_458_999_41;
-const C2:    f64 = GAMMA;   // same as gamma
-const A21:   f64 = 1.0;
-const C21:   f64 = -1.015_617_108_387_770_209_2;
-const C31:   f64 =  4.075_995_645_253_769_982_5;
-const C32:   f64 =  9.207_679_429_833_079_124_2;
-const B1:    f64 = 1.0;
-const B2:    f64 = 6.169_794_704_382_824_559_3;
-const B3:    f64 = -0.427_722_565_432_185_733_3;
-const E1:    f64 = 0.5;
-const E2:    f64 = -2.907_955_871_680_546_982_2;
-const E3:    f64 =  0.223_540_698_978_115_696_3;
-const D1:    f64 = GAMMA;
-const D2:    f64 = 0.242_919_964_548_168_043_7;
-const D3:    f64 = 2.185_138_002_766_405_851_2;
+const C2: f64 = GAMMA; // same as gamma
+const A21: f64 = 1.0;
+const C21: f64 = -1.015_617_108_387_770_209_2;
+const C31: f64 = 4.075_995_645_253_769_982_5;
+const C32: f64 = 9.207_679_429_833_079_124_2;
+const B1: f64 = 1.0;
+const B2: f64 = 6.169_794_704_382_824_559_3;
+const B3: f64 = -0.427_722_565_432_185_733_3;
+const E1: f64 = 0.5;
+const E2: f64 = -2.907_955_871_680_546_982_2;
+const E3: f64 = 0.223_540_698_978_115_696_3;
+const D1: f64 = GAMMA;
+const D2: f64 = 0.242_919_964_548_168_043_7;
+const D3: f64 = 2.185_138_002_766_405_851_2;
 
 /// W-method Rosenbrock23 stiff solver with adaptive step size.
 ///
@@ -121,14 +121,14 @@ impl Rosenbrock23 {
         }
         ode.derivatives(x0 + C2 * dx, y_out, &mut self.dydx_inner);
         for i in 0..n {
-            self.k2[i] = self.dydx_inner[i] + dx * D2 * self.dfdx[i]
-                + C21 * self.k1[i] / dx;
+            self.k2[i] = self.dydx_inner[i] + dx * D2 * self.dfdx[i] + C21 * self.k1[i] / dx;
         }
         self.a.lu_back_substitute(&self.pivot, &mut self.k2);
 
         // k3
         for i in 0..n {
-            self.k3[i] = self.dydx_inner[i] + dx * D3 * self.dfdx[i]
+            self.k3[i] = self.dydx_inner[i]
+                + dx * D3 * self.dfdx[i]
                 + (C31 * self.k1[i] + C32 * self.k2[i]) / dx;
         }
         self.a.lu_back_substitute(&self.pivot, &mut self.k3);
@@ -179,8 +179,8 @@ impl Rosenbrock23 {
 
         let threshold = (cfg.max_scale / cfg.safe_scale).powf(-1.0 / cfg.alpha_inc);
         *dx_try = if err > threshold {
-            let scale = (cfg.safe_scale * err.powf(-cfg.alpha_inc))
-                .clamp(cfg.min_scale, cfg.max_scale);
+            let scale =
+                (cfg.safe_scale * err.powf(-cfg.alpha_inc)).clamp(cfg.min_scale, cfg.max_scale);
             dx * scale
         } else {
             dx * cfg.safe_scale * cfg.max_scale
@@ -216,7 +216,9 @@ mod tests {
     // Stiff scalar: y' = -1000·y,  y(0)=1  →  y(t)=e^{-1000t}
     struct StiffDecay;
     impl OdeSystem for StiffDecay {
-        fn n_eqns(&self) -> usize { 1 }
+        fn n_eqns(&self) -> usize {
+            1
+        }
         fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
             dydx[0] = -1000.0 * y[0];
         }
@@ -229,7 +231,9 @@ mod tests {
     // Non-stiff: y' = -y
     struct DecayOde;
     impl OdeSystem for DecayOde {
-        fn n_eqns(&self) -> usize { 1 }
+        fn n_eqns(&self) -> usize {
+            1
+        }
         fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
             dydx[0] = -y[0];
         }
@@ -242,16 +246,20 @@ mod tests {
     // 2D rotation: y1' = -y2, y2' = y1
     struct RotationOde;
     impl OdeSystem for RotationOde {
-        fn n_eqns(&self) -> usize { 2 }
+        fn n_eqns(&self) -> usize {
+            2
+        }
         fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
             dydx[0] = -y[1];
-            dydx[1] =  y[0];
+            dydx[1] = y[0];
         }
         fn jacobian(&self, _x: f64, _y: &[f64], dfdx: &mut Vec<f64>, dfdy: &mut SquareMatrix) {
             dfdx[0] = 0.0;
             dfdx[1] = 0.0;
-            dfdy.set(0, 0,  0.0); dfdy.set(0, 1, -1.0);
-            dfdy.set(1, 0,  1.0); dfdy.set(1, 1,  0.0);
+            dfdy.set(0, 0, 0.0);
+            dfdy.set(0, 1, -1.0);
+            dfdy.set(1, 0, 1.0);
+            dfdy.set(1, 1, 0.0);
         }
     }
 
@@ -266,7 +274,9 @@ mod tests {
         let expected = (-10.0_f64).exp(); // e^{-1000 * 0.01}
         assert!(
             (y[0] - expected).abs() < 1e-5,
-            "y={:.10}, expected={:.10}", y[0], expected
+            "y={:.10}, expected={:.10}",
+            y[0],
+            expected
         );
     }
 
@@ -281,7 +291,9 @@ mod tests {
         let expected = (-1.0_f64).exp();
         assert!(
             (y[0] - expected).abs() < 1e-6,
-            "y={:.10}, expected={:.10}", y[0], expected
+            "y={:.10}, expected={:.10}",
+            y[0],
+            expected
         );
     }
 
@@ -292,15 +304,21 @@ mod tests {
         let mut solver = Rosenbrock23::new(2, 1e-8, 1e-6);
         let mut y = vec![1.0_f64, 0.0];
         let mut dx = 0.1;
-        solver.integrate(&ode, 0.0, std::f64::consts::PI / 2.0, &mut y, &mut dx).unwrap();
+        solver
+            .integrate(&ode, 0.0, std::f64::consts::PI / 2.0, &mut y, &mut dx)
+            .unwrap();
         assert!(y[0].abs() < 1e-5, "y0={}", y[0]);
         assert!((y[1] - 1.0).abs() < 1e-5, "y1={}", y[1]);
     }
 
     // Stiff Van der Pol (mu=1000) with Jacobian — for Rosenbrock23
-    struct VanDerPolStiff { mu: f64 }
+    struct VanDerPolStiff {
+        mu: f64,
+    }
     impl OdeSystem for VanDerPolStiff {
-        fn n_eqns(&self) -> usize { 2 }
+        fn n_eqns(&self) -> usize {
+            2
+        }
         fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
             dydx[0] = y[1];
             dydx[1] = self.mu * (1.0 - y[0] * y[0]) * y[1] - y[0];

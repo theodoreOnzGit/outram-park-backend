@@ -222,9 +222,7 @@ impl Historian {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dynamics::property::{
-        property_value, set_property_value, DynamicProperty, PropertyRef,
-    };
+    use crate::dynamics::property::{property_value, set_property_value, DynamicProperty, PropertyRef};
     use crate::flowsheet::objects::ObjectType;
 
     fn flowsheet_at(temperature: f64) -> (Flowsheet, PropertyRef) {

@@ -104,7 +104,10 @@ mod tests {
             row[..chunk.len()].copy_from_slice(chunk);
             rows.push(row);
         }
-        let sec = Section { key: EndfKey { mat, mf: 3, mt }, rows };
+        let sec = Section {
+            key: EndfKey { mat, mf: 3, mt },
+            rows,
+        };
         Tape::from_sections(" test".to_string(), vec![sec])
     }
 
@@ -136,15 +139,26 @@ mod tests {
         let a = tape_with_mf3(125, 1001.0, 0.999, 2, &[(1.0, 10.0), (2.0, 20.0)]);
         let b = tape_with_mf3(128, 1001.0, 0.999, 2, &[(1.0, 30.0), (2.0, 40.0)]);
         let input = MixrInput::from_cards(
-            20, &[0, 1], vec![2], &[(125, 0.5), (128, 0.5)], 0.0, 9999, 1001.0, 0.999, "mix",
+            20,
+            &[0, 1],
+            vec![2],
+            &[(125, 0.5), (128, 0.5)],
+            0.0,
+            9999,
+            1001.0,
+            0.999,
+            "mix",
         );
 
         // Direct engine result, taken through the same ASCII round-trip the
         // driver uses (so the sigfig-bias digits are truncated identically).
-        let direct = mix(&input, &[
-            tape_with_mf3(125, 1001.0, 0.999, 2, &[(1.0, 10.0), (2.0, 20.0)]),
-            tape_with_mf3(128, 1001.0, 0.999, 2, &[(1.0, 30.0), (2.0, 40.0)]),
-        ])
+        let direct = mix(
+            &input,
+            &[
+                tape_with_mf3(125, 1001.0, 0.999, 2, &[(1.0, 10.0), (2.0, 20.0)]),
+                tape_with_mf3(128, 1001.0, 0.999, 2, &[(1.0, 30.0), (2.0, 40.0)]),
+            ],
+        )
         .unwrap();
         let mut direct_bytes = Vec::new();
         direct.write(&mut direct_bytes).unwrap();
@@ -157,7 +171,12 @@ mod tests {
         let mut b_bytes = Vec::new();
         b.write(&mut b_bytes).unwrap();
         let mut out = Vec::new();
-        run_mix(&input, vec![a_bytes.as_slice(), b_bytes.as_slice()], &mut out).unwrap();
+        run_mix(
+            &input,
+            vec![a_bytes.as_slice(), b_bytes.as_slice()],
+            &mut out,
+        )
+        .unwrap();
 
         let driven = Tape::read(&out[..]).unwrap();
         assert!(driven.section(9999, 1, 451).is_some(), "MF=1/451 present");

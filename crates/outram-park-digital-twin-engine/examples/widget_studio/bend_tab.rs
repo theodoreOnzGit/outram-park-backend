@@ -69,21 +69,19 @@ impl Default for BendDemo {
 
         let leg = |errors: &mut Vec<String>, which: &str| -> Option<PipeComponent> {
             match CompressibleFluidArray::new(CoolPropFluid::Helium, length, area, CELLS, dt) {
-                Ok(array) => Some(
-                    PipeComponent::new(
-                        Pipe::new(
-                            PipeBackend::Compressible(array),
-                            bore,
-                            length,
-                            Length::new::<millimeter>(0.045),
-                            Angle::new::<degree>(0.0),
-                        ),
-                        ThermodynamicTemperature::new::<kelvin>(300.0),
-                        ThermodynamicTemperature::new::<kelvin>(1200.0),
-                        Velocity::new::<meter_per_second>(12.0),
-                        Time::new::<second>(2.5),
+                Ok(array) => Some(PipeComponent::new(
+                    Pipe::new(
+                        PipeBackend::Compressible(array),
+                        bore,
+                        length,
+                        Length::new::<millimeter>(0.045),
+                        Angle::new::<degree>(0.0),
                     ),
-                ),
+                    ThermodynamicTemperature::new::<kelvin>(300.0),
+                    ThermodynamicTemperature::new::<kelvin>(1200.0),
+                    Velocity::new::<meter_per_second>(12.0),
+                    Time::new::<second>(2.5),
+                )),
                 Err(e) => {
                     errors.push(format!("{which} leg (helium): {e:?}"));
                     None
@@ -178,9 +176,7 @@ pub fn controls(ui: &mut egui::Ui, demo: &mut BendDemo) {
     );
     ui.separator();
 
-    ui.add(
-        egui::Slider::new(&mut demo.angle_deg, -180.0..=180.0).text("turn angle [°]"),
-    );
+    ui.add(egui::Slider::new(&mut demo.angle_deg, -180.0..=180.0).text("turn angle [°]"));
     ui.label(
         RichText::new(
             "0° straight through, ±90° the classic L either way, ±180° a return bend — 360° of \

@@ -34,9 +34,7 @@
 
 use super::fuel_rod::conductivity_at;
 use super::linalg::{solve_dense_lu, DenseMatrix};
-use super::{
-    radial_solution_nodes, FuelRodGeometry, FuelRodParams, RodMaterial, ThError, ThResult,
-};
+use super::{radial_solution_nodes, FuelRodGeometry, FuelRodParams, RodMaterial, ThError, ThResult};
 
 /// Advance one fuel pin through a single implicit-Euler time step.
 ///

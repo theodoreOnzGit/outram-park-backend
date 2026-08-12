@@ -239,7 +239,7 @@ pub fn neutron_group_structure(ign: i32) -> Result<Vec<f64>, NjoyError> {
                 }
             }
             egn[21 - 1] = SANDC; // correct group 21
-            // groups 46..450 are 10x the group 45 lower
+                                 // groups 46..450 are 10x the group 45 lower
             for ig in 46..=450usize {
                 egn[ig - 1] = egn[(ig - 45) - 1] * 10.0;
             }

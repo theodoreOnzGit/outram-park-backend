@@ -69,19 +69,21 @@ fn golden_section_max_g(
     a_pa: f64,
     b_pa: f64,
 ) -> (Pressure, MassFlux) {
-    let gr = (5.0_f64.sqrt() - 1.0) / 2.0;     // 0.618...
+    let gr = (5.0_f64.sqrt() - 1.0) / 2.0; // 0.618...
     let mut a = a_pa;
     let mut b = b_pa;
     let mut c = b - gr * (b - a);
     let mut d = a + gr * (b - a);
     for _ in 0..100 {
-        if (b - a).abs() < 1.0 { break; }      // 1 Pa bracket width
+        if (b - a).abs() < 1.0 {
+            break;
+        } // 1 Pa bracket width
         let gc = g_of_p(c).get::<kilogram_per_square_meter_second>();
         let gd = g_of_p(d).get::<kilogram_per_square_meter_second>();
         if gc > gd {
-            b = d;                             // peak is in [a, d]
+            b = d; // peak is in [a, d]
         } else {
-            a = c;                             // peak is in [c, b]
+            a = c; // peak is in [c, b]
         }
         c = b - gr * (b - a);
         d = a + gr * (b - a);
@@ -134,7 +136,6 @@ pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(
     p0: Pressure,
     h0: AvailableEnergy,
 ) -> (Pressure, MassFlux) {
-
     let s0 = s_ph_eqm(p0, h0);
     let p_min = Pressure::new::<megapascal>(0.000_611_212_677 * 1.01);
 
@@ -143,9 +144,9 @@ pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(
     let g_energy_of_p = |p_pa: f64| -> f64 {
         let p = Pressure::new::<pascal>(p_pa);
         let h = h_ps_eqm(p, s0);
-        let ke = h0 - h;                       // kinetic energy per unit mass
+        let ke = h0 - h; // kinetic energy per unit mass
         if ke < AvailableEnergy::ZERO {
-            return 0.0;                        // over-expanded guard
+            return 0.0; // over-expanded guard
         }
         let rho = v_ps_eqm(p, s0).recip();
         (rho * (2.0 * ke).sqrt()).get::<kilogram_per_square_meter_second>()
@@ -161,17 +162,19 @@ pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(
     //   In Encyclopedia of Engineering Optimization and Heuristics
     //   (pp. 1-4). Singapore: Springer Nature Singapore.
     let g_bubble = g_energy_of_p(p_bubble.get::<pascal>());
-    let gr = (5.0_f64.sqrt() - 1.0) / 2.0;     // 0.618...
+    let gr = (5.0_f64.sqrt() - 1.0) / 2.0; // 0.618...
     let mut a = p_min.get::<pascal>();
     let mut b = p_bubble.get::<pascal>();
     let mut c = b - gr * (b - a);
     let mut d = a + gr * (b - a);
     for _ in 0..100 {
-        if (b - a).abs() < 1.0 { break; }      // 1 Pa bracket width
+        if (b - a).abs() < 1.0 {
+            break;
+        } // 1 Pa bracket width
         if g_energy_of_p(c) > g_energy_of_p(d) {
-            b = d;                             // peak is in [a, d]
+            b = d; // peak is in [a, d]
         } else {
-            a = c;                             // peak is in [c, b]
+            a = c; // peak is in [c, b]
         }
         c = b - gr * (b - a);
         d = a + gr * (b - a);
@@ -180,9 +183,9 @@ pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(
     let g_two_phase = g_energy_of_p(p_two_phase.get::<pascal>());
 
     let (p_energy, g_energy) = if g_two_phase >= g_bubble {
-        (p_two_phase, g_two_phase)             // flashing choke
+        (p_two_phase, g_two_phase) // flashing choke
     } else {
-        (p_bubble, g_bubble)                   // bubble-point choke
+        (p_bubble, g_bubble) // bubble-point choke
     };
 
     // ── Near-saturation (x ≈ 0) correction ──────────────────────────────────
@@ -237,17 +240,22 @@ pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(
     let h_f_bubble = h_tp_eqm_two_phase(t_bubble, p_bubble, 0.0);
     let dh_bubble = (h0 - h_f_bubble).max(AvailableEnergy::ZERO);
     let v_bubble = (2.0 * dh_bubble).sqrt();
-    let subcooling_ratio = (v_bubble * rho_f / g_sonic_bubble)
-        .get::<uom::si::ratio::ratio>();
+    let subcooling_ratio = (v_bubble * rho_f / g_sonic_bubble).get::<uom::si::ratio::ratio>();
     if subcooling_ratio > DEEP_SUBCOOLING_RATIO {
-        return (p_energy, MassFlux::new::<kilogram_per_square_meter_second>(g_energy));
+        return (
+            p_energy,
+            MassFlux::new::<kilogram_per_square_meter_second>(g_energy),
+        );
     }
 
     let x_at_energy = two_phase_quality(p_energy, s0);
     if x_at_energy < 0.03 {
         (p_bubble, g_sonic_bubble)
     } else {
-        (p_energy, MassFlux::new::<kilogram_per_square_meter_second>(g_energy))
+        (
+            p_energy,
+            MassFlux::new::<kilogram_per_square_meter_second>(g_energy),
+        )
     }
 }
 
@@ -278,8 +286,8 @@ fn two_phase_quality(p: Pressure, s0: SpecificHeatCapacity) -> f64 {
 fn saturation_line_sonic_map() -> &'static Vec<(f64, f64)> {
     static MAP: OnceLock<Vec<(f64, f64)>> = OnceLock::new();
     MAP.get_or_init(|| {
-        let p_lo = 20_000.0_f64;       // ~3 psia
-        let p_hi = 21_000_000.0_f64;   // ~3000 psia
+        let p_lo = 20_000.0_f64; // ~3 psia
+        let p_hi = 21_000_000.0_f64; // ~3000 psia
         let n = 13;
         (0..n)
             .map(|i| {
@@ -287,8 +295,7 @@ fn saturation_line_sonic_map() -> &'static Vec<(f64, f64)> {
                 let p_pa = p_lo * (p_hi / p_lo).powf(f);
                 let p = Pressure::new::<pascal>(p_pa);
                 let s_f = s_tp_eqm_two_phase(sat_temp_4(p), p, 0.0);
-                let g = mass_flux_ps_eqm_throat(p, s_f)
-                    .get::<kilogram_per_square_meter_second>();
+                let g = mass_flux_ps_eqm_throat(p, s_f).get::<kilogram_per_square_meter_second>();
                 (p_pa, g)
             })
             .collect()
@@ -369,7 +376,6 @@ pub fn get_critical_pressure_and_mass_flux_superheated_vapour_ph(
     p0: Pressure,
     h0: AvailableEnergy,
 ) -> (Pressure, MassFlux) {
-
     let s0 = s_ph_eqm(p0, h0);
     let p_min = Pressure::new::<megapascal>(0.000_611_212_677 * 1.01);
 
@@ -377,12 +383,12 @@ pub fn get_critical_pressure_and_mass_flux_superheated_vapour_ph(
     let g_of_p = |p_pa: f64| -> MassFlux {
         let p = Pressure::new::<pascal>(p_pa);
         let h = h_ps_eqm(p, s0);
-        let ke = h0 - h;                       // kinetic energy per unit mass
+        let ke = h0 - h; // kinetic energy per unit mass
         if ke < AvailableEnergy::ZERO {
-            return MassFlux::ZERO;             // over-expanded guard
+            return MassFlux::ZERO; // over-expanded guard
         }
         let rho = v_ps_eqm(p, s0).recip();
-        rho * (2.0 * ke).sqrt()                // = rho * u
+        rho * (2.0 * ke).sqrt() // = rho * u
     };
 
     // dew point: where the isentrope first reaches saturation (x = 1) on
@@ -409,8 +415,8 @@ pub fn get_critical_pressure_and_mass_flux_superheated_vapour_ph(
     if g_vapour.get::<kilogram_per_square_meter_second>()
         >= g_two_phase.get::<kilogram_per_square_meter_second>()
     {
-        (p_vapour, g_vapour)                   // vapour sonic choke
+        (p_vapour, g_vapour) // vapour sonic choke
     } else {
-        (p_two_phase, g_two_phase)             // condensation choke
+        (p_two_phase, g_two_phase) // condensation choke
     }
 }

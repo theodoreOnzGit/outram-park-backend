@@ -144,11 +144,26 @@ fn main() {
         name: "HTR-10 UO2 kernel (17 wt% enriched)".into(),
         temperature: temperature_k,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: KERNEL_U235 },
-            NuclideComponent { nuclide_idx: 1, atom_density: KERNEL_U238 },
-            NuclideComponent { nuclide_idx: 2, atom_density: KERNEL_O16 },
-            NuclideComponent { nuclide_idx: 4, atom_density: KERNEL_B10 },
-            NuclideComponent { nuclide_idx: 5, atom_density: KERNEL_B11 },
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: KERNEL_U235,
+            },
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: KERNEL_U238,
+            },
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: KERNEL_O16,
+            },
+            NuclideComponent {
+                nuclide_idx: 4,
+                atom_density: KERNEL_B10,
+            },
+            NuclideComponent {
+                nuclide_idx: 5,
+                atom_density: KERNEL_B11,
+            },
         ],
     };
     let matrix = Material {
@@ -156,9 +171,18 @@ fn main() {
         name: "HTR-10 graphite matrix (1.73 g/cm^3, 1.3 ppm EBC)".into(),
         temperature: temperature_k,
         components: vec![
-            NuclideComponent { nuclide_idx: 3, atom_density: MATRIX_C },
-            NuclideComponent { nuclide_idx: 4, atom_density: MATRIX_B10 },
-            NuclideComponent { nuclide_idx: 5, atom_density: MATRIX_B11 },
+            NuclideComponent {
+                nuclide_idx: 3,
+                atom_density: MATRIX_C,
+            },
+            NuclideComponent {
+                nuclide_idx: 4,
+                atom_density: MATRIX_B10,
+            },
+            NuclideComponent {
+                nuclide_idx: 5,
+                atom_density: MATRIX_B11,
+            },
         ],
     };
 
@@ -170,10 +194,22 @@ fn main() {
         name: "HTR-10 fuel zone, homogenised".into(),
         temperature: temperature_k,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: KERNEL_U235 * f },
-            NuclideComponent { nuclide_idx: 1, atom_density: KERNEL_U238 * f },
-            NuclideComponent { nuclide_idx: 2, atom_density: KERNEL_O16 * f },
-            NuclideComponent { nuclide_idx: 3, atom_density: MATRIX_C * (1.0 - f) },
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: KERNEL_U235 * f,
+            },
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: KERNEL_U238 * f,
+            },
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: KERNEL_O16 * f,
+            },
+            NuclideComponent {
+                nuclide_idx: 3,
+                atom_density: MATRIX_C * (1.0 - f),
+            },
             NuclideComponent {
                 nuclide_idx: 4,
                 atom_density: KERNEL_B10 * f + MATRIX_B10 * (1.0 - f),
@@ -185,8 +221,13 @@ fn main() {
         ],
     };
 
-    let packed = PackedSpheres::pack(KERNEL_RADIUS_CM, half, kernel_packing_fraction, packing_seed)
-        .expect("RSA packs well below its 0.38 ceiling at this fraction");
+    let packed = PackedSpheres::pack(
+        KERNEL_RADIUS_CM,
+        half,
+        kernel_packing_fraction,
+        packing_seed,
+    )
+    .expect("RSA packs well below its 0.38 ceiling at this fraction");
 
     println!("=== HTR-10 fuel-zone infinite medium — rung 1 step 1a ===");
     println!("Data          : IAEA-TECDOC-1382 Table 4-38 atom densities (Open tier)");
@@ -194,9 +235,7 @@ fn main() {
     println!("Thermal       : FREE GAS — graphite S(alpha,beta) NOT applied (op-hc2o)");
     println!("Coatings      : NOT resolved — buffer/IPyC/SiC/OPyC smeared into matrix");
     println!("Temperature   : {temperature_k} K (benchmark B1 core temperature, 20 C)");
-    println!(
-        "Geometry      : reflective cube, half-width {half} cm, zero leakage (k_inf)"
-    );
+    println!("Geometry      : reflective cube, half-width {half} cm, zero leakage (k_inf)");
     println!(
         "Packing       : {} kernels of r = {} cm, target f = {:.6}, realized f = {:.6}, seed {}",
         packed.len(),
@@ -228,8 +267,13 @@ fn main() {
     // --- Case 1: doubly heterogeneous, kernels resolved explicitly. ---
     let het_materials = vec![kernel, matrix];
     let het_majorant = Majorant::bounding(&het_materials, &nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.1);
-    let material_at =
-        move |p: Position| Some(if packed.is_inside_kernel(p) { 0usize } else { 1usize });
+    let material_at = move |p: Position| {
+        Some(if packed.is_inside_kernel(p) {
+            0usize
+        } else {
+            1usize
+        })
+    };
     let het = run_keff_delta(
         half,
         &het_materials,

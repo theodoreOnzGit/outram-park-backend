@@ -396,7 +396,10 @@ impl SvleSystem {
                 });
             }
             if !rx.k.is_finite() || rx.k <= 0.0 {
-                return Err(SvleError::InvalidK { index: idx, k: rx.k });
+                return Err(SvleError::InvalidK {
+                    index: idx,
+                    k: rx.k,
+                });
             }
         }
         Ok(Self { species, reactions })
@@ -566,12 +569,7 @@ impl SvleSystem {
     /// Reaction log-residuals `f_i = ln(K_i / Q_i)` \[-\] at extents `ξ`, where
     /// `Q_i = Π_s a_s^{ν_{s,i}}` (`ElectrolyteSVLE.vb:643-696`). A solid term
     /// (`a = 1`) contributes 0. Returns the residual vector and the amounts.
-    fn residual(
-        &self,
-        n0: &[f64],
-        extents: &[f64],
-        act: &SvleActivity,
-    ) -> (Vec<f64>, Vec<f64>) {
+    fn residual(&self, n0: &[f64], extents: &[f64], act: &SvleActivity) -> (Vec<f64>, Vec<f64>) {
         let n = self.amounts_from_extents(n0, extents);
         let a = self.activities(&n, act);
         let mut ln_a = vec![0.0_f64; a.len()];
@@ -584,12 +582,7 @@ impl SvleSystem {
             .reactions
             .iter()
             .map(|rx| {
-                let ln_q: f64 = rx
-                    .stoich
-                    .iter()
-                    .zip(&ln_a)
-                    .map(|(&nu, &la)| nu * la)
-                    .sum();
+                let ln_q: f64 = rx.stoich.iter().zip(&ln_a).map(|(&nu, &la)| nu * la).sum();
                 rx.k.ln() - ln_q
             })
             .collect();
@@ -689,7 +682,10 @@ impl SvleSystem {
             return Err(SvleError::NonFinite);
         }
         // Zero out negligible negatives from round-off (ElectrolyteSVLE.vb:540).
-        let n: Vec<f64> = n.into_iter().map(|v| if v < 1.0e-50 { 0.0 } else { v }).collect();
+        let n: Vec<f64> = n
+            .into_iter()
+            .map(|v| if v < 1.0e-50 { 0.0 } else { v })
+            .collect();
         let x = self.liquid_mole_fractions(&n);
 
         Ok(SvleResult {
@@ -748,7 +744,11 @@ impl SvleSystem {
         // If no sign change, the root is at a feasibility bound: pick the
         // endpoint with the smaller |residual| (reaction limited by feed).
         if fa * fb > 0.0 {
-            let (xi, res) = if fa.abs() <= fb.abs() { (a, fa) } else { (b, fb) };
+            let (xi, res) = if fa.abs() <= fb.abs() {
+                (a, fa)
+            } else {
+                (b, fb)
+            };
             return Ok((vec![xi], 0, res.abs()));
         }
 
@@ -762,9 +762,7 @@ impl SvleSystem {
             // the interval can no longer be narrowed in floating point (the
             // residual is extremely steep — logarithmic — near the root, so a
             // width-based tolerance in extent space is not a residual bound).
-            if fm.abs() < opts.tol
-                || (b - a).abs() <= f64::EPSILON * (1.0 + mid.abs())
-            {
+            if fm.abs() < opts.tol || (b - a).abs() <= f64::EPSILON * (1.0 + mid.abs()) {
                 return Ok((vec![mid], it, fm.abs()));
             }
             if fa * fm < 0.0 {
@@ -853,11 +851,7 @@ impl SvleSystem {
             let mut accepted = false;
             let mut a = alpha;
             for _ in 0..40 {
-                let trial: Vec<f64> = extents
-                    .iter()
-                    .zip(&dxi)
-                    .map(|(&x, &d)| x + a * d)
-                    .collect();
+                let trial: Vec<f64> = extents.iter().zip(&dxi).map(|(&x, &d)| x + a * d).collect();
                 let (ft, _) = self.residual(n0, &trial, act);
                 if ft.iter().all(|v| v.is_finite()) && max_abs(&ft) < res {
                     extents = trial;
@@ -1202,7 +1196,10 @@ mod tests {
                 presets::hydrogen_ion(),
                 presets::hydroxide_ion(),
             ],
-            vec![EquilibriumReaction::new(vec![-1.0, 1.0, 1.0], presets::KW_25C)],
+            vec![EquilibriumReaction::new(
+                vec![-1.0, 1.0, 1.0],
+                presets::KW_25C,
+            )],
         )
         .unwrap();
         let n0 = vec![N_WATER_1KG, 0.0, 0.0];
@@ -1265,7 +1262,10 @@ mod tests {
                 presets::hydrogen_ion(),
                 presets::hydroxide_ion(),
             ],
-            vec![EquilibriumReaction::new(vec![-1.0, 1.0, 1.0], presets::KW_25C)],
+            vec![EquilibriumReaction::new(
+                vec![-1.0, 1.0, 1.0],
+                presets::KW_25C,
+            )],
         )
         .unwrap();
         let n0 = vec![N_WATER_1KG, 0.0, 0.0];
@@ -1390,7 +1390,10 @@ mod tests {
                 presets::hydrogen_ion(),
                 presets::hydroxide_ion(),
             ],
-            vec![EquilibriumReaction::new(vec![-1.0, 1.0, 1.0], presets::KW_25C)],
+            vec![EquilibriumReaction::new(
+                vec![-1.0, 1.0, 1.0],
+                presets::KW_25C,
+            )],
         )
         .unwrap();
         let n0 = vec![N_WATER_1KG, 0.0, 0.0];

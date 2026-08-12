@@ -185,8 +185,8 @@ where
         // dequeued and ignored, not an error.
         if flowsheet.contains(&id) {
             let active = flowsheet.object(&id).is_some_and(|o| o.active);
-            let sender_ok = !options.flowsheet_solver_mode
-                || info.sender == CalculationSender::FlowsheetSolver;
+            let sender_ok =
+                !options.flowsheet_solver_mode || info.sender == CalculationSender::FlowsheetSolver;
 
             if let Some(obj) = flowsheet.object_mut(&id) {
                 obj.error_message = None;
@@ -315,11 +315,13 @@ mod tests {
         reset_calculated_flags(&mut fs, &ids);
 
         let mut seen: Vec<String> = Vec::new();
-        let mut calculate =
-            |_fs: &mut Flowsheet, args: &CalculationArgs, _o: QueueOptions| -> Result<(), SolverError> {
-                seen.push(args.tag.clone());
-                Ok(())
-            };
+        let mut calculate = |_fs: &mut Flowsheet,
+                             args: &CalculationArgs,
+                             _o: QueueOptions|
+         -> Result<(), SolverError> {
+            seen.push(args.tag.clone());
+            Ok(())
+        };
         let report = process_queue(
             &mut fs,
             QueueOptions::default(),
@@ -354,14 +356,16 @@ mod tests {
         let (mut fs, ids) = rig();
         enqueue_solving_order(&mut fs, &ids);
 
-        let mut calculate =
-            |_fs: &mut Flowsheet, args: &CalculationArgs, _o: QueueOptions| -> Result<(), SolverError> {
-                if args.tag == "HT-1" {
-                    Err(SolverError::Other("boom".to_string()))
-                } else {
-                    Ok(())
-                }
-            };
+        let mut calculate = |_fs: &mut Flowsheet,
+                             args: &CalculationArgs,
+                             _o: QueueOptions|
+         -> Result<(), SolverError> {
+            if args.tag == "HT-1" {
+                Err(SolverError::Other("boom".to_string()))
+            } else {
+                Ok(())
+            }
+        };
         let report = process_queue(
             &mut fs,
             QueueOptions::default(),
@@ -394,20 +398,21 @@ mod tests {
         let (mut fs, ids) = rig();
         enqueue_solving_order(&mut fs, &ids);
 
-        let mut calculate =
-            |_fs: &mut Flowsheet, args: &CalculationArgs, _o: QueueOptions| -> Result<(), SolverError> {
-                if args.tag == "HT-1" {
-                    Err(SolverError::Other("boom".to_string()))
-                } else {
-                    Ok(())
-                }
-            };
+        let mut calculate = |_fs: &mut Flowsheet,
+                             args: &CalculationArgs,
+                             _o: QueueOptions|
+         -> Result<(), SolverError> {
+            if args.tag == "HT-1" {
+                Err(SolverError::Other("boom".to_string()))
+            } else {
+                Ok(())
+            }
+        };
         let options = QueueOptions {
             break_on_exception: true,
             ..QueueOptions::default()
         };
-        let report =
-            process_queue(&mut fs, options, &AbortFlag::new(), &mut calculate).unwrap();
+        let report = process_queue(&mut fs, options, &AbortFlag::new(), &mut calculate).unwrap();
 
         assert!(report.stopped_early);
         assert_eq!(report.dequeued, 1);
@@ -430,10 +435,10 @@ mod tests {
         let (mut fs, ids) = rig();
         fs.object_mut(&ids[1]).unwrap().active = false;
         enqueue_solving_order(&mut fs, &ids);
-        let mut calculate =
-            |_fs: &mut Flowsheet, _a: &CalculationArgs, _o: QueueOptions| -> Result<(), SolverError> {
-                Ok(())
-            };
+        let mut calculate = |_fs: &mut Flowsheet,
+                             _a: &CalculationArgs,
+                             _o: QueueOptions|
+         -> Result<(), SolverError> { Ok(()) };
         let report = process_queue(
             &mut fs,
             QueueOptions::default(),
@@ -453,8 +458,7 @@ mod tests {
             flowsheet_solver_mode: true,
             ..QueueOptions::default()
         };
-        let report =
-            process_queue(&mut fs, options, &AbortFlag::new(), &mut calculate).unwrap();
+        let report = process_queue(&mut fs, options, &AbortFlag::new(), &mut calculate).unwrap();
         assert_eq!(report.dequeued, 1);
         assert_eq!(report.calculated, 0);
 
@@ -495,13 +499,8 @@ mod tests {
             abort_for_closure.request_abort();
             Ok(())
         };
-        let err = process_queue(
-            &mut fs,
-            QueueOptions::default(),
-            &abort,
-            &mut calculate,
-        )
-        .unwrap_err();
+        let err =
+            process_queue(&mut fs, QueueOptions::default(), &abort, &mut calculate).unwrap_err();
         assert_eq!(err, SolverError::Aborted);
         assert_eq!(runs, 1);
         assert_eq!(fs.calculation_queue.len(), 3);

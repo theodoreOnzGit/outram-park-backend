@@ -244,7 +244,10 @@ fn group_integrate_spectrum(spectrum: &[(f64, f64)], bounds: &[f64]) -> Vec<f64>
             continue;
         }
         let area = 0.5 * (ya + yb) * de;
-        let g = bounds.partition_point(|&b| b <= mid).saturating_sub(1).min(n_g - 1);
+        let g = bounds
+            .partition_point(|&b| b <= mid)
+            .saturating_sub(1)
+            .min(n_g - 1);
         acc[g] += area;
     }
     let total: f64 = acc.iter().sum();
@@ -284,14 +287,28 @@ mod tests {
         let g_spec = vec![(0.0, 0.0), (1.0e6, 1.0e-6), (2.0e6, 0.0)];
         let chi = DelayedChi {
             groups: vec![
-                DelayedChiGroup { fraction: vec![(1.0e-5, 0.3), (2.0e7, 0.3)], lf: 5, spectrum: g_spec.clone() },
-                DelayedChiGroup { fraction: vec![(1.0e-5, 0.7), (2.0e7, 0.7)], lf: 5, spectrum: g_spec },
+                DelayedChiGroup {
+                    fraction: vec![(1.0e-5, 0.3), (2.0e7, 0.3)],
+                    lf: 5,
+                    spectrum: g_spec.clone(),
+                },
+                DelayedChiGroup {
+                    fraction: vec![(1.0e-5, 0.7), (2.0e7, 0.7)],
+                    lf: 5,
+                    spectrum: g_spec,
+                },
             ],
         };
 
         let bounds = vec![1.0, 5.0e6, 1.0e7];
         let dm = DelayedMgxs::collapse(
-            "SYNTH", &energy, &fission, &nu_total, &delayed, &chi, &bounds,
+            "SYNTH",
+            &energy,
+            &fission,
+            &nu_total,
+            &delayed,
+            &chi,
+            &bounds,
             &WeightingSpectrum::OneOverE,
         );
 

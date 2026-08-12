@@ -347,7 +347,10 @@ impl DynamicColumn {
     /// returns [`ColumnError::UnsupportedConfiguration`] if an energy-balance
     /// denominator (a latent heat) is non-positive — a sign the enthalpy model
     /// or state is unphysical.
-    pub fn profiles(&self, state: &DynamicColumnState) -> Result<DynamicColumnProfiles, ColumnError> {
+    pub fn profiles(
+        &self,
+        state: &DynamicColumnState,
+    ) -> Result<DynamicColumnProfiles, ColumnError> {
         let n = self.n_stages;
         let last = n - 1;
 
@@ -361,9 +364,9 @@ impl DynamicColumn {
         let mut t = vec![0.0; n];
         let mut y = vec![vec![0.0; self.n_comp]; n];
         for j in 0..n {
-            let (tj, kj) = self
-                .thermo
-                .bubble_temperature(&x[j], self.pressures[j], self.t_guess[j], j)?;
+            let (tj, kj) =
+                self.thermo
+                    .bubble_temperature(&x[j], self.pressures[j], self.t_guess[j], j)?;
             t[j] = tj;
             if j != 0 {
                 for i in 0..self.n_comp {
@@ -374,10 +377,16 @@ impl DynamicColumn {
 
         // 3. Molar enthalpies per stage.
         let hl: Vec<f64> = (0..n)
-            .map(|j| self.thermo.liquid_molar_enthalpy(&x[j], t[j], self.pressures[j]))
+            .map(|j| {
+                self.thermo
+                    .liquid_molar_enthalpy(&x[j], t[j], self.pressures[j])
+            })
             .collect();
         let hv: Vec<f64> = (0..n)
-            .map(|j| self.thermo.vapor_molar_enthalpy(&y[j], t[j], self.pressures[j]))
+            .map(|j| {
+                self.thermo
+                    .vapor_molar_enthalpy(&y[j], t[j], self.pressures[j])
+            })
             .collect();
 
         // 4. Interior liquid flows from hydraulics. L[0] (reflux) and L[last]
@@ -396,7 +405,8 @@ impl DynamicColumn {
         // Q = V(hv - hl) + L_in(hl_reb - hl_above)  =>  solve for V.
         let denom_reb = hv[last] - hl[last];
         Self::check_latent(denom_reb, last)?;
-        v[last] = (self.op.reboiler_duty_watts - l_above_reb * (hl[last] - hl[last - 1])) / denom_reb;
+        v[last] =
+            (self.op.reboiler_duty_watts - l_above_reb * (hl[last] - hl[last - 1])) / denom_reb;
 
         // Interior stages, from `last-1` down to `1`.
         for j in (1..last).rev() {
@@ -405,15 +415,16 @@ impl DynamicColumn {
                 // Stage 1's liquid-from-above is the reflux L_0 = R/(R+1) * V_1,
                 // which couples V_1 to itself. Solve the substituted balance.
                 let r = self.op.reflux_ratio;
-                let rest = v[j + 1] * hv[j + 1] + self.feed_flows[j] * self.feed_enth[j]
-                    + self.heats[j]
-                    - (l[j] + self.liquid_side[j]) * hl[j]
-                    - self.vapor_side[j] * hv[j];
+                let rest =
+                    v[j + 1] * hv[j + 1] + self.feed_flows[j] * self.feed_enth[j] + self.heats[j]
+                        - (l[j] + self.liquid_side[j]) * hl[j]
+                        - self.vapor_side[j] * hv[j];
                 let denom = hv[j] - (r / (r + 1.0)) * hl[0];
                 Self::check_latent(denom, j)?;
                 v[j] = rest / denom;
             } else {
-                let rest = l_above * hl[j - 1] + v[j + 1] * hv[j + 1]
+                let rest = l_above * hl[j - 1]
+                    + v[j + 1] * hv[j + 1]
                     + self.feed_flows[j] * self.feed_enth[j]
                     + self.heats[j]
                     - (l[j] + self.liquid_side[j]) * hl[j]
@@ -661,7 +672,9 @@ mod tests {
             PropertyPackageModel::Ideal,
             stages,
             ColumnSpec::reflux_ratio(2.0),
-            ColumnSpec::heat_duty(uom::si::f64::Power::new::<uom::si::power::watt>(reboiler_duty_w)),
+            ColumnSpec::heat_duty(uom::si::f64::Power::new::<uom::si::power::watt>(
+                reboiler_duty_w,
+            )),
         )
         .with_distillate_estimate(MolarFlowRate::new::<katal>(0.5))
         .with_reflux_ratio_estimate(2.0)

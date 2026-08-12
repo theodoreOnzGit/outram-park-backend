@@ -709,9 +709,8 @@ impl DecaySecondOrderExponentialResponse {
                 // i'm not going to go into specifics... but this
                 // will have to do
 
-                let exponent_ratio: Ratio = lambda_t
-                    * (-lambda_t.get::<ratio>()).exp()
-                    * inverse_lambda.get::<second>();
+                let exponent_ratio: Ratio =
+                    lambda_t * (-lambda_t.get::<ratio>()).exp() * inverse_lambda.get::<second>();
 
                 let exponent_decayed: bool =
                     at > Ratio::new::<ratio>(23.0) && bt > Ratio::new::<ratio>(23.0);

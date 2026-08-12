@@ -72,8 +72,8 @@ use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
 
 use tampines_steam_tables::interfaces::functional_programming::pt_flash_eqm::{
-    cp_tp_eqm_single_phase, h_tp_eqm_single_phase, mu_tp_eqm_single_phase,
-    u_tp_eqm_single_phase, v_tp_eqm_single_phase,
+    cp_tp_eqm_single_phase, h_tp_eqm_single_phase, mu_tp_eqm_single_phase, u_tp_eqm_single_phase,
+    v_tp_eqm_single_phase,
 };
 use tampines_steam_tables::region_4_vap_liq_equilibrium::sat_pressure_4;
 

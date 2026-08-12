@@ -310,7 +310,11 @@ mod tests {
         );
         match outcome {
             DepletionOutcome::Surviving { nuclide } => {
-                assert_eq!(nuclide, Nuclide::Cs134, "target should have captured to Cs-134");
+                assert_eq!(
+                    nuclide,
+                    Nuclide::Cs134,
+                    "target should have captured to Cs-134"
+                );
             }
             other => panic!("expected Surviving as Cs-134, got {other:?}"),
         }

@@ -20,10 +20,10 @@
 /// Given the throat pressure and enthalpy, it should guess the stagnation
 /// enthalpy correctly.
 pub mod backward_throat_to_stagnation;
-/// this contains a test suite for stagnation (p0,h0) points within 
+/// this contains a test suite for stagnation (p0,h0) points within
 /// the vapour liquid equilibrium (VLE)
 ///
-/// this VLE looks like a dome on the (p,h) diagram for the steam 
+/// this VLE looks like a dome on the (p,h) diagram for the steam
 /// tables.
 ///
 /// Hence this test suite is called in dome stagnation

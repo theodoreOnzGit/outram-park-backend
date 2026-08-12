@@ -72,9 +72,7 @@ use crate::dynamics::event_set::EventSet;
 use crate::dynamics::historian::{FlowsheetSnapshot, Historian};
 use crate::dynamics::integrator::Integrator;
 use crate::dynamics::property::{property_value, set_property_value, PropertyRef};
-use crate::dynamics::runner::{
-    run_integrator, IntegratorRunOptions, IntegratorRunSetup, RunReport,
-};
+use crate::dynamics::runner::{run_integrator, IntegratorRunOptions, IntegratorRunSetup, RunReport};
 use crate::dynamics::schedule::Schedule;
 use crate::dynamics::sim_time::SimInstant;
 use crate::flowsheet::graph::Flowsheet;

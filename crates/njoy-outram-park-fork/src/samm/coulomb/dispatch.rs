@@ -28,7 +28,14 @@ pub struct CoulombPsp {
 /// `P,S,phi` at `L=lll`, for `eta >> rho` — ported from `bigeta`
 /// (`samm.f90:4852-4967`, Abramowitz & Stegun Eqs. 14.6.7-8), using the
 /// modified Bessel functions `I_0,I_1,K_0,K_1` of `z=2*sqrt(2*rho*eta)`.
-pub fn bigeta(eta: f64, rho: f64, lll: i32, jdopha: bool, jdoder: bool, ishift: i32) -> Option<CoulombPsp> {
+pub fn bigeta(
+    eta: f64,
+    rho: f64,
+    lll: i32,
+    jdopha: bool,
+    jdoder: bool,
+    ishift: i32,
+) -> Option<CoulombPsp> {
     let q = 2.0 * rho * eta;
     let zhalf = q.sqrt();
     let z = zhalf * 2.0;
@@ -139,7 +146,15 @@ pub fn bigeta(eta: f64, rho: f64, lll: i32, jdopha: bool, jdoder: bool, ishift: 
         let p = (rho * b / g[n]) / g[n] * b;
         let s = if ishift > 0 { rho * gpr[n] / g[n] } else { 0.0 };
         let sinphi = if jdopha { f[n] / g[n] * b * b } else { 0.0 };
-        Some(CoulombPsp { p, s, dp: 0.0, sinphi, cosphi: 1.0, dphi: 0.0, dshift: 0.0 })
+        Some(CoulombPsp {
+            p,
+            s,
+            dp: 0.0,
+            sinphi,
+            cosphi: 1.0,
+            dphi: 0.0,
+            dshift: 0.0,
+        })
     } else {
         f[n] *= b;
         g[n] /= b;
@@ -151,7 +166,17 @@ pub fn bigeta(eta: f64, rho: f64, lll: i32, jdopha: bool, jdoder: bool, ishift: 
 
 /// `P,S,phi` (and derivatives) at `L=lll` from already-computed `F,G,F',G'`
 /// arrays — ported from `getps` (`samm.f90:4969-4996`).
-pub fn getps(rho: f64, lll: i32, f: &[f64], fpr: &[f64], g: &[f64], gpr: &[f64], jdopha: bool, jdoder: bool, ishift: i32) -> CoulombPsp {
+pub fn getps(
+    rho: f64,
+    lll: i32,
+    f: &[f64],
+    fpr: &[f64],
+    g: &[f64],
+    gpr: &[f64],
+    jdopha: bool,
+    jdoder: bool,
+    ishift: i32,
+) -> CoulombPsp {
     let n = lll as usize;
     let asq = f[n].powi(2) + g[n].powi(2);
     let a = asq.sqrt();
@@ -165,18 +190,37 @@ pub fn getps(rho: f64, lll: i32, f: &[f64], fpr: &[f64], g: &[f64], gpr: &[f64],
     let (sinphi, cosphi, dphi) = if jdopha {
         let sinphi = f[n] / a;
         let cosphi = g[n] / a;
-        let dphi = if jdoder { (gpr[n] * f[n] - g[n] * fpr[n]) / asq } else { 0.0 };
+        let dphi = if jdoder {
+            (gpr[n] * f[n] - g[n] * fpr[n]) / asq
+        } else {
+            0.0
+        };
         (sinphi, cosphi, dphi)
     } else {
         (0.0, 0.0, 0.0)
     };
-    CoulombPsp { p, s, dp, sinphi, cosphi, dphi, dshift: 0.0 }
+    CoulombPsp {
+        p,
+        s,
+        dp,
+        sinphi,
+        cosphi,
+        dphi,
+        dshift: 0.0,
+    }
 }
 
 /// Dispatcher between the three Coulomb evaluation strategies (large `eta`,
 /// finite `eta` with large `rhoi`, finite `eta` with moderate `rhoi`) —
 /// ported from `coulx` (`samm.f90:4340-4399`).
-pub fn coulx(eta: f64, rho: f64, lll: i32, jdopha: bool, jdoder: bool, ishift: i32) -> Option<CoulombPsp> {
+pub fn coulx(
+    eta: f64,
+    rho: f64,
+    lll: i32,
+    jdopha: bool,
+    jdoder: bool,
+    ishift: i32,
+) -> Option<CoulombPsp> {
     if eta > 10.0 * rho && eta > 5.0 {
         return bigeta(eta, rho, lll, jdopha, jdoder, ishift);
     }

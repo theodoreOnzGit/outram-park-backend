@@ -379,7 +379,11 @@ pub fn flash_pt_svlle(
         || !l1.is_finite()
         || !l2.is_finite()
         || !s.is_finite()
-        || x1.iter().chain(x2.iter()).chain(vs.iter()).any(|q| !q.is_finite())
+        || x1
+            .iter()
+            .chain(x2.iter())
+            .chain(vs.iter())
+            .any(|q| !q.is_finite())
     {
         return Err(SvlleFlashError::NonFinite);
     }
@@ -419,9 +423,7 @@ mod tests {
 
     use super::*;
     use crate::thermo::component::reference;
-    use crate::thermo::flash::{
-        nested_loops_flash, NestedLoopsOptions,
-    };
+    use crate::thermo::flash::{nested_loops_flash, NestedLoopsOptions};
     use crate::thermo::flash_sle::flash_sl;
     use crate::thermo::flash_vlle::{eos_k_values, flash_pt_vlle};
     use approx::assert_abs_diff_eq;
@@ -490,8 +492,7 @@ mod tests {
 
         // Overall four-phase mole balance.
         for i in 0..z.len() {
-            let recon =
-                r.v * r.y[i] + r.l1 * r.x1[i] + r.l2 * r.x2[i] + r.s * r.vs[i];
+            let recon = r.v * r.y[i] + r.l1 * r.x1[i] + r.l2 * r.x2[i] + r.s * r.vs[i];
             assert_abs_diff_eq!(recon, z[i], epsilon = 1e-9);
         }
     }
@@ -576,9 +577,10 @@ mod tests {
         let eos = CubicEos::PengRobinson;
 
         // Confirm the fluid is all-liquid at these conditions (β = 0).
-        let k_closure = |x: &[f64], y: &[f64], t: f64, p: f64| eos_k_values(eos, &comps, x, y, t, p);
-        let vle =
-            nested_loops_flash(&z, &comps, t, p, &k_closure, NestedLoopsOptions::default()).unwrap();
+        let k_closure =
+            |x: &[f64], y: &[f64], t: f64, p: f64| eos_k_values(eos, &comps, x, y, t, p);
+        let vle = nested_loops_flash(&z, &comps, t, p, &k_closure, NestedLoopsOptions::default())
+            .unwrap();
         assert_abs_diff_eq!(vle.beta, 0.0, epsilon = 1e-9);
 
         // Direct SLE reference on the feed.

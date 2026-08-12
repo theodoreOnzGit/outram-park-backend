@@ -292,7 +292,7 @@ pub fn vapor_molecular_weight(gas_sg: SpecificGravity) -> GramsPerMole {
 /// - returns — liquid molar mass, g/mol.
 #[inline]
 pub fn liquid_molecular_weight(oil_sg: SpecificGravity, bsw_percent: f64) -> GramsPerMole {
-    let hc = ((( 1.07 - oil_sg).ln() - 3.560_73) / -2.938_86).powi(10);
+    let hc = (((1.07 - oil_sg).ln() - 3.560_73) / -2.938_86).powi(10);
     (100.0 - bsw_percent) / 100.0 * hc + bsw_percent / 100.0 * 18.0
 }
 
@@ -585,7 +585,9 @@ pub fn gas_compressibility_factor(
         let c3 = a7 / tpr + a8 / (tpr * tpr);
         let z_ant = z;
         z = 1.0 + c1 * rhopr + c2 * rhopr.powi(2) - a9 * c3 * rhopr.powi(5)
-            + a10 * (1.0 + a11 * rhopr * rhopr) * (rhopr * rhopr / tpr.powi(3))
+            + a10
+                * (1.0 + a11 * rhopr * rhopr)
+                * (rhopr * rhopr / tpr.powi(3))
                 * (-a11 * rhopr * rhopr).exp();
         cnt += 1;
         if (z - z_ant).abs() < 0.0001 || cnt > 1000 {
@@ -671,8 +673,7 @@ pub fn gas_viscosity(
     let ppr = p_psia / ppc;
     let tpr = trank / tpc;
 
-    let mug1 = (0.000_017_09 - 0.000_002_062 * gas_sg) * tf + 0.008_188
-        - 0.006_15 * log10(gas_sg);
+    let mug1 = (0.000_017_09 - 0.000_002_062 * gas_sg) * tf + 0.008_188 - 0.006_15 * log10(gas_sg);
 
     // Dempsey C-polynomial constants (BlackOilProperties.vb L284-299).
     let a: [f64; 16] = [
@@ -694,7 +695,10 @@ pub fn gas_viscosity(
         -0.000_609_579_263,
     ];
 
-    let c = a[0] + a[1] * ppr + a[2] * ppr.powi(2) + a[3] * ppr.powi(3)
+    let c = a[0]
+        + a[1] * ppr
+        + a[2] * ppr.powi(2)
+        + a[3] * ppr.powi(3)
         + tpr * (a[4] + a[5] * ppr + a[6] * ppr.powi(2) + a[7] * ppr.powi(3))
         + tpr.powi(2) * (a[8] + a[9] * ppr + a[10] * ppr.powi(2) + a[11] * ppr.powi(3))
         + tpr.powi(3) * (a[12] + a[13] * ppr + a[14] * ppr.powi(2) + a[15] * ppr.powi(3));

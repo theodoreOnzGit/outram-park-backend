@@ -337,7 +337,7 @@ impl TrisoParticle {
     /// model, which `op-jyyp.10` flags as unverified.
     pub fn to_boon_lay_cell(
         &self,
-    ) -> boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell {
+    ) -> boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell{
         boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell::new(
             self.kernel_radius,
             self.buffer_outer_radius,
@@ -974,13 +974,10 @@ mod tests {
         let particle = TrisoParticle::htr10();
 
         let expected_micrometres = [250.0, 340.0, 380.0, 415.0, 455.0];
-        let measured_micrometres = TrisoLayer::ALL
-            .map(|layer| particle.layer_outer_radius(layer).get::<micrometer>());
+        let measured_micrometres =
+            TrisoLayer::ALL.map(|layer| particle.layer_outer_radius(layer).get::<micrometer>());
 
-        for (expected, measured) in expected_micrometres
-            .iter()
-            .zip(measured_micrometres.iter())
-        {
+        for (expected, measured) in expected_micrometres.iter().zip(measured_micrometres.iter()) {
             println!("layer outer radius: measured {measured} um, expected {expected} um");
             assert_relative_eq!(*expected, *measured, max_relative = 1e-9);
         }
@@ -1020,11 +1017,7 @@ mod tests {
         let surface = ThermodynamicTemperature::new::<kelvin>(1000.0);
 
         let profile = particle
-            .steady_state_temperatures(
-                Power::new::<watt>(0.0),
-                surface,
-                Ratio::new::<ratio>(0.0),
-            )
+            .steady_state_temperatures(Power::new::<watt>(0.0), surface, Ratio::new::<ratio>(0.0))
             .unwrap();
 
         println!("zero-power profile: {profile:?}");
@@ -1119,8 +1112,7 @@ mod tests {
         assert_relative_eq!(hand_rise_kelvin, assembled_kelvin, max_relative = 1e-12);
 
         // (b) thin-coating limit: the layered stack becomes one solid sphere
-        let thin_radii = [1.00000025, 1.0000005, 1.00000075, 1.000001]
-            .map(|scale| r0 * scale);
+        let thin_radii = [1.00000025, 1.0000005, 1.00000075, 1.000001].map(|scale| r0 * scale);
         let mut thin_rise = solid_sphere_centre_temperature_rise(power, r0, k);
         let mut inner = r0;
         for outer in thin_radii {
@@ -1175,8 +1167,8 @@ mod tests {
 
         // UO2
         let x: f64 = 1.0;
-        let uo2_hand =
-            115.8 / (7.5408 + 17.692 * x + 3.6142 * x * x) + 7410.5 * x.powf(-2.5) * (-16.35 / x).exp();
+        let uo2_hand = 115.8 / (7.5408 + 17.692 * x + 3.6142 * x * x)
+            + 7410.5 * x.powf(-2.5) * (-16.35 / x).exp();
         let uo2_measured = uranium_dioxide_thermal_conductivity(temperature)
             .unwrap()
             .get::<watt_per_meter_kelvin>();
@@ -1184,7 +1176,8 @@ mod tests {
         assert_relative_eq!(uo2_hand, uo2_measured, max_relative = 1e-12);
 
         // dense pyrocarbon at 1900 kg/m^3
-        let pyc_hand = 244.3 * 1000.0_f64.powf(-0.574) * (1900.0 / (2.2 * (1930.0 - 1900.0) + 1900.0));
+        let pyc_hand =
+            244.3 * 1000.0_f64.powf(-0.574) * (1900.0 / (2.2 * (1930.0 - 1900.0) + 1900.0));
         let pyc_measured =
             pyrocarbon_thermal_conductivity(temperature, particle.pyrocarbon_density, fresh)
                 .unwrap()
@@ -1238,7 +1231,9 @@ mod tests {
             uranium_dioxide_thermal_conductivity(ThermodynamicTemperature::new::<kelvin>(250.0))
                 .is_err()
         );
-        assert!(silicon_carbide_thermal_conductivity(temperature, Ratio::new::<ratio>(20.0)).is_err());
+        assert!(
+            silicon_carbide_thermal_conductivity(temperature, Ratio::new::<ratio>(20.0)).is_err()
+        );
     }
 
     /// V&V test: the effective (series-mixed) particle conductivity lies
@@ -1394,8 +1389,10 @@ mod tests {
         assert!(profile.total_rise().value < 50.0);
 
         // per-layer resistance split
-        let kernel_drop =
-            crate::pebble_bed::temperature_difference(profile.kernel_centre, profile.kernel_surface);
+        let kernel_drop = crate::pebble_bed::temperature_difference(
+            profile.kernel_centre,
+            profile.kernel_surface,
+        );
         let buffer_drop =
             crate::pebble_bed::temperature_difference(profile.kernel_surface, profile.buffer_outer);
         println!(

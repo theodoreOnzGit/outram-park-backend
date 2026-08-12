@@ -121,7 +121,7 @@ pub fn released_fraction(outcomes: &[DepletionOutcome]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::calculate_analytical_fraction_released;
+        use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::calculate_analytical_fraction_released;
     use uom::si::length::micrometer;
     use uom::si::thermodynamic_temperature::degree_celsius;
     use uom::si::time::hour;

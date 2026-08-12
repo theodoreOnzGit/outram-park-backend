@@ -102,7 +102,11 @@ pub struct SabMatrix {
 impl SabMatrix {
     /// Allocate a zeroed `nbeta x nalpha` table.
     pub fn zeros(nbeta: usize, nalpha: usize) -> Self {
-        Self { nalpha, nbeta, data: vec![0.0; nbeta * nalpha] }
+        Self {
+            nalpha,
+            nbeta,
+            data: vec![0.0; nbeta * nalpha],
+        }
     }
 
     /// Read `S(alpha_ialpha, -beta_ibeta)` (dimensionless).

@@ -24,7 +24,7 @@
 /// C-9,0.04699,67.40722,66.51369,39.87633,39.64593,
 pub mod hot_leg_calibration;
 
-/// calibration strategy is to adjust insulation thickness 
+/// calibration strategy is to adjust insulation thickness
 /// until correct parasitic heat loss is achieved
 ///
 /// Zweibaum's unpublished data:

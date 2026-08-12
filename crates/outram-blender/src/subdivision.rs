@@ -259,8 +259,7 @@ fn subdivide_once(mesh: &Mesh) -> Mesh {
 
     // ---- Assemble deduplicated new vertices with contiguous indices. -------
     // Layout: [ vertex points (v_count) | edge points (e_count) | face points ].
-    let mut new_positions: Vec<Vec3> =
-        Vec::with_capacity(v_count + e_count + polygons.len());
+    let mut new_positions: Vec<Vec3> = Vec::with_capacity(v_count + e_count + polygons.len());
     new_positions.extend_from_slice(&vertex_point);
     new_positions.extend_from_slice(&edge_point);
     new_positions.extend_from_slice(&face_point);

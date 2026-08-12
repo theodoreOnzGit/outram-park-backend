@@ -50,9 +50,7 @@
 use std::sync::Arc;
 
 use outram_foam_basic_lib::fv_operators::fvc;
-use outram_foam_basic_lib::prelude::{
-    Field, FvMesh, PatchField, SurfaceScalarField, VolScalarField,
-};
+use outram_foam_basic_lib::prelude::{Field, FvMesh, PatchField, SurfaceScalarField, VolScalarField};
 
 use crate::error::MoltresError;
 

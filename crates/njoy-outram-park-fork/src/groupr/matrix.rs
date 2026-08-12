@@ -241,7 +241,9 @@ impl FeedFunction {
         nl: usize,
     ) -> Result<FeedDeposit, NjoyError> {
         if nl == 0 {
-            return Err(NjoyError::EndfParse("scatter_matrix: nl must be >= 1".into()));
+            return Err(NjoyError::EndfParse(
+                "scatter_matrix: nl must be >= 1".into(),
+            ));
         }
         if secondary_bounds.len() < 2 {
             return Err(NjoyError::EndfParse(
@@ -309,8 +311,8 @@ fn elastic_deposit(awr: f64, e_in: f64, bounds: &[f64], nl: usize) -> FeedDeposi
         for (node, weight) in GL8_NODES.iter().zip(GL8_WEIGHTS.iter()) {
             let wqp = aa + b * node; // CM cosine
             let wqw = b * weight; // CM-cosine weight
-            // Isotropic CM distribution: prob = sum fle(il) P(il) (2il-1)/2
-            //   with fle = [1, 0, …]  ->  prob = 1/2 (getdis:9523-9526).
+                                  // Isotropic CM distribution: prob = sum fle(il) P(il) (2il-1)/2
+                                  //   with fle = [1, 0, …]  ->  prob = 1/2 (getdis:9523-9526).
             let prob_cm = 0.5;
             // CM -> lab cosine (getdis:9552); yld = 1 for elastic (getdis:9414).
             let denom = (one_p_ast2 + 2.0 * ast * wqp).sqrt();
@@ -503,7 +505,9 @@ pub fn scatter_matrix(
     nl: usize,
 ) -> Result<ScatterMatrix, NjoyError> {
     if nl == 0 {
-        return Err(NjoyError::EndfParse("scatter_matrix: nl must be >= 1".into()));
+        return Err(NjoyError::EndfParse(
+            "scatter_matrix: nl must be >= 1".into(),
+        ));
     }
     validate_bounds(incident_bounds, "incident_bounds")?;
     validate_bounds(secondary_bounds, "secondary_bounds")?;
@@ -827,10 +831,7 @@ mod tests {
 
         let section = m.to_gendf_section(6, 2, 6012.0, 0.0, 293.6);
         // At least one record must be a real matrix record (NG2 > 2, IG2LO > 0).
-        let has_matrix = section
-            .records
-            .iter()
-            .any(|r| r.ng2 > 2 && r.ig2lo > 0);
+        let has_matrix = section.records.iter().any(|r| r.ng2 > 2 && r.ig2lo > 0);
         assert!(has_matrix, "expected a NG2>2, IG2LO>0 matrix record");
         assert_eq!(section.nl, 2);
 

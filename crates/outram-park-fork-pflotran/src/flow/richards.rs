@@ -272,7 +272,11 @@ impl RichardsProblem {
         let rho_n = self.rho(p_n);
         let rho_face = 0.5 * (rho_o + rho_n);
         let dphi = (p_o - p_n) + rho_face * self.gravity * (z_o - z_n);
-        let kr_up = if dphi >= 0.0 { self.kr(p_o) } else { self.kr(p_n) };
+        let kr_up = if dphi >= 0.0 {
+            self.kr(p_o)
+        } else {
+            self.kr(p_n)
+        };
         let mobility = self.permeability * kr_up / self.viscosity;
         rho_face * mobility * t_geom * dphi
     }
@@ -284,7 +288,11 @@ impl RichardsProblem {
     fn volumetric_flux(&self, p_o: f64, z_o: f64, p_n: f64, z_n: f64, t_geom: f64) -> f64 {
         let rho_face = 0.5 * (self.rho(p_o) + self.rho(p_n));
         let dphi = (p_o - p_n) + rho_face * self.gravity * (z_o - z_n);
-        let kr_up = if dphi >= 0.0 { self.kr(p_o) } else { self.kr(p_n) };
+        let kr_up = if dphi >= 0.0 {
+            self.kr(p_o)
+        } else {
+            self.kr(p_n)
+        };
         let mobility = self.permeability * kr_up / self.viscosity;
         mobility * t_geom * dphi
     }
@@ -325,7 +333,13 @@ impl RichardsProblem {
                         BoundaryLocation::ZMax => self.z[bf.cell] + bf.distance,
                         _ => self.z[bf.cell],
                     };
-                    self.volumetric_flux(p[bf.cell], self.z[bf.cell], *p_bc, z_bc, bf.area / bf.distance)
+                    self.volumetric_flux(
+                        p[bf.cell],
+                        self.z[bf.cell],
+                        *p_bc,
+                        z_bc,
+                        bf.area / bf.distance,
+                    )
                 }
             })
             .collect();
@@ -334,7 +348,11 @@ impl RichardsProblem {
             .map(|i| self.porosity * self.saturation(p[i]))
             .collect();
 
-        crate::transport::FlowField { face_flux, boundary_flux, water_content }
+        crate::transport::FlowField {
+            face_flux,
+            boundary_flux,
+            water_content,
+        }
     }
 
     /// Residual `F_i(p)` (kg/s) for one cell: accumulation + net outflow across
@@ -350,7 +368,13 @@ impl RichardsProblem {
         for &f in &self.cell_faces[i] {
             let c = &self.grid.connections()[f];
             let (o, n) = (c.owner, c.neighbour);
-            let m = self.two_point_flux(p[o], self.z[o], p[n], self.z[n], c.geometric_transmissibility);
+            let m = self.two_point_flux(
+                p[o],
+                self.z[o],
+                p[n],
+                self.z[n],
+                c.geometric_transmissibility,
+            );
             // Positive m leaves the owner and enters the neighbour.
             if i == o {
                 flux += m;
@@ -423,7 +447,10 @@ impl NonlinearSystem for RichardsProblem {
         let this = &*self;
 
         // Base residuals over all cells (parallel; independent per cell).
-        let r0: Vec<f64> = (0..n).into_par_iter().map(|i| this.cell_residual(i, x)).collect();
+        let r0: Vec<f64> = (0..n)
+            .into_par_iter()
+            .map(|i| this.cell_residual(i, x))
+            .collect();
 
         // Local finite-difference columns: perturbing cell j only affects the
         // residual of j and its face-neighbours (the two-point stencil). Each
@@ -444,10 +471,18 @@ impl NonlinearSystem for RichardsProblem {
                         let c = &this.grid.connections()[f];
                         if j == c.owner {
                             // dR_neighbour / dp_owner -> lower[f]
-                            (f, true, (this.cell_residual(c.neighbour, &xp) - r0[c.neighbour]) / h)
+                            (
+                                f,
+                                true,
+                                (this.cell_residual(c.neighbour, &xp) - r0[c.neighbour]) / h,
+                            )
                         } else {
                             // dR_owner / dp_neighbour -> upper[f]
-                            (f, false, (this.cell_residual(c.owner, &xp) - r0[c.owner]) / h)
+                            (
+                                f,
+                                false,
+                                (this.cell_residual(c.owner, &xp) - r0[c.owner]) / h,
+                            )
                         }
                     })
                     .collect();
@@ -762,13 +797,20 @@ mod tests {
     fn saturated_1d_steady_state_is_linear() {
         let nx = 11usize;
         let dx = 0.1;
-        let grid =
-            CartesianGrid::uniform(nx, 1, 1, Length::new::<meter>(dx), Length::new::<meter>(1.0), Length::new::<meter>(1.0))
-                .unwrap();
+        let grid = CartesianGrid::uniform(
+            nx,
+            1,
+            1,
+            Length::new::<meter>(dx),
+            Length::new::<meter>(1.0),
+            Length::new::<meter>(1.0),
+        )
+        .unwrap();
         // Fully saturated everywhere: keep pressures well above the reference
         // gas pressure so Se = 1, k_r = 1.
         let p_gas = 0.0; // gauge; p > 0 => saturated
-        let curves = CharacteristicCurves::VanGenuchten(VanGenuchten::new(1.0e-4, 2.0, 0.0).unwrap());
+        let curves =
+            CharacteristicCurves::VanGenuchten(VanGenuchten::new(1.0e-4, 2.0, 0.0).unwrap());
         let p_left = 2.0e5;
         let p_right = 1.0e5;
         let boundary = vec![
@@ -804,12 +846,18 @@ mod tests {
             rel_tol: 1.0e-10,
             linear: LinearSolverKind::BiCGStab,
             preconditioner: PreconditionerKind::Ilu0,
-            linear_settings: KrylovSettings { tolerance: 1.0e-12, max_iter: 2000, restart: 50 },
+            linear_settings: KrylovSettings {
+                tolerance: 1.0e-12,
+                max_iter: 2000,
+                restart: 50,
+            },
             max_backtracks: 10,
         };
         let solver = NewtonSolver::new(cfg);
         let mut p = vec![1.5e5; n];
-        solver.solve(&mut problem, &mut p).expect("steady solve converges");
+        solver
+            .solve(&mut problem, &mut p)
+            .expect("steady solve converges");
 
         // Expected linear profile at cell centres x_i = (i+0.5)*dx over L=nx*dx.
         let length = nx as f64 * dx;
@@ -871,10 +919,15 @@ mod tests {
         }
         let m1 = problem.total_mass(&p);
         // Field must actually have moved (otherwise the test is vacuous).
-        let moved = (0..n).map(|i| (p[i] - (80_000.0 + 2_000.0 * i as f64)).abs()).fold(0.0, f64::max);
+        let moved = (0..n)
+            .map(|i| (p[i] - (80_000.0 + 2_000.0 * i as f64)).abs())
+            .fold(0.0, f64::max);
         assert!(moved > 1.0, "field did not redistribute (moved={moved})");
         let rel = (m1 - m0).abs() / m0;
-        assert!(rel < 1.0e-8, "mass not conserved: rel drift {rel:e} (m0={m0}, m1={m1})");
+        assert!(
+            rel < 1.0e-8,
+            "mass not conserved: rel drift {rel:e} (m0={m0}, m1={m1})"
+        );
     }
 
     /// The Haverkamp (Celia 1990) sand model must drive a real RICHARDS solve:
@@ -945,7 +998,8 @@ mod tests {
             Length::new::<meter>(0.25),
         )
         .unwrap();
-        let curves = CharacteristicCurves::VanGenuchten(VanGenuchten::new(1.0e-4, 2.0, 0.1).unwrap());
+        let curves =
+            CharacteristicCurves::VanGenuchten(VanGenuchten::new(1.0e-4, 2.0, 0.1).unwrap());
         let problem = RichardsProblem::new(
             grid,
             LiquidWaterEos::water(),

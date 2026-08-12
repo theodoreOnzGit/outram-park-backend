@@ -447,13 +447,7 @@ impl SurfaceSite {
     ///
     /// `sigma = Q·F/(A·Cs)` with `Q` the net surface charge per litre. Requires
     /// `A·Cs > 0`; callers ensure that before invoking (electrostatic path only).
-    fn surface_charge_density(
-        &self,
-        h: f64,
-        m: f64,
-        complex: &SurfaceComplex,
-        psi: f64,
-    ) -> f64 {
+    fn surface_charge_density(&self, h: f64, m: f64, complex: &SurfaceComplex, psi: f64) -> f64 {
         let (_, soh2, so_minus, som) = self.species_at(h, m, complex, psi);
         let q = soh2 - so_minus + (complex.metal_charge - 1.0) * som; // mol charge / L
         let area_per_litre = self.specific_surface_area * self.solid_concentration; // m^2/L
@@ -485,7 +479,8 @@ impl SurfaceSite {
                 SurfaceComplexationModel::NonElectrostatic => 0.0,
             }
         };
-        let residual = |psi: f64| -> f64 { self.surface_charge_density(h, m, complex, psi) - closure(psi) };
+        let residual =
+            |psi: f64| -> f64 { self.surface_charge_density(h, m, complex, psi) - closure(psi) };
 
         // Bracket: f is strictly decreasing, so we want lo (f > 0) and hi (f < 0).
         let mut lo = -0.02_f64;
@@ -600,7 +595,11 @@ impl SurfaceSite {
         }
 
         let total_metal = m + som;
-        let fraction_metal_sorbed = if total_metal > 0.0 { som / total_metal } else { 0.0 };
+        let fraction_metal_sorbed = if total_metal > 0.0 {
+            som / total_metal
+        } else {
+            0.0
+        };
 
         Ok(SurfaceSpeciation {
             soh,
@@ -711,10 +710,21 @@ mod tests {
             );
         }
         // Low-pH tail near 0, high-pH plateau near 1, and it crosses 0.5.
-        assert!(edge.first().unwrap().1 < 0.05, "low-pH tail {}", edge.first().unwrap().1);
-        assert!(edge.last().unwrap().1 > 0.9, "high-pH plateau {}", edge.last().unwrap().1);
+        assert!(
+            edge.first().unwrap().1 < 0.05,
+            "low-pH tail {}",
+            edge.first().unwrap().1
+        );
+        assert!(
+            edge.last().unwrap().1 > 0.9,
+            "high-pH plateau {}",
+            edge.last().unwrap().1
+        );
         let crosses = edge.iter().any(|&(_, f)| f > 0.5) && edge.iter().any(|&(_, f)| f < 0.5);
-        assert!(crosses, "edge must cross 0.5 at an intermediate pH: {edge:?}");
+        assert!(
+            crosses,
+            "edge must cross 0.5 at an intermediate pH: {edge:?}"
+        );
     }
 
     #[test]
@@ -724,7 +734,9 @@ mod tests {
         let models = [
             SurfaceComplexationModel::NonElectrostatic,
             SurfaceComplexationModel::ConstantCapacitance { capacitance: 1.0 },
-            SurfaceComplexationModel::DiffuseLayer { ionic_strength: 0.1 },
+            SurfaceComplexationModel::DiffuseLayer {
+                ionic_strength: 0.1,
+            },
         ];
         for model in models {
             for &ph in &[3.0, 5.0, 7.0, 9.0, 11.0] {
@@ -748,7 +760,12 @@ mod tests {
         let cx = metal_complex();
         let phs: Vec<f64> = (3..=11).map(|p| p as f64).collect();
         let nem = site
-            .sorption_edge(&phs, 1.0e-6, SurfaceComplexationModel::NonElectrostatic, &cx)
+            .sorption_edge(
+                &phs,
+                1.0e-6,
+                SurfaceComplexationModel::NonElectrostatic,
+                &cx,
+            )
             .unwrap();
         let ccm = site
             .sorption_edge(
@@ -818,7 +835,9 @@ mod tests {
             .speciate(
                 11.0,
                 0.0,
-                SurfaceComplexationModel::DiffuseLayer { ionic_strength: 0.01 },
+                SurfaceComplexationModel::DiffuseLayer {
+                    ionic_strength: 0.01,
+                },
                 &cx,
             )
             .unwrap();
@@ -832,7 +851,9 @@ mod tests {
             .speciate(
                 5.0,
                 0.0,
-                SurfaceComplexationModel::DiffuseLayer { ionic_strength: 0.01 },
+                SurfaceComplexationModel::DiffuseLayer {
+                    ionic_strength: 0.01,
+                },
                 &cx,
             )
             .unwrap();
@@ -851,13 +872,22 @@ mod tests {
         let site = hfo_site();
         let cx = metal_complex();
         let nem = SurfaceComplexationModel::NonElectrostatic;
-        let f1 = site.speciate(7.0, 1.0e-9, nem, &cx).unwrap().fraction_metal_sorbed;
-        let f2 = site.speciate(7.0, 1.0e-10, nem, &cx).unwrap().fraction_metal_sorbed;
+        let f1 = site
+            .speciate(7.0, 1.0e-9, nem, &cx)
+            .unwrap()
+            .fraction_metal_sorbed;
+        let f2 = site
+            .speciate(7.0, 1.0e-10, nem, &cx)
+            .unwrap()
+            .fraction_metal_sorbed;
         assert!(
             (f1 - f2).abs() < 1e-4,
             "dilute-limit fraction should be concentration-independent: {f1} vs {f2}"
         );
-        assert!(f1 > 0.0 && f1 < 1.0, "fraction should be a genuine partial: {f1}");
+        assert!(
+            f1 > 0.0 && f1 < 1.0,
+            "fraction should be a genuine partial: {f1}"
+        );
     }
 
     #[test]
@@ -875,15 +905,21 @@ mod tests {
         assert!(SurfaceSite::new(f64::NAN, -9.0, 1.0e-3, 600.0, 1.0).is_err());
 
         // Bad model parameters.
-        assert!(SurfaceComplexationModel::ConstantCapacitance { capacitance: -1.0 }
-            .validate()
-            .is_err());
-        assert!(SurfaceComplexationModel::ConstantCapacitance { capacitance: 0.0 }
-            .validate()
-            .is_err());
-        assert!(SurfaceComplexationModel::DiffuseLayer { ionic_strength: -0.1 }
-            .validate()
-            .is_err());
+        assert!(
+            SurfaceComplexationModel::ConstantCapacitance { capacitance: -1.0 }
+                .validate()
+                .is_err()
+        );
+        assert!(
+            SurfaceComplexationModel::ConstantCapacitance { capacitance: 0.0 }
+                .validate()
+                .is_err()
+        );
+        assert!(SurfaceComplexationModel::DiffuseLayer {
+            ionic_strength: -0.1
+        }
+        .validate()
+        .is_err());
 
         // Bad complex.
         assert!(SurfaceComplex::new(-3.0, -2.0).is_err()); // non-positive charge
@@ -898,7 +934,9 @@ mod tests {
 
         // Electrostatic model with zero surface area → InvalidInput, not a panic.
         let no_area = SurfaceSite::new(7.0, -9.0, 1.0e-3, 0.0, 1.0).unwrap();
-        let dlm = SurfaceComplexationModel::DiffuseLayer { ionic_strength: 0.1 };
+        let dlm = SurfaceComplexationModel::DiffuseLayer {
+            ionic_strength: 0.1,
+        };
         assert!(no_area.speciate(7.0, 1.0e-6, dlm, &cx).is_err());
     }
 

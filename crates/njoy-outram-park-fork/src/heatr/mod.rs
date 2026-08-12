@@ -518,9 +518,8 @@ impl DamageEnergy {
     pub fn from_reconr(recon: &ReconrResult, z: u32, e_d: f64) -> Self {
         let awr = recon.material.awr;
         let zf = z as f64;
-        let contributes = |mt: MtReaction| {
-            mt == MtReaction::Mt2Elastic || (51..=90).contains(&mt.number())
-        };
+        let contributes =
+            |mt: MtReaction| mt == MtReaction::Mt2Elastic || (51..=90).contains(&mt.number());
         let mut energy: Vec<f64> = recon
             .sections
             .iter()
@@ -536,7 +535,11 @@ impl DamageEnergy {
                 continue;
             }
             // Elastic has Q=0 by definition; a discrete level uses its own QI.
-            let q = if sec.mt == MtReaction::Mt2Elastic { 0.0 } else { sec.qi };
+            let q = if sec.mt == MtReaction::Mt2Elastic {
+                0.0
+            } else {
+                sec.qi
+            };
             for (i, &e) in energy.iter().enumerate() {
                 let sigma = eval_lin_lin(&sec.pairs, e);
                 if sigma == 0.0 {
@@ -555,8 +558,12 @@ impl DamageEnergy {
         if self.energy.is_empty() {
             return 0.0;
         }
-        let pairs: Vec<(f64, f64)> =
-            self.energy.iter().copied().zip(self.d.iter().copied()).collect();
+        let pairs: Vec<(f64, f64)> = self
+            .energy
+            .iter()
+            .copied()
+            .zip(self.d.iter().copied())
+            .collect();
         eval_lin_lin(&pairs, e)
     }
 }
@@ -949,8 +956,14 @@ mod tests {
             qi: q_fission,
             pairs: vec![(1.0e5, sigma_f), (1.0e6, sigma_f)],
         };
-        let nu = NuBar { energy: vec![1.0e5, 1.0e6], nu_total: vec![2.4, 2.6] };
-        let chi = FissionSpectrum::Watt { a: 0.988e6, b: 2.249e-6 };
+        let nu = NuBar {
+            energy: vec![1.0e5, 1.0e6],
+            nu_total: vec![2.4, 2.6],
+        };
+        let chi = FissionSpectrum::Watt {
+            a: 0.988e6,
+            b: 2.249e-6,
+        };
         let kerma = Kerma::from_reconr(&recon(235.0, vec![sec]), &nu, &chi, &[]);
 
         let mean_e_prime = 1.5 * 0.988e6 + 0.25 * 0.988e6 * 0.988e6 * 2.249e-6;
@@ -979,12 +992,18 @@ mod tests {
             qi: q_fission,
             pairs: vec![(1.0e5, sigma_f), (1.0e6, sigma_f)],
         };
-        let nu = NuBar { energy: vec![1.0e5, 1.0e6], nu_total: vec![2.44, 2.44] };
+        let nu = NuBar {
+            energy: vec![1.0e5, 1.0e6],
+            nu_total: vec![2.44, 2.44],
+        };
         let chi = FissionSpectrum::default(); // thermal-Watt stand-in
         let kerma = Kerma::from_reconr(&recon(235.0, vec![sec]), &nu, &chi, &[]);
         let h = kerma.eval(1.0e5);
         let heating_number_ev = h / sigma_f; // H(E)/σ(E), eV per fission
-        assert!(heating_number_ev > 0.0, "fission heating must be positive, got {heating_number_ev}");
+        assert!(
+            heating_number_ev > 0.0,
+            "fission heating must be positive, got {heating_number_ev}"
+        );
         // ~200 MeV per fission minus a few MeV carried off by ~2.4 fission
         // neutrons at ~2 MeV each — should land well within [150, 200] MeV.
         assert!(
@@ -998,9 +1017,16 @@ mod tests {
     #[test]
     fn all_four_phases_sum_additively() {
         let awr = 235.0;
-        let elastic = ReconrSection { mt: MtReaction::Mt2Elastic, qi: 0.0, pairs: vec![(1.0e6, 10.0)] };
-        let capture =
-            ReconrSection { mt: MtReaction::Mt102Capture, qi: 6.0e6, pairs: vec![(1.0e6, 1.0)] };
+        let elastic = ReconrSection {
+            mt: MtReaction::Mt2Elastic,
+            qi: 0.0,
+            pairs: vec![(1.0e6, 10.0)],
+        };
+        let capture = ReconrSection {
+            mt: MtReaction::Mt102Capture,
+            qi: 6.0e6,
+            pairs: vec![(1.0e6, 1.0)],
+        };
         let level = ReconrSection {
             mt: MtReaction::from_any(51),
             qi: -1.0e6,
@@ -1011,8 +1037,14 @@ mod tests {
             qi: 200.0e6,
             pairs: vec![(1.0e6, 1.2)],
         };
-        let nu = NuBar { energy: vec![1.0e6], nu_total: vec![2.5] };
-        let chi = FissionSpectrum::Watt { a: 0.988e6, b: 2.249e-6 };
+        let nu = NuBar {
+            energy: vec![1.0e6],
+            nu_total: vec![2.5],
+        };
+        let chi = FissionSpectrum::Watt {
+            a: 0.988e6,
+            b: 2.249e-6,
+        };
         let kerma = Kerma::from_reconr(
             &recon(awr, vec![elastic, capture, level, fission]),
             &nu,
@@ -1028,7 +1060,10 @@ mod tests {
         let mean_e_prime = 1.5 * 0.988e6 + 0.25 * 0.988e6 * 0.988e6 * 2.249e-6;
         let h_fission = 1.2 * (1.0e6 + 200.0e6 - 2.5 * mean_e_prime);
         let expected = h_elastic + h_capture + h_level + h_fission;
-        assert!((h - expected).abs() / expected < 1.0e-9, "got {h}, want {expected}");
+        assert!(
+            (h - expected).abs() / expected < 1.0e-9,
+            "got {h}, want {expected}"
+        );
     }
 
     /// **H5.** An (n,2n) reaction (MT=16) subtracts the mean energy of *two*
@@ -1076,7 +1111,11 @@ mod tests {
         let mean_e_prime = 1.5 * a + 0.25 * a * a * b;
         let e = 2.0e7;
         for (mt, yld) in [(MtReaction::Mt17N3n, 3.0), (MtReaction::Mt37N4n, 4.0)] {
-            let sec = ReconrSection { mt, qi: q, pairs: vec![(e, sigma)] };
+            let sec = ReconrSection {
+                mt,
+                qi: q,
+                pairs: vec![(e, sigma)],
+            };
             let kerma = Kerma::from_reconr(
                 &recon(90.0, vec![sec]),
                 &NuBar::default(),
@@ -1113,7 +1152,10 @@ mod tests {
             &recon(28.0, vec![sec]),
             &NuBar::default(),
             &FissionSpectrum::default(),
-            &[(MtReaction::Mt91NnContinuum, EmissionSpectrum::Mf5(FissionSpectrum::Watt { a, b }))],
+            &[(
+                MtReaction::Mt91NnContinuum,
+                EmissionSpectrum::Mf5(FissionSpectrum::Watt { a, b }),
+            )],
         );
         let h = kerma.eval(e);
         let expected = sigma * (e + q - 1.0 * mean_e_prime);
@@ -1139,7 +1181,10 @@ mod tests {
             pairs: vec![(e, sigma)],
         };
         // Evaporation-like emitted neutrons, ~1.5 MeV mean (θ ≈ 0.75 MeV, ⟨E'⟩=2θ).
-        let spectrum = FissionSpectrum::Watt { a: 0.5e6, b: 3.0e-6 };
+        let spectrum = FissionSpectrum::Watt {
+            a: 0.5e6,
+            b: 3.0e-6,
+        };
         let kerma = Kerma::from_reconr(
             &recon(56.0, vec![sec]),
             &NuBar::default(),
@@ -1169,22 +1214,48 @@ mod tests {
     fn h5_sums_additively_with_all_prior_phases() {
         let awr = 235.0;
         let e = 1.4e7;
-        let elastic = ReconrSection { mt: MtReaction::Mt2Elastic, qi: 0.0, pairs: vec![(e, 5.0)] };
-        let capture =
-            ReconrSection { mt: MtReaction::Mt102Capture, qi: 6.0e6, pairs: vec![(e, 0.1)] };
-        let level =
-            ReconrSection { mt: MtReaction::from_any(51), qi: -1.0e6, pairs: vec![(e, 0.2)] };
-        let fission =
-            ReconrSection { mt: MtReaction::Mt18Fission, qi: 200.0e6, pairs: vec![(e, 1.0)] };
-        let n2n = ReconrSection { mt: MtReaction::Mt16N2n, qi: -8.0e6, pairs: vec![(e, 0.6)] };
-        let nu = NuBar { energy: vec![e], nu_total: vec![2.6] };
-        let chi = FissionSpectrum::Watt { a: 0.988e6, b: 2.249e-6 };
+        let elastic = ReconrSection {
+            mt: MtReaction::Mt2Elastic,
+            qi: 0.0,
+            pairs: vec![(e, 5.0)],
+        };
+        let capture = ReconrSection {
+            mt: MtReaction::Mt102Capture,
+            qi: 6.0e6,
+            pairs: vec![(e, 0.1)],
+        };
+        let level = ReconrSection {
+            mt: MtReaction::from_any(51),
+            qi: -1.0e6,
+            pairs: vec![(e, 0.2)],
+        };
+        let fission = ReconrSection {
+            mt: MtReaction::Mt18Fission,
+            qi: 200.0e6,
+            pairs: vec![(e, 1.0)],
+        };
+        let n2n = ReconrSection {
+            mt: MtReaction::Mt16N2n,
+            qi: -8.0e6,
+            pairs: vec![(e, 0.6)],
+        };
+        let nu = NuBar {
+            energy: vec![e],
+            nu_total: vec![2.6],
+        };
+        let chi = FissionSpectrum::Watt {
+            a: 0.988e6,
+            b: 2.249e-6,
+        };
         let (a, b) = (0.5e6, 4.0e-6);
         let kerma = Kerma::from_reconr(
             &recon(awr, vec![elastic, capture, level, fission, n2n]),
             &nu,
             &chi,
-            &[(MtReaction::Mt16N2n, EmissionSpectrum::Mf5(FissionSpectrum::Watt { a, b }))],
+            &[(
+                MtReaction::Mt16N2n,
+                EmissionSpectrum::Mf5(FissionSpectrum::Watt { a, b }),
+            )],
         );
         let h = kerma.eval(e);
 
@@ -1196,7 +1267,10 @@ mod tests {
             + 0.2 * (e * f + (-1.0e6) / (awr + 1.0))
             + 1.0 * (e + 200.0e6 - 2.6 * mean_chi)
             + 0.6 * (e - 8.0e6 - 2.0 * mean_n2n);
-        assert!((h - expected).abs() / expected.abs() < 1.0e-9, "got {h}, want {expected}");
+        assert!(
+            (h - expected).abs() / expected.abs() < 1.0e-9,
+            "got {h}, want {expected}"
+        );
     }
 
     // ── H7: damage energy (MT=444) ─────────────────────────────────────────
@@ -1254,7 +1328,12 @@ mod tests {
         let sec = ReconrSection {
             mt: MtReaction::Mt2Elastic,
             qi: 0.0,
-            pairs: vec![(1.0e2, sigma), (1.0e5, sigma), (1.0e6, sigma), (1.4e7, sigma)],
+            pairs: vec![
+                (1.0e2, sigma),
+                (1.0e5, sigma),
+                (1.0e6, sigma),
+                (1.4e7, sigma),
+            ],
         };
         let dmg = DamageEnergy::from_reconr(&recon(awr, vec![sec]), z, e_d);
 
@@ -1267,7 +1346,10 @@ mod tests {
             let d = dmg.eval(e);
             let heating = sigma * e * f; // H1 elastic heating (eV·barn)
             assert!(d > 0.0, "damage must be positive at {e} eV, got {d}");
-            assert!(d < heating, "damage {d} must be < heating {heating} at {e} eV");
+            assert!(
+                d < heating,
+                "damage {d} must be < heating {heating} at {e} eV"
+            );
             assert!(d > prev, "damage must increase with energy ({e} eV)");
             prev = d;
         }
@@ -1299,7 +1381,10 @@ mod tests {
         let c = awr / (awr + 1.0).powi(2) * e;
         let (el_min, el_max) = two_body_recoil_bounds(e, 0.0, awr);
         assert!((el_min).abs() < 1.0, "elastic E_min≈0, got {el_min}");
-        assert!((el_max - 4.0 * c).abs() / (4.0 * c) < 1e-12, "elastic E_max=4C");
+        assert!(
+            (el_max - 4.0 * c).abs() / (4.0 * c) < 1e-12,
+            "elastic E_max=4C"
+        );
 
         let (lv_min, lv_max) = two_body_recoil_bounds(e, -2.0e6, awr);
         assert!(lv_min > 0.0, "level E_min>0, got {lv_min}");
@@ -1324,8 +1409,7 @@ mod tests {
             qi: -0.85e6, // Fe-56 first level ~0.85 MeV
             pairs: vec![(1.0e6, 1.0), (5.0e6, 1.0)],
         };
-        let elastic_only =
-            DamageEnergy::from_reconr(&recon(awr, vec![elastic]), z, e_d);
+        let elastic_only = DamageEnergy::from_reconr(&recon(awr, vec![elastic]), z, e_d);
         let both = DamageEnergy::from_reconr(
             &recon(
                 awr,
@@ -1359,5 +1443,7 @@ mod tests {
 /// ported, so this returns [`crate::NjoyError::NotPorted`]. Use the module's
 /// typed API directly rather than this driver.
 pub fn run() -> Result<(), crate::NjoyError> {
-    Err(crate::NjoyError::NotPorted("heatr driver (physics ported — use the module API)"))
+    Err(crate::NjoyError::NotPorted(
+        "heatr driver (physics ported — use the module API)",
+    ))
 }

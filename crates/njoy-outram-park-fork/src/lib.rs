@@ -54,7 +54,7 @@ pub mod gaspr;
 /// method and damage energy (MT=444) are deferred — see [`heatr`] module docs.
 pub mod heatr;
 /// User friendly interface to access njoy library (used to be called library,
-/// but I renamed as interface to avoid mixing with lib.rs) 
+/// but I renamed as interface to avoid mixing with lib.rs)
 ///
 ///
 pub mod interface;

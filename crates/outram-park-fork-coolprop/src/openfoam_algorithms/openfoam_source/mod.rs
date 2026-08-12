@@ -55,15 +55,12 @@ pub(crate) use ldu_matrix::*;
 pub(crate) use fv_operators::*;
 pub(crate) use fluid_thermo::*;
 
-/// this part is extension in Rust 
-/// Now under here, I want to expose the openfoam primitives to something 
+/// this part is extension in Rust
+/// Now under here, I want to expose the openfoam primitives to something
 /// that can be human readable
 ///
-/// Also useful add-ons for the underlying libraries are put here, 
-/// eg. generating one dimensional meshes for system code type simulations 
+/// Also useful add-ons for the underlying libraries are put here,
+/// eg. generating one dimensional meshes for system code type simulations
 /// in TAMPINES
 pub(crate) mod interface;
 pub(crate) use interface::*;
-
-
-

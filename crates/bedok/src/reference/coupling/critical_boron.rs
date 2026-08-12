@@ -53,12 +53,8 @@
 
 use super::cross_section_feedback::update_cross_sections;
 use super::error::{CouplingError, Result};
-use super::seam::{
-    self, CaseParams, CoreGeometry, MaterialMap, NodalTerms, SigmaValues, ThermalState,
-};
-use super::sparse::{
-    fix_inf_nan, max_abs_difference, norm1, norm2, spmv, sum, under_relax, SparseLu,
-};
+use super::seam::{self, CaseParams, CoreGeometry, MaterialMap, NodalTerms, SigmaValues, ThermalState};
+use super::sparse::{fix_inf_nan, max_abs_difference, norm1, norm2, spmv, sum, under_relax, SparseLu};
 use super::steady::{
     fuel_solution_id_count, set_at, solve_coupled_steady, DEFAULT_FUEL_TEMP_TOL, DEFAULT_TH_RELAX,
 };

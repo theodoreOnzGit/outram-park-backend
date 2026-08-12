@@ -204,7 +204,9 @@ pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, Njoy
         }
         let ichan = channels.len();
         let igamma = igamma.ok_or_else(|| {
-            NjoyError::EndfParse("samm: spin group has no eliminated (particle-pair 1) channel".to_string())
+            NjoyError::EndfParse(
+                "samm: spin group has no eliminated (particle-pair 1) channel".to_string(),
+            )
         })?;
 
         // samm.f90:1134-1196 — resonance-parameter list.
@@ -222,8 +224,9 @@ pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, Njoy
             // gamgam <- raw channel 0's width, channel_widths[k] <- raw
             // channel (k+1)'s width, for k = 0..ichan.
             let mut gamma_gamma = res_list.data.get(base + 1).copied().unwrap_or(0.0);
-            let mut channel_widths: Vec<f64> =
-                (0..ichan).map(|k| res_list.data.get(base + 2 + k).copied().unwrap_or(0.0)).collect();
+            let mut channel_widths: Vec<f64> = (0..ichan)
+                .map(|k| res_list.data.get(base + 2 + k).copied().unwrap_or(0.0))
+                .collect();
 
             // samm.f90:1185-1194 — eliminated-channel reorder. Two off-by-one
             // defects in the upstream Fortran are corrected here (see
@@ -231,7 +234,11 @@ pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, Njoy
             // derivation and verification); bug op-cjw.3.
             reorder_eliminated_channel(&mut gamma_gamma, &mut channel_widths, igamma)?;
 
-            resonances.push(RmlResonance { energy, gamma_gamma, channel_widths });
+            resonances.push(RmlResonance {
+                energy,
+                gamma_gamma,
+                channel_widths,
+            });
         }
 
         // samm.f90:1199-1256 — background R-matrix elements. Not ported (see
@@ -257,10 +264,18 @@ pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, Njoy
             }
         }
 
-        spin_groups.push(SpinGroup { j, parity, channels, resonances });
+        spin_groups.push(SpinGroup {
+            j,
+            parity,
+            channels,
+            resonances,
+        });
     }
 
-    Ok(RmlSection { particle_pairs, spin_groups })
+    Ok(RmlSection {
+        particle_pairs,
+        spin_groups,
+    })
 }
 
 /// Separate the eliminated radiative-capture width `Γγ` out of a resonance's
@@ -421,7 +436,11 @@ mod tests {
         let mut w = vec![20.0, 30.0, 100.0]; // [B, C, Γγ]
         reorder_eliminated_channel(&mut gg, &mut w, 3).unwrap();
         assert_eq!(gg, 100.0, "Γγ recovered from the last provisional slot");
-        assert_eq!(w, vec![10.0, 20.0, 30.0], "explicit widths [A, B, C] in order");
+        assert_eq!(
+            w,
+            vec![10.0, 20.0, 30.0],
+            "explicit widths [A, B, C] in order"
+        );
     }
 
     /// A larger middle case (5 explicit channels, eliminated at raw position 3,

@@ -216,7 +216,10 @@ fn parse_reaction(tape: &Tape, mat: i32, mf: i32, mt: i32, awr: f64) -> Option<R
         let lp = tab.head.l1;
         let lf = tab.head.l2;
         let energy = if lf == 2 || eg > 0.0 {
-            PhotonEnergy::Discrete { eg, primary: lp == 2 }
+            PhotonEnergy::Discrete {
+                eg,
+                primary: lp == 2,
+            }
         } else {
             // LF=1 continuum: mean from MF=15.
             match mf15_mean_curve(tape, mat, mt, awr) {
@@ -259,7 +262,10 @@ fn mf15_mean_curve(tape: &Tape, mat: i32, mt: i32, _awr: f64) -> Option<Vec<(f64
             let e_in = g.head.c2;
             let mean = first_moment(&g);
             let pc = eval_tab1(e_in, &p.interp, &p.pairs).unwrap_or(1.0);
-            match acc.iter_mut().find(|(e, _, _)| (*e - e_in).abs() < 1.0e-6 * e_in.max(1.0)) {
+            match acc
+                .iter_mut()
+                .find(|(e, _, _)| (*e - e_in).abs() < 1.0e-6 * e_in.max(1.0))
+            {
                 Some(entry) => {
                     entry.1 += pc * mean;
                     entry.2 += pc;
@@ -321,7 +327,16 @@ mod tests {
     use crate::endf::MtReaction;
 
     fn material(awr: f64) -> MaterialInfo {
-        MaterialInfo { za: 92235.0, awr, lrp: 0, lfi: 0, nlib: 0, elis: 0.0, nfor: 6, emax: 2.0e7 }
+        MaterialInfo {
+            za: 92235.0,
+            awr,
+            lrp: 0,
+            lfi: 0,
+            nlib: 0,
+            elis: 0.0,
+            nfor: 6,
+            emax: 2.0e7,
+        }
     }
 
     /// The first moment of a *normalized* flat spectrum on `[0, 2 MeV]`
@@ -331,11 +346,22 @@ mod tests {
     fn first_moment_of_flat_spectrum_is_midpoint() {
         use crate::endf::records::Cont;
         let g = Tab1 {
-            head: Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 1, n1: 1, n2: 2 },
+            head: Cont {
+                c1: 0.0,
+                c2: 0.0,
+                l1: 0,
+                l2: 1,
+                n1: 1,
+                n2: 2,
+            },
             interp: vec![(2, 2)],
             pairs: vec![(0.0, 5.0e-7), (2.0e6, 5.0e-7)], // normalized: 5e-7·2e6 = 1
         };
-        assert!((first_moment(&g) - 1.0e6).abs() < 1.0, "got {}", first_moment(&g));
+        assert!(
+            (first_moment(&g) - 1.0e6).abs() < 1.0,
+            "got {}",
+            first_moment(&g)
+        );
     }
 
     /// A discrete photon deposits its line energy; a primary (LP=2) photon adds
@@ -343,9 +369,15 @@ mod tests {
     #[test]
     fn discrete_and_primary_photon_energy() {
         let awr = 55.0;
-        let line = PhotonEnergy::Discrete { eg: 2.0e6, primary: false };
+        let line = PhotonEnergy::Discrete {
+            eg: 2.0e6,
+            primary: false,
+        };
         assert_eq!(line.mean(1.0e6, awr), 2.0e6);
-        let primary = PhotonEnergy::Discrete { eg: 2.0e6, primary: true };
+        let primary = PhotonEnergy::Discrete {
+            eg: 2.0e6,
+            primary: true,
+        };
         let expected = 2.0e6 + 1.0e6 * awr / (awr + 1.0);
         assert!((primary.mean(1.0e6, awr) - expected).abs() < 1.0);
     }

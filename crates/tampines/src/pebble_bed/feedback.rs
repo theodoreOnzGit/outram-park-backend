@@ -242,15 +242,13 @@ impl GraphiteModeratorFeedback {
     /// Valid range: 300 K to 2000 K; outside it, returns
     /// [`TampinesError::InvalidInput`].
     pub fn specific_heat_capacity(&self) -> Result<SpecificHeatCapacity, TampinesError> {
-        nuclear_graphite_specific_heat_capacity_butland_maddison_spline(
-            self.moderator_temperature,
-        )
-        .map_err(|error| {
-            TampinesError::InvalidInput(format!(
-                "TUAS nuclear-graphite cp rejected temperature {} K: {error:?}",
-                self.moderator_temperature.get::<kelvin>()
-            ))
-        })
+        nuclear_graphite_specific_heat_capacity_butland_maddison_spline(self.moderator_temperature)
+            .map_err(|error| {
+                TampinesError::InvalidInput(format!(
+                    "TUAS nuclear-graphite cp rejected temperature {} K: {error:?}",
+                    self.moderator_temperature.get::<kelvin>()
+                ))
+            })
     }
 
     /// Total heat capacity of the graphite node, `m cp`, J/K — the thermal
@@ -537,8 +535,11 @@ mod tests {
         channel.moderator_temperature = ThermodynamicTemperature::new::<kelvin>(800.0);
         let cold = channel.reactivity_pcm();
         println!("at +100 K: {hot} pcm; at -100 K: {cold} pcm");
-        assert!(hot < 0.0, "a negative coefficient must give negative \
-            reactivity when the moderator heats up");
+        assert!(
+            hot < 0.0,
+            "a negative coefficient must give negative \
+            reactivity when the moderator heats up"
+        );
         assert!(cold > 0.0);
         assert_relative_eq!(-hot, cold, max_relative = 1e-12);
 
@@ -626,9 +627,7 @@ mod tests {
             .get::<joule_per_kilogram_kelvin>();
         let tau = channel.thermal_time_constant(conductance).unwrap();
         let tau_seconds = tau.get::<second>();
-        println!(
-            "at 950 K: cp = {initial_cp} J/(kg K), tau = m cp / C = {tau_seconds} s"
-        );
+        println!("at 950 K: cp = {initial_cp} J/(kg K), tau = m cp / C = {tau_seconds} s");
         assert_relative_eq!(
             5129.0 * initial_cp / 1.0e5,
             tau_seconds,
@@ -653,10 +652,9 @@ mod tests {
             let new_excursion = channel.temperature_excursion().value;
             if new_excursion <= target_excursion && previous_excursion > target_excursion {
                 // linear interpolation across the bracketing step
-                let fraction = (previous_excursion - target_excursion)
-                    / (previous_excursion - new_excursion);
-                measured_e_folding_time =
-                    elapsed - timestep.get::<second>() * (1.0 - fraction);
+                let fraction =
+                    (previous_excursion - target_excursion) / (previous_excursion - new_excursion);
+                measured_e_folding_time = elapsed - timestep.get::<second>() * (1.0 - fraction);
                 break;
             }
             previous_excursion = new_excursion;
@@ -744,8 +742,7 @@ mod tests {
         let rise = final_temperature - 900.0;
         let mean_temperature = 0.5 * (900.0 + final_temperature);
         let mut at_mean = heated;
-        at_mean.moderator_temperature =
-            ThermodynamicTemperature::new::<kelvin>(mean_temperature);
+        at_mean.moderator_temperature = ThermodynamicTemperature::new::<kelvin>(mean_temperature);
         let mean_cp = at_mean
             .specific_heat_capacity()
             .unwrap()
@@ -848,9 +845,7 @@ mod tests {
             .thermal_time_constant(conductance)
             .unwrap()
             .get::<second>();
-        println!(
-            "cp at 900 K = {cp} J/(kg K); m cp = {capacity} J/K; tau = {tau} s"
-        );
+        println!("cp at 900 K = {cp} J/(kg K); m cp = {capacity} J/K; tau = {tau} s");
 
         assert!(
             tau > 60.0,

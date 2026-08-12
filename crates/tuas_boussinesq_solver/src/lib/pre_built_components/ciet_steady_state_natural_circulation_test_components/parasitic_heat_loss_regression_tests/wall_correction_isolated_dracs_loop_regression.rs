@@ -47,8 +47,8 @@
 /// The key metric of testing is the DHX inlet temperature
 /// or the dhx_tube_side_30a bulk fluid temp
 ///
-/// For this case, wall correction does work, but 
-/// it is not noticeable to within 0.5K, you have to go 1e-7K to see the 
+/// For this case, wall correction does work, but
+/// it is not noticeable to within 0.5K, you have to go 1e-7K to see the
 /// difference
 ///
 #[test]
@@ -62,7 +62,7 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
     use uom::si::{frequency::hertz, ratio::ratio, time::millisecond};
 
     use crate::pre_built_components::
-        ciet_steady_state_natural_circulation_test_components::dracs_loop_components::*;
+    ciet_steady_state_natural_circulation_test_components::dracs_loop_components::*;
     use uom::ConstZero;
 
     use uom::si::mass_rate::kilogram_per_second;
@@ -72,11 +72,10 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
     use crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent;
 
     use crate::boussinesq_thermophysical_properties::LiquidMaterial;
-    use crate::heat_transfer_correlations::heat_transfer_interactions::
-        heat_transfer_interaction_enums::HeatTransferInteractionType;
+    use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
     use uom::si::heat_transfer::watt_per_square_meter_kelvin;
     use uom::si::time::second;
-    use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+        use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
 
     use chem_eng_real_time_process_control_simulator::alpha_nightly::transfer_fn_wrapper_and_enums::TransferFnTraits;
     use chem_eng_real_time_process_control_simulator::alpha_nightly::controllers::ProportionalController;
@@ -88,7 +87,7 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
         dhx_tube_side_30a_ref_temp_celsius: f64,
         turn_on_non_insulated_fluid_components_wall_correction: bool,
         turn_on_insulated_fluid_components_wall_correction: bool,
-        test_name: &str
+        test_name: &str,
     ) -> Result<(), TuasLibError> {
         let input_power = Power::new::<watt>(input_power_watts);
 
@@ -158,7 +157,6 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
         let mut flowmeter_60_37a = new_flowmeter_60_37a(initial_temperature);
         let mut pipe_38 = new_pipe_38(initial_temperature);
         let mut pipe_39 = new_pipe_39(initial_temperature);
-
 
         // now the thermal hydraulics bit
         fn calculate_dracs_thermal_hydraulics(
@@ -748,7 +746,7 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
                 &mut pipe_39,
                 turn_on_insulated_fluid_components_wall_correction,
                 turn_on_non_insulated_fluid_components_wall_correction,
-                );
+            );
 
             current_simulation_time += timestep;
             let debug: bool = false;
@@ -758,14 +756,12 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
                 // current sim time
                 // and tchx heat trf coeff
                 dbg!(&(
-                        input_power,
-                        tchx_outlet_temperature,
-                        current_simulation_time,
-                        tchx_heat_transfer_coeff
+                    input_power,
+                    tchx_outlet_temperature,
+                    current_simulation_time,
+                    tchx_heat_transfer_coeff
                 ));
             }
-
-
         }
 
         // panic to see debug messages
@@ -777,11 +773,13 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
             .pipe_shell
             .try_get_bulk_temperature()
             .unwrap();
-        dbg!(&(test_name,
-                input_power, 
-                dhx_tube_side_30a_ref_temp_celsius,
-                dhx_tube_side_30a_temp.get::<degree_celsius>(),
-                dhx_tube_side_30a_temp,));
+        dbg!(&(
+            test_name,
+            input_power,
+            dhx_tube_side_30a_ref_temp_celsius,
+            dhx_tube_side_30a_temp.get::<degree_celsius>(),
+            dhx_tube_side_30a_temp,
+        ));
 
         //
         // assert temperature of tchx and dhx tube side 30a
@@ -805,12 +803,12 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
             2000.0, // 2000 watts
             MassRate::new::<kilogram_per_second>(0.18),
             31.9841064557, // dhx temp degree celsius at 800s to within 0.01K
-                   // comparing to that at 750s to within 0.3 K
+            // comparing to that at 750s to within 0.3 K
             turn_on_non_insulated_fluid_components_wall_correction,
             turn_on_insulated_fluid_components_wall_correction,
-            "baseline_case"
+            "baseline_case",
         )
-            .unwrap()
+        .unwrap()
     });
     // second thread turns on the non_insulated_fluid_components
     // wall correction (less heat loss expected)
@@ -824,9 +822,9 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
             31.984150096, // dhx temp degree celsius to within 0.01K
             turn_on_non_insulated_fluid_components_wall_correction,
             turn_on_insulated_fluid_components_wall_correction,
-            "non_insulated_fluid_components wall correction"
+            "non_insulated_fluid_components wall correction",
         )
-            .unwrap()
+        .unwrap()
     });
     // third thread turns on the InsulatedFluidComponent
     // wall correction (less heat loss expected)
@@ -840,9 +838,9 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
             31.9840581149, // dhx temp degree celsius to within 0.01K
             turn_on_non_insulated_fluid_components_wall_correction,
             turn_on_insulated_fluid_components_wall_correction,
-            "insulated_fluid_components wall correction"
+            "insulated_fluid_components wall correction",
         )
-            .unwrap()
+        .unwrap()
     });
     // fourth thread turns on the all
     // wall correction (less heat loss expected)
@@ -856,14 +854,13 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
             31.98410175676, // dhx temp degree celsius to within 0.01K
             turn_on_non_insulated_fluid_components_wall_correction,
             turn_on_insulated_fluid_components_wall_correction,
-            "all components wall correction"
+            "all components wall correction",
         )
-            .unwrap()
+        .unwrap()
     });
 
     thread_1.join().unwrap();
     thread_2.join().unwrap();
     thread_3.join().unwrap();
     thread_4.join().unwrap();
-
 }

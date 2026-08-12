@@ -443,10 +443,7 @@ impl MultiPhaseGibbsSystem {
     /// [`MultiPhaseError::InvalidInput`] if any atom count is non-finite or
     /// negative, or if there are zero elements, zero phases, or a phase with
     /// zero species.
-    pub fn new(
-        element_symbols: &[&str],
-        phases: &[PhaseInput],
-    ) -> Result<Self, MultiPhaseError> {
+    pub fn new(element_symbols: &[&str], phases: &[PhaseInput]) -> Result<Self, MultiPhaseError> {
         let n_elements = element_symbols.len();
         if n_elements == 0 {
             return Err(MultiPhaseError::InvalidInput {
@@ -735,7 +732,11 @@ impl MultiPhaseGibbsSystem {
                 (0..ph.n_species)
                     .map(|s| {
                         let f = feed[p][s];
-                        if f > options.mole_floor { f } else { options.mole_floor }
+                        if f > options.mole_floor {
+                            f
+                        } else {
+                            options.mole_floor
+                        }
                     })
                     .collect()
             })
@@ -863,8 +864,11 @@ impl MultiPhaseGibbsSystem {
             //     convergence test forever).
             let mut step_max = 0.0_f64;
             let mut conv_max = 0.0_f64;
-            let mut delta: Vec<Vec<f64>> =
-                self.phases.iter().map(|ph| vec![0.0; ph.n_species]).collect();
+            let mut delta: Vec<Vec<f64>> = self
+                .phases
+                .iter()
+                .map(|ph| vec![0.0; ph.n_species])
+                .collect();
             for (p, ph) in self.phases.iter().enumerate() {
                 for s in 0..ph.n_species {
                     let mut ap = 0.0;
@@ -895,13 +899,20 @@ impl MultiPhaseGibbsSystem {
             let phi_current = *merit_history.last().unwrap();
             let slack = 1e-12 * (1.0 + phi_current.abs());
             let mut omega = omega0;
-            let mut trial: Vec<Vec<f64>> =
-                self.phases.iter().map(|ph| vec![0.0; ph.n_species]).collect();
+            let mut trial: Vec<Vec<f64>> = self
+                .phases
+                .iter()
+                .map(|ph| vec![0.0; ph.n_species])
+                .collect();
             for _bt in 0..80 {
                 for (p, ph) in self.phases.iter().enumerate() {
                     for s in 0..ph.n_species {
                         let v = moles[p][s] * (omega * delta[p][s]).exp();
-                        trial[p][s] = if !v.is_finite() || v < 1e-300 { 1e-300 } else { v };
+                        trial[p][s] = if !v.is_finite() || v < 1e-300 {
+                            1e-300
+                        } else {
+                            v
+                        };
                     }
                 }
                 let phi_trial = self.total_gibbs_rt(&trial, &cc)
@@ -1203,7 +1214,12 @@ mod tests {
             .unwrap();
 
         let na0 = 2.0 - 3.0_f64.sqrt();
-        assert!((res.moles[0][0] - na0).abs() < 1e-8, "nA0={} exp={}", res.moles[0][0], na0);
+        assert!(
+            (res.moles[0][0] - na0).abs() < 1e-8,
+            "nA0={} exp={}",
+            res.moles[0][0],
+            na0
+        );
         assert!((res.moles[1][0] - (1.0 - na0)).abs() < 1e-8);
         let d = res.mole_fractions[1][0] / res.mole_fractions[0][0];
         assert!((d - 2.0).abs() < 1e-8, "D={d} exp=2");
@@ -1211,7 +1227,9 @@ mod tests {
         let b = sys
             .element_abundance(&[&res.moles[0], &res.moles[1]])
             .unwrap();
-        assert!((b[0] - 1.0).abs() < 1e-8 && (b[1] - 1.0).abs() < 1e-8 && (b[2] - 1.0).abs() < 1e-8);
+        assert!(
+            (b[0] - 1.0).abs() < 1e-8 && (b[1] - 1.0).abs() < 1e-8 && (b[2] - 1.0).abs() < 1e-8
+        );
 
         assert_monotone(&res);
     }
@@ -1262,11 +1280,25 @@ mod tests {
             )
             .unwrap();
 
-        assert!((res.mole_fractions[0][0] - 0.3).abs() < 1e-8, "yA={}", res.mole_fractions[0][0]);
-        assert!((res.moles[0][0] - 0.3 / 0.7).abs() < 1e-8, "nAgas={}", res.moles[0][0]);
-        assert!((res.moles[1][0] - (2.0 - 0.3 / 0.7)).abs() < 1e-8, "nAcond={}", res.moles[1][0]);
+        assert!(
+            (res.mole_fractions[0][0] - 0.3).abs() < 1e-8,
+            "yA={}",
+            res.mole_fractions[0][0]
+        );
+        assert!(
+            (res.moles[0][0] - 0.3 / 0.7).abs() < 1e-8,
+            "nAgas={}",
+            res.moles[0][0]
+        );
+        assert!(
+            (res.moles[1][0] - (2.0 - 0.3 / 0.7)).abs() < 1e-8,
+            "nAcond={}",
+            res.moles[1][0]
+        );
 
-        let b = sys.element_abundance(&[&res.moles[0], &res.moles[1]]).unwrap();
+        let b = sys
+            .element_abundance(&[&res.moles[0], &res.moles[1]])
+            .unwrap();
         assert!((b[0] - 2.0).abs() < 1e-8 && (b[1] - 1.0).abs() < 1e-8);
 
         assert_monotone(&res);
@@ -1329,7 +1361,11 @@ mod tests {
                     ],
                 ),
                 // condensed CO2 (C:1, O:2), g° huge -> vanishes.
-                ph(PhaseModel::IdealSolution, &["CO2c"], &[&[1.0], &[0.0], &[2.0]]),
+                ph(
+                    PhaseModel::IdealSolution,
+                    &["CO2c"],
+                    &[&[1.0], &[0.0], &[2.0]],
+                ),
             ],
         )
         .unwrap();
@@ -1349,7 +1385,11 @@ mod tests {
             )
             .unwrap();
 
-        assert!(res.phase_totals[1] < 1e-6, "condensed phase should vanish: {}", res.phase_totals[1]);
+        assert!(
+            res.phase_totals[1] < 1e-6,
+            "condensed phase should vanish: {}",
+            res.phase_totals[1]
+        );
         for i in 0..4 {
             assert!(
                 (res.moles[0][i] - sp_res.moles[i]).abs() < 1e-6,
@@ -1358,8 +1398,12 @@ mod tests {
                 sp_res.moles[i]
             );
         }
-        let b = sys.element_abundance(&[&res.moles[0], &res.moles[1]]).unwrap();
-        assert!((b[0] - 1.0).abs() < 1e-7 && (b[1] - 2.0).abs() < 1e-7 && (b[2] - 2.0).abs() < 1e-7);
+        let b = sys
+            .element_abundance(&[&res.moles[0], &res.moles[1]])
+            .unwrap();
+        assert!(
+            (b[0] - 1.0).abs() < 1e-7 && (b[1] - 2.0).abs() < 1e-7 && (b[2] - 2.0).abs() < 1e-7
+        );
 
         assert_monotone(&res);
     }
@@ -1437,5 +1481,3 @@ mod tests {
         );
     }
 }
-
-

@@ -1,7 +1,7 @@
 // Copyright [2023] [Theodore Kay Chen Ong, Professor Per F. Peterson,
-// Thermal Hydraulics Lab, Repository Contributors and 
+// Thermal Hydraulics Lab, Repository Contributors and
 // Singapore Nuclear Research and Safety Initiative (SNRSI)]
-// 
+//
 // SPDX-License-Identifier: GPL-3.0-only
 //
 // Relicensed from Apache-2.0 to GPL-3.0-only on 2026-08-11 by the sole
@@ -27,21 +27,18 @@ pub mod errors;
 pub mod transfer_fn_wrapper_and_enums;
 pub mod z_domain;
 
-
 use uom::si::{Quantity, ISQ, SI};
 use uom::typenum::*;
-pub(crate) type TimeSquared = 
-Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
+pub(crate) type TimeSquared = Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 
 // Time squared unit for use in second order functions
 
 #[test]
-pub fn timesq_test(){
+pub fn timesq_test() {
     // this just tests the time squared unit
     use uom::si::{time::second, f64::Time};
 
     let a = Time::new::<second>(1.0);
-    let a_sq: TimeSquared = a*a;
-    assert_eq!(a*a, a_sq);
+    let a_sq: TimeSquared = a * a;
+    assert_eq!(a * a, a_sq);
 }
-

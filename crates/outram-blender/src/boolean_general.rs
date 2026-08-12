@@ -688,7 +688,9 @@ fn bowyer_watson(pts: &[Vec2]) -> Vec<[usize; 3]> {
         for &ti in &bad {
             let tri = tris[ti];
             for &(a, b) in &[(tri[0], tri[1]), (tri[1], tri[2]), (tri[2], tri[0])] {
-                let shared = bad.iter().any(|&oj| oj != ti && tri_has_edge(tris[oj], a, b));
+                let shared = bad
+                    .iter()
+                    .any(|&oj| oj != ti && tri_has_edge(tris[oj], a, b));
                 if !shared {
                     boundary.push((a, b));
                 }
@@ -822,7 +824,10 @@ fn build_mesh(tris: &[Tri], weld: f64) -> Result<Mesh, BooleanError> {
     let mut positions: Vec<Vec3> = Vec::new();
     let mut faces: Vec<Vec<usize>> = Vec::new();
     for t in tris {
-        let idx: Vec<usize> = t.iter().map(|&p| find_or_add(&mut positions, p, weld)).collect();
+        let idx: Vec<usize> = t
+            .iter()
+            .map(|&p| find_or_add(&mut positions, p, weld))
+            .collect();
         if idx[0] != idx[1] && idx[1] != idx[2] && idx[2] != idx[0] {
             faces.push(idx);
         }
@@ -943,9 +948,19 @@ mod tests {
         assert_eq!(out.euler_characteristic(), 2, "closed result (chi=2)");
         let (lo, hi) = bounds(&out);
         let tol = 1e-9;
-        assert!(approx(lo.x, 1.0, tol) && approx(lo.y, 1.0, tol) && approx(lo.z, 1.0, tol), "min={lo:?}");
-        assert!(approx(hi.x, 2.0, tol) && approx(hi.y, 2.0, tol) && approx(hi.z, 2.0, tol), "max={hi:?}");
-        assert!(approx(signed_volume(&out), 1.0, 1e-9), "volume={}", signed_volume(&out));
+        assert!(
+            approx(lo.x, 1.0, tol) && approx(lo.y, 1.0, tol) && approx(lo.z, 1.0, tol),
+            "min={lo:?}"
+        );
+        assert!(
+            approx(hi.x, 2.0, tol) && approx(hi.y, 2.0, tol) && approx(hi.z, 2.0, tol),
+            "max={hi:?}"
+        );
+        assert!(
+            approx(signed_volume(&out), 1.0, 1e-9),
+            "volume={}",
+            signed_volume(&out)
+        );
     }
 
     /// Methodology: union of `A = [0,2]^3` and `B = [1,3]^3`. Exact volume
@@ -960,11 +975,21 @@ mod tests {
         let (a, b) = boxes();
         let out = boolean_general(&a, &b, BooleanMode::Union).expect("union ok");
         assert_eq!(out.euler_characteristic(), 2, "closed result (chi=2)");
-        assert!(approx(signed_volume(&out), 15.0, 1e-9), "volume={}", signed_volume(&out));
+        assert!(
+            approx(signed_volume(&out), 15.0, 1e-9),
+            "volume={}",
+            signed_volume(&out)
+        );
         let (lo, hi) = bounds(&out);
         let tol = 1e-9;
-        assert!(approx(lo.x, 0.0, tol) && approx(lo.y, 0.0, tol) && approx(lo.z, 0.0, tol), "min={lo:?}");
-        assert!(approx(hi.x, 3.0, tol) && approx(hi.y, 3.0, tol) && approx(hi.z, 3.0, tol), "max={hi:?}");
+        assert!(
+            approx(lo.x, 0.0, tol) && approx(lo.y, 0.0, tol) && approx(lo.z, 0.0, tol),
+            "min={lo:?}"
+        );
+        assert!(
+            approx(hi.x, 3.0, tol) && approx(hi.y, 3.0, tol) && approx(hi.z, 3.0, tol),
+            "max={hi:?}"
+        );
     }
 
     /// Methodology: difference `A \ B` of `A = [0,2]^3` minus `B = [1,3]^3`.
@@ -978,10 +1003,19 @@ mod tests {
         let (a, b) = boxes();
         let out = boolean_general(&a, &b, BooleanMode::Difference).expect("difference ok");
         assert_eq!(out.euler_characteristic(), 2, "closed result (chi=2)");
-        assert!(approx(signed_volume(&out), 7.0, 1e-9), "volume={}", signed_volume(&out));
+        assert!(
+            approx(signed_volume(&out), 7.0, 1e-9),
+            "volume={}",
+            signed_volume(&out)
+        );
         let (lo, hi) = bounds(&out);
         let tol = 1e-9;
-        assert!(approx(lo.x, 0.0, tol) && approx(hi.x, 2.0, tol), "x=({},{})", lo.x, hi.x);
+        assert!(
+            approx(lo.x, 0.0, tol) && approx(hi.x, 2.0, tol),
+            "x=({},{})",
+            lo.x,
+            hi.x
+        );
     }
 
     /// The difference result must be genuinely **concave** — that is the whole
@@ -1017,8 +1051,12 @@ mod tests {
     /// `y,z in [0,2]` square — a coplanar overlap with no transverse cut curve.
     #[test]
     fn coplanar_shared_face_is_unsupported() {
-        let a = map_positions(&primitives::cube(2.0), |p| Vec3::new(p.x + 1.0, p.y + 1.0, p.z + 1.0)); // [0,2]^3
-        let b = map_positions(&primitives::cube(2.0), |p| Vec3::new(p.x + 3.0, p.y + 1.0, p.z + 1.0)); // [2,4]x[0,2]x[0,2]
+        let a = map_positions(&primitives::cube(2.0), |p| {
+            Vec3::new(p.x + 1.0, p.y + 1.0, p.z + 1.0)
+        }); // [0,2]^3
+        let b = map_positions(&primitives::cube(2.0), |p| {
+            Vec3::new(p.x + 3.0, p.y + 1.0, p.z + 1.0)
+        }); // [2,4]x[0,2]x[0,2]
         let r = boolean_general(&a, &b, BooleanMode::Union);
         assert!(
             matches!(r, Err(BooleanError::Unsupported(msg)) if msg.contains("coplanar")),
@@ -1043,6 +1081,9 @@ mod tests {
         assert_eq!(out.euler_characteristic(), 2, "closed result (chi=2)");
         assert!(is_manifold(&out), "sphere∩box must be edge-manifold");
         let vol = signed_volume(&out);
-        assert!(vol > 4.0 && vol < 8.0, "sphere∩box volume out of sane band: {vol}");
+        assert!(
+            vol > 4.0 && vol < 8.0,
+            "sphere∩box volume out of sane band: {vol}"
+        );
     }
 }

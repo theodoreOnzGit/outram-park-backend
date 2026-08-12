@@ -649,7 +649,10 @@ mod tests {
         let mut pulse = TracerPulse::new(Time::new::<second>(0.0));
         pulse.advance(dt, tau, flow);
         let x = pulse.position(tau).expect("mark should be in flight");
-        assert!(x > 0.85, "reversed mark should start near the outlet, got {x}");
+        assert!(
+            x > 0.85,
+            "reversed mark should start near the outlet, got {x}"
+        );
     }
 
     /// A stagnant run has no tracer speed, so a pulse must show nothing.

@@ -67,8 +67,14 @@ use crate::volume_mesh::{orient_ring, BoundaryPatch, VolumeMesh};
 /// ```
 pub fn cartesian_box(min: Vec3, max: Vec3, divisions: [usize; 3]) -> VolumeMesh {
     let [nx, ny, nz] = divisions;
-    assert!(nx >= 1 && ny >= 1 && nz >= 1, "each division count must be >= 1");
-    assert!(max.x > min.x && max.y > min.y && max.z > min.z, "max must exceed min on every axis");
+    assert!(
+        nx >= 1 && ny >= 1 && nz >= 1,
+        "each division count must be >= 1"
+    );
+    assert!(
+        max.x > min.x && max.y > min.y && max.z > min.z,
+        "max must exceed min on every axis"
+    );
 
     let dx = (max.x - min.x) / nx as f64;
     let dy = (max.y - min.y) / ny as f64;
@@ -114,8 +120,19 @@ pub fn cartesian_box(min: Vec3, max: Vec3, divisions: [usize; 3]) -> VolumeMesh 
     for k in 0..nz {
         for j in 0..ny {
             for i in 1..nx {
-                let ring = vec![np(i, j, k), np(i, j + 1, k), np(i, j + 1, k + 1), np(i, j, k + 1)];
-                push_face(ring, nc(i - 1, j, k), Some(nc(i, j, k)), cell_center(i - 1, j, k), &points);
+                let ring = vec![
+                    np(i, j, k),
+                    np(i, j + 1, k),
+                    np(i, j + 1, k + 1),
+                    np(i, j, k + 1),
+                ];
+                push_face(
+                    ring,
+                    nc(i - 1, j, k),
+                    Some(nc(i, j, k)),
+                    cell_center(i - 1, j, k),
+                    &points,
+                );
             }
         }
     }
@@ -123,8 +140,19 @@ pub fn cartesian_box(min: Vec3, max: Vec3, divisions: [usize; 3]) -> VolumeMesh 
     for k in 0..nz {
         for j in 1..ny {
             for i in 0..nx {
-                let ring = vec![np(i, j, k), np(i + 1, j, k), np(i + 1, j, k + 1), np(i, j, k + 1)];
-                push_face(ring, nc(i, j - 1, k), Some(nc(i, j, k)), cell_center(i, j - 1, k), &points);
+                let ring = vec![
+                    np(i, j, k),
+                    np(i + 1, j, k),
+                    np(i + 1, j, k + 1),
+                    np(i, j, k + 1),
+                ];
+                push_face(
+                    ring,
+                    nc(i, j - 1, k),
+                    Some(nc(i, j, k)),
+                    cell_center(i, j - 1, k),
+                    &points,
+                );
             }
         }
     }
@@ -132,8 +160,19 @@ pub fn cartesian_box(min: Vec3, max: Vec3, divisions: [usize; 3]) -> VolumeMesh 
     for k in 1..nz {
         for j in 0..ny {
             for i in 0..nx {
-                let ring = vec![np(i, j, k), np(i + 1, j, k), np(i + 1, j + 1, k), np(i, j + 1, k)];
-                push_face(ring, nc(i, j, k - 1), Some(nc(i, j, k)), cell_center(i, j, k - 1), &points);
+                let ring = vec![
+                    np(i, j, k),
+                    np(i + 1, j, k),
+                    np(i + 1, j + 1, k),
+                    np(i, j + 1, k),
+                ];
+                push_face(
+                    ring,
+                    nc(i, j, k - 1),
+                    Some(nc(i, j, k)),
+                    cell_center(i, j, k - 1),
+                    &points,
+                );
             }
         }
     }
@@ -143,11 +182,11 @@ pub fn cartesian_box(min: Vec3, max: Vec3, divisions: [usize; 3]) -> VolumeMesh 
     // Each closure body pushes a run of boundary faces and records the patch.
     let add_patch = |name: &str,
                      rings: Vec<(Vec<usize>, usize, Vec3)>,
-                         faces: &mut Vec<Vec<usize>>,
-                         owner: &mut Vec<usize>,
-                         neighbour: &mut Vec<Option<usize>>,
-                         patches: &mut Vec<BoundaryPatch>,
-                         pts: &[Vec3]| {
+                     faces: &mut Vec<Vec<usize>>,
+                     owner: &mut Vec<usize>,
+                     neighbour: &mut Vec<Option<usize>>,
+                     patches: &mut Vec<BoundaryPatch>,
+                     pts: &[Vec3]| {
         let start = faces.len();
         let n = rings.len();
         for (ring, o, oc) in rings {
@@ -155,7 +194,11 @@ pub fn cartesian_box(min: Vec3, max: Vec3, divisions: [usize; 3]) -> VolumeMesh 
             owner.push(o);
             neighbour.push(None);
         }
-        patches.push(BoundaryPatch { name: name.into(), start_face: start, n_faces: n });
+        patches.push(BoundaryPatch {
+            name: name.into(),
+            start_face: start,
+            n_faces: n,
+        });
     };
 
     // xMin (i = 0) / xMax (i = nx).
@@ -164,12 +207,22 @@ pub fn cartesian_box(min: Vec3, max: Vec3, divisions: [usize; 3]) -> VolumeMesh 
     for k in 0..nz {
         for j in 0..ny {
             xmin.push((
-                vec![np(0, j, k), np(0, j + 1, k), np(0, j + 1, k + 1), np(0, j, k + 1)],
+                vec![
+                    np(0, j, k),
+                    np(0, j + 1, k),
+                    np(0, j + 1, k + 1),
+                    np(0, j, k + 1),
+                ],
                 nc(0, j, k),
                 cell_center(0, j, k),
             ));
             xmax.push((
-                vec![np(nx, j, k), np(nx, j + 1, k), np(nx, j + 1, k + 1), np(nx, j, k + 1)],
+                vec![
+                    np(nx, j, k),
+                    np(nx, j + 1, k),
+                    np(nx, j + 1, k + 1),
+                    np(nx, j, k + 1),
+                ],
                 nc(nx - 1, j, k),
                 cell_center(nx - 1, j, k),
             ));
@@ -181,12 +234,22 @@ pub fn cartesian_box(min: Vec3, max: Vec3, divisions: [usize; 3]) -> VolumeMesh 
     for k in 0..nz {
         for i in 0..nx {
             ymin.push((
-                vec![np(i, 0, k), np(i + 1, 0, k), np(i + 1, 0, k + 1), np(i, 0, k + 1)],
+                vec![
+                    np(i, 0, k),
+                    np(i + 1, 0, k),
+                    np(i + 1, 0, k + 1),
+                    np(i, 0, k + 1),
+                ],
                 nc(i, 0, k),
                 cell_center(i, 0, k),
             ));
             ymax.push((
-                vec![np(i, ny, k), np(i + 1, ny, k), np(i + 1, ny, k + 1), np(i, ny, k + 1)],
+                vec![
+                    np(i, ny, k),
+                    np(i + 1, ny, k),
+                    np(i + 1, ny, k + 1),
+                    np(i, ny, k + 1),
+                ],
                 nc(i, ny - 1, k),
                 cell_center(i, ny - 1, k),
             ));
@@ -198,25 +261,90 @@ pub fn cartesian_box(min: Vec3, max: Vec3, divisions: [usize; 3]) -> VolumeMesh 
     for j in 0..ny {
         for i in 0..nx {
             zmin.push((
-                vec![np(i, j, 0), np(i + 1, j, 0), np(i + 1, j + 1, 0), np(i, j + 1, 0)],
+                vec![
+                    np(i, j, 0),
+                    np(i + 1, j, 0),
+                    np(i + 1, j + 1, 0),
+                    np(i, j + 1, 0),
+                ],
                 nc(i, j, 0),
                 cell_center(i, j, 0),
             ));
             zmax.push((
-                vec![np(i, j, nz), np(i + 1, j, nz), np(i + 1, j + 1, nz), np(i, j + 1, nz)],
+                vec![
+                    np(i, j, nz),
+                    np(i + 1, j, nz),
+                    np(i + 1, j + 1, nz),
+                    np(i, j + 1, nz),
+                ],
                 nc(i, j, nz - 1),
                 cell_center(i, j, nz - 1),
             ));
         }
     }
-    add_patch("xMin", xmin, &mut faces, &mut owner, &mut neighbour, &mut patches, &points);
-    add_patch("xMax", xmax, &mut faces, &mut owner, &mut neighbour, &mut patches, &points);
-    add_patch("yMin", ymin, &mut faces, &mut owner, &mut neighbour, &mut patches, &points);
-    add_patch("yMax", ymax, &mut faces, &mut owner, &mut neighbour, &mut patches, &points);
-    add_patch("zMin", zmin, &mut faces, &mut owner, &mut neighbour, &mut patches, &points);
-    add_patch("zMax", zmax, &mut faces, &mut owner, &mut neighbour, &mut patches, &points);
+    add_patch(
+        "xMin",
+        xmin,
+        &mut faces,
+        &mut owner,
+        &mut neighbour,
+        &mut patches,
+        &points,
+    );
+    add_patch(
+        "xMax",
+        xmax,
+        &mut faces,
+        &mut owner,
+        &mut neighbour,
+        &mut patches,
+        &points,
+    );
+    add_patch(
+        "yMin",
+        ymin,
+        &mut faces,
+        &mut owner,
+        &mut neighbour,
+        &mut patches,
+        &points,
+    );
+    add_patch(
+        "yMax",
+        ymax,
+        &mut faces,
+        &mut owner,
+        &mut neighbour,
+        &mut patches,
+        &points,
+    );
+    add_patch(
+        "zMin",
+        zmin,
+        &mut faces,
+        &mut owner,
+        &mut neighbour,
+        &mut patches,
+        &points,
+    );
+    add_patch(
+        "zMax",
+        zmax,
+        &mut faces,
+        &mut owner,
+        &mut neighbour,
+        &mut patches,
+        &points,
+    );
 
-    VolumeMesh { points, faces, owner, neighbour, n_cells: nx * ny * nz, patches }
+    VolumeMesh {
+        points,
+        faces,
+        owner,
+        neighbour,
+        n_cells: nx * ny * nz,
+        patches,
+    }
 }
 
 #[cfg(test)]
@@ -249,7 +377,11 @@ mod tests {
     /// closed forms and every cell is closed.
     #[test]
     fn rectangular_box_counts_and_volume() {
-        let m = cartesian_box(Vec3::new(-1.0, 0.0, 0.0), Vec3::new(2.0, 1.0, 4.0), [3, 2, 1]);
+        let m = cartesian_box(
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::new(2.0, 1.0, 4.0),
+            [3, 2, 1],
+        );
         assert_eq!(m.cell_count(), 6);
         // internal: (3-1)*2*1 + 3*(2-1)*1 + 3*2*(1-1) = 4 + 3 + 0 = 7.
         assert_eq!(m.n_internal_faces(), 7);

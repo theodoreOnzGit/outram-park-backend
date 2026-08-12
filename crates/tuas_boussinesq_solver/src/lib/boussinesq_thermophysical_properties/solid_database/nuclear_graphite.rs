@@ -132,32 +132,36 @@ pub fn max_temp_nuclear_graphite() -> ThermodynamicTemperature {
 /// because the table is shared between both graphite variants.)
 #[inline]
 pub fn nuclear_graphite_specific_heat_capacity_butland_maddison_spline(
-    temperature: ThermodynamicTemperature) -> Result<SpecificHeatCapacity, TuasLibError> {
-
+    temperature: ThermodynamicTemperature,
+) -> Result<SpecificHeatCapacity, TuasLibError> {
     range_check(
         &Material::Solid(SolidMaterial::NuclearGraphiteMatrixA3),
         temperature,
         max_temp_nuclear_graphite(),
-        min_temp_nuclear_graphite())?;
+        min_temp_nuclear_graphite(),
+    )?;
 
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
 
     let cp_temperature_values_kelvin = c!(
-        300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 1100.0,
-        1200.0, 1300.0, 1400.0, 1500.0, 1600.0, 1700.0, 1800.0, 1900.0,
-        2000.0);
+        300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 1100.0, 1200.0, 1300.0, 1400.0,
+        1500.0, 1600.0, 1700.0, 1800.0, 1900.0, 2000.0
+    );
     let cp_values_joule_per_kilogram_kelvin = c!(
-        713.24, 991.02, 1218.45, 1390.79, 1520.85, 1620.52, 1698.40,
-        1760.40, 1810.64, 1851.96, 1886.42, 1915.49, 1940.26, 1961.58,
-        1980.06, 1996.20, 2010.39, 2022.93);
+        713.24, 991.02, 1218.45, 1390.79, 1520.85, 1620.52, 1698.40, 1760.40, 1810.64, 1851.96,
+        1886.42, 1915.49, 1940.26, 1961.58, 1980.06, 1996.20, 2010.39, 2022.93
+    );
 
-    let s = CubicSpline::from_nodes(&cp_temperature_values_kelvin,
-        &cp_values_joule_per_kilogram_kelvin);
+    let s = CubicSpline::from_nodes(
+        &cp_temperature_values_kelvin,
+        &cp_values_joule_per_kilogram_kelvin,
+    );
 
     let graphite_cp_value = s.unwrap().eval(temperature_value_kelvin);
 
     Ok(SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
-        graphite_cp_value))
+        graphite_cp_value,
+    ))
 }
 
 /// Returns the fast-neutron-fluence conductivity damage factor
@@ -189,22 +193,21 @@ pub fn nuclear_graphite_specific_heat_capacity_butland_maddison_spline(
 /// (measured 0.1390, see the unit test), leaving margin before the
 /// unphysical zero crossing at `gam ~ 19.0`.
 #[inline]
-pub fn nuclear_graphite_fluence_damage_factor(
-    fluence: Ratio) -> Result<Ratio, TuasLibError> {
-
+pub fn nuclear_graphite_fluence_damage_factor(fluence: Ratio) -> Result<Ratio, TuasLibError> {
     let gam: f64 = fluence.get::<ratio>();
 
     if !(0.0..=15.0).contains(&gam) {
-        println!("nuclear graphite fluence damage factor: \n\
+        println!(
+            "nuclear graphite fluence damage factor: \n\
             fluence parameter gam = {:?} is outside the accepted \n\
             range [0, 15] (in units of 10^25 n/m^2, E > 0.1 MeV); \n\
             beyond gam ~ 19 the correlation goes negative (unphysical)",
-            gam);
+            gam
+        );
         return Err(TuasLibError::ThermophysicalPropertyTemperatureRangeError);
     }
 
-    let damage_factor: f64 =
-        1.0 - 0.336 * (1.0 - f64::exp(-1.005 * gam)) - 3.50e-2 * gam;
+    let damage_factor: f64 = 1.0 - 0.336 * (1.0 - f64::exp(-1.005 * gam)) - 3.50e-2 * gam;
 
     Ok(Ratio::new::<ratio>(damage_factor))
 }
@@ -238,25 +241,23 @@ pub fn nuclear_graphite_fluence_damage_factor(
 #[inline]
 pub fn nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent(
     temperature: ThermodynamicTemperature,
-    fluence: Ratio) -> Result<ThermalConductivity, TuasLibError> {
-
+    fluence: Ratio,
+) -> Result<ThermalConductivity, TuasLibError> {
     range_check(
         &Material::Solid(SolidMaterial::NuclearGraphiteMatrixA3),
         temperature,
         max_temp_nuclear_graphite(),
-        min_temp_nuclear_graphite())?;
+        min_temp_nuclear_graphite(),
+    )?;
 
     let t: f64 = temperature.get::<kelvin>();
-    let damage_factor: f64 =
-        nuclear_graphite_fluence_damage_factor(fluence)?.get::<ratio>();
+    let damage_factor: f64 = nuclear_graphite_fluence_damage_factor(fluence)?.get::<ratio>();
 
     let temperature_factor: f64 =
         1.0 - 9.7556e-4 * (t - 373.15) * f64::exp(-6.036e-4 * (t - 273.15));
-    let density_maxwell_factor: f64 =
-        1740.0 / (2.2 * (1700.0 - 1740.0) + 1740.0);
+    let density_maxwell_factor: f64 = 1740.0 / (2.2 * (1700.0 - 1740.0) + 1740.0);
 
-    let k_value: f64 =
-        47.4 * temperature_factor * density_maxwell_factor * damage_factor;
+    let k_value: f64 = 47.4 * temperature_factor * density_maxwell_factor * damage_factor;
 
     Ok(ThermalConductivity::new::<watt_per_meter_kelvin>(k_value))
 }
@@ -272,11 +273,12 @@ pub fn nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent(
 /// [`SolidMaterial::NuclearGraphiteMatrixA3`] enum arm dispatches here.
 #[inline]
 pub fn nuclear_graphite_matrix_a3_thermal_conductivity_zero_fluence(
-    temperature: ThermodynamicTemperature) -> Result<ThermalConductivity, TuasLibError> {
-
+    temperature: ThermodynamicTemperature,
+) -> Result<ThermalConductivity, TuasLibError> {
     nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent(
         temperature,
-        Ratio::new::<ratio>(0.0))
+        Ratio::new::<ratio>(0.0),
+    )
 }
 
 /// Returns the thermal conductivity, in W/(m K), of **unirradiated** IG-110
@@ -297,13 +299,14 @@ pub fn nuclear_graphite_matrix_a3_thermal_conductivity_zero_fluence(
 /// [`SolidMaterial::NuclearGraphiteIG110`] enum arm dispatches here.
 #[inline]
 pub fn nuclear_graphite_ig_110_thermal_conductivity_unirradiated(
-    temperature: ThermodynamicTemperature) -> Result<ThermalConductivity, TuasLibError> {
-
+    temperature: ThermodynamicTemperature,
+) -> Result<ThermalConductivity, TuasLibError> {
     range_check(
         &Material::Solid(SolidMaterial::NuclearGraphiteIG110),
         temperature,
         max_temp_nuclear_graphite(),
-        min_temp_nuclear_graphite())?;
+        min_temp_nuclear_graphite(),
+    )?;
 
     let t: f64 = temperature.get::<kelvin>();
 
@@ -333,12 +336,10 @@ pub fn nuclear_graphite_ig_110_thermal_conductivity_unirradiated(
 #[inline]
 pub fn nuclear_graphite_ig_110_thermal_conductivity_fluence_dependent(
     temperature: ThermodynamicTemperature,
-    fluence: Ratio) -> Result<ThermalConductivity, TuasLibError> {
-
-    let unirradiated_k =
-        nuclear_graphite_ig_110_thermal_conductivity_unirradiated(temperature)?;
-    let damage_factor =
-        nuclear_graphite_fluence_damage_factor(fluence)?;
+    fluence: Ratio,
+) -> Result<ThermalConductivity, TuasLibError> {
+    let unirradiated_k = nuclear_graphite_ig_110_thermal_conductivity_unirradiated(temperature)?;
+    let damage_factor = nuclear_graphite_fluence_damage_factor(fluence)?;
 
     Ok(unirradiated_k * damage_factor)
 }
@@ -368,27 +369,27 @@ pub fn nuclear_graphite_ig_110_thermal_conductivity_fluence_dependent(
 /// `min_temperature()`/`max_temperature()`).
 #[inline]
 pub fn nuclear_graphite_specific_enthalpy(
-    temperature: ThermodynamicTemperature) -> AvailableEnergy {
-
+    temperature: ThermodynamicTemperature,
+) -> AvailableEnergy {
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
 
     let cp_temperature_values_kelvin = c!(
-        300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 1100.0,
-        1200.0, 1300.0, 1400.0, 1500.0, 1600.0, 1700.0, 1800.0, 1900.0,
-        2000.0);
+        300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 1100.0, 1200.0, 1300.0, 1400.0,
+        1500.0, 1600.0, 1700.0, 1800.0, 1900.0, 2000.0
+    );
     let cp_values_joule_per_kilogram_kelvin = c!(
-        713.24, 991.02, 1218.45, 1390.79, 1520.85, 1620.52, 1698.40,
-        1760.40, 1810.64, 1851.96, 1886.42, 1915.49, 1940.26, 1961.58,
-        1980.06, 1996.20, 2010.39, 2022.93);
+        713.24, 991.02, 1218.45, 1390.79, 1520.85, 1620.52, 1698.40, 1760.40, 1810.64, 1851.96,
+        1886.42, 1915.49, 1940.26, 1961.58, 1980.06, 1996.20, 2010.39, 2022.93
+    );
 
-    let s = CubicSpline::from_nodes(&cp_temperature_values_kelvin,
-        &cp_values_joule_per_kilogram_kelvin);
+    let s = CubicSpline::from_nodes(
+        &cp_temperature_values_kelvin,
+        &cp_values_joule_per_kilogram_kelvin,
+    );
 
-    let graphite_specific_enthalpy_value = s.unwrap().integrate(
-        (273.15, temperature_value_kelvin));
+    let graphite_specific_enthalpy_value = s.unwrap().integrate((273.15, temperature_value_kelvin));
 
-    AvailableEnergy::new::<joule_per_kilogram>(
-        graphite_specific_enthalpy_value)
+    AvailableEnergy::new::<joule_per_kilogram>(graphite_specific_enthalpy_value)
 }
 
 /// Returns the temperature, in K, of nuclear graphite (both A3 matrix and
@@ -409,53 +410,49 @@ pub fn nuclear_graphite_specific_enthalpy(
 /// [`nuclear_graphite_specific_enthalpy`].
 #[inline]
 pub(crate) fn nuclear_graphite_spline_temp_from_specific_enthalpy(
-    h_graphite: AvailableEnergy) -> ThermodynamicTemperature {
-
+    h_graphite: AvailableEnergy,
+) -> ThermodynamicTemperature {
     // evaluate enthalpy at the cp-table node temperatures
     let temperature_values_kelvin: Vec<f64> = c!(
-        300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 1100.0,
-        1200.0, 1300.0, 1400.0, 1500.0, 1600.0, 1700.0, 1800.0, 1900.0,
-        2000.0);
+        300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 1100.0, 1200.0, 1300.0, 1400.0,
+        1500.0, 1600.0, 1700.0, 1800.0, 1900.0, 2000.0
+    );
 
     let temperature_vec_len = temperature_values_kelvin.len();
 
     let mut enthalpy_vector = vec![0.0; temperature_vec_len];
 
     for index_i in 0..temperature_vec_len {
-
         let temperature_value = temperature_values_kelvin[index_i];
 
-        let graphite_temp = ThermodynamicTemperature::new::<kelvin>(
-            temperature_value);
+        let graphite_temp = ThermodynamicTemperature::new::<kelvin>(temperature_value);
 
         // both graphite variants share this enthalpy curve, so call the
         // free function directly rather than dispatching through the enum
         let graphite_enthalpy_value =
-            nuclear_graphite_specific_enthalpy(graphite_temp)
-            .get::<joule_per_kilogram>();
+            nuclear_graphite_specific_enthalpy(graphite_temp).get::<joule_per_kilogram>();
 
         enthalpy_vector[index_i] = graphite_enthalpy_value;
     }
 
     // inverted spline: enthalpy in, temperature out (initial guess)
     let enthalpy_to_temperature_spline =
-        CubicSpline::from_nodes(&enthalpy_vector,
-            &temperature_values_kelvin);
+        CubicSpline::from_nodes(&enthalpy_vector, &temperature_values_kelvin);
 
     let h_graphite_joules_per_kg = h_graphite.get::<joule_per_kilogram>();
 
-    let temperature_from_enthalpy_kelvin =
-        enthalpy_to_temperature_spline.unwrap().eval(h_graphite_joules_per_kg);
+    let temperature_from_enthalpy_kelvin = enthalpy_to_temperature_spline
+        .unwrap()
+        .eval(h_graphite_joules_per_kg);
 
     // refine with brent dekker
     let enthalpy_root = |temp_kelvin_value: f64| -> f64 {
         let lhs_value = h_graphite.get::<joule_per_kilogram>();
 
-        let graphite_temp = ThermodynamicTemperature::new::<kelvin>(
-            temp_kelvin_value);
+        let graphite_temp = ThermodynamicTemperature::new::<kelvin>(temp_kelvin_value);
 
-        let rhs_value = nuclear_graphite_specific_enthalpy(graphite_temp)
-            .get::<joule_per_kilogram>();
+        let rhs_value =
+            nuclear_graphite_specific_enthalpy(graphite_temp).get::<joule_per_kilogram>();
 
         lhs_value - rhs_value
     };
@@ -466,28 +463,23 @@ pub(crate) fn nuclear_graphite_spline_temp_from_specific_enthalpy(
     // range so bracket overhang at the range ends is safe
     let brent_error_bound: f64 = 5.0;
 
-    let upper_limit: f64 = temperature_from_enthalpy_kelvin +
-        brent_error_bound;
+    let upper_limit: f64 = temperature_from_enthalpy_kelvin + brent_error_bound;
 
-    let lower_limit: f64 = temperature_from_enthalpy_kelvin -
-        brent_error_bound;
+    let lower_limit: f64 = temperature_from_enthalpy_kelvin - brent_error_bound;
 
-    let mut convergency = SimpleConvergency { eps: 1e-8f64, max_iter: 30 };
-    let graphite_temperature_result = find_root_brent(
-        upper_limit,
-        lower_limit,
-        enthalpy_root,
-        &mut convergency
-    );
+    let mut convergency = SimpleConvergency {
+        eps: 1e-8f64,
+        max_iter: 30,
+    };
+    let graphite_temperature_result =
+        find_root_brent(upper_limit, lower_limit, enthalpy_root, &mut convergency);
 
-    let temperature_from_enthalpy_kelvin: f64 =
-        match graphite_temperature_result {
-            Ok(temperature_val) => temperature_val,
-            Err(_) => panic!("{:?}", h_graphite),
-        };
+    let temperature_from_enthalpy_kelvin: f64 = match graphite_temperature_result {
+        Ok(temperature_val) => temperature_val,
+        Err(_) => panic!("{:?}", h_graphite),
+    };
 
-    ThermodynamicTemperature::new::<kelvin>(
-        temperature_from_enthalpy_kelvin)
+    ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin)
 }
 
 /// V&V test: cp spline reproduces the Butland & Maddison table nodes.
@@ -508,26 +500,26 @@ pub(crate) fn nuclear_graphite_spline_temp_from_specific_enthalpy(
 /// underlying data).
 #[test]
 pub fn nuclear_graphite_cp_spline_reproduces_butland_maddison_nodes() {
-
     let node_temperatures_kelvin = [
-        300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 1100.0,
-        1200.0, 1300.0, 1400.0, 1500.0, 1600.0, 1700.0, 1800.0, 1900.0,
-        2000.0];
+        300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 1100.0, 1200.0, 1300.0, 1400.0,
+        1500.0, 1600.0, 1700.0, 1800.0, 1900.0, 2000.0,
+    ];
     let node_cp_joule_per_kg_kelvin = [
-        713.24, 991.02, 1218.45, 1390.79, 1520.85, 1620.52, 1698.40,
-        1760.40, 1810.64, 1851.96, 1886.42, 1915.49, 1940.26, 1961.58,
-        1980.06, 1996.20, 2010.39, 2022.93];
+        713.24, 991.02, 1218.45, 1390.79, 1520.85, 1620.52, 1698.40, 1760.40, 1810.64, 1851.96,
+        1886.42, 1915.49, 1940.26, 1961.58, 1980.06, 1996.20, 2010.39, 2022.93,
+    ];
 
     let mut max_rel_error: f64 = 0.0;
 
-    for (temp_kelvin, cp_expected) in node_temperatures_kelvin.iter()
-        .zip(node_cp_joule_per_kg_kelvin.iter()) {
-
-        let cp_measured =
-            nuclear_graphite_specific_heat_capacity_butland_maddison_spline(
-                ThermodynamicTemperature::new::<kelvin>(*temp_kelvin))
-            .unwrap()
-            .get::<joule_per_kilogram_kelvin>();
+    for (temp_kelvin, cp_expected) in node_temperatures_kelvin
+        .iter()
+        .zip(node_cp_joule_per_kg_kelvin.iter())
+    {
+        let cp_measured = nuclear_graphite_specific_heat_capacity_butland_maddison_spline(
+            ThermodynamicTemperature::new::<kelvin>(*temp_kelvin),
+        )
+        .unwrap()
+        .get::<joule_per_kilogram_kelvin>();
 
         let rel_error = ((cp_measured - cp_expected) / cp_expected).abs();
 
@@ -536,10 +528,16 @@ pub fn nuclear_graphite_cp_spline_reproduces_butland_maddison_nodes() {
         }
     }
 
-    println!("cp spline max relative error across nodes: {:e}", max_rel_error);
-    assert!(max_rel_error < 1e-12,
+    println!(
+        "cp spline max relative error across nodes: {:e}",
+        max_rel_error
+    );
+    assert!(
+        max_rel_error < 1e-12,
         "cp spline should reproduce table nodes exactly, \
-        max rel error was {:e}", max_rel_error);
+        max rel error was {:e}",
+        max_rel_error
+    );
 }
 
 /// V&V test: A3 matrix conductivity at zero fluence matches the closed form.
@@ -560,24 +558,22 @@ pub fn nuclear_graphite_cp_spline_reproduces_butland_maddison_nodes() {
 /// measured HTR-10 graphite data.
 #[test]
 pub fn nuclear_graphite_matrix_a3_k_zero_fluence_matches_closed_form() {
-
     // at 373.15 K, temperature factor = 1 exactly, so
     // k = 47.4 * 1740/1652
     let k_hand_373: f64 = 47.4 * 1740.0 / (2.2 * (1700.0 - 1740.0) + 1740.0);
 
-    let k_measured_373 =
-        nuclear_graphite_matrix_a3_thermal_conductivity_zero_fluence(
-            ThermodynamicTemperature::new::<kelvin>(373.15))
-        .unwrap()
-        .get::<watt_per_meter_kelvin>();
+    let k_measured_373 = nuclear_graphite_matrix_a3_thermal_conductivity_zero_fluence(
+        ThermodynamicTemperature::new::<kelvin>(373.15),
+    )
+    .unwrap()
+    .get::<watt_per_meter_kelvin>();
 
-    println!("matrix A3 k at 373.15 K: measured {}, hand {}",
-        k_measured_373, k_hand_373);
+    println!(
+        "matrix A3 k at 373.15 K: measured {}, hand {}",
+        k_measured_373, k_hand_373
+    );
 
-    approx::assert_relative_eq!(
-        k_hand_373,
-        k_measured_373,
-        max_relative = 1e-12);
+    approx::assert_relative_eq!(k_hand_373, k_measured_373, max_relative = 1e-12);
 
     // at 600 K, full closed form
     let t: f64 = 600.0;
@@ -585,19 +581,18 @@ pub fn nuclear_graphite_matrix_a3_k_zero_fluence_matches_closed_form() {
         * (1.0 - 9.7556e-4 * (t - 373.15) * f64::exp(-6.036e-4 * (t - 273.15)))
         * (1740.0 / (2.2 * (1700.0 - 1740.0) + 1740.0));
 
-    let k_measured_600 =
-        nuclear_graphite_matrix_a3_thermal_conductivity_zero_fluence(
-            ThermodynamicTemperature::new::<kelvin>(t))
-        .unwrap()
-        .get::<watt_per_meter_kelvin>();
+    let k_measured_600 = nuclear_graphite_matrix_a3_thermal_conductivity_zero_fluence(
+        ThermodynamicTemperature::new::<kelvin>(t),
+    )
+    .unwrap()
+    .get::<watt_per_meter_kelvin>();
 
-    println!("matrix A3 k at 600 K: measured {}, hand {}",
-        k_measured_600, k_hand_600);
+    println!(
+        "matrix A3 k at 600 K: measured {}, hand {}",
+        k_measured_600, k_hand_600
+    );
 
-    approx::assert_relative_eq!(
-        k_hand_600,
-        k_measured_600,
-        max_relative = 1e-12);
+    approx::assert_relative_eq!(k_hand_600, k_measured_600, max_relative = 1e-12);
 }
 
 /// V&V test: fluence damage factor behaviour.
@@ -622,53 +617,65 @@ pub fn nuclear_graphite_matrix_a3_k_zero_fluence_matches_closed_form() {
 /// `ThermophysicalPropertyTemperatureRangeError` as required.
 #[test]
 pub fn nuclear_graphite_fluence_damage_factor_behaviour() {
-
     use uom::si::ratio::ratio;
 
     // (1) exactly 1 at gam = 0
-    let factor_at_zero = nuclear_graphite_fluence_damage_factor(
-        Ratio::new::<ratio>(0.0)).unwrap().get::<ratio>();
+    let factor_at_zero = nuclear_graphite_fluence_damage_factor(Ratio::new::<ratio>(0.0))
+        .unwrap()
+        .get::<ratio>();
     println!("damage factor at gam=0: {}", factor_at_zero);
-    assert_eq!(factor_at_zero, 1.0,
-        "damage factor at zero fluence must be exactly 1");
+    assert_eq!(
+        factor_at_zero, 1.0,
+        "damage factor at zero fluence must be exactly 1"
+    );
 
     // (2) monotonically decreasing on [0, 15], sampled at step 0.5
     let mut previous_factor = f64::INFINITY;
     let mut gam_sample: f64 = 0.0;
     while gam_sample <= 15.0 {
-        let factor = nuclear_graphite_fluence_damage_factor(
-            Ratio::new::<ratio>(gam_sample)).unwrap().get::<ratio>();
-        assert!(factor < previous_factor,
-            "damage factor not strictly decreasing at gam = {}", gam_sample);
+        let factor = nuclear_graphite_fluence_damage_factor(Ratio::new::<ratio>(gam_sample))
+            .unwrap()
+            .get::<ratio>();
+        assert!(
+            factor < previous_factor,
+            "damage factor not strictly decreasing at gam = {}",
+            gam_sample
+        );
         previous_factor = factor;
         gam_sample += 0.5;
     }
     println!("damage factor at gam=15: {}", previous_factor);
-    assert!(previous_factor > 0.0,
-        "damage factor at gam=15 should still be positive");
+    assert!(
+        previous_factor > 0.0,
+        "damage factor at gam=15 should still be positive"
+    );
 
     // (3) irradiated k < unirradiated k at 600 K
     let temp_600 = ThermodynamicTemperature::new::<kelvin>(600.0);
-    let k_unirradiated =
-        nuclear_graphite_matrix_a3_thermal_conductivity_zero_fluence(temp_600)
-        .unwrap().get::<watt_per_meter_kelvin>();
+    let k_unirradiated = nuclear_graphite_matrix_a3_thermal_conductivity_zero_fluence(temp_600)
+        .unwrap()
+        .get::<watt_per_meter_kelvin>();
     for gam_value in [1.0, 5.0, 10.0, 15.0] {
-        let k_irradiated =
-            nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent(
-                temp_600, Ratio::new::<ratio>(gam_value))
-            .unwrap().get::<watt_per_meter_kelvin>();
-        println!("matrix A3 k at 600 K, gam={}: {} (unirradiated {})",
-            gam_value, k_irradiated, k_unirradiated);
-        assert!(k_irradiated < k_unirradiated,
+        let k_irradiated = nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent(
+            temp_600,
+            Ratio::new::<ratio>(gam_value),
+        )
+        .unwrap()
+        .get::<watt_per_meter_kelvin>();
+        println!(
+            "matrix A3 k at 600 K, gam={}: {} (unirradiated {})",
+            gam_value, k_irradiated, k_unirradiated
+        );
+        assert!(
+            k_irradiated < k_unirradiated,
             "irradiated k must be below unirradiated k at gam = {}",
-            gam_value);
+            gam_value
+        );
     }
 
     // out-of-range fluence returns the range error
-    assert!(nuclear_graphite_fluence_damage_factor(
-        Ratio::new::<ratio>(-0.1)).is_err());
-    assert!(nuclear_graphite_fluence_damage_factor(
-        Ratio::new::<ratio>(15.1)).is_err());
+    assert!(nuclear_graphite_fluence_damage_factor(Ratio::new::<ratio>(-0.1)).is_err());
+    assert!(nuclear_graphite_fluence_damage_factor(Ratio::new::<ratio>(15.1)).is_err());
 }
 
 /// V&V test: IG-110 conductivity quadratic against hand evaluation.
@@ -690,44 +697,41 @@ pub fn nuclear_graphite_fluence_damage_factor_behaviour() {
 /// IG-110 data.
 #[test]
 pub fn nuclear_graphite_ig_110_k_quadratic_hand_evaluation() {
-
-    let k_hand_300: f64 = 66.32 - 4.994e-2 * 300.0
-        + 1.712e-5 * 300.0 * 300.0;
+    let k_hand_300: f64 = 66.32 - 4.994e-2 * 300.0 + 1.712e-5 * 300.0 * 300.0;
     let k_measured_300 =
-        nuclear_graphite_ig_110_thermal_conductivity_unirradiated(
-            ThermodynamicTemperature::new::<kelvin>(300.0))
-        .unwrap().get::<watt_per_meter_kelvin>();
-    println!("IG-110 k at 300 K: measured {}, hand {}",
-        k_measured_300, k_hand_300);
-    approx::assert_relative_eq!(
-        k_hand_300,
-        k_measured_300,
-        max_relative = 1e-12);
+        nuclear_graphite_ig_110_thermal_conductivity_unirradiated(ThermodynamicTemperature::new::<
+            kelvin,
+        >(300.0))
+        .unwrap()
+        .get::<watt_per_meter_kelvin>();
+    println!(
+        "IG-110 k at 300 K: measured {}, hand {}",
+        k_measured_300, k_hand_300
+    );
+    approx::assert_relative_eq!(k_hand_300, k_measured_300, max_relative = 1e-12);
 
-    let k_hand_1000: f64 = 66.32 - 4.994e-2 * 1000.0
-        + 1.712e-5 * 1000.0 * 1000.0;
+    let k_hand_1000: f64 = 66.32 - 4.994e-2 * 1000.0 + 1.712e-5 * 1000.0 * 1000.0;
     let k_measured_1000 =
-        nuclear_graphite_ig_110_thermal_conductivity_unirradiated(
-            ThermodynamicTemperature::new::<kelvin>(1000.0))
-        .unwrap().get::<watt_per_meter_kelvin>();
-    println!("IG-110 k at 1000 K: measured {}, hand {}",
-        k_measured_1000, k_hand_1000);
-    approx::assert_relative_eq!(
-        k_hand_1000,
-        k_measured_1000,
-        max_relative = 1e-12);
+        nuclear_graphite_ig_110_thermal_conductivity_unirradiated(ThermodynamicTemperature::new::<
+            kelvin,
+        >(1000.0))
+        .unwrap()
+        .get::<watt_per_meter_kelvin>();
+    println!(
+        "IG-110 k at 1000 K: measured {}, hand {}",
+        k_measured_1000, k_hand_1000
+    );
+    approx::assert_relative_eq!(k_hand_1000, k_measured_1000, max_relative = 1e-12);
 
     // the fluence-degraded variant at gam=0 equals the unirradiated form
     use uom::si::ratio::ratio;
-    let k_fluence_zero =
-        nuclear_graphite_ig_110_thermal_conductivity_fluence_dependent(
-            ThermodynamicTemperature::new::<kelvin>(1000.0),
-            Ratio::new::<ratio>(0.0))
-        .unwrap().get::<watt_per_meter_kelvin>();
-    approx::assert_relative_eq!(
-        k_measured_1000,
-        k_fluence_zero,
-        max_relative = 1e-12);
+    let k_fluence_zero = nuclear_graphite_ig_110_thermal_conductivity_fluence_dependent(
+        ThermodynamicTemperature::new::<kelvin>(1000.0),
+        Ratio::new::<ratio>(0.0),
+    )
+    .unwrap()
+    .get::<watt_per_meter_kelvin>();
+    approx::assert_relative_eq!(k_measured_1000, k_fluence_zero, max_relative = 1e-12);
 }
 
 /// V&V test: enthalpy round trip T -> h -> T for both graphite variants.
@@ -745,10 +749,10 @@ pub fn nuclear_graphite_ig_110_k_quadratic_hand_evaluation() {
 /// temperature far inside the 0.005 K criterion at every point.
 #[test]
 pub fn nuclear_graphite_enthalpy_round_trip() {
-
     use uom::si::pressure::atmosphere;
     use crate::boussinesq_thermophysical_properties::specific_enthalpy::{
-        try_get_h, try_get_temperature_from_h};
+        try_get_h, try_get_temperature_from_h,
+    };
 
     let pressure = Pressure::new::<atmosphere>(1.0);
 
@@ -756,25 +760,25 @@ pub fn nuclear_graphite_enthalpy_round_trip() {
 
     for material in [
         Material::Solid(SolidMaterial::NuclearGraphiteMatrixA3),
-        Material::Solid(SolidMaterial::NuclearGraphiteIG110)] {
-
+        Material::Solid(SolidMaterial::NuclearGraphiteIG110),
+    ] {
         for temp_kelvin in [350.0, 600.0, 1200.0, 1900.0] {
+            let temperature = ThermodynamicTemperature::new::<kelvin>(temp_kelvin);
 
-            let temperature =
-                ThermodynamicTemperature::new::<kelvin>(temp_kelvin);
+            let enthalpy = try_get_h(material, temperature, pressure).unwrap();
 
-            let enthalpy = try_get_h(material, temperature, pressure)
-                .unwrap();
+            let temperature_recovered =
+                try_get_temperature_from_h(material, enthalpy, pressure).unwrap();
 
-            let temperature_recovered = try_get_temperature_from_h(
-                material, enthalpy, pressure).unwrap();
+            let abs_error = (temperature_recovered.get::<kelvin>() - temp_kelvin).abs();
 
-            let abs_error =
-                (temperature_recovered.get::<kelvin>() - temp_kelvin).abs();
-
-            println!("{:?} round trip at {} K: recovered {} K (error {:e} K)",
-                material, temp_kelvin,
-                temperature_recovered.get::<kelvin>(), abs_error);
+            println!(
+                "{:?} round trip at {} K: recovered {} K (error {:e} K)",
+                material,
+                temp_kelvin,
+                temperature_recovered.get::<kelvin>(),
+                abs_error
+            );
 
             if abs_error > max_abs_error_kelvin {
                 max_abs_error_kelvin = abs_error;
@@ -783,7 +787,8 @@ pub fn nuclear_graphite_enthalpy_round_trip() {
             approx::assert_abs_diff_eq!(
                 temp_kelvin,
                 temperature_recovered.get::<kelvin>(),
-                epsilon = 0.005);
+                epsilon = 0.005
+            );
         }
     }
 
@@ -806,7 +811,6 @@ pub fn nuclear_graphite_enthalpy_round_trip() {
 /// IG-110 rho = 1770 kg/m^3 — each equal to its free-function value.
 #[test]
 pub fn nuclear_graphite_enum_variants_dispatch_at_600_k() {
-
     use uom::si::pressure::atmosphere;
     use crate::boussinesq_thermophysical_properties::density::try_get_rho;
     use crate::boussinesq_thermophysical_properties::specific_heat_capacity::try_get_cp;
@@ -819,53 +823,65 @@ pub fn nuclear_graphite_enum_variants_dispatch_at_600_k() {
     let ig_110 = Material::Solid(SolidMaterial::NuclearGraphiteIG110);
 
     // thermal conductivity
-    let k_matrix = try_get_kappa_thermal_conductivity(
-        matrix, temperature, pressure).unwrap();
-    let k_ig_110 = try_get_kappa_thermal_conductivity(
-        ig_110, temperature, pressure).unwrap();
-    println!("dispatch at 600 K: matrix k = {} W/(m K), IG-110 k = {} W/(m K)",
+    let k_matrix = try_get_kappa_thermal_conductivity(matrix, temperature, pressure).unwrap();
+    let k_ig_110 = try_get_kappa_thermal_conductivity(ig_110, temperature, pressure).unwrap();
+    println!(
+        "dispatch at 600 K: matrix k = {} W/(m K), IG-110 k = {} W/(m K)",
         k_matrix.get::<watt_per_meter_kelvin>(),
-        k_ig_110.get::<watt_per_meter_kelvin>());
+        k_ig_110.get::<watt_per_meter_kelvin>()
+    );
     assert!(k_matrix.get::<watt_per_meter_kelvin>() > 0.0);
     assert!(k_ig_110.get::<watt_per_meter_kelvin>() > 0.0);
     approx::assert_relative_eq!(
         k_matrix.get::<watt_per_meter_kelvin>(),
         nuclear_graphite_matrix_a3_thermal_conductivity_zero_fluence(temperature)
-            .unwrap().get::<watt_per_meter_kelvin>(),
-        max_relative = 1e-12);
+            .unwrap()
+            .get::<watt_per_meter_kelvin>(),
+        max_relative = 1e-12
+    );
     approx::assert_relative_eq!(
         k_ig_110.get::<watt_per_meter_kelvin>(),
         nuclear_graphite_ig_110_thermal_conductivity_unirradiated(temperature)
-            .unwrap().get::<watt_per_meter_kelvin>(),
-        max_relative = 1e-12);
+            .unwrap()
+            .get::<watt_per_meter_kelvin>(),
+        max_relative = 1e-12
+    );
 
     // specific heat capacity (shared table; 600 K is a node: 1390.79)
     let cp_matrix = try_get_cp(matrix, temperature, pressure).unwrap();
     let cp_ig_110 = try_get_cp(ig_110, temperature, pressure).unwrap();
-    println!("dispatch at 600 K: cp = {} J/(kg K)",
-        cp_matrix.get::<joule_per_kilogram_kelvin>());
+    println!(
+        "dispatch at 600 K: cp = {} J/(kg K)",
+        cp_matrix.get::<joule_per_kilogram_kelvin>()
+    );
     assert!(cp_matrix.get::<joule_per_kilogram_kelvin>() > 0.0);
     approx::assert_relative_eq!(
         cp_matrix.get::<joule_per_kilogram_kelvin>(),
         cp_ig_110.get::<joule_per_kilogram_kelvin>(),
-        max_relative = 1e-12);
+        max_relative = 1e-12
+    );
     approx::assert_relative_eq!(
         cp_matrix.get::<joule_per_kilogram_kelvin>(),
         1390.79,
-        max_relative = 1e-12);
+        max_relative = 1e-12
+    );
 
     // density
     let rho_matrix = try_get_rho(matrix, temperature, pressure).unwrap();
     let rho_ig_110 = try_get_rho(ig_110, temperature, pressure).unwrap();
-    println!("dispatch at 600 K: matrix rho = {} kg/m^3, IG-110 rho = {} kg/m^3",
+    println!(
+        "dispatch at 600 K: matrix rho = {} kg/m^3, IG-110 rho = {} kg/m^3",
         rho_matrix.get::<kilogram_per_cubic_meter>(),
-        rho_ig_110.get::<kilogram_per_cubic_meter>());
+        rho_ig_110.get::<kilogram_per_cubic_meter>()
+    );
     approx::assert_relative_eq!(
         rho_matrix.get::<kilogram_per_cubic_meter>(),
         1730.0,
-        max_relative = 1e-12);
+        max_relative = 1e-12
+    );
     approx::assert_relative_eq!(
         rho_ig_110.get::<kilogram_per_cubic_meter>(),
         1770.0,
-        max_relative = 1e-12);
+        max_relative = 1e-12
+    );
 }

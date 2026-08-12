@@ -295,7 +295,11 @@ impl FourMethodProblem {
                 return Outcome::Absorbed;
             }
             // Matrix scatter: advance exactly to the scatter point, resample direction.
-            pos = Position::new(pos.x + dir.u * d_scatter, pos.y + dir.v * d_scatter, pos.z + dir.w * d_scatter);
+            pos = Position::new(
+                pos.x + dir.u * d_scatter,
+                pos.y + dir.v * d_scatter,
+                pos.z + dir.w * d_scatter,
+            );
             let (nu, nv, nw) = isotropic_direction(seed);
             dir = Direction::new(nu, nv, nw);
         }
@@ -417,7 +421,13 @@ impl FourMethodProblem {
 /// `ray_sphere_entry` in [`outram_mc_libs::stochastic::scls`] (not imported —
 /// that one is a private module item), specialised here to always start outside
 /// a kernel (matrix-only walk between kernels).
-fn ray_sphere_entry(p: Position, u: Direction, center: Position, radius: f64, eps: f64) -> Option<f64> {
+fn ray_sphere_entry(
+    p: Position,
+    u: Direction,
+    center: Position,
+    radius: f64,
+    eps: f64,
+) -> Option<f64> {
     let oc = p - center;
     let b = u.dot_pos(oc);
     let c = oc.norm_sqr() - radius * radius;
@@ -435,7 +445,12 @@ fn ray_sphere_entry(p: Position, u: Direction, center: Position, radius: f64, ep
 
 /// Distance to the *nearest* kernel surface ahead of `pos` along `dir`, scanning
 /// every packed sphere — the O(N) operation delta tracking exists to avoid.
-fn nearest_kernel_entry(pos: Position, dir: Direction, spheres: &[Sphere], eps: f64) -> Option<f64> {
+fn nearest_kernel_entry(
+    pos: Position,
+    dir: Direction,
+    spheres: &[Sphere],
+    eps: f64,
+) -> Option<f64> {
     spheres
         .iter()
         .filter_map(|s| ray_sphere_entry(pos, dir, s.center, s.radius, eps))
@@ -451,7 +466,9 @@ fn binomial_se(p: f64, n: usize) -> f64 {
 
 fn main() {
     println!("TRISO absorbing-kernel transport — four methods, one packing per packing fraction");
-    println!("====================================================================================\n");
+    println!(
+        "====================================================================================\n"
+    );
 
     let base = FourMethodProblem {
         domain_half_width: 0.3, // 0.6 cm cube
@@ -483,7 +500,10 @@ fn main() {
     );
 
     for &pf in &[0.05_f64, 0.10, 0.15, 0.20, 0.25] {
-        let problem = FourMethodProblem { packing_fraction: pf, ..base };
+        let problem = FourMethodProblem {
+            packing_fraction: pf,
+            ..base
+        };
 
         let cfg = PackingConfig {
             particle_radius: problem.particle_radius,
@@ -501,7 +521,11 @@ fn main() {
             }
         };
         // The one RSA packing this packing-fraction point runs all four methods on.
-        let packing = PackedSpheres::from_spheres(spheres, problem.domain_half_width, problem.particle_radius);
+        let packing = PackedSpheres::from_spheres(
+            spheres,
+            problem.domain_half_width,
+            problem.particle_radius,
+        );
 
         // Independent LCG streams for the two hand-rolled arms (distinct from the
         // masks AbsorptionBenchmark::compare uses internally for its own RSA/CLS/SCLS
@@ -564,9 +588,7 @@ fn main() {
     println!(
         "so a gap there would mean a bug in the majorant/sampling, not different physics. ΔCLS"
     );
-    println!(
-        "and ΔSCLS are the stochastic-media models' approximation error against the same"
-    );
+    println!("and ΔSCLS are the stochastic-media models' approximation error against the same");
     println!("reference — neither is claimed superior; see this file's module docs for the");
     println!("measured interpretation (SCLS overestimates more than CLS in this regime).\n");
 

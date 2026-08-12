@@ -24,7 +24,10 @@ impl Turbine {
     /// Construct a new turbine with the given inlet state and adiabatic
     /// efficiency.
     pub fn new(inlet: HemSteamCv, adiabatic_efficiency: Ratio) -> Self {
-        Self { inlet, adiabatic_efficiency }
+        Self {
+            inlet,
+            adiabatic_efficiency,
+        }
     }
 
     /// Expand this turbine's inlet steam to the given outlet pressure,

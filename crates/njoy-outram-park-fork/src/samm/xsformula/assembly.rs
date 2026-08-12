@@ -27,7 +27,14 @@ pub struct XqxOutput {
 /// from `setxqx` (`samm.f90:6231-6284`). `rootp`/`elinvr`/`elinvi` are
 /// [`super::setr::setr`]'s per-channel outputs of the same name; `yinv` is
 /// [`crate::samm::rmatrix_invert::invert`]'s output for `rmat`.
-pub fn setxqx(nchan: usize, rmat: &PackedComplexMatrix, yinv: &PackedComplexMatrix, rootp: &[f64], elinvr: &[f64], elinvi: &[f64]) -> XqxOutput {
+pub fn setxqx(
+    nchan: usize,
+    rmat: &PackedComplexMatrix,
+    yinv: &PackedComplexMatrix,
+    rootp: &[f64],
+    elinvr: &[f64],
+    elinvi: &[f64],
+) -> XqxOutput {
     let n = nchan as i64;
 
     // samm.f90:6258-6270 -- Xq(k,i) = Y^-1 * R (note the asymmetry: Xq is

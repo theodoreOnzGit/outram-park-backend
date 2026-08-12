@@ -715,14 +715,14 @@ mod oscillation_regression {
                 current_neutron_pop_density,
             );
 
-        // 23-group decay heat (Tobias Table 16 / 1978 draft ANS
-        // Standard); the published fit replaces the old 4%/4%/2%
-        // three-group placeholder, so the full prompt power is the source.
-        decay_heat.advance_timestep(fission_power, dt);
+            // 23-group decay heat (Tobias Table 16 / 1978 draft ANS
+            // Standard); the published fit replaces the old 4%/4%/2%
+            // three-group placeholder, so the full prompt power is the source.
+            decay_heat.advance_timestep(fission_power, dt);
 
             let mut fission_power_corrected = fission_power * 0.9;
-        // Non-negative by construction; no `.abs()` needed.
-        let decay_power: Power = decay_heat.total_decay_heat_power();
+            // Non-negative by construction; no `.abs()` needed.
+            let decay_power: Power = decay_heat.total_decay_heat_power();
             fission_power_corrected += decay_power;
 
             let pebble_bed_mass = Mass::new::<kilogram>(8000.0);

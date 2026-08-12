@@ -199,9 +199,8 @@ mod tests {
     /// tolerance of 2/255; the largest single backward step is within that.
     #[test]
     fn batlow_is_monotonic_in_lightness() {
-        let luma = |c: [u8; 3]| -> f32 {
-            0.299 * c[0] as f32 + 0.587 * c[1] as f32 + 0.114 * c[2] as f32
-        };
+        let luma =
+            |c: [u8; 3]| -> f32 { 0.299 * c[0] as f32 + 0.587 * c[1] as f32 + 0.114 * c[2] as f32 };
         let mut prev = luma(tables::BATLOW[0]);
         for (i, entry) in tables::BATLOW.iter().enumerate().skip(1) {
             let l = luma(*entry);

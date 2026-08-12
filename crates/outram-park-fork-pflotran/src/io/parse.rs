@@ -117,8 +117,12 @@ fn parse_f64(line: usize, tok: &str) -> Result<f64, PflotranError> {
 
 /// Parse a token as `usize`, attaching line context on failure.
 fn parse_usize(line: usize, tok: &str) -> Result<usize, PflotranError> {
-    tok.parse::<usize>()
-        .map_err(|_| err(line, format!("expected a non-negative integer, found `{}`", tok)))
+    tok.parse::<usize>().map_err(|_| {
+        err(
+            line,
+            format!("expected a non-negative integer, found `{}`", tok),
+        )
+    })
 }
 
 /// Require exactly `n` value tokens after the keyword; error otherwise.
@@ -145,8 +149,7 @@ fn expect_values<'a>(
 
 /// True if a line is a block terminator (`END` or `/`, case-insensitive).
 fn is_terminator(line: &Line) -> bool {
-    line.tokens.len() == 1
-        && (line.tokens[0].eq_ignore_ascii_case("END") || line.tokens[0] == "/")
+    line.tokens.len() == 1 && (line.tokens[0].eq_ignore_ascii_case("END") || line.tokens[0] == "/")
 }
 
 /// Parse a v1 input deck from ASCII text.
@@ -215,7 +218,8 @@ pub fn parse_deck(input: &str) -> Result<InputDeck, PflotranError> {
         }
     }
 
-    let grid = grid.ok_or_else(|| PflotranError::InvalidInput("missing required GRID block".into()))?;
+    let grid =
+        grid.ok_or_else(|| PflotranError::InvalidInput("missing required GRID block".into()))?;
     let material = material
         .ok_or_else(|| PflotranError::InvalidInput("missing required MATERIAL block".into()))?;
     let curves = curves.ok_or_else(|| {
@@ -288,7 +292,10 @@ fn parse_grid(lines: &[Line], open: usize) -> Result<(GridSpec, usize), Pflotran
                 ));
                 Ok(())
             }
-            other => Err(err(line.number, format!("unknown GRID keyword `{}`", other))),
+            other => Err(err(
+                line.number,
+                format!("unknown GRID keyword `{}`", other),
+            )),
         }
     })?;
 
@@ -350,7 +357,10 @@ fn parse_material(lines: &[Line], open: usize) -> Result<(MaterialSpec, usize), 
     if !(porosity > 0.0 && porosity < 1.0) {
         return Err(err(
             open_line,
-            format!("porosity must be in the open interval (0, 1), got {}", porosity),
+            format!(
+                "porosity must be in the open interval (0, 1), got {}",
+                porosity
+            ),
         ));
     }
     if !(permeability > 0.0) {
@@ -420,14 +430,15 @@ fn parse_curves(lines: &[Line], open: usize) -> Result<(CurveSpec, usize), Pflot
     })?;
 
     let open_line = lines[open].number;
-    let model =
-        model.ok_or_else(|| err(open_line, "CHARACTERISTIC_CURVES block missing MODEL"))?;
-    let alpha =
-        alpha.ok_or_else(|| err(open_line, "CHARACTERISTIC_CURVES block missing ALPHA"))?;
+    let model = model.ok_or_else(|| err(open_line, "CHARACTERISTIC_CURVES block missing MODEL"))?;
+    let alpha = alpha.ok_or_else(|| err(open_line, "CHARACTERISTIC_CURVES block missing ALPHA"))?;
     let n_or_lambda = n_or_lambda
         .ok_or_else(|| err(open_line, "CHARACTERISTIC_CURVES block missing N or LAMBDA"))?;
     let residual_saturation = residual.ok_or_else(|| {
-        err(open_line, "CHARACTERISTIC_CURVES block missing RESIDUAL_SATURATION")
+        err(
+            open_line,
+            "CHARACTERISTIC_CURVES block missing RESIDUAL_SATURATION",
+        )
     })?;
 
     if !(alpha > 0.0) {
@@ -514,7 +525,10 @@ fn parse_boundary(
                         "boundary condition already has a kind (DIRICHLET_PRESSURE / NEUMANN_FLUX are mutually exclusive)",
                     ));
                 }
-                kind = Some(BoundaryKindSpec::NeumannFlux(parse_f64(line.number, &v[0])?));
+                kind = Some(BoundaryKindSpec::NeumannFlux(parse_f64(
+                    line.number,
+                    &v[0],
+                )?));
                 Ok(())
             }
             other => Err(err(
@@ -561,7 +575,10 @@ fn parse_time(lines: &[Line], open: usize) -> Result<(TimeSpec, usize), Pflotran
                 max_dt = Some(parse_f64(line.number, &v[0])?);
                 Ok(())
             }
-            other => Err(err(line.number, format!("unknown TIME keyword `{}`", other))),
+            other => Err(err(
+                line.number,
+                format!("unknown TIME keyword `{}`", other),
+            )),
         }
     })?;
 
@@ -689,7 +706,10 @@ time
         assert_eq!(deck.curves.model, CurveModel::BrooksCorey);
         assert_eq!(deck.curves.n_or_lambda, 1.5);
         assert_eq!(deck.initial_pressure, 101325.0);
-        assert_eq!(deck.boundary_conditions[0].location, BoundaryLocationSpec::ZMax);
+        assert_eq!(
+            deck.boundary_conditions[0].location,
+            BoundaryLocationSpec::ZMax
+        );
         assert_eq!(
             deck.boundary_conditions[0].kind,
             BoundaryKindSpec::NeumannFlux(-1.0e-7)
@@ -730,7 +750,10 @@ END
 ";
         let deck = parse_deck(src).unwrap();
         assert_eq!(deck.boundary_conditions.len(), 2);
-        assert_eq!(deck.boundary_conditions[1].location, BoundaryLocationSpec::XMax);
+        assert_eq!(
+            deck.boundary_conditions[1].location,
+            BoundaryLocationSpec::XMax
+        );
     }
 
     #[test]

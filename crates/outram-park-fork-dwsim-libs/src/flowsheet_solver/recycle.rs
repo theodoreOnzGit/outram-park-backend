@@ -1285,7 +1285,9 @@ fn recycle_endpoints(
         .map(|a| a.peer.clone())
         .ok_or_else(|| SolverError::RecycleNotConnected(id.0.clone()))?;
     for peer in [&inlet, &outlet] {
-        let ok = flowsheet.object(peer).is_some_and(|o| o.object_type == want);
+        let ok = flowsheet
+            .object(peer)
+            .is_some_and(|o| o.object_type == want);
         if !ok {
             return Err(SolverError::RecycleNotConnected(id.0.clone()));
         }
@@ -1441,9 +1443,7 @@ mod tests {
         assert!((p.composition - 0.001).abs() < 1e-15);
         assert!((p.temperature_tolerance().get::<kelvin>() - 0.1).abs() < 1e-12);
         assert!((p.pressure_tolerance().get::<pascal>() - 0.1).abs() < 1e-12);
-        assert!(
-            (p.mass_flow_tolerance().get::<kilogram_per_second>() - 0.01).abs() < 1e-12
-        );
+        assert!((p.mass_flow_tolerance().get::<kilogram_per_second>() - 0.01).abs() < 1e-12);
 
         let w = WegsteinParameters::default();
         assert_eq!(w.accel_freq, 4);

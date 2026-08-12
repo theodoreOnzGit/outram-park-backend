@@ -22,9 +22,7 @@
 
 use std::time::{Duration, Instant};
 
-use outram_park_digital_twin_engine::ciet_opcua::discovery::{
-    DiscoveredSimulator, SimulatorBrowser,
-};
+use outram_park_digital_twin_engine::ciet_opcua::discovery::{DiscoveredSimulator, SimulatorBrowser};
 
 /// How often the browse list is re-read, milliseconds.
 ///

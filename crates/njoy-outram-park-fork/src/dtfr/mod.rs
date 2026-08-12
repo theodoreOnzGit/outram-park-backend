@@ -55,9 +55,7 @@ pub mod table;
 
 pub use driver::run as run_with_input;
 pub use format::{column, format0_body, format0_header, fortran_e, pack_dtf_block};
-pub use gendf::{
-    build_neutron_table, read_header, read_section_records, GendfGroupRecord, GendfHeader,
-};
+pub use gendf::{build_neutron_table, read_header, read_section_records, GendfGroupRecord, GendfHeader};
 pub use input::{
     DtfrInput, EditOption, EditSpec, FilmOption, MaterialDesc, NeutronTables, PrintOption,
     ThermalSpec, UnitAssignments,

@@ -25,96 +25,53 @@ use super::LiquidMaterial;
 use super::liquid_database::dowtherm_a::max_temp_dowtherm_a;
 
 impl Material {
-
     /// gives the maximum temperature for the correlations in the
     /// given material
     pub fn max_temperature(&self) -> ThermodynamicTemperature {
         match self {
-            Material::Solid(solid) => {
-                solid.max_temperature()
-            },
-            Material::Liquid(liquid) => {
-                liquid.max_temperature()
-            },
+            Material::Solid(solid) => solid.max_temperature(),
+            Material::Liquid(liquid) => liquid.max_temperature(),
         }
     }
     /// gives the minimum temperature (in kelvin) for the correlations in the
     /// given material
     pub fn min_temperature(&self) -> ThermodynamicTemperature {
-
         match self {
-            Material::Solid(solid) => {
-                solid.min_temperature()
-            },
-            Material::Liquid(liquid) => {
-                liquid.min_temperature()
-            },
+            Material::Solid(solid) => solid.min_temperature(),
+            Material::Liquid(liquid) => liquid.min_temperature(),
         }
     }
 }
 
 impl LiquidMaterial {
-
     /// gives the maximum temperature for the correlations in the
     /// given material
     pub fn max_temperature(&self) -> ThermodynamicTemperature {
         match self {
-            LiquidMaterial::TherminolVP1 => {
-                max_temp_dowtherm_a()
-            },
-            LiquidMaterial::DowthermA => {
-                max_temp_dowtherm_a()
-            },
-            LiquidMaterial::HITEC => {
-                max_temp_hitec()
-            },
-            LiquidMaterial::YD325 => {
-                max_temp_yd325_oil()
-            },
-            LiquidMaterial::FLiBe => {
-                max_temp_flibe()
-            },
-            LiquidMaterial::FLiNaK => {
-                max_temp_flinak()
-            },
-            LiquidMaterial::CustomLiquid((_lower_bound, upper_bound)
-                , _, _, _, _) => {
-                *upper_bound
-            },
+            LiquidMaterial::TherminolVP1 => max_temp_dowtherm_a(),
+            LiquidMaterial::DowthermA => max_temp_dowtherm_a(),
+            LiquidMaterial::HITEC => max_temp_hitec(),
+            LiquidMaterial::YD325 => max_temp_yd325_oil(),
+            LiquidMaterial::FLiBe => max_temp_flibe(),
+            LiquidMaterial::FLiNaK => max_temp_flinak(),
+            LiquidMaterial::CustomLiquid((_lower_bound, upper_bound), _, _, _, _) => *upper_bound,
         }
     }
     /// gives the minimum temperature (in kelvin) for the correlations in the
     /// given material
     pub fn min_temperature(&self) -> ThermodynamicTemperature {
         match self {
-            LiquidMaterial::TherminolVP1 => {
-                min_temp_dowtherm_a()
-            },
-            LiquidMaterial::DowthermA => {
-                min_temp_dowtherm_a()
-            },
-            LiquidMaterial::HITEC => {
-                min_temp_hitec()
-            },
-            LiquidMaterial::YD325 => {
-                min_temp_yd325_oil()
-            },
-            LiquidMaterial::FLiBe => {
-                min_temp_flibe()
-            },
-            LiquidMaterial::FLiNaK => {
-                min_temp_flinak()
-            },
-            LiquidMaterial::CustomLiquid((lower_bound, _upper_bound)
-                , _, _, _, _) => {
-                *lower_bound
-            },
+            LiquidMaterial::TherminolVP1 => min_temp_dowtherm_a(),
+            LiquidMaterial::DowthermA => min_temp_dowtherm_a(),
+            LiquidMaterial::HITEC => min_temp_hitec(),
+            LiquidMaterial::YD325 => min_temp_yd325_oil(),
+            LiquidMaterial::FLiBe => min_temp_flibe(),
+            LiquidMaterial::FLiNaK => min_temp_flinak(),
+            LiquidMaterial::CustomLiquid((lower_bound, _upper_bound), _, _, _, _) => *lower_bound,
         }
-
     }
 }
 impl SolidMaterial {
-
     /// gives the maximum temperature for the correlations in the
     /// given material
     pub fn max_temperature(&self) -> ThermodynamicTemperature {
@@ -125,10 +82,7 @@ impl SolidMaterial {
             SolidMaterial::PyrogelHPS => max_temp_pyrogel_hps(),
             SolidMaterial::NuclearGraphiteMatrixA3 => max_temp_nuclear_graphite(),
             SolidMaterial::NuclearGraphiteIG110 => max_temp_nuclear_graphite(),
-            SolidMaterial::CustomSolid((_lower_bound,upper_bound),
-                _, _, _, _) => {
-                *upper_bound
-            },
+            SolidMaterial::CustomSolid((_lower_bound, upper_bound), _, _, _, _) => *upper_bound,
         }
     }
     /// gives the minimum temperature (in kelvin) for the correlations in the
@@ -141,11 +95,7 @@ impl SolidMaterial {
             SolidMaterial::PyrogelHPS => min_temp_pyrogel_hps(),
             SolidMaterial::NuclearGraphiteMatrixA3 => min_temp_nuclear_graphite(),
             SolidMaterial::NuclearGraphiteIG110 => min_temp_nuclear_graphite(),
-            SolidMaterial::CustomSolid((lower_bound, _upper_bound),
-                _, _, _, _) => {
-                *lower_bound
-            },
+            SolidMaterial::CustomSolid((lower_bound, _upper_bound), _, _, _, _) => *lower_bound,
         }
-
     }
 }

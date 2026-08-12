@@ -140,9 +140,7 @@ use tampines_steam_tables::steam_turbine_equations::converging_diverging_nozzles
 
 use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
-use uom::si::f64::{
-    Area, AvailableEnergy, Length, Pressure, ThermodynamicTemperature, Time, Velocity,
-};
+use uom::si::f64::{Area, AvailableEnergy, Length, Pressure, ThermodynamicTemperature, Time, Velocity};
 use uom::si::length::meter;
 use uom::si::mass_flux::kilogram_per_square_meter_second;
 use uom::si::pressure::pascal;

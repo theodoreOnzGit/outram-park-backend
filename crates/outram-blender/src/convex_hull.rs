@@ -183,7 +183,10 @@ fn initial_tetra(pts: &[Vec3]) -> Result<[usize; 4], HullError> {
     // i1: farthest from i0.
     let i1 = (0..pts.len())
         .max_by(|&a, &b| {
-            pts[a].sub(pts[i0]).length().total_cmp(&pts[b].sub(pts[i0]).length())
+            pts[a]
+                .sub(pts[i0])
+                .length()
+                .total_cmp(&pts[b].sub(pts[i0]).length())
         })
         .unwrap();
     if i1 == i0 {
@@ -205,7 +208,9 @@ fn initial_tetra(pts: &[Vec3]) -> Result<[usize; 4], HullError> {
     let n = e01.cross(pts[i2].sub(pts[i0]));
     let i3 = (0..pts.len())
         .max_by(|&a, &b| {
-            n.dot(pts[a].sub(pts[i0])).abs().total_cmp(&n.dot(pts[b].sub(pts[i0])).abs())
+            n.dot(pts[a].sub(pts[i0]))
+                .abs()
+                .total_cmp(&n.dot(pts[b].sub(pts[i0])).abs())
         })
         .unwrap();
     if orient3d(pts[i0], pts[i1], pts[i2], pts[i3]) == 0 {
@@ -295,7 +300,10 @@ mod tests {
         for &q in points {
             for face in m.polygons() {
                 let (a, b, c) = (ps[face[0].0], ps[face[1].0], ps[face[2].0]);
-                assert!(orient3d(a, b, c, q) != -1, "point {q:?} is outside a hull face");
+                assert!(
+                    orient3d(a, b, c, q) != -1,
+                    "point {q:?} is outside a hull face"
+                );
             }
         }
     }
@@ -307,7 +315,10 @@ mod tests {
         for face in m.polygons() {
             let (a, b, c) = (ps[face[0].0], ps[face[1].0], ps[face[2].0]);
             for &v in &ps {
-                assert!(orient3d(a, b, c, v) >= 0, "non-convex: a vertex is outside a face");
+                assert!(
+                    orient3d(a, b, c, v) >= 0,
+                    "non-convex: a vertex is outside a face"
+                );
             }
         }
     }
@@ -352,8 +363,15 @@ mod tests {
         assert_eq!(hull.face_count(), 12, "cube hull is 12 triangles");
         assert_eq!(hull.edge_count(), 18);
         assert_eq!(hull.euler_characteristic(), 2, "closed (chi=2)");
-        assert_eq!(hull.loop_count(), 36, "watertight: every edge borders two faces");
-        assert!((signed_volume(&hull) - 8.0).abs() < 1e-9, "volume = s^3 = 8");
+        assert_eq!(
+            hull.loop_count(),
+            36,
+            "watertight: every edge borders two faces"
+        );
+        assert!(
+            (signed_volume(&hull) - 8.0).abs() < 1e-9,
+            "volume = s^3 = 8"
+        );
         assert_contains_all(&hull, &corners);
         assert_convex(&hull);
     }
@@ -374,7 +392,10 @@ mod tests {
         assert_eq!(hull.vertex_count(), 6);
         assert_eq!(hull.face_count(), 8);
         assert_eq!(hull.euler_characteristic(), 2);
-        assert!((signed_volume(&hull) - 4.0 / 3.0).abs() < 1e-9, "octahedron volume 4/3");
+        assert!(
+            (signed_volume(&hull) - 4.0 / 3.0).abs() < 1e-9,
+            "octahedron volume 4/3"
+        );
         assert_convex(&hull);
     }
 
@@ -399,7 +420,10 @@ mod tests {
     fn degenerate_inputs_error() {
         // Fewer than 4 distinct points (duplicates collapse to 1).
         let dup = vec![Vec3::new(1.0, 2.0, 3.0); 5];
-        assert!(matches!(convex_hull(&dup), Err(HullError::NotEnoughPoints(1))));
+        assert!(matches!(
+            convex_hull(&dup),
+            Err(HullError::NotEnoughPoints(1))
+        ));
 
         // Collinear (all on the x-axis).
         let line: Vec<Vec3> = (0..6).map(|i| Vec3::new(i as f64, 0.0, 0.0)).collect();

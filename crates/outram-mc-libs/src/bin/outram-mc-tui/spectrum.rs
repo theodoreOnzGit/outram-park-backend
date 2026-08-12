@@ -24,14 +24,18 @@ const E_HI: f64 = 2.0e7;
 /// edges) — the same construction `flux_spectrum.rs` uses.
 fn log_energy_grid(e_lo: f64, e_hi: f64, n: usize) -> Vec<f64> {
     let (l0, l1) = (e_lo.ln(), e_hi.ln());
-    (0..=n).map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp()).collect()
+    (0..=n)
+        .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp())
+        .collect()
 }
 
 /// A fresh, empty spectrum tally over the standard log-energy grid, ready to
 /// pass to `run_keff_csg`'s `tally: Option<&mut Tally>` parameter.
 pub fn new_spectrum_tally() -> (Tally, Vec<f64>) {
     let edges = log_energy_grid(E_LO, E_HI, N_SPECTRUM_BINS);
-    let filter = EnergyFilter { bins: edges.clone() };
+    let filter = EnergyFilter {
+        bins: edges.clone(),
+    };
     let tally = Tally {
         id: 1,
         name: "spectrum overlay".into(),
@@ -64,7 +68,13 @@ impl SpectrumOverlay {
     /// material/nuclide arrays. `n_active` is the run's active-generation
     /// count (the number of Monte Carlo realizations the tally accumulated
     /// over — see [`outram_mc_libs::tally::tally::TallyBin::mean`]).
-    pub fn finish(tally: &Tally, edges: &[f64], n_active: u64, material: &Material, nuclides: &[Nuclide]) -> Self {
+    pub fn finish(
+        tally: &Tally,
+        edges: &[f64],
+        n_active: u64,
+        material: &Material,
+        nuclides: &[Nuclide],
+    ) -> Self {
         let flux_mean: Vec<f64> = tally.bins.iter().map(|b| b.mean(n_active)).collect();
         let xs_mid: Vec<f64> = edges
             .windows(2)
@@ -84,6 +94,9 @@ impl SpectrumOverlay {
     /// Bin-midpoint energies \[eV\] (geometric mean of each bin's edges) — the
     /// x-coordinate both series share.
     pub fn mid_energies(&self) -> Vec<f64> {
-        self.energy_edges.windows(2).map(|w| (w[0] * w[1]).sqrt()).collect()
+        self.energy_edges
+            .windows(2)
+            .map(|w| (w[0] * w[1]).sqrt())
+            .collect()
     }
 }

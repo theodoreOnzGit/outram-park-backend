@@ -95,11 +95,7 @@ fn main() {
     let physics_user_controls = user_controls.clone();
     let verbose_temperatures = options.verbose_temperatures;
     std::thread::spawn(move || {
-        educational_ciet_loop_version_4(
-            physics_state,
-            physics_user_controls,
-            verbose_temperatures,
-        );
+        educational_ciet_loop_version_4(physics_state, physics_user_controls, verbose_temperatures);
     });
 
     // The OPC-UA server, on its own thread with its own tokio runtime. A failure

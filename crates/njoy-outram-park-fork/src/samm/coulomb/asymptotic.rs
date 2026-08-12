@@ -87,19 +87,28 @@ pub fn asymp1(eta: f64) -> (f64, f64, f64) {
     let ceta = eta.powf(1.0 / 3.0);
     let seta = ceta.sqrt();
     let temp = 1.0 / (ceta * ceta);
-    let u = 1.223_404_016 * seta
+    let u = 1.223_404_016
+        * seta
         * (1.0
             + temp.powi(2)
                 * (0.049_595_701_65
                     + temp
                         * (-0.008_888_888_889
-                            + temp.powi(2) * (0.002_455_199_181 + temp * (-0.000_910_895_806_1 + temp.powi(2) * 0.000_253_468_411_5)))));
+                            + temp.powi(2)
+                                * (0.002_455_199_181
+                                    + temp
+                                        * (-0.000_910_895_806_1
+                                            + temp.powi(2) * 0.000_253_468_411_5)))));
     let upr = -0.707_881_773_4
         * (1.0
             + temp
                 * (-0.172_826_036_9
                     + temp.powi(2)
-                        * (0.000_317_460_317_4 + temp * (-0.003_581_214_850 + temp.powi(2) * (0.000_311_782_468_0 - temp * 0.000_907_396_642_7)))))
+                        * (0.000_317_460_317_4
+                            + temp
+                                * (-0.003_581_214_850
+                                    + temp.powi(2)
+                                        * (0.000_311_782_468_0 - temp * 0.000_907_396_642_7)))))
         / seta;
     let rhoi = 2.0 * eta;
     (u, upr, rhoi)
@@ -241,7 +250,9 @@ pub fn taylor(eta: f64, rho: f64, u_in: f64, upr_in: f64, rhoi_in: f64) -> (f64,
                         failed_at = n;
                         break;
                     }
-                    if (a[n as usize] / sum).abs() >= EPSLON || (xn * a[n as usize] / sumpr).abs() >= EPSLON {
+                    if (a[n as usize] / sum).abs() >= EPSLON
+                        || (xn * a[n as usize] / sumpr).abs() >= EPSLON
+                    {
                         jcheck = 0;
                     } else {
                         jcheck += 1;
@@ -300,7 +311,14 @@ pub fn end1(g0: f64, g0pr: f64) -> (i32, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>)
 /// stops early and reports the reduced `llmax` back to the caller
 /// (`samm.f90:4780-4783`, `if (limit.le.lmax) llmax=limit-1`) — this is why
 /// the return type carries `llmax` rather than assuming the input value.
-pub fn getfg(eta: f64, rho: f64, lmax: i32, lll: i32, g0: f64, g0pr: f64) -> (i32, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) {
+pub fn getfg(
+    eta: f64,
+    rho: f64,
+    lmax: i32,
+    lll: i32,
+    g0: f64,
+    g0pr: f64,
+) -> (i32, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) {
     const BIG: f64 = 1.0e12;
 
     let limit0 = 3.max(lmax + 1);
@@ -384,9 +402,11 @@ pub fn getfg(eta: f64, rho: f64, lmax: i32, lll: i32, g0: f64, g0pr: f64) -> (i3
     fpr[0] = (1.0 / rho + eta) * f[0] - (1.0 + eta * eta).sqrt() * f[1];
     for l in 2..=limit {
         let xl = l as f64;
-        fpr[(l - 1) as usize] = (xl / rho + eta / xl) * f[(l - 1) as usize] - (1.0 + (eta / xl).powi(2)).sqrt() * f[l as usize];
+        fpr[(l - 1) as usize] = (xl / rho + eta / xl) * f[(l - 1) as usize]
+            - (1.0 + (eta / xl).powi(2)).sqrt() * f[l as usize];
         let temp1 = eta / (xl - 1.0);
-        gpr[(l - 1) as usize] = (1.0 + temp1 * temp1).sqrt() * g[(l - 2) as usize] - ((xl - 1.0) / rho + temp1) * g[(l - 1) as usize];
+        gpr[(l - 1) as usize] = (1.0 + temp1 * temp1).sqrt() * g[(l - 2) as usize]
+            - ((xl - 1.0) / rho + temp1) * g[(l - 1) as usize];
     }
 
     let llmax_out = if limit <= lmax { limit - 1 } else { lmax };

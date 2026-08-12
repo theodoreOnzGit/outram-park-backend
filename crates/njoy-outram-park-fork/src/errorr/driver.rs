@@ -1087,10 +1087,7 @@ mod tests {
             assert_eq!(CovariancePrint::from_iprint(i).unwrap().to_iprint(), i);
             assert_eq!(CovarianceForm::from_irelco(i).unwrap().to_irelco(), i);
             assert_eq!(GroupAvgPrint::from_mprint(i).unwrap().to_mprint(), i);
-            assert_eq!(
-                ResonanceProcessing::from_irespr(i).unwrap().to_irespr(),
-                i
-            );
+            assert_eq!(ResonanceProcessing::from_irespr(i).unwrap().to_irespr(), i);
         }
         assert!(CovariancePrint::from_iprint(2).is_none());
     }

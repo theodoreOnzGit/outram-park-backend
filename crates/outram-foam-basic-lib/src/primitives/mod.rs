@@ -50,9 +50,7 @@ pub use eigen::{
     eigen_values, eigen_values_checked, eigen_values_symm, eigen_vectors, eigen_vectors_symm,
     eigen_vectors_symm_with, eigen_vectors_with,
 };
-pub use scalar::{
-    Label, Scalar, GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL,
-};
+pub use scalar::{Label, Scalar, GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL};
 pub use spherical_tensor::SphericalTensor;
 pub use symm_tensor::SymmTensor;
 pub use tensor::Tensor;

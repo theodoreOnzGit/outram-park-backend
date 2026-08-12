@@ -76,11 +76,7 @@ impl ConversionReactor {
             let n_bc = flows[bc];
 
             // Extent as written: Δn_BC = ν_BC · ζ = −X · n_BC  ⇒  ζ = −X·n_BC/ν_BC.
-            let mut extent = if sc_bc != 0.0 {
-                -x * n_bc / sc_bc
-            } else {
-                0.0
-            };
+            let mut extent = if sc_bc != 0.0 { -x * n_bc / sc_bc } else { 0.0 };
 
             // Cap the extent so no compound goes negative (protects against an
             // over-specified conversion when a reactant is shared/limiting).

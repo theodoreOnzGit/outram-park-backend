@@ -40,11 +40,17 @@ use outram_park_fork_coolprop::{state_trho, Fluid};
 fn water_pressure_at_exact_critical_point() {
     let eos = Fluid::Water.eos();
     let rho_mass_c = eos.rho_critical * eos.molar_mass; // mol/m^3 -> kg/m^3
-    assert!((rho_mass_c - 322.0).abs() < 0.01, "sanity: water critical mass density should be ~322 kg/m^3, got {rho_mass_c}");
+    assert!(
+        (rho_mass_c - 322.0).abs() < 0.01,
+        "sanity: water critical mass density should be ~322 kg/m^3, got {rho_mass_c}"
+    );
 
     let s = state_trho(Fluid::Water, eos.t_critical, rho_mass_c);
     let rel = (s.pressure - eos.p_critical).abs() / eos.p_critical;
-    println!("p(Tc, rho_c) = {:.5} Pa (p_c = {} Pa), rel err = {:.3e}", s.pressure, eos.p_critical, rel);
+    println!(
+        "p(Tc, rho_c) = {:.5} Pa (p_c = {} Pa), rel err = {:.3e}",
+        s.pressure, eos.p_critical, rel
+    );
     assert!(rel < 1e-9, "critical-point pressure should reproduce p_c to near machine precision, got rel err {rel:.3e}");
 }
 
@@ -55,11 +61,21 @@ fn water_pressure_just_below_critical_isochore_is_sane() {
 
     let s_at_tc = state_trho(Fluid::Water, eos.t_critical, rho_mass_c);
     let s_below = state_trho(Fluid::Water, eos.t_critical - 1.0, rho_mass_c);
-    println!("p(Tc, rho_c) = {:.3} Pa; p(Tc-1K, rho_c) = {:.3} Pa", s_at_tc.pressure, s_below.pressure);
+    println!(
+        "p(Tc, rho_c) = {:.3} Pa; p(Tc-1K, rho_c) = {:.3} Pa",
+        s_at_tc.pressure, s_below.pressure
+    );
 
     assert!(s_below.pressure.is_finite() && s_below.pressure > 0.0);
-    assert!(s_below.pressure < s_at_tc.pressure, "pressure should drop moving below Tc on the critical isochore");
+    assert!(
+        s_below.pressure < s_at_tc.pressure,
+        "pressure should drop moving below Tc on the critical isochore"
+    );
     // 1K below Tc should still be within a fraction of a percent of p_c.
     let rel = (s_below.pressure - eos.p_critical).abs() / eos.p_critical;
-    assert!(rel < 0.02, "p(Tc-1K, rho_c) = {} Pa is too far from p_c for a 1K step", s_below.pressure);
+    assert!(
+        rel < 0.02,
+        "p(Tc-1K, rho_c) = {} Pa is too far from p_c for a 1K step",
+        s_below.pressure
+    );
 }

@@ -22,7 +22,10 @@
 //! `TampinesSteamArray` equivalents, since both drive the same rhoPimpleFoam
 //! port.
 
-use uom::si::f64::{Angle, AvailableEnergy, Length, MassRate, Power, Pressure, ThermalConductance, ThermodynamicTemperature, Velocity};
+use uom::si::f64::{
+    Angle, AvailableEnergy, Length, MassRate, Power, Pressure, ThermalConductance,
+    ThermodynamicTemperature, Velocity,
+};
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::power::watt;
@@ -61,7 +64,11 @@ pub enum OPCPFluidArrayError {
 impl std::fmt::Display for OPCPFluidArrayError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::LengthMismatch { array, expected, got } => write!(
+            Self::LengthMismatch {
+                array,
+                expected,
+                got,
+            } => write!(
                 f,
                 "{array} has length {got}, expected {expected} (mesh.n_cells)"
             ),
@@ -102,8 +109,10 @@ impl OPCPFluidArray {
             });
         }
         let conductance_vec = vec![average_thermal_conductance; n];
-        self.lateral_adjacent_array_temperature_vector.push(temperature_vec);
-        self.lateral_adjacent_array_conductance_vector.push(conductance_vec);
+        self.lateral_adjacent_array_temperature_vector
+            .push(temperature_vec);
+        self.lateral_adjacent_array_conductance_vector
+            .push(conductance_vec);
         Ok(())
     }
 
@@ -377,15 +386,25 @@ mod tests {
 
         let inlet_state = flash::state_pt(Fluid::Nitrogen, 300.0, 1.0e5).unwrap();
         arr.set_inlet_velocity(Velocity::new::<meter_per_second>(0.5));
-        arr.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(inlet_state.enthalpy));
+        arr.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(
+            inlet_state.enthalpy,
+        ));
         arr.set_outlet_pressure(outlet_pressure);
 
         arr.run(500);
 
-        let all_finite = arr.u.internal.as_slice().iter().all(|v| v.mag().is_finite())
+        let all_finite = arr
+            .u
+            .internal
+            .as_slice()
+            .iter()
+            .all(|v| v.mag().is_finite())
             && arr.p.internal.as_slice().iter().all(|x| x.is_finite())
             && arr.he.internal.as_slice().iter().all(|x| x.is_finite());
-        assert!(all_finite, "fields must stay finite when driven by prescribed inlet/outlet BCs");
+        assert!(
+            all_finite,
+            "fields must stay finite when driven by prescribed inlet/outlet BCs"
+        );
 
         let outlet_p = arr.get_outlet_pressure();
         assert!(
@@ -395,8 +414,8 @@ mod tests {
             outlet_pressure.get::<pascal>()
         );
 
-        let mean_u_x: f64 = arr.u.internal.as_slice().iter().map(|v| v.x).sum::<f64>()
-            / arr.mesh.n_cells as f64;
+        let mean_u_x: f64 =
+            arr.u.internal.as_slice().iter().map(|v| v.x).sum::<f64>() / arr.mesh.n_cells as f64;
         assert!(
             mean_u_x > 0.0,
             "flow should move in +x, driven by the inlet velocity BC; got mean u_x = {mean_u_x}"
@@ -413,7 +432,11 @@ mod tests {
         );
         assert!(matches!(
             result,
-            Err(OPCPFluidArrayError::LengthMismatch { expected: 5, got: 3, .. })
+            Err(OPCPFluidArrayError::LengthMismatch {
+                expected: 5,
+                got: 3,
+                ..
+            })
         ));
     }
 
@@ -424,7 +447,11 @@ mod tests {
         let result = arr.lateral_link_new_power_vector(Power::new::<watt>(100.0), bad);
         assert!(matches!(
             result,
-            Err(OPCPFluidArrayError::LengthMismatch { expected: 5, got: 4, .. })
+            Err(OPCPFluidArrayError::LengthMismatch {
+                expected: 5,
+                got: 4,
+                ..
+            })
         ));
     }
 
@@ -432,25 +459,41 @@ mod tests {
     fn lateral_heat_source_raises_temperature_over_a_step() {
         let mut arr = test_array(5);
         arr.correct_transport();
-        let t_before: f64 = arr.get_temperature_vector().iter().map(|t| t.get::<kelvin>()).sum();
+        let t_before: f64 = arr
+            .get_temperature_vector()
+            .iter()
+            .map(|t| t.get::<kelvin>())
+            .sum();
 
         let fractions = vec![0.2; 5];
-        arr.lateral_link_new_power_vector(Power::new::<watt>(500.0), fractions).unwrap();
+        arr.lateral_link_new_power_vector(Power::new::<watt>(500.0), fractions)
+            .unwrap();
         arr.step();
         // `t`/`rho` lag `he` by one outer-corrector iteration (they're refreshed
         // from the *previous* `he` before the energy equation solves for the new
         // one) — sync them from the fresh `he` before reading the temperature.
         arr.correct_thermo();
 
-        let t_after: f64 = arr.get_temperature_vector().iter().map(|t| t.get::<kelvin>()).sum();
-        assert!(t_after > t_before, "t_after={t_after} should exceed t_before={t_before}");
+        let t_after: f64 = arr
+            .get_temperature_vector()
+            .iter()
+            .map(|t| t.get::<kelvin>())
+            .sum();
+        assert!(
+            t_after > t_before,
+            "t_after={t_after} should exceed t_before={t_before}"
+        );
     }
 
     #[test]
     fn lateral_conductance_cools_toward_colder_neighbour() {
         let mut arr = test_array(5);
         arr.correct_transport();
-        let t_before: f64 = arr.get_temperature_vector().iter().map(|t| t.get::<kelvin>()).sum();
+        let t_before: f64 = arr
+            .get_temperature_vector()
+            .iter()
+            .map(|t| t.get::<kelvin>())
+            .sum();
 
         let colder = vec![ThermodynamicTemperature::new::<kelvin>(250.0); 5];
         arr.lateral_link_new_temperature_vector_avg_conductance(
@@ -461,8 +504,15 @@ mod tests {
         arr.step();
         arr.correct_thermo(); // sync `t` from the fresh `he` -- see the comment above
 
-        let t_after: f64 = arr.get_temperature_vector().iter().map(|t| t.get::<kelvin>()).sum();
-        assert!(t_after < t_before, "t_after={t_after} should be below t_before={t_before}");
+        let t_after: f64 = arr
+            .get_temperature_vector()
+            .iter()
+            .map(|t| t.get::<kelvin>())
+            .sum();
+        assert!(
+            t_after < t_before,
+            "t_after={t_after} should be below t_before={t_before}"
+        );
     }
 
     #[test]
@@ -470,7 +520,8 @@ mod tests {
         let mut arr = test_array(5);
         arr.correct_transport();
         let fractions = vec![0.2; 5];
-        arr.lateral_link_new_power_vector(Power::new::<watt>(100.0), fractions).unwrap();
+        arr.lateral_link_new_power_vector(Power::new::<watt>(100.0), fractions)
+            .unwrap();
         arr.step();
         assert!(arr.q_vector.is_empty());
         assert!(arr.q_fraction_vector.is_empty());
@@ -541,7 +592,9 @@ mod tests {
         arr.set_temperature_vector(vec![preset_temp; 10]).unwrap();
         let inlet_state = flash::state_pt(Fluid::Nitrogen, 300.0, 1.0e5).unwrap();
         arr.set_inlet_velocity(Velocity::new::<meter_per_second>(2.0));
-        arr.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(inlet_state.enthalpy));
+        arr.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(
+            inlet_state.enthalpy,
+        ));
         arr.set_outlet_pressure(outlet_pressure);
 
         for _ in 0..100 {

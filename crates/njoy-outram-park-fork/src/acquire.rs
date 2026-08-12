@@ -143,7 +143,11 @@ impl EndfLibrary {
     /// `<base>/<library>/n/n_<MAT>_<Z>-<Sym>-<A>.zip`, the IAEA NDS naming
     /// convention (zero-padded 4-digit MAT).
     pub fn neutron_url(&self, mat: i32, z: u32, a: u32, symbol: &str) -> String {
-        format!("{IAEA_BASE_URL}/{}/n/{}", self.dir(), zip_filename(mat, z, a, symbol))
+        format!(
+            "{IAEA_BASE_URL}/{}/n/{}",
+            self.dir(),
+            zip_filename(mat, z, a, symbol)
+        )
     }
 
     /// The full hardcoded download URL for a **thermal-scattering-law** (tsl) tape.
@@ -316,7 +320,9 @@ pub fn parse_nuclide(name: &str) -> Result<(u32, u32, &'static str), NjoyError> 
         .ok_or_else(|| NjoyError::Download(format!("nuclide '{name}' has no mass number")))?;
     let (sym, a_str) = name.split_at(split);
     if sym.is_empty() {
-        return Err(NjoyError::Download(format!("nuclide '{name}' has no element symbol")));
+        return Err(NjoyError::Download(format!(
+            "nuclide '{name}' has no element symbol"
+        )));
     }
     let a: u32 = a_str
         .parse()
@@ -382,7 +388,9 @@ impl EndfCache {
         a: u32,
         symbol: &str,
     ) -> PathBuf {
-        self.dir.join(library.dir()).join(tape_filename(mat, z, a, symbol))
+        self.dir
+            .join(library.dir())
+            .join(tape_filename(mat, z, a, symbol))
     }
 
     /// Fetch a nuclide's raw ENDF tape (downloading and unzipping if needed),
@@ -543,17 +551,20 @@ impl EndfCache {
     ) -> Result<ReconrResult, NjoyError> {
         let tape = self.download_tape(library, mat, z, a, symbol)?;
         let tape_mat = first_mat(&tape).unwrap_or(mat);
-        reconr(&tape, &ReconrConfig { mat: tape_mat, tolerance, temperature: 0.0 })
+        reconr(
+            &tape,
+            &ReconrConfig {
+                mat: tape_mat,
+                tolerance,
+                temperature: 0.0,
+            },
+        )
     }
 
     /// Fetch a nuclide addressed by GNDS name (e.g. `"U235"`), looking up its MAT
     /// from [`well_known_mat`]. Errors if the nuclide is not in the built-in MAT
     /// table — use [`EndfCache::fetch`] with an explicit MAT for others.
-    pub fn fetch_by_name(
-        &self,
-        library: EndfLibrary,
-        name: &str,
-    ) -> Result<PathBuf, NjoyError> {
+    pub fn fetch_by_name(&self, library: EndfLibrary, name: &str) -> Result<PathBuf, NjoyError> {
         let (z, a, sym) = parse_nuclide(name)?;
         let mat = well_known_mat(z, a).ok_or_else(|| {
             NjoyError::Download(format!(
@@ -583,10 +594,7 @@ impl EndfCache {
 
 /// The first (usually only) material number present on a single-nuclide tape.
 fn first_mat(tape: &Tape) -> Option<i32> {
-    tape.sections()
-        .iter()
-        .map(|s| s.key.mat)
-        .find(|&m| m > 0)
+    tape.sections().iter().map(|s| s.key.mat).find(|&m| m > 0)
 }
 
 /// GET `url` into memory, mapping any HTTP/transport failure to
@@ -622,7 +630,9 @@ fn unzip_single(zip_bytes: &[u8], url: &str) -> Result<Vec<u8>, NjoyError> {
             return Ok(out);
         }
     }
-    Err(NjoyError::Download(format!("{url}: zip contained no file entry")))
+    Err(NjoyError::Download(format!(
+        "{url}: zip contained no file entry"
+    )))
 }
 
 /// Cheap sanity check that extracted bytes look like an ENDF ASCII tape before
@@ -637,7 +647,10 @@ fn validate_endf(bytes: &[u8], url: &str) -> Result<(), NjoyError> {
         )));
     }
     let head = &bytes[..bytes.len().min(1024)];
-    if !head.iter().all(|&b| b == b'\n' || b == b'\r' || (b' '..=b'~').contains(&b)) {
+    if !head
+        .iter()
+        .all(|&b| b == b'\n' || b == b'\r' || (b' '..=b'~').contains(&b))
+    {
         return Err(NjoyError::Download(format!(
             "{url}: extracted tape is not ASCII text (not an ENDF file?)"
         )));
@@ -726,7 +739,9 @@ mod tests {
         uniq.sort_unstable();
         uniq.dedup();
         assert_eq!(dirs.len(), uniq.len(), "library dirs must be unique");
-        assert!(EndfLibrary::Jeff33.neutron_url(9437, 94, 239, "Pu").contains("JEFF-3.3"));
+        assert!(EndfLibrary::Jeff33
+            .neutron_url(9437, 94, 239, "Pu")
+            .contains("JEFF-3.3"));
     }
 
     /// The built-in MAT table matches values verified against the IAEA listing.

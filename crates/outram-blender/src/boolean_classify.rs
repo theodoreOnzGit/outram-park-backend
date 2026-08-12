@@ -202,8 +202,7 @@ pub fn winding_number(mesh: &Mesh, p: Vec3) -> f64 {
         }
 
         let numerator = ra.dot(rb.cross(rc));
-        let denominator =
-            la * lb * lc + ra.dot(rb) * lc + rb.dot(rc) * la + rc.dot(ra) * lb;
+        let denominator = la * lb * lc + ra.dot(rb) * lc + rb.dot(rc) * la + rc.dot(ra) * lb;
         total_solid_angle += 2.0 * numerator.atan2(denominator);
     }
     total_solid_angle / (4.0 * std::f64::consts::PI)
@@ -537,9 +536,15 @@ mod tests {
     fn winding_number_cube_inside_and_outside() {
         let mesh = primitives::cube(2.0);
         let w_in = winding_number(&mesh, Vec3::ZERO);
-        assert!(approx(w_in.abs(), 1.0, 1e-6), "expected |w| ~= 1 inside cube, got {w_in}");
+        assert!(
+            approx(w_in.abs(), 1.0, 1e-6),
+            "expected |w| ~= 1 inside cube, got {w_in}"
+        );
         let w_out = winding_number(&mesh, Vec3::new(10.0, 10.0, 10.0));
-        assert!(approx(w_out.abs(), 0.0, 1e-6), "expected |w| ~= 0 outside cube, got {w_out}");
+        assert!(
+            approx(w_out.abs(), 0.0, 1e-6),
+            "expected |w| ~= 0 outside cube, got {w_out}"
+        );
     }
 
     /// `classify_point` agrees with the winding-number test above: origin
@@ -548,7 +553,10 @@ mod tests {
     fn classify_point_cube() {
         let mesh = primitives::cube(2.0);
         assert_eq!(classify_point(&mesh, Vec3::ZERO), PointClass::Inside);
-        assert_eq!(classify_point(&mesh, Vec3::new(10.0, 10.0, 10.0)), PointClass::Outside);
+        assert_eq!(
+            classify_point(&mesh, Vec3::new(10.0, 10.0, 10.0)),
+            PointClass::Outside
+        );
     }
 
     /// Methodology: same inside/outside check as the cube, but on a faceted
@@ -567,12 +575,21 @@ mod tests {
         let w_in = winding_number(&mesh, Vec3::ZERO);
         // Sign, not just magnitude: an outward-wound sphere gives +1 inside.
         // (Guards the uv_sphere inward-winding regression, bead op-hzs.14.)
-        assert!(approx(w_in, 1.0, 1e-3), "expected w ~= +1 at sphere center, got {w_in}");
+        assert!(
+            approx(w_in, 1.0, 1e-3),
+            "expected w ~= +1 at sphere center, got {w_in}"
+        );
         assert_eq!(classify_point(&mesh, Vec3::ZERO), PointClass::Inside);
 
         let w_out = winding_number(&mesh, Vec3::new(10.0, 10.0, 10.0));
-        assert!(approx(w_out, 0.0, 1e-6), "expected |w| ~= 0 far outside sphere, got {w_out}");
-        assert_eq!(classify_point(&mesh, Vec3::new(10.0, 10.0, 10.0)), PointClass::Outside);
+        assert!(
+            approx(w_out, 0.0, 1e-6),
+            "expected |w| ~= 0 far outside sphere, got {w_out}"
+        );
+        assert_eq!(
+            classify_point(&mesh, Vec3::new(10.0, 10.0, 10.0)),
+            PointClass::Outside
+        );
     }
 
     /// Methodology: the case that distinguishes true classification from a
@@ -596,7 +613,10 @@ mod tests {
 
         let p = Vec3::new(1.5, 1.5, 0.5);
         let w = winding_number(&mesh, p);
-        assert!(w.abs() < 0.5, "notch point should have |w| well under 0.5, got {w}");
+        assert!(
+            w.abs() < 0.5,
+            "notch point should have |w| well under 0.5, got {w}"
+        );
         assert_eq!(
             classify_point(&mesh, p),
             PointClass::Outside,

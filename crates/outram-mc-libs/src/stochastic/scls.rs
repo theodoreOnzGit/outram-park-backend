@@ -371,7 +371,8 @@ impl SclsMedium {
     pub fn set_sphere_radius(&mut self, radius: f64) {
         self.sphere.radius = radius.max(0.0);
         let sphere = self.sphere;
-        self.histories.retain(|h| sphere.overlaps(h.center, h.radius));
+        self.histories
+            .retain(|h| sphere.overlaps(h.center, h.radius));
         self.flights
             .retain(|f| sphere.contains(f.start) || sphere.contains(f.end));
     }
@@ -466,7 +467,11 @@ impl SclsMedium {
                     in_inclusion,
                     current_sphere,
                 });
-                return Ok(if in_inclusion { inclusion_mat } else { matrix_mat });
+                return Ok(if in_inclusion {
+                    inclusion_mat
+                } else {
+                    matrix_mat
+                });
             }
         };
 
@@ -533,7 +538,11 @@ impl SclsMedium {
         }
 
         fl.last_position = position;
-        let result = if fl.in_inclusion { inclusion_mat } else { matrix_mat };
+        let result = if fl.in_inclusion {
+            inclusion_mat
+        } else {
+            matrix_mat
+        };
         self.flight = Some(fl);
         // Per design-doc §15: re-centre the window on the neutron and cull.
         self.advance_to(position);
@@ -777,12 +786,18 @@ mod tests {
         let mut in_incl = 0usize;
         for i in 0..n {
             let x = i as f64 * step;
-            if m.material_at(Position::new(x, 0.0, 0.0), &mut seed).unwrap() == MaterialId(1) {
+            if m.material_at(Position::new(x, 0.0, 0.0), &mut seed)
+                .unwrap()
+                == MaterialId(1)
+            {
                 in_incl += 1;
             }
         }
         let frac = in_incl as f64 / n as f64;
-        assert!((frac - pf).abs() < 0.03, "SCLS inclusion fraction {frac} vs pf {pf}");
+        assert!(
+            (frac - pf).abs() < 0.03,
+            "SCLS inclusion fraction {frac} vs pf {pf}"
+        );
     }
 
     /// The memory property: oscillating across a small region many times does **not**
@@ -803,15 +818,23 @@ mod tests {
                 // Triangle wave: forward on even sweeps, backward on odd.
                 let frac = i as f64 / pts as f64;
                 let x = if s % 2 == 0 { frac } else { 1.0 - frac } * 0.4;
-                let _ = m.material_at(Position::new(x, 0.0, 0.0), &mut seed).unwrap();
+                let _ = m
+                    .material_at(Position::new(x, 0.0, 0.0), &mut seed)
+                    .unwrap();
             }
         }
         // 400 sweeps × 40 points = 16000 crossings of a ~0.4 cm region. Memoryless
         // sampling could spawn thousands of inclusions; memory keeps it bounded to the
         // handful that actually fit in the region (region/⟨ℓ⟩ ~ a few dozen).
         let n = m.histories().len();
-        assert!(n < 500, "history count {n} should saturate, not grow with crossings");
-        assert!(!m.histories().is_empty(), "some inclusions must have been remembered");
+        assert!(
+            n < 500,
+            "history count {n} should saturate, not grow with crossings"
+        );
+        assert!(
+            !m.histories().is_empty(),
+            "some inclusions must have been remembered"
+        );
     }
 
     /// The adaptive controller's EMA converges to a constant track length, and the
@@ -822,7 +845,11 @@ mod tests {
         for _ in 0..500 {
             c.update(1.0);
         }
-        assert!((c.mean_track() - 1.0).abs() < 1e-6, "EMA -> 1.0, got {}", c.mean_track());
+        assert!(
+            (c.mean_track() - 1.0).abs() < 1e-6,
+            "EMA -> 1.0, got {}",
+            c.mean_track()
+        );
         assert!((c.radius() - 1.03).abs() < 1e-6, "R = track + R_largest");
 
         for _ in 0..1000 {
@@ -858,8 +885,15 @@ mod tests {
         for _ in 0..50 {
             m.adapt_radius(&mut c, 0.001);
         }
-        assert!(m.sphere().radius < 0.2, "window shrank, got {}", m.sphere().radius);
-        assert!(m.histories().is_empty(), "distant inclusion culled by the smaller window");
+        assert!(
+            m.sphere().radius < 0.2,
+            "window shrank, got {}",
+            m.sphere().radius
+        );
+        assert!(
+            m.histories().is_empty(),
+            "distant inclusion culled by the smaller window"
+        );
     }
 
     /// The reconstruction is deterministic in the LCG stream.
@@ -870,7 +904,10 @@ mod tests {
             let mut m = SclsMedium::new(cls, Position::ZERO, 5.0);
             let mut seed = 314u64;
             (0..500)
-                .map(|i| m.material_at(Position::new(i as f64 * 0.02, 0.0, 0.0), &mut seed).unwrap())
+                .map(|i| {
+                    m.material_at(Position::new(i as f64 * 0.02, 0.0, 0.0), &mut seed)
+                        .unwrap()
+                })
                 .collect::<Vec<_>>()
         };
         assert_eq!(run(), run());

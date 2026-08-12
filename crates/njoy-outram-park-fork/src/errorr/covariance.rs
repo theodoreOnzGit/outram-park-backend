@@ -104,7 +104,11 @@ pub enum SubsectionFormat {
 pub fn detect_endf_version(tape: &Tape, mat: i32) -> Result<SubsectionFormat, NjoyError> {
     let section = tape
         .section(mat, 1, 451)
-        .ok_or(NjoyError::SectionNotFound { mat, mf: 1, mt: 451 })?;
+        .ok_or(NjoyError::SectionNotFound {
+            mat,
+            mf: 1,
+            mt: 451,
+        })?;
     let mut cur = SectionCursor::new(&section.rows);
     let _head = cur.read_cont()?; // errorr.f90:456 — (ZA,AWR,LRP,LFI,NLIB,NMOD), unused here.
     let descriptive = cur.read_cont()?; // errorr.f90:457 — (ELIS,STA,LIS,LISO,0,NFOR).
@@ -300,7 +304,12 @@ pub fn read_covariance_section(
         subsections.push(read_subsection(&mut cur)?);
     }
 
-    Ok(CovarianceSection { za, awr, mtl, subsections })
+    Ok(CovarianceSection {
+        za,
+        awr,
+        mtl,
+        subsections,
+    })
 }
 
 /// Read one `NL` subsection: its CONT header plus its `NC` and `NI`
@@ -336,7 +345,14 @@ fn read_subsection(cur: &mut SectionCursor<'_>) -> Result<CovarianceSubsection, 
         ni.push(NiSubsection { ls, lb, list });
     }
 
-    Ok(CovarianceSubsection { xmf1, xlfs1, mat1, mt1, nc, ni })
+    Ok(CovarianceSubsection {
+        xmf1,
+        xlfs1,
+        mat1,
+        mt1,
+        nc,
+        ni,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -375,7 +391,11 @@ mod tests {
             [1.0, 2.0, 1.0, 5.0, 1.0, 16.0],
             [1.0, 17.0, 1.0, 18.0, 1.0, 0.0],
         ];
-        let key = EndfKey { mat: 9228, mf: 33, mt: 1 };
+        let key = EndfKey {
+            mat: 9228,
+            mf: 33,
+            mt: 1,
+        };
         let tape = Tape::from_sections("synthetic".into(), vec![Section { key, rows }]);
 
         let sec = read_covariance_section(&tape, 9228, 33, 1, SubsectionFormat::EndfFormatVOrVi)
@@ -444,6 +464,10 @@ mod tests {
         assert_eq!(first_ni.list.head.n1, 113_050);
         assert_eq!(first_ni.list.head.n2, 475);
         assert_eq!(first_ni.list.data.len(), 113_050);
-        assert_eq!(113_050, 475 * 476 / 2, "LB=5 symmetric upper-triangular pack size");
+        assert_eq!(
+            113_050,
+            475 * 476 / 2,
+            "LB=5 symmetric upper-triangular pack size"
+        );
     }
 }

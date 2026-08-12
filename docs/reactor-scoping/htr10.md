@@ -29,7 +29,7 @@ substantial head start, but the core is new work.
 
 | Loop | Fluid | Purpose |
 |---|---|---|
-| Primary | Helium, approx. 7 MPa | Flows through a graphite-moderated pebble bed; multi-pass pebble recirculation |
+| Primary | Helium, **3.0 MPa** | Flows through a graphite-moderated pebble bed; multi-pass pebble recirculation |
 | Secondary | Water / steam | Helical-coil once-through modular steam generator with helium on the shell side |
 
 Passive safety case rests on the reflector, core barrel and reactor-cavity
@@ -122,6 +122,13 @@ reference it names. This should be treated as unvalidated and fixed.
 > Virtual Test Bed carries material that closes several gaps recorded below.
 > For HTR-10 specifically it supplies confirmed report identifiers and reference
 > values that were deliberately left unasserted here.
+
+> **Corrected 2026-08-12.** This document originally said the primary loop runs
+> at "approx. 7 MPa". That was wrong — it was written before the sources were in
+> hand. **All five HTR-10 references agree on 3.0 MPa**; see
+> [htr10-plant-data.md](htr10-plant-data.md), which now carries the sourced
+> plant and piping figures including the hot gas duct geometry and the full
+> primary pressure-drop budget.
 
 ## 4. Open validation data
 

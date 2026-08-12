@@ -99,9 +99,7 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
 
     let steam_length = Length::new::<meter>(4.0);
     let steam_bore = Length::new::<millimeter>(80.0);
-    let steam_area = Area::new::<square_meter>(
-        std::f64::consts::FRAC_PI_4 * 0.08 * 0.08,
-    );
+    let steam_area = Area::new::<square_meter>(std::f64::consts::FRAC_PI_4 * 0.08 * 0.08);
 
     // 12 m. At a 120 mm bore the original 2.5 m run drew almost square
     // (200 x 113 points), reading as a plenum rather than a pipe. A gas duct of
@@ -111,9 +109,7 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     // is why the canvas scrolls horizontally.
     let helium_length = Length::new::<meter>(12.0);
     let helium_bore = Length::new::<millimeter>(120.0);
-    let helium_area = Area::new::<square_meter>(
-        std::f64::consts::FRAC_PI_4 * 0.12 * 0.12,
-    );
+    let helium_area = Area::new::<square_meter>(std::f64::consts::FRAC_PI_4 * 0.12 * 0.12);
 
     // ── Molten salt: TUAS PRE-BUILT insulated pipe ────────────────────────
     // Uses the component TUAS already ships rather than assembling a bare
@@ -172,20 +168,20 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     // ── Steam / water: two-phase HEM, IAPWS-IF97 ──────────────────────────
     match TampinesSteamArray::new(steam_length, steam_area, CELLS, dt) {
         Ok(steam) => rows.push(PipeRow {
-        component: PipeComponent::new(
-            Pipe::new(
-                PipeBackend::SteamHem(steam),
-                steam_bore,
-                steam_length,
-                roughness,
-                incline,
-            ),
-            ThermodynamicTemperature::new::<kelvin>(300.0),
-            ThermodynamicTemperature::new::<kelvin>(600.0),
-            Velocity::new::<meter_per_second>(6.0),
-            Time::new::<second>(TRACER_INTERVAL_S),
-        )
-        .with_wall_alarm(ThermodynamicTemperature::new::<kelvin>(WALL_ALARM_K)),
+            component: PipeComponent::new(
+                Pipe::new(
+                    PipeBackend::SteamHem(steam),
+                    steam_bore,
+                    steam_length,
+                    roughness,
+                    incline,
+                ),
+                ThermodynamicTemperature::new::<kelvin>(300.0),
+                ThermodynamicTemperature::new::<kelvin>(600.0),
+                Velocity::new::<meter_per_second>(6.0),
+                Time::new::<second>(TRACER_INTERVAL_S),
+            )
+            .with_wall_alarm(ThermodynamicTemperature::new::<kelvin>(WALL_ALARM_K)),
             name: "Steam / water — TAMPINES HEM",
             detail: "PipeBackend::SteamHem · homogeneous-equilibrium two-phase, \
                      IAPWS-IF97. The only row carrying phase information, and the \
@@ -195,22 +191,23 @@ pub fn build_rows() -> (Vec<PipeRow>, Vec<String>) {
     }
 
     // ── Helium: single-phase compressible, CoolProp EOS ───────────────────
-    match CompressibleFluidArray::new(CoolPropFluid::Helium, helium_length, helium_area, CELLS, dt) {
+    match CompressibleFluidArray::new(CoolPropFluid::Helium, helium_length, helium_area, CELLS, dt)
+    {
         Ok(helium) => rows.push(PipeRow {
-        component: PipeComponent::new(
-            Pipe::new(
-                PipeBackend::Compressible(helium),
-                helium_bore,
-                helium_length,
-                roughness,
-                incline,
-            ),
-            ThermodynamicTemperature::new::<kelvin>(300.0),
-            ThermodynamicTemperature::new::<kelvin>(1200.0),
-            Velocity::new::<meter_per_second>(20.0),
-            Time::new::<second>(TRACER_INTERVAL_S),
-        )
-        .with_wall_alarm(ThermodynamicTemperature::new::<kelvin>(WALL_ALARM_K)),
+            component: PipeComponent::new(
+                Pipe::new(
+                    PipeBackend::Compressible(helium),
+                    helium_bore,
+                    helium_length,
+                    roughness,
+                    incline,
+                ),
+                ThermodynamicTemperature::new::<kelvin>(300.0),
+                ThermodynamicTemperature::new::<kelvin>(1200.0),
+                Velocity::new::<meter_per_second>(20.0),
+                Time::new::<second>(TRACER_INTERVAL_S),
+            )
+            .with_wall_alarm(ThermodynamicTemperature::new::<kelvin>(WALL_ALARM_K)),
             name: "Helium gas — OPCP (CoolProp)",
             detail: "PipeBackend::Compressible · single-phase compressible, \
                      Helmholtz EOS. Gas-cooled reactor working fluid — drawn in \

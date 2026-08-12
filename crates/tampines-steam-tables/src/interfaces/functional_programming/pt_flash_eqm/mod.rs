@@ -3,50 +3,44 @@ use uom::si::{f64::*, pressure::pascal, thermodynamic_temperature::kelvin};
 use crate::interfaces::functional_programming::ph_flash_eqm::s_ph_eqm;
 use crate::interfaces::functional_programming::ps_flash_eqm::v_ps_eqm;
 use crate::region_1_subcooled_liquid::{
-    InversePressure,
-    alpha_v_tp_1, cp_tp_1, cv_tp_1, h_tp_1,
-    kappa_t_tp_1, kappa_tp_1,
-    s_tp_1, u_tp_1, v_tp_1, w_tp_1,
+    InversePressure, alpha_v_tp_1, cp_tp_1, cv_tp_1, h_tp_1, kappa_t_tp_1, kappa_tp_1, s_tp_1,
+    u_tp_1, v_tp_1, w_tp_1,
 };
 use crate::region_2_vapour::{
-    alpha_v_tp_2, cp_tp_2, cv_tp_2, h_tp_2,
-    kappa_t_tp_2, kappa_tp_2,
-    s_tp_2, u_tp_2, v_tp_2, w_tp_2,
+    alpha_v_tp_2, cp_tp_2, cv_tp_2, h_tp_2, kappa_t_tp_2, kappa_tp_2, s_tp_2, u_tp_2, v_tp_2,
+    w_tp_2,
 };
 use crate::region_3_single_phase_plus_supercritical_steam::{
-    alpha_v_tp_3, cp_tp_3, cv_tp_3, h_tp_3,
-    kappa_t_tp_3, kappa_tp_3,
-    p_boundary_2_3,
-    s_tp_3, u_tp_3, v_tp_3, w_tp_3,
+    alpha_v_tp_3, cp_tp_3, cv_tp_3, h_tp_3, kappa_t_tp_3, kappa_tp_3, p_boundary_2_3, s_tp_3,
+    u_tp_3, v_tp_3, w_tp_3,
 };
 use crate::region_4_vap_liq_equilibrium::{sat_pressure_4, sat_temp_4};
 use crate::region_5_steam_at_800_plus_degc::{
-    alpha_v_tp_5, cp_tp_5, cv_tp_5, h_tp_5,
-    kappa_t_tp_5, kappa_tp_5,
-    s_tp_5, u_tp_5, v_tp_5, w_tp_5,
+    alpha_v_tp_5, cp_tp_5, cv_tp_5, h_tp_5, kappa_t_tp_5, kappa_tp_5, s_tp_5, u_tp_5, v_tp_5,
+    w_tp_5,
 };
 
-#[derive(Debug,PartialEq, Eq, PartialOrd, Ord,Clone, Copy)]
-/// an enum to help represent the appropriate 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+/// an enum to help represent the appropriate
 /// regions in the forward equations
 pub enum FwdEqnRegion {
-    /// this is from T = 273.15 K to T=623.15K 
+    /// this is from T = 273.15 K to T=623.15K
     /// liquid
     Region1,
-    /// this is vapour then line p23/t23 
+    /// this is vapour then line p23/t23
     /// all the way up to 1073.15 K (800 degC)
     ///
     Region2,
-    /// this is supercritical region and 
-    /// single phase liquid  / vapour near 
+    /// this is supercritical region and
+    /// single phase liquid  / vapour near
     /// supercritical region
     Region3,
-    /// two phase vapour liq equilibrium 
+    /// two phase vapour liq equilibrium
     /// region up to supercritical region
     /// (saturation line, but not including the line itself)
     Region4,
     /// ultra high temperature steam  (more than 800 degC)
-    /// 1073.15 K to 2273.15 K 
+    /// 1073.15 K to 2273.15 K
     /// pressure from triple pt pressure to 500 bar
     Region5,
 }
@@ -77,7 +71,6 @@ pub(crate) const REGION_4_TP_UNDERDETERMINED: &str =
      steam quality x: a (T,p) forward flash cannot resolve a saturated \
      liquid-vapour mixture. Supply x via a (p,h) or (p,s) flash (which carry \
      quality), or use w_tpx_eqm for speed of sound with explicit quality.";
-
 
 /// Determines which region of the pT chart
 /// a point belongs to.
@@ -126,36 +119,35 @@ pub fn region_fwd_eqn_single_phase(t: ThermodynamicTemperature, p: Pressure) -> 
     let p_sat_reg4_pascal = p_sat_reg4.get::<pascal>();
 
     match (t_kelvin, p_pascal) {
-        (temp, pres)
-            if (1073.15..=2273.15).contains(&temp) && (0.0..=50.0e6).contains(&pres) =>
-            {
-                FwdEqnRegion::Region5
-            }
+        (temp, pres) if (1073.15..=2273.15).contains(&temp) && (0.0..=50.0e6).contains(&pres) => {
+            FwdEqnRegion::Region5
+        }
         (temp, pres) if (273.15..647.096).contains(&temp) && pres == p_sat_reg4_pascal => {
             FwdEqnRegion::Region4
         }
         (temp, pres)
-            if (623.15..=863.15).contains(&temp) && (p_boundary_23_pascal..=100e6).contains(&pres) =>
-            {
-                FwdEqnRegion::Region3
-            }
+            if (623.15..=863.15).contains(&temp)
+                && (p_boundary_23_pascal..=100e6).contains(&pres) =>
+        {
+            FwdEqnRegion::Region3
+        }
         (temp, pres)
             if ((273.15..=623.15).contains(&temp) && (0.0..=p_sat_reg4_pascal).contains(&pres))
                 || ((623.15..=863.15).contains(&temp)
                     && (0.0..=p_boundary_23_pascal).contains(&pres))
-                    || ((863.15..=1073.15).contains(&temp) && (0.0..=100e6).contains(&pres)) =>
-            {
-                FwdEqnRegion::Region2
-            }
+                || ((863.15..=1073.15).contains(&temp) && (0.0..=100e6).contains(&pres)) =>
+        {
+            FwdEqnRegion::Region2
+        }
         (temp, pres)
             if (273.15..=623.15).contains(&temp) && (p_sat_reg4_pascal..=100e6).contains(&pres) =>
-            {
-                FwdEqnRegion::Region1
-            }
+        {
+            FwdEqnRegion::Region1
+        }
         _ => {
-            dbg!(&(t,p));
+            dbg!(&(t, p));
             panic!("t,p flashing at eqm out of bounds!")
-        },
+        }
     }
 }
 
@@ -186,7 +178,6 @@ pub fn u_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Availa
     }
 }
 
-
 /// returns the specific entropy given temperature and pressure
 pub fn s_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity {
     let region = region_fwd_eqn_single_phase(t, p);
@@ -213,7 +204,6 @@ pub fn cp_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Speci
     }
 }
 
-
 /// returns the isochoric (const vol) heat capacity given temperature and pressure
 pub fn cv_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity {
     let region = region_fwd_eqn_single_phase(t, p);
@@ -226,9 +216,6 @@ pub fn cv_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Speci
         FwdEqnRegion::Region5 => cv_tp_5(t, p),
     }
 }
-
-
-
 
 /// returns the specific volume given temperature and pressure
 pub fn v_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> SpecificVolume {
@@ -244,7 +231,6 @@ pub fn v_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Specif
     }
 }
 
-
 /// returns the speed of sound given temperature and pressure
 pub fn w_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Velocity {
     let region = region_fwd_eqn_single_phase(t, p);
@@ -258,14 +244,13 @@ pub fn w_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Veloci
     }
 }
 
-/// returns speed of sound at vle given (t,p and x) 
+/// returns speed of sound at vle given (t,p and x)
 /// x being quality
 ///
 ///
-/// note: there is some bug in the regioning algorithm here, 
+/// note: there is some bug in the regioning algorithm here,
 /// it is better to use p,s algorithm
-pub fn w_tpx_eqm(t: ThermodynamicTemperature, p: Pressure,
-    x: f64) -> Velocity {
+pub fn w_tpx_eqm(t: ThermodynamicTemperature, p: Pressure, x: f64) -> Velocity {
     let region = region_fwd_eqn_single_phase(t, p);
 
     match region {
@@ -273,8 +258,8 @@ pub fn w_tpx_eqm(t: ThermodynamicTemperature, p: Pressure,
         FwdEqnRegion::Region2 => w_tp_2(t, p),
         FwdEqnRegion::Region3 => w_tp_3(t, p),
         FwdEqnRegion::Region4 => {
-            // I'll just use saturation pressure here 
-            // not going to bother checking because we already sorted 
+            // I'll just use saturation pressure here
+            // not going to bother checking because we already sorted
             // the region bit
             let t_sat = sat_temp_4(p);
             let h_liq = h_tp_1(t_sat, p);
@@ -292,7 +277,7 @@ pub fn w_tpx_eqm(t: ThermodynamicTemperature, p: Pressure,
             // using finite difference: dv/dp|_s ≈ (v(p+dp) - v(p-dp)) / (2*dp)
 
             let dp = p * 1e-4; // small pressure perturbation
-            let v_plus  = v_ps_eqm(p + dp, s);
+            let v_plus = v_ps_eqm(p + dp, s);
             let v_minus = v_ps_eqm(p - dp, s);
             let dv_dp_s = (v_plus - v_minus) / (2.0 * dp);
 
@@ -303,14 +288,12 @@ pub fn w_tpx_eqm(t: ThermodynamicTemperature, p: Pressure,
             let c_hem: Velocity = v * (dv_dp_s.recip() * -1.0).sqrt();
 
             c_hem
-
-        },
+        }
         FwdEqnRegion::Region5 => w_tp_5(t, p),
     }
 }
 
-
-/// returns the isentropic exponent 
+/// returns the isentropic exponent
 pub fn kappa_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Ratio {
     let region = region_fwd_eqn_single_phase(t, p);
 
@@ -324,18 +307,23 @@ pub fn kappa_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Ra
 }
 
 /// returns the isobaric cubic expansion coefficient
-pub fn alpha_v_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> TemperatureCoefficient {
+pub fn alpha_v_tp_eqm_single_phase(
+    t: ThermodynamicTemperature,
+    p: Pressure,
+) -> TemperatureCoefficient {
     let region = region_fwd_eqn_single_phase(t, p);
 
     match region {
         FwdEqnRegion::Region1 => alpha_v_tp_1(t, p),
         FwdEqnRegion::Region2 => alpha_v_tp_2(t, p),
         FwdEqnRegion::Region3 => alpha_v_tp_3(t, p),
-        FwdEqnRegion::Region4 => panic!("isobaric cubic expansion coeff: {}", REGION_4_TP_UNDERDETERMINED),
+        FwdEqnRegion::Region4 => panic!(
+            "isobaric cubic expansion coeff: {}",
+            REGION_4_TP_UNDERDETERMINED
+        ),
         FwdEqnRegion::Region5 => alpha_v_tp_5(t, p),
     }
 }
-
 
 /// returns the isothermal compressibility
 pub fn kappa_t_tp_eqm(t: ThermodynamicTemperature, p: Pressure) -> InversePressure {
@@ -345,18 +333,21 @@ pub fn kappa_t_tp_eqm(t: ThermodynamicTemperature, p: Pressure) -> InversePressu
         FwdEqnRegion::Region1 => kappa_t_tp_1(t, p),
         FwdEqnRegion::Region2 => kappa_t_tp_2(t, p),
         FwdEqnRegion::Region3 => kappa_t_tp_3(t, p),
-        FwdEqnRegion::Region4 => panic!("isothermal compressibility: {}", REGION_4_TP_UNDERDETERMINED),
+        FwdEqnRegion::Region4 => panic!(
+            "isothermal compressibility: {}",
+            REGION_4_TP_UNDERDETERMINED
+        ),
         FwdEqnRegion::Region5 => kappa_t_tp_5(t, p),
     }
 }
 
-/// re-exports the relative pressure coeff function for 
+/// re-exports the relative pressure coeff function for
 /// region 3 relative pressure coeff (other regions don't have it)
 pub use crate::region_3_single_phase_plus_supercritical_steam::alpha_p_rho_t_3;
 
-/// re-exports the isothermal stress coeff function for 
+/// re-exports the isothermal stress coeff function for
 /// region 3 isothermal stress coeff (other regions don't have it)
 pub use crate::region_3_single_phase_plus_supercritical_steam::beta_p_rho_t_3;
 
 /// viscosity function import
-pub use crate::dynamic_viscosity::mu_tp_eqm_single_phase as mu_tp_eqm_single_phase;
+pub use crate::dynamic_viscosity::mu_tp_eqm_single_phase;

@@ -51,7 +51,10 @@ pub enum ViscosityDilute {
         sigma_eta: f64,
     },
     /// `η₀ = Σ aᵢ·T^{tᵢ}` \[Pa·s\]. CoolProp `powers_of_T`.
-    PowersOfT { a: &'static [f64], t: &'static [f64] },
+    PowersOfT {
+        a: &'static [f64],
+        t: &'static [f64],
+    },
     /// CO₂ dilute viscosity (Laesecke & Muzny, JPCRD 2017, Eq. 4) — a fixed
     /// hardcoded correlation. CoolProp `viscosity_dilute_CO2_LaeseckeJPCRD2017`.
     CO2LaeseckeJPCRD2017,
@@ -60,13 +63,26 @@ pub enum ViscosityDilute {
     /// Cyclohexane dilute viscosity (Tariq, JPCRD 2014, hardcoded).
     Cyclohexane,
     /// `η₀ = Σ aᵢ·(T/T_reducing)^{tᵢ}` \[Pa·s\]. CoolProp `powers_of_Tr`.
-    PowersOfTr { a: &'static [f64], t: &'static [f64], t_reducing: f64 },
+    PowersOfTr {
+        a: &'static [f64],
+        t: &'static [f64],
+        t_reducing: f64,
+    },
     /// `η₀ = C·√T / Σ aᵢ·(T/T_reducing)^{tᵢ}`. CoolProp
     /// `collision_integral_powers_of_Tstar`.
-    CollisionIntegralPowersOfTstar { c: f64, a: &'static [f64], t: &'static [f64], t_reducing: f64 },
+    CollisionIntegralPowersOfTstar {
+        c: f64,
+        a: &'static [f64],
+        t: &'static [f64],
+        t_reducing: f64,
+    },
     /// Neufeld/kinetic-theory Lennard-Jones collision integral \[Pa·s\].
     /// CoolProp `kinetic_theory`.
-    KineticTheory { molar_mass: f64, epsilon_over_k: f64, sigma_eta: f64 },
+    KineticTheory {
+        molar_mass: f64,
+        epsilon_over_k: f64,
+        sigma_eta: f64,
+    },
 }
 
 /// Initial-density viscosity correction.
@@ -98,7 +114,12 @@ impl ViscosityInitial {
     /// `eta_dilute` \[Pa·s\].
     fn contribution(&self, t: f64, rho_molar: f64, eta_dilute: f64) -> f64 {
         match self {
-            ViscosityInitial::RainwaterFriend { b, t: tt, epsilon_over_k, sigma_eta } => {
+            ViscosityInitial::RainwaterFriend {
+                b,
+                t: tt,
+                epsilon_over_k,
+                sigma_eta,
+            } => {
                 let tstar = t / epsilon_over_k;
                 let mut s = 0.0;
                 for i in 0..b.len() {
@@ -107,7 +128,13 @@ impl ViscosityInitial {
                 let b_eta = 6.022_141_29e23 * sigma_eta.powi(3) * s; // m³/mol
                 eta_dilute * b_eta * rho_molar
             }
-            ViscosityInitial::Empirical { n, d, t: tt, t_reducing, rhomolar_reducing } => {
+            ViscosityInitial::Empirical {
+                n,
+                d,
+                t: tt,
+                t_reducing,
+                rhomolar_reducing,
+            } => {
                 let tau = t_reducing / t;
                 let delta = rho_molar / rhomolar_reducing;
                 let mut summer = 0.0;
@@ -145,15 +172,29 @@ pub enum ViscosityHigherOrder {
     /// Eqs. 8–9) — a fixed hardcoded correlation needing the fluid's triple
     /// temperature, gas constant and molar mass. CoolProp
     /// `viscosity_CO2_higher_order_hardcoded_LaeseckeJPCRD2017`.
-    CO2LaeseckeJPCRD2017 { ttriple: f64, gas_constant: f64, molar_mass: f64 },
+    CO2LaeseckeJPCRD2017 {
+        ttriple: f64,
+        gas_constant: f64,
+        molar_mass: f64,
+    },
     /// Hardcoded higher-order viscosity for a specific fluid (hydrogen,
     /// benzene, toluene, n-hexane, n-heptane, ethane). `molar_mass` converts the
     /// EOS molar density to the mass density the correlation uses.
-    Hydrogen { molar_mass: f64 },
-    Toluene { molar_mass: f64 },
-    Benzene { molar_mass: f64 },
-    Hexane { molar_mass: f64 },
-    Heptane { molar_mass: f64 },
+    Hydrogen {
+        molar_mass: f64,
+    },
+    Toluene {
+        molar_mass: f64,
+    },
+    Benzene {
+        molar_mass: f64,
+    },
+    Hexane {
+        molar_mass: f64,
+    },
+    Heptane {
+        molar_mass: f64,
+    },
     Ethane,
     /// Quiñones-Cisneros & Deiters **friction theory** (CoolProp
     /// `friction_theory`). Density enters through the pressure and `∂p/∂T`, so
@@ -224,10 +265,38 @@ fn chung_viscosity(fluid: Fluid, t: f64, rho: f64, dipole_moment_d: f64) -> f64 
 
     let mu_r = 131.3 * dipole_moment_d / (vc_cm3mol * tc).sqrt();
 
-    let a0 = [6.32402, 0.12102e-2, 5.28346, 6.62263, 19.74540, -1.89992, 24.27450, 0.79716, -0.23816, 0.68629e-1];
-    let a1 = [50.41190, -0.11536e-2, 254.20900, 38.09570, 7.63034, -12.53670, 3.44945, 1.11764, 0.67695e-1, 0.34793];
-    let a2 = [-51.68010, -0.62571e-2, -168.48100, -8.46414, -14.35440, 4.98529, -11.29130, 0.12348e-1, -0.81630, 0.59256];
-    let a3 = [1189.02000, 0.37283e-1, 3898.27000, 31.41780, 31.52670, -18.15070, 69.34660, -4.11661, 4.02528, -0.72663];
+    let a0 = [
+        6.32402, 0.12102e-2, 5.28346, 6.62263, 19.74540, -1.89992, 24.27450, 0.79716, -0.23816,
+        0.68629e-1,
+    ];
+    let a1 = [
+        50.41190,
+        -0.11536e-2,
+        254.20900,
+        38.09570,
+        7.63034,
+        -12.53670,
+        3.44945,
+        1.11764,
+        0.67695e-1,
+        0.34793,
+    ];
+    let a2 = [
+        -51.68010,
+        -0.62571e-2,
+        -168.48100,
+        -8.46414,
+        -14.35440,
+        4.98529,
+        -11.29130,
+        0.12348e-1,
+        -0.81630,
+        0.59256,
+    ];
+    let a3 = [
+        1189.02000, 0.37283e-1, 3898.27000, 31.41780, 31.52670, -18.15070, 69.34660, -4.11661,
+        4.02528, -0.72663,
+    ];
     let mut big_a = [0.0; 10];
     for i in 0..10 {
         big_a[i] = a0[i] + a1[i] * acentric + a2[i] * mu_r.powi(4) + a3[i] * kappa;
@@ -238,13 +307,17 @@ fn chung_viscosity(fluid: Fluid, t: f64, rho: f64, dipole_moment_d: f64) -> f64 
 
     let rho_molcm3 = (rho / eos.molar_mass) / 1e6; // kg/m^3 -> mol/cm^3
     let tstar = t / epsilon_over_k;
-    let omega_2_2 = 1.16145 * tstar.powf(-0.14874) + 0.52487 * (-0.77320 * tstar).exp() + 2.16178 * (-2.43787 * tstar).exp()
+    let omega_2_2 = 1.16145 * tstar.powf(-0.14874)
+        + 0.52487 * (-0.77320 * tstar).exp()
+        + 2.16178 * (-2.43787 * tstar).exp()
         - 6.435e-4 * tstar.powf(0.14874) * (18.0323 * tstar.powf(-0.76830) - 7.27371).sin();
     let eta0_p = 4.0785e-5 * (m_gmol * t).sqrt() / (vc_cm3mol.powf(2.0 / 3.0) * omega_2_2) * f_c;
 
     let y = rho_molcm3 * vc_cm3mol / 6.0;
     let g1 = (1.0 - 0.5 * y) / (1.0 - y).powi(3);
-    let g2 = (big_a[0] * (1.0 - (-big_a[3] * y).exp()) / y + big_a[1] * g1 * (big_a[4] * y).exp() + big_a[2] * g1)
+    let g2 = (big_a[0] * (1.0 - (-big_a[3] * y).exp()) / y
+        + big_a[1] * g1 * (big_a[4] * y).exp()
+        + big_a[2] * g1)
         / (big_a[0] * big_a[3] + big_a[1] + big_a[2]);
     let eta_k_p = eta0_p * (1.0 / g2 + big_a[5] * y);
 
@@ -271,7 +344,10 @@ pub enum ConductivityDilute {
     },
     /// `λ₀ = A₀·η₀[µPa·s] + Σ_{i≥1} Aᵢ·τ^{tᵢ}`, `τ = T_r/T`, `η₀` the dilute
     /// viscosity. CoolProp `eta0_and_poly` (needs the viscosity model).
-    Eta0AndPoly { a: &'static [f64], t: &'static [f64] },
+    Eta0AndPoly {
+        a: &'static [f64],
+        t: &'static [f64],
+    },
     /// CO₂ dilute conductivity (Huber et al., JPCRD 2016, Eq. 3) — a fixed
     /// hardcoded correlation in the EOS reduced temperature. CoolProp
     /// `conductivity_dilute_hardcoded_CO2_HuberJPCRD2016`.
@@ -370,21 +446,33 @@ impl HardcodedViscosity {
             HardcodedViscosity::Helium => helium_viscosity(t, rho),
             HardcodedViscosity::Water => water_viscosity(t, rho),
             HardcodedViscosity::HeavyWater => heavywater_viscosity(t, rho),
-            HardcodedViscosity::OXylene { molar_mass } => {
-                xylene_viscosity(t, rho / molar_mass, 0.22225, 630.259, 2.6845,
-                    &[-2.05581e-3, 2.38762, 0.0, 10.4497, 15.9587],
-                    &[10.3, 3.3, 25.0, 0.7, 0.4],
-                    &[2.65651e-3, 0.0, 1.77616e-12, -18.2446, 0.0], &[0.8, 0.0, 4.4])
-            }
-            HardcodedViscosity::MXylene { molar_mass } => {
-                xylene_viscosity(t, rho / molar_mass, 0.22115, 616.89, 2.665,
-                    &[-0.268950, -0.0290018, 0.0, 14.7728, 17.1128],
-                    &[6.8, 3.3, 22.0, 0.6, 0.4],
-                    &[0.320971, 0.0, 1.72866e-10, -18.9852, 0.0], &[0.3, 0.0, 3.2])
-            }
+            HardcodedViscosity::OXylene { molar_mass } => xylene_viscosity(
+                t,
+                rho / molar_mass,
+                0.22225,
+                630.259,
+                2.6845,
+                &[-2.05581e-3, 2.38762, 0.0, 10.4497, 15.9587],
+                &[10.3, 3.3, 25.0, 0.7, 0.4],
+                &[2.65651e-3, 0.0, 1.77616e-12, -18.2446, 0.0],
+                &[0.8, 0.0, 4.4],
+            ),
+            HardcodedViscosity::MXylene { molar_mass } => xylene_viscosity(
+                t,
+                rho / molar_mass,
+                0.22115,
+                616.89,
+                2.665,
+                &[-0.268950, -0.0290018, 0.0, 14.7728, 17.1128],
+                &[6.8, 3.3, 22.0, 0.6, 0.4],
+                &[0.320971, 0.0, 1.72866e-10, -18.9852, 0.0],
+                &[0.3, 0.0, 3.2],
+            ),
             HardcodedViscosity::PXylene { molar_mass } => pxylene_viscosity(t, rho / molar_mass),
             HardcodedViscosity::R23 { molar_mass } => r23_viscosity(t, rho / molar_mass),
-            HardcodedViscosity::Methanol { molar_mass } => methanol_viscosity(t, rho, rho / molar_mass),
+            HardcodedViscosity::Methanol { molar_mass } => {
+                methanol_viscosity(t, rho, rho / molar_mass)
+            }
         }
     }
 }
@@ -399,7 +487,17 @@ fn methanol_viscosity(t: f64, rho: f64, rhomolar: f64) -> f64 {
     let rhor = rho / 273.0;
     let tr = t / 512.6;
     // Rainwater–Friend initial density (B_eta) and second (C_eta) coefficients.
-    let b = [-19.572881, 219.73999, -1015.3226, 2471.01251, -3375.1717, 2491.6597, -787.26086, 14.085455, -0.34664158];
+    let b = [
+        -19.572881,
+        219.73999,
+        -1015.3226,
+        2471.01251,
+        -3375.1717,
+        2491.6597,
+        -787.26086,
+        14.085455,
+        -0.34664158,
+    ];
     let bt = [0.0, -0.25, -0.5, -0.75, -1.0, -1.25, -1.5, -2.5, -5.5];
     let b_eta_star: f64 = (0..9).map(|i| b[i] * tstar.powf(bt[i])).sum();
     let b_eta = n_a * sigma0.powi(3) * b_eta_star; // m³/mol
@@ -407,12 +505,35 @@ fn methanol_viscosity(t: f64, rho: f64, rhomolar: f64) -> f64 {
     let c_eta_star = cc[0] * tstar.powi(3) * (cc[1] * tstar.powf(-0.5)).exp();
     let c_eta = (n_a * sigma0.powi(3)).powi(2) * c_eta_star; // m⁶/mol²
     let eta_g = 1.0 + b_eta * rhomolar + c_eta * rhomolar * rhomolar;
-    let a = [1.16145, -0.14874, 0.52487, -0.77320, 2.16178, -2.43787, 0.95976e-3,
-        0.10225, -0.97346, 0.10657, -0.34528, -0.44557, -2.58055];
-    let d = [-1.181909, 0.5031030, -0.6268461, 0.5169312, -0.2351349, 5.3980235e-2, -4.9069617e-3];
-    let e = [0.0, 4.018368, -4.239180, 2.245110, -0.5750698, 2.3021026e-2, 2.5696775e-2, -6.8372749e-3, 7.2707189e-4, -2.9255711e-5];
-    let omega_lj = a[0] * tstar.powf(a[1]) + a[2] * (a[3] * tstar).exp() + a[4] * (a[5] * tstar).exp();
-    let omega_delta = a[7] * tstar.powf(a[8]) + a[9] * (a[10] * tstar).exp() + a[11] * (a[12] * tstar).exp();
+    let a = [
+        1.16145, -0.14874, 0.52487, -0.77320, 2.16178, -2.43787, 0.95976e-3, 0.10225, -0.97346,
+        0.10657, -0.34528, -0.44557, -2.58055,
+    ];
+    let d = [
+        -1.181909,
+        0.5031030,
+        -0.6268461,
+        0.5169312,
+        -0.2351349,
+        5.3980235e-2,
+        -4.9069617e-3,
+    ];
+    let e = [
+        0.0,
+        4.018368,
+        -4.239180,
+        2.245110,
+        -0.5750698,
+        2.3021026e-2,
+        2.5696775e-2,
+        -6.8372749e-3,
+        7.2707189e-4,
+        -2.9255711e-5,
+    ];
+    let omega_lj =
+        a[0] * tstar.powf(a[1]) + a[2] * (a[3] * tstar).exp() + a[4] * (a[5] * tstar).exp();
+    let omega_delta =
+        a[7] * tstar.powf(a[8]) + a[9] * (a[10] * tstar).exp() + a[11] * (a[12] * tstar).exp();
     let omega_sm = omega_lj * (1.0 + delta.powi(2) / (1.0 + a[6] * delta.powi(6)) * omega_delta);
     let eta_0 = 2.66957e-26 * (m * t).sqrt() / (sigma0.powi(2) * omega_sm);
     let mut summerd: f64 = (0..7).map(|i| d[i] / tr.powi(i as i32)).sum();
@@ -422,7 +543,8 @@ fn methanol_viscosity(t: f64, rho: f64, rhomolar: f64) -> f64 {
     let b_hs = 2.0 * std::f64::consts::PI * n_a * sigma_hs.powi(3) / 3.0; // m³/mol
     let zeta = b_hs * rhomolar / 4.0;
     let g_sigma_hs = (1.0 - 0.5 * zeta) / (1.0 - zeta).powi(3);
-    let eta_e = 1.0 / g_sigma_hs + 0.8 * b_hs * rhomolar + 0.761 * g_sigma_hs * (b_hs * rhomolar).powi(2);
+    let eta_e =
+        1.0 / g_sigma_hs + 0.8 * b_hs * rhomolar + 0.761 * g_sigma_hs * (b_hs * rhomolar).powi(2);
     let f = 1.0 / (1.0 + (5.0 * (rhor - 1.0)).exp());
     eta_0 * (f * eta_g + (1.0 - f) * eta_e)
 }
@@ -440,10 +562,12 @@ fn heavywater_viscosity(t: f64, rho: f64) -> f64 {
     let bij = [0.4864192,-0.2448372,-0.8702035,0.8716056,-1.051126,0.3458395, 0.3509007,1.315436,1.297752,1.353448,
                -0.2847572,-1.037026,-1.287846,-0.02148229, 0.07013759,0.4660127,0.2292075,-0.4857462,
                0.01641220,-0.02884911,0.1607171,-0.009603846, -0.01163815,-0.008239587,0.004559914,-0.003886659];
-    let mu0 = tbar.sqrt() / (a[0] + a[1] / tbar + a[2] / (tbar * tbar) + a[3] / (tbar * tbar * tbar));
+    let mu0 =
+        tbar.sqrt() / (a[0] + a[1] / tbar + a[2] / (tbar * tbar) + a[3] / (tbar * tbar * tbar));
     let mut summer = 0.0;
     for i in 0..26 {
-        summer += bij[i] * (1.0 / tbar - 1.0).powi(ii[i] as i32) * (rhobar - 1.0).powi(jj[i] as i32);
+        summer +=
+            bij[i] * (1.0 / tbar - 1.0).powi(ii[i] as i32) * (rhobar - 1.0).powi(jj[i] as i32);
     }
     let mu1 = (rhobar * summer).exp();
     55.2651e-6 * mu0 * mu1
@@ -452,15 +576,25 @@ fn heavywater_viscosity(t: f64, rho: f64) -> f64 {
 /// o/m-Xylene viscosity \[Pa·s\] (Cao, JPCRD 2016), shared form. `rho_molar` in
 /// mol/m³; `tc`,`rhoc_molL` reduce it; `s0_pref` scales `η₀`.
 #[allow(clippy::too_many_arguments)]
-fn xylene_viscosity(t: f64, rho_molar: f64, s0_pref: f64, tc: f64, rhoc_kmolm3: f64,
-                    dd: &[f64], n: &[f64], ee: &[f64], k: &[f64]) -> f64 {
+fn xylene_viscosity(
+    t: f64,
+    rho_molar: f64,
+    s0_pref: f64,
+    tc: f64,
+    rhoc_kmolm3: f64,
+    dd: &[f64],
+    n: &[f64],
+    ee: &[f64],
+    k: &[f64],
+) -> f64 {
     let tr = t / tc;
     let rhor = rho_molar / 1000.0 / rhoc_kmolm3;
     let ln_seta = -1.4933 + 473.2 / t - 57033.0 / (t * t);
     let eta0 = s0_pref * t.sqrt() / ln_seta.exp(); // µPa·s
     let rho_moll = rho_molar / 1000.0;
     let eta1 = (13.2814 - 10862.4 / t + 1664060.0 / (t * t)) * rho_moll; // µPa·s
-    let f = (dd[0] + ee[0] * tr.powf(-k[0])) * rhor.powf(n[0]) + dd[1] * rhor.powf(n[1])
+    let f = (dd[0] + ee[0] * tr.powf(-k[0])) * rhor.powf(n[0])
+        + dd[1] * rhor.powf(n[1])
         + ee[2] * rhor.powf(n[2]) / tr.powf(k[2])
         + (dd[3] * rhor + ee[3] * tr) * rhor.powf(n[3])
         + dd[4] * rhor.powf(n[4]);
@@ -477,7 +611,9 @@ fn pxylene_viscosity(t: f64, rho_molar: f64) -> f64 {
     let rho_moll = rho_molar / 1000.0;
     let eta1 = (13.2814 - 10862.4 / t + 1664060.0 / (t * t)) * rho_moll;
     let sum1 = 122.919 * rhor.powf(1.5) - 282.329 * rhor.powi(2) + 279.348 * rhor.powi(3)
-        - 146.776 * rhor.powi(4) + 28.361 * rhor.powi(5) - 0.004585 * rhor.powi(11);
+        - 146.776 * rhor.powi(4)
+        + 28.361 * rhor.powi(5)
+        - 0.004585 * rhor.powi(11);
     let sum2 = 15.337 * rhor.powf(1.5) - 0.0004382 * rhor.powi(11) + 0.00002307 * rhor.powi(15);
     let delta_eta = rhor.powf(2.0 / 3.0) * (sum1 + 1.0 / tr.sqrt() * sum2);
     (eta0 + eta1 + delta_eta) / 1e6
@@ -486,23 +622,30 @@ fn pxylene_viscosity(t: f64, rho_molar: f64) -> f64 {
 /// R23 viscosity \[Pa·s\] (Shan et al. — CoolProp `viscosity_R23_hardcoded`).
 /// `rho_molar` in mol/m³.
 fn r23_viscosity(t: f64, rho_molar: f64) -> f64 {
-    let (c1, c2, delta_gstar, rho_l, rhocbar, delta_eta_max, ru, tc, molar_mass) =
-        (1.3163, 0.1832, 771.23, 32.174, 7.5114, 3.967, 8.31451, 299.2793, 70.014);
+    let (c1, c2, delta_gstar, rho_l, rhocbar, delta_eta_max, ru, tc, molar_mass) = (
+        1.3163, 0.1832, 771.23, 32.174, 7.5114, 3.967, 8.31451, 299.2793, 70.014,
+    );
     let a = [0.4425728, -0.5138403, 0.1547566, -0.02821844, 0.001578286];
     let (e_k, sigma) = (243.91, 0.4278);
     let tstar = t / e_k;
     let log_tstar = tstar.ln();
-    let omega = (a[0] + a[1] * log_tstar + a[2] * log_tstar.powi(2) + a[3] * log_tstar.powi(3)
+    let omega = (a[0]
+        + a[1] * log_tstar
+        + a[2] * log_tstar.powi(2)
+        + a[3] * log_tstar.powi(3)
         + a[4] * log_tstar.powi(4))
     .exp();
     let eta_dg = 1.25 * 0.021357 * (molar_mass * t).sqrt() / (sigma * sigma * omega); // µPa·s
     let rhobar = rho_molar / 1000.0; // mol/L
-    let eta_l = c2 * (rho_l * rho_l) / (rho_l - rhobar) * t.sqrt()
+    let eta_l = c2 * (rho_l * rho_l) / (rho_l - rhobar)
+        * t.sqrt()
         * (rhobar / (rho_l - rhobar) * delta_gstar / (ru * t)).exp();
     let chi = rhobar - rhocbar;
     let tau = t - tc;
-    let delta_eta_c = 4.0 * delta_eta_max / ((chi.exp() + (-chi).exp()) * (tau.exp() + (-tau).exp()));
-    (((rho_l - rhobar) / rho_l).powf(c1) * eta_dg + (rhobar / rho_l).powf(c1) * eta_l + delta_eta_c) / 1e6
+    let delta_eta_c =
+        4.0 * delta_eta_max / ((chi.exp() + (-chi).exp()) * (tau.exp() + (-tau).exp()));
+    (((rho_l - rhobar) / rho_l).powf(c1) * eta_dg + (rhobar / rho_l).powf(c1) * eta_l + delta_eta_c)
+        / 1e6
 }
 
 /// A fluid-specific **hardcoded conductivity** formula.
@@ -547,17 +690,42 @@ fn methane_conductivity(fluid: Fluid, t: f64, rho: f64) -> f64 {
     let att = eos.ideal_derivs(rhomolar / eos.rho_reducing, tau_eos).att;
 
     // Dilute viscosity (Friend), needed by lambda_dilute and lambda_critical.
-    let cc = [0.0, -3.0328138281, 16.918880086, -37.189364917, 41.288861858,
-        -24.615921140, 8.9488430959, -1.8739245042, 0.20966101390, -9.6570437074e-3];
+    let cc = [
+        0.0,
+        -3.0328138281,
+        16.918880086,
+        -37.189364917,
+        41.288861858,
+        -24.615921140,
+        8.9488430959,
+        -1.8739245042,
+        0.20966101390,
+        -9.6570437074e-3,
+    ];
     let tv = t / 174.0;
-    let omega22: f64 = (1..=9).map(|i| cc[i] * tv.powf((i as f64 - 1.0) / 3.0 - 1.0)).sum();
+    let omega22: f64 = (1..=9)
+        .map(|i| cc[i] * tv.powf((i as f64 - 1.0) / 3.0 - 1.0))
+        .sum();
     let eta_dilute = 10.50 * tv.sqrt() * omega22;
     let re = [0usize, 1, 1, 2, 2, 2, 3, 3, 4, 4, 1, 1];
     let se = [0.0, 0.0, 1.0, 0.0, 1.0, 1.5, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0];
-    let ge = [0.0, 0.41250137, -0.14390912, 0.10366993, 0.40287464, -0.24903524,
-        -0.12953131, 0.06575776, 0.02566628, -0.03716526, -0.38798341, 0.03533815];
+    let ge = [
+        0.0,
+        0.41250137,
+        -0.14390912,
+        0.10366993,
+        0.40287464,
+        -0.24903524,
+        -0.12953131,
+        0.06575776,
+        0.02566628,
+        -0.03716526,
+        -0.38798341,
+        0.03533815,
+    ];
     let et = |i: usize| ge[i] * delta.powi(re[i] as i32) * tau.powf(se[i]);
-    let eta_residual = 12.149 * (1..=9).map(et).sum::<f64>() / (1.0 + (10..=11).map(et).sum::<f64>());
+    let eta_residual =
+        12.149 * (1..=9).map(et).sum::<f64>() / (1.0 + (10..=11).map(et).sum::<f64>());
     let eta = eta_residual + eta_dilute;
 
     // Dilute conductivity.
@@ -567,8 +735,19 @@ fn methane_conductivity(fluid: Fluid, t: f64, rho: f64) -> f64 {
     // Residual conductivity (uses the saturated-liquid density near the dome).
     let rl = [0usize, 1, 3, 4, 4, 5, 5, 2];
     let sl = [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0];
-    let jl = [0.0, 2.4149207, 0.55166331, -0.52837734, 0.073809553, 0.24465507, -0.047613626, 1.5554612];
-    let summer: f64 = (1..=6).map(|i| jl[i] * delta.powi(rl[i] as i32) * tau.powf(sl[i])).sum();
+    let jl = [
+        0.0,
+        2.4149207,
+        0.55166331,
+        -0.52837734,
+        0.073809553,
+        0.24465507,
+        -0.047613626,
+        1.5554612,
+    ];
+    let summer: f64 = (1..=6)
+        .map(|i| jl[i] * delta.powi(rl[i] as i32) * tau.powf(sl[i]))
+        .sum();
     let mut delta_sigma_star = 1.0;
     if t < eos.t_critical && rhomolar < eos.rho_critical {
         if let Some(rho_l) = crate::ancillaries::saturated_liquid_density_ancillary(fluid, t) {
@@ -587,11 +766,13 @@ fn methane_conductivity(fluid: Fluid, t: f64, rho: f64) -> f64 {
             let (lambda_c, gamma_c) = (0.0801, 1.190);
             lambda_c * tstar.abs().powf(-gamma_c)
         } else if rhostar.abs() < 0.03 {
-            let (beta, w, s, e, a, b, r, q) = (0.355, -1.401, -6.098, 0.287, 3.352, 0.732, 0.535, 0.1133);
+            let (beta, w, s, e, a, b, r, q) =
+                (0.355, -1.401, -6.098, 0.287, 3.352, 0.732, 0.535, 0.1133);
             let omega = w * tstar * rhostar.abs().powf(-1.0 / beta);
             let mut theta = 1.0;
             if tstar < -rhostar.abs().powf(-1.0 / beta) / s {
-                theta = 1.0 + e * (1.0 + s * tstar * rhostar.abs().powf(-1.0 / beta)).powf(2.0 * beta);
+                theta =
+                    1.0 + e * (1.0 + s * tstar * rhostar.abs().powf(-1.0 / beta)).powf(2.0 * beta);
             }
             q * rhostar.abs().powf(-a) * theta.powf(b) / (theta + omega * (theta + r))
         } else {
@@ -614,19 +795,28 @@ fn heavywater_conductivity(t: f64, rho: f64) -> f64 {
     let tbar = t / 643.847;
     let rhobar = rho / 358.0;
     let a = [1.00000, 37.3223, 22.5485, 13.0465, 0.0, -2.60735];
-    let lambda0 = a[0] + a[1] * tbar + a[2] * tbar.powi(2) + a[3] * tbar.powi(3)
-        + a[4] * tbar.powi(4) + a[5] * tbar.powi(5);
+    let lambda0 = a[0]
+        + a[1] * tbar
+        + a[2] * tbar.powi(2)
+        + a[3] * tbar.powi(3)
+        + a[4] * tbar.powi(4)
+        + a[5] * tbar.powi(5);
     let be = -2.506;
     let b = [-167.310, 483.656, -191.039, 73.0358, -7.57467];
-    let delta_lambda = b[0] * (1.0 - (be * rhobar).exp()) + b[1] * rhobar + b[2] * rhobar.powi(2)
-        + b[3] * rhobar.powi(3) + b[4] * rhobar.powi(4);
+    let delta_lambda = b[0] * (1.0 - (be * rhobar).exp())
+        + b[1] * rhobar
+        + b[2] * rhobar.powi(2)
+        + b[3] * rhobar.powi(3)
+        + b[4] * rhobar.powi(4);
     let f_1 = (0.144847 * tbar - 5.64493 * tbar.powi(2)).exp();
     let f_2 = (-2.80000 * (rhobar - 1.0).powi(2)).exp()
         - 0.080738543 * (-17.9430 * (rhobar - 0.125698).powi(2)).exp();
     let tau = tbar / ((tbar - 1.1).abs() + 1.1);
     let f_3 = 1.0 + (60.0 * (tau - 1.0) + 20.0).exp();
     let f_4 = 1.0 + (100.0 * (tau - 1.0) + 15.0).exp();
-    let delta_lambda_c = 35429.6 * f_1 * f_2
+    let delta_lambda_c = 35429.6
+        * f_1
+        * f_2
         * (1.0 + f_2.powi(2) * (5000.0e6 * f_1.powi(4) / f_3 + 3.5 * f_2 / f_4));
     let delta_lambda_l = -741.112 * f_1.powf(1.2) * (1.0 - (-(rhobar / 2.5).powi(10)).exp());
     (lambda0 + delta_lambda + delta_lambda_c + delta_lambda_l) * 0.742128e-3
@@ -635,17 +825,20 @@ fn heavywater_conductivity(t: f64, rho: f64) -> f64 {
 /// R23 conductivity \[W/(m·K)\] (CoolProp `conductivity_hardcoded_R23`).
 /// `rho_molar` in mol/m³.
 fn r23_conductivity(t: f64, rho_molar: f64) -> f64 {
-    let (b1, b2, c1, c2, delta_gstar, rho_l, rhocbar, delta_lambda_max, ru, tc) =
-        (-2.5370, 0.05366, 0.94215, 0.14914, 2508.58, 68.345, 7.5114, 25.0, 8.31451, 299.2793);
+    let (b1, b2, c1, c2, delta_gstar, rho_l, rhocbar, delta_lambda_max, ru, tc) = (
+        -2.5370, 0.05366, 0.94215, 0.14914, 2508.58, 68.345, 7.5114, 25.0, 8.31451, 299.2793,
+    );
     let lambda_dg = b1 + b2 * t; // mW/m/K
     let rhobar = rho_molar / 1000.0; // mol/L
-    let lambda_l = c2 * (rho_l * rho_l) / (rho_l - rhobar) * t.sqrt()
+    let lambda_l = c2 * (rho_l * rho_l) / (rho_l - rhobar)
+        * t.sqrt()
         * (rhobar / (rho_l - rhobar) * delta_gstar / (ru * t)).exp();
     let chi = rhobar - rhocbar;
     let tau = t - tc;
     let delta_lambda_c =
         4.0 * delta_lambda_max / ((chi.exp() + (-chi).exp()) * (tau.exp() + (-tau).exp()));
-    (((rho_l - rhobar) / rho_l).powf(c1) * lambda_dg + (rhobar / rho_l).powf(c1) * lambda_l
+    (((rho_l - rhobar) / rho_l).powf(c1) * lambda_dg
+        + (rhobar / rho_l).powf(c1) * lambda_l
         + delta_lambda_c)
         / 1e3
 }
@@ -710,11 +903,14 @@ fn water_conductivity(t: f64, rho: f64) -> f64 {
 fn helium_viscosity(t: f64, rho_mass: f64) -> f64 {
     let rho = rho_mass / 1000.0; // g/cm³
     let x = if t <= 300.0 { t.ln() } else { 300.0_f64.ln() };
-    let b = -47.5295259 / x + 87.6799309 - 42.0741589 * x + 8.33128289 * x * x - 0.589252385 * x * x * x;
-    let c = 547.309267 / x - 904.870586 + 431.404928 * x - 81.4504854 * x * x + 5.37008433 * x * x * x;
-    let d = -1684.39324 / x + 3331.08630 - 1632.19172 * x + 308.804413 * x * x - 20.2936367 * x * x * x;
-    let eta_0_slash =
-        -0.135311743 / x + 1.00347841 + 1.20654649 * x - 0.149564551 * x * x + 0.012520841 * x * x * x;
+    let b = -47.5295259 / x + 87.6799309 - 42.0741589 * x + 8.33128289 * x * x
+        - 0.589252385 * x * x * x;
+    let c =
+        547.309267 / x - 904.870586 + 431.404928 * x - 81.4504854 * x * x + 5.37008433 * x * x * x;
+    let d =
+        -1684.39324 / x + 3331.08630 - 1632.19172 * x + 308.804413 * x * x - 20.2936367 * x * x * x;
+    let eta_0_slash = -0.135311743 / x + 1.00347841 + 1.20654649 * x - 0.149564551 * x * x
+        + 0.012520841 * x * x * x;
     let eta_e_slash = rho * b + rho * rho * c + rho * rho * rho * d;
     let ln_eta = eta_0_slash + eta_e_slash;
     // Correlation is in µg/(cm·s): /10 → µPa·s, /1e6 → Pa·s.
@@ -735,8 +931,16 @@ fn helium_conductivity(t: f64, rho: f64) -> f64 {
         - 4.926397634e1 / t / t / t / t;
     let lambda_0 = 2.787_003_4e-3 * t.powf(7.034007057e-1) * summer.exp();
     let c = [
-        1.862970530e-4, -7.275964435e-7, -1.427549651e-4, 3.290833592e-5, -5.213335363e-8,
-        4.492659933e-8, -5.924416513e-9, 7.087321137e-6, -6.013335678e-6, 8.067145814e-7,
+        1.862970530e-4,
+        -7.275964435e-7,
+        -1.427549651e-4,
+        3.290833592e-5,
+        -5.213335363e-8,
+        4.492659933e-8,
+        -5.924416513e-9,
+        7.087321137e-6,
+        -6.013335678e-6,
+        8.067145814e-7,
         3.995125013e-7,
     ];
     let t13 = t.powf(1.0 / 3.0);
@@ -763,7 +967,14 @@ impl ViscosityDilute {
     #[allow(clippy::excessive_precision)]
     fn eval(&self, t: f64) -> f64 {
         match self {
-            ViscosityDilute::CollisionIntegral { c, a, t: tt, molar_mass, epsilon_over_k, sigma_eta } => {
+            ViscosityDilute::CollisionIntegral {
+                c,
+                a,
+                t: tt,
+                molar_mass,
+                epsilon_over_k,
+                sigma_eta,
+            } => {
                 let tstar = t / epsilon_over_k;
                 let sigma_nm = sigma_eta * 1e9;
                 let mm_kgkmol = molar_mass * 1000.0;
@@ -784,40 +995,73 @@ impl ViscosityDilute {
             }
             ViscosityDilute::CO2LaeseckeJPCRD2017 => {
                 let a = [
-                    1749.354893188350, -369.069300007128, 5423856.34887691, -2.21283852168356,
-                    -269503.247933569, 73145.021531826, 5.34368649509278,
+                    1749.354893188350,
+                    -369.069300007128,
+                    5423856.34887691,
+                    -2.21283852168356,
+                    -269503.247933569,
+                    73145.021531826,
+                    5.34368649509278,
                 ];
                 let t3 = t.powf(1.0 / 3.0);
-                let den = a[0] + a[1] * t.powf(1.0 / 6.0) + a[2] * (a[3] * t3).exp()
+                let den = a[0]
+                    + a[1] * t.powf(1.0 / 6.0)
+                    + a[2] * (a[3] * t3).exp()
                     + (a[4] + a[5] * t3) / t3.exp()
                     + a[6] * t.sqrt();
                 0.0010055 * t.sqrt() / den
             }
             ViscosityDilute::Ethane => {
-                let c = [0.0, -3.0328138281, 16.918880086, -37.189364917, 41.288861858,
-                    -24.615921140, 8.9488430959, -1.8739245042, 0.20966101390, -9.6570437074e-3];
+                let c = [
+                    0.0,
+                    -3.0328138281,
+                    16.918880086,
+                    -37.189364917,
+                    41.288861858,
+                    -24.615921140,
+                    8.9488430959,
+                    -1.8739245042,
+                    0.20966101390,
+                    -9.6570437074e-3,
+                ];
                 let tstar = t / 245.0;
-                let omega: f64 = (1..=9).map(|i| c[i] * tstar.powf((i as f64 - 1.0) / 3.0 - 1.0)).sum();
+                let omega: f64 = (1..=9)
+                    .map(|i| c[i] * tstar.powf((i as f64 - 1.0) / 3.0 - 1.0))
+                    .sum();
                 12.0085 * tstar.sqrt() * omega / 1e6
             }
             ViscosityDilute::Cyclohexane => {
                 let s_eta = (-1.5093 + 364.87 / t - 39537.0 / (t * t)).exp();
                 0.19592 * t.sqrt() / s_eta / 1e6
             }
-            ViscosityDilute::PowersOfTr { a, t: tt, t_reducing } => {
+            ViscosityDilute::PowersOfTr {
+                a,
+                t: tt,
+                t_reducing,
+            } => {
                 let tr = t / t_reducing;
                 (0..a.len()).map(|i| a[i] * tr.powf(tt[i])).sum()
             }
-            ViscosityDilute::CollisionIntegralPowersOfTstar { c, a, t: tt, t_reducing } => {
+            ViscosityDilute::CollisionIntegralPowersOfTstar {
+                c,
+                a,
+                t: tt,
+                t_reducing,
+            } => {
                 let tstar = t / t_reducing;
                 let summer: f64 = (0..a.len()).map(|i| a[i] * tstar.powf(tt[i])).sum();
                 c * t.sqrt() / summer
             }
-            ViscosityDilute::KineticTheory { molar_mass, epsilon_over_k, sigma_eta } => {
+            ViscosityDilute::KineticTheory {
+                molar_mass,
+                epsilon_over_k,
+                sigma_eta,
+            } => {
                 let tstar = t / epsilon_over_k;
                 let sigma_nm = sigma_eta * 1e9;
                 let mm_kgkmol = molar_mass * 1000.0;
-                let omega22 = 1.16145 * tstar.powf(-0.14874) + 0.52487 * (-0.77320 * tstar).exp()
+                let omega22 = 1.16145 * tstar.powf(-0.14874)
+                    + 0.52487 * (-0.77320 * tstar).exp()
                     + 2.16178 * (-2.43787 * tstar).exp();
                 26.692e-9 * (mm_kgkmol * t).sqrt() / (sigma_nm * sigma_nm * omega22)
             }
@@ -832,13 +1076,29 @@ impl ViscosityHigherOrder {
     fn eval(&self, fluid: Fluid, rho_molar: f64, t: f64) -> f64 {
         match self {
             ViscosityHigherOrder::ModifiedBatschinskiHildebrand {
-                t_reduce, rhomolar_reduce, a, d1, t1, gamma, l, f, d2, t2, g, h, p, q,
+                t_reduce,
+                rhomolar_reduce,
+                a,
+                d1,
+                t1,
+                gamma,
+                l,
+                f,
+                d2,
+                t2,
+                g,
+                h,
+                p,
+                q,
             } => {
                 let delta = rho_molar / rhomolar_reduce;
                 let tau = t_reduce / t;
                 let mut s = 0.0;
                 for i in 0..a.len() {
-                    s += a[i] * delta.powf(d1[i]) * tau.powf(t1[i]) * (gamma[i] * delta.powf(l[i])).exp();
+                    s += a[i]
+                        * delta.powf(d1[i])
+                        * tau.powf(t1[i])
+                        * (gamma[i] * delta.powf(l[i])).exp();
                 }
                 let mut ff = 0.0;
                 for i in 0..f.len() {
@@ -855,7 +1115,11 @@ impl ViscosityHigherOrder {
                 let delta0 = num / den;
                 s + ff * (1.0 / (delta0 - delta) - 1.0 / delta0)
             }
-            ViscosityHigherOrder::CO2LaeseckeJPCRD2017 { ttriple, gas_constant, molar_mass } => {
+            ViscosityHigherOrder::CO2LaeseckeJPCRD2017 {
+                ttriple,
+                gas_constant,
+                molar_mass,
+            } => {
                 let (c1, c2, gamma) = (0.360603235428487, 0.121550806591497, 8.06282737481277);
                 let rho_tl = 1178.53;
                 let rho_mass = rho_molar * molar_mass;
@@ -868,15 +1132,35 @@ impl ViscosityHigherOrder {
             ViscosityHigherOrder::Hydrogen { molar_mass } => {
                 let tr = t / 33.145;
                 let rhor = rho_molar * molar_mass * 0.011;
-                let c = [0.0, 6.43449673e-6, 4.56334068e-2, 2.32797868e-1, 9.58326120e-1, 1.27941189e-1, 3.63576595e-1];
+                let c = [
+                    0.0,
+                    6.43449673e-6,
+                    4.56334068e-2,
+                    2.32797868e-1,
+                    9.58326120e-1,
+                    1.27941189e-1,
+                    3.63576595e-1,
+                ];
                 c[1] * rhor.powi(2)
-                    * (c[2] * tr + c[3] / tr + c[4] * rhor.powi(2) / (c[5] + tr) + c[6] * rhor.powi(6)).exp()
+                    * (c[2] * tr
+                        + c[3] / tr
+                        + c[4] * rhor.powi(2) / (c[5] + tr)
+                        + c[6] * rhor.powi(6))
+                    .exp()
             }
             ViscosityHigherOrder::Toluene { molar_mass } => {
                 let tr = t / 591.75;
                 let rhor = rho_molar * molar_mass / 291.987;
-                let c = [19.919216, -2.6557905, -135.904211, -7.9962719, -11.014795, -10.113817];
-                1e-6 * rhor.powf(2.0 / 3.0) * tr.sqrt()
+                let c = [
+                    19.919216,
+                    -2.6557905,
+                    -135.904211,
+                    -7.9962719,
+                    -11.014795,
+                    -10.113817,
+                ];
+                1e-6 * rhor.powf(2.0 / 3.0)
+                    * tr.sqrt()
                     * ((c[0] * rhor + c[1] * rhor.powi(4)) / tr
                         + c[2] * rhor.powi(3) / (rhor * rhor + c[3] + c[4] * tr)
                         + c[5] * rhor)
@@ -884,44 +1168,103 @@ impl ViscosityHigherOrder {
             ViscosityHigherOrder::Benzene { molar_mass } => {
                 let tr = t / 562.02;
                 let rhor = rho_molar * molar_mass / 304.792;
-                let c = [-9.98945, 86.06260, 2.74872, 1.11130, -1.0, -134.1330, -352.473, 6.60989, 88.4174];
-                1e-6 * rhor.powf(2.0 / 3.0) * tr.sqrt()
-                    * (c[0] * rhor.powi(2) + c[1] * rhor / (c[2] + c[3] * tr + c[4] * rhor)
+                let c = [
+                    -9.98945, 86.06260, 2.74872, 1.11130, -1.0, -134.1330, -352.473, 6.60989,
+                    88.4174,
+                ];
+                1e-6 * rhor.powf(2.0 / 3.0)
+                    * tr.sqrt()
+                    * (c[0] * rhor.powi(2)
+                        + c[1] * rhor / (c[2] + c[3] * tr + c[4] * rhor)
                         + (c[5] * rhor + c[6] * rhor.powi(2)) / (c[7] + c[8] * rhor.powi(2)))
             }
             ViscosityHigherOrder::Hexane { molar_mass } => {
                 let tr = t / 507.82;
                 let rhor = rho_molar * molar_mass / 233.182;
-                let c = [2.53402335 / 1e6, -9.724061002 / 1e6, 0.469437316, 158.5571631,
-                    72.42916856 / 1e6, 10.60751253, 8.628373915, -6.61346441, -2.212724566];
-                rhor.powf(2.0 / 3.0) * tr.sqrt()
-                    * (c[0] / tr + c[1] / (c[2] + tr + c[3] * rhor * rhor)
-                        + c[4] * (1.0 + rhor) / (c[5] + c[6] * tr + c[7] * rhor + rhor * rhor + c[8] * rhor * tr))
+                let c = [
+                    2.53402335 / 1e6,
+                    -9.724061002 / 1e6,
+                    0.469437316,
+                    158.5571631,
+                    72.42916856 / 1e6,
+                    10.60751253,
+                    8.628373915,
+                    -6.61346441,
+                    -2.212724566,
+                ];
+                rhor.powf(2.0 / 3.0)
+                    * tr.sqrt()
+                    * (c[0] / tr
+                        + c[1] / (c[2] + tr + c[3] * rhor * rhor)
+                        + c[4] * (1.0 + rhor)
+                            / (c[5] + c[6] * tr + c[7] * rhor + rhor * rhor + c[8] * rhor * tr))
             }
             ViscosityHigherOrder::Heptane { molar_mass } => {
                 let tr = t / 540.13;
                 let rhor = rho_molar * molar_mass / 232.0;
-                let c = [0.0, 22.15000 / 1e6, -15.00870 / 1e6, 3.71791 / 1e6, 77.72818 / 1e6,
-                    9.73449, 9.51900, -6.34076, -2.51909];
-                rhor.powf(2.0 / 3.0) * tr.sqrt()
-                    * (c[1] * rhor + c[2] * rhor.powi(2) + c[3] * rhor.powi(3)
-                        + c[4] * rhor / (c[5] + c[6] * tr + c[7] * rhor + rhor * rhor + c[8] * rhor * tr))
+                let c = [
+                    0.0,
+                    22.15000 / 1e6,
+                    -15.00870 / 1e6,
+                    3.71791 / 1e6,
+                    77.72818 / 1e6,
+                    9.73449,
+                    9.51900,
+                    -6.34076,
+                    -2.51909,
+                ];
+                rhor.powf(2.0 / 3.0)
+                    * tr.sqrt()
+                    * (c[1] * rhor
+                        + c[2] * rhor.powi(2)
+                        + c[3] * rhor.powi(3)
+                        + c[4] * rhor
+                            / (c[5] + c[6] * tr + c[7] * rhor + rhor * rhor + c[8] * rhor * tr))
             }
             ViscosityHigherOrder::Ethane => {
                 let tau = 305.33 / t;
                 let delta = rho_molar / 6870.0;
                 let r = [0usize, 1, 1, 2, 2, 2, 3, 3, 4, 4, 1, 1];
                 let s = [0.0, 0.0, 1.0, 0.0, 1.0, 1.5, 0.0, 2.0, 0.0, 1.0, 0.0, 1.0];
-                let g = [0.0, 0.47177003, -0.23950311, 0.39808301, -0.27343335, 0.35192260,
-                    -0.21101308, -0.00478579, 0.07378129, -0.030435255, -0.30435286, 0.001215675];
+                let g = [
+                    0.0,
+                    0.47177003,
+                    -0.23950311,
+                    0.39808301,
+                    -0.27343335,
+                    0.35192260,
+                    -0.21101308,
+                    -0.00478579,
+                    0.07378129,
+                    -0.030435255,
+                    -0.30435286,
+                    0.001215675,
+                ];
                 let term = |i: usize| g[i] * delta.powi(r[i] as i32) * tau.powf(s[i]);
                 let sum1: f64 = (1..=9).map(term).sum();
                 let sum2: f64 = (10..=11).map(term).sum();
                 15.977 * sum1 / (1.0 + sum2) / 1e6
             }
             ViscosityHigherOrder::FrictionTheory {
-                t_reduce, c1, c2, ai, aa, ar, aaa, arr, adrdr, aii, arrr, aaaa,
-                na, nr, naa, nrr, nii, nrrr, naaa,
+                t_reduce,
+                c1,
+                c2,
+                ai,
+                aa,
+                ar,
+                aaa,
+                arr,
+                adrdr,
+                aii,
+                arrr,
+                aaaa,
+                na,
+                nr,
+                naa,
+                nrr,
+                nii,
+                nrrr,
+                naaa,
             } => {
                 let tau = t_reduce / t;
                 let psi1 = tau.exp() - c1;
@@ -961,8 +1304,15 @@ impl ViscosityHigherOrder {
                 let pa = p - pr;
                 let pid = rho_molar * r * t / 1e5;
                 let deltapr = pr - pid;
-                ka * pa + kr * deltapr + ki * pid + kaa * pa * pa + kdrdr * deltapr * deltapr
-                    + krr * pr * pr + kii * pid * pid + krrr * pr * pr * pr + kaaa * pa * pa * pa
+                ka * pa
+                    + kr * deltapr
+                    + ki * pid
+                    + kaa * pa * pa
+                    + kdrdr * deltapr * deltapr
+                    + krr * pr * pr
+                    + kii * pid * pid
+                    + krrr * pr * pr * pr
+                    + kaaa * pa * pa * pa
             }
         }
     }
@@ -974,13 +1324,21 @@ impl ViscosityModel {
     pub fn eval(&self, fluid: Fluid, t: f64, rho: f64) -> f64 {
         match self {
             ViscosityModel::Hardcoded(hc) => hc.eval(t, rho),
-            ViscosityModel::Correlation { dilute, initial, higher_order } => {
+            ViscosityModel::Correlation {
+                dilute,
+                initial,
+                higher_order,
+            } => {
                 let rho_molar = rho / fluid.eos().molar_mass;
                 let eta_dilute = dilute.eval(t);
-                let eta_initial = initial.map(|i| i.contribution(t, rho_molar, eta_dilute)).unwrap_or(0.0);
+                let eta_initial = initial
+                    .map(|i| i.contribution(t, rho_molar, eta_dilute))
+                    .unwrap_or(0.0);
                 eta_dilute + eta_initial + higher_order.eval(fluid, rho_molar, t)
             }
-            ViscosityModel::Chung { dipole_moment_d } => chung_viscosity(fluid, t, rho, *dipole_moment_d),
+            ViscosityModel::Chung { dipole_moment_d } => {
+                chung_viscosity(fluid, t, rho, *dipole_moment_d)
+            }
         }
     }
 
@@ -999,7 +1357,14 @@ impl CriticalConductivity {
     /// Near-critical conductivity enhancement `λ_c` \[W/(m·K)\] at `(T, ρ)`.
     fn eval(&self, fluid: Fluid, t: f64, rho: f64) -> f64 {
         match self {
-            CriticalConductivity::SimplifiedOlchowySengers { r0, gamma, big_gamma, zeta0, qd, t_ref } => {
+            CriticalConductivity::SimplifiedOlchowySengers {
+                r0,
+                gamma,
+                big_gamma,
+                zeta0,
+                qd,
+                t_ref,
+            } => {
                 const NU: f64 = 0.63;
                 const K_B: f64 = 1.3806488e-23;
                 let pi = std::f64::consts::PI;
@@ -1015,7 +1380,8 @@ impl CriticalConductivity {
                 let res = eos.residual_derivs(delta, tc / t);
                 let dp_drho = r * t * (1.0 + 2.0 * delta * res.ad + delta * delta * res.add);
                 let res_ref = eos.residual_derivs(delta, tc / tref);
-                let dp_drho_ref = r * tref * (1.0 + 2.0 * delta * res_ref.ad + delta * delta * res_ref.add);
+                let dp_drho_ref =
+                    r * tref * (1.0 + 2.0 * delta * res_ref.ad + delta * delta * res_ref.add);
                 let x = pcrit / (rhoc * rhoc) * rho_molar / dp_drho;
                 let xref = pcrit / (rhoc * rhoc) * rho_molar / dp_drho_ref * tref / t;
                 let num = x - xref;
@@ -1029,9 +1395,14 @@ impl CriticalConductivity {
                     Some(m) => m,
                     None => return 0.0,
                 };
-                let omega = 2.0 / pi * ((cp - cv) / cp * (zeta * qd).atan() + cv / cp * (zeta * qd));
+                let omega =
+                    2.0 / pi * ((cp - cv) / cp * (zeta * qd).atan() + cv / cp * (zeta * qd));
                 let omega0 = 2.0 / pi
-                    * (1.0 - (-1.0 / (1.0 / (qd * zeta) + (zeta * qd) * (zeta * qd) / 3.0 / delta / delta)).exp());
+                    * (1.0
+                        - (-1.0
+                            / (1.0 / (qd * zeta)
+                                + (zeta * qd) * (zeta * qd) / 3.0 / delta / delta))
+                            .exp());
                 rho_molar * cp * r0 * K_B * t / (6.0 * pi * mu * zeta) * (omega - omega0)
             }
             CriticalConductivity::R123 => {
@@ -1052,11 +1423,19 @@ impl CriticalConductivity {
                 let dpdt = (2.18 - 0.12 / (17.8 * tt).exp()) * 1e5;
                 let x_t = 0.61 * rhoc + 16.5 * tt.ln();
                 let dl_i = lambda_p * (k_b * t * t)
-                    / (6.0 * pi * eta_b * (zeta0p * tt.powf(-nu) * (1.0 + a_zeta * tt.powf(delta_e))))
-                    * dpdt * dpdt * gamma0p * tt.powf(-gamma) * (1.0 + a_chi * tt.powf(delta_e));
+                    / (6.0
+                        * pi
+                        * eta_b
+                        * (zeta0p * tt.powf(-nu) * (1.0 + a_zeta * tt.powf(delta_e))))
+                    * dpdt
+                    * dpdt
+                    * gamma0p
+                    * tt.powf(-gamma)
+                    * (1.0 + a_chi * tt.powf(delta_e));
                 let dl_id = dl_i * (-36.0 * tt * tt).exp();
                 if rho < 0.6 * rhoc {
-                    dl_id * (x_t * x_t) / (x_t * x_t + (0.6 * rhoc - 0.96 * rhoc).powi(2)) * rho.powi(2)
+                    dl_id * (x_t * x_t) / (x_t * x_t + (0.6 * rhoc - 0.96 * rhoc).powi(2))
+                        * rho.powi(2)
                         / (0.6 * rhoc).powi(2)
                 } else {
                     dl_id * (x_t * x_t) / (x_t * x_t + (rho - 0.96 * rhoc).powi(2))
@@ -1073,14 +1452,24 @@ impl ConductivityModel {
     fn eval(&self, fluid: Fluid, t: f64, rho: f64, dilute_visc: Option<f64>) -> Option<f64> {
         let (dilute_m, residual_m, critical_m) = match self {
             ConductivityModel::Hardcoded(hc) => return Some(hc.eval(fluid, t, rho)),
-            ConductivityModel::Correlation { dilute, residual, critical } => (dilute, residual, critical),
+            ConductivityModel::Correlation {
+                dilute,
+                residual,
+                critical,
+            } => (dilute, residual, critical),
         };
         let eos = fluid.eos();
         let tau_eos = eos.t_reducing / t;
         let delta_eos = (rho / eos.molar_mass) / eos.rho_reducing;
 
         let lambda_dilute = match dilute_m {
-            ConductivityDilute::RatioPolynomials { t_reducing, a, n, b, m } => {
+            ConductivityDilute::RatioPolynomials {
+                t_reducing,
+                a,
+                n,
+                b,
+                m,
+            } => {
                 let tr = t / t_reducing;
                 let mut s1 = 0.0;
                 for i in 0..a.len() {
@@ -1117,7 +1506,13 @@ impl ConductivityModel {
         };
 
         let lambda_residual = match residual_m {
-            ConductivityResidual::Polynomial { t_reducing, rhomass_reducing, b, t: tt, d } => {
+            ConductivityResidual::Polynomial {
+                t_reducing,
+                rhomass_reducing,
+                b,
+                t: tt,
+                d,
+            } => {
                 let tau = t_reducing / t;
                 let delta = rho / rhomass_reducing;
                 let mut summer = 0.0;
@@ -1126,10 +1521,18 @@ impl ConductivityModel {
                 }
                 summer
             }
-            ConductivityResidual::PolynomialAndExponential { a, t: tt, d, gamma, l } => {
+            ConductivityResidual::PolynomialAndExponential {
+                a,
+                t: tt,
+                d,
+                gamma,
+                l,
+            } => {
                 let mut summer = 0.0;
                 for i in 0..a.len() {
-                    summer += a[i] * tau_eos.powf(tt[i]) * delta_eos.powf(d[i])
+                    summer += a[i]
+                        * tau_eos.powf(tt[i])
+                        * delta_eos.powf(d[i])
                         * (-gamma[i] * delta_eos.powf(l[i])).exp();
                 }
                 summer

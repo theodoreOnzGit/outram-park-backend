@@ -181,8 +181,8 @@ pub mod spec;
 pub mod variables;
 
 pub use adjust::{
-    active_adjusts, solve_simultaneous_adjusts, AdjustBlock, AdjustSolveReport,
-    GRADIENT_EPSILON, MAX_ADJUST_ITERATIONS, MIN_STEP_SUM,
+    active_adjusts, solve_simultaneous_adjusts, AdjustBlock, AdjustSolveReport, GRADIENT_EPSILON,
+    MAX_ADJUST_ITERATIONS, MIN_STEP_SUM,
 };
 pub use errors::{AbortFlag, SolverError, SolverMode};
 pub use evaluator::{default_evaluate, DefaultEvaluator, UnitOpEvaluator};
@@ -196,16 +196,11 @@ pub use queue_processing::{
 };
 pub use recycle::{
     broydn, AccelerationMethod, EnergyConvergenceHistory, EnergyConvergenceParameters,
-    EnergyRecycleBlock, EnergyRecycleMaxIterationsPolicy, RecycleBlock,
-    RecycleConvergenceHistory, RecycleConvergenceParameters, RecycleVariables,
-    WegsteinParameters,
+    EnergyRecycleBlock, EnergyRecycleMaxIterationsPolicy, RecycleBlock, RecycleConvergenceHistory,
+    RecycleConvergenceParameters, RecycleVariables, WegsteinParameters,
 };
-pub use solver::{
-    FlowsheetSolver, SolveOptions, SolveOutcome, BROYDEN_MIX_CURRENT, BROYDEN_MIX_STEP,
-};
-pub use spec::{
-    specs_firing_at, SpecBlock, SpecCalcMode, SpecCalcMode2, SpecFiringPoint, SpecVarType,
-};
+pub use solver::{FlowsheetSolver, SolveOptions, SolveOutcome, BROYDEN_MIX_CURRENT, BROYDEN_MIX_STEP};
+pub use spec::{specs_firing_at, SpecBlock, SpecCalcMode, SpecCalcMode2, SpecFiringPoint, SpecVarType};
 pub use variables::{FlowsheetVariable, VariableRef};
 
 #[cfg(test)]
@@ -283,16 +278,15 @@ mod tests {
         set_w(&mut fs, &feed, 2.0);
 
         let (src, dst) = (s1.clone(), product.clone());
-        let mut hook = move |fs: &mut Flowsheet,
-                             args: &CalculationArgs|
-              -> Result<(), SolverError> {
-            if args.tag == "SCALE" {
-                let w = w_of(fs, &src);
-                set_w(fs, &dst, 3.0 * w);
-                return Ok(());
-            }
-            default_evaluate(fs, args).unwrap_or(Ok(()))
-        };
+        let mut hook =
+            move |fs: &mut Flowsheet, args: &CalculationArgs| -> Result<(), SolverError> {
+                if args.tag == "SCALE" {
+                    let w = w_of(fs, &src);
+                    set_w(fs, &dst, 3.0 * w);
+                    return Ok(());
+                }
+                default_evaluate(fs, args).unwrap_or(Ok(()))
+            };
 
         let mut solver = FlowsheetSolver::new();
         let outcome = solver.solve_flowsheet(&mut fs, &mut hook);
@@ -332,16 +326,15 @@ mod tests {
         set_w(&mut fs, &feed, 1.0);
 
         let (src, dst) = (feed.clone(), product.clone());
-        let mut hook = move |fs: &mut Flowsheet,
-                             args: &CalculationArgs|
-              -> Result<(), SolverError> {
-            if args.tag == "SCALE" {
-                let w = w_of(fs, &src);
-                set_w(fs, &dst, 3.0 * w);
-                return Ok(());
-            }
-            default_evaluate(fs, args).unwrap_or(Ok(()))
-        };
+        let mut hook =
+            move |fs: &mut Flowsheet, args: &CalculationArgs| -> Result<(), SolverError> {
+                if args.tag == "SCALE" {
+                    let w = w_of(fs, &src);
+                    set_w(fs, &dst, 3.0 * w);
+                    return Ok(());
+                }
+                default_evaluate(fs, args).unwrap_or(Ok(()))
+            };
 
         let mut adjusts: HashMap<ObjectId, AdjustBlock> = HashMap::new();
         adjusts.insert(

@@ -381,7 +381,10 @@ pub fn thermal_conductivity(
 ///
 /// Valid range: `0 °C < T < 180 °C`, `0 g/kg < S < 150 g/kg`; stated accuracy
 /// ±1.5 %. Returns `μ` [Pa·s].
-pub fn viscosity(salinity_g_per_kg: f64, temperature: ThermodynamicTemperature) -> DynamicViscosity {
+pub fn viscosity(
+    salinity_g_per_kg: f64,
+    temperature: ThermodynamicTemperature,
+) -> DynamicViscosity {
     DynamicViscosity::new::<pascal_second>(viscosity_pa_s(
         salinity_g_per_kg,
         temperature.get::<kelvin>(),
@@ -458,10 +461,7 @@ pub fn surface_tension(
 /// (`0 °C < T < 200 °C`). Returns `ΔT` [K]. This is the *trend*-level
 /// verification the module V&V asks for; it is not a substitute for the
 /// dedicated Nayar (2016) BPE correlation.
-pub fn boiling_point_elevation(
-    salinity_g_per_kg: f64,
-    pressure: Pressure,
-) -> TemperatureInterval {
+pub fn boiling_point_elevation(salinity_g_per_kg: f64, pressure: Pressure) -> TemperatureInterval {
     let p = pressure.get::<pascal>();
     let t_sw = boiling_temperature_k(salinity_g_per_kg, p);
     let t_fw = boiling_temperature_k(0.0, p);
@@ -557,13 +557,7 @@ fn vapour_pressure_pa(s: f64, t_k: f64) -> f64 {
     let a5 = -0.000000014452093;
     let a6 = 6.5459673;
 
-    let pv_w = (a1 / t_k
-        + a2
-        + a3 * t_k
-        + a4 * t_k * t_k
-        + a5 * t_k.powi(3)
-        + a6 * t_k.ln())
-    .exp();
+    let pv_w = (a1 / t_k + a2 + a3 * t_k + a4 * t_k * t_k + a5 * t_k.powi(3) + a6 * t_k.ln()).exp();
     pv_w / (1.0 + 0.57357 * (s / (1000.0 - s)))
 }
 
@@ -695,7 +689,10 @@ mod tests {
         assert!((pv - 3170.0).abs() < 60.0, "fresh-water Pv {pv} Pa");
 
         let sigma = surface_tension(0.0, t).get::<newton_per_meter>();
-        assert!((sigma - 0.072).abs() < 0.002, "fresh-water sigma {sigma} N/m");
+        assert!(
+            (sigma - 0.072).abs() < 0.002,
+            "fresh-water sigma {sigma} N/m"
+        );
     }
 
     /// # V&V — salt depresses vapour pressure & elevates boiling point (2026-08-05)
@@ -717,7 +714,10 @@ mod tests {
         let t = ThermodynamicTemperature::new::<kelvin>(T25);
         let pv0 = vapour_pressure(0.0, t).get::<pascal>();
         let pv35 = vapour_pressure(S_STD, t).get::<pascal>();
-        assert!(pv35 < pv0, "salt must lower vapour pressure: {pv35} !< {pv0}");
+        assert!(
+            pv35 < pv0,
+            "salt must lower vapour pressure: {pv35} !< {pv0}"
+        );
 
         let p = Pressure::new::<pascal>(ATM);
         let bpe0 = boiling_point_elevation(0.0, p).get::<kelvin_interval>();
@@ -725,8 +725,14 @@ mod tests {
         let bpe70 = boiling_point_elevation(70.0, p).get::<kelvin_interval>();
 
         assert!(bpe0.abs() < 1e-6, "fresh-water BPE must be zero: {bpe0}");
-        assert!(bpe35 > 0.0 && bpe35 < 1.0, "standard BPE out of range: {bpe35}");
-        assert!(bpe70 > bpe35, "BPE must rise with salinity: {bpe70} !> {bpe35}");
+        assert!(
+            bpe35 > 0.0 && bpe35 < 1.0,
+            "standard BPE out of range: {bpe35}"
+        );
+        assert!(
+            bpe70 > bpe35,
+            "BPE must rise with salinity: {bpe70} !> {bpe35}"
+        );
     }
 
     /// Enum dispatch and the bundled struct agree with the free functions,

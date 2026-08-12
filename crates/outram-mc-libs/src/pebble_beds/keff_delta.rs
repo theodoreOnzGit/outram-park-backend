@@ -51,7 +51,9 @@
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::{Inelastic, Nuclide};
-use crate::pebble_beds::delta_tracking::{classify_collision, sample_delta_distance, DeltaEvent, Majorant};
+use crate::pebble_beds::delta_tracking::{
+    classify_collision, sample_delta_distance, DeltaEvent, Majorant,
+};
 use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
@@ -121,7 +123,11 @@ fn advance_reflective(
         let t_wall = tx.min(ty).min(tz);
 
         if t_wall >= distance || !t_wall.is_finite() {
-            r = Position::new(r.x + u.u * distance, r.y + u.v * distance, r.z + u.w * distance);
+            r = Position::new(
+                r.x + u.u * distance,
+                r.y + u.v * distance,
+                r.z + u.w * distance,
+            );
             break;
         }
 
@@ -146,7 +152,11 @@ fn advance_reflective(
         distance -= t_wall;
     }
     // Numerical safety: keep the point strictly inside the closed cube.
-    let r = Position::new(r.x.clamp(-half, half), r.y.clamp(-half, half), r.z.clamp(-half, half));
+    let r = Position::new(
+        r.x.clamp(-half, half),
+        r.y.clamp(-half, half),
+        r.z.clamp(-half, half),
+    );
     (r, u)
 }
 
@@ -248,11 +258,22 @@ where
     F: Fn(Position) -> Option<usize> + Sync,
 {
     match settings.compute {
-        ComputeType::CpuSingleThread => {
-            run_keff_delta_seq(half_width, materials, nuclides, majorant, material_at, settings)
-        }
+        ComputeType::CpuSingleThread => run_keff_delta_seq(
+            half_width,
+            materials,
+            nuclides,
+            majorant,
+            material_at,
+            settings,
+        ),
         ComputeType::CpuMultiThread(tc) => run_keff_delta_par(
-            half_width, materials, nuclides, majorant, material_at, settings, tc,
+            half_width,
+            materials,
+            nuclides,
+            majorant,
+            material_at,
+            settings,
+            tc,
         ),
         ComputeType::Gpu => {
             log::debug!(
@@ -333,8 +354,16 @@ where
 
         for site in &source {
             production += transport_history(
-                *site, half_width, materials, nuclides, majorant, temp, k_running,
-                &material_at, &mut next_bank, &mut seed,
+                *site,
+                half_width,
+                materials,
+                nuclides,
+                majorant,
+                temp,
+                k_running,
+                &material_at,
+                &mut next_bank,
+                &mut seed,
             );
         }
 
@@ -352,7 +381,11 @@ where
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult { k_mean, k_std, k_by_generation }
+    KeffResult {
+        k_mean,
+        k_std,
+        k_by_generation,
+    }
 }
 
 /// Rayon-parallel delta-tracked power iteration ([`ComputeType::CpuMultiThread`]).
@@ -498,7 +531,11 @@ where
     });
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult { k_mean, k_std, k_by_generation }
+    KeffResult {
+        k_mean,
+        k_std,
+        k_by_generation,
+    }
 }
 
 /// Transport one source neutron (plus its same-generation `(n,2n)` secondaries) to
@@ -544,7 +581,16 @@ where
             }
 
             let Some((r_col, m, u_arr)) = delta_flight(
-                r, u, e, half, majorant, materials, nuclides, MAX_VIRTUAL, material_at, seed,
+                r,
+                u,
+                e,
+                half,
+                majorant,
+                materials,
+                nuclides,
+                MAX_VIRTUAL,
+                material_at,
+                seed,
             ) else {
                 break 'history; // leaked / virtual budget exhausted
             };
@@ -560,7 +606,11 @@ where
             // (n,2n) | elastic — identical to keff.rs / transport_csg.rs.
             let xi = prn(seed) * x.total;
             if xi < x.fission {
-                let nu_bar = if x.fission > 0.0 { x.nu_fission / x.fission } else { 0.0 };
+                let nu_bar = if x.fission > 0.0 {
+                    x.nu_fission / x.fission
+                } else {
+                    0.0
+                };
                 production += nu_bar;
                 let n = sample_num_neutrons(nu_bar, k_running, seed);
                 for _ in 0..n {
@@ -641,16 +691,28 @@ mod tests {
             id: 1,
             name: "U235".into(),
             temperature: 293.6,
-            components: vec![NuclideComponent { nuclide_idx: 0, atom_density: 4.8e-2 }],
+            components: vec![NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.8e-2,
+            }],
         };
         let materials = vec![fuel];
         let grid: Vec<f64> = (0..60).map(|i| 1.0e-3 * 1.5_f64.powi(i)).collect();
         let maj = Majorant::from_materials(&materials, &nuclides, &grid, 0.05);
-        let settings = KeffSettings { n_particles: 500, n_inactive: 10, n_active: 20, ..KeffSettings::default() };
+        let settings = KeffSettings {
+            n_particles: 500,
+            n_inactive: 10,
+            n_active: 20,
+            ..KeffSettings::default()
+        };
 
         let result = run_keff_delta(2.0, &materials, &nuclides, &maj, |_p| Some(0), &settings);
         assert!(!result.k_by_generation.is_empty());
-        assert!(result.k_mean.is_finite() && result.k_mean > 0.0, "k = {}", result.k_mean);
+        assert!(
+            result.k_mean.is_finite() && result.k_mean > 0.0,
+            "k = {}",
+            result.k_mean
+        );
     }
 
     /// V&V — **backend agreement**: the rayon multi-thread delta backend
@@ -699,27 +761,57 @@ mod tests {
             id: 1,
             name: "U235".into(),
             temperature: 293.6,
-            components: vec![NuclideComponent { nuclide_idx: 0, atom_density: 4.8e-2 }],
+            components: vec![NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.8e-2,
+            }],
         };
         let materials = vec![fuel];
         let grid: Vec<f64> = (0..60).map(|i| 1.0e-3 * 1.5_f64.powi(i)).collect();
         let maj = Majorant::from_materials(&materials, &nuclides, &grid, 0.05);
-        let base = KeffSettings { n_particles: 600, n_inactive: 10, n_active: 30, seed: 987654321, ..KeffSettings::default() };
+        let base = KeffSettings {
+            n_particles: 600,
+            n_inactive: 10,
+            n_active: 30,
+            seed: 987654321,
+            ..KeffSettings::default()
+        };
 
         // Reference: deterministic single-thread path (via the dispatcher).
         let seq = run_keff_delta(
-            2.0, &materials, &nuclides, &maj, |_p| Some(0usize),
-            &KeffSettings { compute: ComputeType::CpuSingleThread, ..base },
+            2.0,
+            &materials,
+            &nuclides,
+            &maj,
+            |_p| Some(0usize),
+            &KeffSettings {
+                compute: ComputeType::CpuSingleThread,
+                ..base
+            },
         );
 
         // Parallel path at two thread counts — must be bit-identical to each other.
         let par1 = run_keff_delta(
-            2.0, &materials, &nuclides, &maj, |_p| Some(0usize),
-            &KeffSettings { compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(1)), ..base },
+            2.0,
+            &materials,
+            &nuclides,
+            &maj,
+            |_p| Some(0usize),
+            &KeffSettings {
+                compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(1)),
+                ..base
+            },
         );
         let par4 = run_keff_delta(
-            2.0, &materials, &nuclides, &maj, |_p| Some(0usize),
-            &KeffSettings { compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(4)), ..base },
+            2.0,
+            &materials,
+            &nuclides,
+            &maj,
+            |_p| Some(0usize),
+            &KeffSettings {
+                compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(4)),
+                ..base
+            },
         );
 
         assert_eq!(
@@ -737,7 +829,11 @@ mod tests {
         assert!(
             dist <= 4.0,
             "seq k = {:.5} ± {:.5}, par k = {:.5} ± {:.5}: {:.2}σ apart (> 4σ)",
-            seq.k_mean, seq.k_std, par1.k_mean, par1.k_std, dist
+            seq.k_mean,
+            seq.k_std,
+            par1.k_mean,
+            par1.k_std,
+            dist
         );
     }
 
@@ -749,6 +845,8 @@ mod tests {
         let start = Position::new(0.0, 0.0, 0.0);
         let dir = Direction::from_unnormalised(1.0, 0.3, -0.7);
         let (end, _u) = advance_reflective(start, dir, 12.5, half);
-        assert!(end.x.abs() <= half + 1e-9 && end.y.abs() <= half + 1e-9 && end.z.abs() <= half + 1e-9);
+        assert!(
+            end.x.abs() <= half + 1e-9 && end.y.abs() <= half + 1e-9 && end.z.abs() <= half + 1e-9
+        );
     }
 }

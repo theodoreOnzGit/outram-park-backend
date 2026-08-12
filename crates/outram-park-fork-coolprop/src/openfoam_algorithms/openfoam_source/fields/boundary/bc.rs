@@ -21,7 +21,6 @@
 
 use crate::openfoam_algorithms::openfoam_source::{Field, Vector3};
 
-
 /// Boundary condition variant for a single patch.
 ///
 /// Covers the BC types required by the target solvers.  More exotic types
@@ -79,7 +78,10 @@ impl PatchField<f64> {
     }
 
     pub fn empty() -> Self {
-        Self { bc: BoundaryCondition::Empty, values: Field::new(vec![]) }
+        Self {
+            bc: BoundaryCondition::Empty,
+            values: Field::new(vec![]),
+        }
     }
 }
 
@@ -99,6 +101,9 @@ impl PatchField<Vector3> {
     }
 
     pub fn empty_vec() -> Self {
-        Self { bc: BoundaryCondition::Empty, values: Field::new(vec![]) }
+        Self {
+            bc: BoundaryCondition::Empty,
+            values: Field::new(vec![]),
+        }
     }
 }

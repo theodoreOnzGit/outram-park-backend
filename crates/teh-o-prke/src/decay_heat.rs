@@ -299,9 +299,7 @@ impl DecayHeat {
         Self {
             nuclide,
             group_power: [Power::ZERO; DECAY_HEAT_GROUPS],
-            energy_per_fission: Energy::new::<megaelectronvolt>(
-                NOMINAL_ENERGY_PER_FISSION_MEV,
-            ),
+            energy_per_fission: Energy::new::<megaelectronvolt>(NOMINAL_ENERGY_PER_FISSION_MEV),
         }
     }
 
@@ -409,8 +407,7 @@ impl DecayHeat {
     /// MeV/fission this is 1 - 13.183/200 = 0.9341.
     pub fn prompt_power_fraction(&self) -> Ratio {
         let decay = self.nuclide.total_decay_energy_per_fission();
-        Ratio::new::<uom::si::ratio::ratio>(1.0)
-            - decay / self.energy_per_fission
+        Ratio::new::<uom::si::ratio::ratio>(1.0) - decay / self.energy_per_fission
     }
 
     /// The stored power of a single group, for inspection and testing.

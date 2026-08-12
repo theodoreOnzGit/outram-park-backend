@@ -3,10 +3,11 @@
 /// ```rust
 /// use outram_mc_libs::prelude::*;
 /// ```
-
 pub use crate::rng::lcg::{prn, future_seed, init_seed};
 pub use crate::geometry::position::{Position, Direction};
-pub use crate::geometry::surface::{BoundaryType, Sphere, SurfaceKind, XPlane, YPlane, ZPlane, ZCylinder};
+pub use crate::geometry::surface::{
+    BoundaryType, Sphere, SurfaceKind, XPlane, YPlane, ZPlane, ZCylinder,
+};
 pub use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 pub use crate::geometry::universe::Universe;
 pub use crate::geometry::lattice::{HexLattice, HexOrientation, Lattice, RectLattice};
@@ -40,7 +41,9 @@ pub use crate::physics::fixed_source::{
 };
 pub use crate::pebble_beds::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
 pub use crate::pebble_beds::keff_delta::run_keff_delta;
-pub use crate::pebble_beds::sphere_packing::{pack_spheres, PackedSpheres, PackingConfig, PackingMethod};
+pub use crate::pebble_beds::sphere_packing::{
+    pack_spheres, PackedSpheres, PackingConfig, PackingMethod,
+};
 pub use crate::pebble_beds::crp_packing::{pack_spheres_crp, CrpError, MAX_PF_CRP};
 // Stochastic-media research track (scaffold, beads epic op-eby). The chord
 // statistics, SCLS retention machinery and brute-force index are implemented; the

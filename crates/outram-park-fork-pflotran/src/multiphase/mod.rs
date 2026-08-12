@@ -507,8 +507,7 @@ impl TwoPhaseFlow {
         // Water:  V/dt * phi * rho_l * (S_l - S_l_old)
         // Gas:    V/dt * phi * rho_g * ((1 - S_l) - (1 - S_l_old))
         let acc_w = v / self.dt * phi * self.fluids.liquid_density * (s_l_i - s_l_old);
-        let acc_g =
-            v / self.dt * phi * self.fluids.gas_density * ((1.0 - s_l_i) - (1.0 - s_l_old));
+        let acc_g = v / self.dt * phi * self.fluids.gas_density * ((1.0 - s_l_i) - (1.0 - s_l_old));
 
         let p_l_i = x[2 * i];
         let se_i = self.se_of_sl(s_l_i);
@@ -620,7 +619,10 @@ impl BlockNonlinearSystem for TwoPhaseFlow {
         let this = &*self;
 
         // Base residual pairs over all cells (parallel; independent per cell).
-        let r0: Vec<(f64, f64)> = (0..n).into_par_iter().map(|i| this.cell_residual(i, x)).collect();
+        let r0: Vec<(f64, f64)> = (0..n)
+            .into_par_iter()
+            .map(|i| this.cell_residual(i, x))
+            .collect();
 
         jac.zero();
 
@@ -651,10 +653,20 @@ impl BlockNonlinearSystem for TwoPhaseFlow {
                         let c = &this.grid.connections()[f];
                         if j == c.owner {
                             let (rwn, rgn) = this.cell_residual(c.neighbour, &xp);
-                            (f, true, (rwn - r0[c.neighbour].0) / h, (rgn - r0[c.neighbour].1) / h)
+                            (
+                                f,
+                                true,
+                                (rwn - r0[c.neighbour].0) / h,
+                                (rgn - r0[c.neighbour].1) / h,
+                            )
                         } else {
                             let (rwo, rgo) = this.cell_residual(c.owner, &xp);
-                            (f, false, (rwo - r0[c.owner].0) / h, (rgo - r0[c.owner].1) / h)
+                            (
+                                f,
+                                false,
+                                (rwo - r0[c.owner].0) / h,
+                                (rgo - r0[c.owner].1) / h,
+                            )
                         }
                     })
                     .collect();
@@ -893,14 +905,23 @@ mod tests {
         let moved = (0..n)
             .map(|c| (state[2 * c + 1] - s_init[c]).abs())
             .fold(0.0, f64::max);
-        assert!(moved > 1.0e-4, "saturation did not redistribute (moved={moved})");
+        assert!(
+            moved > 1.0e-4,
+            "saturation did not redistribute (moved={moved})"
+        );
 
         let water1 = problem.total_water_mass(&state);
         let gas1 = problem.total_gas_mass(&state);
         let rel_w = (water1 - water0).abs() / water0;
         let rel_g = (gas1 - gas0).abs() / gas0;
-        assert!(rel_w < 1.0e-5, "water mass not conserved: rel drift {rel_w:e}");
-        assert!(rel_g < 1.0e-5, "gas mass not conserved: rel drift {rel_g:e}");
+        assert!(
+            rel_w < 1.0e-5,
+            "water mass not conserved: rel drift {rel_w:e}"
+        );
+        assert!(
+            rel_g < 1.0e-5,
+            "gas mass not conserved: rel drift {rel_g:e}"
+        );
     }
 
     /// **Imbibition runs and stays bounded:** a column that starts drier, with a
@@ -948,14 +969,24 @@ mod tests {
 
         let s = sim.liquid_saturation();
         // The cell nearest the wet boundary must have imbibed.
-        assert!(s[0] > s_init + 1.0e-3, "inflow cell did not wet up: {}", s[0]);
+        assert!(
+            s[0] > s_init + 1.0e-3,
+            "inflow cell did not wet up: {}",
+            s[0]
+        );
         // The wet boundary cell holds the saturation maximum (the front sits at
         // the boundary), and the profile is monotone decreasing away from it to
         // a small numerical slack.
         let s_max = s.iter().cloned().fold(f64::MIN, f64::max);
-        assert!((s[0] - s_max).abs() < 1.0e-9, "front is not at the wet boundary");
+        assert!(
+            (s[0] - s_max).abs() < 1.0e-9,
+            "front is not at the wet boundary"
+        );
         for w in s.windows(2) {
-            assert!(w[1] <= w[0] + 1.0e-3, "saturation not monotone along x: {w:?}");
+            assert!(
+                w[1] <= w[0] + 1.0e-3,
+                "saturation not monotone along x: {w:?}"
+            );
         }
     }
 

@@ -189,7 +189,13 @@ impl Htr10CoreDimensions {
 /// ```
 pub fn htr10_core_envelope(dims: &Htr10CoreDimensions, segments: usize) -> Mesh {
     let profile = meridian_profile(dims);
-    let wall = revolve(&profile, Vec3::ZERO, Vec3::new(0.0, 0.0, 1.0), segments, TAU);
+    let wall = revolve(
+        &profile,
+        Vec3::ZERO,
+        Vec3::new(0.0, 0.0, 1.0),
+        segments,
+        TAU,
+    );
     let closed = fill_holes(&wall);
     recalculate_normals(&closed)
 }
@@ -309,7 +315,8 @@ mod tests {
         let core = htr10_core_envelope(&dims, DEFAULT_SEGMENTS);
         let v = enclosed_volume(&core);
 
-        let reference = inscribed_prism_volume(DEFAULT_SEGMENTS, dims.cavity_radius, dims.cavity_height);
+        let reference =
+            inscribed_prism_volume(DEFAULT_SEGMENTS, dims.cavity_radius, dims.cavity_height);
         assert!(
             (v - reference).abs() < 1e-9,
             "revolved mesh volume {v} must equal inscribed-prism reference {reference}"
@@ -322,7 +329,10 @@ mod tests {
         );
         // Sanity: the true (smooth) cylinder volume the facets approach.
         let smooth = PI * dims.cavity_radius * dims.cavity_radius * dims.cavity_height;
-        assert!(v <= smooth, "inscribed prism cannot exceed the smooth cylinder");
+        assert!(
+            v <= smooth,
+            "inscribed prism cannot exceed the smooth cylinder"
+        );
     }
 
     /// V&V — the illustrative conus envelope is still a closed, watertight
@@ -372,10 +382,16 @@ mod tests {
     #[test]
     fn cited_dimensions_match_published_values() {
         let d = Htr10CoreDimensions::iaea_benchmark();
-        assert_eq!(d.cavity_radius, 0.90, "core diameter 180 cm ⇒ radius 0.90 m");
+        assert_eq!(
+            d.cavity_radius, 0.90,
+            "core diameter 180 cm ⇒ radius 0.90 m"
+        );
         assert_eq!(d.cavity_height, 1.97, "average core height 197 cm");
         assert_eq!(d.side_reflector_thickness, 1.0, "side reflector 100 cm");
-        assert!(d.conus.is_none(), "honest default carries no fabricated conus");
+        assert!(
+            d.conus.is_none(),
+            "honest default carries no fabricated conus"
+        );
     }
 
     /// V&V — bridge the default HTR-10 core envelope through the real cfmesh

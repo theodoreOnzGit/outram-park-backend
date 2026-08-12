@@ -36,7 +36,11 @@ fn al27_thermal() -> AceTable {
         .collect();
 
     let temp = mf7.incoherent_inelastic.as_ref().unwrap().temperature_k;
-    let opts = ThermalAceOptions { n_outgoing: 16, n_cosines: 8, natom: 1.0 };
+    let opts = ThermalAceOptions {
+        n_outgoing: 16,
+        n_cosines: 8,
+        natom: 1.0,
+    };
     AceTable::thermal_from_mf7(&mf7, temp, "al27", 0, &grid, opts).unwrap()
 }
 
@@ -62,7 +66,11 @@ fn parse_type1(text: &str) -> (Vec<i32>, Vec<i32>, Vec<f64>) {
 #[test]
 fn thermal_table_header_and_dimensions() {
     let ace = al27_thermal();
-    assert!(ace.zaid.starts_with("al27") && ace.zaid.ends_with('t'), "ZAID {}", ace.zaid);
+    assert!(
+        ace.zaid.starts_with("al27") && ace.zaid.ends_with('t'),
+        "ZAID {}",
+        ace.zaid
+    );
     assert_eq!(ace.nxs[nxs::IDPNI], 3, "S(α,β) inelastic mode");
     assert_eq!(ace.nxs[nxs::NIL], 7, "NIL = nang − 1 = 7");
     assert_eq!(ace.nxs[nxs::NIEB], 16, "16 outgoing energies");
@@ -71,7 +79,10 @@ fn thermal_table_header_and_dimensions() {
     assert_eq!(ace.nxs[nxs::NCL], -1);
     assert_eq!(ace.nxs[nxs::LEN_XSS] as usize, ace.xss.len());
     assert_eq!(ace.jxs[jxs::ITIE], 1);
-    assert!(ace.jxs[jxs::ITCE] > 0 && ace.jxs[jxs::ITCX] > 0, "Bragg blocks present");
+    assert!(
+        ace.jxs[jxs::ITCE] > 0 && ace.jxs[jxs::ITCX] > 0,
+        "Bragg blocks present"
+    );
 }
 
 #[test]
@@ -116,8 +127,14 @@ fn coherent_elastic_bragg_block_is_monotone() {
     let e = &ace.xss[itce + 1..itce + 1 + nee];
     let itcx = (ace.jxs[jxs::ITCX] - 1) as usize;
     let p = &ace.xss[itcx..itcx + nee];
-    assert!(e.windows(2).all(|w| w[1] >= w[0]), "Bragg energies ascending");
-    assert!(p.windows(2).all(|w| w[1] >= w[0] - 1e-12), "cumulative S non-decreasing");
+    assert!(
+        e.windows(2).all(|w| w[1] >= w[0]),
+        "Bragg energies ascending"
+    );
+    assert!(
+        p.windows(2).all(|w| w[1] >= w[0] - 1e-12),
+        "cumulative S non-decreasing"
+    );
 }
 
 #[test]
@@ -130,7 +147,14 @@ fn thermal_table_roundtrips_through_file() {
     assert_eq!(rjxs, ace.jxs.to_vec(), "JXS round-trip");
     assert_eq!(rxss.len(), ace.xss.len(), "XSS length");
     for (i, (&got, &want)) in rxss.iter().zip(ace.xss.iter()).enumerate() {
-        let tol = if ace.xss_is_int[i] { 0.0 } else { 1e-8 * want.abs().max(1.0) };
-        assert!((got - want).abs() <= tol, "xss[{i}]: got {got}, want {want}");
+        let tol = if ace.xss_is_int[i] {
+            0.0
+        } else {
+            1e-8 * want.abs().max(1.0)
+        };
+        assert!(
+            (got - want).abs() <= tol,
+            "xss[{i}]: got {got}, want {want}"
+        );
     }
 }

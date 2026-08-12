@@ -85,8 +85,11 @@ use std::collections::HashMap;
 /// ```
 pub fn recalculate_normals(mesh: &Mesh) -> Mesh {
     let positions = mesh.positions();
-    let polygons: Vec<Vec<usize>> =
-        mesh.polygons().iter().map(|p| p.iter().map(|v| v.0).collect()).collect();
+    let polygons: Vec<Vec<usize>> = mesh
+        .polygons()
+        .iter()
+        .map(|p| p.iter().map(|v| v.0).collect())
+        .collect();
     let nf = polygons.len();
     if nf == 0 {
         return Mesh::new();
@@ -114,7 +117,11 @@ pub fn recalculate_normals(mesh: &Mesh) -> Mesh {
 
     // orig_ab for a (face, edge): recover from edge_faces lookups on demand.
     let orig_ab_of = |f: usize, lo: usize, hi: usize| -> bool {
-        edge_faces[&(lo, hi)].iter().find(|(g, _)| *g == f).map(|(_, ab)| *ab).unwrap()
+        edge_faces[&(lo, hi)]
+            .iter()
+            .find(|(g, _)| *g == f)
+            .map(|(_, ab)| *ab)
+            .unwrap()
     };
 
     for seed in 0..nf {
@@ -263,15 +270,24 @@ mod tests {
     #[test]
     fn inconsistent_cube_is_repaired_outward() {
         let bad = cube_with_reversed(&[0, 2, 4]);
-        assert!(!is_watertight_consistent(&bad), "input is inconsistently wound");
+        assert!(
+            !is_watertight_consistent(&bad),
+            "input is inconsistently wound"
+        );
 
         let fixed = recalculate_normals(&bad);
         assert_eq!(fixed.face_count(), 6);
         assert_eq!(fixed.euler_characteristic(), 2);
-        assert!(is_watertight_consistent(&fixed), "repaired to consistent winding");
+        assert!(
+            is_watertight_consistent(&fixed),
+            "repaired to consistent winding"
+        );
         let v6 = signed_volume6(&fixed);
         assert!(v6 > 0.0, "normals point outward (signed volume > 0)");
-        assert!((v6 - 48.0).abs() < 1e-9, "6·V = 6·(2³) = 48 for a side-2 cube");
+        assert!(
+            (v6 - 48.0).abs() < 1e-9,
+            "6·V = 6·(2³) = 48 for a side-2 cube"
+        );
     }
 
     /// V&V — an all-inward cube is flipped outward. Reversing every face gives a
@@ -279,8 +295,14 @@ mod tests {
     #[test]
     fn all_inward_cube_flips_outward() {
         let inward = cube_with_reversed(&[0, 1, 2, 3, 4, 5]);
-        assert!(is_watertight_consistent(&inward), "uniform reverse is still consistent");
-        assert!(signed_volume6(&inward) < 0.0, "but inward (negative volume)");
+        assert!(
+            is_watertight_consistent(&inward),
+            "uniform reverse is still consistent"
+        );
+        assert!(
+            signed_volume6(&inward) < 0.0,
+            "but inward (negative volume)"
+        );
 
         let fixed = recalculate_normals(&inward);
         assert!(is_watertight_consistent(&fixed));
@@ -304,7 +326,9 @@ mod tests {
         use crate::ops::MeshOp;
         let bad = cube_with_reversed(&[1, 3]);
         let direct = recalculate_normals(&bad);
-        let via_op = MeshOp::RecalculateNormals.apply(bad).expect("recalc infallible");
+        let via_op = MeshOp::RecalculateNormals
+            .apply(bad)
+            .expect("recalc infallible");
         assert_eq!(via_op.face_count(), direct.face_count());
         assert_eq!(via_op.euler_characteristic(), direct.euler_characteristic());
         assert!(is_watertight_consistent(&via_op));

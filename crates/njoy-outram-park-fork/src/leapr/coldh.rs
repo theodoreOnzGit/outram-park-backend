@@ -370,10 +370,19 @@ pub fn add_cold_hydrogen(
 
         // spin-correlation factors (2032-2043).
         let (mut swe, mut swo) = match law {
-            2 => (sampi * sampi / 3.0, sk * sampc * sampc + 2.0 * sampi * sampi / 3.0),
+            2 => (
+                sampi * sampi / 3.0,
+                sk * sampc * sampc + 2.0 * sampi * sampi / 3.0,
+            ),
             3 => (sk * sampc * sampc, sampi * sampi),
-            4 => (sk * sampc * sampc + 5.0 * sampi * sampi / 8.0, 3.0 * sampi * sampi / 8.0),
-            5 => (3.0 * sampi * sampi / 4.0, sk * sampc * sampc + sampi * sampi / 4.0),
+            4 => (
+                sk * sampc * sampc + 5.0 * sampi * sampi / 8.0,
+                3.0 * sampi * sampi / 8.0,
+            ),
+            5 => (
+                3.0 * sampi * sampi / 4.0,
+                sk * sampc * sampc + sampi * sampi / 4.0,
+            ),
             _ => (0.0, 0.0),
         };
         let snorm = sampi * sampi + sampc * sampc;
@@ -387,7 +396,11 @@ pub fn add_cold_hydrogen(
         // beta loop: positive beta -> ssp, negative beta -> ssm (2060-2134).
         let jjmax = 2 * nbeta - 1;
         for jj in 1..=jjmax {
-            let k = if jj < nbeta { nbeta - jj + 1 } else { jj - nbeta + 1 }; // 1-based
+            let k = if jj < nbeta {
+                nbeta - jj + 1
+            } else {
+                jj - nbeta + 1
+            }; // 1-based
             let mut be = betan[k - 1];
             if jj < nbeta {
                 be = -be;
@@ -483,7 +496,11 @@ mod tests {
     /// Result (2026-07-15): `cn(0,0,0) = 1.0` exactly; `cn(1,1,1) = 0`.
     #[test]
     fn cn_trivial_and_parity() {
-        assert!((cn(0, 0, 0) - 1.0).abs() < 1e-12, "cn(0,0,0) = {}", cn(0, 0, 0));
+        assert!(
+            (cn(0, 0, 0) - 1.0).abs() < 1e-12,
+            "cn(0,0,0) = {}",
+            cn(0, 0, 0)
+        );
         assert_eq!(cn(1, 1, 1), 0.0, "odd-sum cn should vanish");
     }
 
@@ -601,7 +618,15 @@ mod tests {
         };
         let mut ssm = SabMatrix::zeros(1, 1);
         let mut ssp = SabMatrix::zeros(1, 1);
-        let r = add_cold_hydrogen(&mut ssm, &mut ssp, &input, ColdOption::None, &[1.0], 0.5, 300.0);
+        let r = add_cold_hydrogen(
+            &mut ssm,
+            &mut ssp,
+            &input,
+            ColdOption::None,
+            &[1.0],
+            0.5,
+            300.0,
+        );
         assert_eq!(r, 0.0);
     }
 }

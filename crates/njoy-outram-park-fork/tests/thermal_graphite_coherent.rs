@@ -111,7 +111,9 @@ fn tape_path(file: &str) -> Option<std::path::PathBuf> {
     if p.exists() {
         Some(p)
     } else {
-        eprintln!("SKIP thermal_graphite_coherent: {file} not found under {dir} (set GRAPHITE_TSL_DIR)");
+        eprintln!(
+            "SKIP thermal_graphite_coherent: {file} not found under {dir} (set GRAPHITE_TSL_DIR)"
+        );
         None
     }
 }
@@ -119,7 +121,12 @@ fn tape_path(file: &str) -> Option<std::path::PathBuf> {
 fn load_coherent(file: &str, mat: i32) -> Option<CoherentElastic> {
     let p = tape_path(file)?;
     let tape = Tape::read(std::fs::File::open(p).unwrap()).unwrap();
-    Some(parse_mf7(&tape, mat).unwrap().coherent_elastic.expect("graphite has coherent elastic"))
+    Some(
+        parse_mf7(&tape, mat)
+            .unwrap()
+            .coherent_elastic
+            .expect("graphite has coherent elastic"),
+    )
 }
 
 /// (1) 296 K anchors: Bragg cutoff (first edge with nonzero S) at 1.8223 meV,
@@ -131,7 +138,9 @@ fn load_coherent(file: &str, mat: i32) -> Option<CoherentElastic> {
 fn anchors_at_296k() {
     let anchors = [(30, 4.5514), (31, 3.6233), (32, 3.5235)];
     for ((file, mat), (amat, sigma_anchor)) in GRAPHITES.iter().zip(anchors) {
-        let Some(ce) = load_coherent(file, *mat) else { return };
+        let Some(ce) = load_coherent(file, *mat) else {
+            return;
+        };
         assert_eq!(*mat, amat);
         let t0 = ce.base_temperature_k();
         assert_eq!(t0, 296.0, "base temperature");
@@ -152,12 +161,22 @@ fn anchors_at_296k() {
             (cutoff - 1.8223e-3).abs() < 0.005 * 1.8223e-3,
             "MAT {mat}: Bragg cutoff {cutoff} eV vs 1.8223 meV (graphite (002))"
         );
-        assert_eq!(ce.cross_section(cutoff * 0.9, t0).unwrap(), 0.0, "σ = 0 below the cutoff");
+        assert_eq!(
+            ce.cross_section(cutoff * 0.9, t0).unwrap(),
+            0.0,
+            "σ = 0 below the cutoff"
+        );
         // 24 tabulated edge grid points at/below 0.0253 eV (the investigation
         // agent's count, which included zero-increment points), of which 17
         // carry a nonzero structure-factor increment at 296 K.
-        assert_eq!(n_edges, 24, "MAT {mat}: tabulated Bragg-edge points ≤ 0.0253 eV");
-        assert_eq!(n_open, 17, "MAT {mat}: open (nonzero-weight) reflections at 0.0253 eV");
+        assert_eq!(
+            n_edges, 24,
+            "MAT {mat}: tabulated Bragg-edge points ≤ 0.0253 eV"
+        );
+        assert_eq!(
+            n_open, 17,
+            "MAT {mat}: open (nonzero-weight) reflections at 0.0253 eV"
+        );
         assert!(
             (sigma - sigma_anchor).abs() < 0.005 * sigma_anchor,
             "MAT {mat}: σ_coh_el(0.0253 eV, 296 K) = {sigma} b vs anchor {sigma_anchor} b"
@@ -171,13 +190,18 @@ fn anchors_at_296k() {
 /// the end points are asserted at ±0.5 %.
 #[test]
 fn coherent_sigma_decreases_with_temperature() {
-    let Some(ce) = load_coherent(GRAPHITES[0].0, GRAPHITES[0].1) else { return };
+    let Some(ce) = load_coherent(GRAPHITES[0].0, GRAPHITES[0].1) else {
+        return;
+    };
     assert_eq!(
         ce.temperatures_k,
         vec![296.0, 400.0, 500.0, 600.0, 700.0, 800.0, 1000.0, 1200.0, 1600.0, 2000.0],
         "the ten tabulated graphite temperatures"
     );
-    assert!(ce.temp_interp.iter().all(|&li| li == 2), "elastic LI codes are lin-lin");
+    assert!(
+        ce.temp_interp.iter().all(|&li| li == 2),
+        "elastic LI codes are lin-lin"
+    );
 
     let sigmas: Vec<f64> = ce
         .temperatures_k
@@ -193,8 +217,16 @@ fn coherent_sigma_decreases_with_temperature() {
     );
     // Measured end points, 2026-08-11: 4.5514 b at 296 K, 2.3871 b at 2000 K
     // (a 48 % Debye-Waller suppression across the tabulated range).
-    assert!((sigmas[0] - 4.5514).abs() < 0.005 * 4.5514, "296 K value {}", sigmas[0]);
-    assert!((sigmas[9] - 2.3871).abs() < 0.005 * 2.3871, "2000 K value {}", sigmas[9]);
+    assert!(
+        (sigmas[0] - 4.5514).abs() < 0.005 * 4.5514,
+        "296 K value {}",
+        sigmas[0]
+    );
+    assert!(
+        (sigmas[9] - 2.3871).abs() < 0.005 * 2.3871,
+        "2000 K value {}",
+        sigmas[9]
+    );
 }
 
 /// (3) HTR-10 benchmark temperatures: 523.15 K and 393.15 K interpolate
@@ -202,27 +234,47 @@ fn coherent_sigma_decreases_with_temperature() {
 /// table within the NJOY tolerance and reports the resolved temperature.
 #[test]
 fn htr10_temperatures_interpolate_or_snap() {
-    let Some(ce) = load_coherent(GRAPHITES[0].0, GRAPHITES[0].1) else { return };
+    let Some(ce) = load_coherent(GRAPHITES[0].0, GRAPHITES[0].1) else {
+        return;
+    };
 
     // 250 C = 523.15 K: between the 500 K and 600 K tables.
     let s500 = ce.cross_section(E_THERMAL, 500.0).unwrap();
     let s600 = ce.cross_section(E_THERMAL, 600.0).unwrap();
     let s523 = ce.cross_section(E_THERMAL, 523.15).unwrap();
     eprintln!("sigma(500 K) = {s500:.4}  sigma(523.15 K) = {s523:.4}  sigma(600 K) = {s600:.4}");
-    assert!(s600 < s523 && s523 < s500, "523.15 K interpolates inside (600 K, 500 K)");
-    assert_eq!(ce.resolved_temperature_k(523.15).unwrap(), 523.15, "interpolated, not snapped");
+    assert!(
+        s600 < s523 && s523 < s500,
+        "523.15 K interpolates inside (600 K, 500 K)"
+    );
+    assert_eq!(
+        ce.resolved_temperature_k(523.15).unwrap(),
+        523.15,
+        "interpolated, not snapped"
+    );
 
     // 120 C = 393.15 K: 6.85 K from 400 K > tol(393.15) = 5.39 K → interpolate.
     let s296 = ce.cross_section(E_THERMAL, 296.0).unwrap();
     let s400 = ce.cross_section(E_THERMAL, 400.0).unwrap();
     let s393 = ce.cross_section(E_THERMAL, 393.15).unwrap();
     eprintln!("sigma(296 K) = {s296:.4}  sigma(393.15 K) = {s393:.4}  sigma(400 K) = {s400:.4}");
-    assert!(s400 < s393 && s393 < s296, "393.15 K interpolates inside (400 K, 296 K)");
-    assert_eq!(ce.resolved_temperature_k(393.15).unwrap(), 393.15, "interpolated, not snapped");
+    assert!(
+        s400 < s393 && s393 < s296,
+        "393.15 K interpolates inside (400 K, 296 K)"
+    );
+    assert_eq!(
+        ce.resolved_temperature_k(393.15).unwrap(),
+        393.15,
+        "interpolated, not snapped"
+    );
 
     // 20 C = 293.15 K: 2.85 K from 296 K < tol = 5.29 K → tabulated table, and
     // the resolved temperature reports the snap.
-    assert_eq!(ce.resolved_temperature_k(293.15).unwrap(), 296.0, "tolerance snap to 296 K");
+    assert_eq!(
+        ce.resolved_temperature_k(293.15).unwrap(),
+        296.0,
+        "tolerance snap to 296 K"
+    );
     assert_eq!(
         ce.cross_section(E_THERMAL, 293.15).unwrap(),
         s296,
@@ -235,10 +287,16 @@ fn htr10_temperatures_interpolate_or_snap() {
 /// nearest-temperature snap.
 #[test]
 fn out_of_range_temperature_is_refused() {
-    let Some(ce) = load_coherent(GRAPHITES[0].0, GRAPHITES[0].1) else { return };
+    let Some(ce) = load_coherent(GRAPHITES[0].0, GRAPHITES[0].1) else {
+        return;
+    };
     for bad in [100.0, 2200.0] {
         match ce.cross_section(E_THERMAL, bad) {
-            Err(NjoyError::TemperatureOutOfRange { requested_k, min_k, max_k }) => {
+            Err(NjoyError::TemperatureOutOfRange {
+                requested_k,
+                min_k,
+                max_k,
+            }) => {
                 assert_eq!(requested_k, bad);
                 assert_eq!((min_k, max_k), (296.0, 2000.0));
             }
@@ -254,17 +312,15 @@ fn out_of_range_temperature_is_refused() {
 /// free-atom B(1) = 4.739 b) still hold at ±1 %.
 #[test]
 fn inelastic_interpolates_between_temperatures() {
-    let Some(p) = tape_path(GRAPHITES[0].0) else { return };
+    let Some(p) = tape_path(GRAPHITES[0].0) else {
+        return;
+    };
     let mat = GRAPHITES[0].1;
     let e_th = NeutronEnergy::new::<electronvolt>(E_THERMAL);
 
     let at = |t_k: f64| {
-        IncoherentInelasticScattering::from_endf_file(
-            &p,
-            mat,
-            Temperature::new::<kelvin>(t_k),
-        )
-        .unwrap()
+        IncoherentInelasticScattering::from_endf_file(&p, mat, Temperature::new::<kelvin>(t_k))
+            .unwrap()
     };
 
     // 296 K anchors.
@@ -275,30 +331,43 @@ fn inelastic_interpolates_between_temperatures() {
         .inelastic_xs(NeutronEnergy::new::<electronvolt>(3.9))
         .get::<barn>();
     eprintln!("sigma_inel(0.0253 eV, 296 K) = {sig_th:.4} b; sigma_inel(3.9 eV) = {sig_fast:.4} b");
-    assert!((sig_th - 0.4864).abs() < 0.01 * 0.4864, "thermal anchor: {sig_th} b");
-    assert!((sig_fast - 4.6097).abs() < 0.01 * 4.6097, "free-atom-limit anchor: {sig_fast} b");
+    assert!(
+        (sig_th - 0.4864).abs() < 0.01 * 0.4864,
+        "thermal anchor: {sig_th} b"
+    );
+    assert!(
+        (sig_fast - 4.6097).abs() < 0.01 * 4.6097,
+        "free-atom-limit anchor: {sig_fast} b"
+    );
 
     // Interpolated 523.15 K strictly inside the (500, 600) K bracket.
     let (s500, s523, s600) = (at(500.0), at(523.15), at(600.0));
-    assert_eq!(s523.selected_temperature().get::<kelvin>(), 523.15, "interpolation target");
-    assert_eq!(s500.selected_temperature().get::<kelvin>(), 500.0, "tabulated");
+    assert_eq!(
+        s523.selected_temperature().get::<kelvin>(),
+        523.15,
+        "interpolation target"
+    );
+    assert_eq!(
+        s500.selected_temperature().get::<kelvin>(),
+        500.0,
+        "tabulated"
+    );
     let (x500, x523, x600) = (
         s500.inelastic_xs(e_th).get::<barn>(),
         s523.inelastic_xs(e_th).get::<barn>(),
         s600.inelastic_xs(e_th).get::<barn>(),
     );
-    eprintln!("sigma_inel(0.0253 eV): 500 K = {x500:.4}  523.15 K = {x523:.4}  600 K = {x600:.4} b");
+    eprintln!(
+        "sigma_inel(0.0253 eV): 500 K = {x500:.4}  523.15 K = {x523:.4}  600 K = {x600:.4} b"
+    );
     assert!(
         (x500 < x523 && x523 < x600) || (x600 < x523 && x523 < x500),
         "523.15 K must lie strictly inside the tabulated bracket: {x500} / {x523} / {x600}"
     );
 
     // Out-of-range refusal mirrors the coherent channel.
-    let err = IncoherentInelasticScattering::from_endf_file(
-        &p,
-        mat,
-        Temperature::new::<kelvin>(100.0),
-    );
+    let err =
+        IncoherentInelasticScattering::from_endf_file(&p, mat, Temperature::new::<kelvin>(100.0));
     assert!(matches!(err, Err(NjoyError::TemperatureOutOfRange { .. })));
 }
 
@@ -307,7 +376,9 @@ fn inelastic_interpolates_between_temperatures() {
 /// 1, and samples elastically (E_out = E_in, μ from the discrete set).
 #[test]
 fn consumer_surface_matches_mf7_level() {
-    let Some(p) = tape_path(GRAPHITES[0].0) else { return };
+    let Some(p) = tape_path(GRAPHITES[0].0) else {
+        return;
+    };
     let (file, mat) = GRAPHITES[0];
     let ce = load_coherent(file, mat).unwrap();
     let t = 523.15;
@@ -333,10 +404,19 @@ fn consumer_surface_matches_mf7_level() {
 
     let e = NeutronEnergy::new::<electronvolt>(E_THERMAL);
     let refl = surf.bragg_reflections(e);
-    assert_eq!(refl.len(), 17, "open (nonzero-weight) reflections at 0.0253 eV");
+    assert_eq!(
+        refl.len(),
+        17,
+        "open (nonzero-weight) reflections at 0.0253 eV"
+    );
     let psum: f64 = refl.iter().map(|&(_, p)| p).sum();
-    assert!((psum - 1.0).abs() < 1e-12, "probabilities sum to 1, got {psum}");
-    assert!(refl.iter().all(|&(mu, p)| (-1.0..=1.0).contains(&mu) && p >= -1e-15));
+    assert!(
+        (psum - 1.0).abs() < 1e-12,
+        "probabilities sum to 1, got {psum}"
+    );
+    assert!(refl
+        .iter()
+        .all(|&(mu, p)| (-1.0..=1.0).contains(&mu) && p >= -1e-15));
 
     // Sampling: every ξ lands on a valid reflection cosine, elastically.
     let cosines: Vec<f64> = refl.iter().map(|&(mu, _)| mu).collect();
@@ -350,5 +430,7 @@ fn consumer_surface_matches_mf7_level() {
         );
     }
     // Below the cutoff there is nothing to sample.
-    assert!(surf.sample(NeutronEnergy::new::<electronvolt>(1.0e-3), 0.5).is_none());
+    assert!(surf
+        .sample(NeutronEnergy::new::<electronvolt>(1.0e-3), 0.5)
+        .is_none());
 }

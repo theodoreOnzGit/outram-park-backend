@@ -202,7 +202,6 @@
 //
 //
 //// ************************************************************************* //
-
 use std::sync::Arc;
 use uom::si::f64::{
     Angle, Area, AvailableEnergy, Length, MassDensity, MassRate, Power, Pressure, Ratio, Time,
@@ -348,7 +347,9 @@ fn correct_bcs(field: &mut VolScalarField, bcs: &[BoundaryCondition<f64>]) {
     for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
         pf.bc = bc.clone();
         if let BoundaryCondition::FixedValue(v) = bc {
-            for x in pf.values.iter_mut() { *x = *v; }
+            for x in pf.values.iter_mut() {
+                *x = *v;
+            }
         }
     }
 }
@@ -358,7 +359,9 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
     for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
         pf.bc = bc.clone();
         if let BoundaryCondition::FixedValue(v) = bc {
-            for x in pf.values.iter_mut() { *x = *v; }
+            for x in pf.values.iter_mut() {
+                *x = *v;
+            }
         }
     }
 }
@@ -398,7 +401,7 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
 ///   a cell's `μ`/`αh` are left at their previous value, never a wrong number.
 ///
 /// C++ reference: `applications/solvers/compressible/rhoPimpleFoam/`.
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct OPCPFluidArray {
     /// The working fluid whose CoolProp Helmholtz EOS closes the thermo update.
     pub fluid: Fluid,
@@ -600,19 +603,23 @@ impl OPCPFluidArray {
         // fallback if that point is not single-phase for this fluid.
         let (p0, t0) = (1.0e5_f64, 300.0_f64);
         let (rho0, he0, psi0) = match flash::state_pt(fluid, t0, p0) {
-            Ok(s) => (s.density, s.enthalpy, flash::drho_dp_t(fluid, t0, s.density)),
+            Ok(s) => (
+                s.density,
+                s.enthalpy,
+                flash::drho_dp_t(fluid, t0, s.density),
+            ),
             Err(_) => (1.0, 0.0, 1.0e-5),
         };
 
-        let u       = VolVectorField::zero("U", mesh.clone());
-        let p       = VolScalarField::uniform("p", mesh.clone(), p0);
-        let rho     = VolScalarField::uniform("rho", mesh.clone(), rho0);
-        let t       = VolScalarField::uniform("T", mesh.clone(), t0);
-        let he      = VolScalarField::uniform("he", mesh.clone(), he0);
-        let mu      = VolScalarField::uniform("mu", mesh.clone(), 1.8e-5);
+        let u = VolVectorField::zero("U", mesh.clone());
+        let p = VolScalarField::uniform("p", mesh.clone(), p0);
+        let rho = VolScalarField::uniform("rho", mesh.clone(), rho0);
+        let t = VolScalarField::uniform("T", mesh.clone(), t0);
+        let he = VolScalarField::uniform("he", mesh.clone(), he0);
+        let mu = VolScalarField::uniform("mu", mesh.clone(), 1.8e-5);
         let alpha_h = VolScalarField::uniform("alphaEff", mesh.clone(), 2.5e-5);
-        let psi     = VolScalarField::uniform("psi", mesh.clone(), psi0);
-        let phi     = SurfaceScalarField::zeros("phi", mesh.clone());
+        let psi = VolScalarField::uniform("psi", mesh.clone(), psi0);
+        let phi = SurfaceScalarField::zeros("phi", mesh.clone());
 
         Ok(Self {
             fluid,
@@ -813,16 +820,19 @@ impl OPCPFluidArray {
     /// without either side noticing.
     pub fn step(&mut self) {
         let mesh = self.mesh.clone();
-        let n    = mesh.n_cells;
-        let dt   = self.delta_t.get::<second>();
-        let settings   = SolverSettings::default();                            // U, energy (GS)
-        let p_settings = SolverSettings { tolerance: 1e-8, max_iter: 2_000 };  // pEqn (PCG)
+        let n = mesh.n_cells;
+        let dt = self.delta_t.get::<second>();
+        let settings = SolverSettings::default(); // U, energy (GS)
+        let p_settings = SolverSettings {
+            tolerance: 1e-8,
+            max_iter: 2_000,
+        }; // pEqn (PCG)
         let n_outer = self.n_outer_correctors.max(1);
         let n_inner = self.n_inner_correctors.max(1);
 
-        let u_old   = self.u.clone();
-        let p_old   = self.p.clone();
-        let he_old  = self.he.clone();
+        let u_old = self.u.clone();
+        let p_old = self.p.clone();
+        let he_old = self.he.clone();
         let rho_old = self.rho.clone();
 
         let u_bcs = capture_bcs(&self.u.boundary);
@@ -911,25 +921,30 @@ impl OPCPFluidArray {
                         .map(|c| h_sl[c] * (1.0 / a_sl[c].max(1e-30)))
                         .collect();
                     VolVectorField::new(
-                        "HbyA", mesh.clone(), Field::new(vals),
-                        mesh.patches.iter().map(|p| PatchField::zero_gradient_vec(p.size)).collect(),
+                        "HbyA",
+                        mesh.clone(),
+                        Field::new(vals),
+                        mesh.patches
+                            .iter()
+                            .map(|p| PatchField::zero_gradient_vec(p.size))
+                            .collect(),
                     )
                 };
 
-                let rho_f    = fvc::interpolate(&self.rho);    // ρ_f [kg/m³]
-                let rho_rauf = rho_f.clone() * rauf.clone();    // [s]
-                // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
+                let rho_f = fvc::interpolate(&self.rho); // ρ_f [kg/m³]
+                let rho_rauf = rho_f.clone() * rauf.clone(); // [s]
+                                                             // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
                 let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya);
 
                 // Pressure source = ψ·V/dt·p_old − (net φ_HbyA outflow) [kg/s].
-                let psi_sl   = self.psi.internal.as_slice();
+                let psi_sl = self.psi.internal.as_slice();
                 let p_old_sl = p_old.internal.as_slice();
                 let source_p = {
                     let mut s = vec![0.0_f64; n];
                     {
                         let phi_int = phi_hbya.internal.as_slice();
                         for f in 0..mesh.n_internal_faces {
-                            s[mesh.owner[f]]     -= phi_int[f];
+                            s[mesh.owner[f]] -= phi_int[f];
                             s[mesh.neighbour[f]] += phi_int[f];
                         }
                     }
@@ -959,7 +974,7 @@ impl OPCPFluidArray {
                                     // test and the workspace beads tracker).
                                     phi_hbya.boundary[pi].values[fi] = corrected_flux;
                                     corrected_flux
-                                },
+                                }
                                 // outlet / zero-gradient: keep the extrapolated flux
                                 _ => phi_hbya.boundary[pi].values[fi],
                             };
@@ -1058,7 +1073,7 @@ impl OPCPFluidArray {
                 // Correct the mass flux: φ = φ_HbyA − ρ_f·rAU_f·snGrad(p)·|Sf|.
                 let sng = fvc::sn_grad(&self.p);
                 {
-                    let sng_sl      = sng.internal.as_slice();
+                    let sng_sl = sng.internal.as_slice();
                     let rho_rauf_sl = rho_rauf.internal.as_slice();
                     for f in 0..mesh.n_internal_faces {
                         phi_hbya.internal[f] -= rho_rauf_sl[f] * sng_sl[f] * mesh.face_areas[f];
@@ -1103,9 +1118,9 @@ impl OPCPFluidArray {
 
             // ── Energy equation ─────────────────────────────────────────────
             //   ∂(ρh)/∂t + ∇·(φh) + (−∇·(αh∇h)) = dp/dt   [+ laplacian sign]
-            let conv_he   = fvc::div(&self.phi, &self.he);   // explicit ∇·(φh)/V
+            let conv_he = fvc::div(&self.phi, &self.he); // explicit ∇·(φh)/V
             let alpha_h_f = fvc::interpolate(&self.alpha_h);
-            let dp_dt     = (self.p.clone() - p_old.clone()) * (1.0 / dt);
+            let dp_dt = (self.p.clone() - p_old.clone()) * (1.0 / dt);
 
             // Conservative energy time derivative: ∂(ρh)/∂t discretised as
             // (ρ_cont·h − ρ_old·h_old)/dt (bead op-ek2, mirroring the
@@ -1150,7 +1165,8 @@ impl OPCPFluidArray {
                     // Lateral (radial) thermal coupling: Q = h·(T_neighbour − T_cell)
                     // per registered link, plus any registered volumetric heat source.
                     let t_c = self.t.internal[c];
-                    for (link, temps) in self.lateral_adjacent_array_conductance_vector
+                    for (link, temps) in self
+                        .lateral_adjacent_array_conductance_vector
                         .iter()
                         .zip(self.lateral_adjacent_array_temperature_vector.iter())
                     {
@@ -1158,9 +1174,7 @@ impl OPCPFluidArray {
                         let t_n = temps[c].get::<uom::si::thermodynamic_temperature::kelvin>();
                         e_eqn.source[c] += h * (t_n - t_c);
                     }
-                    e_eqn.source[c] += self
-                        .cell_heat_source_power(c)
-                        .get::<uom::si::power::watt>();
+                    e_eqn.source[c] += self.cell_heat_source_power(c).get::<uom::si::power::watt>();
                 }
             }
             let (he_new, _) = e_eqn.solve("he", settings);
@@ -1454,7 +1468,12 @@ impl OPCPFluidArray {
         let mut ma_cell = vec![0.0_f64; n];
         let mut safe = vec![false; n];
         for i in 0..n {
-            let c = hem_sound_speed_ph(self.fluid, self.p.internal[i], self.he.internal[i], C_MIN_MPS);
+            let c = hem_sound_speed_ph(
+                self.fluid,
+                self.p.internal[i],
+                self.he.internal[i],
+                C_MIN_MPS,
+            );
             c_cell[i] = c;
             ma_cell[i] = self.u.internal[i].mag() / c;
             let t_i = self.t.internal[i];
@@ -1601,18 +1620,36 @@ mod tests {
         let eos = flash::state_pt(Fluid::Nitrogen, 300.0, 1.0e5).unwrap();
         assert!((array.rho.internal[0] - eos.density).abs() / eos.density < 1e-9);
         assert!((array.he.internal[0] - eos.enthalpy).abs() / eos.enthalpy.abs() < 1e-9);
-        assert!((array.rho.internal[0] - 1.0).abs() > 0.05, "ρ must be EOS-derived, not the fallback 1.0");
+        assert!(
+            (array.rho.internal[0] - 1.0).abs() > 0.05,
+            "ρ must be EOS-derived, not the fallback 1.0"
+        );
 
         array.run(10);
 
         let all_finite = array.p.internal.as_slice().iter().all(|x| x.is_finite())
             && array.rho.internal.as_slice().iter().all(|x| x.is_finite())
             && array.t.internal.as_slice().iter().all(|x| x.is_finite())
-            && array.u.internal.as_slice().iter().all(|v| v.mag().is_finite());
+            && array
+                .u
+                .internal
+                .as_slice()
+                .iter()
+                .all(|v| v.mag().is_finite());
         assert!(all_finite, "fields must stay finite over 10 steps");
         // Density and temperature stay physically bounded (correct_thermo ran).
-        assert!(array.rho.internal.as_slice().iter().all(|&r| r > 0.0 && r < 1e3));
-        assert!(array.t.internal.as_slice().iter().all(|&tt| tt > 0.0 && tt < 5e3));
+        assert!(array
+            .rho
+            .internal
+            .as_slice()
+            .iter()
+            .all(|&r| r > 0.0 && r < 1e3));
+        assert!(array
+            .t
+            .internal
+            .as_slice()
+            .iter()
+            .all(|&tt| tt > 0.0 && tt < 5e3));
     }
 
     #[test]
@@ -1630,17 +1667,33 @@ mod tests {
 
         let mu1 = array.mu.internal[0];
         let alpha_h1 = array.alpha_h.internal[0];
-        let expected_mu = crate::transport::viscosity(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0]).unwrap();
-        let expected_lambda = crate::transport::conductivity(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0]).unwrap();
-        let expected_cp = crate::props::state_trho(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0]).cp;
+        let expected_mu = crate::transport::viscosity(
+            Fluid::Nitrogen,
+            array.t.internal[0],
+            array.rho.internal[0],
+        )
+        .unwrap();
+        let expected_lambda = crate::transport::conductivity(
+            Fluid::Nitrogen,
+            array.t.internal[0],
+            array.rho.internal[0],
+        )
+        .unwrap();
+        let expected_cp =
+            crate::props::state_trho(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0])
+                .cp;
 
         // Nitrogen's real viscosity at (300K, ~1atm) happens to sit close to
         // the constructor's air-like placeholder (both ~1.8e-5 Pa.s), so this
         // checks the exact EOS-derived value rather than "changed from
         // placeholder" (which would be a coincidental, fragile check here).
-        assert!((mu1 - expected_mu).abs() / expected_mu < 1e-9, "mu should now be the EOS transport value");
         assert!(
-            (alpha_h1 - expected_lambda / expected_cp).abs() / (expected_lambda / expected_cp) < 1e-9,
+            (mu1 - expected_mu).abs() / expected_mu < 1e-9,
+            "mu should now be the EOS transport value"
+        );
+        assert!(
+            (alpha_h1 - expected_lambda / expected_cp).abs() / (expected_lambda / expected_cp)
+                < 1e-9,
             "alpha_h should now be lambda/cp from the EOS"
         );
     }
@@ -1654,7 +1707,10 @@ mod tests {
             0,
             Time::new::<second>(1e-4),
         );
-        assert!(matches!(err, Err(MeshError::NonPositiveCellCount { got: 0 })));
+        assert!(matches!(
+            err,
+            Err(MeshError::NonPositiveCellCount { got: 0 })
+        ));
     }
 
     /// The opt-in [`SolverMode::HybridAllMach`] is a **no-op on a subsonic, low-
@@ -1767,8 +1823,7 @@ mod tests {
         );
         array.run(1);
         assert_eq!(
-            array.h_clamp_events,
-            array.mesh.n_cells,
+            array.h_clamp_events, array.mesh.n_cells,
             "each of the {} cells should clamp exactly once in one step",
             array.mesh.n_cells
         );
@@ -1826,8 +1881,16 @@ mod tests {
 
         for (t_k, p_pa, label) in [
             (523.15, 3.0e6, "HTR-10 core inlet (523.15 K, 3.0 MPa)"),
-            (973.15, 3.0e6, "HTR-10 core outlet, design (973.15 K, 3.0 MPa)"),
-            (1173.15, 3.0e6, "HTR-10 high-temperature test (1173.15 K, 3.0 MPa)"),
+            (
+                973.15,
+                3.0e6,
+                "HTR-10 core outlet, design (973.15 K, 3.0 MPa)",
+            ),
+            (
+                1173.15,
+                3.0e6,
+                "HTR-10 high-temperature test (1173.15 K, 3.0 MPa)",
+            ),
             (300.0, 1.0e5, "cold depressurised (300 K, 1 bar)"),
         ] {
             let rho = flash::state_pt(Fluid::Helium, t_k, p_pa)
@@ -1869,8 +1932,8 @@ mod tests {
     /// regime.
     #[test]
     fn helium_htr10_full_power_is_deeply_subsonic() {
-        let state = flash::state_pt(Fluid::Helium, 748.15, 3.0e6)
-            .expect("single-phase helium state");
+        let state =
+            flash::state_pt(Fluid::Helium, 748.15, 3.0e6).expect("single-phase helium state");
         let rho = state.density;
         let c = state.speed_of_sound;
         let mdot = 4.3_f64; // kg/s
@@ -1880,6 +1943,9 @@ mod tests {
         let u = mdot / (rho * a_free); // m/s
         let ma = u / c;
         println!("MEASURE rho = {rho:.6} kg/m^3, c = {c:.4} m/s, A_free = {a_free:.6} m^2, u = {u:.6} m/s, Ma = {ma:.3e}");
-        assert!(ma < 0.01, "HTR-10 helium must be deeply subsonic, got Ma = {ma}");
+        assert!(
+            ma < 0.01,
+            "HTR-10 helium must be deeply subsonic, got Ma = {ma}"
+        );
     }
 }

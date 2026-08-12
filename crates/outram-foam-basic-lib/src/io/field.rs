@@ -49,9 +49,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use super::dict::{
-    fmt_scalar, tokenize, write_header, FoamHeader, Token, BANNER, FOOTER, SEPARATOR,
-};
+use super::dict::{fmt_scalar, tokenize, write_header, FoamHeader, Token, BANNER, FOOTER, SEPARATOR};
 use super::IoError;
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;

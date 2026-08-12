@@ -65,7 +65,11 @@ pub struct ThermalAceOptions {
 impl Default for ThermalAceOptions {
     fn default() -> Self {
         // NJOY-typical dimensions: 16 outgoing energies, 8 equiprobable cosines.
-        ThermalAceOptions { n_outgoing: 16, n_cosines: 8, natom: 1.0 }
+        ThermalAceOptions {
+            n_outgoing: 16,
+            n_cosines: 8,
+            natom: 1.0,
+        }
     }
 }
 
@@ -151,9 +155,12 @@ impl AceTable {
         energy_grid: &[f64],
         opts: ThermalAceOptions,
     ) -> Result<Self, NjoyError> {
-        let ii = mf7.incoherent_inelastic.as_ref().ok_or(NjoyError::NotPorted(
-            "thermal ACE without incoherent-inelastic (MT=4) data",
-        ))?;
+        let ii = mf7
+            .incoherent_inelastic
+            .as_ref()
+            .ok_or(NjoyError::NotPorted(
+                "thermal ACE without incoherent-inelastic (MT=4) data",
+            ))?;
 
         let nei = energy_grid.len();
         let nieb = opts.n_outgoing;
@@ -167,7 +174,10 @@ impl AceTable {
         // TODO(IFENG=1/2): only the equiprobable (IFENG=0) form is produced —
         // `equiprobable_emission` below. The skewed (IFENG=1) and
         // continuous-tabular (IFENG=2) secondary-energy forms are not ported.
-        let xs: Vec<f64> = energy_grid.iter().map(|&e| ii.cross_section(e, temp_k, natom)).collect();
+        let xs: Vec<f64> = energy_grid
+            .iter()
+            .map(|&e| ii.cross_section(e, temp_k, natom))
+            .collect();
         let emission: Vec<_> = energy_grid
             .iter()
             .map(|&e| ii.equiprobable_emission(e, temp_k, natom, nieb, nang))
@@ -318,5 +328,7 @@ impl AceTable {
 
 /// Uniform equiprobable cosines at the bin midpoints (isotropic fallback).
 fn uniform_cosines(nang: usize) -> Vec<f64> {
-    (0..nang).map(|j| -1.0 + 2.0 * (j as f64 + 0.5) / nang as f64).collect()
+    (0..nang)
+        .map(|j| -1.0 + 2.0 * (j as f64 + 0.5) / nang as f64)
+        .collect()
 }

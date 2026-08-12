@@ -50,7 +50,10 @@ use uom::si::f64::{Area, DiffusionCoefficient, Length, Time};
 /// `radius > 0` and `diffusion_coefficient > 0`. The formula is exact for any
 /// positive inputs; it carries no approximation.
 #[inline]
-pub fn mean_first_passage_time(radius: Length, diffusion_coefficient: DiffusionCoefficient) -> Time {
+pub fn mean_first_passage_time(
+    radius: Length,
+    diffusion_coefficient: DiffusionCoefficient,
+) -> Time {
     let r_squared: Area = radius * radius;
     r_squared / (6.0 * diffusion_coefficient)
 }

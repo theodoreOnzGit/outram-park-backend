@@ -124,7 +124,9 @@ pub enum PackingError {
     },
     /// A sphere could not be placed without overlap within the attempt budget —
     /// the domain is effectively saturated (try a lower packing fraction).
-    #[error("could not place sphere {placed}/{target} within {attempts} attempts (domain saturated)")]
+    #[error(
+        "could not place sphere {placed}/{target} within {attempts} attempts (domain saturated)"
+    )]
     PlacementFailed {
         /// How many spheres were placed before giving up.
         placed: usize,
@@ -274,15 +276,18 @@ pub fn pack_spheres(
             let py = lo + span * prn(&mut rng);
             let pz = lo + span * prn(&mut rng);
             let key = (cell_of(px), cell_of(py), cell_of(pz));
-            let overlaps = mesh.get(&key).map(|idxs| {
-                idxs.iter().any(|&q| {
-                    let c = spheres[q];
-                    let dx = px - c.x;
-                    let dy = py - c.y;
-                    let dz = pz - c.z;
-                    dx * dx + dy * dy + dz * dz < sqd
+            let overlaps = mesh
+                .get(&key)
+                .map(|idxs| {
+                    idxs.iter().any(|&q| {
+                        let c = spheres[q];
+                        let dx = px - c.x;
+                        let dy = py - c.y;
+                        let dz = pz - c.z;
+                        dx * dx + dy * dy + dz * dz < sqd
+                    })
                 })
-            }).unwrap_or(false);
+                .unwrap_or(false);
             if overlaps {
                 continue;
             }
@@ -365,7 +370,13 @@ impl PackedSpheres {
                 }
             }
         }
-        Self { spheres, half_width, radius, cell_length, grid }
+        Self {
+            spheres,
+            half_width,
+            radius,
+            cell_length,
+            grid,
+        }
     }
 
     /// Is the point `p` \[cm\] inside any packed kernel?
@@ -377,15 +388,18 @@ impl PackedSpheres {
         let cell_of = |x: f64| ((x + self.half_width) / self.cell_length).floor() as i64;
         let key = (cell_of(p.x), cell_of(p.y), cell_of(p.z));
         let r2 = self.radius * self.radius;
-        self.grid.get(&key).map(|idxs| {
-            idxs.iter().any(|&q| {
-                let c = self.spheres[q as usize].center;
-                let dx = p.x - c.x;
-                let dy = p.y - c.y;
-                let dz = p.z - c.z;
-                dx * dx + dy * dy + dz * dz < r2
+        self.grid
+            .get(&key)
+            .map(|idxs| {
+                idxs.iter().any(|&q| {
+                    let c = self.spheres[q as usize].center;
+                    let dx = p.x - c.x;
+                    let dy = p.y - c.y;
+                    let dz = p.z - c.z;
+                    dx * dx + dy * dy + dz * dz < r2
+                })
             })
-        }).unwrap_or(false)
+            .unwrap_or(false)
     }
 
     /// The packed kernels.
@@ -463,7 +477,11 @@ mod tests {
         // Target count from the same floor formula.
         let expected_n = sphere_count(radius, half, pf);
         assert_eq!(packed.len(), expected_n, "placed sphere count");
-        assert!(packed.len() > 50, "expected a non-trivial packing, got {}", packed.len());
+        assert!(
+            packed.len() > 50,
+            "expected a non-trivial packing, got {}",
+            packed.len()
+        );
 
         // No overlaps: closest centre pair ≥ one diameter (minus float slack).
         let dmin = packed.min_center_distance().unwrap();

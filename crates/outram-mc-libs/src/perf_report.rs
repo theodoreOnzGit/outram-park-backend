@@ -69,9 +69,14 @@ impl HardwareInfo {
     /// released immediately. On a machine with no GPU it returns `gpu: None`
     /// without error.
     pub fn detect() -> Self {
-        let cpu_logical_cores =
-            std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
-        Self { gpu: detect_gpu(), cpu_logical_cores, os: std::env::consts::OS.to_string() }
+        let cpu_logical_cores = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
+        Self {
+            gpu: detect_gpu(),
+            cpu_logical_cores,
+            os: std::env::consts::OS.to_string(),
+        }
     }
 
     /// A one-line hardware headline, e.g.
@@ -186,28 +191,41 @@ impl PerfReport {
              gitignored.\n\n",
             self.date
         ));
-        s.push_str(&format!("**Performance on your system:** {}\n\n", self.hardware.headline()));
+        s.push_str(&format!(
+            "**Performance on your system:** {}\n\n",
+            self.hardware.headline()
+        ));
 
         // Timing / throughput / eigenvalue table.
         s.push_str("## Measured runs\n\n");
-        s.push_str("| Histories/gen | Backend | Wall time (s) | Throughput (hist/s) | k_mean | k_std |\n");
+        s.push_str(
+            "| Histories/gen | Backend | Wall time (s) | Throughput (hist/s) | k_mean | k_std |\n",
+        );
         s.push_str("|---|---|---:|---:|---:|---:|\n");
         for r in &self.rows {
             s.push_str(&format!(
                 "| {} | {} | {:.4} | {:.3e} | {:.5} | {:.5} |\n",
-                r.batch_size, r.backend, r.wall_time_s, r.throughput_hps(), r.k_mean, r.k_std
+                r.batch_size,
+                r.backend,
+                r.wall_time_s,
+                r.throughput_hps(),
+                r.k_mean,
+                r.k_std
             ));
         }
         s.push('\n');
 
         // GPU vs CpuMultiThread speedup + crossover.
         s.push_str("## Gpu vs CpuMultiThread\n\n");
-        s.push_str("Speedup = CpuMultiThread wall time / Gpu wall time (> 1 means the GPU is faster).\n\n");
+        s.push_str(
+            "Speedup = CpuMultiThread wall time / Gpu wall time (> 1 means the GPU is faster).\n\n",
+        );
         s.push_str("| Histories/gen | CpuMultiThread (s) | Gpu (s) | Speedup | GPU faster? |\n");
         s.push_str("|---|---:|---:|---:|---|\n");
         let mut crossover: Option<usize> = None;
         for bs in self.batch_sizes() {
-            let (Some(multi), Some(gpu)) = (self.time_of(bs, "CpuMultiThread"), self.time_of(bs, "Gpu"))
+            let (Some(multi), Some(gpu)) =
+                (self.time_of(bs, "CpuMultiThread"), self.time_of(bs, "Gpu"))
             else {
                 continue;
             };
@@ -344,18 +362,51 @@ mod tests {
             });
         }
         let md = rep.render_markdown();
-        assert!(md.contains("Test GPU / Vulkan, 8 cores, linux"), "headline missing:\n{md}");
-        assert!(md.contains("CpuMultiThread") && md.contains("Gpu"), "backends missing");
-        assert!(md.contains("first beats") && md.contains("1000000"), "crossover verdict wrong:\n{md}");
+        assert!(
+            md.contains("Test GPU / Vulkan, 8 cores, linux"),
+            "headline missing:\n{md}"
+        );
+        assert!(
+            md.contains("CpuMultiThread") && md.contains("Gpu"),
+            "backends missing"
+        );
+        assert!(
+            md.contains("first beats") && md.contains("1000000"),
+            "crossover verdict wrong:\n{md}"
+        );
 
         // A no-crossover report: GPU slower at every size.
         let mut rep2 = PerfReport::new("No crossover", "2026-07-17");
-        rep2.hardware = HardwareInfo { gpu: None, cpu_logical_cores: 4, os: "linux".into() };
-        rep2.push(PerfRow { batch_size: 1000, backend: "CpuMultiThread".into(), wall_time_s: 0.1, k_mean: 1.0, k_std: 0.0, histories_total: 10_000 });
-        rep2.push(PerfRow { batch_size: 1000, backend: "Gpu".into(), wall_time_s: 1.0, k_mean: 1.0, k_std: 0.0, histories_total: 10_000 });
+        rep2.hardware = HardwareInfo {
+            gpu: None,
+            cpu_logical_cores: 4,
+            os: "linux".into(),
+        };
+        rep2.push(PerfRow {
+            batch_size: 1000,
+            backend: "CpuMultiThread".into(),
+            wall_time_s: 0.1,
+            k_mean: 1.0,
+            k_std: 0.0,
+            histories_total: 10_000,
+        });
+        rep2.push(PerfRow {
+            batch_size: 1000,
+            backend: "Gpu".into(),
+            wall_time_s: 1.0,
+            k_mean: 1.0,
+            k_std: 0.0,
+            histories_total: 10_000,
+        });
         let md2 = rep2.render_markdown();
-        assert!(md2.contains("does **not** beat"), "no-crossover verdict missing:\n{md2}");
-        assert!(md2.contains("CPU only, 4 cores, linux"), "CPU-only headline missing");
+        assert!(
+            md2.contains("does **not** beat"),
+            "no-crossover verdict missing:\n{md2}"
+        );
+        assert!(
+            md2.contains("CPU only, 4 cores, linux"),
+            "CPU-only headline missing"
+        );
     }
 
     /// V&V: throughput is histories/second and CSV carries the hardware + rows.
@@ -369,13 +420,26 @@ mod tests {
             k_std: 0.0,
             histories_total: 10_000,
         };
-        assert!((row.throughput_hps() - 5000.0).abs() < 1e-9, "throughput = hist/s");
+        assert!(
+            (row.throughput_hps() - 5000.0).abs() < 1e-9,
+            "throughput = hist/s"
+        );
 
         let mut rep = PerfReport::new("csv", "2026-07-17");
-        rep.hardware = HardwareInfo { gpu: None, cpu_logical_cores: 2, os: "linux".into() };
+        rep.hardware = HardwareInfo {
+            gpu: None,
+            cpu_logical_cores: 2,
+            os: "linux".into(),
+        };
         rep.push(row);
         let csv = rep.to_csv();
-        assert!(csv.lines().next().unwrap().starts_with("date,gpu,cpu_cores,os"), "csv header");
+        assert!(
+            csv.lines()
+                .next()
+                .unwrap()
+                .starts_with("date,gpu,cpu_cores,os"),
+            "csv header"
+        );
         assert!(csv.contains("CPU only,2,linux"), "csv hardware row: {csv}");
     }
 }

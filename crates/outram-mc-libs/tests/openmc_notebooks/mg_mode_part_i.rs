@@ -92,22 +92,43 @@ fn cube(a: f64, bc: BoundaryType) -> Geometry {
         SurfaceKind::ZPlane(ZPlane { z0: a, bc }),
     ];
     let region = vec![
-        RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside },
-        RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Inside },
+        RegionToken::HalfSpace {
+            surface_idx: 0,
+            sense: HalfSpaceSense::Outside,
+        },
+        RegionToken::HalfSpace {
+            surface_idx: 1,
+            sense: HalfSpaceSense::Inside,
+        },
         RegionToken::Intersection,
-        RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Outside },
+        RegionToken::HalfSpace {
+            surface_idx: 2,
+            sense: HalfSpaceSense::Outside,
+        },
         RegionToken::Intersection,
-        RegionToken::HalfSpace { surface_idx: 3, sense: HalfSpaceSense::Inside },
+        RegionToken::HalfSpace {
+            surface_idx: 3,
+            sense: HalfSpaceSense::Inside,
+        },
         RegionToken::Intersection,
-        RegionToken::HalfSpace { surface_idx: 4, sense: HalfSpaceSense::Outside },
+        RegionToken::HalfSpace {
+            surface_idx: 4,
+            sense: HalfSpaceSense::Outside,
+        },
         RegionToken::Intersection,
-        RegionToken::HalfSpace { surface_idx: 5, sense: HalfSpaceSense::Inside },
+        RegionToken::HalfSpace {
+            surface_idx: 5,
+            sense: HalfSpaceSense::Inside,
+        },
         RegionToken::Intersection,
     ];
     Geometry {
         surfaces,
         cells: vec![Cell::material(1, region, 0, 293.6)],
-        universes: vec![Universe { id: 0, cell_indices: vec![0] }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0],
+        }],
         lattices: vec![],
         root_universe: 0,
     }
@@ -121,9 +142,16 @@ fn cube(a: f64, bc: BoundaryType) -> Geometry {
 fn mg_mode_run() {
     let geom = cube(10.0, BoundaryType::Reflective);
     let lib = MgxsLibrary::new(vec![two_group_set()]);
-    let settings = MgSettings { n_particles: 4000, n_inactive: 40, n_active: 120, seed: 1 };
-    let src =
-        SourceBox { lower: Position::new(-5.0, -5.0, -5.0), upper: Position::new(5.0, 5.0, 5.0) };
+    let settings = MgSettings {
+        n_particles: 4000,
+        n_inactive: 40,
+        n_active: 120,
+        seed: 1,
+    };
+    let src = SourceBox {
+        lower: Position::new(-5.0, -5.0, -5.0),
+        upper: Position::new(5.0, 5.0, 5.0),
+    };
 
     let result = run_keff_mg(&geom, &lib, src, &settings);
 
@@ -133,14 +161,21 @@ fn mg_mode_run() {
     );
 
     // Sanity on the MGXS set itself (self-consistency Σ_t = Σ_a + Σ_scatter-out).
-    assert!(lib.material(0).consistency_residual() < 1e-12, "MGXS set self-consistent");
+    assert!(
+        lib.material(0).consistency_residual() < 1e-12,
+        "MGXS set self-consistent"
+    );
     assert_eq!(result.k_by_generation.len(), 160, "ran all generations");
     assert!(
         (result.k_mean - K_INF_ANALYTIC).abs() < 0.01,
         "MG k∞ {} deviates from analytic {K_INF_ANALYTIC} by more than 0.01",
         result.k_mean
     );
-    assert!(result.k_std < 0.005, "k noisy/unconverged: σ = {}", result.k_std);
+    assert!(
+        result.k_std < 0.005,
+        "k noisy/unconverged: σ = {}",
+        result.k_std
+    );
 }
 
 /// LIVE (supplementary smoke, NOT a benchmark): MG transport with leakage. A
@@ -150,7 +185,12 @@ fn mg_mode_run() {
 #[test]
 fn mg_mode_leakage_smoke() {
     let lib = MgxsLibrary::new(vec![two_group_set()]);
-    let settings = MgSettings { n_particles: 2000, n_inactive: 25, n_active: 50, seed: 7 };
+    let settings = MgSettings {
+        n_particles: 2000,
+        n_inactive: 25,
+        n_active: 50,
+        seed: 7,
+    };
 
     let run = |a: f64| {
         let geom = cube(a, BoundaryType::Vacuum);
@@ -163,10 +203,24 @@ fn mg_mode_leakage_smoke() {
 
     let k_big = run(30.0);
     let k_small = run(12.0);
-    eprintln!("[mg-mode-part-i leakage] k(30cm)={k_big:.5}  k(12cm)={k_small:.5}  (k∞={K_INF_ANALYTIC})");
+    eprintln!(
+        "[mg-mode-part-i leakage] k(30cm)={k_big:.5}  k(12cm)={k_small:.5}  (k∞={K_INF_ANALYTIC})"
+    );
 
-    assert!(k_big.is_finite() && k_big > 0.0, "k(30cm) finite/positive, got {k_big}");
-    assert!(k_small.is_finite() && k_small > 0.0, "k(12cm) finite/positive, got {k_small}");
-    assert!(k_big < K_INF_ANALYTIC, "vacuum-bounded k(30cm)={k_big} must be below k∞");
-    assert!(k_small < k_big, "smaller cube k={k_small} must leak more than bigger k={k_big}");
+    assert!(
+        k_big.is_finite() && k_big > 0.0,
+        "k(30cm) finite/positive, got {k_big}"
+    );
+    assert!(
+        k_small.is_finite() && k_small > 0.0,
+        "k(12cm) finite/positive, got {k_small}"
+    );
+    assert!(
+        k_big < K_INF_ANALYTIC,
+        "vacuum-bounded k(30cm)={k_big} must be below k∞"
+    );
+    assert!(
+        k_small < k_big,
+        "smaller cube k={k_small} must leak more than bigger k={k_big}"
+    );
 }

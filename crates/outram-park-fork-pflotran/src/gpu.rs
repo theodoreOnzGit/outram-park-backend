@@ -173,14 +173,24 @@ pub fn try_van_genuchten_se_gpu(
         label: Some("vg-bind-group"),
         layout: &pipeline.get_bind_group_layout(0),
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: uniform_buffer.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: input_buffer.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: output_buffer.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: input_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: output_buffer.as_entire_binding(),
+            },
         ],
     });
 
-    let mut encoder =
-        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("vg-encoder") });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("vg-encoder"),
+    });
     {
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("vg-pass"),
@@ -195,9 +205,11 @@ pub fn try_van_genuchten_se_gpu(
 
     let mapped = Arc::new(Mutex::new(None));
     let mapped_cb = Arc::clone(&mapped);
-    readback_buffer.slice(..).map_async(wgpu::MapMode::Read, move |res| {
-        *mapped_cb.lock().unwrap() = Some(res);
-    });
+    readback_buffer
+        .slice(..)
+        .map_async(wgpu::MapMode::Read, move |res| {
+            *mapped_cb.lock().unwrap() = Some(res);
+        });
     device
         .poll(wgpu::PollType::wait_indefinitely())
         .map_err(|e| GpuError::Poll(format!("{e:?}")))?;

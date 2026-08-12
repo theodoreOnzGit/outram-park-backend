@@ -141,9 +141,7 @@ use uom::si::f64::Time;
 use uom::si::time::second;
 
 use crate::flowsheet::{CalculationArgs, CalculationSender, Flowsheet, ObjectId, ObjectType};
-use crate::flowsheet_solver::adjust::{
-    solve_simultaneous_adjusts, AdjustBlock, AdjustSolveReport,
-};
+use crate::flowsheet_solver::adjust::{solve_simultaneous_adjusts, AdjustBlock, AdjustSolveReport};
 use crate::flowsheet_solver::errors::{AbortFlag, SolverError, SolverMode};
 use crate::flowsheet_solver::evaluator::UnitOpEvaluator;
 use crate::flowsheet_solver::ordering::{self, SolvingList};
@@ -153,9 +151,7 @@ use crate::flowsheet_solver::queue_processing::{
 use crate::flowsheet_solver::recycle::{
     broydn, AccelerationMethod, EnergyRecycleBlock, RecycleBlock, RecycleVariables,
 };
-use crate::flowsheet_solver::spec::{
-    specs_firing_at, SpecBlock, SpecCalcMode, SpecFiringPoint,
-};
+use crate::flowsheet_solver::spec::{specs_firing_at, SpecBlock, SpecCalcMode, SpecFiringPoint};
 
 /// The two mixing weights of the global Broyden update
 /// (`0.3 * recvars(i) + 0.7 * recdvars(i)`, FlowsheetSolver.vb:1560).
@@ -467,10 +463,10 @@ impl FlowsheetSolver {
                     self.recycles.insert(id.clone(), block);
                 }
             }
-            total_variables += self
-                .recycles
-                .get(id)
-                .map_or(0, crate::flowsheet_solver::recycle::RecycleBlock::value_count);
+            total_variables += self.recycles.get(id).map_or(
+                0,
+                crate::flowsheet_solver::recycle::RecycleBlock::value_count,
+            );
         }
 
         // Identity matrix as the first Hessian (:1341-1347). These vectors live
@@ -515,9 +511,12 @@ impl FlowsheetSolver {
             }
 
             // Specs scheduled before the pass (:1383-1390).
-            if let Err(error) =
-                self.fire_specs(flowsheet, evaluator, options.spec_calculation_mode, &SpecFiringPoint::BeforeFlowsheet)
-            {
+            if let Err(error) = self.fire_specs(
+                flowsheet,
+                evaluator,
+                options.spec_calculation_mode,
+                &SpecFiringPoint::BeforeFlowsheet,
+            ) {
                 outcome.errors.push(error);
                 break;
             }
@@ -825,14 +824,7 @@ impl FlowsheetSolver {
         // Hessian.
         let update = icount >= 2;
         let ok = broydn(
-            n,
-            rec_vars,
-            rec_errs,
-            rec_dvars,
-            rec_vars_b,
-            rec_errs_b,
-            hessian,
-            update,
+            n, rec_vars, rec_errs, rec_dvars, rec_vars_b, rec_errs_b, hessian, update,
         );
 
         let mut i = 0usize;
@@ -845,8 +837,8 @@ impl FlowsheetSolver {
                             if i >= n {
                                 break;
                             }
-                            *slot = BROYDEN_MIX_CURRENT * rec_vars[i]
-                                + BROYDEN_MIX_STEP * rec_dvars[i];
+                            *slot =
+                                BROYDEN_MIX_CURRENT * rec_vars[i] + BROYDEN_MIX_STEP * rec_dvars[i];
                             i += 1;
                         }
                         block.values.set_from_slice(&mixed);
@@ -1049,7 +1041,9 @@ mod tests {
         let ms = fs.object_mut(id).unwrap().data.as_material_mut().unwrap();
         ms.phases[PhaseIndex::Mixture.index()].properties.massflow = Some(w);
         ms.phases[PhaseIndex::Mixture.index()].compounds[0].mass_flow = Some(w);
-        ms.phases[PhaseIndex::Mixture.index()].properties.temperature = Some(300.0);
+        ms.phases[PhaseIndex::Mixture.index()]
+            .properties
+            .temperature = Some(300.0);
         ms.phases[PhaseIndex::Mixture.index()].properties.pressure = Some(1.0e5);
     }
 
@@ -1137,32 +1131,33 @@ mod tests {
 
         // The stub "physics": the HALVE unit halves whatever S1 carries.
         let (in_id, out_id) = (s1.clone(), s2.clone());
-        let mut evaluator = move |fs: &mut Flowsheet,
-                                  args: &CalculationArgs|
-              -> Result<(), SolverError> {
-            if args.object_type == ObjectType::Heater {
-                let w = fs
-                    .object(&in_id)
-                    .and_then(|o| o.data.as_material())
-                    .and_then(|m| m.phase(PhaseIndex::Mixture).properties.massflow)
-                    .unwrap_or(0.0);
-                let ms = fs
-                    .object_mut(&out_id)
-                    .unwrap()
-                    .data
-                    .as_material_mut()
-                    .unwrap();
-                ms.phases[PhaseIndex::Mixture.index()].properties.massflow = Some(0.5 * w);
-                ms.phases[PhaseIndex::Mixture.index()].compounds[0].mass_flow = Some(0.5 * w);
-                ms.phases[PhaseIndex::Mixture.index()].properties.temperature = Some(300.0);
-                ms.phases[PhaseIndex::Mixture.index()].properties.pressure = Some(1.0e5);
-                return Ok(());
-            }
-            match default_evaluate(fs, args) {
-                Some(result) => result,
-                None => Ok(()),
-            }
-        };
+        let mut evaluator =
+            move |fs: &mut Flowsheet, args: &CalculationArgs| -> Result<(), SolverError> {
+                if args.object_type == ObjectType::Heater {
+                    let w = fs
+                        .object(&in_id)
+                        .and_then(|o| o.data.as_material())
+                        .and_then(|m| m.phase(PhaseIndex::Mixture).properties.massflow)
+                        .unwrap_or(0.0);
+                    let ms = fs
+                        .object_mut(&out_id)
+                        .unwrap()
+                        .data
+                        .as_material_mut()
+                        .unwrap();
+                    ms.phases[PhaseIndex::Mixture.index()].properties.massflow = Some(0.5 * w);
+                    ms.phases[PhaseIndex::Mixture.index()].compounds[0].mass_flow = Some(0.5 * w);
+                    ms.phases[PhaseIndex::Mixture.index()]
+                        .properties
+                        .temperature = Some(300.0);
+                    ms.phases[PhaseIndex::Mixture.index()].properties.pressure = Some(1.0e5);
+                    return Ok(());
+                }
+                match default_evaluate(fs, args) {
+                    Some(result) => result,
+                    None => Ok(()),
+                }
+            };
 
         let mut solver = FlowsheetSolver::with_options(SolveOptions {
             max_recycle_loops: Some(200),
@@ -1247,19 +1242,18 @@ mod tests {
 
         // Every pass doubles S2, so the recycle error never shrinks.
         let s2_for_eval = s2.clone();
-        let mut evaluator = move |fs: &mut Flowsheet,
-                                  args: &CalculationArgs|
-              -> Result<(), SolverError> {
-            if args.name == s2_for_eval.0 {
-                let w = mass_flow(fs, &s2_for_eval);
-                set_mass_flow(fs, &s2_for_eval, w * 2.0);
-                return Ok(());
-            }
-            match default_evaluate(fs, args) {
-                Some(result) => result,
-                None => Ok(()),
-            }
-        };
+        let mut evaluator =
+            move |fs: &mut Flowsheet, args: &CalculationArgs| -> Result<(), SolverError> {
+                if args.name == s2_for_eval.0 {
+                    let w = mass_flow(fs, &s2_for_eval);
+                    set_mass_flow(fs, &s2_for_eval, w * 2.0);
+                    return Ok(());
+                }
+                match default_evaluate(fs, args) {
+                    Some(result) => result,
+                    None => Ok(()),
+                }
+            };
 
         let mut solver = FlowsheetSolver::with_options(SolveOptions {
             max_recycle_loops: Some(5),

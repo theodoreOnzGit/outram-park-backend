@@ -859,9 +859,7 @@ mod tests {
     use crate::dynamics::event::DynamicEvent;
     use crate::dynamics::manager::DynamicsManager;
     use crate::dynamics::monitored_variable::MonitoredVariable;
-    use crate::dynamics::property::{
-        property_value, set_property_value, DynamicProperty, PropertyRef,
-    };
+    use crate::dynamics::property::{property_value, set_property_value, DynamicProperty, PropertyRef};
     use crate::flowsheet::objects::ObjectType;
     use uom::si::time::second;
 

@@ -1,4 +1,6 @@
-use crate::openfoam_algorithms::openfoam_source::{BoundaryPatch, FvMesh, FvMeshBuilder, MeshError, PatchKind};
+use crate::openfoam_algorithms::openfoam_source::{
+    BoundaryPatch, FvMesh, FvMeshBuilder, MeshError, PatchKind,
+};
 use crate::openfoam_algorithms::openfoam_source::Vector3;
 use uom::si::area::square_meter;
 use uom::si::f64::*;
@@ -58,7 +60,9 @@ pub fn create_one_d_mesh(
     number_of_cells: i64,
 ) -> Result<FvMesh, MeshError> {
     if number_of_cells < 1 {
-        return Err(MeshError::NonPositiveCellCount { got: number_of_cells });
+        return Err(MeshError::NonPositiveCellCount {
+            got: number_of_cells,
+        });
     }
     let n = number_of_cells as usize;
     let l_m = l.get::<meter>();
@@ -80,7 +84,7 @@ pub fn create_one_d_mesh(
         neighbour.push(i + 1);
     }
     owner.push(n - 1); // right boundary
-    owner.push(0);      // left boundary
+    owner.push(0); // left boundary
 
     // ── Geometry ──────────────────────────────────────────────────────────────
     let cell_volumes: Vec<f64> = vec![dx * a_m2; n];
@@ -106,8 +110,8 @@ pub fn create_one_d_mesh(
     // ── Patches ───────────────────────────────────────────────────────────────
     // Must cover [n_internal, n_faces) without gaps.
     let patches = vec![
-        BoundaryPatch::new("right", n_internal,     1, PatchKind::Patch),
-        BoundaryPatch::new("left",  n_internal + 1, 1, PatchKind::Patch),
+        BoundaryPatch::new("right", n_internal, 1, PatchKind::Patch),
+        BoundaryPatch::new("left", n_internal + 1, 1, PatchKind::Patch),
     ];
 
     FvMeshBuilder::new()
@@ -165,12 +169,8 @@ mod tests {
         let l = 2.0_f64;
         let a = 0.03_f64;
         let n = 5_i64;
-        let mesh = create_one_d_mesh(
-            Length::new::<meter>(l),
-            Area::new::<square_meter>(a),
-            n,
-        )
-        .unwrap();
+        let mesh =
+            create_one_d_mesh(Length::new::<meter>(l), Area::new::<square_meter>(a), n).unwrap();
         let expected = l * a / n as f64;
         for &v in &mesh.cell_volumes {
             assert!((v - expected).abs() < 1e-14, "volume {v} != {expected}");
@@ -181,12 +181,8 @@ mod tests {
     fn cell_centres_are_midpoints() {
         let n = 4_i64;
         let dx = 1.0 / n as f64;
-        let mesh = create_one_d_mesh(
-            Length::new::<meter>(1.0),
-            Area::new::<square_meter>(1.0),
-            n,
-        )
-        .unwrap();
+        let mesh = create_one_d_mesh(Length::new::<meter>(1.0), Area::new::<square_meter>(1.0), n)
+            .unwrap();
         for (i, c) in mesh.cell_centres.iter().enumerate() {
             let expected_x = (i as f64 + 0.5) * dx;
             assert!((c.x - expected_x).abs() < 1e-14);
@@ -197,12 +193,8 @@ mod tests {
 
     #[test]
     fn boundary_patches_named_correctly() {
-        let mesh = create_one_d_mesh(
-            Length::new::<meter>(1.0),
-            Area::new::<square_meter>(1.0),
-            3,
-        )
-        .unwrap();
+        let mesh = create_one_d_mesh(Length::new::<meter>(1.0), Area::new::<square_meter>(1.0), 3)
+            .unwrap();
         assert_eq!(mesh.patches[0].name, "right");
         assert_eq!(mesh.patches[1].name, "left");
     }
@@ -210,12 +202,8 @@ mod tests {
     #[test]
     fn left_face_area_vector_points_negative_x() {
         let a = 0.1_f64;
-        let mesh = create_one_d_mesh(
-            Length::new::<meter>(1.0),
-            Area::new::<square_meter>(a),
-            3,
-        )
-        .unwrap();
+        let mesh =
+            create_one_d_mesh(Length::new::<meter>(1.0), Area::new::<square_meter>(a), 3).unwrap();
         // left boundary is the last face
         let left_sf = mesh.face_area_vectors.last().unwrap();
         assert!((left_sf.x + a).abs() < 1e-14);
@@ -224,11 +212,9 @@ mod tests {
 
     #[test]
     fn zero_cells_returns_error() {
-        assert!(create_one_d_mesh(
-            Length::new::<meter>(1.0),
-            Area::new::<square_meter>(1.0),
-            0,
-        )
-        .is_err());
+        assert!(
+            create_one_d_mesh(Length::new::<meter>(1.0), Area::new::<square_meter>(1.0), 0,)
+                .is_err()
+        );
     }
 }

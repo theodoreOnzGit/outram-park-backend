@@ -230,7 +230,12 @@ impl DopplerTable {
             ti_fine[1][j] = 0.0;
         }
 
-        DopplerTable { tr_coarse, ti_coarse, tr_fine, ti_fine }
+        DopplerTable {
+            tr_coarse,
+            ti_coarse,
+            tr_fine,
+            ti_fine,
+        }
     }
 
     /// 6-point biquadratic interpolation shared by both grids — the same
@@ -244,7 +249,16 @@ impl DopplerTable {
     /// grid's own offset convention (see [`Self::lookup_coarse`] /
     /// [`Self::lookup_fine`]).
     #[allow(clippy::too_many_arguments)]
-    fn biquad(tr: &[Vec<f64>], ti: &[Vec<f64>], i: usize, j: usize, n: usize, p: f64, q: f64, aki: f64) -> (f64, f64) {
+    fn biquad(
+        tr: &[Vec<f64>],
+        ti: &[Vec<f64>],
+        i: usize,
+        j: usize,
+        n: usize,
+        p: f64,
+        q: f64,
+        aki: f64,
+    ) -> (f64, f64) {
         let p2 = p * p;
         let q2 = q * q;
         let hp = 0.5 * p;

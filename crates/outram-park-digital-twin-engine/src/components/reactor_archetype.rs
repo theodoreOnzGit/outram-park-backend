@@ -39,9 +39,7 @@ use crate::components::htr10_reactor_vessel::Htr10ReactorVesselVisual;
 use crate::components::temperature_colour;
 use egui::{Color32, FontId, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, Widget};
 use nee_soon::NordheimFuchsExactTimestepper;
-use uom::si::f64::{
-    HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time,
-};
+use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time};
 use uom::si::heat_capacity::joule_per_kelvin;
 use uom::si::power::watt;
 use uom::si::ratio::ratio;

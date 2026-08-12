@@ -198,7 +198,9 @@ pub fn parameterize(
 
     let a = SparseColMat::<usize, f64>::try_new_from_triplets(nfree, nfree, &trips)
         .map_err(|_| ParamError::Assembly)?;
-    let llt = a.sp_cholesky(Side::Lower).map_err(|_| ParamError::NotPositiveDefinite)?;
+    let llt = a
+        .sp_cholesky(Side::Lower)
+        .map_err(|_| ParamError::NotPositiveDefinite)?;
     let b = Mat::<f64>::from_fn(nfree, 2, |i, j| rhs[i][j]);
     let x = llt.solve(&b);
 
@@ -381,10 +383,16 @@ mod tests {
         for (i, &(u, v)) in uv.iter().enumerate() {
             let r = (u * u + v * v).sqrt();
             if on_bound[i] {
-                assert!((r - 1.0).abs() < 1e-12, "boundary vertex {i} off circle: r={r}");
+                assert!(
+                    (r - 1.0).abs() < 1e-12,
+                    "boundary vertex {i} off circle: r={r}"
+                );
                 n_bound += 1;
             } else {
-                assert!(r < 1.0 - 1e-9, "interior vertex {i} not strictly inside: r={r}");
+                assert!(
+                    r < 1.0 - 1e-9,
+                    "interior vertex {i} not strictly inside: r={r}"
+                );
                 n_interior += 1;
             }
         }
@@ -421,15 +429,25 @@ mod tests {
         let on_bound = crate::laplacian::boundary_vertices(&grid);
         for (i, &(u, v)) in uv_s.iter().enumerate() {
             if on_bound[i] {
-                let on_side = u.abs() < 1e-9 || (u - 1.0).abs() < 1e-9 || v.abs() < 1e-9 || (v - 1.0).abs() < 1e-9;
+                let on_side = u.abs() < 1e-9
+                    || (u - 1.0).abs() < 1e-9
+                    || v.abs() < 1e-9
+                    || (v - 1.0).abs() < 1e-9;
                 assert!(on_side, "boundary vertex {i} not on square: ({u},{v})");
             }
         }
 
         let flat = flatten_to_plane(&grid, LaplacianWeighting::Uniform, BoundaryShape::Circle)
             .expect("flatten");
-        assert_eq!(flat.euler_characteristic(), grid.euler_characteristic(), "flatten preserves topology");
-        assert!(flat.positions().iter().all(|p| p.z == 0.0), "flattened mesh is planar");
+        assert_eq!(
+            flat.euler_characteristic(),
+            grid.euler_characteristic(),
+            "flatten preserves topology"
+        );
+        assert!(
+            flat.positions().iter().all(|p| p.z == 0.0),
+            "flattened mesh is planar"
+        );
     }
 
     /// A **closed** mesh (a cube) has no boundary and must be rejected, not

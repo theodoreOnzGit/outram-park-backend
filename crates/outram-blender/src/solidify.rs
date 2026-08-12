@@ -212,7 +212,11 @@ mod tests {
         let shell = solidify(&cube, 0.3);
         assert_eq!(shell.vertex_count(), 16, "outer 8 + inner 8");
         assert_eq!(shell.face_count(), 12, "6 outer + 6 inner, no rim");
-        assert_eq!(shell.euler_characteristic(), 4, "two closed shells: chi = 2+2");
+        assert_eq!(
+            shell.euler_characteristic(),
+            4,
+            "two closed shells: chi = 2+2"
+        );
         assert!(is_watertight_consistent(&shell), "each shell is watertight");
         // Inner corner is offset inward: its distance from the origin is smaller.
         let outer_r = cube.positions()[0].length();
@@ -241,7 +245,9 @@ mod tests {
         use crate::ops::MeshOp;
         let grid = primitives::grid(3, 2, 1.0);
         let direct = solidify(&grid, 0.15);
-        let via_op = MeshOp::Solidify { thickness: 0.15 }.apply(grid).expect("solidify infallible");
+        let via_op = MeshOp::Solidify { thickness: 0.15 }
+            .apply(grid)
+            .expect("solidify infallible");
         assert_eq!(via_op.vertex_count(), direct.vertex_count());
         assert_eq!(via_op.face_count(), direct.face_count());
         assert_eq!(via_op.euler_characteristic(), direct.euler_characteristic());

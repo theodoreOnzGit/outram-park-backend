@@ -37,60 +37,117 @@ pub struct SymmTensor {
 }
 
 impl SymmTensor {
-    pub const ZERO: Self = Self { xx: 0.0, xy: 0.0, xz: 0.0, yy: 0.0, yz: 0.0, zz: 0.0 };
-    pub const IDENTITY: Self = Self { xx: 1.0, xy: 0.0, xz: 0.0, yy: 1.0, yz: 0.0, zz: 1.0 };
+    pub const ZERO: Self = Self {
+        xx: 0.0,
+        xy: 0.0,
+        xz: 0.0,
+        yy: 0.0,
+        yz: 0.0,
+        zz: 0.0,
+    };
+    pub const IDENTITY: Self = Self {
+        xx: 1.0,
+        xy: 0.0,
+        xz: 0.0,
+        yy: 1.0,
+        yz: 0.0,
+        zz: 1.0,
+    };
 
     #[inline]
     pub fn new(xx: f64, xy: f64, xz: f64, yy: f64, yz: f64, zz: f64) -> Self {
-        Self { xx, xy, xz, yy, yz, zz }
+        Self {
+            xx,
+            xy,
+            xz,
+            yy,
+            yz,
+            zz,
+        }
     }
 
     /// Construct from diagonal only (off-diagonal = 0).
     #[inline]
     pub fn from_diag(xx: f64, yy: f64, zz: f64) -> Self {
-        Self { xx, xy: 0.0, xz: 0.0, yy, yz: 0.0, zz }
+        Self {
+            xx,
+            xy: 0.0,
+            xz: 0.0,
+            yy,
+            yz: 0.0,
+            zz,
+        }
     }
 
     /// Row vectors (yx = xy, zx = xz, zy = yz because symmetric)
     #[inline]
-    pub fn row_x(self) -> Vector3 { Vector3::new(self.xx, self.xy, self.xz) }
+    pub fn row_x(self) -> Vector3 {
+        Vector3::new(self.xx, self.xy, self.xz)
+    }
     #[inline]
-    pub fn row_y(self) -> Vector3 { Vector3::new(self.xy, self.yy, self.yz) }
+    pub fn row_y(self) -> Vector3 {
+        Vector3::new(self.xy, self.yy, self.yz)
+    }
     #[inline]
-    pub fn row_z(self) -> Vector3 { Vector3::new(self.xz, self.yz, self.zz) }
+    pub fn row_z(self) -> Vector3 {
+        Vector3::new(self.xz, self.yz, self.zz)
+    }
 
     /// Diagonal as a vector
     #[inline]
-    pub fn diag(self) -> Vector3 { Vector3::new(self.xx, self.yy, self.zz) }
+    pub fn diag(self) -> Vector3 {
+        Vector3::new(self.xx, self.yy, self.zz)
+    }
 
     /// Trace: xx + yy + zz
     #[inline]
-    pub fn tr(self) -> f64 { self.xx + self.yy + self.zz }
+    pub fn tr(self) -> f64 {
+        self.xx + self.yy + self.zz
+    }
 
     /// Spherical (isotropic) part: (tr/3) * I
     #[inline]
-    pub fn sph(self) -> SphericalTensor { SphericalTensor::new(self.tr() / 3.0) }
+    pub fn sph(self) -> SphericalTensor {
+        SphericalTensor::new(self.tr() / 3.0)
+    }
 
     /// Deviatoric part: self - (tr/3)*I
     #[inline]
-    pub fn dev(self) -> Self { self - self.sph() }
+    pub fn dev(self) -> Self {
+        self - self.sph()
+    }
 
     /// Two-thirds deviatoric part: self - (2*tr/3)*I
     #[inline]
-    pub fn dev2(self) -> Self { self - 2.0 * self.sph() }
+    pub fn dev2(self) -> Self {
+        self - 2.0 * self.sph()
+    }
 
     /// Determinant
     #[inline]
     pub fn det(self) -> f64 {
-        let Self { xx, xy, xz, yy, yz, zz } = self;
-        xx * yy * zz + xy * yz * xz + xz * xy * yz
-            - xx * yz * yz - xy * xy * zz - xz * yy * xz
+        let Self {
+            xx,
+            xy,
+            xz,
+            yy,
+            yz,
+            zz,
+        } = self;
+        xx * yy * zz + xy * yz * xz + xz * xy * yz - xx * yz * yz - xy * xy * zz - xz * yy * xz
     }
 
     /// Adjunct (= cofactor matrix, same as adjunct because symmetric)
     #[inline]
     pub fn adjunct(self) -> Self {
-        let Self { xx, xy, xz, yy, yz, zz } = self;
+        let Self {
+            xx,
+            xy,
+            xz,
+            yy,
+            yz,
+            zz,
+        } = self;
         Self {
             xx: yy * zz - yz * yz,
             xy: xz * yz - xy * zz,
@@ -118,36 +175,68 @@ impl SymmTensor {
         let small_xx = self.xx * self.xx < threshold;
         let small_yy = self.yy * self.yy < threshold;
         let small_zz = self.zz * self.zz < threshold;
-        if small_xx { work.xx += 1.0; }
-        if small_yy { work.yy += 1.0; }
-        if small_zz { work.zz += 1.0; }
+        if small_xx {
+            work.xx += 1.0;
+        }
+        if small_yy {
+            work.yy += 1.0;
+        }
+        if small_zz {
+            work.zz += 1.0;
+        }
         let d = work.det();
-        if d.abs() < super::scalar::ROOT_VSMALL { return Self::ZERO; }
+        if d.abs() < super::scalar::ROOT_VSMALL {
+            return Self::ZERO;
+        }
         let mut result = work.adjunct() / d;
-        if small_xx { result.xx -= 1.0; }
-        if small_yy { result.yy -= 1.0; }
-        if small_zz { result.zz -= 1.0; }
+        if small_xx {
+            result.xx -= 1.0;
+        }
+        if small_yy {
+            result.yy -= 1.0;
+        }
+        if small_zz {
+            result.zz -= 1.0;
+        }
         result
     }
 
     /// Frobenius norm squared (off-diagonal counted twice, matching OpenFOAM)
     #[inline]
     pub fn mag_sqr(self) -> f64 {
-        let Self { xx, xy, xz, yy, yz, zz } = self;
+        let Self {
+            xx,
+            xy,
+            xz,
+            yy,
+            yz,
+            zz,
+        } = self;
         xx * xx + 2.0 * xy * xy + 2.0 * xz * xz + yy * yy + 2.0 * yz * yz + zz * zz
     }
 
     #[inline]
-    pub fn mag(self) -> f64 { self.mag_sqr().sqrt() }
+    pub fn mag(self) -> f64 {
+        self.mag_sqr().sqrt()
+    }
 
     /// Sum of squared diagonal entries (not Frobenius)
     #[inline]
-    pub fn diag_sqr(self) -> f64 { self.xx * self.xx + self.yy * self.yy + self.zz * self.zz }
+    pub fn diag_sqr(self) -> f64 {
+        self.xx * self.xx + self.yy * self.yy + self.zz * self.zz
+    }
 
     /// Self² as a SymmTensor (S·S where both factors are symmetric)
     #[inline]
     pub fn inner_sqr(self) -> Self {
-        let Self { xx, xy, xz, yy, yz, zz } = self;
+        let Self {
+            xx,
+            xy,
+            xz,
+            yy,
+            yz,
+            zz,
+        } = self;
         Self {
             xx: xx * xx + xy * xy + xz * xz,
             xy: xx * xy + xy * yy + xz * yz,
@@ -191,43 +280,58 @@ impl SymmTensor {
     #[inline]
     pub fn from_outer(v: Vector3) -> Self {
         Self {
-            xx: v.x * v.x, xy: v.x * v.y, xz: v.x * v.z,
-            yy: v.y * v.y, yz: v.y * v.z,
+            xx: v.x * v.x,
+            xy: v.x * v.y,
+            xz: v.x * v.z,
+            yy: v.y * v.y,
+            yz: v.y * v.z,
             zz: v.z * v.z,
         }
     }
 
     /// First invariant: trace
     #[inline]
-    pub fn invariant_i(self) -> f64 { self.tr() }
+    pub fn invariant_i(self) -> f64 {
+        self.tr()
+    }
 
     /// Second invariant: (xx*yy + yy*zz + xx*zz) - (xy² + yz² + xz²)
     #[inline]
     pub fn invariant_ii(self) -> f64 {
         self.xx * self.yy + self.yy * self.zz + self.xx * self.zz
-            - self.xy * self.xy - self.yz * self.yz - self.xz * self.xz
+            - self.xy * self.xy
+            - self.yz * self.yz
+            - self.xz * self.xz
     }
 
     /// Third invariant: determinant
     #[inline]
-    pub fn invariant_iii(self) -> f64 { self.det() }
+    pub fn invariant_iii(self) -> f64 {
+        self.det()
+    }
 
     /// Linear interpolation
     #[inline]
     pub fn lerp(a: Self, b: Self, t: f64) -> Self {
         let ot = 1.0 - t;
         Self {
-            xx: ot * a.xx + t * b.xx, xy: ot * a.xy + t * b.xy,
-            xz: ot * a.xz + t * b.xz, yy: ot * a.yy + t * b.yy,
-            yz: ot * a.yz + t * b.yz, zz: ot * a.zz + t * b.zz,
+            xx: ot * a.xx + t * b.xx,
+            xy: ot * a.xy + t * b.xy,
+            xz: ot * a.xz + t * b.xz,
+            yy: ot * a.yy + t * b.yy,
+            yz: ot * a.yz + t * b.yz,
+            zz: ot * a.zz + t * b.zz,
         }
     }
 
     /// True if the tensor is (approximately) the identity.
     pub fn is_identity(self, tol: f64) -> bool {
-        (self.xx - 1.0).abs() < tol && (self.yy - 1.0).abs() < tol
+        (self.xx - 1.0).abs() < tol
+            && (self.yy - 1.0).abs() < tol
             && (self.zz - 1.0).abs() < tol
-            && self.xy.abs() < tol && self.xz.abs() < tol && self.yz.abs() < tol
+            && self.xy.abs() < tol
+            && self.xz.abs() < tol
+            && self.yz.abs() < tol
     }
 }
 
@@ -236,7 +340,14 @@ impl SymmTensor {
 impl From<SphericalTensor> for SymmTensor {
     #[inline]
     fn from(st: SphericalTensor) -> Self {
-        Self { xx: st.ii, xy: 0.0, xz: 0.0, yy: st.ii, yz: 0.0, zz: st.ii }
+        Self {
+            xx: st.ii,
+            xy: 0.0,
+            xz: 0.0,
+            yy: st.ii,
+            yz: 0.0,
+            zz: st.ii,
+        }
     }
 }
 
@@ -246,7 +357,14 @@ impl Neg for SymmTensor {
     type Output = Self;
     #[inline]
     fn neg(self) -> Self {
-        Self { xx: -self.xx, xy: -self.xy, xz: -self.xz, yy: -self.yy, yz: -self.yz, zz: -self.zz }
+        Self {
+            xx: -self.xx,
+            xy: -self.xy,
+            xz: -self.xz,
+            yy: -self.yy,
+            yz: -self.yz,
+            zz: -self.zz,
+        }
     }
 }
 
@@ -255,8 +373,12 @@ impl Add for SymmTensor {
     #[inline]
     fn add(self, r: Self) -> Self {
         Self {
-            xx: self.xx + r.xx, xy: self.xy + r.xy, xz: self.xz + r.xz,
-            yy: self.yy + r.yy, yz: self.yz + r.yz, zz: self.zz + r.zz,
+            xx: self.xx + r.xx,
+            xy: self.xy + r.xy,
+            xz: self.xz + r.xz,
+            yy: self.yy + r.yy,
+            yz: self.yz + r.yz,
+            zz: self.zz + r.zz,
         }
     }
 }
@@ -266,8 +388,12 @@ impl Sub for SymmTensor {
     #[inline]
     fn sub(self, r: Self) -> Self {
         Self {
-            xx: self.xx - r.xx, xy: self.xy - r.xy, xz: self.xz - r.xz,
-            yy: self.yy - r.yy, yz: self.yz - r.yz, zz: self.zz - r.zz,
+            xx: self.xx - r.xx,
+            xy: self.xy - r.xy,
+            xz: self.xz - r.xz,
+            yy: self.yy - r.yy,
+            yz: self.yz - r.yz,
+            zz: self.zz - r.zz,
         }
     }
 }
@@ -277,8 +403,12 @@ impl Mul<f64> for SymmTensor {
     #[inline]
     fn mul(self, s: f64) -> Self {
         Self {
-            xx: self.xx * s, xy: self.xy * s, xz: self.xz * s,
-            yy: self.yy * s, yz: self.yz * s, zz: self.zz * s,
+            xx: self.xx * s,
+            xy: self.xy * s,
+            xz: self.xz * s,
+            yy: self.yy * s,
+            yz: self.yz * s,
+            zz: self.zz * s,
         }
     }
 }
@@ -286,7 +416,9 @@ impl Mul<f64> for SymmTensor {
 impl Mul<SymmTensor> for f64 {
     type Output = SymmTensor;
     #[inline]
-    fn mul(self, st: SymmTensor) -> SymmTensor { st * self }
+    fn mul(self, st: SymmTensor) -> SymmTensor {
+        st * self
+    }
 }
 
 impl Div<f64> for SymmTensor {
@@ -294,25 +426,35 @@ impl Div<f64> for SymmTensor {
     #[inline]
     fn div(self, s: f64) -> Self {
         Self {
-            xx: self.xx / s, xy: self.xy / s, xz: self.xz / s,
-            yy: self.yy / s, yz: self.yz / s, zz: self.zz / s,
+            xx: self.xx / s,
+            xy: self.xy / s,
+            xz: self.xz / s,
+            yy: self.yy / s,
+            yz: self.yz / s,
+            zz: self.zz / s,
         }
     }
 }
 
 impl AddAssign for SymmTensor {
     #[inline]
-    fn add_assign(&mut self, r: Self) { *self = *self + r; }
+    fn add_assign(&mut self, r: Self) {
+        *self = *self + r;
+    }
 }
 
 impl SubAssign for SymmTensor {
     #[inline]
-    fn sub_assign(&mut self, r: Self) { *self = *self - r; }
+    fn sub_assign(&mut self, r: Self) {
+        *self = *self - r;
+    }
 }
 
 impl MulAssign<f64> for SymmTensor {
     #[inline]
-    fn mul_assign(&mut self, s: f64) { *self = *self * s; }
+    fn mul_assign(&mut self, s: f64) {
+        *self = *self * s;
+    }
 }
 
 // SphericalTensor ± SymmTensor → SymmTensor
@@ -322,8 +464,11 @@ impl Add<SymmTensor> for SphericalTensor {
     #[inline]
     fn add(self, st: SymmTensor) -> SymmTensor {
         SymmTensor {
-            xx: self.ii + st.xx, xy: st.xy, xz: st.xz,
-            yy: self.ii + st.yy, yz: st.yz,
+            xx: self.ii + st.xx,
+            xy: st.xy,
+            xz: st.xz,
+            yy: self.ii + st.yy,
+            yz: st.yz,
             zz: self.ii + st.zz,
         }
     }
@@ -332,7 +477,9 @@ impl Add<SymmTensor> for SphericalTensor {
 impl Add<SphericalTensor> for SymmTensor {
     type Output = Self;
     #[inline]
-    fn add(self, spt: SphericalTensor) -> Self { spt + self }
+    fn add(self, spt: SphericalTensor) -> Self {
+        spt + self
+    }
 }
 
 impl Sub<SymmTensor> for SphericalTensor {
@@ -340,8 +487,11 @@ impl Sub<SymmTensor> for SphericalTensor {
     #[inline]
     fn sub(self, st: SymmTensor) -> SymmTensor {
         SymmTensor {
-            xx: self.ii - st.xx, xy: -st.xy, xz: -st.xz,
-            yy: self.ii - st.yy, yz: -st.yz,
+            xx: self.ii - st.xx,
+            xy: -st.xy,
+            xz: -st.xz,
+            yy: self.ii - st.yy,
+            yz: -st.yz,
             zz: self.ii - st.zz,
         }
     }
@@ -352,8 +502,11 @@ impl Sub<SphericalTensor> for SymmTensor {
     #[inline]
     fn sub(self, spt: SphericalTensor) -> Self {
         Self {
-            xx: self.xx - spt.ii, xy: self.xy, xz: self.xz,
-            yy: self.yy - spt.ii, yz: self.yz,
+            xx: self.xx - spt.ii,
+            xy: self.xy,
+            xz: self.xz,
+            yy: self.yy - spt.ii,
+            yz: self.yz,
             zz: self.zz - spt.ii,
         }
     }
@@ -363,57 +516,85 @@ impl Sub<SphericalTensor> for SymmTensor {
 impl Mul<SymmTensor> for SphericalTensor {
     type Output = SymmTensor;
     #[inline]
-    fn mul(self, st: SymmTensor) -> SymmTensor { st * self.ii }
+    fn mul(self, st: SymmTensor) -> SymmTensor {
+        st * self.ii
+    }
 }
 
 impl Mul<SphericalTensor> for SymmTensor {
     type Output = Self;
     #[inline]
-    fn mul(self, spt: SphericalTensor) -> Self { self * spt.ii }
+    fn mul(self, spt: SphericalTensor) -> Self {
+        self * spt.ii
+    }
 }
 
 // --- Free functions ---
 
 #[inline]
-pub fn tr(st: SymmTensor) -> f64 { st.tr() }
+pub fn tr(st: SymmTensor) -> f64 {
+    st.tr()
+}
 
 #[inline]
-pub fn det(st: SymmTensor) -> f64 { st.det() }
+pub fn det(st: SymmTensor) -> f64 {
+    st.det()
+}
 
 #[inline]
-pub fn inv(st: SymmTensor) -> SymmTensor { st.inv() }
+pub fn inv(st: SymmTensor) -> SymmTensor {
+    st.inv()
+}
 
 #[inline]
-pub fn dev(st: SymmTensor) -> SymmTensor { st.dev() }
+pub fn dev(st: SymmTensor) -> SymmTensor {
+    st.dev()
+}
 
 #[inline]
-pub fn dev2(st: SymmTensor) -> SymmTensor { st.dev2() }
+pub fn dev2(st: SymmTensor) -> SymmTensor {
+    st.dev2()
+}
 
 /// Symmetric part of a SymmTensor is itself.
 #[inline]
-pub fn symm(st: SymmTensor) -> SymmTensor { st }
+pub fn symm(st: SymmTensor) -> SymmTensor {
+    st
+}
 
 /// Twice the symmetric part of a SymmTensor.
 #[inline]
-pub fn two_symm(st: SymmTensor) -> SymmTensor { st * 2.0 }
+pub fn two_symm(st: SymmTensor) -> SymmTensor {
+    st * 2.0
+}
 
 /// dev(symm(st)) — deviatoric of symmetric part (same as dev for SymmTensor).
 #[inline]
-pub fn dev_symm(st: SymmTensor) -> SymmTensor { st.dev() }
+pub fn dev_symm(st: SymmTensor) -> SymmTensor {
+    st.dev()
+}
 
 /// dev(2*symm(st))
 #[inline]
-pub fn dev_two_symm(st: SymmTensor) -> SymmTensor { st.dev2() }
+pub fn dev_two_symm(st: SymmTensor) -> SymmTensor {
+    st.dev2()
+}
 
 /// Outer (dyadic) product v ⊗ v as a SymmTensor. C++ `sqr(Vector)`.
 #[inline]
-pub fn sqr(v: Vector3) -> SymmTensor { SymmTensor::from_outer(v) }
+pub fn sqr(v: Vector3) -> SymmTensor {
+    SymmTensor::from_outer(v)
+}
 
 #[inline]
-pub fn mag_sqr(st: SymmTensor) -> f64 { st.mag_sqr() }
+pub fn mag_sqr(st: SymmTensor) -> f64 {
+    st.mag_sqr()
+}
 
 #[inline]
-pub fn lerp(a: SymmTensor, b: SymmTensor, t: f64) -> SymmTensor { SymmTensor::lerp(a, b, t) }
+pub fn lerp(a: SymmTensor, b: SymmTensor, t: f64) -> SymmTensor {
+    SymmTensor::lerp(a, b, t)
+}
 
 #[cfg(test)]
 mod tests {

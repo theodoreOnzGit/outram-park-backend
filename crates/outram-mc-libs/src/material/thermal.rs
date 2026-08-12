@@ -386,7 +386,10 @@ impl ThermalScattering {
         let xs_e = log_grid(E_MIN_GRID_EV, cutoff_ev, N_XS_GRID);
         let xs_sigma: Vec<f64> = xs_e
             .iter()
-            .map(|&e| sab.inelastic_xs(NeutronEnergy::new::<electronvolt>(e)).get::<barn>())
+            .map(|&e| {
+                sab.inelastic_xs(NeutronEnergy::new::<electronvolt>(e))
+                    .get::<barn>()
+            })
             .collect();
 
         // Emission grid — a coarser log-spaced incident-energy grid, each point
@@ -652,7 +655,11 @@ fn build_emission_table(
 ) -> EmissionTable {
     use uom::si::energy::electronvolt;
     if bins.is_empty() {
-        return EmissionTable { e_out: Vec::new(), cosines: Vec::new(), n_mu: 0 };
+        return EmissionTable {
+            e_out: Vec::new(),
+            cosines: Vec::new(),
+            n_mu: 0,
+        };
     }
     let n_mu = bins.iter().map(|b| b.cosines.len()).min().unwrap_or(0);
     let mut e_out = Vec::with_capacity(bins.len());
@@ -663,7 +670,11 @@ fn build_emission_table(
             cosines.push(b.cosines[j]);
         }
     }
-    EmissionTable { e_out, cosines, n_mu }
+    EmissionTable {
+        e_out,
+        cosines,
+        n_mu,
+    }
 }
 
 /// A logarithmically spaced grid of `n` points on `[lo, hi]` \[eV\] (both

@@ -34,6 +34,17 @@ pub struct HtgrSnapshot {
     pub delayed_power_mw: f64,
     /// Lumped fuel temperature \[K\].
     pub fuel_temperature_k: f64,
+    /// Bed-average GRAPHITE temperature of the pebble bed \[K\].
+    ///
+    /// Distinct from [`Self::fuel_temperature_k`], which is the kinetics
+    /// model's lumped fuel node. This is the bed the helium actually flows
+    /// through, so it is the one that must exceed the core outlet temperature
+    /// — the gas cannot leave hotter than the solid heating it.
+    ///
+    /// **Not a peak fuel temperature.** It is a bed average; a real HTR-10
+    /// peak fuel temperature is well above it and this model cannot resolve
+    /// one, having a single lumped bed node.
+    pub bed_temperature_k: f64,
     /// Reactivity margin \[dollars\].
     pub reactivity_margin_dollars: f64,
     /// Effective total delayed-neutron fraction \[pcm\].
@@ -107,35 +118,52 @@ pub struct HtgrSnapshot {
 }
 
 impl Default for HtgrSnapshot {
+    /// The **first frame only**: the physics thread overwrites every output
+    /// field on its first tick, roughly 10 ms after the window opens.
+    ///
+    /// These are set at the plant's nominal operating point rather than at
+    /// zero so the opening frame is not misleading -- a schematic that flashes
+    /// a 573 K isothermal core before jumping to the real state reads as a
+    /// fault. The values are the published HTR-10 phase-one operating
+    /// conditions (IAEA-TECDOC-1382): 10 MWth, 4.3 kg/s of helium at
+    /// 250 degC in / 700 degC out, main steam 4.0 MPa at 440 degC and
+    /// 12.5 t/hr, feedwater 104 degC. They are **initial display values, not
+    /// a claim about this model's converged state**, and the derived
+    /// quantities (duties, powers, residence times) start at zero because
+    /// nothing has been computed yet.
     fn default() -> Self {
         Self {
             external_reactivity_dollars: 0.0,
-            helium_flow_setpoint_kg_per_s: 85.0,
-            reactor_power_mw: 200.0,
-            prompt_power_mw: 200.0,
+            helium_flow_setpoint_kg_per_s: 4.3,
+            reactor_power_mw: 10.0,
+            prompt_power_mw: 10.0,
             delayed_power_mw: 0.0,
-            fuel_temperature_k: 900.0,
+            fuel_temperature_k: 950.0,
+            bed_temperature_k: 985.0,
             reactivity_margin_dollars: 0.0,
             delayed_neutron_fraction_pcm: 650.0,
-            core_inlet_temp_k: 573.0,
-            core_outlet_temp_k: 573.0,
-            helium_mass_flow_kg_per_s: 85.0,
+            core_inlet_temp_k: 523.15,
+            core_outlet_temp_k: 973.15,
+            helium_mass_flow_kg_per_s: 4.3,
             ihx_duty_mw: 0.0,
-            ihx_outlet_temp_k: 573.0,
+            ihx_outlet_temp_k: 523.15,
             helium_residence_time_s: 0.0,
             primary_pressure_drop_kpa: 0.0,
             circulator_power_mw: 0.0,
             helium_cp_j_per_kg_k: 5193.0,
-            steam_pressure_mpa: 10.0,
-            sg_steam_outlet_temp_k: 500.0,
-            steam_enthalpy_j_per_kg: 1.0e6,
-            turbine_inlet_temp_k: 500.0,
+            steam_pressure_mpa: 4.0,
+            sg_steam_outlet_temp_k: 713.15,
+            // Superheated steam at 4.0 MPa, 440 degC (IAPWS-IF97 region 2).
+            steam_enthalpy_j_per_kg: 3.307e6,
+            turbine_inlet_temp_k: 713.15,
             turbine_power_mw: 0.0,
             steam_quality_after_turbine: 0.0,
             condenser_pressure_kpa: 7.0,
-            secondary_mass_flow_kg_per_s: 80.0,
+            // 12.5 t/hr of main steam.
+            secondary_mass_flow_kg_per_s: 3.47,
             secondary_residence_time_s: 0.0,
-            feedwater_enthalpy_j_per_kg: 1.0e6,
+            // Saturated liquid at 104 degC, the published feedwater state.
+            feedwater_enthalpy_j_per_kg: 4.36e5,
             condensate_enthalpy_j_per_kg: 1.63e5,
             feed_pump_power_mw: 0.0,
             net_cycle_power_mw: 0.0,

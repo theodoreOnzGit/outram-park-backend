@@ -19,9 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use super::{
-    adaptive_step, integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem,
-};
+use super::{adaptive_step, integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem};
 
 /// Explicit first-order Euler solver with adaptive step size.
 /// Maps to `Foam::Euler` (which inherits from `adaptiveSolver`).

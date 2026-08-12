@@ -1,4 +1,3 @@
-
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 // GUI (egui/eframe) example -- out of scope for Android, whose windowing stack
@@ -17,11 +16,8 @@ fn main() {}
 /// with a permenantly steady state steam cycle
 /// the latter uses the tampines-steam-tables
 #[cfg(not(target_os = "android"))]
-fn main(){
-
+fn main() {
     fhr_simulator_v2().unwrap();
-
-
 }
 #[cfg(not(target_os = "android"))]
 use std::sync::{Arc, Mutex};
@@ -33,41 +29,44 @@ use uom::si::{f64::*, power::kilowatt};
 use outram_park_digital_twin_engine::app_scaffold::{spawn_monitored, ThreadHealth};
 
 #[cfg(not(target_os = "android"))]
+use crate::app::thermal_hydraulics_backend::salt_freeze_guard::SaltFreezeMonitor;
+
+#[cfg(not(target_os = "android"))]
 use crate::app::{graph_data::PagePlotData, panel_enum::Panel};
 
-/// this is how the fhr simulator runs 
+/// this is how the fhr simulator runs
 ///
-/// there are a number of things to improve though, some that make this 
-/// simulator a little annoying to use 
+/// there are a number of things to improve though, some that make this
+/// simulator a little annoying to use
 ///
-/// 1. Salt freezes and temperature overrides. Sometimes the salt temperature 
-/// goes too low for the loop. In that case, the salt freezes. 
-/// But programmatically, the loop thermal hydraulics cycle crashes. 
-/// I'd rather just have the flow stop and give the user an option to 
-/// that any said salt loop. Thus resetting all the temperatures in 
+/// 1. Salt freezes and temperature overrides. Sometimes the salt temperature
+/// goes too low for the loop. In that case, the salt freezes.
+/// But programmatically, the loop thermal hydraulics cycle crashes.
+/// I'd rather just have the flow stop and give the user an option to
+/// that any said salt loop. Thus resetting all the temperatures in
 /// the loop.
 ///
-/// 2. Salt overheating in the HITEC loop. 
-/// This is where the salt in HITEC loop gets too hot, thus making the 
-/// HITEC thermally decompose in real life. Programmatically, the thermal 
+/// 2. Salt overheating in the HITEC loop.
+/// This is where the salt in HITEC loop gets too hot, thus making the
+/// HITEC thermally decompose in real life. Programmatically, the thermal
 /// hydraulics loop stops working because the temperature is out of range.
 /// I'd rather give the user an option to restart the loop completely.
 ///
-/// 3. For natural circulation, the loop flowrates sometimes don't add 
-/// up to 0.0 kg/s. 
+/// 3. For natural circulation, the loop flowrates sometimes don't add
+/// up to 0.0 kg/s.
 ///
-/// 4. For natural circulation, one should be able to block the downcomer 
-/// valve in the primary loop. Thus having natural circulation 
+/// 4. For natural circulation, one should be able to block the downcomer
+/// valve in the primary loop. Thus having natural circulation
 ///
-/// 5. I'd rather have flowrates a little bit higher in the loop, getting to 
+/// 5. I'd rather have flowrates a little bit higher in the loop, getting to
 /// levels nearer the KP-FHR.
 ///
-/// 6. The steam cycle is steady state yes. But this often causes numerical 
-/// instabilities where the steam temperature is sometimes too high. 
-/// This is especially when the UA value exceeds some number. It would be 
+/// 6. The steam cycle is steady state yes. But this often causes numerical
+/// instabilities where the steam temperature is sometimes too high.
+/// This is especially when the UA value exceeds some number. It would be
 /// good to have some realism added where UA is not toggled by the user,
 /// but is controlled via some departure from nucleate boiling model. In  
-/// this manner, the steam shouldn't overheat unnaturally. 
+/// this manner, the steam shouldn't overheat unnaturally.
 ///
 /// In the simplest assumption, pool boiling can be assumed
 /// https://www.nuclear-power.com/nuclear-engineering/heat-transfer/boiling-and-condensation/boiling-crisis-critical-heat-flux/
@@ -75,12 +74,12 @@ use crate::app::{graph_data::PagePlotData, panel_enum::Panel};
 /// 7. Aesthetics. These are horrible for now and will need to change.
 /// Long list to try and improve for later.
 ///
-/// 8. Data presentation. 
+/// 8. Data presentation.
 ///
 /// 9. Validation and Verification. For PRKE, this is still not done,
 /// will need to ensure that PRKE solver is reasonably accurate.
 ///
-/// 
+///
 ///
 ///
 #[cfg(not(target_os = "android"))]
@@ -96,14 +95,11 @@ pub fn fhr_simulator_v2() -> eframe::Result<()> {
         native_options,
         Box::new(|cc| {
             // image support,
-            // from 
+            // from
             // https://github.com/emilk/egui/tree/master/examples/images
             egui_extras::install_image_loaders(&cc.egui_ctx);
             Ok(Box::new(FHRSimulatorApp::new(cc)))
-
-    }
-
-        ),
+        }),
     )
 }
 #[cfg(not(target_os = "android"))]
@@ -111,7 +107,6 @@ pub fn fhr_simulator_v2() -> eframe::Result<()> {
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 #[derive(Clone, Debug)]
 pub struct FHRSimulatorApp {
-
     pub fhr_state: Arc<Mutex<FHRState>>,
 
     /// what panel is open
@@ -129,12 +124,22 @@ pub struct FHRSimulatorApp {
     /// stale numbers (and, because a panicking thread poisons the `FHRState`
     /// mutex, the GUI early-returns before touching that poisoned lock).
     pub thread_health: ThreadHealth,
+
+    #[serde(skip)]
+    /// Salt-freeze pause/melt handle shared with the thermal-hydraulics
+    /// thread. A frozen salt loop is a *recoverable* excursion out of the
+    /// model's valid envelope, unlike the panics `thread_health` reports, so
+    /// it gets its own flag and its own modal: the physics thread parks
+    /// before the property call that would panic, and the GUI offers a melt
+    /// that resumes it. See
+    /// [`app::thermal_hydraulics_backend::salt_freeze_guard`].
+    pub salt_freeze_monitor: SaltFreezeMonitor,
 }
 
 #[cfg(not(target_os = "android"))]
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct FHRState {
     /// left control rod insertion fraction
     pub left_cr_insertion_frac: f32,
@@ -159,26 +164,25 @@ pub struct FHRState {
     /// this displays reactor thermal power in megawatts,
     /// including decay heat
     pub reactor_power_megawatts: f64,
-    /// this is decay heat in megawatts 
+    /// this is decay heat in megawatts
     pub reactor_decay_heat_megawatts: f64,
     /// this displays reactor keff
     pub keff: f64,
-    /// this displays reactivity in dollars 
+    /// this displays reactivity in dollars
     pub reactivity_dollars: f64,
-    /// this displays xenon feedback in dollars 
+    /// this displays xenon feedback in dollars
     pub xenon135_feedback_dollars: f64,
 
-    // this is important for coupling between prke loop and thermal 
+    // this is important for coupling between prke loop and thermal
     // hydraulics loop
     pub prke_loop_accumulated_timestep_seconds: f64,
     pub prke_loop_accumulated_heat_removal_kilojoules: f64,
 
-    /// pump pressure settings 
+    /// pump pressure settings
     pub fhr_pri_loop_pump_pressure_kilopascals: f64,
     pub fhr_intermediate_loop_pump_pressure_kilopascals: f64,
 
-
-    // this is important for timestep monitoring 
+    // this is important for timestep monitoring
     // time diagnostics
     pub prke_simulation_time_seconds: f64,
     pub prke_elapsed_time_seconds: f64,
@@ -189,15 +193,13 @@ pub struct FHRState {
     pub thermal_hydraulics_calc_time_microseconds: f64,
     pub thermal_hydraulics_timestep_microseconds: f64,
 
-
-    // mass flowrate 
-    // diagnostics for thermal hydraulics loop 
+    // mass flowrate
+    // diagnostics for thermal hydraulics loop
     pub reactor_branch_flowrate_kg_per_s: f64,
     pub downcomer1_branch_flowrate_kg_per_s: f64,
     pub downcomer2_branch_flowrate_kg_per_s: f64,
     pub ihx_branch_flowrate_kg_per_s: f64,
     pub intermediate_loop_clockwise_flow_kg_per_s: f64,
-
 
     // temperatures for primary loop diagnostics
     pub pipe_4_temperature_vector_degc: Vec<f64>,
@@ -214,8 +216,8 @@ pub struct FHRState {
     pub pipe_12_temperature_vector_degc: Vec<f64>,
     pub pipe_13_temperature_vector_degc: Vec<f64>,
     /// steam generator (sg) shell side labelled 14,
-    /// this is the temperature of 
-    /// HITEC that fills the shell side of 
+    /// this is the temperature of
+    /// HITEC that fills the shell side of
     /// the steam generator
     pub sg_shell_14_temperature_vector_degc: Vec<f64>,
     pub pipe_15_temperature_vector_degc: Vec<f64>,
@@ -225,16 +227,16 @@ pub struct FHRState {
     // settings for steam generator loop
     pub user_specified_secondary_loop_mass_flowrate_kg_per_s: f64,
     pub user_specified_secondary_loop_pump_outlet_pressure_bar: f64,
-    pub user_specified_secondary_loop_ua_watt_per_kelvin:f64,
+    pub user_specified_secondary_loop_ua_watt_per_kelvin: f64,
     pub steam_generator_tube_outlet_temperature_degc: f64,
 
-    // void fractions for secondary loop 
+    // void fractions for secondary loop
     pub steam_quality_after_condenser: f64,
     pub steam_quality_after_pump: f64,
     pub steam_quality_after_steam_generator_tube_side: f64,
     pub steam_quality_after_turbine: f64,
 
-    // performance metrics for steam cycle 
+    // performance metrics for steam cycle
     pub turbine_power_megawatts: f64,
     pub condenser_duty_megawatts: f64,
     pub turbine_rpm: f64,
@@ -244,7 +246,7 @@ pub struct FHRState {
 impl Default for FHRState {
     fn default() -> Self {
         let default_temperature_degc = 500.0;
-        FHRState { 
+        FHRState {
             left_cr_insertion_frac: 0.40,
             right_cr_insertion_frac: 0.40,
             pebble_core_temp_degc: default_temperature_degc,
@@ -312,19 +314,15 @@ impl Default for FHRState {
 
 #[cfg(not(target_os = "android"))]
 impl FHRState {
-
-    pub fn obtain_average_heat_removal_rate_from_pebble_bed_and_reset_counter(
-        &mut self) -> Power {
-        let heat_removal_rate_kilowatts = 
-            self.prke_loop_accumulated_heat_removal_kilojoules/
-            self.prke_loop_accumulated_timestep_seconds;
+    pub fn obtain_average_heat_removal_rate_from_pebble_bed_and_reset_counter(&mut self) -> Power {
+        let heat_removal_rate_kilowatts = self.prke_loop_accumulated_heat_removal_kilojoules
+            / self.prke_loop_accumulated_timestep_seconds;
 
         self.prke_loop_accumulated_timestep_seconds = 0.0;
         self.prke_loop_accumulated_heat_removal_kilojoules = 0.0;
         return Power::new::<kilowatt>(heat_removal_rate_kilowatts);
     }
 }
-
 
 #[cfg(not(target_os = "android"))]
 impl FHRSimulatorApp {
@@ -341,16 +339,13 @@ impl FHRSimulatorApp {
 
         let new_fhr_app: FHRSimulatorApp = Default::default();
 
-        let fhr_state_prke_ptr: Arc<Mutex<FHRState>> = 
-            new_fhr_app.fhr_state.clone();
-        let fhr_state_thermal_hydraulics_ptr: Arc<Mutex<FHRState>> = 
-            new_fhr_app.fhr_state.clone();
-        // these are pointers/references for plotting reactor power 
-        // both the instantaneous state 
+        let fhr_state_prke_ptr: Arc<Mutex<FHRState>> = new_fhr_app.fhr_state.clone();
+        let fhr_state_thermal_hydraulics_ptr: Arc<Mutex<FHRState>> = new_fhr_app.fhr_state.clone();
+        // these are pointers/references for plotting reactor power
+        // both the instantaneous state
         // and page plotting
-        let fhr_state_plot_ptr: Arc<Mutex<FHRState>> = 
-            new_fhr_app.fhr_state.clone();
-        let fhr_page_plot_ptr: Arc<Mutex<PagePlotData>> = 
+        let fhr_state_plot_ptr: Arc<Mutex<FHRState>> = new_fhr_app.fhr_state.clone();
+        let fhr_page_plot_ptr: Arc<Mutex<PagePlotData>> =
             new_fhr_app.fhr_simulator_ptr_for_plotting.clone();
 
         // Shared crash flag for the three physics threads below. Spawned via
@@ -359,40 +354,38 @@ impl FHRSimulatorApp {
         // modal) instead of silently killing the subsystem.
         let thread_health: ThreadHealth = new_fhr_app.thread_health.clone();
 
+        // Salt-freeze pause handle for the thermal-hydraulics thread. Unlike
+        // `thread_health` this is a graceful, resumable stop: the physics
+        // thread detects a loop going below its salt's melting point from
+        // state and parks *before* the out-of-range property call, so the
+        // plant is held at a known-good condition rather than half-stepped.
+        let salt_freeze_monitor: SaltFreezeMonitor = new_fhr_app.salt_freeze_monitor.clone();
+
         // now spawn a thread to do the kinetics
         //
-        spawn_monitored("fhr-prke", thread_health.clone(), move ||{
+        spawn_monitored("fhr-prke", thread_health.clone(), move || {
             // now I also have a PRKE data which lives inside this loop
             FHRSimulatorApp::calculate_prke_loop(fhr_state_prke_ptr);
         });
 
         // spawn a thread to do the thermal hydraulics
-        spawn_monitored("fhr-thermal-hydraulics", thread_health.clone(), move ||{
-
+        spawn_monitored("fhr-thermal-hydraulics", thread_health.clone(), move || {
             FHRSimulatorApp::calculate_thermal_hydraulics_loop(
-                fhr_state_thermal_hydraulics_ptr
+                fhr_state_thermal_hydraulics_ptr,
+                salt_freeze_monitor,
             );
-
         });
         // spawn a thread to do the updating of graph plots
-        spawn_monitored("fhr-plot-updater", thread_health.clone(), move ||{
-            FHRSimulatorApp::update_plot_from_fhr_state(
-                fhr_state_plot_ptr,
-                fhr_page_plot_ptr
-            );
-
+        spawn_monitored("fhr-plot-updater", thread_health.clone(), move || {
+            FHRSimulatorApp::update_plot_from_fhr_state(fhr_state_plot_ptr, fhr_page_plot_ptr);
         });
 
         new_fhr_app
     }
-
-
-    
 }
 #[cfg(not(target_os = "android"))]
 impl Default for FHRSimulatorApp {
     fn default() -> Self {
-
         let fhr_state = FHRState::default();
         let fhr_state_ptr = Arc::new(Mutex::new(fhr_state));
         let fhr_plot: PagePlotData = PagePlotData::default();
@@ -404,7 +397,7 @@ impl Default for FHRSimulatorApp {
             open_panel: default_open_panel,
             fhr_simulator_ptr_for_plotting: fhr_plot_ptr,
             thread_health: ThreadHealth::new(),
-
+            salt_freeze_monitor: SaltFreezeMonitor::new(),
         }
     }
 }

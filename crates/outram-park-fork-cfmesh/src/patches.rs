@@ -111,7 +111,10 @@ impl SurfaceRegions {
     /// assert_eq!(r.region_of_tri.len(), 12);
     /// ```
     pub fn single(name: &str, n_tris: usize) -> Self {
-        SurfaceRegions { names: vec![name.to_string()], region_of_tri: vec![0; n_tris] }
+        SurfaceRegions {
+            names: vec![name.to_string()],
+            region_of_tri: vec![0; n_tris],
+        }
     }
 
     /// Build from a **per-triangle name**: `labels[i]` is the patch name for
@@ -144,7 +147,10 @@ impl SurfaceRegions {
             };
             region_of_tri.push(idx);
         }
-        SurfaceRegions { names, region_of_tri }
+        SurfaceRegions {
+            names,
+            region_of_tri,
+        }
     }
 
     /// Number of named regions.
@@ -167,7 +173,10 @@ impl SurfaceRegions {
         }
         for (i, r) in self.region_of_tri.iter().enumerate() {
             if *r >= self.names.len() {
-                return Err(format!("triangle {i} names region {r}, but only {} regions exist", self.names.len()));
+                return Err(format!(
+                    "triangle {i} names region {r}, but only {} regions exist",
+                    self.names.len()
+                ));
             }
         }
         for (i, n) in self.names.iter().enumerate() {
@@ -252,7 +261,9 @@ pub fn assign_patches_by_region(
     }
 
     // Internal faces keep their order and come first.
-    let mut order: Vec<usize> = (0..mesh.face_count()).filter(|&f| mesh.neighbour[f].is_some()).collect();
+    let mut order: Vec<usize> = (0..mesh.face_count())
+        .filter(|&f| mesh.neighbour[f].is_some())
+        .collect();
     let n_internal = order.len();
 
     // Bucket every boundary face by the region of its nearest input triangle.
@@ -300,8 +311,16 @@ fn nearest_triangle(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> usize {
     for (i, t) in tris.iter().enumerate() {
         let (a, b, c) = (points[t[0]], points[t[1]], points[t[2]]);
         // Cheap lower bound: squared distance to the triangle's bounding box.
-        let lo = Vec3::new(a.x.min(b.x).min(c.x), a.y.min(b.y).min(c.y), a.z.min(b.z).min(c.z));
-        let hi = Vec3::new(a.x.max(b.x).max(c.x), a.y.max(b.y).max(c.y), a.z.max(b.z).max(c.z));
+        let lo = Vec3::new(
+            a.x.min(b.x).min(c.x),
+            a.y.min(b.y).min(c.y),
+            a.z.min(b.z).min(c.z),
+        );
+        let hi = Vec3::new(
+            a.x.max(b.x).max(c.x),
+            a.y.max(b.y).max(c.y),
+            a.z.max(b.z).max(c.z),
+        );
         let dx = (lo.x - p.x).max(0.0).max(p.x - hi.x);
         let dy = (lo.y - p.y).max(0.0).max(p.y - hi.y);
         let dz = (lo.z - p.z).max(0.0).max(p.z - hi.z);
@@ -352,12 +371,28 @@ mod tests {
         assert!(s.validate(11).is_err(), "wrong triangle count rejected");
 
         let d = duct_regions();
-        assert_eq!(d.names, vec!["walls".to_string(), "outlet".to_string(), "inlet".to_string()]);
+        assert_eq!(
+            d.names,
+            vec![
+                "walls".to_string(),
+                "outlet".to_string(),
+                "inlet".to_string()
+            ]
+        );
         d.validate(12).expect("duct labels are valid");
 
-        let bad = SurfaceRegions { names: vec!["a".into()], region_of_tri: vec![0, 3] };
-        assert!(bad.validate(2).is_err(), "out-of-range region index rejected");
-        let dup = SurfaceRegions { names: vec!["a".into(), "a".into()], region_of_tri: vec![0, 1] };
+        let bad = SurfaceRegions {
+            names: vec!["a".into()],
+            region_of_tri: vec![0, 3],
+        };
+        assert!(
+            bad.validate(2).is_err(),
+            "out-of-range region index rejected"
+        );
+        let dup = SurfaceRegions {
+            names: vec!["a".into(), "a".into()],
+            region_of_tri: vec![0, 1],
+        };
         assert!(dup.validate(2).is_err(), "duplicate patch name rejected");
     }
 
@@ -378,13 +413,25 @@ mod tests {
         let mesh = carve_box(&p, &t, 0.5);
         let named = assign_patches_by_region(&mesh, &p, &t, &duct_regions()).expect("classifies");
 
-        named.validate().expect("re-ordering keeps every cell closed");
-        assert!((named.total_volume() - 1.0).abs() < 1e-9, "volume {}", named.total_volume());
+        named
+            .validate()
+            .expect("re-ordering keeps every cell closed");
+        assert!(
+            (named.total_volume() - 1.0).abs() < 1e-9,
+            "volume {}",
+            named.total_volume()
+        );
         assert_eq!(named.cell_count(), mesh.cell_count());
         assert_eq!(named.face_count(), mesh.face_count());
 
         assert_eq!(named.patches.len(), 3, "walls + outlet + inlet");
-        let get = |n: &str| named.patches.iter().find(|q| q.name == n).unwrap_or_else(|| panic!("patch {n}"));
+        let get = |n: &str| {
+            named
+                .patches
+                .iter()
+                .find(|q| q.name == n)
+                .unwrap_or_else(|| panic!("patch {n}"))
+        };
         assert_eq!(get("inlet").n_faces, 4, "2x2 faces on the -X side");
         assert_eq!(get("outlet").n_faces, 4, "2x2 faces on the +X side");
         assert_eq!(get("walls").n_faces, 16, "4 remaining sides x 4 faces");
@@ -394,20 +441,37 @@ mod tests {
         sorted.sort_by_key(|q| q.start_face);
         let mut expect = named.n_internal_faces();
         for q in &sorted {
-            assert_eq!(q.start_face, expect, "patch '{}' starts contiguously", q.name);
+            assert_eq!(
+                q.start_face, expect,
+                "patch '{}' starts contiguously",
+                q.name
+            );
             expect += q.n_faces;
         }
-        assert_eq!(expect, named.face_count(), "patches cover every boundary face");
+        assert_eq!(
+            expect,
+            named.face_count(),
+            "patches cover every boundary face"
+        );
 
         // The classification is geometrically right, not merely well-counted.
         for q in &named.patches {
             for f in q.start_face..q.start_face + q.n_faces {
-                assert!(named.neighbour[f].is_none(), "patch face {f} is a boundary face");
+                assert!(
+                    named.neighbour[f].is_none(),
+                    "patch face {f} is a boundary face"
+                );
                 let c = named.face_centroid(f);
                 match q.name.as_str() {
                     "inlet" => assert!(c.x.abs() < 1e-12, "inlet face at x=0, got {}", c.x),
-                    "outlet" => assert!((c.x - 1.0).abs() < 1e-12, "outlet face at x=1, got {}", c.x),
-                    _ => assert!(c.x > 1e-12 && c.x < 1.0 - 1e-12, "walls face off the X caps, got {}", c.x),
+                    "outlet" => {
+                        assert!((c.x - 1.0).abs() < 1e-12, "outlet face at x=1, got {}", c.x)
+                    }
+                    _ => assert!(
+                        c.x > 1e-12 && c.x < 1.0 - 1e-12,
+                        "walls face off the X caps, got {}",
+                        c.x
+                    ),
                 }
             }
         }

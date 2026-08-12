@@ -92,8 +92,15 @@ mod tests {
     /// **Result (2026-07-15).** parsed == original.
     #[test]
     fn photon_gendf_section_round_trips() {
-        let section =
-            GendfSection::vector(23, 501, 6000.0, 0.0, 2, 0.0, &[(1, 1.0e6, 0.5), (2, 5.0e5, 0.3)]);
+        let section = GendfSection::vector(
+            23,
+            501,
+            6000.0,
+            0.0,
+            2,
+            0.0,
+            &[(1, 1.0e6, 0.5), (2, 5.0e5, 0.3)],
+        );
         let rows = section.to_rows();
         let back = GendfSection::from_rows(23, 501, &rows).unwrap();
         assert_eq!(back, section);

@@ -52,5 +52,8 @@ fn every_fluid_evaluates_at_its_critical_point() {
         checked += 1;
     }
     assert_eq!(checked, Fluid::ALL.len());
-    assert!(checked >= 137, "expected all fluids wired, only {checked} checked");
+    assert!(
+        checked >= 137,
+        "expected all fluids wired, only {checked} checked"
+    );
 }

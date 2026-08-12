@@ -18,14 +18,20 @@ fn main() {
     // ---- A 3×3×3 structured packing of pebbles, with coolant gaps. ----------
     let pebbles = sphere_packing([3, 3, 3], 2.0, 0.85, 12, 24);
     let domain = bounding_domain(&pebbles, 1.0);
-    println!("Pebble bed: {} pebbles (radius 0.85, spacing 2)", pebbles.len());
+    println!(
+        "Pebble bed: {} pebbles (radius 0.85, spacing 2)",
+        pebbles.len()
+    );
 
     // ---- Carve the coolant region (domain minus every pebble). --------------
     let cell_size = 0.2;
     let carved = carve_around(&domain, &pebbles, cell_size);
     println!("\nCarve (cell size {cell_size}):");
     println!("  cells             = {}", carved.cell_count());
-    println!("  boundary patches  = {} (walls + one per pebble)", carved.patches.len());
+    println!(
+        "  boundary patches  = {} (walls + one per pebble)",
+        carved.patches.len()
+    );
     println!("  coolant volume    = {:.3}", carved.total_volume());
 
     // ---- Snap to the union of all surfaces, then check quality. -------------
@@ -40,12 +46,18 @@ fn main() {
     let q = check_quality(&snapped);
     println!("\nSnapped + checked:");
     println!("  volume            = {:.3}", snapped.total_volume());
-    println!("  max non-orth      = {:.1} deg", q.max_non_orthogonality_deg);
+    println!(
+        "  max non-orth      = {:.1} deg",
+        q.max_non_orthogonality_deg
+    );
     println!("  negative cells    = {}", q.n_negative_volume_cells);
     println!("  solvable          = {}", q.is_solvable());
     match snapped.validate() {
         Ok(()) => println!("  validate()        = OK (all cells closed)"),
         Err(e) => println!("  validate()        = {e}"),
     }
-    println!("\nPipeline ran: {} pebbles -> carve_around -> snap -> quality.", pebbles.len());
+    println!(
+        "\nPipeline ran: {} pebbles -> carve_around -> snap -> quality.",
+        pebbles.len()
+    );
 }

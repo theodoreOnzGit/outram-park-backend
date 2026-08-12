@@ -165,11 +165,7 @@ pub fn exchange_halo_2d(decomp: &Decomposition2D, u: &[f64]) -> MpiResult<Halo2D
 ///
 /// # Errors
 /// Propagates any halo-exchange transport error.
-pub fn poisson_matvec_2d(
-    decomp: &Decomposition2D,
-    u: &[f64],
-    shift: f64,
-) -> MpiResult<Vec<f64>> {
+pub fn poisson_matvec_2d(decomp: &Decomposition2D, u: &[f64], shift: f64) -> MpiResult<Vec<f64>> {
     let halo = exchange_halo_2d(decomp, u)?;
     let (lx, ly) = (decomp.lx, decomp.ly);
     let at = |ix: usize, iy: usize| u[iy * lx + ix];
@@ -349,7 +345,10 @@ mod tests {
             good
         })
         .unwrap();
-        assert!(ok.iter().all(|&b| b), "2-D distributed != serial for {px}x{py}");
+        assert!(
+            ok.iter().all(|&b| b),
+            "2-D distributed != serial for {px}x{py}"
+        );
     }
 
     #[test]

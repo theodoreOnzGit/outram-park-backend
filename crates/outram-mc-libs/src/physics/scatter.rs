@@ -105,7 +105,13 @@ fn cm_to_lab(e: f64, e_cm_out: f64, mu_cm: f64, awr: f64) -> (f64, f64) {
 /// (zero) cross section there.
 ///
 /// For an anisotropic CM angular law use [`two_body_scatter_with_mu`].
-pub fn two_body_scatter(e: f64, u: Direction, awr: f64, q: f64, seed: &mut u64) -> (f64, Direction) {
+pub fn two_body_scatter(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    q: f64,
+    seed: &mut u64,
+) -> (f64, Direction) {
     let mu_cm = 2.0 * prn(seed) - 1.0; // isotropic in CM
     two_body_scatter_with_mu(e, u, awr, q, mu_cm, seed)
 }
@@ -157,7 +163,12 @@ pub fn elastic_scatter(e: f64, u: Direction, awr: f64, seed: &mut u64) -> (f64, 
 /// the ENDF MF=5 secondary-energy law, so the true continuum distribution is not
 /// available here. The evaporation model captures the essential physics — a large,
 /// broadly distributed down-scatter — which is what softens the fast spectrum.
-pub fn continuum_inelastic_scatter(e: f64, u: Direction, awr: f64, seed: &mut u64) -> (f64, Direction) {
+pub fn continuum_inelastic_scatter(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    seed: &mut u64,
+) -> (f64, Direction) {
     let a = awr;
     let ap1 = a + 1.0;
     let e_cm_elastic = e * (a / ap1).powi(2); // max neutron CM energy (no loss)
@@ -235,13 +246,19 @@ mod tests {
         let mut sum_loss = 0.0;
         for _ in 0..10_000 {
             let (e_out, u) = two_body_scatter(e, Direction::new(0.0, 0.0, 1.0), awr, q, &mut seed);
-            assert!(e_out <= e * (1.0 + 1e-9), "inelastic gained energy: {e_out}");
+            assert!(
+                e_out <= e * (1.0 + 1e-9),
+                "inelastic gained energy: {e_out}"
+            );
             let n = (u.u * u.u + u.v * u.v + u.w * u.w).sqrt();
             assert!((n - 1.0).abs() < 1e-12, "direction not unit: {n}");
             sum_loss += e - e_out;
         }
         let mean_loss = sum_loss / 10_000.0;
-        assert!(mean_loss > 40.0e3, "mean inelastic loss {mean_loss} < excitation");
+        assert!(
+            mean_loss > 40.0e3,
+            "mean inelastic loss {mean_loss} < excitation"
+        );
     }
 
     /// The continuum evaporation channel always loses energy and stays physical
@@ -254,12 +271,19 @@ mod tests {
         let e = 2.0e6;
         let mut sum_out = 0.0;
         for _ in 0..10_000 {
-            let (e_out, _) = continuum_inelastic_scatter(e, Direction::new(0.0, 0.0, 1.0), awr, &mut seed);
-            assert!(e_out > 0.0 && e_out < e * (1.0 + 1e-9), "continuum E' out of (0,E]: {e_out}");
+            let (e_out, _) =
+                continuum_inelastic_scatter(e, Direction::new(0.0, 0.0, 1.0), awr, &mut seed);
+            assert!(
+                e_out > 0.0 && e_out < e * (1.0 + 1e-9),
+                "continuum E' out of (0,E]: {e_out}"
+            );
             sum_out += e_out;
         }
         let mean_out = sum_out / 10_000.0;
         // Elastic would keep ~99% of E; evaporation must remove much more.
-        assert!(mean_out < 0.9 * e, "continuum too hard: mean E' = {mean_out}");
+        assert!(
+            mean_out < 0.9 * e,
+            "continuum too hard: mean E' = {mean_out}"
+        );
     }
 }

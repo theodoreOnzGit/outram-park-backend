@@ -51,8 +51,16 @@ pub fn poisson_matvec(
     let n = u.len();
     let mut out = vec![0.0; n];
     for i in 0..n {
-        let west = if i > 0 { u[i - 1] } else { halo.left.unwrap_or(0.0) };
-        let east = if i + 1 < n { u[i + 1] } else { halo.right.unwrap_or(0.0) };
+        let west = if i > 0 {
+            u[i - 1]
+        } else {
+            halo.left.unwrap_or(0.0)
+        };
+        let east = if i + 1 < n {
+            u[i + 1]
+        } else {
+            halo.right.unwrap_or(0.0)
+        };
         out[i] = (2.0 + shift) * u[i] - west - east;
     }
     Ok(out)
@@ -412,8 +420,7 @@ mod tests {
             let ok = run(p, move |c| {
                 let d = Decomposition1D::new(n, c);
                 let b_local = b_ref[d.start..d.start + d.local_len].to_vec();
-                let (x_local, _) =
-                    distributed_cg(c, &d, &b_local, shift, tol, 1000).unwrap();
+                let (x_local, _) = distributed_cg(c, &d, &b_local, shift, tol, 1000).unwrap();
                 let expected = &reference[d.start..d.start + d.local_len];
                 x_local
                     .iter()

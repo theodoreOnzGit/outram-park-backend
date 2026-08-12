@@ -54,8 +54,7 @@ impl NuBar {
         match head.l2 {
             2 => {
                 let tab1 = cur.read_tab1()?;
-                let (energy, nu_total): (Vec<f64>, Vec<f64>) =
-                    tab1.pairs.iter().copied().unzip();
+                let (energy, nu_total): (Vec<f64>, Vec<f64>) = tab1.pairs.iter().copied().unzip();
                 Ok(Some(NuBar { energy, nu_total }))
             }
             1 => {
@@ -200,7 +199,10 @@ pub struct ChiTabular {
 impl Default for FissionSpectrum {
     /// A representative fast-fission Watt spectrum (U-235 thermal-fission params).
     fn default() -> Self {
-        FissionSpectrum::Watt { a: 0.988e6, b: 2.249e-6 }
+        FissionSpectrum::Watt {
+            a: 0.988e6,
+            b: 2.249e-6,
+        }
     }
 }
 
@@ -306,10 +308,12 @@ impl FissionSpectrum {
                 mean_of_pdf(&chi.tables[i].e_out, &chi.tables[i].pdf)
             }
             FissionSpectrum::Maxwell { theta, .. } => {
-                1.5 * crate::endf::interp::eval_tab1(e_in, &theta.interp, &theta.pairs).unwrap_or(0.0)
+                1.5 * crate::endf::interp::eval_tab1(e_in, &theta.interp, &theta.pairs)
+                    .unwrap_or(0.0)
             }
             FissionSpectrum::Evaporation { theta, .. } => {
-                2.0 * crate::endf::interp::eval_tab1(e_in, &theta.interp, &theta.pairs).unwrap_or(0.0)
+                2.0 * crate::endf::interp::eval_tab1(e_in, &theta.interp, &theta.pairs)
+                    .unwrap_or(0.0)
             }
             FissionSpectrum::WattEnergyDependent { a, b, .. } => {
                 let av = crate::endf::interp::eval_tab1(e_in, &a.interp, &a.pairs).unwrap_or(0.0);
@@ -412,9 +416,17 @@ fn parse_mf5_section(rows: &[[f64; 6]]) -> Result<Option<FissionSpectrum>, crate
         let p_tab = cur.read_tab1()?;
         let u = p_tab.head.c1;
         let law = match p_tab.head.l2 {
-            1 => Some(FissionSpectrum::ContinuousTabular(parse_lf1_tabular(&mut cur)?)),
-            7 => Some(FissionSpectrum::Maxwell { theta: cur.read_tab1()?, u }),
-            9 => Some(FissionSpectrum::Evaporation { theta: cur.read_tab1()?, u }),
+            1 => Some(FissionSpectrum::ContinuousTabular(parse_lf1_tabular(
+                &mut cur,
+            )?)),
+            7 => Some(FissionSpectrum::Maxwell {
+                theta: cur.read_tab1()?,
+                u,
+            }),
+            9 => Some(FissionSpectrum::Evaporation {
+                theta: cur.read_tab1()?,
+                u,
+            }),
             11 => {
                 let a = cur.read_tab1()?;
                 let b = cur.read_tab1()?;
@@ -454,7 +466,12 @@ fn parse_lf1_tabular(
         let mut pdf: Vec<f64> = g.pairs.iter().map(|&(_, y)| y).collect();
         let cdf = build_cdf(&e_out, &mut pdf, linlin);
         incident.push(e_in);
-        tables.push(ChiEout { e_out, pdf, cdf, linlin });
+        tables.push(ChiEout {
+            e_out,
+            pdf,
+            cdf,
+            linlin,
+        });
     }
     Ok(ChiTabular { incident, tables })
 }
@@ -545,9 +562,16 @@ mod tests {
     /// `e_in` (fixed-parameter Watt has no incident-energy dependence).
     #[test]
     fn watt_mean_energy_matches_closed_form() {
-        let chi = FissionSpectrum::Watt { a: 0.988e6, b: 2.249e-6 };
+        let chi = FissionSpectrum::Watt {
+            a: 0.988e6,
+            b: 2.249e-6,
+        };
         let expected = 1.5 * 0.988e6 + 0.25 * 0.988e6 * 0.988e6 * 2.249e-6;
-        assert!((chi.mean_energy(1.0e6) - expected).abs() < 1.0, "got {}", chi.mean_energy(1.0e6));
+        assert!(
+            (chi.mean_energy(1.0e6) - expected).abs() < 1.0,
+            "got {}",
+            chi.mean_energy(1.0e6)
+        );
         // Energy-independent: same at a very different e_in.
         assert!((chi.mean_energy(1.0e5) - expected).abs() < 1.0);
     }
@@ -561,7 +585,11 @@ mod tests {
             e_out: vec![0.0, 1.0e6, 2.0e6],
             pdf: vec![5.0e-7, 5.0e-7, 5.0e-7],
         };
-        assert!((chi.mean_energy(0.0) - 1.0e6).abs() < 1.0, "got {}", chi.mean_energy(0.0));
+        assert!(
+            (chi.mean_energy(0.0) - 1.0e6).abs() < 1.0,
+            "got {}",
+            chi.mean_energy(0.0)
+        );
     }
 
     /// One NR=1/NP=2 lin-lin TAB1 row group: header + 1 interp row + 1 xy row.

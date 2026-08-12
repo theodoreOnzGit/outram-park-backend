@@ -160,7 +160,10 @@ fn mms_saturated_operator_is_second_order() {
     }
     // Every refinement must reduce the error.
     for w in errors.windows(2) {
-        assert!(w[1] < w[0], "error did not decrease under refinement: {w:?}");
+        assert!(
+            w[1] < w[0],
+            "error did not decrease under refinement: {w:?}"
+        );
     }
     // Observed order between the two finest grids must approach 2.
     let order = (errors[errors.len() - 2] / errors[errors.len() - 1]).log2();

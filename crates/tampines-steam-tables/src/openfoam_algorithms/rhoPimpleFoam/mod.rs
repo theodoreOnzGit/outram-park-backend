@@ -1949,9 +1949,7 @@ mod tests {
     /// `thermal_conductivity::lambda_2_crit_enhancement_term_tp_two_phase_estimate`).
     #[test]
     fn correct_thermo_survives_two_phase_boiling_cell() {
-        use crate::interfaces::functional_programming::ph_flash_eqm::{
-            ph_flash_region, x_ph_flash,
-        };
+        use crate::interfaces::functional_programming::ph_flash_eqm::{ph_flash_region, x_ph_flash};
         use crate::interfaces::functional_programming::pt_flash_eqm::FwdEqnRegion;
 
         let mut array = TampinesSteamArray::new(

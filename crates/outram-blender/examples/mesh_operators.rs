@@ -54,16 +54,22 @@ fn main() {
     report("MeshOp::Subdivide x1 (midpoint)", &subdiv);
 
     // Vertex bevel (truncation): cube -> truncated cube (6 octagons + 8 triangles).
-    let beveled = MeshOp::Bevel { width: 0.4, segments: 1 }
-        .apply(cube.clone())
-        .expect("bevel is infallible");
+    let beveled = MeshOp::Bevel {
+        width: 0.4,
+        segments: 1,
+    }
+    .apply(cube.clone())
+    .expect("bevel is infallible");
     report("MeshOp::Bevel (truncated cube)", &beveled);
 
     // Boolean intersection of two overlapping cubes (convex restricted case).
     let shifted = shift_x(&primitives::cube(2.0), 1.0);
-    let inter = MeshOp::Boolean { other: shifted, mode: BooleanMode::Intersect }
-        .apply(cube.clone())
-        .expect("convex cube intersection is supported");
+    let inter = MeshOp::Boolean {
+        other: shifted,
+        mode: BooleanMode::Intersect,
+    }
+    .apply(cube.clone())
+    .expect("convex cube intersection is supported");
     report("MeshOp::Boolean Intersect (overlap box)", &inter);
 
     // ---- Catmull-Clark subdivision surface (crate::subdivision). ---------
@@ -74,7 +80,10 @@ fn main() {
     // ---- Non-destructive modifier stack (crate::modifiers). --------------
     // Three cubes in a row, then one level of Catmull-Clark subsurf over the lot.
     let stack = ModifierStack::new()
-        .push(Modifier::Array { count: 3, offset: [1.2, 0.0, 0.0] })
+        .push(Modifier::Array {
+            count: 3,
+            offset: [1.2, 0.0, 0.0],
+        })
         .push(Modifier::Subsurf { levels: 1 });
     let derived = stack.evaluate(&cube).expect("array + subsurf evaluate");
     report("ModifierStack: Array x3 -> Subsurf", &derived);
@@ -92,7 +101,10 @@ fn main() {
         rings: 6,
         radius: 1.0,
     }));
-    let b_moved = g.add(GeometryNode::Transform { input: b, translate: [3.0, 0.0, 0.0] });
+    let b_moved = g.add(GeometryNode::Transform {
+        input: b,
+        translate: [3.0, 0.0, 0.0],
+    });
     let joined = g.add(GeometryNode::Join { a, b: b_moved });
     g.add(GeometryNode::OutputMesh { input: joined });
     let graph_mesh = g.evaluate().expect("graph evaluates");
@@ -151,9 +163,11 @@ fn main() {
 
     // QEM (Garland–Heckbert) decimation to ~half the triangle budget.
     let target = sphere.face_count() / 2;
-    let decimated = MeshOp::Decimate { target_faces: target }
-        .apply(sphere.clone())
-        .expect("decimate is infallible");
+    let decimated = MeshOp::Decimate {
+        target_faces: target,
+    }
+    .apply(sphere.clone())
+    .expect("decimate is infallible");
     report("QEM decimate ~50%", &decimated);
 
     // Loop subdivision: one refinement step quadruples the triangle count of a
@@ -173,9 +187,9 @@ fn main() {
     report("grid(8,8)", &plane);
     let uv = parameterize(&plane, LaplacianWeighting::Uniform, BoundaryShape::Square)
         .expect("grid is a genus-0 disk");
-    let (umin, umax) = uv
-        .iter()
-        .fold((f64::MAX, f64::MIN), |(lo, hi), &(u, _)| (lo.min(u), hi.max(u)));
+    let (umin, umax) = uv.iter().fold((f64::MAX, f64::MIN), |(lo, hi), &(u, _)| {
+        (lo.min(u), hi.max(u))
+    });
     println!(
         "{:>34}: {} UV coords, u in [{:.3}, {:.3}]",
         "Tutte parameterize(grid)",
@@ -195,9 +209,12 @@ fn main() {
         (VertexId(80), Vec3::new(1.0, 1.0, 0.6)),
         (centre, Vec3::new(0.0, 0.0, 0.0)),
     ];
-    let bent = MeshOp::Arap { handles, iterations: 8 }
-        .apply(plane.clone())
-        .expect("ARAP deform");
+    let bent = MeshOp::Arap {
+        handles,
+        iterations: 8,
+    }
+    .apply(plane.clone())
+    .expect("ARAP deform");
     report("ARAP bend grid (4 corners up)", &bent);
 
     // ---- Mesh repair / modeling / cutting operators (crate::{weld, ----
@@ -206,11 +223,15 @@ fn main() {
     // into a shared-vertex solid: 24 loose corners collapse to 8.
     let exploded = explode(&cube);
     report("exploded cube (24 corners)", &exploded);
-    let welded = MeshOp::Weld { distance: 1e-6 }.apply(exploded).expect("weld");
+    let welded = MeshOp::Weld { distance: 1e-6 }
+        .apply(exploded)
+        .expect("weld");
     report("MeshOp::Weld (stitched)", &welded);
 
     // Recalculate normals outside makes winding globally consistent + outward.
-    let recalced = MeshOp::RecalculateNormals.apply(welded).expect("recalc normals");
+    let recalced = MeshOp::RecalculateNormals
+        .apply(welded)
+        .expect("recalc normals");
     report("MeshOp::RecalculateNormals", &recalced);
 
     // Open a hole (drop one face) then cap it back to watertight.
@@ -221,20 +242,29 @@ fn main() {
 
     // Solidify a flat grid into a closed slab.
     let plate = primitives::grid(4, 4, 2.0);
-    let slab = MeshOp::Solidify { thickness: 0.1 }.apply(plate).expect("solidify");
+    let slab = MeshOp::Solidify { thickness: 0.1 }
+        .apply(plate)
+        .expect("solidify");
     report("MeshOp::Solidify (grid->slab)", &slab);
 
     // Triangulate and inset the cube.
-    let triangulated = MeshOp::Triangulate.apply(cube.clone()).expect("triangulate");
+    let triangulated = MeshOp::Triangulate
+        .apply(cube.clone())
+        .expect("triangulate");
     report("MeshOp::Triangulate", &triangulated);
-    let inset = MeshOp::Inset { amount: 0.3 }.apply(cube.clone()).expect("inset");
+    let inset = MeshOp::Inset { amount: 0.3 }
+        .apply(cube.clone())
+        .expect("inset");
     report("MeshOp::Inset (0.3)", &inset);
 
     // Bisect the cube at z = 0 (keep the lower half), then cap the cut: a
     // closed box of half the volume.
-    let lower = MeshOp::Bisect { point: Vec3::ZERO, normal: Vec3::new(0.0, 0.0, 1.0) }
-        .apply(cube.clone())
-        .expect("bisect");
+    let lower = MeshOp::Bisect {
+        point: Vec3::ZERO,
+        normal: Vec3::new(0.0, 0.0, 1.0),
+    }
+    .apply(cube.clone())
+    .expect("bisect");
     let half = MeshOp::FillHoles.apply(lower).expect("cap the cut");
     report("MeshOp::Bisect + FillHoles", &half);
 

@@ -106,7 +106,8 @@ pub fn genpsf(rho: f64, l_want: i32) -> Genpsf {
 
     let d4 = 11025.0 + a2 * (1575.0 + a2 * (135.0 + a2 * (10.0 + a2)));
     let mut ppp = a * a8 / d4;
-    let mut dpp = (a8 / d4) * (9.0 - (1575.0 + a2 * (270.0 + a2 * (30.0 + a2 * 4.0))) * 2.0 * (a2 / d4));
+    let mut dpp =
+        (a8 / d4) * (9.0 - (1575.0 + a2 * (270.0 + a2 * (30.0 + a2 * 4.0))) * 2.0 * (a2 / d4));
 
     // See this function's doc comment: `dss` is used before being set in
     // the upstream Fortran too. Seeded to 0.0 here.
@@ -146,7 +147,15 @@ pub fn genpsf(rho: f64, l_want: i32) -> Genpsf {
             continue;
         }
 
-        return Genpsf { p: ppx, dp: dpx, s: ssx, ds: dsx, q: qqx, dq: dqx, y: yyx };
+        return Genpsf {
+            p: ppx,
+            dp: dpx,
+            s: ssx,
+            ds: dsx,
+            q: qqx,
+            dq: dqx,
+            y: yyx,
+        };
     }
 }
 
@@ -222,7 +231,8 @@ pub fn pgh(rho: f64, l: i32, bound: f64, ishift: i32) -> Pgh {
             let r8 = r4 * r4;
             let d = 11025.0 + r2 * (1575.0 + r2 * (135.0 + r2 * (10.0 + r2)));
             hh = r * r8 / d;
-            dp = (r8 / d) * (9.0 - (1575.0 + r2 * (270.0 + r2 * (30.0 + r2 * 4.0))) * 2.0 * (r2 / d));
+            dp = (r8 / d)
+                * (9.0 - (1575.0 + r2 * (270.0 + r2 * (30.0 + r2 * 4.0))) * 2.0 * (r2 / d));
             if ishift > 0 {
                 ds = (44100.0 + r2 * (4725.0 + r2 * (270.0 + 10.0 * r2))) / d;
                 gg = -ds - bound;
@@ -244,20 +254,62 @@ pub fn pgh(rho: f64, l: i32, bound: f64, ishift: i32) -> Pgh {
     let hh = if hh <= 1.0e-35 { 0.0 } else { hh };
 
     if gg == 0.0 && hh == 0.0 {
-        Pgh { g: 0.0, h: 0.0, p: 0.0, dp, ds: 0.0, iffy: true }
+        Pgh {
+            g: 0.0,
+            h: 0.0,
+            p: 0.0,
+            dp,
+            ds: 0.0,
+            iffy: true,
+        }
     } else if gg == 0.0 {
-        Pgh { g: 0.0, h: -1.0 / hh, p: hh, dp, ds, iffy: false }
+        Pgh {
+            g: 0.0,
+            h: -1.0 / hh,
+            p: hh,
+            dp,
+            ds,
+            iffy: false,
+        }
     } else if hh == 0.0 {
-        Pgh { g: 1.0 / gg, h: 0.0, p: 0.0, dp, ds, iffy: false }
+        Pgh {
+            g: 1.0 / gg,
+            h: 0.0,
+            p: 0.0,
+            dp,
+            ds,
+            iffy: false,
+        }
     } else if hh + gg != hh {
         if hh + gg != gg {
             let d = hh * hh + gg * gg;
-            Pgh { g: gg / d, h: -hh / d, p: hh, dp, ds, iffy: false }
+            Pgh {
+                g: gg / d,
+                h: -hh / d,
+                p: hh,
+                dp,
+                ds,
+                iffy: false,
+            }
         } else {
-            Pgh { g: 1.0 / gg, h: -(hh / gg) / gg, p: hh, dp, ds, iffy: false }
+            Pgh {
+                g: 1.0 / gg,
+                h: -(hh / gg) / gg,
+                p: hh,
+                dp,
+                ds,
+                iffy: false,
+            }
         }
     } else {
-        Pgh { g: (gg / hh) / hh, h: -1.0 / hh, p: hh, dp, ds, iffy: false }
+        Pgh {
+            g: (gg / hh) / hh,
+            h: -1.0 / hh,
+            p: hh,
+            dp,
+            ds,
+            iffy: false,
+        }
     }
 }
 
@@ -278,7 +330,13 @@ pub fn sinsix(rho: f64, l: i32) -> Sinsix {
     let s = a.sin();
 
     match l {
-        0 => Sinsix { sinsqr: s * s, sin2ph: 2.0 * c * s, dphi: 1.0, sinphi: s, cosphi: c },
+        0 => Sinsix {
+            sinsqr: s * s,
+            sin2ph: 2.0 * c * s,
+            dphi: 1.0,
+            sinphi: s,
+            cosphi: c,
+        },
         1 => {
             let x = a;
             let g = 1.0 + x * x;

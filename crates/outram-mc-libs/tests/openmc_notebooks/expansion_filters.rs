@@ -107,9 +107,18 @@ fn heu_fuel() -> Material {
         name: "Godiva HEU".into(),
         temperature: 293.6,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     }
 }
@@ -129,17 +138,35 @@ fn nuclides() -> Vec<Nuclide> {
 /// the fuel / moderator regions.
 fn box_walls() -> Vec<RegionToken> {
     vec![
-        RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Outside }, // x > -half
+        RegionToken::HalfSpace {
+            surface_idx: 1,
+            sense: HalfSpaceSense::Outside,
+        }, // x > -half
         RegionToken::Intersection,
-        RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Inside }, // x < +half
+        RegionToken::HalfSpace {
+            surface_idx: 2,
+            sense: HalfSpaceSense::Inside,
+        }, // x < +half
         RegionToken::Intersection,
-        RegionToken::HalfSpace { surface_idx: 3, sense: HalfSpaceSense::Outside }, // y > -half
+        RegionToken::HalfSpace {
+            surface_idx: 3,
+            sense: HalfSpaceSense::Outside,
+        }, // y > -half
         RegionToken::Intersection,
-        RegionToken::HalfSpace { surface_idx: 4, sense: HalfSpaceSense::Inside }, // y < +half
+        RegionToken::HalfSpace {
+            surface_idx: 4,
+            sense: HalfSpaceSense::Inside,
+        }, // y < +half
         RegionToken::Intersection,
-        RegionToken::HalfSpace { surface_idx: 5, sense: HalfSpaceSense::Outside }, // z > -zmax
+        RegionToken::HalfSpace {
+            surface_idx: 5,
+            sense: HalfSpaceSense::Outside,
+        }, // z > -zmax
         RegionToken::Intersection,
-        RegionToken::HalfSpace { surface_idx: 6, sense: HalfSpaceSense::Inside }, // z < +zmax
+        RegionToken::HalfSpace {
+            surface_idx: 6,
+            sense: HalfSpaceSense::Inside,
+        }, // z < +zmax
         RegionToken::Intersection,
     ]
 }
@@ -152,32 +179,70 @@ fn box_walls() -> Vec<RegionToken> {
 /// Cell 0 = fuel (material 0), cell 1 = moderator (material 1).
 fn reflective_box(r_fuel: f64, half: f64, zmax: f64) -> Geometry {
     let surfaces = vec![
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: r_fuel, bc: BoundaryType::Transmissive }),
-        SurfaceKind::XPlane(XPlane { x0: -half, bc: BoundaryType::Reflective }),
-        SurfaceKind::XPlane(XPlane { x0: half, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: -half, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: half, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: -zmax, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: zmax, bc: BoundaryType::Reflective }),
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: r_fuel,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: -half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: -half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: -zmax,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: zmax,
+            bc: BoundaryType::Reflective,
+        }),
     ];
 
     // Fuel: inside the cylinder, capped in z by the reflective z planes.
-    let mut fuel_region = vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }];
-    fuel_region.push(RegionToken::HalfSpace { surface_idx: 5, sense: HalfSpaceSense::Outside });
+    let mut fuel_region = vec![RegionToken::HalfSpace {
+        surface_idx: 0,
+        sense: HalfSpaceSense::Inside,
+    }];
+    fuel_region.push(RegionToken::HalfSpace {
+        surface_idx: 5,
+        sense: HalfSpaceSense::Outside,
+    });
     fuel_region.push(RegionToken::Intersection);
-    fuel_region.push(RegionToken::HalfSpace { surface_idx: 6, sense: HalfSpaceSense::Inside });
+    fuel_region.push(RegionToken::HalfSpace {
+        surface_idx: 6,
+        sense: HalfSpaceSense::Inside,
+    });
     fuel_region.push(RegionToken::Intersection);
     let fuel = Cell::material(1, fuel_region, 0, 293.6);
 
     // Moderator: outside the cylinder AND inside the reflective x/y/z box.
-    let mut moder_region = vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside }];
+    let mut moder_region = vec![RegionToken::HalfSpace {
+        surface_idx: 0,
+        sense: HalfSpaceSense::Outside,
+    }];
     moder_region.extend(box_walls());
     let moder = Cell::material(2, moder_region, 1, 293.6);
 
     Geometry {
         surfaces,
         cells: vec![fuel, moder],
-        universes: vec![Universe { id: 0, cell_indices: vec![0, 1] }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0, 1],
+        }],
         lattices: vec![],
         root_universe: 0,
     }
@@ -211,7 +276,10 @@ fn expansion_moment_filters() {
         id: 2,
         name: "H moderator".into(),
         temperature: 293.6,
-        components: vec![NuclideComponent { nuclide_idx: 3, atom_density: 6.6e-2 }],
+        components: vec![NuclideComponent {
+            nuclide_idx: 3,
+            atom_density: 6.6e-2,
+        }],
     };
     let materials = vec![fuel, moderator];
 
@@ -222,7 +290,12 @@ fn expansion_moment_filters() {
 
     // Legendre expansion of the axial flux: order 4, z axis, over [-zmax, zmax].
     let order = 4usize;
-    let filter = SpatialLegendreFilter { order, axis: LegendreAxis::Z, min: -zmax, max: zmax };
+    let filter = SpatialLegendreFilter {
+        order,
+        axis: LegendreAxis::Z,
+        min: -zmax,
+        max: zmax,
+    };
     let n_moments = order + 1;
     let mut tally = Tally {
         id: 1,
@@ -232,14 +305,26 @@ fn expansion_moment_filters() {
         bins: vec![TallyBin::default(); n_moments],
     };
 
-    let settings = KeffSettings { n_particles: 500, n_inactive: 20, n_active: 35, ..KeffSettings::default() };
+    let settings = KeffSettings {
+        n_particles: 500,
+        n_inactive: 20,
+        n_active: 35,
+        ..KeffSettings::default()
+    };
     let src = SourceBox {
         lower: Position::new(-r_fuel, -r_fuel, -zmax),
         upper: Position::new(r_fuel, r_fuel, zmax),
     };
 
     let t0 = std::time::Instant::now();
-    let result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, Some(&mut tally));
+    let result = run_keff_csg(
+        &geom,
+        &materials,
+        &nuclides,
+        src,
+        &settings,
+        Some(&mut tally),
+    );
     let dt = t0.elapsed();
 
     let n_active = settings.n_active as u64;
@@ -250,7 +335,11 @@ fn expansion_moment_filters() {
         .map(|b| {
             // Absolute batch std-dev of the moment = rel_std_dev · |mean|.
             let rsd = b.rel_std_dev(n_active);
-            if rsd.is_finite() { rsd * b.mean(n_active).abs() } else { f64::NAN }
+            if rsd.is_finite() {
+                rsd * b.mean(n_active).abs()
+            } else {
+                f64::NAN
+            }
         })
         .collect();
 
@@ -267,7 +356,9 @@ fn expansion_moment_filters() {
     for n in 0..n_moments {
         eprintln!(
             "    m_{n} = {:+.4e} ± {:.2e}   (|m_{n}|/m_0 = {:.2e})",
-            moments[n], sigmas[n], (moments[n] / m0).abs()
+            moments[n],
+            sigmas[n],
+            (moments[n] / m0).abs()
         );
     }
     eprintln!(
@@ -276,9 +367,19 @@ fn expansion_moment_filters() {
     );
 
     // ── m_0 dominant and strictly positive (∝ total flux) ──────────────────────
-    assert!(m0 > 0.0, "P_0 moment (mean axial flux) must be positive, got {m0}");
-    assert!(result.k_mean.is_finite() && result.k_mean > 0.0, "k_inf must be finite & positive");
-    assert!(result.k_std < 0.03, "eigenvalue under-converged: k_std {}", result.k_std);
+    assert!(
+        m0 > 0.0,
+        "P_0 moment (mean axial flux) must be positive, got {m0}"
+    );
+    assert!(
+        result.k_mean.is_finite() && result.k_mean > 0.0,
+        "k_inf must be finite & positive"
+    );
+    assert!(
+        result.k_std < 0.03,
+        "eigenvalue under-converged: k_std {}",
+        result.k_std
+    );
 
     // ── Higher moments consistent with zero for a flat axial flux ──────────────
     // Each |m_n| (n ≥ 1) must be ≪ m_0 (flat-flux orthogonality). A generous 5%
@@ -296,11 +397,22 @@ fn expansion_moment_filters() {
     // CSV: one row per moment (reference = analytic flat-flux value).
     let rows: Vec<String> = (0..n_moments)
         .map(|n| {
-            let reference = if n == 0 { "m_0 > 0 (prop. to total flux)".to_string() } else { "0 (flat flux)".to_string() };
-            let delta = if n == 0 { "n/a".to_string() } else { format!("{:.2e}", (moments[n] / m0).abs()) };
+            let reference = if n == 0 {
+                "m_0 > 0 (prop. to total flux)".to_string()
+            } else {
+                "0 (flat flux)".to_string()
+            };
+            let delta = if n == 0 {
+                "n/a".to_string()
+            } else {
+                format!("{:.2e}", (moments[n] / m0).abs())
+            };
             format!(
                 "2026-07-17,expansion-filters,P_{n} (z Legendre),{:+.4e}+/-{:.2e},{},{},{}",
-                moments[n], sigmas[n], reference, delta,
+                moments[n],
+                sigmas[n],
+                reference,
+                delta,
                 "shape check (flat-flux moments); abs magnitude = track-length units op-6tz.22"
             )
         })

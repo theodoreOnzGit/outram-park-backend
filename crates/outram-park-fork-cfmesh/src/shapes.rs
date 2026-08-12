@@ -117,7 +117,11 @@ pub fn sphere_surface(centre: Vec3, radius: f64, n_lat: usize, n_lon: usize) -> 
         let (st, ct) = (theta.sin(), theta.cos());
         for j in 0..n_lon {
             let phi = 2.0 * PI * j as f64 / n_lon as f64;
-            pts.push(centre.add(Vec3::new(radius * st * phi.cos(), radius * st * phi.sin(), radius * ct)));
+            pts.push(centre.add(Vec3::new(
+                radius * st * phi.cos(),
+                radius * st * phi.sin(),
+                radius * ct,
+            )));
         }
     }
     pts.push(centre.add(Vec3::new(0.0, 0.0, -radius)));
@@ -197,7 +201,10 @@ mod tests {
     #[test]
     fn box_volume_exact() {
         let (p, t) = box_surface(Vec3::ZERO, Vec3::new(2.0, 2.0, 2.0));
-        assert!((surface_volume(&p, &t) - 8.0).abs() < 1e-12, "outward box volume 8");
+        assert!(
+            (surface_volume(&p, &t) - 8.0).abs() < 1e-12,
+            "outward box volume 8"
+        );
     }
 
     /// V&V — the UV sphere encloses ~(4/3)πr³. Methodology: a radius-1 sphere,
@@ -218,7 +225,10 @@ mod tests {
         let (p, t) = cylinder_surface(Vec3::ZERO, 1.0, 2.0, 64);
         let exact = PI * 1.0 * 1.0 * 2.0;
         let rel = (surface_volume(&p, &t) - exact).abs() / exact;
-        assert!(rel < 0.01, "cylinder volume within 1% of {exact} (rel {rel})");
+        assert!(
+            rel < 0.01,
+            "cylinder volume within 1% of {exact} (rel {rel})"
+        );
     }
 
     /// V&V — reactor pattern: mesh the coolant region around a pebble. Domain
@@ -234,7 +244,11 @@ mod tests {
         m.validate().expect("coolant region cells are closed");
         let expect = 64.0 - 4.0 / 3.0 * PI;
         let rel = (m.total_volume() - expect).abs() / expect;
-        assert!(rel < 0.03, "coolant volume {} within 3% of {expect} (rel {rel})", m.total_volume());
+        assert!(
+            rel < 0.03,
+            "coolant volume {} within 3% of {expect} (rel {rel})",
+            m.total_volume()
+        );
         assert!(m.cell_count() > 10_000, "a resolved domain has many cells");
     }
 }

@@ -243,7 +243,10 @@ fn build_mf3_section(mat: i32, za: f64, awr: f64, mt: i32, pairs: &[(f64, f64)])
         pair_flat.push(sigfig(sig, 7, 0));
     }
     push_packed(&mut rows, &pair_flat);
-    Section { key: EndfKey { mat, mf: 3, mt }, rows }
+    Section {
+        key: EndfKey { mat, mf: 3, mt },
+        rows,
+    }
 }
 
 /// Append `values` to `rows`, packed six per `[f64; 6]` line and zero-padded on
@@ -264,12 +267,7 @@ fn push_packed(rows: &mut Vec<[f64; 6]>, values: &[f64]) {
 /// `(MFD=3, MTD)` entry per output MT). `emax` (eV) is the largest mixed
 /// energy; `awi`, `nsub` use MIXR's default seeds. Comment **text** is not
 /// stored (Hollerith limitation — see the module docs).
-fn build_mf1_section(
-    input: &MixrInput,
-    awi: f64,
-    emax: f64,
-    nsub: i32,
-) -> Section {
+fn build_mf1_section(input: &MixrInput, awi: f64, emax: f64, nsub: i32) -> Section {
     let mat = input.output_mat;
     let za = input.output_za;
     let awr = input.output_awr;
@@ -293,7 +291,14 @@ fn build_mf1_section(
     for &mt in &input.mt_list {
         rows.push([0.0, 0.0, 3.0, mt as f64, 0.0, 0.0]);
     }
-    Section { key: EndfKey { mat, mf: 1, mt: 451 }, rows }
+    Section {
+        key: EndfKey {
+            mat,
+            mf: 1,
+            mt: 451,
+        },
+        rows,
+    }
 }
 
 /// Map an incident-particle atomic-weight ratio `awi` to its ENDF sublibrary
@@ -340,8 +345,12 @@ fn header_seeds(input: &MixrInput, inputs: &[Tape]) -> (f64, f64, i32) {
     let mut emax = 20.0e6_f64;
     let mut nsub = 10_i32;
     for (i, comp) in input.components.iter().enumerate() {
-        let Some(tape) = inputs.get(comp.tape_index) else { continue };
-        let Some(sec) = tape.section(comp.mat, 1, 451) else { continue };
+        let Some(tape) = inputs.get(comp.tape_index) else {
+            continue;
+        };
+        let Some(sec) = tape.section(comp.mat, 1, 451) else {
+            continue;
+        };
         if sec.rows.len() < 3 {
             continue; // not an ENDF-6 header with an AWI/EMAX CONT row.
         }
@@ -463,7 +472,10 @@ mod tests {
             pair_flat.push(s);
         }
         push_packed(&mut rows, &pair_flat);
-        let sec = Section { key: EndfKey { mat, mf: 3, mt }, rows };
+        let sec = Section {
+            key: EndfKey { mat, mf: 3, mt },
+            rows,
+        };
         Tape::from_sections(" test".to_string(), vec![sec])
     }
 
@@ -511,9 +523,24 @@ mod tests {
         // input cross section exactly on its own grid (mixr.f90:302 with one
         // term). Input sigma at E=(1,2,4)eV = (5,7,11)b. Result (2026-07-15):
         // output == input, bit-for-bit before sigfig.
-        let a = tape_with_mf3(125, 1001.0, 0.999, 2, &[(1.0, 5.0), (2.0, 7.0), (4.0, 11.0)]);
-        let input =
-            MixrInput::from_cards(20, &[0], vec![2], &[(125, 1.0)], 0.0, 9999, 1001.0, 0.999, "id");
+        let a = tape_with_mf3(
+            125,
+            1001.0,
+            0.999,
+            2,
+            &[(1.0, 5.0), (2.0, 7.0), (4.0, 11.0)],
+        );
+        let input = MixrInput::from_cards(
+            20,
+            &[0],
+            vec![2],
+            &[(125, 1.0)],
+            0.0,
+            9999,
+            1001.0,
+            0.999,
+            "id",
+        );
         let pairs = mix_reaction(&input, &[a], 2).unwrap();
         assert_eq!(pairs, vec![(1.0, 5.0), (2.0, 7.0), (4.0, 11.0)]);
     }
@@ -527,7 +554,15 @@ mod tests {
         let a = tape_with_mf3(1, 1.0, 1.0, 102, &[(1.0, 10.0), (2.0, 20.0), (3.0, 30.0)]);
         let b = tape_with_mf3(2, 2.0, 2.0, 102, &[(1.0, 0.0), (2.0, 40.0), (3.0, 50.0)]);
         let input = MixrInput::from_cards(
-            20, &[0, 1], vec![102], &[(1, 0.5), (2, 0.5)], 0.0, 9999, 1.0, 1.0, "avg",
+            20,
+            &[0, 1],
+            vec![102],
+            &[(1, 0.5), (2, 0.5)],
+            0.0,
+            9999,
+            1.0,
+            1.0,
+            "avg",
         );
         let pairs = mix_reaction(&input, &[a, b], 102).unwrap();
         assert_eq!(pairs, vec![(1.0, 5.0), (2.0, 30.0), (3.0, 40.0)]);
@@ -546,7 +581,15 @@ mod tests {
         let a = tape_with_mf3(1, 1.0, 1.0, 1, &[(1.0, 10.0), (3.0, 30.0)]);
         let b = tape_with_mf3(2, 2.0, 2.0, 1, &[(2.0, 100.0), (4.0, 200.0)]);
         let input = MixrInput::from_cards(
-            20, &[0, 1], vec![1], &[(1, 1.0), (2, 1.0)], 0.0, 9999, 1.0, 1.0, "union",
+            20,
+            &[0, 1],
+            vec![1],
+            &[(1, 1.0), (2, 1.0)],
+            0.0,
+            9999,
+            1.0,
+            1.0,
+            "union",
         );
         let pairs = mix_reaction(&input, &[a, b], 1).unwrap();
         assert_eq!(
@@ -563,7 +606,15 @@ mod tests {
         let a = tape_with_mf3(1, 1.0, 1.0, 2, &[(1.0, 1.0), (2.0, 2.0)]);
         let b = tape_with_mf3(2, 2.0, 2.0, 2, &[(1.0, 10.0), (2.0, 20.0)]);
         let input = MixrInput::from_cards(
-            20, &[0, 1], vec![2], &[(1, 2.0), (2, 3.0)], 0.0, 9999, 1.0, 1.0, "add",
+            20,
+            &[0, 1],
+            vec![2],
+            &[(1, 2.0), (2, 3.0)],
+            0.0,
+            9999,
+            1.0,
+            1.0,
+            "add",
         );
         let pairs = mix_reaction(&input, &[a, b], 2).unwrap();
         assert_eq!(pairs, vec![(1.0, 32.0), (2.0, 64.0)]);
@@ -579,7 +630,15 @@ mod tests {
         let a = tape_with_mf3(1, 1.0, 1.0, 5, &[(1.0, 10.0), (2.0, 20.0)]);
         let b = tape_with_mf3(2, 2.0, 2.0, 5, &[(2.0, 100.0), (3.0, 300.0)]);
         let input = MixrInput::from_cards(
-            20, &[0, 1], vec![5], &[(1, 1.0), (2, 1.0)], 0.0, 9999, 1.0, 1.0, "zero",
+            20,
+            &[0, 1],
+            vec![5],
+            &[(1, 1.0), (2, 1.0)],
+            0.0,
+            9999,
+            1.0,
+            1.0,
+            "zero",
         );
         let pairs = mix_reaction(&input, &[a, b], 5).unwrap();
         assert_eq!(pairs, vec![(1.0, 10.0), (2.0, 120.0), (3.0, 320.0)]);
@@ -597,7 +656,15 @@ mod tests {
         let a = tape_with_mf3(125, 1001.0, 0.999, 2, &[(1.0, 10.0), (2.0, 20.0)]);
         let b = tape_with_mf3(128, 1001.0, 0.999, 2, &[(1.0, 30.0), (2.0, 40.0)]);
         let input = MixrInput::from_cards(
-            20, &[0, 1], vec![2], &[(125, 0.5), (128, 0.5)], 0.0, 9999, 1001.0, 0.999, "mix",
+            20,
+            &[0, 1],
+            vec![2],
+            &[(125, 0.5), (128, 0.5)],
+            0.0,
+            9999,
+            1001.0,
+            0.999,
+            "mix",
         );
         let out = input.mix(&[a, b]).unwrap();
         assert!(out.section(9999, 1, 451).is_some(), "MF=1/451 present");
@@ -628,7 +695,11 @@ mod tests {
         pairs: &[(f64, f64)],
     ) -> Tape {
         let mf1 = Section {
-            key: EndfKey { mat, mf: 1, mt: 451 },
+            key: EndfKey {
+                mat,
+                mf: 1,
+                mt: 451,
+            },
             rows: vec![
                 [za, awr, -1.0, 0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0, 0.0, 6.0],
@@ -666,19 +737,49 @@ mod tests {
         // larger EMAX=1e8. Result (2026-07-15): output row2 = [0.9986, 1e8, 0, 0,
         // 10010, 0].
         let a = tape_with_header_and_mf3(
-            125, 1001.0, 0.999, 0.9986, 3.0e7, 0, 2, &[(1.0, 10.0), (2.0, 20.0)],
+            125,
+            1001.0,
+            0.999,
+            0.9986,
+            3.0e7,
+            0,
+            2,
+            &[(1.0, 10.0), (2.0, 20.0)],
         );
         let b = tape_with_header_and_mf3(
-            128, 1001.0, 0.999, 2.0, 1.0e8, 10, 2, &[(1.0, 30.0), (2.0, 40.0)],
+            128,
+            1001.0,
+            0.999,
+            2.0,
+            1.0e8,
+            10,
+            2,
+            &[(1.0, 30.0), (2.0, 40.0)],
         );
         let input = MixrInput::from_cards(
-            20, &[0, 1], vec![2], &[(125, 0.5), (128, 0.5)], 0.0, 9999, 1001.0, 0.999, "mix",
+            20,
+            &[0, 1],
+            vec![2],
+            &[(125, 0.5), (128, 0.5)],
+            0.0,
+            9999,
+            1001.0,
+            0.999,
+            "mix",
         );
         let out = input.mix(&[a, b]).unwrap();
         let sec = out.section(9999, 1, 451).expect("MF=1/451 present");
         let row2 = sec.rows[2];
-        assert!((row2[0] - 0.9986).abs() < 1e-9, "AWI from first input: {}", row2[0]);
-        assert!((row2[1] - 1.0e8).abs() < 1.0, "EMAX raised to largest: {}", row2[1]);
+        assert!(
+            (row2[0] - 0.9986).abs() < 1e-9,
+            "AWI from first input: {}",
+            row2[0]
+        );
+        assert!(
+            (row2[1] - 1.0e8).abs() < 1.0,
+            "EMAX raised to largest: {}",
+            row2[1]
+        );
         assert_eq!(row2[4].round() as i32, 10010, "NSUB from first input AWI");
     }
 
@@ -690,7 +791,15 @@ mod tests {
         // 0, 0, 10, 0] since the grid maxes at 2 eV << 20 MeV.
         let a = tape_with_mf3(125, 1001.0, 0.999, 2, &[(1.0, 10.0), (2.0, 20.0)]);
         let input = MixrInput::from_cards(
-            20, &[0], vec![2], &[(125, 1.0)], 0.0, 9999, 1001.0, 0.999, "id",
+            20,
+            &[0],
+            vec![2],
+            &[(125, 1.0)],
+            0.0,
+            9999,
+            1001.0,
+            0.999,
+            "id",
         );
         let out = input.mix(&[a]).unwrap();
         let sec = out.section(9999, 1, 451).unwrap();
@@ -706,7 +815,15 @@ mod tests {
         // an empty grid (mixr.f90:283-287). Result 2026-07-15: empty vec.
         let a = tape_with_mf3(125, 1001.0, 0.999, 2, &[(1.0, 5.0)]);
         let input = MixrInput::from_cards(
-            20, &[0], vec![18], &[(125, 1.0)], 0.0, 9999, 1001.0, 0.999, "miss",
+            20,
+            &[0],
+            vec![18],
+            &[(125, 1.0)],
+            0.0,
+            9999,
+            1001.0,
+            0.999,
+            "miss",
         );
         let pairs = mix_reaction(&input, &[a], 18).unwrap();
         assert!(pairs.is_empty());

@@ -431,7 +431,10 @@ mod tests {
 
         let mut seed = 42u64;
         let _ = m.material_at(Position::new(0.0, 0.0, 0.0), &mut seed);
-        assert!(m.in_inclusion().is_some(), "phase is seeded after the first query");
+        assert!(
+            m.in_inclusion().is_some(),
+            "phase is seeded after the first query"
+        );
 
         m.begin_flight();
         assert_eq!(m.in_inclusion(), None, "begin_flight clears the flight");

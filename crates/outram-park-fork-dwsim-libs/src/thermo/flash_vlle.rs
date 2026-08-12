@@ -378,8 +378,7 @@ pub fn solve_3p_fixed_k(
     if k2.len() != n {
         return Err(FlashError::LengthMismatch { a: n, b: k2.len() });
     }
-    if z
-        .iter()
+    if z.iter()
         .chain(k1.iter())
         .chain(k2.iter())
         .any(|v| !v.is_finite())
@@ -492,9 +491,16 @@ pub fn flash_pt_vlle(
     let n = z.len();
 
     // --- Step 1: rigorous two-phase VLE. ---
-    let k_closure = |x: &[f64], y: &[f64], t: f64, p: f64| eos_k_values(eos, components, x, y, t, p);
-    let vle: FlashResult =
-        nested_loops_flash(z, components, t, p, &k_closure, NestedLoopsOptions::default())?;
+    let k_closure =
+        |x: &[f64], y: &[f64], t: f64, p: f64| eos_k_values(eos, components, x, y, t, p);
+    let vle: FlashResult = nested_loops_flash(
+        z,
+        components,
+        t,
+        p,
+        &k_closure,
+        NestedLoopsOptions::default(),
+    )?;
 
     let l_total = 1.0 - vle.beta;
 
@@ -541,7 +547,11 @@ pub fn flash_pt_vlle(
         // Refresh K from the current compositions (rigorous EOS update).
         k1 = eos_k_values(eos, components, &x1, &y, t, p);
         k2 = eos_k_values(eos, components, &x2, &y, t, p);
-        if k1.iter().chain(k2.iter()).any(|v| !v.is_finite() || *v <= 0.0) {
+        if k1
+            .iter()
+            .chain(k2.iter())
+            .any(|v| !v.is_finite() || *v <= 0.0)
+        {
             return Err(FlashError::NonFinite);
         }
 
@@ -628,9 +638,21 @@ mod tests {
         let split = solve_3p_fixed_k(&z, &k1, &k2, 0.3, 0.3, VlleOptions::default()).unwrap();
 
         // Genuine three-phase split: every fraction strictly positive and in [0,1].
-        assert!(split.v > 0.0 && split.v < 1.0, "V out of range: {}", split.v);
-        assert!(split.l1 > 0.0 && split.l1 < 1.0, "L1 out of range: {}", split.l1);
-        assert!(split.l2 > 0.0 && split.l2 < 1.0, "L2 out of range: {}", split.l2);
+        assert!(
+            split.v > 0.0 && split.v < 1.0,
+            "V out of range: {}",
+            split.v
+        );
+        assert!(
+            split.l1 > 0.0 && split.l1 < 1.0,
+            "L1 out of range: {}",
+            split.l1
+        );
+        assert!(
+            split.l2 > 0.0 && split.l2 < 1.0,
+            "L2 out of range: {}",
+            split.l2
+        );
         assert_abs_diff_eq!(split.v + split.l1 + split.l2, 1.0, epsilon = 1e-12);
 
         // Each phase composition sums to 1.
@@ -664,7 +686,10 @@ mod tests {
         // Genuine, asymmetric three-phase split (all fractions strictly positive).
         assert!(split.v > 0.0 && split.v < 1.0);
         assert!(split.l1 > 0.0 && split.l2 > 0.0);
-        assert!((split.l1 - split.l2).abs() > 1e-3, "expected an asymmetric split");
+        assert!(
+            (split.l1 - split.l2).abs() > 1e-3,
+            "expected an asymmetric split"
+        );
         assert_abs_diff_eq!(split.v + split.l1 + split.l2, 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(split.x1.iter().sum::<f64>(), 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(split.x2.iter().sum::<f64>(), 1.0, epsilon = 1e-12);
@@ -697,11 +722,15 @@ mod tests {
 
         let vlle = flash_pt_vlle(&comps, &z, t, p, eos, VlleOptions::default()).unwrap();
 
-        let k_closure = |x: &[f64], y: &[f64], t: f64, p: f64| eos_k_values(eos, &comps, x, y, t, p);
-        let vle =
-            nested_loops_flash(&z, &comps, t, p, &k_closure, NestedLoopsOptions::default()).unwrap();
+        let k_closure =
+            |x: &[f64], y: &[f64], t: f64, p: f64| eos_k_values(eos, &comps, x, y, t, p);
+        let vle = nested_loops_flash(&z, &comps, t, p, &k_closure, NestedLoopsOptions::default())
+            .unwrap();
 
-        assert!(!vlle.three_phase, "hydrocarbon pair must not form a 2nd liquid");
+        assert!(
+            !vlle.three_phase,
+            "hydrocarbon pair must not form a 2nd liquid"
+        );
         assert_abs_diff_eq!(vlle.l2, 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(vlle.v, vle.beta, epsilon = 1e-9);
         for i in 0..z.len() {
@@ -723,13 +752,27 @@ mod tests {
             FlashError::Empty
         );
         assert!(matches!(
-            solve_3p_fixed_k(&[0.5, 0.5], &[2.0], &[1.0, 1.0], 0.3, 0.3, VlleOptions::default())
-                .unwrap_err(),
+            solve_3p_fixed_k(
+                &[0.5, 0.5],
+                &[2.0],
+                &[1.0, 1.0],
+                0.3,
+                0.3,
+                VlleOptions::default()
+            )
+            .unwrap_err(),
             FlashError::LengthMismatch { .. }
         ));
         assert_eq!(
-            solve_3p_fixed_k(&[0.5, 0.5], &[2.0, -1.0], &[1.0, 1.0], 0.3, 0.3, VlleOptions::default())
-                .unwrap_err(),
+            solve_3p_fixed_k(
+                &[0.5, 0.5],
+                &[2.0, -1.0],
+                &[1.0, 1.0],
+                0.3,
+                0.3,
+                VlleOptions::default()
+            )
+            .unwrap_err(),
             FlashError::NonFinite
         );
     }
