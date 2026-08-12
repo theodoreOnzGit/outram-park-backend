@@ -139,9 +139,20 @@ pub enum ComputeBackend {
 /// 262 144`, because `axpy` at 4096 elements runs at `0.05x` — twenty times
 /// slower.
 ///
-/// Three kernel families have now been measured and they want **4 096,
-/// 131 072 and 262 144** — a 64x spread. That is the real finding: no single
+/// [`crate::math::parallel`] then measured the opposite direction:
+/// batched root finding crosses over at **256** problems, 16x *below* this
+/// constant, because it is compute-dense per lane where the field kernels are
+/// memory-bound.
+///
+/// Four kernel families have now been measured and they want **256, 4 096,
+/// 131 072 and 262 144** — a 1024x spread, with this constant sitting in the
+/// middle and wrong at both ends. That is the real finding: no single
 /// crate-wide threshold can be right for all of them.
+///
+/// Worse for any hope of a universal number: the root-finding crossover
+/// depends on the *caller's* residual cost, which this crate cannot know. A
+/// cheap residual and an expensive one cross over at different sizes with
+/// identical kernel code.
 ///
 /// The honest reading: this constant is a *floor against absurdity*, not a
 /// tuned value, and a kernel that has not measured its own crossover should

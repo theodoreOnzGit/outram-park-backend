@@ -180,3 +180,10 @@ pub use crate::ldu_matrix::parallel::{
     spmv_backend_for, vecop_backend_for, HybridLdu, LduTopology, CELL_BLOCK, REDUCTION_BLOCK,
     SPMV_MIN_CELLS, VECOP_MIN_ELEMENTS,
 };
+
+// --- Batched root finding on the hybrid backend (Layer 1) ---
+pub use crate::math::parallel::{
+    cubic_roots_batch, linear_roots_batch, poly_roots_backend_for, quadratic_roots_batch,
+    root_batch_backend_for, solve_bracketed_batch, solve_newton_batch, RootBatch,
+    RootBatchFailure, RootMethod, RootProblem, RootSettings, RootSolution, RootStatus,
+};
