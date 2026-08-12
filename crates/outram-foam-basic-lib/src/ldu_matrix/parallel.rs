@@ -122,6 +122,25 @@
 //! observe — only the wall clock. Both constants were measured on this
 //! workspace's development machine; the tables are on the constants themselves.
 //!
+//! For scale, the sparse product on a 262 144-cell / 774 144-face matrix,
+//! measured 2026-08-12 on 4 logical cores (`spmv_thread_scaling_benchmark`,
+//! best of 7 samples, time per call):
+//!
+//! | Worker threads | Time per product | Speed-up |
+//! |---|---|---|
+//! | 1 | 6487.26 us | 1.00x |
+//! | 2 | 3481.42 us | 1.86x |
+//! | 4 | 2322.10 us | 2.79x |
+//! | 8 | 1830.46 us | 3.54x |
+//!
+//! The output was asserted bitwise identical at every one of those thread
+//! counts, which is the determinism claim above measured rather than argued.
+//! Eight workers on four cores still help, which is the signature of a
+//! memory-latency-bound gather: extra threads buy more outstanding loads rather
+//! than more arithmetic. **This is one machine and one mesh; it is not a scaling
+//! study**, and nothing here has been measured on Android hardware or on a
+//! many-core server.
+//!
 //! # Cargo features
 //!
 //! The `rayon` code paths sit behind the crate's `parallel` feature, which is
@@ -237,52 +256,72 @@ pub const REDUCTION_BLOCK: usize = 1024;
 ///
 /// Measured 2026-08-12 on this workspace's development machine
 /// (`std::thread::available_parallelism()` = **4**, release build, `--features
-/// parallel`, rayon's global pool), on a structured 7-point-stencil LDU matrix.
-/// Each figure is the best of 5 timed repeats, reported as time per
-/// [`HybridLdu::spmv_into`] call. Produced by the `#[ignore]`d
-/// `spmv_crossover_benchmark` test in `parallel/tests.rs`, and transcribed from
-/// its printed output.
+/// parallel`, rayon's global pool), on a structured 7-point-stencil LDU matrix
+/// with pseudorandom coefficients. Each figure is the best of 7 samples, each
+/// sample timing enough back-to-back calls to total about 8 million cell
+/// updates, reported as time per [`HybridLdu::spmv_into`] call. Produced by the
+/// `#[ignore]`d `spmv_crossover_benchmark` test in `parallel/tests.rs` and
+/// transcribed from its printed output.
 ///
-/// | Cells | Faces | Serial | CpuMulti (4 threads) | Speed-up |
-/// |---|---|---|---|---|
-/// | 512 | 1 200 | 0.71 us | 15.98 us | 0.04x |
-/// | 1 728 | 4 320 | 2.36 us | 18.90 us | 0.12x |
-/// | 4 096 | 10 752 | 5.66 us | 20.36 us | 0.28x |
-/// | 8 000 | 21 600 | 11.25 us | 24.35 us | 0.46x |
-/// | 15 625 | 43 500 | 22.20 us | 30.02 us | 0.74x |
-/// | 32 768 | 92 160 | 47.24 us | 40.55 us | 1.16x |
-/// | 64 000 | 182 400 | 96.13 us | 63.83 us | 1.51x |
-/// | 132 651 | 383 226 | 217.15 us | 118.13 us | 1.84x |
-/// | 262 144 | 761 856 | 471.68 us | 224.24 us | 2.10x |
-/// | 512 000 | 1 497 600 | 1005.30 us | 429.11 us | 2.34x |
+/// | Cells | Faces | Serial | CpuMulti | Speed-up | Speed-up, repeat run |
+/// |---|---|---|---|---|---|
+/// | 512 | 1 344 | 9.76 us | 9.78 us | 1.00x | 1.00x |
+/// | 1 000 | 2 700 | 20.24 us | 20.08 us | 1.01x | 1.00x |
+/// | 1 728 | 4 752 | 34.55 us | 63.28 us | 0.55x | 0.65x |
+/// | 2 744 | 7 644 | 55.67 us | 69.32 us | 0.80x | 1.21x |
+/// | 4 096 | 11 520 | 83.67 us | 80.61 us | 1.04x | 1.02x |
+/// | 5 832 | 16 524 | 125.50 us | 122.35 us | 1.03x | 1.52x |
+/// | 8 000 | 22 800 | 165.60 us | 114.06 us | 1.45x | 2.02x |
+/// | 15 625 | 45 000 | 330.59 us | 175.99 us | 1.88x | 2.03x |
+/// | 32 768 | 95 232 | 690.40 us | 277.86 us | 2.48x | 2.03x |
+/// | 64 000 | 187 200 | 1448.41 us | 481.12 us | 3.01x | 3.11x |
+/// | 132 651 | 390 150 | 3279.72 us | 1139.65 us | 2.88x | 3.48x |
+/// | 262 144 | 774 144 | 6640.67 us | 2213.45 us | 3.00x | 3.00x |
+/// | 512 000 | 1 516 800 | 13338.47 us | 4822.19 us | 2.77x | 3.48x |
 ///
-/// The crossover — the smallest size at which multi-CPU stops losing — lies
-/// between 15 625 and 32 768 cells on that 4-core machine, so this constant is
-/// set to **32 768**: the first measured size that actually won, and a round
-/// power of two. Setting it at the low end of the bracket would ship a value the
-/// measurement does not support.
+/// The serial column is highly reproducible between the two runs (within 4%);
+/// the multi-CPU column is not, which is why the second run's speed-ups are
+/// carried alongside rather than averaged away.
 ///
-/// # This is not [`crate::compute::CPU_MULTI_MIN_WORK_ITEMS`]
+/// Reading the table: at and below 1 000 cells the two paths are *identical*,
+/// because [`CELL_BLOCK`] is 1 024 so there is only one block and rayon never
+/// splits. Between roughly 1 700 and 2 700 cells the parallel path genuinely
+/// loses (0.55x — 1.21x). At 4 096 it breaks even in both runs (1.04x, 1.02x)
+/// and from about 5 800 cells upward it wins in both. This constant is therefore
+/// set to **4 096**, the smallest measured size at which the parallel path did
+/// not lose in either run.
 ///
-/// That crate-wide constant is documented as a placeholder awaiting measurement,
-/// and is currently 4 096. **The measurement above says 4 096 is too low for this
-/// kernel**: at 4 096 cells the parallel path was 3.6x *slower* than serial, and
-/// it was still losing at 15 625 cells. This kernel therefore overrides it with
-/// its own measured value, which `compute.rs` explicitly permits. A crate-wide
-/// revision of `CPU_MULTI_MIN_WORK_ITEMS` is the maintainer's call and belongs
-/// with bead `op-yvj.4.7`, not here.
+/// Speed-ups above 3x on 4 cores are superlinear and were reproducible. The
+/// likely cause is cache: the gather reads `x` at scattered indices across the
+/// whole vector, and splitting the cells narrows each worker's working set, so
+/// four threads share more than four times the effective cache. This has not
+/// been confirmed with hardware counters and is stated as a hypothesis.
 ///
-/// # Limitation
+/// # Relationship to [`crate::compute::CPU_MULTI_MIN_WORK_ITEMS`]
+///
+/// That crate-wide constant is documented as a placeholder awaiting measurement
+/// and is currently 4 096. **For this kernel the measurement supports it**: 4 096
+/// cells is exactly where the parallel path stops losing. No change to the
+/// crate-wide constant is proposed on the strength of the sparse product alone —
+/// but note that the vector operations in this same module cross over two orders
+/// of magnitude later (see [`VECOP_MIN_ELEMENTS`]), so 4 096 is *not* a good
+/// single number for every kernel, and a crate-wide revision belongs with bead
+/// `op-yvj.4.7` rather than here.
+///
+/// # Limitations
 ///
 /// One threshold cannot be right for every machine: a 64-core server pays more
 /// dispatch cost and a 2-core phone less. This value was measured on exactly one
-/// machine, with 4 logical cores, and has not been checked on any other — in
-/// particular not on Android/Termux hardware, and not on a many-core server.
+/// machine, with 4 logical cores, and has **not** been checked on any other — in
+/// particular not on Android/Termux hardware and not on a many-core server. It
+/// was also measured on an otherwise idle machine; on a loaded machine an
+/// earlier, contended run of the same benchmark put 4 096 cells at 0.72x, so the
+/// break-even point moves right under contention.
 ///
 /// # Units
 ///
 /// A count of cells, dimensionless.
-pub const SPMV_MIN_CELLS: usize = 32_768;
+pub const SPMV_MIN_CELLS: usize = 4_096;
 
 /// Element count below which a [`ComputeBackend::CpuMulti`] request runs the
 /// serial kernel instead, for the vector operations [`dot`], [`axpy`],
@@ -299,29 +338,48 @@ pub const SPMV_MIN_CELLS: usize = 32_768;
 /// # Measured crossover
 ///
 /// Measured 2026-08-12 on the same machine and under the same conditions as
-/// [`SPMV_MIN_CELLS`] (4 logical cores, release, `--features parallel`), best of
-/// 5 timed repeats, per call. Produced by the `#[ignore]`d
-/// `vecop_crossover_benchmark` test in `parallel/tests.rs`.
+/// [`SPMV_MIN_CELLS`] (4 logical cores, release, `--features parallel`, idle
+/// machine), best of 7 samples, per call. Produced by the `#[ignore]`d
+/// `vecop_crossover_benchmark` test in `parallel/tests.rs` and transcribed from
+/// its printed output. The last column of each pair is the speed-up from a
+/// second, independent run of the same benchmark.
 ///
-/// | Elements | `dot` serial | `dot` CpuMulti | Speed-up | `axpy` serial | `axpy` CpuMulti | Speed-up |
-/// |---|---|---|---|---|---|---|
-/// | 1 024 | 0.36 us | 16.61 us | 0.02x | 0.21 us | 15.10 us | 0.01x |
-/// | 4 096 | 1.51 us | 18.05 us | 0.08x | 0.84 us | 16.36 us | 0.05x |
-/// | 16 384 | 6.06 us | 20.79 us | 0.29x | 3.51 us | 19.19 us | 0.18x |
-/// | 65 536 | 24.62 us | 32.51 us | 0.76x | 17.72 us | 30.65 us | 0.58x |
-/// | 262 144 | 98.77 us | 65.87 us | 1.50x | 88.14 us | 79.72 us | 1.11x |
-/// | 1 048 576 | 396.85 us | 213.87 us | 1.86x | 470.05 us | 348.55 us | 1.35x |
-/// | 4 194 304 | 1601.10 us | 831.55 us | 1.93x | 2287.29 us | 1729.63 us | 1.32x |
+/// | Elements | `dot` serial | `dot` multi | Speed-up | (repeat) | `axpy` serial | `axpy` multi | Speed-up | (repeat) |
+/// |---|---|---|---|---|---|---|---|---|
+/// | 1 024 | 1.27 us | 1.30 us | 0.98x | 0.97x | 0.34 us | 0.34 us | 0.98x | 0.98x |
+/// | 2 048 | 2.51 us | 14.88 us | 0.17x | 0.11x | 0.63 us | 15.32 us | 0.04x | 0.02x |
+/// | 4 096 | 4.97 us | 12.48 us | 0.40x | 0.21x | 1.59 us | 23.71 us | 0.07x | 0.05x |
+/// | 8 192 | 10.02 us | 31.58 us | 0.32x | 0.24x | 3.14 us | 37.23 us | 0.08x | 0.09x |
+/// | 16 384 | 19.87 us | 22.05 us | 0.90x | 0.69x | 5.55 us | 16.33 us | 0.34x | 0.09x |
+/// | 32 768 | 40.42 us | 26.88 us | 1.50x | 0.96x | 11.69 us | 26.78 us | 0.44x | 0.74x |
+/// | 65 536 | 80.10 us | 53.41 us | 1.50x | 1.85x | 26.13 us | 26.73 us | 0.98x | 0.60x |
+/// | 131 072 | 160.35 us | 84.69 us | 1.89x | 2.23x | 77.26 us | 45.57 us | 1.70x | 0.74x |
+/// | 262 144 | 322.69 us | 106.86 us | 3.02x | 3.06x | 132.15 us | 70.70 us | 1.87x | 1.00x |
+/// | 524 288 | 662.60 us | 187.03 us | 3.54x | 2.13x | 314.93 us | 129.20 us | 2.44x | 1.28x |
+/// | 1 048 576 | 1712.59 us | 547.58 us | 3.13x | 3.35x | 916.51 us | 306.37 us | 2.99x | 2.98x |
+/// | 2 097 152 | 3883.47 us | 1209.26 us | 3.21x | 3.69x | 3248.92 us | 1000.85 us | 3.25x | 3.70x |
+/// | 4 194 304 | 8115.34 us | 2306.65 us | 3.52x | 3.47x | 7447.22 us | 2235.37 us | 3.33x | 3.78x |
 ///
-/// Both operations cross over between 65 536 and 262 144 elements, so the
-/// constant is set to **262 144**, the first measured size at which both won.
-/// `axpy` gains far less than `dot` even well past the crossover (1.3x versus
-/// 1.9x at 4M elements), which is the expected signature of a bandwidth-bound
-/// kernel that also has to write its output.
+/// The two operations cross over at very different sizes. `dot` is reliably
+/// ahead from 65 536 elements; `axpy` is still break-even at 262 144 (1.87x in
+/// one run, 1.00x in the other) and only reliably ahead from 1 048 576. The
+/// constant is set to **262 144** — the smallest size at which *neither*
+/// operation lost in either run — so the single floor is safe for all four
+/// vector operations. The cost of one shared floor is that `dot` forgoes a
+/// 1.5x-2.2x win between 65 536 and 262 144 elements; a per-operation floor is
+/// left as a follow-up rather than shipped on two runs of evidence.
 ///
-/// # Limitation
+/// Note the 1 024-element row: the two paths are identical there because
+/// [`REDUCTION_BLOCK`] and [`CELL_BLOCK`] are both 1 024, so there is a single
+/// block and rayon never splits. The worst region is 2 048 — 16 384 elements,
+/// where waking workers costs 15-37 us against a kernel that takes 0.6-20 us.
 ///
-/// Measured on one 4-core machine only; see [`SPMV_MIN_CELLS`].
+/// # Limitations
+///
+/// Measured on one 4-core machine only, idle; see [`SPMV_MIN_CELLS`] for the
+/// same caveats, which apply unchanged. `norm_l1` and `norm_l2` were **not**
+/// separately benchmarked — they share `dot`'s blocked-reduction structure and
+/// inherit its floor, which is an assumption, not a measurement.
 ///
 /// # Units
 ///
@@ -1042,17 +1100,25 @@ impl HybridLdu {
     /// N-thread run — but the value differs from
     /// [`LduMatrix::normalised_residual`] in the last bits.
     ///
-    /// **Measured deviation.** Methodology: a fixed-seed xorshift64\* pseudorandom
-    /// SPD-ish 7-point-stencil matrix on a 32x32x32 mesh (32 768 cells, 92 160
-    /// internal faces), with pseudorandom `x` and `b` in `[-1, 1)`; compare this
-    /// function against [`LduMatrix::normalised_residual`] on the same inputs and
-    /// report the relative difference. Pass criterion: relative difference
-    /// `<= 1e-13`. Result, measured 2026-08-12 by the test
-    /// `normalised_residual_matches_flat_reference` in `parallel/tests.rs`:
-    /// relative difference **1.4266e-16**, about 0.64 units in the last place —
-    /// three orders of magnitude inside the gate. Interpretation: the difference
-    /// is pure summation reassociation at rounding level, and the blocked form is
-    /// if anything the more accurate of the two.
+    /// **Measured deviation.** *Methodology:* a fixed-seed xorshift64\*
+    /// pseudorandom, diagonally dominant symmetric 7-point-stencil matrix on a
+    /// 32x32x32 mesh (32 768 cells, 95 232 internal faces), with pseudorandom `x`
+    /// and `b` uniform on `[-1, 1)`; compare this function against
+    /// [`LduMatrix::normalised_residual`] on the same inputs. *Pass criterion:*
+    /// relative difference `<= 1e-13`, plus bitwise equality between the two
+    /// backends.
+    ///
+    /// *Result, measured 2026-08-12 by the test
+    /// `normalised_residual_matches_flat_reference` in `parallel/tests.rs`:*
+    /// blocked `1.74107987267472608e0`, flat `1.74107987267473940e0`, relative
+    /// difference **7.6520e-15** — about 34 units in the last place, an order of
+    /// magnitude inside the gate — and bitwise equality across backends held.
+    ///
+    /// *Interpretation:* the convergence measure a solver tests against a
+    /// tolerance is unchanged for any practical tolerance. Solver tolerances in
+    /// this crate are 1e-6 to 1e-12 on a quantity whose two summation orders
+    /// differ in the fifteenth digit, so switching backend cannot change an
+    /// iteration count.
     ///
     /// # Panics
     ///
@@ -1236,16 +1302,41 @@ impl HybridLdu {
 /// from the flat left-to-right sum in [`crate::krylov::vecops::dot`] only by
 /// floating-point non-associativity.
 ///
-/// **Measured deviation.** Methodology: two fixed-seed xorshift64\* pseudorandom
-/// vectors with elements in `[-1, 1)`, at lengths 1 024 through 4 194 304
-/// (powers of four); compare against [`crate::krylov::vecops::dot`] on the same
-/// inputs; report the worst relative difference over all lengths. Pass criterion:
-/// worst relative difference `<= 1e-12`. Result, measured 2026-08-12 by the test
-/// `dot_matches_flat_reference` in `parallel/tests.rs`: worst relative difference
-/// **1.0819e-15** at length 4 194 304, i.e. about 5 units in the last place on a
-/// 4-million-term sum. Interpretation: pure reassociation at rounding level. The
-/// blocked sum is the two-level, more accurate form; the flat sum is the one that
-/// drifts as `n` grows.
+/// **Measured deviation.** *Methodology:* two fixed-seed xorshift64\*
+/// pseudorandom vectors with elements uniform on `[-1, 1)`, at lengths 1 024
+/// through 4 194 304 in powers of four; compare against
+/// [`crate::krylov::vecops::dot`] on the same inputs. Two measures are reported,
+/// because the raw relative difference is taken against a heavily cancelled sum
+/// (terms of order 1, total of order `sqrt(n)`) and so overstates the error:
+/// the raw relative difference `|blocked - flat| / max(|blocked|, |flat|)`, and
+/// the conditioning-aware `|blocked - flat| / sum |a_i b_i|`. *Pass criteria:*
+/// worst raw `<= 1e-12` **and** worst conditioned `<= 1e-15`.
+///
+/// *Results, measured 2026-08-12 by the test `dot_matches_flat_reference` in
+/// `parallel/tests.rs`:*
+///
+/// | n | blocked | flat | raw rel diff | vs sum abs terms |
+/// |---|---|---|---|---|
+/// | 1 024 | -1.07439412213983019e1 | -1.07439412213983019e1 | 0 | 0 |
+/// | 4 096 | 2.27305615265860794e0 | 2.27305615265858707e0 | 9.1824e-15 | 2.0525e-17 |
+/// | 16 384 | -4.10927502452607953e1 | -4.10927502452608877e1 | 2.2479e-15 | 2.2574e-17 |
+/// | 65 536 | -1.48877508980721871e2 | -1.48877508980720563e2 | 8.7817e-15 | 7.9476e-17 |
+/// | 262 144 | -2.57469059787491972e2 | -2.57469059787487652e2 | 1.6779e-14 | 6.6111e-17 |
+/// | 1 048 576 | 2.06465247477648091e2 | 2.06465247477646983e2 | 5.3687e-15 | 4.2292e-18 |
+/// | 4 194 304 | -1.50102185250877881e2 | -1.50102185250842240e2 | 2.3744e-13 | 3.3997e-17 |
+///
+/// Worst raw relative difference **2.3744e-13** at n = 4 194 304; worst
+/// conditioned difference **7.9476e-17** at n = 65 536.
+///
+/// *Interpretation:* the difference is summation reassociation at rounding
+/// level, not a defect — relative to the arithmetic actually performed it never
+/// exceeds about a third of one `f64` epsilon. The raw figure grows with `n`
+/// because the exact sum of `n` random signed terms grows only like `sqrt(n)`
+/// while the rounding error grows faster, so the quotient inflates; that is a
+/// property of the test vectors, not of either kernel. Blocked summation is the
+/// two-level, more accurate form — a flat sum of `n` terms has error growing
+/// like `n * eps`, a blocked sum like `(block + n / block) * eps` — so the
+/// blocked result is if anything closer to the exact value.
 ///
 /// # Panics
 ///

@@ -472,11 +472,14 @@ fn reductions_match_hand_computed_values() {
 /// 262 144, 1 048 576 and 4 194 304. Compute [`dot`] (blocked, block size
 /// [`REDUCTION_BLOCK`]) and [`crate::krylov::vecops::dot`] (flat left-to-right)
 /// on the same inputs and take the relative difference
-/// `|a - b| / max(|a|, |b|)`. **Pass criterion: worst relative difference over
-/// all lengths `<= 1e-12`.**
+/// `|a - b| / max(|a|, |b|)` and, because that measure is taken against a
+/// heavily cancelled sum and overstates the error, also the conditioning-aware
+/// `|a - b| / sum |a_i b_i|`. **Pass criteria: worst raw relative difference
+/// `<= 1e-12` and worst conditioned difference `<= 1e-15`.**
 ///
-/// **Result (measured 2026-08-12, printed by this test):** see the table on
-/// [`dot`]; the worst case is recorded there. **Interpretation:** the difference
+/// **Result (measured 2026-08-12, printed by this test):** worst raw 2.3744e-13
+/// at n = 4 194 304, worst conditioned 7.9476e-17; the full table is transcribed
+/// onto [`dot`]. **Interpretation:** the difference
 /// is summation reassociation at rounding level, not a defect. Blocked summation
 /// is the two-level, more accurate form — a flat sum of `n` terms has error
 /// growing like `n * eps`, a blocked sum like `(block + n/block) * eps` — so the
@@ -717,8 +720,8 @@ fn spmv_rejects_a_wrong_length_input() {
 /// Absolute serial-versus-multi-CPU timings for [`HybridLdu::spmv_into`], the
 /// evidence behind [`SPMV_MIN_CELLS`].
 ///
-/// `#[ignore]`d because it takes about 20 s of wall clock (measured 2026-08-12
-/// on 4 cores) and is a measurement, not a gate. Run with:
+/// `#[ignore]`d because it is a measurement, not a gate, and takes about 31 s
+/// of wall clock (measured 2026-08-12 on 4 idle cores). Run with:
 ///
 /// ```text
 /// cargo test -p outram-foam-basic-lib --lib --release --features parallel \
@@ -732,7 +735,7 @@ fn spmv_rejects_a_wrong_length_input() {
 /// numbers transcribed onto [`SPMV_MIN_CELLS`] come from a `--features parallel`
 /// run.
 #[test]
-#[ignore = "measurement, ~20 s; run explicitly with --ignored --nocapture"]
+#[ignore = "measurement, ~31 s; run explicitly with --ignored --nocapture"]
 fn spmv_crossover_benchmark() {
     let cores = std::thread::available_parallelism()
         .map(std::num::NonZeroUsize::get)
@@ -780,9 +783,9 @@ fn spmv_crossover_benchmark() {
 /// evidence behind [`VECOP_MIN_ELEMENTS`].
 ///
 /// `#[ignore]`d for the same reason as [`spmv_crossover_benchmark`]; takes about
-/// 10 s of wall clock (measured 2026-08-12 on 4 cores).
+/// 7 s of wall clock (measured 2026-08-12 on 4 idle cores).
 #[test]
-#[ignore = "measurement, ~10 s; run explicitly with --ignored --nocapture"]
+#[ignore = "measurement, ~7 s; run explicitly with --ignored --nocapture"]
 fn vecop_crossover_benchmark() {
     let cores = std::thread::available_parallelism()
         .map(std::num::NonZeroUsize::get)
@@ -837,9 +840,9 @@ fn vecop_crossover_benchmark() {
 ///
 /// Only meaningful under `--features parallel`; without it there is one pool of
 /// one thread and the test simply reports the serial time. `#[ignore]`d
-/// (measurement, about 10 s measured 2026-08-12 on 4 cores).
+/// (measurement, about 4 s measured 2026-08-12 on 4 idle cores).
 #[test]
-#[ignore = "measurement, ~10 s; run explicitly with --ignored --nocapture"]
+#[ignore = "measurement, ~4 s; run explicitly with --ignored --nocapture"]
 fn spmv_thread_scaling_benchmark() {
     let cores = std::thread::available_parallelism()
         .map(std::num::NonZeroUsize::get)
