@@ -16,7 +16,7 @@
 //! |---|---|---|---|
 //! | [`crate::hem`] (HEM) | 3 | none (`u_g = u_l`) | none (both saturated) |
 //! | [`drift_flux::DriftFlux1d`] | 4 | **algebraic** (`u_g − j = U_dm`) | none |
-//! | [`two_fluid::TwoFluid1d`] | 6 | **dynamic** (own momentum equation) | **yes** (own energy equation) | *(scaffold — not implemented)* |
+//! | [`two_fluid::TwoFluid1d`] | 6 | **dynamic** (own momentum equation) | **yes** (own energy equation) |
 //!
 //! That is the standard system-code ladder — each rung relaxes one assumption
 //! of the rung below and costs one more transported field per phase.
@@ -90,7 +90,12 @@
 //!   reflood problem is not solvable with these as they stand.
 //! - **No interfacial area transport.** [`two_fluid::TwoFluid1d`] takes a
 //!   prescribed bubble diameter, so its drag and its interfacial heat transfer
-//!   do not respond to a changing flow regime.
+//!   do not respond to a changing flow regime. That absence is not cosmetic: it
+//!   is what makes the six-equation solver **refuse** a transient started at a
+//!   low void fraction, because a phase with almost no interfacial area cannot
+//!   shed its reversible expansion work fast enough to stay inside the bounded
+//!   metastable branches. Measured boundary and diagnosis in
+//!   `two_fluid_tests::six_equation_march_refuses_where_a_phase_cannot_shed_its_expansion_work`.
 //! - **No flow-regime map.** A real system code selects closures from a
 //!   regime map (bubbly / slug / annular / mist). Here the closure is whatever
 //!   the caller passed, everywhere, for the whole transient.
@@ -107,8 +112,11 @@
 //!   the experimental band, and an explicit list of what is *not* gated).
 //!   Every other test in this module is **verification** — closed-form
 //!   identities and invariants, compared against no experiment — and
-//!   [`two_fluid::TwoFluid1d`] is compared against nothing because it computes
-//!   nothing.
+//!   [`two_fluid::TwoFluid1d`], implemented 2026-08-12, is compared against no
+//!   experiment at all. Its `two_fluid_tests.rs` battery is invariants,
+//!   degenerate limits and one **documented disagreement** with
+//!   [`drift_flux::DriftFlux1d`] in the single-phase limit; read that file's
+//!   header for what it does and does not establish.
 //!
 //! # Units
 //!
@@ -127,7 +135,9 @@ pub use drift_flux::{DriftFlux1d, DriftFluxReport};
 pub use geometry::Pipe1d;
 pub use interfacial::{DispersedPhase, InterfacialCellState, InterfacialExchange, InterfacialSources};
 pub use properties::{SaturatedProperties, TwoPhaseState};
-pub use two_fluid::{TwoFluid1d, TwoFluidReport};
+pub use two_fluid::{
+    PhaseCouplingBlock, PhaseCouplingInputs, TwoFluid1d, TwoFluidBoundary, TwoFluidReport,
+};
 
 /// Solve a tridiagonal linear system `A x = b` by the Thomas algorithm.
 ///
