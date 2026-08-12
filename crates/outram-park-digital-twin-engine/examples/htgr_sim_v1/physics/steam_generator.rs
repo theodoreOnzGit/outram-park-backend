@@ -655,7 +655,7 @@ impl NodalisedCounterFlowSteamGenerator {
         let cold_seed = reverse(&cold_station_seed);
 
         // --- Hot fluid: forward flow, inlet at cell 0. ---
-        let mut hot = CompressibleFluidArray::new(
+        let mut hot_side_helium = CompressibleFluidArray::new(
             config.hot_fluid,
             geometry.shell_flow_length,
             geometry.shell_flow_area,
@@ -664,19 +664,19 @@ impl NodalisedCounterFlowSteamGenerator {
         )
         .map_err(|e| SteamGeneratorError::Array(format!("hot array: {e:?}")))?;
         for c in 0..n {
-            hot.p.internal[c] = config.hot_pressure.get::<pascal>();
+            hot_side_helium.p.internal[c] = config.hot_pressure.get::<pascal>();
         }
-        hot.set_temperature_vector(hot_seed.clone())
+        hot_side_helium.set_temperature_vector(hot_seed.clone())
             .map_err(|e| SteamGeneratorError::Array(format!("hot seed: {e:?}")))?;
-        hot.correct_transport();
+        hot_side_helium.correct_transport();
         // A gas exchanger is deeply subsonic, so the enthalpy convection scheme
         // -- not the Mach-blended dissipation -- is what keeps the enthalpy
         // bounded. VanLeer is the crate default; state it rather than inherit it.
-        hot.set_he_convection_scheme(
+        hot_side_helium.set_he_convection_scheme(
             outram_park_fork_coolprop::openfoam_algorithms::rhoPimpleFoam::EnergyConvectionScheme::VanLeer,
         );
-        hot.set_pimple_algorithm(2, 2, ratio_of(0.5), ratio_of(0.5));
-        hot.set_outlet_pressure(config.hot_pressure);
+        hot_side_helium.set_pimple_algorithm(4, 2, ratio_of(0.5), ratio_of(0.5));
+        hot_side_helium.set_outlet_pressure(config.hot_pressure);
 
         // --- Tube metal. ---
         //
@@ -708,7 +708,7 @@ impl NodalisedCounterFlowSteamGenerator {
             .map_err(|e| SteamGeneratorError::Array(format!("metal seed: {e:?}")))?;
 
         // --- Water/steam: forward flow in its own frame, inlet at cell 0. ---
-        let mut cold = TampinesSteamArray::new(
+        let mut cold_side_feedwater_steam = TampinesSteamArray::new(
             geometry.tube_length,
             geometry.tube_flow_area(),
             n as i64,
@@ -716,12 +716,12 @@ impl NodalisedCounterFlowSteamGenerator {
         )
         .map_err(|e| SteamGeneratorError::Array(format!("cold array: {e:?}")))?;
         for c in 0..n {
-            cold.p.internal[c] = config.cold_pressure.get::<pascal>();
+            cold_side_feedwater_steam.p.internal[c] = config.cold_pressure.get::<pascal>();
         }
-        cold.set_temperature_vector(cold_seed.clone())
+        cold_side_feedwater_steam.set_temperature_vector(cold_seed.clone())
             .map_err(|e| SteamGeneratorError::Array(format!("cold seed: {e:?}")))?;
-        cold.set_pimple_algorithm(2, 2, ratio_of(0.3), ratio_of(0.3));
-        cold.set_outlet_pressure(config.cold_pressure);
+        cold_side_feedwater_steam.set_pimple_algorithm(4, 2, ratio_of(0.3), ratio_of(0.3));
+        cold_side_feedwater_steam.set_outlet_pressure(config.cold_pressure);
 
         let hot_node_conductance = config.hot_side_conductance / (n as f64);
         let cold_node_conductance = config.cold_side_conductance / (n as f64);
@@ -738,9 +738,9 @@ impl NodalisedCounterFlowSteamGenerator {
         };
 
         Ok(Self {
-            hot,
+            hot: hot_side_helium,
             metal,
-            cold,
+            cold: cold_side_feedwater_steam,
             config,
             hot_node_conductance,
             cold_node_conductance,
