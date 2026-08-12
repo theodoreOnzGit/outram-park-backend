@@ -132,6 +132,17 @@ pub enum ComputeBackend {
 /// work. That module therefore overrides this constant at 131 072 via
 /// [`crate::fields::parallel::field_parallel_crossover`].
 ///
+/// [`crate::ldu_matrix::parallel`] measured the same day and found the
+/// opposite for *its* sparse matrix-vector product: 4096 cells is precisely
+/// where that kernel breaks even, so `SPMV_MIN_CELLS` keeps this value. But
+/// the vector operations in that same module want `VECOP_MIN_ELEMENTS =
+/// 262 144`, because `axpy` at 4096 elements runs at `0.05x` — twenty times
+/// slower.
+///
+/// Three kernel families have now been measured and they want **4 096,
+/// 131 072 and 262 144** — a 64x spread. That is the real finding: no single
+/// crate-wide threshold can be right for all of them.
+///
 /// The honest reading: this constant is a *floor against absurdity*, not a
 /// tuned value, and a kernel that has not measured its own crossover should
 /// not assume this one is safe for it. Per-kernel overrides are expected, not

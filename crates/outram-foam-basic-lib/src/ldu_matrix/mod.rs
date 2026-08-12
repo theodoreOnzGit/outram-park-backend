@@ -51,9 +51,9 @@ pub mod parallel;
 pub mod solvers;
 
 pub use fv_matrix::{FvMatrix, SolverPerformance, SolverSettings};
-pub use parallel::{HybridLdu, LduTopology};
 pub use fv_vector_matrix::FvVectorMatrix;
 pub use ldu_matrix::LduMatrix;
+pub use parallel::{HybridLdu, LduTopology};
 pub use solvers::conjugate_gradient;
 pub use solvers::gamg;
 pub use solvers::gauss_seidel;

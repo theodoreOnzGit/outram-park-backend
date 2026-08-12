@@ -1365,12 +1365,7 @@ pub fn dot(a: &[f64], b: &[f64], backend: ComputeBackend) -> f64 {
 
 /// [`dot`] with a caller-supplied size floor; see [`HybridLdu::spmv_into_min`]
 /// for why the `_min` variants exist.
-pub(crate) fn dot_min(
-    a: &[f64],
-    b: &[f64],
-    backend: ComputeBackend,
-    min_work_items: usize,
-) -> f64 {
+pub(crate) fn dot_min(a: &[f64], b: &[f64], backend: ComputeBackend, min_work_items: usize) -> f64 {
     assert_eq!(
         a.len(),
         b.len(),

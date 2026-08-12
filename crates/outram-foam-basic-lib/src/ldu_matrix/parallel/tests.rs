@@ -385,7 +385,10 @@ fn diagonal_reciprocal_agrees_and_reports_singular_rows() {
     ldu.diagonal_reciprocal_into_min(&mut multi, ComputeBackend::CpuMulti, FORCE_PARALLEL);
     assert_bitwise_eq(&multi, &serial, "diagonal reciprocal");
 
-    assert!(serial[7].is_infinite(), "zero diagonal must give an infinity");
+    assert!(
+        serial[7].is_infinite(),
+        "zero diagonal must give an infinity"
+    );
     assert!(serial[9].is_nan(), "NaN diagonal must propagate");
     assert_eq!(serial[0], 1.0 / m.diag[0]);
 }
@@ -404,7 +407,13 @@ fn axpy_is_bitwise_identical_across_backends_and_to_vecops() {
     vecops::axpy(alpha, &x, &mut reference);
 
     let mut serial = y0.clone();
-    axpy_min(alpha, &x, &mut serial, ComputeBackend::Serial, FORCE_PARALLEL);
+    axpy_min(
+        alpha,
+        &x,
+        &mut serial,
+        ComputeBackend::Serial,
+        FORCE_PARALLEL,
+    );
     assert_bitwise_eq(&serial, &reference, "axpy serial vs vecops");
 
     let mut multi = y0.clone();
@@ -585,8 +594,10 @@ fn normalised_residual_matches_flat_reference() {
     let x = rng.vector(m.n_cells);
     let b = rng.vector(m.n_cells);
 
-    let blocked_serial = ldu.normalised_residual_min(&x, &b, ComputeBackend::Serial, FORCE_PARALLEL);
-    let blocked_multi = ldu.normalised_residual_min(&x, &b, ComputeBackend::CpuMulti, FORCE_PARALLEL);
+    let blocked_serial =
+        ldu.normalised_residual_min(&x, &b, ComputeBackend::Serial, FORCE_PARALLEL);
+    let blocked_multi =
+        ldu.normalised_residual_min(&x, &b, ComputeBackend::CpuMulti, FORCE_PARALLEL);
     let flat = m.normalised_residual(&x, &b);
     let d = rel_diff(blocked_serial, flat);
 
@@ -664,7 +675,9 @@ fn with_matrix_reuses_index_and_refuses_a_different_mesh() {
     let mut reassembled = (*m).clone();
     reassembled.diag.iter_mut().for_each(|d| *d += 1.0);
     let reassembled = Arc::new(reassembled);
-    let ldu2 = ldu.with_matrix(Arc::clone(&reassembled)).expect("same mesh");
+    let ldu2 = ldu
+        .with_matrix(Arc::clone(&reassembled))
+        .expect("same mesh");
 
     // Same index object, shared not rebuilt.
     assert!(Arc::ptr_eq(ldu.topology(), ldu2.topology()));
@@ -691,7 +704,10 @@ fn degenerate_matrices_behave() {
     assert!(ldu.spmv(&[], ComputeBackend::CpuMulti).is_empty());
     assert!(ldu.diagonal_reciprocal(ComputeBackend::CpuMulti).is_empty());
     // No cells: the residual norm degenerates to the unscaled (zero) L1 norm.
-    assert_eq!(ldu.normalised_residual(&[], &[], ComputeBackend::Serial), 0.0);
+    assert_eq!(
+        ldu.normalised_residual(&[], &[], ComputeBackend::Serial),
+        0.0
+    );
 
     let mut diag_only = LduMatrix::new(3, vec![], vec![]);
     diag_only.diag = vec![2.0, 3.0, 4.0];
@@ -741,7 +757,10 @@ fn spmv_crossover_benchmark() {
         .map(std::num::NonZeroUsize::get)
         .unwrap_or(1);
     println!("available_parallelism = {cores}");
-    println!("parallel feature compiled in: {}", cfg!(feature = "parallel"));
+    println!(
+        "parallel feature compiled in: {}",
+        cfg!(feature = "parallel")
+    );
     println!(
         "{:>9}  {:>10}  {:>12}  {:>12}  {:>9}",
         "cells", "faces", "serial (us)", "multi (us)", "speed-up"
@@ -791,10 +810,19 @@ fn vecop_crossover_benchmark() {
         .map(std::num::NonZeroUsize::get)
         .unwrap_or(1);
     println!("available_parallelism = {cores}");
-    println!("parallel feature compiled in: {}", cfg!(feature = "parallel"));
+    println!(
+        "parallel feature compiled in: {}",
+        cfg!(feature = "parallel")
+    );
     println!(
         "{:>10}  {:>13}  {:>13}  {:>9}  {:>14}  {:>14}  {:>9}",
-        "n", "dot ser (us)", "dot mul (us)", "speed-up", "axpy ser (us)", "axpy mul (us)", "speed-up"
+        "n",
+        "dot ser (us)",
+        "dot mul (us)",
+        "speed-up",
+        "axpy ser (us)",
+        "axpy mul (us)",
+        "speed-up"
     );
 
     let mut n = 1024_usize;
@@ -863,10 +891,7 @@ fn spmv_thread_scaling_benchmark() {
         black_box(y[0]);
     });
     assert_bitwise_eq(&y, &reference, "serial spmv is run-to-run deterministic");
-    println!(
-        "cells = {}, faces = {}",
-        m.n_cells, m.n_internal_faces
-    );
+    println!("cells = {}, faces = {}", m.n_cells, m.n_internal_faces);
     println!("{:>8}  {:>12}  {:>9}", "threads", "time (us)", "speed-up");
     println!("{:>8}  {:>12.2}  {:>9.2}", 1, serial * 1e6, 1.0);
 
@@ -887,10 +912,6 @@ fn spmv_thread_scaling_benchmark() {
             })
         });
         assert_bitwise_eq(&y, &reference, "spmv is thread-count independent");
-        println!(
-            "{threads:>8}  {:>12.2}  {:>9.2}",
-            t * 1e6,
-            serial / t
-        );
+        println!("{threads:>8}  {:>12.2}  {:>9.2}", t * 1e6, serial / t);
     }
 }

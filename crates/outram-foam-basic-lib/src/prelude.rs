@@ -167,3 +167,16 @@ pub use crate::compute::{
 pub use crate::fields::parallel::{
     field_parallel_crossover, should_parallelise, FIELD_PARALLEL_CROSSOVER, REDUCTION_CHUNK,
 };
+
+// --- Hybrid LDU sparse matrix-vector product + Krylov vector operations ---
+//
+// `HybridLdu` carries the cell-gather topology that makes the parallel SpMV
+// bit-for-bit identical to the serial oracle. The free vecops are exported
+// under `ldu_` prefixes here because bare `dot`/`axpy` would read ambiguously
+// beside `fields::parallel`'s reductions; call them path-qualified if the
+// prefix is unwanted.
+pub use crate::ldu_matrix::parallel::{
+    axpy as ldu_axpy, dot as ldu_dot, norm_l1 as ldu_norm_l1, norm_l2 as ldu_norm_l2,
+    spmv_backend_for, vecop_backend_for, HybridLdu, LduTopology, CELL_BLOCK, REDUCTION_BLOCK,
+    SPMV_MIN_CELLS, VECOP_MIN_ELEMENTS,
+};
