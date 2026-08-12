@@ -38,16 +38,38 @@ secondary loop.
 > line numbers or counts — see the pattern note in
 > [section 3](#3-capability-audit).
 >
-> **Sibling documents were audited in the same pass and are NOT yet corrected.**
-> `htr10-plant-data.md` has two false claims (its §8.3/§10 "correction" to this
-> document's 7 MPa figure was already applied here, and its §9 lists the KTA
-> pressure-drop assembly equation as unrecovered when `src/htr10/kta.rs`
-> implements it). `htr10-neutronics.md` has drifted harder — most seriously, its
-> §6.2/§7.4/§10 treat two `outram-mc-libs` RNG defects (`op-rbo`, `op-jis`) as
-> open blockers when both were fixed and committed 2026-08-06, and its §3.3/§7.2
-> say graphite coherent-elastic scattering is not wired into transport when it
-> was wired on 2026-08-11. **Do not rely on either sibling's codebase claims
-> until they are corrected.** Their *literature* content was not audited.
+> **Sibling documents — spot-checked, NOT fully audited, and NOT corrected.**
+> The findings below are the ones personally verified while checking this
+> document; **neither sibling received a systematic audit**, so absence from
+> this list is not evidence of accuracy.
+>
+> - `htr10-plant-data.md:422`, `:426`, `:725` record the KTA 3102.3
+>   **pressure-drop assembly equation** as too OCR-degraded to recover and list
+>   it as outstanding. `crates/outram-park-digital-twin-engine/src/htr10/kta.rs`
+>   implements that correlation and is gold-gated against the VTB worked example
+>   (3493.17 vs 3493 Pa/m). **Stale.**
+> - `htr10-plant-data.md:663-665` still presents the 3.0 MPa primary pressure as
+>   a correction to be applied to *this* document. It has been applied here
+>   (see the blockquote at the end of section 3) — a cross-reference that has
+>   gone stale, not a false statement.
+> - `htr10-neutronics.md:662`, `:672`, `:853` treat the `outram-mc-libs` RNG
+>   defects `op-rbo` and `op-jis` as open, with `:853` a priority-0 "close the
+>   two RNG defects" row. **Both were fixed** — commits `9f4ff6d470` and
+>   `e71f1f97fa`, both dated 2026-08-06. Verified by reading `rng/lcg.rs:233`
+>   and `:111-121`.
+> - `htr10-neutronics.md:257` quotes `outram-mc-libs/src/material/thermal.rs:24-26`
+>   as saying graphite coherent/incoherent-elastic scattering "is deliberately
+>   not wired here yet". **That text is no longer at those lines**; the module
+>   now documents all three ENDF MF=7 channels including coherent elastic for
+>   graphite (commit `67ebcd6ca5`, 2026-08-11). The same retracted sentence
+>   survives in the generated mirror `crates/outram-mc-libs/docs/api.md:7704`,
+>   which needs `python3 scripts/gen_api_docs.py outram-mc-libs`.
+> - `htr10-neutronics.md:168` states `src/htr10/neutronics.rs` holds **45**
+>   published values; the table immediately below it (`:172-178`) has rows
+>   summing to **89** (31 + 7 + 14 + 7 + 16 + 6 + 6 + 2). One of the two numbers
+>   is wrong; **which one was not determined.**
+>
+> Neither sibling's *literature* content was audited at all.
 
 Relates to the existing bead `op-wqk.9` (`htgr_sim_v1`) and its children.
 **Updated 2026-08-12:** the active epic is now **`op-jyyp`** ("HTR-10 pebble-bed
