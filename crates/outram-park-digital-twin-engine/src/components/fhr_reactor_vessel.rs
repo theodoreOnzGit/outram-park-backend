@@ -49,6 +49,7 @@ use crate::color_maps::hot_to_cold_colour_mark_1;
 use crate::components::htr10_reactor_vessel::{
     draw_packed_pebbles, PackingTransform, PackingWindow, VerticalSense,
 };
+use crate::components::pebble_bed_texture::BedTint;
 use crate::components::pebble_packing::BARREL_HEIGHT;
 
 /// Width-to-height ratio the artwork was authored against.
@@ -952,12 +953,17 @@ impl Widget for FhrReactorVesselVisual {
         // seeded from each pebble's index in that table, so it is stable
         // across repaints. The graphite matrix stays black, as this vessel has
         // always drawn it.
+        // The bed is baked to luminance textures once and tinted at draw time,
+        // so `pebble_bed_colour` still tracks the fuel temperature every frame
+        // without forcing a re-bake — see
+        // [`crate::components::pebble_bed_texture`].
         draw_packed_pebbles(
             &painter,
+            response.id.with("fhr_pebble_bed"),
             &packing,
             &packing_window,
             Color32::BLACK,
-            pebble_bed_colour,
+            &BedTint::Uniform(pebble_bed_colour),
         );
 
         // control rod channels and

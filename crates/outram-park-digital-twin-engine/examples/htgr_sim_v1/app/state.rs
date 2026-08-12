@@ -56,6 +56,35 @@ pub struct HtgrSnapshot {
     /// peak fuel temperature is well above it and this model cannot resolve
     /// one, having a single lumped bed node.
     pub bed_temperature_k: f64,
+    /// Whether the reactor protection system is armed.
+    ///
+    /// **Defaults to `false`** by maintainer decision on 2026-08-12, so the
+    /// steam generator can be studied without a trip cutting the transient
+    /// short. With it off, a full rod withdrawal exposes +16.45 $ with nothing
+    /// to terminate it. The steam side is still bounded by the second-law cap
+    /// in [`crate::physics::secondary_loop`], so that is a runaway rather than
+    /// a crash.
+    pub rps_enabled: bool,
+    /// Operator request to clear a latched trip, consumed by the physics
+    /// thread.
+    ///
+    /// A request rather than a direct write, because the protection system
+    /// lives on the physics thread: clearing
+    /// [`HtgrSnapshot::trip_reason`] from the GUI would be overwritten by the
+    /// next physics step, which republishes the still-latched trip. The physics
+    /// thread takes this flag, resets the protection system, and clears it.
+    pub trip_reset_requested: bool,
+    /// Whether the reactor protection system has tripped, and why.
+    ///
+    /// `None` while healthy. Latched once set -- see
+    /// [`crate::physics::protection::ReactorProtectionSystem`]. The GUI shows a
+    /// banner and a reset control when this is `Some`.
+    pub trip_reason: Option<crate::physics::protection::TripReason>,
+    /// How far the scram has driven the rod bank in, `0.0..=1.0`.
+    ///
+    /// This is the PROTECTION SYSTEM's demand, not the operator's command. The
+    /// rods actually move to the deeper of the two.
+    pub scram_insertion_fraction: f64,
     /// External reactivity resulting from the current rod position \[dollars\].
     ///
     /// **Derived, not commanded.** Published by the physics thread from
@@ -163,6 +192,10 @@ impl Default for HtgrSnapshot {
             // `crate::physics::control_rods`), so the simulator opens close to
             // steady state rather than on a prompt excursion.
             control_rod_insertion_fraction: 0.6035,
+            rps_enabled: false,
+            trip_reset_requested: false,
+            trip_reason: None,
+            scram_insertion_fraction: 0.0,
             external_reactivity_dollars: 0.0,
             helium_flow_setpoint_kg_per_s: 4.3,
             reactor_power_mw: 10.0,

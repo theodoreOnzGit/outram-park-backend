@@ -88,16 +88,28 @@
 //! once per frame -- widgets are rebuilt every repaint, so a train owned by a
 //! widget would reset its phase each frame.
 //!
+//! ## Control rods
+//!
+//! The side panel's rod-bank slider writes `control_rod_insertion_fraction` on
+//! [`HtgrSnapshot`], and the reactor widget draws the bank in HTR-10's **side
+//! reflector** borings, where the real rods are -- not in the pebble bed.
+//!
+//! The drawn depth is **slewed** toward the slider's setpoint rather than
+//! snapping to it, so a drag produces visible rod travel. Two honesty notes:
+//!
+//! - The **drive speed is ILLUSTRATIVE**, not a plant figure. No published
+//!   HTR-10 rod drive speed was found in this project's scoping notes or
+//!   literature archive (searched 2026-08-12), so the engine uses a full stroke
+//!   in 20 s purely so the motion is watchable. See
+//!   `animation::control_rod_drive::htr10_illustrative_rod_drive_speed`.
+//! - **Only two rods are drawn.** HTR-10 has ten rod borings; a vertical
+//!   cut-away shows one each side and the rest are out of the section plane.
+//!
 //! ## What is deliberately *not* drawn
 //!
 //! [`HtgrSnapshot`] is the only source of state here, and nothing is invented
 //! to feed a widget that wants more than it carries:
 //!
-//! - **No control rods are drawn.** The plant model has no rod model at all --
-//!   reactivity is inserted directly as an external `rho/beta` -- so
-//!   [`Htr10ReactorVesselVisual::set_control_rod_frac`] is set to `0.0`, which
-//!   draws no rod at all. That is "rod position not modelled", not "rods
-//!   withdrawn".
 //! - **No shaft rotation.** Neither pump has a shaft-speed model in this
 //!   plant, so both are built with `AngularVelocity::ZERO` and draw
 //!   stationary, exactly as [`TurbineVisual`] does for a thermo-only turbine.
@@ -124,6 +136,7 @@
 
 use egui::{pos2, Align2, Color32, FontId, Pos2, Rect, Stroke, Ui, Vec2};
 
+use outram_park_digital_twin_engine::animation::control_rod_drive::ControlRodDrive;
 use outram_park_digital_twin_engine::animation::TracerTrain;
 use outram_park_digital_twin_engine::components::htr10_reactor_vessel::{
     self, Htr10ReactorVesselVisual,
@@ -132,6 +145,7 @@ use outram_park_digital_twin_engine::components::pump::PumpKind;
 use outram_park_digital_twin_engine::components::steam_generator::{
     SteamGeneratorKind, SteamGeneratorScalars,
 };
+use outram_park_digital_twin_engine::components::control_rod_drive::slewed_control_rod_insertion;
 use outram_park_digital_twin_engine::components::{
     CondenserVisual, InstrumentationVisual, LegendUnit, PipeBendVisual, PipeScalars, PipeScale,
     PipeVisual, PumpVisual, SteamGeneratorVisual, TemperatureLegend, TurbineFlowPath,
@@ -726,8 +740,30 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
         k(snapshot.core_outlet_temp_k),
         k(snapshot.core_inlet_temp_k),
     );
-    // No rod model in this plant -- see the module docs. Zero draws no rod.
-    vessel.set_control_rod_frac(0.0);
+    // ── Control rods ────────────────────────────────────────────────────
+    //
+    // The rod bank the side panel's slider drives. HTR-10's rods sit in ten
+    // borings in the graphite SIDE REFLECTOR, not in the pebble bed, and the
+    // vessel widget draws them there.
+    //
+    // The slider writes a setpoint, but a real rod drive takes time to get
+    // there, so the DRAWN depth is slewed toward the setpoint at a bounded
+    // speed. `slewed_control_rod_insertion` owns that state outside the widget
+    // -- widgets here are rebuilt every repaint, so a rod that stored its own
+    // position would reset to zero each frame and never move.
+    //
+    // The drive speed is ILLUSTRATIVE: no published HTR-10 rod drive speed was
+    // found in this project's scoping notes or literature archive, so the
+    // engine uses a full stroke in 20 s purely so the travel is watchable. See
+    // `animation::control_rod_drive::htr10_illustrative_rod_drive_speed`.
+    let commanded_rod_insertion = snapshot.control_rod_insertion_fraction;
+    let drawn_rod_insertion = slewed_control_rod_insertion(
+        ui.ctx(),
+        ui.id().with("htr10_control_rod_bank"),
+        commanded_rod_insertion,
+        ControlRodDrive::htr10(commanded_rod_insertion),
+    );
+    vessel.set_control_rod_frac(drawn_rod_insertion);
     ui.put(
         at_rect(Rect::from_center_size(REACTOR_CENTRE, REACTOR_BOX)),
         vessel,

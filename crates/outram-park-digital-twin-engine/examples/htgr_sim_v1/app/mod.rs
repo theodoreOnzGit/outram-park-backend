@@ -84,12 +84,26 @@ impl HtgrSimApp {
             physics.clone(),
             thread_health.clone(),
             move |state| {
-                let (rod_insertion, flow) = state.read_with(|s| {
+                let (rod_insertion, flow, reset_requested, rps_enabled) = state.read_with(|s| {
                     (
                         s.control_rod_insertion_fraction,
                         s.helium_flow_setpoint_kg_per_s,
+                        s.trip_reset_requested,
+                        s.rps_enabled,
                     )
                 });
+                // Arming state is owned by the GUI; disarming also clears any
+                // latched trip so the operator regains rod control at once.
+                if plant.protection.is_enabled() != rps_enabled {
+                    plant.protection.set_enabled(rps_enabled);
+                }
+                // Consume the reset request on the physics thread, which owns
+                // the protection system, then clear the flag so one click
+                // cannot reset repeatedly.
+                if reset_requested {
+                    plant.protection.reset();
+                    state.update(|s| s.trip_reset_requested = false);
+                }
                 let flow_rate = MassRate::new::<kilogram_per_second>(flow);
                 for _ in 0..SUBSTEPS_PER_TICK {
                     plant.step(dt, rod_insertion, flow_rate);
