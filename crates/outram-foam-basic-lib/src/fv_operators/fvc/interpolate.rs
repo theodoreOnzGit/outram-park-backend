@@ -178,7 +178,7 @@ where
         .collect();
 
     SurfaceField::new(
-        format!("interpolate({})", vol.name),
+        crate::fv_operators::naming::derived_name("interpolate", &vol.name),
         vol.mesh.clone(),
         internal,
         boundary,

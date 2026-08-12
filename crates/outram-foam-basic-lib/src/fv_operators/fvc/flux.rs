@@ -58,7 +58,7 @@ pub fn flux(u: &VolVectorField) -> SurfaceScalarField {
         .collect();
 
     SurfaceScalarField::new(
-        format!("phi({})", u.name),
+        crate::fv_operators::naming::derived_name("phi", &u.name),
         u.mesh.clone(),
         internal,
         boundary,
