@@ -21,6 +21,21 @@ exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/openfoa
 thiserror.workspace = true
 uom.workspace = true
 ndarray.workspace = true
+# Data parallelism for the hot finite-volume kernels — the LDU sparse
+# matrix-vector product, the Krylov vector operations, and the element-wise
+# field algebra. Pure Rust with no system dependency, so it is Android/Termux
+# clean and is therefore an unconditional dependency.
+rayon.workspace = true
+
+# Optional GPU acceleration for the same kernels (`src/gpu.rs`) — target-gated
+# OFF Android, which has no system Vulkan/Metal loader and where the workspace
+# Android rule forbids GPU dependencies in a library build, so the crate still
+# builds headless for aarch64-linux-android. On desktop it is built
+# unconditionally with a mandatory runtime CPU fallback: GPU is acceleration
+# only, and the CPU path is the trusted one. This mirrors the arrangement
+# already used by `outram-park-fork-pflotran` and `njoy-outram-park-fork`.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+wgpu.workspace = true
 
 [dev-dependencies]
 approx.workspace = true
