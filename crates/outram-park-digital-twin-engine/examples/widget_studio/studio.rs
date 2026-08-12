@@ -38,6 +38,7 @@ pub enum WidgetUnderTest {
     Pumps,
     Condensers,
     CoolingTowers,
+    HeatExchangers,
     Excursion,
 }
 
@@ -52,6 +53,7 @@ impl WidgetUnderTest {
         Self::Pumps,
         Self::Condensers,
         Self::CoolingTowers,
+        Self::HeatExchangers,
         Self::Excursion,
     ];
 
@@ -66,6 +68,7 @@ impl WidgetUnderTest {
             Self::Pumps => "Pumps (3 types)",
             Self::Condensers => "Condensers (2 arrangements)",
             Self::CoolingTowers => "Cooling towers (2 draughts)",
+            Self::HeatExchangers => "Heat exchangers (2 arrangements)",
             Self::Excursion => "Excursion overlay",
         }
     }
@@ -89,6 +92,9 @@ impl WidgetUnderTest {
             }
             Self::CoolingTowers => {
                 "hyperbolic and fan-cell — live psychrometrics, plume from exit saturation"
+            }
+            Self::HeatExchangers => {
+                "counter-flow vs parallel flow — only one of them can cross the outlets"
             }
             Self::Excursion => {
                 "destructive annotation over any vessel — a warning label, not a blast model"
@@ -157,6 +163,10 @@ pub struct WidgetStudio {
     /// The cooling-tower gallery. Owns its own clock (the induced-draught fan
     /// turns at `theta = omega * t`) for the same reason the pumps do.
     cooling_towers: crate::cooling_tower_tab::CoolingTowerTab,
+    /// The heat-exchanger gallery: both flow arrangements under one operating
+    /// point, with the physics-backed row beside them drawing the arrangement
+    /// its component really stores.
+    heat_exchangers: crate::heat_exchanger_tab::HeatExchangerTab,
     /// The excursion overlay. Owns the clock measuring time since the
     /// excursion was triggered, which is what expands the annotation.
     excursion: crate::excursion_tab::ExcursionTab,
@@ -193,6 +203,7 @@ impl Default for WidgetStudio {
             pumps: crate::pump_tab::PumpTab::default(),
             condensers: crate::condenser_tab::CondenserTab::default(),
             cooling_towers: crate::cooling_tower_tab::CoolingTowerTab::default(),
+            heat_exchangers: crate::heat_exchanger_tab::HeatExchangerTab::default(),
             excursion: crate::excursion_tab::ExcursionTab::default(),
             pipe_step_errors: Vec::new(),
         }
@@ -322,6 +333,9 @@ impl eframe::App for WidgetStudio {
                 WidgetUnderTest::CoolingTowers => {
                     crate::cooling_tower_tab::controls(ui, &mut self.cooling_towers)
                 }
+                WidgetUnderTest::HeatExchangers => {
+                    crate::heat_exchanger_tab::controls(ui, &mut self.heat_exchangers)
+                }
                 WidgetUnderTest::Excursion => {
                     crate::excursion_tab::controls(ui, &mut self.excursion)
                 }
@@ -338,6 +352,9 @@ impl eframe::App for WidgetStudio {
             WidgetUnderTest::Condensers => crate::condenser_tab::draw(ui, &self.condensers),
             WidgetUnderTest::CoolingTowers => {
                 crate::cooling_tower_tab::draw(ui, &self.cooling_towers)
+            }
+            WidgetUnderTest::HeatExchangers => {
+                crate::heat_exchanger_tab::draw(ui, &self.heat_exchangers)
             }
             WidgetUnderTest::Excursion => crate::excursion_tab::draw(ui, &self.excursion),
             WidgetUnderTest::Pipes => {

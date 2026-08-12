@@ -166,6 +166,38 @@ pub struct HtgrSnapshot {
     /// Cooling-water outlet temperature from the condenser \[K\].
     pub cooling_water_outlet_temp_k: f64,
 
+    // --- Turbine-generator shaft outputs ---
+    /// Turbine-generator shaft angular velocity \[rad/s\].
+    ///
+    /// **Computed by a torque balance**, not an animation constant: it is the
+    /// state of [`crate::physics::turbine_generator::TurbineGeneratorShaft`],
+    /// driven by the secondary loop's enthalpy-drop power against the
+    /// generator's electrical reaction torque. The schematic rebuilds the
+    /// generator model from this scalar and hands it to `TurbineVisual`, whose
+    /// rotor phase is `theta = omega * t`.
+    ///
+    /// **Read the module docs before quoting it.** The machine is *islanded*
+    /// (fixed resistive load, no governor, no AVR), so its speed follows the
+    /// square root of load; a grid-connected machine would instead be pinned at
+    /// synchronous speed. And the load was sized at the machine's rated point,
+    /// which is why the speed lands near synchronous at full load -- the model
+    /// does not independently predict 3000 rpm.
+    pub shaft_speed_rad_per_s: f64,
+    /// The same shaft speed in rpm, for display.
+    pub shaft_speed_rpm: f64,
+    /// Three-phase electrical power delivered into the generator's resistive
+    /// load \[MW\].
+    ///
+    /// Distinct from [`Self::turbine_power_mw`], which is the *mechanical*
+    /// enthalpy-drop power at the coupling. At steady state this is the
+    /// generator efficiency times that; during a transient the difference is
+    /// what accelerates or decelerates the rotor.
+    pub generator_electrical_power_mw: f64,
+    /// Turbine-generator rating \[MW\] -- the design-point shaft power the
+    /// electrical load and rotor inertia were sized against. An **illustrative
+    /// balance-of-plant figure**, not an HTR-10 turbine-generator rating.
+    pub generator_rating_mw: f64,
+
     // --- Diagnostics ---
     /// Accumulated simulation time \[s\].
     pub sim_time_s: f64,
@@ -233,6 +265,15 @@ impl Default for HtgrSnapshot {
             net_cycle_power_mw: 0.0,
             condenser_duty_mw: 0.0,
             cooling_water_outlet_temp_k: 298.15,
+            // The shaft is the one output field that is a genuine STATE rather
+            // than a derived quantity, so it opens at its real initial
+            // condition -- synchronous speed, matching
+            // `TurbineGeneratorShaft::new`. Everything derived from it starts
+            // at zero like the other derived fields.
+            shaft_speed_rad_per_s: std::f64::consts::TAU * 50.0,
+            shaft_speed_rpm: 3000.0,
+            generator_electrical_power_mw: 0.0,
+            generator_rating_mw: 0.0,
             sim_time_s: 0.0,
         }
     }
