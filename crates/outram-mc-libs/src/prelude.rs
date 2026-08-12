@@ -12,6 +12,9 @@ pub use crate::geometry::universe::Universe;
 pub use crate::geometry::lattice::{HexLattice, HexOrientation, Lattice, RectLattice};
 pub use crate::geometry::virtual_lattice::{BuildReport, VirtualLattice};
 pub use crate::geometry::geometry::{BoundaryHit, Coord, Crossing, Geometry, GeometryPath};
+pub use crate::geometry::triso_particle::{
+    build_triso_particle, triso_particle, TrisoMaterials, TrisoParticle, TrisoRadii,
+};
 pub use crate::particle::particle::{Particle, ParticleType};
 pub use crate::material::material::{MacroXs, Material};
 pub use crate::material::nuclide::{MicroXS, Nuclide};
@@ -38,6 +41,7 @@ pub use crate::physics::fixed_source::{
 pub use crate::pebble_beds::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
 pub use crate::pebble_beds::keff_delta::run_keff_delta;
 pub use crate::pebble_beds::sphere_packing::{pack_spheres, PackedSpheres, PackingConfig, PackingMethod};
+pub use crate::pebble_beds::crp_packing::{pack_spheres_crp, CrpError, MAX_PF_CRP};
 // Stochastic-media research track (scaffold, beads epic op-eby). The chord
 // statistics, SCLS retention machinery and brute-force index are implemented; the
 // CLS/SCLS transport drivers are not — those paths return typed NotImplemented
