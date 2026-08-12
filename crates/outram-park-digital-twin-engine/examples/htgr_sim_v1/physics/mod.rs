@@ -103,6 +103,7 @@
 //! underlying physics kernels (those live in the workspace libraries this
 //! composes).
 
+pub mod control_rods;
 pub mod kinetics;
 pub mod pebble_bed;
 pub mod primary_loop;
@@ -185,18 +186,38 @@ impl HtgrPlant {
         self.core.temperature()
     }
 
+    /// External reactivity in dollars currently commanded by the control-rod
+    /// bank, for the given insertion fraction.
+    ///
+    /// The operator commands rod *position*; reactivity is what results. See
+    /// [`control_rods`] for the published HTR-10 bank worth and cold clean
+    /// excess this is derived from, and for what remains illustrative about it.
+    pub fn external_reactivity_dollars(&self, control_rod_insertion_fraction: f64) -> f64 {
+        control_rods::external_reactivity_dollars(
+            control_rod_insertion_fraction,
+            self.kinetics
+                .delayed_neutron_fraction()
+                .get::<uom::si::ratio::ratio>(),
+        )
+    }
+
     /// Advance the whole plant by one timestep `dt`, given the user control
-    /// inputs (external reactivity in dollars and the helium pump flow
-    /// setpoint).
+    /// inputs (control-rod bank insertion fraction in `0..=1` and the helium
+    /// pump flow setpoint).
     pub fn step(
         &mut self,
         dt: Time,
-        external_reactivity_dollars: f64,
+        control_rod_insertion_fraction: f64,
         helium_flow_setpoint: MassRate,
     ) {
         self.sim_time += dt;
 
-        // 1. Kinetics -> reactor fission power.
+        // 1. Kinetics -> reactor fission power. Rod position is converted to
+        //    reactivity here rather than in the GUI so the physics owns the
+        //    conversion and an OPC-UA write of a rod position gets the same
+        //    treatment as a slider drag.
+        let external_reactivity_dollars =
+            self.external_reactivity_dollars(control_rod_insertion_fraction);
         self.kinetics.step(dt, external_reactivity_dollars);
         let reactor_power = self.kinetics.total_power();
 
@@ -226,7 +247,14 @@ impl HtgrPlant {
         );
 
         // 4. Secondary steam loop driven by that (already limited) duty.
-        self.secondary.step(dt, self.primary.ihx_duty());
+        // The core outlet is the hot-side inlet to the steam generator, and is
+        // what caps the steam side's absorbable duty so no temperature cross is
+        // representable. See `secondary_loop::max_absorbable_duty`.
+        self.secondary.step(
+            dt,
+            self.primary.ihx_duty(),
+            self.primary.core_outlet_temperature(),
+        );
     }
 
     /// Project the current plant state onto the shared [`HtgrSnapshot`],

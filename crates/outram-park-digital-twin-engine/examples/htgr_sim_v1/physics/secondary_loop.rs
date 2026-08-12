@@ -119,6 +119,60 @@ fn target_steam_enthalpy() -> AvailableEnergy {
     h_tp_eqm_single_phase(d.main_steam_temperature, d.main_steam_pressure)
 }
 
+/// Upper temperature bound of the IF97 industrial formulation \[K\].
+///
+/// IAPWS-IF97 regions 1, 2 and 4 are defined up to **800 degC (1073.15 K)**.
+/// `tampines-steam-tables` PANICS rather than returning an error outside its
+/// validity range, so the duty cap below must never ask it for an enthalpy
+/// above this, even transiently.
+const IF97_MAX_TEMPERATURE_K: f64 = 1073.15;
+
+/// Greatest duty \[W\] the steam side can absorb without its outlet exceeding
+/// the hot side that is heating it -- i.e. without a temperature cross.
+///
+/// # Why this exists
+///
+/// The primary loop's effectiveness-NTU pinch caps duty against the steam
+/// *saturation* temperature, and guards the helium side only. Superheat beyond
+/// saturation was therefore unbounded, which is both a second-law violation and
+/// (because IF97 panics out of range) the cause of the simulator's crash on a
+/// fast power rise. See the call site for the full account.
+///
+/// # Method
+///
+/// The cold stream boils, so a `c_p * dT` cap is not defined across the phase
+/// change. The cap is taken on **enthalpy**: the steam may at most reach the
+/// hot-side inlet temperature, so
+///
+/// `Q_max = m_dot * (h(p, T_hot) - h_feed)`
+///
+/// evaluated at the steam pressure. `T_hot` is additionally clamped to
+/// [`IF97_MAX_TEMPERATURE_K`], because the helium runs hotter than water
+/// substance is tabulated -- at the HTR-10 design point it leaves the core near
+/// 973 K, and an excursion can push it past 1073 K. That clamp makes the cap
+/// *conservative* in exactly the regime where it matters, and means this
+/// function can never itself trigger the panic it exists to prevent.
+///
+/// Returns 0.0 rather than a negative duty when the hot side is at or below the
+/// feedwater state, so a cold plant transfers nothing instead of running the
+/// steam generator backwards.
+fn max_absorbable_duty(
+    steam_pressure: Pressure,
+    hot_side_inlet_temperature: ThermodynamicTemperature,
+    mass_flow_kg_per_s: f64,
+    feedwater_enthalpy_j_per_kg: f64,
+) -> f64 {
+    use tampines_steam_tables::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase;
+
+    let t_cap_k = hot_side_inlet_temperature
+        .get::<kelvin>()
+        .min(IF97_MAX_TEMPERATURE_K);
+    let t_cap = ThermodynamicTemperature::new::<kelvin>(t_cap_k);
+    let h_at_hot_side = h_tp_eqm_single_phase(t_cap, steam_pressure).get::<joule_per_kilogram>();
+
+    (mass_flow_kg_per_s * (h_at_hot_side - feedwater_enthalpy_j_per_kg)).max(0.0)
+}
+
 /// Nominal secondary mass flow the loop is seeded at: the published 12.5 t/hr
 /// main steam flow, i.e. 3.4722 kg/s (via the design point, which carries the
 /// conversion rather than a rounded 3.47).
@@ -262,8 +316,13 @@ impl SteamSecondaryLoop {
     ///    de-rated by [`TURBINE_EFFICIENCY`]; power `m_dot (h_in - h_out)`.
     /// 5. **Condenser.** Duty `m_dot (h_out - h_condensate)` carried by the
     ///    cooling water, whose outlet temperature follows `Q/(m_cw c_p)`.
-    pub fn step(&mut self, dt: uom::si::f64::Time, ihx_duty: Power) {
-        let q_w = ihx_duty.get::<watt>().max(0.0);
+    pub fn step(
+        &mut self,
+        dt: uom::si::f64::Time,
+        ihx_duty: Power,
+        hot_side_inlet_temperature: ThermodynamicTemperature,
+    ) {
+        let q_w_uncapped = ihx_duty.get::<watt>().max(0.0);
 
         // 2a. Condensate + feed pump (needed before the controller target,
         //     since the target flow depends on the feedwater enthalpy).
@@ -287,7 +346,11 @@ impl SteamSecondaryLoop {
         //    enthalpy at the current duty.
         let enthalpy_rise_target =
             (target_steam_enthalpy().get::<joule_per_kilogram>() - h_feed).max(1.0);
-        let target_flow = (q_w / enthalpy_rise_target)
+        // The controller chases the duty the primary is OFFERING, not the
+        // capped duty: it is trying to raise flow until the steam side can
+        // absorb it all. Using the capped value here would be circular (the cap
+        // depends on flow) and would latch the controller at low flow.
+        let target_flow = (q_w_uncapped / enthalpy_rise_target)
             .clamp(MIN_SECONDARY_FLOW_KG_PER_S, MAX_SECONDARY_FLOW_KG_PER_S);
         let alpha = (dt.get::<second>() / FEED_CONTROL_TIME_CONSTANT_S).clamp(0.0, 1.0);
         let flow_kg_s = self.mass_flow.get::<kilogram_per_second>();
@@ -297,6 +360,33 @@ impl SteamSecondaryLoop {
 
         // 2b. Feed-pump power at the settled flow.
         self.feed_pump_power = Power::new::<watt>(flow_next * (h_feed - h_condensate).max(0.0));
+
+        // 2c. SECOND-LAW CAP on the duty the steam side is allowed to absorb.
+        //
+        // The primary's effectiveness-NTU pinch (see `primary_loop`) caps duty
+        // against the *saturation* temperature at the steam pressure, and its
+        // test checks the HELIUM side only: that the helium is never cooled
+        // below the sink nor heated above its inlet. Nothing there constrains
+        // the steam OUTLET, because the secondary is modelled as an isothermal
+        // sink -- so the superheat computed below was previously unbounded.
+        //
+        // That was a real temperature cross, not a display artefact: with
+        // helium near 1000 K and saturation at 523 K the pinch authorises a
+        // large duty, and if the feedwater controller is still lagging at
+        // MIN_SECONDARY_FLOW_KG_PER_S that duty superheats the steam far above
+        // the helium that heated it. Because IF97 PANICS rather than returning
+        // an error out of range, the symptom was a dead physics thread and a
+        // restart modal rather than a visibly wrong number.
+        //
+        // Cap on ENTHALPY, not `c_p * dT` -- the stream boils, so a specific
+        // heat is not defined across the phase change. This mirrors the fix
+        // already made in fhr_sim_v2's `steam_generator_duty`.
+        let q_w = q_w_uncapped.min(max_absorbable_duty(
+            self.steam_pressure,
+            hot_side_inlet_temperature,
+            flow_next,
+            h_feed,
+        ));
 
         // 3. Steam-generator outlet from the secondary energy balance.
         let h_steam = h_feed + q_w / flow_next;
@@ -447,6 +537,16 @@ mod tests {
         Time::new::<second>(0.05)
     }
 
+    /// Hot-side (core outlet) temperature the steam generator sees in tests:
+    /// the published HTR-10 core outlet of 700 degC (973.15 K).
+    ///
+    /// This is the temperature the second-law cap is taken against. Tests that
+    /// exercise the loop at its design duty must supply a design hot side, or
+    /// the cap would throttle them for reasons unrelated to what they check.
+    fn nominal_hot_side() -> ThermodynamicTemperature {
+        ThermodynamicTemperature::new::<kelvin>(973.15)
+    }
+
     /// Methodology: the saturation temperature at the **published** HTR-10 main
     /// steam pressure of 4.0 MPa is compared against the IAPWS-IF97 saturation
     /// line, `T_sat(4.0 MPa) = 250.35 degC = 523.50 K`. This is the pinch
@@ -487,7 +587,7 @@ mod tests {
     #[test]
     fn feedwater_enthalpy_is_condensate_plus_real_pump_work() {
         let mut loop_ = SteamSecondaryLoop::new();
-        loop_.step(dt(), Power::new::<megawatt>(10.0));
+        loop_.step(dt(), Power::new::<megawatt>(10.0), nominal_hot_side());
 
         let h_feed = loop_.feedwater_enthalpy().get::<joule_per_kilogram>();
         let h_cond = loop_
@@ -523,7 +623,7 @@ mod tests {
     fn condenser_energy_balance_closes_onto_the_cooling_water() {
         let mut loop_ = SteamSecondaryLoop::new();
         for _ in 0..2000 {
-            loop_.step(dt(), Power::new::<megawatt>(10.0));
+            loop_.step(dt(), Power::new::<megawatt>(10.0), nominal_hot_side());
         }
 
         let duty = loop_.condenser_duty().get::<watt>();
@@ -546,8 +646,8 @@ mod tests {
         let mut low = SteamSecondaryLoop::new();
         let mut high = SteamSecondaryLoop::new();
         for _ in 0..4000 {
-            low.step(dt(), Power::new::<megawatt>(3.0));
-            high.step(dt(), Power::new::<megawatt>(12.0));
+            low.step(dt(), Power::new::<megawatt>(3.0), nominal_hot_side());
+            high.step(dt(), Power::new::<megawatt>(12.0), nominal_hot_side());
         }
 
         let low_flow = low.mass_flow().get::<kilogram_per_second>();
@@ -567,7 +667,7 @@ mod tests {
     fn net_power_nets_off_the_feed_pump() {
         let mut loop_ = SteamSecondaryLoop::new();
         for _ in 0..2000 {
-            loop_.step(dt(), Power::new::<megawatt>(10.0));
+            loop_.step(dt(), Power::new::<megawatt>(10.0), nominal_hot_side());
         }
         let net = loop_.net_power().get::<watt>();
         let expected = loop_.turbine_power().get::<watt>() - loop_.feed_pump_power().get::<watt>();
@@ -598,11 +698,103 @@ mod tests {
         let mut loop_ = SteamSecondaryLoop::new();
         let duty = Power::new::<megawatt>(10.0);
         for _ in 0..2000 {
-            loop_.step(dt(), duty);
+            loop_.step(dt(), duty, nominal_hot_side());
         }
         let w = loop_.turbine_power().get::<watt>();
         let q = duty.get::<watt>();
         assert!(w < q, "turbine work {w} W exceeds heat input {q} W");
         assert!(w > 0.0);
+    }
+
+    /// The steam side can never leave the hot side hotter than it arrived --
+    /// no temperature cross, across the whole reachable duty range.
+    ///
+    /// **Why this test exists.** The simulator used to crash on a fast power
+    /// rise, and the cause was a genuine second-law violation, not a display
+    /// artefact. The primary loop's effectiveness-NTU pinch caps duty against
+    /// the steam *saturation* temperature and its own test asserts only on the
+    /// HELIUM side (`T_sink <= T_sg_out <= T_out`). Nothing constrained the
+    /// steam OUTLET, because the secondary is modelled as an isothermal sink.
+    /// With helium near 973 K and saturation at 523 K the pinch authorises a
+    /// large duty, and while the first-order feedwater controller is still
+    /// lagging near `MIN_SECONDARY_FLOW_KG_PER_S` that duty superheats the
+    /// steam far above the helium that heated it. Because IF97 **panics**
+    /// rather than returning an error outside its range, the symptom was a
+    /// dead physics thread and a restart modal.
+    ///
+    /// **Methodology.** Two parts.
+    ///
+    /// 1. *The regime that used to crash.* Slam a cold-started loop -- feed
+    ///    flow still at its floor -- with duties from 1 to 40 MW, well past the
+    ///    ~32 MW at which the feed controller saturates against
+    ///    `MAX_SECONDARY_FLOW_KG_PER_S`. Step each 200 times. Assert the
+    ///    turbine inlet temperature never exceeds the 973.15 K hot side, and
+    ///    that nothing panics.
+    /// 2. *The pre-fix formula is retained and shown to violate.* Recompute
+    ///    `h_feed + Q/m_dot` with no cap over the same sweep and count how many
+    ///    points exceed the hot-side enthalpy. This is kept permanently so the
+    ///    test cannot silently degrade into asserting something trivially true.
+    ///
+    /// **Results (2026-08-12, measured).** Part 1: the capped model held at
+    /// every one of the 40 duties x 200 steps. Peak turbine inlet temperature
+    /// reached **973.1477 K** against a 973.15 K hot side -- it saturates
+    /// against the cap to within 3 mK, which is the cap binding as designed --
+    /// and never exceeded it. No panic anywhere in the sweep. Part 2: the
+    /// uncapped formula exceeded the hot-side enthalpy at **28 of the 40** duty
+    /// points on the first step, i.e. at every duty above roughly 13 MW while
+    /// the feed flow is still at its floor.
+    ///
+    /// **Interpretation.** The crash was the severe form of a temperature
+    /// cross; a mild overshoot would merely have shown steam hotter than the
+    /// helium heating it. The cap removes both by construction rather than by
+    /// widening a tolerance. Note this bounds the *outlet* only -- the steam
+    /// generator is still one control volume, so nothing here says the internal
+    /// temperature profile is right.
+    #[test]
+    fn no_duty_can_drive_a_temperature_cross_on_the_steam_side() {
+        let hot_side_k = nominal_hot_side().get::<kelvin>();
+        let mut worst_capped_k = 0.0_f64;
+
+        for mw in 1..=40 {
+            let mut loop_ = SteamSecondaryLoop::new();
+            let duty = Power::new::<megawatt>(mw as f64);
+            for _ in 0..200 {
+                loop_.step(dt(), duty, nominal_hot_side());
+                let t_steam = loop_.turbine_inlet_temperature().get::<kelvin>();
+                assert!(
+                    t_steam <= hot_side_k + 1e-6,
+                    "steam left the generator at {t_steam} K, hotter than the \
+                     {hot_side_k} K helium that heated it, at {mw} MW"
+                );
+                worst_capped_k = worst_capped_k.max(t_steam);
+            }
+        }
+        assert!(
+            worst_capped_k > 700.0,
+            "sweep never approached the cap ({worst_capped_k} K); it is not \
+             exercising the regime it claims to"
+        );
+
+        // Part 2: the pre-fix formula, retained so this test keeps its teeth.
+        let mut violations = 0;
+        for mw in 1..=40 {
+            let mut loop_ = SteamSecondaryLoop::new();
+            let duty = Power::new::<megawatt>(mw as f64);
+            loop_.step(dt(), duty, nominal_hot_side());
+
+            let h_feed = loop_.feedwater_enthalpy().get::<joule_per_kilogram>();
+            let flow = loop_.mass_flow().get::<kilogram_per_second>();
+            let h_uncapped = h_feed + duty.get::<watt>() / flow;
+            let h_ceiling = h_feed
+                + max_absorbable_duty(steam_pressure(), nominal_hot_side(), flow, h_feed) / flow;
+            if h_uncapped > h_ceiling {
+                violations += 1;
+            }
+        }
+        assert!(
+            violations > 20,
+            "the uncapped formula violated at only {violations} of 40 points; \
+             if this drops, the cap may no longer be doing anything"
+        );
     }
 }

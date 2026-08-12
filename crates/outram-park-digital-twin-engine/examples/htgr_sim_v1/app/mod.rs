@@ -84,17 +84,23 @@ impl HtgrSimApp {
             physics.clone(),
             thread_health.clone(),
             move |state| {
-                let (rho, flow) = state.read_with(|s| {
+                let (rod_insertion, flow) = state.read_with(|s| {
                     (
-                        s.external_reactivity_dollars,
+                        s.control_rod_insertion_fraction,
                         s.helium_flow_setpoint_kg_per_s,
                     )
                 });
                 let flow_rate = MassRate::new::<kilogram_per_second>(flow);
                 for _ in 0..SUBSTEPS_PER_TICK {
-                    plant.step(dt, rho, flow_rate);
+                    plant.step(dt, rod_insertion, flow_rate);
                 }
-                state.update(|s| plant.write_snapshot(s));
+                // Publish the reactivity the rods actually bought, so the GUI
+                // shows a consequence rather than echoing a command back.
+                let rho = plant.external_reactivity_dollars(rod_insertion);
+                state.update(|s| {
+                    plant.write_snapshot(s);
+                    s.external_reactivity_dollars = rho;
+                });
                 thread::sleep(PHYSICS_TICK);
             },
         );
