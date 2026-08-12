@@ -66,6 +66,21 @@ use outram_foam_basic_lib::fv_operators::{fvm, fvc};
 
 ## What's implemented
 
+### Cross-layer — hybrid execution backend
+
+Dispatch only; no kernels live here. Both accelerator features are **off by
+default**, so a plain build pulls neither `rayon` nor `wgpu` and stays
+Android/Termux clean. `ComputeBackend::Serial` is always compiled and is the
+reference implementation the other backends are verified against.
+
+| Module | Rust type / fn | Notes |
+|---|---|---|
+| `compute` | `ComputeBackend` | `Serial` / `CpuMulti` / `Gpu`. `Serial` is the `#[default]` and the oracle. `resolve()` degrades an unavailable choice instead of failing, so a missing GPU adapter is a normal outcome, not an error. |
+| `compute` | `select_backend` | The single named backend-selection policy — the size rule lives in one findable function rather than scattered inline thresholds. |
+| `compute` | `ThreadCount` | `Auto` / `Fixed(n)` / `Fraction(f)` worker sizing for `CpuMulti`; always resolves to `>= 1`. |
+| `compute` | `gpu_adapter_present` | One-shot cached adapter probe. Never panics; `false` on Android, without the `gpu` feature, or with no adapter. |
+| `compute` | `CPU_MULTI_MIN_WORK_ITEMS`, `GPU_MIN_WORK_ITEMS` | Crossover thresholds. **Placeholders awaiting measurement** — bead `op-yvj.4.7` covers the benchmarks that will replace them. |
+
 ### Layers 1a–1h — Primitives and thermophysics
 
 | Module | Rust type / fn | Notes |

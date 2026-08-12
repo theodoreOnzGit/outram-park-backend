@@ -146,3 +146,14 @@ pub use crate::interface;
 
 // TVD flux limiters (translated from OpenFOAM limitedSchemes)
 pub use crate::limiters::FluxLimiter;
+
+// --- Hybrid execution backend (dispatch only, no kernels) ---
+//
+// `ComputeBackend::Serial` is always available and is the oracle every other
+// backend is verified against; `CpuMulti` needs the `parallel` feature and
+// `Gpu` the `gpu` feature plus an actual adapter. `select_backend` is the one
+// named policy function that decides between them.
+pub use crate::compute::{
+    gpu_adapter_present, select_backend, ComputeBackend, ThreadCount, CPU_MULTI_MIN_WORK_ITEMS,
+    GPU_MIN_WORK_ITEMS,
+};

@@ -27,6 +27,10 @@
 //! directory, mirrored from the workspace root) for the full attribution
 //! and non-affiliation notice.
 
+/// Cross-layer — where a numerical kernel runs (`ComputeBackend`: serial,
+/// multi-CPU via `rayon`, or GPU via `wgpu`), the worker-count policy, and the
+/// backend-selection rule. Dispatch only, no kernels.
+pub mod compute;
 /// Layer 2 — field containers (`VolField`/`SurfaceField`), boundary
 /// conditions, and field-level tensor algebra.
 pub mod fields;
