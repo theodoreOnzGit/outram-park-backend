@@ -171,6 +171,66 @@ specifically, not just human contributors:
     reference is a hard error pointing at the exact line. Prefer this over a
     blind `sed` rename, which can silently mangle a colliding name.
 
+## Search the workspace before building anything (HARD RULE)
+
+**Before attempting a solution — and before briefing an agent on one — scan this
+workspace for existing code that solves the problem, or comes close to solving
+it. Always reuse.** Writing something this workspace already contains wastes
+time and tokens, and worse, creates a second implementation that silently drifts
+from the first.
+
+This is a **hard rule, not a preference**, and it applies to *specifying* work as
+much as to writing it. A brief that names an approach without first checking what
+exists is the same defect one level up: the agent follows it competently and
+produces a duplicate.
+
+**Why it needs to be a rule.** This workspace is 40+ crates, many of them ports
+of mature codes. The prior is **"this probably exists already"**, not "this needs
+writing". On 2026-08-12 alone, five separate pieces of work were specified before
+checking, and every one turned out to be already present:
+
+| Specified | Already existed |
+|---|---|
+| Packed-bed friction + effective conductivity as "over-scoped" | `src/htr10/kta.rs`, `src/htr10/zbs.rs` — tested |
+| A hand-rolled implicit heat-exchanger matrix solver | `TampinesSteamArray` / `OPCPFluidArray` on `Arc<FvMesh>` with PIMPLE correctors |
+| "Build it directly on `outram-foam-basic-lib`'s `fvm::` operators" | Those arrays already wrap exactly that |
+| An `inletOutlet` boundary condition, written from scratch | `tuas_boussinesq_solver`'s `advection_to_bcs.rs` upwind terminal |
+| A limiter for bounded scalar convection | `fvc::Limiter` (Upwind/Linear/VanLeer/Minmod), vendored and tested |
+
+A whole subsystem — `crates/tampines/src/pebble_bed/`, 5,656 lines with 34
+passing tests — was found only by a documentation audit, having had no consumer
+and gone unnoticed while related work was being written elsewhere.
+
+**How to comply, concretely.** Before writing or briefing:
+
+1. **Grep for the domain noun, not your intended API name.** `grep -rn "pub
+   struct .*Array" crates/`, `grep -rni "laplacian\|upwind\|limiter" crates/
+   --include=*.rs`. You are looking for someone else's vocabulary, not your own.
+2. **Read the relevant crate's `CLAUDE.md` and `docs/`.** Several crates document
+   capabilities that are not obvious from their names, and several document
+   *deliberate* omissions you would otherwise "fix" wrongly.
+3. **Check `src/` of the crate you are editing, not only the `examples/` you are
+   working in.** The KTA/ZBS duplication happened exactly this way.
+4. **Search sibling crates for the same lineage.** Ports often exist in pairs
+   (`tampines-steam-tables` ⟷ `outram-park-fork-coolprop`); a defect or a feature
+   in one usually has a counterpart in the other.
+5. **State in the brief what you checked**, so the agent can correct you. "I
+   searched X and Y and found nothing" is a claim someone can falsify; silence is
+   not.
+
+**Reuse in preference to porting, and porting in preference to writing.** If
+direct reuse does not compose — different lineage, incompatible interface — port
+the *logic* and **cite the reference implementation in the doc comment** so the
+two cannot drift unnoticed. Only write something new when both fail, and say
+plainly in your report why.
+
+**A checked-and-rejected is a good answer.** "I looked at `tampines/src/gas_phase/`
+and it does not cover this because …" is valuable and should be reported. What is
+not acceptable is not looking.
+
+Related: the recurring-failure-mode list in
+[`docs/human-corrections-to-ai-work.md`](docs/human-corrections-to-ai-work.md).
+
 ## Dogfood KOPITIAM and KOPI-BEANS (HARD RULE)
 
 **KOPITIAM (`kopitiam`) and KOPI-BEANS (`kopi-beans`, binary `bn`) are
