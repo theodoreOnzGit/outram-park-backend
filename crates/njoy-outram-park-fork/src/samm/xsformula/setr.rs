@@ -301,5 +301,15 @@ pub fn setr(
         }
     }
 
-    SetrOutput { rmat, ymat, lrmat_trivial, rootp, elinvr, elinvi, sinsqr, sin2ph, nchan }
+    SetrOutput {
+        rmat,
+        ymat,
+        lrmat_trivial,
+        rootp,
+        elinvr,
+        elinvi,
+        sinsqr,
+        sin2ph,
+        nchan,
+    }
 }

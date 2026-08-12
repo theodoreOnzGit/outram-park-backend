@@ -232,7 +232,11 @@ pub fn standard_reactions(format: EndfFormat) -> Vec<GaminrReaction> {
     const NMLST: [&str; 9] = [
         "totl", "coht", "coht", "inch", "inch", "pair", "pair", "abst", "heat",
     ];
-    let mts = if format.uses_vi_mts() { &MTLST6 } else { &MTLST };
+    let mts = if format.uses_vi_mts() {
+        &MTLST6
+    } else {
+        &MTLST
+    };
     (0..9)
         .map(|i| GaminrReaction {
             mfd: MFLST[i],

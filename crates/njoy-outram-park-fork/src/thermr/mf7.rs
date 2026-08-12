@@ -236,7 +236,10 @@ pub fn select_temperature(
         .iter()
         .enumerate()
         .min_by(|(_, a), (_, b)| {
-            (*a - target_k).abs().partial_cmp(&(*b - target_k).abs()).unwrap()
+            (*a - target_k)
+                .abs()
+                .partial_cmp(&(*b - target_k).abs())
+                .unwrap()
         })
         .unwrap();
     if (t_near - target_k).abs() <= temperature_match_tolerance_k(target_k) {
@@ -246,7 +249,12 @@ pub fn select_temperature(
     for j in 0..temps.len().saturating_sub(1) {
         if (temps[j] - target_k) * (temps[j + 1] - target_k) < 0.0 {
             let li = interval_li.get(j).copied().unwrap_or(2);
-            return Ok(TemperatureSelection::Interpolated { lo: j, hi: j + 1, li, target_k });
+            return Ok(TemperatureSelection::Interpolated {
+                lo: j,
+                hi: j + 1,
+                li,
+                target_k,
+            });
         }
     }
     // Outside the tabulated range: refuse rather than extrapolate or snap.
@@ -255,7 +263,11 @@ pub fn select_temperature(
         min_k = min_k.min(t);
         max_k = max_k.max(t);
     }
-    Err(NjoyError::TemperatureOutOfRange { requested_k: target_k, min_k, max_k })
+    Err(NjoyError::TemperatureOutOfRange {
+        requested_k: target_k,
+        min_k,
+        max_k,
+    })
 }
 
 /// Interpolate one `S` value between two temperatures under ENDF law `li`
@@ -273,12 +285,11 @@ pub(crate) fn interp_s_temperature(
     target_k: f64,
     li: u32,
 ) -> f64 {
-    terp1(t_lo, s_lo, t_hi, s_hi, target_k, IntLaw::from_code(li))
-        .unwrap_or_else(|_| {
-            // Lin-lin fallback for log-law domain errors (documented divergence
-            // from a hard failure; upstream terp1 would emit y1 for S=0).
-            s_lo + (s_hi - s_lo) * (target_k - t_lo) / (t_hi - t_lo)
-        })
+    terp1(t_lo, s_lo, t_hi, s_hi, target_k, IntLaw::from_code(li)).unwrap_or_else(|_| {
+        // Lin-lin fallback for log-law domain errors (documented divergence
+        // from a hard failure; upstream terp1 would emit y1 for S=0).
+        s_lo + (s_hi - s_lo) * (target_k - t_lo) / (t_hi - t_lo)
+    })
 }
 
 /// Parse the MF=7 thermal scattering data for material `mat` from `tape`.
@@ -340,10 +351,17 @@ pub fn parse_mf7_at_temperature(
         Some(sec) => parse_elastic(sec)?,
         None => (None, None),
     };
-    let incoherent_inelastic =
-        inelastic.map(|sec| parse_inelastic(sec, target_k)).transpose()?;
+    let incoherent_inelastic = inelastic
+        .map(|sec| parse_inelastic(sec, target_k))
+        .transpose()?;
 
-    Ok(Mf7 { za, awr, coherent_elastic, incoherent_elastic, incoherent_inelastic })
+    Ok(Mf7 {
+        za,
+        awr,
+        coherent_elastic,
+        incoherent_elastic,
+        incoherent_inelastic,
+    })
 }
 
 /// Parse MF=7/MT=2 thermal elastic. Returns `(coherent, incoherent)` — either,
@@ -374,8 +392,7 @@ fn parse_elastic(
     // Coherent S(E): T0 = C1, LT = L1 (extra temperatures), (E, S) pairs.
     let temperature_k = tab1.head.c1;
     let lt = tab1.head.l1;
-    let (bragg_energies_ev, s_base): (Vec<f64>, Vec<f64>) =
-        tab1.pairs.iter().copied().unzip();
+    let (bragg_energies_ev, s_base): (Vec<f64>, Vec<f64>) = tab1.pairs.iter().copied().unzip();
 
     // The LT extra temperatures follow as LIST records: [T, 0, LI, 0, NP, 0 /
     // S(E_i, T)] — S only, on the shared Bragg-edge grid. Retain every table
@@ -401,8 +418,12 @@ fn parse_elastic(
         temp_interp.push(list.head.l1.max(0) as u32); // LI
         s_tables.push(list.data.clone());
     }
-    let coherent =
-        CoherentElastic { bragg_energies_ev, temperatures_k, s_tables, temp_interp };
+    let coherent = CoherentElastic {
+        bragg_energies_ev,
+        temperatures_k,
+        s_tables,
+        temp_interp,
+    };
 
     // LTHR=3 (mixed): the incoherent W'(T) TAB1 follows the coherent LISTs.
     let incoherent = if lthr == 3 {
@@ -422,7 +443,12 @@ fn read_incoherent_elastic(tab1: &crate::endf::records::Tab1) -> IncoherentElast
     let sb = tab1.head.c1;
     let wp_of_t = tab1.pairs.clone();
     let temperature_k = wp_of_t.first().map(|&(t, _)| t).unwrap_or(0.0);
-    IncoherentElastic { temperature_k, sb, interp: tab1.interp.clone(), wp_of_t }
+    IncoherentElastic {
+        temperature_k,
+        sb,
+        interp: tab1.interp.clone(),
+        wp_of_t,
+    }
 }
 
 /// Parse MF=7/MT=4 incoherent inelastic S(α,β), selecting the tabulated
@@ -507,23 +533,25 @@ fn parse_inelastic(
             TemperatureSelection::Tabulated(i) => {
                 cand_s.get(i).cloned().unwrap_or_else(|| cand_s[0].clone())
             }
-            TemperatureSelection::Interpolated { lo, hi, li, target_k } => cand_s[lo]
+            TemperatureSelection::Interpolated {
+                lo,
+                hi,
+                li,
+                target_k,
+            } => cand_s[lo]
                 .iter()
                 .zip(cand_s[hi].iter())
                 .map(|(&s_lo, &s_hi)| {
-                    interp_s_temperature(
-                        cand_temps[lo],
-                        s_lo,
-                        cand_temps[hi],
-                        s_hi,
-                        target_k,
-                        li,
-                    )
+                    interp_s_temperature(cand_temps[lo], s_lo, cand_temps[hi], s_hi, target_k, li)
                 })
                 .collect(),
         };
         beta.push(bval);
-        s_tables.push(AlphaTable { beta: bval, alpha, s });
+        s_tables.push(AlphaTable {
+            beta: bval,
+            alpha,
+            s,
+        });
     }
 
     let temperature_k = selection.resolved_temperature_k(&all_temps);
@@ -565,7 +593,10 @@ mod tests {
     fn al27_has_both_elastic_and_inelastic() {
         let mf7 = al27();
         assert!((mf7.awr - 26.75).abs() < 0.1, "Al AWR ≈ 26.75");
-        assert!(mf7.coherent_elastic.is_some(), "Al has coherent (Bragg) elastic");
+        assert!(
+            mf7.coherent_elastic.is_some(),
+            "Al has coherent (Bragg) elastic"
+        );
         assert!(mf7.incoherent_inelastic.is_some(), "Al has S(α,β)");
     }
 
@@ -576,14 +607,35 @@ mod tests {
         assert!(ce.bragg_energies_ev.len() > 50, "Al has many Bragg edges");
         // Bragg energies ascending; every temperature's cumulative S(E)
         // non-decreasing (it only steps up at each edge).
-        assert!(ce.bragg_energies_ev.windows(2).all(|w| w[1] >= w[0]), "E ascending");
+        assert!(
+            ce.bragg_energies_ev.windows(2).all(|w| w[1] >= w[0]),
+            "E ascending"
+        );
         assert!(ce.temperatures_k.len() > 1, "Al ships extra temperatures");
-        assert_eq!(ce.s_tables.len(), ce.temperatures_k.len(), "one S table per T");
-        assert_eq!(ce.temp_interp.len(), ce.temperatures_k.len() - 1, "one LI per interval");
-        assert!(ce.temperatures_k.windows(2).all(|w| w[1] > w[0]), "T ascending");
+        assert_eq!(
+            ce.s_tables.len(),
+            ce.temperatures_k.len(),
+            "one S table per T"
+        );
+        assert_eq!(
+            ce.temp_interp.len(),
+            ce.temperatures_k.len() - 1,
+            "one LI per interval"
+        );
+        assert!(
+            ce.temperatures_k.windows(2).all(|w| w[1] > w[0]),
+            "T ascending"
+        );
         for s in &ce.s_tables {
-            assert_eq!(s.len(), ce.bragg_energies_ev.len(), "S on the shared E grid");
-            assert!(s.windows(2).all(|w| w[1] >= w[0] - 1e-9), "S(E) non-decreasing");
+            assert_eq!(
+                s.len(),
+                ce.bragg_energies_ev.len(),
+                "S on the shared E grid"
+            );
+            assert!(
+                s.windows(2).all(|w| w[1] >= w[0] - 1e-9),
+                "S(E) non-decreasing"
+            );
         }
     }
 
@@ -591,7 +643,10 @@ mod tests {
     fn inelastic_s_alpha_beta_grid_is_consistent() {
         let ii = al27().incoherent_inelastic.unwrap();
         assert!(ii.b.len() >= 6, "at least six B-constants");
-        assert!((ii.b[2] - 26.75).abs() < 0.1, "B(3) is the mass ratio A ≈ 26.75");
+        assert!(
+            (ii.b[2] - 26.75).abs() < 0.1,
+            "B(3) is the mass ratio A ≈ 26.75"
+        );
         assert!(ii.beta.len() > 50, "a substantial β grid");
         assert_eq!(ii.beta.len(), ii.s_tables.len(), "one S(α) table per β");
         // β ascending; each S(α) table has matching α/S lengths and non-negative S.
@@ -613,7 +668,14 @@ mod tests {
     use crate::endf::EndfKey;
 
     fn section(rows: Vec<[f64; 6]>) -> Section {
-        Section { key: EndfKey { mat: 99, mf: 7, mt: 2 }, rows }
+        Section {
+            key: EndfKey {
+                mat: 99,
+                mf: 7,
+                mt: 2,
+            },
+            rows,
+        }
     }
 
     /// LTHR=2: incoherent elastic only — one `W'(T)` TAB1, `SB = C1`, no coherent.
@@ -622,9 +684,9 @@ mod tests {
         // HEAD (LTHR=2), then TAB1[ SB, 0, 0, 0, NR=1, NT=3 ] with one interp
         // region (NBT=3, INT=2) and three (T, W') points.
         let sec = section(vec![
-            [1.001, 0.9992, 2.0, 0.0, 0.0, 0.0],   // HEAD: ZA, AWR, LTHR=2
-            [3.4, 0.0, 0.0, 0.0, 1.0, 3.0],        // TAB1 head: SB=3.4, NR=1, NT=3
-            [3.0, 2.0, 0.0, 0.0, 0.0, 0.0],        // interp: NBT=3, INT=2
+            [1.001, 0.9992, 2.0, 0.0, 0.0, 0.0], // HEAD: ZA, AWR, LTHR=2
+            [3.4, 0.0, 0.0, 0.0, 1.0, 3.0],      // TAB1 head: SB=3.4, NR=1, NT=3
+            [3.0, 2.0, 0.0, 0.0, 0.0, 0.0],      // interp: NBT=3, INT=2
             [296.0, 8.0e-3, 400.0, 1.0e-2, 600.0, 1.4e-2], // (T, W') pairs
         ]);
         let (coherent, incoherent) = parse_elastic(&sec).unwrap();
@@ -633,9 +695,15 @@ mod tests {
         assert_eq!(ie.sb, 3.4, "SB = C1 of the W'(T) TAB1");
         assert_eq!(ie.temperature_k, 296.0, "T₀ = lowest tabulated temperature");
         assert_eq!(ie.interp, vec![(3, 2)]);
-        assert_eq!(ie.wp_of_t, vec![(296.0, 8.0e-3), (400.0, 1.0e-2), (600.0, 1.4e-2)]);
+        assert_eq!(
+            ie.wp_of_t,
+            vec![(296.0, 8.0e-3), (400.0, 1.0e-2), (600.0, 1.4e-2)]
+        );
         // W'(T) ascends with T (Debye-Waller integral grows with temperature).
-        assert!(ie.wp_of_t.windows(2).all(|w| w[1].1 >= w[0].1), "W'(T) non-decreasing");
+        assert!(
+            ie.wp_of_t.windows(2).all(|w| w[1].1 >= w[0].1),
+            "W'(T) non-decreasing"
+        );
     }
 
     /// LTHR=3: mixed — coherent `S(E)` TAB1 (with its `LT` extra-temperature
@@ -643,22 +711,26 @@ mod tests {
     #[test]
     fn lthr3_mixed_coherent_and_incoherent() {
         let sec = section(vec![
-            [1.001, 0.9992, 3.0, 0.0, 0.0, 0.0],   // HEAD: LTHR=3
+            [1.001, 0.9992, 3.0, 0.0, 0.0, 0.0], // HEAD: LTHR=3
             // Coherent S(E) TAB1: T0=296, LT=1 (one extra temperature), NR=1, NP=2.
-            [296.0, 0.0, 1.0, 0.0, 1.0, 2.0],      // TAB1 head
-            [2.0, 1.0, 0.0, 0.0, 0.0, 0.0],        // interp: NBT=2, INT=1
-            [1.0e-3, 5.0, 2.0e-3, 9.0, 0.0, 0.0],  // (E, S) pairs
+            [296.0, 0.0, 1.0, 0.0, 1.0, 2.0],     // TAB1 head
+            [2.0, 1.0, 0.0, 0.0, 0.0, 0.0],       // interp: NBT=2, INT=1
+            [1.0e-3, 5.0, 2.0e-3, 9.0, 0.0, 0.0], // (E, S) pairs
             // One extra-temperature LIST (C1 = 400 K, LI = 2, N1=2 S values).
-            [400.0, 0.0, 2.0, 0.0, 2.0, 0.0],      // LIST head
-            [5.5, 9.5, 0.0, 0.0, 0.0, 0.0],        // LIST data
+            [400.0, 0.0, 2.0, 0.0, 2.0, 0.0], // LIST head
+            [5.5, 9.5, 0.0, 0.0, 0.0, 0.0],   // LIST data
             // Incoherent W'(T) TAB1: SB=2.1, NR=1, NT=2.
-            [2.1, 0.0, 0.0, 0.0, 1.0, 2.0],        // TAB1 head
-            [2.0, 2.0, 0.0, 0.0, 0.0, 0.0],        // interp
+            [2.1, 0.0, 0.0, 0.0, 1.0, 2.0],           // TAB1 head
+            [2.0, 2.0, 0.0, 0.0, 0.0, 0.0],           // interp
             [296.0, 7.0e-3, 400.0, 9.0e-3, 0.0, 0.0], // (T, W') pairs
         ]);
         let (coherent, incoherent) = parse_elastic(&sec).unwrap();
         let ce = coherent.expect("LTHR=3 yields coherent elastic");
-        assert_eq!(ce.temperatures_k, vec![296.0, 400.0], "base + one extra temperature");
+        assert_eq!(
+            ce.temperatures_k,
+            vec![296.0, 400.0],
+            "base + one extra temperature"
+        );
         assert_eq!(ce.bragg_energies_ev, vec![1.0e-3, 2.0e-3]);
         assert_eq!(
             ce.s_tables,
@@ -694,7 +766,12 @@ mod tests {
         let sel = select_temperature(&temps, &[2, 4, 4], 523.15).unwrap();
         assert_eq!(
             sel,
-            TemperatureSelection::Interpolated { lo: 2, hi: 3, li: 4, target_k: 523.15 }
+            TemperatureSelection::Interpolated {
+                lo: 2,
+                hi: 3,
+                li: 4,
+                target_k: 523.15
+            }
         );
         assert_eq!(sel.resolved_temperature_k(&temps), 523.15);
     }
@@ -707,7 +784,11 @@ mod tests {
         let temps = [296.0, 400.0];
         for bad in [100.0, 2100.0] {
             match select_temperature(&temps, &[2], bad) {
-                Err(NjoyError::TemperatureOutOfRange { requested_k, min_k, max_k }) => {
+                Err(NjoyError::TemperatureOutOfRange {
+                    requested_k,
+                    min_k,
+                    max_k,
+                }) => {
                     assert_eq!(requested_k, bad);
                     assert_eq!((min_k, max_k), (296.0, 400.0));
                 }

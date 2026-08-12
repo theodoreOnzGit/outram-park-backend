@@ -306,7 +306,9 @@ mod tests {
     //! draft, pending human review (workspace `RESPONSIBLE_USE.md`).
 
     use super::*;
-    use crate::reactions::{EquilibriumConstant, Reaction, ReactionBasis, ReactionComponent, ReactionKind};
+    use crate::reactions::{
+        EquilibriumConstant, Reaction, ReactionBasis, ReactionComponent, ReactionKind,
+    };
     use crate::reactors::EquilibriumReactor;
     use crate::thermo::ideal_props::R;
 
@@ -337,7 +339,11 @@ mod tests {
         // Closed form with the minimiser's (CODATA) R.
         let k = (-dg / (R * t)).exp();
         let nb = k / (1.0 + k);
-        assert!((gout.molar_flows[1] - nb).abs() < 1e-9, "n_B={}", gout.molar_flows[1]);
+        assert!(
+            (gout.molar_flows[1] - nb).abs() < 1e-9,
+            "n_B={}",
+            gout.molar_flows[1]
+        );
         assert!((gout.molar_flows[0] - (1.0 - nb)).abs() < 1e-9);
 
         // Independent equilibrium-constant reactor with the SAME K (CODATA R).
@@ -401,11 +407,17 @@ mod tests {
         let xi = sk / (1.0 + sk);
         let expect = [1.0 - xi, 1.0 - xi, xi, xi];
         for i in 0..4 {
-            assert!((out.molar_flows[i] - expect[i]).abs() < 1e-8, "n[{i}]={}", out.molar_flows[i]);
+            assert!(
+                (out.molar_flows[i] - expect[i]).abs() < 1e-8,
+                "n[{i}]={}",
+                out.molar_flows[i]
+            );
         }
         // Atom balance C, H, O.
         let b = reactor.system.element_abundance(&out.molar_flows).unwrap();
-        assert!((b[0] - 1.0).abs() < 1e-8 && (b[1] - 2.0).abs() < 1e-8 && (b[2] - 2.0).abs() < 1e-8);
+        assert!(
+            (b[0] - 1.0).abs() < 1e-8 && (b[1] - 2.0).abs() < 1e-8 && (b[2] - 2.0).abs() < 1e-8
+        );
     }
 
     /// **Methodology (heat-of-reaction report + error paths).** With
@@ -429,8 +441,14 @@ mod tests {
         let reactor = GibbsReactor::new(
             sys.clone(),
             vec![
-                GibbsFormation::EnthalpyEntropy { delta_h_f: 0.0, delta_s_f: 0.0 },
-                GibbsFormation::EnthalpyEntropy { delta_h_f: dh_b, delta_s_f: 0.0 },
+                GibbsFormation::EnthalpyEntropy {
+                    delta_h_f: 0.0,
+                    delta_s_f: 0.0,
+                },
+                GibbsFormation::EnthalpyEntropy {
+                    delta_h_f: dh_b,
+                    delta_s_f: 0.0,
+                },
             ],
         );
         let feed = ReactorFeed::new(vec![1.0, 0.0], t, 1.0e5, 0.0);
@@ -440,14 +458,27 @@ mod tests {
         let nb = k / (1.0 + k);
         let expected_heat = nb * dh_b; // (F_out,B - 0)*ΔH_f,B
         assert!(out.heat_of_reaction < 0.0, "should be exothermic");
-        assert!((out.heat_of_reaction - expected_heat).abs() < 1e-3, "heat={}", out.heat_of_reaction);
+        assert!(
+            (out.heat_of_reaction - expected_heat).abs() < 1e-3,
+            "heat={}",
+            out.heat_of_reaction
+        );
 
         // Error path: mis-sized gibbs_formation.
         let bad = GibbsReactor::new(sys.clone(), vec![GibbsFormation::Constant(0.0)]);
-        assert!(matches!(bad.solve(&feed), Err(ReactorError::InvalidFeed(_))));
+        assert!(matches!(
+            bad.solve(&feed),
+            Err(ReactorError::InvalidFeed(_))
+        ));
         // Error path: mis-sized feed.
-        let ok = GibbsReactor::new(sys, vec![GibbsFormation::Constant(0.0), GibbsFormation::Constant(0.0)]);
+        let ok = GibbsReactor::new(
+            sys,
+            vec![GibbsFormation::Constant(0.0), GibbsFormation::Constant(0.0)],
+        );
         let bad_feed = ReactorFeed::new(vec![1.0], t, 1.0e5, 0.0);
-        assert!(matches!(ok.solve(&bad_feed), Err(ReactorError::InvalidFeed(_))));
+        assert!(matches!(
+            ok.solve(&bad_feed),
+            Err(ReactorError::InvalidFeed(_))
+        ));
     }
 }

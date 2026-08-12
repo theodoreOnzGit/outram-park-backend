@@ -45,16 +45,17 @@ use super::liquid_database::dowtherm_a::get_dowtherm_a_density;
 ///
 /// let density_result = try_get_rho(steel, temperature, pressure);
 ///
-/// 
+///
 /// ```
 #[inline]
-pub fn try_get_rho(material: Material, 
+pub fn try_get_rho(
+    material: Material,
     temperature: ThermodynamicTemperature,
-    _pressure: Pressure) -> Result<MassDensity, TuasLibError> {
-
+    _pressure: Pressure,
+) -> Result<MassDensity, TuasLibError> {
     let density: MassDensity = match material {
         Material::Solid(_) => solid_density(material, temperature)?,
-        Material::Liquid(_) => liquid_density(material, temperature)?
+        Material::Liquid(_) => liquid_density(material, temperature)?,
     };
 
     return Ok(density);
@@ -62,26 +63,25 @@ pub fn try_get_rho(material: Material,
 
 impl Material {
     /// returns density of the material
-    pub fn density(&self,
+    pub fn density(
+        &self,
         temperature: ThermodynamicTemperature,
-        _pressure: Pressure) -> Result<MassDensity, TuasLibError>{
+        _pressure: Pressure,
+    ) -> Result<MassDensity, TuasLibError> {
+        let density: MassDensity = match self {
+            Material::Solid(_) => solid_density(self.clone(), temperature)?,
+            Material::Liquid(_) => liquid_density(self.clone(), temperature)?,
+        };
 
-    let density: MassDensity = match self {
-        Material::Solid(_) => solid_density(self.clone(), temperature)?,
-        Material::Liquid(_) => liquid_density(self.clone(), temperature)?
-    };
-
-    return Ok(density);
-        
-
+        return Ok(density);
     }
-
 }
 
 // should the material happen to be a solid, use this function
-fn solid_density(material: Material,
-    solid_temp: ThermodynamicTemperature) -> Result<MassDensity,TuasLibError>{
-
+fn solid_density(
+    material: Material,
+    solid_temp: ThermodynamicTemperature,
+) -> Result<MassDensity, TuasLibError> {
     // first match the enum
 
     let solid_material: SolidMaterial = match material {
@@ -91,9 +91,9 @@ fn solid_density(material: Material,
         Material::Solid(Copper) => Copper,
         Material::Solid(NuclearGraphiteMatrixA3) => NuclearGraphiteMatrixA3,
         Material::Solid(NuclearGraphiteIG110) => NuclearGraphiteIG110,
-        Material::Solid(CustomSolid((low_bound_temp,high_bound_temp),cp,k,rho,roughness)) => {
-            CustomSolid((low_bound_temp,high_bound_temp), cp, k, rho,roughness)
-        },
+        Material::Solid(CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)) => {
+            CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)
+        }
         Material::Liquid(_) => {
             println!("solid_density, use SolidMaterial enums only");
             return Err(TuasLibError::TypeConversionErrorMaterial);
@@ -107,27 +107,24 @@ fn solid_density(material: Material,
         Copper => copper_density()?,
         NuclearGraphiteMatrixA3 => nuclear_graphite_matrix_a3_density()?,
         NuclearGraphiteIG110 => nuclear_graphite_ig_110_density()?,
-        CustomSolid((low_bound_temp,high_bound_temp),_cp,_k,rho_fn,_roughness) => {
+        CustomSolid((low_bound_temp, high_bound_temp), _cp, _k, rho_fn, _roughness) => {
             custom_solid_material::get_custom_solid_density(
-                solid_temp, 
-                rho_fn, 
-                high_bound_temp, 
-                low_bound_temp)?
-        },
+                solid_temp,
+                rho_fn,
+                high_bound_temp,
+                low_bound_temp,
+            )?
+        }
     };
 
     return Ok(density);
-
-
 }
 
-
-
-
 // should the material happen to be a liquid, use this function
-fn liquid_density(material: Material, 
-    fluid_temp: ThermodynamicTemperature) -> Result<MassDensity,TuasLibError> {
-
+fn liquid_density(
+    material: Material,
+    fluid_temp: ThermodynamicTemperature,
+) -> Result<MassDensity, TuasLibError> {
     let liquid_material: LiquidMaterial = match material {
         Material::Liquid(DowthermA) => DowthermA,
         Material::Liquid(TherminolVP1) => TherminolVP1,
@@ -135,11 +132,11 @@ fn liquid_density(material: Material,
         Material::Liquid(YD325) => YD325,
         Material::Liquid(FLiBe) => FLiBe,
         Material::Liquid(FLiNaK) => FLiNaK,
-        Material::Liquid(CustomLiquid((low_bound_temp,high_bound_temp),cp,k,mu,rho)) => {
-            CustomLiquid((low_bound_temp,high_bound_temp), cp, k, mu, rho)
-        },
+        Material::Liquid(CustomLiquid((low_bound_temp, high_bound_temp), cp, k, mu, rho)) => {
+            CustomLiquid((low_bound_temp, high_bound_temp), cp, k, mu, rho)
+        }
 
-        Material::Solid(_) => panic!("liquid_density, use LiquidMaterial enums only")
+        Material::Solid(_) => panic!("liquid_density, use LiquidMaterial enums only"),
     };
 
     let density: MassDensity = match liquid_material {
@@ -149,25 +146,25 @@ fn liquid_density(material: Material,
         YD325 => get_yd325_density(fluid_temp)?,
         FLiBe => get_flibe_density(fluid_temp)?,
         FLiNaK => get_flinak_density(fluid_temp)?,
-        CustomLiquid((low_bound_temp,high_bound_temp), _cp, _k, _mu, rho_fn) => {
-            liquid_database::custom_liquid_material
-                ::get_custom_fluid_density(fluid_temp, 
-                    rho_fn, 
-                    high_bound_temp, 
-                    low_bound_temp)?
-        },
+        CustomLiquid((low_bound_temp, high_bound_temp), _cp, _k, _mu, rho_fn) => {
+            liquid_database::custom_liquid_material::get_custom_fluid_density(
+                fluid_temp,
+                rho_fn,
+                high_bound_temp,
+                low_bound_temp,
+            )?
+        }
     };
 
     return Ok(density);
 }
 
 impl LiquidMaterial {
-
     /// returns density of liquid material
-    pub fn try_get_density(&self,
-        fluid_temp: ThermodynamicTemperature,) -> 
-    Result<MassDensity,TuasLibError> {
-
+    pub fn try_get_density(
+        &self,
+        fluid_temp: ThermodynamicTemperature,
+    ) -> Result<MassDensity, TuasLibError> {
         let density: MassDensity = match &self.clone() {
             DowthermA => get_dowtherm_a_density(fluid_temp)?,
             TherminolVP1 => get_dowtherm_a_density(fluid_temp)?,
@@ -175,18 +172,16 @@ impl LiquidMaterial {
             YD325 => get_yd325_density(fluid_temp)?,
             FLiBe => get_flibe_density(fluid_temp)?,
             FLiNaK => get_flinak_density(fluid_temp)?,
-            CustomLiquid((low_bound_temp,high_bound_temp), _cp, _k, _mu, rho_fn) => {
-                liquid_database::custom_liquid_material
-                    ::get_custom_fluid_density(fluid_temp, 
-                        *rho_fn, 
-                        *high_bound_temp, 
-                        *low_bound_temp)?
-            },
+            CustomLiquid((low_bound_temp, high_bound_temp), _cp, _k, _mu, rho_fn) => {
+                liquid_database::custom_liquid_material::get_custom_fluid_density(
+                    fluid_temp,
+                    *rho_fn,
+                    *high_bound_temp,
+                    *low_bound_temp,
+                )?
+            }
         };
 
         Ok(density)
-
     }
 }
-
-

@@ -731,7 +731,10 @@ mod tests {
             assert_eq!(bondarenko_flux_value(st, 1.0, spot, f64::INFINITY), 1.0);
             // very large dilution -> approaches C = 1
             let big = bondarenko_flux_value(st, 1.0, spot, 1.0e12);
-            assert!((big - 1.0).abs() < 1e-9, "sigma_t={st}: big-dilution phi={big}");
+            assert!(
+                (big - 1.0).abs() < 1e-9,
+                "sigma_t={st}: big-dilution phi={big}"
+            );
             // zero dilution -> C * sigma_pot / sigma_t (the 1/sigma_t NR shape)
             let nr = bondarenko_flux_value(st, 1.0, spot, 0.0);
             assert!((nr - spot / st).abs() < 1e-13, "sigma_t={st}: nr phi={nr}");
@@ -811,7 +814,11 @@ mod tests {
         let xs = [1.0, 2.0, 5.0, 12.0];
         for k in 0..sigs.len() {
             let v = terpu(sigs[k], &xs, &sigs);
-            assert!((v - xs[k]).abs() < 1e-10, "node {k}: terpu={v}, xs={}", xs[k]);
+            assert!(
+                (v - xs[k]).abs() < 1e-10,
+                "node {k}: terpu={v}, xs={}",
+                xs[k]
+            );
         }
         let mid = terpu(50.0, &xs, &sigs); // between sigs=100 (2.0) and 10 (5.0)
         assert!((2.0..=5.0).contains(&mid), "terpu(50)={mid} out of (2,5)");
@@ -928,7 +935,9 @@ mod tests {
         let above = t.shield(UrrReaction::Total, 40.0, &[1.0], &[10.0]).unwrap();
         assert_eq!(above.next_energy, None);
         // Fission column not stored (only reaction 0 present).
-        let absent = t.shield(UrrReaction::Fission, 20.0, &[1.0], &[10.0]).unwrap();
+        let absent = t
+            .shield(UrrReaction::Fission, 20.0, &[1.0], &[10.0])
+            .unwrap();
         assert_eq!(absent.next_energy, None);
         assert_eq!(absent.sig, vec![1.0]);
     }

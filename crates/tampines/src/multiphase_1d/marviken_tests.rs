@@ -338,11 +338,7 @@ fn marviken_stagnation_state(p_pa: f64, t_water_k: f64) -> (f64, f64) {
     let p = Pressure::new::<pascal>(p_pa);
     let t_sat = sat_temp_4(p).get::<kelvin>();
     let t_init = t_water_k.min(t_sat);
-    let h0 = h_tp_1(
-        ThermodynamicTemperature::new::<kelvin>(t_init),
-        p,
-    )
-    .get::<joule_per_kilogram>();
+    let h0 = h_tp_1(ThermodynamicTemperature::new::<kelvin>(t_init), p).get::<joule_per_kilogram>();
     (t_init, h0)
 }
 
@@ -765,7 +761,12 @@ struct TestSetResult {
 
 /// Run one whole Marviken point set through the drift-flux solver and print
 /// the per-point comparison table.
-fn run_test_set(label: &str, points: &[(f64, f64)], t_water_degc: f64, case: MarvikenCase) -> TestSetResult {
+fn run_test_set(
+    label: &str,
+    points: &[(f64, f64)],
+    t_water_degc: f64,
+    case: MarvikenCase,
+) -> TestSetResult {
     let t_water_k = t_water_degc + 273.15;
     println!(
         "\n===== Marviken test {label}: drift flux, T_water = {t_water_degc} degC, \
@@ -865,7 +866,10 @@ fn run_test_set(label: &str, points: &[(f64, f64)], t_water_degc: f64, case: Mar
 /// Print one point's whole receiver-pressure sweep — the evidence for or
 /// against an interior maximum.
 fn print_sweep(label: &str, p0_pa: f64, sweep: &SweepResult) {
-    println!("\n--- sweep detail, {label}, p_0 = {:.3} MPa ---", p0_pa / 1.0e6);
+    println!(
+        "\n--- sweep detail, {label}, p_0 = {:.3} MPa ---",
+        p0_pa / 1.0e6
+    );
     println!(
         "   p_out [MPa]  p_out/p0        G   steady   exit alpha  exit p [MPa]  Cou  steps  ok"
     );
@@ -1207,7 +1211,10 @@ fn marviken_test_23_drift_flux_critical_mass_flux() {
         max_abs <= PER_POINT_TOLERANCE,
         "worst |dev| {max_abs:.4} exceeds the {PER_POINT_TOLERANCE} per-point band"
     );
-    assert_eq!(n_outside, 0, "no test-23 point was outside the band on 2026-08-11");
+    assert_eq!(
+        n_outside, 0,
+        "no test-23 point was outside the band on 2026-08-11"
+    );
 
     // ── regression guard on the recorded characterisation ───────────────────
     assert_recorded("test 23 mean |dev|", mean_abs, 0.0888);

@@ -230,16 +230,25 @@ pub fn build_triso_particle(
 
     // Global surface index of the i-th sphere once spliced in.
     let surf = |i: usize| surface_base + i;
-    let inside =
-        |i: usize| RegionToken::HalfSpace { surface_idx: surf(i), sense: HalfSpaceSense::Inside };
-    let outside =
-        |i: usize| RegionToken::HalfSpace { surface_idx: surf(i), sense: HalfSpaceSense::Outside };
+    let inside = |i: usize| RegionToken::HalfSpace {
+        surface_idx: surf(i),
+        sense: HalfSpaceSense::Inside,
+    };
+    let outside = |i: usize| RegionToken::HalfSpace {
+        surface_idx: surf(i),
+        sense: HalfSpaceSense::Outside,
+    };
 
     let shell_mats = materials.shells();
     let mut cells: Vec<Cell> = Vec::with_capacity(6);
 
     // Cell 0: fuel kernel — the −sense ball of sphere 0.
-    cells.push(Cell::material(universe_id * 10 + 1, vec![inside(0)], shell_mats[0], temperature));
+    cells.push(Cell::material(
+        universe_id * 10 + 1,
+        vec![inside(0)],
+        shell_mats[0],
+        temperature,
+    ));
 
     // Cells 1..=4: buffer, IPyC, SiC, OPyC — the annulus between consecutive
     // spheres: +sense(inner) ∧ −sense(outer).
@@ -254,14 +263,23 @@ pub fn build_triso_particle(
 
     // Cell 5: matrix — everything outside the OPyC (sphere 4), filling the rest of
     // the universe.
-    cells.push(Cell::material(universe_id * 10 + 6, vec![outside(4)], materials.matrix, temperature));
+    cells.push(Cell::material(
+        universe_id * 10 + 6,
+        vec![outside(4)],
+        materials.matrix,
+        temperature,
+    ));
 
     let universe = Universe {
         id: universe_id,
         cell_indices: (0..6).map(|i| cell_base + i).collect(),
     };
 
-    TrisoParticle { surfaces, cells, universe }
+    TrisoParticle {
+        surfaces,
+        cells,
+        universe,
+    }
 }
 
 /// Convenience: a self-contained TRISO particle centred at `center`
@@ -345,7 +363,11 @@ mod tests {
         let expected = [MATS.kernel, MATS.buffer, MATS.ipyc, MATS.sic, MATS.opyc];
 
         // Origin → kernel.
-        assert_eq!(mat_at(0.0), Some(MATS.kernel), "origin must be the fuel kernel");
+        assert_eq!(
+            mat_at(0.0),
+            Some(MATS.kernel),
+            "origin must be the fuel kernel"
+        );
 
         // Just inside each interface sphere → that shell's material.
         for (i, &r_out) in rs.iter().enumerate() {
@@ -391,7 +413,11 @@ mod tests {
     #[test]
     fn triso_particle_has_five_spheres_and_six_cells() {
         let particle = triso_particle(Position::ZERO, TrisoRadii::HTR10, MATS, 293.6);
-        assert_eq!(particle.surfaces.len(), 5, "five concentric interface spheres");
+        assert_eq!(
+            particle.surfaces.len(),
+            5,
+            "five concentric interface spheres"
+        );
         assert_eq!(particle.cells.len(), 6, "kernel + 4 coatings + matrix");
         assert_eq!(particle.universe.cell_indices, vec![0, 1, 2, 3, 4, 5]);
     }

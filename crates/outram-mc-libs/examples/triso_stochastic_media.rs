@@ -86,17 +86,28 @@ fn main() {
     let seed = 20260721;
 
     // ---- 1. Packing-fraction sweep: absorption probability per model ------------------
-    println!("Absorbing-kernel random walk ({} histories/model, kernel r = {} cm,",
-        base.histories, base.particle_radius);
-    println!("matrix scatter mfp = {} cm). RSA is the explicit reference.\n", base.scatter_mfp);
+    println!(
+        "Absorbing-kernel random walk ({} histories/model, kernel r = {} cm,",
+        base.histories, base.particle_radius
+    );
+    println!(
+        "matrix scatter mfp = {} cm). RSA is the explicit reference.\n",
+        base.scatter_mfp
+    );
     println!(
         "{:>5} | {:>12} | {:>12} {:>9} | {:>12} {:>9}",
         "pf", "RSA (ref)", "CLS", "ΔCLS", "SCLS", "ΔSCLS"
     );
-    println!("{:-<5}-+-{:-<12}-+-{:-<12}-{:-<9}-+-{:-<12}-{:-<9}", "", "", "", "", "", "");
+    println!(
+        "{:-<5}-+-{:-<12}-+-{:-<12}-{:-<9}-+-{:-<12}-{:-<9}",
+        "", "", "", "", "", ""
+    );
 
     for &pf in &[0.05_f64, 0.10, 0.15, 0.20, 0.25] {
-        let bench = AbsorptionBenchmark { packing_fraction: pf, ..base };
+        let bench = AbsorptionBenchmark {
+            packing_fraction: pf,
+            ..base
+        };
         match bench.compare(seed) {
             Ok([rsa, cls, scls]) => {
                 let d_cls = cls.absorption_probability - rsa.absorption_probability;
@@ -105,8 +116,10 @@ fn main() {
                     "{:>5.2} | {:>12.4} | {:>12.4} {:>+9.4} | {:>12.4} {:>+9.4}",
                     pf,
                     rsa.absorption_probability,
-                    cls.absorption_probability, d_cls,
-                    scls.absorption_probability, d_scls,
+                    cls.absorption_probability,
+                    d_cls,
+                    scls.absorption_probability,
+                    d_scls,
                 );
             }
             Err(e) => println!("{pf:>5.2} | packing failed: {e}"),
@@ -115,7 +128,9 @@ fn main() {
 
     println!("\nΔ columns are the model's absorption error vs the explicit RSA reference.");
     println!("Both approximations track the reference; which is closer is regime-dependent");
-    println!("(see the honesty banner in this file's docs — this is a measurement, not a claim).\n");
+    println!(
+        "(see the honesty banner in this file's docs — this is a measurement, not a claim).\n"
+    );
 
     // ---- 2. SCLS memory in action -----------------------------------------------------
     println!("SCLS memory: a neutron oscillating across a 0.4 cm region");
@@ -149,7 +164,10 @@ fn main() {
         "  kd-tree over the {} retained kernels: point (0.20,0,0) is {}.",
         index.len(),
         match hit {
-            Some(h) => format!("inside a kernel centred at ({:.3},{:.3},{:.3})", h.center.x, h.center.y, h.center.z),
+            Some(h) => format!(
+                "inside a kernel centred at ({:.3},{:.3},{:.3})",
+                h.center.x, h.center.y, h.center.z
+            ),
             None => "in the matrix".to_string(),
         }
     );

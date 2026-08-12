@@ -145,8 +145,7 @@ pub const STANDARD_GRAVITY: f64 = 9.806_65;
 /// Below `Ra_c` the motionless conductive state is linearly stable (perturbations
 /// decay); above it the conductive state is unstable and convection cells grow.
 /// Reference: Lapwood (1948); Nield & Bejan, *Convection in Porous Media*.
-pub const CRITICAL_RAYLEIGH_NUMBER: f64 =
-    4.0 * std::f64::consts::PI * std::f64::consts::PI;
+pub const CRITICAL_RAYLEIGH_NUMBER: f64 = 4.0 * std::f64::consts::PI * std::f64::consts::PI;
 
 /// Bulk thermal + hydraulic parameters for the coupled convection problem (SI
 /// units).
@@ -369,7 +368,8 @@ impl ConvectionParameters {
 /// [`ConvectionParameters`], whose conductivity and heat capacity are positive) the
 /// result would be non-finite.
 pub fn rayleigh_number(params: &ConvectionParameters, delta_t: f64, height: f64) -> f64 {
-    let alpha_m = params.bulk_conductivity / (params.reference_density * params.fluid_specific_heat);
+    let alpha_m =
+        params.bulk_conductivity / (params.reference_density * params.fluid_specific_heat);
     params.reference_density
         * params.gravity
         * params.thermal_expansion
@@ -593,10 +593,11 @@ impl ThermalConvection {
 
         for c in self.grid.connections() {
             let (o, nb) = (c.owner, c.neighbour);
-            let rho_face = 0.5 * (self.params.fluid_density(x[2 * o + 1])
-                + self.params.fluid_density(x[2 * nb + 1]));
-            let dphi = (x[2 * o] - x[2 * nb])
-                + rho_face * self.params.gravity * (self.z[o] - self.z[nb]);
+            let rho_face = 0.5
+                * (self.params.fluid_density(x[2 * o + 1])
+                    + self.params.fluid_density(x[2 * nb + 1]));
+            let dphi =
+                (x[2 * o] - x[2 * nb]) + rho_face * self.params.gravity * (self.z[o] - self.z[nb]);
             let q_vol = mob * c.geometric_transmissibility * dphi;
             let u = q_vol / c.area;
             let a = axis_index(c.axis);
@@ -722,7 +723,13 @@ impl ThermalConvection {
                     let t_geom = bf.area / bf.distance;
                     // Cell is the owner side; ghost is the neighbour side.
                     let (m_face, e_face) = self.face_fluxes(
-                        p_i, t_i, self.z[i], *pressure, *temperature, z_bc, t_geom,
+                        p_i,
+                        t_i,
+                        self.z[i],
+                        *pressure,
+                        *temperature,
+                        z_bc,
+                        t_geom,
                     );
                     flux_m += m_face;
                     flux_e += e_face;
@@ -1089,15 +1096,15 @@ mod tests {
     fn hrl_params(permeability: f64, thermal_expansion: f64) -> ConvectionParameters {
         ConvectionParameters::new(
             permeability,
-            0.3,           // porosity
-            1.0e-3,        // viscosity, Pa·s
-            1.0e-8,        // compressibility, 1/Pa (regularises the pressure null space)
-            1000.0,        // reference density, kg/m^3
+            0.3,    // porosity
+            1.0e-3, // viscosity, Pa·s
+            1.0e-8, // compressibility, 1/Pa (regularises the pressure null space)
+            1000.0, // reference density, kg/m^3
             thermal_expansion,
-            300.0,         // reference temperature, K
-            4182.0,        // fluid specific heat
-            2.1995e6,      // rock volumetric heat capacity (2650*830)
-            0.6,           // bulk conductivity, W/(m·K)
+            300.0,    // reference temperature, K
+            4182.0,   // fluid specific heat
+            2.1995e6, // rock volumetric heat capacity (2650*830)
+            0.6,      // bulk conductivity, W/(m·K)
             STANDARD_GRAVITY,
         )
         .unwrap()
@@ -1129,9 +1136,7 @@ mod tests {
             let ctr = grid.cell_center(c);
             let (x, z) = (ctr[0], ctr[2]);
             let t_cond = t_bottom + (t_top - t_bottom) * (z / h);
-            let pert = amp
-                * (std::f64::consts::PI * x).sin()
-                * (std::f64::consts::PI * z).sin();
+            let pert = amp * (std::f64::consts::PI * x).sin() * (std::f64::consts::PI * z).sin();
             s[2 * c] = 1.0e5 + params.reference_density * params.gravity * (h - z);
             s[2 * c + 1] = t_cond + pert;
         }
@@ -1188,7 +1193,10 @@ mod tests {
         let params = hrl_params(1.4e-9, 0.0); // beta = 0 -> no buoyancy
         let vel = run_hrl(grid.clone(), params, true, 1.0e8, 12);
         // No convection: velocity is at the numerical floor.
-        assert!(vel < 1.0e-7, "spurious flow with beta=0: peak_velocity={vel:e}");
+        assert!(
+            vel < 1.0e-7,
+            "spurious flow with beta=0: peak_velocity={vel:e}"
+        );
 
         // And the steady temperature profile is linear in z. Re-run capturing T.
         let boundary = vec![

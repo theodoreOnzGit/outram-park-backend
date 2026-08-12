@@ -84,9 +84,7 @@
 //! - **`ms.Validate()`** (Mixer.vb:123). The port checks the compound lists line
 //!   up and otherwise trusts the data model's own invariants.
 
-use crate::flowsheet::{
-    CalculationArgs, Flowsheet, ObjectData, ObjectId, ObjectType, PhaseIndex,
-};
+use crate::flowsheet::{CalculationArgs, Flowsheet, ObjectData, ObjectId, ObjectType, PhaseIndex};
 use crate::flowsheet_solver::errors::SolverError;
 
 /// A source of unit-operation physics for the flowsheet solver.
@@ -449,11 +447,7 @@ fn attached_peers_of_type(
     Ok(slots
         .into_iter()
         .filter_map(|c| c.attachment.as_ref().map(|a| a.peer.clone()))
-        .filter(|p| {
-            flowsheet
-                .object(p)
-                .is_some_and(|o| o.object_type == want)
-        })
+        .filter(|p| flowsheet.object(p).is_some_and(|o| o.object_type == want))
         .collect())
 }
 
@@ -571,7 +565,9 @@ mod tests {
         {
             let ms = fs.object_mut(&a).unwrap().data.as_material_mut().unwrap();
             ms.set_mass_flow(MassRate::new::<kilogram_per_second>(4.0));
-            ms.phases[PhaseIndex::Mixture.index()].properties.temperature = Some(350.0);
+            ms.phases[PhaseIndex::Mixture.index()]
+                .properties
+                .temperature = Some(350.0);
         }
         {
             let ms = fs.object_mut(&b).unwrap().data.as_material_mut().unwrap();

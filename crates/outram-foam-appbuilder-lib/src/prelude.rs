@@ -22,9 +22,7 @@
 pub use crate::error::AppBuilderError;
 
 // I/O
-pub use crate::io::control_dict::{
-    ControlDict, StartControl, StopControl, WriteControl, WriteFormat,
-};
+pub use crate::io::control_dict::{ControlDict, StartControl, StopControl, WriteControl, WriteFormat};
 pub use crate::io::fv_schemes::{
     DdtScheme, DivScheme, FvSchemes, GradScheme, LaplacianScheme, SnGradScheme,
 };

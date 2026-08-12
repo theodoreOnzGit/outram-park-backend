@@ -316,10 +316,18 @@ fn a_remote_client_can_drive_the_ciet_loop() {
         let session = connect_with_retry().await;
         let ns = resolve_namespace_index(&session).await;
 
-        let baseline_bt12 =
-            read_double(&session, ns, CietSignal::Bt12HeaterOutletDegC.node_identifier()).await;
-        let baseline_sim_time =
-            read_double(&session, ns, CietSignal::SimulationTimeSeconds.node_identifier()).await;
+        let baseline_bt12 = read_double(
+            &session,
+            ns,
+            CietSignal::Bt12HeaterOutletDegC.node_identifier(),
+        )
+        .await;
+        let baseline_sim_time = read_double(
+            &session,
+            ns,
+            CietSignal::SimulationTimeSeconds.node_identifier(),
+        )
+        .await;
 
         // Boolean switches first: cheaper mesh and fast-forward, so the test is
         // quick without depending on wall-clock speed.
@@ -365,9 +373,12 @@ fn a_remote_client_can_drive_the_ciet_loop() {
                  stalled or the fast-forward switch never took effect"
             );
             tokio::time::sleep(Duration::from_millis(500)).await;
-            sim_time =
-                read_double(&session, ns, CietSignal::SimulationTimeSeconds.node_identifier())
-                    .await;
+            sim_time = read_double(
+                &session,
+                ns,
+                CietSignal::SimulationTimeSeconds.node_identifier(),
+            )
+            .await;
         }
 
         // ---- control read-backs: did the requests reach the solver? ----
@@ -380,9 +391,12 @@ fn a_remote_client_can_drive_the_ciet_loop() {
              physics thread"
         );
 
-        let effective_pump_pa =
-            read_double(&session, ns, CietControl::CtahPumpPressurePascals.node_identifier())
-                .await;
+        let effective_pump_pa = read_double(
+            &session,
+            ns,
+            CietControl::CtahPumpPressurePascals.node_identifier(),
+        )
+        .await;
         assert!(
             (effective_pump_pa - COMMANDED_PUMP_PA).abs() < 1e-2,
             "commanded {COMMANDED_PUMP_PA} Pa but the simulator reports \
@@ -399,12 +413,24 @@ fn a_remote_client_can_drive_the_ciet_loop() {
         );
 
         // ---- the physics actually responded ----
-        let bt11 =
-            read_double(&session, ns, CietSignal::Bt11HeaterInletDegC.node_identifier()).await;
-        let bt12 =
-            read_double(&session, ns, CietSignal::Bt12HeaterOutletDegC.node_identifier()).await;
-        let ctah_flow =
-            read_double(&session, ns, CietSignal::Fm40CtahBranchKgPerS.node_identifier()).await;
+        let bt11 = read_double(
+            &session,
+            ns,
+            CietSignal::Bt11HeaterInletDegC.node_identifier(),
+        )
+        .await;
+        let bt12 = read_double(
+            &session,
+            ns,
+            CietSignal::Bt12HeaterOutletDegC.node_identifier(),
+        )
+        .await;
+        let ctah_flow = read_double(
+            &session,
+            ns,
+            CietSignal::Fm40CtahBranchKgPerS.node_identifier(),
+        )
+        .await;
 
         assert!(
             bt12 - baseline_bt12 >= 2.0,

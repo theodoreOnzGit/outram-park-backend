@@ -36,7 +36,11 @@ fn fixture(name: &str) -> std::path::PathBuf {
 #[test]
 fn u235_fission_photon_energy_is_physical() {
     let tape = Tape::read(File::open(fixture("n-092_U_235-ENDF8.0.endf")).unwrap()).unwrap();
-    let cfg = ReconrConfig { mat: 9228, tolerance: 0.001, temperature: 0.0 };
+    let cfg = ReconrConfig {
+        mat: 9228,
+        tolerance: 0.001,
+        temperature: 0.0,
+    };
     let recon = reconr(&tape, &cfg).unwrap();
     let pp = PhotonProduction::from_endf(&tape, 9228, &recon);
 

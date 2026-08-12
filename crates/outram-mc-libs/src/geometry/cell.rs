@@ -11,7 +11,6 @@
 ///
 /// A cell may be a **material cell** (filled with a `Material`) or a **fill
 /// cell** (filled with a nested `Universe` or `Lattice`).
-
 use super::position::{Direction, Position};
 use super::surface::SurfaceKind;
 
@@ -30,7 +29,10 @@ pub enum HalfSpaceSense {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegionToken {
     /// Half-space of surface `surface_idx` (index into the global surface array).
-    HalfSpace { surface_idx: usize, sense: HalfSpaceSense },
+    HalfSpace {
+        surface_idx: usize,
+        sense: HalfSpaceSense,
+    },
     /// Logical AND of the two operands below it on the stack.
     Intersection,
     /// Logical OR of the two operands below it on the stack.
@@ -70,13 +72,30 @@ pub struct Cell {
 
 impl Cell {
     /// Build a material cell with no translation — the common leaf case.
-    pub fn material(id: i32, region: Vec<RegionToken>, material_idx: usize, temperature: f64) -> Self {
-        Self { id, region, fill: CellFill::Material(material_idx), temperature, translation: Position::ZERO }
+    pub fn material(
+        id: i32,
+        region: Vec<RegionToken>,
+        material_idx: usize,
+        temperature: f64,
+    ) -> Self {
+        Self {
+            id,
+            region,
+            fill: CellFill::Material(material_idx),
+            temperature,
+            translation: Position::ZERO,
+        }
     }
 
     /// Build a fill cell (nested universe or lattice) with an optional translation.
     pub fn fill(id: i32, region: Vec<RegionToken>, fill: CellFill, translation: Position) -> Self {
-        Self { id, region, fill, temperature: 293.6, translation }
+        Self {
+            id,
+            region,
+            fill,
+            temperature: 293.6,
+            translation,
+        }
     }
 
     /// Whether position `r` lies inside this cell's region.
@@ -103,11 +122,15 @@ impl Cell {
                     stack.push(inside_token);
                 }
                 RegionToken::Intersection => {
-                    let (Some(b), Some(a)) = (stack.pop(), stack.pop()) else { return false };
+                    let (Some(b), Some(a)) = (stack.pop(), stack.pop()) else {
+                        return false;
+                    };
                     stack.push(a && b);
                 }
                 RegionToken::Union => {
-                    let (Some(b), Some(a)) = (stack.pop(), stack.pop()) else { return false };
+                    let (Some(b), Some(a)) = (stack.pop(), stack.pop()) else {
+                        return false;
+                    };
                     stack.push(a || b);
                 }
                 RegionToken::Complement => {
@@ -139,7 +162,9 @@ impl Cell {
         let mut min_dist = f64::INFINITY;
         let mut i_surf = usize::MAX;
         for tok in &self.region {
-            let RegionToken::HalfSpace { surface_idx, .. } = tok else { continue };
+            let RegionToken::HalfSpace { surface_idx, .. } = tok else {
+                continue;
+            };
             let coincident = *surface_idx == on_surface;
             let d = surfaces[*surface_idx].distance(r, u, coincident);
             if d < min_dist {

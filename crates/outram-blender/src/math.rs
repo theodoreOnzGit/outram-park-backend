@@ -54,7 +54,11 @@ pub struct Vec3 {
 
 impl Vec3 {
     /// The zero vector `(0, 0, 0)` — also the model-space origin.
-    pub const ZERO: Vec3 = Vec3 { x: 0.0, y: 0.0, z: 0.0 };
+    pub const ZERO: Vec3 = Vec3 {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
 
     /// Construct a vector from explicit components.
     pub const fn new(x: f64, y: f64, z: f64) -> Self {

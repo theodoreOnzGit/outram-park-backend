@@ -283,7 +283,11 @@ impl DtfrInput {
         let nedpos = (iptotl - 3) as usize;
         let edit_names = CLAW_HMTID[..nedpos].iter().map(|s| s.to_string()).collect();
         let edits = (0..ned as usize)
-            .map(|i| EditSpec { jpos: CLAW_JPED[i], mt: CLAW_MTED[i], mult: CLAW_MULTD[i] })
+            .map(|i| EditSpec {
+                jpos: CLAW_JPED[i],
+                mt: CLAW_MTED[i],
+                mult: CLAW_MULTD[i],
+            })
             .collect();
         Self {
             units: UnitAssignments::default(),
@@ -316,9 +320,21 @@ impl DtfrInput {
     /// `ned+2` nusigf, `ned+3` total).
     pub fn standard_edits(iptotl: i32) -> [EditSpec; 3] {
         [
-            EditSpec { jpos: iptotl - 2, mt: 1000, mult: 1 }, // absorp (ned+1)
-            EditSpec { jpos: iptotl - 1, mt: 1000, mult: 1 }, // nusigf (ned+2)
-            EditSpec { jpos: iptotl, mt: 1, mult: 1 },        // total  (ned+3)
+            EditSpec {
+                jpos: iptotl - 2,
+                mt: 1000,
+                mult: 1,
+            }, // absorp (ned+1)
+            EditSpec {
+                jpos: iptotl - 1,
+                mt: 1000,
+                mult: 1,
+            }, // nusigf (ned+2)
+            EditSpec {
+                jpos: iptotl,
+                mt: 1,
+                mult: 1,
+            }, // total  (ned+3)
         ]
     }
 }
@@ -403,10 +419,31 @@ mod tests {
         assert_eq!(inp.neutron.ned, 48);
         assert_eq!(inp.edit_names.len(), 43);
         assert_eq!(inp.edits.len(), 48);
-        assert_eq!(inp.edits[0], EditSpec { jpos: 1, mt: 2, mult: 1 });
+        assert_eq!(
+            inp.edits[0],
+            EditSpec {
+                jpos: 1,
+                mt: 2,
+                mult: 1
+            }
+        );
         // the two mt=443 entries (dtfr.f90:605, 610-612): first mult 0, second 1
-        assert_eq!(inp.edits[43], EditSpec { jpos: 39, mt: 443, mult: 0 });
-        assert_eq!(inp.edits[44], EditSpec { jpos: 40, mt: 443, mult: 1 });
+        assert_eq!(
+            inp.edits[43],
+            EditSpec {
+                jpos: 39,
+                mt: 443,
+                mult: 0
+            }
+        );
+        assert_eq!(
+            inp.edits[44],
+            EditSpec {
+                jpos: 40,
+                mt: 443,
+                mult: 1
+            }
+        );
         assert_eq!(inp.edit_names[0], "  els");
     }
 
@@ -421,9 +458,30 @@ mod tests {
     #[test]
     fn standard_edits_positions() {
         let se = DtfrInput::standard_edits(46);
-        assert_eq!(se[0], EditSpec { jpos: 44, mt: 1000, mult: 1 }); // absorp
-        assert_eq!(se[1], EditSpec { jpos: 45, mt: 1000, mult: 1 }); // nusigf
-        assert_eq!(se[2], EditSpec { jpos: 46, mt: 1, mult: 1 });    // total
+        assert_eq!(
+            se[0],
+            EditSpec {
+                jpos: 44,
+                mt: 1000,
+                mult: 1
+            }
+        ); // absorp
+        assert_eq!(
+            se[1],
+            EditSpec {
+                jpos: 45,
+                mt: 1000,
+                mult: 1
+            }
+        ); // nusigf
+        assert_eq!(
+            se[2],
+            EditSpec {
+                jpos: 46,
+                mt: 1,
+                mult: 1
+            }
+        ); // total
     }
 
     /// Built-in CLAW constant tables have the expected length and key entries.

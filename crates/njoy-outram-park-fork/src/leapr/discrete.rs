@@ -72,7 +72,8 @@ pub fn bessel_i1(x: f64) -> f64 {
     } else {
         let v = 1.0 / y;
         let mut b = 0.02282967 + v * (-0.02895312 + v * (0.01787654 - v * 0.00420059));
-        b = 0.39894228 + v * (-0.03988024 + v * (-0.00362018 + v * (0.00163801 + v * (-0.01031555 + v * b))));
+        b = 0.39894228
+            + v * (-0.03988024 + v * (-0.00362018 + v * (0.00163801 + v * (-0.01031555 + v * b))));
         b / x.sqrt() * x.exp()
     }
 }
@@ -268,8 +269,16 @@ pub(crate) fn sint(
             }
         }
     }
-    let ss1 = if sex[k1 - 1] <= 0.0 { SLIM } else { sex[k1 - 1].ln() };
-    let ss3 = if sex[k3 - 1] <= 0.0 { SLIM } else { sex[k3 - 1].ln() };
+    let ss1 = if sex[k1 - 1] <= 0.0 {
+        SLIM
+    } else {
+        sex[k1 - 1].ln()
+    };
+    let ss3 = if sex[k3 - 1] <= 0.0 {
+        SLIM
+    } else {
+        sex[k3 - 1].ln()
+    };
     let ex = ((bex[k3 - 1] - x) * ss1 + (x - bex[k1 - 1]) * ss3) * rdbex[k1 - 1];
     if ex > SLIM {
         ex.exp()
@@ -526,16 +535,32 @@ mod tests {
     /// match to `< 5e-7` absolute (the A-S polynomial accuracy).
     #[test]
     fn bessel_reference_values() {
-        assert!((bessel_i0(1.0) - 1.2660658).abs() < 5e-7, "I0(1) = {}", bessel_i0(1.0));
-        assert!((bessel_i1(1.0) - 0.5651591).abs() < 5e-7, "I1(1) = {}", bessel_i1(1.0));
+        assert!(
+            (bessel_i0(1.0) - 1.2660658).abs() < 5e-7,
+            "I0(1) = {}",
+            bessel_i0(1.0)
+        );
+        assert!(
+            (bessel_i1(1.0) - 0.5651591).abs() < 5e-7,
+            "I1(1) = {}",
+            bessel_i1(1.0)
+        );
     }
 
     /// Large-argument branch: `I0(5) = 27.2399`, `I1(5) = 24.3356`.
     /// Result (2026-07-15): relative error `< 1e-4` (A-S asymptotic form).
     #[test]
     fn bessel_large_argument_branch() {
-        assert!((bessel_i0(5.0) - 27.2399).abs() / 27.2399 < 1e-4, "I0(5) = {}", bessel_i0(5.0));
-        assert!((bessel_i1(5.0) - 24.3356).abs() / 24.3356 < 1e-4, "I1(5) = {}", bessel_i1(5.0));
+        assert!(
+            (bessel_i0(5.0) - 27.2399).abs() / 27.2399 < 1e-4,
+            "I0(5) = {}",
+            bessel_i0(5.0)
+        );
+        assert!(
+            (bessel_i1(5.0) - 24.3356).abs() / 24.3356 < 1e-4,
+            "I1(5) = {}",
+            bessel_i1(5.0)
+        );
     }
 
     /// `bfact` sanity: the zero-phonon weight `bzero` must be positive and the
@@ -550,7 +575,12 @@ mod tests {
         assert!(bzero > 0.0 && bzero.is_finite(), "bzero = {bzero}");
         for k in 0..50 {
             if bplus[k] > 0.0 && bminus[k] > 0.0 {
-                assert!(bminus[k] >= bplus[k] * 0.999, "k={k} bminus {} < bplus {}", bminus[k], bplus[k]);
+                assert!(
+                    bminus[k] >= bplus[k] * 0.999,
+                    "k={k} bminus {} < bplus {}",
+                    bminus[k],
+                    bplus[k]
+                );
             }
         }
     }
@@ -577,7 +607,10 @@ mod tests {
                 c: 0.0,
                 tbeta: 0.6,
             },
-            oscillators: vec![DiscreteOscillator { energy_ev: 0.2, weight: 0.4 }],
+            oscillators: vec![DiscreteOscillator {
+                energy_ev: 0.2,
+                weight: 0.4,
+            }],
         };
         let mut sab = SabMatrix::zeros(nbeta, alpha.len());
         for j in 0..alpha.len() {
@@ -595,7 +628,10 @@ mod tests {
                 assert!(v.is_finite() && v >= 0.0, "sab[{k},{j}] = {v}");
             }
         }
-        assert!(dwpix > dw_before, "dwpix {dwpix} did not grow from {dw_before}");
+        assert!(
+            dwpix > dw_before,
+            "dwpix {dwpix} did not grow from {dw_before}"
+        );
         assert!(tempf.is_finite());
     }
 }

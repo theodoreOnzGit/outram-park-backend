@@ -70,8 +70,9 @@ const U235_MAT: i32 = 9228;
 /// **except** the `0` eV floor is raised to `1e-3` eV: the 1/E weighting spectrum
 /// and the reconstructed cross-section table are undefined at exactly 0 eV. Eight
 /// groups.
-const NOTEBOOK_FINE_BOUNDS: [f64; 9] =
-    [1.0e-3, 0.058, 0.14, 0.28, 0.625, 4.0, 5.53e3, 821.0e3, 2.0e7];
+const NOTEBOOK_FINE_BOUNDS: [f64; 9] = [
+    1.0e-3, 0.058, 0.14, 0.28, 0.625, 4.0, 5.53e3, 821.0e3, 2.0e7,
+];
 
 fn u235_tape() -> Tape {
     let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -85,7 +86,11 @@ fn reconstruct_u235(mt: MtReaction) -> (Vec<f64>, Vec<f64>) {
     let tape = u235_tape();
     let result = reconr(
         &tape,
-        &ReconrConfig { mat: U235_MAT, tolerance: 0.001, temperature: 0.0 },
+        &ReconrConfig {
+            mat: U235_MAT,
+            tolerance: 0.001,
+            temperature: 0.0,
+        },
     )
     .expect("RECONR U-235");
     let n = 3000usize;
@@ -171,7 +176,10 @@ fn scatter_matrix_xs() {
 
     let (grid, elastic) = reconstruct_u235(MtReaction::Mt2Elastic);
     let sigma_el = PointwiseXs::LinLin(Arc::new(
-        grid.iter().copied().zip(elastic.iter().copied()).collect::<Vec<_>>(),
+        grid.iter()
+            .copied()
+            .zip(elastic.iter().copied())
+            .collect::<Vec<_>>(),
     ));
     let flux = GroupFlux::spectrum(WeightingSpectrum::OneOverE);
     let bounds = NOTEBOOK_FINE_BOUNDS;
@@ -216,7 +224,9 @@ fn scatter_matrix_xs() {
         let rel = (row - vec_el[g]).abs() / vec_el[g].max(1e-30);
         println!(
             "  group {g} [{:>9.3e},{:>9.3e}] eV: row sum {row:.5} b, vector {:.5} b, rel {rel:.2e}",
-            bounds[g], bounds[g + 1], vec_el[g]
+            bounds[g],
+            bounds[g + 1],
+            vec_el[g]
         );
         if g == 0 {
             // Lowest group leaks a thin elastic tail below the 1e-3 eV floor:
@@ -245,7 +255,10 @@ fn scatter_matrix_xs() {
     let section = sm.to_gendf_section(6, 2, 92235.0, 0.0, 0.0);
     let rows = section.to_rows();
     let back = GendfSection::from_rows(6, 2, &rows).expect("parse matrix GENDF section");
-    assert_eq!(back, section, "matrix GENDF section survives the record round trip");
+    assert_eq!(
+        back, section,
+        "matrix GENDF section survives the record round trip"
+    );
 }
 
 /// Notebook op (**LIVE**): `mgxs.Chi` — the group-collapsed fission-emission
@@ -298,27 +311,46 @@ fn group_collapsed_chi() {
     let chi = fission_group_chi(&spectrum, &bounds).expect("group chi");
     assert_eq!(chi.chi.len(), n_groups);
 
-    println!("U-235 group Chi (notebook 8-group fine structure) = {:?}", chi.chi);
+    println!(
+        "U-235 group Chi (notebook 8-group fine structure) = {:?}",
+        chi.chi
+    );
 
     // Property 1: non-negativity.
     for (g, &c) in chi.chi.iter().enumerate() {
-        assert!(c.is_finite() && c >= 0.0, "χ_{g} = {c} must be finite and non-negative");
+        assert!(
+            c.is_finite() && c >= 0.0,
+            "χ_{g} = {c} must be finite and non-negative"
+        );
     }
 
     // Property 2: normalization.
     let chi_sum: f64 = chi.chi.iter().sum();
-    assert!((chi_sum - 1.0).abs() < 1e-9, "group Chi must sum to 1, got {chi_sum}");
+    assert!(
+        (chi_sum - 1.0).abs() < 1e-9,
+        "group Chi must sum to 1, got {chi_sum}"
+    );
 
     // Property 3: born fast. Groups are ascending in energy; index 7 is
     // [821 keV, 20 MeV], index 6 is [5.53 keV, 821 keV].
     let top = chi.get(7);
     let fast_two = chi.get(6) + chi.get(7);
     println!("  top group χ_7 = {top:.5}, fastest-two χ_6+χ_7 = {fast_two:.5}");
-    assert!(top > 0.5, "top group χ_7 {top:.4} should carry the majority (born fast)");
-    assert!(fast_two > 0.99, "fastest two groups χ_6+χ_7 {fast_two:.4} should carry ~all of χ");
+    assert!(
+        top > 0.5,
+        "top group χ_7 {top:.4} should carry the majority (born fast)"
+    );
+    assert!(
+        fast_two > 0.99,
+        "fastest two groups χ_6+χ_7 {fast_two:.4} should carry ~all of χ"
+    );
     // The four thermal groups (< 0.625 eV, indices 0..3) carry essentially none.
     for g in 0..4 {
-        assert!(chi.get(g) < 1e-6, "thermal group χ_{g} = {} should be negligible", chi.get(g));
+        assert!(
+            chi.get(g) < 1e-6,
+            "thermal group χ_{g} = {} should be negligible",
+            chi.get(g)
+        );
     }
 }
 

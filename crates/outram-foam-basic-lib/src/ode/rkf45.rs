@@ -19,9 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use super::{
-    adaptive_step, integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem,
-};
+use super::{adaptive_step, integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem};
 
 // Butcher tableau coefficients — Runge-Kutta-Fehlberg 4(5)
 // Source: Foam::RKF45 constants

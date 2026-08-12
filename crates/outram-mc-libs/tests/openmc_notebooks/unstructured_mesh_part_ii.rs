@@ -16,5 +16,7 @@
 #[test]
 #[ignore = "TODO: unstructured-mesh tallies via OpenFOAM polyMesh (novel; reuse outram-foam-basic-lib) — op-6tz.32"]
 fn unstructured_mesh_dagmc() {
-    unimplemented!("unstructured-mesh-part-ii: requires DAGMC + unstructured-mesh tallies (op-6tz.17)");
+    unimplemented!(
+        "unstructured-mesh-part-ii: requires DAGMC + unstructured-mesh tallies (op-6tz.17)"
+    );
 }

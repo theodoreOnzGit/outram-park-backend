@@ -160,8 +160,7 @@ impl SecondOrderDecayingModes {
                 sine_mode,
             } => {
                 let zeta = damping_factor;
-                let sqrt_one_minus_zeta_sq =
-                    (Ratio::new::<ratio>(1.0) - zeta * zeta).sqrt();
+                let sqrt_one_minus_zeta_sq = (Ratio::new::<ratio>(1.0) - zeta * zeta).sqrt();
                 *cosine_mode + *sine_mode * (zeta / sqrt_one_minus_zeta_sq).get::<ratio>()
             }
             Self::CriticallyDamped {
@@ -708,10 +707,9 @@ impl SecondOrderStableStepResponse {
             let cosine_and_sine_term: Ratio = cosine_term + sine_term;
 
             // exp(- zeta * t/tau) * [ cos term + sine term ]
-            let exponential_term: Ratio = (-damping_factor
-                * time_ratio.get::<uom::si::ratio::ratio>())
-            .exp()
-                * cosine_and_sine_term;
+            let exponential_term: Ratio =
+                (-damping_factor * time_ratio.get::<uom::si::ratio::ratio>()).exp()
+                    * cosine_and_sine_term;
 
             let scaled_response = Ratio::new::<ratio>(1.0) - exponential_term;
 
@@ -759,10 +757,9 @@ impl SecondOrderStableStepResponse {
             let cosh_term_plus_sinh_term = cosh_term + sinh_term;
 
             // exp(- zeta * t/tau) * [ cos term + sine term ]
-            let exponential_term: Ratio = (-damping_factor
-                * time_ratio.get::<uom::si::ratio::ratio>())
-            .exp()
-                * cosh_term_plus_sinh_term;
+            let exponential_term: Ratio =
+                (-damping_factor * time_ratio.get::<uom::si::ratio::ratio>()).exp()
+                    * cosh_term_plus_sinh_term;
 
             let scaled_response = Ratio::new::<ratio>(1.0) - exponential_term;
 

@@ -99,7 +99,12 @@ impl EquilibriumReactor {
         for rxn in &self.reactions {
             let mut ln_prod = 0.0;
             for c in &rxn.components {
-                let b = Self::basis_value(rxn.basis, n_floored[c.component_index], n_tot, feed.pressure);
+                let b = Self::basis_value(
+                    rxn.basis,
+                    n_floored[c.component_index],
+                    n_tot,
+                    feed.pressure,
+                );
                 ln_prod += c.stoich_coeff * b.ln();
             }
             let k = rxn.equilibrium_constant(t).max(1e-300);
@@ -370,7 +375,9 @@ mod tests {
         });
         let t = 600.0;
         let feed = ReactorFeed::new(vec![1.0, 0.0], t, 1.0e5, 0.0);
-        let out = EquilibriumReactor::new(vec![rxn.clone()]).solve(&feed).unwrap();
+        let out = EquilibriumReactor::new(vec![rxn.clone()])
+            .solve(&feed)
+            .unwrap();
         let ratio = out.molar_flows[1] / out.molar_flows[0];
         let k_expected = rxn.equilibrium_constant(t);
         assert!((ratio - k_expected).abs() / k_expected < 1e-6);

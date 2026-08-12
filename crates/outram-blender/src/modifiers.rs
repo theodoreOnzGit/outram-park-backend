@@ -135,9 +135,7 @@ impl Modifier {
     /// stub variants can surface [`ModifierError::NotImplemented`].
     pub fn evaluate(&self, input: &Mesh) -> Result<Mesh, ModifierError> {
         match self {
-            Modifier::Subsurf { levels } => {
-                Ok(crate::subdivision::catmull_clark(input, *levels))
-            }
+            Modifier::Subsurf { levels } => Ok(crate::subdivision::catmull_clark(input, *levels)),
             Modifier::Mirror { axes } => Ok(mirror(input, *axes)),
             Modifier::Array { count, offset } => Ok(array(input, *count, *offset)),
         }
@@ -395,7 +393,11 @@ mod tests {
         assert_eq!(quad.vertex_count(), 4);
 
         let out = Modifier::Mirror {
-            axes: MirrorAxes { x: true, y: false, z: false },
+            axes: MirrorAxes {
+                x: true,
+                y: false,
+                z: false,
+            },
         }
         .evaluate(&quad)
         .unwrap();
@@ -423,9 +425,12 @@ mod tests {
     #[test]
     fn array_cube_relative_offset() {
         let c = primitives::cube(1.0);
-        let out = Modifier::Array { count: 3, offset: [1.0, 0.0, 0.0] }
-            .evaluate(&c)
-            .unwrap();
+        let out = Modifier::Array {
+            count: 3,
+            offset: [1.0, 0.0, 0.0],
+        }
+        .evaluate(&c)
+        .unwrap();
         assert_eq!(out.vertex_count(), 24, "3 x 8, copies not welded");
         assert_eq!(out.face_count(), 18, "3 x 6");
 
@@ -479,9 +484,16 @@ mod tests {
 
         let stack = ModifierStack::new()
             .push(Modifier::Mirror {
-                axes: MirrorAxes { x: true, y: false, z: false },
+                axes: MirrorAxes {
+                    x: true,
+                    y: false,
+                    z: false,
+                },
             })
-            .push(Modifier::Array { count: 2, offset: [1.0, 0.0, 0.0] });
+            .push(Modifier::Array {
+                count: 2,
+                offset: [1.0, 0.0, 0.0],
+            });
         let out = stack.evaluate(&quad).unwrap();
 
         assert_eq!(out.vertex_count(), 12, "mirror -> 6 verts, x2 array -> 12");

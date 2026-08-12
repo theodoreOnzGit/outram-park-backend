@@ -79,9 +79,7 @@
 
 use crate::thermo::cubic_eos::Phase;
 use crate::thermo::property_package::PropertyPackageModel;
-use crate::thermo::saturation::{
-    bubble_pressure, bubble_temperature, SaturationError,
-};
+use crate::thermo::saturation::{bubble_pressure, bubble_temperature, SaturationError};
 use crate::thermo::Component;
 
 /// The equilibrium phase state a single-component flash resolves to.

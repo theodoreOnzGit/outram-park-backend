@@ -92,7 +92,17 @@ pub fn carve_box(points: &[Vec3], tris: &[[usize; 3]], cell_size: f64) -> Volume
     }
     let (grid_min, nx, ny, nz) = grid_for(points, cell_size);
     let (kept, n_kept) = classify(nx, ny, nz, grid_min, cell_size, |c| inside(c, points, tris));
-    assemble_kept(&kept, n_kept, nx, ny, nz, grid_min, cell_size, &["walls".to_string()], |_| 0)
+    assemble_kept(
+        &kept,
+        n_kept,
+        nx,
+        ny,
+        nz,
+        grid_min,
+        cell_size,
+        &["walls".to_string()],
+        |_| 0,
+    )
 }
 
 /// Carve the region **inside** `outer` (`outer_points`, `outer_tris`) but
@@ -151,7 +161,12 @@ pub fn carve_region(
     let containing_hole = |c: Vec3| -> Option<usize> {
         for (idx, (hp, ht)) in holes.iter().enumerate() {
             let (lo, hi) = hole_bbox[idx];
-            let in_box = c.x >= lo.x && c.x <= hi.x && c.y >= lo.y && c.y <= hi.y && c.z >= lo.z && c.z <= hi.z;
+            let in_box = c.x >= lo.x
+                && c.x <= hi.x
+                && c.y >= lo.y
+                && c.y <= hi.y
+                && c.z >= lo.z
+                && c.z <= hi.z;
             if in_box && inside(c, hp, ht) {
                 return Some(idx);
             }
@@ -183,10 +198,20 @@ pub fn carve_region(
     for h in 0..holes.len() {
         names.push(format!("hole_{h}"));
     }
-    assemble_kept(&kept, n_kept, nx, ny, nz, grid_min, cell_size, &names, |nbr| match nbr {
-        None => 0,
-        Some(f) => hole_of[f].map(|h| h + 1).unwrap_or(0),
-    })
+    assemble_kept(
+        &kept,
+        n_kept,
+        nx,
+        ny,
+        nz,
+        grid_min,
+        cell_size,
+        &names,
+        |nbr| match nbr {
+            None => 0,
+            Some(f) => hole_of[f].map(|h| h + 1).unwrap_or(0),
+        },
+    )
 }
 
 /// Ergonomic wrapper over [`carve_region`] taking **owned** triangle-soup
@@ -210,7 +235,14 @@ pub fn carve_around(
 // ---------------------------------------------------------------------------
 
 fn empty_mesh() -> VolumeMesh {
-    VolumeMesh { points: vec![], faces: vec![], owner: vec![], neighbour: vec![], n_cells: 0, patches: vec![] }
+    VolumeMesh {
+        points: vec![],
+        faces: vec![],
+        owner: vec![],
+        neighbour: vec![],
+        n_cells: 0,
+        patches: vec![],
+    }
 }
 
 /// Uniform grid over the bounding box of `points`, with a one-cell margin so a
@@ -281,14 +313,21 @@ fn assemble_kept(
     let np = |i: usize, j: usize, k: usize| i + (nx + 1) * (j + (ny + 1) * k);
     let flat = |i: usize, j: usize, k: usize| i + nx * (j + ny * k);
     let lattice_pos = |i: usize, j: usize, k: usize| {
-        Vec3::new(grid_min.x + cs * i as f64, grid_min.y + cs * j as f64, grid_min.z + cs * k as f64)
+        Vec3::new(
+            grid_min.x + cs * i as f64,
+            grid_min.y + cs * j as f64,
+            grid_min.z + cs * k as f64,
+        )
     };
     let cell_center =
         |i: usize, j: usize, k: usize| lattice_pos(i, j, k).add(Vec3::new(cs, cs, cs).scale(0.5));
 
     let mut new_positions: Vec<Vec3> = Vec::new();
     let mut point_remap: HashMap<usize, usize> = HashMap::new();
-    let ring_of = |lattice: [usize; 4], positions: &mut Vec<Vec3>, remap: &mut HashMap<usize, usize>| -> Vec<usize> {
+    let ring_of = |lattice: [usize; 4],
+                   positions: &mut Vec<Vec3>,
+                   remap: &mut HashMap<usize, usize>|
+     -> Vec<usize> {
         lattice
             .iter()
             .map(|&l| {
@@ -307,21 +346,90 @@ fn assemble_kept(
     let mut int_owner: Vec<usize> = Vec::new();
     let mut int_nb: Vec<usize> = Vec::new();
     // One (faces, owner) bucket per boundary patch.
-    let mut bnd: Vec<(Vec<Vec<usize>>, Vec<usize>)> =
-        (0..patch_names.len()).map(|_| (Vec::new(), Vec::new())).collect();
+    let mut bnd: Vec<(Vec<Vec<usize>>, Vec<usize>)> = (0..patch_names.len())
+        .map(|_| (Vec::new(), Vec::new()))
+        .collect();
 
     for k in 0..nz {
         for j in 0..ny {
             for i in 0..nx {
-                let Some(cid) = kept[flat(i, j, k)] else { continue };
+                let Some(cid) = kept[flat(i, j, k)] else {
+                    continue;
+                };
                 let oc = cell_center(i, j, k);
                 let sides: [(isize, isize, isize, [usize; 4], bool); 6] = [
-                    (1, 0, 0, [np(i + 1, j, k), np(i + 1, j + 1, k), np(i + 1, j + 1, k + 1), np(i + 1, j, k + 1)], true),
-                    (0, 1, 0, [np(i, j + 1, k), np(i + 1, j + 1, k), np(i + 1, j + 1, k + 1), np(i, j + 1, k + 1)], true),
-                    (0, 0, 1, [np(i, j, k + 1), np(i + 1, j, k + 1), np(i + 1, j + 1, k + 1), np(i, j + 1, k + 1)], true),
-                    (-1, 0, 0, [np(i, j, k), np(i, j + 1, k), np(i, j + 1, k + 1), np(i, j, k + 1)], false),
-                    (0, -1, 0, [np(i, j, k), np(i + 1, j, k), np(i + 1, j, k + 1), np(i, j, k + 1)], false),
-                    (0, 0, -1, [np(i, j, k), np(i + 1, j, k), np(i + 1, j + 1, k), np(i, j + 1, k)], false),
+                    (
+                        1,
+                        0,
+                        0,
+                        [
+                            np(i + 1, j, k),
+                            np(i + 1, j + 1, k),
+                            np(i + 1, j + 1, k + 1),
+                            np(i + 1, j, k + 1),
+                        ],
+                        true,
+                    ),
+                    (
+                        0,
+                        1,
+                        0,
+                        [
+                            np(i, j + 1, k),
+                            np(i + 1, j + 1, k),
+                            np(i + 1, j + 1, k + 1),
+                            np(i, j + 1, k + 1),
+                        ],
+                        true,
+                    ),
+                    (
+                        0,
+                        0,
+                        1,
+                        [
+                            np(i, j, k + 1),
+                            np(i + 1, j, k + 1),
+                            np(i + 1, j + 1, k + 1),
+                            np(i, j + 1, k + 1),
+                        ],
+                        true,
+                    ),
+                    (
+                        -1,
+                        0,
+                        0,
+                        [
+                            np(i, j, k),
+                            np(i, j + 1, k),
+                            np(i, j + 1, k + 1),
+                            np(i, j, k + 1),
+                        ],
+                        false,
+                    ),
+                    (
+                        0,
+                        -1,
+                        0,
+                        [
+                            np(i, j, k),
+                            np(i + 1, j, k),
+                            np(i + 1, j, k + 1),
+                            np(i, j, k + 1),
+                        ],
+                        false,
+                    ),
+                    (
+                        0,
+                        0,
+                        -1,
+                        [
+                            np(i, j, k),
+                            np(i + 1, j, k),
+                            np(i + 1, j + 1, k),
+                            np(i, j + 1, k),
+                        ],
+                        false,
+                    ),
                 ];
                 for (di, dj, dk, corners, positive) in sides {
                     let (ni, nj, nk) = (i as isize + di, j as isize + dj, k as isize + dk);
@@ -363,9 +471,20 @@ fn assemble_kept(
         faces.extend(pf);
         owner.extend(po);
         neighbour.extend(std::iter::repeat(None).take(n));
-        patches.push(BoundaryPatch { name: patch_names[pi].clone(), start_face: start, n_faces: n });
+        patches.push(BoundaryPatch {
+            name: patch_names[pi].clone(),
+            start_face: start,
+            n_faces: n,
+        });
     }
-    VolumeMesh { points: new_positions, faces, owner, neighbour, n_cells: n_kept, patches }
+    VolumeMesh {
+        points: new_positions,
+        faces,
+        owner,
+        neighbour,
+        n_cells: n_kept,
+        patches,
+    }
 }
 
 /// Axis-aligned bounding box `(lo, hi)` of a point set.
@@ -381,7 +500,14 @@ fn bbox(points: &[Vec3]) -> (Vec3, Vec3) {
 
 /// Clamp a signed cell coordinate into the grid, returning `Some((i,j,k))` if in
 /// range.
-fn in_grid(i: isize, j: isize, k: isize, nx: usize, ny: usize, nz: usize) -> Option<(usize, usize, usize)> {
+fn in_grid(
+    i: isize,
+    j: isize,
+    k: isize,
+    nx: usize,
+    ny: usize,
+    nz: usize,
+) -> Option<(usize, usize, usize)> {
     if i < 0 || j < 0 || k < 0 || i as usize >= nx || j as usize >= ny || k as usize >= nz {
         None
     } else {
@@ -443,7 +569,14 @@ mod tests {
         ];
         let q = |a: usize, b: usize, c: usize, d: usize| vec![[a, b, c], [a, c, d]];
         let mut t = Vec::new();
-        for f in [q(0, 3, 2, 1), q(4, 5, 6, 7), q(0, 1, 5, 4), q(2, 3, 7, 6), q(1, 2, 6, 5), q(0, 4, 7, 3)] {
+        for f in [
+            q(0, 3, 2, 1),
+            q(4, 5, 6, 7),
+            q(0, 1, 5, 4),
+            q(2, 3, 7, 6),
+            q(1, 2, 6, 5),
+            q(0, 4, 7, 3),
+        ] {
             t.extend(f);
         }
         (v, t)
@@ -459,8 +592,14 @@ mod tests {
             Vec3::new(0.0, 0.0, -r),
         ];
         let t = vec![
-            [0, 2, 4], [2, 1, 4], [1, 3, 4], [3, 0, 4],
-            [0, 5, 2], [2, 5, 1], [1, 5, 3], [3, 5, 0],
+            [0, 2, 4],
+            [2, 1, 4],
+            [1, 3, 4],
+            [3, 0, 4],
+            [0, 5, 2],
+            [2, 5, 1],
+            [1, 5, 3],
+            [3, 5, 0],
         ];
         (v, t)
     }
@@ -504,11 +643,23 @@ mod tests {
         assert!(m.n_boundary_faces() > 96, "outer + inner cavity walls");
         // Boundary is separated into two patches: outer domain + the hole cavity.
         assert_eq!(m.patches.len(), 2, "walls + hole_0");
-        let walls = m.patches.iter().find(|p| p.name == "walls").expect("walls patch");
-        let hole = m.patches.iter().find(|p| p.name == "hole_0").expect("hole_0 patch");
+        let walls = m
+            .patches
+            .iter()
+            .find(|p| p.name == "walls")
+            .expect("walls patch");
+        let hole = m
+            .patches
+            .iter()
+            .find(|p| p.name == "hole_0")
+            .expect("hole_0 patch");
         assert_eq!(walls.n_faces, 6 * 16, "outer box 4×4 per side");
         assert_eq!(hole.n_faces, 6 * 4, "inner cavity 2×2 per side");
-        assert_eq!(walls.n_faces + hole.n_faces, m.n_boundary_faces(), "patches cover all boundary");
+        assert_eq!(
+            walls.n_faces + hole.n_faces,
+            m.n_boundary_faces(),
+            "patches cover all boundary"
+        );
     }
 
     /// V&V — carve_region with no holes equals carve_box.

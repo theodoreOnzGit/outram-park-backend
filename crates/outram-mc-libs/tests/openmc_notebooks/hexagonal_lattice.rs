@@ -116,14 +116,20 @@ fn materials() -> Vec<Material> {
         id: 1,
         name: "fuel (U235)".into(),
         temperature: 293.6,
-        components: vec![NuclideComponent { nuclide_idx: 0, atom_density: 0.025626 }],
+        components: vec![NuclideComponent {
+            nuclide_idx: 0,
+            atom_density: 0.025626,
+        }],
     };
     // U238 metal: N = 10·N_A/238.05 = 0.025303 /b·cm.
     let fuel2 = Material {
         id: 2,
         name: "fuel2 (U238)".into(),
         temperature: 293.6,
-        components: vec![NuclideComponent { nuclide_idx: 1, atom_density: 0.025303 }],
+        components: vec![NuclideComponent {
+            nuclide_idx: 1,
+            atom_density: 0.025303,
+        }],
     };
     // Light water: N_H2O = 1·N_A/18.015 = 0.033427 /b·cm ⇒ H = 0.066854, O = 0.033427.
     let water = Material {
@@ -131,8 +137,14 @@ fn materials() -> Vec<Material> {
         name: "water".into(),
         temperature: 293.6,
         components: vec![
-            NuclideComponent { nuclide_idx: 2, atom_density: 0.066854 }, // H1
-            NuclideComponent { nuclide_idx: 3, atom_density: 0.033427 }, // O16
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 0.066854,
+            }, // H1
+            NuclideComponent {
+                nuclide_idx: 3,
+                atom_density: 0.033427,
+            }, // O16
         ],
     };
     vec![fuel, fuel2, water]
@@ -154,12 +166,15 @@ fn nuclides() -> Vec<Nuclide> {
 /// element of every ring, regular pin ([`U_PIN`]) elsewhere, outer = [`U_OUTER`].
 /// Mirrors notebook cells 12–14.
 fn notebook_hex_lattice() -> HexLattice {
-    let outer_ring: Vec<usize> =
-        std::iter::once(U_BIG_PIN).chain(std::iter::repeat(U_PIN).take(17)).collect(); // 18
-    let ring_1: Vec<usize> =
-        std::iter::once(U_BIG_PIN).chain(std::iter::repeat(U_PIN).take(11)).collect(); // 12
-    let ring_2: Vec<usize> =
-        std::iter::once(U_BIG_PIN).chain(std::iter::repeat(U_PIN).take(5)).collect(); // 6
+    let outer_ring: Vec<usize> = std::iter::once(U_BIG_PIN)
+        .chain(std::iter::repeat(U_PIN).take(17))
+        .collect(); // 18
+    let ring_1: Vec<usize> = std::iter::once(U_BIG_PIN)
+        .chain(std::iter::repeat(U_PIN).take(11))
+        .collect(); // 12
+    let ring_2: Vec<usize> = std::iter::once(U_BIG_PIN)
+        .chain(std::iter::repeat(U_PIN).take(5))
+        .collect(); // 6
     let inner_ring: Vec<usize> = vec![U_BIG_PIN]; // 1
     HexLattice::from_rings(
         4,
@@ -181,36 +196,122 @@ fn notebook_hex_lattice() -> HexLattice {
 fn notebook_geometry() -> Geometry {
     const T: f64 = 293.6;
     let surfaces = vec![
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: R_PIN, bc: BoundaryType::Transmissive }),
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: R_BIG_PIN, bc: BoundaryType::Transmissive }),
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: R_OUTER, bc: BoundaryType::Vacuum }),
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: R_PIN,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: R_BIG_PIN,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: R_OUTER,
+            bc: BoundaryType::Vacuum,
+        }),
     ];
 
     // Cell 0 (root): inside the r=5 vacuum cylinder, filled by the hex lattice.
     let main_cell = Cell::fill(
         1,
-        vec![RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Inside }],
+        vec![RegionToken::HalfSpace {
+            surface_idx: 2,
+            sense: HalfSpaceSense::Inside,
+        }],
         CellFill::Lattice(0),
         Position::ZERO,
     );
     // pin_universe: fuel inside r=0.25, water outside.
-    let pin_fuel = Cell::material(2, vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }], MAT_FUEL, T);
-    let pin_water = Cell::material(3, vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside }], MAT_WATER, T);
+    let pin_fuel = Cell::material(
+        2,
+        vec![RegionToken::HalfSpace {
+            surface_idx: 0,
+            sense: HalfSpaceSense::Inside,
+        }],
+        MAT_FUEL,
+        T,
+    );
+    let pin_water = Cell::material(
+        3,
+        vec![RegionToken::HalfSpace {
+            surface_idx: 0,
+            sense: HalfSpaceSense::Outside,
+        }],
+        MAT_WATER,
+        T,
+    );
     // big_pin_universe: fuel2 inside r=0.5, water outside.
-    let big_fuel = Cell::material(4, vec![RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Inside }], MAT_FUEL2, T);
-    let big_water = Cell::material(5, vec![RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Outside }], MAT_WATER, T);
+    let big_fuel = Cell::material(
+        4,
+        vec![RegionToken::HalfSpace {
+            surface_idx: 1,
+            sense: HalfSpaceSense::Inside,
+        }],
+        MAT_FUEL2,
+        T,
+    );
+    let big_water = Cell::material(
+        5,
+        vec![RegionToken::HalfSpace {
+            surface_idx: 1,
+            sense: HalfSpaceSense::Outside,
+        }],
+        MAT_WATER,
+        T,
+    );
     // outer_universe: all water — two cells (inside/outside r=0.25) tile all space.
-    let outer_water_a = Cell::material(6, vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }], MAT_WATER, T);
-    let outer_water_b = Cell::material(7, vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside }], MAT_WATER, T);
+    let outer_water_a = Cell::material(
+        6,
+        vec![RegionToken::HalfSpace {
+            surface_idx: 0,
+            sense: HalfSpaceSense::Inside,
+        }],
+        MAT_WATER,
+        T,
+    );
+    let outer_water_b = Cell::material(
+        7,
+        vec![RegionToken::HalfSpace {
+            surface_idx: 0,
+            sense: HalfSpaceSense::Outside,
+        }],
+        MAT_WATER,
+        T,
+    );
 
     Geometry {
         surfaces,
-        cells: vec![main_cell, pin_fuel, pin_water, big_fuel, big_water, outer_water_a, outer_water_b],
+        cells: vec![
+            main_cell,
+            pin_fuel,
+            pin_water,
+            big_fuel,
+            big_water,
+            outer_water_a,
+            outer_water_b,
+        ],
         universes: vec![
-            Universe { id: 0, cell_indices: vec![0] },       // U_ROOT
-            Universe { id: 1, cell_indices: vec![1, 2] },    // U_PIN
-            Universe { id: 2, cell_indices: vec![3, 4] },    // U_BIG_PIN
-            Universe { id: 3, cell_indices: vec![5, 6] },    // U_OUTER
+            Universe {
+                id: 0,
+                cell_indices: vec![0],
+            }, // U_ROOT
+            Universe {
+                id: 1,
+                cell_indices: vec![1, 2],
+            }, // U_PIN
+            Universe {
+                id: 2,
+                cell_indices: vec![3, 4],
+            }, // U_BIG_PIN
+            Universe {
+                id: 3,
+                cell_indices: vec![5, 6],
+            }, // U_OUTER
         ],
         lattices: vec![Lattice::Hex(notebook_hex_lattice())],
         root_universe: U_ROOT,
@@ -249,17 +350,36 @@ fn hexagonal_lattice_geometry() {
             // Descent is root (level 0, the lattice-fill cell) → the tile's pin
             // universe (level 1, carrying the lattice marker), exactly as the
             // triso nested-lattice test: 2 coordinate levels.
-            assert_eq!(path.levels.len(), 2, "tile {i:?}: expected root→lattice-tile descent");
-            assert_eq!(path.levels[1].lattice, Some(0), "tile {i:?}: level 1 is the lattice");
-            assert_eq!(path.levels[1].lattice_index, i, "tile {i:?}: located tile index mismatch");
+            assert_eq!(
+                path.levels.len(),
+                2,
+                "tile {i:?}: expected root→lattice-tile descent"
+            );
+            assert_eq!(
+                path.levels[1].lattice,
+                Some(0),
+                "tile {i:?}: level 1 is the lattice"
+            );
+            assert_eq!(
+                path.levels[1].lattice_index, i,
+                "tile {i:?}: located tile index mismatch"
+            );
 
             match lat.universe_at(i) {
                 Some(U_BIG_PIN) => {
-                    assert_eq!(path.material, Some(MAT_FUEL2), "big-pin tile {i:?} should be U238");
+                    assert_eq!(
+                        path.material,
+                        Some(MAT_FUEL2),
+                        "big-pin tile {i:?} should be U238"
+                    );
                     n_big += 1;
                 }
                 Some(U_PIN) => {
-                    assert_eq!(path.material, Some(MAT_FUEL), "regular-pin tile {i:?} should be U235");
+                    assert_eq!(
+                        path.material,
+                        Some(MAT_FUEL),
+                        "regular-pin tile {i:?} should be U235"
+                    );
                     n_pin += 1;
                 }
                 other => panic!("valid tile {i:?} filled by unexpected universe {other:?}"),
@@ -268,19 +388,34 @@ fn hexagonal_lattice_geometry() {
     }
     assert_eq!(n_big, 4, "one big pin per ring (4 rings)");
     assert_eq!(n_pin, 33, "the other 33 tiles are regular pins");
-    assert_eq!(n_big + n_pin, 3 * N_RINGS * (N_RINGS - 1) + 1, "37 tiles in a 4-ring hexagon");
+    assert_eq!(
+        n_big + n_pin,
+        3 * N_RINGS * (N_RINGS - 1) + 1,
+        "37 tiles in a 4-ring hexagon"
+    );
 
     // (2) A point inside r=5 but outside the hexagon → water via the outer universe.
     //     The hexagon's outer vertices sit ≲ 3.75 cm from the centre, so 4.8 cm is
     //     safely outside it but inside the 5 cm boundary.
     let outside_hex = Position::new(0.0, 4.8, 0.0);
-    let p_out = geom.locate(outside_hex, u, usize::MAX).expect("4.8 cm point is inside r=5");
-    assert_eq!(p_out.material, Some(MAT_WATER), "outside the hexagon should be water");
-    assert_eq!(p_out.levels[1].lattice, Some(0), "still descends through the lattice (outer tile)");
+    let p_out = geom
+        .locate(outside_hex, u, usize::MAX)
+        .expect("4.8 cm point is inside r=5");
+    assert_eq!(
+        p_out.material,
+        Some(MAT_WATER),
+        "outside the hexagon should be water"
+    );
+    assert_eq!(
+        p_out.levels[1].lattice,
+        Some(0),
+        "still descends through the lattice (outer tile)"
+    );
 
     // (3) A point outside the r=5 vacuum boundary is lost (in no cell of the root).
     assert!(
-        geom.locate(Position::new(5.5, 0.0, 0.0), u, usize::MAX).is_none(),
+        geom.locate(Position::new(5.5, 0.0, 0.0), u, usize::MAX)
+            .is_none(),
         "beyond the vacuum boundary the particle is lost"
     );
 }
@@ -314,7 +449,12 @@ fn hexagonal_lattice_keff_smoke() {
     let mats = materials();
     let nucs = nuclides();
 
-    let settings = KeffSettings { n_particles: 300, n_inactive: 15, n_active: 25, ..KeffSettings::default() };
+    let settings = KeffSettings {
+        n_particles: 300,
+        n_inactive: 15,
+        n_active: 25,
+        ..KeffSettings::default()
+    };
     // Seed the source across the fuelled hexagon (rejection-sampled into fissile cells).
     let src = SourceBox {
         lower: Position::new(-3.75, -3.75, -1.0),
@@ -335,6 +475,14 @@ fn hexagonal_lattice_keff_smoke() {
         settings.n_inactive + settings.n_active,
         "ran all generations"
     );
-    assert!(result.k_mean.is_finite() && result.k_mean > 0.0, "k must be finite & positive, got {}", result.k_mean);
-    assert!(result.k_std < 0.05, "k noisy/unconverged: σ = {}", result.k_std);
+    assert!(
+        result.k_mean.is_finite() && result.k_mean > 0.0,
+        "k must be finite & positive, got {}",
+        result.k_mean
+    );
+    assert!(
+        result.k_std < 0.05,
+        "k noisy/unconverged: σ = {}",
+        result.k_std
+    );
 }

@@ -263,7 +263,7 @@ impl ModfacParameters {
         let pairs = [
             (1, 5, 2777.0, -4.674, 1.551e-3, 1606.0, -4.746, 9.181e-4), // CH2 / OH
             (1, 7, 1391.3, -3.6156, 1.144e-3, -17.253, 0.8389, 9.021e-4), // CH2 / H2O
-            (5, 7, -801.9, 3.824, -7.514e-3, 1460.0, -8.673, 1.641e-2),  // OH / H2O
+            (5, 7, -801.9, 3.824, -7.514e-3, 1460.0, -8.673, 1.641e-2), // OH / H2O
         ];
         for (m, n, a_mn, b_mn, c_mn, a_nm, b_nm, c_nm) in pairs {
             t.set_interaction(m, n, a_mn, b_mn, c_mn);
@@ -408,7 +408,12 @@ pub fn group_ln_gamma(
         })
         .collect();
 
-    let main = |id: usize| params.subgroup(id).expect("subgroup in table").main_group_id;
+    let main = |id: usize| {
+        params
+            .subgroup(id)
+            .expect("subgroup in table")
+            .main_group_id
+    };
 
     let mut out = HashMap::with_capacity(ids.len());
     for &k in &ids {

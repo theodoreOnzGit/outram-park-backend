@@ -508,7 +508,11 @@ fn truncate_skeleton(mesh: &Mesh, width: f64) -> TruncSkeleton {
         rings.push(ring);
     }
 
-    TruncSkeleton { positions: new_positions, faces, rings }
+    TruncSkeleton {
+        positions: new_positions,
+        faces,
+        rings,
+    }
 }
 
 /// Rounded (multi-segment) vertex bevel — truncate every vertex and replace the
@@ -586,8 +590,14 @@ pub fn bevel_vertices_rounded(mesh: &Mesh, width: f64, segments: u32) -> Mesh {
 
         let d = ring.len();
         // Band 0 = the edge-points; per-edge directions and radii from V.
-        let dir0: Vec<Vec3> = ring.iter().map(|&ep| positions[ep].sub(vpos).normalize()).collect();
-        let len0: Vec<f64> = ring.iter().map(|&ep| positions[ep].sub(vpos).length()).collect();
+        let dir0: Vec<Vec3> = ring
+            .iter()
+            .map(|&ep| positions[ep].sub(vpos).normalize())
+            .collect();
+        let len0: Vec<f64> = ring
+            .iter()
+            .map(|&ep| positions[ep].sub(vpos).length())
+            .collect();
         let apex_r = len0.iter().sum::<f64>() / d as f64;
 
         // Intermediate ring vertex indices, `ring_idx[k]` for k = 1..seg-1.
@@ -612,7 +622,12 @@ pub fn bevel_vertices_rounded(mesh: &Mesh, width: f64, segments: u32) -> Mesh {
         for band in ring_idx.iter() {
             for i in 0..d {
                 let j = (i + 1) % d;
-                push_oriented(&mut faces, &positions, vpos, vec![prev[i], prev[j], band[j], band[i]]);
+                push_oriented(
+                    &mut faces,
+                    &positions,
+                    vpos,
+                    vec![prev[i], prev[j], band[j], band[i]],
+                );
             }
             prev = band.clone();
         }
@@ -867,18 +882,39 @@ impl MeshOp {
                 Ok(extrude_faces(&mesh, &faces, *offset))
             }
             MeshOp::Subdivide { iterations } => Ok(subdivide(&mesh, *iterations)),
-            MeshOp::Bevel { width, segments } => Ok(bevel_vertices_rounded(&mesh, *width, *segments)),
+            MeshOp::Bevel { width, segments } => {
+                Ok(bevel_vertices_rounded(&mesh, *width, *segments))
+            }
             MeshOp::Boolean { other, mode } => Ok(crate::boolean::boolean(&mesh, other, *mode)?),
-            MeshOp::Smooth { weighting, lambda, iterations } => {
-                Ok(crate::laplacian::laplacian_smooth(&mesh, *weighting, *lambda, *iterations)?)
+            MeshOp::Smooth {
+                weighting,
+                lambda,
+                iterations,
+            } => Ok(crate::laplacian::laplacian_smooth(
+                &mesh,
+                *weighting,
+                *lambda,
+                *iterations,
+            )?),
+            MeshOp::Taubin {
+                weighting,
+                lambda,
+                mu,
+                iterations,
+            } => Ok(crate::laplacian::taubin_smooth(
+                &mesh,
+                *weighting,
+                *lambda,
+                *mu,
+                *iterations,
+            )),
+            MeshOp::Arap {
+                handles,
+                iterations,
+            } => Ok(crate::arap::arap_deform(&mesh, handles, *iterations)?),
+            MeshOp::Decimate { target_faces } => {
+                Ok(crate::decimate::decimate(&mesh, *target_faces))
             }
-            MeshOp::Taubin { weighting, lambda, mu, iterations } => {
-                Ok(crate::laplacian::taubin_smooth(&mesh, *weighting, *lambda, *mu, *iterations))
-            }
-            MeshOp::Arap { handles, iterations } => {
-                Ok(crate::arap::arap_deform(&mesh, handles, *iterations)?)
-            }
-            MeshOp::Decimate { target_faces } => Ok(crate::decimate::decimate(&mesh, *target_faces)),
             MeshOp::LoopSubdivide { iterations } => {
                 Ok(crate::loop_subdivision::loop_subdivide(&mesh, *iterations))
             }
@@ -943,7 +979,9 @@ mod tests {
     #[test]
     fn meshop_extrude_dispatches_over_all_faces() {
         let grid = primitives::grid(1, 1, 2.0);
-        let op = MeshOp::Extrude { offset: Vec3::new(0.0, 0.0, 1.0) };
+        let op = MeshOp::Extrude {
+            offset: Vec3::new(0.0, 0.0, 1.0),
+        };
         let out = op.apply(grid).expect("extrude implemented");
         // Same cup as the direct call above.
         assert_eq!(out.vertex_count(), 8);
@@ -978,7 +1016,11 @@ mod tests {
         let cube = primitives::cube(2.0);
 
         let zero = subdivide(&cube, 0);
-        assert_eq!(zero.vertex_count(), cube.vertex_count(), "0 iters is a clone");
+        assert_eq!(
+            zero.vertex_count(),
+            cube.vertex_count(),
+            "0 iters is a clone"
+        );
         assert_eq!(zero.face_count(), cube.face_count());
 
         let twice = subdivide(&cube, 2);
@@ -1055,7 +1097,10 @@ mod tests {
                 *edge_use.entry(key).or_insert(0) += 1;
             }
         }
-        assert!(edge_use.values().all(|&c| c == 2), "rounded bevel must be edge-manifold");
+        assert!(
+            edge_use.values().all(|&c| c == 2),
+            "rounded bevel must be edge-manifold"
+        );
     }
 
     /// [`MeshOp::Smooth`] dispatches to Laplacian smoothing: it preserves the
@@ -1066,13 +1111,25 @@ mod tests {
     fn meshop_smooth_preserves_topology() {
         use crate::laplacian::LaplacianWeighting;
         let sphere = primitives::uv_sphere(16, 8, 1.0);
-        let (v, f, chi) = (sphere.vertex_count(), sphere.face_count(), sphere.euler_characteristic());
-        let out = MeshOp::Smooth { weighting: LaplacianWeighting::Cotangent, lambda: 0.5, iterations: 2 }
-            .apply(sphere)
-            .expect("smoothing solve ok");
+        let (v, f, chi) = (
+            sphere.vertex_count(),
+            sphere.face_count(),
+            sphere.euler_characteristic(),
+        );
+        let out = MeshOp::Smooth {
+            weighting: LaplacianWeighting::Cotangent,
+            lambda: 0.5,
+            iterations: 2,
+        }
+        .apply(sphere)
+        .expect("smoothing solve ok");
         assert_eq!(out.vertex_count(), v, "smoothing preserves vertex count");
         assert_eq!(out.face_count(), f, "smoothing preserves face count");
-        assert_eq!(out.euler_characteristic(), chi, "smoothing preserves topology (chi)");
+        assert_eq!(
+            out.euler_characteristic(),
+            chi,
+            "smoothing preserves topology (chi)"
+        );
     }
 
     /// `segments <= 1` is exactly the single flat chamfer (the truncated cube),
@@ -1080,12 +1137,18 @@ mod tests {
     #[test]
     fn rounded_bevel_segments_change_the_result() {
         let cube = primitives::cube(2.0);
-        let flat = MeshOp::Bevel { width: 0.5, segments: 1 }
-            .apply(cube.clone())
-            .expect("bevel implemented");
-        let rounded = MeshOp::Bevel { width: 0.5, segments: 4 }
-            .apply(cube)
-            .expect("bevel implemented");
+        let flat = MeshOp::Bevel {
+            width: 0.5,
+            segments: 1,
+        }
+        .apply(cube.clone())
+        .expect("bevel implemented");
+        let rounded = MeshOp::Bevel {
+            width: 0.5,
+            segments: 4,
+        }
+        .apply(cube)
+        .expect("bevel implemented");
         assert_eq!(flat.vertex_count(), 24, "segments=1 is the truncated cube");
         assert!(
             rounded.vertex_count() > flat.vertex_count(),
@@ -1093,6 +1156,10 @@ mod tests {
             rounded.vertex_count(),
             flat.vertex_count()
         );
-        assert_eq!(rounded.euler_characteristic(), 2, "rounded result still closed");
+        assert_eq!(
+            rounded.euler_characteristic(),
+            2,
+            "rounded result still closed"
+        );
     }
 }

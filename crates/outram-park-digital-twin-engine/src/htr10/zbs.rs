@@ -95,9 +95,7 @@ pub fn zbs_effective_conductivity(temperature: ThermodynamicTemperature) -> Ther
     let k_lo = ZBS_CONDUCTIVITY_WATT_PER_METER_KELVIN[lo];
     let k_hi = ZBS_CONDUCTIVITY_WATT_PER_METER_KELVIN[hi];
     let frac: Ratio = Ratio::new::<ratio>((t - t_lo) / (t_hi - t_lo));
-    ThermalConductivity::new::<watt_per_meter_kelvin>(
-        k_lo + frac.get::<ratio>() * (k_hi - k_lo),
-    )
+    ThermalConductivity::new::<watt_per_meter_kelvin>(k_lo + frac.get::<ratio>() * (k_hi - k_lo))
 }
 
 #[cfg(test)]

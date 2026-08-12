@@ -139,29 +139,39 @@ mod tests {
     use std::sync::Arc;
     use crate::openfoam_algorithms::openfoam_source::Vector3;
     use crate::openfoam_algorithms::openfoam_source::vol_field::VolScalarField;
-    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{FvMeshBuilder, BoundaryPatch, PatchKind};
+    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
+        FvMeshBuilder, BoundaryPatch, PatchKind,
+    };
 
     fn unit_mesh() -> Arc<FvMesh> {
-        Arc::new(FvMeshBuilder::new()
-            .n_cells(2).n_internal_faces(1)
-            .owner(vec![0, 1, 0]).neighbour(vec![1])
-            .patches(vec![
-                BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
-                BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
-            ])
-            .cell_volumes(vec![1.0, 1.0])
-            .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
-            .face_area_vectors(vec![
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(-1.0, 0.0, 0.0),
-            ])
-            .face_centres(vec![
-                Vector3::new(0.5, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, 0.0, 0.0),
-            ])
-            .build().unwrap())
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![1.0, 1.0])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
     }
 
     #[test]

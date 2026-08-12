@@ -43,7 +43,9 @@ use uom::si::ratio::ratio;
 use uom::si::time::second;
 use uom::ConstZero;
 
-use super::decaying_exponentials::{DecaySecondOrderExponentialResponse, DecayingSecondOrderExponential};
+use super::decaying_exponentials::{
+    DecaySecondOrderExponentialResponse, DecayingSecondOrderExponential,
+};
 use super::decaying_sinusoid::{DecaySinusoidResponse, DecayingSinusoid, TransferFnSinusoidType};
 use super::first_order_transfer_fn::{FirstOrderResponse, FirstOrderStableTransferFnNoZeroes};
 use super::first_order_transfer_fn_with_zeroes::FirstOrderStableTransferFnForZeroes;
@@ -257,7 +259,14 @@ fn second_order_recurrence_matches_analytic_superposition() {
     let process_time = Time::new::<second>(1.5);
     let timestep = 0.01_f64;
 
-    for damping_value in [0.35_f64, 1.0_f64, 2.4_f64, 1.0001_f64, 1.000001_f64, 50.0_f64] {
+    for damping_value in [
+        0.35_f64,
+        1.0_f64,
+        2.4_f64,
+        1.0001_f64,
+        1.000001_f64,
+        50.0_f64,
+    ] {
         let damping_factor = Ratio::new::<ratio>(damping_value);
 
         let mut block = SecondOrderStableTransferFnNoZeroes::new(
@@ -338,10 +347,7 @@ fn decaying_sinusoid_recurrence_matches_analytic_superposition() {
     let omega = Frequency::new::<hertz>(2.1);
     let timestep = 0.01_f64;
 
-    for sinusoid_type in [
-        TransferFnSinusoidType::Sine,
-        TransferFnSinusoidType::Cosine,
-    ] {
+    for sinusoid_type in [TransferFnSinusoidType::Sine, TransferFnSinusoidType::Cosine] {
         let mut block = match sinusoid_type {
             TransferFnSinusoidType::Sine => DecayingSinusoid::new_sine(
                 magnitude,
@@ -901,9 +907,8 @@ fn pid_step_cost_does_not_grow_with_step_index() {
         Ratio::new::<ratio>(1.0),
     )
     .unwrap();
-    let mut proportional = AnalogController::P(
-        ProportionalController::new(Ratio::new::<ratio>(1.75)).unwrap(),
-    );
+    let mut proportional =
+        AnalogController::P(ProportionalController::new(Ratio::new::<ratio>(1.75)).unwrap());
 
     let window = 2_000usize;
     // Each checkpoint is measured as the MINIMUM of several repeated

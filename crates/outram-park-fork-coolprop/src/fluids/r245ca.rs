@@ -22,21 +22,71 @@ pub static R245CA: FluidEos = FluidEos {
     p_max: 10000000.0,
     acentric: 0.35456541912358985,
     residual: &[
-    ResidualTerm::Power { n: &[0.04489247, 1.526476, -2.40832, -0.5288088, 0.18222346, -1.063228, -0.223149, 1.18738, -0.9772383, -0.02296938], t: &[1.0, 0.26, 1.0, 1.2, 0.67, 1.92, 2.0, 1.5, 1.93, 1.06], d: &[4.0, 1.0, 1.0, 2.0, 3.0, 1.0, 3.0, 2.0, 2.0, 7.0], l: &[0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0, 1.0, 2.0, 1.0] },
-    ResidualTerm::Gaussian { n: &[1.364444, -0.5080666, -0.06649496, -1.128359], t: &[0.17, 3.9, 1.0, 1.0], d: &[1.0, 1.0, 3.0, 3.0], eta: &[1.16, 1.1, 1.64, 13.8], epsilon: &[0.55, 0.724, 0.524, 0.857], beta: &[2.4, 1.5, 4.2, 379.0], gamma: &[1.265, 0.42, 0.864, 1.15] },
+        ResidualTerm::Power {
+            n: &[
+                0.04489247,
+                1.526476,
+                -2.40832,
+                -0.5288088,
+                0.18222346,
+                -1.063228,
+                -0.223149,
+                1.18738,
+                -0.9772383,
+                -0.02296938,
+            ],
+            t: &[1.0, 0.26, 1.0, 1.2, 0.67, 1.92, 2.0, 1.5, 1.93, 1.06],
+            d: &[4.0, 1.0, 1.0, 2.0, 3.0, 1.0, 3.0, 2.0, 2.0, 7.0],
+            l: &[0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0, 1.0, 2.0, 1.0],
+        },
+        ResidualTerm::Gaussian {
+            n: &[1.364444, -0.5080666, -0.06649496, -1.128359],
+            t: &[0.17, 3.9, 1.0, 1.0],
+            d: &[1.0, 1.0, 3.0, 3.0],
+            eta: &[1.16, 1.1, 1.64, 13.8],
+            epsilon: &[0.55, 0.724, 0.524, 0.857],
+            beta: &[2.4, 1.5, 4.2, 379.0],
+            gamma: &[1.265, 0.42, 0.864, 1.15],
+        },
     ],
     ideal: &[
-    IdealTerm::Lead { a1: -18.09410031, a2: 8.996084665 },
-    IdealTerm::LogTau { a: 7.888 },
-    IdealTerm::PlanckEinstein { n: &[0.8843, 14.46, 5.331], t: &[1.9326585785463726, 2.5068704336751795, 6.323033268539] },
+        IdealTerm::Lead {
+            a1: -18.09410031,
+            a2: 8.996084665,
+        },
+        IdealTerm::LogTau { a: 7.888 },
+        IdealTerm::PlanckEinstein {
+            n: &[0.8843, 14.46, 5.331],
+            t: &[1.9326585785463726, 2.5068704336751795, 6.323033268539],
+        },
     ],
 };
 
 /// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
 /// as the VLE initial guess and for standalone saturation lookups.
 pub static R245CA_ANCILLARIES: FluidAncillaries = FluidAncillaries {
-    p_sat: SatAncillary { reducing_value: 3940700.0, t_r: 447.57, using_tau_r: true, exponential: true, n: &[-7.8757, 2.0426, -3.3614, -4.8567], t: &[1.0, 1.5, 2.6, 5.2] },
-    rho_l: SatAncillary { reducing_value: 3920.0, t_r: 447.57, using_tau_r: false, exponential: false, n: &[4.0075, -4.6786, 6.6575, -5.096, 2.364], t: &[0.48, 1.0, 1.6, 2.4, 3.5] },
-    rho_v: SatAncillary { reducing_value: 3920.0, t_r: 447.57, using_tau_r: false, exponential: true, n: &[-4.8138, -5.557, -11.257, -55.775, -138.45], t: &[0.505, 1.65, 2.5, 5.5, 12.0] },
+    p_sat: SatAncillary {
+        reducing_value: 3940700.0,
+        t_r: 447.57,
+        using_tau_r: true,
+        exponential: true,
+        n: &[-7.8757, 2.0426, -3.3614, -4.8567],
+        t: &[1.0, 1.5, 2.6, 5.2],
+    },
+    rho_l: SatAncillary {
+        reducing_value: 3920.0,
+        t_r: 447.57,
+        using_tau_r: false,
+        exponential: false,
+        n: &[4.0075, -4.6786, 6.6575, -5.096, 2.364],
+        t: &[0.48, 1.0, 1.6, 2.4, 3.5],
+    },
+    rho_v: SatAncillary {
+        reducing_value: 3920.0,
+        t_r: 447.57,
+        using_tau_r: false,
+        exponential: true,
+        n: &[-4.8138, -5.557, -11.257, -55.775, -138.45],
+        t: &[0.505, 1.65, 2.5, 5.5, 12.0],
+    },
 };
-

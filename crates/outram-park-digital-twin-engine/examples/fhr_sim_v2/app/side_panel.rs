@@ -7,80 +7,79 @@ use crate::{FHRSimulatorApp, FHRState};
 use outram_park_digital_twin_engine::components::temperature_button;
 
 impl FHRSimulatorApp {
-
-    pub(crate) fn side_panel(&mut self, ui: &mut Ui){
-
+    pub(crate) fn side_panel(&mut self, ui: &mut Ui) {
         egui::ScrollArea::both()
             .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
             .scroll_source(egui::scroll_area::ScrollSource::ALL)
             .show(ui, |ui| {
-
                 ui.separator();
                 ui.heading("Fluoride Salt Cooled High Temperature Reactor (FHR) Controls");
                 let mut fhr_state_ptr = self.fhr_state.lock().unwrap();
 
-                let left_cr_slider = egui::Slider::new(
-                    &mut fhr_state_ptr.left_cr_insertion_frac, 
-                    0.0000..=1.0)
-                    .logarithmic(false)
-                    .text("Left Control Rod insertion Fraction")
-                    .drag_value_speed(0.001);
+                let left_cr_slider =
+                    egui::Slider::new(&mut fhr_state_ptr.left_cr_insertion_frac, 0.0000..=1.0)
+                        .logarithmic(false)
+                        .text("Left Control Rod insertion Fraction")
+                        .drag_value_speed(0.001);
 
                 ui.add(left_cr_slider);
 
-                let right_cr_slider = egui::Slider::new(
-                    &mut fhr_state_ptr.right_cr_insertion_frac, 
-                    0.0000..=1.0)
-                    .logarithmic(false)
-                    .text("Right Control Rod insertion Fraction")
-                    .drag_value_speed(0.001);
+                let right_cr_slider =
+                    egui::Slider::new(&mut fhr_state_ptr.right_cr_insertion_frac, 0.0000..=1.0)
+                        .logarithmic(false)
+                        .text("Right Control Rod insertion Fraction")
+                        .drag_value_speed(0.001);
 
                 ui.add(right_cr_slider);
 
                 let pri_loop_pump_slider = egui::Slider::new(
-                    &mut fhr_state_ptr.fhr_pri_loop_pump_pressure_kilopascals, 
-                    0.0..=200.0)
-                    .logarithmic(false)
-                    .text("Primary Loop Pump Pressure (kPa)")
-                    .drag_value_speed(0.1);
+                    &mut fhr_state_ptr.fhr_pri_loop_pump_pressure_kilopascals,
+                    0.0..=200.0,
+                )
+                .logarithmic(false)
+                .text("Primary Loop Pump Pressure (kPa)")
+                .drag_value_speed(0.1);
 
                 ui.add(pri_loop_pump_slider);
                 let intermediate_loop_pump_slider = egui::Slider::new(
-                    &mut fhr_state_ptr.fhr_intermediate_loop_pump_pressure_kilopascals, 
-                    0.0..=160.0)
-                    .logarithmic(false)
-                    .text("Intermediate Loop Pump Pressure (kPa)")
-                    .drag_value_speed(0.1);
+                    &mut fhr_state_ptr.fhr_intermediate_loop_pump_pressure_kilopascals,
+                    0.0..=160.0,
+                )
+                .logarithmic(false)
+                .text("Intermediate Loop Pump Pressure (kPa)")
+                .drag_value_speed(0.1);
 
                 ui.add(intermediate_loop_pump_slider);
                 ui.separator();
                 ui.heading("Steam Power Cycle Controls");
                 let secondary_loop_pump_pressure_slider = egui::Slider::new(
-                    &mut fhr_state_ptr.user_specified_secondary_loop_pump_outlet_pressure_bar, 
-                    1.2..=200.0)
-                    .logarithmic(false)
-                    .text("Secondary Loop Pump Pressure (bar)")
-                    .drag_value_speed(0.1);
+                    &mut fhr_state_ptr.user_specified_secondary_loop_pump_outlet_pressure_bar,
+                    1.2..=200.0,
+                )
+                .logarithmic(false)
+                .text("Secondary Loop Pump Pressure (bar)")
+                .drag_value_speed(0.1);
 
                 ui.add(secondary_loop_pump_pressure_slider);
 
                 let secondary_loop_mass_flowrate_slider = egui::Slider::new(
-                    &mut fhr_state_ptr.user_specified_secondary_loop_mass_flowrate_kg_per_s, 
-                    10.0..=80.0)
-                    .logarithmic(false)
-                    .text("Secondary Loop Mass Flowrate (kg/s)")
-                    .drag_value_speed(0.1);
+                    &mut fhr_state_ptr.user_specified_secondary_loop_mass_flowrate_kg_per_s,
+                    10.0..=80.0,
+                )
+                .logarithmic(false)
+                .text("Secondary Loop Mass Flowrate (kg/s)")
+                .drag_value_speed(0.1);
 
                 ui.add(secondary_loop_mass_flowrate_slider);
                 let secondary_loop_mass_flowrate_slider = egui::Slider::new(
-                    &mut fhr_state_ptr.user_specified_secondary_loop_ua_watt_per_kelvin, 
-                    0.0e5..=7.0e5)
-                    .logarithmic(false)
-                    .text("Steam Generator overall UA (Watt per Kelvin)")
-                    .drag_value_speed(100.0);
+                    &mut fhr_state_ptr.user_specified_secondary_loop_ua_watt_per_kelvin,
+                    0.0e5..=7.0e5,
+                )
+                .logarithmic(false)
+                .text("Steam Generator overall UA (Watt per Kelvin)")
+                .drag_value_speed(100.0);
 
                 ui.add(secondary_loop_mass_flowrate_slider);
-
 
                 ui.separator();
 
@@ -92,78 +91,76 @@ impl FHRSimulatorApp {
                 ui.separator();
                 ui.heading("FHR Diagnostics");
 
-                let pebble_core_temp_degc = 
-                    fhr_state_clone.pebble_core_temp_degc;
+                let pebble_core_temp_degc = fhr_state_clone.pebble_core_temp_degc;
 
-                let pebble_bed_coolant_temp_degc = 
-                    fhr_state_clone.pebble_bed_coolant_temp_degc;
+                let pebble_bed_coolant_temp_degc = fhr_state_clone.pebble_bed_coolant_temp_degc;
 
                 // need pebble bed power and/or heat removal
                 // and keff
                 let keff = fhr_state_clone.keff;
-                let reactor_power_megawatts = 
-                    fhr_state_clone.reactor_power_megawatts;
+                let reactor_power_megawatts = fhr_state_clone.reactor_power_megawatts;
 
                 ui.label("Reactor Power (MW-thermal):");
-                ui.label(((1000.0*reactor_power_megawatts).round() / 1000.0).to_string());
+                ui.label(((1000.0 * reactor_power_megawatts).round() / 1000.0).to_string());
 
                 ui.label("Fuel Temperature Pebble Core/TRISO (deg C):");
-                ui.label(((10.0*pebble_core_temp_degc).round() / 10.0).to_string());
+                ui.label(((10.0 * pebble_core_temp_degc).round() / 10.0).to_string());
                 ui.label("Pebble Bed Coolant Temp (deg C):");
-                ui.label(((10.0*pebble_bed_coolant_temp_degc).round() / 10.0).to_string());
+                ui.label(((10.0 * pebble_bed_coolant_temp_degc).round() / 10.0).to_string());
                 ui.label("k_eff");
-                ui.label(((1.0e6*keff).round() / 1.0e6).to_string());
+                ui.label(((1.0e6 * keff).round() / 1.0e6).to_string());
 
                 let reactivity_dollars = fhr_state_clone.reactivity_dollars;
                 ui.label("Reactivity ($ dollars)");
-                ui.label(((1.0e3*reactivity_dollars).round() / 1.0e3).to_string());
+                ui.label(((1.0e3 * reactivity_dollars).round() / 1.0e3).to_string());
 
                 let xe135_feedback_dollars = fhr_state_clone.xenon135_feedback_dollars;
                 ui.label("Xe135 feedback ($ dollars)");
-                ui.label(((1.0e3*xe135_feedback_dollars).round() / 1.0e3).to_string());
+                ui.label(((1.0e3 * xe135_feedback_dollars).round() / 1.0e3).to_string());
 
-
-                // danger zone 
+                // danger zone
 
                 ui.separator();
                 ui.heading("Critical Parameters");
                 ui.label("If you exceed these bounds, you may crash the simulation");
                 ui.separator();
-                // ihx sthe, "dangerous" temperatures are here 
-                let ihx_shell_6_temperature_vector_degc = 
+                // ihx sthe, "dangerous" temperatures are here
+                let ihx_shell_6_temperature_vector_degc =
                     fhr_state_clone.ihx_shell_6_temperature_vector_degc;
-                let ihx_tube_6_temperature_vector_degc = 
+                let ihx_tube_6_temperature_vector_degc =
                     fhr_state_clone.ihx_tube_6_temperature_vector_degc;
 
-                let flibe_min_temp_degc = 
-                    ihx_shell_6_temperature_vector_degc
+                let flibe_min_temp_degc = ihx_shell_6_temperature_vector_degc
                     .into_iter()
-                    .max_by(|a,b| a.total_cmp(b))
+                    .max_by(|a, b| a.total_cmp(b))
                     .unwrap();
 
-                let hitec_max_temp_degc = 
-                    ihx_tube_6_temperature_vector_degc
+                let hitec_max_temp_degc = ihx_tube_6_temperature_vector_degc
                     .into_iter()
-                    .max_by(|a,b| a.total_cmp(b))
+                    .max_by(|a, b| a.total_cmp(b))
                     .unwrap();
 
-                ui.label("FLiBe min temp (heat exchanger) KEEP ABOVE 470 degrees C or else freeze ");
+                ui.label(
+                    "FLiBe min temp (heat exchanger) KEEP ABOVE 470 degrees C or else freeze ",
+                );
                 ui.label(flibe_min_temp_degc.to_string());
-                ui.label("HITEC max temp (heat exchanger) KEEP BELOW 520 degrees C or else decompose ");
+                ui.label(
+                    "HITEC max temp (heat exchanger) KEEP BELOW 520 degrees C or else decompose ",
+                );
                 ui.label(hitec_max_temp_degc.to_string());
-                    
-                let hitec_min_temp_degc = 
-                    fhr_state_clone.sg_shell_14_temperature_vector_degc
+
+                let hitec_min_temp_degc = fhr_state_clone
+                    .sg_shell_14_temperature_vector_degc
                     .into_iter()
-                    .min_by(|a,b| a.total_cmp(b))
+                    .min_by(|a, b| a.total_cmp(b))
                     .unwrap();
-                ui.label("HITEC min temp (steam generator) KEEP ABOVE 170 degrees C or else freeze ");
+                ui.label(
+                    "HITEC min temp (steam generator) KEEP ABOVE 170 degrees C or else freeze ",
+                );
                 ui.label(hitec_min_temp_degc.to_string());
-                
-                
 
                 ui.separator();
-                // then temperature scale 
+                // then temperature scale
 
                 ui.separator();
                 ui.heading("Temperature Scale");
@@ -174,8 +171,7 @@ impl FHRSimulatorApp {
                 let max_temp_degc = 750.0;
                 // max temp
                 let button_temp_degc = max_temp_degc;
-                let max_temp_string: String = 
-                    button_temp_degc.to_string()+" degC or more";
+                let max_temp_string: String = button_temp_degc.to_string() + " degC or more";
                 let max_temp = temperature_button::blue_red_degc(
                     button_temp_degc,
                     min_temp_degc,
@@ -186,64 +182,63 @@ impl FHRSimulatorApp {
                 ui.add(max_temp);
                 //// 950.0
                 //let button_temp_degc = 950.0;
-                //let button_temp_string: String = 
+                //let button_temp_string: String =
                 //    button_temp_degc.to_string()+" degrees celsius";
                 //let temp_950_degc = new_temp_sensitive_button(
-                //    min_temp_degc, 
-                //    max_temp_degc, 
-                //    button_temp_degc, 
+                //    min_temp_degc,
+                //    max_temp_degc,
+                //    button_temp_degc,
                 //    &button_temp_string
                 //);
                 //ui.add(temp_950_degc);
                 //// 900.0
                 //let button_temp_degc = 900.0;
-                //let button_temp_string: String = 
+                //let button_temp_string: String =
                 //    button_temp_degc.to_string()+" degrees celsius";
                 //let temp_900_degc = new_temp_sensitive_button(
-                //    min_temp_degc, 
-                //    max_temp_degc, 
-                //    button_temp_degc, 
+                //    min_temp_degc,
+                //    max_temp_degc,
+                //    button_temp_degc,
                 //    &button_temp_string
                 //);
                 //ui.add(temp_900_degc);
                 //// 850.0
                 //let button_temp_degc = 850.0;
-                //let button_temp_string: String = 
+                //let button_temp_string: String =
                 //    button_temp_degc.to_string()+" degrees celsius";
                 //let temp_850_degc = new_temp_sensitive_button(
-                //    min_temp_degc, 
-                //    max_temp_degc, 
-                //    button_temp_degc, 
+                //    min_temp_degc,
+                //    max_temp_degc,
+                //    button_temp_degc,
                 //    &button_temp_string
                 //);
                 //ui.add(temp_850_degc);
                 //// 800.0
                 //let button_temp_degc = 800.0;
-                //let button_temp_string: String = 
+                //let button_temp_string: String =
                 //    button_temp_degc.to_string()+" degrees celsius";
                 //let temp_800_degc = new_temp_sensitive_button(
-                //    min_temp_degc, 
-                //    max_temp_degc, 
-                //    button_temp_degc, 
+                //    min_temp_degc,
+                //    max_temp_degc,
+                //    button_temp_degc,
                 //    &button_temp_string
                 //);
                 //ui.add(temp_800_degc);
                 //// 750.0
                 //let button_temp_degc = 750.0;
-                //let button_temp_string: String = 
+                //let button_temp_string: String =
                 //    button_temp_degc.to_string()+" degrees celsius";
                 //let temp_750_degc = new_temp_sensitive_button(
-                //    min_temp_degc, 
-                //    max_temp_degc, 
-                //    button_temp_degc, 
+                //    min_temp_degc,
+                //    max_temp_degc,
+                //    button_temp_degc,
                 //    &button_temp_string
                 //);
                 //ui.add(temp_750_degc);
 
                 // 700.0
                 let button_temp_degc = 700.0;
-                let button_temp_string: String = 
-                    button_temp_degc.to_string()+" degrees celsius";
+                let button_temp_string: String = button_temp_degc.to_string() + " degrees celsius";
                 let temp_700_degc = temperature_button::blue_red_degc(
                     button_temp_degc,
                     min_temp_degc,
@@ -254,8 +249,7 @@ impl FHRSimulatorApp {
 
                 // 650.0
                 let button_temp_degc = 650.0;
-                let button_temp_string: String = 
-                    button_temp_degc.to_string()+" degrees celsius";
+                let button_temp_string: String = button_temp_degc.to_string() + " degrees celsius";
                 let temp_650_degc = temperature_button::blue_red_degc(
                     button_temp_degc,
                     min_temp_degc,
@@ -265,8 +259,7 @@ impl FHRSimulatorApp {
                 ui.add(temp_650_degc);
                 // 600.0
                 let button_temp_degc = 600.0;
-                let button_temp_string: String = 
-                    button_temp_degc.to_string()+" degrees celsius";
+                let button_temp_string: String = button_temp_degc.to_string() + " degrees celsius";
                 let temp_600_degc = temperature_button::blue_red_degc(
                     button_temp_degc,
                     min_temp_degc,
@@ -276,8 +269,7 @@ impl FHRSimulatorApp {
                 ui.add(temp_600_degc);
                 // 550.0
                 let button_temp_degc = 550.0;
-                let button_temp_string: String = 
-                    button_temp_degc.to_string()+" degrees celsius";
+                let button_temp_string: String = button_temp_degc.to_string() + " degrees celsius";
                 let temp_550_degc = temperature_button::blue_red_degc(
                     button_temp_degc,
                     min_temp_degc,
@@ -287,8 +279,7 @@ impl FHRSimulatorApp {
                 ui.add(temp_550_degc);
                 // 500.0
                 let button_temp_degc = 500.0;
-                let button_temp_string: String = 
-                    button_temp_degc.to_string()+" degrees celsius";
+                let button_temp_string: String = button_temp_degc.to_string() + " degrees celsius";
                 let temp_500_degc = temperature_button::blue_red_degc(
                     button_temp_degc,
                     min_temp_degc,
@@ -298,8 +289,7 @@ impl FHRSimulatorApp {
                 ui.add(temp_500_degc);
                 // 450.0
                 let button_temp_degc = 450.0;
-                let button_temp_string: String = 
-                    button_temp_degc.to_string()+" degrees celsius";
+                let button_temp_string: String = button_temp_degc.to_string() + " degrees celsius";
                 let temp_450_degc = temperature_button::blue_red_degc(
                     button_temp_degc,
                     min_temp_degc,
@@ -310,8 +300,7 @@ impl FHRSimulatorApp {
 
                 // 400.0
                 let button_temp_degc = 400.0;
-                let button_temp_string: String = 
-                    button_temp_degc.to_string()+" degrees celsius";
+                let button_temp_string: String = button_temp_degc.to_string() + " degrees celsius";
                 let temp_400_degc = temperature_button::blue_red_degc(
                     button_temp_degc,
                     min_temp_degc,
@@ -322,8 +311,7 @@ impl FHRSimulatorApp {
 
                 // 350.0
                 let button_temp_degc = 350.0;
-                let button_temp_string: String = 
-                    button_temp_degc.to_string()+" degrees celsius";
+                let button_temp_string: String = button_temp_degc.to_string() + " degrees celsius";
                 let temp_350_degc = temperature_button::blue_red_degc(
                     button_temp_degc,
                     min_temp_degc,
@@ -335,15 +323,14 @@ impl FHRSimulatorApp {
                 fn temp_colour_scale_black_red(
                     max_temp_degc: f32,
                     min_temp_degc: f32,
-                    ui: &mut Ui){
-
+                    ui: &mut Ui,
+                ) {
                     let interval_degc: f32 = 50.0;
 
                     let mut current_interval_temp_degc = max_temp_degc;
 
                     let button_temp_degc = max_temp_degc;
-                    let max_temp_string: String = 
-                        button_temp_degc.to_string()+" degC or more";
+                    let max_temp_string: String = button_temp_degc.to_string() + " degC or more";
                     let max_temp_button = temperature_button::blue_red_degc(
                         button_temp_degc as f64,
                         min_temp_degc as f64,
@@ -353,10 +340,9 @@ impl FHRSimulatorApp {
                     ui.add(max_temp_button);
 
                     while current_interval_temp_degc > min_temp_degc {
-
                         let button_temp_degc = current_interval_temp_degc;
-                        let button_temp_string: String = 
-                            button_temp_degc.to_string()+" degrees celsius";
+                        let button_temp_string: String =
+                            button_temp_degc.to_string() + " degrees celsius";
                         let current_interval_temp_button = temperature_button::black_red_degc(
                             button_temp_degc as f64,
                             min_temp_degc as f64,
@@ -367,8 +353,7 @@ impl FHRSimulatorApp {
                         current_interval_temp_degc -= interval_degc;
                     }
                     let button_temp_degc = min_temp_degc;
-                    let min_temp_string: String = 
-                        button_temp_degc.to_string()+" degC or less";
+                    let min_temp_string: String = button_temp_degc.to_string() + " degC or less";
                     let min_temp_button = temperature_button::blue_red_degc(
                         button_temp_degc as f64,
                         min_temp_degc as f64,
@@ -376,7 +361,6 @@ impl FHRSimulatorApp {
                         &min_temp_string,
                     );
                     ui.add(min_temp_button);
-
                 }
 
                 ui.separator();
@@ -385,87 +369,97 @@ impl FHRSimulatorApp {
                 let intrmd_loop_max_temp_degc = 520.0;
                 ui.heading("Colour to Temperature Legend (Intermediate loop)");
                 temp_colour_scale_black_red(
-                    intrmd_loop_max_temp_degc, 
-                    intrmd_loop_min_temp_degc, ui);
-
+                    intrmd_loop_max_temp_degc,
+                    intrmd_loop_min_temp_degc,
+                    ui,
+                );
 
                 // flowrate diagnostics
                 ui.separator();
                 ui.heading("Mass Flowrates in Primary and Intermediate Loop");
                 ui.separator();
 
-
                 let ihx_br_flowrate_kg_per_s = -fhr_state_clone.ihx_branch_flowrate_kg_per_s;
 
-                ui.label("Intermediate Heat Exchanger Branch Flowrate downwards through IHX (kg/s)");
-                ui.label(((1000.0*ihx_br_flowrate_kg_per_s).round() / 1000.0).to_string());
+                ui.label(
+                    "Intermediate Heat Exchanger Branch Flowrate downwards through IHX (kg/s)",
+                );
+                ui.label(((1000.0 * ihx_br_flowrate_kg_per_s).round() / 1000.0).to_string());
 
-                let reactor_branch_flowrate_kg_per_s = fhr_state_clone.reactor_branch_flowrate_kg_per_s;
+                let reactor_branch_flowrate_kg_per_s =
+                    fhr_state_clone.reactor_branch_flowrate_kg_per_s;
 
                 ui.label("Reactor Branch Flowrate (upwards) (kg/s)");
-                ui.label(((1000.0*reactor_branch_flowrate_kg_per_s).round() / 1000.0).to_string());
+                ui.label(
+                    ((1000.0 * reactor_branch_flowrate_kg_per_s).round() / 1000.0).to_string(),
+                );
 
-                let downcomer1_branch_flowrate_kg_per_s = fhr_state_clone.downcomer1_branch_flowrate_kg_per_s;
+                let downcomer1_branch_flowrate_kg_per_s =
+                    fhr_state_clone.downcomer1_branch_flowrate_kg_per_s;
 
                 ui.label("Left Downcomer Branch Flowrate (upwards) (kg/s)");
-                ui.label(((1000.0*downcomer1_branch_flowrate_kg_per_s).round() / 1000.0).to_string());
+                ui.label(
+                    ((1000.0 * downcomer1_branch_flowrate_kg_per_s).round() / 1000.0).to_string(),
+                );
 
-
-                let downcomer2_branch_flowrate_kg_per_s = fhr_state_clone.downcomer2_branch_flowrate_kg_per_s;
+                let downcomer2_branch_flowrate_kg_per_s =
+                    fhr_state_clone.downcomer2_branch_flowrate_kg_per_s;
 
                 ui.label("Right Downcomer Branch Flowrate (upwards) (kg/s)");
-                ui.label(((1000.0*downcomer2_branch_flowrate_kg_per_s).round() / 1000.0).to_string());
+                ui.label(
+                    ((1000.0 * downcomer2_branch_flowrate_kg_per_s).round() / 1000.0).to_string(),
+                );
 
-                let intermediate_loop_clockwise_flowrate_kg_per_s = fhr_state_clone.intermediate_loop_clockwise_flow_kg_per_s;
+                let intermediate_loop_clockwise_flowrate_kg_per_s =
+                    fhr_state_clone.intermediate_loop_clockwise_flow_kg_per_s;
 
                 ui.label("Intermediate Loop Flowrate (clockwise) (kg/s)");
-                ui.label(((1000.0*intermediate_loop_clockwise_flowrate_kg_per_s).round() / 1000.0).to_string());
+                ui.label(
+                    ((1000.0 * intermediate_loop_clockwise_flowrate_kg_per_s).round() / 1000.0)
+                        .to_string(),
+                );
 
                 // steam cycle diagnostics
                 ui.separator();
                 ui.heading("Steam Cycle and Turbine Diagnostics");
                 ui.separator();
 
-
                 let turbine_power_megawatts = fhr_state_clone.turbine_power_megawatts;
 
                 ui.label("Turbine Power (MWe)");
-                ui.label(((1000.0*turbine_power_megawatts).round() / 1000.0).to_string());
+                ui.label(((1000.0 * turbine_power_megawatts).round() / 1000.0).to_string());
 
                 let turbine_rpm = fhr_state_clone.turbine_rpm;
                 ui.label("Turbine RPM");
-                ui.label(((1000.0*turbine_rpm).round() / 1000.0).to_string());
-
+                ui.label(((1000.0 * turbine_rpm).round() / 1000.0).to_string());
 
                 let condenser_duty_megawatts = fhr_state_clone.condenser_duty_megawatts;
 
                 ui.label("Waste Heat Rejected at Condenser (MWth)");
-                ui.label(((1000.0*condenser_duty_megawatts).round() / 1000.0).to_string());
+                ui.label(((1000.0 * condenser_duty_megawatts).round() / 1000.0).to_string());
 
-                let steam_gen_outlet_temperature 
-                    = fhr_state_clone
-                    .steam_generator_tube_outlet_temperature_degc;
+                let steam_gen_outlet_temperature =
+                    fhr_state_clone.steam_generator_tube_outlet_temperature_degc;
 
                 ui.label("Steam Generator outlet Temperature (deg C)");
-                ui.label(((1000.0*steam_gen_outlet_temperature).round() / 1000.0).to_string());
+                ui.label(((1000.0 * steam_gen_outlet_temperature).round() / 1000.0).to_string());
 
-                let steam_quality_after_steam_generator_tube_side 
-                    = fhr_state_clone
-                    .steam_quality_after_steam_generator_tube_side;
+                let steam_quality_after_steam_generator_tube_side =
+                    fhr_state_clone.steam_quality_after_steam_generator_tube_side;
 
                 ui.label("Steam Quality at Turbine Inlet");
 
-                ui.label(((1000.0*steam_quality_after_steam_generator_tube_side).round() / 1000.0).to_string());
+                ui.label(
+                    ((1000.0 * steam_quality_after_steam_generator_tube_side).round() / 1000.0)
+                        .to_string(),
+                );
 
-                let steam_quality_after_turbine 
-                    = fhr_state_clone
-                    .steam_quality_after_turbine;
+                let steam_quality_after_turbine = fhr_state_clone.steam_quality_after_turbine;
 
                 ui.label("Steam Quality at Turbine Outlet");
-                ui.label(((1000.0*steam_quality_after_turbine).round() / 1000.0).to_string());
+                ui.label(((1000.0 * steam_quality_after_turbine).round() / 1000.0).to_string());
 
-
-                // time diagnostics 
+                // time diagnostics
                 ui.separator();
                 ui.heading("Timestep Diagnostics");
                 ui.separator();
@@ -473,52 +467,55 @@ impl FHRSimulatorApp {
                 let prke_elapsed_time_seconds = fhr_state_clone.prke_elapsed_time_seconds;
 
                 ui.label("Elapsed Time Seconds");
-                ui.label(((1000.0*prke_elapsed_time_seconds).round() / 1000.0).to_string());
-
+                ui.label(((1000.0 * prke_elapsed_time_seconds).round() / 1000.0).to_string());
 
                 let prke_simulation_time_seconds = fhr_state_clone.prke_simulation_time_seconds;
 
                 ui.label("PRKE Simulation Time Seconds");
-                ui.label(((1000.0*prke_simulation_time_seconds).round() / 1000.0).to_string());
-
+                ui.label(((1000.0 * prke_simulation_time_seconds).round() / 1000.0).to_string());
 
                 let prke_timestep_microseconds = fhr_state_clone.prke_timestep_microseconds;
 
                 ui.label("PRKE Timestep Microseconds");
-                ui.label(((1000.0*prke_timestep_microseconds).round() / 1000.0).to_string());
+                ui.label(((1000.0 * prke_timestep_microseconds).round() / 1000.0).to_string());
 
                 let prke_calc_time_microseconds = fhr_state_clone.prke_calc_time_microseconds;
 
                 ui.label("PRKE Calculation time per timestep Microseconds");
-                ui.label(((1000.0*prke_calc_time_microseconds).round() / 1000.0).to_string());
-
+                ui.label(((1000.0 * prke_calc_time_microseconds).round() / 1000.0).to_string());
 
                 ui.separator();
                 ui.separator();
 
-
-                let thermal_hydraulics_simulation_time_seconds = fhr_state_clone.thermal_hydraulics_simulation_time_seconds;
+                let thermal_hydraulics_simulation_time_seconds =
+                    fhr_state_clone.thermal_hydraulics_simulation_time_seconds;
 
                 ui.label("Thermal Hydraulics Simulation Time Seconds");
-                ui.label(((1000.0*thermal_hydraulics_simulation_time_seconds).round() / 1000.0).to_string());
+                ui.label(
+                    ((1000.0 * thermal_hydraulics_simulation_time_seconds).round() / 1000.0)
+                        .to_string(),
+                );
 
-                let thermal_hydraulics_timestep_microseconds = fhr_state_clone.thermal_hydraulics_timestep_microseconds;
+                let thermal_hydraulics_timestep_microseconds =
+                    fhr_state_clone.thermal_hydraulics_timestep_microseconds;
 
                 ui.label("Thermal Hydraulics Timestep Microseconds");
-                ui.label(((1000.0*thermal_hydraulics_timestep_microseconds).round() / 1000.0).to_string());
+                ui.label(
+                    ((1000.0 * thermal_hydraulics_timestep_microseconds).round() / 1000.0)
+                        .to_string(),
+                );
 
-                let thermal_hydraulics_calc_time_microseconds = fhr_state_clone.thermal_hydraulics_calc_time_microseconds;
+                let thermal_hydraulics_calc_time_microseconds =
+                    fhr_state_clone.thermal_hydraulics_calc_time_microseconds;
 
                 ui.label("Thermal Hydraulics Calculation time per timestep Microseconds");
-                ui.label(((1000.0*thermal_hydraulics_calc_time_microseconds).round() / 1000.0).to_string());
-
-
+                ui.label(
+                    ((1000.0 * thermal_hydraulics_calc_time_microseconds).round() / 1000.0)
+                        .to_string(),
+                );
 
                 ui.separator();
                 // then acknowledgements/citing
-
             });
-
-
     }
 }

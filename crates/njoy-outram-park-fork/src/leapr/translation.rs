@@ -79,12 +79,12 @@ pub fn besk1(x: f64) -> f64 {
     if x <= 1.0 {
         let v = 0.125 * x;
         let u = v * v;
-        let bi1 = (((((((((C1 * u + C2) * u + C3) * u + C4) * u + C5) * u + C6) * u + C7) * u + C8)
-            * u
-            + C9)
-            * u
-            + C10)
-            * v;
+        let bi1 =
+            (((((((((C1 * u + C2) * u + C3) * u + C4) * u + C5) * u + C6) * u + C7) * u + C8) * u
+                + C9)
+                * u
+                + C10)
+                * v;
         let bi3 = ((((((((C11 * u + C12) * u + C13) * u + C14) * u + C15) * u + C16) * u + C17)
             * u
             + C18)
@@ -95,7 +95,8 @@ pub fn besk1(x: f64) -> f64 {
         1.0 / x + bi1 * ((0.5 * x).ln() + C23) - v * bi3
     } else {
         let u = 1.0 / x;
-        let bi3 = (((((((((((-C25 * u + C26) * u - C27) * u + C28) * u - C29) * u + C30) * u - C31)
+        let bi3 = (((((((((((-C25 * u + C26) * u - C27) * u + C28) * u - C29) * u + C30) * u
+            - C31)
             * u
             + C32)
             * u
@@ -130,7 +131,11 @@ pub fn terps(sd: &[f64], delta: f64, be: f64) -> f64 {
         let bt = i as f64 * delta;
         let btp = bt + delta;
         let st = if sd[i] <= 0.0 { SLIM } else { sd[i].ln() };
-        let stp = if sd[i + 1] <= 0.0 { SLIM } else { sd[i + 1].ln() };
+        let stp = if sd[i + 1] <= 0.0 {
+            SLIM
+        } else {
+            sd[i + 1].ln()
+        };
         let stt = st + (be - bt) * (stp - st) / (btp - bt);
         if stt > SLIM {
             stt.exp()
@@ -384,10 +389,22 @@ mod tests {
     /// Result (2026-07-15): all three match to `< 2e-4` absolute.
     #[test]
     fn besk1_reference_values() {
-        assert!((besk1(0.5) - 1.656441).abs() < 2e-4, "K1(0.5) = {}", besk1(0.5));
-        assert!((besk1(1.0) - 0.601907).abs() < 2e-4, "K1(1) = {}", besk1(1.0));
+        assert!(
+            (besk1(0.5) - 1.656441).abs() < 2e-4,
+            "K1(0.5) = {}",
+            besk1(0.5)
+        );
+        assert!(
+            (besk1(1.0) - 0.601907).abs() < 2e-4,
+            "K1(1) = {}",
+            besk1(1.0)
+        );
         // besk1(2) is scaled by e^2, so equals e^2 * K1(2) = 1.03339
-        assert!((besk1(2.0) - 1.03339).abs() < 2e-4, "e^2 K1(2) = {}", besk1(2.0));
+        assert!(
+            (besk1(2.0) - 1.03339).abs() < 2e-4,
+            "e^2 K1(2) = {}",
+            besk1(2.0)
+        );
     }
 
     /// Methodology: the free-gas translational table from `stable` must peak near

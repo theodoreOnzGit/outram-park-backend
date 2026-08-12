@@ -93,9 +93,7 @@ use opcua::server::node_manager::memory::{simple_node_manager, SimpleNodeManager
 use opcua::server::{
     Server, ServerBuilder, ServerEndpoint, ServerHandle, SubscriptionCache, ANONYMOUS_USER_TOKEN_ID,
 };
-use opcua::types::{
-    DataValue, DateTime, NodeId, NumericRange, ObjectId, QualifiedName, StatusCode,
-};
+use opcua::types::{DataValue, DateTime, NodeId, NumericRange, ObjectId, QualifiedName, StatusCode};
 
 use super::discovery::{self, MdnsAdvertisement};
 use super::pki::instance_pki_dir;

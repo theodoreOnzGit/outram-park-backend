@@ -44,9 +44,7 @@
 //! step; nothing else about the sample changes.
 
 use crate::dynamics::errors::DynamicsError;
-use crate::dynamics::property::{
-    convert_from_internal, property_value, DynamicProperty, PropertyRef,
-};
+use crate::dynamics::property::{convert_from_internal, property_value, DynamicProperty, PropertyRef};
 use crate::dynamics::sim_time::SimInstant;
 use crate::flowsheet::graph::Flowsheet;
 use crate::flowsheet::objects::ObjectId;

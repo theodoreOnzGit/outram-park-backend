@@ -1,4 +1,3 @@
-
 use crate::boussinesq_thermophysical_properties::prandtl::try_get_prandtl;
 use crate::boussinesq_thermophysical_properties::SolidMaterial;
 use crate::boussinesq_thermophysical_properties::Material;
@@ -22,8 +21,8 @@ use std::f64::consts::PI;
 
 impl Default for FluidArray {
     fn default() -> Self {
-        // just a simple 2m pipe 
-        // at 300K 
+        // just a simple 2m pipe
+        // at 300K
         //
         // 0.01 m^2 xs_area
         //
@@ -33,68 +32,54 @@ impl Default for FluidArray {
         let default_temp = ThermodynamicTemperature::new::<kelvin>(300.0);
         let default_pressure = Pressure::new::<atmosphere>(1.0);
 
-        let mut default_temp_array: Array1<ThermodynamicTemperature> 
-        = Array::default(2);
+        let mut default_temp_array: Array1<ThermodynamicTemperature> = Array::default(2);
         default_temp_array.fill(default_temp);
 
-        let therminol: Material = 
-        Material::Liquid(
-            LiquidMaterial::TherminolVP1
-        );
-        
+        let therminol: Material = Material::Liquid(LiquidMaterial::TherminolVP1);
+
         let cross_sectional_area = Area::new::<square_meter>(0.01);
 
         let hydraulic_diameter: Length = (4.0 * cross_sectional_area / PI).sqrt();
 
-
-
-        let surface_roughness = 
-        SolidMaterial::SteelSS304L.surface_roughness().unwrap();
+        let surface_roughness = SolidMaterial::SteelSS304L.surface_roughness().unwrap();
 
         let pipe_default_form_loss = Ratio::new::<ratio>(0.0);
 
-        let pipe_losses: DimensionlessDarcyLossCorrelations 
-        = DimensionlessDarcyLossCorrelations::new_pipe(
-            default_length,
-            surface_roughness,
-            hydraulic_diameter,
-            pipe_default_form_loss,
-        );
-        
-        let pipe_prandtl = try_get_prandtl(
-            therminol,
-            default_temp,
-            default_pressure
-        ).unwrap();
+        let pipe_losses: DimensionlessDarcyLossCorrelations =
+            DimensionlessDarcyLossCorrelations::new_pipe(
+                default_length,
+                surface_roughness,
+                hydraulic_diameter,
+                pipe_default_form_loss,
+            );
 
-        let pipe_data: GnielinskiData = 
-        GnielinskiData {
+        let pipe_prandtl = try_get_prandtl(therminol, default_temp, default_pressure).unwrap();
+
+        let pipe_data: GnielinskiData = GnielinskiData {
             reynolds: Ratio::new::<ratio>(0.0),
             prandtl_bulk: pipe_prandtl,
-            prandtl_wall: pipe_prandtl, //todo, must take into account 
+            prandtl_wall: pipe_prandtl, //todo, must take into account
             // wall prandtl number.. how?
-            // 
-            // Probably, the fluid node is going to be inserted into 
+            //
+            // Probably, the fluid node is going to be inserted into
             // another larger struct containing multiple fluid nodes,
             // that struct will manage what the surrounding material is
             darcy_friction_factor: Ratio::new::<ratio>(0.0),
-            length_to_diameter: default_length/hydraulic_diameter,
+            length_to_diameter: default_length / hydraulic_diameter,
         };
 
-        let pipe_nusselt: NusseltCorrelation = 
-        NusseltCorrelation::PipeGnielinskiGeneric(
-            pipe_data
-        );
+        let pipe_nusselt: NusseltCorrelation = NusseltCorrelation::PipeGnielinskiGeneric(pipe_data);
 
-        let default_heat_cv_node: SingleCVNode = 
-        SingleCVNode::new_cylinder(
+        let default_heat_cv_node: SingleCVNode = SingleCVNode::new_cylinder(
             0.5 * default_length,
             hydraulic_diameter,
             therminol,
             default_temp,
-            default_pressure
-        ).unwrap().try_into().unwrap();
-
+            default_pressure,
+        )
+        .unwrap()
+        .try_into()
+        .unwrap();
 
         return Self {
             back_single_cv: default_heat_cv_node.clone(),
@@ -117,7 +102,6 @@ impl Default for FluidArray {
             lateral_adjacent_array_conductance_vector: vec![],
             q_vector: vec![],
             q_fraction_vector: vec![],
-        }
-
+        };
     }
 }

@@ -1,8 +1,8 @@
 // Copyright [2023] [Theodore Kay Chen Ong, Professor Per F. Peterson,
 // University of California, Berkeley
-// Thermal Hydraulics Lab, Repository Contributors and 
+// Thermal Hydraulics Lab, Repository Contributors and
 // Singapore Nuclear Research and Safety Initiative (SNRSI)]
-// 
+//
 // SPDX-License-Identifier: GPL-3.0-only
 //
 // Relicensed from Apache-2.0 to GPL-3.0-only on 2026-08-11 by the sole
@@ -46,16 +46,14 @@ fn main() {
     examples::analog_pid_demos::proportional_controller_step_test();
     examples::feedback_control_examples::proportional_derivative_kick_eliminator_feedback_loop_example();
 
-    // uncomment for debug 
+    // uncomment for debug
     //_debug();
 }
 
 // some tests and examples are used for debugging, i leave them here
-fn _debug(){
+fn _debug() {
     examples::second_order_demos::_debug_stable_critdamped_second_order_simulation();
     examples::second_order_demos::_debug2_stable_critdamped_second_order_simulation();
     examples::second_order_demos::_debug_stable_overdamped_second_order_simulation();
     examples::second_order_demos::_debug2_stable_overdamped_second_order_simulation();
-
 }
-

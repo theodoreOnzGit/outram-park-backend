@@ -42,9 +42,7 @@
 //! 1-based terms) — the centreline and the pellet surface.
 
 use super::linalg::{solve_dense_lu, DenseMatrix};
-use super::{
-    radial_solution_nodes, FuelRodGeometry, FuelRodParams, RodMaterial, ThError, ThResult,
-};
+use super::{radial_solution_nodes, FuelRodGeometry, FuelRodParams, RodMaterial, ThError, ThResult};
 
 /// Solve the steady radial temperature profile of one fuel pin.
 ///

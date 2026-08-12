@@ -29,9 +29,15 @@ pub fn interpolate_spline_xy(x: f64, xs: &[f64], ys: &[f64]) -> f64 {
     let n = xs.len();
     assert_eq!(n, ys.len(), "xs and ys must have the same length");
 
-    if n == 0 { return 0.0; }
-    if n == 1 || x <= xs[0] { return ys[0]; }
-    if x >= xs[n - 1] { return ys[n - 1]; }
+    if n == 0 {
+        return 0.0;
+    }
+    if n == 1 || x <= xs[0] {
+        return ys[0];
+    }
+    if x >= xs[n - 1] {
+        return ys[n - 1];
+    }
 
     // Linear fallback for two points
     if n == 2 {
@@ -48,7 +54,11 @@ pub fn interpolate_spline_xy(x: f64, xs: &[f64], ys: &[f64]) -> f64 {
 
     // Ghost points at the boundary
     let y0 = if lo == 0 { 2.0 * y1 - y2 } else { ys[lo - 1] };
-    let y3 = if hi + 1 == n { 2.0 * y2 - y1 } else { ys[hi + 1] };
+    let y3 = if hi + 1 == n {
+        2.0 * y2 - y1
+    } else {
+        ys[hi + 1]
+    };
 
     // Normalised position in the [lo, hi] interval
     let mu = (x - xs[lo]) / (xs[hi] - xs[lo]);
@@ -56,8 +66,7 @@ pub fn interpolate_spline_xy(x: f64, xs: &[f64], ys: &[f64]) -> f64 {
     // Catmull-Rom evaluation (Horner form)
     0.5 * (2.0 * y1
         + mu * ((-y0 + y2)
-            + mu * ((2.0 * y0 - 5.0 * y1 + 4.0 * y2 - y3)
-                + mu * (-y0 + 3.0 * y1 - 3.0 * y2 + y3))))
+            + mu * ((2.0 * y0 - 5.0 * y1 + 4.0 * y2 - y3) + mu * (-y0 + 3.0 * y1 - 3.0 * y2 + y3))))
 }
 
 #[cfg(test)]
@@ -70,7 +79,13 @@ mod tests {
         let ys = [1.0, 2.0, 0.0, -1.0, 1.0];
         for i in 0..5 {
             let v = interpolate_spline_xy(xs[i], &xs, &ys);
-            assert!((v - ys[i]).abs() < 1e-12, "at x={}: got {} expected {}", xs[i], v, ys[i]);
+            assert!(
+                (v - ys[i]).abs() < 1e-12,
+                "at x={}: got {} expected {}",
+                xs[i],
+                v,
+                ys[i]
+            );
         }
     }
 
@@ -96,7 +111,10 @@ mod tests {
         for &tx in &[0.25, 0.5, 0.75, 1.25, 1.5, 1.75, 2.5] {
             let v = interpolate_spline_xy(tx, &xs, &ys);
             let expected = 2.0 * tx;
-            assert!((v - expected).abs() < 1e-12, "at x={tx}: got {v}, expected {expected}");
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "at x={tx}: got {v}, expected {expected}"
+            );
         }
     }
 

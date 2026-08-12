@@ -18,18 +18,29 @@ fn main() {
     // ---- A 3×3 fuel-pin bundle: r = 0.41, pitch 1.26 (PWR-like ratio). ------
     let pins = pin_lattice([3, 3], 1.26, 0.41, 4.0, 24);
     let domain = bounding_domain(&pins, 0.63); // half a pitch of coolant around
-    println!("LWR bundle: {} pins (r 0.41, pitch 1.26, height 4)", pins.len());
+    println!(
+        "LWR bundle: {} pins (r 0.41, pitch 1.26, height 4)",
+        pins.len()
+    );
 
     // ---- Carve the coolant region (domain minus every pin). -----------------
     let cell_size = 0.1;
     let carved = carve_around(&domain, &pins, cell_size);
     println!("\nCarve (cell size {cell_size}):");
     println!("  cells             = {}", carved.cell_count());
-    println!("  boundary patches  = {} (walls + one per pin)", carved.patches.len());
+    println!(
+        "  boundary patches  = {} (walls + one per pin)",
+        carved.patches.len()
+    );
     println!("  coolant volume    = {:.3}", carved.total_volume());
     let pin_vol: f64 = pins.iter().map(|(p, t)| surface_volume(p, t)).sum();
     let (dp, dt) = &domain;
-    println!("  (domain {:.3} − pins {:.3} = {:.3})", surface_volume(dp, dt), pin_vol, surface_volume(dp, dt) - pin_vol);
+    println!(
+        "  (domain {:.3} − pins {:.3} = {:.3})",
+        surface_volume(dp, dt),
+        pin_vol,
+        surface_volume(dp, dt) - pin_vol
+    );
 
     // ---- Snap to the union of all surfaces, then check quality. -------------
     let mut all_pts = domain.0.clone();
@@ -43,12 +54,18 @@ fn main() {
     let q = check_quality(&snapped);
     println!("\nSnapped + checked:");
     println!("  volume            = {:.3}", snapped.total_volume());
-    println!("  max non-orth      = {:.1} deg", q.max_non_orthogonality_deg);
+    println!(
+        "  max non-orth      = {:.1} deg",
+        q.max_non_orthogonality_deg
+    );
     println!("  negative cells    = {}", q.n_negative_volume_cells);
     println!("  solvable          = {}", q.is_solvable());
     match snapped.validate() {
         Ok(()) => println!("  validate()        = OK (all cells closed)"),
         Err(e) => println!("  validate()        = {e}"),
     }
-    println!("\nPipeline ran: {} pins -> carve_around -> snap -> quality.", pins.len());
+    println!(
+        "\nPipeline ran: {} pins -> carve_around -> snap -> quality.",
+        pins.len()
+    );
 }

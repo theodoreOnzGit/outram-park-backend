@@ -8,4 +8,3 @@ pub mod step_fn;
 /// replaced the growing response vectors in this module tree (bead `op-fm5`).
 #[cfg(test)]
 mod recurrence_tests;
-

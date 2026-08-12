@@ -101,7 +101,10 @@ pub fn shift_and_penetrability(l: u32, rho: f64) -> (f64, f64) {
             let r6 = r4 * r2;
             let r8 = r4 * r4;
             let den = 11025.0 + 1575.0 * r2 + 135.0 * r4 + 10.0 * r6 + r8;
-            (-(44100.0 + 4725.0 * r2 + 270.0 * r4 + 10.0 * r6) / den, r8 * rho / den)
+            (
+                -(44100.0 + 4725.0 * r2 + 270.0 * r4 + 10.0 * r6) / den,
+                r8 * rho / den,
+            )
         }
     }
 }
@@ -138,7 +141,9 @@ pub fn phase_shift(l: u32, rho_c: f64) -> f64 {
 /// - `ap` — potential scattering radius [10⁻¹² cm] from MF=2.
 /// - `awri`, `e` — needed to compute k (and hence the exact `4·pifac·sin²(φ₀)` form).
 pub fn potential_scattering(e: f64, awri: f64, ap: f64) -> f64 {
-    if e <= 0.0 { return 0.0; }
+    if e <= 0.0 {
+        return 0.0;
+    }
     let arat = awri / (awri + 1.0);
     let k = WAVE_K * arat * e.sqrt();
     let pifac = PI / (k * k);
@@ -189,13 +194,15 @@ pub fn eval_slbw_lstate(
     awri: f64,
     ra: f64,
 ) -> SlbwSigmas {
-    if e <= 0.0 { return SlbwSigmas::default(); }
+    if e <= 0.0 {
+        return SlbwSigmas::default();
+    }
 
     let arat = awri / (awri + 1.0);
     let k = WAVE_K * arat * e.sqrt();
     let pifac = PI / (k * k);
 
-    let rho  = k * ra;
+    let rho = k * ra;
     let rhoc = k * ap;
 
     let (se, pe) = shift_and_penetrability(l, rho);
@@ -207,7 +214,7 @@ pub fn eval_slbw_lstate(
     let spot = 4.0 * (2 * l + 1) as f64 * pifac * sinsq;
     let spifac = 1.0 / (2.0 * spi + 1.0);
 
-    let mut sig_el  = spot;
+    let mut sig_el = spot;
     let mut sig_cap = 0.0;
     let mut sig_fis = 0.0;
 
@@ -220,18 +227,22 @@ pub fn eval_slbw_lstate(
         let gne = gn * pe * rper;
         let erp = er + gn * (ser - se) * rper / 2.0;
         let edelt = e - erp;
-        let gx  = gg + gf;
+        let gx = gg + gf;
         let gtt = gne + gx;
-        let gj  = (2.0 * aj + 1.0) * spifac / 2.0;
+        let gj = (2.0 * aj + 1.0) * spifac / 2.0;
 
         let comfac = pifac * gj * gne / (edelt * edelt + gtt * gtt / 4.0);
 
-        sig_el  += comfac * (gne * cos2p - 2.0 * gx * sinsq + 2.0 * edelt * sin2p);
+        sig_el += comfac * (gne * cos2p - 2.0 * gx * sinsq + 2.0 * edelt * sin2p);
         sig_cap += comfac * gg;
         sig_fis += comfac * gf;
     }
 
-    SlbwSigmas { elastic: sig_el, capture: sig_cap, fission: sig_fis }
+    SlbwSigmas {
+        elastic: sig_el,
+        capture: sig_cap,
+        fission: sig_fis,
+    }
 }
 
 #[cfg(test)]
@@ -264,8 +275,10 @@ mod tests {
         // H-2: AWR=1.9968, AP=0.51977 × 10⁻¹² cm
         // At E=1e-5 eV, σ_pot ≈ 3.4 b (matches the tabulated MF=3 value)
         let sigma = potential_scattering(1e-5, 1.9968, 0.51977);
-        assert!(sigma > 2.5 && sigma < 5.0,
-            "σ_pot(H-2, 1e-5 eV) = {sigma:.3} b, expected 3–4 b");
+        assert!(
+            sigma > 2.5 && sigma < 5.0,
+            "σ_pot(H-2, 1e-5 eV) = {sigma:.3} b, expected 3–4 b"
+        );
     }
 
     #[test]
@@ -273,20 +286,28 @@ mod tests {
         // Ar-37 first physical resonance: E_r=1540 eV, l=0, J=2
         // GN=20.36, GG=1.0, GF=0, SPI=1.5, AP=0.338779
         let awri = 36.64921;
-        let spi  = 1.5;
-        let ap   = 0.338779;
-        let ra   = channel_radius(awri, 1, ap);
-        let res  = [(1540.0_f64, 2.0, 21.4, 20.4, 1.0, 0.0)];
+        let spi = 1.5;
+        let ap = 0.338779;
+        let ra = channel_radius(awri, 1, ap);
+        let res = [(1540.0_f64, 2.0, 21.4, 20.4, 1.0, 0.0)];
 
         let at_peak = eval_slbw_lstate(1540.0, &res, 0, spi, ap, awri, ra);
-        assert!(at_peak.elastic > 100.0,
-            "σ_el at 1540 eV resonance peak should be > 100 b, got {}", at_peak.elastic);
+        assert!(
+            at_peak.elastic > 100.0,
+            "σ_el at 1540 eV resonance peak should be > 100 b, got {}",
+            at_peak.elastic
+        );
         // σ_cap ≈ 50 b: Γ_γ/Γ_n × σ_el_peak ≈ (1/21) × ~1000 b
-        assert!(at_peak.capture > 10.0 && at_peak.capture < 150.0,
-            "σ_cap at 1540 eV peak: {}", at_peak.capture);
+        assert!(
+            at_peak.capture > 10.0 && at_peak.capture < 150.0,
+            "σ_cap at 1540 eV peak: {}",
+            at_peak.capture
+        );
 
         let far = eval_slbw_lstate(1000.0, &res, 0, spi, ap, awri, ra);
-        assert!(far.elastic < at_peak.elastic / 10.0,
-            "σ_el(1000 eV) should be < 10% of peak");
+        assert!(
+            far.elastic < at_peak.elastic / 10.0,
+            "σ_el(1000 eV) should be < 10% of peak"
+        );
     }
 }

@@ -7,7 +7,6 @@ pub fn sat_pressure_4(t: ThermodynamicTemperature) -> Pressure {
     let ref_p = Pressure::new::<megapascal>(1.0);
 
     return ref_p * dimensionless_sat_pressure(theta);
-
 }
 
 #[inline]
@@ -19,7 +18,7 @@ fn dimensionless_sat_pressure(theta: f64) -> f64 {
     let num = 2.0 * c;
     let den = -b + (b.powi(2) - 4.0 * a * c).sqrt();
 
-    return (num/den).powi(4);
+    return (num / den).powi(4);
 }
 
 // in sat pressure eqn, it's A
@@ -29,7 +28,6 @@ fn coeff_a(theta: f64) -> f64 {
     let n2 = region_4_coeff_index(2);
 
     theta.powi(2) + n1 * theta + n2
-
 }
 
 // in sat pressure eqn, it's B
@@ -40,7 +38,6 @@ fn coeff_b(theta: f64) -> f64 {
     let n5 = region_4_coeff_index(5);
 
     n3 * theta.powi(2) + n4 * theta + n5
-
 }
 
 // in sat pressure eqn, it's C
@@ -51,5 +48,4 @@ fn coeff_c(theta: f64) -> f64 {
     let n8 = region_4_coeff_index(8);
 
     n6 * theta.powi(2) + n7 * theta + n8
-
 }

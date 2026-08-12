@@ -2,9 +2,7 @@
 //! report, per entry, whether it is backed by a generated template yet
 //! (`ready`) or only catalogued (`not-implemented`).
 
-use kovan_codegen::{
-    generate, LinearSolver, Method, NonlinearSolver, OdeSolver, PdeScheme, RootFinder,
-};
+use kovan_codegen::{generate, LinearSolver, Method, NonlinearSolver, OdeSolver, PdeScheme, RootFinder};
 
 /// Print the full catalogue, one method per line, grouped by family.
 pub fn run() {

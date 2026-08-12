@@ -232,10 +232,22 @@ pub fn try_transform_vertices_gpu(
 
     // Uniform: four vec4<f32> rows (each vec3 padded to 16 bytes).
     let uniform_f32: [f32; 16] = [
-        affine.linear[0][0] as f32, affine.linear[0][1] as f32, affine.linear[0][2] as f32, 0.0,
-        affine.linear[1][0] as f32, affine.linear[1][1] as f32, affine.linear[1][2] as f32, 0.0,
-        affine.linear[2][0] as f32, affine.linear[2][1] as f32, affine.linear[2][2] as f32, 0.0,
-        affine.translation.x as f32, affine.translation.y as f32, affine.translation.z as f32, 0.0,
+        affine.linear[0][0] as f32,
+        affine.linear[0][1] as f32,
+        affine.linear[0][2] as f32,
+        0.0,
+        affine.linear[1][0] as f32,
+        affine.linear[1][1] as f32,
+        affine.linear[1][2] as f32,
+        0.0,
+        affine.linear[2][0] as f32,
+        affine.linear[2][1] as f32,
+        affine.linear[2][2] as f32,
+        0.0,
+        affine.translation.x as f32,
+        affine.translation.y as f32,
+        affine.translation.z as f32,
+        0.0,
     ];
     let uniform_bytes = f32_slice_to_bytes(&uniform_f32);
 
@@ -307,8 +319,9 @@ pub fn try_transform_vertices_gpu(
     });
 
     // --- Dispatch ----------------------------------------------------------
-    let mut encoder = device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("affine-encoder") });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("affine-encoder"),
+    });
     {
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("affine-transform-pass"),
@@ -325,9 +338,11 @@ pub fn try_transform_vertices_gpu(
     // --- Read back ---------------------------------------------------------
     let mapped = Arc::new(Mutex::new(None));
     let mapped_cb = Arc::clone(&mapped);
-    readback_buffer.slice(..).map_async(wgpu::MapMode::Read, move |res| {
-        *mapped_cb.lock().unwrap() = Some(res);
-    });
+    readback_buffer
+        .slice(..)
+        .map_async(wgpu::MapMode::Read, move |res| {
+            *mapped_cb.lock().unwrap() = Some(res);
+        });
     // Drive the device until the map callback fires.
     device
         .poll(wgpu::PollType::wait_indefinitely())
@@ -364,8 +379,9 @@ pub fn try_transform_vertices_gpu(
 ///
 /// Panics if [`try_transform_vertices_gpu`] returns a [`GpuError`].
 pub fn transform_vertices_gpu(ctx: &GpuContext, affine: Affine3, positions: &[Vec3]) -> Vec<Vec3> {
-    try_transform_vertices_gpu(ctx, affine, positions)
-        .expect("GPU transform failed; use try_transform_vertices_gpu to handle failures on the CPU")
+    try_transform_vertices_gpu(ctx, affine, positions).expect(
+        "GPU transform failed; use try_transform_vertices_gpu to handle failures on the CPU",
+    )
 }
 
 /// Pack a slice of `f32` into little-endian bytes for a GPU buffer upload.

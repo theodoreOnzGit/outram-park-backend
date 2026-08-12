@@ -281,7 +281,10 @@ mod tests {
                 x.iter().zip(expected).all(|(a, e)| (a - e).abs() < 1e-7)
             })
             .unwrap();
-            assert!(ok.iter().all(|&b| b), "variable-coef distributed != serial for p={p}");
+            assert!(
+                ok.iter().all(|&b| b),
+                "variable-coef distributed != serial for p={p}"
+            );
         }
     }
 
@@ -306,7 +309,10 @@ mod tests {
                 let (x_cg, it_cg) = op.solve(c, &b_local, tol, 2000).unwrap();
                 let (x_pcg, it_pcg) = op.solve_jacobi_pcg(c, &b_local, tol, 2000).unwrap();
                 let expected = &reference[d.start..d.start + d.local_len];
-                let match_pcg = x_pcg.iter().zip(expected).all(|(a, e)| (a - e).abs() < 1e-7);
+                let match_pcg = x_pcg
+                    .iter()
+                    .zip(expected)
+                    .all(|(a, e)| (a - e).abs() < 1e-7);
                 let match_cg = x_cg.iter().zip(expected).all(|(a, e)| (a - e).abs() < 1e-7);
                 (match_cg && match_pcg, it_cg, it_pcg)
             })

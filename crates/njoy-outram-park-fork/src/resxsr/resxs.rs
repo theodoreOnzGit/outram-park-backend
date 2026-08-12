@@ -46,9 +46,7 @@ use std::io::{Read, Write};
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
 use crate::resxsr::assemble::PointwiseReaction;
-use crate::resxsr::format::{
-    FileControl, FileData, FileIdentification, MaterialControl, MULT,
-};
+use crate::resxsr::format::{FileControl, FileData, FileIdentification, MaterialControl, MULT};
 use crate::NjoyError;
 
 /// RESXS resonance reactions, in the fixed on-file order elastic, fission,
@@ -71,12 +69,17 @@ pub const RESONANCE_MTS: [i32; 3] = [2, 18, 102];
 pub fn read_pendf_reactions(tape: &Tape, mat: i32) -> Result<Vec<PointwiseReaction>, NjoyError> {
     let mut reactions = Vec::with_capacity(RESONANCE_MTS.len());
     for &mt in &RESONANCE_MTS {
-        let Some(sec) = tape.section(mat, 3, mt) else { continue };
+        let Some(sec) = tape.section(mat, 3, mt) else {
+            continue;
+        };
         // MF=3 section: HEAD (ZA, AWR, ...) then the TAB1 cross section.
         let mut cur = SectionCursor::new(&sec.rows);
         let _head = cur.read_cont()?;
         let tab1 = cur.read_tab1()?;
-        reactions.push(PointwiseReaction { mt, points: tab1.pairs });
+        reactions.push(PointwiseReaction {
+            mt,
+            points: tab1.pairs,
+        });
     }
     Ok(reactions)
 }
@@ -174,8 +177,13 @@ impl<'a> WordReader<'a> {
 /// Write one framed record: `[u32 nwds][payload]`, asserting the payload is
 /// `nwds` 4-byte words.
 fn write_record<W: Write>(w: &mut W, nwds: i32, payload: &[u8]) -> Result<(), NjoyError> {
-    debug_assert_eq!(payload.len(), (nwds as usize) * 4, "record payload != nwds words");
-    w.write_all(&(nwds as u32).to_le_bytes()).map_err(NjoyError::Io)?;
+    debug_assert_eq!(
+        payload.len(),
+        (nwds as usize) * 4,
+        "record payload != nwds words"
+    );
+    w.write_all(&(nwds as u32).to_le_bytes())
+        .map_err(NjoyError::Io)?;
     w.write_all(payload).map_err(NjoyError::Io)?;
     Ok(())
 }
@@ -328,7 +336,11 @@ impl ResxsFile {
         for _ in 0..nmat {
             locm.push(r.int()?);
         }
-        let data = FileData { hmatn: hmatn.clone(), ntemp: ntemp.clone(), locm };
+        let data = FileData {
+            hmatn: hmatn.clone(),
+            ntemp: ntemp.clone(),
+            locm,
+        };
 
         // Record 5 — per material.
         let mut materials = Vec::with_capacity(nmat);
@@ -344,7 +356,13 @@ impl ResxsFile {
             }
             let nreac = r.int()?;
             let nener = r.int()?;
-            let control_m = MaterialControl { hmat, amass, temps, nreac, nener };
+            let control_m = MaterialControl {
+                hmat,
+                amass,
+                temps,
+                nreac,
+                nener,
+            };
 
             let nn = 1 + nreac * (nt as i32);
             let mut points = Vec::with_capacity(nener as usize);
@@ -361,10 +379,18 @@ impl ResxsFile {
                     points.push(ResxsPoint { energy, values });
                 }
             }
-            materials.push(ResxsMaterial { control: control_m, points });
+            materials.push(ResxsMaterial {
+                control: control_m,
+                points,
+            });
         }
 
-        Ok(ResxsFile { ident, control, data, materials })
+        Ok(ResxsFile {
+            ident,
+            control,
+            data,
+            materials,
+        })
     }
 }
 
@@ -395,7 +421,14 @@ mod tests {
                 row[..chunk.len()].copy_from_slice(chunk);
                 rows.push(row);
             }
-            secs.push(Section { key: EndfKey { mat, mf: 3, mt: *mt }, rows });
+            secs.push(Section {
+                key: EndfKey {
+                    mat,
+                    mf: 3,
+                    mt: *mt,
+                },
+                rows,
+            });
         }
         Tape::from_sections(" test".into(), secs)
     }
@@ -458,7 +491,10 @@ mod tests {
 
         let points: Vec<ResxsPoint> = thinned
             .iter()
-            .map(|row| ResxsPoint { energy: row.energy, values: row.xs.clone() })
+            .map(|row| ResxsPoint {
+                energy: row.energy,
+                values: row.xs.clone(),
+            })
             .collect();
         let nener = points.len() as i32;
 

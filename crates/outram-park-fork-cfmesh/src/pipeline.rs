@@ -403,7 +403,13 @@ fn run_pipeline(
     // Stage 1 — carve (mandatory). Uniform at `cell_size`, or octree-graded
     // toward the wall when `refinement_levels > 0`.
     let mut mesh = if opts.refinement_levels > 0 {
-        refine_near_boundary_banded(points, tris, opts.cell_size, opts.refinement_levels, opts.refinement_band)
+        refine_near_boundary_banded(
+            points,
+            tris,
+            opts.cell_size,
+            opts.refinement_levels,
+            opts.refinement_band,
+        )
     } else {
         carve_box(points, tris, opts.cell_size)
     };
@@ -417,7 +423,9 @@ fn run_pipeline(
         let (m, kept) = keep_if_ok(mesh, snapped);
         mesh = m;
         if !kept {
-            notes.push("snap-to-surface skipped — it would tangle a wall cell on this geometry".into());
+            notes.push(
+                "snap-to-surface skipped — it would tangle a wall cell on this geometry".into(),
+            );
         }
     }
 
@@ -431,7 +439,9 @@ fn run_pipeline(
         let (m, kept) = keep_if_ok(mesh, tets);
         mesh = m;
         if !kept {
-            notes.push("tetrahedralization skipped — it produced inverted cells on this geometry".into());
+            notes.push(
+                "tetrahedralization skipped — it produced inverted cells on this geometry".into(),
+            );
         }
     }
 
@@ -441,7 +451,9 @@ fn run_pipeline(
         let (m, kept) = keep_if_ok(mesh, flipped);
         mesh = m;
         if !kept {
-            notes.push("Delaunay improvement skipped — no valid improving flips on this geometry".into());
+            notes.push(
+                "Delaunay improvement skipped — no valid improving flips on this geometry".into(),
+            );
         }
     }
 
@@ -459,7 +471,9 @@ fn run_pipeline(
             let d = polyhedral_dual(&mesh);
             if acceptable(&d) {
                 if opts.dual_min_faces {
-                    notes.push("face-minimal dual skipped — fell back to the robust quad-fan dual".into());
+                    notes.push(
+                        "face-minimal dual skipped — fell back to the robust quad-fan dual".into(),
+                    );
                 }
                 mesh = d;
                 placed = true;
@@ -484,7 +498,10 @@ fn run_pipeline(
     if opts.n_layers > 0 {
         let has_patch = mesh.patches.iter().any(|p| p.name == opts.wall_patch);
         if !has_patch {
-            notes.push(format!("boundary layers skipped — no patch named '{}'", opts.wall_patch));
+            notes.push(format!(
+                "boundary layers skipped — no patch named '{}'",
+                opts.wall_patch
+            ));
         } else {
             let layered = add_boundary_layers_adaptive(
                 &mesh,
@@ -506,7 +523,9 @@ fn run_pipeline(
             let (m, kept) = keep_if_ok(mesh, layered);
             mesh = m;
             if !kept {
-                notes.push("boundary layers skipped — the wall is too tight for any valid layer".into());
+                notes.push(
+                    "boundary layers skipped — the wall is too tight for any valid layer".into(),
+                );
             } else if mesh.cell_count() == before {
                 notes.push(
                     "boundary layers added none — the adaptive layerer backed off to zero thickness \
@@ -616,20 +635,36 @@ mod tests {
     /// meshes exceed checkMesh's 70° threshold).
     #[test]
     fn box_tet_dual_is_valid_and_conserves_volume_exactly() {
-        let opts = TetDualOptions { cell_size: 0.5, first_layer_thickness: 0.02, ..Default::default() };
-        let (mesh, rep) = box_tet_dual(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), &opts).expect("box meshes");
+        let opts = TetDualOptions {
+            cell_size: 0.5,
+            first_layer_thickness: 0.02,
+            ..Default::default()
+        };
+        let (mesh, rep) =
+            box_tet_dual(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), &opts).expect("box meshes");
 
         mesh.validate().expect("box tet-dual mesh is closed");
         assert!(rep.valid);
         assert_eq!(rep.n_negative_volume_cells, 0, "no inverted cells");
-        assert!((rep.total_volume - 1.0).abs() < 1e-9, "box volume conserved exactly: {}", rep.total_volume);
+        assert!(
+            (rep.total_volume - 1.0).abs() < 1e-9,
+            "box volume conserved exactly: {}",
+            rep.total_volume
+        );
         assert!(mesh.cell_count() > 0);
         // Genuinely polyhedral: at least one dual cell has more than 6 faces.
         use crate::volume_mesh::cells_faces;
         let max_faces = cells_faces(&mesh).iter().map(|c| c.len()).max().unwrap();
-        assert!(max_faces > 6, "polyhedral cells present (max faces/cell = {max_faces})");
+        assert!(
+            max_faces > 6,
+            "polyhedral cells present (max faces/cell = {max_faces})"
+        );
         // A flat box needs no back-off, so nothing is skipped.
-        assert!(rep.stage_notes.is_empty(), "no stages skipped on a box: {:?}", rep.stage_notes);
+        assert!(
+            rep.stage_notes.is_empty(),
+            "no stages skipped on a box: {:?}",
+            rep.stage_notes
+        );
     }
 
     /// V&V — the same box without layers is an even tighter volume check and
@@ -638,11 +673,20 @@ mod tests {
     /// 0 negative; volume = 1.0 m³ (|Δ| < 1e-9).
     #[test]
     fn box_tet_dual_no_layers_conserves_volume() {
-        let opts = TetDualOptions { cell_size: 0.5, n_layers: 0, ..Default::default() };
-        let (mesh, rep) = box_tet_dual(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), &opts).expect("box meshes");
+        let opts = TetDualOptions {
+            cell_size: 0.5,
+            n_layers: 0,
+            ..Default::default()
+        };
+        let (mesh, rep) =
+            box_tet_dual(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), &opts).expect("box meshes");
         mesh.validate().expect("closed");
         assert_eq!(rep.n_negative_volume_cells, 0);
-        assert!((rep.total_volume - 1.0).abs() < 1e-9, "volume {}", rep.total_volume);
+        assert!(
+            (rep.total_volume - 1.0).abs() < 1e-9,
+            "volume {}",
+            rep.total_volume
+        );
     }
 
     /// V&V — headline (sphere, curved wall). Methodology: a radius-2 m sphere
@@ -670,18 +714,39 @@ mod tests {
     /// and layers then ran normally).
     #[test]
     fn sphere_tet_dual_is_valid_and_near_analytic_volume() {
-        let opts = TetDualOptions { cell_size: 0.8, first_layer_thickness: 0.04, ..Default::default() };
+        let opts = TetDualOptions {
+            cell_size: 0.8,
+            first_layer_thickness: 0.04,
+            ..Default::default()
+        };
         let (mesh, rep) = sphere_tet_dual(Vec3::ZERO, 2.0, 16, 32, &opts).expect("sphere meshes");
 
         mesh.validate().expect("sphere tet-dual mesh is closed");
-        assert_eq!(rep.n_negative_volume_cells, 0, "no inverted cells (notes: {:?})", rep.stage_notes);
+        assert_eq!(
+            rep.n_negative_volume_cells, 0,
+            "no inverted cells (notes: {:?})",
+            rep.stage_notes
+        );
         let analytic = 4.0 / 3.0 * PI * 8.0;
         let rel = (rep.total_volume - analytic).abs() / analytic;
-        assert!(rel < 0.08, "sphere volume {} within 8% of {analytic} (rel {rel}); notes {:?}", rep.total_volume, rep.stage_notes);
+        assert!(
+            rel < 0.08,
+            "sphere volume {} within 8% of {analytic} (rel {rel}); notes {:?}",
+            rep.total_volume,
+            rep.stage_notes
+        );
         // Near-wall prism layers legitimately exceed checkMesh's 70°; the hard
         // bound is the degenerate 90° (no folded faces). Measured ≈ 86.7°.
-        assert!(rep.max_non_orthogonality_deg < 90.0, "no folded faces: {}", rep.max_non_orthogonality_deg);
-        assert!(rep.max_non_orthogonality_deg > 70.0, "curved BL wall is non-orthogonal as expected: {}", rep.max_non_orthogonality_deg);
+        assert!(
+            rep.max_non_orthogonality_deg < 90.0,
+            "no folded faces: {}",
+            rep.max_non_orthogonality_deg
+        );
+        assert!(
+            rep.max_non_orthogonality_deg > 70.0,
+            "curved BL wall is non-orthogonal as expected: {}",
+            rep.max_non_orthogonality_deg
+        );
     }
 
     /// V&V — headline (cylinder, mixed flat caps + curved side). Methodology: a
@@ -697,20 +762,47 @@ mod tests {
     /// test).
     #[test]
     fn cylinder_tet_dual_is_valid_and_near_analytic_volume() {
-        let opts = TetDualOptions { cell_size: 0.7, first_layer_thickness: 0.04, ..Default::default() };
-        let (mesh, rep) = cylinder_tet_dual(Vec3::ZERO, 1.5, 4.0, 32, &opts).expect("cylinder meshes");
+        let opts = TetDualOptions {
+            cell_size: 0.7,
+            first_layer_thickness: 0.04,
+            ..Default::default()
+        };
+        let (mesh, rep) =
+            cylinder_tet_dual(Vec3::ZERO, 1.5, 4.0, 32, &opts).expect("cylinder meshes");
 
         mesh.validate().expect("cylinder tet-dual mesh is closed");
-        assert_eq!(rep.n_negative_volume_cells, 0, "no inverted cells (notes: {:?})", rep.stage_notes);
+        assert_eq!(
+            rep.n_negative_volume_cells, 0,
+            "no inverted cells (notes: {:?})",
+            rep.stage_notes
+        );
         let analytic = PI * 1.5 * 1.5 * 4.0;
         let rel = (rep.total_volume - analytic).abs() / analytic;
-        assert!(rel < 0.08, "cylinder volume {} within 8% of {analytic} (rel {rel}); notes {:?}", rep.total_volume, rep.stage_notes);
-        assert!(rep.max_non_orthogonality_deg < 90.0, "no folded faces: {}", rep.max_non_orthogonality_deg);
+        assert!(
+            rel < 0.08,
+            "cylinder volume {} within 8% of {analytic} (rel {rel}); notes {:?}",
+            rep.total_volume,
+            rep.stage_notes
+        );
+        assert!(
+            rep.max_non_orthogonality_deg < 90.0,
+            "no folded faces: {}",
+            rep.max_non_orthogonality_deg
+        );
 
         // Prism layers were actually added: compare to the same mesh with none.
-        let no_layers = TetDualOptions { n_layers: 0, ..opts.clone() };
-        let (bare, _) = cylinder_tet_dual(Vec3::ZERO, 1.5, 4.0, 32, &no_layers).expect("cylinder no-layer meshes");
-        assert!(mesh.cell_count() > bare.cell_count(), "prism layers added: {} > {}", mesh.cell_count(), bare.cell_count());
+        let no_layers = TetDualOptions {
+            n_layers: 0,
+            ..opts.clone()
+        };
+        let (bare, _) = cylinder_tet_dual(Vec3::ZERO, 1.5, 4.0, 32, &no_layers)
+            .expect("cylinder no-layer meshes");
+        assert!(
+            mesh.cell_count() > bare.cell_count(),
+            "prism layers added: {} > {}",
+            mesh.cell_count(),
+            bare.cell_count()
+        );
     }
 
     /// V&V — error paths and stage toggles. A non-positive `cell_size` is a hard
@@ -723,17 +815,39 @@ mod tests {
     fn error_paths_and_dual_toggle() {
         let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
 
-        let bad = TetDualOptions { cell_size: -1.0, ..Default::default() };
-        assert!(surface_to_tet_dual_mesh(&p, &t, &bad).is_err(), "negative cell_size errors");
+        let bad = TetDualOptions {
+            cell_size: -1.0,
+            ..Default::default()
+        };
+        assert!(
+            surface_to_tet_dual_mesh(&p, &t, &bad).is_err(),
+            "negative cell_size errors"
+        );
 
-        let huge = TetDualOptions { cell_size: 100.0, n_layers: 0, ..Default::default() };
-        assert!(surface_to_tet_dual_mesh(&p, &t, &huge).is_err(), "cell_size that carves nothing errors");
+        let huge = TetDualOptions {
+            cell_size: 100.0,
+            n_layers: 0,
+            ..Default::default()
+        };
+        assert!(
+            surface_to_tet_dual_mesh(&p, &t, &huge).is_err(),
+            "cell_size that carves nothing errors"
+        );
 
         // Dual off: the result is the tetrahedralization (all-tet), still valid.
-        let no_dual = TetDualOptions { cell_size: 0.5, dual: false, n_layers: 0, ..Default::default() };
+        let no_dual = TetDualOptions {
+            cell_size: 0.5,
+            dual: false,
+            n_layers: 0,
+            ..Default::default()
+        };
         let (mesh, rep) = surface_to_tet_dual_mesh(&p, &t, &no_dual).expect("tet-only meshes");
         mesh.validate().expect("tet-only mesh valid");
-        assert!((rep.total_volume - 1.0).abs() < 1e-9, "tet-only volume {}", rep.total_volume);
+        assert!(
+            (rep.total_volume - 1.0).abs() < 1e-9,
+            "tet-only volume {}",
+            rep.total_volume
+        );
         use crate::volume_mesh::cells_faces;
         for cell in cells_faces(&mesh) {
             assert_eq!(cell.len(), 4, "dual off -> every cell is a tetrahedron");
@@ -849,18 +963,37 @@ mod tests {
     #[test]
     fn octree_grading_beats_the_uniform_carve_on_cells_per_accuracy() {
         let analytic = 4.0 / 3.0 * PI * 27.0;
-        let common = TetDualOptions { delaunay: false, n_layers: 0, ..Default::default() };
+        let common = TetDualOptions {
+            delaunay: false,
+            n_layers: 0,
+            ..Default::default()
+        };
 
-        let uniform = TetDualOptions { cell_size: 0.50, refinement_levels: 0, ..common.clone() };
-        let (um, ur) = sphere_tet_dual(Vec3::ZERO, 3.0, 24, 48, &uniform).expect("uniform sphere meshes");
+        let uniform = TetDualOptions {
+            cell_size: 0.50,
+            refinement_levels: 0,
+            ..common.clone()
+        };
+        let (um, ur) =
+            sphere_tet_dual(Vec3::ZERO, 3.0, 24, 48, &uniform).expect("uniform sphere meshes");
 
-        let graded = TetDualOptions { cell_size: 1.00, refinement_levels: 1, refinement_band: 1.0, ..common };
-        let (gm, gr) = sphere_tet_dual(Vec3::ZERO, 3.0, 24, 48, &graded).expect("graded sphere meshes");
+        let graded = TetDualOptions {
+            cell_size: 1.00,
+            refinement_levels: 1,
+            refinement_band: 1.0,
+            ..common
+        };
+        let (gm, gr) =
+            sphere_tet_dual(Vec3::ZERO, 3.0, 24, 48, &graded).expect("graded sphere meshes");
 
         um.validate().expect("uniform mesh is closed");
         gm.validate().expect("graded mesh is closed");
         assert_eq!(ur.n_negative_volume_cells, 0, "uniform: no inverted cells");
-        assert_eq!(gr.n_negative_volume_cells, 0, "graded: no inverted cells (notes {:?})", gr.stage_notes);
+        assert_eq!(
+            gr.n_negative_volume_cells, 0,
+            "graded: no inverted cells (notes {:?})",
+            gr.stage_notes
+        );
 
         let u_err = (ur.total_volume - analytic).abs() / analytic;
         let g_err = (gr.total_volume - analytic).abs() / analytic;
@@ -868,12 +1001,16 @@ mod tests {
         assert!(
             g_err <= u_err,
             "graded is no less accurate: graded {:.4} % ({} cells) vs uniform {:.4} % ({} cells)",
-            g_err * 100.0, gr.cell_count, u_err * 100.0, ur.cell_count
+            g_err * 100.0,
+            gr.cell_count,
+            u_err * 100.0,
+            ur.cell_count
         );
         assert!(
             gr.cell_count * 2 < ur.cell_count,
             "graded uses materially fewer cells: {} vs {}",
-            gr.cell_count, ur.cell_count
+            gr.cell_count,
+            ur.cell_count
         );
         // Neither mesh may contain a folded/degenerate face.
         assert!(ur.max_non_orthogonality_deg < 90.0 && gr.max_non_orthogonality_deg < 90.0);
@@ -887,14 +1024,25 @@ mod tests {
     /// volume 1.0 m^3 — i.e. adding the octree option regressed nothing.
     #[test]
     fn refinement_level_zero_is_the_uniform_path() {
-        let uniform = TetDualOptions { cell_size: 0.5, first_layer_thickness: 0.02, ..Default::default() };
+        let uniform = TetDualOptions {
+            cell_size: 0.5,
+            first_layer_thickness: 0.02,
+            ..Default::default()
+        };
         assert_eq!(uniform.refinement_levels, 0, "grading is off by default");
         let (_, a) = box_tet_dual(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), &uniform).expect("meshes");
-        let explicit = TetDualOptions { refinement_levels: 0, ..uniform };
+        let explicit = TetDualOptions {
+            refinement_levels: 0,
+            ..uniform
+        };
         let (_, b) = box_tet_dual(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), &explicit).expect("meshes");
         assert_eq!(a.cell_count, b.cell_count);
         assert!((a.total_volume - b.total_volume).abs() < 1e-12);
-        assert!((a.total_volume - 1.0).abs() < 1e-9, "volume {}", a.total_volume);
+        assert!(
+            (a.total_volume - 1.0).abs() < 1e-9,
+            "volume {}",
+            a.total_volume
+        );
     }
 
     /// V&V — **headline for named boundary patches**
@@ -966,9 +1114,13 @@ mod tests {
             "outlet", "outlet", // +X
             "inlet", "inlet", // -X
         ]);
-        let opts = TetDualOptions { cell_size: 0.5, first_layer_thickness: 0.02, ..Default::default() };
-        let (mesh, rep) =
-            surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &opts).expect("multipatch box meshes");
+        let opts = TetDualOptions {
+            cell_size: 0.5,
+            first_layer_thickness: 0.02,
+            ..Default::default()
+        };
+        let (mesh, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &opts)
+            .expect("multipatch box meshes");
 
         // Printed so the numbers recorded in this test's doc comment can be
         // re-derived by anyone with `--nocapture`, per the workspace V&V rule.
@@ -983,8 +1135,16 @@ mod tests {
         );
 
         mesh.validate().expect("multipatch mesh is closed");
-        assert_eq!(rep.n_negative_volume_cells, 0, "no inverted cells (notes {:?})", rep.stage_notes);
-        assert!((rep.total_volume - 1.0).abs() < 1e-9, "volume {}", rep.total_volume);
+        assert_eq!(
+            rep.n_negative_volume_cells, 0,
+            "no inverted cells (notes {:?})",
+            rep.stage_notes
+        );
+        assert!(
+            (rep.total_volume - 1.0).abs() < 1e-9,
+            "volume {}",
+            rep.total_volume
+        );
 
         // All three patches present, each non-empty.
         let names: Vec<&str> = mesh.patches.iter().map(|q| q.name.as_str()).collect();
@@ -1002,26 +1162,49 @@ mod tests {
         sorted.sort_by_key(|q| q.start_face);
         let mut expect = mesh.n_internal_faces();
         for q in &sorted {
-            assert_eq!(q.start_face, expect, "patch '{}' starts contiguously", q.name);
+            assert_eq!(
+                q.start_face, expect,
+                "patch '{}' starts contiguously",
+                q.name
+            );
             expect += q.n_faces;
         }
-        assert_eq!(expect, mesh.face_count(), "patches cover every boundary face");
+        assert_eq!(
+            expect,
+            mesh.face_count(),
+            "patches cover every boundary face"
+        );
         let total: usize = mesh.patches.iter().map(|q| q.n_faces).sum();
-        assert_eq!(total, mesh.n_boundary_faces(), "patch faces == boundary faces");
+        assert_eq!(
+            total,
+            mesh.n_boundary_faces(),
+            "patch faces == boundary faces"
+        );
 
         // Geometrically correct, not merely well-counted.
         for (name, x) in [("inlet", 0.0), ("outlet", 1.0)] {
             let q = get(name);
             for f in q.start_face..q.start_face + q.n_faces {
-                assert!(mesh.neighbour[f].is_none(), "'{name}' face {f} is a boundary face");
+                assert!(
+                    mesh.neighbour[f].is_none(),
+                    "'{name}' face {f} is a boundary face"
+                );
                 let c = mesh.face_centroid(f);
-                assert!((c.x - x).abs() < 1e-9, "'{name}' face at x={x}, got {}", c.x);
+                assert!(
+                    (c.x - x).abs() < 1e-9,
+                    "'{name}' face at x={x}, got {}",
+                    c.x
+                );
             }
         }
 
         // The single-patch entry point is unchanged by all this.
-        let (plain, prep) = surface_to_tet_dual_mesh(&p, &t, &opts).expect("single-patch box meshes");
-        assert_eq!(prep.cell_count, rep.cell_count, "same mesh, different patch labelling");
+        let (plain, prep) =
+            surface_to_tet_dual_mesh(&p, &t, &opts).expect("single-patch box meshes");
+        assert_eq!(
+            prep.cell_count, rep.cell_count,
+            "same mesh, different patch labelling"
+        );
         assert_eq!(plain.patches.len(), 1);
         assert_eq!(plain.patches[0].name, "walls");
         assert_eq!(plain.patches[0].n_faces, mesh.n_boundary_faces());
@@ -1035,7 +1218,11 @@ mod tests {
     fn multipatch_rejects_a_mislabelled_surface() {
         let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
         let wrong = SurfaceRegions::single("walls", t.len() + 1);
-        let opts = TetDualOptions { cell_size: 0.5, n_layers: 0, ..Default::default() };
+        let opts = TetDualOptions {
+            cell_size: 0.5,
+            n_layers: 0,
+            ..Default::default()
+        };
         assert!(surface_to_tet_dual_mesh_multipatch(&p, &t, &wrong, &opts).is_err());
     }
 
@@ -1049,11 +1236,20 @@ mod tests {
     #[test]
     fn defaults_mesh_the_studio_sphere() {
         let opts = TetDualOptions::default();
-        let (mesh, rep) = sphere_tet_dual(Vec3::ZERO, 3.0, 24, 48, &opts).expect("default sphere meshes");
+        let (mesh, rep) =
+            sphere_tet_dual(Vec3::ZERO, 3.0, 24, 48, &opts).expect("default sphere meshes");
         mesh.validate().expect("closed");
-        assert_eq!(rep.n_negative_volume_cells, 0, "notes: {:?}", rep.stage_notes);
+        assert_eq!(
+            rep.n_negative_volume_cells, 0,
+            "notes: {:?}",
+            rep.stage_notes
+        );
         let analytic = 4.0 / 3.0 * PI * 27.0;
         let rel = (rep.total_volume - analytic).abs() / analytic;
-        assert!(rel < 0.08, "default sphere volume {} within 8% of {analytic} (rel {rel})", rep.total_volume);
+        assert!(
+            rel < 0.08,
+            "default sphere volume {} within 8% of {analytic} (rel {rel})",
+            rep.total_volume
+        );
     }
 }

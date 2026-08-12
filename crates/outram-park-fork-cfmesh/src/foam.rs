@@ -59,7 +59,11 @@ use outram_foam_basic_lib::primitives::Vector3;
 /// solver-ready — call `to_fv_mesh()` on it for the geometry-carrying mesh, or
 /// `write(dir)` to emit the OpenFOAM files.
 pub fn to_poly_mesh(mesh: &VolumeMesh) -> PolyMesh {
-    let points: Vec<Vector3> = mesh.points.iter().map(|p| Vector3::new(p.x, p.y, p.z)).collect();
+    let points: Vec<Vector3> = mesh
+        .points
+        .iter()
+        .map(|p| Vector3::new(p.x, p.y, p.z))
+        .collect();
 
     let faces: Vec<MeshFace> = (0..mesh.face_count())
         .map(|f| MeshFace {
@@ -97,7 +101,10 @@ pub fn to_poly_mesh(mesh: &VolumeMesh) -> PolyMesh {
 ///
 /// Convenience over [`to_poly_mesh`] followed by
 /// [`PolyMesh::write`](outram_foam_basic_lib::io::poly_mesh::PolyMesh::write).
-pub fn write_polymesh(mesh: &VolumeMesh, dir: &std::path::Path) -> Result<(), outram_foam_basic_lib::io::IoError> {
+pub fn write_polymesh(
+    mesh: &VolumeMesh,
+    dir: &std::path::Path,
+) -> Result<(), outram_foam_basic_lib::io::IoError> {
     to_poly_mesh(mesh).write(dir)
 }
 
@@ -122,8 +129,12 @@ mod tests {
         assert_eq!(poly.n_internal_faces, 12);
         assert_eq!(poly.n_boundary_faces(), 24);
         assert_eq!(poly.n_faces(), 36);
-        assert!((poly.total_volume() - 1.0).abs() < 1e-9, "foam agrees on box volume");
-        poly.to_fv_mesh().expect("PolyMesh converts to a solvable FvMesh");
+        assert!(
+            (poly.total_volume() - 1.0).abs() < 1e-9,
+            "foam agrees on box volume"
+        );
+        poly.to_fv_mesh()
+            .expect("PolyMesh converts to a solvable FvMesh");
     }
 
     /// V&V — a carved surface bridges too. A grid-aligned box carve → foam
@@ -156,8 +167,12 @@ mod tests {
         let dual = polyhedral_dual(&hex);
         let poly = to_poly_mesh(&dual);
         assert_eq!(poly.n_cells, hex.point_count()); // 125 — one cell per vertex
-        assert!((poly.total_volume() - 1.0).abs() < 1e-9, "foam agrees on dual volume");
-        poly.to_fv_mesh().expect("polyhedral dual is solver-consumable");
+        assert!(
+            (poly.total_volume() - 1.0).abs() < 1e-9,
+            "foam agrees on dual volume"
+        );
+        poly.to_fv_mesh()
+            .expect("polyhedral dual is solver-consumable");
     }
 
     /// A scratch directory that deletes itself on drop — including when a test
@@ -216,7 +231,14 @@ mod tests {
         ];
         let q = |a: usize, b: usize, c: usize, d: usize| vec![[a, b, c], [a, c, d]];
         let mut t = Vec::new();
-        for f in [q(0, 3, 2, 1), q(4, 5, 6, 7), q(0, 1, 5, 4), q(2, 3, 7, 6), q(1, 2, 6, 5), q(0, 4, 7, 3)] {
+        for f in [
+            q(0, 3, 2, 1),
+            q(4, 5, 6, 7),
+            q(0, 1, 5, 4),
+            q(2, 3, 7, 6),
+            q(1, 2, 6, 5),
+            q(0, 4, 7, 3),
+        ] {
             t.extend(f);
         }
         (v, t)

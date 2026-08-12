@@ -19,8 +19,6 @@ pub mod interaction_with_single_cv;
 /// (constant heat flux, constant heat rate, constant temperature)
 pub mod interaction_with_bc;
 
-/// this module takes care of the interactions with other array cvs 
+/// this module takes care of the interactions with other array cvs
 /// both solid arrays and fluid arrays
 pub mod interaction_with_array_cv;
-
-

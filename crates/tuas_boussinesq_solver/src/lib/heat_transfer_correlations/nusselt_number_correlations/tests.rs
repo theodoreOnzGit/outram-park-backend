@@ -1,16 +1,16 @@
 /// from Du's paper
 ///
-/// Du, B. C., He, Y. L., Qiu, Y., Liang, Q., & Zhou, Y. P. (2018). 
-/// Investigation on heat transfer characteristics of molten salt in 
-/// a shell-and-tube heat exchanger. International Communications 
+/// Du, B. C., He, Y. L., Qiu, Y., Liang, Q., & Zhou, Y. P. (2018).
+/// Investigation on heat transfer characteristics of molten salt in
+/// a shell-and-tube heat exchanger. International Communications
 /// in Heat and Mass Transfer, 96, 61-68.
 ///
-/// we have a generic Gnielinski type correlation, 
+/// we have a generic Gnielinski type correlation,
 /// empirically fitted to experimental data. This is in the form:
 ///
 /// Nu = C (Re^m - 280.0) Pr_f^0.4 ( 1.0 + (D_e/l)^(2/3) ) ( Pr_f / Pr_w )^0.25
 ///
-/// For Du's Heat exchanger, 
+/// For Du's Heat exchanger,
 /// C = 0.04318,
 /// m = 0.7797
 ///
@@ -33,40 +33,37 @@
 /// 5388.517,64.344
 /// 5481.048,65.861
 ///
-/// From the paper 
-/// for the salt, temperatures range from 204-236 C 
-/// Pr is from 19.82 to 24.03, 
+/// From the paper
+/// for the salt, temperatures range from 204-236 C
+/// Pr is from 19.82 to 24.03,
 ///
 /// Pr = 22 seems reasonable for bulk fluid (Pr_f)
 ///
-/// and the correction factor Pr_f/Pr_w is from 
+/// and the correction factor Pr_f/Pr_w is from
 /// 0.4273 to 0.5646, decent estimate is 0.5
 ///
-/// These values allow us to calculate the salt Nusselt numbers 
+/// These values allow us to calculate the salt Nusselt numbers
 /// to reproduce the Re and Nu_shell data.
 ///
-/// I'm going to try the values at Re = 3510 (which is in the transitional 
-/// regime), Re = 4019, which is in turbulent regime, 
+/// I'm going to try the values at Re = 3510 (which is in the transitional
+/// regime), Re = 4019, which is in turbulent regime,
 /// and Re = 5481, which is also in the turbulent regime
 ///
 ///
-#[test] 
-pub fn du_correlation_empirical_test(){
+#[test]
+pub fn du_correlation_empirical_test() {
     use uom::si::length::meter;
     use uom::si::ratio::ratio;
     use uom::si::f64::*;
 
-    use crate::heat_transfer_correlations::
-        nusselt_number_correlations::pipe_correlations::
-        custom_gnielinski_turbulent_nusselt_correlation;
-
+    use crate::heat_transfer_correlations::nusselt_number_correlations::pipe_correlations::custom_gnielinski_turbulent_nusselt_correlation;
 
     let c = Ratio::new::<ratio>(0.04318);
     let m = 0.7797_f64;
 
     // now some parameters to determine things,
     // from Du's paper
-    
+
     let heat_exchg_length = Length::new::<meter>(1.95);
     let tube_od = Length::new::<meter>(0.014);
     let shell_id = Length::new::<meter>(0.1);
@@ -75,41 +72,29 @@ pub fn du_correlation_empirical_test(){
 
     // from Du's paper, eqn 14
     // D_e = (D_i^2 - N_t d_o^2)/(D_i + N_t d_o)
-    let effective_diameter = (
-        shell_id * shell_id - 
-        number_of_tubes as f64 
-        * tube_od * tube_od) / 
-        (shell_id + number_of_tubes as f64 * tube_od);
+    let effective_diameter = (shell_id * shell_id - number_of_tubes as f64 * tube_od * tube_od)
+        / (shell_id + number_of_tubes as f64 * tube_od);
 
-
-    let length_to_diameter = heat_exchg_length/effective_diameter;
+    let length_to_diameter = heat_exchg_length / effective_diameter;
 
     // in Du's paper, D_e/l is 0.009
     // let me test for that
     {
-        let diameter_to_length = 
-            effective_diameter/heat_exchg_length;
+        let diameter_to_length = effective_diameter / heat_exchg_length;
 
-        approx::assert_relative_eq!(
-            diameter_to_length.get::<ratio>(),
-            0.009,
-            max_relative=0.5
-            );
+        approx::assert_relative_eq!(diameter_to_length.get::<ratio>(), 0.009, max_relative = 0.5);
     }
-
-
-
 
     let film_prandtl_number = Ratio::new::<ratio>(22.0);
     // Pr_bulk/Pr_w  is about 0.5, or
-    // Pr_f/Pr_w  is about 0.5, 
+    // Pr_f/Pr_w  is about 0.5,
     // Pr_f in these comments is Pr_bulk_fluid, or Pr_bulk
     //
-    // and i made it such that 
+    // and i made it such that
     //
     // Pr_film = 0.5 * (Pr_bulk + Pr_wall)
     //
-    // and Pr_bulk/Pr_wall = 0.5 
+    // and Pr_bulk/Pr_wall = 0.5
     //
     // Pr_bulk = 0.5 Pr_wall
     // substituting:
@@ -122,65 +107,60 @@ pub fn du_correlation_empirical_test(){
     let wall_prandtl_number = film_prandtl_number * 2.0 / 1.5;
     let bulk_prandtl_number = 0.5 * wall_prandtl_number;
 
-
-
     // define a test closure so I can easily test
-    let test_fn = |reynolds_float: f64, expected_nusselt_float: f64,
-        tolerance: f64|{
-            let reynolds_num = Ratio::new::<ratio>(reynolds_float);
+    let test_fn = |reynolds_float: f64, expected_nusselt_float: f64, tolerance: f64| {
+        let reynolds_num = Ratio::new::<ratio>(reynolds_float);
 
-            let nusselt = custom_gnielinski_turbulent_nusselt_correlation(
-                c, 
-                m, 
-                film_prandtl_number,
-                bulk_prandtl_number, 
-                wall_prandtl_number, 
-                reynolds_num, 
-                length_to_diameter);
+        let nusselt = custom_gnielinski_turbulent_nusselt_correlation(
+            c,
+            m,
+            film_prandtl_number,
+            bulk_prandtl_number,
+            wall_prandtl_number,
+            reynolds_num,
+            length_to_diameter,
+        );
 
-            // max tolerance is 8%
-            approx::assert_relative_eq!(
-                nusselt.get::<ratio>(),
-                expected_nusselt_float,
-                max_relative=tolerance
-            );
+        // max tolerance is 8%
+        approx::assert_relative_eq!(
+            nusselt.get::<ratio>(),
+            expected_nusselt_float,
+            max_relative = tolerance
+        );
+    };
 
-        };
-
-    // test for Re about 5481, 
-    // We should expect nusselt of 65.861 
+    // test for Re about 5481,
+    // We should expect nusselt of 65.861
     // with tolerance of 8% from expt data given Du's paper
     //
-    test_fn(5481.048, 65.861 ,0.08);
+    test_fn(5481.048, 65.861, 0.08);
 
-    // test for Re about 4019.509, 
+    // test for Re about 4019.509,
     // We should expect nusselt of 47.459
     // with tolerance of 8% from expt data given Du's paper
     //
-    test_fn(4019.509, 47.459 ,0.08);
+    test_fn(4019.509, 47.459, 0.08);
 
-    // test for Re about 3510.033, 
+    // test for Re about 3510.033,
     // We should expect nusselt of 42.582
     // with tolerance of 8% from expt data given Du's paper
     //
-    test_fn(3510.033, 42.582 ,0.08);
-
+    test_fn(3510.033, 42.582, 0.08);
 }
-
 
 /// from Du's paper
 ///
-/// Du, B. C., He, Y. L., Qiu, Y., Liang, Q., & Zhou, Y. P. (2018). 
-/// Investigation on heat transfer characteristics of molten salt in 
-/// a shell-and-tube heat exchanger. International Communications 
+/// Du, B. C., He, Y. L., Qiu, Y., Liang, Q., & Zhou, Y. P. (2018).
+/// Investigation on heat transfer characteristics of molten salt in
+/// a shell-and-tube heat exchanger. International Communications
 /// in Heat and Mass Transfer, 96, 61-68.
 ///
-/// we have a generic Gnielinski type correlation, 
+/// we have a generic Gnielinski type correlation,
 /// empirically fitted to experimental data. This is in the form:
 ///
 /// Nu = C (Re^m - 280.0) Pr_f^0.4 ( 1.0 + (D_e/l)^(2/3) ) ( Pr_f / Pr_w )^0.25
 ///
-/// For Du's Heat exchanger, 
+/// For Du's Heat exchanger,
 /// C = 0.04318,
 /// m = 0.7797
 ///
@@ -203,48 +183,46 @@ pub fn du_correlation_empirical_test(){
 /// 5388.517,64.344
 /// 5481.048,65.861
 ///
-/// From the paper 
-/// for the salt, temperatures range from 204-236 C 
-/// Pr is from 19.82 to 24.03, 
+/// From the paper
+/// for the salt, temperatures range from 204-236 C
+/// Pr is from 19.82 to 24.03,
 ///
 /// Pr = 22 seems reasonable for bulk fluid (Pr_f)
 ///
-/// and the correction factor Pr_f/Pr_w is from 
+/// and the correction factor Pr_f/Pr_w is from
 /// 0.4273 to 0.5646, decent estimate is 0.5
 ///
-/// These values allow us to calculate the salt Nusselt numbers 
+/// These values allow us to calculate the salt Nusselt numbers
 /// to reproduce the Re and Nu_shell data.
 ///
-/// I'm going to try the values at Re = 3510 (which is in the transitional 
-/// regime for pipes, but not tubes), Re = 4019, which is in turbulent regime, 
+/// I'm going to try the values at Re = 3510 (which is in the transitional
+/// regime for pipes, but not tubes), Re = 4019, which is in turbulent regime,
 /// and Re = 5481, which is also in the turbulent regime
 ///
-/// but this time, I'm going to use the 
+/// but this time, I'm going to use the
 /// custom_gnielinski_correlation_interpolated_uniform_heat_flux_liquids_developing
-/// as a benchmark 
+/// as a benchmark
 ///
-/// This is because the function will interpolate between laminar 
-/// and turbulent, 
-/// now 
+/// This is because the function will interpolate between laminar
+/// and turbulent,
+/// now
 ///
 ///
 ///
-#[test] 
-pub fn du_interpolated_correlation_empirical_test(){
+#[test]
+pub fn du_interpolated_correlation_empirical_test() {
     use uom::si::length::meter;
     use uom::si::ratio::ratio;
     use uom::si::f64::*;
 
-    use crate::heat_transfer_correlations::
-        nusselt_number_correlations::pipe_correlations::
-        custom_gnielinski_correlation_interpolated_uniform_heat_flux_liquids_developing;
+    use crate::heat_transfer_correlations::nusselt_number_correlations::pipe_correlations::custom_gnielinski_correlation_interpolated_uniform_heat_flux_liquids_developing;
 
     let c = Ratio::new::<ratio>(0.04318);
     let m = 0.7797_f64;
 
     // now some parameters to determine things,
     // from Du's paper
-    
+
     let heat_exchg_length = Length::new::<meter>(1.95);
     let tube_od = Length::new::<meter>(0.014);
     let shell_id = Length::new::<meter>(0.1);
@@ -253,43 +231,32 @@ pub fn du_interpolated_correlation_empirical_test(){
 
     // from Du's paper, eqn 14
     // D_e = (D_i^2 - N_t d_o^2)/(D_i + N_t d_o)
-    let effective_diameter = (
-        shell_id * shell_id - 
-        number_of_tubes as f64 
-        * tube_od * tube_od) / 
-        (shell_id + number_of_tubes as f64 * tube_od);
+    let effective_diameter = (shell_id * shell_id - number_of_tubes as f64 * tube_od * tube_od)
+        / (shell_id + number_of_tubes as f64 * tube_od);
 
-
-    let length_to_diameter = heat_exchg_length/effective_diameter;
+    let length_to_diameter = heat_exchg_length / effective_diameter;
 
     // in Du's paper, D_e/l is 0.009
     // let me test for that
     {
-        let diameter_to_length = 
-            effective_diameter/heat_exchg_length;
+        let diameter_to_length = effective_diameter / heat_exchg_length;
 
-        approx::assert_relative_eq!(
-            diameter_to_length.get::<ratio>(),
-            0.009,
-            max_relative=0.5
-            );
+        approx::assert_relative_eq!(diameter_to_length.get::<ratio>(), 0.009, max_relative = 0.5);
     }
 
     // let me use now the D_e/l of 0.009
     //let length_to_diameter = 1.0 / Ratio::new::<ratio>(0.009);
 
-
-
     let film_prandtl_number = Ratio::new::<ratio>(22.0);
     // Pr_bulk/Pr_w  is about 0.5, or
-    // Pr_f/Pr_w  is about 0.5, 
+    // Pr_f/Pr_w  is about 0.5,
     // Pr_f in these comments is Pr_bulk_fluid, or Pr_bulk
     //
-    // and i made it such that 
+    // and i made it such that
     //
     // Pr_film = 0.5 * (Pr_bulk + Pr_wall)
     //
-    // and Pr_bulk/Pr_wall = 0.5 
+    // and Pr_bulk/Pr_wall = 0.5
     //
     // Pr_bulk = 0.5 Pr_wall
     // substituting:
@@ -302,65 +269,61 @@ pub fn du_interpolated_correlation_empirical_test(){
     let wall_prandtl_number = film_prandtl_number * 2.0 / 1.5;
     let bulk_prandtl_number = 0.5 * wall_prandtl_number;
 
-
     // define a test closure so I can easily test
-    let test_fn = |reynolds_float: f64, expected_nusselt_float: f64,
-        tolerance: f64|{
-            let reynolds_num = Ratio::new::<ratio>(reynolds_float);
+    let test_fn = |reynolds_float: f64, expected_nusselt_float: f64, tolerance: f64| {
+        let reynolds_num = Ratio::new::<ratio>(reynolds_float);
 
-            let nusselt_float = 
-                custom_gnielinski_correlation_interpolated_uniform_heat_flux_liquids_developing(
-                c, 
-                m, 
+        let nusselt_float =
+            custom_gnielinski_correlation_interpolated_uniform_heat_flux_liquids_developing(
+                c,
+                m,
                 film_prandtl_number,
-                bulk_prandtl_number, 
-                wall_prandtl_number, 
-                reynolds_num, 
-                length_to_diameter);
-
-            // max tolerance is 8%
-            approx::assert_relative_eq!(
-                nusselt_float,
-                expected_nusselt_float,
-                max_relative=tolerance
+                bulk_prandtl_number,
+                wall_prandtl_number,
+                reynolds_num,
+                length_to_diameter,
             );
 
-        };
+        // max tolerance is 8%
+        approx::assert_relative_eq!(
+            nusselt_float,
+            expected_nusselt_float,
+            max_relative = tolerance
+        );
+    };
 
-    // test for Re about 5481, 
-    // We should expect nusselt of 65.861 
+    // test for Re about 5481,
+    // We should expect nusselt of 65.861
     // with tolerance of 8% from expt data given Du's paper
     //
-    test_fn(5481.048, 65.861 ,0.08);
+    test_fn(5481.048, 65.861, 0.08);
 
-    // test for Re about 4019.509, 
+    // test for Re about 4019.509,
     // We should expect nusselt of 47.459
     // with tolerance of 8% from expt data given Du's paper
     //
-    test_fn(4019.509, 47.459 ,0.08);
+    test_fn(4019.509, 47.459, 0.08);
 
-    // test for Re about 3510.033, 
+    // test for Re about 3510.033,
     // We should expect nusselt of 42.582
     // with tolerance of 8% from expt data given Du's paper
     //
-    test_fn(3510.033, 42.582 ,0.08);
-
+    test_fn(3510.033, 42.582, 0.08);
 }
-
 
 /// from Du's paper
 ///
-/// Du, B. C., He, Y. L., Qiu, Y., Liang, Q., & Zhou, Y. P. (2018). 
-/// Investigation on heat transfer characteristics of molten salt in 
-/// a shell-and-tube heat exchanger. International Communications 
+/// Du, B. C., He, Y. L., Qiu, Y., Liang, Q., & Zhou, Y. P. (2018).
+/// Investigation on heat transfer characteristics of molten salt in
+/// a shell-and-tube heat exchanger. International Communications
 /// in Heat and Mass Transfer, 96, 61-68.
 ///
-/// we have a generic Gnielinski type correlation, 
+/// we have a generic Gnielinski type correlation,
 /// empirically fitted to experimental data. This is in the form:
 ///
 /// Nu = C (Re^m - 280.0) Pr_f^0.4 ( 1.0 + (D_e/l)^(2/3) ) ( Pr_f / Pr_w )^0.25
 ///
-/// For Du's Heat exchanger, 
+/// For Du's Heat exchanger,
 /// C = 0.04318,
 /// m = 0.7797
 ///
@@ -383,29 +346,29 @@ pub fn du_interpolated_correlation_empirical_test(){
 /// 5388.517,64.344
 /// 5481.048,65.861
 ///
-/// From the paper 
-/// for the salt, temperatures range from 204-236 C 
-/// Pr is from 19.82 to 24.03, 
+/// From the paper
+/// for the salt, temperatures range from 204-236 C
+/// Pr is from 19.82 to 24.03,
 ///
 /// Pr = 22 seems reasonable for bulk fluid (Pr_f)
 ///
-/// and the correction factor Pr_f/Pr_w is from 
+/// and the correction factor Pr_f/Pr_w is from
 /// 0.4273 to 0.5646, decent estimate is 0.5
 ///
-/// These values allow us to calculate the salt Nusselt numbers 
+/// These values allow us to calculate the salt Nusselt numbers
 /// to reproduce the Re and Nu_shell data.
 ///
-/// I'm going to try the values at Re = 3510 (which is in the transitional 
-/// regime for pipes, but not tubes), Re = 4019, which is in turbulent regime, 
+/// I'm going to try the values at Re = 3510 (which is in the transitional
+/// regime for pipes, but not tubes), Re = 4019, which is in turbulent regime,
 /// and Re = 5481, which is also in the turbulent regime
 ///
-/// but this time, I'm going to use the nusselt correlation struct 
+/// but this time, I'm going to use the nusselt correlation struct
 /// directly
 ///
 ///
 ///
-#[test] 
-pub fn du_nusselt_enum_correlation_empirical_test(){
+#[test]
+pub fn du_nusselt_enum_correlation_empirical_test() {
     use uom::si::length::meter;
     use uom::{si::ratio::ratio, ConstZero};
     use uom::si::f64::*;
@@ -418,7 +381,7 @@ pub fn du_nusselt_enum_correlation_empirical_test(){
 
     // now some parameters to determine things,
     // from Du's paper
-    
+
     let heat_exchg_length = Length::new::<meter>(1.95);
     let tube_od = Length::new::<meter>(0.014);
     let shell_id = Length::new::<meter>(0.1);
@@ -427,26 +390,17 @@ pub fn du_nusselt_enum_correlation_empirical_test(){
 
     // from Du's paper, eqn 14
     // D_e = (D_i^2 - N_t d_o^2)/(D_i + N_t d_o)
-    let effective_diameter = (
-        shell_id * shell_id - 
-        number_of_tubes as f64 
-        * tube_od * tube_od) / 
-        (shell_id + number_of_tubes as f64 * tube_od);
+    let effective_diameter = (shell_id * shell_id - number_of_tubes as f64 * tube_od * tube_od)
+        / (shell_id + number_of_tubes as f64 * tube_od);
 
-
-    let length_to_diameter = heat_exchg_length/effective_diameter;
+    let length_to_diameter = heat_exchg_length / effective_diameter;
 
     // in Du's paper, D_e/l is 0.009
     // let me test for that
     {
-        let diameter_to_length = 
-            effective_diameter/heat_exchg_length;
+        let diameter_to_length = effective_diameter / heat_exchg_length;
 
-        approx::assert_relative_eq!(
-            diameter_to_length.get::<ratio>(),
-            0.009,
-            max_relative=0.5
-            );
+        approx::assert_relative_eq!(diameter_to_length.get::<ratio>(), 0.009, max_relative = 0.5);
     }
 
     // let me use now the D_e/l of 0.009
@@ -455,14 +409,14 @@ pub fn du_nusselt_enum_correlation_empirical_test(){
     let film_prandtl_number = Ratio::new::<ratio>(22.0);
 
     // Pr_bulk/Pr_w  is about 0.5, or
-    // Pr_f/Pr_w  is about 0.5, 
+    // Pr_f/Pr_w  is about 0.5,
     // Pr_f in these comments is Pr_bulk_fluid, or Pr_bulk
     //
-    // and i made it such that 
+    // and i made it such that
     //
     // Pr_film = 0.5 * (Pr_bulk + Pr_wall)
     //
-    // and Pr_bulk/Pr_wall = 0.5 
+    // and Pr_bulk/Pr_wall = 0.5
     //
     // Pr_bulk = 0.5 Pr_wall
     // substituting:
@@ -474,67 +428,59 @@ pub fn du_nusselt_enum_correlation_empirical_test(){
     // based on these substitutions:
     let wall_prandtl_number = film_prandtl_number * 2.0 / 1.5;
     let bulk_prandtl_number = 0.5 * wall_prandtl_number;
-    // Pr_w/Pr_f = 2.0 approx 
+    // Pr_w/Pr_f = 2.0 approx
     //
 
-    let gnielinski_params: GnielinskiData = 
-        GnielinskiData { 
-            reynolds: Ratio::ZERO, 
-            prandtl_bulk: Ratio::ZERO, 
-            prandtl_wall: Ratio::ZERO, 
-            darcy_friction_factor: Ratio::ZERO, 
-            length_to_diameter,
-        };
+    let gnielinski_params: GnielinskiData = GnielinskiData {
+        reynolds: Ratio::ZERO,
+        prandtl_bulk: Ratio::ZERO,
+        prandtl_wall: Ratio::ZERO,
+        darcy_friction_factor: Ratio::ZERO,
+        length_to_diameter,
+    };
 
-
-    let du_nusselt_correlation: NusseltCorrelation 
-        = NusseltCorrelation::CustomGnielinskiGenericPrandtlFilm(
-            gnielinski_params, c, m);
-
-
+    let du_nusselt_correlation: NusseltCorrelation =
+        NusseltCorrelation::CustomGnielinskiGenericPrandtlFilm(gnielinski_params, c, m);
 
     // define a test closure so I can easily test
-    let test_fn = |reynolds_float: f64, expected_nusselt_float: f64,
-        tolerance: f64|{
-            let reynolds_num = Ratio::new::<ratio>(reynolds_float);
+    let test_fn = |reynolds_float: f64, expected_nusselt_float: f64, tolerance: f64| {
+        let reynolds_num = Ratio::new::<ratio>(reynolds_float);
 
-            let nusselt_float = 
-                du_nusselt_correlation.estimate_based_on_prandtl_reynolds_and_wall_correction(
-                bulk_prandtl_number, 
-                wall_prandtl_number, 
-                reynolds_num)
-                .unwrap()
-                .get::<ratio>();
+        let nusselt_float = du_nusselt_correlation
+            .estimate_based_on_prandtl_reynolds_and_wall_correction(
+                bulk_prandtl_number,
+                wall_prandtl_number,
+                reynolds_num,
+            )
+            .unwrap()
+            .get::<ratio>();
 
-            // max tolerance is 8%
-            approx::assert_relative_eq!(
-                nusselt_float,
-                expected_nusselt_float,
-                max_relative=tolerance
-            );
+        // max tolerance is 8%
+        approx::assert_relative_eq!(
+            nusselt_float,
+            expected_nusselt_float,
+            max_relative = tolerance
+        );
+    };
 
-        };
-
-    // test for Re about 5481, 
-    // We should expect nusselt of 65.861 
+    // test for Re about 5481,
+    // We should expect nusselt of 65.861
     // with tolerance of 8% from expt data given Du's paper
     //
-    test_fn(5481.048, 65.861 ,0.08);
+    test_fn(5481.048, 65.861, 0.08);
 
-    // test for Re about 4019.509, 
+    // test for Re about 4019.509,
     // We should expect nusselt of 47.459
     // with tolerance of 8% from expt data given Du's paper
     //
-    test_fn(4019.509, 47.459 ,0.08);
+    test_fn(4019.509, 47.459, 0.08);
 
-    // test for Re about 3510.033, 
+    // test for Re about 3510.033,
     // We should expect nusselt of 42.582
     // with tolerance of 8% from expt data given Du's paper
     //
-    test_fn(3510.033, 42.582 ,0.08);
-
+    test_fn(3510.033, 42.582, 0.08);
 }
-
 
 /// Verification test for the Wakao packed-bed particle-to-fluid Nusselt
 /// correlation, [`crate::heat_transfer_correlations::
@@ -588,18 +534,14 @@ pub fn du_nusselt_enum_correlation_empirical_test(){
 /// [`wakao_correlation_transposed_exponent_regression_guard`] for the
 /// guard against the pre-2026-08-11 defect returning.
 #[test]
-pub fn wakao_correlation_published_form_test(){
+pub fn wakao_correlation_published_form_test() {
     use uom::si::ratio::ratio;
     use uom::si::f64::*;
 
-    use crate::heat_transfer_correlations::
-        nusselt_number_correlations::input_structs::WakaoData;
+    use crate::heat_transfer_correlations::nusselt_number_correlations::input_structs::WakaoData;
 
     // helper: assert Nu(Re, Pr) equals the hand-computed value
-    let test_fn = |reynolds_value: f64,
-    prandtl_value: f64,
-    expected_nusselt: f64| {
-
+    let test_fn = |reynolds_value: f64, prandtl_value: f64, expected_nusselt: f64| {
         let wakao_input = WakaoData {
             reynolds: Ratio::new::<ratio>(reynolds_value),
             prandtl_bulk: Ratio::new::<ratio>(prandtl_value),
@@ -632,7 +574,6 @@ pub fn wakao_correlation_published_form_test(){
 
     // stagnant-medium conduction limit: Nu -> 2 as Re -> 0
     test_fn(0.0, 0.7, 2.0);
-
 }
 
 /// Regression guard against the transposed-exponent Wakao defect
@@ -683,12 +624,11 @@ pub fn wakao_correlation_published_form_test(){
 /// about 10.3x at Re = 8500), because the two forms disagree on which
 /// dimensionless group carries the dominant 0.6 exponent.
 #[test]
-pub fn wakao_correlation_transposed_exponent_regression_guard(){
+pub fn wakao_correlation_transposed_exponent_regression_guard() {
     use uom::si::ratio::ratio;
     use uom::si::f64::*;
 
-    use crate::heat_transfer_correlations::
-        nusselt_number_correlations::input_structs::WakaoData;
+    use crate::heat_transfer_correlations::nusselt_number_correlations::input_structs::WakaoData;
 
     let reynolds_value = 1000.0_f64;
     let prandtl_value = 0.7_f64;
@@ -702,23 +642,14 @@ pub fn wakao_correlation_transposed_exponent_regression_guard(){
 
     // (a) the corrected value itself
     // python3: 2.0 + 1.1*0.7**(1.0/3.0)*1000**0.6 = 63.6252506202
-    approx::assert_relative_eq!(
-        nusselt_corrected,
-        63.6252506202,
-        max_relative = 1e-9
-    );
+    approx::assert_relative_eq!(nusselt_corrected, 63.6252506202, max_relative = 1e-9);
 
     // the pre-2026-08-11 (WRONG) form, recomputed here only as a reference
     // python3: 2.0 + 1.1*1000**0.3333333333*0.7**0.6 = 10.8807881279
-    let nusselt_old_transposed: f64 = 2.0
-        + 1.1 * reynolds_value.powf(0.3333333333)
-        * prandtl_value.powf(0.6);
+    let nusselt_old_transposed: f64 =
+        2.0 + 1.1 * reynolds_value.powf(0.3333333333) * prandtl_value.powf(0.6);
 
-    approx::assert_relative_eq!(
-        nusselt_old_transposed,
-        10.8807881279,
-        max_relative = 1e-9
-    );
+    approx::assert_relative_eq!(nusselt_old_transposed, 10.8807881279, max_relative = 1e-9);
 
     // (b) the divergence ratio -- collapses to 1.0 if the exponents
     // are ever transposed again
@@ -728,5 +659,4 @@ pub fn wakao_correlation_transposed_exponent_regression_guard(){
         5.8474854829,
         max_relative = 1e-9
     );
-
 }

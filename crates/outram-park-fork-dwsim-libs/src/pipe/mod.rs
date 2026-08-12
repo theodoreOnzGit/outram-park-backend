@@ -16,9 +16,7 @@ pub mod transient;
 use beggs_brill::{beggs_brill_pressure_drop, BeggsBrillResult};
 use lockhart_martinelli::{lockhart_martinelli_pressure_drop, LockhartMartinelliResult};
 use uom::si::angle::radian;
-use uom::si::f64::{
-    Angle, DynamicViscosity, Length, MassDensity, Pressure, SurfaceTension, VolumeRate,
-};
+use uom::si::f64::{Angle, DynamicViscosity, Length, MassDensity, Pressure, SurfaceTension, VolumeRate};
 
 /// Shared inputs for a two-phase pipe pressure-drop evaluation, common to
 /// every [`PipeFlowCorrelation`] variant.

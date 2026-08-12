@@ -295,8 +295,13 @@ mod tests {
             FissionYields::empty(),
         )
         .unwrap();
-        sys.add_nuclide(c_nuc, DecayData::stable(), ReactionRates::none(), FissionYields::empty())
-            .unwrap();
+        sys.add_nuclide(
+            c_nuc,
+            DecayData::stable(),
+            ReactionRates::none(),
+            FissionYields::empty(),
+        )
+        .unwrap();
 
         let m = sys.build_matrix();
         // Diagonal losses.
@@ -327,8 +332,13 @@ mod tests {
             FissionYields::empty(),
         )
         .unwrap();
-        sys.add_nuclide(b_nuc, DecayData::stable(), ReactionRates::none(), FissionYields::empty())
-            .unwrap();
+        sys.add_nuclide(
+            b_nuc,
+            DecayData::stable(),
+            ReactionRates::none(),
+            FissionYields::empty(),
+        )
+        .unwrap();
         let m = sys.build_matrix();
         assert!((m.get(0, 0) - -1e-8).abs() < 1e-24);
         assert!((m.get(1, 0) - 1e-8).abs() < 1e-24);

@@ -60,7 +60,9 @@ impl CoherentElastic {
     /// # Errors
     /// [`NjoyError::TemperatureOutOfRange`] outside the tabulated range.
     pub fn resolved_temperature_k(&self, temp_k: f64) -> Result<f64, NjoyError> {
-        Ok(self.select(temp_k)?.resolved_temperature_k(&self.temperatures_k))
+        Ok(self
+            .select(temp_k)?
+            .resolved_temperature_k(&self.temperatures_k))
     }
 
     /// Cumulative structure factor `S(E_i)` \[eV·b\] at one Bragg-edge index for
@@ -68,7 +70,12 @@ impl CoherentElastic {
     fn s_at_index(&self, i: usize, sel: &TemperatureSelection) -> f64 {
         match *sel {
             TemperatureSelection::Tabulated(j) => self.s_tables[j][i],
-            TemperatureSelection::Interpolated { lo, hi, li, target_k } => interp_s_temperature(
+            TemperatureSelection::Interpolated {
+                lo,
+                hi,
+                li,
+                target_k,
+            } => interp_s_temperature(
                 self.temperatures_k[lo],
                 self.s_tables[lo][i],
                 self.temperatures_k[hi],
@@ -132,11 +139,7 @@ impl CoherentElastic {
     ///
     /// # Errors
     /// [`NjoyError::TemperatureOutOfRange`] outside the tabulated range.
-    pub fn bragg_reflections(
-        &self,
-        e_ev: f64,
-        temp_k: f64,
-    ) -> Result<Vec<(f64, f64)>, NjoyError> {
+    pub fn bragg_reflections(&self, e_ev: f64, temp_k: f64) -> Result<Vec<(f64, f64)>, NjoyError> {
         let sel = self.select(temp_k)?;
         let mut out = Vec::new();
         let mut prev_s = 0.0;
@@ -176,7 +179,10 @@ mod tests {
             0.0,
             "no coherent σ below edge 1"
         );
-        assert!(ce.cross_section(first_edge * 1.001, t0).unwrap() > 0.0, "σ turns on at edge 1");
+        assert!(
+            ce.cross_section(first_edge * 1.001, t0).unwrap() > 0.0,
+            "σ turns on at edge 1"
+        );
     }
 
     #[test]
@@ -194,8 +200,7 @@ mod tests {
         // Within a single Bragg interval σ falls as 1/E (S constant), so σ·E is flat.
         let (e1, e2) = (top_edge * 1.1, top_edge * 1.4);
         assert!(
-            (ce.cross_section(e1, t0).unwrap() * e1 - ce.cross_section(e2, t0).unwrap() * e2)
-                .abs()
+            (ce.cross_section(e1, t0).unwrap() * e1 - ce.cross_section(e2, t0).unwrap() * e2).abs()
                 < 1e-6 * top_s,
             "S constant between edges ⇒ σ ∝ 1/E"
         );
@@ -210,7 +215,10 @@ mod tests {
         let refl = ce.bragg_reflections(e, t0).unwrap();
         assert!(refl.len() > 5, "many active Bragg edges above the top");
         // Every cosine in [-1, 1]; weights non-negative and summing to S(E).
-        assert!(refl.iter().all(|&(mu, _)| (-1.0..=1.0).contains(&mu)), "μ ∈ [-1,1]");
+        assert!(
+            refl.iter().all(|&(mu, _)| (-1.0..=1.0).contains(&mu)),
+            "μ ∈ [-1,1]"
+        );
         assert!(refl.iter().all(|&(_, w)| w >= -1e-12), "weights ≥ 0");
         let sum_w: f64 = refl.iter().map(|&(_, w)| w).sum();
         assert!(
@@ -227,7 +235,10 @@ mod tests {
     #[test]
     fn cross_section_decreases_with_temperature() {
         let ce = al27_coherent();
-        assert!(ce.temperatures_k.len() > 1, "fixture must tabulate several T");
+        assert!(
+            ce.temperatures_k.len() > 1,
+            "fixture must tabulate several T"
+        );
         let e = *ce.bragg_energies_ev.last().unwrap() * 1.5;
         let sigmas: Vec<f64> = ce
             .temperatures_k

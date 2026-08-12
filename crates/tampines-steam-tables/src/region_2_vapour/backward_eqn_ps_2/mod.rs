@@ -15,14 +15,13 @@ pub mod subregion_2c;
 /// correlations by the 4 MPa (2a|2b) and 5.85 kJ/(kg·K) (2b|2c) boundaries.
 #[inline]
 pub fn t_ps_2(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemperature {
-
     let p_boundary_2a2b = Pressure::new::<megapascal>(4.0);
     let s_boundary_2b2c = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(5.85);
 
     if p <= p_boundary_2a2b {
         return t_ps_2a(p, s);
     };
-    
+
     if s >= s_boundary_2b2c {
         return t_ps_2b(p, s);
     } else {

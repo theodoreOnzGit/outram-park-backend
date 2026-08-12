@@ -363,7 +363,13 @@ pub fn to_polymesh_text(mesh: &Mesh) -> PolyMeshText {
     boundary.push_str("        startFace       0;\n");
     boundary.push_str("    }\n)\n");
 
-    PolyMeshText { points, faces, owner, neighbour, boundary }
+    PolyMeshText {
+        points,
+        faces,
+        owner,
+        neighbour,
+        boundary,
+    }
 }
 
 /// Write the five [`PolyMeshText`] files into `dir/`, creating `dir` if needed.
@@ -700,16 +706,34 @@ fn try_fit_box(mesh: &Mesh) -> Option<CsgDescription> {
         CsgSurface::ZPlane { z0: zmax }, // 5
     ];
     let region = vec![
-        RegionToken::Halfspace { surface: 0, sense: Sense::Positive },
-        RegionToken::Halfspace { surface: 1, sense: Sense::Negative },
+        RegionToken::Halfspace {
+            surface: 0,
+            sense: Sense::Positive,
+        },
+        RegionToken::Halfspace {
+            surface: 1,
+            sense: Sense::Negative,
+        },
         RegionToken::Intersection,
-        RegionToken::Halfspace { surface: 2, sense: Sense::Positive },
+        RegionToken::Halfspace {
+            surface: 2,
+            sense: Sense::Positive,
+        },
         RegionToken::Intersection,
-        RegionToken::Halfspace { surface: 3, sense: Sense::Negative },
+        RegionToken::Halfspace {
+            surface: 3,
+            sense: Sense::Negative,
+        },
         RegionToken::Intersection,
-        RegionToken::Halfspace { surface: 4, sense: Sense::Positive },
+        RegionToken::Halfspace {
+            surface: 4,
+            sense: Sense::Positive,
+        },
         RegionToken::Intersection,
-        RegionToken::Halfspace { surface: 5, sense: Sense::Negative },
+        RegionToken::Halfspace {
+            surface: 5,
+            sense: Sense::Negative,
+        },
         RegionToken::Intersection,
     ];
     Some(CsgDescription { surfaces, region })
@@ -769,7 +793,10 @@ fn try_fit_sphere(mesh: &Mesh) -> Option<CsgDescription> {
         r,
     }];
     // Region = interior of the sphere (the Negative half-space).
-    let region = vec![RegionToken::Halfspace { surface: 0, sense: Sense::Negative }];
+    let region = vec![RegionToken::Halfspace {
+        surface: 0,
+        sense: Sense::Negative,
+    }];
     Some(CsgDescription { surfaces, region })
 }
 
@@ -844,10 +871,19 @@ fn try_fit_cylinder(mesh: &Mesh) -> Option<CsgDescription> {
         CsgSurface::ZPlane { z0: zmax },     // 2
     ];
     let region = vec![
-        RegionToken::Halfspace { surface: 0, sense: Sense::Negative },
-        RegionToken::Halfspace { surface: 1, sense: Sense::Positive },
+        RegionToken::Halfspace {
+            surface: 0,
+            sense: Sense::Negative,
+        },
+        RegionToken::Halfspace {
+            surface: 1,
+            sense: Sense::Positive,
+        },
         RegionToken::Intersection,
-        RegionToken::Halfspace { surface: 2, sense: Sense::Negative },
+        RegionToken::Halfspace {
+            surface: 2,
+            sense: Sense::Negative,
+        },
         RegionToken::Intersection,
     ];
     Some(CsgDescription { surfaces, region })
@@ -897,11 +933,26 @@ fn try_fit_convex_faceted(mesh: &Mesh) -> Option<CsgDescription> {
             }
         }
         // De-duplicate coincident planes (same normal and offset within tol).
-        let plane = CsgSurface::Plane { a: n.x, b: n.y, c: n.z, d };
+        let plane = CsgSurface::Plane {
+            a: n.x,
+            b: n.y,
+            c: n.z,
+            d,
+        };
         let dup = surfaces.iter().any(|s| match (*s, plane) {
             (
-                CsgSurface::Plane { a: a1, b: b1, c: c1, d: d1 },
-                CsgSurface::Plane { a: a2, b: b2, c: c2, d: d2 },
+                CsgSurface::Plane {
+                    a: a1,
+                    b: b1,
+                    c: c1,
+                    d: d1,
+                },
+                CsgSurface::Plane {
+                    a: a2,
+                    b: b2,
+                    c: c2,
+                    d: d2,
+                },
             ) => {
                 (a1 - a2).abs() < 1e-9
                     && (b1 - b2).abs() < 1e-9
@@ -920,9 +971,15 @@ fn try_fit_convex_faceted(mesh: &Mesh) -> Option<CsgDescription> {
     }
 
     // Region = intersection of every inward (Negative) half-space.
-    let mut region = vec![RegionToken::Halfspace { surface: 0, sense: Sense::Negative }];
+    let mut region = vec![RegionToken::Halfspace {
+        surface: 0,
+        sense: Sense::Negative,
+    }];
     for k in 1..surfaces.len() {
-        region.push(RegionToken::Halfspace { surface: k, sense: Sense::Negative });
+        region.push(RegionToken::Halfspace {
+            surface: k,
+            sense: Sense::Negative,
+        });
         region.push(RegionToken::Intersection);
     }
     Some(CsgDescription { surfaces, region })
@@ -1016,8 +1073,7 @@ impl FacetedSolid {
         }
 
         // Each directed edge must be traversed exactly once...
-        let mut half: HashMap<(u32, u32), usize> =
-            HashMap::with_capacity(3 * self.triangles.len());
+        let mut half: HashMap<(u32, u32), usize> = HashMap::with_capacity(3 * self.triangles.len());
         for (ti, t) in self.triangles.iter().enumerate() {
             for k in 0..3 {
                 let (a, b) = (t[k], t[(k + 1) % 3]);
@@ -1067,8 +1123,7 @@ impl FacetedSolid {
                 continue;
             }
             let numerator = ra.dot(rb.cross(rc));
-            let denominator =
-                la * lb * lc + ra.dot(rb) * lc + rb.dot(rc) * la + rc.dot(ra) * lb;
+            let denominator = la * lb * lc + ra.dot(rb) * lc + rb.dot(rc) * la + rc.dot(ra) * lb;
             solid_angle += 2.0 * numerator.atan2(denominator);
         }
         (solid_angle / (4.0 * std::f64::consts::PI)).abs() > 0.5
@@ -1122,7 +1177,10 @@ pub fn to_faceted_solid(mesh: &Mesh) -> FacetedSolid {
         }
     }
 
-    FacetedSolid { positions, triangles }
+    FacetedSolid {
+        positions,
+        triangles,
+    }
 }
 
 /// [`to_faceted_solid`], but **rejects** a surface on which the solid's
@@ -1198,11 +1256,20 @@ pub fn to_poly_mesh(mesh: &Mesh) -> outram_foam_basic_lib::io::poly_mesh::PolyMe
     for f in 0..mesh.face_count() {
         let verts: Vec<usize> = mesh.face_vertices(FaceId(f)).iter().map(|v| v.0).collect();
         // Boundary face: owned by the dummy cell 0, no neighbour cell.
-        faces.push(MeshFace { verts, owner: 0, neighbour: None });
+        faces.push(MeshFace {
+            verts,
+            owner: 0,
+            neighbour: None,
+        });
     }
 
     let n_faces = faces.len();
-    let patches = vec![BoundaryPatch::new("authoredSurface", 0, n_faces, PatchKind::Patch)];
+    let patches = vec![BoundaryPatch::new(
+        "authoredSurface",
+        0,
+        n_faces,
+        PatchKind::Patch,
+    )];
 
     PolyMesh {
         points,
@@ -1347,7 +1414,10 @@ pub fn to_mc_geometry(mesh: &Mesh) -> Result<outram_mc_libs::prelude::Geometry, 
     Ok(Geometry {
         surfaces,
         cells: vec![cell],
-        universes: vec![Universe { id: 0, cell_indices: vec![0] }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0],
+        }],
         lattices: vec![],
         root_universe: 0,
     })
@@ -1448,7 +1518,10 @@ mod tests {
     fn faceted_contains_is_sharp_on_a_closed_solid() {
         let solid = to_faceted_solid_checked(&primitives::cube(2.0)).expect("cube is closed");
         assert!(solid.contains(Vec3::ZERO), "origin is inside the cube");
-        assert!(!solid.contains(Vec3::new(5.0, 5.0, 5.0)), "far point is outside");
+        assert!(
+            !solid.contains(Vec3::new(5.0, 5.0, 5.0)),
+            "far point is outside"
+        );
     }
 
     #[test]
@@ -1458,7 +1531,10 @@ mod tests {
         assert_eq!(tris.positions.len(), 8);
         assert_eq!(tris.triangle_count(), 12);
         // Every index is in range.
-        assert!(tris.indices.iter().all(|&i| (i as usize) < tris.positions.len()));
+        assert!(tris
+            .indices
+            .iter()
+            .all(|&i| (i as usize) < tris.positions.len()));
     }
 
     /// polyMesh export round-trip.
@@ -1557,8 +1633,7 @@ mod tests {
     /// is outside.
     #[test]
     fn csg_fit_sphere() {
-        let desc =
-            to_csg_primitive(&primitives::uv_sphere(16, 8, 3.0)).expect("sphere must fit");
+        let desc = to_csg_primitive(&primitives::uv_sphere(16, 8, 3.0)).expect("sphere must fit");
 
         assert_eq!(desc.surfaces.len(), 1, "a sphere is one surface");
         match desc.surfaces[0] {
@@ -1570,7 +1645,10 @@ mod tests {
         }
         assert_eq!(
             desc.region,
-            vec![RegionToken::Halfspace { surface: 0, sense: Sense::Negative }]
+            vec![RegionToken::Halfspace {
+                surface: 0,
+                sense: Sense::Negative
+            }]
         );
 
         assert!(desc.contains(Vec3::ZERO), "centre is inside the sphere");
@@ -1611,12 +1689,20 @@ mod tests {
     /// `(1.5,0,0)` outside.
     #[test]
     fn csg_fit_cylinder() {
-        let desc = to_csg_primitive(&primitives::cylinder(16, 1.0, 2.0)).expect("cylinder must fit");
-        assert_eq!(desc.surfaces.len(), 3, "cylinder = 1 ZCylinder + 2 cap planes");
+        let desc =
+            to_csg_primitive(&primitives::cylinder(16, 1.0, 2.0)).expect("cylinder must fit");
+        assert_eq!(
+            desc.surfaces.len(),
+            3,
+            "cylinder = 1 ZCylinder + 2 cap planes"
+        );
 
         match desc.surfaces[0] {
             CsgSurface::ZCylinder { x0, y0, r } => {
-                assert!(x0.abs() < 1e-9 && y0.abs() < 1e-9, "axis off origin: ({x0},{y0})");
+                assert!(
+                    x0.abs() < 1e-9 && y0.abs() < 1e-9,
+                    "axis off origin: ({x0},{y0})"
+                );
                 assert!((r - 1.0).abs() < 1e-9, "fitted radius {r} != 1.0");
             }
             other => panic!("surface 0 must be a ZCylinder, got {other:?}"),
@@ -1624,9 +1710,18 @@ mod tests {
         assert!(matches!(desc.surfaces[1], CsgSurface::ZPlane { z0 } if (z0 + 1.0).abs() < 1e-9));
         assert!(matches!(desc.surfaces[2], CsgSurface::ZPlane { z0 } if (z0 - 1.0).abs() < 1e-9));
 
-        assert!(desc.contains(Vec3::ZERO), "axis centre is inside the cylinder");
-        assert!(!desc.contains(Vec3::new(0.0, 0.0, 1.5)), "point above the top cap is outside");
-        assert!(!desc.contains(Vec3::new(1.5, 0.0, 0.0)), "point beyond the radius is outside");
+        assert!(
+            desc.contains(Vec3::ZERO),
+            "axis centre is inside the cylinder"
+        );
+        assert!(
+            !desc.contains(Vec3::new(0.0, 0.0, 1.5)),
+            "point above the top cap is outside"
+        );
+        assert!(
+            !desc.contains(Vec3::new(1.5, 0.0, 0.0)),
+            "point beyond the radius is outside"
+        );
     }
 
     /// A **stretched** octahedron (six vertices at `+-1` on x/y but `+-2` on z,
@@ -1654,19 +1749,30 @@ mod tests {
         ];
         // Eight outward-wound triangular faces (top apex +Z, bottom apex -Z).
         let faces = vec![
-            vec![0, 2, 4], vec![2, 1, 4], vec![1, 3, 4], vec![3, 0, 4],
-            vec![2, 0, 5], vec![1, 2, 5], vec![3, 1, 5], vec![0, 3, 5],
+            vec![0, 2, 4],
+            vec![2, 1, 4],
+            vec![1, 3, 4],
+            vec![3, 0, 4],
+            vec![2, 0, 5],
+            vec![1, 2, 5],
+            vec![3, 1, 5],
+            vec![0, 3, 5],
         ];
         let octa = Mesh::from_polygons(&positions, &faces);
 
         let desc = to_csg_primitive(&octa).expect("convex octahedron must fit");
         assert_eq!(desc.surfaces.len(), 8, "octahedron = eight face planes");
         assert!(
-            desc.surfaces.iter().all(|s| matches!(s, CsgSurface::Plane { .. })),
+            desc.surfaces
+                .iter()
+                .all(|s| matches!(s, CsgSurface::Plane { .. })),
             "faceted convex fit must emit general planes"
         );
         assert!(desc.contains(Vec3::ZERO), "origin is inside the octahedron");
-        assert!(!desc.contains(Vec3::new(2.0, 2.0, 2.0)), "|x|+|y|+|z|/2 = 5 is outside");
+        assert!(
+            !desc.contains(Vec3::new(2.0, 2.0, 2.0)),
+            "|x|+|y|+|z|/2 = 5 is outside"
+        );
         assert!(desc.contains(Vec3::new(0.2, 0.2, 0.2)), "0.5 < 1 is inside");
     }
 
@@ -1687,7 +1793,14 @@ mod tests {
     #[test]
     fn faceted_solid_handles_nonconvex_l_prism() {
         // L cross-section (concave at the reentrant corner (1,1)).
-        let xy = [(0.0, 0.0), (2.0, 0.0), (2.0, 1.0), (1.0, 1.0), (1.0, 2.0), (0.0, 2.0)];
+        let xy = [
+            (0.0, 0.0),
+            (2.0, 0.0),
+            (2.0, 1.0),
+            (1.0, 1.0),
+            (1.0, 2.0),
+            (0.0, 2.0),
+        ];
         let mut positions: Vec<Vec3> = Vec::new();
         for &(x, y) in &xy {
             positions.push(Vec3::new(x, y, 0.0));
@@ -1706,12 +1819,18 @@ mod tests {
         let l_prism = Mesh::from_polygons(&positions, &faces);
 
         // Not any fitted primitive, and not convex.
-        assert!(matches!(to_csg_primitive(&l_prism), Err(ExportError::NotImplemented(_))));
+        assert!(matches!(
+            to_csg_primitive(&l_prism),
+            Err(ExportError::NotImplemented(_))
+        ));
 
         let solid = to_faceted_solid(&l_prism);
         // Two hexagon caps fan to 4 triangles each + six quad sides to 2 each = 20.
         assert_eq!(solid.triangle_count(), 2 * (n - 2) + 2 * n);
-        assert!(solid.contains(Vec3::new(0.5, 0.5, 0.5)), "solid interior point must be inside");
+        assert!(
+            solid.contains(Vec3::new(0.5, 0.5, 0.5)),
+            "solid interior point must be inside"
+        );
         assert!(
             !solid.contains(Vec3::new(1.5, 1.5, 0.5)),
             "reentrant-notch point (inside AABB, outside solid) must be outside"
@@ -1732,7 +1851,10 @@ mod tests {
         assert_eq!(poly.patches.len(), 1, "one boundary patch");
         assert_eq!(poly.patches[0].start, 0);
         assert_eq!(poly.patches[0].size, 6, "patch covers every face");
-        assert!(poly.faces.iter().all(|f| f.neighbour.is_none()), "all boundary faces");
+        assert!(
+            poly.faces.iter().all(|f| f.neighbour.is_none()),
+            "all boundary faces"
+        );
         // Real accessors agree.
         assert_eq!(poly.n_points(), 8);
         assert_eq!(poly.n_boundary_faces(), 6);
@@ -1808,7 +1930,10 @@ mod tests {
             "box surfaces must all be axis planes"
         );
         assert_eq!(geom.cells.len(), 1);
-        assert!(matches!(geom.cells[0].fill, CellFill::Void), "geometry-only cell is Void");
+        assert!(
+            matches!(geom.cells[0].fill, CellFill::Void),
+            "geometry-only cell is Void"
+        );
         let halfspaces = geom.cells[0]
             .region
             .iter()
@@ -1842,11 +1967,20 @@ mod tests {
             Vec3::new(0.0, 0.0, -2.0),
         ];
         let faces = vec![
-            vec![0, 2, 4], vec![2, 1, 4], vec![1, 3, 4], vec![3, 0, 4],
-            vec![2, 0, 5], vec![1, 2, 5], vec![3, 1, 5], vec![0, 3, 5],
+            vec![0, 2, 4],
+            vec![2, 1, 4],
+            vec![1, 3, 4],
+            vec![3, 0, 4],
+            vec![2, 0, 5],
+            vec![1, 2, 5],
+            vec![3, 1, 5],
+            vec![0, 3, 5],
         ];
         let octa = Mesh::from_polygons(&positions, &faces);
-        assert!(matches!(to_mc_geometry(&octa), Err(ExportError::NotImplemented(_))));
+        assert!(matches!(
+            to_mc_geometry(&octa),
+            Err(ExportError::NotImplemented(_))
+        ));
     }
 
     /// [`to_faceted_solid`] orients outward regardless of the input winding, so
@@ -1867,7 +2001,11 @@ mod tests {
             );
             vol6 += a.dot(b.cross(c));
         }
-        assert!((vol6 / 6.0 - 8.0).abs() < 1e-9, "faceted cube volume {} != 8", vol6 / 6.0);
+        assert!(
+            (vol6 / 6.0 - 8.0).abs() < 1e-9,
+            "faceted cube volume {} != 8",
+            vol6 / 6.0
+        );
         assert!(solid.contains(Vec3::ZERO));
         assert!(!solid.contains(Vec3::new(5.0, 0.0, 0.0)));
     }

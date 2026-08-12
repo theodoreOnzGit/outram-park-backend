@@ -97,9 +97,18 @@ fn heu_fuel() -> Material {
         name: "Godiva HEU".into(),
         temperature: 293.6,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     }
 }
@@ -119,29 +128,64 @@ fn nuclides() -> Vec<Nuclide> {
 /// (material 0), cell 1 = moderator (material 1).
 fn pincell_geometry(r_fuel: f64, half: f64) -> Geometry {
     let surfaces = vec![
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: r_fuel, bc: BoundaryType::Transmissive }),
-        SurfaceKind::XPlane(XPlane { x0: -half, bc: BoundaryType::Reflective }),
-        SurfaceKind::XPlane(XPlane { x0: half, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: -half, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: half, bc: BoundaryType::Reflective }),
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: r_fuel,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: -half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: -half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: half,
+            bc: BoundaryType::Reflective,
+        }),
     ];
     let fuel = Cell::material(
         1,
-        vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }],
+        vec![RegionToken::HalfSpace {
+            surface_idx: 0,
+            sense: HalfSpaceSense::Inside,
+        }],
         0,
         293.6,
     );
     let moder = Cell::material(
         2,
         vec![
-            RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside },
-            RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Outside },
+            RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Outside,
+            },
+            RegionToken::HalfSpace {
+                surface_idx: 1,
+                sense: HalfSpaceSense::Outside,
+            },
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Inside },
+            RegionToken::HalfSpace {
+                surface_idx: 2,
+                sense: HalfSpaceSense::Inside,
+            },
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 3, sense: HalfSpaceSense::Outside },
+            RegionToken::HalfSpace {
+                surface_idx: 3,
+                sense: HalfSpaceSense::Outside,
+            },
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 4, sense: HalfSpaceSense::Inside },
+            RegionToken::HalfSpace {
+                surface_idx: 4,
+                sense: HalfSpaceSense::Inside,
+            },
             RegionToken::Intersection,
         ],
         1,
@@ -150,7 +194,10 @@ fn pincell_geometry(r_fuel: f64, half: f64) -> Geometry {
     Geometry {
         surfaces,
         cells: vec![fuel, moder],
-        universes: vec![Universe { id: 0, cell_indices: vec![0, 1] }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0, 1],
+        }],
         lattices: vec![],
         root_universe: 0,
     }
@@ -184,7 +231,10 @@ fn tally_power_normalization() {
         id: 2,
         name: "H moderator".into(),
         temperature: 293.6,
-        components: vec![NuclideComponent { nuclide_idx: 3, atom_density: 6.6e-2 }],
+        components: vec![NuclideComponent {
+            nuclide_idx: 3,
+            atom_density: 6.6e-2,
+        }],
     };
     let materials = vec![fuel, moderator];
 
@@ -194,7 +244,9 @@ fn tally_power_normalization() {
 
     // Single-cell CellFilter on the fuel (cell index 0), scoring flux + fission +
     // kappa-fission via the track-length estimator.
-    let filter = CellFilter { cell_indices: vec![0] };
+    let filter = CellFilter {
+        cell_indices: vec![0],
+    };
     let mut tally = Tally {
         id: 1,
         name: "fuel power".into(),
@@ -203,14 +255,26 @@ fn tally_power_normalization() {
         bins: vec![TallyBin::default(); 3],
     };
 
-    let settings = KeffSettings { n_particles: 500, n_inactive: 20, n_active: 30, ..KeffSettings::default() };
+    let settings = KeffSettings {
+        n_particles: 500,
+        n_inactive: 20,
+        n_active: 30,
+        ..KeffSettings::default()
+    };
     let src = SourceBox {
         lower: Position::new(-r_fuel, -r_fuel, -1.0),
         upper: Position::new(r_fuel, r_fuel, 1.0),
     };
 
     let t0 = std::time::Instant::now();
-    let result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, Some(&mut tally));
+    let result = run_keff_csg(
+        &geom,
+        &materials,
+        &nuclides,
+        src,
+        &settings,
+        Some(&mut tally),
+    );
     let dt = t0.elapsed();
 
     let n_active = settings.n_active as u64;
@@ -234,16 +298,43 @@ fn tally_power_normalization() {
          fission_mean = {:.4e} ± {:.2e}  kappa_mean = {:.4e} J ± {:.2e}  |  \
          Q = {:.4e} J  norm_factor f = {:.4e}  recovered_power = {:.6} W (target {:.1})  \
          normalized_flux = {:.4e}  (npart={}, {}+{} gen, {:.1?})",
-        result.k_mean, result.k_std, flux_mean, flux_sd, fission_mean, fission_sd,
-        kappa_mean, kappa_sd, Q_FISSION_J, norm_factor, recovered_power, TARGET_POWER_W,
-        normalized_flux, settings.n_particles, settings.n_inactive, settings.n_active, dt
+        result.k_mean,
+        result.k_std,
+        flux_mean,
+        flux_sd,
+        fission_mean,
+        fission_sd,
+        kappa_mean,
+        kappa_sd,
+        Q_FISSION_J,
+        norm_factor,
+        recovered_power,
+        TARGET_POWER_W,
+        normalized_flux,
+        settings.n_particles,
+        settings.n_inactive,
+        settings.n_active,
+        dt
     );
 
     // ── Assertions ──────────────────────────────────────────────────────────────
-    assert!(result.k_mean.is_finite() && result.k_mean > 0.0, "k_inf not finite/positive: {}", result.k_mean);
-    assert!(flux_mean.is_finite() && flux_mean > 0.0, "fuel flux must be positive/finite, got {flux_mean}");
-    assert!(fission_mean.is_finite() && fission_mean > 0.0, "fission rate must be positive/finite, got {fission_mean}");
-    assert!(kappa_mean.is_finite() && kappa_mean > 0.0, "kappa-fission energy must be positive/finite, got {kappa_mean}");
+    assert!(
+        result.k_mean.is_finite() && result.k_mean > 0.0,
+        "k_inf not finite/positive: {}",
+        result.k_mean
+    );
+    assert!(
+        flux_mean.is_finite() && flux_mean > 0.0,
+        "fuel flux must be positive/finite, got {flux_mean}"
+    );
+    assert!(
+        fission_mean.is_finite() && fission_mean > 0.0,
+        "fission rate must be positive/finite, got {fission_mean}"
+    );
+    assert!(
+        kappa_mean.is_finite() && kappa_mean > 0.0,
+        "kappa-fission energy must be positive/finite, got {kappa_mean}"
+    );
 
     // Analytic identity: KappaFission == Q · Fission per generation ⇒ per mean.
     let rel_id = (kappa_mean - Q_FISSION_J * fission_mean).abs() / (Q_FISSION_J * fission_mean);
@@ -254,10 +345,16 @@ fn tally_power_normalization() {
     );
 
     // Power round-trip recovers the target to tight tolerance.
-    assert!(norm_factor.is_finite() && norm_factor > 0.0, "normalization factor not finite/positive: {norm_factor}");
+    assert!(
+        norm_factor.is_finite() && norm_factor > 0.0,
+        "normalization factor not finite/positive: {norm_factor}"
+    );
     let rel_power = (recovered_power - TARGET_POWER_W).abs() / TARGET_POWER_W;
     assert!(rel_power < 1e-9, "power round-trip failed: recovered {recovered_power} vs target {TARGET_POWER_W} (rel {rel_power})");
-    assert!(normalized_flux.is_finite() && normalized_flux > 0.0, "normalized flux must be positive/finite, got {normalized_flux}");
+    assert!(
+        normalized_flux.is_finite() && normalized_flux > 0.0,
+        "normalized flux must be positive/finite, got {normalized_flux}"
+    );
 
     write_csv(&[
         format!(

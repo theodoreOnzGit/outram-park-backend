@@ -198,9 +198,18 @@ mod tests {
     /// would otherwise be a domain error.
     #[test]
     fn flat_segment_returns_y1_for_all_laws() {
-        for law in [IntLaw::Histogram, IntLaw::LinLin, IntLaw::LinLog, IntLaw::LogLin, IntLaw::LogLog] {
+        for law in [
+            IntLaw::Histogram,
+            IntLaw::LinLin,
+            IntLaw::LinLog,
+            IntLaw::LogLin,
+            IntLaw::LogLog,
+        ] {
             let y = terp1(1.0, 0.0, 2.0, 0.0, 1.5, law).unwrap();
-            assert_eq!(y, 0.0, "flat zero segment must interpolate to zero ({law:?})");
+            assert_eq!(
+                y, 0.0,
+                "flat zero segment must interpolate to zero ({law:?})"
+            );
         }
     }
 }

@@ -264,7 +264,12 @@ impl GroupIntegral {
 ///
 /// # Panics
 /// Debug-asserts `e_lo < e_hi` (a group needs positive width).
-pub fn group_integral(sigma: &PointwiseXs, flux: &GroupFlux, e_lo: f64, e_hi: f64) -> GroupIntegral {
+pub fn group_integral(
+    sigma: &PointwiseXs,
+    flux: &GroupFlux,
+    e_lo: f64,
+    e_hi: f64,
+) -> GroupIntegral {
     debug_assert!(e_lo < e_hi, "group needs e_lo ({e_lo}) < e_hi ({e_hi})");
     let mut num = 0.0_f64; // ∫ sigma*phi
     let mut den = 0.0_f64; // ∫ phi
@@ -458,12 +463,7 @@ mod tests {
     /// **Result (2026-07-15).** average ≈ 4.16 barn, inside [1.0, 9.0].
     #[test]
     fn average_is_bounded_by_xs_extremes() {
-        let pairs = Arc::new(vec![
-            (1.0e3, 1.0),
-            (5.0e3, 9.0),
-            (2.0e4, 2.0),
-            (1.0e5, 4.0),
-        ]);
+        let pairs = Arc::new(vec![(1.0e3, 1.0), (5.0e3, 9.0), (2.0e4, 2.0), (1.0e5, 4.0)]);
         let sigma = PointwiseXs::LinLin(pairs);
         let flux = GroupFlux::analytic(AnalyticWeight::OneOverE, 293.6);
         let g = group_integral(&sigma, &flux, 1.0e3, 1.0e5).average();
@@ -521,7 +521,10 @@ mod tests {
         };
         let a_coarse = group_integral(&sigma, &coarse, 1.0e4, 1.0e6).average();
         let a_fine = group_integral(&sigma, &fine, 1.0e4, 1.0e6).average();
-        assert!((a_fine - exact).abs() < 1e-4, "fine {a_fine} vs exact {exact}");
+        assert!(
+            (a_fine - exact).abs() < 1e-4,
+            "fine {a_fine} vs exact {exact}"
+        );
         assert!(
             (a_fine - exact).abs() <= (a_coarse - exact).abs() + 1e-12,
             "refinement should not worsen: fine {a_fine}, coarse {a_coarse}"

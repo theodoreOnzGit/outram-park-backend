@@ -1,7 +1,7 @@
 use egui::Color32;
 
-/// steam quality colour from 0 to 1 
-/// blue is zero 
+/// steam quality colour from 0 to 1
+/// blue is zero
 /// white is 1
 pub fn steam_quality_colour_mark_1(steam_quality: f32) -> Color32 {
     let mut steam_quality_clone = steam_quality.clone();
@@ -17,9 +17,5 @@ pub fn steam_quality_colour_mark_1(steam_quality: f32) -> Color32 {
     let green: f32 = 255.0 * steam_quality_clone;
     let blue: f32 = 255.0;
 
-    return Color32::from_rgb(
-        red as u8, 
-        green as u8, 
-        blue as u8);
+    return Color32::from_rgb(red as u8, green as u8, blue as u8);
 }
-

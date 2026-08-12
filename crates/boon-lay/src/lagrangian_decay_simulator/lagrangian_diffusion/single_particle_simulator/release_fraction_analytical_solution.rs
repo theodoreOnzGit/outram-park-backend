@@ -153,8 +153,10 @@ mod verification {
     use uom::si::time::hour;
     use uom::ConstZero;
 
-    use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::calculate_analytical_fraction_released;
-    use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::{try_get_diffusion_coeff_jiang, TrisoPebbleLayerMaterial};
+        use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::calculate_analytical_fraction_released;
+    use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::{
+        try_get_diffusion_coeff_jiang, TrisoPebbleLayerMaterial,
+    };
 
     #[test]
     // Verification test 1a: Cs release from UO2 kernel at 1200C

@@ -5,7 +5,9 @@ use crate::app::thermal_hydraulics_backend::secondary_loop::steam_generator_duty
 };
 use tampines_steam_tables::interfaces::functional_programming::ph_flash_eqm::x_ph_flash;
 use tampines_steam_tables::interfaces::functional_programming::ps_flash_eqm::x_ps_flash;
-use tampines_steam_tables::interfaces::functional_programming::{ph_flash_eqm, ps_flash_eqm, pt_flash_eqm};
+use tampines_steam_tables::interfaces::functional_programming::{
+    ph_flash_eqm, ps_flash_eqm, pt_flash_eqm,
+};
 use tampines_steam_tables::prelude::functional_programming::ph_flash_eqm::v_ph_eqm;
 use tampines_steam_tables::region_4_vap_liq_equilibrium::sat_temp_4;
 use tampines_steam_tables::steam_turbine_equations::ThreePhaseElectricGeneratorTurbine;
@@ -79,15 +81,15 @@ pub(crate) fn build_steam_generator_tube() -> TampinesSteamArray {
         tube.p.internal[c] = p0.get::<pascal>();
     }
     tube.set_temperature_vector(vec![t0; n]).unwrap();
-    tube.set_uniform_velocity_field(
-        Velocity::new::<meter_per_second>(SG_TUBE_NOMINAL_VELOCITY_M_PER_S),
-    );
+    tube.set_uniform_velocity_field(Velocity::new::<meter_per_second>(
+        SG_TUBE_NOMINAL_VELOCITY_M_PER_S,
+    ));
     tube
 }
 
 impl FHRSimulatorApp {
-    /// contains info for calculating secondary loop for one 
-    /// timestep 
+    /// contains info for calculating secondary loop for one
+    /// timestep
     ///
     /// the key thing is the tube side temperature
     ///
@@ -109,26 +111,22 @@ impl FHRSimulatorApp {
         steam_generator_tube: &mut TampinesSteamArray,
     ) -> SecondaryLoopState {
         let heat_rate_to_steam_generator_tube =
-            -fhr_th_state.heat_added_to_steam_generator_shell_side
-            /timestep;
+            -fhr_th_state.heat_added_to_steam_generator_shell_side / timestep;
         // first start at the boundary condition
-        
+
         // this is condenser outlet
         // we start at 0.1 bar, 35 degrees C
         let condenser_outlet_pressure = Pressure::new::<bar>(0.1);
-        let condenser_outlet_temperature = 
-            ThermodynamicTemperature::new::<degree_celsius>(35.0);
-
+        let condenser_outlet_temperature = ThermodynamicTemperature::new::<degree_celsius>(35.0);
 
         // then calculate the entropy...
         //
-        let condenser_outlet_entropy: SpecificHeatCapacity
-            = pt_flash_eqm::s_tp_eqm_single_phase(
-                condenser_outlet_temperature,
-                condenser_outlet_pressure);
+        let condenser_outlet_entropy: SpecificHeatCapacity = pt_flash_eqm::s_tp_eqm_single_phase(
+            condenser_outlet_temperature,
+            condenser_outlet_pressure,
+        );
         let steam_quality_after_condenser =
-            x_ps_flash(condenser_outlet_pressure,
-                condenser_outlet_entropy);
+            x_ps_flash(condenser_outlet_pressure, condenser_outlet_entropy);
 
         // then condenser goes into pump... with new pressure
         // assume pump is isentropic... for simplicity
@@ -144,30 +142,25 @@ impl FHRSimulatorApp {
         let feedwater_inlet: FeedwaterInletState =
             feedwater_inlet_state(user_specified_pump_outlet_pressure);
 
-        let pump_outlet_temperature: ThermodynamicTemperature =
-            feedwater_inlet.temperature;
+        let pump_outlet_temperature: ThermodynamicTemperature = feedwater_inlet.temperature;
         let sg_inlet_pressure: Pressure = feedwater_inlet.pressure;
 
         // now the pump outlet temperature will form the
         // inlet of the steam generator
 
-        let steam_generator_tube_inlet_enthalpy: AvailableEnergy =
-            feedwater_inlet.enthalpy;
+        let steam_generator_tube_inlet_enthalpy: AvailableEnergy = feedwater_inlet.enthalpy;
 
-        let pressure_after_pump =
-            sg_inlet_pressure;
+        let pressure_after_pump = sg_inlet_pressure;
         let enthalpy_after_pump = steam_generator_tube_inlet_enthalpy;
 
-        let steam_quality_after_pump = 
-            x_ph_flash(pressure_after_pump, enthalpy_after_pump);
-
+        let steam_quality_after_pump = x_ph_flash(pressure_after_pump, enthalpy_after_pump);
 
         // now, if mass flowrate is less than some value, crash the
         // system because the steam generator is too hot
-        if *user_specified_secondary_loop_mass_flowrate <
-            MassRate::new::<kilogram_per_second>(0.1) {
-                println!("steam generator feedwater flowrate too low!");
-                panic!("mass flowrate <0.1 kg/s, unsafe operation");
+        if *user_specified_secondary_loop_mass_flowrate < MassRate::new::<kilogram_per_second>(0.1)
+        {
+            println!("steam generator feedwater flowrate too low!");
+            panic!("mass flowrate <0.1 kg/s, unsafe operation");
         }
 
         let sg_outlet_pressure = sg_inlet_pressure;
@@ -185,13 +178,12 @@ impl FHRSimulatorApp {
             // Feedwater inlet velocity from the mass flow and the aggregate
             // bundle area: v = mdot / (rho_feed · A). rho_feed from the pump-
             // outlet (T, p).
-            let feed_rho = pt_flash_eqm::v_tp_eqm_single_phase(
-                pump_outlet_temperature, sg_inlet_pressure,
-            ).recip();
-            let inlet_velocity: Velocity =
-                *user_specified_secondary_loop_mass_flowrate
-                    / feed_rho
-                    / Area::new::<square_meter>(SG_TUBE_AREA_M2);
+            let feed_rho =
+                pt_flash_eqm::v_tp_eqm_single_phase(pump_outlet_temperature, sg_inlet_pressure)
+                    .recip();
+            let inlet_velocity: Velocity = *user_specified_secondary_loop_mass_flowrate
+                / feed_rho
+                / Area::new::<square_meter>(SG_TUBE_AREA_M2);
 
             steam_generator_tube.set_inlet_velocity(inlet_velocity);
             steam_generator_tube.set_inlet_enthalpy(steam_generator_tube_inlet_enthalpy);
@@ -212,176 +204,143 @@ impl FHRSimulatorApp {
             }
         }
 
-        let steam_generator_tube_outlet_enthalpy =
-            steam_generator_tube.get_outlet_enthalpy();
+        let steam_generator_tube_outlet_enthalpy = steam_generator_tube.get_outlet_enthalpy();
         // this is to get saturation temperature in steam generator tubes
-        let sat_temperature_in_sg_tube_degc 
-            = sat_temp_4(sg_outlet_pressure).get::<degree_celsius>();
+        let sat_temperature_in_sg_tube_degc =
+            sat_temp_4(sg_outlet_pressure).get::<degree_celsius>();
 
-        let steam_gen_tube_outlet_temperature = 
-            ph_flash_eqm::t_ph_eqm(
-                sg_outlet_pressure, 
-                steam_generator_tube_outlet_enthalpy
-            );
+        let steam_gen_tube_outlet_temperature =
+            ph_flash_eqm::t_ph_eqm(sg_outlet_pressure, steam_generator_tube_outlet_enthalpy);
 
-        // then with this enthalpy and pressure, have an isentropic 
-        // enthalpy drop in the turbine 
-        // to specified pressure (0.2 bar) 
+        // then with this enthalpy and pressure, have an isentropic
+        // enthalpy drop in the turbine
+        // to specified pressure (0.2 bar)
 
-        let turbine_inlet_enthalpy = 
-            steam_generator_tube_outlet_enthalpy;
+        let turbine_inlet_enthalpy = steam_generator_tube_outlet_enthalpy;
         let turbine_inlet_pressure = sg_outlet_pressure;
 
-        let pressure_after_steam_generator_tube = 
-            turbine_inlet_pressure;
-        let enthalpy_after_steam_generator_tube = 
-            turbine_inlet_enthalpy;
-        let steam_quality_after_steam_generator_tube_side = 
-            x_ph_flash(pressure_after_steam_generator_tube, 
-                enthalpy_after_steam_generator_tube);
+        let pressure_after_steam_generator_tube = turbine_inlet_pressure;
+        let enthalpy_after_steam_generator_tube = turbine_inlet_enthalpy;
+        let steam_quality_after_steam_generator_tube_side = x_ph_flash(
+            pressure_after_steam_generator_tube,
+            enthalpy_after_steam_generator_tube,
+        );
 
         let turbine_inlet_entropy = ph_flash_eqm::s_ph_eqm(
-            pressure_after_steam_generator_tube, 
-            steam_generator_tube_outlet_enthalpy
+            pressure_after_steam_generator_tube,
+            steam_generator_tube_outlet_enthalpy,
         );
 
         // this is fixed... can modify in future to make this user changeable
-        let turbine_outlet_pressure = 
-            Pressure::new::<bar>(0.2);
+        let turbine_outlet_pressure = Pressure::new::<bar>(0.2);
         let turbine_outlet_entropy = turbine_inlet_entropy;
-        
 
-        let turbine_outlet_enthalpy = 
-            ps_flash_eqm::h_ps_eqm(
-                turbine_outlet_pressure, 
-                turbine_outlet_entropy
-            );
+        let turbine_outlet_enthalpy =
+            ps_flash_eqm::h_ps_eqm(turbine_outlet_pressure, turbine_outlet_entropy);
 
-        let steam_quality_after_turbine = 
-            x_ph_flash(turbine_outlet_pressure, 
-                turbine_outlet_enthalpy);
-
-
+        let steam_quality_after_turbine =
+            x_ph_flash(turbine_outlet_pressure, turbine_outlet_enthalpy);
 
         // now it goes into the condenser
         let condenser_inlet_enthalpy = turbine_outlet_enthalpy;
-        let condenser_outlet_enthalpy =
-            pt_flash_eqm::h_tp_eqm_single_phase(
-                condenser_outlet_temperature, condenser_outlet_pressure
-            );
+        let condenser_outlet_enthalpy = pt_flash_eqm::h_tp_eqm_single_phase(
+            condenser_outlet_temperature,
+            condenser_outlet_pressure,
+        );
 
         // this is the required cooling rate for condenser at steady state
-        let condenser_duty: Power = 
-            *user_specified_secondary_loop_mass_flowrate * 
-            (condenser_inlet_enthalpy - condenser_outlet_enthalpy);
+        let condenser_duty: Power = *user_specified_secondary_loop_mass_flowrate
+            * (condenser_inlet_enthalpy - condenser_outlet_enthalpy);
 
-        // now the steam turbine, 
-        let mut steam_turbine = 
-            ThreePhaseElectricGeneratorTurbine::new_250_megawatt_generator();
+        // now the steam turbine,
+        let mut steam_turbine = ThreePhaseElectricGeneratorTurbine::new_250_megawatt_generator();
 
         steam_turbine.set_omega(turbine_omega);
 
-
         let torque_source: Torque;
         // these are some arbitrary Parameters
-        let turbine_enthalpy_loss: AvailableEnergy = 
+        let turbine_enthalpy_loss: AvailableEnergy =
             turbine_inlet_enthalpy - turbine_outlet_enthalpy;
 
-        let turbine_power_input: Power = 
-            *user_specified_secondary_loop_mass_flowrate * 
-            turbine_enthalpy_loss;
+        let turbine_power_input: Power =
+            *user_specified_secondary_loop_mass_flowrate * turbine_enthalpy_loss;
 
         let turbine_inlet_area = Length::new::<inch>(20.0) * Length::new::<inch>(20.0);
 
-
         let turbine_radius = Length::new::<meter>(5.0);
-        let turbine_blade_speed: Velocity = 
-            turbine_radius * turbine_omega;
+        let turbine_blade_speed: Velocity = turbine_radius * turbine_omega;
 
         let turbine_steam_speed: Velocity;
-        let turbine_inlet_rho: MassDensity = 
+        let turbine_inlet_rho: MassDensity =
             v_ph_eqm(turbine_inlet_pressure, turbine_inlet_enthalpy).recip();
 
-        turbine_steam_speed = *user_specified_secondary_loop_mass_flowrate
-            /turbine_inlet_rho/ 
-            turbine_inlet_area;
+        turbine_steam_speed =
+            *user_specified_secondary_loop_mass_flowrate / turbine_inlet_rho / turbine_inlet_area;
 
         // note: using relative velocity is kind of unstable
         // numerically
-        let _turbine_steam_relative_velocity: Velocity = 
-            turbine_steam_speed - turbine_blade_speed;
+        let _turbine_steam_relative_velocity: Velocity = turbine_steam_speed - turbine_blade_speed;
 
-        let turbine_force: Force = 
-            turbine_power_input/turbine_blade_speed;
+        let turbine_force: Force = turbine_power_input / turbine_blade_speed;
 
         // this is just an arbitrary efficiency factor
-        // I don't have actual figures, so the efficiency ratios may 
+        // I don't have actual figures, so the efficiency ratios may
         // be incorrect
         let efficiency_factor = 0.75;
 
-
-
-        torque_source = 
-            (turbine_force * turbine_radius * efficiency_factor).into();
-
+        torque_source = (turbine_force * turbine_radius * efficiency_factor).into();
 
         steam_turbine.advance_timestep(
-            torque_source, 
-            load_resistance, 
-            current_simulation_time, 
+            torque_source,
+            load_resistance,
+            current_simulation_time,
             timestep,
         );
-        let turbine_power: Power = 
+        let turbine_power: Power =
             steam_turbine.get_power(load_resistance, current_simulation_time);
 
-
-
-        let secondary_loop_state = 
-            SecondaryLoopState {
-                steam_gen_tube_outlet_temperature,
-                turbine_power,
-                condenser_duty,
-                steam_quality_after_condenser,
-                steam_quality_after_pump,
-                steam_quality_after_steam_generator_tube_side,
-                steam_quality_after_turbine,
-                sat_temperature_in_sg_tube_degc,
-                steam_turbine,
-            };
-
+        let secondary_loop_state = SecondaryLoopState {
+            steam_gen_tube_outlet_temperature,
+            turbine_power,
+            condenser_duty,
+            steam_quality_after_condenser,
+            steam_quality_after_pump,
+            steam_quality_after_steam_generator_tube_side,
+            steam_quality_after_turbine,
+            sat_temperature_in_sg_tube_degc,
+            steam_turbine,
+        };
 
         return secondary_loop_state;
-
     }
 }
 
-/// contains important info for various temperatures and pressures 
+/// contains important info for various temperatures and pressures
 /// in the secondary loop
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct SecondaryLoopState {
     /// steam generator tube outlet temperature (boiler temperature)
     pub steam_gen_tube_outlet_temperature: ThermodynamicTemperature,
-    /// turbine power output 
+    /// turbine power output
     pub turbine_power: Power,
     /// condenser cooling duty at steady state
     pub condenser_duty: Power,
 
-    /// steam quality (void fraction) after condenser 
+    /// steam quality (void fraction) after condenser
     pub steam_quality_after_condenser: f64,
     /// steam quality (void fraction) after pump
     pub steam_quality_after_pump: f64,
-    /// steam quality (void fraction) after steam generator tube 
+    /// steam quality (void fraction) after steam generator tube
     /// side
     pub steam_quality_after_steam_generator_tube_side: f64,
     /// steam quality (void fraction) after steam turbine
     pub steam_quality_after_turbine: f64,
 
-    /// sat temperature in sg tube 
+    /// sat temperature in sg tube
     pub sat_temperature_in_sg_tube_degc: f64,
 
-    /// steam turbine 
+    /// steam turbine
     pub steam_turbine: ThreePhaseElectricGeneratorTurbine,
-
 }
 
 /// some code for departure from nucleate boiling.
@@ -390,12 +349,12 @@ pub struct SecondaryLoopState {
 /// This is to prevent excessively high temperatures at the heat exchanger
 /// thus causing simulation crash
 ///
-/// I use pool boiling curves here because Departure from Nucleate 
-/// Boiling or DNB should occur earlier than 
+/// I use pool boiling curves here because Departure from Nucleate
+/// Boiling or DNB should occur earlier than
 /// for flow boiling. So perhaps this is a conservative estimate.
 ///
 ///
-/// Now, even for pool boiling, lots of correlations exist for said DNB 
+/// Now, even for pool boiling, lots of correlations exist for said DNB
 ///
 /// I'm doing only a very simplified version.
 pub mod pool_boiling;

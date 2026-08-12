@@ -32,7 +32,11 @@ pub struct LinearEqn {
 /// Sign of x: +1 if x ≥ 0, else −1. Matches OpenFOAM `sign()`.
 #[inline]
 fn sign(x: f64) -> f64 {
-    if x >= 0.0 { 1.0 } else { -1.0 }
+    if x >= 0.0 {
+        1.0
+    } else {
+        -1.0
+    }
 }
 
 impl LinearEqn {

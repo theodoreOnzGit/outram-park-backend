@@ -114,11 +114,20 @@ pub fn eval_aa_range(e: f64, aa: &AaRange, ap: f64) -> AaSigmas {
     let csf = omega.cos();
 
     let poly_bg = |coef: &[f64; 6]| -> f64 {
-        let raw = coef[0] + coef[1] / e + coef[2] / esq + coef[3] / ecub + coef[4] * e + coef[5] * esq;
+        let raw =
+            coef[0] + coef[1] / e + coef[2] / esq + coef[3] / ecub + coef[4] * e + coef[5] * esq;
         raw * c / eroot
     };
-    let bakt = if aa.li != 6 { poly_bg(&aa.background.total) } else { 0.0 };
-    let bakf = if aa.li != 5 { poly_bg(&aa.background.fission) } else { 0.0 };
+    let bakt = if aa.li != 6 {
+        poly_bg(&aa.background.total)
+    } else {
+        0.0
+    };
+    let bakf = if aa.li != 5 {
+        poly_bg(&aa.background.fission)
+    } else {
+        0.0
+    };
     let bakc = poly_bg(&aa.background.capture);
 
     let mut sig_total = 0.0_f64;
@@ -157,6 +166,10 @@ pub fn eval_aa_range(e: f64, aa: &AaRange, ap: f64) -> AaSigmas {
         (fission + capture, 0.0)
     };
 
-    AaSigmas { total, elastic, fission, capture }
+    AaSigmas {
+        total,
+        elastic,
+        fission,
+        capture,
+    }
 }
-

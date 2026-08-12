@@ -197,8 +197,7 @@ impl ThermalParameters {
     /// kappa_r` (W/m/K) — the porosity-weighted arithmetic mean documented on
     /// the [module][crate::energy] (fully-saturated approximation).
     fn effective_conductivity(&self) -> f64 {
-        self.porosity * self.water_conductivity
-            + (1.0 - self.porosity) * self.rock_conductivity
+        self.porosity * self.water_conductivity + (1.0 - self.porosity) * self.rock_conductivity
     }
 
     /// Volumetric heat capacity `C_v = theta_w rho_w c_w + (1 - phi) rho_r c_r`
@@ -427,7 +426,9 @@ impl EnergyTransport {
         // Accumulation (implicit Euler heat-capacity term).
         let inv_dt = 1.0 / self.dt;
         for i in 0..n_cells {
-            let c_v = self.thermal.volumetric_heat_capacity(self.flow.water_content[i]);
+            let c_v = self
+                .thermal
+                .volumetric_heat_capacity(self.flow.water_content[i]);
             let acc = c_v * self.grid.cell_volume(i) * inv_dt;
             a.diag[i] += acc;
             b[i] += acc * self.t_old[i];
@@ -523,7 +524,9 @@ impl EnergyTransport {
         );
         let mut energy = 0.0;
         for i in 0..t.len() {
-            let c_v = self.thermal.volumetric_heat_capacity(self.flow.water_content[i]);
+            let c_v = self
+                .thermal
+                .volumetric_heat_capacity(self.flow.water_content[i]);
             energy += self.grid.cell_volume(i) * c_v * t[i];
         }
         energy
@@ -627,7 +630,7 @@ mod tests {
         let rcw = thermal.water_density * thermal.water_specific_heat; // 4.186e6
         let pe = 2.0_f64;
         let v = pe * kappa_eff / (rcw * l); // area = 1 => q = v
-        // Recompute Pe from v to confirm consistency (== pe by construction).
+                                            // Recompute Pe from v to confirm consistency (== pe by construction).
         let pe_check = rcw * v * l / kappa_eff;
         assert!((pe_check - pe).abs() < 1e-12);
 

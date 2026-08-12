@@ -57,9 +57,7 @@
 use std::sync::Arc;
 
 use crate::groupr::panel::{group_integral, GroupFlux, PointwiseXs};
-use crate::groupr::unresolved::{
-    genflx_bondarenko, UnresolvedTable, UrrReaction,
-};
+use crate::groupr::unresolved::{genflx_bondarenko, UnresolvedTable, UrrReaction};
 use crate::NjoyError;
 
 /// A self-shielded multigroup cross section: `sigma_g(sigma_0)` for one reaction
@@ -83,7 +81,11 @@ impl SelfShieldedMgxs {
     /// Group cross section \[barn\] at dilution index `is`, group `g`; `0.0` for
     /// out-of-range indices.
     pub fn get(&self, is: usize, g: usize) -> f64 {
-        self.sigma.get(is).and_then(|r| r.get(g)).copied().unwrap_or(0.0)
+        self.sigma
+            .get(is)
+            .and_then(|r| r.get(g))
+            .copied()
+            .unwrap_or(0.0)
     }
 
     /// Number of groups (`group_bounds.len() - 1`).
@@ -288,7 +290,10 @@ mod tests {
             let got = mgxs.get(0, g);
             let want = reference[g];
             let rel = (got - want).abs() / want.abs().max(1e-30);
-            assert!(rel < 1e-6, "group {g}: inf-dilution {got} != reference {want}");
+            assert!(
+                rel < 1e-6,
+                "group {g}: inf-dilution {got} != reference {want}"
+            );
             // Hand value: 51.0 barn per triangular half.
             assert!((want - 51.0).abs() < 1e-9, "reference group {g} = {want}");
         }

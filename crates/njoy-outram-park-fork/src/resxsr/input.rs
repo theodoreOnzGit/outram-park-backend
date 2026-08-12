@@ -165,9 +165,21 @@ mod tests {
             ivers: 1,
             comments: vec!["line one".to_string(), "line two".to_string()],
             materials: vec![
-                MaterialSpec { hmat: "u235".to_string(), mat: 9228, nin: 20 },
-                MaterialSpec { hmat: "u238".to_string(), mat: 9237, nin: 21 },
-                MaterialSpec { hmat: "pu239".to_string(), mat: 9437, nin: 22 },
+                MaterialSpec {
+                    hmat: "u235".to_string(),
+                    mat: 9228,
+                    nin: 20,
+                },
+                MaterialSpec {
+                    hmat: "u238".to_string(),
+                    mat: 9237,
+                    nin: 21,
+                },
+                MaterialSpec {
+                    hmat: "pu239".to_string(),
+                    mat: 9437,
+                    nin: 22,
+                },
             ],
         };
         assert_eq!(inp.nholl(), 2);

@@ -39,7 +39,7 @@ mod app {
         LiveEnsemble, Snapshot,
     };
     use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::walk_on_spheres::WalkParams;
-    use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell;
+        use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell;
     use boon_lay::Nuclide;
     use egui_plot::{Legend, Line, Plot, PlotPoints, Points};
     use std::sync::{Arc, RwLock};
@@ -239,7 +239,11 @@ mod app {
                 ui.heading("Walk-on-Spheres real-time TRISO diffusion (Cs-137, 1600 \u{b0}C)");
                 ui.horizontal(|ui| {
                     if ui
-                        .button(if running { "\u{23f8} Pause" } else { "\u{25b6} Run" })
+                        .button(if running {
+                            "\u{23f8} Pause"
+                        } else {
+                            "\u{25b6} Run"
+                        })
                         .clicked()
                     {
                         self.shared.write().unwrap().running = !running;
@@ -249,7 +253,10 @@ mod app {
                     }
                     ui.separator();
                     ui.label(format!("sim time: {:.3e} s", snapshot.sim_time_s));
-                    ui.label(format!("released: {:.1}%", 100.0 * snapshot.released_fraction));
+                    ui.label(format!(
+                        "released: {:.1}%",
+                        100.0 * snapshot.released_fraction
+                    ));
                     ui.label(format!("atoms: {}", snapshot.n_total));
                 });
                 ui.horizontal(|ui| {
@@ -297,7 +304,8 @@ mod app {
                         .x_axis_label("simulated time (s)")
                         .y_axis_label("released fraction")
                         .show(ui, |plot_ui| {
-                            plot_ui.line(Line::new("M(t)/M_inf", PlotPoints::from(release_history)));
+                            plot_ui
+                                .line(Line::new("M(t)/M_inf", PlotPoints::from(release_history)));
                         });
                     ui.separator();
                     ui.label(

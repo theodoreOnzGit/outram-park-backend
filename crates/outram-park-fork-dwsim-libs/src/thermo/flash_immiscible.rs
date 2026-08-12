@@ -105,9 +105,7 @@
 //! Documented raw `f64` in SI base units (`T` \[K\], `P` \[Pa\], mole fractions
 //! \[-\]) in the inner loops, matching the sibling flash modules.
 
-use crate::thermo::flash::{
-    nested_loops_flash, FlashError, FlashResult, NestedLoopsOptions,
-};
+use crate::thermo::flash::{nested_loops_flash, FlashError, FlashResult, NestedLoopsOptions};
 use crate::thermo::property_package::PropertyPackageModel;
 use crate::thermo::saturation::bubble_pressure;
 use crate::thermo::Component;
@@ -576,7 +574,8 @@ mod tests {
 
         // Overall mass balance closes to machine precision.
         for (i, &zi) in z.iter().enumerate() {
-            let recon = r.v * r.y[i] + r.l_mixed * r.x_mixed[i] + r.l_immiscible * r.x_immiscible[i];
+            let recon =
+                r.v * r.y[i] + r.l_mixed * r.x_mixed[i] + r.l_immiscible * r.x_immiscible[i];
             assert_abs_diff_eq!(recon, zi, epsilon = 1e-9);
         }
     }
@@ -656,7 +655,8 @@ mod tests {
 
         let t_low = 320.0;
         let t_high = 400.0;
-        let low = flash_pt_immiscible(&comps, &z, t_low, p, 0, PropertyPackageModel::Ideal).unwrap();
+        let low =
+            flash_pt_immiscible(&comps, &z, t_low, p, 0, PropertyPackageModel::Ideal).unwrap();
         let high =
             flash_pt_immiscible(&comps, &z, t_high, p, 0, PropertyPackageModel::Ideal).unwrap();
 
@@ -697,13 +697,27 @@ mod tests {
             ImmiscibleError::LengthMismatch { .. }
         ));
         assert!(matches!(
-            flash_pt_immiscible(&comps, &[0.5, 0.5], 300.0, 1e5, 5, PropertyPackageModel::Ideal)
-                .unwrap_err(),
+            flash_pt_immiscible(
+                &comps,
+                &[0.5, 0.5],
+                300.0,
+                1e5,
+                5,
+                PropertyPackageModel::Ideal
+            )
+            .unwrap_err(),
             ImmiscibleError::IndexOutOfRange { .. }
         ));
         assert!(matches!(
-            flash_pt_immiscible(&comps, &[0.5, 0.5], 300.0, -1.0, 0, PropertyPackageModel::Ideal)
-                .unwrap_err(),
+            flash_pt_immiscible(
+                &comps,
+                &[0.5, 0.5],
+                300.0,
+                -1.0,
+                0,
+                PropertyPackageModel::Ideal
+            )
+            .unwrap_err(),
             ImmiscibleError::NonPositive { .. }
         ));
     }

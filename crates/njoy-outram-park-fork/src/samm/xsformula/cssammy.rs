@@ -73,5 +73,11 @@ pub fn cssammy(
         }
     }
 
-    CssammyResult { total, elastic, fission, capture, other }
+    CssammyResult {
+        total,
+        elastic,
+        fission,
+        capture,
+        other,
+    }
 }

@@ -176,7 +176,10 @@ fn dual_to_io(dual: &DualMesh, patch_names: &[String], patch_kinds: &[PatchKind]
 
 /// Print an OpenFOAM-style summary of the primal → dual transformation.
 fn print_summary(primal: &IoPolyMesh, dual: &IoPolyMesh, dual_dir: &Path) {
-    println!("polyDualMesh: wrote dual polyMesh to {}", dual_dir.display());
+    println!(
+        "polyDualMesh: wrote dual polyMesh to {}",
+        dual_dir.display()
+    );
     println!(
         "  primal:  cells {:>7}   points {:>7}   faces {:>7}",
         primal.n_cells,

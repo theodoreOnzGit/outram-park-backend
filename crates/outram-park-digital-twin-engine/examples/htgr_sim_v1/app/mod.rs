@@ -33,9 +33,7 @@ use outram_park_digital_twin_engine::app_scaffold::{
 };
 
 use crate::physics::HtgrPlant;
-use panels::{
-    draw_controls, draw_diagnostics_panel, draw_plots_panel, draw_schematic_panel, Panel,
-};
+use panels::{draw_controls, draw_diagnostics_panel, draw_plots_panel, draw_schematic_panel, Panel};
 use schematic::SchematicTracers;
 use state::{HtgrPlotData, HtgrSnapshot};
 

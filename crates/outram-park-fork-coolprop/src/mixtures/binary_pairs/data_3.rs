@@ -9,403 +9,1885 @@ use crate::fluid::Fluid;
 
 pub(super) static DATA: &[BinaryPair] = &[
     // Methanol-Xenon
-    BinaryPair { a: Fluid::Methanol, b: Fluid::Xenon, beta_gamma_t: (0.93558, 0.77335), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Methanol,
+        b: Fluid::Xenon,
+        beta_gamma_t: (0.93558, 0.77335),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // MethylLinoleate-MethylPalmitate
-    BinaryPair { a: Fluid::MethylLinoleate, b: Fluid::MethylPalmitate, beta_gamma_t: (0.9974, 0.99543), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::MethylLinoleate,
+        b: Fluid::MethylPalmitate,
+        beta_gamma_t: (0.9974, 0.99543),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // MM-Toluene
-    BinaryPair { a: Fluid::MM, b: Fluid::Toluene, beta_gamma_t: (0.9991, 0.97446), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::MM,
+        b: Fluid::Toluene,
+        beta_gamma_t: (0.9991, 0.97446),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // MethylOleate-MethylStearate
-    BinaryPair { a: Fluid::MethylOleate, b: Fluid::MethylStearate, beta_gamma_t: (0.99882, 0.99836), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::MethylOleate,
+        b: Fluid::MethylStearate,
+        beta_gamma_t: (0.99882, 0.99836),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // MethylPalmitate-n-Propane
-    BinaryPair { a: Fluid::MethylPalmitate, b: Fluid::NPropane, beta_gamma_t: (1.08514, 1.21332), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::MethylPalmitate,
+        b: Fluid::NPropane,
+        beta_gamma_t: (1.08514, 1.21332),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // m-Xylene-n-Nonane
-    BinaryPair { a: Fluid::MXylene, b: Fluid::NNonane, beta_gamma_t: (1.00227, 0.98031), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::MXylene,
+        b: Fluid::NNonane,
+        beta_gamma_t: (1.00227, 0.98031),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // m-Xylene-n-Octane
-    BinaryPair { a: Fluid::MXylene, b: Fluid::NOctane, beta_gamma_t: (1.00031, 0.99296), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::MXylene,
+        b: Fluid::NOctane,
+        beta_gamma_t: (1.00031, 0.99296),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // m-Xylene-o-Xylene
-    BinaryPair { a: Fluid::MXylene, b: Fluid::OXylene, beta_gamma_t: (1.00073, 0.99997), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::MXylene,
+        b: Fluid::OXylene,
+        beta_gamma_t: (1.00073, 0.99997),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // m-Xylene-n-Propane
-    BinaryPair { a: Fluid::MXylene, b: Fluid::NPropane, beta_gamma_t: (1.00346, 1.08363), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::MXylene,
+        b: Fluid::NPropane,
+        beta_gamma_t: (1.00346, 1.08363),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // m-Xylene-Propylene
-    BinaryPair { a: Fluid::MXylene, b: Fluid::Propylene, beta_gamma_t: (1.00655, 1.09811), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::MXylene,
+        b: Fluid::Propylene,
+        beta_gamma_t: (1.00655, 1.09811),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // m-Xylene-Toluene
-    BinaryPair { a: Fluid::MXylene, b: Fluid::Toluene, beta_gamma_t: (0.9965, 0.99601), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::MXylene,
+        b: Fluid::Toluene,
+        beta_gamma_t: (0.9965, 0.99601),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // NitrousOxide-R125
-    BinaryPair { a: Fluid::NitrousOxide, b: Fluid::R125, beta_gamma_t: (0.97626, 0.77302), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NitrousOxide,
+        b: Fluid::R125,
+        beta_gamma_t: (0.97626, 0.77302),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Neopentane-n-Pentane
-    BinaryPair { a: Fluid::Neopentane, b: Fluid::NPentane, beta_gamma_t: (1.0005, 1.00236), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Neopentane,
+        b: Fluid::NPentane,
+        beta_gamma_t: (1.0005, 1.00236),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Neopentane-n-Propane
-    BinaryPair { a: Fluid::Neopentane, b: Fluid::NPropane, beta_gamma_t: (1.02028, 1.0591), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Neopentane,
+        b: Fluid::NPropane,
+        beta_gamma_t: (1.02028, 1.0591),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Nitrogen-p-Xylene
-    BinaryPair { a: Fluid::Nitrogen, b: Fluid::PXylene, beta_gamma_t: (0.99471, 1.63462), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Nitrogen,
+        b: Fluid::PXylene,
+        beta_gamma_t: (0.99471, 1.63462),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Nitrogen-R13
-    BinaryPair { a: Fluid::Nitrogen, b: Fluid::R13, beta_gamma_t: (0.97523, 1.24069), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Nitrogen,
+        b: Fluid::R13,
+        beta_gamma_t: (0.97523, 1.24069),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Nitrogen-R14
-    BinaryPair { a: Fluid::Nitrogen, b: Fluid::R14, beta_gamma_t: (0.97005, 1.10991), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Nitrogen,
+        b: Fluid::R14,
+        beta_gamma_t: (0.97005, 1.10991),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Nitrogen-R227EA
-    BinaryPair { a: Fluid::Nitrogen, b: Fluid::R227EA, beta_gamma_t: (0.97134, 1.40945), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Nitrogen,
+        b: Fluid::R227EA,
+        beta_gamma_t: (0.97134, 1.40945),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Nonane-o-Xylene
-    BinaryPair { a: Fluid::NNonane, b: Fluid::OXylene, beta_gamma_t: (0.9971, 0.98501), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NNonane,
+        b: Fluid::OXylene,
+        beta_gamma_t: (0.9971, 0.98501),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Nonane-Propylene
-    BinaryPair { a: Fluid::NNonane, b: Fluid::Propylene, beta_gamma_t: (1.01604, 1.11698), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NNonane,
+        b: Fluid::Propylene,
+        beta_gamma_t: (1.01604, 1.11698),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Nonane-p-Xylene
-    BinaryPair { a: Fluid::NNonane, b: Fluid::PXylene, beta_gamma_t: (1.00061, 0.99387), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NNonane,
+        b: Fluid::PXylene,
+        beta_gamma_t: (1.00061, 0.99387),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Nonane-Toluene
-    BinaryPair { a: Fluid::NNonane, b: Fluid::Toluene, beta_gamma_t: (0.99448, 0.98072), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NNonane,
+        b: Fluid::Toluene,
+        beta_gamma_t: (0.99448, 0.98072),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Novec649-n-Pentane
-    BinaryPair { a: Fluid::Novec649, b: Fluid::NPentane, beta_gamma_t: (0.9669, 0.90539), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Novec649,
+        b: Fluid::NPentane,
+        beta_gamma_t: (0.9669, 0.90539),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Octane-o-Xylene
-    BinaryPair { a: Fluid::NOctane, b: Fluid::OXylene, beta_gamma_t: (0.99933, 0.99245), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NOctane,
+        b: Fluid::OXylene,
+        beta_gamma_t: (0.99933, 0.99245),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Octane-p-Xylene
-    BinaryPair { a: Fluid::NOctane, b: Fluid::PXylene, beta_gamma_t: (0.99788, 0.98651), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NOctane,
+        b: Fluid::PXylene,
+        beta_gamma_t: (0.99788, 0.98651),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Octane-R12
-    BinaryPair { a: Fluid::NOctane, b: Fluid::R12, beta_gamma_t: (0.99653, 1.06084), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NOctane,
+        b: Fluid::R12,
+        beta_gamma_t: (0.99653, 1.06084),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Octane-Toluene
-    BinaryPair { a: Fluid::NOctane, b: Fluid::Toluene, beta_gamma_t: (0.99664, 0.98036), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NOctane,
+        b: Fluid::Toluene,
+        beta_gamma_t: (0.99664, 0.98036),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Oxygen-SulfurDioxide
-    BinaryPair { a: Fluid::Oxygen, b: Fluid::SulfurDioxide, beta_gamma_t: (0.98436, 1.18081), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Oxygen,
+        b: Fluid::SulfurDioxide,
+        beta_gamma_t: (0.98436, 1.18081),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // o-Xylene-Toluene
-    BinaryPair { a: Fluid::OXylene, b: Fluid::Toluene, beta_gamma_t: (0.99826, 1.00209), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::OXylene,
+        b: Fluid::Toluene,
+        beta_gamma_t: (0.99826, 1.00209),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Pentane-R114
-    BinaryPair { a: Fluid::NPentane, b: Fluid::R114, beta_gamma_t: (0.99646, 0.97011), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPentane,
+        b: Fluid::R114,
+        beta_gamma_t: (0.99646, 0.97011),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Pentane-R1234ze(E)
-    BinaryPair { a: Fluid::NPentane, b: Fluid::R1234zeE, beta_gamma_t: (0.98894, 0.93824), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPentane,
+        b: Fluid::R1234zeE,
+        beta_gamma_t: (0.98894, 0.93824),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Pentane-R141b
-    BinaryPair { a: Fluid::NPentane, b: Fluid::R141b, beta_gamma_t: (1.0027, 0.977), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPentane,
+        b: Fluid::R141b,
+        beta_gamma_t: (1.0027, 0.977),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Pentane-R152A
-    BinaryPair { a: Fluid::NPentane, b: Fluid::R152A, beta_gamma_t: (0.98932, 0.92023), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPentane,
+        b: Fluid::R152A,
+        beta_gamma_t: (0.98932, 0.92023),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Pentane-R22
-    BinaryPair { a: Fluid::NPentane, b: Fluid::R22, beta_gamma_t: (0.98621, 0.96034), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPentane,
+        b: Fluid::R22,
+        beta_gamma_t: (0.98621, 0.96034),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Pentane-R23
-    BinaryPair { a: Fluid::NPentane, b: Fluid::R23, beta_gamma_t: (0.96622, 0.94007), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPentane,
+        b: Fluid::R23,
+        beta_gamma_t: (0.96622, 0.94007),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Pentane-R245fa
-    BinaryPair { a: Fluid::NPentane, b: Fluid::R245fa, beta_gamma_t: (1.00687, 0.89534), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPentane,
+        b: Fluid::R245fa,
+        beta_gamma_t: (1.00687, 0.89534),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Pentane-SulfurHexafluoride
-    BinaryPair { a: Fluid::NPentane, b: Fluid::SulfurHexafluoride, beta_gamma_t: (0.97466, 0.92912), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPentane,
+        b: Fluid::SulfurHexafluoride,
+        beta_gamma_t: (0.97466, 0.92912),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Pentane-Toluene
-    BinaryPair { a: Fluid::NPentane, b: Fluid::Toluene, beta_gamma_t: (1.00052, 0.99282), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPentane,
+        b: Fluid::Toluene,
+        beta_gamma_t: (1.00052, 0.99282),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-Propylene
-    BinaryPair { a: Fluid::NPropane, b: Fluid::Propylene, beta_gamma_t: (0.99978, 0.9935), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::Propylene,
+        beta_gamma_t: (0.99978, 0.9935),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R113
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R113, beta_gamma_t: (1.0047, 1.01447), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R113,
+        beta_gamma_t: (1.0047, 1.01447),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R114
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R114, beta_gamma_t: (1.00332, 0.98055), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R114,
+        beta_gamma_t: (1.00332, 0.98055),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R116
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R116, beta_gamma_t: (1.01661, 0.89173), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R116,
+        beta_gamma_t: (1.01661, 0.89173),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R1234ze(E)
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R1234zeE, beta_gamma_t: (1.01347, 0.932901), beta_gamma_v: (0.997417, 1.014015), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R1234zeE,
+        beta_gamma_t: (1.01347, 0.932901),
+        beta_gamma_v: (0.997417, 1.014015),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R125
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R125, beta_gamma_t: (1.00883, 0.89892), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R125,
+        beta_gamma_t: (1.00883, 0.89892),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R134a
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R134a, beta_gamma_t: (1.01148, 0.89674), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R134a,
+        beta_gamma_t: (1.01148, 0.89674),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R143a
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R143a, beta_gamma_t: (1.00987, 0.91581), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R143a,
+        beta_gamma_t: (1.00987, 0.91581),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R152A
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R152A, beta_gamma_t: (1.01223, 0.92009), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R152A,
+        beta_gamma_t: (1.01223, 0.92009),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R227EA
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R227EA, beta_gamma_t: (1.02125, 0.91449), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R227EA,
+        beta_gamma_t: (1.02125, 0.91449),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R23
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R23, beta_gamma_t: (0.98814, 0.87585), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R23,
+        beta_gamma_t: (0.98814, 0.87585),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R236EA
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R236EA, beta_gamma_t: (1.02233, 0.92015), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R236EA,
+        beta_gamma_t: (1.02233, 0.92015),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R236FA
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R236FA, beta_gamma_t: (1.02204, 0.91493), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R236FA,
+        beta_gamma_t: (1.02204, 0.91493),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R245fa
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R245fa, beta_gamma_t: (1.02121, 0.92286), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R245fa,
+        beta_gamma_t: (1.02121, 0.92286),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R32
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R32, beta_gamma_t: (1.00067, 0.86421), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R32,
+        beta_gamma_t: (1.00067, 0.86421),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-RC318
-    BinaryPair { a: Fluid::NPropane, b: Fluid::RC318, beta_gamma_t: (1.02377, 0.9232), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::RC318,
+        beta_gamma_t: (1.02377, 0.9232),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-SulfurDioxide
-    BinaryPair { a: Fluid::NPropane, b: Fluid::SulfurDioxide, beta_gamma_t: (0.99024, 0.87281), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::SulfurDioxide,
+        beta_gamma_t: (0.99024, 0.87281),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-Toluene
-    BinaryPair { a: Fluid::NPropane, b: Fluid::Toluene, beta_gamma_t: (1.00576, 1.04281), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::Toluene,
+        beta_gamma_t: (1.00576, 1.04281),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-Xenon
-    BinaryPair { a: Fluid::NPropane, b: Fluid::Xenon, beta_gamma_t: (1.00491, 1.04133), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::Xenon,
+        beta_gamma_t: (1.00491, 1.04133),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-p-Xylene
-    BinaryPair { a: Fluid::Propylene, b: Fluid::PXylene, beta_gamma_t: (0.99082, 1.09426), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::PXylene,
+        beta_gamma_t: (0.99082, 1.09426),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-R114
-    BinaryPair { a: Fluid::Propylene, b: Fluid::R114, beta_gamma_t: (1.01235, 0.97683), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::R114,
+        beta_gamma_t: (1.01235, 0.97683),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-R115
-    BinaryPair { a: Fluid::Propylene, b: Fluid::R115, beta_gamma_t: (1.01487, 0.94167), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::R115,
+        beta_gamma_t: (1.01487, 0.94167),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-R116
-    BinaryPair { a: Fluid::Propylene, b: Fluid::R116, beta_gamma_t: (1.01401, 0.87937), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::R116,
+        beta_gamma_t: (1.01401, 0.87937),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-R12
-    BinaryPair { a: Fluid::Propylene, b: Fluid::R12, beta_gamma_t: (1.00271, 0.9883), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::R12,
+        beta_gamma_t: (1.00271, 0.9883),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-R125
-    BinaryPair { a: Fluid::Propylene, b: Fluid::R125, beta_gamma_t: (1.00733, 0.92944), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::R125,
+        beta_gamma_t: (1.00733, 0.92944),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-R13
-    BinaryPair { a: Fluid::Propylene, b: Fluid::R13, beta_gamma_t: (0.99688, 0.95923), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::R13,
+        beta_gamma_t: (0.99688, 0.95923),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-R134a
-    BinaryPair { a: Fluid::Propylene, b: Fluid::R134a, beta_gamma_t: (1.0136, 0.93494), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::R134a,
+        beta_gamma_t: (1.0136, 0.93494),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-R142b
-    BinaryPair { a: Fluid::Propylene, b: Fluid::R142b, beta_gamma_t: (1.00653, 0.9925), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::R142b,
+        beta_gamma_t: (1.00653, 0.9925),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-R152A
-    BinaryPair { a: Fluid::Propylene, b: Fluid::R152A, beta_gamma_t: (1.01177, 0.94791), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::R152A,
+        beta_gamma_t: (1.01177, 0.94791),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-R22
-    BinaryPair { a: Fluid::Propylene, b: Fluid::R22, beta_gamma_t: (1.00095, 0.97836), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::R22,
+        beta_gamma_t: (1.00095, 0.97836),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-R23
-    BinaryPair { a: Fluid::Propylene, b: Fluid::R23, beta_gamma_t: (0.99184, 0.9181), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::R23,
+        beta_gamma_t: (0.99184, 0.9181),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-R32
-    BinaryPair { a: Fluid::Propylene, b: Fluid::R32, beta_gamma_t: (0.99634, 0.90627), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::R32,
+        beta_gamma_t: (0.99634, 0.90627),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Propylene-Xenon
-    BinaryPair { a: Fluid::Propylene, b: Fluid::Xenon, beta_gamma_t: (0.99031, 1.01223), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Propylene,
+        b: Fluid::Xenon,
+        beta_gamma_t: (0.99031, 1.01223),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // p-Xylene-Toluene
-    BinaryPair { a: Fluid::PXylene, b: Fluid::Toluene, beta_gamma_t: (0.99915, 0.99999), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::PXylene,
+        b: Fluid::Toluene,
+        beta_gamma_t: (0.99915, 0.99999),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R11-R12
-    BinaryPair { a: Fluid::R11, b: Fluid::R12, beta_gamma_t: (1.00726, 1.00102), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R11,
+        b: Fluid::R12,
+        beta_gamma_t: (1.00726, 1.00102),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R11-R13
-    BinaryPair { a: Fluid::R11, b: Fluid::R13, beta_gamma_t: (0.99697, 1.01419), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R11,
+        b: Fluid::R13,
+        beta_gamma_t: (0.99697, 1.01419),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R11-R22
-    BinaryPair { a: Fluid::R11, b: Fluid::R22, beta_gamma_t: (0.9996, 0.97759), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R11,
+        b: Fluid::R22,
+        beta_gamma_t: (0.9996, 0.97759),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R11-R23
-    BinaryPair { a: Fluid::R11, b: Fluid::R23, beta_gamma_t: (0.97898, 0.94638), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R11,
+        b: Fluid::R23,
+        beta_gamma_t: (0.97898, 0.94638),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R113-R114
-    BinaryPair { a: Fluid::R113, b: Fluid::R114, beta_gamma_t: (0.99859, 1.00476), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R113,
+        b: Fluid::R114,
+        beta_gamma_t: (0.99859, 1.00476),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R113-R13
-    BinaryPair { a: Fluid::R113, b: Fluid::R13, beta_gamma_t: (0.99941, 1.05033), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R113,
+        b: Fluid::R13,
+        beta_gamma_t: (0.99941, 1.05033),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R113-R142b
-    BinaryPair { a: Fluid::R113, b: Fluid::R142b, beta_gamma_t: (0.99666, 0.98837), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R113,
+        b: Fluid::R142b,
+        beta_gamma_t: (0.99666, 0.98837),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R113-R152A
-    BinaryPair { a: Fluid::R113, b: Fluid::R152A, beta_gamma_t: (0.98806, 0.95473), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R113,
+        b: Fluid::R152A,
+        beta_gamma_t: (0.98806, 0.95473),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R113-R22
-    BinaryPair { a: Fluid::R113, b: Fluid::R22, beta_gamma_t: (0.98836, 0.99757), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R113,
+        b: Fluid::R22,
+        beta_gamma_t: (0.98836, 0.99757),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R113-R23
-    BinaryPair { a: Fluid::R113, b: Fluid::R23, beta_gamma_t: (0.97121, 0.98801), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R113,
+        b: Fluid::R23,
+        beta_gamma_t: (0.97121, 0.98801),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R113-SulfurHexafluoride
-    BinaryPair { a: Fluid::R113, b: Fluid::SulfurHexafluoride, beta_gamma_t: (1.07569, 1.06961), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R113,
+        b: Fluid::SulfurHexafluoride,
+        beta_gamma_t: (1.07569, 1.06961),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R114-R12
-    BinaryPair { a: Fluid::R114, b: Fluid::R12, beta_gamma_t: (1.00164, 0.99126), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R114,
+        b: Fluid::R12,
+        beta_gamma_t: (1.00164, 0.99126),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R114-R22
-    BinaryPair { a: Fluid::R114, b: Fluid::R22, beta_gamma_t: (1.003, 0.9658), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R114,
+        b: Fluid::R22,
+        beta_gamma_t: (1.003, 0.9658),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R114-R23
-    BinaryPair { a: Fluid::R114, b: Fluid::R23, beta_gamma_t: (0.97633, 0.9623), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R114,
+        b: Fluid::R23,
+        beta_gamma_t: (0.97633, 0.9623),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R115-R125
-    BinaryPair { a: Fluid::R115, b: Fluid::R125, beta_gamma_t: (0.99972, 0.96147), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R115,
+        b: Fluid::R125,
+        beta_gamma_t: (0.99972, 0.96147),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R115-R22
-    BinaryPair { a: Fluid::R115, b: Fluid::R22, beta_gamma_t: (1.01422, 0.94989), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R115,
+        b: Fluid::R22,
+        beta_gamma_t: (1.01422, 0.94989),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R116-R134a
-    BinaryPair { a: Fluid::R116, b: Fluid::R134a, beta_gamma_t: (1.01284, 0.93618), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R116,
+        b: Fluid::R134a,
+        beta_gamma_t: (1.01284, 0.93618),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R116-R143a
-    BinaryPair { a: Fluid::R116, b: Fluid::R143a, beta_gamma_t: (1.01003, 0.93499), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R116,
+        b: Fluid::R143a,
+        beta_gamma_t: (1.01003, 0.93499),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R116-R22
-    BinaryPair { a: Fluid::R116, b: Fluid::R22, beta_gamma_t: (0.99671, 0.91302), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R116,
+        b: Fluid::R22,
+        beta_gamma_t: (0.99671, 0.91302),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R116-R23
-    BinaryPair { a: Fluid::R116, b: Fluid::R23, beta_gamma_t: (0.99695, 0.91114), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R116,
+        b: Fluid::R23,
+        beta_gamma_t: (0.99695, 0.91114),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R12-R13
-    BinaryPair { a: Fluid::R12, b: Fluid::R13, beta_gamma_t: (0.99071, 0.97345), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R12,
+        b: Fluid::R13,
+        beta_gamma_t: (0.99071, 0.97345),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R12-R134a
-    BinaryPair { a: Fluid::R12, b: Fluid::R134a, beta_gamma_t: (1.0075, 0.941), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R12,
+        b: Fluid::R134a,
+        beta_gamma_t: (1.0075, 0.941),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R12-R142b
-    BinaryPair { a: Fluid::R12, b: Fluid::R142b, beta_gamma_t: (1.01193, 0.9765), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R12,
+        b: Fluid::R142b,
+        beta_gamma_t: (1.01193, 0.9765),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R12-R143a
-    BinaryPair { a: Fluid::R12, b: Fluid::R143a, beta_gamma_t: (0.9859, 0.95199), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R12,
+        b: Fluid::R143a,
+        beta_gamma_t: (0.9859, 0.95199),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R12-R152A
-    BinaryPair { a: Fluid::R12, b: Fluid::R152A, beta_gamma_t: (1.01876, 0.94387), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R12,
+        b: Fluid::R152A,
+        beta_gamma_t: (1.01876, 0.94387),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R12-R22
-    BinaryPair { a: Fluid::R12, b: Fluid::R22, beta_gamma_t: (0.99654, 0.96477), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R12,
+        b: Fluid::R22,
+        beta_gamma_t: (0.99654, 0.96477),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R12-R23
-    BinaryPair { a: Fluid::R12, b: Fluid::R23, beta_gamma_t: (0.99206, 0.93086), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R12,
+        b: Fluid::R23,
+        beta_gamma_t: (0.99206, 0.93086),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R12-RC318
-    BinaryPair { a: Fluid::R12, b: Fluid::RC318, beta_gamma_t: (1.00226, 0.96907), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R12,
+        b: Fluid::RC318,
+        beta_gamma_t: (1.00226, 0.96907),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R123-R134a
-    BinaryPair { a: Fluid::R123, b: Fluid::R134a, beta_gamma_t: (0.99393, 0.98277), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R123,
+        b: Fluid::R134a,
+        beta_gamma_t: (0.99393, 0.98277),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R123-R22
-    BinaryPair { a: Fluid::R123, b: Fluid::R22, beta_gamma_t: (0.99482, 1.01277), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R123,
+        b: Fluid::R22,
+        beta_gamma_t: (0.99482, 1.01277),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R123-R32
-    BinaryPair { a: Fluid::R123, b: Fluid::R32, beta_gamma_t: (0.98824, 0.98194), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R123,
+        b: Fluid::R32,
+        beta_gamma_t: (0.98824, 0.98194),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R123-Water
-    BinaryPair { a: Fluid::R123, b: Fluid::Water, beta_gamma_t: (1.09996, 0.95847), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R123,
+        b: Fluid::Water,
+        beta_gamma_t: (1.09996, 0.95847),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R125-R1234yf
-    BinaryPair { a: Fluid::R125, b: Fluid::R1234yf, beta_gamma_t: (0.999969, 0.998028), beta_gamma_v: (0.998226, 1.006068), f_departure: 1.0, departure_terms: &[DepartureTerm::Power { n: -0.032013, d: 1.0, t: 0.00803, l: 1.0 }] },
+    BinaryPair {
+        a: Fluid::R125,
+        b: Fluid::R1234yf,
+        beta_gamma_t: (0.999969, 0.998028),
+        beta_gamma_v: (0.998226, 1.006068),
+        f_departure: 1.0,
+        departure_terms: &[DepartureTerm::Power {
+            n: -0.032013,
+            d: 1.0,
+            t: 0.00803,
+            l: 1.0,
+        }],
+    },
     // R1234yf-R134a
-    BinaryPair { a: Fluid::R1234yf, b: Fluid::R134a, beta_gamma_t: (1.000026, 0.987057), beta_gamma_v: (1.000272, 1.003747), f_departure: 1.0, departure_terms: &[DepartureTerm::Power { n: 0.0519, d: 1.0, t: 2.477314, l: 1.0 }, DepartureTerm::Power { n: -0.011472, d: 2.0, t: 0.070541, l: 2.0 }] },
+    BinaryPair {
+        a: Fluid::R1234yf,
+        b: Fluid::R134a,
+        beta_gamma_t: (1.000026, 0.987057),
+        beta_gamma_v: (1.000272, 1.003747),
+        f_departure: 1.0,
+        departure_terms: &[
+            DepartureTerm::Power {
+                n: 0.0519,
+                d: 1.0,
+                t: 2.477314,
+                l: 1.0,
+            },
+            DepartureTerm::Power {
+                n: -0.011472,
+                d: 2.0,
+                t: 0.070541,
+                l: 2.0,
+            },
+        ],
+    },
     // R1234yf-R143a
-    BinaryPair { a: Fluid::R1234yf, b: Fluid::R143a, beta_gamma_t: (1.00024, 0.99523), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R1234yf,
+        b: Fluid::R143a,
+        beta_gamma_t: (1.00024, 0.99523),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R1234yf-R152A
-    BinaryPair { a: Fluid::R1234yf, b: Fluid::R152A, beta_gamma_t: (0.995987, 0.978058), beta_gamma_v: (0.99971, 1.008608), f_departure: 1.0, departure_terms: &[DepartureTerm::Power { n: 0.009165, d: 1.0, t: 3.221227, l: 1.0 }, DepartureTerm::Power { n: 0.014392, d: 2.0, t: 1.007082, l: 1.0 }, DepartureTerm::Power { n: -0.014246, d: 3.0, t: 3.790953, l: 1.0 }] },
+    BinaryPair {
+        a: Fluid::R1234yf,
+        b: Fluid::R152A,
+        beta_gamma_t: (0.995987, 0.978058),
+        beta_gamma_v: (0.99971, 1.008608),
+        f_departure: 1.0,
+        departure_terms: &[
+            DepartureTerm::Power {
+                n: 0.009165,
+                d: 1.0,
+                t: 3.221227,
+                l: 1.0,
+            },
+            DepartureTerm::Power {
+                n: 0.014392,
+                d: 2.0,
+                t: 1.007082,
+                l: 1.0,
+            },
+            DepartureTerm::Power {
+                n: -0.014246,
+                d: 3.0,
+                t: 3.790953,
+                l: 1.0,
+            },
+        ],
+    },
     // R1234yf-R161
-    BinaryPair { a: Fluid::R1234yf, b: Fluid::R161, beta_gamma_t: (0.99781, 0.98828), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R1234yf,
+        b: Fluid::R161,
+        beta_gamma_t: (0.99781, 0.98828),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R1234yf-R227EA
-    BinaryPair { a: Fluid::R1234yf, b: Fluid::R227EA, beta_gamma_t: (0.99938, 0.99916), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R1234yf,
+        b: Fluid::R227EA,
+        beta_gamma_t: (0.99938, 0.99916),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R152A-R1234ze(E)
-    BinaryPair { a: Fluid::R152A, b: Fluid::R1234zeE, beta_gamma_t: (1.011543, 1.00236), beta_gamma_v: (0.896336, 0.932409), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R152A,
+        b: Fluid::R1234zeE,
+        beta_gamma_t: (1.011543, 1.00236),
+        beta_gamma_v: (0.896336, 0.932409),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R124-R134a
-    BinaryPair { a: Fluid::R124, b: Fluid::R134a, beta_gamma_t: (0.99881, 0.98961), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R124,
+        b: Fluid::R134a,
+        beta_gamma_t: (0.99881, 0.98961),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R124-R142b
-    BinaryPair { a: Fluid::R124, b: Fluid::R142b, beta_gamma_t: (0.99802, 1.0032), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R124,
+        b: Fluid::R142b,
+        beta_gamma_t: (0.99802, 1.0032),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R125-R152A
-    BinaryPair { a: Fluid::R125, b: Fluid::R152A, beta_gamma_t: (0.99429, 1.00282), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R125,
+        b: Fluid::R152A,
+        beta_gamma_t: (0.99429, 1.00282),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R125-R161
-    BinaryPair { a: Fluid::R125, b: Fluid::R161, beta_gamma_t: (1.01043, 0.99311), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R125,
+        b: Fluid::R161,
+        beta_gamma_t: (1.01043, 0.99311),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R125-R227EA
-    BinaryPair { a: Fluid::R125, b: Fluid::R227EA, beta_gamma_t: (1.00101, 1.00302), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R125,
+        b: Fluid::R227EA,
+        beta_gamma_t: (1.00101, 1.00302),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R125-R23
-    BinaryPair { a: Fluid::R125, b: Fluid::R23, beta_gamma_t: (0.99685, 1.00309), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R125,
+        b: Fluid::R23,
+        beta_gamma_t: (0.99685, 1.00309),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R125-R236EA
-    BinaryPair { a: Fluid::R125, b: Fluid::R236EA, beta_gamma_t: (0.99947, 1.01046), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R125,
+        b: Fluid::R236EA,
+        beta_gamma_t: (0.99947, 1.01046),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R125-R236FA
-    BinaryPair { a: Fluid::R125, b: Fluid::R236FA, beta_gamma_t: (0.9996, 1.01028), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R125,
+        b: Fluid::R236FA,
+        beta_gamma_t: (0.9996, 1.01028),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R125-R245fa
-    BinaryPair { a: Fluid::R125, b: Fluid::R245fa, beta_gamma_t: (0.99836, 1.01325), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R125,
+        b: Fluid::R245fa,
+        beta_gamma_t: (0.99836, 1.01325),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R125-HFE143m
-    BinaryPair { a: Fluid::R125, b: Fluid::HFE143m, beta_gamma_t: (1.00105, 1.00517), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R125,
+        b: Fluid::HFE143m,
+        beta_gamma_t: (1.00105, 1.00517),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R13-R14
-    BinaryPair { a: Fluid::R13, b: Fluid::R14, beta_gamma_t: (0.99884, 0.99334), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R13,
+        b: Fluid::R14,
+        beta_gamma_t: (0.99884, 0.99334),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R13-R23
-    BinaryPair { a: Fluid::R13, b: Fluid::R23, beta_gamma_t: (1.00234, 0.93027), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R13,
+        b: Fluid::R23,
+        beta_gamma_t: (1.00234, 0.93027),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R134a-R141b
-    BinaryPair { a: Fluid::R134a, b: Fluid::R141b, beta_gamma_t: (1.00716, 0.96823), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R134a,
+        b: Fluid::R141b,
+        beta_gamma_t: (1.00716, 0.96823),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R134a-R142b
-    BinaryPair { a: Fluid::R134a, b: Fluid::R142b, beta_gamma_t: (1.00176, 0.98544), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R134a,
+        b: Fluid::R142b,
+        beta_gamma_t: (1.00176, 0.98544),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R134a-R161
-    BinaryPair { a: Fluid::R134a, b: Fluid::R161, beta_gamma_t: (1.00101, 1.00619), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R134a,
+        b: Fluid::R161,
+        beta_gamma_t: (1.00101, 1.00619),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R134a-R218
-    BinaryPair { a: Fluid::R134a, b: Fluid::R218, beta_gamma_t: (0.99885, 0.9228), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R134a,
+        b: Fluid::R218,
+        beta_gamma_t: (0.99885, 0.9228),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R134a-R22
-    BinaryPair { a: Fluid::R134a, b: Fluid::R22, beta_gamma_t: (0.99975, 0.99196), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R134a,
+        b: Fluid::R22,
+        beta_gamma_t: (0.99975, 0.99196),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R134a-R227EA
-    BinaryPair { a: Fluid::R134a, b: Fluid::R227EA, beta_gamma_t: (1.00135, 0.98915), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R134a,
+        b: Fluid::R227EA,
+        beta_gamma_t: (1.00135, 0.98915),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R134a-R23
-    BinaryPair { a: Fluid::R134a, b: Fluid::R23, beta_gamma_t: (1.00246, 1.0219), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R134a,
+        b: Fluid::R23,
+        beta_gamma_t: (1.00246, 1.0219),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R134a-R236FA
-    BinaryPair { a: Fluid::R134a, b: Fluid::R236FA, beta_gamma_t: (0.99958, 1.00198), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R134a,
+        b: Fluid::R236FA,
+        beta_gamma_t: (0.99958, 1.00198),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R134a-HFE143m
-    BinaryPair { a: Fluid::R134a, b: Fluid::HFE143m, beta_gamma_t: (0.99957, 0.99594), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R134a,
+        b: Fluid::HFE143m,
+        beta_gamma_t: (0.99957, 0.99594),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R14-R23
-    BinaryPair { a: Fluid::R14, b: Fluid::R23, beta_gamma_t: (1.01673, 0.94295), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R14,
+        b: Fluid::R23,
+        beta_gamma_t: (1.01673, 0.94295),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R14-Toluene
-    BinaryPair { a: Fluid::R14, b: Fluid::Toluene, beta_gamma_t: (0.92032, 1.18828), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R14,
+        b: Fluid::Toluene,
+        beta_gamma_t: (0.92032, 1.18828),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R142b-R22
-    BinaryPair { a: Fluid::R142b, b: Fluid::R22, beta_gamma_t: (1.0043, 1.00646), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R142b,
+        b: Fluid::R22,
+        beta_gamma_t: (1.0043, 1.00646),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R142b-R32
-    BinaryPair { a: Fluid::R142b, b: Fluid::R32, beta_gamma_t: (0.98803, 0.9751), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R142b,
+        b: Fluid::R32,
+        beta_gamma_t: (0.98803, 0.9751),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R143a-R152A
-    BinaryPair { a: Fluid::R143a, b: Fluid::R152A, beta_gamma_t: (0.99955, 0.99038), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R143a,
+        b: Fluid::R152A,
+        beta_gamma_t: (0.99955, 0.99038),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R143a-R161
-    BinaryPair { a: Fluid::R143a, b: Fluid::R161, beta_gamma_t: (0.99931, 0.99556), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R143a,
+        b: Fluid::R161,
+        beta_gamma_t: (0.99931, 0.99556),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R143a-R23
-    BinaryPair { a: Fluid::R143a, b: Fluid::R23, beta_gamma_t: (0.99197, 1.00381), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R143a,
+        b: Fluid::R23,
+        beta_gamma_t: (0.99197, 1.00381),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R143a-R236FA
-    BinaryPair { a: Fluid::R143a, b: Fluid::R236FA, beta_gamma_t: (0.99911, 1.01834), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R143a,
+        b: Fluid::R236FA,
+        beta_gamma_t: (0.99911, 1.01834),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R143a-R32
-    BinaryPair { a: Fluid::R143a, b: Fluid::R32, beta_gamma_t: (0.99734, 0.97488), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R143a,
+        b: Fluid::R32,
+        beta_gamma_t: (0.99734, 0.97488),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R152A-R22
-    BinaryPair { a: Fluid::R152A, b: Fluid::R22, beta_gamma_t: (1.00239, 1.01169), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R152A,
+        b: Fluid::R22,
+        beta_gamma_t: (1.00239, 1.01169),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R152A-R227EA
-    BinaryPair { a: Fluid::R152A, b: Fluid::R227EA, beta_gamma_t: (1.0088, 0.99527), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R152A,
+        b: Fluid::R227EA,
+        beta_gamma_t: (1.0088, 0.99527),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R152A-R23
-    BinaryPair { a: Fluid::R152A, b: Fluid::R23, beta_gamma_t: (1.00035, 1.02378), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R152A,
+        b: Fluid::R23,
+        beta_gamma_t: (1.00035, 1.02378),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R152A-R32
-    BinaryPair { a: Fluid::R152A, b: Fluid::R32, beta_gamma_t: (0.99966, 0.99709), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R152A,
+        b: Fluid::R32,
+        beta_gamma_t: (0.99966, 0.99709),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R161-R227EA
-    BinaryPair { a: Fluid::R161, b: Fluid::R227EA, beta_gamma_t: (1.00966, 1.02456), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R161,
+        b: Fluid::R227EA,
+        beta_gamma_t: (1.00966, 1.02456),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R161-R32
-    BinaryPair { a: Fluid::R161, b: Fluid::R32, beta_gamma_t: (1.00239, 0.98909), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R161,
+        b: Fluid::R32,
+        beta_gamma_t: (1.00239, 0.98909),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R218-R22
-    BinaryPair { a: Fluid::R218, b: Fluid::R22, beta_gamma_t: (0.98269, 0.91598), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R218,
+        b: Fluid::R22,
+        beta_gamma_t: (0.98269, 0.91598),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R218-RC318
-    BinaryPair { a: Fluid::R218, b: Fluid::RC318, beta_gamma_t: (1.00386, 1.04248), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R218,
+        b: Fluid::RC318,
+        beta_gamma_t: (1.00386, 1.04248),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R22-R23
-    BinaryPair { a: Fluid::R22, b: Fluid::R23, beta_gamma_t: (0.99569, 0.98752), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R22,
+        b: Fluid::R23,
+        beta_gamma_t: (0.99569, 0.98752),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R22-RC318
-    BinaryPair { a: Fluid::R22, b: Fluid::RC318, beta_gamma_t: (1.05268, 0.96966), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R22,
+        b: Fluid::RC318,
+        beta_gamma_t: (1.05268, 0.96966),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R227EA-R23
-    BinaryPair { a: Fluid::R227EA, b: Fluid::R23, beta_gamma_t: (0.9886, 1.00208), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R227EA,
+        b: Fluid::R23,
+        beta_gamma_t: (0.9886, 1.00208),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R227EA-R32
-    BinaryPair { a: Fluid::R227EA, b: Fluid::R32, beta_gamma_t: (0.98611, 0.97064), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R227EA,
+        b: Fluid::R32,
+        beta_gamma_t: (0.98611, 0.97064),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R23-R32
-    BinaryPair { a: Fluid::R23, b: Fluid::R32, beta_gamma_t: (1.00116, 1.00385), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R23,
+        b: Fluid::R32,
+        beta_gamma_t: (1.00116, 1.00385),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R23-SulfurHexafluoride
-    BinaryPair { a: Fluid::R23, b: Fluid::SulfurHexafluoride, beta_gamma_t: (0.99445, 0.91843), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R23,
+        b: Fluid::SulfurHexafluoride,
+        beta_gamma_t: (0.99445, 0.91843),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R23-Toluene
-    BinaryPair { a: Fluid::R23, b: Fluid::Toluene, beta_gamma_t: (0.96909, 1.07054), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R23,
+        b: Fluid::Toluene,
+        beta_gamma_t: (0.96909, 1.07054),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R236EA-R32
-    BinaryPair { a: Fluid::R236EA, b: Fluid::R32, beta_gamma_t: (0.99812, 1.01165), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R236EA,
+        b: Fluid::R32,
+        beta_gamma_t: (0.99812, 1.01165),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R236FA-R32
-    BinaryPair { a: Fluid::R236FA, b: Fluid::R32, beta_gamma_t: (0.99365, 0.99661), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R236FA,
+        b: Fluid::R32,
+        beta_gamma_t: (0.99365, 0.99661),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R32-SulfurHexafluoride
-    BinaryPair { a: Fluid::R32, b: Fluid::SulfurHexafluoride, beta_gamma_t: (0.9983, 0.86502), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R32,
+        b: Fluid::SulfurHexafluoride,
+        beta_gamma_t: (0.9983, 0.86502),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R32-SulfurDioxide
-    BinaryPair { a: Fluid::R32, b: Fluid::SulfurDioxide, beta_gamma_t: (1.00238, 0.99968), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R32,
+        b: Fluid::SulfurDioxide,
+        beta_gamma_t: (1.00238, 0.99968),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R32-Toluene
-    BinaryPair { a: Fluid::R32, b: Fluid::Toluene, beta_gamma_t: (1.01598, 0.98173), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R32,
+        b: Fluid::Toluene,
+        beta_gamma_t: (1.01598, 0.98173),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R40-R41
-    BinaryPair { a: Fluid::R40, b: Fluid::R41, beta_gamma_t: (0.99518, 0.9981), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R40,
+        b: Fluid::R41,
+        beta_gamma_t: (0.99518, 0.9981),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R40-Xenon
-    BinaryPair { a: Fluid::R40, b: Fluid::Xenon, beta_gamma_t: (0.96464, 1.03491), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R40,
+        b: Fluid::Xenon,
+        beta_gamma_t: (0.96464, 1.03491),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R41-Toluene
-    BinaryPair { a: Fluid::R41, b: Fluid::Toluene, beta_gamma_t: (0.97539, 1.09707), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R41,
+        b: Fluid::Toluene,
+        beta_gamma_t: (0.97539, 1.09707),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R41-Xenon
-    BinaryPair { a: Fluid::R41, b: Fluid::Xenon, beta_gamma_t: (0.97753, 0.91395), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R41,
+        b: Fluid::Xenon,
+        beta_gamma_t: (0.97753, 0.91395),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // SulfurHexafluoride-Xenon
-    BinaryPair { a: Fluid::SulfurHexafluoride, b: Fluid::Xenon, beta_gamma_t: (0.96469, 0.92846), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::SulfurHexafluoride,
+        b: Fluid::Xenon,
+        beta_gamma_t: (0.96469, 0.92846),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // SulfurDioxide-Toluene
-    BinaryPair { a: Fluid::SulfurDioxide, b: Fluid::Toluene, beta_gamma_t: (1.01133, 1.02114), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::SulfurDioxide,
+        b: Fluid::Toluene,
+        beta_gamma_t: (1.01133, 1.02114),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R1234yf-R1234ze(E)
-    BinaryPair { a: Fluid::R1234yf, b: Fluid::R1234zeE, beta_gamma_t: (0.998886, 0.999309), beta_gamma_v: (0.999302, 0.99859), f_departure: 1.0, departure_terms: &[DepartureTerm::Power { n: 0.07264, d: 1.0, t: 0.012645, l: 1.0 }, DepartureTerm::Power { n: -0.024746, d: 2.0, t: 3.992829, l: 2.0 }] },
+    BinaryPair {
+        a: Fluid::R1234yf,
+        b: Fluid::R1234zeE,
+        beta_gamma_t: (0.998886, 0.999309),
+        beta_gamma_v: (0.999302, 0.99859),
+        f_departure: 1.0,
+        departure_terms: &[
+            DepartureTerm::Power {
+                n: 0.07264,
+                d: 1.0,
+                t: 0.012645,
+                l: 1.0,
+            },
+            DepartureTerm::Power {
+                n: -0.024746,
+                d: 2.0,
+                t: 3.992829,
+                l: 2.0,
+            },
+        ],
+    },
     // R134a-R1234ze(E)
-    BinaryPair { a: Fluid::R134a, b: Fluid::R1234zeE, beta_gamma_t: (0.998593, 0.992009), beta_gamma_v: (0.998995, 0.998621), f_departure: 1.0, departure_terms: &[DepartureTerm::Power { n: 0.068889, d: 1.0, t: 3.184446, l: 1.0 }, DepartureTerm::Power { n: -0.004831, d: 2.0, t: 2.034344, l: 2.0 }] },
+    BinaryPair {
+        a: Fluid::R134a,
+        b: Fluid::R1234zeE,
+        beta_gamma_t: (0.998593, 0.992009),
+        beta_gamma_v: (0.998995, 0.998621),
+        f_departure: 1.0,
+        departure_terms: &[
+            DepartureTerm::Power {
+                n: 0.068889,
+                d: 1.0,
+                t: 3.184446,
+                l: 1.0,
+            },
+            DepartureTerm::Power {
+                n: -0.004831,
+                d: 2.0,
+                t: 2.034344,
+                l: 2.0,
+            },
+        ],
+    },
     // R1234ze(E)-R227EA
-    BinaryPair { a: Fluid::R1234zeE, b: Fluid::R227EA, beta_gamma_t: (1.001247, 0.98918), beta_gamma_v: (0.99929, 1.001581), f_departure: 1.0, departure_terms: &[DepartureTerm::Power { n: -0.057178, d: 1.0, t: 1.290298, l: 1.0 }, DepartureTerm::Power { n: 0.031318, d: 2.0, t: 0.038796, l: 1.0 }, DepartureTerm::Power { n: -0.027496, d: 3.0, t: 2.640532, l: 1.0 }] },
+    BinaryPair {
+        a: Fluid::R1234zeE,
+        b: Fluid::R227EA,
+        beta_gamma_t: (1.001247, 0.98918),
+        beta_gamma_v: (0.99929, 1.001581),
+        f_departure: 1.0,
+        departure_terms: &[
+            DepartureTerm::Power {
+                n: -0.057178,
+                d: 1.0,
+                t: 1.290298,
+                l: 1.0,
+            },
+            DepartureTerm::Power {
+                n: 0.031318,
+                d: 2.0,
+                t: 0.038796,
+                l: 1.0,
+            },
+            DepartureTerm::Power {
+                n: -0.027496,
+                d: 3.0,
+                t: 2.640532,
+                l: 1.0,
+            },
+        ],
+    },
     // RC318-n-Butane
-    BinaryPair { a: Fluid::RC318, b: Fluid::NButane, beta_gamma_t: (0.98944, 0.916288), beta_gamma_v: (0.954663, 0.900133), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::RC318,
+        b: Fluid::NButane,
+        beta_gamma_t: (0.98944, 0.916288),
+        beta_gamma_v: (0.954663, 0.900133),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R125-R13I1
-    BinaryPair { a: Fluid::R125, b: Fluid::R13I1, beta_gamma_t: (0.989972, 0.955147), beta_gamma_v: (1.009413, 1.004957), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R125,
+        b: Fluid::R13I1,
+        beta_gamma_t: (0.989972, 0.955147),
+        beta_gamma_v: (1.009413, 1.004957),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R32-R13I1
-    BinaryPair { a: Fluid::R32, b: Fluid::R13I1, beta_gamma_t: (0.993026, 0.934839), beta_gamma_v: (1.013481, 0.858023), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R32,
+        b: Fluid::R13I1,
+        beta_gamma_t: (0.993026, 0.934839),
+        beta_gamma_v: (1.013481, 0.858023),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // IsoButane-R1234ze(Z)
-    BinaryPair { a: Fluid::IsoButane, b: Fluid::R1234zeZ, beta_gamma_t: (0.986167, 0.895596), beta_gamma_v: (1.175372, 1.148579), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::IsoButane,
+        b: Fluid::R1234zeZ,
+        beta_gamma_t: (0.986167, 0.895596),
+        beta_gamma_v: (1.175372, 1.148579),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R1243zf-IsoButane
-    BinaryPair { a: Fluid::R1243zf, b: Fluid::IsoButane, beta_gamma_t: (0.992492, 0.949404), beta_gamma_v: (1.011434, 0.957174), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R1243zf,
+        b: Fluid::IsoButane,
+        beta_gamma_t: (0.992492, 0.949404),
+        beta_gamma_v: (1.011434, 0.957174),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R1234yf
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R1234yf, beta_gamma_t: (1.006037, 0.937793), beta_gamma_v: (1.013434, 1.013195), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R1234yf,
+        beta_gamma_t: (1.006037, 0.937793),
+        beta_gamma_v: (1.013434, 1.013195),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R1243zf
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R1243zf, beta_gamma_t: (1.01028, 0.947551), beta_gamma_v: (1.019094, 0.989477), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R1243zf,
+        beta_gamma_t: (1.01028, 0.947551),
+        beta_gamma_v: (1.019094, 0.989477),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R125-R1234ze(E)
-    BinaryPair { a: Fluid::R125, b: Fluid::R1234zeE, beta_gamma_t: (0.994388, 1.00124), beta_gamma_v: (1.028287, 0.999334), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R125,
+        b: Fluid::R1234zeE,
+        beta_gamma_t: (0.994388, 1.00124),
+        beta_gamma_v: (1.028287, 0.999334),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R125-R1243zf
-    BinaryPair { a: Fluid::R125, b: Fluid::R1243zf, beta_gamma_t: (0.98612, 0.998591), beta_gamma_v: (1.115873, 1.015249), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R125,
+        b: Fluid::R1243zf,
+        beta_gamma_t: (0.98612, 0.998591),
+        beta_gamma_v: (1.115873, 1.015249),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R143a-R1234ze(E)
-    BinaryPair { a: Fluid::R143a, b: Fluid::R1234zeE, beta_gamma_t: (0.975352, 0.997695), beta_gamma_v: (1.249976, 1.03652), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R143a,
+        b: Fluid::R1234zeE,
+        beta_gamma_t: (0.975352, 0.997695),
+        beta_gamma_v: (1.249976, 1.03652),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R1243zf-R152A
-    BinaryPair { a: Fluid::R1243zf, b: Fluid::R152A, beta_gamma_t: (1.016137, 1.001256), beta_gamma_v: (0.870452, 0.937785), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R1243zf,
+        b: Fluid::R152A,
+        beta_gamma_t: (1.016137, 1.001256),
+        beta_gamma_v: (0.870452, 0.937785),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R152A-R245fa
-    BinaryPair { a: Fluid::R152A, b: Fluid::R245fa, beta_gamma_t: (1.008563, 0.959794), beta_gamma_v: (1.046161, 1.001461), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R152A,
+        b: Fluid::R245fa,
+        beta_gamma_t: (1.008563, 0.959794),
+        beta_gamma_v: (1.046161, 1.001461),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R1234ze(E)-R245fa
-    BinaryPair { a: Fluid::R1234zeE, b: Fluid::R245fa, beta_gamma_t: (0.978878, 1.00424), beta_gamma_v: (1.183949, 0.992729), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R1234zeE,
+        b: Fluid::R245fa,
+        beta_gamma_t: (0.978878, 1.00424),
+        beta_gamma_v: (1.183949, 0.992729),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R124-RC318
-    BinaryPair { a: Fluid::R124, b: Fluid::RC318, beta_gamma_t: (0.965569, 0.967104), beta_gamma_v: (0.800141, 0.978347), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R124,
+        b: Fluid::RC318,
+        beta_gamma_t: (0.965569, 0.967104),
+        beta_gamma_v: (0.800141, 0.978347),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // CarbonDioxide-R13I1
-    BinaryPair { a: Fluid::CarbonDioxide, b: Fluid::R13I1, beta_gamma_t: (1.01377, 0.963166), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::CarbonDioxide,
+        b: Fluid::R13I1,
+        beta_gamma_t: (1.01377, 0.963166),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // CarbonDioxide-R1233zd(E)
-    BinaryPair { a: Fluid::CarbonDioxide, b: Fluid::R1233zdE, beta_gamma_t: (1.0, 1.029404), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::CarbonDioxide,
+        b: Fluid::R1233zdE,
+        beta_gamma_t: (1.0, 1.029404),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // CarbonDioxide-R1243zf
-    BinaryPair { a: Fluid::CarbonDioxide, b: Fluid::R1243zf, beta_gamma_t: (1.0, 0.998004), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::CarbonDioxide,
+        b: Fluid::R1243zf,
+        beta_gamma_t: (1.0, 0.998004),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // CarbonDioxide-R161
-    BinaryPair { a: Fluid::CarbonDioxide, b: Fluid::R161, beta_gamma_t: (1.0, 1.001584), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::CarbonDioxide,
+        b: Fluid::R161,
+        beta_gamma_t: (1.0, 1.001584),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // CarbonDioxide-R365MFC
-    BinaryPair { a: Fluid::CarbonDioxide, b: Fluid::R365MFC, beta_gamma_t: (1.0, 1.069544), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::CarbonDioxide,
+        b: Fluid::R365MFC,
+        beta_gamma_t: (1.0, 1.069544),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // Ethane-R1234ze(E)
-    BinaryPair { a: Fluid::Ethane, b: Fluid::R1234zeE, beta_gamma_t: (1.0, 0.978541), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::Ethane,
+        b: Fluid::R1234zeE,
+        beta_gamma_t: (1.0, 0.978541),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Pentane-R116
-    BinaryPair { a: Fluid::NPentane, b: Fluid::R116, beta_gamma_t: (1.0, 0.902139), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPentane,
+        b: Fluid::R116,
+        beta_gamma_t: (1.0, 0.902139),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Pentane-R12
-    BinaryPair { a: Fluid::NPentane, b: Fluid::R12, beta_gamma_t: (1.0, 1.0048), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPentane,
+        b: Fluid::R12,
+        beta_gamma_t: (1.0, 1.0048),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R115
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R115, beta_gamma_t: (1.0, 0.943234), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R115,
+        beta_gamma_t: (1.0, 0.943234),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R1234ze(Z)
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R1234zeZ, beta_gamma_t: (1.0, 0.932391), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R1234zeZ,
+        beta_gamma_t: (1.0, 0.932391),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R14
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R14, beta_gamma_t: (1.0, 0.919519), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R14,
+        beta_gamma_t: (1.0, 0.919519),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // n-Propane-R22
-    BinaryPair { a: Fluid::NPropane, b: Fluid::R22, beta_gamma_t: (1.0, 0.942193), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::NPropane,
+        b: Fluid::R22,
+        beta_gamma_t: (1.0, 0.942193),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R114-R115
-    BinaryPair { a: Fluid::R114, b: Fluid::R115, beta_gamma_t: (1.0, 1.018048), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R114,
+        b: Fluid::R115,
+        beta_gamma_t: (1.0, 1.018048),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R1234yf-R1233zd(E)
-    BinaryPair { a: Fluid::R1234yf, b: Fluid::R1233zdE, beta_gamma_t: (1.0, 0.988723), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R1234yf,
+        b: Fluid::R1233zdE,
+        beta_gamma_t: (1.0, 0.988723),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R1243zf-R1234yf
-    BinaryPair { a: Fluid::R1243zf, b: Fluid::R1234yf, beta_gamma_t: (1.0, 0.99483), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R1243zf,
+        b: Fluid::R1234yf,
+        beta_gamma_t: (1.0, 0.99483),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
     // R1243zf-R1234ze(E)
-    BinaryPair { a: Fluid::R1243zf, b: Fluid::R1234zeE, beta_gamma_t: (1.0, 0.994508), beta_gamma_v: (1.0, 1.0), f_departure: 0.0, departure_terms: &[] },
+    BinaryPair {
+        a: Fluid::R1243zf,
+        b: Fluid::R1234zeE,
+        beta_gamma_t: (1.0, 0.994508),
+        beta_gamma_v: (1.0, 1.0),
+        f_departure: 0.0,
+        departure_terms: &[],
+    },
 ];

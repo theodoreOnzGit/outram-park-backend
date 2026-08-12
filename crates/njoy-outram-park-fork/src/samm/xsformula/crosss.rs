@@ -54,21 +54,50 @@ pub fn cross_sections(
 
     for (n, group) in section.spin_groups.iter().enumerate() {
         let alpha = abpart(&group.resonances, &amplitudes[n], energy);
-        let out = setr(group, &kinematics[n], &section.particle_pairs, &amplitudes[n], &alpha, energy);
+        let out = setr(
+            group,
+            &kinematics[n],
+            &section.particle_pairs,
+            &amplitudes[n],
+            &alpha,
+            energy,
+        );
 
         let xqx = if out.lrmat_trivial {
             // samm.f90:3121-3123 -- trivial R-matrix: Xq/Xxxx are all zero.
             let z = zero_triangular(out.nchan);
-            super::assembly::XqxOutput { xxxxr: z.re, xxxxi: z.im }
+            super::assembly::XqxOutput {
+                xxxxr: z.re,
+                xxxxi: z.im,
+            }
         } else {
             let yinv = invert(&out.ymat, out.nchan as i64);
-            setxqx(out.nchan, &out.rmat, &yinv, &out.rootp, &out.elinvr, &out.elinvi)
+            setxqx(
+                out.nchan,
+                &out.rmat,
+                &yinv,
+                &out.rootp,
+                &out.elinvr,
+                &out.elinvi,
+            )
         };
 
         let zke: Vec<f64> = kinematics[n][..out.nchan].iter().map(|k| k.zke).collect();
-        let particle_pair: Vec<usize> = group.channels[..out.nchan].iter().map(|c| c.particle_pair).collect();
+        let particle_pair: Vec<usize> = group.channels[..out.nchan]
+            .iter()
+            .map(|c| c.particle_pair)
+            .collect();
 
-        let crss = sectio(npp, &quantum_info[n], &zke, &particle_pair, &out.sinsqr, &out.sin2ph, &xqx.xxxxr, &xqx.xxxxi);
+        let crss = sectio(
+            npp,
+            &quantum_info[n],
+            &zke,
+            &particle_pair,
+            &out.sinsqr,
+            &out.sin2ph,
+            &xqx.xxxxr,
+            &xqx.xxxxi,
+        );
         for (ip, c) in crss.into_iter().enumerate() {
             sigmas[ip] += c;
         }

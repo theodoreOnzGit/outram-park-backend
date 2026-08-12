@@ -131,7 +131,12 @@ fn depletion_burnup() {
 
     // (1) U-235 depletes monotonically.
     for w in u235.windows(2) {
-        assert!(w[1] < w[0], "U-235 must decrease each step: {} -> {}", w[0], w[1]);
+        assert!(
+            w[1] < w[0],
+            "U-235 must decrease each step: {} -> {}",
+            w[0],
+            w[1]
+        );
     }
     assert!(u235[0] > 0.0);
 
@@ -216,19 +221,39 @@ fn depletion_mc_transport_coupling() {
 
     let result = run_notebook_case();
     // Modest, seeded (deterministic) MC run.
-    let settings =
-        KeffSettings { n_particles: 500, n_inactive: 10, n_active: 30, ..KeffSettings::default() };
+    let settings = KeffSettings {
+        n_particles: 500,
+        n_inactive: 10,
+        n_active: 30,
+        ..KeffSettings::default()
+    };
 
-    let bol: Vec<(String, f64)> =
-        result.bol().densities.iter().filter(|(n, _)| n.starts_with('U')).cloned().collect();
-    let eol: Vec<(String, f64)> =
-        result.eol().densities.iter().filter(|(n, _)| n.starts_with('U')).cloned().collect();
+    let bol: Vec<(String, f64)> = result
+        .bol()
+        .densities
+        .iter()
+        .filter(|(n, _)| n.starts_with('U'))
+        .cloned()
+        .collect();
+    let eol: Vec<(String, f64)> = result
+        .eol()
+        .densities
+        .iter()
+        .filter(|(n, _)| n.starts_with('U'))
+        .cloned()
+        .collect();
 
     let k_bol = mc_keff_of_actinide_sphere(&bol, 12.0, &settings);
     let k_eol = mc_keff_of_actinide_sphere(&eol, 12.0, &settings);
 
-    assert!(k_bol.k_mean.is_finite() && k_bol.k_mean > 0.0, "BOL MC k must be finite/positive");
-    assert!(k_eol.k_mean.is_finite() && k_eol.k_mean > 0.0, "EOL MC k must be finite/positive");
+    assert!(
+        k_bol.k_mean.is_finite() && k_bol.k_mean > 0.0,
+        "BOL MC k must be finite/positive"
+    );
+    assert!(
+        k_eol.k_mean.is_finite() && k_eol.k_mean > 0.0,
+        "EOL MC k must be finite/positive"
+    );
     eprintln!(
         "MC bare-sphere k (fast, NOT notebook-comparable): BOL {:.5} ± {:.5}, EOL {:.5} ± {:.5}",
         k_bol.k_mean, k_bol.k_std, k_eol.k_mean, k_eol.k_std
@@ -247,11 +272,17 @@ fn write_comparison_csv(result: &BurnupResult) {
     );
     let _ = std::fs::create_dir_all(dir);
     let path = format!("{dir}/depletion.csv");
-    let Ok(mut f) = std::fs::File::create(&path) else { return };
+    let Ok(mut f) = std::fs::File::create(&path) else {
+        return;
+    };
 
     // Notebook MC k per report point (t = 0..180 d).
-    let ref_k = [1.46478, 1.43891, 1.43604, 1.42959, 1.42755, 1.42575, 1.42368];
-    let ref_sigma = [0.00392, 0.00466, 0.00493, 0.00429, 0.00464, 0.00483, 0.00460];
+    let ref_k = [
+        1.46478, 1.43891, 1.43604, 1.42959, 1.42755, 1.42575, 1.42368,
+    ];
+    let ref_sigma = [
+        0.00392, 0.00466, 0.00493, 0.00429, 0.00464, 0.00483, 0.00460,
+    ];
 
     let _ = writeln!(
         f,

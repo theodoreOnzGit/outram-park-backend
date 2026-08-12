@@ -1,19 +1,19 @@
 use uom::si::{f64::*, pressure::megapascal, thermodynamic_temperature::kelvin};
 
-use crate::{interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase, region_4_vap_liq_equilibrium::sat_pressure_4};
+use crate::{
+    interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase,
+    region_4_vap_liq_equilibrium::sat_pressure_4,
+};
 use crate::region_1_subcooled_liquid::h_tp_1;
 
-// checks if pressure is 
+// checks if pressure is
 // lower than saturation pressure at 273.15K or higher than 100 MPa
 //
 // if so, it falls outside the ph boundary
 pub(crate) fn is_outside_pressure_range(p: Pressure) -> bool {
-
     // first determine if p,h point is outside pressure range
-    let lower_pressure_limit: Pressure = 
-        sat_pressure_4(
-            ThermodynamicTemperature::new::<kelvin>(273.15)
-        );
+    let lower_pressure_limit: Pressure =
+        sat_pressure_4(ThermodynamicTemperature::new::<kelvin>(273.15));
 
     let upper_pressure_limit: Pressure = Pressure::new::<megapascal>(100.0);
 
@@ -26,15 +26,13 @@ pub(crate) fn is_outside_pressure_range(p: Pressure) -> bool {
     };
 
     return false;
-
 }
 
-// making a function to check if a p,h value is below the isotherm at 
+// making a function to check if a p,h value is below the isotherm at
 // 273.15K
 //
-pub(crate) fn is_below_isotherm_t_273_15(p: Pressure, h: AvailableEnergy) -> bool{
-
-    // first check if outside pressure range 
+pub(crate) fn is_below_isotherm_t_273_15(p: Pressure, h: AvailableEnergy) -> bool {
+    // first check if outside pressure range
     if is_outside_pressure_range(p) {
         panic!("outside pressure range");
     };
@@ -62,12 +60,11 @@ pub(crate) fn is_below_isotherm_t_273_15(p: Pressure, h: AvailableEnergy) -> boo
     };
 
     return false;
-
 }
 
 // making a function to check if p,h value is above the isotherm T = 1073.15K
-pub(crate) fn is_above_isotherm_t_1073_15(p: Pressure,h: AvailableEnergy) -> bool {
-    // first check if outside pressure range 
+pub(crate) fn is_above_isotherm_t_1073_15(p: Pressure, h: AvailableEnergy) -> bool {
+    // first check if outside pressure range
     if is_outside_pressure_range(p) {
         panic!("outside pressure range");
     };
@@ -81,8 +78,4 @@ pub(crate) fn is_above_isotherm_t_1073_15(p: Pressure,h: AvailableEnergy) -> boo
     };
 
     return false;
-
 }
-
-
-

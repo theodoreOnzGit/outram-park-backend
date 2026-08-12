@@ -219,8 +219,11 @@ impl LkConstants {
         let c = self.c_of_tr(tr);
         let d = self.d_of_tr(tr);
         let vr2 = vr * vr;
-        1.0 + b / vr + c / vr2 + d / vr.powi(5)
-            + self.c4 / (tr * tr * tr * vr2) * (self.beta + self.gamma / vr2)
+        1.0 + b / vr
+            + c / vr2
+            + d / vr.powi(5)
+            + self.c4 / (tr * tr * tr * vr2)
+                * (self.beta + self.gamma / vr2)
                 * (-self.gamma / vr2).exp()
     }
 }
@@ -507,7 +510,9 @@ pub fn mix_crit_props(
         let s = vc(i).cbrt() + vc(j).cbrt();
         s * s * s / 8.0
     };
-    let tcjk = |i: usize, j: usize| (comps[i].critical_temperature * comps[j].critical_temperature).sqrt() * kget(i, j);
+    let tcjk = |i: usize, j: usize| {
+        (comps[i].critical_temperature * comps[j].critical_temperature).sqrt() * kget(i, j)
+    };
 
     let mut vcm = 0.0;
     for i in 0..n {

@@ -95,9 +95,18 @@ fn heu_fuel() -> Material {
         name: "Godiva HEU".into(),
         temperature: 293.6,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     }
 }
@@ -117,29 +126,64 @@ fn nuclides() -> Vec<Nuclide> {
 /// (material 0), cell 1 = moderator (material 1).
 fn pincell_geometry(r_fuel: f64, half: f64) -> Geometry {
     let surfaces = vec![
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: r_fuel, bc: BoundaryType::Transmissive }),
-        SurfaceKind::XPlane(XPlane { x0: -half, bc: BoundaryType::Reflective }),
-        SurfaceKind::XPlane(XPlane { x0: half, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: -half, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: half, bc: BoundaryType::Reflective }),
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: r_fuel,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: -half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: -half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: half,
+            bc: BoundaryType::Reflective,
+        }),
     ];
     let fuel = Cell::material(
         1,
-        vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }],
+        vec![RegionToken::HalfSpace {
+            surface_idx: 0,
+            sense: HalfSpaceSense::Inside,
+        }],
         0,
         293.6,
     );
     let moder = Cell::material(
         2,
         vec![
-            RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside },
-            RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Outside },
+            RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Outside,
+            },
+            RegionToken::HalfSpace {
+                surface_idx: 1,
+                sense: HalfSpaceSense::Outside,
+            },
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Inside },
+            RegionToken::HalfSpace {
+                surface_idx: 2,
+                sense: HalfSpaceSense::Inside,
+            },
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 3, sense: HalfSpaceSense::Outside },
+            RegionToken::HalfSpace {
+                surface_idx: 3,
+                sense: HalfSpaceSense::Outside,
+            },
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 4, sense: HalfSpaceSense::Inside },
+            RegionToken::HalfSpace {
+                surface_idx: 4,
+                sense: HalfSpaceSense::Inside,
+            },
             RegionToken::Intersection,
         ],
         1,
@@ -148,7 +192,10 @@ fn pincell_geometry(r_fuel: f64, half: f64) -> Geometry {
     Geometry {
         surfaces,
         cells: vec![fuel, moder],
-        universes: vec![Universe { id: 0, cell_indices: vec![0, 1] }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0, 1],
+        }],
         lattices: vec![],
         root_universe: 0,
     }
@@ -157,7 +204,9 @@ fn pincell_geometry(r_fuel: f64, half: f64) -> Geometry {
 /// `n`-bin log-spaced energy grid from `e_lo` to `e_hi` \[eV\] (`n+1` ascending edges).
 fn log_energy_grid(e_lo: f64, e_hi: f64, n: usize) -> Vec<f64> {
     let (l0, l1) = (e_lo.ln(), e_hi.ln());
-    (0..=n).map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp()).collect()
+    (0..=n)
+        .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp())
+        .collect()
 }
 
 /// Write comparison rows to the (gitignored) V&V comparison folder.
@@ -188,7 +237,10 @@ fn tally_arithmetic_derived() {
         id: 2,
         name: "H moderator".into(),
         temperature: 293.6,
-        components: vec![NuclideComponent { nuclide_idx: 3, atom_density: 6.6e-2 }],
+        components: vec![NuclideComponent {
+            nuclide_idx: 3,
+            atom_density: 6.6e-2,
+        }],
     };
     let materials = vec![fuel, moderator];
 
@@ -199,7 +251,9 @@ fn tally_arithmetic_derived() {
     // 8 log energy bins, scoring flux + fission (track-length).
     let n_groups = 8usize;
     let edges = log_energy_grid(1.0e-3, 2.0e7, n_groups);
-    let filter = EnergyFilter { bins: edges.clone() };
+    let filter = EnergyFilter {
+        bins: edges.clone(),
+    };
     let mut tally = Tally {
         id: 1,
         name: "flux+fission spectrum".into(),
@@ -208,14 +262,26 @@ fn tally_arithmetic_derived() {
         bins: vec![TallyBin::default(); n_groups * 2],
     };
 
-    let settings = KeffSettings { n_particles: 500, n_inactive: 20, n_active: 30, ..KeffSettings::default() };
+    let settings = KeffSettings {
+        n_particles: 500,
+        n_inactive: 20,
+        n_active: 30,
+        ..KeffSettings::default()
+    };
     let src = SourceBox {
         lower: Position::new(-r_fuel, -r_fuel, -1.0),
         upper: Position::new(r_fuel, r_fuel, 1.0),
     };
 
     let t0 = std::time::Instant::now();
-    let result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, Some(&mut tally));
+    let result = run_keff_csg(
+        &geom,
+        &materials,
+        &nuclides,
+        src,
+        &settings,
+        Some(&mut tally),
+    );
     let dt = t0.elapsed();
     let n_active = settings.n_active as u64;
 
@@ -231,11 +297,20 @@ fn tally_arithmetic_derived() {
     // flux" identity from the notebook).
     let (sum_flux, sum_sigma) = flux.sum();
     let direct_sum: f64 = flux.values.iter().sum();
-    assert!(direct_sum > 0.0, "total flux must be positive, got {direct_sum}");
+    assert!(
+        direct_sum > 0.0,
+        "total flux must be positive, got {direct_sum}"
+    );
     let rel_sum = (sum_flux - direct_sum).abs() / direct_sum;
-    assert!(rel_sum < 1e-9, "sum() must equal direct group sum: {sum_flux} vs {direct_sum} (rel {rel_sum})");
+    assert!(
+        rel_sum < 1e-9,
+        "sum() must equal direct group sum: {sum_flux} vs {direct_sum} (rel {rel_sum})"
+    );
     let expect_sigma = flux.std_devs.iter().map(|s| s * s).sum::<f64>().sqrt();
-    assert!((sum_sigma - expect_sigma).abs() <= 1e-9 * expect_sigma.max(1.0), "sum σ must be quadrature");
+    assert!(
+        (sum_sigma - expect_sigma).abs() <= 1e-9 * expect_sigma.max(1.0),
+        "sum σ must be quadrature"
+    );
 
     // ── Identity 2: (flux + fission) - fission == flux, σ grows ─────────────────
     let back = flux.add(&fission).sub(&fission);
@@ -243,29 +318,44 @@ fn tally_arithmetic_derived() {
     for i in 0..n_groups {
         assert!(
             (back.values[i] - flux.values[i]).abs() <= 1e-9 * flux.values[i].abs().max(1.0),
-            "(a+b)-b must recover a in group {i}: {} vs {}", back.values[i], flux.values[i]
+            "(a+b)-b must recover a in group {i}: {} vs {}",
+            back.values[i],
+            flux.values[i]
         );
         // σ never shrinks under propagation; it strictly grows wherever σ_fission>0.
-        assert!(back.std_devs[i] + 1e-15 >= flux.std_devs[i], "group {i} σ shrank under propagation");
+        assert!(
+            back.std_devs[i] + 1e-15 >= flux.std_devs[i],
+            "group {i} σ shrank under propagation"
+        );
         if fission.std_devs[i] > 0.0 && back.std_devs[i] > flux.std_devs[i] {
             sigma_grew = true;
         }
     }
-    assert!(sigma_grew, "expected σ to strictly grow in at least one group after (a+b)-b");
+    assert!(
+        sigma_grew,
+        "expected σ to strictly grow in at least one group after (a+b)-b"
+    );
 
     // ── Identity 3: flux*2 == flux+flux in the mean; σ differs (2σ vs σ√2) ──────
     let doubled = flux.scalar_mul(2.0);
     let self_added = flux.add(&flux);
     for i in 0..n_groups {
         assert!(
-            (doubled.values[i] - self_added.values[i]).abs() <= 1e-9 * doubled.values[i].abs().max(1.0),
+            (doubled.values[i] - self_added.values[i]).abs()
+                <= 1e-9 * doubled.values[i].abs().max(1.0),
             "a*2 must equal a+a in the mean, group {i}"
         );
         // scalar_mul(2): σ = 2σ ; add(a,a): σ = σ√2 (uncorrelated assumption).
-        assert!((doubled.std_devs[i] - 2.0 * flux.std_devs[i]).abs() <= 1e-12 * (flux.std_devs[i] + 1.0),
-            "scalar_mul σ must be 2σ in group {i}");
-        assert!((self_added.std_devs[i] - flux.std_devs[i] * 2f64.sqrt()).abs() <= 1e-12 * (flux.std_devs[i] + 1.0),
-            "add(a,a) σ must be σ√2 in group {i}");
+        assert!(
+            (doubled.std_devs[i] - 2.0 * flux.std_devs[i]).abs()
+                <= 1e-12 * (flux.std_devs[i] + 1.0),
+            "scalar_mul σ must be 2σ in group {i}"
+        );
+        assert!(
+            (self_added.std_devs[i] - flux.std_devs[i] * 2f64.sqrt()).abs()
+                <= 1e-12 * (flux.std_devs[i] + 1.0),
+            "add(a,a) σ must be σ√2 in group {i}"
+        );
     }
 
     // ── Identity 4: fission / flux ratio (effective group Σ_f), finite & ≥ 0 ────
@@ -275,23 +365,43 @@ fn tally_arithmetic_derived() {
     for i in 0..n_groups {
         if flux.values[i] > 0.0 {
             n_populated += 1;
-            assert!(ratio.values[i].is_finite() && ratio.values[i] >= 0.0,
-                "fission/flux ratio must be finite & non-negative in populated group {i}, got {}", ratio.values[i]);
-            assert!(ratio.std_devs[i].is_finite() && ratio.std_devs[i] >= 0.0,
-                "ratio σ must be finite & non-negative in group {i}, got {}", ratio.std_devs[i]);
+            assert!(
+                ratio.values[i].is_finite() && ratio.values[i] >= 0.0,
+                "fission/flux ratio must be finite & non-negative in populated group {i}, got {}",
+                ratio.values[i]
+            );
+            assert!(
+                ratio.std_devs[i].is_finite() && ratio.std_devs[i] >= 0.0,
+                "ratio σ must be finite & non-negative in group {i}, got {}",
+                ratio.std_devs[i]
+            );
             if sample_ratio.is_nan() && fission.values[i] > 0.0 {
                 sample_ratio = ratio.values[i];
             }
         }
     }
-    assert!(n_populated > 0, "at least one energy group must have positive flux");
+    assert!(
+        n_populated > 0,
+        "at least one energy group must have positive flux"
+    );
 
     eprintln!(
         "[tally arithmetic] k_inf = {:.5} ± {:.5}  |  {} groups, {} populated  |  \
          sum_flux = {:.4e} ± {:.2e} (direct {:.4e}, rel {:.1e})  |  sample fission/flux = {:.4e}  \
          (npart={}, {}+{} gen, {:.1?})",
-        result.k_mean, result.k_std, n_groups, n_populated, sum_flux, sum_sigma, direct_sum,
-        rel_sum, sample_ratio, settings.n_particles, settings.n_inactive, settings.n_active, dt
+        result.k_mean,
+        result.k_std,
+        n_groups,
+        n_populated,
+        sum_flux,
+        sum_sigma,
+        direct_sum,
+        rel_sum,
+        sample_ratio,
+        settings.n_particles,
+        settings.n_inactive,
+        settings.n_active,
+        dt
     );
 
     write_csv(&[

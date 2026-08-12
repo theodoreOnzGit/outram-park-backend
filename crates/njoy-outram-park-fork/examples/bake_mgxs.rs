@@ -28,9 +28,7 @@
 
 use njoy_outram_park_fork::{
     acer::angular::parse_elastic_angular,
-    nuclear_data::{
-        secondary::NuBar, Mgxs, MgxsLibrary, WeightingSpectrum, ENDF_MAX_ENERGY_EV,
-    },
+    nuclear_data::{secondary::NuBar, Mgxs, MgxsLibrary, WeightingSpectrum, ENDF_MAX_ENERGY_EV},
     reconr::reconr_background,
     wmp::WmpLibrary,
     endf::tape::Tape,
@@ -40,9 +38,10 @@ use std::path::PathBuf;
 
 fn main() {
     let mut args = std::env::args().skip(1);
-    let dir = PathBuf::from(args.next().unwrap_or_else(|| {
-        "/home/teddy0/Documents/research/ENDF-B-VIII.0/neutrons".into()
-    }));
+    let dir = PathBuf::from(
+        args.next()
+            .unwrap_or_else(|| "/home/teddy0/Documents/research/ENDF-B-VIII.0/neutrons".into()),
+    );
     let out = PathBuf::from(
         args.next()
             .unwrap_or_else(|| "crates/njoy-outram-park-fork/src/data/mgxs_core.mgxl".into()),
@@ -129,9 +128,10 @@ fn main() {
             continue;
         }
 
-        let tape = match File::open(&path).map_err(|e| e.to_string()).and_then(|f| {
-            Tape::read(f).map_err(|e| e.to_string())
-        }) {
+        let tape = match File::open(&path)
+            .map_err(|e| e.to_string())
+            .and_then(|f| Tape::read(f).map_err(|e| e.to_string()))
+        {
             Ok(t) => t,
             Err(e) => {
                 skipped.push(format!("{name} (tape read: {e})"));
@@ -153,7 +153,10 @@ fn main() {
                 continue;
             }
         };
-        let nu = NuBar::from_endf(&tape, mat).ok().flatten().unwrap_or_default();
+        let nu = NuBar::from_endf(&tape, mat)
+            .ok()
+            .flatten()
+            .unwrap_or_default();
 
         // MF=4/MT=2 elastic angular distribution → per-group μ̄ (forward scatter).
         // Absent or unparseable ⇒ None ⇒ isotropic-CM (μ̄ = 0) for that nuclide.
@@ -161,9 +164,8 @@ fn main() {
             .section(mat, 4, 2)
             .and_then(|s| parse_elastic_angular(s).ok());
 
-        let mg = Mgxs::collapse_from_reconr(
-            &res, name.clone(), e_max, &nu, angular.as_ref(), &spectrum,
-        );
+        let mg =
+            Mgxs::collapse_from_reconr(&res, name.clone(), e_max, &nu, angular.as_ref(), &spectrum);
         baked.push(mg);
     }
 
@@ -194,20 +196,18 @@ fn main() {
 /// The CORE nuclide set as ZAID stems (`ZZZAAA`), matching `bake_wmp.rs` and
 /// `docs/wmp-nuclide-manifest.md`.
 const CORE_ZAIDS: &[&str] = &[
-    "001001", "001002", "002004", "003006", "003007", "004009", "005010", "005011",
-    "006000", "007014", "007015", "008016", "008017", "009019", "011023", "013027",
-    "014028", "014029", "014030", "019039", "019040", "019041", "024050", "024052",
-    "024053", "024054", "025055", "026054", "026056", "026057", "026058", "028058",
-    "028060", "028061", "028062", "028064", "036083", "040090", "040091", "040092",
-    "040094", "040096", "041093", "042092", "042094", "042095", "042096", "042097",
-    "042098", "042100", "043099", "045103", "047107", "047109", "048110", "048111",
-    "048112", "048113", "048114", "048116", "049113", "049115", "050112", "050114",
-    "050115", "050116", "050117", "050118", "050119", "050120", "050122", "050124",
-    "053135", "054131", "054135", "055133", "055135", "060143", "060145", "061147",
-    "061148", "061149", "062147", "062149", "062150", "062151", "062152", "063151",
-    "063153", "063155", "064152", "064154", "064155", "064156", "064157", "064158",
-    "064160", "072176", "072177", "072178", "072179", "072180", "090230", "090232",
-    "091231", "091233", "092233", "092234", "092235", "092236", "092237", "092238",
-    "093237", "093239", "094238", "094239", "094240", "094241", "094242", "095241",
-    "095243", "096242", "096243", "096244", "096245",
+    "001001", "001002", "002004", "003006", "003007", "004009", "005010", "005011", "006000",
+    "007014", "007015", "008016", "008017", "009019", "011023", "013027", "014028", "014029",
+    "014030", "019039", "019040", "019041", "024050", "024052", "024053", "024054", "025055",
+    "026054", "026056", "026057", "026058", "028058", "028060", "028061", "028062", "028064",
+    "036083", "040090", "040091", "040092", "040094", "040096", "041093", "042092", "042094",
+    "042095", "042096", "042097", "042098", "042100", "043099", "045103", "047107", "047109",
+    "048110", "048111", "048112", "048113", "048114", "048116", "049113", "049115", "050112",
+    "050114", "050115", "050116", "050117", "050118", "050119", "050120", "050122", "050124",
+    "053135", "054131", "054135", "055133", "055135", "060143", "060145", "061147", "061148",
+    "061149", "062147", "062149", "062150", "062151", "062152", "063151", "063153", "063155",
+    "064152", "064154", "064155", "064156", "064157", "064158", "064160", "072176", "072177",
+    "072178", "072179", "072180", "090230", "090232", "091231", "091233", "092233", "092234",
+    "092235", "092236", "092237", "092238", "093237", "093239", "094238", "094239", "094240",
+    "094241", "094242", "095241", "095243", "096242", "096243", "096244", "096245",
 ];

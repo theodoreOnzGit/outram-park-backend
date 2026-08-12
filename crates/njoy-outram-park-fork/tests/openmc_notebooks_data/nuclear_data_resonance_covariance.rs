@@ -43,12 +43,28 @@ fn covariance_to_correlation_matches_closed_form() {
 
     let corr = cov.to_correlation();
     // Unit diagonal for positive variances.
-    assert!((corr.get(0, 0) - 1.0).abs() < 1e-12, "corr(0,0) = {}", corr.get(0, 0));
-    assert!((corr.get(1, 1) - 1.0).abs() < 1e-12, "corr(1,1) = {}", corr.get(1, 1));
+    assert!(
+        (corr.get(0, 0) - 1.0).abs() < 1e-12,
+        "corr(0,0) = {}",
+        corr.get(0, 0)
+    );
+    assert!(
+        (corr.get(1, 1) - 1.0).abs() < 1e-12,
+        "corr(1,1) = {}",
+        corr.get(1, 1)
+    );
     // Off-diagonal = cov / (rsd_i · rsd_j) = 1.2 / (2·3) = 0.2, symmetric.
     let expected = 1.2 / (2.0 * 3.0);
-    assert!((corr.get(0, 1) - expected).abs() < 1e-12, "corr(0,1) = {}", corr.get(0, 1));
-    assert!((corr.get(1, 0) - expected).abs() < 1e-12, "corr(1,0) = {}", corr.get(1, 0));
+    assert!(
+        (corr.get(0, 1) - expected).abs() < 1e-12,
+        "corr(0,1) = {}",
+        corr.get(0, 1)
+    );
+    assert!(
+        (corr.get(1, 0) - expected).abs() < 1e-12,
+        "corr(1,0) = {}",
+        corr.get(1, 0)
+    );
 }
 
 /// Notebook op: `IncidentNeutron.from_endf(f, covariance=True)` +

@@ -86,7 +86,11 @@ pub fn density_pt(fluid: Fluid, t: f64, p: f64) -> Result<f64, FlashError> {
         }
         let next = rho - step;
         if (next - rho).abs() <= 1e-14 * rho {
-            return if (p_cur - p).abs() <= tol { Ok(next) } else { Err(FlashError::NonConvergent) };
+            return if (p_cur - p).abs() <= tol {
+                Ok(next)
+            } else {
+                Err(FlashError::NonConvergent)
+            };
         }
         rho = next;
     }

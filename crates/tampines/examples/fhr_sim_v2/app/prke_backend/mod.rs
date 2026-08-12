@@ -397,8 +397,8 @@ impl FHRSimulatorApp {
         // construction, and the previous absolute value masked a sign
         // convention rather than fixing one.
         let reactor_current_decay_heat: Power = fhr_decay_heat.total_decay_heat_power();
-        let fission_power_corrected_for_decay_heat =
-            fission_power_instantaneous * fhr_decay_heat.prompt_power_fraction()
+        let fission_power_corrected_for_decay_heat = fission_power_instantaneous
+            * fhr_decay_heat.prompt_power_fraction()
             + reactor_current_decay_heat;
 
         // with the correct fission power now, we can
@@ -722,14 +722,14 @@ mod oscillation_regression {
                 current_neutron_pop_density,
             );
 
-        // 23-group decay heat (Tobias Table 16 / 1978 draft ANS
-        // Standard); the published fit replaces the old 4%/4%/2%
-        // three-group placeholder, so the full prompt power is the source.
-        decay_heat.advance_timestep(fission_power, dt);
+            // 23-group decay heat (Tobias Table 16 / 1978 draft ANS
+            // Standard); the published fit replaces the old 4%/4%/2%
+            // three-group placeholder, so the full prompt power is the source.
+            decay_heat.advance_timestep(fission_power, dt);
 
             let mut fission_power_corrected = fission_power * 0.9;
-        // Non-negative by construction; no `.abs()` needed.
-        let decay_power: Power = decay_heat.total_decay_heat_power();
+            // Non-negative by construction; no `.abs()` needed.
+            let decay_power: Power = decay_heat.total_decay_heat_power();
             fission_power_corrected += decay_power;
 
             let pebble_bed_mass = Mass::new::<kilogram>(8000.0);

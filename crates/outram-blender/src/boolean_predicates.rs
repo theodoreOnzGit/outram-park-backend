@@ -253,7 +253,10 @@ impl Dd {
     /// Negation (exact).
     #[inline]
     fn neg(self) -> Dd {
-        Dd { hi: -self.hi, lo: -self.lo }
+        Dd {
+            hi: -self.hi,
+            lo: -self.lo,
+        }
     }
 
     /// Double-double sum, accurate to double-double precision (~106 bits).
@@ -593,10 +596,18 @@ pub fn incircle(a: Vec2, b: Vec2, c: Vec2, d: Vec2) -> i32 {
 /// if outside, `0` if (numerically) co-spherical.
 pub fn insphere_fast(a: Vec3, b: Vec3, c: Vec3, d: Vec3, e: Vec3) -> i32 {
     sign_f64(insphere_det(
-        a.x - e.x, a.y - e.y, a.z - e.z,
-        b.x - e.x, b.y - e.y, b.z - e.z,
-        c.x - e.x, c.y - e.y, c.z - e.z,
-        d.x - e.x, d.y - e.y, d.z - e.z,
+        a.x - e.x,
+        a.y - e.y,
+        a.z - e.z,
+        b.x - e.x,
+        b.y - e.y,
+        b.z - e.z,
+        c.x - e.x,
+        c.y - e.y,
+        c.z - e.z,
+        d.x - e.x,
+        d.y - e.y,
+        d.z - e.z,
     ))
 }
 
@@ -607,10 +618,18 @@ pub fn insphere_fast(a: Vec3, b: Vec3, c: Vec3, d: Vec3, e: Vec3) -> i32 {
 #[allow(clippy::too_many_arguments)]
 #[inline]
 fn insphere_det(
-    aex: f64, aey: f64, aez: f64,
-    bex: f64, bey: f64, bez: f64,
-    cex: f64, cey: f64, cez: f64,
-    dex: f64, dey: f64, dez: f64,
+    aex: f64,
+    aey: f64,
+    aez: f64,
+    bex: f64,
+    bey: f64,
+    bez: f64,
+    cex: f64,
+    cey: f64,
+    cez: f64,
+    dex: f64,
+    dey: f64,
+    dez: f64,
 ) -> f64 {
     let ab = aex * bey - bex * aey;
     let bc = bex * cey - cex * bey;
@@ -802,7 +821,11 @@ mod tests {
         let b = Vec3::new(0.0, 1.0, 0.0);
         let c = Vec3::new(0.0, 0.0, 1.0);
         let d = Vec3::new(-1.0, 0.0, 0.0);
-        assert_eq!(orient3d(a, b, c, d), 1, "test fixture must be positively oriented");
+        assert_eq!(
+            orient3d(a, b, c, d),
+            1,
+            "test fixture must be positively oriented"
+        );
 
         let inside = Vec3::new(0.0, 0.0, 0.0); // center
         let outside = Vec3::new(10.0, 10.0, 10.0);
@@ -865,7 +888,13 @@ mod tests {
         let (a, b, c) = near_collinear_points();
         let robust = orient2d(a, b, c);
         let fast = orient2d_fast(a, b, c);
-        assert_ne!(robust, fast, "robust path must disagree with the known-wrong fast path");
-        assert_eq!(robust, -1, "true sign, per the offline exact-rational computation");
+        assert_ne!(
+            robust, fast,
+            "robust path must disagree with the known-wrong fast path"
+        );
+        assert_eq!(
+            robust, -1,
+            "true sign, per the offline exact-rational computation"
+        );
     }
 }

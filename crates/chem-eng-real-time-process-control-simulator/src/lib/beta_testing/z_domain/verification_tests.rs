@@ -135,14 +135,9 @@ fn zoh_first_order_reproduces_o1_recurrence_block() {
     let g = ContinuousTransferFn::first_order(k_p, tau).unwrap();
     let mut discrete = g.to_discrete(t_samp, C2dMethod::Zoh).unwrap();
 
-    let mut block = FirstOrderStableTransferFnNoZeroes::new(
-        k_p,
-        tau,
-        Ratio::ZERO,
-        Ratio::ZERO,
-        Time::ZERO,
-    )
-    .unwrap();
+    let mut block =
+        FirstOrderStableTransferFnNoZeroes::new(k_p, tau, Ratio::ZERO, Ratio::ZERO, Time::ZERO)
+            .unwrap();
 
     let inputs = lcg_sequence(200);
     let mut max_diff = 0.0_f64;
@@ -206,7 +201,9 @@ fn zoh_second_order_step_response_exact_at_samples() {
 
         let mut max_dev = 0.0_f64;
         for n in 0..200 {
-            let y_disc = d.advance_one_sample(Ratio::new::<ratio>(1.0)).get::<ratio>();
+            let y_disc = d
+                .advance_one_sample(Ratio::new::<ratio>(1.0))
+                .get::<ratio>();
             let t_now = Time::new::<second>(n as f64 * 0.25);
             let y_ref = analytic.calculate_response(t_now).get::<ratio>();
             max_dev = max_dev.max((y_disc - y_ref).abs());
@@ -345,7 +342,12 @@ fn prewarp_matches_continuous_frequency_response_at_w0() {
 
     let h_c = eval_continuous(&g, 3.0);
     let d_pre = g
-        .to_discrete(t_samp, C2dMethod::TustinPrewarp { prewarp_frequency: w0 })
+        .to_discrete(
+            t_samp,
+            C2dMethod::TustinPrewarp {
+                prewarp_frequency: w0,
+            },
+        )
         .unwrap();
     let d_plain = g.to_discrete(t_samp, C2dMethod::Tustin).unwrap();
 
@@ -356,7 +358,10 @@ fn prewarp_matches_continuous_frequency_response_at_w0() {
         h_c.abs()
     );
     assert!(dev_pre <= 1e-12, "dev_pre = {dev_pre:e}");
-    assert!(dev_plain > 1e-4, "plain tustin unexpectedly exact: {dev_plain:e}");
+    assert!(
+        dev_plain > 1e-4,
+        "plain tustin unexpectedly exact: {dev_plain:e}"
+    );
 }
 
 /// # Methodology
@@ -477,11 +482,23 @@ fn matched_round_trip_recovers_continuous_coefficients() {
     let g2 = d.to_continuous(D2cMethod::MatchedPoleZero).unwrap();
 
     let lead = *g2.denominator_ascending_s().last().unwrap();
-    let num_rt: Vec<f64> = g2.numerator_ascending_s().iter().map(|c| c / lead).collect();
-    let den_rt: Vec<f64> = g2.denominator_ascending_s().iter().map(|c| c / lead).collect();
+    let num_rt: Vec<f64> = g2
+        .numerator_ascending_s()
+        .iter()
+        .map(|c| c / lead)
+        .collect();
+    let den_rt: Vec<f64> = g2
+        .denominator_ascending_s()
+        .iter()
+        .map(|c| c / lead)
+        .collect();
 
     let mut max_dev = 0.0_f64;
-    for (a, b) in num.iter().zip(num_rt.iter()).chain(den.iter().zip(den_rt.iter())) {
+    for (a, b) in num
+        .iter()
+        .zip(num_rt.iter())
+        .chain(den.iter().zip(den_rt.iter()))
+    {
         max_dev = max_dev.max((a - b).abs());
     }
     println!("matched round trip: max_dev = {max_dev:e}");
@@ -531,7 +548,9 @@ fn filt_docstring_example_impulse_response() {
     let mut max_dev = 0.0_f64;
     let mut first_four = Vec::new();
     for n in 0..n_samples {
-        let y = h.advance_one_sample(Ratio::new::<ratio>(u[n])).get::<ratio>();
+        let y = h
+            .advance_one_sample(Ratio::new::<ratio>(u[n]))
+            .get::<ratio>();
         if n < 4 {
             first_four.push(y);
         }
@@ -629,11 +648,8 @@ fn error_paths_return_documented_variants() {
     );
 
     // (e) prewarp beyond Nyquist: w0 T = 40 * 0.1 = 4 > pi
-    let g1 = ContinuousTransferFn::first_order(
-        Ratio::new::<ratio>(1.0),
-        Time::new::<second>(1.0),
-    )
-    .unwrap();
+    let g1 = ContinuousTransferFn::first_order(Ratio::new::<ratio>(1.0), Time::new::<second>(1.0))
+        .unwrap();
     assert_eq!(
         g1.to_discrete(
             t_samp,

@@ -45,22 +45,48 @@ fn every_binary_pair_evaluates_at_a_representative_state() {
 
         let t_r = mix.reducing_temperature();
         let rho_r = mix.reducing_density();
-        assert!(t_r.is_finite() && t_r > 0.0, "{label}: non-physical T_r {t_r}");
-        assert!(rho_r.is_finite() && rho_r > 0.0, "{label}: non-physical rho_r {rho_r}");
+        assert!(
+            t_r.is_finite() && t_r > 0.0,
+            "{label}: non-physical T_r {t_r}"
+        );
+        assert!(
+            rho_r.is_finite() && rho_r > 0.0,
+            "{label}: non-physical rho_r {rho_r}"
+        );
 
         let res = mix.residual_derivs(1.0, 1.0);
-        assert!(res.a.is_finite(), "{label}: non-finite alpha_r at (delta=1,tau=1): {}", res.a);
+        assert!(
+            res.a.is_finite(),
+            "{label}: non-finite alpha_r at (delta=1,tau=1): {}",
+            res.a
+        );
 
         // Dilute supercritical state -- see the module doc for why.
         let state = mix
             .state_trho_molar(1.5 * t_r, 0.1 * rho_r)
             .unwrap_or_else(|e| panic!("{label}: state_trho_molar failed: {e:?}"));
-        assert!(state.pressure.is_finite() && state.pressure > 0.0, "{label}: non-physical p {}", state.pressure);
-        assert!(state.cp.is_finite() && state.cp > 0.0, "{label}: non-physical cp {}", state.cp);
-        assert!(state.cp > state.cv, "{label}: cp {} should exceed cv {}", state.cp, state.cv);
+        assert!(
+            state.pressure.is_finite() && state.pressure > 0.0,
+            "{label}: non-physical p {}",
+            state.pressure
+        );
+        assert!(
+            state.cp.is_finite() && state.cp > 0.0,
+            "{label}: non-physical cp {}",
+            state.cp
+        );
+        assert!(
+            state.cp > state.cv,
+            "{label}: cp {} should exceed cv {}",
+            state.cp,
+            state.cv
+        );
 
         checked += 1;
     }
-    assert!(checked >= 840, "expected at least 840 binary pairs wired, only {checked} checked");
+    assert!(
+        checked >= 840,
+        "expected at least 840 binary pairs wired, only {checked} checked"
+    );
     println!("{checked} binary pairs checked");
 }

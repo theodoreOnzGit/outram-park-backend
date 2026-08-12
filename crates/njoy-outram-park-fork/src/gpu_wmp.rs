@@ -95,7 +95,10 @@ pub fn wmp_evaluate_batch_cpu(
     energies_ev: &[f64],
     temp_k: f64,
 ) -> Vec<crate::wmp::WmpXs> {
-    energies_ev.iter().map(|&e| wmp.evaluate(e, temp_k)).collect()
+    energies_ev
+        .iter()
+        .map(|&e| wmp.evaluate(e, temp_k))
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -360,12 +363,19 @@ impl crate::gpu::GpuContext {
              broadening buffer (array<f32, 16>); this nuclide's curve-fit order is \
              too high for the GPU kernel"
         );
-        assert!(n_windows >= 1, "gpu_wmp: a WMP nuclide must have at least one window");
+        assert!(
+            n_windows >= 1,
+            "gpu_wmp: a WMP nuclide must have at least one window"
+        );
 
         // --- host-side Doppler scale (f64), uploaded as f32 -------------------
         let sqrt_kt = (crate::wmp::K_BOLTZMANN * temp_k as f64).sqrt();
         let use_faddeeva: u32 = (sqrt_kt > 0.0) as u32;
-        let dopp: f64 = if sqrt_kt > 0.0 { wmp.awr.sqrt() / sqrt_kt } else { 0.0 };
+        let dopp: f64 = if sqrt_kt > 0.0 {
+            wmp.awr.sqrt() / sqrt_kt
+        } else {
+            0.0
+        };
         let sqrt_e_min = wmp.e_min.sqrt();
 
         // --- pack buffers -----------------------------------------------------
@@ -397,14 +407,17 @@ impl crate::gpu::GpuContext {
 
         // curvefit: n_windows * n_coeff * 3, channel-innermost. Fission padded to
         // 0 when the nuclide is not fissionable (the shader ignores it anyway).
-        let mut cf_f32: Vec<f32> =
-            Vec::with_capacity((n_windows * n_coeff * 3) as usize);
+        let mut cf_f32: Vec<f32> = Vec::with_capacity((n_windows * n_coeff * 3) as usize);
         for w in 0..n_windows as usize {
             for c in 0..n_coeff as usize {
                 let coeff = wmp.curvefit[w][c];
                 cf_f32.push(coeff[0] as f32);
                 cf_f32.push(coeff[1] as f32);
-                cf_f32.push(if wmp.fissionable { coeff[2] as f32 } else { 0.0 });
+                cf_f32.push(if wmp.fissionable {
+                    coeff[2] as f32
+                } else {
+                    0.0
+                });
             }
         }
         let cf_bytes = crate::gpu::f32_slice_to_le_bytes(&cf_f32);
@@ -424,8 +437,10 @@ impl crate::gpu::GpuContext {
         }
 
         // Weideman coefficients (host f64 table) uploaded as f32.
-        let wcoeff_f32: Vec<f32> =
-            crate::wmp::weideman_coeffs().iter().map(|&c| c as f32).collect();
+        let wcoeff_f32: Vec<f32> = crate::wmp::weideman_coeffs()
+            .iter()
+            .map(|&c| c as f32)
+            .collect();
         let wcoeff_bytes = crate::gpu::f32_slice_to_le_bytes(&wcoeff_f32);
 
         // Params: 8 u32 then 8 f32 = 64 bytes.
@@ -459,11 +474,12 @@ impl crate::gpu::GpuContext {
 
         // --- buffers ----------------------------------------------------------
         let storage_init = |label: &str, contents: &[u8]| {
-            self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(label),
-                contents,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            })
+            self.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some(label),
+                    contents,
+                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                })
         };
         let energy_buf = storage_init("gpu-wmp-energies", &energy_bytes);
         let pole_buf = storage_init("gpu-wmp-poles", &pole_bytes);
@@ -471,11 +487,13 @@ impl crate::gpu::GpuContext {
         let cf_buf = storage_init("gpu-wmp-curvefit", &cf_bytes);
         let win_buf = storage_init("gpu-wmp-windows", &win_bytes);
         let wcoeff_buf = storage_init("gpu-wmp-wcoeffs", &wcoeff_bytes);
-        let param_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("gpu-wmp-params"),
-            contents: &param_bytes,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
+        let param_buf = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("gpu-wmp-params"),
+                contents: &param_bytes,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
         let output_buf = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("gpu-wmp-output"),
             size: output_size,
@@ -501,68 +519,100 @@ impl crate::gpu::GpuContext {
             count: None,
         };
         let bind_group_layout =
-            self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("gpu-wmp-bgl"),
-                entries: &[
-                    storage_entry(0, true), // energies
-                    storage_entry(1, true), // poles
-                    storage_entry(2, true), // residues
-                    storage_entry(3, true), // curvefit
-                    storage_entry(4, true), // windows
-                    storage_entry(5, true), // wcoeffs
-                    storage_entry(6, false), // result (read_write)
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 7,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
+            self.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("gpu-wmp-bgl"),
+                    entries: &[
+                        storage_entry(0, true),  // energies
+                        storage_entry(1, true),  // poles
+                        storage_entry(2, true),  // residues
+                        storage_entry(3, true),  // curvefit
+                        storage_entry(4, true),  // windows
+                        storage_entry(5, true),  // wcoeffs
+                        storage_entry(6, false), // result (read_write)
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 7,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
                         },
-                        count: None,
-                    },
-                ],
-            });
+                    ],
+                });
 
         let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("gpu-wmp-bg"),
             layout: &bind_group_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: energy_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: pole_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 2, resource: res_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 3, resource: cf_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 4, resource: win_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 5, resource: wcoeff_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 6, resource: output_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 7, resource: param_buf.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: energy_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: pole_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: res_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: cf_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: win_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wcoeff_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: output_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 7,
+                    resource: param_buf.as_entire_binding(),
+                },
             ],
         });
 
         // --- shader + pipeline -----------------------------------------------
-        let shader = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("gpu-wmp-shader"),
-            source: wgpu::ShaderSource::Wgsl(WGSL.into()),
-        });
-        let pipeline_layout =
-            self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let shader = self
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("gpu-wmp-shader"),
+                source: wgpu::ShaderSource::Wgsl(WGSL.into()),
+            });
+        let pipeline_layout = self
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("gpu-wmp-pl"),
                 bind_group_layouts: &[Some(&bind_group_layout)],
                 immediate_size: 0,
             });
-        let pipeline = self.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("gpu-wmp-pipeline"),
-            layout: Some(&pipeline_layout),
-            module: &shader,
-            entry_point: Some("main"),
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-            cache: None,
-        });
+        let pipeline = self
+            .device
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("gpu-wmp-pipeline"),
+                layout: Some(&pipeline_layout),
+                module: &shader,
+                entry_point: Some("main"),
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                cache: None,
+            });
 
         // --- encode + submit --------------------------------------------------
         let mut encoder = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("gpu-wmp-enc") });
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("gpu-wmp-enc"),
+            });
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("gpu-wmp-pass"),
@@ -586,7 +636,11 @@ impl crate::gpu::GpuContext {
         staging_buf.unmap();
 
         flat.chunks_exact(3)
-            .map(|c| WmpXsGpu { scatter: c[0], absorption: c[1], fission: c[2] })
+            .map(|c| WmpXsGpu {
+                scatter: c[0],
+                absorption: c[1],
+                fission: c[2],
+            })
             .collect()
     }
 }

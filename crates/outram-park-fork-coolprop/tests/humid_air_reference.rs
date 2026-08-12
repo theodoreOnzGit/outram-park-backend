@@ -182,7 +182,10 @@ fn round_trip_r_to_w_to_r() {
     .expect("R from (T,p,W)");
 
     eprintln!("W(R=0.5) = {w:.6} kg/kg; round-trip R = {r_out:.8}");
-    assert!((r_out - r_in).abs() < 1e-6, "round-trip R mismatch: {r_in} -> {w} -> {r_out}");
+    assert!(
+        (r_out - r_in).abs() < 1e-6,
+        "round-trip R mismatch: {r_in} -> {w} -> {r_out}"
+    );
 }
 
 fn enthalpy_at(t: f64, w: f64) -> f64 {
@@ -229,7 +232,9 @@ fn cp_and_volume_vs_ashrae_simplified_formula() {
     let p_a = P - p_w;
     let r_specific_air = 287.05; // J/(kg.K)
     let v_ideal = r_specific_air * T / p_a;
-    eprintln!("V(T=25C,p=101325,W=0.01) = {v:.5} m3/kg_da; ideal-gas estimate = {v_ideal:.5} m3/kg_da");
+    eprintln!(
+        "V(T=25C,p=101325,W=0.01) = {v:.5} m3/kg_da; ideal-gas estimate = {v_ideal:.5} m3/kg_da"
+    );
     assert!(
         ((v - v_ideal) / v_ideal).abs() < 0.01,
         "V = {v}, ideal-gas ballpark = {v_ideal}, relative error too large"
@@ -244,7 +249,10 @@ fn out_of_range_below_triple_point_is_rejected() {
         (HumidAirParam::Pressure, P),
         (HumidAirParam::RelativeHumidity, 0.5),
     );
-    assert!(res.is_err(), "T below the triple point must error, not silently extrapolate");
+    assert!(
+        res.is_err(),
+        "T below the triple point must error, not silently extrapolate"
+    );
 }
 
 #[test]
@@ -258,14 +266,27 @@ fn unsupported_input_triple_is_rejected_not_wrong() {
         (HumidAirParam::Pressure, P),
         (HumidAirParam::Enthalpy, 50_000.0),
     );
-    assert_eq!(res, Err(outram_park_fork_coolprop::humid_air::HumidAirError::UnsupportedInputs));
+    assert_eq!(
+        res,
+        Err(outram_park_fork_coolprop::humid_air::HumidAirError::UnsupportedInputs)
+    );
 }
 
 fn dew_and_wet_bulb(t: f64, p: f64, r: f64) -> (f64, f64) {
-    let tdp = ha_props(HumidAirParam::TDewPoint, (HumidAirParam::TDryBulb, t), (HumidAirParam::Pressure, p), (HumidAirParam::RelativeHumidity, r))
-        .expect("T_dp");
-    let twb = ha_props(HumidAirParam::TWetBulb, (HumidAirParam::TDryBulb, t), (HumidAirParam::Pressure, p), (HumidAirParam::RelativeHumidity, r))
-        .expect("T_wb");
+    let tdp = ha_props(
+        HumidAirParam::TDewPoint,
+        (HumidAirParam::TDryBulb, t),
+        (HumidAirParam::Pressure, p),
+        (HumidAirParam::RelativeHumidity, r),
+    )
+    .expect("T_dp");
+    let twb = ha_props(
+        HumidAirParam::TWetBulb,
+        (HumidAirParam::TDryBulb, t),
+        (HumidAirParam::Pressure, p),
+        (HumidAirParam::RelativeHumidity, r),
+    )
+    .expect("T_wb");
     (tdp, twb)
 }
 
@@ -274,7 +295,8 @@ fn dew_and_wet_bulb(t: f64, p: f64, r: f64) -> (f64, f64) {
 /// sea-level pressure. Independent of this port's own energy-balance solve —
 /// shares no code or fitted coefficients with it.
 fn stull_wet_bulb_c(t_c: f64, rh_pct: f64) -> f64 {
-    t_c * (0.151977 * (rh_pct + 8.313659).sqrt()).atan() + (t_c + rh_pct).atan() - (rh_pct - 1.676331).atan()
+    t_c * (0.151977 * (rh_pct + 8.313659).sqrt()).atan() + (t_c + rh_pct).atan()
+        - (rh_pct - 1.676331).atan()
         + 0.00391838 * rh_pct.powf(1.5) * (0.023101 * rh_pct).atan()
         - 4.686035
 }
@@ -288,8 +310,14 @@ fn saturation_identity_tdp_twb_equal_t() {
     let t = 273.15 + 20.0;
     let (tdp, twb) = dew_and_wet_bulb(t, P, 1.0);
     eprintln!("R=1: T_dp={tdp:.6} K, T_wb={twb:.6} K (T={t:.6} K)");
-    assert!((tdp - t).abs() < 1e-3, "T_dp should equal T at saturation: {tdp} vs {t}");
-    assert!((twb - t).abs() < 1e-3, "T_wb should equal T at saturation: {twb} vs {t}");
+    assert!(
+        (tdp - t).abs() < 1e-3,
+        "T_dp should equal T at saturation: {tdp} vs {t}"
+    );
+    assert!(
+        (twb - t).abs() < 1e-3,
+        "T_wb should equal T at saturation: {twb} vs {t}"
+    );
 }
 
 #[test]
@@ -304,7 +332,10 @@ fn wet_bulb_vs_stull_2011_and_ordering() {
         eprintln!("T={t_c}C R={r}: T_dp={:.3}C T_wb={twb_c:.3}C (Stull {stull:.3}C, ordering T_dp<=T_wb<=T)", tdp - 273.15);
 
         // Physical ordering: T_dp <= T_wb <= T (equality only at saturation).
-        assert!(tdp <= twb + 1e-9, "T_dp ({tdp}) must not exceed T_wb ({twb})");
+        assert!(
+            tdp <= twb + 1e-9,
+            "T_dp ({tdp}) must not exceed T_wb ({twb})"
+        );
         assert!(twb <= t + 1e-9, "T_wb ({twb}) must not exceed T ({t})");
 
         // Independent cross-check against Stull's closed-form fit -- coarse
@@ -317,8 +348,17 @@ fn wet_bulb_vs_stull_2011_and_ordering() {
     }
 }
 
-fn relative_humidity_from(t: f64, p: f64, input: (HumidAirParam, f64)) -> Result<f64, outram_park_fork_coolprop::humid_air::HumidAirError> {
-    ha_props(HumidAirParam::RelativeHumidity, (HumidAirParam::TDryBulb, t), (HumidAirParam::Pressure, p), input)
+fn relative_humidity_from(
+    t: f64,
+    p: f64,
+    input: (HumidAirParam, f64),
+) -> Result<f64, outram_park_fork_coolprop::humid_air::HumidAirError> {
+    ha_props(
+        HumidAirParam::RelativeHumidity,
+        (HumidAirParam::TDryBulb, t),
+        (HumidAirParam::Pressure, p),
+        input,
+    )
 }
 
 #[test]
@@ -328,22 +368,38 @@ fn tdp_and_twb_as_input_keys_round_trip_r() {
     let r_in = 0.5;
     let (tdp, twb) = dew_and_wet_bulb(t, P, r_in);
 
-    let r_from_tdp = relative_humidity_from(t, P, (HumidAirParam::TDewPoint, tdp)).expect("R from (T,p,T_dp)");
-    let r_from_twb = relative_humidity_from(t, P, (HumidAirParam::TWetBulb, twb)).expect("R from (T,p,T_wb)");
+    let r_from_tdp =
+        relative_humidity_from(t, P, (HumidAirParam::TDewPoint, tdp)).expect("R from (T,p,T_dp)");
+    let r_from_twb =
+        relative_humidity_from(t, P, (HumidAirParam::TWetBulb, twb)).expect("R from (T,p,T_wb)");
     eprintln!("R={r_in}: T_dp={tdp:.4} -> R={r_from_tdp:.6}; T_wb={twb:.4} -> R={r_from_twb:.6}");
-    assert!((r_from_tdp - r_in).abs() < 1e-4, "R from T_dp input: {r_from_tdp} vs {r_in}");
-    assert!((r_from_twb - r_in).abs() < 1e-4, "R from T_wb input: {r_from_twb} vs {r_in}");
+    assert!(
+        (r_from_tdp - r_in).abs() < 1e-4,
+        "R from T_dp input: {r_from_tdp} vs {r_in}"
+    );
+    assert!(
+        (r_from_twb - r_in).abs() < 1e-4,
+        "R from T_wb input: {r_from_twb} vs {r_in}"
+    );
 
     // Saturation edge case (R = 1): T_wb = T_dp = T exactly, and this is the
     // case that needed psi_w_from_wet_bulb's dedicated short-circuit (see
     // the module doc's caveats section).
     let t_sat = 273.15 + 20.0;
     let (tdp_sat, twb_sat) = dew_and_wet_bulb(t_sat, P, 1.0);
-    let r_from_tdp_sat = relative_humidity_from(t_sat, P, (HumidAirParam::TDewPoint, tdp_sat)).expect("R from (T,p,T_dp) at saturation");
-    let r_from_twb_sat = relative_humidity_from(t_sat, P, (HumidAirParam::TWetBulb, twb_sat)).expect("R from (T,p,T_wb) at saturation");
+    let r_from_tdp_sat = relative_humidity_from(t_sat, P, (HumidAirParam::TDewPoint, tdp_sat))
+        .expect("R from (T,p,T_dp) at saturation");
+    let r_from_twb_sat = relative_humidity_from(t_sat, P, (HumidAirParam::TWetBulb, twb_sat))
+        .expect("R from (T,p,T_wb) at saturation");
     eprintln!("R=1 (saturated): T_dp={tdp_sat:.6} -> R={r_from_tdp_sat:.8}; T_wb={twb_sat:.6} -> R={r_from_twb_sat:.8}");
-    assert!((r_from_tdp_sat - 1.0).abs() < 1e-4, "R from T_dp input at saturation: {r_from_tdp_sat}");
-    assert!((r_from_twb_sat - 1.0).abs() < 1e-4, "R from T_wb input at saturation: {r_from_twb_sat}");
+    assert!(
+        (r_from_tdp_sat - 1.0).abs() < 1e-4,
+        "R from T_dp input at saturation: {r_from_tdp_sat}"
+    );
+    assert!(
+        (r_from_twb_sat - 1.0).abs() < 1e-4,
+        "R from T_wb input at saturation: {r_from_twb_sat}"
+    );
 }
 
 #[test]
@@ -357,12 +413,20 @@ fn dew_point_below_triple_point_is_rejected_as_input_too() {
         (HumidAirParam::Pressure, P),
         (HumidAirParam::TDewPoint, 270.0),
     );
-    assert!(res.is_err(), "T_dp below the triple point must error as an input, not silently extrapolate");
+    assert!(
+        res.is_err(),
+        "T_dp below the triple point must error as an input, not silently extrapolate"
+    );
 }
 
 fn s_at(t: f64, p: f64, w: f64) -> f64 {
-    ha_props(HumidAirParam::Entropy, (HumidAirParam::TDryBulb, t), (HumidAirParam::Pressure, p), (HumidAirParam::HumidityRatio, w))
-        .expect("S from (T,p,W)")
+    ha_props(
+        HumidAirParam::Entropy,
+        (HumidAirParam::TDryBulb, t),
+        (HumidAirParam::Pressure, p),
+        (HumidAirParam::HumidityRatio, w),
+    )
+    .expect("S from (T,p,W)")
 }
 
 #[test]
@@ -381,7 +445,11 @@ fn entropy_thermodynamic_consistency_ds_dt_eq_cp_over_t() {
             let cp = (enthalpy_at(t + dt, w) - enthalpy_at(t - dt, w)) / (2.0 * dt);
             let rel_err = (ds_dt - cp / t).abs() / (cp / t).abs();
             eprintln!("T={t_c}C W={w}: dS/dT={ds_dt:.5} J/(kg.K^2), Cp/T={:.5} J/(kg.K^2), rel_err={rel_err:.2e}", cp / t);
-            assert!(rel_err < 2e-3, "T={t_c}C W={w}: dS/dT={ds_dt} vs Cp/T={}, rel_err={rel_err} too large", cp / t);
+            assert!(
+                rel_err < 2e-3,
+                "T={t_c}C W={w}: dS/dT={ds_dt} vs Cp/T={}, rel_err={rel_err} too large",
+                cp / t
+            );
         }
     }
 }

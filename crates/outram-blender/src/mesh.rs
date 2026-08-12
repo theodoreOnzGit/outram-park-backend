@@ -165,7 +165,10 @@ impl Mesh {
     /// call.
     pub fn add_vertex(&mut self, position: Vec3) -> VertexId {
         let id = VertexId(self.vertices.len());
-        self.vertices.push(Vertex { position, loop_id: None });
+        self.vertices.push(Vertex {
+            position,
+            loop_id: None,
+        });
         id
     }
 
@@ -222,7 +225,10 @@ impl Mesh {
             }
         }
 
-        self.faces.push(Face { loop_start: LoopId(loop_base), len: n });
+        self.faces.push(Face {
+            loop_start: LoopId(loop_base),
+            len: n,
+        });
         face_id
     }
 

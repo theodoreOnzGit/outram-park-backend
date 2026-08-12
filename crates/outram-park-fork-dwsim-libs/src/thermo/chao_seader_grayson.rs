@@ -175,23 +175,23 @@ impl HydrocarbonKModel {
         let species = NuSpecies::from_molar_mass(molar_mass_kg_per_mol);
         match (self, species) {
             // ---- Chao-Seader (Models/ChaoSeader.vb::CalcNu) ----
-            (Self::ChaoSeader, NuSpecies::Hydrogen) => {
-                [1.96718, 1.02972, -0.054009, 0.0005288, 0.0, 0.008585, 0.0, 0.0, 0.0, 0.0]
-            }
-            (Self::ChaoSeader, NuSpecies::Methane) => {
-                [2.4384, -2.2455, -0.34084, 0.00212, -0.00223, 0.10486, -0.03691, 0.0, 0.0, 0.0]
-            }
+            (Self::ChaoSeader, NuSpecies::Hydrogen) => [
+                1.96718, 1.02972, -0.054009, 0.0005288, 0.0, 0.008585, 0.0, 0.0, 0.0, 0.0,
+            ],
+            (Self::ChaoSeader, NuSpecies::Methane) => [
+                2.4384, -2.2455, -0.34084, 0.00212, -0.00223, 0.10486, -0.03691, 0.0, 0.0, 0.0,
+            ],
             (Self::ChaoSeader, NuSpecies::SimpleFluid) => [
                 5.75748, -3.01761, -4.985, 2.02299, 0.0, 0.08427, 0.26667, -0.31138, -0.02655,
                 0.02883,
             ],
             // ---- Grayson-Streed (Models/GraysonStreed.vb::CalcNu) ----
-            (Self::GraysonStreed, NuSpecies::Hydrogen) => {
-                [1.50709, 2.74283, -0.0211, 0.00011, 0.0, 0.008585, 0.0, 0.0, 0.0, 0.0]
-            }
-            (Self::GraysonStreed, NuSpecies::Methane) => {
-                [1.36822, -1.54831, 0.0, 0.02889, -0.01076, 0.10486, -0.02529, 0.0, 0.0, 0.0]
-            }
+            (Self::GraysonStreed, NuSpecies::Hydrogen) => [
+                1.50709, 2.74283, -0.0211, 0.00011, 0.0, 0.008585, 0.0, 0.0, 0.0, 0.0,
+            ],
+            (Self::GraysonStreed, NuSpecies::Methane) => [
+                1.36822, -1.54831, 0.0, 0.02889, -0.01076, 0.10486, -0.02529, 0.0, 0.0, 0.0,
+            ],
             (Self::GraysonStreed, NuSpecies::SimpleFluid) => [
                 2.05135, -2.10889, 0.0, -0.19396, 0.02282, 0.08852, 0.0, -0.00872, -0.00353,
                 0.00203,
@@ -326,7 +326,8 @@ pub fn pure_liquid_fugacity_coefficient(
         + (a[5] + a[6] * tr + a[7] * tr * tr) * pr
         + (a[8] + a[9] * tr) * pr * pr
         - pr.log10();
-    let log_v1 = -4.23893 + 8.65808 * tr - 1.2206 / tr - 3.15224 * tr * tr * tr - 0.025 * (pr - 0.6);
+    let log_v1 =
+        -4.23893 + 8.65808 * tr - 1.2206 / tr - 3.15224 * tr * tr * tr - 0.025 * (pr - 0.6);
     let log_v = log_v0 + omega * log_v1;
     Ok(10.0_f64.powf(log_v))
 }
@@ -460,8 +461,7 @@ pub fn vapor_fugacity_coefficients(
         .iter()
         .map(|sp| {
             let c = &sp.component;
-            0.42748 * R * R * c.critical_temperature.powf(2.5)
-                / (c.critical_pressure * t.sqrt())
+            0.42748 * R * R * c.critical_temperature.powf(2.5) / (c.critical_pressure * t.sqrt())
         })
         .collect();
     let bi: Vec<f64> = species
@@ -490,10 +490,7 @@ pub fn vapor_fugacity_coefficients(
     let c0 = -big_a * big_b;
     let roots = real_cubic_roots(c2, c1, c0);
     // Vapour root: the largest real root (CalcVapFugCoeff takes temp1(2,0)).
-    let zv = roots
-        .iter()
-        .copied()
-        .fold(f64::NEG_INFINITY, f64::max);
+    let zv = roots.iter().copied().fold(f64::NEG_INFINITY, f64::max);
 
     Ok((0..n)
         .map(|i| {
@@ -694,7 +691,15 @@ mod tests {
     fn nu0_simple_fluid_matches_hand_evaluation() {
         // Build a simple-fluid species with ω=0 at Tr=0.8, Pr=0.5.
         let c = Component::new(
-            "sf", 0.05, 500.0, 4.0e6, f64::NAN, 0.0, f64::NAN, [0.0; 5], f64::NAN,
+            "sf",
+            0.05,
+            500.0,
+            4.0e6,
+            f64::NAN,
+            0.0,
+            f64::NAN,
+            [0.0; 5],
+            f64::NAN,
         )
         .unwrap();
         let sp = HydrocarbonSpecies::new(c, 100.0e-6, 15000.0, 0.0);
@@ -717,7 +722,10 @@ mod tests {
             + (a[8] + a[9] * tr) * pr.powi(2)
             - pr.log10();
         let expected = 10.0_f64.powf(log_v0);
-        assert!((nu0 - expected).abs() < 1e-9, "nu0={nu0} expected={expected}");
+        assert!(
+            (nu0 - expected).abs() < 1e-9,
+            "nu0={nu0} expected={expected}"
+        );
         assert!((nu0 - 0.4380271).abs() < 1e-5, "nu0={nu0}");
     }
 
@@ -737,8 +745,8 @@ mod tests {
         let ch4 = methane();
         let t = 310.93; // 100 °F
         let p = 6.895e6; // 1000 psia
-        let cs = pure_liquid_fugacity_coefficient(HydrocarbonKModel::ChaoSeader, &ch4, t, p)
-            .unwrap();
+        let cs =
+            pure_liquid_fugacity_coefficient(HydrocarbonKModel::ChaoSeader, &ch4, t, p).unwrap();
         let gs =
             pure_liquid_fugacity_coefficient(HydrocarbonKModel::GraysonStreed, &ch4, t, p).unwrap();
         assert!(cs.is_finite() && gs.is_finite());
@@ -781,7 +789,8 @@ mod tests {
         assert!((g[0] - 1.0).abs() < 1e-12 && (g[1] - 1.0).abs() < 1e-12);
 
         // (iii) dissimilar → positive deviation.
-        let g = liquid_activity_coefficients(&[methane(), n_decane()], &[0.5, 0.5], 310.93).unwrap();
+        let g =
+            liquid_activity_coefficients(&[methane(), n_decane()], &[0.5, 0.5], 310.93).unwrap();
         assert!(g[0] > 1.0 && g[1] > 1.0, "gammas={g:?}");
     }
 
@@ -854,13 +863,8 @@ mod tests {
             HydrocarbonKError::LengthMismatch { .. }
         ));
         assert!(matches!(
-            pure_liquid_fugacity_coefficient(
-                HydrocarbonKModel::ChaoSeader,
-                &methane(),
-                -1.0,
-                1e5
-            )
-            .unwrap_err(),
+            pure_liquid_fugacity_coefficient(HydrocarbonKModel::ChaoSeader, &methane(), -1.0, 1e5)
+                .unwrap_err(),
             HydrocarbonKError::NonPhysical { .. }
         ));
     }

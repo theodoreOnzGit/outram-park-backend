@@ -581,7 +581,13 @@ impl GibbsSystem {
         // Positive working estimate.
         let mut moles: Vec<f64> = feed_moles
             .iter()
-            .map(|&f| if f > options.mole_floor { f } else { options.mole_floor })
+            .map(|&f| {
+                if f > options.mole_floor {
+                    f
+                } else {
+                    options.mole_floor
+                }
+            })
             .collect();
 
         let mut mu_rt = vec![0.0; n];
@@ -868,7 +874,12 @@ mod tests {
 
         let k = (-dg / (R * t)).exp();
         let nb = k / (1.0 + k);
-        assert!((res.moles[1] - nb).abs() < 1e-9, "n_B={} exp={}", res.moles[1], nb);
+        assert!(
+            (res.moles[1] - nb).abs() < 1e-9,
+            "n_B={} exp={}",
+            res.moles[1],
+            nb
+        );
         assert!((res.moles[0] - (1.0 - nb)).abs() < 1e-9);
         // Equilibrium ratio == K.
         assert!(
@@ -974,21 +985,55 @@ mod tests {
 
         // P = P°.
         let r1 = sys
-            .minimize(&g, t, &feed, 1.0e5, 1.0e5, &FugacityModel::IdealGas, &GibbsOptions::default())
+            .minimize(
+                &g,
+                t,
+                &feed,
+                1.0e5,
+                1.0e5,
+                &FugacityModel::IdealGas,
+                &GibbsOptions::default(),
+            )
             .unwrap();
         let xi1 = xi_at(1.0);
-        assert!((r1.moles[0] - (1.0 - xi1)).abs() < 1e-8, "A2={} exp={}", r1.moles[0], 1.0 - xi1);
-        assert!((r1.moles[1] - 2.0 * xi1).abs() < 1e-8, "A={} exp={}", r1.moles[1], 2.0 * xi1);
+        assert!(
+            (r1.moles[0] - (1.0 - xi1)).abs() < 1e-8,
+            "A2={} exp={}",
+            r1.moles[0],
+            1.0 - xi1
+        );
+        assert!(
+            (r1.moles[1] - 2.0 * xi1).abs() < 1e-8,
+            "A={} exp={}",
+            r1.moles[1],
+            2.0 * xi1
+        );
 
         // P = 10 P°.
         let r10 = sys
-            .minimize(&g, t, &feed, 1.0e6, 1.0e5, &FugacityModel::IdealGas, &GibbsOptions::default())
+            .minimize(
+                &g,
+                t,
+                &feed,
+                1.0e6,
+                1.0e5,
+                &FugacityModel::IdealGas,
+                &GibbsOptions::default(),
+            )
             .unwrap();
         let xi10 = xi_at(10.0);
-        assert!((r10.moles[1] - 2.0 * xi10).abs() < 1e-8, "A(10P)={} exp={}", r10.moles[1], 2.0 * xi10);
+        assert!(
+            (r10.moles[1] - 2.0 * xi10).abs() < 1e-8,
+            "A(10P)={} exp={}",
+            r10.moles[1],
+            2.0 * xi10
+        );
 
         // Le-Chatelier: higher pressure suppresses dissociation.
-        assert!(r10.moles[1] < r1.moles[1], "dissociation should fall with P");
+        assert!(
+            r10.moles[1] < r1.moles[1],
+            "dissociation should fall with P"
+        );
     }
 
     /// **Methodology (inert diluent invariance).** Add an inert `I` (its own
@@ -1014,7 +1059,15 @@ mod tests {
         let g = [0.0, dg, 12345.0]; // inert g° is arbitrary; it cannot react
         let feed = [1.0, 0.0, 2.0];
         let res = sys
-            .minimize(&g, t, &feed, 1.0e5, 1.0e5, &FugacityModel::IdealGas, &GibbsOptions::default())
+            .minimize(
+                &g,
+                t,
+                &feed,
+                1.0e5,
+                1.0e5,
+                &FugacityModel::IdealGas,
+                &GibbsOptions::default(),
+            )
             .unwrap();
 
         let k = (-dg / (R * t)).exp();
@@ -1024,7 +1077,11 @@ mod tests {
             res.mole_fractions[1] / res.mole_fractions[0],
             k
         );
-        assert!((res.moles[2] - 2.0).abs() < 1e-9, "inert not conserved: {}", res.moles[2]);
+        assert!(
+            (res.moles[2] - 2.0).abs() < 1e-9,
+            "inert not conserved: {}",
+            res.moles[2]
+        );
         assert!((res.moles[0] + res.moles[1] - 1.0).abs() < 1e-9);
     }
 
@@ -1053,7 +1110,11 @@ mod tests {
             )
             .unwrap();
         let ratio = res.mole_fractions[1] / res.mole_fractions[0];
-        assert!((ratio - (-c).exp()).abs() < 1e-9, "yB/yA={ratio} exp={}", (-c).exp());
+        assert!(
+            (ratio - (-c).exp()).abs() < 1e-9,
+            "yB/yA={ratio} exp={}",
+            (-c).exp()
+        );
         assert!((res.moles[0] + res.moles[1] - 1.0).abs() < 1e-9);
     }
 
@@ -1073,15 +1134,39 @@ mod tests {
         let sys = GibbsSystem::new(&["A", "B"], &["X"], &[&[1.0, 1.0]]).unwrap();
         let opts = GibbsOptions::default();
         assert!(matches!(
-            sys.minimize(&[0.0], 1000.0, &[1.0, 0.0], 1e5, 1e5, &FugacityModel::IdealGas, &opts),
+            sys.minimize(
+                &[0.0],
+                1000.0,
+                &[1.0, 0.0],
+                1e5,
+                1e5,
+                &FugacityModel::IdealGas,
+                &opts
+            ),
             Err(GibbsError::DimensionMismatch { .. })
         ));
         assert!(matches!(
-            sys.minimize(&[0.0, 0.0], -1.0, &[1.0, 0.0], 1e5, 1e5, &FugacityModel::IdealGas, &opts),
+            sys.minimize(
+                &[0.0, 0.0],
+                -1.0,
+                &[1.0, 0.0],
+                1e5,
+                1e5,
+                &FugacityModel::IdealGas,
+                &opts
+            ),
             Err(GibbsError::InvalidInput { .. })
         ));
         assert!(matches!(
-            sys.minimize(&[0.0, 0.0], 1000.0, &[0.0, 0.0], 1e5, 1e5, &FugacityModel::IdealGas, &opts),
+            sys.minimize(
+                &[0.0, 0.0],
+                1000.0,
+                &[0.0, 0.0],
+                1e5,
+                1e5,
+                &FugacityModel::IdealGas,
+                &opts
+            ),
             Err(GibbsError::InvalidInput { .. })
         ));
     }

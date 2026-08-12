@@ -201,14 +201,13 @@ pub fn read_pendf_cross_section(
     mat: i32,
     mtd: i32,
 ) -> Result<PendfCrossSection, NjoyError> {
-    let (mf, mt) = match classify_mtd(mtd)? {
-        MtdClass::CrossSection { mf, mt } => (mf, mt),
-        MtdClass::DerivedQuantity => {
-            return Err(NjoyError::NotPorted(
+    let (mf, mt) =
+        match classify_mtd(mtd)? {
+            MtdClass::CrossSection { mf, mt } => (mf, mt),
+            MtdClass::DerivedQuantity => return Err(NjoyError::NotPorted(
                 "groupr::getsig derived quantity (MT=257/258/259, groupr.f90:6687-6694,6758-6772)",
-            ))
-        }
-    };
+            )),
+        };
 
     let section = tape
         .section(mat, mf, mt)

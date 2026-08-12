@@ -197,17 +197,17 @@ pub fn magnussen_lle_subset() -> UnifacParameters {
     // DWSIM unifac.txt (= Hansen et al. 1991); main-group ids in the
     // Magnussen 1981 LLE numbering.
     let subs = [
-        (SUB_CH3, MAIN_CH2, 0.9011, 0.848),   // CH3
-        (SUB_CH2, MAIN_CH2, 0.6744, 0.540),   // CH2
-        (SUB_CH, MAIN_CH2, 0.4469, 0.228),    // CH
-        (SUB_C, MAIN_CH2, 0.2195, 0.000),     // C
-        (SUB_ACH, MAIN_ACH, 0.5313, 0.400),   // ACH (aromatic CH)
-        (SUB_AC, MAIN_ACH, 0.3652, 0.120),    // AC  (aromatic C)
+        (SUB_CH3, MAIN_CH2, 0.9011, 0.848),     // CH3
+        (SUB_CH2, MAIN_CH2, 0.6744, 0.540),     // CH2
+        (SUB_CH, MAIN_CH2, 0.4469, 0.228),      // CH
+        (SUB_C, MAIN_CH2, 0.2195, 0.000),       // C
+        (SUB_ACH, MAIN_ACH, 0.5313, 0.400),     // ACH (aromatic CH)
+        (SUB_AC, MAIN_ACH, 0.3652, 0.120),      // AC  (aromatic C)
         (SUB_ACCH3, MAIN_ACCH2, 1.2663, 0.968), // ACCH3
         (SUB_ACCH2, MAIN_ACCH2, 1.0396, 0.660), // ACCH2
         (SUB_ACCH, MAIN_ACCH2, 0.8121, 0.348),  // ACCH
-        (SUB_OH, MAIN_OH, 1.0000, 1.200),     // OH
-        (SUB_H2O, MAIN_H2O, 0.9200, 1.400),   // H2O
+        (SUB_OH, MAIN_OH, 1.0000, 1.200),       // OH
+        (SUB_H2O, MAIN_H2O, 0.9200, 1.400),     // H2O
     ];
     for (subgroup_id, main_group_id, r, q) in subs {
         t.add_subgroup(UnifacSubgroup {
@@ -487,4 +487,3 @@ mod tests {
         assert_relative_eq!(g[1], 4.65121, epsilon = 1e-2);
     }
 }
-

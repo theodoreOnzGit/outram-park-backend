@@ -51,8 +51,13 @@ fn abc_system(la: f64, lb: f64) -> (DepletionSystem, Nuclide, Nuclide, Nuclide) 
         FissionYields::empty(),
     )
     .unwrap();
-    sys.add_nuclide(c, DecayData::stable(), ReactionRates::none(), FissionYields::empty())
-        .unwrap();
+    sys.add_nuclide(
+        c,
+        DecayData::stable(),
+        ReactionRates::none(),
+        FissionYields::empty(),
+    )
+    .unwrap();
     (sys, a, b, c)
 }
 
@@ -76,7 +81,10 @@ fn decay_chain_matches_bateman() {
 
     let errs = [(n[0] - ra).abs(), (n[1] - rb).abs(), (n[2] - rc).abs()];
     let max_err = errs.iter().cloned().fold(0.0_f64, f64::max);
-    println!("(a) decay-chain max abs error = {max_err:.3e}  [n=({},{},{}) ref=({ra},{rb},{rc})]", n[0], n[1], n[2]);
+    println!(
+        "(a) decay-chain max abs error = {max_err:.3e}  [n=({},{},{}) ref=({ra},{rb},{rc})]",
+        n[0], n[1], n[2]
+    );
     assert!(max_err < 1e-10, "max abs error {max_err:e} exceeds 1e-10");
 }
 
@@ -98,7 +106,10 @@ fn total_atom_conservation() {
     let total: f64 = n.iter().sum();
     let dev = (total - 1.0).abs();
     println!("(b1) atom-conservation deviation = {dev:.3e}  [total={total}]");
-    assert!(dev < 1e-12, "atom-conservation deviation {dev:e} exceeds 1e-12");
+    assert!(
+        dev < 1e-12,
+        "atom-conservation deviation {dev:e} exceeds 1e-12"
+    );
 
     // The matrix itself must have zero column sums (structural conservation).
     let col_sums = sys.build_matrix().column_sums();
@@ -128,7 +139,10 @@ fn secular_equilibrium() {
     let activity_ratio = (lb * n[1]) / (la * n[0]);
     let dev = (activity_ratio - 1.0).abs();
     println!("(b2) secular-equilibrium activity ratio = {activity_ratio:.6}  (dev {dev:.3e})");
-    assert!(dev < 1e-3, "secular-equilibrium deviation {dev:e} exceeds 1e-3");
+    assert!(
+        dev < 1e-3,
+        "secular-equilibrium deviation {dev:e} exceeds 1e-3"
+    );
 }
 
 /// (c) Burnup step — pure transmutation A --(n,gamma)--> B (both stable).
@@ -158,8 +172,13 @@ fn burnup_step_transmutation() {
         FissionYields::empty(),
     )
     .unwrap();
-    sys.add_nuclide(b, DecayData::stable(), ReactionRates::none(), FissionYields::empty())
-        .unwrap();
+    sys.add_nuclide(
+        b,
+        DecayData::stable(),
+        ReactionRates::none(),
+        FissionYields::empty(),
+    )
+    .unwrap();
 
     let dt = 3000.0;
     let n0 = sys.inventory_vector(&[(a, 1.0)]).unwrap();
@@ -167,8 +186,14 @@ fn burnup_step_transmutation() {
     let ra = (-r * dt).exp();
     let rb = 1.0 - ra;
     let max_err = (n[0] - ra).abs().max((n[1] - rb).abs());
-    println!("(c) burnup-step max abs error = {max_err:.3e}  [n=({},{}) ref=({ra},{rb})]", n[0], n[1]);
-    assert!(max_err < 1e-12, "burnup-step max abs error {max_err:e} exceeds 1e-12");
+    println!(
+        "(c) burnup-step max abs error = {max_err:.3e}  [n=({},{}) ref=({ra},{rb})]",
+        n[0], n[1]
+    );
+    assert!(
+        max_err < 1e-12,
+        "burnup-step max abs error {max_err:e} exceeds 1e-12"
+    );
     // Atom conservation across the step.
     assert!(((n[0] + n[1]) - 1.0).abs() < 1e-12);
 }
@@ -207,23 +232,41 @@ fn fission_yield_assembly() {
         },
     )
     .unwrap();
-    sys.add_nuclide(p1, DecayData::stable(), ReactionRates::none(), FissionYields::empty())
-        .unwrap();
-    sys.add_nuclide(p2, DecayData::stable(), ReactionRates::none(), FissionYields::empty())
-        .unwrap();
+    sys.add_nuclide(
+        p1,
+        DecayData::stable(),
+        ReactionRates::none(),
+        FissionYields::empty(),
+    )
+    .unwrap();
+    sys.add_nuclide(
+        p2,
+        DecayData::stable(),
+        ReactionRates::none(),
+        FissionYields::empty(),
+    )
+    .unwrap();
 
     let dt = 4000.0;
     let n0 = sys.inventory_vector(&[(f, 1.0)]).unwrap();
     let n = sys.deplete(&n0, dt).unwrap();
     let fissioned = 1.0 - n[0]; // atoms of F consumed
-    // Each product = yield * fissioned (fission removes 1 F, adds y_k of product P_k).
+                                // Each product = yield * fissioned (fission removes 1 F, adds y_k of product P_k).
     let ratio = n[1] / n[2];
     let sum_prod = n[1] + n[2];
     println!(
         "(c2) fission products n_P1={:.6e} n_P2={:.6e} ratio={:.6} sum={:.6e} y*fissioned={:.6e}",
-        n[1], n[2], ratio, sum_prod, (y1 + y2) * fissioned
+        n[1],
+        n[2],
+        ratio,
+        sum_prod,
+        (y1 + y2) * fissioned
     );
-    assert!((ratio - y1 / y2).abs() < 1e-10, "product ratio {ratio} != {}", y1 / y2);
+    assert!(
+        (ratio - y1 / y2).abs() < 1e-10,
+        "product ratio {ratio} != {}",
+        y1 / y2
+    );
     assert!((sum_prod - (y1 + y2) * fissioned).abs() < 1e-12);
 }
 
@@ -248,7 +291,10 @@ fn multi_step_equals_single_step() {
         .map(|(x, y)| (x - y).abs())
         .fold(0.0_f64, f64::max);
     println!("(d) multi-vs-single max abs diff = {max_diff:.3e}");
-    assert!(max_diff < 1e-10, "multi-vs-single diff {max_diff:e} exceeds 1e-10");
+    assert!(
+        max_diff < 1e-10,
+        "multi-vs-single diff {max_diff:e} exceeds 1e-10"
+    );
 }
 
 /// Direct CRAM16 check on a stiff diagonal matrix (fast + slow decay together).

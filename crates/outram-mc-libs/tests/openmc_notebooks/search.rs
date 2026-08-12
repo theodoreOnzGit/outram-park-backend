@@ -123,9 +123,18 @@ fn godiva_material() -> Material {
         name: "Godiva HEU".into(),
         temperature: 293.6,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     }
 }
@@ -186,11 +195,17 @@ fn search_for_critical_radius_godiva_bisection() {
         result.parameter, result.keff, result.keff_std, result.converged, n_solves
     );
     for it in &result.iterations {
-        eprintln!("    r = {:>7.4} cm  ->  k = {:.5} ± {:.5}", it.parameter, it.keff, it.keff_std);
+        eprintln!(
+            "    r = {:>7.4} cm  ->  k = {:.5} ± {:.5}",
+            it.parameter, it.keff, it.keff_std
+        );
     }
 
     // The driver reached a convergence criterion (radius tolerance), not the cap.
-    assert!(result.converged, "criticality search did not converge within the iteration budget");
+    assert!(
+        result.converged,
+        "criticality search did not converge within the iteration budget"
+    );
 
     // Converged radius brackets the ICSBEP Godiva reference (8.741 cm). LOW-tier
     // CORE data lands slightly low (~8.6 cm), so a band around the reference.
@@ -206,11 +221,16 @@ fn search_for_critical_radius_godiva_bisection() {
     assert!(
         (result.keff - 1.0).abs() < tol_k,
         "k at converged radius = {} (± {}) not within 3σ of critical (1.0)",
-        result.keff, result.keff_std
+        result.keff,
+        result.keff_std
     );
 
     // The trajectory records both endpoints plus every midpoint (>= 3 points).
-    assert!(result.iterations.len() >= 3, "search trajectory too short: {:?}", result.iterations);
+    assert!(
+        result.iterations.len() >= 3,
+        "search trajectory too short: {:?}",
+        result.iterations
+    );
 }
 
 /// LIVE cross-check: the **bracket-preserving secant (false position)** method

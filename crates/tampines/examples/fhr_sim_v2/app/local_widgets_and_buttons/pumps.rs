@@ -1,9 +1,4 @@
-#[derive(Debug,Clone, PartialEq)]
-pub struct PumpWidget {
+#[derive(Debug, Clone, PartialEq)]
+pub struct PumpWidget {}
 
-}
-
-impl PumpWidget {
-
-}
-
+impl PumpWidget {}

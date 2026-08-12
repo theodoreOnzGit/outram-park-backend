@@ -20,8 +20,7 @@
 //!   with provenance; numbers used, text not reproduced.
 
 use uom::si::f64::{
-    Length, Mass, MassDensity, MassRate, Power, Pressure, Ratio, ThermodynamicTemperature,
-    Volume,
+    Length, Mass, MassDensity, MassRate, Power, Pressure, Ratio, ThermodynamicTemperature, Volume,
 };
 use uom::si::length::{centimeter, meter};
 use uom::si::mass::gram;
@@ -193,8 +192,9 @@ impl Htr10FuelTemperatureLimits {
     /// is the equilibrium-core figure.
     pub fn gao_shi_2002() -> Self {
         Self {
-            max_fuel_temperature_at_120_percent_overload:
-                ThermodynamicTemperature::new::<degree_celsius>(1046.6),
+            max_fuel_temperature_at_120_percent_overload: ThermodynamicTemperature::new::<
+                degree_celsius,
+            >(1046.6),
             fuel_temperature_limit: ThermodynamicTemperature::new::<degree_celsius>(1230.0),
             max_bypass_flow_fraction: Ratio::new::<ratio>(0.10),
             min_core_flow_fraction: Ratio::new::<ratio>(0.86),
@@ -252,8 +252,8 @@ mod tests {
         use outram_park_fork_coolprop::{state_pt, Fluid};
 
         let d = Htr10DesignPoint::iaea_benchmark();
-        let t_mean_kelvin = 0.5
-            * (d.helium_outlet_phase1.get::<kelvin>() + d.helium_inlet_phase1.get::<kelvin>());
+        let t_mean_kelvin =
+            0.5 * (d.helium_outlet_phase1.get::<kelvin>() + d.helium_inlet_phase1.get::<kelvin>());
         let p_pascal = d.primary_pressure.value;
 
         let state = state_pt(Fluid::Helium, t_mean_kelvin, p_pascal)
@@ -268,8 +268,9 @@ mod tests {
         assert!((dt.get::<interval_kelvin>() - 450.0).abs() < 1e-9);
 
         // Q = mdot * cp * dT, in watts (all SI).
-        let q_watt =
-            d.helium_mass_flow.get::<kilogram_per_second>() * state.cp * dt.get::<interval_kelvin>();
+        let q_watt = d.helium_mass_flow.get::<kilogram_per_second>()
+            * state.cp
+            * dt.get::<interval_kelvin>();
         let q = Power::new::<watt>(q_watt);
 
         let closure = (q - d.thermal_power) / d.thermal_power;
@@ -344,9 +345,10 @@ mod tests {
     #[test]
     fn core_volume_closes_against_cited_diameter_and_height() {
         let d = Htr10DesignPoint::iaea_benchmark();
-        let v_computed: Volume =
-            d.core_diameter * d.core_diameter * d.average_core_height
-                * Ratio::new::<ratio>(std::f64::consts::FRAC_PI_4);
+        let v_computed: Volume = d.core_diameter
+            * d.core_diameter
+            * d.average_core_height
+            * Ratio::new::<ratio>(std::f64::consts::FRAC_PI_4);
         let closure = (v_computed - d.core_volume) / d.core_volume;
         println!(
             "V(d, h) = {:.4} m^3 vs stated {:.1} m^3; closure = {:+.3}%",
@@ -375,12 +377,13 @@ mod tests {
     #[test]
     fn pebble_count_and_filling_fraction_reproduce_core_volume() {
         let d = Htr10DesignPoint::iaea_benchmark();
-        let pebble_volume: Volume = d.pebble_diameter * d.pebble_diameter * d.pebble_diameter
+        let pebble_volume: Volume = d.pebble_diameter
+            * d.pebble_diameter
+            * d.pebble_diameter
             * Ratio::new::<ratio>(std::f64::consts::PI / 6.0);
         let total_pebble_volume = pebble_volume * Ratio::new::<ratio>(d.fuel_element_count as f64);
         let implied_f: Ratio = total_pebble_volume / d.core_volume;
-        let closure =
-            (implied_f - d.filling_fraction) / d.filling_fraction;
+        let closure = (implied_f - d.filling_fraction) / d.filling_fraction;
         println!(
             "total pebble volume = {:.4} m^3; implied f = {:.4} vs published 0.61; closure = {:+.3}%",
             total_pebble_volume.get::<cubic_meter>(),
@@ -438,7 +441,8 @@ mod tests {
         // directly, so the intervals are formed from the kelvin scalars.
         let margin: TemperatureInterval = TemperatureInterval::new::<interval_kelvin>(
             l.fuel_temperature_limit.get::<kelvin>()
-                - l.max_fuel_temperature_at_120_percent_overload.get::<kelvin>(),
+                - l.max_fuel_temperature_at_120_percent_overload
+                    .get::<kelvin>(),
         );
         let limit_gap: TemperatureInterval = TemperatureInterval::new::<interval_kelvin>(
             generic.get::<kelvin>() - l.fuel_temperature_limit.get::<kelvin>(),

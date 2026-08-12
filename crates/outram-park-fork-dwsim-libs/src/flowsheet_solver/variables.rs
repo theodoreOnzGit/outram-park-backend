@@ -145,9 +145,10 @@ impl FlowsheetVariable {
             variable: self.name().to_string(),
         };
         match (self, &obj.data) {
-            (FlowsheetVariable::Temperature, ObjectData::Material(ms)) => {
-                ms.temperature().map(|t| t.get::<kelvin>()).ok_or_else(missing)
-            }
+            (FlowsheetVariable::Temperature, ObjectData::Material(ms)) => ms
+                .temperature()
+                .map(|t| t.get::<kelvin>())
+                .ok_or_else(missing),
             (FlowsheetVariable::Pressure, ObjectData::Material(ms)) => {
                 ms.pressure().map(|p| p.get::<pascal>()).ok_or_else(missing)
             }
@@ -163,9 +164,10 @@ impl FlowsheetVariable {
                 .mass_enthalpy()
                 .map(|h| h.get::<joule_per_kilogram>())
                 .ok_or_else(missing),
-            (FlowsheetVariable::VaporFraction, ObjectData::Material(ms)) => {
-                ms.vapor_fraction().map(|b| b.get::<ratio>()).ok_or_else(missing)
-            }
+            (FlowsheetVariable::VaporFraction, ObjectData::Material(ms)) => ms
+                .vapor_fraction()
+                .map(|b| b.get::<ratio>())
+                .ok_or_else(missing),
             (FlowsheetVariable::EnergyFlow, ObjectData::Energy(es)) => {
                 es.power().map(|p| p.get::<watt>()).ok_or_else(missing)
             }
@@ -345,7 +347,9 @@ mod tests {
         let e = fs.add_object(ObjectType::EnergyStream, Some("E"));
         let p = fs.add_object(ObjectType::Pump, None);
 
-        FlowsheetVariable::EnergyFlow.set(&mut fs, &e, 75_000.0).unwrap();
+        FlowsheetVariable::EnergyFlow
+            .set(&mut fs, &e, 75_000.0)
+            .unwrap();
         assert!((FlowsheetVariable::EnergyFlow.get(&fs, &e).unwrap() - 75_000.0).abs() < 1e-6);
 
         FlowsheetVariable::UnitOperationPower

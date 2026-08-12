@@ -113,8 +113,10 @@ pub fn fill_holes(mesh: &Mesh) -> Mesh {
 
     // Start from the original geometry and append caps.
     let mut new_positions = positions.clone();
-    let mut new_faces: Vec<Vec<usize>> =
-        polygons.iter().map(|p| p.iter().map(|v| v.0).collect()).collect();
+    let mut new_faces: Vec<Vec<usize>> = polygons
+        .iter()
+        .map(|p| p.iter().map(|v| v.0).collect())
+        .collect();
 
     // Trace each boundary loop exactly once.
     let mut visited: HashSet<usize> = HashSet::new();
@@ -205,13 +207,19 @@ mod tests {
     fn open_cube_face_is_capped_watertight() {
         let open = remove_face(&primitives::cube(2.0), 0);
         assert_eq!(open.face_count(), 5, "one face removed");
-        assert!(!is_watertight_consistent(&open), "open mesh is not watertight");
+        assert!(
+            !is_watertight_consistent(&open),
+            "open mesh is not watertight"
+        );
 
         let filled = fill_holes(&open);
         assert_eq!(filled.vertex_count(), 9, "8 corners + 1 hole centroid");
         assert_eq!(filled.face_count(), 9, "5 quads + 4 cap triangles");
         assert_eq!(filled.euler_characteristic(), 2, "closed genus-0 surface");
-        assert!(is_watertight_consistent(&filled), "cap winding is consistent");
+        assert!(
+            is_watertight_consistent(&filled),
+            "cap winding is consistent"
+        );
     }
 
     /// V&V — an already-closed mesh is a no-op. Filling a pristine cube changes

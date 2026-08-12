@@ -4,7 +4,6 @@ use crate::region_2_vapour::{pi_2, tau_2};
 
 use super::METASTABLE_REGION_2_COEFFS_IDEAL;
 
-
 /// Returns the region-2 ideal gamma
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa
@@ -19,7 +18,6 @@ pub fn gamma_metastable_2_ideal(t: ThermodynamicTemperature, p: Pressure) -> f64
     }
     pi.ln() + sum
 }
-
 
 /// Returns the region-2 ideal gamma_metastable_tau
 /// Temperature is assumed to be in K

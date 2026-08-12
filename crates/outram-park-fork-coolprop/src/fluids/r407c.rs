@@ -5,7 +5,10 @@
 #![allow(clippy::approx_constant)]
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
-use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ConductivityModel, ConductivityDilute, ConductivityResidual};
+use crate::transport::{
+    FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ConductivityModel,
+    ConductivityDilute, ConductivityResidual,
+};
 
 /// R407C Helmholtz equation of state (from CoolProp).
 pub static R407C: FluidEos = FluidEos {
@@ -21,21 +24,113 @@ pub static R407C: FluidEos = FluidEos {
     t_max: 500.0,
     p_max: 50000000.0,
     acentric: 0.363,
-    residual: &[
-    ResidualTerm::Power { n: &[1.0588, -1.12018, 0.629064, -0.351953, 0.00455978, -1.75725, -1.12009, 0.0277353, 0.898881, -1.17591, 0.0818591, -0.0794097, -1.04047e-05, 0.233779, -0.29179, 0.0154776, -0.0314579, -0.00442552, -0.0101254, 0.00915953, -0.003615], t: &[0.241, 0.69, 2.58, 1.15, 0.248, 2.15, 2.43, 5.3, 0.76, 1.48, 0.24, 2.86, 8.0, 3.3, 4.7, 0.45, 8.4, 16.2, 26.0, 16.0, 8.7], d: &[1.0, 1.0, 1.0, 2.0, 5.0, 1.0, 2.0, 2.0, 3.0, 3.0, 5.0, 5.0, 5.0, 1.0, 1.0, 4.0, 4.0, 2.0, 4.0, 5.0, 6.0], l: &[0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 3.0] },
-    ],
+    residual: &[ResidualTerm::Power {
+        n: &[
+            1.0588,
+            -1.12018,
+            0.629064,
+            -0.351953,
+            0.00455978,
+            -1.75725,
+            -1.12009,
+            0.0277353,
+            0.898881,
+            -1.17591,
+            0.0818591,
+            -0.0794097,
+            -1.04047e-05,
+            0.233779,
+            -0.29179,
+            0.0154776,
+            -0.0314579,
+            -0.00442552,
+            -0.0101254,
+            0.00915953,
+            -0.003615,
+        ],
+        t: &[
+            0.241, 0.69, 2.58, 1.15, 0.248, 2.15, 2.43, 5.3, 0.76, 1.48, 0.24, 2.86, 8.0, 3.3, 4.7,
+            0.45, 8.4, 16.2, 26.0, 16.0, 8.7,
+        ],
+        d: &[
+            1.0, 1.0, 1.0, 2.0, 5.0, 1.0, 2.0, 2.0, 3.0, 3.0, 5.0, 5.0, 5.0, 1.0, 1.0, 4.0, 4.0,
+            2.0, 4.0, 5.0, 6.0,
+        ],
+        l: &[
+            0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0,
+            3.0, 3.0, 3.0, 3.0,
+        ],
+    }],
     ideal: &[
-    IdealTerm::Lead { a1: 2.13194, a2: 8.05008 },
-    IdealTerm::LogTau { a: -1.0 },
-    IdealTerm::Power { n: &[-14.3914], t: &[-0.4] },
-    IdealTerm::PlanckEinstein { n: &[1.4245, 3.9419, 3.1209], t: &[2.40437, 5.25122, 13.3632] },
+        IdealTerm::Lead {
+            a1: 2.13194,
+            a2: 8.05008,
+        },
+        IdealTerm::LogTau { a: -1.0 },
+        IdealTerm::Power {
+            n: &[-14.3914],
+            t: &[-0.4],
+        },
+        IdealTerm::PlanckEinstein {
+            n: &[1.4245, 3.9419, 3.1209],
+            t: &[2.40437, 5.25122, 13.3632],
+        },
     ],
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
 /// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static R407C_TRANSPORT: FluidTransport = FluidTransport {
-    viscosity: Some(ViscosityModel::Correlation { dilute: ViscosityDilute::PowersOfT { a: &[-1.507e-06, 4.894e-08, -9.305e-12], t: &[0.0, 1.0, 2.0] }, initial: None, higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand { t_reduce: 359.345, rhomolar_reduce: 5260.000046401775, a: &[-1.3775231957200001e-06, 6.0179007998135324e-05, -8.911399521418381e-05, 7.350962141560484e-05, -2.788808852966893e-05, 4.133412533885438e-06], d1: &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0], t1: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], gamma: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], l: &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0], f: &[0.0], d2: &[0.0], t2: &[0.0], g: &[1.0], h: &[0.0], p: &[1.0], q: &[0.0] } }),
-    conductivity: Some(ConductivityModel::Correlation { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 1.0, a: &[-0.009628, 7.638e-05], n: &[0.0, 1.0, 2.0], b: &[1.0], m: &[0.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 359.345, rhomass_reducing: 453.43094, b: &[0.012310650021, 0.010203909009044946, -0.004579223187488973, 0.001219101484546316], t: &[0.0, 0.0, 0.0, 0.0], d: &[1.0, 2.0, 3.0, 4.0] }, critical: None }),
+    viscosity: Some(ViscosityModel::Correlation {
+        dilute: ViscosityDilute::PowersOfT {
+            a: &[-1.507e-06, 4.894e-08, -9.305e-12],
+            t: &[0.0, 1.0, 2.0],
+        },
+        initial: None,
+        higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand {
+            t_reduce: 359.345,
+            rhomolar_reduce: 5260.000046401775,
+            a: &[
+                -1.3775231957200001e-06,
+                6.0179007998135324e-05,
+                -8.911399521418381e-05,
+                7.350962141560484e-05,
+                -2.788808852966893e-05,
+                4.133412533885438e-06,
+            ],
+            d1: &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            t1: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            gamma: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            l: &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            f: &[0.0],
+            d2: &[0.0],
+            t2: &[0.0],
+            g: &[1.0],
+            h: &[0.0],
+            p: &[1.0],
+            q: &[0.0],
+        },
+    }),
+    conductivity: Some(ConductivityModel::Correlation {
+        dilute: ConductivityDilute::RatioPolynomials {
+            t_reducing: 1.0,
+            a: &[-0.009628, 7.638e-05],
+            n: &[0.0, 1.0, 2.0],
+            b: &[1.0],
+            m: &[0.0],
+        },
+        residual: ConductivityResidual::Polynomial {
+            t_reducing: 359.345,
+            rhomass_reducing: 453.43094,
+            b: &[
+                0.012310650021,
+                0.010203909009044946,
+                -0.004579223187488973,
+                0.001219101484546316,
+            ],
+            t: &[0.0, 0.0, 0.0, 0.0],
+            d: &[1.0, 2.0, 3.0, 4.0],
+        },
+        critical: None,
+    }),
 };
-

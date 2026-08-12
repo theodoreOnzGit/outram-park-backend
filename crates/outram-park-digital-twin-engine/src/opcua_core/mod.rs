@@ -77,6 +77,4 @@ pub use server::{
     spawn_opcua_server_thread, OpcuaEndpointInfo, OpcuaServerConfig, OpcuaServerError,
     OpcuaServerHandle, SUBSCRIPTION_PUSH_INTERVAL,
 };
-pub use simulator::{
-    variant_as_f64, OpcuaFolder, OpcuaSimulator, OpcuaSimulatorProfile, OpcuaVariable,
-};
+pub use simulator::{variant_as_f64, OpcuaFolder, OpcuaSimulator, OpcuaSimulatorProfile, OpcuaVariable};

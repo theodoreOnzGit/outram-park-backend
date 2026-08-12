@@ -147,11 +147,7 @@ fn binary_stl_roundtrips_one_triangle() {
     // Assemble a minimal binary STL: 80-byte header, count=1, one facet.
     let mut bytes = vec![0u8; 84 + 50];
     bytes[80..84].copy_from_slice(&1u32.to_le_bytes());
-    let verts = [
-        [0.0f32, 0.0, 0.0],
-        [2.0, 0.0, 0.0],
-        [0.0, 3.0, 0.0],
-    ];
+    let verts = [[0.0f32, 0.0, 0.0], [2.0, 0.0, 0.0], [0.0, 3.0, 0.0]];
     let base = 84 + 12; // skip 3-float normal
     for (v, vert) in verts.iter().enumerate() {
         for (k, comp) in vert.iter().enumerate() {
@@ -196,7 +192,10 @@ fn nearest_surface_point_lands_on_sphere() {
     let p = Vector3::new(3.0, 0.0, 0.0);
     let q = soup.nearest_point(p).unwrap();
     // With finite tessellation, allow a small chordal error.
-    assert!((q.mag() - 1.0).abs() < 0.02, "nearest is ~on the sphere: {q:?}");
+    assert!(
+        (q.mag() - 1.0).abs() < 0.02,
+        "nearest is ~on the sphere: {q:?}"
+    );
     assert!(soup.distance_to(p) > 1.9 && soup.distance_to(p) < 2.05);
 }
 
@@ -237,10 +236,7 @@ fn max_cell_closure(mesh: &outram_foam_basic_lib::mesh::FvMesh) -> f64 {
 #[test]
 fn castellate_box_around_sphere() {
     let surface = sphere_soup(Vector3::ZERO, 1.0, 32, 32);
-    let domain = Bounds::new(
-        Vector3::new(-2.0, -2.0, -2.0),
-        Vector3::new(2.0, 2.0, 2.0),
-    );
+    let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
     let background = BackgroundMesh::uniform(domain, 8, 8, 8);
     // Keep the region OUTSIDE the sphere.
     let keep_point = Vector3::new(-1.9, -1.9, -1.9);
@@ -268,7 +264,10 @@ fn castellate_box_around_sphere() {
     );
     assert_eq!(cast.max_level, 2);
     assert!(cast.cells_by_level[0] > 0, "coarse far-field cells remain");
-    assert!(cast.cells_by_level[2] > 0, "fine surface-shell cells created");
+    assert!(
+        cast.cells_by_level[2] > 0,
+        "fine surface-shell cells created"
+    );
     assert!(
         mesh.n_cells > 512,
         "refinement grows cell count past the 512-cell background"
@@ -345,10 +344,7 @@ fn castellate_keep_inside_carves_external() {
     // Keeping the sphere interior should retain far fewer cells than keeping
     // the exterior, and stay watertight.
     let surface = sphere_soup(Vector3::ZERO, 1.0, 24, 24);
-    let domain = Bounds::new(
-        Vector3::new(-2.0, -2.0, -2.0),
-        Vector3::new(2.0, 2.0, 2.0),
-    );
+    let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
     let bg = BackgroundMesh::uniform(domain, 8, 8, 8);
     let controls = CastellationControls::new(bg, 2, Vector3::ZERO); // keep_point inside
 
@@ -371,10 +367,7 @@ fn snapping_morphs_boundary_onto_sphere() {
     // versus the pre-snap staircase error; also check the rebuilt mesh stays
     // valid + watertight with no inverted cells.
     let surface = sphere_soup(Vector3::ZERO, 1.0, 24, 24);
-    let domain = Bounds::new(
-        Vector3::new(-2.0, -2.0, -2.0),
-        Vector3::new(2.0, 2.0, 2.0),
-    );
+    let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
     let bg = BackgroundMesh::uniform(domain, 8, 8, 8);
     let controls = CastellationControls::new(bg, 2, Vector3::new(-1.9, -1.9, -1.9));
     let cast = castellate(&surface, &controls).unwrap();
@@ -404,10 +397,16 @@ fn snapping_morphs_boundary_onto_sphere() {
     let post = wall_dist(&snapped);
     eprintln!("wall→surface max distance: pre-snap {pre:.4e} m, post-snap {post:.4e} m");
     assert!(post < pre, "snapping reduces the staircase error");
-    assert!(post < 0.02, "snapped wall points lie near the surface: {post}");
+    assert!(
+        post < 0.02,
+        "snapped wall points lie near the surface: {post}"
+    );
 
     // Rebuilt mesh stays watertight with no inverted cells.
-    assert!(max_cell_closure(&snapped.fv_mesh) < 1e-9, "snapped mesh watertight");
+    assert!(
+        max_cell_closure(&snapped.fv_mesh) < 1e-9,
+        "snapped mesh watertight"
+    );
     let min_vol = snapped
         .fv_mesh
         .cell_volumes
@@ -444,7 +443,10 @@ fn full_pipeline_castellate_snap_layers() {
     mesh.fv_mesh.validate().expect("final mesh valid");
     eprintln!("full pipeline → {} cells", mesh.fv_mesh.n_cells);
     assert!(mesh.fv_mesh.n_cells > 0);
-    assert!(max_cell_closure(&mesh.fv_mesh) < 1e-9, "final mesh watertight");
+    assert!(
+        max_cell_closure(&mesh.fv_mesh) < 1e-9,
+        "final mesh watertight"
+    );
     let min_vol = mesh
         .fv_mesh
         .cell_volumes
@@ -495,12 +497,18 @@ fn layer_addition_extrudes_valid_prisms() {
         layered.fv_mesh.n_cells > cast.fv_mesh.n_cells,
         "prism layers add cells"
     );
-    assert!(max_cell_closure(&layered.fv_mesh) < 1e-9, "layered mesh watertight");
+    assert!(
+        max_cell_closure(&layered.fv_mesh) < 1e-9,
+        "layered mesh watertight"
+    );
     let min_vol = layered
         .fv_mesh
         .cell_volumes
         .iter()
         .copied()
         .fold(f64::INFINITY, f64::min);
-    assert!(min_vol > 0.0, "no inverted prism cells (min vol {min_vol:.3e})");
+    assert!(
+        min_vol > 0.0,
+        "no inverted prism cells (min vol {min_vol:.3e})"
+    );
 }

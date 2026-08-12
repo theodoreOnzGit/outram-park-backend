@@ -217,12 +217,20 @@ impl AbsorptionBenchmark {
         let packing =
             PackedSpheres::from_spheres(spheres, self.domain_half_width, self.particle_radius);
 
-        let cls_medium = ClsMedium::new(self.particle_radius, self.packing_fraction, INCLUSION, MATRIX);
+        let cls_medium = ClsMedium::new(
+            self.particle_radius,
+            self.packing_fraction,
+            INCLUSION,
+            MATRIX,
+        );
 
         let mut rsa = StochasticMedium::Rsa(RsaMedium::new(packing, INCLUSION, MATRIX));
         let mut cls = StochasticMedium::Cls(cls_medium.clone());
-        let mut scls =
-            StochasticMedium::Scls(SclsMedium::new(cls_medium, Position::ZERO, self.scatter_mfp));
+        let mut scls = StochasticMedium::Scls(SclsMedium::new(
+            cls_medium,
+            Position::ZERO,
+            self.scatter_mfp,
+        ));
 
         // Independent LCG streams per arm (derived from the master seed).
         let mut s_rsa = seed ^ 0x5151_5151_5151_5151;

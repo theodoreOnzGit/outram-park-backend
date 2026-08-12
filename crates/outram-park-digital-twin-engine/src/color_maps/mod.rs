@@ -90,14 +90,23 @@ mod tests {
 
     #[test]
     fn hot_to_cold_mark_1_endpoints() {
-        assert_eq!(hot_to_cold_colour_mark_1(0.0), Color32::from_rgb(0, 135, 255));
+        assert_eq!(
+            hot_to_cold_colour_mark_1(0.0),
+            Color32::from_rgb(0, 135, 255)
+        );
         assert_eq!(hot_to_cold_colour_mark_1(1.0), Color32::from_rgb(255, 0, 0));
     }
 
     #[test]
     fn hot_to_cold_mark_1_clamps_out_of_range() {
-        assert_eq!(hot_to_cold_colour_mark_1(-1.0), hot_to_cold_colour_mark_1(0.0));
-        assert_eq!(hot_to_cold_colour_mark_1(2.0), hot_to_cold_colour_mark_1(1.0));
+        assert_eq!(
+            hot_to_cold_colour_mark_1(-1.0),
+            hot_to_cold_colour_mark_1(0.0)
+        );
+        assert_eq!(
+            hot_to_cold_colour_mark_1(2.0),
+            hot_to_cold_colour_mark_1(1.0)
+        );
     }
 
     #[test]
@@ -108,13 +117,25 @@ mod tests {
 
     #[test]
     fn steam_quality_mark_1_endpoints() {
-        assert_eq!(steam_quality_colour_mark_1(0.0), Color32::from_rgb(0, 0, 255));
-        assert_eq!(steam_quality_colour_mark_1(1.0), Color32::from_rgb(255, 255, 255));
+        assert_eq!(
+            steam_quality_colour_mark_1(0.0),
+            Color32::from_rgb(0, 0, 255)
+        );
+        assert_eq!(
+            steam_quality_colour_mark_1(1.0),
+            Color32::from_rgb(255, 255, 255)
+        );
     }
 
     #[test]
     fn steam_quality_mark_1_clamps_out_of_range() {
-        assert_eq!(steam_quality_colour_mark_1(-1.0), steam_quality_colour_mark_1(0.0));
-        assert_eq!(steam_quality_colour_mark_1(2.0), steam_quality_colour_mark_1(1.0));
+        assert_eq!(
+            steam_quality_colour_mark_1(-1.0),
+            steam_quality_colour_mark_1(0.0)
+        );
+        assert_eq!(
+            steam_quality_colour_mark_1(2.0),
+            steam_quality_colour_mark_1(1.0)
+        );
     }
 }

@@ -101,11 +101,7 @@ fn material_amass_temp(tape: &Tape, mat: i32) -> (f64, f64) {
 ///
 /// # Errors
 /// Propagates [`NjoyError`] from tape parsing or the RESXS write.
-pub fn run_resxs<W: Write>(
-    input: &ResxsrInput,
-    tapes: &[Tape],
-    out: W,
-) -> Result<(), NjoyError> {
+pub fn run_resxs<W: Write>(input: &ResxsrInput, tapes: &[Tape], out: W) -> Result<(), NjoyError> {
     let nmat = input.materials.len();
     let mut materials = Vec::with_capacity(nmat);
     let mut hmatn = Vec::with_capacity(nmat);
@@ -114,9 +110,9 @@ pub fn run_resxs<W: Write>(
     let mut irec = 4i32; // records 1..4 precede the first material (resxsr.f90:443-467).
 
     for (im, spec) in input.materials.iter().enumerate() {
-        let tape = tapes
-            .get(im)
-            .ok_or(NjoyError::EndfParse("resxsr::run_resxs: missing input tape".into()))?;
+        let tape = tapes.get(im).ok_or(NjoyError::EndfParse(
+            "resxsr::run_resxs: missing input tape".into(),
+        ))?;
         let reactions = read_pendf_reactions(tape, spec.mat)?;
         let (amass, temp) = material_amass_temp(tape, spec.mat);
         let nreac = reactions.len() as i32;
@@ -125,7 +121,10 @@ pub fn run_resxs<W: Write>(
         let thinned = thin_linear(&rows, input.eps);
         let points: Vec<ResxsPoint> = thinned
             .iter()
-            .map(|r| ResxsPoint { energy: r.energy, values: r.xs.clone() })
+            .map(|r| ResxsPoint {
+                energy: r.energy,
+                values: r.xs.clone(),
+            })
             .collect();
         let nener = points.len() as i32;
 
@@ -228,7 +227,10 @@ mod tests {
                 row[..chunk.len()].copy_from_slice(chunk);
                 rows.push(row);
             }
-            Section { key: EndfKey { mat, mf: 3, mt }, rows }
+            Section {
+                key: EndfKey { mat, mf: 3, mt },
+                rows,
+            }
         }
 
         let tape = Tape::from_sections(
@@ -247,7 +249,11 @@ mod tests {
             user_id: "outrampark".into(),
             ivers: 1,
             comments: vec!["resonance test".into()],
-            materials: vec![MaterialSpec { hmat: "u238".into(), mat: 9237, nin: 20 }],
+            materials: vec![MaterialSpec {
+                hmat: "u238".into(),
+                mat: 9237,
+                nin: 20,
+            }],
         };
 
         let mut buf = Vec::new();
@@ -262,7 +268,10 @@ mod tests {
         assert!(!m.points.is_empty());
         let e_first = m.points.first().unwrap().energy;
         let e_last = m.points.last().unwrap().energy;
-        assert!(e_first >= 4.0 - 1e-3 && e_last <= 200.0 + 1e-1, "grid {e_first}..{e_last}");
+        assert!(
+            e_first >= 4.0 - 1e-3 && e_last <= 200.0 + 1e-1,
+            "grid {e_first}..{e_last}"
+        );
     }
 
     #[test]
@@ -276,7 +285,11 @@ mod tests {
             user_id: "outrampark".into(),
             ivers: 1,
             comments: vec!["resonance test".into()],
-            materials: vec![MaterialSpec { hmat: "u238".into(), mat: 9237, nin: 20 }],
+            materials: vec![MaterialSpec {
+                hmat: "u238".into(),
+                mat: 9237,
+                nin: 20,
+            }],
         };
         match run(&deck) {
             Err(NjoyError::NotPorted(tag)) => assert_eq!(tag, "resxsr::run"),

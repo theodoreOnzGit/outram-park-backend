@@ -10,14 +10,11 @@ pub fn ciet_simulator_v1() -> eframe::Result<()> {
         native_options,
         Box::new(|cc| {
             // image support,
-            // from 
+            // from
             // https://github.com/emilk/egui/tree/master/examples/images
             egui_extras::install_image_loaders(&cc.egui_ctx);
             Ok(Box::new(CIETApp::new(cc)))
-
-    }
-
-        ),
+        }),
     )
 }
 mod app;

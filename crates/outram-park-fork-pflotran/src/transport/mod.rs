@@ -430,8 +430,7 @@ impl SoluteTransport {
         for i in 0..n_cells {
             // Retarded storage coefficient (theta_w + rho_b*Kd) * V — sorption
             // slows the front; both accumulation and decay act on it.
-            let storage_v =
-                (self.flow.water_content[i] + self.rho_b_kd) * self.grid.cell_volume(i);
+            let storage_v = (self.flow.water_content[i] + self.rho_b_kd) * self.grid.cell_volume(i);
             let acc = storage_v * inv_dt;
             a.diag[i] += acc;
             // Implicit first-order radioactive decay sink over the sorbed+aqueous
@@ -519,11 +518,17 @@ impl SoluteTransport {
                 }
                 let (iu, ju, ku) = self.grid.cell_ijk(u);
                 let uu = match conn.axis {
-                    Axis::X if up_is_owner => (iu > 0).then(|| self.grid.cell_index(iu - 1, ju, ku)),
+                    Axis::X if up_is_owner => {
+                        (iu > 0).then(|| self.grid.cell_index(iu - 1, ju, ku))
+                    }
                     Axis::X => (iu + 1 < nx).then(|| self.grid.cell_index(iu + 1, ju, ku)),
-                    Axis::Y if up_is_owner => (ju > 0).then(|| self.grid.cell_index(iu, ju - 1, ku)),
+                    Axis::Y if up_is_owner => {
+                        (ju > 0).then(|| self.grid.cell_index(iu, ju - 1, ku))
+                    }
                     Axis::Y => (ju + 1 < ny).then(|| self.grid.cell_index(iu, ju + 1, ku)),
-                    Axis::Z if up_is_owner => (ku > 0).then(|| self.grid.cell_index(iu, ju, ku - 1)),
+                    Axis::Z if up_is_owner => {
+                        (ku > 0).then(|| self.grid.cell_index(iu, ju, ku - 1))
+                    }
                     Axis::Z => (ku + 1 < nz).then(|| self.grid.cell_index(iu, ju, ku + 1)),
                 };
                 let uu = match uu {
@@ -663,8 +668,9 @@ mod tests {
                     kind: TransportBoundaryKind::InflowConcentration(0.0),
                 },
             ];
-            let mut t = SoluteTransport::new(grid, flow, DispersionModel::new(d, 0.0).unwrap(), boundary)
-                .unwrap();
+            let mut t =
+                SoluteTransport::new(grid, flow, DispersionModel::new(d, 0.0).unwrap(), boundary)
+                    .unwrap();
             t.set_flux_limiter(limiter);
             t.set_timestep(1.0e6); // large dt -> steady per step
             let mut c = vec![0.0; n];
@@ -685,7 +691,10 @@ mod tests {
         };
         let (e_up, e_sb) = (err(&up), err(&sb));
         println!("upwind max err = {e_up:.4}, superbee max err = {e_sb:.4}");
-        assert!(e_sb < e_up, "TVD (SuperBee) did not beat upwind: {e_sb} vs {e_up}");
+        assert!(
+            e_sb < e_up,
+            "TVD (SuperBee) did not beat upwind: {e_sb} vs {e_up}"
+        );
         for (i, &c) in sb.iter().enumerate() {
             assert!(
                 (-1.0e-6..=1.0 + 1.0e-6).contains(&c),
@@ -708,12 +717,17 @@ mod tests {
                 location: BoundaryLocation::XMin,
                 kind: TransportBoundaryKind::InflowConcentration(1.0),
             }];
-            let mut t =
-                SoluteTransport::new(grid, flow, DispersionModel::new(1.0e-3, 0.0).unwrap(), boundary)
-                    .unwrap();
+            let mut t = SoluteTransport::new(
+                grid,
+                flow,
+                DispersionModel::new(1.0e-3, 0.0).unwrap(),
+                boundary,
+            )
+            .unwrap();
             if sorbed {
                 // R = 1 + rho_b*Kd/theta_w = 1 + 1.0*1.0/1.0 = 2 (front at half speed).
-                t.set_linear_sorption(SorptionIsotherm::Linear { kd: 1.0 }, 1.0).unwrap();
+                t.set_linear_sorption(SorptionIsotherm::Linear { kd: 1.0 }, 1.0)
+                    .unwrap();
             }
             t.set_timestep(0.05);
             let mut c = vec![0.0; n];
@@ -736,8 +750,9 @@ mod tests {
         // And nonlinear sorption is rejected in the linear solver.
         let grid = grid_1d(2, 0.5);
         let flow = uniform_x_flow(&grid, 1.0);
-        let mut t2 = SoluteTransport::new(grid, flow, DispersionModel::new(0.0, 0.0).unwrap(), vec![])
-            .unwrap();
+        let mut t2 =
+            SoluteTransport::new(grid, flow, DispersionModel::new(0.0, 0.0).unwrap(), vec![])
+                .unwrap();
         assert!(t2
             .set_linear_sorption(SorptionIsotherm::new_langmuir(1.0, 1.0).unwrap(), 1.0)
             .is_err());
@@ -764,8 +779,9 @@ mod tests {
             boundary_flux: vec![0.0; grid.boundary_faces().len()],
             water_content: vec![1.0; grid.n_cells()],
         };
-        let mut t = SoluteTransport::new(grid, flow, DispersionModel::new(0.0, 0.0).unwrap(), vec![])
-            .unwrap();
+        let mut t =
+            SoluteTransport::new(grid, flow, DispersionModel::new(0.0, 0.0).unwrap(), vec![])
+                .unwrap();
         t.set_decay_constant(lambda).unwrap();
         t.set_timestep(1.0);
         let mut c = vec![1.0];
@@ -774,7 +790,11 @@ mod tests {
             t.step(&mut c).unwrap();
         }
         // Backward-Euler decay -> ~0.5 after one half-life (O(dt) scheme error).
-        assert!((c[0] - 0.5).abs() < 5.0e-3, "expected ~0.5 after one half-life, got {}", c[0]);
+        assert!(
+            (c[0] - 0.5).abs() < 5.0e-3,
+            "expected ~0.5 after one half-life, got {}",
+            c[0]
+        );
     }
 
     /// Verification test 1 — **steady 1D advection–diffusion, closed form.**

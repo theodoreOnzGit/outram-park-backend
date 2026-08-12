@@ -45,7 +45,8 @@ mod app {
     use outram_blender::mesh::Mesh;
     use outram_blender::primitives::{cube, cylinder, uv_sphere};
     use outram_blender::sim::{
-        csg_from_mesh, ComputeType, KeffSettings, MaterialSpec, McSimSetup, SimGeometry, ThreadCount,
+        csg_from_mesh, ComputeType, KeffSettings, MaterialSpec, McSimSetup, SimGeometry,
+        ThreadCount,
     };
 
     /// Which geometry to author / run.
@@ -79,14 +80,22 @@ mod app {
         Preset {
             name: "Godiva HEU",
             temperature_k: 293.6,
-            nuclides: &[("U234", 4.9184e-4), ("U235", 4.4994e-2), ("U238", 2.4984e-3)],
+            nuclides: &[
+                ("U234", 4.9184e-4),
+                ("U235", 4.4994e-2),
+                ("U238", 2.4984e-3),
+            ],
         },
         Preset {
             name: "UO2 (3% enr.)",
             temperature_k: 900.0,
             nuclides: &[("U235", 6.9e-4), ("U238", 2.17e-2), ("O16", 4.48e-2)],
         },
-        Preset { name: "Pu-239 metal", temperature_k: 293.6, nuclides: &[("Pu239", 3.93e-2)] },
+        Preset {
+            name: "Pu-239 metal",
+            temperature_k: 293.6,
+            nuclides: &[("Pu239", 3.93e-2)],
+        },
     ];
 
     /// Result of a finished run (a small owned copy; `KeffResult` stays in the
@@ -141,7 +150,11 @@ mod app {
                 cyl_height: 15.0,
                 mat_name: p.name.to_string(),
                 mat_temp_k: p.temperature_k,
-                nuclides: p.nuclides.iter().map(|(n, d)| (n.to_string(), *d)).collect(),
+                nuclides: p
+                    .nuclides
+                    .iter()
+                    .map(|(n, d)| (n.to_string(), *d))
+                    .collect(),
                 n_particles: 2000,
                 n_inactive: 20,
                 n_active: 50,
@@ -168,11 +181,20 @@ mod app {
             let material = MaterialSpec {
                 name: self.mat_name.clone(),
                 temperature_k: self.mat_temp_k,
-                nuclides: self.nuclides.iter().filter(|(n, _)| !n.trim().is_empty()).cloned().collect(),
+                nuclides: self
+                    .nuclides
+                    .iter()
+                    .filter(|(n, _)| !n.trim().is_empty())
+                    .cloned()
+                    .collect(),
             };
             let geometry = match self.kind {
-                GeomKind::BareSphere => SimGeometry::BareSphere { radius_cm: self.radius },
-                GeomKind::SphereCsg => csg_from_mesh(&uv_sphere(32, 16, self.radius), 0).map_err(|e| e.to_string())?,
+                GeomKind::BareSphere => SimGeometry::BareSphere {
+                    radius_cm: self.radius,
+                },
+                GeomKind::SphereCsg => {
+                    csg_from_mesh(&uv_sphere(32, 16, self.radius), 0).map_err(|e| e.to_string())?
+                }
                 GeomKind::Box => {
                     // A box CSG: use an axis-aligned cube sized by the max dim
                     // (the exporter fits an axis-aligned box).
@@ -180,7 +202,8 @@ mod app {
                     csg_from_mesh(&cube(s), 0).map_err(|e| e.to_string())?
                 }
                 GeomKind::Cylinder => {
-                    csg_from_mesh(&cylinder(48, self.cyl_radius, self.cyl_height), 0).map_err(|e| e.to_string())?
+                    csg_from_mesh(&cylinder(48, self.cyl_radius, self.cyl_height), 0)
+                        .map_err(|e| e.to_string())?
                 }
             };
             let compute = if self.multithread {
@@ -214,7 +237,11 @@ mod app {
             let slot = self.run.clone();
             std::thread::spawn(move || {
                 let status = match setup.run() {
-                    Ok(r) => RunStatus::Done(Outcome { k_mean: r.k_mean, k_std: r.k_std, k_by_gen: r.k_by_generation }),
+                    Ok(r) => RunStatus::Done(Outcome {
+                        k_mean: r.k_mean,
+                        k_std: r.k_std,
+                        k_by_gen: r.k_by_generation,
+                    }),
                     Err(e) => RunStatus::Failed(e.to_string()),
                 };
                 *slot.write().unwrap() = status;
@@ -236,11 +263,13 @@ mod app {
                 ui.separator();
             });
 
-            egui::Panel::right("mc_controls").min_size(320.0).show_inside(ui, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    self.controls_ui(ui, running);
+            egui::Panel::right("mc_controls")
+                .min_size(320.0)
+                .show_inside(ui, |ui| {
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        self.controls_ui(ui, running);
+                    });
                 });
-            });
 
             egui::CentralPanel::default().show_inside(ui, |ui| {
                 self.viewport_and_results_ui(ui, &status);
@@ -255,7 +284,12 @@ mod app {
     impl McStudio {
         fn controls_ui(&mut self, ui: &mut egui::Ui, running: bool) {
             ui.heading("Geometry");
-            for k in [GeomKind::BareSphere, GeomKind::SphereCsg, GeomKind::Box, GeomKind::Cylinder] {
+            for k in [
+                GeomKind::BareSphere,
+                GeomKind::SphereCsg,
+                GeomKind::Box,
+                GeomKind::Cylinder,
+            ] {
                 ui.radio_value(&mut self.kind, k, k.label());
             }
             match self.kind {
@@ -281,7 +315,11 @@ mod app {
                     if ui.button(p.name).clicked() {
                         self.mat_name = p.name.to_string();
                         self.mat_temp_k = p.temperature_k;
-                        self.nuclides = p.nuclides.iter().map(|(n, d)| (n.to_string(), *d)).collect();
+                        self.nuclides = p
+                            .nuclides
+                            .iter()
+                            .map(|(n, d)| (n.to_string(), *d))
+                            .collect();
                     }
                 }
             });
@@ -295,7 +333,12 @@ mod app {
             for (i, (name, dens)) in self.nuclides.iter_mut().enumerate() {
                 ui.horizontal(|ui| {
                     ui.add(egui::TextEdit::singleline(name).desired_width(70.0));
-                    ui.add(egui::DragValue::new(dens).speed(1e-4).range(0.0..=1.0).max_decimals(6));
+                    ui.add(
+                        egui::DragValue::new(dens)
+                            .speed(1e-4)
+                            .range(0.0..=1.0)
+                            .max_decimals(6),
+                    );
                     if ui.button("✕").clicked() {
                         remove = Some(i);
                     }
@@ -317,7 +360,10 @@ mod app {
 
             ui.separator();
             ui.add_enabled_ui(!running, |ui| {
-                if ui.add(egui::Button::new("▶  Run").min_size(egui::vec2(120.0, 32.0))).clicked() {
+                if ui
+                    .add(egui::Button::new("▶  Run").min_size(egui::vec2(120.0, 32.0)))
+                    .clicked()
+                {
                     self.launch_run();
                 }
             });
@@ -333,7 +379,8 @@ mod app {
             // ── Wireframe viewport (top ~55%). ────────────────────────────────
             let avail = ui.available_size();
             let view_h = (avail.y * 0.55).max(220.0);
-            let (rect, response) = ui.allocate_exact_size(egui::vec2(avail.x, view_h), egui::Sense::drag());
+            let (rect, response) =
+                ui.allocate_exact_size(egui::vec2(avail.x, view_h), egui::Sense::drag());
             if response.dragged() {
                 let d = response.drag_delta();
                 self.yaw += d.x * 0.01;
@@ -353,7 +400,10 @@ mod app {
                     ui.label("Simulation running on a background thread…");
                 }
                 RunStatus::Failed(e) => {
-                    ui.colored_label(egui::Color32::from_rgb(220, 80, 80), format!("Run failed: {e}"));
+                    ui.colored_label(
+                        egui::Color32::from_rgb(220, 80, 80),
+                        format!("Run failed: {e}"),
+                    );
                 }
                 RunStatus::Done(o) => {
                     ui.heading(format!("k_eff = {:.5}  ±  {:.5}", o.k_mean, o.k_std));
@@ -361,10 +411,19 @@ mod app {
                     ui.label(format!(
                         "{:+.0} pcm from critical  ·  {}",
                         pcm,
-                        if o.k_mean > 1.0 { "supercritical" } else { "subcritical" }
+                        if o.k_mean > 1.0 {
+                            "supercritical"
+                        } else {
+                            "subcritical"
+                        }
                     ));
                     use egui_plot::{Line, Plot, PlotPoints};
-                    let pts: Vec<[f64; 2]> = o.k_by_gen.iter().enumerate().map(|(i, &k)| [i as f64, k]).collect();
+                    let pts: Vec<[f64; 2]> = o
+                        .k_by_gen
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &k)| [i as f64, k])
+                        .collect();
                     Plot::new("k_by_gen").height(200.0).show(ui, |pui| {
                         pui.line(Line::new("k per active generation", PlotPoints::from(pts)));
                     });
@@ -390,7 +449,8 @@ mod app {
             }
             let span = (hi - lo).max(egui::vec2(1e-3, 1e-3));
             let margin = 24.0;
-            let scale = ((rect.width() - 2.0 * margin) / span.x).min((rect.height() - 2.0 * margin) / span.y);
+            let scale = ((rect.width() - 2.0 * margin) / span.x)
+                .min((rect.height() - 2.0 * margin) / span.y);
             let center = rect.center();
             let mid = (lo + hi) * 0.5;
             let to_screen = |v: egui::Vec2| -> egui::Pos2 {

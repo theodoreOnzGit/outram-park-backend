@@ -336,7 +336,11 @@ impl AdsorptionTerm {
     #[must_use]
     pub fn value(&self, concentrations: &[f64], temperature_k: f64) -> f64 {
         let c = concentrations[self.component_index].max(0.0);
-        let cpow = if self.order == 0.0 { 1.0 } else { c.powf(self.order) };
+        let cpow = if self.order == 0.0 {
+            1.0
+        } else {
+            c.powf(self.order)
+        };
         self.adsorption_constant(temperature_k) * cpow
     }
 }
@@ -461,7 +465,11 @@ impl Reaction {
     /// `T_min = 0`, `T_max = 1e30`); set the ones the reaction needs with the
     /// `with_*` builders or by field assignment.
     #[must_use]
-    pub fn new(kind: ReactionKind, basis: ReactionBasis, components: Vec<ReactionComponent>) -> Self {
+    pub fn new(
+        kind: ReactionKind,
+        basis: ReactionBasis,
+        components: Vec<ReactionComponent>,
+    ) -> Self {
         Self {
             kind,
             basis,
@@ -777,10 +785,11 @@ mod tests {
 
         // Weak adsorption: rate approaches the power-law from below as A_ads → 0.
         let mk = |a_ads: f64| {
-            base.clone().with_langmuir_hinshelwood(LangmuirHinshelwood::new(
-                vec![AdsorptionTerm::new(0, a_ads, 0.0, 1.0)],
-                1.0,
-            ))
+            base.clone()
+                .with_langmuir_hinshelwood(LangmuirHinshelwood::new(
+                    vec![AdsorptionTerm::new(0, a_ads, 0.0, 1.0)],
+                    1.0,
+                ))
         };
         let r_strong = mk(1e-4).langmuir_hinshelwood_rate(&c, 500.0);
         let r_weak = mk(1e-6).langmuir_hinshelwood_rate(&c, 500.0);
@@ -790,7 +799,10 @@ mod tests {
         assert!(r_strong < power_law && r_weak < power_law);
         let err_strong = (power_law - r_strong) / power_law;
         let err_weak = (power_law - r_weak) / power_law;
-        assert!(err_weak < err_strong, "weak err {err_weak} !< strong err {err_strong}");
+        assert!(
+            err_weak < err_strong,
+            "weak err {err_weak} !< strong err {err_strong}"
+        );
         assert!(err_strong < 1e-3);
     }
 

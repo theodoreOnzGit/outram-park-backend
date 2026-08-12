@@ -234,7 +234,11 @@ mod tests {
             DynamicViscosity::new::<pascal_second>(1.991242e-5),
         );
         let rel = (re.get::<ratio>() - 40125.0) / 40125.0;
-        println!("Re = {:.1}; relative to published 40125: {:+.3}%", re.get::<ratio>(), rel * 100.0);
+        println!(
+            "Re = {:.1}; relative to published 40125: {:+.3}%",
+            re.get::<ratio>(),
+            rel * 100.0
+        );
         // Documented discrepancy: -0.40%. Bound it at 0.5% so a transcription
         // error (wrong area, wrong viscosity) still fails loudly.
         assert!(rel.abs() < 0.005);

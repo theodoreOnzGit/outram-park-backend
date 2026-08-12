@@ -108,13 +108,11 @@ impl BackgroundMesh {
     /// # Panics
     /// If any division count is zero.
     pub fn uniform(bounds: Bounds, nx: usize, ny: usize, nz: usize) -> Self {
-        assert!(nx > 0 && ny > 0 && nz > 0, "division counts must be positive");
-        Self {
-            bounds,
-            nx,
-            ny,
-            nz,
-        }
+        assert!(
+            nx > 0 && ny > 0 && nz > 0,
+            "division counts must be positive"
+        );
+        Self { bounds, nx, ny, nz }
     }
 
     /// Total number of level-0 cells (`nx·ny·nz`).

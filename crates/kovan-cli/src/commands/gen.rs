@@ -11,9 +11,7 @@ use std::path::PathBuf;
 
 use clap::{Subcommand, ValueEnum};
 
-use kovan_codegen::{
-    generate, LinearSolver, Method, NonlinearSolver, OdeSolver, PdeScheme, RootFinder,
-};
+use kovan_codegen::{generate, LinearSolver, Method, NonlinearSolver, OdeSolver, PdeScheme, RootFinder};
 
 /// `kovan gen <family> <method> [--out <path>]`.
 #[derive(Subcommand)]

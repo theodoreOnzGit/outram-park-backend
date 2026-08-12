@@ -526,28 +526,52 @@ impl GemSystem {
     pub fn new(element_symbols: &[&str], phases: &[PhaseInput]) -> Result<Self, GemError> {
         let n_elements = element_symbols.len();
         if n_elements == 0 {
-            return Err(GemError::InvalidInput { what: "element_symbols (empty)", value: 0.0, positive: true });
+            return Err(GemError::InvalidInput {
+                what: "element_symbols (empty)",
+                value: 0.0,
+                positive: true,
+            });
         }
         if phases.is_empty() {
-            return Err(GemError::InvalidInput { what: "phases (empty)", value: 0.0, positive: true });
+            return Err(GemError::InvalidInput {
+                what: "phases (empty)",
+                value: 0.0,
+                positive: true,
+            });
         }
         let mut built = Vec::with_capacity(phases.len());
         for ph in phases {
             let n_species = ph.species_names.len();
             if n_species == 0 {
-                return Err(GemError::InvalidInput { what: "phase species (empty)", value: 0.0, positive: true });
+                return Err(GemError::InvalidInput {
+                    what: "phase species (empty)",
+                    value: 0.0,
+                    positive: true,
+                });
             }
             if ph.atom_matrix.len() != n_elements {
-                return Err(GemError::DimensionMismatch { what: "phase atom_matrix rows", expected: n_elements, got: ph.atom_matrix.len() });
+                return Err(GemError::DimensionMismatch {
+                    what: "phase atom_matrix rows",
+                    expected: n_elements,
+                    got: ph.atom_matrix.len(),
+                });
             }
             let mut a = vec![0.0; n_elements * n_species];
             for (k, row) in ph.atom_matrix.iter().enumerate() {
                 if row.len() != n_species {
-                    return Err(GemError::DimensionMismatch { what: "phase atom_matrix row", expected: n_species, got: row.len() });
+                    return Err(GemError::DimensionMismatch {
+                        what: "phase atom_matrix row",
+                        expected: n_species,
+                        got: row.len(),
+                    });
                 }
                 for (s, &v) in row.iter().enumerate() {
                     if !v.is_finite() || v < 0.0 {
-                        return Err(GemError::InvalidInput { what: "atom_matrix entry", value: v, positive: false });
+                        return Err(GemError::InvalidInput {
+                            what: "atom_matrix entry",
+                            value: v,
+                            positive: false,
+                        });
                     }
                     a[k * n_species + s] = v;
                 }
@@ -556,21 +580,42 @@ impl GemSystem {
             if let SolutionModel::RedlichKister { interactions } = &ph.model {
                 for it in interactions {
                     if it.species_i >= n_species {
-                        return Err(GemError::InvalidInput { what: "BinaryInteraction.species_i out of range", value: it.species_i as f64, positive: false });
+                        return Err(GemError::InvalidInput {
+                            what: "BinaryInteraction.species_i out of range",
+                            value: it.species_i as f64,
+                            positive: false,
+                        });
                     }
                     if it.species_j >= n_species {
-                        return Err(GemError::InvalidInput { what: "BinaryInteraction.species_j out of range", value: it.species_j as f64, positive: false });
+                        return Err(GemError::InvalidInput {
+                            what: "BinaryInteraction.species_j out of range",
+                            value: it.species_j as f64,
+                            positive: false,
+                        });
                     }
                     for &lv in &it.l_coeffs {
                         if !lv.is_finite() {
-                            return Err(GemError::InvalidInput { what: "BinaryInteraction.l_coeffs entry", value: lv, positive: false });
+                            return Err(GemError::InvalidInput {
+                                what: "BinaryInteraction.l_coeffs entry",
+                                value: lv,
+                                positive: false,
+                            });
                         }
                     }
                 }
             }
-            built.push(Phase { model: ph.model.clone(), names: ph.species_names.clone(), a, n_species });
+            built.push(Phase {
+                model: ph.model.clone(),
+                names: ph.species_names.clone(),
+                a,
+                n_species,
+            });
         }
-        Ok(Self { elements: element_symbols.iter().map(|s| (*s).to_string()).collect(), phases: built, n_elements })
+        Ok(Self {
+            elements: element_symbols.iter().map(|s| (*s).to_string()).collect(),
+            phases: built,
+            n_elements,
+        })
     }
 
     /// Number of chemical elements `M`.
@@ -614,12 +659,20 @@ impl GemSystem {
     /// or a phase slice with the wrong species count.
     pub fn element_abundance(&self, moles: &[&[f64]]) -> Result<Vec<f64>, GemError> {
         if moles.len() != self.phases.len() {
-            return Err(GemError::DimensionMismatch { what: "moles phases", expected: self.phases.len(), got: moles.len() });
+            return Err(GemError::DimensionMismatch {
+                what: "moles phases",
+                expected: self.phases.len(),
+                got: moles.len(),
+            });
         }
         let mut b = vec![0.0; self.n_elements];
         for (p, ph) in self.phases.iter().enumerate() {
             if moles[p].len() != ph.n_species {
-                return Err(GemError::DimensionMismatch { what: "moles[p]", expected: ph.n_species, got: moles[p].len() });
+                return Err(GemError::DimensionMismatch {
+                    what: "moles[p]",
+                    expected: ph.n_species,
+                    got: moles[p].len(),
+                });
             }
             for k in 0..self.n_elements {
                 let mut acc = 0.0;
@@ -745,17 +798,33 @@ impl GemSystem {
 
         // ---- validate shapes ----
         if gibbs_formation.len() != np {
-            return Err(GemError::DimensionMismatch { what: "gibbs_formation phases", expected: np, got: gibbs_formation.len() });
+            return Err(GemError::DimensionMismatch {
+                what: "gibbs_formation phases",
+                expected: np,
+                got: gibbs_formation.len(),
+            });
         }
         if feed.len() != np {
-            return Err(GemError::DimensionMismatch { what: "feed phases", expected: np, got: feed.len() });
+            return Err(GemError::DimensionMismatch {
+                what: "feed phases",
+                expected: np,
+                got: feed.len(),
+            });
         }
         for (p, ph) in self.phases.iter().enumerate() {
             if gibbs_formation[p].len() != ph.n_species {
-                return Err(GemError::DimensionMismatch { what: "gibbs_formation[p]", expected: ph.n_species, got: gibbs_formation[p].len() });
+                return Err(GemError::DimensionMismatch {
+                    what: "gibbs_formation[p]",
+                    expected: ph.n_species,
+                    got: gibbs_formation[p].len(),
+                });
             }
             if feed[p].len() != ph.n_species {
-                return Err(GemError::DimensionMismatch { what: "feed[p]", expected: ph.n_species, got: feed[p].len() });
+                return Err(GemError::DimensionMismatch {
+                    what: "feed[p]",
+                    expected: ph.n_species,
+                    got: feed[p].len(),
+                });
             }
         }
         for (what, v, pos) in [
@@ -766,7 +835,11 @@ impl GemSystem {
             ("phase_floor", options.phase_floor, true),
         ] {
             if !v.is_finite() || (pos && v <= 0.0) {
-                return Err(GemError::InvalidInput { what, value: v, positive: pos });
+                return Err(GemError::InvalidInput {
+                    what,
+                    value: v,
+                    positive: pos,
+                });
             }
         }
         let mut feed_sum = 0.0;
@@ -774,17 +847,29 @@ impl GemSystem {
             for s in 0..ph.n_species {
                 let g = gibbs_formation[p][s];
                 if !g.is_finite() {
-                    return Err(GemError::InvalidInput { what: "gibbs_formation entry", value: g, positive: false });
+                    return Err(GemError::InvalidInput {
+                        what: "gibbs_formation entry",
+                        value: g,
+                        positive: false,
+                    });
                 }
                 let f = feed[p][s];
                 if !f.is_finite() || f < 0.0 {
-                    return Err(GemError::InvalidInput { what: "feed entry", value: f, positive: false });
+                    return Err(GemError::InvalidInput {
+                        what: "feed entry",
+                        value: f,
+                        positive: false,
+                    });
                 }
                 feed_sum += f;
             }
         }
         if feed_sum <= 0.0 {
-            return Err(GemError::InvalidInput { what: "feed (all zero)", value: feed_sum, positive: true });
+            return Err(GemError::InvalidInput {
+                what: "feed (all zero)",
+                value: feed_sum,
+                positive: true,
+            });
         }
 
         let rt = R * temperature;
@@ -797,7 +882,9 @@ impl GemSystem {
             .enumerate()
             .map(|(p, ph)| {
                 let ptrm = ph.model.ln_p_term(ln_p_ratio);
-                (0..ph.n_species).map(|s| gibbs_formation[p][s] / rt + ptrm).collect()
+                (0..ph.n_species)
+                    .map(|s| gibbs_formation[p][s] / rt + ptrm)
+                    .collect()
             })
             .collect();
 
@@ -810,7 +897,13 @@ impl GemSystem {
             .enumerate()
             .map(|(p, ph)| {
                 (0..ph.n_species)
-                    .map(|s| if feed[p][s] > options.mole_floor { feed[p][s] } else { options.mole_floor })
+                    .map(|s| {
+                        if feed[p][s] > options.mole_floor {
+                            feed[p][s]
+                        } else {
+                            options.mole_floor
+                        }
+                    })
                     .collect()
             })
             .collect();
@@ -927,7 +1020,11 @@ impl GemSystem {
             // δ_ps and the two magnitudes (damping vs complementarity-aware convergence).
             let mut step_max = 0.0_f64;
             let mut conv_max = 0.0_f64;
-            let mut delta: Vec<Vec<f64>> = self.phases.iter().map(|ph| vec![0.0; ph.n_species]).collect();
+            let mut delta: Vec<Vec<f64>> = self
+                .phases
+                .iter()
+                .map(|ph| vec![0.0; ph.n_species])
+                .collect();
             for (p, ph) in self.phases.iter().enumerate() {
                 for s in 0..ph.n_species {
                     let mut ap = 0.0;
@@ -939,23 +1036,39 @@ impl GemSystem {
                     if d.abs() > step_max {
                         step_max = d.abs();
                     }
-                    let c = if moles[p][s] < options.mole_floor { d.max(0.0) } else { d.abs() };
+                    let c = if moles[p][s] < options.mole_floor {
+                        d.max(0.0)
+                    } else {
+                        d.abs()
+                    };
                     if c > conv_max {
                         conv_max = c;
                     }
                 }
             }
 
-            let omega0 = if step_max > 0.0 { (options.max_step / step_max).min(1.0) } else { 1.0 };
+            let omega0 = if step_max > 0.0 {
+                (options.max_step / step_max).min(1.0)
+            } else {
+                1.0
+            };
             let phi_current = *merit_history.last().unwrap();
             let slack = 1e-12 * (1.0 + phi_current.abs());
             let mut omega = omega0;
-            let mut trial: Vec<Vec<f64>> = self.phases.iter().map(|ph| vec![0.0; ph.n_species]).collect();
+            let mut trial: Vec<Vec<f64>> = self
+                .phases
+                .iter()
+                .map(|ph| vec![0.0; ph.n_species])
+                .collect();
             for _bt in 0..80 {
                 for (p, ph) in self.phases.iter().enumerate() {
                     for s in 0..ph.n_species {
                         let v = moles[p][s] * (omega * delta[p][s]).exp();
-                        trial[p][s] = if !v.is_finite() || v < 1e-300 { 1e-300 } else { v };
+                        trial[p][s] = if !v.is_finite() || v < 1e-300 {
+                            1e-300
+                        } else {
+                            v
+                        };
                     }
                 }
                 let phi_trial = self.total_gibbs_rt(&trial, &cc, rt)
@@ -994,7 +1107,11 @@ impl GemSystem {
 
         // Final quantities.
         let mut phase_totals = vec![0.0; np];
-        let mut gamma: Vec<Vec<f64>> = self.phases.iter().map(|ph| vec![1.0; ph.n_species]).collect();
+        let mut gamma: Vec<Vec<f64>> = self
+            .phases
+            .iter()
+            .map(|ph| vec![1.0; ph.n_species])
+            .collect();
         for (p, ph) in self.phases.iter().enumerate() {
             let nt: f64 = moles[p].iter().sum();
             phase_totals[p] = nt;
@@ -1185,7 +1302,12 @@ mod tests {
         assert!(merit.len() >= 2, "merit history too short");
         let mscale = merit.iter().fold(0.0_f64, |a, &v| a.max(v.abs())).max(1.0);
         for w in merit.windows(2) {
-            assert!(w[1] <= w[0] + 1e-9 * mscale, "merit increased: {} -> {}", w[0], w[1]);
+            assert!(
+                w[1] <= w[0] + 1e-9 * mscale,
+                "merit increased: {} -> {}",
+                w[0],
+                w[1]
+            );
         }
     }
 
@@ -1206,11 +1328,21 @@ mod tests {
         let sys = GemSystem::new(&["U", "F"], &[ideal(&["UF4"], &[&[1.0], &[4.0]])]).unwrap();
         let g: [f64; 1] = [g0];
         let feed: [f64; 1] = [3.0];
-        let res = sys.minimize(&[&g], t, &[&feed], 1e5, 1e5, &GemOptions::default()).unwrap();
-        assert!((res.moles[0][0] - 3.0).abs() < 1e-10, "n={}", res.moles[0][0]);
+        let res = sys
+            .minimize(&[&g], t, &[&feed], 1e5, 1e5, &GemOptions::default())
+            .unwrap();
+        assert!(
+            (res.moles[0][0] - 3.0).abs() < 1e-10,
+            "n={}",
+            res.moles[0][0]
+        );
         assert!((res.mole_fractions[0][0] - 1.0).abs() < 1e-12);
         assert!((res.activity_coefficients[0][0] - 1.0).abs() < 1e-12);
-        assert!((res.gibbs_energy - 3.0 * g0).abs() < 1e-6 * (3.0 * g0).abs(), "G={}", res.gibbs_energy);
+        assert!(
+            (res.gibbs_energy - 3.0 * g0).abs() < 1e-6 * (3.0 * g0).abs(),
+            "G={}",
+            res.gibbs_energy
+        );
         let b = sys.element_abundance(&[&res.moles[0]]).unwrap();
         assert!((b[0] - 3.0).abs() < 1e-12 && (b[1] - 12.0).abs() < 1e-12);
     }
@@ -1245,15 +1377,31 @@ mod tests {
         let feed0: [f64; 2] = [1.0, 1.0];
         let feed1: [f64; 2] = [0.0, 1.0];
         let res = sys
-            .minimize(&[&g0, &g1], t, &[&feed0, &feed1], 1e5, 1e5, &GemOptions::default())
+            .minimize(
+                &[&g0, &g1],
+                t,
+                &[&feed0, &feed1],
+                1e5,
+                1e5,
+                &GemOptions::default(),
+            )
             .unwrap();
         let na0 = 2.0 - 3.0_f64.sqrt();
-        assert!((res.moles[0][0] - na0).abs() < 1e-8, "nA0={} exp={}", res.moles[0][0], na0);
+        assert!(
+            (res.moles[0][0] - na0).abs() < 1e-8,
+            "nA0={} exp={}",
+            res.moles[0][0],
+            na0
+        );
         assert!((res.moles[1][0] - (1.0 - na0)).abs() < 1e-8);
         let d = res.mole_fractions[1][0] / res.mole_fractions[0][0];
         assert!((d - 2.0).abs() < 1e-8, "D={d}");
-        let b = sys.element_abundance(&[&res.moles[0], &res.moles[1]]).unwrap();
-        assert!((b[0] - 1.0).abs() < 1e-8 && (b[1] - 1.0).abs() < 1e-8 && (b[2] - 1.0).abs() < 1e-8);
+        let b = sys
+            .element_abundance(&[&res.moles[0], &res.moles[1]])
+            .unwrap();
+        assert!(
+            (b[0] - 1.0).abs() < 1e-8 && (b[1] - 1.0).abs() < 1e-8 && (b[2] - 1.0).abs() < 1e-8
+        );
         assert_monotone_merit(&res);
     }
 
@@ -1281,21 +1429,47 @@ mod tests {
 
         // Regular (L0 only).
         let reg = SolutionModel::RedlichKister {
-            interactions: vec![BinaryInteraction { species_i: 0, species_j: 1, l_coeffs: vec![l0] }],
+            interactions: vec![BinaryInteraction {
+                species_i: 0,
+                species_j: 1,
+                l_coeffs: vec![l0],
+            }],
         };
         let lng = reg.ln_gamma(&[x1, x2], rt);
-        assert!((lng[0] - l0 * x2 * x2 / rt).abs() < 1e-12, "lnγ1={}", lng[0]);
-        assert!((lng[1] - l0 * x1 * x1 / rt).abs() < 1e-12, "lnγ2={}", lng[1]);
+        assert!(
+            (lng[0] - l0 * x2 * x2 / rt).abs() < 1e-12,
+            "lnγ1={}",
+            lng[0]
+        );
+        assert!(
+            (lng[1] - l0 * x1 * x1 / rt).abs() < 1e-12,
+            "lnγ2={}",
+            lng[1]
+        );
 
         // Subregular (L0, L1).
         let sub = SolutionModel::RedlichKister {
-            interactions: vec![BinaryInteraction { species_i: 0, species_j: 1, l_coeffs: vec![l0, l1] }],
+            interactions: vec![BinaryInteraction {
+                species_i: 0,
+                species_j: 1,
+                l_coeffs: vec![l0, l1],
+            }],
         };
         let lng = sub.ln_gamma(&[x1, x2], rt);
         let exp1 = x2 * x2 * (l0 + l1 * (3.0 * x1 - x2)) / rt;
         let exp2 = x1 * x1 * (l0 - l1 * (3.0 * x2 - x1)) / rt;
-        assert!((lng[0] - exp1).abs() < 1e-12, "sub lnγ1={} exp={}", lng[0], exp1);
-        assert!((lng[1] - exp2).abs() < 1e-12, "sub lnγ2={} exp={}", lng[1], exp2);
+        assert!(
+            (lng[0] - exp1).abs() < 1e-12,
+            "sub lnγ1={} exp={}",
+            lng[0],
+            exp1
+        );
+        assert!(
+            (lng[1] - exp2).abs() < 1e-12,
+            "sub lnγ2={} exp={}",
+            lng[1],
+            exp2
+        );
 
         // Gibbs-Duhem / Euler: x1 lnγ1 + x2 lnγ2 = g^ex/RT.
         let g_ex_rt = x1 * x2 * (l0 + l1 * (x1 - x2)) / rt;
@@ -1328,7 +1502,11 @@ mod tests {
                 ideal(&["A", "I0"], &[&[1.0, 0.0], &[0.0, 1.0], &[0.0, 0.0]]),
                 PhaseInput {
                     model: SolutionModel::RedlichKister {
-                        interactions: vec![BinaryInteraction { species_i: 0, species_j: 1, l_coeffs: vec![l0] }],
+                        interactions: vec![BinaryInteraction {
+                            species_i: 0,
+                            species_j: 1,
+                            l_coeffs: vec![l0],
+                        }],
                     },
                     species_names: vec!["A".into(), "I1".into()],
                     atom_matrix: vec![vec![1.0, 0.0], vec![0.0, 0.0], vec![0.0, 1.0]],
@@ -1341,17 +1519,36 @@ mod tests {
         let feed0: [f64; 2] = [1.0, 1.0];
         let feed1: [f64; 2] = [0.0, 1.0];
         let res = sys
-            .minimize(&[&g0, &g1], t, &[&feed0, &feed1], 1e5, 1e5, &GemOptions::default())
+            .minimize(
+                &[&g0, &g1],
+                t,
+                &[&feed0, &feed1],
+                1e5,
+                1e5,
+                &GemOptions::default(),
+            )
             .unwrap();
 
         // Equal chemical potential of A across the two phases (µ/RT).
         let mu_a0 = res.mole_fractions[0][0].ln();
         let mu_a1 = res.mole_fractions[1][0].ln() + res.activity_coefficients[1][0].ln();
-        assert!((mu_a0 - mu_a1).abs() < 1e-9, "µ_A(0)-µ_A(1)={}", (mu_a0 - mu_a1) * rt);
+        assert!(
+            (mu_a0 - mu_a1).abs() < 1e-9,
+            "µ_A(0)-µ_A(1)={}",
+            (mu_a0 - mu_a1) * rt
+        );
         // Repulsive interaction expels A from phase 1: γ_{A,1} > 1.
-        assert!(res.activity_coefficients[1][0] > 1.0, "γ_A1={}", res.activity_coefficients[1][0]);
-        let b = sys.element_abundance(&[&res.moles[0], &res.moles[1]]).unwrap();
-        assert!((b[0] - 1.0).abs() < 1e-8 && (b[1] - 1.0).abs() < 1e-8 && (b[2] - 1.0).abs() < 1e-8);
+        assert!(
+            res.activity_coefficients[1][0] > 1.0,
+            "γ_A1={}",
+            res.activity_coefficients[1][0]
+        );
+        let b = sys
+            .element_abundance(&[&res.moles[0], &res.moles[1]])
+            .unwrap();
+        assert!(
+            (b[0] - 1.0).abs() < 1e-8 && (b[1] - 1.0).abs() < 1e-8 && (b[2] - 1.0).abs() < 1e-8
+        );
         assert_monotone_merit(&res);
     }
 
@@ -1388,7 +1585,10 @@ mod tests {
         let sys = GemSystem::new(
             &["Li", "Be", "F"],
             // molten-salt ideal solution {LiF, BeF2}
-            &[ideal(&["LiF", "BeF2"], &[&[1.0, 0.0], &[0.0, 1.0], &[1.0, 2.0]])],
+            &[ideal(
+                &["LiF", "BeF2"],
+                &[&[1.0, 0.0], &[0.0, 1.0], &[1.0, 2.0]],
+            )],
         )
         .unwrap();
         let g_liq: [f64; 2] = [g_lif, g_bef2];
@@ -1409,14 +1609,27 @@ mod tests {
         let charge_res = n_lif * 1.0 + n_bef2 * 2.0 - b[2];
         assert!(charge_res.abs() < 1e-8, "charge residual={charge_res}");
         // (iii) composition = 2:1 FLiBe ratio.
-        assert!((res.mole_fractions[0][0] - 2.0 / 3.0).abs() < 1e-9, "x(LiF)={}", res.mole_fractions[0][0]);
-        assert!((res.mole_fractions[0][1] - 1.0 / 3.0).abs() < 1e-9, "x(BeF2)={}", res.mole_fractions[0][1]);
+        assert!(
+            (res.mole_fractions[0][0] - 2.0 / 3.0).abs() < 1e-9,
+            "x(LiF)={}",
+            res.mole_fractions[0][0]
+        );
+        assert!(
+            (res.mole_fractions[0][1] - 1.0 / 3.0).abs() < 1e-9,
+            "x(BeF2)={}",
+            res.mole_fractions[0][1]
+        );
 
         // (iv) analytic ideal-mixing Gibbs energy of the melt.
         let x0 = res.mole_fractions[0][0];
         let x1 = res.mole_fractions[0][1];
         let g_analytic = n_lif * (g_lif + rt * x0.ln()) + n_bef2 * (g_bef2 + rt * x1.ln());
-        assert!((res.gibbs_energy - g_analytic).abs() < 1e-9 * g_analytic.abs().max(1.0), "G={} exp={}", res.gibbs_energy, g_analytic);
+        assert!(
+            (res.gibbs_energy - g_analytic).abs() < 1e-9 * g_analytic.abs().max(1.0),
+            "G={} exp={}",
+            res.gibbs_energy,
+            g_analytic
+        );
 
         // (v) ideal ⇒ unit activity coefficients.
         assert!((res.activity_coefficients[0][0] - 1.0).abs() < 1e-12);
@@ -1442,18 +1655,34 @@ mod tests {
         let g_ok: [f64; 2] = [0.0, 0.0];
         let feed: [f64; 2] = [1.0, 0.0];
         let feed0: [f64; 2] = [0.0, 0.0];
-        assert!(matches!(sys.minimize(&[&g_bad], 1000.0, &[&feed], 1e5, 1e5, &opts), Err(GemError::DimensionMismatch { .. })));
-        assert!(matches!(sys.minimize(&[&g_ok], -1.0, &[&feed], 1e5, 1e5, &opts), Err(GemError::InvalidInput { .. })));
-        assert!(matches!(sys.minimize(&[&g_ok], 1000.0, &[&feed0], 1e5, 1e5, &opts), Err(GemError::InvalidInput { .. })));
+        assert!(matches!(
+            sys.minimize(&[&g_bad], 1000.0, &[&feed], 1e5, 1e5, &opts),
+            Err(GemError::DimensionMismatch { .. })
+        ));
+        assert!(matches!(
+            sys.minimize(&[&g_ok], -1.0, &[&feed], 1e5, 1e5, &opts),
+            Err(GemError::InvalidInput { .. })
+        ));
+        assert!(matches!(
+            sys.minimize(&[&g_ok], 1000.0, &[&feed0], 1e5, 1e5, &opts),
+            Err(GemError::InvalidInput { .. })
+        ));
 
         // Out-of-range Redlich-Kister index at construction.
         let bad_rk = PhaseInput {
             model: SolutionModel::RedlichKister {
-                interactions: vec![BinaryInteraction { species_i: 0, species_j: 5, l_coeffs: vec![1.0] }],
+                interactions: vec![BinaryInteraction {
+                    species_i: 0,
+                    species_j: 5,
+                    l_coeffs: vec![1.0],
+                }],
             },
             species_names: vec!["A".into(), "B".into()],
             atom_matrix: vec![vec![1.0, 1.0]],
         };
-        assert!(matches!(GemSystem::new(&["X"], &[bad_rk]), Err(GemError::InvalidInput { .. })));
+        assert!(matches!(
+            GemSystem::new(&["X"], &[bad_rk]),
+            Err(GemError::InvalidInput { .. })
+        ));
     }
 }

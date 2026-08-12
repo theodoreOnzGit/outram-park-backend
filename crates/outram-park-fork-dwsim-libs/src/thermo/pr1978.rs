@@ -130,12 +130,7 @@ fn kij_at(kij: Option<&BinaryInteraction>, i: usize, j: usize) -> f64 {
 /// # Panics
 /// Panics (via slice indexing) if `comps` and `z` differ in length.
 #[must_use]
-pub fn pr78_a_mix(
-    comps: &[Component],
-    z: &[f64],
-    t: f64,
-    kij: Option<&BinaryInteraction>,
-) -> f64 {
+pub fn pr78_a_mix(comps: &[Component], z: &[f64], t: f64, kij: Option<&BinaryInteraction>) -> f64 {
     let ai: Vec<f64> = comps.iter().map(|c| pr78_a_i(c, t)).collect();
     let mut am = 0.0;
     for i in 0..comps.len() {
@@ -240,16 +235,14 @@ pub fn ln_phi(
 ///
 /// Feeds the entropy/enthalpy departures below.
 #[must_use]
-pub fn dadt(
-    comps: &[Component],
-    z: &[f64],
-    t: f64,
-    kij: Option<&BinaryInteraction>,
-) -> f64 {
+pub fn dadt(comps: &[Component], z: &[f64], t: f64, kij: Option<&BinaryInteraction>) -> f64 {
     let eos = CubicEos::PengRobinson;
     let n = comps.len();
     let ai: Vec<f64> = comps.iter().map(|c| pr78_a_i(c, t)).collect();
-    let ci: Vec<f64> = comps.iter().map(|c| pr78_kappa(c.acentric_factor)).collect();
+    let ci: Vec<f64> = comps
+        .iter()
+        .map(|c| pr78_kappa(c.acentric_factor))
+        .collect();
     let aux1 = -R / 2.0 * (eos.omega_a() / t).sqrt();
     let mut aux2 = 0.0;
     for i in 0..n {
@@ -398,12 +391,18 @@ mod tests {
         let k78 = pr78_kappa(0.8);
         let kbase = eos.alpha_slope(0.8);
         assert_relative_eq!(k78, 1.470968, max_relative = 1e-5);
-        assert!((k78 - kbase).abs() / kbase > 0.01, "k78={k78} kbase={kbase}");
+        assert!(
+            (k78 - kbase).abs() / kbase > 0.01,
+            "k78={k78} kbase={kbase}"
+        );
         // a_i at Tr = 0.7 differs by ~0.94% (> 0.5%).
         let t_hi = 0.7 * heavy.critical_temperature;
         let a78 = pr78_a_i(&heavy, t_hi);
         let abase = eos.a_i(&heavy, t_hi);
-        assert!((a78 - abase).abs() / abase > 0.005, "a78={a78} abase={abase}");
+        assert!(
+            (a78 - abase).abs() / abase > 0.005,
+            "a78={a78} abase={abase}"
+        );
     }
 
     /// **Methodology.** At the critical point (`Tr = 1`) the PR78 α must be
@@ -413,10 +412,22 @@ mod tests {
     #[test]
     fn pr78_alpha_unity_at_critical() {
         let heavy = Component::new(
-            "HeavyProbe", 0.2, 700.0, 2.0e6, f64::NAN, 0.8, f64::NAN, [0.0; 5], f64::NAN,
+            "HeavyProbe",
+            0.2,
+            700.0,
+            2.0e6,
+            f64::NAN,
+            0.8,
+            f64::NAN,
+            [0.0; 5],
+            f64::NAN,
         )
         .unwrap();
-        assert_relative_eq!(pr78_alpha(&heavy, heavy.critical_temperature), 1.0, epsilon = 1e-15);
+        assert_relative_eq!(
+            pr78_alpha(&heavy, heavy.critical_temperature),
+            1.0,
+            epsilon = 1e-15
+        );
     }
 
     /// **Methodology.** The PR78 fugacity coefficient must approach 1 (i.e.

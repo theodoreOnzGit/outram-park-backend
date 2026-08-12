@@ -19,13 +19,11 @@ mod mesh_refinement_two_times;
 /// timestep 0.1s
 mod mesh_refinement_five_times;
 
-
 /// mesh refinement 10 times that of SAM
 /// nodalisation
 ///
 /// timestep 0.05s
 mod mesh_refinement_10_times;
-
 
 /// mesh refinement 20 times that of SAM
 /// nodalisation

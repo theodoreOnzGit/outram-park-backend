@@ -77,9 +77,7 @@
 //!   molar/mass **basis** distinction preserved as [`SpecBasis`].
 
 use uom::si::catalytic_activity::katal;
-use uom::si::f64::{
-    CatalyticActivity, MolarEnergy, Power, Pressure, Ratio, ThermodynamicTemperature,
-};
+use uom::si::f64::{CatalyticActivity, MolarEnergy, Power, Pressure, Ratio, ThermodynamicTemperature};
 use uom::si::molar_energy::joule_per_mole;
 use uom::si::power::watt;
 use uom::si::pressure::pascal;

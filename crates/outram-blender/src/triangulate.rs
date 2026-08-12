@@ -132,7 +132,10 @@ mod tests {
         let before_faces = sphere.face_count();
         let tris = triangulate(&sphere);
         assert!(all_triangles(&tris));
-        assert!(tris.face_count() >= before_faces, "quads split, tris pass through");
+        assert!(
+            tris.face_count() >= before_faces,
+            "quads split, tris pass through"
+        );
         assert_eq!(tris.euler_characteristic(), 2);
         assert!(is_watertight_consistent(&tris));
     }
@@ -153,7 +156,9 @@ mod tests {
         use crate::ops::MeshOp;
         let cube = primitives::cube(2.0);
         let direct = triangulate(&cube);
-        let via_op = MeshOp::Triangulate.apply(cube).expect("triangulate infallible");
+        let via_op = MeshOp::Triangulate
+            .apply(cube)
+            .expect("triangulate infallible");
         assert_eq!(via_op.face_count(), direct.face_count());
         assert_eq!(via_op.euler_characteristic(), direct.euler_characteristic());
     }

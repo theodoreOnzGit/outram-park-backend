@@ -355,12 +355,22 @@ where
         return Err(FlashError::Empty);
     }
     if k1_init.len() != n {
-        return Err(FlashError::LengthMismatch { a: n, b: k1_init.len() });
+        return Err(FlashError::LengthMismatch {
+            a: n,
+            b: k1_init.len(),
+        });
     }
     if k2_init.len() != n {
-        return Err(FlashError::LengthMismatch { a: n, b: k2_init.len() });
+        return Err(FlashError::LengthMismatch {
+            a: n,
+            b: k2_init.len(),
+        });
     }
-    if k1_init.iter().chain(k2_init.iter()).any(|&v| !v.is_finite() || v <= 0.0) {
+    if k1_init
+        .iter()
+        .chain(k2_init.iter())
+        .any(|&v| !v.is_finite() || v <= 0.0)
+    {
         return Err(FlashError::NonFinite);
     }
 
@@ -382,7 +392,11 @@ where
                 b: k1_new.len().max(k2_new.len()),
             });
         }
-        if k1_new.iter().chain(k2_new.iter()).any(|&v| !v.is_finite() || v <= 0.0) {
+        if k1_new
+            .iter()
+            .chain(k2_new.iter())
+            .any(|&v| !v.is_finite() || v <= 0.0)
+        {
             return Err(FlashError::NonFinite);
         }
 
@@ -394,8 +408,7 @@ where
             .zip(u1_new.iter())
             .map(|(&uo, &un)| (uo - un).abs())
             .sum::<f64>()
-            + u2
-                .iter()
+            + u2.iter()
                 .zip(u2_new.iter())
                 .map(|(&uo, &un)| (uo - un).abs())
                 .sum::<f64>();
@@ -473,7 +486,8 @@ pub fn inside_out_flash_3p(
     }
 
     // --- Step 1: rigorous two-phase VLE via the Inside-Out parent. ---
-    let k_closure = |x: &[f64], y: &[f64], t: f64, p: f64| eos_k_values(eos, components, x, y, t, p);
+    let k_closure =
+        |x: &[f64], y: &[f64], t: f64, p: f64| eos_k_values(eos, components, x, y, t, p);
     let io_opts = InsideOutOptions {
         max_outer_iter: opts.max_outer_iter,
         ..InsideOutOptions::default()
@@ -519,9 +533,7 @@ pub fn inside_out_flash_3p(
     let k1_init = eos_k_values(eos, components, &x1_est, &y_est, t, p);
     let k2_init = eos_k_values(eos, components, &x2_est, &y_est, t, p);
 
-    let result = inside_out_3p_core(
-        z, &k1_init, &k2_init, l1, l2, t, p, &k_closure, opts,
-    )?;
+    let result = inside_out_3p_core(z, &k1_init, &k2_init, l1, l2, t, p, &k_closure, opts)?;
 
     // Step 4: a collapsed / trivial second liquid means genuine two-phase.
     if !result.three_phase || result.l2 <= opts.min_phase_fraction {
@@ -572,8 +584,7 @@ mod tests {
         let k1 = [4.0, 0.3, 2.0];
         let k2 = [4.0, 2.0, 0.3];
         // Frozen-K reference from the already-ported nested-loops 3-phase core.
-        let split =
-            solve_3p_fixed_k(&z, &k1, &k2, 0.3, 0.3, VlleOptions::default()).unwrap();
+        let split = solve_3p_fixed_k(&z, &k1, &k2, 0.3, 0.3, VlleOptions::default()).unwrap();
 
         // Drive the Inside-Out core with a per-liquid closure that echoes the
         // seed-consistent K: at the frozen split `x^{j}_i = y_i / K^{j}_i`, so
@@ -614,7 +625,10 @@ mod tests {
         assert_abs_diff_eq!(core.v, split.v, epsilon = 1e-12);
         assert_abs_diff_eq!(core.l1, split.l1, epsilon = 1e-12);
         assert_abs_diff_eq!(core.l2, split.l2, epsilon = 1e-12);
-        assert_eq!(core.iterations, 1, "constant closure converges on the first pass");
+        assert_eq!(
+            core.iterations, 1,
+            "constant closure converges on the first pass"
+        );
     }
 
     /// **Methodology (V&V check 1 — asymmetric fixed-K three-phase split).** The
@@ -633,8 +647,7 @@ mod tests {
         let z = [0.4, 0.3, 0.3];
         let k1 = [3.0, 0.25, 2.5];
         let k2 = [3.5, 2.5, 0.28];
-        let split =
-            solve_3p_fixed_k(&z, &k1, &k2, 0.3, 0.3, VlleOptions::default()).unwrap();
+        let split = solve_3p_fixed_k(&z, &k1, &k2, 0.3, 0.3, VlleOptions::default()).unwrap();
 
         let core = inside_out_3p_core(
             &z,
@@ -644,9 +657,7 @@ mod tests {
             0.3,
             300.0,
             1.0e5,
-            |x: &[f64], y: &[f64], _t: f64, _p: f64| {
-                (0..x.len()).map(|i| y[i] / x[i]).collect()
-            },
+            |x: &[f64], y: &[f64], _t: f64, _p: f64| (0..x.len()).map(|i| y[i] / x[i]).collect(),
             InsideOut3POptions::default(),
         )
         .unwrap();
@@ -654,7 +665,10 @@ mod tests {
         assert!(core.three_phase);
         assert!(core.v > 0.0 && core.v < 1.0);
         assert!(core.l1 > 0.0 && core.l2 > 0.0);
-        assert!((core.l1 - core.l2).abs() > 1e-3, "expected an asymmetric split");
+        assert!(
+            (core.l1 - core.l2).abs() > 1e-3,
+            "expected an asymmetric split"
+        );
         assert_abs_diff_eq!(core.v + core.l1 + core.l2, 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(core.y.iter().sum::<f64>(), 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(core.x1.iter().sum::<f64>(), 1.0, epsilon = 1e-12);
@@ -692,9 +706,7 @@ mod tests {
             0.3,
             300.0,
             1.0e5,
-            |x: &[f64], y: &[f64], _t: f64, _p: f64| {
-                (0..x.len()).map(|i| y[i] / x[i]).collect()
-            },
+            |x: &[f64], y: &[f64], _t: f64, _p: f64| (0..x.len()).map(|i| y[i] / x[i]).collect(),
             InsideOut3POptions::default(),
         )
         .unwrap();
@@ -730,16 +742,19 @@ mod tests {
         let eos = CubicEos::PengRobinson;
         let pkg = PropertyPackageModel::PengRobinson;
 
-        let vlle = inside_out_flash_3p(&comps, &z, t, p, eos, InsideOut3POptions::default())
-            .unwrap();
+        let vlle =
+            inside_out_flash_3p(&comps, &z, t, p, eos, InsideOut3POptions::default()).unwrap();
 
         let k_closure = |x: &[f64], y: &[f64], t: f64, p: f64| pkg.k_values(&comps, x, y, t, p);
-        let io2 = inside_out_flash(&z, &comps, t, p, &k_closure, InsideOutOptions::default())
-            .unwrap();
+        let io2 =
+            inside_out_flash(&z, &comps, t, p, &k_closure, InsideOutOptions::default()).unwrap();
         let nl = nested_loops_flash(&z, &comps, t, p, &k_closure, NestedLoopsOptions::default())
             .unwrap();
 
-        assert!(!vlle.three_phase, "hydrocarbon pair must not form a 2nd liquid");
+        assert!(
+            !vlle.three_phase,
+            "hydrocarbon pair must not form a 2nd liquid"
+        );
         assert_abs_diff_eq!(vlle.l2, 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(vlle.v, io2.beta, epsilon = 1e-6);
         assert_abs_diff_eq!(vlle.v, nl.beta, epsilon = 1e-6);
@@ -758,18 +773,48 @@ mod tests {
     fn input_validation_errors() {
         let closure = |_x: &[f64], _y: &[f64], _t: f64, _p: f64| vec![1.0, 1.0];
         assert_eq!(
-            inside_out_3p_core(&[], &[], &[], 0.3, 0.3, 300.0, 1e5, &closure, InsideOut3POptions::default())
-                .unwrap_err(),
+            inside_out_3p_core(
+                &[],
+                &[],
+                &[],
+                0.3,
+                0.3,
+                300.0,
+                1e5,
+                &closure,
+                InsideOut3POptions::default()
+            )
+            .unwrap_err(),
             FlashError::Empty
         );
         assert!(matches!(
-            inside_out_3p_core(&[0.5, 0.5], &[2.0], &[1.0, 1.0], 0.3, 0.3, 300.0, 1e5, &closure, InsideOut3POptions::default())
-                .unwrap_err(),
+            inside_out_3p_core(
+                &[0.5, 0.5],
+                &[2.0],
+                &[1.0, 1.0],
+                0.3,
+                0.3,
+                300.0,
+                1e5,
+                &closure,
+                InsideOut3POptions::default()
+            )
+            .unwrap_err(),
             FlashError::LengthMismatch { .. }
         ));
         assert_eq!(
-            inside_out_3p_core(&[0.5, 0.5], &[2.0, -1.0], &[1.0, 1.0], 0.3, 0.3, 300.0, 1e5, &closure, InsideOut3POptions::default())
-                .unwrap_err(),
+            inside_out_3p_core(
+                &[0.5, 0.5],
+                &[2.0, -1.0],
+                &[1.0, 1.0],
+                0.3,
+                0.3,
+                300.0,
+                1e5,
+                &closure,
+                InsideOut3POptions::default()
+            )
+            .unwrap_err(),
             FlashError::NonFinite
         );
     }

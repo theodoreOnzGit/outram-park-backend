@@ -66,7 +66,12 @@ impl Material {
     pub fn macro_xs_total(&self, e: f64, nuclides: &[Nuclide]) -> f64 {
         self.components
             .iter()
-            .map(|c| c.atom_density * nuclides[c.nuclide_idx].xs_at_energy(e, self.temperature).total)
+            .map(|c| {
+                c.atom_density
+                    * nuclides[c.nuclide_idx]
+                        .xs_at_energy(e, self.temperature)
+                        .total
+            })
             .sum()
     }
 
@@ -80,12 +85,20 @@ impl Material {
         let sigma_t: f64 = self
             .components
             .iter()
-            .map(|c| c.atom_density * nuclides[c.nuclide_idx].xs_at_energy(e, self.temperature).total)
+            .map(|c| {
+                c.atom_density
+                    * nuclides[c.nuclide_idx]
+                        .xs_at_energy(e, self.temperature)
+                        .total
+            })
             .sum();
         let xi = prn(seed) * sigma_t;
         let mut acc = 0.0;
         for (i, c) in self.components.iter().enumerate() {
-            acc += c.atom_density * nuclides[c.nuclide_idx].xs_at_energy(e, self.temperature).total;
+            acc += c.atom_density
+                * nuclides[c.nuclide_idx]
+                    .xs_at_energy(e, self.temperature)
+                    .total;
             if xi < acc {
                 return i;
             }

@@ -32,11 +32,17 @@ extern "C" {
 }
 
 #[inline]
-fn c_erf(x: f64) -> f64   { unsafe { erf(x) } }
+fn c_erf(x: f64) -> f64 {
+    unsafe { erf(x) }
+}
 #[inline]
-fn c_erfc(x: f64) -> f64  { unsafe { erfc(x) } }
+fn c_erfc(x: f64) -> f64 {
+    unsafe { erfc(x) }
+}
 #[inline]
-fn c_gamma(x: f64) -> f64 { unsafe { tgamma(x) } }
+fn c_gamma(x: f64) -> f64 {
+    unsafe { tgamma(x) }
+}
 
 fn factorial(n: i32) -> f64 {
     (1..=n).fold(1.0_f64, |acc, i| acc * i as f64)
@@ -44,8 +50,8 @@ fn factorial(n: i32) -> f64 {
 
 // (DM:Eq. 13) — continued-fraction expansion for Q
 fn calc_qe11(a: f64, x: f64, e: i32) -> f64 {
-    let mut a_2n   = 0.0_f64;
-    let mut b_2n   = 1.0_f64;
+    let mut a_2n = 0.0_f64;
+    let mut b_2n = 1.0_f64;
     let mut a_2np1 = 1.0_f64;
     let mut b_2np1 = x;
 
@@ -74,10 +80,10 @@ fn calc_qe11(a: f64, x: f64, e: i32) -> f64 {
 // (DM:Eq. 15) — series expansion for P
 fn calc_pe15(a: f64, x: f64, nmax: i32) -> f64 {
     let mut prod = 1.0_f64;
-    let mut sum  = 0.0_f64;
+    let mut sum = 0.0_f64;
     for n in 1..=nmax {
         prod *= a + n as f64;
-        sum  += x.powi(n) / prod;
+        sum += x.powi(n) / prod;
     }
     let r = (-x).exp() * x.powf(a) / c_gamma(a);
     r / a * (1.0 + sum)
@@ -85,10 +91,10 @@ fn calc_pe15(a: f64, x: f64, nmax: i32) -> f64 {
 
 // (DM:Eq. 16) — asymptotic expansion for Q (large x)
 fn calc_qe16(a: f64, x: f64, n_terms: i32) -> f64 {
-    let mut an  = 1.0_f64;
+    let mut an = 1.0_f64;
     let mut sum = 0.0_f64;
     for n in 1..=(n_terms - 1) {
-        an  *= a - n as f64;
+        an *= a - n as f64;
         sum += an / x.powi(n);
     }
     let r = (-x).exp() * x.powf(a) / c_gamma(a);
@@ -98,25 +104,27 @@ fn calc_qe16(a: f64, x: f64, n_terms: i32) -> f64 {
 // (DM:Eq. 18) — Temme approximation for large a
 fn calc_te18(a: f64, e0: f64, _x: f64, lambda: f64, sigma: f64, phi: f64) -> f64 {
     const D0_0: f64 = -0.333_333_333_333_333e+00;
-    const D0_1: f64 =  0.833_333_333_333_333e-01;
+    const D0_1: f64 = 0.833_333_333_333_333e-01;
     const D0_2: f64 = -0.148_148_148_148_148e-01;
-    const D0_3: f64 =  0.115_740_740_740_741e-02;
-    const D0_4: f64 =  0.352_733_686_067_019e-03;
+    const D0_3: f64 = 0.115_740_740_740_741e-02;
+    const D0_4: f64 = 0.352_733_686_067_019e-03;
     const D0_5: f64 = -0.178_755_144_032_922e-03;
-    const D0_6: f64 =  0.391_926_317_852_244e-04;
+    const D0_6: f64 = 0.391_926_317_852_244e-04;
 
     const D1_0: f64 = -0.185_185_185_185_185e-02;
     const D1_1: f64 = -0.347_222_222_222_222e-02;
-    const D1_2: f64 =  0.264_550_264_550_265e-02;
+    const D1_2: f64 = 0.264_550_264_550_265e-02;
     const D1_3: f64 = -0.990_226_337_448_560e-03;
-    const D1_4: f64 =  0.205_761_316_872_428e-03;
+    const D1_4: f64 = 0.205_761_316_872_428e-03;
 
-    const D2_0: f64 =  0.413_359_788_359_788e-02;
+    const D2_0: f64 = 0.413_359_788_359_788e-02;
     const D2_1: f64 = -0.268_132_716_049_383e-02;
 
-    let u  = 1.0 / a;
+    let u = 1.0 / a;
     let mut z = (2.0 * phi).sqrt();
-    if lambda < 1.0 { z = -z; }
+    if lambda < 1.0 {
+        z = -z;
+    }
 
     let c2 = D2_1 * z + D2_0;
 
@@ -126,14 +134,14 @@ fn calc_te18(a: f64, e0: f64, _x: f64, lambda: f64, sigma: f64, phi: f64) -> f64
         let z4 = z2 * z2;
         let z5 = z4 * z;
         let z6 = z3 * z3;
-        let c0 = D0_6*z6 + D0_5*z5 + D0_4*z4 + D0_3*z3 + D0_2*z2 + D0_1*z + D0_0;
-        let c1 = D1_4*z4 + D1_3*z3 + D1_2*z2 + D1_1*z + D1_0;
-        c2*u*u + c1*u + c0
+        let c0 = D0_6 * z6 + D0_5 * z5 + D0_4 * z4 + D0_3 * z3 + D0_2 * z2 + D0_1 * z + D0_0;
+        let c1 = D1_4 * z4 + D1_3 * z3 + D1_2 * z2 + D1_1 * z + D1_0;
+        c2 * u * u + c1 * u + c0
     } else {
         let z2 = z * z;
-        let c0 = D0_2*z2 + D0_1*z + D0_0;
-        let c1 = D1_1*z + D1_0;
-        c2*u*u + c1*u + c0
+        let c0 = D0_2 * z2 + D0_1 * z + D0_0;
+        let c1 = D1_1 * z + D1_0;
+        c2 * u * u + c1 * u + c0
     }
 }
 
@@ -145,8 +153,8 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
     use std::f64::consts::PI;
 
     const BIG: f64 = 14.0;
-    const X0:  f64 = 17.0;
-    const E0:  f64 = 0.025;
+    const X0: f64 = 17.0;
+    const E0: f64 = 0.025;
 
     if a < 1.0 {
         if (a - 0.5).abs() < f64::EPSILON {
@@ -188,13 +196,13 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
         let sigma = (1.0 - x / a).abs();
 
         let lambda = x / a;
-        let phi    = lambda - 1.0 - lambda.ln();
-        let y      = a * phi;
+        let phi = lambda - 1.0 - lambda.ln();
+        let y = a * phi;
 
         if sigma <= E0 / a.sqrt() {
             // (DM:Eq. 19)
             let e_val = 0.5 - (1.0 - y / 3.0) * (y / PI).sqrt();
-            let te    = calc_te18(a, E0, x, lambda, sigma, phi);
+            let te = calc_te18(a, E0, x, lambda, sigma, phi);
             return if lambda <= 1.0 {
                 1.0 - (e_val - (1.0 - y) / (2.0 * PI * a).sqrt() * te)
             } else {
@@ -204,11 +212,9 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
             // (DM:Eq. 17)
             let te = calc_te18(a, E0, x, lambda, sigma, phi);
             return if lambda <= 1.0 {
-                1.0 - (0.5 * c_erfc(y.sqrt())
-                    - (-y).exp() / (2.0 * PI * a).sqrt() * te)
+                1.0 - (0.5 * c_erfc(y.sqrt()) - (-y).exp() / (2.0 * PI * a).sqrt() * te)
             } else {
-                0.5 * c_erfc(y.sqrt())
-                    + (-y).exp() / (2.0 * PI * a).sqrt() * te
+                0.5 * c_erfc(y.sqrt()) + (-y).exp() / (2.0 * PI * a).sqrt() * te
             };
         } else if x <= a.max(10.0_f64.ln()) {
             return 1.0 - calc_pe15(a, x, 20);
@@ -231,7 +237,7 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
             }
         } else {
             let a_floor = a.floor();
-            let half_a  = (a * 2.0).floor();
+            let half_a = (a * 2.0).floor();
 
             if half_a == a * 2.0 {
                 // a is a multiple of 0.5
@@ -246,13 +252,12 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
                     // a = k + 0.5 for some integer k
                     let i = (a - 0.5) as i32;
                     let mut prod = 1.0_f64;
-                    let mut sum  = 0.0_f64;
+                    let mut sum = 0.0_f64;
                     for n in 1..=i {
                         prod *= n as f64 - 0.5;
-                        sum  += x.powi(n) / prod;
+                        sum += x.powi(n) / prod;
                     }
-                    return c_erfc(x.sqrt())
-                        + (-x).exp() / (PI * x).sqrt() * sum;
+                    return c_erfc(x.sqrt()) + (-x).exp() / (PI * x).sqrt() * sum;
                 }
             } else if x <= a.max(10.0_f64.ln()) {
                 return 1.0 - calc_pe15(a, x, 20);
@@ -305,7 +310,11 @@ mod tests {
         for &(a, x) in &[(0.5_f64, 1.0), (1.0, 2.0), (5.0, 3.0), (20.0, 15.0)] {
             let p = inc_gamma_ratio_p(a, x);
             let q = inc_gamma_ratio_q(a, x);
-            assert!(approx_eq(p + q, 1.0, 1e-10), "P+Q≠1 for a={a} x={x}: {}", p+q);
+            assert!(
+                approx_eq(p + q, 1.0, 1e-10),
+                "P+Q≠1 for a={a} x={x}: {}",
+                p + q
+            );
         }
     }
 
