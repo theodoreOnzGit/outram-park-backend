@@ -118,6 +118,21 @@ impl TripReason {
 /// oscillate in and out of a trip condition.
 #[derive(Clone, Debug, Default)]
 pub struct ReactorProtectionSystem {
+    /// Whether the protection system is armed.
+    ///
+    /// **Defaults to DISABLED**, by maintainer decision on 2026-08-12, so that
+    /// the steam-generator behaviour can be studied without a trip cutting the
+    /// transient short. A tripping RPS masks the very excursion being
+    /// diagnosed.
+    ///
+    /// This is a DIAGNOSTIC setting, not a modelling one. While disabled, a
+    /// full rod withdrawal exposes the whole +16.45 $ excess with nothing to
+    /// terminate it, and the plant will run away exactly as it did before the
+    /// protection system existed. The steam side is still bounded by the
+    /// second-law cap in [`super::secondary_loop`], so that is a runaway rather
+    /// than a crash -- but it is not a safe configuration to leave armed off
+    /// once the steam generator is fixed.
+    enabled: bool,
     /// `Some(reason)` once tripped; `None` while healthy.
     trip: Option<TripReason>,
     /// How far the scram has driven the bank in, `0.0..=1.0`. Ramps toward 1.0
@@ -126,9 +141,27 @@ pub struct ReactorProtectionSystem {
 }
 
 impl ReactorProtectionSystem {
-    /// A healthy, untripped protection system.
+    /// A healthy, untripped protection system, **disabled** by default -- see
+    /// [`ReactorProtectionSystem::enabled`].
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Whether the protection system is armed.
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Arms or disarms the protection system.
+    ///
+    /// Disarming also clears any latched trip and retracts the scram demand,
+    /// so the operator regains rod control immediately rather than being left
+    /// holding a scram that nothing can now reset.
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+        if !enabled {
+            self.reset();
+        }
     }
 
     /// Whether the reactor is currently tripped.
@@ -170,6 +203,10 @@ impl ReactorProtectionSystem {
         reactor_power: Power,
         core_outlet_temperature: ThermodynamicTemperature,
     ) {
+        if !self.enabled {
+            return;
+        }
+
         if self.trip.is_none() {
             let nominal_mw = Htr10DesignPoint::iaea_benchmark()
                 .thermal_power
@@ -241,6 +278,7 @@ mod tests {
     #[test]
     fn rated_conditions_do_not_trip() {
         let mut rps = ReactorProtectionSystem::new();
+        rps.set_enabled(true);
         for _ in 0..2000 {
             rps.update(dt(), Power::new::<megawatt>(10.0), cool_outlet());
         }
@@ -264,6 +302,7 @@ mod tests {
     #[test]
     fn a_power_excursion_trips_on_flux_and_scrams() {
         let mut rps = ReactorProtectionSystem::new();
+        rps.set_enabled(true);
         rps.update(dt(), Power::new::<megawatt>(15.0), cool_outlet());
         assert_eq!(rps.trip_reason(), Some(TripReason::HighNeutronFlux));
 
@@ -292,6 +331,7 @@ mod tests {
     #[test]
     fn a_loss_of_heat_sink_trips_on_temperature_at_normal_power() {
         let mut rps = ReactorProtectionSystem::new();
+        rps.set_enabled(true);
         rps.update(
             dt(),
             Power::new::<megawatt>(10.0),
@@ -320,6 +360,7 @@ mod tests {
     #[test]
     fn the_trip_latches_and_never_removes_shutdown_margin() {
         let mut rps = ReactorProtectionSystem::new();
+        rps.set_enabled(true);
         rps.update(dt(), Power::new::<megawatt>(15.0), cool_outlet());
         for _ in 0..2000 {
             rps.update(dt(), Power::new::<megawatt>(1.0), cool_outlet());

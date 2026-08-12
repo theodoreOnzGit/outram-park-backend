@@ -56,6 +56,15 @@ pub struct HtgrSnapshot {
     /// peak fuel temperature is well above it and this model cannot resolve
     /// one, having a single lumped bed node.
     pub bed_temperature_k: f64,
+    /// Whether the reactor protection system is armed.
+    ///
+    /// **Defaults to `false`** by maintainer decision on 2026-08-12, so the
+    /// steam generator can be studied without a trip cutting the transient
+    /// short. With it off, a full rod withdrawal exposes +16.45 $ with nothing
+    /// to terminate it. The steam side is still bounded by the second-law cap
+    /// in [`crate::physics::secondary_loop`], so that is a runaway rather than
+    /// a crash.
+    pub rps_enabled: bool,
     /// Operator request to clear a latched trip, consumed by the physics
     /// thread.
     ///
@@ -183,6 +192,7 @@ impl Default for HtgrSnapshot {
             // `crate::physics::control_rods`), so the simulator opens close to
             // steady state rather than on a prompt excursion.
             control_rod_insertion_fraction: 0.6035,
+            rps_enabled: false,
             trip_reset_requested: false,
             trip_reason: None,
             scram_insertion_fraction: 0.0,

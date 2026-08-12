@@ -70,6 +70,24 @@ pub fn draw_controls(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, snapshot:
         ui.separator();
     }
 
+    // Protection system arming. DISABLED by default while the steam generator
+    // is under investigation -- an RPS that trips masks the excursion being
+    // diagnosed. See `crate::physics::protection`.
+    let mut rps_enabled = snapshot.rps_enabled;
+    if ui
+        .checkbox(&mut rps_enabled, "Reactor protection system armed")
+        .changed()
+    {
+        physics.update(|s| s.rps_enabled = rps_enabled);
+    }
+    if !rps_enabled {
+        ui.colored_label(
+            egui::Color32::from_rgb(210, 150, 40),
+            "RPS DISARMED - a full rod withdrawal (+16.45 $) will run away unchecked",
+        );
+    }
+    ui.separator();
+
     let mut rod_insertion = snapshot.control_rod_insertion_fraction;
     let mut helium_flow = snapshot.helium_flow_setpoint_kg_per_s;
 
