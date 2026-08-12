@@ -1,0 +1,12 @@
+# Revisions to skip when running `git blame`.
+#
+# These commits changed formatting only, never behaviour, so blaming them tells
+# you nothing about who wrote a line or why. Configure git to use this file:
+#
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# GitHub reads it automatically.
+
+# Workspace-wide rustfmt pass, 2026-08-12. 1441 files, whitespace and
+# line-breaking only, under the rustfmt.toml adopted in the commit before it.
+dd00f68046c1fc705d010e9ecf6b5c1b2fdc6232
