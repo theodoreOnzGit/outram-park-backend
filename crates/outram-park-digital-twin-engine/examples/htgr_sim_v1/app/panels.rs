@@ -45,6 +45,31 @@ pub fn draw_controls(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, snapshot:
     ui.heading("Controls");
     ui.separator();
 
+    // Trip banner first: if the reactor has scrammed, that is the single most
+    // important thing on the panel, and the rod slider below is being
+    // overridden by the protection system.
+    if let Some(reason) = snapshot.trip_reason {
+        ui.colored_label(
+            egui::Color32::from_rgb(220, 60, 40),
+            "\u{26A0} REACTOR TRIPPED - automatic scram",
+        );
+        ui.label(reason.description());
+        ui.label(format!(
+            "Scram rod demand: {:.0}% inserted",
+            snapshot.scram_insertion_fraction * 100.0
+        ));
+        ui.label(
+            "The protection system is holding the rods in. Your rod command below \
+             is overridden until the trip is reset, and resetting with the rods \
+             still withdrawn will simply trip again.",
+        );
+        if ui.button("Reset trip").clicked() {
+            // A request, not a direct clear -- see the field's doc comment.
+            physics.update(|s| s.trip_reset_requested = true);
+        }
+        ui.separator();
+    }
+
     let mut rod_insertion = snapshot.control_rod_insertion_fraction;
     let mut helium_flow = snapshot.helium_flow_setpoint_kg_per_s;
 

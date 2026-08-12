@@ -107,9 +107,11 @@ pub mod control_rods;
 pub mod kinetics;
 pub mod pebble_bed;
 pub mod primary_loop;
+pub mod protection;
 pub mod secondary_loop;
 
 use outram_park_digital_twin_engine::animation::residence_time_from_flow;
+use outram_park_digital_twin_engine::app_scaffold::mark_component;
 use uom::si::f64::{MassRate, Power, ThermodynamicTemperature, Time};
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::{megawatt, watt};
@@ -121,6 +123,7 @@ use crate::app::state::HtgrSnapshot;
 use kinetics::{power_in_megawatts, HtgrKinetics};
 use pebble_bed::PebbleBedCore;
 use primary_loop::HeliumPrimaryLoop;
+use protection::ReactorProtectionSystem;
 use secondary_loop::SteamSecondaryLoop;
 
 /// Nominal thermal power used to seed the kinetics and size the loops: 10 MWth
@@ -149,6 +152,10 @@ pub struct HtgrPlant {
     pub primary: HeliumPrimaryLoop,
     /// Steam secondary loop.
     pub secondary: SteamSecondaryLoop,
+    /// Reactor protection system. Trips on measurable signals and drives the
+    /// rod bank in, so a prompt excursion terminates instead of running the
+    /// model out of its property range. See [`protection`].
+    pub protection: ReactorProtectionSystem,
     /// Accumulated simulation time.
     pub sim_time: Time,
     /// Heat rate crossing the pebble surface into the helium on the most recent
@@ -166,6 +173,7 @@ impl HtgrPlant {
             core: PebbleBedCore::new(),
             primary: HeliumPrimaryLoop::new(nominal_helium_flow()),
             secondary: SteamSecondaryLoop::new(),
+            protection: ReactorProtectionSystem::new(),
             sim_time: Time::new::<second>(0.0),
             core_heat_to_helium: Power::new::<watt>(0.0),
         }
@@ -216,8 +224,26 @@ impl HtgrPlant {
         //    reactivity here rather than in the GUI so the physics owns the
         //    conversion and an OPC-UA write of a rod position gets the same
         //    treatment as a slider drag.
+        // 0. Protection system. Evaluated on the PREVIOUS step's measured
+        //    signals, before any reactivity is applied, so a trip cannot be
+        //    outrun within a timestep. Its scram demand can only deepen the
+        //    operator's rod command, never lift it.
+        self.protection.update(
+            dt,
+            self.kinetics.total_power(),
+            self.primary.core_outlet_temperature(),
+        );
+        let control_rod_insertion_fraction = self
+            .protection
+            .effective_rod_insertion(control_rod_insertion_fraction);
+
         let external_reactivity_dollars =
             self.external_reactivity_dollars(control_rod_insertion_fraction);
+        // Each subsystem announces itself before stepping, so a panic anywhere
+        // below is attributed to a piece of PLANT EQUIPMENT in the crash modal
+        // rather than only to a source file. The whole plant runs on one
+        // physics thread, so the thread name alone identifies nothing.
+        mark_component("reactor kinetics (point kinetics + control rods)");
         self.kinetics.step(dt, external_reactivity_dollars);
         let reactor_power = self.kinetics.total_power();
 
@@ -227,6 +253,7 @@ impl HtgrPlant {
         //    (Lie-split) coupling -- safe here because the bed's ~184 s time
         //    constant is four orders of magnitude above the timestep.
         let helium_bulk = self.primary.helium_bulk_temperature();
+        mark_component("pebble-bed core (graphite pebbles)");
         self.core_heat_to_helium =
             self.core
                 .step(dt, reactor_power, helium_bulk, self.primary.mass_flow());
@@ -239,6 +266,7 @@ impl HtgrPlant {
         //    get, and the resulting helium-side outlet becomes the next core
         //    inlet.
         let secondary_sink = self.secondary.saturation_temperature();
+        mark_component("helium primary loop (circulator + hot gas duct)");
         self.primary.step(
             dt,
             self.core_heat_to_helium,
@@ -250,6 +278,7 @@ impl HtgrPlant {
         // The core outlet is the hot-side inlet to the steam generator, and is
         // what caps the steam side's absorbable duty so no temperature cross is
         // representable. See `secondary_loop::max_absorbable_duty`.
+        mark_component("steam generator + secondary steam loop (IF97)");
         self.secondary.step(
             dt,
             self.primary.ihx_duty(),
@@ -272,6 +301,8 @@ impl HtgrPlant {
         // over. Drawing the kinetics node made the bed appear COOLER than the
         // gas leaving it, which is thermodynamically impossible.
         s.bed_temperature_k = self.pebble_temperature().get::<kelvin>();
+        s.trip_reason = self.protection.trip_reason();
+        s.scram_insertion_fraction = self.protection.scram_insertion();
         s.reactivity_margin_dollars = self.kinetics.reactivity_margin_dollars();
         s.delayed_neutron_fraction_pcm = self
             .kinetics
