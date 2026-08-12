@@ -71,6 +71,52 @@ the defect already known about. These catch the class:
    between physically available limits. A forward-flow-only test passes
    *identically* with a wrong outlet boundary condition and proves nothing.
 
+## Where this lives in the code (implemented 2026-08-12)
+
+| Piece | Symbol |
+|---|---|
+| The two candidate upstream states at one end | `AdvectionTerminalState` — `ZeroGradientExtrapolated` (TUAS's `*_non_set_temperature`) or `Junction(h)` (TUAS's `*_set_temperature`) |
+| Per-terminal state | `TampinesSteamArray::inlet_terminal` / `outlet_terminal`, set via `set_inlet_enthalpy` / `set_outlet_enthalpy` |
+| **Enthalpy** selection on the flux sign | `TampinesSteamArray::correct_advection_terminals` |
+| **Density** selection on the flux sign | `TampinesSteamArray::apply_junction_densities` |
+
+The insertion point is the `correct_bcs` re-stamp after the energy solve. That
+re-stamp exists because of the lineage difference: TUAS selects the upstream
+state per boundary *at step time*, whereas `FvMatrix::solve` discards patch BCs
+wholesale and requires them re-stamped afterwards. Those are not competing
+mechanisms — the re-stamp is exactly the hook the per-terminal upwind selection
+needs, because it is the one place that runs after `phi` is final. Velocity and
+pressure are still replayed from a captured template (they are genuine patch
+quantities); enthalpy is *derived* from the flux instead.
+
+**One deliberate deviation from TUAS.** TUAS breaks the tie at exactly zero mass
+flow toward the control volume (`if mass_flow_from_bc_to_cv > MassRate::zero()`);
+this implementation breaks it toward the junction (`phi_b <= 0.0`). At zero flux
+the advective term is identically zero either way, so this cannot change the
+advected energy. What it does change is that a prescribed junction state stays
+effective at start-up and **under stagnation**, where it becomes the Dirichlet
+end condition of the axial conduction term — which at stagnation is the entire
+heat path.
+
+## Axial conduction is present, and small (2026-08-12)
+
+Related, because the terminal treatment supplies its end conditions. The energy
+equation carries `-div(alpha_h grad h)` with `alpha_h = lambda/c_p` read from the
+real IAPWS-IF97 conductivity and specific heat every `correct_thermo` — a genuine
+term, not a switch. TUAS's assumption that conduction is negligible is justified
+*for TUAS's regime* but does not degrade gracefully: it inverts at stagnation,
+where convection vanishes and conduction is all that is left.
+
+Measured at the crate's single-phase design point (4 MPa water, 400 K, 3.2 kg/s
+through 0.02 m², `dx` = 0.5 m):
+
+- **Péclet number 4.96e5**, so axial conduction is **60.0 mW against a 200 kW
+  duty — 3.00e-7 of it**.
+- **Crossover at Pe = 1**: velocity 3.447e-7 m/s, mass flow 6.425e-6 kg/s, two
+  millionths of the design flow.
+- The operator itself is verified against the analytical decay of a Fourier mode
+  to **+0.237 %**.
+
 ## For a heat exchanger
 
 Four terminals — hot in, hot out, cold in, cold out. Each needs the upwind
