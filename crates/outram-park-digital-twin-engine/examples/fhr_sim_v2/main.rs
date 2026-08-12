@@ -29,6 +29,7 @@ use uom::si::{f64::*, power::kilowatt};
 use outram_park_digital_twin_engine::app_scaffold::{spawn_monitored, ThreadHealth};
 
 #[cfg(not(target_os = "android"))]
+use crate::app::gui_frame_metrics::GuiFrameMetrics;
 use crate::app::thermal_hydraulics_backend::salt_freeze_guard::SaltFreezeMonitor;
 
 #[cfg(not(target_os = "android"))]
@@ -134,6 +135,18 @@ pub struct FHRSimulatorApp {
     /// that resumes it. See
     /// [`app::thermal_hydraulics_backend::salt_freeze_guard`].
     pub salt_freeze_monitor: SaltFreezeMonitor,
+
+    #[serde(skip)]
+    /// GUI-thread frame timings, displayed in the side panel next to the
+    /// existing PRKE and thermal-hydraulics timestep readouts.
+    ///
+    /// This is deliberately *not* in [`FHRState`]: it is written once per
+    /// repaint by the GUI thread alone, and putting it in the shared state
+    /// would mean taking the physics mutex every frame purely to record a
+    /// diagnostic. Not persisted -- a frame time from a previous run of the
+    /// application says nothing about this one. See
+    /// [`app::gui_frame_metrics`].
+    pub gui_frame_metrics: GuiFrameMetrics,
 }
 
 #[cfg(not(target_os = "android"))]
@@ -398,6 +411,7 @@ impl Default for FHRSimulatorApp {
             fhr_simulator_ptr_for_plotting: fhr_plot_ptr,
             thread_health: ThreadHealth::new(),
             salt_freeze_monitor: SaltFreezeMonitor::new(),
+            gui_frame_metrics: GuiFrameMetrics::default(),
         }
     }
 }
