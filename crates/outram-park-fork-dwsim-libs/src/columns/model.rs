@@ -197,6 +197,12 @@ pub enum ColumnError {
         /// What was wrong with the spec.
         detail: String,
     },
+    /// A configuration is outside what the transient
+    /// ([`crate::columns::dynamic`]) model supports — e.g. a non-total
+    /// condenser, a non-`DistillationColumn` type, a Murphree efficiency below
+    /// 1, or a non-positive hydraulic time constant / reflux ratio / holdup.
+    #[error("unsupported dynamic-column configuration: {0}")]
+    UnsupportedConfiguration(String),
 }
 
 /// Condenser configuration — DWSIM's `Column.condtype`
