@@ -326,6 +326,15 @@ const H_MIN_DEFAULT: f64 = -1.0e7;
 /// [`OPCPFluidArray::h_max`]. Wide open (1×10⁸ J/kg); see [`H_MIN_DEFAULT`].
 const H_MAX_DEFAULT: f64 = 1.0e8;
 
+/// Mesh-patch index of the **inlet** (`"left"`, x = 0, outward normal −x) on
+/// the 1-D mesh built by [`create_one_d_mesh`]. See that function's `## Layout`
+/// section for the face/patch ordering.
+pub(super) const INLET_PATCH: usize = 1;
+
+/// Mesh-patch index of the **outlet** (`"right"`, x = length, outward normal
+/// +x) on the 1-D mesh built by [`create_one_d_mesh`].
+pub(super) const OUTLET_PATCH: usize = 0;
+
 // ── Boundary-condition helpers ──────────────────────────────────────────────────
 //
 // The linear solver and field arithmetic rebuild output fields with zero-gradient
@@ -532,7 +541,38 @@ pub struct OPCPFluidArray {
     /// network layer. **Not** read by `step()`: this solver computes its own
     /// per-cell mass flux `phi` from the momentum/pressure equations, so this
     /// field never feeds back into the PIMPLE loop.
+    ///
+    /// **This is bookkeeping, not a boundary condition.** To actually *impose*
+    /// a mass flow at the inlet, use [`Self::set_inlet_mass_flowrate`], which
+    /// installs the self-maintaining flow-rate inlet described on
+    /// [`Self::inlet_mass_flowrate`]. To read back the flow the solver actually
+    /// produced, use [`Self::get_inlet_mass_flowrate_actual`] /
+    /// [`Self::get_outlet_mass_flowrate_actual`].
     pub mass_flowrate: MassRate,
+    /// **Prescribed** inlet mass flowrate \[kg/s\] — an actual boundary
+    /// condition on the `"left"` patch, unlike the bookkeeping-only
+    /// [`Self::mass_flowrate`]. `None` (the [`Self::new`] default) means no
+    /// mass-flow inlet is imposed and whatever velocity BC the caller set with
+    /// [`Self::set_inlet_velocity`] stands.
+    ///
+    /// When `Some(ṁ)`, [`Self::step`] re-derives the fixed inlet velocity
+    /// `u_in = ṁ / (ρ_inlet · A_inlet)` from the **current** inlet-face density
+    /// once per pressure corrector — OpenFOAM's `flowRateInletVelocity`
+    /// (`src/finiteVolume/fields/fvPatchFields/derived/flowRateInletVelocity/`)
+    /// semantics. Because it is re-derived from the live density rather than a
+    /// caller's one-off assumed density, the imposed inlet mass flux stays
+    /// equal to `ṁ` as the solution's density evolves, instead of drifting.
+    /// Positive is **into** the domain (+x); a negative value prescribes
+    /// outflow through the inlet patch, in which case
+    /// [`Self::set_inlet_enthalpy`]'s fixed inlet enthalpy is no longer a
+    /// physically meaningful BC (a fixed value on an outflow face) and the
+    /// caller should not rely on it.
+    ///
+    /// Set it with [`Self::set_inlet_mass_flowrate`] and clear it with
+    /// [`Self::clear_inlet_mass_flowrate`] (or by calling
+    /// [`Self::set_inlet_velocity`], which prescribes a velocity instead and so
+    /// clears this).
+    pub inlet_mass_flowrate: Option<MassRate>,
     /// Pressure loss \[Pa\] — plain storage, independent of `mass_flowrate`
     /// (no Reynolds/Bejan recomputation between the two; see
     /// [`Self::set_mass_flowrate`]).
@@ -665,6 +705,7 @@ impl OPCPFluidArray {
             wetted_perimeter: Length::new::<meter>(0.0),
             incline_angle: Angle::new::<radian>(0.0),
             mass_flowrate: MassRate::new::<kilogram_per_second>(0.0),
+            inlet_mass_flowrate: None,
             pressure_loss: Pressure::new::<pascal>(0.0),
             internal_pressure_source: Pressure::new::<pascal>(0.0),
             lateral_adjacent_array_temperature_vector: Vec::new(),
@@ -835,8 +876,20 @@ impl OPCPFluidArray {
         let he_old = self.he.clone();
         let rho_old = self.rho.clone();
 
-        let u_bcs = capture_bcs(&self.u.boundary);
+        let mut u_bcs = capture_bcs(&self.u.boundary);
         let p_bcs = capture_bcs(&self.p.boundary);
+        // `he`'s BC template must be captured and re-stamped exactly like `u`'s
+        // and `p`'s. `FvMatrix::solve` builds its output field with *zero-
+        // gradient* boundaries, so without this the field assigned back to
+        // `self.he` after the energy solve silently loses every prescribed
+        // enthalpy boundary — `set_inlet_enthalpy` would take effect on the
+        // first outer corrector only and never again, making it a one-shot the
+        // caller has to re-issue every step (measured 2026-08-12: without a
+        // per-step re-issue no cell moved more than 0.4 kJ/kg from its
+        // 311.20 kJ/kg seed after 10 000 steps against a 520.45 kJ/kg inlet BC,
+        // i.e. the BC was inert). See the module tests
+        // `inlet_enthalpy_bc_*_without_reapplying_each_step`.
+        let he_bcs = capture_bcs(&self.he.boundary);
 
         // Hybrid-mode only: deferred KNP momentum dissipation, carried from one
         // outer corrector into the next outer corrector's UEqn source (a
@@ -932,6 +985,27 @@ impl OPCPFluidArray {
                 };
 
                 let rho_f = fvc::interpolate(&self.rho); // ρ_f [kg/m³]
+
+                // ── Flow-rate inlet (OpenFOAM `flowRateInletVelocity`) ───────
+                // If a mass flowrate is prescribed on the inlet patch, re-derive
+                // the fixed inlet velocity `u_in = ṁ / (ρ_inlet·A_inlet)` from
+                // the density that is about to multiply it (`rho_f`'s inlet
+                // patch values, used a few lines below to build the boundary
+                // mass flux). Doing it here, from the live density and inside
+                // the corrector loop, is what makes the *imposed mass flux*
+                // exactly ṁ: the boundary flux assembled below is
+                // `ρ_f·(u_in·Sf) = −ṁ` (negative = inflow, the `"left"` patch's
+                // outward normal being −x) whatever the density does.
+                //
+                // The alternative a caller is forced into without this — pick
+                // an assumed density once, convert to a velocity, and call
+                // `set_inlet_velocity` — imposes `ṁ_actual = ρ_solved/ρ_assumed
+                // · ṁ_target`, which drifts as the solved density departs from
+                // the assumption. `self.u.boundary` *and* the captured `u_bcs`
+                // template are both updated, so the momentum predictor and the
+                // post-solve `correct_bcs_vec` re-stamps agree with it.
+                self.apply_flow_rate_inlet(&rho_f, &mut u_bcs);
+
                 let rho_rauf = rho_f.clone() * rauf.clone(); // [s]
                                                              // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
                 let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya);
@@ -1177,7 +1251,11 @@ impl OPCPFluidArray {
                     e_eqn.source[c] += self.cell_heat_source_power(c).get::<uom::si::power::watt>();
                 }
             }
-            let (he_new, _) = e_eqn.solve("he", settings);
+            let (mut he_new, _) = e_eqn.solve("he", settings);
+            // Re-stamp the enthalpy BC template the solve just discarded — the
+            // `he` counterpart of the `correct_bcs`/`correct_bcs_vec` calls in
+            // the pressure/velocity loop above. See the `he_bcs` capture.
+            correct_bcs(&mut he_new, &he_bcs);
             self.he = he_new;
 
             // ── (p, h) admissibility guard — enthalpy half ──────────────────
@@ -1205,6 +1283,62 @@ impl OPCPFluidArray {
             }
         }
         self.clear_vectors();
+    }
+
+    /// Re-derive the fixed inlet velocity from the prescribed inlet mass
+    /// flowrate ([`Self::inlet_mass_flowrate`]) and the **current** inlet-face
+    /// density, i.e. OpenFOAM's `flowRateInletVelocity` boundary condition:
+    ///
+    /// ```text
+    ///   u_in = ṁ / (ρ_inlet · A_inlet)        [m/s, +x = into the domain]
+    /// ```
+    ///
+    /// `rho_f` must be the interpolated face density about to be used to build
+    /// the boundary mass flux, so that the flux the pressure equation sees,
+    /// `ρ_f·(u_in·Sf)`, is exactly `−ṁ` (negative = inflow through the `"left"`
+    /// patch, whose outward normal is −x). `u_bcs` is `step`'s captured
+    /// velocity-BC template, updated in lockstep so the post-solve
+    /// `correct_bcs_vec` re-stamps this velocity and not a stale one.
+    ///
+    /// A no-op when no mass flowrate is prescribed (`inlet_mass_flowrate ==
+    /// None`), when the inlet patch has no faces, or when the inlet area or
+    /// density is not usable (non-finite / non-positive) — never a wrong
+    /// number, mirroring [`Self::correct_thermo`]'s non-convergence handling.
+    fn apply_flow_rate_inlet(
+        &mut self,
+        rho_f: &SurfaceScalarField,
+        u_bcs: &mut [BoundaryCondition<Vector3>],
+    ) {
+        let Some(mdot) = self.inlet_mass_flowrate else {
+            return;
+        };
+        let mdot = mdot.get::<kilogram_per_second>();
+        let patch = &self.mesh.patches[INLET_PATCH];
+        if patch.size == 0 {
+            return;
+        }
+
+        // Area-weighted mean inlet-face density, and the total inlet area.
+        let mut area = 0.0_f64;
+        let mut rho_area = 0.0_f64;
+        for fi in 0..patch.size {
+            let a = self.mesh.face_areas[patch.start + fi];
+            area += a;
+            rho_area += a * rho_f.boundary[INLET_PATCH].values[fi];
+        }
+        // NaN fails `is_finite`, so a diverged density/area returns here rather
+        // than prescribing a NaN velocity.
+        if !area.is_finite() || area <= 0.0 {
+            return;
+        }
+        let rho_in = rho_area / area;
+        if !rho_in.is_finite() || rho_in <= 0.0 {
+            return;
+        }
+
+        let v = Vector3::new(mdot / (rho_in * area), 0.0, 0.0);
+        self.u.boundary[INLET_PATCH] = PatchField::fixed_value_vec(patch.size, v);
+        u_bcs[INLET_PATCH] = BoundaryCondition::FixedValue(v);
     }
 
     /// Advance `n_steps` time steps of size `delta_t`.
