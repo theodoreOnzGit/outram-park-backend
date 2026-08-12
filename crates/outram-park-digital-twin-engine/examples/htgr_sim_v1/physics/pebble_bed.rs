@@ -49,22 +49,26 @@
 //! and makes the outlet temperature a computed result rather than a
 //! whole-bed lump. Then split **inside the pebble** radially (fuel zone, shell,
 //! surface) so a real peak fuel temperature exists. Radial bed channels and a
-//! reflector node come after both, and each of those needs the effective bed
-//! conductivity that this workspace does not yet have.
+//! reflector node come after both. Each of those needs an effective bed
+//! conductivity, and the workspace now **has** one --
+//! [`outram_park_digital_twin_engine::htr10::zbs`] -- so that closure is no
+//! longer the blocker; the missing piece is the nodalisation for it to act on.
 //!
 //! ## What is real
 //!
-//! - **The bed geometry is the published HTR-10 core**, taken from
-//!   IAEA-TECDOC-1382 (*Evaluation of high temperature gas cooled reactor
-//!   performance: Benchmark analysis related to initial testing of the HTTR and
-//!   HTR-10*), ingested in this workspace at
-//!   `crates/kovan-literature/generated/markdown/open/iaea-tecdoc-1382-part2.md`.
-//!   Core diameter 1.8 m, mean height 1.97 m, 27,000 spherical fuel elements of
-//!   6.0 cm diameter, volumetric filling fraction of balls 0.61 (void fraction
-//!   0.39), graphite density in the matrix and outer shell 1.73 g/cm^3, heavy
-//!   metal 5.0 g per ball. Everything geometric below is *derived from those
-//!   figures*, not chosen: the bed volume, the free-flow area, the total pebble
-//!   surface area, and the graphite mass.
+//! - **The bed geometry is the published HTR-10 core, read from the library.**
+//!   Every published figure below now comes from
+//!   [`outram_park_digital_twin_engine::htr10::design::Htr10DesignPoint`], the
+//!   workspace's single provenance-checked transcription of IAEA-TECDOC-1382
+//!   (*Evaluation of high temperature gas cooled reactor performance: Benchmark
+//!   analysis related to initial testing of the HTTR and HTR-10*), rather than
+//!   being re-typed here. Core diameter 1.8 m, mean height 1.97 m, 27,000
+//!   spherical fuel elements of 6.0 cm diameter, volumetric filling fraction of
+//!   balls 0.61 (void fraction 0.39), graphite density in the matrix and outer
+//!   shell 1.73 g/cm^3, heavy metal 5.0 g per ball. Everything geometric below
+//!   is *derived from those figures*, not chosen: the bed volume, the free-flow
+//!   area, the total pebble surface area, and the graphite mass. There is no
+//!   second copy of any of them to drift out of step with the library's.
 //! - **The derived geometry closes against the report's own numbers.** The
 //!   27,000 pebbles fill 60.9% of the cylinder against the published 0.61
 //!   filling fraction, and the cylinder is 5.013 m^3 against the published
@@ -79,21 +83,42 @@
 //!
 //! **This is a placeholder, not a packed-bed model.** In plain terms:
 //!
-//! - **There is no packed-bed friction correlation here.** KTA and Ergun are
-//!   both still absent from this workspace; `docs/reactor-scoping/htr10.md`
-//!   records that gap and it remains open. The primary loop's pressure drop is
-//!   a quadratic loss anchored to the published circulator head -- see
-//!   [`super::primary_loop`].
-//! - **There is no effective bed conductivity.** No Zehner-Bauer-Schlunder, no
-//!   solid/gas/contact/radiation split, no wall-region correction. The bed is
-//!   one node, so it has no radial or axial temperature profile at all.
-//! - **There is no radial pebble conduction.** The fuel zone, the graphite
-//!   shell and the pebble surface are one temperature. The single
-//!   [`NOMINAL_OVERALL_HTC_W_PER_M2_K`] therefore lumps the internal pebble
-//!   conduction *and* the surface film together, and its value is chosen to put
-//!   the pebble-to-helium difference in a plausible range -- it is **not**
-//!   evaluated from a Nusselt correlation. Only its flow *exponent* (0.6) is
-//!   taken from the Wakao packed-bed correlation.
+//! - **The bed friction is now real, but it lives next door and it is not a
+//!   resolved bed.** The KTA packed-bed correlation
+//!   ([`outram_park_digital_twin_engine::htr10::kta`]) is evaluated by
+//!   [`super::primary_loop::bed_pressure_drop`] on this module's geometry, and
+//!   it reproduces the published Virtual Test Bed worked example exactly. What
+//!   it does *not* buy is a nodalised bed: the correlation is applied once at
+//!   the bulk mean, not integrated down an axial profile, and the pressure drop
+//!   still cannot feed back on the flow because there is no momentum equation.
+//!   Wiring in a friction correlation makes the **friction** real. It does not
+//!   make the **discretisation** real.
+//! - **The effective bed conductivity exists but is unused, deliberately.**
+//!   [`outram_park_digital_twin_engine::htr10::zbs`] now carries the
+//!   Zehner-Bauer-Schlunder tabulation (11.94 to 44.95 W/(m K), 300-2000 K), so
+//!   the closure is no longer missing from the workspace. It is not in this
+//!   model's heat path because a single control volume has no internal
+//!   temperature gradient for a conductivity to act on. What it is used for
+//!   here is *quantifying the omission*
+//!   ([`conduction_only_axial_heat_rate`]): at rated power the bed could carry
+//!   11.74 kW by conduction, 0.117% of the 10 MW convected away, which is what
+//!   justifies leaving it out **while forced flow exists**. With the circulator
+//!   stopped that same conductivity is the whole heat path, and this model has
+//!   nothing to say about that case.
+//! - **There is no radial pebble conduction, and the lumped coefficient is
+//!   measurably too low.** The fuel zone, the graphite shell and the pebble
+//!   surface are one temperature, so the single
+//!   [`NOMINAL_OVERALL_HTC_W_PER_M2_K`] lumps the internal pebble conduction
+//!   *and* the surface film together. It is **not** evaluated from a Nusselt
+//!   correlation -- only its flow *exponent* (0.6) is Wakao's. Its value puts
+//!   the bed 204.7 K above the bulk helium at rated power, against a published
+//!   *peak* fuel-to-coolant difference of 100.7 K (Gao & Shi 2002, Table 2:
+//!   918.7 / 876.7 / 818 degC maximum fuel, fuel-surface and coolant
+//!   temperatures at 100% load). A bed *average* must be smaller than the peak,
+//!   so this coefficient is low by a factor of about two to three and the model
+//!   overstates the graphite-to-helium temperature difference accordingly. See
+//!   [`tests::zbs_conduction_is_negligible_beside_convection_at_power`] for the
+//!   full argument and why the value is left as it is rather than retuned here.
 //! - **Graphite `c_p` is one constant**, representative of graphite near
 //!   1000 K. Real graphite `c_p` rises from about 710 J/(kg K) at 300 K to
 //!   about 1700 J/(kg K) at 1000 K, so the constant is badly wrong cold and
@@ -117,11 +142,13 @@
 // has a caller inside this example yet.
 #![allow(dead_code)]
 
+use outram_park_digital_twin_engine::htr10::design::Htr10DesignPoint;
+use outram_park_digital_twin_engine::htr10::zbs::zbs_effective_conductivity;
 use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
-    Area, AvailableEnergy, HeatCapacity, HeatTransfer, Length, Mass, MassRate, Power, Ratio,
-    ThermodynamicTemperature, Time, Volume,
+    Area, AvailableEnergy, HeatCapacity, HeatTransfer, Length, Mass, MassDensity, MassRate, Power,
+    Ratio, ThermodynamicTemperature, Time, Volume,
 };
 use uom::si::heat_capacity::joule_per_kelvin;
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
@@ -130,42 +157,76 @@ use uom::si::mass::kilogram;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::watt;
 use uom::si::ratio::ratio;
+use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::volume::cubic_meter;
 
 // ---------------------------------------------------------------------------
-// Published HTR-10 core geometry (IAEA-TECDOC-1382, Table 4-1 and section 4.1)
+// Published HTR-10 core geometry -- READ FROM THE LIBRARY, NOT RE-TYPED HERE
+//
+// `outram_park_digital_twin_engine::htr10::design::Htr10DesignPoint` is the
+// workspace's single transcription of IAEA-TECDOC-1382 Table 4-1 / section 4.1,
+// with a citation on every field and unit tests that close its internal
+// consistency (core volume against diameter and height, filling fraction
+// against pebble count and diameter, porosity against filling fraction). This
+// module reads that struct instead of holding a second copy: two copies of an
+// operating point drift, and a drift between them would be silent.
 // ---------------------------------------------------------------------------
 
-/// Pebble-bed core diameter \[m\]: 180 cm (published).
-pub const CORE_DIAMETER_M: f64 = 1.80;
+/// The published HTR-10 design point this module derives all of its geometry
+/// from. Cheap to construct (plain `Copy` data, no I/O), so it is called at each
+/// use site rather than cached.
+pub fn design() -> Htr10DesignPoint {
+    Htr10DesignPoint::iaea_benchmark()
+}
 
-/// Mean pebble-bed height \[m\]: 197 cm (published).
-pub const CORE_MEAN_HEIGHT_M: f64 = 1.97;
+/// Pebble-bed core diameter: 180 cm (published, via [`design`]).
+pub fn core_diameter() -> Length {
+    design().core_diameter
+}
+
+/// Mean pebble-bed height: 197 cm (published, via [`design`]). This is also the
+/// bed length the packed-bed pressure drop is integrated over.
+pub fn core_mean_height() -> Length {
+    design().average_core_height
+}
 
 /// Number of spherical fuel elements in the equilibrium core: 27,000
-/// (published).
-pub const PEBBLE_COUNT: f64 = 27_000.0;
+/// (published, via [`design`]).
+pub fn pebble_count() -> f64 {
+    design().fuel_element_count as f64
+}
 
-/// Spherical fuel-element diameter \[m\]: 6.0 cm (published).
-pub const PEBBLE_DIAMETER_M: f64 = 0.06;
+/// Spherical fuel-element diameter: 6.0 cm (published, via [`design`]). This is
+/// the characteristic length (`D_h`) the KTA packed-bed correlation uses.
+pub fn pebble_diameter() -> Length {
+    design().pebble_diameter
+}
 
 /// Bed void fraction (porosity), dimensionless: `1 - 0.61` from the published
-/// volumetric filling fraction of balls in the core, 0.61.
+/// volumetric filling fraction of balls in the core, 0.61 — computed by
+/// [`Htr10DesignPoint::bed_porosity`], so the 0.39 is derived, not asserted.
 ///
 /// The same 0.39 void fraction is what the benchmark participants were required
-/// to preserve when idealising the random packing as a lattice.
-pub const BED_POROSITY: f64 = 0.39;
+/// to preserve when idealising the random packing as a lattice, and it is what
+/// the KTA correlation consumes.
+pub fn bed_porosity() -> Ratio {
+    design().bed_porosity()
+}
 
-/// Density of the graphite matrix and outer shell of a fuel element
-/// \[kg/m^3\]: 1.73 g/cm^3 (published).
-pub const GRAPHITE_DENSITY_KG_PER_M3: f64 = 1730.0;
+/// Density of the graphite matrix and outer shell of a fuel element:
+/// 1.73 g/cm^3 (published, via [`design`]).
+pub fn graphite_density() -> MassDensity {
+    design().graphite_density
+}
 
-/// Heavy-metal (uranium) loading per fuel element \[kg\]: 5.0 g (published).
-/// Carried for completeness -- the lumped thermal model treats the pebble as
-/// graphite, since the heavy metal is under 3% of the ball mass.
-pub const HEAVY_METAL_PER_PEBBLE_KG: f64 = 5.0e-3;
+/// Heavy-metal (uranium) loading per fuel element: 5.0 g (published, via
+/// [`design`]). Carried for completeness -- the lumped thermal model treats the
+/// pebble as graphite, since the heavy metal is under 3% of the ball mass.
+pub fn heavy_metal_per_pebble() -> Mass {
+    design().heavy_metal_per_ball
+}
 
 // ---------------------------------------------------------------------------
 // Illustrative closure constants -- NOT published data
@@ -185,9 +246,18 @@ pub const GRAPHITE_CP_J_PER_KG_K: f64 = 1700.0;
 /// This single number lumps together the internal pebble conduction (fuel zone
 /// to ball surface) and the surface film, because the bed is one node. Its
 /// value is chosen so that at nominal power the bed sits a few hundred kelvin
-/// above the bulk helium -- a plausible band for a graphite pebble at 10 MWth
-/// over the derived 305 m^2 of pebble surface -- **not** computed from a
-/// Nusselt correlation. Do not cite it as a heat-transfer result.
+/// above the bulk helium -- **not** computed from a Nusselt correlation. Do not
+/// cite it as a heat-transfer result.
+///
+/// **Known error, quantified.** At rated power it puts the bed 204.7 K above
+/// the bulk helium over the derived 305 m^2 of pebble surface. Gao & Shi (2002)
+/// Table 2 give a peak fuel-to-coolant difference of 100.7 K at 100% load
+/// (918.7 degC maximum fuel, 818 degC maximum coolant), and a bed *average*
+/// must be below the peak -- so this coefficient is low by roughly a factor of
+/// two to three. It is left unchanged deliberately; re-anchoring it is a
+/// modelling decision needing its own V&V. The full argument, including why the
+/// Zehner-Bauer-Schlunder bed conductivity is *not* the right replacement, is
+/// in [`tests::zbs_conduction_is_negligible_beside_convection_at_power`].
 pub const NOMINAL_OVERALL_HTC_W_PER_M2_K: f64 = 160.0;
 
 /// Reynolds-number exponent used to scale the overall coefficient with helium
@@ -202,9 +272,19 @@ pub const NOMINAL_OVERALL_HTC_W_PER_M2_K: f64 = 160.0;
 /// evaluated Wakao Nusselt number.
 pub const HTC_FLOW_EXPONENT: f64 = 0.6;
 
-/// Nominal helium mass flow the overall coefficient is anchored at \[kg/s\]:
-/// 4.3 kg/s at full power (published).
-pub const NOMINAL_HELIUM_FLOW_KG_PER_S: f64 = 4.3;
+/// Nominal helium mass flow the overall coefficient is anchored at: 4.3 kg/s at
+/// full power (published, via [`design`]). Gao & Shi (2002) Table 2 carries
+/// 4.32 kg/s for the equilibrium core at 100% load; the library field records
+/// both readings and returns the 4.3 kg/s benchmark figure.
+pub fn nominal_helium_flow() -> MassRate {
+    design().helium_mass_flow
+}
+
+/// Nominal helium mass flow as a bare scalar \[kg/s\], for the ratio
+/// arithmetic that does not want a `uom` round-trip.
+pub fn nominal_helium_flow_kg_per_s() -> f64 {
+    nominal_helium_flow().get::<kilogram_per_second>()
+}
 
 /// Reference temperature for the pebble enthalpy scale \[K\]: enthalpy is
 /// defined zero at 298.15 K.
@@ -225,51 +305,57 @@ const SEED_BED_TEMPERATURE_K: f64 = 950.0;
 /// diameter and mean height. Comes out at 5.0130 m^3 against the report's own
 /// stated 5.0 m^3.
 pub fn bed_volume() -> Volume {
-    Volume::new::<cubic_meter>(
-        std::f64::consts::PI * 0.25 * CORE_DIAMETER_M * CORE_DIAMETER_M * CORE_MEAN_HEIGHT_M,
-    )
+    core_diameter()
+        * core_diameter()
+        * core_mean_height()
+        * Ratio::new::<ratio>(std::f64::consts::FRAC_PI_4)
 }
 
 /// Helium-filled void volume in the bed, `epsilon * V_bed` \[m^3\].
 pub fn bed_void_volume() -> Volume {
-    bed_volume() * Ratio::new::<ratio>(BED_POROSITY)
+    bed_volume() * bed_porosity()
 }
 
-/// Superficial (empty-cylinder) cross-sectional area of the bed \[m^2\].
+/// Superficial (empty-cylinder) cross-sectional area of the bed \[m^2\]. This
+/// is the area the KTA superficial mass flux `mdot/A` is formed on -- the whole
+/// bed cross-section, *not* the pore area.
 pub fn superficial_area() -> Area {
-    Area::new::<square_meter>(std::f64::consts::PI * 0.25 * CORE_DIAMETER_M * CORE_DIAMETER_M)
+    core_diameter() * core_diameter() * Ratio::new::<ratio>(std::f64::consts::FRAC_PI_4)
 }
 
 /// Free-flow (interstitial) area available to the helium, `epsilon * A`
-/// \[m^2\].
+/// \[m^2\]. Do **not** feed this to the KTA correlation -- that closure is
+/// written on the superficial area, with the porosity entering separately
+/// through the `(1-eps)/eps^3` geometry factor.
 pub fn free_flow_area() -> Area {
-    superficial_area() * Ratio::new::<ratio>(BED_POROSITY)
+    superficial_area() * bed_porosity()
 }
 
 /// Volume of one spherical fuel element `pi d^3 / 6` \[m^3\].
 pub fn pebble_volume() -> Volume {
-    Volume::new::<cubic_meter>(
-        std::f64::consts::PI * PEBBLE_DIAMETER_M * PEBBLE_DIAMETER_M * PEBBLE_DIAMETER_M / 6.0,
-    )
+    pebble_diameter()
+        * pebble_diameter()
+        * pebble_diameter()
+        * Ratio::new::<ratio>(std::f64::consts::PI / 6.0)
 }
 
 /// Mass of one spherical fuel element \[kg\], graphite only (the 5 g of heavy
 /// metal is under 3% of the ball and is not counted in the thermal mass).
 pub fn pebble_mass() -> Mass {
-    Mass::new::<kilogram>(GRAPHITE_DENSITY_KG_PER_M3 * pebble_volume().get::<cubic_meter>())
+    graphite_density() * pebble_volume()
 }
 
 /// Total graphite mass held in the bed \[kg\]: `N * m_pebble`.
 pub fn graphite_mass() -> Mass {
-    pebble_mass() * PEBBLE_COUNT
+    pebble_mass() * pebble_count()
 }
 
 /// Total pebble surface area available for heat transfer to the helium
 /// \[m^2\]: `N pi d^2`.
 pub fn heat_transfer_area() -> Area {
-    Area::new::<square_meter>(
-        PEBBLE_COUNT * std::f64::consts::PI * PEBBLE_DIAMETER_M * PEBBLE_DIAMETER_M,
-    )
+    pebble_diameter()
+        * pebble_diameter()
+        * Ratio::new::<ratio>(std::f64::consts::PI * pebble_count())
 }
 
 /// Lumped thermal capacitance of the bed \[J/K\]: `m_graphite * c_p`, using the
@@ -284,13 +370,37 @@ pub fn bed_heat_capacity() -> HeatCapacity {
 /// pebble count and diameter -- the quantity the report itself states as the
 /// "volumetric filling fraction of balls in the core", 0.61.
 pub fn derived_filling_fraction() -> f64 {
-    PEBBLE_COUNT * pebble_volume().get::<cubic_meter>() / bed_volume().get::<cubic_meter>()
+    pebble_count() * pebble_volume().get::<cubic_meter>() / bed_volume().get::<cubic_meter>()
 }
 
-/// Pebble diameter as a [`Length`], for callers that want it typed (it is the
-/// characteristic length any future packed-bed correlation would use).
-pub fn pebble_diameter() -> Length {
-    Length::new::<meter>(PEBBLE_DIAMETER_M)
+/// Axial heat rate the bed could carry by **conduction alone** across a
+/// temperature difference `delta_t_kelvin` \[K\] spread over the full bed
+/// height, evaluated at bed temperature `temperature`:
+/// `Q = k_eff(T) * A_superficial * dT / H`.
+///
+/// `k_eff` is the Zehner-Bauer-Schlunder effective pebble-bed conductivity from
+/// [`outram_park_digital_twin_engine::htr10::zbs`] -- the solid/gas/contact/
+/// radiation bed-continuum property, tabulated 300-2000 K.
+///
+/// **This is a diagnostic, not a term in the model.** The bed here is one
+/// control volume, so it carries no internal temperature gradient for a
+/// conductivity to act on; this function exists to *quantify* what that
+/// omission costs, and it is what justifies keeping the lumped surface
+/// coefficient at power (see
+/// [`tests::zbs_conduction_is_negligible_beside_convection_at_power`]). The
+/// answer changes completely with the forced flow removed, which is exactly the
+/// regime this model cannot enter.
+pub fn conduction_only_axial_heat_rate(
+    temperature: ThermodynamicTemperature,
+    delta_t_kelvin: f64,
+) -> Power {
+    // `uom` treats a temperature *interval* as a distinct kind from an absolute
+    // temperature, so the kelvin difference is carried as a plain scalar here
+    // and the product is rebuilt as a `Power`; every other factor stays typed.
+    let k_eff = zbs_effective_conductivity(temperature).get::<watt_per_meter_kelvin>();
+    let area = superficial_area().get::<square_meter>();
+    let height = core_mean_height().get::<meter>();
+    Power::new::<watt>(k_eff * area * delta_t_kelvin / height)
 }
 
 // ---------------------------------------------------------------------------
@@ -429,7 +539,7 @@ impl Default for PebbleBedCore {
 /// zero would let the bed heat without limit.
 pub fn overall_htc_at_flow(helium_mass_flow: MassRate) -> HeatTransfer {
     let flow_ratio =
-        (helium_mass_flow.get::<kilogram_per_second>() / NOMINAL_HELIUM_FLOW_KG_PER_S).max(0.01);
+        (helium_mass_flow.get::<kilogram_per_second>() / nominal_helium_flow_kg_per_s()).max(0.01);
     HeatTransfer::new::<watt_per_square_meter_kelvin>(
         NOMINAL_OVERALL_HTC_W_PER_M2_K * flow_ratio.powf(HTC_FLOW_EXPONENT),
     )
@@ -509,7 +619,7 @@ mod tests {
 
         // The porosity constant must be the complement of the published
         // filling fraction, not an independently guessed number.
-        assert!((BED_POROSITY - (1.0 - 0.61)).abs() < 1e-12);
+        assert!((bed_porosity().get::<ratio>() - (1.0 - 0.61)).abs() < 1e-12);
 
         // Sanity on the derived masses and areas the thermal model rests on.
         assert!(graphite_mass().get::<kilogram>() > 5000.0);
@@ -540,7 +650,7 @@ mod tests {
         let mut core = PebbleBedCore::new();
         let power = Power::new::<megawatt>(10.0);
         let helium = ThermodynamicTemperature::new::<kelvin>(750.0);
-        let flow = MassRate::new::<kilogram_per_second>(NOMINAL_HELIUM_FLOW_KG_PER_S);
+        let flow = nominal_helium_flow();
 
         for _ in 0..60_000 {
             core.step(Time::new::<second>(0.05), power, helium, flow);
@@ -583,7 +693,7 @@ mod tests {
     fn graphite_inertia_sets_the_bed_time_constant() {
         let helium_k = 750.0;
         let helium = ThermodynamicTemperature::new::<kelvin>(helium_k);
-        let flow = MassRate::new::<kilogram_per_second>(NOMINAL_HELIUM_FLOW_KG_PER_S);
+        let flow = nominal_helium_flow();
         let power = Power::new::<megawatt>(10.0);
         let dt = Time::new::<second>(0.05);
 
@@ -615,6 +725,85 @@ mod tests {
         );
     }
 
+    /// V&V (the reasoned case for keeping a lumped surface coefficient):
+    /// conduction through the bed is negligible beside convection at power.
+    ///
+    /// **Methodology.** The workspace now has an effective pebble-bed
+    /// conductivity -- the Zehner-Bauer-Schlunder tabulation in
+    /// [`outram_park_digital_twin_engine::htr10::zbs`], 18 points from 300 K to
+    /// 2000 K, transcribed from the Virtual Test Bed generic PBR deck (Open
+    /// tier, CC-BY-4.0). The question this test settles is whether that
+    /// conductivity belongs in *this* model's heat path. It computes, via
+    /// [`conduction_only_axial_heat_rate`], the heat the bed could carry by
+    /// conduction alone across the published 450 K inlet-to-outlet difference
+    /// spread over the published 1.97 m bed height at the 2.545 m^2 bed
+    /// cross-section, evaluated at the 748.15 K bulk mean, and compares it to
+    /// the 10 MWth convective duty. Pass criterion: the conduction path is
+    /// under 1% of the convective duty (so neglecting it at power is
+    /// defensible), and `k_eff` sits inside the tabulated range.
+    ///
+    /// **Results (recorded 2026-08-12).** `k_eff(748.15 K)` = 20.195 W/(m K)
+    /// (between the tabulated 18.895 at 700 K and 21.595 at 800 K), giving an
+    /// axial conduction rate of **11.74 kW**, i.e. **0.117%** of the 10 MW the
+    /// helium carries away by convection.
+    ///
+    /// **Interpretation -- why the lumped 160 W/(m^2 K) coefficient stays, and
+    /// what that costs.** Three separate points, and the third is the honest
+    /// cost:
+    ///
+    /// 1. **ZBS cannot replace the surface coefficient.** They are different
+    ///    resistances. ZBS is the *bed-continuum* conductivity (solid contact +
+    ///    gas + radiation between balls), the property of a porous medium with
+    ///    an internal temperature gradient. The overall coefficient here spans
+    ///    the *pebble surface*: intra-pebble conduction in series with the
+    ///    convective film. Substituting one for the other would be a category
+    ///    error, not a refinement.
+    /// 2. **This model has no gradient for a conductivity to act on.** The bed
+    ///    is one control volume by construction, so `k_eff` has nowhere to
+    ///    appear. It becomes usable the moment the bed is nodalised -- which is
+    ///    the refinement this module's docs already point at -- and the number
+    ///    above says that at power it would then contribute about a tenth of a
+    ///    percent of the heat removal. **Under loss of forced cooling it is not
+    ///    negligible at all: it becomes the entire heat path**, and that is the
+    ///    regime this single-node model cannot enter.
+    /// 3. **The 160 W/(m^2 K) value is still wrong, and measurably so.** It
+    ///    puts the bed 204.7 K above the bulk helium at rated power (see
+    ///    [`tests::steady_state_removal_equals_fission_power`]). Gao & Shi
+    ///    (2002) Table 2 give, at 100% load on the equilibrium core, a
+    ///    **maximum** fuel temperature of 918.7 degC, a maximum fuel *surface*
+    ///    temperature of 876.7 degC and a maximum coolant temperature of
+    ///    818 degC -- a peak surface-to-coolant difference of 58.7 K and a peak
+    ///    internal drop of 42.0 K, 100.7 K in total at the hottest point in the
+    ///    core. This model's uniform bed-average difference is therefore about
+    ///    **twice the published peak**, so the coefficient is low by a factor
+    ///    of roughly two to three. It is left unchanged here rather than
+    ///    quietly retuned, because re-anchoring it is a modelling decision with
+    ///    its own V&V, not a side effect of wiring in a friction correlation.
+    #[test]
+    fn zbs_conduction_is_negligible_beside_convection_at_power() {
+        let bulk_mean = ThermodynamicTemperature::new::<kelvin>(748.15);
+        let k_eff = zbs_effective_conductivity(bulk_mean).get::<watt_per_meter_kelvin>();
+        let published_rise_k = 450.0; // 250 -> 700 degC, published.
+        let conduction = conduction_only_axial_heat_rate(bulk_mean, published_rise_k);
+        let convection = Power::new::<megawatt>(10.0);
+        let fraction = conduction.get::<watt>() / convection.get::<watt>();
+        println!(
+            "k_eff(748.15 K) = {:.3} W/(m K); axial conduction over the bed = {:.2} kW = {:.3}% \
+             of the 10 MW convective duty",
+            k_eff,
+            conduction.get::<watt>() / 1.0e3,
+            fraction * 100.0
+        );
+        assert!(
+            fraction < 0.01,
+            "bed conduction is {fraction} of the convective duty -- no longer negligible, so the \
+             lumped surface coefficient needs revisiting"
+        );
+        // The tabulation spans 11.94 to 44.95 W/(m K); a value outside that
+        // means the interpolant was fed the wrong temperature.
+        assert!((11.94..=44.96).contains(&k_eff));
+    }
+
     /// The enthalpy/temperature relation must round-trip exactly (it is linear,
     /// so no iteration is involved), and the flow scaling must be monotone,
     /// equal to the nominal coefficient at nominal flow, and strictly positive
@@ -629,18 +818,16 @@ mod tests {
             assert!((round_tripped - t_k).abs() < 1e-9);
         }
 
-        let at_nominal = overall_htc_at_flow(MassRate::new::<kilogram_per_second>(
-            NOMINAL_HELIUM_FLOW_KG_PER_S,
-        ))
-        .get::<watt_per_square_meter_kelvin>();
+        let at_nominal =
+            overall_htc_at_flow(nominal_helium_flow()).get::<watt_per_square_meter_kelvin>();
         assert!((at_nominal - NOMINAL_OVERALL_HTC_W_PER_M2_K).abs() < 1e-9);
 
         let half = overall_htc_at_flow(MassRate::new::<kilogram_per_second>(
-            0.5 * NOMINAL_HELIUM_FLOW_KG_PER_S,
+            0.5 * nominal_helium_flow_kg_per_s(),
         ))
         .get::<watt_per_square_meter_kelvin>();
         let double = overall_htc_at_flow(MassRate::new::<kilogram_per_second>(
-            2.0 * NOMINAL_HELIUM_FLOW_KG_PER_S,
+            2.0 * nominal_helium_flow_kg_per_s(),
         ))
         .get::<watt_per_square_meter_kelvin>();
         assert!(half < at_nominal && at_nominal < double);

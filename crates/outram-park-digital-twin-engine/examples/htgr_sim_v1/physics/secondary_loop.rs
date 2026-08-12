@@ -26,12 +26,16 @@
 //!
 //! ## What is real
 //!
-//! - **The steam conditions are the published HTR-10 ones.** Main steam at
-//!   4.0 MPa and 440 degC, 12.5 t/hr, feedwater at 104 degC, from
-//!   IAEA-TECDOC-1382 Table 4-1 (ingested at
-//!   `crates/kovan-literature/generated/markdown/open/iaea-tecdoc-1382-part2.md`).
-//!   The published unit is a **once-through modular helical-tube** steam
-//!   generator in a **separate pressure vessel** from the reactor.
+//! - **The steam conditions are the published HTR-10 ones, read from the
+//!   library.** Main steam at 4.0 MPa and 440 degC, 12.5 t/hr, feedwater at
+//!   104 degC, from IAEA-TECDOC-1382 Table 4-1 -- taken from
+//!   [`outram_park_digital_twin_engine::htr10::design::Htr10DesignPoint`],
+//!   the workspace's single transcription of that table, rather than re-typed
+//!   here. The controller's target steam enthalpy is now flashed from those
+//!   published conditions through IF97 at each use instead of being carried as
+//!   a rounded constant. The published unit is a **once-through modular
+//!   helical-tube** steam generator in a **separate pressure vessel** from the
+//!   reactor.
 //! - **The cycle is closed.** Feedwater enthalpy is *computed*, not fixed:
 //!   condensate is the saturated liquid at condenser pressure, and the feed
 //!   pump adds real work `v dp / eta` on top of it. Changing the condenser
@@ -89,21 +93,38 @@ use uom::si::time::second;
 use uom::si::volume::cubic_meter;
 
 // ---------------------------------------------------------------------------
-// PUBLISHED HTR-10 STEAM CONDITIONS (IAEA-TECDOC-1382, Table 4-1)
+// PUBLISHED HTR-10 STEAM CONDITIONS -- READ FROM THE LIBRARY
+//
+// IAEA-TECDOC-1382 Table 4-1, transcribed once in
+// `outram_park_digital_twin_engine::htr10::design::Htr10DesignPoint` with a
+// citation per field and a V&V test that closes the steam-side energy balance
+// against IAPWS-IF97 (9.9618 MW against the published 10 MWth, -0.38%). This
+// module reads that struct; there is no second copy of the steam conditions.
 // ---------------------------------------------------------------------------
 
-/// Live steam pressure at the steam-generator outlet / turbine inlet \[MPa\]:
-/// 4.0 MPa (**published**). Held fixed -- see the module docs.
-const STEAM_PRESSURE_MPA: f64 = 4.0;
+/// Live steam pressure at the steam-generator outlet / turbine inlet: 4.0 MPa
+/// (**published**, via [`super::pebble_bed::design`]). Held fixed -- see the
+/// module docs.
+fn steam_pressure() -> Pressure {
+    super::pebble_bed::design().main_steam_pressure
+}
 
-/// Target steam-generator outlet enthalpy the feedwater controller holds
-/// \[J/kg\]: the IF97 enthalpy of steam at the **published** 4.0 MPa and
-/// 440 degC outlet condition, 3307 kJ/kg.
-const TARGET_STEAM_ENTHALPY_J_PER_KG: f64 = 3.307e6;
+/// Target steam-generator outlet enthalpy the feedwater controller holds: the
+/// IF97 enthalpy of steam at the **published** 4.0 MPa / 440 degC outlet
+/// condition, evaluated live from `tampines-steam-tables` rather than carried
+/// as a hardcoded 3.307e6 J/kg. Measured 3307.9 kJ/kg (2026-08-12).
+fn target_steam_enthalpy() -> AvailableEnergy {
+    use tampines_steam_tables::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase;
+    let d = super::pebble_bed::design();
+    h_tp_eqm_single_phase(d.main_steam_temperature, d.main_steam_pressure)
+}
 
-/// Nominal secondary mass flow \[kg/s\] the loop is seeded at: the published
-/// 12.5 t/hr main steam flow.
-const NOMINAL_SECONDARY_FLOW_KG_PER_S: f64 = 3.47;
+/// Nominal secondary mass flow the loop is seeded at: the published 12.5 t/hr
+/// main steam flow, i.e. 3.4722 kg/s (via the design point, which carries the
+/// conversion rather than a rounded 3.47).
+fn nominal_secondary_flow() -> MassRate {
+    super::pebble_bed::design().main_steam_mass_flow
+}
 
 // ---------------------------------------------------------------------------
 // INVENTED PLACEHOLDERS -- balance-of-plant the published source does not carry
@@ -178,7 +199,7 @@ impl SteamSecondaryLoop {
     /// and feedwater states flashed from the real steam tables and the
     /// steam-generator outlet seeded at zero duty.
     pub fn new() -> Self {
-        let steam_pressure = Pressure::new::<megapascal>(STEAM_PRESSURE_MPA);
+        let steam_pressure = steam_pressure();
         let condenser_pressure = Pressure::new::<megapascal>(CONDENSER_PRESSURE_MPA);
         let reference_volume = Volume::new::<cubic_meter>(1.0);
 
@@ -198,7 +219,7 @@ impl SteamSecondaryLoop {
             reference_volume,
             condensate,
             feedwater_enthalpy,
-            mass_flow: MassRate::new::<kilogram_per_second>(NOMINAL_SECONDARY_FLOW_KG_PER_S),
+            mass_flow: nominal_secondary_flow(),
             steam_generator_outlet,
             turbine_inlet_temperature,
             turbine_power: Power::new::<watt>(0.0),
@@ -228,7 +249,7 @@ impl SteamSecondaryLoop {
     /// The step, in order:
     ///
     /// 1. **Feedwater controller.** The flow that would hold
-    ///    [`TARGET_STEAM_ENTHALPY_J_PER_KG`] at the current duty is
+    ///    [`target_steam_enthalpy`] at the current duty is
     ///    `Q/(h_target - h_feed)`; the actual flow relaxes toward it over
     ///    [`FEED_CONTROL_TIME_CONSTANT_S`], clamped to the pump's range.
     /// 2. **Condensate and feed pump.** Condensate is the saturated liquid at
@@ -264,7 +285,8 @@ impl SteamSecondaryLoop {
 
         // 1. Feedwater controller: chase the flow that holds the target steam
         //    enthalpy at the current duty.
-        let enthalpy_rise_target = (TARGET_STEAM_ENTHALPY_J_PER_KG - h_feed).max(1.0);
+        let enthalpy_rise_target =
+            (target_steam_enthalpy().get::<joule_per_kilogram>() - h_feed).max(1.0);
         let target_flow = (q_w / enthalpy_rise_target)
             .clamp(MIN_SECONDARY_FLOW_KG_PER_S, MAX_SECONDARY_FLOW_KG_PER_S);
         let alpha = (dt.get::<second>() / FEED_CONTROL_TIME_CONSTANT_S).clamp(0.0, 1.0);

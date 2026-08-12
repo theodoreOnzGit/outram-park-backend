@@ -9,9 +9,11 @@
 //!
 //! This module used to model a **prismatic-block** core with machined coolant
 //! channels. It no longer does: the channel geometry, its wall roughness and
-//! its Haaland pipe friction have been removed, because none of them describe a
-//! packed bed. What replaced them is documented honestly below -- in particular
-//! the pressure drop is **not** a packed-bed friction correlation.
+//! its Haaland pipe friction were removed, because none of them describe a
+//! packed bed. As of 2026-08-12 the bed's share of the loop loss is computed by
+//! the **KTA packed-bed correlation** from the workspace library; the rest of
+//! the loop is carried as the published component sum. Read the "what is real"
+//! and "what is still illustrative" sections below before quoting either.
 //!
 //! ## Flow path (as built, published arrangement)
 //!
@@ -43,8 +45,9 @@
 //! volume; both are stand-ins for one.
 //!
 //! **What that costs.** There is no axial helium temperature profile through
-//! the bed, so no local heat flux, no local Reynolds number, and no place to
-//! evaluate a bed friction or Nusselt correlation even if one existed. There is
+//! the bed, so no local heat flux and no local Reynolds number: the KTA
+//! friction factor is evaluated **once, at the bulk mean**, not integrated down
+//! a bed whose helium actually runs 250 -> 700 degC. There is
 //! no gas momentum equation, so the pressure drop cannot feed back on the flow
 //! and there is **no natural circulation** -- with the circulator stopped this
 //! model has no decay-heat removal path at all, which is precisely the HTR-10
@@ -54,25 +57,42 @@
 //!
 //! **The refinement path**: split the bed helium axially into the same stack of
 //! control volumes as [`super::pebble_bed`], marching downward and exchanging
-//! with the matching bed node -- one change buys both the gradient and a place
-//! to put a real correlation. Then give the steam generator three zones
+//! with the matching bed node -- one change buys the gradient *and* a place to
+//! evaluate the friction factor node by node instead of once at the mean. Then
+//! give the steam generator three zones
 //! (economiser / evaporator / superheater) instead of one `UA`. A momentum
 //! equation with a buoyancy term, needed for natural circulation, comes after
 //! both.
 //!
 //! ## What is real
 //!
-//! - **The operating point is the published HTR-10 one**, from IAEA-TECDOC-1382
-//!   (ingested at
-//!   `crates/kovan-literature/generated/markdown/open/iaea-tecdoc-1382-part2.md`):
-//!   10 MWth, primary helium 3.0 MPa, 250 degC core inlet, 700 degC core
-//!   outlet, 4.3 kg/s at full power, and a circulator pressure head of
-//!   0.06 MPa at that flow.
+//! - **The operating point is the published HTR-10 one, read from the
+//!   library.** Every published figure comes from
+//!   [`outram_park_digital_twin_engine::htr10::design::Htr10DesignPoint`] --
+//!   the workspace's single citation-carrying transcription of
+//!   IAEA-TECDOC-1382 -- rather than being re-typed here: 10 MWth, primary
+//!   helium 3.0 MPa, 250 degC core inlet, 700 degC core outlet, 4.3 kg/s at
+//!   full power.
+//! - **The bed pressure drop is an evaluated KTA friction result.**
+//!   [`bed_pressure_drop`] runs the KTA packed-bed correlation from
+//!   [`outram_park_digital_twin_engine::htr10::kta`] on the published pebble
+//!   diameter, bed porosity and bed height at the live helium density and
+//!   viscosity: a Reynolds number is formed, a friction factor is computed, and
+//!   nothing in that term is anchored to a target. The implementation is gated
+//!   against the Virtual Test Bed's checked-in worked example -- 3493.17 Pa/m
+//!   and 34.9317 kPa against the published gold 3493 Pa/m and 34.93 kPa -- in
+//!   [`tests::kta_bed_drop_reproduces_the_vtb_gold_and_is_checked_against_htr10`].
+//! - **The rest of the loop is the published component budget**, not an
+//!   invention: side-reflector pass 0.7 + mixture plenums 6.1 + steam generator
+//!   15.0 + hot gas duct 4.1 = 25.9 kPa at rated flow, from Gao & Shi (2002)
+//!   Table 1, whose five components sum to the stated 27.2 kPa total.
 //! - **Helium properties are real and temperature-dependent.** `c_p` and
 //!   density come from the CoolProp-derived Helmholtz EOS
 //!   ([`outram_park_fork_coolprop::state_pt`], helium from Ortiz-Vega et al.)
-//!   evaluated at the loop pressure and the current bulk mean helium
-//!   temperature, re-evaluated every step -- not a frozen constant.
+//!   and the dynamic viscosity the Reynolds number needs from the same crate's
+//!   Arp-McCarty-Friend helium transport model, all evaluated at the loop
+//!   pressure and the current bulk mean helium temperature and re-evaluated
+//!   every step -- not frozen constants.
 //! - **The core heat input now comes from the graphite**, not straight from the
 //!   fission power: [`super::pebble_bed::PebbleBedCore`] holds the bed's 9 MJ/K
 //!   of thermal inertia and hands this loop the heat rate that actually crosses
@@ -90,13 +110,26 @@
 //!
 //! ## What is still illustrative
 //!
-//! - **The pressure drop is NOT a packed-bed correlation.** It is a quadratic
-//!   loss `dp = dp_nominal (m_dot/m_dot_nom)^2 (rho_ref/rho)` anchored to the
-//!   published 0.06 MPa circulator head. The quadratic form is the
-//!   high-Reynolds limit that a packed-bed correlation tends toward, but no
-//!   friction factor is evaluated: **KTA and Ergun are both still absent from
-//!   this workspace**, and `docs/reactor-scoping/htr10.md` records that gap as
-//!   open. Do not read the pressure drop as a bed friction result.
+//! - **A real friction correlation is not a resolved bed.** The KTA term is an
+//!   evaluated friction result, but it is evaluated **once, on one control
+//!   volume**, at the bulk mean density and viscosity of a bed whose real
+//!   helium spans 250 to 700 degC. There is still no momentum equation, so the
+//!   computed drop **does not feed back on the flow** -- the circulator
+//!   setpoint sets the flow outright, and the pressure drop is a reported
+//!   consequence, not a constraint. There is still no natural circulation.
+//! - **The loop drop is only part-computed.** 25.9 kPa of the roughly 26.4 kPa
+//!   total is the published component sum being carried, scaled quadratically
+//!   in flow; only about 0.5 kPa of it is computed. Agreement between the
+//!   model's loop total and the published 27.2 kPa is therefore mostly
+//!   bookkeeping. **Do not read the loop pressure drop as a hydraulic
+//!   prediction.**
+//! - **The computed bed drop disagrees with the published bed drop.** KTA over
+//!   this bed gives 0.504 kPa at the rated point against Gao & Shi's 1.3 kPa
+//!   for "pebble bed and bottom reflector" -- 39% of it. The bottom reflector
+//!   is not modelled here at all, their calculation is nodalised where this one
+//!   is not, and their bed flow is 87.3% of rated against the 86% conservative
+//!   fraction used here. The gap is recorded rather than closed; see the V&V
+//!   test for the full comparison.
 //! - **The steam generator is one effectiveness-NTU lump.** The published unit
 //!   is a once-through helical-tube module; there is no three-zone moving
 //!   boundary, no helical correlation, and no tube geometry here. The `UA` is
@@ -106,23 +139,26 @@
 //!   GEOMETRY` block below -- IAEA-TECDOC-1382 is a neutronics benchmark and
 //!   carries no plant piping. Replacing these with sourced figures is tracked
 //!   as bead `op-szmi.6`.
-//! - **Helium viscosity is not used at all** any more (the removed pipe
-//!   friction was its only consumer), so the loop no longer carries the
-//!   hardcoded viscosity constant it used to.
 //! - The loop remains a **single lumped node**, not a nodalised fluid array:
 //!   there is no axial helium temperature profile through the bed.
 //!
 //! This is a demonstration model, **not a validated HTR-10 primary-loop
 //! model**.
 
-use outram_park_fork_coolprop::{state_pt, Fluid};
+use outram_park_digital_twin_engine::htr10::design::{Htr10DesignPoint, Htr10FuelTemperatureLimits};
+use outram_park_digital_twin_engine::htr10::kta;
+use outram_park_fork_coolprop::{state_pt, viscosity, Fluid};
+use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{
-    Mass, MassRate, Power, Pressure, SpecificHeatCapacity, ThermodynamicTemperature, Time, Volume,
+    DynamicViscosity, Mass, MassDensity, MassRate, Power, Pressure, SpecificHeatCapacity,
+    ThermodynamicTemperature, Time, Volume,
 };
 use uom::si::mass::kilogram;
+use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::watt;
 use uom::si::pressure::pascal;
+use uom::si::ratio::ratio;
 use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
@@ -131,26 +167,102 @@ use uom::si::volume::cubic_meter;
 use super::pebble_bed;
 
 // ---------------------------------------------------------------------------
-// PUBLISHED HTR-10 OPERATING POINT
-// IAEA-TECDOC-1382, Table 4-1 and section 4.1. These are sourced figures.
+// PUBLISHED HTR-10 OPERATING POINT -- READ FROM THE LIBRARY
+//
+// IAEA-TECDOC-1382, Table 4-1 and section 4.1, transcribed once in
+// `outram_park_digital_twin_engine::htr10::design` with a citation per field.
+// This module reads that struct rather than keeping its own copy.
 // ---------------------------------------------------------------------------
 
-/// Primary helium pressure \[Pa\]: 3.0 MPa (published).
-const LOOP_PRESSURE_PA: f64 = 3.0e6;
+/// The published HTR-10 design point, from the library's single transcription.
+fn design() -> Htr10DesignPoint {
+    pebble_bed::design()
+}
 
-/// Published core inlet helium temperature \[K\]: 250 degC.
-const PUBLISHED_CORE_INLET_K: f64 = 523.15;
+/// Primary helium pressure \[Pa\]: 3.0 MPa (published, via [`design`]).
+fn loop_pressure_pa() -> f64 {
+    design().primary_pressure.get::<pascal>()
+}
 
-/// Published core outlet helium temperature \[K\]: 700 degC.
-const PUBLISHED_CORE_OUTLET_K: f64 = 973.15;
+/// Published core inlet helium temperature \[K\]: 250 degC (phase-1 operation).
+fn published_core_inlet_k() -> f64 {
+    design().helium_inlet_phase1.get::<kelvin>()
+}
 
-/// Published circulator pressure head \[Pa\]: 0.06 MPa, quoted at 4.3 kg/s,
-/// 3.0 MPa and 250 degC. Used as the anchor for the quadratic loop loss.
-const NOMINAL_PRESSURE_DROP_PA: f64 = 6.0e4;
+/// Published core outlet helium temperature \[K\]: 700 degC (phase-1
+/// operation).
+fn published_core_outlet_k() -> f64 {
+    design().helium_outlet_phase1.get::<kelvin>()
+}
 
-/// Helium temperature the circulator head is quoted at \[K\]: 250 degC
-/// (published). The reference density for the quadratic loss is evaluated here.
-const PRESSURE_DROP_REFERENCE_TEMPERATURE_K: f64 = 523.15;
+/// Helium temperature the non-bed loop loss is referenced at \[K\]: the
+/// published 250 degC cold leg, where the circulator sits. The reference
+/// density for the quadratic non-bed loss is evaluated here.
+fn pressure_drop_reference_temperature_k() -> f64 {
+    published_core_inlet_k()
+}
+
+// ---------------------------------------------------------------------------
+// PUBLISHED HTR-10 PRIMARY-LOOP PRESSURE BUDGET
+//
+// Gao & Shi (2002), Nucl. Eng. Des. 218, 51-64, Table 1 (Proprietary tier --
+// cited, not re-hosted; the same paper `Htr10FuelTemperatureLimits` cites).
+// Reading recorded in `docs/reactor-scoping/htr10-plant-data.md` section 7.5:
+//
+// | Component                       | kPa  | at kg/s |
+// |---------------------------------|------|---------|
+// | Pebble bed and bottom reflector |  1.3 | 3.77    |
+// | Coolant pass in side reflector  |  0.7 | 3.846   |
+// | Flow mixture plenums            |  6.1 | 4.32    |
+// | Steam generator                 | 15.0 | 4.32    |
+// | Hot gas duct                    |  4.1 | 4.32    |
+// | TOTAL                           | 27.2 | 4.32    |
+//
+// The bed term is now computed by KTA (see `bed_pressure_drop`); the other four
+// are carried as the published sum.
+// ---------------------------------------------------------------------------
+
+/// Published bed-plus-bottom-reflector pressure drop \[Pa\]: 1.3 kPa at rated
+/// flow (Gao & Shi 2002, Table 1). **Reference only** -- the model computes its
+/// bed term from KTA and is checked against this figure, not anchored to it.
+/// See [`tests::kta_bed_drop_reproduces_the_vtb_gold_and_is_checked_against_htr10`].
+const PUBLISHED_BED_AND_BOTTOM_REFLECTOR_DROP_PA: f64 = 1.3e3;
+
+/// Published total primary-loop resistance \[Pa\] at rated flow: 27.2 kPa
+/// (Gao & Shi 2002, Table 1). **Reference only.**
+const PUBLISHED_LOOP_TOTAL_DROP_PA: f64 = 27.2e3;
+
+/// Published sum of the loop components this model does **not** resolve
+/// \[Pa\]: side-reflector pass 0.7 + mixture plenums 6.1 + steam generator 15.0
+/// + hot gas duct 4.1 = 25.9 kPa at rated flow (Gao & Shi 2002, Table 1). The
+/// steam generator alone is 15.0 of it, so the bed is a small part of this loop
+/// and a bed correlation cannot be expected to reproduce the loop head.
+const PUBLISHED_NON_BED_DROP_AT_RATED_PA: f64 =
+    PUBLISHED_LOOP_TOTAL_DROP_PA - PUBLISHED_BED_AND_BOTTOM_REFLECTOR_DROP_PA;
+
+/// Circulator **design head** \[Pa\]: 0.6 bar (Qin Zhenya 1996, JAERI-Conf
+/// 96-010 section 5, Open tier). This is the machine's stated capability, about
+/// 2.2x the computed 27.2 kPa loop resistance -- a design margin. It is
+/// deliberately **not** used as the loop's operating pressure drop; conflating
+/// the two is the error this module used to make. Recorded so the distinction
+/// stays visible.
+///
+/// Deliberately **not** referenced by the model -- it appears only in the
+/// pressure-drop V&V test's reported comparison, which is the point.
+#[allow(dead_code)]
+const CIRCULATOR_DESIGN_HEAD_PA: f64 = 6.0e4;
+
+/// Fraction of the loop mass flow that passes through the pebble bed itself
+/// (dimensionless): the conservative 86% of Gao & Shi (2002), read from
+/// [`Htr10FuelTemperatureLimits::min_core_flow_fraction`]. The remainder is
+/// control-rod-tube, discharge-tube and gap bypass flow that never sees the
+/// bed. Gao & Shi's own Table 1 lists 3.77 kg/s of 4.32 kg/s through the bed
+/// (87.3%), so 86% is the conservative end of their own numbers.
+fn core_flow_fraction() -> f64 {
+    Htr10FuelTemperatureLimits::gao_shi_2002()
+        .min_core_flow_fraction
+        .get::<ratio>()
+}
 
 // ---------------------------------------------------------------------------
 // ILLUSTRATIVE GEOMETRY AND CLOSURES -- INVENTED PLACEHOLDERS, NOT PUBLISHED
@@ -211,8 +323,11 @@ pub struct HeliumPrimaryLoop {
     c_p: SpecificHeatCapacity,
     /// Helium density at the current bulk mean temperature (real EOS).
     density: f64,
-    /// Helium density at the conditions the circulator head is quoted at, used
-    /// to scale the quadratic loop loss.
+    /// Helium dynamic viscosity at the current bulk mean temperature (real
+    /// transport model) -- the KTA Reynolds number consumes it.
+    dynamic_viscosity: DynamicViscosity,
+    /// Helium density at the published 250 degC cold-leg reference condition,
+    /// used to scale the quadratic non-bed loop loss.
     reference_density: f64,
     /// Current (transient) core-inlet temperature -- the steam-generator helium
     /// outlet after the return transport lag.
@@ -226,9 +341,12 @@ pub struct HeliumPrimaryLoop {
     ihx_duty: Power,
     /// Helium-side steam-generator outlet temperature (feeds the core inlet).
     ihx_outlet_temperature: ThermodynamicTemperature,
-    /// Frictional pressure drop around the loop at the current flow.
+    /// Frictional pressure drop around the whole loop at the current flow: the
+    /// KTA bed term plus the published non-bed remainder.
     pressure_drop: Pressure,
-    /// Circulator hydraulic power required to sustain that pressure drop.
+    /// The **pebble-bed** part of that drop alone, from the KTA correlation.
+    bed_pressure_drop: Pressure,
+    /// Circulator hydraulic power required to sustain the total pressure drop.
     circulator_power: Power,
 }
 
@@ -241,15 +359,16 @@ impl HeliumPrimaryLoop {
     /// temperature means the simulator opens near its operating point instead
     /// of spending several minutes of simulated time warming up.
     pub fn new(nominal_flow: MassRate) -> Self {
-        let inlet = ThermodynamicTemperature::new::<kelvin>(PUBLISHED_CORE_INLET_K);
-        let outlet = ThermodynamicTemperature::new::<kelvin>(PUBLISHED_CORE_OUTLET_K);
-        let (c_p, density) =
-            helium_properties(0.5 * (PUBLISHED_CORE_INLET_K + PUBLISHED_CORE_OUTLET_K));
-        let (_, reference_density) = helium_properties(PRESSURE_DROP_REFERENCE_TEMPERATURE_K);
+        let inlet = ThermodynamicTemperature::new::<kelvin>(published_core_inlet_k());
+        let outlet = ThermodynamicTemperature::new::<kelvin>(published_core_outlet_k());
+        let (c_p, density, dynamic_viscosity) =
+            helium_properties(0.5 * (published_core_inlet_k() + published_core_outlet_k()));
+        let (_, reference_density, _) = helium_properties(pressure_drop_reference_temperature_k());
 
         Self {
             c_p,
             density,
+            dynamic_viscosity,
             reference_density,
             core_inlet_temperature: inlet,
             core_outlet_temperature: outlet,
@@ -257,6 +376,7 @@ impl HeliumPrimaryLoop {
             ihx_duty: Power::new::<watt>(0.0),
             ihx_outlet_temperature: inlet,
             pressure_drop: Pressure::new::<pascal>(0.0),
+            bed_pressure_drop: Pressure::new::<pascal>(0.0),
             circulator_power: Power::new::<watt>(0.0),
         }
     }
@@ -287,8 +407,9 @@ impl HeliumPrimaryLoop {
     ///    temperature, and can never drive it below.
     /// 4. Helium leaves at `T_out - Q/(m_dot c_p)`, which the core inlet relaxes
     ///    toward over [`RETURN_TRANSPORT_TIME_CONSTANT_S`], closing the loop.
-    /// 5. Quadratic loop pressure drop and circulator hydraulic power at the
-    ///    current flow and density.
+    /// 5. Loop pressure drop -- KTA over the bed plus the published non-bed
+    ///    component sum -- and circulator hydraulic power at the current flow
+    ///    and density.
     pub fn step(
         &mut self,
         dt: Time,
@@ -307,9 +428,10 @@ impl HeliumPrimaryLoop {
         // 1. Real helium properties at the current bulk mean temperature.
         let t_in_k = self.core_inlet_temperature.get::<kelvin>();
         let t_out_k = self.core_outlet_temperature.get::<kelvin>();
-        let (c_p, density) = helium_properties(0.5 * (t_in_k + t_out_k));
+        let (c_p, density, dynamic_viscosity) = helium_properties(0.5 * (t_in_k + t_out_k));
         self.c_p = c_p;
         self.density = density;
+        self.dynamic_viscosity = dynamic_viscosity;
         let c_p_j = self.c_p.get::<joule_per_kilogram_kelvin>();
 
         let dt_s = dt.get::<second>();
@@ -341,32 +463,55 @@ impl HeliumPrimaryLoop {
         self.update_hydraulics(flow_kg_s);
     }
 
-    /// Quadratic loop pressure drop and the circulator hydraulic power needed
-    /// to sustain it.
+    /// Loop pressure drop -- **KTA over the bed, published sum for the rest** --
+    /// and the circulator hydraulic power needed to sustain it.
     ///
-    /// `dp = dp_nominal (m_dot/m_dot_nom)^2 (rho_ref/rho)`, anchored to the
-    /// published 0.06 MPa circulator head at 4.3 kg/s, 3.0 MPa and 250 degC.
-    /// The `m_dot^2/rho` scaling is the fully-turbulent form every loss
-    /// correlation shares in that limit; the *coefficient* is the published
-    /// head rather than an evaluated friction factor.
+    /// Two terms, and they are not the same kind of number:
     ///
-    /// **This is not a packed-bed friction correlation.** Neither KTA nor Ergun
-    /// exists in this workspace -- see the module docs and
-    /// `docs/reactor-scoping/htr10.md`.
+    /// 1. **The pebble bed: real.** [`bed_pressure_drop`] evaluates the KTA
+    ///    packed-bed correlation
+    ///    ([`outram_park_digital_twin_engine::htr10::kta`]) at the current bed
+    ///    mass flux, the live helium density and viscosity, the published
+    ///    pebble diameter and bed porosity, integrated over the published bed
+    ///    height. A friction factor is genuinely evaluated; nothing about this
+    ///    term is anchored to a target.
+    /// 2. **Everything else: the published sum, scaled.** The side-reflector
+    ///    pass, the mixture plenums, the steam generator and the hot gas duct
+    ///    total [`PUBLISHED_NON_BED_DROP_AT_RATED_PA`] (25.9 kPa of the 27.2 kPa
+    ///    loop) at rated flow, and are carried as
+    ///    `dp_non_bed = 25.9 kPa (m_dot/m_dot_nom)^2`. The quadratic is the
+    ///    fully-turbulent shape; **no density correction is applied to this
+    ///    term**, because the published sum already embeds each component's own
+    ///    local temperature (the steam generator and cold legs are cold, the
+    ///    duct and plenums hot) and this single-node model resolves only one
+    ///    density. Correcting it with the bulk-mean density would inflate the
+    ///    cold components by ~40%.
     ///
-    /// Circulator power is `m_dot dp / (rho eta)`.
+    /// Circulator power is `m_dot dp_total / (rho eta)` with the illustrative
+    /// efficiency [`CIRCULATOR_EFFICIENCY`].
     fn update_hydraulics(&mut self, flow_kg_s: f64) {
         let rho = self.density;
         if !(rho > 0.0) || !(self.reference_density > 0.0) {
             self.pressure_drop = Pressure::new::<pascal>(0.0);
+            self.bed_pressure_drop = Pressure::new::<pascal>(0.0);
             self.circulator_power = Power::new::<watt>(0.0);
             return;
         }
 
-        let flow_ratio = flow_kg_s / pebble_bed::NOMINAL_HELIUM_FLOW_KG_PER_S;
-        let dp =
-            NOMINAL_PRESSURE_DROP_PA * flow_ratio * flow_ratio * (self.reference_density / rho);
+        // 1. The bed, by KTA, on the fraction of the loop flow that reaches it.
+        let bed_flow = MassRate::new::<kilogram_per_second>(flow_kg_s * core_flow_fraction());
+        let bed_dp = bed_pressure_drop(
+            bed_flow,
+            MassDensity::new::<kilogram_per_cubic_meter>(rho),
+            self.dynamic_viscosity,
+        );
+        self.bed_pressure_drop = bed_dp;
 
+        // 2. The published remainder of the loop, quadratic in flow.
+        let flow_ratio = flow_kg_s / pebble_bed::nominal_helium_flow_kg_per_s();
+        let non_bed_dp = PUBLISHED_NON_BED_DROP_AT_RATED_PA * flow_ratio * flow_ratio;
+
+        let dp = bed_dp.get::<pascal>() + non_bed_dp;
         self.pressure_drop = Pressure::new::<pascal>(dp);
         self.circulator_power = Power::new::<watt>(flow_kg_s * dp / (rho * CIRCULATOR_EFFICIENCY));
     }
@@ -431,9 +576,26 @@ impl HeliumPrimaryLoop {
         self.density
     }
 
-    /// Frictional pressure drop around the loop at the current flow.
+    /// Frictional pressure drop around the **whole loop** at the current flow:
+    /// the KTA bed term plus the published non-bed remainder. Not a bed
+    /// friction result on its own -- for that, see [`Self::bed_pressure_drop`].
     pub fn pressure_drop(&self) -> Pressure {
         self.pressure_drop
+    }
+
+    /// The **pebble-bed** pressure drop alone, from the KTA correlation at the
+    /// current bed mass flux and live helium properties. This one *is* an
+    /// evaluated packed-bed friction result.
+    pub fn bed_pressure_drop(&self) -> Pressure {
+        self.bed_pressure_drop
+    }
+
+    /// Helium dynamic viscosity at the current bulk mean temperature, from the
+    /// CoolProp-derived Arp-McCarty-Friend helium transport model -- the
+    /// property the KTA Reynolds number is formed on.
+    #[allow(dead_code)] // snapshot candidate -- not yet wired into the app layer
+    pub fn dynamic_viscosity(&self) -> DynamicViscosity {
+        self.dynamic_viscosity
     }
 
     /// Circulator hydraulic power required to sustain [`Self::pressure_drop`].
@@ -442,34 +604,95 @@ impl HeliumPrimaryLoop {
     }
 }
 
-/// Real helium isobaric specific heat and density at temperature `t_k` \[K\]
-/// and the loop pressure, from the CoolProp-derived Helmholtz EOS.
+/// Pebble-bed pressure drop from the **KTA packed-bed correlation**
+/// ([`outram_park_digital_twin_engine::htr10::kta`]), for helium at `density`
+/// and `dynamic_viscosity` flowing through the bed at `bed_mass_flow`.
+///
+/// The chain is exactly the one the library's own V&V test exercises against
+/// the Virtual Test Bed worked example:
+///
+/// 1. `G = mdot / A` over the bed's **superficial** (empty-cylinder)
+///    cross-section, [`super::pebble_bed::superficial_area`] = 2.545 m^2;
+/// 2. `Re = G D_h / mu` on the published 6.0 cm pebble diameter;
+/// 3. `psi = 320/(Re/(1-eps)) + 6/(Re/(1-eps))^0.1` at the published bed
+///    porosity eps = 0.39;
+/// 4. `-dp/dx = psi ((1-eps)/eps^3) G^2 / (2 D_h rho)`, integrated over the
+///    published 1.97 m mean bed height.
+///
+/// **What this is.** An evaluated friction result: the friction factor is
+/// computed from a Reynolds number formed on live properties, not read off a
+/// target. **What this is not.** A resolved bed. The single node supplies one
+/// density and one viscosity for the whole bed, where the real helium runs
+/// 250 -> 700 degC top to bottom; the correlation is applied once at the bulk
+/// mean rather than integrated down an axial profile. It also covers the bed
+/// only -- not the bottom reflector the published 1.3 kPa figure includes.
+///
+/// **Validity** (KTA, as stated by the VTB source): `Re/(1-eps)` from about 1
+/// to 1e5 and porosities near random packing. At the HTR-10 rated point this
+/// model sits near `Re/(1-eps)` = 3.8e3, inside that band.
+pub fn bed_pressure_drop(
+    bed_mass_flow: MassRate,
+    density: MassDensity,
+    dynamic_viscosity: DynamicViscosity,
+) -> Pressure {
+    let mass_flux = kta::superficial_mass_flux(bed_mass_flow, pebble_bed::superficial_area());
+    let gradient = kta::kta_pressure_gradient(
+        mass_flux,
+        pebble_bed::pebble_diameter(),
+        pebble_bed::bed_porosity(),
+        density,
+        dynamic_viscosity,
+    );
+    kta::pressure_drop_over_bed(gradient, pebble_bed::core_mean_height())
+}
+
+/// Real helium isobaric specific heat, density and dynamic viscosity at
+/// temperature `t_k` \[K\] and the loop pressure, from the CoolProp-derived
+/// Helmholtz EOS (Ortiz-Vega et al.) and its helium transport model (Arp,
+/// McCarty & Friend, NIST TN-1334).
 ///
 /// Falls back to the ideal-gas-limit helium values (`c_p = 5193 J/(kg K)`,
 /// density from `p/(R_specific T)` with `R_specific = 2077 J/(kg K)`) if the
 /// `(p, T)` density solve fails to converge -- helium at HTGR conditions is
 /// close to ideal, so the fallback is a physically sane bound rather than a
 /// fabricated number, and it keeps a GUI frame from panicking on a transient.
-fn helium_properties(t_k: f64) -> (SpecificHeatCapacity, f64) {
+/// The viscosity fallback is the **KTA 3102.1** helium fit
+/// `mu = 3.674e-7 T^0.7` Pa s (valid 0.1-10 MPa, 293-1773 K; recorded in
+/// `docs/reactor-scoping/htr10-plant-data.md` section 7.3 from Gao & Shi 2002),
+/// i.e. a cited correlation rather than a made-up number.
+fn helium_properties(t_k: f64) -> (SpecificHeatCapacity, f64, DynamicViscosity) {
     /// Ideal-gas-limit helium `c_p` \[J/(kg K)\].
     const IDEAL_CP: f64 = 5193.0;
     /// Specific gas constant of helium \[J/(kg K)\].
     const R_SPECIFIC: f64 = 2077.0;
 
+    /// KTA 3102.1 helium dynamic viscosity \[Pa s\] at temperature `t` \[K\].
+    fn kta_helium_viscosity(t: f64) -> DynamicViscosity {
+        DynamicViscosity::new::<pascal_second>(3.674e-7 * t.powf(0.7))
+    }
+
     let t = if t_k.is_finite() && t_k > 1.0 {
         t_k
     } else {
-        PUBLISHED_CORE_INLET_K
+        published_core_inlet_k()
     };
+    let p = loop_pressure_pa();
 
-    match state_pt(Fluid::Helium, t, LOOP_PRESSURE_PA) {
-        Ok(state) if state.cp.is_finite() && state.cp > 0.0 && state.density > 0.0 => (
-            SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(state.cp),
-            state.density,
-        ),
+    match state_pt(Fluid::Helium, t, p) {
+        Ok(state) if state.cp.is_finite() && state.cp > 0.0 && state.density > 0.0 => {
+            let mu = viscosity(Fluid::Helium, t, state.density)
+                .map(DynamicViscosity::new::<pascal_second>)
+                .unwrap_or_else(|| kta_helium_viscosity(t));
+            (
+                SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(state.cp),
+                state.density,
+                mu,
+            )
+        }
         _ => (
             SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(IDEAL_CP),
-            LOOP_PRESSURE_PA / (R_SPECIFIC * t),
+            p / (R_SPECIFIC * t),
+            kta_helium_viscosity(t),
         ),
     }
 }
@@ -480,13 +703,11 @@ mod tests {
     use uom::si::power::megawatt;
 
     fn nominal_loop() -> HeliumPrimaryLoop {
-        HeliumPrimaryLoop::new(MassRate::new::<kilogram_per_second>(
-            pebble_bed::NOMINAL_HELIUM_FLOW_KG_PER_S,
-        ))
+        HeliumPrimaryLoop::new(pebble_bed::nominal_helium_flow())
     }
 
     fn nominal_flow() -> MassRate {
-        MassRate::new::<kilogram_per_second>(pebble_bed::NOMINAL_HELIUM_FLOW_KG_PER_S)
+        pebble_bed::nominal_helium_flow()
     }
 
     fn sink(t_k: f64) -> ThermodynamicTemperature {
@@ -515,7 +736,7 @@ mod tests {
     #[test]
     fn helium_properties_are_near_the_ideal_gas_limit() {
         for t_k in [523.15, 748.15, 973.15] {
-            let (c_p, density) = helium_properties(t_k);
+            let (c_p, density, _) = helium_properties(t_k);
             let cp_val = c_p.get::<joule_per_kilogram_kelvin>();
             assert!(
                 (cp_val - 5193.0).abs() / 5193.0 < 0.10,
@@ -544,11 +765,11 @@ mod tests {
     /// model built on top of it.
     #[test]
     fn published_operating_point_closes_on_the_energy_balance() {
-        let bulk_mean_k = 0.5 * (PUBLISHED_CORE_INLET_K + PUBLISHED_CORE_OUTLET_K);
-        let (c_p, _) = helium_properties(bulk_mean_k);
+        let bulk_mean_k = 0.5 * (published_core_inlet_k() + published_core_outlet_k());
+        let (c_p, _, _) = helium_properties(bulk_mean_k);
         let rise = 1.0e7
-            / (pebble_bed::NOMINAL_HELIUM_FLOW_KG_PER_S * c_p.get::<joule_per_kilogram_kelvin>());
-        let published_rise = PUBLISHED_CORE_OUTLET_K - PUBLISHED_CORE_INLET_K;
+            / (pebble_bed::nominal_helium_flow_kg_per_s() * c_p.get::<joule_per_kilogram_kelvin>());
+        let published_rise = published_core_outlet_k() - published_core_inlet_k();
         assert!(
             (rise - published_rise).abs() / published_rise < 0.05,
             "energy-balance rise {rise} K departs from the published {published_rise} K"
@@ -670,40 +891,199 @@ mod tests {
         );
     }
 
-    /// Methodology: the quadratic loop loss is anchored to the **published**
-    /// circulator pressure head of 0.06 MPa, quoted at 4.3 kg/s, 3.0 MPa and
-    /// 250 degC. Evaluated at exactly those conditions the model must return
-    /// exactly that head; away from them it must scale as `m_dot^2/rho`, so
-    /// the loss and the circulator power must both rise with flow. Pass
-    /// criterion: within 1% of 0.06 MPa at the anchor conditions, and strict
-    /// monotonicity between a 2.0 kg/s and a 6.0 kg/s case.
+    /// V&V: the KTA bed pressure drop reproduces the Virtual Test Bed gold, and
+    /// what it then predicts for the HTR-10 bed against the published figure.
     ///
-    /// Results (2026-08-12): at the anchor conditions the model returned
-    /// **60.000 kPa** against the published 60 kPa -- exact by construction, so
-    /// this checks the wiring, not the physics. At the settled nominal
-    /// operating point the bulk mean helium is 752.6 K and therefore less dense
-    /// than at the 250 degC anchor, so the same quadratic law gives
-    /// `dp = 86.09 kPa`, 1.43x the published cold-leg head, with
-    /// `W_circulator = 242.3 kW` -- 2.42% of the 10 MWth heat load, a plausible
-    /// fraction for a gas-cooled primary circulator. Helium inventory at that
-    /// point 15.19 kg, giving a 3.53 s loop residence time. The 6.0 kg/s case
-    /// exceeded the 2.0 kg/s case on both measures.
+    /// **Methodology, part 1 (the gate).** The Virtual Test Bed generic
+    /// pebble-bed tutorial, step 2 (Open tier, CC-BY-4.0;
+    /// `reference-data/virtual_test_bed/doc/content/htgr/generic-pbr-tutorial/step2.md`,
+    /// recorded in `docs/reactor-scoping/vtb-findings.md` section 5) works the
+    /// KTA correlation at `D_h` = 0.06 m, eps = 0.39, rho = 8.628204 kg/m^3,
+    /// mu = 1.991242e-5 Pa s, Re = 40125, and states the checked-in gold
+    /// answers `dp/dx` = -3493 Pa/m and 34.93 kPa over the 10 m bed (Pronghorn
+    /// itself computes 3.4933e4 Pa). This test drives the **same correlation
+    /// chain [`bed_pressure_drop`] uses** -- `kta_pressure_gradient` ->
+    /// `pressure_drop_over_bed` from
+    /// [`outram_park_digital_twin_engine::htr10::kta`] -- with the tutorial's
+    /// geometry substituted for the HTR-10's, taking the published Re as the
+    /// flow input (`G = Re mu / D_h`). Pass criterion: gradient within 1 Pa/m
+    /// of 3493 (source precision, 4 significant figures) and the 10 m drop
+    /// within 0.01 kPa of 34.93 kPa.
     ///
-    /// Interpretation: this verifies the anchor and the scaling shape. It is
-    /// **not** a packed-bed friction result -- no KTA or Ergun correlation
-    /// exists in this workspace (see the module docs).
+    /// **Methodology, part 2 (the HTR-10 prediction, reported not asserted to
+    /// a target).** [`bed_pressure_drop`] is then evaluated at the HTR-10 rated
+    /// point: 86% of 4.3 kg/s through the 2.545 m^2 bed cross-section, helium
+    /// at the 3.0 MPa loop pressure and the 748.15 K published bulk mean, over
+    /// the published 1.97 m bed height. The comparator is Gao & Shi (2002)
+    /// Table 1, which gives **1.3 kPa** for "pebble bed and bottom reflector"
+    /// at rated flow. Pass criterion is deliberately loose (0.1-1.3 kPa, i.e.
+    /// same order and not exceeding the published bed-plus-reflector figure) --
+    /// the point is to record the disagreement, not to tune it away.
+    ///
+    /// **Results (recorded 2026-08-12).**
+    ///
+    /// | Case | Model | Reference | Delta |
+    /// |---|---|---|---|
+    /// | VTB gold, `dp/dx` | 3493.17 Pa/m | 3493 Pa/m | +0.005% |
+    /// | VTB gold, 10 m drop | 34.9317 kPa | 34.93 kPa | +0.005% |
+    /// | HTR-10 bed, rated | 0.5041 kPa | 1.3 kPa (bed + bottom reflector) | **-61.2%** |
+    ///
+    /// At the HTR-10 rated point the model evaluates `G` = 1.4532 kg/(m^2 s),
+    /// `Re` = 2315.7, `Re/(1-eps)` = 3796.2 (inside the KTA validity band),
+    /// `psi` = 2.7159, on helium at rho = 1.9209 kg/m^3 and mu = 3.7653e-5
+    /// Pa s, giving `|dp/dx|` = 255.9 Pa/m over the 1.97 m bed.
+    ///
+    /// **Interpretation -- the gate passes, the plant comparison does not
+    /// agree, and that is a finding, not a defect to tune out.** The
+    /// correlation implementation is verified to the published gold's every
+    /// quoted digit. Against the plant, KTA over the HTR-10 bed gives 0.504 kPa
+    /// where Gao & Shi report 1.3 kPa, i.e. **39% of the published figure**.
+    /// Three known differences, none of them quantified here: (1) their figure
+    /// covers the bed **and the bottom reflector's** flow passages, which this
+    /// model does not represent at all; (2) their calculation is nodalised, so
+    /// the correlation is integrated down a bed running 250 -> 700 degC, while
+    /// this single node applies it once at the bulk mean; (3) their bed flow is
+    /// 3.77 kg/s of 4.32 kg/s (87.3%) against the 86% conservative fraction and
+    /// 4.3 kg/s benchmark flow used here. No attempt is made to close the gap
+    /// by adjusting anything -- see the module docs.
     #[test]
-    fn pressure_drop_is_anchored_to_the_published_circulator_head() {
-        // At the anchor conditions the quadratic law must return the published
-        // head exactly.
-        let mut anchored = nominal_loop();
-        anchored.density = anchored.reference_density;
-        anchored.update_hydraulics(pebble_bed::NOMINAL_HELIUM_FLOW_KG_PER_S);
-        let dp_anchor = anchored.pressure_drop().get::<pascal>();
-        assert!(
-            (dp_anchor - NOMINAL_PRESSURE_DROP_PA).abs() / NOMINAL_PRESSURE_DROP_PA < 0.01,
-            "at the anchor conditions dp = {dp_anchor} Pa, not the published 60 kPa"
+    fn kta_bed_drop_reproduces_the_vtb_gold_and_is_checked_against_htr10() {
+        use uom::si::f64::{Length, Ratio};
+        use uom::si::length::meter;
+        use uom::si::pressure::kilopascal;
+
+        // --- Part 1: the VTB gold, through the same correlation chain. ---
+        let d_h = Length::new::<meter>(0.06);
+        let mu_vtb = DynamicViscosity::new::<pascal_second>(1.991242e-5);
+        let rho_vtb = MassDensity::new::<kilogram_per_cubic_meter>(8.628204);
+        let eps_vtb = Ratio::new::<ratio>(0.39);
+        let g_vtb = Ratio::new::<ratio>(40125.0) * mu_vtb / d_h;
+
+        let gradient_vtb = kta::kta_pressure_gradient(g_vtb, d_h, eps_vtb, rho_vtb, mu_vtb);
+        let drop_vtb = kta::pressure_drop_over_bed(gradient_vtb, Length::new::<meter>(10.0));
+        println!(
+            "VTB gold: |dp/dx| = {:.2} Pa/m (gold 3493), drop over 10 m = {:.4} kPa (gold 34.93)",
+            gradient_vtb.value,
+            drop_vtb.get::<kilopascal>()
         );
+        assert!(
+            (gradient_vtb.value - 3493.0).abs() < 1.0,
+            "KTA gradient {} Pa/m misses the VTB gold 3493 Pa/m",
+            gradient_vtb.value
+        );
+        assert!(
+            (drop_vtb.get::<kilopascal>() - 34.93).abs() < 0.01,
+            "KTA 10 m drop {} kPa misses the VTB gold 34.93 kPa",
+            drop_vtb.get::<kilopascal>()
+        );
+
+        // --- Part 2: what that correlation says about the HTR-10 bed. ---
+        let bulk_mean_k = 0.5 * (published_core_inlet_k() + published_core_outlet_k());
+        let (_, rho, mu) = helium_properties(bulk_mean_k);
+        let bed_flow = MassRate::new::<kilogram_per_second>(
+            pebble_bed::nominal_helium_flow_kg_per_s() * core_flow_fraction(),
+        );
+        let flux = kta::superficial_mass_flux(bed_flow, pebble_bed::superficial_area());
+        let re = kta::packed_bed_reynolds(flux, pebble_bed::pebble_diameter(), mu);
+        let psi = kta::kta_friction_factor(re, pebble_bed::bed_porosity());
+        let drop = bed_pressure_drop(
+            bed_flow,
+            MassDensity::new::<kilogram_per_cubic_meter>(rho),
+            mu,
+        );
+        println!(
+            "HTR-10 bed: G = {:.4} kg/(m^2 s), Re = {:.1}, Re/(1-eps) = {:.1}, psi = {:.4}, \
+             rho = {:.4} kg/m^3, mu = {:.4e} Pa s, drop = {:.4} kPa (published bed + bottom \
+             reflector 1.3 kPa)",
+            flux.value,
+            re.get::<ratio>(),
+            re.get::<ratio>() / (1.0 - pebble_bed::bed_porosity().get::<ratio>()),
+            psi.get::<ratio>(),
+            rho,
+            mu.get::<pascal_second>(),
+            drop.get::<kilopascal>()
+        );
+
+        // The KTA validity band the source states: Re/(1-eps) from about 1 to
+        // 1e5. If a future change pushes the bed outside it, fail loudly.
+        let re_modified = re.get::<ratio>() / (1.0 - pebble_bed::bed_porosity().get::<ratio>());
+        assert!(
+            (1.0..=1.0e5).contains(&re_modified),
+            "modified Reynolds number {re_modified} is outside the KTA validity band"
+        );
+
+        // Same order as the published figure, and below it -- this model covers
+        // the bed only, not the bottom reflector the published figure includes.
+        let drop_pa = drop.get::<pascal>();
+        assert!(
+            (100.0..=PUBLISHED_BED_AND_BOTTOM_REFLECTOR_DROP_PA).contains(&drop_pa),
+            "KTA bed drop {drop_pa} Pa is not in the 0.1 kPa to published 1.3 kPa band"
+        );
+    }
+
+    /// V&V: the loop pressure drop sits on the published loop budget, and both
+    /// it and the circulator power rise with flow.
+    ///
+    /// **Methodology.** The model's loop drop is the KTA bed term plus the
+    /// published non-bed remainder (25.9 kPa at rated flow, quadratic in flow:
+    /// side reflector 0.7 + mixture plenums 6.1 + steam generator 15.0 + hot
+    /// gas duct 4.1, Gao & Shi 2002 Table 1). Evaluated at the rated 4.3 kg/s
+    /// the total must therefore land near the published 27.2 kPa loop
+    /// resistance -- **not** near the 60 kPa circulator design head, which is a
+    /// capability with margin, not an operating loss. Pass criteria: total
+    /// within 10% of 27.2 kPa at rated flow; strict monotonicity of both drop
+    /// and circulator power between a settled 2.0 kg/s and 6.0 kg/s case.
+    ///
+    /// **Results (recorded 2026-08-12).** At the settled rated point the model
+    /// gives **26.407 kPa** against the published 27.2 kPa, **-2.9%** -- and
+    /// the whole of that shortfall is the bed term (0.507 kPa computed by KTA
+    /// at the settled bulk mean, against the 1.3 kPa published for bed plus
+    /// bottom reflector, see
+    /// `kta_bed_drop_reproduces_the_vtb_gold_and_is_checked_against_htr10`),
+    /// since the other four components are carried at their published values by
+    /// construction. Circulator hydraulic power at that point is **74.3 kW**,
+    /// 0.74% of the 10 MWth heat load -- a plausible fraction for a gas-cooled
+    /// primary circulator. For comparison the previous anchored-quadratic model
+    /// reported 86.1 kPa and 242.3 kW at the same point, because it treated the
+    /// 60 kPa circulator *design head* as the operating loss and then scaled it
+    /// up by the hot/cold density ratio. The 6.0 kg/s case exceeded the
+    /// 2.0 kg/s case on both measures.
+    ///
+    /// **Interpretation.** The agreement on the *total* is mostly bookkeeping:
+    /// 25.9 of the 27.2 kPa is carried, not computed. What is computed is the
+    /// bed term, and it disagrees with the published bed figure by a factor of
+    /// 2.6 (see the other test). Read this test as "the loop budget is wired up
+    /// correctly and scales sensibly", not as a validated loop hydraulic model.
+    #[test]
+    fn loop_pressure_drop_sits_on_the_published_budget_and_rises_with_flow() {
+        use uom::si::pressure::kilopascal;
+
+        let mut rated = nominal_loop();
+        for _ in 0..8000 {
+            rated.step(
+                Time::new::<second>(0.05),
+                Power::new::<megawatt>(10.0),
+                nominal_flow(),
+                sink(523.5),
+            );
+        }
+        let total_kpa = rated.pressure_drop().get::<kilopascal>();
+        let bed_kpa = rated.bed_pressure_drop().get::<kilopascal>();
+        println!(
+            "settled rated point: total dp = {:.3} kPa (published 27.2), of which bed (KTA) = \
+             {:.3} kPa (published bed + bottom reflector 1.3); circulator = {:.1} kW; \
+             circulator design head for reference {:.0} kPa",
+            total_kpa,
+            bed_kpa,
+            rated.circulator_power().get::<watt>() / 1.0e3,
+            CIRCULATOR_DESIGN_HEAD_PA / 1.0e3
+        );
+        let published_kpa = PUBLISHED_LOOP_TOTAL_DROP_PA / 1.0e3;
+        assert!(
+            (total_kpa - published_kpa).abs() / published_kpa < 0.10,
+            "loop drop {total_kpa} kPa departs from the published {published_kpa} kPa budget"
+        );
+        assert!(bed_kpa > 0.0, "the KTA bed term must be positive at flow");
 
         let mut slow = nominal_loop();
         let mut fast = nominal_loop();
@@ -725,6 +1105,9 @@ mod tests {
         }
         assert!(slow.pressure_drop().get::<pascal>() > 0.0);
         assert!(fast.pressure_drop().get::<pascal>() > slow.pressure_drop().get::<pascal>());
+        assert!(
+            fast.bed_pressure_drop().get::<pascal>() > slow.bed_pressure_drop().get::<pascal>()
+        );
         assert!(fast.circulator_power().get::<watt>() > slow.circulator_power().get::<watt>());
     }
 
