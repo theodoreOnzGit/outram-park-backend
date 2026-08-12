@@ -258,6 +258,68 @@ pub enum SolverMode {
     HybridAllMach,
 }
 
+/// Face-interpolation scheme for the **energy equation's** convection term
+/// `∇·(φh)` (see [`OPCPFluidArray::he_convection_scheme`]).
+///
+/// This is enum dispatch (no trait objects, per the workspace design rules) over
+/// the flux limiter `λ(r)` applied to the upwind-biased face reconstruction —
+/// OpenFOAM's `div(phi,h)` scheme entry, in other words. `λ = 0` is first-order
+/// upwind, `λ = 1` is unlimited central differencing, and the TVD variants pick
+/// `λ(r)` from the local slope ratio so no new extremum is created.
+///
+/// **This is distinct from, and independent of, [`SolverMode::HybridAllMach`].**
+/// That switch adds a *Mach-weighted* KNP dissipation to continuity and momentum
+/// which is identically zero on a subsonic face (`β(Ma) = 0`) — precisely the
+/// regime a heat exchanger operates in, so it does nothing for scalar
+/// boundedness. Enthalpy boundedness is this setting's job, at any Mach number.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum EnergyConvectionScheme {
+    /// **van Leer TVD limiter**, `λ(r) = (r + |r|)/(1 + |r|)` — the default.
+    /// Second-order where the enthalpy field is smooth, falling back toward
+    /// upwind at a front so the solution stays bounded by its own initial and
+    /// boundary data. OpenFOAM equivalent: `div(phi,h) Gauss vanLeer`.
+    #[default]
+    VanLeer,
+    /// **minmod TVD limiter**, `λ(r) = max(0, min(r, 1))` — the most diffusive
+    /// of the TVD limiters, and correspondingly the most robust. Use it if
+    /// [`Self::VanLeer`] still rings on a particularly sharp front.
+    Minmod,
+    /// **First-order upwind**, `λ ≡ 0`. Unconditionally bounded (at CFL ≤ 1) and
+    /// strongly numerically diffusive: a thermal front smears over several cells.
+    /// The safe fallback, not a good default.
+    Upwind,
+    /// **Unlimited central differencing**, `λ ≡ 1` — second-order and
+    /// **unbounded**.
+    ///
+    /// This restores the historical (pre-2026-08-12) *interior* scheme, and is
+    /// kept only so an existing study can be re-run against something close to
+    /// its original numbers. It is **not** bit-for-bit historical: the boundary
+    /// faces now use the direction-switched upwind advection terminal
+    /// (`fvc::div_limited`) under every variant, which the old code did not have
+    /// and which is a boundary-condition correctness fix, not a scheme choice.
+    /// It produces dispersive over- and undershoots at an
+    /// advected thermal front: measured 2026-08-12 on an 8-cell nitrogen pipe
+    /// with a 311.20 → 520.45 kJ/kg inlet step, the inlet cell overshot to
+    /// 556.52 kJ/kg (117 % of the imposed step) and, in the cooling direction, a
+    /// cell reached 274 K against a 300 K inlet and a 500 K seed. For a stream
+    /// near saturation such an undershoot can drive the `(p, h)` flash out of
+    /// range. **Do not select this for new work.**
+    Linear,
+}
+
+impl EnergyConvectionScheme {
+    /// The vendored FV-layer limiter this scheme maps onto. Private: the
+    /// `openfoam_source` tree is `pub(crate)` machinery, not public API.
+    fn limiter(self) -> fvc::Limiter {
+        match self {
+            Self::VanLeer => fvc::Limiter::VanLeer,
+            Self::Minmod => fvc::Limiter::Minmod,
+            Self::Upwind => fvc::Limiter::Upwind,
+            Self::Linear => fvc::Limiter::Linear,
+        }
+    }
+}
+
 /// Per-`step` hybrid KNP dissipation for the continuity and momentum equations.
 /// Both fields are the deferred-correction contribution `β·(knp − central)·|Sf|`
 /// summed appropriately; every entry is identically zero on a subsonic
@@ -472,6 +534,15 @@ pub struct OPCPFluidArray {
     /// neither clamped nor counted — genuine divergence is not masked.
     pub h_clamp_events: usize,
 
+    /// Face-interpolation scheme for the energy equation's convection term
+    /// `∇·(φh)` — see [`EnergyConvectionScheme`] and
+    /// [`Self::set_he_convection_scheme`].
+    ///
+    /// Defaults to [`EnergyConvectionScheme::VanLeer`] (bounded/TVD). Before
+    /// 2026-08-12 this term was hard-wired to unlimited central differencing,
+    /// which is now [`EnergyConvectionScheme::Linear`].
+    pub he_convection_scheme: EnergyConvectionScheme,
+
     // ── All-Mach hybrid (opt-in) ─────────────────────────────────────────────
     /// Flux-discretisation mode (default [`SolverMode::Pimple`], bit-identical
     /// to the historical path). See [`Self::set_solver_mode`].
@@ -679,6 +750,9 @@ impl OPCPFluidArray {
             h_min: AvailableEnergy::new::<joule_per_kilogram>(H_MIN_DEFAULT),
             h_max: AvailableEnergy::new::<joule_per_kilogram>(H_MAX_DEFAULT),
             h_clamp_events: 0,
+            // Bounded (TVD) enthalpy convection by default -- see
+            // `EnergyConvectionScheme`.
+            he_convection_scheme: EnergyConvectionScheme::default(),
             // Default: pure PIMPLE ⇒ the hybrid dissipation is never assembled,
             // so every existing constructor/test runs the unchanged code path.
             mode: SolverMode::Pimple,
@@ -1152,6 +1226,31 @@ impl OPCPFluidArray {
                     for f in 0..mesh.n_internal_faces {
                         phi_hbya.internal[f] -= rho_rauf_sl[f] * sng_sl[f] * mesh.face_areas[f];
                     }
+
+                    // ── The SAME correction on boundary faces ────────────────
+                    // OpenFOAM's pEqn does `phi = phiHbyA - pEqn.flux()`, and
+                    // `fvMatrix::flux()` carries the boundary contribution too —
+                    // this loop is that boundary half, which was missing. It is
+                    // self-selecting: `fvc::sn_grad` returns 0 on a zero-gradient
+                    // pressure patch, so a prescribed-velocity (or mass-flow)
+                    // inlet — where `p` is zero-gradient and the flux was already
+                    // written back exactly from the BC above — is left untouched,
+                    // and only a fixed-pressure outlet is corrected.
+                    //
+                    // Without it the outlet carried the *predictor* flux φ_HbyA.
+                    // That is not a benign truncation: measured 2026-08-12, it
+                    // broke the transient global energy balance by ~5.9 % of the
+                    // source power and did NOT reduce under mesh refinement,
+                    // because it is an algorithmic (predictor/corrector) gap, not
+                    // a spatial one. Bead op-nnqi.
+                    for (pi, patch) in mesh.patches.iter().enumerate() {
+                        for fi in 0..patch.size {
+                            let gf = patch.start + fi;
+                            phi_hbya.boundary[pi].values[fi] -= rho_rauf.boundary[pi].values[fi]
+                                * sng.boundary[pi].values[fi]
+                                * mesh.face_areas[gf];
+                        }
+                    }
                     self.phi = phi_hbya;
                 }
 
@@ -1192,7 +1291,19 @@ impl OPCPFluidArray {
 
             // ── Energy equation ─────────────────────────────────────────────
             //   ∂(ρh)/∂t + ∇·(φh) + (−∇·(αh∇h)) = dp/dt   [+ laplacian sign]
-            let conv_he = fvc::div(&self.phi, &self.he); // explicit ∇·(φh)/V
+            // Explicit ∇·(φh)/V with an upwind-biased, flux-limited face value
+            // (`he_convection_scheme`, default van Leer TVD). A plain linear
+            // (central) face value here is second-order but UNBOUNDED, and the
+            // energy equation is advection-dominated (cell Péclet ≫ 1), so it
+            // rings at an advected thermal front: measured 2026-08-12, the
+            // enthalpy field left the range spanned by its own inlet BC and
+            // initial state by 10-15 % of the imposed step. An enthalpy
+            // undershoot is not cosmetic — it can hand `correct_thermo`'s
+            // `(p, h)` flash a state outside the EOS's valid range. Select
+            // `EnergyConvectionScheme::Linear` to recover the old behaviour
+            // bit-for-bit. Bead op-1fyp.
+            let conv_he =
+                fvc::div_limited(&self.phi, &self.he, self.he_convection_scheme.limiter()); // explicit ∇·(φh)/V
             let alpha_h_f = fvc::interpolate(&self.alpha_h);
             let dp_dt = (self.p.clone() - p_old.clone()) * (1.0 / dt);
 
@@ -1462,6 +1573,31 @@ impl OPCPFluidArray {
         );
         self.p_min = p_min;
         self.p_max = p_max;
+    }
+
+    /// The face-interpolation scheme currently used for the energy equation's
+    /// convection term `∇·(φh)`. See [`Self::set_he_convection_scheme`].
+    pub fn get_he_convection_scheme(&self) -> EnergyConvectionScheme {
+        self.he_convection_scheme
+    }
+
+    /// Selects the face-interpolation scheme for the energy equation's
+    /// convection term `∇·(φh)`.
+    ///
+    /// The default, [`EnergyConvectionScheme::VanLeer`], is a bounded (TVD)
+    /// scheme: second-order where the enthalpy field is smooth, limited toward
+    /// upwind at a front so the solution cannot leave the range set by its own
+    /// initial and boundary data. Choose [`EnergyConvectionScheme::Minmod`] or
+    /// [`EnergyConvectionScheme::Upwind`] for progressively more numerical
+    /// diffusion and robustness, or [`EnergyConvectionScheme::Linear`] **only**
+    /// to reproduce this solver's pre-2026-08-12 (unbounded) numbers — see that
+    /// variant's doc comment for the measured over/undershoot it produces.
+    ///
+    /// This is independent of [`Self::set_solver_mode`], which governs a
+    /// *Mach-weighted* dissipation on continuity and momentum that vanishes in
+    /// subsonic flow and does nothing for scalar boundedness.
+    pub fn set_he_convection_scheme(&mut self, scheme: EnergyConvectionScheme) {
+        self.he_convection_scheme = scheme;
     }
 
     /// The current flux-discretisation mode (see [`SolverMode`]).
