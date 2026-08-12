@@ -11,10 +11,35 @@ secondary loop.
 > **Status of this document.** Capability findings come from a codebase audit
 > performed 2026-08-06. Validation source identifiers are **deliberately
 > unverified** — see [Open validation data](#open-validation-data).
+>
+> **Partially superseded 2026-08-12.** `htgr_sim_v1` was rescaled from a
+> prismatic-block HTGR to the published HTR-10 pebble-bed operating point, and
+> two "MISSING" gaps were closed. Section 1 and the affected gap-table rows are
+> corrected inline below. **The rest of the audit has not been re-run**, so
+> anything not explicitly marked as re-verified still dates from 2026-08-06 and
+> may have drifted the same way these did.
 
 Relates to the existing bead `op-wqk.9` (`htgr_sim_v1`) and its children.
 
 ## 1. Framing correction — read this first
+
+> **This section is OBSOLETE as of 2026-08-12 and is kept only so the change is
+> traceable.** Everything below the rule was true when written and is now false.
+> The rewrite it called for has been done.
+
+**What is true now.** `htgr_sim_v1` models a **pebble bed** at the published
+HTR-10 operating point: 10 MWth, helium at 3.0 MPa, 250 → 700 degC at 4.3 kg/s,
+27,000 fuel spheres in a 1.8 m × 1.97 m bed, downward flow, separate-vessel
+once-through helical steam generator. Packed-bed pressure drop is real (KTA,
+gold-gated), and every published constant is read from
+`Htr10DesignPoint` rather than copied. The bed remains **one lumped control
+volume** — a real friction correlation is not a resolved bed — and the
+pebble-to-helium heat-transfer coefficient is still invented and measurably too
+low. Nodalising the bed is tracked separately.
+
+---
+
+*Original text, 2026-08-06:*
 
 **The existing `htgr_sim_v1` example is a prismatic-block HTGR, not a pebble
 bed.** It says so at `crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs:3`.
@@ -58,12 +83,16 @@ Verified this session: `htgr_sim_v1` tests 12/12 pass, `fhr_sim_v2` 3/3 pass.
 
 ### SCAFFOLD — do not count as working
 
-- **Ergun is a `todo!()`.** The packed-bed pressure-drop variant is declared with
-  its citation at
-  `crates/tuas_boussinesq_solver/.../fluid_component_calculation/mod.rs:48` and
-  unimplemented at `:161`. The gFHR pebble-bed components carry the comment
-  "not putting in ergun equation yet" **seventeen times**, using pipe friction on
+- **Ergun is still unimplemented *in TUAS*.** The packed-bed variant is declared
+  with its citation, and marked "not done yet", at
+  `crates/tuas_boussinesq_solver/src/lib/array_control_vol_and_fluid_component_collections/one_d_fluid_array_with_lateral_coupling/fluid_component_calculation/mod.rs:48-54`,
+  with the match arm at `:149`. The gFHR pebble-bed components carry the comment
+  "not putting in ergun equation yet" **eighteen times**, using pipe friction on
   a pebble-derived hydraulic diameter instead.
+
+  **This is now a TUAS-specific gap, not a workspace-wide one** — see the
+  correction below the gap table. Re-verified 2026-08-12 (the module path and
+  the occurrence count in the previous wording were both stale).
 - The TUAS porous-media component states its own gap: pressure-drop correlations
   are not properly implemented, so it behaves like a pipe.
 - `fhr_sim_v2`'s pebble-bed thermal hydraulics is a **single lumped enthalpy
@@ -95,8 +124,8 @@ reference it names. This should be treated as unvalidated and fixed.
 
 | Gap | Size | Notes |
 |---|---|---|
-| Ergun or KTA-form packed-bed pressure drop | Small to write, Medium to wire and validate | Nothing exists |
-| **Pebble-bed effective radial conductivity** | Medium | Solid, gas, contact and radiation contributions plus wall-region correction. Literally zero code in the workspace |
+| Ergun or KTA-form packed-bed pressure drop | ~~Small to write~~ **DONE (KTA)** | ~~Nothing exists~~ **`outram-park-digital-twin-engine/src/htr10/kta.rs` implements the KTA 3102.3 packed-bed friction correlation, tested, and it is WIRED into `examples/htgr_sim_v1`. Gold-gated against the Virtual Test Bed worked example: 3493.17 Pa/m vs 3493 Pa/m, +0.005%.** TUAS's own Ergun variant is still unimplemented — that gap is real but local to TUAS |
+| **Pebble-bed effective radial conductivity** | ~~Medium~~ **EXISTS, not in a heat path** | ~~Literally zero code in the workspace~~ **`outram-park-digital-twin-engine/src/htr10/zbs.rs` implements Zehner-Bauer-Schluender, tested.** It is deliberately NOT in `htgr_sim_v1`'s heat path: one lumped bed control volume has no internal gradient for a conductivity to act on. Quantified 2026-08-12 — `k_eff(748.15 K) = 20.195 W/(m K)`, giving 11.74 kW of axial conduction, **0.117% of the 10 MW convective duty**. Negligible under forced flow; it becomes the entire heat path under LOFC, a regime that model cannot enter |
 | **Graphite properties** — matrix and reflector grades, conductivity as a function of temperature and fast-neutron dose | Medium | The solid database holds only copper, stainless, fibreglass, aerogel, FeCrAl and a generic heating element. No graphite anywhere |
 | Gas arm in the TUAS material enum | Small–Medium | `Material` is solid-or-liquid only, so the whole TUAS prebuilt component library cannot be used for a helium loop |
 | Radial pebble conduction, fuel zone to surface | Medium | GeN-Foam's pebble routine was deliberately not ported; the app-builder crate says so explicitly |
