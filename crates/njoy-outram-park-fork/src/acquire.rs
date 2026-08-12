@@ -145,6 +145,64 @@ impl EndfLibrary {
     pub fn neutron_url(&self, mat: i32, z: u32, a: u32, symbol: &str) -> String {
         format!("{IAEA_BASE_URL}/{}/n/{}", self.dir(), zip_filename(mat, z, a, symbol))
     }
+
+    /// The full hardcoded download URL for a **thermal-scattering-law** (tsl) tape.
+    ///
+    /// Unlike the neutron sublibrary (MAT-numbered `n_<MAT>_...` files), the IAEA
+    /// NDS thermal sublibrary serves **named** files under `<library>/tsl/`, e.g.
+    /// `<base>/ENDF-B-VIII.0/tsl/tsl-crystalline-graphite.zip`. `tsl_base` is the
+    /// basename with no extension (see [`TslMaterial::base`] / [`well_known_tsl`]);
+    /// the download is `<base>.zip`, the extracted tape `<base>.endf`.
+    ///
+    /// The `<library>/tsl/<base>.zip` layout matches the IAEA NDS `download-endf`
+    /// tree the neutron path already uses; it has not been re-fetched from this
+    /// (offline) host, so a first network fetch is the point to confirm the exact
+    /// mirror-side spelling — centralised here so a rename is a one-line fix.
+    pub fn thermal_url(&self, tsl_base: &str) -> String {
+        format!("{IAEA_BASE_URL}/{}/tsl/{}.zip", self.dir(), tsl_base)
+    }
+}
+
+/// A thermal-scattering-law (tsl) material in the built-in registry: its IAEA NDS
+/// download basename and its ENDF thermal-sublibrary material number.
+///
+/// The tsl sublibrary treats a *bound-atom scatterer* (H in H₂O, C in graphite, …)
+/// as its own material — distinct from the free-atom neutron evaluation — so it is
+/// addressed by name, not by (Z, A). See [`well_known_tsl`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TslMaterial {
+    /// IAEA NDS `tsl/` sublibrary basename, no extension
+    /// (e.g. `"tsl-crystalline-graphite"`). Feeds [`EndfLibrary::thermal_url`].
+    pub base: &'static str,
+    /// ENDF thermal-sublibrary MAT (MF=7). Metadata for cross-checking the tape's
+    /// own MAT; **not** used to build the URL (tsl files are named, not
+    /// MAT-numbered).
+    pub mat: i32,
+}
+
+/// Look up a thermal-scattering-law material by a friendly key.
+///
+/// Covers the **HTR-10 graphite** moderator/reflector evaluations and the
+/// light-water H-in-H₂O law the thermal-pincell tests consume. Values are the
+/// public ENDF/B-VIII.0 thermal-sublibrary materials (open data, per
+/// `DATA_POLICY.md`); the graphite MATs (30/31/32) match the tapes the
+/// `thermal_graphite_coherent` V&V test was measured against. Unknown keys → `None`
+/// (pass an explicit `base` to [`EndfCache::fetch_tsl`] for anything else).
+pub fn well_known_tsl(name: &str) -> Option<TslMaterial> {
+    let m = match name {
+        "graphite" | "crystalline-graphite" | "tsl-crystalline-graphite" => {
+            TslMaterial { base: "tsl-crystalline-graphite", mat: 30 }
+        }
+        "reactor-graphite-10P" | "tsl-reactor-graphite-10P" => {
+            TslMaterial { base: "tsl-reactor-graphite-10P", mat: 31 }
+        }
+        "reactor-graphite-30P" | "tsl-reactor-graphite-30P" => {
+            TslMaterial { base: "tsl-reactor-graphite-30P", mat: 32 }
+        }
+        "HinH2O" | "H2O" | "tsl-HinH2O" => TslMaterial { base: "tsl-HinH2O", mat: 1 },
+        _ => return None,
+    };
+    Some(m)
 }
 
 /// The IAEA NDS neutron-sublibrary **zip** filename for a nuclide:
@@ -343,6 +401,17 @@ impl EndfCache {
         symbol: &str,
     ) -> Result<PathBuf, NjoyError> {
         let final_path = self.path_for(library, mat, z, a, symbol);
+        let url = library.neutron_url(mat, z, a, symbol);
+        self.fetch_to_path(&url, final_path)
+    }
+
+    /// Download `url` (a single-member zip of one ENDF tape) into `final_path`,
+    /// returning the cached, extracted path. The concurrency-safe download core
+    /// shared by [`Self::fetch`] (neutron sublibrary) and [`Self::fetch_tsl`]
+    /// (thermal sublibrary): a cache hit returns immediately; a miss takes an
+    /// exclusive lock, downloads + unzips + validates once, publishes atomically
+    /// via a fsync'd temp-file rename, and writes a SHA-256 sidecar.
+    fn fetch_to_path(&self, url: &str, final_path: PathBuf) -> Result<PathBuf, NjoyError> {
         let parent = final_path.parent().unwrap().to_path_buf();
         fs::create_dir_all(&parent)?;
 
@@ -363,10 +432,9 @@ impl EndfCache {
             }
 
             // 4. Download the zip, extract the ENDF member in memory.
-            let url = library.neutron_url(mat, z, a, symbol);
-            let zip_bytes = http_get(&url)?;
-            let tape_bytes = unzip_single(&zip_bytes, &url)?;
-            validate_endf(&tape_bytes, &url)?;
+            let zip_bytes = http_get(url)?;
+            let tape_bytes = unzip_single(&zip_bytes, url)?;
+            validate_endf(&tape_bytes, url)?;
 
             // 5. Write to a unique temp file in the same dir, fsync.
             let tmp = parent.join(format!(
@@ -394,6 +462,54 @@ impl EndfCache {
         // 8. Always release the lock.
         let _ = lock_file.unlock();
         result
+    }
+
+    /// The final cached (extracted) tape path for a tsl material of `library`:
+    /// `<root>/<library>/<base>.endf` (e.g.
+    /// `<root>/ENDF-B-VIII.0/tsl-crystalline-graphite.endf`).
+    pub fn path_for_tsl(&self, library: EndfLibrary, tsl_base: &str) -> PathBuf {
+        self.dir.join(library.dir()).join(format!("{tsl_base}.endf"))
+    }
+
+    /// Fetch a **thermal-scattering-law** tape (downloading + unzipping if needed),
+    /// returning the path to the cached, extracted `.endf`. The tsl counterpart of
+    /// [`Self::fetch`]; same lock / atomic-publish / SHA-256 discipline via the
+    /// shared [`Self::fetch_to_path`] core, but addressed by tsl basename (see
+    /// [`EndfLibrary::thermal_url`] / [`well_known_tsl`]) since the thermal
+    /// sublibrary names its files rather than MAT-numbering them.
+    pub fn fetch_tsl(&self, library: EndfLibrary, tsl_base: &str) -> Result<PathBuf, NjoyError> {
+        let final_path = self.path_for_tsl(library, tsl_base);
+        let url = library.thermal_url(tsl_base);
+        self.fetch_to_path(&url, final_path)
+    }
+
+    /// Fetch a tsl tape by a friendly registry key (see [`well_known_tsl`]) — e.g.
+    /// `"graphite"`, `"reactor-graphite-10P"`, `"HinH2O"`. Errors if the key is not
+    /// in the built-in registry; pass an explicit basename to [`Self::fetch_tsl`]
+    /// for anything else.
+    pub fn fetch_tsl_by_name(
+        &self,
+        library: EndfLibrary,
+        name: &str,
+    ) -> Result<PathBuf, NjoyError> {
+        let m = well_known_tsl(name).ok_or_else(|| {
+            NjoyError::Download(format!(
+                "thermal-scattering material {name:?} not in the built-in tsl registry; \
+                 pass an explicit basename via fetch_tsl()"
+            ))
+        })?;
+        self.fetch_tsl(library, m.base)
+    }
+
+    /// Fetch (or reuse) a tsl tape and parse it into an ENDF [`Tape`] — the entry
+    /// point for the [`crate::thermr`] thermal-scattering path (MF=7 S(α,β)).
+    pub fn download_tsl_tape(
+        &self,
+        library: EndfLibrary,
+        tsl_base: &str,
+    ) -> Result<Tape, NjoyError> {
+        let path = self.fetch_tsl(library, tsl_base)?;
+        Tape::read(File::open(&path)?)
     }
 
     /// Fetch (or reuse) the tape and parse it into an ENDF [`Tape`].
@@ -565,6 +681,41 @@ mod tests {
         assert_eq!(zip_filename(125, 1, 1, "H"), "n_0125_1-H-1.zip");
         assert_eq!(zip_filename(825, 8, 16, "O"), "n_0825_8-O-16.zip");
         assert_eq!(tape_filename(9228, 92, 235, "U"), "n_9228_92-U-235.endf");
+    }
+
+    /// The thermal-scattering-law (tsl) acquire path builds the IAEA NDS
+    /// `<library>/tsl/<base>.zip` URL and the `<library>/<base>.endf` cache path
+    /// for the HTR-10 graphite moderators and light-water H-in-H₂O (bead op-6tz.28).
+    ///
+    /// # Methodology / results (2026-08-12)
+    /// Structural / addressing check (no network): the tsl sublibrary names its
+    /// files rather than MAT-numbering them, so a wrong basename 404s. Assert the
+    /// registry resolves each key to its published basename + ENDF/B-VIII.0 MAT,
+    /// that [`EndfLibrary::thermal_url`] builds the `tsl/` URL, and that
+    /// [`EndfCache::path_for_tsl`] lays the cache out under `<library>/`. All PASS.
+    #[test]
+    fn tsl_acquire_path_is_well_formed() {
+        // Registry resolves the HTR-10 graphite evaluations + H-in-H2O.
+        assert_eq!(
+            well_known_tsl("graphite"),
+            Some(TslMaterial { base: "tsl-crystalline-graphite", mat: 30 })
+        );
+        assert_eq!(well_known_tsl("crystalline-graphite").unwrap().mat, 30);
+        assert_eq!(well_known_tsl("reactor-graphite-10P").unwrap().mat, 31);
+        assert_eq!(well_known_tsl("reactor-graphite-30P").unwrap().mat, 32);
+        assert_eq!(well_known_tsl("HinH2O").unwrap().base, "tsl-HinH2O");
+        assert_eq!(well_known_tsl("not-a-scatterer"), None);
+
+        // thermal_url builds the tsl sublibrary URL (named file, not n_<MAT>).
+        assert_eq!(
+            EndfLibrary::EndfBVIII0.thermal_url("tsl-crystalline-graphite"),
+            "https://www-nds.iaea.org/public/download-endf/ENDF-B-VIII.0/tsl/tsl-crystalline-graphite.zip"
+        );
+
+        // Cache layout: <root>/<library>/<base>.endf.
+        let cache = EndfCache::with_dir(std::env::temp_dir().join("op6tz28_tsl_test")).unwrap();
+        let p = cache.path_for_tsl(EndfLibrary::EndfBVIII0, "tsl-crystalline-graphite");
+        assert!(p.ends_with("ENDF-B-VIII.0/tsl-crystalline-graphite.endf"));
     }
 
     /// Each library variant points at a distinct hardcoded upstream directory.
