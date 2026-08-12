@@ -1,21 +1,21 @@
 //! Where the CIET v2 OPC-UA server keeps its PKI directory.
 //!
+//! The path resolution itself is reactor-agnostic and lives in
+//! [`opcua_core::pki`](crate::opcua_core::pki); this module names CIET's
+//! directory and binds the shared helpers to it, so callers never pass the
+//! directory name by hand.
+//!
 //! `async-opcua` needs a writable directory to hold its **application instance
-//! certificate**. This module decides where that directory lives, so the
-//! simulator never scatters `./pki` folders into whatever working directory it
-//! happened to be launched from.
+//! certificate**. Putting it under the user's home means the simulator never
+//! scatters `./pki` folders into whatever working directory it happened to be
+//! launched from.
 //!
 //! ## Layout
 //!
-//! | Platform | Root ([`outram_park_home`]) | PKI dir ([`ciet_v2_pki_dir`]) |
+//! | Platform | Root | PKI dir ([`ciet_v2_pki_dir`]) |
 //! |---|---|---|
 //! | Linux / macOS / Termux | `$HOME/.outram-park` | `$HOME/.outram-park/ciet-v2-opcua-pki` |
 //! | Windows | `%APPDATA%\outram-park` | `%APPDATA%\outram-park\ciet-v2-opcua-pki` |
-//!
-//! A single dot-directory under the user's home was chosen by the maintainer so
-//! every OUTRAM PARK tool that needs persistent scratch space has one obvious
-//! place to put it, with the conventional Windows equivalent (`%APPDATA%`,
-//! i.e. `directories`' `BaseDirs::data_dir()`).
 //!
 //! Inside the PKI directory, `async-opcua` populates the usual OPC-UA
 //! certificate-store subtree itself on first run:
@@ -40,54 +40,24 @@
 //!
 //! ## No credentials, ever (`RESPONSIBLE_USE.md`)
 //!
-//! This module creates a directory and reports its path. It must never grow
-//! code that reads institutional credentials, API keys, access tokens, or any
+//! This module names a directory and reports its path. It must never grow code
+//! that reads institutional credentials, API keys, access tokens, or any
 //! certificate belonging to a real facility or production system.
+//!
+//! ## Units
+//!
+//! Everything here is a filesystem path or a name. No physical quantities, no
+//! units.
 
 use std::path::PathBuf;
 
-/// Directory name of the OUTRAM PARK per-user root, on Linux/macOS/Termux.
-///
-/// Dot-prefixed, because it sits directly in `$HOME`.
-#[cfg(not(target_os = "windows"))]
-const UNIX_HOME_DIR_NAME: &str = ".outram-park";
+use crate::opcua_core::pki;
 
-/// Directory name of the OUTRAM PARK per-user root, on Windows.
-///
-/// Not dot-prefixed, because it sits under `%APPDATA%` where hidden
-/// directories are not the convention.
-#[cfg(target_os = "windows")]
-const WINDOWS_APPDATA_DIR_NAME: &str = "outram-park";
+pub use crate::opcua_core::pki::{outram_park_home, outram_park_home_path, unique_instance_tag};
 
-/// Directory name of the CIET v2 PKI store, relative to
-/// [`outram_park_home`].
-const CIET_V2_PKI_DIR_NAME: &str = "ciet-v2-opcua-pki";
-
-/// The OUTRAM PARK per-user root directory, created if it does not exist.
-///
-/// Returns `$HOME/.outram-park` on Linux, macOS and Termux, and
-/// `%APPDATA%\outram-park` on Windows. This is a **filesystem path**, not a
-/// physical quantity — it carries no units.
-///
-/// ## Resolution order
-///
-/// 1. `directories::BaseDirs` — `data_dir()` on Windows, `home_dir()`
-///    elsewhere. This is the normal path on every supported platform.
-/// 2. The `HOME` environment variable, if `BaseDirs` could not be constructed
-///    (it returns `None` when no home directory can be determined at all).
-/// 3. The current directory (`.`), as a last resort so the server can still
-///    start in a stripped-down container or sandbox.
-///
-/// The directory is created with `std::fs::create_dir_all` if missing. A
-/// creation failure is **not** an error here: the path is still returned and a
-/// warning is printed, because `async-opcua` will report the real problem when
-/// it tries to write its certificate. That keeps a read-only home directory
-/// from taking the whole simulator down.
-pub fn outram_park_home() -> PathBuf {
-    let root = resolve_root();
-    ensure_dir(&root);
-    root
-}
+/// Directory name of the CIET v2 PKI store, relative to the OUTRAM PARK
+/// per-user root ([`outram_park_home`]).
+pub const CIET_V2_PKI_DIR_NAME: &str = "ciet-v2-opcua-pki";
 
 /// The PKI directory for the CIET v2 OPC-UA server, created if it does not
 /// exist.
@@ -97,12 +67,10 @@ pub fn outram_park_home() -> PathBuf {
 /// `trusted/` and `rejected/` subdirectories itself and writes a self-signed
 /// application instance certificate into `own/` on first start-up.
 ///
-/// As with [`outram_park_home`], a creation failure is warned about rather than
-/// returned as an error.
+/// A creation failure is warned about rather than returned as an error, so a
+/// read-only home directory cannot take the whole simulator down.
 pub fn ciet_v2_pki_dir() -> PathBuf {
-    let dir = outram_park_home().join(CIET_V2_PKI_DIR_NAME);
-    ensure_dir(&dir);
-    dir
+    pki::pki_dir(CIET_V2_PKI_DIR_NAME)
 }
 
 /// A per-instance PKI directory underneath [`ciet_v2_pki_dir`], created if
@@ -119,9 +87,9 @@ pub fn ciet_v2_pki_dir() -> PathBuf {
 /// several simulators at once, and for a developer running the simulator while a
 /// test suite runs.
 ///
-/// The tag makes each instance's store disjoint. [`server`](super::server)
-/// derives it from the TCP port, which is the one thing two servers that can
-/// coexist on a machine must differ in, so isolation is automatic and needs no
+/// The tag makes each instance's store disjoint. The shared server layer derives
+/// it from the TCP port, which is the one thing two servers that can coexist on
+/// a machine must differ in, so isolation is automatic and needs no
 /// configuration. Tests that want a stronger guarantee — a fresh directory per
 /// run rather than per port — can pass [`unique_instance_tag`].
 ///
@@ -130,56 +98,7 @@ pub fn ciet_v2_pki_dir() -> PathBuf {
 /// caller from escaping the directory with `../` or breaking on a path
 /// separator.
 pub fn ciet_v2_instance_pki_dir(instance_tag: &str) -> PathBuf {
-    let dir = ciet_v2_pki_dir().join(sanitise_tag(instance_tag));
-    ensure_dir(&dir);
-    dir
-}
-
-/// A short tag that is unique to this process **and** this thread, for isolating
-/// a PKI directory (or any other per-instance scratch path) in parallel tests.
-///
-/// The tag is `<process id>-<thread id digits>-<nanoseconds>`, e.g.
-/// `"18342-7-913204771"`. It is deliberately not cryptographic — it only has to
-/// stop two concurrent instances picking the same directory.
-///
-/// Cargo runs `#[test]` functions as threads inside one process, so the process
-/// id alone does not separate them; the thread id and a nanosecond timestamp do.
-/// Note that each call returns a **new** value, so capture it once per instance
-/// rather than calling it repeatedly.
-pub fn unique_instance_tag() -> String {
-    let process_id = std::process::id();
-
-    // `ThreadId` has no stable numeric accessor on stable Rust, so use its Debug
-    // form (`ThreadId(7)`) and keep the digits.
-    let thread_id = format!("{:?}", std::thread::current().id());
-    let thread_digits: String = thread_id.chars().filter(|c| c.is_ascii_digit()).collect();
-
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|elapsed| elapsed.subsec_nanos())
-        .unwrap_or(0);
-
-    format!("{process_id}-{thread_digits}-{nanos}")
-}
-
-/// Reduce an arbitrary tag to something safe to use as a single path component.
-fn sanitise_tag(raw: &str) -> String {
-    let mut out = String::with_capacity(raw.len());
-    for ch in raw.chars() {
-        if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
-            out.push(ch);
-        } else if !out.ends_with('-') {
-            out.push('-');
-        }
-    }
-    let trimmed = out.trim_matches('-');
-    if trimmed.is_empty() {
-        "default".to_owned()
-    } else {
-        let mut trimmed = trimmed.to_owned();
-        trimmed.truncate(64);
-        trimmed
-    }
+    pki::instance_pki_dir(CIET_V2_PKI_DIR_NAME, instance_tag)
 }
 
 /// A one-line, human-readable summary of where the PKI directory is, for the
@@ -194,68 +113,7 @@ fn sanitise_tag(raw: &str) -> String {
 /// PKI directory: /home/alice/.outram-park/ciet-v2-opcua-pki (self-signed keypair only -- SecurityPolicy::None stores no credentials)
 /// ```
 pub fn describe_pki_location() -> String {
-    format!(
-        "PKI directory: {} (self-signed keypair only -- SecurityPolicy::None stores no credentials)",
-        ciet_v2_pki_dir().display()
-    )
-}
-
-/// Work out the root directory without creating it.
-///
-/// Split out from [`outram_park_home`] so the tests can exercise the naming
-/// rule without depending on directory creation succeeding.
-fn resolve_root() -> PathBuf {
-    if let Some(base_dirs) = directories::BaseDirs::new() {
-        #[cfg(target_os = "windows")]
-        {
-            return base_dirs.data_dir().join(WINDOWS_APPDATA_DIR_NAME);
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            return base_dirs.home_dir().join(UNIX_HOME_DIR_NAME);
-        }
-    }
-
-    // `BaseDirs::new()` returned `None`: no home directory could be determined.
-    // Fall back to `$HOME` (which Termux always sets), then to the current
-    // directory.
-    if let Some(home) = std::env::var_os("HOME") {
-        let home = PathBuf::from(home);
-        if !home.as_os_str().is_empty() {
-            #[cfg(target_os = "windows")]
-            {
-                return home.join(WINDOWS_APPDATA_DIR_NAME);
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                return home.join(UNIX_HOME_DIR_NAME);
-            }
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        PathBuf::from(".").join(WINDOWS_APPDATA_DIR_NAME)
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        PathBuf::from(".").join(UNIX_HOME_DIR_NAME)
-    }
-}
-
-/// Create `dir` (and any missing parents), printing a warning instead of
-/// failing if that is not possible.
-fn ensure_dir(dir: &std::path::Path) {
-    if dir.is_dir() {
-        return;
-    }
-    if let Err(error) = std::fs::create_dir_all(dir) {
-        eprintln!(
-            "CIET v2 OPC-UA: could not create directory {} ({error}); \
-             the OPC-UA server will report the underlying problem if it needs to write there",
-            dir.display()
-        );
-    }
+    pki::describe_pki_location(CIET_V2_PKI_DIR_NAME)
 }
 
 #[cfg(test)]
@@ -266,23 +124,24 @@ mod tests {
     /// layout rule specifies, so a user can find it from the documentation
     /// alone.
     ///
-    /// **Methodology.** Call [`resolve_root`] (the non-creating half of
+    /// **Methodology.** Call [`outram_park_home_path`] (the non-creating half of
     /// [`outram_park_home`]) and append the PKI directory name, then compare
     /// the final two path components against the platform rule: on Windows
     /// `outram-park/ciet-v2-opcua-pki`, everywhere else
     /// `.outram-park/ciet-v2-opcua-pki`. Pass criterion: both components match
-    /// exactly, and the path is absolute whenever a home directory was found.
-    /// No directory is created, so the test is safe on a read-only home.
+    /// exactly. No directory is created, so the test is safe on a read-only
+    /// home.
     ///
-    /// **Results (2026-07-28, Linux x86_64, `directories` 5.0.1).** The
-    /// resolved path was `/home/<user>/.outram-park/ciet-v2-opcua-pki`: last
-    /// component `ciet-v2-opcua-pki`, parent component `.outram-park`, absolute
-    /// = true. Interpretation: the documented layout table matches what the code
-    /// produces on the maintainer's platform. The Windows branch is
-    /// `cfg`-selected and was not exercised on this run.
+    /// **Results (2026-07-28, unchanged 2026-08-12 after the shared-layer
+    /// extraction; Linux x86_64, `directories` 5.0.1).** The resolved path was
+    /// `/home/<user>/.outram-park/ciet-v2-opcua-pki`: last component
+    /// `ciet-v2-opcua-pki`, parent component `.outram-park`. Interpretation: the
+    /// documented layout table matches what the code produces on the
+    /// maintainer's platform. The Windows branch is `cfg`-selected and was not
+    /// exercised on this run.
     #[test]
     fn pki_path_ends_in_the_platform_components() {
-        let path = resolve_root().join(CIET_V2_PKI_DIR_NAME);
+        let path = outram_park_home_path().join(CIET_V2_PKI_DIR_NAME);
 
         let components: Vec<String> = path
             .components()
@@ -299,9 +158,17 @@ mod tests {
         assert_eq!(last, CIET_V2_PKI_DIR_NAME, "wrong PKI directory name");
 
         #[cfg(target_os = "windows")]
-        assert_eq!(parent, WINDOWS_APPDATA_DIR_NAME, "wrong Windows root name");
+        assert_eq!(
+            parent,
+            crate::opcua_core::pki::WINDOWS_APPDATA_DIR_NAME,
+            "wrong Windows root name"
+        );
         #[cfg(not(target_os = "windows"))]
-        assert_eq!(parent, UNIX_HOME_DIR_NAME, "wrong unix root name");
+        assert_eq!(
+            parent,
+            crate::opcua_core::pki::UNIX_HOME_DIR_NAME,
+            "wrong unix root name"
+        );
     }
 
     /// Verifies that the human-facing summary names the actual directory and
@@ -311,7 +178,7 @@ mod tests {
     /// single line, that it contains the PKI directory name, and that it
     /// mentions `SecurityPolicy::None`. Pass criterion: all three hold.
     ///
-    /// **Results (2026-07-28, Linux x86_64).** Output was
+    /// **Results (2026-07-28, unchanged 2026-08-12; Linux x86_64).** Output was
     /// `PKI directory: /home/<user>/.outram-park/ciet-v2-opcua-pki
     /// (self-signed keypair only -- SecurityPolicy::None stores no
     /// credentials)` — 1 line, contains `ciet-v2-opcua-pki`, contains

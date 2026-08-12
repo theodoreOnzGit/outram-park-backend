@@ -70,12 +70,20 @@
 // `cargo check --target aarch64-linux-android` clean (see workspace CLAUDE.md
 // Android-portability rule). Desktop builds are unchanged.
 pub mod animation;
-// `ciet_opcua` is the OPC-UA interface layer shared by the two CIET
-// Educational Simulator v2 binaries. It is deliberately GUI-free and
-// physics-free, and `async-opcua` is pure Rust (RustCrypto, not openssl-sys),
-// so this module builds on Android/Termux with no target gate -- the headless
-// Termux build of the simulator serves OPC-UA exactly as the desktop one does.
+// `ciet_opcua` is the CIET Educational Simulator v2 half of the OPC-UA
+// interface -- plant state, node map, identity strings -- shared by the two CIET
+// v2 binaries. It is deliberately GUI-free and physics-free, and like
+// `opcua_core` below it builds on Android/Termux with no target gate: the
+// headless Termux build of the simulator serves OPC-UA exactly as the desktop
+// one does.
 pub mod ciet_opcua;
+// `opcua_core` is the reactor-agnostic OPC-UA server layer `ciet_opcua` is built
+// on: transport, server thread, PKI, mDNS discovery and address-space
+// construction, parameterised by whichever simulator is being served. GUI-free
+// like `ciet_opcua`, and buildable on Android/Termux for the same reason. Named
+// `opcua_core` rather than `opcua` so it cannot shadow the `opcua` crate in a
+// `use` path.
+pub mod opcua_core;
 // `htr10` is GUI-free cited-constant + correlation data for the HTR-10
 // pebble-bed simulator rewrite (bead op-jyyp), so like `animation` it builds
 // on Android with no target gate. NOT VALIDATED -- its tests reproduce
