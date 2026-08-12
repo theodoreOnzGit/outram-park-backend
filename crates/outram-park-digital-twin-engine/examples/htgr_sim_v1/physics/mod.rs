@@ -247,7 +247,14 @@ impl HtgrPlant {
         );
 
         // 4. Secondary steam loop driven by that (already limited) duty.
-        self.secondary.step(dt, self.primary.ihx_duty());
+        // The core outlet is the hot-side inlet to the steam generator, and is
+        // what caps the steam side's absorbable duty so no temperature cross is
+        // representable. See `secondary_loop::max_absorbable_duty`.
+        self.secondary.step(
+            dt,
+            self.primary.ihx_duty(),
+            self.primary.core_outlet_temperature(),
+        );
     }
 
     /// Project the current plant state onto the shared [`HtgrSnapshot`],
