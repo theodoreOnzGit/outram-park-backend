@@ -1,5 +1,7 @@
 # kopi-beans: `bn daemon run` holds ~37% of a CPU core continuously
 
+> **UPSTREAMED 2026-08-13 as [kopitiam#26](https://github.com/theodoreOnzGit/kopitiam/issues/26).** Still OPEN upstream, so this file stays in the live queue rather than moving to `resolved/` — that move requires the fix to be verified against a published binary, not merely filed.
+
 **Tool:** kopi-beans (`bn`)
 **Version:** see `cargo install --list` output recorded below
 **Observed:** 2026-08-13, in the OUTRAM PARK backend workspace
