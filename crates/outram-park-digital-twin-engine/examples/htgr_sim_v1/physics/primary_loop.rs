@@ -446,12 +446,58 @@ fn steam_generator_substep_s() -> f64 {
     super::steam_generator_substep_seconds()
 }
 
-/// Thermal-inertia time constant of the lumped helium node in the core \[s\]
-/// (**invented**), giving the core-outlet temperature a visible first-order
-/// transient rather than an instantaneous jump. This is the *gas* inertia; the
-/// graphite's much larger inertia lives in
-/// [`super::pebble_bed::PebbleBedCore`].
-const CORE_THERMAL_TIME_CONSTANT_S: f64 = 5.0;
+/// Thermal-inertia time constant of the lumped helium node in the core \[s\],
+/// **derived** from the gas holdup rather than invented.
+///
+/// This is the *gas* inertia; the graphite's much larger inertia lives in
+/// [`super::pebble_bed::PebbleBedCore`]. It is the helium's residence time in
+/// the bed void, `tau = m_gas / m_dot`, with `m_gas = rho * V_void` from the
+/// published bed volume and porosity and the real helium density.
+///
+/// **This replaced an invented flat 5.0 s on 2026-08-14, and the old value was
+/// not a harmless one.** The gas holdup is about 3 kg of helium against
+/// 5,280 kg of graphite, so at the rated 4.3 kg/s the real lag is under a
+/// second. A 5 s lag let the core outlet trail the bed on a cooldown for long
+/// enough to sit **above** the graphite that was cooling it -- a residue of
+/// about +2.5 K that reads as a second-law violation, because a gas cannot
+/// stay hotter than the wall it is in contact with. Deriving the lag from the
+/// holdup removes most of it; [`bounded_core_outlet`] removes the rest.
+fn core_thermal_time_constant_s(mass_flow: MassRate, density: f64) -> f64 {
+    let void_volume = pebble_bed::bed_void_volume().get::<uom::si::volume::cubic_meter>();
+    let gas_mass = (density.max(1.0e-6)) * void_volume;
+    let m_dot = mass_flow
+        .get::<kilogram_per_second>()
+        .abs()
+        .max(MIN_HELIUM_FLOW_KG_PER_S);
+    // Floored at one plant timestep: a lag shorter than the step cannot be
+    // resolved and would just be an instantaneous jump with extra arithmetic.
+    (gas_mass / m_dot).max(super::PLANT_TIMESTEP_S)
+}
+
+/// Bound a core-outlet temperature between the helium inlet and the bed
+/// temperature.
+///
+/// **A hard second-law guard, not a cosmetic clamp.** The helium is heated by
+/// the graphite: it can approach the bed temperature asymptotically but can
+/// never pass it, and when the bed is the colder body the helium cannot stay
+/// hotter than it either. The epsilon-NTU balance in
+/// [`super::pebble_bed::PebbleBedCore::step`] already respects that; what can
+/// still break it here is the first-order gas lag, which during a fast
+/// cooldown relaxes *down* toward the bed from a hotter past value and is
+/// therefore momentarily above it.
+///
+/// Clamping is the right treatment rather than a smaller timestep, because the
+/// bound is a physical statement about the model's own state, not a numerical
+/// tolerance. If this clamp ever binds hard and persistently, that is a signal
+/// the gas lag is mis-sized -- not that the clamp needs loosening.
+fn bounded_core_outlet(relaxed_k: f64, inlet_k: f64, bed_k: f64) -> f64 {
+    let (lo, hi) = if bed_k >= inlet_k {
+        (inlet_k, bed_k)
+    } else {
+        (bed_k, inlet_k)
+    };
+    relaxed_k.clamp(lo, hi)
+}
 
 /// Transport lag from the steam-generator helium outlet round to the core inlet
 /// \[s\] (**invented**), so a change in secondary heat removal reaches the core
@@ -676,12 +722,12 @@ impl HeliumPrimaryLoop {
     pub fn step(
         &mut self,
         dt: Time,
-        core_heat_to_helium: Power,
+        core_outlet_from_bed: ThermodynamicTemperature,
         flow_setpoint: MassRate,
         feedwater_enthalpy: AvailableEnergy,
         secondary_mass_flow: MassRate,
     ) {
-        self.step_hot_leg(dt, core_heat_to_helium, flow_setpoint);
+        self.step_hot_leg(dt, core_outlet_from_bed, flow_setpoint);
         self.advance_steam_generator(dt, feedwater_enthalpy, secondary_mass_flow);
         self.close_return_leg(dt);
     }
@@ -700,7 +746,12 @@ impl HeliumPrimaryLoop {
     /// sense that it reads `self.core_inlet_temperature` and
     /// `self.core_outlet_temperature` and writes the latter: to call it twice
     /// for the same timestep, restore [`Self::lumped_state`] in between.
-    pub fn step_hot_leg(&mut self, dt: Time, core_heat_to_helium: Power, flow_setpoint: MassRate) {
+    pub fn step_hot_leg(
+        &mut self,
+        dt: Time,
+        core_outlet_from_bed: ThermodynamicTemperature,
+        flow_setpoint: MassRate,
+    ) {
         // Clamp the commanded flow to the circulator's range so the energy
         // balance denominator and the residence time never blow up, and so a
         // setpoint scaled for a different plant cannot drive this one.
@@ -722,9 +773,24 @@ impl HeliumPrimaryLoop {
         let capacity_rate = flow_kg_s * c_p_j; // C_min = m_dot c_p [W/K]
 
         // 2. Core energy balance with first-order gas thermal inertia.
-        let t_out_ss_k = t_in_k + core_heat_to_helium.get::<watt>() / capacity_rate;
-        let alpha_core = (dt_s / CORE_THERMAL_TIME_CONSTANT_S).clamp(0.0, 1.0);
+        //
+        // The steady-state outlet is taken from the BED's own
+        // effectiveness-NTU balance rather than re-derived here as
+        // `T_in + Q/(m c_p)`. Both routes are the same balance, but this
+        // module evaluates `c_p` at the bulk mean while the bed evaluates it
+        // at the inlet, and re-deriving let that small disagreement put the
+        // core outlet above the bed temperature -- a second-law violation.
+        // Reading the outlet the bed published makes `T_out <= T_bed`
+        // structural. See `pebble_bed::PebbleBedCore::step`.
+        let t_out_ss_k = core_outlet_from_bed.get::<kelvin>();
+        let _ = capacity_rate;
+        let tau_gas = core_thermal_time_constant_s(self.mass_flow, self.density);
+        let alpha_core = (dt_s / tau_gas).clamp(0.0, 1.0);
         let t_out_next_k = t_out_k + alpha_core * (t_out_ss_k - t_out_k);
+        // Second-law guard on the lag -- see `bounded_core_outlet`. The bed
+        // temperature is recovered from the outlet the bed published, which is
+        // `T_bed - (T_bed - T_in) exp(-NTU)`, so the bed is at or above it.
+        let t_out_next_k = bounded_core_outlet(t_out_next_k, t_in_k, t_out_ss_k.max(t_in_k));
         self.core_outlet_temperature = ThermodynamicTemperature::new::<kelvin>(t_out_next_k);
     }
 
@@ -1123,6 +1189,26 @@ fn helium_properties(t_k: f64) -> (SpecificHeatCapacity, f64, DynamicViscosity) 
 
 #[cfg(test)]
 mod tests {
+
+    /// Test helper: the bed-outlet temperature that delivers `duty` into a loop
+    /// sitting at `inlet` with capacity rate `m_dot c_p`.
+    ///
+    /// These tests drive the loop **by duty**, which is a legitimate specified
+    /// boundary condition for an isolated component test. It is deliberately
+    /// NOT what the production path does: there the outlet comes from the
+    /// bed's own effectiveness-NTU balance, precisely so the outlet cannot be
+    /// derived from a duty with a `c_p` that disagrees with the bed's and end
+    /// up above the bed temperature. See `PebbleBedCore::step`.
+    fn bed_outlet_for(
+        duty: Power,
+        inlet: ThermodynamicTemperature,
+        flow: MassRate,
+    ) -> ThermodynamicTemperature {
+        let capacity = flow.get::<kilogram_per_second>() * 5189.3;
+        ThermodynamicTemperature::new::<kelvin>(
+            inlet.get::<kelvin>() + duty.get::<watt>() / capacity,
+        )
+    }
     use super::*;
     use uom::si::available_energy::joule_per_kilogram;
     use uom::si::power::megawatt;
@@ -1176,7 +1262,8 @@ mod tests {
     fn settled(power: Power) -> HeliumPrimaryLoop {
         let mut loop_ = nominal_loop();
         for _ in 0..steps_for(200.0) {
-            loop_.step(dt(), power, nominal_flow(), feedwater(), secondary_flow());
+            let bed_out = bed_outlet_for(power, loop_.core_inlet_temperature(), nominal_flow());
+            loop_.step(dt(), bed_out, nominal_flow(), feedwater(), secondary_flow());
         }
         loop_
     }
@@ -1337,13 +1424,12 @@ mod tests {
         let mut worst_hot_end_dt = f64::INFINITY;
 
         for _ in 0..steps_for(200.0) {
-            loop_.step(
-                dt(),
+            let bed_out = bed_outlet_for(
                 Power::new::<megawatt>(10.0),
+                loop_.core_inlet_temperature(),
                 nominal_flow(),
-                feedwater(),
-                secondary_flow(),
             );
+            loop_.step(dt(), bed_out, nominal_flow(), feedwater(), secondary_flow());
             let sg = loop_.steam_generator_state();
             let cross = sg.worst_node_cross_kelvin();
             worst_cross = worst_cross.max(cross);
@@ -1486,10 +1572,12 @@ mod tests {
         for _ in 0..steps_for(75.0) {
             let dt = dt();
             let q = Power::new::<megawatt>(10.0);
-            strong.step(dt, q, nominal_flow(), feedwater(), secondary_flow());
+            let bed_out = bed_outlet_for(q, strong.core_inlet_temperature(), nominal_flow());
+            strong.step(dt, bed_out, nominal_flow(), feedwater(), secondary_flow());
+            let bed_out = bed_outlet_for(q, weak.core_inlet_temperature(), nominal_flow());
             weak.step(
                 dt,
-                q,
+                bed_out,
                 nominal_flow(),
                 feedwater(),
                 MassRate::new::<kilogram_per_second>(2.2),
@@ -1760,16 +1848,26 @@ mod tests {
         for _ in 0..400 {
             let dt = dt();
             let q = Power::new::<megawatt>(10.0);
+            let bed_out = bed_outlet_for(
+                q,
+                slow.core_inlet_temperature(),
+                MassRate::new::<kilogram_per_second>(2.0),
+            );
             slow.step(
                 dt,
-                q,
+                bed_out,
                 MassRate::new::<kilogram_per_second>(2.0),
                 feedwater(),
                 secondary_flow(),
             );
+            let bed_out = bed_outlet_for(
+                q,
+                fast.core_inlet_temperature(),
+                MassRate::new::<kilogram_per_second>(6.0),
+            );
             fast.step(
                 dt,
-                q,
+                bed_out,
                 MassRate::new::<kilogram_per_second>(6.0),
                 feedwater(),
                 secondary_flow(),
@@ -1807,9 +1905,14 @@ mod tests {
     #[test]
     fn commanded_flow_is_clamped_to_the_circulator_range() {
         let mut too_fast = nominal_loop();
+        let bed_out = bed_outlet_for(
+            Power::new::<megawatt>(10.0),
+            too_fast.core_inlet_temperature(),
+            MassRate::new::<kilogram_per_second>(85.0),
+        );
         too_fast.step(
             dt(),
-            Power::new::<megawatt>(10.0),
+            bed_out,
             MassRate::new::<kilogram_per_second>(85.0),
             feedwater(),
             secondary_flow(),
@@ -1820,9 +1923,14 @@ mod tests {
         );
 
         let mut stopped = nominal_loop();
+        let bed_out = bed_outlet_for(
+            Power::new::<megawatt>(10.0),
+            stopped.core_inlet_temperature(),
+            MassRate::new::<kilogram_per_second>(0.0),
+        );
         stopped.step(
             dt(),
-            Power::new::<megawatt>(10.0),
+            bed_out,
             MassRate::new::<kilogram_per_second>(0.0),
             feedwater(),
             secondary_flow(),

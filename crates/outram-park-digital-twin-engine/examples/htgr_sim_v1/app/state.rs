@@ -242,6 +242,23 @@ pub struct HtgrSnapshot {
     pub generator_rating_mw: f64,
 
     // --- Diagnostics ---
+    /// Steam-temperature control error \[K\] (`T_setpoint - T_steam`) seen by
+    /// the feedwater PI trim. Near zero means the controller is holding
+    /// setpoint; a persistent non-zero value means it is on a pump stop.
+    pub steam_temperature_error_k: f64,
+    /// Feedwater PI controller output (dimensionless). A large magnitude
+    /// while the pump sits on a stop is the visible symptom of integrator
+    /// windup -- the chem-eng controller has no anti-windup.
+    pub feedwater_controller_output: f64,
+
+    /// Fission-product decay-heat power \[MW\]. Non-zero after a trip -- this
+    /// is what keeps heating the graphite once the chain reaction stops.
+    pub decay_heat_mw: f64,
+    /// Core THERMAL power \[MW\]: the promptly-released fission power plus
+    /// decay heat. This, not the fission power, is what the pebble bed
+    /// absorbs.
+    pub core_thermal_power_mw: f64,
+
     /// Accumulated simulation time \[s\].
     pub sim_time_s: f64,
     /// Simulated seconds the physics thread has achieved per wall-clock second
@@ -360,6 +377,10 @@ impl Default for HtgrSnapshot {
             shaft_speed_rpm: 3000.0,
             generator_electrical_power_mw: 0.0,
             generator_rating_mw: 0.0,
+            steam_temperature_error_k: 0.0,
+            feedwater_controller_output: 0.0,
+            decay_heat_mw: 0.0,
+            core_thermal_power_mw: 10.0,
             sim_time_s: 0.0,
             real_time_ratio: None,
             real_time_deficit_s: 0.0,

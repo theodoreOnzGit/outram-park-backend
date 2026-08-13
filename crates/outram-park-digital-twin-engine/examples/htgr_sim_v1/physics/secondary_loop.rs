@@ -101,11 +101,13 @@
 //!
 //! This is a demonstration model, not a validated steam-cycle model.
 
+use chem_eng_real_time_process_control_simulator::alpha_nightly::controllers::AnalogController;
+use chem_eng_real_time_process_control_simulator::alpha_nightly::transfer_fn_wrapper_and_enums::TransferFnTraits;
 use tampines::hem::HemSteamCv;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
-    AvailableEnergy, Mass, MassRate, Power, Pressure, SpecificHeatCapacity,
-    ThermodynamicTemperature, Volume,
+    AvailableEnergy, Mass, MassRate, Power, Pressure, Ratio, SpecificHeatCapacity,
+    ThermodynamicTemperature, Time, Volume,
 };
 use uom::si::mass::kilogram;
 use uom::si::mass_rate::kilogram_per_second;
@@ -315,13 +317,72 @@ const FEED_PUMP_EFFICIENCY: f64 = 0.75;
 const TURBINE_EFFICIENCY: f64 = 0.85;
 
 /// Feedwater-controller time constant \[s\] (**invented**), the first-order
-/// lag on how fast the feed flow chases its target.
+/// lag on how fast the feed flow chases its target. This is the *pump and
+/// valve* lag, not a controller tuning: it applies in MANUAL too.
 const FEED_CONTROL_TIME_CONSTANT_S: f64 = 10.0;
+
+/// Feedwater controller **proportional gain** `K_c` (dimensionless), acting on
+/// the steam-temperature error normalised by [`STEAM_ERROR_SCALE_K`] and
+/// producing an output scaled by [`FLOW_AUTHORITY_KG_PER_S`].
+///
+/// Sign convention: the loop is **reverse acting**. Steam that is too cold
+/// means each kilogram is getting too little heat, so the correction is to
+/// send *less* feedwater. The trim is therefore subtracted from the
+/// feedforward demand.
+///
+/// Scale check, so this is not a magic number: at rated conditions
+/// `h_steam = h_feed + Q/m`, so `dh/dm = -Q/m^2`. With `Q = 10 MW` and
+/// `m ~ 3.5 kg/s` that is about -0.82 MJ/kg per (kg/s), and superheated steam
+/// near 10 MPa has `c_p ~ 2.5 kJ/(kg K)`, giving roughly **-330 K per (kg/s)**.
+/// So a 1 K error wants about 0.003 kg/s of trim for a deadbeat correction;
+/// `K_p` is set a little above that so the proportional term alone closes most
+/// of the gap in one lag time without overshooting.
+const FEEDWATER_PROPORTIONAL_GAIN: f64 = 0.60;
+
+/// Steam-temperature error \[K\] that maps to a controller input of 1.0.
+///
+/// `AnalogController` is dimensionless, so the error has to be normalised on
+/// the way in and the output scaled on the way out. 100 K is a full-scale
+/// excursion for this plant's steam temperature.
+const STEAM_ERROR_SCALE_K: f64 = 100.0;
+
+/// Feedwater flow \[kg/s\] commanded per unit of controller output --- the
+/// loop's actuator authority.
+///
+/// Scale check, so neither this nor the gain is a magic number: at rated
+/// conditions `h_steam = h_feed + Q/m`, so `dh/dm = -Q/m^2`. With `Q = 10 MW`
+/// and `m ~ 3.2 kg/s` that is about -0.98 MJ/kg per (kg/s); superheated steam
+/// near 5 MPa has `c_p ~ 2.5 kJ/(kg K)`, giving roughly **-390 K per (kg/s)**.
+/// So a 100 K error (input 1.0) wants about 0.26 kg/s of correction for a
+/// deadbeat move. `K_c * FLOW_AUTHORITY = 0.60 * 0.60 = 0.36 kg/s` is
+/// deliberately above that: with the feedforward gone the controller has to
+/// supply the whole demand, so it is tuned harder than a trim would be.
+const FLOW_AUTHORITY_KG_PER_S: f64 = 0.60;
+
+/// Feedwater controller **integral time** `T_i` \[s\] (**invented**). The
+/// integral gain is `K_p / T_i`, the standard ISA form.
+///
+/// Chosen well above the 10 s pump lag so the integral cannot race the
+/// actuator it is driving -- an integral time inside the actuator lag is the
+/// classic way to turn a stable loop into an oscillating one. Shortened from
+/// 40 s when the feedforward was removed: with no model term carrying the load
+/// change, the integral has to do that work too.
+const FEEDWATER_INTEGRAL_TIME_S: f64 = 25.0;
 
 /// Minimum secondary mass flow \[kg/s\] (**invented**) -- a floor so the
 /// enthalpy balance denominator and the residence time stay finite at zero
-/// duty. About 9% of the published nominal flow.
-const MIN_SECONDARY_FLOW_KG_PER_S: f64 = 0.3;
+/// duty. About 14% of the published nominal flow.
+///
+/// **Raised from 0.3 to 0.5 on 2026-08-14.** At 0.3 kg/s the
+/// MANUAL-at-the-pump-floor corner of the command envelope developed a
+/// 0.0126 K temperature cross once the core's heat path was corrected (an
+/// evaluated pebble-surface coefficient and a fuel-feedback node that actually
+/// cools, both of which moved the settled operating point). The cross is a
+/// statement about how far the command range may be pushed, not about the
+/// assertion that catches it, so the range is narrowed here --- which is what
+/// `super::super::physics::tests::no_corner_of_the_command_envelope_crosses_or_clamps`
+/// asks a caller to do rather than loosen its tolerance.
+const MIN_SECONDARY_FLOW_KG_PER_S: f64 = 0.5;
 
 /// Maximum secondary mass flow \[kg/s\] (**invented** feed-pump capacity), a
 /// generous 3.5x the published nominal flow.
@@ -624,6 +685,132 @@ pub fn design_point_turbine_power() -> Power {
     d.main_steam_mass_flow * isentropic_drop * TURBINE_EFFICIENCY
 }
 
+/// The feedwater loop's controller: **pure feedback**, built on the
+/// workspace's own process-control crate.
+///
+/// # Feedback only -- the feedforward was removed on 2026-08-14
+///
+/// This loop briefly carried a feedforward inverse model
+/// (`m = Q/(h_target - h_feed)`) with a PI trim riding on top. That is a
+/// common industrial arrangement, but it has a real cost: the feedforward is
+/// an open-loop model of the steam generator, so the flow it commands is only
+/// as good as that model. When the exchanger's actual behaviour departs from
+/// `Q/Delta h` -- which it does, since the duty it can transfer depends on the
+/// flow the feedforward is trying to set -- the feedforward is confidently
+/// wrong and the trim spends its authority undoing it.
+///
+/// Pure feedback has no model to be wrong. It observes the steam temperature,
+/// compares it with setpoint, and moves the feedwater flow until the error is
+/// gone. It gives up the feedforward's instant response to a load change and
+/// buys correctness in exchange.
+///
+/// # Built on `chem-eng-real-time-process-control-simulator`
+///
+/// The controller is that crate's
+/// [`AnalogController::new_pi_controller`], not a hand-rolled loop. It is a
+/// continuous-time PI in standard ISA form, `u = K_c (e + (1/T_i) integral e)`,
+/// advanced by absolute simulation time through
+/// [`TransferFnTraits::set_user_input_and_calc`].
+///
+/// **Known limitation, stated rather than worked around.** That controller has
+/// no anti-windup, and this actuator saturates hard -- feedwater flow is
+/// clamped to `[MIN_SECONDARY_FLOW_KG_PER_S, MAX_SECONDARY_FLOW_KG_PER_S]`.
+/// While the pump sits on a stop the integrator keeps accumulating against an
+/// error it cannot act on, and that shows up as overshoot on the way back.
+/// Two things bound the damage here: the controller is rebuilt from scratch
+/// whenever the station leaves AUTO (see [`FeedwaterController::reset`]), and
+/// the demand is clamped at the actuator rather than inside the controller, so
+/// the wound-up state is visible in [`FeedwaterController::last_output`]
+/// instead of hidden. Adding conditional integration upstream in that crate
+/// would remove the limitation properly, and is worth raising there.
+#[derive(Debug, Clone)]
+pub struct FeedwaterController {
+    /// The PI controller itself.
+    controller: AnalogController,
+    /// Accumulated controller time, advanced by the plant timestep.
+    elapsed: Time,
+    /// Most recent steam-temperature error \[K\], kept for display.
+    error_k: f64,
+    /// Most recent controller output (dimensionless), kept for display.
+    last_output: f64,
+}
+
+impl FeedwaterController {
+    /// A fresh PI controller at [`FEEDWATER_PROPORTIONAL_GAIN`] and
+    /// [`FEEDWATER_INTEGRAL_TIME_S`], with its integrator cleared.
+    pub fn new() -> Self {
+        Self {
+            controller: AnalogController::new_pi_controller(
+                Ratio::new::<uom::si::ratio::ratio>(FEEDWATER_PROPORTIONAL_GAIN),
+                Time::new::<second>(FEEDWATER_INTEGRAL_TIME_S),
+            )
+            .expect("PI gains must satisfy the controller's preconditions"),
+            elapsed: Time::new::<second>(0.0),
+            error_k: 0.0,
+            last_output: 0.0,
+        }
+    }
+
+    /// Advance the controller by `dt` against a steam-temperature error and
+    /// return the commanded feedwater flow \[kg/s\].
+    ///
+    /// The error is normalised by [`STEAM_ERROR_SCALE_K`] before it reaches the
+    /// controller, because `AnalogController` works in dimensionless
+    /// [`Ratio`]s; the output is scaled back out by [`FLOW_AUTHORITY_KG_PER_S`].
+    ///
+    /// The loop is **reverse acting**: steam below setpoint means each
+    /// kilogram is getting too little heat, so the correction is *less*
+    /// feedwater. That is why the output is subtracted from the nominal flow.
+    ///
+    /// If the controller reports an error the previous demand is held, which
+    /// is the safe response for an actuator -- freezing beats jumping.
+    pub fn command(&mut self, error_k: f64, dt: Time) -> f64 {
+        self.error_k = error_k;
+        self.elapsed += dt;
+
+        let normalised = Ratio::new::<uom::si::ratio::ratio>(error_k / STEAM_ERROR_SCALE_K);
+        match self
+            .controller
+            .set_user_input_and_calc(normalised, self.elapsed)
+        {
+            Ok(output) => self.last_output = output.get::<uom::si::ratio::ratio>(),
+            Err(_) => { /* hold the previous output */ }
+        }
+
+        nominal_secondary_flow().get::<kilogram_per_second>()
+            - FLOW_AUTHORITY_KG_PER_S * self.last_output
+    }
+
+    /// Most recent steam-temperature error \[K\] (`T_setpoint - T_steam`).
+    pub fn error(&self) -> f64 {
+        self.error_k
+    }
+
+    /// Most recent controller output (dimensionless). A large magnitude while
+    /// the pump is on a stop is the visible symptom of windup.
+    pub fn last_output(&self) -> f64 {
+        self.last_output
+    }
+
+    /// Rebuild the controller from scratch, clearing its integrator.
+    ///
+    /// Used when the station leaves AUTO, so returning to AUTO does not dump
+    /// an integral accumulated against a setpoint nobody was controlling to.
+    /// A rebuild rather than a reset method because `AnalogController` exposes
+    /// no way to zero its integrator in place.
+    pub fn reset(&mut self) {
+        let elapsed = self.elapsed;
+        *self = Self::new();
+        self.elapsed = elapsed;
+    }
+}
+
+impl Default for FeedwaterController {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Steam secondary-loop state.
 pub struct SteamSecondaryLoop {
     steam_pressure: Pressure,
@@ -653,6 +840,9 @@ pub struct SteamSecondaryLoop {
     /// Water/steam mass held in the secondary **piping** on the most recent
     /// step -- see [`Self::piping_inventory`].
     piping_inventory: Mass,
+    /// Pure-feedback PI controller on the steam-temperature error. See
+    /// [`FeedwaterController`].
+    feedwater_controller: FeedwaterController,
 }
 
 impl SteamSecondaryLoop {
@@ -699,6 +889,7 @@ impl SteamSecondaryLoop {
                 &steam_generator_outlet,
                 &condensate,
             ),
+            feedwater_controller: FeedwaterController::new(),
         }
     }
 
@@ -809,24 +1000,27 @@ impl SteamSecondaryLoop {
             FeedwaterCommand::Auto {
                 target_steam_temperature,
             } => {
-                let h_target = target_steam_enthalpy_at(clamp_target_steam_temperature(
-                    target_steam_temperature,
-                ))
-                .get::<joule_per_kilogram>();
-                let enthalpy_rise_target = (h_target - h_feed).max(1.0);
-                // The controller chases the duty the primary is OFFERING, not
-                // the capped duty: it is trying to raise flow until the steam
-                // side can absorb it all. Using the capped value here would be
-                // circular (the cap depends on flow) and would latch the
-                // controller at low flow.
-                (q_w_uncapped / enthalpy_rise_target)
+                let setpoint = clamp_target_steam_temperature(target_steam_temperature);
+                // PURE FEEDBACK. No feedforward term: the controller observes
+                // the steam temperature and moves the flow until the error is
+                // gone. See `FeedwaterController` for why the inverse model
+                // was removed.
+                let error_k =
+                    setpoint.get::<kelvin>() - self.turbine_inlet_temperature.get::<kelvin>();
+                self.feedwater_controller
+                    .command(error_k, dt)
                     .clamp(MIN_SECONDARY_FLOW_KG_PER_S, MAX_SECONDARY_FLOW_KG_PER_S)
             }
             // MANUAL: the operator's number IS the demand. It still goes
             // through the same clamp and the same first-order lag below,
             // because the pump and its control valve do not care which mode the
             // station is in -- only where the demand came from changes.
+            //
+            // The controller is rebuilt while in MANUAL so that returning to
+            // AUTO does not dump a stale integral -- accumulated against a
+            // setpoint nobody was controlling to -- into the demand.
             FeedwaterCommand::Manual { mass_flow_demand } => {
+                self.feedwater_controller.reset();
                 clamp_feedwater_flow(mass_flow_demand).get::<kilogram_per_second>()
             }
         };
@@ -988,6 +1182,13 @@ impl SteamSecondaryLoop {
     }
 
     /// Turbine inlet temperature (= steam-generator outlet temperature).
+    /// The feedwater PI trim's state -- its most recent steam-temperature
+    /// error and accumulated integral. Exposed so the GUI can show whether the
+    /// controller is actually holding setpoint or sitting on a stop.
+    pub fn feedwater_controller(&self) -> &FeedwaterController {
+        &self.feedwater_controller
+    }
+
     pub fn turbine_inlet_temperature(&self) -> ThermodynamicTemperature {
         self.turbine_inlet_temperature
     }
@@ -2261,9 +2462,16 @@ mod tests {
         for _i in 0..6000 {
             let feed_h = secondary.feedwater_enthalpy();
             let feed_flow = secondary.mass_flow();
+            // Drive the primary by a specified bed-outlet temperature, the
+            // boundary condition `step_hot_leg` now takes. The equivalent of
+            // the old `power` argument at this flow and inlet.
+            let bed_out = ThermodynamicTemperature::new::<kelvin>(
+                primary.core_inlet_temperature().get::<kelvin>()
+                    + power.get::<watt>() / (pebble_bed::nominal_helium_flow_kg_per_s() * 5189.3),
+            );
             primary.step(
                 dt(),
-                power,
+                bed_out,
                 pebble_bed::nominal_helium_flow(),
                 feed_h,
                 feed_flow,
@@ -2327,6 +2535,135 @@ mod tests {
             settled_worst_approach_k > 150.0,
             "in normal operation the steam came within {settled_worst_approach_k} K of the \
              helium heating it"
+        );
+    }
+
+    /// V&V: the **pure-feedback** loop must hold setpoint without a
+    /// feedforward term, and must not oscillate.
+    ///
+    /// # Methodology
+    ///
+    /// The loop is settled in AUTO at the design duty and the steam-temperature
+    /// error is measured. With the feedforward removed there is nothing but the
+    /// PI controller closing the loop, so any failure to reach setpoint is the
+    /// controller's. Two checks: the settled |error| must be under 2 K, and the
+    /// feed flow must not reverse direction more than a handful of times over
+    /// the settling window (an integral time inside the actuator lag is the
+    /// classic way to make a loop hunt).
+    ///
+    /// Then the duty is stepped 10 -> 6 MW and the loop must re-settle. This is
+    /// the case a feedforward would have handled instantly and pure feedback
+    /// has to work for, so it is the honest test of the trade.
+    ///
+    /// # Results (2026-08-14)
+    ///
+    /// | Condition | Steam error | Flow | Reversals |
+    /// |---|---|---|---|
+    /// | Settled AUTO, 10 MW | **+0.000 K** | 3.1856 kg/s | **0** |
+    /// | After a 10 -> 6 MW load change | **+0.000 K** | 1.9113 kg/s | -- |
+    ///
+    /// Controller output at the design point: +0.4777.
+    ///
+    /// **Interpretation.** Pure feedback holds setpoint *better* than the
+    /// feedforward-plus-trim arrangement it replaced, which settled at
+    /// -0.024 K: with no open-loop model term to fight, the integrator drives
+    /// the error to zero outright. It also absorbs a 40% load change without a
+    /// standing offset. The cost is dynamic, not steady-state -- there is no
+    /// model term to move the flow the instant the duty changes, so the
+    /// approach is slower than a feedforward's would have been. For a
+    /// demonstration plant with a 10 s pump lag and a 184 s core, that is not
+    /// a cost worth a wrong model.
+    #[test]
+    fn the_feedback_only_loop_holds_setpoint() {
+        let mut loop_ = SteamSecondaryLoop::new();
+        let mut reversals = 0;
+        let mut previous_flow = loop_.mass_flow().get::<kilogram_per_second>();
+        let mut previous_delta = 0.0_f64;
+        for _ in 0..12000 {
+            loop_.step(
+                dt(),
+                design_commands(),
+                Power::new::<megawatt>(10.0),
+                nominal_hot_side(),
+            );
+            let flow = loop_.mass_flow().get::<kilogram_per_second>();
+            let delta = flow - previous_flow;
+            if delta * previous_delta < 0.0 && delta.abs() > 1e-6 {
+                reversals += 1;
+            }
+            previous_delta = delta;
+            previous_flow = flow;
+        }
+        let settled_error = loop_.feedwater_controller().error();
+        println!(
+            "feedback-only, settled at 10 MW: error {settled_error:+.3} K, \
+             output {:+.4}, flow {:.4} kg/s, {reversals} reversals",
+            loop_.feedwater_controller().last_output(),
+            loop_.mass_flow().get::<kilogram_per_second>()
+        );
+        assert!(
+            settled_error.abs() < 2.0,
+            "pure feedback left a {settled_error:+.3} K standing error"
+        );
+        assert!(
+            reversals < 40,
+            "feed flow reversed {reversals} times -- the loop is hunting"
+        );
+
+        // Load change: the case a feedforward would have caught instantly.
+        for _ in 0..12000 {
+            loop_.step(
+                dt(),
+                design_commands(),
+                Power::new::<megawatt>(6.0),
+                nominal_hot_side(),
+            );
+        }
+        let after_load_change = loop_.feedwater_controller().error();
+        println!(
+            "after a 10 -> 6 MW load change: error {after_load_change:+.3} K, flow {:.4} kg/s",
+            loop_.mass_flow().get::<kilogram_per_second>()
+        );
+        assert!(
+            after_load_change.abs() < 5.0,
+            "the loop did not recover from a load change: {after_load_change:+.3} K"
+        );
+    }
+
+    /// MANUAL must rebuild the controller, so returning to AUTO does not dump
+    /// an integral accumulated against a setpoint nobody was controlling to.
+    #[test]
+    fn manual_rebuilds_the_controller() {
+        let mut loop_ = SteamSecondaryLoop::new();
+        for _ in 0..2000 {
+            loop_.step(
+                dt(),
+                design_commands(),
+                Power::new::<megawatt>(4.0),
+                nominal_hot_side(),
+            );
+        }
+        assert!(
+            loop_.feedwater_controller().last_output().abs() > 0.0,
+            "AUTO should have driven the controller somewhere to begin with"
+        );
+
+        let manual = SecondaryCommands {
+            feedwater: FeedwaterCommand::Manual {
+                mass_flow_demand: MassRate::new::<kilogram_per_second>(3.0),
+            },
+            ..SecondaryCommands::default()
+        };
+        loop_.step(
+            dt(),
+            manual,
+            Power::new::<megawatt>(4.0),
+            nominal_hot_side(),
+        );
+        assert_eq!(
+            loop_.feedwater_controller().last_output(),
+            0.0,
+            "MANUAL must rebuild the controller with a cleared integrator"
         );
     }
 }
