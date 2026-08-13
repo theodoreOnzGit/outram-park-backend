@@ -885,7 +885,7 @@ impl Widget for Htr10ReactorVesselVisual {
                 let x = cx + side * w * 0.5 * frac;
                 painter.line_segment(
                     [Pos2::new(x, channel_top), Pos2::new(x, channel_bottom)],
-                    Stroke::new(2.0, cold),
+                    Stroke::new(2.0_f32, cold),
                 );
             }
         }
@@ -1044,7 +1044,7 @@ impl Widget for Htr10ReactorVesselVisual {
                     Pos2::new(x + rod_channel_w * 0.5, channel_bottom),
                 ),
                 rod_channel_w * 0.5,
-                Stroke::new(1.0, GRAPHITE),
+                Stroke::new(1.0_f32, GRAPHITE),
                 StrokeKind::Middle,
             );
 
@@ -1091,7 +1091,7 @@ impl Widget for Htr10ReactorVesselVisual {
                     Pos2::new(x, rect.top() - h * 0.012),
                     Pos2::new(x, rect.top() + h * 0.045),
                 ],
-                Stroke::new(2.5, STEEL),
+                Stroke::new(2.5_f32, STEEL),
             );
         }
 
@@ -1099,7 +1099,7 @@ impl Widget for Htr10ReactorVesselVisual {
         painter.rect_stroke(
             shell,
             0.0,
-            Stroke::new(2.0, Color32::from_rgb(150, 154, 162)),
+            Stroke::new(2.0_f32, Color32::from_rgb(150, 154, 162)),
             StrokeKind::Middle,
         );
 

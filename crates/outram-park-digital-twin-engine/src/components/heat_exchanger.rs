@@ -1056,7 +1056,7 @@ impl HeatExchangerVisual {
         painter.rect_stroke(
             body,
             radius(w * 0.012),
-            Stroke::new(1.5, OUTLINE),
+            Stroke::new(1.5_f32, OUTLINE),
             StrokeKind::Middle,
         );
     }
@@ -1335,7 +1335,7 @@ impl HeatExchangerVisual {
                         Pos2::new(pack_left, pack_top + channel_h * (c as f32 + 1.0)),
                         Pos2::new(pack_right, pack_top + channel_h * (c as f32 + 1.0)),
                     ],
-                    Stroke::new(1.0, INTERNALS),
+                    Stroke::new(1.0_f32, INTERNALS),
                 );
             }
         }
@@ -1517,7 +1517,7 @@ impl HeatExchangerVisual {
             let cx = span.left() + span.width() * f;
             let tip = cx + dir * size;
             let tail = cx - dir * size;
-            let stroke = Stroke::new(1.4, Color32::from_rgba_unmultiplied(20, 22, 26, 210));
+            let stroke = Stroke::new(1.4_f32, Color32::from_rgba_unmultiplied(20, 22, 26, 210));
             painter.line_segment([Pos2::new(tail, y - size), Pos2::new(tip, y)], stroke);
             painter.line_segment([Pos2::new(tail, y + size), Pos2::new(tip, y)], stroke);
         }
@@ -1606,7 +1606,7 @@ impl HeatExchangerVisual {
             };
             painter.line_segment(
                 [Pos2::new(bx, top), Pos2::new(bx, bottom)],
-                Stroke::new(1.2, colour),
+                Stroke::new(1.2_f32, colour),
             );
             for cap in [top, bottom] {
                 painter.line_segment(
@@ -1614,7 +1614,7 @@ impl HeatExchangerVisual {
                         Pos2::new(bx - w * 0.008, cap),
                         Pos2::new(bx + w * 0.008, cap),
                     ],
-                    Stroke::new(1.2, colour),
+                    Stroke::new(1.2_f32, colour),
                 );
             }
             if let Some((left, right)) = approaches {
@@ -1686,7 +1686,7 @@ impl HeatExchangerVisual {
         painter.rect_stroke(
             strip,
             2.0,
-            Stroke::new(1.0, translucent(OUTLINE, 120)),
+            Stroke::new(1.0_f32, translucent(OUTLINE, 120)),
             StrokeKind::Middle,
         );
 
@@ -1708,7 +1708,7 @@ impl HeatExchangerVisual {
 
         let segments = 40;
         for hot in [false, true] {
-            let width = if hot { 2.0 } else { 1.8 };
+            let width = if hot { 2.0_f32 } else { 1.8_f32 };
             for k in 0..segments {
                 let s0 = k as f32 / segments as f32;
                 let s1 = (k + 1) as f32 / segments as f32;
