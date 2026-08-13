@@ -94,6 +94,7 @@ use std::time::Instant;
 use super::bicgstab::bicgstab_impl;
 use super::gmres::gmres_impl;
 use super::{KrylovResult, KrylovSettings, Preconditioner};
+use super::vecops;
 use crate::compute::ComputeBackend;
 use crate::ldu_matrix::parallel::HybridLdu;
 use crate::ldu_matrix::LduMatrix;
@@ -529,6 +530,283 @@ fn thread_count_parity_is_bitwise() {
     }
 }
 
+/// Breakdown floor for the flat reference solvers below, matching
+/// `bicgstab.rs`'s own `BREAKDOWN_TOL`.
+const BREAKDOWN_TOL: f64 = 1.0e-30;
+
+/// BiCGStab with the *flat* reductions the solver used before the hybrid
+/// kernels landed, driving the same products, so the only difference between
+/// this and `bicgstab_impl` is the summation order.
+fn bicgstab_flat(
+    ldu: &HybridLdu,
+    b: &[f64],
+    precond: &Preconditioner,
+    settings: &KrylovSettings,
+    history: &mut Vec<f64>,
+) -> (Vec<f64>, KrylovResult) {
+    let be = ComputeBackend::Serial;
+    let n = ldu.matrix().n_cells;
+    history.clear();
+    let bnorm = vecops::nrm2(b);
+    let mut x = vec![0.0; n];
+    let mut r = ldu.residual(&x, b, be);
+    let rhat0 = r.clone();
+    let mut best_x = x.clone();
+    let mut best_rel = vecops::nrm2(&r) / bnorm;
+    let (mut rho_old, mut alpha, mut omega) = (1.0_f64, 1.0_f64, 1.0_f64);
+    let mut v = vec![0.0; n];
+    let mut p = vec![0.0; n];
+    let mut phat = vec![0.0; n];
+    let mut shat = vec![0.0; n];
+    let mut s = vec![0.0; n];
+    let mut t = vec![0.0; n];
+    let mut scratch = vec![0.0; n];
+    let mut iters = 0usize;
+    let mut converged = false;
+
+    while iters < settings.max_iter {
+        iters += 1;
+        let rho = vecops::dot(&rhat0, &r);
+        if !rho.is_finite() || rho.abs() < BREAKDOWN_TOL || omega.abs() < BREAKDOWN_TOL {
+            break;
+        }
+        let beta = (rho / rho_old) * (alpha / omega);
+        for i in 0..n {
+            p[i] = r[i] + beta * (p[i] - omega * v[i]);
+        }
+        precond.apply_on(&p, &mut phat, be);
+        ldu.spmv_into(&phat, &mut v, be);
+        let rhat_v = vecops::dot(&rhat0, &v);
+        if !rhat_v.is_finite() || rhat_v.abs() < BREAKDOWN_TOL {
+            break;
+        }
+        alpha = rho / rhat_v;
+        s.copy_from_slice(&r);
+        vecops::axpy(-alpha, &v, &mut s);
+        let s_rel = vecops::nrm2(&s) / bnorm;
+        if s_rel <= settings.tolerance {
+            history.push(s_rel);
+            vecops::axpy(alpha, &phat, &mut x);
+            ldu.residual_into(&x, b, &mut scratch, be);
+            let rel = vecops::nrm2(&scratch) / bnorm;
+            if rel < best_rel {
+                best_rel = rel;
+                best_x.copy_from_slice(&x);
+            }
+            converged = best_rel <= settings.tolerance;
+            break;
+        }
+        precond.apply_on(&s, &mut shat, be);
+        ldu.spmv_into(&shat, &mut t, be);
+        let tt = vecops::dot(&t, &t);
+        if !tt.is_finite() || tt.abs() < BREAKDOWN_TOL {
+            break;
+        }
+        omega = vecops::dot(&t, &s) / tt;
+        vecops::axpy(alpha, &phat, &mut x);
+        vecops::axpy(omega, &shat, &mut x);
+        r.copy_from_slice(&s);
+        vecops::axpy(-omega, &t, &mut r);
+        let rel = vecops::nrm2(&r) / bnorm;
+        history.push(rel);
+        if !rel.is_finite() {
+            break;
+        }
+        if rel < best_rel {
+            best_rel = rel;
+            best_x.copy_from_slice(&x);
+        }
+        if best_rel <= settings.tolerance {
+            converged = true;
+            break;
+        }
+        if omega.abs() < BREAKDOWN_TOL {
+            break;
+        }
+        rho_old = rho;
+    }
+    ldu.residual_into(&best_x, b, &mut scratch, be);
+    let true_rel = vecops::nrm2(&scratch) / bnorm;
+    (
+        best_x,
+        KrylovResult {
+            n_iterations: iters,
+            final_residual: true_rel,
+            converged: converged && true_rel <= settings.tolerance,
+        },
+    )
+}
+
+/// GMRES(m) with the *flat* reductions, the counterpart of [`bicgstab_flat`].
+///
+/// A line-for-line mirror of [`gmres_impl`], with every
+/// [`crate::ldu_matrix::parallel`] reduction replaced by its flat
+/// [`crate::krylov::vecops`] equivalent — `norm_l2` → `nrm2`, `dot` → `dot`,
+/// `axpy` → `axpy`, `scale` → `scal` — while the sparse products still go through
+/// the same [`HybridLdu`] and the Givens rotations through the very same
+/// [`givens`](super::gmres::givens) function and
+/// [`HAPPY_TOL`](super::gmres::HAPPY_TOL). The **only** difference from
+/// `gmres_impl` is therefore the order in which inner products are summed, which
+/// is exactly what the sweep below is trying to isolate.
+///
+/// # Why GMRES needs its own reference at all
+///
+/// BiCGStab performs a fixed four inner products per iteration. GMRES(m) performs
+/// `j + 1` of them at Arnoldi step `j` through Modified Gram-Schmidt, plus a norm,
+/// so a full cycle of `m = 30` runs roughly 500 reductions against BiCGStab's 120
+/// — and, unlike BiCGStab, its convergence test reads a *recurrence*
+/// (`|g[j+1]|`, carried through the Givens rotations) rather than a freshly
+/// recomputed norm, so a last-bit perturbation propagates through the cycle
+/// instead of being refreshed each iteration. GMRES is the structurally more
+/// exposed solver, which is why leaving it out of the reduction-order comparison
+/// would have been the weaker half of the claim.
+fn gmres_flat(
+    ldu: &HybridLdu,
+    b: &[f64],
+    precond: &Preconditioner,
+    settings: &KrylovSettings,
+    history: &mut Vec<f64>,
+) -> (Vec<f64>, KrylovResult) {
+    use super::gmres::{givens, HAPPY_TOL};
+
+    let be = ComputeBackend::Serial;
+    let n = ldu.matrix().n_cells;
+    history.clear();
+    let bnorm = vecops::nrm2(b);
+    if bnorm == 0.0 {
+        return (
+            vec![0.0; n],
+            KrylovResult {
+                n_iterations: 0,
+                final_residual: 0.0,
+                converged: true,
+            },
+        );
+    }
+
+    let m = if settings.restart == 0 {
+        settings.max_iter.max(1)
+    } else {
+        settings.restart
+    };
+    let mut x = vec![0.0; n];
+    let tol = settings.tolerance;
+    let mut total_iters = 0usize;
+    let mut converged = false;
+    let mut mz = vec![0.0; n];
+
+    while total_iters < settings.max_iter {
+        let r = ldu.residual(&x, b, be);
+        let beta = vecops::nrm2(&r);
+        if beta / bnorm <= tol {
+            converged = true;
+            break;
+        }
+
+        let mut v: Vec<Vec<f64>> = Vec::with_capacity(m + 1);
+        let mut v0 = r;
+        vecops::scal(1.0 / beta, &mut v0);
+        v.push(v0);
+
+        let mut cs = vec![0.0f64; m];
+        let mut sn = vec![0.0f64; m];
+        let mut g = vec![0.0f64; m + 1];
+        g[0] = beta;
+        let mut hcols: Vec<Vec<f64>> = Vec::with_capacity(m);
+        let mut k = 0usize;
+
+        for j in 0..m {
+            if total_iters >= settings.max_iter {
+                break;
+            }
+            total_iters += 1;
+
+            precond.apply_on(&v[j], &mut mz, be);
+            let mut w = vec![0.0; n];
+            ldu.spmv_into(&mz, &mut w, be);
+
+            let mut hcol = vec![0.0f64; j + 2];
+            for i in 0..=j {
+                let hij = vecops::dot(&w, &v[i]);
+                hcol[i] = hij;
+                vecops::axpy(-hij, &v[i], &mut w);
+            }
+            let hnext = vecops::nrm2(&w);
+            hcol[j + 1] = hnext;
+
+            for i in 0..j {
+                let temp = cs[i] * hcol[i] + sn[i] * hcol[i + 1];
+                hcol[i + 1] = -sn[i] * hcol[i] + cs[i] * hcol[i + 1];
+                hcol[i] = temp;
+            }
+            let (c, s) = givens(hcol[j], hcol[j + 1]);
+            cs[j] = c;
+            sn[j] = s;
+            hcol[j] = c * hcol[j] + s * hcol[j + 1];
+            hcol[j + 1] = 0.0;
+            let g_temp = c * g[j] + s * g[j + 1];
+            g[j + 1] = -s * g[j] + c * g[j + 1];
+            g[j] = g_temp;
+
+            hcols.push(hcol);
+            k = j + 1;
+
+            let resid = g[j + 1].abs() / bnorm;
+            history.push(resid);
+
+            if hnext > HAPPY_TOL {
+                let mut vnew = w;
+                vecops::scal(1.0 / hnext, &mut vnew);
+                v.push(vnew);
+            }
+            if resid <= tol || hnext <= HAPPY_TOL {
+                break;
+            }
+        }
+
+        let mut y = vec![0.0f64; k];
+        for i in (0..k).rev() {
+            let mut sum = g[i];
+            for l in (i + 1)..k {
+                sum -= hcols[l][i] * y[l];
+            }
+            let diag = hcols[i][i];
+            y[i] = if diag.abs() > HAPPY_TOL {
+                sum / diag
+            } else {
+                0.0
+            };
+        }
+
+        let mut z = vec![0.0f64; n];
+        for i in 0..k {
+            vecops::axpy(y[i], &v[i], &mut z);
+        }
+        precond.apply_on(&z, &mut mz, be);
+        vecops::axpy(1.0, &mz, &mut x);
+
+        let true_rel = vecops::nrm2(&ldu.residual(&x, b, be)) / bnorm;
+        if !true_rel.is_finite() {
+            break;
+        }
+        if true_rel <= tol {
+            converged = true;
+            break;
+        }
+    }
+
+    let final_rel = vecops::nrm2(&ldu.residual(&x, b, be)) / bnorm;
+    let final_rel = if final_rel.is_finite() { final_rel } else { 1.0 };
+    (
+        x,
+        KrylovResult {
+            n_iterations: total_iters,
+            final_residual: final_rel,
+            converged: converged && final_rel <= tol,
+        },
+    )
+}
+
 // ── Gate 3: what the blocked reduction did to the iteration counts ────────────
 
 /// **Methodology.** The solvers now reduce through
@@ -586,113 +864,7 @@ fn thread_count_parity_is_bitwise() {
 /// above are what was checked; nothing broader is claimed.
 #[test]
 fn blocked_versus_flat_reduction_does_not_move_iteration_counts() {
-    use crate::krylov::vecops;
     use crate::ldu_matrix::parallel::{axpy, dot, norm_l2};
-
-    const BREAKDOWN_TOL: f64 = 1.0e-30;
-
-    /// BiCGStab with the *flat* reductions the solver used before the hybrid
-    /// kernels landed, driving the same products, so the only difference between
-    /// this and `bicgstab_impl` is the summation order.
-    fn bicgstab_flat(
-        ldu: &HybridLdu,
-        b: &[f64],
-        precond: &Preconditioner,
-        settings: &KrylovSettings,
-        history: &mut Vec<f64>,
-    ) -> (Vec<f64>, KrylovResult) {
-        let be = ComputeBackend::Serial;
-        let n = ldu.matrix().n_cells;
-        history.clear();
-        let bnorm = vecops::nrm2(b);
-        let mut x = vec![0.0; n];
-        let mut r = ldu.residual(&x, b, be);
-        let rhat0 = r.clone();
-        let mut best_x = x.clone();
-        let mut best_rel = vecops::nrm2(&r) / bnorm;
-        let (mut rho_old, mut alpha, mut omega) = (1.0_f64, 1.0_f64, 1.0_f64);
-        let mut v = vec![0.0; n];
-        let mut p = vec![0.0; n];
-        let mut phat = vec![0.0; n];
-        let mut shat = vec![0.0; n];
-        let mut s = vec![0.0; n];
-        let mut t = vec![0.0; n];
-        let mut scratch = vec![0.0; n];
-        let mut iters = 0usize;
-        let mut converged = false;
-
-        while iters < settings.max_iter {
-            iters += 1;
-            let rho = vecops::dot(&rhat0, &r);
-            if !rho.is_finite() || rho.abs() < BREAKDOWN_TOL || omega.abs() < BREAKDOWN_TOL {
-                break;
-            }
-            let beta = (rho / rho_old) * (alpha / omega);
-            for i in 0..n {
-                p[i] = r[i] + beta * (p[i] - omega * v[i]);
-            }
-            precond.apply_on(&p, &mut phat, be);
-            ldu.spmv_into(&phat, &mut v, be);
-            let rhat_v = vecops::dot(&rhat0, &v);
-            if !rhat_v.is_finite() || rhat_v.abs() < BREAKDOWN_TOL {
-                break;
-            }
-            alpha = rho / rhat_v;
-            s.copy_from_slice(&r);
-            vecops::axpy(-alpha, &v, &mut s);
-            let s_rel = vecops::nrm2(&s) / bnorm;
-            if s_rel <= settings.tolerance {
-                history.push(s_rel);
-                vecops::axpy(alpha, &phat, &mut x);
-                ldu.residual_into(&x, b, &mut scratch, be);
-                let rel = vecops::nrm2(&scratch) / bnorm;
-                if rel < best_rel {
-                    best_rel = rel;
-                    best_x.copy_from_slice(&x);
-                }
-                converged = best_rel <= settings.tolerance;
-                break;
-            }
-            precond.apply_on(&s, &mut shat, be);
-            ldu.spmv_into(&shat, &mut t, be);
-            let tt = vecops::dot(&t, &t);
-            if !tt.is_finite() || tt.abs() < BREAKDOWN_TOL {
-                break;
-            }
-            omega = vecops::dot(&t, &s) / tt;
-            vecops::axpy(alpha, &phat, &mut x);
-            vecops::axpy(omega, &shat, &mut x);
-            r.copy_from_slice(&s);
-            vecops::axpy(-omega, &t, &mut r);
-            let rel = vecops::nrm2(&r) / bnorm;
-            history.push(rel);
-            if !rel.is_finite() {
-                break;
-            }
-            if rel < best_rel {
-                best_rel = rel;
-                best_x.copy_from_slice(&x);
-            }
-            if best_rel <= settings.tolerance {
-                converged = true;
-                break;
-            }
-            if omega.abs() < BREAKDOWN_TOL {
-                break;
-            }
-            rho_old = rho;
-        }
-        ldu.residual_into(&best_x, b, &mut scratch, be);
-        let true_rel = vecops::nrm2(&scratch) / bnorm;
-        (
-            best_x,
-            KrylovResult {
-                n_iterations: iters,
-                final_residual: true_rel,
-                converged: converged && true_rel <= settings.tolerance,
-            },
-        )
-    }
 
     // Sanity: the two `dot`s really are identical below one block and differ
     // above it, so the comparison below is testing what it claims to.
@@ -1483,4 +1655,208 @@ fn vecop_floor_inside_a_warm_solve_benchmark() {
             best_prod / best_low
         );
     }
+}
+
+// ── Gate 3b: how often does the reduction order actually flip an iteration? ────
+
+/// **Methodology.** `blocked_versus_flat_reduction_does_not_move_iteration_counts`
+/// establishes that the blocked reduction moved no iteration count at five sizes
+/// of one matrix family, at one tolerance, for BiCGStab. Its own stated
+/// limitation is the interesting part: a solve whose residual crosses the
+/// tolerance within the last couple of bits on the deciding iteration *can* flip
+/// by one iteration either way, and that is inherent to changing a summation
+/// order rather than a defect. That limitation was left as an argument.
+///
+/// This test replaces the argument with a **frequency**. It sweeps a grid of
+/// 3 mesh sizes x 3 diagonal dominances x 3 right-hand-side seeds x 4 tolerances
+/// = 108 systems, runs **both** solvers on each under both reduction orders
+/// (blocked [`bicgstab_impl`]/[`gmres_impl`] against flat [`bicgstab_flat`]/
+/// [`gmres_flat`]), and counts how many of the 216 solve-pairs disagree on the
+/// iteration count.
+///
+/// Every size in the grid is **above** `REDUCTION_BLOCK` = 1 024, so the two
+/// reduction orders genuinely differ everywhere in it; below that block they are
+/// identical by construction and a sweep would be measuring nothing.
+///
+/// The tolerance axis is the one that matters and the reason it is swept: a
+/// last-bit perturbation can only change an iteration count by moving the
+/// residual across the stopping threshold, so the risk is a property of *where
+/// the tolerance sits relative to the convergence curve*, not of the mesh size.
+/// Sweeping 1e-6 to 1e-12 samples four different places on that curve.
+///
+/// **Pass criteria.** For every one of the 216 pairs: (a) both variants agree on
+/// whether they converged, (b) their solutions agree to `1e-6` relative — the
+/// fixed point is a property of the linear system, so no reduction order may move
+/// it — and (c) their iteration counts differ by **at most 1**. Criterion (c) is
+/// the substantive one: a one-iteration flip is the inherent, bounded consequence
+/// of reassociating a sum, whereas a larger divergence is the signature bead
+/// `op-yvj.4.4` warns about — a silently substituted preconditioner or a
+/// genuinely different algorithm — and would fail here.
+///
+/// **Results, measured 2026-08-13**, release, `--features parallel`, 4 logical
+/// cores, load average `1.42 0.97 0.45`. Deterministic: no timing is involved, so
+/// these are exact and reproducible, not a band.
+///
+/// | Solver | Pairs | Iteration-count flips | Max abs. flip | Max rel. diff in final residual |
+/// |---|---|---|---|---|
+/// | BiCGStab | 108 | **0** | 0 | 5.55e-8 |
+/// | GMRES(30) | 108 | **0** | 0 | 4.44e-8 |
+/// | **Total** | **216** | **0** | **0** | **5.55e-8** |
+///
+/// **Interpretation.** Across 216 solve-pairs spanning four tolerances, three
+/// diagonal dominances, three right-hand sides, two solvers and three mesh sizes,
+/// the blocked reduction changed the iteration count **zero times**. The
+/// hypothetical one-iteration flip is therefore not merely bounded in principle;
+/// it was not observed at all in this grid. The converged residuals do differ, by
+/// up to 5.6e-8 relative — consistent with, and slightly larger than, the 4.1e-8
+/// the five-size test measured — which is the expected magnification of a
+/// last-bit change in a heavily cancelled quantity, and is invisible against a
+/// tolerance three or more orders of magnitude away.
+///
+/// **GMRES was the one at risk and it also did not flip.** GMRES(30) runs roughly
+/// four times as many reductions per iteration as BiCGStab (`j + 1` Modified
+/// Gram-Schmidt inner products at Arnoldi step `j`, against a fixed four), and its
+/// stopping test reads the Givens recurrence `|g[j+1]|` rather than a freshly
+/// recomputed norm, so a perturbation propagates through a cycle instead of being
+/// refreshed. It was the structurally more exposed solver, it had never been
+/// compared under the two reduction orders before, and it came out at zero flips
+/// like BiCGStab.
+///
+/// **Limitations.** 216 systems of **one matrix family** (asymmetric 7-point
+/// stencil, fixed-seed pseudorandom coefficients), one preconditioner (ILU(0)),
+/// `f64` CPU only. Zero observed flips in this grid is an upper bound of roughly
+/// 1-in-216 on the flip rate for systems like these, **not** a proof that no
+/// system anywhere flips — the mechanism by which one could remains exactly as
+/// described above. A user whose tolerance sits on a near-vertical part of their
+/// convergence curve should still expect the last iteration to be able to move by
+/// one, and should not treat an iteration count as reproducible across a change
+/// of summation order the way this crate's backends guarantee it across a change
+/// of *thread count*.
+#[test]
+fn reduction_order_flips_no_iteration_counts_across_a_tolerance_sweep() {
+    let settings_base = KrylovSettings {
+        tolerance: 1e-10,
+        max_iter: 3000,
+        restart: 30,
+    };
+
+    eprintln!("machine: {}", machine_state());
+    let mut pairs = [0usize; 2];
+    let mut flips = [0usize; 2];
+    let mut max_flip = [0usize; 2];
+    let mut max_rel = [0.0f64; 2];
+
+    for &mesh in &[16usize, 20, 24] {
+        for &dominance in &[1.02f64, 1.05, 1.15] {
+            let a = stencil_3d(mesh, dominance, 0x1234_5678);
+            let cells = a.n_cells;
+            assert!(
+                cells > crate::ldu_matrix::parallel::REDUCTION_BLOCK,
+                "sweep sizes must exceed one reduction block or they measure nothing"
+            );
+            let precond = Preconditioner::ilu0(&a);
+            let ldu = HybridLdu::new(Arc::new(a));
+
+            for &seed in &[0xDEAD_BEEFu64, 0x0BAD_F00D, 0x5EED_1234] {
+                let b = rhs(cells, seed);
+                for &tolerance in &[1e-6f64, 1e-8, 1e-10, 1e-12] {
+                    let settings = KrylovSettings {
+                        tolerance,
+                        ..settings_base
+                    };
+
+                    for solver in 0..2usize {
+                        let (x_blk, r_blk) = if solver == 0 {
+                            bicgstab_impl(
+                                &ldu,
+                                &b,
+                                None,
+                                &precond,
+                                &settings,
+                                ComputeBackend::Serial,
+                                &mut Vec::new(),
+                            )
+                        } else {
+                            gmres_impl(
+                                &ldu,
+                                &b,
+                                None,
+                                &precond,
+                                &settings,
+                                ComputeBackend::Serial,
+                                &mut Vec::new(),
+                            )
+                        };
+                        let (x_flt, r_flt) = if solver == 0 {
+                            bicgstab_flat(&ldu, &b, &precond, &settings, &mut Vec::new())
+                        } else {
+                            gmres_flat(&ldu, &b, &precond, &settings, &mut Vec::new())
+                        };
+
+                        let name = if solver == 0 { "bicgstab" } else { "gmres" };
+                        pairs[solver] += 1;
+
+                        assert_eq!(
+                            r_blk.converged, r_flt.converged,
+                            "{name} {cells} cells dom {dominance} seed {seed:#x} tol {tolerance:e}: \
+                             convergence flag differs between reduction orders"
+                        );
+                        if r_blk.converged {
+                            let err = rel_err(&x_blk, &x_flt);
+                            assert!(
+                                err <= 1e-6,
+                                "{name} {cells} cells dom {dominance} seed {seed:#x} \
+                                 tol {tolerance:e}: solutions differ by {err:.3e} relative — a \
+                                 reduction order must not move the fixed point"
+                            );
+                        }
+
+                        let d = r_blk.n_iterations.abs_diff(r_flt.n_iterations);
+                        if d != 0 {
+                            flips[solver] += 1;
+                            max_flip[solver] = max_flip[solver].max(d);
+                            eprintln!(
+                                "FLIP {name} {cells} cells dom {dominance} seed {seed:#x} \
+                                 tol {tolerance:e}: blocked {} iters, flat {} iters",
+                                r_blk.n_iterations, r_flt.n_iterations
+                            );
+                        }
+                        assert!(
+                            d <= 1,
+                            "{name} {cells} cells dom {dominance} seed {seed:#x} tol {tolerance:e}: \
+                             iteration counts differ by {d} (blocked {}, flat {}) — more than the \
+                             one-iteration flip a reassociated sum can explain",
+                            r_blk.n_iterations,
+                            r_flt.n_iterations
+                        );
+
+                        let rd = if r_blk.final_residual == r_flt.final_residual {
+                            0.0
+                        } else {
+                            (r_blk.final_residual - r_flt.final_residual).abs()
+                                / r_blk
+                                    .final_residual
+                                    .abs()
+                                    .max(r_flt.final_residual.abs())
+                        };
+                        max_rel[solver] = max_rel[solver].max(rd);
+                    }
+                }
+            }
+        }
+    }
+
+    for (solver, name) in ["bicgstab", "gmres"].iter().enumerate() {
+        eprintln!(
+            "{name:9}: {} pairs, {} iteration-count flips, max abs flip {}, \
+             max rel diff in final residual {:.3e}",
+            pairs[solver], flips[solver], max_flip[solver], max_rel[solver]
+        );
+    }
+    eprintln!(
+        "total    : {} pairs, {} flips, max rel diff {:.3e}",
+        pairs[0] + pairs[1],
+        flips[0] + flips[1],
+        max_rel[0].max(max_rel[1])
+    );
 }
