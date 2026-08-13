@@ -132,6 +132,106 @@ governed by cancellation must not be given a smaller epsilon.** Differentiation
 and minimisation are both cancellation-limited by construction. Root finding
 and quadrature are not.
 
+---
+
+# Amendment, 2026-08-13: coarse-to-fine supersedes the split
+
+The maintainer proposed a different architecture for the iterative kernels:
+**the `f32` pass produces only the initial guess for the batch, and the CPU
+converges to the final answer at `f64`.** This is not a variant of the split
+above — it replaces it, and it is better. The section above stands as written
+for the *elementwise* kernels; for root finding and minimisation this amendment
+governs.
+
+The bead's three forms called this "transfer/compute overlap ... cheapest form,
+mostly a scheduling detail of (2)". That was wrong. Pipelining is the superior
+architecture here, not a detail of the split.
+
+## What it changes
+
+**The output is entirely `f64`.** `f32` never touches the answer, only the
+starting point. Therefore:
+
+- **Precision heterogeneity: gone outright**, not mitigated. There is no mixed
+  precision in the result to document per kernel.
+- **The `f32` accuracy floors stop applying.** The table above governs the
+  *guess*, which is allowed to be poor. It does not govern the result.
+- **Reproducibility: recovered, with one distinction.** The convergence
+  criterion in `RootSettings` is `x_tol_abs` / `x_tol_rel` / `f_tol` — a
+  tolerance, not a fixed iteration count — so the answer is pinned by the
+  criterion rather than by where it started. A *deterministic* coarse pass
+  gives a bitwise-reproducible result. A non-deterministic one gives a result
+  reproducible **to tolerance but not bitwise**: two Newton runs from different
+  starts both satisfy `|f| < f_tol` while landing on different floats inside
+  it. State which of the two a kernel offers; do not claim bitwise from a
+  work-stealing coarse pass.
+
+**It is also the right division of labour for the hardware**, which is the
+argument that makes it better than a split rather than merely safer. Batched
+root finding on a GPU is hurt by warp divergence: lane 5 converges in 3
+iterations and lane 6 in 11, and under SIMT every lane pays for the slowest.
+Coarse-to-fine splits the work along exactly that seam — the coarse phase is
+*uniform* (a fixed iteration count for every lane, no divergence, ideal for
+SIMT) and the polish phase is *irregular* (a different count per lane, ideal
+for CPU threads). A data-level split gives both devices a mix of both phases;
+this gives each the phase it is good at.
+
+## Per kernel, revised
+
+**Batched root finding (`op-yvj.4.2`) — promoted. The concern is withdrawn.**
+
+The scheme is not merely safe here, it is safe *by a property the API already
+guarantees*: `RootProblem::guess` documents that a non-finite guess, or one
+outside `[lo, hi]`, is replaced by the bracket midpoint rather than rejected —
+"a bad guess is a performance problem, not a correctness problem". A wrong
+`f32` guess therefore cannot corrupt the answer; it can only cost iterations.
+Newton is self-correcting in a way that suits this exactly.
+
+The saving is large because convergence is quadratic — correct digits double
+per iteration. From an `f32`-converged start (~7 correct digits) the `f64`
+polish needs **2 iterations** to reach ~16 digits, against ~5 from a crude
+bracket. `RootProblem::with_guess` already exists; no new API is needed.
+
+**Golden-section minimisation (`op-yvj.4.3`) — reinstated, with one mandatory
+safeguard.** The exclusion above was correct for a split and is wrong for
+coarse-to-fine. Two qualifications, both real:
+
+- **The payoff is ~40%, not an order of magnitude.** Golden section is
+  *linearly* convergent (the bracket shrinks by 0.618 each iteration), so
+  unlike Newton it cannot exploit a good start — it can only skip the
+  iterations that would have reached that start. Measured 2026-08-13: from a
+  bracket of width 1 to the `f64` floor of `1.49e-8` costs **37.5 iterations**,
+  of which the first **16.6** reach the `f32` floor and the remaining **20.9**
+  are the CPU polish. The GPU can therefore pre-compute **44%** of the
+  iterations. Each CPU iteration is one objective evaluation — golden section's
+  defining property is the retained probe — so 44% of the iterations is 44% of
+  the objective calls, which is worth having but is not a transformation.
+- **The coarse pass must return a widened bracket, not a point.** This is the
+  safeguard and it is not optional. Golden section converges to an interior
+  point of whatever bracket it is handed and *never re-expands* it, so a tight
+  bracket placed around the wrong location is unrecoverable — the CPU refines
+  confidently into the wrong basin. That failure is live on the motivating
+  application: `G(p)` is flat near its maximum and is already located only to
+  order 0.6–3 Pa at `f64`, so an `f32` pass may mislocate it substantially.
+  Returning `MinProblem::new(lo, hi)` widened by the `f32` uncertainty
+  preserves correctness and costs only two or three of the ~17 saved
+  iterations. `MinProblem` is already bracket-valued, so the API supports this
+  as it stands.
+
+**Numerical differentiation (`op-yvj.4.6`) — still excluded, for a different
+reason.** The scheme does not reach this kernel at all. A finite difference is
+not an iterative refinement: there is no fixed point to converge to and hence
+no initial guess to seed. One picks `h`, evaluates, subtracts and divides, and
+the `f32` floor lands directly on the answer with nothing to polish it away.
+The earlier exclusion therefore stands, but the reason changes from "`f32` is
+too coarse" to "there is nothing here to refine".
+
+The one legitimate use of a coarse pass in this kernel is **selecting `h`**, or
+the Richardson extrapolation depth. That is a search, and it tolerates a poor
+answer well, because the resulting accuracy is only second-order in getting `h`
+right. It is a real but small win and should not be confused with computing the
+derivative itself at `f32`.
+
 ## Why this is not implemented
 
 `op-yvj.4.8` is a *selection policy over* an existing `CpuMulti` and an
