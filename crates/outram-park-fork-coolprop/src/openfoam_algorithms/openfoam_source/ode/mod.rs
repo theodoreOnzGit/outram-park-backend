@@ -304,10 +304,26 @@ pub(crate) fn integrate_interval(
 /// converged.
 ///
 /// **After the fix** all three return `Err(OdeError::NonFiniteState)` and the
-/// tests below assert exactly that. Note that `Rosenbrock23` carries its own
-/// copy of the adaptive retry loop (`Rosenbrock23::solve_step`) instead of
-/// calling [`adaptive_step`], so it needed the guard independently — a partial
-/// fix touching only `adaptive_step` would have left the stiff solver broken.
+/// eight tests below assert exactly that. Measured 2026-08-13:
+/// `cargo test --release -p outram-park-fork-coolprop --lib` ->
+/// `282 passed; 0 failed; 4 ignored`;
+/// `cargo test --release -p tampines-steam-tables --lib` ->
+/// `955 passed; 0 failed; 13 ignored`.
+///
+/// `Rosenbrock23` carries its own copy of the adaptive retry loop
+/// (`Rosenbrock23::solve_step`) instead of calling [`adaptive_step`], so it
+/// needed the guard independently. This was checked, not assumed: with the
+/// `normalize_error` change in place but the guard deleted from
+/// `Rosenbrock23::solve_step`, both Rosenbrock tests below failed with
+///
+/// ```text
+///   left: Err(StepSizeUnderflow)
+///  right: Err(NonFiniteState)
+/// ```
+///
+/// — i.e. a partial fix touching only `adaptive_step` would have left the
+/// stiff solver reporting the wrong cause, which is exactly the misleading
+/// `StepSizeUnderflow` this variant exists to avoid.
 ///
 /// # Interpretation and limitations
 ///
