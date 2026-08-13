@@ -428,10 +428,27 @@ cargo build --release -p kovan-literature --features digitise-gui
   test --release`** before calling work done. Do not let kopitiam's default
   profile silently replace the release-mode requirement.
 
-**Known friction (installed version is now kopi-beans 0.1.3, confirmed by
-`cargo install --list` on 2026-08-12). Items below are dated with the version
-they were actually tested against — the 0.1.2 / 2026-08-07 ones have *not* been
-re-run on 0.1.3, so do not restate them as current-version findings:**
+> **Version note (2026-08-13): kopi-beans 0.1.6 is now installed** (`bn
+> --version`), upgraded from 0.1.3 mid-session. Two things changed and were
+> **verified on this host**, not merely announced:
+>
+> - **The daemon's runaway sync-retry loop is fixed.** On 0.1.3 it retried a
+>   failing `git push` roughly every 2.5 s forever (`consecutive_failures: 30`),
+>   spawning a console window per attempt on Windows and making the workspace
+>   unusable until the daemon was killed. On 0.1.6, a 20-second idle
+>   measurement with the daemon running showed **zero** process spawns and
+>   `consecutive_failures: 0`. Full evidence:
+>   `docs/kopitiam-issues/resolved/kopi-beans-daemon-retries-failing-push-forever.md`.
+> - **The `clock_skew` warning now explains itself** — that 'ahead' is usually
+>   not a clock fault, that an idle store reads the same way, that it
+>   self-clears on the next write, and what it actually affects. That was the
+>   substance of the "unactionable" complaint below.
+>
+> **The 0.1.2 / 0.1.3-dated items below have NOT been re-tested on 0.1.6.** Do
+> not restate any of them as current-version findings.
+
+**Known friction, each dated against the version it was actually tested on
+(0.1.2 / 0.1.3 — see the version note above; none re-run on 0.1.6):**
 
 - **RESOLVED — `bn` *can* now push the store ref to a non-local remote.**
   Verified 2026-08-12 against kopi-beans **0.1.3**: the daemon published

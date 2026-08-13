@@ -4,7 +4,9 @@
 **Version:** `bn 0.1.3` (`bn --version`)
 **Platform:** Windows 11 Pro 10.0.26200, Git Bash + PowerShell, `git` 2.x with `credential.helper=manager`
 **Observed:** 2026-08-13, in the OUTRAM PARK backend workspace
-**Status:** open, not yet filed upstream (no `gh` on this machine — see "Filing" below)
+**Status:** **RESOLVED in kopi-beans 0.1.6**, verified 2026-08-13 — see
+"Closing evidence" at the end. Never filed upstream (no `gh` on this machine);
+it was fixed before it could be.
 
 ## Summary
 
@@ -137,6 +139,61 @@ surfaces no error text, so this is inference, not a confirmed diagnosis.
   produce exactly that profile. They may be one bug.
 - `last_sync: never` meant every bead filed on this machine existed nowhere
   else — 126 issues, discovered only by diffing the refs by hand.
+
+## Closing evidence
+
+**Fixed in kopi-beans 0.1.6.** Verified 2026-08-13 on the same Windows 11 host,
+same workspace, immediately after the maintainer upgraded from 0.1.3.
+
+```
+$ bn --version
+bn 0.1.6
+
+$ bn status
+Sync:
+  dirty:             false
+  in_progress:       false
+  last_sync:         never
+  consecutive_failures: 0
+  warnings:
+    clock_skew: local system clock is 27m 33s ahead of the newest write stamp …
+      note: 'ahead' is usually NOT a clock fault. An idle store reads the same
+      way, because this figure is also just the age of the newest write.
+      it clears by itself as soon as any write lands.
+```
+
+`consecutive_failures` is **0**, down from 30 on 0.1.3. Re-running the original
+20-second idle spawn measurement, with the daemon running:
+
+```
+New processes in a 20s idle window (bn 0.1.6, daemon running):
+  (none)
+--- bn processes: 1
+```
+
+**Zero** process spawns, against 8 `git.exe` + 9 `conhost` + 9 `OpenConsole` on
+0.1.3. The console-window flashing is gone and the daemon no longer needs to be
+killed by hand.
+
+Two caveats on the scope of this verification:
+
+- **`last_sync: never` still shows**, with `dirty: false`. Nothing was pending
+  at the time of checking, so this run did not exercise a successful push — the
+  Phase 2 symptom (daemon fails where a manual push succeeds) is *not* directly
+  disproven, only rendered unobservable. If trailers stop appearing on the
+  remote, re-open this.
+- **Phase 1 is genuinely fixed**: the ref divergence that caused it had been
+  resolved by hand before the upgrade, so the busy-loop had no failing push to
+  retry either way. What 0.1.6 demonstrably changed is that an idle daemon now
+  spawns nothing at all.
+
+The `clock_skew` warning ([kopitiam#21](https://github.com/theodoreOnzGit/kopitiam/issues/21),
+recorded in the workspace `CLAUDE.md` as "unactionable") is also materially
+improved in 0.1.6: it now explains that 'ahead' is usually not a clock fault,
+that an idle store reads the same way, that it self-clears on the next write,
+and what the actual effect is (last-write-wins merge ordering). That was the
+substance of the complaint. Whether to close #21 upstream is the maintainer's
+call — it was never verified against a *wrong* clock, only against an idle one.
 
 ## Filing
 

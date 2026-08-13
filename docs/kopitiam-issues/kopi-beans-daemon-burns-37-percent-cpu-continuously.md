@@ -3,7 +3,22 @@
 **Tool:** kopi-beans (`bn`)
 **Version:** see `cargo install --list` output recorded below
 **Observed:** 2026-08-13, in the OUTRAM PARK backend workspace
-**Status:** open, not yet filed upstream (no `gh` in this session — see below)
+**Status:** open — but see the note immediately below; the likely root cause is
+fixed in 0.1.6 and this may be resolvable once someone re-measures on Linux.
+
+> **Probable root cause identified, 2026-08-13.** A separate investigation on
+> Windows found the daemon retrying a failing `git push` roughly every 2.5 s
+> indefinitely, with no backoff cap (`consecutive_failures: 30`,
+> `last_sync: never`). A busy retry loop of that shape would produce exactly
+> this CPU profile, and both observations are from the same day and the same
+> daemon version. That loop is **fixed in kopi-beans 0.1.6** — a 20-second idle
+> measurement on 0.1.6 showed zero process spawns. Evidence:
+> [`resolved/kopi-beans-daemon-retries-failing-push-forever.md`](./resolved/kopi-beans-daemon-retries-failing-push-forever.md).
+>
+> **This file stays open regardless**, because the workspace rule is that
+> "resolved" means *verified, not announced*: the reproduction recorded below is
+> a Linux `ps` measurement, and it has **not** been re-run on 0.1.6. Re-run it
+> there before moving this to `resolved/`.
 
 ## What I ran
 
