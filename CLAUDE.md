@@ -652,10 +652,12 @@ hooks so it cannot be forgotten:
   the git commit trailers** over any time period (reads the durable git record,
   not the live transcript).
   - **This replaced `docs/historian/token_usage.py` on 2026-08-13** (epic
-    `op-yz7b`), so the toolchain needs no Python interpreter. The Python is
-    **retained, not deleted** — no byte-for-byte parity gate was run (the
-    maintainer waived it), so it stays available for comparison. Do not treat
-    the Rust output as verified against the original until someone runs one.
+    `op-yz7b`), so the toolchain needs no Python interpreter. **The Python was
+    deleted the same day** at the maintainer's instruction — no byte-for-byte
+    parity gate was ever run against it (also waived). The Rust is covered by
+    its own tests and by hand-verification against real history, not by
+    equivalence to the original; the scripts are recoverable from git history
+    (last present at `c12624a41e`) if a comparison is ever wanted.
   - **The hooks need a `kovan` binary to exist**, where a script merely had to
     be present. `.githooks/kovan-bin.sh` resolves it: `kovan` on PATH, then
     `target/release/kovan`, then `target/debug/kovan`. Finding none is a
@@ -726,7 +728,8 @@ listing the commits over a `DDMMYY..DDMMYY` date range. The generator is
   "everything on `develop` not yet on `main`, up to today". Output is written to
   `docs/historian/historian_<from>_to_<to>.md`.
   - **This replaced `docs/historian/historian.py` on 2026-08-13** (epic
-    `op-yz7b`). The Python is retained for comparison — no parity gate was run.
+    `op-yz7b`), and the Python was deleted the same day. No parity gate was run
+    against it; see the token-accounting section above.
   - `kovan historian` dates from **UTC**, where the Python used local time.
     This only affects the default `--to` bound and the filename tag; pass
     `--to` explicitly if a midnight boundary matters.

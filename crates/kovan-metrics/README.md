@@ -3,8 +3,9 @@
 **KOVAN repository accounting** — per-commit API-token trailers and the
 pre-merge-to-`main` historian report, for the OUTRAM PARK workspace.
 
-This is the Rust replacement for `docs/historian/token_usage.py` and
-`docs/historian/historian.py`. It exists so the workspace toolchain needs **no
+This replaced `docs/historian/token_usage.py` and `docs/historian/historian.py`
+on 2026-08-13; both were deleted the same day, so this crate is now the only
+implementation. It exists so the workspace toolchain needs **no
 Python interpreter**: on Windows, `python3` routinely resolves to a Microsoft
 Store alias stub that prints an advert and exits, which silently turned the git
 hooks into no-ops and let commits ship carrying no `API-Usage` trailer at all.
@@ -80,11 +81,17 @@ runs inside git hooks, where `git` is present by construction.
 
 **Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
 
-> **No parity gate was run against the Python.** Byte-for-byte comparison with
-> `token_usage.py` / `historian.py` on real history was explicitly waived by the
-> maintainer on 2026-08-13 ("don't bother with the parity"). The Python scripts
-> are therefore **retained, not deleted**, so a comparison remains possible.
-> Treat the outputs as unverified against the originals until someone runs one.
+> **No parity gate was ever run against the Python, and the Python is now
+> gone.** Byte-for-byte comparison with `token_usage.py` / `historian.py` was
+> waived by the maintainer on 2026-08-13 ("don't bother with the parity"), and
+> the scripts were deleted the same day ("we will just dogfood rust ones in
+> kovan from now on"). A direct comparison is therefore **no longer possible
+> without recovering them from git history** — they were last present at commit
+> `c12624a41e`. This crate's outputs are covered by its own 37 unit tests and by
+> hand-verification against real repository history, **not** by equivalence to
+> the originals. Note also that equivalence would have been the wrong bar: the
+> Python's transcript-directory slug never matched on Windows, so it read zero
+> tokens where this crate reads the real figures.
 
 ## Licence
 
