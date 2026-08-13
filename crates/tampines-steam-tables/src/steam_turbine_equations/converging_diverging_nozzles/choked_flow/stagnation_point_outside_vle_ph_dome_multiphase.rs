@@ -94,21 +94,45 @@ use super::basic_multiphase_equations::dew_point_pressure_from_entropy;
 ///
 /// On the Gaussian regression objective of
 /// `tests::golden_section_shared_search` over `[1.0e4, 1.0e7]` Pa with the 1 Pa
-/// stopping rule, this form uses **PENDING-MEASUREMENT** objective evaluations
-/// against the **69** used by the recompute-both form it replaced, and locates
-/// the same maximum (analytic `3.0e6` Pa).
+/// stopping rule, this form uses **37** objective evaluations against the **69**
+/// used by the recompute-both form it replaced — a **1.86x** reduction — and
+/// locates the same maximum to the last bit,
+/// `p* = 3000000.2020218512 Pa` in both forms (analytic `3.0e6` Pa; the
+/// `0.2020218512 Pa` error is inside the 0.5 Pa a 1 Pa stopping bracket allows).
 ///
-/// # Numerical note — reuse is not bit-identical to recomputation
+/// # Numerical note — reuse is NOT bit-identical, and the difference is visible
 ///
 /// The carried-over probe keeps the abscissa it was evaluated at, whereas
 /// recomputing `a + gr*(b - a)` on the contracted bracket gives a value that
-/// differs in the last bits. Iterates can therefore differ from the
-/// recompute-both form at the `1e-16` relative level. That is ~10 orders of
-/// magnitude below this function's 1 Pa absolute stopping rule on brackets of
-/// order `1e5`–`1e7` Pa. The measured consequence on the four production solver
-/// paths and on the Marviken / Zaloudek / Moody V&V gates is recorded in
-/// `tests::golden_section_shared_search`; read the numbers there rather than
-/// assuming this note's error analysis was borne out.
+/// differs in the last bits. The naive expectation — that a `1e-16` relative
+/// perturbation stays `1e-16` — is **wrong here, and was measured to be wrong**:
+/// a last-bit difference in a probe position can change which side of a
+/// comparison wins on a nearly-flat objective, or which iteration first trips
+/// the `< 1 Pa` test, and the located midpoint then shifts by up to about the
+/// stopping-bracket width itself.
+///
+/// Measured 2026-08-13 (release) by
+/// `tests::golden_section_shared_search::probe_reuse_moves_the_choke_far_below_the_stopping_rule`,
+/// which runs both forms over 158 real IF97 searches spanning all three bracket
+/// shapes this crate uses (in-dome `[p_min, p0]`, subcooled `[p_min, p_bubble]`,
+/// superheated `[p_dew, p0]` and `[p_min, p_dew]`):
+///
+/// | Quantity | Worst over 158 searches |
+/// |---|---|
+/// | `abs(dp_crit)` | **5.990479e-1 Pa** (stopping rule: 1 Pa) |
+/// | `abs(dp_crit)/p` | **4.604111e-8** |
+/// | `abs(dG_crit)/G` | **3.429708e-13** |
+///
+/// Across the full Zaloudek suite the largest observed move was **3 Pa** on a
+/// 10.356 MPa choke, i.e. `2.9e-7` relative — about four orders of magnitude
+/// inside Zaloudek's own `0.005` relative choke-pressure tolerance — and the
+/// mass flux was unchanged to every printed digit at every one of those points.
+/// The Marviken and Moody outputs were byte-identical. **The right way to read
+/// this is that the choke pressure was only ever defined to ~1 Pa by the
+/// stopping rule**, so two forms of the same search agreeing to a few pascals is
+/// agreement, not drift — but it is a real difference, not a no-op, and
+/// tightening the stopping rule in future would shrink it rather than leave it
+/// alone.
 ///
 /// # Arguments
 ///
