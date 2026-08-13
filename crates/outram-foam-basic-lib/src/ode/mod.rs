@@ -52,6 +52,7 @@
 
 pub mod euler;
 pub mod integrator;
+pub mod parallel;
 pub mod rkf45;
 pub mod rosenbrock23;
 
@@ -59,6 +60,13 @@ pub use euler::Euler;
 pub use integrator::{
     DynSystemIntegrator, NoTypedSystem, OdeIntegrator, OdeSolver, SharedOdeSystem,
     TypedStateIntegrator,
+};
+pub use parallel::{
+    adaptive_quadrature_batch, ensemble_backend_for, integrate_ensemble, integrate_ensemble_mixed,
+    quadrature_backend_for, quadrature_batch, AdaptiveSettings, GaussOrder, OdeEnsemble,
+    OdeEnsembleFailure, OdeLane, OdeLaneSolution, OdeLaneStatus, QuadratureBatch,
+    QuadratureBatchFailure, QuadratureInterval, QuadratureRule, QuadratureSolution,
+    QuadratureStatus,
 };
 pub use rkf45::Rkf45;
 pub use rosenbrock23::Rosenbrock23;

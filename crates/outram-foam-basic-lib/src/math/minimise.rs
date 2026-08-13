@@ -62,6 +62,25 @@
 //!   So this module's iterates can differ from the original's in the last bits.
 //!   The bracket sequence, the convergence behaviour and the located extremum to
 //!   within the requested tolerance are unchanged.
+//! - **A measured, quantified cost, recorded here rather than discovered later.**
+//!   The retained probe carries an absolute rounding error fixed at the scale of
+//!   the *older, wider* bracket, while the bracket itself keeps shrinking — so
+//!   the width's *relative* deviation from the closed form `W0 * gr^k` grows
+//!   roughly geometrically with iteration count. Measured by
+//!   `bracket_contracts_at_the_golden_ratio` (release, 2026-08-13, `W0 = 10`):
+//!   `0` at `k = 1`, `2.675637e-14` at `k = 20`, `2.251199e-11` at `k = 40`,
+//!   `2.334157e-6` at `k = 80`. Recomputing both probes — the original's form —
+//!   holds the deviation at `<= 6.7e-16` for every one of those `k`.
+//!
+//!   **This has no effect on the accuracy of the answer**, and it is worth being
+//!   precise about why rather than waving it away: at `k = 80` the bracket width
+//!   is `1.9e-16`, so a `2.3e-6` *relative* deviation is `4e-22` *absolute* —
+//!   far below the `sqrt(eps)`-scale accuracy the located extremum can have in
+//!   the first place, and 80 iterations is roughly twice what
+//!   [`MinSettings::default`] ever reaches. What it does mean is that the closed
+//!   form `W0 * gr^k` stops being an exact predictor of
+//!   [`MinSolution::bracket_width`] at large `k`. If you need the width to be
+//!   exact rather than the evaluation count to be halved, recompute both probes.
 //!
 //! # Golden section finds a minimum of a UNIMODAL function — read this first
 //!
@@ -102,26 +121,45 @@
 //! The same quadratic flatness bounds how well *any* derivative-free method can
 //! locate a smooth minimum. Two probes a distance `d` apart around `x*` differ in
 //! value by `~0.5*f''*d^2`; once that difference falls below the rounding noise
-//! in `f` itself (relative `eps`), the comparison that drives the contraction is
-//! deciding on noise. Setting `f ~ O(1)` and `f'' ~ O(1)` gives the classical
-//! floor
+//! in the *evaluated* `f`, which is `~eps*|f(x*)|`, the comparison that drives
+//! the contraction is deciding on noise. Equating the two gives
 //!
 //! ```text
-//! |x_located - x*|  ~  sqrt(eps) * |x*|  ~  1.5e-8 * |x*|
+//! |x_located - x*|  ~  sqrt( 2 * eps * |f(x*)| / |f''(x*)| )
 //! ```
 //!
-//! — see [`SQRT_EPSILON`]. This surprises people who expect the `1e-15`-ish
-//! accuracy a root finder gets on the same machine, and it is why
+//! and with `f` and `f''` both order unity that is the classical floor
+//! `sqrt(eps) ~ 1.5e-8` — see [`SQRT_EPSILON`]. This surprises people who expect
+//! the `1e-15`-ish accuracy a root finder gets on the same machine, and it is why
 //! [`MinSettings::default`] sets `x_tol_rel` to [`SQRT_EPSILON`] rather than the
 //! `1e-12` [`crate::math::parallel::RootSettings`] uses. Asking for a tighter
-//! tolerance is not rejected — it simply spends ~40 more iterations narrowing a
-//! bracket whose midpoint is no more accurate, and on a truly flat objective it
-//! will hit [`MinStatus::MaxIterations`] instead.
+//! tolerance is not rejected — it simply spends ~30 more iterations narrowing a
+//! bracket whose midpoint is no more accurate.
 //!
-//! **Flatter than quadratic is worse still.** For `f = (x - x*)^4` the floor is
-//! `eps^(1/4) ~ 1.2e-4`; the verification section on [`golden_section_batch`]
-//! measures exactly that case, because a limit you have not measured is a claim
-//! rather than a result.
+//! **Read the formula, not just the headline `sqrt(eps)`.** The floor is set by
+//! the objective's *relative precision near its own extremum*, not by golden
+//! section. Two consequences, both measured by
+//! `flat_minimum_exposes_the_sqrt_eps_limit` in `minimise/tests.rs` on 64 lanes
+//! with the tolerance driven below every arithmetic floor (release, 2026-08-13):
+//!
+//! | Objective | Predicted floor | Measured worst `\|x - x0\|` |
+//! |---|---|---|
+//! | `1 + (x - x0)^2` — order-unity value | `sqrt(eps) = 1.490116e-8` | **1.053671e-8** |
+//! | `1 + (x - x0)^4` — flatter than quadratic | `eps^(1/4) = 1.220703e-4` | **1.026485e-4** |
+//! | `(x - x0)^2` — value is exactly `0` | *none of the above* | **8.881784e-16** |
+//!
+//! The first two rows land just under their predicted floors, so the theory is a
+//! usable bound rather than a story. The **flat objective is 9 742x worse** than
+//! the quadratic one on identical lanes, brackets and settings — that is the
+//! penalty for a minimum that is flatter than quadratic, and every one of those
+//! lanes still reported `Converged` with a bracket width that looked tight.
+//!
+//! The third row is the one that stops `sqrt(eps)` being memorised as a universal
+//! constant: an objective whose minimum value is exactly zero, evaluated so that
+//! its relative precision survives (`d*d` is exact to a half-ULP in `d`), has no
+//! order-unity baseline to be swamped by and reaches **8.9e-16**, seven orders
+//! better than the "floor". A physical objective — a mass flux, a residual with a
+//! floor, an enthalpy — is the first row, not the third.
 //!
 //! # Hybrid means dispatch, not two APIs
 //!
@@ -148,9 +186,31 @@
 //! `#[inline]` per-lane kernel; only the identity of the calling thread differs.
 //!
 //! Verified by the `bitwise_*` tests in `minimise/tests.rs`, which compare serial
-//! against `rayon` pools of 1, 2, 4 and 8 workers on a batch deliberately built
-//! with wildly varying per-lane iteration counts. See those tests' doc comments
-//! for the measured result.
+//! against `rayon` pools of 1, 2, 4 and 8 workers on 2 048 lanes deliberately
+//! built with wildly varying per-lane iteration counts. **Measured 2026-08-13
+//! (release, `--features parallel`, 4 logical cores): bit-identical on every
+//! observable field of every lane, at all four thread counts, for both
+//! [`Sense`] variants.**
+//!
+//! The `#[ignore]`d `minimise_batch_thread_scaling_benchmark` re-asserts the same
+//! identity while timing it, on 65 536 imbalanced lanes, best of 7, with a second
+//! independent run alongside:
+//!
+//! | Worker threads | Time | Speed-up | (repeat) | Bitwise vs serial |
+//! |---|---|---|---|---|
+//! | *serial reference* | 17883.35 us | 1.00x | 1.00x | — |
+//! | 1 | 16192.92 us | 1.10x | 1.07x | identical |
+//! | 2 | 10206.05 us | 1.75x | 1.52x | identical |
+//! | 4 | 11428.69 us | 1.56x | 1.54x | identical |
+//! | 8 | 5708.41 us | 3.13x | 2.31x | identical |
+//!
+//! The "identical" column is the determinism claim measured rather than argued,
+//! and it is asserted by the benchmark itself, not merely printed. **The timings
+//! are noisy and should not be read as a scaling study** — the 4-thread row being
+//! slower than the 2-thread row in run 1 is not a real effect, and the machine
+//! was not idle (a concurrent build was running in another checkout). One
+//! machine, four logical cores, one batch, two runs; nothing measured on Android
+//! hardware or on a many-core server.
 //!
 //! The one way a caller can break this is to supply an objective that is not a
 //! pure function — one that reads a random number generator, accumulates into
@@ -315,12 +375,43 @@ pub const SQRT_EPSILON: f64 = 1.490_116_119_384_765_6e-8;
 /// benchmark, carried alongside rather than averaged away because the parallel
 /// column is far noisier than the serial one.
 ///
-/// PLACEHOLDER-TABLE
+/// | Problems | cheap serial | cheap multi | speed-up | (repeat) | costly serial | costly multi | speed-up | (repeat) |
+/// |---|---|---|---|---|---|---|---|---|
+/// | 16 | 2.24 us | 10.06 us | 0.22x | 0.24x | 13.87 us | 12.94 us | 1.07x | 0.41x |
+/// | 32 | 4.40 us | 29.98 us | 0.15x | 0.13x | 29.80 us | 44.04 us | 0.68x | 0.74x |
+/// | 64 | 8.77 us | 31.47 us | 0.28x | 0.34x | 63.53 us | 64.86 us | 0.98x | 1.24x |
+/// | 128 | 17.96 us | 36.40 us | 0.49x | 0.86x | 140.68 us | 73.43 us | 1.92x | 1.42x |
+/// | 256 | 55.42 us | 49.41 us | 1.12x | 1.17x | 290.00 us | 186.77 us | 1.55x | 2.91x |
+/// | 512 | 148.21 us | 85.96 us | 1.72x | 3.00x | 613.95 us | 360.42 us | 1.70x | 2.94x |
+/// | 1 024 | 370.80 us | 213.96 us | 1.73x | 2.81x | 1255.20 us | 675.41 us | 1.86x | 2.82x |
+/// | 4 096 | 1542.64 us | 466.86 us | 3.30x | 3.23x | 5120.51 us | 1711.31 us | 2.99x | 2.86x |
+/// | 16 384 | 6260.28 us | 1964.94 us | 3.19x | 2.09x | 20732.41 us | 10689.59 us | 1.94x | 2.69x |
+/// | 65 536 | 28254.43 us | 8464.29 us | 3.34x | 1.55x | 84607.33 us | 32110.15 us | 2.63x | 2.03x |
+///
+/// *Result.* **256** is the smallest size at which *neither* objective lost in
+/// *either* run — cheap 1.12x and 1.17x, costly 1.55x and 2.91x — and it is the
+/// value this constant takes. At 128 the cheap objective lost both runs (0.49x,
+/// 0.86x) while the costly one won both (1.92x, 1.42x), which is the expected
+/// shape: a more expensive objective crosses over earlier because there is more
+/// work per lane to amortise the same dispatch cost. The honest headline is
+/// therefore that **the crossover depends on the caller's objective**, and this
+/// single number is set for the cheapest objective a caller is likely to pass, so
+/// that it is safe for both.
 ///
 /// # Relationship to [`crate::compute::CPU_MULTI_MIN_WORK_ITEMS`]
 ///
 /// That constant documents itself as an unmeasured placeholder and invites
 /// per-kernel overrides. This is that override for the batched golden section.
+///
+/// *Interpretation.* It lands on exactly the same value as
+/// [`crate::math::parallel::ROOT_BATCH_MIN_PROBLEMS`] (256), 16x below the
+/// crate-wide placeholder (4 096) and 512x below
+/// [`crate::fields::parallel::FIELD_PARALLEL_CROSSOVER`] (131 072). Two kernels
+/// agreeing is not a coincidence and is worth stating for whoever takes bead
+/// `op-yvj.4.7`: both do tens of iterations of arithmetic per lane against a
+/// handful of loaded bytes, so both are compute bound, where the field kernels do
+/// one or two flops per element loaded and are memory-bandwidth bound. The
+/// crossover tracks that distinction, not the algorithm.
 ///
 /// # Limitations
 ///
@@ -1130,34 +1221,64 @@ pub struct MinBatchFailure {
 ///
 /// # Verification
 ///
-/// *Methodology.* Checked against minima that are known in closed form, so the
-/// oracle is exact rather than another implementation. Four families:
+/// *Methodology.* Checked against extrema known in closed form, so the oracle is
+/// exact rather than another implementation. Four families, all on 64 lanes
+/// (except where noted) with vertices spread over `[-3, 3)` and bracket `[-5, 5]`:
 ///
-/// 1. **Quadratic** `f(x) = (x - x0)^2`, 64 lanes with vertices `x0` spread over
-///    `[-3, 3)`, bracket `[-5, 5]`. Exact minimiser `x0`. This is the well-
-///    conditioned reference case.
-/// 2. **Deliberately flat** `f(x) = (x - x0)^4`, same lanes and brackets. Exact
-///    minimiser `x0`, but the objective is quartically flat there, which is the
-///    case that exposes the accuracy limit rather than hiding it.
-/// 3. **Transcendental** `f(x) = x ln x` on `[0.05, 3]`, whose minimiser is
-///    `1/e = 0.36787944117144233` exactly.
-/// 4. **Maximisation** `f(x) = sin x` on `[0, pi]`, maximiser `pi/2`, run under
-///    [`Sense::Maximise`] to check the sense switch against an analytic answer
-///    rather than against the minimisation path.
+/// 1. **Quadratic** `f(x) = 1 + (x - x0)^2` at [`MinSettings::default`]. Exact
+///    minimiser `x0`, minimum value `1`. The realistic reference case — an
+///    order-unity value at the extremum, as a physical objective has.
+/// 2. **Deliberately flat** `f(x) = 1 + (x - x0)^4`, with the tolerance driven
+///    *below* every arithmetic floor so the arithmetic binds rather than the
+///    stopping rule. Same exact minimiser; quartically flat there.
+/// 3. **Transcendental** `f(x) = x ln x` on `[0.05, 3]`, one lane, whose
+///    minimiser is `1/e = 0.36787944117144233` and minimum value `-1/e`, both
+///    exactly.
+/// 4. **Maximisation** `f(x) = sin x` on `[0, pi]`, one lane, maximiser `pi/2`
+///    and maximum `1`, run under [`Sense::Maximise`] so the sense switch is
+///    checked against an analytic answer rather than against the minimisation
+///    path — a mirror test would pass even if both senses were wrong in the same
+///    way.
 ///
-/// *Pass criterion.* `status == Converged` on every lane, and for the quadratic,
-/// transcendental and maximisation families `|x_located - x_analytic| <= 1e-6`
-/// (two orders of margin over the `sqrt(eps) ≈ 1.5e-8` floor). The flat family's
-/// criterion is deliberately looser at `1e-3`, because `eps^(1/4) ≈ 1.2e-4` is
-/// the theoretical floor there and asserting `1e-6` would be asserting something
-/// false.
+/// *Pass criterion.* `status == Converged` on every lane, and
+/// `|x_located - x_analytic| <= 1e-6` for families 1, 3 and 4 (two orders of
+/// margin over the `sqrt(eps) ≈ 1.5e-8` floor), plus `|f_located - f_analytic| <=
+/// 1e-12` for families 3 and 4. Family 2's criterion is deliberately `1e-2`,
+/// because `eps^(1/4) ≈ 1.2e-4` is the floor there and asserting `1e-6` would be
+/// asserting something false.
 ///
 /// *Results, measured 2026-08-13 by `golden_section_matches_analytic_minima`,
 /// `flat_minimum_exposes_the_sqrt_eps_limit`,
 /// `golden_section_matches_analytic_transcendental_minimum` and
-/// `maximise_matches_analytic_sine_peak` in `minimise/tests.rs`, release build:*
+/// `maximise_matches_analytic_sine_peak` in `minimise/tests.rs`, release build,
+/// 4 logical cores:*
 ///
-/// PLACEHOLDER-VNV
+/// | Family | worst `\|x - x_analytic\|` | worst value error | iterations |
+/// |---|---|---|---|
+/// | 1. `1 + (x - x0)^2`, default tol | **1.151892e-8** | **2.220446e-16** | 40-47 |
+/// | 2. `1 + (x - x0)^4`, tol below the floor | **1.026485e-4** | — | 77 |
+/// | 3. `x ln x` | **6.967008e-10** | **5.551115e-17** | 42 |
+/// | 4. `sin x`, [`Sense::Maximise`] | **0.000000e0** | **0.000000e0** | 39 |
+///
+/// *Interpretation.* Family 1 lands at 0.77x the `sqrt(eps)` floor — the method
+/// delivers exactly the accuracy the arithmetic allows and no more, which is what
+/// it should do given the default `x_tol_rel` *is* that floor. Its value error is
+/// one ULP at `f = 1`, illustrating the module's point about why a value-based
+/// convergence test would be wrong: the value is already correct to the last bit
+/// while the abscissa is still wrong in its 9th digit. Family 2 is **9 742x
+/// worse** in the abscissa than family 1 on identical lanes, which is the flat-
+/// minimum penalty measured rather than asserted. Family 3 confirms the same
+/// behaviour on a transcendental objective, ruling out an artefact of polynomial
+/// test functions. Family 4 recovers `pi/2` and `1.0` exactly, so
+/// [`Sense::Maximise`] is not merely self-consistent but correct, and the value
+/// is returned with the caller's own positive sign — nothing is negated
+/// internally.
+///
+/// The iteration counts in family 1 vary (40-47) only because
+/// [`MinSettings::default`] scales its tolerance with `|x_mid|`; under a purely
+/// absolute tolerance the count is identical on every lane, since golden
+/// section's contraction is fixed by geometry and not by the objective. That
+/// uniformity is verified separately by `bracket_contracts_at_the_golden_ratio`.
 ///
 /// # Example — a batch of parabolas
 ///

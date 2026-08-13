@@ -43,11 +43,16 @@
 pub mod erf_inv;
 pub mod inc_gamma;
 pub mod inv_inc_gamma;
+pub mod minimise;
 pub mod parallel;
 
 pub use erf_inv::erf_inv;
 pub use inc_gamma::{inc_gamma_p, inc_gamma_q, inc_gamma_ratio_p, inc_gamma_ratio_q};
 pub use inv_inc_gamma::inv_inc_gamma;
+pub use minimise::{
+    golden_section_batch, minimise_backend_for, MinBatch, MinBatchFailure, MinProblem, MinSettings,
+    MinSolution, MinStatus, Sense, GOLDEN_RATIO, MINIMISE_BATCH_MIN_PROBLEMS, SQRT_EPSILON,
+};
 pub use parallel::{
     cubic_roots_batch, linear_roots_batch, poly_roots_backend_for, quadratic_roots_batch,
     root_batch_backend_for, solve_bracketed_batch, solve_newton_batch, RootBatch, RootBatchFailure,
