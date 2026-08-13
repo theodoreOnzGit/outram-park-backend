@@ -100,19 +100,60 @@ pub mod state;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use uom::si::f64::{MassRate, Time};
+use uom::si::f64::{MassRate, Pressure, ThermodynamicTemperature, Time};
 use uom::si::mass_rate::kilogram_per_second;
+use uom::si::pressure::kilopascal;
+use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 
 use outram_park_digital_twin_engine::app_scaffold::{
     panel_selector_ui, show_crash_modal_if_crashed, spawn_physics_thread_monitored, RealTimePacer,
     SharedState, ThreadHealth,
 };
+use outram_park_digital_twin_engine::components::LegendUnit;
 
-use crate::physics::HtgrPlant;
+use crate::physics::secondary_loop::{FeedwaterCommand, SecondaryCommands};
+use crate::physics::{HtgrPlant, PlantCommands};
 use panels::{draw_controls, draw_diagnostics_panel, draw_plots_panel, draw_schematic_panel, Panel};
 use schematic::SchematicTracers;
 use state::{HtgrPlotData, HtgrSnapshot};
+
+/// Assemble the physics layer's [`PlantCommands`] from the GUI-owned scalar
+/// control inputs on the shared [`HtgrSnapshot`].
+///
+/// **This is the only place the two representations meet**, and the split is
+/// deliberate. [`HtgrSnapshot`] is cloned every frame across a thread boundary,
+/// so it holds plain `f64`/`bool` scalars; [`PlantCommands`] is what the model
+/// consumes, so it is `uom`-typed and its feedwater mode is a real enum rather
+/// than a boolean plus two numbers that might disagree. Converting here means a
+/// unit error would have to be written in this one function rather than
+/// anywhere a control is read.
+///
+/// Nothing is clamped here on purpose: the physics clamps every field itself
+/// (see [`PlantCommands`]), so a value arriving from an OPC-UA write or a test
+/// gets exactly the same bounds as one from a slider.
+fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
+    PlantCommands {
+        control_rod_insertion_fraction: s.control_rod_insertion_fraction,
+        helium_flow_setpoint: MassRate::new::<kilogram_per_second>(s.helium_flow_setpoint_kg_per_s),
+        secondary: SecondaryCommands {
+            feedwater: if s.feedwater_manual {
+                FeedwaterCommand::Manual {
+                    mass_flow_demand: MassRate::new::<kilogram_per_second>(
+                        s.feedwater_manual_flow_kg_per_s,
+                    ),
+                }
+            } else {
+                FeedwaterCommand::Auto {
+                    target_steam_temperature: ThermodynamicTemperature::new::<kelvin>(
+                        s.feedwater_target_steam_temp_k,
+                    ),
+                }
+            },
+            condenser_pressure: Pressure::new::<kilopascal>(s.condenser_pressure_setpoint_kpa),
+        },
+    }
+}
 
 /// Physics timestep per substep \[s\] -- **a read of the global plant
 /// timestep, not an independent value.**
@@ -183,6 +224,21 @@ pub struct HtgrSimApp {
     /// frame from the real loop residence times -- see
     /// [`outram_park_digital_twin_engine::animation`].
     tracers: SchematicTracers,
+    /// Temperature display unit for **every readout on screen** -- the
+    /// operator's degC/K toggle (kopi-beans `op-qpgw`).
+    ///
+    /// **Lives here, in the GUI struct, and nowhere else.** It is passed by
+    /// value into the `draw_*` functions and is never written into
+    /// [`HtgrSnapshot`] (the only channel to the physics thread) nor into
+    /// [`crate::physics::PlantCommands`] (the only channel into the plant
+    /// model), so there is no path by which a display preference could reach a
+    /// correlation, a controller or a solver input. See
+    /// [`panels::temperature_display`].
+    ///
+    /// [`LegendUnit`] is the engine's existing display-unit enum, reused rather
+    /// than duplicated; its default is kelvin, which is what this simulator
+    /// displayed before the toggle existed.
+    display_unit: LegendUnit,
     /// Plant clock reading at the previous repaint \[s\].
     ///
     /// The tracers are advanced by the **simulated** time that elapsed between
@@ -222,10 +278,9 @@ impl HtgrSimApp {
             thread_health.clone(),
             move |state| {
                 let tick_start = Instant::now();
-                let (rod_insertion, flow, reset_requested, rps_enabled) = state.read_with(|s| {
+                let (commands, reset_requested, rps_enabled) = state.read_with(|s| {
                     (
-                        s.control_rod_insertion_fraction,
-                        s.helium_flow_setpoint_kg_per_s,
+                        plant_commands_from(s),
                         s.trip_reset_requested,
                         s.rps_enabled,
                     )
@@ -242,13 +297,22 @@ impl HtgrSimApp {
                     plant.protection.reset();
                     state.update(|s| s.trip_reset_requested = false);
                 }
-                let flow_rate = MassRate::new::<kilogram_per_second>(flow);
                 for _ in 0..SUBSTEPS_PER_TICK {
-                    plant.step(dt, rod_insertion, flow_rate);
+                    plant.step(dt, commands);
                 }
                 // Publish the reactivity the rods actually bought, so the GUI
                 // shows a consequence rather than echoing a command back.
-                let rho = plant.external_reactivity_dollars(rod_insertion);
+                let rho =
+                    plant.external_reactivity_dollars(commands.control_rod_insertion_fraction);
+                // BUMPLESS TRANSFER. While the feedwater station is in AUTO,
+                // keep the manual demand slaved to the flow the controller has
+                // actually reached, so flipping to MANUAL picks the plant up
+                // where it is instead of stepping the feed flow to whatever the
+                // slider was last left at. The reverse direction needs nothing:
+                // AUTO recomputes its own demand from the offered duty every
+                // step. Same discipline as the CIET v2 simulator's advanced
+                // heater control.
+                let achieved_feed_flow = plant.secondary.mass_flow().get::<kilogram_per_second>();
                 // Advance the pacer's plant clock and decide this tick's sleep.
                 // `pace` returns a zero sleep -- never a wrapped or sign-flipped
                 // one -- when the work already used the budget up.
@@ -256,6 +320,9 @@ impl HtgrSimApp {
                 state.update(|s| {
                     plant.write_snapshot(s);
                     s.external_reactivity_dollars = rho;
+                    if !s.feedwater_manual {
+                        s.feedwater_manual_flow_kg_per_s = achieved_feed_flow;
+                    }
                     s.real_time_ratio = pacer.measured_real_time_ratio();
                     s.real_time_deficit_s = pacer.real_time_deficit().as_secs_f64();
                     s.behind_real_time = pacer.is_behind_real_time();
@@ -284,6 +351,7 @@ impl HtgrSimApp {
             plots,
             thread_health,
             open_panel: Panel::Schematic,
+            display_unit: LegendUnit::default(),
             tracers: SchematicTracers::new(),
             last_sim_time_s: 0.0,
         }
@@ -325,17 +393,22 @@ impl eframe::App for HtgrSimApp {
         });
 
         egui::Panel::right("htgr_controls").show_inside(ui, |ui| {
-            draw_controls(ui, &self.physics, &snapshot);
+            draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit);
         });
 
+        // Copied out before the closures below borrow `self` -- the unit is a
+        // `Copy` display setting, so the panels take it by value.
+        let display_unit = self.display_unit;
         egui::CentralPanel::default().show_inside(ui, |ui| {
             egui::ScrollArea::both().show(ui, |ui| match self.open_panel {
-                Panel::Schematic => draw_schematic_panel(ui, &snapshot, &self.tracers),
+                Panel::Schematic => {
+                    draw_schematic_panel(ui, &snapshot, &self.tracers, display_unit)
+                }
                 Panel::Plots => {
                     let plots = self.plots.snapshot();
-                    draw_plots_panel(ui, &plots);
+                    draw_plots_panel(ui, &plots, display_unit);
                 }
-                Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot),
+                Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
             });
         });
 
@@ -392,6 +465,93 @@ mod tests {
     /// `crate::physics::PLANT_TIMESTEP_S = 0.1 s`, the same constant.
     /// Interpretation: the rate the application drives the plant at is, by
     /// construction, a rate the whole-plant tests drive.
+    /// V&V: **the GUI's opening state is the plant's own default command set**,
+    /// field by field, through the real conversion the physics thread uses.
+    ///
+    /// # Why this exists
+    ///
+    /// [`HtgrSnapshot`] holds the operator's commands as plain scalars, and
+    /// [`PlantCommands`] holds them `uom`-typed with the feedwater mode as an
+    /// enum. Two representations of the same thing is exactly where a unit error
+    /// or a mode inversion hides -- a boolean read the wrong way round would put
+    /// the simulator in MANUAL at whatever the slider happened to be, silently,
+    /// on the opening frame.
+    ///
+    /// # Methodology
+    ///
+    /// The default snapshot is pushed through [`plant_commands_from`] -- the
+    /// same function the physics thread calls every tick, not a re-derivation --
+    /// and compared with [`PlantCommands::default`]. Then the MANUAL branch is
+    /// exercised, because the AUTO comparison alone would pass even if the
+    /// boolean were ignored entirely.
+    ///
+    /// Pass criteria: the AUTO case matches `PlantCommands::default()` exactly
+    /// (`PartialEq` on the whole struct, so a new field cannot be forgotten);
+    /// setting `feedwater_manual` produces
+    /// [`FeedwaterCommand::Manual`] carrying the manual slider's value, in kg/s;
+    /// and the condenser and steam-temperature scalars survive their unit
+    /// conversions to 1e-9.
+    ///
+    /// # Results (measured 2026-08-13)
+    ///
+    /// The default snapshot maps to exactly `PlantCommands::default()`: rods
+    /// 0.6035, helium 4.3 kg/s, feedwater AUTO at 713.15 K (440 degC), condenser
+    /// 7.000 kPa. Flipping `feedwater_manual` yields
+    /// `Manual { mass_flow_demand: 3.47 kg/s }`. Interpretation: the opening
+    /// frame commands the published operating point, and the mode boolean is
+    /// read in the right direction.
+    #[test]
+    fn the_gui_defaults_are_the_plant_command_defaults() {
+        let snapshot = HtgrSnapshot::default();
+        let commands = plant_commands_from(&snapshot);
+        assert_eq!(
+            commands,
+            PlantCommands::default(),
+            "the GUI's opening state must be the plant's default command set"
+        );
+
+        // The scalars really did survive their unit conversions.
+        assert!(
+            (commands.helium_flow_setpoint.get::<kilogram_per_second>()
+                - snapshot.helium_flow_setpoint_kg_per_s)
+                .abs()
+                < 1e-9
+        );
+        match commands.secondary.feedwater {
+            FeedwaterCommand::Auto {
+                target_steam_temperature,
+            } => assert!(
+                (target_steam_temperature.get::<kelvin>() - snapshot.feedwater_target_steam_temp_k)
+                    .abs()
+                    < 1e-9
+            ),
+            FeedwaterCommand::Manual { .. } => panic!("the GUI must open in AUTO"),
+        }
+        assert!(
+            (commands.secondary.condenser_pressure.get::<kilopascal>()
+                - snapshot.condenser_pressure_setpoint_kpa)
+                .abs()
+                < 1e-9
+        );
+
+        // The MANUAL branch, so the boolean is shown to be read at all.
+        let manual_snapshot = HtgrSnapshot {
+            feedwater_manual: true,
+            ..HtgrSnapshot::default()
+        };
+        match plant_commands_from(&manual_snapshot).secondary.feedwater {
+            FeedwaterCommand::Manual { mass_flow_demand } => assert!(
+                (mass_flow_demand.get::<kilogram_per_second>()
+                    - manual_snapshot.feedwater_manual_flow_kg_per_s)
+                    .abs()
+                    < 1e-9
+            ),
+            FeedwaterCommand::Auto { .. } => {
+                panic!("feedwater_manual = true must produce a MANUAL command")
+            }
+        }
+    }
+
     #[test]
     fn the_gui_substep_matches_the_tested_substep() {
         assert!((PHYSICS_DT_S - crate::physics::PLANT_TIMESTEP_S).abs() < 1e-12);
