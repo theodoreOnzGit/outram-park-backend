@@ -449,6 +449,18 @@ cargo build --release -p kovan-literature --features digitise-gui
 
 **Known friction, each dated against the version it was actually tested on
 (0.1.2 / 0.1.3 — see the version note above; none re-run on 0.1.6):**
+>
+> **Superseded again the same day: kopi-beans 0.1.7 is what is installed now**
+> (`bn --version` and `cargo install --list`, checked 2026-08-13 on the Arch
+> host). The 0.1.6 findings above were verified on another machine and are kept
+> because they are real closing evidence — but **nothing in this section has
+> been re-tested on 0.1.7.** Treat every version-dated claim here as history,
+> and re-run before citing one as current.
+>
+> The version has moved 0.1.3 -> 0.1.4 -> 0.1.6 -> 0.1.7 within a single day, so
+> a version number written into this file is stale almost immediately. Prefer
+> `bn --version` over trusting this paragraph.
+
 
 - **RESOLVED — `bn` *can* now push the store ref to a non-local remote.**
   Verified 2026-08-12 against kopi-beans **0.1.3**: the daemon published
@@ -457,9 +469,9 @@ cargo build --release -p kovan-literature --features digitise-gui
   **`docs/kopitiam-issues/resolved/kopi-beans-cannot-push-store-ref.md`**.
   `last_sync: never` is **no longer** the expected steady state. The upstream
   issue [kopitiam#19](https://github.com/theodoreOnzGit/kopitiam/issues/19) is
-  **still OPEN on GitHub** — a verification comment was posted and closing it
-  was deliberately left to the maintainer, so do not describe it as closed
-  upstream. The manual push remains valid and idempotent as a fallback when the
+  **CLOSED upstream** (2026-08-13), re-verified on kopi-beans 0.1.4: after a
+  fetch of that specific ref, local and origin match exactly and a manual push
+  reports `Everything up-to-date`. The manual push remains valid and idempotent as a fallback when the
   daemon is not running:
 
   ```bash
@@ -515,8 +527,9 @@ to a non-local remote
 ([#19](https://github.com/theodoreOnzGit/kopitiam/issues/19)).
 
 Closing evidence for all four is recorded in `docs/kopitiam-issues/resolved/`.
-**Upstream state checked 2026-08-12: #16 has since been closed on GitHub; #14,
-#15 and #19 are still marked OPEN** and need the maintainer to close them.
+**Upstream state re-checked 2026-08-13: #14, #15, #16 and #19 are all now
+CLOSED on GitHub.** #14 and #15 were closed by the maintainer; #19 was closed
+after re-verifying it on 0.1.4. Nothing in this resolved list is outstanding.
 
 **CONSUME THE BINARIES ONLY — NEVER MODIFY KOPITIAM OR KOPI-BEANS FROM THIS
 WORKSPACE.** This is the hard boundary, it covers **both** tools, and it does
@@ -800,9 +813,7 @@ data lives **in git refs** — `refs/heads/beads/store` (holding `state.jsonl`,
   Full closing evidence — the commands run and their actual output — is in
   **`docs/kopitiam-issues/resolved/kopi-beans-cannot-push-store-ref.md`**; read
   that rather than re-deriving it.
-  - **#19 is still OPEN on GitHub.** A verification comment carrying the
-    evidence was posted, and closing it was left to the maintainer. Do not
-    describe it as closed upstream.
+  - **#19 is CLOSED upstream** as of 2026-08-13, re-verified on 0.1.4.
   - The `Stop` hook is consequently **no longer load-bearing**, but it is kept
     (see "Workflow rules" above). Whether to retire it, and with it the
     never-auto-push carve-out it justified, is an **open maintainer decision** —
@@ -1376,7 +1387,7 @@ bn close <id>         # Complete work
 
 - Use `bn` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists. The only exception is an environment with no working `bn` build at all, which must be stated in the hand-off.
 - Run `bn prime` for workflow context.
-- **Sync is automated.** A `Stop` hook runs `./scripts/push-beads-store.sh`, which publishes `refs/heads/beads/store` (and only that ref) to `origin` at the end of each turn. This is the single standing exception to the never-auto-push rule and it never extends to branches, tags, or `main`. As of kopi-beans 0.1.3 the daemon publishes that ref by itself ([kopitiam#19](https://github.com/theodoreOnzGit/kopitiam/issues/19) is **resolved** — verified 2026-08-12, evidence in `docs/kopitiam-issues/resolved/kopi-beans-cannot-push-store-ref.md`; still OPEN on GitHub), so the hook is redundant. **It is kept regardless, and so is the carve-out** — retiring either is the maintainer's decision, not an agent's.
+- **Sync is automated.** A `Stop` hook runs `./scripts/push-beads-store.sh`, which publishes `refs/heads/beads/store` (and only that ref) to `origin` at the end of each turn. This is the single standing exception to the never-auto-push rule and it never extends to branches, tags, or `main`. As of kopi-beans 0.1.3 the daemon publishes that ref by itself ([kopitiam#19](https://github.com/theodoreOnzGit/kopitiam/issues/19) is **resolved** — verified 2026-08-12, evidence in `docs/kopitiam-issues/resolved/kopi-beans-cannot-push-store-ref.md`; closed upstream 2026-08-13 after re-verification on 0.1.4), so the hook is redundant. **It is kept regardless, and so is the carve-out** — retiring either is the maintainer's decision, not an agent's.
 - Persistent durable facts / user preferences: keep using the per-project
   `memory/` + `MEMORY.md` workflow (see the "Issue tracking & roadmap" section
   above — this workspace keeps MEMORY.md; it is **not** dropped).

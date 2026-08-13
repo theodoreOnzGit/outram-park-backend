@@ -36,6 +36,16 @@ use crate::common::phys::BK_EV_PER_K;
 /// resulting Bragg-edge `S(E)` is *evaluated* by [`crate::thermr::coherent`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElasticOption {
+    /// Incoherent elastic instead of a Bragg lattice (`iel < 0`).
+    ///
+    /// Undocumented in NJOY's card comments, which list only 0..=6, but real
+    /// decks use it — `tsl-YinYH2.leapr` and `tsl-HinYH2.leapr` of
+    /// ENDF/B-VIII.0 both pass `iel = -1` — and `endout` acts on it
+    /// (`leapr.f90:3053`, `if (iel.lt.0)`), writing an MF=7/MT=2 `LTHR=2`
+    /// Debye-Waller TAB1 rather than Bragg edges. NJOY also *derives* it, with
+    /// `iel = -1` set internally when `iel == 0` and `twt == 0`
+    /// (`leapr.f90:3052`).
+    Incoherent,
     /// No coherent elastic (default).
     None,
     /// Graphite.
@@ -50,6 +60,40 @@ pub enum ElasticOption {
     Lead,
     /// Iron.
     Iron,
+}
+
+impl ElasticOption {
+    /// Map the card-5 `iel` integer code onto the option, or `None` if the code
+    /// is outside the set NJOY accepts (any negative value, or 0..=6).
+    pub fn from_code(iel: i32) -> Option<Self> {
+        match iel {
+            i if i < 0 => Some(Self::Incoherent),
+            0 => Some(Self::None),
+            1 => Some(Self::Graphite),
+            2 => Some(Self::Beryllium),
+            3 => Some(Self::BerylliumOxide),
+            4 => Some(Self::Aluminium),
+            5 => Some(Self::Lead),
+            6 => Some(Self::Iron),
+            _ => None,
+        }
+    }
+
+    /// The card-5 `iel` integer code for this option (`-1` for
+    /// [`Incoherent`](Self::Incoherent), which is how NJOY spells it
+    /// internally).
+    pub fn code(self) -> i32 {
+        match self {
+            Self::Incoherent => -1,
+            Self::None => 0,
+            Self::Graphite => 1,
+            Self::Beryllium => 2,
+            Self::BerylliumOxide => 3,
+            Self::Aluminium => 4,
+            Self::Lead => 5,
+            Self::Iron => 6,
+        }
+    }
 }
 
 /// Cold-moderator option (card 5 `ncold`) selecting a Young-Koppel rotational
@@ -67,6 +111,32 @@ pub enum ColdOption {
     OrthoDeuterium,
     /// Para deuterium (`ncold = 4`, `law = 5`).
     ParaDeuterium,
+}
+
+impl ColdOption {
+    /// Map the card-5 `ncold` integer code onto the option, or `None` if the
+    /// code is outside the 0..=4 set NJOY accepts.
+    pub fn from_code(ncold: i32) -> Option<Self> {
+        match ncold {
+            0 => Some(Self::None),
+            1 => Some(Self::OrthoHydrogen),
+            2 => Some(Self::ParaHydrogen),
+            3 => Some(Self::OrthoDeuterium),
+            4 => Some(Self::ParaDeuterium),
+            _ => None,
+        }
+    }
+
+    /// The card-5 `ncold` integer code for this option.
+    pub fn code(self) -> i32 {
+        match self {
+            Self::None => 0,
+            Self::OrthoHydrogen => 1,
+            Self::ParaHydrogen => 2,
+            Self::OrthoDeuterium => 3,
+            Self::ParaDeuterium => 4,
+        }
+    }
 }
 
 /// Kind of translational term convolved into the continuous law (card 6 `b7`

@@ -194,16 +194,22 @@ pub struct TslMaterial {
 /// (pass an explicit `base` to [`EndfCache::fetch_tsl`] for anything else).
 pub fn well_known_tsl(name: &str) -> Option<TslMaterial> {
     let m = match name {
-        "graphite" | "crystalline-graphite" | "tsl-crystalline-graphite" => {
-            TslMaterial { base: "tsl-crystalline-graphite", mat: 30 }
-        }
-        "reactor-graphite-10P" | "tsl-reactor-graphite-10P" => {
-            TslMaterial { base: "tsl-reactor-graphite-10P", mat: 31 }
-        }
-        "reactor-graphite-30P" | "tsl-reactor-graphite-30P" => {
-            TslMaterial { base: "tsl-reactor-graphite-30P", mat: 32 }
-        }
-        "HinH2O" | "H2O" | "tsl-HinH2O" => TslMaterial { base: "tsl-HinH2O", mat: 1 },
+        "graphite" | "crystalline-graphite" | "tsl-crystalline-graphite" => TslMaterial {
+            base: "tsl-crystalline-graphite",
+            mat: 30,
+        },
+        "reactor-graphite-10P" | "tsl-reactor-graphite-10P" => TslMaterial {
+            base: "tsl-reactor-graphite-10P",
+            mat: 31,
+        },
+        "reactor-graphite-30P" | "tsl-reactor-graphite-30P" => TslMaterial {
+            base: "tsl-reactor-graphite-30P",
+            mat: 32,
+        },
+        "HinH2O" | "H2O" | "tsl-HinH2O" => TslMaterial {
+            base: "tsl-HinH2O",
+            mat: 1,
+        },
         _ => return None,
     };
     Some(m)
@@ -476,7 +482,9 @@ impl EndfCache {
     /// `<root>/<library>/<base>.endf` (e.g.
     /// `<root>/ENDF-B-VIII.0/tsl-crystalline-graphite.endf`).
     pub fn path_for_tsl(&self, library: EndfLibrary, tsl_base: &str) -> PathBuf {
-        self.dir.join(library.dir()).join(format!("{tsl_base}.endf"))
+        self.dir
+            .join(library.dir())
+            .join(format!("{tsl_base}.endf"))
     }
 
     /// Fetch a **thermal-scattering-law** tape (downloading + unzipping if needed),
@@ -711,7 +719,10 @@ mod tests {
         // Registry resolves the HTR-10 graphite evaluations + H-in-H2O.
         assert_eq!(
             well_known_tsl("graphite"),
-            Some(TslMaterial { base: "tsl-crystalline-graphite", mat: 30 })
+            Some(TslMaterial {
+                base: "tsl-crystalline-graphite",
+                mat: 30
+            })
         );
         assert_eq!(well_known_tsl("crystalline-graphite").unwrap().mat, 30);
         assert_eq!(well_known_tsl("reactor-graphite-10P").unwrap().mat, 31);
