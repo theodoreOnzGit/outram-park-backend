@@ -58,9 +58,25 @@
 //! 262 144 against
 //! [`SPMV_MIN_CELLS`](crate::ldu_matrix::parallel::SPMV_MIN_CELLS) = 4 096),
 //! GMRES has **less** to gain than BiCGStab from `CpuMulti` on a mid-sized mesh,
-//! and more to gain on a very large one. That is a prediction of the dispatch
-//! policy, and it is measured in `crate::krylov::hybrid_tests` rather than left
-//! as a claim.
+//! and more to gain on a very large one.
+//!
+//! That is a prediction of the dispatch policy, and it was measured rather than
+//! left as a claim. On an asymmetric 7-point-stencil system with Jacobi
+//! preconditioning, 4 logical cores, release, `--features parallel`, 2026-08-13
+//! (`gmres_end_to_end_speedup_benchmark`, best of 3 solves — taken under heavy
+//! load, so these are lower bounds):
+//!
+//! | Cells | GMRES(30) speed-up | BiCGStab speed-up, same system |
+//! |---|---|---|
+//! | 4 096 | 0.75x | 0.81x |
+//! | 32 768 | 1.21x | 1.57x |
+//! | 110 592 | 1.26x | 1.84x |
+//! | 262 144 | 1.86x | 2.41x |
+//!
+//! GMRES is behind BiCGStab at every size and catches up only as the mesh grows
+//! past the vector-operation floor, exactly as predicted. Full methodology,
+//! repeat runs and limitations are on the benchmark in
+//! `crate::krylov::hybrid_tests`.
 
 use std::sync::Arc;
 

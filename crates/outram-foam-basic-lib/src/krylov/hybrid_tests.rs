@@ -49,17 +49,36 @@
 //!    measured effect on iteration counts and residual histories is recorded
 //!    below rather than presumed negligible.
 //!
-//! # Measured results
+//! # Measured results — the headline
 //!
 //! Every number in this file was printed by the test beside it and transcribed.
 //! Machine: 4 logical cores, release build. The load average at the time of each
 //! measurement is printed by the test itself and quoted with the figure, because
-//! this host runs a `bn daemon` that never lets it reach true idle and an earlier
+//! this host runs a `bn` daemon that never lets it reach true idle and an earlier
 //! contended run of the neighbouring `spmv_crossover_benchmark` was enough to
 //! erase a 3-4x speed-up entirely.
 //!
-//! See the individual test doc comments for methodology, pass criteria and
-//! results.
+//! Measured 2026-08-13, release, `--features parallel`:
+//!
+//! | Claim | Result |
+//! |---|---|
+//! | End-to-end solve speed-up, Jacobi, 512 000 cells | **2.65x** (2.66x on a repeat run) |
+//! | End-to-end solve speed-up, ILU(0), 512 000 cells | **1.50x** (1.51x on a repeat) |
+//! | ILU(0) triangular solves, share of solve time at 262 144 cells | **51.6%** — an Amdahl ceiling near 1.9x |
+//! | Backend parity (`Serial` vs `CpuMulti`) | **bitwise**, including every residual-history entry and every iteration count |
+//! | Thread-count parity (1/2/3/8 workers) | **bitwise** |
+//! | Correctness vs dense LU, worst of 12 combinations | 6.832e-10 relative |
+//! | Iteration-count change from the blocked reduction | **none**, at all five sizes tested |
+//! | Solve speed-up at 4 096 cells (= `SPMV_MIN_CELLS`) | **0.81x — a loss** |
+//!
+//! The last row is the most useful finding for the next piece of work: the
+//! isolated product kernel breaks even at 4 096 cells, but a whole *solve* does
+//! not, because the vector operations and the preconditioner apply beside it are
+//! still serial at that size. **The kernel's crossover is not the solver's
+//! crossover.** That belongs to bead `op-yvj.4.7`.
+//!
+//! See the individual test doc comments for methodology, pass criteria, repeat
+//! runs and limitations.
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -1012,9 +1031,37 @@ fn end_to_end_solve_speedup_benchmark() {
 /// timings. `#[ignore]`d.
 ///
 /// **Results, measured 2026-08-13**, release, `--features parallel`, 4 logical
-/// cores, best of 3, load averages printed by the test and quoted in the bead
-/// report. See the printed table; the comparison against BiCGStab's speed-up at
-/// the same size is the point of the measurement.
+/// cores, best of 3 complete solves, milliseconds per solve. **Both runs were
+/// taken on a heavily loaded machine** — load average `3.68 1.91 1.42` rising to
+/// `3.87 1.98 1.45` for run 1, and `3.51 1.96 1.45` to `3.45 2.00 1.46` for run 2,
+/// on 4 logical cores, i.e. essentially saturated. These parallel columns are
+/// therefore **pessimistic**, and the BiCGStab table above (taken at load ~1.5)
+/// is not directly comparable in absolute terms. The *ordering* is what this
+/// measurement establishes, and it survives the contention.
+///
+/// | Cells | Iterations | Serial (ms) | Multi (ms) | Speed-up | (rpt) | BiCGStab+Jacobi speed-up at the same size |
+/// |---|---|---|---|---|---|---|
+/// | 4 096 | 72 | 8.376 | 11.176 | 0.75x | 0.62x | 0.81x |
+/// | 32 768 | 73 | 78.225 | 64.453 | 1.21x | 0.99x | 1.57x |
+/// | 110 592 | 73 | 273.820 | 217.140 | 1.26x | 1.30x | 1.84x |
+/// | 262 144 | 72 | 747.334 | 402.504 | 1.86x | 1.99x | 2.41x |
+///
+/// **Interpretation.** The prediction holds: **GMRES(30) gains less than
+/// BiCGStab from `CpuMulti` at every size tested**, and it gains it later —
+/// 1.21x/0.99x where BiCGStab reached 1.57x at 32 768 cells. That is the expected
+/// consequence of GMRES spending proportionally more of its time in vector
+/// operations, which have the 64x higher size floor, and proportionally less in
+/// the sparse product, which is the kernel that threads well. GMRES does catch up
+/// as the mesh grows (1.86x/1.99x at 262 144), which is also expected: at that
+/// size the vector operations finally clear
+/// [`VECOP_MIN_ELEMENTS`](crate::ldu_matrix::parallel::VECOP_MIN_ELEMENTS) and
+/// begin threading too.
+///
+/// **Limitation.** Taken under heavy contention, so the absolute speed-ups are
+/// lower bounds rather than the machine's best. Comparing the two runs against
+/// each other (0.75x vs 0.62x, 1.21x vs 0.99x) shows the scatter that contention
+/// introduces; the BiCGStab comparison column is quoted from a *less* loaded run
+/// and so, if anything, understates how much further ahead BiCGStab is.
 #[test]
 #[ignore = "timing benchmark; run explicitly with --ignored"]
 fn gmres_end_to_end_speedup_benchmark() {

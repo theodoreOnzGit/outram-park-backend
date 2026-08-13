@@ -137,9 +137,39 @@ pub fn bicgstab(
 /// That is not an oversight: the vector operations do one or two flops per element
 /// loaded and lose to thread-dispatch overhead until the vector is very large,
 /// whereas the gather product does roughly seven and pays for itself two orders
-/// of magnitude earlier. The consequence is that the speed-up of a whole solve is
-/// bounded by the product's share of it, which is measured rather than assumed —
-/// see `crate::krylov::hybrid_tests`.
+/// of magnitude earlier.
+///
+/// # Measured end-to-end speed-up
+///
+/// Whole-solve wall clock, `Serial` against `CpuMulti`, on an asymmetric
+/// 7-point-stencil system, 4 logical cores, release, `--features parallel`,
+/// 2026-08-13, best of 5 complete solves, load average ~1.45
+/// (`end_to_end_solve_speedup_benchmark`; this host never reaches idle):
+///
+/// | Cells | Jacobi-preconditioned | ILU(0)-preconditioned |
+/// |---|---|---|
+/// | 4 096 | **0.81x** (a loss) | **0.71x** (a loss) |
+/// | 32 768 | 1.57x | 1.27x |
+/// | 262 144 | 2.41x | 1.49x |
+/// | 512 000 | **2.65x** | **1.50x** |
+///
+/// Two things a caller should take from this:
+///
+/// - **The product's crossover is not the solve's crossover.** At exactly
+///   [`SPMV_MIN_CELLS`](crate::ldu_matrix::parallel::SPMV_MIN_CELLS) = 4 096, where
+///   the isolated product breaks even, the whole solve *loses* — it interleaves
+///   the product with vector operations and a preconditioner apply that all still
+///   run serially at that size, so the product's marginal win is diluted while
+///   the dispatch cost is paid every iteration. On this machine a solve does not
+///   reliably win until roughly 13 000 cells.
+/// - **ILU(0) caps the achievable speed-up**, because its triangular solves are
+///   sequential and measure 51.6% of solve time at 262 144 cells — an Amdahl
+///   ceiling near 1.9x. Jacobi, whose apply is embarrassingly parallel, reaches
+///   2.65x. If you need the parallel win more than you need ILU(0)'s smaller
+///   iteration count, that trade is now quantified.
+///
+/// Full methodology, repeat runs and limitations are on the benchmarks in
+/// `crate::krylov::hybrid_tests`.
 ///
 /// # Determinism
 ///

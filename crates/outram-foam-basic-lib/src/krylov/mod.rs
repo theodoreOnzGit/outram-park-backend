@@ -45,6 +45,30 @@
 //! no single physical dimension, so no `uom` typing is applied — apply units at
 //! the field/equation layer that assembles the matrix.
 //!
+//! # Execution backend
+//!
+//! Both solvers run on the hybrid [`ComputeBackend`], driving the kernels in
+//! [`crate::ldu_matrix::parallel`]. Each has **one** implementation with the
+//! backend as a parameter — [`bicgstab_prepared`] and [`gmres_prepared`], which
+//! take a [`HybridLdu`](crate::ldu_matrix::parallel::HybridLdu) so the
+//! cell-gather index is built once per mesh rather than once per solve — plus a
+//! convenience adapter ([`bicgstab`], [`gmres`]) for a caller holding a bare
+//! [`LduMatrix`], which builds the index and runs on
+//! [`ComputeBackend::Serial`]. They are not a serial/parallel pair: they differ
+//! in who owns the index, and the backend is a parameter of both.
+//!
+//! Whole-solve wall clock on 4 logical cores, release, `--features parallel`,
+//! 512 000 cells, measured 2026-08-13: **2.65x** with Jacobi preconditioning,
+//! **1.50x** with ILU(0) — the gap being ILU(0)'s inherently sequential
+//! triangular solves, measured at 51.6% of solve time. Below roughly 13 000 cells
+//! the parallel path loses. Full tables, methodology and limitations are on the
+//! benchmarks in `hybrid_tests` and summarised on [`bicgstab_prepared`].
+//!
+//! **Backend parity is bitwise**, not tolerance-based: `Serial` and `CpuMulti`
+//! produce identical iterates, identical residual histories and identical
+//! iteration counts at any thread count, because every kernel underneath carries
+//! that guarantee individually.
+//!
 //! # Convergence
 //!
 //! The stopping test for both solvers is the **relative** residual
