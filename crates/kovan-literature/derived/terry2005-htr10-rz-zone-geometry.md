@@ -235,26 +235,41 @@ bottom row has been recorded so far.
 As given: `dummy pebbles 81 | carbon bricks 18, 47, 56, 65, 73 | boronated
 carbon bricks 79`.
 
-| Zone | r span | Material | Confidence |
-|--:|---|---|---|
-| **81** | [0, 25.0] | Dummy pebbles | **Confirmed** — the discharge-tube radius, and Terry §2 states "the conus and discharge tube contained only dummy pebbles" |
-| 18 | ? | Carbon bricks | band span **not yet resolved** |
-| 47 | ? | Carbon bricks | band span **not yet resolved** |
-| 56 | ? | Carbon bricks | band span **not yet resolved** |
-| 65 | ? | Carbon bricks | band span **not yet resolved** |
-| 73 | ? | Carbon bricks | band span **not yet resolved** |
-| **79** | [167.793, 190.0] | Boronated carbon bricks | **Confirmed** — matches the outermost radial band |
+| Zone | r span | Bands | Material |
+|--:|---|--:|---|
+| **81** | [0, 25.0] | 1 | Dummy pebbles |
+| **18** | [25.0, 95.6] | 4 (merged) | Carbon bricks |
+| 47 | [95.6, 108.6] | 1 | Carbon bricks |
+| 56 | [108.6, 140.6] | 1 | Carbon bricks |
+| 65 | [140.6, 148.6] | 1 | Carbon bricks |
+| 73 | [148.6, 167.793] | 1 | Carbon bricks |
+| **79** | [167.793, 190.0] | 1 | Boronated carbon bricks |
 
-**Open: the five carbon-brick zones span eight radial bands.** Between
-`r = 25.0` and `r = 167.793` there are eight bands —
-`[25,41.75] [41.75,70.75] [70.75,90] [90,95.6] [95.6,108.6] [108.6,140.6]
-[140.6,148.6] [148.6,167.793]` — but only five zones to fill them, so **three
-merges occur** and their placement is not yet known.
+**The tiling closes.** Seven zones cover all ten radial bands with **no gap and
+no overlap**: zone 18 absorbs four bands (`[25,41.75] [41.75,70.75] [70.75,90]
+[90,95.6]`), and the remaining four bands take one zone each. This was the
+arithmetic that failed under every other merge pattern considered, so the
+closure is itself corroboration.
 
-The obvious guess (the three sub-core divisions collapsing below the bed, giving
-`18 = [25, 90]`, then `47, 56, 65, 73` in order) leaves `[148.6, 167.793]`
-unassigned, so it cannot be right as stated. **Deliberately left blank rather
-than guessed** — a wrong merge here would silently distort the mesh.
+Two independent confirmations of the endpoints:
+
+- **81** ends at the fuel-discharge-tube radius (Table 2), and Terry §2 states
+  "the conus and discharge tube contained only dummy pebbles".
+- **79** matches the outermost radial band, whose material the maintainer
+  separately gave as boronated carbon bricks.
+
+**Confidence note.** The maintainer gave zone 18's span as definite and the
+remainder as "the rest take one band **I think**". The tiling closing exactly
+supports that reading, but it has not been re-checked against the figure —
+treat the four single-band assignments as strong-but-unverified.
+
+**Structural observation.** Zones 47, 56, 65 and 73 are all the same material
+yet remain distinct zones, and the radial band boundaries persist downward here
+even where nothing physically changes. That is expected of a zone map built on
+a single global r-grid, and it means **band boundaries are not by themselves
+evidence of a material change**. It also means the per-zone atom densities in
+TECDOC Table 4-3 may differ between these four despite the shared label — do
+not collapse them when meshing.
 
 ### Grid shape
 
