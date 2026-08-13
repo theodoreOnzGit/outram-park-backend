@@ -666,8 +666,11 @@ impl MinProblem {
 /// The relative tolerance is ~10 000x looser than the root finder's `1e-12`, and
 /// that is not a lowered standard — it is the accuracy a derivative-free
 /// minimiser can actually deliver on a smooth objective (module docs,
-/// "Achievable accuracy"). Defaulting to `1e-12` would spend about 40 extra
-/// iterations per lane narrowing a bracket whose midpoint does not improve.
+/// "Achievable accuracy"). Defaulting to a far tighter tolerance would spend
+/// about **30 extra iterations** per lane narrowing a bracket whose midpoint does
+/// not improve — measured 2026-08-13: 40-47 iterations at these defaults against
+/// 77 at `x_tol_abs = 1e-15, x_tol_rel = 0` on the same 64-lane batch, for a
+/// worst abscissa error that stays at `1.05e-8` either way.
 ///
 /// The iteration cap is 200 rather than 100 because golden section contracts by a
 /// fixed factor of [`GOLDEN_RATIO`] per iteration — it has no superlinear phase

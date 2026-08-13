@@ -171,8 +171,32 @@ fn golden_section_matches_analytic_minima() {
 /// least **100x** worse than the offset-quadratic family, which is the effect
 /// being demonstrated.
 ///
-/// **Results, measured 2026-08-13 (release):** RESULT-FLAT. Printed by this test
-/// under `--nocapture`.
+/// **Results, measured 2026-08-13 (release), 64 lanes each, 77 iterations on
+/// every lane in all three families:**
+///
+/// | Objective | Predicted floor | Measured worst `\|x - x0\|` |
+/// |---|---|---|
+/// | `1 + (x - x0)^2` | `sqrt(eps) = 1.490116e-8` | **1.053671e-8** |
+/// | `1 + (x - x0)^4` | `eps^(1/4) = 1.220703e-4` | **1.026485e-4** |
+/// | `(x - x0)^2` | *none* | **8.881784e-16** |
+///
+/// Quartic/quadratic degradation: **9 742x**. Printed by this test under
+/// `--nocapture`.
+///
+/// **Interpretation.** The two offset families land at 0.71x and 0.84x of their
+/// predicted floors, so the `sqrt(eps)` / `eps^(1/4)` theory is a usable bound
+/// here rather than a story — and the ~10 000x gap between them is the cost of a
+/// minimum that is flatter than quadratic, measured on identical lanes, brackets
+/// and settings. Every one of those quartic lanes still reported `Converged` with
+/// a final bracket width of ~1e-15; a caller reading only `bracket_width()` would
+/// conclude the answer was good to ~1e-15 when it is good to ~1e-4, and **no
+/// status flag says otherwise**. That is why the module documents the accuracy
+/// limit at length instead of leaving it to the status field.
+///
+/// The zero-baseline control reaching **8.9e-16** — seven orders below the
+/// "floor" — is the result that stops `sqrt(eps)` being memorised as a property
+/// of golden section. It is a property of the objective's relative precision near
+/// its extremum. A physical objective is the first row, not the third.
 #[test]
 fn flat_minimum_exposes_the_sqrt_eps_limit() {
     let vertices = sample_vertices(64, 0x51ce_9a11);
@@ -224,7 +248,10 @@ fn flat_minimum_exposes_the_sqrt_eps_limit() {
         "quartic / quadratic degradation = {:.0}x",
         worst_quartic / worst_quadratic
     );
-    println!("sqrt(eps) = {SQRT_EPSILON:.6e}, eps^(1/4) = {:.6e}", f64::EPSILON.powf(0.25));
+    println!(
+        "sqrt(eps) = {SQRT_EPSILON:.6e}, eps^(1/4) = {:.6e}",
+        f64::EPSILON.powf(0.25)
+    );
 
     assert!(
         worst_quadratic <= 1e-6,
@@ -349,7 +376,34 @@ fn maximise_matches_analytic_sine_peak() {
 /// range. The two-tier criterion is not a fudge — it is the measured effect of
 /// probe reuse, quantified below.
 ///
-/// **Results, measured 2026-08-13 (release):** RESULT-GR
+/// **Results, measured 2026-08-13 (release), `W0 = 10`:** relative deviation of
+/// the measured bracket width from `W0 * gr^k` —
+///
+/// | `k` | 1 | 2 | 5 | 10 | 20 | 30 | 40 | 50 | 60 | 80 |
+/// |---|---|---|---|---|---|---|---|---|---|---|
+/// | rel. dev. | 0 | 2.2e-16 | 4.4e-16 | 1.6e-15 | 2.7e-14 | 1.3e-12 | 2.3e-11 | 4.0e-10 | 1.9e-8 | 2.3e-6 |
+///
+/// Worst for `k <= 20`: **2.675637e-14**. Worst over the whole range:
+/// **2.334157e-6**, at `k = 80`. Printed by this test under `--nocapture`.
+///
+/// **Interpretation.** The contraction rate itself is exact — the deviation is
+/// accumulated *rounding*, and it is the measured price of the probe-reuse
+/// optimisation this module makes over its `tampines-steam-tables` original. The
+/// retained probe carries an absolute rounding error fixed at the scale of the
+/// older, wider bracket, while the bracket keeps shrinking, so the relative
+/// deviation grows roughly geometrically. A reference implementation that
+/// recomputes both probes each iteration — the original's form — holds the
+/// deviation at `<= 6.7e-16` at every one of these `k` (checked out-of-band in a
+/// scratch reimplementation, not by this test).
+///
+/// **It does not affect any answer.** At `k = 80` the width is 1.9e-16, so a
+/// 2.3e-6 relative deviation is 4e-22 absolute — orders below the `sqrt(eps)`-
+/// scale accuracy the located extremum can have at all — and 80 iterations is
+/// about twice what [`MinSettings::default`] ever reaches (40-47, measured by
+/// [`golden_section_matches_analytic_minima`]). What it does mean is that
+/// `W0 * gr^k` stops being an exact predictor of
+/// [`MinSolution::bracket_width`] at large `k`, which is why this test's
+/// criterion is tiered rather than uniform.
 #[test]
 fn bracket_contracts_at_the_golden_ratio() {
     let w0 = 10.0_f64;
@@ -423,10 +477,10 @@ fn bracket_contracts_at_the_golden_ratio() {
 /// correctness: the lane must report `Converged`, must land on the shallow local
 /// minimum near `+1.0`, and must **not** find the global minimum near `-1.5`.
 ///
-/// **Results, measured 2026-08-13 (release):** located `x = 9.999999996e-1`,
-/// value `-4.999999999999999e-1`, status `Converged`, 40 iterations. The global
-/// minimum at `x ≈ -1.5` with value `≈ -1.0` was never visited. Printed by this
-/// test under `--nocapture`.
+/// **Results, measured 2026-08-13 (release):** located `x = 1.000000007e0`,
+/// value `-5.0000000000000000e-1`, status `Converged`, **41** iterations. The
+/// global minimum near `x = -1.5`, whose value is `-1.000965`, was never visited.
+/// Printed by this test under `--nocapture`.
 ///
 /// **Interpretation.** The returned answer is a genuine local minimum reported
 /// with full confidence and a tight bracket, and it is **half as deep** as the
@@ -461,7 +515,10 @@ fn multimodal_bracket_returns_a_local_extremum_without_warning() {
         s.last_value(),
         s.iterations()
     );
-    println!("multimodal: true global minimum is near x = -1.5 with f = {:.6}", f(-1.5));
+    println!(
+        "multimodal: true global minimum is near x = -1.5 with f = {:.6}",
+        f(-1.5)
+    );
 
     assert_eq!(s.status(), MinStatus::Converged);
     let x = s.extremum().expect("it converges -- that is the problem");
@@ -491,7 +548,7 @@ fn multimodal_bracket_returns_a_local_extremum_without_warning() {
 /// within `1e-6` of `0.0` and the maximising lane within `1e-6` of `1.0`.
 ///
 /// **Results, measured 2026-08-13 (release):** minimising lane located
-/// `4.999999999e-13`, maximising lane located `9.999999999995e-1`. Printed by
+/// `3.781698226100e-13`, maximising lane located `9.999999942794e-1`. Printed by
 /// this test under `--nocapture`.
 ///
 /// **Interpretation.** This is the intended behaviour, and it is what the
@@ -571,7 +628,11 @@ fn assert_bitwise_equal(a: &MinBatch, b: &MinBatch, what: &str) {
             y.bracket_width().to_bits(),
             "{what}: lane {i} bracket width"
         );
-        assert_eq!(x.iterations(), y.iterations(), "{what}: lane {i} iterations");
+        assert_eq!(
+            x.iterations(),
+            y.iterations(),
+            "{what}: lane {i} iterations"
+        );
     }
 }
 
@@ -1013,7 +1074,14 @@ fn minimise_batch_crossover_benchmark() {
                         costly,
                     )
                 } else {
-                    golden_section_batch_min(&problems, Sense::Minimise, settings, backend, 0, cheap)
+                    golden_section_batch_min(
+                        &problems,
+                        Sense::Minimise,
+                        settings,
+                        backend,
+                        0,
+                        cheap,
+                    )
                 }
             };
             std::hint::black_box(run());
@@ -1095,7 +1163,10 @@ fn minimise_batch_thread_scaling_benchmark() {
         "{:>8} {:>14} {:>9} {:>10}",
         "threads", "time [us]", "speedup", "bitwise"
     );
-    println!("{:>8} {serial_us:>14.2} {:>9.2} {:>10}", 0, 1.0, "reference");
+    println!(
+        "{:>8} {serial_us:>14.2} {:>9.2} {:>10}",
+        0, 1.0, "reference"
+    );
 
     for threads in [1_usize, 2, 4, 8] {
         let pool = rayon::ThreadPoolBuilder::new()
