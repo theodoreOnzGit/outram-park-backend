@@ -15,6 +15,9 @@
 //! ## Module map (what belongs where)
 //!
 //! - [`input`] — the typed card deck ([`LeaprInput`] and its enums).
+//! - [`deck`] — the **text** card-deck reader: `.leapr` job text -> [`LeaprDeck`]
+//!   -> one [`LeaprInput`] per temperature. This is what lets a 12 KB ENDF/B
+//!   `tsl-*.leapr` deck stand in for the multi-MB MF=7 tape it generated.
 //! - [`frequency`] — `start`/`fsum`: phonon-spectrum integrals, Debye-Waller
 //!   lambda, effective temperature, and the first phonon term `T_1(beta)`.
 //! - [`continuous`] — `contin`/`terpt`/`convol`: the phonon-expansion sum
@@ -50,13 +53,27 @@
 //! - `copys` (2468-2487): the scratch-tape plumbing for the mixed-moderator
 //!   merge (not needed for the single-scatterer in-memory path).
 //! - `skold` (2816-2922): the Sköld pair-correlation correction.
-//! - the NJOY `run`/card-reading driver — [`run`] returns `NotPorted`; build a
-//!   job with [`LeaprInput`] and call the module functions directly, then
-//!   [`endout::endout`] for the tape.
+//! - the NJOY `run` driver — [`run`] still returns `NotPorted`. Its *card
+//!   reading* half **is** now ported ([`deck::LeaprDeck::parse`]); what is
+//!   missing is the unit/file plumbing and the orchestration that would compose
+//!   the kernels and call [`endout::endout`]. Read a deck with [`LeaprDeck`],
+//!   take a [`LeaprInput`] per temperature, and call the module functions.
 //!
-//! **Untrusted AI draft.** These kernels are unit-tested against closed-form and
-//! self-consistency checks but have **not** been validated end-to-end against a
-//! reference LEAPR MF=7 tape. See `README.md`.
+//! ## Validation status
+//!
+//! The **incoherent-inelastic phonon-expansion path is validated against
+//! ENDF/B-VIII.0** as of 2026-08-13: regenerating S(alpha, beta) for
+//! crystalline graphite from its distributed 12 KB LEAPR deck reproduces the
+//! official MF=7/MT=4 tape to a maximum relative deviation of 4.917e-6 and an
+//! RMS of 6.390e-7 over 48,941 grid points at 296 K (4.838e-6 / 5.817e-7 at
+//! 1000 K), which is the tape's own 6-to-7-significant-figure storage
+//! precision. Methodology, the full result table and the Boltzmann-constant
+//! caveat are in `tests/leapr_graphite_deck_parity.rs`.
+//!
+//! **Everything else remains an untrusted AI draft** — that case exercises only
+//! `contin` with `twt = c = 0` and `nd = 0`, so the translational, diffusive,
+//! discrete-oscillator, cold-hydrogen and elastic-output paths still have only
+//! closed-form and self-consistency checks. See `README.md`.
 //!
 //! **Upstream:** `leapr.f90` (~3.6k lines). **Manual:** LA-UR-17-20093 §LEAPR.
 
@@ -65,6 +82,7 @@ use crate::NjoyError;
 pub mod coher;
 pub mod coldh;
 pub mod continuous;
+pub mod deck;
 pub mod discrete;
 pub mod endout;
 pub mod frequency;
@@ -73,6 +91,7 @@ pub mod sct;
 pub mod translation;
 
 pub use coher::{coher, BraggEdges, CoherentLattice};
+pub use deck::{CardCursor, LeaprDeck, LeaprTemperature, PairCorrelation};
 pub use coldh::add_cold_hydrogen;
 pub use endout::{endout, ElasticOutput, LeaprOutput};
 pub use frequency::FrequencyModel;
@@ -122,15 +141,24 @@ impl SabMatrix {
     }
 }
 
-/// Run the LEAPR card-input driver (NJOY module entry point).
+/// Run the LEAPR driver (NJOY module entry point).
 ///
-/// **Status:** the physics kernels are ported and exposed through the module API
-/// (see the module map above), but the NJOY card-input driver plus the `endout`
-/// MF=7 tape writer are **not** ported, so this returns
-/// [`crate::NjoyError::NotPorted`]. Build a job with [`LeaprInput`] and call the
-/// module functions directly.
+/// **Status: still `NotPorted`, but for a narrower reason than before.** The
+/// physics kernels are ported (see the module map above), the MF=7 tape writer
+/// is ported ([`endout::endout`]), and the free-format card deck can now be read
+/// with [`deck::LeaprDeck::parse`]. What this function would still need is
+/// NJOY's Fortran unit plumbing (`nsysi`/`nout`, `openz`/`closz`) plus the
+/// orchestration that composes [`frequency::FrequencyModel::start`],
+/// [`continuous::phonon_expansion`], [`coher::coher`] and
+/// [`endout::endout`] into a [`endout::LeaprOutput`] — including the `dwpix`
+/// and `tempf` conversions `endout` expects (`leapr.f90:717, 3035`), which no
+/// code path performs yet.
+///
+/// Until then, drive it explicitly: [`deck::LeaprDeck::parse`] the deck,
+/// [`deck::LeaprDeck::input_at`] a temperature, then call the kernels.
 pub fn run() -> Result<(), NjoyError> {
     Err(NjoyError::NotPorted(
-        "leapr driver + MF=7 endout writer (physics kernels ported — use the module API)",
+        "leapr unit plumbing + kernel orchestration (cards, kernels and endout are ported — \
+         read a deck with LeaprDeck::parse and drive the module API)",
     ))
 }
