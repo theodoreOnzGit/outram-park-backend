@@ -157,9 +157,12 @@ open sources, and does not depend on the preprint.
 
 ### Orientation: z increases DOWNWARD
 
-This is not an assumption — it is forced by the arithmetic below. `z = 0` is the
-top of the model and `z = 610` the bottom, consistent with the 610 cm reflector
-height spanning the full extent. IAEA-TECDOC-1382 part 2 states that
+**Confirmed by the maintainer, 2026-08-13:** "z increases downwards in fig 2".
+It was independently *derived* first — the arithmetic below only closes under
+this orientation — and the confirmation agrees, so the two are mutually
+supporting rather than one assuming the other. `z = 0` is the top of the model
+and `z = 610` the bottom, consistent with the 610 cm reflector height spanning
+the full extent. IAEA-TECDOC-1382 part 2 states that
 `z = 351.818` is **zero core height**, i.e. the top of the conus; the pebble bed
 then extends *upward* (decreasing z) and the conus *downward* (increasing z).
 
@@ -219,6 +222,39 @@ is unconfirmed — do not force it.
 
 The VTB Griffin deck gives an outer bound only: bottom `z < 41`, top `z > 490`.
 The reading's 40.0 and 495.0 sit either side of those, consistent.
+
+---
+
+## Zone assignments
+
+Read by the maintainer from Fig. 2, row by row. **Incomplete** — only the
+bottom row has been recorded so far.
+
+### Bottom row — seven zones, left to right (increasing r)
+
+As given: `dummy pebbles 81 | carbon bricks 18, 47, 56, 65, 73 | boronated
+carbon bricks 79`.
+
+| Zone | r span | Material | Confidence |
+|--:|---|---|---|
+| **81** | [0, 25.0] | Dummy pebbles | **Confirmed** — the discharge-tube radius, and Terry §2 states "the conus and discharge tube contained only dummy pebbles" |
+| 18 | ? | Carbon bricks | band span **not yet resolved** |
+| 47 | ? | Carbon bricks | band span **not yet resolved** |
+| 56 | ? | Carbon bricks | band span **not yet resolved** |
+| 65 | ? | Carbon bricks | band span **not yet resolved** |
+| 73 | ? | Carbon bricks | band span **not yet resolved** |
+| **79** | [167.793, 190.0] | Boronated carbon bricks | **Confirmed** — matches the outermost radial band |
+
+**Open: the five carbon-brick zones span eight radial bands.** Between
+`r = 25.0` and `r = 167.793` there are eight bands —
+`[25,41.75] [41.75,70.75] [70.75,90] [90,95.6] [95.6,108.6] [108.6,140.6]
+[140.6,148.6] [148.6,167.793]` — but only five zones to fill them, so **three
+merges occur** and their placement is not yet known.
+
+The obvious guess (the three sub-core divisions collapsing below the bed, giving
+`18 = [25, 90]`, then `47, 56, 65, 73` in order) leaves `[148.6, 167.793]`
+unassigned, so it cannot be right as stated. **Deliberately left blank rather
+than guessed** — a wrong merge here would silently distort the mesh.
 
 ### Grid shape
 
