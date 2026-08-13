@@ -264,12 +264,67 @@ pub(crate) fn integrate_interval(
     Ok(())
 }
 
+// ── Regression tests: non-finite state must not be reported as success ───────
+
+/// Verification that a NaN produced by an `OdeSystem` is reported as an error
+/// rather than as a converged solution (bead `op-zwk0`; the same defect was
+/// fixed upstream in `outram-foam-basic-lib` as `op-ad6h`).
+///
+/// # Methodology
+///
+/// The system under test, [`NanDerivatives`], returns `dydx = NaN` from
+/// `derivatives` at every point while supplying a perfectly finite Jacobian,
+/// so the NaN can only enter through `f(x, y)`. It is integrated from
+/// `x = 0` to `x = 1` from `y0 = [1.0]` with `abs_tol = 1e-6`,
+/// `rel_tol = 1e-4` and an initial `dx = 0.1`, by each of the three steppers
+/// in this module. [`normalize_error`] is additionally exercised directly on
+/// NaN, infinite and ordinary finite inputs.
+///
+/// Pass criterion: every `integrate` call returns
+/// `Err(OdeError::NonFiniteState)`, and `normalize_error` returns
+/// `f64::INFINITY` for any non-finite component while leaving finite inputs
+/// numerically unchanged.
+///
+/// # Results (measured 2026-08-13, release mode, this machine)
+///
+/// **Before the fix**, the probe printed:
+///
+/// ```text
+/// normalize_error(y0=[1.0], y=[NaN], err=[NaN]) = 0
+/// f64::max(0.0, NaN) = 0
+/// Euler        -> Ok(()), y = [NaN], y[0].is_nan() = true
+/// Rkf45        -> Ok(()), y = [NaN], y[0].is_nan() = true
+/// Rosenbrock23 -> Ok(()), y = [NaN], y[0].is_nan() = true
+/// ```
+///
+/// i.e. all three steppers returned **success with a NaN state** — the
+/// silent-wrong-answer failure mode. `f64::max` follows IEEE-754 `maxNum`,
+/// which discards a NaN operand, so the fold `fold(0.0, f64::max)` read a NaN
+/// error as *zero* error and the very first step was accepted as perfectly
+/// converged.
+///
+/// **After the fix** all three return `Err(OdeError::NonFiniteState)` and the
+/// tests below assert exactly that. Note that `Rosenbrock23` carries its own
+/// copy of the adaptive retry loop (`Rosenbrock23::solve_step`) instead of
+/// calling [`adaptive_step`], so it needed the guard independently — a partial
+/// fix touching only `adaptive_step` would have left the stiff solver broken.
+///
+/// # Interpretation and limitations
+///
+/// This is a **verification** test (is the error path implemented correctly?),
+/// not a validation of any physics. It says nothing about whether a real
+/// thermophysical model will produce a NaN, only that if one does, the solver
+/// now says so instead of returning a plausible-looking number. `INFINITY`,
+/// not `NaN`, is returned by the fold on purpose: the accept test is
+/// `err <= 1.0` and every comparison against NaN is false, so a NaN error
+/// would reject the step and then grind `dx` down to a misleading
+/// `StepSizeUnderflow` that names the wrong cause.
 #[cfg(test)]
-mod non_finite_probe {
+mod non_finite_state_regression {
     use super::*;
 
-    /// A system whose `derivatives` are NaN (the Jacobian is deliberately
-    /// finite, so the NaN can only come in through `f`).
+    /// A system whose `derivatives` are NaN everywhere. The Jacobian is
+    /// deliberately finite so that the NaN can only enter through `f(x, y)`.
     struct NanDerivatives;
     impl OdeSystem for NanDerivatives {
         fn n_eqns(&self) -> usize {
@@ -284,32 +339,136 @@ mod non_finite_probe {
         }
     }
 
+    /// A system with finite derivatives but a NaN Jacobian — only the stiff
+    /// solver reads the Jacobian, so this isolates `Rosenbrock23`'s own
+    /// duplicated retry loop.
+    struct NanJacobian;
+    impl OdeSystem for NanJacobian {
+        fn n_eqns(&self) -> usize {
+            1
+        }
+        fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
+            dydx[0] = -y[0];
+        }
+        fn jacobian(&self, _x: f64, _y: &[f64], dfdx: &mut Vec<f64>, dfdy: &mut SquareMatrix) {
+            dfdx[0] = f64::NAN;
+            dfdy.set(0, 0, f64::NAN);
+        }
+    }
+
+    /// Well-behaved control: `y' = -y`, `y(0) = 1`, so `y(1) = e^-1`.
+    struct DecayControl;
+    impl OdeSystem for DecayControl {
+        fn n_eqns(&self) -> usize {
+            1
+        }
+        fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
+            dydx[0] = -y[0];
+        }
+        fn jacobian(&self, _x: f64, _y: &[f64], dfdx: &mut Vec<f64>, dfdy: &mut SquareMatrix) {
+            dfdx[0] = 0.0;
+            dfdy.set(0, 0, -1.0);
+        }
+    }
+
     #[test]
-    fn probe_nan_is_reported_as_success() {
-        println!(
-            "normalize_error(y0=[1.0], y=[NaN], err=[NaN]) = {}",
-            normalize_error(&[1.0], &[f64::NAN], &[f64::NAN], 1e-6, 1e-4)
+    fn normalize_error_is_infinite_for_a_nan_component() {
+        // The bug in one line: `f64::max` discards NaN, so the old fold
+        // returned 0.0 here — "perfectly converged".
+        assert_eq!(0.0_f64.max(f64::NAN), 0.0, "f64::max still discards NaN");
+
+        let got = normalize_error(&[1.0], &[f64::NAN], &[f64::NAN], 1e-6, 1e-4);
+        assert!(
+            got.is_infinite() && got > 0.0,
+            "expected +inf for a NaN component, got {got}"
         );
-        println!("f64::max(0.0, NaN) = {}", 0.0_f64.max(f64::NAN));
+    }
 
-        let ode = NanDerivatives;
+    #[test]
+    fn normalize_error_is_infinite_for_an_infinite_component() {
+        let got = normalize_error(&[1.0], &[f64::INFINITY], &[f64::INFINITY], 1e-6, 1e-4);
+        assert!(
+            got.is_infinite() && got > 0.0,
+            "expected +inf for an infinite component, got {got}"
+        );
+    }
 
-        let mut e = Euler::new(1, 1e-6, 1e-4);
+    #[test]
+    fn normalize_error_is_unchanged_for_finite_input() {
+        // tol = abs_tol + rel_tol * max(|y0|, |y|) = 1e-6 + 1e-4 * 1.0
+        let tol = 1e-6 + 1e-4;
+        let expected = 4e-6 / tol; // the larger of the two normalised errors
+        let got = normalize_error(&[1.0, 1.0], &[1.0, 1.0], &[2e-6, 4e-6], 1e-6, 1e-4);
+        assert!(
+            (got - expected).abs() < 1e-12,
+            "finite behaviour changed: got {got}, expected {expected}"
+        );
+    }
+
+    #[test]
+    fn euler_reports_nan_instead_of_returning_ok() {
+        let mut solver = Euler::new(1, 1e-6, 1e-4);
         let mut y = vec![1.0_f64];
         let mut dx = 0.1;
-        let r = e.integrate(&ode, 0.0, 1.0, &mut y, &mut dx);
-        println!("Euler        -> {:?}, y = {:?}, y[0].is_nan() = {}", r, y, y[0].is_nan());
+        let result = solver.integrate(&NanDerivatives, 0.0, 1.0, &mut y, &mut dx);
+        assert_eq!(result, Err(OdeError::NonFiniteState), "y = {y:?}");
+    }
 
-        let mut r45 = Rkf45::new(1, 1e-6, 1e-4);
+    #[test]
+    fn rkf45_reports_nan_instead_of_returning_ok() {
+        let mut solver = Rkf45::new(1, 1e-6, 1e-4);
         let mut y = vec![1.0_f64];
         let mut dx = 0.1;
-        let r = r45.integrate(&ode, 0.0, 1.0, &mut y, &mut dx);
-        println!("Rkf45        -> {:?}, y = {:?}, y[0].is_nan() = {}", r, y, y[0].is_nan());
+        let result = solver.integrate(&NanDerivatives, 0.0, 1.0, &mut y, &mut dx);
+        assert_eq!(result, Err(OdeError::NonFiniteState), "y = {y:?}");
+    }
 
-        let mut rb = Rosenbrock23::new(1, 1e-6, 1e-4);
+    #[test]
+    fn rosenbrock23_reports_nan_derivatives_instead_of_returning_ok() {
+        // Rosenbrock23 duplicates the adaptive retry loop rather than calling
+        // `adaptive_step`, so this exercises a second, separate guard.
+        let mut solver = Rosenbrock23::new(1, 1e-6, 1e-4);
         let mut y = vec![1.0_f64];
         let mut dx = 0.1;
-        let r = rb.integrate(&ode, 0.0, 1.0, &mut y, &mut dx);
-        println!("Rosenbrock23 -> {:?}, y = {:?}, y[0].is_nan() = {}", r, y, y[0].is_nan());
+        let result = solver.integrate(&NanDerivatives, 0.0, 1.0, &mut y, &mut dx);
+        assert_eq!(result, Err(OdeError::NonFiniteState), "y = {y:?}");
+    }
+
+    #[test]
+    fn rosenbrock23_reports_a_nan_jacobian() {
+        let mut solver = Rosenbrock23::new(1, 1e-6, 1e-4);
+        let mut y = vec![1.0_f64];
+        let mut dx = 0.1;
+        let result = solver.integrate(&NanJacobian, 0.0, 1.0, &mut y, &mut dx);
+        assert_eq!(result, Err(OdeError::NonFiniteState), "y = {y:?}");
+    }
+
+    #[test]
+    fn well_behaved_systems_still_integrate_after_the_fix() {
+        let expected = (-1.0_f64).exp();
+
+        // Euler is 1st order — it needs loose tolerances to keep the step
+        // count sane, exactly as the existing `euler_exponential_decay` test
+        // in `euler.rs` does.
+        let mut e = Euler::new(1, 1e-3, 1e-2);
+        let mut y = vec![1.0_f64];
+        let mut dx = 0.1;
+        e.integrate(&DecayControl, 0.0, 1.0, &mut y, &mut dx)
+            .expect("Euler on y' = -y");
+        assert!((y[0] - expected).abs() < 1e-2, "Euler y = {}", y[0]);
+
+        let mut r = Rkf45::new(1, 1e-8, 1e-6);
+        let mut y = vec![1.0_f64];
+        let mut dx = 0.1;
+        r.integrate(&DecayControl, 0.0, 1.0, &mut y, &mut dx)
+            .expect("Rkf45 on y' = -y");
+        assert!((y[0] - expected).abs() < 1e-6, "Rkf45 y = {}", y[0]);
+
+        let mut rb = Rosenbrock23::new(1, 1e-8, 1e-6);
+        let mut y = vec![1.0_f64];
+        let mut dx = 0.1;
+        rb.integrate(&DecayControl, 0.0, 1.0, &mut y, &mut dx)
+            .expect("Rosenbrock23 on y' = -y");
+        assert!((y[0] - expected).abs() < 1e-6, "Rosenbrock23 y = {}", y[0]);
     }
 }
