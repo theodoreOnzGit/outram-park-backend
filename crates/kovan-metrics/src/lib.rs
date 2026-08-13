@@ -1,11 +1,12 @@
 //! # KOVAN metrics — repository accounting
 //!
 //! Per-commit **API-token accounting** and the pre-merge **historian report**,
-//! for the OUTRAM PARK workspace. This is the Rust replacement for
-//! `docs/historian/token_usage.py` and `docs/historian/historian.py`; it exists
-//! so the toolchain needs no Python interpreter, which on Windows in particular
-//! is a recurring failure mode (a `python3` that resolves to a Microsoft Store
-//! alias stub silently turns the git hooks into no-ops).
+//! for the OUTRAM PARK workspace. This replaced `docs/historian/token_usage.py`
+//! and `docs/historian/historian.py` on 2026-08-13, and both were deleted the
+//! same day — this crate is now the only implementation. It exists so the
+//! toolchain needs no Python interpreter, which on Windows in particular is a
+//! recurring failure mode (a `python3` that resolves to a Microsoft Store alias
+//! stub silently turns the git hooks into no-ops).
 //!
 //! ## What belongs here
 //!
