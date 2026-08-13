@@ -29,6 +29,12 @@ exclude = [
     "/generated/assets/",
     "/generated/bibtex/proprietary/",
     "/docs/",
+    # /derived/ holds datasets extracted FROM archived documents (factual
+    # values with provenance, e.g. the HTR-10 r-z zone partition read from
+    # Terry 2005 Fig. 2). Committed to git — facts are not copyrightable and
+    # these carry an open provenance path — but repo-only, like /docs/: the
+    # published crate is a library, not a data distribution.
+    "/derived/",
 ]
 
 # Graph-digitiser front ends (bead op-5v5.8): one engine in `src/digitiser/`,

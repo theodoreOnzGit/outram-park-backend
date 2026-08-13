@@ -341,8 +341,12 @@ Group Meeting, November 2005. Obtained from
   summary and directs the reader to the IRPhEP evaluation report itself.
 - *Citation caution:* for publication cite the IRPhEP evaluation report or the
   IAEA TECDOCs, not this preprint, unless permission is obtained.
-- *Used by:* `docs/reactor-scoping/htr10-neutronics.md` (final section, values
-  transcribed with provenance); `op-tvmf`, `op-lhu6`, `op-5c5r`.
+- *Derived dataset:* **`derived/terry2005-htr10-rz-zone-geometry.md`** — the
+  axisymmetric r-z zone partition read from **Fig. 2** by the maintainer, with
+  its provenance and the cross-check against Table 2. Committed (facts, open
+  provenance path) though the PDF it came from is not.
+- *Used by:* `docs/reactor-scoping/htr10-neutronics.md` (final section, Table 2
+  values transcribed with provenance); `op-tvmf`, `op-lhu6`, `op-5c5r`.
 
 ## Proprietary tier — theses (`proprietary/theses/`)
 

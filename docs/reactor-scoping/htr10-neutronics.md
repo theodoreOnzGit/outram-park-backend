@@ -1051,10 +1051,41 @@ from IAEA-TECDOC-1382 part 2 (its FIG. 4.10 survives only as a bare caption).
 It also independently confirms **packing fraction 0.61**, which `op-5c5r`
 requires for `sphere_packing`, and gives the **19.5° cone angle**.
 
-**Does NOT resolve** the 83-zone R-Z boundaries of Table 4-3. Terry §1 says this
-paper is a *summary* and directs the reader to the IRPhEP evaluation report
-itself (its ref. [3]) for the detailed benchmark model. Obtaining that report is
-the remaining work on `op-tvmf`.
+**The R-Z zone boundaries ARE in this paper — in its figures, not its text.**
+
+*Correction, 2026-08-13:* an earlier revision of this section claimed the paper
+does not contain them. That was wrong, and it was wrong for an instructive
+reason: it was concluded from the **extracted text only** (130 lines), which
+genuinely lacks them. The paper's **Fig. 2 is the simplified model, explicitly
+described in §2 as axisymmetric r-z with the borings homogenised into zones** —
+i.e. exactly the R-Z zone map. Fig. 1 is the high-fidelity counterpart.
+
+They are **raster** images: the PDF carries 5 `/Subtype /Image` objects, all
+`FlateDecode`, and no vector drawing operators. So the coordinates are not
+exactly recoverable from the content stream and the figures must be
+**digitised**.
+
+Two consequences:
+
+1. **Use `kovan-digitise`, not the eye.** Per the workspace `CLAUDE.md` hard
+   rule, a hand-read point has no calibration record, no uncertainty and no
+   audit trail. The CLI is the agent path; only the maintainer may mark a
+   dataset reviewed.
+2. **Table 2 above supplies the calibration anchors.** Unlike a data plot, an
+   engineering figure has no axes — but the known dimensions here (core radius
+   90 cm, reflector outer diameter 380 cm, reflector height 610 cm) give exact
+   pixel↔cm references to pass as `--x-ref`/`--y-ref`. Table 2 sets the scale;
+   Fig. 2 supplies the boundaries.
+
+**Blocked on a tooling gap:** `kovan lit import` cannot emit the figures.
+`kovan_literature::pdf_import::extract_assets()` exists at `pdf_import.rs:70`,
+but the CLI exposes only `--json-out` and `--markdown-out`, so
+`generated/assets/` is empty and `assets: []` in the record. Tracked separately.
+
+**Still worth obtaining** is ref. [3], the *International Handbook of Evaluated
+Reactor Physics Benchmark Experiments*, NEA/NSC/DOC(2006)1 (OECD NEA) — Terry §1
+directs the reader there for the full benchmark model, and tabulated boundaries
+would beat digitised ones.
 
 **Caveat on the cone angle:** Terry states 19.5° was *calculated* by an INL
 discrete-element code, and explicitly that "the cone angle was not measured in
