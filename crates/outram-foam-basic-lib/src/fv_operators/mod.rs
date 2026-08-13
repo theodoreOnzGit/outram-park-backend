@@ -23,7 +23,7 @@ mod adjust_phi;
 
 /// Bounded names for operator-derived fields.
 ///
-/// See [`derived_name`] for why this exists; it is the shared guard against
+/// See [`derived_name`](crate::fv_operators::naming::derived_name) for why this exists; it is the shared guard against
 /// the unbounded-`name` failure documented in this crate's `CLAUDE.md`.
 pub mod naming;
 

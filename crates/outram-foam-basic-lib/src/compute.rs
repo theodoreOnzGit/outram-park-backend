@@ -26,9 +26,10 @@
 //!
 //! A kernel exposes **one** public entry point with the backend as a
 //! parameter. It does not grow a `foo_parallel()` sibling beside `foo()`.
-//! Callers that do not care pass [`ComputeBackend::Auto`]-style resolution via
-//! [`select_backend`]; callers that do care name the backend explicitly and
-//! get exactly it, or a documented fallback.
+//! Callers that do not care let [`select_backend`] resolve one for them;
+//! callers that do care name the backend explicitly and get exactly it, or a
+//! documented fallback. There is no `Auto` variant — resolution is a function,
+//! not a backend.
 //!
 //! # The serial path is the oracle
 //!
@@ -100,6 +101,20 @@
 //! independent work items, which is a pure number. `uom` typing belongs on the
 //! kernels' own signatures and must not be stripped to get data onto a device —
 //! convert at the buffer boundary and convert back.
+//!
+// The link definitions below are fully qualified on purpose. `lib.rs` carries
+// an outer `///` summary on `pub mod compute;` while this file carries inner
+// `//!` docs; rustdoc concatenates the two and resolves the merged block at the
+// *crate root*, where the names below are not in scope. Bare `[`ComputeBackend`]`
+// therefore fails here even though the type is declared in this very file.
+//! [`ComputeBackend`]: crate::compute::ComputeBackend
+//! [`ComputeBackend::Serial`]: crate::compute::ComputeBackend::Serial
+//! [`ComputeBackend::CpuMulti`]: crate::compute::ComputeBackend::CpuMulti
+//! [`ComputeBackend::Gpu`]: crate::compute::ComputeBackend::Gpu
+//! [`ComputeBackend::resolve`]: crate::compute::ComputeBackend::resolve
+//! [`ThreadCount`]: crate::compute::ThreadCount
+//! [`select_backend`]: crate::compute::select_backend
+//! [`gpu_adapter_present`]: crate::compute::gpu_adapter_present
 
 use std::sync::OnceLock;
 

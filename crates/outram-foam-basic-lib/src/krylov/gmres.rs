@@ -38,10 +38,10 @@
 //!
 //! # Execution backend
 //!
-//! There is **one** implementation, [`gmres_prepared`], with the backend as a
-//! parameter; [`gmres`] is the convenience adapter for a caller holding a bare
-//! [`LduMatrix`], which builds the cell-gather index and runs on
-//! [`ComputeBackend::Serial`]. The control flow — Arnoldi, the Givens rotations,
+//! There is **one** implementation, [`gmres_prepared`](crate::krylov::gmres_prepared()), with the backend as a
+//! parameter; [`gmres`](crate::krylov::gmres()) is the convenience adapter for a caller holding a bare
+//! [`LduMatrix`](crate::ldu_matrix::LduMatrix), which builds the cell-gather index and runs on
+//! [`ComputeBackend::Serial`](crate::compute::ComputeBackend::Serial). The control flow — Arnoldi, the Givens rotations,
 //! the `k x k` back substitution — stays on the host exactly as bead
 //! `op-yvj.4.4` requires; only the `O(n)` and `O(n_faces)` kernels are
 //! dispatched. See [`crate::krylov::bicgstab`]'s module documentation for the
@@ -98,11 +98,11 @@ use crate::ldu_matrix::LduMatrix;
 pub(super) const HAPPY_TOL: f64 = 1.0e-300;
 
 /// Solve `A x = b` with restarted right-preconditioned GMRES(m), serially, from
-/// a bare [`LduMatrix`].
+/// a bare [`LduMatrix`](crate::ldu_matrix::LduMatrix).
 ///
 /// The convenience adapter over [`gmres_prepared`]: it builds the cell-gather
-/// index and runs on [`ComputeBackend::Serial`]. In a solver loop prefer
-/// [`gmres_prepared`], which reuses a caller-owned index and accepts a backend —
+/// index and runs on [`ComputeBackend::Serial`](crate::compute::ComputeBackend::Serial). In a solver loop prefer
+/// [`gmres_prepared`](crate::krylov::gmres_prepared()), which reuses a caller-owned index and accepts a backend —
 /// see [`crate::krylov::bicgstab`] for the same note in full.
 ///
 /// # Arguments
@@ -130,20 +130,20 @@ pub fn gmres(
 }
 
 /// Solve `A x = b` with restarted right-preconditioned GMRES(m) on a chosen
-/// [`ComputeBackend`].
+/// [`ComputeBackend`](crate::compute::ComputeBackend).
 ///
-/// **This is the implementation**; [`gmres`] is a thin adapter onto it.
+/// **This is the implementation**; [`gmres`](crate::krylov::gmres()) is a thin adapter onto it.
 ///
 /// # Determinism
 ///
-/// Bitwise identical on [`ComputeBackend::Serial`] and
+/// Bitwise identical on [`ComputeBackend::Serial`](crate::compute::ComputeBackend::Serial) and
 /// [`ComputeBackend::CpuMulti`] at any thread count — identical iterates,
 /// identical Givens residual estimates, identical iteration count. Every kernel
 /// it uses carries that guarantee individually.
 ///
 /// # Arguments
 ///
-/// As [`gmres`], plus:
+/// As [`gmres`](crate::krylov::gmres()), plus:
 /// - `ldu` — the prepared sparse system, replacing `a`.
 /// - `backend` — requested execution backend; degrades rather than failing when
 ///   unavailable.
@@ -191,7 +191,7 @@ pub fn gmres_prepared(
     gmres_impl(ldu, b, x0, precond, settings, backend, &mut Vec::new())
 }
 
-/// [`gmres_prepared`] with the relative-residual history captured.
+/// [`gmres_prepared`](crate::krylov::gmres_prepared()) with the relative-residual history captured.
 ///
 /// `history` is cleared and then receives the Givens residual estimate
 /// `|g[j + 1]| / ||b||₂` after every completed inner iteration — which, because

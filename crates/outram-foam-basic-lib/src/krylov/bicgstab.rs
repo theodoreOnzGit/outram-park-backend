@@ -33,20 +33,20 @@
 //!
 //! # Execution backend
 //!
-//! There is **one** implementation, [`bicgstab_prepared`], and the execution
+//! There is **one** implementation, [`bicgstab_prepared`](crate::krylov::bicgstab_prepared()), and the execution
 //! backend is a parameter of it. It drives the hybrid kernels in
 //! [`crate::ldu_matrix::parallel`] — [`HybridLdu::spmv_into`],
 //! [`HybridLdu::residual_into`], [`dot`], [`axpy`], [`norm_l2`] — and the
-//! backend-aware [`Preconditioner::apply_on`]. [`bicgstab`] is the convenience
+//! backend-aware [`Preconditioner::apply_on`]. [`bicgstab`](crate::krylov::bicgstab()) is the convenience
 //! adapter for a caller holding a bare [`LduMatrix`]: it builds the cell-gather
-//! index and runs the same body on [`ComputeBackend::Serial`]. The two are
+//! index and runs the same body on [`ComputeBackend::Serial`](crate::compute::ComputeBackend::Serial). The two are
 //! **not** a `foo()`/`foo_parallel()` pair — they differ in who owns the index,
 //! not in where they run.
 //!
 //! # Determinism
 //!
 //! Every kernel this solver uses is bitwise identical between
-//! [`ComputeBackend::Serial`] and [`ComputeBackend::CpuMulti`] at any thread
+//! [`ComputeBackend::Serial`](crate::compute::ComputeBackend::Serial) and [`ComputeBackend::CpuMulti`] at any thread
 //! count, so **the whole solve is**: same iterates, same residual history, same
 //! iteration count, bit for bit. That is a stronger parity statement than the
 //! tolerance-based gate bead `op-yvj.4.4` asked for, and it is measured rather
@@ -74,20 +74,20 @@ use crate::ldu_matrix::LduMatrix;
 const BREAKDOWN_TOL: f64 = 1.0e-30;
 
 /// Solve `A x = b` with preconditioned BiCGStab, serially, from a bare
-/// [`LduMatrix`].
+/// [`LduMatrix`](crate::ldu_matrix::LduMatrix).
 ///
 /// The convenience adapter over [`bicgstab_prepared`]: it builds the cell-gather
-/// index ([`HybridLdu::new`]) and runs on [`ComputeBackend::Serial`]. Use it when
+/// index ([`HybridLdu::new`]) and runs on [`ComputeBackend::Serial`](crate::compute::ComputeBackend::Serial). Use it when
 /// you hold a one-off matrix and do not care about the backend.
 ///
-/// # Prefer [`bicgstab_prepared`] in a solver loop
+/// # Prefer [`bicgstab_prepared`](crate::krylov::bicgstab_prepared()) in a solver loop
 ///
 /// This adapter clones `a` into an [`Arc`] and builds an
 /// `O(n_cells + n_internal_faces)` index on **every call**. That is negligible
 /// against a solve that performs tens of matrix-vector products, but a
 /// finite-volume solver reassembling the same mesh every outer iteration should
 /// hold a [`HybridLdu`], refresh it with [`HybridLdu::with_matrix`], and call
-/// [`bicgstab_prepared`] — which also lets it ask for
+/// [`bicgstab_prepared`](crate::krylov::bicgstab_prepared()) — which also lets it ask for
 /// [`ComputeBackend::CpuMulti`].
 ///
 /// # Arguments
@@ -115,9 +115,9 @@ pub fn bicgstab(
     bicgstab_prepared(&ldu, b, x0, precond, settings, ComputeBackend::Serial)
 }
 
-/// Solve `A x = b` with preconditioned BiCGStab on a chosen [`ComputeBackend`].
+/// Solve `A x = b` with preconditioned BiCGStab on a chosen [`ComputeBackend`](crate::compute::ComputeBackend).
 ///
-/// **This is the implementation**; [`bicgstab`] is a thin adapter onto it. The
+/// **This is the implementation**; [`bicgstab`](crate::krylov::bicgstab()) is a thin adapter onto it. The
 /// matrix arrives as a [`HybridLdu`], i.e. with its cell-gather index already
 /// built, so the index cost is paid once per mesh rather than once per solve.
 ///
@@ -176,7 +176,7 @@ pub fn bicgstab(
 ///
 /// # Determinism
 ///
-/// Bitwise identical on [`ComputeBackend::Serial`] and
+/// Bitwise identical on [`ComputeBackend::Serial`](crate::compute::ComputeBackend::Serial) and
 /// [`ComputeBackend::CpuMulti`], at any thread count: identical iterates,
 /// identical residual history, identical iteration count. See the module
 /// documentation for the one thing it is *not* bitwise equal to.
@@ -193,7 +193,7 @@ pub fn bicgstab(
 ///
 /// # Returns
 ///
-/// As [`bicgstab`].
+/// As [`bicgstab`](crate::krylov::bicgstab()).
 ///
 /// # Example
 ///
@@ -234,7 +234,7 @@ pub fn bicgstab_prepared(
     bicgstab_impl(ldu, b, x0, precond, settings, backend, &mut Vec::new())
 }
 
-/// [`bicgstab_prepared`] with the relative-residual history captured.
+/// [`bicgstab_prepared`](crate::krylov::bicgstab_prepared()) with the relative-residual history captured.
 ///
 /// `history` is cleared and then receives one entry per completed iteration: the
 /// relative residual `||r||₂ / ||b||₂` the algorithm saw at the end of that

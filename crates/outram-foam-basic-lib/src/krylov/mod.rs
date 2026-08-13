@@ -47,14 +47,14 @@
 //!
 //! # Execution backend
 //!
-//! Both solvers run on the hybrid [`ComputeBackend`], driving the kernels in
+//! Both solvers run on the hybrid [`ComputeBackend`](crate::compute::ComputeBackend), driving the kernels in
 //! [`crate::ldu_matrix::parallel`]. Each has **one** implementation with the
-//! backend as a parameter — [`bicgstab_prepared`] and [`gmres_prepared`], which
+//! backend as a parameter — [`bicgstab_prepared`](crate::krylov::bicgstab_prepared()) and [`gmres_prepared`](crate::krylov::gmres_prepared()), which
 //! take a [`HybridLdu`](crate::ldu_matrix::parallel::HybridLdu) so the
 //! cell-gather index is built once per mesh rather than once per solve — plus a
-//! convenience adapter ([`bicgstab`], [`gmres`]) for a caller holding a bare
-//! [`LduMatrix`], which builds the index and runs on
-//! [`ComputeBackend::Serial`]. They are not a serial/parallel pair: they differ
+//! convenience adapter ([`bicgstab`](crate::krylov::bicgstab()), [`gmres`](crate::krylov::gmres())) for a caller holding a bare
+//! [`LduMatrix`](crate::ldu_matrix::LduMatrix), which builds the index and runs on
+//! [`ComputeBackend::Serial`](crate::compute::ComputeBackend::Serial). They are not a serial/parallel pair: they differ
 //! in who owns the index, and the backend is a parameter of both.
 //!
 //! Whole-solve wall clock on 4 logical cores, release, `--features parallel`,
@@ -64,7 +64,7 @@
 //! solve, which caps it at 1.7-2.1x on 4 cores. Below roughly 13 000 cells the
 //! parallel path **loses** (0.6-0.8x at 4 096 cells). Full tables, methodology
 //! and limitations are on the benchmarks in `hybrid_tests` and summarised on
-//! [`bicgstab_prepared`].
+//! [`bicgstab_prepared`](crate::krylov::bicgstab_prepared()).
 //!
 //! **Backend parity is bitwise**, not tolerance-based: `Serial` and `CpuMulti`
 //! produce identical iterates, identical residual histories and identical
@@ -133,7 +133,7 @@ pub use preconditioner::{Ilu0Preconditioner, JacobiPreconditioner};
 use crate::compute::ComputeBackend;
 use crate::ldu_matrix::LduMatrix;
 
-/// Iteration controls shared by [`bicgstab`] and [`gmres`].
+/// Iteration controls shared by [`bicgstab`](crate::krylov::bicgstab()) and [`gmres`](crate::krylov::gmres()).
 ///
 /// All fields are plain scalars with no units.
 #[derive(Debug, Clone, Copy)]
@@ -217,7 +217,7 @@ impl Preconditioner {
     ///
     /// `r` and `z` must both have length `n_cells`. For [`Preconditioner::Identity`]
     /// this copies `r` into `z`. Equivalent to [`Self::apply_on`] with
-    /// [`ComputeBackend::Serial`].
+    /// [`ComputeBackend::Serial`](crate::compute::ComputeBackend::Serial).
     pub fn apply(&self, r: &[f64], z: &mut [f64]) {
         self.apply_on(r, z, ComputeBackend::Serial);
     }
