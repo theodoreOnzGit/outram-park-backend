@@ -105,6 +105,24 @@
 //! [`PLANT_TIMESTEP_S`] and
 //! [`steam_generator::PimpleCorrectors`].
 //!
+//! ## What the operator can command
+//!
+//! Everything an operator sets is carried in one value, [`PlantCommands`], and
+//! nothing else reaches [`HtgrPlant::step`]. The primary side has the ganged
+//! control-rod bank and the helium circulator; the secondary side has the
+//! feedwater station -- **AUTO** on an adjustable steam-temperature setpoint or
+//! **MANUAL** on a directly commanded flow -- and the condenser back-pressure.
+//! Every field is clamped **inside the physics** to a stated, physically argued
+//! range, so a slider, a test and a future OPC-UA write are held to the same
+//! envelope. `tests::no_corner_of_the_command_envelope_crosses_or_clamps`
+//! measures that no corner of it can drive a temperature cross or a Courant
+//! breakdown.
+//!
+//! There is **no turbine load control**, because there is nothing to command:
+//! the machine is islanded onto a fixed resistive load with no governor and no
+//! throttle valve (see [`turbine_generator`]). Feedwater flow is what moves the
+//! load in this plant.
+//!
 //! ## Status
 //!
 //! The structure, the cross-crate wiring, the published HTR-10 operating point
@@ -171,6 +189,7 @@ pub mod turbine_generator;
 use outram_park_digital_twin_engine::animation::residence_time_from_flow;
 use outram_park_digital_twin_engine::app_scaffold::mark_component;
 use uom::si::f64::{MassRate, Power, ThermodynamicTemperature, Time};
+use uom::si::mass::kilogram;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::{megawatt, watt};
 use uom::si::pressure::kilopascal;
@@ -182,8 +201,103 @@ use kinetics::{power_in_megawatts, HtgrKinetics};
 use pebble_bed::PebbleBedCore;
 use primary_loop::HeliumPrimaryLoop;
 use protection::ReactorProtectionSystem;
-use secondary_loop::SteamSecondaryLoop;
+use secondary_loop::{SecondaryCommands, SteamSecondaryLoop};
 use turbine_generator::TurbineGeneratorShaft;
+
+/// **Control-rod bank insertion the simulator opens at**, 0.6035 (fraction,
+/// dimensionless).
+///
+/// Very nearly the bank position at which this core is critical with no
+/// external reactivity. Withdrawing the bank by even ten percent from here is a
+/// prompt excursion, so the GUI's opening state,
+/// [`PlantCommands::default`] and the whole-plant tests must all start from the
+/// same number -- they read this one constant rather than each carrying a
+/// literal.
+///
+/// **"Very nearly", measured.** [`control_rods::critical_insertion_fraction`]
+/// puts critical at **0.604535** at the illustrative `beta = 0.0065`, so this
+/// literal sits 1.03e-3 of bank travel out and commands **+0.0435 $
+/// (+28.3 pcm)** of external reactivity -- slightly *supercritical*, not
+/// critical. That is far below prompt critical and well inside the plant's own
+/// negative temperature feedback, and it is pre-existing behaviour; whether to
+/// move the literal onto the bisection's answer is a maintainer decision,
+/// because it would shift every V&V number recorded against the opening state.
+/// See [`tests::the_opening_rod_position_is_the_critical_one`], which measures
+/// it rather than asserting the constant is exact.
+///
+/// It is written as a literal rather than computed because
+/// [`control_rods::critical_insertion_fraction`] is a bisection returning an
+/// `Option`, and a `const` cannot call it.
+pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.6035;
+
+/// **Every operator input the plant accepts, in one value.**
+///
+/// [`HtgrPlant::step`] takes this instead of a growing list of positional
+/// arguments, so a reader can see the whole command surface in one place and
+/// adding the next control does not change the signature again.
+///
+/// | Field | Commands | Range, and where the limit comes from |
+/// |---|---|---|
+/// | [`Self::control_rod_insertion_fraction`] | the ganged rod bank | `0..=1`, the mechanical stops ([`control_rods`]) |
+/// | [`Self::helium_flow_setpoint`] | the primary circulator | 0.3 to 8.0 kg/s, the invented circulator capacity ([`primary_loop`]) |
+/// | [`secondary.feedwater`](secondary_loop::SecondaryCommands::feedwater) | the feedwater station, AUTO or MANUAL | 260 to 540 degC setpoint / 0.3 to 12.0 kg/s flow ([`secondary_loop`]) |
+/// | [`secondary.condenser_pressure`](secondary_loop::SecondaryCommands::condenser_pressure) | the condenser back-pressure | 4 to 30 kPa, bounded below by the cooling-water temperature ([`secondary_loop`]) |
+///
+/// **Every field is clamped inside the physics**, not by whatever produced it.
+/// A slider, a test and a future OPC-UA write are all held to the same envelope,
+/// which is the property that stops a control input from being able to drive
+/// the model out of its correlations' validity ranges.
+///
+/// # What is deliberately not here
+///
+/// - **Reactivity.** The operator moves rods; reactivity is the consequence,
+///   published back for display. See
+///   [`HtgrPlant::external_reactivity_dollars`].
+/// - **The protection system's arming and trip reset.** Those are latched
+///   *state* owned by the physics thread rather than per-step demands, so they
+///   are set through [`ReactorProtectionSystem`] directly -- see
+///   [`crate::app`]'s physics loop.
+/// - **Turbine load.** There is no governor and no throttle valve in this
+///   plant, so there is nothing to command. See
+///   [`turbine_generator`] for why, and
+///   [`secondary_loop::FeedwaterCommand::Manual`] for what does the job
+///   instead.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PlantCommands {
+    /// Control-rod bank insertion fraction, `0.0` fully withdrawn to `1.0`
+    /// fully inserted (dimensionless).
+    ///
+    /// The ten HTR-10 side-reflector rods are ganged as one bank. The
+    /// protection system can only ever drive this **deeper**, never lift it.
+    pub control_rod_insertion_fraction: f64,
+    /// Helium circulator mass-flow setpoint, in kg/s (`uom`-typed).
+    ///
+    /// Clamped by [`primary_loop`] to the circulator's illustrative
+    /// 0.3 to 8.0 kg/s capacity, which brackets the published 4.3 kg/s
+    /// operating point.
+    pub helium_flow_setpoint: MassRate,
+    /// Everything the operator commands on the **secondary** side: the
+    /// feedwater mode and demand, and the condenser back-pressure.
+    pub secondary: SecondaryCommands,
+}
+
+impl Default for PlantCommands {
+    /// The published HTR-10 operating point, with the feedwater station in AUTO
+    /// at the published 440 degC steam temperature and the condenser at its
+    /// design 7 kPa.
+    ///
+    /// The rod position is [`GUI_INITIAL_ROD_INSERTION`], the critical
+    /// insertion the simulator opens at, so a plant stepped with
+    /// `PlantCommands::default()` starts near steady state rather than on a
+    /// prompt excursion.
+    fn default() -> Self {
+        Self {
+            control_rod_insertion_fraction: GUI_INITIAL_ROD_INSERTION,
+            helium_flow_setpoint: nominal_helium_flow(),
+            secondary: SecondaryCommands::default(),
+        }
+    }
+}
 
 /// **The plant timestep \[s\] -- the one step size this simulator runs at.**
 ///
@@ -563,9 +677,8 @@ impl HtgrPlant {
         )
     }
 
-    /// Advance the whole plant by one timestep `dt`, given the user control
-    /// inputs (control-rod bank insertion fraction in `0..=1` and the helium
-    /// pump flow setpoint).
+    /// Advance the whole plant by one timestep `dt` under the operator's
+    /// [`PlantCommands`].
     ///
     /// `dt` should be [`plant_timestep`]; the model is only tested at that
     /// value and at the 1 ms it used to run at.
@@ -581,18 +694,8 @@ impl HtgrPlant {
     /// the final corrector, with the converged boundary conditions. See
     /// [`PLANT_OUTER_CORRECTORS`] for why the exchanger is outside the loop and
     /// why the protection system and turbine shaft are too.
-    pub fn step(
-        &mut self,
-        dt: Time,
-        control_rod_insertion_fraction: f64,
-        helium_flow_setpoint: MassRate,
-    ) {
-        self.step_with_correctors(
-            dt,
-            control_rod_insertion_fraction,
-            helium_flow_setpoint,
-            PLANT_OUTER_CORRECTORS,
-        );
+    pub fn step(&mut self, dt: Time, commands: PlantCommands) {
+        self.step_with_correctors(dt, commands, PLANT_OUTER_CORRECTORS);
     }
 
     /// [`Self::step`] with the outer-corrector count supplied explicitly.
@@ -609,13 +712,13 @@ impl HtgrPlant {
     /// Prefer [`Self::step`] in application code -- a simulator whose corrector
     /// count varies between call sites is a simulator with two different
     /// physics.
-    pub fn step_with_correctors(
-        &mut self,
-        dt: Time,
-        control_rod_insertion_fraction: f64,
-        helium_flow_setpoint: MassRate,
-        n_outer: usize,
-    ) {
+    pub fn step_with_correctors(&mut self, dt: Time, commands: PlantCommands, n_outer: usize) {
+        let PlantCommands {
+            control_rod_insertion_fraction,
+            helium_flow_setpoint,
+            secondary: secondary_commands,
+        } = commands;
+
         self.sim_time += dt;
 
         // 0. Protection system. Evaluated on the PREVIOUS step's measured
@@ -736,6 +839,7 @@ impl HtgrPlant {
             mark_component("steam generator + secondary steam loop (IF97)");
             self.secondary.step(
                 dt,
+                secondary_commands,
                 self.primary.steam_generator_duty_to_secondary(),
                 self.primary.core_outlet_temperature(),
             );
@@ -814,9 +918,12 @@ impl HtgrPlant {
         s.steam_quality_after_turbine = self.secondary.steam_quality_after_turbine();
         s.condenser_pressure_kpa = self.secondary.condenser_pressure().get::<kilopascal>();
         s.secondary_mass_flow_kg_per_s = self.secondary.mass_flow().get::<kilogram_per_second>();
-        s.secondary_residence_time_s =
-            residence_time_from_flow(self.secondary.inventory(), self.secondary.mass_flow())
-                .get::<second>();
+        s.secondary_residence_time_s = residence_time_from_flow(
+            self.secondary.piping_inventory(),
+            self.secondary.mass_flow(),
+        )
+        .get::<second>();
+        s.secondary_piping_inventory_kg = self.secondary.piping_inventory().get::<kilogram>();
         s.feedwater_enthalpy_j_per_kg = self
             .secondary
             .feedwater_enthalpy()
@@ -859,19 +966,38 @@ mod tests {
     use super::*;
     use crate::app::state::HtgrSnapshot;
 
-    /// The control-rod insertion fraction the GUI opens with, from
-    /// `crate::app::state::HtgrSnapshot::default` -- the bank position at which
-    /// the core is critical with no external reactivity, from
-    /// [`control_rods::critical_insertion_fraction`].
+    /// The control-rod insertion fraction the GUI opens with -- **a read of
+    /// [`GUI_INITIAL_ROD_INSERTION`], not an independent literal.**
     ///
-    /// Kept in step with the app default by
-    /// [`the_test_rod_position_matches_the_gui_default`].
-    const HTGR_GUI_INITIAL_ROD_INSERTION: f64 = 0.6035;
+    /// It was an independent literal until 2026-08-13, kept in step with
+    /// `crate::app::state::HtgrSnapshot::default` by a test. Both now read the
+    /// one constant, so they cannot disagree; the test below is what pins the
+    /// identity of the source.
+    const HTGR_GUI_INITIAL_ROD_INSERTION: f64 = GUI_INITIAL_ROD_INSERTION;
 
-    /// The whole-plant test must open where the GUI opens. If the app's default
-    /// rod position moves, this catches it -- withdrawing the bank by even ten
-    /// percent from critical is a prompt excursion in this core, so the two must
-    /// not be allowed to drift apart silently.
+    /// The command set the whole-plant tests drive: the plant's own design
+    /// point, at the GUI's opening rod position.
+    ///
+    /// Every test in this module used to pass a rod position and a flow
+    /// positionally; they now pass a [`PlantCommands`], and this helper builds
+    /// the one they all shared so a test that wants a *different* command says
+    /// so explicitly.
+    fn design_commands() -> PlantCommands {
+        PlantCommands {
+            control_rod_insertion_fraction: HTGR_GUI_INITIAL_ROD_INSERTION,
+            helium_flow_setpoint: nominal_helium_flow(),
+            secondary: SecondaryCommands::default(),
+        }
+    }
+
+    /// The whole-plant test must open where the GUI opens, and where
+    /// [`PlantCommands::default`] opens. Withdrawing the bank by even ten
+    /// percent from critical is a prompt excursion in this core, so the three
+    /// must not be allowed to drift apart silently.
+    ///
+    /// **Now an identity check rather than an agreement check** -- all three
+    /// read [`GUI_INITIAL_ROD_INSERTION`], so this fails only if someone
+    /// reintroduces a local literal.
     #[test]
     fn the_test_rod_position_matches_the_gui_default() {
         let gui_default = HtgrSnapshot::default().control_rod_insertion_fraction;
@@ -879,6 +1005,82 @@ mod tests {
             (gui_default - HTGR_GUI_INITIAL_ROD_INSERTION).abs() < 1e-9,
             "the GUI opens at rod insertion {gui_default}, this test uses \
              {HTGR_GUI_INITIAL_ROD_INSERTION}"
+        );
+        assert!(
+            (PlantCommands::default().control_rod_insertion_fraction
+                - HTGR_GUI_INITIAL_ROD_INSERTION)
+                .abs()
+                < 1e-9
+        );
+    }
+
+    /// V&V: **how close the rod position the simulator opens at is to the
+    /// critical one** -- measured against the bisection rather than trusted as
+    /// a literal.
+    ///
+    /// # Methodology
+    ///
+    /// [`GUI_INITIAL_ROD_INSERTION`] is a `const`, so it cannot call
+    /// [`control_rods::critical_insertion_fraction`] (a bisection returning an
+    /// `Option`). This test closes that gap: it runs the bisection at the
+    /// kinetics' own delayed-neutron fraction, compares, and -- more usefully --
+    /// reports the **external reactivity the shipped position actually
+    /// commands**, which is the quantity that matters rather than the bank
+    /// travel.
+    ///
+    /// Pass criterion: within 0.005 of a fraction (half a percent of bank
+    /// travel). That is a guard against drift, not a claim of exactness -- see
+    /// the results, which record a real residual.
+    ///
+    /// # Results (measured 2026-08-13) -- and a finding
+    ///
+    /// | | Value |
+    /// |---|---|
+    /// | Shipped opening insertion | 0.603500 |
+    /// | Bisection's critical insertion at `beta = 0.0065` | **0.604535** |
+    /// | Difference | **1.03e-3** of bank travel |
+    /// | External reactivity at the shipped position | **+0.04351 $** |
+    ///
+    /// **The simulator therefore opens very slightly supercritical, not
+    /// critical**, by about 28 pcm (`0.0435 $` at a 650 pcm delayed fraction).
+    /// This is pre-existing behaviour, not a consequence of any change made on
+    /// 2026-08-13, and it is recorded here because the constant's own doc
+    /// comment described it as "the bank position at which the core is critical
+    /// with no external reactivity" -- which is true only to about a
+    /// millidollar per millidollar of bank travel.
+    ///
+    /// **Interpretation.** 28 pcm is far below prompt critical and is
+    /// comfortably inside the negative temperature feedback the whole-plant
+    /// tests already show walking the power down from 10 MWth, so it is not a
+    /// defect in the sense of making the simulator behave wrongly. Whether to
+    /// move the literal onto the bisection's answer is a **maintainer decision**
+    /// -- it would shift every V&V number recorded against the opening state --
+    /// and is deliberately not made here.
+    #[test]
+    fn the_opening_rod_position_is_the_critical_one() {
+        let beta = HtgrKinetics::new_illustrative(nominal_thermal_power())
+            .delayed_neutron_fraction()
+            .get::<uom::si::ratio::ratio>();
+        let critical = control_rods::critical_insertion_fraction(beta)
+            .expect("the bank must be able to reach critical at the illustrative beta");
+        let rho = control_rods::external_reactivity_dollars(GUI_INITIAL_ROD_INSERTION, beta);
+        println!(
+            "OPENING ROD POSITION (beta = {beta:.5}): shipped {GUI_INITIAL_ROD_INSERTION:.6}, \
+             bisection {critical:.6}, difference {:.2e} of bank travel;\n  \
+             external reactivity at the shipped position = {rho:+.5} $ \
+             ({:+.1} pcm) -- slightly SUPERCRITICAL, see the doc comment",
+            (critical - GUI_INITIAL_ROD_INSERTION).abs(),
+            rho * beta * 1.0e5,
+        );
+        assert!(
+            (critical - GUI_INITIAL_ROD_INSERTION).abs() < 5.0e-3,
+            "the simulator opens at {GUI_INITIAL_ROD_INSERTION} but critical is {critical}; \
+             more than half a percent of bank travel apart"
+        );
+        assert!(
+            rho.abs() < 0.25,
+            "the opening state commands {rho} $ of external reactivity, which is no longer \
+             a near-critical start"
         );
     }
 
@@ -968,12 +1170,12 @@ mod tests {
         let dt = plant_timestep();
         let plant_seconds = 20.0_f64;
         let steps = (plant_seconds / PLANT_TIMESTEP_S).round() as usize;
-        let flow = nominal_helium_flow();
+        let commands = design_commands();
         let mut worst_metal_k = 0.0_f64;
 
         let started = std::time::Instant::now();
         for i in 0..steps {
-            plant.step(dt, HTGR_GUI_INITIAL_ROD_INSERTION, flow);
+            plant.step(dt, commands);
             let sg = plant.primary.steam_generator_state();
             assert!(
                 sg.worst_node_cross_kelvin() <= 1e-6,
@@ -1190,8 +1392,10 @@ mod tests {
             };
             plant.step_with_correctors(
                 dt,
-                HTGR_GUI_INITIAL_ROD_INSERTION,
-                MassRate::new::<kilogram_per_second>(flow_kg_s),
+                PlantCommands {
+                    helium_flow_setpoint: MassRate::new::<kilogram_per_second>(flow_kg_s),
+                    ..design_commands()
+                },
                 n_outer,
             );
         }
@@ -1267,10 +1471,13 @@ mod tests {
         let dt = plant_timestep();
         let steps = (100.0 / PLANT_TIMESTEP_S).round() as usize;
         // The circulator ceiling -- `primary_loop::MAX_HELIUM_FLOW_KG_PER_S`.
-        let flow = MassRate::new::<kilogram_per_second>(8.0);
+        let commands = PlantCommands {
+            helium_flow_setpoint: MassRate::new::<kilogram_per_second>(8.0),
+            ..design_commands()
+        };
 
         for i in 0..steps {
-            plant.step(dt, HTGR_GUI_INITIAL_ROD_INSERTION, flow);
+            plant.step(dt, commands);
             let sg = plant.primary.steam_generator_state();
             assert!(
                 sg.worst_node_cross_kelvin() <= 1e-6,
@@ -1317,6 +1524,247 @@ mod tests {
             co_hot.is_finite() && co_hot > 0.0,
             "Co_hot = {co_hot} is not a usable measurement"
         );
+    }
+
+    /// V&V: **no corner of the operator's command envelope can drive a
+    /// temperature cross, a Courant breakdown or a property-range excursion.**
+    ///
+    /// # Why this exists
+    ///
+    /// The secondary-side controls added on 2026-08-13 gave the operator three
+    /// new authorities over the plant -- the feedwater mode and demand, the AUTO
+    /// steam-temperature setpoint, and the condenser back-pressure -- and every
+    /// one of them can move the steam generator's cold-side boundary condition.
+    /// Two of the corners are obviously dangerous a priori:
+    ///
+    /// - **Minimum feedwater flow** (0.3 kg/s, 9% of nominal) spreads the full
+    ///   duty over a twelfth of the design water. That is exactly the regime
+    ///   `secondary_loop::max_absorbable_duty` was written for, and before the
+    ///   exchanger was resolved it was where the simulator crashed.
+    /// - **Maximum feedwater flow** (12 kg/s, 3.5x nominal) raises the cold
+    ///   array's advective Courant number in proportion, which is the failure
+    ///   mode [`STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP`] exists to bound.
+    ///
+    /// A control that can put the plant somewhere its own second-law assertion
+    /// fires is a control whose **range** is wrong. This test is what decides
+    /// that, and it is deliberately written so a failure points at the range
+    /// rather than at the assertion.
+    ///
+    /// # Methodology
+    ///
+    /// Five corners of the envelope, each a fresh plant stepped over 60 s of
+    /// simulated time at [`plant_timestep`] with the rods at
+    /// [`GUI_INITIAL_ROD_INSERTION`] and the circulator at the published
+    /// 4.3 kg/s, so the only thing varying between them is the secondary
+    /// command. 60 s is **six feedwater time constants**, so the demand is
+    /// genuinely reached rather than merely approached: at 30 s the MANUAL
+    /// floor corner was still passing 0.456 kg/s on its way down from the
+    /// loop's 3.47 kg/s seed, which is not the corner it claims to test.
+    ///
+    /// | # | Corner | What it stresses |
+    /// |---|---|---|
+    /// | 1 | MANUAL at the 0.3 kg/s pump floor | maximum superheat, the crash regime |
+    /// | 2 | MANUAL at the 12.0 kg/s pump ceiling | maximum cold-side Courant number |
+    /// | 3 | AUTO at the 540 degC setpoint ceiling | controller driven toward its low-flow stop |
+    /// | 4 | AUTO at the 260 degC setpoint floor, condenser at its 30 kPa ceiling | controller at its high-flow stop, hottest feedwater |
+    /// | 5 | AUTO at the published 440 degC, condenser at its 4 kPa floor | coldest feedwater, deepest expansion |
+    ///
+    /// Asserted at **every step** of every corner, with the same criteria the
+    /// existing whole-plant tests use and no tolerance relaxed:
+    ///
+    /// - `worst_node_cross_kelvin() <= 1e-6` -- the second law, node by node;
+    /// - every GUI-visible snapshot field finite;
+    ///
+    /// and once per corner:
+    ///
+    /// - `steam_generator_enthalpy_clamp_events() == 0` -- the fingerprint of a
+    ///   Courant breakdown, which is stronger evidence than "it did not panic";
+    /// - peak tube metal inside `SteelSS304LHighTemp`'s 1700 K range.
+    ///
+    /// # Results (measured 2026-08-13)
+    ///
+    /// **All five corners passed with zero node-by-node crosses and zero
+    /// enthalpy clamp events.** Read at 60 s, with the peaks taken over the
+    /// whole run:
+    ///
+    /// | Corner | Feed flow at 60 s | Peak steam | Peak tube metal | Worst cross | Clamps | Tracer `tau` |
+    /// |---|---|---|---|---|---|---|
+    /// | MANUAL at the pump floor | **0.308 kg/s** | **906.9 K** | **907.4 K** | 0.000000 K | 0 | 159.6 s |
+    /// | MANUAL at the pump ceiling | 11.979 kg/s | 816.7 K | 843.9 K | 0.000000 K | 0 | 9.5 s |
+    /// | AUTO at the 540 degC ceiling | 2.349 kg/s | 823.3 K | 847.8 K | 0.000000 K | 0 | 21.3 s |
+    /// | AUTO at the 260 degC floor, condenser ceiling | 3.394 kg/s | 822.2 K | 846.3 K | 0.000000 K | 0 | 15.3 s |
+    /// | AUTO published, condenser floor | 2.792 kg/s | 823.0 K | 847.3 K | 0.000000 K | 0 | 18.2 s |
+    ///
+    /// **The interesting corner is the first.** At the 0.3 kg/s pump floor the
+    /// duty is spread over a twelfth of the design water, and the steam reaches
+    /// **906.9 K against a 907.4 K tube metal** -- the exchanger's hot and cold
+    /// ends have very nearly met, which is the plant against its own
+    /// thermodynamic limit. It resolves that without a cross anywhere and
+    /// without the hot array's enthalpy clamp firing once. Before 2026-08-12,
+    /// when the exchanger was an effectiveness-NTU lump against an isothermal
+    /// sink, this was the regime in which the simulator crashed.
+    ///
+    /// Peak tube metal over all five corners is 907.4 K against
+    /// `SteelSS304LHighTemp`'s 1700 K ceiling -- **793 K of margin** -- so no
+    /// operator command comes near the steel property range.
+    ///
+    /// The feed flows in AUTO are *below* their demands because the rods sit at
+    /// the critical insertion with no operator action, so the plant's own
+    /// negative temperature feedback walks the power (and hence the duty the
+    /// controller is chasing) down over the 60 s. That is the same behaviour
+    /// [`the_whole_plant_steps_without_crossing_or_leaving_property_range`]
+    /// records, not a control defect.
+    ///
+    /// The secondary residence time -- the tracer speed -- spans **159.6 s** at
+    /// the pump floor to **9.5 s** at the ceiling, a factor of 17, which is the
+    /// schematic's flow animation responding across the whole authority the
+    /// operator has.
+    ///
+    /// # Interpretation
+    ///
+    /// The ranges in [`secondary_loop::ranges`] are therefore *bounded by
+    /// something measured*, not merely chosen. This does **not** say the plant
+    /// is well-behaved everywhere inside the envelope -- only at its corners,
+    /// and only over 30 s. It is a range-validity check, not a validation of the
+    /// exchanger.
+    #[test]
+    fn no_corner_of_the_command_envelope_crosses_or_clamps() {
+        use secondary_loop::{ranges, FeedwaterCommand};
+        use uom::si::pressure::kilopascal;
+        use uom::si::thermodynamic_temperature::degree_celsius;
+
+        let manual = |kg_s: f64| FeedwaterCommand::Manual {
+            mass_flow_demand: MassRate::new::<kilogram_per_second>(kg_s),
+        };
+        let auto = |degc: f64| FeedwaterCommand::Auto {
+            target_steam_temperature: ThermodynamicTemperature::new::<degree_celsius>(degc),
+        };
+        let kpa = |v: f64| uom::si::f64::Pressure::new::<kilopascal>(v);
+
+        let (flow_lo, flow_hi) = ranges::FEEDWATER_FLOW_KG_PER_S;
+        let (set_lo, set_hi) = ranges::TARGET_STEAM_TEMPERATURE_C;
+        let (cond_lo, cond_hi) = ranges::CONDENSER_PRESSURE_KPA;
+
+        let corners: [(&str, SecondaryCommands); 5] = [
+            (
+                "MANUAL at the pump floor",
+                SecondaryCommands {
+                    feedwater: manual(flow_lo),
+                    ..SecondaryCommands::default()
+                },
+            ),
+            (
+                "MANUAL at the pump ceiling",
+                SecondaryCommands {
+                    feedwater: manual(flow_hi),
+                    ..SecondaryCommands::default()
+                },
+            ),
+            (
+                "AUTO at the setpoint ceiling",
+                SecondaryCommands {
+                    feedwater: auto(set_hi),
+                    ..SecondaryCommands::default()
+                },
+            ),
+            (
+                "AUTO at the setpoint floor, condenser ceiling",
+                SecondaryCommands {
+                    feedwater: auto(set_lo),
+                    condenser_pressure: kpa(cond_hi),
+                },
+            ),
+            (
+                "AUTO published, condenser floor",
+                SecondaryCommands {
+                    feedwater: FeedwaterCommand::default(),
+                    condenser_pressure: kpa(cond_lo),
+                },
+            ),
+        ];
+
+        let dt = plant_timestep();
+        let steps = (60.0 / PLANT_TIMESTEP_S).round() as usize;
+
+        println!(
+            "COMMAND-ENVELOPE CORNERS (60 s each at {PLANT_TIMESTEP_S} s, rods at \
+             {GUI_INITIAL_ROD_INSERTION}, circulator at the published 4.3 kg/s):"
+        );
+        for (name, secondary) in corners {
+            let mut plant = HtgrPlant::new();
+            let mut snapshot = HtgrSnapshot::default();
+            let commands = PlantCommands {
+                secondary,
+                ..design_commands()
+            };
+            let mut worst_cross = 0.0_f64;
+            let mut worst_metal_k = 0.0_f64;
+            let mut worst_steam_k = 0.0_f64;
+
+            for i in 0..steps {
+                plant.step(dt, commands);
+                plant.write_snapshot(&mut snapshot);
+
+                let sg = plant.primary.steam_generator_state();
+                worst_cross = worst_cross.max(sg.worst_node_cross_kelvin());
+                for t in sg.metal_node_temperatures.iter() {
+                    worst_metal_k = worst_metal_k.max(t.get::<kelvin>());
+                }
+                worst_steam_k = worst_steam_k.max(snapshot.sg_steam_outlet_temp_k);
+
+                assert!(
+                    sg.worst_node_cross_kelvin() <= 1e-6,
+                    "temperature cross of {} K at step {i} with the secondary commanded \
+                     '{name}'. This is a statement about the COMMAND RANGE, not about the \
+                     assertion: narrow the range in `secondary_loop::ranges` rather than \
+                     loosening this.",
+                    sg.worst_node_cross_kelvin()
+                );
+                for (field, v) in [
+                    ("core_outlet_temp_k", snapshot.core_outlet_temp_k),
+                    ("sg_steam_outlet_temp_k", snapshot.sg_steam_outlet_temp_k),
+                    ("ihx_duty_mw", snapshot.ihx_duty_mw),
+                    ("turbine_power_mw", snapshot.turbine_power_mw),
+                    (
+                        "secondary_mass_flow_kg_per_s",
+                        snapshot.secondary_mass_flow_kg_per_s,
+                    ),
+                    (
+                        "secondary_residence_time_s",
+                        snapshot.secondary_residence_time_s,
+                    ),
+                    ("condenser_pressure_kpa", snapshot.condenser_pressure_kpa),
+                ] {
+                    assert!(
+                        v.is_finite(),
+                        "snapshot field {field} went non-finite at step {i} with '{name}'"
+                    );
+                }
+            }
+
+            let clamps = plant.primary.steam_generator_enthalpy_clamp_events();
+            println!(
+                "  {name:<46} feed {:.3} kg/s, steam peak {worst_steam_k:.1} K, \
+                 SG duty {:.3} MW, metal peak {worst_metal_k:.1} K, \
+                 cross {worst_cross:.6} K, clamps {clamps}, tau_2ry {:.2} s",
+                snapshot.secondary_mass_flow_kg_per_s,
+                snapshot.ihx_duty_mw,
+                snapshot.secondary_residence_time_s,
+            );
+
+            assert_eq!(
+                clamps, 0,
+                "the exchanger's hot array clamped its enthalpy field {clamps} times with \
+                 the secondary commanded '{name}'. The run is being held together by the \
+                 clamp rather than being stable there, so this corner is outside what the \
+                 command range may allow."
+            );
+            assert!(
+                worst_metal_k < 1700.0,
+                "tube metal reached {worst_metal_k} K with '{name}', outside \
+                 SteelSS304LHighTemp's range"
+            );
+        }
     }
 
     /// V&V: the steam-generator array substep is a whole division of the plant
@@ -1443,13 +1891,13 @@ mod tests {
         let mut snapshot = HtgrSnapshot::default();
         let dt = plant_timestep();
         let steps = (150.0 / PLANT_TIMESTEP_S).round() as usize;
-        let flow = nominal_helium_flow();
+        let commands = design_commands();
 
         let mut worst_cross = 0.0_f64;
         let mut worst_metal_k = 0.0_f64;
 
         for i in 0..steps {
-            plant.step(dt, HTGR_GUI_INITIAL_ROD_INSERTION, flow);
+            plant.step(dt, commands);
             plant.write_snapshot(&mut snapshot);
 
             let sg = plant.primary.steam_generator_state();
