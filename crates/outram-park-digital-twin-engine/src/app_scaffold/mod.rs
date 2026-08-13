@@ -21,12 +21,14 @@ use std::thread::{self, JoinHandle};
 
 pub mod crash;
 pub mod gui_frame_metrics;
+pub mod real_time_pacing;
 
 pub use crash::{
     mark_component, show_crash_modal_if_crashed, spawn_monitored, spawn_physics_thread_monitored,
     CrashReport, ThreadHealth,
 };
 pub use gui_frame_metrics::GuiFrameMetrics;
+pub use real_time_pacing::{pace_tick, RealTimePacer, TickPacing};
 
 /// A physics/simulation state shared between a rendering thread (the GUI)
 /// and one or more computation threads, matching `fhr_sim_v2`'s

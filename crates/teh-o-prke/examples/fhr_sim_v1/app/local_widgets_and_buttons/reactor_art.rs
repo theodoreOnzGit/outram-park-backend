@@ -66,7 +66,7 @@ pub fn fhr_reactor_vessel_prototype(
     // circle radius is r
     let _r = rect.width() / 2.0 - 1.0;
     let color = Color32::from_gray(128);
-    let stroke = Stroke::new(1.0, color);
+    let stroke = Stroke::new(1.0_f32, color);
 
     let reactor_half_length_y = max_height_y * 0.5 * 0.8;
     let reactor_half_width_x = max_width_x * 0.5 * 0.8;
@@ -333,7 +333,7 @@ pub fn fhr_reactor_vessel_prototype(
     ];
     let graphite_fill = Color32::BLACK;
 
-    let graphite_stroke = Stroke::new(1.0, graphite_fill);
+    let graphite_stroke = Stroke::new(1.0_f32, graphite_fill);
     let reflector_bottom_graphite_semicircle = CubicBezierShape::from_points_stroke(
         reflector_bottom_graphite_pts,
         true,
@@ -358,7 +358,7 @@ pub fn fhr_reactor_vessel_prototype(
     painter.add(reflector_top_graphite_semicircle);
     painter.add(reflector_mid_graphite_rect);
 
-    let coolant_stroke = Stroke::new(1.0, coolant_fill);
+    let coolant_stroke = Stroke::new(1.0_f32, coolant_fill);
     // fhr coolant
     let fhr_core_bottom_coolant_shape =
         PathShape::convex_polygon(core_bottom_points, coolant_fill, coolant_stroke);

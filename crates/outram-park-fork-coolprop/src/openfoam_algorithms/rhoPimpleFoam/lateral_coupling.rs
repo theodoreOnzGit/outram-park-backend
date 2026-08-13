@@ -555,7 +555,7 @@ impl OPCPFluidArray {
 mod tests {
     use super::*;
     use crate::fluid::Fluid;
-    use super::super::EnergyConvectionScheme;
+    use super::super::{EnergyBalanceMode, EnergyConvectionScheme};
     use uom::si::area::square_meter;
     use uom::si::length::meter;
     use uom::si::mass_rate::kilogram_per_second;
@@ -1580,6 +1580,450 @@ mod tests {
             t_far > 490.0,
             "with flow entering through the right-hand end, the far cell should \
              approach that end's prescribed 500 K state; got {t_far:.2} K"
+        );
+    }
+
+    // ── EnergyBalanceMode: explicit vs implicit energy convection ────────────
+    //
+    // These are the V&V cases for `EnergyBalanceMode` (bead op-j2oq). The
+    // `bc_fixture` above runs at `dt = 2e-4 s` on a 0.125 m cell at 0.5 m/s, i.e.
+    // cell Courant number `Co = |u|·dt/dx = 8e-4` — three orders of magnitude
+    // below the explicit term's stability limit. A test at that step passes under
+    // BOTH modes and therefore proves nothing about the mode switch, so the
+    // headline case below deliberately runs the *same pipe* at `Co = 2`.
+
+    /// The velocity used by the Courant-number fixtures \[m/s\].
+    const CO_U: f64 = 0.5;
+    /// Cell size of the 8-cell, 1 m Courant fixtures \[m\].
+    const CO_DX: f64 = 1.0 / BC_N as f64;
+
+    /// An 8-cell / 1 m / 10⁻⁴ m² nitrogen pipe at `BC_P`, seeded uniformly at
+    /// `t_seed`, fed at [`CO_U`] with a `t_bc` inlet enthalpy, stepping at `dt`
+    /// — i.e. at cell Courant number `Co = CO_U·dt/CO_DX` (dimensionless).
+    ///
+    /// Unlike [`bc_fixture`] the **velocity field is pre-seeded** at [`CO_U`]
+    /// rather than started from rest. That is deliberate: an impulsive start at a
+    /// half-second timestep would superimpose a violent startup acoustic
+    /// transient on the question being asked, and the question here is only about
+    /// the energy equation's convection term. Starting from the flow the inlet BC
+    /// imposes keeps every mode comparison a like-for-like one.
+    fn courant_fixture(
+        dt: f64,
+        t_seed: f64,
+        t_bc: f64,
+        mode: EnergyBalanceMode,
+        scheme: EnergyConvectionScheme,
+    ) -> OPCPFluidArray {
+        let mut arr = OPCPFluidArray::new(
+            Fluid::Nitrogen,
+            Length::new::<meter>(1.0),
+            uom::si::f64::Area::new::<square_meter>(BC_A),
+            BC_N as i64,
+            uom::si::f64::Time::new::<second>(dt),
+        )
+        .unwrap();
+        arr.set_piso_algorithm(2);
+        for c in 0..BC_N {
+            arr.p.internal[c] = BC_P;
+            arr.u.internal[c].x = CO_U;
+        }
+        arr.set_temperature_vector(vec![ThermodynamicTemperature::new::<kelvin>(t_seed); BC_N])
+            .unwrap();
+        arr.correct_transport();
+        arr.set_outlet_pressure(Pressure::new::<pascal>(BC_P));
+        arr.set_inlet_velocity(Velocity::new::<meter_per_second>(CO_U));
+        arr.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(bc_enthalpy(
+            t_bc,
+        )));
+        arr.set_he_balance_mode(mode);
+        arr.set_he_convection_scheme(scheme);
+        arr
+    }
+
+    /// Worst overshoot above `hi` and worst undershoot below `lo`, each as a
+    /// **fraction of the `hi − lo` span** (dimensionless, negative = inside the
+    /// range with margin). Returns `None` if any cell went non-finite.
+    fn excursion(arr: &OPCPFluidArray, lo: f64, hi: f64) -> Option<(f64, f64)> {
+        let he = arr.he.internal.as_slice();
+        if !he.iter().all(|h| h.is_finite()) {
+            return None;
+        }
+        let span = hi - lo;
+        let mx = he.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let mn = he.iter().cloned().fold(f64::INFINITY, f64::min);
+        Some(((mx - hi) / span, (lo - mn) / span))
+    }
+
+    /// ## Methodology
+    /// **The acceptance case for [`EnergyBalanceMode::Implicit`]**: the same
+    /// 8-cell nitrogen pipe driven past the explicit term's Courant limit, so the
+    /// two modes are genuinely discriminated rather than merely both passing.
+    ///
+    /// Geometry/flow: 1 m, 8 cells (`Δx = 0.125 m`), 10⁻⁴ m², nitrogen at 1 bar,
+    /// 0.5 m/s, seeded 300 K (`h = 311.20 kJ/kg`) with a 500 K
+    /// (`h = 520.45 kJ/kg`) inlet-enthalpy BC and a 1 bar outlet — i.e. an
+    /// advected thermal front, the case bead `op-1fyp` was measured on. Every run
+    /// covers the **same 4 s of physical time** (≈ 2 pipe transits), with the step
+    /// and the step count traded off against each other, and every run is
+    /// otherwise byte-identical apart from
+    /// [`OPCPFluidArray::set_he_balance_mode`]. Three Courant numbers:
+    ///
+    /// | `Δt` | steps | `Co = uΔt/Δx` |
+    /// |---|---|---|
+    /// | 0.25 s | 16 | 1.00 |
+    /// | 0.3125 s | 13 | 1.25 |
+    /// | 0.5 s | 8 | 2.00 |
+    ///
+    /// Pass criterion, measured as an excursion outside the 311.20–520.45 kJ/kg
+    /// range spanned by the run's own initial and boundary data, as a fraction of
+    /// that 209.26 kJ/kg span: **explicit must fail** (excursion > 100 % of span,
+    /// or non-finite) at `Co ≥ 1.25`, **implicit must hold** (excursion < 5 % of
+    /// span) at every `Co`, and both must agree that `Co = 1.00` is still fine —
+    /// the last one is what pins the failure to the Courant condition rather than
+    /// to something incidental about a large timestep.
+    ///
+    /// ## Results (2026-08-13)
+    /// Passes, and reproduces the theoretical `Co = 1` threshold almost exactly.
+    /// Overshoot above the 520.45 kJ/kg boundary value, in % of span:
+    ///
+    /// | `Co` | Explicit / van Leer | Implicit / van Leer |
+    /// |---|---|---|
+    /// | 1.00 | +0.00 % | +0.01 % |
+    /// | 1.25 | **+135.14 %** | +0.10 % |
+    /// | 2.00 | **+47539 %** | +1.19 % |
+    ///
+    /// At `Co = 2` the explicit field reads
+    /// `[512.90, 18244.62, −10000.00, 47964.83, 100000.00, −10000.00, 1116.70,
+    /// 918.75] kJ/kg` — four cells pinned on the `(p, h)` admissibility guard
+    /// rails (`h_clamp_events = 4`), which is the guard doing its job on a solve
+    /// that has already diverged, not a solution. The implicit field at the same
+    /// step reads `[520.46, 520.40, 520.33, 520.58, 521.95, 522.94, 516.43,
+    /// 487.19] kJ/kg`: a physically sensible, nearly flushed pipe approaching the
+    /// 520.45 kJ/kg inlet state.
+    ///
+    /// **The divergence is the energy equation, not the pressure–velocity
+    /// coupling.** In every diverged explicit run the pressure and velocity fields
+    /// stay finite (asserted below), and the momentum equation is already implicit
+    /// (`fvm::div_vec`). The only difference between the passing and the failing
+    /// run is where `∇·(φh)` is evaluated.
+    ///
+    /// **Also measured, and consistent with theory:** explicit *upwind*
+    /// (`EnergyConvectionScheme::Upwind`, `EnergyBalanceMode::Explicit`) diverges
+    /// at `Co = 4` too — `[100000.00, −10000.00, −10000.00, 89719.16, …] kJ/kg`.
+    /// The limiter is not what fails; the explicit treatment is. That is the whole
+    /// reason the two knobs are separate enums.
+    #[test]
+    fn implicit_energy_balance_survives_courant_above_one() {
+        let (t_seed, t_bc) = (300.0_f64, 500.0_f64);
+        let lo = bc_enthalpy(t_seed).min(bc_enthalpy(t_bc));
+        let hi = bc_enthalpy(t_seed).max(bc_enthalpy(t_bc));
+
+        for &(dt, steps, explicit_must_fail) in &[
+            (0.25_f64, 16usize, false),
+            (0.3125, 13, true),
+            (0.5, 8, true),
+        ] {
+            let co = CO_U * dt / CO_DX;
+
+            // ── Implicit: must stay bounded at every Courant number ──────────
+            let mut imp = courant_fixture(
+                dt,
+                t_seed,
+                t_bc,
+                EnergyBalanceMode::Implicit,
+                EnergyConvectionScheme::VanLeer,
+            );
+            imp.run(steps);
+            let (over, under) = excursion(&imp, lo, hi).unwrap_or_else(|| {
+                panic!(
+                    "Co = {co:.2}: the implicit mode went non-finite: {:?}",
+                    imp.he.internal.as_slice()
+                )
+            });
+            assert!(
+                over < 0.05 && under < 0.05,
+                "Co = {co:.2}: the implicit mode must stay inside the \
+                 {:.2}..{:.2} kJ/kg range set by its own seed and inlet BC; \
+                 overshoot {:+.2} %, undershoot {:+.2} % of span; field {:?}",
+                lo / 1e3,
+                hi / 1e3,
+                100.0 * over,
+                100.0 * under,
+                imp.he.internal.as_slice(),
+            );
+
+            // ── Explicit: fine at Co = 1, diverges above it ──────────────────
+            let mut exp = courant_fixture(
+                dt,
+                t_seed,
+                t_bc,
+                EnergyBalanceMode::Explicit,
+                EnergyConvectionScheme::VanLeer,
+            );
+            exp.run(steps);
+            let exp_excursion = excursion(&exp, lo, hi);
+            // Whatever the energy equation did, the pressure-velocity coupling
+            // must have survived — otherwise this case would not isolate the
+            // convection treatment.
+            assert!(
+                exp.p.internal.as_slice().iter().all(|x| x.is_finite())
+                    && exp.u.internal.as_slice().iter().all(|v| v.x.is_finite()),
+                "Co = {co:.2}: the explicit run's pressure/velocity fields must \
+                 stay finite, so that any enthalpy divergence is attributable to \
+                 the energy equation alone"
+            );
+            match exp_excursion {
+                None => assert!(
+                    explicit_must_fail,
+                    "Co = {co:.2}: the explicit mode should still be stable here, \
+                     but the enthalpy field went non-finite"
+                ),
+                Some((over, under)) => {
+                    if explicit_must_fail {
+                        assert!(
+                            over.max(under) > 1.0,
+                            "Co = {co:.2} is above the explicit term's stability \
+                             limit, so the explicit mode is expected to diverge; \
+                             if it no longer does, this case no longer \
+                             discriminates the two modes and the implicit \
+                             assertion above proves nothing. overshoot {:+.2} %, \
+                             undershoot {:+.2} % of span; field {:?}",
+                            100.0 * over,
+                            100.0 * under,
+                            exp.he.internal.as_slice(),
+                        );
+                    } else {
+                        assert!(
+                            over < 0.05 && under < 0.05,
+                            "Co = {co:.2} is at (not above) the explicit stability \
+                             limit, so the explicit mode should still be bounded; \
+                             overshoot {:+.2} %, undershoot {:+.2} % of span",
+                            100.0 * over,
+                            100.0 * under,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// ## Methodology
+    /// The **price** of [`EnergyBalanceMode::Implicit`], measured where the
+    /// explicit mode is perfectly happy — because a mode that were strictly better
+    /// would not need to be selectable, and the honest reading of this pair is
+    /// that each wins in a different regime.
+    ///
+    /// Same fixture and transient as
+    /// [`inlet_enthalpy_bc_heats_uniform_field_without_reapplying_each_step`]:
+    /// 8 cells, 1 m, 10⁻⁴ m², nitrogen at 1 bar, 0.5 m/s, `dt = 2×10⁻⁴ s`
+    /// (`Co = 8×10⁻⁴`), 3000 steps = 0.6 s, both temperature directions
+    /// (300 K → 500 K inlet, and 500 K → 300 K). The two modes are run with the
+    /// same default van Leer limiter and compared cell by cell. Pass criterion:
+    /// the largest per-cell enthalpy difference is under 0.5 % of the 209.26 kJ/kg
+    /// imposed step — i.e. the deferred correction really does recover the
+    /// limiter, rather than the implicit mode quietly degrading to upwind.
+    ///
+    /// ## Results (2026-08-13)
+    /// Passes. Largest per-cell difference **0.068 kJ/kg (0.033 % of span)**
+    /// heating and **0.135 kJ/kg (0.064 % of span)** cooling. Profiles, first four
+    /// cells, heating direction:
+    ///
+    /// - explicit / van Leer: `519.48, 476.19, 362.94, 314.38 kJ/kg`
+    /// - implicit / van Leer: `519.47, 476.13, 362.99, 314.42 kJ/kg`
+    /// - implicit / upwind (deferred correction identically zero, for scale):
+    ///   `501.46, 446.46, 380.74, 338.02 kJ/kg`
+    ///
+    /// The implicit/upwind row is the point: dropping the limiter costs
+    /// **18 kJ/kg (8.6 % of span)** in the inlet cell, 300× the cost of the
+    /// implicit *time* treatment at this step. So the deferred correction is
+    /// carrying essentially all of the limiter's value.
+    ///
+    /// ## Where implicit IS worse — the honest part
+    /// This near-agreement is a small-Courant result and does not generalise. The
+    /// numerical diffusion of an upwind scheme scales as `(u·Δx/2)·(1 − Co)`
+    /// explicit and `(u·Δx/2)·(1 + Co)` implicit, so the modes coincide only as
+    /// `Co → 0` and diverge as `Co` grows — the explicit front *sharpens* toward
+    /// `Co = 1` while the implicit one smears. Measured on this same pipe after
+    /// **2 s** (one pipe transit at 0.5 m/s), outlet-cell enthalpy against a
+    /// 311.20 kJ/kg seed:
+    ///
+    /// | `Co` | `Δt` × steps | Explicit | Implicit |
+    /// |---|---|---|---|
+    /// | 8×10⁻⁴ | 2×10⁻⁴ s × 10 000 | 325.78 kJ/kg | 325.85 kJ/kg |
+    /// | 0.25 | 6.25×10⁻² s × 32 | 312.68 kJ/kg | 330.03 kJ/kg |
+    /// | 0.50 | 0.125 s × 16 | 311.22 kJ/kg | 337.27 kJ/kg |
+    ///
+    /// At `Co = 0.5` the implicit front has smeared roughly two cells further
+    /// downstream than the explicit one. **Below `Co ≈ 1` the explicit mode is the
+    /// more accurate choice, and that is why it remains the default.**
+    ///
+    /// Raising the outer-corrector count does **not** recover it: measured at
+    /// `Co = 0.5` after **4 s** (0.125 s × 32), implicit outlet-cell enthalpy is
+    /// 517.71 / 517.50 / 517.64 / 517.65 kJ/kg at
+    /// 1 / 2 / 4 / 8 outer correctors against the explicit 520.26 kJ/kg. The
+    /// residual gap is the *temporal* implicitness, not the deferred correction's
+    /// Picard lag, so no number of correctors closes it.
+    #[test]
+    fn energy_balance_modes_agree_at_small_courant() {
+        for &(t_seed, t_bc) in &[(300.0_f64, 500.0_f64), (500.0, 300.0)] {
+            let span = (bc_enthalpy(t_bc) - bc_enthalpy(t_seed)).abs();
+
+            let mut exp = courant_fixture(
+                BC_DT,
+                t_seed,
+                t_bc,
+                EnergyBalanceMode::Explicit,
+                EnergyConvectionScheme::VanLeer,
+            );
+            let mut imp = courant_fixture(
+                BC_DT,
+                t_seed,
+                t_bc,
+                EnergyBalanceMode::Implicit,
+                EnergyConvectionScheme::VanLeer,
+            );
+            exp.run(3000);
+            imp.run(3000);
+
+            let worst = (0..BC_N)
+                .map(|c| (exp.he.internal[c] - imp.he.internal[c]).abs())
+                .fold(0.0_f64, f64::max);
+            assert!(
+                worst < 0.005 * span,
+                "at Co = {:.1e} the deferred correction should reproduce the \
+                 explicit limited scheme to well under 0.5 % of the {:.2} kJ/kg \
+                 span ({t_seed} K -> {t_bc} K); worst per-cell difference \
+                 {:.3} kJ/kg = {:.3} % of span\n  explicit {:?}\n  implicit {:?}",
+                CO_U * BC_DT / CO_DX,
+                span / 1e3,
+                worst / 1e3,
+                100.0 * worst / span,
+                exp.he.internal.as_slice(),
+                imp.he.internal.as_slice(),
+            );
+        }
+    }
+
+    /// ## Methodology
+    /// [`EnergyBalanceMode::Implicit`] must not cost the boundedness that bead
+    /// `op-1fyp` was opened for. A nonlinear flux limiter cannot be written into a
+    /// linear matrix, so a naive `fvc::div_limited → fvm::div` swap would silently
+    /// demote the default van Leer scheme to first-order upwind; the deferred
+    /// correction exists to prevent that, and this test is what checks it did.
+    ///
+    /// The implicit-mode twin of
+    /// [`energy_convection_is_bounded_at_an_advected_front`], with the identical
+    /// case and the identical pass criterion: 8 cells, 1 m, nitrogen at 1 bar,
+    /// 0.5 m/s, `dt = 2×10⁻⁴ s`, both directions (300 K ⇄ 500 K), at 3000 and
+    /// 10 000 steps. The enthalpy field must stay inside the range spanned by its
+    /// own seed and inlet BC to within 1 % of that span.
+    ///
+    /// ## Results (2026-08-13)
+    /// Passes in both directions and at both step counts. At 3000 steps the
+    /// heating case peaks at **0.47 % of span *below*** the 520.45 kJ/kg boundary
+    /// value (no overshoot at all) and the cooling case at 0.58 % of span above
+    /// the 311.20 kJ/kg one. Contrast the same case under
+    /// [`EnergyConvectionScheme::Linear`] in the explicit sibling test, which
+    /// overshoots by 10-15 % of span — the limiter is intact through the deferred
+    /// correction, not bypassed by it.
+    #[test]
+    fn implicit_mode_preserves_boundedness_at_an_advected_front() {
+        for &(t_seed, t_bc) in &[(300.0_f64, 500.0_f64), (500.0, 300.0)] {
+            let lo = bc_enthalpy(t_seed).min(bc_enthalpy(t_bc));
+            let hi = bc_enthalpy(t_seed).max(bc_enthalpy(t_bc));
+            for &steps in &[3000usize, 10_000] {
+                let mut arr = courant_fixture(
+                    BC_DT,
+                    t_seed,
+                    t_bc,
+                    EnergyBalanceMode::Implicit,
+                    EnergyConvectionScheme::VanLeer,
+                );
+                arr.run(steps);
+                let (over, under) = excursion(&arr, lo, hi).expect("field went non-finite");
+                assert!(
+                    over < 0.01 && under < 0.01,
+                    "implicit mode with the default van Leer limiter must stay \
+                     inside the {:.2}..{:.2} kJ/kg range set by the seed and the \
+                     inlet BC ({t_seed} K -> {t_bc} K, {steps} steps): overshoot \
+                     {:+.2} %, undershoot {:+.2} % of span; field {:?}",
+                    lo / 1e3,
+                    hi / 1e3,
+                    100.0 * over,
+                    100.0 * under,
+                    arr.he.internal.as_slice(),
+                );
+            }
+        }
+    }
+
+    /// ## Methodology
+    /// The implicit-mode twin of
+    /// [`steady_energy_balance_closes_at_the_boundaries`], because moving a term
+    /// from the source vector into the matrix is exactly the kind of change that
+    /// can lose conservation without losing stability — and a heat exchanger that
+    /// is stable but does not conserve energy is worse than one that visibly
+    /// blows up.
+    ///
+    /// Identical case to that test: 8 cells, prescribed 1.0 g/s inlet mass flow,
+    /// prescribed 300 K inlet enthalpy, 200 W spread uniformly over the cells,
+    /// 4000 steps of 2×10⁻⁴ s to steady state, with
+    /// [`EnergyBalanceMode::Implicit`] selected. Two forms are checked: the
+    /// component form `ṁ·(h_out − h_in) = Q` to 1 %, and the strict boundary form
+    /// `(ṁ_in·h_in − ṁ_out·h_out) + Q = 0` to 0.1 % of `Q`, both built from the
+    /// solved boundary mass fluxes.
+    ///
+    /// ## Results (2026-08-13)
+    /// Passes, and is indistinguishable from the explicit path: component form
+    /// `199.9878 W` against 200 W (−0.006 %); boundary-form residual
+    /// `+0.0122 W` = **+0.006 % of Q**, the same figures the explicit sibling
+    /// records. Conservation is preserved because `fvm::div` is assembled in flux
+    /// form — every internal face contributes `+φ_f·h_f` to its owner and
+    /// `−φ_f·h_f` to its neighbour — and the deferred correction is a difference
+    /// of two flux-form divergences, so it telescopes to zero over the domain as
+    /// well.
+    ///
+    /// This test does **not** rehabilitate the known *transient* imbalance
+    /// documented in
+    /// [`transient_energy_imbalance_is_the_enthalpy_of_the_unconserved_mass`];
+    /// that residual is a missing `∂ρ/∂h|_p` term in the pressure equation and is
+    /// untouched by the convection treatment.
+    #[test]
+    fn implicit_mode_closes_the_steady_energy_balance() {
+        let target = 1.0e-3_f64;
+        let q_watt = 200.0_f64;
+        let h_in = bc_enthalpy(300.0);
+
+        let mut arr = bc_fixture(300.0);
+        arr.set_he_balance_mode(EnergyBalanceMode::Implicit);
+        arr.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(h_in));
+        arr.set_outlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(h_in));
+        arr.set_inlet_mass_flowrate(MassRate::new::<kilogram_per_second>(target));
+        for _ in 0..4000 {
+            arr.lateral_link_new_power_vector(
+                Power::new::<watt>(q_watt),
+                vec![1.0 / BC_N as f64; BC_N],
+            )
+            .unwrap();
+            arr.step();
+        }
+
+        let m_in = arr
+            .get_inlet_mass_flowrate_actual()
+            .get::<kilogram_per_second>();
+        let h_out = arr.get_outlet_enthalpy().get::<joule_per_kilogram>();
+        let q_component = m_in * (h_out - h_in);
+        assert!(
+            ((q_component - q_watt) / q_watt).abs() < 0.01,
+            "implicit-mode component energy balance: mdot*(h_out - h_in) = \
+             {q_component:.4} W against Q = {q_watt} W"
+        );
+
+        let residual = net_enthalpy_in(&arr) + q_watt;
+        assert!(
+            (residual / q_watt).abs() < 0.001,
+            "implicit-mode boundary energy balance should close to better than \
+             0.1 % of Q; residual = {residual:.4} W against Q = {q_watt} W"
         );
     }
 }

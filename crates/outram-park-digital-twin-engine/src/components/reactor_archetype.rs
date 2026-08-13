@@ -343,7 +343,7 @@ const ROD: Color32 = Color32::from_rgb(30, 30, 34);
 const LABEL: Color32 = Color32::from_rgb(210, 210, 214);
 
 fn wall_stroke() -> Stroke {
-    Stroke::new(2.0, WALL)
+    Stroke::new(2.0_f32, WALL)
 }
 
 /// Draws a small caption inside the vessel, centred on `at`.
@@ -374,7 +374,7 @@ fn draw_control_rods(ui: &Ui, body: Rect, frac: f32, count: usize) {
         let x = body.left() + t * body.width();
         painter.line_segment(
             [Pos2::new(x, body.top()), Pos2::new(x, body.top() + depth)],
-            Stroke::new(3.0, ROD),
+            Stroke::new(3.0_f32, ROD),
         );
     }
 }
@@ -486,7 +486,7 @@ impl ReactorArchetypeVisual {
                 Pos2::new(cx, vessel.bottom()),
                 Pos2::new(cx, vessel.bottom() + 14.0),
             ],
-            Stroke::new(4.0, self.core_colour()),
+            Stroke::new(4.0_f32, self.core_colour()),
         );
         // Freeze valve — drawn cold, because frozen is its safe state.
         let valve =
@@ -536,7 +536,7 @@ impl ReactorArchetypeVisual {
                 let x1 = rect.center().x + side * rect.width() * 0.42;
                 painter.line_segment(
                     [Pos2::new(x0, y), Pos2::new(x1, y)],
-                    Stroke::new(3.0, self.outlet_colour()),
+                    Stroke::new(3.0_f32, self.outlet_colour()),
                 );
             }
         }
@@ -625,7 +625,7 @@ impl ReactorArchetypeVisual {
                     Pos2::new(x, core.bottom()),
                     Pos2::new(x, core.bottom() - depth),
                 ],
-                Stroke::new(3.0, ROD),
+                Stroke::new(3.0_f32, ROD),
             );
         }
 
@@ -635,7 +635,7 @@ impl ReactorArchetypeVisual {
                 Pos2::new(cx + half, dryer.center().y),
                 Pos2::new(rect.right() - 2.0, dryer.center().y),
             ],
-            Stroke::new(4.0, self.outlet_colour()),
+            Stroke::new(4.0_f32, self.outlet_colour()),
         );
     }
 
@@ -713,7 +713,7 @@ impl ReactorArchetypeVisual {
                 Pos2::new(pool.left(), surface_y),
                 Pos2::new(pool.right(), surface_y),
             ],
-            Stroke::new(2.0, Color32::from_rgb(200, 200, 208)),
+            Stroke::new(2.0_f32, Color32::from_rgb(200, 200, 208)),
         );
         tag(
             ui,
@@ -748,7 +748,7 @@ impl ReactorArchetypeVisual {
                     Pos2::new(ihx.center().x + dx, rect.top() + 2.0),
                     Pos2::new(ihx.center().x + dx, ihx.top()),
                 ],
-                Stroke::new(3.0, Color32::from_rgb(150, 150, 158)),
+                Stroke::new(3.0_f32, Color32::from_rgb(150, 150, 158)),
             );
         }
     }

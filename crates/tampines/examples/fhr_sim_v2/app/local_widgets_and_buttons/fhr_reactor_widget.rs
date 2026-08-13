@@ -249,7 +249,7 @@ impl Widget for FHRReactorWidget {
         ];
 
         let color = Color32::from_gray(128);
-        let stroke = Stroke::new(1.0, color);
+        let stroke = Stroke::new(1.0_f32, color);
         let fhr_bottom_metal_semicircle =
             CubicBezierShape::from_points_stroke(fhr_bottom_metal_pts, true, metal_fill, stroke);
 
@@ -319,7 +319,7 @@ impl Widget for FHRReactorWidget {
         ];
         let graphite_fill = Color32::BLACK;
 
-        let graphite_stroke = Stroke::new(1.0, graphite_fill);
+        let graphite_stroke = Stroke::new(1.0_f32, graphite_fill);
         let reflector_bottom_graphite_semicircle = CubicBezierShape::from_points_stroke(
             reflector_bottom_graphite_pts,
             true,
@@ -339,7 +339,7 @@ impl Widget for FHRReactorWidget {
             graphite_stroke,
         );
 
-        let coolant_stroke = Stroke::new(1.0, coolant_fill);
+        let coolant_stroke = Stroke::new(1.0_f32, coolant_fill);
         // fhr coolant
         let core_bottom_hotness = self.hotness(self.core_bottom_temp);
         let core_bottom_colour = hot_to_cold_colour_mark_1(core_bottom_hotness);

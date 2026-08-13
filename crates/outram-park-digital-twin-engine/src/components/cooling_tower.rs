@@ -909,7 +909,7 @@ impl CoolingTowerVisual {
                     Pos2::new(nx, deck_y + h * 0.022),
                     Pos2::new(nx, deck_y + h * 0.05),
                 ],
-                Stroke::new(1.4, hot),
+                Stroke::new(1.4_f32, hot),
             );
             if circulating {
                 // A spray cone under each nozzle.
@@ -942,7 +942,7 @@ impl CoolingTowerVisual {
                     Pos2::new(sx, fill.top() + h * 0.01),
                     Pos2::new(sx, fill.bottom() - h * 0.01),
                 ],
-                Stroke::new(1.1, translucent(OUTLINE, 120)),
+                Stroke::new(1.1_f32, translucent(OUTLINE, 120)),
             );
         }
         for k in 0..4 {
@@ -952,7 +952,7 @@ impl CoolingTowerVisual {
                     Pos2::new(fill.left() + w * 0.01, sy),
                     Pos2::new(fill.right() - w * 0.01, sy),
                 ],
-                Stroke::new(0.9, translucent(OUTLINE, 70)),
+                Stroke::new(0.9_f32, translucent(OUTLINE, 70)),
             );
         }
         self.tag(painter, Pos2::new(area.center().x, y(0.26)), "fill pack");
@@ -969,7 +969,7 @@ impl CoolingTowerVisual {
                 let f = ((p.y - rain.top()) / rain.height()).clamp(0.0, 1.0);
                 painter.line_segment(
                     [p, Pos2::new(p.x, (p.y + length).min(rain.bottom()))],
-                    Stroke::new(1.3, translucent(drawn.falling_water_colour(f), 200)),
+                    Stroke::new(1.3_f32, translucent(drawn.falling_water_colour(f), 200)),
                 );
             }
         } else {
@@ -1001,7 +1001,7 @@ impl CoolingTowerVisual {
     fn air_arrow(&self, painter: &Painter, at: Pos2, dx: f32, size: f32, colour: Color32) {
         painter.line_segment(
             [Pos2::new(at.x - dx, at.y), Pos2::new(at.x, at.y)],
-            Stroke::new(1.6, colour),
+            Stroke::new(1.6_f32, colour),
         );
         painter.add(Shape::convex_polygon(
             vec![
@@ -1018,7 +1018,7 @@ impl CoolingTowerVisual {
     fn up_arrow(&self, painter: &Painter, at: Pos2, length: f32, size: f32, colour: Color32) {
         painter.line_segment(
             [Pos2::new(at.x, at.y + length), Pos2::new(at.x, at.y)],
-            Stroke::new(1.6, colour),
+            Stroke::new(1.6_f32, colour),
         );
         painter.add(Shape::convex_polygon(
             vec![
@@ -1214,7 +1214,7 @@ impl CoolingTowerVisual {
                     Pos2::new(cx - half(f), y(f)),
                     Pos2::new(cx - half(f) + thickness, y(f)),
                 ],
-                Stroke::new(1.0, translucent(OUTLINE, 90)),
+                Stroke::new(1.0_f32, translucent(OUTLINE, 90)),
             );
         }
         self.tag(painter, Pos2::new(cx, y(0.16)), "throat");
@@ -1281,8 +1281,8 @@ impl CoolingTowerVisual {
         self.draw_plume(painter, mouth, drawn.plume());
 
         // Silhouette last, so the waist reads on top.
-        painter.add(Shape::line(left_edge, Stroke::new(1.4, OUTLINE)));
-        painter.add(Shape::line(right_edge, Stroke::new(1.4, OUTLINE)));
+        painter.add(Shape::line(left_edge, Stroke::new(1.4_f32, OUTLINE)));
+        painter.add(Shape::line(right_edge, Stroke::new(1.4_f32, OUTLINE)));
     }
 }
 
@@ -1330,7 +1330,7 @@ impl CoolingTowerVisual {
                 Pos2::new(cx - fan_half, fan_y),
                 Pos2::new(cx + fan_half, fan_y),
             ],
-            Stroke::new(1.0, translucent(INTERNALS, 160)),
+            Stroke::new(1.0_f32, translucent(INTERNALS, 160)),
         );
         let blades = 4;
         for b in 0..blades {
@@ -1360,14 +1360,14 @@ impl CoolingTowerVisual {
                     Pos2::new(x0, eliminator_bottom),
                     Pos2::new(x1, eliminator_top),
                 ],
-                Stroke::new(1.2, INTERNALS),
+                Stroke::new(1.2_f32, INTERNALS),
             );
             painter.line_segment(
                 [
                     Pos2::new(x1, eliminator_top),
                     Pos2::new(x2, eliminator_bottom),
                 ],
-                Stroke::new(1.2, INTERNALS),
+                Stroke::new(1.2_f32, INTERNALS),
             );
         }
         self.tag(painter, Pos2::new(cx, y(0.325)), "drift eliminators");
@@ -1390,7 +1390,7 @@ impl CoolingTowerVisual {
                         Pos2::new(edge, ly),
                         Pos2::new(edge - side * w * 0.035, ly + h * 0.025),
                     ],
-                    Stroke::new(1.4, INTERNALS),
+                    Stroke::new(1.4_f32, INTERNALS),
                 );
             }
             self.air_arrow(
@@ -1430,13 +1430,13 @@ impl CoolingTowerVisual {
         painter.rect_stroke(
             casing,
             radius(w * 0.008),
-            Stroke::new(1.4, OUTLINE),
+            Stroke::new(1.4_f32, OUTLINE),
             StrokeKind::Middle,
         );
         painter.rect_stroke(
             stack,
             radius(w * 0.01),
-            Stroke::new(1.4, OUTLINE),
+            Stroke::new(1.4_f32, OUTLINE),
             StrokeKind::Middle,
         );
     }

@@ -331,7 +331,7 @@ mod app {
                                 "atoms (x-y slice)",
                                 PlotPoints::from(snapshot.positions_xy_um),
                             )
-                            .radius(1.5),
+                            .radius(1.5_f32),
                         );
                     });
             });

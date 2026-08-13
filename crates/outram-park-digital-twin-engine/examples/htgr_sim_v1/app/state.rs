@@ -201,11 +201,41 @@ pub struct HtgrSnapshot {
     // --- Diagnostics ---
     /// Accumulated simulation time \[s\].
     pub sim_time_s: f64,
+    /// Simulated seconds the physics thread has achieved per wall-clock second
+    /// since it started.
+    ///
+    /// `1.0` is real time. `None` before the first tick -- reporting a ratio
+    /// before one has been measured is the silent misinformation this field
+    /// exists to replace. Published by the physics thread from
+    /// [`RealTimePacer`](outram_park_digital_twin_engine::app_scaffold::RealTimePacer);
+    /// writing to it does nothing.
+    ///
+    /// It is a **sim-clock rate**, not a frame rate: a low value means the
+    /// plant model is not keeping up with wall clock, and says nothing about
+    /// how smoothly the window is painting. Being cumulative it is steady but
+    /// slow to react, so [`Self::real_time_deficit_s`] is the better read on a
+    /// slowdown that has just started.
+    pub real_time_ratio: Option<f64>,
+    /// How far the plant clock is behind wall clock \[s\].
+    ///
+    /// Zero when the simulator is keeping up. The pacer works a deficit off by
+    /// not sleeping, so a transient stall shows here and then decays; a
+    /// deficit that keeps growing means the plant model is persistently more
+    /// expensive than its tick budget.
+    pub real_time_deficit_s: f64,
+    /// Whether the physics thread is measurably behind real time.
+    ///
+    /// Set when [`Self::real_time_deficit_s`] exceeds the pacer's tolerance.
+    /// The schematic shows the shortfall when this is true, because a simulator
+    /// that has quietly dropped to half speed while still reading "seconds" on
+    /// its clock is misleading.
+    pub behind_real_time: bool,
 }
 
 impl Default for HtgrSnapshot {
     /// The **first frame only**: the physics thread overwrites every output
-    /// field on its first tick, roughly 10 ms after the window opens.
+    /// field on its first tick, roughly one `PHYSICS_TICK` (100 ms) after the
+    /// window opens.
     ///
     /// These are set at the plant's nominal operating point rather than at
     /// zero so the opening frame is not misleading -- a schematic that flashes
@@ -275,6 +305,9 @@ impl Default for HtgrSnapshot {
             generator_electrical_power_mw: 0.0,
             generator_rating_mw: 0.0,
             sim_time_s: 0.0,
+            real_time_ratio: None,
+            real_time_deficit_s: 0.0,
+            behind_real_time: false,
         }
     }
 }

@@ -22,6 +22,12 @@ impl SolidMaterial {
             // Perry’s chemical engineers’ handbook,
             // 8th illustrated ed. New York: McGraw-Hill.
             SolidMaterial::SteelSS304L => steel_surf_roughness(),
+            // same alloy as SteelSS304L, so the same Perry's commercial-steel
+            // roughness applies -- surface finish is a fabrication property,
+            // not a function of which temperature correlation set is used.
+            // Deliberately reusing ss_304_l::steel_surf_roughness rather than
+            // duplicating the value, so the two cannot drift apart.
+            SolidMaterial::SteelSS304LHighTemp => steel_surf_roughness(),
             // Arenales, M. R. M., Kumar, S.,
             // Kuo, L. S., & Chen, P. H. (2020).
             // Surface roughness variation effects on copper tubes in

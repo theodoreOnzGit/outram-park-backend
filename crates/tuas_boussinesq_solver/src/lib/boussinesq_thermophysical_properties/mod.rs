@@ -57,6 +57,32 @@ pub enum SolidMaterial {
     /// AISI 304L stainless steel. International journal of
     /// thermophysics, 12, 409-415.
     SteelSS304L,
+    /// Stainless steel 304L, **high-temperature correlation set**, valid from
+    /// 300 K to 1700 K (26.85 degC to 1426.85 degC).
+    ///
+    /// This is the same alloy as [`SolidMaterial::SteelSS304L`] but a
+    /// different, wider-ranging data lineage — use it for HTGR / HTR-10 work
+    /// where the 1000 K (726.85 degC) ceiling of the Zou/Zweibaum
+    /// correlations behind `SteelSS304L` is too low. Unlike `SteelSS304L`,
+    /// whose density is a constant 8030 kg/m^3, this variant's density is
+    /// temperature-dependent (7894 kg/m^3 at 300 K to 7199 kg/m^3 at 1700 K).
+    ///
+    /// Properties from:
+    /// Kim, C. S. (1975). Thermophysical Properties of Stainless Steels.
+    /// ANL-75-55, Argonne National Laboratory —
+    /// specific heat Eq. (5), density Eq. (16), thermal conductivity
+    /// Eq. (28), solid region only.
+    ///
+    /// **Only 300 K to 1600 K is backed by experimental data**; 1600 K to
+    /// 1700 K is Kim's own least-squares extrapolation into the melting range
+    /// (1670-1730 K). See `solid_database::ss_304_l_high_temp` for the
+    /// correlations, the measured/extrapolated boundary, and the verification
+    /// results against Kim's published tables.
+    ///
+    /// Existing CIET models should keep using [`SolidMaterial::SteelSS304L`]:
+    /// its correlations are what the CIET regression tests are validated
+    /// against, and this variant is not a drop-in substitute for them.
+    SteelSS304LHighTemp,
     /// Copper material
     Copper,
     /// Fiberglass material
@@ -111,6 +137,7 @@ impl PartialEq for SolidMaterial {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::SteelSS304L, Self::SteelSS304L) => true,
+            (Self::SteelSS304LHighTemp, Self::SteelSS304LHighTemp) => true,
             (Self::Copper, Self::Copper) => true,
             (Self::Fiberglass, Self::Fiberglass) => true,
             (Self::PyrogelHPS, Self::PyrogelHPS) => true,
@@ -248,33 +275,31 @@ pub fn range_check(
     let low_temp_value_celsius = lower_temperature_limit.get::<degree_celsius>();
     let high_temp_value_celsius = upper_temperature_limit.get::<degree_celsius>();
 
+    // Both bounds return the same variant; the payload distinguishes which end
+    // was violated, so the caller does not need two variants to tell them apart.
+    //
+    // The `println!`/`dbg!` pair that used to sit here has been removed: it
+    // existed only because the error carried no payload, and it printed on
+    // every failing call -- which, in a per-node-per-timestep property loop,
+    // meant the same message thousands of times to stdout while the returned
+    // error still said nothing. The message now travels with the error, so the
+    // caller decides whether and how to surface it.
     if temp_value_celsius < low_temp_value_celsius {
-        let error_msg = "Your material temperature \n";
-        let error_msg1 = "is too low :";
-        let error_msg3 = "C \n";
-        let error_msg4 =
-            "\n the minimum is ".to_owned() + &low_temp_value_celsius.to_string() + "C";
-
-        println!(
-            "{}{}{:?}{}{}",
-            error_msg, error_msg1, temp_value_celsius, error_msg3, error_msg4
-        );
-        dbg!(&material);
-        return Err(TuasLibError::ThermophysicalPropertyTemperatureRangeError);
+        return Err(TuasLibError::temperature_out_of_range(
+            material,
+            material_temperature,
+            lower_temperature_limit,
+            upper_temperature_limit,
+        ));
     }
 
     if temp_value_celsius > high_temp_value_celsius {
-        let error_msg = "Your material temperature \n";
-        let error_msg1 = "is too high :";
-        let error_msg3 = "C \n";
-        let error_msg4 = "\n the max is".to_owned() + &high_temp_value_celsius.to_string() + "C";
-
-        println!(
-            "{}{}{:?}{}{}",
-            error_msg, error_msg1, temp_value_celsius, error_msg3, error_msg4
-        );
-        dbg!(&material);
-        return Err(TuasLibError::ThermophysicalPropertyTemperatureRangeError);
+        return Err(TuasLibError::temperature_out_of_range(
+            material,
+            material_temperature,
+            lower_temperature_limit,
+            upper_temperature_limit,
+        ));
     }
 
     return Ok(true);
