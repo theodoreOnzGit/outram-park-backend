@@ -795,7 +795,12 @@ mod tests {
         let mut t = Time::new::<second>(0.0);
         for _ in 0..4_000 {
             t += step_dt;
-            cycle.step(step_dt, duty, hot_side);
+            cycle.step(
+                step_dt,
+                crate::physics::secondary_loop::SecondaryCommands::default(),
+                duty,
+                hot_side,
+            );
             shaft.step(step_dt, cycle.turbine_power(), t);
         }
 

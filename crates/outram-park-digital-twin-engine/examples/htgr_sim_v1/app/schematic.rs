@@ -647,7 +647,12 @@ fn hot_gas_duct_path() -> [Pos2; 6] {
 /// engine widgets paint at their own `screen_position`, independent of the egui
 /// layout cursor, and the panel is inside a scroll area so a small window
 /// scrolls rather than overlapping the artwork.
-pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicTracers) {
+pub fn draw_schematic(
+    ui: &mut Ui,
+    snapshot: &HtgrSnapshot,
+    tracers: &SchematicTracers,
+    display_unit: LegendUnit,
+) {
     let (canvas_rect, _response) = ui.allocate_exact_size(CANVAS, egui::Sense::hover());
     let origin = canvas_rect.min.to_vec2();
 
@@ -1121,11 +1126,20 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
         )),
         TemperatureLegend::new(k(DISPLAY_MIN_K), k(DISPLAY_MAX_K))
             .with_caption("colour = temperature")
-            .with_unit(LegendUnit::Kelvin)
+            // Follows the operator's degC/K toggle, so the legend's tick labels
+            // and the numeric readouts below it cannot end up in different
+            // units. Display only -- see `crate::app::panels::temperature_display`.
+            .with_unit(display_unit)
             .with_bar_size(Vec2::new(26.0, 240.0)),
     );
 
     // ── 12. Instrumentation readouts ────────────────────────────────────
+    //
+    // Every temperature goes through the operator's display-unit formatter, so
+    // the readouts, the colour legend above and the diagnostics panel always
+    // agree. Zero decimals here: these are small tags on a schematic, and the
+    // Diagnostics panel is where a tenth of a kelvin belongs.
+    let temp = |value_k: f64| crate::app::panels::temperature_display(display_unit, k(value_k), 0);
     let readouts: [(Pos2, &str, String); 11] = [
         (
             pos2(58.0, 556.0),
@@ -1135,17 +1149,17 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
         (
             pos2(58.0, 574.0),
             "T_fuel",
-            format!("{:.0} K", snapshot.fuel_temperature_k),
+            temp(snapshot.fuel_temperature_k),
         ),
         (
             pos2(58.0, 592.0),
             "T_He,out",
-            format!("{:.0} K", snapshot.core_outlet_temp_k),
+            temp(snapshot.core_outlet_temp_k),
         ),
         (
             pos2(58.0, 610.0),
             "T_He,in",
-            format!("{:.0} K", snapshot.core_inlet_temp_k),
+            temp(snapshot.core_inlet_temp_k),
         ),
         (
             pos2(640.0, 300.0),
@@ -1155,12 +1169,12 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
         (
             pos2(640.0, 318.0),
             "T_steam",
-            format!("{:.0} K", snapshot.sg_steam_outlet_temp_k),
+            temp(snapshot.sg_steam_outlet_temp_k),
         ),
         (
             pos2(640.0, 336.0),
             "T_feed",
-            format!("{:.0} K", feedwater_temp.get::<kelvin>()),
+            temp(feedwater_temp.get::<kelvin>()),
         ),
         (
             pos2(768.0, 262.0),

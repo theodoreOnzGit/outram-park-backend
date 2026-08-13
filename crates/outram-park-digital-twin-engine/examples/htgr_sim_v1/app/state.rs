@@ -35,6 +35,38 @@ pub struct HtgrSnapshot {
     pub control_rod_insertion_fraction: f64,
     /// User-commanded helium pump mass-flow setpoint \[kg/s\].
     pub helium_flow_setpoint_kg_per_s: f64,
+    /// Whether the feedwater station is in **MANUAL** (`true`) or **AUTO**
+    /// (`false`).
+    ///
+    /// Assembled into a [`crate::physics::secondary_loop::FeedwaterCommand`] by
+    /// the physics thread; this snapshot deliberately stays plain scalars so it
+    /// is cheap to clone every frame. Defaults to AUTO, which is the behaviour
+    /// this simulator had before the mode existed.
+    pub feedwater_manual: bool,
+    /// User-commanded feedwater mass flow \[kg/s\], used only in **MANUAL**.
+    ///
+    /// While the station is in AUTO the physics thread keeps writing the
+    /// *achieved* flow back into this field, so switching to MANUAL picks the
+    /// plant up where it is instead of stepping it -- a bumpless transfer. The
+    /// physics clamps it to the feed pump's 0.3 to 12.0 kg/s capacity.
+    pub feedwater_manual_flow_kg_per_s: f64,
+    /// User-commanded **AUTO** steam-generator outlet temperature setpoint
+    /// \[K\].
+    ///
+    /// Held in kelvin because that is the snapshot's convention for every
+    /// temperature; the GUI dials it in degrees Celsius, which is what an
+    /// operator would use, and converts through `uom` at the widget. The
+    /// physics clamps it to 260-540 degC.
+    pub feedwater_target_steam_temp_k: f64,
+    /// User-commanded condenser back-pressure \[kPa\].
+    ///
+    /// The **setpoint**, distinct from
+    /// [`Self::condenser_pressure_kpa`], which is what the plant is actually
+    /// running at after the physics clamps it to 4-30 kPa. Same
+    /// command-and-consequence pairing as
+    /// [`Self::helium_flow_setpoint_kg_per_s`] against
+    /// [`Self::helium_mass_flow_kg_per_s`].
+    pub condenser_pressure_setpoint_kpa: f64,
 
     // --- Kinetics outputs ---
     /// Total reactor thermal power (prompt + delayed) \[MW\].
@@ -150,7 +182,18 @@ pub struct HtgrSnapshot {
     pub secondary_mass_flow_kg_per_s: f64,
     /// Secondary loop residence time \[s\] (`m/m_dot`), driving the steam-line
     /// flow tracers in the schematic.
+    ///
+    /// Built from the secondary **piping** inventory, not a plant water
+    /// inventory -- see
+    /// [`crate::physics::secondary_loop::SteamSecondaryLoop::piping_inventory`]
+    /// for why the distinction is what makes these tracers move at all.
     pub secondary_residence_time_s: f64,
+    /// Water/steam mass held in the secondary piping \[kg\] -- the numerator of
+    /// [`Self::secondary_residence_time_s`].
+    ///
+    /// Surfaced so the diagnostics panel can show *why* the tracer speed is
+    /// what it is, rather than leaving a residence time with no visible cause.
+    pub secondary_piping_inventory_kg: f64,
     /// Feedwater specific enthalpy \[J/kg\] -- condensate plus real feed-pump
     /// work, not a fixed constant.
     pub feedwater_enthalpy_j_per_kg: f64,
@@ -243,7 +286,11 @@ impl Default for HtgrSnapshot {
     /// fault. The values are the published HTR-10 phase-one operating
     /// conditions (IAEA-TECDOC-1382): 10 MWth, 4.3 kg/s of helium at
     /// 250 degC in / 700 degC out, main steam 4.0 MPa at 440 degC and
-    /// 12.5 t/hr, feedwater 104 degC. They are **initial display values, not
+    /// 12.5 t/hr, feedwater 104 degC. The operator commands open at the same
+    /// design condition -- feedwater station in AUTO on the published 440 degC
+    /// steam temperature, condenser at its design 7 kPa -- which is exactly
+    /// [`crate::physics::PlantCommands::default`]; `app::tests::the_gui_defaults_are_the_plant_command_defaults`
+    /// pins that. They are **initial display values, not
     /// a claim about this model's converged state**, and the derived
     /// quantities (duties, powers, residence times) start at zero because
     /// nothing has been computed yet.
@@ -253,7 +300,15 @@ impl Default for HtgrSnapshot {
             // bank worth and cold clean excess (~0.60 inserted; see
             // `crate::physics::control_rods`), so the simulator opens close to
             // steady state rather than on a prompt excursion.
-            control_rod_insertion_fraction: 0.6035,
+            control_rod_insertion_fraction: crate::physics::GUI_INITIAL_ROD_INSERTION,
+            // Feedwater in AUTO at the published 440 degC, and the condenser at
+            // its design 7 kPa: the opening state is the plant's design
+            // condition, and is exactly `physics::PlantCommands::default()`.
+            // `the_gui_defaults_are_the_plant_command_defaults` pins that.
+            feedwater_manual: false,
+            feedwater_manual_flow_kg_per_s: 3.47,
+            feedwater_target_steam_temp_k: 713.15,
+            condenser_pressure_setpoint_kpa: 7.0,
             rps_enabled: false,
             trip_reset_requested: false,
             trip_reason: None,
@@ -288,6 +343,7 @@ impl Default for HtgrSnapshot {
             // 12.5 t/hr of main steam.
             secondary_mass_flow_kg_per_s: 3.47,
             secondary_residence_time_s: 0.0,
+            secondary_piping_inventory_kg: 0.0,
             // Saturated liquid at 104 degC, the published feedwater state.
             feedwater_enthalpy_j_per_kg: 4.36e5,
             condensate_enthalpy_j_per_kg: 1.63e5,
