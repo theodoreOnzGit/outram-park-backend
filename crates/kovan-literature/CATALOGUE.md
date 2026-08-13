@@ -145,6 +145,63 @@ Outram Park Fits.* Condensed working review, 24 July 2026.
 - *Used by:* `outram-park-digital-twin-engine` framing; refinery epic
   `op-1z3o` context.
 
+**`kim1975thermophysical`** — Kim, C. S. (1975). *Thermophysical Properties of
+Stainless Steels.* ANL-75-55, Argonne National Laboratory, Chemical Engineering
+Division, September 1975. Distribution category LMFBR Fuels and Materials
+(UC-79b). [OSTI 4152287](https://www.osti.gov/servlets/purl/4152287).
+- Files: `kim1975-thermophysical-properties-stainless-steels.{json,md,pdf}`.
+- *Licence:* **US Government work — public domain.** Prepared under contract
+  W-31-109-Eng-38 for the U.S. Energy Research and Development Administration;
+  the title page carries "DISTRIBUTION OF THIS DOCUMENT IS UNLIMITED". PDF
+  committed.
+- *Good for:* recommended thermodynamic and transport properties of **Type 304L
+  and Type 316L** stainless steel over **300–3000 K**, solid *and* liquid, as
+  fitted equations: enthalpy, entropy, specific heat, vapour pressure, density,
+  thermal expansion coefficient, thermal conductivity, thermal diffusivity and
+  viscosity. Melting range 1670–1730 K, `T_m` = 1700 K, heat of fusion
+  64.0 cal/g.
+- *Provenance / accuracy notes:* the underlying experimental data run to
+  ~1620 K (enthalpy) and ~1600 K (conductivity, density); Kim smoothed by least
+  squares and **extrapolated** to the melting range. So 300–1600 K is
+  measured-data-backed and 1600–1700 K is the author's extrapolation — the
+  distinction is carried through into the code. The scan is OCR-damaged in
+  places: the Type 304L *liquid* conductivity slope reads `3.248e-3` but must be
+  `3.248e-5` (Kim's own rule that liquid `k` is half solid `k` at `T_m` closes
+  only with `-5`, and the parallel 316L equation is `3.279e-5`). Extractor
+  metadata was wrong on ingest (title taken as "DISCLAIMER", year as 2013, no
+  authors, tier as proprietary) and was corrected by hand; `lit bibtex`
+  round-trips cleanly.
+- *Used by:* `tuas_boussinesq_solver`'s
+  `SolidMaterial::SteelSS304LHighTemp` (`solid_database/ss_304_l_high_temp.rs`),
+  which implements the solid-region `c_p`, density and conductivity equations
+  over 300–1700 K; consumed by `htgr_sim_v1`'s steam-generator tube metal.
+  Beads `op-x0v1`, `op-v9u5`, `op-szmi.17`.
+
+**`pichler2019measurements`** — Pichler, P., Simonds, B. J., Sowards, J. W. and
+Pottlacher, G. *Measurements of thermophysical properties of solid and liquid
+NIST SRM 316L stainless steel.* Journal of Materials Science, Springer.
+[doi:10.1007/s10853-019-04261-6](https://doi.org/10.1007/s10853-019-04261-6).
+- Files: `pichler2020-316l-thermophysical-properties.{json,md,pdf}`.
+- *Licence:* **CC BY 4.0**, verified from the copyright statement in the
+  document, *and* declared an "Official contribution of the National Institute
+  of Standards and Technology; not subject to copyright in the United States".
+  Redistribution with attribution permitted; PDF committed.
+- *Good for:* high-accuracy ohmic pulse-heating measurements of **316L** —
+  electrical resistivity, enthalpy, density and thermal expansion from room
+  temperature to vaporisation, plus DSC specific heat to ~1400 K. Covers the
+  **solid, the melt and the liquid**. All data carry GUM uncertainties, which
+  makes it the better of the two steel sources for anything needing stated
+  uncertainty rather than a recommended curve.
+- *Provenance note:* the PDF is the online-first version and carries **no
+  volume or page numbers**; the copyright line reads "© The Author(s) 2019"
+  while the journal issue is 2020. The record errs toward what the document
+  itself states: year recorded as printed (2019), volume and pages left null
+  rather than invented. Resolve from the DOI if a full citation is needed.
+- *Used by:* **nothing yet.** Ingested 2026-08-13 alongside `kim1975…` as a
+  candidate source for 316L properties; no correlation in the workspace derives
+  from it. Its melt and liquid-region data have no consumer because no
+  liquid-metal material exists (see `op-k74g`).
+
 ### Theses (`open/theses/`)
 
 Three open-access UC Berkeley dissertations from eScholarship, each with

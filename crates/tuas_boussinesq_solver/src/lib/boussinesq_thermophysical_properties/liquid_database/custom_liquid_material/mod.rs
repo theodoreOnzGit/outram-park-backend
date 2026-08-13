@@ -422,31 +422,16 @@ pub fn range_check_custom_fluid(
     let low_temp_value_celsius = lower_bound_temperature.get::<degree_celsius>();
     let high_temp_value_celsius = upper_bound_temperature.get::<degree_celsius>();
 
-    if temp_value_celsius < low_temp_value_celsius {
-        let error_msg = "Your custom material temperature \n";
-        let error_msg1 = "is too low :";
-        let error_msg3 = "C \n";
-        let error_msg4 =
-            "\n the minimum is ".to_owned() + &low_temp_value_celsius.to_string() + "C";
-
-        println!(
-            "{}{}{:?}{}{}",
-            error_msg, error_msg1, temp_value_celsius, error_msg3, error_msg4
-        );
-        return Err(TuasLibError::ThermophysicalPropertyTemperatureRangeError);
-    }
-
-    if temp_value_celsius > high_temp_value_celsius {
-        let error_msg = "Your custom material temperature \n";
-        let error_msg1 = "is too high :";
-        let error_msg3 = "C \n";
-        let error_msg4 = "\n the max is".to_owned() + &high_temp_value_celsius.to_string() + "C";
-
-        println!(
-            "{}{}{:?}{}{}",
-            error_msg, error_msg1, temp_value_celsius, error_msg3, error_msg4
-        );
-        return Err(TuasLibError::ThermophysicalPropertyTemperatureRangeError);
+    // This function is not handed the `LiquidMaterial` itself, only its bounds,
+    // so the payload names the material class rather than the specific custom
+    // fluid. The temperature and both bounds are still exact.
+    if temp_value_celsius < low_temp_value_celsius || temp_value_celsius > high_temp_value_celsius {
+        return Err(TuasLibError::temperature_out_of_range(
+            "CustomLiquid",
+            fluid_temp,
+            lower_bound_temperature,
+            upper_bound_temperature,
+        ));
     }
 
     return Ok(true);

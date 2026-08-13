@@ -19,6 +19,8 @@ use super::solid_database::pyrogel_hps::max_temp_pyrogel_hps;
 use super::solid_database::pyrogel_hps::min_temp_pyrogel_hps;
 use super::solid_database::ss_304_l::max_temp_ss_304l_zou_zweibaum_spline;
 use super::solid_database::ss_304_l::min_temp_ss_304l_zou_zweibaum_spline;
+use super::solid_database::ss_304_l_high_temp::max_temp_ss_304l_high_temp_kim;
+use super::solid_database::ss_304_l_high_temp::min_temp_ss_304l_high_temp_kim;
 use super::SolidMaterial;
 use super::Material;
 use super::LiquidMaterial;
@@ -77,6 +79,7 @@ impl SolidMaterial {
     pub fn max_temperature(&self) -> ThermodynamicTemperature {
         match self {
             SolidMaterial::SteelSS304L => max_temp_ss_304l_zou_zweibaum_spline(),
+            SolidMaterial::SteelSS304LHighTemp => max_temp_ss_304l_high_temp_kim(),
             SolidMaterial::Copper => max_temp_copper_zou_zweibaum_spline(),
             SolidMaterial::Fiberglass => max_temp_fiberglass_zou_zweibaum_spline(),
             SolidMaterial::PyrogelHPS => max_temp_pyrogel_hps(),
@@ -90,6 +93,7 @@ impl SolidMaterial {
     pub fn min_temperature(&self) -> ThermodynamicTemperature {
         match self {
             SolidMaterial::SteelSS304L => min_temp_ss_304l_zou_zweibaum_spline(),
+            SolidMaterial::SteelSS304LHighTemp => min_temp_ss_304l_high_temp_kim(),
             SolidMaterial::Copper => min_temp_copper_zou_zweibaum_spline(),
             SolidMaterial::Fiberglass => min_temp_fiberglass_zou_zweibaum_spline(),
             SolidMaterial::PyrogelHPS => min_temp_pyrogel_hps(),

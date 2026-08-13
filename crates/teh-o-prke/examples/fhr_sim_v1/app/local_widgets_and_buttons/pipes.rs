@@ -69,7 +69,7 @@ impl Widget for SinglePipe {
 
         let pipe_colour = hot_to_cold_colour_mark_1(pipe_hotness);
         // let colour =
-        let width = 20.0;
+        let width = 20.0_f32;
 
         let stroke = Stroke::new(width, pipe_colour);
 

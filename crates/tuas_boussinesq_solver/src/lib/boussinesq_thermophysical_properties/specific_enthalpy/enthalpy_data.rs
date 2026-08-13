@@ -11,6 +11,7 @@ use crate::boussinesq_thermophysical_properties::solid_database::fiberglass::fib
 use crate::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::pyrogel_hps::pyrogel_hps_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::ss_304_l::steel_304_l_spline_specific_enthalpy_ciet_zweibaum;
+use crate::boussinesq_thermophysical_properties::solid_database::ss_304_l_high_temp::steel_304_l_high_temp_specific_enthalpy_kim;
 
 use super::LiquidMaterial;
 use super::Material;
@@ -39,6 +40,7 @@ pub(in crate::boussinesq_thermophysical_properties) fn solid_specific_enthalpy(
 
     let solid_material: SolidMaterial = match material {
         Material::Solid(SteelSS304L) => SteelSS304L,
+        Material::Solid(SteelSS304LHighTemp) => SteelSS304LHighTemp,
         Material::Solid(Fiberglass) => Fiberglass,
         Material::Solid(PyrogelHPS) => PyrogelHPS,
         Material::Solid(Copper) => Copper,
@@ -54,6 +56,8 @@ pub(in crate::boussinesq_thermophysical_properties) fn solid_specific_enthalpy(
         Fiberglass => fiberglass_specific_enthalpy(solid_temp),
         PyrogelHPS => pyrogel_hps_specific_enthalpy(solid_temp),
         SteelSS304L => steel_304_l_spline_specific_enthalpy_ciet_zweibaum(solid_temp),
+        // analytic integral of the Kim Eq. (5) cp, referenced to 273.15 K
+        SteelSS304LHighTemp => steel_304_l_high_temp_specific_enthalpy_kim(solid_temp),
         Copper => copper_specific_enthalpy(solid_temp),
         // both graphite grades share one cp table and hence one
         // enthalpy curve; see the nuclear_graphite module docs

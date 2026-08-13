@@ -864,7 +864,7 @@ impl CondenserVisual {
                     Pos2::new(sx + jitter, y(0.145)),
                     Pos2::new(sx + jitter * 2.0, bundle_top - h * 0.01),
                 ],
-                Stroke::new(1.2, translucent(steam, 110)),
+                Stroke::new(1.2_f32, translucent(steam, 110)),
             );
         }
         // Entrained droplets in the steam space, deterministic so they do not
@@ -964,7 +964,7 @@ impl CondenserVisual {
                 let length = (h * 0.02) * (0.5 + condenser_hash(i, 2, 89));
                 painter.line_segment(
                     [p, Pos2::new(p.x, (p.y + length).min(rain.bottom()))],
-                    Stroke::new(1.3, translucent(condensing, 190)),
+                    Stroke::new(1.3_f32, translucent(condensing, 190)),
                 );
             }
         }
@@ -979,7 +979,7 @@ impl CondenserVisual {
                         Pos2::new(pool.left(), pool.top()),
                         Pos2::new(pool.right(), pool.top()),
                     ],
-                    Stroke::new(1.6, condensing),
+                    Stroke::new(1.6_f32, condensing),
                 );
                 self.tag(painter, Pos2::new(cx, y(0.845)), "hotwell");
             }
@@ -997,7 +997,7 @@ impl CondenserVisual {
                                 hotwell_interior.top(),
                             ),
                         ],
-                        Stroke::new(1.0, translucent(UNKNOWN_FLUID, 90)),
+                        Stroke::new(1.0_f32, translucent(UNKNOWN_FLUID, 90)),
                     );
                     hx += w * 0.022;
                 }
@@ -1029,7 +1029,7 @@ impl CondenserVisual {
         painter.rect_stroke(
             shell,
             radius(w * 0.012),
-            Stroke::new(1.5, OUTLINE),
+            Stroke::new(1.5_f32, OUTLINE),
             StrokeKind::Middle,
         );
     }
@@ -1162,11 +1162,11 @@ impl CondenserVisual {
             }
         }
 
-        painter.rect_stroke(left_box, 2.0, Stroke::new(1.0, OUTLINE), StrokeKind::Middle);
+        painter.rect_stroke(left_box, 2.0, Stroke::new(1.0_f32, OUTLINE), StrokeKind::Middle);
         painter.rect_stroke(
             right_box,
             2.0,
-            Stroke::new(1.0, OUTLINE),
+            Stroke::new(1.0_f32, OUTLINE),
             StrokeKind::Middle,
         );
     }

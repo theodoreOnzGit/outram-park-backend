@@ -14,6 +14,7 @@ use super::solid_database::nuclear_graphite::nuclear_graphite_matrix_a3_thermal_
 use super::solid_database::pyrogel_hps::pyrogel_thermal_conductivity_commercial_factsheet_spline;
 use super::solid_database::ss_304_l::steel_304_l_libreoffice_spline_thermal_conductivity_zweibaum;
 use super::solid_database::ss_304_l::steel_304_l_spline_thermal_conductivity;
+use super::solid_database::ss_304_l_high_temp::steel_304_l_high_temp_thermal_conductivity_kim;
 use super::LiquidMaterial;
 use super::Material;
 use super::SolidMaterial;
@@ -93,6 +94,7 @@ fn solid_thermal_conductivity(
 
     let solid_material: SolidMaterial = match material {
         Material::Solid(SteelSS304L) => SteelSS304L,
+        Material::Solid(SteelSS304LHighTemp) => SteelSS304LHighTemp,
         Material::Solid(Fiberglass) => Fiberglass,
         Material::Solid(PyrogelHPS) => PyrogelHPS,
         Material::Solid(Copper) => Copper,
@@ -159,14 +161,24 @@ impl SolidMaterial {
                     Ok(conductivity) => {
                         return Ok(conductivity);
                     }
-                    Err(TuasLibError::ThermophysicalPropertyTemperatureRangeError) => {
+                    Err(TuasLibError::ThermophysicalPropertyTemperatureRangeError { .. }) => {
                         return steel_304_l_spline_thermal_conductivity(solid_temp);
                     }
-                    Err(_) => {
-                        todo!()
+                    // Was `todo!()`, which turned any non-range failure here
+                    // into a panic. Nothing about this arm is unimplemented --
+                    // the fallback spline simply does not apply to errors that
+                    // are not range violations -- so the error is returned to
+                    // the caller instead.
+                    Err(other) => {
+                        return Err(other);
                     }
                 }
             }
+            // no spline fallback here, unlike SteelSS304L above: the Kim
+            // correlation is a single linear equation covering the whole
+            // 300-1700 K range, so a range error is a genuine out-of-range
+            // call and must propagate rather than be retried
+            SteelSS304LHighTemp => steel_304_l_high_temp_thermal_conductivity_kim(solid_temp)?,
             Copper => copper_thermal_conductivity_zou_zweibaum_spline(solid_temp)?,
             NuclearGraphiteMatrixA3 => {
                 nuclear_graphite_matrix_a3_thermal_conductivity_zero_fluence(solid_temp)?

@@ -72,6 +72,18 @@
 //!
 //! ## Connectors are real pipe widgets, with flow tracers
 //!
+//! ## Pipe ends are derived from the artwork, never eyeballed
+//!
+//! Every connector run terminates on a nozzle anchor computed from the
+//! component artwork's own drawn rectangle -- [`reactor_duct_nozzle`] for the
+//! reactor and [`SgNozzles`] for the steam generator -- using the same
+//! fractions the widget paints the nozzle stub at. Move a component, resize its
+//! box, or change its aspect ratio, and the pipe ends follow. A hardcoded
+//! screen position that happens to line up today is exactly how the hot gas
+//! duct came to terminate on the steam generator's *left flank*, at an
+//! elevation set by the reactor, when the artwork's hot-gas nozzle is on the
+//! **bottom right** -- see [`hot_gas_duct_path`].
+//!
 //! Connector runs are [`PipeVisual`]s built through
 //! [`PipeVisual::from_scalars`], not raw `painter` lines. A full
 //! `tampines::components::Pipe` would need a `SinglePhaseFluidArray` or
@@ -272,6 +284,35 @@ const SG_VESSEL_BOUNDARY: Rect = Rect {
     min: pos2(402.0, 44.0),
     max: pos2(632.0, 574.0),
 };
+
+/// Vertical centreline of the cold-helium return riser, in schematic-local
+/// points.
+///
+/// The circulator's discharge crosses the top of the plant and drops here
+/// before running in to the reactor alongside the hot gas duct.
+const COLD_RETURN_RISER_X: f32 = 370.0;
+
+/// Vertical centreline of the feedwater riser into the steam generator's
+/// bottom-left nozzle, in schematic-local points.
+///
+/// It sits *outside* [`SG_VESSEL_BOUNDARY`], so the feedwater run crosses the
+/// vessel boundary horizontally at the nozzle, which is where it crosses in
+/// the plant.
+const FEEDWATER_HEADER_RISER_X: f32 = 390.0;
+
+/// Elevation of the feedwater header -- the horizontal run along the bottom of
+/// the plant, from the feed pump across to [`FEEDWATER_HEADER_RISER_X`] -- in
+/// schematic-local points.
+const FEEDWATER_HEADER_Y: f32 = 585.0;
+
+/// How far a connector run is pushed past a nozzle tip so the joint shows no
+/// hairline gap, in points.
+///
+/// The nozzle anchors in [`SgNozzles`] are the *tips* of the stubs the artwork
+/// paints. A run that stops exactly on a tip can leave a one-pixel seam once
+/// egui rounds both rectangles to the pixel grid, so every run overlaps its
+/// nozzle by this much.
+const NOZZLE_SEAM_OVERLAP: f32 = 3.0;
 
 // ── Tracer state ────────────────────────────────────────────────────────────
 
@@ -496,6 +537,107 @@ fn pump_discharge(rect: Rect) -> Pos2 {
     Pos2::new(rect.center().x - 0.3775 * rect.width(), rect.top())
 }
 
+/// The outboard tip of the reactor vessel's hot gas duct nozzle, in
+/// schematic-local points.
+///
+/// Taken from the reactor artwork's own drawn rectangle with the fractions
+/// `Htr10ReactorVesselVisual` paints the nozzle at: it spans `right - 0.02 w`
+/// to `right + 0.16 w` horizontally and `0.62 h` to `0.70 h` vertically, so the
+/// tip is at `+0.16 w` and the centreline elevation is `0.66 h`.
+fn reactor_duct_nozzle() -> Pos2 {
+    let reactor = reactor_rect();
+    pos2(
+        reactor.right() + 0.16 * reactor.width(),
+        reactor.top() + 0.66 * reactor.height(),
+    )
+}
+
+/// The steam generator's four nozzle anchors, in schematic-local points.
+///
+/// Each is the free **tip** of a nozzle stub the helical-coil artwork paints,
+/// derived from [`sg_rect`] with the same fractions
+/// `SteamGeneratorVisual::draw_helical_coil` uses. Deriving them means moving,
+/// resizing or re-proportioning the steam generator carries every connected
+/// pipe end with it, instead of leaving the pipes behind on the old geometry.
+#[derive(Debug, Clone, Copy)]
+struct SgNozzles {
+    /// Cold-helium outlet to the circulator: **upper left**. Artwork stub
+    /// `-0.68 w .. -0.10 w` over `0.045 h .. 0.075 h`, so tip `-0.68 w`,
+    /// centreline `0.06 h`.
+    cold_gas_out: Pos2,
+    /// Superheated-steam outlet to the turbine: **upper right**. Artwork stub
+    /// `+0.30 w .. +0.68 w` over `0.10 h .. 0.125 h`, so tip `+0.68 w`,
+    /// centreline `0.1125 h`.
+    steam_out: Pos2,
+    /// Feedwater inlet: **lower left**. Artwork stub `-0.68 w .. -0.30 w` over
+    /// `0.885 h .. 0.91 h`, so tip `-0.68 w`, centreline `0.8975 h`.
+    feed_in: Pos2,
+    /// Hot-gas duct inlet, feeding the bottom of the centre tube: **lower
+    /// right**. Artwork stub `+0.02 w .. +0.68 w` over `0.925 h .. 0.955 h`,
+    /// so tip `+0.68 w`, centreline `0.94 h`.
+    ///
+    /// This one faces *away* from the reactor, which is why the hot gas duct
+    /// has to come round the vessel -- see [`hot_gas_duct_path`].
+    hot_gas_in: Pos2,
+}
+
+/// The steam generator's nozzle anchors for the box it is drawn in here.
+fn sg_nozzles() -> SgNozzles {
+    let sg = sg_rect();
+    let x = |f: f32| sg.center().x + f * sg.width();
+    let y = |f: f32| sg.top() + f * sg.height();
+    SgNozzles {
+        cold_gas_out: pos2(x(-0.68), y(0.06)),
+        steam_out: pos2(x(0.68), y(0.1125)),
+        feed_in: pos2(x(-0.68), y(0.8975)),
+        hot_gas_in: pos2(x(0.68), y(0.94)),
+    }
+}
+
+/// Centreline of the hot gas duct, from the reactor vessel's duct nozzle to the
+/// steam generator's, corner to corner in schematic-local points.
+///
+/// **Why it is not a straight line.** The helical-coil artwork puts its hot-gas
+/// nozzle on the **bottom right** of the steam-generator vessel, because that
+/// is where the duct meets the bottom of the centre tube the hot helium rises
+/// through (see [`SgNozzles::hot_gas_in`]). The reactor is on the *left*, so
+/// the stub points away from it and the run has to come round. It therefore:
+///
+/// 1. leaves the reactor horizontally at the hot-gas plenum elevation -- the
+///    cross-vessel run proper, and the only part the "hot gas duct" label sits
+///    on;
+/// 2. turns down clear of the cold-helium return riser
+///    ([`COLD_RETURN_RISER_X`]), so the two verticals do not read as one broken
+///    pipe;
+/// 3. crosses beneath the feedwater header ([`FEEDWATER_HEADER_Y`]);
+/// 4. rises on the far side of the steam-generator vessel; and
+/// 5. runs back in to the nozzle from the right, the side the stub faces,
+///    overlapping the tip by [`NOZZLE_SEAM_OVERLAP`].
+///
+/// **Two properties worth keeping.** The run stays *outside*
+/// [`SG_VESSEL_BOUNDARY`] until the last leg, so it crosses the
+/// steam-generator pressure-vessel boundary exactly once, at the nozzle. And
+/// it crosses exactly one other run, the feedwater header, where the riser
+/// climbs past it -- unavoidable, because that header sweeps the whole width of
+/// the plant at an elevation the duct has to climb through.
+fn hot_gas_duct_path() -> [Pos2; 6] {
+    let reactor_nozzle = reactor_duct_nozzle();
+    let sg_hot_in = sg_nozzles().hot_gas_in;
+
+    let turn_x = COLD_RETURN_RISER_X - 30.0;
+    let under_y = FEEDWATER_HEADER_Y + 20.0;
+    let riser_x = sg_hot_in.x + 32.0;
+
+    [
+        pos2(reactor_nozzle.x - 10.0, reactor_nozzle.y),
+        pos2(turn_x, reactor_nozzle.y),
+        pos2(turn_x, under_y),
+        pos2(riser_x, under_y),
+        pos2(riser_x, sg_hot_in.y),
+        pos2(sg_hot_in.x - NOZZLE_SEAM_OVERLAP, sg_hot_in.y),
+    ]
+}
+
 // ── The panel ───────────────────────────────────────────────────────────────
 
 /// Draw the whole schematic from `snapshot` into `ui`, animating the connector
@@ -582,27 +724,20 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
     };
 
     let reactor = reactor_rect();
-    let sg = sg_rect();
     let circulator = circulator_rect();
     let feed_pump = feed_pump_rect();
 
-    // Nozzle elevations, as fractions of each artwork's own drawn height (see
-    // the widgets' `Widget::ui` implementations).
-    let duct_y = reactor.top() + 0.66 * reactor.height();
-    let duct_tip_x = reactor.right() + 0.16 * reactor.width();
+    // Nozzle anchors, taken from each artwork's own drawn rectangle (see
+    // `reactor_duct_nozzle` and `sg_nozzles`), so a pipe end cannot drift off
+    // its nozzle when a component is moved or re-proportioned.
+    let reactor_duct = reactor_duct_nozzle();
+    let duct_y = reactor_duct.y;
+    let duct_tip_x = reactor_duct.x;
     let cold_return_y = duct_y - 24.0;
-    let sg_cold_out = pos2(
-        sg.center().x - 0.68 * sg.width(),
-        sg.top() + 0.06 * sg.height(),
-    );
-    let sg_steam_out = pos2(
-        sg.center().x + 0.68 * sg.width(),
-        sg.top() + 0.1125 * sg.height(),
-    );
-    let sg_feed_in = pos2(
-        sg.center().x - 0.68 * sg.width(),
-        sg.top() + 0.8975 * sg.height(),
-    );
+    let nozzles = sg_nozzles();
+    let sg_cold_out = nozzles.cold_gas_out;
+    let sg_steam_out = nozzles.steam_out;
+    let sg_feed_in = nozzles.feed_in;
 
     // ── 1. Steam-generator pressure vessel boundary ─────────────────────
     //
@@ -620,26 +755,20 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
             boundary.left_bottom(),
             boundary.left_top(),
         ],
-        Stroke::new(1.0, ANNOTATION),
+        Stroke::new(1.0_f32, ANNOTATION),
         6.0,
         5.0,
     ));
 
     // ── 2. Primary helium circuit ───────────────────────────────────────
     //
-    // Hot gas duct: one straight cross-vessel run at the reactor's own hot-gas
-    // plenum elevation, from the vessel's duct nozzle to the steam-generator
-    // vessel. This is the connecting cross-vessel, drawn where it is.
-    route(
-        ui,
-        &hot_helium,
-        &[
-            at(pos2(duct_tip_x - 10.0, duct_y)),
-            at(pos2(sg.left() + 1.0, duct_y)),
-        ],
-        false,
-        false,
-    );
+    // Hot gas duct: the cross-vessel run at the reactor's own hot-gas plenum
+    // elevation, then round to the steam generator's hot-gas nozzle on the
+    // BOTTOM RIGHT of its vessel, which is where the duct meets the bottom of
+    // the centre tube. See `hot_gas_duct_path` for why it is not a straight
+    // line and what the routing is required to clear.
+    let duct_path: Vec<Pos2> = hot_gas_duct_path().into_iter().map(at).collect();
+    route(ui, &hot_helium, &duct_path, false, false);
 
     // Cold helium leaving the SG through the connecting tube to the blower
     // above it.
@@ -647,7 +776,7 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
         ui,
         &cold_helium,
         &[
-            at(pos2(sg_cold_out.x + 3.0, sg_cold_out.y)),
+            at(pos2(sg_cold_out.x + NOZZLE_SEAM_OVERLAP, sg_cold_out.y)),
             at(pos2(CIRCULATOR_CENTRE.x, sg_cold_out.y)),
             at(pos2(CIRCULATOR_CENTRE.x, circulator.bottom() - 2.0)),
         ],
@@ -659,7 +788,7 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
     // last leg runs in alongside the hot gas duct, which is where the cold
     // return annulus actually is.
     let discharge = pump_discharge(circulator);
-    let return_corner = pos2(370.0, cold_return_y);
+    let return_corner = pos2(COLD_RETURN_RISER_X, cold_return_y);
     route(
         ui,
         &cold_helium,
@@ -735,10 +864,10 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
         &feed,
         &[
             at(feed_discharge),
-            at(pos2(feed_discharge.x, 585.0)),
-            at(pos2(390.0, 585.0)),
-            at(pos2(390.0, sg_feed_in.y)),
-            at(pos2(sg_feed_in.x + 3.0, sg_feed_in.y)),
+            at(pos2(feed_discharge.x, FEEDWATER_HEADER_Y)),
+            at(pos2(FEEDWATER_HEADER_RISER_X, FEEDWATER_HEADER_Y)),
+            at(pos2(FEEDWATER_HEADER_RISER_X, sg_feed_in.y)),
+            at(pos2(sg_feed_in.x + NOZZLE_SEAM_OVERLAP, sg_feed_in.y)),
         ],
         false,
         false,
@@ -924,9 +1053,16 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
         "helium circulator",
         10.0,
     );
+    // On the horizontal cross-vessel leg, which is the part of the run the
+    // label actually names -- the rest of the path is the detour round to the
+    // steam generator's bottom-right nozzle.
+    let duct_path_local = hot_gas_duct_path();
     tag(
         ui,
-        pos2(0.5 * (duct_tip_x + sg.left()), duct_y + 12.0),
+        pos2(
+            0.5 * (duct_path_local[0].x + duct_path_local[1].x),
+            duct_y + 12.0,
+        ),
         Align2::CENTER_TOP,
         "hot gas duct (cross-vessel)",
         10.0,
@@ -1055,6 +1191,39 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
         ui.add(InstrumentationVisual::new(at(p), label, value));
     }
 
+    // ── 12b. Sim-clock pacing ───────────────────────────────────────────
+    //
+    // Simulated seconds per wall-clock second, published by the physics
+    // thread's pacer. On screen because a simulator that has quietly dropped
+    // below real time while still counting "seconds" is misleading -- the
+    // operator has no other way to know the plant clock and their wristwatch
+    // have parted company. Reads "--" until the first tick.
+    //
+    // This is the SIM-CLOCK rate, not a frame rate. A smooth window with a
+    // 0.4x plant clock is a physics cost problem; a stuttering window at 1.00x
+    // is a rendering problem. They are different faults and this readout only
+    // speaks to the first.
+    ui.add(InstrumentationVisual::new(
+        at(pos2(58.0, 628.0)),
+        "real-time",
+        match snapshot.real_time_ratio {
+            Some(ratio) => format!("{ratio:.2}x"),
+            None => "--".to_string(),
+        },
+    ));
+    if snapshot.behind_real_time {
+        ui.painter().text(
+            at(pos2(58.0, 648.0)),
+            Align2::LEFT_TOP,
+            format!(
+                "SLOWER THAN REAL TIME -- plant clock {:.1} s behind",
+                snapshot.real_time_deficit_s
+            ),
+            FontId::proportional(11.0),
+            Color32::from_rgb(226, 138, 70),
+        );
+    }
+
     // ── 13. Standing caveat, on screen ──────────────────────────────────
     ui.painter().text(
         at(pos2(8.0, 714.0)),
@@ -1065,4 +1234,297 @@ pub fn draw_schematic(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicT
         FontId::proportional(10.0),
         ANNOTATION,
     );
+}
+
+// ── Geometry checks ─────────────────────────────────────────────────────────
+//
+// These are pure-geometry tests over the anchor and routing functions above.
+// They need no display, no egui context and no physics: the whole point is
+// that a pipe end landing on the wrong place is a NUMERIC fact about two
+// positions, checkable headlessly, rather than something only an eyeball can
+// catch. They cannot check that the result *looks* right -- line weights,
+// overlaps with text, whether the detour reads clearly -- which still needs a
+// human at a screen.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Half the drawn width of a helium run: the clearance every leg of the hot
+    /// gas duct has to keep from artwork it is not connecting to.
+    const HALF_DUCT: f32 = 0.5 * HELIUM_PIPE_THICKNESS;
+
+    /// The drawn rectangle of one of the steam generator's nozzle stubs, from
+    /// the fractions `SteamGeneratorVisual::draw_helical_coil` paints it at.
+    fn sg_stub(x_from: f32, x_to: f32, y_from: f32, y_to: f32) -> Rect {
+        let sg = sg_rect();
+        Rect::from_min_max(
+            pos2(
+                sg.center().x + x_from * sg.width(),
+                sg.top() + y_from * sg.height(),
+            ),
+            pos2(
+                sg.center().x + x_to * sg.width(),
+                sg.top() + y_to * sg.height(),
+            ),
+        )
+    }
+
+    /// The four stubs, paired with the anchor that is supposed to sit on each
+    /// one's outboard tip, and the sign of "inboard" along the stub.
+    fn stubs_and_anchors() -> [(&'static str, Rect, Pos2, f32); 4] {
+        let n = sg_nozzles();
+        [
+            (
+                "cold gas out",
+                sg_stub(-0.68, -0.10, 0.045, 0.075),
+                n.cold_gas_out,
+                1.0,
+            ),
+            (
+                "steam out",
+                sg_stub(0.30, 0.68, 0.10, 0.125),
+                n.steam_out,
+                -1.0,
+            ),
+            (
+                "feedwater in",
+                sg_stub(-0.68, -0.30, 0.885, 0.91),
+                n.feed_in,
+                1.0,
+            ),
+            (
+                "hot gas in",
+                sg_stub(0.02, 0.68, 0.925, 0.955),
+                n.hot_gas_in,
+                -1.0,
+            ),
+        ]
+    }
+
+    /// Every steam-generator anchor must be the outboard tip of the stub the
+    /// artwork paints, on that stub's centreline.
+    ///
+    /// **Methodology.** Rebuild each nozzle stub's rectangle from [`sg_rect`]
+    /// with the fractions `SteamGeneratorVisual::draw_helical_coil` uses, then
+    /// require the corresponding [`SgNozzles`] anchor to sit on the outboard
+    /// end of that rectangle, at its mid-height, to within 0.01 pt. This is the
+    /// property that makes the anchors *derived* rather than eyeballed: it
+    /// fails the moment the artwork's proportions and the routing code drift
+    /// apart.
+    ///
+    /// **Results (2026-08-13).** Steam-generator artwork rectangle
+    /// `x 514.955..605.045`, `y 151.396..558.604` pt (90.090 x 407.207 pt,
+    /// letterboxed to the published 2.5 m x 11.3 m aspect inside a 120 x 407.207
+    /// pt box). All four anchors matched their stub tip and centreline to
+    /// 0.000 pt: cold gas out (514.955, 175.828), steam out (621.261, 197.207),
+    /// feedwater in (514.955, 516.865), hot gas in (621.261, 534.171).
+    /// Interpretation: the four pipe ends are pinned to the artwork, so moving
+    /// or re-proportioning the steam generator moves them with it.
+    #[test]
+    fn steam_generator_anchors_sit_on_the_artwork_nozzle_tips() {
+        for (name, stub, anchor, inboard) in stubs_and_anchors() {
+            let tip_x = if inboard > 0.0 {
+                stub.left()
+            } else {
+                stub.right()
+            };
+            assert!(
+                (anchor.x - tip_x).abs() < 0.01,
+                "{name}: anchor x {} is not the stub tip {tip_x}",
+                anchor.x
+            );
+            assert!(
+                (anchor.y - stub.center().y).abs() < 0.01,
+                "{name}: anchor y {} is not the stub centreline {}",
+                anchor.y,
+                stub.center().y
+            );
+        }
+    }
+
+    /// Pushing a run inboard by [`NOZZLE_SEAM_OVERLAP`] must land it on metal.
+    ///
+    /// **Methodology.** Every connector here stops [`NOZZLE_SEAM_OVERLAP`] past
+    /// its nozzle tip so no hairline gap shows at the joint. That is only
+    /// correct if the overlap point is still *inside* the drawn stub — if the
+    /// stub were shorter than the overlap, the run would end in mid-air with
+    /// the seam hidden behind nothing. Require the overlapped point to be
+    /// strictly inside each stub rectangle.
+    ///
+    /// **Results (2026-08-13).** All four passed. Shortest stub is the steam
+    /// outlet at 34.234 pt of drawn length, against a 3.0 pt overlap — a
+    /// factor of 11 of margin, so the convention is in no danger from a modest
+    /// re-proportioning. Interpretation: the seam overlap is safe for all four
+    /// nozzles, hot gas duct included.
+    #[test]
+    fn the_nozzle_seam_overlap_stays_on_the_stub() {
+        for (name, stub, anchor, inboard) in stubs_and_anchors() {
+            let seam = pos2(anchor.x + inboard * NOZZLE_SEAM_OVERLAP, anchor.y);
+            assert!(
+                stub.contains(seam),
+                "{name}: seam point {seam:?} fell outside the stub {stub:?}"
+            );
+        }
+    }
+
+    /// The hot gas duct must terminate on the steam generator's hot-gas nozzle,
+    /// approaching from the right, which is the side the stub faces.
+    ///
+    /// **Methodology.** This is the regression test for the reported defect
+    /// (kopi-beans `op-88kl`): the duct used to end at `sg_rect().left() + 1.0`
+    /// at the *reactor's* plenum elevation, on the steam generator's blank left
+    /// flank, while the artwork's hot-gas nozzle is the stub on its bottom
+    /// right. Require the last point of [`hot_gas_duct_path`] to be
+    /// [`NOZZLE_SEAM_OVERLAP`] inboard of [`SgNozzles::hot_gas_in`] along the
+    /// stub, exactly on its centreline, and the final leg to be horizontal and
+    /// arriving from the right.
+    ///
+    /// **Results (2026-08-13).** Nozzle tip (621.261, 534.171) pt; duct end
+    /// (618.261, 534.171) pt — 3.000 pt inboard in x, 0.000 pt off the
+    /// centreline. Final leg runs from x 653.261 to x 618.261 at a constant
+    /// y 534.171. The old endpoint (515.955, 404.000) missed the nozzle by
+    /// 105.31 pt horizontally and 130.17 pt vertically, which is what the
+    /// maintainer saw. Interpretation: the duct now lands on the port.
+    #[test]
+    fn the_hot_gas_duct_lands_on_the_steam_generator_nozzle() {
+        let path = hot_gas_duct_path();
+        let nozzle = sg_nozzles().hot_gas_in;
+        let end = path[5];
+
+        // Printed so the figures recorded above can be re-read rather than
+        // taken on trust, the way the plant tests print theirs.
+        println!("SG artwork rect: {:?}", sg_rect());
+        println!("reactor artwork rect: {:?}", reactor_rect());
+        println!("hot gas nozzle tip: {nozzle:?}");
+        println!("hot gas duct path: {path:?}");
+
+        assert!(
+            (end.x - (nozzle.x - NOZZLE_SEAM_OVERLAP)).abs() < 0.01,
+            "duct ends at x {}, expected {}",
+            end.x,
+            nozzle.x - NOZZLE_SEAM_OVERLAP
+        );
+        assert!(
+            (end.y - nozzle.y).abs() < 0.01,
+            "duct ends at y {}, off the nozzle centreline {}",
+            end.y,
+            nozzle.y
+        );
+        // Arrives horizontally, from the right.
+        assert!((path[4].y - end.y).abs() < 0.01);
+        assert!(path[4].x > end.x);
+    }
+
+    /// The hot gas duct must start on the reactor's duct nozzle, and every leg
+    /// must be axis-aligned.
+    ///
+    /// **Methodology.** [`elbow`] builds a `PipeBendVisual` assuming a
+    /// right-angle turn, so a diagonal leg would silently draw a broken corner.
+    /// Require consecutive path points to share an x or a y, and the first
+    /// point to sit on the reactor artwork's own duct nozzle (10 pt inboard of
+    /// its tip, the overlap that run has always used).
+    ///
+    /// **Results (2026-08-13).** Reactor artwork rectangle `x 74.324..225.676`,
+    /// `y 140.000..540.000` pt; duct nozzle tip (249.892, 404.000) pt; path
+    /// start (239.892, 404.000) pt. All five legs were axis-aligned: three
+    /// horizontal (y 404.000, 605.000, 534.171) and two vertical (x 340.000,
+    /// 653.261). Interpretation: four clean right-angle elbows, no diagonal.
+    #[test]
+    fn the_hot_gas_duct_is_a_rectilinear_run_off_the_reactor_nozzle() {
+        let path = hot_gas_duct_path();
+        let reactor_nozzle = reactor_duct_nozzle();
+
+        assert!((path[0].y - reactor_nozzle.y).abs() < 0.01);
+        assert!((path[0].x - (reactor_nozzle.x - 10.0)).abs() < 0.01);
+
+        for leg in path.windows(2) {
+            let axis_aligned =
+                (leg[0].x - leg[1].x).abs() < 0.01 || (leg[0].y - leg[1].y).abs() < 0.01;
+            assert!(axis_aligned, "leg {:?} -> {:?} is diagonal", leg[0], leg[1]);
+        }
+    }
+
+    /// No leg of the hot gas duct may run over the steam-generator artwork, the
+    /// cold-helium return riser, or the feedwater riser.
+    ///
+    /// **Methodology.** Inflate each leg by half the drawn pipe width
+    /// ([`HALF_DUCT`]) and require it not to intersect the steam generator's
+    /// drawn rectangle — the nozzle stub sticks out beyond that rectangle, so
+    /// connecting to it does not require overlapping the shell. Then require
+    /// the duct's vertical leg to stand at least one full pipe width clear of
+    /// the two risers it passes, and its horizontal under-run to pass below the
+    /// foot of the feedwater riser.
+    ///
+    /// **Results (2026-08-13).** Closest approach to the steam-generator
+    /// rectangle (`x 514.955..605.045`, `y 151.396..558.604`) was the under-run
+    /// at y 605.000, clearing the bottom head by 46.40 pt, and the riser at
+    /// x 653.261, clearing the right shell by 48.22 pt; no leg intersected.
+    /// The duct's vertical leg stands at x 340.000: 30.00 pt from the
+    /// cold-return riser at x 370.000 and 50.00 pt from the feedwater riser at
+    /// x 390.000, both greater than the 13.0 pt pipe width. The under-run at
+    /// y 605.000 passes 20.00 pt below the feedwater header at y 585.000.
+    ///
+    /// **Known and accepted:** the duct's riser at x 653.261 *does* cross the
+    /// feedwater header at y 585.000, which spans the width of the plant. That
+    /// crossing is unavoidable — the header sits between the under-run and the
+    /// nozzle elevation — and is the only run-over-run crossing in the
+    /// schematic. It is not asserted against.
+    #[test]
+    fn the_hot_gas_duct_clears_the_artwork_and_the_risers() {
+        let path = hot_gas_duct_path();
+        let sg = sg_rect();
+
+        for leg in path.windows(2) {
+            let swept = Rect::from_two_pos(leg[0], leg[1]).expand(HALF_DUCT);
+            assert!(
+                !swept.intersects(sg),
+                "leg {:?} -> {:?} runs over the steam generator {sg:?}",
+                leg[0],
+                leg[1]
+            );
+        }
+
+        let drop_x = path[1].x;
+        assert!((drop_x - COLD_RETURN_RISER_X).abs() > HELIUM_PIPE_THICKNESS);
+        assert!((drop_x - FEEDWATER_HEADER_RISER_X).abs() > HELIUM_PIPE_THICKNESS);
+        assert!(path[2].y > FEEDWATER_HEADER_Y + HALF_DUCT);
+    }
+
+    /// The cold-leg runs must still land where they did: this fix must not have
+    /// moved the counterpart connections.
+    ///
+    /// **Methodology.** The maintainer asked specifically whether the cold
+    /// return shares the anchoring convention and survived the change. The
+    /// cold-helium outlet, the feedwater inlet and the steam outlet were all
+    /// already derived from [`sg_rect`] with the artwork's own fractions; the
+    /// change moved them behind [`sg_nozzles`] without altering the arithmetic.
+    /// Pin the resulting positions numerically so a future edit to the anchor
+    /// helper cannot silently move them.
+    ///
+    /// **Results (2026-08-13).** cold gas out (514.955, 175.828) pt, steam out
+    /// (621.261, 197.207) pt, feedwater in (514.955, 516.865) pt — identical to
+    /// the values the previous inline expressions produced (`center.x -+ 0.68 w`
+    /// with `0.06 h`, `0.1125 h`, `0.8975 h`). The cold-return riser is
+    /// unchanged at x 370.000, and it is the duct — not the cold leg — that was
+    /// rerouted. Interpretation: the cold leg is untouched by this fix.
+    #[test]
+    fn the_cold_leg_anchors_are_unchanged() {
+        let sg = sg_rect();
+        let n = sg_nozzles();
+
+        let expect =
+            |dx: f32, fy: f32| pos2(sg.center().x + dx * sg.width(), sg.top() + fy * sg.height());
+        for (name, got, want) in [
+            ("cold gas out", n.cold_gas_out, expect(-0.68, 0.06)),
+            ("steam out", n.steam_out, expect(0.68, 0.1125)),
+            ("feedwater in", n.feed_in, expect(-0.68, 0.8975)),
+        ] {
+            assert!(
+                (got.x - want.x).abs() < 1e-4 && (got.y - want.y).abs() < 1e-4,
+                "{name}: {got:?} != {want:?}"
+            );
+        }
+        assert!((COLD_RETURN_RISER_X - 370.0).abs() < f32::EPSILON);
+    }
 }

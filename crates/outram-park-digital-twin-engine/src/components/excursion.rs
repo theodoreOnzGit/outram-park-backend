@@ -773,7 +773,7 @@ impl ExcursionOverlay {
                         border.bottom(),
                     ),
                 ],
-                Stroke::new(1.6, translucent(HAZARD, 70)),
+                Stroke::new(1.6_f32, translucent(HAZARD, 70)),
             );
             offset += step;
         }
@@ -914,7 +914,7 @@ impl ExcursionOverlay {
         painter.rect_stroke(
             band,
             3.0,
-            Stroke::new(1.5, translucent(HAZARD, alpha(0.6 + 0.4 * pulse))),
+            Stroke::new(1.5_f32, translucent(HAZARD, alpha(0.6 + 0.4 * pulse))),
             StrokeKind::Middle,
         );
 

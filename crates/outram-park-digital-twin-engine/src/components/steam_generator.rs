@@ -894,7 +894,7 @@ impl SteamGeneratorVisual {
             wave.push(Pos2::new(x, level_y + (t * PI * 3.0).sin() * h * 0.002));
         }
         for pair in wave.windows(2) {
-            painter.line_segment([pair[0], pair[1]], Stroke::new(1.6, steam));
+            painter.line_segment([pair[0], pair[1]], Stroke::new(1.6_f32, steam));
         }
         self.tag(painter, Pos2::new(cx, level_y - h * 0.016), "level");
 
@@ -914,7 +914,7 @@ impl SteamGeneratorVisual {
                         Pos2::new(can.left(), can.top() + t * can.height()),
                         Pos2::new(can.right(), can.top() + (t + 0.16) * can.height()),
                     ],
-                    Stroke::new(1.2, translucent(steam, 190)),
+                    Stroke::new(1.2_f32, translucent(steam, 190)),
                 );
             }
         }
@@ -929,11 +929,11 @@ impl SteamGeneratorVisual {
                 let x2 = x0 + upper_half * 0.22;
                 painter.line_segment(
                     [Pos2::new(x0, y_bottom), Pos2::new(x1, y_top)],
-                    Stroke::new(1.2, INTERNALS),
+                    Stroke::new(1.2_f32, INTERNALS),
                 );
                 painter.line_segment(
                     [Pos2::new(x1, y_top), Pos2::new(x2, y_bottom)],
-                    Stroke::new(1.2, INTERNALS),
+                    Stroke::new(1.2_f32, INTERNALS),
                 );
             }
         }
@@ -1012,13 +1012,13 @@ impl SteamGeneratorVisual {
         painter.rect_stroke(
             upper_shell,
             0.0,
-            Stroke::new(1.5, OUTLINE),
+            Stroke::new(1.5_f32, OUTLINE),
             StrokeKind::Middle,
         );
         painter.rect_stroke(
             lower_shell,
             0.0,
-            Stroke::new(1.5, OUTLINE),
+            Stroke::new(1.5_f32, OUTLINE),
             StrokeKind::Middle,
         );
     }
@@ -1090,7 +1090,7 @@ impl SteamGeneratorVisual {
                 Pos2::new(inner.left(), level_y),
                 Pos2::new(inner.right(), level_y),
             ],
-            Stroke::new(1.6, steam),
+            Stroke::new(1.6_f32, steam),
         );
         self.tag(
             painter,
@@ -1160,7 +1160,7 @@ impl SteamGeneratorVisual {
         while x < inner.right() - w * 0.06 {
             painter.line_segment(
                 [Pos2::new(x, sheet_y), Pos2::new(x + w * 0.012, sheet_y)],
-                Stroke::new(1.3, INTERNALS),
+                Stroke::new(1.3_f32, INTERNALS),
             );
             x += w * 0.02;
         }
@@ -1194,7 +1194,7 @@ impl SteamGeneratorVisual {
                     Pos2::new(hx, header_y + h * 0.022),
                     Pos2::new(hx, header_y + h * 0.075),
                 ],
-                Stroke::new(1.6, feed),
+                Stroke::new(1.6_f32, feed),
             );
         }
         self.tag(
@@ -1229,7 +1229,7 @@ impl SteamGeneratorVisual {
         painter.rect_stroke(
             rect,
             radius(h * 0.5),
-            Stroke::new(1.5, OUTLINE),
+            Stroke::new(1.5_f32, OUTLINE),
             StrokeKind::Middle,
         );
     }
@@ -1373,7 +1373,7 @@ impl SteamGeneratorVisual {
                         Pos2::new(cx + column_half, y(0.90)),
                     ),
                     2.0,
-                    Stroke::new(1.0, INTERNALS),
+                    Stroke::new(1.0_f32, INTERNALS),
                     StrokeKind::Middle,
                 );
             }
@@ -1460,7 +1460,7 @@ impl SteamGeneratorVisual {
             primary_out,
         );
 
-        painter.rect_stroke(shell, 0.0, Stroke::new(1.5, OUTLINE), StrokeKind::Middle);
+        painter.rect_stroke(shell, 0.0, Stroke::new(1.5_f32, OUTLINE), StrokeKind::Middle);
     }
 }
 

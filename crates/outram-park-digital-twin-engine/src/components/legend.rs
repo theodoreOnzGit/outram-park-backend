@@ -132,7 +132,7 @@ impl Widget for TemperatureLegend {
             painter.line_segment(
                 [Pos2::new(bar.left(), y), Pos2::new(bar.right(), y)],
                 Stroke::new(
-                    1.0,
+                    1.0_f32,
                     temperature_colour(self.temperature_at(f), self.min_temp, self.max_temp),
                 ),
             );
@@ -140,7 +140,7 @@ impl Widget for TemperatureLegend {
         painter.rect_stroke(
             bar,
             0.0,
-            Stroke::new(1.0, ui.visuals().weak_text_color()),
+            Stroke::new(1.0_f32, ui.visuals().weak_text_color()),
             egui::StrokeKind::Outside,
         );
 
@@ -150,7 +150,7 @@ impl Widget for TemperatureLegend {
             let y = bar.top() + (i as f32 / (ticks - 1) as f32) * self.bar_size.y;
             painter.line_segment(
                 [Pos2::new(bar.right(), y), Pos2::new(bar.right() + 4.0, y)],
-                Stroke::new(1.0, ui.visuals().weak_text_color()),
+                Stroke::new(1.0_f32, ui.visuals().weak_text_color()),
             );
             painter.text(
                 Pos2::new(bar.right() + 7.0, y),
