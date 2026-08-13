@@ -62,14 +62,22 @@
 //!
 //! | Claim | Result |
 //! |---|---|
-//! | End-to-end solve speed-up, Jacobi, 512 000 cells | **2.65x** (2.66x on a repeat run) |
-//! | End-to-end solve speed-up, ILU(0), 512 000 cells | **1.50x** (1.51x on a repeat) |
-//! | ILU(0) triangular solves, share of solve time at 262 144 cells | **51.6%** — an Amdahl ceiling near 1.9x |
+//! | End-to-end solve speed-up, Jacobi, 512 000 cells | **2.4-2.7x** (2.65x, 2.66x, 2.40x, 2.47x over four runs) |
+//! | End-to-end solve speed-up, ILU(0), 512 000 cells | **~1.5x** (1.50x, 1.51x, 1.51x, 1.51x — the most stable figure here) |
+//! | ILU(0) triangular solves, share of the **serial** solve | **29-46%** — caps the speed-up at 1.7-2.1x on 4 cores |
 //! | Backend parity (`Serial` vs `CpuMulti`) | **bitwise**, including every residual-history entry and every iteration count |
 //! | Thread-count parity (1/2/3/8 workers) | **bitwise** |
 //! | Correctness vs dense LU, worst of 12 combinations | 6.832e-10 relative |
 //! | Iteration-count change from the blocked reduction | **none**, at all five sizes tested |
-//! | Solve speed-up at 4 096 cells (= `SPMV_MIN_CELLS`) | **0.81x — a loss** |
+//! | Solve speed-up at 4 096 cells (= `SPMV_MIN_CELLS`) | **0.69-0.81x — a loss**, in all four runs |
+//!
+//! **A correction recorded rather than quietly overwritten.** An earlier revision
+//! of this file reported the ILU(0) serial fraction as "51.6%, an Amdahl ceiling
+//! near 1.9x". That divided the sequential applies by the **parallel** solve time;
+//! Amdahl's `s` is defined against the **serial** runtime. Re-measured correctly,
+//! `s` is 29-46% and the 4-core cap is 1.7-2.1x — so the measured ~1.5x is
+//! *below* its structural ceiling rather than nearly at it. See
+//! `ilu0_serial_fraction_benchmark` for the full derivation.
 //!
 //! The last row is the most useful finding for the next piece of work: the
 //! isolated product kernel breaks even at 4 096 cells, but a whole *solve* does
@@ -786,44 +794,81 @@ fn blocked_versus_flat_reduction_does_not_move_iteration_counts() {
 /// Amdahl serial fraction that bounds any speed-up of an ILU(0)-preconditioned
 /// solve.
 ///
-/// The test times, on the same system: (a) the one-off
-/// [`Preconditioner::ilu0`] factorisation, (b) a whole BiCGStab solve, and (c)
-/// the isolated cost of the `2 * n_iterations` preconditioner applications that
-/// the solve performs, timed by replaying them outside the solver. It reports
-/// each as a percentage of the solve.
+/// The test times, on the same system and best-of-3 for each figure: (a) the
+/// one-off [`Preconditioner::ilu0`] factorisation, (b) a whole BiCGStab solve on
+/// **both** backends, and (c) the isolated cost of the `2 * n_iterations`
+/// preconditioner applications the solve performs, replayed outside the solver.
+/// Because [`Ilu0Preconditioner::apply_on`](crate::krylov::Ilu0Preconditioner::apply_on)
+/// ignores the backend and always runs serially, (c) is backend-independent — and
+/// that is precisely what makes it the serial fraction.
+///
+/// **Amdahl's serial fraction is measured against the SERIAL solve.** This is the
+/// correction that matters, and an earlier revision of this file got it wrong:
+/// it divided the applies by the *parallel* solve time and quoted the result
+/// (51.6% at 262 144 cells) as the Amdahl `s`. It is not. In `speed-up =
+/// 1 / (s + (1 - s)/N)`, `s` is the unthreadable share of the **original,
+/// single-threaded** runtime; dividing by the already-shortened parallel runtime
+/// inflates it, because the denominator has had its *parallel* half cut while the
+/// numerator is unchanged. The table below therefore reports `s` against the
+/// serial column and derives two caps from it: `cap(4)` on this machine's 4
+/// logical cores, and `cap(inf)` = `1/s`, the infinite-core limit.
 ///
 /// **Pass criterion.** None on the timings themselves — this is a measurement,
 /// and asserting a wall-clock figure on a shared machine would be a flake
 /// generator. The test only asserts the solve converged, so the fractions refer
 /// to a real solve. `#[ignore]`d for the same reason; run it explicitly.
 ///
-/// **Results, measured 2026-08-13**, release, `--features parallel`, 4 logical
-/// cores, load average `1.40 0.89 1.08` at the start of the run. `factor %` and
-/// `apply %` are each expressed as a percentage of the **solve** time (the
-/// factorisation is a separate one-off cost *on top of* the solve, not part of
-/// it).
+/// **Results, measured 2026-08-13**, release, `--features parallel`,
+/// `available_parallelism()` = 4, best of 3, **three independent runs** at load
+/// averages `2.75 1.44 0.75` (run 1), `2.52 1.65 0.89` (run 2) and
+/// `1.64 1.54 0.89` (run 3). The load is high because these were taken between
+/// other benchmark runs; the `s` column is a *ratio of two timings taken under
+/// the same load*, so it is far more robust to contention than the absolute
+/// microseconds beside it.
 ///
-/// | Cells | Iterations | Factorisation (us) | Solve (us) | 2·n applies (us) | Factor % of solve | Applies % of solve |
-/// |---|---|---|---|---|---|---|
-/// | 4 096 | 16 | 1 710.8 | 7 477.8 | 1 431.4 | 22.9% | 19.1% |
-/// | 32 768 | 16 | 12 948.7 | 31 286.4 | 14 365.9 | 41.4% | 45.9% |
-/// | 110 592 | 16 | 42 150.5 | 110 630.4 | 54 287.7 | 38.1% | 49.1% |
-/// | 262 144 | 16 | 102 793.4 | 253 012.3 | 130 574.7 | 40.6% | **51.6%** |
+/// | Cells | `s` (run 1 / 2 / 3) | cap(4) | cap(inf) | measured speed-up |
+/// |---|---|---|---|---|
+/// | 4 096 | 31.1% / 32.4% / 29.0% | 2.03-2.14x | 3.08-3.44x | 0.68-0.93x (**a loss**) |
+/// | 32 768 | 35.1% / 37.2% / 35.9% | 1.89-1.95x | 2.69-2.85x | 1.18-1.26x |
+/// | 110 592 | 30.5% / 37.3% / 33.4% | 1.89-2.09x | 2.68-3.28x | 1.22-1.43x |
+/// | 262 144 | 46.0% / 41.0% / 41.5% | 1.68-1.79x | 2.17-2.44x | 1.31-1.41x |
 ///
-/// **Interpretation — this is the number that explains everything else.** At
-/// production sizes the sequential ILU(0) triangular solves are **about half the
-/// solve**, and the one-off factorisation costs a further ~40% of a solve on top.
-/// Amdahl's law then caps the speed-up of an ILU(0)-preconditioned solve at
-/// `1 / 0.516 ≈ 1.9x` **even on infinitely many cores**, before any parallel
-/// efficiency loss in the half that does thread. The measured end-to-end ILU(0)
-/// speed-up of 1.50x at 512 000 cells (see
-/// `end_to_end_solve_speedup_benchmark`) is therefore not a disappointing
-/// result — it is close to the structural ceiling, and the remaining headroom is
-/// in the preconditioner, not in the kernels this bead threaded.
+/// The one-off factorisation is a further cost *on top of* the solve — at
+/// 262 144 cells it measured 144 000-151 000 us against a 552 000-664 000 us
+/// serial solve, i.e. roughly a quarter of one solve, paid once per coefficient
+/// update rather than once per iteration.
+///
+/// The `measured` column here is systematically **lower** than the 1.49-1.51x
+/// that `end_to_end_solve_speedup_benchmark` reports at the same sizes. That is a
+/// methodology difference, not a contradiction: this benchmark takes best-of-3
+/// under load 1.6-2.8 while the end-to-end one takes best-of-5 under load
+/// 0.6-2.2. Where the two disagree, prefer the end-to-end figures for the
+/// headline speed-up and these for `s`.
+///
+/// **Interpretation — this is the number that bounds everything else, and it is
+/// smaller than previously claimed.** The sequential ILU(0) triangular solves are
+/// **29-46% of the serial solve**, rising with problem size. On 4 cores that caps
+/// an ILU(0)-preconditioned speed-up at roughly **1.7-2.1x**, and only at
+/// `1/s ≈ 2.2-3.4x` on infinitely many cores.
+///
+/// The measured end-to-end ILU(0) speed-up is 1.49-1.51x at 262 144-512 000 cells
+/// (`end_to_end_solve_speedup_benchmark`, best of 5 at lower load). So the
+/// sequential preconditioner explains **most, but not all**, of why ILU(0) trails
+/// Jacobi's 2.40-2.65x: about 1.7-2.1x of the gap is structural Amdahl, and the
+/// remaining shortfall from 1.7x to 1.5x is ordinary parallel-efficiency loss in
+/// the half that *does* thread — memory bandwidth, and 4 cores that are never
+/// idle. The earlier "1.50x is close to the structural ceiling of 1.9x" was
+/// therefore too generous to the implementation; the honest reading is that
+/// ILU(0) is the dominant brake but not the only one.
 ///
 /// It also tells the maintainer where the next win is: parallelising ILU(0)
 /// (level scheduling) or switching to a preconditioner that is parallel by
 /// construction would raise the ceiling far more than tuning any kernel here.
+///
+/// **Limitations.** One machine, 4 logical cores, one matrix family, one
+/// tolerance, and a host that never reaches idle. `s` was measured at only two
+/// load levels and moves by up to 7 percentage points between them (30.5% vs
+/// 37.3% at 110 592 cells), so treat the caps as a band, not a sharp number.
 #[test]
 #[ignore = "timing benchmark; run explicitly with --ignored"]
 fn ilu0_serial_fraction_benchmark() {
@@ -876,8 +921,15 @@ fn ilu0_serial_fraction_benchmark() {
                 .enumerate()
             {
                 let t = Instant::now();
-                let (x, r) =
-                    bicgstab_impl(&ldu, &b, None, &precond, &settings, backend, &mut Vec::new());
+                let (x, r) = bicgstab_impl(
+                    &ldu,
+                    &b,
+                    None,
+                    &precond,
+                    &settings,
+                    backend,
+                    &mut Vec::new(),
+                );
                 solve_us[bi] = solve_us[bi].min(t.elapsed().as_secs_f64() * 1e6);
                 std::hint::black_box(&x);
                 assert!(r.converged, "{cells} cells: solve did not converge");
@@ -975,6 +1027,36 @@ fn ilu0_serial_fraction_benchmark() {
 /// | 262 144 | 774 144 | 507.064 | 210.376 | 2.41x | 2.45x | 295.103 | 198.263 | 1.49x | 1.45x |
 /// | 512 000 | 1 516 800 | 1106.876 | 417.606 | **2.65x** | 2.66x | 623.984 | 416.845 | **1.50x** | 1.51x |
 ///
+/// **Independent reproduction, 2026-08-13**, same code, same machine, a later
+/// session at *lower* load — `available_parallelism()` = 4, load `0.59 0.68 0.36`
+/// rising to `0.99 0.79 0.42` (run A) and `0.71 0.74 0.41` to `1.13 0.84 0.46`
+/// (run B). Two further runs of the identical benchmark:
+///
+/// | Cells | Jacobi speed-up (A) | (B) | ILU(0) speed-up (A) | (B) |
+/// |---|---|---|---|---|
+/// | 4 096 | **0.74x** | **0.69x** | **0.79x** | **0.81x** |
+/// | 13 824 | 1.52x | 1.52x | 1.16x | 1.19x |
+/// | 32 768 | 1.82x | 1.73x | 1.32x | 1.31x |
+/// | 110 592 | 1.89x | 1.78x | 1.43x | 1.36x |
+/// | 262 144 | 2.51x | 2.19x | 1.49x | 1.41x |
+/// | 512 000 | **2.40x** | **2.47x** | **1.51x** | **1.51x** |
+///
+/// The reproduction confirms every qualitative claim and most quantitative ones:
+/// the loss at 4 096 cells, the crossover near 13 000, the ILU(0) plateau at
+/// **1.51x** (against 1.50x/1.51x originally — agreement to the last digit
+/// printed), and a Jacobi figure at 512 000 cells of 2.40x/2.47x against the
+/// original 2.65x/2.66x. Taking all four runs together the honest headline is
+/// **Jacobi 2.4-2.7x and ILU(0) ~1.5x at half a million cells**, not a single
+/// sharp value.
+///
+/// **The absolute milliseconds are not comparable between the two sets**, and
+/// this is worth stating rather than hiding: the reproduction's serial column is
+/// roughly 2x slower (2131 ms against 1107 ms for Jacobi at 512 000 cells)
+/// *despite* a lower load average. Both sets are internally consistent, so this
+/// is a change in the machine between sessions — this is a virtualised host and
+/// CPU allocation is not guaranteed stable across container restarts — not a
+/// change in the code. **Only the ratios should be quoted across sessions.**
+///
 /// **Interpretation.**
 ///
 /// - **There is a real end-to-end speed-up**, and this is the first time one has
@@ -982,11 +1064,15 @@ fn ilu0_serial_fraction_benchmark() {
 ///   consumed it and no solver speed-up was claimed. A whole Jacobi-preconditioned
 ///   BiCGStab solve on half a million cells is **2.65x faster** on 4 logical
 ///   cores, reproducibly (2.65x and 2.66x on two independent runs).
-/// - **ILU(0) tops out at 1.50x**, and `ilu0_serial_fraction_benchmark` explains
-///   exactly why: its sequential triangular solves are 51.6% of the solve, which
-///   caps any speed-up at about 1.9x by Amdahl's law. The gap between the two
-///   preconditioner columns is a direct measurement of what the sequential
-///   preconditioner costs.
+/// - **ILU(0) tops out at about 1.5x**, reproducibly (1.50x, 1.51x, 1.51x, 1.51x
+///   across four runs at 512 000 cells — the most stable figure in this file).
+///   `ilu0_serial_fraction_benchmark` accounts for most of that: its sequential
+///   triangular solves are 29-46% of the *serial* solve, capping the speed-up at
+///   roughly 1.7-2.1x on 4 cores. The measured 1.5x sits below that cap, so the
+///   sequential preconditioner is the dominant brake but not the whole story —
+///   the rest is ordinary parallel-efficiency loss in the half that does thread.
+///   The gap between the two preconditioner columns is a direct measurement of
+///   what the sequential preconditioner costs.
 /// - **At 4 096 cells the parallel solve LOSES** — 0.81x and 0.62x for Jacobi,
 ///   0.71x and 0.67x for ILU(0). That is exactly
 ///   [`SPMV_MIN_CELLS`](crate::ldu_matrix::parallel::SPMV_MIN_CELLS), the floor at

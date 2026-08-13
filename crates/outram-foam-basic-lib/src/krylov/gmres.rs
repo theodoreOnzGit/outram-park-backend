@@ -68,10 +68,13 @@
 //!
 //! | Cells | GMRES(30) speed-up | BiCGStab speed-up, same system |
 //! |---|---|---|
-//! | 4 096 | 0.75x | 0.81x |
-//! | 32 768 | 1.21x | 1.57x |
-//! | 110 592 | 1.26x | 1.84x |
-//! | 262 144 | 1.86x | 2.41x |
+//! | 4 096 | 0.62-0.75x (a loss) | 0.62-0.81x (a loss) |
+//! | 32 768 | 0.99-1.21x | 1.57-1.82x |
+//! | 110 592 | 1.26-1.30x | 1.78-1.89x |
+//! | 262 144 | 1.68-1.99x | 2.19-2.51x |
+//!
+//! Ranges span three independent runs of the benchmark (2026-08-13); the third,
+//! at load `1.75 1.56 0.89`, measured 0.68x / 1.05x / 1.27x / 1.68x.
 //!
 //! GMRES is behind BiCGStab at every size and catches up only as the mesh grows
 //! past the vector-operation floor, exactly as predicted. Full methodology,

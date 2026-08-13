@@ -58,11 +58,13 @@
 //! in who owns the index, and the backend is a parameter of both.
 //!
 //! Whole-solve wall clock on 4 logical cores, release, `--features parallel`,
-//! 512 000 cells, measured 2026-08-13: **2.65x** with Jacobi preconditioning,
-//! **1.50x** with ILU(0) — the gap being ILU(0)'s inherently sequential
-//! triangular solves, measured at 51.6% of solve time. Below roughly 13 000 cells
-//! the parallel path loses. Full tables, methodology and limitations are on the
-//! benchmarks in `hybrid_tests` and summarised on [`bicgstab_prepared`].
+//! 512 000 cells, measured 2026-08-13 over four independent runs: **2.4-2.7x**
+//! with Jacobi preconditioning, **~1.5x** with ILU(0) — the gap being ILU(0)'s
+//! inherently sequential triangular solves, measured at 29-46% of the *serial*
+//! solve, which caps it at 1.7-2.1x on 4 cores. Below roughly 13 000 cells the
+//! parallel path **loses** (0.6-0.8x at 4 096 cells). Full tables, methodology
+//! and limitations are on the benchmarks in `hybrid_tests` and summarised on
+//! [`bicgstab_prepared`].
 //!
 //! **Backend parity is bitwise**, not tolerance-based: `Serial` and `CpuMulti`
 //! produce identical iterates, identical residual histories and identical

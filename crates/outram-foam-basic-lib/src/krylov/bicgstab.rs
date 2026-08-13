@@ -142,16 +142,18 @@ pub fn bicgstab(
 /// # Measured end-to-end speed-up
 ///
 /// Whole-solve wall clock, `Serial` against `CpuMulti`, on an asymmetric
-/// 7-point-stencil system, 4 logical cores, release, `--features parallel`,
-/// 2026-08-13, best of 5 complete solves, load average ~1.45
-/// (`end_to_end_solve_speedup_benchmark`; this host never reaches idle):
+/// 7-point-stencil system, `available_parallelism()` = 4, release,
+/// `--features parallel`, 2026-08-13, best of 5 complete solves per figure.
+/// Ranges span **four independent runs** at load averages between 0.59 and 2.19
+/// (`end_to_end_solve_speedup_benchmark`; this host never reaches idle, so the
+/// parallel columns are pessimistic):
 ///
 /// | Cells | Jacobi-preconditioned | ILU(0)-preconditioned |
 /// |---|---|---|
-/// | 4 096 | **0.81x** (a loss) | **0.71x** (a loss) |
-/// | 32 768 | 1.57x | 1.27x |
-/// | 262 144 | 2.41x | 1.49x |
-/// | 512 000 | **2.65x** | **1.50x** |
+/// | 4 096 | **0.62-0.81x** (a loss) | **0.67-0.81x** (a loss) |
+/// | 32 768 | 1.57-1.82x | 1.25-1.32x |
+/// | 262 144 | 2.19-2.51x | 1.41-1.49x |
+/// | 512 000 | **2.40-2.66x** | **1.50-1.51x** |
 ///
 /// Two things a caller should take from this:
 ///
@@ -163,10 +165,11 @@ pub fn bicgstab(
 ///   the dispatch cost is paid every iteration. On this machine a solve does not
 ///   reliably win until roughly 13 000 cells.
 /// - **ILU(0) caps the achievable speed-up**, because its triangular solves are
-///   sequential and measure 51.6% of solve time at 262 144 cells — an Amdahl
-///   ceiling near 1.9x. Jacobi, whose apply is embarrassingly parallel, reaches
-///   2.65x. If you need the parallel win more than you need ILU(0)'s smaller
-///   iteration count, that trade is now quantified.
+///   sequential and measure **29-46% of the serial solve** — an Amdahl cap of
+///   1.7-2.1x on 4 cores. ILU(0) reaches ~1.5x, so it is held below even that cap
+///   by ordinary parallel-efficiency loss. Jacobi, whose apply is embarrassingly
+///   parallel, reaches 2.4-2.7x. If you need the parallel win more than you need
+///   ILU(0)'s smaller iteration count, that trade is now quantified.
 ///
 /// Full methodology, repeat runs and limitations are on the benchmarks in
 /// `crate::krylov::hybrid_tests`.

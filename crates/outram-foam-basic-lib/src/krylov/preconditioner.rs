@@ -330,8 +330,19 @@ impl Ilu0Preconditioner {
     ///
     /// The practical consequence is Amdahl's law: in a solve preconditioned with
     /// ILU(0), the fraction of time spent here is a hard serial floor on the
-    /// achievable speed-up. That fraction is measured, not assumed — see the
+    /// achievable speed-up. That fraction is measured, not assumed: on an
+    /// asymmetric 7-point-stencil system, 4 logical cores, release,
+    /// `--features parallel`, 2026-08-13, these triangular solves were **29-46%
+    /// of the serial solve time** (rising with problem size), which caps an
+    /// ILU(0)-preconditioned speed-up at **1.7-2.1x on 4 cores** and 2.2-3.4x on
+    /// infinitely many. The measured end-to-end figure is ~1.5x. Full derivation,
+    /// both repeat runs and the limitations are on the
     /// `ilu0_serial_fraction_benchmark` in `crate::krylov::hybrid_tests`.
+    ///
+    /// The **factorisation** ([`Self::new`]) is a further sequential cost on top:
+    /// at 262 144 cells it measured 148-151 ms against a 557-664 ms serial solve,
+    /// i.e. roughly a quarter of one solve, paid once per coefficient update
+    /// rather than once per iteration.
     ///
     /// # Arguments
     ///
