@@ -321,6 +321,58 @@ Energy 5, 1–93.
 - *Used by:* `op-jyyp.8` (fix the suspect decay-heat model), digitiser V&V.
 - *Note:* 1980 scan OCR'd in 2003 — text quality imperfect in places.
 
+## Proprietary tier — reports (`proprietary/reports/`)
+
+**`terry2005evaluation`** — Terry, W. K., Kim, S. S., Montierth, L. M.,
+Cogliati, J. J. and Ougouag, A. M. (2005). *Evaluation of the HTR-10 Reactor as
+a Benchmark for Physics Code QA.* INL/CON-05-00852 **(PREPRINT)**, Idaho
+National Laboratory; International Reactor Physics Experiment Program Working
+Group Meeting, November 2005. Obtained from
+<https://www.osti.gov/servlets/purl/911178> (accessed 2026-08-13).
+- *Tier rationale:* the preprint's own first page states it "should not be
+  cited or reproduced without permission of the author". OSTI hosting grants no
+  redistribution rights — tier follows the copyright page, not the host.
+- *Good for:* the IRPhEP benchmark-model dimensions of the HTR-10 initial
+  criticality experiment. Its Table 2 supplies the axial build that
+  IAEA-TECDOC-1382 part 2 does not carry as text — core cavity height
+  221.818 cm, conus height 36.946 cm — plus packing fraction 0.61 and the
+  19.5° upper-surface cone angle (the latter DEM-calculated, not measured).
+- *Does NOT contain:* the 83-zone R-Z boundaries of TECDOC Table 4-3. It is a
+  summary and directs the reader to the IRPhEP evaluation report itself.
+- *Citation caution:* for publication cite the IRPhEP evaluation report or the
+  IAEA TECDOCs, not this preprint, unless permission is obtained.
+- *Used by:* `docs/reactor-scoping/htr10-neutronics.md` (final section, values
+  transcribed with provenance); `op-tvmf`, `op-lhu6`, `op-5c5r`.
+
+## Proprietary tier — theses (`proprietary/theses/`)
+
+All three are UC Berkeley Electronic Theses and Dissertations, publicly readable
+via eScholarship but carrying a bare `Copyright <year>` with no reuse licence —
+author retains all rights, so: proprietary.
+
+**`wang2018coupled`** — Wang, Xin (2018). *Coupled neutronics and
+thermal-hydraulics modeling for pebble-bed Fluoride-Salt-Cooled,
+High-Temperature Reactor (FHR).* PhD thesis, UC Berkeley.
+<https://escholarship.org/uc/item/40q3985m>. © 2018 the author.
+- *Good for:* coupled neutronics/TH methodology for a pebble-bed FHR;
+  COMSOL-based neutron-diffusion + heat-transfer coupling. Relevant to the
+  Mk1 FHR line and to pebble-bed coupling strategy generally.
+
+**`poresky2019model`** — Poresky, Christopher Morris (2019). *Model Network
+Methodology for Experimental Development of Industrial Monitoring Systems.*
+PhD thesis, UC Berkeley. <https://escholarship.org/uc/item/9bz6h8d2>.
+© 2019 Christopher Poresky.
+- *Good for:* monitoring-system and digital-twin methodology; operator-facing
+  fault interfaces. Relevant to `outram-park-digital-twin-engine`.
+
+**`alivisatos2023evaluating`** — Alivisatos, Clara (2023). *Evaluating Remote
+Operations for Advanced Nuclear Reactor Control: Feasibility, Benefits, and
+Implementation Criteria.* PhD thesis, UC Berkeley.
+<https://escholarship.org/uc/item/1wt929p1>. © 2023 the author.
+- *Good for:* remote-operations feasibility and control-room criteria for
+  advanced reactors. Context for the digital-twin engine's intended-use
+  boundary — note RESPONSIBLE_USE.md forbids operational deployment.
+
 ## Librarian history
 
 - **2026-08-11** — full pass: staging cleared (two new documents catalogued,

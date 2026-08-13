@@ -962,3 +962,100 @@ step 1d will need serious compute budgeting.
 **Nothing here is validated.** No transport calculation of HTR-10 exists in this
 workspace, and per the workspace V&V rule none may be described as validated
 until the maintainer has personally reviewed it.
+
+---
+
+## Benchmark-model dimensions from Terry et al. (2005)
+
+**Added 2026-08-13.** These are the geometry values `op-tvmf` was opened to
+obtain. They close most — **not all** — of the gap that bead describes.
+
+### Provenance
+
+| Field | Value |
+|---|---|
+| Source | Terry, W. K.; Kim, S. S.; Montierth, L. M.; Cogliati, J. J.; Ougouag, A. M. |
+| Title | *Evaluation of the HTR-10 Reactor as a Benchmark for Physics Code QA* |
+| Report | INL/CON-05-00852 **(PREPRINT)** |
+| Venue | International Reactor Physics Experiment Program Working Group Meeting |
+| Organisation | Idaho National Laboratory |
+| Date | November 2005 |
+| Obtained from | <https://www.osti.gov/servlets/purl/911178> |
+| Date accessed | 2026-08-13 |
+| Access tier | **Proprietary** — `crates/kovan-literature/proprietary/reports/terry2005-htr10-benchmark-evaluation.pdf` (gitignored) |
+| Table | Table 2, "Individual and total uncertainties" |
+| Processing | Text extracted with `kovan lit import`; values transcribed by hand from the extracted table. No digitisation, no figure reading. |
+
+**Why proprietary despite public OSTI hosting.** The preprint's own first page
+states it "should not be cited or reproduced without permission of the author".
+Per `DATA_POLICY.md`, the tier comes from the document's copyright page, not
+from where it was downloaded — public hosting grants no redistribution rights.
+
+**Why the numbers may nonetheless be recorded here.** Facts are not
+copyrightable; the restriction attaches to reproducing the document, not to
+measurements of a reactor. Terry §1 further states that all descriptive data
+"were obtained from published documents, mainly two IAEA TECDOC reports" — both
+of which this workspace already holds in the **open** tier. So these values have
+an open provenance path.
+
+**Citation caution.** The no-citation-without-permission clause is a
+publication-ethics constraint. For any publication, cite the underlying IRPhEP
+evaluation report or the IAEA TECDOCs, **not** this preprint, unless permission
+has been obtained.
+
+### Values (nominal first, then the bounding value used in the uncertainty study)
+
+These are the **as-defined benchmark model** dimensions, not as-built plant
+values. The second column is a perturbation used to compute an uncertainty — it
+is *not* an alternative measurement.
+
+| Item | Nominal | Bounding | k_eff uncertainty |
+|---|---|---|--:|
+| Core radius | 90 cm | +17 pebbles | 1.9e-4 |
+| Core height (loading) | 123.06 cm | +17 pebbles | 3.7e-4 |
+| **Height of core cavity** | **221.818 cm** | 222.818 cm | 2.4e-4 |
+| **Height of conus** | **36.946 cm** | 39.6815 cm | 6.1e-4 |
+| Outer diameter of graphite reflector | 380 cm | 382 cm | 1.0e-4 |
+| Height of graphite reflector | 610 cm | 616.1 cm | 1e-5 |
+| Cold coolant channel diameter | 8.0 cm | 8.5 cm | 1e-5 |
+| Cold coolant channel radial location | 144.6 cm | 144.85 cm | 0 |
+| Cold coolant channel height | 405 cm | 415 cm | 0 |
+| Control-rod / irradiation channel diameter | 13 cm | 12.5 cm | 3.5e-4 |
+| Control-rod / irradiation channel height | 450 cm | 452 cm | 0 |
+| Control-rod / irradiation channel radial location | 102.1 cm | 102.35 cm | 9e-5 |
+| KLAK channel diameter (upper) | 6 cm | 6.2929 cm | 0 |
+| KLAK channel area (middle) | 88.2743 cm² | 97.1017 cm² | 2.8e-4 |
+| KLAK channel diameter (lower) | 6 cm | 6.2929 cm | 0 |
+| Hot gas duct | D = 30 cm, L = 100 cm | D = 31 cm, L = 119.25 cm | 0 |
+| Fuel discharge tube radius | 25 cm | 25.25 cm | 0 |
+| Fuel discharge tube height | 610 cm | 616.1 cm | 0 |
+| Fuel pebble diameter | 6.0 cm | 5.98 cm | 5.0e-4 |
+| **Pebble packing fraction** | **0.61** | 0.62 | 1.9e-3 |
+| **Upper-surface cone angle from horizontal** | **19.5°** | 17°, 22° | 2.14e-3 |
+| Pressure vessel + core barrel thickness | 0 | 10 cm | 1.2e-4 |
+| Graphite block gaps | none | 1 cm at reflector outside | 1.6e-4 |
+| **Total (RMS)** | | | **6.24e-3** |
+
+Materials from the same table, for completeness: buffer 0.009 cm / 1.1 g·cm⁻³,
+IPyC 0.004 cm / 1.9 g·cm⁻³, SiC 0.0035 cm / 3.18 g·cm⁻³, OPyC 0.004 cm /
+1.9 g·cm⁻³; uranium loading 5 g/pebble; fuel-pebble matrix 1.73 g·cm⁻³;
+reflector matrix 1.76 g·cm⁻³; boron in reflector graphite 4.8366 ppm; boron in
+fuel element 1.3 ppm; boron in dummy pebbles 0.125 ppm; boronated carbon bricks
+3.46349e-3 atoms·b⁻¹·cm⁻¹; O/U ratio 2.0; air at 0.1013 MPa, 15 °C.
+
+### What this does and does not resolve
+
+**Resolves** the axial build `op-tvmf` flagged as absent from the open text —
+core cavity height and conus height in particular, which could not be recovered
+from IAEA-TECDOC-1382 part 2 (its FIG. 4.10 survives only as a bare caption).
+It also independently confirms **packing fraction 0.61**, which `op-5c5r`
+requires for `sphere_packing`, and gives the **19.5° cone angle**.
+
+**Does NOT resolve** the 83-zone R-Z boundaries of Table 4-3. Terry §1 says this
+paper is a *summary* and directs the reader to the IRPhEP evaluation report
+itself (its ref. [3]) for the detailed benchmark model. Obtaining that report is
+the remaining work on `op-tvmf`.
+
+**Caveat on the cone angle:** Terry states 19.5° was *calculated* by an INL
+discrete-element code, and explicitly that "the cone angle was not measured in
+the experiment". Treat it as a modelling assumption, not data.
