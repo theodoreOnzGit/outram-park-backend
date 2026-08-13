@@ -224,9 +224,11 @@ Contributors should make their work easy to review. That is not a courtesy; it
 is the main determinant of whether a contribution lands.
 
 Response times are not guaranteed. The project maintains a
-[`DEVELOPER_HEALTH_WARNING.md`](./DEVELOPER_HEALTH_WARNING.md) and enforces
-working-hours limits on its own automation; silence outside those hours is
-intentional.
+[`DEVELOPER_HEALTH_WARNING.md`](./DEVELOPER_HEALTH_WARNING.md) and defines
+working hours for maintainer activity; silence outside those hours is
+intentional. As of 2026-08-13 the corresponding limit on the project's own AI
+automation is **opt-in per session** rather than always-on — see the
+"Working-hours guardrail" section of [`CLAUDE.md`](./CLAUDE.md).
 
 ---
 

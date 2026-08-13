@@ -2,13 +2,45 @@
 
 Guidance for Claude Code (and other AI assistants) working in this repository.
 
-## Working-hours guardrail (mandatory, human health & safety)
+## Working-hours guardrail (OPT-IN — ask at session start)
 
-**Before doing substantive work, check the real local time and day of week**
-with a system tool — do not infer it from conversation content, a cached
-date, or skip the check. Preferred: `date +'%Y-%m-%d %H:%M %A %Z'` via the
-Bash tool. Any equivalent works if `date` isn't available (`fastfetch`, a
-one-line Python `datetime.now()` / Rust `chrono::Local::now()` script).
+**This guardrail is OFF by default.** It is no longer a standing hard rule.
+It is enabled **per session, by the user**, in answer to a question you ask at
+the start of the session. Changed 2026-08-13 at the maintainer's request,
+relayed from a colleague; the history and rationale for the original rule are
+preserved under "Why it exists" below.
+
+### Asking (this part IS mandatory)
+
+**Ask once per session, before the first substantive work of that session.**
+Use the `AskUserQuestion` tool with one question — *"Enable the working-hours
+guardrail for this session?"* — offering **Off (default)** and **On**.
+
+- **Don't ask before purely conversational replies.** Ask at the point a turn
+  is about to become real work (writing code, running suites, agent fleets).
+- **Ask only once.** The session's answer holds until the session ends; a
+  compaction does not reset it. Do not re-prompt, and do not nag if the answer
+  was Off.
+- **If the question is skipped, dismissed, or unanswered, the answer is Off.**
+  Never treat silence as On.
+- The user may switch it on or off at any point by saying so in plain words —
+  honour that immediately, no confirmation question needed.
+
+### If the answer is Off (the default)
+
+No time check, no hour restriction, no rest-day rule. Work normally. Do not
+volunteer reminders about the maintainer's hours or health, and do not
+re-litigate the setting.
+
+### If the answer is On
+
+Everything below applies **for the rest of that session, as a hard rule**:
+
+**Check the real local time and day of week** with a system tool before
+substantive work — do not infer it from conversation content, a cached date, or
+skip the check. Preferred: `date +'%Y-%m-%d %H:%M %A %Z'` via the Bash tool. Any
+equivalent works if `date` isn't available (`fastfetch`, a one-line Python
+`datetime.now()` / Rust `chrono::Local::now()` script).
 
 **Active working hours** (local time to the repository owner, Asia/Singapore):
 
@@ -18,7 +50,7 @@ one-line Python `datetime.now()` / Rust `chrono::Local::now()` script).
 | Sunday | 12:00 – 19:00 |
 | Saturday | none — full rest day |
 
-**Outside these hours, this is a hard rule, not a default:**
+**Outside these hours, with the guardrail enabled:**
 
 - Do **not** answer substantive questions or add context, analysis, or
   explanation beyond the minimum needed to log something for later.
@@ -32,14 +64,24 @@ one-line Python `datetime.now()` / Rust `chrono::Local::now()` script).
   already-finished work to GitHub. Nothing beyond finishing and shipping
   work that already exists.
 
-**Why:** this protects the human maintainer's rest. Instituted 2026-07-11
-after a month of illness from overwork.
+**While enabled, the hour limits do not bend in the moment.** Opting in is a
+decision made at the start of a session; asking for a one-off exception at
+23:00 is not. If the user asks to work past the limit *within an enabled
+session*, say so plainly, log the request in beads for the next active window,
+and stop there — do not negotiate or justify. Turning the guardrail off
+outright is always the user's call and is honoured immediately (above); what
+this clause blocks is piecemeal erosion while it is on.
 
-**This rule does not bend in the moment.** If the user asks for an exception
-to it outside active hours, say so plainly, log the request in beads for the
-next active window, and stop there — do not negotiate, justify, or ask
-whether to make an exception. The rule exists specifically to hold when the
-person it protects is inclined to override it.
+### Why it exists
+
+It protects the human maintainer's rest. Instituted 2026-07-11 after a month of
+illness from overwork; the supporting analysis is in
+[`DEVELOPER_HEALTH_WARNING.md`](./DEVELOPER_HEALTH_WARNING.md). Making it
+opt-in does not retract that finding — it moves the decision to the human each
+session rather than having the assistant enforce it unilaterally.
+
+**To restore it as an always-on rule**, change the default in this section back
+to On and drop the "Asking" subsection. That is a maintainer decision.
 
 ## Responsible use & data policy (mandatory, NUS compliance)
 
@@ -543,8 +585,9 @@ migration is complete**: kopi-beans 0.1.2 reads and has migrated the store
 no reason to reach for `bd` here, and no supported way to.
 
 **This rule relaxes nothing.** The release-mode rule, the working-hours
-guardrail, never-auto-commit/push, the Android/Termux portability rule, and the
-data-policy rules all still bind when using either tool.
+guardrail *when it has been enabled for the session*, never-auto-commit/push,
+the Android/Termux portability rule, and the data-policy rules all still bind
+when using either tool.
 
 ## Agent-fleet progress reporting (HARD RULE, container-timeout prevention)
 
@@ -570,8 +613,9 @@ in-flight work.
 - **Keep it up until the fleet is fully done**, then post a final summary.
   Stop the heartbeat once there is nothing left running.
 - This does **not** relax any other rule — in particular the working-hours
-  guardrail above (do not run fleets outside active hours in the first place)
-  and the never-auto-commit/push rule.
+  guardrail above **when the session has opted into it** (with it on, do not
+  run fleets outside active hours in the first place) and the
+  never-auto-commit/push rule.
 
 ## Token accounting on every commit (mandatory, this workspace + all repos here)
 
@@ -1266,9 +1310,9 @@ the **maintainer-curated corrections log** live in **[`SINGLISH_MODE.md`](./SING
 In short: when the user asks for "Singlish mode" (or "lah mode" etc.), reply in
 Singlish for the *conversational prose only*; **code, comments, commit messages,
 `README`/`docs`, V&V write-ups, and beads stay clear standard English**, and no
-mandatory rule (working-hours guardrail, responsible-use / data policy, V&V docs,
-Rust design rules, never-auto-commit/push) is relaxed — correctness and honesty
-come first. **When in Singlish mode, read `SINGLISH_MODE.md` and apply its logged
+mandatory rule (responsible-use / data policy, V&V docs, Rust design rules,
+never-auto-commit/push — and the working-hours guardrail whenever the session
+has opted into it) is relaxed — correctness and honesty come first. **When in Singlish mode, read `SINGLISH_MODE.md` and apply its logged
 corrections.** Default is standard English; opt-in only.
 
 
