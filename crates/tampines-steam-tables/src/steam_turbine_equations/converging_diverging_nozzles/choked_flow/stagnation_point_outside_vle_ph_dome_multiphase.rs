@@ -52,6 +52,19 @@ use super::basic_multiphase_equations::dew_point_pressure_from_entropy;
 /// Golden-section maximisation of the HEM energy-balance mass flux `g_of_p`
 /// over the pressure bracket `[a_pa, b_pa]` (both in Pa, `a_pa <= b_pa`).
 ///
+/// **This is the crate's only golden-section search.** Every HEM choked-flow
+/// path that needs one calls this function: the in-dome solver
+/// [`super::get_critical_pressure_and_mass_flux_ph_vle_dome`], the subcooled
+/// solver [`get_critical_pressure_and_mass_flux_subcooled_liquid_ph`], the
+/// superheated-vapour solver
+/// [`get_critical_pressure_and_mass_flux_superheated_vapour_ph`], and the
+/// near-critical `dome_crossing_interior_choke` refinement in the parent module.
+/// Do not write a fourth copy — bead `op-uyi3` records that three inline
+/// rewrites of this loop had already accumulated in this crate and had begun to
+/// drift from each other in incidental detail.
+///
+/// # Method
+///
 /// `g_of_p` is unimodal on each single-phase / two-phase stretch of the
 /// isentrope (zero at the high-pressure end, a single interior peak at the
 /// choke, then falling toward `p_min`), so this is robust and needs no
@@ -59,12 +72,74 @@ use super::basic_multiphase_equations::dew_point_pressure_from_entropy;
 /// the appropriate endpoint, which is the intended behaviour when the real peak
 /// lies in the neighbouring stretch.
 ///
-/// Reference:
-///   Price, C. J., & Robertson, B. L. (2012). Golden Section Search.
-///   In Encyclopedia of Engineering Optimization and Heuristics
-///   (pp. 1-4). Singapore: Springer Nature Singapore.
+/// **Unimodality is a precondition the search cannot check.** On a bracket with
+/// two basins it returns one of them, silently. The `dome_crossing_interior_choke`
+/// caller is the example to copy: it coarse-scans 1500 points first and only
+/// hands this function a bracket already known to contain the right peak.
+///
+/// # One objective evaluation per iteration
+///
+/// The contraction constant `gr = (sqrt(5) - 1)/2` is chosen precisely so that
+/// one interior probe of the contracted bracket **coincides** with a probe of
+/// the previous bracket. That probe is therefore carried across the iteration
+/// rather than recomputed, so each iteration after the first costs a **single**
+/// call to `g_of_p`. This matters here because `g_of_p` is an IAPWS-IF97 `(p,s)`
+/// flash, not an arithmetic expression.
+///
+/// A search that performs `k` iterations calls `g_of_p` exactly `k + 3` times:
+/// two initial probes, one per iteration, and one final evaluation at the
+/// returned midpoint.
+///
+/// # Measured (2026-08-13, release)
+///
+/// On the Gaussian regression objective of
+/// `tests::golden_section_shared_search` over `[1.0e4, 1.0e7]` Pa with the 1 Pa
+/// stopping rule, this form uses **PENDING-MEASUREMENT** objective evaluations
+/// against the **69** used by the recompute-both form it replaced, and locates
+/// the same maximum (analytic `3.0e6` Pa).
+///
+/// # Numerical note — reuse is not bit-identical to recomputation
+///
+/// The carried-over probe keeps the abscissa it was evaluated at, whereas
+/// recomputing `a + gr*(b - a)` on the contracted bracket gives a value that
+/// differs in the last bits. Iterates can therefore differ from the
+/// recompute-both form at the `1e-16` relative level. That is ~10 orders of
+/// magnitude below this function's 1 Pa absolute stopping rule on brackets of
+/// order `1e5`–`1e7` Pa. The measured consequence on the four production solver
+/// paths and on the Marviken / Zaloudek / Moody V&V gates is recorded in
+/// `tests::golden_section_shared_search`; read the numbers there rather than
+/// assuming this note's error analysis was borne out.
+///
+/// # Arguments
+///
+/// * `g_of_p` — the objective, taking a pressure in **pascals as a bare `f64`**
+///   and returning a `uom`-typed [`MassFlux`]. The bare `f64` is deliberate: the
+///   bracket arithmetic is scale-free and would gain nothing from being typed,
+///   while the objective's *value* stays dimensioned so a caller cannot confuse
+///   a mass flux with a pressure.
+/// * `a_pa`, `b_pa` — the bracket ends in pascals, with `a_pa <= b_pa`. A
+///   bracket already narrower than 1 Pa returns its midpoint after the two
+///   initial probes.
+///
+/// # Returns
+///
+/// `(p*, G(p*))` — the located choke pressure and the mass flux there, both
+/// `uom`-typed. `p*` is the midpoint of the final bracket, so for a unimodal
+/// objective it is within 0.5 Pa of the true maximum.
+///
+/// # Reference
+///
+/// Price, C. J., & Robertson, B. L. (2012). Golden Section Search.
+/// In Encyclopedia of Engineering Optimization and Heuristics
+/// (pp. 1-4). Singapore: Springer Nature Singapore.
+///
+/// A batched, backend-dispatched generalisation of this same algorithm — same
+/// contraction constant, same citation — lives at
+/// `outram_foam_basic_lib::math::minimise::golden_section_batch` and names this
+/// function as its provenance. That crate is **not** a dependency of
+/// `tampines-steam-tables` and deliberately so; see bead `op-uyi3`.
 #[inline]
-fn golden_section_max_g(
+pub(crate) fn golden_section_max_g(
     g_of_p: impl Fn(f64) -> MassFlux,
     a_pa: f64,
     b_pa: f64,
@@ -72,21 +147,33 @@ fn golden_section_max_g(
     let gr = (5.0_f64.sqrt() - 1.0) / 2.0; // 0.618...
     let mut a = a_pa;
     let mut b = b_pa;
+    // c is the left interior probe, d the right one: with 1 - gr == gr^2,
+    // c = a + gr^2*(b - a) and d = a + gr*(b - a).
     let mut c = b - gr * (b - a);
     let mut d = a + gr * (b - a);
+    let mut gc = g_of_p(c).get::<kilogram_per_square_meter_second>();
+    let mut gd = g_of_p(d).get::<kilogram_per_square_meter_second>();
     for _ in 0..100 {
         if (b - a).abs() < 1.0 {
             break;
         } // 1 Pa bracket width
-        let gc = g_of_p(c).get::<kilogram_per_square_meter_second>();
-        let gd = g_of_p(d).get::<kilogram_per_square_meter_second>();
         if gc > gd {
-            b = d; // peak is in [a, d]
+            // peak is in [a, d]. The new right probe of [a, d] is exactly the
+            // old left probe c, so carry it over and evaluate only the new c.
+            b = d;
+            d = c;
+            gd = gc;
+            c = b - gr * (b - a);
+            gc = g_of_p(c).get::<kilogram_per_square_meter_second>();
         } else {
-            a = c; // peak is in [c, b]
+            // peak is in [c, b]. The new left probe of [c, b] is exactly the
+            // old right probe d, so carry it over and evaluate only the new d.
+            a = c;
+            c = d;
+            gc = gd;
+            d = a + gr * (b - a);
+            gd = g_of_p(d).get::<kilogram_per_square_meter_second>();
         }
-        c = b - gr * (b - a);
-        d = a + gr * (b - a);
     }
     let p_star = Pressure::new::<pascal>(0.5 * (a + b));
     (p_star, g_of_p(p_star.get::<pascal>()))
@@ -154,33 +241,17 @@ pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(
     let p_bubble = bubble_point_pressure_from_entropy(s0);
 
     // Energy-balance choke candidate: golden-section maximise G_energy over
-    // [p_min, p_bubble]. G is unimodal here, so this is robust and needs no
-    // derivative of the noisy sound speed.
-    //
-    // Reference:
-    //   Price, C. J., & Robertson, B. L. (2012). Golden Section Search.
-    //   In Encyclopedia of Engineering Optimization and Heuristics
-    //   (pp. 1-4). Singapore: Springer Nature Singapore.
+    // [p_min, p_bubble] with the shared [`golden_section_max_g`]. G is unimodal
+    // here, so this is robust and needs no derivative of the noisy sound speed.
+    // This used to be an inline copy of that loop (bead `op-uyi3`); it is a call
+    // now so the two cannot drift.
     let g_bubble = g_energy_of_p(p_bubble.get::<pascal>());
-    let gr = (5.0_f64.sqrt() - 1.0) / 2.0; // 0.618...
-    let mut a = p_min.get::<pascal>();
-    let mut b = p_bubble.get::<pascal>();
-    let mut c = b - gr * (b - a);
-    let mut d = a + gr * (b - a);
-    for _ in 0..100 {
-        if (b - a).abs() < 1.0 {
-            break;
-        } // 1 Pa bracket width
-        if g_energy_of_p(c) > g_energy_of_p(d) {
-            b = d; // peak is in [a, d]
-        } else {
-            a = c; // peak is in [c, b]
-        }
-        c = b - gr * (b - a);
-        d = a + gr * (b - a);
-    }
-    let p_two_phase = Pressure::new::<pascal>(0.5 * (a + b));
-    let g_two_phase = g_energy_of_p(p_two_phase.get::<pascal>());
+    let (p_two_phase, g_two_phase_typed) = golden_section_max_g(
+        |p_pa| MassFlux::new::<kilogram_per_square_meter_second>(g_energy_of_p(p_pa)),
+        p_min.get::<pascal>(),
+        p_bubble.get::<pascal>(),
+    );
+    let g_two_phase = g_two_phase_typed.get::<kilogram_per_square_meter_second>();
 
     let (p_energy, g_energy) = if g_two_phase >= g_bubble {
         (p_two_phase, g_two_phase) // flashing choke
