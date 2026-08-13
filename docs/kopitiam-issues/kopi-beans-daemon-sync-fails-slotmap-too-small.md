@@ -111,3 +111,72 @@ may or may not be relevant, offered as data rather than diagnosis:
 this session's GitHub scope, so this is queued here for upstreaming per the
 workspace `CLAUDE.md` "Raising issues" rule. Everything above is transcribed
 from commands actually run on 2026-08-12; no output is reconstructed.
+
+---
+
+# UPDATE 2026-08-13 — a worse symptom: silent data loss AFTER reported success
+
+The original report above was about `bn sync` hanging and creates not reaching
+the store ref. That was recoverable — the data was still in the WAL and the
+daemon eventually flushed it. **This update records a harder failure: beads that
+were created, used, and in one case explicitly closed, and have since vanished
+from a store that believes itself fully synced.**
+
+## What was lost
+
+Three beads filed by agents during this session are gone:
+
+| id | filed for | evidence it existed |
+|---|---|---|
+| `op-ad6h` | the `ode::normalize_error` NaN defect | **`bn close op-ad6h` printed `✓ Closed op-ad6h: Done`** |
+| `op-zwk0` | the same defect in two vendored ODE trees | an agent reported filing it; a later agent could not `bn show` it |
+| `op-3ep6` | GPU fixed-rule quadrature | filed and reported by the `op-yvj.4.5` agent |
+
+## The state that makes this a defect rather than a pending flush
+
+```
+$ bn show op-ad6h
+ ERROR error: bead not found: op-ad6h
+
+$ git cat-file -p refs/heads/beads/store:state.jsonl | grep -c '"op-ad6h"'
+0
+$ git cat-file -p refs/remotes/origin/beads/store:state.jsonl | grep -c '"op-ad6h"'
+0
+
+$ bn status
+  Total Issues:      956
+  dirty:             false
+  last_sync:         2026-08-13 05:09
+```
+
+`dirty: false` with a recent `last_sync` means the daemon considers everything
+written. It is not waiting to flush; it has concluded it is done. The beads are
+absent from bn's index, the local ref, and origin.
+
+Beads filed EARLIER in the same session by a different agent (`op-uyi3`,
+`op-px11`, `op-fwe7`, `op-jwer`) are all present. So this is not "the store is
+broken" — it is selective loss of a later window of writes.
+
+## Why this is the serious one
+
+`bn close op-ad6h` returned success. A tracker that acknowledges a state
+transition on a record it will later not have is worse than one that refuses,
+because the caller has no signal to retry. Every earlier symptom in this file
+at least left the data in the WAL.
+
+Consequence for this repository: three code comments and several commit
+messages now cite bead ids that do not resolve. The content was preserved in
+commit messages instead, because git has been the only reliable storage in this
+environment.
+
+## Suggested handling, in priority order
+
+1. **Never acknowledge a mutation that is not durable.** `bn create` and
+   `bn close` should not return success until the write is recoverable.
+2. **`dirty: false` must mean it.** If writes can be dropped between
+   acknowledgement and sync, the status flag is actively misleading.
+3. A `bn fsck`-style reconciliation that reports acknowledged-but-absent ids
+   would at least make the loss detectable rather than discovered by a later
+   `bn show` failing.
+
+Everything above is transcribed from commands actually run on 2026-08-13.
