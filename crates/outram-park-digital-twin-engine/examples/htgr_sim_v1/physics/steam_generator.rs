@@ -832,6 +832,32 @@ impl NodalisedCounterFlowSteamGenerator {
         hot_side_helium.set_he_convection_scheme(
             outram_park_fork_coolprop::openfoam_algorithms::rhoPimpleFoam::EnergyConvectionScheme::VanLeer,
         );
+        // IMPLICIT energy convection on the helium side.
+        //
+        // The hot side is what binds this exchanger's timestep: `Co_hot` is
+        // 4.97x `Co_cold`, so the substep count exists for the helium array
+        // alone. With convection explicit, that limit is hard -- the PIMPLE
+        // outer-corrector loop is a Picard iteration whose contraction factor
+        // *is* the cell Courant number, so above `Co = 1` it diverges however
+        // many correctors are used (measured: 0.05 s panics at 4, 8 and 16;
+        // 0.1 s at 8 and 32). Putting `div(phi h)` in the matrix removes that
+        // ceiling; the limiter survives as a deferred correction.
+        //
+        // This costs accuracy at LOW Courant and the trade is deliberate.
+        // Implicit upwind's numerical diffusion is `(u dx/2)(1 + Co)` against
+        // the explicit `(u dx/2)(1 - Co)`, so implicit smears where explicit
+        // sharpens. At this exchanger's operating point the two modes agree to
+        // 0.033% of span, while dropping the limiter would cost 8.6% -- the
+        // deferred correction carries roughly 300x more than the time
+        // treatment does. Maintainer's call, 2026-08-13: "I prioritise
+        // stability over all Courant numbers, the error isn't even that bad."
+        //
+        // Set explicitly rather than inherited: the crate default is
+        // `Explicit`, deliberately, because most consumers run well below
+        // `Co = 1` where explicit is the more accurate choice.
+        hot_side_helium.set_he_balance_mode(
+            outram_park_fork_coolprop::openfoam_algorithms::rhoPimpleFoam::EnergyBalanceMode::Implicit,
+        );
         hot_side_helium.set_pimple_algorithm(
             config.hot_correctors.n_outer,
             config.hot_correctors.n_inner,
