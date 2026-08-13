@@ -128,12 +128,14 @@ pub use crate::fluid_thermo::{ConstSolidThermo, FluidThermo, PsiThermo, RhoTherm
 pub use crate::ldu_matrix::{conjugate_gradient, gamg, gauss_seidel};
 
 // --- FvMatrix/FvVectorMatrix bridge onto the asymmetric Krylov solvers ---
-pub use crate::ldu_matrix::{krylov_solve, KrylovMethod, KrylovOptions, PreconditionerKind};
+pub use crate::ldu_matrix::{
+    krylov_solve, krylov_solve_prepared, KrylovMethod, KrylovOptions, PreconditionerKind,
+};
 
 // --- Asymmetric Krylov solvers + preconditioners ---
 pub use crate::krylov::{
-    bicgstab, gmres, Ilu0Preconditioner, JacobiPreconditioner, KrylovResult, KrylovSettings,
-    Preconditioner,
+    bicgstab, bicgstab_prepared, gmres, gmres_prepared, Ilu0Preconditioner, JacobiPreconditioner,
+    KrylovResult, KrylovSettings, Preconditioner,
 };
 
 // -- Interface ---
@@ -175,6 +177,7 @@ pub use crate::fields::parallel::{
 // prefix is unwanted.
 pub use crate::ldu_matrix::parallel::{
     axpy as ldu_axpy, dot as ldu_dot, norm_l1 as ldu_norm_l1, norm_l2 as ldu_norm_l2,
+    scale as ldu_scale,
     spmv_backend_for, vecop_backend_for, HybridLdu, LduTopology, CELL_BLOCK, REDUCTION_BLOCK,
     SPMV_MIN_CELLS, VECOP_MIN_ELEMENTS,
 };
