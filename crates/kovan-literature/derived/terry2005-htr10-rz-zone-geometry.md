@@ -280,15 +280,15 @@ place the map departs from row structure.
 |--:|---|---|--:|---|
 | **7** | [0, 25.0] | **[495, 540]** | 2 | Dummy pebbles |
 | **17** | [25.0, 95.6] | [510, 540] | 1 | Boronated carbon bricks |
-| 46 | [95.6, 108.6] † | [510, 540] | 1 | Boronated carbon bricks |
-| 55 | [108.6, 140.6] † | [510, 540] | 1 | Boronated carbon bricks |
-| 64 | [140.6, 148.6] † | [510, 540] | 1 | Boronated carbon bricks |
-| 72 | [148.6, 167.793] † | [510, 540] | 1 | Boronated carbon bricks |
+| 46 | [95.6, 108.6] | [510, 540] | 1 | Boronated carbon bricks |
+| 55 | [108.6, 140.6] | [510, 540] | 1 | Boronated carbon bricks |
+| 64 | [140.6, 148.6] | [510, 540] | 1 | Boronated carbon bricks |
+| 72 | [148.6, 167.793] | [510, 540] | 1 | Boronated carbon bricks |
 | **78** | [167.793, 190.0] | **[495, 540]** | 2 | Boronated carbon bricks |
 
-† *Radial spans for 46, 55, 64 and 72 were **not stated explicitly**; they are
-inferred by analogy with the bottom row's one-band-each pattern, which the zone
-numbering independently supports (see below). Verify before use.*
+*Confirmed by the maintainer, 2026-08-13: "46, 55, 64 and 72 all have one band
+only." These spans had been inferred by analogy with the bottom row and are now
+attested, so the whole layer is read rather than partly reconstructed.*
 
 **Known gap.** Zones 7 and 78 span `z ∈ [495, 540]` while the five between them
 stop at 510. So the strip `z ∈ [495, 510]`, `r ∈ [25.0, 167.793]` is **not
