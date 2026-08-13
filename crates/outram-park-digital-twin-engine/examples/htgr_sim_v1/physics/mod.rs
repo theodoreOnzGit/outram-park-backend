@@ -163,6 +163,9 @@ pub mod primary_loop;
 pub mod protection;
 pub mod secondary_loop;
 pub mod steam_generator;
+/// Remedies for a steam-generator temperature cross -- see the module docs for
+/// why they exist and why the default does nothing.
+pub mod temperature_cross;
 pub mod turbine_generator;
 
 use outram_park_digital_twin_engine::animation::residence_time_from_flow;
