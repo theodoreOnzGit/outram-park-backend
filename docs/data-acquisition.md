@@ -60,6 +60,21 @@ where the bytes came from:
 - All behind a `net-fetch` feature (or a separate companion crate) so the default
   lean build pulls none of it.
 
+> **Amendment, 2026-08-13 — the cache substrate is no longer feature-gated.**
+> `njoy-outram-park-fork`'s `acquire::EndfCache` gained a second producer that
+> has nothing to do with the network: `EndfCache::get_or_produce`, used by the
+> offline `leapr::generate` path to cache *regenerated* thermal-scattering
+> `S(alpha, beta)` tapes. So the crate now splits the module in two:
+>
+> - **Always compiled** — `EndfCache` and the safety contract below
+>   (`directories`, `fs2`, `sha2`). All three are small, pure-Rust and build for
+>   `aarch64-linux-android`.
+> - **Behind `net-fetch`** — the HTTP/TLS and zip halves only (`ureq`, `zip`).
+>
+> The property this section cared about is unchanged: a default build still
+> pulls **no TLS/HTTP dependency tree**. What changed is that there is exactly
+> one caching layer in the crate rather than one per producer.
+
 ## Safety checks — especially for parallel runs
 
 The fetch/cache layer must be correct under multiple processes (parallel sim
