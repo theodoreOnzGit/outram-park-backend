@@ -209,12 +209,7 @@ fn load_average() -> String {
         .ok()
         .and_then(|s| {
             let mut it = s.split_whitespace();
-            Some(format!(
-                "{} {} {}",
-                it.next()?,
-                it.next()?,
-                it.next()?
-            ))
+            Some(format!("{} {} {}", it.next()?, it.next()?, it.next()?))
         })
         .unwrap_or_else(|| "unavailable".to_string())
 }
@@ -316,7 +311,10 @@ fn every_combination_matches_the_dense_lu_solution() {
                     r.final_residual,
                     err
                 );
-                assert!(r.converged, "{pname}/{gmres}/{backend:?} did not converge: {r:?}");
+                assert!(
+                    r.converged,
+                    "{pname}/{gmres}/{backend:?} did not converge: {r:?}"
+                );
                 assert!(
                     err <= 1e-8,
                     "{pname}/{gmres}/{backend:?}: error vs dense LU {err:.3e} exceeds 1e-8"
@@ -388,8 +386,14 @@ fn backend_parity_is_bitwise() {
             let label = if gmres { "gmres" } else { "bicgstab" };
             let (xs, rs, hs) =
                 solve_all(&ldu, &b, precond, &settings, ComputeBackend::Serial, gmres);
-            let (xp, rp, hp) =
-                solve_all(&ldu, &b, precond, &settings, ComputeBackend::CpuMulti, gmres);
+            let (xp, rp, hp) = solve_all(
+                &ldu,
+                &b,
+                precond,
+                &settings,
+                ComputeBackend::CpuMulti,
+                gmres,
+            );
 
             eprintln!(
                 "{pname:9} {label:8}: serial {} iters, cpu-multi {} iters, history len {}/{}",
@@ -700,7 +704,10 @@ fn blocked_versus_flat_reduction_does_not_move_iteration_counts() {
             0.0
         } else {
             (r_blocked.final_residual - r_flat.final_residual).abs()
-                / r_blocked.final_residual.abs().max(r_flat.final_residual.abs())
+                / r_blocked
+                    .final_residual
+                    .abs()
+                    .max(r_flat.final_residual.abs())
         };
         eprintln!(
             "{:>4}^3 {:>7} {:>7} {:>7} {:>24.14e} {:>24.14e} {:>11.2e}",
@@ -713,7 +720,10 @@ fn blocked_versus_flat_reduction_does_not_move_iteration_counts() {
             rel_diff
         );
 
-        assert!(r_blocked.converged && r_flat.converged, "{cells} cells: one variant did not converge");
+        assert!(
+            r_blocked.converged && r_flat.converged,
+            "{cells} cells: one variant did not converge"
+        );
         assert_eq!(
             r_blocked.n_iterations, r_flat.n_iterations,
             "{cells} cells: blocked and flat reductions disagree on the iteration count"
@@ -967,15 +977,8 @@ fn end_to_end_solve_speedup_benchmark() {
                     .enumerate()
                 {
                     let t = Instant::now();
-                    let (x, r) = bicgstab_impl(
-                        &ldu,
-                        &b,
-                        None,
-                        precond,
-                        &settings,
-                        backend,
-                        &mut Vec::new(),
-                    );
+                    let (x, r) =
+                        bicgstab_impl(&ldu, &b, None, precond, &settings, backend, &mut Vec::new());
                     let ms = t.elapsed().as_secs_f64() * 1e3;
                     std::hint::black_box(&x);
                     assert!(r.converged, "{cells} cells: did not converge");

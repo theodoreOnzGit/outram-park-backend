@@ -1585,12 +1585,7 @@ pub fn scale(alpha: f64, x: &mut [f64], backend: ComputeBackend) {
 
 /// [`scale`] with a caller-supplied size floor; see [`HybridLdu::spmv_into_min`]
 /// for why the `_min` variants exist.
-pub(crate) fn scale_min(
-    alpha: f64,
-    x: &mut [f64],
-    backend: ComputeBackend,
-    min_work_items: usize,
-) {
+pub(crate) fn scale_min(alpha: f64, x: &mut [f64], backend: ComputeBackend, min_work_items: usize) {
     match effective_backend(backend, x.len(), min_work_items) {
         #[cfg(feature = "parallel")]
         ComputeBackend::CpuMulti => {
