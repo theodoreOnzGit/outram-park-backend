@@ -143,8 +143,19 @@ fn push_tab1(
     interp: &[(i32, i32)],
     pairs: &[(f64, f64)],
 ) {
-    push_cont(rows, c1, c2, l1, l2, interp.len() as i32, pairs.len() as i32);
-    let iflat: Vec<f64> = interp.iter().flat_map(|&(a, b)| [a as f64, b as f64]).collect();
+    push_cont(
+        rows,
+        c1,
+        c2,
+        l1,
+        l2,
+        interp.len() as i32,
+        pairs.len() as i32,
+    );
+    let iflat: Vec<f64> = interp
+        .iter()
+        .flat_map(|&(a, b)| [a as f64, b as f64])
+        .collect();
     push_packed(rows, &iflat);
     let pflat: Vec<f64> = pairs.iter().flat_map(|&(a, b)| [a, b]).collect();
     push_packed(rows, &pflat);
@@ -162,7 +173,10 @@ fn push_tab2(
     interp: &[(i32, i32)],
 ) {
     push_cont(rows, c1, c2, l1, l2, interp.len() as i32, nz);
-    let iflat: Vec<f64> = interp.iter().flat_map(|&(a, b)| [a as f64, b as f64]).collect();
+    let iflat: Vec<f64> = interp
+        .iter()
+        .flat_map(|&(a, b)| [a as f64, b as f64])
+        .collect();
     push_packed(rows, &iflat);
 }
 
@@ -275,7 +289,12 @@ fn stored_s(out: &LeaprOutput, i: usize, j: usize, nt: usize, be: f64) -> f64 {
     let base = match out.isym {
         0 | 2 => ssm.get(i, j),
         1 | 3 => {
-            let ssp = out.ssp.as_ref().expect("odd isym requires ssp").get(nt).unwrap();
+            let ssp = out
+                .ssp
+                .as_ref()
+                .expect("odd isym requires ssp")
+                .get(nt)
+                .unwrap();
             if i + 1 < nbeta {
                 ssm.get(nbeta - 1 - i, j)
             } else {
@@ -305,7 +324,11 @@ fn stored_s(out: &LeaprOutput, i: usize, j: usize, nt: usize, be: f64) -> f64 {
             _ => 1.0,
         };
         let raw = base * factor;
-        let v = if raw >= 1e-9 { sigfig(raw, 7, 0) } else { sigfig(raw, 6, 0) };
+        let v = if raw >= 1e-9 {
+            sigfig(raw, 7, 0)
+        } else {
+            sigfig(raw, 6, 0)
+        };
         if v < out.smin {
             0.0
         } else {
@@ -339,24 +362,32 @@ fn build_inelastic(out: &LeaprOutput) -> Vec<[f64; 6]> {
 
     // B-constants LIST (3301–3323). NI=6 for a single scatterer; NS=0.
     let b = [
-        (out.npr as f64) * out.spr,        // B(1) bound-ish xsec factor > 0
-        out.beta[nbeta - 1],               // B(2)
-        out.awr,                           // B(3) = A
+        (out.npr as f64) * out.spr, // B(1) bound-ish xsec factor > 0
+        out.beta[nbeta - 1],        // B(2)
+        out.awr,                    // B(3) = A
         sigfig(THERM * out.beta[nbeta - 1], 7, 0), // B(4)
-        0.0,                               // B(5)
-        out.npr as f64,                    // B(6)
+        0.0,                        // B(5)
+        out.npr as f64,             // B(6)
     ];
     let l1 = if out.ilog { 1 } else { 0 };
     push_list(&mut rows, 0.0, 0.0, l1, 0, 0, &b);
 
     // TAB2 over beta (3324–3334). nbt doubles for odd isym (+/- beta).
-    let nbt = if out.isym == 1 || out.isym == 3 { 2 * nbeta - 1 } else { nbeta };
+    let nbt = if out.isym == 1 || out.isym == 3 {
+        2 * nbeta - 1
+    } else {
+        nbeta
+    };
     push_tab2(&mut rows, 0.0, 0.0, 0, 0, nbt as i32, &[(nbt as i32, 4)]);
 
     // For each output beta, one S(alpha) TAB1 at temp 0 + a LIST per extra temp.
     for i in 0..nbt {
         for nt in 0..ntempr {
-            let sc = if out.lat == 1 { THERM / (BK * out.temperatures_k[nt]) } else { 1.0 };
+            let sc = if out.lat == 1 {
+                THERM / (BK * out.temperatures_k[nt])
+            } else {
+                1.0
+            };
             let beta_i = output_beta(out, i);
             let be = beta_i * sc;
             if nt == 0 {
@@ -373,8 +404,7 @@ fn build_inelastic(out: &LeaprOutput) -> Vec<[f64; 6]> {
                     &pairs,
                 );
             } else {
-                let svals: Vec<f64> =
-                    (0..nalpha).map(|j| stored_s(out, i, j, nt, be)).collect();
+                let svals: Vec<f64> = (0..nalpha).map(|j| stored_s(out, i, j, nt, be)).collect();
                 push_list(&mut rows, out.temperatures_k[nt], beta_i, 4, 0, 0, &svals);
             }
         }
@@ -382,7 +412,12 @@ fn build_inelastic(out: &LeaprOutput) -> Vec<[f64; 6]> {
 
     // Trailing effective-temperature TAB1 (3599–3617): (T, T_eff) pairs.
     let teff: Vec<(f64, f64)> = (0..ntempr)
-        .map(|i| (sigfig(out.temperatures_k[i], 7, 0), sigfig(out.tempf[i], 7, 0)))
+        .map(|i| {
+            (
+                sigfig(out.temperatures_k[i], 7, 0),
+                sigfig(out.tempf[i], 7, 0),
+            )
+        })
         .collect();
     push_tab1(&mut rows, 0.0, 0.0, 0, 0, &[(ntempr as i32, 2)], &teff);
 
@@ -404,11 +439,25 @@ pub fn endout(out: &LeaprOutput) -> Tape {
         ElasticOutput::Incoherent { sb_npr } => Some(build_incoherent_elastic(out, *sb_npr)),
     };
     if let Some(rows) = elastic_rows {
-        sections.push(Section { key: EndfKey { mat: out.mat, mf: 7, mt: 2 }, rows });
+        sections.push(Section {
+            key: EndfKey {
+                mat: out.mat,
+                mf: 7,
+                mt: 2,
+            },
+            rows,
+        });
     }
 
     let inel_rows = build_inelastic(out);
-    sections.push(Section { key: EndfKey { mat: out.mat, mf: 7, mt: 4 }, rows: inel_rows });
+    sections.push(Section {
+        key: EndfKey {
+            mat: out.mat,
+            mf: 7,
+            mt: 4,
+        },
+        rows: inel_rows,
+    });
 
     Tape::from_sections(" leapr MF=7 thermal scattering tape".to_string(), sections)
 }
@@ -466,7 +515,11 @@ mod tests {
         assert!((ii.b[2] - out.awr).abs() < 1e-6, "B(3) = A = AWR");
         // grid survives exactly (alpha/beta are written unrounded)
         assert_eq!(ii.beta, out.beta, "beta grid identical");
-        assert_eq!(ii.s_tables.len(), out.beta.len(), "one S(alpha) table per beta");
+        assert_eq!(
+            ii.s_tables.len(),
+            out.beta.len(),
+            "one S(alpha) table per beta"
+        );
         for (ib, tbl) in ii.s_tables.iter().enumerate() {
             assert_eq!(tbl.alpha, out.alpha, "alpha grid identical for beta {ib}");
             assert!(tbl.s.iter().all(|&s| s >= 0.0), "S >= 0");
@@ -479,8 +532,14 @@ mod tests {
         }
         // effective-temperature TAB1 survives
         assert!(!ii.teff_table.is_empty(), "T_eff table present");
-        assert!((ii.teff_table[0].0 - 296.0).abs() < 1e-3, "T_eff table T = 296 K");
-        assert!((ii.teff_table[0].1 - 430.0).abs() < 1e-1, "T_eff value ~430 K");
+        assert!(
+            (ii.teff_table[0].0 - 296.0).abs() < 1e-3,
+            "T_eff table T = 296 K"
+        );
+        assert!(
+            (ii.teff_table[0].1 - 430.0).abs() < 1e-1,
+            "T_eff value ~430 K"
+        );
     }
 
     #[test]
@@ -491,16 +550,29 @@ mod tests {
         let tape = endout(&out);
         let mf7 = parse_mf7(&tape, MAT).unwrap();
         let ce = mf7.coherent_elastic.expect("MT=2 coherent present");
-        assert!((ce.base_temperature_k() - 296.0).abs() < 1e-3, "base temperature 296 K");
-        assert!(ce.bragg_energies_ev.len() > 5, "several Bragg edges retained");
+        assert!(
+            (ce.base_temperature_k() - 296.0).abs() < 1e-3,
+            "base temperature 296 K"
+        );
+        assert!(
+            ce.bragg_energies_ev.len() > 5,
+            "several Bragg edges retained"
+        );
         // E ascending; cumulative S(E) non-decreasing (it only steps up).
-        assert!(ce.bragg_energies_ev.windows(2).all(|w| w[1] >= w[0]), "E ascending");
+        assert!(
+            ce.bragg_energies_ev.windows(2).all(|w| w[1] >= w[0]),
+            "E ascending"
+        );
         assert!(
             ce.s_tables[0].windows(2).all(|w| w[1] >= w[0] - 1e-9),
             "cumulative S(E) non-decreasing"
         );
         assert!(ce.s_tables[0].iter().all(|&s| s >= 0.0), "S(E) >= 0");
-        assert_eq!(ce.temperatures_k.len(), 1, "single temperature -> no extra LISTs");
+        assert_eq!(
+            ce.temperatures_k.len(),
+            1,
+            "single temperature -> no extra LISTs"
+        );
     }
 
     #[test]
@@ -518,6 +590,9 @@ mod tests {
         assert!((ie.sb - 80.4).abs() < 1e-4, "SB = sb_npr");
         assert_eq!(ie.wp_of_t.len(), 2, "two (T, W') points");
         assert!((ie.wp_of_t[0].1 - 8.0e-3).abs() < 1e-7, "W'(296)");
-        assert!(ie.wp_of_t.windows(2).all(|w| w[1].1 >= w[0].1), "W'(T) non-decreasing");
+        assert!(
+            ie.wp_of_t.windows(2).all(|w| w[1].1 >= w[0].1),
+            "W'(T) non-decreasing"
+        );
     }
 }

@@ -202,7 +202,6 @@
 //
 //
 //// ************************************************************************* //
-
 use std::sync::Arc;
 use uom::si::f64::{
     Angle, Area, AvailableEnergy, Length, MassDensity, MassRate, Power, Pressure, Ratio, Time,
@@ -257,6 +256,68 @@ pub enum SolverMode {
     /// Opt-in; the default [`SolverMode::Pimple`] is the bit-identical historical
     /// path.
     HybridAllMach,
+}
+
+/// Face-interpolation scheme for the **energy equation's** convection term
+/// `∇·(φh)` (see [`OPCPFluidArray::he_convection_scheme`]).
+///
+/// This is enum dispatch (no trait objects, per the workspace design rules) over
+/// the flux limiter `λ(r)` applied to the upwind-biased face reconstruction —
+/// OpenFOAM's `div(phi,h)` scheme entry, in other words. `λ = 0` is first-order
+/// upwind, `λ = 1` is unlimited central differencing, and the TVD variants pick
+/// `λ(r)` from the local slope ratio so no new extremum is created.
+///
+/// **This is distinct from, and independent of, [`SolverMode::HybridAllMach`].**
+/// That switch adds a *Mach-weighted* KNP dissipation to continuity and momentum
+/// which is identically zero on a subsonic face (`β(Ma) = 0`) — precisely the
+/// regime a heat exchanger operates in, so it does nothing for scalar
+/// boundedness. Enthalpy boundedness is this setting's job, at any Mach number.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum EnergyConvectionScheme {
+    /// **van Leer TVD limiter**, `λ(r) = (r + |r|)/(1 + |r|)` — the default.
+    /// Second-order where the enthalpy field is smooth, falling back toward
+    /// upwind at a front so the solution stays bounded by its own initial and
+    /// boundary data. OpenFOAM equivalent: `div(phi,h) Gauss vanLeer`.
+    #[default]
+    VanLeer,
+    /// **minmod TVD limiter**, `λ(r) = max(0, min(r, 1))` — the most diffusive
+    /// of the TVD limiters, and correspondingly the most robust. Use it if
+    /// [`Self::VanLeer`] still rings on a particularly sharp front.
+    Minmod,
+    /// **First-order upwind**, `λ ≡ 0`. Unconditionally bounded (at CFL ≤ 1) and
+    /// strongly numerically diffusive: a thermal front smears over several cells.
+    /// The safe fallback, not a good default.
+    Upwind,
+    /// **Unlimited central differencing**, `λ ≡ 1` — second-order and
+    /// **unbounded**.
+    ///
+    /// This restores the historical (pre-2026-08-12) *interior* scheme, and is
+    /// kept only so an existing study can be re-run against something close to
+    /// its original numbers. It is **not** bit-for-bit historical: the boundary
+    /// faces now use the direction-switched upwind advection terminal
+    /// (`fvc::div_limited`) under every variant, which the old code did not have
+    /// and which is a boundary-condition correctness fix, not a scheme choice.
+    /// It produces dispersive over- and undershoots at an
+    /// advected thermal front: measured 2026-08-12 on an 8-cell nitrogen pipe
+    /// with a 311.20 → 520.45 kJ/kg inlet step, the inlet cell overshot to
+    /// 556.52 kJ/kg (117 % of the imposed step) and, in the cooling direction, a
+    /// cell reached 274 K against a 300 K inlet and a 500 K seed. For a stream
+    /// near saturation such an undershoot can drive the `(p, h)` flash out of
+    /// range. **Do not select this for new work.**
+    Linear,
+}
+
+impl EnergyConvectionScheme {
+    /// The vendored FV-layer limiter this scheme maps onto. Private: the
+    /// `openfoam_source` tree is `pub(crate)` machinery, not public API.
+    fn limiter(self) -> fvc::Limiter {
+        match self {
+            Self::VanLeer => fvc::Limiter::VanLeer,
+            Self::Minmod => fvc::Limiter::Minmod,
+            Self::Upwind => fvc::Limiter::Upwind,
+            Self::Linear => fvc::Limiter::Linear,
+        }
+    }
 }
 
 /// Per-`step` hybrid KNP dissipation for the continuity and momentum equations.
@@ -327,6 +388,15 @@ const H_MIN_DEFAULT: f64 = -1.0e7;
 /// [`OPCPFluidArray::h_max`]. Wide open (1×10⁸ J/kg); see [`H_MIN_DEFAULT`].
 const H_MAX_DEFAULT: f64 = 1.0e8;
 
+/// Mesh-patch index of the **inlet** (`"left"`, x = 0, outward normal −x) on
+/// the 1-D mesh built by [`create_one_d_mesh`]. See that function's `## Layout`
+/// section for the face/patch ordering.
+pub(super) const INLET_PATCH: usize = 1;
+
+/// Mesh-patch index of the **outlet** (`"right"`, x = length, outward normal
+/// +x) on the 1-D mesh built by [`create_one_d_mesh`].
+pub(super) const OUTLET_PATCH: usize = 0;
+
 // ── Boundary-condition helpers ──────────────────────────────────────────────────
 //
 // The linear solver and field arithmetic rebuild output fields with zero-gradient
@@ -348,7 +418,9 @@ fn correct_bcs(field: &mut VolScalarField, bcs: &[BoundaryCondition<f64>]) {
     for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
         pf.bc = bc.clone();
         if let BoundaryCondition::FixedValue(v) = bc {
-            for x in pf.values.iter_mut() { *x = *v; }
+            for x in pf.values.iter_mut() {
+                *x = *v;
+            }
         }
     }
 }
@@ -358,7 +430,9 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
     for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
         pf.bc = bc.clone();
         if let BoundaryCondition::FixedValue(v) = bc {
-            for x in pf.values.iter_mut() { *x = *v; }
+            for x in pf.values.iter_mut() {
+                *x = *v;
+            }
         }
     }
 }
@@ -398,7 +472,7 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
 ///   a cell's `μ`/`αh` are left at their previous value, never a wrong number.
 ///
 /// C++ reference: `applications/solvers/compressible/rhoPimpleFoam/`.
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct OPCPFluidArray {
     /// The working fluid whose CoolProp Helmholtz EOS closes the thermo update.
     pub fluid: Fluid,
@@ -459,6 +533,15 @@ pub struct OPCPFluidArray {
     /// counted so an engaged guard is visible, not silent. A NaN enthalpy is
     /// neither clamped nor counted — genuine divergence is not masked.
     pub h_clamp_events: usize,
+
+    /// Face-interpolation scheme for the energy equation's convection term
+    /// `∇·(φh)` — see [`EnergyConvectionScheme`] and
+    /// [`Self::set_he_convection_scheme`].
+    ///
+    /// Defaults to [`EnergyConvectionScheme::VanLeer`] (bounded/TVD). Before
+    /// 2026-08-12 this term was hard-wired to unlimited central differencing,
+    /// which is now [`EnergyConvectionScheme::Linear`].
+    pub he_convection_scheme: EnergyConvectionScheme,
 
     // ── All-Mach hybrid (opt-in) ─────────────────────────────────────────────
     /// Flux-discretisation mode (default [`SolverMode::Pimple`], bit-identical
@@ -529,7 +612,38 @@ pub struct OPCPFluidArray {
     /// network layer. **Not** read by `step()`: this solver computes its own
     /// per-cell mass flux `phi` from the momentum/pressure equations, so this
     /// field never feeds back into the PIMPLE loop.
+    ///
+    /// **This is bookkeeping, not a boundary condition.** To actually *impose*
+    /// a mass flow at the inlet, use [`Self::set_inlet_mass_flowrate`], which
+    /// installs the self-maintaining flow-rate inlet described on
+    /// [`Self::inlet_mass_flowrate`]. To read back the flow the solver actually
+    /// produced, use [`Self::get_inlet_mass_flowrate_actual`] /
+    /// [`Self::get_outlet_mass_flowrate_actual`].
     pub mass_flowrate: MassRate,
+    /// **Prescribed** inlet mass flowrate \[kg/s\] — an actual boundary
+    /// condition on the `"left"` patch, unlike the bookkeeping-only
+    /// [`Self::mass_flowrate`]. `None` (the [`Self::new`] default) means no
+    /// mass-flow inlet is imposed and whatever velocity BC the caller set with
+    /// [`Self::set_inlet_velocity`] stands.
+    ///
+    /// When `Some(ṁ)`, [`Self::step`] re-derives the fixed inlet velocity
+    /// `u_in = ṁ / (ρ_inlet · A_inlet)` from the **current** inlet-face density
+    /// once per pressure corrector — OpenFOAM's `flowRateInletVelocity`
+    /// (`src/finiteVolume/fields/fvPatchFields/derived/flowRateInletVelocity/`)
+    /// semantics. Because it is re-derived from the live density rather than a
+    /// caller's one-off assumed density, the imposed inlet mass flux stays
+    /// equal to `ṁ` as the solution's density evolves, instead of drifting.
+    /// Positive is **into** the domain (+x); a negative value prescribes
+    /// outflow through the inlet patch, in which case
+    /// [`Self::set_inlet_enthalpy`]'s fixed inlet enthalpy is no longer a
+    /// physically meaningful BC (a fixed value on an outflow face) and the
+    /// caller should not rely on it.
+    ///
+    /// Set it with [`Self::set_inlet_mass_flowrate`] and clear it with
+    /// [`Self::clear_inlet_mass_flowrate`] (or by calling
+    /// [`Self::set_inlet_velocity`], which prescribes a velocity instead and so
+    /// clears this).
+    pub inlet_mass_flowrate: Option<MassRate>,
     /// Pressure loss \[Pa\] — plain storage, independent of `mass_flowrate`
     /// (no Reynolds/Bejan recomputation between the two; see
     /// [`Self::set_mass_flowrate`]).
@@ -600,19 +714,23 @@ impl OPCPFluidArray {
         // fallback if that point is not single-phase for this fluid.
         let (p0, t0) = (1.0e5_f64, 300.0_f64);
         let (rho0, he0, psi0) = match flash::state_pt(fluid, t0, p0) {
-            Ok(s) => (s.density, s.enthalpy, flash::drho_dp_t(fluid, t0, s.density)),
+            Ok(s) => (
+                s.density,
+                s.enthalpy,
+                flash::drho_dp_t(fluid, t0, s.density),
+            ),
             Err(_) => (1.0, 0.0, 1.0e-5),
         };
 
-        let u       = VolVectorField::zero("U", mesh.clone());
-        let p       = VolScalarField::uniform("p", mesh.clone(), p0);
-        let rho     = VolScalarField::uniform("rho", mesh.clone(), rho0);
-        let t       = VolScalarField::uniform("T", mesh.clone(), t0);
-        let he      = VolScalarField::uniform("he", mesh.clone(), he0);
-        let mu      = VolScalarField::uniform("mu", mesh.clone(), 1.8e-5);
+        let u = VolVectorField::zero("U", mesh.clone());
+        let p = VolScalarField::uniform("p", mesh.clone(), p0);
+        let rho = VolScalarField::uniform("rho", mesh.clone(), rho0);
+        let t = VolScalarField::uniform("T", mesh.clone(), t0);
+        let he = VolScalarField::uniform("he", mesh.clone(), he0);
+        let mu = VolScalarField::uniform("mu", mesh.clone(), 1.8e-5);
         let alpha_h = VolScalarField::uniform("alphaEff", mesh.clone(), 2.5e-5);
-        let psi     = VolScalarField::uniform("psi", mesh.clone(), psi0);
-        let phi     = SurfaceScalarField::zeros("phi", mesh.clone());
+        let psi = VolScalarField::uniform("psi", mesh.clone(), psi0);
+        let phi = SurfaceScalarField::zeros("phi", mesh.clone());
 
         Ok(Self {
             fluid,
@@ -632,6 +750,9 @@ impl OPCPFluidArray {
             h_min: AvailableEnergy::new::<joule_per_kilogram>(H_MIN_DEFAULT),
             h_max: AvailableEnergy::new::<joule_per_kilogram>(H_MAX_DEFAULT),
             h_clamp_events: 0,
+            // Bounded (TVD) enthalpy convection by default -- see
+            // `EnergyConvectionScheme`.
+            he_convection_scheme: EnergyConvectionScheme::default(),
             // Default: pure PIMPLE ⇒ the hybrid dissipation is never assembled,
             // so every existing constructor/test runs the unchanged code path.
             mode: SolverMode::Pimple,
@@ -658,6 +779,7 @@ impl OPCPFluidArray {
             wetted_perimeter: Length::new::<meter>(0.0),
             incline_angle: Angle::new::<radian>(0.0),
             mass_flowrate: MassRate::new::<kilogram_per_second>(0.0),
+            inlet_mass_flowrate: None,
             pressure_loss: Pressure::new::<pascal>(0.0),
             internal_pressure_source: Pressure::new::<pascal>(0.0),
             lateral_adjacent_array_temperature_vector: Vec::new(),
@@ -813,20 +935,35 @@ impl OPCPFluidArray {
     /// without either side noticing.
     pub fn step(&mut self) {
         let mesh = self.mesh.clone();
-        let n    = mesh.n_cells;
-        let dt   = self.delta_t.get::<second>();
-        let settings   = SolverSettings::default();                            // U, energy (GS)
-        let p_settings = SolverSettings { tolerance: 1e-8, max_iter: 2_000 };  // pEqn (PCG)
+        let n = mesh.n_cells;
+        let dt = self.delta_t.get::<second>();
+        let settings = SolverSettings::default(); // U, energy (GS)
+        let p_settings = SolverSettings {
+            tolerance: 1e-8,
+            max_iter: 2_000,
+        }; // pEqn (PCG)
         let n_outer = self.n_outer_correctors.max(1);
         let n_inner = self.n_inner_correctors.max(1);
 
-        let u_old   = self.u.clone();
-        let p_old   = self.p.clone();
-        let he_old  = self.he.clone();
+        let u_old = self.u.clone();
+        let p_old = self.p.clone();
+        let he_old = self.he.clone();
         let rho_old = self.rho.clone();
 
-        let u_bcs = capture_bcs(&self.u.boundary);
+        let mut u_bcs = capture_bcs(&self.u.boundary);
         let p_bcs = capture_bcs(&self.p.boundary);
+        // `he`'s BC template must be captured and re-stamped exactly like `u`'s
+        // and `p`'s. `FvMatrix::solve` builds its output field with *zero-
+        // gradient* boundaries, so without this the field assigned back to
+        // `self.he` after the energy solve silently loses every prescribed
+        // enthalpy boundary — `set_inlet_enthalpy` would take effect on the
+        // first outer corrector only and never again, making it a one-shot the
+        // caller has to re-issue every step (measured 2026-08-12: without a
+        // per-step re-issue no cell moved more than 0.4 kJ/kg from its
+        // 311.20 kJ/kg seed after 10 000 steps against a 520.45 kJ/kg inlet BC,
+        // i.e. the BC was inert). See the module tests
+        // `inlet_enthalpy_bc_*_without_reapplying_each_step`.
+        let he_bcs = capture_bcs(&self.he.boundary);
 
         // Hybrid-mode only: deferred KNP momentum dissipation, carried from one
         // outer corrector into the next outer corrector's UEqn source (a
@@ -911,25 +1048,51 @@ impl OPCPFluidArray {
                         .map(|c| h_sl[c] * (1.0 / a_sl[c].max(1e-30)))
                         .collect();
                     VolVectorField::new(
-                        "HbyA", mesh.clone(), Field::new(vals),
-                        mesh.patches.iter().map(|p| PatchField::zero_gradient_vec(p.size)).collect(),
+                        "HbyA",
+                        mesh.clone(),
+                        Field::new(vals),
+                        mesh.patches
+                            .iter()
+                            .map(|p| PatchField::zero_gradient_vec(p.size))
+                            .collect(),
                     )
                 };
 
-                let rho_f    = fvc::interpolate(&self.rho);    // ρ_f [kg/m³]
-                let rho_rauf = rho_f.clone() * rauf.clone();    // [s]
-                // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
+                let rho_f = fvc::interpolate(&self.rho); // ρ_f [kg/m³]
+
+                // ── Flow-rate inlet (OpenFOAM `flowRateInletVelocity`) ───────
+                // If a mass flowrate is prescribed on the inlet patch, re-derive
+                // the fixed inlet velocity `u_in = ṁ / (ρ_inlet·A_inlet)` from
+                // the density that is about to multiply it (`rho_f`'s inlet
+                // patch values, used a few lines below to build the boundary
+                // mass flux). Doing it here, from the live density and inside
+                // the corrector loop, is what makes the *imposed mass flux*
+                // exactly ṁ: the boundary flux assembled below is
+                // `ρ_f·(u_in·Sf) = −ṁ` (negative = inflow, the `"left"` patch's
+                // outward normal being −x) whatever the density does.
+                //
+                // The alternative a caller is forced into without this — pick
+                // an assumed density once, convert to a velocity, and call
+                // `set_inlet_velocity` — imposes `ṁ_actual = ρ_solved/ρ_assumed
+                // · ṁ_target`, which drifts as the solved density departs from
+                // the assumption. `self.u.boundary` *and* the captured `u_bcs`
+                // template are both updated, so the momentum predictor and the
+                // post-solve `correct_bcs_vec` re-stamps agree with it.
+                self.apply_flow_rate_inlet(&rho_f, &mut u_bcs);
+
+                let rho_rauf = rho_f.clone() * rauf.clone(); // [s]
+                                                             // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
                 let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya);
 
                 // Pressure source = ψ·V/dt·p_old − (net φ_HbyA outflow) [kg/s].
-                let psi_sl   = self.psi.internal.as_slice();
+                let psi_sl = self.psi.internal.as_slice();
                 let p_old_sl = p_old.internal.as_slice();
                 let source_p = {
                     let mut s = vec![0.0_f64; n];
                     {
                         let phi_int = phi_hbya.internal.as_slice();
                         for f in 0..mesh.n_internal_faces {
-                            s[mesh.owner[f]]     -= phi_int[f];
+                            s[mesh.owner[f]] -= phi_int[f];
                             s[mesh.neighbour[f]] += phi_int[f];
                         }
                     }
@@ -959,7 +1122,7 @@ impl OPCPFluidArray {
                                     // test and the workspace beads tracker).
                                     phi_hbya.boundary[pi].values[fi] = corrected_flux;
                                     corrected_flux
-                                },
+                                }
                                 // outlet / zero-gradient: keep the extrapolated flux
                                 _ => phi_hbya.boundary[pi].values[fi],
                             };
@@ -1058,10 +1221,35 @@ impl OPCPFluidArray {
                 // Correct the mass flux: φ = φ_HbyA − ρ_f·rAU_f·snGrad(p)·|Sf|.
                 let sng = fvc::sn_grad(&self.p);
                 {
-                    let sng_sl      = sng.internal.as_slice();
+                    let sng_sl = sng.internal.as_slice();
                     let rho_rauf_sl = rho_rauf.internal.as_slice();
                     for f in 0..mesh.n_internal_faces {
                         phi_hbya.internal[f] -= rho_rauf_sl[f] * sng_sl[f] * mesh.face_areas[f];
+                    }
+
+                    // ── The SAME correction on boundary faces ────────────────
+                    // OpenFOAM's pEqn does `phi = phiHbyA - pEqn.flux()`, and
+                    // `fvMatrix::flux()` carries the boundary contribution too —
+                    // this loop is that boundary half, which was missing. It is
+                    // self-selecting: `fvc::sn_grad` returns 0 on a zero-gradient
+                    // pressure patch, so a prescribed-velocity (or mass-flow)
+                    // inlet — where `p` is zero-gradient and the flux was already
+                    // written back exactly from the BC above — is left untouched,
+                    // and only a fixed-pressure outlet is corrected.
+                    //
+                    // Without it the outlet carried the *predictor* flux φ_HbyA.
+                    // That is not a benign truncation: measured 2026-08-12, it
+                    // broke the transient global energy balance by ~5.9 % of the
+                    // source power and did NOT reduce under mesh refinement,
+                    // because it is an algorithmic (predictor/corrector) gap, not
+                    // a spatial one. Bead op-nnqi.
+                    for (pi, patch) in mesh.patches.iter().enumerate() {
+                        for fi in 0..patch.size {
+                            let gf = patch.start + fi;
+                            phi_hbya.boundary[pi].values[fi] -= rho_rauf.boundary[pi].values[fi]
+                                * sng.boundary[pi].values[fi]
+                                * mesh.face_areas[gf];
+                        }
                     }
                     self.phi = phi_hbya;
                 }
@@ -1103,9 +1291,21 @@ impl OPCPFluidArray {
 
             // ── Energy equation ─────────────────────────────────────────────
             //   ∂(ρh)/∂t + ∇·(φh) + (−∇·(αh∇h)) = dp/dt   [+ laplacian sign]
-            let conv_he   = fvc::div(&self.phi, &self.he);   // explicit ∇·(φh)/V
+            // Explicit ∇·(φh)/V with an upwind-biased, flux-limited face value
+            // (`he_convection_scheme`, default van Leer TVD). A plain linear
+            // (central) face value here is second-order but UNBOUNDED, and the
+            // energy equation is advection-dominated (cell Péclet ≫ 1), so it
+            // rings at an advected thermal front: measured 2026-08-12, the
+            // enthalpy field left the range spanned by its own inlet BC and
+            // initial state by 10-15 % of the imposed step. An enthalpy
+            // undershoot is not cosmetic — it can hand `correct_thermo`'s
+            // `(p, h)` flash a state outside the EOS's valid range. Select
+            // `EnergyConvectionScheme::Linear` to recover the old behaviour
+            // bit-for-bit. Bead op-1fyp.
+            let conv_he =
+                fvc::div_limited(&self.phi, &self.he, self.he_convection_scheme.limiter()); // explicit ∇·(φh)/V
             let alpha_h_f = fvc::interpolate(&self.alpha_h);
-            let dp_dt     = (self.p.clone() - p_old.clone()) * (1.0 / dt);
+            let dp_dt = (self.p.clone() - p_old.clone()) * (1.0 / dt);
 
             // Conservative energy time derivative: ∂(ρh)/∂t discretised as
             // (ρ_cont·h − ρ_old·h_old)/dt (bead op-ek2, mirroring the
@@ -1150,7 +1350,8 @@ impl OPCPFluidArray {
                     // Lateral (radial) thermal coupling: Q = h·(T_neighbour − T_cell)
                     // per registered link, plus any registered volumetric heat source.
                     let t_c = self.t.internal[c];
-                    for (link, temps) in self.lateral_adjacent_array_conductance_vector
+                    for (link, temps) in self
+                        .lateral_adjacent_array_conductance_vector
                         .iter()
                         .zip(self.lateral_adjacent_array_temperature_vector.iter())
                     {
@@ -1158,12 +1359,14 @@ impl OPCPFluidArray {
                         let t_n = temps[c].get::<uom::si::thermodynamic_temperature::kelvin>();
                         e_eqn.source[c] += h * (t_n - t_c);
                     }
-                    e_eqn.source[c] += self
-                        .cell_heat_source_power(c)
-                        .get::<uom::si::power::watt>();
+                    e_eqn.source[c] += self.cell_heat_source_power(c).get::<uom::si::power::watt>();
                 }
             }
-            let (he_new, _) = e_eqn.solve("he", settings);
+            let (mut he_new, _) = e_eqn.solve("he", settings);
+            // Re-stamp the enthalpy BC template the solve just discarded — the
+            // `he` counterpart of the `correct_bcs`/`correct_bcs_vec` calls in
+            // the pressure/velocity loop above. See the `he_bcs` capture.
+            correct_bcs(&mut he_new, &he_bcs);
             self.he = he_new;
 
             // ── (p, h) admissibility guard — enthalpy half ──────────────────
@@ -1191,6 +1394,62 @@ impl OPCPFluidArray {
             }
         }
         self.clear_vectors();
+    }
+
+    /// Re-derive the fixed inlet velocity from the prescribed inlet mass
+    /// flowrate ([`Self::inlet_mass_flowrate`]) and the **current** inlet-face
+    /// density, i.e. OpenFOAM's `flowRateInletVelocity` boundary condition:
+    ///
+    /// ```text
+    ///   u_in = ṁ / (ρ_inlet · A_inlet)        [m/s, +x = into the domain]
+    /// ```
+    ///
+    /// `rho_f` must be the interpolated face density about to be used to build
+    /// the boundary mass flux, so that the flux the pressure equation sees,
+    /// `ρ_f·(u_in·Sf)`, is exactly `−ṁ` (negative = inflow through the `"left"`
+    /// patch, whose outward normal is −x). `u_bcs` is `step`'s captured
+    /// velocity-BC template, updated in lockstep so the post-solve
+    /// `correct_bcs_vec` re-stamps this velocity and not a stale one.
+    ///
+    /// A no-op when no mass flowrate is prescribed (`inlet_mass_flowrate ==
+    /// None`), when the inlet patch has no faces, or when the inlet area or
+    /// density is not usable (non-finite / non-positive) — never a wrong
+    /// number, mirroring [`Self::correct_thermo`]'s non-convergence handling.
+    fn apply_flow_rate_inlet(
+        &mut self,
+        rho_f: &SurfaceScalarField,
+        u_bcs: &mut [BoundaryCondition<Vector3>],
+    ) {
+        let Some(mdot) = self.inlet_mass_flowrate else {
+            return;
+        };
+        let mdot = mdot.get::<kilogram_per_second>();
+        let patch = &self.mesh.patches[INLET_PATCH];
+        if patch.size == 0 {
+            return;
+        }
+
+        // Area-weighted mean inlet-face density, and the total inlet area.
+        let mut area = 0.0_f64;
+        let mut rho_area = 0.0_f64;
+        for fi in 0..patch.size {
+            let a = self.mesh.face_areas[patch.start + fi];
+            area += a;
+            rho_area += a * rho_f.boundary[INLET_PATCH].values[fi];
+        }
+        // NaN fails `is_finite`, so a diverged density/area returns here rather
+        // than prescribing a NaN velocity.
+        if !area.is_finite() || area <= 0.0 {
+            return;
+        }
+        let rho_in = rho_area / area;
+        if !rho_in.is_finite() || rho_in <= 0.0 {
+            return;
+        }
+
+        let v = Vector3::new(mdot / (rho_in * area), 0.0, 0.0);
+        self.u.boundary[INLET_PATCH] = PatchField::fixed_value_vec(patch.size, v);
+        u_bcs[INLET_PATCH] = BoundaryCondition::FixedValue(v);
     }
 
     /// Advance `n_steps` time steps of size `delta_t`.
@@ -1314,6 +1573,31 @@ impl OPCPFluidArray {
         );
         self.p_min = p_min;
         self.p_max = p_max;
+    }
+
+    /// The face-interpolation scheme currently used for the energy equation's
+    /// convection term `∇·(φh)`. See [`Self::set_he_convection_scheme`].
+    pub fn get_he_convection_scheme(&self) -> EnergyConvectionScheme {
+        self.he_convection_scheme
+    }
+
+    /// Selects the face-interpolation scheme for the energy equation's
+    /// convection term `∇·(φh)`.
+    ///
+    /// The default, [`EnergyConvectionScheme::VanLeer`], is a bounded (TVD)
+    /// scheme: second-order where the enthalpy field is smooth, limited toward
+    /// upwind at a front so the solution cannot leave the range set by its own
+    /// initial and boundary data. Choose [`EnergyConvectionScheme::Minmod`] or
+    /// [`EnergyConvectionScheme::Upwind`] for progressively more numerical
+    /// diffusion and robustness, or [`EnergyConvectionScheme::Linear`] **only**
+    /// to reproduce this solver's pre-2026-08-12 (unbounded) numbers — see that
+    /// variant's doc comment for the measured over/undershoot it produces.
+    ///
+    /// This is independent of [`Self::set_solver_mode`], which governs a
+    /// *Mach-weighted* dissipation on continuity and momentum that vanishes in
+    /// subsonic flow and does nothing for scalar boundedness.
+    pub fn set_he_convection_scheme(&mut self, scheme: EnergyConvectionScheme) {
+        self.he_convection_scheme = scheme;
     }
 
     /// The current flux-discretisation mode (see [`SolverMode`]).
@@ -1454,7 +1738,12 @@ impl OPCPFluidArray {
         let mut ma_cell = vec![0.0_f64; n];
         let mut safe = vec![false; n];
         for i in 0..n {
-            let c = hem_sound_speed_ph(self.fluid, self.p.internal[i], self.he.internal[i], C_MIN_MPS);
+            let c = hem_sound_speed_ph(
+                self.fluid,
+                self.p.internal[i],
+                self.he.internal[i],
+                C_MIN_MPS,
+            );
             c_cell[i] = c;
             ma_cell[i] = self.u.internal[i].mag() / c;
             let t_i = self.t.internal[i];
@@ -1601,18 +1890,36 @@ mod tests {
         let eos = flash::state_pt(Fluid::Nitrogen, 300.0, 1.0e5).unwrap();
         assert!((array.rho.internal[0] - eos.density).abs() / eos.density < 1e-9);
         assert!((array.he.internal[0] - eos.enthalpy).abs() / eos.enthalpy.abs() < 1e-9);
-        assert!((array.rho.internal[0] - 1.0).abs() > 0.05, "ρ must be EOS-derived, not the fallback 1.0");
+        assert!(
+            (array.rho.internal[0] - 1.0).abs() > 0.05,
+            "ρ must be EOS-derived, not the fallback 1.0"
+        );
 
         array.run(10);
 
         let all_finite = array.p.internal.as_slice().iter().all(|x| x.is_finite())
             && array.rho.internal.as_slice().iter().all(|x| x.is_finite())
             && array.t.internal.as_slice().iter().all(|x| x.is_finite())
-            && array.u.internal.as_slice().iter().all(|v| v.mag().is_finite());
+            && array
+                .u
+                .internal
+                .as_slice()
+                .iter()
+                .all(|v| v.mag().is_finite());
         assert!(all_finite, "fields must stay finite over 10 steps");
         // Density and temperature stay physically bounded (correct_thermo ran).
-        assert!(array.rho.internal.as_slice().iter().all(|&r| r > 0.0 && r < 1e3));
-        assert!(array.t.internal.as_slice().iter().all(|&tt| tt > 0.0 && tt < 5e3));
+        assert!(array
+            .rho
+            .internal
+            .as_slice()
+            .iter()
+            .all(|&r| r > 0.0 && r < 1e3));
+        assert!(array
+            .t
+            .internal
+            .as_slice()
+            .iter()
+            .all(|&tt| tt > 0.0 && tt < 5e3));
     }
 
     #[test]
@@ -1630,17 +1937,33 @@ mod tests {
 
         let mu1 = array.mu.internal[0];
         let alpha_h1 = array.alpha_h.internal[0];
-        let expected_mu = crate::transport::viscosity(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0]).unwrap();
-        let expected_lambda = crate::transport::conductivity(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0]).unwrap();
-        let expected_cp = crate::props::state_trho(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0]).cp;
+        let expected_mu = crate::transport::viscosity(
+            Fluid::Nitrogen,
+            array.t.internal[0],
+            array.rho.internal[0],
+        )
+        .unwrap();
+        let expected_lambda = crate::transport::conductivity(
+            Fluid::Nitrogen,
+            array.t.internal[0],
+            array.rho.internal[0],
+        )
+        .unwrap();
+        let expected_cp =
+            crate::props::state_trho(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0])
+                .cp;
 
         // Nitrogen's real viscosity at (300K, ~1atm) happens to sit close to
         // the constructor's air-like placeholder (both ~1.8e-5 Pa.s), so this
         // checks the exact EOS-derived value rather than "changed from
         // placeholder" (which would be a coincidental, fragile check here).
-        assert!((mu1 - expected_mu).abs() / expected_mu < 1e-9, "mu should now be the EOS transport value");
         assert!(
-            (alpha_h1 - expected_lambda / expected_cp).abs() / (expected_lambda / expected_cp) < 1e-9,
+            (mu1 - expected_mu).abs() / expected_mu < 1e-9,
+            "mu should now be the EOS transport value"
+        );
+        assert!(
+            (alpha_h1 - expected_lambda / expected_cp).abs() / (expected_lambda / expected_cp)
+                < 1e-9,
             "alpha_h should now be lambda/cp from the EOS"
         );
     }
@@ -1654,7 +1977,10 @@ mod tests {
             0,
             Time::new::<second>(1e-4),
         );
-        assert!(matches!(err, Err(MeshError::NonPositiveCellCount { got: 0 })));
+        assert!(matches!(
+            err,
+            Err(MeshError::NonPositiveCellCount { got: 0 })
+        ));
     }
 
     /// The opt-in [`SolverMode::HybridAllMach`] is a **no-op on a subsonic, low-
@@ -1767,8 +2093,7 @@ mod tests {
         );
         array.run(1);
         assert_eq!(
-            array.h_clamp_events,
-            array.mesh.n_cells,
+            array.h_clamp_events, array.mesh.n_cells,
             "each of the {} cells should clamp exactly once in one step",
             array.mesh.n_cells
         );
@@ -1826,8 +2151,16 @@ mod tests {
 
         for (t_k, p_pa, label) in [
             (523.15, 3.0e6, "HTR-10 core inlet (523.15 K, 3.0 MPa)"),
-            (973.15, 3.0e6, "HTR-10 core outlet, design (973.15 K, 3.0 MPa)"),
-            (1173.15, 3.0e6, "HTR-10 high-temperature test (1173.15 K, 3.0 MPa)"),
+            (
+                973.15,
+                3.0e6,
+                "HTR-10 core outlet, design (973.15 K, 3.0 MPa)",
+            ),
+            (
+                1173.15,
+                3.0e6,
+                "HTR-10 high-temperature test (1173.15 K, 3.0 MPa)",
+            ),
             (300.0, 1.0e5, "cold depressurised (300 K, 1 bar)"),
         ] {
             let rho = flash::state_pt(Fluid::Helium, t_k, p_pa)
@@ -1869,8 +2202,8 @@ mod tests {
     /// regime.
     #[test]
     fn helium_htr10_full_power_is_deeply_subsonic() {
-        let state = flash::state_pt(Fluid::Helium, 748.15, 3.0e6)
-            .expect("single-phase helium state");
+        let state =
+            flash::state_pt(Fluid::Helium, 748.15, 3.0e6).expect("single-phase helium state");
         let rho = state.density;
         let c = state.speed_of_sound;
         let mdot = 4.3_f64; // kg/s
@@ -1880,6 +2213,9 @@ mod tests {
         let u = mdot / (rho * a_free); // m/s
         let ma = u / c;
         println!("MEASURE rho = {rho:.6} kg/m^3, c = {c:.4} m/s, A_free = {a_free:.6} m^2, u = {u:.6} m/s, Ma = {ma:.3e}");
-        assert!(ma < 0.01, "HTR-10 helium must be deeply subsonic, got Ma = {ma}");
+        assert!(
+            ma < 0.01,
+            "HTR-10 helium must be deeply subsonic, got Ma = {ma}"
+        );
     }
 }

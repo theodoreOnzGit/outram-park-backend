@@ -771,7 +771,7 @@ mod tests {
 
         // Analytic limiting law for the mean ionic coefficient.
         let expected_ln_gpm = -dh.a * (im).sqrt(); // |z+ z-| = 1
-        // From individual-ion limiting coefficients + the mean-ionic formula.
+                                                   // From individual-ion limiting coefficients + the mean-ionic formula.
         let ln_gp = dh.ln_gamma_ion_limiting(1, im);
         let ln_gm = dh.ln_gamma_ion_limiting(-1, im);
         let ln_gpm = mean_ionic_ln_gamma(1.0, 1.0, ln_gp, ln_gm);
@@ -902,9 +902,8 @@ mod tests {
             vec![-30.0, 10.0, 0.0],
         ];
         let uq = UniquacParams::from_energies(r, q, a);
-        let liquac = ElectrolyteModel::Liquac(
-            LiquacModel::long_range_only(dh).with_short_range(uq.clone()),
-        );
+        let liquac =
+            ElectrolyteModel::Liquac(LiquacModel::long_range_only(dh).with_short_range(uq.clone()));
         let g = liquac.activity_coefficients(&system, &x, t);
 
         let im = system.ionic_strength(&x);
@@ -930,8 +929,7 @@ mod tests {
 
         let zero_b = vec![vec![0.0; 3]; 3];
         let lr_only = LiquacModel::long_range_only(dh);
-        let with_zero =
-            LiquacModel::long_range_only(dh).with_middle_range(zero_b);
+        let with_zero = LiquacModel::long_range_only(dh).with_middle_range(zero_b);
         let g0 = lr_only.activity_coefficients(&system, &x, 298.15);
         let gz = with_zero.activity_coefficients(&system, &x, 298.15);
         for (a, b) in g0.iter().zip(gz.iter()) {

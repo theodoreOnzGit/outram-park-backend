@@ -519,7 +519,9 @@ mod tests {
         let z_lk_direct = lkp::z_mix(&comps, &z, t, p, lkp::Phase::Vapor, None).unwrap();
         assert_relative_eq!(z_lk, z_lk_direct, max_relative = 1e-12);
 
-        let z_pr = hybrid.z_factor(&comps, &z, t, p, Phase::Vapor, None).unwrap();
+        let z_pr = hybrid
+            .z_factor(&comps, &z, t, p, Phase::Vapor, None)
+            .unwrap();
         assert!(z_lk > 0.8 && z_lk < 1.0, "Z_LK {z_lk} unphysical");
         assert!(z_pr > 0.8 && z_pr < 1.0, "Z_PR {z_pr} unphysical");
         // The two reported compressibilities are genuinely different numbers.
@@ -549,4 +551,3 @@ mod tests {
         }
     }
 }
-

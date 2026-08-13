@@ -261,7 +261,10 @@ mod tests {
                 assert!((prev - 1.0).abs() < 1e-12);
                 for i in strengths {
                     let g = model.gamma(z, i);
-                    assert!(g < prev, "model {model:?} z={z} I={i}: g={g} !< prev={prev}");
+                    assert!(
+                        g < prev,
+                        "model {model:?} z={z} I={i}: g={g} !< prev={prev}"
+                    );
                     assert!(g > 0.0);
                     prev = g;
                 }

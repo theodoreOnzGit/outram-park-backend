@@ -102,7 +102,10 @@ pub enum LaplacianWeighting {
 /// matrix is independent of that order. This is the input a sparse-matrix
 /// builder ([`crate::faer`]) consumes; it is also directly testable by
 /// materializing a small dense matrix (see this module's tests).
-pub fn laplacian_triplets(mesh: &Mesh, weighting: LaplacianWeighting) -> (usize, Vec<(usize, usize, f64)>) {
+pub fn laplacian_triplets(
+    mesh: &Mesh,
+    weighting: LaplacianWeighting,
+) -> (usize, Vec<(usize, usize, f64)>) {
     let n = mesh.vertex_count();
     let weights = edge_weights(mesh, weighting);
 
@@ -349,7 +352,9 @@ pub fn laplacian_smooth(
 
         let a = SparseColMat::<usize, f64>::try_new_from_triplets(nfree, nfree, &trips)
             .map_err(|_| LaplacianError::Assembly)?;
-        let llt = a.sp_cholesky(Side::Lower).map_err(|_| LaplacianError::NotPositiveDefinite)?;
+        let llt = a
+            .sp_cholesky(Side::Lower)
+            .map_err(|_| LaplacianError::NotPositiveDefinite)?;
         let b = Mat::<f64>::from_fn(nfree, 3, |i, j| rhs[i][j]);
         let x = llt.solve(&b);
 
@@ -492,9 +497,15 @@ mod tests {
             let m = dense(n, &trips);
             for i in 0..n {
                 let row_sum: f64 = m[i].iter().sum();
-                assert!(row_sum.abs() < 1e-12, "{weighting:?}: row {i} sum = {row_sum}");
+                assert!(
+                    row_sum.abs() < 1e-12,
+                    "{weighting:?}: row {i} sum = {row_sum}"
+                );
                 for j in 0..n {
-                    assert!((m[i][j] - m[j][i]).abs() < 1e-12, "{weighting:?}: asymmetry at ({i},{j})");
+                    assert!(
+                        (m[i][j] - m[j][i]).abs() < 1e-12,
+                        "{weighting:?}: asymmetry at ({i},{j})"
+                    );
                 }
             }
         }
@@ -546,7 +557,10 @@ mod tests {
         assert_eq!(boundary, 16, "the rest are boundary");
 
         let cube = primitives::cube(2.0);
-        assert!(boundary_vertices(&cube).iter().all(|&b| !b), "closed cube has no boundary");
+        assert!(
+            boundary_vertices(&cube).iter().all(|&b| !b),
+            "closed cube has no boundary"
+        );
     }
 
     /// Deterministic xorshift pseudo-random `f64` in `[-1, 1)` — for reproducible
@@ -587,7 +601,11 @@ mod tests {
                 }
             })
             .collect();
-        let faces: Vec<Vec<usize>> = grid.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let faces: Vec<Vec<usize>> = grid
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         let noisy = Mesh::from_polygons(&ps, &faces);
 
         let noisy_max_z = ps
@@ -597,7 +615,8 @@ mod tests {
             .map(|(_, p)| p.z.abs())
             .fold(0.0f64, f64::max);
 
-        let smoothed = laplacian_smooth(&noisy, LaplacianWeighting::Cotangent, 1.0, 1).expect("SPD solve");
+        let smoothed =
+            laplacian_smooth(&noisy, LaplacianWeighting::Cotangent, 1.0, 1).expect("SPD solve");
         let sp = smoothed.positions();
         let smoothed_max_z = sp
             .iter()
@@ -613,7 +632,10 @@ mod tests {
         // Boundary pinned: unchanged.
         for i in 0..grid.vertex_count() {
             if boundary[i] {
-                assert!(sp[i].sub(ps[i]).length() < 1e-12, "boundary vertex {i} moved");
+                assert!(
+                    sp[i].sub(ps[i]).length() < 1e-12,
+                    "boundary vertex {i} moved"
+                );
             }
         }
     }
@@ -650,7 +672,11 @@ mod tests {
                 }
             })
             .collect();
-        let faces: Vec<Vec<usize>> = sphere.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let faces: Vec<Vec<usize>> = sphere
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         let noisy = Mesh::from_polygons(&ps, &faces);
 
         let radial_std = |m: &Mesh| {
@@ -660,12 +686,23 @@ mod tests {
         };
 
         let before = radial_std(&noisy);
-        let smoothed = laplacian_smooth(&noisy, LaplacianWeighting::Cotangent, 0.5, 3).expect("SPD solve");
+        let smoothed =
+            laplacian_smooth(&noisy, LaplacianWeighting::Cotangent, 0.5, 3).expect("SPD solve");
         let after = radial_std(&smoothed);
 
-        assert!(after < before, "radial std must shrink (denoise): {before} -> {after}");
-        assert!(after < 0.95 * before, "reduction should be clear: {before} -> {after}");
-        assert_eq!(smoothed.euler_characteristic(), 2, "still a closed genus-0 sphere");
+        assert!(
+            after < before,
+            "radial std must shrink (denoise): {before} -> {after}"
+        );
+        assert!(
+            after < 0.95 * before,
+            "reduction should be clear: {before} -> {after}"
+        );
+        assert_eq!(
+            smoothed.euler_characteristic(),
+            2,
+            "still a closed genus-0 sphere"
+        );
     }
 
     /// Mean vertex radius from the origin (for the Taubin shrinkage tests).
@@ -692,8 +729,14 @@ mod tests {
         let plain = laplacian_smooth(&sphere, LaplacianWeighting::Uniform, 0.5, 20).expect("solve");
         let taubin = taubin_smooth(&sphere, LaplacianWeighting::Uniform, 0.5, -0.53, 20);
         let (rp, rt) = (mean_radius(&plain), mean_radius(&taubin));
-        assert!(rp < 0.9 * r0, "plain smoothing must shrink the sphere: {r0} -> {rp}");
-        assert!(rt > 0.97 * r0, "Taubin must be shrinkage-free: {r0} -> {rt}");
+        assert!(
+            rp < 0.9 * r0,
+            "plain smoothing must shrink the sphere: {r0} -> {rp}"
+        );
+        assert!(
+            rt > 0.97 * r0,
+            "Taubin must be shrinkage-free: {r0} -> {rt}"
+        );
         assert_eq!(taubin.euler_characteristic(), 2, "still a closed sphere");
     }
 
@@ -704,7 +747,10 @@ mod tests {
         // Flat grid stays in z = 0.
         let grid = primitives::grid(5, 5, 1.0);
         let out = taubin_smooth(&grid, LaplacianWeighting::Uniform, 0.5, -0.53, 5);
-        assert!(out.positions().iter().all(|p| p.z.abs() < 1e-12), "flat grid stays flat");
+        assert!(
+            out.positions().iter().all(|p| p.z.abs() < 1e-12),
+            "flat grid stays flat"
+        );
 
         // Noisy sphere denoises.
         let sphere = primitives::uv_sphere(24, 12, 1.0);
@@ -714,10 +760,18 @@ mod tests {
             .iter()
             .map(|&p| {
                 let r = p.length();
-                if r == 0.0 { p } else { p.scale((r + 0.06 * xorshift(&mut seed)) / r) }
+                if r == 0.0 {
+                    p
+                } else {
+                    p.scale((r + 0.06 * xorshift(&mut seed)) / r)
+                }
             })
             .collect();
-        let faces: Vec<Vec<usize>> = sphere.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let faces: Vec<Vec<usize>> = sphere
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         let noisy = Mesh::from_polygons(&ps, &faces);
         let std = |m: &Mesh| {
             let rs: Vec<f64> = m.positions().iter().map(|p| p.length()).collect();
@@ -725,7 +779,10 @@ mod tests {
             (rs.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / rs.len() as f64).sqrt()
         };
         let smoothed = taubin_smooth(&noisy, LaplacianWeighting::Uniform, 0.5, -0.53, 10);
-        assert!(std(&smoothed) < std(&noisy), "Taubin must reduce radial noise");
+        assert!(
+            std(&smoothed) < std(&noisy),
+            "Taubin must reduce radial noise"
+        );
     }
 
     /// A truly flat grid is a fixed point of smoothing in `z` (its `z = 0` is
@@ -734,7 +791,10 @@ mod tests {
     fn smoothing_flat_grid_keeps_z_zero_and_noop_cases() {
         let grid = primitives::grid(5, 5, 1.0);
         let out = laplacian_smooth(&grid, LaplacianWeighting::Uniform, 1.0, 2).expect("solve");
-        assert!(out.positions().iter().all(|p| p.z.abs() < 1e-12), "flat grid stays in z=0");
+        assert!(
+            out.positions().iter().all(|p| p.z.abs() < 1e-12),
+            "flat grid stays in z=0"
+        );
 
         // No-op requests return the input geometry unchanged.
         let noop = laplacian_smooth(&grid, LaplacianWeighting::Cotangent, 0.0, 5).expect("noop");

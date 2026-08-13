@@ -297,7 +297,9 @@ impl ZbsBed {
 
         let b = self.deformation_factor().get::<ratio>();
         let kappa = ks / kf;
-        let kr = self.radiation_ratio(fluid_conductivity, temperature).get::<ratio>();
+        let kr = self
+            .radiation_ratio(fluid_conductivity, temperature)
+            .get::<ratio>();
 
         let n = 1.0 + (kr - b) / kappa;
         let ln_arg = (kappa + kr) / b;
@@ -579,7 +581,8 @@ mod tests {
         for i in 0..18 {
             let t = VTB_TEMPERATURE_KELVIN[i];
             let kf = helium_conductivity_at(t);
-            let rel_kf = (kf - MEASURED_HELIUM_K_W_PER_M_K[i]).abs() / MEASURED_HELIUM_K_W_PER_M_K[i];
+            let rel_kf =
+                (kf - MEASURED_HELIUM_K_W_PER_M_K[i]).abs() / MEASURED_HELIUM_K_W_PER_M_K[i];
             assert!(
                 rel_kf < 1e-6,
                 "helium k_f at {t} K drifted from the pinned value: {kf} vs \
@@ -620,7 +623,9 @@ mod tests {
             );
         }
 
-        println!("worst ratio {min_ratio:.6} at {min_at} K, best ratio {max_ratio:.6} at {max_at} K");
+        println!(
+            "worst ratio {min_ratio:.6} at {min_at} K, best ratio {max_ratio:.6} at {max_at} K"
+        );
         assert!(
             (min_ratio - 0.176932).abs() < 1e-5 && min_at == 300.0,
             "worst-point ratio moved: {min_ratio} at {min_at} K"
@@ -707,7 +712,10 @@ mod tests {
                 .get::<watt_per_meter_kelvin>();
             let rel = (hot - stagnant).abs() / stagnant;
             println!("e_r={e_r:e}: eff(1000 K)={hot:.12}, stagnant={stagnant:.12}, rel={rel:.3e}");
-            assert!(rel < bound, "radiation did not vanish at e_r={e_r}: rel={rel:.3e}");
+            assert!(
+                rel < bound,
+                "radiation did not vanish at e_r={e_r}: rel={rel:.3e}"
+            );
             assert!(rel < prev_rel, "relative excess must fall with e_r");
             prev_rel = rel;
         }
@@ -861,7 +869,10 @@ mod tests {
                         .get::<watt_per_meter_kelvin>();
                     let rel = (out - k).abs() / k;
                     println!("eps={eps} B={b:.6} k={k}: k_eff={out:.15} rel={rel:.3e}");
-                    assert!(rel < 1e-14, "uniform medium did not collapse: rel={rel:.3e}");
+                    assert!(
+                        rel < 1e-14,
+                        "uniform medium did not collapse: rel={rel:.3e}"
+                    );
                     worst_rel = worst_rel.max(rel);
                 } else {
                     println!("eps={eps} B={b:.6} k={k}: {:?}", result.as_ref().err());
@@ -936,7 +947,10 @@ mod tests {
             }
         }
         println!("worst Zehner-Schlunder degeneration deviation: {worst:.3e}");
-        assert!(worst < 1e-12, "k_r -> 0 limit does not match the classic form: {worst:.3e}");
+        assert!(
+            worst < 1e-12,
+            "k_r -> 0 limit does not match the classic form: {worst:.3e}"
+        );
     }
 
     /// V&V: with radiation active, `k_eff` rises strictly with temperature,
@@ -1028,7 +1042,13 @@ mod tests {
         let kf = wmk(0.15);
         let t = kelv(300.0);
 
-        let invalid: [(&str, ZbsBed, ThermalConductivity, ThermalConductivity, ThermodynamicTemperature); 8] = [
+        let invalid: [(
+            &str,
+            ZbsBed,
+            ThermalConductivity,
+            ThermalConductivity,
+            ThermodynamicTemperature,
+        ); 8] = [
             (
                 "porosity 0",
                 ZbsBed::new(Ratio::new::<ratio>(0.0), d, e_ok),

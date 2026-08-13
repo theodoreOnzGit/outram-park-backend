@@ -246,7 +246,9 @@ fn recover_inner_compositions(z: &[f64], k: &[f64], r: f64, g0: f64, g1: f64) ->
     }
     if g1 >= 0.0 {
         // All vapour: y = z; incipient liquid x_i ∝ z_i / K_i.
-        let mut x: Vec<f64> = (0..n).map(|i| if k[i] != 0.0 { z[i] / k[i] } else { z[i] }).collect();
+        let mut x: Vec<f64> = (0..n)
+            .map(|i| if k[i] != 0.0 { z[i] / k[i] } else { z[i] })
+            .collect();
         normalize(&mut x);
         return InnerSplit {
             vapor_fraction: 1.0,
@@ -258,7 +260,11 @@ fn recover_inner_compositions(z: &[f64], k: &[f64], r: f64, g0: f64, g1: f64) ->
     let sum_x: f64 = p.iter().sum();
     let sum_y: f64 = p.iter().zip(k.iter()).map(|(&pi, &ki)| ki * pi).sum();
     let mut x: Vec<f64> = p.iter().map(|&pi| pi / sum_x).collect();
-    let mut y: Vec<f64> = p.iter().zip(k.iter()).map(|(&pi, &ki)| ki * pi / sum_y).collect();
+    let mut y: Vec<f64> = p
+        .iter()
+        .zip(k.iter())
+        .map(|(&pi, &ki)| ki * pi / sum_y)
+        .collect();
     normalize(&mut x);
     normalize(&mut y);
     let l = (1.0 - r) * sum_x;
@@ -471,12 +477,16 @@ mod tests {
         let pkg = PropertyPackageModel::PengRobinson;
         let k_closure = |x: &[f64], y: &[f64], t: f64, p: f64| pkg.k_values(&comps, x, y, t, p);
 
-        let io = inside_out_flash(&z, &comps, t, p, &k_closure, InsideOutOptions::default())
-            .unwrap();
+        let io =
+            inside_out_flash(&z, &comps, t, p, &k_closure, InsideOutOptions::default()).unwrap();
         let nl = nested_loops_flash(&z, &comps, t, p, &k_closure, NestedLoopsOptions::default())
             .unwrap();
 
-        assert!(io.beta > 0.0 && io.beta < 1.0, "expected 0 < V < 1, got {}", io.beta);
+        assert!(
+            io.beta > 0.0 && io.beta < 1.0,
+            "expected 0 < V < 1, got {}",
+            io.beta
+        );
         // Cross-method agreement: within the looser of the two convergence bands.
         assert_abs_diff_eq!(io.beta, nl.beta, epsilon = 1e-6);
         for i in 0..z.len() {
@@ -505,9 +515,19 @@ mod tests {
         let const_k = [2.0, 0.5];
         let closure = |_x: &[f64], _y: &[f64], _t: f64, _p: f64| const_k.to_vec();
 
-        let io = inside_out_flash(&z, &comps, 250.0, 1.0e5, closure, InsideOutOptions::default())
-            .unwrap();
-        assert_eq!(io.iterations, 2, "constant closure converges once log-K stops changing");
+        let io = inside_out_flash(
+            &z,
+            &comps,
+            250.0,
+            1.0e5,
+            closure,
+            InsideOutOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            io.iterations, 2,
+            "constant closure converges once log-K stops changing"
+        );
         assert_abs_diff_eq!(io.beta, 0.5, epsilon = 1e-9);
         assert_abs_diff_eq!(io.x[0], 1.0 / 3.0, epsilon = 1e-9);
         assert_abs_diff_eq!(io.y[0], 2.0 / 3.0, epsilon = 1e-9);
@@ -530,16 +550,28 @@ mod tests {
         let pkg = PropertyPackageModel::Ideal;
         let k_closure = |x: &[f64], y: &[f64], t: f64, p: f64| pkg.k_values(&comps, x, y, t, p);
 
-        let vap =
-            inside_out_flash(&z, &comps, 250.0, 1.0e4, &k_closure, InsideOutOptions::default())
-                .unwrap();
+        let vap = inside_out_flash(
+            &z,
+            &comps,
+            250.0,
+            1.0e4,
+            &k_closure,
+            InsideOutOptions::default(),
+        )
+        .unwrap();
         assert_abs_diff_eq!(vap.beta, 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(vap.y[0], z[0], epsilon = 1e-12);
         assert_abs_diff_eq!(vap.y[1], z[1], epsilon = 1e-12);
 
-        let liq =
-            inside_out_flash(&z, &comps, 200.0, 5.0e7, &k_closure, InsideOutOptions::default())
-                .unwrap();
+        let liq = inside_out_flash(
+            &z,
+            &comps,
+            200.0,
+            5.0e7,
+            &k_closure,
+            InsideOutOptions::default(),
+        )
+        .unwrap();
         assert_abs_diff_eq!(liq.beta, 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(liq.x[0], z[0], epsilon = 1e-12);
         assert_abs_diff_eq!(liq.x[1], z[1], epsilon = 1e-12);

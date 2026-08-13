@@ -83,7 +83,12 @@ impl ReactorFeed {
     /// need concentrations (the conversion and mole-fraction-basis equilibrium
     /// reactors); the kinetic reactors require `Q > 0`.
     #[must_use]
-    pub fn new(molar_flows: Vec<f64>, temperature: f64, pressure: f64, volumetric_flow: f64) -> Self {
+    pub fn new(
+        molar_flows: Vec<f64>,
+        temperature: f64,
+        pressure: f64,
+        volumetric_flow: f64,
+    ) -> Self {
         Self {
             molar_flows,
             temperature,
@@ -131,7 +136,9 @@ impl ReactorOutcome {
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ReactorError {
     /// The iterative solver did not converge within its iteration budget.
-    #[error("reactor solver failed to converge after {iterations} iterations (residual {residual:e})")]
+    #[error(
+        "reactor solver failed to converge after {iterations} iterations (residual {residual:e})"
+    )]
     NonConvergence {
         /// Iterations attempted.
         iterations: usize,

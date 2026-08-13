@@ -317,8 +317,9 @@ pub fn try_kernel_release_fraction_gpu(
         ],
     });
 
-    let mut encoder =
-        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("wos-encoder") });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("wos-encoder"),
+    });
     {
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("wos-pass"),
@@ -650,7 +651,9 @@ pub fn try_advance_multilayer_gpu(
 
     let mk_storage = |label, data: &[u8], rw: bool| {
         let usage = if rw {
-            wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC
+            wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC
         } else {
             wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST
         };
@@ -729,8 +732,9 @@ pub fn try_advance_multilayer_gpu(
         ],
     });
 
-    let mut encoder = device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("ml-encoder") });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("ml-encoder"),
+    });
     {
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("ml-pass"),
@@ -801,7 +805,8 @@ pub fn advance_multilayer_best_effort(
     until: Time,
 ) -> bool {
     if let Some(ctx) = cached_context() {
-        if try_advance_multilayer_gpu(ctx, cell, params, walkers, released, nuclide, until).is_ok() {
+        if try_advance_multilayer_gpu(ctx, cell, params, walkers, released, nuclide, until).is_ok()
+        {
             return true;
         }
     }
@@ -876,12 +881,18 @@ fn block_on<F: Future>(future: F) -> F::Output {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::calculate_analytical_fraction_released;
+        use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::calculate_analytical_fraction_released;
     use uom::si::length::micrometer;
     use uom::si::thermodynamic_temperature::degree_celsius;
     use uom::si::time::hour;
 
-    fn crp6_inputs() -> (Nuclide, Length, ThermodynamicTemperature, Time, EnsembleConfig) {
+    fn crp6_inputs() -> (
+        Nuclide,
+        Length,
+        ThermodynamicTemperature,
+        Time,
+        EnsembleConfig,
+    ) {
         (
             Nuclide::Cs137,
             Length::new::<micrometer>(212.5),

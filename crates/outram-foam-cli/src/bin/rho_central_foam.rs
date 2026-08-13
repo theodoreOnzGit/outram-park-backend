@@ -27,9 +27,7 @@
 
 use std::path::Path;
 
-use outram_foam_appbuilder_lib::prelude::{
-    ControlDict, RhoCentralFoam, StartControl, StopControl,
-};
+use outram_foam_appbuilder_lib::prelude::{ControlDict, RhoCentralFoam, StartControl, StopControl};
 use outram_foam_basic_lib::io::field::{write_vol_scalar_field, write_vol_vector_field};
 use outram_foam_basic_lib::io::case::{CaseField, FoamCase};
 use outram_foam_cli::{CaseArgs, CliError};
@@ -104,7 +102,10 @@ fn run(args: &CaseArgs) -> Result<(), CliError> {
         n_steps += 1;
         println!("Time = {}", fmt_time(time));
     }
-    println!("\nEnd (marched {n_steps} step(s) to Time = {})", fmt_time(time));
+    println!(
+        "\nEnd (marched {n_steps} step(s) to Time = {})",
+        fmt_time(time)
+    );
 
     // ── Write result fields into <endTime>/ ─────────────────────────────────
     let out_dir = case_dir.join(fmt_time(time));

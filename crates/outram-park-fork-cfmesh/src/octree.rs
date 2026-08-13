@@ -115,8 +115,19 @@ type Cell = (u8, i64, i64, i64);
 /// #     (v, t)
 /// # }
 /// ```
-pub fn refine_near_boundary(points: &[Vec3], tris: &[[usize; 3]], base_cell_size: f64, max_level: u8) -> VolumeMesh {
-    refine_with(points, tris, base_cell_size, max_level, RefineCriterion::TouchesWall)
+pub fn refine_near_boundary(
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    base_cell_size: f64,
+    max_level: u8,
+) -> VolumeMesh {
+    refine_with(
+        points,
+        tris,
+        base_cell_size,
+        max_level,
+        RefineCriterion::TouchesWall,
+    )
 }
 
 /// Carve the closed surface (`points`, `tris`) at `base_cell_size`, then refine
@@ -189,7 +200,13 @@ pub fn refine_near_boundary_banded(
     max_level: u8,
     band_cells: f64,
 ) -> VolumeMesh {
-    refine_with(points, tris, base_cell_size, max_level, RefineCriterion::DistanceBand(band_cells))
+    refine_with(
+        points,
+        tris,
+        base_cell_size,
+        max_level,
+        RefineCriterion::DistanceBand(band_cells),
+    )
 }
 
 /// Which leaves get refined. An enum, not a trait object / closure parameter,
@@ -238,7 +255,8 @@ fn refine_with(
             origin.z + h * (k as f64 + 0.5),
         )
     };
-    let cell_inside = |lvl: u8, i: i64, j: i64, k: i64| inside(cell_centre(lvl, i, j, k), points, tris);
+    let cell_inside =
+        |lvl: u8, i: i64, j: i64, k: i64| inside(cell_centre(lvl, i, j, k), points, tris);
 
     // Level-0 kept cells.
     let mut leaves: HashSet<Cell> = HashSet::new();
@@ -258,9 +276,16 @@ fn refine_with(
     // A boundary leaf is inside but has a same-level face-neighbour centre that
     // is outside — the layer of cells touching the surface at that level.
     let is_boundary_leaf = |c: Cell| -> bool {
-        const D: [(i64, i64, i64); 6] =
-            [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)];
-        D.iter().any(|(di, dj, dk)| !cell_inside(c.0, c.1 + di, c.2 + dj, c.3 + dk))
+        const D: [(i64, i64, i64); 6] = [
+            (1, 0, 0),
+            (-1, 0, 0),
+            (0, 1, 0),
+            (0, -1, 0),
+            (0, 0, 1),
+            (0, 0, -1),
+        ];
+        D.iter()
+            .any(|(di, dj, dk)| !cell_inside(c.0, c.1 + di, c.2 + dj, c.3 + dk))
     };
 
     // Does a leaf at `target - 1` qualify for splitting to level `target`?
@@ -273,7 +298,9 @@ fn refine_with(
                 }
                 let edge = cs / (1u64 << c.0) as f64;
                 let centre = cell_centre(c.0, c.1, c.2, c.3);
-                let d = centre.sub(closest_point_on_surface(centre, points, tris)).length();
+                let d = centre
+                    .sub(closest_point_on_surface(centre, points, tris))
+                    .length();
                 d < band * edge
             }
         }
@@ -281,8 +308,11 @@ fn refine_with(
 
     // Progressive near-surface refinement, one level at a time.
     for target in 1..=max_level {
-        let to_refine: Vec<Cell> =
-            leaves.iter().filter(|c| c.0 == target - 1 && qualifies(**c)).copied().collect();
+        let to_refine: Vec<Cell> = leaves
+            .iter()
+            .filter(|c| c.0 == target - 1 && qualifies(**c))
+            .copied()
+            .collect();
         for c in to_refine {
             leaves.remove(&c);
             for child in children(c) {
@@ -336,7 +366,12 @@ fn balance_2to1(leaves: &mut HashSet<Cell>) {
                     if probe.0 == 0 {
                         break;
                     }
-                    probe = (probe.0 - 1, probe.1.div_euclid(2), probe.2.div_euclid(2), probe.3.div_euclid(2));
+                    probe = (
+                        probe.0 - 1,
+                        probe.1.div_euclid(2),
+                        probe.2.div_euclid(2),
+                        probe.3.div_euclid(2),
+                    );
                 }
             }
         }
@@ -354,7 +389,14 @@ fn balance_2to1(leaves: &mut HashSet<Cell>) {
 }
 
 fn empty() -> VolumeMesh {
-    VolumeMesh { points: vec![], faces: vec![], owner: vec![], neighbour: vec![], n_cells: 0, patches: vec![] }
+    VolumeMesh {
+        points: vec![],
+        faces: vec![],
+        owner: vec![],
+        neighbour: vec![],
+        n_cells: 0,
+        patches: vec![],
+    }
 }
 
 /// Build the conforming [`VolumeMesh`] from a 2:1-balanced leaf set (neighbour
@@ -426,7 +468,12 @@ fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8)
         if nc.0 == 0 {
             return None;
         }
-        let p = (nc.0 - 1, nc.1.div_euclid(2), nc.2.div_euclid(2), nc.3.div_euclid(2));
+        let p = (
+            nc.0 - 1,
+            nc.1.div_euclid(2),
+            nc.2.div_euclid(2),
+            nc.3.div_euclid(2),
+        );
         if leaves.contains(&p) {
             Some(p)
         } else {
@@ -495,8 +542,10 @@ fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8)
     let mut int_owner: Vec<usize> = Vec::new();
     let mut int_nb: Vec<usize> = Vec::new();
     for (corners, cid, nid, oc) in &raw_int {
-        let ring: Vec<usize> =
-            conforming_ring(*corners, &used).into_iter().map(|c| pt_of(c, &mut points)).collect();
+        let ring: Vec<usize> = conforming_ring(*corners, &used)
+            .into_iter()
+            .map(|c| pt_of(c, &mut points))
+            .collect();
         int_faces.push(orient_ring(ring, *oc, &points));
         int_owner.push(*cid);
         int_nb.push(*nid);
@@ -504,8 +553,10 @@ fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8)
     let mut bnd_faces: Vec<Vec<usize>> = Vec::new();
     let mut bnd_owner: Vec<usize> = Vec::new();
     for (corners, cid, oc) in &raw_bnd {
-        let ring: Vec<usize> =
-            conforming_ring(*corners, &used).into_iter().map(|c| pt_of(c, &mut points)).collect();
+        let ring: Vec<usize> = conforming_ring(*corners, &used)
+            .into_iter()
+            .map(|c| pt_of(c, &mut points))
+            .collect();
         bnd_faces.push(orient_ring(ring, *oc, &points));
         bnd_owner.push(*cid);
     }
@@ -518,8 +569,19 @@ fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8)
     faces.extend(bnd_faces);
     owner.extend(bnd_owner);
     neighbour.extend(std::iter::repeat(None).take(n_boundary));
-    let patches = vec![BoundaryPatch { name: "walls".into(), start_face: n_internal, n_faces: n_boundary }];
-    VolumeMesh { points, faces, owner, neighbour, n_cells: leaves.len(), patches }
+    let patches = vec![BoundaryPatch {
+        name: "walls".into(),
+        start_face: n_internal,
+        n_faces: n_boundary,
+    }];
+    VolumeMesh {
+        points,
+        faces,
+        owner,
+        neighbour,
+        n_cells: leaves.len(),
+        patches,
+    }
 }
 
 /// The **edge-conforming** ring of an axis-aligned quad: its four corners with
@@ -534,7 +596,10 @@ fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8)
 /// unchanged — but it makes every edge of the cell lie in exactly two of that
 /// cell's faces, which is what [`crate::tet::tetrahedralize`] needs to produce a
 /// watertight tet mesh (see the module docs).
-fn conforming_ring(corners: [(i64, i64, i64); 4], used: &HashSet<(i64, i64, i64)>) -> Vec<(i64, i64, i64)> {
+fn conforming_ring(
+    corners: [(i64, i64, i64); 4],
+    used: &HashSet<(i64, i64, i64)>,
+) -> Vec<(i64, i64, i64)> {
     let mut ring: Vec<(i64, i64, i64)> = Vec::with_capacity(8);
     for i in 0..4 {
         let a = corners[i];
@@ -542,7 +607,9 @@ fn conforming_ring(corners: [(i64, i64, i64); 4], used: &HashSet<(i64, i64, i64)
         ring.push(a);
         let d = [b.0 - a.0, b.1 - a.1, b.2 - a.2];
         // Exactly one component differs on an axis-aligned quad edge.
-        let Some(axis) = (0..3).find(|&ax| d[ax] != 0) else { continue };
+        let Some(axis) = (0..3).find(|&ax| d[ax] != 0) else {
+            continue;
+        };
         let step = if d[axis] > 0 { 1 } else { -1 };
         let n = d[axis].abs();
         for s in 1..n {
@@ -608,7 +675,14 @@ mod tests {
         ];
         let q = |a: usize, b: usize, c: usize, d: usize| vec![[a, b, c], [a, c, d]];
         let mut t = Vec::new();
-        for f in [q(0, 3, 2, 1), q(4, 5, 6, 7), q(0, 1, 5, 4), q(2, 3, 7, 6), q(1, 2, 6, 5), q(0, 4, 7, 3)] {
+        for f in [
+            q(0, 3, 2, 1),
+            q(4, 5, 6, 7),
+            q(0, 1, 5, 4),
+            q(2, 3, 7, 6),
+            q(1, 2, 6, 5),
+            q(0, 4, 7, 3),
+        ] {
             t.extend(f);
         }
         (v, t)
@@ -638,11 +712,23 @@ mod tests {
     fn refined_box_is_exact_closed_and_polyhedral() {
         let (p, t) = box_surface(Vec3::ZERO, Vec3::new(4.0, 4.0, 4.0));
         let m = refine_near_boundary(&p, &t, 1.0, 1);
-        assert!((m.total_volume() - 64.0).abs() < 1e-9, "refinement preserves exact volume: {}", m.total_volume());
-        m.validate().expect("every cell (incl. polyhedral) is closed");
-        assert!(m.cell_count() > 64, "refinement added cells: {}", m.cell_count());
+        assert!(
+            (m.total_volume() - 64.0).abs() < 1e-9,
+            "refinement preserves exact volume: {}",
+            m.total_volume()
+        );
+        m.validate()
+            .expect("every cell (incl. polyhedral) is closed");
+        assert!(
+            m.cell_count() > 64,
+            "refinement added cells: {}",
+            m.cell_count()
+        );
         let fpc = faces_per_cell(&m);
-        assert!(fpc.iter().any(|&n| n > 6), "some transition cell is polyhedral (> 6 faces)");
+        assert!(
+            fpc.iter().any(|&n| n > 6),
+            "some transition cell is polyhedral (> 6 faces)"
+        );
     }
 
     /// V&V — multi-level refinement + 2:1 balancing stays exact and conforming.
@@ -656,11 +742,22 @@ mod tests {
         let (p, t) = box_surface(Vec3::ZERO, Vec3::new(8.0, 8.0, 8.0));
         let one = refine_near_boundary(&p, &t, 1.0, 1);
         let two = refine_near_boundary(&p, &t, 1.0, 2);
-        assert!((two.total_volume() - 512.0).abs() < 1e-6, "exact volume 8³: {}", two.total_volume());
-        two.validate().expect("multi-level cells closed (incl. polyhedra)");
-        assert!(two.cell_count() > one.cell_count(), "deeper refine has more cells");
+        assert!(
+            (two.total_volume() - 512.0).abs() < 1e-6,
+            "exact volume 8³: {}",
+            two.total_volume()
+        );
+        two.validate()
+            .expect("multi-level cells closed (incl. polyhedra)");
+        assert!(
+            two.cell_count() > one.cell_count(),
+            "deeper refine has more cells"
+        );
         let fpc = faces_per_cell(&two);
-        assert!(fpc.iter().any(|&n| n > 6), "polyhedral transition cells present");
+        assert!(
+            fpc.iter().any(|&n| n > 6),
+            "polyhedral transition cells present"
+        );
     }
 
     /// V&V — **edge conformity**: after the hanging-node insertion pass, every
@@ -715,7 +812,8 @@ mod tests {
             "tet mesh of the refined box is watertight: {}",
             tets.total_volume()
         );
-        tets.validate().expect("tet mesh of the refined box is closed");
+        tets.validate()
+            .expect("tet mesh of the refined box is closed");
     }
 
     /// V&V — the **distance-band** criterion ([`refine_near_boundary_banded`]).
@@ -741,18 +839,32 @@ mod tests {
 
         let shell = refine_near_boundary(&p, &t, 1.0, 1);
         let band1 = refine_near_boundary_banded(&p, &t, 1.0, 1, 1.0);
-        assert_eq!(band1.cell_count(), shell.cell_count(), "band 1.0 == touching shell on a box");
+        assert_eq!(
+            band1.cell_count(),
+            shell.cell_count(),
+            "band 1.0 == touching shell on a box"
+        );
         assert_eq!(band1.cell_count(), 456);
 
         let none = refine_near_boundary_banded(&p, &t, 1.0, 1, 0.0);
         assert_eq!(none.cell_count(), 64, "a non-positive band refines nothing");
 
         let band2 = refine_near_boundary_banded(&p, &t, 1.0, 1, 2.0);
-        assert!(band2.cell_count() > band1.cell_count(), "a wider band refines more: {} > {}", band2.cell_count(), band1.cell_count());
+        assert!(
+            band2.cell_count() > band1.cell_count(),
+            "a wider band refines more: {} > {}",
+            band2.cell_count(),
+            band1.cell_count()
+        );
 
         for (label, m) in [("band1", &band1), ("none", &none), ("band2", &band2)] {
-            assert!((m.total_volume() - 64.0).abs() < 1e-9, "{label} volume {}", m.total_volume());
-            m.validate().unwrap_or_else(|e| panic!("{label} not closed: {e}"));
+            assert!(
+                (m.total_volume() - 64.0).abs() < 1e-9,
+                "{label} volume {}",
+                m.total_volume()
+            );
+            m.validate()
+                .unwrap_or_else(|e| panic!("{label} not closed: {e}"));
         }
     }
 
@@ -789,6 +901,9 @@ mod tests {
         // the 56-cell boundary shell splits into 8 each -> 8 + 56*8 = 456.
         assert_eq!(refined.cell_count(), 456);
         let fpc = faces_per_cell(&refined);
-        assert!(fpc.iter().sum::<usize>() > 6 * 64, "more faces than a uniform mesh");
+        assert!(
+            fpc.iter().sum::<usize>() > 6 * 64,
+            "more faces than a uniform mesh"
+        );
     }
 }

@@ -524,8 +524,9 @@ fn run_lle(
 
     // Merge decision (DWSIM lines 291-313): one phase vanished or the two
     // compositions coincide -> report a single stable liquid.
-    let merged =
-        l1 < opts.min_phase_fraction || l2 < opts.min_phase_fraction || comp_diff < opts.composition_merge_tol;
+    let merged = l1 < opts.min_phase_fraction
+        || l2 < opts.min_phase_fraction
+        || comp_diff < opts.composition_merge_tol;
     if merged {
         let gamma = model.activity_coefficients(z, t);
         return Ok(LleResult {
@@ -641,7 +642,12 @@ mod tests {
 
         // The two liquids are genuinely distinct.
         let diff: f64 = (0..2).map(|i| (r.x1[i] - r.x2[i]).abs()).sum();
-        assert!(diff > 1e-2, "phases must be distinct, got x1={:?} x2={:?}", r.x1, r.x2);
+        assert!(
+            diff > 1e-2,
+            "phases must be distinct, got x1={:?} x2={:?}",
+            r.x1,
+            r.x2
+        );
 
         // Isoactivity: gamma_i^I x_i^I == gamma_i^II x_i^II for every component.
         for i in 0..2 {
@@ -687,8 +693,20 @@ mod tests {
         assert!(ra.split && rb.split);
 
         // Identify the water-rich phase in each (larger x[water]) and compare.
-        let water_rich = |r: &LleResult| if r.x1[0] > r.x2[0] { r.x1.clone() } else { r.x2.clone() };
-        let but_rich = |r: &LleResult| if r.x1[0] > r.x2[0] { r.x2.clone() } else { r.x1.clone() };
+        let water_rich = |r: &LleResult| {
+            if r.x1[0] > r.x2[0] {
+                r.x1.clone()
+            } else {
+                r.x2.clone()
+            }
+        };
+        let but_rich = |r: &LleResult| {
+            if r.x1[0] > r.x2[0] {
+                r.x2.clone()
+            } else {
+                r.x1.clone()
+            }
+        };
         let (wa, wb) = (water_rich(&ra), water_rich(&rb));
         let (ba, bb) = (but_rich(&ra), but_rich(&rb));
         for i in 0..2 {
@@ -713,7 +731,10 @@ mod tests {
         ));
         let z = [0.50, 0.50];
         let r = flash_pt_lle(&model, &z, 298.15, LleOptions::default()).unwrap();
-        assert!(!r.split, "methanol/water must be miscible (one liquid), got {r:?}");
+        assert!(
+            !r.split,
+            "methanol/water must be miscible (one liquid), got {r:?}"
+        );
         assert_abs_diff_eq!(r.l1, 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r.l2, 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(r.x1[0], 0.5, epsilon = 1e-12);
@@ -726,8 +747,13 @@ mod tests {
     /// **Result (measured 2026-08-03):** `split = false`, one liquid = feed.
     #[test]
     fn ideal_never_splits() {
-        let r = flash_pt_lle(&ActivityModel::Ideal, &[0.5, 0.5], 300.0, LleOptions::default())
-            .unwrap();
+        let r = flash_pt_lle(
+            &ActivityModel::Ideal,
+            &[0.5, 0.5],
+            300.0,
+            LleOptions::default(),
+        )
+        .unwrap();
         assert!(!r.split, "ideal mixture cannot split, got {r:?}");
         assert_abs_diff_eq!(r.l1, 1.0, epsilon = 1e-12);
     }
@@ -755,7 +781,13 @@ mod tests {
         .unwrap();
         assert!(def.split && seeded.split);
         // Compare water-rich endpoints (labelling may differ between the two).
-        let water_rich = |r: &LleResult| if r.x1[0] > r.x2[0] { r.x1.clone() } else { r.x2.clone() };
+        let water_rich = |r: &LleResult| {
+            if r.x1[0] > r.x2[0] {
+                r.x1.clone()
+            } else {
+                r.x2.clone()
+            }
+        };
         let (a, b) = (water_rich(&def), water_rich(&seeded));
         for i in 0..2 {
             assert_abs_diff_eq!(a[i], b[i], epsilon = 1e-6);
@@ -772,8 +804,13 @@ mod tests {
             FlashError::Empty
         );
         assert_eq!(
-            flash_pt_lle(&ActivityModel::Ideal, &[f64::NAN, 0.5], 300.0, LleOptions::default())
-                .unwrap_err(),
+            flash_pt_lle(
+                &ActivityModel::Ideal,
+                &[f64::NAN, 0.5],
+                300.0,
+                LleOptions::default()
+            )
+            .unwrap_err(),
             FlashError::NonFinite
         );
         assert!(matches!(

@@ -269,7 +269,11 @@ fn cavity_poly_mesh_round_trips_and_is_cartesian() {
 
     assert_eq!(q.n_cells, 400);
     assert_eq!(q.n_negative_volume_cells, 0);
-    assert!(q.max_non_ortho_deg < 1e-12, "nonortho {}", q.max_non_ortho_deg);
+    assert!(
+        q.max_non_ortho_deg < 1e-12,
+        "nonortho {}",
+        q.max_non_ortho_deg
+    );
     assert!(q.max_skewness < 1e-12, "skew {}", q.max_skewness);
 
     let (a, b, c) = (0.005f64, 0.005f64, 0.01f64);

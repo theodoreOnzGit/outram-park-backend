@@ -58,7 +58,10 @@ impl DepletionMatrix {
     ///
     /// `order` is the number of nuclides tracked in the depletion chain.
     pub fn zeros(order: usize) -> Self {
-        Self { n: order, data: vec![0.0; order * order] }
+        Self {
+            n: order,
+            data: vec![0.0; order * order],
+        }
     }
 
     /// The matrix order `n` — the number of tracked nuclides.
@@ -70,7 +73,11 @@ impl DepletionMatrix {
     ///
     /// Panics if `row` or `col` is out of range.
     pub fn get(&self, row: usize, col: usize) -> f64 {
-        assert!(row < self.n && col < self.n, "index ({row},{col}) out of range for order {}", self.n);
+        assert!(
+            row < self.n && col < self.n,
+            "index ({row},{col}) out of range for order {}",
+            self.n
+        );
         self.data[row * self.n + col]
     }
 
@@ -78,7 +85,11 @@ impl DepletionMatrix {
     ///
     /// Panics if `row` or `col` is out of range.
     pub fn set(&mut self, row: usize, col: usize, val: f64) {
-        assert!(row < self.n && col < self.n, "index ({row},{col}) out of range for order {}", self.n);
+        assert!(
+            row < self.n && col < self.n,
+            "index ({row},{col}) out of range for order {}",
+            self.n
+        );
         self.data[row * self.n + col] = val;
     }
 
@@ -88,7 +99,11 @@ impl DepletionMatrix {
     /// reaction channel adds its production term to an off-diagonal and its
     /// removal term to the diagonal. Panics if indices are out of range.
     pub fn add(&mut self, row: usize, col: usize, val: f64) {
-        assert!(row < self.n && col < self.n, "index ({row},{col}) out of range for order {}", self.n);
+        assert!(
+            row < self.n && col < self.n,
+            "index ({row},{col}) out of range for order {}",
+            self.n
+        );
         self.data[row * self.n + col] += val;
     }
 
@@ -98,7 +113,13 @@ impl DepletionMatrix {
     /// of the same length. Used by explicit ODE checks and by callers that want
     /// the instantaneous production/removal rates.
     pub fn mat_vec(&self, n_vec: &[f64]) -> Vec<f64> {
-        assert_eq!(n_vec.len(), self.n, "vector length {} != matrix order {}", n_vec.len(), self.n);
+        assert_eq!(
+            n_vec.len(),
+            self.n,
+            "vector length {} != matrix order {}",
+            n_vec.len(),
+            self.n
+        );
         let mut out = vec![0.0; self.n];
         for row in 0..self.n {
             let base = row * self.n;

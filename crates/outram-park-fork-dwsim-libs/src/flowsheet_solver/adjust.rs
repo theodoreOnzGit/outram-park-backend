@@ -491,7 +491,9 @@ mod tests {
     #[test]
     fn one_variable_newton_finds_the_exact_root() {
         let (mut fs, feed, product, adjust_id) = rig();
-        FlowsheetVariable::MassFlow.set(&mut fs, &feed, 1.0).unwrap();
+        FlowsheetVariable::MassFlow
+            .set(&mut fs, &feed, 1.0)
+            .unwrap();
 
         let mut adjusts = HashMap::new();
         adjusts.insert(
@@ -600,7 +602,9 @@ mod tests {
     #[test]
     fn unreachable_target_hits_the_iteration_cap() {
         let (mut fs, feed, product, adjust_id) = rig();
-        FlowsheetVariable::MassFlow.set(&mut fs, &feed, 1.0).unwrap();
+        FlowsheetVariable::MassFlow
+            .set(&mut fs, &feed, 1.0)
+            .unwrap();
 
         let mut adjusts = HashMap::new();
         adjusts.insert(
@@ -624,9 +628,8 @@ mod tests {
             FlowsheetVariable::Temperature.set(fs, &sp, 300.0 + 50.0 * w.tanh())
         };
 
-        let err =
-            solve_simultaneous_adjusts(&mut fs, &adjusts, &mut resolve, &AbortFlag::new())
-                .unwrap_err();
+        let err = solve_simultaneous_adjusts(&mut fs, &adjusts, &mut resolve, &AbortFlag::new())
+            .unwrap_err();
         assert_eq!(err, SolverError::AdjustMaxIterations);
     }
 
@@ -676,8 +679,7 @@ mod tests {
         };
         let abort = AbortFlag::new();
         abort.request_abort();
-        let err =
-            solve_simultaneous_adjusts(&mut fs, &adjusts, &mut resolve, &abort).unwrap_err();
+        let err = solve_simultaneous_adjusts(&mut fs, &adjusts, &mut resolve, &abort).unwrap_err();
         assert_eq!(err, SolverError::Aborted);
         assert_eq!(calls, 0);
     }

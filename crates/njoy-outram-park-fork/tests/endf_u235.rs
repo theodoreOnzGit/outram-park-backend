@@ -48,17 +48,44 @@ fn tape_parses_large_file() {
 fn key_sections_present() {
     let tape = load_tape();
     // MF=1 descriptive / nu
-    assert!(tape.section(MAT, 1, 451).is_some(), "missing MF=1 MT=451 (general info)");
-    assert!(tape.section(MAT, 1, 452).is_some(), "missing MF=1 MT=452 (nubar total)");
-    assert!(tape.section(MAT, 1, 455).is_some(), "missing MF=1 MT=455 (nubar delayed)");
-    assert!(tape.section(MAT, 1, 456).is_some(), "missing MF=1 MT=456 (nubar prompt)");
+    assert!(
+        tape.section(MAT, 1, 451).is_some(),
+        "missing MF=1 MT=451 (general info)"
+    );
+    assert!(
+        tape.section(MAT, 1, 452).is_some(),
+        "missing MF=1 MT=452 (nubar total)"
+    );
+    assert!(
+        tape.section(MAT, 1, 455).is_some(),
+        "missing MF=1 MT=455 (nubar delayed)"
+    );
+    assert!(
+        tape.section(MAT, 1, 456).is_some(),
+        "missing MF=1 MT=456 (nubar prompt)"
+    );
     // MF=2 resonance parameters
-    assert!(tape.section(MAT, 2, 151).is_some(), "missing MF=2 MT=151 (resonance params)");
+    assert!(
+        tape.section(MAT, 2, 151).is_some(),
+        "missing MF=2 MT=151 (resonance params)"
+    );
     // MF=3 cross sections
-    assert!(tape.section(MAT, 3,   1).is_some(), "missing MF=3 MT=1 (total XS)");
-    assert!(tape.section(MAT, 3,   2).is_some(), "missing MF=3 MT=2 (elastic XS)");
-    assert!(tape.section(MAT, 3,  18).is_some(), "missing MF=3 MT=18 (fission XS)");
-    assert!(tape.section(MAT, 3, 102).is_some(), "missing MF=3 MT=102 (capture XS)");
+    assert!(
+        tape.section(MAT, 3, 1).is_some(),
+        "missing MF=3 MT=1 (total XS)"
+    );
+    assert!(
+        tape.section(MAT, 3, 2).is_some(),
+        "missing MF=3 MT=2 (elastic XS)"
+    );
+    assert!(
+        tape.section(MAT, 3, 18).is_some(),
+        "missing MF=3 MT=18 (fission XS)"
+    );
+    assert!(
+        tape.section(MAT, 3, 102).is_some(),
+        "missing MF=3 MT=102 (capture XS)"
+    );
 }
 
 // ── MF=1 MT=451: General information header ───────────────────────────────────
@@ -98,7 +125,7 @@ fn elastic_xs_tab1_structure() {
     let tab1 = cur.read_tab1().unwrap();
     // Elastic XS has 111 points, 1 interpolation region (lin-lin = 2)
     assert_eq!(tab1.pairs.len(), 111, "NP=111 elastic points");
-    assert_eq!(tab1.head.n1, 1,  "NR=1 interp region");
+    assert_eq!(tab1.head.n1, 1, "NR=1 interp region");
     assert_eq!(tab1.interp[0].1, 2, "interp law lin-lin");
 }
 
@@ -113,7 +140,7 @@ fn elastic_xs_energy_bounds() {
     let (e_min, _) = tab1.pairs[0];
     let &(e_max, _) = tab1.pairs.last().unwrap();
     assert!((e_min - 1e-5).abs() < 1e-8, "E_min={}", e_min);
-    assert!((e_max - 3.0e7).abs() < 1.0,  "E_max={}", e_max);
+    assert!((e_max - 3.0e7).abs() < 1.0, "E_max={}", e_max);
 }
 
 #[test]
@@ -138,11 +165,14 @@ fn fission_xs_tab1_reads_cleanly() {
     let _cont = cur.read_cont().unwrap();
     let tab1 = cur.read_tab1().unwrap();
     // Fission XS table is non-empty and spans the full energy range
-    assert!(tab1.pairs.len() > 10, "fission table should have many points");
+    assert!(
+        tab1.pairs.len() > 10,
+        "fission table should have many points"
+    );
     let (e_first, _) = tab1.pairs[0];
     let &(e_last, _) = tab1.pairs.last().unwrap();
-    assert!(e_first < 1.0,    "fission starts at thermal energies");
-    assert!(e_last  > 1.0e6,  "fission extends to fast energies");
+    assert!(e_first < 1.0, "fission starts at thermal energies");
+    assert!(e_last > 1.0e6, "fission extends to fast energies");
 }
 
 #[test]
@@ -171,7 +201,11 @@ fn fission_xs_interpolation_at_thermal() {
     let tab1 = cur.read_tab1().unwrap();
     let sigma = eval_tab1(0.0253, &tab1.interp, &tab1.pairs).unwrap();
     // Before reconstruction σ=0 in the resonance region is expected
-    assert!(sigma >= 0.0, "σ_fission(0.0253 eV) must be non-negative, got {}", sigma);
+    assert!(
+        sigma >= 0.0,
+        "σ_fission(0.0253 eV) must be non-negative, got {}",
+        sigma
+    );
 }
 
 // ── MF=3 MT=1: Total cross section ───────────────────────────────────────────
@@ -200,5 +234,9 @@ fn resonance_section_exists_and_nonempty() {
     let sec = tape.section(MAT, 2, 151).unwrap();
     assert!(!sec.rows.is_empty(), "MF=2 MT=151 has no data rows");
     // U-235 has multiple resonance ranges (RRR + URR); the section is large
-    assert!(sec.rows.len() > 100, "expected many resonance rows, got {}", sec.rows.len());
+    assert!(
+        sec.rows.len() > 100,
+        "expected many resonance rows, got {}",
+        sec.rows.len()
+    );
 }

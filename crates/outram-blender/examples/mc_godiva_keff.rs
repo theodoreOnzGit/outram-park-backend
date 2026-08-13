@@ -50,7 +50,8 @@ fn main() {
 fn main() {
     use outram_blender::primitives::uv_sphere;
     use outram_blender::sim::{
-        csg_from_mesh, ComputeType, KeffSettings, MaterialSpec, McSimSetup, SimGeometry, ThreadCount,
+        csg_from_mesh, ComputeType, KeffSettings, MaterialSpec, McSimSetup, SimGeometry,
+        ThreadCount,
     };
 
     // Godiva HEU material, atom densities [atoms/barn·cm] (HEU-MET-FAST-001).
@@ -74,7 +75,10 @@ fn main() {
     };
 
     println!("Godiva bare-sphere criticality  (r = {radius_cm} cm)");
-    println!("  {} histories/gen × [{} inactive + {} active]\n", settings.n_particles, settings.n_inactive, settings.n_active);
+    println!(
+        "  {} histories/gen × [{} inactive + {} active]\n",
+        settings.n_particles, settings.n_inactive, settings.n_active
+    );
 
     // ── 1. Bare-sphere driver. ────────────────────────────────────────────────
     let bare = McSimSetup {
@@ -83,15 +87,31 @@ fn main() {
         settings: settings.clone(),
     };
     let r1 = bare.run().expect("bare-sphere run");
-    println!("[1] BareSphere driver     k_eff = {:.5} ± {:.5}  ({:+.0} pcm)", r1.k_mean, r1.k_std, (r1.k_mean - 1.0) * 1e5);
+    println!(
+        "[1] BareSphere driver     k_eff = {:.5} ± {:.5}  ({:+.0} pcm)",
+        r1.k_mean,
+        r1.k_std,
+        (r1.k_mean - 1.0) * 1e5
+    );
 
     // ── 2. Authored uv-sphere → CSG export → run_keff_csg. ────────────────────
     let sphere_mesh = uv_sphere(32, 16, radius_cm);
     let geometry = csg_from_mesh(&sphere_mesh, 0).expect("sphere exports to CSG");
-    let authored = McSimSetup { geometry, materials: vec![heu], settings };
+    let authored = McSimSetup {
+        geometry,
+        materials: vec![heu],
+        settings,
+    };
     let r2 = authored.run().expect("authored CSG run");
-    println!("[2] Authored uv-sphere→CSG k_eff = {:.5} ± {:.5}  ({:+.0} pcm)", r2.k_mean, r2.k_std, (r2.k_mean - 1.0) * 1e5);
+    println!(
+        "[2] Authored uv-sphere→CSG k_eff = {:.5} ± {:.5}  ({:+.0} pcm)",
+        r2.k_mean,
+        r2.k_std,
+        (r2.k_mean - 1.0) * 1e5
+    );
 
     println!("\n  ICSBEP HEU-MET-FAST-001 benchmark = 1.0000 ± 0.0010");
-    println!("  (embedded LOW-tier data carries a small known bias; see outram-mc-libs godiva_keff)");
+    println!(
+        "  (embedded LOW-tier data carries a small known bias; see outram-mc-libs godiva_keff)"
+    );
 }

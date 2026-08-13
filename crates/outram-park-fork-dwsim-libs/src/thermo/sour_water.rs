@@ -323,7 +323,12 @@ pub fn equilibrium_constants(t: f64) -> [f64; 7] {
 /// \[mol/kg\], and `T_R = 1.8 T`. Composition-dependent; used only by the
 /// optional outer loop [`SourWaterSystem::speciate_corrected`].
 #[must_use]
-pub fn ionic_strength_correction_k1(k1: f64, t: f64, h2s_molality: f64, ionic_strength: f64) -> f64 {
+pub fn ionic_strength_correction_k1(
+    k1: f64,
+    t: f64,
+    h2s_molality: f64,
+    ionic_strength: f64,
+) -> f64 {
     let tr = rankine(t);
     (k1.ln() - 0.278 * h2s_molality + (-1.32 + 1558.8 / tr) * ionic_strength.abs().powf(0.4)).exp()
 }
@@ -362,7 +367,8 @@ pub fn co2_correction_k5(k5: f64, co2_molality: f64) -> f64 {
 #[must_use]
 pub fn henry_volatility(t: f64, cas: f64, cc: f64, cs: f64) -> (f64, f64, f64) {
     let tr = rankine(t);
-    let v_nh3 = (178.339 - 15_517.91 / tr - 25.6767 * tr.ln() + 0.019_66 * tr
+    let v_nh3 = (178.339 - 15_517.91 / tr - 25.6767 * tr.ln()
+        + 0.019_66 * tr
         + (131.4 / tr - 0.1682) * cas)
         .exp()
         + 0.06 * (2.0 * cc + cs);
@@ -684,7 +690,11 @@ impl SourWaterSystem {
     /// molality `h` and drive the charge-balance residual to zero by **log-scale
     /// bisection** (robust — `f(h)` is monotone increasing in `h`). Returns the
     /// assembled [`SourWaterResult`].
-    fn solve_at(&self, feed: &SourWaterFeed, k: &[f64; 7]) -> Result<SourWaterResult, SourWaterError> {
+    fn solve_at(
+        &self,
+        feed: &SourWaterFeed,
+        k: &[f64; 7],
+    ) -> Result<SourWaterResult, SourWaterError> {
         if [feed.co2, feed.nh3, feed.h2s, feed.naoh]
             .iter()
             .any(|v| !v.is_finite() || *v < 0.0)
@@ -906,7 +916,11 @@ mod tests {
             res.ph,
             ph_closed
         );
-        assert!(res.net_charge.abs() < 1e-12, "net charge = {}", res.net_charge);
+        assert!(
+            res.net_charge.abs() < 1e-12,
+            "net charge = {}",
+            res.net_charge
+        );
         assert!(res.residual < 1e-8, "residual = {}", res.residual);
     }
 
@@ -937,7 +951,11 @@ mod tests {
             res.ph,
             ph_closed
         );
-        assert!(res.net_charge.abs() < 1e-12, "net charge = {}", res.net_charge);
+        assert!(
+            res.net_charge.abs() < 1e-12,
+            "net charge = {}",
+            res.net_charge
+        );
     }
 
     /// **Methodology.** **Charge neutrality** must hold to `< 1e-12 mol/kg` for a
@@ -973,18 +991,28 @@ mod tests {
         let feed = SourWaterFeed::new(0.05, 0.08, 0.03);
         let res = sys.speciate(&feed).unwrap();
 
-        let total_s =
-            res.m(Species::H2s) + res.m(Species::HsMinus) + res.m(Species::SMinus2);
+        let total_s = res.m(Species::H2s) + res.m(Species::HsMinus) + res.m(Species::SMinus2);
         let total_c = res.m(Species::Co2)
             + res.m(Species::Hco3Minus)
             + res.m(Species::Co3Minus2)
             + res.m(Species::CarbamateMinus);
-        let total_n = res.m(Species::Nh3)
-            + res.m(Species::Nh4Plus)
-            + res.m(Species::CarbamateMinus);
-        assert!((total_s - feed.h2s).abs() < 1e-9, "ΔS = {}", total_s - feed.h2s);
-        assert!((total_c - feed.co2).abs() < 1e-9, "ΔC = {}", total_c - feed.co2);
-        assert!((total_n - feed.nh3).abs() < 1e-9, "ΔN = {}", total_n - feed.nh3);
+        let total_n =
+            res.m(Species::Nh3) + res.m(Species::Nh4Plus) + res.m(Species::CarbamateMinus);
+        assert!(
+            (total_s - feed.h2s).abs() < 1e-9,
+            "ΔS = {}",
+            total_s - feed.h2s
+        );
+        assert!(
+            (total_c - feed.co2).abs() < 1e-9,
+            "ΔC = {}",
+            total_c - feed.co2
+        );
+        assert!(
+            (total_n - feed.nh3).abs() < 1e-9,
+            "ΔN = {}",
+            total_n - feed.nh3
+        );
     }
 
     /// **Methodology.** **Correct pH-vs-loading trend.** Adding acid gas (H2S)
@@ -1002,14 +1030,24 @@ mod tests {
         let mut last = f64::INFINITY;
         for &c in &[0.001, 0.01, 0.1] {
             let res = sys.speciate(&SourWaterFeed::new(0.0, 0.0, c)).unwrap();
-            assert!(res.ph < last, "H2S pH not decreasing: {} !< {}", res.ph, last);
+            assert!(
+                res.ph < last,
+                "H2S pH not decreasing: {} !< {}",
+                res.ph,
+                last
+            );
             last = res.ph;
         }
 
         let mut last = f64::NEG_INFINITY;
         for &c in &[0.001, 0.01, 0.1] {
             let res = sys.speciate(&SourWaterFeed::new(0.0, c, 0.0)).unwrap();
-            assert!(res.ph > last, "NH3 pH not increasing: {} !> {}", res.ph, last);
+            assert!(
+                res.ph > last,
+                "NH3 pH not increasing: {} !> {}",
+                res.ph,
+                last
+            );
             last = res.ph;
         }
     }
@@ -1024,9 +1062,7 @@ mod tests {
     #[test]
     fn naoh_raises_ph() {
         let sys = SourWaterSystem::at_temperature(298.15);
-        let plain = sys
-            .speciate(&SourWaterFeed::new(0.0, 0.0, 0.05))
-            .unwrap();
+        let plain = sys.speciate(&SourWaterFeed::new(0.0, 0.0, 0.05)).unwrap();
         let caustic = sys
             .speciate(&SourWaterFeed::new(0.0, 0.0, 0.05).with_naoh(0.05))
             .unwrap();
@@ -1036,7 +1072,11 @@ mod tests {
             caustic.ph,
             plain.ph
         );
-        assert!(caustic.net_charge.abs() < 1e-12, "net charge = {}", caustic.net_charge);
+        assert!(
+            caustic.net_charge.abs() < 1e-12,
+            "net charge = {}",
+            caustic.net_charge
+        );
     }
 
     /// **Methodology.** The empirical `K`-corrections must be **inert when both
@@ -1080,7 +1120,10 @@ mod tests {
     fn henry_volatility_reference_sane() {
         let (v_nh3, v_co2, v_h2s) = henry_volatility(313.15, 0.01, 0.01, 0.01);
         for v in [v_nh3, v_co2, v_h2s] {
-            assert!(v.is_finite() && v > 0.0, "volatility {v} not finite/positive");
+            assert!(
+                v.is_finite() && v > 0.0,
+                "volatility {v} not finite/positive"
+            );
         }
         assert!(v_co2 > v_nh3, "CO2 should be more volatile than NH3");
     }
@@ -1115,8 +1158,11 @@ mod tests {
                 .sum();
             assert!(dz.abs() < 1e-12, "reaction {r} charge imbalance {dz}");
             // Water (index 0) is absorbed into K — coefficient must be 0.
-            assert_eq!(rx.stoich[Species::Water.index()], 0.0, "reaction {r} uses water");
+            assert_eq!(
+                rx.stoich[Species::Water.index()],
+                0.0,
+                "reaction {r} uses water"
+            );
         }
     }
 }
-

@@ -340,7 +340,10 @@ pub fn polyhedral_dual_min_faces(mesh: &VolumeMesh) -> VolumeMesh {
         let ring = &mesh.faces[f];
         let k = ring.len();
         for i in 0..k {
-            edge_faces.entry(key(ring[i], ring[(i + 1) % k])).or_default().push(f);
+            edge_faces
+                .entry(key(ring[i], ring[(i + 1) % k]))
+                .or_default()
+                .push(f);
         }
     }
 
@@ -390,7 +393,10 @@ pub fn polyhedral_dual_min_faces(mesh: &VolumeMesh) -> VolumeMesh {
 
     // Type-A dual faces: one polygon per primal edge, shared by its endpoints.
     for (&(a, b), faces_e) in &edge_faces {
-        let boundary_start = faces_e.iter().copied().find(|&f| mesh.neighbour[f].is_none());
+        let boundary_start = faces_e
+            .iter()
+            .copied()
+            .find(|&f| mesh.neighbour[f].is_none());
         let e = (a, b);
         let ring: Vec<usize> = if let Some(fstart) = boundary_start {
             // Boundary edge: open fan, closed through the edge midpoint.
@@ -486,7 +492,11 @@ mod tests {
         let hex = carve_box(&p, &t, 0.5); // 8 hexes, 27 vertices
         let dual = polyhedral_dual(&hex);
 
-        assert_eq!(dual.cell_count(), hex.point_count(), "one dual cell per primal vertex");
+        assert_eq!(
+            dual.cell_count(),
+            hex.point_count(),
+            "one dual cell per primal vertex"
+        );
         assert!(
             (dual.total_volume() - hex.total_volume()).abs() < 1e-9,
             "dual conserves the domain volume: {} vs {}",
@@ -499,13 +509,20 @@ mod tests {
         // i.e. every face is shared by exactly two cells or is a single boundary.
         for f in 0..dual.face_count() {
             let internal = f < dual.n_internal_faces();
-            assert_eq!(dual.neighbour[f].is_some(), internal, "face {f} internal/boundary split");
+            assert_eq!(
+                dual.neighbour[f].is_some(),
+                internal,
+                "face {f} internal/boundary split"
+            );
         }
 
         // Polyhedral: the cell around the interior vertex has > 6 faces (6 edges
         // × 4 surrounding hexes = 24 inner quads).
         let max_faces = cells_faces(&dual).iter().map(|c| c.len()).max().unwrap();
-        assert!(max_faces > 6, "polyhedral cells present (max faces/cell = {max_faces})");
+        assert!(
+            max_faces > 6,
+            "polyhedral cells present (max faces/cell = {max_faces})"
+        );
     }
 
     /// V&V — the dual boundary surface coincides with the primal boundary, so
@@ -525,7 +542,10 @@ mod tests {
                 area += dual.face_area_vector(f).length();
             }
         }
-        assert!((area - 6.0).abs() < 1e-9, "dual boundary area == cube surface area: {area}");
+        assert!(
+            (area - 6.0).abs() < 1e-9,
+            "dual boundary area == cube surface area: {area}"
+        );
         assert!((dual.total_volume() - 1.0).abs() < 1e-9);
         dual.validate().expect("closed");
     }
@@ -545,7 +565,11 @@ mod tests {
         let median = polyhedral_dual(&hex);
         let merged = polyhedral_dual_min_faces(&hex);
 
-        assert_eq!(merged.cell_count(), hex.point_count(), "one dual cell per primal vertex");
+        assert_eq!(
+            merged.cell_count(),
+            hex.point_count(),
+            "one dual cell per primal vertex"
+        );
         assert!(
             (merged.total_volume() - hex.total_volume()).abs() < 1e-9,
             "merged dual conserves volume: {} vs {}",
@@ -557,7 +581,11 @@ mod tests {
         // Internal/boundary split is consistent (every face shared by 2 cells or 1).
         for f in 0..merged.face_count() {
             let internal = f < merged.n_internal_faces();
-            assert_eq!(merged.neighbour[f].is_some(), internal, "face {f} internal/boundary split");
+            assert_eq!(
+                merged.neighbour[f].is_some(),
+                internal,
+                "face {f} internal/boundary split"
+            );
         }
 
         // Boundary coincides with the primal surface.
@@ -567,7 +595,10 @@ mod tests {
                 area += merged.face_area_vector(f).length();
             }
         }
-        assert!((area - 6.0).abs() < 1e-9, "merged dual boundary area == cube surface: {area}");
+        assert!(
+            (area - 6.0).abs() < 1e-9,
+            "merged dual boundary area == cube surface: {area}"
+        );
 
         // Leaner: one face per primal edge instead of one per (edge, cell).
         assert!(
@@ -587,9 +618,16 @@ mod tests {
         let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
         let hex = carve_box(&p, &t, 1.0 / 3.0); // 27 hexes
         let merged = polyhedral_dual_min_faces(&hex);
-        assert!((merged.total_volume() - 1.0).abs() < 1e-9, "volume: {}", merged.total_volume());
+        assert!(
+            (merged.total_volume() - 1.0).abs() < 1e-9,
+            "volume: {}",
+            merged.total_volume()
+        );
         merged.validate().expect("closed");
         let max_faces = cells_faces(&merged).iter().map(|c| c.len()).max().unwrap();
-        assert!(max_faces > 6, "polyhedral cells present (max faces/cell = {max_faces})");
+        assert!(
+            max_faces > 6,
+            "polyhedral cells present (max faces/cell = {max_faces})"
+        );
     }
 }

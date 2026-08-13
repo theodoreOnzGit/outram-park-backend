@@ -74,7 +74,10 @@ impl Affine3 {
 
     /// A pure translation by `t` (identity linear part).
     pub const fn translation(t: Vec3) -> Affine3 {
-        Affine3 { linear: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], translation: t }
+        Affine3 {
+            linear: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            translation: t,
+        }
     }
 
     /// A non-uniform scale about the origin by `(sx, sy, sz)`, no translation.
@@ -87,7 +90,10 @@ impl Affine3 {
 
     /// Build from an explicit row-major `3x3` linear part and a translation.
     pub const fn from_rows(linear: [[f64; 3]; 3], translation: Vec3) -> Affine3 {
-        Affine3 { linear, translation }
+        Affine3 {
+            linear,
+            translation,
+        }
     }
 
     /// Transform a single point `p` by this affine map, returning `M p + t`.

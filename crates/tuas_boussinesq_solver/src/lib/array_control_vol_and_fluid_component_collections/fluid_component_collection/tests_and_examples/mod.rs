@@ -25,7 +25,7 @@
 // inherit from GeN-Foam and OpenFOAM, both licensed under GNU General
 // Public License v3.0.
 //
-// As such, the entire library is released under GNU GPL v3.0. It is a strong 
+// As such, the entire library is released under GNU GPL v3.0. It is a strong
 // copyleft license which means you cannot use it in proprietary software.
 //
 //
@@ -33,9 +33,9 @@
 //    This file is part of fluid_mechanics_rust, a partial library of the
 //    thermal hydraulics library written in rust meant to help with the
 //    fluid mechanics aspects of the calculations
-//     
+//
 //    Copyright (C) 2022-2023  Theodore Kay Chen Ong, Singapore Nuclear
-//    Research and Safety Initiative, Per F. Peterson, University of 
+//    Research and Safety Initiative, Per F. Peterson, University of
 //    California, Berkeley Thermal Hydraulics Laboratory
 //
 //    fluid_mechanics_rust is free software; you can redistribute it and/or modify it
@@ -66,9 +66,7 @@
 // Main author of the code: Theodore Kay Chen Ong, supervised by
 // Professor Per F. Peterson
 
-
-
-/// Example 1: 
+/// Example 1:
 ///
 /// This example shows how to create a simple pipe
 /// using the FluidComponent and FluidPipeCalcPressureLoss,
@@ -83,7 +81,6 @@
 /// This does not take inclined angles into consideration yet
 pub mod air_pipe_example;
 
-
 /// Example 2:
 ///
 /// We saw previously how to create an air pipe
@@ -92,13 +89,13 @@ pub mod air_pipe_example;
 /// to it)
 ///
 /// we shall improve on how we can create the pipes
-/// to do so, we shall use the FluidComponent trait and the 
+/// to do so, we shall use the FluidComponent trait and the
 /// FluidPipeCalcPressureChange trait
 ///
 pub mod water_pipe_example;
 
 /// Example 3,
-/// 
+///
 /// suppose now we have a coriolis flowmeter
 /// with a custom friction factor correlation
 ///
@@ -110,30 +107,29 @@ pub mod water_pipe_example;
 /// because of lifetimes, but this is one example of how it can be done
 pub mod coriolis_flowmeter_example;
 
-/// Example 4 
+/// Example 4
 ///
 ///
 /// Testing if fluid component structs can be put into threads with move closures
 pub mod concurrency_and_multithreading_example;
 
-/// Example 5 
+/// Example 5
 ///
-/// fluid components in series 
+/// fluid components in series
 pub mod collection_fluid_components_in_series;
 
 /// Example 6
 ///
-/// fluid components in parallel 
+/// fluid components in parallel
 pub mod collection_fluid_components_in_parallel;
 
 /// Example 7
 ///
-/// a colletion of fluid component collections is known 
-/// as a super collection. 
+/// a colletion of fluid component collections is known
+/// as a super collection.
 ///
-/// for example, we have three branches of fluid components connected 
-/// in series 
-/// They are in turn connected in parallel for CIET. 
+/// for example, we have three branches of fluid components connected
+/// in series
+/// They are in turn connected in parallel for CIET.
 /// To facilitate calculations here, we have super collections
 pub mod super_collection_fluid_components_in_parallel;
-

@@ -206,7 +206,11 @@ impl SolverError {
     /// Build an [`SolverError::ObjectCalculation`] the way
     /// `ProcessQueueInternal` does (FlowsheetSolver.vb:603-606).
     #[must_use]
-    pub fn for_object(tag: impl Into<String>, name: impl Into<String>, message: impl Into<String>) -> Self {
+    pub fn for_object(
+        tag: impl Into<String>,
+        name: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
         SolverError::ObjectCalculation {
             tag: tag.into(),
             name: name.into(),

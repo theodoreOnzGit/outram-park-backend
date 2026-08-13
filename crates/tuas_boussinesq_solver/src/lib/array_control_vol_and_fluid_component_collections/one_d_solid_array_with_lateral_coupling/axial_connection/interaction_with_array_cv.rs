@@ -5,61 +5,58 @@ use crate::single_control_vol::SingleCVNode;
 use crate::tuas_lib_error::TuasLibError;
 
 impl SolidColumn {
-
-    /// attaches an array control volume to the front of this 
-    /// array control volume 
+    /// attaches an array control volume to the front of this
+    /// array control volume
     /// (back --- cv_self --- front) ---- (back --- cv_other --- front)
     ///
     /// in this case, it is a solid column
     pub fn link_solid_column_to_the_front_of_this_solid_column(
         &mut self,
         solid_column_other: &mut SolidColumn,
-        interaction: HeatTransferInteractionType,) -> Result<(), TuasLibError>{
-
+        interaction: HeatTransferInteractionType,
+    ) -> Result<(), TuasLibError> {
         if let HeatTransferInteractionType::Advection(_) = interaction {
             println!("You cannot have advection interactions for Solid Columns");
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }
-        // basically we need to get the front of the self cv, 
-        let single_cv_node_self: &mut SingleCVNode = 
-        &mut self.front_single_cv;
+        // basically we need to get the front of the self cv,
+        let single_cv_node_self: &mut SingleCVNode = &mut self.front_single_cv;
 
         // and the back of the other cv
-        let single_cv_node_other: &mut SingleCVNode = 
-        &mut solid_column_other.back_single_cv;
+        let single_cv_node_other: &mut SingleCVNode = &mut solid_column_other.back_single_cv;
 
         SingleCVNode::calculate_between_two_singular_cv_nodes(
             single_cv_node_self,
             single_cv_node_other,
-            interaction)
+            interaction,
+        )
     }
 
-    /// attaches an array control volume to the back of this 
-    /// array control volume 
+    /// attaches an array control volume to the back of this
+    /// array control volume
     /// (back --- cv_other --- front) ---- (back --- cv_self --- front)
     ///
     /// in this case, it is a solid column
     pub fn link_solid_column_to_the_back_of_this_solid_column(
         &mut self,
         solid_column_other: &mut SolidColumn,
-        interaction: HeatTransferInteractionType,) -> Result<(), TuasLibError>{
-
+        interaction: HeatTransferInteractionType,
+    ) -> Result<(), TuasLibError> {
         if let HeatTransferInteractionType::Advection(_) = interaction {
             println!("You cannot have advection interactions for Solid Columns");
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }
-        // basically we need to get the back of the self cv, 
-        let single_cv_node_self: &mut SingleCVNode = 
-        &mut self.back_single_cv;
+        // basically we need to get the back of the self cv,
+        let single_cv_node_self: &mut SingleCVNode = &mut self.back_single_cv;
 
         // and the back of the other cv
-        let single_cv_node_other: &mut SingleCVNode = 
-        &mut solid_column_other.front_single_cv;
+        let single_cv_node_other: &mut SingleCVNode = &mut solid_column_other.front_single_cv;
 
         SingleCVNode::calculate_between_two_singular_cv_nodes(
             single_cv_node_other,
             single_cv_node_self,
-            interaction)
+            interaction,
+        )
     }
 
     /// attaches a fluid array control volume to the front of this
@@ -71,24 +68,23 @@ impl SolidColumn {
     pub fn link_fluid_array_to_the_front_of_this_solid_column(
         &mut self,
         fluid_array_other: &mut FluidArray,
-        interaction: HeatTransferInteractionType,) -> Result<(), TuasLibError>{
-
+        interaction: HeatTransferInteractionType,
+    ) -> Result<(), TuasLibError> {
         if let HeatTransferInteractionType::Advection(_) = interaction {
             println!("You cannot have advection interactions for Solid Columns");
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }
-        // basically we need to get the front of the self cv, 
-        let single_cv_node_self: &mut SingleCVNode = 
-        &mut self.front_single_cv;
+        // basically we need to get the front of the self cv,
+        let single_cv_node_self: &mut SingleCVNode = &mut self.front_single_cv;
 
         // and the back of the other cv
-        let single_cv_node_other: &mut SingleCVNode = 
-        &mut fluid_array_other.back_single_cv;
+        let single_cv_node_other: &mut SingleCVNode = &mut fluid_array_other.back_single_cv;
 
         SingleCVNode::calculate_between_two_singular_cv_nodes(
             single_cv_node_self,
             single_cv_node_other,
-            interaction)
+            interaction,
+        )
     }
 
     /// attaches a fluid array control volume to the back of this
@@ -100,23 +96,22 @@ impl SolidColumn {
     pub fn link_fluid_array_to_the_back_of_this_solid_column(
         &mut self,
         fluid_array_other: &mut FluidArray,
-        interaction: HeatTransferInteractionType,) -> Result<(), TuasLibError>{
-
+        interaction: HeatTransferInteractionType,
+    ) -> Result<(), TuasLibError> {
         if let HeatTransferInteractionType::Advection(_) = interaction {
             println!("You cannot have advection interactions for Solid Columns");
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }
-        // basically we need to get the back of the self cv, 
-        let single_cv_node_self: &mut SingleCVNode = 
-        &mut self.back_single_cv;
+        // basically we need to get the back of the self cv,
+        let single_cv_node_self: &mut SingleCVNode = &mut self.back_single_cv;
 
         // and the back of the other cv
-        let single_cv_node_other: &mut SingleCVNode = 
-        &mut fluid_array_other.front_single_cv;
+        let single_cv_node_other: &mut SingleCVNode = &mut fluid_array_other.front_single_cv;
 
         SingleCVNode::calculate_between_two_singular_cv_nodes(
             single_cv_node_other,
             single_cv_node_self,
-            interaction)
+            interaction,
+        )
     }
 }

@@ -80,17 +80,26 @@ fn precursor_decay_rates() {
         .expect("U-235 has MF=1/455 delayed-neutron data");
 
     assert_eq!(d.n_groups(), 6, "U-235 has 6 delayed precursor groups");
-    assert!(!d.ldg1_energy_dependent, "U-235 uses energy-independent λ (LDG=0)");
+    assert!(
+        !d.ldg1_energy_dependent,
+        "U-235 uses energy-independent λ (LDG=0)"
+    );
 
     let lam = d.lambdas();
     println!("U-235 precursor decay constants λ = {lam:?} s⁻¹");
 
     // Physical band + monotonic-in-group property.
     for (g, &l) in lam.iter().enumerate() {
-        assert!((0.01..=3.0).contains(&l), "λ[{g}] = {l} s⁻¹ outside 0.01–3 band");
+        assert!(
+            (0.01..=3.0).contains(&l),
+            "λ[{g}] = {l} s⁻¹ outside 0.01–3 band"
+        );
     }
     for g in 1..lam.len() {
-        assert!(lam[g] > lam[g - 1], "λ not increasing at group {g}: {lam:?}");
+        assert!(
+            lam[g] > lam[g - 1],
+            "λ not increasing at group {g}: {lam:?}"
+        );
     }
 
     // ENDF/B-VIII.0 reference values (read from this tape; the notebook's
@@ -98,7 +107,10 @@ fn precursor_decay_rates() {
     let reference = [0.013336, 0.032739, 0.12078, 0.30278, 0.84949, 2.853];
     for (g, (&got, &want)) in lam.iter().zip(&reference).enumerate() {
         let rel = (got - want).abs() / want;
-        assert!(rel < 1e-3, "λ[{g}] = {got} vs reference {want} (rel {rel:.1e})");
+        assert!(
+            rel < 1e-3,
+            "λ[{g}] = {got} vs reference {want} (rel {rel:.1e})"
+        );
     }
 
     // The uom accessor returns the same value as a dimensioned rate.
@@ -133,8 +145,14 @@ fn delayed_beta_and_nu_fission() {
     let nu_t = nu.at(e);
     let beta = nu_d / nu_t;
     println!("U-235 @ 0.0253 eV: ν̄_d = {nu_d:.6}, ν̄_total = {nu_t:.6}, β = {beta:.6}");
-    assert!(nu_d > 0.0 && nu_d < 0.05, "delayed ν̄_d = {nu_d} out of range");
-    assert!((0.006..=0.007).contains(&beta), "β = {beta:.6} outside accepted U-235 0.006–0.007");
+    assert!(
+        nu_d > 0.0 && nu_d < 0.05,
+        "delayed ν̄_d = {nu_d} out of range"
+    );
+    assert!(
+        (0.006..=0.007).contains(&beta),
+        "β = {beta:.6} outside accepted U-235 0.006–0.007"
+    );
 
     // Per-group fractions p_k(E) from the delayed spectrum subsection headers.
     let chi = DelayedChi::from_endf(&tape, U235_MAT).unwrap().unwrap();
@@ -153,7 +171,10 @@ fn delayed_beta_and_nu_fission() {
 
     // Implied per-group delayed fractions β_k = β·p_k sum back to β.
     let sum_beta_k: f64 = p_k.iter().map(|&p| beta * p).sum();
-    assert!((sum_beta_k - beta).abs() < 1e-9, "Σ β_k = {sum_beta_k} ≠ β = {beta}");
+    assert!(
+        (sum_beta_k - beta).abs() < 1e-9,
+        "Σ β_k = {sum_beta_k} ≠ β = {beta}"
+    );
 }
 
 /// Notebook op: `mgxs.ChiDelayed` — the delayed fission-neutron energy spectrum.
@@ -174,11 +195,17 @@ fn delayed_chi_spectrum() {
 
     assert_eq!(chi.n_groups(), 6, "U-235 has 6 delayed spectrum groups");
     for (k, g) in chi.groups.iter().enumerate() {
-        assert_eq!(g.lf, 5, "U-235 delayed χ group {k} is LF=5 (general evaporation)");
+        assert_eq!(
+            g.lf, 5,
+            "U-235 delayed χ group {k} is LF=5 (general evaporation)"
+        );
         assert!(!g.spectrum.is_empty(), "group {k} has a tabulated spectrum");
         assert!(g.min_density() >= 0.0, "group {k} has a negative density");
         let norm = g.normalization();
-        println!("U-235 χ_delayed group {k}: {} pts, ∫ = {norm:.6}", g.spectrum.len());
+        println!(
+            "U-235 χ_delayed group {k}: {} pts, ∫ = {norm:.6}",
+            g.spectrum.len()
+        );
         assert!(
             (0.98..=1.02).contains(&norm),
             "group {k} χ_delayed normalization {norm:.6} not ≈ 1"

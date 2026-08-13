@@ -399,7 +399,9 @@ impl TrisoParticle {
 
     /// Volume of one UO2 kernel, (4/3) pi r^3.
     pub fn kernel_volume(&self) -> Volume {
-        self.kernel_radius * self.kernel_radius * self.kernel_radius
+        self.kernel_radius
+            * self.kernel_radius
+            * self.kernel_radius
             * Ratio::new::<ratio>(4.0 * std::f64::consts::PI / 3.0)
     }
 
@@ -444,7 +446,9 @@ impl TrisoParticle {
     /// HTR-10). This is the "level 1" heterogeneity whose treatment Wang et al.
     /// (2014) show is worth thousands of pcm.
     pub fn packing_fraction_in_fuel_zone(&self, fuel_zone_radius: Length) -> Ratio {
-        let zone_volume: Volume = fuel_zone_radius * fuel_zone_radius * fuel_zone_radius
+        let zone_volume: Volume = fuel_zone_radius
+            * fuel_zone_radius
+            * fuel_zone_radius
             * Ratio::new::<ratio>(4.0 * std::f64::consts::PI / 3.0);
         self.particle_volume() * Ratio::new::<ratio>(self.particles_per_pebble as f64) / zone_volume
     }
@@ -604,9 +608,13 @@ impl Htr10CoreGeometry {
         pebble_diameter: Length,
         filling_fraction: Ratio,
     ) -> f64 {
-        let bed_volume: Volume = self.core_radius() * self.core_radius() * loading_height
+        let bed_volume: Volume = self.core_radius()
+            * self.core_radius()
+            * loading_height
             * Ratio::new::<ratio>(std::f64::consts::PI);
-        let pebble_volume: Volume = pebble_diameter * pebble_diameter * pebble_diameter
+        let pebble_volume: Volume = pebble_diameter
+            * pebble_diameter
+            * pebble_diameter
             * Ratio::new::<ratio>(std::f64::consts::PI / 6.0);
         (bed_volume * filling_fraction / pebble_volume).get::<ratio>()
     }
@@ -661,7 +669,10 @@ pub fn critical_height_from_two_points(
         return None;
     }
     let fraction = (1.0 - k_low) / (k_high - k_low);
-    Some(low.loading_height + (high.loading_height - low.loading_height) * Ratio::new::<ratio>(fraction))
+    Some(
+        low.loading_height
+            + (high.loading_height - low.loading_height) * Ratio::new::<ratio>(fraction),
+    )
 }
 
 /// INET's VSOP k_eff-versus-loading-height curve for the **original**
@@ -992,22 +1003,102 @@ pub fn inet_b2_results() -> [PublishedKeff; 7] {
 /// as-measured *loading* evaluated with as-defined *materials*.
 pub fn choo_xiao_2024_results() -> [PublishedKeff; 16] {
     let rows: [(BenchmarkProblem, BenchmarkVariant, NeutronicsCode, f64); 16] = [
-        (BenchmarkProblem::B1InitialCriticality, BenchmarkVariant::Original, NeutronicsCode::Serpent2, 1.01474),
-        (BenchmarkProblem::B1InitialCriticality, BenchmarkVariant::Original, NeutronicsCode::HtrCodePackage, 1.01536),
-        (BenchmarkProblem::B1InitialCriticality, BenchmarkVariant::Deviated, NeutronicsCode::Serpent2, 1.02415),
-        (BenchmarkProblem::B1InitialCriticality, BenchmarkVariant::Deviated, NeutronicsCode::HtrCodePackage, 1.02446),
-        (BenchmarkProblem::B21FullCore20C, BenchmarkVariant::Original, NeutronicsCode::Serpent2, 1.14401),
-        (BenchmarkProblem::B21FullCore20C, BenchmarkVariant::Original, NeutronicsCode::HtrCodePackage, 1.14822),
-        (BenchmarkProblem::B21FullCore20C, BenchmarkVariant::Deviated, NeutronicsCode::Serpent2, 1.15246),
-        (BenchmarkProblem::B21FullCore20C, BenchmarkVariant::Deviated, NeutronicsCode::HtrCodePackage, 1.15670),
-        (BenchmarkProblem::B22FullCore120C, BenchmarkVariant::Original, NeutronicsCode::Serpent2, 1.13262),
-        (BenchmarkProblem::B22FullCore120C, BenchmarkVariant::Original, NeutronicsCode::HtrCodePackage, 1.13363),
-        (BenchmarkProblem::B22FullCore120C, BenchmarkVariant::Deviated, NeutronicsCode::Serpent2, 1.14146),
-        (BenchmarkProblem::B22FullCore120C, BenchmarkVariant::Deviated, NeutronicsCode::HtrCodePackage, 1.14171),
-        (BenchmarkProblem::B23FullCore250C, BenchmarkVariant::Original, NeutronicsCode::Serpent2, 1.11882),
-        (BenchmarkProblem::B23FullCore250C, BenchmarkVariant::Original, NeutronicsCode::HtrCodePackage, 1.11686),
-        (BenchmarkProblem::B23FullCore250C, BenchmarkVariant::Deviated, NeutronicsCode::Serpent2, 1.12731),
-        (BenchmarkProblem::B23FullCore250C, BenchmarkVariant::Deviated, NeutronicsCode::HtrCodePackage, 1.12468),
+        (
+            BenchmarkProblem::B1InitialCriticality,
+            BenchmarkVariant::Original,
+            NeutronicsCode::Serpent2,
+            1.01474,
+        ),
+        (
+            BenchmarkProblem::B1InitialCriticality,
+            BenchmarkVariant::Original,
+            NeutronicsCode::HtrCodePackage,
+            1.01536,
+        ),
+        (
+            BenchmarkProblem::B1InitialCriticality,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::Serpent2,
+            1.02415,
+        ),
+        (
+            BenchmarkProblem::B1InitialCriticality,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::HtrCodePackage,
+            1.02446,
+        ),
+        (
+            BenchmarkProblem::B21FullCore20C,
+            BenchmarkVariant::Original,
+            NeutronicsCode::Serpent2,
+            1.14401,
+        ),
+        (
+            BenchmarkProblem::B21FullCore20C,
+            BenchmarkVariant::Original,
+            NeutronicsCode::HtrCodePackage,
+            1.14822,
+        ),
+        (
+            BenchmarkProblem::B21FullCore20C,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::Serpent2,
+            1.15246,
+        ),
+        (
+            BenchmarkProblem::B21FullCore20C,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::HtrCodePackage,
+            1.15670,
+        ),
+        (
+            BenchmarkProblem::B22FullCore120C,
+            BenchmarkVariant::Original,
+            NeutronicsCode::Serpent2,
+            1.13262,
+        ),
+        (
+            BenchmarkProblem::B22FullCore120C,
+            BenchmarkVariant::Original,
+            NeutronicsCode::HtrCodePackage,
+            1.13363,
+        ),
+        (
+            BenchmarkProblem::B22FullCore120C,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::Serpent2,
+            1.14146,
+        ),
+        (
+            BenchmarkProblem::B22FullCore120C,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::HtrCodePackage,
+            1.14171,
+        ),
+        (
+            BenchmarkProblem::B23FullCore250C,
+            BenchmarkVariant::Original,
+            NeutronicsCode::Serpent2,
+            1.11882,
+        ),
+        (
+            BenchmarkProblem::B23FullCore250C,
+            BenchmarkVariant::Original,
+            NeutronicsCode::HtrCodePackage,
+            1.11686,
+        ),
+        (
+            BenchmarkProblem::B23FullCore250C,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::Serpent2,
+            1.12731,
+        ),
+        (
+            BenchmarkProblem::B23FullCore250C,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::HtrCodePackage,
+            1.12468,
+        ),
     ];
     rows.map(|(problem, variant, code, k)| PublishedKeff {
         problem,
@@ -1072,12 +1163,42 @@ pub fn tantillo_2020_infinite_pebble_bed() -> [PublishedKeff; 2] {
 /// the published spread between two mature codes.**
 pub fn wang_2014_continuous_energy() -> [PublishedKeff; 6] {
     let rows: [(BenchmarkProblem, NeutronicsCode, f64, f64); 6] = [
-        (BenchmarkProblem::InfinitePebbleBedKinf, NeutronicsCode::Mcnp5, 1.69154, 0.00010),
-        (BenchmarkProblem::InfinitePebbleBedKinf, NeutronicsCode::Scale6ContinuousEnergy, 1.69399, 0.00010),
-        (BenchmarkProblem::InfinitePebbleBedKinf, NeutronicsCode::Mcnp5, 1.77078, 0.00008),
-        (BenchmarkProblem::InfinitePebbleBedKinf, NeutronicsCode::Scale6ContinuousEnergy, 1.77269, 0.00008),
-        (BenchmarkProblem::B1InitialCriticality, NeutronicsCode::Mcnp5, 1.01620, 0.00014),
-        (BenchmarkProblem::B1InitialCriticality, NeutronicsCode::Scale6ContinuousEnergy, 1.02303, 0.00017),
+        (
+            BenchmarkProblem::InfinitePebbleBedKinf,
+            NeutronicsCode::Mcnp5,
+            1.69154,
+            0.00010,
+        ),
+        (
+            BenchmarkProblem::InfinitePebbleBedKinf,
+            NeutronicsCode::Scale6ContinuousEnergy,
+            1.69399,
+            0.00010,
+        ),
+        (
+            BenchmarkProblem::InfinitePebbleBedKinf,
+            NeutronicsCode::Mcnp5,
+            1.77078,
+            0.00008,
+        ),
+        (
+            BenchmarkProblem::InfinitePebbleBedKinf,
+            NeutronicsCode::Scale6ContinuousEnergy,
+            1.77269,
+            0.00008,
+        ),
+        (
+            BenchmarkProblem::B1InitialCriticality,
+            NeutronicsCode::Mcnp5,
+            1.01620,
+            0.00014,
+        ),
+        (
+            BenchmarkProblem::B1InitialCriticality,
+            NeutronicsCode::Scale6ContinuousEnergy,
+            1.02303,
+            0.00017,
+        ),
     ];
     rows.map(|(problem, code, k, sd)| PublishedKeff {
         problem,
@@ -1141,21 +1262,91 @@ pub struct ControlRodWorth {
 pub fn inet_control_rod_worths() -> [ControlRodWorth; 14] {
     let rows: [(BenchmarkProblem, BenchmarkVariant, NeutronicsCode, f64); 14] = [
         // B3 - full core.
-        (BenchmarkProblem::B31TenRodsFullCore, BenchmarkVariant::Original, NeutronicsCode::Vsop, 15.24),
-        (BenchmarkProblem::B31TenRodsFullCore, BenchmarkVariant::Original, NeutronicsCode::Mcnp4a, 16.56),
-        (BenchmarkProblem::B32OneRodFullCore, BenchmarkVariant::Original, NeutronicsCode::Mcnp4a, 1.413),
-        (BenchmarkProblem::B31TenRodsFullCore, BenchmarkVariant::Deviated, NeutronicsCode::Vsop, 14.46),
-        (BenchmarkProblem::B31TenRodsFullCore, BenchmarkVariant::Deviated, NeutronicsCode::Mcnp4a, 15.31),
-        (BenchmarkProblem::B32OneRodFullCore, BenchmarkVariant::Deviated, NeutronicsCode::Vsop, 1.277),
-        (BenchmarkProblem::B32OneRodFullCore, BenchmarkVariant::Deviated, NeutronicsCode::Mcnp4a, 1.343),
+        (
+            BenchmarkProblem::B31TenRodsFullCore,
+            BenchmarkVariant::Original,
+            NeutronicsCode::Vsop,
+            15.24,
+        ),
+        (
+            BenchmarkProblem::B31TenRodsFullCore,
+            BenchmarkVariant::Original,
+            NeutronicsCode::Mcnp4a,
+            16.56,
+        ),
+        (
+            BenchmarkProblem::B32OneRodFullCore,
+            BenchmarkVariant::Original,
+            NeutronicsCode::Mcnp4a,
+            1.413,
+        ),
+        (
+            BenchmarkProblem::B31TenRodsFullCore,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::Vsop,
+            14.46,
+        ),
+        (
+            BenchmarkProblem::B31TenRodsFullCore,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::Mcnp4a,
+            15.31,
+        ),
+        (
+            BenchmarkProblem::B32OneRodFullCore,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::Vsop,
+            1.277,
+        ),
+        (
+            BenchmarkProblem::B32OneRodFullCore,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::Mcnp4a,
+            1.343,
+        ),
         // B4 - initial core at 126 cm loading.
-        (BenchmarkProblem::B41TenRodsInitialCore, BenchmarkVariant::Original, NeutronicsCode::Vsop, 18.27),
-        (BenchmarkProblem::B41TenRodsInitialCore, BenchmarkVariant::Original, NeutronicsCode::Mcnp4a, 19.36),
-        (BenchmarkProblem::B42OneRodDifferential, BenchmarkVariant::Original, NeutronicsCode::Vsop, 1.619),
-        (BenchmarkProblem::B42OneRodDifferential, BenchmarkVariant::Original, NeutronicsCode::Mcnp4a, 1.793),
-        (BenchmarkProblem::B41TenRodsInitialCore, BenchmarkVariant::Deviated, NeutronicsCode::Vsop, 17.23),
-        (BenchmarkProblem::B41TenRodsInitialCore, BenchmarkVariant::Deviated, NeutronicsCode::Mcnp4a, 18.28),
-        (BenchmarkProblem::B42OneRodDifferential, BenchmarkVariant::Deviated, NeutronicsCode::Vsop, 1.540),
+        (
+            BenchmarkProblem::B41TenRodsInitialCore,
+            BenchmarkVariant::Original,
+            NeutronicsCode::Vsop,
+            18.27,
+        ),
+        (
+            BenchmarkProblem::B41TenRodsInitialCore,
+            BenchmarkVariant::Original,
+            NeutronicsCode::Mcnp4a,
+            19.36,
+        ),
+        (
+            BenchmarkProblem::B42OneRodDifferential,
+            BenchmarkVariant::Original,
+            NeutronicsCode::Vsop,
+            1.619,
+        ),
+        (
+            BenchmarkProblem::B42OneRodDifferential,
+            BenchmarkVariant::Original,
+            NeutronicsCode::Mcnp4a,
+            1.793,
+        ),
+        (
+            BenchmarkProblem::B41TenRodsInitialCore,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::Vsop,
+            17.23,
+        ),
+        (
+            BenchmarkProblem::B41TenRodsInitialCore,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::Mcnp4a,
+            18.28,
+        ),
+        (
+            BenchmarkProblem::B42OneRodDifferential,
+            BenchmarkVariant::Deviated,
+            NeutronicsCode::Vsop,
+            1.540,
+        ),
     ];
     rows.map(|(problem, variant, code, w)| ControlRodWorth {
         problem,
@@ -1578,7 +1769,10 @@ mod tests {
                 height_rel * 100.0
             );
             assert!(ball_rel.abs() < 0.01, "{name} exceeds 1% in ball count");
-            assert!(height_rel.abs() < 0.01, "{name} exceeds 1% in loading height");
+            assert!(
+                height_rel.abs() < 0.01,
+                "{name} exceeds 1% in loading height"
+            );
         }
     }
 
@@ -1668,7 +1862,10 @@ mod tests {
         assert!((original.equivalent_boron_ppm - 1.3).abs() < 1e-12);
         assert!((deviated.equivalent_boron_ppm - 0.125).abs() < 1e-12);
         assert_eq!(original.diameter, deviated.diameter);
-        assert_eq!(BenchmarkVariant::Original.atmosphere(), CoreAtmosphere::Helium);
+        assert_eq!(
+            BenchmarkVariant::Original.atmosphere(),
+            CoreAtmosphere::Helium
+        );
 
         let air = match BenchmarkVariant::Deviated.atmosphere() {
             CoreAtmosphere::HumidAir(a) => a,
@@ -1690,7 +1887,10 @@ mod tests {
 
         // The fuel pebble specification is identical in both variants: only
         // the dummy balls and the atmosphere changed.
-        assert_eq!(FuelPebbleSpec::iaea_benchmark(), FuelPebbleSpec::iaea_benchmark());
+        assert_eq!(
+            FuelPebbleSpec::iaea_benchmark(),
+            FuelPebbleSpec::iaea_benchmark()
+        );
     }
 
     /// V&V: the published double-heterogeneity homogenisation biases are
@@ -1765,15 +1965,30 @@ mod tests {
     /// flagged so their text is never reproduced here.
     #[test]
     fn every_published_value_carries_a_correctly_tiered_source() {
-        assert_eq!(LiteratureSource::IaeaHtgrBenchmark.access_tier(), AccessTier::Open);
-        assert_eq!(LiteratureSource::ChooXiao2024.access_tier(), AccessTier::Open);
-        assert_eq!(LiteratureSource::Wang2014.access_tier(), AccessTier::Proprietary);
-        assert_eq!(LiteratureSource::Tantillo2020.access_tier(), AccessTier::Proprietary);
+        assert_eq!(
+            LiteratureSource::IaeaHtgrBenchmark.access_tier(),
+            AccessTier::Open
+        );
+        assert_eq!(
+            LiteratureSource::ChooXiao2024.access_tier(),
+            AccessTier::Open
+        );
+        assert_eq!(
+            LiteratureSource::Wang2014.access_tier(),
+            AccessTier::Proprietary
+        );
+        assert_eq!(
+            LiteratureSource::Tantillo2020.access_tier(),
+            AccessTier::Proprietary
+        );
 
         let counts = [
             ("INET B2", inet_b2_results().len()),
             ("Choo and Xiao 2024", choo_xiao_2024_results().len()),
-            ("Tantillo 2020 k_inf", tantillo_2020_infinite_pebble_bed().len()),
+            (
+                "Tantillo 2020 k_inf",
+                tantillo_2020_infinite_pebble_bed().len(),
+            ),
             ("Wang 2014 CE", wang_2014_continuous_energy().len()),
             ("INET rod worths", inet_control_rod_worths().len()),
         ];

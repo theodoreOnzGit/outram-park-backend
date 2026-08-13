@@ -396,8 +396,8 @@ pub fn genflx_slowing_down(
                         let g3 = f1 * (elim / ej).ln() - (elim - ej) / width;
                         let g4 = (elim - ej) / width - f2 * (elim / ej).ln();
                         for iz in 0..nsigz {
-                            flux[li][iz] +=
-                                (g3 * s1 * flux[p][iz] + g4 * s2 * flux[p + 1][iz]) / one_minus_alpha;
+                            flux[li][iz] += (g3 * s1 * flux[p][iz] + g4 * s2 * flux[p + 1][iz])
+                                / one_minus_alpha;
                         }
                     }
                 }
@@ -410,7 +410,13 @@ pub fn genflx_slowing_down(
     // --- Step 5: below felo, extend with the weight-function shape. ----------
     // factor(iz) = phi(felo)/C(felo) (groupr.f90:5558-5560).
     let factor: Vec<f64> = (0..nsigz)
-        .map(|iz| if wtf[0] != 0.0 { flux[0][iz] / wtf[0] } else { 0.0 })
+        .map(|iz| {
+            if wtf[0] != 0.0 {
+                flux[0][iz] / wtf[0]
+            } else {
+                0.0
+            }
+        })
         .collect();
 
     // --- Steps 6 + 7: assemble the tabulated flux per dilution. -------------
@@ -517,8 +523,8 @@ mod tests {
 
         let sd = genflx_slowing_down(&sigma_t, &sigma_el, &weight, &dilutions, &params)
             .expect("slowing-down solve");
-        let bd = genflx_bondarenko(&sigma_t, &weight, 0.0, &dilutions, &grid)
-            .expect("bondarenko flux");
+        let bd =
+            genflx_bondarenko(&sigma_t, &weight, 0.0, &dilutions, &grid).expect("bondarenko flux");
 
         let mut max_dev = 0.0_f64;
         for iz in 0..dilutions.len() {
@@ -528,7 +534,10 @@ mod tests {
                 max_dev = max_dev.max((fsd.value(e) - fbd.value(e)).abs());
             }
         }
-        assert!(max_dev < 1e-10, "max deviation from Bondarenko flux: {max_dev}");
+        assert!(
+            max_dev < 1e-10,
+            "max deviation from Bondarenko flux: {max_dev}"
+        );
     }
 
     /// **V&V (secondary): infinite-dilution limit returns the weight even with
@@ -574,7 +583,10 @@ mod tests {
         for &e in &grid {
             max_dev = max_dev.max((f.value(e) - 1.0).abs());
         }
-        assert!(max_dev < 1e-6, "max |phi - 1| at infinite dilution: {max_dev}");
+        assert!(
+            max_dev < 1e-6,
+            "max |phi - 1| at infinite dilution: {max_dev}"
+        );
     }
 
     /// The heterogeneity / multi-moderator terms are a documented `NotPorted`

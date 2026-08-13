@@ -93,29 +93,39 @@ mod tests {
     use std::sync::Arc;
     use crate::openfoam_algorithms::openfoam_source::{FvMesh, SolverSettings, Vector3};
     use crate::openfoam_algorithms::openfoam_source::vol_field::VolScalarField;
-    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{FvMeshBuilder, BoundaryPatch, PatchKind};
+    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
+        FvMeshBuilder, BoundaryPatch, PatchKind,
+    };
 
     fn unit_mesh() -> Arc<FvMesh> {
-        Arc::new(FvMeshBuilder::new()
-            .n_cells(2).n_internal_faces(1)
-            .owner(vec![0, 1, 0]).neighbour(vec![1])
-            .patches(vec![
-                BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
-                BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
-            ])
-            .cell_volumes(vec![0.5, 0.5])
-            .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
-            .face_area_vectors(vec![
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(-1.0, 0.0, 0.0),
-            ])
-            .face_centres(vec![
-                Vector3::new(0.5, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, 0.0, 0.0),
-            ])
-            .build().unwrap())
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![0.5, 0.5])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
     }
 
     #[test]
@@ -148,8 +158,8 @@ mod tests {
     fn ddt_coeff_diagonal_is_coeff_times_volume_over_dt() {
         let m = unit_mesh();
         // rho_cp = 2 everywhere, V = 0.5, dt = 0.1  →  diag = 2*0.5/0.1 = 10
-        let coeff   = VolScalarField::uniform("rho_cp", m.clone(), 2.0);
-        let phi     = VolScalarField::zeros("T", m.clone());
+        let coeff = VolScalarField::uniform("rho_cp", m.clone(), 2.0);
+        let phi = VolScalarField::zeros("T", m.clone());
         let phi_old = VolScalarField::uniform("T_old", m.clone(), 5.0);
         let mat = ddt_coeff(&coeff, &phi, &phi_old, 0.1);
         assert!((mat.ldu.diag[0] - 10.0).abs() < 1e-12);
@@ -161,8 +171,8 @@ mod tests {
     #[test]
     fn ddt_coeff_solves_to_old_when_no_spatial_terms() {
         let m = unit_mesh();
-        let coeff   = VolScalarField::uniform("rho_cp", m.clone(), 3.0);
-        let phi     = VolScalarField::zeros("T", m.clone());
+        let coeff = VolScalarField::uniform("rho_cp", m.clone(), 3.0);
+        let phi = VolScalarField::zeros("T", m.clone());
         let phi_old = VolScalarField::uniform("T_old", m.clone(), 7.0);
         let mat = ddt_coeff(&coeff, &phi, &phi_old, 1.0);
         let settings = SolverSettings::default();

@@ -302,10 +302,15 @@ pub fn parse_line(line: &str) -> Result<RawLine, NjoyError> {
     }
 
     let mat = s[66..70].trim().parse::<i32>().unwrap_or(0);
-    let mf  = s[70..72].trim().parse::<i32>().unwrap_or(0);
-    let mt  = s[72..75].trim().parse::<i32>().unwrap_or(0);
+    let mf = s[70..72].trim().parse::<i32>().unwrap_or(0);
+    let mt = s[72..75].trim().parse::<i32>().unwrap_or(0);
 
-    Ok(RawLine { fields, mat, mf, mt })
+    Ok(RawLine {
+        fields,
+        mat,
+        mf,
+        mt,
+    })
 }
 
 #[cfg(test)]
@@ -339,14 +344,15 @@ mod tests {
     #[test]
     fn parse_cont_line() {
         // From He-4: " 2.004000+3 3.968219+0         -1          0          0          0 228 1451"
-        let line = " 2.004000+3 3.968219+0         -1          0          0          0 228 1451    1";
+        let line =
+            " 2.004000+3 3.968219+0         -1          0          0          0 228 1451    1";
         let rl = parse_line(line).unwrap();
         assert_eq!(rl.mat, 228);
         assert_eq!(rl.mf, 1);
         assert_eq!(rl.mt, 451);
         assert!((rl.fields[0] - 2004.0).abs() < 0.001, "{}", rl.fields[0]);
         assert!((rl.fields[1] - 3.968219).abs() < 1e-5, "{}", rl.fields[1]);
-        assert_eq!(rl.fields[2] as i32, -1);  // L1 = -1
-        assert_eq!(rl.fields[3] as i32,  0);
+        assert_eq!(rl.fields[2] as i32, -1); // L1 = -1
+        assert_eq!(rl.fields[3] as i32, 0);
     }
 }

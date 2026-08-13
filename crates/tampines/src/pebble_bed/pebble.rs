@@ -399,11 +399,8 @@ impl Pebble {
         let matrix = self.matrix_conductivity(temperature, fluence)?;
         let particle = self.particle.effective_conductivity(temperature, fluence)?;
 
-        self.dispersion_model.effective_conductivity(
-            matrix,
-            particle,
-            self.triso_volume_fraction(),
-        )
+        self.dispersion_model
+            .effective_conductivity(matrix, particle, self.triso_volume_fraction())
     }
 
     /// Steady-state radial temperature profile of the pebble, given its total
@@ -485,11 +482,7 @@ impl Pebble {
                     k_shell,
                 );
             let centre = boundary
-                + solid_sphere_centre_temperature_rise(
-                    power,
-                    self.fuelled_zone_radius,
-                    k_fuelled,
-                );
+                + solid_sphere_centre_temperature_rise(power, self.fuelled_zone_radius, k_fuelled);
 
             let updated = [centre, boundary];
             let largest_move = nodes
@@ -651,8 +644,7 @@ pub fn coated_particles_per_pebble(
 
     let heavy_metal_fraction = uranium_dioxide_heavy_metal_fraction(enrichment)?;
 
-    let kernel_volume: Volume =
-        (4.0 / 3.0) * PI * (kernel_radius * kernel_radius * kernel_radius);
+    let kernel_volume: Volume = (4.0 / 3.0) * PI * (kernel_radius * kernel_radius * kernel_radius);
     let heavy_metal_per_kernel: Mass =
         kernel_volume * uranium_dioxide_density * heavy_metal_fraction;
 
@@ -873,8 +865,7 @@ mod tests {
 
         for kappa in [0.01, 0.077, 0.5, 1.0, 2.0, 10.0, 100.0] {
             let k_particle_value = kappa * k_matrix_value;
-            let k_particle =
-                ThermalConductivity::new::<watt_per_meter_kelvin>(k_particle_value);
+            let k_particle = ThermalConductivity::new::<watt_per_meter_kelvin>(k_particle_value);
 
             for phi in [0.0, 0.01, 0.05, 0.1, 0.2, 0.4, 0.6] {
                 let series_bound = 1.0 / (phi / k_particle_value + (1.0 - phi) / k_matrix_value);
@@ -882,11 +873,7 @@ mod tests {
 
                 for model in [DispersionModel::MaxwellEucken, DispersionModel::ChiewGlandt] {
                     let effective = model
-                        .effective_conductivity(
-                            k_matrix,
-                            k_particle,
-                            Ratio::new::<ratio>(phi),
-                        )
+                        .effective_conductivity(k_matrix, k_particle, Ratio::new::<ratio>(phi))
                         .unwrap()
                         .get::<watt_per_meter_kelvin>();
 
@@ -1069,8 +1056,8 @@ mod tests {
         let radius_m = radius.get::<meter>();
         let volumetric_generation =
             power.get::<watt>() / ((4.0 / 3.0) * PI * radius_m * radius_m * radius_m);
-        let analytic = volumetric_generation * radius_m * radius_m
-            / (6.0 * k.get::<watt_per_meter_kelvin>());
+        let analytic =
+            volumetric_generation * radius_m * radius_m / (6.0 * k.get::<watt_per_meter_kelvin>());
 
         println!(
             "q''' = {volumetric_generation} W/m^3; measured rise {measured} K, \
@@ -1100,11 +1087,7 @@ mod tests {
         let surface = ThermodynamicTemperature::new::<kelvin>(900.0);
 
         let profile = pebble
-            .steady_state_temperatures(
-                Power::new::<watt>(0.0),
-                surface,
-                Ratio::new::<ratio>(0.0),
-            )
+            .steady_state_temperatures(Power::new::<watt>(0.0), surface, Ratio::new::<ratio>(0.0))
             .unwrap();
 
         println!("zero-power pebble profile: {profile:?}");
@@ -1174,10 +1157,8 @@ mod tests {
 
         let shell_rise =
             super::super::temperature_difference(profile.fuelled_zone_boundary, profile.surface);
-        let fuelled_rise = super::super::temperature_difference(
-            profile.centre,
-            profile.fuelled_zone_boundary,
-        );
+        let fuelled_rise =
+            super::super::temperature_difference(profile.centre, profile.fuelled_zone_boundary);
         let particle_rise = profile.hottest_particle.total_rise();
 
         println!(
@@ -1231,7 +1212,10 @@ mod tests {
         let negative_count =
             Pebble::new(outer, fuelled, particle, -1.0, DispersionModel::ChiewGlandt);
         println!("negative particle count: {negative_count:?}");
-        assert!(matches!(negative_count, Err(TampinesError::InvalidInput(_))));
+        assert!(matches!(
+            negative_count,
+            Err(TampinesError::InvalidInput(_))
+        ));
 
         let over_packed = Pebble::new(
             outer,

@@ -412,10 +412,12 @@ impl<T: MpiPrimitive> Request<T> {
             } => {
                 let src = comm.match_source(*source)?;
                 let tagf = match_tag(*tag);
-                match comm
-                    .transport()
-                    .recv_try(comm.world_rank() as usize, comm.comm_id(), src, tagf)
-                {
+                match comm.transport().recv_try(
+                    comm.world_rank() as usize,
+                    comm.comm_id(),
+                    src,
+                    tagf,
+                ) {
                     Some(env) => {
                         let (data, status) = comm.decode_envelope::<T>(env)?;
                         Ok(TestOutcome::RecvComplete(data, status))

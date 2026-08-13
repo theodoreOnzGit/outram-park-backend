@@ -189,7 +189,14 @@ mod tests {
         ];
         let q = |a: usize, b: usize, c: usize, d: usize| vec![[a, b, c], [a, c, d]];
         let mut t = Vec::new();
-        for f in [q(0, 3, 2, 1), q(4, 5, 6, 7), q(0, 1, 5, 4), q(2, 3, 7, 6), q(1, 2, 6, 5), q(0, 4, 7, 3)] {
+        for f in [
+            q(0, 3, 2, 1),
+            q(4, 5, 6, 7),
+            q(0, 1, 5, 4),
+            q(2, 3, 7, 6),
+            q(1, 2, 6, 5),
+            q(0, 4, 7, 3),
+        ] {
             t.extend(f);
         }
         (v, t)
@@ -205,8 +212,14 @@ mod tests {
             Vec3::new(0.0, 0.0, -r),
         ];
         let t = vec![
-            [0, 2, 4], [2, 1, 4], [1, 3, 4], [3, 0, 4],
-            [0, 5, 2], [2, 5, 1], [1, 5, 3], [3, 5, 0],
+            [0, 2, 4],
+            [2, 1, 4],
+            [1, 3, 4],
+            [3, 0, 4],
+            [0, 5, 2],
+            [2, 5, 1],
+            [1, 5, 3],
+            [3, 5, 0],
         ];
         (v, t)
     }
@@ -224,7 +237,10 @@ mod tests {
         let (p, t) = box_surface(Vec3::ZERO, Vec3::new(2.0, 2.0, 2.0));
         let carved = carve_box(&p, &t, 0.5);
         let snapped = snap_to_surface(&carved, &p, &t);
-        assert!((snapped.total_volume() - 8.0).abs() < 1e-9, "box volume preserved");
+        assert!(
+            (snapped.total_volume() - 8.0).abs() < 1e-9,
+            "box volume preserved"
+        );
         for (a, b) in carved.points.iter().zip(snapped.points.iter()) {
             assert!(a.sub(*b).length() < 1e-12, "no boundary point moves");
         }
@@ -257,12 +273,19 @@ mod tests {
             }
         }
         for &v in &boundary {
-            assert!(dist_to_surface(snapped.points[v], &p, &t) < 1e-9, "boundary point on surface");
+            assert!(
+                dist_to_surface(snapped.points[v], &p, &t) < 1e-9,
+                "boundary point on surface"
+            );
         }
         // Still a valid closed mesh, with a body-fitted volume near analytic.
         snapped.validate().expect("snapped cells stay closed");
         let rel = (snapped.total_volume() - exact).abs() / exact;
-        assert!(rel < 0.05, "snapped volume {} within 5% of {exact} (rel {rel})", snapped.total_volume());
+        assert!(
+            rel < 0.05,
+            "snapped volume {} within 5% of {exact} (rel {rel})",
+            snapped.total_volume()
+        );
     }
 
     /// V&V — closest-point-on-triangle hits each Voronoi region correctly on a

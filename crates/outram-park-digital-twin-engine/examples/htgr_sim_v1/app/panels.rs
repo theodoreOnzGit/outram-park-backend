@@ -45,55 +45,142 @@ pub fn draw_controls(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, snapshot:
     ui.heading("Controls");
     ui.separator();
 
-    let mut reactivity = snapshot.external_reactivity_dollars;
+    // Trip banner first: if the reactor has scrammed, that is the single most
+    // important thing on the panel, and the rod slider below is being
+    // overridden by the protection system.
+    if let Some(reason) = snapshot.trip_reason {
+        ui.colored_label(
+            egui::Color32::from_rgb(220, 60, 40),
+            "\u{26A0} REACTOR TRIPPED - automatic scram",
+        );
+        ui.label(reason.description());
+        ui.label(format!(
+            "Scram rod demand: {:.0}% inserted",
+            snapshot.scram_insertion_fraction * 100.0
+        ));
+        ui.label(
+            "The protection system is holding the rods in. Your rod command below \
+             is overridden until the trip is reset, and resetting with the rods \
+             still withdrawn will simply trip again.",
+        );
+        if ui.button("Reset trip").clicked() {
+            // A request, not a direct clear -- see the field's doc comment.
+            physics.update(|s| s.trip_reset_requested = true);
+        }
+        ui.separator();
+    }
+
+    // Protection system arming. DISABLED by default while the steam generator
+    // is under investigation -- an RPS that trips masks the excursion being
+    // diagnosed. See `crate::physics::protection`.
+    let mut rps_enabled = snapshot.rps_enabled;
+    if ui
+        .checkbox(&mut rps_enabled, "Reactor protection system armed")
+        .changed()
+    {
+        physics.update(|s| s.rps_enabled = rps_enabled);
+    }
+    if !rps_enabled {
+        ui.colored_label(
+            egui::Color32::from_rgb(210, 150, 40),
+            "RPS DISARMED - a full rod withdrawal (+16.45 $) will run away unchecked",
+        );
+    }
+    ui.separator();
+
+    let mut rod_insertion = snapshot.control_rod_insertion_fraction;
     let mut helium_flow = snapshot.helium_flow_setpoint_kg_per_s;
 
-    ui.label("External reactivity");
+    // Rod position, not reactivity. An operator moves rods; reactivity is the
+    // consequence, and is displayed below rather than commanded. The ten
+    // HTR-10 side-reflector rods are ganged as one bank here.
+    ui.label(format!(
+        "Control rod bank insertion ({} rods, ganged)",
+        crate::physics::control_rods::CONTROL_ROD_COUNT
+    ));
     let rho_changed = ui
-        .add(egui::Slider::new(&mut reactivity, -2.0..=1.0).text("$ (rho/beta)"))
+        .add(
+            egui::Slider::new(&mut rod_insertion, 0.0..=1.0)
+                .text("fraction (0 withdrawn, 1 inserted)"),
+        )
         .changed();
 
     ui.add_space(8.0);
     ui.label("Helium circulator flow");
+    // Range bracketing the published HTR-10 operating point of 4.3 kg/s: down
+    // to roughly 7% flow at the bottom (below the circulator's regulated 30%
+    // turndown, so a loss-of-flow can be driven) and half again above nominal
+    // at the top. The primary loop clamps to its own circulator ceiling, so
+    // the slider cannot command a flow the machine could not pass.
     let flow_changed = ui
-        .add(egui::Slider::new(&mut helium_flow, 10.0..=150.0).text("kg/s"))
+        .add(egui::Slider::new(&mut helium_flow, 0.3..=6.0).text("kg/s"))
         .changed();
 
     if rho_changed || flow_changed {
         physics.update(|s| {
-            s.external_reactivity_dollars = reactivity;
+            s.control_rod_insertion_fraction = rod_insertion;
             s.helium_flow_setpoint_kg_per_s = helium_flow;
         });
     }
 
     ui.add_space(12.0);
     ui.separator();
+    // Reactivity is shown as a RESULT of rod position, immediately under the
+    // slider that causes it, so the causal direction is visible.
+    ui.label(format!(
+        "External reactivity: {:+.3} $",
+        snapshot.external_reactivity_dollars
+    ));
     ui.label(format!(
         "Reactivity margin: {:+.3} $",
         snapshot.reactivity_margin_dollars
     ));
+    // Reference marker: where the published bank worth and cold clean excess
+    // imply criticality. Indicative only -- it carries no burnup, xenon or
+    // temperature defect, so it is not where HTR-10's rods actually sit. The
+    // bisection behind it is a few hundred flops, negligible per frame.
+    if let Some(critical) = crate::physics::control_rods::critical_insertion_fraction(
+        snapshot.delayed_neutron_fraction_pcm * 1e-5,
+    ) {
+        ui.label(format!(
+            "Cold clean critical position: {:.1}% inserted",
+            critical * 100.0
+        ));
+    }
     ui.label(format!(
         "Reactor power: {:.1} MWth",
         snapshot.reactor_power_mw
     ));
+    // Mechanical, then electrical -- these were previously one line labelled
+    // "MWe" against the MECHANICAL number, which is wrong: the enthalpy-drop
+    // power is shaft power, and the electrical output is the generator's, less
+    // its losses. The plant now computes both, so both are shown.
     ui.label(format!(
-        "Turbine power: {:.1} MWe",
+        "Turbine shaft power: {:.1} MW",
         snapshot.turbine_power_mw
+    ));
+    ui.label(format!(
+        "Generator output: {:.1} MWe at {:.0} rpm",
+        snapshot.generator_electrical_power_mw, snapshot.shaft_speed_rpm
     ));
     ui.label(format!("Sim time: {:.1} s", snapshot.sim_time_s));
 
     ui.add_space(12.0);
     ui.separator();
     ui.small(
-        "Scaffold only -- placeholder HTGR correlations, delayed-neutron layer \
-         stubbed pending teh_o_prke::DelayedNeutronLayer. Not validated; not for \
-         any operational or safety use.",
+        "Demonstration model. Arrangement and operating point follow the published \
+         HTR-10 description; the correlations, controller constants and loop \
+         inventories are illustrative, not a specific licensed design. Not \
+         validated; not for any operational, licensing or safety use.",
     );
 }
 
 /// Schematic panel body.
 pub fn draw_schematic_panel(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicTracers) {
-    ui.heading("HTGR (helium-cooled, graphite-moderated prismatic-block) -- demonstration model");
+    ui.heading(
+        "HTGR (helium-cooled, graphite-moderated pebble bed) -- demonstration model, \
+         HTR-10-style two-vessel arrangement",
+    );
     ui.separator();
     draw_schematic(ui, snapshot, tracers);
 }
@@ -225,6 +312,11 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot) {
             );
             row(
                 ui,
+                "  of which bed (KTA)",
+                format!("{:.2} kPa", s.bed_pressure_drop_kpa),
+            );
+            row(
+                ui,
                 "Circulator power",
                 format!("{:.3} MW", s.circulator_power_mw),
             );
@@ -242,7 +334,29 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot) {
                 "SG steam outlet temp",
                 format!("{:.1} K", s.sg_steam_outlet_temp_k),
             );
-            row(ui, "Turbine power", format!("{:.2} MW", s.turbine_power_mw));
+            row(
+                ui,
+                "Turbine shaft power",
+                format!("{:.2} MW", s.turbine_power_mw),
+            );
+            row(
+                ui,
+                "Shaft speed",
+                format!(
+                    "{:.0} rpm ({:.1} rad/s)",
+                    s.shaft_speed_rpm, s.shaft_speed_rad_per_s
+                ),
+            );
+            row(
+                ui,
+                "Generator output",
+                format!("{:.2} MWe", s.generator_electrical_power_mw),
+            );
+            row(
+                ui,
+                "  machine rating",
+                format!("{:.2} MW shaft", s.generator_rating_mw),
+            );
             row(
                 ui,
                 "Exhaust quality",

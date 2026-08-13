@@ -76,9 +76,7 @@
 //! monotone (non-oscillatory) captures of the shock, contact, and rarefaction.
 
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
-use outram_foam_appbuilder_lib::io::field_reader::{
-    read_vol_scalar_field, read_vol_vector_field_full,
-};
+use outram_foam_appbuilder_lib::io::field_reader::{read_vol_scalar_field, read_vol_vector_field_full};
 use outram_foam_appbuilder_lib::io::fv_schemes::FvSchemes;
 use outram_foam_appbuilder_lib::io::fv_solution::FvSolution;
 use outram_foam_appbuilder_lib::io::poly_mesh::read_poly_mesh;

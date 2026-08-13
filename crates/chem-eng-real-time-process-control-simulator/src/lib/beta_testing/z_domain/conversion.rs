@@ -238,10 +238,7 @@ fn c2d_bilinear(
 /// with `n` the denominator degree in `z`, each coefficient `c_k` of `z^k`
 /// becomes `c_k (beta + s)^k (beta - s)^{n-k}` after clearing
 /// `(beta - s)^n`.
-fn d2c_bilinear(
-    sys: &DiscreteTransferFn,
-    beta: f64,
-) -> Result<ContinuousTransferFn, ZDomainError> {
+fn d2c_bilinear(sys: &DiscreteTransferFn, beta: f64) -> Result<ContinuousTransferFn, ZDomainError> {
     // z^-1-ascending coefficients of length L describe descending powers of
     // z of degree L-1 when multiplied through by z^(L-1); ascending-z is
     // the reverse of the z^-1 list padded to the denominator length.
@@ -352,9 +349,7 @@ fn c2d_zoh(
         // H_d(z) = c*gamma/(z - phi) + d
         let num_desc = vec![d, c * gamma - d * phi];
         let den_desc = vec![1.0, -phi];
-        return DiscreteTransferFn::from_z_descending_coefficients(
-            num_desc, den_desc, sample_time,
-        );
+        return DiscreteTransferFn::from_z_descending_coefficients(num_desc, den_desc, sample_time);
     }
 
     // order == 2: companion form
@@ -368,8 +363,7 @@ fn c2d_zoh(
     let a_mat = [[0.0, 1.0], [-a0, -a1]];
 
     // Eigenvalues: roots of s^2 + a1 s + a0.
-    let roots = polynomial::roots_deg_le_2(&[a0, a1, 1.0])
-        .expect("degree 2 by construction");
+    let roots = polynomial::roots_deg_le_2(&[a0, a1, 1.0]).expect("degree 2 by construction");
     let (l1, l2) = (roots[0], roots[1]);
 
     // Distinct vs (near-)repeated eigenvalues. Near-repeated pairs are
@@ -544,15 +538,12 @@ fn c2d_matched(
     let jw = Cplx::new(0.0, w_c);
     let w_d = Cplx::new(0.0, w_c * t_s).exp();
     let prod = |roots: &[Cplx], at: Cplx| -> Cplx {
-        roots
-            .iter()
-            .fold(Cplx::real(1.0), |acc, &r| acc * (at - r))
+        roots.iter().fold(Cplx::real(1.0), |acc, &r| acc * (at - r))
     };
     // k_d = real (k_c * prod(jw - z_c)/prod(jw - p_c)
     //             * prod(w_d - p_d)/prod(w_d - z_d))
-    let k_d = (Cplx::real(k_c) * prod(&z_c, jw) / prod(&p_c, jw) * prod(&p_d, w_d)
-        / prod(&z_d, w_d))
-    .re;
+    let k_d =
+        (Cplx::real(k_c) * prod(&z_c, jw) / prod(&p_c, jw) * prod(&p_d, w_d) / prod(&z_d, w_d)).re;
 
     // Rebuild descending-z polynomials from the discrete roots.
     let num_asc = polynomial::from_roots(&z_d, k_d);
@@ -600,7 +591,11 @@ fn d2c_matched(sys: &DiscreteTransferFn) -> Result<ContinuousTransferFn, ZDomain
     let k_d = num_asc_z.last().copied().unwrap_or(0.0) / den_asc_z.last().copied().unwrap_or(1.0);
 
     // upstream: poles/zeros at z = 0 are rejected because log(0) = -Inf
-    if p_d.iter().chain(z_d_orig.iter()).any(|r| r.abs() < f64::EPSILON) {
+    if p_d
+        .iter()
+        .chain(z_d_orig.iter())
+        .any(|r| r.abs() < f64::EPSILON)
+    {
         return Err(ZDomainError::MatchedPoleZeroAtOrigin);
     }
 
@@ -632,9 +627,7 @@ fn d2c_matched(sys: &DiscreteTransferFn) -> Result<ContinuousTransferFn, ZDomain
     }
     let w_c_pt = Cplx::real(w_c);
     let prod = |roots: &[Cplx], at: Cplx| -> Cplx {
-        roots
-            .iter()
-            .fold(Cplx::real(1.0), |acc, &r| acc * (at - r))
+        roots.iter().fold(Cplx::real(1.0), |acc, &r| acc * (at - r))
     };
     // k_c = real (k_d * prod(w_d - z_d_orig)/prod(w_d - p_d)
     //             * prod(w_c - p_c)/prod(w_c - z_c))

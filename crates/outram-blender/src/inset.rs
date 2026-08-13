@@ -79,8 +79,10 @@ pub fn inset_faces(mesh: &Mesh, amount: f64) -> Mesh {
 
     // A no-op below zero: return an identical rebuild.
     if amount <= 0.0 {
-        let faces: Vec<Vec<usize>> =
-            polygons.iter().map(|p| p.iter().map(|v| v.0).collect()).collect();
+        let faces: Vec<Vec<usize>> = polygons
+            .iter()
+            .map(|p| p.iter().map(|v| v.0).collect())
+            .collect();
         return Mesh::from_polygons(&positions, &faces);
     }
     // Clamp just under 1 so the inner face keeps positive area.
@@ -161,7 +163,10 @@ mod tests {
         assert_eq!(inset.face_count(), 30, "6 faces × (1 inner + 4 ring)");
         assert_eq!(inset.vertex_count(), 32, "8 corners + 6×4 inner");
         assert_eq!(inset.euler_characteristic(), 2, "closed genus-0 surface");
-        assert!(is_watertight_consistent(&inset), "consistent outward winding");
+        assert!(
+            is_watertight_consistent(&inset),
+            "consistent outward winding"
+        );
     }
 
     /// V&V — the inner vertices lie strictly inside their faces. For a cube of
@@ -177,7 +182,10 @@ mod tests {
             .iter()
             .map(|p| p.length())
             .fold(f64::MIN, f64::max);
-        assert!(inner_max_r < corner_r, "inner ring is pulled inside the corners");
+        assert!(
+            inner_max_r < corner_r,
+            "inner ring is pulled inside the corners"
+        );
     }
 
     /// V&V — `amount = 0` is a no-op: topology unchanged.
@@ -196,7 +204,9 @@ mod tests {
         use crate::ops::MeshOp;
         let cube = primitives::cube(2.0);
         let direct = inset_faces(&cube, 0.25);
-        let via_op = MeshOp::Inset { amount: 0.25 }.apply(cube).expect("inset infallible");
+        let via_op = MeshOp::Inset { amount: 0.25 }
+            .apply(cube)
+            .expect("inset infallible");
         assert_eq!(via_op.vertex_count(), direct.vertex_count());
         assert_eq!(via_op.face_count(), direct.face_count());
         assert_eq!(via_op.euler_characteristic(), direct.euler_characteristic());

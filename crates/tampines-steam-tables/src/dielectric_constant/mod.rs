@@ -3,9 +3,7 @@
 //! function of density (`MassDensity`, kg/m^3) and temperature
 //! (`ThermodynamicTemperature`, K).
 
-use uom::si::{
-    f64::*, molar_mass::kilogram_per_mole, ratio::ratio, thermodynamic_temperature::kelvin,
-};
+use uom::si::{f64::*, molar_mass::kilogram_per_mole, ratio::ratio, thermodynamic_temperature::kelvin};
 
 use crate::constants::{
     avogadro_number_na, boltzmann_constant_k, molecular_dipole_moment_mu,

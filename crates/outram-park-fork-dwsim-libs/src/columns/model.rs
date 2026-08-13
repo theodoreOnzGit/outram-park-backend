@@ -77,9 +77,7 @@
 //!   molar/mass **basis** distinction preserved as [`SpecBasis`].
 
 use uom::si::catalytic_activity::katal;
-use uom::si::f64::{
-    CatalyticActivity, MolarEnergy, Power, Pressure, Ratio, ThermodynamicTemperature,
-};
+use uom::si::f64::{CatalyticActivity, MolarEnergy, Power, Pressure, Ratio, ThermodynamicTemperature};
 use uom::si::molar_energy::joule_per_mole;
 use uom::si::power::watt;
 use uom::si::pressure::pascal;
@@ -197,6 +195,12 @@ pub enum ColumnError {
         /// What was wrong with the spec.
         detail: String,
     },
+    /// A configuration is outside what the transient
+    /// ([`crate::columns::dynamic`]) model supports — e.g. a non-total
+    /// condenser, a non-`DistillationColumn` type, a Murphree efficiency below
+    /// 1, or a non-positive hydraulic time constant / reflux ratio / holdup.
+    #[error("unsupported dynamic-column configuration: {0}")]
+    UnsupportedConfiguration(String),
 }
 
 /// Condenser configuration — DWSIM's `Column.condtype`

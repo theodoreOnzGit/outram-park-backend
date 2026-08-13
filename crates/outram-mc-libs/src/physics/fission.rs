@@ -27,7 +27,11 @@ use crate::rng::lcg::prn;
 /// A non-positive or non-finite `keff` falls back to `keff = 1` so a diverging
 /// first generation can't produce a nonsensical count.
 pub fn sample_num_neutrons(nu_bar: f64, keff: f64, seed: &mut u64) -> usize {
-    let k = if keff.is_finite() && keff > 0.0 { keff } else { 1.0 };
+    let k = if keff.is_finite() && keff > 0.0 {
+        keff
+    } else {
+        1.0
+    };
     let expected = nu_bar / k;
     let mut n = expected.floor();
     if prn(seed) < expected - n {
@@ -46,18 +50,24 @@ mod tests {
         let mut seed = 0xf1_5510u64;
         let (nu_bar, keff) = (2.44, 1.03);
         let n = 200_000;
-        let total: usize = (0..n).map(|_| sample_num_neutrons(nu_bar, keff, &mut seed)).sum();
+        let total: usize = (0..n)
+            .map(|_| sample_num_neutrons(nu_bar, keff, &mut seed))
+            .sum();
         let mean = total as f64 / n as f64;
         let expected = nu_bar / keff;
-        assert!((mean - expected).abs() < 0.01, "mean {mean} vs expected {expected}");
+        assert!(
+            (mean - expected).abs() < 0.01,
+            "mean {mean} vs expected {expected}"
+        );
     }
 
     /// A degenerate keff is treated as 1 rather than producing garbage.
     #[test]
     fn non_positive_keff_is_safe() {
         let mut seed = 1u64;
-        let counts: Vec<usize> =
-            (0..100).map(|_| sample_num_neutrons(2.5, 0.0, &mut seed)).collect();
+        let counts: Vec<usize> = (0..100)
+            .map(|_| sample_num_neutrons(2.5, 0.0, &mut seed))
+            .collect();
         assert!(counts.iter().all(|&c| c == 2 || c == 3), "ν̄=2.5 ⇒ 2 or 3");
     }
 }

@@ -99,9 +99,7 @@ pub use crate::mesh::{
 pub use crate::mesh::ami::overlap_weights_1d;
 
 // --- Sparse linear system (Layer 2) ---
-pub use crate::ldu_matrix::{
-    FvMatrix, FvVectorMatrix, LduMatrix, SolverPerformance, SolverSettings,
-};
+pub use crate::ldu_matrix::{FvMatrix, FvVectorMatrix, LduMatrix, SolverPerformance, SolverSettings};
 
 // --- FV operators (Layer 3) ---
 pub use crate::fv_operators::{adjust_phi, fvc, fvm};

@@ -334,9 +334,7 @@ mod tests {
         );
 
         fs.object_mut(&s1).unwrap().active = false;
-        assert!(
-            specs_firing_at(&fs, &specs, global, &SpecFiringPoint::BeforeFlowsheet).is_empty()
-        );
+        assert!(specs_firing_at(&fs, &specs, global, &SpecFiringPoint::BeforeFlowsheet).is_empty());
     }
 
     /// **Methodology.** The two enums' defaults must be upstream's zero values:

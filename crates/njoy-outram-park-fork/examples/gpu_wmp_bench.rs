@@ -156,7 +156,10 @@ fn main() {
     }
 
     // 6. Plain-text table to stdout.
-    println!("{:>10}  {:>12}  {:>12}  {:>9}  {:>18}", "n_energy", "cpu_ms", "gpu_ms", "speedup", "max_rel_err_total");
+    println!(
+        "{:>10}  {:>12}  {:>12}  {:>9}  {:>18}",
+        "n_energy", "cpu_ms", "gpu_ms", "speedup", "max_rel_err_total"
+    );
     for r in &rows {
         println!(
             "{:>10}  {:>12.3}  {:>12.3}  {:>9.3}  {:>18.3e}",
@@ -166,9 +169,11 @@ fn main() {
 
     // Verdict: first N where GPU overtakes CPU, and the peak speedup.
     let crossover = rows.iter().find(|r| r.speedup > 1.0).map(|r| r.n);
-    let peak = rows
-        .iter()
-        .max_by(|a, b| a.speedup.partial_cmp(&b.speedup).unwrap_or(std::cmp::Ordering::Equal));
+    let peak = rows.iter().max_by(|a, b| {
+        a.speedup
+            .partial_cmp(&b.speedup)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     match (crossover, peak) {
         (Some(n), Some(p)) => println!(
             "\nVerdict: GPU overtakes CPU (speedup > 1) at N = {n}; peak speedup {:.3}x at N = {}.",

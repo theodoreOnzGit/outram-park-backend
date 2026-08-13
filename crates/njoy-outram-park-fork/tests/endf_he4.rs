@@ -32,10 +32,14 @@ fn tape_parses_without_error() {
 #[test]
 fn section_keys_are_correct() {
     let tape = Tape::read(File::open(he4_path()).unwrap()).unwrap();
-    let keys: Vec<_> = tape.sections().iter().map(|s| (s.key.mat, s.key.mf, s.key.mt)).collect();
+    let keys: Vec<_> = tape
+        .sections()
+        .iter()
+        .map(|s| (s.key.mat, s.key.mf, s.key.mt))
+        .collect();
     assert!(keys.contains(&(228, 1, 451)), "missing MF=1 MT=451");
-    assert!(keys.contains(&(228, 3,   2)), "missing MF=3 MT=2");
-    assert!(keys.contains(&(228, 6,   2)), "missing MF=6 MT=2");
+    assert!(keys.contains(&(228, 3, 2)), "missing MF=3 MT=2");
+    assert!(keys.contains(&(228, 6, 2)), "missing MF=6 MT=2");
 }
 
 #[test]
@@ -56,11 +60,14 @@ fn mf3_mt2_tab1_point_count() {
     let tape = Tape::read(File::open(he4_path()).unwrap()).unwrap();
     let sec = tape.section(228, 3, 2).expect("MF=3 MT=2 not found");
     let mut cur = SectionCursor::new(&sec.rows);
-    let _cont = cur.read_cont().unwrap();  // ZA/AWR CONT
+    let _cont = cur.read_cont().unwrap(); // ZA/AWR CONT
     let tab1 = cur.read_tab1().unwrap();
     assert_eq!(tab1.pairs.len(), 29, "expected 29 cross-section points");
     assert_eq!(tab1.head.n1, 1, "NR (interp regions) should be 1");
-    assert_eq!(tab1.interp[0].1, 2, "interpolation law should be lin-lin (2)");
+    assert_eq!(
+        tab1.interp[0].1, 2,
+        "interpolation law should be lin-lin (2)"
+    );
 }
 
 #[test]
@@ -72,9 +79,9 @@ fn mf3_mt2_first_and_last_energy() {
     let _cont = cur.read_cont().unwrap();
     let tab1 = cur.read_tab1().unwrap();
     let (e_first, _) = tab1.pairs[0];
-    let (e_last, _)  = tab1.pairs[tab1.pairs.len() - 1];
+    let (e_last, _) = tab1.pairs[tab1.pairs.len() - 1];
     assert!((e_first - 2.95e5).abs() < 1.0, "first E = {}", e_first);
-    assert!((e_last  - 2.0e7 ).abs() < 1.0, "last E  = {}", e_last);
+    assert!((e_last - 2.0e7).abs() < 1.0, "last E  = {}", e_last);
 }
 
 #[test]
@@ -90,7 +97,11 @@ fn mf3_mt2_cross_section_at_known_point() {
 
     // At E=2.0e7 eV, σ≈0.1529574 b
     let (_, sigma_last) = tab1.pairs[28];
-    assert!((sigma_last - 0.1529574).abs() < 1e-6, "σ(20 MeV) = {}", sigma_last);
+    assert!(
+        (sigma_last - 0.1529574).abs() < 1e-6,
+        "σ(20 MeV) = {}",
+        sigma_last
+    );
 }
 
 #[test]

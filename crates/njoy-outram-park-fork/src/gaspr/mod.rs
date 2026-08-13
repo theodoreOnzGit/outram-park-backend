@@ -92,37 +92,139 @@ impl GasYield {
 fn gas_yield(mt: MtReaction) -> GasYield {
     use MtReaction::*;
     match mt {
-        Mt11N2nD => GasYield { d: 1, ..Default::default() },
-        Mt22NnAlpha => GasYield { alpha: 1, ..Default::default() },
-        Mt23Nn3Alpha => GasYield { alpha: 3, ..Default::default() },
-        Mt24N2nAlpha => GasYield { alpha: 1, ..Default::default() },
-        Mt25N3nAlpha => GasYield { alpha: 1, ..Default::default() },
-        Mt28NnProton => GasYield { p: 1, ..Default::default() },
-        Mt29Nn2Alpha => GasYield { alpha: 2, ..Default::default() },
-        Mt30N2n2Alpha => GasYield { alpha: 2, ..Default::default() },
-        Mt32NnD => GasYield { d: 1, ..Default::default() },
-        Mt33NnT => GasYield { t: 1, ..Default::default() },
-        Mt34NnHe3 => GasYield { he3: 1, ..Default::default() },
-        Mt35NnD2Alpha => GasYield { d: 1, alpha: 2, ..Default::default() },
-        Mt36NnT2Alpha => GasYield { t: 1, alpha: 2, ..Default::default() },
-        Mt41N2nProton => GasYield { p: 1, ..Default::default() },
-        Mt42N3nProton => GasYield { p: 1, ..Default::default() },
-        Mt44Nn2Proton => GasYield { p: 2, ..Default::default() },
-        Mt45NnProtonAlpha => GasYield { p: 1, alpha: 1, ..Default::default() },
-        Mt103Np => GasYield { p: 1, ..Default::default() },
-        Mt104Nd => GasYield { d: 1, ..Default::default() },
-        Mt105Nt => GasYield { t: 1, ..Default::default() },
-        Mt106NHe3 => GasYield { he3: 1, ..Default::default() },
-        Mt107NAlpha => GasYield { alpha: 1, ..Default::default() },
-        Mt108N2Alpha => GasYield { alpha: 2, ..Default::default() },
-        Mt109N3Alpha => GasYield { alpha: 3, ..Default::default() },
-        Mt111N2Proton => GasYield { p: 2, ..Default::default() },
-        Mt112NProtonAlpha => GasYield { p: 1, alpha: 1, ..Default::default() },
-        Mt113NT2Alpha => GasYield { t: 1, alpha: 2, ..Default::default() },
-        Mt114ND2Alpha => GasYield { d: 1, alpha: 2, ..Default::default() },
-        Mt115NProtonD => GasYield { p: 1, d: 1, ..Default::default() },
-        Mt116NProtonT => GasYield { p: 1, t: 1, ..Default::default() },
-        Mt117NDAlpha => GasYield { d: 1, alpha: 1, ..Default::default() },
+        Mt11N2nD => GasYield {
+            d: 1,
+            ..Default::default()
+        },
+        Mt22NnAlpha => GasYield {
+            alpha: 1,
+            ..Default::default()
+        },
+        Mt23Nn3Alpha => GasYield {
+            alpha: 3,
+            ..Default::default()
+        },
+        Mt24N2nAlpha => GasYield {
+            alpha: 1,
+            ..Default::default()
+        },
+        Mt25N3nAlpha => GasYield {
+            alpha: 1,
+            ..Default::default()
+        },
+        Mt28NnProton => GasYield {
+            p: 1,
+            ..Default::default()
+        },
+        Mt29Nn2Alpha => GasYield {
+            alpha: 2,
+            ..Default::default()
+        },
+        Mt30N2n2Alpha => GasYield {
+            alpha: 2,
+            ..Default::default()
+        },
+        Mt32NnD => GasYield {
+            d: 1,
+            ..Default::default()
+        },
+        Mt33NnT => GasYield {
+            t: 1,
+            ..Default::default()
+        },
+        Mt34NnHe3 => GasYield {
+            he3: 1,
+            ..Default::default()
+        },
+        Mt35NnD2Alpha => GasYield {
+            d: 1,
+            alpha: 2,
+            ..Default::default()
+        },
+        Mt36NnT2Alpha => GasYield {
+            t: 1,
+            alpha: 2,
+            ..Default::default()
+        },
+        Mt41N2nProton => GasYield {
+            p: 1,
+            ..Default::default()
+        },
+        Mt42N3nProton => GasYield {
+            p: 1,
+            ..Default::default()
+        },
+        Mt44Nn2Proton => GasYield {
+            p: 2,
+            ..Default::default()
+        },
+        Mt45NnProtonAlpha => GasYield {
+            p: 1,
+            alpha: 1,
+            ..Default::default()
+        },
+        Mt103Np => GasYield {
+            p: 1,
+            ..Default::default()
+        },
+        Mt104Nd => GasYield {
+            d: 1,
+            ..Default::default()
+        },
+        Mt105Nt => GasYield {
+            t: 1,
+            ..Default::default()
+        },
+        Mt106NHe3 => GasYield {
+            he3: 1,
+            ..Default::default()
+        },
+        Mt107NAlpha => GasYield {
+            alpha: 1,
+            ..Default::default()
+        },
+        Mt108N2Alpha => GasYield {
+            alpha: 2,
+            ..Default::default()
+        },
+        Mt109N3Alpha => GasYield {
+            alpha: 3,
+            ..Default::default()
+        },
+        Mt111N2Proton => GasYield {
+            p: 2,
+            ..Default::default()
+        },
+        Mt112NProtonAlpha => GasYield {
+            p: 1,
+            alpha: 1,
+            ..Default::default()
+        },
+        Mt113NT2Alpha => GasYield {
+            t: 1,
+            alpha: 2,
+            ..Default::default()
+        },
+        Mt114ND2Alpha => GasYield {
+            d: 1,
+            alpha: 2,
+            ..Default::default()
+        },
+        Mt115NProtonD => GasYield {
+            p: 1,
+            d: 1,
+            ..Default::default()
+        },
+        Mt116NProtonT => GasYield {
+            p: 1,
+            t: 1,
+            ..Default::default()
+        },
+        Mt117NDAlpha => GasYield {
+            d: 1,
+            alpha: 1,
+            ..Default::default()
+        },
         _ => GasYield::default(),
     }
 }
@@ -172,8 +274,14 @@ impl GasProduction {
         energy.dedup_by(|a, b| (*a - *b).abs() < 1.0e-12 * b.abs().max(1.0));
 
         let n = energy.len();
-        let mut out =
-            GasProduction { energy, h1: vec![0.0; n], h2: vec![0.0; n], h3: vec![0.0; n], he3: vec![0.0; n], he4: vec![0.0; n] };
+        let mut out = GasProduction {
+            energy,
+            h1: vec![0.0; n],
+            h2: vec![0.0; n],
+            h3: vec![0.0; n],
+            he3: vec![0.0; n],
+            he4: vec![0.0; n],
+        };
 
         for sec in &recon.sections {
             let y = gas_yield(sec.mt);
@@ -218,7 +326,12 @@ impl GasProduction {
         if self.energy.is_empty() {
             return 0.0;
         }
-        let pairs: Vec<(f64, f64)> = self.energy.iter().copied().zip(col.iter().copied()).collect();
+        let pairs: Vec<(f64, f64)> = self
+            .energy
+            .iter()
+            .copied()
+            .zip(col.iter().copied())
+            .collect();
         eval_lin_lin(&pairs, e)
     }
 }
@@ -280,7 +393,10 @@ mod tests {
     /// its true yield of 3, not 1.
     #[test]
     fn multi_particle_yield_is_weighted() {
-        let recon = recon(vec![section(MtReaction::Mt23Nn3Alpha, vec![(1.0e6, 0.2), (2.0e6, 0.2)])]);
+        let recon = recon(vec![section(
+            MtReaction::Mt23Nn3Alpha,
+            vec![(1.0e6, 0.2), (2.0e6, 0.2)],
+        )]);
         let gas = GasProduction::from_reconr(&recon);
         assert!((gas.eval(GasSpecies::He4, 1.5e6) - 0.6).abs() < 1e-9);
     }
@@ -289,7 +405,10 @@ mod tests {
     /// contributes to both, each with yield 1.
     #[test]
     fn two_species_channel_credits_both() {
-        let recon = recon(vec![section(MtReaction::Mt45NnProtonAlpha, vec![(1.0e6, 0.8), (2.0e6, 0.8)])]);
+        let recon = recon(vec![section(
+            MtReaction::Mt45NnProtonAlpha,
+            vec![(1.0e6, 0.8), (2.0e6, 0.8)],
+        )]);
         let gas = GasProduction::from_reconr(&recon);
         assert!((gas.eval(GasSpecies::H1, 1.5e6) - 0.8).abs() < 1e-9);
         assert!((gas.eval(GasSpecies::He4, 1.5e6) - 0.8).abs() < 1e-9);
@@ -306,8 +425,17 @@ mod tests {
             section(MtReaction::Mt16N2n, vec![(1.0e6, 0.0), (2.0e6, 0.05)]),
         ]);
         let gas = GasProduction::from_reconr(&recon);
-        assert!(gas.energy.is_empty(), "no gas-producing sections ⇒ empty grid");
-        for species in [GasSpecies::H1, GasSpecies::H2, GasSpecies::H3, GasSpecies::He3, GasSpecies::He4] {
+        assert!(
+            gas.energy.is_empty(),
+            "no gas-producing sections ⇒ empty grid"
+        );
+        for species in [
+            GasSpecies::H1,
+            GasSpecies::H2,
+            GasSpecies::H3,
+            GasSpecies::He3,
+            GasSpecies::He4,
+        ] {
             assert_eq!(gas.eval(species, 1.5e6), 0.0);
         }
     }
@@ -330,5 +458,7 @@ mod tests {
 /// ported, so this returns [`crate::NjoyError::NotPorted`]. Use the module's
 /// typed API directly rather than this driver.
 pub fn run() -> Result<(), crate::NjoyError> {
-    Err(crate::NjoyError::NotPorted("gaspr driver (physics ported — use the module API)"))
+    Err(crate::NjoyError::NotPorted(
+        "gaspr driver (physics ported — use the module API)",
+    ))
 }

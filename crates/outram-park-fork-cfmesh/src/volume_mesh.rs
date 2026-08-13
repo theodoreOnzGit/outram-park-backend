@@ -185,7 +185,10 @@ impl VolumeMesh {
         let scale = self.total_volume().abs().cbrt().max(1.0);
         for (c, a) in cell_area.iter().enumerate() {
             if a.length() > 1e-9 * scale * scale {
-                return Err(format!("cell {c} is not closed (Σ face areas = {})", a.length()));
+                return Err(format!(
+                    "cell {c} is not closed (Σ face areas = {})",
+                    a.length()
+                ));
             }
         }
         Ok(())
@@ -273,8 +276,19 @@ pub fn from_cell_faces(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>]) -> VolumeMe
         neighbour.push(None);
         bnd += 1;
     }
-    let patches = vec![BoundaryPatch { name: "walls".into(), start_face: n_internal, n_faces: bnd }];
-    VolumeMesh { points, faces, owner, neighbour, n_cells: cells.len(), patches }
+    let patches = vec![BoundaryPatch {
+        name: "walls".into(),
+        start_face: n_internal,
+        n_faces: bnd,
+    }];
+    VolumeMesh {
+        points,
+        faces,
+        owner,
+        neighbour,
+        n_cells: cells.len(),
+        patches,
+    }
 }
 
 /// Order a face `ring` so its area vector points **away from** `owner_center`

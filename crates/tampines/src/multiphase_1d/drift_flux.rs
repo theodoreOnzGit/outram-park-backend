@@ -887,14 +887,8 @@ impl DriftFlux1d {
 
             u_star[j] = u_j + self.dt * (-u_j * du_dx + g_x - friction - d_phi_dx / rho_face);
         }
-        let left_choked = matches!(
-            left_face,
-            BoundaryFaceState::Velocity { choked: true, .. }
-        );
-        let right_choked = matches!(
-            right_face,
-            BoundaryFaceState::Velocity { choked: true, .. }
-        );
+        let left_choked = matches!(left_face, BoundaryFaceState::Velocity { choked: true, .. });
+        let right_choked = matches!(right_face, BoundaryFaceState::Velocity { choked: true, .. });
         u_star[0] = match left_face {
             BoundaryFaceState::Velocity { u, .. } => u,
             BoundaryFaceState::Pressure { .. } => self.left_pressure_face_predictor(

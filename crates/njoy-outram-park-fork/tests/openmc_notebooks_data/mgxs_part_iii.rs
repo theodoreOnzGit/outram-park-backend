@@ -34,5 +34,7 @@ fn export_mgxs_library_hdf5() {
 #[test]
 #[ignore = "requires MG-mode transport + CE-vs-MG k-eff (outram-mc-libs / op-6tz transport slice)"]
 fn mg_mode_keff_verification() {
-    panic!("MG-mode transport + CE-vs-MG k-eff is a transport capability — outram-mc-libs owns this");
+    panic!(
+        "MG-mode transport + CE-vs-MG k-eff is a transport capability — outram-mc-libs owns this"
+    );
 }

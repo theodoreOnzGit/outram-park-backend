@@ -36,6 +36,10 @@ pub enum WidgetUnderTest {
     Reactors,
     SteamGenerators,
     Pumps,
+    Condensers,
+    CoolingTowers,
+    HeatExchangers,
+    Excursion,
 }
 
 impl WidgetUnderTest {
@@ -47,6 +51,10 @@ impl WidgetUnderTest {
         Self::Reactors,
         Self::SteamGenerators,
         Self::Pumps,
+        Self::Condensers,
+        Self::CoolingTowers,
+        Self::HeatExchangers,
+        Self::Excursion,
     ];
 
     /// Human-readable name for the picker.
@@ -58,6 +66,10 @@ impl WidgetUnderTest {
             Self::Reactors => "Reactor vessels (6 types)",
             Self::SteamGenerators => "Steam generators (3 types)",
             Self::Pumps => "Pumps (3 types)",
+            Self::Condensers => "Condensers (2 arrangements)",
+            Self::CoolingTowers => "Cooling towers (2 draughts)",
+            Self::HeatExchangers => "Heat exchangers (2 arrangements)",
+            Self::Excursion => "Excursion overlay",
         }
     }
 
@@ -75,6 +87,18 @@ impl WidgetUnderTest {
                 "vertical U-tube (PWR), horizontal U-tube (VVER), helical once-through"
             }
             Self::Pumps => "centrifugal volute, vertical canned-rotor, axial propeller",
+            Self::Condensers => {
+                "two-pass and single-pass, with the neutral physics-backed path shown beside them"
+            }
+            Self::CoolingTowers => {
+                "hyperbolic and fan-cell — live psychrometrics, plume from exit saturation"
+            }
+            Self::HeatExchangers => {
+                "counter-flow vs parallel flow — only one of them can cross the outlets"
+            }
+            Self::Excursion => {
+                "destructive annotation over any vessel — a warning label, not a blast model"
+            }
         }
     }
 }
@@ -133,6 +157,19 @@ pub struct WidgetStudio {
     /// The pump gallery. Owns its own simulation clock, advanced in `step`,
     /// because a widget-owned clock would reset every repaint.
     pumps: crate::pump_tab::PumpTab,
+    /// The condenser gallery: both arrangements, state-driven and
+    /// physics-backed side by side.
+    condensers: crate::condenser_tab::CondenserTab,
+    /// The cooling-tower gallery. Owns its own clock (the induced-draught fan
+    /// turns at `theta = omega * t`) for the same reason the pumps do.
+    cooling_towers: crate::cooling_tower_tab::CoolingTowerTab,
+    /// The heat-exchanger gallery: both flow arrangements under one operating
+    /// point, with the physics-backed row beside them drawing the arrangement
+    /// its component really stores.
+    heat_exchangers: crate::heat_exchanger_tab::HeatExchangerTab,
+    /// The excursion overlay. Owns the clock measuring time since the
+    /// excursion was triggered, which is what expands the annotation.
+    excursion: crate::excursion_tab::ExcursionTab,
     /// Backends that failed to STEP on the last frame. Surfaced rather than
     /// swallowed: a frozen solver must not look like a working one.
     pipe_step_errors: Vec<String>,
@@ -164,6 +201,10 @@ impl Default for WidgetStudio {
             reactors: crate::reactor_tab::ReactorTab::default(),
             steam_generators: crate::steam_generator_tab::SteamGeneratorTab::default(),
             pumps: crate::pump_tab::PumpTab::default(),
+            condensers: crate::condenser_tab::CondenserTab::default(),
+            cooling_towers: crate::cooling_tower_tab::CoolingTowerTab::default(),
+            heat_exchangers: crate::heat_exchanger_tab::HeatExchangerTab::default(),
+            excursion: crate::excursion_tab::ExcursionTab::default(),
             pipe_step_errors: Vec::new(),
         }
     }
@@ -240,6 +281,11 @@ impl eframe::App for WidgetStudio {
             self.pipe_step_errors.extend(self.bend.step(sim_dt));
             // Pump impellers turn on an application-owned clock, like the turbine.
             self.pumps.step(sim_dt);
+            // Same rule for the cooling-tower fan and for the excursion
+            // overlay's expansion: both are phased on simulation time, and a
+            // widget-owned clock would reset every repaint.
+            self.cooling_towers.step(sim_dt);
+            self.excursion.step(sim_dt);
 
             ui.ctx().request_repaint();
         } else {
@@ -281,6 +327,18 @@ impl eframe::App for WidgetStudio {
                     crate::steam_generator_tab::controls(ui, &mut self.steam_generators)
                 }
                 WidgetUnderTest::Pumps => crate::pump_tab::controls(ui, &mut self.pumps),
+                WidgetUnderTest::Condensers => {
+                    crate::condenser_tab::controls(ui, &mut self.condensers)
+                }
+                WidgetUnderTest::CoolingTowers => {
+                    crate::cooling_tower_tab::controls(ui, &mut self.cooling_towers)
+                }
+                WidgetUnderTest::HeatExchangers => {
+                    crate::heat_exchanger_tab::controls(ui, &mut self.heat_exchangers)
+                }
+                WidgetUnderTest::Excursion => {
+                    crate::excursion_tab::controls(ui, &mut self.excursion)
+                }
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| match self.selected {
@@ -291,6 +349,14 @@ impl eframe::App for WidgetStudio {
                 crate::steam_generator_tab::draw(ui, &self.steam_generators)
             }
             WidgetUnderTest::Pumps => crate::pump_tab::draw(ui, &self.pumps),
+            WidgetUnderTest::Condensers => crate::condenser_tab::draw(ui, &self.condensers),
+            WidgetUnderTest::CoolingTowers => {
+                crate::cooling_tower_tab::draw(ui, &self.cooling_towers)
+            }
+            WidgetUnderTest::HeatExchangers => {
+                crate::heat_exchanger_tab::draw(ui, &self.heat_exchangers)
+            }
+            WidgetUnderTest::Excursion => crate::excursion_tab::draw(ui, &self.excursion),
             WidgetUnderTest::Pipes => {
                 // Pipes are drawn to true scale, so a long run can exceed the
                 // panel. Scroll rather than rescale: shrinking to fit would

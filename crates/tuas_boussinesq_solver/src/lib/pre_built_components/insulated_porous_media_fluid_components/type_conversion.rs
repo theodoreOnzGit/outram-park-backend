@@ -8,7 +8,7 @@ use crate::array_control_vol_and_fluid_component_collections::fluid_component_co
 use super::InsulatedPorousMediaFluidComponent;
 impl Into<FluidComponent> for InsulatedPorousMediaFluidComponent {
     fn into(self) -> FluidComponent {
-        // get the fluid component 
+        // get the fluid component
         let fluid_array_heat_transfer_entity = self.pipe_fluid_array;
         let fluid_array: FluidArray = fluid_array_heat_transfer_entity.try_into().unwrap();
 

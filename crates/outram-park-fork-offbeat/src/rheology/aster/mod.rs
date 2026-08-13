@@ -127,9 +127,7 @@ pub use fracture::{
     CrackTipBasis, LinearElasticConstants, ModeEnergyRelease, NearTipField, PlanarCrackTipResult,
     StressIntensityFactors, MAX_LEGENDRE_FRONT_DEGREE,
 };
-pub use hardening::{
-    IsotropicHardening, ASTER_POWER_LINEARISATION_STRAIN, SLOPE_SINGULARITY_OFFSET,
-};
+pub use hardening::{IsotropicHardening, ASTER_POWER_LINEARISATION_STRAIN, SLOPE_SINGULARITY_OFFSET};
 pub use integration::{
     brent, newton_perturbed, newton_safeguarded, perturbed_default, secant, LocalSolution,
     ScalarAlgorithm, SolverControl,

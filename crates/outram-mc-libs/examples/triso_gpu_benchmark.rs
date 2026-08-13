@@ -203,7 +203,10 @@ fn main() {
         let t = Instant::now();
         match Nuclide::from_endf(lib, name, temp_k, 1.0e-3) {
             Ok(n) => {
-                println!("  {name}: reconstructed in {:.1} s", t.elapsed().as_secs_f64());
+                println!(
+                    "  {name}: reconstructed in {:.1} s",
+                    t.elapsed().as_secs_f64()
+                );
                 nuclides.push(n);
             }
             // Fail gracefully rather than panicking with a backtrace: the usual
@@ -237,16 +240,28 @@ fn main() {
         name: "HEU kernel".into(),
         temperature: temp_k,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     };
     let moderator = Material {
         id: 2,
         name: "H-1 matrix".into(),
         temperature: temp_k,
-        components: vec![NuclideComponent { nuclide_idx: 3, atom_density: 4.0e-2 }],
+        components: vec![NuclideComponent {
+            nuclide_idx: 3,
+            atom_density: 4.0e-2,
+        }],
     };
     let materials = vec![fuel, moderator];
 
@@ -267,7 +282,13 @@ fn main() {
     let majorant = Majorant::bounding(&materials, &nuclides, 1.0e-3, 2.0e7, 4096, 32, 0.1);
 
     // Geometry lookup for delta tracking: kernel → fuel (0), matrix → moderator (1).
-    let material_at = move |p: Position| Some(if packed.is_inside_kernel(p) { 0usize } else { 1usize });
+    let material_at = move |p: Position| {
+        Some(if packed.is_inside_kernel(p) {
+            0usize
+        } else {
+            1usize
+        })
+    };
 
     // ── 5. Delta-tracking fission-source power iteration (CPU f64 reference).
     let settings = KeffSettings {
@@ -282,7 +303,14 @@ fn main() {
         settings.n_particles, settings.n_inactive, settings.n_active
     );
     let t_mc = Instant::now();
-    let result = run_keff_delta(half, &materials, &nuclides, &majorant, material_at, &settings);
+    let result = run_keff_delta(
+        half,
+        &materials,
+        &nuclides,
+        &majorant,
+        material_at,
+        &settings,
+    );
     let mc_secs = t_mc.elapsed().as_secs_f64();
     let histories = settings.n_particles * (settings.n_inactive + settings.n_active);
     let hist_per_s = histories as f64 / mc_secs;
@@ -300,7 +328,10 @@ fn main() {
     // ── 6. Isolated GPU-vs-CPU XS-kernel throughput on the HEU fuel Σ_t.
     println!("\nXS-kernel throughput benchmark (HEU fuel macroscopic total Σ_t):");
     let table = UnionTotalXs::tabulate(&materials[0], &nuclides, 1.0e-3, 2.0e7, 4096);
-    println!("  tabulated Σ_t on {} log-spaced points (1e-3 .. 2e7 eV).", table.grid.len());
+    println!(
+        "  tabulated Σ_t on {} log-spaced points (1e-3 .. 2e7 eV).",
+        table.grid.len()
+    );
 
     let gpu = outram_mc_libs::gpu::probe();
     match &gpu {
@@ -349,7 +380,16 @@ fn main() {
             cpu_qps / 1.0e6,
             gpu_qps / 1.0e6,
         );
-        xs_rows.push(XsRow { n, cpu_ms, gpu_ms, cpu_qps, gpu_qps, speedup, max_abs, mean_abs });
+        xs_rows.push(XsRow {
+            n,
+            cpu_ms,
+            gpu_ms,
+            cpu_qps,
+            gpu_qps,
+            speedup,
+            max_abs,
+            mean_abs,
+        });
     }
 
     // ── 7. Write the two plottable CSVs.
@@ -362,10 +402,18 @@ fn main() {
     let conv_path = out_dir.join("triso_keff_convergence.csv");
     {
         let mut f = fs::File::create(&conv_path).expect("create keff convergence CSV");
-        writeln!(f, "generation,k_generation,k_cumulative_mean,k_cumulative_sigma,phase").unwrap();
+        writeln!(
+            f,
+            "generation,k_generation,k_cumulative_mean,k_cumulative_sigma,phase"
+        )
+        .unwrap();
         let mut active: Vec<f64> = Vec::new();
         for (gen, &k) in result.k_by_generation.iter().enumerate() {
-            let phase = if gen < settings.n_inactive { "inactive" } else { "active" };
+            let phase = if gen < settings.n_inactive {
+                "inactive"
+            } else {
+                "active"
+            };
             if gen >= settings.n_inactive {
                 active.push(k);
                 let (m, s) = mean_and_stderr(&active);

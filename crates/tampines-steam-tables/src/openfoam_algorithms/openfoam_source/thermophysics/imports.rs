@@ -43,9 +43,8 @@
 
 // ── quantity types ────────────────────────────────────────────────────────────
 pub use uom::si::f64::{
-    AvailableEnergy, DynamicViscosity, MassDensity, MolarMass,
-    Pressure, Ratio, SpecificHeatCapacity, ThermalConductivity,
-    ThermodynamicTemperature,
+    AvailableEnergy, DynamicViscosity, MassDensity, MolarMass, Pressure, Ratio,
+    SpecificHeatCapacity, ThermalConductivity, ThermodynamicTemperature,
 };
 
 // ── unit markers (used in ::new::<unit>() and .get::<unit>()) ────────────────

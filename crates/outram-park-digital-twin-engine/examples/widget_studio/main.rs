@@ -44,6 +44,22 @@ mod bend_tab;
 #[cfg(not(target_os = "android"))]
 mod pipes;
 
+/// Condenser gallery: both cooling-water arrangements, state-driven and
+/// physics-backed side by side.
+mod condenser_tab;
+
+/// Cooling-tower gallery: natural-draught and induced-draught, under live
+/// psychrometric controls.
+mod cooling_tower_tab;
+
+/// Excursion overlay: the destructive annotation, driven by its trigger
+/// directly instead of by wrecking a reactor.
+mod excursion_tab;
+
+/// Heat-exchanger gallery: counter-flow and parallel flow under one operating
+/// point, with the physics-backed row drawing its real arrangement beside them.
+mod heat_exchanger_tab;
+
 /// Reactor-vessel gallery: every scoped reactor architecture, side by side.
 mod reactor_tab;
 

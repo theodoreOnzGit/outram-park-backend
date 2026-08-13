@@ -168,7 +168,10 @@ mod tests {
                 directed.insert((poly[i].0, poly[(i + 1) % kk].0));
             }
         }
-        directed.iter().filter(|&&(a, b)| !directed.contains(&(b, a))).count()
+        directed
+            .iter()
+            .filter(|&&(a, b)| !directed.contains(&(b, a)))
+            .count()
     }
 
     /// V&V — headline. Methodology: revolve a vertical segment at radius 1
@@ -183,7 +186,11 @@ mod tests {
         assert_eq!(tube.vertex_count(), 32, "16 rings × 2 profile rows");
         assert_eq!(tube.face_count(), 16, "16 quad bands");
         assert_eq!(tube.euler_characteristic(), 0, "open cylinder: χ = 0");
-        assert_eq!(boundary_edge_count(&tube), 32, "16 top + 16 bottom rim edges");
+        assert_eq!(
+            boundary_edge_count(&tube),
+            32,
+            "16 top + 16 bottom rim edges"
+        );
     }
 
     /// V&V — capping the tube yields a closed prism of the expected volume.
@@ -196,7 +203,11 @@ mod tests {
         let profile = [Vec3::new(1.0, 0.0, -1.0), Vec3::new(1.0, 0.0, 1.0)];
         let tube = revolve(&profile, Vec3::ZERO, Vec3::new(0.0, 0.0, 1.0), 16, TAU);
         let solid = fill_holes(&tube);
-        assert_eq!(solid.euler_characteristic(), 2, "capped tube is a closed solid");
+        assert_eq!(
+            solid.euler_characteristic(),
+            2,
+            "capped tube is a closed solid"
+        );
         let expected_vol = 0.5 * 16.0 * (TAU / 16.0).sin() * 2.0;
         let v6 = signed_volume6(&solid).abs();
         assert!(

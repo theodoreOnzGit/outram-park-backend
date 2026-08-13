@@ -306,8 +306,11 @@ const DEGENERATE_AREA_REL: f64 = 1e-12;
 /// assert!(foam_mesh::mesh_to_surface(&grid).is_err());
 /// ```
 pub fn mesh_to_surface(mesh: &Mesh) -> Result<(Vec<Vec3>, Vec<[usize; 3]>), SurfaceError> {
-    let points: Vec<Vec3> =
-        mesh.positions().iter().map(|p| Vec3::new(p.x, p.y, p.z)).collect();
+    let points: Vec<Vec3> = mesh
+        .positions()
+        .iter()
+        .map(|p| Vec3::new(p.x, p.y, p.z))
+        .collect();
 
     let mut tris: Vec<[usize; 3]> = Vec::new();
     // Parallel to `tris`: the FaceId each triangle was fanned from, so any
@@ -317,7 +320,10 @@ pub fn mesh_to_surface(mesh: &Mesh) -> Result<(Vec<Vec3>, Vec<[usize; 3]>), Surf
     for (fi, poly) in mesh.polygons().iter().enumerate() {
         let k = poly.len();
         if k < 3 {
-            return Err(SurfaceError::DegenerateFace { face: fi, corners: k });
+            return Err(SurfaceError::DegenerateFace {
+                face: fi,
+                corners: k,
+            });
         }
         // Fan from the first corner: (v0, v1, v2), (v0, v2, v3), …
         for i in 1..k - 1 {
@@ -327,7 +333,9 @@ pub fn mesh_to_surface(mesh: &Mesh) -> Result<(Vec<Vec3>, Vec<[usize; 3]>), Surf
     }
 
     if tris.is_empty() {
-        return Err(SurfaceError::Empty { face_count: mesh.face_count() });
+        return Err(SurfaceError::Empty {
+            face_count: mesh.face_count(),
+        });
     }
 
     check_surface(&points, &tris, &tri_face)?;
@@ -456,7 +464,12 @@ fn check_surface(
         for k in 0..3 {
             let (a, b) = (t[k], t[(k + 1) % 3]);
             if !half.contains_key(&(b, a)) {
-                return Err(SurfaceError::NotClosed { face: face_of(ti), tri: ti, a, b });
+                return Err(SurfaceError::NotClosed {
+                    face: face_of(ti),
+                    tri: ti,
+                    a,
+                    b,
+                });
             }
         }
     }
@@ -879,7 +892,14 @@ mod tests {
         tris[0][2] = 999;
         let err = check_closed_manifold(&points, &tris).expect_err("index 999 is out of range");
         assert!(
-            matches!(err, SurfaceError::IndexOutOfRange { index: 999, n_points: 8, .. }),
+            matches!(
+                err,
+                SurfaceError::IndexOutOfRange {
+                    index: 999,
+                    n_points: 8,
+                    ..
+                }
+            ),
             "got {err:?}"
         );
     }
@@ -892,10 +912,14 @@ mod tests {
     #[test]
     fn export_writes_polymesh_files() {
         let cube = primitives::cube(2.0);
-        let opts = TetDualOptions { cell_size: 0.5, ..Default::default() };
+        let opts = TetDualOptions {
+            cell_size: 0.5,
+            ..Default::default()
+        };
         let (mesh, _report) = mesh_to_tet_dual(&cube, &opts).expect("cube meshes");
 
-        let dir = std::env::temp_dir().join(format!("outram_blender_meshtest_{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("outram_blender_meshtest_{}", std::process::id()));
         export_polymesh(&mesh, &dir).expect("export succeeds");
         for f in ["points", "faces", "owner", "neighbour", "boundary"] {
             let p = dir.join(f);

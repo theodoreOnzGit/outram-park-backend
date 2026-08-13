@@ -164,9 +164,7 @@ pub use curve_characterization::{
 };
 pub use curve_conversion::{CurveConversionError, TbpCurveFit};
 pub use fitting::{apply_parameter_fits, ParameterFitOptions};
-pub use generate_compounds::{
-    generate_compounds, BulkCharacterizationOptions, CharacterizationError,
-};
+pub use generate_compounds::{generate_compounds, BulkCharacterizationOptions, CharacterizationError};
 pub use gl::FormationProperties;
 pub use property_methods::{AcentricFactor, SpecificGravity, WatsonK};
 pub use pseudo_component::{

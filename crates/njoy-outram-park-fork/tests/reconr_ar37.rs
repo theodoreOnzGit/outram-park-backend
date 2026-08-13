@@ -43,7 +43,11 @@ fn load_tape() -> Tape {
 }
 
 fn default_config() -> ReconrConfig {
-    ReconrConfig { mat: MAT, tolerance: 0.001, temperature: 0.0 }
+    ReconrConfig {
+        mat: MAT,
+        tolerance: 0.001,
+        temperature: 0.0,
+    }
 }
 
 // ── MF=1 header ───────────────────────────────────────────────────────────────
@@ -104,7 +108,10 @@ fn mf2_swave_has_5_resonances() {
     let info = mf2::parse_resonance_info(sec).unwrap();
 
     let resolved: Vec<_> = info.resolved_slbw_ranges().collect();
-    let swave = resolved[0].l_states.iter().find(|ls| ls.l == 0)
+    let swave = resolved[0]
+        .l_states
+        .iter()
+        .find(|ls| ls.l == 0)
         .expect("no s-wave l-state found");
     // 5 s-wave resonances: ER = -3236, -681, 1540, 2630, 4268 eV
     assert_eq!(swave.resonances.len(), 5, "s-wave resonance count");
@@ -120,9 +127,18 @@ fn mf2_swave_resonance_energies() {
 
     let energies: Vec<f64> = swave.resonances.iter().map(|r| r.er).collect();
     // Physical (positive) resonances at 1540, 2630, 4268 eV
-    assert!(energies.iter().any(|&e| (e - 1540.0).abs() < 1.0), "missing 1540 eV resonance");
-    assert!(energies.iter().any(|&e| (e - 2630.0).abs() < 1.0), "missing 2630 eV resonance");
-    assert!(energies.iter().any(|&e| (e - 4268.0).abs() < 10.0), "missing 4268 eV resonance");
+    assert!(
+        energies.iter().any(|&e| (e - 1540.0).abs() < 1.0),
+        "missing 1540 eV resonance"
+    );
+    assert!(
+        energies.iter().any(|&e| (e - 2630.0).abs() < 1.0),
+        "missing 2630 eV resonance"
+    );
+    assert!(
+        energies.iter().any(|&e| (e - 4268.0).abs() < 10.0),
+        "missing 4268 eV resonance"
+    );
 }
 
 #[test]
@@ -132,7 +148,10 @@ fn mf2_dwave_has_2_resonances() {
     let info = mf2::parse_resonance_info(sec).unwrap();
     let resolved: Vec<_> = info.resolved_slbw_ranges().collect();
     // d-wave (l=2) has 2 resonances
-    let dwave = resolved[0].l_states.iter().find(|ls| ls.l == 2)
+    let dwave = resolved[0]
+        .l_states
+        .iter()
+        .find(|ls| ls.l == 2)
         .expect("no d-wave l-state found");
     assert_eq!(dwave.resonances.len(), 2, "d-wave resonance count");
 }
@@ -155,21 +174,27 @@ fn slbw_ar37_resonance_peak_elastic() {
     use njoy_outram_park_fork::reconr::slbw::{channel_radius, eval_slbw_lstate};
 
     let awri = 36.64921;
-    let spi  = 1.5;
-    let ap   = 0.338779;
-    let ra   = channel_radius(awri, 1, ap);  // NAPS=1
-    // s-wave, only the 1540 eV resonance
+    let spi = 1.5;
+    let ap = 0.338779;
+    let ra = channel_radius(awri, 1, ap); // NAPS=1
+                                          // s-wave, only the 1540 eV resonance
     let res = [(1540.0_f64, 2.0, 21.36429, 20.36429, 1.0, 0.0)];
 
     let peak = eval_slbw_lstate(1540.0, &res, 0, spi, ap, awri, ra);
     // Peak elastic should be very large (~400–700 b range)
-    assert!(peak.elastic > 100.0,
-        "σ_el peak at 1540 eV should be > 100 b, got {:.1}", peak.elastic);
+    assert!(
+        peak.elastic > 100.0,
+        "σ_el peak at 1540 eV should be > 100 b, got {:.1}",
+        peak.elastic
+    );
 
     // Capture should be much smaller (Γ_γ/Γ_tot ≈ 1/21 ≈ 5%)
     // σ_cap ≈ 50 b at peak (Γ_γ/Γ_tot ratio × peak elastic ≈ 1/21 × ~1000 b)
-    assert!(peak.capture > 10.0 && peak.capture < 150.0,
-        "σ_cap at 1540 eV peak: {:.2}", peak.capture);
+    assert!(
+        peak.capture > 10.0 && peak.capture < 150.0,
+        "σ_cap at 1540 eV peak: {:.2}",
+        peak.capture
+    );
 
     // Fission = 0 (non-fissile)
     assert_eq!(peak.fission, 0.0, "Ar-37 has no fission");
@@ -180,17 +205,21 @@ fn slbw_ar37_resonance_drops_away_from_peak() {
     use njoy_outram_park_fork::reconr::slbw::{channel_radius, eval_slbw_lstate};
 
     let awri = 36.64921;
-    let spi  = 1.5;
-    let ap   = 0.338779;
-    let ra   = channel_radius(awri, 1, ap);
+    let spi = 1.5;
+    let ap = 0.338779;
+    let ra = channel_radius(awri, 1, ap);
     let res = [(1540.0_f64, 2.0, 21.36429, 20.36429, 1.0, 0.0)];
 
     let peak = eval_slbw_lstate(1540.0, &res, 0, spi, ap, awri, ra);
-    let far  = eval_slbw_lstate(100.0,  &res, 0, spi, ap, awri, ra);
+    let far = eval_slbw_lstate(100.0, &res, 0, spi, ap, awri, ra);
 
     // 100 eV is ~85 half-widths below the peak; cross section should be tiny
-    assert!(far.elastic < peak.elastic / 100.0,
-        "σ_el(100 eV) should be < 1% of peak, got {:.3} vs {:.1}", far.elastic, peak.elastic);
+    assert!(
+        far.elastic < peak.elastic / 100.0,
+        "σ_el(100 eV) should be < 1% of peak, got {:.3} vs {:.1}",
+        far.elastic,
+        peak.elastic
+    );
 }
 
 // ── Full RECONR run ───────────────────────────────────────────────────────────
@@ -199,14 +228,21 @@ fn slbw_ar37_resonance_drops_away_from_peak() {
 fn reconr_runs_without_error() {
     let tape = load_tape();
     let result = reconr(&tape, &default_config()).expect("reconr failed for Ar-37");
-    assert!((result.material.za - 18037.0).abs() < 0.1, "ZA={}", result.material.za);
+    assert!(
+        (result.material.za - 18037.0).abs() < 0.1,
+        "ZA={}",
+        result.material.za
+    );
 }
 
 #[test]
 fn reconr_produces_elastic_section() {
     let tape = load_tape();
     let result = reconr(&tape, &default_config()).unwrap();
-    let elastic = result.sections.iter().find(|s| s.mt == MtReaction::Mt2Elastic)
+    let elastic = result
+        .sections
+        .iter()
+        .find(|s| s.mt == MtReaction::Mt2Elastic)
         .expect("no elastic scattering section");
     assert!(!elastic.pairs.is_empty(), "MT=2 is empty");
 }
@@ -217,8 +253,13 @@ fn reconr_all_xs_nonnegative() {
     let result = reconr(&tape, &default_config()).unwrap();
     for sec in &result.sections {
         for &(e, sigma) in &sec.pairs {
-            assert!(sigma >= -0.01, // small negative tolerance for floating-point
-                "MT={} σ={:.4} at E={:.3} eV is unexpectedly negative", sec.mt, sigma, e);
+            assert!(
+                sigma >= -0.01, // small negative tolerance for floating-point
+                "MT={} σ={:.4} at E={:.3} eV is unexpectedly negative",
+                sec.mt,
+                sigma,
+                e
+            );
         }
     }
 }
@@ -233,9 +274,12 @@ fn reconr_resonance_peak_visible() {
     let at_peak = result.eval_mt(MtReaction::Mt2Elastic, 1540.0);
     let off_peak = result.eval_mt(MtReaction::Mt2Elastic, 500.0);
 
-    assert!(at_peak > off_peak,
+    assert!(
+        at_peak > off_peak,
         "σ_el(1540 eV) = {:.2} b should exceed σ_el(500 eV) = {:.2} b",
-        at_peak, off_peak);
+        at_peak,
+        off_peak
+    );
 }
 
 #[test]
@@ -244,12 +288,15 @@ fn reconr_capture_peak_at_resonance() {
     let tape = load_tape();
     let result = reconr(&tape, &default_config()).unwrap();
 
-    let at_peak  = result.eval_mt(MtReaction::Mt102Capture, 1540.0);
+    let at_peak = result.eval_mt(MtReaction::Mt102Capture, 1540.0);
     let off_peak = result.eval_mt(MtReaction::Mt102Capture, 500.0);
 
-    assert!(at_peak > off_peak,
+    assert!(
+        at_peak > off_peak,
         "σ_cap(1540 eV) = {:.3} b should exceed σ_cap(500 eV) = {:.3} b",
-        at_peak, off_peak);
+        at_peak,
+        off_peak
+    );
 }
 
 // ── NuclearDataLibrary OOP API ────────────────────────────────────────────────
@@ -262,7 +309,11 @@ fn library_from_file_and_reconstruct() {
         .expect("reconstruct failed");
 
     assert_eq!(lib.mat(), MAT);
-    assert!((lib.za().unwrap() - 18037.0).abs() < 0.1, "ZA={:?}", lib.za());
+    assert!(
+        (lib.za().unwrap() - 18037.0).abs() < 0.1,
+        "ZA={:?}",
+        lib.za()
+    );
 }
 
 #[test]
@@ -276,8 +327,11 @@ fn library_elastic_xs_uom_typed() {
     let xs = lib.elastic_xs(e);
 
     // At the 1540 eV resonance, elastic XS should be substantial (> 1 b)
-    assert!(xs.get::<barn>() > 1.0,
-        "σ_el(1540 eV) = {:.2} b, expected > 1 b", xs.get::<barn>());
+    assert!(
+        xs.get::<barn>() > 1.0,
+        "σ_el(1540 eV) = {:.2} b, expected > 1 b",
+        xs.get::<barn>()
+    );
 }
 
 #[test]
@@ -290,8 +344,11 @@ fn library_fission_xs_is_zero() {
 
     let e = uom::si::f64::Energy::new::<electronvolt>(1540.0);
     let xs = lib.fission_xs(e);
-    assert!(xs.get::<barn>().abs() < 0.01,
-        "σ_fis(Ar-37) should be ≈ 0, got {:.4} b", xs.get::<barn>());
+    assert!(
+        xs.get::<barn>().abs() < 0.01,
+        "σ_fis(Ar-37) should be ≈ 0, got {:.4} b",
+        xs.get::<barn>()
+    );
 }
 
 #[test]
@@ -315,11 +372,18 @@ fn library_to_continuous_energy_data() {
         .reconstruct(0.001)
         .expect("reconstruct");
 
-    let ced = lib.to_continuous_energy_data().expect("to_continuous_energy_data");
+    let ced = lib
+        .to_continuous_energy_data()
+        .expect("to_continuous_energy_data");
 
     assert!((ced.za - 18037.0).abs() < 0.1);
-    assert!(!ced.reactions.is_empty(), "no reactions in ContinuousEnergyData");
+    assert!(
+        !ced.reactions.is_empty(),
+        "no reactions in ContinuousEnergyData"
+    );
 
-    let elastic = ced.reaction(MtReaction::Mt2Elastic).expect("no elastic reaction in CED");
+    let elastic = ced
+        .reaction(MtReaction::Mt2Elastic)
+        .expect("no elastic reaction in CED");
     assert!(!elastic.data.is_empty(), "empty elastic data");
 }

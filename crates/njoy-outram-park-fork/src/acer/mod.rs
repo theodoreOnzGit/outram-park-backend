@@ -171,5 +171,7 @@ pub mod jxs {
 /// ported, so this returns [`crate::NjoyError::NotPorted`]. Use the module's
 /// typed API directly rather than this driver.
 pub fn run() -> Result<(), crate::NjoyError> {
-    Err(crate::NjoyError::NotPorted("acer driver (physics ported — use the module API)"))
+    Err(crate::NjoyError::NotPorted(
+        "acer driver (physics ported — use the module API)",
+    ))
 }

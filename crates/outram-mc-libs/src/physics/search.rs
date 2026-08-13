@@ -280,7 +280,10 @@ where
     // Normalise the bracket so lo < hi; reject a degenerate/non-finite one.
     let (mut lo, mut hi) = (bracket.0.min(bracket.1), bracket.0.max(bracket.1));
     if !lo.is_finite() || !hi.is_finite() || (hi - lo).abs() <= f64::EPSILON {
-        return Err(SearchError::InvalidBracket { lo: bracket.0, hi: bracket.1 });
+        return Err(SearchError::InvalidBracket {
+            lo: bracket.0,
+            hi: bracket.1,
+        });
     }
 
     let target = settings.target;
@@ -291,8 +294,16 @@ where
     let r_hi = k_of_p(hi);
     let mut g_lo = r_lo.k_mean - target;
     let mut g_hi = r_hi.k_mean - target;
-    iterations.push(SearchIteration { parameter: lo, keff: r_lo.k_mean, keff_std: r_lo.k_std });
-    iterations.push(SearchIteration { parameter: hi, keff: r_hi.k_mean, keff_std: r_hi.k_std });
+    iterations.push(SearchIteration {
+        parameter: lo,
+        keff: r_lo.k_mean,
+        keff_std: r_lo.k_std,
+    });
+    iterations.push(SearchIteration {
+        parameter: hi,
+        keff: r_hi.k_mean,
+        keff_std: r_hi.k_std,
+    });
 
     if g_lo * g_hi > 0.0 {
         return Err(SearchError::BracketDoesNotStraddle {
@@ -340,7 +351,11 @@ where
 
         let r_mid = k_of_p(mid);
         let g_mid = r_mid.k_mean - target;
-        best = SearchIteration { parameter: mid, keff: r_mid.k_mean, keff_std: r_mid.k_std };
+        best = SearchIteration {
+            parameter: mid,
+            keff: r_mid.k_mean,
+            keff_std: r_mid.k_std,
+        };
         iterations.push(best);
 
         // Residual-tolerance early exit (disabled when k_tol == 0.0).
@@ -380,17 +395,30 @@ mod tests {
     /// Build a synthetic [`KeffResult`] with a given mean (zero noise) so the
     /// root-finding logic can be unit-tested without a transport solve.
     fn synthetic(k: f64) -> KeffResult {
-        KeffResult { k_mean: k, k_std: 0.0, k_by_generation: vec![k] }
+        KeffResult {
+            k_mean: k,
+            k_std: 0.0,
+            k_by_generation: vec![k],
+        }
     }
 
     /// Bisection converges to the analytic root of a clean monotone function.
     /// Model `k(p) = 1 + 0.1 (p − 5)` ⇒ critical at `p = 5`.
     #[test]
     fn bisect_finds_analytic_root() {
-        let s = SearchSettings { tol: 1e-4, k_tol: 0.0, max_iterations: 60, ..Default::default() };
+        let s = SearchSettings {
+            tol: 1e-4,
+            k_tol: 0.0,
+            max_iterations: 60,
+            ..Default::default()
+        };
         let res = search_for_keff(|p| synthetic(1.0 + 0.1 * (p - 5.0)), (0.0, 10.0), &s).unwrap();
         assert!(res.converged);
-        assert!((res.parameter - 5.0).abs() < 1e-3, "root p = {}", res.parameter);
+        assert!(
+            (res.parameter - 5.0).abs() < 1e-3,
+            "root p = {}",
+            res.parameter
+        );
         assert!((res.keff - 1.0).abs() < 1e-3, "k = {}", res.keff);
     }
 
@@ -407,16 +435,29 @@ mod tests {
         };
         let res = search_for_keff(|p| synthetic(1.0 + 0.1 * (p - 5.0)), (0.0, 10.0), &s).unwrap();
         assert!(res.converged);
-        assert!((res.parameter - 5.0).abs() < 1e-2, "root p = {}", res.parameter);
+        assert!(
+            (res.parameter - 5.0).abs() < 1e-2,
+            "root p = {}",
+            res.parameter
+        );
     }
 
     /// A decreasing model (more boron ⇒ lower k) works too: `k(p) = 1.2 − 0.001 p`
     /// ⇒ critical near `p = 200`. Verifies the sign handling is orientation-free.
     #[test]
     fn handles_decreasing_model() {
-        let s = SearchSettings { tol: 1e-3, k_tol: 0.0, max_iterations: 60, ..Default::default() };
+        let s = SearchSettings {
+            tol: 1e-3,
+            k_tol: 0.0,
+            max_iterations: 60,
+            ..Default::default()
+        };
         let res = search_for_keff(|p| synthetic(1.2 - 0.001 * p), (0.0, 1000.0), &s).unwrap();
-        assert!((res.parameter - 200.0).abs() < 1.0, "critical p = {}", res.parameter);
+        assert!(
+            (res.parameter - 200.0).abs() < 1.0,
+            "critical p = {}",
+            res.parameter
+        );
     }
 
     /// A bracket whose endpoints are both supercritical is rejected up front.
@@ -439,7 +480,12 @@ mod tests {
     /// best-so-far estimate, never an error.
     #[test]
     fn iteration_cap_returns_best_effort() {
-        let s = SearchSettings { tol: 1e-12, k_tol: 0.0, max_iterations: 2, ..Default::default() };
+        let s = SearchSettings {
+            tol: 1e-12,
+            k_tol: 0.0,
+            max_iterations: 2,
+            ..Default::default()
+        };
         let res = search_for_keff(|p| synthetic(1.0 + 0.1 * (p - 5.0)), (0.0, 10.0), &s).unwrap();
         assert!(!res.converged);
         // Two bisection steps from [0,10] bracket the root in [2.5, 7.5]; midpoint ~5.

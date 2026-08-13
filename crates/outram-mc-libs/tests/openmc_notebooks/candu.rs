@@ -114,9 +114,18 @@ fn fuel_material() -> Material {
         name: "HEU fuel (CANDU-cluster substitute)".into(),
         temperature: TEMP,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     }
 }
@@ -130,8 +139,14 @@ fn moderator_material() -> Material {
         name: "light-water moderator (D2O substitute)".into(),
         temperature: TEMP,
         components: vec![
-            NuclideComponent { nuclide_idx: 3, atom_density: 0.066854 }, // H-1
-            NuclideComponent { nuclide_idx: 4, atom_density: 0.033427 }, // O-16
+            NuclideComponent {
+                nuclide_idx: 3,
+                atom_density: 0.066854,
+            }, // H-1
+            NuclideComponent {
+                nuclide_idx: 4,
+                atom_density: 0.033427,
+            }, // O-16
         ],
     }
 }
@@ -176,19 +191,32 @@ fn cluster_geometry() -> Geometry {
     let mut surfaces: Vec<SurfaceKind> = (0..N_PINS)
         .map(|i| {
             let (x0, y0) = pin_center(i);
-            SurfaceKind::ZCylinder(ZCylinder { x0, y0, r: R_PIN, bc: BoundaryType::Transmissive })
+            SurfaceKind::ZCylinder(ZCylinder {
+                x0,
+                y0,
+                r: R_PIN,
+                bc: BoundaryType::Transmissive,
+            })
         })
         .collect();
     // Calandria tube: vacuum ZCylinder (surface 7).
     let s_tube = surfaces.len(); // 7
-    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: R_TUBE, bc: BoundaryType::Vacuum }));
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+        x0: 0.0,
+        y0: 0.0,
+        r: R_TUBE,
+        bc: BoundaryType::Vacuum,
+    }));
 
     // Fuel-pin cells: cell i = inside pin cylinder i.
     let mut cells: Vec<Cell> = (0..N_PINS)
         .map(|i| {
             Cell::material(
                 (i + 1) as i32,
-                vec![RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Inside }],
+                vec![RegionToken::HalfSpace {
+                    surface_idx: i,
+                    sense: HalfSpaceSense::Inside,
+                }],
                 MAT_FUEL,
                 TEMP,
             )
@@ -198,23 +226,40 @@ fn cluster_geometry() -> Geometry {
     // Moderator cell = (outside every pin) ∩ (inside the calandria tube).
     let mut moder_region: Vec<RegionToken> = Vec::new();
     // Start with "outside pin 0".
-    moder_region.push(RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside });
+    moder_region.push(RegionToken::HalfSpace {
+        surface_idx: 0,
+        sense: HalfSpaceSense::Outside,
+    });
     // Intersect with "outside pin i" for i = 1..N_PINS.
     for i in 1..N_PINS {
-        moder_region.push(RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Outside });
+        moder_region.push(RegionToken::HalfSpace {
+            surface_idx: i,
+            sense: HalfSpaceSense::Outside,
+        });
         moder_region.push(RegionToken::Intersection);
     }
     // Intersect with "inside the calandria tube".
-    moder_region.push(RegionToken::HalfSpace { surface_idx: s_tube, sense: HalfSpaceSense::Inside });
+    moder_region.push(RegionToken::HalfSpace {
+        surface_idx: s_tube,
+        sense: HalfSpaceSense::Inside,
+    });
     moder_region.push(RegionToken::Intersection);
 
-    cells.push(Cell::material((N_PINS + 1) as i32, moder_region, MAT_MODER, TEMP));
+    cells.push(Cell::material(
+        (N_PINS + 1) as i32,
+        moder_region,
+        MAT_MODER,
+        TEMP,
+    ));
 
     let cell_indices: Vec<usize> = (0..cells.len()).collect();
     Geometry {
         surfaces,
         cells,
-        universes: vec![Universe { id: 0, cell_indices }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices,
+        }],
         lattices: vec![],
         root_universe: 0,
     }
@@ -232,7 +277,9 @@ fn candu_cluster_per_pin_flux_tally() {
     let geom = cluster_geometry();
 
     // Per-pin fuel tally: CellFilter over the 7 fuel cells (indices 0..7).
-    let filter = CellFilter { cell_indices: (0..N_PINS).collect() };
+    let filter = CellFilter {
+        cell_indices: (0..N_PINS).collect(),
+    };
     let mut tally = Tally {
         id: 1,
         name: "per-pin fuel flux".into(),
@@ -268,8 +315,16 @@ fn candu_cluster_per_pin_flux_tally() {
         "[candu cluster] k_eff = {:.5} ± {:.5}  |  total fuel flux = {:.4e}, \
          central-pin flux = {:.4e}, total fuel ν-fis = {:.4e}  |  {} pins  \
          (npart={}, {}+{} gen, {:.1?})  [HEU+light-water substitute, NO benchmark k]",
-        result.k_mean, result.k_std, total_flux, center_flux, total_nufis, N_PINS,
-        settings.n_particles, settings.n_inactive, settings.n_active, dt
+        result.k_mean,
+        result.k_std,
+        total_flux,
+        center_flux,
+        total_nufis,
+        N_PINS,
+        settings.n_particles,
+        settings.n_inactive,
+        settings.n_active,
+        dt
     );
 
     // ── (1) Eigenvalue finite, positive, stationary; all generations ran ──────
@@ -278,8 +333,16 @@ fn candu_cluster_per_pin_flux_tally() {
         settings.n_inactive + settings.n_active,
         "power iteration did not complete all generations"
     );
-    assert!(result.k_mean.is_finite() && result.k_mean > 0.0, "k_eff must be finite & positive, got {}", result.k_mean);
-    assert!(result.k_std < 0.03, "k_eff noisy/unconverged: σ = {}", result.k_std);
+    assert!(
+        result.k_mean.is_finite() && result.k_mean > 0.0,
+        "k_eff must be finite & positive, got {}",
+        result.k_mean
+    );
+    assert!(
+        result.k_std < 0.03,
+        "k_eff noisy/unconverged: σ = {}",
+        result.k_std
+    );
 
     // ── (2) Every fuel pin accumulates flux (cluster navigates in all cells) ──
     for i in 0..N_PINS {
@@ -288,11 +351,17 @@ fn candu_cluster_per_pin_flux_tally() {
             "fuel pin {i} flux {} is not finite/non-negative",
             pin_flux(i)
         );
-        assert!(pin_flux(i) > 0.0, "fuel pin {i} accumulated no flux — cluster failed to navigate its cell");
+        assert!(
+            pin_flux(i) > 0.0,
+            "fuel pin {i} accumulated no flux — cluster failed to navigate its cell"
+        );
     }
     assert!(total_flux > 0.0, "no flux tallied anywhere in the fuel");
     assert!(center_flux > 0.0, "central pin accumulated no flux");
 
     // ── (3) Fission present and confined to fuel ──────────────────────────────
-    assert!(total_nufis > 0.0, "no fission production tallied in the fuel cluster");
+    assert!(
+        total_nufis > 0.0,
+        "no fission production tallied in the fuel cluster"
+    );
 }

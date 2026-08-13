@@ -67,7 +67,11 @@ impl FixedSource {
         let u = Direction::new(dx, dy, dz);
         match *self {
             FixedSource::Point { r, energy_ev } => Site::new(r, u, energy_ev),
-            FixedSource::Box { lower, upper, energy_ev } => {
+            FixedSource::Box {
+                lower,
+                upper,
+                energy_ev,
+            } => {
                 let r = Position::new(
                     lower.x + prn(seed) * (upper.x - lower.x),
                     lower.y + prn(seed) * (upper.y - lower.y),
@@ -100,7 +104,13 @@ pub struct FixedSourceSettings {
 
 impl Default for FixedSourceSettings {
     fn default() -> Self {
-        Self { n_particles: 10_000, n_batches: 20, temperature_k: 293.6, seed: 1, max_secondaries: 10_000 }
+        Self {
+            n_particles: 10_000,
+            n_batches: 20,
+            temperature_k: 293.6,
+            seed: 1,
+            max_secondaries: 10_000,
+        }
     }
 }
 
@@ -233,22 +243,42 @@ mod tests {
     /// A single-cell sphere of radius `r_cm`; `fill` chooses void or a material.
     fn sphere_geom(r_cm: f64, bc: BoundaryType, fill: CellFill) -> Geometry {
         Geometry {
-            surfaces: vec![SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: r_cm, bc })],
+            surfaces: vec![SurfaceKind::Sphere(Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                r: r_cm,
+                bc,
+            })],
             cells: vec![Cell::fill(
                 1,
-                vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }],
+                vec![RegionToken::HalfSpace {
+                    surface_idx: 0,
+                    sense: HalfSpaceSense::Inside,
+                }],
                 fill,
                 Position::ZERO,
             )],
-            universes: vec![Universe { id: 0, cell_indices: vec![0] }],
+            universes: vec![Universe {
+                id: 0,
+                cell_indices: vec![0],
+            }],
             lattices: vec![],
             root_universe: 0,
         }
     }
 
     fn flux_tally() -> Tally {
-        let filter: Box<dyn Filter> = Box::new(CellFilter { cell_indices: vec![0] });
-        Tally { id: 1, name: "flux".into(), filters: vec![filter], scores: vec![ScoreType::Flux], bins: vec![TallyBin::default(); 1] }
+        let filter: Box<dyn Filter> = Box::new(CellFilter {
+            cell_indices: vec![0],
+        });
+        Tally {
+            id: 1,
+            name: "flux".into(),
+            filters: vec![filter],
+            scores: vec![ScoreType::Flux],
+            bins: vec![TallyBin::default(); 1],
+        }
     }
 
     /// V&V — **analytic**: void streaming. Methodology: an isotropic point source
@@ -263,7 +293,10 @@ mod tests {
     fn void_streaming_mean_path_equals_radius() {
         let r_cm = 5.0;
         let geom = sphere_geom(r_cm, BoundaryType::Vacuum, CellFill::Void);
-        let src = FixedSource::Point { r: Position::ZERO, energy_ev: 2.0e6 };
+        let src = FixedSource::Point {
+            r: Position::ZERO,
+            energy_ev: 2.0e6,
+        };
         let n = 2000usize;
         let mut tally = flux_tally();
         let res = run_fixed_source(
@@ -271,16 +304,26 @@ mod tests {
             &[],
             &[],
             &src,
-            &FixedSourceSettings { n_particles: n, n_batches: 10, ..Default::default() },
+            &FixedSourceSettings {
+                n_particles: n,
+                n_batches: 10,
+                ..Default::default()
+            },
             Some(&mut tally),
         );
 
-        assert_eq!(res.total_histories, n, "void: no collisions, no secondaries");
+        assert_eq!(
+            res.total_histories, n,
+            "void: no collisions, no secondaries"
+        );
         assert_eq!(res.multiplication, 0.0, "no fissile material");
         // Flux tally sum is the total track length = N·R (exact for a void).
         let total_path = tally.bins[0].sum;
         let mean_path = total_path / n as f64;
-        assert!((mean_path - r_cm).abs() < 1e-9, "mean path length = R; got {mean_path} vs {r_cm}");
+        assert!(
+            (mean_path - r_cm).abs() < 1e-9,
+            "mean path length = R; got {mean_path} vs {r_cm}"
+        );
     }
 
     /// V&V — behavioural: sub-critical multiplication is tracked and terminates.
@@ -305,26 +348,49 @@ mod tests {
             name: "HEU".into(),
             temperature: 293.6,
             components: vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
-                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.9184e-4,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 4.4994e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 2,
+                    atom_density: 2.4984e-3,
+                },
             ],
         };
         // r = 4 cm ≪ 8.74 cm Godiva critical radius ⇒ strongly sub-critical.
         let geom = sphere_geom(4.0, BoundaryType::Vacuum, CellFill::Material(0));
-        let src = FixedSource::Point { r: Position::ZERO, energy_ev: 2.0e6 };
+        let src = FixedSource::Point {
+            r: Position::ZERO,
+            energy_ev: 2.0e6,
+        };
         let mut tally = flux_tally();
         let res = run_fixed_source(
             &geom,
             &[heu],
             &nuclides,
             &src,
-            &FixedSourceSettings { n_particles: 500, n_batches: 5, ..Default::default() },
+            &FixedSourceSettings {
+                n_particles: 500,
+                n_batches: 5,
+                ..Default::default()
+            },
             Some(&mut tally),
         );
 
-        assert!(res.multiplication > 0.0, "fissile system multiplies, M = {}", res.multiplication);
-        assert!(res.total_histories > res.source_particles, "secondaries were transported");
+        assert!(
+            res.multiplication > 0.0,
+            "fissile system multiplies, M = {}",
+            res.multiplication
+        );
+        assert!(
+            res.total_histories > res.source_particles,
+            "secondaries were transported"
+        );
         assert!(tally.bins[0].sum > 0.0, "flux tally is positive");
     }
 }

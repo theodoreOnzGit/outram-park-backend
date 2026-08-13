@@ -206,7 +206,12 @@ fn from_tabulated(e_ev: f64, interp: &[(u32, u32)], pairs: &[(f64, f64)]) -> Ene
 
 /// An isotropic entry (no stored data; the AND block uses locator `0`).
 fn isotropic(e_ev: f64) -> EnergyAngular {
-    EnergyAngular { e_mev: e_ev / 1.0e6, cosines: Vec::new(), pdf: Vec::new(), cdf: Vec::new() }
+    EnergyAngular {
+        e_mev: e_ev / 1.0e6,
+        cosines: Vec::new(),
+        pdf: Vec::new(),
+        cdf: Vec::new(),
+    }
 }
 
 /// Clamp the raw `(μ, f)` grid non-negative, renormalise to unit integral, and
@@ -237,7 +242,12 @@ fn finalize(e_ev: f64, grid: Vec<(f64, f64)>) -> EnergyAngular {
         }
     }
 
-    EnergyAngular { e_mev: e_ev / 1.0e6, cosines, pdf, cdf }
+    EnergyAngular {
+        e_mev: e_ev / 1.0e6,
+        cosines,
+        pdf,
+        cdf,
+    }
 }
 
 /// Trapezoidal integral of `y` over the grid `x` (both same length, ascending).
@@ -275,7 +285,9 @@ fn legendre_pdf(coeffs: &[f64], mu: f64) -> f64 {
 fn adaptive_tabulate(f: &impl Fn(f64) -> f64) -> Vec<(f64, f64)> {
     // Coarse seed: 9 points across [−1, 1].
     const SEED: usize = 9;
-    let seed: Vec<f64> = (0..SEED).map(|i| -1.0 + 2.0 * i as f64 / (SEED - 1) as f64).collect();
+    let seed: Vec<f64> = (0..SEED)
+        .map(|i| -1.0 + 2.0 * i as f64 / (SEED - 1) as f64)
+        .collect();
 
     let mut out: Vec<(f64, f64)> = Vec::new();
     out.push((seed[0], f(seed[0])));
@@ -346,7 +358,10 @@ mod tests {
         assert!((trapz(&ea.cosines, &ea.pdf) - 1.0).abs() < 1e-6);
         assert_eq!(*ea.cdf.first().unwrap(), 0.0);
         assert!((ea.cdf.last().unwrap() - 1.0).abs() < 1e-12);
-        assert!(ea.cdf.windows(2).all(|w| w[1] >= w[0] - 1e-12), "cdf monotone");
+        assert!(
+            ea.cdf.windows(2).all(|w| w[1] >= w[0] - 1e-12),
+            "cdf monotone"
+        );
         assert!(ea.pdf.iter().all(|&p| p >= 0.0), "pdf non-negative");
     }
 

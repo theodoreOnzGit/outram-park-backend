@@ -5,9 +5,9 @@
 // entry point and its egui-using module are gated out and replaced by an empty
 // `main`, so the example target still builds (to a no-op) there.
 #[cfg(not(target_os = "android"))]
-pub fn main(){
+pub fn main() {
     println!("Starting CIET Educational Simulator...");
-        ciet_simulator_v1::ciet_simulator_v1().unwrap();
+    ciet_simulator_v1::ciet_simulator_v1().unwrap();
 }
 
 #[cfg(not(target_os = "android"))]

@@ -268,9 +268,18 @@ fn godiva_material() -> (Material, Vec<Nuclide>) {
         name: "Godiva HEU".into(),
         temperature: TEMPERATURE_K,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: N_U234 },
-            NuclideComponent { nuclide_idx: 1, atom_density: N_U235 },
-            NuclideComponent { nuclide_idx: 2, atom_density: N_U238 },
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: N_U234,
+            },
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: N_U235,
+            },
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: N_U238,
+            },
         ],
     };
     (material, nuclides)
@@ -303,7 +312,10 @@ fn run_cpu_keff(material: &Material, nuclides: &[Nuclide]) -> KeffResult {
     let histories_per_s = total_histories as f64 / wall;
     let pcm = (result.k_mean - 1.0) * 1.0e5;
 
-    println!("    k_eff             = {:.5} +/- {:.5}", result.k_mean, result.k_std);
+    println!(
+        "    k_eff             = {:.5} +/- {:.5}",
+        result.k_mean, result.k_std
+    );
     println!("    ICSBEP benchmark  = 1.0000 +/- 0.0010");
     println!("    Delta-k           = {pcm:+.0} pcm");
     println!("    wall-clock        = {wall:.3} s");
@@ -345,15 +357,16 @@ fn run_xs_kernel_benchmark(material: &Material, nuclides: &[Nuclide]) -> Vec<XsR
     // Probe for a real GPU. `None` => CPU-only, GPU columns skipped.
     let gpu = outram_mc_libs::gpu::probe();
     match &gpu {
-        Some(ctx) => println!("    GPU adapter: {} ({:?})", ctx.info.name, ctx.info.backend),
+        Some(ctx) => println!(
+            "    GPU adapter: {} ({:?})",
+            ctx.info.name, ctx.info.backend
+        ),
         None => println!("    GPU adapter: NONE — GPU path skipped, CPU throughput only"),
     }
     println!(
         "    query energies: U-235 thermal-Watt spectrum, clamped to [{E_MIN_EV:.0e}, {E_MAX_EV:.0e}] eV"
     );
-    println!(
-        "    (GPU timing is END-TO-END host-visible: f32 upload + dispatch + readback)\n"
-    );
+    println!("    (GPU timing is END-TO-END host-visible: f32 upload + dispatch + readback)\n");
 
     println!(
         "    {:>10}  {:>9}  {:>9}  {:>12}  {:>12}  {:>9}  {:>12}  {:>12}",
@@ -395,7 +408,13 @@ fn run_xs_kernel_benchmark(material: &Material, nuclides: &[Nuclide]) -> Vec<XsR
                 let gpu_qps = n as f64 / (gpu_secs / N_REPS as f64);
                 let speedup = cpu_ms / gpu_ms;
                 let (max_e, mean_e) = agreement(&last, &cpu_ref);
-                (Some(gpu_ms), Some(gpu_qps), Some(speedup), Some(max_e), Some(mean_e))
+                (
+                    Some(gpu_ms),
+                    Some(gpu_qps),
+                    Some(speedup),
+                    Some(max_e),
+                    Some(mean_e),
+                )
             }
             None => (None, None, None, None, None),
         };
@@ -575,23 +594,27 @@ fn fmt_csv_opt(x: Option<f64>) -> String {
 /// Console: optional ms to 3 dp, or `n/a`.
 #[cfg(not(target_os = "android"))]
 fn fmt_opt3(x: Option<f64>) -> String {
-    x.map(|v| format!("{v:.3}")).unwrap_or_else(|| "n/a".to_string())
+    x.map(|v| format!("{v:.3}"))
+        .unwrap_or_else(|| "n/a".to_string())
 }
 
 /// Console: optional queries/s in Mqueries/s to 1 dp, or `n/a`.
 #[cfg(not(target_os = "android"))]
 fn fmt_opt_mqs(x: Option<f64>) -> String {
-    x.map(|v| format!("{:.1}", v / 1e6)).unwrap_or_else(|| "n/a".to_string())
+    x.map(|v| format!("{:.1}", v / 1e6))
+        .unwrap_or_else(|| "n/a".to_string())
 }
 
 /// Console: optional speedup like `2.37x`, or `n/a`.
 #[cfg(not(target_os = "android"))]
 fn fmt_opt_speedup(x: Option<f64>) -> String {
-    x.map(|v| format!("{v:.2}x")).unwrap_or_else(|| "n/a".to_string())
+    x.map(|v| format!("{v:.2}x"))
+        .unwrap_or_else(|| "n/a".to_string())
 }
 
 /// Console: optional value in scientific notation to 3 dp, or `n/a`.
 #[cfg(not(target_os = "android"))]
 fn fmt_opt_sci(x: Option<f64>) -> String {
-    x.map(|v| format!("{v:.3e}")).unwrap_or_else(|| "n/a".to_string())
+    x.map(|v| format!("{v:.3e}"))
+        .unwrap_or_else(|| "n/a".to_string())
 }

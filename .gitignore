@@ -82,3 +82,4 @@ xin wang thesis.pdf
 # This markdown is a regenerable local summary, not tracked (was causing
 # recurring merge conflicts as a generated file committed on many branches).
 docs/token-usage.md
+.aider*

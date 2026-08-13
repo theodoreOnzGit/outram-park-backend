@@ -63,18 +63,31 @@ impl<T: Clone> SurfaceField<T> {
         internal: Field<T>,
         boundary: Vec<PatchField<T>>,
     ) -> Self {
-        debug_assert_eq!(internal.len(), mesh.n_internal_faces,
-            "SurfaceField internal field length must equal n_internal_faces");
-        debug_assert_eq!(boundary.len(), mesh.patches.len(),
-            "SurfaceField boundary length must equal number of patches");
-        Self { name: name.into(), mesh, internal, boundary }
+        debug_assert_eq!(
+            internal.len(),
+            mesh.n_internal_faces,
+            "SurfaceField internal field length must equal n_internal_faces"
+        );
+        debug_assert_eq!(
+            boundary.len(),
+            mesh.patches.len(),
+            "SurfaceField boundary length must equal number of patches"
+        );
+        Self {
+            name: name.into(),
+            mesh,
+            internal,
+            boundary,
+        }
     }
 }
 
 impl SurfaceScalarField {
     pub fn zeros(name: impl Into<String>, mesh: Arc<FvMesh>) -> Self {
         let n_int = mesh.n_internal_faces;
-        let boundary = mesh.patches.iter()
+        let boundary = mesh
+            .patches
+            .iter()
             .map(|p| PatchField::zero_gradient(p.size))
             .collect();
         Self::new(name, mesh, Field::zeros(n_int), boundary)
@@ -82,7 +95,9 @@ impl SurfaceScalarField {
 
     pub fn uniform(name: impl Into<String>, mesh: Arc<FvMesh>, value: f64) -> Self {
         let n_int = mesh.n_internal_faces;
-        let boundary = mesh.patches.iter()
+        let boundary = mesh
+            .patches
+            .iter()
             .map(|p| PatchField::zero_gradient(p.size))
             .collect();
         Self::new(name, mesh, Field::uniform(n_int, value), boundary)
@@ -92,7 +107,9 @@ impl SurfaceScalarField {
 impl SurfaceVectorField {
     pub fn zero(name: impl Into<String>, mesh: Arc<FvMesh>) -> Self {
         let n_int = mesh.n_internal_faces;
-        let boundary = mesh.patches.iter()
+        let boundary = mesh
+            .patches
+            .iter()
             .map(|p| PatchField::zero_gradient_vec(p.size))
             .collect();
         Self::new(name, mesh, Field::zero_vec(n_int), boundary)
@@ -108,7 +125,9 @@ impl<T: Clone + Default> SurfaceField<T> {
         if self.mesh.is_internal_face(f) {
             self.internal[f].clone()
         } else {
-            let (pi, fi) = self.mesh.patch_for_face(f)
+            let (pi, fi) = self
+                .mesh
+                .patch_for_face(f)
                 .expect("face index out of range for boundary");
             self.boundary[pi].values[fi].clone()
         }
@@ -119,7 +138,7 @@ impl<T: Clone + Default> SurfaceField<T> {
 
 impl<T> Add for SurfaceField<T>
 where
-    T: Add<Output=T> + Clone + Default,
+    T: Add<Output = T> + Clone + Default,
 {
     type Output = Self;
     fn add(mut self, rhs: Self) -> Self {
@@ -137,7 +156,7 @@ where
 
 impl<T> Sub for SurfaceField<T>
 where
-    T: Sub<Output=T> + Clone + Default,
+    T: Sub<Output = T> + Clone + Default,
 {
     type Output = Self;
     fn sub(mut self, rhs: Self) -> Self {
@@ -152,7 +171,7 @@ where
 
 impl<T> Neg for SurfaceField<T>
 where
-    T: Neg<Output=T> + Clone,
+    T: Neg<Output = T> + Clone,
 {
     type Output = Self;
     fn neg(mut self) -> Self {
@@ -167,7 +186,7 @@ where
 
 impl<T> Mul<f64> for SurfaceField<T>
 where
-    T: Mul<f64, Output=T> + Clone,
+    T: Mul<f64, Output = T> + Clone,
 {
     type Output = Self;
     fn mul(mut self, s: f64) -> Self {
@@ -181,7 +200,7 @@ where
 
 impl<T> Div<f64> for SurfaceField<T>
 where
-    T: Mul<f64, Output=T> + Clone,
+    T: Mul<f64, Output = T> + Clone,
 {
     type Output = Self;
     fn div(self, s: f64) -> Self {
@@ -202,7 +221,7 @@ impl Mul for SurfaceScalarField {
 }
 
 // f64 * SurfaceField<T>
-impl<T: Mul<f64, Output=T> + Clone> Mul<SurfaceField<T>> for f64 {
+impl<T: Mul<f64, Output = T> + Clone> Mul<SurfaceField<T>> for f64 {
     type Output = SurfaceField<T>;
     fn mul(self, mut rhs: SurfaceField<T>) -> SurfaceField<T> {
         rhs.internal = rhs.internal * self;
@@ -218,7 +237,9 @@ impl<T: Mul<f64, Output=T> + Clone> Mul<SurfaceField<T>> for f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{FvMeshBuilder, BoundaryPatch, PatchKind};
+    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
+        FvMeshBuilder, BoundaryPatch, PatchKind,
+    };
 
     fn unit_mesh() -> Arc<FvMesh> {
         Arc::new(
@@ -229,10 +250,13 @@ mod tests {
                 .neighbour(vec![1])
                 .patches(vec![
                     BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
-                    BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
                 ])
                 .cell_volumes(vec![1.0, 1.0])
-                .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
                 .face_area_vectors(vec![
                     Vector3::new(1.0, 0.0, 0.0),
                     Vector3::new(1.0, 0.0, 0.0),
@@ -244,7 +268,7 @@ mod tests {
                     Vector3::new(0.0, 0.0, 0.0),
                 ])
                 .build()
-                .unwrap()
+                .unwrap(),
         )
     }
 

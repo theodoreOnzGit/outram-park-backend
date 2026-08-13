@@ -36,7 +36,6 @@ pub fn get_stagnation_conditions_from_throat_ps(
     p_t: Pressure,
     s_t: SpecificHeatCapacity,
 ) -> (Pressure, AvailableEnergy, MassFlux) {
-
     // critical mass flux at throat
     let g_crit = mass_flux_ps_eqm_throat(p_t, s_t);
 
@@ -97,22 +96,26 @@ pub fn bubble_point_pressure_from_entropy(s0: SpecificHeatCapacity) -> Pressure 
 
     // at / above the critical entropy the bubble line terminates at the
     // critical point — return the critical pressure directly
-    if s0 >= s_crit_water() { return p_crit; }
+    if s0 >= s_crit_water() {
+        return p_crit;
+    }
 
     // saturated-liquid entropy at pressure p
-    let s_f = |p: Pressure| -> SpecificHeatCapacity {
-        s_tp_eqm_two_phase(sat_temp_4(p), p, 0.0)
-    };
+    let s_f = |p: Pressure| -> SpecificHeatCapacity { s_tp_eqm_two_phase(sat_temp_4(p), p, 0.0) };
 
     // below the triple-point saturated-liquid entropy, clamp to p_min
-    if s0 <= s_f(p_min) { return p_min; }
+    if s0 <= s_f(p_min) {
+        return p_min;
+    }
 
     // seed a tight bracket from the saturation lookup table, then refine by
     // bisection within it (s_f is monotonically increasing in p)
     let (mut p_lo, mut p_hi) = bubble_point_bracket(s0);
     for _ in 0..40 {
         let p_mid = 0.5 * (p_lo + p_hi);
-        if ((p_hi - p_lo) / p_mid).get::<ratio>() < 1e-9 { break; }
+        if ((p_hi - p_lo) / p_mid).get::<ratio>() < 1e-9 {
+            break;
+        }
         if s_f(p_mid) < s0 {
             p_lo = p_mid;
         } else {
@@ -157,22 +160,26 @@ pub fn dew_point_pressure_from_entropy(s0: SpecificHeatCapacity) -> Pressure {
 
     // at / below the critical entropy the dew line terminates at the
     // critical point — return the critical pressure directly
-    if s0 <= s_crit_water() { return p_crit; }
+    if s0 <= s_crit_water() {
+        return p_crit;
+    }
 
     // saturated-vapour entropy at pressure p
-    let s_g = |p: Pressure| -> SpecificHeatCapacity {
-        s_tp_eqm_two_phase(sat_temp_4(p), p, 1.0)
-    };
+    let s_g = |p: Pressure| -> SpecificHeatCapacity { s_tp_eqm_two_phase(sat_temp_4(p), p, 1.0) };
 
     // above the triple-point saturated-vapour entropy, clamp to p_min
-    if s0 >= s_g(p_min) { return p_min; }
+    if s0 >= s_g(p_min) {
+        return p_min;
+    }
 
     // seed a tight bracket from the saturation lookup table, then refine by
     // bisection within it (s_g is monotonically decreasing in p)
     let (mut p_lo, mut p_hi) = dew_point_bracket(s0);
     for _ in 0..40 {
         let p_mid = 0.5 * (p_lo + p_hi);
-        if ((p_hi - p_lo) / p_mid).get::<ratio>() < 1e-9 { break; }
+        if ((p_hi - p_lo) / p_mid).get::<ratio>() < 1e-9 {
+            break;
+        }
         if s_g(p_mid) > s0 {
             // s_g still above s0 -> need higher pressure to bring it down
             p_lo = p_mid;

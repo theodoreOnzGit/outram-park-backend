@@ -1,0 +1,38 @@
+# Workspace-wide rustfmt configuration.
+#
+# rustfmt searches UPWARD from each file for its config, so this single file at
+# the workspace root governs every crate. A per-crate rustfmt.toml would
+# OVERRIDE this wholesale rather than merge with it -- do not add one.
+#
+# WHY THIS EXISTS. With no config, every contributor's `cargo fmt` reformatted
+# to whatever default their toolchain happened to pick, and a run intended for
+# three files rewrote thousands. One session lost 1300 lines of unrelated churn
+# that way. Pinning the settings makes formatting deterministic across machines
+# and agents.
+#
+# Only STABLE options are set. Many attractive ones -- imports_granularity,
+# group_imports, wrap_comments, format_code_in_doc_comments -- are nightly-only
+# and would be silently ignored on the stable toolchain this workspace uses.
+# `wrap_comments` in particular must stay off regardless: this codebase carries
+# hand-laid-out V&V doc comments, ASCII tables and ```text-fenced mathematics
+# that re-wrapping would destroy.
+
+# Pin the edition. Without this rustfmt assumes 2015 and can misparse modern
+# code -- notably `async`, and `dyn` in older positions.
+edition = "2021"
+
+# 100 columns. Measured against the tree before adopting this file: 100 gives
+# the least churn of the widths tried (110 and 120 were both WORSE, because the
+# house style is narrow and hand-wrapped, and widening tells rustfmt to JOIN
+# lines that were deliberately split).
+max_width = 100
+
+# Leave `pub mod` and `use` ordering alone.
+#
+# The module lists in this workspace carry per-module explanatory comments, and
+# a comment binds to the item BELOW it. Reordering would silently reattach those
+# comments to the wrong modules. rustfmt is already conservative here -- it
+# declines to reorder across comments -- but making it explicit means a future
+# toolchain change cannot quietly start doing it.
+reorder_modules = false
+reorder_imports = false

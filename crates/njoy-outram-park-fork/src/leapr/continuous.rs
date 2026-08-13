@@ -82,7 +82,11 @@ pub fn convol(t1: &[f64], tlast: &[f64], nn: usize, delta: f64) -> (Vec<f64>, f6
             }
             let be = j0 as f64 * delta;
             // f1: tlast at index k0+j0, folded by exp(-be)
-            let f1 = if k0 + j0 < nl { tlast[k0 + j0] * (-be).exp() } else { 0.0 };
+            let f1 = if k0 + j0 < nl {
+                tlast[k0 + j0] * (-be).exp()
+            } else {
+                0.0
+            };
             // f2: tlast at |k0-j0|, folding the negative-beta side by exp(-be)
             let f2 = if k0 >= j0 {
                 let i2 = k0 - j0;

@@ -1,4 +1,3 @@
-
 // ================    Region 1 ===================
 
 use uom::si::f64::*;
@@ -19,6 +18,3 @@ pub fn gamma_1(t: ThermodynamicTemperature, p: Pressure) -> f64 {
     }
     sum
 }
-
-
-

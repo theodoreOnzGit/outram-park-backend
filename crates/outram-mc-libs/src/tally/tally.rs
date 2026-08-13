@@ -7,7 +7,6 @@
 ///
 /// Score types: flux, total reaction rate, fission, absorption, current, etc.
 /// Multiple scores can be accumulated per tally.
-
 use super::filter::Filter;
 
 /// Score type.  Maps to `openmc::TallyScore`.
@@ -28,7 +27,7 @@ pub enum ScoreType {
     /// to a target reactor thermal power (the `tally-power-normalization`
     /// notebook).
     KappaFission,
-    ScatterN,        // (n,xn) scatter
+    ScatterN, // (n,xn) scatter
     Current,
     Events,
 }
@@ -43,23 +42,29 @@ pub struct TallyBin {
 
 impl TallyBin {
     pub fn score(&mut self, value: f64) {
-        self.sum    += value;
+        self.sum += value;
         self.sum_sq += value * value;
-        self.count  += 1;
+        self.count += 1;
     }
 
     /// Mean over `n_realizations` active batches.
     pub fn mean(&self, n_realizations: u64) -> f64 {
-        if n_realizations == 0 { return 0.0; }
+        if n_realizations == 0 {
+            return 0.0;
+        }
         self.sum / n_realizations as f64
     }
 
     /// Relative standard deviation (as fraction of mean).
     pub fn rel_std_dev(&self, n_realizations: u64) -> f64 {
-        if n_realizations < 2 { return f64::INFINITY; }
+        if n_realizations < 2 {
+            return f64::INFINITY;
+        }
         let n = n_realizations as f64;
         let mean = self.sum / n;
-        if mean == 0.0 { return f64::INFINITY; }
+        if mean == 0.0 {
+            return f64::INFINITY;
+        }
         let variance = (self.sum_sq / n - mean * mean) / (n - 1.0);
         variance.sqrt() / mean.abs()
     }

@@ -340,7 +340,7 @@ pub fn decompress(data: &BoxerData) -> Result<Vec<f64>, NjoyError> {
     for page in &data.pages {
         let mut iv = 0usize; // index into xval
         let mut ic = 0usize; // index into icon
-        // Active run state.
+                             // Active run state.
         let mut remaining: i64 = 0;
         let mut run_value = 0.0f64;
         let mut run_carry = false;
@@ -748,7 +748,11 @@ mod tests {
             }
         }
         let data = compress(&m, n, n, BoxerShape::Rectangular, 14, 4).unwrap();
-        assert!(data.pages.len() > 1, "expected paging, got {} page(s)", data.pages.len());
+        assert!(
+            data.pages.len() > 1,
+            "expected paging, got {} page(s)",
+            data.pages.len()
+        );
         let back = decompress(&data).unwrap();
         let ndig = ndig_for(14);
         for (a, b) in m.iter().zip(back.iter()) {

@@ -681,20 +681,31 @@ impl PhaseState {
     ///   this property layer can honestly evaluate, and returning the bracket
     ///   endpoint would present an extrapolation as an answer.
     /// - [`TampinesError::Numerical`] if the inversion cannot bracket the root.
-    pub fn liquid_at(p: f64, h: f64, saturated: SaturatedProperties) -> Result<Self, TampinesError> {
+    pub fn liquid_at(
+        p: f64,
+        h: f64,
+        saturated: SaturatedProperties,
+    ) -> Result<Self, TampinesError> {
         check_flash_inputs(p, h, saturated)?;
         let p_q = Pressure::new::<pascal>(p);
-        let residual =
-            |t: f64| h_tp_1(ThermodynamicTemperature::new::<kelvin>(t), p_q).get::<joule_per_kilogram>() - h;
+        let residual = |t: f64| {
+            h_tp_1(ThermodynamicTemperature::new::<kelvin>(t), p_q).get::<joule_per_kilogram>() - h
+        };
 
         let (t, departure) = if h <= saturated.h_f {
-            let t = invert_monotone_fast(residual, T_MIN_IF97, saturated.t_sat, "Region 1 (subcooled liquid)")?;
+            let t = invert_monotone_fast(
+                residual,
+                T_MIN_IF97,
+                saturated.t_sat,
+                "Region 1 (subcooled liquid)",
+            )?;
             (t, t - saturated.t_sat)
         } else {
             // Metastable superheated liquid: extend the bracket above T_sat by
             // the documented margin, and refuse beyond it rather than
             // extrapolating further.
-            let hi = (saturated.t_sat + MAX_METASTABLE_LIQUID_SUPERHEAT).min(T_MAX_REGION_1.max(saturated.t_sat));
+            let hi = (saturated.t_sat + MAX_METASTABLE_LIQUID_SUPERHEAT)
+                .min(T_MAX_REGION_1.max(saturated.t_sat));
             let h_hi = residual(hi) + h;
             if h > h_hi {
                 return Err(TampinesError::Unphysical(format!(
@@ -704,15 +715,17 @@ impl PhaseState {
                     saturated.t_sat
                 )));
             }
-            let t = invert_monotone_fast(residual, saturated.t_sat, hi, "Region 1 (metastable superheated liquid)")?;
+            let t = invert_monotone_fast(
+                residual,
+                saturated.t_sat,
+                hi,
+                "Region 1 (metastable superheated liquid)",
+            )?;
             (t, t - saturated.t_sat)
         };
 
-        let v = v_tp_1(
-            ThermodynamicTemperature::new::<kelvin>(t),
-            p_q,
-        )
-        .get::<cubic_meter_per_kilogram>();
+        let v = v_tp_1(ThermodynamicTemperature::new::<kelvin>(t), p_q)
+            .get::<cubic_meter_per_kilogram>();
         if !(v > 0.0) || !v.is_finite() {
             return Err(TampinesError::Unphysical(format!(
                 "IF97 returned a non-positive liquid specific volume {v} m^3/kg at \
@@ -745,17 +758,28 @@ impl PhaseState {
     ///
     /// As [`liquid_at`](Self::liquid_at), with the bound applied on the
     /// subcooled side.
-    pub fn vapour_at(p: f64, h: f64, saturated: SaturatedProperties) -> Result<Self, TampinesError> {
+    pub fn vapour_at(
+        p: f64,
+        h: f64,
+        saturated: SaturatedProperties,
+    ) -> Result<Self, TampinesError> {
         check_flash_inputs(p, h, saturated)?;
         let p_q = Pressure::new::<pascal>(p);
-        let residual =
-            |t: f64| h_tp_2(ThermodynamicTemperature::new::<kelvin>(t), p_q).get::<joule_per_kilogram>() - h;
+        let residual = |t: f64| {
+            h_tp_2(ThermodynamicTemperature::new::<kelvin>(t), p_q).get::<joule_per_kilogram>() - h
+        };
 
         let (t, departure) = if h >= saturated.h_g {
-            let t = invert_monotone_fast(residual, saturated.t_sat, T_MAX_REGION_2, "Region 2 (superheated vapour)")?;
+            let t = invert_monotone_fast(
+                residual,
+                saturated.t_sat,
+                T_MAX_REGION_2,
+                "Region 2 (superheated vapour)",
+            )?;
             (t, saturated.t_sat - t)
         } else {
-            let lo = (saturated.t_sat - MAX_METASTABLE_VAPOUR_SUBCOOLING).max(T_MIN_IF97.min(saturated.t_sat));
+            let lo = (saturated.t_sat - MAX_METASTABLE_VAPOUR_SUBCOOLING)
+                .max(T_MIN_IF97.min(saturated.t_sat));
             let h_lo = residual(lo) + h;
             if h < h_lo {
                 return Err(TampinesError::Unphysical(format!(
@@ -765,15 +789,17 @@ impl PhaseState {
                     saturated.t_sat
                 )));
             }
-            let t = invert_monotone_fast(residual, lo, saturated.t_sat, "Region 2 (metastable subcooled vapour)")?;
+            let t = invert_monotone_fast(
+                residual,
+                lo,
+                saturated.t_sat,
+                "Region 2 (metastable subcooled vapour)",
+            )?;
             (t, saturated.t_sat - t)
         };
 
-        let v = v_tp_2(
-            ThermodynamicTemperature::new::<kelvin>(t),
-            p_q,
-        )
-        .get::<cubic_meter_per_kilogram>();
+        let v = v_tp_2(ThermodynamicTemperature::new::<kelvin>(t), p_q)
+            .get::<cubic_meter_per_kilogram>();
         if !(v > 0.0) || !v.is_finite() {
             return Err(TampinesError::Unphysical(format!(
                 "IF97 returned a non-positive vapour specific volume {v} m^3/kg at \
@@ -803,11 +829,7 @@ impl PhaseState {
 }
 
 /// Shared precondition check for the `(p, h, saturated)` triple.
-fn check_flash_inputs(
-    p: f64,
-    h: f64,
-    saturated: SaturatedProperties,
-) -> Result<(), TampinesError> {
+fn check_flash_inputs(p: f64, h: f64, saturated: SaturatedProperties) -> Result<(), TampinesError> {
     if (saturated.pressure - p).abs() > 1.0e-9 * p.abs().max(1.0) {
         return Err(TampinesError::Unphysical(format!(
             "saturated set is at {} Pa but the phase state is at {p} Pa",

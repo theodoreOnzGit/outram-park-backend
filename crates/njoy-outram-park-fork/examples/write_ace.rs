@@ -36,21 +36,34 @@ fn main() {
     path.push("tests/resources/n-092_U_235-ENDF8.0.endf");
 
     let tape = Tape::read(File::open(&path).expect("open ENDF fixture")).expect("parse ENDF");
-    let cfg = ReconrConfig { mat: MAT, tolerance: 0.001, temperature: 0.0 };
+    let cfg = ReconrConfig {
+        mat: MAT,
+        tolerance: 0.001,
+        temperature: 0.0,
+    };
     let result = reconr(&tape, &cfg).expect("RECONR");
 
     // Elastic angular distribution (MF=4/MT=2).
-    let angular = tape.section(MAT, 4, 2).map(|s| parse_elastic_angular(s).expect("parse MF=4"));
+    let angular = tape
+        .section(MAT, 4, 2)
+        .map(|s| parse_elastic_angular(s).expect("parse MF=4"));
 
     // Secondary-neutron energy distributions for the producing reactions.
-    let partials: Vec<(i32, f64)> =
-        result.sections.iter().map(|s| (i32::from(s.mt), s.qi)).collect();
+    let partials: Vec<(i32, f64)> = result
+        .sections
+        .iter()
+        .map(|s| (i32::from(s.mt), s.qi))
+        .collect();
     let emissions = build_emissions(&tape, MAT, result.material.awr, &partials);
 
     // HEATR MT=301 heating (KERMA) for the ESZ heating column: ν̄/χ drive the
     // fission term, the H5 emission spectra drive (n,2n)/(n,3n)/continuum.
-    let nu = NuBar::from_endf(&tape, MAT).expect("MF=1").unwrap_or_default();
-    let chi = FissionSpectrum::from_endf_mf5(&tape, MAT).expect("MF=5").unwrap_or_default();
+    let nu = NuBar::from_endf(&tape, MAT)
+        .expect("MF=1")
+        .unwrap_or_default();
+    let chi = FissionSpectrum::from_endf_mf5(&tape, MAT)
+        .expect("MF=5")
+        .unwrap_or_default();
     let emission = build_emission_spectra(&tape, MAT);
     let photons = PhotonProduction::from_endf(&tape, MAT, &result);
     let kerma =
@@ -67,8 +80,16 @@ fn main() {
     println!("NR (producers): {}", ace.nxs[nxs::NR]);
     println!("XSS length    : {}", ace.nxs[nxs::LEN_XSS]);
     println!("JXS SIG       : {}", ace.jxs[jxs::SIG]);
-    println!("JXS LAND/AND  : {} / {}", ace.jxs[jxs::LAND], ace.jxs[jxs::AND]);
-    println!("JXS LDLW/DLW  : {} / {}", ace.jxs[jxs::LDLW], ace.jxs[jxs::DLW]);
+    println!(
+        "JXS LAND/AND  : {} / {}",
+        ace.jxs[jxs::LAND],
+        ace.jxs[jxs::AND]
+    );
+    println!(
+        "JXS LDLW/DLW  : {} / {}",
+        ace.jxs[jxs::LDLW],
+        ace.jxs[jxs::DLW]
+    );
     let (law3, law4) = dlw_law_counts(&ace);
     println!("DLW laws      : {law3} × Law 3 (discrete), {law4} × Law 4 (continuum)");
 
@@ -86,7 +107,11 @@ fn main() {
 
 /// Count how many DLW producers use Law 3 vs Law 4 (for the summary line).
 fn dlw_law_counts(ace: &AceTable) -> (usize, usize) {
-    let (nr, ldlw, dlw) = (ace.nxs[nxs::NR] as usize, ace.jxs[jxs::LDLW], ace.jxs[jxs::DLW]);
+    let (nr, ldlw, dlw) = (
+        ace.nxs[nxs::NR] as usize,
+        ace.jxs[jxs::LDLW],
+        ace.jxs[jxs::DLW],
+    );
     if nr == 0 {
         return (0, 0);
     }

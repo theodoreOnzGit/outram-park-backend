@@ -307,7 +307,9 @@ mod tests {
     use crate::tally::tally::{Tally, TallyBin};
 
     fn cell_flux_tally(cells: Vec<usize>) -> Tally {
-        let filter = CellFilter { cell_indices: cells };
+        let filter = CellFilter {
+            cell_indices: cells,
+        };
         let n = filter.n_bins();
         Tally {
             id: 1,
@@ -323,12 +325,21 @@ mod tests {
     #[test]
     fn cell_flux_collision_estimator() {
         let mut t = cell_flux_tally(vec![0, 1]);
-        let xs = MacroXs { total: 0.5, elastic: 0.4, fission: 0.05, nu_fission: 0.12 };
+        let xs = MacroXs {
+            total: 0.5,
+            elastic: 0.4,
+            fission: 0.05,
+            nu_fission: 0.12,
+        };
         // Two collisions in cell 0 (Σ_t = 0.5 ⇒ 2 cm each), one in cell 5 (ignored).
         score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0);
         score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0);
         score_collision(&mut t, 5, 0, 0, 1.0e6, 0.5, &xs, 1.0);
-        assert!((t.bins[0].sum - 4.0).abs() < 1e-12, "cell-0 flux sum {}", t.bins[0].sum);
+        assert!(
+            (t.bins[0].sum - 4.0).abs() < 1e-12,
+            "cell-0 flux sum {}",
+            t.bins[0].sum
+        );
         assert_eq!(t.bins[0].count, 2);
         assert_eq!(t.bins[1].count, 0, "cell-1 saw no collisions");
     }

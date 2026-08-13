@@ -64,9 +64,7 @@
 //! its PH flash (`:330-338`).
 
 use uom::si::available_energy::joule_per_kilogram;
-use uom::si::f64::{
-    AvailableEnergy, Length, MassDensity, MassRate, Power, Ratio, Velocity, VolumeRate,
-};
+use uom::si::f64::{AvailableEnergy, Length, MassDensity, MassRate, Power, Ratio, Velocity, VolumeRate};
 use uom::si::length::meter;
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::mass_rate::kilogram_per_second;

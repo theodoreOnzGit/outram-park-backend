@@ -47,7 +47,6 @@ pub fn get_critical_pressure_and_mass_flux_ph_vle_dome(
     p0: Pressure,
     h0: AvailableEnergy,
 ) -> (Pressure, MassFlux) {
-
     // isentrope to march down
     let s0 = s_ph_eqm(p0, h0);
 
@@ -57,12 +56,12 @@ pub fn get_critical_pressure_and_mass_flux_ph_vle_dome(
     let g_of_p = |p_pa: f64| -> MassFlux {
         let p = Pressure::new::<pascal>(p_pa);
         let h = h_ps_eqm(p, s0);
-        let ke = h0 - h;                       // kinetic energy per unit mass
+        let ke = h0 - h; // kinetic energy per unit mass
         if ke < AvailableEnergy::ZERO {
-            return MassFlux::ZERO;             // over-expanded guard
+            return MassFlux::ZERO; // over-expanded guard
         }
         let rho = v_ps_eqm(p, s0).recip();
-        rho * (2.0 * ke).sqrt()                // = rho * u
+        rho * (2.0 * ke).sqrt() // = rho * u
     };
 
     // Maximise G over [p_min, p0] by golden-section search. G is unimodal
@@ -77,22 +76,24 @@ pub fn get_critical_pressure_and_mass_flux_ph_vle_dome(
     //   Price, C. J., & Robertson, B. L. (2012). Golden Section Search.
     //   In Encyclopedia of Engineering Optimization and Heuristics
     //   (pp. 1-4). Singapore: Springer Nature Singapore.
-    let gr = (5.0_f64.sqrt() - 1.0) / 2.0;     // 0.618...
+    let gr = (5.0_f64.sqrt() - 1.0) / 2.0; // 0.618...
     let mut a = p_min.get::<pascal>();
     let mut b = p0.get::<pascal>();
     let mut c = b - gr * (b - a);
     let mut d = a + gr * (b - a);
 
     let max_iter = 100;
-    let tol_pa = 1.0;                          // 1 Pa bracket width is plenty
+    let tol_pa = 1.0; // 1 Pa bracket width is plenty
     for _ in 0..max_iter {
-        if (b - a).abs() < tol_pa { break; }
+        if (b - a).abs() < tol_pa {
+            break;
+        }
         let gc = g_of_p(c).get::<kilogram_per_square_meter_second>();
         let gd = g_of_p(d).get::<kilogram_per_square_meter_second>();
         if gc > gd {
-            b = d;                             // peak is in [a, d]
+            b = d; // peak is in [a, d]
         } else {
-            a = c;                             // peak is in [c, b]
+            a = c; // peak is in [c, b]
         }
         c = b - gr * (b - a);
         d = a + gr * (b - a);

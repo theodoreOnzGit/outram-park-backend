@@ -203,7 +203,10 @@ impl TetMesh {
             }
             tets.push(oriented([vs[0], vs[1], vs[2], vs[3]], &mesh.points));
         }
-        Some(TetMesh { pts: mesh.points.clone(), tets })
+        Some(TetMesh {
+            pts: mesh.points.clone(),
+            tets,
+        })
     }
 
     /// Rebuild a [`VolumeMesh`] (4 triangular faces per tet, matched by
@@ -212,11 +215,17 @@ impl TetMesh {
         let cells: Vec<Vec<Vec<usize>>> = self
             .tets
             .iter()
-            .map(|t| vec![vec![t[1], t[2], t[3]], vec![t[0], t[2], t[3]], vec![t[0], t[1], t[3]], vec![t[0], t[1], t[2]]])
+            .map(|t| {
+                vec![
+                    vec![t[1], t[2], t[3]],
+                    vec![t[0], t[2], t[3]],
+                    vec![t[0], t[1], t[3]],
+                    vec![t[0], t[1], t[2]],
+                ]
+            })
             .collect();
         from_cell_faces(self.pts.clone(), &cells)
     }
-
 }
 
 /// Improve `mesh` toward Delaunay by bistellar (2→3 / 3→2) flips, returning the
@@ -333,7 +342,8 @@ pub fn flip_to_delaunay(mesh: &VolumeMesh, max_flips: usize) -> VolumeMesh {
     // worse (f64 predicates can misjudge near-degenerate configs; this is the
     // safety net that keeps the result trustworthy).
     let after: Vec<[usize; 4]> = live.into_iter().flatten().collect();
-    let accept = after.iter().all(|&t| tet_positive(&pts, t)) && count_non_delaunay(&pts, &after) <= nd_before;
+    let accept = after.iter().all(|&t| tet_positive(&pts, t))
+        && count_non_delaunay(&pts, &after) <= nd_before;
     let tets = if accept { after } else { orig };
     TetMesh { pts, tets }.to_volume()
 }
@@ -346,7 +356,11 @@ fn count_non_delaunay(pts: &[Vec3], tets: &[[usize; 4]]) -> usize {
             fmap.entry(f).or_default().push(apex);
         }
     }
-    fmap.iter().filter(|(abc, apexes)| apexes.len() == 2 && !is_locally_delaunay(pts, **abc, apexes[0], apexes[1])).count()
+    fmap.iter()
+        .filter(|(abc, apexes)| {
+            apexes.len() == 2 && !is_locally_delaunay(pts, **abc, apexes[0], apexes[1])
+        })
+        .count()
 }
 
 /// Undirected edge key.
@@ -386,7 +400,10 @@ fn tet_positive(pts: &[Vec3], t: [usize; 4]) -> bool {
 /// bipyramid is convex (all three are strictly positive) — else `None`.
 fn flip_2_3(pts: &[Vec3], abc: [usize; 3], d: usize, e: usize) -> Option<Vec<[usize; 4]>> {
     let [a, b, c] = abc;
-    let out: Vec<[usize; 4]> = [[a, b, d, e], [b, c, d, e], [c, a, d, e]].iter().map(|&t| oriented(t, pts)).collect();
+    let out: Vec<[usize; 4]> = [[a, b, d, e], [b, c, d, e], [c, a, d, e]]
+        .iter()
+        .map(|&t| oriented(t, pts))
+        .collect();
     out.iter().all(|&t| tet_positive(pts, t)).then_some(out)
 }
 
@@ -447,16 +464,32 @@ mod tests {
         assert!(orient3d(a, b, c, d) > 0.0, "unit tet positively oriented");
         // Circumsphere of this tet passes through the 4 corners; its centre is
         // (0.5,0.5,0.5). A point near the centroid is inside; a far point out.
-        assert!(insphere(a, b, c, d, Vec3::new(0.25, 0.25, 0.25)) > 0.0, "interior point inside sphere");
-        assert!(insphere(a, b, c, d, Vec3::new(5.0, 5.0, 5.0)) < 0.0, "far point outside sphere");
+        assert!(
+            insphere(a, b, c, d, Vec3::new(0.25, 0.25, 0.25)) > 0.0,
+            "interior point inside sphere"
+        );
+        assert!(
+            insphere(a, b, c, d, Vec3::new(5.0, 5.0, 5.0)) < 0.0,
+            "far point outside sphere"
+        );
     }
 
     /// Build a VolumeMesh of two tets sharing triangle `abc`, apexes `d`, `e`.
     fn two_tets(a: Vec3, b: Vec3, c: Vec3, d: Vec3, e: Vec3) -> VolumeMesh {
         let pts = vec![a, b, c, d, e];
         let (ia, ib, ic, id, ie) = (0, 1, 2, 3, 4);
-        let t1 = vec![vec![ib, ic, id], vec![ia, ic, id], vec![ia, ib, id], vec![ia, ib, ic]];
-        let t2 = vec![vec![ib, ic, ie], vec![ia, ic, ie], vec![ia, ib, ie], vec![ia, ib, ic]];
+        let t1 = vec![
+            vec![ib, ic, id],
+            vec![ia, ic, id],
+            vec![ia, ib, id],
+            vec![ia, ib, ic],
+        ];
+        let t2 = vec![
+            vec![ib, ic, ie],
+            vec![ia, ic, ie],
+            vec![ia, ib, ie],
+            vec![ia, ib, ic],
+        ];
         from_cell_faces(pts, &[t1, t2])
     }
 
@@ -478,15 +511,29 @@ mod tests {
         let vol0 = mesh.total_volume();
 
         let tm = TetMesh::from_volume(&mesh).expect("two tets");
-        assert!(count_non_delaunay(&tm.pts, &tm.tets) >= 1, "input has a non-Delaunay face");
+        assert!(
+            count_non_delaunay(&tm.pts, &tm.tets) >= 1,
+            "input has a non-Delaunay face"
+        );
 
         let flipped = flip_to_delaunay(&mesh, 100);
         assert_eq!(flipped.cell_count(), 3, "2→3 flip yields three tets");
-        assert!((flipped.total_volume() - vol0).abs() < 1e-12, "volume conserved");
-        assert_eq!(check_quality(&flipped).n_negative_volume_cells, 0, "all tets positive");
+        assert!(
+            (flipped.total_volume() - vol0).abs() < 1e-12,
+            "volume conserved"
+        );
+        assert_eq!(
+            check_quality(&flipped).n_negative_volume_cells,
+            0,
+            "all tets positive"
+        );
         flipped.validate().expect("closed");
         let ftm = TetMesh::from_volume(&flipped).unwrap();
-        assert_eq!(count_non_delaunay(&ftm.pts, &ftm.tets), 0, "flipped bipyramid is Delaunay");
+        assert_eq!(
+            count_non_delaunay(&ftm.pts, &ftm.tets),
+            0,
+            "flipped bipyramid is Delaunay"
+        );
     }
 
     /// V&V — on a full tet mesh, flipping never breaks validity and never
@@ -501,15 +548,31 @@ mod tests {
         let before = count_non_delaunay(&btm.pts, &btm.tets);
 
         let flipped = flip_to_delaunay(&tets, 5_000);
-        assert!((flipped.total_volume() - 1.0).abs() < 1e-9, "volume conserved: {}", flipped.total_volume());
+        assert!(
+            (flipped.total_volume() - 1.0).abs() < 1e-9,
+            "volume conserved: {}",
+            flipped.total_volume()
+        );
         flipped.validate().expect("valid mesh");
-        assert_eq!(check_quality(&flipped).n_negative_volume_cells, 0, "no inverted tets");
+        assert_eq!(
+            check_quality(&flipped).n_negative_volume_cells,
+            0,
+            "no inverted tets"
+        );
 
         let atm = TetMesh::from_volume(&flipped).unwrap();
         let after = count_non_delaunay(&atm.pts, &atm.tets);
-        assert!(after <= before, "flips do not worsen Delaunay-ness: {before} -> {after}");
+        assert!(
+            after <= before,
+            "flips do not worsen Delaunay-ness: {before} -> {after}"
+        );
         // 2→3 growth stays within the safety cap (no runaway).
-        assert!(flipped.cell_count() <= 2 * tets.cell_count(), "growth bounded: {} <= 2×{}", flipped.cell_count(), tets.cell_count());
+        assert!(
+            flipped.cell_count() <= 2 * tets.cell_count(),
+            "growth bounded: {} <= 2×{}",
+            flipped.cell_count(),
+            tets.cell_count()
+        );
     }
 
     /// V&V — robustness guard: an **already-invalid** tet mesh (inverted cells)
@@ -534,9 +597,16 @@ mod tests {
         }
         let v = pinned.iter().position(|&p| !p).expect("interior vertex");
         tets.points[v] = tets.points[v].add(Vec3::new(10.0, 10.0, 10.0));
-        assert!(check_quality(&tets).n_negative_volume_cells > 0, "input is now invalid");
+        assert!(
+            check_quality(&tets).n_negative_volume_cells > 0,
+            "input is now invalid"
+        );
 
         let out = flip_to_delaunay(&tets, 10_000);
-        assert_eq!(out.cell_count(), n0, "invalid input returned unchanged (no thrashing)");
+        assert_eq!(
+            out.cell_count(),
+            n0,
+            "invalid input returned unchanged (no thrashing)"
+        );
     }
 }

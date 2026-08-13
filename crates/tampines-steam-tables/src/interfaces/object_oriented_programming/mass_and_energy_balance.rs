@@ -54,7 +54,9 @@ pub struct CvMassEnthalpyChanges {
 impl CvMassEnthalpyChanges {
     /// Creates an empty ledger.
     pub fn new() -> Self {
-        Self { changes: Vec::new() }
+        Self {
+            changes: Vec::new(),
+        }
     }
 
     /// Records mass **added** to the control volume.
@@ -153,8 +155,7 @@ impl super::TampinesSteamTableCV {
 
         // recover pressure from (v_new, h_new) by regula falsi (seeded at the
         // current pressure, which is a known-valid point), then rebuild
-        let p_new =
-            pressure_from_specific_volume_and_enthalpy(v_new, h_new, self.get_pressure());
+        let p_new = pressure_from_specific_volume_and_enthalpy(v_new, h_new, self.get_pressure());
         *self = Self::new_from_ph(p_new, h_new, volume);
     }
 }
@@ -327,7 +328,10 @@ mod tests {
             (v0 / 1.1).get::<cubic_meter_per_kilogram>(),
             max_relative = 1e-3
         );
-        assert!(cv.get_pressure() > p0, "compressing at constant h must raise p");
+        assert!(
+            cv.get_pressure() > p0,
+            "compressing at constant h must raise p"
+        );
     }
 
     /// Removing mass at the control volume's own enthalpy must lower the mass,
@@ -357,7 +361,10 @@ mod tests {
             (m_old - dm).get::<kilogram>(),
             max_relative = 1e-4
         );
-        assert!(cv.get_pressure() < p0, "expanding at constant h must lower p");
+        assert!(
+            cv.get_pressure() < p0,
+            "expanding at constant h must lower p"
+        );
     }
 
     /// Mixing in mass at a different enthalpy must land the new specific enthalpy
@@ -410,7 +417,9 @@ mod tests {
             max_relative = 1e-12
         );
         approx::assert_relative_eq!(
-            ledger.total_enthalpy_change().get::<uom::si::energy::joule>(),
+            ledger
+                .total_enthalpy_change()
+                .get::<uom::si::energy::joule>(),
             (2.0 * h.get::<uom::si::available_energy::joule_per_kilogram>()),
             max_relative = 1e-12
         );

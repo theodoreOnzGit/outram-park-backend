@@ -16,9 +16,7 @@
 //! coefficients, of which only the low node's are kept.
 
 use super::buckling::Buckling;
-use super::geometry::{
-    Axis, BoundaryCondition, DirectionVectors, Face, NodalGeometry, NodalParams,
-};
+use super::geometry::{Axis, BoundaryCondition, DirectionVectors, Face, NodalGeometry, NodalParams};
 use super::sparse::{solve_dense_in_place, SparseMatrix};
 
 /// An odd-order expansion coefficient set — MATLAB's `A1` and `A3` structs,

@@ -83,29 +83,47 @@ impl CoherentLattice {
         // HUMAN RE-VERIFY: every literal here mirrors a leapr.f90 `parameter`.
         match self {
             // graphite: gr1,gr2,gr3,gr4 (2508–2511)
-            CoherentLattice::Graphite => {
-                LatticeConstants { a: 2.4573e-8, c: 6.700e-8, amsc: 12.011, scoh: 5.50 / natom }
-            }
+            CoherentLattice::Graphite => LatticeConstants {
+                a: 2.4573e-8,
+                c: 6.700e-8,
+                amsc: 12.011,
+                scoh: 5.50 / natom,
+            },
             // beryllium: be1,be2,be3,be4 (2512–2515)
-            CoherentLattice::Beryllium => {
-                LatticeConstants { a: 2.2856e-8, c: 3.5832e-8, amsc: 9.01, scoh: 7.53 / natom }
-            }
+            CoherentLattice::Beryllium => LatticeConstants {
+                a: 2.2856e-8,
+                c: 3.5832e-8,
+                amsc: 9.01,
+                scoh: 7.53 / natom,
+            },
             // beryllium oxide: beo1,beo2,beo3,beo4 (2516–2519)
-            CoherentLattice::BerylliumOxide => {
-                LatticeConstants { a: 2.695e-8, c: 4.39e-8, amsc: 12.5, scoh: 1.0 / natom }
-            }
+            CoherentLattice::BerylliumOxide => LatticeConstants {
+                a: 2.695e-8,
+                c: 4.39e-8,
+                amsc: 12.5,
+                scoh: 1.0 / natom,
+            },
             // aluminum: al1,al3,al4 (2520–2522) — cubic, no `c`
-            CoherentLattice::Aluminium => {
-                LatticeConstants { a: 4.04e-8, c: 0.0, amsc: 26.7495, scoh: 1.495 / natom }
-            }
+            CoherentLattice::Aluminium => LatticeConstants {
+                a: 4.04e-8,
+                c: 0.0,
+                amsc: 26.7495,
+                scoh: 1.495 / natom,
+            },
             // lead: pb1,pb3,pb4 (2523–2525)
-            CoherentLattice::Lead => {
-                LatticeConstants { a: 4.94e-8, c: 0.0, amsc: 207.0, scoh: 1.0 / natom }
-            }
+            CoherentLattice::Lead => LatticeConstants {
+                a: 4.94e-8,
+                c: 0.0,
+                amsc: 207.0,
+                scoh: 1.0 / natom,
+            },
             // iron: fe1,fe3,fe4 (2526–2528)
-            CoherentLattice::Iron => {
-                LatticeConstants { a: 2.86e-8, c: 0.0, amsc: 55.454, scoh: 12.9 / natom }
-            }
+            CoherentLattice::Iron => LatticeConstants {
+                a: 2.86e-8,
+                c: 0.0,
+                amsc: 55.454,
+                scoh: 12.9 / natom,
+            },
         }
     }
 }
@@ -162,7 +180,9 @@ fn formf(lat: CoherentLattice, l1: i64, l2: i64, l3: i64) -> f64 {
                 (6.0 + 10.0 * (2.0 * PI * (f1 - f2) / 3.0).cos()) / 4.0
             }
         }
-        CoherentLattice::Beryllium => 1.0 + (2.0 * PI * (2.0 * f1 + 4.0 * f2 + 3.0 * f3) / 6.0).cos(),
+        CoherentLattice::Beryllium => {
+            1.0 + (2.0 * PI * (2.0 * f1 + 4.0 * f2 + 3.0 * f3) / 6.0).cos()
+        }
         CoherentLattice::BerylliumOxide => {
             (1.0 + (2.0 * PI * (2.0 * f1 + 4.0 * f2 + 3.0 * f3) / 6.0).cos())
                 * (C1 + C2 + C3 * (3.0 * PI * f3 / 4.0).cos())
@@ -222,7 +242,12 @@ pub fn coher(lat: CoherentLattice, natom: usize, emax_ev: f64) -> BraggEdges {
     const SQRT3: f64 = 1.732_050_808;
     const TOLER: f64 = 1.0e-6;
 
-    let LatticeConstants { a, c, amsc: _amsc, scoh } = lat.constants(natom as f64);
+    let LatticeConstants {
+        a,
+        c,
+        amsc: _amsc,
+        scoh,
+    } = lat.constants(natom as f64);
 
     // energy <-> tau^2 conversion factors (2541–2545).
     let twopis = (2.0 * PI).powi(2);
@@ -244,10 +269,18 @@ pub fn coher(lat: CoherentLattice, natom: usize, emax_ev: f64) -> BraggEdges {
             scoh * (4.0 * PI).powi(2) / (2.0 * a * a * c * SQRT3 * econ),
         )
     } else if is_fcc {
-        (3.0 / (a * a), 0.0, scoh * (4.0 * PI).powi(2) / (16.0 * a * a * a * econ))
+        (
+            3.0 / (a * a),
+            0.0,
+            scoh * (4.0 * PI).powi(2) / (16.0 * a * a * a * econ),
+        )
     } else {
         // iron (bcc)
-        (2.0 / (a * a), 0.0, scoh * (4.0 * PI).powi(2) / (8.0 * a * a * a * econ))
+        (
+            2.0 / (a * a),
+            0.0,
+            scoh * (4.0 * PI).powi(2) / (8.0 * a * a * a * econ),
+        )
     };
 
     let ulim = econ * emax_ev;
@@ -266,7 +299,11 @@ pub fn coher(lat: CoherentLattice, natom: usize, emax_ev: f64) -> BraggEdges {
             for i2 in i1..=i2m {
                 let l2 = i2 - 1;
                 let x = phi - c1 * ((l1 * l1 + l2 * l2 - l1 * l2) as f64);
-                let i3m = if x > 0.0 { (c * x.sqrt()) as i64 + 1 } else { 1 };
+                let i3m = if x > 0.0 {
+                    (c * x.sqrt()) as i64 + 1
+                } else {
+                    1
+                };
                 for i3 in 1..=i3m {
                     let l3 = i3 - 1;
                     // symmetry weights (2617–2623)
@@ -348,14 +385,20 @@ mod tests {
     #[test]
     fn graphite_edges_are_monotone_and_nonnegative() {
         let br = coher(CoherentLattice::Graphite, 1, 5.0);
-        assert!(br.edges.len() > 10, "graphite has many Bragg edges below 5 eV");
+        assert!(
+            br.edges.len() > 10,
+            "graphite has many Bragg edges below 5 eV"
+        );
         // energies strictly ascending after the merge
         assert!(
             br.edges.windows(2).all(|w| w[1].0 > w[0].0),
             "Bragg edge energies strictly ascending"
         );
         // structure factors non-negative
-        assert!(br.edges.iter().all(|&(_, s)| s >= 0.0), "structure factors >= 0");
+        assert!(
+            br.edges.iter().all(|&(_, s)| s >= 0.0),
+            "structure factors >= 0"
+        );
         // Forbidden reflections (e.g. graphite (001), form factor 0) legitimately
         // remain in the grid with zero structure factor — NJOY keeps them.
         assert!(
@@ -387,7 +430,10 @@ mod tests {
                 br.edges.windows(2).all(|w| w[1].0 >= w[0].0),
                 "{lat:?} edge energies ascending"
             );
-            assert!(br.edges.iter().all(|&(_, s)| s >= 0.0), "{lat:?} structure factors >= 0");
+            assert!(
+                br.edges.iter().all(|&(_, s)| s >= 0.0),
+                "{lat:?} structure factors >= 0"
+            );
             // final synthetic edge sits at emax after unit conversion
             let last_e = br.edges.last().unwrap().0;
             assert!(last_e <= 5.0 + 1e-6, "{lat:?} last edge <= emax");

@@ -93,14 +93,22 @@ impl DtfTable {
     /// (`dtfr.f90:284-292`).
     pub fn new(ng: i32, itabl: i32) -> Self {
         let n = (ng.max(0) * itabl.max(0)) as usize;
-        Self { ng, itabl, sig: vec![0.0; n] }
+        Self {
+            ng,
+            itabl,
+            sig: vec![0.0; n],
+        }
     }
 
     /// 0-based linear index of `(jpos, jg)`: `(jpos-1) + itabl*(jg-1)`
     /// (`dtfr.f90:345-346`, `locs = jpos + itabl*(jg-1)`, less the Fortran 1
     /// base). Panics if either index is out of range.
     pub fn linear_index(&self, jpos: i32, jg: i32) -> usize {
-        assert!(jpos >= 1 && jpos <= self.itabl, "jpos {jpos} out of 1..={}", self.itabl);
+        assert!(
+            jpos >= 1 && jpos <= self.itabl,
+            "jpos {jpos} out of 1..={}",
+            self.itabl
+        );
         assert!(jg >= 1 && jg <= self.ng, "jg {jg} out of 1..={}", self.ng);
         ((jpos - 1) + self.itabl * (jg - 1)) as usize
     }

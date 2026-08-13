@@ -134,7 +134,12 @@ pub fn prsv2_alpha(comp: &Component, kappa1: f64, kappa2: f64, kappa3: f64, t: f
 pub fn prsv2_a_i(comp: &Component, kappa1: f64, kappa2: f64, kappa3: f64, t: f64) -> f64 {
     let tc = comp.critical_temperature;
     let pc = comp.critical_pressure;
-    CubicEos::PengRobinson.omega_a() * prsv2_alpha(comp, kappa1, kappa2, kappa3, t) * R * R * tc * tc
+    CubicEos::PengRobinson.omega_a()
+        * prsv2_alpha(comp, kappa1, kappa2, kappa3, t)
+        * R
+        * R
+        * tc
+        * tc
         / pc
 }
 
@@ -408,7 +413,13 @@ fn departure_parts(
 /// **Physical range.** Valid over roughly `0.5 Tc ≲ T < Tc`; far below `Tc` the
 /// cubic's liquid root can be tiny and the successive substitution slow.
 #[must_use]
-pub fn vapor_pressure(comp: &Component, kappa1: f64, kappa2: f64, kappa3: f64, t: f64) -> Option<f64> {
+pub fn vapor_pressure(
+    comp: &Component,
+    kappa1: f64,
+    kappa2: f64,
+    kappa3: f64,
+    t: f64,
+) -> Option<f64> {
     let tc = comp.critical_temperature;
     let pc = comp.critical_pressure;
     if t >= tc {

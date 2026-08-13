@@ -106,22 +106,24 @@ impl GeometryPreset {
     /// approximation.
     pub fn blurb(&self) -> &'static str {
         match self {
-            GeometryPreset::PebbleBed =>
+            GeometryPreset::PebbleBed => {
                 "HEU-metal fuel kernels (r=0.04cm) RSA-packed to pf=0.30 in an \
                  H-1 matrix, reflective 1cm cube. Driver: delta (Woodcock) \
                  tracking. Stand-in: this crate has no graphite/carbon nuclide \
                  + S(a,b) yet (see outram-mc-libs CLAUDE.md scope), so the \
                  matrix is hydrogenous, not graphite. No spectrum overlay \
-                 (delta-tracking driver has no tally hook yet).",
-            GeometryPreset::LwrCell =>
+                 (delta-tracking driver has no tally hook yet)."
+            }
+            GeometryPreset::LwrCell => {
                 "UO2 fuel pin / void gap / natural-Zr clad / light-water \
                  moderator, 1.26cm square reflective pitch (openmc `pincell` \
                  notebook geometry). Driver: general CSG (run_keff_csg). \
                  Approximation: free-gas H (no bound-atom S(a,b) - this needs \
                  an external ENDF/B-VIII.0 tsl-HinH2O.endf file not present in \
                  this offline environment), so the spectrum thermalizes only \
-                 approximately. Spectrum overlay available.",
-            GeometryPreset::TmsrPebbleBed =>
+                 approximately. Spectrum overlay available."
+            }
+            GeometryPreset::TmsrPebbleBed => {
                 "Same HEU-kernel dispersion as the pebble bed, but the matrix \
                  is a FLiBe-like molten salt (Li-7/Be-9/F-19, the CORE \
                  library's LFTR nuclide package) instead of hydrogen - a \
@@ -129,15 +131,17 @@ impl GeometryPreset {
                  representative (rho=1.94 g/cm3 Li2BeF4, Li-7 only - natural Li \
                  is ~92.5% Li-7, Li-6's larger absorption is neglected). Driver: \
                  delta tracking. No spectrum overlay (same driver-hook gap as \
-                 the plain pebble bed).",
-            GeometryPreset::BareSphere(SphereVariant::Godiva) =>
+                 the plain pebble bed)."
+            }
+            GeometryPreset::BareSphere(SphereVariant::Godiva) => {
                 "Bare HEU-metal sphere (r=8.7407cm), HEU-MET-FAST-001-like atom \
                  densities from this crate's own Godiva verification tests. \
                  Driver: single-cell CSG sphere through run_keff_csg (same \
                  physics as the crate's dedicated run_keff bare-sphere driver, \
                  routed through the CSG path so the spectrum tally attaches). \
-                 Spectrum overlay available.",
-            GeometryPreset::BareSphere(SphereVariant::Jezebel) =>
+                 Spectrum overlay available."
+            }
+            GeometryPreset::BareSphere(SphereVariant::Jezebel) => {
                 "Bare Pu-metal sphere (r=6.3849cm), PU-MET-FAST-001-like Pu-239/ \
                  240/241 atom densities reproduced from commonly published \
                  reactor-physics literature values, NOT independently \
@@ -147,7 +151,8 @@ impl GeometryPreset {
                  is in njoy-outram-park-fork's EXTENDED nuclide set, not the \
                  embedded CORE library this preset reads from). Driver: \
                  single-cell CSG sphere through run_keff_csg. Spectrum \
-                 overlay available.",
+                 overlay available."
+            }
         }
     }
 
@@ -156,11 +161,21 @@ impl GeometryPreset {
     /// text is available via the card's "info" expansion.
     pub fn summary(&self) -> &'static str {
         match self {
-            GeometryPreset::PebbleBed => "RSA-packed HEU kernels in H matrix, reflective cube. Delta tracking.",
-            GeometryPreset::LwrCell => "UO2/Zr/water pin cell, reflective pitch (openmc `pincell`). CSG + spectrum.",
-            GeometryPreset::TmsrPebbleBed => "Same kernels in a FLiBe-like salt matrix. Delta tracking.",
-            GeometryPreset::BareSphere(SphereVariant::Godiva) => "Bare HEU sphere r=8.74cm. CSG + spectrum.",
-            GeometryPreset::BareSphere(SphereVariant::Jezebel) => "Bare Pu sphere r=6.38cm. CSG + spectrum.",
+            GeometryPreset::PebbleBed => {
+                "RSA-packed HEU kernels in H matrix, reflective cube. Delta tracking."
+            }
+            GeometryPreset::LwrCell => {
+                "UO2/Zr/water pin cell, reflective pitch (openmc `pincell`). CSG + spectrum."
+            }
+            GeometryPreset::TmsrPebbleBed => {
+                "Same kernels in a FLiBe-like salt matrix. Delta tracking."
+            }
+            GeometryPreset::BareSphere(SphereVariant::Godiva) => {
+                "Bare HEU sphere r=8.74cm. CSG + spectrum."
+            }
+            GeometryPreset::BareSphere(SphereVariant::Jezebel) => {
+                "Bare Pu sphere r=6.38cm. CSG + spectrum."
+            }
         }
     }
 
@@ -168,15 +183,22 @@ impl GeometryPreset {
     /// the spectrum-overlay screen (op-iom) has real data to show. `false` for
     /// the two delta-tracking (pebble-bed) presets — see the module docs.
     pub fn supports_spectrum(&self) -> bool {
-        matches!(self, GeometryPreset::LwrCell | GeometryPreset::BareSphere(_))
+        matches!(
+            self,
+            GeometryPreset::LwrCell | GeometryPreset::BareSphere(_)
+        )
     }
 
     /// Cycle to the next preset in [`ALL_PRESETS`] order, wrapping — used for
     /// keyboard left/right navigation on the geometry picker. Touch users tap a
     /// card directly instead.
     pub fn next(self) -> Self {
-        let names_match = |a: &Self, b: &Self| std::mem::discriminant(a) == std::mem::discriminant(b);
-        let i = ALL_PRESETS.iter().position(|p| names_match(p, &self)).unwrap_or(0);
+        let names_match =
+            |a: &Self, b: &Self| std::mem::discriminant(a) == std::mem::discriminant(b);
+        let i = ALL_PRESETS
+            .iter()
+            .position(|p| names_match(p, &self))
+            .unwrap_or(0);
         ALL_PRESETS[(i + 1) % ALL_PRESETS.len()]
     }
 
@@ -184,8 +206,12 @@ impl GeometryPreset {
     /// preset. Used by the geometry picker's "switch isotope" tap target.
     pub fn toggle_sphere_variant(self) -> Self {
         match self {
-            GeometryPreset::BareSphere(SphereVariant::Godiva) => GeometryPreset::BareSphere(SphereVariant::Jezebel),
-            GeometryPreset::BareSphere(SphereVariant::Jezebel) => GeometryPreset::BareSphere(SphereVariant::Godiva),
+            GeometryPreset::BareSphere(SphereVariant::Godiva) => {
+                GeometryPreset::BareSphere(SphereVariant::Jezebel)
+            }
+            GeometryPreset::BareSphere(SphereVariant::Jezebel) => {
+                GeometryPreset::BareSphere(SphereVariant::Godiva)
+            }
             other => other,
         }
     }
@@ -196,7 +222,12 @@ impl GeometryPreset {
 /// [`crate::transport::run_case`].
 pub enum BuiltCase {
     /// General CSG geometry, run through `run_keff_csg` (tally-capable).
-    Csg { geom: Geometry, materials: Vec<Material>, nuclides: Vec<Nuclide>, source: SourceBox },
+    Csg {
+        geom: Geometry,
+        materials: Vec<Material>,
+        nuclides: Vec<Nuclide>,
+        source: SourceBox,
+    },
     /// Doubly-heterogeneous random-packed medium, run through `run_keff_delta`
     /// (no tally hook in this crate version).
     Delta {
@@ -254,9 +285,18 @@ fn build_bare_sphere(variant: SphereVariant) -> Result<BuiltCase, String> {
         SphereVariant::Godiva => {
             let nuclides = vec![nuc("U234")?, nuc("U235")?, nuc("U238")?];
             let components = vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
-                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.9184e-4,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 4.4994e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 2,
+                    atom_density: 2.4984e-3,
+                },
             ];
             (8.7407_f64, nuclides, components)
         }
@@ -269,27 +309,72 @@ fn build_bare_sphere(variant: SphereVariant) -> Result<BuiltCase, String> {
             // oversight: unalloyed Pu-239/240/241 metal, no Ga.
             let nuclides = vec![nuc("Pu239")?, nuc("Pu240")?, nuc("Pu241")?];
             let components = vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 3.7047e-2 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 1.7512e-3 },
-                NuclideComponent { nuclide_idx: 2, atom_density: 1.1674e-4 },
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 3.7047e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 1.7512e-3,
+                },
+                NuclideComponent {
+                    nuclide_idx: 2,
+                    atom_density: 1.1674e-4,
+                },
             ];
             (6.3849_f64, nuclides, components)
         }
     };
-    let material = Material { id: 1, name: variant_name(variant).into(), temperature: 293.6, components };
+    let material = Material {
+        id: 1,
+        name: variant_name(variant).into(),
+        temperature: 293.6,
+        components,
+    };
 
-    let surfaces = vec![SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: radius_cm, bc: BoundaryType::Vacuum })];
-    let cells = vec![Cell::material(1, vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }], 0, 293.6)];
-    let universes = vec![Universe { id: 0, cell_indices: vec![0] }];
-    let geom = Geometry { surfaces, cells, universes, lattices: vec![], root_universe: 0 };
+    let surfaces = vec![SurfaceKind::Sphere(Sphere {
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+        r: radius_cm,
+        bc: BoundaryType::Vacuum,
+    })];
+    let cells = vec![Cell::material(
+        1,
+        vec![RegionToken::HalfSpace {
+            surface_idx: 0,
+            sense: HalfSpaceSense::Inside,
+        }],
+        0,
+        293.6,
+    )];
+    let universes = vec![Universe {
+        id: 0,
+        cell_indices: vec![0],
+    }];
+    let geom = Geometry {
+        surfaces,
+        cells,
+        universes,
+        lattices: vec![],
+        root_universe: 0,
+    };
 
     // Source box: a cube inscribed inside the sphere (half-diagonal < r), so
     // every rejection-sampled point in run_keff_csg's initial source lands
     // inside the one fissile cell without wasted rejections.
     let half = radius_cm / 2.0;
-    let source = SourceBox { lower: Position::new(-half, -half, -half), upper: Position::new(half, half, half) };
+    let source = SourceBox {
+        lower: Position::new(-half, -half, -half),
+        upper: Position::new(half, half, half),
+    };
 
-    Ok(BuiltCase::Csg { geom, materials: vec![material], nuclides, source })
+    Ok(BuiltCase::Csg {
+        geom,
+        materials: vec![material],
+        nuclides,
+        source,
+    })
 }
 
 fn variant_name(v: SphereVariant) -> &'static str {
@@ -320,26 +405,49 @@ fn build_lwr_cell() -> Result<BuiltCase, String> {
         name: "UO2".into(),
         temperature: 293.6,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 0.03 * n_uo2 },
-            NuclideComponent { nuclide_idx: 1, atom_density: 0.97 * n_uo2 },
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.0 * n_uo2 },
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 0.03 * n_uo2,
+            },
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 0.97 * n_uo2,
+            },
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.0 * n_uo2,
+            },
         ],
     };
     let n_zr = 0.043572; // rho=6.6 g/cm3, M=91.22 g/mol natural Zr.
     let zr_components: Vec<NuclideComponent> = ZR_ISOTOPES
         .iter()
         .enumerate()
-        .map(|(i, (_, frac))| NuclideComponent { nuclide_idx: 3 + i, atom_density: frac * n_zr })
+        .map(|(i, (_, frac))| NuclideComponent {
+            nuclide_idx: 3 + i,
+            atom_density: frac * n_zr,
+        })
         .collect();
-    let zirc = Material { id: 2, name: "Zircaloy".into(), temperature: 293.6, components: zr_components };
+    let zirc = Material {
+        id: 2,
+        name: "Zircaloy".into(),
+        temperature: 293.6,
+        components: zr_components,
+    };
     let n_h2o = 0.033427; // rho=1.0 g/cm3, M=18.015 g/mol H2O.
     let water = Material {
         id: 3,
         name: "water (free-gas H, no S(a,b))".into(),
         temperature: 293.6,
         components: vec![
-            NuclideComponent { nuclide_idx: 8, atom_density: 2.0 * n_h2o },
-            NuclideComponent { nuclide_idx: 2, atom_density: n_h2o },
+            NuclideComponent {
+                nuclide_idx: 8,
+                atom_density: 2.0 * n_h2o,
+            },
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: n_h2o,
+            },
         ],
     };
     let materials = vec![uo2, zirc, water];
@@ -347,20 +455,61 @@ fn build_lwr_cell() -> Result<BuiltCase, String> {
     const T: f64 = 293.6;
     let half = 0.63;
     let surfaces = vec![
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: 0.39, bc: BoundaryType::Transmissive }),
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: 0.40, bc: BoundaryType::Transmissive }),
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: 0.46, bc: BoundaryType::Transmissive }),
-        SurfaceKind::XPlane(XPlane { x0: -half, bc: BoundaryType::Reflective }),
-        SurfaceKind::XPlane(XPlane { x0: half, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: -half, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: half, bc: BoundaryType::Reflective }),
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: 0.39,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: 0.40,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: 0.46,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: -half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: -half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: half,
+            bc: BoundaryType::Reflective,
+        }),
     ];
-    let fuel = Cell::material(1, vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }], 0, T);
+    let fuel = Cell::material(
+        1,
+        vec![RegionToken::HalfSpace {
+            surface_idx: 0,
+            sense: HalfSpaceSense::Inside,
+        }],
+        0,
+        T,
+    );
     let gap = Cell {
         id: 2,
         region: vec![
-            RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside },
-            RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Inside },
+            RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Outside,
+            },
+            RegionToken::HalfSpace {
+                surface_idx: 1,
+                sense: HalfSpaceSense::Inside,
+            },
             RegionToken::Intersection,
         ],
         fill: outram_mc_libs::geometry::cell::CellFill::Void,
@@ -370,8 +519,14 @@ fn build_lwr_cell() -> Result<BuiltCase, String> {
     let clad = Cell::material(
         3,
         vec![
-            RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Outside },
-            RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Inside },
+            RegionToken::HalfSpace {
+                surface_idx: 1,
+                sense: HalfSpaceSense::Outside,
+            },
+            RegionToken::HalfSpace {
+                surface_idx: 2,
+                sense: HalfSpaceSense::Inside,
+            },
             RegionToken::Intersection,
         ],
         1,
@@ -380,14 +535,29 @@ fn build_lwr_cell() -> Result<BuiltCase, String> {
     let water_cell = Cell::material(
         4,
         vec![
-            RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Outside },
-            RegionToken::HalfSpace { surface_idx: 3, sense: HalfSpaceSense::Outside },
+            RegionToken::HalfSpace {
+                surface_idx: 2,
+                sense: HalfSpaceSense::Outside,
+            },
+            RegionToken::HalfSpace {
+                surface_idx: 3,
+                sense: HalfSpaceSense::Outside,
+            },
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 4, sense: HalfSpaceSense::Inside },
+            RegionToken::HalfSpace {
+                surface_idx: 4,
+                sense: HalfSpaceSense::Inside,
+            },
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 5, sense: HalfSpaceSense::Outside },
+            RegionToken::HalfSpace {
+                surface_idx: 5,
+                sense: HalfSpaceSense::Outside,
+            },
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 6, sense: HalfSpaceSense::Inside },
+            RegionToken::HalfSpace {
+                surface_idx: 6,
+                sense: HalfSpaceSense::Inside,
+            },
             RegionToken::Intersection,
         ],
         2,
@@ -396,13 +566,24 @@ fn build_lwr_cell() -> Result<BuiltCase, String> {
     let geom = Geometry {
         surfaces,
         cells: vec![fuel, gap, clad, water_cell],
-        universes: vec![Universe { id: 0, cell_indices: vec![0, 1, 2, 3] }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0, 1, 2, 3],
+        }],
         lattices: vec![],
         root_universe: 0,
     };
-    let source = SourceBox { lower: Position::new(-0.39, -0.39, -1.0), upper: Position::new(0.39, 0.39, 1.0) };
+    let source = SourceBox {
+        lower: Position::new(-0.39, -0.39, -1.0),
+        upper: Position::new(0.39, 0.39, 1.0),
+    };
 
-    Ok(BuiltCase::Csg { geom, materials, nuclides, source })
+    Ok(BuiltCase::Csg {
+        geom,
+        materials,
+        nuclides,
+        source,
+    })
 }
 
 /// Doubly-heterogeneous randomly-packed fissile-kernel medium in a reflective
@@ -417,9 +598,18 @@ fn build_pebble_bed(tmsr: bool) -> Result<BuiltCase, String> {
 
     let mut nuclides = vec![nuc("U234")?, nuc("U235")?, nuc("U238")?];
     let fuel_components = vec![
-        NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
-        NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
-        NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+        NuclideComponent {
+            nuclide_idx: 0,
+            atom_density: 4.9184e-4,
+        },
+        NuclideComponent {
+            nuclide_idx: 1,
+            atom_density: 4.4994e-2,
+        },
+        NuclideComponent {
+            nuclide_idx: 2,
+            atom_density: 2.4984e-3,
+        },
     ];
 
     let (matrix_name, matrix_components) = if tmsr {
@@ -434,19 +624,44 @@ fn build_pebble_bed(tmsr: bool) -> Result<BuiltCase, String> {
         (
             "FLiBe-like salt (Li-7 only)",
             vec![
-                NuclideComponent { nuclide_idx: 3, atom_density: 2.0 * n_formula },
-                NuclideComponent { nuclide_idx: 4, atom_density: 1.0 * n_formula },
-                NuclideComponent { nuclide_idx: 5, atom_density: 4.0 * n_formula },
+                NuclideComponent {
+                    nuclide_idx: 3,
+                    atom_density: 2.0 * n_formula,
+                },
+                NuclideComponent {
+                    nuclide_idx: 4,
+                    atom_density: 1.0 * n_formula,
+                },
+                NuclideComponent {
+                    nuclide_idx: 5,
+                    atom_density: 4.0 * n_formula,
+                },
             ],
         )
     } else {
         nuclides.push(nuc("H1")?);
-        ("H matrix", vec![NuclideComponent { nuclide_idx: 3, atom_density: 4.0e-2 }])
+        (
+            "H matrix",
+            vec![NuclideComponent {
+                nuclide_idx: 3,
+                atom_density: 4.0e-2,
+            }],
+        )
     };
 
     let materials = vec![
-        Material { id: 1, name: "HEU kernel".into(), temperature: 293.6, components: fuel_components },
-        Material { id: 2, name: matrix_name.into(), temperature: 293.6, components: matrix_components },
+        Material {
+            id: 1,
+            name: "HEU kernel".into(),
+            temperature: 293.6,
+            components: fuel_components,
+        },
+        Material {
+            id: 2,
+            name: matrix_name.into(),
+            temperature: 293.6,
+            components: matrix_components,
+        },
     ];
 
     let packed = PackedSpheres::pack(radius, half, pf, seed)

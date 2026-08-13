@@ -47,11 +47,7 @@ impl Communicator {
     /// # Errors
     /// [`MpiError::InvalidArgument`] if `dims` and `periods` differ in length, a
     /// dimension is `<= 0`, or the grid needs more ranks than the communicator has.
-    pub fn cart_create(
-        &self,
-        dims: &[i32],
-        periods: &[bool],
-    ) -> MpiResult<Option<CartesianComm>> {
+    pub fn cart_create(&self, dims: &[i32], periods: &[bool]) -> MpiResult<Option<CartesianComm>> {
         if dims.len() != periods.len() {
             return Err(MpiError::InvalidArgument(format!(
                 "cart_create: dims (len {}) and periods (len {}) must match",

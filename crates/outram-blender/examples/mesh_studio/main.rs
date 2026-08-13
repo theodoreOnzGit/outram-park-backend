@@ -210,9 +210,11 @@ mod app {
                 ui.separator();
             });
 
-            egui::Panel::right("ms_controls").min_size(350.0).show_inside(ui, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| self.controls_ui(ui, running));
-            });
+            egui::Panel::right("ms_controls")
+                .min_size(350.0)
+                .show_inside(ui, |ui| {
+                    egui::ScrollArea::vertical().show(ui, |ui| self.controls_ui(ui, running));
+                });
 
             egui::CentralPanel::default().show_inside(ui, |ui| self.center_ui(ui, running));
 
@@ -235,13 +237,21 @@ mod app {
             }
             match self.p.kind {
                 GeomKind::Cylinder => {
-                    ui.add(egui::Slider::new(&mut self.p.cyl_radius, 0.5..=10.0).text("radius [m]"));
-                    ui.add(egui::Slider::new(&mut self.p.cyl_height, 0.5..=20.0).text("height [m]"));
+                    ui.add(
+                        egui::Slider::new(&mut self.p.cyl_radius, 0.5..=10.0).text("radius [m]"),
+                    );
+                    ui.add(
+                        egui::Slider::new(&mut self.p.cyl_height, 0.5..=20.0).text("height [m]"),
+                    );
                 }
                 GeomKind::Sphere => {
                     ui.add(egui::Slider::new(&mut self.p.size, 0.5..=10.0).text("radius [m]"));
-                    ui.add(egui::Slider::new(&mut self.p.sphere_lon, 6..=64).text("longitude segs"));
-                    ui.add(egui::Slider::new(&mut self.p.sphere_lat, 3..=32).text("latitude bands"));
+                    ui.add(
+                        egui::Slider::new(&mut self.p.sphere_lon, 6..=64).text("longitude segs"),
+                    );
+                    ui.add(
+                        egui::Slider::new(&mut self.p.sphere_lat, 3..=32).text("latitude bands"),
+                    );
                 }
                 _ => {
                     ui.add(egui::Slider::new(&mut self.p.size, 0.5..=10.0).text("size [m]"));
@@ -258,19 +268,27 @@ mod app {
             ui.add_enabled_ui(o.dual, |ui| {
                 ui.checkbox(&mut o.dual_min_faces, "  face-minimal dual");
             });
-            ui.add(egui::Slider::new(&mut o.smooth_passes, 0..=5).text("Laplacian smoothing passes"));
+            ui.add(
+                egui::Slider::new(&mut o.smooth_passes, 0..=5).text("Laplacian smoothing passes"),
+            );
 
             ui.separator();
             ui.heading("Boundary layers");
             ui.add(egui::Slider::new(&mut o.n_layers, 0..=8).text("prism layers"));
             ui.add_enabled_ui(o.n_layers > 0, |ui| {
-                ui.add(egui::Slider::new(&mut o.first_layer_thickness, 0.005..=0.3).text("first thickness [m]"));
+                ui.add(
+                    egui::Slider::new(&mut o.first_layer_thickness, 0.005..=0.3)
+                        .text("first thickness [m]"),
+                );
                 ui.add(egui::Slider::new(&mut o.expansion, 1.0..=2.0).text("expansion ratio"));
             });
 
             ui.separator();
             ui.add_enabled_ui(!running, |ui| {
-                if ui.add(egui::Button::new("⚙  Generate mesh").min_size(egui::vec2(150.0, 32.0))).clicked() {
+                if ui
+                    .add(egui::Button::new("⚙  Generate mesh").min_size(egui::vec2(150.0, 32.0)))
+                    .clicked()
+                {
                     self.launch_build();
                 }
             });
@@ -305,7 +323,8 @@ mod app {
         fn center_ui(&mut self, ui: &mut egui::Ui, running: bool) {
             let avail = ui.available_size();
             let view_h = (avail.y * 0.6).max(240.0);
-            let (rect, response) = ui.allocate_exact_size(egui::vec2(avail.x, view_h), egui::Sense::drag());
+            let (rect, response) =
+                ui.allocate_exact_size(egui::vec2(avail.x, view_h), egui::Sense::drag());
             if response.dragged() {
                 let d = response.drag_delta();
                 self.yaw += d.x * 0.01;
@@ -324,32 +343,41 @@ mod app {
                     }
                 }
                 Some(Err(e)) => {
-                    ui.colored_label(egui::Color32::from_rgb(220, 80, 80), format!("Mesh generation failed: {e}"));
+                    ui.colored_label(
+                        egui::Color32::from_rgb(220, 80, 80),
+                        format!("Mesh generation failed: {e}"),
+                    );
                 }
                 Some(Ok(b)) => {
                     let r = &b.report;
                     ui.heading(format!("{} cells", r.cell_count));
-                    egui::Grid::new("stats").num_columns(2).striped(true).show(ui, |ui| {
-                        ui.label("valid (closed, in-range)");
-                        ui.label(if r.valid { "✔ yes" } else { "✘ no" });
-                        ui.end_row();
-                        ui.label("total volume [m³]");
-                        ui.label(format!("{:.5}", r.total_volume));
-                        ui.end_row();
-                        ui.label("max non-orthogonality [°]");
-                        ui.label(format!("{:.1}", r.max_non_orthogonality_deg));
-                        ui.end_row();
-                        ui.label("max skewness");
-                        ui.label(format!("{:.3}", r.max_skewness));
-                        ui.end_row();
-                        ui.label("negative-volume cells");
-                        ui.label(format!("{}", r.n_negative_volume_cells));
-                        ui.end_row();
-                    });
+                    egui::Grid::new("stats")
+                        .num_columns(2)
+                        .striped(true)
+                        .show(ui, |ui| {
+                            ui.label("valid (closed, in-range)");
+                            ui.label(if r.valid { "✔ yes" } else { "✘ no" });
+                            ui.end_row();
+                            ui.label("total volume [m³]");
+                            ui.label(format!("{:.5}", r.total_volume));
+                            ui.end_row();
+                            ui.label("max non-orthogonality [°]");
+                            ui.label(format!("{:.1}", r.max_non_orthogonality_deg));
+                            ui.end_row();
+                            ui.label("max skewness");
+                            ui.label(format!("{:.3}", r.max_skewness));
+                            ui.end_row();
+                            ui.label("negative-volume cells");
+                            ui.label(format!("{}", r.n_negative_volume_cells));
+                            ui.end_row();
+                        });
 
                     if r.valid && r.n_negative_volume_cells == 0 {
                         if r.max_non_orthogonality_deg < 70.0 {
-                            ui.colored_label(egui::Color32::from_rgb(90, 200, 120), "✔ valid · within checkMesh non-orthogonality warning");
+                            ui.colored_label(
+                                egui::Color32::from_rgb(90, 200, 120),
+                                "✔ valid · within checkMesh non-orthogonality warning",
+                            );
                         } else {
                             // Near-wall prism layers are intrinsically non-orthogonal;
                             // exceeding checkMesh's 70° warning is expected and is
@@ -360,7 +388,10 @@ mod app {
                             );
                         }
                     } else {
-                        ui.colored_label(egui::Color32::from_rgb(230, 170, 60), "⚠ mesh below acceptance thresholds");
+                        ui.colored_label(
+                            egui::Color32::from_rgb(230, 170, 60),
+                            "⚠ mesh below acceptance thresholds",
+                        );
                     }
 
                     // Stage-degradation notes — the whole point of showing the
@@ -370,7 +401,10 @@ mod app {
                     } else {
                         ui.label("pipeline stage notes:");
                         for n in &r.stage_notes {
-                            ui.colored_label(egui::Color32::from_rgb(230, 170, 60), format!("• {n}"));
+                            ui.colored_label(
+                                egui::Color32::from_rgb(230, 170, 60),
+                                format!("• {n}"),
+                            );
                         }
                     }
                 }
@@ -394,10 +428,12 @@ mod app {
             }
             let span = (hi - lo).max(egui::vec2(1e-3, 1e-3));
             let margin = 24.0;
-            let scale = ((rect.width() - 2.0 * margin) / span.x).min((rect.height() - 2.0 * margin) / span.y);
+            let scale = ((rect.width() - 2.0 * margin) / span.x)
+                .min((rect.height() - 2.0 * margin) / span.y);
             let center = rect.center();
             let mid = (lo + hi) * 0.5;
-            let to_screen = |v: egui::Vec2| center + egui::vec2((v.x - mid.x) * scale, -(v.y - mid.y) * scale);
+            let to_screen =
+                |v: egui::Vec2| center + egui::vec2((v.x - mid.x) * scale, -(v.y - mid.y) * scale);
             let stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(120, 200, 160));
             // Only boundary faces (neighbour == None) — the visible surface.
             for f in 0..m.face_count() {

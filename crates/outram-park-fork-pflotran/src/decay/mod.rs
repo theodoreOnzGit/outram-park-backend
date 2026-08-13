@@ -699,9 +699,11 @@ mod tests {
 
     #[test]
     fn constructor_rejects_branchings_over_one() {
-        let err =
-            DecayChain::new(vec![nuc("A", 1.0, vec![(1, 0.7), (1, 0.5)]), nuc("B", 1.0, vec![])])
-                .unwrap_err();
+        let err = DecayChain::new(vec![
+            nuc("A", 1.0, vec![(1, 0.7), (1, 0.5)]),
+            nuc("B", 1.0, vec![]),
+        ])
+        .unwrap_err();
         assert!(matches!(err, PflotranError::InvalidInput(_)));
         // Out-of-range single fraction.
         assert!(DecayChain::new(vec![nuc("A", 1.0, vec![(0, 1.5)])]).is_err());

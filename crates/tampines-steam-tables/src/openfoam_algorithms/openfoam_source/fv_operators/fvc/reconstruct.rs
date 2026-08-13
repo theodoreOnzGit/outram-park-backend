@@ -36,9 +36,21 @@ fn pseudo_inv_mv(m: Tensor, rhs: Vector3) -> Vector3 {
     } else {
         // Degenerate: each non-zero diagonal component is solved independently.
         Vector3::new(
-            if m.xx.abs() > 1e-20 { rhs.x / m.xx } else { 0.0 },
-            if m.yy.abs() > 1e-20 { rhs.y / m.yy } else { 0.0 },
-            if m.zz.abs() > 1e-20 { rhs.z / m.zz } else { 0.0 },
+            if m.xx.abs() > 1e-20 {
+                rhs.x / m.xx
+            } else {
+                0.0
+            },
+            if m.yy.abs() > 1e-20 {
+                rhs.y / m.yy
+            } else {
+                0.0
+            },
+            if m.zz.abs() > 1e-20 {
+                rhs.z / m.zz
+            } else {
+                0.0
+            },
         )
     }
 }
@@ -67,35 +79,37 @@ pub fn reconstruct(phi: &SurfaceScalarField) -> VolVectorField {
 
     // Accumulate per-cell: rhs = Σ phi·Sf,  M = Σ Sf⊗Sf
     let mut rhs = vec![Vector3::ZERO; n];
-    let mut m   = vec![Tensor::ZERO; n];
+    let mut m = vec![Tensor::ZERO; n];
 
     // For each internal face f with flux phi[f] (positive = outward from owner):
     //   owner  sees outward-flux  = +phi[f],  outward-normal = +Sf → +phi[f]*Sf
     //   neighbour sees outward-flux = -phi[f], outward-normal = -Sf → (-phi)*(-Sf) = +phi[f]*Sf
     // Both add the SAME signed contribution, so no minus sign for neighbour.
     for f in 0..mesh.n_internal_faces {
-        let o  = mesh.owner[f];
+        let o = mesh.owner[f];
         let nb = mesh.neighbour[f];
         let sf = mesh.face_area_vectors[f];
-        let sf_sf = sf * sf;   // outer product Sf⊗Sf (Vector3 * Vector3 → Tensor)
+        let sf_sf = sf * sf; // outer product Sf⊗Sf (Vector3 * Vector3 → Tensor)
 
-        rhs[o]  = rhs[o]  + sf * phi.internal[f];
+        rhs[o] = rhs[o] + sf * phi.internal[f];
         rhs[nb] = rhs[nb] + sf * phi.internal[f];
-        m[o]    = m[o]  + sf_sf;
-        m[nb]   = m[nb] + sf_sf;
+        m[o] = m[o] + sf_sf;
+        m[nb] = m[nb] + sf_sf;
     }
 
     for (pi, patch) in mesh.patches.iter().enumerate() {
         for fi in 0..patch.size {
-            let gf    = patch.start + fi;
+            let gf = patch.start + fi;
             let owner = mesh.owner[gf];
-            let sf    = mesh.face_area_vectors[gf];
+            let sf = mesh.face_area_vectors[gf];
             rhs[owner] = rhs[owner] + sf * phi.boundary[pi].values[fi];
-            m[owner]   = m[owner]  + sf * sf;
+            m[owner] = m[owner] + sf * sf;
         }
     }
 
-    let boundary = mesh.patches.iter()
+    let boundary = mesh
+        .patches
+        .iter()
         .map(|p| PatchField::zero_gradient_vec(p.size))
         .collect();
 
@@ -112,33 +126,43 @@ mod tests {
     use super::*;
     use std::sync::Arc;
     use crate::openfoam_algorithms::openfoam_source::FvMesh;
-use crate::openfoam_algorithms::openfoam_source::boundary::bc::BoundaryCondition;
+    use crate::openfoam_algorithms::openfoam_source::boundary::bc::BoundaryCondition;
     use crate::openfoam_algorithms::openfoam_source::vol_field::VolVectorField;
-    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
+    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
+        BoundaryPatch, FvMeshBuilder, PatchKind,
+    };
     use crate::openfoam_algorithms::openfoam_source::fvc::flux;
     use approx::assert_relative_eq;
 
     fn unit_mesh() -> Arc<FvMesh> {
-        Arc::new(FvMeshBuilder::new()
-            .n_cells(2).n_internal_faces(1)
-            .owner(vec![0, 1, 0]).neighbour(vec![1])
-            .patches(vec![
-                BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
-                BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
-            ])
-            .cell_volumes(vec![1.0, 1.0])
-            .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
-            .face_area_vectors(vec![
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(-1.0, 0.0, 0.0),
-            ])
-            .face_centres(vec![
-                Vector3::new(0.5, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, 0.0, 0.0),
-            ])
-            .build().unwrap())
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![1.0, 1.0])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
     }
 
     #[test]
@@ -161,14 +185,16 @@ use crate::openfoam_algorithms::openfoam_source::boundary::bc::BoundaryCondition
         //   right bnd gf=1: phi = 2 (Sf=(1,0,0))
         //   left bnd gf=2: phi = -2 (Sf=(-1,0,0))
         let bnd = vec![
-            PatchField { bc: BoundaryCondition::FixedValue(2.0), values: Field::new(vec![2.0]) },
-            PatchField { bc: BoundaryCondition::FixedValue(-2.0), values: Field::new(vec![-2.0]) },
+            PatchField {
+                bc: BoundaryCondition::FixedValue(2.0),
+                values: Field::new(vec![2.0]),
+            },
+            PatchField {
+                bc: BoundaryCondition::FixedValue(-2.0),
+                values: Field::new(vec![-2.0]),
+            },
         ];
-        let phi = SurfaceScalarField::new(
-            "phi", m.clone(),
-            Field::new(vec![2.0]),
-            bnd,
-        );
+        let phi = SurfaceScalarField::new("phi", m.clone(), Field::new(vec![2.0]), bnd);
         let u = reconstruct(&phi);
         // Should recover U.x ≈ 2 for both cells
         assert_relative_eq!(u.internal[0].x, 2.0, epsilon = 1e-6);

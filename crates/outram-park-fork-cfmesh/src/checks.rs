@@ -133,7 +133,11 @@ pub fn check_quality(mesh: &VolumeMesh) -> QualityReport {
         max_non_orthogonality_deg: max_non_orth,
         max_skewness: max_skew,
         max_aspect_ratio: max_ar,
-        min_face_area: if min_face_area == f64::MAX { 0.0 } else { min_face_area },
+        min_face_area: if min_face_area == f64::MAX {
+            0.0
+        } else {
+            min_face_area
+        },
         min_cell_volume: if min_vol == f64::MAX { 0.0 } else { min_vol },
         n_negative_volume_cells: n_neg,
     }
@@ -178,7 +182,11 @@ fn cell_geometry(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
             csum = csum.add(pc.scale(pv));
         }
         vols[c] = v;
-        centres[c] = if v.abs() > 1e-30 { csum.scale(1.0 / v) } else { apex };
+        centres[c] = if v.abs() > 1e-30 {
+            csum.scale(1.0 / v)
+        } else {
+            apex
+        };
     }
     (vols, centres)
 }
@@ -198,9 +206,17 @@ mod tests {
     fn cartesian_cube_is_ideal() {
         let m = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [3, 3, 3]);
         let q = check_quality(&m);
-        assert!(q.max_non_orthogonality_deg < 1e-6, "orthogonal: {}", q.max_non_orthogonality_deg);
+        assert!(
+            q.max_non_orthogonality_deg < 1e-6,
+            "orthogonal: {}",
+            q.max_non_orthogonality_deg
+        );
         assert!(q.max_skewness < 1e-9, "no skew: {}", q.max_skewness);
-        assert!((q.max_aspect_ratio - 1.0).abs() < 1e-9, "cubic cells: AR {}", q.max_aspect_ratio);
+        assert!(
+            (q.max_aspect_ratio - 1.0).abs() < 1e-9,
+            "cubic cells: AR {}",
+            q.max_aspect_ratio
+        );
         assert_eq!(q.n_negative_volume_cells, 0);
         assert!((q.min_cell_volume - (1.0 / 27.0)).abs() < 1e-12);
         assert!(q.is_solvable());
@@ -213,7 +229,11 @@ mod tests {
     fn stretched_cell_has_high_aspect_ratio() {
         let m = cartesian_box(Vec3::ZERO, Vec3::new(10.0, 1.0, 1.0), [1, 1, 1]);
         let q = check_quality(&m);
-        assert!(q.max_aspect_ratio > 1.4, "stretched: AR {}", q.max_aspect_ratio);
+        assert!(
+            q.max_aspect_ratio > 1.4,
+            "stretched: AR {}",
+            q.max_aspect_ratio
+        );
         assert!(q.max_non_orthogonality_deg < 1e-6, "still orthogonal");
         assert_eq!(q.n_negative_volume_cells, 0);
     }
@@ -230,7 +250,10 @@ mod tests {
         let q = check_quality(&snapped);
         assert!(q.max_non_orthogonality_deg.is_finite() && q.max_skewness.is_finite());
         assert!(q.max_aspect_ratio.is_finite() && q.min_cell_volume.is_finite());
-        assert!(q.max_non_orthogonality_deg > 0.0, "snap introduces non-orthogonality");
+        assert!(
+            q.max_non_orthogonality_deg > 0.0,
+            "snap introduces non-orthogonality"
+        );
     }
 
     fn octahedron(r: f64) -> (Vec<Vec3>, Vec<[usize; 3]>) {
@@ -243,8 +266,14 @@ mod tests {
             Vec3::new(0.0, 0.0, -r),
         ];
         let t = vec![
-            [0, 2, 4], [2, 1, 4], [1, 3, 4], [3, 0, 4],
-            [0, 5, 2], [2, 5, 1], [1, 5, 3], [3, 5, 0],
+            [0, 2, 4],
+            [2, 1, 4],
+            [1, 3, 4],
+            [3, 0, 4],
+            [0, 5, 2],
+            [2, 5, 1],
+            [1, 5, 3],
+            [3, 5, 0],
         ];
         (v, t)
     }

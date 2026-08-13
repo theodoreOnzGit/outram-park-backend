@@ -49,11 +49,7 @@ const ERR_FLOOR: f64 = 1.0e-10;
 ///
 /// # Returns
 /// A fully lin-lin `(E, σ)` sequence with no duplicate energies, in ascending E.
-pub fn linearize_tab1(
-    interp: &[(u32, u32)],
-    pairs: &[(f64, f64)],
-    eps: f64,
-) -> Vec<(f64, f64)> {
+pub fn linearize_tab1(interp: &[(u32, u32)], pairs: &[(f64, f64)], eps: f64) -> Vec<(f64, f64)> {
     if pairs.len() < 2 {
         return pairs.to_vec();
     }
@@ -146,7 +142,7 @@ fn refine(
 fn midpoint_energy(e1: f64, e2: f64, law: IntLaw) -> f64 {
     match law {
         IntLaw::LinLog | IntLaw::LogLog => (e1 * e2).sqrt(), // geometric mean
-        _ => (e1 + e2) * 0.5,                                 // arithmetic mean
+        _ => (e1 + e2) * 0.5,                                // arithmetic mean
     }
 }
 
@@ -175,11 +171,18 @@ mod tests {
         let interp = vec![(2u32, 5u32)]; // log-log
         let pairs = vec![(1.0, 1.0), (100.0, 10000.0)];
         let out = linearize_tab1(&interp, &pairs, 0.001); // 0.1% tolerance
-        assert!(out.len() > 2, "log-log curve should add interior points, got {}", out.len());
+        assert!(
+            out.len() > 2,
+            "log-log curve should add interior points, got {}",
+            out.len()
+        );
         // Verify every interior point is a real value of y=x²
         for &(e, s) in &out {
             let expected = e * e;
-            assert!((s - expected).abs() / expected < 0.002, "at e={e}: s={s} expected={expected}");
+            assert!(
+                (s - expected).abs() / expected < 0.002,
+                "at e={e}: s={s} expected={expected}"
+            );
         }
     }
 
@@ -193,7 +196,11 @@ mod tests {
         let interp = vec![(2u32, 4u32)]; // log-lin
         let pairs = vec![(0.0_f64, 1.0_f64), (4.0, f64::exp(4.0))];
         let out = linearize_tab1(&interp, &pairs, 0.001);
-        assert!(out.len() > 2, "log-lin should add points, got {}", out.len());
+        assert!(
+            out.len() > 2,
+            "log-lin should add points, got {}",
+            out.len()
+        );
     }
 
     #[test]
@@ -204,7 +211,11 @@ mod tests {
         let interp = vec![(2u32, 3u32)]; // lin-log
         let pairs = vec![(1.0_f64, 0.0_f64), (100.0, f64::ln(100.0))];
         let out = linearize_tab1(&interp, &pairs, 0.001);
-        assert!(out.len() > 2, "lin-log should add points, got {}", out.len());
+        assert!(
+            out.len() > 2,
+            "lin-log should add points, got {}",
+            out.len()
+        );
     }
 
     #[test]
@@ -222,6 +233,6 @@ mod tests {
         let pairs = vec![(1e-5, 3.0), (2e7, 0.15)];
         let out = linearize_tab1(&interp, &pairs, 0.001);
         assert!((out.first().unwrap().0 - 1e-5).abs() < 1.0);
-        assert!((out.last().unwrap().0  - 2e7).abs()  < 1.0);
+        assert!((out.last().unwrap().0 - 2e7).abs() < 1.0);
     }
 }

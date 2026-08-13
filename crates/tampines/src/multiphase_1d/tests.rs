@@ -487,9 +487,7 @@ fn reservoir_inlet_reaches_the_bernoulli_limit_in_subcooled_water() {
         stagnation_pressure: P0_PA,
         stagnation_enthalpy: h0,
     });
-    solver.set_right_boundary(AxialBoundary::PressureOutlet {
-        pressure: P_OUT_PA,
-    });
+    solver.set_right_boundary(AxialBoundary::PressureOutlet { pressure: P_OUT_PA });
 
     let n_steps = (T_END_S / DT_S).round() as usize;
     let mut u_inlet_history: Vec<(f64, f64)> = Vec::new();
@@ -497,9 +495,12 @@ fn reservoir_inlet_reaches_the_bernoulli_limit_in_subcooled_water() {
     let mut max_void = 0.0_f64;
     let started = Instant::now();
     for step in 1..=n_steps {
-        let report = solver
-            .step()
-            .unwrap_or_else(|e| panic!("step {step} failed at t = {} s: {e}", solver.time().get::<second>()));
+        let report = solver.step().unwrap_or_else(|e| {
+            panic!(
+                "step {step} failed at t = {} s: {e}",
+                solver.time().get::<second>()
+            )
+        });
         max_courant = max_courant.max(report.max_courant);
         max_void = max_void.max(report.max_void_fraction);
         if step % SAMPLE_EVERY == 0 {

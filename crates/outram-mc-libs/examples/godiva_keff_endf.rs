@@ -127,14 +127,20 @@ fn main() {
     let lib = EndfLibrary::EndfBVII1;
 
     // ── Nuclear data: reconstruct the three HEU isotopes from raw ENDF. ───────
-    println!("Reconstructing HEU isotopes from {} (RECONR + BROADR @ {temp_k} K)…", lib.label());
+    println!(
+        "Reconstructing HEU isotopes from {} (RECONR + BROADR @ {temp_k} K)…",
+        lib.label()
+    );
     let t0 = Instant::now();
     let mut nuclides: Vec<Nuclide> = Vec::with_capacity(3);
     for name in ["U234", "U235", "U238"] {
         let t = Instant::now();
         match Nuclide::from_endf(lib, name, temp_k, 1.0e-3) {
             Ok(n) => {
-                println!("  {name}: reconstructed in {:.1} s", t.elapsed().as_secs_f64());
+                println!(
+                    "  {name}: reconstructed in {:.1} s",
+                    t.elapsed().as_secs_f64()
+                );
                 nuclides.push(n);
             }
             // Fail gracefully rather than panicking with a backtrace: the usual
@@ -156,7 +162,10 @@ fn main() {
             }
         }
     }
-    println!("Nuclear data ready in {:.1} s.\n", t0.elapsed().as_secs_f64());
+    println!(
+        "Nuclear data ready in {:.1} s.\n",
+        t0.elapsed().as_secs_f64()
+    );
 
     // ── Material: Godiva atom densities [atoms/barn·cm] (HEU-MET-FAST-001). ────
     let material = Material {
@@ -164,9 +173,18 @@ fn main() {
         name: "Godiva HEU".into(),
         temperature: temp_k,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     };
 

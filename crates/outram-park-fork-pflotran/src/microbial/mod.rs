@@ -211,10 +211,7 @@ impl MicrobialSystem {
     /// or negative; `half_sat_donor`, `half_sat_acceptor`, or any inhibition
     /// constant `I_j` is non-finite or not strictly positive; or `biomass_yield`
     /// is non-finite.
-    pub fn new(
-        n_species: usize,
-        reactions: Vec<MonodReaction>,
-    ) -> Result<Self, PflotranError> {
+    pub fn new(n_species: usize, reactions: Vec<MonodReaction>) -> Result<Self, PflotranError> {
         for (r, rx) in reactions.iter().enumerate() {
             if rx.donor >= n_species {
                 return Err(PflotranError::InvalidInput(format!(
@@ -495,7 +492,11 @@ fn reaction_rate(rx: &MonodReaction, c: &[f64], b: f64) -> f64 {
     let f_a = monod_factor(c[rx.acceptor], rx.half_sat_acceptor);
     let mut r = rx.k_max * b * f_d * f_a;
     for &(j, ic) in rx.inhibition.iter() {
-        let cj = if c[j].is_finite() && c[j] > 0.0 { c[j] } else { 0.0 };
+        let cj = if c[j].is_finite() && c[j] > 0.0 {
+            c[j]
+        } else {
+            0.0
+        };
         // ic > 0 guaranteed by the constructor, so this factor is finite in (0, 1].
         r *= ic / (ic + cj);
     }

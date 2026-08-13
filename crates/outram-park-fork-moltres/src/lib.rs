@@ -106,7 +106,5 @@ pub mod prelude {
     };
     pub use crate::precursors::PrecursorDrift;
     pub use crate::ring_mesh::RingMesh;
-    pub use crate::thermal::{
-        CoupledMsrSolver, CoupledReport, SaltThermalConfig, SaltThermalModel,
-    };
+    pub use crate::thermal::{CoupledMsrSolver, CoupledReport, SaltThermalConfig, SaltThermalModel};
 }

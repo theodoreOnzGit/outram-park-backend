@@ -104,11 +104,7 @@ impl Brine {
     /// [`PflotranError::InvalidInput`] if `w` is outside `[0, 0.26]`, `T` is
     /// outside `[0, 350] °C`, `P` is outside `(0, 100] MPa`, or any input is
     /// non-finite.
-    pub fn density(
-        &self,
-        temperature_c: f64,
-        pressure_mpa: f64,
-    ) -> Result<f64, PflotranError> {
+    pub fn density(&self, temperature_c: f64, pressure_mpa: f64) -> Result<f64, PflotranError> {
         self.validate(temperature_c, pressure_mpa)?;
         let t = temperature_c;
         let p = pressure_mpa;
@@ -146,11 +142,7 @@ impl Brine {
     ///
     /// [`PflotranError::InvalidInput`] on the same conditions as
     /// [`Self::density`].
-    pub fn viscosity(
-        &self,
-        temperature_c: f64,
-        pressure_mpa: f64,
-    ) -> Result<f64, PflotranError> {
+    pub fn viscosity(&self, temperature_c: f64, pressure_mpa: f64) -> Result<f64, PflotranError> {
         self.validate(temperature_c, pressure_mpa)?;
         let t = temperature_c;
         let w = self.nacl_mass_fraction;
@@ -170,11 +162,7 @@ impl Brine {
     ///
     /// Accepts `0 <= w <= 0.26`, `0 <= T <= 350 °C`, `0 < P <= 100 MPa`, all
     /// finite. Returns [`PflotranError::InvalidInput`] otherwise.
-    fn validate(
-        &self,
-        temperature_c: f64,
-        pressure_mpa: f64,
-    ) -> Result<(), PflotranError> {
+    fn validate(&self, temperature_c: f64, pressure_mpa: f64) -> Result<(), PflotranError> {
         let w = self.nacl_mass_fraction;
         if !w.is_finite() || !temperature_c.is_finite() || !pressure_mpa.is_finite() {
             return Err(PflotranError::InvalidInput(format!(

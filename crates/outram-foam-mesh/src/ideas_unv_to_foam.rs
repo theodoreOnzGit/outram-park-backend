@@ -309,7 +309,11 @@ fn parse_nodes(content: &[&str], data: &mut UnvData) -> Result<(), MeshError> {
                 "2411: node {label} has fewer than 3 coordinates"
             )));
         }
-        match (parse_f64(coords[0]), parse_f64(coords[1]), parse_f64(coords[2])) {
+        match (
+            parse_f64(coords[0]),
+            parse_f64(coords[1]),
+            parse_f64(coords[2]),
+        ) {
             (Some(x), Some(y), Some(z)) => {
                 let idx = data.points.len();
                 data.points.push(Vector3::new(x, y, z));
@@ -509,7 +513,11 @@ fn cell_centre_volume(faces: &[(Vector3, Vector3)]) -> (Vector3, f64) {
         ctr += pyr3 * pc;
         vol3 += pyr3;
     }
-    let centre = if vol3.abs() > SMALL { ctr / vol3 } else { c_est };
+    let centre = if vol3.abs() > SMALL {
+        ctr / vol3
+    } else {
+        c_est
+    };
     (centre, vol3 / 3.0)
 }
 
@@ -565,7 +573,9 @@ fn assemble(data: UnvData, scale: f64) -> Result<UnvPolyMesh, MeshError> {
         if let Some(labels) = data.groups.get(name) {
             for l in labels {
                 if let Some(key) = surface_key.get(l) {
-                    key_to_patch.entry(key.clone()).or_insert_with(|| name.clone());
+                    key_to_patch
+                        .entry(key.clone())
+                        .or_insert_with(|| name.clone());
                 }
             }
         }
@@ -712,7 +722,12 @@ fn assemble(data: UnvData, scale: f64) -> Result<UnvPolyMesh, MeshError> {
             faces.push(loop_pts.clone());
             owner.push(*own);
         }
-        patches.push(BoundaryPatch::new(name.clone(), start, size, PatchKind::Patch));
+        patches.push(BoundaryPatch::new(
+            name.clone(),
+            start,
+            size,
+            PatchKind::Patch,
+        ));
         start += size;
     }
 

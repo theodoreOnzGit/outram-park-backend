@@ -54,9 +54,7 @@
 use std::fs::File;
 use std::path::Path;
 
-use uom::si::{
-    area::barn, energy::electronvolt, thermodynamic_temperature::kelvin,
-};
+use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
 
 use crate::endf::tape::Tape;
 use crate::thermr::inelastic::OutgoingBin;
@@ -145,8 +143,17 @@ impl IncoherentInelasticScattering {
         ))?;
         // B(6) records the number of principal scattering atoms (2 for H₂O);
         // fall back to monatomic if the evaluation omits it.
-        let natom = inelastic.b.get(5).copied().filter(|&n| n > 0.0).unwrap_or(1.0);
-        Ok(Self { inelastic, requested_temperature: temperature, natom })
+        let natom = inelastic
+            .b
+            .get(5)
+            .copied()
+            .filter(|&n| n > 0.0)
+            .unwrap_or(1.0);
+        Ok(Self {
+            inelastic,
+            requested_temperature: temperature,
+            natom,
+        })
     }
 
     /// The temperature the caller requested.
@@ -327,8 +334,11 @@ impl CoherentElasticScattering {
             .unwrap_or(1.0);
         let target_k = temperature.get::<kelvin>();
         let resolved_temperature_k = ce.resolved_temperature_k(target_k)?;
-        let s_at_t: Vec<f64> =
-            ce.s_of_e_at(target_k)?.into_iter().map(|(_, s)| s).collect();
+        let s_at_t: Vec<f64> = ce
+            .s_of_e_at(target_k)?
+            .into_iter()
+            .map(|(_, s)| s)
+            .collect();
         Ok(Self {
             bragg_energies_ev: ce.bragg_energies_ev,
             s_at_t,
@@ -373,9 +383,7 @@ impl CoherentElasticScattering {
     /// nothing.
     pub fn bragg_cutoff(&self) -> NeutronEnergy {
         let i = self.s_at_t.iter().position(|&s| s > 0.0).unwrap_or(0);
-        NeutronEnergy::new::<electronvolt>(
-            self.bragg_energies_ev.get(i).copied().unwrap_or(0.0),
-        )
+        NeutronEnergy::new::<electronvolt>(self.bragg_energies_ev.get(i).copied().unwrap_or(0.0))
     }
 
     /// The complete Bragg-edge step table behind
@@ -412,7 +420,11 @@ impl CoherentElasticScattering {
             .iter()
             .zip(self.s_at_t.iter())
             .map(|(&e_ev, &s)| {
-                let sigma = if e_ev > 0.0 { s / (e_ev * self.natom) } else { 0.0 };
+                let sigma = if e_ev > 0.0 {
+                    s / (e_ev * self.natom)
+                } else {
+                    0.0
+                };
                 (
                     NeutronEnergy::new::<electronvolt>(e_ev),
                     CrossSection::new::<barn>(sigma),
@@ -569,7 +581,11 @@ impl IncoherentElasticScattering {
                 max_k,
             });
         }
-        Ok(Self { incoherent: ie, natom, requested_temperature: temperature })
+        Ok(Self {
+            incoherent: ie,
+            natom,
+            requested_temperature: temperature,
+        })
     }
 
     /// The temperature the caller requested (used directly — `W'(T)` is a

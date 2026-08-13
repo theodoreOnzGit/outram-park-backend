@@ -142,7 +142,15 @@ impl DistributedTransport1D {
                 east_d[i] = d;
             }
         }
-        Self::new(decomp, vec![storage_cell; l], west_q, east_q, west_d, east_d, dt)
+        Self::new(
+            decomp,
+            vec![storage_cell; l],
+            west_q,
+            east_q,
+            west_d,
+            east_d,
+            dt,
+        )
     }
 
     /// Build this rank's stepper from a **global** uniform-grid flow field: the
@@ -186,7 +194,15 @@ impl DistributedTransport1D {
                 west_d[i] = disp(q, theta_face);
             }
         }
-        Self::new(decomp.clone(), storage_v, west_q, east_q, west_d, east_d, dt)
+        Self::new(
+            decomp.clone(),
+            storage_v,
+            west_q,
+            east_q,
+            west_d,
+            east_d,
+            dt,
+        )
     }
 
     /// Build a distributed **energy (heat) transport** stepper from a global flow
@@ -229,7 +245,15 @@ impl DistributedTransport1D {
                 west_d[i] = d;
             }
         }
-        Self::new(decomp.clone(), storage_v, west_q, east_q, west_d, east_d, dt)
+        Self::new(
+            decomp.clone(),
+            storage_v,
+            west_q,
+            east_q,
+            west_d,
+            east_d,
+            dt,
+        )
     }
 
     /// Advance the concentration `c` (this rank's slab) one implicit timestep,
@@ -244,7 +268,13 @@ impl DistributedTransport1D {
     ///
     /// # Errors
     /// Propagates any transport error from the distributed solve.
-    pub fn step(&self, comm: &Communicator, c: &[f64], tol: f64, max_iter: usize) -> MpiResult<Vec<f64>> {
+    pub fn step(
+        &self,
+        comm: &Communicator,
+        c: &[f64],
+        tol: f64,
+        max_iter: usize,
+    ) -> MpiResult<Vec<f64>> {
         let l = c.len();
         let inv_dt = 1.0 / self.dt;
         let mut diag = vec![0.0; l];
@@ -824,13 +854,19 @@ mod tests {
     fn distributed_pure_advection_matches_serial() {
         // Zero dispersion -> the transport matrix is advection-dominated (its
         // Krylov solve triggers a BiCGStab breakdown that the restart handles).
-        assert!(advection_case(FluxLimiter::Upwind), "pure-advection upwind mismatch");
+        assert!(
+            advection_case(FluxLimiter::Upwind),
+            "pure-advection upwind mismatch"
+        );
     }
 
     #[test]
     fn distributed_transport_matches_serial_with_tvd_superbee() {
         // A sharp front under a SuperBee TVD scheme -- the deferred correction
         // needs the far-upstream cell across rank boundaries (the 2-wide halo).
-        assert!(advection_case(FluxLimiter::SuperBee), "TVD SuperBee mismatch");
+        assert!(
+            advection_case(FluxLimiter::SuperBee),
+            "TVD SuperBee mismatch"
+        );
     }
 }

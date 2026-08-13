@@ -1,5 +1,3 @@
-
-
 /// Example 2:
 ///
 /// We saw previously how to create an air pipe
@@ -8,17 +6,16 @@
 /// to it)
 ///
 /// we shall improve on how we can create the pipes
-/// to do so, we shall use the FluidComponent trait and the 
+/// to do so, we shall use the FluidComponent trait and the
 /// FluidPipeCalcPressureChange trait
 ///
 #[test]
 pub fn water_pipe_with_internal_pump_example_2() {
-
     use std::f64::consts::PI;
 
-    use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
-    use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidPipeCalcPressureChange;
-    use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidPipeCalcPressureLoss;
+        use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+        use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidPipeCalcPressureChange;
+        use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidPipeCalcPressureLoss;
     use uom::si::dynamic_viscosity::poise;
     use uom::si::f64::*;
     use uom::si::length::{meter, inch, millimeter};
@@ -77,16 +74,13 @@ pub fn water_pipe_with_internal_pump_example_2() {
             return self.internal_pressure_source;
         }
 
-        fn set_internal_pressure_source(
-            &mut self,
-            internal_pressure_source: Pressure){
+        fn set_internal_pressure_source(&mut self, internal_pressure_source: Pressure) {
             self.internal_pressure_source = internal_pressure_source;
         }
 
         fn get_component_length(&mut self) -> Length {
             return self.pipe_length;
         }
-
 
         fn get_component_length_immutable(&self) -> Length {
             return self.pipe_length;
@@ -125,22 +119,21 @@ pub fn water_pipe_with_internal_pump_example_2() {
         }
 
         fn get_cross_sectional_area(&mut self) -> Area {
-            return self.get_hydraulic_diameter()*
-                self.get_hydraulic_diameter()*
-                PI/4.0_f64;
+            return self.get_hydraulic_diameter() * self.get_hydraulic_diameter() * PI / 4.0_f64;
         }
 
         fn get_cross_sectional_area_immutable(&self) -> Area {
-            return self.get_hydraulic_diameter_immutable()*
-                self.get_hydraulic_diameter_immutable()*
-                PI/4.0_f64;
+            return self.get_hydraulic_diameter_immutable()
+                * self.get_hydraulic_diameter_immutable()
+                * PI
+                / 4.0_f64;
         }
 
-        fn set_pressure_loss(&mut self, pressure_loss: Pressure){
+        fn set_pressure_loss(&mut self, pressure_loss: Pressure) {
             self.pressure_loss = pressure_loss;
         }
 
-        fn set_mass_flowrate(&mut self, mass_flowrate: MassRate){
+        fn set_mass_flowrate(&mut self, mass_flowrate: MassRate) {
             self.mass_flowrate = mass_flowrate;
         }
 
@@ -158,26 +151,27 @@ pub fn water_pipe_with_internal_pump_example_2() {
             let incline_angle = self.get_incline_angle();
             let internal_pressure_source = self.get_internal_pressure_source();
 
-            let pressure_change = 
-                -pressure_loss 
-                + internal_pressure_source 
+            let pressure_change = -pressure_loss
+                + internal_pressure_source
                 + WaterPipe::get_hydrostatic_pressure_change(
                     pipe_length,
                     incline_angle,
-                    fluid_density);
+                    fluid_density,
+                );
 
-            let mass_flowrate = 
-                WaterPipe::pipe_calculate_mass_flowrate_from_pressure_change(
-                    pressure_change, 
-                    cross_sectional_area, 
-                    hydraulic_diameter, 
-                    fluid_viscosity, 
-                    fluid_density, 
-                    pipe_length, 
-                    absolute_roughness, 
-                    form_loss_k,
-                    incline_angle,
-                    internal_pressure_source).unwrap();
+            let mass_flowrate = WaterPipe::pipe_calculate_mass_flowrate_from_pressure_change(
+                pressure_change,
+                cross_sectional_area,
+                hydraulic_diameter,
+                fluid_viscosity,
+                fluid_density,
+                pipe_length,
+                absolute_roughness,
+                form_loss_k,
+                incline_angle,
+                internal_pressure_source,
+            )
+            .unwrap();
 
             // you can return the mass flowrate straightaway
             // or set the struct variable first and then
@@ -186,12 +180,12 @@ pub fn water_pipe_with_internal_pump_example_2() {
             self.set_mass_flowrate(mass_flowrate);
 
             return self.mass_flowrate;
-
         }
 
         fn get_mass_flowrate_from_pressure_loss_immutable(
             &self,
-            pressure_loss: Pressure) -> MassRate {
+            pressure_loss: Pressure,
+        ) -> MassRate {
             // get pipe parameters and flow conditions
             // from the get methods
             let form_loss_k = self.get_pipe_form_loss_k_immutable();
@@ -204,40 +198,36 @@ pub fn water_pipe_with_internal_pump_example_2() {
             let incline_angle = self.get_incline_angle_immutable();
             let internal_pressure_source = self.get_internal_pressure_source_immutable();
 
-            let pressure_change = 
-                -pressure_loss 
-                + internal_pressure_source 
-                + <WaterPipe as FluidPipeCalcPressureChange>::
-                get_hydrostatic_pressure_change(
+            let pressure_change = -pressure_loss
+                + internal_pressure_source
+                + <WaterPipe as FluidPipeCalcPressureChange>::get_hydrostatic_pressure_change(
                     pipe_length,
                     incline_angle,
-                    fluid_density);
+                    fluid_density,
+                );
 
-            let mass_flowrate = 
-                WaterPipe::pipe_calculate_mass_flowrate_from_pressure_change(
-                    pressure_change, 
-                    cross_sectional_area, 
-                    hydraulic_diameter, 
-                    fluid_viscosity, 
-                    fluid_density, 
-                    pipe_length, 
-                    absolute_roughness, 
-                    form_loss_k,
-                    incline_angle,
-                    internal_pressure_source).unwrap();
+            let mass_flowrate = WaterPipe::pipe_calculate_mass_flowrate_from_pressure_change(
+                pressure_change,
+                cross_sectional_area,
+                hydraulic_diameter,
+                fluid_viscosity,
+                fluid_density,
+                pipe_length,
+                absolute_roughness,
+                form_loss_k,
+                incline_angle,
+                internal_pressure_source,
+            )
+            .unwrap();
 
             // you can return the mass flowrate straightaway
             // or set the struct variable first and then
             // return it
 
-
             return mass_flowrate;
-
         }
 
         fn get_pressure_loss(&mut self) -> Pressure {
-
-
             // get pipe parameters and flow conditions
             // from the get methods
             let form_loss_k = self.get_pipe_form_loss_k();
@@ -249,19 +239,19 @@ pub fn water_pipe_with_internal_pump_example_2() {
             let density = self.get_fluid_density_at_ref_temperature();
             let pipe_legnth = self.get_component_length();
 
-
             // calculate the pressure loss
 
-            let pressure_loss = 
-                WaterPipe::pipe_calc_pressure_loss(
-                    mass_flowrate,
-                    cross_sectional_area,
-                    hydraulic_diameter,
-                    viscosity,
-                    density,
-                    pipe_legnth,
-                    absolute_roughness,
-                    form_loss_k).unwrap();
+            let pressure_loss = WaterPipe::pipe_calc_pressure_loss(
+                mass_flowrate,
+                cross_sectional_area,
+                hydraulic_diameter,
+                viscosity,
+                density,
+                pipe_legnth,
+                absolute_roughness,
+                form_loss_k,
+            )
+            .unwrap();
 
             // you can return the pressure loss straightaway
             // or set the struct variable first and then
@@ -272,11 +262,7 @@ pub fn water_pipe_with_internal_pump_example_2() {
             return self.pressure_loss;
         }
 
-        fn get_pressure_loss_immutable(
-            &self,
-            mass_flowrate: MassRate) -> Pressure {
-
-
+        fn get_pressure_loss_immutable(&self, mass_flowrate: MassRate) -> Pressure {
             // get pipe parameters and flow conditions
             // from the get methods
             let form_loss_k = self.get_pipe_form_loss_k_immutable();
@@ -287,29 +273,28 @@ pub fn water_pipe_with_internal_pump_example_2() {
             let density = self.get_fluid_density_immutable_at_ref_temperature();
             let pipe_legnth = self.get_component_length_immutable();
 
-
             // calculate the pressure loss
 
-            let pressure_loss = 
-                WaterPipe::pipe_calc_pressure_loss(
-                    mass_flowrate,
-                    cross_sectional_area,
-                    hydraulic_diameter,
-                    viscosity,
-                    density,
-                    pipe_legnth,
-                    absolute_roughness,
-                    form_loss_k).unwrap();
+            let pressure_loss = WaterPipe::pipe_calc_pressure_loss(
+                mass_flowrate,
+                cross_sectional_area,
+                hydraulic_diameter,
+                viscosity,
+                density,
+                pipe_legnth,
+                absolute_roughness,
+                form_loss_k,
+            )
+            .unwrap();
 
             // you can return the pressure loss straightaway
             // or set the struct variable first and then
             // return it
 
-
             return pressure_loss;
         }
 
-        fn set_pressure_change(&mut self, pressure_change: Pressure){
+        fn set_pressure_change(&mut self, pressure_change: Pressure) {
             // we use the following formula
             // pressure_change = -pressure_loss + hydrostatic_pressure +
             // internal pressure source
@@ -318,19 +303,18 @@ pub fn water_pipe_with_internal_pump_example_2() {
             // pressure loss
             //
 
-
-            let pressure_loss = -pressure_change +
-                WaterPipe::get_hydrostatic_pressure_change(
+            let pressure_loss = -pressure_change
+                + WaterPipe::get_hydrostatic_pressure_change(
                     self.pipe_length,
                     self.incline_angle,
-                    self.get_fluid_density_at_ref_temperature()) +
-                self.get_internal_pressure_source();
+                    self.get_fluid_density_at_ref_temperature(),
+                )
+                + self.get_internal_pressure_source();
 
             self.set_pressure_loss(pressure_loss);
         }
 
         fn get_pressure_change(&mut self) -> Pressure {
-
             let form_loss_k = self.get_pipe_form_loss_k();
             let absolute_roughness = self.get_pipe_absolute_roughness();
             let cross_sectional_area = self.get_cross_sectional_area();
@@ -341,7 +325,6 @@ pub fn water_pipe_with_internal_pump_example_2() {
             let incline_angle = self.get_incline_angle();
             let internal_pressure_source = self.get_internal_pressure_source();
             let mass_flowrate = self.mass_flowrate;
-
 
             // return the pressure change value
             let pressure_change = WaterPipe::pipe_calc_pressure_change(
@@ -354,12 +337,13 @@ pub fn water_pipe_with_internal_pump_example_2() {
                 absolute_roughness,
                 form_loss_k,
                 incline_angle,
-                internal_pressure_source).unwrap();
+                internal_pressure_source,
+            )
+            .unwrap();
 
             self.set_pressure_change(pressure_change);
 
             return pressure_change;
-
         }
     }
 
@@ -370,16 +354,17 @@ pub fn water_pipe_with_internal_pump_example_2() {
     // Everything else though, has to be set by the user
     // mass flowrate and pressure loss can be
     // set to 0 by default
-    // 
+    //
     // internal pressure source is also set to 0,
     // it is up to the user to set internal pressure source
     impl WaterPipe {
-        fn new(form_loss_k: f64,
+        fn new(
+            form_loss_k: f64,
             absolute_roughness: Length,
             incline_angle: Angle,
             pipe_length: Length,
-            hydraulic_diameter: Length) -> Self {
-
+            hydraulic_diameter: Length,
+        ) -> Self {
             return Self {
                 mass_flowrate: MassRate::new::<kilogram_per_second>(0.0),
                 pressure_loss: Pressure::new::<pascal>(0.0),
@@ -403,44 +388,31 @@ pub fn water_pipe_with_internal_pump_example_2() {
     // copper, 0.002 mm roughness
 
     let mut water_pipe_1 = WaterPipe::new(
-        0.5, // form losses
+        0.5,                              // form losses
         Length::new::<millimeter>(0.002), // surface roughness
-        Angle::new::<degree>(25.0), // incline angle
-        Length::new::<meter>(1.0), // pipe length
-        Length::new::<inch>(1.0)); // pipe inner diameter
-
+        Angle::new::<degree>(25.0),       // incline angle
+        Length::new::<meter>(1.0),        // pipe length
+        Length::new::<inch>(1.0),
+    ); // pipe inner diameter
 
     // let's set mass flowrate at 0.5 kg/s
-    water_pipe_1.set_mass_flowrate(
-        MassRate::new::<kilogram_per_second>(0.5)
-    );
+    water_pipe_1.set_mass_flowrate(MassRate::new::<kilogram_per_second>(0.5));
 
     // find the pressure change
 
     let pressure_change = water_pipe_1.get_pressure_change();
 
     // pressure change is -4861 Pa
-    approx::assert_relative_eq!(
-        pressure_change.value,
-        -4861_f64,
-        max_relative = 0.01 );
+    approx::assert_relative_eq!(pressure_change.value, -4861_f64, max_relative = 0.01);
 
     // likewise when i get my mass flowrate from pressure change
     // i should get the same value
 
+    water_pipe_1.set_pressure_change(Pressure::new::<pascal>(-4861_f64));
 
+    let mass_flowrate = water_pipe_1.get_mass_flowrate();
 
-
-    water_pipe_1.set_pressure_change(
-        Pressure::new::<pascal>(-4861_f64));
-
-    let mass_flowrate = 
-        water_pipe_1.get_mass_flowrate();
-
-    approx::assert_relative_eq!(
-        mass_flowrate.value,
-        0.5,
-        max_relative = 0.01 );
+    approx::assert_relative_eq!(mass_flowrate.value, 0.5, max_relative = 0.01);
 
     // last but not least, i want to check our immutable versions
     // of these functions and see if they work well
@@ -448,15 +420,16 @@ pub fn water_pipe_with_internal_pump_example_2() {
     // the immutable versions of the methods take in &self rather
     // than &mut self, this enables safety in terms of parallelism
     // and may help with the use of peroxide iteration libraries
-    // which are numerical root finders. These root finders 
+    // which are numerical root finders. These root finders
     // cannot use mutable functions
 
+    assert_eq!(
+        mass_flowrate,
+        water_pipe_1
+            .get_mass_flowrate_from_pressure_change_immutable(Pressure::new::<pascal>(-4861_f64))
+    );
 
-    assert_eq!(mass_flowrate,
-        water_pipe_1.get_mass_flowrate_from_pressure_change_immutable(
-            Pressure::new::<pascal>(-4861_f64)));
-
-    // and that concludes the example! You can now set 
+    // and that concludes the example! You can now set
     // the water pipe to anything you want.
     //
     // of course, it will be good to have common enums and cases
@@ -464,8 +437,4 @@ pub fn water_pipe_with_internal_pump_example_2() {
     // as well as densities, viscosities, etc.
     //
     // Likely I'll put them in some property library stored as a trait
-
-
-
 }
-

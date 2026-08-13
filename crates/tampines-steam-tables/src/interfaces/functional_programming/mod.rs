@@ -1,6 +1,6 @@
-/// allows for pressure and temperature flash 
-/// for all other properties 
-/// (except steam quality, which cannot be 
+/// allows for pressure and temperature flash
+/// for all other properties
+/// (except steam quality, which cannot be
 /// determined via pt flashing)
 ///
 /// this uses the forward equations
@@ -18,12 +18,9 @@ pub mod ph_flash_eqm;
 /// this mostly deals with areas around region 2
 pub mod pt_flash_metastable;
 
-
-/// allows for pressure entropy flash 
+/// allows for pressure entropy flash
 pub mod ps_flash_eqm;
 
-/// allows for enthalpy entropy flash; 
+/// allows for enthalpy entropy flash;
 /// Note: this only works for part of the steam table
 pub mod hs_flash_eqm;
-
-

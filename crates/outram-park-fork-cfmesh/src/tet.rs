@@ -204,8 +204,15 @@ mod tests {
         assert_eq!(tets.cell_count(), 8 * 24, "Σ cells·faces·edges tetrahedra");
 
         let q = check_quality(&tets);
-        assert_eq!(q.n_negative_volume_cells, 0, "all tets have positive volume");
-        assert!(q.min_cell_volume > 0.0, "min tet volume positive: {}", q.min_cell_volume);
+        assert_eq!(
+            q.n_negative_volume_cells, 0,
+            "all tets have positive volume"
+        );
+        assert!(
+            q.min_cell_volume > 0.0,
+            "min tet volume positive: {}",
+            q.min_cell_volume
+        );
 
         let mut area = 0.0;
         for f in 0..tets.face_count() {
@@ -213,9 +220,15 @@ mod tests {
                 area += tets.face_area_vector(f).length();
             }
         }
-        assert!((area - 6.0).abs() < 1e-9, "boundary triangulates the cube surface: {area}");
+        assert!(
+            (area - 6.0).abs() < 1e-9,
+            "boundary triangulates the cube surface: {area}"
+        );
 
-        assert!((tets.total_volume() - 1.0).abs() < 1e-9, "Σ tet volumes == enclosed volume");
+        assert!(
+            (tets.total_volume() - 1.0).abs() < 1e-9,
+            "Σ tet volumes == enclosed volume"
+        );
         tets.validate().expect("every tet is closed");
     }
 

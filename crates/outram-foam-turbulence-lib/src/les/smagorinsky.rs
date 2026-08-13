@@ -444,8 +444,14 @@ mod tests {
         let nut1 = run(1.0);
         let nut2 = run(2.0);
         for c in 0..3 {
-            assert!(nut1[c].is_finite() && nut1[c] >= 0.0, "nu_sgs finite & >= 0");
-            assert!(nut2[c].is_finite() && nut2[c] >= 0.0, "nu_sgs finite & >= 0");
+            assert!(
+                nut1[c].is_finite() && nut1[c] >= 0.0,
+                "nu_sgs finite & >= 0"
+            );
+            assert!(
+                nut2[c].is_finite() && nut2[c] >= 0.0,
+                "nu_sgs finite & >= 0"
+            );
         }
         // interior cell 1 has a symmetric stencil → clean central-difference
         // gradient; stronger strain must give strictly larger eddy viscosity.

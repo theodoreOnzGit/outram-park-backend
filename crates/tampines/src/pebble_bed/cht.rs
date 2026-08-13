@@ -236,11 +236,7 @@ impl PackedBedConvection {
     /// [`TampinesError::InvalidInput`] otherwise. No error is raised for a
     /// `Re` outside `[15, 8500]` — use
     /// [`PackedBedConvection::is_within_validity_range`] for that.
-    pub fn nusselt_number(
-        &self,
-        reynolds: Ratio,
-        prandtl: Ratio,
-    ) -> Result<Ratio, TampinesError> {
+    pub fn nusselt_number(&self, reynolds: Ratio, prandtl: Ratio) -> Result<Ratio, TampinesError> {
         let re = reynolds.get::<ratio>();
         let pr = prandtl.get::<ratio>();
 
@@ -255,9 +251,7 @@ impl PackedBedConvection {
             )));
         }
 
-        Ok(Ratio::new::<ratio>(
-            2.0 + 1.1 * pr.cbrt() * re.powf(0.6),
-        ))
+        Ok(Ratio::new::<ratio>(2.0 + 1.1 * pr.cbrt() * re.powf(0.6)))
     }
 
     /// Particle-to-fluid heat transfer coefficient, W/(m^2 K):
@@ -463,9 +457,7 @@ mod tests {
             .heat_transfer_coefficient(reynolds, prandtl, fluid_conductivity)
             .unwrap()
             .get::<watt_per_square_meter_kelvin>();
-        println!(
-            "h measured {measured_coefficient} W/(m^2 K), hand {hand_coefficient} W/(m^2 K)"
-        );
+        println!("h measured {measured_coefficient} W/(m^2 K), hand {hand_coefficient} W/(m^2 K)");
         assert_relative_eq!(hand_coefficient, measured_coefficient, max_relative = 1e-12);
 
         assert!(bed.is_within_validity_range(reynolds));
@@ -537,7 +529,11 @@ mod tests {
             "h = {coefficient} W/(m^2 K), a_v = {measured_area} 1/m, h a_v = \
              {volumetric} W/(m^3 K)"
         );
-        assert_relative_eq!(coefficient * measured_area, volumetric, max_relative = 1e-12);
+        assert_relative_eq!(
+            coefficient * measured_area,
+            volumetric,
+            max_relative = 1e-12
+        );
     }
 
     /// V&V test (defect documentation): how far this module's Wakao
@@ -589,8 +585,7 @@ mod tests {
                 .get::<ratio>();
 
             // TUAS's transposed expression, recomputed here rather than called
-            let tuas_transposed =
-                2.0 + 1.1 * reynolds_value.powf(0.333) * prandtl_value.powf(0.6);
+            let tuas_transposed = 2.0 + 1.1 * reynolds_value.powf(0.333) * prandtl_value.powf(0.6);
 
             println!(
                 "Re = {reynolds_value}, Pr = {prandtl_value}: correct Nu = {correct}, \

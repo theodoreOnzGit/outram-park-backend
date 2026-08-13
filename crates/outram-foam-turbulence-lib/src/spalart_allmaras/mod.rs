@@ -555,6 +555,9 @@ mod tests {
                 grew = true;
             }
         }
-        assert!(grew, "production should grow nuTilda above its initial value");
+        assert!(
+            grew,
+            "production should grow nuTilda above its initial value"
+        );
     }
 }

@@ -119,9 +119,7 @@ use std::sync::Arc;
 use outram_foam_basic_lib::fields::boundary::bc::{BoundaryCondition, PatchField};
 use outram_foam_basic_lib::fields::field::Field;
 use outram_foam_basic_lib::fields::surface_field::SurfaceScalarField;
-use outram_foam_basic_lib::fields::vol_field::{
-    VolScalarField, VolSymmTensorField, VolVectorField,
-};
+use outram_foam_basic_lib::fields::vol_field::{VolScalarField, VolSymmTensorField, VolVectorField};
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::ldu_matrix::{SolverPerformance, SolverSettings};
 use outram_foam_basic_lib::mesh::FvMesh;

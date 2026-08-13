@@ -36,6 +36,20 @@
 
 set -uo pipefail
 
+# Resolve the repository from THIS SCRIPT'S location, not from the caller's
+# working directory.
+#
+# WHY: every git command below is cwd-relative, and the `--is-inside-work-tree`
+# guard exits 0 when run from outside a repo. Invoked from the wrong directory
+# this script therefore SUCCEEDED SILENTLY while pushing nothing -- which is
+# exactly how a Stop hook fails without leaving a trace. Anchoring to the
+# script's own path makes it work from any cwd.
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+cd -- "$script_dir/.." || {
+  echo "warning: could not enter the repository root from $script_dir" >&2
+  exit 0
+}
+
 REF="refs/heads/beads/store"
 REMOTE="${BEADS_REMOTE:-origin}"
 

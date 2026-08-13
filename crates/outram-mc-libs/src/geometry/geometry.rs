@@ -59,7 +59,9 @@ impl GeometryPath {
     /// The leaf (lowest) coordinate level — where the material fill lives.
     #[inline]
     pub fn leaf(&self) -> &Coord {
-        self.levels.last().expect("a located path has at least one level")
+        self.levels
+            .last()
+            .expect("a located path has at least one level")
     }
 }
 
@@ -130,18 +132,27 @@ impl Geometry {
         };
 
         loop {
-            let i_cell = self.universes[level.universe].find_cell(level.r, &self.surfaces, &self.cells)?;
+            let i_cell =
+                self.universes[level.universe].find_cell(level.r, &self.surfaces, &self.cells)?;
             level.cell = i_cell;
             let cell = &self.cells[i_cell];
 
             match cell.fill {
                 CellFill::Material(m) => {
                     levels.push(level);
-                    return Some(GeometryPath { levels, material: Some(m), on_surface });
+                    return Some(GeometryPath {
+                        levels,
+                        material: Some(m),
+                        on_surface,
+                    });
                 }
                 CellFill::Void => {
                     levels.push(level);
-                    return Some(GeometryPath { levels, material: None, on_surface });
+                    return Some(GeometryPath {
+                        levels,
+                        material: None,
+                        on_surface,
+                    });
                 }
                 CellFill::Universe(u_idx) => {
                     let child = Coord {
@@ -186,7 +197,11 @@ impl Geometry {
     /// global `on_surface` index is valid for coincident checks at every level.
     pub fn distance_to_boundary(&self, path: &GeometryPath) -> BoundaryHit {
         const FP_REL: f64 = 1.0e-14;
-        let mut best = BoundaryHit { distance: f64::INFINITY, crossing: Crossing::None, coord_level: 0 };
+        let mut best = BoundaryHit {
+            distance: f64::INFINITY,
+            crossing: Crossing::None,
+            coord_level: 0,
+        };
 
         for (i, coord) in path.levels.iter().enumerate() {
             let cell = &self.cells[coord.cell];
@@ -194,12 +209,17 @@ impl Geometry {
                 cell.distance_to_boundary(coord.r, coord.u, &self.surfaces, path.on_surface);
             if d_surf < best.distance * (1.0 - FP_REL) {
                 best.distance = d_surf;
-                best.crossing = if i_surf == usize::MAX { Crossing::None } else { Crossing::Surface(i_surf) };
+                best.crossing = if i_surf == usize::MAX {
+                    Crossing::None
+                } else {
+                    Crossing::Surface(i_surf)
+                };
                 best.coord_level = i;
             }
 
             if let Some(l_idx) = coord.lattice {
-                let (d_lat, _trans) = self.lattices[l_idx].distance(coord.r, coord.u, coord.lattice_index);
+                let (d_lat, _trans) =
+                    self.lattices[l_idx].distance(coord.r, coord.u, coord.lattice_index);
                 // Root-cause fix for op-6tz.34 (nested-lattice under-count). When a
                 // lattice fills its enclosing cell exactly, the outermost tile edge
                 // is coincident with the cell's bounding (reflective) surface. If
@@ -256,7 +276,12 @@ impl Geometry {
     /// Mirrors the boundary-condition dispatch in `cross_surface`
     /// (`src/surface.cpp` / `src/geometry.cpp`), reduced to the vacuum/reflective/
     /// transmissive cases this crate implements.
-    pub fn cross_surface(&self, i_surf: usize, r: Position, u: Direction) -> (Position, Direction, bool) {
+    pub fn cross_surface(
+        &self,
+        i_surf: usize,
+        r: Position,
+        u: Direction,
+    ) -> (Position, Direction, bool) {
         const NUDGE: f64 = 1.0e-9; // cm; << feature size (~1 cm), >> f64 round-off
         let surf = &self.surfaces[i_surf];
         match surf.bc() {
@@ -382,54 +407,149 @@ mod tests {
         let r_fuel = 0.4;
         let half = 0.63;
         let surfaces = vec![
-            SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: r_fuel, bc: BoundaryType::Transmissive }),
-            SurfaceKind::XPlane(XPlane { x0: -half, bc: BoundaryType::Reflective }),
-            SurfaceKind::XPlane(XPlane { x0: half, bc: BoundaryType::Reflective }),
-            SurfaceKind::YPlane(YPlane { y0: -half, bc: BoundaryType::Reflective }),
-            SurfaceKind::YPlane(YPlane { y0: half, bc: BoundaryType::Reflective }),
+            SurfaceKind::ZCylinder(ZCylinder {
+                x0: 0.0,
+                y0: 0.0,
+                r: r_fuel,
+                bc: BoundaryType::Transmissive,
+            }),
+            SurfaceKind::XPlane(XPlane {
+                x0: -half,
+                bc: BoundaryType::Reflective,
+            }),
+            SurfaceKind::XPlane(XPlane {
+                x0: half,
+                bc: BoundaryType::Reflective,
+            }),
+            SurfaceKind::YPlane(YPlane {
+                y0: -half,
+                bc: BoundaryType::Reflective,
+            }),
+            SurfaceKind::YPlane(YPlane {
+                y0: half,
+                bc: BoundaryType::Reflective,
+            }),
         ];
         // Fuel cell: inside the cylinder.
-        let fuel = Cell::material(1, vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }], 0, 293.6);
+        let fuel = Cell::material(
+            1,
+            vec![RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Inside,
+            }],
+            0,
+            293.6,
+        );
         // Moderator cell: outside cylinder AND inside the four planes.
         let mod_region = vec![
-            RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside },
-            RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Outside }, // x > -half
+            RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Outside,
+            },
+            RegionToken::HalfSpace {
+                surface_idx: 1,
+                sense: HalfSpaceSense::Outside,
+            }, // x > -half
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Inside },  // x < +half
+            RegionToken::HalfSpace {
+                surface_idx: 2,
+                sense: HalfSpaceSense::Inside,
+            }, // x < +half
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 3, sense: HalfSpaceSense::Outside }, // y > -half
+            RegionToken::HalfSpace {
+                surface_idx: 3,
+                sense: HalfSpaceSense::Outside,
+            }, // y > -half
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 4, sense: HalfSpaceSense::Inside },  // y < +half
+            RegionToken::HalfSpace {
+                surface_idx: 4,
+                sense: HalfSpaceSense::Inside,
+            }, // y < +half
             RegionToken::Intersection,
         ];
         let moder = Cell::material(2, mod_region, 1, 293.6);
         let cells = vec![fuel, moder];
-        let universes = vec![Universe { id: 0, cell_indices: vec![0, 1] }];
-        let geom = Geometry { surfaces, cells, universes, lattices: vec![], root_universe: 0 };
+        let universes = vec![Universe {
+            id: 0,
+            cell_indices: vec![0, 1],
+        }];
+        let geom = Geometry {
+            surfaces,
+            cells,
+            universes,
+            lattices: vec![],
+            root_universe: 0,
+        };
 
         // At the origin: inside the fuel.
-        let p = geom.locate(Position::new(0.0, 0.0, 0.0), Direction::new(1.0, 0.0, 0.0), usize::MAX).unwrap();
+        let p = geom
+            .locate(
+                Position::new(0.0, 0.0, 0.0),
+                Direction::new(1.0, 0.0, 0.0),
+                usize::MAX,
+            )
+            .unwrap();
         assert_eq!(p.material, Some(0), "origin is fuel");
         let hit = geom.distance_to_boundary(&p);
-        assert!((hit.distance - r_fuel).abs() < 1e-9, "fuel→wall distance {}", hit.distance);
+        assert!(
+            (hit.distance - r_fuel).abs() < 1e-9,
+            "fuel→wall distance {}",
+            hit.distance
+        );
         assert_eq!(hit.crossing, Crossing::Surface(0));
 
         // Between cylinder and box: moderator.
-        let p2 = geom.locate(Position::new(0.5, 0.0, 0.0), Direction::new(1.0, 0.0, 0.0), usize::MAX).unwrap();
+        let p2 = geom
+            .locate(
+                Position::new(0.5, 0.0, 0.0),
+                Direction::new(1.0, 0.0, 0.0),
+                usize::MAX,
+            )
+            .unwrap();
         assert_eq!(p2.material, Some(1), "0.5 cm out is moderator");
 
         // Outside the box: lost.
-        assert!(geom.locate(Position::new(1.0, 0.0, 0.0), Direction::new(1.0, 0.0, 0.0), usize::MAX).is_none());
+        assert!(geom
+            .locate(
+                Position::new(1.0, 0.0, 0.0),
+                Direction::new(1.0, 0.0, 0.0),
+                usize::MAX
+            )
+            .is_none());
     }
 
     /// A reflective XPlane must send a +x particle back along −x.
     #[test]
     fn reflective_plane_flips_direction() {
-        let surfaces = vec![SurfaceKind::XPlane(XPlane { x0: 1.0, bc: BoundaryType::Reflective })];
-        let cells = vec![Cell::material(1, vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }], 0, 293.6)];
-        let universes = vec![Universe { id: 0, cell_indices: vec![0] }];
-        let geom = Geometry { surfaces, cells, universes, lattices: vec![], root_universe: 0 };
-        let (_r, u, alive) = geom.cross_surface(0, Position::new(1.0, 0.0, 0.0), Direction::new(1.0, 0.0, 0.0));
+        let surfaces = vec![SurfaceKind::XPlane(XPlane {
+            x0: 1.0,
+            bc: BoundaryType::Reflective,
+        })];
+        let cells = vec![Cell::material(
+            1,
+            vec![RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Inside,
+            }],
+            0,
+            293.6,
+        )];
+        let universes = vec![Universe {
+            id: 0,
+            cell_indices: vec![0],
+        }];
+        let geom = Geometry {
+            surfaces,
+            cells,
+            universes,
+            lattices: vec![],
+            root_universe: 0,
+        };
+        let (_r, u, alive) = geom.cross_surface(
+            0,
+            Position::new(1.0, 0.0, 0.0),
+            Direction::new(1.0, 0.0, 0.0),
+        );
         assert!(alive);
         assert!((u.u + 1.0).abs() < 1e-12, "reflected u.u = {}", u.u);
     }
@@ -437,11 +557,38 @@ mod tests {
     /// A sphere with a vacuum BC must kill the particle on crossing.
     #[test]
     fn vacuum_sphere_leaks() {
-        let surfaces = vec![SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: 5.0, bc: BoundaryType::Vacuum })];
-        let cells = vec![Cell::material(1, vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }], 0, 293.6)];
-        let universes = vec![Universe { id: 0, cell_indices: vec![0] }];
-        let geom = Geometry { surfaces, cells, universes, lattices: vec![], root_universe: 0 };
-        let (_r, _u, alive) = geom.cross_surface(0, Position::new(5.0, 0.0, 0.0), Direction::new(1.0, 0.0, 0.0));
+        let surfaces = vec![SurfaceKind::Sphere(Sphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: 5.0,
+            bc: BoundaryType::Vacuum,
+        })];
+        let cells = vec![Cell::material(
+            1,
+            vec![RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Inside,
+            }],
+            0,
+            293.6,
+        )];
+        let universes = vec![Universe {
+            id: 0,
+            cell_indices: vec![0],
+        }];
+        let geom = Geometry {
+            surfaces,
+            cells,
+            universes,
+            lattices: vec![],
+            root_universe: 0,
+        };
+        let (_r, _u, alive) = geom.cross_surface(
+            0,
+            Position::new(5.0, 0.0, 0.0),
+            Direction::new(1.0, 0.0, 0.0),
+        );
         assert!(!alive, "vacuum crossing should kill the particle");
     }
 }

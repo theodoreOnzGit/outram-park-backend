@@ -184,6 +184,7 @@
 
 pub mod bubble_point;
 pub mod bubble_point2;
+pub mod dynamic;
 pub mod initial_estimates;
 pub mod linalg;
 pub mod model;

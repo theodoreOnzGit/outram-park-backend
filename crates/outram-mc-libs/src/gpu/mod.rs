@@ -178,7 +178,12 @@ mod context {
             ..Default::default()
         }))
         .ok()?;
-        Some(GpuContext { device, queue, info, limits })
+        Some(GpuContext {
+            device,
+            queue,
+            info,
+            limits,
+        })
     }
 
     /// Minimal pure-`std` executor: block the current thread until `future`

@@ -31,9 +31,10 @@
 //! frame once the modal is shown (so they never touch a poisoned `Mutex`).
 
 use std::any::Any;
+use std::cell::RefCell;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Once, RwLock};
 use std::thread::{self, JoinHandle};
 
 use super::SharedState;
@@ -52,6 +53,134 @@ pub struct CrashReport {
     pub thread_name: String,
     /// The panic message (best-effort, downcast from the panic payload).
     pub message: String,
+    /// Source location of the panic as `file:line:column`, e.g.
+    /// `"examples/htgr_sim_v1/physics/secondary_loop.rs:388:9"`.
+    ///
+    /// **This is the field that identifies which component failed.** The
+    /// `thread_name` only names the thread, and a simulator that runs its whole
+    /// plant on one physics thread (as `htgr_sim_v1` does) would otherwise
+    /// report nothing more useful than `"htgr-physics"`.
+    ///
+    /// `None` if the panic hook did not fire or the panic carried no location —
+    /// possible for a panic raised through a path that bypasses the standard
+    /// hook. Treat it as best-effort diagnostics, not a guarantee.
+    pub location: Option<String>,
+    /// The **plant component** being stepped when the panic happened, as set by
+    /// [`mark_component`] -- e.g. `"steam generator"`.
+    ///
+    /// This is what a crash report should lead with: a source location tells a
+    /// developer where to look, but this tells the operator which piece of
+    /// equipment failed. `None` if the simulator does not mark its components.
+    pub component: Option<&'static str>,
+}
+
+impl CrashReport {
+    /// One-line human summary: the thread, the location if known, and the
+    /// message. Suitable for a log line or the crash modal's headline.
+    pub fn summary(&self) -> String {
+        let where_ = match (self.component, &self.location) {
+            (Some(component), Some(location)) => format!("{component} ({location})"),
+            (Some(component), None) => component.to_string(),
+            (None, Some(location)) => location.clone(),
+            (None, None) => self.thread_name.clone(),
+        };
+        format!("{} failed in {}: {}", self.thread_name, where_, self.message)
+    }
+}
+
+thread_local! {
+    /// The plant component this thread is currently stepping, set by
+    /// [`mark_component`].
+    static CURRENT_COMPONENT: RefCell<Option<&'static str>> = const { RefCell::new(None) };
+
+    /// Source location recorded by the panic hook for the panic currently
+    /// unwinding *this* thread.
+    ///
+    /// A thread-local is what makes this correct under concurrency: several
+    /// physics threads can panic at once, and each hook invocation runs on the
+    /// panicking thread, so no cross-thread interleaving can attribute one
+    /// thread's location to another's payload.
+    static PANIC_LOCATION: RefCell<Option<String>> = const { RefCell::new(None) };
+}
+
+/// Installs, exactly once per process, a panic hook that records each panic's
+/// source location before the default hook runs.
+///
+/// # Why a hook is required
+///
+/// [`std::panic::catch_unwind`] yields only the panic *payload* — the message.
+/// The `file:line:column` lives in the [`std::panic::PanicHookInfo`] handed to
+/// the hook, and is gone by the time `catch_unwind` returns. Capturing it is
+/// therefore not optional polish; it is the only way to learn where a panic
+/// came from without a backtrace.
+///
+/// The previously installed hook is still called afterwards, so the usual
+/// stderr panic output and `RUST_BACKTRACE` behaviour are preserved rather than
+/// swallowed.
+fn install_panic_location_hook() {
+    static HOOK: Once = Once::new();
+    HOOK.call_once(|| {
+        let previous = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            let location = info
+                .location()
+                .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()));
+            PANIC_LOCATION.with(|slot| {
+                *slot.borrow_mut() = location;
+            });
+            previous(info);
+        }));
+    });
+}
+
+/// Takes the location recorded by the hook for the panic that just unwound this
+/// thread, clearing it so a later panic cannot inherit a stale value.
+fn take_panic_location() -> Option<String> {
+    PANIC_LOCATION.with(|slot| slot.borrow_mut().take())
+}
+
+/// Records which **plant component** the calling physics thread is about to
+/// step, so a crash can be attributed to a piece of equipment rather than only
+/// to a source file.
+///
+/// # Why this exists
+///
+/// A source location tells a *developer* where a panic happened. It does not
+/// tell the person running the simulator which part of the plant misbehaved,
+/// and in a simulator whose whole plant runs on one physics thread the thread
+/// name is no help either. Calling this at the head of each subsystem's step
+/// turns "panicked in `secondary_loop.rs:388`" into "the steam generator
+/// failed", which is what a crash report should lead with.
+///
+/// # Usage
+///
+/// Call it as the plant walks its subsystems, in the same order they step:
+///
+/// ```ignore
+/// mark_component("reactor kinetics");
+/// self.kinetics.step(dt, rho);
+/// mark_component("pebble bed");
+/// self.core.step(dt, power, ...);
+/// mark_component("steam generator");
+/// self.secondary.step(dt, duty, hot_side);
+/// ```
+///
+/// The name should read as **equipment a plant operator would recognise**
+/// ("steam generator", "helium circulator", "hot gas duct"), not as a module
+/// path. Take `&'static str` so marking costs a pointer store per subsystem per
+/// timestep -- negligible beside the physics it precedes.
+///
+/// It is *not* a stack: each call replaces the previous mark, so the report
+/// names the innermost component that was marked, not a nesting chain.
+pub fn mark_component(component: &'static str) {
+    CURRENT_COMPONENT.with(|slot| {
+        *slot.borrow_mut() = Some(component);
+    });
+}
+
+/// Takes the component mark for the thread that just panicked.
+fn take_current_component() -> Option<&'static str> {
+    CURRENT_COMPONENT.with(|slot| slot.borrow_mut().take())
 }
 
 /// A shared "has any monitored background thread panicked?" flag for one
@@ -170,6 +299,9 @@ where
     F: FnOnce() + Send + 'static,
 {
     let thread_name = thread_name.into();
+    // Must be installed before the thread can panic, so the hook is in place to
+    // record the location. Idempotent across every monitored thread.
+    install_panic_location_hook();
     thread::spawn(move || {
         // AssertUnwindSafe: on a panic we do not resume the simulation, we ask
         // the user to restart, so a partially-mutated shared state left behind
@@ -177,11 +309,17 @@ where
         let result = catch_unwind(AssertUnwindSafe(body));
         if let Err(payload) = result {
             let message = panic_message(payload);
-            eprintln!("[physics thread '{thread_name}' panicked] {message}");
-            health.record(CrashReport {
+            // Taken on the panicking thread, so it is this thread's location.
+            let location = take_panic_location();
+            let component = take_current_component();
+            let report = CrashReport {
                 thread_name,
                 message,
-            });
+                location,
+                component,
+            };
+            eprintln!("[physics thread panicked] {}", report.summary());
+            health.record(report);
         }
     })
 }
@@ -252,10 +390,33 @@ pub fn show_crash_modal_if_crashed(ctx: &egui::Context, health: &ThreadHealth) -
         ui.add_space(10.0);
         ui.separator();
         ui.label(format!("Crashed subsystem: {}", report.thread_name));
+        // The location is what actually identifies the failing component: a
+        // simulator running its whole plant on one physics thread reports only
+        // that thread's name above, which pinpoints nothing. Shown outside the
+        // collapsed section, and open by default, because it is the first thing
+        // anyone reporting this crash needs.
+        match report.component {
+            Some(component) => {
+                ui.label("Failing component:");
+                ui.monospace(component);
+            }
+            None => {
+                ui.label("Failing component: not identified (simulator does not mark components)");
+            }
+        }
+        match &report.location {
+            Some(location) => {
+                ui.label("Source location:");
+                ui.monospace(location);
+            }
+            None => {
+                ui.label("Source location: not captured");
+            }
+        }
         egui::CollapsingHeader::new("Technical details")
-            .default_open(false)
+            .default_open(true)
             .show(ui, |ui| {
-                ui.monospace(&report.message);
+                ui.monospace(report.summary());
             });
     });
 
@@ -372,5 +533,57 @@ mod tests {
         // Even after a crash, repeated reads are safe and stable.
         assert!(health.crash_report().is_some());
         assert!(health.crash_report().is_some());
+    }
+
+    /// A crash report must name the SOURCE LOCATION of the panic, not just the
+    /// thread.
+    ///
+    /// **Why this test exists.** The location is the only field that identifies
+    /// which component failed. A simulator that runs its whole plant on one
+    /// physics thread reports a `thread_name` of `"htgr-physics"`, which
+    /// pinpoints nothing. And because the location is captured through a
+    /// process-wide panic hook rather than from `catch_unwind`, it can silently
+    /// regress to `None` — a diagnostic that quietly stops diagnosing is worse
+    /// than none at all, so it is pinned here.
+    ///
+    /// **Methodology.** Panic inside a monitored thread from a known line, then
+    /// assert the report carries a location naming this source file, that the
+    /// line number is present, and that `summary()` includes both the location
+    /// and the message. Also asserts the message itself survives, so the test
+    /// fails loudly rather than passing on a location with no payload.
+    ///
+    /// **Results (2026-08-12).** Location captured as
+    /// `crates/outram-park-digital-twin-engine/src/app_scaffold/crash.rs:<line>:<col>`,
+    /// message `"scram made it hotter"`, and `summary()` contained both.
+    /// Interpretation: the hook fires on a monitored physics thread and the
+    /// thread-local is read back on the same thread, so a crash modal can name
+    /// the failing component.
+    #[test]
+    fn a_crash_report_names_the_source_location_not_just_the_thread() {
+        let health = ThreadHealth::new();
+        let handle = spawn_monitored("test-physics", health.clone(), || {
+            panic!("scram made it hotter");
+        });
+        handle.join().expect("monitored thread joins cleanly");
+
+        let report = health.crash_report().expect("a crash must be recorded");
+        assert_eq!(report.thread_name, "test-physics");
+        assert_eq!(report.message, "scram made it hotter");
+
+        let location = report
+            .location
+            .as_deref()
+            .expect("the panic location must be captured, or the modal names nothing");
+        assert!(
+            location.contains("crash.rs"),
+            "location should name this source file, got {location}"
+        );
+
+        let summary = report.summary();
+        assert!(summary.contains(location), "summary must carry the location");
+        assert!(
+            summary.contains("scram made it hotter"),
+            "summary must carry the message"
+        );
     }
 }

@@ -82,7 +82,12 @@ impl Rng {
     /// value matches `rann`'s own documented convention ("set idum negative
     /// to reset the seed") and is what `purr.f90`'s driver uses (`kk=-101`).
     pub fn new(seed: i32) -> Self {
-        Rng { idum: seed, seeded: false, iy: 0, ir: [0; 97] }
+        Rng {
+            idum: seed,
+            seeded: false,
+            iy: 0,
+            ir: [0; 97],
+        }
     }
 
     /// Draw the next uniform value in `(0, 1)` (never exactly `0.0` —
@@ -233,7 +238,12 @@ pub struct LadderResonance {
 ///
 /// Returns every resonance up to and including the first one whose energy
 /// exceeds `ehigh`.
-pub fn generate_ladder(seq: &SequenceLadderParams, elow: f64, ehigh: f64, rng: &mut Rng) -> Vec<LadderResonance> {
+pub fn generate_ladder(
+    seq: &SequenceLadderParams,
+    elow: f64,
+    ehigh: f64,
+    rng: &mut Rng,
+) -> Vec<LadderResonance> {
     const NEUTRON_FISSION_SCALE: f64 = 19.9999;
     // purr.f90:1772-1773 — `dn=20; dn=dn-dn/10000` = 19.998.
     const COMPETITIVE_SCALE: f64 = 20.0 - 20.0 / 10000.0;
@@ -306,7 +316,16 @@ pub fn generate_ladder(seq: &SequenceLadderParams, elow: f64, ehigh: f64, rng: &
 ///   absent.
 /// - `id` — `1`: elastic-type; `2`: capture-type; `3`: fission-type (needs
 ///   `gbeta>0.0`).
-fn gnrx(galpha: f64, gbeta: f64, gamma: f64, mu: i32, nu: i32, lamda: i32, df: f64, id: i32) -> f64 {
+fn gnrx(
+    galpha: f64,
+    gbeta: f64,
+    gamma: f64,
+    mu: i32,
+    nu: i32,
+    lamda: i32,
+    df: f64,
+    id: i32,
+) -> f64 {
     if galpha <= 0.0 || gamma <= 0.0 || gbeta < 0.0 {
         return 0.0;
     }
@@ -364,9 +383,15 @@ fn gnrx(galpha: f64, gbeta: f64, gamma: f64, mu: i32, nu: i32, lamda: i32, df: f
                 for l in 0..10 {
                     let (xl, wl) = (qp_node(l, lamda), qw_weight(l, lamda));
                     match id {
-                        1 => s += wj * wk * wl * xj * xj / (galpha * xj + gbeta * xk + gamma + df * xl),
+                        1 => {
+                            s += wj * wk * wl * xj * xj
+                                / (galpha * xj + gbeta * xk + gamma + df * xl)
+                        }
                         2 => s += wj * wk * wl * xj / (galpha * xj + gbeta * xk + gamma + df * xl),
-                        3 => s += wj * wk * wl * xj * xk / (galpha * xj + gbeta * xk + gamma + df * xl),
+                        3 => {
+                            s += wj * wk * wl * xj * xk
+                                / (galpha * xj + gbeta * xk + gamma + df * xl)
+                        }
                         _ => {}
                     }
                 }
@@ -408,7 +433,10 @@ pub struct InfiniteDilutionResult {
 /// [`crate::unresr::mf2::parse_lru2_ranges`]); only ranges whose `[el, eh]`
 /// brackets `e` contribute. `e` must be positive (see
 /// [`crate::unresr::unresolved_cross_sections`]'s identical convention).
-pub fn infinite_dilution_reference(ranges: &[UnresolvedRange], e: f64) -> Result<InfiniteDilutionResult, NjoyError> {
+pub fn infinite_dilution_reference(
+    ranges: &[UnresolvedRange],
+    e: f64,
+) -> Result<InfiniteDilutionResult, NjoyError> {
     // purr.f90:1310 — unresx's own local `con1` (Doppler-width related,
     // `1/(4·k_B)`), a *different* constant from `unrest`'s unrelated
     // `con1=31.83` (a resonance significant-range cutoff). NJOY reuses the
@@ -454,8 +482,16 @@ pub fn infinite_dilution_reference(ranges: &[UnresolvedRange], e: f64) -> Result
             dbarin += 1.0 / seq.d;
 
             let ndf_n = seq.amun.round() as i32;
-            let ndf_f = if seq.amuf <= 0.0 { 0 } else { seq.amuf.round() as i32 };
-            let ndf_x = if seq.amux <= 0.0 { 0 } else { seq.amux.round() as i32 };
+            let ndf_f = if seq.amuf <= 0.0 {
+                0
+            } else {
+                seq.amuf.round() as i32
+            };
+            let ndf_x = if seq.amux <= 0.0 {
+                0
+            } else {
+                seq.amux.round() as i32
+            };
             let gnx = gnx_full / ndf_n.max(1) as f64;
             let gfx = if ndf_f <= 0 { 0.0 } else { seq.gf };
             let gxx = if ndf_x <= 0 { 0.0 } else { seq.gx };
@@ -520,7 +556,9 @@ pub fn read_heating_cross_sections(
     let mut have_total = false;
     let mut have_partials = false;
     for (ix, &mt) in mts.iter().enumerate() {
-        let Some((_, interp, xy)) = find(mt) else { continue };
+        let Some((_, interp, xy)) = find(mt) else {
+            continue;
+        };
         if ix == 0 {
             have_total = true;
         } else {
@@ -584,7 +622,10 @@ fn line_shape(x: f64, y: f64, yy: f64, table: &DopplerTable) -> (f64, f64) {
         let a5 = a1 - C3;
         let f1 = C4 / (a4 * a4 + a3);
         let f2 = C5 / (a5 * a5 + a3);
-        return (f1 * (temp1 - a4 * y) + f2 * (temp1 - a5 * y), f1 * (a4 * x + temp2) + f2 * (a5 * x + temp2));
+        return (
+            f1 * (temp1 - a4 * y) + f2 * (temp1 - a5 * y),
+            f1 * (a4 * x + temp2) + f2 * (a5 * x + temp2),
+        );
     }
 
     // purr.f90:2132-2159 (label 320) — 3-term rational approximation.
@@ -729,7 +770,9 @@ pub fn probability_table(
     const BIG: f64 = 1.0e6;
 
     if nbin < 15 {
-        return Err(NjoyError::EndfParse("purr: nbin should be 15 or more".to_string()));
+        return Err(NjoyError::EndfParse(
+            "purr: nbin should be 15 or more".to_string(),
+        ));
     }
 
     let ntemp = temp.len();
@@ -739,7 +782,10 @@ pub fn probability_table(
 
     // purr.f90:1867-1880 — ladder energy span, sized off the smallest
     // sequence spacing so `nermax` resonances comfortably span it.
-    let dmin = sequences.iter().map(|s| s.dbar).fold(f64::INFINITY, f64::min);
+    let dmin = sequences
+        .iter()
+        .map(|s| s.dbar)
+        .fold(f64::INFINITY, f64::min);
     let erange = 9.0 * NERMAX * dmin / 10.0;
     let dbarin = inf_dilution.mean_inverse_spacing;
     let nres = erange * dbarin;
@@ -871,8 +917,9 @@ pub fn probability_table(
         // ladder only) and histogram/Bondarenko accumulation (every ladder).
         for itemp in 0..ntemp {
             if iladr == 0 {
-                let mut es_tot: Vec<f64> =
-                    (0..nsamp).map(|ie| els[itemp][ie] + fis[itemp][ie] + cap[itemp][ie] + bkg[0]).collect();
+                let mut es_tot: Vec<f64> = (0..nsamp)
+                    .map(|ie| els[itemp][ie] + fis[itemp][ie] + cap[itemp][ie] + bkg[0])
+                    .collect();
                 es_tot.sort_by(|a, b| a.partial_cmp(b).unwrap());
                 tmin[itemp] = es_tot[0];
                 tmax[itemp] = es_tot[nsamp - 1];
@@ -972,7 +1019,11 @@ pub fn probability_table(
         pct_std_capture: pct_std(cvar, m_cap),
     };
 
-    let sigi_total = inf_dilution.sigma_elastic_inf + inf_dilution.sigma_fission_inf + inf_dilution.sigma_capture_inf + spot + bkg[0];
+    let sigi_total = inf_dilution.sigma_elastic_inf
+        + inf_dilution.sigma_fission_inf
+        + inf_dilution.sigma_capture_inf
+        + spot
+        + bkg[0];
     let sigi = [
         sigi_total,
         inf_dilution.sigma_elastic_inf + spot + bkg[1],
@@ -987,7 +1038,13 @@ pub fn probability_table(
         let mut bondarenko_direct = vec![[0.0f64; 5]; nsig0];
         for isig0 in 0..nsig0 {
             let b = &bval[itemp][isig0];
-            bondarenko_direct[isig0] = [b[0] / b[5], b[1] / b[5], b[2] / b[5], b[3] / b[5], b[4] / b[6]];
+            bondarenko_direct[isig0] = [
+                b[0] / b[5],
+                b[1] / b[5],
+                b[2] / b[5],
+                b[3] / b[5],
+                b[4] / b[6],
+            ];
         }
 
         // purr.f90:2413-2444 — normalize the probability table (bin
@@ -995,7 +1052,11 @@ pub fn probability_table(
         let mut bin_probability = vec![0.0f64; nbin];
         let mut bin_xs = vec![[0.0f64; 4]; nbin];
         for i in 0..nbin {
-            let denom = if tabl[itemp][i][0] == 0.0 { 1.0 } else { tabl[itemp][i][0] };
+            let denom = if tabl[itemp][i][0] == 0.0 {
+                1.0
+            } else {
+                tabl[itemp][i][0]
+            };
             bin_probability[i] = tabl[itemp][i][0] / tsum[itemp];
             bin_xs[i] = [
                 tabl[itemp][i][1] / denom,
@@ -1025,8 +1086,13 @@ pub fn probability_table(
                 acc[5] += ttt * den;
                 acc[6] += ttt * den * den;
             }
-            bondarenko_from_table[isig0] =
-                [acc[0] / acc[5], acc[1] / acc[5], acc[2] / acc[5], acc[3] / acc[5], acc[4] / acc[6]];
+            bondarenko_from_table[isig0] = [
+                acc[0] / acc[5],
+                acc[1] / acc[5],
+                acc[2] / acc[5],
+                acc[3] / acc[5],
+                acc[4] / acc[6],
+            ];
         }
 
         // purr.f90:2509-2530 — renormalize the probability table and the
@@ -1066,7 +1132,10 @@ pub fn probability_table(
         });
     }
 
-    Ok(ProbabilityTableResult { tables, convergence })
+    Ok(ProbabilityTableResult {
+        tables,
+        convergence,
+    })
 }
 
 /// Run the PURR card-input driver. Placeholder — the ported pieces (ENDF
@@ -1075,5 +1144,7 @@ pub fn probability_table(
 /// [`wfun::uw2`], [`probability_table`]) are reached directly; the PENDF
 /// MT=152/MT=153 output-tape bookkeeping is not ported — see the module docs.
 pub fn run() -> Result<(), NjoyError> {
-    Err(NjoyError::NotPorted("purr driver (PENDF MT=152/153 tape writer not ported — see module docs)"))
+    Err(NjoyError::NotPorted(
+        "purr driver (PENDF MT=152/153 tape writer not ported — see module docs)",
+    ))
 }

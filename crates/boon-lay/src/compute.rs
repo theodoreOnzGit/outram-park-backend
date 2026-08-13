@@ -175,7 +175,10 @@ mod tests {
 
     #[test]
     fn fraction_one_matches_auto() {
-        assert_eq!(ThreadCount::Fraction(1.0).resolve(), ThreadCount::Auto.resolve());
+        assert_eq!(
+            ThreadCount::Fraction(1.0).resolve(),
+            ThreadCount::Auto.resolve()
+        );
     }
 
     #[test]
