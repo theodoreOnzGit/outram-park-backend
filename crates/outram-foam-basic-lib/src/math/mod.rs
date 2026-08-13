@@ -40,12 +40,20 @@
 //! residual such as `h(T) - h_target`, which is not a polynomial at all, and
 //! because this module is already where the crate's iterative inversions live.
 
+pub mod differentiate;
 pub mod erf_inv;
 pub mod inc_gamma;
 pub mod inv_inc_gamma;
 pub mod minimise;
 pub mod parallel;
 
+pub use differentiate::{
+    derivative, derivative_backend_for, derivative_batch, jacobian, jacobian_batch,
+    jacobian_batch_backend_for, jacobian_column_backend_for, ode_system_jacobian, DerivativeBatch,
+    DerivativeSolution, DiffBatchFailure, DiffScheme, DiffSettings, DiffStatus, JacobianBatch,
+    JacobianSolution, NumericalJacobian, CBRT_EPSILON, DERIVATIVE_BATCH_MIN_POINTS,
+    FIFTH_ROOT_EPSILON, JACOBIAN_BATCH_MIN_PROBLEMS, JACOBIAN_COLUMN_MIN_DIMENSION,
+};
 pub use erf_inv::erf_inv;
 pub use inc_gamma::{inc_gamma_p, inc_gamma_q, inc_gamma_ratio_p, inc_gamma_ratio_q};
 pub use inv_inc_gamma::inv_inc_gamma;
