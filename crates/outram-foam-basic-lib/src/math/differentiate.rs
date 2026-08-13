@@ -16,7 +16,403 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-//! MODULE-DOC-PLACEHOLDER
+//! **Numerical differentiation of a supplied function** — finite differences,
+//! batched derivatives, and batched Jacobians, dispatched across
+//! [`ComputeBackend`].
+//!
+//! # This is NOT the FV gradient operator
+//!
+//! [`crate::fv_operators`] implements the *spatial* finite-volume `grad`, `div`
+//! and `laplacian` over a mesh: they differentiate a **field** with respect to
+//! **position**, using face fluxes and cell volumes, and they are the right tool
+//! for a PDE discretisation. This module differentiates an arbitrary
+//! **caller-supplied function** with respect to its own arguments, by sampling
+//! it. If you are discretising a transport equation you want `fv_operators`; if
+//! you need `df/dx` of a closure, a property correlation or an ODE right-hand
+//! side, you are in the right place.
+//!
+//! # The problem this exists to solve
+//!
+//! [`crate::ode::OdeSystem::jacobian`] has a default body that is
+//! `unimplemented!()`. Any system that does not hand-code its Jacobian
+//! **panics** the moment [`crate::ode::Rosenbrock23`] — the crate's only stiff
+//! solver — asks for one, and inside
+//! [`crate::ode::parallel::integrate_ensemble`] that panic propagates out
+//! through the `rayon` scope. [`NumericalJacobian`] closes that hole: wrap a
+//! system, and `Rosenbrock23` integrates it with no hand-coded Jacobian at all.
+//! Measured cost of doing so, on Van der Pol (`mu = 5`, `x` in `[0, 10]`,
+//! tolerances `1e-8`) — see "Measured cost against a hand-coded Jacobian" below
+//! — is **1.9x** wall clock for the same answer to 8 decimals.
+//!
+//! # Provenance — a generalisation of two settled workspace conventions
+//!
+//! Nothing here is a new algorithm. Both halves of the formulation are taken
+//! from implementations already working in this workspace, and the divergences
+//! are stated rather than left to be discovered.
+//!
+//! **The Jacobian assembly** generalises:
+//!
+//! ```text
+//! crates/outram-park-fork-dwsim-libs/src/columns/linalg.rs:183
+//!     pub fn finite_difference_jacobian<F>(f: &mut F, x: &[f64], epsilon: f64)
+//!         -> Option<Array2<f64>>
+//! ```
+//!
+//! itself a port of DWSIM's `NewtonRaphson.vb:669-705` (`FunctionGradient`),
+//! used there for the Naphtali-Sandholm column solver's initial Broyden
+//! Jacobian. Kept from it: the **central** stencil, the **relative**
+//! perturbation, and the **failure-is-`Option`** convention — a caller never
+//! receives a matrix it cannot tell apart from a good one. `dwsim-libs` cannot
+//! be depended on from here (this crate has no internal workspace dependencies,
+//! by policy), so this is a reuse of *formulation*, not of code.
+//!
+//! Three deliberate divergences from it, each because the alternative is a known
+//! defect:
+//!
+//! | This module | `finite_difference_jacobian` | Why |
+//! |---|---|---|
+//! | `h = rel * max(\|x\|, min_scale)` | `x*(1±eps)`, or `eps` and `2*eps` when `x == 0` | The `x == 0` branch silently switches to a *one-sided* stencil at a *different* step, so the scheme changes with the data. The `max` floor keeps one scheme everywhere. |
+//! | A failed entry is `NaN` and the status says so | a non-finite entry is written as `0.0` | A zero is a *plausible* Jacobian entry. It cannot be detected downstream, and a Newton or Rosenbrock step built on it returns a wrong answer instead of an error. |
+//! | Divides by the realised step `xp - xm` | divides by the requested `2*eps*x` | `x + h` is not representable, so the requested step is not the step taken. See [`derivative`]. |
+//!
+//! **The step-size rule** is the one already in:
+//!
+//! ```text
+//! crates/outram-park-fork-offbeat/src/rheology/aster/integration.rs:298
+//!     pub fn newton_perturbed(...)   // h = perturbation * x.abs().max(1.0)
+//!     pub fn perturbed_default() -> f64   // f64::EPSILON.cbrt()
+//! ```
+//!
+//! which is upstream Code_Aster's `NEWTON_PERT`. This module adopts both the
+//! `max(|x|, 1)` floor and `eps^(1/3)` for the central scheme verbatim — see
+//! [`CBRT_EPSILON`] and [`DiffSettings::step_for`] — and extends the same
+//! reasoning to the other three orders.
+//!
+//! A third, narrower precedent —
+//! `tampines-steam-tables`' `w_ps_eqm_region4_finite_diff_vol`
+//! (`region_4_vap_liq_equilibrium/speed_of_sound_eqm.rs:83`) — takes
+//! `dv/dp|_s` by central differences with a hard-coded `dp = 1e-4 * p`, clamped
+//! at the minimum table pressure. That is a *relative* step of `1e-4`, sixteen
+//! times coarser than [`CBRT_EPSILON`], which is the right call there because
+//! the IF97 flash it differentiates is far noisier than machine epsilon. It is
+//! recorded here as the standing reminder that **the optimal step assumes the
+//! function is evaluated to rounding accuracy**, and a caller whose function is
+//! noisier should raise [`DiffSettings::relative_step`] accordingly.
+//!
+//! # Achievable accuracy is `sqrt(eps)` to `eps^(4/5)`, NEVER `eps`
+//!
+//! This is the single most common misunderstanding about finite differences, so
+//! it is measured rather than asserted. Truncation error falls as `h^p` while
+//! round-off grows as `eps/h`; their sum is minimised at `h ~ eps^(1/(p+1))`,
+//! where the achievable accuracy is `~ eps^(p/(p+1))`:
+//!
+//! | Scheme | Order `p` | Optimal `h` | Predicted accuracy |
+//! |---|---|---|---|
+//! | [`DiffScheme::Forward`] / [`DiffScheme::Backward`] | 1 | `sqrt(eps) = 1.49e-8` | `sqrt(eps) = 1.49e-8` |
+//! | [`DiffScheme::Central`] | 2 | `eps^(1/3) = 6.06e-6` | `eps^(2/3) = 3.67e-11` |
+//! | [`DiffScheme::Central4th`] | 4 | `eps^(1/5) = 7.40e-4` | `eps^(4/5) = 3.00e-13` |
+//!
+//! **A caller expecting `1e-15` from a finite difference will be wrong by seven
+//! orders of magnitude for a forward difference.** If you need machine
+//! precision, hand-code the derivative.
+//!
+//! *Measured.* `accuracy_floor_at_the_default_step` in `differentiate/tests.rs`,
+//! release, 2026-08-13. Worst relative error over six points in `[0.25, 3.3]`,
+//! each scheme at its own default step:
+//!
+//! | Function | forward | backward | central | central-4th |
+//! |---|---|---|---|---|
+//! | `sin` | 1.281191e-8 | 1.401018e-8 | 6.528067e-11 | 1.785239e-13 |
+//! | `exp` | 2.413003e-8 | 2.383524e-8 | 6.640831e-11 | 1.800352e-13 |
+//! | `x^3 - 2x` | 4.470348e-8 | 4.470348e-8 | 4.583556e-11 | 9.992007e-14 |
+//! | `1/(1 + x^2)` | 8.046627e-9 | 8.430242e-9 | 2.949979e-11 | 9.620083e-14 |
+//! | `tanh` | 6.775837e-9 | 8.125324e-9 | 1.244682e-11 | 1.963985e-13 |
+//! | **worst** | **4.470348e-8** | **4.470348e-8** | **6.640831e-11** | **1.963985e-13** |
+//! | *predicted* | *1.490116e-8* | *1.490116e-8* | *3.666853e-11* | *3.000214e-13* |
+//!
+//! Every scheme lands within a factor of three of its prediction, and the
+//! **ordering is exactly as predicted: central-4th beats central by 338x, and
+//! central beats forward by 673x.** The theory is a usable bound, not a story.
+//!
+//! *Observed convergence order.* `observed_convergence_order_matches_theory`,
+//! same run. Absolute error of `d/dx sin(x)` at `x = 1` (exact
+//! `5.40302305868139765e-1`) against the relative step:
+//!
+//! | Relative step | forward | backward | central | central-4th |
+//! |---|---|---|---|---|
+//! | `1e-1` | 4.293855e-2 | 4.113845e-2 | 9.000537e-4 | 1.125295e-7 |
+//! | `1e-2` | 4.216325e-3 | 4.198315e-3 | 9.004993e-6 | 1.126843e-11 |
+//! | `1e-3` | 4.208255e-4 | 4.206454e-4 | 9.005042e-8 | 1.049161e-13 |
+//! | `1e-4` | 4.207445e-5 | 4.207265e-5 | 9.003700e-10 | 3.312906e-13 |
+//! | **observed order** | **1.0079** | **0.9912** | **1.9998** | **3.9994** |
+//!
+//! The fourth-order column turning back upward at `1e-4` (1.05e-13 to 3.31e-13)
+//! is the round-off wall arriving, exactly where `eps^(1/5) = 7.4e-4` says it
+//! should.
+//!
+//! *The round-off wall.* `a_step_far_below_the_optimum_is_worse_not_better`,
+//! same run. Central difference, `d/dx sin(x)` at `x = 1`, relative error:
+//!
+//! | Relative step | Relative error |
+//! |---|---|
+//! | `1.0000e-2` | 1.666658e-5 |
+//! | `6.0555e-6` ([`CBRT_EPSILON`]) | **5.373555e-12** |
+//! | `1.0000e-8` | 5.303737e-9 |
+//! | `1.0000e-10` | 1.909780e-7 |
+//! | `1.0000e-12` | 5.609880e-5 |
+//! | `1.0000e-14` | 7.666335e-3 |
+//!
+//! **A step ten thousand times smaller than the optimum is ten million times
+//! worse.** "Make `h` tiny for accuracy" is the intuition this table exists to
+//! destroy.
+//!
+//! # Forward against central: the cost/accuracy trade, measured
+//!
+//! For an `n`-dimensional Jacobian the evaluation counts are `n + 1`, `2n` and
+//! `4n` (see [`DiffScheme::evaluations_per_jacobian`]). The measured accuracy
+//! ratio from the table above is **673x** for one extra evaluation per column
+//! going forward to central, and a further **338x** for two more going to
+//! `Central4th`. Central is very nearly always the right default, which is why
+//! it is what [`DiffSettings::central`] exists for and what
+//! [`NumericalJacobian`]'s documentation recommends; [`DiffScheme::Forward`] is
+//! for the case where the function is genuinely expensive and `1e-8` is enough.
+//!
+//! # Verification against analytic Jacobians
+//!
+//! *Methodology.* Three systems whose Jacobians can be written down exactly are
+//! differenced and compared entry by entry: a **quadratic** system
+//! `[x0^2 + x1, x0*x1^2]`, a **trigonometric** system
+//! `[sin(x0)cos(x1), exp(x0)*x1]` in which no derivative of any order vanishes,
+//! and a **stiff linear pair** `[-1000*y0 + y1, y0 - y1]` with a 1000:1 entry
+//! spread. Pass criterion: worst relative error below `1e-7` for the first-order
+//! schemes and `1e-10`/`1e-11` for the higher-order ones. All four schemes pass
+//! on all three systems (release, 2026-08-13).
+//!
+//! *The stiff pair is the informative one*, because a **linear** system has
+//! exactly zero truncation error — so every digit lost is cancellation, and the
+//! measurement isolates it. Absolute error per entry at `y = [0.4, -0.9]`:
+//!
+//! | Scheme | `J[0][0]` (-1000) | `J[0][1]` (1) | `J[1][0]` (1) | `J[1][1]` (-1) |
+//! |---|---|---|---|---|
+//! | forward | 0 | 0 | 0 | 0 |
+//! | backward | 0 | 0 | 0 | 0 |
+//! | central | 6.600658e-10 | **1.778424e-9** | 9.167112e-12 | 1.833422e-11 |
+//! | central-4th | 5.456968e-12 | 6.380474e-11 | 2.498002e-14 | 0 |
+//!
+//! **`J[0][1]` is the worst entry by two orders of magnitude, and it is the
+//! small entry in the row that also holds `-1000`.** Row 0 evaluates to about
+//! `-400.9`; perturbing `x1` changes it by `1.2e-5`, so forming that difference
+//! discards eleven significant digits before the division. This is a **general
+//! property of finite-difference Jacobians, not of this implementation**: an
+//! entry is only as accurate as its own magnitude relative to the largest term
+//! in its row. A badly-scaled system loses precision in exactly the entries a
+//! stiff solver most needs. If that matters, hand-code the Jacobian or rescale
+//! the equations.
+//!
+//! The one-sided schemes returning **exactly zero** error here is a property of
+//! this particular linear case (`f(x+h) - f(x)` is exact when `f` is affine and
+//! the operands round identically) and must not be read as one-sided differences
+//! being more accurate in general — the accuracy table above shows them 673x
+//! *worse* on smooth non-linear functions.
+//!
+//! # Measured cost against a hand-coded Jacobian
+//!
+//! *Methodology.* Van der Pol `mu = 5`, `y(0) = [2, 0]`, integrated over
+//! `x` in `[0, 10]` by [`crate::ode::Rosenbrock23`] with `abs_tol = rel_tol =
+//! 1e-8`; best of 5, release, default features, the loaded 4-core machine
+//! described on [`DERIVATIVE_BATCH_MIN_POINTS`]. Van der Pol *has* an analytic
+//! Jacobian, which is the baseline. Produced by the `#[ignore]`d
+//! `numerical_jacobian_overhead_benchmark`, two runs.
+//!
+//! | Jacobian | Time (A) | Time (B) | vs analytic (A) | (B) | `y0(10)` |
+//! |---|---|---|---|---|---|
+//! | analytic (hand-coded) | 849.99 us | 855.47 us | 1.00x | 1.00x | -1.15870127 |
+//! | [`DiffScheme::Forward`] | 1619.03 us | 1603.88 us | 1.90x | 1.87x | -1.15870127 |
+//! | [`DiffScheme::Backward`] | 1607.45 us | 1614.33 us | 1.89x | 1.89x | -1.15870127 |
+//! | [`DiffScheme::Central`] | 1673.66 us | 1677.88 us | 1.97x | 1.96x | -1.15870127 |
+//! | [`DiffScheme::Central4th`] | 2487.96 us | 2455.24 us | 2.93x | 2.87x | -1.15870127 |
+//!
+//! **All four schemes reproduce the analytic result to all eight printed
+//! decimals**, at roughly twice the cost. That is the honest headline: a
+//! numerical Jacobian is not free, it is not exact, and for a `n = 2` stiff
+//! system it costs about a factor of two and changes nothing you can see.
+//!
+//! # A NaN Jacobian is NOT reported by the solver — check the counter
+//!
+//! When a Jacobian cannot be differenced, this module writes `NaN` into the
+//! entries and says so through [`DiffStatus`]. The natural expectation is that
+//! `Rosenbrock23` then fails loudly. **It does not, and this was measured
+//! rather than assumed** (`a_jacobian_that_cannot_be_differenced_is_counted_and_reaches_the_solver_as_nan`):
+//!
+//! - [`crate::ode::Rosenbrock23::integrate`] returns **`Ok(())`**;
+//! - the state vector comes back **`NaN`**.
+//!
+//! The cause is in the ODE layer, not here: `ode::normalize_error` folds the
+//! per-equation errors with `f64::max`, and `f64::max(0.0, NaN)` is `0.0` — so a
+//! `NaN` error estimate looks like a *perfectly converged* step and every
+//! sub-step is accepted. Nothing in this module can change that.
+//!
+//! **Consequence for callers:** [`NumericalJacobian::non_finite_jacobians`] is
+//! the only in-band signal that anything went wrong. Check it after any
+//! integration whose result you intend to trust. It is not decoration.
+//!
+//! # Hybrid means dispatch, not two APIs
+//!
+//! Every entry point takes a [`ComputeBackend`] parameter; there is no
+//! `_parallel()` sibling. With the `parallel` feature off,
+//! [`ComputeBackend::CpuMulti`] resolves down to [`ComputeBackend::Serial`] and
+//! the answer is unchanged — bit for bit, not merely close. There is no `Gpu`
+//! kernel here yet, so a `Gpu` request degrades to the best available CPU path.
+//!
+//! **Two independent parallel axes** live here, with separately measured
+//! crossovers 2048x apart:
+//!
+//! | Entry point | Parallel over | Crossover |
+//! |---|---|---|
+//! | [`derivative_batch`] | independent points | [`DERIVATIVE_BATCH_MIN_POINTS`] = 65 536 |
+//! | [`jacobian_batch`] | independent lanes | [`JACOBIAN_BATCH_MIN_PROBLEMS`] = 256 |
+//! | [`jacobian`] | the columns of **one** Jacobian | [`JACOBIAN_COLUMN_MIN_DIMENSION`] = 32 |
+//!
+//! They are not nested: [`jacobian_batch`] runs each lane's columns serially,
+//! because the lane axis is already saturating the pool.
+//!
+//! # Determinism — bitwise identical across backends and thread counts
+//!
+//! **This module returns bit-for-bit identical output on
+//! [`ComputeBackend::Serial`] and [`ComputeBackend::CpuMulti`], at any thread
+//! count, on every run**, provided the caller's function is a deterministic pure
+//! function of its arguments.
+//!
+//! The argument is the same one [`crate::math::minimise`] makes: lane `i`'s (or
+//! column `j`'s) answer is a pure function of its own samples, and **no
+//! arithmetic crosses lanes or columns**. A parallel *sum* would have to
+//! re-associate, and floating-point addition is not associative; a set of
+//! independent difference quotients has nothing to re-associate. Both backends
+//! call the same `#[inline]` kernels — [`derivative_one`] and
+//! [`jacobian_column`] — and only the identity of the calling thread differs.
+//!
+//! Verified by the `bitwise_*` tests in `differentiate/tests.rs` on 2 048
+//! derivative lanes, 512 four-dimensional Jacobian lanes and one 96-dimensional
+//! Jacobian, all built with points spread over seven decades so the per-lane
+//! step differs. **Measured 2026-08-13 (release, `--features parallel`, 4
+//! logical cores): bit-identical on every observable field of every lane, for
+//! all four [`DiffScheme`] variants, at 1, 2, 4 and 8 workers.** The
+//! single-point [`derivative`] and single-lane [`jacobian`] forms are separately
+//! asserted bit-identical to their one-element batches.
+//!
+//! The `#[ignore]`d `differentiate_thread_scaling_benchmark` re-asserts the same
+//! identity while timing it, on 65 536 lanes with
+//! [`DiffScheme::Central4th`] (4 evaluations per lane), best of 7, two runs:
+//!
+//! | Worker threads | Time (A) | Speed-up (A) | (B) | Bitwise vs serial |
+//! |---|---|---|---|---|
+//! | *serial reference* | 5902.59 us | 1.00x | 1.00x | — |
+//! | 1 | 6008.47 us | 0.98x | 0.98x | identical |
+//! | 2 | 3181.82 us | 1.86x | 1.85x | identical |
+//! | 4 | 1582.50 us | 3.73x | 3.70x | identical |
+//! | 8 | 1577.90 us | 3.74x | 3.83x | identical |
+//!
+//! The "identical" column is asserted by the benchmark, not merely printed.
+//! Scaling is close to linear to 4 workers and flat beyond, which is what four
+//! logical cores should do. **The machine was not idle** (see
+//! [`DERIVATIVE_BATCH_MIN_POINTS`] for the load); one machine, one batch, two
+//! runs, nothing measured on Android hardware or a many-core server.
+//!
+//! The one way a caller can break this is to supply a function that is not pure
+//! — one that reads a random number generator, accumulates into shared
+//! interior-mutable state, or depends on the calling thread. The `Sync` bound
+//! permits it; this contract forbids it.
+//!
+//! # Failure is reported, never swallowed
+//!
+//! - Every lane and every Jacobian carries a [`DiffStatus`].
+//! - [`DerivativeSolution::derivative`] and [`JacobianSolution::matrix`] return
+//!   `Option`, `Some` **only** on success. The diagnostic values are behind the
+//!   deliberately-named [`DerivativeSolution::raw_value`] and
+//!   [`JacobianSolution::raw_matrix`].
+//! - [`DerivativeBatch::values`] and [`JacobianBatch::matrices`] are
+//!   all-or-nothing: they return [`DiffBatchFailure`] naming the failure count
+//!   and the first failing lane, rather than a `Vec` with a `NaN` in it.
+//! - A failed Jacobian column is `NaN`, never `0.0`, and
+//!   [`JacobianSolution::first_bad_column`] names the offending **variable**.
+//!
+//! **But read the limits of that guarantee** — the "What is detected, and what
+//! cannot be" section on [`derivative`] lists three classes of bad input that no
+//! finite-difference kernel can detect, chief among them a singularity that a
+//! symmetric stencil steps over.
+//!
+//! # What is deliberately NOT here: dual-number autodiff
+//!
+//! Bead `op-yvj.4.6` offers forward-mode dual numbers as an optional exact
+//! alternative, *"only if it stays simple"*. It is not implemented, on purpose.
+//! Making it useful means every function a caller wants differentiated must be
+//! generic over the scalar type, which would push a type parameter through
+//! `OdeSystem`, through the thermophysics kernels, and into every caller's own
+//! code. That is precisely the rise in reader context load the crate-level
+//! "Human interface layer" rule forbids, and the bead itself ranks that rule
+//! above the convenience. A caller who wants exact derivatives should hand-code
+//! them; that is what [`crate::ode::OdeSystem::jacobian`] is for.
+//!
+//! # Units
+//!
+//! Everything here is dimensionless `f64`, and that is a deliberate decision
+//! rather than `uom` being stripped.
+//!
+//! **A derivative changes dimension.** `d(enthalpy)/d(temperature)` is a heat
+//! capacity; `d(pressure)/d(volume)` is none of the three. A generic
+//! differentiator therefore has no single `uom` type it could return — the
+//! output type is a *function* of two input types, which Rust can only express
+//! through a trait with an associated output type, i.e. exactly the generic
+//! machinery the "Human interface layer" rule forbids adding for its own sake.
+//! The bead anticipates this and directs that, where the generic form cannot be
+//! typed cleanly, a small number of **concrete typed wrappers** is preferred
+//! over one generic nobody can read.
+//!
+//! So: `uom` typing is applied **at the boundary, by the caller** — convert in,
+//! convert out — exactly as [`crate::math::minimise`] and
+//! [`crate::math::parallel`] do. The one place a dimension does appear in this
+//! module's own API is [`DiffSettings::min_scale`], which carries the units of
+//! the variable being perturbed; its documentation says so, because a caller
+//! differentiating with respect to a pressure in pascals near zero must not
+//! leave it at `1.0`.
+//!
+//! # Cargo features and portability
+//!
+//! The `rayon` paths sit behind the crate's `parallel` feature, which is **off
+//! by default**; with it off this module still compiles and every entry point
+//! still works. `rayon` is pure Rust with no system component, so everything
+//! here compiles and runs on `aarch64-linux-android` / Termux exactly as on
+//! desktop. Nothing in this module is target-gated.
+//!
+//! # Example
+//!
+//! ```rust
+//! use outram_foam_basic_lib::math::differentiate::{DiffSettings, NumericalJacobian};
+//! use outram_foam_basic_lib::ode::{OdeSystem, Rosenbrock23};
+//!
+//! // A stiff system with NO hand-coded Jacobian. Without the wrapper the
+//! // default `OdeSystem::jacobian` would panic inside Rosenbrock23.
+//! struct StiffPair;
+//! impl OdeSystem for StiffPair {
+//!     fn n_eqns(&self) -> usize { 2 }
+//!     fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
+//!         dydx.clear();
+//!         dydx.push(-1000.0 * y[0] + y[1]);
+//!         dydx.push(y[0] - y[1]);
+//!     }
+//! }
+//!
+//! let system = NumericalJacobian::new(StiffPair, DiffSettings::central());
+//! let mut solver = Rosenbrock23::new(2, 1e-10, 1e-10);
+//! let mut y = vec![1.0_f64, 1.0];
+//! let mut dx = 1e-6;
+//! solver.integrate(&system, 0.0, 1.0, &mut y, &mut dx).expect("integrates");
+//!
+//! // The fast mode has decayed; the slow mode (eigenvalue about -0.999) remains.
+//! assert!(y[1].abs() < 1.0 && y[1] > 0.0, "y1 = {}", y[1]);
+//! // ALWAYS check this -- the solver does not report a NaN Jacobian itself.
+//! assert_eq!(system.non_finite_jacobians(), 0);
+//! ```
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -32,20 +428,213 @@ mod tests;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-/// `f64::EPSILON.cbrt()` = `6.0554544523933395e-6`.
+/// `f64::EPSILON.cbrt()` = `6.0554544523933395e-6` — the relative step that
+/// balances truncation against round-off for a **central** difference.
+///
+/// A central difference has truncation error proportional to `h^2` (the
+/// coefficient is the third derivative over six) and round-off error
+/// proportional to `eps/h`; minimising their sum over `h` gives
+/// `h ~ eps^(1/3)`. The resulting accuracy is `~ eps^(2/3) = 3.67e-11`, **not**
+/// `eps` — see the module-level "Achievable accuracy" table for the measured
+/// value.
+///
+/// This is the same constant `outram-park-fork-offbeat`'s
+/// `rheology::aster::integration::perturbed_default()` returns, for exactly the
+/// same reason; see the module-level "Provenance" section.
+///
+/// # Units
+///
+/// Dimensionless — it multiplies a length scale in `x`.
 pub const CBRT_EPSILON: f64 = 6.055_454_452_393_339_5e-6;
 
-/// `f64::EPSILON.powf(0.2)` = `7.40095979741405e-4`.
+/// `f64::EPSILON.powf(0.2)` = `7.40095979741405e-4` — the relative step that
+/// balances truncation against round-off for the **fourth-order** Richardson
+/// scheme [`DiffScheme::Central4th`].
+///
+/// Truncation error proportional to `h^4`, round-off proportional to `eps/h`,
+/// so the balance is at `h ~ eps^(1/5)` and the accuracy is
+/// `~ eps^(4/5) = 3.00e-13`.
+///
+/// # Units
+///
+/// Dimensionless.
 pub const FIFTH_ROOT_EPSILON: f64 = 7.400_959_797_414_05e-4;
 
-/// Crossover placeholder — replaced by measurement.
-pub const DERIVATIVE_BATCH_MIN_POINTS: usize = 256;
+/// Point count below which a [`ComputeBackend::CpuMulti`] request runs
+/// [`derivative_batch`] on the calling thread instead.
+///
+/// # Measured crossover
+///
+/// *Methodology.* Measured 2026-08-13 on this workspace's development machine,
+/// `std::thread::available_parallelism()` = **4**, release build,
+/// `--features parallel`, `rayon`'s global pool. **The machine was NOT idle:**
+/// 1-minute load average was 2.3-3.6 on 4 cores throughout, with a
+/// `bn daemon run` process holding a steady ~37% of one core. Batches of `n`
+/// points spread over seven decades of magnitude, [`DiffSettings::central`],
+/// best of 7 samples per point, wall clock for one whole batch. Produced by the
+/// `#[ignore]`d `differentiate_crossover_benchmark` test and transcribed from
+/// its printed output. `cheap` is a two-flop parabola; `costly` adds an
+/// `ln`/`exp`/`sqrt`/`tanh` chain, standing in for a property evaluation. Two
+/// independent runs are carried side by side rather than averaged, because the
+/// parallel column is far noisier than the serial one.
+///
+/// | Points | cheap serial | cheap speed-up (A) | (B) | costly serial | costly speed-up (A) | (B) |
+/// |---|---|---|---|---|---|---|
+/// | 16 | 0.18 us | 0.03x | 0.01x | 1.15 us | 0.14x | 0.04x |
+/// | 32 | 0.29 us | 0.03x | 0.01x | 2.11 us | 0.20x | 0.07x |
+/// | 64 | 0.51 us | 0.06x | 0.02x | 4.09 us | 0.39x | 0.13x |
+/// | 128 | 0.97 us | 0.10x | 0.04x | 8.07 us | 0.47x | 0.23x |
+/// | 256 | 1.87 us | 0.17x | 0.06x | 16.05 us | 0.71x | 0.40x |
+/// | 512 | 3.70 us | 0.27x | 0.11x | 31.85 us | 0.74x | 0.67x |
+/// | 1 024 | 7.33 us | 0.38x | 0.19x | 63.41 us | 0.85x | 1.12x |
+/// | 4 096 | 28.86 us | 0.56x | 0.52x | 253.71 us | 1.52x | 2.35x |
+/// | 16 384 | 115.53 us | 0.99x | 1.34x | 1025.92 us | 1.82x | 2.50x |
+/// | 65 536 | 484.26 us | **1.34x** | **1.35x** | 4224.20 us | 1.90x | 2.74x |
+///
+/// *Result.* **65 536** is the smallest size at which the cheap objective won in
+/// *both* runs, and it is the value this constant takes. That is 16x above the
+/// crate-wide [`crate::compute::CPU_MULTI_MIN_WORK_ITEMS`] placeholder and 256x
+/// above [`crate::math::minimise::MINIMISE_BATCH_MIN_PROBLEMS`], and the reason
+/// is structural rather than accidental: a scalar finite difference is **two to
+/// four evaluations of the caller's function and one division**, so with a cheap
+/// function the kernel is memory-bandwidth bound in exactly the way
+/// [`crate::fields::parallel`] is — and it lands within a factor of two of that
+/// module's independently measured 131 072. A batched root find, by contrast,
+/// runs *tens* of iterations per lane and crosses over at 256.
+///
+/// **The caller's function cost moves this by more than an order of magnitude.**
+/// The costly objective first wins at 1 024-4 096, sixteen to sixty-four times
+/// lower. A caller who knows its function is expensive should name
+/// [`ComputeBackend::CpuMulti`] explicitly rather than trust this number.
+///
+/// # Limitations
+///
+/// One machine, four logical cores, under load, one objective family. Not
+/// measured on Android/Termux hardware and not on a many-core server. The
+/// absolute timings should be read as ratios only.
+///
+/// # Units
+///
+/// A count of independent points, dimensionless.
+pub const DERIVATIVE_BATCH_MIN_POINTS: usize = 65_536;
 
-/// Crossover placeholder — replaced by measurement.
-pub const JACOBIAN_BATCH_MIN_PROBLEMS: usize = 64;
+/// Lane count below which a [`ComputeBackend::CpuMulti`] request runs
+/// [`jacobian_batch`] on the calling thread instead.
+///
+/// # Measured crossover
+///
+/// *Methodology.* Same machine, date, build and load as
+/// [`DERIVATIVE_BATCH_MIN_POINTS`] — 4 logical cores, load average 2.3-3.6,
+/// **not idle**. `n = 4` Jacobians, [`DiffSettings::central`] so each lane costs
+/// 8 evaluations of a 4-component function, best of 7, two independent runs.
+/// Produced by the same `#[ignore]`d `differentiate_crossover_benchmark` test.
+///
+/// | Lanes | cheap serial | cheap speed-up (A) | (B) | costly speed-up (A) | (B) |
+/// |---|---|---|---|---|---|
+/// | 4 | 1.56 us | 0.19x | 0.16x | 0.21x | 0.21x |
+/// | 8 | 3.05 us | 0.10x | 0.12x | 0.63x | 0.35x |
+/// | 16 | 6.05 us | 0.19x | 0.21x | 0.60x | 0.65x |
+/// | 32 | 12.06 us | 0.83x | 0.33x | 1.52x | 1.03x |
+/// | 64 | 23.64 us | 0.57x | 0.70x | 1.18x | 2.18x |
+/// | 128 | 48.36 us | 0.84x | 1.34x | 1.86x | 2.46x |
+/// | 256 | 95.16 us | **1.09x** | **1.11x** | 1.88x | 2.61x |
+/// | 1 024 | 373.05 us | 1.63x | 2.18x | 1.86x | 1.50x |
+/// | 4 096 | 1590.74 us | 1.75x | 1.90x | 1.85x | 3.10x |
+/// | 16 384 | 6702.36 us | 1.83x | 2.98x | 2.06x | 2.88x |
+///
+/// *Result.* **256** — the smallest lane count that won in both runs. It lands
+/// on exactly the same value as
+/// [`crate::math::minimise::MINIMISE_BATCH_MIN_PROBLEMS`] and
+/// [`crate::math::parallel::ROOT_BATCH_MIN_PROBLEMS`], and 256x *below* this
+/// module's own [`DERIVATIVE_BATCH_MIN_POINTS`]. The two numbers in one module
+/// disagreeing by 256x is the clearest evidence yet for the point
+/// [`crate::compute::CPU_MULTI_MIN_WORK_ITEMS`] makes: the crossover tracks
+/// **work per lane**, not the algorithm. A Jacobian lane here does 8 function
+/// evaluations, four vector allocations and a matrix assembly; a scalar
+/// derivative lane does 2 evaluations and a division.
+///
+/// # A performance trap found by this measurement, recorded so it is not reintroduced
+///
+/// The first version of the central-difference column copied the point **twice**
+/// per column (`x.to_vec()` for the `+h` probe and again for the `-h` probe).
+/// With that version the parallel path **never won at any size measured**,
+/// topping out at 0.96x on 16 384 lanes — allocation traffic, not arithmetic,
+/// was the whole cost. Reusing a single probe buffer made the serial path ~1.4x
+/// faster *and* restored parallel scaling to 1.8-3.0x. If a future change
+/// reintroduces a per-column allocation, this crossover is the measurement that
+/// will notice.
+///
+/// # Limitations
+///
+/// As for [`DERIVATIVE_BATCH_MIN_POINTS`], plus: measured at `n = 4` only. A
+/// larger `n` raises the per-lane cost and should lower this crossover, but that
+/// has not been measured.
+///
+/// # Units
+///
+/// A count of independent Jacobian problems, dimensionless.
+pub const JACOBIAN_BATCH_MIN_PROBLEMS: usize = 256;
 
-/// Crossover placeholder — replaced by measurement.
-pub const JACOBIAN_COLUMN_MIN_DIMENSION: usize = 64;
+/// Dimension below which [`jacobian`] computes one Jacobian's columns on the
+/// calling thread rather than spreading them across `rayon`.
+///
+/// This is the **other** parallel axis, and it is the one bead `op-yvj.4.6`
+/// names: an `n`-dimensional Jacobian's `n + 1` (or `2n`, or `4n`) evaluations
+/// are all independent.
+///
+/// # Measured crossover
+///
+/// *Methodology.* Same machine, date, build and load as
+/// [`DERIVATIVE_BATCH_MIN_POINTS`] — 4 logical cores, load average 2.3-2.9,
+/// **not idle**. One Jacobian of dimension `n`, [`DiffSettings::central`] so
+/// `2n` evaluations, of a residual whose every component sums over all `n`
+/// inputs — so one evaluation is `O(n^2)` and the whole Jacobian is `O(n^3)`,
+/// the shape a genuinely coupled residual has. Best of 7, two independent runs.
+/// Produced by the `#[ignore]`d `jacobian_column_crossover_benchmark` test.
+///
+/// | Dimension | `f` evals | serial | speed-up (A) | (B) |
+/// |---|---|---|---|---|
+/// | 4 | 8 | 0.72 us | 0.09x | 0.09x |
+/// | 8 | 16 | 3.03 us | 0.35x | 0.16x |
+/// | 16 | 32 | 15.93 us | 0.41x | 0.46x |
+/// | 32 | 64 | 103.63 us | **1.49x** | **1.53x** |
+/// | 64 | 128 | 767.15 us | 2.67x | 2.58x |
+/// | 128 | 256 | 6117.53 us | 1.98x | 2.55x |
+/// | 256 | 512 | 48189.43 us | 4.04x | 2.84x |
+/// | 512 | 1024 | 389479.48 us | 3.97x | 3.55x |
+///
+/// *Result.* **32** — the lowest dimension that won in both runs, and the
+/// smallest crossover anywhere in this crate. That is not surprising once the
+/// cost is written down: at `n = 32` a single Jacobian is already 64 evaluations
+/// of an `O(n^2)` residual, which is far more work per dispatch than 32 lanes of
+/// anything else in the crate.
+///
+/// **This crossover is even more caller-dependent than the others**, because it
+/// scales with the residual's own cost in `n`. A residual that is `O(1)` per
+/// component rather than `O(n)` will cross over much later. 32 is set for the
+/// coupled case; a caller with a cheap decoupled residual should pass
+/// [`ComputeBackend::Serial`] explicitly.
+///
+/// # Why an ODE Jacobian does not use this
+///
+/// [`ode_system_jacobian`] and [`NumericalJacobian`] always run their columns
+/// serially, whatever the dimension. An ODE system's `n` is its equation count —
+/// typically single or double digits, well under this threshold — and the
+/// parallel axis that matters for ODE work is the *ensemble lane*, which
+/// [`crate::ode::parallel::integrate_ensemble`] already provides. Nesting a
+/// `rayon` map inside that one would only contend for the same pool.
+///
+/// # Limitations
+///
+/// As for [`DERIVATIVE_BATCH_MIN_POINTS`], plus: one residual shape (`O(n)` per
+/// component). The 128 row losing ground to both its neighbours in run A
+/// (1.98x against 2.67x and 4.04x) is measurement noise on a loaded machine, not
+/// a real effect — do not read this table as a scaling study.
+///
+/// # Units
+///
+/// A count of Jacobian columns, i.e. the length of the point. Dimensionless.
+pub const JACOBIAN_COLUMN_MIN_DIMENSION: usize = 32;
 
 // ── Backend dispatch ─────────────────────────────────────────────────────────
 
@@ -729,22 +1318,63 @@ impl DerivativeBatch {
 /// # Returns
 ///
 /// A [`DerivativeSolution`] whose [`derivative`](DerivativeSolution::derivative)
-/// is `Some` only if every evaluation was finite and the step was
-/// non-degenerate.
+/// is `Some` only if every evaluation was finite and the realised step was
+/// non-zero. **That is the whole of the guarantee** — read the next section
+/// before relying on it.
+///
+/// # What is detected, and what cannot be
+///
+/// The status is computed from exactly one predicate — every sampled value and
+/// the resulting quotient are finite, and the realised step is non-zero — and
+/// [`DerivativeSolution::derivative`] returns `Some` on exactly that same
+/// predicate. They cannot disagree.
+///
+/// **Detected:** a non-finite sample ([`DiffStatus::NotFinite`]), a non-finite
+/// point ([`DiffStatus::InvalidPoint`]), and a step that rounds away so
+/// `x + h == x` ([`DiffStatus::DegenerateStep`]).
+///
+/// **Not detected, and not detectable by any finite-difference kernel:**
+///
+/// - **A singularity the stencil steps over.** `1/x` at `x = 0` is sampled by
+///   the central stencil at `+h` and `-h`, both perfectly finite, so it returns
+///   `1/h^2` with [`DiffStatus::Ok`]. The kernel never evaluates at the pole and
+///   has no way to learn it is there. A one-sided scheme *does* see this
+///   particular case, because it evaluates at `x` itself — but it has the
+///   mirror-image blind spot on the other side.
+/// - **Cancellation that leaves a finite number with no correct digits.** The
+///   quotient is a perfectly ordinary `f64`; nothing about it says how many of
+///   its bits survived. This is what the step-size rule exists to bound, and why
+///   the module documents an *accuracy floor* rather than a guarantee.
+/// - **A function that is not differentiable at `x`.** `|x|` at `0` returns `0`
+///   from the central stencil, confidently.
+///
+/// If the function may be singular or kinked, bracket it away from the trouble
+/// or check the result against a second scheme; the status field will not do it
+/// for you.
 ///
 /// # Example
 ///
 /// ```rust
-/// use outram_foam_basic_lib::math::differentiate::{derivative, DiffSettings};
+/// use outram_foam_basic_lib::math::differentiate::{
+///     derivative, DiffSettings, DiffStatus,
+/// };
 ///
 /// // d/dx sin(x) at x = 1 is cos(1).
 /// let s = derivative(1.0, DiffSettings::central(), |x: f64| x.sin());
 /// let d = s.derivative().expect("finite everywhere");
 /// assert!((d - 1.0_f64.cos()).abs() < 1e-10, "got {d}");
 ///
-/// // A function that blows up is reported, not silently returned as NaN.
-/// let bad = derivative(0.0, DiffSettings::central(), |x: f64| 1.0 / x);
+/// // A sample that comes back non-finite IS reported: the central stencil for
+/// // sqrt at x = 0 evaluates at -h, which is NaN.
+/// let bad = derivative(0.0, DiffSettings::central(), |x: f64| x.sqrt());
+/// assert_eq!(bad.status(), DiffStatus::NotFinite);
 /// assert!(bad.derivative().is_none());
+///
+/// // But a pole the stencil STEPS OVER is not, and cannot be -- see
+/// // "What is detected, and what cannot be" above.
+/// let undetected = derivative(0.0, DiffSettings::central(), |x: f64| 1.0 / x);
+/// assert_eq!(undetected.status(), DiffStatus::Ok);
+/// assert!(undetected.derivative().is_some());
 /// ```
 #[must_use]
 pub fn derivative<F>(x: f64, settings: DiffSettings, f: F) -> DerivativeSolution
