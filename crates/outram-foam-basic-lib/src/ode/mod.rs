@@ -142,6 +142,24 @@ pub enum OdeError {
     /// The interval could not be spanned within `max_steps` sub-steps; carries
     /// the number of steps taken.
     MaxStepsExceeded(usize),
+    /// The system produced a non-finite (NaN or infinite) error estimate, so
+    /// the state cannot be trusted and integration stopped.
+    ///
+    /// The usual cause is `derivatives` or `jacobian` returning a non-finite
+    /// value — for example a numerically-differenced Jacobian
+    /// ([`crate::math::differentiate::NumericalJacobian`]) that could not form
+    /// a column, or an evaluation that left the model's valid range.
+    ///
+    /// # Why this variant exists
+    ///
+    /// Before bead `op-ad6h` this case did not error at all: it returned
+    /// `Ok(())` with a NaN state, because the per-equation error fold used
+    /// `f64::max`, which discards NaN. A wrong answer reported as success is
+    /// the worst failure mode available to a solver, so it is now a distinct
+    /// error rather than being folded into
+    /// [`StepSizeUnderflow`](Self::StepSizeUnderflow), which would have named
+    /// the wrong cause.
+    NonFiniteState,
 }
 
 impl std::fmt::Display for OdeError {
@@ -149,6 +167,10 @@ impl std::fmt::Display for OdeError {
         match self {
             Self::StepSizeUnderflow => write!(f, "ODE step size underflow"),
             Self::MaxStepsExceeded(n) => write!(f, "ODE exceeded {n} steps"),
+            Self::NonFiniteState => write!(
+                f,
+                "ODE produced a non-finite error estimate (NaN or infinite state)"
+            ),
         }
     }
 }
@@ -173,7 +195,28 @@ pub(crate) fn normalize_error(
             let tol = abs_tol + rel_tol * a.abs().max(b.abs());
             e.abs() / tol
         })
-        .fold(0.0_f64, f64::max)
+        // NB: `fold(0.0, f64::max)` here was a silent-wrong-answer bug
+        // (bead `op-ad6h`). Rust's `f64::max` follows IEEE-754 `maxNum` and
+        // DISCARDS a NaN operand, so `f64::max(0.0, NaN) == 0.0`: a NaN error
+        // read as *zero* error, the step was accepted as perfectly converged,
+        // and `integrate` returned `Ok(())` with a NaN state. Returning NaN
+        // instead would not fix it either, because the caller's accept test is
+        // `err <= 1.0` and every comparison against NaN is false — the step
+        // would be rejected, but `dx` would then shrink to underflow with no
+        // indication of why.
+        //
+        // So a non-finite error is reported as `INFINITY`, which is both true
+        // ("this step is unboundedly bad") and actionable: the caller rejects
+        // it and, per the check in `adaptive_step`, returns
+        // `OdeError::NonFiniteState` rather than a misleading
+        // `StepSizeUnderflow`.
+        .fold(0.0_f64, |acc, e| {
+            if e.is_nan() || acc.is_nan() {
+                f64::INFINITY
+            } else {
+                acc.max(e)
+            }
+        })
 }
 
 /// Adaptive step-size loop shared by all explicit solvers.
@@ -196,6 +239,14 @@ pub(crate) fn adaptive_step<Sys: OdeSystem + ?Sized>(
 
     let err = loop {
         let err = inner_step(*x, y, dydx0, dx, y_temp);
+        // A non-finite error means the system produced NaN or an infinite
+        // value; shrinking `dx` cannot recover from that, so fail immediately
+        // and name the real cause instead of grinding down to a misleading
+        // `StepSizeUnderflow`. See `OdeError::NonFiniteState` and bead
+        // `op-ad6h`.
+        if !err.is_finite() {
+            return Err(OdeError::NonFiniteState);
+        }
         if err <= 1.0 {
             break err;
         }

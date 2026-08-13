@@ -20,7 +20,7 @@
 //!    source of the crossover tables.
 
 use super::*;
-use crate::ode::{OdeSystem, Rosenbrock23};
+use crate::ode::{OdeError, OdeSystem, Rosenbrock23};
 
 // ── Oracle systems: analytic Jacobians written down exactly ──────────────────
 
@@ -748,30 +748,36 @@ fn a_jacobian_that_cannot_be_differenced_is_counted_and_reaches_the_solver_as_na
     );
     assert!(dfdx[0].is_nan());
 
-    // What the SOLVER then does with it -- measured, not assumed. See the
-    // module-level "A NaN Jacobian is not reported by the solver" section.
+    // What the SOLVER then does with it -- measured, not assumed.
+    //
+    // HISTORY, because this test previously asserted the opposite. Until bead
+    // `op-ad6h` was fixed, `Rosenbrock23` returned `Ok(())` here with a NaN
+    // state: `ode::normalize_error` folded the per-equation errors with
+    // `f64::max`, which follows IEEE-754 `maxNum` and DISCARDS NaN, so a NaN
+    // error read as *zero* error and every step looked perfectly converged.
+    // A wrong answer reported as success is the worst failure mode a solver
+    // has, and this test pinned it deliberately so that fixing it would be
+    // visible rather than silent.
+    //
+    // It is fixed. The fold now yields `INFINITY` for a non-finite component,
+    // and `adaptive_step` turns that into a distinct error instead of grinding
+    // `dx` down to a misleading `StepSizeUnderflow`.
     let mut solver = Rosenbrock23::new(1, 1e-8, 1e-8);
     let mut y = vec![1.0_f64];
     let mut dx = 1e-4;
     let outcome = solver.integrate(&system, 0.0, 1.0, &mut y, &mut dx);
 
-    // `Rosenbrock23` returns Ok(()) -- it does NOT detect the NaN, because
-    // `ode::normalize_error` folds the per-equation errors with `f64::max`,
-    // which discards NaN and yields 0.0, so every step looks perfectly
-    // converged. The state is nonsense and the return value says otherwise.
-    assert!(
-        outcome.is_ok(),
-        "recorded behaviour: the solver does not detect a NaN Jacobian"
+    assert_eq!(
+        outcome,
+        Err(OdeError::NonFiniteState),
+        "a NaN Jacobian must be reported, not integrated"
     );
+    // The counter still works and is still useful -- it distinguishes "the
+    // Jacobian could not be formed" from other non-finite causes -- but it is
+    // no longer the ONLY signal, which was the point of the fix.
     assert!(
-        y[0].is_nan(),
-        "the NaN reaches the state even though the solver reported success"
-    );
-    // THIS counter is therefore the only in-band signal that anything failed,
-    // which is exactly why it exists.
-    assert!(
-        system.non_finite_jacobians() > 1,
-        "the counter is the only report of the failure"
+        system.non_finite_jacobians() >= 1,
+        "the counter still records how many columns could not be formed"
     );
 }
 

@@ -1396,6 +1396,13 @@ where
         Ok(()) => OdeLaneStatus::NotFinite,
         Err(OdeError::StepSizeUnderflow) => OdeLaneStatus::StepSizeUnderflow,
         Err(OdeError::MaxStepsExceeded(_)) => OdeLaneStatus::MaxStepsExceeded,
+        // Since bead `op-ad6h` the solver reports a non-finite error estimate
+        // as its own variant rather than returning `Ok(())` with a NaN state.
+        // It maps onto the same lane status the `Ok(())`-with-NaN arm above
+        // already produced, so a caller's handling is unchanged — what changed
+        // is that the lane is now reported even when the NaN never reaches
+        // `y` (an infinite intermediate that the state itself does not record).
+        Err(OdeError::NonFiniteState) => OdeLaneStatus::NotFinite,
     };
 
     OdeLaneSolution {

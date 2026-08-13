@@ -967,6 +967,18 @@ impl ViscoplasticChabocheSystem {
                 residual: f64::NAN,
                 iterations: n,
             }),
+            // The viscoplastic rates went non-finite -- an overflowing power
+            // law, or a state that left the model's valid range. Reported as
+            // non-convergence like the other two, because from this caller's
+            // point of view the constitutive integration failed and the state
+            // must not be used. Before bead `op-ad6h` this case did not surface
+            // at all: the solver returned `Ok(())` with a NaN state and this
+            // function handed back a `ViscoplasticChabocheState` built from it.
+            Err(OdeError::NonFiniteState) => Err(OffbeatError::ConstitutiveNotConverged {
+                cell: 0,
+                residual: f64::NAN,
+                iterations: 0,
+            }),
         }
     }
 }
