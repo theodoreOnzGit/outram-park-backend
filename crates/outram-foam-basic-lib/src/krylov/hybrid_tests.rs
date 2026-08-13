@@ -202,8 +202,8 @@ fn rel_err(x: &[f64], reference: &[f64]) -> f64 {
     }
 }
 
-/// The current 1-minute load average, so every timing in this file can be read
-/// with the machine's contention beside it.
+/// The current 1/5/15-minute load average, so every timing in this file can be
+/// read with the machine's contention beside it.
 fn load_average() -> String {
     std::fs::read_to_string("/proc/loadavg")
         .ok()
@@ -212,6 +212,36 @@ fn load_average() -> String {
             Some(format!("{} {} {}", it.next()?, it.next()?, it.next()?))
         })
         .unwrap_or_else(|| "unavailable".to_string())
+}
+
+/// How many logical cores the runtime believes it has.
+///
+/// Reported beside every timing in this file together with [`load_average`]. A
+/// speed-up figure is meaningless without both: the core count sets the ceiling
+/// and the load says how much of that ceiling was actually available. Falls back
+/// to `1` if the platform will not say.
+fn cores() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1)
+}
+
+/// One line describing the machine a benchmark below is about to run on:
+/// core count, whether the `parallel` feature is compiled in, and the load
+/// average.
+///
+/// Every timing benchmark in this file prints this before its table, so a
+/// transcribed number can never be separated from the conditions it was taken
+/// under. This host runs a `bn` daemon that holds roughly a third of a core and
+/// **never reaches true idle**, so the load figure is never zero and the parallel
+/// columns are always somewhat pessimistic.
+fn machine_state() -> String {
+    format!(
+        "available_parallelism() = {}, parallel feature = {}, load average {}",
+        cores(),
+        cfg!(feature = "parallel"),
+        load_average()
+    )
 }
 
 /// Every (method, preconditioner) pair, run through the prepared entry points.
@@ -294,7 +324,7 @@ fn every_combination_matches_the_dense_lu_solution() {
         restart: 30,
     };
 
-    eprintln!("load average at start: {}", load_average());
+    eprintln!("machine: {}", machine_state());
     let mut worst = 0.0_f64;
     for (pname, precond) in &precs {
         for gmres in [false, true] {
@@ -675,7 +705,7 @@ fn blocked_versus_flat_reduction_does_not_move_iteration_counts() {
         max_iter: 2000,
         restart: 30,
     };
-    eprintln!("load average: {}", load_average());
+    eprintln!("machine: {}", machine_state());
     eprintln!(
         "{:>6} {:>7} {:>7} {:>7} {:>24} {:>24} {:>11}",
         "mesh", "cells", "blk it", "flat it", "resid (blocked)", "resid (flat)", "rel diff"
@@ -802,55 +832,94 @@ fn ilu0_serial_fraction_benchmark() {
         max_iter: 2000,
         restart: 30,
     };
-    eprintln!("load average: {}", load_average());
+    const REPEATS: usize = 3;
+    let cores = cores();
+    eprintln!("machine: {}", machine_state());
     eprintln!(
-        "{:>7} {:>9} {:>12} {:>12} {:>12} {:>9} {:>9}",
-        "cells", "iters", "factor us", "solve us", "applies us", "fact %", "apply %"
+        "{:>7} {:>6} {:>10} {:>11} {:>11} {:>11} {:>7} {:>9} {:>9} {:>9}",
+        "cells",
+        "iters",
+        "factor us",
+        "solve ser us",
+        "solve par us",
+        "applies us",
+        "s",
+        "cap(4)",
+        "cap(inf)",
+        "measured"
     );
     for n in [16usize, 32, 48, 64] {
         let a = stencil_3d(n, 1.05, 0x1234_5678);
         let cells = a.n_cells;
         let b = rhs(cells, 0xDEAD_BEEF);
 
-        // (a) factorisation
-        let t0 = Instant::now();
+        // (a) the one-off factorisation, best of REPEATS.
+        let mut factor_us = f64::INFINITY;
+        for _ in 0..REPEATS {
+            let t = Instant::now();
+            let p = Preconditioner::ilu0(&a);
+            factor_us = factor_us.min(t.elapsed().as_secs_f64() * 1e6);
+            std::hint::black_box(&p);
+        }
         let precond = Preconditioner::ilu0(&a);
-        let factor_us = t0.elapsed().as_secs_f64() * 1e6;
-
         let ldu = HybridLdu::new(Arc::new(a));
 
-        // (b) whole solve
-        let t1 = Instant::now();
-        let (_, r) = bicgstab_impl(
-            &ldu,
-            &b,
-            None,
-            &precond,
-            &settings,
-            ComputeBackend::CpuMulti,
-            &mut Vec::new(),
-        );
-        let solve_us = t1.elapsed().as_secs_f64() * 1e6;
-        assert!(r.converged, "{cells} cells: solve did not converge");
-
-        // (c) replay the applies the solve performed: 2 per iteration.
-        let mut z = vec![0.0; cells];
-        let t2 = Instant::now();
-        for _ in 0..(2 * r.n_iterations) {
-            precond.apply_on(&b, &mut z, ComputeBackend::CpuMulti);
+        // (b) the whole solve, on BOTH backends. Amdahl's serial fraction is
+        //     defined against the *serial* runtime, so the serial column is the
+        //     denominator that matters; the parallel column gives the measured
+        //     speed-up to compare the resulting cap against.
+        let mut solve_us = [f64::INFINITY; 2];
+        let mut iters = 0usize;
+        for _ in 0..REPEATS {
+            for (bi, backend) in [ComputeBackend::Serial, ComputeBackend::CpuMulti]
+                .into_iter()
+                .enumerate()
+            {
+                let t = Instant::now();
+                let (x, r) =
+                    bicgstab_impl(&ldu, &b, None, &precond, &settings, backend, &mut Vec::new());
+                solve_us[bi] = solve_us[bi].min(t.elapsed().as_secs_f64() * 1e6);
+                std::hint::black_box(&x);
+                assert!(r.converged, "{cells} cells: solve did not converge");
+                iters = r.n_iterations;
+            }
         }
-        let applies_us = t2.elapsed().as_secs_f64() * 1e6;
-        std::hint::black_box(&z);
+
+        // (c) replay the applies the solve performed: 2 per iteration. The
+        //     backend is irrelevant — `Ilu0Preconditioner::apply_on` ignores it
+        //     and always runs serially — which is exactly why this cost is the
+        //     serial fraction.
+        let mut applies_us = f64::INFINITY;
+        let mut z = vec![0.0; cells];
+        for _ in 0..REPEATS {
+            let t = Instant::now();
+            for _ in 0..(2 * iters) {
+                precond.apply_on(&b, &mut z, ComputeBackend::CpuMulti);
+            }
+            applies_us = applies_us.min(t.elapsed().as_secs_f64() * 1e6);
+            std::hint::black_box(&z);
+        }
+
+        // Amdahl: s is the fraction of the SERIAL runtime that cannot be
+        // threaded. The cap on `cores` cores is 1/(s + (1 - s)/cores); the
+        // infinite-core limit is 1/s.
+        let s = applies_us / solve_us[0];
+        let cap_cores = 1.0 / (s + (1.0 - s) / cores as f64);
+        let cap_inf = 1.0 / s;
+        let measured = solve_us[0] / solve_us[1];
 
         eprintln!(
-            "{:>7} {:>9} {:>12.1} {:>12.1} {:>12.1} {:>8.1}% {:>8.1}%",
+            "{:>7} {:>6} {:>10.1} {:>11.1} {:>11.1} {:>11.1} {:>6.1}% {:>8.2}x {:>8.2}x {:>8.2}x",
             cells,
-            r.n_iterations,
+            iters,
             factor_us,
-            solve_us,
+            solve_us[0],
+            solve_us[1],
             applies_us,
-            100.0 * factor_us / solve_us,
-            100.0 * applies_us / solve_us
+            100.0 * s,
+            cap_cores,
+            cap_inf,
+            measured
         );
     }
 }
@@ -945,7 +1014,7 @@ fn end_to_end_solve_speedup_benchmark() {
     };
     const REPEATS: usize = 5;
 
-    eprintln!("load average at start: {}", load_average());
+    eprintln!("machine: {}", machine_state());
     eprintln!(
         "{:>7} {:>8} {:>6} {:>11} {:>11} {:>9} {:>11} {:>11} {:>9}",
         "cells",
@@ -1074,7 +1143,7 @@ fn gmres_end_to_end_speedup_benchmark() {
         restart: 30,
     };
     const REPEATS: usize = 3;
-    eprintln!("load average at start: {}", load_average());
+    eprintln!("machine: {}", machine_state());
     eprintln!(
         "{:>8} {:>7} {:>12} {:>12} {:>10}",
         "cells", "iters", "serial ms", "multi ms", "speed-up"
@@ -1278,7 +1347,7 @@ fn vecop_floor_inside_a_warm_solve_benchmark() {
         restart: 30,
     };
     const REPEATS: usize = 5;
-    eprintln!("load average: {}", load_average());
+    eprintln!("machine: {}", machine_state());
     eprintln!(
         "{:>8} {:>6} {:>16} {:>16} {:>10}",
         "cells", "iters", "vecop floor 262k", "vecop floor 4096", "ratio"
