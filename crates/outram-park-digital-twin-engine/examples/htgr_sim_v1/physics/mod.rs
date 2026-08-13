@@ -240,8 +240,13 @@ use turbine_generator::TurbineGeneratorShaft;
 /// gas inertia.
 pub const PLANT_TIMESTEP_S: f64 = 0.1;
 
-/// Steam-generator array sub-steps per plant timestep, 8. **Provisional --
-/// this number is a workaround, not a tuning.**
+/// Steam-generator array sub-steps per plant timestep, **2**.
+///
+/// Reduced from 8 on 2026-08-13, once the helium side moved to implicit
+/// energy convection ([`EnergyBalanceMode::Implicit`], set in
+/// [`steam_generator`]). This is the single largest real-time lever in the
+/// simulator, because the exchanger is ~96% of the plant's compute and its
+/// cost is exactly linear in this number.
 ///
 /// # Read this before treating 8 as meaningful
 ///
@@ -252,18 +257,42 @@ pub const PLANT_TIMESTEP_S: f64 = 0.1;
 /// +0.003% of a 0.00625 s reference, so accuracy was satisfied long before the
 /// stability limit was.
 ///
-/// **The limitation it works around is being removed.** kopi-beans `op-j2oq` is
-/// making `TampinesSteamArray`'s energy advection implicit via
-/// `outram-foam`'s `fvm::div`, as a selectable mode alongside the present
-/// explicit-with-limiter one. An implicit convection term has no Courant
-/// stability bound, so **when that lands this constant should be revisited and
-/// is expected to fall, possibly to 1**, and the exchanger's cost -- currently
-/// ~96% of this simulator -- falls with it.
+/// # Why 2, and what stops it being 1
 ///
-/// Do not treat 8 as a tuned constant, do not fit anything to it, and do not
-/// quote the real-time ratio measured with it as this simulator's ceiling. It
-/// is a **floor**: see
-/// [`tests::the_whole_plant_steps_at_the_gui_timestep`].
+/// Measured 2026-08-13 with the helium side implicit, 20 s of plant time,
+/// isolated release runs of [`tests::the_whole_plant_steps_at_the_gui_timestep`]:
+///
+/// | sub-steps | `Co_hot` | real-time ratio | steam outlet |
+/// |---|---|---|---|
+/// | 8 | 0.222 | 1.027 | 692.99 K |
+/// | 4 | 0.444 | 2.051 | 695.13 K |
+/// | **2** | **0.888** | **4.101** | **698.23 K** |
+/// | 1 | 1.776 | -- | **temperature cross** |
+///
+/// **1 fails on thermodynamics, not on the Courant number.** The helium array
+/// is implicit and handles `Co = 1.776` without trouble; what breaks is the
+/// second-law assertion in
+/// [`tests::the_whole_plant_steps_at_the_gui_timestep`]
+/// (`worst_node_cross_kelvin() <= 1e-6`). The exchanger is three separate
+/// matrix systems -- hot array, tube metal, cold array -- coupled through
+/// conductances evaluated at the previous iterate, so the *inter-array*
+/// coupling stays explicit however implicit each array's own convection is. At
+/// one exchange per 0.1 s the counter-flow arrangement cannot resolve and the
+/// cold stream overtakes the hot.
+///
+/// Remedies for that are designed but not adopted by default -- see
+/// `docs/heat-exchanger-temperature-cross-fallback.md` and the
+/// `TemperatureCrossRemedy` selector.
+///
+/// # The accuracy this costs
+///
+/// Going 8 -> 2 moves the settled steam outlet **+5.24 K** (0.76% of a ~693 K
+/// outlet). Accepted deliberately: this exchanger's tube geometry is invented
+/// and its `UA` illustrative, so 0.76% on the steam terminal is well inside
+/// the model's own uncertainty, and 4.1x real time is worth more to a
+/// demonstration simulator than 5 K on a terminal temperature. If a study
+/// needs the fidelity back, raise this constant -- the cost is linear and the
+/// numbers above tell you exactly what you buy.
 ///
 /// The exchanger is a **multi-rate sub-model**: it accumulates the plant
 /// timestep and advances its three coupled arrays in whole steps of
@@ -288,7 +317,7 @@ pub const PLANT_TIMESTEP_S: f64 = 0.1;
 /// [`steam_generator::tests::the_courant_number_bounds_the_array_substep`].
 /// The outer correctors this plant *does* use are at the coupling level
 /// instead -- see [`PLANT_OUTER_CORRECTORS`].
-pub const STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP: usize = 8;
+pub const STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP: usize = 2;
 
 /// **Plant-level outer correctors per plant timestep, 2.**
 ///
@@ -1208,9 +1237,19 @@ mod tests {
     ///
     /// # Results (measured 2026-08-13)
     ///
-    /// Figures printed by the test. At the time of writing the run completes
-    /// with **zero** clamp events and zero crosses, and the hot-side Courant
-    /// number stays well inside the explicit limiter's window.
+    /// **Results (re-measured 2026-08-13, at 2 sub-steps with the helium side
+    /// implicit).** 8.0 kg/s for 100 s: `Co_hot` = **1.4404**, `Co_cold` =
+    /// 0.1657 at the 0.05 s array substep, **0 enthalpy clamp events over 1000
+    /// plant steps**, and no temperature cross at any step.
+    ///
+    /// `Co_hot` is **above 1 and that is the point.** Under the previous
+    /// explicit convection this operating point was unreachable -- the Picard
+    /// corrector loop's contraction factor is the cell Courant number, so it
+    /// would have diverged however many correctors were used.
+    /// `EnergyBalanceMode::Implicit` removes that bound, and the zero clamp
+    /// count is the evidence that it genuinely holds rather than merely not
+    /// crashing: the array never needed its enthalpy field rescued at 1.86x
+    /// nominal flow.
     ///
     /// # Interpretation
     ///
@@ -1254,10 +1293,26 @@ mod tests {
              ceiling. The exchanger is being held together by the clamp rather than being \
              stable there, and 2 outer correctors are not enough at this flow."
         );
+        // NOTE: this deliberately no longer asserts `Co_hot < 1`.
+        //
+        // That assertion encoded the *explicit* convection stability bound. The
+        // helium side now runs `EnergyBalanceMode::Implicit`, which has no such
+        // bound -- the whole point of the change -- so at the 0.05 s substep and
+        // the circulator ceiling `Co_hot` legitimately exceeds 1. Keeping the
+        // old assertion would have failed a run that is behaving exactly as
+        // designed.
+        //
+        // The clamp assertion above is the stronger evidence and is retained
+        // unchanged: it checks the array's enthalpy field never had to be
+        // rescued, which is a direct statement about stability rather than a
+        // proxy for it. If the implicit scheme were struggling here, the clamp
+        // would fire; it does not.
+        //
+        // Co is still measured and printed, because it is the number that says
+        // how much of the margin the implicit treatment is actually spending.
         assert!(
-            co_hot < 1.0,
-            "Co_hot = {co_hot} at the circulator ceiling, at or above the explicit \
-             convection's stability bound"
+            co_hot.is_finite() && co_hot > 0.0,
+            "Co_hot = {co_hot} is not a usable measurement"
         );
     }
 
@@ -1271,15 +1326,26 @@ mod tests {
     /// plant step alternates and the exchanger's effective clock beats against
     /// the plant's -- a slow, hard-to-attribute error. Pin the exact division.
     ///
-    /// **Results (2026-08-13).** `PLANT_TIMESTEP_S = 0.1 s`,
-    /// `STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP = 8`, substep 0.0125 s,
-    /// remainder 0.0 s exactly, and 8 whole array advances per plant step.
-    /// Interpretation: the exchanger advances the same number of substeps every
-    /// plant step, with nothing carried.
+    /// **Results (2026-08-13, re-measured after the sub-step count fell 8 -> 2).**
+    /// `PLANT_TIMESTEP_S = 0.1 s`, `STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP = 2`,
+    /// substep 0.05 s, remainder 0.0 s exactly, and 2 whole array advances per
+    /// plant step. Interpretation: the exchanger advances the same number of
+    /// substeps every plant step, with nothing carried.
+    ///
+    /// The expected substep is **derived** from the two constants rather than
+    /// written as a literal. The previous version pinned `0.0125` directly,
+    /// which meant the test failed the moment the sub-step count changed --
+    /// reporting a stale expectation rather than the exact-division property it
+    /// exists to guard. Deriving it keeps the guard alive at any sub-step count.
     #[test]
     fn the_steam_generator_substep_divides_the_plant_timestep() {
         let substep = steam_generator_substep_seconds();
-        assert!((substep - 0.0125).abs() < 1e-15, "substep is {substep} s");
+        let expected = PLANT_TIMESTEP_S / STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP as f64;
+        assert!(
+            (substep - expected).abs() < 1e-15,
+            "substep is {substep} s, expected {expected} s from PLANT_TIMESTEP_S / \
+             STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP"
+        );
         let quotient = PLANT_TIMESTEP_S / substep;
         assert!(
             (quotient - quotient.round()).abs() < 1e-12,
