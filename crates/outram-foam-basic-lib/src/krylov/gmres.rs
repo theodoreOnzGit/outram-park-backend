@@ -35,19 +35,54 @@
 //! is applied once per basis vector inside Arnoldi and once to the accumulated
 //! correction at the end of each cycle. All vectors are dimensionless `f64` of
 //! length `n_cells`.
+//!
+//! # Execution backend
+//!
+//! There is **one** implementation, [`gmres_prepared`], with the backend as a
+//! parameter; [`gmres`] is the convenience adapter for a caller holding a bare
+//! [`LduMatrix`], which builds the cell-gather index and runs on
+//! [`ComputeBackend::Serial`]. The control flow — Arnoldi, the Givens rotations,
+//! the `k x k` back substitution — stays on the host exactly as bead
+//! `op-yvj.4.4` requires; only the `O(n)` and `O(n_faces)` kernels are
+//! dispatched. See [`crate::krylov::bicgstab`]'s module documentation for the
+//! determinism contract, which is identical here.
+//!
+//! # Where GMRES's cost sits, and why that matters for threading
+//!
+//! GMRES(m) does **one** sparse product per inner iteration but `j + 1` inner
+//! products and `j + 1` `axpy`s at Arnoldi step `j`, so by the end of a cycle the
+//! vector operations dominate — the opposite balance to BiCGStab, which is two
+//! products against a fixed four inner products. Since the vector operations have
+//! a size floor 64x higher than the product's
+//! ([`VECOP_MIN_ELEMENTS`](crate::ldu_matrix::parallel::VECOP_MIN_ELEMENTS) =
+//! 262 144 against
+//! [`SPMV_MIN_CELLS`](crate::ldu_matrix::parallel::SPMV_MIN_CELLS) = 4 096),
+//! GMRES has **less** to gain than BiCGStab from `CpuMulti` on a mid-sized mesh,
+//! and more to gain on a very large one. That is a prediction of the dispatch
+//! policy, and it is measured in `crate::krylov::hybrid_tests` rather than left
+//! as a claim.
 
-use super::vecops::{axpy, dot, nrm2, scal};
+use std::sync::Arc;
+
 use super::{KrylovResult, KrylovSettings, Preconditioner};
+use crate::compute::ComputeBackend;
+use crate::ldu_matrix::parallel::{axpy, dot, norm_l2, scale, HybridLdu};
 use crate::ldu_matrix::LduMatrix;
 
 /// Below this the Arnoldi vector norm is treated as a "happy breakdown" (the
 /// Krylov space is exhausted / the solution lies exactly in the current space).
 const HAPPY_TOL: f64 = 1.0e-300;
 
-/// Solve `A x = b` with restarted right-preconditioned GMRES(m).
+/// Solve `A x = b` with restarted right-preconditioned GMRES(m), serially, from
+/// a bare [`LduMatrix`].
+///
+/// The convenience adapter over [`gmres_prepared`]: it builds the cell-gather
+/// index and runs on [`ComputeBackend::Serial`]. In a solver loop prefer
+/// [`gmres_prepared`], which reuses a caller-owned index and accepts a backend —
+/// see [`crate::krylov::bicgstab`] for the same note in full.
 ///
 /// # Arguments
-/// - `a` — sparse system matrix (LDU); its `multiply` is the only SpMV used.
+/// - `a` — sparse system matrix (LDU). May be asymmetric.
 /// - `b` — right-hand side, length `n_cells`.
 /// - `x0` — optional initial guess; `None` means the zero vector.
 /// - `precond` — preconditioner `M^{-1}` applied on the **right**.
@@ -66,8 +101,93 @@ pub fn gmres(
     precond: &Preconditioner,
     settings: &KrylovSettings,
 ) -> (Vec<f64>, KrylovResult) {
-    let n = a.n_cells;
-    let bnorm = nrm2(b);
+    let ldu = HybridLdu::new(Arc::new(a.clone()));
+    gmres_prepared(&ldu, b, x0, precond, settings, ComputeBackend::Serial)
+}
+
+/// Solve `A x = b` with restarted right-preconditioned GMRES(m) on a chosen
+/// [`ComputeBackend`].
+///
+/// **This is the implementation**; [`gmres`] is a thin adapter onto it.
+///
+/// # Determinism
+///
+/// Bitwise identical on [`ComputeBackend::Serial`] and
+/// [`ComputeBackend::CpuMulti`] at any thread count — identical iterates,
+/// identical Givens residual estimates, identical iteration count. Every kernel
+/// it uses carries that guarantee individually.
+///
+/// # Arguments
+///
+/// As [`gmres`], plus:
+/// - `ldu` — the prepared sparse system, replacing `a`.
+/// - `backend` — requested execution backend; degrades rather than failing when
+///   unavailable.
+///
+/// # Storage
+///
+/// `O(m · n_cells)` for the Arnoldi basis, unchanged by the backend: this
+/// function threads the kernels, it does not change the algorithm.
+///
+/// # Example
+///
+/// ```rust
+/// use std::sync::Arc;
+/// use outram_foam_basic_lib::compute::ComputeBackend;
+/// use outram_foam_basic_lib::ldu_matrix::LduMatrix;
+/// use outram_foam_basic_lib::ldu_matrix::parallel::HybridLdu;
+/// use outram_foam_basic_lib::krylov::{gmres_prepared, KrylovSettings, Preconditioner};
+///
+/// let mut a = LduMatrix::new(4, vec![0, 1, 2], vec![1, 2, 3]);
+/// a.diag = vec![4.0; 4];
+/// a.lower = vec![-1.0; 3];
+/// a.upper = vec![-2.0; 3];
+/// let precond = Preconditioner::ilu0(&a);
+/// let ldu = HybridLdu::new(Arc::new(a));
+/// let b = vec![1.0, 2.0, 3.0, 4.0];
+/// let settings = KrylovSettings::default();
+///
+/// let (x_ser, r_ser) =
+///     gmres_prepared(&ldu, &b, None, &precond, &settings, ComputeBackend::Serial);
+/// let (x_par, r_par) =
+///     gmres_prepared(&ldu, &b, None, &precond, &settings, ComputeBackend::CpuMulti);
+///
+/// assert!(r_ser.converged);
+/// assert_eq!(x_ser, x_par);
+/// assert_eq!(r_ser.n_iterations, r_par.n_iterations);
+/// ```
+pub fn gmres_prepared(
+    ldu: &HybridLdu,
+    b: &[f64],
+    x0: Option<&[f64]>,
+    precond: &Preconditioner,
+    settings: &KrylovSettings,
+    backend: ComputeBackend,
+) -> (Vec<f64>, KrylovResult) {
+    gmres_impl(ldu, b, x0, precond, settings, backend, &mut Vec::new())
+}
+
+/// [`gmres_prepared`] with the relative-residual history captured.
+///
+/// `history` is cleared and then receives the Givens residual estimate
+/// `|g[j + 1]| / ||b||₂` after every completed inner iteration — which, because
+/// this solver is right-preconditioned, is the *true* relative residual rather
+/// than an estimate of it. Crate-internal, for the backend-parity V&V in
+/// `crate::krylov::hybrid_tests`; see
+/// [`crate::krylov::bicgstab_impl`](super::bicgstab::bicgstab_impl) for why the
+/// history is what a parity gate must compare.
+pub(crate) fn gmres_impl(
+    ldu: &HybridLdu,
+    b: &[f64],
+    x0: Option<&[f64]>,
+    precond: &Preconditioner,
+    settings: &KrylovSettings,
+    backend: ComputeBackend,
+    history: &mut Vec<f64>,
+) -> (Vec<f64>, KrylovResult) {
+    let n = ldu.matrix().n_cells;
+    history.clear();
+    let bnorm = norm_l2(b, backend);
 
     if bnorm == 0.0 {
         return (
@@ -94,12 +214,14 @@ pub fn gmres(
     let tol = settings.tolerance;
     let mut total_iters = 0usize;
     let mut converged = false;
+    // Reused across cycles so the preconditioner application allocates once.
+    let mut mz = vec![0.0; n];
 
     // Outer (restart) loop.
     'outer: while total_iters < settings.max_iter {
         // r = b - A x ; beta = ||r||
-        let r = a.residual(&x, b);
-        let beta = nrm2(&r);
+        let r = ldu.residual(&x, b, backend);
+        let beta = norm_l2(&r, backend);
         let rel = beta / bnorm;
         if rel <= tol {
             converged = true;
@@ -109,7 +231,7 @@ pub fn gmres(
         // Arnoldi basis V (m+1 vectors), Hessenberg H stored column-wise.
         let mut v: Vec<Vec<f64>> = Vec::with_capacity(m + 1);
         let mut v0 = r;
-        scal(1.0 / beta, &mut v0);
+        scale(1.0 / beta, &mut v0, backend);
         v.push(v0);
 
         // Givens rotation coefficients and the rotated RHS g (size m+1).
@@ -128,18 +250,18 @@ pub fn gmres(
             total_iters += 1;
 
             // w = A M^{-1} v_j   (right preconditioning)
-            let mut mz = vec![0.0; n];
-            precond.apply(&v[j], &mut mz);
-            let mut w = a.multiply(&mz);
+            precond.apply_on(&v[j], &mut mz, backend);
+            let mut w = vec![0.0; n];
+            ldu.spmv_into(&mz, &mut w, backend);
 
             // Modified Gram-Schmidt against existing basis.
             let mut hcol = vec![0.0f64; j + 2];
             for i in 0..=j {
-                let hij = dot(&w, &v[i]);
+                let hij = dot(&w, &v[i], backend);
                 hcol[i] = hij;
-                axpy(-hij, &v[i], &mut w);
+                axpy(-hij, &v[i], &mut w, backend);
             }
-            let hnext = nrm2(&w);
+            let hnext = norm_l2(&w, backend);
             hcol[j + 1] = hnext;
 
             // Apply previous Givens rotations to the new column.
@@ -165,11 +287,12 @@ pub fn gmres(
 
             // Residual estimate = |g[j+1]| (exact for right preconditioning).
             let resid = g[j + 1].abs() / bnorm;
+            history.push(resid);
 
             // Extend the basis unless we hit a happy breakdown.
             if hnext > HAPPY_TOL {
                 let mut vnew = w;
-                scal(1.0 / hnext, &mut vnew);
+                scale(1.0 / hnext, &mut vnew, backend);
                 v.push(vnew);
             }
 
@@ -196,15 +319,14 @@ pub fn gmres(
         // Correction in the (un-preconditioned) Krylov space: z = Σ y_i v_i.
         let mut z = vec![0.0f64; n];
         for i in 0..k {
-            axpy(y[i], &v[i], &mut z);
+            axpy(y[i], &v[i], &mut z, backend);
         }
         // Apply the preconditioner once: x += M^{-1} z.
-        let mut mz = vec![0.0; n];
-        precond.apply(&z, &mut mz);
-        axpy(1.0, &mz, &mut x);
+        precond.apply_on(&z, &mut mz, backend);
+        axpy(1.0, &mz, &mut x, backend);
 
         // Check the true residual after the update.
-        let true_rel = nrm2(&a.residual(&x, b)) / bnorm;
+        let true_rel = norm_l2(&ldu.residual(&x, b, backend), backend) / bnorm;
         if !true_rel.is_finite() {
             break 'outer; // NaN/inf guard
         }
@@ -214,7 +336,7 @@ pub fn gmres(
         }
     }
 
-    let final_rel = nrm2(&a.residual(&x, b)) / bnorm;
+    let final_rel = norm_l2(&ldu.residual(&x, b, backend), backend) / bnorm;
     let final_rel = if final_rel.is_finite() {
         final_rel
     } else {

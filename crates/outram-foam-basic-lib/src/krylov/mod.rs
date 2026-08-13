@@ -83,10 +83,14 @@ mod gmres;
 mod preconditioner;
 pub mod vecops;
 
-pub use bicgstab::bicgstab;
-pub use gmres::gmres;
+#[cfg(test)]
+mod hybrid_tests;
+
+pub use bicgstab::{bicgstab, bicgstab_prepared};
+pub use gmres::{gmres, gmres_prepared};
 pub use preconditioner::{Ilu0Preconditioner, JacobiPreconditioner};
 
+use crate::compute::ComputeBackend;
 use crate::ldu_matrix::LduMatrix;
 
 /// Iteration controls shared by [`bicgstab`] and [`gmres`].
@@ -169,16 +173,49 @@ impl Preconditioner {
         Preconditioner::Ilu0(Ilu0Preconditioner::new(a))
     }
 
-    /// Apply the preconditioner: write `z = M^{-1} r`.
+    /// Apply the preconditioner serially: write `z = M^{-1} r`.
     ///
     /// `r` and `z` must both have length `n_cells`. For [`Preconditioner::Identity`]
-    /// this copies `r` into `z`.
+    /// this copies `r` into `z`. Equivalent to [`Self::apply_on`] with
+    /// [`ComputeBackend::Serial`].
     pub fn apply(&self, r: &[f64], z: &mut [f64]) {
+        self.apply_on(r, z, ComputeBackend::Serial);
+    }
+
+    /// Apply the preconditioner on the chosen [`ComputeBackend`]: write
+    /// `z = M^{-1} r`.
+    ///
+    /// # How much each variant actually parallelises
+    ///
+    /// | Variant | Backend honoured? | Why |
+    /// |---|---|---|
+    /// | [`Identity`](Self::Identity) | no — `copy_from_slice` | already a single memcpy; there is nothing to thread |
+    /// | [`Jacobi`](Self::Jacobi) | **yes** | one independent multiply per cell — embarrassingly parallel |
+    /// | [`Ilu0`](Self::Ilu0) | no — always serial | the triangular solves have a loop-carried dependence; see [`Ilu0Preconditioner::apply_on`] |
+    ///
+    /// This table is the honest answer to "did the preconditioners move onto the
+    /// backend?": one of the three did, and the reason the other two did not is
+    /// structural rather than unfinished work.
+    ///
+    /// # Determinism
+    ///
+    /// All three variants are bitwise identical across backends and thread
+    /// counts, and bitwise identical to [`Self::apply`]. Two are serial anyway,
+    /// and Jacobi is element-wise, so no summation is reassociated. A caller may
+    /// therefore switch backend without perturbing a solver's iteration count or
+    /// residual history through the preconditioner.
+    ///
+    /// # Arguments
+    ///
+    /// - `r` — residual to precondition, length `n_cells`.
+    /// - `z` — output buffer, length `n_cells`. Fully overwritten.
+    /// - `backend` — requested execution backend.
+    pub fn apply_on(&self, r: &[f64], z: &mut [f64], backend: ComputeBackend) {
         debug_assert_eq!(r.len(), z.len(), "Preconditioner::apply length mismatch");
         match self {
             Preconditioner::Identity => z.copy_from_slice(r),
-            Preconditioner::Jacobi(p) => preconditioner::jacobi_apply(p, r, z),
-            Preconditioner::Ilu0(p) => preconditioner::ilu0_apply(p, r, z),
+            Preconditioner::Jacobi(p) => preconditioner::jacobi_apply(p, r, z, backend),
+            Preconditioner::Ilu0(p) => preconditioner::ilu0_apply(p, r, z, backend),
         }
     }
 }

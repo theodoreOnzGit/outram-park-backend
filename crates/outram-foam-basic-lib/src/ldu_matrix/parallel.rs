@@ -38,7 +38,12 @@
 //! | diagonal reciprocal `1 / diag` | `O(n_cells)` | [`HybridLdu::diagonal_reciprocal`] |
 //! | inner product `a . b` | `O(n)` | [`dot`] |
 //! | `y := alpha x + y` | `O(n)` | [`axpy`] |
+//! | `x := alpha x` | `O(n)` | [`scale`] |
 //! | `sqrt(sum x_i^2)` / `sum abs(x_i)` | `O(n)` | [`norm_l2`] / [`norm_l1`] |
+//!
+//! The solvers that consume them live in [`crate::krylov`] (BiCGStab, GMRES) and
+//! [`crate::ldu_matrix::solvers`]; see [`crate::krylov::bicgstab_prepared`] for
+//! the entry point that drives this module's kernels end to end.
 //!
 //! # The correctness problem this module solves
 //!
@@ -91,7 +96,8 @@
 //! Two separate mechanisms deliver it:
 //!
 //! - **Products and element-wise kernels** ([`HybridLdu::spmv`],
-//!   [`HybridLdu::residual`], [`HybridLdu::diagonal_reciprocal`], [`axpy`]) are
+//!   [`HybridLdu::residual`], [`HybridLdu::diagonal_reciprocal`], [`axpy`],
+//!   [`scale`]) are
 //!   bitwise identical *also to the pre-existing serial reference*
 //!   [`LduMatrix::multiply`] / [`LduMatrix::residual`]. [`LduTopology`] lists
 //!   each cell's incident faces in **ascending face index**, which is exactly the
@@ -1535,6 +1541,68 @@ pub(crate) fn axpy_min(
         _ => {
             for (yi, xi) in y.iter_mut().zip(x.iter()) {
                 *yi += alpha * xi;
+            }
+        }
+    }
+}
+
+/// Scale `x := alpha * x`, in place, on the chosen backend.
+///
+/// The third element-wise vector update a Krylov solver needs, alongside [`axpy`]
+/// and the products. GMRES normalises every Arnoldi basis vector with it
+/// (`v := v / ||v||`), twice per inner iteration, so on a large mesh it is on the
+/// hot path; BiCGStab uses it to rescale search directions.
+///
+/// # Arguments
+///
+/// - `alpha` — dimensionless scalar multiplier.
+/// - `x` — dimensionless vector in cell order, updated in place.
+/// - `backend` — requested execution backend; see [`vecop_backend_for`] for what
+///   will actually run.
+///
+/// # Determinism
+///
+/// Bitwise identical between backends and at any thread count, and bitwise
+/// identical to [`crate::krylov::vecops::scal`]: every element is an independent
+/// single multiplication, so — exactly as for [`axpy`] — there is no reduction to
+/// reassociate and no summation order to depend on. This is the strongest of the
+/// three determinism grades in this module and it holds unconditionally, for any
+/// finite or non-finite `alpha` and any input.
+///
+/// # Example
+///
+/// ```rust
+/// use outram_foam_basic_lib::compute::ComputeBackend;
+/// use outram_foam_basic_lib::ldu_matrix::parallel::scale;
+///
+/// let mut x = [1.0, -2.0, 3.0];
+/// scale(-2.0, &mut x, ComputeBackend::CpuMulti);
+/// assert_eq!(x, [-2.0, 4.0, -6.0]);
+/// ```
+pub fn scale(alpha: f64, x: &mut [f64], backend: ComputeBackend) {
+    scale_min(alpha, x, backend, VECOP_MIN_ELEMENTS);
+}
+
+/// [`scale`] with a caller-supplied size floor; see [`HybridLdu::spmv_into_min`]
+/// for why the `_min` variants exist.
+pub(crate) fn scale_min(
+    alpha: f64,
+    x: &mut [f64],
+    backend: ComputeBackend,
+    min_work_items: usize,
+) {
+    match effective_backend(backend, x.len(), min_work_items) {
+        #[cfg(feature = "parallel")]
+        ComputeBackend::CpuMulti => {
+            x.par_chunks_mut(CELL_BLOCK).for_each(|xc| {
+                for xi in xc.iter_mut() {
+                    *xi *= alpha;
+                }
+            });
+        }
+        _ => {
+            for xi in x.iter_mut() {
+                *xi *= alpha;
             }
         }
     }

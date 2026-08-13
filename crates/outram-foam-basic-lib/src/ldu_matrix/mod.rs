@@ -57,4 +57,6 @@ pub use parallel::{HybridLdu, LduTopology};
 pub use solvers::conjugate_gradient;
 pub use solvers::gamg;
 pub use solvers::gauss_seidel;
-pub use solvers::krylov_solve::{krylov_solve, KrylovMethod, KrylovOptions, PreconditionerKind};
+pub use solvers::krylov_solve::{
+    krylov_solve, krylov_solve_prepared, KrylovMethod, KrylovOptions, PreconditionerKind,
+};
