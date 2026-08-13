@@ -62,6 +62,22 @@
 //! Enabling `gpu` on an Android target therefore yields a build with no GPU
 //! backend rather than a broken one.
 //!
+//! # Planned: hybrid CPU+GPU co-execution (NOT implemented)
+//!
+//! There is no `Hybrid` variant and no GPU kernel in this crate — see
+//! [`gpu_adapter_present`] for the extent of the `wgpu` use. One policy
+//! decision for it is nevertheless already settled, because it constrains how
+//! the kernels are written: **if a batch is ever split across CPU and GPU, the
+//! CPU half runs `f32` to match the GPU**, so that precision is uniform across
+//! one output array instead of varying with the split ratio. `Hybrid` would
+//! therefore be an `f32`-class throughput mode sitting roughly `1e-7` relative
+//! from the [`ComputeBackend::Serial`] oracle, and it is **not** suitable for
+//! the cancellation-limited kernels (numerical differentiation, golden-section
+//! minimisation) whose accuracy floors are already set by machine epsilon.
+//!
+//! Full reasoning, the per-kernel floors at `f32`, and the two caveats this
+//! does *not* resolve are in `docs/hybrid-precision-policy.md`.
+//!
 //! # Units
 //!
 //! Nothing in this module carries a physical dimension. Sizes are counts of
