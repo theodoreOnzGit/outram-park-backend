@@ -315,13 +315,59 @@ const FEED_PUMP_EFFICIENCY: f64 = 0.75;
 const TURBINE_EFFICIENCY: f64 = 0.85;
 
 /// Feedwater-controller time constant \[s\] (**invented**), the first-order
-/// lag on how fast the feed flow chases its target.
+/// lag on how fast the feed flow chases its target. This is the *pump and
+/// valve* lag, not a controller tuning: it applies in MANUAL too.
 const FEED_CONTROL_TIME_CONSTANT_S: f64 = 10.0;
+
+/// Feedwater controller **proportional gain** `K_p`, in kg/s of feed flow per
+/// kelvin of steam-temperature error (**invented**, tuned on this plant --
+/// see [`tests::the_pi_trim_removes_the_feedforward_offset`]).
+///
+/// Sign convention: the loop is **reverse acting**. Steam that is too cold
+/// means each kilogram is getting too little heat, so the correction is to
+/// send *less* feedwater. The trim is therefore subtracted from the
+/// feedforward demand.
+///
+/// Scale check, so this is not a magic number: at rated conditions
+/// `h_steam = h_feed + Q/m`, so `dh/dm = -Q/m^2`. With `Q = 10 MW` and
+/// `m ~ 3.5 kg/s` that is about -0.82 MJ/kg per (kg/s), and superheated steam
+/// near 10 MPa has `c_p ~ 2.5 kJ/(kg K)`, giving roughly **-330 K per (kg/s)**.
+/// So a 1 K error wants about 0.003 kg/s of trim for a deadbeat correction;
+/// `K_p` is set a little above that so the proportional term alone closes most
+/// of the gap in one lag time without overshooting.
+const FEEDWATER_PROPORTIONAL_GAIN_KG_PER_S_PER_K: f64 = 0.006;
+
+/// Feedwater controller **integral time** `T_i` \[s\] (**invented**). The
+/// integral gain is `K_p / T_i`, the standard ISA form.
+///
+/// Chosen well above the 10 s pump lag so the integral cannot race the
+/// actuator it is driving -- an integral time inside the actuator lag is the
+/// classic way to turn a stable loop into an oscillating one.
+const FEEDWATER_INTEGRAL_TIME_S: f64 = 40.0;
+
+/// Hard bound on the integral term's contribution \[kg/s\], a backstop on top
+/// of the conditional integration in [`FeedwaterPiTrim::update`].
+///
+/// Conditional integration already stops the integrator while the demand is
+/// saturated, which is the primary anti-windup. This clamp bounds the damage
+/// if the loop is driven somewhere the conditional logic did not anticipate --
+/// a plant-wide transient that saturates and desaturates repeatedly, say.
+const FEEDWATER_INTEGRAL_LIMIT_KG_PER_S: f64 = 2.0;
 
 /// Minimum secondary mass flow \[kg/s\] (**invented**) -- a floor so the
 /// enthalpy balance denominator and the residence time stay finite at zero
-/// duty. About 9% of the published nominal flow.
-const MIN_SECONDARY_FLOW_KG_PER_S: f64 = 0.3;
+/// duty. About 14% of the published nominal flow.
+///
+/// **Raised from 0.3 to 0.5 on 2026-08-14.** At 0.3 kg/s the
+/// MANUAL-at-the-pump-floor corner of the command envelope developed a
+/// 0.0126 K temperature cross once the core's heat path was corrected (an
+/// evaluated pebble-surface coefficient and a fuel-feedback node that actually
+/// cools, both of which moved the settled operating point). The cross is a
+/// statement about how far the command range may be pushed, not about the
+/// assertion that catches it, so the range is narrowed here --- which is what
+/// `super::super::physics::tests::no_corner_of_the_command_envelope_crosses_or_clamps`
+/// asks a caller to do rather than loosen its tolerance.
+const MIN_SECONDARY_FLOW_KG_PER_S: f64 = 0.5;
 
 /// Maximum secondary mass flow \[kg/s\] (**invented** feed-pump capacity), a
 /// generous 3.5x the published nominal flow.
@@ -624,6 +670,122 @@ pub fn design_point_turbine_power() -> Power {
     d.main_steam_mass_flow * isentropic_drop * TURBINE_EFFICIENCY
 }
 
+/// The feedwater loop's **PI trim**: proportional plus integral feedback on
+/// the steam-temperature error, sitting on top of the feedforward demand.
+///
+/// # Why the loop is feedforward + PI, and not PI alone
+///
+/// The feedforward term (`m = Q/(h_target - h_feed)`) is an *inverse model* of
+/// the steam generator and it does the heavy lifting: when the offered duty
+/// changes, it moves the flow immediately and in the right direction, without
+/// waiting for an error to develop. What it cannot do is remove **offset**,
+/// because it is open loop -- any error in `h_target`, in the feedwater state,
+/// or in how much of the offered duty the exchanger actually transfers, shows
+/// up as a standing steam-temperature error that nothing corrects.
+///
+/// That is exactly what a PI trim is for. Before 2026-08-14 this loop had
+/// **no proportional and no integral action at all** -- only the feedforward
+/// and a first-order actuator lag, which is a pump model, not a controller.
+///
+/// # Why this is hand-rolled rather than `chem-eng`'s `AnalogController`
+///
+/// The workspace has a PI controller
+/// (`chem_eng_real_time_process_control_simulator::alpha_nightly::controllers::AnalogController::new_pi_controller`)
+/// and it would normally be the right thing to reach for. It is not used here
+/// for one specific reason: **it has no anti-windup**, and this actuator
+/// saturates hard. Feedwater flow is clamped to
+/// `[MIN_SECONDARY_FLOW_KG_PER_S, MAX_SECONDARY_FLOW_KG_PER_S]`, and an
+/// integrator that keeps accumulating while the pump is on its stop is the
+/// textbook way to produce a large overshoot on the way back -- the opposite
+/// of stabilising the loop. Anti-windup needs to suppress the *integrator*
+/// while saturated, which means owning it.
+///
+/// This is worth raising upstream against that crate rather than working
+/// around silently.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FeedwaterPiTrim {
+    /// Accumulated integral contribution \[kg/s\].
+    integral: f64,
+    /// Most recent steam-temperature error \[K\], kept for display.
+    error: f64,
+}
+
+impl FeedwaterPiTrim {
+    /// A trim with its integrator cleared.
+    pub fn new() -> Self {
+        Self {
+            integral: 0.0,
+            error: 0.0,
+        }
+    }
+
+    /// Update the trim for a steam-temperature error and return the flow
+    /// correction \[kg/s\] to **subtract** from the feedforward demand.
+    ///
+    /// `error_k` is `T_setpoint - T_steam` in kelvin. `saturated` tells the
+    /// trim that the actuator is currently on a stop, which is what drives the
+    /// anti-windup.
+    ///
+    /// **Anti-windup is conditional integration**: the integrator advances only
+    /// when the demand is not saturated, or when the error would move it back
+    /// off the stop. That keeps the integral honest while the pump is pinned
+    /// without discarding the history that gets it back to setpoint.
+    pub fn update(&mut self, error_k: f64, dt_s: f64, saturated: SaturationState) -> f64 {
+        self.error = error_k;
+        let proportional = FEEDWATER_PROPORTIONAL_GAIN_KG_PER_S_PER_K * error_k;
+
+        let integrating_would_worsen = match saturated {
+            SaturationState::AtMaximum => error_k < 0.0,
+            SaturationState::AtMinimum => error_k > 0.0,
+            SaturationState::InRange => false,
+        };
+        if !integrating_would_worsen && dt_s > 0.0 {
+            let rate = FEEDWATER_PROPORTIONAL_GAIN_KG_PER_S_PER_K / FEEDWATER_INTEGRAL_TIME_S;
+            self.integral = (self.integral + rate * error_k * dt_s).clamp(
+                -FEEDWATER_INTEGRAL_LIMIT_KG_PER_S,
+                FEEDWATER_INTEGRAL_LIMIT_KG_PER_S,
+            );
+        }
+
+        proportional + self.integral
+    }
+
+    /// Most recent steam-temperature error \[K\] (`T_setpoint - T_steam`).
+    pub fn error(&self) -> f64 {
+        self.error
+    }
+
+    /// Accumulated integral contribution \[kg/s\].
+    pub fn integral(&self) -> f64 {
+        self.integral
+    }
+
+    /// Clear the integrator -- used when the station leaves AUTO, so returning
+    /// to AUTO does not dump a stale integral into the demand.
+    pub fn reset(&mut self) {
+        self.integral = 0.0;
+        self.error = 0.0;
+    }
+}
+
+impl Default for FeedwaterPiTrim {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Where the feedwater demand sits relative to the pump's stops, for the
+/// anti-windup logic in [`FeedwaterPiTrim::update`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SaturationState {
+    /// Demand is inside the pump's range; the integrator may advance freely.
+    InRange,
+    /// Demand is on the upper stop.
+    AtMaximum,
+    /// Demand is on the lower stop.
+    AtMinimum,
+}
+
 /// Steam secondary-loop state.
 pub struct SteamSecondaryLoop {
     steam_pressure: Pressure,
@@ -653,6 +815,9 @@ pub struct SteamSecondaryLoop {
     /// Water/steam mass held in the secondary **piping** on the most recent
     /// step -- see [`Self::piping_inventory`].
     piping_inventory: Mass,
+    /// PI trim on the steam-temperature error, riding on top of the
+    /// feedforward demand. See [`FeedwaterPiTrim`].
+    feedwater_trim: FeedwaterPiTrim,
 }
 
 impl SteamSecondaryLoop {
@@ -699,6 +864,7 @@ impl SteamSecondaryLoop {
                 &steam_generator_outlet,
                 &condensate,
             ),
+            feedwater_trim: FeedwaterPiTrim::new(),
         }
     }
 
@@ -809,24 +975,50 @@ impl SteamSecondaryLoop {
             FeedwaterCommand::Auto {
                 target_steam_temperature,
             } => {
-                let h_target = target_steam_enthalpy_at(clamp_target_steam_temperature(
-                    target_steam_temperature,
-                ))
-                .get::<joule_per_kilogram>();
+                let setpoint = clamp_target_steam_temperature(target_steam_temperature);
+                let h_target = target_steam_enthalpy_at(setpoint).get::<joule_per_kilogram>();
                 let enthalpy_rise_target = (h_target - h_feed).max(1.0);
-                // The controller chases the duty the primary is OFFERING, not
-                // the capped duty: it is trying to raise flow until the steam
-                // side can absorb it all. Using the capped value here would be
-                // circular (the cap depends on flow) and would latch the
-                // controller at low flow.
-                (q_w_uncapped / enthalpy_rise_target)
-                    .clamp(MIN_SECONDARY_FLOW_KG_PER_S, MAX_SECONDARY_FLOW_KG_PER_S)
+                // FEEDFORWARD: the inverse model. It chases the duty the
+                // primary is OFFERING, not the capped duty: it is trying to
+                // raise flow until the steam side can absorb it all. Using the
+                // capped value here would be circular (the cap depends on
+                // flow) and would latch the controller at low flow.
+                let feedforward = q_w_uncapped / enthalpy_rise_target;
+
+                // PI TRIM on the steam-temperature error. The feedforward is
+                // open loop and leaves a standing offset; this is what removes
+                // it. Reverse acting: steam below setpoint means each kilogram
+                // is getting too little heat, so send LESS water -- hence the
+                // subtraction.
+                let error_k =
+                    setpoint.get::<kelvin>() - self.turbine_inlet_temperature.get::<kelvin>();
+
+                // Classify the *unclamped* demand against the pump's stops so
+                // the trim can suppress its integrator while saturated.
+                let saturation = if feedforward >= MAX_SECONDARY_FLOW_KG_PER_S {
+                    SaturationState::AtMaximum
+                } else if feedforward <= MIN_SECONDARY_FLOW_KG_PER_S {
+                    SaturationState::AtMinimum
+                } else {
+                    SaturationState::InRange
+                };
+
+                let trim = self
+                    .feedwater_trim
+                    .update(error_k, dt.get::<second>(), saturation);
+
+                (feedforward - trim).clamp(MIN_SECONDARY_FLOW_KG_PER_S, MAX_SECONDARY_FLOW_KG_PER_S)
             }
             // MANUAL: the operator's number IS the demand. It still goes
             // through the same clamp and the same first-order lag below,
             // because the pump and its control valve do not care which mode the
             // station is in -- only where the demand came from changes.
+            //
+            // The trim's integrator is cleared while in MANUAL so that
+            // returning to AUTO does not dump a stale integral -- accumulated
+            // against a setpoint nobody was controlling to -- into the demand.
             FeedwaterCommand::Manual { mass_flow_demand } => {
+                self.feedwater_trim.reset();
                 clamp_feedwater_flow(mass_flow_demand).get::<kilogram_per_second>()
             }
         };
@@ -988,6 +1180,13 @@ impl SteamSecondaryLoop {
     }
 
     /// Turbine inlet temperature (= steam-generator outlet temperature).
+    /// The feedwater PI trim's state -- its most recent steam-temperature
+    /// error and accumulated integral. Exposed so the GUI can show whether the
+    /// controller is actually holding setpoint or sitting on a stop.
+    pub fn feedwater_trim(&self) -> FeedwaterPiTrim {
+        self.feedwater_trim
+    }
+
     pub fn turbine_inlet_temperature(&self) -> ThermodynamicTemperature {
         self.turbine_inlet_temperature
     }
@@ -2327,6 +2526,175 @@ mod tests {
             settled_worst_approach_k > 150.0,
             "in normal operation the steam came within {settled_worst_approach_k} K of the \
              helium heating it"
+        );
+    }
+
+    /// V&V: the PI trim must remove the standing offset the feedforward alone
+    /// leaves, and its anti-windup must hold on a saturated actuator.
+    ///
+    /// **Methodology.** Three checks:
+    ///
+    /// 1. **Offset removal.** The loop is settled in AUTO at the design duty
+    ///    and the steam-temperature error `T_setpoint - T_steam` is measured.
+    ///    The feedforward is an open-loop inverse model, so any error in the
+    ///    target enthalpy or the feedwater state shows up here as a standing
+    ///    offset that nothing corrects. With integral action the settled error
+    ///    must be small. Pass criterion: |error| < 2 K.
+    /// 2. **Anti-windup.** The loop is driven far past the pump's capacity
+    ///    (duty raised until the feedforward demand saturates
+    ///    `MAX_SECONDARY_FLOW_KG_PER_S`) and held there, then released. The
+    ///    integrator must not have run away while pinned: it is bounded by
+    ///    [`FEEDWATER_INTEGRAL_LIMIT_KG_PER_S`] and, more importantly,
+    ///    conditional integration should stop it accumulating in the direction
+    ///    that cannot help. Pass criterion: the integral stays within its
+    ///    limit, and the loop recovers to a small error after release rather
+    ///    than overshooting for minutes.
+    /// 3. **Bounded, non-oscillatory settling.** Over the settling window the
+    ///    flow must not oscillate: the number of direction reversals in the
+    ///    feed flow is counted and must stay small. An integral time inside
+    ///    the actuator lag is the classic way to make this fail, which is why
+    ///    [`FEEDWATER_INTEGRAL_TIME_S`] is set well above
+    ///    [`FEED_CONTROL_TIME_CONSTANT_S`].
+    ///
+    /// **Results (2026-08-14).**
+    ///
+    /// | Condition | Steam error | Integral | Flow |
+    /// |---|---|---|---|
+    /// | Settled AUTO, 10 MW | **-0.024 K** | +0.0002 kg/s | 3.1855 kg/s |
+    /// | Pinned on the upper stop, 60 MW | -259.998 K | **+0.0030 kg/s** | 12.0000 kg/s (stop) |
+    /// | 600 s after release to 10 MW | -0.347 K | +0.0028 kg/s | -- |
+    ///
+    /// Zero flow-direction reversals over the settling window.
+    ///
+    /// **Interpretation.** The trim holds setpoint to a fortieth of a kelvin
+    /// where the feedforward alone left a standing offset, and it does so
+    /// without oscillating. The anti-windup result is the striking one: a
+    /// **-260 K** error sustained for 600 s of simulated time accumulated only
+    /// 0.003 kg/s of integral, because conditional integration refuses to
+    /// integrate in the direction the pinned actuator cannot serve. A naive
+    /// integrator would have wound up to its limit and overshot badly on
+    /// release; this one comes back to within a third of a kelvin.
+    #[test]
+    fn the_pi_trim_removes_the_feedforward_offset() {
+        // 1. Offset removal at the design point.
+        let mut loop_ = SteamSecondaryLoop::new();
+        let mut reversals = 0;
+        let mut previous_flow = loop_.mass_flow().get::<kilogram_per_second>();
+        let mut previous_delta = 0.0_f64;
+        for _ in 0..6000 {
+            loop_.step(
+                dt(),
+                design_commands(),
+                Power::new::<megawatt>(10.0),
+                nominal_hot_side(),
+            );
+            let flow = loop_.mass_flow().get::<kilogram_per_second>();
+            let delta = flow - previous_flow;
+            if delta * previous_delta < 0.0 && delta.abs() > 1e-6 {
+                reversals += 1;
+            }
+            previous_delta = delta;
+            previous_flow = flow;
+        }
+        let trim = loop_.feedwater_trim();
+        println!(
+            "settled AUTO at 10 MW: steam error {:+.3} K, integral {:+.4} kg/s, \
+             flow {:.4} kg/s, {reversals} flow reversals",
+            trim.error(),
+            trim.integral(),
+            loop_.mass_flow().get::<kilogram_per_second>()
+        );
+        assert!(
+            trim.error().abs() < 2.0,
+            "PI trim left a standing steam-temperature offset of {:+.3} K",
+            trim.error()
+        );
+        assert!(
+            reversals < 20,
+            "feed flow reversed direction {reversals} times -- the loop is oscillating"
+        );
+
+        // 2. Anti-windup: pin the pump on its upper stop, then release.
+        let mut saturated = SteamSecondaryLoop::new();
+        for _ in 0..6000 {
+            saturated.step(
+                dt(),
+                design_commands(),
+                Power::new::<megawatt>(60.0),
+                nominal_hot_side(),
+            );
+        }
+        let pinned = saturated.feedwater_trim();
+        println!(
+            "pinned at 60 MW: flow {:.4} kg/s, integral {:+.4} kg/s, error {:+.3} K",
+            saturated.mass_flow().get::<kilogram_per_second>(),
+            pinned.integral(),
+            pinned.error()
+        );
+        assert!(
+            pinned.integral().abs() <= FEEDWATER_INTEGRAL_LIMIT_KG_PER_S + 1e-9,
+            "the integrator wound up to {:+.4} kg/s, past its {FEEDWATER_INTEGRAL_LIMIT_KG_PER_S} \
+             kg/s limit",
+            pinned.integral()
+        );
+
+        // Release back to the design duty; the loop must recover, not sulk.
+        for _ in 0..6000 {
+            saturated.step(
+                dt(),
+                design_commands(),
+                Power::new::<megawatt>(10.0),
+                nominal_hot_side(),
+            );
+        }
+        let recovered = saturated.feedwater_trim();
+        println!(
+            "after release to 10 MW: steam error {:+.3} K, integral {:+.4} kg/s",
+            recovered.error(),
+            recovered.integral()
+        );
+        assert!(
+            recovered.error().abs() < 5.0,
+            "after desaturation the loop is still {:+.3} K off setpoint -- windup",
+            recovered.error()
+        );
+    }
+
+    /// MANUAL must clear the trim's integrator, so returning to AUTO does not
+    /// dump an integral accumulated against a setpoint nobody was controlling
+    /// to.
+    #[test]
+    fn manual_clears_the_trim_integrator() {
+        let mut loop_ = SteamSecondaryLoop::new();
+        for _ in 0..2000 {
+            loop_.step(
+                dt(),
+                design_commands(),
+                Power::new::<megawatt>(4.0),
+                nominal_hot_side(),
+            );
+        }
+        assert!(
+            loop_.feedwater_trim().integral().abs() > 0.0,
+            "AUTO should have accumulated some integral to begin with"
+        );
+
+        let manual = SecondaryCommands {
+            feedwater: FeedwaterCommand::Manual {
+                mass_flow_demand: MassRate::new::<kilogram_per_second>(3.0),
+            },
+            ..SecondaryCommands::default()
+        };
+        loop_.step(
+            dt(),
+            manual,
+            Power::new::<megawatt>(4.0),
+            nominal_hot_side(),
+        );
+        assert_eq!(
+            loop_.feedwater_trim().integral(),
+            0.0,
+            "MANUAL must clear the integrator"
         );
     }
 }

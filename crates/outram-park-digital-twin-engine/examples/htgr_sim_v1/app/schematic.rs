@@ -537,6 +537,82 @@ fn pump_discharge(rect: Rect) -> Pos2 {
     Pos2::new(rect.center().x - 0.3775 * rect.width(), rect.top())
 }
 
+/// Where a centrifugal pump's **suction** nozzle meets the volute casing.
+///
+/// The companion to [`pump_discharge`], and it exists for the same reason: a
+/// pipe end has to be derived from the artwork's own geometry or it drifts off
+/// the glyph. Two things make the naive `rect.right()` at `rect.center().y`
+/// wrong, and together they were leaving the feedwater line visibly floating
+/// clear of the pump:
+///
+/// - **Vertically**, `PumpVisual`'s volute is centred at
+///   `rect.bottom() - 0.42 h`, which is *below* the box centre. A pipe drawn at
+///   the box centre sits about `0.08 h` above the impeller axis.
+/// - **Horizontally**, the volute casing only reaches about `0.44 w` from its
+///   centre at the throat, so the box's right edge is roughly `0.06 w` outside
+///   the casing -- before any additional clearance is added.
+///
+/// This returns the point on the casing at the impeller axis, using the same
+/// mid-throat/cutwater radius [`pump_discharge`] uses, so the suction line
+/// lands on the pump instead of near it.
+fn pump_suction(rect: Rect) -> Pos2 {
+    Pos2::new(
+        rect.center().x + 0.3775 * rect.width(),
+        rect.bottom() - 0.42 * rect.height(),
+    )
+}
+
+/// Where steam meets the turbine's **casing**, rather than its shaft.
+///
+/// `TurbineVisual` draws a single-flow machine as an annulus that opens out
+/// along the expansion: the blade tip radius runs from `hub_radius`
+/// (`0.18 x` the half-height) at admission to the full half-height at exhaust,
+/// with the rotor shaft on the centre line throughout. So the *centre line is
+/// the shaft*, and a pipe terminated there appears to grow out of the rotor
+/// rather than out of the steam path.
+///
+/// Both connections are therefore taken to the edge of the flow annulus at the
+/// relevant end:
+///
+/// - **admission** (left) -- the annulus is still narrow there, so the casing
+///   edge sits just off the hub at `0.09 h` above the centre line. Going all
+///   the way to the box edge would float in empty space, because the annulus
+///   has not opened yet.
+/// - **exhaust** (right) -- the annulus is fully open, so the casing edge is
+///   the box edge.
+///
+/// Returned in schematic-local points; `x` is inset by half a blade pitch so
+/// the pipe meets the end blade row rather than the corner of the box.
+struct TurbineNozzles {
+    /// Main-steam admission, on the casing at the inlet end.
+    steam_in: Pos2,
+    /// Exhaust to the condenser, on the casing at the exhaust end.
+    exhaust_out: Pos2,
+}
+
+/// Blade rows drawn by `TurbineVisual`; the end rows sit half a pitch inside
+/// the box, which is where a nozzle should meet them.
+const TURBINE_BLADE_ROWS: f32 = 11.0;
+
+/// Hub radius as a fraction of the half-height, matching `TurbineVisual`'s
+/// own `HUB_RADIUS_FRACTION`.
+const TURBINE_HUB_RADIUS_FRACTION: f32 = 0.18;
+
+fn turbine_nozzles() -> TurbineNozzles {
+    let rect = Rect::from_center_size(TURBINE_CENTRE, TURBINE_BOX);
+    let half_pitch = 0.5 * rect.width() / TURBINE_BLADE_ROWS;
+    let tip_radius = 0.5 * rect.height();
+    let hub_radius = tip_radius * TURBINE_HUB_RADIUS_FRACTION;
+
+    TurbineNozzles {
+        // Admission: top of the (still narrow) annulus at the inlet end.
+        steam_in: pos2(rect.left() + half_pitch, TURBINE_CENTRE.y - hub_radius),
+        // Exhaust: bottom of the fully opened annulus, i.e. the casing edge,
+        // pointing down towards the condenser.
+        exhaust_out: pos2(rect.right() - half_pitch, rect.bottom()),
+    }
+}
+
 /// The outboard tip of the reactor vessel's hot gas duct nozzle, in
 /// schematic-local points.
 ///
@@ -731,6 +807,9 @@ pub fn draw_schematic(
     let reactor = reactor_rect();
     let circulator = circulator_rect();
     let feed_pump = feed_pump_rect();
+    // Suction nozzle on the volute casing, not the bounding box -- see
+    // `pump_suction` for why the box edge left the line floating.
+    let feed_suction = pump_suction(feed_pump);
 
     // Nozzle anchors, taken from each artwork's own drawn rectangle (see
     // `reactor_duct_nozzle` and `sg_nozzles`), so a pipe end cannot drift off
@@ -830,22 +909,31 @@ pub fn draw_schematic(
     let turbine_rect = Rect::from_center_size(TURBINE_CENTRE, TURBINE_BOX);
     let condenser_rect = Rect::from_center_size(CONDENSER_CENTRE, CONDENSER_BOX);
 
+    // Admission joins the casing just off the hub, not the shaft centre line
+    // -- see `turbine_nozzles`.
+    let turbine_nozzle = turbine_nozzles();
     route(
         ui,
         &main_steam,
         &[
             at(pos2(sg_steam_out.x - 5.0, sg_steam_out.y)),
-            at(pos2(turbine_rect.left(), sg_steam_out.y)),
+            at(pos2(turbine_nozzle.steam_in.x, sg_steam_out.y)),
+            at(turbine_nozzle.steam_in),
         ],
         false,
         false,
     );
+    // Exhaust leaves the BOTTOM of the casing at the exhaust end, where the
+    // annulus has fully opened -- not the shaft centre line it used to start
+    // from, which made the pipe look like it grew out of the rotor.
+    let exhaust_drop_y = turbine_rect.bottom() + 26.0;
     route(
         ui,
         &exhaust,
         &[
-            at(pos2(turbine_rect.right(), TURBINE_CENTRE.y)),
-            at(pos2(CONDENSER_CENTRE.x, TURBINE_CENTRE.y)),
+            at(turbine_nozzle.exhaust_out),
+            at(pos2(turbine_nozzle.exhaust_out.x, exhaust_drop_y)),
+            at(pos2(CONDENSER_CENTRE.x, exhaust_drop_y)),
             at(pos2(CONDENSER_CENTRE.x, condenser_rect.top() + 3.0)),
         ],
         false,
@@ -856,8 +944,8 @@ pub fn draw_schematic(
         &exhaust,
         &[
             at(pos2(CONDENSER_CENTRE.x, condenser_rect.bottom() - 3.0)),
-            at(pos2(CONDENSER_CENTRE.x, FEED_PUMP_CENTRE.y)),
-            at(pos2(feed_pump.right() + 3.0, FEED_PUMP_CENTRE.y)),
+            at(pos2(CONDENSER_CENTRE.x, feed_suction.y)),
+            at(feed_suction),
         ],
         false,
         false,

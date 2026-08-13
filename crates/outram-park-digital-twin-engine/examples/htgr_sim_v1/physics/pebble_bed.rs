@@ -105,20 +105,22 @@
 //!   justifies leaving it out **while forced flow exists**. With the circulator
 //!   stopped that same conductivity is the whole heat path, and this model has
 //!   nothing to say about that case.
-//! - **There is no radial pebble conduction, and the lumped coefficient is
-//!   measurably too low.** The fuel zone, the graphite shell and the pebble
-//!   surface are one temperature, so the single
-//!   [`NOMINAL_OVERALL_HTC_W_PER_M2_K`] lumps the internal pebble conduction
-//!   *and* the surface film together. It is **not** evaluated from a Nusselt
-//!   correlation -- only its flow *exponent* (0.6) is Wakao's. Its value puts
-//!   the bed 204.7 K above the bulk helium at rated power, against a published
-//!   *peak* fuel-to-coolant difference of 100.7 K (Gao & Shi 2002, Table 2:
-//!   918.7 / 876.7 / 818 degC maximum fuel, fuel-surface and coolant
-//!   temperatures at 100% load). A bed *average* must be smaller than the peak,
-//!   so this coefficient is low by a factor of about two to three and the model
-//!   overstates the graphite-to-helium temperature difference accordingly. See
-//!   [`tests::zbs_conduction_is_negligible_beside_convection_at_power`] for the
-//!   full argument and why the value is left as it is rather than retuned here.
+//! - **The surface coefficient is now EVALUATED, not invented (2026-08-14).**
+//!   [`overall_htc_at_flow`] is two resistances in series: an evaluated
+//!   **Wakao** packed-bed film (`Nu = 2 + 1.1 Re_p^0.6 Pr^(1/3)`, with the
+//!   helium conductivity, viscosity and Prandtl number from the real CoolProp
+//!   helium models at the published 3.0 MPa) and the **intra-pebble
+//!   conduction** `h = 10 k/d`, the closed-form volume-average-to-surface
+//!   result for a uniformly heated sphere. It replaced an invented lumped
+//!   constant that put the bed 204.7 K above the helium at rated power --
+//!   roughly *twice* the published peak. The evaluated path gives **67.4 K**,
+//!   which correctly sits below the 100.7 K peak of Gao & Shi (2002) Table 2
+//!   (918.7 / 876.7 / 818 degC maximum fuel, fuel-surface and coolant
+//!   temperatures at 100% load). See
+//!   [`tests::the_evaluated_coefficient_beats_the_old_invented_one`].
+//!   What this still does **not** buy is a resolved pebble: the fuel zone,
+//!   shell and surface remain one temperature node, so the intra-pebble term is
+//!   a bed-average drop and there is still no peak fuel temperature here.
 //! - **Graphite `c_p` is one constant**, representative of graphite near
 //!   1000 K. Real graphite `c_p` rises from about 710 J/(kg K) at 300 K to
 //!   about 1700 J/(kg K) at 1000 K, so the constant is badly wrong cold and
@@ -157,6 +159,10 @@ use uom::si::mass::kilogram;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::watt;
 use uom::si::ratio::ratio;
+use outram_park_digital_twin_engine::htr10::kta;
+use outram_park_fork_coolprop::{conductivity, state_pt, viscosity, Fluid};
+use uom::si::dynamic_viscosity::pascal_second;
+use uom::si::f64::DynamicViscosity;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
@@ -240,36 +246,49 @@ pub fn heavy_metal_per_pebble() -> Mass {
 /// `docs/reactor-scoping/htr10.md` and is not implemented here.
 pub const GRAPHITE_CP_J_PER_KG_K: f64 = 1700.0;
 
-/// Overall pebble-to-helium heat-transfer coefficient at the nominal helium
-/// flow \[W/(m^2 K)\] (**illustrative**).
+/// Legacy lumped pebble-to-helium coefficient at nominal flow \[W/(m^2 K)\]
+/// (**illustrative**), retained only as the comparison baseline.
 ///
-/// This single number lumps together the internal pebble conduction (fuel zone
-/// to ball surface) and the surface film, because the bed is one node. Its
-/// value is chosen so that at nominal power the bed sits a few hundred kelvin
-/// above the bulk helium -- **not** computed from a Nusselt correlation. Do not
-/// cite it as a heat-transfer result.
+/// **This is no longer the model's heat path.** Until 2026-08-14 this single
+/// invented number lumped the internal pebble conduction and the surface film
+/// together, and it was documented as low by a factor of two to three: it put
+/// the bed 204.7 K above the bulk helium at rated power, against the 100.7 K
+/// *peak* fuel-to-coolant difference of Gao & Shi (2002) Table 2, which a bed
+/// *average* must sit below.
 ///
-/// **Known error, quantified.** At rated power it puts the bed 204.7 K above
-/// the bulk helium over the derived 305 m^2 of pebble surface. Gao & Shi (2002)
-/// Table 2 give a peak fuel-to-coolant difference of 100.7 K at 100% load
-/// (918.7 degC maximum fuel, 818 degC maximum coolant), and a bed *average*
-/// must be below the peak -- so this coefficient is low by roughly a factor of
-/// two to three. It is left unchanged deliberately; re-anchoring it is a
-/// modelling decision needing its own V&V. The full argument, including why the
-/// Zehner-Bauer-Schlunder bed conductivity is *not* the right replacement, is
-/// in [`tests::zbs_conduction_is_negligible_beside_convection_at_power`].
-pub const NOMINAL_OVERALL_HTC_W_PER_M2_K: f64 = 160.0;
+/// [`overall_htc_at_flow`] now evaluates the two resistances separately -- an
+/// evaluated Wakao film in series with the intra-pebble conduction -- so no
+/// invented overall coefficient enters the heat balance. This constant is kept
+/// so [`tests::the_evaluated_coefficient_beats_the_old_invented_one`] can show
+/// the improvement rather than merely asserting it.
+pub const LEGACY_LUMPED_HTC_W_PER_M2_K: f64 = 160.0;
 
-/// Reynolds-number exponent used to scale the overall coefficient with helium
-/// flow, dimensionless.
+/// Thermal conductivity of the pebble's graphite matrix \[W/(m K)\]
+/// (**illustrative**, representative of A3-3 matrix graphite near the
+/// operating temperature).
 ///
-/// 0.6 is the Reynolds exponent of the **Wakao** packed-bed particle-to-fluid
-/// Nusselt correlation `Nu = 2 + 1.1 Re_p^0.6 Pr^(1/3)`, which is already
-/// available in this workspace at
-/// `crates/tuas_boussinesq_solver/.../nusselt_number_correlations/input_structs.rs:152`.
-/// **Only the exponent is borrowed.** No Reynolds number, Prandtl number or gas
-/// conductivity is evaluated here, so this is a flow-sensitivity shape, not an
-/// evaluated Wakao Nusselt number.
+/// Used for the **intra-pebble** conduction resistance only. Note this is a
+/// different quantity from
+/// [`outram_park_digital_twin_engine::htr10::zbs::zbs_effective_conductivity`],
+/// which is the *bed-effective* conductivity (solid contact plus pebble-to-
+/// pebble radiation across the voids) and is the wrong number for conduction
+/// *inside* a ball.
+///
+/// Unirradiated matrix graphite is nearer 40 W/(m K); irradiation reduces it
+/// substantially, and 25 is a representative mid-life value. No
+/// temperature- or fluence-dependent graphite property set exists in this
+/// workspace, so this is one constant. Because the film resistance dominates
+/// (see [`overall_htc_at_flow`]), the overall coefficient is weakly sensitive
+/// to it: halving it to 12.5 moves the rated-power coefficient by under 15%.
+pub const GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K: f64 = 25.0;
+
+/// Reynolds-number exponent of the **Wakao** packed-bed particle-to-fluid
+/// Nusselt correlation, dimensionless.
+///
+/// Retained as a named constant because it appears in the correlation
+/// [`wakao_nusselt`] evaluates: `Nu = 2 + 1.1 Re_p^0.6 Pr^(1/3)`. Before
+/// 2026-08-14 *only* this exponent was borrowed, and it scaled an invented
+/// coefficient; the full correlation is now evaluated.
 pub const HTC_FLOW_EXPONENT: f64 = 0.6;
 
 /// Nominal helium mass flow the overall coefficient is anchored at: 4.3 kg/s at
@@ -437,7 +456,7 @@ impl PebbleBedCore {
             )),
             heat_to_coolant: Power::new::<watt>(0.0),
             overall_htc: HeatTransfer::new::<watt_per_square_meter_kelvin>(
-                NOMINAL_OVERALL_HTC_W_PER_M2_K,
+                LEGACY_LUMPED_HTC_W_PER_M2_K,
             ),
         }
     }
@@ -470,7 +489,12 @@ impl PebbleBedCore {
         helium_bulk_temperature: ThermodynamicTemperature,
         helium_mass_flow: MassRate,
     ) -> Power {
-        let htc = overall_htc_at_flow(helium_mass_flow);
+        // The coefficient is now evaluated at the CURRENT helium bulk
+        // temperature as well as the flow, because the Wakao film depends on
+        // the gas conductivity, viscosity and Prandtl number -- all of which
+        // move with temperature. The old lumped constant depended on flow
+        // alone.
+        let htc = overall_htc_at_flow(helium_mass_flow, helium_bulk_temperature);
         self.overall_htc = htc;
 
         let conductance =
@@ -529,20 +553,154 @@ impl Default for PebbleBedCore {
     }
 }
 
-/// Overall pebble-to-helium coefficient at helium flow `m_dot`, the nominal
-/// value scaled by `(m_dot/m_dot_nominal)^0.6`.
+/// Wakao packed-bed particle-to-fluid Nusselt number,
+/// `Nu = 2 + 1.1 Re_p^0.6 Pr^(1/3)` (dimensionless).
 ///
-/// See [`HTC_FLOW_EXPONENT`] -- the exponent is Wakao's, the coefficient is
-/// illustrative, and no Nusselt number is evaluated. The flow is floored at 1%
-/// of nominal so a stopped circulator leaves a small residual coefficient
-/// rather than zero; with no natural-circulation or radiation path modelled,
-/// zero would let the bed heat without limit.
-pub fn overall_htc_at_flow(helium_mass_flow: MassRate) -> HeatTransfer {
-    let flow_ratio =
-        (helium_mass_flow.get::<kilogram_per_second>() / nominal_helium_flow_kg_per_s()).max(0.01);
+/// Source: Wakao, N., Kaguei, S., & Funazkri, T. (1979), "Effect of fluid
+/// dispersion coefficients on particle-to-fluid heat transfer coefficients in
+/// packed beds". The same correlation is implemented and verified against the
+/// paper in this workspace at
+/// `tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations`;
+/// it is re-evaluated here rather than called because TUAS's form is bound to
+/// its own fluid-array plumbing.
+///
+/// The additive `2` is the conduction limit of a sphere in stagnant fluid, so
+/// the correlation degrades gracefully to pure conduction as the flow stops --
+/// which is what keeps a tripped circulator physical rather than adiabatic.
+pub fn wakao_nusselt(reynolds: f64, prandtl: f64) -> f64 {
+    2.0 + 1.1 * reynolds.max(0.0).powf(HTC_FLOW_EXPONENT) * prandtl.max(0.0).cbrt()
+}
+
+/// Intra-pebble conduction coefficient \[W/(m^2 K)\], referred to the pebble
+/// surface area.
+///
+/// For a sphere of radius `R` with **uniform volumetric heat generation** and
+/// conductivity `k`, the difference between the volume-average temperature and
+/// the surface temperature is the standard result
+///
+/// ```text
+/// T_avg - T_surface = q''' R^2 / (15 k)
+/// ```
+///
+/// Writing that as a surface conductance `Q = h_int A (T_avg - T_surface)` with
+/// `Q = q''' (4/3) pi R^3` and `A = 4 pi R^2` gives
+///
+/// ```text
+/// h_int = 5 k / R = 10 k / d
+/// ```
+///
+/// This is the resistance the old lumped coefficient buried. It is a **bed
+/// average** intra-pebble drop: uniform generation is right for an averaged
+/// pebble but understates the hottest ball, which carries the power peaking
+/// factor this one-node model does not have.
+pub fn intra_pebble_conduction_coefficient() -> HeatTransfer {
+    let d = pebble_diameter().get::<meter>();
     HeatTransfer::new::<watt_per_square_meter_kelvin>(
-        NOMINAL_OVERALL_HTC_W_PER_M2_K * flow_ratio.powf(HTC_FLOW_EXPONENT),
+        10.0 * GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K / d,
     )
+}
+
+/// Overall pebble-to-helium heat-transfer coefficient at helium flow `m_dot`
+/// and bulk temperature `helium_temperature`, as **two resistances in series**.
+///
+/// ```text
+/// 1/U = 1/h_film + 1/h_internal
+/// ```
+///
+/// - `h_film` is the evaluated [`wakao_nusselt`] correlation,
+///   `h = Nu k_He / d_p`, with the helium Reynolds, Prandtl and conductivity
+///   taken from the **real** CoolProp-derived helium EOS and transport models
+///   at the loop pressure. The Reynolds number is the superficial packed-bed
+///   form and is built with the workspace's own
+///   [`outram_park_digital_twin_engine::htr10::kta`] helpers, so it is the same
+///   Reynolds number the KTA pressure-drop correlation uses.
+/// - `h_internal` is [`intra_pebble_conduction_coefficient`].
+///
+/// **This replaced an invented lumped constant on 2026-08-14** (see
+/// [`LEGACY_LUMPED_HTC_W_PER_M2_K`]). The film resistance dominates at rated
+/// flow, which is why the old flow-scaling shape was roughly the right *shape*
+/// while being the wrong *magnitude*.
+///
+/// The flow is floored at 1% of nominal rather than zero. Note this floor now
+/// matters far less than it did: with the correlation evaluated, the Wakao
+/// additive `2` already supplies the stagnant-fluid conduction limit, so a
+/// stopped circulator leaves a real (small) coefficient rather than a
+/// arbitrarily scaled one.
+pub fn overall_htc_at_flow(
+    helium_mass_flow: MassRate,
+    helium_temperature: ThermodynamicTemperature,
+) -> HeatTransfer {
+    let d_p = pebble_diameter().get::<meter>();
+    let (k_he, prandtl, viscosity_pa_s) = helium_transport(helium_temperature);
+
+    let flow_floor = nominal_helium_flow_kg_per_s() * 0.01;
+    let m_dot = MassRate::new::<kilogram_per_second>(
+        helium_mass_flow
+            .get::<kilogram_per_second>()
+            .abs()
+            .max(flow_floor),
+    );
+
+    let mass_flux = kta::superficial_mass_flux(m_dot, superficial_area());
+    let reynolds = kta::packed_bed_reynolds(
+        mass_flux,
+        pebble_diameter(),
+        DynamicViscosity::new::<pascal_second>(viscosity_pa_s),
+    )
+    .get::<ratio>();
+
+    let nusselt = wakao_nusselt(reynolds, prandtl);
+    let h_film = nusselt * k_he / d_p;
+    let h_internal = intra_pebble_conduction_coefficient().get::<watt_per_square_meter_kelvin>();
+
+    // Series resistances. Guard the degenerate case rather than dividing by a
+    // zero coefficient -- a non-finite conductance would silently poison the
+    // whole energy balance downstream.
+    if !(h_film > 0.0) || !(h_internal > 0.0) {
+        return HeatTransfer::new::<watt_per_square_meter_kelvin>(0.0);
+    }
+    HeatTransfer::new::<watt_per_square_meter_kelvin>(1.0 / (1.0 / h_film + 1.0 / h_internal))
+}
+
+/// Helium thermal conductivity \[W/(m K)\], Prandtl number and dynamic
+/// viscosity \[Pa s\] at `temperature` and the primary-loop pressure, from the
+/// real CoolProp-derived helium models.
+///
+/// Falls back to representative helium values if a transport model or the
+/// density solve declines (the same defensive shape
+/// [`super::primary_loop`] uses): a GUI frame must not panic on a transient
+/// excursion, and helium at these conditions is close enough to ideal that the
+/// fallback is a sane bound rather than a fabricated number.
+fn helium_transport(temperature: ThermodynamicTemperature) -> (f64, f64, f64) {
+    /// Representative helium conductivity \[W/(m K)\] near 1000 K, 3 MPa.
+    const FALLBACK_CONDUCTIVITY: f64 = 0.35;
+    /// Helium Prandtl number is near 0.67 over this whole range.
+    const FALLBACK_PRANDTL: f64 = 0.67;
+    /// Representative helium dynamic viscosity \[Pa s\] near 1000 K.
+    const FALLBACK_VISCOSITY: f64 = 4.5e-5;
+
+    let t = temperature.get::<kelvin>();
+    if !(t.is_finite() && t > 1.0) {
+        return (FALLBACK_CONDUCTIVITY, FALLBACK_PRANDTL, FALLBACK_VISCOSITY);
+    }
+
+    // Read from the SAME published design point the rest of this module
+    // derives its geometry from, so there is no second copy of the operating
+    // pressure to drift out of step.
+    let pressure_pa = design().primary_pressure.get::<uom::si::pressure::pascal>();
+    match state_pt(Fluid::Helium, t, pressure_pa) {
+        Ok(state) if state.density > 0.0 && state.cp > 0.0 => {
+            let mu = viscosity(Fluid::Helium, t, state.density).unwrap_or(FALLBACK_VISCOSITY);
+            let k = conductivity(Fluid::Helium, t, state.density).unwrap_or(FALLBACK_CONDUCTIVITY);
+            let pr = if k > 0.0 {
+                state.cp * mu / k
+            } else {
+                FALLBACK_PRANDTL
+            };
+            (k, pr, mu)
+        }
+        _ => (FALLBACK_CONDUCTIVITY, FALLBACK_PRANDTL, FALLBACK_VISCOSITY),
+    }
 }
 
 /// Graphite specific enthalpy at `temperature`, `c_p (T - 298.15 K)` with the
@@ -663,8 +821,11 @@ mod tests {
         );
 
         let measured_dt = core.temperature().get::<kelvin>() - 750.0;
-        let expected_dt =
-            1.0e7 / (NOMINAL_OVERALL_HTC_W_PER_M2_K * heat_transfer_area().get::<square_meter>());
+        // The coefficient is EVALUATED now (Wakao film in series with
+        // intra-pebble conduction), so the expected difference is taken from
+        // the same evaluation rather than from a constant.
+        let htc = overall_htc_at_flow(flow, helium).get::<watt_per_square_meter_kelvin>();
+        let expected_dt = 1.0e7 / (htc * heat_transfer_area().get::<square_meter>());
         assert!(
             (measured_dt - expected_dt).abs() / expected_dt < 5.0e-3,
             "settled pebble-to-helium difference {measured_dt} K departs from Q/(hA) {expected_dt} K"
@@ -701,8 +862,8 @@ mod tests {
         let mut core = PebbleBedCore::new();
         core.specific_enthalpy = specific_enthalpy_from_temperature(helium);
 
-        let final_dt_k =
-            1.0e7 / (NOMINAL_OVERALL_HTC_W_PER_M2_K * heat_transfer_area().get::<square_meter>());
+        let htc = overall_htc_at_flow(flow, helium).get::<watt_per_square_meter_kelvin>();
+        let final_dt_k = 1.0e7 / (htc * heat_transfer_area().get::<square_meter>());
         let target = 0.632 * final_dt_k;
 
         let mut elapsed = 0.0;
@@ -718,7 +879,7 @@ mod tests {
 
         let measured_tau = measured_tau.expect("the bed must reach 63.2% of its step response");
         let analytical_tau = bed_heat_capacity().get::<joule_per_kelvin>()
-            / (NOMINAL_OVERALL_HTC_W_PER_M2_K * heat_transfer_area().get::<square_meter>());
+            / (htc * heat_transfer_area().get::<square_meter>());
         assert!(
             (measured_tau - analytical_tau).abs() / analytical_tau < 0.02,
             "measured bed time constant {measured_tau} s departs from the analytical {analytical_tau} s"
@@ -766,19 +927,18 @@ mod tests {
     ///    percent of the heat removal. **Under loss of forced cooling it is not
     ///    negligible at all: it becomes the entire heat path**, and that is the
     ///    regime this single-node model cannot enter.
-    /// 3. **The 160 W/(m^2 K) value is still wrong, and measurably so.** It
-    ///    puts the bed 204.7 K above the bulk helium at rated power (see
-    ///    [`tests::steady_state_removal_equals_fission_power`]). Gao & Shi
-    ///    (2002) Table 2 give, at 100% load on the equilibrium core, a
-    ///    **maximum** fuel temperature of 918.7 degC, a maximum fuel *surface*
-    ///    temperature of 876.7 degC and a maximum coolant temperature of
-    ///    818 degC -- a peak surface-to-coolant difference of 58.7 K and a peak
-    ///    internal drop of 42.0 K, 100.7 K in total at the hottest point in the
-    ///    core. This model's uniform bed-average difference is therefore about
-    ///    **twice the published peak**, so the coefficient is low by a factor
-    ///    of roughly two to three. It is left unchanged here rather than
-    ///    quietly retuned, because re-anchoring it is a modelling decision with
-    ///    its own V&V, not a side effect of wiring in a friction correlation.
+    /// 3. **The surface coefficient has since been fixed (2026-08-14), and
+    ///    this test's conclusion is unchanged by it.** When this test was
+    ///    written the coefficient was an invented 160 W/(m^2 K) that put the
+    ///    bed 204.7 K above the helium -- about *twice* the published peak of
+    ///    Gao & Shi (2002) Table 2 (peak surface-to-coolant 58.7 K plus peak
+    ///    internal drop 42.0 K = 100.7 K). It is now evaluated as a Wakao film
+    ///    in series with intra-pebble conduction and gives 67.4 K, correctly
+    ///    below the peak; see
+    ///    [`tests::the_evaluated_coefficient_beats_the_old_invented_one`].
+    ///    That is a *surface* resistance either way, so points 1 and 2 above --
+    ///    that ZBS is a different resistance, and that a one-node bed has no
+    ///    gradient for it to act on -- still stand exactly as written.
     #[test]
     fn zbs_conduction_is_negligible_beside_convection_at_power() {
         let bulk_mean = ThermodynamicTemperature::new::<kelvin>(748.15);
@@ -804,6 +964,90 @@ mod tests {
         assert!((11.94..=44.96).contains(&k_eff));
     }
 
+    /// V&V: the evaluated two-resistance coefficient must put the bed-average
+    /// pebble-to-helium difference **below the published peak**, which the old
+    /// invented lumped constant did not.
+    ///
+    /// **Methodology.** [`overall_htc_at_flow`] is evaluated at the published
+    /// rated point (4.3 kg/s, 748.15 K bulk mean, 3.0 MPa) and the settled
+    /// bed-average difference `Q/(U A)` is formed at 10 MWth over the derived
+    /// 305 m^2 of pebble surface. The reference is Gao & Shi (2002) Table 2 at
+    /// 100% load on the equilibrium core: maximum fuel 918.7 degC, maximum fuel
+    /// *surface* 876.7 degC, maximum coolant 818 degC -- a **peak** internal
+    /// drop of 42.0 K, a **peak** surface-to-coolant drop of 58.7 K, and
+    /// 100.7 K in total at the hottest point in the core.
+    ///
+    /// Pass criterion: a bed *average* must sit below the published *peak*, so
+    /// the evaluated total difference must be under 100.7 K, and it must beat
+    /// the legacy constant's 204.7 K.
+    ///
+    /// **Results (2026-08-14).** Helium at 748.15 K and 3.0 MPa came back as
+    /// `k = 0.2961 W/(m K)`, `Pr = 0.6601`, `mu = 3.765e-5 Pa s` -- all
+    /// physically right for helium at these conditions. That gives
+    /// `Re_p = 2692.7` and `Nu = 111.49`, hence
+    ///
+    /// | Resistance | Coefficient \[W/(m^2 K)\] |
+    /// |---|---|
+    /// | Wakao surface film | 550.2 |
+    /// | Intra-pebble conduction (`10 k/d`) | 4166.7 |
+    /// | **Series total `U`** | **486.1** |
+    ///
+    /// The bed-average pebble-to-helium difference is therefore **67.4 K**,
+    /// against **204.7 K** from the legacy constant and a published **peak** of
+    /// 100.7 K. The film carries about 88% of the resistance, which is why the
+    /// old flow-scaling shape was roughly right while its magnitude was not.
+    ///
+    /// **Interpretation.** The remaining gap to the published peak is expected
+    /// and is *not* a defect: this is a bed **average** over one node against a
+    /// **peak** in a real core with axial, radial and pebble-internal
+    /// gradients and a power peaking factor. The average being comfortably
+    /// under the peak is the correct ordering; the old constant violated it.
+    #[test]
+    fn the_evaluated_coefficient_beats_the_old_invented_one() {
+        let helium = ThermodynamicTemperature::new::<kelvin>(748.15);
+        let area = heat_transfer_area().get::<square_meter>();
+        let q = 1.0e7;
+
+        let u = overall_htc_at_flow(nominal_helium_flow(), helium)
+            .get::<watt_per_square_meter_kelvin>();
+        let evaluated_dt = q / (u * area);
+        let legacy_dt = q / (LEGACY_LUMPED_HTC_W_PER_M2_K * area);
+
+        let (k_he, pr, mu) = helium_transport(helium);
+        let mass_flux = kta::superficial_mass_flux(nominal_helium_flow(), superficial_area());
+        let re = kta::packed_bed_reynolds(
+            mass_flux,
+            pebble_diameter(),
+            DynamicViscosity::new::<pascal_second>(mu),
+        )
+        .get::<ratio>();
+        let nu = wakao_nusselt(re, pr);
+        let h_film = nu * k_he / pebble_diameter().get::<meter>();
+        let h_int = intra_pebble_conduction_coefficient().get::<watt_per_square_meter_kelvin>();
+
+        println!(
+            "helium at 748.15 K, 3.0 MPa: k = {k_he:.4} W/(m K), Pr = {pr:.4}, mu = {mu:.3e} Pa s\n\
+             Re_p = {re:.1}, Nu = {nu:.2}\n\
+             h_film = {h_film:.1}, h_internal = {h_int:.1}, U(series) = {u:.1} W/(m^2 K)\n\
+             bed-average dT: evaluated {evaluated_dt:.1} K vs legacy {legacy_dt:.1} K \
+             (published PEAK 100.7 K)"
+        );
+
+        assert!(
+            evaluated_dt < 100.7,
+            "bed-average difference {evaluated_dt:.1} K must sit below the published peak 100.7 K"
+        );
+        assert!(
+            evaluated_dt < legacy_dt,
+            "the evaluated coefficient {evaluated_dt:.1} K must beat the legacy {legacy_dt:.1} K"
+        );
+        // The film should be the dominant resistance at rated flow.
+        assert!(
+            h_film < h_int,
+            "expected the film to dominate: h_film {h_film:.1} vs h_internal {h_int:.1}"
+        );
+    }
+
     /// The enthalpy/temperature relation must round-trip exactly (it is linear,
     /// so no iteration is involved), and the flow scaling must be monotone,
     /// equal to the nominal coefficient at nominal flow, and strictly positive
@@ -818,25 +1062,33 @@ mod tests {
             assert!((round_tripped - t_k).abs() < 1e-9);
         }
 
-        let at_nominal =
-            overall_htc_at_flow(nominal_helium_flow()).get::<watt_per_square_meter_kelvin>();
-        assert!((at_nominal - NOMINAL_OVERALL_HTC_W_PER_M2_K).abs() < 1e-9);
+        let helium = ThermodynamicTemperature::new::<kelvin>(748.15);
+        let at_nominal = overall_htc_at_flow(nominal_helium_flow(), helium)
+            .get::<watt_per_square_meter_kelvin>();
 
-        let half = overall_htc_at_flow(MassRate::new::<kilogram_per_second>(
-            0.5 * nominal_helium_flow_kg_per_s(),
-        ))
+        let half = overall_htc_at_flow(
+            MassRate::new::<kilogram_per_second>(0.5 * nominal_helium_flow_kg_per_s()),
+            helium,
+        )
         .get::<watt_per_square_meter_kelvin>();
-        let double = overall_htc_at_flow(MassRate::new::<kilogram_per_second>(
-            2.0 * nominal_helium_flow_kg_per_s(),
-        ))
+        let double = overall_htc_at_flow(
+            MassRate::new::<kilogram_per_second>(2.0 * nominal_helium_flow_kg_per_s()),
+            helium,
+        )
         .get::<watt_per_square_meter_kelvin>();
         assert!(half < at_nominal && at_nominal < double);
 
-        let stopped = overall_htc_at_flow(MassRate::new::<kilogram_per_second>(0.0))
+        let stopped = overall_htc_at_flow(MassRate::new::<kilogram_per_second>(0.0), helium)
             .get::<watt_per_square_meter_kelvin>();
         assert!(
             stopped > 0.0,
             "a stopped circulator must leave a residual coefficient"
+        );
+        // The series resistance can never exceed either branch alone.
+        let internal = intra_pebble_conduction_coefficient().get::<watt_per_square_meter_kelvin>();
+        assert!(
+            at_nominal < internal,
+            "a series coefficient must be below the intra-pebble branch alone"
         );
     }
 }

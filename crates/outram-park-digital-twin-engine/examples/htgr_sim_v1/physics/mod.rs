@@ -744,30 +744,19 @@ impl HtgrPlant {
         let external_reactivity_dollars =
             self.external_reactivity_dollars(control_rod_insertion_fraction);
 
-        // 1. Kinetics -> reactor fission power. OUTSIDE the corrector loop, and
-        //    provably so: the prompt layer and the precursor bank depend only
-        //    on `external_reactivity_dollars` (constant over the step) and on
-        //    their own state, including the prompt layer's *own* adiabatic fuel
-        //    temperature. Nothing the loop iterates reaches them, so a second
-        //    pass would return a bit-identical answer.
-        //
-        //    If the refinement this module's docs name -- the reactivity
-        //    feedback reading `pebble_bed`'s graphite temperature instead of
-        //    the prompt layer's separate node -- is ever made, the kinetics
-        //    becomes genuinely coupled and MUST move inside the loop.
-        //    `HtgrKinetics` is `Clone` so that it can.
-        //
-        //    Each subsystem announces itself before stepping, so a panic
-        //    anywhere below is attributed to a piece of PLANT EQUIPMENT in the
-        //    crash modal rather than only to a source file. The whole plant
-        //    runs on one physics thread, so the thread name alone identifies
-        //    nothing.
-        mark_component("reactor kinetics (point kinetics + control rods)");
-        self.kinetics.step(dt, external_reactivity_dollars);
-        let reactor_power = self.kinetics.total_power();
-
         // Old-time snapshot of everything the corrector loop re-advances. All
         // of it is scalar, so this is cheap next to one exchanger substep.
+        //
+        // The kinetics is in here as of 2026-08-14. It used to be stepped ONCE
+        // above the loop, and that was provably sufficient while its
+        // reactivity feedback ran off the prompt layer's own adiabatic fuel
+        // temperature -- nothing the loop iterated could reach it. Now the
+        // feedback reads `pebble_bed`'s graphite temperature (see
+        // `kinetics`), so the kinetics depends on a quantity the loop
+        // corrects, and it MUST be rewound and re-advanced with everything
+        // else. `HtgrKinetics` is `Clone` precisely so this is possible; the
+        // module docs anticipated this exact change.
+        let kinetics_at_step_start = self.kinetics.clone();
         let core_at_step_start = self.core;
         let primary_at_step_start = self.primary.lumped_state();
         let secondary_at_step_start = self.secondary.integrated_state();
@@ -783,20 +772,52 @@ impl HtgrPlant {
         let n_outer = n_outer.max(1);
         for corrector in 0..n_outer {
             if corrector > 0 {
+                self.kinetics = kinetics_at_step_start.clone();
+                // NOTE: `core_heat_to_helium` is deliberately NOT rewound. It
+                // is an OUTPUT of the bed step, not integrated state, and it
+                // is the kinetics sink's coupling variable -- so it must carry
+                // the previous corrector's converged value forward, exactly
+                // like `helium_bulk` and `feedwater_enthalpy` below. Rewinding
+                // it would pin the kinetics to the start-of-step removal on
+                // every corrector and defeat the loop.
                 self.core = core_at_step_start;
                 self.primary.restore_lumped_state(primary_at_step_start);
                 self.secondary
                     .restore_integrated_state(secondary_at_step_start);
             }
 
-            // 2. Pebble bed absorbs the fission power and hands the helium only
-            //    what crosses the pebble surface. `helium_bulk` is the
-            //    start-of-step value on the first corrector and the previous
-            //    corrector's end-of-step value thereafter, so the coupling
-            //    moves from explicit toward implicit as the loop iterates. The
-            //    bed's ~184 s time constant makes this the least sensitive of
-            //    the couplings either way.
+            // 1. Kinetics -> reactor fission power. The reactivity feedback
+            //    stays inside Nordheim-Fuchs's closed form (that exactness is
+            //    what keeps the stiff feedback term non-stiff); what the
+            //    kinetics now takes from the rest of the plant is the heat
+            //    SINK on its fuel node, applied in step 2b below. See
+            //    `kinetics::apply_coolant_heat_removal`.
+            //
+            //    Each subsystem announces itself before stepping, so a panic
+            //    anywhere below is attributed to a piece of PLANT EQUIPMENT in
+            //    the crash modal rather than only to a source file. The whole
+            //    plant runs on one physics thread, so the thread name alone
+            //    identifies nothing.
+            mark_component("reactor kinetics (point kinetics + control rods)");
+            // The heat sink on the fuel node is the previous corrector's
+            // (or, on the first, the previous step's) coolant heat removal --
+            // the same predictor-corrector treatment every other coupling in
+            // this loop gets. It is applied at KINETICS substep resolution
+            // inside `step`, not as one lump per plant step.
+            self.kinetics
+                .step(dt, external_reactivity_dollars, self.core_heat_to_helium);
+
+            // 2. Pebble bed absorbs the core's THERMAL power -- the promptly
+            //    released fission power plus fission-product decay heat, not
+            //    the raw fission power (see `kinetics::core_thermal_power`) --
+            //    and hands the helium only what crosses the pebble surface.
+            //    `helium_bulk` is the start-of-step value on the first
+            //    corrector and the previous corrector's end-of-step value
+            //    thereafter, so the coupling moves from explicit toward
+            //    implicit as the loop iterates. The bed's ~184 s time constant
+            //    makes this the least sensitive of the couplings either way.
             mark_component("pebble-bed core (graphite pebbles)");
+            let reactor_power = self.kinetics.core_thermal_power();
             self.core_heat_to_helium =
                 self.core
                     .step(dt, reactor_power, helium_bulk, self.primary.mass_flow());
@@ -869,7 +890,7 @@ impl HtgrPlant {
         s.reactor_power_mw = power_in_megawatts(self.kinetics.total_power());
         s.prompt_power_mw = power_in_megawatts(self.kinetics.prompt_power());
         s.delayed_power_mw = power_in_megawatts(self.kinetics.delayed_power());
-        s.fuel_temperature_k = self.kinetics.prompt.fuel_temperature.get::<kelvin>();
+        s.fuel_temperature_k = self.kinetics.fuel_temperature().get::<kelvin>();
         // The BED temperature, not the kinetics fuel node. The two differ: the
         // kinetics node is a lumped point-kinetics fuel temperature driving
         // reactivity feedback, while this is the graphite the helium flows
@@ -879,6 +900,11 @@ impl HtgrPlant {
         s.trip_reason = self.protection.trip_reason();
         s.scram_insertion_fraction = self.protection.scram_insertion();
         s.reactivity_margin_dollars = self.kinetics.reactivity_margin_dollars();
+        s.decay_heat_mw = power_in_megawatts(self.kinetics.decay_heat_power());
+        s.core_thermal_power_mw = power_in_megawatts(self.kinetics.core_thermal_power());
+        let trim = self.secondary.feedwater_trim();
+        s.steam_temperature_error_k = trim.error();
+        s.feedwater_trim_integral_kg_per_s = trim.integral();
         s.delayed_neutron_fraction_pcm = self
             .kinetics
             .delayed_neutron_fraction()
@@ -1250,11 +1276,31 @@ mod tests {
     ///
     /// | Quantity | dt = 1 ms | dt = 0.1 s | Difference |
     /// |---|---|---|---|
-    /// | Reactor power | 0.17428 MW | 0.17428 MW | **+0.0000%** |
-    /// | Core outlet | 949.669 K | 949.668 K | **-0.0015 K** |
-    /// | Bed temperature | 896.644 K | 896.590 K | **-0.054 K** |
-    /// | Steam outlet | 574.696 K | 575.518 K | **+0.822 K** |
-    /// | SG duty | 7.65827 MW | 7.65733 MW | **-0.012%** |
+    /// | Reactor power | 12.09893 MW | 12.17475 MW | **+0.6267%** |
+    /// | Core outlet | 1138.079 K | 1138.247 K | **+0.168 K** |
+    /// | Bed temperature | 887.556 K | 887.703 K | **+0.147 K** |
+    /// | Steam outlet | 721.771 K | 720.196 K | **-1.576 K** |
+    /// | SG duty | 10.36751 MW | 10.37003 MW | **+0.024%** |
+    ///
+    /// **Re-measured 2026-08-14**, after the kinetics gained a coolant heat
+    /// sink on its fuel node and moved INSIDE this corrector loop. Two things
+    /// changed and both are expected:
+    ///
+    /// - **The transient itself is different.** The old figures were taken
+    ///   with an *adiabatic* fuel node, which could only heat and therefore
+    ///   drove the reactor spuriously far subcritical -- 0.174 MW at 60 s.
+    ///   With a sink the feedback recovers and the plant settles an order of
+    ///   magnitude higher. The old numbers were an artefact of the missing
+    ///   sink, not a better-resolved answer.
+    /// - **Reactor power is no longer exact.** It used to agree to
+    ///   **+0.0000%**, and that agreement was *structural*: the kinetics was
+    ///   decoupled from everything the plant timestep governed, so both legs
+    ///   integrated it identically. Now the fuel node's sink is a genuine
+    ///   coupling, carried between correctors like every other, so reactor
+    ///   power acquires a real timestep sensitivity: **+0.63%**, inside the 1%
+    ///   tolerance. That is the honest cost of coupling the feedback, and it
+    ///   is far smaller than the -84.5% the kinetics cost before it was made
+    ///   multi-rate.
     ///
     /// For contrast, the same comparison **before** the kinetics was made
     /// multi-rate (i.e. one kinetics piece per 0.1 s plant step): reactor power

@@ -571,6 +571,12 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: Legen
                 "Reactivity margin",
                 format!("{:+.4} $", s.reactivity_margin_dollars),
             );
+            row(ui, "Decay heat", format!("{:.4} MW", s.decay_heat_mw));
+            row(
+                ui,
+                "Core thermal power",
+                format!("{:.3} MW", s.core_thermal_power_mw),
+            );
             row(
                 ui,
                 "Delayed fraction (beta)",
@@ -613,6 +619,20 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: Legen
                 ui,
                 "Circulator power",
                 format!("{:.3} MW", s.circulator_power_mw),
+            );
+
+            ui.label("Feedwater control");
+            ui.label("");
+            ui.end_row();
+            row(
+                ui,
+                "Steam temp error",
+                format!("{:+.2} K", s.steam_temperature_error_k),
+            );
+            row(
+                ui,
+                "PI integral trim",
+                format!("{:+.4} kg/s", s.feedwater_trim_integral_kg_per_s),
             );
 
             ui.label("Secondary steam loop");
