@@ -148,6 +148,53 @@ this is a build-time or first-use-cached cost, not a per-query one.
 diffusive, discrete-oscillator, cold-hydrogen and MT=2 elastic paths are **not**
 validated by this.
 
+### End-to-end through `endout`: bit-identical (2026-08-13)
+
+The figures above compare the **unrounded kernel output** against the tape. Run
+the whole path instead — deck → kernels → `endout` → ENDF text — and the
+residual disappears, because `endout` applies the same `sigfig(x, 7, 0)` /
+`sigfig(x, 6, 0)` rounding NJOY applies before storing a value:
+
+| Quantity, MF=7/MT=4 at 296 K | Measured |
+|---|---|
+| Stored `S` values identical to the official tape | **60,000 / 60,000** |
+| max relative deviation (points above 1e-30) | **0.000e0** over 48,941 points |
+
+So for the inelastic channel the 12 KB deck does not approximate the 8.7 MB
+tape — it reproduces the published section exactly. Reproduce with
+`examples/graphite_sab_generation.rs`; the full V&V record, including the
+licence finding that keeps the decks out of the crate, is
+`docs/leapr-deck-provenance.md`.
+
+### Regeneration is now the default source
+
+`leapr::generate::thermal_scattering_law` is the consumer surface: ask for a
+material at a temperature and get an MF=7 law, regenerated from the deck unless
+a tape is named explicitly. Results are cached through the crate's one caching
+layer (`acquire::EndfCache`), keyed by a hash of the whole recipe — deck bytes,
+temperature, constant set, channels, generator revision. Measured on the same
+machine and day: **2.0–2.7 s** cold, **0.009 s** from the disk cache, sub-ms
+from the in-process memo.
+
+**MT=2 is validated too, as of the same day, and it is also exact.**
+`tests/leapr_graphite_coherent_elastic_parity.rs` closes the elastic channel:
+all **221 of 221** thinned Bragg edges retained. With the deck's own vintage
+constants the agreement is max **1.001e-13** on both the edge energies and
+`S(E, T)` across all ten temperatures — float round-trip noise on a 7-digit ENDF
+field. Through `leapr::generate` at 296 K the stored values match to
+**0.000e0**.
+
+The vintage matters *differently* for the two channels: MT=4 depends on `bk`
+(`tev = bk*T`), MT=2 on `ev`/`amu`/`hbar`/`amassn` (`econ`, the Bragg energy
+scale). Correcting only `bk` leaves MT=2 9.986e-7 off as a uniform
+multiplicative offset; the full `PhysicalConstants::Njoy2016Legacy` set closes
+it. `coher_with_constants` is the entry point that takes the set;
+`coher` keeps the old signature and the crate-default constants.
+
+`SabRequest::validation` reports the standing per channel **and per material** —
+the 10P/30P porous grades run the identical code with a different deck and have
+**not** been measured, so they report unvalidated.
+
 ### What a human must still verify (untrusted AI draft)
 
 Outside the graphite MT=4 case above, these remain **verification**

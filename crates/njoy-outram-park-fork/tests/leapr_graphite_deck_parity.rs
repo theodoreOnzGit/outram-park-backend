@@ -19,7 +19,9 @@
 //! checked against the tape's own temperature trend in
 //! [`debye_waller_conversion_matches_the_tape_temperature_trend`]. The Bragg
 //! edge *positions* and structure factors from `coher` are **not** validated
-//! here.
+//! here — they are validated in `tests/leapr_graphite_coherent_elastic_parity.rs`
+//! (added 2026-08-13), which does the point-by-point MT=2 comparison this file
+//! deliberately left out.
 //!
 //! [`every_endf_b_viii_leapr_deck_parses`] additionally runs the deck reader
 //! over all 33 `tsl-*.leapr` files ENDF/B-VIII.0 ships, which is what surfaced
@@ -74,11 +76,15 @@
 //! This is not a free parameter being tuned: the constant is an *input* the
 //! oracle was run with, and matching it is part of reproducing the oracle. The
 //! test measures the agreement **both** ways and asserts both, so the
-//! as-shipped (CODATA2018) number is on the record too. Because
-//! `LeaprInput::tev()` derives from the crate constant, the historical `tev` is
-//! reproduced exactly by asking for the equivalent temperature
-//! `T' = T * bk_njoy / bk_crate` — 296.0017772 K stands in for 296 K under
-//! `bk = 8.617385e-5`.
+//! as-shipped (CODATA2018) number is on the record too.
+//!
+//! Since 2026-08-13 the constant set is a **named field** on `LeaprInput`
+//! (`njoy_outram_park_fork::leapr::vintage::PhysicalConstants`), selected
+//! automatically from the deck's own `EVAL-SEP17` comment card, so this test
+//! sets `input.constants` directly. It previously reproduced the historical
+//! `tev` through an equivalent temperature `T' = T * bk_njoy / bk_crate`
+//! (296.0017772 K standing in for 296 K); that workaround is gone, and the
+//! measured figures are unchanged by its removal.
 //!
 //! # Measured results (2026-08-13, ENDF/B-VIII.0, release mode)
 //!
@@ -134,7 +140,13 @@
 //! Scope limits, stated plainly: this validates MT=4 only, for one moderator,
 //! with `twt = c = 0` and `nd = 0` — so the translational, diffusive,
 //! discrete-oscillator and cold-hydrogen branches of LEAPR are **not** touched
-//! by it, and neither is the MT=2 elastic output.
+//! by it. The MT=2 elastic output is out of scope *here* but no longer
+//! unvalidated: `tests/leapr_graphite_coherent_elastic_parity.rs` (2026-08-13)
+//! compares the regenerated coherent-elastic section against the same tape
+//! point by point, at all ten temperatures, and finds max 9.986e-7 — exact to
+//! the last printed digit once the evaluation's own `econ` constants are used.
+//! It also pins the *absolute* `W'` scale to 4.91e-7, which the temperature-
+//! trend method used below explicitly could not do.
 //!
 //! [`LeaprDeck::parse`]: njoy_outram_park_fork::leapr::deck::LeaprDeck::parse
 //! [`LeaprDeck::input_at_temperature`]: njoy_outram_park_fork::leapr::deck::LeaprDeck::input_at_temperature
@@ -146,6 +158,7 @@ use njoy_outram_park_fork::leapr::continuous::phonon_expansion;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::frequency::FrequencyModel;
 use njoy_outram_park_fork::leapr::input::ElasticOption;
+use njoy_outram_park_fork::leapr::vintage::PhysicalConstants;
 use njoy_outram_park_fork::thermr::mf7::parse_mf7_at_temperature;
 
 /// Default location of the ENDF/B-VIII.0 thermal-scattering sublibrary.
@@ -176,6 +189,19 @@ fn data_path(file: &str) -> Option<std::path::PathBuf> {
         );
         None
     }
+}
+
+/// The registered constant set whose `bk` equals `bk`.
+///
+/// Panics on an unregistered value: the point of
+/// [`PhysicalConstants`](njoy_outram_park_fork::leapr::vintage::PhysicalConstants)
+/// is that the constant is a named, documented input, so a bare literal that
+/// matches nothing is a mistake rather than a measurement.
+fn constants_for(bk: f64) -> PhysicalConstants {
+    PhysicalConstants::all()
+        .into_iter()
+        .find(|c| c.bk_ev_per_k() == bk)
+        .unwrap_or_else(|| panic!("bk = {bk:e} is not a registered PhysicalConstants variant"))
 }
 
 /// Parse the deck, or `None` if the data is absent.
@@ -211,10 +237,16 @@ struct Parity {
 ///
 /// Returns the parity statistics and the wall-clock time the generation took.
 fn measure(deck: &LeaprDeck, temperature_k: f64, bk: f64) -> (Parity, std::time::Duration) {
-    // Reproduce the historical `tev = bk * T` through the crate constant.
-    let input = deck
-        .input_at_temperature(0, temperature_k * bk / BK_CRATE)
+    // The Boltzmann constant is an explicit input on the job
+    // (`njoy_outram_park_fork::leapr::vintage`), so the historical `tev = bk * T`
+    // is reproduced by naming the constant set rather than by the equivalent-
+    // temperature trick this test used before that field existed.
+    // `LeaprDeck::input_at_temperature` already selects the deck's own
+    // EVAL-SEP17 vintage; this overrides it so both constants can be measured.
+    let mut input = deck
+        .input_at_temperature(0, temperature_k)
         .expect("temperature block 0 exists");
+    input.constants = constants_for(bk);
 
     let t0 = std::time::Instant::now();
     let freq = FrequencyModel::start(
@@ -708,9 +740,8 @@ fn debye_waller_conversion_matches_the_tape_temperature_trend() {
 
     // Prediction from this port: W'(T) = lambda(T) / (awr * T * k_B).
     let wprime = |t_k: f64| -> f64 {
-        let inp = d
-            .input_at_temperature(0, t_k * BK_EVAL_ERA / BK_CRATE)
-            .unwrap();
+        let mut inp = d.input_at_temperature(0, t_k).unwrap();
+        inp.constants = constants_for(BK_EVAL_ERA);
         let f = FrequencyModel::start(
             &inp.continuous.rho,
             inp.continuous.delta_ev,

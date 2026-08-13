@@ -53,6 +53,7 @@
 //! - `delta_ev`, `energy_ev` — eV; `dka` — inverse angstroms.
 
 use crate::leapr::input::{ColdOption, ContinuousDist, DiscreteOscillator, ElasticOption, LeaprInput};
+use crate::leapr::vintage::{EvaluationDate, PhysicalConstants};
 use crate::NjoyError;
 
 /// Pair-correlation input (cards 17-19), read when `nsk > 0` or `ncold > 0`.
@@ -350,12 +351,47 @@ impl LeaprDeck {
         self.temperatures.iter().map(|t| t.temperature_k).collect()
     }
 
+    /// The evaluation date this deck's card-20 comments declare
+    /// (`EVAL-<MON><YY>`), or `None` when no such field is present.
+    ///
+    /// ENDF/B-VIII.0's crystalline-graphite deck carries
+    /// `' Graphite  LEIP LAB   EVAL-SEP17 A.I. Hawari, Y. Zhu, J.L. Wormald'`,
+    /// so this returns September 2017. That string is the *evaluation's own*
+    /// statement of its vintage — the honest source for
+    /// [`Self::constants`], as opposed to a per-material rule hardcoded here.
+    pub fn evaluation_date(&self) -> Option<EvaluationDate> {
+        self.comments
+            .iter()
+            .find_map(|c| EvaluationDate::parse_eval_field(c))
+    }
+
+    /// The physical-constant set to run this deck with, derived from its own
+    /// [`evaluation_date`](Self::evaluation_date).
+    ///
+    /// A deck with no `EVAL-` field falls back to
+    /// [`PhysicalConstants::Codata2018`] — the crate default, and the right
+    /// choice for a deck you wrote yourself rather than one you are reproducing.
+    ///
+    /// **This is what makes regeneration reproduce the published tape by
+    /// default.** Running the ENDF/B-VIII.0 graphite deck with the modern
+    /// constant instead is a ~100x parity error; see [`crate::leapr::vintage`]
+    /// for the measured table and the reasoning.
+    pub fn constants(&self) -> PhysicalConstants {
+        self.evaluation_date()
+            .map(PhysicalConstants::for_evaluation_date)
+            .unwrap_or_default()
+    }
+
     /// Build the [`LeaprInput`] for temperature block `index`, ready to hand to
     /// [`crate::leapr::continuous::phonon_expansion`].
     ///
     /// `arat` is set to 1 (the principal scatterer). LEAPR's secondary-scatterer
     /// pass re-runs the same grids with `arat = aws/awr`; that pass is not
     /// driven from here.
+    ///
+    /// The job's [`LeaprInput::constants`] is taken from [`Self::constants`], so
+    /// a deck that declares its vintage is regenerated with the constants its
+    /// evaluation was produced with, with no action from the caller.
     ///
     /// # Errors
     /// [`NjoyError::EndfParse`] if `index` is past the end of
@@ -374,6 +410,7 @@ impl LeaprDeck {
             temperature_k: t.temperature_k,
             continuous: t.continuous.clone(),
             oscillators: t.oscillators.clone(),
+            constants: self.constants(),
         })
     }
 

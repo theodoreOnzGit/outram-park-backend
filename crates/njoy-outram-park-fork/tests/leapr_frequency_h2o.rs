@@ -173,6 +173,10 @@ fn h2o_effective_temp_and_lambda_through_full_pipeline() {
                 weight: 0.333333,
             },
         ],
+        // This checkpoint compares against NJOY figures produced with the
+        // crate's own constant, so the default (CODATA2018) set is correct here.
+        // See `njoy_outram_park_fork::leapr::vintage`.
+        constants: njoy_outram_park_fork::leapr::vintage::PhysicalConstants::default(),
     };
 
     let freq = FrequencyModel::start(&input.continuous.rho, 0.00255, tev, 0.444444);
