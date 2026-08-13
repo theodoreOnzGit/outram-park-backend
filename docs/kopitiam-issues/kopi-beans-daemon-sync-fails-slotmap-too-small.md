@@ -1,5 +1,7 @@
 # kopi-beans: daemon sync fails with a `gix` "slotmap turned out to be too small" fetch error, and `bn sync` then hangs
 
+> **UPSTREAMED 2026-08-13 as [kopitiam#27](https://github.com/theodoreOnzGit/kopitiam/issues/27).** Still OPEN upstream, so this file stays in the live queue rather than moving to `resolved/` — that move requires the fix to be verified against a published binary, not merely filed.
+
 **Tool:** `kopi-beans` (binary `bn`)
 **Version:** `bn 0.1.3` (installed via `cargo install kopi-beans`, 2026-08-12)
 **Environment:** Linux 6.18.5, x86_64, remote-execution container. Repository
@@ -115,6 +117,8 @@ from commands actually run on 2026-08-12; no output is reconstructed.
 ---
 
 # UPDATE 2026-08-13 — a worse symptom: silent data loss AFTER reported success
+
+> **Upstreamed separately as [kopitiam#28](https://github.com/theodoreOnzGit/kopitiam/issues/28)**, because it is a different defect from the sync hang above: there the data survived in the WAL, here the daemon reports `dirty: false` and the records are gone.
 
 The original report above was about `bn sync` hanging and creates not reaching
 the store ref. That was recoverable — the data was still in the WAL and the
