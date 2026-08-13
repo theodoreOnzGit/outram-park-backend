@@ -33,7 +33,7 @@
 //! ([`inv_inc_gamma`](crate::math::inv_inc_gamma::inv_inc_gamma)). All arguments and
 //! results are dimensionless `f64`.
 
-//! It also hosts [`parallel`], the **batched** root finders — bisection, Brent,
+//! It also hosts [`parallel`](crate::math::parallel), the **batched** root finders — bisection, Brent,
 //! bracket-safeguarded Newton, and batched closed-form polynomial roots — each
 //! dispatched across [`crate::compute::ComputeBackend`]. They live here rather
 //! than under `polynomial/` because the general case solves a caller-supplied

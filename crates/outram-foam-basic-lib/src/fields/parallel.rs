@@ -88,7 +88,7 @@
 //!
 //! The kernels use rayon's **global** pool. A caller that wants a dedicated,
 //! explicitly sized pool does not need a second API — bind one with
-//! [`rayon::ThreadPool::install`] and every call inside routes to it:
+//! `rayon::ThreadPool::install` and every call inside routes to it:
 //!
 //! ```text
 //! // Sketch — requires the `parallel` feature, so it is shown rather than run
@@ -154,7 +154,7 @@
 //! [`min`] and [`max`] *are* bit-identical to the serial fold, because `min` and
 //! `max` are associative.
 //!
-//! [`ComputeBackend::Serial`] is the **deterministic trusted reference** — the
+//! [`ComputeBackend::Serial`](crate::compute::ComputeBackend::Serial) is the **deterministic trusted reference** — the
 //! oracle every parallel result in this module is checked against, matching the
 //! convention in `outram-mc-libs` (`src/physics/compute.rs`) and `boon-lay`
 //! (`src/compute.rs`).
@@ -540,7 +540,7 @@ fn tree_extremum(_backend: ComputeBackend, x: &[f64], init: f64, op: fn(f64, f64
 ///
 /// Every output element is computed by the same expression as the serial
 /// [`std::ops::Add`] impl on [`Field`], so the result is **bit-identical** to
-/// [`ComputeBackend::Serial`] on any backend and any thread count.
+/// [`ComputeBackend::Serial`](crate::compute::ComputeBackend::Serial) on any backend and any thread count.
 ///
 /// # Panics
 ///
